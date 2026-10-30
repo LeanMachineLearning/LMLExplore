@@ -16,6 +16,8 @@ public import Mathlib.Analysis.InnerProductSpace.Positive
 * `ContinuousLinearMap.IsPositive.ringInverse`: the inverse `Ring.inverse V` of a positive
   continuous linear operator `V` is positive. In particular `0 ≤ ⟪v, V⁻¹ v⟫` for every `v`, by
   `IsPositive.inner_nonneg_right`.
+* `LinearMap.IsPositive.eigenvalues_pos`: the eigenvalues of a positive invertible operator on a
+  finite-dimensional inner product space are positive.
 -/
 
 public section
@@ -38,3 +40,21 @@ theorem IsPositive.ringInverse {V : E →L[𝕜] E} (hV : V.IsPositive) :
     exact isPositive_zero
 
 end ContinuousLinearMap
+
+namespace LinearMap
+
+variable {𝕜 E : Type*} [RCLike 𝕜] [NormedAddCommGroup E] [InnerProductSpace 𝕜 E]
+  [FiniteDimensional 𝕜 E]
+
+/-- The eigenvalues of a positive invertible operator on a finite-dimensional inner product space
+are positive: an eigenvalue `0` would have an eigenvector in the kernel. -/
+theorem IsPositive.eigenvalues_pos {T : E →ₗ[𝕜] E} {n : ℕ} (hT : T.IsPositive) (hTu : IsUnit T)
+    (hn : Module.finrank 𝕜 E = n) (i : Fin n) : 0 < hT.isSymmetric.eigenvalues hn i := by
+  refine (hT.nonneg_eigenvalues hn i).lt_of_ne fun h0 ↦ ?_
+  have h := hT.isSymmetric.apply_eigenvectorBasis hn i
+  rw [← h0, RCLike.ofReal_zero, zero_smul] at h
+  have hb : hT.isSymmetric.eigenvectorBasis hn i = 0 := by
+    simpa [(LinearMap.isUnit_iff_ker_eq_bot T).1 hTu] using LinearMap.mem_ker.2 h
+  simpa [hb] using (hT.isSymmetric.eigenvectorBasis hn).orthonormal.1 i
+
+end LinearMap

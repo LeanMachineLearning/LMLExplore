@@ -33,16 +33,24 @@ finite-dimensional real inner product space `E` with `x t` `𝓕 t`-measurable (
 * `LMLExplore.supermartingale_exp_inner_sum_smul_sub`: [LS, Lemma 20.2], with `σ²`.
 * `LMLExplore.supermartingale_integral_exp_inner_sum_smul_sub_designOp`: the mixture is a
   supermartingale.
-* `LMLExplore.measure_exists_inner_inverse_designOp_ge_le`: the self-normalized bound, as an
-  upper bound on the probability of the bad event.
-* `LMLExplore.le_measureReal_forall_inner_inverse_designOp_lt`: the same, as a lower bound on the
-  probability of the good event.
+* `LMLExplore.measure_exists_inner_ringInverse_designOp_ge_le`: the self-normalized bound, as
+  an upper bound on the probability of the bad event.
+* `LMLExplore.le_measureReal_forall_inner_ringInverse_designOp_lt`: the same, as a lower bound on
+  the probability of the good event.
+
+## Implementation notes
+
+The structure of the proof (method of mixtures, then Ville's inequality) follows the matrix
+version `LMLPapers/LeanMachineLearning/SelfNormalized.lean` in the LMLPapers project
+(Rémy Degenne, <https://github.com/LeanMachineLearning/LMLPapers>). The statements for operators
+on an inner product space, the eigenbasis Gaussian integral computing the mixture and the `σ²`
+scaling are new here.
 
 ## References
 
-* Y. Abbasi-Yadkori, D. Pál and Cs. Szepesvári, *Improved algorithms for linear stochastic
+* [AYPS] Y. Abbasi-Yadkori, D. Pál and Cs. Szepesvári, *Improved algorithms for linear stochastic
   bandits*, NeurIPS 2011, Theorem 1.
-* T. Lattimore and Cs. Szepesvári, *Bandit Algorithms*, Cambridge University Press, 2020,
+* [LS] T. Lattimore and Cs. Szepesvári, *Bandit Algorithms*, Cambridge University Press, 2020,
   Lemmas 20.2, 20.3 and Theorem 20.4.
 -/
 
@@ -109,7 +117,7 @@ variable [FiniteDimensional ℝ E]
 /-- **Method of mixtures** [LS, Lemma 20.3]: for `λ > 0` and `σ² ≠ 0`, the mixture over the
 Lebesgue measure of `E` of the supermartingales `exp (⟪θ, S_t⟫ - σ² ⟪θ, V_t θ⟫ / 2)` is a
 supermartingale. -/
-theorem supermartingale_integral_exp_inner_sum_smul_sub_designOp [IsProbabilityMeasure P]
+theorem supermartingale_integral_exp_inner_sum_smul_sub_designOp [IsFiniteMeasure P]
     (hx : ∀ t, Measurable[𝓕 t] (x t)) (hη : ∀ t, Measurable[𝓕 (t + 1)] (η t))
     (hsub : ∀ t, HasCondSubgaussianMGF (𝓕 t) (𝓕.le t) (η t) σ2 P) (hσ : σ2 ≠ 0) {lam : ℝ}
     (hlam : 0 < lam) :
@@ -121,25 +129,27 @@ theorem supermartingale_integral_exp_inner_sum_smul_sub_designOp [IsProbabilityM
     (fun _ _ _ ↦ (exp_pos _).le) (fun t ↦ ?_) ?_
   · -- joint measurability in `(θ, ω)`, for the σ-algebra `𝓕 t` on `Ω`
     let : MeasurableSpace Ω := 𝓕 t
-    have hxs : ∀ s ∈ range t, Measurable (fun p : E × Ω ↦ x s p.2) := fun s hs ↦
-      ((hx s).mono (𝓕.mono (mem_range.1 hs).le) le_rfl).comp measurable_snd
-    have hηs : ∀ s ∈ range t, Measurable (fun p : E × Ω ↦ η s p.2) := fun s hs ↦
-      ((hη s).mono (𝓕.mono (mem_range.1 hs)) le_rfl).comp measurable_snd
+    have hxs : ∀ s ∈ range t, Measurable (x s) := fun s hs ↦
+      (hx s).mono (𝓕.mono (mem_range.1 hs).le) le_rfl
+    have hηs : ∀ s ∈ range t, Measurable (η s) := fun s hs ↦
+      (hη s).mono (𝓕.mono (mem_range.1 hs)) le_rfl
+    have hS : Measurable fun p : E × Ω ↦ ∑ s ∈ range t, η s p.2 • x s p.2 :=
+      Finset.measurable_fun_sum _ fun s hs ↦ by have := hxs s hs; have := hηs s hs; fun_prop
+    have hQ : Measurable fun p : E × Ω ↦ ∑ s ∈ range t, ⟪x s p.2, p.1⟫_ℝ ^ 2 :=
+      Finset.measurable_fun_sum _ fun s hs ↦ by have := hxs s hs; fun_prop
     simp only [inner_designOp_apply_self]
-    exact (measurable_fst.inner (Finset.measurable_fun_sum _ fun s hs ↦
-      (hηs s hs).smul (hxs s hs))).sub ((measurable_const.mul ((measurable_const.mul
-        (measurable_fst.norm.pow_const 2)).add (Finset.measurable_fun_sum _ fun s hs ↦
-          ((hxs s hs).inner measurable_fst).pow_const 2))).div_const 2) |>.exp
+    fun_prop
   · -- integrability of the initial expectations, a Gaussian integral
-    refine (integrable_exp_inner_sub_inner_apply (isPositive_designOp hlam.le (fun _ ↦ 0) 0)
-      (isUnit_designOp hlam (fun _ ↦ 0) 0) hσpos 0).congr (ae_of_all _ fun θ ↦ ?_)
+    refine ((integrable_exp_inner_sub_inner_apply (isPositive_designOp hlam.le (fun _ ↦ 0) 0)
+      (isUnit_designOp hlam (fun _ ↦ 0) 0) hσpos 0).const_mul (P.real Set.univ)).congr
+      (ae_of_all _ fun θ ↦ ?_)
     simp
 
 /-- **The self-normalized bound** [LS, Theorem 20.4]: for predictable features `x`, a
 conditionally `σ²`-sub-Gaussian noise `η` with `σ² ≠ 0`, `λ > 0` and `δ > 0`, the probability
 that for some `t`, `2σ² log (1 / δ) + σ² log (det V_t / λ ^ d) ≤ ‖S_t‖²_{V_t⁻¹}` is at most `δ`,
 where `S_t = ∑_{s < t} η s • x s` and `V_t = designOp λ x t`. -/
-theorem measure_exists_inner_inverse_designOp_ge_le [IsProbabilityMeasure P]
+theorem measure_exists_inner_ringInverse_designOp_ge_le [IsProbabilityMeasure P]
     (hx : ∀ t, Measurable[𝓕 t] (x t)) (hη : ∀ t, Measurable[𝓕 (t + 1)] (η t))
     (hsub : ∀ t, HasCondSubgaussianMGF (𝓕 t) (𝓕.le t) (η t) σ2 P) (hσ : σ2 ≠ 0)
     {lam δ : ℝ} (hlam : 0 < lam) (hδ : 0 < δ) :
@@ -196,9 +206,9 @@ theorem measure_exists_inner_inverse_designOp_ge_le [IsProbabilityMeasure P]
         exact exp_le_exp.2 hlog
 
 /-- **The self-normalized bound** [LS, Theorem 20.4], good-event form: under the assumptions of
-`measure_exists_inner_inverse_designOp_ge_le`, with probability at least `1 - δ`, for all `t`,
+`measure_exists_inner_ringInverse_designOp_ge_le`, with probability at least `1 - δ`, for all `t`,
 `‖S_t‖²_{V_t⁻¹} < 2σ² log (1 / δ) + σ² log (det V_t / λ ^ d)`. -/
-theorem le_measureReal_forall_inner_inverse_designOp_lt [IsProbabilityMeasure P]
+theorem le_measureReal_forall_inner_ringInverse_designOp_lt [IsProbabilityMeasure P]
     (hx : ∀ t, Measurable[𝓕 t] (x t)) (hη : ∀ t, Measurable[𝓕 (t + 1)] (η t))
     (hsub : ∀ t, HasCondSubgaussianMGF (𝓕 t) (𝓕.le t) (η t) σ2 P) (hσ : σ2 ≠ 0)
     {lam δ : ℝ} (hlam : 0 < lam) (hδ : 0 < δ) :
@@ -212,7 +222,7 @@ theorem le_measureReal_forall_inner_inverse_designOp_lt [IsProbabilityMeasure P]
       E →ₗ[ℝ] E) / lam ^ finrank ℝ E)}
   have hbad : P.real Gᶜ ≤ δ := by
     refine ENNReal.toReal_le_of_le_ofReal hδ.le ((measure_mono fun ω hω ↦ ?_).trans
-      (measure_exists_inner_inverse_designOp_ge_le hx hη hsub hσ hlam hδ))
+      (measure_exists_inner_ringInverse_designOp_ge_le hx hη hsub hσ hlam hδ))
     simpa [G] using hω
   have h1 : P.real Set.univ ≤ P.real G + P.real Gᶜ := by
     rw [← Set.union_compl_self G]
