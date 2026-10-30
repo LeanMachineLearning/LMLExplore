@@ -5,6 +5,7 @@ Authors: Rémy Degenne
 -/
 module
 
+public import LMLExplore.SequentialLearning.FiniteActions
 public import LeanMachineLearning.SequentialLearning.DivergenceDecomposition
 public import LeanMachineLearning.SequentialLearning.FiniteActions
 
@@ -26,6 +27,8 @@ before `M` at which `a` was played.
 * `Learning.IsAlgEnvSeq.klDiv_map_history_eq_sum_pullCount`: the divergence decomposition.
 * `Learning.IsAlgEnvSeq.klDiv_map_history_eq_lintegral_pullCount_mul`: if the reward kernels
   agree outside the action `i`, then `KL = E[N_i(M)] KL(κ i ‖ κ' i)`.
+* `Learning.IsAlgEnvSeq.klDiv_map_history_le_ofReal_integral_pullCount_mul`: if moreover
+  `KL(κ i ‖ κ' i) ≤ c`, then `KL ≤ E[N_i(M)] c`.
 
 ## References
 
@@ -105,5 +108,20 @@ lemma IsAlgEnvSeq.klDiv_map_history_eq_lintegral_pullCount_mul [Finite 𝓐]
   rw [h.klDiv_map_history_eq_sum_pullCount h' M,
     sum_eq_single i (fun a _ ha ↦ by rw [hκ a ha, klDiv_self, mul_zero])
       (fun hi ↦ absurd (mem_univ i) hi)]
+
+omit [Fintype 𝓐] in
+/-- If the reward kernels `κ` and `κ'` agree outside the action `i` and
+`KL(κ i ‖ κ' i) ≤ c`, then the relative entropy between the laws of the histories of the first `M`
+rounds is at most `E[N_i(M)] c`. -/
+lemma IsAlgEnvSeq.klDiv_map_history_le_ofReal_integral_pullCount_mul [Finite 𝓐]
+    (h : IsAlgEnvSeq O A Y alg (stationaryEnv κ) P)
+    (h' : IsAlgEnvSeq O' A' Y' alg (stationaryEnv κ') P') {i : 𝓐} (hκ : ∀ a ≠ i, κ a = κ' a)
+    {c : ℝ} (hc : klDiv (κ i) (κ' i) ≤ ENNReal.ofReal c) (M : ℕ) :
+    klDiv (P.map (history O A Y M)) (P'.map (history O' A' Y' M)) ≤
+      ENNReal.ofReal ((∫ ω, (pullCount A i M ω : ℝ) ∂P) * c) := by
+  rw [h.klDiv_map_history_eq_lintegral_pullCount_mul h' hκ M,
+    LMLExplore.lintegral_pullCount_eq_ofReal_integral h.measurable_action,
+    ENNReal.ofReal_mul (integral_nonneg fun _ ↦ Nat.cast_nonneg _)]
+  gcongr
 
 end Learning

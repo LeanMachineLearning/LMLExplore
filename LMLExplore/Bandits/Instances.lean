@@ -7,6 +7,7 @@ module
 
 public import LMLExplore.InformationTheory.KullbackLeibler.Gaussian
 public import LMLExplore.Probability.Distributions.Bernoulli
+public import LMLExplore.Probability.Kernel.Basic
 public import TauCeti.Probability.Distributions.Bernoulli.Basic
 
 /-!
@@ -56,7 +57,7 @@ lemma gaussianBandit_apply (μ : α → ℝ) (σ2 : ℝ≥0) (a : α) :
   (rfl)
 
 instance (μ : α → ℝ) (σ2 : ℝ≥0) : IsMarkovKernel (gaussianBandit μ σ2) :=
-  ⟨fun a ↦ by rw [gaussianBandit_apply]; infer_instance⟩
+  inferInstanceAs (IsMarkovKernel (Kernel.ofFunOfCountable _))
 
 /-- The mean of arm `a` of the Gaussian bandit with means `μ` is `μ a`. -/
 lemma integral_id_gaussianBandit (μ : α → ℝ) (σ2 : ℝ≥0) (a : α) :
@@ -92,7 +93,7 @@ lemma bernoulliBandit_apply (p : α → I) (a : α) : bernoulliBandit p a = Ber(
   (rfl)
 
 instance (p : α → I) : IsMarkovKernel (bernoulliBandit p) :=
-  ⟨fun a ↦ by rw [bernoulliBandit_apply]; infer_instance⟩
+  inferInstanceAs (IsMarkovKernel (Kernel.ofFunOfCountable _))
 
 /-- The mean of arm `a` of the Bernoulli bandit with means `p` is `p a`. -/
 lemma integral_id_bernoulliBandit (p : α → I) (a : α) : (bernoulliBandit p a)[id] = (p a : ℝ) := by

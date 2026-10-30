@@ -167,31 +167,20 @@ theorem exists_le_integral_regret_of_klDiv_le [Fintype α] (alg : Algorithm Unit
   -- the relative entropy between the laws of the histories is at most `1 / 2`
   have hD : klDiv (P₀.map (history IT.obs IT.action IT.feedback n))
       (P₁.map (history IT.obs IT.action IT.feedback n)) ≤ ENNReal.ofReal (1 / 2) := by
-    rw [hrun₀.klDiv_map_history_eq_lintegral_pullCount_mul hrun₁ (i := i) (fun a ha ↦ by
-      simp only [hν₀, hν₁, Kernel.ofFunOfCountable_apply, hμ₁, Function.update_of_ne ha]) n]
     have hk' : klDiv (ν₀ i) (ν₁ i) ≤ ENNReal.ofReal ((2 * Δ) ^ 2 / (2 * σ2)) := by
       rw [hν₀, hν₁, Kernel.ofFunOfCountable_apply, Kernel.ofFunOfCountable_apply]
       have := hkl _ (hμ₀_mem i) _ (hμ₁_mem i)
       rwa [show μ₀ i - μ₁ i = -(2 * Δ) by simp [hμ₀, hμ₁, hia], neg_sq] at this
-    have hT : ∫⁻ ω, (pullCount IT.action i n ω : ℝ≥0∞) ∂P₀ ≤ ENNReal.ofReal (n / (k - 1)) := by
-      calc ∫⁻ ω, (pullCount IT.action i n ω : ℝ≥0∞) ∂P₀
-          = ENNReal.ofReal (∫ ω, (pullCount IT.action i n ω : ℝ) ∂P₀) := by
-            rw [ofReal_integral_eq_lintegral_ofReal
-              (integrable_pullCount hrun₀.measurable_action i n)
-              (ae_of_all _ fun _ ↦ Nat.cast_nonneg _)]
-            simp
-        _ ≤ ENNReal.ofReal (n / (k - 1)) := ENNReal.ofReal_le_ofReal hTi
-    calc (∫⁻ ω, (pullCount IT.action i n ω : ℝ≥0∞) ∂P₀) * klDiv (ν₀ i) (ν₁ i)
-        ≤ ENNReal.ofReal (n / (k - 1)) * ENNReal.ofReal ((2 * Δ) ^ 2 / (2 * σ2)) :=
-          mul_le_mul' hT hk'
-      _ = ENNReal.ofReal (n / (k - 1) * ((2 * Δ) ^ 2 / (2 * σ2))) :=
-          (ENNReal.ofReal_mul (by positivity)).symm
-      _ = ENNReal.ofReal (1 / 2) := by
-          congr 1
-          have hσ : (σ2 : ℝ) ≠ 0 := by
-            rintro hσ
-            rw [hσ, zero_mul, zero_mul] at hpos
-            exact lt_irrefl _ hpos
+    refine (hrun₀.klDiv_map_history_le_ofReal_integral_pullCount_mul hrun₁ (i := i) (fun a ha ↦ by
+      simp only [hν₀, hν₁, Kernel.ofFunOfCountable_apply, hμ₁, Function.update_of_ne ha])
+      hk' n).trans (ENNReal.ofReal_le_ofReal ?_)
+    have hσ : (σ2 : ℝ) ≠ 0 := by
+      rintro hσ
+      rw [hσ, zero_mul, zero_mul] at hpos
+      exact lt_irrefl _ hpos
+    calc (∫ ω, (pullCount IT.action i n ω : ℝ) ∂P₀) * ((2 * Δ) ^ 2 / (2 * σ2))
+        ≤ n / (k - 1) * ((2 * Δ) ^ 2 / (2 * σ2)) := by gcongr
+      _ = 1 / 2 := by
           rw [mul_pow, hΔsq]
           field_simp
           ring

@@ -22,6 +22,8 @@ Facts about LML's `pullCount` that hold for any sequence of actions `A : ℕ →
   `Fintype.card α` rounds plays an arm not pulled before, then every arm is pulled exactly once
   during those rounds.
 * `integral_pullCount_eq_sum`: `E[T_a(n)] = ∑_{t < n} P(A t = a)`.
+* `lintegral_pullCount_eq_ofReal_integral`: the expected number of pulls is the same whether
+  computed as a lower Lebesgue integral in `ℝ≥0∞` or as a Bochner integral in `ℝ`.
 * `sum_integral_pullCount`: the expected numbers of pulls of the arms before `n` add up to `n`.
 * `exists_ne_integral_pullCount_le`: for every arm `a₁`, some other arm is pulled at most
   `n / (Fintype.card α - 1)` times in expectation before `n`.
@@ -30,6 +32,7 @@ Facts about LML's `pullCount` that hold for any sequence of actions `A : ℕ →
 public section
 
 open Finset Learning MeasureTheory
+open scoped ENNReal
 
 namespace LMLExplore
 
@@ -98,6 +101,16 @@ theorem integral_pullCount_eq_sum [IsFiniteMeasure P] (hA : ∀ t, Measurable (A
   simp_rw [h]
   rw [integral_finsetSum _ fun t _ ↦ (integrable_const (1 : ℝ)).indicator (hs t)]
   exact sum_congr rfl fun t _ ↦ by rw [integral_indicator_const _ (hs t), smul_eq_mul, mul_one]
+
+/-- The expected number of pulls of `a` before `n` is the same whether computed as a lower Lebesgue
+integral in `ℝ≥0∞` or as a Bochner integral in `ℝ`. -/
+theorem lintegral_pullCount_eq_ofReal_integral [IsFiniteMeasure P] (hA : ∀ t, Measurable (A t))
+    (a : α) (n : ℕ) :
+    ∫⁻ ω, (pullCount A a n ω : ℝ≥0∞) ∂P = ENNReal.ofReal (∫ ω, (pullCount A a n ω : ℝ) ∂P) := by
+  have hint : Integrable (fun ω ↦ (pullCount A a n ω : ℝ)) P :=
+    .of_bound (by fun_prop) n (ae_of_all _ fun ω ↦ by simpa using pullCount_le a n ω)
+  rw [ofReal_integral_eq_lintegral_ofReal hint (ae_of_all _ fun _ ↦ Nat.cast_nonneg _)]
+  simp
 
 variable [Fintype α] [IsProbabilityMeasure P]
 
