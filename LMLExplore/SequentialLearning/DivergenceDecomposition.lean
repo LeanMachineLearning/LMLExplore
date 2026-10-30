@@ -29,6 +29,8 @@ before `M` at which `a` was played.
 
 * T. Lattimore and Cs. Szepesvári, *Bandit Algorithms*, Cambridge University Press (2020),
   Lemma 15.1.
+* The proofs are adapted from the formalization in the LMLPapers project
+  (`LMLPapers/LeanMachineLearning/SequentialLearning/DivergenceDecomposition.lean`).
 -/
 
 public section
