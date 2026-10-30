@@ -17,6 +17,11 @@ amounts to integrating out `ω` against the conditional expectation kernel with 
 ## Main statements
 
 * `LMLExplore.lintegral_comp_condExpKernel`: the freezing lemma for nonnegative functions.
+
+## References
+
+* The proof is adapted from the formalization in the LMLPapers project
+  (`LMLPapers/LeanMachineLearning/ForMathlib/Probability/Kernel/Condexp.lean`).
 -/
 
 public section

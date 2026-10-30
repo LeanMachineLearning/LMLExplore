@@ -21,6 +21,11 @@ supermartingales.
 
 * `ProbabilityTheory.HasCondSubgaussianMGF.lintegral_mul_exp_le`: for every `m`-measurable `s`
   and `m`-measurable `g ≥ 0`, `∫⁻ g * exp (s * X) ≤ ∫⁻ g * exp (c * s ^ 2 / 2)`.
+
+## References
+
+* The proof is adapted from the formalization in the LMLPapers project
+  (`LMLPapers/LeanMachineLearning/ForMathlib/Probability/Moments/SubGaussian.lean`).
 -/
 
 public section

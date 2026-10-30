@@ -22,16 +22,21 @@ all times.
 
 ## Main statements
 
-* `LMLExplore.supermartingale_exp_sum_mul`: the exponential supermartingale.
-* `LMLExplore.measure_exists_le_sum_mul`: with probability at least `1 - exp (-x)`,
-  `t * T n - c * t ^ 2 * A n / 2 < x` for all `n` simultaneously.
-* `LMLExplore.measure_exists_le_sum_le`: the maximal inequality
+* `LMLExplore.supermartingale_exp_sum_mul_of_hasCondSubgaussianMGF`: the exponential
+  supermartingale.
+* `LMLExplore.measure_exists_le_mul_sum_sub_of_hasCondSubgaussianMGF`: with probability at least
+  `1 - exp (-x)`, `t * T n - c * t ^ 2 * A n / 2 < x` for all `n` simultaneously.
+* `LMLExplore.measure_exists_le_sum_le_of_hasCondSubgaussianMGF`: the maximal inequality
   `P(∃ n ≤ N, ε ≤ ∑ k < n, Y k) ≤ exp (-ε ^ 2 / (2 N c))` for `ε ≥ 0`.
 
 ## References
 
 * T. Lattimore and Cs. Szepesvári, *Bandit Algorithms*, Cambridge University Press, 2020,
   Theorem 9.2.
+* `supermartingale_exp_sum_mul_of_hasCondSubgaussianMGF` is adapted from the formalization in the
+  LMLPapers project
+  (`LMLPapers/LeanMachineLearning/ForMathlib/Probability/Martingale/SubgaussianSum.lean`); the two
+  consequences of Ville's inequality are new here.
 -/
 
 public section
@@ -42,13 +47,14 @@ open scoped ENNReal NNReal
 namespace LMLExplore
 
 variable {Ω : Type*} {mΩ : MeasurableSpace Ω} [StandardBorelSpace Ω] {μ : Measure Ω}
-  [IsProbabilityMeasure μ] {ℱ : Filtration ℕ mΩ} {Y w : ℕ → Ω → ℝ} {c : ℝ≥0}
+  {ℱ : Filtration ℕ mΩ} {Y w : ℕ → Ω → ℝ} {c : ℝ≥0}
 
 /-- **Exponential supermartingale of a sub-Gaussian sum.** If `Y n` is `ℱ (n + 1)`-measurable and
 conditionally `c`-sub-Gaussian given `ℱ n`, and the weights `w` are adapted, then for every
 `t : ℝ`, `n ↦ exp (t * ∑ k < n, w k * Y k - c * t ^ 2 * (∑ k < n, w k ^ 2) / 2)` is a
 supermartingale. -/
-theorem supermartingale_exp_sum_mul (hY : ∀ n, Measurable[ℱ (n + 1)] (Y n))
+theorem supermartingale_exp_sum_mul_of_hasCondSubgaussianMGF [IsFiniteMeasure μ]
+    (hY : ∀ n, Measurable[ℱ (n + 1)] (Y n))
     (hsubG : ∀ n, HasCondSubgaussianMGF (ℱ n) (ℱ.le n) (Y n) c μ) (hw : Adapted ℱ w) (t : ℝ) :
     Supermartingale (fun n ω ↦ exp (t * ∑ k ∈ range n, w k ω * Y k ω
       - c * t ^ 2 * (∑ k ∈ range n, w k ω ^ 2) / 2)) ℱ μ := by
@@ -101,28 +107,28 @@ conditionally `c`-sub-Gaussian given `ℱ n`, and the weights `w` are adapted, t
 `t x : ℝ`, the probability that
 `x ≤ t * ∑ k < n, w k * Y k - c * t ^ 2 * (∑ k < n, w k ^ 2) / 2` for some `n` is at most
 `exp (-x)`. -/
-theorem measure_exists_le_sum_mul (hY : ∀ n, Measurable[ℱ (n + 1)] (Y n))
+theorem measure_exists_le_mul_sum_sub_of_hasCondSubgaussianMGF [IsProbabilityMeasure μ]
+    (hY : ∀ n, Measurable[ℱ (n + 1)] (Y n))
     (hsubG : ∀ n, HasCondSubgaussianMGF (ℱ n) (ℱ.le n) (Y n) c μ) (hw : Adapted ℱ w)
     (t x : ℝ) :
     μ {ω | ∃ n, x ≤ t * ∑ k ∈ range n, w k ω * Y k ω
       - c * t ^ 2 * (∑ k ∈ range n, w k ω ^ 2) / 2} ≤ ENNReal.ofReal (exp (-x)) := by
-  have h := (supermartingale_exp_sum_mul hY hsubG hw t).measure_exists_le_le
-    (fun n ↦ ae_of_all _ fun ω ↦ (exp_pos _).le) (exp_pos x)
-  simp only [range_zero, sum_empty, mul_zero, zero_div, sub_zero, exp_zero, integral_const,
-    probReal_univ, smul_eq_mul, mul_one, exp_le_exp] at h
-  rwa [one_div, ← exp_neg] at h
+  have h :=
+    (supermartingale_exp_sum_mul_of_hasCondSubgaussianMGF hY hsubG hw t).measure_exists_le_le
+      (fun n ↦ ae_of_all _ fun ω ↦ (exp_pos _).le) (exp_pos x)
+  simpa [← exp_neg] using h
 
 /-- **Maximal inequality for sub-Gaussian sums** ([LS, Theorem 9.2], for conditionally
 sub-Gaussian increments): if `Y n` is `ℱ (n + 1)`-measurable and conditionally `c`-sub-Gaussian
 given `ℱ n`, then for `ε ≥ 0` and every horizon `N`,
 `P(∃ n ≤ N, ε ≤ ∑ k < n, Y k) ≤ exp (-ε ^ 2 / (2 N c))`. -/
-theorem measure_exists_le_sum_le (hY : ∀ n, Measurable[ℱ (n + 1)] (Y n))
+theorem measure_exists_le_sum_le_of_hasCondSubgaussianMGF [IsProbabilityMeasure μ]
+    (hY : ∀ n, Measurable[ℱ (n + 1)] (Y n))
     (hsubG : ∀ n, HasCondSubgaussianMGF (ℱ n) (ℱ.le n) (Y n) c μ) {ε : ℝ} (hε : 0 ≤ ε)
     (N : ℕ) :
     μ {ω | ∃ n ≤ N, ε ≤ ∑ k ∈ range n, Y k ω} ≤ ENNReal.ofReal (exp (-ε ^ 2 / (2 * N * c))) := by
   rcases (by positivity : (0 : ℝ) ≤ N * c).eq_or_lt with hNc | hNc
-  · rw [mul_assoc, ← hNc, mul_zero, div_zero, exp_zero, ENNReal.ofReal_one]
-    exact prob_le_one
+  · simpa [mul_assoc, ← hNc] using prob_le_one
   have hN : (N : ℝ) ≠ 0 := left_ne_zero_of_mul hNc.ne'
   have hc : (c : ℝ) ≠ 0 := right_ne_zero_of_mul hNc.ne'
   set t := ε / (N * c) with ht_def
@@ -131,7 +137,8 @@ theorem measure_exists_le_sum_le (hY : ∀ n, Measurable[ℱ (n + 1)] (Y n))
     rw [ht_def]
     field_simp
     ring
-  have h := measure_exists_le_sum_mul hY hsubG (w := fun _ _ ↦ 1) (fun _ ↦ measurable_const) t
+  have h := measure_exists_le_mul_sum_sub_of_hasCondSubgaussianMGF hY hsubG (w := fun _ _ ↦ 1)
+    (fun _ ↦ measurable_const) t
     (ε ^ 2 / (2 * N * c))
   refine (measure_mono fun ω hω ↦ ?_).trans (h.trans_eq (by rw [neg_div]))
   obtain ⟨n, hn, hεn⟩ := hω

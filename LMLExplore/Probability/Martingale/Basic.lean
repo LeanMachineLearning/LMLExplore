@@ -19,6 +19,11 @@ made in `ℝ≥0∞`, where it needs no integrability, and integrability then pr
 * `LMLExplore.supermartingale_of_setLIntegral_succ_le`: an adapted, a.s. nonnegative process with
   `f 0` integrable whose lower Lebesgue set integrals over `s ∈ ℱ n` do not increase from `n` to
   `n + 1` is a supermartingale.
+
+## References
+
+* The proof is adapted from the formalization in the LMLPapers project
+  (`LMLPapers/LeanMachineLearning/ForMathlib/Probability/Martingale/IndepIncrements.lean`).
 -/
 
 public section
