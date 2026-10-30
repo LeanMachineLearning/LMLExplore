@@ -159,8 +159,8 @@ theorem sqrt_inner_ridgeEstimate_sub_le (hlam : 0 < lam) (x : ℕ → E) {y η :
     rw [ridgeEstimate_sub_eq hlam x θ t hy, V.apply_ringInverse_apply (isUnit_designOp hlam x t),
       real_inner_comm, neg_add_eq_sub]
   have hθ : √⟪-(lam • θ), Ring.inverse V (-(lam • θ))⟫_ℝ ≤ √lam * ‖θ‖ := by
-    rw [Real.sqrt_le_left (by positivity), map_neg, inner_neg_neg, map_smul, inner_smul_left,
-      inner_smul_right, mul_pow, Real.sq_sqrt hlam.le, RCLike.conj_to_real]
+    rw [Real.sqrt_le_left (by positivity)]
+    simp [inner_smul_left, inner_smul_right, mul_pow, Real.sq_sqrt hlam.le]
     nlinarith [mul_inner_ringInverse_designOp_apply_le hlam x t θ]
   rw [heq]
   exact ((isPositive_designOp hlam.le x t).ringInverse.sqrt_inner_add_le _ _).trans

@@ -202,7 +202,11 @@ theorem det_designOp_div_pow_le [FiniteDimensional ℝ E] (hlam : 0 < lam) (x : 
       _ = t * L ^ 2 := by simp
   rw [div_le_iff₀ (pow_pos hlam _), ← mul_pow]
   refine (det_designOp_le hlam.le x t).trans (pow_le_pow_left₀ (by positivity) ?_ _)
-  rw [one_add_mul, div_mul_eq_mul_div, mul_comm lam, mul_div_mul_right _ _ hlam.ne']
+  have h : (1 + t * L ^ 2 / (lam * finrank ℝ E)) * lam = lam + t * L ^ 2 / finrank ℝ E := by
+    rcases (finrank ℝ E).eq_zero_or_pos with hd | hd
+    · simp [hd]
+    · field_simp
+  rw [h]
   gcongr
 
 end LMLExplore

@@ -92,9 +92,9 @@ theorem IsPositive.sqrt_inner_add_le (hT : T.IsPositive) (x y : F) :
     exact Real.le_sqrt_of_sq_le (hT.sq_inner_apply_le x y)
   have hyx : ⟪y, T x⟫_ℝ = ⟪x, T y⟫_ℝ := by
     rw [real_inner_comm, hT.inner_left_eq_inner_right]
-  rw [Real.sqrt_le_left (by positivity), map_add, inner_add_left, inner_add_right,
-    inner_add_right, hyx, add_sq, Real.sq_sqrt hx, Real.sq_sqrt hy]
-  linarith
+  rw [Real.sqrt_le_left (by positivity)]
+  simp only [map_add, inner_add_left, inner_add_right]
+  nlinarith [Real.sq_sqrt hx, Real.sq_sqrt hy, hxy, hyx]
 
 end Real
 
