@@ -39,34 +39,20 @@ namespace LMLExplore
 
 variable {μ₁ μ₂ : ℝ} {v₁ v₂ : ℝ≥0}
 
-/-- A real Gaussian distribution with nonzero variance is absolutely continuous with respect to
-every real Gaussian distribution with nonzero variance. -/
-lemma gaussianReal_absolutelyContinuous_gaussianReal (hv₁ : v₁ ≠ 0) (hv₂ : v₂ ≠ 0) :
-    gaussianReal μ₁ v₁ ≪ gaussianReal μ₂ v₂ :=
-  (gaussianReal_absolutelyContinuous μ₁ hv₁).trans (gaussianReal_absolutelyContinuous' μ₂ hv₂)
-
 /-- The log-likelihood ratio of `𝒩(μ₁, v₁)` with respect to `𝒩(μ₂, v₂)` is, Lebesgue-almost
 everywhere, the quadratic polynomial
 `log (v₂ / v₁) / 2 + (x - μ₂) ^ 2 / (2 v₂) - (x - μ₁) ^ 2 / (2 v₁)`. -/
 lemma llr_gaussianReal_gaussianReal (hv₁ : v₁ ≠ 0) (hv₂ : v₂ ≠ 0) :
     llr (gaussianReal μ₁ v₁) (gaussianReal μ₂ v₂) =ᵐ[volume] fun x ↦
       log (v₂ / v₁) / 2 + (x - μ₂) ^ 2 / (2 * v₂) - (x - μ₁) ^ 2 / (2 * v₁) := by
-  have hrn : (gaussianReal μ₁ v₁).rnDeriv (gaussianReal μ₂ v₂) =ᵐ[volume]
-      fun x ↦ (gaussianPDF μ₂ v₂ x)⁻¹ * gaussianPDF μ₁ v₁ x := by
-    rw [gaussianReal_of_var_ne_zero μ₂ hv₂]
-    filter_upwards [Measure.rnDeriv_withDensity_right (gaussianReal μ₁ v₁) volume
-      (measurable_gaussianPDF μ₂ v₂).aemeasurable
-      (ae_of_all _ fun x ↦ (gaussianPDF_pos μ₂ hv₂ x).ne') (ae_of_all _ fun _ ↦ gaussianPDF_ne_top),
-      rnDeriv_gaussianReal μ₁ v₁] with x hx hx'
-    rw [hx, hx']
-  filter_upwards [hrn] with x hx
+  filter_upwards [rnDeriv_gaussianReal_gaussianReal μ₁ v₁ (μ₂ := μ₂) hv₂] with x hx
   have hv₁' : (0 : ℝ) < v₁ := by positivity
   have hv₂' : (0 : ℝ) < v₂ := by positivity
-  simp only [llr_def]
-  rw [hx, ENNReal.toReal_mul, ENNReal.toReal_inv, toReal_gaussianPDF, toReal_gaussianPDF,
-    log_mul (inv_pos.2 (gaussianPDFReal_pos μ₂ v₂ x hv₂)).ne' (gaussianPDFReal_pos μ₁ v₁ x hv₁).ne',
-    log_inv, log_gaussianPDFReal hv₁, log_gaussianPDFReal hv₂, log_div hv₂'.ne' hv₁'.ne',
-    log_mul (by positivity) hv₁'.ne', log_mul (by positivity) hv₂'.ne']
+  have h₁ := gaussianPDFReal_pos μ₁ v₁ x hv₁
+  have h₂ := gaussianPDFReal_pos μ₂ v₂ x hv₂
+  simp [llr_def, hx, ENNReal.toReal_mul, toReal_gaussianPDF, log_mul, log_div,
+    log_gaussianPDFReal hv₁, log_gaussianPDFReal hv₂, h₁.ne', h₂.ne', hv₁'.ne', hv₂'.ne',
+    pi_ne_zero]
   ring
 
 /-- The log-likelihood ratio of `𝒩(μ₁, v₁)` with respect to `𝒩(μ₂, v₂)` is the quadratic

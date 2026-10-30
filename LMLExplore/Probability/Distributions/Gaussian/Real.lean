@@ -18,11 +18,15 @@ Complements to Mathlib's `ProbabilityTheory.gaussianReal`:
 * `LMLExplore.integral_sub_sq_gaussianReal`: for `X ∼ 𝒩(μ, v)` and every `c`,
   `𝔼[(X - c) ^ 2] = v + (μ - c) ^ 2`, with the integrability statement
   `LMLExplore.integrable_sub_sq_gaussianReal`.
+* `LMLExplore.gaussianReal_absolutelyContinuous_gaussianReal`: two real Gaussian laws with nonzero
+  variances are mutually absolutely continuous.
+* `LMLExplore.rnDeriv_gaussianReal_gaussianReal`: the Radon-Nikodym derivative of `𝒩(μ₁, v₁)` with
+  respect to `𝒩(μ₂, v₂)`, for `v₂ ≠ 0`, is the ratio of their densities.
 * `LMLExplore.hasSubgaussianMGF_sub_of_hasLaw_gaussianReal`: a random variable with law `𝒩(μ, v)`
   is `v`-sub-Gaussian around its mean, in the sense of `ProbabilityTheory.HasSubgaussianMGF`.
 
-The first two are the ingredients of the closed form of the relative entropy between Gaussian
-laws; the third shows that Gaussian rewards satisfy the sub-Gaussian noise assumption of Mathlib's
+The first four are the ingredients of the closed form of the relative entropy between Gaussian
+laws; the last shows that Gaussian rewards satisfy the sub-Gaussian noise assumption of Mathlib's
 concentration inequalities.
 -/
 
@@ -58,6 +62,30 @@ lemma integral_sub_sq_gaussianReal (c : ℝ) :
   rw [← gaussianReal_map_sub_const c] at hvar
   rw [integral_map (by fun_prop) (by fun_prop)] at hvar
   linarith
+
+section TwoGaussians
+
+variable {μ₁ μ₂ : ℝ} {v₁ v₂ : ℝ≥0}
+
+/-- A real Gaussian distribution with nonzero variance is absolutely continuous with respect to
+every real Gaussian distribution with nonzero variance. -/
+lemma gaussianReal_absolutelyContinuous_gaussianReal (hv₁ : v₁ ≠ 0) (hv₂ : v₂ ≠ 0) :
+    gaussianReal μ₁ v₁ ≪ gaussianReal μ₂ v₂ :=
+  (gaussianReal_absolutelyContinuous μ₁ hv₁).trans (gaussianReal_absolutelyContinuous' μ₂ hv₂)
+
+/-- The Radon-Nikodym derivative of `𝒩(μ₁, v₁)` with respect to `𝒩(μ₂, v₂)`, for `v₂ ≠ 0`, is
+Lebesgue-almost everywhere the ratio of their densities. -/
+lemma rnDeriv_gaussianReal_gaussianReal (μ₁ : ℝ) (v₁ : ℝ≥0) (hv₂ : v₂ ≠ 0) :
+    (gaussianReal μ₁ v₁).rnDeriv (gaussianReal μ₂ v₂) =ᵐ[volume]
+      fun x ↦ (gaussianPDF μ₂ v₂ x)⁻¹ * gaussianPDF μ₁ v₁ x := by
+  rw [gaussianReal_of_var_ne_zero μ₂ hv₂]
+  filter_upwards [Measure.rnDeriv_withDensity_right (gaussianReal μ₁ v₁) volume
+    (measurable_gaussianPDF μ₂ v₂).aemeasurable
+    (ae_of_all _ fun x ↦ (gaussianPDF_pos μ₂ hv₂ x).ne') (ae_of_all _ fun _ ↦ gaussianPDF_ne_top),
+    rnDeriv_gaussianReal μ₁ v₁] with x hx hx'
+  rw [hx, hx']
+
+end TwoGaussians
 
 /-- A random variable with law `𝒩(μ, v)` is `v`-sub-Gaussian around its mean `μ`. -/
 lemma hasSubgaussianMGF_sub_of_hasLaw_gaussianReal {Ω : Type*} {mΩ : MeasurableSpace Ω}

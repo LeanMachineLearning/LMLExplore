@@ -7,6 +7,7 @@ module
 
 public import LMLExplore.InformationTheory.KullbackLeibler.Gaussian
 public import LMLExplore.Probability.Distributions.Bernoulli
+public import TauCeti.Probability.Distributions.Bernoulli.Basic
 
 /-!
 # Gaussian and Bernoulli bandits
@@ -100,13 +101,16 @@ lemma integral_id_bernoulliBandit (p : α → I) (a : α) : (bernoulliBandit p a
 /-- The rewards of the Bernoulli bandit lie in `[0, 1]` almost surely. -/
 lemma ae_mem_Icc_bernoulliBandit (p : α → I) (a : α) :
     ∀ᵐ x ∂(bernoulliBandit p a), x ∈ Set.Icc 0 1 := by
-  simpa using ae_mem_Icc_bernoulliMeasure (p a)
+  simpa using ae_mem_uIcc_bernoulliMeasure 1 0 (p a)
 
 /-- The arms of the Bernoulli bandit are `1 / 4`-sub-Gaussian. -/
 lemma hasSubgaussianMGF_bernoulliBandit (p : α → I) (a : α) :
     HasSubgaussianMGF (fun x ↦ x - (bernoulliBandit p a)[id]) (1 / 4) (bernoulliBandit p a) := by
-  rw [integral_id_bernoulliBandit, bernoulliBandit_apply]
-  exact hasSubgaussianMGF_bernoulliMeasure (p a)
+  have hc : (‖(1 : ℝ) - 0‖₊ / 2) ^ 2 = 1 / 4 := by
+    ext
+    norm_num
+  rw [integral_id_bernoulliBandit, bernoulliBandit_apply, ← hc]
+  simpa using hasSubgaussianMGF_bernoulliMeasure 1 0 (p a)
 
 end Bernoulli
 
