@@ -17,7 +17,7 @@ on a product by a power of the average.
 
 ## Main statements
 
-* `LMLExplore.prod_le_sum_div_card_pow`: for `z ≥ 0` on `s`,
+* `Real.prod_le_sum_div_card_pow`: for `z ≥ 0` on `s`,
   `∏ i ∈ s, z i ≤ ((∑ i ∈ s, z i) / #s) ^ #s`.
 -/
 
@@ -25,7 +25,7 @@ public section
 
 open Finset
 
-namespace LMLExplore
+namespace Real
 
 /-- **AM-GM inequality**, product form: for `z ≥ 0` on `s`,
 `∏ i ∈ s, z i ≤ ((∑ i ∈ s, z i) / #s) ^ #s`. -/
@@ -43,4 +43,4 @@ theorem prod_le_sum_div_card_pow {ι : Type*} (s : Finset ι) {z : ι → ℝ}
         (Real.rpow_inv_natCast_pow hprod hs.card_pos.ne').symm
     _ ≤ ((∑ i ∈ s, z i) / #s) ^ #s := by gcongr
 
-end LMLExplore
+end Real

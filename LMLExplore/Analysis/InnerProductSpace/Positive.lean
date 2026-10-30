@@ -39,7 +39,7 @@ variable {E : Type*} [NormedAddCommGroup E] [InnerProductSpace ℝ E] [FiniteDim
 theorem LinearMap.IsPositive.det_le_trace_div_finrank_pow {T : E →ₗ[ℝ] E} (hT : T.IsPositive) :
     LinearMap.det T ≤ (LinearMap.trace ℝ E T / finrank ℝ E) ^ finrank ℝ E := by
   rw [hT.isSymmetric.det_eq_prod_eigenvalues rfl, hT.isSymmetric.trace_eq_sum_eigenvalues rfl]
-  simpa using LMLExplore.prod_le_sum_div_card_pow univ fun i _ ↦ hT.nonneg_eigenvalues rfl i
+  simpa using Real.prod_le_sum_div_card_pow univ fun i _ ↦ hT.nonneg_eigenvalues rfl i
 
 /-- For a positive continuous linear operator `T` on a real inner product space of dimension
 `d`, `det T ≤ (trace T / d) ^ d`. -/
