@@ -1,0 +1,9 @@
+# Human-owned paths. Everything under LMLExplore/ is AI-owned and merges through review.
+/tauceti.toml @RemyDegenne
+/.github/ @RemyDegenne
+/scripts/ @RemyDegenne
+/lakefile.* @RemyDegenne
+/lean-toolchain @RemyDegenne
+/lake-manifest.json @RemyDegenne
+/AGENTS.md @RemyDegenne
+/README.md @RemyDegenne

@@ -1,0 +1,47 @@
+name = "LMLExplore"
+defaultTargets = ["LMLExplore"]
+# LMLExplore is a pure Lean package: its module outputs can be reused across platforms.
+platformIndependent = true
+
+# Dependency policy (see README.md): the three dependencies move together, only at Lean
+# releases that both Tau Ceti and LML have tagged. `lake-manifest.json` records the exact
+# commits; the `rev`s below name the branch each pin must lie on.
+#
+# Mathlib is required directly so that its pin overrides the ones inherited from Tau Ceti and
+# LML. It is pinned to the Mathlib commit used by Tau Ceti's release tag, so that Tau Ceti
+# builds against exactly the Mathlib it was released with; LML then builds against a Mathlib
+# a few commits newer than its own release pin.
+[[require]]
+name = "mathlib"
+git = "https://github.com/leanprover-community/mathlib4"
+rev = "master"
+
+[[require]]
+name = "TauCeti"
+git = "https://github.com/TauCetiProject/TauCeti"
+rev = "main"
+
+[[require]]
+name = "LeanMachineLearning"
+git = "https://github.com/LeanMachineLearning/LML"
+rev = "main"
+
+# AI-owned: all the mathematics. No sorries (enforced in CI).
+# The glob is authoritative for what gets built and audited; the root `LMLExplore.lean` is
+# intentionally empty and no code imports it.
+# `longFile` and `longFileDefValue` must be set to the same value, or the linter asks for a
+# `set_option` on every short file (fatal under `warningAsError`).
+[[lean_lib]]
+name = "LMLExplore"
+globs = ["LMLExplore.*"]
+leanOptions = { weak.linter.mathlibStandardSet = true, weak.linter.style.longFile = 1500, weak.linter.style.longFileDefValue = 1500, weak.linter.style.header = true, warningAsError = true }
+
+# Human-owned governance, installed by `tauceti-tools doctor --fix workflows`:
+# the axiom-allowlist audit and the module-system audit, run in CI after the build.
+[[lean_exe]]
+name = "axioms"
+root = "scripts.Axioms"
+
+[[lean_exe]]
+name = "module-system"
+root = "scripts.ModuleSystem"

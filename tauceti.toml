@@ -1,0 +1,93 @@
+# Canonical, human-owned project configuration, read by TauCetiTools, TauCetiWorker and
+# TauCetiReview (pass `--conf` to their commands). No credentials belong here.
+schema_version = 1
+
+[project]
+name = "LMLExplore"
+branch = "main"
+codeowners = ["@RemyDegenne"]
+
+[repositories]
+content = "LeanMachineLearning/LMLExplore"
+roadmap = "LeanMachineLearning/LMLRoadmaps"
+review = "TauCetiProject/TauCetiReview"
+# Enable and create these repositories when choosing the corresponding extras.
+# data = "LeanMachineLearning/LMLExploreData"
+# ci = "LeanMachineLearning/LMLExploreCI"
+# claims = "LeanMachineLearning/LMLExplore-claims"
+
+[lean]
+roots = ["LMLExplore"]
+root_module = "empty"
+
+[roadmap]
+active_dir = "LMLRoadmaps"
+completed_dir = "Completed"
+
+# Immutable tool versions, selected on 2026-10-30 from each repository's main branch.
+# Discover newer ones with: gh api repos/TauCetiProject/TauCetiTools/commits/main --jq .sha
+[tools.tools]
+repo = "TauCetiProject/TauCetiTools"
+ref = "68ca7893e90b82454ab58ba64dca753a05cd2720"
+[tools.review]
+repo = "TauCetiProject/TauCetiReview"
+ref = "32ce2069308080df4e08df14c2160012a51c8152"
+[tools.progress]
+repo = "TauCetiProject/TauCetiProgress"
+ref = "5b0fb84dbeb36e9575b2205f9d2a5177671d3f33"
+
+[merge]
+backend = "github-queue"
+checks = ["build", "bump-guard", "scope"]
+
+# Dependencies. All three move together, by hand, only at Lean releases that both Tau Ceti and
+# LML have tagged (see README.md), so the automatic updater is disabled with `update = false`.
+# No material is ever proposed to an upstream automatically: `upstream_destination = false`.
+# `overlap = true` records that material an upstream later provides is deleted here; the current
+# worker overlap scanner only scans Mathlib, and needs the claims repository.
+
+# Required directly, pinned to the Mathlib commit of the Tau Ceti release tag.
+[[upstreams]]
+repo = "leanprover-community/mathlib4"
+package = "mathlib"
+branch = "master"
+update = false
+overlap = true
+upstream_destination = false
+
+[[upstreams]]
+repo = "TauCetiProject/TauCeti"
+package = "TauCeti"
+branch = "main"
+update = false
+overlap = true
+upstream_destination = false
+
+[[upstreams]]
+repo = "LeanMachineLearning/LML"
+package = "LeanMachineLearning"
+branch = "main"
+update = false
+overlap = true
+upstream_destination = false
+
+# Everything below is optional. Use doctor --no-extras to report only core setup.
+[features]
+archives = false
+ci_archive = false
+claims = false
+docs = false
+progress = false
+zulip = false
+fleet = false
+security_audit = false
+roadmap_authoring = false
+
+[services.github_state]
+mode = "off"
+
+[services.bors]
+mode = "off"
+
+[services.cache]
+mode = "off"

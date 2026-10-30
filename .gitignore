@@ -1,0 +1,14 @@
+/.lake/
+/build/
+
+__pycache__/
+*.pyc
+
+# Claude Code agent worktrees are nested checkouts, never repository content.
+.claude/worktrees/
+
+# Pinned shared tooling checkouts
+.tauceti-review/
+.tauceti-tools/
+.tauceti-project/
+.tauceti-rubrics/
