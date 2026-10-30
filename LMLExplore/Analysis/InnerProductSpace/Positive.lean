@@ -6,10 +6,18 @@ Authors: Rémy Degenne
 module
 
 public import LMLExplore.Analysis.InnerProductSpace.Symmetric
+public import LMLExplore.Analysis.MeanInequalities
 public import Mathlib.Analysis.InnerProductSpace.Positive
+public import Mathlib.Analysis.InnerProductSpace.Trace
 
 /-!
-# The inverse of a positive operator
+# Positive operators: inverse, determinant and trace
+
+The inverse of a positive operator is positive, and the eigenvalues of a positive invertible
+operator are positive. The determinant of a positive operator `T` on a
+real inner product space of dimension `d` is at most `(trace T / d) ^ d`: both are expressed
+through the eigenvalues of `T`, which are nonnegative, and the inequality is the AM-GM
+inequality.
 
 ## Main statements
 
@@ -20,6 +28,14 @@ public import Mathlib.Analysis.InnerProductSpace.Positive
   a real inner product space, `0 < 1 + ⟪x, V⁻¹ x⟫`.
 * `LinearMap.IsPositive.eigenvalues_pos`: the eigenvalues of a positive invertible operator on a
   finite-dimensional inner product space are positive.
+* `LinearMap.IsPositive.det_le_trace_div_finrank_pow`,
+  `ContinuousLinearMap.IsPositive.det_le_trace_div_finrank_pow`: for a positive operator `T`,
+  `det T ≤ (trace T / d) ^ d`.
+
+## References
+
+* T. Lattimore and Cs. Szepesvári, *Bandit Algorithms*, Cambridge University Press, 2020,
+  proof of Lemma 19.4.
 -/
 
 public section
@@ -66,3 +82,26 @@ theorem IsPositive.eigenvalues_pos {T : E →ₗ[𝕜] E} {n : ℕ} (hT : T.IsPo
   simpa [hb] using (hT.isSymmetric.eigenvectorBasis hn).orthonormal.1 i
 
 end LinearMap
+
+section DetTrace
+
+open Finset Module
+
+variable {E : Type*} [NormedAddCommGroup E] [InnerProductSpace ℝ E] [FiniteDimensional ℝ E]
+
+/-- For a positive operator `T` on a real inner product space of dimension `d`,
+`det T ≤ (trace T / d) ^ d`. -/
+theorem LinearMap.IsPositive.det_le_trace_div_finrank_pow {T : E →ₗ[ℝ] E} (hT : T.IsPositive) :
+    LinearMap.det T ≤ (LinearMap.trace ℝ E T / finrank ℝ E) ^ finrank ℝ E := by
+  rw [hT.isSymmetric.det_eq_prod_eigenvalues rfl, hT.isSymmetric.trace_eq_sum_eigenvalues rfl]
+  simpa using Real.prod_le_sum_div_card_pow univ fun i _ ↦ hT.nonneg_eigenvalues rfl i
+
+/-- For a positive continuous linear operator `T` on a real inner product space of dimension
+`d`, `det T ≤ (trace T / d) ^ d`. -/
+theorem ContinuousLinearMap.IsPositive.det_le_trace_div_finrank_pow {T : E →L[ℝ] E}
+    (hT : T.IsPositive) :
+    LinearMap.det (T : E →ₗ[ℝ] E) ≤
+      (LinearMap.trace ℝ E (T : E →ₗ[ℝ] E) / finrank ℝ E) ^ finrank ℝ E :=
+  hT.toLinearMap.det_le_trace_div_finrank_pow
+
+end DetTrace
