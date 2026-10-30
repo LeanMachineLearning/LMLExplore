@@ -5,7 +5,7 @@ Authors: Rémy Degenne
 -/
 module
 
-public import Mathlib.MeasureTheory.Integral.Bochner.Basic
+public import Mathlib.MeasureTheory.Integral.Bochner.SumMeasure
 public import Mathlib.MeasureTheory.Measure.GiryMonad
 public import Mathlib.MeasureTheory.Measure.Dirac.Basic
 
@@ -17,12 +17,17 @@ public import Mathlib.MeasureTheory.Measure.Dirac.Basic
 allows building kernels that sample from a computed distribution, such as the policies of
 weight-based bandit algorithms.
 
+The definition of `weightedMeasure` and its basic API (masses of sets and atoms, finiteness,
+probability, absolute continuity, lower integrals and measurability) are adapted from the
+LMLPapers project.
+
 ## Main definitions
 
 * `LMLExplore.weightedMeasure p = ∑ i, ENNReal.ofReal (p i) • δ_i`.
 
 ## Main statements
 
+* `weightedMeasure_def`: `weightedMeasure p` as a sum of weighted Dirac measures;
 * `weightedMeasure_apply`, `weightedMeasure_singleton`, `measureReal_weightedMeasure_singleton`:
   the masses of sets and of atoms;
 * `isFiniteMeasure_weightedMeasure`: a weighted measure is finite (an instance);
@@ -34,7 +39,7 @@ weight-based bandit algorithms.
 * `measurable_weightedMeasure`: `p ↦ weightedMeasure p` is measurable.
 -/
 
-@[expose] public section
+public section
 
 open MeasureTheory
 open scoped ENNReal
@@ -47,10 +52,15 @@ variable {ι : Type*} [Fintype ι] [MeasurableSpace ι] {p q : ι → ℝ}
 noncomputable def weightedMeasure (p : ι → ℝ) : Measure ι :=
   ∑ i, ENNReal.ofReal (p i) • Measure.dirac i
 
+/-- `weightedMeasure p` is the sum of the Dirac masses `δ_i` weighted by `ENNReal.ofReal (p i)`. -/
+lemma weightedMeasure_def (p : ι → ℝ) :
+    weightedMeasure p = ∑ i, ENNReal.ofReal (p i) • Measure.dirac i :=
+  (rfl)
+
 /-- The mass of a measurable set under `weightedMeasure p`. -/
 lemma weightedMeasure_apply (p : ι → ℝ) {s : Set ι} (hs : MeasurableSet s) :
     weightedMeasure p s = ∑ i, ENNReal.ofReal (p i) * s.indicator 1 i := by
-  simp [weightedMeasure, Finset.sum_apply, Measure.dirac_apply' _ hs]
+  simp [weightedMeasure_def, Finset.sum_apply, Measure.dirac_apply' _ hs]
 
 /-- The total mass of `weightedMeasure p`. -/
 lemma weightedMeasure_univ (p : ι → ℝ) :
@@ -99,22 +109,19 @@ lemma weightedMeasure_absolutelyContinuous [MeasurableSingletonClass ι]
     exact absurd hi (not_le.2 (hq i (not_le.1 h)))
   · simp [Set.indicator_of_notMem his]
 
-/-- The integral against `weightedMeasure p` is the weighted sum `∑ x, p x * f x`. -/
+/-- The lower Lebesgue integral against `weightedMeasure p` is the weighted sum
+`∑ x, ENNReal.ofReal (p x) * f x` (negative weights count as `0`). -/
 lemma lintegral_weightedMeasure_eq_sum [MeasurableSingletonClass ι] (p : ι → ℝ) (f : ι → ℝ≥0∞) :
     ∫⁻ x, f x ∂(weightedMeasure p) = ∑ x, ENNReal.ofReal (p x) * f x := by
-  simp only [weightedMeasure, lintegral_finsetSum_measure, lintegral_smul_measure,
-    lintegral_dirac, smul_eq_mul]
+  simp [lintegral_fintype, mul_comm]
 
-/-- For nonnegative weights, the integral of a real function against `weightedMeasure p` is the
-weighted sum `∑ x, p x * f x`. -/
-lemma integral_weightedMeasure_eq_sum [MeasurableSingletonClass ι] (hp : ∀ i, 0 ≤ p i)
-    (f : ι → ℝ) :
-    ∫ x, f x ∂(weightedMeasure p) = ∑ x, p x * f x := by
-  simp only [weightedMeasure]
-  rw [integral_finsetSum_measure fun i _ ↦ (integrable_dirac enorm_lt_top).smul_measure
-    ENNReal.ofReal_ne_top]
-  refine Finset.sum_congr rfl fun i _ ↦ ?_
-  rw [integral_smul_measure, integral_dirac, ENNReal.toReal_ofReal (hp i), smul_eq_mul]
+/-- For nonnegative weights, the integral of a function with values in a Banach space against
+`weightedMeasure p` is the weighted sum `∑ x, p x • f x`. -/
+lemma integral_weightedMeasure_eq_sum {E : Type*} [NormedAddCommGroup E] [NormedSpace ℝ E]
+    [CompleteSpace E] [MeasurableSingletonClass ι] (hp : ∀ i, 0 ≤ p i) (f : ι → E) :
+    ∫ x, f x ∂(weightedMeasure p) = ∑ x, p x • f x := by
+  rw [integral_fintype Integrable.of_finite]
+  simp [measureReal_weightedMeasure_singleton hp]
 
 /-- The map `p ↦ weightedMeasure p` is measurable. -/
 lemma measurable_weightedMeasure : Measurable (weightedMeasure (ι := ι)) := by

@@ -6,6 +6,7 @@ Authors: Rémy Degenne
 module
 
 public import LMLExplore.MeasureTheory.Measure.Weighted
+public import LMLExplore.Probability.HasCondDistrib
 public import LeanMachineLearning.SequentialLearning.Algorithm
 
 /-!
@@ -27,14 +28,20 @@ policies [LS, Algorithms 9, 10 and 11].
 ## Main statements
 
 In the namespace `LMLExplore.Bandits.WeightAlgorithm`, for a run of `weightAlgorithm w …`:
-* `hasCondDistrib_action`: the run lemma, the conditional law of the action of round `n` given the
-  history and the observation is `weightedMeasure (w n (h, o))`;
-* `measure_preimage_inter_action_eq`: in integral form, for a measurable set `s` of pasts and an
-  arm `a`, `P(past ∈ s, A n = a) = ∫_{past ∈ s} w n (past) a dP`;
+* `measure_preimage_inter_action_eq`: the run lemma in integral form, for a measurable set `s` of
+  pasts and an arm `a`, `P(past ∈ s, A n = a) = ∫_{past ∈ s} w n (past) a dP`;
 * `measure_action_eq`: `P(A n = a) = E[w n (past) a]`.
+
+The conditional law of the action of round `n` given the past is
+`(weightAlgorithm w …).policy n = weightKernel (w n) _`, by LML's
+`IsAlgEnvSeq.hasCondDistrib_action` and `weightAlgorithm_policy`.
+
+## References
+
+* [LS] T. Lattimore and Cs. Szepesvári, *Bandit Algorithms*, Cambridge University Press, 2020.
 -/
 
-@[expose] public section
+public section
 
 open MeasureTheory ProbabilityTheory Learning
 open scoped ENNReal
@@ -52,7 +59,7 @@ noncomputable def weightKernel {X : Type*} [MeasurableSpace X] (w : X → α →
 @[simp]
 lemma weightKernel_apply {X : Type*} [MeasurableSpace X] (w : X → α → ℝ)
     (hw : ∀ a, Measurable fun x ↦ w x a) (x : X) :
-    weightKernel w hw x = weightedMeasure (w x) := rfl
+    weightKernel w hw x = weightedMeasure (w x) := (rfl)
 
 /-- The kernel of probability vectors is a Markov kernel. -/
 lemma isMarkovKernel_weightKernel {X : Type*} [MeasurableSpace X] {w : X → α → ℝ}
@@ -74,21 +81,13 @@ variable {w : (n : ℕ) → Hist 𝓞 α 𝓨 n × 𝓞 → α → ℝ} {hw : �
 
 @[simp]
 lemma weightAlgorithm_policy (n : ℕ) :
-    (weightAlgorithm w hw hw0 hw1).policy n = weightKernel (w n) (hw n) := rfl
+    (weightAlgorithm w hw hw0 hw1).policy n = weightKernel (w n) (hw n) := (rfl)
 
 namespace WeightAlgorithm
 
 variable [MeasurableSingletonClass α] {Ω : Type*} {mΩ : MeasurableSpace Ω} {P : Measure Ω}
   [IsFiniteMeasure P] {O : ℕ → Ω → 𝓞} {A : ℕ → Ω → α} {Y : ℕ → Ω → 𝓨}
   {env : Environment 𝓞 α 𝓨}
-
-omit [MeasurableSingletonClass α] in
-/-- The run lemma: along a run of a weight-based algorithm, the conditional law of the action of
-round `n` given the history and the observation is the weighted measure of the weights. -/
-lemma hasCondDistrib_action (h : IsAlgEnvSeq O A Y (weightAlgorithm w hw hw0 hw1) env P)
-    (n : ℕ) :
-    HasCondDistrib (A n) (fun ω ↦ (history O A Y n ω, O n ω)) (weightKernel (w n) (hw n)) P :=
-  h.hasCondDistrib_action n
 
 /-- Along a run of a weight-based algorithm, for a measurable set `s` of pasts (history and
 observation) of round `n` and an arm `a`, `P(past ∈ s, A n = a) = ∫_{past ∈ s} w n (past) a dP`:
@@ -98,21 +97,9 @@ lemma measure_preimage_inter_action_eq (h : IsAlgEnvSeq O A Y (weightAlgorithm w
     P ((fun ω ↦ (history O A Y n ω, O n ω)) ⁻¹' s ∩ A n ⁻¹' {a}) =
       ∫⁻ ω in (fun ω ↦ (history O A Y n ω, O n ω)) ⁻¹' s,
         ENNReal.ofReal (w n (history O A Y n ω, O n ω) a) ∂P := by
-  have := isMarkovKernel_weightKernel (hw n) (hw0 n) (hw1 n)
-  set X := fun ω ↦ (history O A Y n ω, O n ω) with hX_def
-  have hX : Measurable X := (h.measurable_history n).prodMk (h.measurable_obs n)
-  have hXA : Measurable fun ω ↦ (X ω, A n ω) := hX.prodMk (h.measurable_action n)
-  calc P (X ⁻¹' s ∩ A n ⁻¹' {a})
-      = P.map (fun ω ↦ (X ω, A n ω)) (s ×ˢ {a}) := by
-        rw [Measure.map_apply hXA (hs.prod (measurableSet_singleton a))]
-        rfl
-    _ = (P.map X ⊗ₘ weightKernel (w n) (hw n)) (s ×ˢ {a}) := by
-        rw [(hasCondDistrib_action h n).map_eq]
-    _ = ∫⁻ x in s, weightKernel (w n) (hw n) x {a} ∂(P.map X) :=
-        Measure.compProd_apply_prod hs (measurableSet_singleton a)
-    _ = ∫⁻ x in s, ENNReal.ofReal (w n x a) ∂(P.map X) := by simp
-    _ = ∫⁻ ω in X ⁻¹' s, ENNReal.ofReal (w n (X ω) a) ∂P :=
-        setLIntegral_map hs (ENNReal.measurable_ofReal.comp (hw n a)) hX
+  rw [(h.hasCondDistrib_action n).measure_preimage_inter_eq_setLIntegral hs
+    (measurableSet_singleton a)]
+  simp
 
 /-- Along a run of a weight-based algorithm, the probability of playing `a` at round `n` is the
 expectation of its weight: `P(A n = a) = E[w n (past) a]`. -/
