@@ -114,6 +114,11 @@ theorem klBer_self (p : ℝ) : klBer p p = 0 := by
 theorem klBerReal_self (p : ℝ) : klBerReal p p = 0 := by
   simp [klBerReal_def]
 
+/-- `d(1, q) = -log q`. -/
+@[simp]
+theorem klBerReal_one_left (q : ℝ) : klBerReal 1 q = -log q := by
+  simp [klBerReal_def]
+
 /-- For `p, q ∈ [0, 1]`, `klBer p q` is finite if and only if `p` vanishes when `q` does and
 `p = 1` when `q = 1`. -/
 theorem klBer_ne_top_iff (hp : p ∈ Set.Icc 0 1) (hq : q ∈ Set.Icc 0 1) :
