@@ -54,6 +54,7 @@ lemma integrable_sub_sq_gaussianReal (c : ℝ) :
   ((memLp_id_gaussianReal 2).sub (memLp_const c)).integrable_sq
 
 /-- The second moment of `𝒩(μ, v)` around any point `c` is `v + (μ - c) ^ 2`. -/
+@[simp]
 lemma integral_sub_sq_gaussianReal (c : ℝ) :
     ∫ x, (x - c) ^ 2 ∂gaussianReal μ v = v + (μ - c) ^ 2 := by
   -- Translate by `c`, then use `Var[X] = 𝔼[X ^ 2] - 𝔼[X] ^ 2` for `X ∼ 𝒩(μ - c, v)`.
@@ -75,7 +76,7 @@ lemma gaussianReal_absolutelyContinuous_gaussianReal (hv₁ : v₁ ≠ 0) (hv₂
 
 /-- The Radon-Nikodym derivative of `𝒩(μ₁, v₁)` with respect to `𝒩(μ₂, v₂)`, for `v₂ ≠ 0`, is
 Lebesgue-almost everywhere the ratio of their densities. -/
-lemma rnDeriv_gaussianReal_gaussianReal (μ₁ : ℝ) (v₁ : ℝ≥0) (hv₂ : v₂ ≠ 0) :
+lemma rnDeriv_gaussianReal_gaussianReal (μ₁ : ℝ) (v₁ : ℝ≥0) (μ₂ : ℝ) (hv₂ : v₂ ≠ 0) :
     (gaussianReal μ₁ v₁).rnDeriv (gaussianReal μ₂ v₂) =ᵐ[volume]
       fun x ↦ (gaussianPDF μ₂ v₂ x)⁻¹ * gaussianPDF μ₁ v₁ x := by
   rw [gaussianReal_of_var_ne_zero μ₂ hv₂]

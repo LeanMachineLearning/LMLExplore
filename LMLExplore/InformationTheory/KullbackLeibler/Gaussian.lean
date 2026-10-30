@@ -45,7 +45,7 @@ everywhere, the quadratic polynomial
 lemma llr_gaussianReal_gaussianReal (hv₁ : v₁ ≠ 0) (hv₂ : v₂ ≠ 0) :
     llr (gaussianReal μ₁ v₁) (gaussianReal μ₂ v₂) =ᵐ[volume] fun x ↦
       log (v₂ / v₁) / 2 + (x - μ₂) ^ 2 / (2 * v₂) - (x - μ₁) ^ 2 / (2 * v₁) := by
-  filter_upwards [rnDeriv_gaussianReal_gaussianReal μ₁ v₁ (μ₂ := μ₂) hv₂] with x hx
+  filter_upwards [rnDeriv_gaussianReal_gaussianReal μ₁ v₁ μ₂ hv₂] with x hx
   have hv₁' : (0 : ℝ) < v₁ := by positivity
   have hv₂' : (0 : ℝ) < v₂ := by positivity
   have h₁ := gaussianPDFReal_pos μ₁ v₁ x hv₁
