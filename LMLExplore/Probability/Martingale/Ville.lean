@@ -63,8 +63,7 @@ theorem maximal_ineq (hf : Supermartingale f 𝒢 μ) (hnonneg : ∀ n, 0 ≤ᵐ
   have hstop : μ[stoppedValue f τ] ≤ μ[f 0] := by
     have h := hf.neg.expected_stoppedValue_mono (isStoppingTime_const 𝒢 0) hτ
       (fun _ ↦ WithTop.coe_le_coe.2 (Nat.zero_le _)) hτ_le
-    have hneg : stoppedValue (-f) τ = -stoppedValue f τ := by ext; simp [stoppedValue]
-    rwa [stoppedValue_const, hneg, Pi.neg_apply, integral_neg', integral_neg', neg_le_neg_iff] at h
+    simpa [stoppedValue, integral_neg] using h
   have hnonneg_stop : 0 ≤ᵐ[μ] stoppedValue f τ := by
     filter_upwards [ae_all_iff.2 hnonneg] with ω hω using hω _
   calc ε * μ {ω | (ε : ℝ) ≤ (range (n + 1)).sup' nonempty_range_add_one fun k ↦ f k ω}
@@ -100,9 +99,8 @@ theorem measure_exists_le_le (hf : Supermartingale f 𝒢 μ) (hnonneg : ∀ n, 
       (sup'_mono _ (range_subset_range.2 (Nat.succ_le_succ hmn)) nonempty_range_add_one)
   rw [hset, hmono.measure_iUnion]
   refine iSup_le fun n ↦ ?_
-  have hc0 : (c : ℝ≥0∞) ≠ 0 := by exact_mod_cast hc.ne'
-  rw [ENNReal.ofReal_div_of_pos hc, ENNReal.ofReal_coe_nnreal,
-    ENNReal.le_div_iff_mul_le (Or.inl hc0) (Or.inl ENNReal.coe_ne_top), mul_comm]
-  exact hf.maximal_ineq hnonneg c n
+  rw [ENNReal.ofReal_div_of_pos hc]
+  refine (ENNReal.le_div_iff_mul_le (.inl (by simpa using hc.ne')) (by simp)).2 ?_
+  simpa [mul_comm] using hf.maximal_ineq hnonneg c n
 
 end MeasureTheory.Supermartingale
