@@ -15,7 +15,8 @@ regularization parameter `λ > 0`, the *ridge estimate* after `t` observations i
 `θ̂_t = V_t⁻¹ ∑_{s < t} y s • x s`, where `V_t = designOp λ x t`. It is the unique minimizer of
 the regularized squared loss `L_t(θ) = ∑_{s < t} (y s - ⟪θ, x s⟫)² + λ ‖θ‖²`; more precisely,
 `L_t(θ) = L_t(θ̂_t) + ⟪θ - θ̂_t, V_t (θ - θ̂_t)⟫`. In the linear model `y s = ⟪θ, x s⟫ + η s`, its
-error is `θ̂_t - θ = V_t⁻¹ (∑_{s < t} η s • x s - λ • θ)`.
+error is `θ̂_t - θ = V_t⁻¹ (∑_{s < t} η s • x s - λ • θ)`, so that
+`‖θ̂_t - θ‖_{V_t} ≤ √λ ‖θ‖ + ‖∑_{s < t} η s • x s‖_{V_t⁻¹}`, with `‖v‖_V = √⟪v, V v⟫`.
 
 ## Main definitions
 
@@ -31,9 +32,18 @@ error is `θ̂_t - θ = V_t⁻¹ (∑_{s < t} η s • x s - λ • θ)`.
   unique minimizer of `L_t` [LS, (19.4)–(19.6)].
 * `LMLExplore.ridgeEstimate_sub_eq`: the error `θ̂_t - θ = V_t⁻¹ (∑_{s < t} η s • x s - λ • θ)`
   in the linear model.
+* `LMLExplore.sqrt_inner_ridgeEstimate_sub_le`: the bound
+  `‖θ̂_t - θ‖_{V_t} ≤ √λ ‖θ‖ + ‖∑_{s < t} η s • x s‖_{V_t⁻¹}` in the linear model, the
+  deterministic part of the confidence ellipsoids of ridge regression.
+
+The bound `sqrt_inner_ridgeEstimate_sub_le` follows the matrix version
+`sqrt_mahalanobisSq_sub_ridgeEstimate_le` of the LMLPapers project (Rémy Degenne,
+<https://github.com/LeanMachineLearning/LMLPapers>), restated here for operators with a new proof.
 
 ## References
 
+* Y. Abbasi-Yadkori, D. Pál and Cs. Szepesvári, *Improved algorithms for linear stochastic
+  bandits*, NeurIPS 2011, proof of Theorem 2.
 * T. Lattimore and Cs. Szepesvári, *Bandit Algorithms*, Cambridge University Press, 2020,
   Section 19.3 and the proof of Theorem 20.5.
 -/
@@ -133,5 +143,27 @@ theorem ridgeEstimate_sub_eq (hlam : 0 < lam) (x : ℕ → E) {y η : ℕ → �
     abel
   rw [ridgeEstimate, hb, map_add,
     (designOp lam x t).ringInverse_apply_apply (isUnit_designOp hlam x t), add_sub_cancel_left]
+
+/-- **Deterministic confidence bound** in the linear model `y s = ⟪θ, x s⟫ + η s`: for `λ > 0`,
+`‖θ̂_t - θ‖_{V_t} ≤ √λ ‖θ‖ + ‖S_t‖_{V_t⁻¹}`, where `S_t = ∑_{s < t} η s • x s`. -/
+theorem sqrt_inner_ridgeEstimate_sub_le (hlam : 0 < lam) (x : ℕ → E) {y η : ℕ → ℝ} (θ : E)
+    (t : ℕ) (hy : ∀ s, y s = ⟪θ, x s⟫_ℝ + η s) :
+    √⟪ridgeEstimate lam x y t - θ, designOp lam x t (ridgeEstimate lam x y t - θ)⟫_ℝ ≤
+      √lam * ‖θ‖ + √⟪∑ s ∈ range t, η s • x s,
+        Ring.inverse (designOp lam x t) (∑ s ∈ range t, η s • x s)⟫_ℝ := by
+  set V := designOp lam x t
+  set S := ∑ s ∈ range t, η s • x s
+  -- `‖θ̂_t - θ‖_{V_t} = ‖S_t - λ θ‖_{V_t⁻¹}`, then the triangle inequality for `‖·‖_{V_t⁻¹}`
+  have heq : ⟪ridgeEstimate lam x y t - θ, V (ridgeEstimate lam x y t - θ)⟫_ℝ =
+      ⟪-(lam • θ) + S, Ring.inverse V (-(lam • θ) + S)⟫_ℝ := by
+    rw [ridgeEstimate_sub_eq hlam x θ t hy, V.apply_ringInverse_apply (isUnit_designOp hlam x t),
+      real_inner_comm, neg_add_eq_sub]
+  have hθ : √⟪-(lam • θ), Ring.inverse V (-(lam • θ))⟫_ℝ ≤ √lam * ‖θ‖ := by
+    rw [Real.sqrt_le_left (by positivity), map_neg, inner_neg_neg, map_smul, inner_smul_left,
+      inner_smul_right, mul_pow, Real.sq_sqrt hlam.le, RCLike.conj_to_real]
+    nlinarith [mul_inner_ringInverse_designOp_apply_le hlam x t θ]
+  rw [heq]
+  exact ((isPositive_designOp hlam.le x t).ringInverse.sqrt_inner_add_le _ _).trans
+    (add_le_add_left hθ _)
 
 end LMLExplore

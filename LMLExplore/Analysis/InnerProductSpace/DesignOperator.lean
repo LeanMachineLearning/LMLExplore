@@ -30,19 +30,24 @@ for positive `V` by `ContinuousLinearMap.IsPositive.ringInverse`.
   `LMLExplore.mul_norm_sq_le_inner_designOp_apply`: `λ ‖v‖² ≤ ⟪v, V_t(λ) v⟫`.
 * `LMLExplore.isUnit_designOp`: in a complete space (in particular in finite dimension),
   `V_t(λ)` is invertible for `λ > 0`.
+* `LMLExplore.mul_inner_ringInverse_designOp_apply_le`: `λ ‖v‖²_{V_t⁻¹} ≤ ‖v‖²` for `λ > 0`.
 * `LMLExplore.ringInverse_designOp_succ`: the rank-one update of the inverse
   (Sherman–Morrison formula).
 * `LMLExplore.det_designOp_succ`: `det V_{t+1} = det V_t * (1 + ‖x t‖²_{V_t⁻¹})`, and
   `LMLExplore.det_designOp_eq_mul_prod`: `det V_t = λ ^ d * ∏_{s < t} (1 + ‖x s‖²_{V_s⁻¹})`.
+* `LMLExplore.trace_designOp`: `trace V_t(λ) = λ d + ∑_{s < t} ‖x s‖²`, and
+  `LMLExplore.det_designOp_div_pow_le`: if `‖x s‖ ≤ L` for `s < t`, then
+  `det V_t(λ) / λ ^ d ≤ (1 + t L² / (λ d)) ^ d` [LS, (20.9)].
 
-The design operator and its determinant recursion `det_designOp_succ` follow the matrix
-versions `regGram` and `det_regGram_succ` of the LMLPapers project (Rémy Degenne,
+The design operator, its determinant recursion `det_designOp_succ` and the bound
+`det_designOp_div_pow_le` follow the matrix versions `regGram`, `det_regGram_succ` and
+`log_det_regGram_le` of the LMLPapers project (Rémy Degenne,
 <https://github.com/LeanMachineLearning/LMLPapers>), restated here for operators with new proofs.
 
 ## References
 
 * T. Lattimore and Cs. Szepesvári, *Bandit Algorithms*, Cambridge University Press, 2020,
-  Section 19.2 and equation (19.9).
+  Section 19.2 and equations (19.9) and (20.9).
 -/
 
 public section
@@ -109,6 +114,26 @@ theorem isUnit_designOp [CompleteSpace E] (hlam : 0 < lam) (x : ℕ → E) (t : 
   rw [real_inner_comm, mul_comm]
   exact (mul_norm_sq_le_inner_designOp_apply lam x t v).trans (Real.le_norm_self _)
 
+/-- For `λ > 0`, `λ ‖v‖²_{V_t⁻¹} ≤ ‖v‖²`, that is `V_t(λ)⁻¹ ≤ λ⁻¹ • 1`. -/
+theorem mul_inner_ringInverse_designOp_apply_le (hlam : 0 < lam) (x : ℕ → E) (t : ℕ) (v : E) :
+    lam * ⟪v, Ring.inverse (designOp lam x t) v⟫_ℝ ≤ ‖v‖ ^ 2 := by
+  by_cases hV : IsUnit (designOp lam x t)
+  swap
+  · simp [Ring.inverse_non_unit _ hV]
+  set u := Ring.inverse (designOp lam x t) v
+  have hu : designOp lam x t u = v := (designOp lam x t).apply_ringInverse_apply hV v
+  -- `λ ‖u‖² ≤ ⟪u, V u⟫ = ⟪u, v⟫ ≤ ‖u‖ ‖v‖`, hence `λ ‖u‖ ≤ ‖v‖` and `λ ⟪v, u⟫ ≤ ‖v‖²`
+  have h1 := mul_norm_sq_le_inner_designOp_apply lam x t u
+  rw [hu] at h1
+  have h2 : ⟪u, v⟫_ℝ ≤ ‖u‖ * ‖v‖ := real_inner_le_norm u v
+  have h3 : lam * ‖u‖ ≤ ‖v‖ := by
+    rcases (norm_nonneg u).eq_or_lt with h | h
+    · rw [← h, mul_zero]
+      exact norm_nonneg v
+    · nlinarith
+  rw [real_inner_comm]
+  nlinarith [norm_nonneg v, norm_nonneg u]
+
 /-- **Sherman–Morrison formula** for the design operator: for `λ > 0`,
 `V_{t+1}⁻¹ = V_t⁻¹ - (1 + ‖x t‖²_{V_t⁻¹})⁻¹ • (V_t⁻¹ x t) ⊗ (V_t⁻¹ x t)`. -/
 theorem ringInverse_designOp_succ [CompleteSpace E] (hlam : 0 < lam) (x : ℕ → E) (t : ℕ) :
@@ -149,5 +174,35 @@ theorem det_designOp_pos [FiniteDimensional ℝ E] (hlam : 0 < lam) (x : ℕ →
   rw [det_designOp_eq_mul_prod hlam]
   exact mul_pos (pow_pos hlam _)
     (prod_pos fun s _ ↦ (isPositive_designOp hlam.le x s).one_add_inner_ringInverse_pos _)
+
+/-- The trace of the design operator: `trace V_t(λ) = λ d + ∑_{s < t} ‖x s‖²`. -/
+theorem trace_designOp [FiniteDimensional ℝ E] (lam : ℝ) (x : ℕ → E) (t : ℕ) :
+    LinearMap.trace ℝ E (designOp lam x t : E →ₗ[ℝ] E) =
+      lam * finrank ℝ E + ∑ s ∈ range t, ‖x s‖ ^ 2 := by
+  simp [designOp, map_sum, InnerProductSpace.trace_rankOne]
+
+/-- For `λ ≥ 0`, `det V_t(λ) ≤ (λ + (∑_{s < t} ‖x s‖²) / d) ^ d`. -/
+theorem det_designOp_le [FiniteDimensional ℝ E] (hlam : 0 ≤ lam) (x : ℕ → E) (t : ℕ) :
+    LinearMap.det (designOp lam x t : E →ₗ[ℝ] E) ≤
+      (lam + (∑ s ∈ range t, ‖x s‖ ^ 2) / finrank ℝ E) ^ finrank ℝ E := by
+  refine (isPositive_designOp hlam x t).det_le_trace_div_finrank_pow.trans_eq ?_
+  rcases (finrank ℝ E).eq_zero_or_pos with hd | hd
+  · simp [hd]
+  · rw [trace_designOp, add_div, mul_div_cancel_right₀ _ (by positivity)]
+
+/-- [LS, (20.9)]: for `λ > 0`, if `‖x s‖ ≤ L` for all `s < t`, then
+`det V_t(λ) / λ ^ d ≤ (1 + t L² / (λ d)) ^ d`. -/
+theorem det_designOp_div_pow_le [FiniteDimensional ℝ E] (hlam : 0 < lam) (x : ℕ → E) {t : ℕ} {L : ℝ}
+    (hx : ∀ s < t, ‖x s‖ ≤ L) :
+    LinearMap.det (designOp lam x t : E →ₗ[ℝ] E) / lam ^ finrank ℝ E ≤
+      (1 + t * L ^ 2 / (lam * finrank ℝ E)) ^ finrank ℝ E := by
+  have hsum : ∑ s ∈ range t, ‖x s‖ ^ 2 ≤ t * L ^ 2 := by
+    calc ∑ s ∈ range t, ‖x s‖ ^ 2 ≤ ∑ s ∈ range t, L ^ 2 :=
+          sum_le_sum fun s hs ↦ pow_le_pow_left₀ (norm_nonneg _) (hx s (mem_range.1 hs)) 2
+      _ = t * L ^ 2 := by simp
+  rw [div_le_iff₀ (pow_pos hlam _), ← mul_pow]
+  refine (det_designOp_le hlam.le x t).trans (pow_le_pow_left₀ (by positivity) ?_ _)
+  rw [one_add_mul, div_mul_eq_mul_div, mul_comm lam, mul_div_mul_right _ _ hlam.ne']
+  gcongr
 
 end LMLExplore
