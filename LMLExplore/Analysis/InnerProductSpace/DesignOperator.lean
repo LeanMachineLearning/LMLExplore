@@ -117,7 +117,7 @@ theorem ringInverse_designOp_succ [CompleteSpace E] (hlam : 0 < lam) (x : ℕ �
         rankOne ℝ (Ring.inverse (designOp lam x t) (x t))
           (Ring.inverse (designOp lam x t) (x t)) := by
   rw [designOp_succ]
-  exact ringInverse_add_rankOne (isUnit_designOp hlam x t)
+  exact ringInverse_add_rankOne_of_isSymmetric (isUnit_designOp hlam x t)
     (isPositive_designOp hlam.le x t).isSymmetric (x t) (x t) (add_pos_of_pos_of_nonneg one_pos
       ((isPositive_designOp hlam.le x t).ringInverse.inner_nonneg_right _)).ne'
 
