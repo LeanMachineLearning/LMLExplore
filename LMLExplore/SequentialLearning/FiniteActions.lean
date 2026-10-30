@@ -16,6 +16,9 @@ Facts about LML's `pullCount` that hold for any sequence of actions `A : ℕ →
 
 * `pullCount_eq_zero_iff`, `pullCount_eq_one_iff`: characterisations of an arm pulled zero times
   and exactly once before a given round.
+* `sum_range_ite_action_eq`: a sum over the rounds that play arm `a` of a function of the number
+  of previous pulls of `a` is the sum of that function over the pull counts
+  `0, …, pullCount A a n - 1`.
 * `exists_pullCount_eq_zero_of_lt_card`: before round `Fintype.card α`, some arm has not been
   pulled yet.
 * `pullCount_card_eq_one_of_forall_pullCount_action_eq_zero`: if each of the first
@@ -40,6 +43,18 @@ played it. -/
 lemma pullCount_eq_one_iff :
     pullCount A a n ω = 1 ↔ ∃ s < n, A s ω = a ∧ ∀ t < n, A t ω = a → t = s := by
   simp [pullCount, card_eq_one, eq_singleton_iff_unique_mem, and_assoc]
+
+/-- The rounds `t < n` that play arm `a` see the pull counts `pullCount A a t ω = 0, 1, …,
+pullCount A a n ω - 1`, each exactly once. Hence a sum over those rounds of a function of the
+number of previous pulls of `a` is the sum of that function over `range (pullCount A a n ω)`. -/
+lemma sum_range_ite_action_eq {M : Type*} [AddCommMonoid M] (f : ℕ → M) (a : α) (n : ℕ) (ω : Ω) :
+    ∑ t ∈ range n, (if A t ω = a then f (pullCount A a t ω) else 0) =
+      ∑ j ∈ range (pullCount A a n ω), f j := by
+  induction n with
+  | zero => simp
+  | succ n ih =>
+    rw [sum_range_succ, ih, pullCount_add_one]
+    split_ifs <;> simp [sum_range_succ]
 
 variable [Fintype α]
 
