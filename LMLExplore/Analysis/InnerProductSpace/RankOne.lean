@@ -21,7 +21,9 @@ invertible operator `V`, in terms of `V⁻¹ = Ring.inverse V`.
 * `LMLExplore.det_one_add_rankOne`: the **matrix determinant lemma**
   `det (1 + rankOne 𝕜 u v) = 1 + ⟪v, u⟫`, in finite dimension.
 * `LMLExplore.det_add_rankOne`: for invertible `V`,
-  `det (V + rankOne 𝕜 u v) = det V * (1 + ⟪v, V⁻¹ u⟫)`.
+  `det (V + rankOne 𝕜 u v) = det V * (1 + ⟪v, V⁻¹ u⟫)`, and
+  `LMLExplore.det_eq_mul_prod_of_add_rankOne`: for a sequence of invertible rank-one updates
+  `V (t + 1) = V t + rankOne 𝕜 (u t) (v t)`, `det V_t = det V_0 * ∏_{s < t} (1 + ⟪v s, V_s⁻¹ u s⟫)`.
 * `LMLExplore.isUnit_add_rankOne`: for an invertible `V` with `1 + ⟪v, V⁻¹ u⟫ ≠ 0`,
   `V + rankOne 𝕜 u v` is invertible.
 * `LMLExplore.ringInverse_add_rankOne`: the **Sherman–Morrison formula** for an invertible `V`:
@@ -32,7 +34,7 @@ invertible operator `V`, in terms of `V⁻¹ = Ring.inverse V`.
 
 public section
 
-open ContinuousLinearMap InnerProductSpace
+open ContinuousLinearMap InnerProductSpace Finset
 open scoped InnerProductSpace
 
 namespace LMLExplore
@@ -64,6 +66,18 @@ theorem det_add_rankOne [FiniteDimensional 𝕜 E] {V : E →L[𝕜] E} (hV : Is
     simp only [add_apply, mul_apply_eq_comp, one_apply_eq_self, rankOne_apply, map_add, map_smul,
       V.apply_ringInverse_apply hV]
   rw [h, ContinuousLinearMap.toLinearMap_mul, map_mul, det_one_add_rankOne]
+
+/-- For a sequence of invertible operators in finite dimension with rank-one updates
+`V (t + 1) = V t + rankOne 𝕜 (u t) (v t)`,
+`det V_t = det V_0 * ∏_{s < t} (1 + ⟪v s, V_s⁻¹ u s⟫)`. -/
+theorem det_eq_mul_prod_of_add_rankOne [FiniteDimensional 𝕜 E] {V : ℕ → E →L[𝕜] E}
+    {u v : ℕ → E} (hV : ∀ t, V (t + 1) = V t + rankOne 𝕜 (u t) (v t)) (hVu : ∀ t, IsUnit (V t))
+    (t : ℕ) :
+    LinearMap.det (V t : E →ₗ[𝕜] E) =
+      LinearMap.det (V 0 : E →ₗ[𝕜] E) * ∏ s ∈ range t, (1 + ⟪v s, Ring.inverse (V s) (u s)⟫_𝕜) := by
+  induction t with
+  | zero => simp
+  | succ t ih => rw [hV, det_add_rankOne (hVu t), ih, prod_range_succ, mul_assoc]
 
 /-- The operator `V⁻¹ - (1 + ⟪v, V⁻¹ u⟫)⁻¹ • (rankOne 𝕜 (V⁻¹ u) v * V⁻¹)` is a two-sided inverse
 of `V + rankOne 𝕜 u v`, for an invertible `V` with `1 + ⟪v, V⁻¹ u⟫ ≠ 0`. -/
