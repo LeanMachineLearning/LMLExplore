@@ -26,6 +26,14 @@ with Ville's inequality.
   expectations bounded uniformly in `l`; it contains [LS, Lemma 20.3], where `π` is a probability
   measure and every `f l 0` has expectation at most `1`.
 
+## Implementation notes
+
+This file is adapted from `MeasureTheory.supermartingale_integral_of_integrable` and
+`MeasureTheory.supermartingale_integral` in
+`LeanMachineLearning/ForMathlib/Probability/Martingale/Mixture.lean` of the LMLPapers project
+(https://github.com/LeanMachineLearning/LMLPapers). The almost sure convergence corollary proved
+there is not included.
+
 ## References
 
 * T. Lattimore and Cs. Szepesvári, *Bandit Algorithms*, Cambridge University Press (2020),
@@ -42,6 +50,13 @@ namespace LMLExplore
 variable {Ω L : Type*} {mΩ : MeasurableSpace Ω} {mL : MeasurableSpace L} {μ : Measure Ω}
   {π : Measure L}
 
+/-- The product σ-algebra `m₁ ⊗ m₂` is monotone in `m₂`. -/
+private lemma prod_mono_right {α β : Type*} (m₁ : MeasurableSpace α)
+    {m₂ m₂' : MeasurableSpace β} (h : m₂ ≤ m₂') : m₁.prod m₂ ≤ m₁.prod m₂' := by
+  -- By definition, `m₁.prod m₂ = m₁.comap Prod.fst ⊔ m₂.comap Prod.snd`.
+  unfold MeasurableSpace.prod
+  exact sup_le_sup le_rfl (MeasurableSpace.comap_mono h)
+
 /-- **Mixtures of supermartingales.** Let `(f l)_l` be a family of nonnegative supermartingales
 such that `(l, ω) ↦ f l n ω` is `mL ⊗ ℱ n`-measurable for each `n`, and `π` an s-finite measure
 on the parameter space such that `l ↦ ∫ ω, f l 0 ω ∂μ` is `π`-integrable. Then the mixture
@@ -54,7 +69,7 @@ lemma supermartingale_integral_of_integrable [IsFiniteMeasure μ] [SFinite π]
     Supermartingale (fun n ω ↦ ∫ l, f l n ω ∂π) ℱ μ := by
   set G : ℕ → Ω → ℝ≥0∞ := fun n ω ↦ ∫⁻ l, ENNReal.ofReal (f l n ω) ∂π with hG_def
   have hmeas' : ∀ n, Measurable (fun p : L × Ω ↦ f p.1 n p.2) := fun n ↦
-    (hmeas n).mono (sup_le_sup le_rfl (MeasurableSpace.comap_mono (ℱ.le n))) le_rfl
+    (hmeas n).mono (prod_mono_right mL (ℱ.le n)) le_rfl
   have hsec : ∀ n ω, Measurable (fun l ↦ f l n ω) := fun n ω ↦
     (hmeas' n).comp measurable_prodMk_right
   have hg_eq : ∀ n ω, ∫ l, f l n ω ∂π = (G n ω).toReal := fun n ω ↦
@@ -80,13 +95,15 @@ lemma supermartingale_integral_of_integrable [IsFiniteMeasure μ] [SFinite π]
     refine lt_of_le_of_lt (by simpa using key 0 n (Nat.zero_le n) Set.univ MeasurableSet.univ) ?_
     rw [← setLIntegral_univ, hswap 0 Set.univ MeasurableSet.univ]
     simpa using (hasFiniteIntegral_iff_ofReal (ae_of_all _ fun l ↦
-      integral_nonneg (hf_nonneg l 0))).1 hint.2
+      integral_nonneg (hf_nonneg l 0))).1 hint.hasFiniteIntegral
   have hG_lt : ∀ n, ∀ᵐ ω ∂μ, G n ω < ∞ := fun n ↦ ae_lt_top (hGm n) (hfin n).ne
   have hint' : ∀ n, Integrable (fun ω ↦ ∫ l, f l n ω ∂π) μ := fun n ↦ by
     simp_rw [hg_eq]
     exact integrable_toReal_of_lintegral_ne_top (hGm n).aemeasurable (hfin n).ne
   have hadapt : StronglyAdapted ℱ (fun n ω ↦ ∫ l, f l n ω ∂π) := fun n ↦ by
-    let := ℱ n
+    -- The local instance `ℱ n` on `Ω` makes `integral_prod_left'` conclude
+    -- `ℱ n`-strong measurability.
+    let : MeasurableSpace Ω := ℱ n
     exact (hmeas n).stronglyMeasurable.integral_prod_left'
   refine supermartingale_of_setIntegral_succ_le hadapt hint' fun n s hs ↦ ?_
   simp_rw [hg_eq]
@@ -107,7 +124,7 @@ lemma supermartingale_integral [IsFiniteMeasure μ] [IsFiniteMeasure π]
   obtain ⟨C, hC⟩ := hbdd
   refine supermartingale_integral_of_integrable hf hf_nonneg hmeas ?_
   have hm : Measurable (fun p : L × Ω ↦ f p.1 0 p.2) :=
-    (hmeas 0).mono (sup_le_sup le_rfl (MeasurableSpace.comap_mono (ℱ.le 0))) le_rfl
+    (hmeas 0).mono (prod_mono_right mL (ℱ.le 0)) le_rfl
   refine Integrable.of_bound (C := C)
     hm.stronglyMeasurable.integral_prod_right'.aestronglyMeasurable (ae_of_all _ fun l ↦ ?_)
   rw [Real.norm_of_nonneg (integral_nonneg (hf_nonneg l 0))]
