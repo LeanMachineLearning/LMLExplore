@@ -20,7 +20,7 @@ public import LeanMachineLearning.SequentialLearning.IonescuTulceaSpace
 Let `(κ x)_{x ∈ [b, b + h]}` be a family of reward laws with means `x` and relative entropies
 `D(κ x, κ y) ≤ (x - y)² / (2σ²)`. For `k ≥ 2` arms and a horizon `n ≥ σ² (k - 1) / h²`, every
 algorithm has, on some bandit `(κ (μ a))_a` with `μ ∈ [b, b + h]^k`, an expected regret at least
-`√(σ² (k - 1) n) / 16` [LS, Theorem 15.2, with the constant `1 / 27` there].
+`√(σ² (k - 1) n) / 16` ([LS, Theorem 15.2] has the constant `1 / 27`).
 
 The proof compares two bandits. In the first, an arm `a₁` has mean `b + Δ` and the others `b`;
 some other arm `i` is played at most `n / (k - 1)` times in expectation. In the second, arm `i`
@@ -300,13 +300,14 @@ theorem exists_le_integral_regret_of_klDiv_le [Fintype α] (alg : Algorithm Unit
   · exact ⟨μ₀, hμ₀_mem, (by linarith : √(σ2 * (k - 1) * n) / 16 ≤ R₀)⟩
   · exact ⟨μ₁, hμ₁_mem, (by linarith : √(σ2 * (k - 1) * n) / 16 ≤ R₁)⟩
 
-/-- **Minimax lower bound for Gaussian bandits** ([LS, Theorem 15.2] for `σ² = 1`): for `k ≥ 2`
-arms and `σ² (k - 1) ≤ n`, every algorithm has, on some Gaussian bandit with means in `[0, 1]` and
-variance `σ²`, an expected regret at least `√(σ² (k - 1) n) / 27`. -/
+/-- **Minimax lower bound for Gaussian bandits** ([LS, Theorem 15.2] for `σ² = 1`, with the
+constant `1 / 16` instead of `1 / 27`): for `k ≥ 2` arms and `σ² (k - 1) ≤ n`, every algorithm
+has, on some Gaussian bandit with means in `[0, 1]` and variance `σ²`, an expected regret at least
+`√(σ² (k - 1) n) / 16`. -/
 theorem exists_sqrt_le_integral_regret_gaussianBandit [Fintype α] (alg : Algorithm Unit α ℝ)
     (σ2 : ℝ≥0) (n : ℕ) (hk : 2 ≤ Fintype.card α) (hn : σ2 * (Fintype.card α - 1 : ℝ) ≤ n) :
     ∃ μ : α → ℝ, (∀ a, μ a ∈ Set.Icc 0 1) ∧
-      √(σ2 * (Fintype.card α - 1) * n) / 27 ≤
+      √(σ2 * (Fintype.card α - 1) * n) / 16 ≤
         ∫ ω, regret (gaussianBandit μ σ2) IT.action n ω
           ∂(trajMeasure alg (stationaryEnv (gaussianBandit μ σ2))) := by
   rcases eq_or_ne σ2 0 with rfl | hσ
@@ -319,16 +320,16 @@ theorem exists_sqrt_le_integral_regret_gaussianBandit [Fintype α] (alg : Algori
     Kernel.ext fun a ↦ by rw [gaussianBandit_apply]; rfl
   refine ⟨μ, fun a ↦ by simpa using hμ a, ?_⟩
   simp only [hν]
-  exact le_trans (div_le_div_of_nonneg_left (Real.sqrt_nonneg _) (by norm_num) (by norm_num)) hR
+  exact hR
 
 /-- **Minimax lower bound for Bernoulli bandits**: for `k ≥ 2` arms and `3 (k - 1) ≤ 8 n`, every
 algorithm has, on some Bernoulli bandit with means in `[1 / 4, 3 / 4]`, an expected regret at
-least `√(3 (k - 1) n / 32) / 27`. On `[1 / 4, 3 / 4]`, `d(p, q) ≤ (p - q)² / (q (1 - q))`
+least `√(3 (k - 1) n / 32) / 16`. On `[1 / 4, 3 / 4]`, `d(p, q) ≤ (p - q)² / (q (1 - q))`
 is at most `(p - q)² / (2 σ²)` with `σ² = 3 / 32`. -/
 theorem exists_sqrt_le_integral_regret_bernoulliBandit [Fintype α] (alg : Algorithm Unit α ℝ)
     (n : ℕ) (hk : 2 ≤ Fintype.card α) (hn : 3 * (Fintype.card α - 1 : ℝ) ≤ 8 * n) :
     ∃ p : α → I, (∀ a, (p a : ℝ) ∈ Set.Icc (1 / 4) (3 / 4)) ∧
-      √(3 / 32 * (Fintype.card α - 1) * n) / 27 ≤
+      √(3 / 32 * (Fintype.card α - 1) * n) / 16 ≤
         ∫ ω, regret (bernoulliBandit p) IT.action n ω
           ∂(trajMeasure alg (stationaryEnv (bernoulliBandit p))) := by
   set κ : ℝ → Measure ℝ := fun x ↦ Ber((1 : ℝ), 0, Set.projIcc 0 1 zero_le_one x) with hκ
@@ -357,6 +358,6 @@ theorem exists_sqrt_le_integral_regret_bernoulliBandit [Fintype α] (alg : Algor
     exact ⟨(hμ a).1, by linarith [(hμ a).2]⟩
   · simp only [hν]
     push_cast at hR
-    exact le_trans (div_le_div_of_nonneg_left (Real.sqrt_nonneg _) (by norm_num) (by norm_num)) hR
+    exact hR
 
 end LMLExplore.Bandits
