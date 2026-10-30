@@ -5,16 +5,22 @@ Authors: Rémy Degenne
 -/
 module
 
+public import Mathlib.Analysis.SpecialFunctions.Gaussian.GaussianIntegral
 public import Mathlib.Probability.Distributions.Gaussian.Real
 public import Mathlib.Probability.Moments.SubGaussian
 
 /-!
-# Real Gaussian distributions: log-density, second moments and sub-Gaussianity
+# Real Gaussian distributions: density, second moments and sub-Gaussianity
 
 Complements to Mathlib's `ProbabilityTheory.gaussianReal`:
 
 * `LMLExplore.log_gaussianPDFReal`: the logarithm of the Gaussian density is a quadratic
   polynomial.
+* `LMLExplore.hasDerivAt_gaussianPDFReal`: the derivative of the Gaussian density `φ` is
+  `φ' x = -((x - μ) / v) φ x`.
+* `LMLExplore.gaussianPDFReal_le`, `LMLExplore.tendsto_gaussianPDFReal_atTop`: the Gaussian
+  density is bounded by its value `(√(2π v))⁻¹` at the mean and tends to `0` at `+∞`.
+* `LMLExplore.integrable_sub_mul_gaussianPDFReal`: `x ↦ (x - μ) φ x` is integrable.
 * `LMLExplore.integral_sub_sq_gaussianReal`: for `X ∼ 𝒩(μ, v)` and every `c`,
   `𝔼[(X - c) ^ 2] = v + (μ - c) ^ 2`, with the integrability statement
   `LMLExplore.integrable_sub_sq_gaussianReal`.
@@ -25,14 +31,25 @@ Complements to Mathlib's `ProbabilityTheory.gaussianReal`:
 * `LMLExplore.hasSubgaussianMGF_sub_of_hasLaw_gaussianReal`: a random variable with law `𝒩(μ, v)`
   is `v`-sub-Gaussian around its mean, in the sense of `ProbabilityTheory.HasSubgaussianMGF`.
 
-The first four are the ingredients of the closed form of the relative entropy between Gaussian
-laws; the last shows that Gaussian rewards satisfy the sub-Gaussian noise assumption of Mathlib's
-concentration inequalities.
+The derivative, boundedness, limit and integrability facts about the density are the ingredients
+of the Gaussian tail bounds in `LMLExplore.Probability.Distributions.Gaussian.Tail`.
+`log_gaussianPDFReal`, `integral_sub_sq_gaussianReal`,
+`gaussianReal_absolutelyContinuous_gaussianReal` and `rnDeriv_gaussianReal_gaussianReal` are the
+ingredients of the closed form of the relative entropy between Gaussian laws.
+`hasSubgaussianMGF_sub_of_hasLaw_gaussianReal` shows that Gaussian rewards satisfy the
+sub-Gaussian noise assumption of Mathlib's concentration inequalities.
+
+## Implementation notes
+
+`hasDerivAt_gaussianPDFReal`, `gaussianPDFReal_le` and `tendsto_gaussianPDFReal_atTop` are adapted
+from the LMLPapers project (Rémy Degenne),
+`LMLPapers/LeanMachineLearning/ForMathlib/Probability/Distributions/Gaussian/Real.lean` in
+<https://github.com/LeanMachineLearning/LMLPapers>.
 -/
 
 public section
 
-open MeasureTheory ProbabilityTheory Real
+open MeasureTheory ProbabilityTheory Real Filter Topology
 
 open scoped NNReal
 
@@ -47,6 +64,60 @@ lemma log_gaussianPDFReal (hv : v ≠ 0) (x : ℝ) :
   rw [gaussianPDFReal_def, log_mul (by positivity) (exp_pos _).ne', log_inv,
     log_sqrt (by positivity), log_exp]
   ring
+
+/-- The derivative of the Gaussian density `φ = gaussianPDFReal μ v` is
+`φ' x = -((x - μ) / v) * φ x`. Also true (as `0 = 0`) for `v = 0`. -/
+lemma hasDerivAt_gaussianPDFReal (μ : ℝ) (v : ℝ≥0) (x : ℝ) :
+    HasDerivAt (gaussianPDFReal μ v) (-((x - μ) / v) * gaussianPDFReal μ v x) x := by
+  simp only [gaussianPDFReal]
+  have h : HasDerivAt (fun y ↦ -(y - μ) ^ 2 / (2 * v)) (-(x - μ) / v) x := by
+    refine ((((hasDerivAt_id' x).sub_const μ).fun_pow 2).fun_neg.div_const
+      (2 * (v : ℝ))).congr_deriv ?_
+    norm_num
+    ring
+  refine (h.exp.const_mul (√(2 * π * v))⁻¹).congr_deriv ?_
+  ring
+
+/-- The standard Gaussian density: `φ x = exp (-x² / 2) / √(2π)`. -/
+lemma gaussianPDFReal_zero_one (x : ℝ) :
+    gaussianPDFReal 0 1 x = (√(2 * π))⁻¹ * exp (-x ^ 2 / 2) := by
+  simp [gaussianPDFReal]
+
+/-- The Gaussian density is bounded by its value `(√(2π v))⁻¹` at the mean. -/
+lemma gaussianPDFReal_le (μ : ℝ) (v : ℝ≥0) (x : ℝ) :
+    gaussianPDFReal μ v x ≤ (√(2 * π * v))⁻¹ := by
+  rw [gaussianPDFReal_def]
+  refine mul_le_of_le_one_right (by positivity) (exp_le_one_iff.2 ?_)
+  exact div_nonpos_of_nonpos_of_nonneg (neg_nonpos.2 (sq_nonneg _)) (by positivity)
+
+/-- The Gaussian density tends to `0` at `+∞`. -/
+lemma tendsto_gaussianPDFReal_atTop (μ : ℝ) (v : ℝ≥0) :
+    Tendsto (gaussianPDFReal μ v) atTop (𝓝 0) := by
+  rcases eq_or_ne v 0 with rfl | hv
+  · rw [gaussianPDFReal_zero_var, Pi.zero_def]
+    exact tendsto_const_nhds
+  have hv' : (0 : ℝ) < v := NNReal.coe_pos.2 (pos_iff_ne_zero.2 hv)
+  have h : Tendsto (fun x : ℝ ↦ (x - μ) ^ 2 / (2 * v)) atTop atTop :=
+    ((tendsto_pow_atTop two_ne_zero).comp (tendsto_atTop_add_const_right _ (-μ)
+      tendsto_id)).atTop_div_const (by positivity)
+  have := (tendsto_exp_neg_atTop_nhds_zero.comp h).const_mul (√(2 * π * v))⁻¹
+  rw [mul_zero] at this
+  refine this.congr fun x ↦ ?_
+  simp [gaussianPDFReal_def, neg_div, sub_eq_add_neg]
+
+/-- `x ↦ (x - μ) φ x` is integrable for the Gaussian density `φ = gaussianPDFReal μ v`. -/
+lemma integrable_sub_mul_gaussianPDFReal (μ : ℝ) (v : ℝ≥0) :
+    Integrable (fun x ↦ (x - μ) * gaussianPDFReal μ v x) := by
+  rcases eq_or_ne v 0 with rfl | hv
+  · simp [gaussianPDFReal_zero_var]
+  have hv' : (0 : ℝ) < v := by positivity
+  have : (fun x ↦ (x - μ) * gaussianPDFReal μ v x) =
+      fun x ↦ (√(2 * π * v))⁻¹ * ((x - μ) * exp (-(1 / (2 * v)) * (x - μ) ^ 2)) := by
+    funext x
+    rw [gaussianPDFReal, show -(x - μ) ^ 2 / (2 * v) = -(1 / (2 * v)) * (x - μ) ^ 2 by ring]
+    ring
+  rw [this]
+  exact ((integrable_mul_exp_neg_mul_sq (by positivity)).comp_sub_right μ).const_mul _
 
 /-- The square of the distance to any point is integrable under `𝒩(μ, v)`. -/
 lemma integrable_sub_sq_gaussianReal (c : ℝ) :
