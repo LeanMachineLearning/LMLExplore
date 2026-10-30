@@ -6,6 +6,7 @@ Authors: Rémy Degenne
 module
 
 public import LMLExplore.Bandits.Instances
+public import LMLExplore.Bandits.Regret
 public import LMLExplore.InformationTheory.KullbackLeibler.Bernoulli
 public import LMLExplore.InformationTheory.KullbackLeibler.Gaussian
 public import LMLExplore.Probability.Kernel.Basic
@@ -30,7 +31,6 @@ over the rounds, shows that the two expected regrets add up to at least `Δ n e^
 
 ## Main statements
 
-* `LMLExplore.Bandits.integral_pullCount_eq_sum`: `E[T_a(n)] = ∑_{t < n} P(A t = a)`.
 * `LMLExplore.Bandits.le_integral_regret_add_integral_regret`: the two-bandit inequality.
 * `LMLExplore.Bandits.exists_le_integral_regret_of_klDiv_le`: the minimax lower bound for a family
   of reward laws.
@@ -52,69 +52,13 @@ open scoped ENNReal NNReal unitInterval
 
 namespace LMLExplore.Bandits
 
-variable {α : Type*} [MeasurableSpace α] [MeasurableSingletonClass α]
+variable {α : Type*} [MeasurableSpace α] [StandardBorelSpace α]
 
 section Runs
 
 variable {Ω Ω' : Type*} {mΩ : MeasurableSpace Ω} {mΩ' : MeasurableSpace Ω'}
   {P : Measure Ω} {P' : Measure Ω'} [IsProbabilityMeasure P] [IsProbabilityMeasure P']
   {A : ℕ → Ω → α} {A' : ℕ → Ω' → α} {ν ν' : Kernel α ℝ}
-
-/-- The expected number of pulls of `a` before `n` is `∑_{t < n} P(A t = a)`. -/
-theorem integral_pullCount_eq_sum [DecidableEq α] (hA : ∀ t, Measurable (A t)) (a : α) (n : ℕ) :
-    ∫ ω, (pullCount A a n ω : ℝ) ∂P = ∑ t ∈ range n, P.real (A t ⁻¹' {a}) := by
-  have hs (t : ℕ) : MeasurableSet (A t ⁻¹' {a}) := hA t (measurableSet_singleton a)
-  have h (ω : Ω) : (pullCount A a n ω : ℝ) =
-      ∑ t ∈ range n, (A t ⁻¹' {a}).indicator (fun _ ↦ (1 : ℝ)) ω := by
-    rw [pullCount_eq_sum]
-    push_cast
-    refine sum_congr rfl fun t _ ↦ ?_
-    by_cases hω : A t ω = a <;> simp [hω]
-  simp_rw [h]
-  rw [integral_finsetSum _ fun t _ ↦ (integrable_const (1 : ℝ)).indicator (hs t)]
-  exact sum_congr rfl fun t _ ↦ by rw [integral_indicator_const _ (hs t), smul_eq_mul, mul_one]
-
-/-- The expected numbers of pulls of the arms before `n` add up to `n`. -/
-private lemma sum_integral_pullCount [Fintype α] [DecidableEq α] (hA : ∀ t, Measurable (A t))
-    (n : ℕ) : ∑ a, ∫ ω, (pullCount A a n ω : ℝ) ∂P = n := by
-  rw [← integral_finsetSum _ fun a _ ↦ integrable_pullCount hA a n]
-  simp [← Nat.cast_sum, sum_pullCount]
-
-variable [StandardBorelSpace α]
-
-/-- If every arm other than `a₁` has gap at least `Δ`, the expected regret is at least
-`Δ (n - E[T_{a₁}(n)])`. -/
-theorem mul_sub_integral_pullCount_le_integral_regret [Finite α] [DecidableEq α]
-    (hA : ∀ t, Measurable (A t)) {a₁ : α} {Δ : ℝ} (hΔ : ∀ a ≠ a₁, Δ ≤ gap ν a) (n : ℕ) :
-    Δ * (n - ∫ ω, (pullCount A a₁ n ω : ℝ) ∂P) ≤ ∫ ω, regret ν A n ω ∂P := by
-  have := Fintype.ofFinite α
-  rw [integral_regret_eq_sum_gap_mul_integral_pullCount hA]
-  have hnn (a : α) : 0 ≤ ∫ ω, (pullCount A a n ω : ℝ) ∂P :=
-    integral_nonneg fun _ ↦ Nat.cast_nonneg _
-  calc Δ * (n - ∫ ω, (pullCount A a₁ n ω : ℝ) ∂P)
-      = ∑ a ∈ univ.erase a₁, Δ * ∫ ω, (pullCount A a n ω : ℝ) ∂P := by
-        rw [← mul_sum, ← sum_integral_pullCount (P := P) hA n, ← add_sum_erase _ _ (mem_univ a₁)]
-        ring
-    _ ≤ ∑ a ∈ univ.erase a₁, gap ν a * ∫ ω, (pullCount A a n ω : ℝ) ∂P :=
-        sum_le_sum fun a ha ↦ mul_le_mul_of_nonneg_right (hΔ a (ne_of_mem_erase ha)) (hnn a)
-    _ ≤ ∑ a, gap ν a * ∫ ω, (pullCount A a n ω : ℝ) ∂P :=
-        sum_le_sum_of_subset_of_nonneg (erase_subset _ _)
-          fun a _ _ ↦ mul_nonneg gap_nonneg (hnn a)
-
-omit [MeasurableSingletonClass α] in
-/-- If the arm `a₁` has gap at least `Δ`, the expected regret is at least `Δ E[T_{a₁}(n)]`. -/
-theorem mul_integral_pullCount_le_integral_regret [Finite α] [DecidableEq α]
-    (hA : ∀ t, Measurable (A t)) {a₁ : α} {Δ : ℝ} (hΔ : Δ ≤ gap ν a₁) (n : ℕ) :
-    Δ * ∫ ω, (pullCount A a₁ n ω : ℝ) ∂P ≤ ∫ ω, regret ν A n ω ∂P := by
-  have := Fintype.ofFinite α
-  rw [integral_regret_eq_sum_gap_mul_integral_pullCount hA]
-  have hnn (a : α) : 0 ≤ ∫ ω, (pullCount A a n ω : ℝ) ∂P :=
-    integral_nonneg fun _ ↦ Nat.cast_nonneg _
-  calc Δ * ∫ ω, (pullCount A a₁ n ω : ℝ) ∂P
-      ≤ gap ν a₁ * ∫ ω, (pullCount A a₁ n ω : ℝ) ∂P := mul_le_mul_of_nonneg_right hΔ (hnn a₁)
-    _ ≤ ∑ a, gap ν a * ∫ ω, (pullCount A a n ω : ℝ) ∂P :=
-        single_le_sum (f := fun a ↦ gap ν a * ∫ ω, (pullCount A a n ω : ℝ) ∂P)
-          (fun a _ ↦ mul_nonneg gap_nonneg (hnn a)) (mem_univ a₁)
 
 /-- **Two-bandit inequality.** Run an algorithm against two stationary bandits `ν` and `ν'`. If
 in `ν` every arm other than `a₁` has gap at least `Δ ≥ 0`, and in `ν'` the arm `a₁` has gap at
@@ -145,15 +89,6 @@ theorem le_integral_regret_add_integral_regret [Finite α] {alg : Algorithm Unit
 
 end Runs
 
-omit [MeasurableSingletonClass α] in
-/-- The gap of an arm is at least its difference of mean with any other arm. -/
-private lemma sub_le_gap [Finite α] (ν : Kernel α ℝ) (a j : α) :
-    (ν j)[id] - (ν a)[id] ≤ gap ν a := by
-  rw [gap]
-  exact sub_le_sub_right (le_ciSup (f := fun i ↦ (ν i)[id]) (Set.finite_range _).bddAbove j) _
-
-variable [StandardBorelSpace α]
-
 /-- **Minimax lower bound** for a family of reward laws [LS, Theorem 15.2]: let `κ x` have mean
 `x` for `x ∈ [b, b + h]`, with `D(κ x, κ y) ≤ (x - y)² / (2σ²)` there. For `k ≥ 2` arms and
 `σ² (k - 1) ≤ h² n`, every algorithm has, on some bandit with arm laws `κ (μ a)` and
@@ -169,7 +104,7 @@ theorem exists_le_integral_regret_of_klDiv_le [Fintype α] (alg : Algorithm Unit
         ∫ ω, regret (Kernel.ofFunOfCountable fun a ↦ κ (μ a)) IT.action n ω
           ∂(trajMeasure alg (stationaryEnv (Kernel.ofFunOfCountable fun a ↦ κ (μ a)))) := by
   classical
-  set k := Fintype.card α with hk_def
+  set k := Fintype.card α
   have hk1 : (1 : ℝ) ≤ k - 1 := by
     have : (2 : ℝ) ≤ k := by exact_mod_cast hk
     linarith
@@ -206,25 +141,15 @@ theorem exists_le_integral_regret_of_klDiv_le [Fintype α] (alg : Algorithm Unit
     simp only [hμ₀]
     split_ifs <;> constructor <;> linarith
   set ν₀ : Kernel α ℝ := Kernel.ofFunOfCountable fun a ↦ κ (μ₀ a) with hν₀
-  have hmean₀ (a : α) : (ν₀ a)[id] = μ₀ a := hmean _ (hμ₀_mem a)
+  have hmean₀ (a : α) : (ν₀ a)[id] = μ₀ a := by
+    rw [hν₀, Kernel.ofFunOfCountable_apply]
+    exact hmean _ (hμ₀_mem a)
   set P₀ := trajMeasure alg (stationaryEnv ν₀)
   have hrun₀ := IT.isAlgEnvSeq_trajMeasure alg (stationaryEnv ν₀)
   set R₀ := ∫ ω, regret ν₀ IT.action n ω ∂P₀ with hR₀
   -- an arm `i ≠ a₁` played at most `n / (k - 1)` times in expectation
-  obtain ⟨i, hi, hTi⟩ : ∃ i ∈ univ.erase a₁,
-      ∫ ω, (pullCount IT.action i n ω : ℝ) ∂P₀ ≤ n / (k - 1) := by
-    have hne : (univ.erase a₁).Nonempty := by
-      rw [← card_pos, card_erase_of_mem (mem_univ _), card_univ, ← hk_def]
-      omega
-    refine exists_le_of_sum_le hne ?_
-    have hconst : ∑ _a ∈ univ.erase a₁, (n : ℝ) / (k - 1) = n := by
-      rw [sum_const, card_erase_of_mem (mem_univ _), card_univ, ← hk_def, nsmul_eq_mul,
-        Nat.cast_pred (by omega)]
-      field_simp
-    rw [hconst, ← sum_integral_pullCount (P := P₀) hrun₀.measurable_action n]
-    exact sum_le_sum_of_subset_of_nonneg (erase_subset _ _)
-      fun a _ _ ↦ integral_nonneg fun _ ↦ Nat.cast_nonneg _
-  have hia : i ≠ a₁ := ne_of_mem_erase hi
+  have := Fintype.one_lt_card_iff_nontrivial.1 hk
+  obtain ⟨i, hia, hTi⟩ := exists_ne_integral_pullCount_le (P := P₀) hrun₀.measurable_action a₁ n
   -- the second bandit: arm `i` has mean `b + 2Δ`
   set μ₁ : α → ℝ := Function.update μ₀ i (b + 2 * Δ) with hμ₁
   have hμ₁_mem (a : α) : μ₁ a ∈ Set.Icc b (b + h) := by
@@ -233,45 +158,43 @@ theorem exists_le_integral_regret_of_klDiv_le [Fintype α] (alg : Algorithm Unit
       constructor <;> linarith
     · simpa [hμ₁, Function.update_of_ne ha] using hμ₀_mem a
   set ν₁ : Kernel α ℝ := Kernel.ofFunOfCountable fun a ↦ κ (μ₁ a) with hν₁
-  have hmean₁ (a : α) : (ν₁ a)[id] = μ₁ a := hmean _ (hμ₁_mem a)
+  have hmean₁ (a : α) : (ν₁ a)[id] = μ₁ a := by
+    rw [hν₁, Kernel.ofFunOfCountable_apply]
+    exact hmean _ (hμ₁_mem a)
   set P₁ := trajMeasure alg (stationaryEnv ν₁)
   have hrun₁ := IT.isAlgEnvSeq_trajMeasure alg (stationaryEnv ν₁)
   set R₁ := ∫ ω, regret ν₁ IT.action n ω ∂P₁ with hR₁
   -- the relative entropy between the laws of the histories is at most `1 / 2`
   have hD : klDiv (P₀.map (history IT.obs IT.action IT.feedback n))
       (P₁.map (history IT.obs IT.action IT.feedback n)) ≤ ENNReal.ofReal (1 / 2) := by
-    rw [hrun₀.klDiv_map_history_eq_sum_pullCount hrun₁ n, sum_eq_single i]
-    · have hk' : klDiv (ν₀ i) (ν₁ i) ≤ ENNReal.ofReal ((2 * Δ) ^ 2 / (2 * σ2)) := by
-        have := hkl _ (hμ₀_mem i) _ (hμ₁_mem i)
-        rwa [show μ₀ i - μ₁ i = -(2 * Δ) by simp [hμ₀, hμ₁, hia], neg_sq] at this
-      have hT : ∫⁻ ω, (pullCount IT.action i n ω : ℝ≥0∞) ∂P₀ ≤ ENNReal.ofReal (n / (k - 1)) := by
-        calc ∫⁻ ω, (pullCount IT.action i n ω : ℝ≥0∞) ∂P₀
-            = ENNReal.ofReal (∫ ω, (pullCount IT.action i n ω : ℝ) ∂P₀) := by
-              rw [ofReal_integral_eq_lintegral_ofReal
-                (integrable_pullCount hrun₀.measurable_action i n)
-                (ae_of_all _ fun _ ↦ Nat.cast_nonneg _)]
-              simp
-          _ ≤ ENNReal.ofReal (n / (k - 1)) := ENNReal.ofReal_le_ofReal hTi
-      calc (∫⁻ ω, (pullCount IT.action i n ω : ℝ≥0∞) ∂P₀) * klDiv (ν₀ i) (ν₁ i)
-          ≤ ENNReal.ofReal (n / (k - 1)) * ENNReal.ofReal ((2 * Δ) ^ 2 / (2 * σ2)) :=
-            mul_le_mul' hT hk'
-        _ = ENNReal.ofReal (n / (k - 1) * ((2 * Δ) ^ 2 / (2 * σ2))) :=
-            (ENNReal.ofReal_mul (by positivity)).symm
-        _ = ENNReal.ofReal (1 / 2) := by
-            congr 1
-            have hσ : (σ2 : ℝ) ≠ 0 := by
-              rintro hσ
-              rw [hσ, zero_mul, zero_mul] at hpos
-              exact lt_irrefl _ hpos
-            rw [mul_pow, hΔsq]
-            field_simp
-            ring
-    · intro a _ ha
-      have : ν₁ a = ν₀ a := by
-        change κ (μ₁ a) = κ (μ₀ a)
-        rw [hμ₁, Function.update_of_ne ha]
-      rw [this, klDiv_self, mul_zero]
-    · exact fun h ↦ absurd (mem_univ i) h
+    rw [hrun₀.klDiv_map_history_eq_lintegral_pullCount_mul hrun₁ (i := i) (fun a ha ↦ by
+      simp only [hν₀, hν₁, Kernel.ofFunOfCountable_apply, hμ₁, Function.update_of_ne ha]) n]
+    have hk' : klDiv (ν₀ i) (ν₁ i) ≤ ENNReal.ofReal ((2 * Δ) ^ 2 / (2 * σ2)) := by
+      rw [hν₀, hν₁, Kernel.ofFunOfCountable_apply, Kernel.ofFunOfCountable_apply]
+      have := hkl _ (hμ₀_mem i) _ (hμ₁_mem i)
+      rwa [show μ₀ i - μ₁ i = -(2 * Δ) by simp [hμ₀, hμ₁, hia], neg_sq] at this
+    have hT : ∫⁻ ω, (pullCount IT.action i n ω : ℝ≥0∞) ∂P₀ ≤ ENNReal.ofReal (n / (k - 1)) := by
+      calc ∫⁻ ω, (pullCount IT.action i n ω : ℝ≥0∞) ∂P₀
+          = ENNReal.ofReal (∫ ω, (pullCount IT.action i n ω : ℝ) ∂P₀) := by
+            rw [ofReal_integral_eq_lintegral_ofReal
+              (integrable_pullCount hrun₀.measurable_action i n)
+              (ae_of_all _ fun _ ↦ Nat.cast_nonneg _)]
+            simp
+        _ ≤ ENNReal.ofReal (n / (k - 1)) := ENNReal.ofReal_le_ofReal hTi
+    calc (∫⁻ ω, (pullCount IT.action i n ω : ℝ≥0∞) ∂P₀) * klDiv (ν₀ i) (ν₁ i)
+        ≤ ENNReal.ofReal (n / (k - 1)) * ENNReal.ofReal ((2 * Δ) ^ 2 / (2 * σ2)) :=
+          mul_le_mul' hT hk'
+      _ = ENNReal.ofReal (n / (k - 1) * ((2 * Δ) ^ 2 / (2 * σ2))) :=
+          (ENNReal.ofReal_mul (by positivity)).symm
+      _ = ENNReal.ofReal (1 / 2) := by
+          congr 1
+          have hσ : (σ2 : ℝ) ≠ 0 := by
+            rintro hσ
+            rw [hσ, zero_mul, zero_mul] at hpos
+            exact lt_irrefl _ hpos
+          rw [mul_pow, hΔsq]
+          field_simp
+          ring
   have hDfin := (hD.trans_lt ENNReal.ofReal_lt_top).ne
   have hDle := ENNReal.toReal_le_of_le_ofReal (by norm_num) hD
   -- the gaps
@@ -317,7 +240,7 @@ theorem exists_sqrt_le_integral_regret_gaussianBandit [Fintype α] (alg : Algori
     (b := 0) zero_le_one (σ2 := σ2) (fun x _ ↦ by simp)
     (fun x _ y _ ↦ (klDiv_gaussianReal_gaussianReal_same_var hσ).le) n hk (by simpa using hn)
   have hν : gaussianBandit μ σ2 = Kernel.ofFunOfCountable fun a ↦ gaussianReal (μ a) σ2 :=
-    Kernel.ext fun a ↦ by rw [gaussianBandit_apply]; rfl
+    Kernel.ext fun a ↦ by rw [gaussianBandit_apply, Kernel.ofFunOfCountable_apply]
   refine ⟨μ, fun a ↦ by simpa using hμ a, ?_⟩
   simp only [hν]
   exact hR
@@ -352,7 +275,7 @@ theorem exists_sqrt_le_integral_regret_bernoulliBandit [Fintype α] (alg : Algor
   set p : α → I := fun a ↦ Set.projIcc 0 1 zero_le_one (μ a) with hp
   have hpμ (a : α) : (p a : ℝ) = μ a := by simp [hp, Set.projIcc_of_mem _ (hI _ (hμ a))]
   have hν : bernoulliBandit p = Kernel.ofFunOfCountable fun a ↦ κ (μ a) :=
-    Kernel.ext fun a ↦ by rw [bernoulliBandit_apply]; rfl
+    Kernel.ext fun a ↦ by rw [bernoulliBandit_apply, Kernel.ofFunOfCountable_apply, hκ, hp]
   refine ⟨p, fun a ↦ ?_, ?_⟩
   · rw [hpμ]
     exact ⟨(hμ a).1, by linarith [(hμ a).2]⟩

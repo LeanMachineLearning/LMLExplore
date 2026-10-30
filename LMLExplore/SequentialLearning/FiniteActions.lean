@@ -21,11 +21,15 @@ Facts about LML's `pullCount` that hold for any sequence of actions `A : ℕ →
 * `pullCount_card_eq_one_of_forall_pullCount_action_eq_zero`: if each of the first
   `Fintype.card α` rounds plays an arm not pulled before, then every arm is pulled exactly once
   during those rounds.
+* `integral_pullCount_eq_sum`: `E[T_a(n)] = ∑_{t < n} P(A t = a)`.
+* `sum_integral_pullCount`: the expected numbers of pulls of the arms before `n` add up to `n`.
+* `exists_ne_integral_pullCount_le`: for every arm `a₁`, some other arm is pulled at most
+  `n / (Fintype.card α - 1)` times in expectation before `n`.
 -/
 
 public section
 
-open Finset Learning
+open Finset Learning MeasureTheory
 
 namespace LMLExplore
 
@@ -71,5 +75,61 @@ lemma pullCount_card_eq_one_of_forall_pullCount_action_eq_zero
   obtain ⟨s, hs, rfl⟩ := mem_image.mp (h_univ ▸ mem_univ a)
   exact pullCount_eq_one_iff.mpr
     ⟨s, by simpa using hs, rfl, fun t ht hts ↦ h_inj (by simpa using ht) hs hts⟩
+
+end LMLExplore
+
+namespace LMLExplore
+
+section Integral
+
+variable {α Ω : Type*} [DecidableEq α] [MeasurableSpace α] [MeasurableSingletonClass α]
+  {mΩ : MeasurableSpace Ω} {P : Measure Ω} {A : ℕ → Ω → α}
+
+/-- The expected number of pulls of `a` before `n` is `∑_{t < n} P(A t = a)`. -/
+theorem integral_pullCount_eq_sum [IsFiniteMeasure P] (hA : ∀ t, Measurable (A t)) (a : α)
+    (n : ℕ) : ∫ ω, (pullCount A a n ω : ℝ) ∂P = ∑ t ∈ range n, P.real (A t ⁻¹' {a}) := by
+  have hs (t : ℕ) : MeasurableSet (A t ⁻¹' {a}) := hA t (measurableSet_singleton a)
+  have h (ω : Ω) : (pullCount A a n ω : ℝ) =
+      ∑ t ∈ range n, (A t ⁻¹' {a}).indicator (fun _ ↦ (1 : ℝ)) ω := by
+    rw [pullCount_eq_sum]
+    push_cast
+    refine sum_congr rfl fun t _ ↦ ?_
+    by_cases hω : A t ω = a <;> simp [hω]
+  simp_rw [h]
+  rw [integral_finsetSum _ fun t _ ↦ (integrable_const (1 : ℝ)).indicator (hs t)]
+  exact sum_congr rfl fun t _ ↦ by rw [integral_indicator_const _ (hs t), smul_eq_mul, mul_one]
+
+variable [Fintype α] [IsProbabilityMeasure P]
+
+/-- The expected numbers of pulls of the arms before `n` add up to `n`. -/
+theorem sum_integral_pullCount (hA : ∀ t, Measurable (A t)) (n : ℕ) :
+    ∑ a, ∫ ω, (pullCount A a n ω : ℝ) ∂P = n := by
+  rw [← integral_finsetSum _ fun a _ ↦ integrable_pullCount hA a n]
+  simp [← Nat.cast_sum, sum_pullCount]
+
+/-- For every arm `a₁`, some other arm is pulled at most `n / (Fintype.card α - 1)` times in
+expectation before `n`. -/
+theorem exists_ne_integral_pullCount_le [Nontrivial α] (hA : ∀ t, Measurable (A t)) (a₁ : α)
+    (n : ℕ) : ∃ i ≠ a₁, ∫ ω, (pullCount A i n ω : ℝ) ∂P ≤ n / (Fintype.card α - 1) := by
+  have hk : 1 < Fintype.card α := Fintype.one_lt_card
+  have hne : (univ.erase a₁).Nonempty := by
+    rw [← card_pos, card_erase_of_mem (mem_univ _), card_univ]
+    omega
+  obtain ⟨i, hi, hTi⟩ : ∃ i ∈ univ.erase a₁,
+      ∫ ω, (pullCount A i n ω : ℝ) ∂P ≤ n / (Fintype.card α - 1) := by
+    refine exists_le_of_sum_le hne ?_
+    have hconst : ∑ _a ∈ univ.erase a₁, (n : ℝ) / (Fintype.card α - 1) = n := by
+      rw [sum_const, card_erase_of_mem (mem_univ _), card_univ, nsmul_eq_mul,
+        Nat.cast_pred (by omega)]
+      have : (Fintype.card α : ℝ) - 1 ≠ 0 := by
+        rw [sub_ne_zero]
+        exact_mod_cast hk.ne'
+      field_simp
+    rw [hconst, ← sum_integral_pullCount (P := P) hA n]
+    exact sum_le_sum_of_subset_of_nonneg (erase_subset _ _)
+      fun a _ _ ↦ integral_nonneg fun _ ↦ Nat.cast_nonneg _
+  exact ⟨i, ne_of_mem_erase hi, hTi⟩
+
+end Integral
 
 end LMLExplore
