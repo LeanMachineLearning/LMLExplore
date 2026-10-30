@@ -31,9 +31,13 @@ Complements to Mathlib's `ProbabilityTheory.gaussianReal`:
 * `LMLExplore.hasSubgaussianMGF_sub_of_hasLaw_gaussianReal`: a random variable with law `𝒩(μ, v)`
   is `v`-sub-Gaussian around its mean, in the sense of `ProbabilityTheory.HasSubgaussianMGF`.
 
-The first four are the ingredients of the closed form of the relative entropy between Gaussian
-laws; the last shows that Gaussian rewards satisfy the sub-Gaussian noise assumption of Mathlib's
-concentration inequalities.
+The derivative, boundedness, limit and integrability facts about the density are the ingredients
+of the Gaussian tail bounds in `LMLExplore.Probability.Distributions.Gaussian.Tail`.
+`log_gaussianPDFReal`, `integral_sub_sq_gaussianReal`,
+`gaussianReal_absolutelyContinuous_gaussianReal` and `rnDeriv_gaussianReal_gaussianReal` are the
+ingredients of the closed form of the relative entropy between Gaussian laws.
+`hasSubgaussianMGF_sub_of_hasLaw_gaussianReal` shows that Gaussian rewards satisfy the
+sub-Gaussian noise assumption of Mathlib's concentration inequalities.
 
 ## Implementation notes
 
