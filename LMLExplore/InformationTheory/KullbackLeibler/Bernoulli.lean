@@ -22,7 +22,7 @@ Lai–Robbins lower bound for Bernoulli bandits.
 
 We define `klBer p q : ℝ≥0∞` as `klDiv` of the two Bernoulli laws on `{0, 1} ⊆ ℝ`, so that it
 takes the value `∞` exactly where `d(p, q)` does, and the real-valued `klBerReal p q` by the
-closed form above. The two agree wherever `klBer p q` is finite.
+closed form above. For `p, q ∈ [0, 1]`, the two agree wherever `klBer p q` is finite.
 
 ## Main definitions
 
@@ -33,17 +33,17 @@ closed form above. The two agree wherever `klBer p q` is finite.
 ## Main statements
 
 * `LMLExplore.klDiv_bernoulliMeasure`: `D(Ber(1, 0, p), Ber(1, 0, q)) = klBer p q`.
-* `LMLExplore.klBer_ne_top_iff`: `klBer p q` is finite if and only if `q = 0 → p = 0` and
-  `q = 1 → p = 1`.
-* `LMLExplore.klBer_eq_ofReal_klBerReal`, `LMLExplore.toReal_klBer`: where it is finite,
-  `klBer p q` is given by the closed form `klBerReal p q`.
-* `LMLExplore.klBer_eq_zero_iff`: `klBer p q = 0` if and only if `p = q`.
+* `LMLExplore.klBer_ne_top_iff`: for `p, q ∈ [0, 1]`, `klBer p q` is finite if and only if
+  `q = 0 → p = 0` and `q = 1 → p = 1`.
+* `LMLExplore.klBer_eq_ofReal_klBerReal`, `LMLExplore.toReal_klBer`: for `p, q ∈ [0, 1]`, where it
+  is finite, `klBer p q` is given by the closed form `klBerReal p q`.
+* `LMLExplore.klBer_eq_zero_iff`: for `p, q ∈ [0, 1]`, `klBer p q = 0` if and only if `p = q`.
 * `LMLExplore.klBer_one_sub_one_sub`, `LMLExplore.klBerReal_one_sub_one_sub`:
   `d(1 - p, 1 - q) = d(p, q)`.
 * `LMLExplore.ofReal_two_mul_sq_le_klBer`, `LMLExplore.two_mul_sq_le_klBerReal`: Pinsker's
-  inequality `2 (p - q)² ≤ d(p, q)`.
+  inequality `2 (p - q)² ≤ d(p, q)` for `p, q ∈ [0, 1]`.
 * `LMLExplore.klBer_le_ofReal_sq_sub_div`, `LMLExplore.klBerReal_le_sq_sub_div`: the reverse
-  bound `d(p, q) ≤ (p - q)² / (q (1 - q))` for `q ∈ (0, 1)`.
+  bound `d(p, q) ≤ (p - q)² / (q (1 - q))` for `p ∈ [0, 1]` and `q ∈ (0, 1)`.
 
 ## References
 
@@ -105,7 +105,8 @@ theorem klBer_self (p : ℝ) : klBer p p = 0 := by
 theorem klBerReal_self (p : ℝ) : klBerReal p p = 0 := by
   simp [klBerReal_def]
 
-/-- `klBer p q` is finite if and only if `p` vanishes when `q` does and `p = 1` when `q = 1`. -/
+/-- For `p, q ∈ [0, 1]`, `klBer p q` is finite if and only if `p` vanishes when `q` does and
+`p = 1` when `q = 1`. -/
 theorem klBer_ne_top_iff (hp : p ∈ Set.Icc 0 1) (hq : q ∈ Set.Icc 0 1) :
     klBer p q ≠ ∞ ↔ (q = 0 → p = 0) ∧ (q = 1 → p = 1) := by
   rw [klBer_of_mem_Icc hp hq, klDiv_ne_top_iff,
@@ -113,7 +114,7 @@ theorem klBer_ne_top_iff (hp : p ∈ Set.Icc 0 1) (hq : q ∈ Set.Icc 0 1) :
     bernoulliMeasure_absolutelyContinuous_iff one_ne_zero]
   simp [← Subtype.coe_inj]
 
-/-- `klBer p q = ∞` exactly when `q ∈ {0, 1}` and `p ≠ q`. -/
+/-- For `p, q ∈ [0, 1]`, `klBer p q = ∞` exactly when `q ∈ {0, 1}` and `p ≠ q`. -/
 theorem klBer_eq_top_iff (hp : p ∈ Set.Icc 0 1) (hq : q ∈ Set.Icc 0 1) :
     klBer p q = ∞ ↔ q = 0 ∧ p ≠ 0 ∨ q = 1 ∧ p ≠ 1 := by
   rw [← not_iff_not, ← ne_eq, klBer_ne_top_iff hp hq]
@@ -126,7 +127,7 @@ theorem klBer_ne_top (hq : q ∈ Set.Ioo 0 1) : klBer p q ≠ ∞ := by
     (fun h ↦ absurd (congrArg Subtype.val h) hq.1.ne')
     (fun h ↦ absurd (congrArg Subtype.val h) hq.2.ne), integrable_bernoulliMeasure _ _ _ _⟩
 
-/-- Where it is finite, the real part of `klBer p q` is the closed form
+/-- For `p, q ∈ [0, 1]`, where it is finite, the real part of `klBer p q` is the closed form
 `klBerReal p q = p log (p / q) + (1 - p) log ((1 - p) / (1 - q))`. -/
 theorem toReal_klBer (hp : p ∈ Set.Icc 0 1) (hq : q ∈ Set.Icc 0 1) (h : klBer p q ≠ ∞) :
     (klBer p q).toReal = klBerReal p q := by
@@ -150,13 +151,13 @@ theorem toReal_klBer (hp : p ∈ Set.Icc 0 1) (hq : q ∈ Set.Icc 0 1) (h : klBe
     rw [Measure.llr_eq_log_real_div_real_singleton _ _ _ hν (measure_ne_top _ _)]
     simp
 
-/-- **Closed form of the binary relative entropy**: where it is finite, `klBer p q` is
-`p log (p / q) + (1 - p) log ((1 - p) / (1 - q))`. -/
+/-- **Closed form of the binary relative entropy**: for `p, q ∈ [0, 1]`, where it is finite,
+`klBer p q` is `p log (p / q) + (1 - p) log ((1 - p) / (1 - q))`. -/
 theorem klBer_eq_ofReal_klBerReal (hp : p ∈ Set.Icc 0 1) (hq : q ∈ Set.Icc 0 1)
     (h : klBer p q ≠ ∞) : klBer p q = ENNReal.ofReal (klBerReal p q) := by
   rw [← toReal_klBer hp hq h, ENNReal.ofReal_toReal h]
 
-/-- **Pinsker's inequality** for Bernoulli laws: `2 (p - q)² ≤ d(p, q)`. -/
+/-- **Pinsker's inequality** for Bernoulli laws: `2 (p - q)² ≤ d(p, q)` for `p, q ∈ [0, 1]`. -/
 theorem ofReal_two_mul_sq_le_klBer (hp : p ∈ Set.Icc 0 1) (hq : q ∈ Set.Icc 0 1) :
     ENNReal.ofReal (2 * (p - q) ^ 2) ≤ klBer p q := by
   have h := TauCeti.two_mul_sq_measureReal_sub_le_klDiv (μ := Ber((1 : ℝ), 0, ⟨p, hp⟩))
@@ -165,19 +166,20 @@ theorem ofReal_two_mul_sq_le_klBer (hp : p ∈ Set.Icc 0 1) (hq : q ∈ Set.Icc 
       (by norm_num), bernoulliMeasure_real_apply_of_mem_of_notMem _ (measurableSet_singleton 1) rfl
       (by norm_num), ← klBer_of_mem_Icc hp hq] at h
 
-/-- **Pinsker's inequality** for the real-valued binary relative entropy: where `klBer p q` is
-finite, `2 (p - q)² ≤ klBerReal p q`. -/
+/-- **Pinsker's inequality** for the real-valued binary relative entropy: for `p, q ∈ [0, 1]`, where
+`klBer p q` is finite, `2 (p - q)² ≤ klBerReal p q`. -/
 theorem two_mul_sq_le_klBerReal (hp : p ∈ Set.Icc 0 1) (hq : q ∈ Set.Icc 0 1)
     (h : klBer p q ≠ ∞) : 2 * (p - q) ^ 2 ≤ klBerReal p q := by
   rw [← toReal_klBer hp hq h]
   exact (ENNReal.ofReal_le_iff_le_toReal h).1 (ofReal_two_mul_sq_le_klBer hp hq)
 
-/-- The real-valued binary relative entropy is nonnegative where `klBer p q` is finite. -/
+/-- For `p, q ∈ [0, 1]`, the real-valued binary relative entropy is nonnegative where `klBer p q`
+is finite. -/
 theorem klBerReal_nonneg (hp : p ∈ Set.Icc 0 1) (hq : q ∈ Set.Icc 0 1) (h : klBer p q ≠ ∞) :
     0 ≤ klBerReal p q :=
   (by positivity : (0 : ℝ) ≤ 2 * (p - q) ^ 2).trans (two_mul_sq_le_klBerReal hp hq h)
 
-/-- The binary relative entropy vanishes only on the diagonal. -/
+/-- On `[0, 1]`, the binary relative entropy vanishes only on the diagonal. -/
 theorem klBer_eq_zero_iff (hp : p ∈ Set.Icc 0 1) (hq : q ∈ Set.Icc 0 1) :
     klBer p q = 0 ↔ p = q := by
   refine ⟨fun h ↦ ?_, fun h ↦ h ▸ klBer_self p⟩
@@ -186,7 +188,7 @@ theorem klBer_eq_zero_iff (hp : p ∈ Set.Icc 0 1) (hq : q ∈ Set.Icc 0 1) :
   nlinarith [sq_nonneg (p - q)]
 
 /-- The binary relative entropy is at most the `χ²`-divergence of the two Bernoulli laws:
-for `q ∈ (0, 1)`, `klBerReal p q ≤ (p - q)² / (q (1 - q))`. -/
+for `p ∈ [0, 1]` and `q ∈ (0, 1)`, `klBerReal p q ≤ (p - q)² / (q (1 - q))`. -/
 theorem klBerReal_le_sq_sub_div (hp : p ∈ Set.Icc 0 1) (hq : q ∈ Set.Ioo 0 1) :
     klBerReal p q ≤ (p - q) ^ 2 / (q * (1 - q)) := by
   have key {a b : ℝ} (ha : 0 ≤ a) (hb : 0 < b) : a * log (a / b) ≤ a * (a / b - 1) := by
@@ -203,7 +205,7 @@ theorem klBerReal_le_sq_sub_div (hp : p ∈ Set.Icc 0 1) (hq : q ∈ Set.Ioo 0 1
         ring
 
 /-- The binary relative entropy is at most the `χ²`-divergence of the two Bernoulli laws:
-for `q ∈ (0, 1)`, `d(p, q) ≤ (p - q)² / (q (1 - q))`. -/
+for `p ∈ [0, 1]` and `q ∈ (0, 1)`, `d(p, q) ≤ (p - q)² / (q (1 - q))`. -/
 theorem klBer_le_ofReal_sq_sub_div (hp : p ∈ Set.Icc 0 1) (hq : q ∈ Set.Ioo 0 1) :
     klBer p q ≤ ENNReal.ofReal ((p - q) ^ 2 / (q * (1 - q))) := by
   rw [klBer_eq_ofReal_klBerReal hp (Set.Ioo_subset_Icc_self hq) (klBer_ne_top hq)]
