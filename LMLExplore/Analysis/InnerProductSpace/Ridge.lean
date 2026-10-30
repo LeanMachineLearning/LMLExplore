@@ -55,6 +55,16 @@ noncomputable def ridgeLoss (lam : ℝ) (x : ℕ → E) (y : ℕ → ℝ) (t : �
 noncomputable def ridgeEstimate (lam : ℝ) (x : ℕ → E) (y : ℕ → ℝ) (t : ℕ) : E :=
   Ring.inverse (designOp lam x t) (∑ s ∈ range t, y s • x s)
 
+/-- The defining equation of `ridgeLoss`. -/
+theorem ridgeLoss_def (lam : ℝ) (x : ℕ → E) (y : ℕ → ℝ) (t : ℕ) (θ : E) :
+    ridgeLoss lam x y t θ = ∑ s ∈ range t, (y s - ⟪θ, x s⟫_ℝ) ^ 2 + lam * ‖θ‖ ^ 2 :=
+  (rfl)
+
+/-- The defining equation of `ridgeEstimate`. -/
+theorem ridgeEstimate_def (lam : ℝ) (x : ℕ → E) (y : ℕ → ℝ) (t : ℕ) :
+    ridgeEstimate lam x y t = Ring.inverse (designOp lam x t) (∑ s ∈ range t, y s • x s) :=
+  (rfl)
+
 /-- The regularized squared loss is the quadratic function
 `L_t(θ) = ∑_{s < t} y s ² - 2 ⟪θ, ∑_{s < t} y s • x s⟫ + ⟪θ, V_t θ⟫`. -/
 theorem ridgeLoss_eq (lam : ℝ) (x : ℕ → E) (y : ℕ → ℝ) (t : ℕ) (θ : E) :
@@ -95,6 +105,8 @@ theorem ridgeLoss_ridgeEstimate_le (hlam : 0 < lam) (x : ℕ → E) (y : ℕ →
   rw [ridgeLoss_eq_ridgeLoss_ridgeEstimate_add hlam x y t θ]
   exact le_add_of_nonneg_right ((isPositive_designOp hlam.le x t).inner_nonneg_right _)
 
+/-- For `λ > 0`, the ridge estimate is a minimizer of the regularized squared loss on the whole
+space. -/
 theorem isMinOn_ridgeLoss (hlam : 0 < lam) (x : ℕ → E) (y : ℕ → ℝ) (t : ℕ) :
     IsMinOn (ridgeLoss lam x y t) Set.univ (ridgeEstimate lam x y t) :=
   isMinOn_univ_iff.2 (ridgeLoss_ridgeEstimate_le hlam x y t)
