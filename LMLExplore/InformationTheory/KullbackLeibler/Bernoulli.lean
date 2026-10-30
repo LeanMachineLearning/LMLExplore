@@ -55,6 +55,9 @@ closed form above. For `p, q ∈ [0, 1]`, the two agree wherever `klBer p q` is 
 
 * T. Lattimore and Cs. Szepesvári, *Bandit Algorithms*, Cambridge University Press, 2020,
   Definition 10.1, Lemma 10.2 and Theorem 14.1.
+* The derivative, monotonicity and quasi-convexity proofs are adapted from the formalization in
+  the LMLPapers project
+  (`LMLPapers/LeanMachineLearning/ForMathlib/InformationTheory/KullbackLeibler/Bernoulli.lean`).
 -/
 
 public section
@@ -235,8 +238,8 @@ theorem klBerReal_one_sub_one_sub (p q : ℝ) : klBerReal (1 - p) (1 - q) = klBe
 
 /-! ### Continuity and monotonicity -/
 
-/-- Away from `q ∈ {0, 1}`, `klBerReal p q` is the negative binary entropy of `p` minus the
-cross-entropy `p log q + (1 - p) log (1 - q)`. -/
+/-- Away from `q ∈ {0, 1}`, `klBerReal p q` is the binary cross-entropy
+`-(p log q + (1 - p) log (1 - q))` minus the binary entropy of `p`. -/
 theorem klBerReal_eq_neg_binEntropy_sub (hq0 : q ≠ 0) (hq1 : q ≠ 1) :
     klBerReal p q = -binEntropy p - (p * log q + (1 - p) * log (1 - q)) := by
   have key {a b : ℝ} (hb : b ≠ 0) : a * log (a / b) = a * log a - a * log b := by
@@ -334,14 +337,23 @@ theorem strictAntiOn_klBer (hp : p ∈ Set.Icc 0 1) : StrictAntiOn (klBer p) (Se
     (sub_lt_sub_left h 1)
 
 /-- **Quasi-convexity** of the binary relative entropy in its second argument: on an interval
-`[q₁, q₂] ⊆ [0, 1]`, `klBer p` is at most the larger of its values at the endpoints. -/
-theorem klBer_le_max {q₁ q₂ : ℝ} (hp : p ∈ Set.Icc 0 1) (hq₁ : 0 ≤ q₁) (h₁ : q₁ ≤ q)
-    (h₂ : q ≤ q₂) (hq₂ : q₂ ≤ 1) :
+`[q₁, q₂]`, `klBer p` is at most the larger of its values at the endpoints. -/
+theorem klBer_le_max {q₁ q₂ : ℝ} (h₁ : q₁ ≤ q) (h₂ : q ≤ q₂) :
     klBer p q ≤ max (klBer p q₁) (klBer p q₂) := by
-  rcases le_total q p with hqp | hpq
-  · exact le_max_of_le_left ((strictAntiOn_klBer hp).antitoneOn ⟨hq₁, h₁.trans hqp⟩
-      ⟨hq₁.trans h₁, hqp⟩ h₁)
-  · exact le_max_of_le_right ((strictMonoOn_klBer hp).monotoneOn ⟨hpq, h₂.trans hq₂⟩
-      ⟨hpq.trans h₂, hq₂⟩ h₂)
+  have hproj (x y : ℝ) : klBer x y =
+      klBer (Set.projIcc 0 1 zero_le_one x) (Set.projIcc 0 1 zero_le_one y) := by
+    simp only [klBer_def, Set.projIcc_val]
+  rw [hproj p q, hproj p q₁, hproj p q₂]
+  set p' := Set.projIcc 0 1 zero_le_one p
+  have h₁' := Set.monotone_projIcc zero_le_one h₁
+  have h₂' := Set.monotone_projIcc zero_le_one h₂
+  set r := Set.projIcc 0 1 zero_le_one q
+  set r₁ := Set.projIcc 0 1 zero_le_one q₁
+  set r₂ := Set.projIcc 0 1 zero_le_one q₂
+  rcases le_total (r : ℝ) p' with hqp | hpq
+  · exact le_max_of_le_left ((strictAntiOn_klBer p'.2).antitoneOn ⟨r₁.2.1, h₁'.trans hqp⟩
+      ⟨r.2.1, hqp⟩ h₁')
+  · exact le_max_of_le_right ((strictMonoOn_klBer p'.2).monotoneOn ⟨hpq, r.2.2⟩
+      ⟨hpq.trans h₂', r₂.2.2⟩ h₂')
 
 end LMLExplore
