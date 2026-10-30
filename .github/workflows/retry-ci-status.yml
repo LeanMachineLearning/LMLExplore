@@ -1,0 +1,29 @@
+name: Retry CI status publication
+
+# Replay retained statuses, and recover abandoned PR builds on the existing workflow.
+on:
+  workflow_run:
+    workflows: [pr-build]
+    types: [completed]
+  schedule:
+    - cron: '17 * * * *'
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+  actions: write
+  pull-requests: read
+  statuses: write
+
+jobs:
+  publish:
+    uses: TauCetiProject/TauCetiTools/.github/workflows/retry-ci-status.yml@68ca7893e90b82454ab58ba64dca753a05cd2720
+    with:
+      tools_repository: TauCetiProject/TauCetiTools
+      tools_ref: 68ca7893e90b82454ab58ba64dca753a05cd2720
+      project_ref: ${{ github.workflow_sha }}
+    secrets:
+      CI_READ_APP_ID: ${{ secrets.CI_READ_APP_ID }}
+      CI_READ_APP_PRIVATE_KEY: ${{ secrets.CI_READ_APP_PRIVATE_KEY }}
+      CI_STATUS_APP_ID: ${{ secrets.CI_STATUS_APP_ID }}
+      CI_STATUS_APP_PRIVATE_KEY: ${{ secrets.CI_STATUS_APP_PRIVATE_KEY }}
