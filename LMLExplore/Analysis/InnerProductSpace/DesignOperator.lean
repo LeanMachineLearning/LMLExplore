@@ -129,7 +129,7 @@ theorem ring_inverse_designOp_succ [FiniteDimensional ℝ E] (hlam : 0 < lam) (x
     (isPositive_designOp hlam.le x t).isSymmetric (x t) (add_pos_of_pos_of_nonneg one_pos
       (inner_ring_inverse_apply_self_nonneg (isPositive_designOp hlam.le x t) _)).ne'
 
-theorem det_designOp_zero [FiniteDimensional ℝ E] (lam : ℝ) (x : ℕ → E) :
+theorem det_designOp_zero (lam : ℝ) (x : ℕ → E) :
     LinearMap.det (designOp lam x 0 : E →ₗ[ℝ] E) = lam ^ finrank ℝ E := by
   simp [LinearMap.det_smul]
 
