@@ -5,6 +5,8 @@ Authors: Rémy Degenne
 -/
 module
 
+public import Mathlib.Analysis.Calculus.Deriv.MeanValue
+public import Mathlib.Analysis.SpecialFunctions.BinaryEntropy
 public import LMLExplore.Probability.Distributions.Bernoulli
 public import TauCeti.InformationTheory.KullbackLeibler.Basic
 public import TauCeti.InformationTheory.KullbackLeibler.Pinsker
@@ -44,11 +46,18 @@ closed form above. For `p, q ∈ [0, 1]`, the two agree wherever `klBer p q` is 
   inequality `2 (p - q)² ≤ d(p, q)` for `p, q ∈ [0, 1]`.
 * `LMLExplore.klBer_le_ofReal_sq_sub_div`, `LMLExplore.klBerReal_le_sq_sub_div`: the reverse
   bound `d(p, q) ≤ (p - q)² / (q (1 - q))` for `p ∈ [0, 1]` and `q ∈ (0, 1)`.
+* `LMLExplore.continuousOn_klBer`: `d` is continuous on `[0, 1] × (0, 1)`.
+* `LMLExplore.strictMonoOn_klBer`, `LMLExplore.strictAntiOn_klBer`: for `p ∈ [0, 1]`,
+  `q ↦ d(p, q)` is strictly increasing on `[p, 1]` and strictly decreasing on `[0, p]`;
+  `LMLExplore.klBer_le_max` is the resulting quasi-convexity in `q`.
 
 ## References
 
 * T. Lattimore and Cs. Szepesvári, *Bandit Algorithms*, Cambridge University Press, 2020,
-  Definition 10.1, Lemma 10.2 (b) and Theorem 14.1.
+  Definition 10.1, Lemma 10.2 and Theorem 14.1.
+* The derivative, monotonicity and quasi-convexity proofs are adapted from the formalization in
+  the LMLPapers project
+  (`LMLPapers/LeanMachineLearning/ForMathlib/InformationTheory/KullbackLeibler/Bernoulli.lean`).
 -/
 
 public section
@@ -103,6 +112,11 @@ theorem klBer_self (p : ℝ) : klBer p p = 0 := by
 
 @[simp]
 theorem klBerReal_self (p : ℝ) : klBerReal p p = 0 := by
+  simp [klBerReal_def]
+
+/-- `d(1, q) = -log q`. -/
+@[simp]
+theorem klBerReal_one_left (q : ℝ) : klBerReal 1 q = -log q := by
   simp [klBerReal_def]
 
 /-- For `p, q ∈ [0, 1]`, `klBer p q` is finite if and only if `p` vanishes when `q` does and
@@ -226,5 +240,125 @@ outcomes. -/
 @[simp]
 theorem klBerReal_one_sub_one_sub (p q : ℝ) : klBerReal (1 - p) (1 - q) = klBerReal p q := by
   rw [klBerReal_def, klBerReal_def, sub_sub_cancel, sub_sub_cancel, add_comm]
+
+/-! ### Continuity and monotonicity -/
+
+/-- Away from `q ∈ {0, 1}`, `klBerReal p q` is the binary cross-entropy
+`-(p log q + (1 - p) log (1 - q))` minus the binary entropy of `p`. -/
+theorem klBerReal_eq_neg_binEntropy_sub (hq0 : q ≠ 0) (hq1 : q ≠ 1) :
+    klBerReal p q = -binEntropy p - (p * log q + (1 - p) * log (1 - q)) := by
+  have key {a b : ℝ} (hb : b ≠ 0) : a * log (a / b) = a * log a - a * log b := by
+    rcases eq_or_ne a 0 with rfl | ha
+    · simp
+    rw [log_div ha hb, mul_sub]
+  rw [klBerReal_def, key hq0, key (sub_ne_zero.2 hq1.symm)]
+  simp only [binEntropy_eq_negMulLog_add_negMulLog_one_sub, negMulLog_def]
+  ring
+
+/-- The real-valued binary relative entropy is jointly continuous on `ℝ × (0, 1)`. -/
+theorem continuousOn_klBerReal :
+    ContinuousOn (Function.uncurry klBerReal) (Set.univ ×ˢ Set.Ioo 0 1) := by
+  have hlog : ContinuousOn (fun x : ℝ × ℝ ↦ log x.2) (Set.univ ×ˢ Set.Ioo 0 1) :=
+    continuous_snd.continuousOn.log fun x hx ↦ hx.2.1.ne'
+  have hlog' : ContinuousOn (fun x : ℝ × ℝ ↦ log (1 - x.2)) (Set.univ ×ˢ Set.Ioo 0 1) :=
+    (continuous_const.sub continuous_snd).continuousOn.log fun x hx ↦ (sub_pos.2 hx.2.2).ne'
+  refine ContinuousOn.congr (f := fun x : ℝ × ℝ ↦
+      -binEntropy x.1 - (x.1 * log x.2 + (1 - x.1) * log (1 - x.2))) ?_
+    fun x hx ↦ klBerReal_eq_neg_binEntropy_sub hx.2.1.ne' hx.2.2.ne
+  exact (binEntropy_continuous.comp continuous_fst).neg.continuousOn.sub
+    ((continuous_fst.continuousOn.mul hlog).add
+      ((continuous_const.sub continuous_fst).continuousOn.mul hlog'))
+
+/-- The binary relative entropy is jointly continuous on `[0, 1] × (0, 1)`. -/
+theorem continuousOn_klBer :
+    ContinuousOn (Function.uncurry klBer) (Set.Icc 0 1 ×ˢ Set.Ioo 0 1) := by
+  refine (ENNReal.continuous_ofReal.comp_continuousOn (continuousOn_klBerReal.mono
+    (Set.prod_mono (Set.subset_univ _) subset_rfl))).congr fun x hx ↦ ?_
+  exact klBer_eq_ofReal_klBerReal hx.1 (Set.Ioo_subset_Icc_self hx.2) (klBer_ne_top hx.2)
+
+/-- The derivative of `q ↦ klBerReal p q` on `(0, 1)` is `(q - p) / (q (1 - q))`. -/
+theorem hasDerivAt_klBerReal (p : ℝ) (hq : q ∈ Set.Ioo 0 1) :
+    HasDerivAt (klBerReal p) ((q - p) / (q * (1 - q))) q := by
+  have hq0 : q ≠ 0 := hq.1.ne'
+  have hq1 : 1 - q ≠ 0 := (sub_pos.2 hq.2).ne'
+  have h : HasDerivAt (fun x ↦ -binEntropy p - (p * log x + (1 - p) * log (1 - x)))
+      (-(p * q⁻¹ + (1 - p) * (-1 / (1 - q)))) q :=
+    (((hasDerivAt_log hq0).const_mul p).add
+      ((((hasDerivAt_id' q).const_sub 1).log hq1).const_mul (1 - p))).const_sub _
+  refine (h.congr_deriv ?_).congr_of_eventuallyEq ?_
+  · field_simp
+    ring
+  · filter_upwards [isOpen_Ioo.mem_nhds hq] with x hx
+    exact klBerReal_eq_neg_binEntropy_sub hx.1.ne' hx.2.ne
+
+/-- On the right of `p`, `q ↦ klBerReal p q` is strictly increasing on `(0, 1)`. -/
+theorem strictMonoOn_klBerReal (p : ℝ) :
+    StrictMonoOn (klBerReal p) (Set.Ici p ∩ Set.Ioo 0 1) := by
+  have hint : interior (Set.Ici p ∩ Set.Ioo 0 1) = Set.Ioi p ∩ Set.Ioo 0 1 := by
+    rw [interior_inter, interior_Ici, isOpen_Ioo.interior_eq]
+  refine strictMonoOn_of_hasDerivWithinAt_pos ((convex_Ici p).inter (convex_Ioo 0 1))
+    (f' := fun x ↦ (x - p) / (x * (1 - x)))
+    (fun x hx ↦ (hasDerivAt_klBerReal p hx.2).continuousAt.continuousWithinAt)
+    (fun x hx ↦ (hasDerivAt_klBerReal p (hint ▸ hx).2).hasDerivWithinAt) fun x hx ↦ ?_
+  rw [hint] at hx
+  exact div_pos (sub_pos.2 hx.1) (mul_pos hx.2.1 (sub_pos.2 hx.2.2))
+
+/-- On the left of `p`, `q ↦ klBerReal p q` is strictly decreasing on `(0, 1)`. -/
+theorem strictAntiOn_klBerReal (p : ℝ) :
+    StrictAntiOn (klBerReal p) (Set.Iic p ∩ Set.Ioo 0 1) := by
+  have hint : interior (Set.Iic p ∩ Set.Ioo 0 1) = Set.Iio p ∩ Set.Ioo 0 1 := by
+    rw [interior_inter, interior_Iic, isOpen_Ioo.interior_eq]
+  refine strictAntiOn_of_hasDerivWithinAt_neg ((convex_Iic p).inter (convex_Ioo 0 1))
+    (f' := fun x ↦ (x - p) / (x * (1 - x)))
+    (fun x hx ↦ (hasDerivAt_klBerReal p hx.2).continuousAt.continuousWithinAt)
+    (fun x hx ↦ (hasDerivAt_klBerReal p (hint ▸ hx).2).hasDerivWithinAt) fun x hx ↦ ?_
+  rw [hint] at hx
+  exact div_neg_of_neg_of_pos (sub_neg.2 hx.1) (mul_pos hx.2.1 (sub_pos.2 hx.2.2))
+
+/-- For `p ∈ [0, 1]`, `q ↦ klBer p q` is strictly increasing on `[p, 1]`. -/
+theorem strictMonoOn_klBer (hp : p ∈ Set.Icc 0 1) : StrictMonoOn (klBer p) (Set.Icc p 1) := by
+  intro q₁ hq₁ q₂ hq₂ h
+  have hq₁' : q₁ ∈ Set.Icc 0 1 := ⟨hp.1.trans hq₁.1, hq₁.2⟩
+  have hq₂' : q₂ ∈ Set.Icc 0 1 := ⟨hp.1.trans hq₂.1, hq₂.2⟩
+  rcases hq₁.1.eq_or_lt with rfl | hpq₁
+  · rw [klBer_self, pos_iff_ne_zero, ne_eq, klBer_eq_zero_iff hp hq₂']
+    exact h.ne
+  have hq₁01 : q₁ ∈ Set.Ioo 0 1 := ⟨hp.1.trans_lt hpq₁, h.trans_le hq₂.2⟩
+  rcases hq₂.2.eq_or_lt with rfl | hq₂1
+  · rw [(klBer_eq_top_iff hp hq₂').2 (Or.inr ⟨rfl, (hpq₁.trans hq₁01.2).ne⟩)]
+    exact (klBer_ne_top hq₁01).lt_top
+  have hq₂01 : q₂ ∈ Set.Ioo 0 1 := ⟨hq₁01.1.trans h, hq₂1⟩
+  rw [klBer_eq_ofReal_klBerReal hp hq₁' (klBer_ne_top hq₁01),
+    klBer_eq_ofReal_klBerReal hp hq₂' (klBer_ne_top hq₂01),
+    ENNReal.ofReal_lt_ofReal_iff_of_nonneg (klBerReal_nonneg hp hq₁' (klBer_ne_top hq₁01))]
+  exact strictMonoOn_klBerReal p ⟨hq₁.1, hq₁01⟩ ⟨hq₂.1, hq₂01⟩ h
+
+/-- For `p ∈ [0, 1]`, `q ↦ klBer p q` is strictly decreasing on `[0, p]`. -/
+theorem strictAntiOn_klBer (hp : p ∈ Set.Icc 0 1) : StrictAntiOn (klBer p) (Set.Icc 0 p) := by
+  intro q₁ hq₁ q₂ hq₂ h
+  rw [← klBer_one_sub_one_sub p q₁, ← klBer_one_sub_one_sub p q₂]
+  exact strictMonoOn_klBer ⟨sub_nonneg.2 hp.2, sub_le_self _ hp.1⟩
+    ⟨sub_le_sub_left hq₂.2 1, sub_le_self _ hq₂.1⟩ ⟨sub_le_sub_left hq₁.2 1, sub_le_self _ hq₁.1⟩
+    (sub_lt_sub_left h 1)
+
+/-- **Quasi-convexity** of the binary relative entropy in its second argument: on an interval
+`[q₁, q₂]`, `klBer p` is at most the larger of its values at the endpoints. -/
+theorem klBer_le_max {q₁ q₂ : ℝ} (h₁ : q₁ ≤ q) (h₂ : q ≤ q₂) :
+    klBer p q ≤ max (klBer p q₁) (klBer p q₂) := by
+  have hproj (x y : ℝ) : klBer x y =
+      klBer (Set.projIcc 0 1 zero_le_one x) (Set.projIcc 0 1 zero_le_one y) := by
+    simp only [klBer_def, Set.projIcc_val]
+  rw [hproj p q, hproj p q₁, hproj p q₂]
+  set p' := Set.projIcc 0 1 zero_le_one p
+  have h₁' := Set.monotone_projIcc zero_le_one h₁
+  have h₂' := Set.monotone_projIcc zero_le_one h₂
+  set r := Set.projIcc 0 1 zero_le_one q
+  set r₁ := Set.projIcc 0 1 zero_le_one q₁
+  set r₂ := Set.projIcc 0 1 zero_le_one q₂
+  rcases le_total (r : ℝ) p' with hqp | hpq
+  · exact le_max_of_le_left ((strictAntiOn_klBer p'.2).antitoneOn ⟨r₁.2.1, h₁'.trans hqp⟩
+      ⟨r.2.1, hqp⟩ h₁')
+  · exact le_max_of_le_right ((strictMonoOn_klBer p'.2).monotoneOn ⟨hpq, r.2.2⟩
+      ⟨hpq.trans h₂', r₂.2.2⟩ h₂')
 
 end LMLExplore
