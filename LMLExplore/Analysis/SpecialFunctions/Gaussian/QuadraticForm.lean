@@ -47,7 +47,7 @@ theorem integrable_exp_neg_sum_mul_add {ι : Type*} [Fintype ι] {b : ι → ℝ
     (by simpa using hb) (fun i ↦ (c i : ℂ))).re with v
   rw [← Complex.ofReal_re (exp _)]
   push_cast
-  rfl
+  exact RCLike.re_to_complex.symm
 
 /-- **Gaussian integral with linear terms** on `ι → ℝ`:
 `∫ v, exp (-∑ bᵢ vᵢ² + ∑ cᵢ vᵢ) = ∏ i, √(π / bᵢ) exp (cᵢ² / (4bᵢ))`, the real case of
@@ -60,9 +60,8 @@ theorem integral_exp_neg_sum_mul_add {ι : Type*} [Fintype ι] {b : ι → ℝ} 
   push_cast
   rw [GaussianFourier.integral_cexp_neg_sum_mul_add (b := fun i ↦ (b i : ℂ)) (by simpa using hb)]
   refine prod_congr rfl fun i _ ↦ ?_
-  rw [sqrt_eq_rpow, Complex.ofReal_cpow (div_pos pi_pos (hb i)).le]
-  push_cast
-  rfl
+  rw [sqrt_eq_rpow, Complex.ofReal_cpow (div_pos pi_pos (hb i)).le, Complex.ofReal_div,
+    Complex.ofReal_div, Complex.ofReal_one, Complex.ofReal_ofNat]
 
 variable {E : Type*} [NormedAddCommGroup E] [InnerProductSpace ℝ E] [FiniteDimensional ℝ E]
   [MeasurableSpace E] [BorelSpace E] {A : E →L[ℝ] E} {c : ℝ}
