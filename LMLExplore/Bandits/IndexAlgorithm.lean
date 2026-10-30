@@ -29,6 +29,12 @@ that would depend on an enumeration of the arms.
 
 ## Main statements
 
+* `pullCount_eq_zero_iff`, `pullCount_eq_one_iff`: characterisations of an arm pulled zero times
+  and exactly once before a given round, for any sequence of actions.
+* `pullCount_card_eq_one_of_forall_pullCount_action_eq_zero`: if each of the first
+  `Fintype.card α` rounds plays an arm not pulled before, then every arm is pulled exactly once
+  during those rounds.
+
 In the namespace `LMLExplore.Bandits.IndexAlgorithm`:
 
 * `action_ae_eq`: the run lemma. Along any run of the index policy, the action of round `n` is
@@ -49,6 +55,53 @@ public section
 open MeasureTheory ProbabilityTheory Finset Learning
 
 namespace LMLExplore.Bandits
+
+section PullCount
+
+variable {α Ω : Type*} [DecidableEq α] {A : ℕ → Ω → α} {a : α} {n : ℕ} {ω : Ω}
+
+/-- An arm has not been pulled before round `n` if and only if no round `s < n` played it. -/
+lemma pullCount_eq_zero_iff : pullCount A a n ω = 0 ↔ ∀ s < n, A s ω ≠ a := by
+  simp [pullCount, filter_eq_empty_iff]
+
+/-- An arm has been pulled exactly once before round `n` if and only if exactly one round `s < n`
+played it. -/
+lemma pullCount_eq_one_iff :
+    pullCount A a n ω = 1 ↔ ∃ s < n, A s ω = a ∧ ∀ t < n, A t ω = a → t = s := by
+  simp [pullCount, card_eq_one, eq_singleton_iff_unique_mem, and_assoc]
+
+variable [Fintype α]
+
+/-- Before round `Fintype.card α`, some arm has not been pulled yet. -/
+lemma exists_pullCount_eq_zero_of_lt_card (hn : n < Fintype.card α) :
+    ∃ b, pullCount A b n ω = 0 := by
+  by_contra! h0
+  have : Fintype.card α ≤ n := calc
+    Fintype.card α = ∑ _ : α, 1 := by simp
+    _ ≤ ∑ a, pullCount A a n ω := sum_le_sum fun a _ ↦ Nat.one_le_iff_ne_zero.mpr (h0 a)
+    _ = n := sum_pullCount
+  omega
+
+/-- If every round before `Fintype.card α` plays an arm that has not been pulled before, then every
+arm is pulled exactly once during the first `Fintype.card α` rounds. -/
+lemma pullCount_card_eq_one_of_forall_pullCount_action_eq_zero
+    (hA : ∀ n < Fintype.card α, pullCount A (A n ω) n ω = 0) (a : α) :
+    pullCount A a (Fintype.card α) ω = 1 := by
+  -- The arms played during the first `Fintype.card α` rounds are pairwise distinct.
+  have h_inj : Set.InjOn (A · ω) (range (Fintype.card α)) := by
+    intro s hs t ht hst
+    by_contra hne
+    wlog hlt : s < t generalizing s t
+    · exact this ht hs hst.symm (Ne.symm hne) (by omega)
+    exact pullCount_eq_zero_iff.mp (hA t (by simpa using ht)) s hlt hst
+  -- Hence every arm is played during those rounds, at a single round.
+  have h_univ : (range (Fintype.card α)).image (A · ω) = univ :=
+    eq_univ_of_card _ (by rw [card_image_of_injOn h_inj, card_range])
+  obtain ⟨s, hs, rfl⟩ := mem_image.mp (h_univ ▸ mem_univ a)
+  exact pullCount_eq_one_iff.mpr
+    ⟨s, by simpa using hs, rfl, fun t ht hts ↦ h_inj (by simpa using ht) hs hts⟩
+
+end PullCount
 
 variable {α 𝓞 𝓨 : Type*} [Fintype α] [Nonempty α] [MeasurableSpace α]
   {m𝓞 : MeasurableSpace 𝓞} {m𝓨 : MeasurableSpace 𝓨}
@@ -124,13 +177,7 @@ lemma pullCount_action_eq_zero (h : IsAlgEnvSeq O A Y (indexAlgorithm I hI) env 
     (hI_top : ∀ n x a, I n x a = ⊤ ↔ pullCount' n x.1 a = 0) :
     ∀ᵐ ω ∂P, ∀ n < Fintype.card α, pullCount A (A n ω) n ω = 0 := by
   filter_upwards [index_action_eq_top h] with ω hω n hn
-  obtain ⟨b, hb⟩ : ∃ b, pullCount A b n ω = 0 := by
-    by_contra! h0
-    have : Fintype.card α ≤ n := calc
-      Fintype.card α = ∑ _ : α, 1 := by simp
-      _ ≤ ∑ a, pullCount A a n ω := sum_le_sum fun a _ ↦ Nat.one_le_iff_ne_zero.mpr (h0 a)
-      _ = n := sum_pullCount
-    omega
+  obtain ⟨b, hb⟩ := exists_pullCount_eq_zero_of_lt_card (A := A) (ω := ω) hn
   rw [pullCount_eq_pullCount' (O := O) (R' := Y)] at hb ⊢
   exact (hI_top _ _ _).mp (hω n ⟨b, (hI_top _ _ _).mpr hb⟩)
 
@@ -140,23 +187,7 @@ lemma pullCount_card_eq_one (h : IsAlgEnvSeq O A Y (indexAlgorithm I hI) env P)
     (hI_top : ∀ n x a, I n x a = ⊤ ↔ pullCount' n x.1 a = 0) :
     ∀ᵐ ω ∂P, ∀ a, pullCount A a (Fintype.card α) ω = 1 := by
   filter_upwards [pullCount_action_eq_zero h hI_top] with ω hω a
-  -- The arms played during the first `Fintype.card α` rounds are pairwise distinct.
-  have h_inj : Set.InjOn (A · ω) (range (Fintype.card α)) := by
-    intro s hs t ht hst
-    by_contra hne
-    wlog hlt : s < t generalizing s t
-    · exact this ht hs hst.symm (Ne.symm hne) (by omega)
-    have h_zero := hω t (by simpa using ht)
-    simp only [pullCount, card_eq_zero, filter_eq_empty_iff, mem_range] at h_zero
-    exact h_zero hlt hst
-  -- Hence every arm is played during those rounds, at a single round.
-  have h_univ : (range (Fintype.card α)).image (A · ω) = univ :=
-    eq_univ_of_card _ (by rw [card_image_of_injOn h_inj, card_range])
-  obtain ⟨s, hs, rfl⟩ := mem_image.mp (h_univ ▸ mem_univ a)
-  rw [pullCount, card_eq_one]
-  refine ⟨s, eq_singleton_iff_unique_mem.mpr ⟨by simpa using hs, fun t ht ↦ ?_⟩⟩
-  rw [mem_filter] at ht
-  exact h_inj ht.1 hs ht.2
+  exact pullCount_card_eq_one_of_forall_pullCount_action_eq_zero hω a
 
 /-- If the index is `⊤` exactly on the arms not pulled yet, then from round `Fintype.card α` on,
 every arm has been pulled at least once. -/
