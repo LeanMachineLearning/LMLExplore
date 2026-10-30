@@ -5,7 +5,7 @@ Authors: Rémy Degenne
 -/
 module
 
-public import Mathlib.Probability.Distributions.Bernoulli
+public import LMLExplore.Probability.Distributions.Bernoulli
 public import TauCeti.InformationTheory.KullbackLeibler.Basic
 public import TauCeti.InformationTheory.KullbackLeibler.Pinsker
 public import LeanMachineLearning.ForMathlib.InformationTheory.KullbackLeibler.ChainRule
@@ -32,16 +32,14 @@ closed form above. The two agree wherever `klBer p q` is finite.
 
 ## Main statements
 
-* `ProbabilityTheory.bernoulliMeasure_symm`: `Ber(x, y, 1 - p) = Ber(y, x, p)`.
-* `ProbabilityTheory.bernoulliMeasure_absolutelyContinuous_iff`: for `x ≠ y`,
-  `Ber(x, y, p) ≪ Ber(x, y, q)` if and only if `q = 0 → p = 0` and `q = 1 → p = 1`.
 * `LMLExplore.klDiv_bernoulliMeasure`: `D(Ber(1, 0, p), Ber(1, 0, q)) = klBer p q`.
 * `LMLExplore.klBer_ne_top_iff`: `klBer p q` is finite if and only if `q = 0 → p = 0` and
   `q = 1 → p = 1`.
 * `LMLExplore.klBer_eq_ofReal_klBerReal`, `LMLExplore.toReal_klBer`: where it is finite,
   `klBer p q` is given by the closed form `klBerReal p q`.
 * `LMLExplore.klBer_eq_zero_iff`: `klBer p q = 0` if and only if `p = q`.
-* `LMLExplore.klBer_one_sub_one_sub`: `d(1 - p, 1 - q) = d(p, q)`.
+* `LMLExplore.klBer_one_sub_one_sub`, `LMLExplore.klBerReal_one_sub_one_sub`:
+  `d(1 - p, 1 - q) = d(p, q)`.
 * `LMLExplore.ofReal_two_mul_sq_le_klBer`, `LMLExplore.two_mul_sq_le_klBerReal`: Pinsker's
   inequality `2 (p - q)² ≤ d(p, q)`.
 * `LMLExplore.klBer_le_ofReal_sq_sub_div`, `LMLExplore.klBerReal_le_sq_sub_div`: the reverse
@@ -57,47 +55,6 @@ public section
 
 open MeasureTheory InformationTheory ProbabilityTheory Real unitInterval
 open scoped ENNReal
-
-namespace ProbabilityTheory
-
-variable {X : Type*} [MeasurableSpace X] {x y : X} {p q : I}
-
-/-- Exchanging the two points of a Bernoulli law replaces its parameter `p` by `1 - p`. -/
-theorem bernoulliMeasure_symm (x y : X) (p : I) : Ber(x, y, σ p) = Ber(y, x, p) := by
-  rw [bernoulliMeasure_def, bernoulliMeasure_def, symm_symm, add_comm]
-
-/-- A Bernoulli law is absolutely continuous with respect to the Bernoulli law on the same two
-points with parameter `q` whenever it puts no mass on a point that the second law ignores. -/
-theorem bernoulliMeasure_absolutelyContinuous (h0 : q = 0 → p = 0) (h1 : q = 1 → p = 1) :
-    Ber(x, y, p) ≪ Ber(x, y, q) := by
-  classical
-  refine Measure.AbsolutelyContinuous.mk fun s hs hνs ↦ ?_
-  rw [bernoulliMeasure_apply q hs] at hνs
-  rw [bernoulliMeasure_apply p hs]
-  split_ifs at hνs ⊢ with hx hy hy
-  · simp at hνs
-  · rw [ENNReal.coe_eq_zero, ← NNReal.coe_eq_zero, unitInterval.coe_toNNReal,
-      Set.Icc.coe_eq_zero] at hνs ⊢
-    exact h0 hνs
-  · rw [ENNReal.coe_eq_zero, ← NNReal.coe_eq_zero, unitInterval.coe_toNNReal,
-      Set.Icc.coe_eq_zero, symm_eq_zero] at hνs ⊢
-    exact h1 hνs
-  · rfl
-
-/-- Absolute continuity between two Bernoulli laws on two distinct points: `Ber(x, y, p)` is
-absolutely continuous with respect to `Ber(x, y, q)` if and only if `p` vanishes when `q` does
-and `p = 1` when `q = 1`. -/
-theorem bernoulliMeasure_absolutelyContinuous_iff [MeasurableSingletonClass X] (hxy : x ≠ y) :
-    Ber(x, y, p) ≪ Ber(x, y, q) ↔ (q = 0 → p = 0) ∧ (q = 1 → p = 1) := by
-  refine ⟨fun h ↦ ⟨fun hq ↦ ?_, fun hq ↦ ?_⟩,
-    fun h ↦ bernoulliMeasure_absolutelyContinuous h.1 h.2⟩
-  · have := h (s := {x}) (by simp [hq, hxy.symm])
-    simpa [hxy.symm, ← NNReal.coe_eq_zero, Set.Icc.coe_eq_zero] using this
-  · have := h (s := {y}) (by simp [hq, hxy])
-    simpa [hxy, ← NNReal.coe_eq_zero, sub_eq_zero, eq_comm (a := (1 : ℝ)),
-      Set.Icc.coe_eq_one] using this
-
-end ProbabilityTheory
 
 namespace LMLExplore
 
@@ -144,6 +101,10 @@ theorem klBer_of_mem_Icc (hp : p ∈ Set.Icc 0 1) (hq : q ∈ Set.Icc 0 1) :
 theorem klBer_self (p : ℝ) : klBer p p = 0 := by
   rw [klBer_def, klDiv_self]
 
+@[simp]
+theorem klBerReal_self (p : ℝ) : klBerReal p p = 0 := by
+  simp [klBerReal_def]
+
 /-- `klBer p q` is finite if and only if `p` vanishes when `q` does and `p = 1` when `q = 1`. -/
 theorem klBer_ne_top_iff (hp : p ∈ Set.Icc 0 1) (hq : q ∈ Set.Icc 0 1) :
     klBer p q ≠ ∞ ↔ (q = 0 → p = 0) ∧ (q = 1 → p = 1) := by
@@ -159,34 +120,33 @@ theorem klBer_eq_top_iff (hp : p ∈ Set.Icc 0 1) (hq : q ∈ Set.Icc 0 1) :
   tauto
 
 /-- The binary relative entropy is finite when the second argument lies in `(0, 1)`. -/
-theorem klBer_ne_top (hp : p ∈ Set.Icc 0 1) (hq : q ∈ Set.Ioo 0 1) : klBer p q ≠ ∞ :=
-  (klBer_ne_top_iff hp (Set.Ioo_subset_Icc_self hq)).2
-    ⟨fun h ↦ absurd h hq.1.ne', fun h ↦ absurd h hq.2.ne⟩
+theorem klBer_ne_top (hq : q ∈ Set.Ioo 0 1) : klBer p q ≠ ∞ := by
+  rw [klBer_def, Set.projIcc_of_mem _ (Set.Ioo_subset_Icc_self hq)]
+  exact klDiv_ne_top_iff.2 ⟨bernoulliMeasure_absolutelyContinuous
+    (fun h ↦ absurd (congrArg Subtype.val h) hq.1.ne')
+    (fun h ↦ absurd (congrArg Subtype.val h) hq.2.ne), integrable_bernoulliMeasure _ _ _ _⟩
 
 /-- Where it is finite, the real part of `klBer p q` is the closed form
 `klBerReal p q = p log (p / q) + (1 - p) log ((1 - p) / (1 - q))`. -/
 theorem toReal_klBer (hp : p ∈ Set.Icc 0 1) (hq : q ∈ Set.Icc 0 1) (h : klBer p q ≠ ∞) :
     (klBer p q).toReal = klBerReal p q := by
   obtain ⟨h0, h1⟩ := (klBer_ne_top_iff hp hq).1 h
-  rw [klBer_of_mem_Icc hp hq, toReal_klDiv
-    (bernoulliMeasure_absolutelyContinuous
-      (fun h ↦ by simpa [← Subtype.coe_inj] using h0 (congrArg Subtype.val h))
-      (fun h ↦ by simpa [← Subtype.coe_inj] using h1 (congrArg Subtype.val h)))
-    (integrable_bernoulliMeasure _ _ _ _), integral_bernoulliMeasure]
+  rw [klBer_of_mem_Icc hp hq] at h ⊢
+  obtain ⟨hac, hint⟩ := klDiv_ne_top_iff.1 h
+  rw [toReal_klDiv hac hint, integral_bernoulliMeasure]
   simp only [probReal_univ, add_sub_cancel_right, smul_eq_mul, klBerReal_def]
   congr 1
   · rcases eq_or_ne q 0 with rfl | hq0
     · simp [h0 rfl]
     rw [Measure.llr_eq_log_real_div_real_singleton _ _ _
-      (by simpa [← NNReal.coe_eq_zero] using hq0) (measure_ne_top _ _)]
+      (by simpa [← Subtype.coe_inj] using hq0) (measure_ne_top _ _)]
     simp
   · rcases eq_or_ne q 1 with rfl | hq1
     · simp [h1 rfl]
     have hν : Ber((1 : ℝ), 0, ⟨q, hq⟩) {0} ≠ 0 := by
       rw [bernoulliMeasure_apply_of_notMem_of_mem _ (measurableSet_singleton 0) (by norm_num) rfl,
-        Ne, ENNReal.coe_eq_zero, ← NNReal.coe_eq_zero, unitInterval.coe_toNNReal, coe_symm_eq,
-        sub_eq_zero]
-      exact Ne.symm hq1
+        Ne, ENNReal.coe_eq_zero, unitInterval.toNNReal_eq_zero, symm_eq_zero]
+      exact fun h ↦ hq1 (congrArg Subtype.val h)
     rw [Measure.llr_eq_log_real_div_real_singleton _ _ _ hν (measure_ne_top _ _)]
     simp
 
@@ -246,7 +206,7 @@ theorem klBerReal_le_sq_sub_div (hp : p ∈ Set.Icc 0 1) (hq : q ∈ Set.Ioo 0 1
 for `q ∈ (0, 1)`, `d(p, q) ≤ (p - q)² / (q (1 - q))`. -/
 theorem klBer_le_ofReal_sq_sub_div (hp : p ∈ Set.Icc 0 1) (hq : q ∈ Set.Ioo 0 1) :
     klBer p q ≤ ENNReal.ofReal ((p - q) ^ 2 / (q * (1 - q))) := by
-  rw [klBer_eq_ofReal_klBerReal hp (Set.Ioo_subset_Icc_self hq) (klBer_ne_top hp hq)]
+  rw [klBer_eq_ofReal_klBerReal hp (Set.Ioo_subset_Icc_self hq) (klBer_ne_top hq)]
   exact ENNReal.ofReal_le_ofReal (klBerReal_le_sq_sub_div hp hq)
 
 /-- The binary relative entropy is invariant under exchanging the roles of the two outcomes:
@@ -258,5 +218,11 @@ theorem klBer_one_sub_one_sub (p q : ℝ) : klBer (1 - p) (1 - q) = klBer p q :=
     simp
   rw [klBer_def, klBer_def, ← symm_projIcc, ← symm_projIcc, h, h]
   exact klDiv_map_measurableEmbedding _ _ (MeasurableEquiv.subLeft (1 : ℝ)).measurableEmbedding
+
+/-- The real-valued binary relative entropy is invariant under exchanging the roles of the two
+outcomes. -/
+@[simp]
+theorem klBerReal_one_sub_one_sub (p q : ℝ) : klBerReal (1 - p) (1 - q) = klBerReal p q := by
+  rw [klBerReal_def, klBerReal_def, sub_sub_cancel, sub_sub_cancel, add_comm]
 
 end LMLExplore
