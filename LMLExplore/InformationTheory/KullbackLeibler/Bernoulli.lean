@@ -63,6 +63,8 @@ that it lies below the true mean.
   semicontinuous and measurable.
 * `LMLExplore.le_klUpper_iff`: for `q ∈ [p, 1]`, `q ≤ U(p, c)` if and only if `d(p, q) ≤ c`;
   `LMLExplore.klUpper_mem_Icc` and `LMLExplore.klBer_klUpper_le` say that the maximum is attained.
+* `LMLExplore.le_klUpper_iff_of_le_one`: for `p ≤ 1` and every real `r`, `r ≤ U(p, c)` if and only
+  if `r ≤ p`, or `r ≤ 1` and `d(p, r) ≤ c`.
 * `LMLExplore.klUpper_mono`, `LMLExplore.measurable_klUpper`: `U` is monotone in both arguments
   and jointly measurable.
 * `LMLExplore.klUpper_le_min`: `U(p, c) ≤ min 1 (p + √(c / 2))`, by Pinsker's inequality.
@@ -409,10 +411,9 @@ theorem hasDerivAt_klBerReal_left (hp0 : p ≠ 0) (hp1 : p ≠ 1) (hq0 : q ≠ 0
 /-- For `q ∈ (0, 1)`, `p ↦ klBerReal p q` is strictly decreasing on `[0, q]`. -/
 theorem strictAntiOn_klBerReal_left (hq : q ∈ Set.Ioo 0 1) :
     StrictAntiOn (fun p ↦ klBerReal p q) (Set.Icc 0 q) := by
-  have hcont : Continuous fun p ↦ klBerReal p q := by
-    rw [funext fun x ↦ klBerReal_eq_neg_binEntropy_sub (p := x) hq.1.ne' hq.2.ne]
-    exact binEntropy_continuous.neg.sub ((continuous_id.mul continuous_const).add
-      ((continuous_const.sub continuous_id).mul continuous_const))
+  have hcont : Continuous fun p ↦ klBerReal p q :=
+    continuousOn_klBerReal.comp_continuous (continuous_id.prodMk continuous_const)
+      fun _ ↦ ⟨trivial, hq⟩
   refine strictAntiOn_of_hasDerivWithinAt_neg (convex_Icc 0 q) hcont.continuousOn
     (f' := fun p ↦ log p - log (1 - p) - (log q - log (1 - q))) (fun x hx ↦ ?_) fun x hx ↦ ?_
   all_goals rw [interior_Icc] at hx
@@ -542,6 +543,7 @@ theorem monotone_klUpper (p : ℝ) : Monotone (klUpper p) := by
   · rw [klUpper_of_one_lt hp, klUpper_of_one_lt hp]
 
 /-- `U(p, 0) = p`. -/
+@[simp]
 theorem klUpper_zero (hp : p ∈ Set.Icc 0 1) : klUpper p 0 = p := by
   have hU := klUpper_mem_Icc hp.2 0
   have h := klBer_klUpper_le hp.2 0
@@ -584,7 +586,7 @@ theorem klUpper_le_min (hp : p ∈ Set.Icc 0 1) (c : ℝ≥0) :
   linarith
 
 /-- For `p ≤ 1`, `r ≤ klUpper p c` if and only if `r ≤ p`, or `r ≤ 1` and `d(p, r) ≤ c`. -/
-private lemma le_klUpper_iff_of_le_one (hp : p ≤ 1) :
+theorem le_klUpper_iff_of_le_one (hp : p ≤ 1) :
     r ≤ klUpper p c ↔ r ≤ p ∨ r ≤ 1 ∧ klBer p r ≤ c := by
   rcases le_or_gt r p with hrp | hrp
   · exact iff_of_true (hrp.trans (klUpper_mem_Icc hp c).1) (Or.inl hrp)
