@@ -5,6 +5,7 @@ Authors: Rémy Degenne
 -/
 module
 
+public import LMLExplore.MeasureTheory.MeasurableSpace.Prod
 public import Mathlib.MeasureTheory.Integral.Prod
 public import Mathlib.Probability.Martingale.Basic
 
@@ -50,13 +51,6 @@ namespace LMLExplore
 variable {Ω L : Type*} {mΩ : MeasurableSpace Ω} {mL : MeasurableSpace L} {μ : Measure Ω}
   {π : Measure L}
 
-/-- The product σ-algebra `m₁ ⊗ m₂` is monotone in `m₂`. -/
-private lemma prod_mono_right {α β : Type*} (m₁ : MeasurableSpace α)
-    {m₂ m₂' : MeasurableSpace β} (h : m₂ ≤ m₂') : m₁.prod m₂ ≤ m₁.prod m₂' := by
-  -- By definition, `m₁.prod m₂ = m₁.comap Prod.fst ⊔ m₂.comap Prod.snd`.
-  unfold MeasurableSpace.prod
-  exact sup_le_sup le_rfl (MeasurableSpace.comap_mono h)
-
 /-- **Mixtures of supermartingales.** Let `(f l)_l` be a family of nonnegative supermartingales
 such that `(l, ω) ↦ f l n ω` is `mL ⊗ ℱ n`-measurable for each `n`, and `π` an s-finite measure
 on the parameter space such that `l ↦ ∫ ω, f l 0 ω ∂μ` is `π`-integrable. Then the mixture
@@ -69,7 +63,7 @@ lemma supermartingale_integral_of_integrable [IsFiniteMeasure μ] [SFinite π]
     Supermartingale (fun n ω ↦ ∫ l, f l n ω ∂π) ℱ μ := by
   set G : ℕ → Ω → ℝ≥0∞ := fun n ω ↦ ∫⁻ l, ENNReal.ofReal (f l n ω) ∂π with hG_def
   have hmeas' : ∀ n, Measurable (fun p : L × Ω ↦ f p.1 n p.2) := fun n ↦
-    (hmeas n).mono (prod_mono_right mL (ℱ.le n)) le_rfl
+    (hmeas n).mono (MeasurableSpace.prod_mono_right mL (ℱ.le n)) le_rfl
   have hsec : ∀ n ω, Measurable (fun l ↦ f l n ω) := fun n ω ↦
     (hmeas' n).comp measurable_prodMk_right
   have hg_eq : ∀ n ω, ∫ l, f l n ω ∂π = (G n ω).toReal := fun n ω ↦
@@ -124,7 +118,7 @@ lemma supermartingale_integral [IsFiniteMeasure μ] [IsFiniteMeasure π]
   obtain ⟨C, hC⟩ := hbdd
   refine supermartingale_integral_of_integrable hf hf_nonneg hmeas ?_
   have hm : Measurable (fun p : L × Ω ↦ f p.1 0 p.2) :=
-    (hmeas 0).mono (prod_mono_right mL (ℱ.le 0)) le_rfl
+    (hmeas 0).mono (MeasurableSpace.prod_mono_right mL (ℱ.le 0)) le_rfl
   refine Integrable.of_bound (C := C)
     hm.stronglyMeasurable.integral_prod_right'.aestronglyMeasurable (ae_of_all _ fun l ↦ ?_)
   rw [Real.norm_of_nonneg (integral_nonneg (hf_nonneg l 0))]
