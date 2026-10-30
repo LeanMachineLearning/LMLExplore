@@ -33,6 +33,11 @@ Let `f = μ.rnDeriv ν`. Then `μ A + ν Aᶜ ≥ ∫⁻ min f 1 ∂ν`. By the 
 * A. B. Tsybakov, *Introduction to Nonparametric Estimation*, Springer (2009), Lemma 2.6.
 * T. Lattimore and Cs. Szepesvári, *Bandit Algorithms*, Cambridge University Press (2020),
   Theorem 14.2 and (14.8).
+
+This file is adapted from the formalization in the LMLPapers project
+(`LeanMachineLearning/ForMathlib/InformationTheory/KullbackLeibler/BretagnolleHuber.lean` in
+`LeanMachineLearning/LMLPapers`). The stronger form (14.8), and the derivation of the
+inequality from it, are new here.
 -/
 
 public section
@@ -104,8 +109,8 @@ lemma lintegral_rnDeriv_rpow_half_eq [SigmaFinite μ] [SigmaFinite ν] (hμν : 
 
 /-- Jensen step of the Bretagnolle–Huber inequality:
 `exp (-KL(μ ‖ ν) / 2) ≤ ∫⁻ x, (μ.rnDeriv ν x) ^ (1 / 2) ∂ν`. -/
-lemma ofReal_exp_neg_klDiv_div_two_le [IsProbabilityMeasure μ] [IsProbabilityMeasure ν]
-    (h : klDiv μ ν ≠ ∞) :
+lemma ofReal_exp_neg_toReal_klDiv_div_two_le_lintegral_rnDeriv_rpow_half
+    [IsProbabilityMeasure μ] [IsProbabilityMeasure ν] (h : klDiv μ ν ≠ ∞) :
     ENNReal.ofReal (exp (-(klDiv μ ν).toReal / 2)) ≤ ∫⁻ x, μ.rnDeriv ν x ^ (1 / 2 : ℝ) ∂ν := by
   obtain ⟨hμν, h_int⟩ := klDiv_ne_top_iff.mp h
   have h_nonneg : 0 ≤ᵐ[μ] fun x ↦ exp (-llr μ ν x / 2) := ae_of_all _ fun x ↦ (exp_pos _).le
@@ -134,7 +139,7 @@ theorem ofReal_exp_neg_klDiv_div_two_le_lintegral_min_rnDeriv
     ENNReal.ofReal (exp (-(klDiv μ ν).toReal) / 2) ≤ ∫⁻ x, min (μ.rnDeriv ν x) 1 ∂ν := by
   set I := ∫⁻ x, min (μ.rnDeriv ν x) 1 ∂ν
   have h_le : ENNReal.ofReal (exp (-(klDiv μ ν).toReal / 2)) ≤ (2 * I) ^ (1 / 2 : ℝ) := by
-    calc _ ≤ _ := ofReal_exp_neg_klDiv_div_two_le h
+    calc _ ≤ _ := ofReal_exp_neg_toReal_klDiv_div_two_le_lintegral_rnDeriv_rpow_half h
       _ ≤ _ := lintegral_rnDeriv_rpow_half_le
       _ = _ := by simp [one_add_one_eq_two, I]
   have h_sq : ENNReal.ofReal (exp (-(klDiv μ ν).toReal)) ≤ 2 * I := by

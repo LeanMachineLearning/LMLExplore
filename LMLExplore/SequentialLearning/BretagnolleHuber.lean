@@ -13,18 +13,27 @@ public import LeanMachineLearning.SequentialLearning.Algorithm
 
 For two sequences of rounds `(O, A, Y)` under `P` and `(O', A', Y')` under `P'` (for instance two
 runs of an algorithm against two environments), the Bretagnolle–Huber inequality applied to the
-laws of the histories of the first `M` rounds bounds from below the probability that the actions
-of a round `t < M` differ in the two sequences: for a measurable set `s` of actions,
-`P(A t ∈ s) + P'(A' t ∉ s) ≥ exp(-KL) / 2`, where `KL` is the relative entropy between the laws of
-the two histories. Summed over the rounds, this is the step of bandit lower bounds that turns a
-bound on the relative entropy (from the divergence decomposition) into a bound on the expected
-numbers of rounds in which the actions are in `s`.
+laws of the histories of the first `M` rounds bounds from below, for a round `t < M` and a
+measurable set `s` of actions, the sum of the probability under `P` that `A t ∈ s` and the
+probability under `P'` that `A' t ∉ s`: `P(A t ∈ s) + P'(A' t ∉ s) ≥ exp(-KL) / 2`, where
+`KL` is the relative entropy between the laws of the two histories. Summed over the rounds, this
+is the step of bandit lower bounds that turns a bound on the relative entropy (from the divergence
+decomposition) into a bound on the expected numbers of rounds in which the actions are in `s`.
 
 ## Main statements
 
 * `LMLExplore.exp_neg_klDiv_map_history_div_two_le`: the inequality for one round.
 * `LMLExplore.mul_exp_neg_klDiv_map_history_div_two_le_sum`: the inequality summed over the rounds
   `t < M`.
+
+## References
+
+* T. Lattimore and Cs. Szepesvári, *Bandit Algorithms*, Cambridge University Press (2020),
+  Theorem 14.2 and Chapter 15.
+
+This file is adapted from the formalization in the LMLPapers project
+(`LeanMachineLearning/SequentialLearning/BretagnolleHuber.lean` in
+`LeanMachineLearning/LMLPapers`).
 -/
 
 public section
