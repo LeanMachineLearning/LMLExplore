@@ -40,7 +40,9 @@ LMLExplore depends on Mathlib, Tau Ceti and LML, at the exact versions recorded 
   import rather than a rewrite.
 - **Duplicates are deleted later, here.** When a dependency bump brings in material that
   LMLExplore already has, LMLExplore deletes its copy and migrates every use to the upstream
-  declaration, keeping any additional mathematics.
+  declaration, keeping any additional mathematics. After each sync, a scan
+  (`scripts/overlap/`) opens one issue labelled `upstream-overlap` per duplicate; resolve such an
+  issue by following `scripts/overlap/fix.md`.
 - **Never contribute upstream.** Do not open pull requests or issues in Mathlib, Tau Ceti or LML.
   Their maintainers decide, by hand, whether to adopt anything from here.
 

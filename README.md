@@ -33,7 +33,9 @@ The dependencies move together, only at Lean releases that both Tau Ceti and LML
 - `lean-toolchain` set to that release.
 
 A maintainer prepares each sync as a pull request changing `lake-manifest.json` and
-`lean-toolchain`, together with any repairs it needs.
+`lean-toolchain`, together with any repairs it needs. Once it has landed, the
+[upstream overlap scan](scripts/overlap/README.md) finds LMLExplore material that the new
+versions now provide, and opens an issue for each so that the copy here is deleted.
 
 ## Building
 
