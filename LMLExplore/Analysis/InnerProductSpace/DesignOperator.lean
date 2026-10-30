@@ -118,8 +118,8 @@ theorem ringInverse_designOp_succ [CompleteSpace E] (hlam : 0 < lam) (x : ℕ �
           (Ring.inverse (designOp lam x t) (x t)) := by
   rw [designOp_succ]
   exact ringInverse_add_rankOne_of_isSymmetric (isUnit_designOp hlam x t)
-    (isPositive_designOp hlam.le x t).isSymmetric (x t) (x t) (add_pos_of_pos_of_nonneg one_pos
-      ((isPositive_designOp hlam.le x t).ringInverse.inner_nonneg_right _)).ne'
+    (isPositive_designOp hlam.le x t).isSymmetric (x t) (x t)
+    ((isPositive_designOp hlam.le x t).one_add_inner_ringInverse_pos _).ne'
 
 /-- The determinant of the initial design operator: `det V_0(λ) = λ ^ d`. -/
 theorem det_designOp_zero (lam : ℝ) (x : ℕ → E) :
@@ -139,15 +139,15 @@ theorem det_designOp_succ [FiniteDimensional ℝ E] (hlam : 0 < lam) (x : ℕ �
 theorem det_designOp_eq_mul_prod [FiniteDimensional ℝ E] (hlam : 0 < lam) (x : ℕ → E) (t : ℕ) :
     LinearMap.det (designOp lam x t : E →ₗ[ℝ] E) =
       lam ^ finrank ℝ E * ∏ s ∈ range t, (1 + ⟪x s, Ring.inverse (designOp lam x s) (x s)⟫_ℝ) := by
-  induction t with
-  | zero => simp
-  | succ t ih => rw [det_designOp_succ hlam, ih, prod_range_succ, mul_assoc]
+  have := FiniteDimensional.complete ℝ E
+  rw [det_eq_mul_prod_of_add_rankOne (designOp_succ lam x) (isUnit_designOp hlam x),
+    det_designOp_zero]
 
 /-- The determinant of the design operator is positive for `λ > 0`. -/
 theorem det_designOp_pos [FiniteDimensional ℝ E] (hlam : 0 < lam) (x : ℕ → E) (t : ℕ) :
     0 < LinearMap.det (designOp lam x t : E →ₗ[ℝ] E) := by
   rw [det_designOp_eq_mul_prod hlam]
-  exact mul_pos (pow_pos hlam _) (prod_pos fun s _ ↦ add_pos_of_pos_of_nonneg one_pos
-    ((isPositive_designOp hlam.le x s).ringInverse.inner_nonneg_right _))
+  exact mul_pos (pow_pos hlam _)
+    (prod_pos fun s _ ↦ (isPositive_designOp hlam.le x s).one_add_inner_ringInverse_pos _)
 
 end LMLExplore

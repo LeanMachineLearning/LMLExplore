@@ -16,6 +16,8 @@ public import Mathlib.Analysis.InnerProductSpace.Positive
 * `ContinuousLinearMap.IsPositive.ringInverse`: the inverse `Ring.inverse V` of a positive
   continuous linear operator `V` is positive. In particular `0 ≤ ⟪v, V⁻¹ v⟫` for every `v`, by
   `IsPositive.inner_nonneg_right`.
+* `ContinuousLinearMap.IsPositive.one_add_inner_ringInverse_pos`: for a positive operator `V` on
+  a real inner product space, `0 < 1 + ⟪x, V⁻¹ x⟫`.
 * `LinearMap.IsPositive.eigenvalues_pos`: the eigenvalues of a positive invertible operator on a
   finite-dimensional inner product space are positive.
 -/
@@ -38,6 +40,12 @@ theorem IsPositive.ringInverse {V : E →L[𝕜] E} (hV : V.IsPositive) :
     rwa [V.apply_ringInverse_apply hu] at this
   · rw [Ring.inverse_non_unit V hu]
     exact isPositive_zero
+
+/-- For a positive operator `V` on a real inner product space, `0 < 1 + ⟪x, V⁻¹ x⟫`. -/
+theorem IsPositive.one_add_inner_ringInverse_pos {F : Type*} [NormedAddCommGroup F]
+    [InnerProductSpace ℝ F] {V : F →L[ℝ] F} (hV : V.IsPositive) (x : F) :
+    0 < 1 + ⟪x, Ring.inverse V x⟫_ℝ :=
+  add_pos_of_pos_of_nonneg one_pos (hV.ringInverse.inner_nonneg_right x)
 
 end ContinuousLinearMap
 
