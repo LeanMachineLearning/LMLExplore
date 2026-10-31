@@ -51,10 +51,10 @@ Lean round `n` uses `log f(n + 1)`.
 
 The proof of [LS, Theorem 8.1] bounds the two sums of `UCBF.integral_pullCount_le_sum_add_sum`,
 for an optimal arm `b` and the threshold `μ* - ε`. The first sum, the underestimation of `b`, is
-at most `5 σ² / ε²` by `sum_measureReal_pullCount_ne_zero_and_empMean_add_sqrt_le_le`. The events
-of the second sum are transferred to LML's i.i.d. reward stream model by
-`sum_measureReal_action_eq_and_pullCount_sumRewards_le`, where [LS, Lemma 8.2]
-(`sum_measureReal_streamMeasure_mul_le_sum_add_sqrt_le`) bounds them.
+at most `5 σ² / ε²` by `sum_measureReal_pullCount_ne_zero_and_empMean_add_sqrt_le_le`. The second
+sum, the overestimation of `a` by more than `Δ_a - ε`, is bounded by [LS, Lemma 8.2] in LML's
+i.i.d. reward stream model, by
+`sum_measureReal_action_eq_and_pullCount_eq_zero_or_lt_empMean_add_sqrt_le`.
 
 ## References
 
@@ -224,37 +224,9 @@ theorem UCBF.integral_pullCount_le (h : IsAlgEnvSeq O A R (ucbF σ2) (stationary
   set L := log (1 + n * log n ^ 2) with hL
   have hL0 : 0 ≤ L := log_nonneg (by linarith [(by positivity : (0 : ℝ) ≤ n * log n ^ 2)])
   have hgap : gap ν a = μs - (ν a)[id] := gap_eq_bestArm_sub
-  -- the rounds at which `a` has an overestimated index, as an event about its first rewards
-  set p : ℕ → ℝ → Prop := fun s x ↦ s = 0 ∨ μs - ε < x / s + √(2 * σ2 * L / s) with hp_def
-  have hp : Measurable fun q : ℕ × ℝ ↦ p q.1 q.2 :=
-    measurable_from_prod_countable_right fun s ↦ by
-      simp only [hp_def]
-      exact measurable_const.or (measurableSet_setOfPred.mp (measurableSet_lt measurable_const
-        (g := fun x : ℝ ↦ x / s + √(2 * σ2 * L / s)) (by fun_prop)))
-  have h_over : ∑ t ∈ range n, P.real {ω | A t ω = a ∧ (pullCount A a t ω = 0 ∨
-      μs - ε < empMean A R a t ω + √(2 * σ2 * L / pullCount A a t ω))} ≤
-      1 + 2 * σ2 / (gap ν a - ε) ^ 2 * (L + √(π * L) + 1) := by
-    calc ∑ t ∈ range n, P.real {ω | A t ω = a ∧ (pullCount A a t ω = 0 ∨
-        μs - ε < empMean A R a t ω + √(2 * σ2 * L / pullCount A a t ω))}
-    _ = ∑ t ∈ range n, P.real
-        {ω | A t ω = a ∧ p (pullCount A a t ω) (sumRewards A R a t ω)} := by
-      simp only [hp_def, empMean]
-    _ ≤ ∑ s ∈ range n, (streamMeasure ν).real {ω | p s (∑ i ∈ range s, ω i a)} :=
-      sum_measureReal_action_eq_and_pullCount_sumRewards_le h a n hp
-    _ ≤ ∑ s ∈ range n, (streamMeasure ν).real
-        {ω | s * ((ν a)[id] + (gap ν a - ε)) ≤ ∑ i ∈ range s, ω i a + √(2 * σ2 * L * s)} := by
-      refine sum_le_sum fun s _ ↦ measureReal_mono (fun ω hω ↦ ?_) (measure_ne_top _ _)
-      simp only [hp_def, Set.mem_ofPred_eq] at hω ⊢
-      rcases eq_or_ne s 0 with rfl | hs0
-      · simp
-      replace hω := hω.resolve_left hs0
-      have hs : (0 : ℝ) < s := Nat.cast_pos.mpr (Nat.pos_of_ne_zero hs0)
-      rw [div_add' _ _ _ hs.ne', lt_div_iff₀ hs] at hω
-      have h_sqrt := mul_sqrt_div_eq_sqrt_mul (2 * σ2 * L) hs.le
-      rw [hgap]
-      linarith
-    _ ≤ 1 + 2 * σ2 / (gap ν a - ε) ^ 2 * (L + √(π * L) + 1) :=
-      sum_measureReal_streamMeasure_mul_le_sum_add_sqrt_le (hν a) (sub_pos.mpr hεa) hL0 n
+  have h_thr : μs - ε = (ν a)[id] + (gap ν a - ε) := by
+    rw [hgap]
+    ring
   calc P[fun ω ↦ (pullCount A a n ω : ℝ)]
   _ ≤ ∑ t ∈ range n, P.real {ω | pullCount A (bestArm ν) t ω ≠ 0 ∧
         empMean A R (bestArm ν) t ω + √(2 * σ2 * log (1 + (t + 1) * log (t + 1) ^ 2) /
@@ -264,7 +236,9 @@ theorem UCBF.integral_pullCount_le (h : IsAlgEnvSeq O A R (ucbF σ2) (stationary
     UCBF.integral_pullCount_le_sum_add_sum h a (bestArm ν) (μs - ε) n
   _ ≤ 5 * σ2 / ε ^ 2 + (1 + 2 * σ2 / (gap ν a - ε) ^ 2 * (L + √(π * L) + 1)) :=
     add_le_add (sum_measureReal_pullCount_ne_zero_and_empMean_add_sqrt_le_le h (bestArm ν)
-      (hν _) hσ2 hε n) h_over
+      (hν _) hσ2 hε n) (h_thr ▸
+        sum_measureReal_action_eq_and_pullCount_eq_zero_or_lt_empMean_add_sqrt_le h a (hν a)
+          (sub_pos.mpr hεa) hL0 n)
   _ = 1 + 5 * σ2 / ε ^ 2 + 2 * σ2 * (L + √(π * L) + 1) / (gap ν a - ε) ^ 2 := by ring
 
 /-- **[LS, Theorem 8.1]** For σ²-sub-Gaussian rewards with `σ² ≠ 0`, the expected regret of the
