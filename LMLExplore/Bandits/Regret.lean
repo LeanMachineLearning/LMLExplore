@@ -209,10 +209,9 @@ theorem integral_regret_eventually_le_of_forall_integral_pullCount_eventually_le
   calc ∑ a ∈ S, gap ν a * P[fun ω ↦ (pullCount A a n ω : ℝ)]
   _ ≤ ∑ a ∈ S, gap ν a * ((C a + δ / gap ν a) * f n) :=
     sum_le_sum fun a ha ↦ mul_le_mul_of_nonneg_left (h_arms a ha) gap_nonneg
-  _ = (∑ a ∈ S, gap ν a * C a + #S * δ) * f n := by
-    rw [add_mul, sum_mul, ← nsmul_eq_mul, ← sum_const, sum_mul, ← sum_add_distrib]
-    refine sum_congr rfl fun a ha ↦ ?_
-    field_simp [(mem_filter.mp ha).2.ne']
+  _ = ∑ a ∈ S, (gap ν a * C a + δ) * f n :=
+    sum_congr rfl fun a ha ↦ by field_simp [(mem_filter.mp ha).2.ne']
+  _ = (∑ a ∈ S, gap ν a * C a + #S * δ) * f n := by simp [← sum_mul, sum_add_distrib]
   _ ≤ c * f n := mul_le_mul_of_nonneg_right (by linarith) hfn
 
 end Asymptotic

@@ -293,7 +293,8 @@ theorem UCBF.integral_pullCount_eventually_le
       simpa using ((hL.mul h_inv).sqrt)
     refine this.congr' ?_
     filter_upwards [h_log.eventually_gt_atTop 0] with n hn
-    rw [← div_eq_mul_inv, div_div, ← sq, sqrt_div' _ (sq_nonneg _), sqrt_sq hn.le]
+    field_simp
+    simp [sqrt_div', hn.le, mul_div_cancel₀ _ hn.ne']
   have h_bound : Tendsto (fun n : ℕ ↦ (K + D * (L n + √(π * L n) + 1)) / log n) atTop (𝓝 D) := by
     have := ((h_inv.const_mul (K + D)).add (hL.const_mul D)).add (h_sqrt.const_mul (D * √π))
     simp only [mul_zero, mul_one, zero_add, add_zero] at this
