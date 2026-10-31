@@ -16,10 +16,11 @@ under `μ.tilted (t * X ·)`, the moment generating function of `X` is
 `s ↦ mgf X μ (t + s) / mgf X μ t` and its cumulant generating function is
 `s ↦ cgf X μ (t + s) - cgf X μ t`. Together with Mathlib's `variance_tilted_mul`, which identifies
 the second derivative of the cumulant generating function with a variance, this shows that the
-derivative of the cumulant generating function is strictly increasing on the interior of
-`integrableExpSet X μ` as soon as `X` is not almost surely constant. For a measure on `ℝ` and
-`X = id`, that derivative is the mean of the exponential tilts, so the tilts of a probability
-measure which is not a Dirac mass by parameters in that interior have pairwise distinct means.
+derivative of the cumulant generating function is monotone on the interior of
+`integrableExpSet X μ`, and strictly increasing there as soon as `X` is not almost surely
+constant. For a measure on `ℝ` and `X = id`, that derivative is the mean of the exponential tilts,
+so the tilts of a probability measure which is not a Dirac mass by parameters in that interior
+have pairwise distinct means.
 
 ## Main statements
 
@@ -31,6 +32,8 @@ measure which is not a Dirac mass by parameters in that interior have pairwise d
   derivative of `cgf X μ` is positive on the interior of `integrableExpSet X μ`.
 * `ProbabilityTheory.hasStrictDerivAt_deriv_cgf`: on the interior of `integrableExpSet X μ`,
   the derivative of `deriv (cgf X μ)` is `iteratedDeriv 2 (cgf X μ)`.
+* `ProbabilityTheory.monotoneOn_deriv_cgf`: `deriv (cgf X μ)` is monotone on the interior of
+  `integrableExpSet X μ`.
 * `ProbabilityTheory.strictMonoOn_deriv_cgf`: if `X` is not almost surely constant,
   `deriv (cgf X μ)` is strictly increasing on the interior of `integrableExpSet X μ`.
 * `ProbabilityTheory.iteratedDeriv_two_cgf_id_pos`, `ProbabilityTheory.strictMonoOn_deriv_cgf_id`:
@@ -91,6 +94,16 @@ lemma hasStrictDerivAt_deriv_cgf (ht : t ∈ interior (integrableExpSet X μ)) :
     HasStrictDerivAt (deriv (cgf X μ)) (iteratedDeriv 2 (cgf X μ) t) t := by
   rw [iteratedDeriv_succ, iteratedDeriv_one]
   exact (analyticOnNhd_cgf.deriv t ht).hasStrictDerivAt
+
+/-- The derivative of the cumulant generating function is monotone on the interior of
+`integrableExpSet X μ`: the cumulant generating function is convex there. -/
+lemma monotoneOn_deriv_cgf : MonotoneOn (deriv (cgf X μ)) (interior (integrableExpSet X μ)) := by
+  refine monotoneOn_of_deriv_nonneg convex_integrableExpSet.interior
+    analyticOnNhd_cgf.deriv.continuousOn
+    (analyticOnNhd_cgf.deriv.differentiableOn.mono interior_subset) fun t ht ↦ ?_
+  rw [interior_interior] at ht
+  have h := variance_nonneg X (μ.tilted (t * X ·))
+  rwa [variance_tilted_mul ht, iteratedDeriv_succ, iteratedDeriv_one] at h
 
 /-- If `X` is not almost surely constant, the derivative of its cumulant generating function is
 strictly increasing on the interior of `integrableExpSet X μ`. -/

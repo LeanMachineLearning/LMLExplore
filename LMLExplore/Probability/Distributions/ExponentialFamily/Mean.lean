@@ -45,6 +45,7 @@ confidence*, COLT 2016.
 * `MeasureTheory.Measure.isOpen_natExpFamilyMeans`,
   `MeasureTheory.Measure.convex_natExpFamilyMeans`: the means form an open interval.
 * `MeasureTheory.Measure.integral_id_natExpFamily_natParam`: the member `ρ_η(μ)` has mean `μ`.
+* `MeasureTheory.Measure.monotoneOn_natParam`: the natural parameter is monotone in the mean.
 * `MeasureTheory.Measure.strictMonoOn_natParam`, `MeasureTheory.Measure.hasDerivAt_natParam`: the
   natural parameter is strictly increasing and differentiable in the mean, with derivative
   `1 / ψ''(η(μ))`.
@@ -133,6 +134,16 @@ lemma integral_id_natExpFamily_natParam (hμ : μ ∈ ρ.natExpFamilyMeans) :
 lemma convex_natExpFamilyMeans : Convex ℝ ρ.natExpFamilyMeans :=
   ((convex_integrableExpSet.interior.isPreconnected).image _
     analyticOnNhd_cgf.deriv.continuousOn).ordConnected.convex
+
+/-- The natural parameter is monotone in the mean. It is strictly increasing when `ρ` is a
+probability measure which is not a Dirac mass (`strictMonoOn_natParam`). -/
+theorem monotoneOn_natParam : MonotoneOn ρ.natParam ρ.natExpFamilyMeans := by
+  intro x hx y hy hxy
+  by_contra! h
+  have hyx := monotoneOn_deriv_cgf (natParam_mem_interior_integrableExpSet hy)
+    (natParam_mem_interior_integrableExpSet hx) h.le
+  rw [deriv_cgf_natParam hx, deriv_cgf_natParam hy] at hyx
+  exact h.ne (congrArg ρ.natParam (le_antisymm hyx hxy))
 
 section Inverse
 
