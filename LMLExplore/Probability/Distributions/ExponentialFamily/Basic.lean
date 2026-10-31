@@ -19,8 +19,9 @@ and the family is closed under tilting: tilting `ρ_η` by `t * ·` gives `ρ_(�
 
 For `η` in the interior of `integrableExpSet id ρ`, the tilt `ρ_η` has moments of all orders, its
 mean is `ψ'(η)` and its variance is `ψ''(η)`. The mean `ψ'(η)` is strictly increasing in `η` when
-`ρ` is not a Dirac mass (`ProbabilityTheory.strictMonoOn_deriv_cgf_id`), so the members of the
-family with natural parameters in that interior are determined by their means. The
+`ρ` is a probability measure that is not a Dirac mass
+(`ProbabilityTheory.strictMonoOn_deriv_cgf_id`), so the members of the family with natural
+parameters in that interior are determined by their means. The
 Kullback–Leibler divergence between two members is the Bregman divergence of `ψ`:
 `KL(ρ_η, ρ_η') = ψ(η') - ψ(η) - ψ'(η) (η' - η)`.
 
@@ -128,6 +129,10 @@ lemma memLp_id_natExpFamily (hη : η ∈ interior (integrableExpSet id ρ)) (p 
     MemLp id p (ρ.natExpFamily η) :=
   memLp_tilted_mul (X := id) hη p
 
+lemma integrable_id_natExpFamily (hη : η ∈ interior (integrableExpSet id ρ)) :
+    Integrable id (ρ.natExpFamily η) :=
+  (memLp_id_natExpFamily hη 1).integrable le_rfl
+
 /-- The mean of `ρ_η` is `ψ'(η)`. -/
 lemma integral_id_natExpFamily (hη : η ∈ interior (integrableExpSet id ρ)) :
     ∫ x, x ∂(ρ.natExpFamily η) = deriv (cgf id ρ) η :=
@@ -140,21 +145,24 @@ lemma variance_id_natExpFamily (hη : η ∈ interior (integrableExpSet id ρ)) 
 
 /-- The log-likelihood ratio of `ρ_η` with respect to `ρ_η'` is
 `x ↦ (η - η') x + ψ(η') - ψ(η)`, `ρ_η`-almost everywhere. -/
-lemma llr_natExpFamily (hη : η ∈ integrableExpSet id ρ) (hη' : η' ∈ integrableExpSet id ρ) :
+lemma llr_natExpFamily (hη' : η' ∈ integrableExpSet id ρ) :
     llr (ρ.natExpFamily η) (ρ.natExpFamily η') =ᵐ[ρ.natExpFamily η]
       fun x ↦ (η - η') * x + cgf id ρ η' - cgf id ρ η := by
+  obtain hη | hη := em' (η ∈ integrableExpSet id ρ)
+  · have h_zero : ρ.natExpFamily η = 0 := tilted_of_not_integrable hη
+    simp [h_zero, Filter.EventuallyEq]
   rcases eq_zero_or_neZero ρ with rfl | hρ
   · simp [Filter.EventuallyEq]
   have := isProbabilityMeasure_natExpFamily hη
   -- `ρ_η'` is the tilt of `ρ_η` by `(η' - η) * ·`.
-  have hη'_tilt : η + (η' - η) ∈ integrableExpSet id ρ := by rwa [add_sub_cancel]
   have h_int : η' - η ∈ integrableExpSet id (ρ.natExpFamily η) := by
-    rwa [integrableExpSet_id_natExpFamily hη]
+    rwa [integrableExpSet_id_natExpFamily hη, mem_preimage, add_sub_cancel]
   have h_eq : ρ.natExpFamily η' = (ρ.natExpFamily η).tilted ((η' - η) * ·) := by
     rw [← natExpFamily_def, natExpFamily_natExpFamily hη, add_sub_cancel]
   have h_log : log (∫ x, exp ((η' - η) * x) ∂(ρ.natExpFamily η)) = cgf id ρ η' - cgf id ρ η := by
-    rw [← add_sub_cancel η η', ← cgf_id_natExpFamily hη hη'_tilt, add_sub_cancel]
-    simp [cgf, mgf]
+    have h := cgf_id_natExpFamily (t := η' - η) hη (by rwa [add_sub_cancel])
+    rw [add_sub_cancel] at h
+    exact h
   rw [h_eq]
   filter_upwards [llr_tilted_right (f := ((η' - η) * ·)) AbsolutelyContinuous.rfl h_int,
     llr_self (ρ.natExpFamily η)] with x hx h_self
@@ -164,9 +172,9 @@ lemma llr_natExpFamily (hη : η ∈ integrableExpSet id ρ) (hη' : η' ∈ int
 lemma integrable_llr_natExpFamily (hη : η ∈ interior (integrableExpSet id ρ))
     (hη' : η' ∈ integrableExpSet id ρ) :
     Integrable (llr (ρ.natExpFamily η) (ρ.natExpFamily η')) (ρ.natExpFamily η) := by
-  rw [integrable_congr (llr_natExpFamily (interior_subset hη) hη')]
-  exact ((((memLp_id_natExpFamily hη 1).integrable le_rfl).const_mul _).add
-    (integrable_const _)).sub (integrable_const _)
+  rw [integrable_congr (llr_natExpFamily hη')]
+  exact (((integrable_id_natExpFamily hη).const_mul _).add (integrable_const _)).sub
+    (integrable_const _)
 
 lemma integral_llr_natExpFamily (hη : η ∈ interior (integrableExpSet id ρ))
     (hη' : η' ∈ integrableExpSet id ρ) :
@@ -176,10 +184,9 @@ lemma integral_llr_natExpFamily (hη : η ∈ interior (integrableExpSet id ρ))
   · simp
   have := isProbabilityMeasure_natExpFamily (interior_subset hη)
   have h_int : Integrable (fun x ↦ (η - η') * x) (ρ.natExpFamily η) :=
-    ((memLp_id_natExpFamily hη 1).integrable le_rfl).const_mul _
-  rw [integral_congr_ae (llr_natExpFamily (interior_subset hη) hη'),
-    integral_sub ?_ (integrable_const _), integral_add h_int (integrable_const _),
-    integral_const_mul, integral_id_natExpFamily hη]
+    (integrable_id_natExpFamily hη).const_mul _
+  rw [integral_congr_ae (llr_natExpFamily hη'), integral_sub ?_ (integrable_const _),
+    integral_add h_int (integrable_const _), integral_const_mul, integral_id_natExpFamily hη]
   · simp only [integral_const, probReal_univ, smul_eq_mul, one_mul]
     ring
   · exact h_int.add (integrable_const _)

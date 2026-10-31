@@ -18,8 +18,8 @@ under `μ.tilted (t * X ·)`, the moment generating function of `X` is
 the second derivative of the cumulant generating function with a variance, this shows that the
 derivative of the cumulant generating function is strictly increasing on the interior of
 `integrableExpSet X μ` as soon as `X` is not almost surely constant. For a measure on `ℝ` and
-`X = id`, that derivative is the mean of the exponential tilts, so the tilts of a measure which is
-not a Dirac mass by parameters in that interior have pairwise distinct means.
+`X = id`, that derivative is the mean of the exponential tilts, so the tilts of a probability
+measure which is not a Dirac mass by parameters in that interior have pairwise distinct means.
 
 ## Main statements
 
@@ -31,8 +31,8 @@ not a Dirac mass by parameters in that interior have pairwise distinct means.
   derivative of `cgf X μ` is positive on the interior of `integrableExpSet X μ`.
 * `ProbabilityTheory.strictMonoOn_deriv_cgf`: under the same assumption, `deriv (cgf X μ)` is
   strictly increasing on the interior of `integrableExpSet X μ`.
-* `ProbabilityTheory.strictMonoOn_deriv_cgf_id`: the version for a measure on `ℝ` which is not a
-  Dirac mass.
+* `ProbabilityTheory.strictMonoOn_deriv_cgf_id`: the version for a probability measure on `ℝ`
+  which is not a Dirac mass.
 -/
 
 public section
