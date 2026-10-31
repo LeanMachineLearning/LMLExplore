@@ -115,7 +115,7 @@ lemma deriv_cgf_mem_natExpFamilyMeans (hη : η ∈ interior (integrableExpSet i
     deriv (cgf id ρ) η ∈ ρ.natExpFamilyMeans :=
   mem_image_of_mem _ hη
 
-lemma natParam_mem_interior (hμ : μ ∈ ρ.natExpFamilyMeans) :
+lemma natParam_mem_interior_integrableExpSet (hμ : μ ∈ ρ.natExpFamilyMeans) :
     ρ.natParam μ ∈ interior (integrableExpSet id ρ) :=
   Function.invFunOn_mem hμ
 
@@ -127,7 +127,7 @@ lemma deriv_cgf_natParam (hμ : μ ∈ ρ.natExpFamilyMeans) : deriv (cgf id ρ)
 /-- The member `ρ_η(μ)` of the natural exponential family has mean `μ`. -/
 lemma integral_id_natExpFamily_natParam (hμ : μ ∈ ρ.natExpFamilyMeans) :
     ∫ x, x ∂(ρ.natExpFamily (ρ.natParam μ)) = μ := by
-  rw [integral_id_natExpFamily (natParam_mem_interior hμ), deriv_cgf_natParam hμ]
+  rw [integral_id_natExpFamily (natParam_mem_interior_integrableExpSet hμ), deriv_cgf_natParam hμ]
 
 /-- The means of a natural exponential family form a convex set. -/
 lemma convex_natExpFamilyMeans : Convex ℝ ρ.natExpFamilyMeans :=
@@ -146,7 +146,8 @@ lemma natParam_deriv_cgf (hρ : ∀ c, ρ ≠ dirac c) (hη : η ∈ interior (i
 
 lemma image_natParam (hρ : ∀ c, ρ ≠ dirac c) :
     ρ.natParam '' ρ.natExpFamilyMeans = interior (integrableExpSet id ρ) := by
-  refine MapsTo.image_subset (fun _ hμ ↦ natParam_mem_interior hμ) |>.antisymm fun η hη ↦ ?_
+  refine MapsTo.image_subset (fun _ hμ ↦ natParam_mem_interior_integrableExpSet hμ) |>.antisymm
+    fun η hη ↦ ?_
   exact ⟨_, deriv_cgf_mem_natExpFamilyMeans hη, natParam_deriv_cgf hρ hη⟩
 
 /-- The means of the natural exponential family of a probability measure which is not a Dirac
@@ -164,23 +165,24 @@ lemma natExpFamilyMeans_mem_nhds (hρ : ∀ c, ρ ≠ dirac c) (hμ : μ ∈ ρ.
 /-- The natural parameter is strictly increasing in the mean. -/
 theorem strictMonoOn_natParam (hρ : ∀ c, ρ ≠ dirac c) :
     StrictMonoOn ρ.natParam ρ.natExpFamilyMeans := fun x hx y hy hxy ↦ by
-  rwa [← (strictMonoOn_deriv_cgf_id hρ).lt_iff_lt (natParam_mem_interior hx)
-    (natParam_mem_interior hy), deriv_cgf_natParam hx, deriv_cgf_natParam hy]
+  rwa [← (strictMonoOn_deriv_cgf_id hρ).lt_iff_lt (natParam_mem_interior_integrableExpSet hx)
+    (natParam_mem_interior_integrableExpSet hy), deriv_cgf_natParam hx, deriv_cgf_natParam hy]
 
 lemma continuousOn_natParam (hρ : ∀ c, ρ ≠ dirac c) :
     ContinuousOn ρ.natParam ρ.natExpFamilyMeans := fun μ hμ ↦ by
   refine ((strictMonoOn_natParam hρ).continuousAt_of_image_mem_nhds
     (natExpFamilyMeans_mem_nhds hρ hμ) ?_).continuousWithinAt
   rw [image_natParam hρ]
-  exact isOpen_interior.mem_nhds (natParam_mem_interior hμ)
+  exact isOpen_interior.mem_nhds (natParam_mem_interior_integrableExpSet hμ)
 
 /-- The natural parameter is differentiable in the mean, with derivative `1 / ψ''(η(μ))`, the
 inverse of the variance of the member of mean `μ`. -/
 theorem hasDerivAt_natParam (hρ : ∀ c, ρ ≠ dirac c) (hμ : μ ∈ ρ.natExpFamilyMeans) :
     HasDerivAt ρ.natParam (iteratedDeriv 2 (cgf id ρ) (ρ.natParam μ))⁻¹ μ :=
-  (hasStrictDerivAt_deriv_cgf (natParam_mem_interior hμ)).hasDerivAt.of_local_left_inverse
+  (hasStrictDerivAt_deriv_cgf (natParam_mem_interior_integrableExpSet hμ)).hasDerivAt
+    |>.of_local_left_inverse
     ((continuousOn_natParam hρ).continuousAt (natExpFamilyMeans_mem_nhds hρ hμ))
-    (iteratedDeriv_two_cgf_id_pos hρ (natParam_mem_interior hμ)).ne'
+    (iteratedDeriv_two_cgf_id_pos hρ (natParam_mem_interior_integrableExpSet hμ)).ne'
     (eventually_of_mem (natExpFamilyMeans_mem_nhds hρ hμ) fun _ ↦ deriv_cgf_natParam)
 
 /-- The log-partition function at the natural parameter of the mean `x` has derivative
@@ -188,7 +190,8 @@ theorem hasDerivAt_natParam (hρ : ∀ c, ρ ≠ dirac c) (hμ : μ ∈ ρ.natEx
 private lemma hasDerivAt_cgf_natParam (hρ : ∀ c, ρ ≠ dirac c) (hμ : μ ∈ ρ.natExpFamilyMeans) :
     HasDerivAt (fun x ↦ cgf id ρ (ρ.natParam x))
       (μ * (iteratedDeriv 2 (cgf id ρ) (ρ.natParam μ))⁻¹) μ := by
-  have h := (analyticOnNhd_cgf _ (natParam_mem_interior hμ)).differentiableAt.hasDerivAt
+  have h :=
+    (analyticOnNhd_cgf _ (natParam_mem_interior_integrableExpSet hμ)).differentiableAt.hasDerivAt
   rw [deriv_cgf_natParam hμ] at h
   exact h.comp μ (hasDerivAt_natParam hρ hμ)
 
@@ -206,8 +209,9 @@ theorem toReal_klDiv_natExpFamily_natParam (hμ : μ ∈ ρ.natExpFamilyMeans)
     (hμ' : μ' ∈ ρ.natExpFamilyMeans) :
     (klDiv (ρ.natExpFamily (ρ.natParam μ)) (ρ.natExpFamily (ρ.natParam μ'))).toReal =
       ρ.natExpFamilyDiv μ μ' := by
-  rw [toReal_klDiv_natExpFamily (natParam_mem_interior hμ)
-    (interior_subset (natParam_mem_interior hμ')), deriv_cgf_natParam hμ, natExpFamilyDiv_def]
+  rw [toReal_klDiv_natExpFamily (natParam_mem_interior_integrableExpSet hμ)
+    (interior_subset (natParam_mem_interior_integrableExpSet hμ')), deriv_cgf_natParam hμ,
+    natExpFamilyDiv_def]
 
 /-- **Kullback–Leibler divergence in the mean parametrization.** The divergence between the
 members of means `μ` and `μ'` of a natural exponential family is
@@ -216,7 +220,8 @@ theorem klDiv_natExpFamily_natParam (hμ : μ ∈ ρ.natExpFamilyMeans)
     (hμ' : μ' ∈ ρ.natExpFamilyMeans) :
     klDiv (ρ.natExpFamily (ρ.natParam μ)) (ρ.natExpFamily (ρ.natParam μ')) =
       ENNReal.ofReal (ρ.natExpFamilyDiv μ μ') := by
-  rw [klDiv_natExpFamily (natParam_mem_interior hμ) (interior_subset (natParam_mem_interior hμ')),
+  rw [klDiv_natExpFamily (natParam_mem_interior_integrableExpSet hμ)
+    (interior_subset (natParam_mem_interior_integrableExpSet hμ')),
     deriv_cgf_natParam hμ, natExpFamilyDiv_def]
 
 lemma natExpFamilyDiv_nonneg (hμ : μ ∈ ρ.natExpFamilyMeans) (hμ' : μ' ∈ ρ.natExpFamilyMeans) :
@@ -246,7 +251,7 @@ theorem continuousOn_natExpFamilyDiv (hρ : ∀ c, ρ ≠ dirac c) :
       (ρ.natExpFamilyMeans ×ˢ ρ.natExpFamilyMeans) := by
   have hη := continuousOn_natParam hρ
   have hψ : ContinuousOn (fun x ↦ cgf id ρ (ρ.natParam x)) ρ.natExpFamilyMeans :=
-    analyticOnNhd_cgf.continuousOn.comp hη fun _ hx ↦ natParam_mem_interior hx
+    analyticOnNhd_cgf.continuousOn.comp hη fun _ hx ↦ natParam_mem_interior_integrableExpSet hx
   have h₁ : MapsTo Prod.fst (ρ.natExpFamilyMeans ×ˢ ρ.natExpFamilyMeans) ρ.natExpFamilyMeans :=
     fun _ hp ↦ hp.1
   have h₂ : MapsTo Prod.snd (ρ.natExpFamilyMeans ×ˢ ρ.natExpFamilyMeans) ρ.natExpFamilyMeans :=
@@ -322,7 +327,7 @@ theorem strictAntiOn_natExpFamilyDiv_right (hρ : ∀ c, ρ ≠ dirac c) (μ : �
   rw [interior_inter, (isOpen_natExpFamilyMeans hρ).interior_eq, interior_Iic] at hy
   rw [(hasDerivAt_natExpFamilyDiv_right hρ μ hy.1).deriv]
   exact div_neg_of_neg_of_pos (sub_neg.2 hy.2)
-    (iteratedDeriv_two_cgf_id_pos hρ (natParam_mem_interior hy.1))
+    (iteratedDeriv_two_cgf_id_pos hρ (natParam_mem_interior_integrableExpSet hy.1))
 
 /-- The divergence `d(μ, μ')` is strictly increasing in `μ'` for `μ ≤ μ'`. -/
 theorem strictMonoOn_natExpFamilyDiv_right (hρ : ∀ c, ρ ≠ dirac c) (μ : ℝ) :
@@ -332,7 +337,8 @@ theorem strictMonoOn_natExpFamilyDiv_right (hρ : ∀ c, ρ ≠ dirac c) (μ : �
     fun y hy ↦ ?_
   rw [interior_inter, (isOpen_natExpFamilyMeans hρ).interior_eq, interior_Ici] at hy
   rw [(hasDerivAt_natExpFamilyDiv_right hρ μ hy.1).deriv]
-  exact div_pos (sub_pos.2 hy.2) (iteratedDeriv_two_cgf_id_pos hρ (natParam_mem_interior hy.1))
+  exact div_pos (sub_pos.2 hy.2)
+    (iteratedDeriv_two_cgf_id_pos hρ (natParam_mem_interior_integrableExpSet hy.1))
 
 end Analytic
 
