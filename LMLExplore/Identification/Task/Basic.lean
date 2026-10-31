@@ -48,6 +48,8 @@ answer is not correct".
 
 * `IdentTask.alt_union_answerSet`, `IdentTask.disjoint_alt_answerSet`: the alternatives to `i` and
   the models for which `i` is correct partition the admissible models.
+* `IdentTask.IsSingleAnswer.correct_eq_singleton_of_mem`: for a single-answer task, a correct
+  answer of an admissible model is its only correct answer.
 * `IdentTask.IsSingleAnswer.mem_alt_iff`: for a single-answer task, an admissible model is an
   alternative to `j` iff `j` is not its answer.
 * `IdentTask.isDeltaCorrect_iff`, `IdentTask.isDeltaPAC_iff`: the properties on the laws of the
@@ -142,14 +144,19 @@ lemma mem_alt_of_correct_eq_singleton (hθ : θ ∈ task.M) (hi : task.correct �
     (hj : j ≠ i) : θ ∈ task.alt j := by
   simp [hθ, hi, hj]
 
+/-- For a single-answer task, a correct answer `i` of an admissible model is its only correct
+answer. -/
+lemma IsSingleAnswer.correct_eq_singleton_of_mem (h : task.IsSingleAnswer) (hθ : θ ∈ task.M)
+    (hi : i ∈ task.correct θ) : task.correct θ = {i} := by
+  obtain ⟨i', hi'⟩ := h θ hθ
+  rw [hi', Set.mem_singleton_iff] at hi
+  rwa [hi]
+
 /-- For a single-answer task, an admissible model with correct answer `i` is an alternative to
 `j` iff `j ≠ i`. -/
 lemma IsSingleAnswer.mem_alt_iff (h : task.IsSingleAnswer) (hθ : θ ∈ task.M)
     (hi : i ∈ task.correct θ) : θ ∈ task.alt j ↔ j ≠ i := by
-  obtain ⟨i', hi'⟩ := h θ hθ
-  rw [hi', Set.mem_singleton_iff] at hi
-  subst hi
-  simp [hθ, hi']
+  simp [hθ, h.correct_eq_singleton_of_mem hθ hi]
 
 /-! ### Restriction of the admissible models -/
 
@@ -173,11 +180,22 @@ lemma ν_restrict : (task.restrict S).ν = task.ν := (rfl)
 @[simp]
 lemma correct_restrict : (task.restrict S).correct = task.correct := (rfl)
 
+@[simp]
+lemma restrict_restrict (S T : Set Θ) : (task.restrict S).restrict T = task.restrict (S ∩ T) := by
+  ext <;> simp [Set.inter_assoc]
+
+variable (task) in
+@[simp]
+lemma restrict_univ : task.restrict Set.univ = task := by
+  ext <;> simp
+
+@[simp]
 lemma alt_restrict (i : ℐ) : (task.restrict S).alt i = task.alt i ∩ S := by
   ext θ
   simp only [mem_alt_iff, M_restrict, correct_restrict, Set.mem_inter_iff]
   tauto
 
+@[simp]
 lemma answerSet_restrict (i : ℐ) : (task.restrict S).answerSet i = task.answerSet i ∩ S := by
   ext θ
   simp only [mem_answerSet_iff, M_restrict, correct_restrict, Set.mem_inter_iff]
@@ -264,13 +282,12 @@ lemma IsDeltaPAC.mono (h : task.IsDeltaPAC A δ) (hδ : δ ≤ δ') : task.IsDel
 /-- A `δ`-correct algorithm on a task is `δ`-correct on every restriction of it. -/
 lemma IsDeltaCorrect.restrict (h : task.IsDeltaCorrect A δ) (S : Set Θ) :
     (task.restrict S).IsDeltaCorrect A δ :=
-  isDeltaCorrect_iff.2 fun θ hθ ↦ isDeltaCorrect_iff.1 h θ hθ.1
+  Identification.IsDeltaCorrect.comp h (Set.inclusion Set.inter_subset_left)
 
 /-- A `δ`-PAC algorithm on a task is `δ`-PAC on every restriction of it. -/
 lemma IsDeltaPAC.restrict (h : task.IsDeltaPAC A δ) (S : Set Θ) :
     (task.restrict S).IsDeltaPAC A δ :=
-  isDeltaPAC_iff.2 ⟨fun θ hθ ↦ (isDeltaPAC_iff.1 h).1 θ hθ.1,
-    fun θ hθ ↦ (isDeltaPAC_iff.1 h).2 θ hθ.1⟩
+  Identification.IsDeltaPAC.comp h (Set.inclusion Set.inter_subset_left)
 
 section Run
 

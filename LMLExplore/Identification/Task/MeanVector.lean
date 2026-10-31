@@ -35,11 +35,15 @@ sets (the means of an exponential family, `[0, 1]` for Bernoulli arms, ...) are 
 
 ## Main statements
 
-* `isSingleAnswer_baiTask`, `isSingleAnswer_topMTask`, `isSingleAnswer_thresholdingTask`,
-  `isSingleAnswer_minThresholdTask`, `isSingleAnswer_halfSpaceTask`: these tasks have a single
-  correct answer on every admissible model.
-* `nonempty_correct_epsBaiTask`, `nonempty_correct_anyLowArmTask_iff`: every admissible model of
-  the multiple-answer tasks has a correct answer.
+* `isSingleAnswer_baiTask`, `isSingleAnswer_topMTask`, `isSingleAnswer_minThresholdTask`,
+  `isSingleAnswer_halfSpaceTask`: these tasks have a single correct answer on every admissible
+  model.
+* `isSingleAnswer_thresholdingTask`: on finitely many arms, thresholding has a single correct
+  answer on every admissible model.
+* `nonempty_correct_epsBaiTask`: for `ε ≥ 0` and finitely many (at least one) arms, every model
+  has an `ε`-good arm.
+* `nonempty_correct_anyLowArmTask_iff`: the admissible models of Any Low Arm are exactly the
+  models with a correct answer.
 * `correct_baiTask_subset_correct_epsBaiTask`: the best arm is `ε`-good for every `ε ≥ 0`.
 
 ## References
@@ -87,6 +91,8 @@ lemma subsingleton_correct_baiTask (μ : α → ℝ) : ((baiTask ν).correct μ)
   simp only [correct_baiTask, Set.mem_ofPred_eq] at ha ha'
   exact lt_asymm (ha a' (Ne.symm h)) (ha' a h)
 
+/-- Best arm identification is a single-answer task: every model with a unique best arm has
+exactly one correct answer, its best arm. -/
 lemma isSingleAnswer_baiTask : (baiTask ν).IsSingleAnswer := by
   refine (IdentTask.isSingleAnswer_iff _).2 ?_
   rintro μ ⟨a, ha⟩
@@ -133,6 +139,8 @@ lemma subsingleton_correct_topMTask (m : ℕ) (μ : α → ℝ) :
     exact hst (Finset.eq_of_subset_of_card_le h (by rw [hs.1, ht.1])).symm
   exact lt_asymm (hs.2 a has b hbs) (ht.2 b hbt a hat)
 
+/-- Top-`m` identification is a single-answer task: every admissible model has exactly one set of
+`m` arms whose means are larger than those of the other arms. -/
 lemma isSingleAnswer_topMTask (m : ℕ) : (topMTask (α := α) ν m).IsSingleAnswer := by
   refine (IdentTask.isSingleAnswer_iff _).2 ?_
   rintro μ ⟨s, hs⟩
@@ -208,6 +216,8 @@ lemma correct_thresholdingTask_eq_singleton [Fintype α] [DecidablePred fun a �
   ext a
   simp [h a]
 
+/-- On finitely many arms, thresholding is a single-answer task: the set of arms with mean above
+`γ` is the only correct answer. -/
 lemma isSingleAnswer_thresholdingTask [Finite α] (γ : ℝ) :
     (thresholdingTask ν γ).IsSingleAnswer := by
   classical
@@ -242,6 +252,8 @@ lemma correct_minThresholdTask_eq_singleton [Decidable (∃ a, μ a < γ)] :
   ext i
   cases i <;> simp
 
+/-- Minimum threshold is a single-answer task: the only correct answer is whether some mean is
+below `γ`. -/
 lemma isSingleAnswer_minThresholdTask (γ : ℝ) :
     (minThresholdTask (α := α) ν γ).IsSingleAnswer := by
   classical
@@ -317,6 +329,8 @@ lemma correct_halfSpaceTask_eq_singleton :
   ext i
   cases i <;> simp
 
+/-- Half-space identification is a single-answer task: the only correct answer is the sign of
+`u ⬝ᵥ μ`. -/
 lemma isSingleAnswer_halfSpaceTask (u : α → ℝ) : (halfSpaceTask ν u).IsSingleAnswer :=
   (IdentTask.isSingleAnswer_iff _).2 fun _ _ ↦ ⟨_, correct_halfSpaceTask_eq_singleton ν⟩
 
