@@ -7,6 +7,7 @@ module
 
 public import LMLExplore.Identification.Correctness
 public import LMLExplore.SequentialLearning.DivergenceDecomposition
+public import LMLExplore.SequentialLearning.Wald
 
 /-!
 # Sample complexity of identification algorithms and Wald's identities
@@ -23,8 +24,12 @@ before a random time `τ` through the expected numbers of pulls `N_a(τ)` of the
 (`LMLExplore.lintegral_toENNReal_eq_sum_lintegral_pullCount`), and
 `𝔼[∑_{t < τ} f(A_t)] = ∑ a, 𝔼[N_a(τ)] f(a)` for `f ≥ 0` (`LMLExplore.sum_lintegral_pullCount_mul`).
 Both hold for any measurable random time and are in
-`LMLExplore/SequentialLearning/DivergenceDecomposition.lean`; this file applies the first one at
-the stopping time of an identification algorithm.
+`LMLExplore/SequentialLearning/DivergenceDecomposition.lean`. For the rewards `Y_t` of a stationary
+environment `ν` with integrable reward distributions of means `μ_a`, and a stopping time `τ` with
+`𝔼[τ] < ∞`, Wald's identity `𝔼[∑_{t < τ} Y_t] = ∑ a, 𝔼[N_a(τ)] μ_a`
+(`Learning.IsAlgEnvSeq.integral_sum_feedback_eq_sum_integral_pullCount_mul`) is in
+`LMLExplore/SequentialLearning/Wald.lean`. This file applies these identities at the stopping
+time of an identification algorithm.
 
 ## Main definitions
 
@@ -39,6 +44,9 @@ the stopping time of an identification algorithm.
   `LMLExplore.Identification.expectedStoppingTime_eq_sum_lintegral_pullCount`: Wald's identity
   `𝔼[τ] = ∑ a, 𝔼[N_a(τ)]` at the stopping time `τ` of an identification algorithm that stops
   almost surely, along any algorithm-environment sequence and on the canonical space.
+* `Learning.IdentAlg.integral_sum_feedback_eq_sum_integral_pullCount_mul`: Wald's identity for the
+  rewards, `𝔼[∑_{t < τ} Y_t] = ∑ a, 𝔼[N_a(τ)] μ_a`, at the stopping time `τ` of an identification
+  algorithm with `𝔼[τ] < ∞` in a stationary environment with integrable reward distributions.
 
 ## References
 
@@ -129,3 +137,28 @@ lemma expectedStoppingTime_eq_sum_lintegral_pullCount (hA : StopsAS A env) :
     (IT.isAlgEnvSeq_trajMeasure A.alg env) hA
 
 end LMLExplore.Identification
+
+/-! ### Wald's identity for the rewards -/
+
+namespace Learning.IdentAlg
+
+open LMLExplore.Identification
+
+variable [Fintype 𝓐] [DecidableEq 𝓐] [MeasurableSingletonClass 𝓐]
+
+/-- **Wald's identity for the rewards at the stopping time.** If `A` has finite expected stopping
+time `𝔼[τ] < ∞` in a stationary environment `ν` with integrable reward distributions, then along
+any algorithm-environment sequence of its sampling rule, the expected sum of the rewards collected
+before stopping is `∑ a, 𝔼[N_a(τ)] μ_a`, where `N_a(τ)` is the number of pulls of the action `a`
+before `τ` and `μ_a` is the mean of `ν a`. -/
+lemma integral_sum_feedback_eq_sum_integral_pullCount_mul [IsProbabilityMeasure P]
+    {A : IdentAlg Unit 𝓐 ℝ 𝓓} {ν : Kernel 𝓐 ℝ} [IsMarkovKernel ν] {O : ℕ → Ω → Unit}
+    {X : ℕ → Ω → 𝓐} {Y : ℕ → Ω → ℝ} (h : IsAlgEnvSeq O X Y A.alg (stationaryEnv ν) P)
+    (hA : expectedStoppingTime A (stationaryEnv ν) ≠ ∞) (hν : ∀ a, Integrable id (ν a)) :
+    ∫ ω, ∑ t ∈ range (A.stoppingTime O X Y ω).toNat, Y t ω ∂P =
+      ∑ a, (∫ ω, (pullCount X a (A.stoppingTime O X Y ω).toNat ω : ℝ) ∂P) * ∫ y, y ∂(ν a) :=
+  h.integral_sum_feedback_eq_sum_integral_pullCount_mul
+    (A.isStoppingTime_filtrationAction_stoppingTime h)
+    (by rwa [A.lintegral_stoppingTime_eq_expectedStoppingTime h]) hν
+
+end Learning.IdentAlg
