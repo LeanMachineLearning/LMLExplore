@@ -52,6 +52,8 @@ negative entry of `w` counts as `0`.
 * `IdentTask.convex_optAlloc`: the optimal allocations of an answer form a convex set.
 * `IdentTask.altCost_eq_zero_of_mem_alt`, `IdentTask.answerValue_eq_zero_of_mem_alt`: the cost
   and the value of the answer `i` vanish at an alternative `θ ∈ ¬i`.
+* `IdentTask.answerValue_eq_top_of_alt_eq_empty`: the value of an answer without alternatives is
+  `∞`.
 * `IdentTask.charTime_lt_top_iff`: `T*(θ) < ∞` iff some correct answer of `θ` has alternatives at
   positive cost for some allocation.
 * `IdentTask.gameValue_eq_answerValue`: for a model with a single correct answer `i`,
@@ -88,6 +90,12 @@ def simplex : Set (α → ℝ) := {w | (∀ a, 0 ≤ w a) ∧ ∑ a, w a = 1}
 lemma mem_simplex_iff {w : α → ℝ} : w ∈ simplex α ↔ (∀ a, 0 ≤ w a) ∧ ∑ a, w a = 1 := Iff.rfl
 
 lemma simplex_subset_nonneg : simplex α ⊆ Set.Ici 0 := fun _ hw ↦ hw.1
+
+variable (α) in
+lemma simplex_nonempty [Nonempty α] : (simplex α).Nonempty := by
+  classical
+  obtain ⟨a⟩ := ‹Nonempty α›
+  exact ⟨Pi.single a 1, fun b ↦ by by_cases h : b = a <;> simp [h], by simp⟩
 
 variable (α) in
 lemma convex_simplex : Convex ℝ (simplex α) := by
@@ -227,6 +235,14 @@ lemma answerValue_le_gameValue (hi : i ∈ task.correct θ) :
 /-- The value of the game of the answer `i` vanishes at an alternative to `i`. -/
 lemma answerValue_eq_zero_of_mem_alt (hθ : θ ∈ task.alt i) : task.answerValue θ i = 0 := by
   simp [answerValue_def, task.altCost_eq_zero_of_mem_alt hθ]
+
+/-- The value of the game of an answer without alternatives is `∞`. -/
+lemma answerValue_eq_top_of_alt_eq_empty [Nonempty α] (h : task.alt i = ∅) (θ : Θ) :
+    task.answerValue θ i = ∞ := by
+  obtain ⟨w, hw⟩ := simplex_nonempty α
+  refine top_unique ?_
+  calc ∞ = task.altCost θ w i := by simp [altCost_def, h]
+    _ ≤ task.answerValue θ i := task.altCost_le_answerValue hw
 
 /-- The value of the game of the answer `i` is antitone in the set of alternatives. -/
 lemma answerValue_le_answerValue_of_alt_subset (h : task.alt i ⊆ task.alt j) (θ : Θ) :
