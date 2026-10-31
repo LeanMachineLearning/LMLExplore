@@ -178,6 +178,18 @@ variable (A env) in
 lemma expectedPullProportion_nonneg (a : 𝓐) : 0 ≤ expectedPullProportion A env a :=
   ENNReal.toReal_nonneg
 
+omit [Fintype 𝓐] [MeasurableSingletonClass 𝓐] in
+/-- If `𝔼[τ] = 0`, the expected proportions of pulls vanish. -/
+lemma expectedPullProportion_of_expectedStoppingTime_eq_zero (h : expectedStoppingTime A env = 0)
+    (a : 𝓐) : expectedPullProportion A env a = 0 := by
+  simp [expectedPullProportion_def, h]
+
+omit [Fintype 𝓐] [MeasurableSingletonClass 𝓐] in
+/-- If `𝔼[τ] = ∞`, the expected proportions of pulls vanish. -/
+lemma expectedPullProportion_of_expectedStoppingTime_eq_top (h : expectedStoppingTime A env = ∞)
+    (a : 𝓐) : expectedPullProportion A env a = 0 := by
+  rw [expectedPullProportion_def, h, ENNReal.div_top, ENNReal.toReal_zero]
+
 omit [Fintype 𝓐] in
 /-- If `𝔼[τ] < ∞`, the expected proportions of pulls recover the expected numbers of pulls:
 `𝔼[τ] * (𝔼[N_a(τ)] / 𝔼[τ]) = 𝔼[N_a(τ)]`. -/
@@ -191,12 +203,10 @@ lemma expectedStoppingTime_mul_ofReal_expectedPullProportion [Finite 𝓐]
   have hle : ∫⁻ ω, (pullCount IT.action a (A.stoppingTime IT.obs IT.action IT.feedback ω).toNat ω :
       ℝ≥0∞) ∂(trajMeasure A.alg env) ≤ expectedStoppingTime A env := by
     rw [expectedStoppingTime_eq_sum_lintegral_pullCount (StopsAS.of_expectedStoppingTime_ne_top h)]
-    exact Finset.single_le_sum (f := fun a ↦ ∫⁻ ω, (pullCount IT.action a
-      (A.stoppingTime IT.obs IT.action IT.feedback ω).toNat ω : ℝ≥0∞) ∂(trajMeasure A.alg env))
-      (fun _ _ ↦ zero_le) (Finset.mem_univ a)
+    apply Finset.single_le_sum_of_canonicallyOrdered (Finset.mem_univ a)
   rcases eq_or_ne (expectedStoppingTime A env) 0 with h0 | h0
-  · rw [h0, zero_mul, eq_comm, ← nonpos_iff_eq_zero, ← h0]
-    exact hle
+  · rw [h0, zero_mul]
+    exact (nonpos_iff_eq_zero.1 (h0 ▸ hle)).symm
   rw [expectedPullProportion_def, ENNReal.ofReal_toReal (ENNReal.div_ne_top (hle.trans_lt
     h.lt_top).ne h0), ENNReal.mul_div_cancel h0 h]
 

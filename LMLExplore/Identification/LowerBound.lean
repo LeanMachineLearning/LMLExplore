@@ -23,7 +23,9 @@ proportions of pulls `w`, an allocation, and taking the infimum over the alterna
 `E_θ[τ] ≥ T*(θ) kl(δ, 1 - δ)` of Garivier and Kaufmann (2016) on the sample complexity.
 
 The binary relative entropy `kl(δ, 1 - δ)` is `LMLExplore.klBer δ (1 - δ)`; it is equivalent to
-`log (1 / δ)` as `δ → 0`, so that `T*(θ)` is the optimal constant in front of `log (1 / δ)`.
+`log (1 / δ)` as `δ → 0`, so that `T*(θ) log (1 / δ)` lower-bounds `E_θ[τ]` asymptotically. That
+`T*(θ)` is the optimal constant in front of `log (1 / δ)`, attained by the Track-and-Stop algorithm,
+is a result of [GK16] that is not proved here.
 
 ## Main statements
 
@@ -83,9 +85,8 @@ theorem IsDeltaCorrect.klBer_le_sum_lintegral_pullCount_mul_klDiv (hA : task.IsD
       ∑ a, (∫⁻ ω, (pullCount IT.action a (A.stoppingTime IT.obs IT.action IT.feedback ω).toNat
         ω : ℝ≥0∞) ∂(trajMeasure A.alg (stationaryEnv (task.ν θ)))) *
           klDiv (task.ν θ a) (task.ν θ' a) := by
-  have hE : MeasurableSet {p : (Σ n : ℕ, Hist Unit α 𝓨 n) × ℐ | p.1 ∈ A.stopSet ∧ p.2 = i} :=
-    (measurable_fst A.measurableSet_stopSet).inter (measurable_snd (measurableSet_singleton i))
-  refine le_trans ?_ (klBer_measureReal_histOutputMeasure_le A _ _ hstop hE)
+  refine le_trans ?_
+    (klBer_measureReal_histOutputMeasure_le A _ _ hstop (A.measurableSet_mem_stopSet_and_eq i))
   -- The event "stop and answer `i`" has probability at least `1 - δ` under `θ` and at most `δ`
   -- under `θ'`.
   have h_le := hA.measureReal_histOutputMeasure_le hθ'
@@ -135,7 +136,7 @@ theorem IsDeltaCorrect.charTime_mul_le_expectedStoppingTime [Nonempty α]
     h).trans ?_)
   gcongr
   exact (task.altCost_le_answerValue (expectedPullProportion_mem_simplex h0 h)).trans
-    (task.answerValue_le_gameValue (hi ▸ rfl))
+    (task.answerValue_le_gameValue (hi ▸ Set.mem_singleton i))
 
 end IdentTask
 

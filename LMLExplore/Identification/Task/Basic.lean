@@ -266,14 +266,12 @@ lemma IsDeltaCorrect.one_sub_le_measureReal_histOutputMeasure [MeasurableSinglet
     (h : task.IsDeltaCorrect A δ) (hθ : θ ∈ task.M) (hi : task.correct θ = {i}) :
     1 - δ ≤ (histOutputMeasure A (stationaryEnv (task.ν θ))).real
       {p | p.1 ∈ A.stopSet ∧ p.2 = i} := by
-  have hE : MeasurableSet {p : (Σ n : ℕ, Hist Unit α 𝓨 n) × ℐ | p.1 ∈ A.stopSet ∧ p.2 = i} :=
-    (measurable_fst A.measurableSet_stopSet).inter (measurable_snd (measurableSet_singleton i))
   have h_compl : {p : (Σ n : ℕ, Hist Unit α 𝓨 n) × ℐ | p.1 ∈ A.stopSet ∧ p.2 = i}ᶜ =
       {p | p.1 ∉ A.stopSet ∨ p.2 ∉ task.correct θ} := by
     ext p
     simp [hi, imp_iff_not_or]
   have h_bad := isDeltaCorrect_iff.1 h θ hθ
-  rw [← h_compl, probReal_compl_eq_one_sub hE] at h_bad
+  rw [← h_compl, probReal_compl_eq_one_sub (A.measurableSet_mem_stopSet_and_eq i)] at h_bad
   linarith
 
 /-- On every alternative to the answer `i`, a `δ`-correct algorithm stops and answers `i` with
