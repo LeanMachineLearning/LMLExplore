@@ -18,7 +18,7 @@ collects, per round, the information `cost_θ(w, λ) = ∑ a, w a KL(ν_a(θ), �
 model `λ`. To answer `i` with confidence it has to rule out every alternative `λ ∈ ¬i`, and the
 cheapest of them costs `D(θ, w, ¬i) = inf_{λ ∈ ¬i} cost_θ(w, λ)` per round. This file defines
 these *transportation costs* and the value of the *pure exploration game* built on them:
-`D(θ, ¬i) = sup_{w ∈ Δ_K} D(θ, w, ¬i)`, `D(θ) = max_{i ∈ i*(θ)} D(θ, ¬i)` and the
+`D(θ, ¬i) = sup_{w ∈ Δ_K} D(θ, w, ¬i)`, `D(θ) = sup_{i ∈ i*(θ)} D(θ, ¬i)` and the
 *characteristic time* `T*(θ) = D(θ)⁻¹`. The characteristic time is the constant of the lower bound
 `E_θ[τ] ≥ T*(θ) kl(δ, 1 - δ)` of Garivier and Kaufmann (2016) for `δ`-correct algorithms, and of
 the matching upper bounds of asymptotically optimal algorithms such as Track-and-Stop. Degenne and
@@ -38,7 +38,8 @@ negative entry of `w` counts as `0`.
 * `IdentTask.cost task w θ λ`: the transportation cost `∑ a, w a KL(ν_a(θ), ν_a(λ))`.
 * `IdentTask.altCost task θ w i`: the cost `D(θ, w, ¬i)` of the alternatives to `i`.
 * `IdentTask.answerValue task θ i`: the value `D(θ, ¬i)` of the game of the answer `i`.
-* `IdentTask.gameValue task θ`: the value `D(θ)`, the largest `D(θ, ¬i)` over the correct answers.
+* `IdentTask.gameValue task θ`: the value `D(θ)`, the supremum of `D(θ, ¬i)` over the correct
+  answers.
 * `IdentTask.charTime task θ`: the characteristic time `T*(θ) = D(θ)⁻¹`.
 * `IdentTask.optAlloc task θ i`: the optimal allocations `w*(θ, ¬i)` of the answer `i`.
 
@@ -114,11 +115,11 @@ noncomputable def altCost (θ : Θ) (w : α → ℝ) (i : ℐ) : ℝ≥0∞ :=
   ⨅ θ' ∈ task.alt i, task.cost w θ θ'
 
 /-- The value `D(θ, ¬i)` of the pure exploration game of the answer `i` at the model `θ`: the
-largest cost of the alternatives to `i` over the allocations. -/
+supremum over the allocations of the cost of the alternatives to `i`. -/
 noncomputable def answerValue (θ : Θ) (i : ℐ) : ℝ≥0∞ :=
   ⨆ w ∈ simplex α, task.altCost θ w i
 
-/-- The value `D(θ) = max_{i ∈ i*(θ)} D(θ, ¬i)` of the pure exploration game at the model `θ`, the
+/-- The value `D(θ) = sup_{i ∈ i*(θ)} D(θ, ¬i)` of the pure exploration game at the model `θ`, the
 supremum over the correct answers of `θ`. -/
 noncomputable def gameValue (θ : Θ) : ℝ≥0∞ :=
   ⨆ i ∈ task.correct θ, task.answerValue θ i
