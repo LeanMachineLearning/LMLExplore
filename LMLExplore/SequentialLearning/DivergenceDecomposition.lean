@@ -11,6 +11,8 @@ public import LMLExplore.SequentialLearning.StoppedHistory
 public import LeanMachineLearning.SequentialLearning.DivergenceDecomposition
 public import LeanMachineLearning.SequentialLearning.FiniteActions
 
+import LMLExplore.InformationTheory.KullbackLeibler.ChainRule
+
 /-!
 # The divergence decomposition, reindexed by the actions, and at a stopping time
 
@@ -182,17 +184,6 @@ private noncomputable abbrev swapEnv (κ κ' : Kernel 𝓐 𝓨) [IsMarkovKernel
   (stationaryEnv κ').piecewise (notStoppedSet S) (measurableSet_notStoppedSet hS)
     (stationaryEnv κ)
 
-/-- Reassociation of a three-step composition product in which only the last kernel differs. -/
-private lemma klDiv_compProd_compProd_compProd_eq {α β γ δ : Type*} {mα : MeasurableSpace α}
-    {mβ : MeasurableSpace β} {mγ : MeasurableSpace γ} {mδ : MeasurableSpace δ} (μ : Measure α)
-    [IsFiniteMeasure μ] (o : Kernel α β) [IsMarkovKernel o] (π : Kernel (α × β) γ)
-    [IsMarkovKernel π] (η η' : Kernel ((α × β) × γ) δ) [IsMarkovKernel η] [IsMarkovKernel η'] :
-    klDiv (μ ⊗ₘ (o ⊗ₖ (π ⊗ₖ η))) (μ ⊗ₘ (o ⊗ₖ (π ⊗ₖ η'))) =
-      klDiv (((μ ⊗ₘ o) ⊗ₘ π) ⊗ₘ η) (((μ ⊗ₘ o) ⊗ₘ π) ⊗ₘ η') := by
-  rw [← klDiv_map_measurableEquiv _ _ MeasurableEquiv.prodAssoc.symm, Measure.compProd_assoc,
-    Measure.compProd_assoc, ← klDiv_map_measurableEquiv _ _ MeasurableEquiv.prodAssoc.symm,
-    Measure.compProd_assoc, Measure.compProd_assoc]
-
 omit [Fintype 𝓐] [DecidableEq 𝓐] [MeasurableSingletonClass 𝓐] in
 /-- The divergence of round `t` between `κ` and `swapEnv κ κ' hS` is the divergence between the
 reward kernels at the played action, on the event that round `t` is played before stopping. -/
@@ -208,7 +199,7 @@ private lemma klDiv_compProd_stepKernel_swapEnv (h : IsAlgEnvSeq O A Y alg (stat
   have hX : Measurable fun ω ↦ ((history O A Y t ω, O t ω), A t ω) :=
     ((h.measurable_history t).prodMk (h.measurable_obs t)).prodMk (h.measurable_action t)
   -- Reassociate the step kernels so that only the feedback kernels differ.
-  rw [stepKernel_stationaryEnv, stepKernel_def, h_obs, klDiv_compProd_compProd_compProd_eq,
+  rw [stepKernel_stationaryEnv, stepKernel_def, h_obs, klDiv_compProd_assoc, klDiv_compProd_assoc,
     ← obs_stationaryEnv κ t, ← (h.hasCondDistrib_obs t).map_eq,
     ← (h.hasCondDistrib_action t).map_eq, klDiv_compProd_right_eq_lintegral,
     lintegral_map (measurable_klDiv_kernel _ _) hX]
@@ -271,8 +262,9 @@ theorem klDiv_stoppedHistMeasure_le (hS : MeasurableSet S)
         have h_lt (t : ℕ) : history IT.obs IT.action IT.feedback t ω ∈ notStoppedSet S t ↔
             t < ENat.toNat (τ ω) := by
           rw [history_mem_notStoppedSet_iff, ← hτ_def]
-          lift τ ω to ℕ using hω with k
-          exact WithTop.coe_lt_coe.trans (iff_of_eq (congrArg (t < ·) (ENat.toNat_natCast k).symm))
+          -- For finite `τ ω`, `ENat.toNat (τ ω)` is `ENat.lift (τ ω)`, below which lie exactly
+          -- the `t` with `↑t < τ ω`.
+          exact ENat.lift_eq_toNat_of_lt_top (lt_top_iff_ne_top.2 hω) ▸ ENat.lt_lift_iff.symm
         rw [tsum_eq_sum (s := range (ENat.toNat (τ ω))) fun t ht ↦ by
           simp [Set.indicator, h_lt, mem_range.not.1 ht]]
         exact sum_congr rfl fun t ht ↦ by simp [Set.indicator, h_lt, mem_range.1 ht]

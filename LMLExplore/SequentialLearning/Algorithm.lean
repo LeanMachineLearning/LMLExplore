@@ -9,6 +9,8 @@ public import LeanMachineLearning.SequentialLearning.Algorithm
 public import LeanMachineLearning.SequentialLearning.StoppedHistory
 public import LMLExplore.Probability.HasCondDistrib
 
+import LMLExplore.Probability.Kernel.Composition.MeasureCompProd
+
 /-!
 # Algorithm-environment sequences: transport, history before each action, piecewise environments
 
@@ -109,18 +111,6 @@ lemma feedback_piecewise (n : ℕ) :
 
 end Environment
 
-/-- Two composition products of kernels agree at a point `a` if the first kernels agree at `a`
-and the second kernels agree at every `(a, b)`. -/
-private lemma compProd_apply_congr {α β γ : Type*} {mα : MeasurableSpace α}
-    {mβ : MeasurableSpace β} {mγ : MeasurableSpace γ} {κ κ' : Kernel α β}
-    {η η' : Kernel (α × β) γ} [IsSFiniteKernel κ] [IsSFiniteKernel κ'] [IsSFiniteKernel η]
-    [IsSFiniteKernel η'] {a : α} (hκ : κ a = κ' a) (hη : ∀ b, η (a, b) = η' (a, b)) :
-    (κ ⊗ₖ η) a = (κ' ⊗ₖ η') a := by
-  rw [Kernel.compProd_apply_eq_compProd_sectR, Kernel.compProd_apply_eq_compProd_sectR, hκ]
-  congr 1
-  ext b : 1
-  exact hη b
-
 open scoped Classical in
 /-- The step kernel of `env.piecewise s hs env'` at round `n` is that of `env` on `s n` and that
 of `env'` elsewhere. -/
@@ -130,8 +120,8 @@ lemma stepKernel_piecewise (alg : Algorithm 𝓞 𝓐 𝓨) (n : ℕ) :
   ext x : 1
   by_cases hx : x ∈ s n <;>
   · simp only [Kernel.piecewise_apply, hx, ↓reduceIte, stepKernel_def]
-    exact compProd_apply_congr (by simp [Kernel.piecewise_apply, hx])
-      fun _ ↦ compProd_apply_congr rfl fun _ ↦ by simp [Kernel.piecewise_apply, hx]
+    exact Kernel.compProd_apply_congr (by simp [Kernel.piecewise_apply, hx])
+      fun _ ↦ Kernel.compProd_apply_congr rfl fun _ ↦ by simp [Kernel.piecewise_apply, hx]
 
 /-- At a history in `s n`, the step kernel of `env.piecewise s hs env'` is that of `env`. -/
 @[simp]
