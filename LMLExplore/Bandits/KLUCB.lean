@@ -6,6 +6,7 @@ Authors: Rémy Degenne
 module
 
 public import LeanMachineLearning.SequentialLearning.SumRewards
+public import LMLExplore.Analysis.SpecialFunctions.Log.Basic
 public import LMLExplore.Bandits.IndexAlgorithm
 public import LMLExplore.InformationTheory.KullbackLeibler.Bernoulli
 
@@ -40,8 +41,8 @@ Lean round `n` uses `log f(n + 1)`.
   an arm `a` in the proof of [LS, Theorem 10.6]: for every arm `b` and threshold `c`, `E[T_a(n)]`
   is at most the sum over the rounds `t < n` of the probabilities that the index of `b` is at
   most `c`, plus the sum over `t < n` of the probabilities that `a` is played at round `t` while
-  its empirical mean `μ̂_a` is at least `c` or satisfies `d(μ̂_a, c) ≤ log f(n) / T_a` for the
-  exploration level `log f(n)` of the horizon.
+  either it has not been pulled yet (`T_a = 0`), or its empirical mean `μ̂_a` is at least `c`, or
+  `c ≤ 1` and `d(μ̂_a, c) ≤ log f(n) / T_a` for the exploration level `log f(n)` of the horizon.
 
 ## References
 
@@ -169,19 +170,13 @@ theorem integral_pullCount_le_sum_add_sum (h : IsAlgEnvSeq O A R klucb env P) (a
   rw [klucb_def] at h
   refine (IndexAlgorithm.integral_pullCount_le_sum_add_sum h a b c n).trans
     (add_le_add (sum_le_sum fun t _ ↦ le_of_eq ?_) (sum_le_sum fun t ht ↦ measureReal_mono ?_))
-  · congr 1
-    ext ω
-    simp only [Set.mem_ofPred_eq, klucbIndex_history]
-    split_ifs with h0
-    · simp [h0]
-    · rw [EReal.coe_le_coe_iff]
-      exact (and_iff_right h0).symm
+  · simp only [klucbIndex_history, apply_ite (· ≤ (c : EReal)), top_le_iff, EReal.coe_ne_top,
+      ite_false_left, EReal.coe_le_coe_iff, ne_eq]
   · -- The exploration level `log f(t + 1)` of round `t < n` is at most `log f(n)`.
-    have hlog : log (1 + (t + 1) * log (t + 1) ^ 2) ≤ log (1 + n * log n ^ 2) := by
-      have htn : (t : ℝ) + 1 ≤ n := by exact_mod_cast mem_range.mp ht
-      have hlog0 : 0 ≤ log ((t : ℝ) + 1) := log_nonneg (by linarith [t.cast_nonneg (α := ℝ)])
-      have hlogle : log ((t : ℝ) + 1) ≤ log n := log_le_log (by positivity) htn
-      gcongr
+    have htn : t + 1 ≤ n := mem_range.mp ht
+    have hlog : log (1 + (t + 1) * log (t + 1) ^ 2) ≤ log (1 + n * log n ^ 2) :=
+      monotoneOn_log_one_add_mul_log_sq (by simp) (Nat.one_le_cast.2 (by omega))
+        (by exact_mod_cast htn)
     intro ω hω
     simp only [Set.mem_ofPred_eq, klucbIndex_history] at hω ⊢
     refine ⟨hω.1, ?_⟩
