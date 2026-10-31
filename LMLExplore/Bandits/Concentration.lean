@@ -6,6 +6,7 @@ Authors: Rémy Degenne
 module
 
 public import LeanMachineLearning.Online.Bandit.ArrayProbSpace
+public import LMLExplore.Probability.Distributions.Gaussian.Tail
 public import Mathlib.Analysis.SpecialFunctions.Gaussian.GaussianIntegral
 public import Mathlib.Analysis.SumIntegralComparisons
 public import Mathlib.MeasureTheory.Function.JacobianOneDim
@@ -39,7 +40,8 @@ Each probability is bounded by Hoeffding's inequality
 (`ProbabilityTheory.HasSubgaussianMGF.measure_sum_ge_le_of_iIndepFun`) by `g s`, where
 `g t = exp (-(max 0 (√t ε - √(2 σ² c)))² / (2 σ²))` is antitone. The sum is then compared with the
 integral of `g`, which the substitution `t = ((x + √(2 σ² c)) / ε)²` turns into Gaussian
-integrals, as in the proof of [LS, Lemma 8.2]. The case `σ² = 0` follows from the case `σ² > 0`.
+integrals (`integral_gaussian_Ioi` and `integral_Ioi_sub_mul_gaussianPDFReal`), as in the proof of
+[LS, Lemma 8.2]. The case `σ² = 0` follows from the case `σ² > 0`.
 
 ## References
 
@@ -101,15 +103,6 @@ private lemma measureReal_mul_le_sum_add_sqrt_le_tailBound (h_indep : iIndepFun 
   congr 1
   field_simp
 
-/-- The half-line first Gaussian moment `∫ x in Ioi 0, x exp (-b x²) = (2 b)⁻¹`: the real case of
-`integral_mul_cexp_neg_mul_sq`. -/
-private lemma integral_Ioi_mul_exp_neg_mul_sq {b : ℝ} (hb : 0 < b) :
-    ∫ x in Ioi (0 : ℝ), x * exp (-b * x ^ 2) = (2 * b)⁻¹ := by
-  apply Complex.ofReal_injective
-  rw [← integral_complex_ofReal]
-  push_cast
-  exact integral_mul_cexp_neg_mul_sq (by simpa using hb)
-
 /-- The Gaussian integral `∫ x in Ioi 0, (x + √(2 σ² c)) exp (-x² / (2 σ²)) = σ² (1 + √(π c))`,
 which `tailBound` becomes after a change of variables. -/
 private lemma integrableOn_Ioi_add_mul_exp_and_integral_eq (hσ2 : σ2 ≠ 0) (hc : 0 ≤ c) :
@@ -125,8 +118,11 @@ private lemma integrableOn_Ioi_add_mul_exp_and_integral_eq (hσ2 : σ2 ≠ 0) (h
   refine ⟨h_int_x.add h_int_one, ?_⟩
   rw [integral_add h_int_x h_int_one, integral_const_mul, integral_gaussian_Ioi]
   have h_x : ∫ x in Ioi (0 : ℝ), x * exp (-(1 / (2 * σ2)) * x ^ 2) = σ2 := by
-    rw [integral_Ioi_mul_exp_neg_mul_sq hβ]
-    field_simp
+    have h := integral_Ioi_sub_mul_gaussianPDFReal 0 σ2 0
+    simp_rw [gaussianPDFReal_def, sub_zero, mul_left_comm _ (√(2 * π * σ2))⁻¹,
+      integral_const_mul, show ∀ x : ℝ, -x ^ 2 / (2 * σ2) = -(1 / (2 * σ2)) * x ^ 2 from
+        fun x ↦ by ring, zero_pow two_ne_zero, mul_zero, exp_zero, mul_one] at h
+    exact mul_left_cancel₀ (by positivity) h
   have h_sqrt : √(2 * σ2 * c) * √(π / (1 / (2 * σ2))) = 2 * σ2 * √(π * c) := by
     rw [← sqrt_mul (by positivity),
       show 2 * σ2 * c * (π / (1 / (2 * σ2))) = (2 * σ2) ^ 2 * (π * c) by field_simp,
