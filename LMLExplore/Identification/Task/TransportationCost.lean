@@ -5,6 +5,7 @@ Authors: Rémy Degenne
 -/
 module
 
+public import LMLExplore.Analysis.Convex.Simplex
 public import LMLExplore.Identification.Task.Basic
 public import Mathlib.Analysis.Convex.Function
 public import Mathlib.Analysis.Convex.NNReal
@@ -25,16 +26,12 @@ the matching upper bounds of asymptotically optimal algorithms such as Track-and
 Koolen (2019) extend these definitions to tasks with several correct answers.
 
 Allocations are vectors `w : α → ℝ`; the allocations with nonnegative entries summing to `1` form
-the set `simplex α`. It is stated directly on `α → ℝ`, with the topology and the order of that
-space: Mathlib's set `stdSimplex` is deprecated, and its replacement `Convexity.StdSimplex` is a
-type of finitely supported distributions, not a subset of `α → ℝ`. The costs are `ℝ≥0∞`-valued, so
-that models at infinite divergence and empty sets of alternatives need no special treatment, and a
-negative entry of `w` counts as `0`.
+the probability simplex `simplex α` (`LMLExplore/Analysis/Convex/Simplex.lean`). The costs are
+`ℝ≥0∞`-valued, so that models at infinite divergence and empty sets of alternatives need no special
+treatment, and a negative entry of `w` counts as `0`.
 
 ## Main definitions
 
-* `LMLExplore.Identification.simplex α`: the allocations `w : α → ℝ`, nonnegative and summing
-  to `1`.
 * `IdentTask.cost task w θ λ`: the transportation cost `∑ a, w a KL(ν_a(θ), ν_a(λ))`.
 * `IdentTask.altCost task θ w i`: the cost `D(θ, w, ¬i)` of the alternatives to `i`.
 * `IdentTask.answerValue task θ i`: the value `D(θ, ¬i)` of the game of the answer `i`.
@@ -78,31 +75,6 @@ open scoped ENNReal NNReal
 namespace LMLExplore.Identification
 
 variable {α Θ ℐ 𝓨 : Type*} [Fintype α]
-
-/-! ### Allocations -/
-
-variable (α) in
-/-- The allocations of samples to the arms `α`: vectors `w : α → ℝ` with nonnegative entries
-summing to `1`. -/
-def simplex : Set (α → ℝ) := {w | (∀ a, 0 ≤ w a) ∧ ∑ a, w a = 1}
-
-@[simp]
-lemma mem_simplex_iff {w : α → ℝ} : w ∈ simplex α ↔ (∀ a, 0 ≤ w a) ∧ ∑ a, w a = 1 := Iff.rfl
-
-lemma simplex_subset_nonneg : simplex α ⊆ Set.Ici 0 := fun _ hw ↦ hw.1
-
-variable (α) in
-lemma simplex_nonempty [Nonempty α] : (simplex α).Nonempty := by
-  classical
-  obtain ⟨a⟩ := ‹Nonempty α›
-  exact ⟨Pi.single a 1, fun b ↦ by by_cases h : b = a <;> simp [h], by simp⟩
-
-variable (α) in
-lemma convex_simplex : Convex ℝ (simplex α) := by
-  intro w hw v hv a b ha hb hab
-  refine ⟨fun x ↦ ?_, ?_⟩
-  · simpa using add_nonneg (mul_nonneg ha (hw.1 x)) (mul_nonneg hb (hv.1 x))
-  · simp [Finset.sum_add_distrib, ← Finset.mul_sum, hw.2, hv.2, hab]
 
 /-! ### Transportation costs -/
 
