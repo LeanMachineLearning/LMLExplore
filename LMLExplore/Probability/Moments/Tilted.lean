@@ -102,8 +102,8 @@ lemma monotoneOn_deriv_cgf : MonotoneOn (deriv (cgf X μ)) (interior (integrable
     analyticOnNhd_cgf.deriv.continuousOn
     (analyticOnNhd_cgf.deriv.differentiableOn.mono interior_subset) fun t ht ↦ ?_
   rw [interior_interior] at ht
-  have h := variance_nonneg X (μ.tilted (t * X ·))
-  rwa [variance_tilted_mul ht, iteratedDeriv_succ, iteratedDeriv_one] at h
+  rw [(hasStrictDerivAt_deriv_cgf ht).hasDerivAt.deriv, ← variance_tilted_mul ht]
+  exact variance_nonneg _ _
 
 /-- If `X` is not almost surely constant, the derivative of its cumulant generating function is
 strictly increasing on the interior of `integrableExpSet X μ`. -/
@@ -112,8 +112,8 @@ lemma strictMonoOn_deriv_cgf (hX : ∀ c, ¬ X =ᵐ[μ] fun _ ↦ c) :
   refine strictMonoOn_of_deriv_pos convex_integrableExpSet.interior
     analyticOnNhd_cgf.deriv.continuousOn fun t ht ↦ ?_
   rw [interior_interior] at ht
-  have h := iteratedDeriv_two_cgf_pos hX ht
-  rwa [iteratedDeriv_succ, iteratedDeriv_one] at h
+  rw [(hasStrictDerivAt_deriv_cgf ht).hasDerivAt.deriv]
+  exact iteratedDeriv_two_cgf_pos hX ht
 
 /-- The derivative of the cumulant generating function of a probability measure on `ℝ` which is
 not a Dirac mass is strictly increasing on the interior of `integrableExpSet id ρ`. This
