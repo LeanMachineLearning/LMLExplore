@@ -584,28 +584,15 @@ theorem log_one_div_le_klBerReal {c : ℝ} (hc : 2.4 ≤ c) (hp : p ∈ Set.Ioo 
   have h_le : log (1 / (c * p)) ≤ log (1 / (2.4 * p)) :=
     Real.log_le_log (by positivity) (one_div_le_one_div_of_le (by positivity) (by gcongr))
   refine h_le.trans ?_
-  -- Numerical facts: `2 log 3 = 3 log 2 + log (9 / 8)` and
-  -- `3 log 2.4 = 3 log 3 - log 2 + log (128 / 125)`, with `log (9 / 8) ≥ 1 / 9`,
-  -- `log (128 / 125) ≥ 3 / 128` and the bounds on `log 2`.
-  have h3 : 2 * log 3 = 3 * log 2 + log (9 / 8) := by
-    have h := congrArg log (by norm_num : (3 : ℝ) ^ 2 = 2 ^ 3 * (9 / 8))
-    rw [Real.log_mul (by norm_num) (by norm_num), Real.log_pow, Real.log_pow] at h
-    push_cast at h
-    exact h
-  have h24 : 3 * log 2.4 = 3 * log 3 - log 2 + log (128 / 125) := by
-    have h := congrArg log (by norm_num : (2.4 : ℝ) ^ 3 = 3 ^ 3 * (128 / 125) / 2)
-    rw [Real.log_div (by norm_num) (by norm_num), Real.log_mul (by norm_num) (by norm_num),
-      Real.log_pow, Real.log_pow] at h
-    push_cast at h
-    linarith
-  have h98 : 1 / 9 ≤ log (9 / 8) := by
-    have h := Real.one_sub_inv_le_log_of_pos (by norm_num : (0 : ℝ) < 9 / 8)
-    norm_num at h ⊢
-    linarith
-  have h128 : 3 / 128 ≤ log (128 / 125) := by
-    have h := Real.one_sub_inv_le_log_of_pos (by norm_num : (0 : ℝ) < 128 / 125)
-    norm_num at h ⊢
-    linarith
+  -- Numerical facts: `log 2.4 = 2 log 2 + log 3 - log 5`, and Mathlib's bounds on `log 2`,
+  -- `log 3` and `log 5`.
+  have h24 : log 2.4 = 2 * log 2 + log 3 - log 5 := by
+    rw [(by norm_num : (2.4 : ℝ) = 2 ^ 2 * 3 / 5), Real.log_div (by norm_num) (by norm_num),
+      Real.log_mul (by norm_num) (by norm_num), Real.log_pow]
+    push_cast
+    ring
+  have hl3 := Real.log_three_gt_d9
+  have hu5 := Real.log_five_lt_d9
   have hl2 := Real.log_two_gt_d9
   have hu2 := Real.log_two_lt_d9
   rw [klBerReal_one_sub_right, one_div, Real.log_inv, Real.log_mul (by norm_num) h0.ne',
@@ -613,10 +600,7 @@ theorem log_one_div_le_klBerReal {c : ℝ} (hc : 2.4 ≤ c) (hp : p ∈ Set.Ioo 
   -- Use the tangent line at `1 / 4` for `p ≤ 11 / 40` and the one at `1 / 3` for `p ≥ 11 / 40`.
   rcases le_total p (11 / 40) with hs | hs
   · have h := tangent_le_two_mul_log_add ⟨h0, h1⟩ (p₀ := 1 / 4) ⟨by norm_num, by norm_num⟩
-    have e1 : log (1 / 4) = -(2 * log 2) := by
-      rw [one_div, Real.log_inv, (by norm_num : (4 : ℝ) = 2 ^ 2), Real.log_pow]
-      push_cast
-      ring
+    have e1 : log (1 / 4) = -(2 * log 2) := by rw [one_div, Real.log_inv, Real.log_four_eq]
     have e2 : log (1 - 1 / 4) = log 3 - 2 * log 2 := by
       rw [(by norm_num : (1 : ℝ) - 1 / 4 = 3 / 2 ^ 2), Real.log_div (by norm_num) (by norm_num),
         Real.log_pow]
