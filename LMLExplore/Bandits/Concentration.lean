@@ -43,6 +43,9 @@ number of pulls in the reward stream model, and these sum to at most `5 σ² / �
 
 * `sum_measureReal_mul_le_sum_add_sqrt_le`: [LS, Lemma 8.2] for independent σ²-sub-Gaussian random
   variables, with variance proxy `σ²` (the book has `σ² = 1`).
+* `iIndepFun_streamMeasure_sub_mean`, `hasSubgaussianMGF_streamMeasure_sub_mean`: in LML's i.i.d.
+  reward stream model `streamMeasure ν`, the centered rewards `ω i a - μ_a` of an arm `a` are
+  independent, and σ²-sub-Gaussian if the arm is.
 * `sum_measureReal_streamMeasure_mul_le_sum_add_sqrt_le`: the same bound for the rewards of one arm
   in LML's i.i.d. reward stream model `streamMeasure ν`, for σ²-sub-Gaussian arms.
 * `measureReal_sum_le_neg_mul_add_sqrt_le`: the converse deviation for independent σ²-sub-Gaussian
@@ -347,14 +350,14 @@ variable {α : Type*} [MeasurableSpace α] {ν : Kernel α ℝ} [IsMarkovKernel 
 
 /-- In the i.i.d. reward stream model, the centered rewards `ω i a - μ_a` of arm `a` are
 independent. -/
-private lemma iIndepFun_streamMeasure_sub_mean (ν : Kernel α ℝ) [IsMarkovKernel ν] (a : α) :
+theorem iIndepFun_streamMeasure_sub_mean (ν : Kernel α ℝ) [IsMarkovKernel ν] (a : α) :
     iIndepFun (fun i (ω : ℕ → α → ℝ) ↦ ω i a - (ν a)[id]) (streamMeasure ν) := by
   set μa := (ν a)[id]
   exact (iIndepFun_eval_streamMeasure'' ν a).comp (fun _ x ↦ x - μa) fun _ ↦ measurable_sub_const _
 
 /-- In the i.i.d. reward stream model, the centered rewards `ω i a - μ_a` of a σ²-sub-Gaussian
 arm `a` are σ²-sub-Gaussian. -/
-private lemma hasSubgaussianMGF_streamMeasure_sub_mean
+theorem hasSubgaussianMGF_streamMeasure_sub_mean
     (hν : HasSubgaussianMGF (fun x ↦ x - (ν a)[id]) σ2 (ν a)) (i : ℕ) :
     HasSubgaussianMGF (fun (ω : ℕ → α → ℝ) ↦ ω i a - (ν a)[id]) σ2 (streamMeasure ν) :=
   hν.congr_identDistrib ((identDistrib_eval_eval_id_streamMeasure _ _ _).symm.sub_const _)
