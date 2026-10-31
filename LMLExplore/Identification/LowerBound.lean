@@ -23,9 +23,10 @@ proportions of pulls `w`, an allocation, and taking the infimum over the alterna
 `E_θ[τ] ≥ T*(θ) kl(δ, 1 - δ)` of Garivier and Kaufmann (2016) on the sample complexity.
 
 The binary relative entropy `kl(δ, 1 - δ)` is `LMLExplore.klBer δ (1 - δ)`; it is equivalent to
-`log (1 / δ)` as `δ → 0`, so that `T*(θ) log (1 / δ)` lower-bounds `E_θ[τ]` asymptotically. That
-`T*(θ)` is the optimal constant in front of `log (1 / δ)`, attained by the Track-and-Stop algorithm,
-is a result of [GK16] that is not proved here.
+`log (1 / δ)` as `δ → 0`, and at least `log (1 / (2.4 δ))` for every `δ`, so that
+`E_θ[τ] ≥ T*(θ) log (1 / (2.4 δ))`. That `T*(θ)` is the optimal constant in front of
+`log (1 / δ)`, attained by the Track-and-Stop algorithm, is a result of [GK16] that is not proved
+here.
 
 ## Main statements
 
@@ -38,6 +39,9 @@ is a result of [GK16] that is not proved here.
   `kl(δ, 1 - δ) ≤ E_θ[τ] D(θ, w, ¬i)`, with `w` the expected proportions of pulls.
 * `IdentTask.IsDeltaCorrect.charTime_mul_le_expectedStoppingTime`: the lower bound
   `T*(θ) kl(δ, 1 - δ) ≤ E_θ[τ]`.
+* `IdentTask.IsDeltaCorrect.charTime_mul_ofReal_log_le_expectedStoppingTime`: the lower bound
+  `T*(θ) log (1 / (c δ)) ≤ E_θ[τ]` for `c ≥ 2.4`; for `c = 4` it is the form of
+  [LS, Theorem 33.5].
 
 ## References
 
@@ -45,7 +49,7 @@ is a result of [GK16] that is not proved here.
   COLT 2016, Theorem 1.
 * [KCG16] E. Kaufmann, O. Cappé and A. Garivier, *On the complexity of best-arm identification in
   multi-armed bandit models*, JMLR 17 (2016), Lemma 1.
-* T. Lattimore and Cs. Szepesvári, *Bandit Algorithms*, Cambridge University Press (2020),
+* [LS] T. Lattimore and Cs. Szepesvári, *Bandit Algorithms*, Cambridge University Press (2020),
   Theorem 33.5.
 -/
 
@@ -137,6 +141,25 @@ theorem IsDeltaCorrect.charTime_mul_le_expectedStoppingTime [Nonempty α]
   gcongr
   exact (task.altCost_le_answerValue (expectedPullProportion_mem_simplex h0 h)).trans
     (task.answerValue_le_gameValue (hi ▸ Set.mem_singleton i))
+
+omit [DecidableEq α] in
+/-- **Lower bound on the sample complexity in logarithmic form** [KCG16; LS, Theorem 33.5]. Let `A`
+be `δ`-correct and let `θ` be an admissible model with a single correct answer. Then for every
+`c ≥ 2.4`, `T*(θ) log (1 / (c δ)) ≤ E_θ[τ]`. The constant `c = 2.4` is that of Kaufmann, Cappé and
+Garivier, and `c = 4` gives the Bretagnolle–Huber form `E_θ[τ] ≥ T*(θ) log (1 / (4 δ))`. No upper
+bound on `δ` is needed: for `δ > 1 / 2` the logarithm is negative. -/
+theorem IsDeltaCorrect.charTime_mul_ofReal_log_le_expectedStoppingTime [Nonempty α]
+    (hA : task.IsDeltaCorrect A δ) {c : ℝ} (hc : 2.4 ≤ c) (hθ : θ ∈ task.M)
+    (hi : task.correct θ = {i}) :
+    task.charTime θ * ENNReal.ofReal (Real.log (1 / (c * δ))) ≤
+      expectedStoppingTime A (stationaryEnv (task.ν θ)) := by
+  rcases le_or_gt δ (1 / 2) with hδ | hδ
+  · exact (mul_le_mul_right (ofReal_log_one_div_le_klBer hc δ) _).trans
+      (hA.charTime_mul_le_expectedStoppingTime hδ hθ hi)
+  have h_neg : Real.log (1 / (c * δ)) ≤ 0 :=
+    Real.log_nonpos (by positivity) ((div_le_one (by positivity)).2 (by nlinarith))
+  rw [ENNReal.ofReal_of_nonpos h_neg, mul_zero]
+  exact zero_le
 
 end IdentTask
 

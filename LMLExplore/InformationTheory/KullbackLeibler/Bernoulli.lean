@@ -12,6 +12,7 @@ public import TauCeti.InformationTheory.KullbackLeibler.Basic
 public import TauCeti.InformationTheory.KullbackLeibler.Pinsker
 public import LeanMachineLearning.ForMathlib.InformationTheory.KullbackLeibler.ChainRule
 public import TauCeti.InformationTheory.KullbackLeibler.Variational
+import Mathlib.Analysis.Complex.ExponentialBounds
 
 /-!
 # The binary relative entropy
@@ -64,6 +65,12 @@ that it lies below the true mean.
 * `LMLExplore.klBer_le_klBer`: `d(p', q') ≤ d(p, q)` for `q ≤ q' ≤ p' ≤ p`.
 * `LMLExplore.lowerSemicontinuous_klBer`, `LMLExplore.measurable_klBer`: `d` is jointly lower
   semicontinuous and measurable.
+* `LMLExplore.klBerReal_one_sub_right`, `LMLExplore.klBer_one_sub_right`:
+  `d(p, 1 - p) = (1 - 2p) log ((1 - p) / p)` for `p ∈ (0, 1)`;
+  `LMLExplore.klBer_one_sub_right_eq_top`: `d(p, 1 - p) = ∞` otherwise.
+* `LMLExplore.log_one_div_le_klBerReal`, `LMLExplore.ofReal_log_one_div_le_klBer`: the bound
+  `log (1 / (2.4 p)) ≤ d(p, 1 - p)`, which turns the lower bounds of fixed-confidence
+  identification stated with `d(δ, 1 - δ)` into bounds in `log (1 / δ)`.
 * `LMLExplore.le_klUpper_iff`: for `q ∈ [p, 1]`, `q ≤ U(p, c)` if and only if `d(p, q) ≤ c`;
   `LMLExplore.klUpper_mem_Icc` and `LMLExplore.klBer_klUpper_le` say that the maximum is attained.
 * `LMLExplore.le_klUpper_iff_of_le_one`: for `p ≤ 1` and every real `r`, `r ≤ U(p, c)` if and only
@@ -84,6 +91,8 @@ that it lies below the true mean.
 * A. Garivier, P. Ménard and G. Stoltz, *Explore first, exploit next: the true shape of regret in
   bandit problems*, Math. Oper. Res. 44 (2019), for the data processing inequality
   `d(μ s, ν s) ≤ KL(μ ‖ ν)`.
+* E. Kaufmann, O. Cappé and A. Garivier, *On the complexity of best-arm identification in
+  multi-armed bandit models*, JMLR 17 (2016), for the bound `d(δ, 1 - δ) ≥ log (1 / (2.4 δ))`.
 * The derivative, monotonicity and quasi-convexity proofs are adapted from the formalization in
   the LMLPapers project
   (`LMLPapers/LeanMachineLearning/ForMathlib/InformationTheory/KullbackLeibler/Bernoulli.lean`).
@@ -510,6 +519,113 @@ theorem _root_.Measurable.klBer {α : Type*} {mα : MeasurableSpace α} {f g : �
     (hf : Measurable f) (hg : Measurable g) : Measurable fun x ↦ klBer (f x) (g x) := by
   simpa only [Function.comp_def, Function.uncurry_apply_pair] using
     measurable_klBer.comp (hf.prodMk hg)
+
+/-! ### The binary relative entropy between `p` and `1 - p` -/
+
+/-- `d(p, 1 - p) = (1 - 2p) log ((1 - p) / p)`. -/
+theorem klBerReal_one_sub_right (p : ℝ) :
+    klBerReal p (1 - p) = (1 - 2 * p) * log ((1 - p) / p) := by
+  rw [klBerReal_def, sub_sub_cancel, ← inv_div (1 - p) p, Real.log_inv]
+  ring
+
+/-- For `p ∈ (0, 1)`, `d(p, 1 - p) = (1 - 2p) log ((1 - p) / p)`. -/
+theorem klBer_one_sub_right (hp : p ∈ Set.Ioo 0 1) :
+    klBer p (1 - p) = ENNReal.ofReal ((1 - 2 * p) * log ((1 - p) / p)) := by
+  have hq : 1 - p ∈ Set.Ioo 0 1 := ⟨by linarith [hp.2], by linarith [hp.1]⟩
+  rw [klBer_eq_ofReal_klBerReal (Set.Ioo_subset_Icc_self hp) (Set.Ioo_subset_Icc_self hq)
+    (klBer_ne_top hq), klBerReal_one_sub_right]
+
+/-- Outside `(0, 1)`, `d(p, 1 - p) = ∞`. -/
+theorem klBer_one_sub_right_eq_top (hp : p ∉ Set.Ioo 0 1) : klBer p (1 - p) = ∞ := by
+  have key (r : ℝ) (hr : r ≤ 0) : klBer r (1 - r) = ∞ := by
+    rw [← klBer_projIcc, Set.projIcc_of_le_left zero_le_one hr,
+      Set.projIcc_of_right_le zero_le_one (by linarith : 1 ≤ 1 - r)]
+    exact (klBer_eq_top_iff (by simp) (by simp)).2 (by simp)
+  rw [Set.mem_Ioo, not_and_or, not_lt, not_lt] at hp
+  rcases hp with h0 | h1
+  · exact key p h0
+  · simpa only [klBer_one_sub_one_sub] using key (1 - p) (by linarith)
+
+/-- The tangent lines of the convex function `p ↦ 2p log p + (1 - 2p) log (1 - p)` on `(0, 1)`
+lie below it. -/
+private lemma tangent_le_two_mul_log_add (hp : p ∈ Set.Ioo 0 1) {p₀ : ℝ}
+    (hp₀ : p₀ ∈ Set.Ioo 0 1) :
+    2 * p * log p₀ + (1 - 2 * p) * log (1 - p₀) + 1 - (1 - p) / (1 - p₀) ≤
+      2 * p * log p + (1 - 2 * p) * log (1 - p) := by
+  obtain ⟨h0, h1⟩ := hp
+  obtain ⟨h0', h1'⟩ := hp₀
+  have hq : 0 < 1 - p := by linarith
+  have hq' : 0 < 1 - p₀ := by linarith
+  -- Write `1 - 2p = 2 (1 - p) - 1` and use the tangent lines of `x ↦ x log x` at `p₀` and `1 - p₀`
+  -- and of `x ↦ -log x` at `1 - p₀`, all three consequences of `log x ≤ x - 1`.
+  have ha : p * (log p₀ - log p) ≤ p₀ - p := by
+    calc p * (log p₀ - log p) = p * log (p₀ / p) := by rw [Real.log_div h0'.ne' h0.ne']
+      _ ≤ p * (p₀ / p - 1) := by gcongr; exact Real.log_le_sub_one_of_pos (by positivity)
+      _ = p₀ - p := by field_simp
+  have hb : (1 - p) * (log (1 - p₀) - log (1 - p)) ≤ (1 - p₀) - (1 - p) := by
+    calc (1 - p) * (log (1 - p₀) - log (1 - p)) = (1 - p) * log ((1 - p₀) / (1 - p)) := by
+          rw [Real.log_div hq'.ne' hq.ne']
+      _ ≤ (1 - p) * ((1 - p₀) / (1 - p) - 1) := by
+          gcongr; exact Real.log_le_sub_one_of_pos (by positivity)
+      _ = (1 - p₀) - (1 - p) := by field_simp
+  have hc : log (1 - p) - log (1 - p₀) ≤ (1 - p) / (1 - p₀) - 1 := by
+    rw [← Real.log_div hq.ne' hq'.ne']
+    exact Real.log_le_sub_one_of_pos (by positivity)
+  linarith
+
+/-- **Lower bound on `d(p, 1 - p)`**: for `p ∈ (0, 1)` and `c ≥ 2.4`,
+`log (1 / (c p)) ≤ d(p, 1 - p)`. This is the bound `kl(δ, 1 - δ) ≥ log (1 / (2.4 δ))` of
+Kaufmann, Cappé and Garivier. The constant `2.4` is nearly optimal: the inequality fails for
+`c = 2.38` and `p = 0.32`. -/
+theorem log_one_div_le_klBerReal {c : ℝ} (hc : 2.4 ≤ c) (hp : p ∈ Set.Ioo 0 1) :
+    log (1 / (c * p)) ≤ klBerReal p (1 - p) := by
+  obtain ⟨h0, h1⟩ := hp
+  have hq : 0 < 1 - p := by linarith
+  have h_le : log (1 / (c * p)) ≤ log (1 / (2.4 * p)) :=
+    Real.log_le_log (by positivity) (one_div_le_one_div_of_le (by positivity) (by gcongr))
+  refine h_le.trans ?_
+  -- Numerical facts: `log 2.4 = 2 log 2 + log 3 - log 5`, and Mathlib's bounds on `log 2`,
+  -- `log 3` and `log 5`.
+  have h24 : log 2.4 = 2 * log 2 + log 3 - log 5 := by
+    rw [(by norm_num : (2.4 : ℝ) = 2 ^ 2 * 3 / 5), Real.log_div (by norm_num) (by norm_num),
+      Real.log_mul (by norm_num) (by norm_num), Real.log_pow]
+    push_cast
+    ring
+  have hl3 := Real.log_three_gt_d9
+  have hu5 := Real.log_five_lt_d9
+  have hl2 := Real.log_two_gt_d9
+  have hu2 := Real.log_two_lt_d9
+  rw [klBerReal_one_sub_right, one_div, Real.log_inv, Real.log_mul (by norm_num) h0.ne',
+    Real.log_div hq.ne' h0.ne']
+  -- Use the tangent line at `1 / 4` for `p ≤ 11 / 40` and the one at `1 / 3` for `p ≥ 11 / 40`.
+  rcases le_total p (11 / 40) with hs | hs
+  · have h := tangent_le_two_mul_log_add ⟨h0, h1⟩ (p₀ := 1 / 4) ⟨by norm_num, by norm_num⟩
+    have e1 : log (1 / 4) = -(2 * log 2) := by rw [one_div, Real.log_inv, Real.log_four_eq]
+    have e2 : log (1 - 1 / 4) = log 3 - 2 * log 2 := by
+      rw [(by norm_num : (1 : ℝ) - 1 / 4 = 3 / 2 ^ 2), Real.log_div (by norm_num) (by norm_num),
+        Real.log_pow]
+      push_cast
+      ring
+    rw [e1, e2, (by ring : (1 - p) / (1 - 1 / 4) = 4 / 3 * (1 - p))] at h
+    linarith [mul_nonneg (sub_nonneg.2 hs) (by linarith : (0 : ℝ) ≤ 2 * log 3 - 4 / 3)]
+  · have h := tangent_le_two_mul_log_add ⟨h0, h1⟩ (p₀ := 1 / 3) ⟨by norm_num, by norm_num⟩
+    have e1 : log (1 / 3) = -log 3 := by rw [one_div, Real.log_inv]
+    have e2 : log (1 - 1 / 3) = log 2 - log 3 := by
+      rw [(by norm_num : (1 : ℝ) - 1 / 3 = 2 / 3), Real.log_div (by norm_num) (by norm_num)]
+    rw [e1, e2, (by ring : (1 - p) / (1 - 1 / 3) = 3 / 2 * (1 - p))] at h
+    linarith [mul_nonneg (sub_nonneg.2 hs) (by linarith : (0 : ℝ) ≤ 3 / 2 - 2 * log 2)]
+
+/-- **Lower bound on `d(p, 1 - p)`**: for every real `p` and `c ≥ 2.4`,
+`log (1 / (c p)) ≤ d(p, 1 - p)`. Outside `(0, 1)`, `d(p, 1 - p) = ∞`. -/
+theorem ofReal_log_one_div_le_klBer {c : ℝ} (hc : 2.4 ≤ c) (p : ℝ) :
+    ENNReal.ofReal (log (1 / (c * p))) ≤ klBer p (1 - p) := by
+  by_cases hp : p ∈ Set.Ioo 0 1
+  swap
+  · exact le_top.trans_eq (klBer_one_sub_right_eq_top hp).symm
+  obtain ⟨h0, h1⟩ := hp
+  have hq : 1 - p ∈ Set.Ioo 0 1 := ⟨by linarith, by linarith⟩
+  rw [klBer_eq_ofReal_klBerReal ⟨h0.le, h1.le⟩ (Set.Ioo_subset_Icc_self hq) (klBer_ne_top hq)]
+  exact ENNReal.ofReal_le_ofReal (log_one_div_le_klBerReal hc ⟨h0, h1⟩)
 
 /-! ### The upper confidence level -/
 
