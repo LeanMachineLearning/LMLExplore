@@ -49,7 +49,7 @@ here.
   COLT 2016, Theorem 1.
 * [KCG16] E. Kaufmann, O. Cappé and A. Garivier, *On the complexity of best-arm identification in
   multi-armed bandit models*, JMLR 17 (2016), Lemma 1.
-* T. Lattimore and Cs. Szepesvári, *Bandit Algorithms*, Cambridge University Press (2020),
+* [LS] T. Lattimore and Cs. Szepesvári, *Bandit Algorithms*, Cambridge University Press (2020),
   Theorem 33.5.
 -/
 

@@ -6,13 +6,13 @@ Authors: Rémy Degenne
 module
 
 public import Mathlib.Analysis.Calculus.Deriv.MeanValue
-public import Mathlib.Analysis.Complex.ExponentialBounds
 public import Mathlib.Analysis.SpecialFunctions.BinaryEntropy
 public import LMLExplore.Probability.Distributions.Bernoulli
 public import TauCeti.InformationTheory.KullbackLeibler.Basic
 public import TauCeti.InformationTheory.KullbackLeibler.Pinsker
 public import LeanMachineLearning.ForMathlib.InformationTheory.KullbackLeibler.ChainRule
 public import TauCeti.InformationTheory.KullbackLeibler.Variational
+import Mathlib.Analysis.Complex.ExponentialBounds
 
 /-!
 # The binary relative entropy
@@ -66,7 +66,8 @@ that it lies below the true mean.
 * `LMLExplore.lowerSemicontinuous_klBer`, `LMLExplore.measurable_klBer`: `d` is jointly lower
   semicontinuous and measurable.
 * `LMLExplore.klBerReal_one_sub_right`, `LMLExplore.klBer_one_sub_right`:
-  `d(p, 1 - p) = (1 - 2p) log ((1 - p) / p)`.
+  `d(p, 1 - p) = (1 - 2p) log ((1 - p) / p)` for `p ∈ (0, 1)`;
+  `LMLExplore.klBer_one_sub_right_eq_top`: `d(p, 1 - p) = ∞` otherwise.
 * `LMLExplore.log_one_div_le_klBerReal`, `LMLExplore.ofReal_log_one_div_le_klBer`: the bound
   `log (1 / (2.4 p)) ≤ d(p, 1 - p)`, which turns the lower bounds of fixed-confidence
   identification stated with `d(δ, 1 - δ)` into bounds in `log (1 / δ)`.
@@ -534,6 +535,17 @@ theorem klBer_one_sub_right (hp : p ∈ Set.Ioo 0 1) :
   rw [klBer_eq_ofReal_klBerReal (Set.Ioo_subset_Icc_self hp) (Set.Ioo_subset_Icc_self hq)
     (klBer_ne_top hq), klBerReal_one_sub_right]
 
+/-- Outside `(0, 1)`, `d(p, 1 - p) = ∞`. -/
+theorem klBer_one_sub_right_eq_top (hp : p ∉ Set.Ioo 0 1) : klBer p (1 - p) = ∞ := by
+  have key (r : ℝ) (hr : r ≤ 0) : klBer r (1 - r) = ∞ := by
+    rw [← klBer_projIcc, Set.projIcc_of_le_left zero_le_one hr,
+      Set.projIcc_of_right_le zero_le_one (by linarith : 1 ≤ 1 - r)]
+    exact (klBer_eq_top_iff (by simp) (by simp)).2 (by simp)
+  rw [Set.mem_Ioo, not_and_or, not_lt, not_lt] at hp
+  rcases hp with h0 | h1
+  · exact key p h0
+  · simpa only [klBer_one_sub_one_sub] using key (1 - p) (by linarith)
+
 /-- The tangent lines of the convex function `p ↦ 2p log p + (1 - 2p) log (1 - p)` on `(0, 1)`
 lie below it. -/
 private lemma tangent_le_two_mul_log_add (hp : p ∈ Set.Ioo 0 1) {p₀ : ℝ}
@@ -623,16 +635,10 @@ theorem log_one_div_le_klBerReal {c : ℝ} (hc : 2.4 ≤ c) (hp : p ∈ Set.Ioo 
 `log (1 / (c p)) ≤ d(p, 1 - p)`. Outside `(0, 1)`, `d(p, 1 - p) = ∞`. -/
 theorem ofReal_log_one_div_le_klBer {c : ℝ} (hc : 2.4 ≤ c) (p : ℝ) :
     ENNReal.ofReal (log (1 / (c * p))) ≤ klBer p (1 - p) := by
-  rcases le_or_gt p 0 with h0 | h0
-  · rw [← klBer_projIcc, Set.projIcc_of_le_left zero_le_one h0,
-      Set.projIcc_of_right_le zero_le_one (by linarith : 1 ≤ 1 - p)]
-    refine le_of_le_of_eq le_top ((klBer_eq_top_iff (by simp) (by simp)).2 ?_).symm
-    simp
-  rcases le_or_gt 1 p with h1 | h1
-  · rw [← klBer_projIcc, Set.projIcc_of_right_le zero_le_one h1,
-      Set.projIcc_of_le_left zero_le_one (by linarith : 1 - p ≤ 0)]
-    refine le_of_le_of_eq le_top ((klBer_eq_top_iff (by simp) (by simp)).2 ?_).symm
-    simp
+  by_cases hp : p ∈ Set.Ioo 0 1
+  swap
+  · exact le_top.trans_eq (klBer_one_sub_right_eq_top hp).symm
+  obtain ⟨h0, h1⟩ := hp
   have hq : 1 - p ∈ Set.Ioo 0 1 := ⟨by linarith, by linarith⟩
   rw [klBer_eq_ofReal_klBerReal ⟨h0.le, h1.le⟩ (Set.Ioo_subset_Icc_self hq) (klBer_ne_top hq)]
   exact ENNReal.ofReal_le_ofReal (log_one_div_le_klBerReal hc ⟨h0, h1⟩)
