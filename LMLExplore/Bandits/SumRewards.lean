@@ -69,7 +69,7 @@ variable {α Ω : Type*} {mα : MeasurableSpace α} {mΩ : MeasurableSpace Ω} [
 
 /-- The sum of the rewards of arm `a` before round `t` is the sum of its first `pullCount A a t`
 rewards by count. -/
-private lemma sumRewards_eq_sum_range_rewardByCount (a : α) (t : ℕ) (ω : Ω × (ℕ → α → ℝ)) :
+lemma sumRewards_eq_sum_range_rewardByCount (a : α) (t : ℕ) (ω : Ω × (ℕ → α → ℝ)) :
     sumRewards A R a t ω.1 = ∑ i ∈ range (pullCount A a t ω.1), rewardByCount A R a (i + 1) ω := by
   rw [← sum_rewardByCount_eq_sumRewards, range_eq_Ico,
     sum_Ico_add' (fun m ↦ rewardByCount A R a m ω), zero_add,
@@ -80,6 +80,20 @@ private lemma measurable_sum_range {p : ℕ → ℝ → Prop} (hp : Measurable f
     (s : ℕ) : Measurable fun x : ℕ → ℝ ↦ p s (∑ i ∈ range s, x i) :=
   hp.comp (f := fun x : ℕ → ℝ ↦ (s, ∑ i ∈ range s, x i))
     (measurable_const.prodMk (measurable_sum _ fun i _ ↦ measurable_pi_apply i))
+
+/-- Under a product with a probability measure, the preimage of a set by the first projection has
+the measure of the set. -/
+private lemma prod_preimage_fst {β γ : Type*} {mβ : MeasurableSpace β} {mγ : MeasurableSpace γ}
+    (μ : Measure β) (μ' : Measure γ) [IsProbabilityMeasure μ'] (S : Set β) :
+    μ.prod μ' (Prod.fst ⁻¹' S) = μ S := by
+  rw [← Set.prod_univ, Measure.prod_prod, measure_univ, mul_one]
+
+/-- The integral of a finite sum of indicators of measurable sets is the sum of their measures. -/
+private lemma lintegral_sum_indicator_one {β ι : Type*} {mβ : MeasurableSpace β} {μ : Measure β}
+    {s : Finset ι} {S : ι → Set β} (hS : ∀ i ∈ s, MeasurableSet (S i)) :
+    ∫⁻ ω, ∑ i ∈ s, (S i).indicator 1 ω ∂μ = ∑ i ∈ s, μ (S i) := by
+  rw [lintegral_finsetSum _ fun i hi ↦ measurable_one.indicator (hS i hi)]
+  exact sum_congr rfl fun i hi ↦ lintegral_indicator_one (hS i hi)
 
 variable [Countable α] [MeasurableSingletonClass α]
 
@@ -139,16 +153,14 @@ theorem sum_measure_action_eq_and_pullCount_sumRewards_le
       simp [Set.indicator_apply, E, B, Z, hat, sumRewards_eq_sum_range_rewardByCount a t ω]
   calc ∑ t ∈ range n, P (E t)
   _ = ∑ t ∈ range n, P.prod (streamMeasure ν) (Prod.fst ⁻¹' E t) := by
-    simp_rw [← Set.prod_univ, Measure.prod_prod, measure_univ, mul_one]
-  _ = ∫⁻ ω, ∑ t ∈ range n, (Prod.fst ⁻¹' E t).indicator 1 ω ∂(P.prod (streamMeasure ν)) := by
-    rw [lintegral_finsetSum _ fun t _ ↦ (measurable_one.indicator (measurable_fst (hE t)))]
-    simp_rw [lintegral_indicator_one (measurable_fst (hE _))]
+    simp_rw [prod_preimage_fst]
+  _ = ∫⁻ ω, ∑ t ∈ range n, (Prod.fst ⁻¹' E t).indicator 1 ω ∂(P.prod (streamMeasure ν)) :=
+    (lintegral_sum_indicator_one fun t _ ↦ measurable_fst (hE t)).symm
   _ ≤ ∫⁻ ω, ∑ s ∈ range n, (Z ⁻¹' B s).indicator 1 ω ∂(P.prod (streamMeasure ν)) := by
     refine lintegral_mono fun ω ↦ (h_path ω).trans_le ?_
     exact sum_le_sum_of_subset (range_subset_range.mpr (pullCount_le a n ω.1))
-  _ = ∑ s ∈ range n, P.prod (streamMeasure ν) (Z ⁻¹' B s) := by
-    rw [lintegral_finsetSum _ fun s _ ↦ (measurable_one.indicator (hZ_meas (hB s)))]
-    simp_rw [lintegral_indicator_one (hZ_meas (hB _))]
+  _ = ∑ s ∈ range n, P.prod (streamMeasure ν) (Z ⁻¹' B s) :=
+    lintegral_sum_indicator_one fun s _ ↦ hZ_meas (hB s)
   _ = ∑ s ∈ range n, streamMeasure ν {ω | p s (∑ i ∈ range s, ω i a)} :=
     sum_congr rfl fun s _ ↦ hZ.measure_mem_eq (hB s)
 
@@ -182,8 +194,8 @@ theorem measure_exists_lt_pullCount_sumRewards_le (h : IsAlgEnvSeq O A R alg (st
     (Measurable.exists fun s ↦ measurable_const.and (measurable_sum_range hp s))
   calc P {ω | ∃ t < n, p (pullCount A a t ω) (sumRewards A R a t ω)}
   _ = P.prod (streamMeasure ν) (Prod.fst ⁻¹' {ω | ∃ t < n,
-      p (pullCount A a t ω) (sumRewards A R a t ω)}) := by
-    rw [← Set.prod_univ, Measure.prod_prod, measure_univ, mul_one]
+      p (pullCount A a t ω) (sumRewards A R a t ω)}) :=
+    (prod_preimage_fst _ _ _).symm
   _ ≤ P.prod (streamMeasure ν) (Z ⁻¹' B) := by
     refine measure_mono fun ω ⟨t, ht, hpt⟩ ↦ ?_
     -- at round `t`, arm `a` has been pulled `pullCount A a t ω ≤ t < n` times
