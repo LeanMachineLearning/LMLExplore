@@ -6,7 +6,7 @@ Authors: Rémy Degenne
 module
 
 public import LeanMachineLearning.Online.Bandit.ArrayProbSpace
-public import LMLExplore.Probability.Distributions.Gaussian.Tail
+public import Mathlib.Analysis.SpecialFunctions.Gaussian.GaussianIntegral
 public import Mathlib.Analysis.SumIntegralComparisons
 public import Mathlib.MeasureTheory.Function.JacobianOneDim
 public import Mathlib.Probability.Moments.SubGaussian
@@ -79,13 +79,14 @@ private lemma measureReal_mul_le_sum_add_sqrt_le_tailBound (h_indep : iIndepFun 
   have := h_indep.isProbabilityMeasure
   rw [tailBound]
   rcases le_or_gt (√s * ε - √(2 * σ2 * c)) 0 with hδ | hδ
-  · rw [max_eq_left hδ, sq, zero_mul, neg_zero, zero_div, exp_zero]
-    exact measureReal_le_one
+  · rw [max_eq_left hδ]
+    exact measureReal_le_one.trans_eq (by simp)
   rw [max_eq_right hδ.le]
+  -- `s ≠ 0` is used by the final `field_simp` to cancel `s`
   have hs : (s : ℝ) ≠ 0 := by
     rintro hs0
-    rw [hs0, sqrt_zero, zero_mul, zero_sub, neg_pos] at hδ
-    exact (sqrt_nonneg _).not_gt hδ
+    simp [hs0] at hδ
+    exact hδ.not_ge (by positivity)
   have h_set : {ω | s * ε ≤ ∑ i ∈ range s, X i ω + √(2 * σ2 * c * s)} =
       {ω | √s * (√s * ε - √(2 * σ2 * c)) ≤ ∑ i ∈ range s, X i ω} := by
     ext ω
@@ -99,6 +100,15 @@ private lemma measureReal_mul_le_sum_add_sqrt_le_tailBound (h_indep : iIndepFun 
   push_cast
   congr 1
   field_simp
+
+/-- The half-line first Gaussian moment `∫ x in Ioi 0, x exp (-b x²) = (2 b)⁻¹`: the real case of
+`integral_mul_cexp_neg_mul_sq`. -/
+private lemma integral_Ioi_mul_exp_neg_mul_sq {b : ℝ} (hb : 0 < b) :
+    ∫ x in Ioi (0 : ℝ), x * exp (-b * x ^ 2) = (2 * b)⁻¹ := by
+  apply Complex.ofReal_injective
+  rw [← integral_complex_ofReal]
+  push_cast
+  exact integral_mul_cexp_neg_mul_sq (by simpa using hb)
 
 /-- The Gaussian integral `∫ x in Ioi 0, (x + √(2 σ² c)) exp (-x² / (2 σ²)) = σ² (1 + √(π c))`,
 which `tailBound` becomes after a change of variables. -/
@@ -114,15 +124,9 @@ private lemma integrableOn_Ioi_add_mul_exp_and_integral_eq (hσ2 : σ2 ≠ 0) (h
   simp_rw [add_mul]
   refine ⟨h_int_x.add h_int_one, ?_⟩
   rw [integral_add h_int_x h_int_one, integral_const_mul, integral_gaussian_Ioi]
-  -- `∫ x in Ioi 0, x exp (-x² / (2 σ²)) = σ²`, from the first moment of the Gaussian density
   have h_x : ∫ x in Ioi (0 : ℝ), x * exp (-(1 / (2 * σ2)) * x ^ 2) = σ2 := by
-    have h := integral_Ioi_sub_mul_gaussianPDFReal 0 σ2 0
-    simp only [gaussianPDFReal_def, sub_zero, mul_left_comm _ (√(2 * π * σ2))⁻¹,
-      integral_const_mul] at h
-    have hpos : 0 < √(2 * π * σ2) := by positivity
-    field_simp at h
-    simp_rw [neg_mul, one_div_mul_eq_div]
-    simpa [neg_div] using h
+    rw [integral_Ioi_mul_exp_neg_mul_sq hβ]
+    field_simp
   have h_sqrt : √(2 * σ2 * c) * √(π / (1 / (2 * σ2))) = 2 * σ2 * √(π * c) := by
     rw [← sqrt_mul (by positivity),
       show 2 * σ2 * c * (π / (1 / (2 * σ2))) = (2 * σ2) ^ 2 * (π * c) by field_simp,
@@ -263,7 +267,7 @@ theorem sum_measureReal_mul_le_sum_add_sqrt_le (h_indep : iIndepFun X P)
   simp only [NNReal.coe_zero, mul_zero, zero_mul, sqrt_zero, add_zero, zero_div]
   refine le_of_forall_pos_le_add fun δ hδ ↦ ?_
   let σ' : ℝ≥0 := ⟨δ * ε ^ 2 / (2 * (c + √(π * c) + 1)), by positivity⟩
-  have hσ'_coe : (σ' : ℝ) = δ * ε ^ 2 / (2 * (c + √(π * c) + 1)) := rfl
+  have hσ'_coe : (σ' : ℝ) = δ * ε ^ 2 / (2 * (c + √(π * c) + 1)) := NNReal.coe_mk _ _
   have hσ'_ne : σ' ≠ 0 := by
     rw [ne_eq, ← NNReal.coe_eq_zero, hσ'_coe]
     positivity
