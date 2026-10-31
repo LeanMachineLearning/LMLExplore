@@ -5,8 +5,8 @@ Authors: Rémy Degenne
 -/
 module
 
+public import Mathlib.Probability.HasLaw
 public import Mathlib.Probability.Moments.Tilted
-public import LMLExplore.MeasureTheory.Measure.Dirac
 
 /-!
 # Exponential tilts and the cumulant generating function
@@ -108,7 +108,7 @@ derivative is the mean of the exponential tilt `ρ.tilted (t * ·)` (`integral_t
 lemma strictMonoOn_deriv_cgf_id {ρ : Measure ℝ} [IsProbabilityMeasure ρ]
     (hρ : ∀ c, ρ ≠ Measure.dirac c) :
     StrictMonoOn (deriv (cgf id ρ)) (interior (integrableExpSet id ρ)) :=
-  strictMonoOn_deriv_cgf fun c h ↦ hρ c (Measure.id_ae_eq_const_iff.mp h)
+  strictMonoOn_deriv_cgf fun c h ↦ hρ c <| by simpa using (hasLaw_dirac_of_ae_eq h).map_eq
 
 /-- The second derivative of the cumulant generating function of a probability measure on `ℝ`
 which is not a Dirac mass is positive on the interior of `integrableExpSet id ρ`. It is the
@@ -116,6 +116,6 @@ variance of the exponential tilt `ρ.tilted (t * ·)` (`variance_tilted_mul`). -
 lemma iteratedDeriv_two_cgf_id_pos {ρ : Measure ℝ} [IsProbabilityMeasure ρ]
     (hρ : ∀ c, ρ ≠ Measure.dirac c) (ht : t ∈ interior (integrableExpSet id ρ)) :
     0 < iteratedDeriv 2 (cgf id ρ) t :=
-  iteratedDeriv_two_cgf_pos (fun c h ↦ hρ c (Measure.id_ae_eq_const_iff.mp h)) ht
+  iteratedDeriv_two_cgf_pos (fun c h ↦ hρ c <| by simpa using (hasLaw_dirac_of_ae_eq h).map_eq) ht
 
 end ProbabilityTheory
