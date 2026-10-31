@@ -6,18 +6,28 @@ Authors: Rémy Degenne
 module
 
 public import Mathlib.Probability.HasCondDistrib
+public import TauCeti.Probability.Kernel.Composition.MeasureCompProd
 
 /-!
-# Joint masses under a conditional distribution
+# Conditional distributions: joint masses, transport and composition-products
 
 If `κ` is the conditional distribution of `Y` given `X` under `P`, then the joint mass of a
 rectangle is obtained by integrating the conditional mass: for measurable sets `s` and `t`,
-`P(X ∈ s, Y ∈ t) = ∫_{X ∈ s} κ X t dP`.
+`P(X ∈ s, Y ∈ t) = ∫_{X ∈ s} κ X t dP`. Conditional distributions are also transported along maps
+carrying a measure to another, and the second coordinate of a composition-product `μ ⊗ₘ η.comap f`
+has conditional distribution `η` given `f` of the first coordinate.
 
 ## Main statements
 
 * `ProbabilityTheory.HasCondDistrib.measure_preimage_inter_eq_setLIntegral`:
   `P (X ⁻¹' s ∩ Y ⁻¹' t) = ∫⁻ ω in X ⁻¹' s, κ (X ω) t ∂P`.
+* `ProbabilityTheory.HasCondDistrib.comp_hasLaw`: if `Y` has conditional distribution `κ` given
+  `X` under `μ` and `f` has law `μ` under `P`, then `Y ∘ f` has conditional distribution `κ` given
+  `X ∘ f` under `P`.
+* `ProbabilityTheory.hasCondDistrib_snd_compProd_comap`: under `μ ⊗ₘ η.comap f`, the second
+  coordinate has conditional distribution `η` given `f` of the first coordinate.
+
+The last two statements are adapted from the LMLPapers project (same author).
 -/
 
 public section
@@ -25,6 +35,8 @@ public section
 open MeasureTheory
 
 namespace ProbabilityTheory
+
+section JointMass
 
 variable {Ω 𝓧 𝓨 : Type*} {mΩ : MeasurableSpace Ω} {m𝓧 : MeasurableSpace 𝓧}
   {m𝓨 : MeasurableSpace 𝓨} {P : Measure Ω} [SFinite P] {X : Ω → 𝓧} {Y : Ω → 𝓨}
@@ -43,5 +55,45 @@ lemma HasCondDistrib.measure_preimage_inter_eq_setLIntegral (h : HasCondDistrib 
     _ = ∫⁻ ω in X ⁻¹' s, κ (X ω) t ∂P := by
         rw [Measure.restrict_map_of_aemeasurable h.aemeasurable_fst hs,
           lintegral_map' (κ.measurable_coe ht).aemeasurable h.aemeasurable_fst.restrict]
+
+end JointMass
+
+section Transport
+
+variable {α Ω' 𝓧 𝓨 : Type*} {mα : MeasurableSpace α} {mΩ' : MeasurableSpace Ω'}
+  {m𝓧 : MeasurableSpace 𝓧} {m𝓨 : MeasurableSpace 𝓨} {μ : Measure α} {X : α → 𝓧} {Y : α → 𝓨}
+  {κ : Kernel 𝓧 𝓨}
+
+/-- If `Y` has conditional distribution `κ` given `X` under `μ` and `f` has law `μ` under `P`,
+then `Y ∘ f` has conditional distribution `κ` given `X ∘ f` under `P`. -/
+lemma HasCondDistrib.comp_hasLaw {P : Measure Ω'} {f : Ω' → α} (h : HasCondDistrib Y X κ μ)
+    (hf : HasLaw f μ P) :
+    HasCondDistrib (Y ∘ f) (X ∘ f) κ P := by
+  refine ⟨(h.comp hf).aemeasurable, ?_⟩
+  rw [← AEMeasurable.map_map_of_aemeasurable (hf.map_eq ▸ h.aemeasurable_fst) hf.aemeasurable,
+    hf.map_eq]
+  exact (h.comp hf).map_eq
+
+end Transport
+
+section CompProd
+
+variable {α β γ : Type*} {mα : MeasurableSpace α} {mβ : MeasurableSpace β}
+  {mγ : MeasurableSpace γ}
+
+/-- Under `μ ⊗ₘ η.comap f`, the second coordinate has conditional distribution `η` given `f` of
+the first coordinate, when `η` is a probability measure at every point of the range of `f`. -/
+lemma hasCondDistrib_snd_compProd_comap (μ : Measure α) [SFinite μ]
+    (η : Kernel β γ) [IsSFiniteKernel η] {f : α → β} (hf : Measurable f)
+    (hη : ∀ a, IsProbabilityMeasure (η (f a))) :
+    HasCondDistrib Prod.snd (fun p : α × γ ↦ f p.1) η (μ ⊗ₘ η.comap f hf) := by
+  have : IsMarkovKernel (η.comap f hf) := ⟨fun a ↦ by rw [Kernel.comap_apply]; exact hη a⟩
+  refine ⟨by fun_prop, (TauCeti.Measure.map_prodMap_compProd_comap μ η hf).trans ?_⟩
+  congr 1
+  conv_lhs => rw [← Measure.fst_compProd μ (η.comap f hf)]
+  rw [Measure.fst, Measure.map_map hf measurable_fst]
+  rfl
+
+end CompProd
 
 end ProbabilityTheory

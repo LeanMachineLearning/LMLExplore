@@ -24,6 +24,8 @@ before `M` at which `a` was played.
 
 * `LMLExplore.sum_lintegral_pullCount_mul`: for a measurable random time `g`,
   `∑ a, E[N_a(g)] f a = E[∑ s < g, f (A s)]`.
+* `LMLExplore.lintegral_toENNReal_eq_sum_lintegral_pullCount`: Wald's identity
+  `E[τ] = ∑ a, E[N_a(τ)]` for an almost surely finite measurable random time `τ`.
 * `Learning.IsAlgEnvSeq.klDiv_map_history_eq_sum_pullCount`: the divergence decomposition.
 * `Learning.IsAlgEnvSeq.klDiv_map_history_eq_lintegral_pullCount_mul`: if the reward kernels
   agree outside the action `i`, then `KL = E[N_i(M)] KL(κ i ‖ κ' i)`.
@@ -64,6 +66,20 @@ lemma sum_lintegral_pullCount_mul [MeasurableSingletonClass 𝓐] (hA : ∀ n, M
         exact sum_congr rfl fun a _ ↦ (lintegral_mul_const _ (hmeas a)).symm
     _ = ∫⁻ ω, ∑ s ∈ range (g ω), f (A s ω) ∂P :=
         lintegral_congr fun ω ↦ Learning.sum_pullCount_mul ω f (g ω)
+
+/-- **Wald's identity for the number of rounds.** For an almost surely finite measurable random
+time `τ` and finitely many actions, `E[τ] = ∑ a, E[N_a(τ)]`, where `N_a(τ)` is the number of
+rounds before `τ` at which the action `a` is played. -/
+lemma lintegral_toENNReal_eq_sum_lintegral_pullCount [MeasurableSingletonClass 𝓐]
+    (hA : ∀ n, Measurable (A n)) {τ : Ω → ℕ∞} (hτ : Measurable τ) (h_fin : ∀ᵐ ω ∂P, τ ω ≠ ⊤) :
+    ∫⁻ ω, (τ ω : ℝ≥0∞) ∂P = ∑ a, ∫⁻ ω, (Learning.pullCount A a (τ ω).toNat ω : ℝ≥0∞) ∂P := by
+  have h := sum_lintegral_pullCount_mul (P := P) hA (g := fun ω ↦ (τ ω).toNat)
+    (Measurable.of_discrete.comp hτ) fun _ ↦ 1
+  simp only [mul_one, sum_const, card_range, nsmul_eq_mul] at h
+  rw [h]
+  refine lintegral_congr_ae ?_
+  filter_upwards [h_fin] with ω hω
+  rw [← ENat.toENNReal_coe, ENat.natCast_toNat hω]
 
 end LMLExplore
 
