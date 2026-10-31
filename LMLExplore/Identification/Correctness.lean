@@ -56,7 +56,7 @@ property comes with a statement about every run of the algorithm (`Learning.Iden
 Adapted from the LMLPapers project (same author).
 -/
 
-@[expose] public section
+public section
 
 open MeasureTheory ProbabilityTheory Learning
 
@@ -75,6 +75,10 @@ noncomputable def histOutputMeasure (A : IdentAlg 𝓞 𝓐 𝓨 𝓓) (env : En
     Measure ((Σ n : ℕ, Hist 𝓞 𝓐 𝓨 n) × 𝓓) :=
   stoppedHistMeasure A.alg env A.stopSet ⊗ₘ A.output
 deriving IsProbabilityMeasure
+
+/-- The defining formula of `histOutputMeasure`. -/
+lemma histOutputMeasure_def (A : IdentAlg 𝓞 𝓐 𝓨 𝓓) (env : Environment 𝓞 𝓐 𝓨) :
+    histOutputMeasure A env = stoppedHistMeasure A.alg env A.stopSet ⊗ₘ A.output := (rfl)
 
 variable {env : Environment 𝓞 𝓐 𝓨}
 
@@ -114,7 +118,13 @@ def StopsAS (A : IdentAlg 𝓞 𝓐 𝓨 𝓓) (env : Environment 𝓞 𝓐 𝓨
 
 section StopsAS
 
-variable {env : Environment 𝓞 𝓐 𝓨} [IsProbabilityMeasure P]
+variable {env : Environment 𝓞 𝓐 𝓨}
+
+/-- The defining property of `StopsAS`, on the law of the stopped history. -/
+lemma stopsAS_iff : StopsAS A env ↔ ∀ᵐ h ∂(stoppedHistMeasure A.alg env A.stopSet), h ∈ A.stopSet :=
+  Iff.rfl
+
+variable [IsProbabilityMeasure P]
 
 /-- `A` stops almost surely in `env` iff its stopping time is almost surely finite along an
 algorithm-environment sequence of its sampling rule in `env`. -/
@@ -122,7 +132,7 @@ lemma stopsAS_iff_ae_stoppingTime_ne_top (h : IsAlgEnvSeq O X Y A.alg env P) :
     StopsAS A env ↔ ∀ᵐ ω ∂P, A.stoppingTime O X Y ω ≠ ⊤ := by
   have h_law := (h.hasLaw_stoppedValue_sigmaHistory A.measurableSet_stopSet).ae_iff
     (p := (· ∈ A.stopSet)) (measurableSet_setOfPred.1 A.measurableSet_stopSet)
-  rw [StopsAS, ← h_law]
+  rw [stopsAS_iff, ← h_law]
   exact Filter.eventually_congr (.of_forall fun _ ↦ IdentAlg.stoppedHist_mem_stopSet_iff)
 
 /-- If `A` stops almost surely in `env`, its stopping time is almost surely finite along every
@@ -152,6 +162,10 @@ def IsDeltaPAC (A : IdentAlg 𝓞 𝓐 𝓨 𝓓) (env : Θ → Environment 𝓞
     (δ : ℝ) : Prop :=
   A.IsPAC env bad δ ∧ ∀ θ, StopsAS A (env θ)
 
+/-- The defining property of `IsDeltaPAC`. -/
+lemma isDeltaPAC_iff {A : IdentAlg 𝓞 𝓐 𝓨 𝓓} {env : Θ → Environment 𝓞 𝓐 𝓨} {bad : Θ → 𝓓 → Prop}
+    {δ : ℝ} : IsDeltaPAC A env bad δ ↔ A.IsPAC env bad δ ∧ ∀ θ, StopsAS A (env θ) := Iff.rfl
+
 /-- `A` is *`δ`-correct* for the family of environments `env : Θ → Environment 𝓞 𝓐 𝓨` and the
 badness predicate `bad : Θ → 𝓓 → Prop`: for every `θ`, with probability at most `δ`, `A` does
 not stop in `env θ` or its output is `bad θ` (the `δ`-correctness of Degenne–Koolen 2019, which
@@ -161,6 +175,11 @@ statement about any run of `A`. -/
 def IsDeltaCorrect (A : IdentAlg 𝓞 𝓐 𝓨 𝓓) (env : Θ → Environment 𝓞 𝓐 𝓨)
     (bad : Θ → 𝓓 → Prop) (δ : ℝ) : Prop :=
   ∀ θ, (histOutputMeasure A (env θ)).real {p | p.1 ∉ A.stopSet ∨ bad θ p.2} ≤ δ
+
+/-- The defining property of `IsDeltaCorrect`. -/
+lemma isDeltaCorrect_iff {A : IdentAlg 𝓞 𝓐 𝓨 𝓓} {env : Θ → Environment 𝓞 𝓐 𝓨}
+    {bad : Θ → 𝓓 → Prop} {δ : ℝ} : IsDeltaCorrect A env bad δ ↔
+      ∀ θ, (histOutputMeasure A (env θ)).real {p | p.1 ∉ A.stopSet ∨ bad θ p.2} ≤ δ := Iff.rfl
 
 end LMLExplore.Identification
 
@@ -275,7 +294,7 @@ lemma IsDeltaPAC.isDeltaCorrect (h : IsDeltaPAC A env bad δ) : IsDeltaCorrect A
   set μ := histOutputMeasure A (env θ)
   have h_stop : μ.real (Prod.fst ⁻¹' A.stopSetᶜ) = 0 := by
     have h_ae := h.2 θ
-    rw [StopsAS, ae_iff] at h_ae
+    rw [stopsAS_iff, ae_iff] at h_ae
     rw [measureReal_def, ← Measure.fst_apply A.measurableSet_stopSet.compl, fst_histOutputMeasure]
     simp [Set.compl_def, h_ae]
   have h_bad : μ.real (Prod.snd ⁻¹' {d | bad θ d})
@@ -291,7 +310,7 @@ lemma IsDeltaPAC.isDeltaCorrect (h : IsDeltaPAC A env bad δ) : IsDeltaCorrect A
 variable [IsProbabilityMeasure P] {θ : Θ}
 
 /-- The event "the algorithm has not stopped or the output satisfies `b`" is measurable. -/
-lemma measurableSet_notMem_stopSet_or {b : 𝓓 → Prop} (hb : MeasurableSet {d | b d}) :
+private lemma measurableSet_notMem_stopSet_or {b : 𝓓 → Prop} (hb : MeasurableSet {d | b d}) :
     MeasurableSet {p : (Σ n : ℕ, Hist 𝓞 𝓐 𝓨 n) × 𝓓 | p.1 ∉ A.stopSet ∨ b p.2} :=
   (measurable_fst A.measurableSet_stopSet.compl).union (measurable_snd hb)
 

@@ -49,7 +49,7 @@ Markov kernel `A.output` on histories of variable length.
 Adapted from the LMLPapers project (same author).
 -/
 
-@[expose] public section
+public section
 
 open MeasureTheory ProbabilityTheory Learning
 
@@ -76,19 +76,19 @@ noncomputable def ofStop : IdentAlg 𝓞 𝓐 𝓨 𝓓 where
   output := Kernel.sigma output
 
 @[simp]
-lemma alg_ofStop : (ofStop alg stop hstop output).alg = alg := rfl
+lemma alg_ofStop : (ofStop alg stop hstop output).alg = alg := (rfl)
 
-lemma stopSet_ofStop : (ofStop alg stop hstop output).stopSet = {h | stop h.1 h.2} := rfl
+lemma stopSet_ofStop : (ofStop alg stop hstop output).stopSet = {h | stop h.1 h.2} := (rfl)
 
 @[simp]
 lemma mem_stopSet_ofStop {h : Σ n, Hist 𝓞 𝓐 𝓨 n} :
-    h ∈ (ofStop alg stop hstop output).stopSet ↔ stop h.1 h.2 := Iff.rfl
+    h ∈ (ofStop alg stop hstop output).stopSet ↔ stop h.1 h.2 := (Iff.rfl)
 
 @[simp]
-lemma output_ofStop : (ofStop alg stop hstop output).output = Kernel.sigma output := rfl
+lemma output_ofStop : (ofStop alg stop hstop output).output = Kernel.sigma output := (rfl)
 
 lemma output_ofStop_mk {n : ℕ} (h : Hist 𝓞 𝓐 𝓨 n) :
-    (ofStop alg stop hstop output).output ⟨n, h⟩ = output n h := rfl
+    (ofStop alg stop hstop output).output ⟨n, h⟩ = output n h := (rfl)
 
 end OfStop
 
@@ -99,20 +99,24 @@ stops after `n` rounds, as a function of the history of these rounds. -/
 noncomputable def outputAt (A : IdentAlg 𝓞 𝓐 𝓨 𝓓) (n : ℕ) : Kernel (Hist 𝓞 𝓐 𝓨 n) 𝓓 :=
   A.output.comap (Sigma.mk n) (measurable_sigma_mk n)
 
+/-- The output rule on the histories of `n` rounds is `A.output` restricted to them. -/
+lemma outputAt_eq_comap (A : IdentAlg 𝓞 𝓐 𝓨 𝓓) (n : ℕ) :
+    outputAt A n = A.output.comap (Sigma.mk n) (measurable_sigma_mk n) := (rfl)
+
 @[simp]
 lemma outputAt_apply (A : IdentAlg 𝓞 𝓐 𝓨 𝓓) {n : ℕ} (h : Hist 𝓞 𝓐 𝓨 n) :
-    outputAt A n h = A.output ⟨n, h⟩ := rfl
+    outputAt A n h = A.output ⟨n, h⟩ := (rfl)
 
 instance (A : IdentAlg 𝓞 𝓐 𝓨 𝓓) (n : ℕ) : IsMarkovKernel (outputAt A n) := by
-  unfold outputAt
+  rw [outputAt_eq_comap]
   infer_instance
 
 @[simp]
 lemma outputAt_ofStop (alg : Algorithm 𝓞 𝓐 𝓨) (stop : (n : ℕ) → Hist 𝓞 𝓐 𝓨 n → Prop)
     (hstop : ∀ n, MeasurableSet {h | stop n h}) (output : (n : ℕ) → Kernel (Hist 𝓞 𝓐 𝓨 n) 𝓓)
     [∀ n, IsMarkovKernel (output n)] (n : ℕ) :
-    outputAt (ofStop alg stop hstop output) n = output n :=
-  Kernel.comap_sigma_mk output n
+    outputAt (ofStop alg stop hstop output) n = output n := by
+  rw [outputAt_eq_comap, output_ofStop, Kernel.comap_sigma_mk]
 
 end LMLExplore.Identification
 
@@ -144,6 +148,7 @@ lemma stoppingTime_le_of_mem_stopSet
     A.stoppingTime O X Y ω ≤ n :=
   hittingAfter_le_of_mem (Nat.zero_le n) h
 
+@[simp]
 lemma fst_stoppedHist : (A.stoppedHist O X Y ω).1 = (A.stoppingTime O X Y ω).untopA := rfl
 
 /-- The history at a finite stopping time `n` is the history of the first `n` rounds. -/
@@ -220,6 +225,13 @@ noncomputable def runMeasure : Measure ((ℕ → Round 𝓞 𝓐 𝓨) × 𝓓) 
   trajMeasure A.alg env ⊗ₘ A.output.comap (A.stoppedHist IT.obs IT.action IT.feedback)
     (A.measurable_stoppedHist IT.measurable_obs IT.measurable_action IT.measurable_feedback)
 deriving IsProbabilityMeasure
+
+/-- The defining formula of `runMeasure`. -/
+lemma runMeasure_def :
+    runMeasure A env = trajMeasure A.alg env ⊗ₘ A.output.comap
+      (A.stoppedHist IT.obs IT.action IT.feedback)
+      (A.measurable_stoppedHist IT.measurable_obs IT.measurable_action IT.measurable_feedback) :=
+  (rfl)
 
 /-- **Existence of runs**: every identification algorithm has a run in every environment, the
 canonical run on `runMeasure`. -/

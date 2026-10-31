@@ -5,7 +5,7 @@ Authors: Rémy Degenne
 -/
 module
 
-public import LMLExplore.Identification.Correctness
+public import LMLExplore.Identification.SampleComplexity
 public import LMLExplore.SequentialLearning.Algorithms.OfSeq
 
 /-!
@@ -33,7 +33,9 @@ rule plays a fixed sequence of actions, whatever the observations and feedbacks.
   `LMLExplore.Identification.IsFixedBudget.outputMeasure_eq`: the laws of the stopped history and
   of the output; the latter is the output rule on the histories of `T` rounds composed with the
   law of the history of the first `T` rounds.
-* `LMLExplore.Identification.IsFixedBudget.stopsAS`: a fixed-budget algorithm stops almost surely.
+* `LMLExplore.Identification.IsFixedBudget.stopsAS`,
+  `LMLExplore.Identification.IsFixedBudget.expectedStoppingTime_eq`: a fixed-budget algorithm with
+  budget `T` stops almost surely, and its expected stopping time is `T`.
 * `Learning.IdentAlg.IsRun.hasCondDistrib_output_history`: in a run of a fixed-budget algorithm,
   the output has conditional law `outputAt A T` given the history of the first `T` rounds.
 * `LMLExplore.Identification.IsFixedBudget.hasLaw_output_of_isAlgEnvSeqUntil`,
@@ -44,7 +46,7 @@ rule plays a fixed sequence of actions, whatever the observations and feedbacks.
 Adapted from the LMLPapers project (same author).
 -/
 
-@[expose] public section
+public section
 
 open MeasureTheory ProbabilityTheory Learning
 
@@ -64,9 +66,12 @@ section IsFixedBudget
 
 variable {A : IdentAlg 𝓞 𝓐 𝓨 𝓓} {T : ℕ}
 
+/-- The defining property of `IsFixedBudget`. -/
+lemma isFixedBudget_iff : IsFixedBudget A T ↔ A.stopSet = {h | h.1 = T} := Iff.rfl
+
 lemma IsFixedBudget.mem_stopSet_iff (hA : IsFixedBudget A T) {h : Σ n, Hist 𝓞 𝓐 𝓨 n} :
     h ∈ A.stopSet ↔ h.1 = T := by
-  rw [hA, Set.mem_ofPred_eq]
+  rw [isFixedBudget_iff.1 hA, Set.mem_ofPred_eq]
 
 /-- The stopping time of a fixed-budget algorithm with budget `T` is `T`. -/
 lemma IsFixedBudget.stoppingTime_eq (hA : IsFixedBudget A T) (ω : Ω) :
@@ -100,11 +105,16 @@ lemma IsFixedBudget.stoppedHistMeasure_eq (hA : IsFixedBudget A T) (env : Enviro
 histories of `T` rounds applied to the law of the history of the first `T` rounds. -/
 lemma IsFixedBudget.outputMeasure_eq (hA : IsFixedBudget A T) (env : Environment 𝓞 𝓐 𝓨) :
     A.outputMeasure env = outputAt A T ∘ₘ (trajMeasure A.alg env).map (IT.hist T) := by
-  rw [IdentAlg.outputMeasure, hA.stoppedHistMeasure_eq,
-    show sigmaHistory IT.obs IT.action IT.feedback T = Sigma.mk T ∘ IT.hist T from rfl,
+  -- On the canonical space, the history `history IT.obs IT.action IT.feedback T` of the first
+  -- `T` rounds is `IT.hist T` (`IT.history_obs_action_feedback`).
+  have h_hist : sigmaHistory IT.obs IT.action IT.feedback T = Sigma.mk T ∘ IT.hist T :=
+    funext fun _ ↦ by
+      rw [sigmaHistory_apply, IT.history_obs_action_feedback (𝓞 := 𝓞) (𝓐 := 𝓐) (𝓨 := 𝓨),
+        Function.comp_apply]
+  rw [IdentAlg.outputMeasure, hA.stoppedHistMeasure_eq, h_hist,
     ← Measure.map_map (measurable_sigma_mk T) (IT.measurable_hist T),
     ← Measure.deterministic_comp_eq_map (measurable_sigma_mk T), Measure.comp_assoc,
-    Kernel.comp_deterministic_eq_comap, outputAt]
+    Kernel.comp_deterministic_eq_comap, outputAt_eq_comap]
 
 /-- The law of the output of a fixed-budget algorithm with budget `0` is the output rule applied
 to the empty history. -/
@@ -117,10 +127,15 @@ lemma outputMeasure_eq_of_isFixedBudget_zero (hA : IsFixedBudget A 0)
 /-- A fixed-budget algorithm stops almost surely. -/
 lemma IsFixedBudget.stopsAS (hA : IsFixedBudget A T) (env : Environment 𝓞 𝓐 𝓨) :
     StopsAS A env := by
-  rw [StopsAS, hA.stoppedHistMeasure_eq]
+  rw [stopsAS_iff, hA.stoppedHistMeasure_eq]
   exact (ae_map_iff (measurable_sigmaHistory IT.measurable_obs IT.measurable_action
     IT.measurable_feedback T).aemeasurable A.measurableSet_stopSet).2
     (.of_forall fun _ ↦ hA.mem_stopSet_iff.2 rfl)
+
+/-- The expected stopping time of a fixed-budget algorithm with budget `T` is `T`. -/
+lemma IsFixedBudget.expectedStoppingTime_eq (hA : IsFixedBudget A T)
+    (env : Environment 𝓞 𝓐 𝓨) : expectedStoppingTime A env = T := by
+  simp [expectedStoppingTime_def, hA.stoppingTime_eq]
 
 /-- If `A` has budget `T`, `(O, X, Y)` is an algorithm-environment sequence for the sampling rule
 of `A` until time `T` (the interaction may go on after time `T` with another algorithm) and `out`
@@ -152,6 +167,7 @@ lemma IsRun.hasCondDistrib_output_history [IsFiniteMeasure P] {env : Environment
     HasCondDistrib out (history O X Y T) (outputAt A T) P := by
   have h1 := h.hasCondDistrib_output
   rw [show A.stoppedHist O X Y = Sigma.mk T ∘ history O X Y T from funext hA.stoppedHist_eq] at h1
+  rw [outputAt_eq_comap]
   exact h1.of_measurableEmbedding_comp_right (measurableEmbedding_sigma_mk T)
 
 /-- For a fixed-budget algorithm whose output rule on the histories of `T` rounds is the
@@ -164,13 +180,6 @@ lemma IsRun.output_ae_eq_of_outputAt_eq_deterministic [MeasurableEq 𝓓] [IsFin
   have h1 := h.hasCondDistrib_output_history hA
   rw [hout] at h1
   exact ae_eq_of_hasCondDistrib_deterministic hg h1.aemeasurable_fst h1.aemeasurable_snd h1
-
-/-- For a run of a fixed-budget algorithm with budget `0`, the law of the output is the output
-rule applied to the empty history. -/
-lemma IsRun.map_out_eq_of_isFixedBudget_zero [IsProbabilityMeasure P] {env : Environment 𝓞 𝓐 𝓨}
-    (hA : IsFixedBudget A 0) (h : A.IsRun env O X Y out P) :
-    P.map out = A.output ⟨0, default⟩ := by
-  rw [h.hasLaw_output.map_eq, outputMeasure_eq_of_isFixedBudget_zero hA]
 
 /-- **Transfer of a PAC guarantee to a partial run.** If `A` is PAC at level `δ` with budget `T`,
 `(O, X, Y)` is an algorithm-environment sequence for the sampling rule of `A` until time `T` in
@@ -193,18 +202,18 @@ namespace LMLExplore.Identification
 
 /-- The output rule of `fixedBudget alg T ρ` after `n` rounds: `ρ` if `n = T`, and an arbitrary
 constant otherwise (never used). -/
-noncomputable def fixedBudgetOutput [Nonempty 𝓓] (T : ℕ) (ρ : Kernel (Hist 𝓞 𝓐 𝓨 T) 𝓓)
-    (n : ℕ) : Kernel (Hist 𝓞 𝓐 𝓨 n) 𝓓 :=
+private noncomputable def fixedBudgetOutput [Nonempty 𝓓] (T : ℕ)
+    (ρ : Kernel (Hist 𝓞 𝓐 𝓨 T) 𝓓) (n : ℕ) : Kernel (Hist 𝓞 𝓐 𝓨 n) 𝓓 :=
   if h : n = T then ρ.comap (fun x i ↦ x (Fin.cast h.symm i)) (by fun_prop)
   else Kernel.const _ (Measure.dirac (Classical.arbitrary 𝓓))
 
-instance [Nonempty 𝓓] (T : ℕ) (ρ : Kernel (Hist 𝓞 𝓐 𝓨 T) 𝓓) [IsMarkovKernel ρ] (n : ℕ) :
+private instance [Nonempty 𝓓] (T : ℕ) (ρ : Kernel (Hist 𝓞 𝓐 𝓨 T) 𝓓) [IsMarkovKernel ρ] (n : ℕ) :
     IsMarkovKernel (fixedBudgetOutput T ρ n) := by
   unfold fixedBudgetOutput
   split <;> infer_instance
 
 @[simp]
-lemma fixedBudgetOutput_self [Nonempty 𝓓] (T : ℕ) (ρ : Kernel (Hist 𝓞 𝓐 𝓨 T) 𝓓) :
+private lemma fixedBudgetOutput_self [Nonempty 𝓓] (T : ℕ) (ρ : Kernel (Hist 𝓞 𝓐 𝓨 T) 𝓓) :
     fixedBudgetOutput T ρ T = ρ := by
   ext h : 1
   simp [fixedBudgetOutput]
@@ -222,9 +231,11 @@ variable [Nonempty 𝓓] (alg : Algorithm 𝓞 𝓐 𝓨) (T : ℕ) (ρ : Kernel
   [IsMarkovKernel ρ]
 
 @[simp]
-lemma alg_fixedBudget : (fixedBudget alg T ρ).alg = alg := rfl
+lemma alg_fixedBudget : (fixedBudget alg T ρ).alg = alg := by
+  rw [fixedBudget, alg_ofStop]
 
-lemma isFixedBudget_fixedBudget : IsFixedBudget (fixedBudget alg T ρ) T := rfl
+lemma isFixedBudget_fixedBudget : IsFixedBudget (fixedBudget alg T ρ) T := by
+  rw [isFixedBudget_iff, fixedBudget, stopSet_ofStop]
 
 /-- The output rule of `fixedBudget alg T ρ` after `T` rounds is `ρ`. -/
 @[simp]
@@ -244,6 +255,10 @@ end FixedBudget
 /-- The sampling rule `alg` is a *fixed-design* (static, non-adaptive) sampling rule: it plays a
 fixed sequence of actions, whatever the observations and feedbacks. -/
 def IsFixedDesign (alg : Algorithm 𝓞 𝓐 𝓨) : Prop := ∃ x : ℕ → 𝓐, alg = Algorithm.ofSeq x
+
+/-- The defining property of `IsFixedDesign`. -/
+lemma isFixedDesign_iff {alg : Algorithm 𝓞 𝓐 𝓨} :
+    IsFixedDesign alg ↔ ∃ x : ℕ → 𝓐, alg = Algorithm.ofSeq x := Iff.rfl
 
 lemma isFixedDesign_ofSeq (x : ℕ → 𝓐) : IsFixedDesign (Algorithm.ofSeq x : Algorithm 𝓞 𝓐 𝓨) :=
   ⟨x, rfl⟩

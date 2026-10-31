@@ -12,8 +12,7 @@ public import LeanMachineLearning.SequentialLearning.Deterministic
 
 `Algorithm.ofSeq x` plays the action `x n` at round `n`, whatever the history and the
 observation: the deterministic algorithm that reads neither the history nor the observation (an
-open-loop algorithm, or *fixed design*). The name is the one planned for this construction by the
-naming conventions of LML's sequential learning library.
+open-loop algorithm, or *fixed design*).
 
 ## Main definitions
 
@@ -28,7 +27,7 @@ naming conventions of LML's sequential learning library.
 Adapted from the LMLPapers project (same author).
 -/
 
-@[expose] public section
+public section
 
 open MeasureTheory ProbabilityTheory
 
@@ -42,13 +41,18 @@ observations and feedbacks (a *fixed design*). -/
 noncomputable def Algorithm.ofSeq (x : ℕ → 𝓐) : Algorithm 𝓞 𝓐 𝓨 :=
   detAlgorithm (fun n _ ↦ x n) fun _ ↦ measurable_const
 
+/-- The defining formula of `Algorithm.ofSeq`. -/
+lemma Algorithm.ofSeq_def (x : ℕ → 𝓐) :
+    (Algorithm.ofSeq x : Algorithm 𝓞 𝓐 𝓨) = detAlgorithm (fun n _ ↦ x n) fun _ ↦ measurable_const :=
+  (rfl)
+
 instance (x : ℕ → 𝓐) : IsDeterministicAlg (Algorithm.ofSeq x : Algorithm 𝓞 𝓐 𝓨) :=
   inferInstanceAs (IsDeterministicAlg (detAlgorithm _ _))
 
 @[simp]
 lemma Algorithm.policy_ofSeq (x : ℕ → 𝓐) (n : ℕ) :
     (Algorithm.ofSeq x : Algorithm 𝓞 𝓐 𝓨).policy n
-      = Kernel.deterministic (fun _ ↦ x n) measurable_const := rfl
+      = Kernel.deterministic (fun _ ↦ x n) measurable_const := (rfl)
 
 /-- The actions of an algorithm-environment sequence of the algorithm playing `x` are almost
 surely `x`. -/
