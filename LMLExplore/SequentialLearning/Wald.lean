@@ -8,6 +8,7 @@ module
 public import LeanMachineLearning.SequentialLearning.Means
 public import LMLExplore.Probability.HasCondDistrib
 public import LMLExplore.SequentialLearning.DivergenceDecomposition
+public import LMLExplore.Topology.Algebra.InfiniteSum.NatInt
 
 /-!
 # Wald's identity for the rewards of a stationary bandit
@@ -64,23 +65,6 @@ lemma IsAlgEnvSeq.setLIntegral_comp_feedback_stationaryEnv {O : ℕ → Ω → U
   simpa [feedback_stationaryEnv] using
     (h.hasCondDistrib_feedback n).setLIntegral_comp_eq_setLIntegral_lintegral ht hg
 
-/-- For `τ ω` finite, a series over `t` of the values at `ω` of functions restricted to
-`{t < τ}` is the finite sum over the rounds before `τ ω`. -/
-private lemma tsum_indicator_lt_eq_sum {E : Type*} [AddCommMonoid E] [TopologicalSpace E]
-    {τ : Ω → ℕ∞} {ω : Ω} (hω : τ ω ≠ ⊤) (f : ℕ → Ω → E) :
-    ∑' t : ℕ, {ω | (t : ℕ∞) < τ ω}.indicator (f t) ω = ∑ t ∈ range (τ ω).toNat, f t ω := by
-  have key (t : ℕ) : (t : ℕ∞) < τ ω ↔ t ∈ range (τ ω).toNat := by
-    lift τ ω to ℕ using hω with n
-    simp
-  rw [tsum_eq_sum (s := range (τ ω).toNat) fun t ht ↦ by simp [Set.indicator, key, ht]]
-  exact sum_congr rfl fun t ht ↦ by simp [Set.indicator, (key t).2 ht]
-
-/-- The number of pulls of an action before a random time `τ` is at most `τ`. -/
-private lemma natCast_pullCount_toNat_le {A : ℕ → Ω → 𝓐} [DecidableEq 𝓐] (a : 𝓐) (τ : Ω → ℕ∞)
-    (ω : Ω) : (pullCount A a (τ ω).toNat ω : ℝ≥0∞) ≤ τ ω := by
-  rw [← ENat.toENNReal_coe, ENat.toENNReal_le]
-  exact (Nat.cast_le.2 (pullCount_le a _ ω)).trans (ENat.natCast_toNat_le_self _)
-
 variable {O : ℕ → Ω → Unit} {A : ℕ → Ω → 𝓐} {Y : ℕ → Ω → ℝ} {alg : Algorithm Unit 𝓐 ℝ}
   {ν : Kernel 𝓐 ℝ} [IsMarkovKernel ν]
 
@@ -132,11 +116,13 @@ private lemma tsum_lintegral_indicator_lintegral_enorm_ne_top [MeasurableSinglet
       fun t ↦ (((measurable_of_countable c).comp (h.measurable_action t)).indicator
         (hτ (MeasurableSet.of_discrete (s := Set.Ioi (t : ℕ∞))))).aemeasurable,
     lintegral_congr_ae (by
-      filter_upwards [hτ_fin] with ω hω using tsum_indicator_lt_eq_sum hω fun t ω ↦ c (A t ω)),
+      filter_upwards [hτ_fin] with ω hω using
+        LMLExplore.tsum_indicator_natCast_lt_eq_sum_range hω fun t ↦ c (A t ω)),
     ← LMLExplore.sum_lintegral_pullCount_mul (g := fun ω ↦ (τ ω).toNat) h.measurable_action
       (Measurable.of_discrete.comp hτ) c]
   refine (ENNReal.sum_lt_top.2 fun a _ ↦ ENNReal.mul_lt_top ?_ (hν a).2).ne
-  exact (lintegral_mono (natCast_pullCount_toNat_le a τ)).trans_lt hτ_int.lt_top
+  exact (lintegral_mono fun ω ↦ LMLExplore.natCast_pullCount_toNat_le a (τ ω) ω).trans_lt
+    hτ_int.lt_top
 
 end Finite
 
@@ -157,6 +143,10 @@ theorem IsAlgEnvSeq.integral_sum_feedback_eq_sum_integral_pullCount_mul
   set S : ℕ → Set Ω := fun t ↦ {ω | (t : ℕ∞) < τ ω}
   have hS_F (t : ℕ) : MeasurableSet[h.filtrationAction t] (S t) := hτ.measurableSet_gt t
   have hS (t : ℕ) : MeasurableSet (S t) := h.filtrationAction.le t _ (hS_F t)
+  -- `hτ.measurable'` is measurability for Mathlib's Borel σ-algebra on `WithTop ℕ`, the
+  -- codomain of stopping times, whereas `ℕ∞` carries the discrete σ-algebra `⊤`: the two
+  -- instances live on the same type but are not syntactically equal, so measurability for `ℕ∞`
+  -- is rebuilt from the measurable preimages of the (Borel-measurable) singletons.
   have hτ_meas : Measurable τ :=
     measurable_to_countable' fun x ↦ hτ.measurable' (measurableSet_singleton (α := WithTop ℕ) x)
   have hτ_fin : ∀ᵐ ω ∂P, τ ω ≠ ⊤ := by
@@ -168,7 +158,7 @@ theorem IsAlgEnvSeq.integral_sum_feedback_eq_sum_integral_pullCount_mul
       measurable_const (Measurable.of_discrete.comp hτ_meas))).aestronglyMeasurable, ?_⟩
     refine (lintegral_mono fun ω ↦ ?_).trans_lt hτ_int.lt_top
     rw [Real.enorm_natCast]
-    exact natCast_pullCount_toNat_le a τ ω
+    exact LMLExplore.natCast_pullCount_toNat_le a (τ ω) ω
   -- the series `∑ t, 1{t < τ} Y_t` and `∑ t, 1{t < τ} μ (A t)` are dominated by the finite
   -- `𝔼[∑_{t < τ} ∫ |y| dν(A t)]`
   have hB := tsum_lintegral_indicator_lintegral_enorm_ne_top h hν hτ_meas hτ_int hτ_fin
@@ -183,7 +173,8 @@ theorem IsAlgEnvSeq.integral_sum_feedback_eq_sum_integral_pullCount_mul
     exact Set.indicator_le_indicator (enorm_integral_le_lintegral_enorm _)
   calc ∫ ω, ∑ t ∈ range (τ ω).toNat, Y t ω ∂P
       = ∫ ω, ∑' t, (S t).indicator (Y t) ω ∂P := integral_congr_ae (by
-        filter_upwards [hτ_fin] with ω hω using (tsum_indicator_lt_eq_sum hω Y).symm)
+        filter_upwards [hτ_fin] with ω hω using
+          (LMLExplore.tsum_indicator_natCast_lt_eq_sum_range hω fun t ↦ Y t ω).symm)
     _ = ∑' t, ∫ ω, (S t).indicator (Y t) ω ∂P := integral_tsum (fun t ↦
         ((h.measurable_feedback t).indicator (hS t)).aestronglyMeasurable) hY_sum
     -- on `{t < τ}`, the reward `Y t` can be replaced by its conditional mean `μ (A t)`
@@ -195,7 +186,8 @@ theorem IsAlgEnvSeq.integral_sum_feedback_eq_sum_integral_pullCount_mul
           (hS t)).aestronglyMeasurable) hμ_sum).symm
     _ = ∫ ω, ∑ a, (pullCount A a (τ ω).toNat ω : ℝ) * μ a ∂P := integral_congr_ae (by
         filter_upwards [hτ_fin] with ω hω
-        rw [tsum_indicator_lt_eq_sum hω fun t ω ↦ μ (A t ω), sum_pullCount_mul])
+        exact (LMLExplore.tsum_indicator_natCast_lt_eq_sum_range hω fun t ↦ μ (A t ω)).trans
+          (sum_pullCount_mul ω μ _).symm)
     _ = ∑ a, (∫ ω, (pullCount A a (τ ω).toNat ω : ℝ) ∂P) * μ a := by
         rw [integral_finsetSum _ fun a _ ↦ (hN_int a).mul_const _]
         exact sum_congr rfl fun a _ ↦ integral_mul_const _ _

@@ -26,6 +26,7 @@ before `M` at which `a` was played.
   `∑ a, E[N_a(g)] f a = E[∑ s < g, f (A s)]`.
 * `LMLExplore.lintegral_toENNReal_eq_sum_lintegral_pullCount`: Wald's identity
   `E[τ] = ∑ a, E[N_a(τ)]` for an almost surely finite measurable random time `τ`.
+* `LMLExplore.natCast_pullCount_toNat_le`: `N_a(n) ≤ n` for `n : ℕ∞`.
 * `Learning.IsAlgEnvSeq.klDiv_map_history_eq_sum_pullCount`: the divergence decomposition.
 * `Learning.IsAlgEnvSeq.klDiv_map_history_eq_lintegral_pullCount_mul`: if the reward kernels
   agree outside the action `i`, then `KL = E[N_i(M)] KL(κ i ‖ κ' i)`.
@@ -66,6 +67,13 @@ lemma sum_lintegral_pullCount_mul [MeasurableSingletonClass 𝓐] (hA : ∀ n, M
         exact sum_congr rfl fun a _ ↦ (lintegral_mul_const _ (hmeas a)).symm
     _ = ∫⁻ ω, ∑ s ∈ range (g ω), f (A s ω) ∂P :=
         lintegral_congr fun ω ↦ Learning.sum_pullCount_mul ω f (g ω)
+
+omit [Fintype 𝓐] in
+/-- The number of pulls of an action before `n.toNat` is at most `n`, for `n : ℕ∞`. -/
+lemma natCast_pullCount_toNat_le (a : 𝓐) (n : ℕ∞) (ω : Ω) :
+    (Learning.pullCount A a n.toNat ω : ℝ≥0∞) ≤ n := by
+  rw [← ENat.toENNReal_coe, ENat.toENNReal_le]
+  exact (Nat.cast_le.2 (Learning.pullCount_le a _ ω)).trans (ENat.natCast_toNat_le_self _)
 
 /-- **Wald's identity for the number of rounds.** For an almost surely finite measurable random
 time `τ` and finitely many actions, `E[τ] = ∑ a, E[N_a(τ)]`, where `N_a(τ)` is the number of
