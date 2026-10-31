@@ -11,13 +11,15 @@ public import Mathlib.Analysis.InnerProductSpace.Positive
 public import Mathlib.Analysis.InnerProductSpace.Trace
 
 /-!
-# Positive operators: inverse, determinant and trace
+# Positive operators: inverse, quadratic form, determinant and trace
 
 The inverse of a positive operator is positive, and the eigenvalues of a positive invertible
-operator are positive. The determinant of a positive operator `T` on a
-real inner product space of dimension `d` is at most `(trace T / d) ^ d`: both are expressed
-through the eigenvalues of `T`, which are nonnegative, and the inequality is the AM-GM
-inequality.
+operator are positive. On a real inner product space, the quadratic form `x ↦ ⟪x, T x⟫` of a
+positive operator `T` satisfies the Cauchy–Schwarz inequality, so `x ↦ √⟪x, T x⟫` is a seminorm
+(the weighted norms `‖x‖_V` and `‖x‖_{V⁻¹}` of least squares). The determinant of a positive
+operator `T` on a real inner product space of dimension `d` is at most `(trace T / d) ^ d`: both
+are expressed through the eigenvalues of `T`, which are nonnegative, and the inequality is the
+AM-GM inequality.
 
 ## Main statements
 
@@ -26,6 +28,10 @@ inequality.
   `IsPositive.inner_nonneg_right`.
 * `ContinuousLinearMap.IsPositive.one_add_inner_ringInverse_pos`: for a positive operator `V` on
   a real inner product space, `0 < 1 + ⟪x, V⁻¹ x⟫`.
+* `ContinuousLinearMap.IsPositive.sq_inner_apply_le`,
+  `ContinuousLinearMap.IsPositive.sqrt_inner_add_le`: for a positive operator `T` on a real inner
+  product space, the Cauchy–Schwarz inequality `⟪x, T y⟫² ≤ ⟪x, T x⟫ * ⟪y, T y⟫` and the triangle
+  inequality for the seminorm `x ↦ √⟪x, T x⟫`.
 * `LinearMap.IsPositive.eigenvalues_pos`: the eigenvalues of a positive invertible operator on a
   finite-dimensional inner product space are positive.
 * `LinearMap.IsPositive.det_le_trace_div_finrank_pow`,
@@ -62,6 +68,35 @@ theorem IsPositive.one_add_inner_ringInverse_pos {F : Type*} [NormedAddCommGroup
     [InnerProductSpace ℝ F] {V : F →L[ℝ] F} (hV : V.IsPositive) (x : F) :
     0 < 1 + ⟪x, Ring.inverse V x⟫_ℝ :=
   add_pos_of_pos_of_nonneg one_pos (hV.ringInverse.inner_nonneg_right x)
+
+section Real
+
+variable {F : Type*} [NormedAddCommGroup F] [InnerProductSpace ℝ F] {T : F →L[ℝ] F}
+
+/-- **Cauchy–Schwarz inequality** for a positive operator `T` on a real inner product space:
+`⟪x, T y⟫² ≤ ⟪x, T x⟫ * ⟪y, T y⟫`. -/
+theorem IsPositive.sq_inner_apply_le (hT : T.IsPositive) (x y : F) :
+    ⟪x, T y⟫_ℝ ^ 2 ≤ ⟪x, T x⟫_ℝ * ⟪y, T y⟫_ℝ :=
+  LinearMap.BilinForm.apply_sq_le_of_symm ((innerₗ F).compl₂ (T : F →ₗ[ℝ] F))
+    hT.inner_nonneg_right
+    ⟨fun u v ↦ by simpa [real_inner_comm] using hT.inner_left_eq_inner_right v u⟩ x y
+
+/-- **Triangle inequality** for the seminorm `x ↦ √⟪x, T x⟫` of a positive operator `T` on a
+real inner product space. -/
+theorem IsPositive.sqrt_inner_add_le (hT : T.IsPositive) (x y : F) :
+    √⟪x + y, T (x + y)⟫_ℝ ≤ √⟪x, T x⟫_ℝ + √⟪y, T y⟫_ℝ := by
+  have hx := hT.inner_nonneg_right x
+  have hy := hT.inner_nonneg_right y
+  have hxy : ⟪x, T y⟫_ℝ ≤ √⟪x, T x⟫_ℝ * √⟪y, T y⟫_ℝ := by
+    rw [← Real.sqrt_mul hx]
+    exact Real.le_sqrt_of_sq_le (hT.sq_inner_apply_le x y)
+  have hyx : ⟪y, T x⟫_ℝ = ⟪x, T y⟫_ℝ := by
+    rw [real_inner_comm, hT.inner_left_eq_inner_right]
+  rw [Real.sqrt_le_left (by positivity)]
+  simp only [map_add, inner_add_left, inner_add_right]
+  nlinarith [Real.sq_sqrt hx, Real.sq_sqrt hy, hxy, hyx]
+
+end Real
 
 end ContinuousLinearMap
 
