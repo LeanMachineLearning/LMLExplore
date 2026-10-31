@@ -64,7 +64,8 @@ that it lies below the true mean.
 * `LMLExplore.le_klUpper_iff`: for `q ∈ [p, 1]`, `q ≤ U(p, c)` if and only if `d(p, q) ≤ c`;
   `LMLExplore.klUpper_mem_Icc` and `LMLExplore.klBer_klUpper_le` say that the maximum is attained.
 * `LMLExplore.le_klUpper_iff_of_le_one`: for `p ≤ 1` and every real `r`, `r ≤ U(p, c)` if and only
-  if `r ≤ p`, or `r ≤ 1` and `d(p, r) ≤ c`.
+  if `r ≤ p`, or `r ≤ 1` and `d(p, r) ≤ c`; `LMLExplore.le_or_klBer_le_of_le_klUpper` is the
+  forward direction for every real `p`.
 * `LMLExplore.klUpper_mono`, `LMLExplore.measurable_klUpper`: `U` is monotone in both arguments
   and jointly measurable.
 * `LMLExplore.klUpper_le_min`: `U(p, c) ≤ min 1 (p + √(c / 2))`, by Pinsker's inequality.
@@ -594,6 +595,15 @@ theorem le_klUpper_iff_of_le_one (hp : p ≤ 1) :
   refine ⟨fun h ↦ ?_, fun h ↦ (le_klUpper_iff ⟨hrp.le, h.1⟩).2 h.2⟩
   have hr1 := h.trans (klUpper_mem_Icc hp c).2
   exact ⟨hr1, (le_klUpper_iff ⟨hrp.le, hr1⟩).1 h⟩
+
+/-- For every real `p`, if `r ≤ klUpper p c` then `r ≤ p`, or `r ≤ 1` and `d(p, r) ≤ c`. For
+`p ≤ 1` this is one direction of `LMLExplore.le_klUpper_iff_of_le_one`; for `p > 1`,
+`klUpper p c = 0 < p`. -/
+theorem le_or_klBer_le_of_le_klUpper (h : r ≤ klUpper p c) : r ≤ p ∨ r ≤ 1 ∧ klBer p r ≤ c := by
+  rcases le_or_gt p 1 with hp | hp
+  · exact (le_klUpper_iff_of_le_one hp).1 h
+  · rw [klUpper_of_one_lt hp] at h
+    exact Or.inl (h.trans (zero_le_one.trans hp.le))
 
 /-- The upper confidence level is jointly measurable in `(p, c)`. -/
 theorem measurable_klUpper : Measurable (Function.uncurry klUpper) := by
