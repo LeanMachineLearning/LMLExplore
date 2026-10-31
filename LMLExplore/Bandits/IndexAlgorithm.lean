@@ -38,6 +38,9 @@ In the namespace `LMLExplore.Bandits.IndexAlgorithm`:
   index `⊤`.
 * `pullCount_card_eq_one`: if the index is `⊤` exactly on the arms that have not been pulled yet,
   then every arm is pulled exactly once during the first `Fintype.card α` rounds.
+* `integral_pullCount_le_sum_add_sum`: the decomposition of the expected number of pulls of an
+  arm `a`, as in the proofs of [LS, Theorems 8.1 and 10.6]: for every arm `b` and threshold `c`,
+  `E[T_a(n)] ≤ ∑_{t < n} P(I_t(b) ≤ c) + ∑_{t < n} P(A_t = a, c < I_t(a))`.
 
 ## References
 
@@ -116,6 +119,16 @@ lemma index_action_eq_top (h : IsAlgEnvSeq O A Y (indexAlgorithm I hI) env P) :
   filter_upwards [index_le_index_action h] with ω hω n ⟨b, hb⟩
   exact top_le_iff.mp (hb ▸ hω n b)
 
+/-- Along a run of the index policy, for arms `a`, `b` and a threshold `c`, if the arm `a` is
+played at round `n`, then the index of `b` is at most `c` or the index of `a` exceeds `c`. -/
+lemma index_le_or_lt_index_of_action_eq (h : IsAlgEnvSeq O A Y (indexAlgorithm I hI) env P)
+    (a b : α) (c : EReal) :
+    ∀ᵐ ω ∂P, ∀ n, A n ω = a →
+      I n (history O A Y n ω, O n ω) b ≤ c ∨ c < I n (history O A Y n ω, O n ω) a := by
+  filter_upwards [index_le_index_action h] with ω hω n hn
+  rw [← hn, or_iff_not_imp_left, not_le]
+  exact fun hc ↦ hc.trans_le (hω n b)
+
 variable [DecidableEq α]
 
 /-- If the index is `⊤` exactly on the arms not pulled yet, then during the first `Fintype.card α`
@@ -145,6 +158,25 @@ lemma pullCount_pos_of_card_le (h : IsAlgEnvSeq O A Y (indexAlgorithm I hI) env 
   have h_mono := pullCount_mono (A := A) a hn ω
   rw [hω a] at h_mono
   omega
+
+/-- The decomposition of the expected number of pulls of an arm `a` by an index policy, as in the
+proofs of [LS, Theorems 8.1 and 10.6]: for every arm `b` (typically an optimal arm) and every
+threshold `c`,
+`E[T_a(n)] ≤ ∑_{t < n} P(I_t(b) ≤ c) + ∑_{t < n} P(A_t = a, c < I_t(a))`. The first sum counts
+the rounds at which the index of `b` underestimates `c`, the second the rounds at which `a` is
+played with an index above `c`. -/
+theorem integral_pullCount_le_sum_add_sum
+    (h : IsAlgEnvSeq O A Y (indexAlgorithm I hI) env P) (a b : α) (c : EReal) (n : ℕ) :
+    ∫ ω, (pullCount A a n ω : ℝ) ∂P ≤
+      ∑ t ∈ Finset.range n, P.real {ω | I t (history O A Y t ω, O t ω) b ≤ c} +
+        ∑ t ∈ Finset.range n,
+          P.real {ω | A t ω = a ∧ c < I t (history O A Y t ω, O t ω) a} := by
+  rw [integral_pullCount_eq_sum h.measurable_action, ← Finset.sum_add_distrib]
+  refine Finset.sum_le_sum fun t _ ↦ le_trans ?_ (measureReal_union_le _ _)
+  rw [measureReal_def, measureReal_def]
+  refine ENNReal.toReal_mono (measure_ne_top _ _) (measure_mono_ae ?_)
+  filter_upwards [index_le_or_lt_index_of_action_eq h a b c] with ω hω hωt
+  exact (hω t hωt).imp id fun hc ↦ ⟨hωt, hc⟩
 
 end IndexAlgorithm
 
