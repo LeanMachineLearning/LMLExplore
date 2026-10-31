@@ -6,6 +6,8 @@ Authors: Rémy Degenne
 module
 
 public import LeanMachineLearning.Online.Bandit.RewardByCountMeasure
+public import LMLExplore.MeasureTheory.Integral.Lebesgue.Add
+public import LMLExplore.MeasureTheory.Measure.Prod
 public import LMLExplore.SequentialLearning.FiniteActions
 
 /-!
@@ -75,26 +77,6 @@ lemma sumRewards_eq_sum_range_rewardByCount (a : α) (t : ℕ) (ω : Ω × (ℕ 
     sum_Ico_add' (fun m ↦ rewardByCount A R a m ω), zero_add,
     Ico_add_one_right_eq_Icc]
 
-/-- An event about the sum of the first `s` terms of a sequence is measurable. -/
-private lemma measurable_sum_range {p : ℕ → ℝ → Prop} (hp : Measurable fun q : ℕ × ℝ ↦ p q.1 q.2)
-    (s : ℕ) : Measurable fun x : ℕ → ℝ ↦ p s (∑ i ∈ range s, x i) :=
-  hp.comp (f := fun x : ℕ → ℝ ↦ (s, ∑ i ∈ range s, x i))
-    (measurable_const.prodMk (measurable_sum _ fun i _ ↦ measurable_pi_apply i))
-
-/-- Under a product with a probability measure, the preimage of a set by the first projection has
-the measure of the set. -/
-private lemma prod_preimage_fst {β γ : Type*} {mβ : MeasurableSpace β} {mγ : MeasurableSpace γ}
-    (μ : Measure β) (μ' : Measure γ) [IsProbabilityMeasure μ'] (S : Set β) :
-    μ.prod μ' (Prod.fst ⁻¹' S) = μ S := by
-  rw [← Set.prod_univ, Measure.prod_prod, measure_univ, mul_one]
-
-/-- The integral of a finite sum of indicators of measurable sets is the sum of their measures. -/
-private lemma lintegral_sum_indicator_one {β ι : Type*} {mβ : MeasurableSpace β} {μ : Measure β}
-    {s : Finset ι} {S : ι → Set β} (hS : ∀ i ∈ s, MeasurableSet (S i)) :
-    ∫⁻ ω, ∑ i ∈ s, (S i).indicator 1 ω ∂μ = ∑ i ∈ s, μ (S i) := by
-  rw [lintegral_finsetSum _ fun i hi ↦ measurable_one.indicator (hS i hi)]
-  exact sum_congr rfl fun i hi ↦ lintegral_indicator_one (hS i hi)
-
 variable [Countable α] [MeasurableSingletonClass α]
 
 /-- In a run against `stationaryEnv ν`, extended by the auxiliary stream, the sequence
@@ -139,7 +121,8 @@ theorem sum_measure_action_eq_and_pullCount_sumRewards_le
     (measurableSet_eq_fun (hA t) measurable_const).inter
       (measurableSet_setOfPred.mpr (hp.comp ((measurable_pullCount hA a t).prodMk
         (measurable_sumRewards hA hR a t))))
-  have hB s : MeasurableSet (B s) := measurableSet_setOfPred.mpr (measurable_sum_range hp s)
+  have hB s : MeasurableSet (B s) :=
+    measurableSet_setOfPred.mpr (hp.of_uncurry_left.comp (by fun_prop))
   have hZ := identDistrib_rewardByCount_streamMeasure h a
   set Z : Ω × (ℕ → α → ℝ) → ℕ → ℝ := fun ω i ↦ rewardByCount A R a (i + 1) ω
   have hZ_meas : Measurable Z := .of_eval fun i ↦ measurable_rewardByCount hA hR a (i + 1)
@@ -153,14 +136,14 @@ theorem sum_measure_action_eq_and_pullCount_sumRewards_le
       simp [Set.indicator_apply, E, B, Z, hat, sumRewards_eq_sum_range_rewardByCount a t ω]
   calc ∑ t ∈ range n, P (E t)
   _ = ∑ t ∈ range n, P.prod (streamMeasure ν) (Prod.fst ⁻¹' E t) := by
-    simp_rw [prod_preimage_fst]
+    simp
   _ = ∫⁻ ω, ∑ t ∈ range n, (Prod.fst ⁻¹' E t).indicator 1 ω ∂(P.prod (streamMeasure ν)) :=
-    (lintegral_sum_indicator_one fun t _ ↦ measurable_fst (hE t)).symm
+    (lintegral_finsetSum_indicator_one fun t _ ↦ measurable_fst (hE t)).symm
   _ ≤ ∫⁻ ω, ∑ s ∈ range n, (Z ⁻¹' B s).indicator 1 ω ∂(P.prod (streamMeasure ν)) := by
     refine lintegral_mono fun ω ↦ (h_path ω).trans_le ?_
     exact sum_le_sum_of_subset (range_subset_range.mpr (pullCount_le a n ω.1))
   _ = ∑ s ∈ range n, P.prod (streamMeasure ν) (Z ⁻¹' B s) :=
-    lintegral_sum_indicator_one fun s _ ↦ hZ_meas (hB s)
+    lintegral_finsetSum_indicator_one fun s _ ↦ hZ_meas (hB s)
   _ = ∑ s ∈ range n, streamMeasure ν {ω | p s (∑ i ∈ range s, ω i a)} :=
     sum_congr rfl fun s _ ↦ hZ.measure_mem_eq (hB s)
 
@@ -191,11 +174,11 @@ theorem measure_exists_lt_pullCount_sumRewards_le (h : IsAlgEnvSeq O A R alg (st
   set Z : Ω × (ℕ → α → ℝ) → ℕ → ℝ := fun ω i ↦ rewardByCount A R a (i + 1) ω
   set B : Set (ℕ → ℝ) := {x | ∃ s < n, p s (∑ i ∈ range s, x i)}
   have hB : MeasurableSet B := measurableSet_setOfPred.mpr
-    (Measurable.exists fun s ↦ measurable_const.and (measurable_sum_range hp s))
+    (Measurable.exists fun s ↦ measurable_const.and (hp.of_uncurry_left.comp (by fun_prop)))
   calc P {ω | ∃ t < n, p (pullCount A a t ω) (sumRewards A R a t ω)}
   _ = P.prod (streamMeasure ν) (Prod.fst ⁻¹' {ω | ∃ t < n,
-      p (pullCount A a t ω) (sumRewards A R a t ω)}) :=
-    (prod_preimage_fst _ _ _).symm
+      p (pullCount A a t ω) (sumRewards A R a t ω)}) := by
+    rw [Measure.prod_preimage_fst, measure_univ, one_mul]
   _ ≤ P.prod (streamMeasure ν) (Z ⁻¹' B) := by
     refine measure_mono fun ω ⟨t, ht, hpt⟩ ↦ ?_
     -- at round `t`, arm `a` has been pulled `pullCount A a t ω ≤ t < n` times
