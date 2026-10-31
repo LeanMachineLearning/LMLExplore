@@ -5,7 +5,12 @@ Authors: Rémy Degenne
 -/
 module
 
+public import LeanMachineLearning.ForMathlib.Probability.Moments.SubGaussian
 public import LeanMachineLearning.Online.Bandit.ArrayProbSpace
+public import LMLExplore.Analysis.Real.Sqrt
+public import LMLExplore.Analysis.SpecialFunctions.Exp
+public import LMLExplore.Analysis.SpecialFunctions.Log.InvMulLogSq
+public import LMLExplore.Bandits.SumRewards
 public import LMLExplore.Probability.Distributions.Gaussian.Tail
 public import Mathlib.Analysis.SpecialFunctions.Gaussian.GaussianIntegral
 public import Mathlib.Analysis.SumIntegralComparisons
@@ -27,16 +32,36 @@ Dividing by `s`, the event of index `s ≥ 1` is `{μ̂_s + √(2 σ² c / s) �
 `μ̂_s`; the event of index `0` is the sure event, matching the infinite index of an unpulled arm.
 The bound does not depend on `n`.
 
+The same analysis needs that the index of an optimal arm rarely underestimates its mean. For the
+exploration level `log f(t)` of [LS, Algorithm 6] at book round `t`, with `f(t) = 1 + t log² t`,
+the probability of underestimation by `ε` at round `t` is at most
+`(1 / f(t)) ∑_{s ≥ 1} exp (-s ε² / (2 σ²))`, by Hoeffding's inequality and a union bound over the
+number of pulls in the reward stream model, and these sum to at most `5 σ² / ε²` over the rounds
+[LS, Exercise 8.1].
+
 ## Main statements
 
 * `sum_measureReal_mul_le_sum_add_sqrt_le`: [LS, Lemma 8.2] for independent σ²-sub-Gaussian random
   variables, with variance proxy `σ²` (the book has `σ² = 1`).
 * `sum_measureReal_streamMeasure_mul_le_sum_add_sqrt_le`: the same bound for the rewards of one arm
   in LML's i.i.d. reward stream model `streamMeasure ν`, for σ²-sub-Gaussian arms.
+* `measureReal_streamMeasure_div_add_sqrt_le_sub_le`: the converse deviation, for the index
+  `μ̂_s + √(2 σ² L / s)` of the first `s ≥ 1` rewards of a σ²-sub-Gaussian arm in the stream
+  model: it is at most the mean minus `ε` with probability at most `exp (-L) exp (-s ε² / (2 σ²))`.
+  This controls the underestimation of an optimal arm in the proof of [LS, Theorem 8.1].
+* `sum_range_inv_mul_sum_range_exp_neg_le`: [LS, Exercise 8.1], the bound
+  `∑_{t ≤ n} 1 / f(t) ∑_{s ≤ n} exp (-s ε² / (2 σ²)) ≤ 5 σ² / ε²`.
+* `measureReal_pullCount_ne_zero_and_empMean_add_sqrt_le_le`: in a run of any algorithm against
+  `stationaryEnv ν`, the probability that at round `t` a pulled arm has index
+  `μ̂_a + √(2 σ² L / T_a)` at most its mean minus `ε` is at most
+  `exp (-L) ∑_{s < t} exp (-(s + 1) ε² / (2 σ²))`.
+* `sum_measureReal_pullCount_ne_zero_and_empMean_add_sqrt_le_le`: with the exploration level
+  `log f(t + 1)` at Lean round `t`, the expected number of rounds of underestimation by `ε` is at
+  most `5 σ² / ε²`.
 
 ## Implementation notes
 
-Each probability is bounded by Hoeffding's inequality
+For [LS, Lemma 8.2], each probability is bounded by Hoeffding's inequality
 (`ProbabilityTheory.HasSubgaussianMGF.measure_sum_ge_le_of_iIndepFun`) by `g s`, where
 `g t = exp (-(max 0 (√t ε - √(2 σ² c)))² / (2 σ²))` is antitone. The sum is then compared with the
 integral of `g`, which the substitution `t = ((x + √(2 σ² c)) / ε)²` turns into Gaussian
@@ -46,12 +71,12 @@ integrals (`integral_gaussian_Ioi` and `integral_Ioi_sub_mul_gaussianPDFReal`), 
 ## References
 
 * [LS] T. Lattimore and Cs. Szepesvári, *Bandit Algorithms*, Cambridge University Press, 2020,
-  Lemma 8.2.
+  Lemma 8.2 and Theorem 8.1.
 -/
 
 public section
 
-open MeasureTheory ProbabilityTheory Finset Real Set Bandits
+open MeasureTheory ProbabilityTheory Finset Real Set Learning Bandits
 
 open scoped NNReal
 
@@ -303,5 +328,145 @@ theorem sum_measureReal_streamMeasure_mul_le_sum_add_sqrt_le {α : Type*} [Measu
   ext ω
   simp only [Set.mem_ofPred_eq, sum_sub_distrib, sum_const, card_range, nsmul_eq_mul]
   constructor <;> intro h <;> linarith
+
+/-- **Underestimation of the index of [LS, Algorithm 6].** If arm `a` is σ²-sub-Gaussian with mean
+`μ_a` and `σ² ≠ 0`, then for `L ≥ 0`, `ε ≥ 0` and `s ≠ 0`, the probability that the index
+`(X₀ + ⋯ + X_{s-1}) / s + √(2 σ² L / s)` of the first `s` rewards of `a` in the i.i.d. reward
+stream model is at most `μ_a - ε` is at most `exp (-L) exp (-s ε² / (2 σ²))`. -/
+theorem measureReal_streamMeasure_div_add_sqrt_le_sub_le {α : Type*} [MeasurableSpace α]
+    {ν : Kernel α ℝ} [IsMarkovKernel ν] {a : α}
+    (hν : HasSubgaussianMGF (fun x ↦ x - (ν a)[id]) σ2 (ν a)) (hσ2 : σ2 ≠ 0) {L : ℝ} (hL : 0 ≤ L)
+    (hε : 0 ≤ ε) {s : ℕ} (hs : s ≠ 0) :
+    (streamMeasure ν).real
+        {ω | (∑ i ∈ range s, ω i a) / s + √(2 * σ2 * L / s) ≤ (ν a)[id] - ε} ≤
+      exp (-L) * exp (-(ε ^ 2 / (2 * σ2) * s)) := by
+  set μa := (ν a)[id] with hμa
+  have hs' : (0 : ℝ) < s := Nat.cast_pos.mpr (Nat.pos_of_ne_zero hs)
+  have hσ2' : (0 : ℝ) < σ2 := NNReal.coe_pos.mpr (pos_iff_ne_zero.mpr hσ2)
+  have h_indep : iIndepFun (fun i (ω : ℕ → α → ℝ) ↦ ω i a - μa) (streamMeasure ν) :=
+    (iIndepFun_eval_streamMeasure'' ν a).comp (fun _ x ↦ x - μa) fun _ ↦ measurable_sub_const _
+  have hX : ∀ i, HasSubgaussianMGF (fun (ω : ℕ → α → ℝ) ↦ ω i a - μa) σ2 (streamMeasure ν) :=
+    fun i ↦ hν.congr_identDistrib ((identDistrib_eval_eval_id_streamMeasure _ _ _).symm.sub_const _)
+  -- multiplied by `s`, the event says that the centered sum is at most `-(s ε + √(2 σ² L s))`
+  have h_sqrt := mul_sqrt_div_eq_sqrt_mul (2 * σ2 * L) hs'.le
+  set δ := s * ε + √(2 * σ2 * L * s) with hδ
+  have h_sq : (ε ^ 2 / (2 * σ2) * s + L) * (2 * s * σ2) ≤ δ ^ 2 := by
+    have h1 : √(2 * σ2 * L * s) ^ 2 = 2 * σ2 * L * s := sq_sqrt (by positivity)
+    have h2 : 0 ≤ s * ε * √(2 * σ2 * L * s) := by positivity
+    have h3 : (ε ^ 2 / (2 * σ2) * s + L) * (2 * s * σ2) = (s * ε) ^ 2 + 2 * σ2 * L * s := by
+      field_simp
+    rw [h3, hδ]
+    nlinarith
+  calc (streamMeasure ν).real {ω | (∑ i ∈ range s, ω i a) / s + √(2 * σ2 * L / s) ≤ μa - ε}
+  _ ≤ (streamMeasure ν).real {ω | ∑ i ∈ range s, (ω i a - μa) ≤ -δ} := by
+    refine measureReal_mono (fun ω (hω : _ ≤ _) ↦ ?_)
+    simp only [Set.mem_ofPred_eq, sum_sub_distrib, sum_const, card_range, nsmul_eq_mul]
+    rw [div_add' _ _ _ hs'.ne', div_le_iff₀ hs'] at hω
+    linarith
+  _ ≤ exp (-δ ^ 2 / (2 * s * σ2)) :=
+    HasSubgaussianMGF.measure_sum_range_le_le_of_iIndepFun h_indep (fun i _ ↦ hX i)
+      (by positivity)
+  _ ≤ exp (-L) * exp (-(ε ^ 2 / (2 * σ2) * s)) := by
+    rw [← exp_add]
+    gcongr
+    have : ε ^ 2 / (2 * σ2) * s + L ≤ δ ^ 2 / (2 * s * σ2) := by
+      rw [le_div_iff₀ (by positivity)]
+      exact h_sq
+    rw [neg_div]
+    linarith
+
+/-- **[LS, Exercise 8.1]** For `σ² ≠ 0` and `ε ≠ 0`,
+`∑_{t ≤ n} 1 / f(t) ∑_{s ≤ n} exp (-s ε² / (2 σ²)) ≤ 5 σ² / ε²` (book indices `t, s ≥ 1`), where
+`f(t) = 1 + t log² t` is the exploration function of [LS, Algorithm 6]. -/
+theorem sum_range_inv_mul_sum_range_exp_neg_le (hσ2 : σ2 ≠ 0) (hε : ε ≠ 0) (n : ℕ) :
+    ∑ t ∈ range n, (1 + (t + 1) * log (t + 1) ^ 2)⁻¹ *
+      ∑ s ∈ range n, exp (-(ε ^ 2 / (2 * σ2) * (s + 1))) ≤ 5 * σ2 / ε ^ 2 := by
+  have hσ2' : (0 : ℝ) < σ2 := NNReal.coe_pos.mpr (pos_iff_ne_zero.mpr hσ2)
+  rw [← sum_mul]
+  calc (∑ t ∈ range n, (1 + (t + 1) * log (t + 1) ^ 2)⁻¹) *
+      ∑ s ∈ range n, exp (-(ε ^ 2 / (2 * σ2) * (s + 1)))
+  _ ≤ 5 / 2 * (ε ^ 2 / (2 * σ2))⁻¹ := by
+    gcongr
+    · exact sum_range_inv_one_add_mul_log_sq_le n
+    · exact sum_range_exp_neg_mul_le (by positivity) n
+  _ = 5 * σ2 / ε ^ 2 := by
+    field_simp
+
+section Runs
+
+variable {α : Type*} [DecidableEq α] [MeasurableSpace α] [Countable α] [MeasurableSingletonClass α]
+  {ν : Kernel α ℝ} [IsMarkovKernel ν] {alg : Algorithm Unit α ℝ}
+  [IsProbabilityMeasure P] {O : ℕ → Ω → Unit} {A : ℕ → Ω → α} {R : ℕ → Ω → ℝ}
+
+/-- **Underestimation of an arm by its index, at one round.** In a run of any algorithm against
+the stochastic bandit `stationaryEnv ν`, if arm `a` is σ²-sub-Gaussian with mean `μ_a` and
+`σ² ≠ 0`, then for `L ≥ 0`, `ε ≥ 0` and every round `t`, the probability that `a` has been pulled
+and its index `μ̂_a + √(2 σ² L / T_a)` is at most `μ_a - ε` is at most
+`exp (-L) ∑_{s < t} exp (-(s + 1) ε² / (2 σ²))`. -/
+theorem measureReal_pullCount_ne_zero_and_empMean_add_sqrt_le_le
+    (h : IsAlgEnvSeq O A R alg (stationaryEnv ν) P) (a : α)
+    (hν : HasSubgaussianMGF (fun x ↦ x - (ν a)[id]) σ2 (ν a)) (hσ2 : σ2 ≠ 0) {L : ℝ} (hL : 0 ≤ L)
+    (hε : 0 ≤ ε) (t : ℕ) :
+    P.real {ω | pullCount A a t ω ≠ 0 ∧
+        empMean A R a t ω + √(2 * σ2 * L / pullCount A a t ω) ≤ (ν a)[id] - ε} ≤
+      exp (-L) * ∑ s ∈ range t, exp (-(ε ^ 2 / (2 * σ2) * (s + 1))) := by
+  set p : ℕ → ℝ → Prop := fun s x ↦ s ≠ 0 ∧ x / s + √(2 * σ2 * L / s) ≤ (ν a)[id] - ε with hp_def
+  have hp : Measurable fun q : ℕ × ℝ ↦ p q.1 q.2 :=
+    measurable_from_prod_countable_right fun s ↦ by
+      simp only [hp_def]
+      exact measurable_const.and (measurableSet_setOfPred.mp (measurableSet_le
+        (f := fun x : ℝ ↦ x / s + √(2 * σ2 * L / s)) (by fun_prop) measurable_const))
+  -- the event of round `t` is the event `p` for the number of pulls and the sum of rewards, which
+  -- is transferred to the reward stream, where a union bound over the number of pulls applies
+  calc P.real {ω | pullCount A a t ω ≠ 0 ∧
+      empMean A R a t ω + √(2 * σ2 * L / pullCount A a t ω) ≤ (ν a)[id] - ε}
+  _ ≤ P.real {ω | ∃ t' < t + 1, p (pullCount A a t' ω) (sumRewards A R a t' ω)} :=
+    measureReal_mono fun ω hω ↦ ⟨t, lt_add_one t, by
+      simp only [Set.mem_ofPred_eq, empMean] at hω
+      exact hω⟩
+  _ ≤ (streamMeasure ν).real {ω | ∃ s < t + 1, p s (∑ i ∈ range s, ω i a)} :=
+    ENNReal.toReal_mono (measure_ne_top _ _)
+      (measure_exists_lt_pullCount_sumRewards_le h a (t + 1) hp)
+  _ ≤ (streamMeasure ν).real (⋃ s ∈ range (t + 1), {ω | p s (∑ i ∈ range s, ω i a)}) := by
+    refine measureReal_mono (fun ω ⟨s, hs, hω⟩ ↦ ?_) (measure_ne_top _ _)
+    exact Set.mem_biUnion (mem_range.mpr hs) hω
+  _ ≤ ∑ s ∈ range (t + 1), (streamMeasure ν).real {ω | p s (∑ i ∈ range s, ω i a)} :=
+    measureReal_biUnion_finset_le _ _
+  _ = ∑ s ∈ range t, (streamMeasure ν).real {ω | p (s + 1) (∑ i ∈ range (s + 1), ω i a)} := by
+    rw [sum_range_succ']
+    simp [hp_def]
+  _ ≤ ∑ s ∈ range t, exp (-L) * exp (-(ε ^ 2 / (2 * σ2) * (s + 1))) := by
+    refine sum_le_sum fun s _ ↦ ?_
+    have h := measureReal_streamMeasure_div_add_sqrt_le_sub_le hν hσ2 hL hε (Nat.succ_ne_zero s)
+    push_cast at h
+    refine le_trans (measureReal_mono (fun ω hω ↦ ?_) (measure_ne_top _ _)) h
+    simp only [hp_def, Set.mem_ofPred_eq, Nat.cast_add_one] at hω
+    exact hω.2
+  _ = exp (-L) * ∑ s ∈ range t, exp (-(ε ^ 2 / (2 * σ2) * (s + 1))) := (mul_sum _ _ _).symm
+
+/-- **Underestimation of an arm by the index of [LS, Algorithm 6].** In a run of any algorithm
+against the stochastic bandit `stationaryEnv ν`, if arm `a` is σ²-sub-Gaussian with mean `μ_a` and
+`σ² ≠ 0`, then for `ε > 0` the expected number of rounds `t < n` at which `a` has been pulled and
+its index `μ̂_a + √(2 σ² log f(t + 1) / T_a)` is at most `μ_a - ε` is at most `5 σ² / ε²`,
+uniformly in `n`, where `f(t) = 1 + t log² t`. This bounds the contribution of an optimal arm in
+the proof of [LS, Theorem 8.1]. -/
+theorem sum_measureReal_pullCount_ne_zero_and_empMean_add_sqrt_le_le
+    (h : IsAlgEnvSeq O A R alg (stationaryEnv ν) P) (a : α)
+    (hν : HasSubgaussianMGF (fun x ↦ x - (ν a)[id]) σ2 (ν a)) (hσ2 : σ2 ≠ 0) (hε : 0 < ε)
+    (n : ℕ) :
+    ∑ t ∈ range n, P.real {ω | pullCount A a t ω ≠ 0 ∧
+        empMean A R a t ω + √(2 * σ2 * log (1 + (t + 1) * log (t + 1) ^ 2) / pullCount A a t ω)
+          ≤ (ν a)[id] - ε} ≤ 5 * σ2 / ε ^ 2 := by
+  refine le_trans (sum_le_sum fun t ht ↦ ?_) (sum_range_inv_mul_sum_range_exp_neg_le hσ2 hε.ne' n)
+  -- at round `t < n`, the exploration level is `log f(t + 1)`, and `exp (-log f(t + 1))` is
+  -- `1 / f(t + 1)`
+  have hf : 0 < 1 + ((t : ℝ) + 1) * log (t + 1) ^ 2 := by positivity
+  refine (measureReal_pullCount_ne_zero_and_empMean_add_sqrt_le_le h a hν hσ2
+    (log_nonneg (le_add_of_nonneg_right (by positivity))) hε.le t).trans ?_
+  rw [exp_neg, exp_log hf]
+  gcongr
+  exact (mem_range.mp ht).le
+
+end Runs
 
 end LMLExplore.Bandits
