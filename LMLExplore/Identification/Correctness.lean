@@ -104,6 +104,13 @@ lemma IsRun.hasLaw_stoppedHist_output {env : Environment 𝓞 𝓐 𝓨} [IsProb
     HasLaw (fun ω ↦ (A.stoppedHist O X Y ω, out ω)) (histOutputMeasure A env) P :=
   h.hasLaw_stoppedHist.prodMk_of_hasCondDistrib h.hasCondDistrib_output
 
+variable (A) in
+/-- The event "the algorithm has stopped and its output is `d`" of the stopped history and the
+output is measurable. -/
+lemma measurableSet_mem_stopSet_and_eq [MeasurableSingletonClass 𝓓] (d : 𝓓) :
+    MeasurableSet {p : (Σ n : ℕ, Hist 𝓞 𝓐 𝓨 n) × 𝓓 | p.1 ∈ A.stopSet ∧ p.2 = d} :=
+  (measurable_fst A.measurableSet_stopSet).inter (measurable_snd (measurableSet_singleton d))
+
 end Learning.IdentAlg
 
 namespace LMLExplore.Identification

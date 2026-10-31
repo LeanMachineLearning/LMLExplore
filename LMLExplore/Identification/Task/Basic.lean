@@ -56,6 +56,10 @@ answer is not correct".
   runs, quantified over the admissible models.
 * `IdentTask.IsDeltaPAC.isDeltaCorrect`, `IdentTask.IsDeltaCorrect.isPAC`: `δ`-PAC implies
   `δ`-correct, which implies LML's PAC property at level `δ`.
+* `IdentTask.IsDeltaCorrect.one_sub_le_measureReal_histOutputMeasure`,
+  `IdentTask.IsDeltaCorrect.measureReal_histOutputMeasure_le`: a `δ`-correct algorithm stops and
+  answers `i` with probability at least `1 - δ` on a model whose only correct answer is `i`, and
+  at most `δ` on every alternative to `i`.
 * `IdentTask.IsDeltaCorrect.one_sub_le_measureReal_of_isRun`: along every run on an admissible
   model, a `δ`-correct algorithm stops with a correct answer with probability at least `1 - δ`.
 
@@ -255,6 +259,27 @@ lemma isDeltaPAC_iff : task.IsDeltaPAC A δ ↔
   Identification.isDeltaPAC_iff.trans
     ⟨fun h ↦ ⟨fun θ hθ ↦ h.1 ⟨θ, hθ⟩, fun θ hθ ↦ h.2 ⟨θ, hθ⟩⟩,
       fun h ↦ ⟨fun θ ↦ h.1 θ θ.2, fun θ ↦ h.2 θ θ.2⟩⟩
+
+/-- If `i` is the only correct answer of an admissible model `θ`, a `δ`-correct algorithm stops
+and answers `i` on `θ` with probability at least `1 - δ`. -/
+lemma IsDeltaCorrect.one_sub_le_measureReal_histOutputMeasure [MeasurableSingletonClass ℐ]
+    (h : task.IsDeltaCorrect A δ) (hθ : θ ∈ task.M) (hi : task.correct θ = {i}) :
+    1 - δ ≤ (histOutputMeasure A (stationaryEnv (task.ν θ))).real
+      {p | p.1 ∈ A.stopSet ∧ p.2 = i} := by
+  have h_compl : {p : (Σ n : ℕ, Hist Unit α 𝓨 n) × ℐ | p.1 ∈ A.stopSet ∧ p.2 = i}ᶜ =
+      {p | p.1 ∉ A.stopSet ∨ p.2 ∉ task.correct θ} := by
+    ext p
+    simp [hi, imp_iff_not_or]
+  have h_bad := isDeltaCorrect_iff.1 h θ hθ
+  rw [← h_compl, probReal_compl_eq_one_sub (A.measurableSet_mem_stopSet_and_eq i)] at h_bad
+  linarith
+
+/-- On every alternative to the answer `i`, a `δ`-correct algorithm stops and answers `i` with
+probability at most `δ`. -/
+lemma IsDeltaCorrect.measureReal_histOutputMeasure_le (h : task.IsDeltaCorrect A δ)
+    (hθ : θ ∈ task.alt i) :
+    (histOutputMeasure A (stationaryEnv (task.ν θ))).real {p | p.1 ∈ A.stopSet ∧ p.2 = i} ≤ δ :=
+  (measureReal_mono fun p hp ↦ Or.inr (hp.2 ▸ hθ.2)).trans (isDeltaCorrect_iff.1 h θ hθ.1)
 
 /-- A `δ`-PAC algorithm on a task stops almost surely on every admissible model. -/
 lemma IsDeltaPAC.stopsAS (h : task.IsDeltaPAC A δ) (hθ : θ ∈ task.M) :

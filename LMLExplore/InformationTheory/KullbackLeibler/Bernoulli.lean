@@ -43,6 +43,8 @@ that it lies below the true mean.
 ## Main statements
 
 * `LMLExplore.klDiv_bernoulliMeasure`: `D(Ber(1, 0, p), Ber(1, 0, q)) = klBer p q`.
+* `LMLExplore.klBer_measureReal_le_klDiv`: the data processing inequality
+  `d(μ s, ν s) ≤ KL(μ ‖ ν)` for probability measures `μ`, `ν` and a measurable set `s`.
 * `LMLExplore.klBer_ne_top_iff`: for `p, q ∈ [0, 1]`, `klBer p q` is finite if and only if
   `q = 0 → p = 0` and `q = 1 → p = 1`.
 * `LMLExplore.klBer_eq_ofReal_klBerReal`, `LMLExplore.toReal_klBer`: for `p, q ∈ [0, 1]`, where it
@@ -59,6 +61,7 @@ that it lies below the true mean.
   `q ↦ d(p, q)` is strictly increasing on `[p, 1]` and strictly decreasing on `[0, p]`;
   `LMLExplore.klBer_le_max` is the resulting quasi-convexity in `q`.
 * `LMLExplore.antitoneOn_klBer_left`: `p ↦ d(p, q)` is antitone on `(-∞, q]`.
+* `LMLExplore.klBer_le_klBer`: `d(p', q') ≤ d(p, q)` for `q ≤ q' ≤ p' ≤ p`.
 * `LMLExplore.lowerSemicontinuous_klBer`, `LMLExplore.measurable_klBer`: `d` is jointly lower
   semicontinuous and measurable.
 * `LMLExplore.le_klUpper_iff`: for `q ∈ [p, 1]`, `q ≤ U(p, c)` if and only if `d(p, q) ≤ c`;
@@ -77,6 +80,9 @@ that it lies below the true mean.
   Definition 10.1, Lemma 10.2, Algorithm 8 and Theorem 14.1.
 * A. Garivier and O. Cappé, *The KL-UCB algorithm for bounded stochastic bandits and beyond*,
   COLT 2011, for the upper confidence level `U(p, c)`.
+* A. Garivier, P. Ménard and G. Stoltz, *Explore first, exploit next: the true shape of regret in
+  bandit problems*, Math. Oper. Res. 44 (2019), for the data processing inequality
+  `d(μ s, ν s) ≤ KL(μ ‖ ν)`.
 * The derivative, monotonicity and quasi-convexity proofs are adapted from the formalization in
   the LMLPapers project
   (`LMLPapers/LeanMachineLearning/ForMathlib/InformationTheory/KullbackLeibler/Bernoulli.lean`).
@@ -127,6 +133,20 @@ and `q`. -/
 theorem klBer_of_mem_Icc (hp : p ∈ Set.Icc 0 1) (hq : q ∈ Set.Icc 0 1) :
     klBer p q = klDiv Ber((1 : ℝ), 0, ⟨p, hp⟩) Ber((1 : ℝ), 0, ⟨q, hq⟩) := by
   rw [klBer_def, Set.projIcc_of_mem _ hp, Set.projIcc_of_mem _ hq]
+
+/-- **Data processing inequality** for the binary relative entropy: for probability measures `μ`
+and `ν` and a measurable set `s`, `d(μ s, ν s) ≤ KL(μ ‖ ν)`. No absolute continuity is assumed: the
+inequality holds in `ℝ≥0∞`. -/
+theorem klBer_measureReal_le_klDiv {α : Type*} {mα : MeasurableSpace α} {μ ν : Measure α}
+    [IsProbabilityMeasure μ] [IsProbabilityMeasure ν] {s : Set α} (hs : MeasurableSet s) :
+    klBer (μ.real s) (ν.real s) ≤ klDiv μ ν := by
+  -- The indicator of `s` has the Bernoulli laws of parameters `μ s` and `ν s`.
+  have hμ := hasLaw_indicator_one_bernoulliMeasure (M := ℝ) (P := μ) hs.nullMeasurableSet
+  have hν := hasLaw_indicator_one_bernoulliMeasure (M := ℝ) (P := ν) hs.nullMeasurableSet
+  calc klBer (μ.real s) (ν.real s)
+      = klDiv (μ.map (s.indicator 1)) (ν.map (s.indicator 1)) := by
+        rw [hμ.map_eq, hν.map_eq, klDiv_bernoulliMeasure]
+    _ ≤ klDiv μ ν := klDiv_map_le μ ν (measurable_const.indicator hs)
 
 @[simp]
 theorem klBer_self (p : ℝ) : klBer p p = 0 := by
@@ -449,6 +469,17 @@ theorem antitoneOn_klBer_left (q : ℝ) : AntitoneOn (fun p ↦ klBer p q) (Set.
   rw [← klBer_projIcc p₁ q, ← klBer_projIcc p₂ q]
   exact key (Set.projIcc 0 1 zero_le_one p₁).2.1 (Set.monotone_projIcc zero_le_one h)
     (Set.monotone_projIcc zero_le_one hp₂) (Set.projIcc 0 1 zero_le_one q).2.2
+
+/-- The binary relative entropy increases as its arguments move apart: if `q ≤ q' ≤ p' ≤ p`, then
+`d(p', q') ≤ d(p, q)`. -/
+theorem klBer_le_klBer {p' q' : ℝ} (hq : q ≤ q') (hqp : q' ≤ p') (hp : p' ≤ p) :
+    klBer p' q' ≤ klBer p q := by
+  calc klBer p' q' = klBer (1 - p') (1 - q') := (klBer_one_sub_one_sub p' q').symm
+    _ ≤ klBer (1 - p) (1 - q') := antitoneOn_klBer_left (1 - q')
+        (Set.mem_Iic.2 (by linarith)) (Set.mem_Iic.2 (by linarith)) (by linarith)
+    _ ≤ klBer (1 - p) (1 - q) := monotoneOn_klBer (1 - p)
+        (Set.mem_Ici.2 (by linarith)) (Set.mem_Ici.2 (by linarith)) (by linarith)
+    _ = klBer p q := klBer_one_sub_one_sub p q
 
 /-! ### Semicontinuity and measurability -/
 

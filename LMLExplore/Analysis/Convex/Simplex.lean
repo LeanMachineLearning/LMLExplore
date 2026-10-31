@@ -28,6 +28,7 @@ supported distributions, not a subset of `α → ℝ`.
 
 * `LMLExplore.mem_simplex_iff`: membership in the simplex.
 * `LMLExplore.simplex_subset_nonneg`: the simplex consists of nonnegative vectors.
+* `LMLExplore.simplex_nonempty`: the simplex of a nonempty type is nonempty.
 * `LMLExplore.convex_simplex`: the simplex is convex.
 -/
 
@@ -45,6 +46,12 @@ def simplex : Set (α → ℝ) := {w | (∀ a, 0 ≤ w a) ∧ ∑ a, w a = 1}
 lemma mem_simplex_iff {w : α → ℝ} : w ∈ simplex α ↔ (∀ a, 0 ≤ w a) ∧ ∑ a, w a = 1 := Iff.rfl
 
 lemma simplex_subset_nonneg : simplex α ⊆ Set.Ici 0 := fun _ hw ↦ hw.1
+
+variable (α) in
+lemma simplex_nonempty [Nonempty α] : (simplex α).Nonempty := by
+  classical
+  obtain ⟨a⟩ := ‹Nonempty α›
+  exact ⟨Pi.single a 1, fun b ↦ by by_cases h : b = a <;> simp [h], by simp⟩
 
 variable (α) in
 lemma convex_simplex : Convex ℝ (simplex α) := by
