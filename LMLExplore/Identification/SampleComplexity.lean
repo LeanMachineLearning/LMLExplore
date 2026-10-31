@@ -180,14 +180,14 @@ lemma expectedPullProportion_nonneg (a : 𝓐) : 0 ≤ expectedPullProportion A 
 
 omit [Fintype 𝓐] [MeasurableSingletonClass 𝓐] in
 /-- If `𝔼[τ] = 0`, the expected proportions of pulls vanish. -/
-lemma expectedPullProportion_of_expectedStoppingTime_eq_zero (h : expectedStoppingTime A env = 0)
-    (a : 𝓐) : expectedPullProportion A env a = 0 := by
+lemma expectedPullProportion_eq_zero_of_expectedStoppingTime_eq_zero
+    (h : expectedStoppingTime A env = 0) (a : 𝓐) : expectedPullProportion A env a = 0 := by
   simp [expectedPullProportion_def, h]
 
 omit [Fintype 𝓐] [MeasurableSingletonClass 𝓐] in
 /-- If `𝔼[τ] = ∞`, the expected proportions of pulls vanish. -/
-lemma expectedPullProportion_of_expectedStoppingTime_eq_top (h : expectedStoppingTime A env = ∞)
-    (a : 𝓐) : expectedPullProportion A env a = 0 := by
+lemma expectedPullProportion_eq_zero_of_expectedStoppingTime_eq_top
+    (h : expectedStoppingTime A env = ∞) (a : 𝓐) : expectedPullProportion A env a = 0 := by
   rw [expectedPullProportion_def, h, ENNReal.div_top, ENNReal.toReal_zero]
 
 omit [Fintype 𝓐] in
