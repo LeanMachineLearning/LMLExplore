@@ -22,8 +22,13 @@ past plays.
 
 Follow the regularized leader (FTRL) with regularizers `ψ t` plays at round `t` a minimizer over
 `K` of the cumulative loss plus the regularizer, `b ↦ ⟪b, ∑ s < t, y s⟫ + ψ t b`. With a
-potential `F` and a learning rate `η > 0`, it plays a minimizer of `η ∑ s < t, ⟪b, y s⟫ + F b`
+potential `F` and a learning rate `η > 0`, it plays a minimizer of `b ↦ η ⟪b, ∑ s < t, y s⟫ + F b`
 [LS, (28.3)].
+
+## Main definitions
+
+* `IsFTRLPlay K F η y t x`: `x` is a play of FTRL on `K` at round `t`, with potential `F`,
+  learning rate `η` and losses `y`.
 
 ## Main statements
 
@@ -64,6 +69,15 @@ namespace LMLExplore.OnlineLearning
 
 variable {E : Type*} [NormedAddCommGroup E] [InnerProductSpace ℝ E] {K : Set E} {n : ℕ} {u : E}
 
+/-- `x` is a play of **follow the regularized leader** [LS, (28.3)] on `K` at round `t`, with
+potential `F`, learning rate `η` and losses `y`: `x ∈ K` minimizes the objective
+`b ↦ η ⟪b, ∑ s < t, y s⟫ + F b` over `K`. -/
+structure IsFTRLPlay (K : Set E) (F : E → ℝ) (η : ℝ) (y : ℕ → E) (t : ℕ) (x : E) : Prop where
+  /-- The play lies in `K`. -/
+  mem : x ∈ K
+  /-- The play minimizes the FTRL objective of round `t` over `K`. -/
+  isMinOn : IsMinOn (fun b ↦ η * ⟪b, ∑ s ∈ range t, y s⟫ + F b) K x
+
 /-- **FTRL lemma** [Ora, Lemma 7.1]. Let the play `a n` of round `n` minimize over `K` the
 objective `b ↦ ⟪b, ∑ s < n, y s⟫ + ψ n b`. For every `u ∈ K`, the regret against `u` after `n`
 rounds is at most `ψ n u - ψ 0 (a 0)` plus the sum over the rounds of the stability terms
@@ -76,7 +90,8 @@ theorem sum_inner_sub_le_ftrl (ψ : ℕ → E → ℝ) (y a : ℕ → E)
         (⟪a t, ∑ s ∈ range t, y s⟫ + ψ t (a t)))) := by
   -- the values of the objectives at the plays telescope, and `a n` beats `u` at round `n`
   have h_tele := sum_range_sub (fun t ↦ ⟪a t, ∑ s ∈ range t, y s⟫ + ψ t (a t)) n
-  have h_min : ⟪a n, ∑ s ∈ range n, y s⟫ + ψ n (a n) ≤ ⟪u, ∑ s ∈ range n, y s⟫ + ψ n u := ha hu
+  have h_min : ⟪a n, ∑ s ∈ range n, y s⟫ + ψ n (a n) ≤ ⟪u, ∑ s ∈ range n, y s⟫ + ψ n u :=
+    isMinOn_iff.mp ha u hu
   simp only [range_zero, sum_empty, inner_zero_right, zero_add] at h_tele
   rw [sum_sub_distrib, h_tele]
   simp only [inner_sub_left, sum_sub_distrib, ← inner_sum]
@@ -104,15 +119,14 @@ lemma bregDiv_le_sub_of_isMinOn {F : E → ℝ} {F' : E →L[ℝ] ℝ} {η : ℝ
   linarith
 
 /-- **Regret of follow the regularized leader** [LS, Theorem 28.5]. Let `K` be convex and
-`η > 0`. Let each play `a t`, for `t ≤ n`, lie in `K` and minimize
-`b ↦ η ∑ s < t, ⟪b, y s⟫ + F b` over `K`, where the potential `F` has derivative `F' t` within `K`
-at `a t` for `t < n`. Then for every `u ∈ K`, with `D_F` the Bregman divergence,
+`η > 0`. Let each `a t`, for `t ≤ n`, be a play of FTRL on `K` with potential `F` and learning
+rate `η` (`IsFTRLPlay`), where `F` has derivative `F' t` within `K` at `a t` for `t < n`.
+Then for every `u ∈ K`, with `D_F` the Bregman divergence,
 `∑ t < n, ⟪a t - u, y t⟫ ≤ (F u - F (a 0)) / η + ∑ t < n, ⟪a t - a (t + 1), y t⟫
   - (∑ t < n, D_F(a (t + 1), a t)) / η`.
 [LS] assumes the potential convex; the proof only uses the derivatives at the plays. -/
 theorem ftrl_regret_le {F : E → ℝ} (hK : Convex ℝ K) {η : ℝ} (hη : 0 < η) (y a : ℕ → E)
-    (ha_mem : ∀ t ≤ n, a t ∈ K)
-    (ha : ∀ t ≤ n, IsMinOn (fun b ↦ η * ∑ s ∈ range t, ⟪b, y s⟫ + F b) K (a t))
+    (ha : ∀ t ≤ n, IsFTRLPlay K F η y t (a t))
     (F' : ℕ → E →L[ℝ] ℝ) (hF' : ∀ t < n, HasFDerivWithinAt F (F' t) K (a t)) (hu : u ∈ K) :
     ∑ t ∈ range n, ⟪a t - u, y t⟫ ≤ (F u - F (a 0)) / η +
       ∑ t ∈ range n, ⟪a t - a (t + 1), y t⟫ -
@@ -121,20 +135,18 @@ theorem ftrl_regret_le {F : E → ℝ} (hK : Convex ℝ K) {η : ℝ} (hη : 0 <
   have h_obj (t : ℕ) (b : E) :
       ⟪b, ∑ s ∈ range t, y s⟫ + F b / η = (η * ⟪b, ∑ s ∈ range t, y s⟫ + F b) / η := by
     field_simp
-  have ha' (t : ℕ) (ht : t ≤ n) :
-      IsMinOn (fun b ↦ η * ⟪b, ∑ s ∈ range t, y s⟫ + F b) K (a t) := by
-    simpa only [inner_sum] using ha t ht
-  have h_ftrl := sum_inner_sub_le_ftrl (fun _ b ↦ F b / η) y a (n := n) (K := K) (fun b hb ↦ by
-    simp only [Set.mem_ofPred_eq, h_obj]
-    exact div_le_div_of_nonneg_right (ha' n le_rfl hb) hη.le) hu
+  have h_ftrl := sum_inner_sub_le_ftrl (fun _ b ↦ F b / η) y a (n := n) (K := K)
+    (isMinOn_iff.mpr fun b hb ↦ by
+      rw [h_obj, h_obj]
+      exact div_le_div_of_nonneg_right (isMinOn_iff.mp (ha n le_rfl).isMinOn b hb) hη.le) hu
   -- each stability term is at most `⟪a t - a (t + 1), y t⟫ - D_F(a (t + 1), a t) / η`
   have h_stab (t : ℕ) (ht : t ∈ range n) :
       ⟪a t, y t⟫ - ((⟪a (t + 1), ∑ s ∈ range (t + 1), y s⟫ + F (a (t + 1)) / η) -
         (⟪a t, ∑ s ∈ range t, y s⟫ + F (a t) / η)) ≤
       ⟪a t - a (t + 1), y t⟫ - bregDiv F (a (t + 1)) (a t) (F' t) / η := by
     have ht' := mem_range.mp ht
-    have h_breg := bregDiv_le_sub_of_isMinOn (hK.segment_subset (ha_mem t ht'.le)
-      (ha_mem (t + 1) ht')) (ha' t ht'.le) (hF' t ht')
+    have h_breg := bregDiv_le_sub_of_isMinOn (hK.segment_subset (ha t ht'.le).mem
+      (ha (t + 1) ht').mem) (ha t ht'.le).isMinOn (hF' t ht')
     rw [sum_range_succ, inner_add_right, inner_sub_left]
     have : bregDiv F (a (t + 1)) (a t) (F' t) / η ≤
         ⟪a (t + 1), ∑ s ∈ range t, y s⟫ - ⟪a t, ∑ s ∈ range t, y s⟫ +
@@ -162,18 +174,18 @@ theorem ftrl_regret_le {F : E → ℝ} (hK : Convex ℝ K) {η : ℝ} (hη : 0 <
 This is [LS, Corollary 28.8] when each norm there is `√m` times the norm of `E`, with
 `F u - F (a 0)` in place of the diameter of `K` for `F`. -/
 theorem ftrl_regret_le_of_strongConvexOn {F : E → ℝ} {m : ℝ} (hF : StrongConvexOn K m F)
-    (hm : 0 < m) {η : ℝ} (hη : 0 < η) (y a : ℕ → E) (ha_mem : ∀ t ≤ n, a t ∈ K)
-    (ha : ∀ t ≤ n, IsMinOn (fun b ↦ η * ∑ s ∈ range t, ⟪b, y s⟫ + F b) K (a t))
+    (hm : 0 < m) {η : ℝ} (hη : 0 < η) (y a : ℕ → E) (ha : ∀ t ≤ n, IsFTRLPlay K F η y t (a t))
     (F' : ℕ → E →L[ℝ] ℝ) (hF' : ∀ t < n, HasFDerivWithinAt F (F' t) K (a t)) (hu : u ∈ K) :
     ∑ t ∈ range n, ⟪a t - u, y t⟫ ≤
       (F u - F (a 0)) / η + η / (2 * m) * ∑ t ∈ range n, ‖y t‖ ^ 2 := by
-  refine (ftrl_regret_le hF.1 hη y a ha_mem ha F' hF' hu).trans ?_
+  refine (ftrl_regret_le hF.1 hη y a ha F' hF' hu).trans ?_
   rw [add_sub_assoc, add_le_add_iff_left, sum_div, ← sum_sub_distrib, mul_sum]
   refine sum_le_sum fun t ht ↦ ?_
   have ht' := mem_range.mp ht
   -- the Bregman divergence of `F` is at least `m / 2` times the squared distance
   have h_breg : m / 2 * ‖a (t + 1) - a t‖ ^ 2 ≤ bregDiv F (a (t + 1)) (a t) (F' t) := by
-    have := hF.add_add_le_of_hasFDerivWithinAt (ha_mem t ht'.le) (ha_mem (t + 1) ht') (hF' t ht')
+    have := hF.add_add_le_of_hasFDerivWithinAt (ha t ht'.le).mem (ha (t + 1) ht').mem
+      (hF' t ht')
     simp only [bregDiv]
     linarith
   have h_inner : ⟪a t - a (t + 1), y t⟫ ≤ ‖a (t + 1) - a t‖ * ‖y t‖ := by
@@ -192,25 +204,23 @@ theorem ftrl_regret_le_of_strongConvexOn {F : E → ℝ} {m : ℝ} (hF : StrongC
   linarith
 
 /-- **Existence of FTRL plays.** On a nonempty compact set `K`, with a potential `F` continuous
-on `K`, there is a sequence of plays `a t ∈ K` such that each `a t` minimizes
-`b ↦ η ∑ s < t, ⟪b, y s⟫ + F b` over `K`. -/
+on `K`, there is a sequence `a` such that each `a t` is a play of FTRL on `K` at round `t`, with
+potential `F`, learning rate `η` and losses `y`. -/
 theorem exists_ftrl {F : E → ℝ} (hK : IsCompact K) (hK_ne : K.Nonempty) (hF : ContinuousOn F K)
     (η : ℝ) (y : ℕ → E) :
-    ∃ a : ℕ → E, ∀ t, a t ∈ K ∧ IsMinOn (fun b ↦ η * ∑ s ∈ range t, ⟪b, y s⟫ + F b) K (a t) := by
-  have h_cont (t : ℕ) : ContinuousOn (fun b ↦ η * ∑ s ∈ range t, ⟪b, y s⟫ + F b) K :=
-    (by fun_prop : Continuous fun b ↦ η * ∑ s ∈ range t, ⟪b, y s⟫).continuousOn.add hF
+    ∃ a : ℕ → E, ∀ t, IsFTRLPlay K F η y t (a t) := by
+  have h_cont (t : ℕ) : ContinuousOn (fun b ↦ η * ⟪b, ∑ s ∈ range t, y s⟫ + F b) K :=
+    (by fun_prop : Continuous fun b ↦ η * ⟪b, ∑ s ∈ range t, y s⟫).continuousOn.add hF
   choose a ha using fun t ↦ hK.exists_isMinOn hK_ne (h_cont t)
-  exact ⟨a, ha⟩
+  exact ⟨a, fun t ↦ ⟨(ha t).1, (ha t).2⟩⟩
 
 /-- **FTRL on the unit ball** [LS, Proposition 28.6], which [LS] states for mirror descent and
-notes for FTRL. Let each play `a t`, for `t ≤ n`, lie in the closed unit ball and minimize
-`b ↦ (√n)⁻¹ ∑ s < t, ⟪b, y s⟫ + ‖b‖ ^ 2 / 2` over it: this is FTRL with the potential
-`‖b‖ ^ 2 / 2` and the learning rate `1 / √n`. If the losses have norm at most `1`, then the regret
+notes for FTRL. Let each `a t`, for `t ≤ n`, be a play of FTRL on the closed unit ball with the
+potential `‖b‖ ^ 2 / 2` and the learning rate `1 / √n`, that is, a minimizer over the ball of
+`b ↦ (√n)⁻¹ ⟪b, ∑ s < t, y s⟫ + ‖b‖ ^ 2 / 2`. If the losses have norm at most `1`, then the regret
 after `n` rounds against every point of the ball is at most `√n`. -/
 theorem ftrl_regret_le_sqrt_of_closedBall (y a : ℕ → E) (hy : ∀ t < n, ‖y t‖ ≤ 1)
-    (ha_mem : ∀ t ≤ n, a t ∈ closedBall (0 : E) 1)
-    (ha : ∀ t ≤ n, IsMinOn (fun b ↦ (√n)⁻¹ * ∑ s ∈ range t, ⟪b, y s⟫ + ‖b‖ ^ 2 / 2)
-      (closedBall 0 1) (a t))
+    (ha : ∀ t ≤ n, IsFTRLPlay (closedBall 0 1) (fun b ↦ ‖b‖ ^ 2 / 2) (√n)⁻¹ y t (a t))
     (hu : u ∈ closedBall (0 : E) 1) :
     ∑ t ∈ range n, ⟪a t - u, y t⟫ ≤ √n := by
   rcases Nat.eq_zero_or_pos n with rfl | hn
@@ -225,7 +235,7 @@ theorem ftrl_regret_le_sqrt_of_closedBall (y a : ℕ → E) (hy : ∀ t < n, ‖
       ((2 : ℝ)⁻¹ • (2 • innerSL ℝ (a t))) (closedBall 0 1) (a t) := by
     simpa only [div_eq_mul_inv, mul_comm _ (2 : ℝ)⁻¹] using
       ((hasStrictFDerivAt_norm_sq (a t)).hasFDerivAt.const_mul (2 : ℝ)⁻¹).hasFDerivWithinAt
-  have h := ftrl_regret_le_of_strongConvexOn hF one_pos (inv_pos.mpr hsqrt) y a ha_mem ha _
+  have h := ftrl_regret_le_of_strongConvexOn hF one_pos (inv_pos.mpr hsqrt) y a ha _
     (fun t _ ↦ hF' t) hu
   -- the penalty is at most `√n / 2` and the stability terms add up to at most `√n / 2`
   have hu' : ‖u‖ ≤ 1 := mem_closedBall_zero_iff.mp hu
