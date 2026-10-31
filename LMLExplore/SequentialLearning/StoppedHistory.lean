@@ -50,6 +50,19 @@ variable {𝓞 𝓐 𝓨 Ω Ω' : Type*} {m𝓞 : MeasurableSpace 𝓞} {m𝓐 :
   {O : ℕ → Ω → 𝓞} {X : ℕ → Ω → 𝓐} {Y : ℕ → Ω → 𝓨}
   {S : Set (Σ n : ℕ, Hist 𝓞 𝓐 𝓨 n)} {n : ℕ} {ω : Ω}
 
+/-- The map sending an `n`-round history to its prefix of length `m ≤ n`, as a history of variable
+length, is measurable. -/
+private lemma measurable_sigma_prefix {m : ℕ} (hm : m ≤ n) :
+    Measurable fun h : Hist 𝓞 𝓐 𝓨 n ↦
+      (⟨m, fun i ↦ h (Fin.castLE hm i)⟩ : Σ n : ℕ, Hist 𝓞 𝓐 𝓨 n) :=
+  (measurable_sigma_mk m).comp (Measurable.of_eval fun _ ↦ measurable_pi_apply _)
+
+/-- For `m ≤ n`, the history of the first `m` rounds is the prefix of length `m` of the history
+of the first `n` rounds. -/
+private lemma sigmaHistory_eq_prefix {m : ℕ} (hm : m ≤ n) :
+    sigmaHistory O X Y m ω = ⟨m, fun i ↦ history O X Y n ω (Fin.castLE hm i)⟩ := by
+  rw [sigmaHistory_apply, history_eq_comp_history hm, Function.comp_apply]
+
 /-- The `n`-round histories after which the stopping rule `S` has not stopped: the histories none
 of whose prefixes of length `m ≤ n` belong to `S`. Along an algorithm-environment sequence, the
 history of the first `n` rounds belongs to this set if and only if round `n` is played, that is
@@ -70,8 +83,7 @@ lemma measurableSet_notStoppedSet (hS : MeasurableSet S) (n : ℕ) :
     ext
     simp [notStoppedSet]
   rw [this]
-  exact .iInter fun m ↦ .iInter fun hm ↦ ((measurable_sigma_mk m).comp
-    (Measurable.of_eval fun i ↦ measurable_pi_apply _)) hS.compl
+  exact .iInter fun m ↦ .iInter fun hm ↦ measurable_sigma_prefix hm hS.compl
 
 /-- The history of the first `n` rounds belongs to `notStoppedSet S n` if and only if the hitting
 time of `S` is larger than `n`, that is round `n` is played. -/
@@ -80,10 +92,8 @@ lemma history_mem_notStoppedSet_iff :
       (n : WithTop ℕ) < hittingAfter (sigmaHistory O X Y) S 0 ω := by
   rw [← not_le]
   refine Iff.trans ?_ (not_congr hittingAfter_le_iff).symm
-  simp only [mem_Icc, zero_le, true_and, not_exists, not_and]
-  -- `sigmaHistory O X Y m ω` is `⟨m, history O X Y m ω⟩`, and `history O X Y m` is the
-  -- restriction of `history O X Y n` (`sigmaHistory_apply`, `history_eq_comp_history`).
-  exact ⟨fun h m hm ↦ h m hm, fun h m hm ↦ h m hm⟩
+  simp only [mem_notStoppedSet_iff, mem_Icc, zero_le, true_and, not_exists, not_and]
+  exact forall₂_congr fun m hm ↦ by rw [sigmaHistory_eq_prefix hm]
 
 section Congr
 
@@ -104,8 +114,7 @@ private lemma measurableSet_notStoppedBeforeSet (hS : MeasurableSet S) (n : ℕ)
     ext
     simp [notStoppedBeforeSet]
   rw [this]
-  exact .iInter fun m ↦ .iInter fun hm ↦ ((measurable_sigma_mk m).comp
-    (Measurable.of_eval fun i ↦ measurable_pi_apply _)) hS.compl
+  exact .iInter fun m ↦ .iInter fun hm ↦ measurable_sigma_prefix hm.le hS.compl
 
 private lemma notStoppedSet_subset_notStoppedBeforeSet :
     notStoppedSet S n ⊆ notStoppedBeforeSet S n :=
@@ -116,9 +125,8 @@ private lemma history_mem_notStoppedBeforeSet_iff :
       (n : WithTop ℕ) ≤ hittingAfter (sigmaHistory O X Y) S 0 ω := by
   rw [← not_lt]
   refine Iff.trans ?_ (not_congr hittingAfter_lt_iff).symm
-  simp only [mem_Ico, zero_le, true_and, not_exists, not_and]
-  -- As in `history_mem_notStoppedSet_iff`, by `sigmaHistory_apply` and `history_eq_comp_history`.
-  exact ⟨fun h m hm ↦ h m hm, fun h m hm ↦ h m hm⟩
+  simp only [notStoppedBeforeSet, mem_ofPred_eq, mem_Ico, zero_le, true_and, not_exists, not_and]
+  exact forall₂_congr fun m hm ↦ by rw [sigmaHistory_eq_prefix hm.le]
 
 /-- An `(n + 1)`-round history has no strict prefix in `S` iff its first `n` rounds form a
 history in `notStoppedSet S n`. -/
@@ -198,9 +206,8 @@ private lemma measure_stoppedValue_preimage_inter_eq_coe (hS : MeasurableSet S)
     IT.feedback) τ with hF_def
   have hF_of (ω : ℕ → Round 𝓞 𝓐 𝓨) (hω : τ ω = n) :
       F ω = sigmaHistory IT.obs IT.action IT.feedback n ω := by
-    simp only [hF_def, stoppedValue, hω]
-    -- `WithTop.untopA` sends the cast of `n` to `n`.
-    rfl
+    rw [hF_def, stoppedValue, hω, WithTop.untopA, ← WithTop.coe_natCast, WithTop.untopD_coe,
+      Nat.cast_id]
   have h_eq_pre : F ⁻¹' B ∩ τ ⁻¹' {(n : WithTop ℕ)} =
       history IT.obs IT.action IT.feedback n ⁻¹'
         (notStoppedBeforeSet S n ∩ Sigma.mk n ⁻¹' (S ∩ B)) := by
@@ -241,12 +248,10 @@ private lemma measure_stoppedValue_preimage_inter_eq_top (hS : MeasurableSet S)
     IT.feedback) S 0 with hτ_def
   set F := stoppedValue (sigmaHistory (IT.obs (𝓞 := 𝓞) (𝓐 := 𝓐) (𝓨 := 𝓨)) IT.action
     IT.feedback) τ with hF_def
-  set c := (⊤ : WithTop ℕ).untopA
+  set c := (⊤ : WithTop ℕ).untopA with hc_def
   have hF_of (ω : ℕ → Round 𝓞 𝓐 𝓨) (hω : τ ω = ⊤) :
       F ω = sigmaHistory IT.obs IT.action IT.feedback c ω := by
-    simp only [hF_def, stoppedValue, hω]
-    -- `c` is by definition `(⊤ : WithTop ℕ).untopA`.
-    rfl
+    simp only [hF_def, stoppedValue, hω, hc_def]
   -- The event `{m + c < τ} ∩ {the first `c` rounds form a history in `B`}`.
   set s : ℕ → Set (ℕ → Round 𝓞 𝓐 𝓨) := fun m ↦
     history IT.obs IT.action IT.feedback (m + c) ⁻¹' (notStoppedSet S (m + c) ∩
@@ -255,10 +260,8 @@ private lemma measure_stoppedValue_preimage_inter_eq_top (hS : MeasurableSet S)
   have hs_mem (m : ℕ) (ω : ℕ → Round 𝓞 𝓐 𝓨) :
       ω ∈ s m ↔ ((m + c : ℕ) : WithTop ℕ) < τ ω ∧
         sigmaHistory IT.obs IT.action IT.feedback c ω ∈ B := by
-    rw [hs_def, mem_preimage, mem_inter_iff, history_mem_notStoppedSet_iff]
-    -- The first `c` rounds of the `(m + c)`-round history form the `c`-round history
-    -- (`history_eq_comp_history`).
-    rfl
+    rw [hs_def, mem_preimage, mem_inter_iff, history_mem_notStoppedSet_iff, mem_preimage,
+      sigmaHistory_eq_prefix (Nat.le_add_left c m)]
   have h_eq_inter : F ⁻¹' B ∩ τ ⁻¹' {⊤} = ⋂ m, s m := by
     ext ω
     simp only [mem_inter_iff, mem_preimage, mem_singleton_iff, mem_iInter, hs_mem]
@@ -277,8 +280,7 @@ private lemma measure_stoppedValue_preimage_inter_eq_top (hS : MeasurableSet S)
   have hD (m : ℕ) : MeasurableSet (notStoppedSet S (m + c) ∩
       (fun x : Hist 𝓞 𝓐 𝓨 (m + c) ↦ (⟨c, fun i ↦ x (Fin.castLE (Nat.le_add_left c m) i)⟩ :
         Σ n : ℕ, Hist 𝓞 𝓐 𝓨 n)) ⁻¹' B) :=
-    (measurableSet_notStoppedSet hS _).inter (((measurable_sigma_mk c).comp
-      (Measurable.of_eval fun i ↦ measurable_pi_apply _)) hB)
+    (measurableSet_notStoppedSet hS _).inter (measurable_sigma_prefix _ hB)
   have hs_meas (m : ℕ) : NullMeasurableSet (s m) (trajMeasure alg env) :=
     (IT.measurable_hist _ (hD m)).nullMeasurableSet
   have hs_meas' (m : ℕ) : NullMeasurableSet (s m) (trajMeasure alg' env') :=

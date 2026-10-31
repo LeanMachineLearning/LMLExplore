@@ -94,11 +94,13 @@ noncomputable def piecewise (s : (n : ℕ) → Set (Hist 𝓞 𝓐 𝓨 n)) (hs 
     (env.feedback n) (env'.feedback n)
 
 open scoped Classical in
+@[simp]
 lemma obs_piecewise (n : ℕ) :
     (env.piecewise s hs env').obs n = Kernel.piecewise (hs n) (env.obs n) (env'.obs n) :=
   (rfl)
 
 open scoped Classical in
+@[simp]
 lemma feedback_piecewise (n : ℕ) :
     (env.piecewise s hs env').feedback n =
       Kernel.piecewise ((hs n).preimage (measurable_fst.comp measurable_fst))
@@ -107,6 +109,18 @@ lemma feedback_piecewise (n : ℕ) :
 
 end Environment
 
+/-- Two composition products of kernels agree at a point `a` if the first kernels agree at `a`
+and the second kernels agree at every `(a, b)`. -/
+private lemma compProd_apply_congr {α β γ : Type*} {mα : MeasurableSpace α}
+    {mβ : MeasurableSpace β} {mγ : MeasurableSpace γ} {κ κ' : Kernel α β}
+    {η η' : Kernel (α × β) γ} [IsSFiniteKernel κ] [IsSFiniteKernel κ'] [IsSFiniteKernel η]
+    [IsSFiniteKernel η'] {a : α} (hκ : κ a = κ' a) (hη : ∀ b, η (a, b) = η' (a, b)) :
+    (κ ⊗ₖ η) a = (κ' ⊗ₖ η') a := by
+  rw [Kernel.compProd_apply_eq_compProd_sectR, Kernel.compProd_apply_eq_compProd_sectR, hκ]
+  congr 1
+  ext b : 1
+  exact hη b
+
 open scoped Classical in
 /-- The step kernel of `env.piecewise s hs env'` at round `n` is that of `env` on `s n` and that
 of `env'` elsewhere. -/
@@ -114,27 +128,20 @@ lemma stepKernel_piecewise (alg : Algorithm 𝓞 𝓐 𝓨) (n : ℕ) :
     stepKernel alg (env.piecewise s hs env') n =
       Kernel.piecewise (hs n) (stepKernel alg env n) (stepKernel alg env' n) := by
   ext x : 1
-  rw [Kernel.piecewise_apply]
   by_cases hx : x ∈ s n <;>
-  · simp only [hx, ↓reduceIte]
-    rw [stepKernel_def, stepKernel_def, Kernel.compProd_apply_eq_compProd_sectR,
-      Kernel.compProd_apply_eq_compProd_sectR, Environment.obs_piecewise, Kernel.piecewise_apply]
-    simp only [hx, ↓reduceIte]
-    congr 1
-    ext o : 1
-    rw [Kernel.sectR_apply, Kernel.sectR_apply, Kernel.compProd_apply_eq_compProd_sectR,
-      Kernel.compProd_apply_eq_compProd_sectR]
-    congr 1
-    ext a : 1
-    simp [Kernel.sectR_apply, Environment.feedback_piecewise, Kernel.piecewise_apply, hx]
+  · simp only [Kernel.piecewise_apply, hx, ↓reduceIte, stepKernel_def]
+    exact compProd_apply_congr (by simp [Kernel.piecewise_apply, hx])
+      fun _ ↦ compProd_apply_congr rfl fun _ ↦ by simp [Kernel.piecewise_apply, hx]
 
 /-- At a history in `s n`, the step kernel of `env.piecewise s hs env'` is that of `env`. -/
+@[simp]
 lemma stepKernel_piecewise_of_mem (alg : Algorithm 𝓞 𝓐 𝓨) (hx : x ∈ s n) :
     stepKernel alg (env.piecewise s hs env') n x = stepKernel alg env n x := by
   classical
   simp [stepKernel_piecewise, Kernel.piecewise_apply, hx]
 
 /-- At a history outside `s n`, the step kernel of `env.piecewise s hs env'` is that of `env'`. -/
+@[simp]
 lemma stepKernel_piecewise_of_notMem (alg : Algorithm 𝓞 𝓐 𝓨) (hx : x ∉ s n) :
     stepKernel alg (env.piecewise s hs env') n x = stepKernel alg env' n x := by
   classical
