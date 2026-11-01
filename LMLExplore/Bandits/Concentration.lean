@@ -40,10 +40,12 @@ the reward stream model, and these sum to at most `5 σ² / ε²` over the round
 For rewards in `[0, 1]` and the KL-UCB index `U(μ̂_s, L / s)` of [LS, Algorithm 8], with `U` the
 upper confidence level of the binary relative entropy `d`, the same two facts hold. For a level
 `c > μ + ε`, where `μ` is the mean of the arm, the index after `s` pulls is above `c` only if
-`μ̂_s ≥ μ + ε`, which Hoeffding's inequality makes rare, or `s d(μ + ε, c) ≤ L`, which bounds `s`
-[LS, Lemma 10.8]. The index of an optimal arm is at most its mean minus `ε` at round `t` with
-probability at most `(1 / f(t)) ∑_{s ≥ 1} exp (-2 s ε²)`, by the three-point inequality for `d`
-and the Chernoff bound in relative-entropy form [LS, Lemma 10.7].
+`μ̂_s ≥ μ + ε`, which Hoeffding's inequality makes rare, or `s d(μ + ε, c) ≤ L`, which bounds `s`:
+this is [LS, Lemma 10.8], proved for independent `[0, 1]`-valued variables as
+`LMLExplore.sum_measureReal_eq_zero_or_le_div_or_klBer_div_le_le`. The index of an optimal arm is
+at most its mean minus `ε` at round `t` with probability at most
+`(1 / f(t)) ∑_{s ≥ 1} exp (-2 s ε²)`, by the three-point inequality for `d` and the Chernoff bound
+in relative-entropy form [LS, Lemma 10.7].
 
 ## Main statements
 
@@ -67,10 +69,6 @@ and the Chernoff bound in relative-entropy form [LS, Lemma 10.7].
   algorithm, the expected number of rounds at which an arm is played before its first pull or with
   an index above its mean plus `δ > 0` is at most `1 + 2 σ² / δ² (c + √(π c) + 1)`, by
   [LS, Lemma 8.2] on the stream.
-* `sum_measureReal_eq_zero_or_le_div_or_klBer_div_le_le`: [LS, Lemma 10.8] for independent
-  `[0, 1]`-valued random variables with means at most `m`: for `m + ε < c < 1` and `L ≥ 0`, the
-  expected number of sample sizes `s < n` at which `s = 0`, `c ≤ μ̂_s` or `d(μ̂_s, c) ≤ L / s` is
-  at most `1 + L / d(m + ε, c) + 1 / (2 ε²)`.
 * `measureReal_streamMeasure_klUpper_le_sub_le`: in the reward stream model, the KL-UCB index
   `U(μ̂_s, L / s)` of the first `s ≥ 1` rewards of an arm with rewards in `[0, 1]` is at most its
   mean minus `ε > 0` with probability at most `exp (-L) exp (-2 ε² s)`.
@@ -98,8 +96,7 @@ open scoped NNReal
 
 namespace LMLExplore.Bandits
 
-variable {Ω : Type*} {mΩ : MeasurableSpace Ω} {P : Measure Ω} {X : ℕ → Ω → ℝ} {σ2 : ℝ≥0}
-  {ε c : ℝ}
+variable {Ω : Type*} {mΩ : MeasurableSpace Ω} {P : Measure Ω} {σ2 : ℝ≥0} {ε c : ℝ}
 
 section Stream
 
@@ -273,98 +270,6 @@ theorem sum_measureReal_action_eq_and_pullCount_eq_zero_or_lt_empMean_add_sqrt_l
 end Runs
 
 /-! ### Rewards in `[0, 1]` and the KL-UCB index -/
-
-section Bounded
-
-variable {m : ℝ}
-
-/-- The number of `s < k` with `(s + 1) D ≤ L` is at most `L / D`, for `D > 0` and `L ≥ 0`. -/
-private lemma sum_range_ite_add_one_mul_le_le {D L : ℝ} (hD : 0 < D) (hL : 0 ≤ L) (k : ℕ) :
-    ∑ s ∈ range k, (if (s + 1) * D ≤ L then (1 : ℝ) else 0) ≤ L / D := by
-  rw [sum_boole]
-  refine le_trans ?_ (Nat.floor_le (div_nonneg hL hD.le))
-  refine Nat.cast_le.2 ((card_le_card fun s hs ↦ ?_).trans (card_range _).le)
-  rw [mem_filter] at hs
-  rw [Finset.mem_range, Nat.lt_iff_add_one_le]
-  refine Nat.le_floor ?_
-  rw [le_div_iff₀ hD]
-  exact_mod_cast hs.2
-
-/-- **Overestimation of the KL-UCB index** ([LS, Lemma 10.8] for rewards in `[0, 1]`). Let
-`X₀, X₁, …` be independent, in `[0, 1]`, with means at most `m`, let `ε > 0` and `c < 1` with
-`m + ε < c`, and let `L ≥ 0`. Then the expected number of sample sizes `s < n` at which `s = 0`, or
-the empirical mean `μ̂_s = (X₀ + ⋯ + X_{s-1}) / s` is at least `c`, or `d(μ̂_s, c) ≤ L / s`, is at
-most `1 + L / d(m + ε, c) + 1 / (2 ε²)`, uniformly in `n`. For an arm of mean `m`, `c` below the
-optimal mean and `L = log f(n)`, this bounds the number of sample sizes at which the KL-UCB index
-of the arm exceeds `c`. -/
-theorem sum_measureReal_eq_zero_or_le_div_or_klBer_div_le_le (h_indep : iIndepFun X P)
-    (hXm : ∀ i, AEMeasurable (X i) P) (hX : ∀ i, ∀ᵐ ω ∂P, X i ω ∈ Set.Icc 0 1)
-    (hmean : ∀ i, P[X i] ≤ m) (hε : 0 < ε) (hc : m + ε < c) (hc1 : c < 1) {L : ℝ} (hL : 0 ≤ L)
-    (n : ℕ) :
-    ∑ s ∈ range n, P.real {ω | s = 0 ∨ c ≤ (∑ i ∈ range s, X i ω) / s ∨
-        klBer ((∑ i ∈ range s, X i ω) / s) c ≤ ENNReal.ofReal (L / s)} ≤
-      1 + L / klBerReal (m + ε) c + 1 / (2 * ε ^ 2) := by
-  have := h_indep.isProbabilityMeasure
-  have hm0 : 0 ≤ m := (integral_nonneg_of_ae ((hX 0).mono fun ω hω ↦ hω.1)).trans (hmean 0)
-  have hme : m + ε ∈ Set.Icc 0 1 := ⟨by linarith, by linarith⟩
-  have hc' : c ∈ Set.Ioo 0 1 := ⟨by linarith, hc1⟩
-  set D := klBerReal (m + ε) c with hD_def
-  have hD : 0 < D := by
-    have := two_mul_sq_le_klBerReal hme (Set.Ioo_subset_Icc_self hc') (klBer_ne_top hc')
-    nlinarith
-  -- the term of `s` is at most `1` if `s D ≤ L`, and otherwise at most the Hoeffding bound
-  -- `exp (-2 ε² s)`: if `μ̂_s < m + ε`, then `D ≤ d(μ̂_s, c)`, and `μ̂_s < c`
-  have h_term (s : ℕ) : P.real {ω | s = 0 ∨ c ≤ (∑ i ∈ range s, X i ω) / s ∨
-      klBer ((∑ i ∈ range s, X i ω) / s) c ≤ ENNReal.ofReal (L / s)} ≤
-        if s * D ≤ L then 1 else exp (-(2 * ε ^ 2 * s)) := by
-    split_ifs with hsD
-    · exact measureReal_le_one
-    have h_hoeffding := measureReal_card_mul_add_le_sum_le h_indep (s := range s)
-      (fun i _ ↦ hXm i) (fun i _ ↦ hX i) (fun i _ ↦ hmean i) hε.le
-    rw [card_range] at h_hoeffding
-    refine le_trans (measureReal_mono fun ω hω ↦ ?_) h_hoeffding
-    have hs : s ≠ 0 := by
-      rintro rfl
-      simp only [CharP.cast_eq_zero, zero_mul] at hsD
-      exact hsD hL
-    have hs' : (0 : ℝ) < s := Nat.cast_pos.mpr (Nat.pos_of_ne_zero hs)
-    simp only [Set.mem_ofPred_eq] at hω ⊢
-    by_contra! hlt
-    have hx : (∑ i ∈ range s, X i ω) / s < m + ε := by rwa [div_lt_iff₀ hs', mul_comm]
-    rcases hω with h0 | hcx | hkl
-    · exact hs h0
-    · linarith
-    · refine hsD ?_
-      have h1 : klBer (m + ε) c ≤ klBer ((∑ i ∈ range s, X i ω) / s) c :=
-        antitoneOn_klBer_left c (Set.mem_Iic.2 (by linarith)) (Set.mem_Iic.2 hc.le) hx.le
-      rw [klBer_eq_ofReal_klBerReal hme (Set.Ioo_subset_Icc_self hc') (klBer_ne_top hc')] at h1
-      have h2 := (ENNReal.ofReal_le_ofReal_iff (by positivity)).1 (h1.trans hkl)
-      rw [le_div_iff₀ hs'] at h2
-      linarith
-  calc ∑ s ∈ range n, P.real {ω | s = 0 ∨ c ≤ (∑ i ∈ range s, X i ω) / s ∨
-      klBer ((∑ i ∈ range s, X i ω) / s) c ≤ ENNReal.ofReal (L / s)}
-  _ ≤ ∑ s ∈ range n, (if s * D ≤ L then 1 else exp (-(2 * ε ^ 2 * s))) :=
-    sum_le_sum fun s _ ↦ h_term s
-  _ ≤ 1 + L / D + 1 / (2 * ε ^ 2) := by
-    rcases n with _ | k
-    · simp only [range_zero, sum_empty]
-      positivity
-    -- the term of `s = 0` is `1`; the others are at most `1_{(s + 1) D ≤ L} + exp (-2 ε² (s + 1))`
-    rw [sum_range_succ']
-    simp only [Nat.cast_zero, zero_mul, hL, ite_true, Nat.cast_add_one]
-    calc ∑ s ∈ range k, (if (s + 1) * D ≤ L then 1 else exp (-(2 * ε ^ 2 * (s + 1)))) + 1
-    _ ≤ ∑ s ∈ range k, ((if (s + 1) * D ≤ L then (1 : ℝ) else 0) +
-        exp (-(2 * ε ^ 2 * (s + 1)))) + 1 := by
-      gcongr with s
-      split_ifs <;> simp [exp_nonneg]
-    _ ≤ L / D + (2 * ε ^ 2)⁻¹ + 1 := by
-      rw [sum_add_distrib]
-      gcongr
-      · exact sum_range_ite_add_one_mul_le_le hD hL k
-      · exact sum_range_exp_neg_mul_le (by positivity) k
-    _ = 1 + L / D + 1 / (2 * ε ^ 2) := by ring
-
-end Bounded
 
 section BoundedStream
 

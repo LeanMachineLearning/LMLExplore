@@ -19,11 +19,17 @@ Along a geometric grid of sample sizes `2 ^ j`, the sum `∑_j 2 ^ j exp (-2 ^ j
 `3 / (2 c)` for `c > 0`. This bounds the sums produced by the peeling device, which splits the
 sample sizes into the blocks `[2 ^ j, 2 ^ (j + 1))`, as in the proof of [LS, Lemma 9.3].
 
+The sample sizes `s` at which a deviation bound gives nothing, because `(s + 1) D ≤ L` for a
+divergence `D > 0` and a confidence level `L ≥ 0`, number at most `L / D`. Together with the
+geometric sum above, this bounds the sums over the sample sizes in the proof of [LS, Lemma 10.8].
+
 ## Main statements
 
 * `Real.sum_range_exp_neg_mul_le`: `∑_{s < m} exp (-c (s + 1)) ≤ 1 / c` for `c > 0`.
 * `Real.sum_range_two_pow_mul_exp_neg_le`: `∑_{j < m} 2 ^ j exp (-2 ^ j c) ≤ 3 / (2 c)` for
   `c > 0`.
+* `Real.sum_range_ite_add_one_mul_le_le`: `#{s < k | (s + 1) D ≤ L} ≤ L / D` for `D > 0` and
+  `L ≥ 0`.
 
 ## References
 
@@ -99,5 +105,17 @@ theorem sum_range_two_pow_mul_exp_neg_le {c : ℝ} (hc : 0 < c) (m : ℕ) :
       rw [neg_nonpos]
       positivity
     linarith
+
+/-- The number of `s < k` with `(s + 1) D ≤ L` is at most `L / D`, for `D > 0` and `L ≥ 0`. -/
+theorem sum_range_ite_add_one_mul_le_le {D L : ℝ} (hD : 0 < D) (hL : 0 ≤ L) (k : ℕ) :
+    ∑ s ∈ range k, (if (s + 1) * D ≤ L then (1 : ℝ) else 0) ≤ L / D := by
+  rw [sum_boole]
+  refine le_trans ?_ (Nat.floor_le (div_nonneg hL hD.le))
+  refine Nat.cast_le.2 ((card_le_card fun s hs ↦ ?_).trans (card_range _).le)
+  rw [mem_filter] at hs
+  rw [Finset.mem_range, Nat.lt_iff_add_one_le]
+  refine Nat.le_floor ?_
+  rw [le_div_iff₀ hD]
+  exact_mod_cast hs.2
 
 end Real
