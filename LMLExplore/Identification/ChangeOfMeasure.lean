@@ -29,6 +29,7 @@ models into a number of samples.
 * `LMLExplore.Identification.klDiv_histOutputMeasure_le`: the relative entropy between the joint
   laws of the stopped history and the output under `κ` and `κ'` is at most
   `∑ a, E_κ[N_a(τ)] KL(κ a ‖ κ' a)`.
+* `LMLExplore.Identification.klDiv_outputMeasure_le`: the same bound for the laws of the output.
 * `LMLExplore.Identification.klBer_measureReal_histOutputMeasure_le`: the transportation lemma
   `d(P_κ(E), P_κ'(E)) ≤ ∑ a, E_κ[N_a(τ)] KL(κ a ‖ κ' a)` for every measurable event `E` of the
   stopped history and the output.
@@ -71,6 +72,18 @@ theorem klDiv_histOutputMeasure_le (A : IdentAlg Unit 𝓐 𝓨 𝓓) (κ κ' : 
     IdentAlg.stoppingTime_def]
   exact klDiv_stoppedHistMeasure_le A.measurableSet_stopSet
     (hA.ae_stoppingTime_ne_top (IT.isAlgEnvSeq_trajMeasure A.alg (stationaryEnv κ)))
+
+/-- **Divergence decomposition for the output** of an identification algorithm. If `A` stops
+almost surely on the stationary bandit with reward kernel `κ`, then the relative entropy between
+the laws of its output on the bandits `κ` and `κ'` is at most `∑ a, E_κ[N_a(τ)] KL(κ a ‖ κ' a)`,
+where `N_a(τ)` is the number of pulls of `a` before the stopping time `τ`. -/
+theorem klDiv_outputMeasure_le (A : IdentAlg Unit 𝓐 𝓨 𝓓) (κ κ' : Kernel 𝓐 𝓨)
+    [IsMarkovKernel κ] [IsMarkovKernel κ'] (hA : StopsAS A (stationaryEnv κ)) :
+    klDiv (A.outputMeasure (stationaryEnv κ)) (A.outputMeasure (stationaryEnv κ')) ≤
+      ∑ a, (∫⁻ ω, (pullCount IT.action a (A.stoppingTime IT.obs IT.action IT.feedback ω).toNat
+        ω : ℝ≥0∞) ∂(trajMeasure A.alg (stationaryEnv κ))) * klDiv (κ a) (κ' a) := by
+  rw [← snd_histOutputMeasure, ← snd_histOutputMeasure]
+  exact (klDiv_map_le _ _ measurable_snd).trans (klDiv_histOutputMeasure_le A κ κ' hA)
 
 /-- **Transportation lemma** [KCG16, Lemma 1]. If `A` stops almost surely on the stationary bandit
 with reward kernel `κ`, then for every measurable event `E` of the stopped history and the output,
