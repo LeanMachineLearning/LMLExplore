@@ -7,6 +7,7 @@ module
 
 public import LeanMachineLearning.ForMathlib.Probability.Moments.SubGaussian
 public import LeanMachineLearning.Online.Bandit.ArrayProbSpace
+public import LMLExplore.Analysis.Convex.Integral
 public import LMLExplore.Analysis.Real.Sqrt
 public import LMLExplore.Analysis.SpecialFunctions.Exp
 public import LMLExplore.Analysis.SpecialFunctions.Log.InvMulLogSq
@@ -81,8 +82,6 @@ and the Chernoff bound in relative-entropy form [LS, Lemma 10.7].
   `[0, 1]`-valued random variables with means at most `m`: for `m + ε < c < 1` and `L ≥ 0`, the
   expected number of sample sizes `s < n` at which `s = 0`, `c ≤ μ̂_s` or `d(μ̂_s, c) ≤ L / s` is
   at most `1 + L / d(m + ε, c) + 1 / (2 ε²)`.
-* `integral_id_mem_Icc_of_ae_mem_Icc`: the mean of a probability measure on `ℝ` concentrated on
-  `[l, u]` lies in `[l, u]`.
 * `measureReal_streamMeasure_klUpper_le_sub_le`: in the reward stream model, the KL-UCB index
   `U(μ̂_s, L / s)` of the first `s ≥ 1` rewards of an arm with rewards in `[0, 1]` is at most its
   mean minus `ε > 0` with probability at most `exp (-L) exp (-2 ε² s)`.
@@ -655,11 +654,6 @@ end Bounded
 section BoundedStream
 
 variable {α : Type*} [MeasurableSpace α] {ν : Kernel α ℝ} [IsMarkovKernel ν] {a : α}
-
-/-- The mean of a probability measure on `ℝ` concentrated on `[l, u]` lies in `[l, u]`. -/
-theorem integral_id_mem_Icc_of_ae_mem_Icc {μ : Measure ℝ} [IsProbabilityMeasure μ] {l u : ℝ}
-    (h : ∀ᵐ x ∂μ, x ∈ Set.Icc l u) : μ[id] ∈ Set.Icc l u :=
-  (convex_Icc l u).integral_mem isClosed_Icc h (Integrable.of_mem_Icc l u aemeasurable_id h)
 
 /-- In the i.i.d. reward stream model, the rewards of an arm whose law is concentrated on `[0, 1]`
 lie in `[0, 1]` almost surely. -/
