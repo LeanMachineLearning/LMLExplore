@@ -32,6 +32,8 @@ over the rounds, shows that the two expected regrets add up to at least `Δ n e^
 ## Main statements
 
 * `LMLExplore.Bandits.le_integral_regret_add_integral_regret`: the two-bandit inequality.
+* `LMLExplore.Bandits.le_integral_regret_add_integral_regret'`: the two-bandit inequality with
+  the hypotheses on the gaps of the two bandits exchanged, used by the Lai–Robbins lower bound.
 * `LMLExplore.Bandits.exists_le_integral_regret_of_klDiv_le`: the minimax lower bound for a family
   of reward laws.
 * `LMLExplore.Bandits.exists_sqrt_le_integral_regret_gaussianBandit`: Gaussian bandits with means
@@ -85,6 +87,35 @@ theorem le_integral_regret_add_integral_regret [Finite α] {alg : Algorithm Unit
   rw [h1, h2] at hbh
   have hR := mul_sub_integral_pullCount_le_integral_regret (P := P) h.measurable_action hΔ n
   have hR' := mul_integral_pullCount_le_integral_regret (P := P') h'.measurable_action hΔ' n
+  nlinarith [mul_le_mul_of_nonneg_left hbh hΔ0]
+
+/-- **Two-bandit inequality**, with the roles of the two bandits exchanged in the hypotheses on
+the gaps. Run an algorithm against two stationary bandits `ν` and `ν'`. If in `ν` the arm `a₁`
+has gap at least `Δ ≥ 0`, and in `ν'` every arm other than `a₁` has gap at least `Δ`, then the two
+expected regrets add up to at least `Δ n exp (-D) / 2`, where `D` is the relative entropy between
+the laws of the histories of the first `n` rounds under `ν` and under `ν'`. This is the form used
+by the Lai–Robbins lower bound [LS, Theorem 16.2], where `ν'` makes the arm `a₁` optimal. -/
+theorem le_integral_regret_add_integral_regret' [Finite α] {alg : Algorithm Unit α ℝ}
+    [IsMarkovKernel ν] [IsMarkovKernel ν'] {O : ℕ → Ω → Unit} {R : ℕ → Ω → ℝ}
+    {O' : ℕ → Ω' → Unit} {R' : ℕ → Ω' → ℝ} (h : IsAlgEnvSeq O A R alg (stationaryEnv ν) P)
+    (h' : IsAlgEnvSeq O' A' R' alg (stationaryEnv ν') P') {a₁ : α} {Δ : ℝ} (hΔ0 : 0 ≤ Δ)
+    (hΔ : Δ ≤ gap ν a₁) (hΔ' : ∀ a ≠ a₁, Δ ≤ gap ν' a) (n : ℕ)
+    (hkl : klDiv (P.map (history O A R n)) (P'.map (history O' A' R' n)) ≠ ∞) :
+    Δ * n * exp (-(klDiv (P.map (history O A R n)) (P'.map (history O' A' R' n))).toReal) / 2 ≤
+      ∫ ω, regret ν A n ω ∂P + ∫ ω, regret ν' A' n ω ∂P' := by
+  classical
+  have hbh := mul_exp_neg_klDiv_map_history_div_two_le_sum (h.measurable_history n)
+    (h'.measurable_history n) (measurableSet_singleton a₁) hkl
+  have h1 : ∑ t ∈ range n, P.real (A t ⁻¹' {a₁}) = ∫ ω, (pullCount A a₁ n ω : ℝ) ∂P := by
+    rw [integral_pullCount_eq_sum h.measurable_action]
+  have h2 : ∑ t ∈ range n, P'.real (A' t ⁻¹' {a₁}ᶜ) = n - ∫ ω, (pullCount A' a₁ n ω : ℝ) ∂P' := by
+    rw [integral_pullCount_eq_sum h'.measurable_action]
+    simp_rw [Set.preimage_compl,
+      probReal_compl_eq_one_sub (h'.measurable_action _ (measurableSet_singleton a₁))]
+    simp
+  rw [h1, h2] at hbh
+  have hR := mul_integral_pullCount_le_integral_regret (P := P) h.measurable_action hΔ n
+  have hR' := mul_sub_integral_pullCount_le_integral_regret (P := P') h'.measurable_action hΔ' n
   nlinarith [mul_le_mul_of_nonneg_left hbh hΔ0]
 
 end Runs
