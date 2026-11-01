@@ -77,14 +77,8 @@ theorem le_integral_regret_add_integral_regret [Finite α] {alg : Algorithm Unit
   classical
   have hbh := mul_exp_neg_klDiv_map_history_div_two_le_sum (h.measurable_history n)
     (h'.measurable_history n) (measurableSet_singleton a₁).compl hkl
-  have h1 : ∑ t ∈ range n, P.real (A t ⁻¹' {a₁}ᶜ) = n - ∫ ω, (pullCount A a₁ n ω : ℝ) ∂P := by
-    rw [integral_pullCount_eq_sum h.measurable_action]
-    simp_rw [Set.preimage_compl,
-      probReal_compl_eq_one_sub (h.measurable_action _ (measurableSet_singleton a₁))]
-    simp
-  have h2 : ∑ t ∈ range n, P'.real (A' t ⁻¹' {a₁}ᶜᶜ) = ∫ ω, (pullCount A' a₁ n ω : ℝ) ∂P' := by
-    rw [compl_compl, integral_pullCount_eq_sum h'.measurable_action]
-  rw [h1, h2] at hbh
+  rw [sum_probReal_preimage_compl_eq_sub_integral_pullCount h.measurable_action, compl_compl,
+    ← integral_pullCount_eq_sum h'.measurable_action] at hbh
   have hR := mul_sub_integral_pullCount_le_integral_regret (P := P) h.measurable_action hΔ n
   have hR' := mul_integral_pullCount_le_integral_regret (P := P') h'.measurable_action hΔ' n
   nlinarith [mul_le_mul_of_nonneg_left hbh hΔ0]
@@ -106,14 +100,8 @@ theorem le_integral_regret_add_integral_regret' [Finite α] {alg : Algorithm Uni
   classical
   have hbh := mul_exp_neg_klDiv_map_history_div_two_le_sum (h.measurable_history n)
     (h'.measurable_history n) (measurableSet_singleton a₁) hkl
-  have h1 : ∑ t ∈ range n, P.real (A t ⁻¹' {a₁}) = ∫ ω, (pullCount A a₁ n ω : ℝ) ∂P := by
-    rw [integral_pullCount_eq_sum h.measurable_action]
-  have h2 : ∑ t ∈ range n, P'.real (A' t ⁻¹' {a₁}ᶜ) = n - ∫ ω, (pullCount A' a₁ n ω : ℝ) ∂P' := by
-    rw [integral_pullCount_eq_sum h'.measurable_action]
-    simp_rw [Set.preimage_compl,
-      probReal_compl_eq_one_sub (h'.measurable_action _ (measurableSet_singleton a₁))]
-    simp
-  rw [h1, h2] at hbh
+  rw [← integral_pullCount_eq_sum h.measurable_action,
+    sum_probReal_preimage_compl_eq_sub_integral_pullCount h'.measurable_action] at hbh
   have hR := mul_integral_pullCount_le_integral_regret (P := P) h.measurable_action hΔ n
   have hR' := mul_sub_integral_pullCount_le_integral_regret (P := P') h'.measurable_action hΔ' n
   nlinarith [mul_le_mul_of_nonneg_left hbh hΔ0]

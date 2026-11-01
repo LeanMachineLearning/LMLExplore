@@ -188,10 +188,11 @@ theorem eventually_mul_log_le_integral_pullCount_of_isConsistent [DecidableEq α
   have hcD : c * (klDiv (ν a) Q).toReal < 1 := by
     rcases le_or_gt c 0 with hc0 | hc0
     · nlinarith [ENNReal.toReal_nonneg (a := klDiv (ν a) Q)]
-    · rw [← ENNReal.ofReal_toReal hD, ENNReal.ofReal_inv_of_pos hc0 |>.symm,
-        ENNReal.ofReal_lt_ofReal_iff (inv_pos.mpr hc0)] at hQ
-      have := mul_lt_mul_of_pos_left hQ hc0
-      rwa [mul_inv_cancel₀ hc0.ne'] at this
+    · -- `D(ν a, Q) < (ofReal c)⁻¹` is `ofReal c * D(ν a, Q) < 1`, then take `toReal`.
+      have h1 : ENNReal.ofReal c * klDiv (ν a) Q < 1 := by
+        rwa [mul_comm, ← ENNReal.lt_div_iff_mul_lt (by simp [hc0]) (by simp), one_div]
+      simpa [ENNReal.toReal_mul, ENNReal.toReal_ofReal hc0.le] using
+        ENNReal.toReal_lt_of_lt_ofReal (h1.trans_eq ENNReal.ofReal_one.symm)
   -- The bandit `ν'` in which the law of the arm `a` is replaced by `Q`.
   have : IsProbabilityMeasure Q := hM a Q hQM
   have hupd : ∀ b, IsProbabilityMeasure (Function.update (fun b ↦ ν b) a Q b) := fun b ↦ by
