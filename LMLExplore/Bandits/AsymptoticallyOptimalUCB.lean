@@ -301,9 +301,8 @@ theorem UCBF.integral_pullCount_eventually_le
     refine this.congr fun n ↦ ?_
     rw [sqrt_mul pi_pos.le]
     ring
-  filter_upwards [h_bound.eventually_lt_const hεc, h_log.eventually_gt_atTop 0] with n hn hlog
+  filter_upwards [eventually_lt_mul_log_of_tendsto_div_log h_bound hεc] with n hn
   refine (UCBF.integral_pullCount_le h hν hσ2 a hε hεa n).trans ?_
-  rw [div_lt_iff₀ hlog] at hn
   refine le_of_lt (lt_of_eq_of_lt ?_ hn)
   simp only [K, D, L]
   ring

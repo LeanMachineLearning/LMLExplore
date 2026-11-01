@@ -16,6 +16,8 @@ public import Mathlib.Analysis.SpecialFunctions.Log.Basic
 * `Real.monotoneOn_log_one_add_mul_log_sq`: `x ↦ log (1 + x log² x)` is monotone on `[1, ∞)`.
 * `Real.tendsto_log_one_add_mul_log_sq_div_log_atTop`: `log (1 + x log² x) / log x → 1` as
   `x → ∞`.
+* `Real.eventually_lt_mul_log_of_tendsto_div_log`: if `g n / log n → D` and `D < c`, then
+  eventually `g n < c log n`.
 -/
 
 public section
@@ -81,5 +83,13 @@ theorem tendsto_log_one_add_mul_log_sq_div_log_atTop :
         ring
     rw [div_le_iff₀ (by linarith), add_mul, div_mul_cancel₀ _ (by linarith)]
     linarith
+
+/-- If `g n / log n → D` as `n → ∞` and `D < c`, then eventually `g n < c log n`. -/
+theorem eventually_lt_mul_log_of_tendsto_div_log {g : ℕ → ℝ} {D c : ℝ}
+    (hg : Tendsto (fun n : ℕ ↦ g n / log n) atTop (𝓝 D)) (hc : D < c) :
+    ∀ᶠ n : ℕ in atTop, g n < c * log n := by
+  filter_upwards [hg.eventually_lt_const hc,
+    (tendsto_log_atTop.comp tendsto_natCast_atTop_atTop).eventually_gt_atTop 0] with n hn hlog
+  exact (div_lt_iff₀ hlog).mp hn
 
 end Real

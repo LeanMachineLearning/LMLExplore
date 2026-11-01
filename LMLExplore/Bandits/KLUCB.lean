@@ -250,9 +250,7 @@ theorem KLUCB.integral_pullCount_le (h : IsAlgEnvSeq O A R klucb (stationaryEnv 
   have hL0 : 0 ≤ L := log_nonneg (by linarith [(by positivity : (0 : ℝ) ≤ n * log n ^ 2)])
   have hgap : gap ν a = μs - (ν a)[id] := gap_eq_bestArm_sub
   -- the means lie in `[0, 1]`, so that `ε₂ < Δ_a ≤ 1`
-  have hμ (b : α) : (ν b)[id] ∈ Set.Icc 0 1 :=
-    (convex_Icc (0 : ℝ) 1).integral_mem isClosed_Icc (hν b)
-      (Integrable.of_mem_Icc 0 1 aemeasurable_id (hν b))
+  have hμ (b : α) : (ν b)[id] ∈ Set.Icc 0 1 := integral_id_mem_Icc_of_ae_mem_Icc (hν b)
   have hμs1 : μs ≤ 1 := (hμ (bestArm ν)).2
   have hε₂1 : ε₂ < 1 := by linarith [(hμ a).1]
   calc P[fun ω ↦ (pullCount A a n ω : ℝ)]
@@ -313,9 +311,7 @@ theorem KLUCB.integral_pullCount_eventually_le (h : IsAlgEnvSeq O A R klucb (sta
   set μs := (ν (bestArm ν))[id]
   have hgap : gap ν a = μs - μa := gap_eq_bestArm_sub
   -- the means lie in `[0, 1]`
-  have hμ (b : α) : (ν b)[id] ∈ Set.Icc 0 1 :=
-    (convex_Icc (0 : ℝ) 1).integral_mem isClosed_Icc (hν b)
-      (Integrable.of_mem_Icc 0 1 aemeasurable_id (hν b))
+  have hμ (b : α) : (ν b)[id] ∈ Set.Icc 0 1 := integral_id_mem_Icc_of_ae_mem_Icc (hν b)
   have hc0 : 0 < c := (inv_nonneg.mpr ENNReal.toReal_nonneg).trans_lt hc
   -- `c⁻¹ < d(μ_a, μ*)`, also when `d(μ_a, μ*) = ∞`
   have hlt : ENNReal.ofReal c⁻¹ < klBer μa μs := by
@@ -351,8 +347,7 @@ theorem KLUCB.integral_pullCount_eventually_le (h : IsAlgEnvSeq O A R klucb (sta
     refine this.congr fun n ↦ ?_
     simp only [Function.comp_apply]
     ring
-  filter_upwards [h_bound.eventually_lt_const hDc, h_log.eventually_gt_atTop 0] with n hn hlog
-  rw [div_lt_iff₀ hlog] at hn
+  filter_upwards [eventually_lt_mul_log_of_tendsto_div_log h_bound hDc] with n hn
   refine (KLUCB.integral_pullCount_le h hν a hε hε (by linarith) n).trans ?_
   simp only [K, L] at hn
   linarith
@@ -381,8 +376,7 @@ theorem klucb_regret_eventually_le_of_integral_bestArm_eq_one [StandardBorelSpac
     (h1 : (ν (bestArm ν))[id] = 1) {c : ℝ} (hc : 0 < c) :
     ∀ᶠ n : ℕ in atTop, P[regret ν A n] ≤ c * log n := by
   refine klucb_regret_eventually_le h hν (lt_of_eq_of_lt (sum_eq_zero fun a ha ↦ ?_) hc)
-  have hμ : (ν a)[id] ∈ Set.Icc 0 1 := (convex_Icc (0 : ℝ) 1).integral_mem isClosed_Icc (hν a)
-    (Integrable.of_mem_Icc 0 1 aemeasurable_id (hν a))
+  have hμ : (ν a)[id] ∈ Set.Icc 0 1 := integral_id_mem_Icc_of_ae_mem_Icc (hν a)
   have hlt : (ν a)[id] < 1 := by
     have := (mem_filter.mp ha).2
     rw [gap_eq_bestArm_sub, h1] at this
