@@ -33,7 +33,7 @@ the cost of the alternatives is the infimum of the cost over it.
   alternatives to `a` within `S` is `{λ | ∃ b ≠ a, λ a ≤ λ b} ∩ S`;
   `LMLExplore.Identification.closure_alt_baiTask` is the case `S = univ`.
 * `LMLExplore.Identification.altCost_baiTask_restrict_eq_iInf`: for `S` open and a transportation
-  cost continuous on that set,
+  cost continuous on `{λ | ∃ b ≠ a, λ a ≤ λ b} ∩ S`,
   `D(μ, w, ¬a) = min_{b ≠ a} inf {cost_μ(w, λ) | λ ∈ S, λ a ≤ λ b}`.
 
 ## References
@@ -71,10 +71,10 @@ section Closure
 
 variable [Finite α]
 
-/-- A vector of means in which some arm `b ≠ a` has mean at least that of `a` is a limit of
-alternatives to `a`: raising the largest mean, attained at an arm `b ≠ a`, makes `b` the unique
-best arm. -/
-lemma mem_closure_alt_baiTask_restrict (hS : IsOpen S) (hμ'S : μ' ∈ S)
+/-- For a neighbourhood `S` of a vector of means `μ'` in which some arm `b ≠ a` has mean at least
+that of `a`, the vector `μ'` lies in the closure of the alternatives to `a` of
+`(baiTask ν).restrict S`. -/
+lemma mem_closure_alt_baiTask_restrict (hS : S ∈ 𝓝 μ')
     (hμ' : ∃ b ≠ a, μ' a ≤ μ' b) : μ' ∈ closure (((baiTask ν).restrict S).alt a) := by
   classical
   -- An arm `b ≠ a` with the largest mean.
@@ -86,13 +86,13 @@ lemma mem_closure_alt_baiTask_restrict (hS : IsOpen S) (hμ'S : μ' ∈ S)
     · exact ⟨b, hba, fun c ↦ (hda ▸ hd c).trans hab⟩
     · exact ⟨d, hda, hd⟩
   -- The path `t ↦ μ' + t • Pi.single b 1` tends to `μ'` and lies in the alternatives for small
-  -- `t > 0`.
+  -- `t > 0`: raising the largest mean makes `b` the unique best arm.
   set f : ℝ → α → ℝ := fun t ↦ μ' + t • Pi.single b 1 with hf
   have hf_tendsto : Tendsto f (𝓝[>] 0) (𝓝 μ') := by
     have hf_cont : Continuous f := by fun_prop
     simpa [hf] using hf_cont.continuousWithinAt.tendsto (x := 0) (s := Set.Ioi 0)
   refine mem_closure_of_tendsto hf_tendsto ?_
-  filter_upwards [hf_tendsto.eventually (hS.mem_nhds hμ'S), self_mem_nhdsWithin] with t htS ht
+  filter_upwards [hf_tendsto.eventually hS, self_mem_nhdsWithin] with t htS ht
   rw [IdentTask.alt_restrict]
   refine ⟨(mem_alt_baiTask_iff ν).2 ⟨b, hba, fun c hcb ↦ ?_⟩, htS⟩
   simpa [hf, Pi.single_apply, hcb] using (hb c).trans_lt (lt_add_of_pos_right _ ht)
@@ -104,7 +104,7 @@ arm `b ≠ a` has mean at least that of `a`, that is, whose largest mean is atta
 theorem closure_alt_baiTask_restrict_inter (hS : IsOpen S) (a : α) :
     closure (((baiTask ν).restrict S).alt a) ∩ S = {μ' | ∃ b ≠ a, μ' a ≤ μ' b} ∩ S := by
   refine Set.Subset.antisymm (fun μ' ⟨hμ', hμ'S⟩ ↦ ⟨?_, hμ'S⟩)
-    (fun μ' ⟨hμ', hμ'S⟩ ↦ ⟨mem_closure_alt_baiTask_restrict ν hS hμ'S hμ', hμ'S⟩)
+    (fun μ' ⟨hμ', hμ'S⟩ ↦ ⟨mem_closure_alt_baiTask_restrict ν (hS.mem_nhds hμ'S) hμ', hμ'S⟩)
   -- The set is closed, as a finite union of the closed sets `{μ' | μ' a ≤ μ' b}`, `b ≠ a`, and it
   -- contains the alternatives.
   have h_closed : IsClosed {μ' : α → ℝ | ∃ b ≠ a, μ' a ≤ μ' b} := by
