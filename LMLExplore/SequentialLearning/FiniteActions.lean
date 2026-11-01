@@ -25,6 +25,7 @@ Facts about LML's `pullCount` that hold for any sequence of actions `A : ℕ →
   `Fintype.card α` rounds plays an arm not pulled before, then every arm is pulled exactly once
   during those rounds.
 * `integral_pullCount_eq_sum`: `E[T_a(n)] = ∑_{t < n} P(A t = a)`.
+* `sum_probReal_preimage_compl_eq_sub_integral_pullCount`: `∑_{t < n} P(A t ≠ a) = n - E[T_a(n)]`.
 * `lintegral_pullCount_eq_ofReal_integral`: the expected number of pulls is the same whether
   computed as a lower Lebesgue integral in `ℝ≥0∞` or as a Bochner integral in `ℝ`.
 * `sum_integral_pullCount`: the expected numbers of pulls of the arms before `n` add up to `n`.
@@ -116,6 +117,14 @@ theorem integral_pullCount_eq_sum [IsFiniteMeasure P] (hA : ∀ t, Measurable (A
   simp_rw [h]
   rw [integral_finsetSum _ fun t _ ↦ (integrable_const (1 : ℝ)).indicator (hs t)]
   exact sum_congr rfl fun t _ ↦ by rw [integral_indicator_const _ (hs t), smul_eq_mul, mul_one]
+
+/-- The expected number of rounds before `n` that do not play `a` is `∑_{t < n} P(A t ≠ a)`. -/
+theorem sum_probReal_preimage_compl_eq_sub_integral_pullCount [IsProbabilityMeasure P]
+    (hA : ∀ t, Measurable (A t)) (a : α) (n : ℕ) :
+    ∑ t ∈ range n, P.real (A t ⁻¹' {a}ᶜ) = n - ∫ ω, (pullCount A a n ω : ℝ) ∂P := by
+  rw [integral_pullCount_eq_sum hA]
+  simp_rw [Set.preimage_compl, probReal_compl_eq_one_sub (hA _ (measurableSet_singleton a))]
+  simp
 
 /-- The expected number of pulls of `a` before `n` is the same whether computed as a lower Lebesgue
 integral in `ℝ≥0∞` or as a Bochner integral in `ℝ`. -/

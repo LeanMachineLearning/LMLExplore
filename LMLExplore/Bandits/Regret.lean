@@ -30,7 +30,9 @@ on the expected regret. Asymptotic bounds are stated in eventual form: `limsup_n
 `∀ c > C, ∀ᶠ n in atTop, u_n ≤ c f(n)`. If `limsup_n E[T_a(n)] / f(n) ≤ C_a` for every arm `a` with
 positive gap, then `limsup_n E[R_n] / f(n) ≤ ∑_{a : Δ_a > 0} Δ_a C_a`. With `f(n) = log n`, this is
 how the asymptotic regret bounds of [LS, Theorems 8.1 and 10.6] follow from the bounds on the
-numbers of pulls.
+numbers of pulls. Symmetrically, asymptotic lower bounds `liminf_n E[T_a(n)] / f(n) ≥ C_a`, with
+constants in `ℝ≥0∞`, give `liminf_n E[R_n] / f(n) ≥ ∑_{a : Δ_a > 0} Δ_a C_a`, as in the Lai–Robbins
+lower bound [LS, Theorem 16.2].
 
 ## Main statements
 
@@ -47,6 +49,9 @@ numbers of pulls.
 * `integral_regret_eventually_le_of_forall_integral_pullCount_eventually_le`: eventual bounds
   `E[T_a(n)] ≤ c f(n)` for every `c > C_a` give the eventual bound `E[R_n] ≤ c f(n)` for every
   `c > ∑_{a : Δ_a > 0} Δ_a C_a`.
+* `eventually_le_integral_regret_of_forall_eventually_le_integral_pullCount`: eventual bounds
+  `c f(n) ≤ E[T_a(n)]` for every `c < C_a` give the eventual bound `c f(n) ≤ E[R_n]` for every
+  `c < ∑_{a : Δ_a > 0} Δ_a C_a`.
 
 ## References
 
@@ -56,6 +61,8 @@ numbers of pulls.
 public section
 
 open MeasureTheory ProbabilityTheory Finset Filter Learning Bandits
+
+open scoped ENNReal
 
 namespace LMLExplore.Bandits
 
@@ -213,6 +220,74 @@ theorem integral_regret_eventually_le_of_forall_integral_pullCount_eventually_le
     sum_congr rfl fun a ha ↦ by field_simp [(mem_filter.mp ha).2.ne']
   _ = (∑ a ∈ S, gap ν a * C a + #S * δ) * f n := by simp [← sum_mul, sum_add_distrib]
   _ ≤ c * f n := mul_le_mul_of_nonneg_right (by linarith) hfn
+
+/-- **Asymptotic lower bound on the regret from the numbers of pulls.** Let `f` be eventually
+nonnegative and `C : α → ℝ≥0∞`. If for every arm `a` with positive gap and every real `c` with
+`c < C_a`, eventually `c f(n) ≤ E[T_a(n)]`, then for every real `c < ∑_{a : Δ_a > 0} Δ_a C_a`,
+eventually `c f(n) ≤ E[R_n]`: in `liminf` form, `liminf_n E[T_a(n)] / f(n) ≥ C_a` for each such
+arm gives `liminf_n E[R_n] / f(n) ≥ ∑_{a : Δ_a > 0} Δ_a C_a`. The constants are in `ℝ≥0∞`, which
+allows the infinite constants of the Lai–Robbins lower bound [LS, Theorem 16.2]. -/
+theorem eventually_le_integral_regret_of_forall_eventually_le_integral_pullCount
+    (hA : ∀ t, Measurable (A t)) {f : ℕ → ℝ} (hf : ∀ᶠ n in atTop, 0 ≤ f n) (C : α → ℝ≥0∞)
+    (h_le : ∀ a, 0 < gap ν a → ∀ c : ℝ, ENNReal.ofReal c < C a →
+      ∀ᶠ n in atTop, c * f n ≤ P[fun ω ↦ (pullCount A a n ω : ℝ)])
+    {c : ℝ} (hc : ENNReal.ofReal c <
+      ∑ a ∈ univ.filter (fun a ↦ 0 < gap ν a), ENNReal.ofReal (gap ν a) * C a) :
+    ∀ᶠ n in atTop, c * f n ≤ P[regret ν A n] := by
+  set S := univ.filter (fun a ↦ 0 < gap ν a)
+  -- The bound for an arm of `S` holds trivially for a nonpositive constant.
+  have h_le' : ∀ a ∈ S, ∀ c : ℝ, (c ≤ 0 ∨ ENNReal.ofReal c < C a) →
+      ∀ᶠ n in atTop, c * f n ≤ P[fun ω ↦ (pullCount A a n ω : ℝ)] := by
+    rintro a ha c (hc | hc)
+    · filter_upwards [hf] with n hfn
+      exact (mul_nonpos_of_nonpos_of_nonneg hc hfn).trans
+        (integral_nonneg fun _ ↦ Nat.cast_nonneg _)
+    · exact h_le a (mem_filter.mp ha).2 c hc
+  -- It suffices to write `c ≤ ∑_{a ∈ S} Δ_a c_a` with constants `c_a` to which `h_le'` applies.
+  suffices h_split : ∃ c' : α → ℝ, (∀ a ∈ S, c' a ≤ 0 ∨ ENNReal.ofReal (c' a) < C a) ∧
+      c ≤ ∑ a ∈ S, gap ν a * c' a by
+    obtain ⟨c', hc'C, hc'⟩ := h_split
+    have h_arms := (eventually_all_finset S).mpr fun a ha ↦ h_le' a ha (c' a) (hc'C a ha)
+    filter_upwards [h_arms, hf] with n h_arms hfn
+    rw [integral_regret_eq_sum_gap_mul_integral_pullCount hA]
+    calc c * f n
+    _ ≤ (∑ a ∈ S, gap ν a * c' a) * f n := mul_le_mul_of_nonneg_right hc' hfn
+    _ = ∑ a ∈ S, gap ν a * (c' a * f n) := by simp_rw [sum_mul, mul_assoc]
+    _ ≤ ∑ a ∈ S, gap ν a * P[fun ω ↦ (pullCount A a n ω : ℝ)] :=
+      sum_le_sum fun a ha ↦ mul_le_mul_of_nonneg_left (h_arms a ha) gap_nonneg
+    _ ≤ ∑ a, gap ν a * P[fun ω ↦ (pullCount A a n ω : ℝ)] :=
+      sum_le_sum_of_subset_of_nonneg (subset_univ _) fun a _ _ ↦
+        mul_nonneg gap_nonneg (integral_nonneg fun _ ↦ Nat.cast_nonneg _)
+  rcases le_or_gt c 0 with hc0 | hc0
+  · exact ⟨0, fun _ _ ↦ Or.inl le_rfl, by simpa using hc0⟩
+  by_cases hC : ∃ a ∈ S, C a = ∞
+  · -- An arm with an infinite constant carries all of `c`.
+    obtain ⟨a₀, ha₀, hCa₀⟩ := hC
+    have hgap : 0 < gap ν a₀ := (mem_filter.mp ha₀).2
+    refine ⟨Pi.single a₀ (c / gap ν a₀), fun a _ ↦ ?_, ?_⟩
+    · rcases eq_or_ne a a₀ with rfl | ha
+      · exact Or.inr (by simp [hCa₀])
+      · exact Or.inl (by simp [ha])
+    · rw [sum_eq_single_of_mem a₀ ha₀ fun b _ hb ↦ by simp [hb], Pi.single_eq_same,
+        mul_div_cancel₀ _ hgap.ne']
+  · -- Otherwise, every constant is scaled by `c / s < 1`, where `s = ∑_{a ∈ S} Δ_a C_a`.
+    push Not at hC
+    set s := ∑ a ∈ S, gap ν a * (C a).toReal with hs_def
+    have hsum : ∑ a ∈ S, ENNReal.ofReal (gap ν a) * C a = ENNReal.ofReal s := by
+      rw [hs_def,
+        ENNReal.ofReal_sum_of_nonneg fun a _ ↦ mul_nonneg gap_nonneg ENNReal.toReal_nonneg]
+      refine sum_congr rfl fun a ha ↦ ?_
+      rw [ENNReal.ofReal_mul gap_nonneg, ENNReal.ofReal_toReal (hC a ha)]
+    rw [hsum, ENNReal.ofReal_lt_ofReal_iff'] at hc
+    refine ⟨fun a ↦ c / s * (C a).toReal, fun a ha ↦ ?_, ?_⟩
+    · rcases eq_or_ne (C a) 0 with h0 | h0
+      · exact Or.inl (by simp [h0])
+      · have hpos := ENNReal.toReal_pos h0 (hC a ha)
+        have hcs : c / s < 1 := (div_lt_one hc.2).mpr hc.1
+        refine Or.inr ?_
+        rw [← ENNReal.ofReal_toReal (hC a ha), ENNReal.ofReal_lt_ofReal_iff hpos]
+        nlinarith
+    · simp_rw [mul_left_comm _ (c / s), ← mul_sum, ← hs_def, div_mul_cancel₀ _ hc.2.ne', le_rfl]
 
 end Asymptotic
 
