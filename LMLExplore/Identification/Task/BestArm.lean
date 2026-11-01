@@ -27,9 +27,10 @@ alternatives to `a` is the closed set above, and when the transportation cost is
 the cost of the alternatives is the infimum of the cost over it.
 
 When the arms belong to an exponential family with divergence `d` and `a` is a best arm of `μ`,
-the infimum for the arm `b` is attained by moving the means of `a` and `b` to their mean weighted
-by the allocation, which gives the closed form of the cost of the alternatives used to compute the
-optimal allocations of best arm identification [GK16, Lemma 3].
+the infimum for the arm `b` is the cost of moving the means of `a` and `b` to their mean weighted
+by the allocation (attained there when `w a + w b > 0`), which gives the closed form of the cost of
+the alternatives used to compute the optimal allocations of best arm identification
+[GK16, Lemma 3].
 
 ## Main statements
 
@@ -228,25 +229,20 @@ theorem altCost_baiTask_restrict_eq_iInf_expFamilyDiv
   -- The cost is continuous on the vectors of means of the family, so that the alternatives can
   -- be replaced by their closure, in which `b` is at least as good as `a` for some `b ≠ a`.
   have hc : ContinuousOn ((baiTask ν).cost w μ) S := by
-    refine ContinuousOn.congr ?_ fun μ' hμ' ↦ h_cost hμ'
-    refine ENNReal.continuous_ofReal.comp_continuousOn
-      (continuousOn_finsetSum _ fun c _ ↦ continuousOn_const.mul ?_)
-    exact (continuousOn_expFamilyDiv hT).comp (f := fun μ' : α → ℝ ↦ (μ c, μ' c)) (by fun_prop)
-      fun μ' hμ' ↦ ⟨hμ c, hμ' c⟩
+    refine (baiTask ν).continuousOn_cost (fun c ↦ ?_) w
+    have h := ENNReal.continuous_ofReal.comp_continuousOn ((continuousOn_expFamilyDiv hT).comp
+      (f := fun μ' : α → ℝ ↦ (μ c, μ' c)) (s := S) (by fun_prop) fun μ' hμ' ↦ ⟨hμ c, hμ' c⟩)
+    exact h.congr fun μ' hμ' ↦ by rw [ν_baiTask, hν μ' hμ' c]; rfl
   rw [altCost_baiTask_restrict_eq_iInf ν hS (hc.mono Set.inter_subset_right)]
   refine iInf_congr fun b ↦ iInf_congr fun hba ↦ le_antisymm ?_ ?_
   · -- Upper bound: move the means of `a` and `b` to the weighted mean `m_b`, a mean of the
-    -- family between `μ b` and `μ a` (or to `μ a` if both weights vanish).
+    -- family (or to `μ a` if both weights vanish).
     rcases (add_nonneg (hw a) (hw b)).eq_or_lt with hW | hW
     · obtain ⟨hwa, hwb⟩ : w a = 0 ∧ w b = 0 :=
         ⟨by linarith [hw' a, hw' b], by linarith [hw' a, hw' b]⟩
       simpa [hwa, hwb, hS_def] using iInf_cost_baiTask_le ν hμ hν hw hba (hμ a)
-    refine iInf_cost_baiTask_le ν hμ hν hw hba
-      (convex_expFamilyMeans.ordConnected.out (hμ b) (hμ a) ⟨?_, ?_⟩)
-    · rw [le_div_iff₀ hW]
-      nlinarith [ha b, hw' a]
-    · rw [div_le_iff₀ hW]
-      nlinarith [ha b, hw' b]
+    exact iInf_cost_baiTask_le ν hμ hν hw hba
+      (div_mem_expFamilyMeans (hμ a) (hμ b) (hw a) (hw b) hW)
   · -- Lower bound: drop the arms other than `a` and `b`, then move both means to `m_b`.
     refine le_iInf₂ fun μ' hμ' ↦ le_iInf fun hab ↦ ?_
     rw [h_cost hμ']
