@@ -66,6 +66,10 @@ and the Chernoff bound in relative-entropy form [LS, Lemma 10.7].
   This controls the underestimation of an optimal arm in the proof of [LS, Theorem 8.1].
 * `sum_range_inv_mul_sum_range_exp_neg_le`: [LS, Exercise 8.1], the bound
   `∑_{t ≤ n} 1 / f(t) ∑_{s ≤ n} exp (-s ε² / (2 σ²)) ≤ 5 σ² / ε²`.
+* `measureReal_pullCount_sumRewards_le_sum`: in a run of any algorithm against `stationaryEnv ν`,
+  the probability that a property `p` of the number of pulls and the sum of rewards of an arm,
+  which fails for zero pulls, holds at round `t` is at most the sum over `s < t` of the
+  probabilities that `p (s + 1)` holds for the first `s + 1` rewards of the arm in the stream model.
 * `measureReal_pullCount_ne_zero_and_empMean_add_sqrt_le_le`: in a run of any algorithm against
   `stationaryEnv ν`, the probability that at round `t` a pulled arm has index
   `μ̂_a + √(2 σ² L / T_a)` at most its mean minus `ε` is at most
@@ -455,6 +459,34 @@ private lemma measurable_div_add_sqrt_div (c : ℝ) :
     Measurable fun q : ℕ × ℝ ↦ q.2 / q.1 + √(c / q.1) := by
   fun_prop
 
+/-- **Union bound over the number of pulls.** In a run of any algorithm against the stochastic
+bandit `stationaryEnv ν`, let `p s x` be a measurable property of a number of pulls `s` and a sum
+of rewards `x` that fails for `s = 0`. The probability that `p` holds at round `t` for the number
+of pulls and the sum of rewards of arm `a` is at most the sum over `s < t` of the probabilities
+that `p (s + 1)` holds for the sum of the first `s + 1` rewards of `a` in the i.i.d. reward stream
+model. -/
+theorem measureReal_pullCount_sumRewards_le_sum (h : IsAlgEnvSeq O A R alg (stationaryEnv ν) P)
+    (a : α) {p : ℕ → ℝ → Prop} (hp : Measurable fun q : ℕ × ℝ ↦ p q.1 q.2)
+    (hp0 : ∀ x, ¬ p 0 x) (t : ℕ) :
+    P.real {ω | p (pullCount A a t ω) (sumRewards A R a t ω)} ≤
+      ∑ s ∈ range t, (streamMeasure ν).real {ω | p (s + 1) (∑ i ∈ range (s + 1), ω i a)} := by
+  -- the event of round `t` is transferred to the reward stream, where a union bound over the
+  -- number of pulls applies, and the term of `0` pulls vanishes
+  calc P.real {ω | p (pullCount A a t ω) (sumRewards A R a t ω)}
+  _ ≤ P.real {ω | ∃ t' < t + 1, p (pullCount A a t' ω) (sumRewards A R a t' ω)} :=
+    measureReal_mono fun ω hω ↦ ⟨t, lt_add_one t, hω⟩
+  _ ≤ (streamMeasure ν).real {ω | ∃ s < t + 1, p s (∑ i ∈ range s, ω i a)} :=
+    ENNReal.toReal_mono (measure_ne_top _ _)
+      (measure_exists_lt_pullCount_sumRewards_le h a (t + 1) hp)
+  _ ≤ (streamMeasure ν).real (⋃ s ∈ range (t + 1), {ω | p s (∑ i ∈ range s, ω i a)}) := by
+    refine measureReal_mono (fun ω ⟨s, hs, hω⟩ ↦ ?_) (measure_ne_top _ _)
+    exact Set.mem_biUnion (mem_range.mpr hs) hω
+  _ ≤ ∑ s ∈ range (t + 1), (streamMeasure ν).real {ω | p s (∑ i ∈ range s, ω i a)} :=
+    measureReal_biUnion_finset_le _ _
+  _ = ∑ s ∈ range t, (streamMeasure ν).real {ω | p (s + 1) (∑ i ∈ range (s + 1), ω i a)} := by
+    rw [sum_range_succ']
+    simp [hp0]
+
 /-- **Underestimation of an arm by its index, at one round.** In a run of any algorithm against
 the stochastic bandit `stationaryEnv ν`, if arm `a` is σ²-sub-Gaussian with mean `μ_a` and
 `σ² ≠ 0`, then for `L ≥ 0`, `ε ≥ 0` and every round `t`, the probability that `a` has been pulled
@@ -473,24 +505,14 @@ theorem measureReal_pullCount_ne_zero_and_empMean_add_sqrt_le_le
       (measurableSet_setOfPred.mp (measurableSet_le (measurable_div_add_sqrt_div _)
         measurable_const))
   -- the event of round `t` is the event `p` for the number of pulls and the sum of rewards, which
-  -- is transferred to the reward stream, where a union bound over the number of pulls applies
+  -- is transferred to the reward stream with a union bound over the number of pulls
   calc P.real {ω | pullCount A a t ω ≠ 0 ∧
       empMean A R a t ω + √(2 * σ2 * L / pullCount A a t ω) ≤ (ν a)[id] - ε}
-  _ ≤ P.real {ω | ∃ t' < t + 1, p (pullCount A a t' ω) (sumRewards A R a t' ω)} :=
-    measureReal_mono fun ω hω ↦ ⟨t, lt_add_one t, by
-      simp only [Set.mem_ofPred_eq, empMean] at hω
-      exact hω⟩
-  _ ≤ (streamMeasure ν).real {ω | ∃ s < t + 1, p s (∑ i ∈ range s, ω i a)} :=
-    ENNReal.toReal_mono (measure_ne_top _ _)
-      (measure_exists_lt_pullCount_sumRewards_le h a (t + 1) hp)
-  _ ≤ (streamMeasure ν).real (⋃ s ∈ range (t + 1), {ω | p s (∑ i ∈ range s, ω i a)}) := by
-    refine measureReal_mono (fun ω ⟨s, hs, hω⟩ ↦ ?_) (measure_ne_top _ _)
-    exact Set.mem_biUnion (mem_range.mpr hs) hω
-  _ ≤ ∑ s ∈ range (t + 1), (streamMeasure ν).real {ω | p s (∑ i ∈ range s, ω i a)} :=
-    measureReal_biUnion_finset_le _ _
-  _ = ∑ s ∈ range t, (streamMeasure ν).real {ω | p (s + 1) (∑ i ∈ range (s + 1), ω i a)} := by
-    rw [sum_range_succ']
-    simp [hp_def]
+  _ ≤ ∑ s ∈ range t, (streamMeasure ν).real {ω | p (s + 1) (∑ i ∈ range (s + 1), ω i a)} := by
+    refine le_trans (measureReal_mono fun ω hω ↦ ?_)
+      (measureReal_pullCount_sumRewards_le_sum h a hp (fun _ h0 ↦ h0.1 rfl) t)
+    simp only [Set.mem_ofPred_eq, empMean] at hω
+    exact hω
   _ ≤ ∑ s ∈ range t, exp (-L) * exp (-(ε ^ 2 / (2 * σ2) * (s + 1))) := by
     refine sum_le_sum fun s _ ↦ ?_
     have h := measureReal_streamMeasure_div_add_sqrt_le_sub_le hν hσ2 hL hε (Nat.succ_ne_zero s)
@@ -584,38 +606,6 @@ private lemma sum_range_ite_add_one_mul_le_le {D L : ℝ} (hD : 0 < D) (hL : 0 �
   rw [le_div_iff₀ hD]
   exact_mod_cast hs.2
 
-/-- **Hoeffding's inequality** for independent `X i ∈ [0, 1]` with means at most `m`: for
-`ε ≥ 0`, `P(s (m + ε) ≤ X₀ + ⋯ + X_{s-1}) ≤ exp (-2 ε² s)`. -/
-private lemma measureReal_mul_add_le_sum_le (h_indep : iIndepFun X P)
-    (hXm : ∀ i, AEMeasurable (X i) P) (hX : ∀ i, ∀ᵐ ω ∂P, X i ω ∈ Set.Icc 0 1)
-    (hmean : ∀ i, P[X i] ≤ m) (hε : 0 ≤ ε) (s : ℕ) :
-    P.real {ω | s * (m + ε) ≤ ∑ i ∈ range s, X i ω} ≤ exp (-(2 * ε ^ 2 * s)) := by
-  have := h_indep.isProbabilityMeasure
-  rcases eq_or_ne s 0 with rfl | hs
-  · simp
-  have hs' : (0 : ℝ) < s := Nat.cast_pos.mpr (Nat.pos_of_ne_zero hs)
-  -- the centered variables are independent and `1 / 4`-sub-Gaussian
-  have h_indep' : iIndepFun (fun i ω ↦ X i ω - P[X i]) P :=
-    h_indep.comp (g := fun i (y : ℝ) ↦ y - ∫ ω, X i ω ∂P) fun _ ↦ measurable_sub_const _
-  have h_subG : ∀ i ∈ range s,
-      HasSubgaussianMGF (fun ω ↦ X i ω - P[X i]) ((‖(1 : ℝ) - 0‖₊ / 2) ^ 2) P :=
-    fun i _ ↦ hasSubgaussianMGF_of_mem_Icc (hXm i) (hX i)
-  have hc : ((‖(1 : ℝ) - 0‖₊ / 2) ^ 2 : ℝ≥0) = 1 / 4 := by
-    ext
-    norm_num
-  refine le_trans (measureReal_mono fun ω (hω : _ ≤ _) ↦ ?_)
-    ((HasSubgaussianMGF.measure_sum_ge_le_of_iIndepFun h_indep' h_subG (ε := s * ε)
-      (by positivity)).trans_eq ?_)
-  · have : ∑ i ∈ range s, P[X i] ≤ s * m := (sum_le_sum fun i _ ↦ hmean i).trans_eq (by simp)
-    simp only [Set.mem_ofPred_eq, sum_sub_distrib]
-    linarith
-  · rw [hc]
-    congr 1
-    simp only [sum_const, card_range, nsmul_eq_mul, NNReal.coe_mul, NNReal.coe_natCast]
-    field_simp
-    norm_num
-    ring
-
 /-- **Overestimation of the KL-UCB index** ([LS, Lemma 10.8] for rewards in `[0, 1]`). Let
 `X₀, X₁, …` be independent, in `[0, 1]`, with means at most `m`, let `ε > 0` and `c < 1` with
 `m + ε < c`, and let `L ≥ 0`. Then the expected number of sample sizes `s < n` at which `s = 0`, or
@@ -645,8 +635,10 @@ theorem sum_measureReal_eq_zero_or_le_div_or_klBer_div_le_le (h_indep : iIndepFu
         if s * D ≤ L then 1 else exp (-(2 * ε ^ 2 * s)) := by
     split_ifs with hsD
     · exact measureReal_le_one
-    refine le_trans (measureReal_mono fun ω hω ↦ ?_)
-      (measureReal_mul_add_le_sum_le h_indep hXm hX hmean hε.le s)
+    have h_hoeffding := measureReal_card_mul_add_le_sum_le h_indep (s := range s)
+      (fun i _ ↦ hXm i) (fun i _ ↦ hX i) (fun i _ ↦ hmean i) hε.le
+    rw [card_range] at h_hoeffding
+    refine le_trans (measureReal_mono fun ω hω ↦ ?_) h_hoeffding
     have hs : s ≠ 0 := by
       rintro rfl
       simp only [CharP.cast_eq_zero, zero_mul] at hsD
@@ -743,25 +735,15 @@ theorem measureReal_pullCount_ne_zero_and_klUpper_le_le
   have hp : Measurable fun q : ℕ × ℝ ↦ p q.1 q.2 :=
     (measurableSet_setOfPred.mp ((measurableSet_singleton 0).preimage measurable_fst).compl).and
       (measurableSet_setOfPred.mp (measurableSet_le (by fun_prop) measurable_const))
-  -- the event of round `t` is transferred to the reward stream, where a union bound over the
-  -- number of pulls applies
+  -- the event of round `t` is transferred to the reward stream with a union bound over the
+  -- number of pulls
   calc P.real {ω | pullCount A a t ω ≠ 0 ∧
       klUpper (empMean A R a t ω) (ENNReal.ofReal (L / pullCount A a t ω)) ≤ (ν a)[id] - ε}
-  _ ≤ P.real {ω | ∃ t' < t + 1, p (pullCount A a t' ω) (sumRewards A R a t' ω)} :=
-    measureReal_mono fun ω hω ↦ ⟨t, lt_add_one t, by
-      simp only [Set.mem_ofPred_eq, empMean] at hω
-      exact hω⟩
-  _ ≤ (streamMeasure ν).real {ω | ∃ s < t + 1, p s (∑ i ∈ range s, ω i a)} :=
-    ENNReal.toReal_mono (measure_ne_top _ _)
-      (measure_exists_lt_pullCount_sumRewards_le h a (t + 1) hp)
-  _ ≤ (streamMeasure ν).real (⋃ s ∈ range (t + 1), {ω | p s (∑ i ∈ range s, ω i a)}) := by
-    refine measureReal_mono (fun ω ⟨s, hs, hω⟩ ↦ ?_) (measure_ne_top _ _)
-    exact Set.mem_biUnion (Finset.mem_range.mpr hs) hω
-  _ ≤ ∑ s ∈ range (t + 1), (streamMeasure ν).real {ω | p s (∑ i ∈ range s, ω i a)} :=
-    measureReal_biUnion_finset_le _ _
-  _ = ∑ s ∈ range t, (streamMeasure ν).real {ω | p (s + 1) (∑ i ∈ range (s + 1), ω i a)} := by
-    rw [sum_range_succ']
-    simp [hp_def]
+  _ ≤ ∑ s ∈ range t, (streamMeasure ν).real {ω | p (s + 1) (∑ i ∈ range (s + 1), ω i a)} := by
+    refine le_trans (measureReal_mono fun ω hω ↦ ?_)
+      (measureReal_pullCount_sumRewards_le_sum h a hp (fun _ h0 ↦ h0.1 rfl) t)
+    simp only [Set.mem_ofPred_eq, empMean] at hω
+    exact hω
   _ ≤ ∑ s ∈ range t, exp (-L) * exp (-(2 * ε ^ 2 * (s + 1))) := by
     refine sum_le_sum fun s _ ↦ ?_
     have h := measureReal_streamMeasure_klUpper_le_sub_le hν hε L (Nat.succ_ne_zero s)

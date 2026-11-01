@@ -7,6 +7,7 @@ module
 
 public import Mathlib.Analysis.Convex.SpecificFunctions.Basic
 public import Mathlib.Probability.Moments.Basic
+public import Mathlib.Probability.Moments.SubGaussian
 public import LMLExplore.InformationTheory.KullbackLeibler.Bernoulli
 
 /-!
@@ -33,6 +34,8 @@ the underestimation of an optimal arm in the analysis of KL-UCB.
   `P(a ≤ ∑ i ∈ s, X i) ≤ exp (-t a) (1 - m + m exp t) ^ #s`.
 * `LMLExplore.measureReal_sum_ge_le_exp_klBerReal`: the upper tail
   `P(#s * p ≤ ∑ i ∈ s, X i) ≤ exp (-(#s * d(p, m)))` for `0 < m ≤ p ≤ 1`.
+* `LMLExplore.measureReal_card_mul_add_le_sum_le`: Hoeffding's inequality
+  `P(#s * (m + ε) ≤ ∑ i ∈ s, X i) ≤ exp (-2 ε² #s)` for `ε ≥ 0`.
 * `LMLExplore.measureReal_sum_le_le_exp_klBerReal`: the lower tail
   `P(∑ i ∈ s, X i ≤ #s * p) ≤ exp (-(#s * d(p, m)))` for `0 ≤ p ≤ m < 1`.
 * `LMLExplore.measureReal_exists_sum_le_and_le_klBerReal_le`: the lower tail for all levels
@@ -50,7 +53,7 @@ the underestimation of an optimal arm in the analysis of KL-UCB.
 public section
 
 open MeasureTheory ProbabilityTheory Filter Real Finset
-open scoped Topology
+open scoped NNReal Topology
 
 namespace LMLExplore
 
@@ -157,6 +160,39 @@ theorem measureReal_sum_ge_le_exp_klBerReal {X : ι → Ω → ℝ} (h_indep : i
     congr 1
     ring
 
+/-- **Hoeffding's inequality** for independent random variables `X i ∈ [0, 1]` with means at
+most `m`: for `ε ≥ 0`, `P(#s * (m + ε) ≤ ∑ i ∈ s, X i) ≤ exp (-2 ε² #s)`. -/
+theorem measureReal_card_mul_add_le_sum_le {X : ι → Ω → ℝ} (h_indep : iIndepFun X μ)
+    {s : Finset ι} (hXm : ∀ i ∈ s, AEMeasurable (X i) μ)
+    (hX : ∀ i ∈ s, ∀ᵐ ω ∂μ, X i ω ∈ Set.Icc 0 1) (hmean : ∀ i ∈ s, μ[X i] ≤ m) {ε : ℝ}
+    (hε : 0 ≤ ε) :
+    μ.real {ω | #s * (m + ε) ≤ ∑ i ∈ s, X i ω} ≤ exp (-(2 * ε ^ 2 * #s)) := by
+  have := h_indep.isProbabilityMeasure
+  rcases s.eq_empty_or_nonempty with rfl | hs
+  · simp
+  have hs' : (0 : ℝ) < #s := by exact_mod_cast hs.card_pos
+  -- the centered variables are independent and `1 / 4`-sub-Gaussian
+  have h_indep' : iIndepFun (fun i ω ↦ X i ω - μ[X i]) μ :=
+    h_indep.comp (g := fun i (y : ℝ) ↦ y - ∫ ω, X i ω ∂μ) fun _ ↦ measurable_sub_const _
+  have h_subG : ∀ i ∈ s,
+      HasSubgaussianMGF (fun ω ↦ X i ω - μ[X i]) ((‖(1 : ℝ) - 0‖₊ / 2) ^ 2) μ :=
+    fun i hi ↦ hasSubgaussianMGF_of_mem_Icc (hXm i hi) (hX i hi)
+  have hc : ((‖(1 : ℝ) - 0‖₊ / 2) ^ 2 : ℝ≥0) = 1 / 4 := by
+    ext
+    norm_num
+  refine le_trans (measureReal_mono fun ω (hω : _ ≤ _) ↦ ?_)
+    ((HasSubgaussianMGF.measure_sum_ge_le_of_iIndepFun h_indep' h_subG (ε := #s * ε)
+      (by positivity)).trans_eq ?_)
+  · have : ∑ i ∈ s, μ[X i] ≤ #s * m := (sum_le_sum hmean).trans_eq (by simp)
+    simp only [Set.mem_ofPred_eq, sum_sub_distrib]
+    linarith
+  · rw [hc]
+    congr 1
+    simp only [sum_const, nsmul_eq_mul, NNReal.coe_mul, NNReal.coe_natCast]
+    field_simp
+    norm_num
+    ring
+
 /-- **Chernoff bound in relative-entropy form, lower tail** ([LS, Lemma 10.3 and Note 10.3.1]):
 for independent random variables `X i ∈ [0, 1]` with means at least `m < 1`, and `p ∈ [0, m]`,
 `P(∑ i ∈ s, X i ≤ #s * p) ≤ exp (-(#s * d(p, m)))`. -/
@@ -219,23 +255,6 @@ theorem measureReal_exists_sum_le_and_le_klBerReal_le {X : ι → Ω → ℝ} (h
     gcongr
     exact hp₀.2
 
-/-- If `X ∈ [0, 1]` almost surely and `E[X] ≥ 1`, then `X = 1` almost surely. -/
-private lemma ae_eq_one_of_mem_Icc_of_one_le_integral [IsProbabilityMeasure μ] {X : Ω → ℝ}
-    (hXm : AEMeasurable X μ) (hX : ∀ᵐ ω ∂μ, X ω ∈ Set.Icc 0 1) (hmean : 1 ≤ μ[X]) :
-    ∀ᵐ ω ∂μ, X ω = 1 := by
-  have hint : Integrable X μ := .of_mem_Icc 0 1 hXm hX
-  have h_nonneg : 0 ≤ᵐ[μ] fun ω ↦ 1 - X ω := by
-    filter_upwards [hX] with ω hω using sub_nonneg.2 hω.2
-  have h_zero : ∫ ω, (1 - X ω) ∂μ = 0 := by
-    refine le_antisymm ?_ (integral_nonneg_of_ae h_nonneg)
-    rw [integral_sub (integrable_const 1) hint]
-    simp only [integral_const, probReal_univ, smul_eq_mul, one_mul]
-    linarith
-  filter_upwards [(integral_eq_zero_iff_of_nonneg_ae h_nonneg
-    ((integrable_const 1).sub hint)).1 h_zero] with ω hω
-  simp only [Pi.zero_apply] at hω
-  linarith
-
 /-- **Confidence bound for the upper confidence level** (the upper confidence level part of
 [LS, Corollary 10.4], with an additional margin): for independent random variables `X i ∈ [0, 1]`
 with means at least `m`, a nonempty finite set `s` with empirical mean
@@ -253,8 +272,13 @@ theorem measureReal_klUpper_le_le {X : ι → Ω → ℝ} (h_indep : iIndepFun X
   rcases lt_or_ge m 1 with hm | hm
   swap
   · -- for `m ≥ 1`, all the `X i` equal `1` almost surely, and `U(1, ·) = 1 > q`
-    have h1 : ∀ᵐ ω ∂μ, ∀ i ∈ s, X i ω = 1 := (eventually_all_finset s).2 fun i hi ↦
-      ae_eq_one_of_mem_Icc_of_one_le_integral (hXm i hi) (hX i hi) (hm.trans (hmean i hi))
+    have h1 : ∀ᵐ ω ∂μ, ∀ i ∈ s, X i ω = 1 := (eventually_all_finset s).2 fun i hi ↦ by
+      -- `X i ≤ 1` and `1 ≤ E[X i]`, so `E[X i] = E[1]` and `X i = 1` almost surely
+      have hint : Integrable (X i) μ := .of_mem_Icc 0 1 (hXm i hi) (hX i hi)
+      have hle : X i ≤ᵐ[μ] fun _ ↦ 1 := (hX i hi).mono fun ω hω ↦ hω.2
+      refine (integral_eq_iff_of_ae_le hint (integrable_const 1) hle).1 (le_antisymm ?_ ?_)
+      · exact integral_mono_ae hint (integrable_const 1) hle
+      · simpa using hm.trans (hmean i hi)
     have h_null : μ {ω | klUpper ((∑ i ∈ s, X i ω) / #s) (ENNReal.ofReal (L / #s)) ≤ q} = 0 := by
       refine measure_eq_zero_iff_ae_notMem.2 ?_
       filter_upwards [h1] with ω hω hU
