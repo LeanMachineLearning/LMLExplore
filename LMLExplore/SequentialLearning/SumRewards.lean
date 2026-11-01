@@ -11,14 +11,16 @@ public import LMLExplore.MeasureTheory.Measure.Prod
 public import LMLExplore.SequentialLearning.FiniteActions
 
 /-!
-# From a run of a bandit algorithm to the reward stream of one arm
+# From a run of a sequential learning algorithm to the reward stream
 
 The analysis of an index policy such as UCB, MOSS or KL-UCB bounds the number of rounds at which
 arm `a` is pulled while some event about its empirical mean holds. After `s` pulls, the empirical
 mean of arm `a` is the mean of its first `s` rewards, and in a run of any algorithm against the
-stochastic bandit `stationaryEnv ν` those rewards are i.i.d. with law `ν a`. This file transfers
-such counts and events from the run to the i.i.d. stream model `streamMeasure ν` of LML, for all
-numbers of pulls `s` simultaneously, without a union bound over the rounds.
+stochastic environment `stationaryEnv ν` those rewards are i.i.d. with law `ν a`. This file
+transfers such counts and events from the run to the i.i.d. stream model `streamMeasure ν` of LML,
+for all numbers of pulls `s` simultaneously, without a union bound over the rounds. Nothing here
+depends on how the algorithm chooses its actions, so the statements apply to the sampling rules of
+identification algorithms as well as to the policies of regret minimization.
 
 For a property `p s x` of a number of pulls `s` and a sum of rewards `x`:
 
@@ -35,6 +37,12 @@ step that controls an underestimated index of the optimal arm by a maximal inequ
 a horizon, the step that turns a maximal inequality for i.i.d. sums into a confidence bound valid
 at all rounds of the run.
 
+The event transfer also holds jointly over the arms: for a property `q s x` of the numbers of pulls
+`s : α → ℕ` and the sums of rewards `x : α → ℝ` of all arms, the probability that `q` holds at
+some round is at most the probability that it holds in the stream model for some `s`. Events about
+the counts and the sums of all arms at once, such as the generalized likelihood ratio statistics
+and the deviation inequalities of best arm identification, are bounded this way.
+
 ## Main statements
 
 * `hasLaw_rewardByCount_streamMeasure`: the rewards by count of all arms, arranged as a reward
@@ -42,8 +50,11 @@ at all rounds of the run.
 * `sum_measure_action_eq_and_pullCount_sumRewards_le`: the bound on the expected number of rounds,
   as a sum of probabilities in `ℝ≥0∞`, and `sum_measureReal_action_eq_and_pullCount_sumRewards_le`,
   its real-valued form.
+* `measure_exists_pullCount_sumRewards_pi_le`: the bound on the probability of an event about all
+  arms at some round, and `measure_exists_lt_pullCount_sumRewards_pi_le`, its form up to a horizon
+  `n`, for finitely many arms.
 * `measure_exists_pullCount_sumRewards_le`: the bound on the probability of the event at some
-  round, and `measure_exists_lt_pullCount_sumRewards_le`, its form up to a horizon `n`.
+  round for one arm, and `measure_exists_lt_pullCount_sumRewards_le`, its form up to a horizon `n`.
 * `measureReal_pullCount_sumRewards_le_sum`: in a run of any algorithm against `stationaryEnv ν`,
   the probability that a property `p` of the number of pulls and the sum of rewards of an arm,
   which fails for zero pulls, holds at round `t` is at most the sum over `s < t` of the
@@ -57,6 +68,8 @@ LML's `rewardByCount A R b (i + 1)` is the reward of the `(i + 1)`-th pull of `b
 (`hasLaw_rewardByCount_streamMeasure`, from LML's `Bandits.hasLaw_rewardByCount_infinitePi`). The
 sum of the rewards of `a` before round `t` is the sum of the first `pullCount A a t` of them, and
 the rounds that pull `a` see the pull counts `0, 1, …` each once (`sum_range_ite_action_eq`).
+The event transfers need no measurability of the event: they bound the outer measure of the event
+of the run by that of the event in the stream model, through `Measure.le_map_apply`.
 
 ## References
 
@@ -69,7 +82,7 @@ open MeasureTheory ProbabilityTheory Finset Learning Bandits
 
 open scoped ENNReal
 
-namespace LMLExplore.Bandits
+namespace LMLExplore
 
 variable {α Ω : Type*} {mα : MeasurableSpace α} {mΩ : MeasurableSpace Ω} [DecidableEq α]
   {O : ℕ → Ω → Unit} {A : ℕ → Ω → α} {R : ℕ → Ω → ℝ} {P : Measure Ω} [IsProbabilityMeasure P]
@@ -171,28 +184,64 @@ theorem sum_measureReal_action_eq_and_pullCount_sumRewards_le
   exact ENNReal.toReal_mono (ENNReal.sum_ne_top.mpr fun _ _ ↦ measure_ne_top _ _)
     (sum_measure_action_eq_and_pullCount_sumRewards_le h a n hp)
 
+/-- **Joint event transfer to the reward stream.** In a run of any algorithm against the
+stochastic bandit `stationaryEnv ν`, the probability that `q` holds at some round for the numbers
+of previous pulls of all arms and the sums of their previous rewards is at most the probability that
+`q s (fun a ↦ X₀ a + ⋯ + X_{s a - 1} a)` holds for some numbers of pulls `s : α → ℕ`, for the
+i.i.d. rewards `X` of the stream model `streamMeasure ν`. The predicate `q` need not be measurable:
+for a non-measurable event, both sides are outer measures. -/
+theorem measure_exists_pullCount_sumRewards_pi_le (h : IsAlgEnvSeq O A R alg (stationaryEnv ν) P)
+    (q : (α → ℕ) → (α → ℝ) → Prop) :
+    P {ω | ∃ t, q (fun a ↦ pullCount A a t ω) (fun a ↦ sumRewards A R a t ω)} ≤
+      streamMeasure ν {ω | ∃ s : α → ℕ, q s (fun a ↦ ∑ i ∈ range (s a), ω i a)} := by
+  set Z : Ω × (ℕ → α → ℝ) → ℕ → α → ℝ := fun ω i b ↦ rewardByCount A R b (i + 1) ω
+  have hZ : HasLaw Z (streamMeasure ν) (P.prod (streamMeasure ν)) :=
+    hasLaw_rewardByCount_streamMeasure h
+  calc P {ω | ∃ t, q (fun a ↦ pullCount A a t ω) (fun a ↦ sumRewards A R a t ω)}
+  _ = P.prod (streamMeasure ν) (Prod.fst ⁻¹'
+      {ω | ∃ t, q (fun a ↦ pullCount A a t ω) (fun a ↦ sumRewards A R a t ω)}) := by
+    rw [Measure.prod_preimage_fst, measure_univ, one_mul]
+  _ ≤ P.prod (streamMeasure ν)
+      (Z ⁻¹' {x | ∃ s : α → ℕ, q s (fun a ↦ ∑ i ∈ range (s a), x i a)}) := by
+    -- at round `t`, the rewards of each arm `a` so far are its first `pullCount A a t ω` rewards
+    -- by count
+    refine measure_mono fun ω ⟨t, ht⟩ ↦ ⟨fun a ↦ pullCount A a t ω.1, ?_⟩
+    simpa only [sumRewards_eq_sum_range_rewardByCount _ t ω] using ht
+  _ ≤ streamMeasure ν {x | ∃ s : α → ℕ, q s (fun a ↦ ∑ i ∈ range (s a), x i a)} :=
+    (Measure.le_map_apply hZ.aemeasurable _).trans_eq (by rw [hZ.map_eq])
+
+omit [Countable α] in
+/-- **Joint event transfer to the reward stream, up to a horizon.** For finitely many arms, in a
+run of any algorithm against the stochastic bandit `stationaryEnv ν`, the probability that `q`
+holds at some round `t < n` for the numbers of previous pulls of all arms and the sums of their
+previous rewards is at most the probability that `q s (fun a ↦ X₀ a + ⋯ + X_{s a - 1} a)` holds
+for some numbers of pulls `s : α → ℕ` with `∑ a, s a < n`, for the i.i.d. rewards `X` of the stream
+model `streamMeasure ν`. -/
+theorem measure_exists_lt_pullCount_sumRewards_pi_le [Fintype α]
+    (h : IsAlgEnvSeq O A R alg (stationaryEnv ν) P) (n : ℕ) (q : (α → ℕ) → (α → ℝ) → Prop) :
+    P {ω | ∃ t < n, q (fun a ↦ pullCount A a t ω) (fun a ↦ sumRewards A R a t ω)} ≤
+      streamMeasure ν
+        {ω | ∃ s : α → ℕ, ∑ a, s a < n ∧ q s (fun a ↦ ∑ i ∈ range (s a), ω i a)} := by
+  calc P {ω | ∃ t < n, q (fun a ↦ pullCount A a t ω) (fun a ↦ sumRewards A R a t ω)}
+  _ ≤ P {ω | ∃ t, ∑ a, pullCount A a t ω < n ∧
+      q (fun a ↦ pullCount A a t ω) (fun a ↦ sumRewards A R a t ω)} :=
+    -- at round `t`, the arms have been pulled `t` times in total
+    measure_mono fun ω ⟨t, ht, hqt⟩ ↦ ⟨t, by rwa [sum_pullCount], hqt⟩
+  _ ≤ streamMeasure ν
+      {ω | ∃ s : α → ℕ, ∑ a, s a < n ∧ q s (fun a ↦ ∑ i ∈ range (s a), ω i a)} :=
+    measure_exists_pullCount_sumRewards_pi_le h fun s x ↦ ∑ a, s a < n ∧ q s x
+
 /-- **Event transfer to the reward stream.** In a run of any algorithm against the stochastic
 bandit `stationaryEnv ν`, the probability that `p` holds for the number of previous pulls of arm
 `a` and the sum of its previous rewards at some round is at most the probability that
 `p s (X₀ + ⋯ + X_{s-1})` holds for some `s`, for the i.i.d. rewards `X` of `a` in the stream model
 `streamMeasure ν`. This is the form used for confidence bounds valid at all rounds at once. -/
 theorem measure_exists_pullCount_sumRewards_le (h : IsAlgEnvSeq O A R alg (stationaryEnv ν) P)
-    (a : α) (hp : Measurable fun q : ℕ × ℝ ↦ p q.1 q.2) :
+    (a : α) (p : ℕ → ℝ → Prop) :
     P {ω | ∃ t, p (pullCount A a t ω) (sumRewards A R a t ω)} ≤
-      streamMeasure ν {ω | ∃ s, p s (∑ i ∈ range s, ω i a)} := by
-  set Z : Ω × (ℕ → α → ℝ) → ℕ → α → ℝ := fun ω i b ↦ rewardByCount A R b (i + 1) ω
-  set B : Set (ℕ → α → ℝ) := {x | ∃ s, p s (∑ i ∈ range s, x i a)}
-  have hB : MeasurableSet B := measurableSet_setOfPred.mpr
-    (Measurable.exists fun s ↦ hp.of_uncurry_left.comp (by fun_prop))
-  calc P {ω | ∃ t, p (pullCount A a t ω) (sumRewards A R a t ω)}
-  _ = P.prod (streamMeasure ν)
-      (Prod.fst ⁻¹' {ω | ∃ t, p (pullCount A a t ω) (sumRewards A R a t ω)}) := by
-    rw [Measure.prod_preimage_fst, measure_univ, one_mul]
-  _ ≤ P.prod (streamMeasure ν) (Z ⁻¹' B) := by
-    -- at round `t`, the rewards of `a` so far are its first `pullCount A a t ω` rewards by count
-    refine measure_mono fun ω ⟨t, ht⟩ ↦ ⟨pullCount A a t ω.1, ?_⟩
-    rwa [← sumRewards_eq_sum_range_rewardByCount]
-  _ = streamMeasure ν B := (hasLaw_rewardByCount_streamMeasure h).measure_eq hB
+      streamMeasure ν {ω | ∃ s, p s (∑ i ∈ range s, ω i a)} :=
+  (measure_exists_pullCount_sumRewards_pi_le h fun s x ↦ p (s a) (x a)).trans
+    (measure_mono fun _ ⟨s, hs⟩ ↦ ⟨s a, hs⟩)
 
 /-- **Event transfer to the reward stream, up to a horizon.** In a run of any algorithm against the
 stochastic bandit `stationaryEnv ν`, the probability that `p` holds for the number of previous
@@ -200,7 +249,7 @@ pulls of arm `a` and the sum of its previous rewards at some round `t < n` is at
 probability that `p s (X₀ + ⋯ + X_{s-1})` holds for some `s < n`, for the i.i.d. rewards `X` of `a`
 in the stream model `streamMeasure ν`. -/
 theorem measure_exists_lt_pullCount_sumRewards_le (h : IsAlgEnvSeq O A R alg (stationaryEnv ν) P)
-    (a : α) (n : ℕ) (hp : Measurable fun q : ℕ × ℝ ↦ p q.1 q.2) :
+    (a : α) (n : ℕ) (p : ℕ → ℝ → Prop) :
     P {ω | ∃ t < n, p (pullCount A a t ω) (sumRewards A R a t ω)} ≤
       streamMeasure ν {ω | ∃ s < n, p s (∑ i ∈ range s, ω i a)} := by
   calc P {ω | ∃ t < n, p (pullCount A a t ω) (sumRewards A R a t ω)}
@@ -208,18 +257,16 @@ theorem measure_exists_lt_pullCount_sumRewards_le (h : IsAlgEnvSeq O A R alg (st
     -- at round `t < n`, arm `a` has been pulled `pullCount A a t ω ≤ t < n` times
     measure_mono fun ω ⟨t, ht, hpt⟩ ↦ ⟨t, (pullCount_le a t ω).trans_lt ht, hpt⟩
   _ ≤ streamMeasure ν {ω | ∃ s < n, p s (∑ i ∈ range s, ω i a)} :=
-    measure_exists_pullCount_sumRewards_le (p := fun s x ↦ s < n ∧ p s x) h a
-      ((Measurable.of_discrete (f := (· < n))).comp measurable_fst |>.and hp)
+    measure_exists_pullCount_sumRewards_le h a fun s x ↦ s < n ∧ p s x
 
 /-- **Union bound over the number of pulls.** In a run of any algorithm against the stochastic
-bandit `stationaryEnv ν`, let `p s x` be a measurable property of a number of pulls `s` and a sum
+bandit `stationaryEnv ν`, let `p s x` be a property of a number of pulls `s` and a sum
 of rewards `x` that fails for `s = 0`. The probability that `p` holds at round `t` for the number
 of pulls and the sum of rewards of arm `a` is at most the sum over `s < t` of the probabilities
 that `p (s + 1)` holds for the sum of the first `s + 1` rewards of `a` in the i.i.d. reward stream
 model. -/
 theorem measureReal_pullCount_sumRewards_le_sum (h : IsAlgEnvSeq O A R alg (stationaryEnv ν) P)
-    (a : α) (hp : Measurable fun q : ℕ × ℝ ↦ p q.1 q.2)
-    (hp0 : ∀ x, ¬ p 0 x) (t : ℕ) :
+    (a : α) (p : ℕ → ℝ → Prop) (hp0 : ∀ x, ¬ p 0 x) (t : ℕ) :
     P.real {ω | p (pullCount A a t ω) (sumRewards A R a t ω)} ≤
       ∑ s ∈ range t, (streamMeasure ν).real {ω | p (s + 1) (∑ i ∈ range (s + 1), ω i a)} := by
   -- the event of round `t` is transferred to the reward stream, where a union bound over the
@@ -229,7 +276,7 @@ theorem measureReal_pullCount_sumRewards_le_sum (h : IsAlgEnvSeq O A R alg (stat
     measureReal_mono fun ω hω ↦ ⟨t, lt_add_one t, hω⟩
   _ ≤ (streamMeasure ν).real {ω | ∃ s < t + 1, p s (∑ i ∈ range s, ω i a)} :=
     ENNReal.toReal_mono (measure_ne_top _ _)
-      (measure_exists_lt_pullCount_sumRewards_le h a (t + 1) hp)
+      (measure_exists_lt_pullCount_sumRewards_le h a (t + 1) p)
   _ ≤ (streamMeasure ν).real (⋃ s ∈ range (t + 1), {ω | p s (∑ i ∈ range s, ω i a)}) := by
     refine measureReal_mono (fun ω ⟨s, hs, hω⟩ ↦ ?_) (measure_ne_top _ _)
     exact Set.mem_biUnion (mem_range.mpr hs) hω
@@ -239,4 +286,4 @@ theorem measureReal_pullCount_sumRewards_le_sum (h : IsAlgEnvSeq O A R alg (stat
     rw [sum_range_succ']
     simp [hp0]
 
-end LMLExplore.Bandits
+end LMLExplore
