@@ -41,6 +41,10 @@ transportation costs explicit.
 * `MeasureTheory.Measure.natExpFamily_natExpFamily`: tilting `ρ_η` by `t * ·` gives `ρ_(η + t)`.
 * `MeasureTheory.Measure.cgf_id_natExpFamily`: the cumulant generating function of `ρ_η` is
   `t ↦ ψ(η + t) - ψ(η)`.
+* `ProbabilityTheory.HasLaw.cgf_natExpFamily`,
+  `ProbabilityTheory.iIndepFun.cgf_sum_of_hasLaw_natExpFamily`: the cumulant generating function of
+  a random variable with law `ρ_η` is `t ↦ ψ(η + t) - ψ(η)`, and that of a sum of `#s` independent
+  random variables with law `ρ_η` is `t ↦ #s (ψ(η + t) - ψ(η))`.
 * `MeasureTheory.Measure.integral_id_natExpFamily`,
   `MeasureTheory.Measure.variance_id_natExpFamily`: the mean and the variance of `ρ_η` are `ψ'(η)`
   and `ψ''(η)`.
@@ -217,3 +221,58 @@ theorem klDiv_natExpFamily (hη : η ∈ interior (integrableExpSet id ρ))
   exact integrable_llr_natExpFamily hη hη'
 
 end MeasureTheory.Measure
+
+namespace ProbabilityTheory
+
+open MeasureTheory
+open scoped Finset
+
+variable {Ω ι : Type*} {mΩ : MeasurableSpace Ω} {P : Measure Ω} {ρ : Measure ℝ} {Y : Ω → ℝ}
+  {X : ι → Ω → ℝ} {s : Finset ι} {η t : ℝ}
+
+/-! ### Exponential moments of the members of a natural exponential family -/
+
+/-- A random variable with law `ρ_η` has an exponential moment of order `t` iff `η + t` is a
+natural parameter of `ρ`. -/
+lemma HasLaw.integrable_exp_mul_iff_natExpFamily (hY : HasLaw Y (ρ.natExpFamily η) P)
+    (hη : η ∈ integrableExpSet id ρ) :
+    Integrable (fun ω ↦ exp (t * Y ω)) P ↔ η + t ∈ integrableExpSet id ρ := by
+  rw [← Set.mem_preimage (f := (η + ·)), ← Measure.integrableExpSet_id_natExpFamily hη,
+    ← hY.map_eq]
+  simp only [integrableExpSet, Set.mem_ofPred_eq, id_eq]
+  rw [integrable_map_measure (by fun_prop) hY.aemeasurable, Function.comp_def]
+
+/-- The cumulant generating function of a random variable with law `ρ_η` is
+`t ↦ ψ(η + t) - ψ(η)`, where `ψ = cgf id ρ`. -/
+lemma HasLaw.cgf_natExpFamily (hY : HasLaw Y (ρ.natExpFamily η) P)
+    (hη : η ∈ integrableExpSet id ρ) (hηt : η + t ∈ integrableExpSet id ρ) :
+    cgf Y P t = cgf id ρ (η + t) - cgf id ρ η := by
+  rw [cgf, ← mgf_id_map hY.aemeasurable, hY.map_eq, ← cgf,
+    Measure.cgf_id_natExpFamily hη hηt]
+
+/-- The cumulant generating function of a sum of `#s` independent random variables with law
+`ρ_η` is `t ↦ #s (ψ(η + t) - ψ(η))`, where `ψ = cgf id ρ`. -/
+lemma iIndepFun.cgf_sum_of_hasLaw_natExpFamily (h_indep : iIndepFun X P)
+    (hX : ∀ i ∈ s, HasLaw (X i) (ρ.natExpFamily η) P) (hη : η ∈ integrableExpSet id ρ)
+    (hηt : η + t ∈ integrableExpSet id ρ) :
+    cgf (∑ i ∈ s, X i) P t = #s * (cgf id ρ (η + t) - cgf id ρ η) := by
+  -- Restrict the family to `s`, so that the hypotheses hold for every index.
+  rw [← Finset.sum_coe_sort s X, (h_indep.precomp Subtype.val_injective).cgf_sum₀
+    (fun i ↦ (hX i i.2).aemeasurable)
+    fun i _ ↦ ((hX i i.2).integrable_exp_mul_iff_natExpFamily hη).2 hηt]
+  simp [fun i : s ↦ (hX i i.2).cgf_natExpFamily hη hηt, mul_sub]
+
+/-- A sum of independent random variables with law `ρ_η` has an exponential moment of order `t`
+if `η + t` is a natural parameter of `ρ`. -/
+lemma iIndepFun.integrable_exp_mul_sum_of_hasLaw_natExpFamily (h_indep : iIndepFun X P)
+    (hX : ∀ i ∈ s, HasLaw (X i) (ρ.natExpFamily η) P) (hη : η ∈ integrableExpSet id ρ)
+    (hηt : η + t ∈ integrableExpSet id ρ) :
+    Integrable (fun ω ↦ exp (t * (∑ i ∈ s, X i) ω)) P := by
+  have := h_indep.isProbabilityMeasure
+  refine mgf_pos_iff.1 ?_
+  rw [← Finset.sum_coe_sort s X, (h_indep.precomp Subtype.val_injective).mgf_sum₀
+    fun i ↦ (hX i i.2).aemeasurable]
+  exact Finset.prod_pos fun i _ ↦
+    mgf_pos (((hX i i.2).integrable_exp_mul_iff_natExpFamily hη).2 hηt)
+
+end ProbabilityTheory
