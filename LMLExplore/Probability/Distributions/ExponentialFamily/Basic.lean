@@ -290,12 +290,6 @@ private lemma iIndepFun.comp_subtype_of_hasLaw_expFamily (h_indep : iIndepFun X 
   (h_indep.precomp Subtype.val_injective).comp₀ (fun _ ↦ T) (fun i ↦ (hX i i.2).aemeasurable)
     fun i ↦ (hX i i.2).aemeasurable_map_expFamily hT
 
-/-- A pointwise sum of functions over a finset is the sum of these functions over the
-corresponding subtype. -/
-private lemma sum_apply_eq_sum_subtype (s : Finset ι) (f : ι → Ω → ℝ) :
-    (fun ω ↦ ∑ i ∈ s, f i ω) = ∑ i : s, f i := by
-  rw [Finset.sum_coe_sort s f, Finset.sum_fn]
-
 /-- The cumulant generating function of `∑ i ∈ s, T (X i)` for independent random variables `X i`
 with law `ρ_η` is `t ↦ #s (ψ(η + t) - ψ(η))`, where `ψ = cgf T ρ`. -/
 lemma iIndepFun.cgf_sum_of_hasLaw_expFamily (h_indep : iIndepFun X P) (hT : AEMeasurable T ρ)
@@ -303,7 +297,7 @@ lemma iIndepFun.cgf_sum_of_hasLaw_expFamily (h_indep : iIndepFun X P) (hT : AEMe
     (hηt : η + t ∈ integrableExpSet T ρ) :
     cgf (fun ω ↦ ∑ i ∈ s, T (X i ω)) P t = #s * (cgf T ρ (η + t) - cgf T ρ η) := by
   -- Restrict the family to `s`, so that the hypotheses hold for every index.
-  rw [sum_apply_eq_sum_subtype s fun i ω ↦ T (X i ω),
+  rw [← Finset.sum_fn, ← Finset.sum_coe_sort s,
     (h_indep.comp_subtype_of_hasLaw_expFamily hT hX).cgf_sum₀
     (fun i ↦ (hX i i.2).aemeasurable_comp_expFamily hT)
     fun i _ ↦ ((hX i i.2).integrable_exp_mul_iff_expFamily hT hη).2 hηt]
@@ -317,7 +311,7 @@ lemma iIndepFun.integrable_exp_mul_sum_of_hasLaw_expFamily (h_indep : iIndepFun 
     Integrable (fun ω ↦ exp (t * ∑ i ∈ s, T (X i ω))) P := by
   have := h_indep.isProbabilityMeasure
   refine (mgf_pos_iff (X := fun ω ↦ ∑ i ∈ s, T (X i ω))).1 ?_
-  rw [sum_apply_eq_sum_subtype s fun i ω ↦ T (X i ω),
+  rw [← Finset.sum_fn, ← Finset.sum_coe_sort s,
     (h_indep.comp_subtype_of_hasLaw_expFamily hT hX).mgf_sum₀
     fun i ↦ (hX i i.2).aemeasurable_comp_expFamily hT]
   exact Finset.prod_pos fun i _ ↦
