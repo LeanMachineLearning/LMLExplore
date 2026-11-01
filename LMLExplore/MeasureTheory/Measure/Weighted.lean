@@ -5,6 +5,7 @@ Authors: Rémy Degenne
 -/
 module
 
+public import LMLExplore.Analysis.Convex.Simplex
 public import Mathlib.MeasureTheory.Integral.Bochner.SumMeasure
 public import Mathlib.MeasureTheory.Measure.GiryMonad
 public import Mathlib.MeasureTheory.Measure.Dirac.Basic
@@ -30,8 +31,11 @@ LMLPapers project.
 * `weightedMeasure_def`: `weightedMeasure p` as a sum of weighted Dirac measures;
 * `weightedMeasure_apply`, `weightedMeasure_singleton`, `measureReal_weightedMeasure_singleton`:
   the masses of sets and of atoms;
+* `measureReal_weightedMeasure_singleton_of_mem_simplex`: for `p ∈ simplex ι`, the atom `{i}`
+  has probability `p i`;
 * `isFiniteMeasure_weightedMeasure`: a weighted measure is finite (an instance);
-* `isProbabilityMeasure_weightedMeasure`: it is a probability measure for a probability vector `p`;
+* `isProbabilityMeasure_weightedMeasure`: it is a probability measure for a probability vector
+  `p ∈ simplex ι`;
 * `weightedMeasure_absolutelyContinuous`: `weightedMeasure q ≪ weightedMeasure p` when the support
   of `q` is contained in that of `p`;
 * `lintegral_weightedMeasure_eq_sum`, `integral_weightedMeasure_eq_sum`: integrals against
@@ -81,15 +85,23 @@ lemma measureReal_weightedMeasure_singleton [MeasurableSingletonClass ι] (hp : 
     (weightedMeasure p).real {i} = p i := by
   rw [measureReal_def, weightedMeasure_singleton, ENNReal.toReal_ofReal (hp i)]
 
+/-- The probability of an atom under `weightedMeasure p`, for a probability vector
+`p ∈ simplex ι`. -/
+lemma measureReal_weightedMeasure_singleton_of_mem_simplex [MeasurableSingletonClass ι]
+    (hp : p ∈ simplex ι) (i : ι) :
+    (weightedMeasure p).real {i} = p i :=
+  measureReal_weightedMeasure_singleton (mem_simplex_iff.1 hp).1 i
+
 /-- A weighted measure is finite. -/
 instance isFiniteMeasure_weightedMeasure (p : ι → ℝ) : IsFiniteMeasure (weightedMeasure p) :=
   ⟨by simp [weightedMeasure_univ, ENNReal.sum_lt_top]⟩
 
 /-- The weighted measure of a probability vector is a probability measure. -/
-lemma isProbabilityMeasure_weightedMeasure (hp0 : ∀ i, 0 ≤ p i) (hp1 : ∑ i, p i = 1) :
+lemma isProbabilityMeasure_weightedMeasure (hp : p ∈ simplex ι) :
     IsProbabilityMeasure (weightedMeasure p) := by
+  rw [mem_simplex_iff] at hp
   constructor
-  rw [weightedMeasure_univ, ← ENNReal.ofReal_sum_of_nonneg (fun i _ ↦ hp0 i), hp1,
+  rw [weightedMeasure_univ, ← ENNReal.ofReal_sum_of_nonneg (fun i _ ↦ hp.1 i), hp.2,
     ENNReal.ofReal_one]
 
 /-- `weightedMeasure q ≪ weightedMeasure p` when the support of `q` is contained in that of
