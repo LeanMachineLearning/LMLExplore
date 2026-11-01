@@ -41,6 +41,9 @@ In the namespace `LMLExplore.Bandits.IndexAlgorithm`:
 * `integral_pullCount_le_sum_add_sum`: the decomposition of the expected number of pulls of an
   arm `a`, as in the proofs of [LS, Theorems 8.1 and 10.6]: for every arm `b` and threshold `c`,
   `E[T_a(n)] ≤ ∑_{t < n} P(I_t(b) ≤ c) + ∑_{t < n} P(A_t = a, c < I_t(a))`.
+* `pullCount_eq_card_filter_of_forall_lt_index`: along a run, if the index of an arm `b` exceeds a
+  threshold `c` at every round before `n`, then every pull of an arm `a` before `n` happens with
+  an index of `a` above `c`, as in the proof of [LS, Theorem 9.1].
 
 ## References
 
@@ -177,6 +180,20 @@ theorem integral_pullCount_le_sum_add_sum
   refine ENNReal.toReal_mono (measure_ne_top _ _) (measure_mono_ae ?_)
   filter_upwards [index_le_or_lt_index_of_action_eq h a b c] with ω hω hωt
   exact (hω t hωt).imp id fun hc ↦ ⟨hωt, hc⟩
+
+open Finset in
+/-- Along a run of the index policy, for arms `a`, `b` and a threshold `c`, if the index of `b`
+exceeds `c` at every round `t < n`, then `a` has an index above `c` at every round `t < n` at which
+it is played: its number of pulls before round `n` is the number of rounds `t < n` at which it is
+played with an index above `c`. This is the pathwise step of the proof of [LS, Theorem 9.1]. -/
+lemma pullCount_eq_card_filter_of_forall_lt_index
+    (h : IsAlgEnvSeq O A Y (indexAlgorithm I hI) env P) (a b : α) (c : EReal) :
+    ∀ᵐ ω ∂P, ∀ n, (∀ t < n, c < I t (history O A Y t ω, O t ω) b) →
+      pullCount A a n ω = #{t ∈ range n | A t ω = a ∧ c < I t (history O A Y t ω, O t ω) a} := by
+  filter_upwards [index_le_or_lt_index_of_action_eq h a b c] with ω hω n hb
+  rw [pullCount]
+  refine congrArg card (filter_congr fun t ht ↦ ⟨fun hat ↦ ⟨hat, ?_⟩, And.left⟩)
+  exact (hω t hat).resolve_left (not_le.mpr (hb t (mem_range.mp ht)))
 
 end IndexAlgorithm
 
