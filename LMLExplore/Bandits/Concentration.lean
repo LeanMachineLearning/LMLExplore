@@ -66,10 +66,6 @@ and the Chernoff bound in relative-entropy form [LS, Lemma 10.7].
   This controls the underestimation of an optimal arm in the proof of [LS, Theorem 8.1].
 * `sum_range_inv_mul_sum_range_exp_neg_le`: [LS, Exercise 8.1], the bound
   `∑_{t ≤ n} 1 / f(t) ∑_{s ≤ n} exp (-s ε² / (2 σ²)) ≤ 5 σ² / ε²`.
-* `measureReal_pullCount_sumRewards_le_sum`: in a run of any algorithm against `stationaryEnv ν`,
-  the probability that a property `p` of the number of pulls and the sum of rewards of an arm,
-  which fails for zero pulls, holds at round `t` is at most the sum over `s < t` of the
-  probabilities that `p (s + 1)` holds for the first `s + 1` rewards of the arm in the stream model.
 * `measureReal_pullCount_ne_zero_and_empMean_add_sqrt_le_le`: in a run of any algorithm against
   `stationaryEnv ν`, the probability that at round `t` a pulled arm has index
   `μ̂_a + √(2 σ² L / T_a)` at most its mean minus `ε` is at most
@@ -458,34 +454,6 @@ variable {α : Type*} [DecidableEq α] [MeasurableSpace α] [Countable α] [Meas
 private lemma measurable_div_add_sqrt_div (c : ℝ) :
     Measurable fun q : ℕ × ℝ ↦ q.2 / q.1 + √(c / q.1) := by
   fun_prop
-
-/-- **Union bound over the number of pulls.** In a run of any algorithm against the stochastic
-bandit `stationaryEnv ν`, let `p s x` be a measurable property of a number of pulls `s` and a sum
-of rewards `x` that fails for `s = 0`. The probability that `p` holds at round `t` for the number
-of pulls and the sum of rewards of arm `a` is at most the sum over `s < t` of the probabilities
-that `p (s + 1)` holds for the sum of the first `s + 1` rewards of `a` in the i.i.d. reward stream
-model. -/
-theorem measureReal_pullCount_sumRewards_le_sum (h : IsAlgEnvSeq O A R alg (stationaryEnv ν) P)
-    (a : α) {p : ℕ → ℝ → Prop} (hp : Measurable fun q : ℕ × ℝ ↦ p q.1 q.2)
-    (hp0 : ∀ x, ¬ p 0 x) (t : ℕ) :
-    P.real {ω | p (pullCount A a t ω) (sumRewards A R a t ω)} ≤
-      ∑ s ∈ range t, (streamMeasure ν).real {ω | p (s + 1) (∑ i ∈ range (s + 1), ω i a)} := by
-  -- the event of round `t` is transferred to the reward stream, where a union bound over the
-  -- number of pulls applies, and the term of `0` pulls vanishes
-  calc P.real {ω | p (pullCount A a t ω) (sumRewards A R a t ω)}
-  _ ≤ P.real {ω | ∃ t' < t + 1, p (pullCount A a t' ω) (sumRewards A R a t' ω)} :=
-    measureReal_mono fun ω hω ↦ ⟨t, lt_add_one t, hω⟩
-  _ ≤ (streamMeasure ν).real {ω | ∃ s < t + 1, p s (∑ i ∈ range s, ω i a)} :=
-    ENNReal.toReal_mono (measure_ne_top _ _)
-      (measure_exists_lt_pullCount_sumRewards_le h a (t + 1) hp)
-  _ ≤ (streamMeasure ν).real (⋃ s ∈ range (t + 1), {ω | p s (∑ i ∈ range s, ω i a)}) := by
-    refine measureReal_mono (fun ω ⟨s, hs, hω⟩ ↦ ?_) (measure_ne_top _ _)
-    exact Set.mem_biUnion (mem_range.mpr hs) hω
-  _ ≤ ∑ s ∈ range (t + 1), (streamMeasure ν).real {ω | p s (∑ i ∈ range s, ω i a)} :=
-    measureReal_biUnion_finset_le _ _
-  _ = ∑ s ∈ range t, (streamMeasure ν).real {ω | p (s + 1) (∑ i ∈ range (s + 1), ω i a)} := by
-    rw [sum_range_succ']
-    simp [hp0]
 
 /-- **Underestimation of an arm by its index, at one round.** In a run of any algorithm against
 the stochastic bandit `stationaryEnv ν`, if arm `a` is σ²-sub-Gaussian with mean `μ_a` and

@@ -44,6 +44,10 @@ at all rounds of the run.
   its real-valued form.
 * `measure_exists_pullCount_sumRewards_le`: the bound on the probability of the event at some
   round, and `measure_exists_lt_pullCount_sumRewards_le`, its form up to a horizon `n`.
+* `measureReal_pullCount_sumRewards_le_sum`: in a run of any algorithm against `stationaryEnv ν`,
+  the probability that a property `p` of the number of pulls and the sum of rewards of an arm,
+  which fails for zero pulls, holds at round `t` is at most the sum over `s < t` of the
+  probabilities that `p (s + 1)` holds for the first `s + 1` rewards of the arm in the stream model.
 
 ## Implementation notes
 
@@ -206,5 +210,33 @@ theorem measure_exists_lt_pullCount_sumRewards_le (h : IsAlgEnvSeq O A R alg (st
   _ ≤ streamMeasure ν {ω | ∃ s < n, p s (∑ i ∈ range s, ω i a)} :=
     measure_exists_pullCount_sumRewards_le (p := fun s x ↦ s < n ∧ p s x) h a
       ((Measurable.of_discrete (f := (· < n))).comp measurable_fst |>.and hp)
+
+/-- **Union bound over the number of pulls.** In a run of any algorithm against the stochastic
+bandit `stationaryEnv ν`, let `p s x` be a measurable property of a number of pulls `s` and a sum
+of rewards `x` that fails for `s = 0`. The probability that `p` holds at round `t` for the number
+of pulls and the sum of rewards of arm `a` is at most the sum over `s < t` of the probabilities
+that `p (s + 1)` holds for the sum of the first `s + 1` rewards of `a` in the i.i.d. reward stream
+model. -/
+theorem measureReal_pullCount_sumRewards_le_sum (h : IsAlgEnvSeq O A R alg (stationaryEnv ν) P)
+    (a : α) (hp : Measurable fun q : ℕ × ℝ ↦ p q.1 q.2)
+    (hp0 : ∀ x, ¬ p 0 x) (t : ℕ) :
+    P.real {ω | p (pullCount A a t ω) (sumRewards A R a t ω)} ≤
+      ∑ s ∈ range t, (streamMeasure ν).real {ω | p (s + 1) (∑ i ∈ range (s + 1), ω i a)} := by
+  -- the event of round `t` is transferred to the reward stream, where a union bound over the
+  -- number of pulls applies, and the term of `0` pulls vanishes
+  calc P.real {ω | p (pullCount A a t ω) (sumRewards A R a t ω)}
+  _ ≤ P.real {ω | ∃ t' < t + 1, p (pullCount A a t' ω) (sumRewards A R a t' ω)} :=
+    measureReal_mono fun ω hω ↦ ⟨t, lt_add_one t, hω⟩
+  _ ≤ (streamMeasure ν).real {ω | ∃ s < t + 1, p s (∑ i ∈ range s, ω i a)} :=
+    ENNReal.toReal_mono (measure_ne_top _ _)
+      (measure_exists_lt_pullCount_sumRewards_le h a (t + 1) hp)
+  _ ≤ (streamMeasure ν).real (⋃ s ∈ range (t + 1), {ω | p s (∑ i ∈ range s, ω i a)}) := by
+    refine measureReal_mono (fun ω ⟨s, hs, hω⟩ ↦ ?_) (measure_ne_top _ _)
+    exact Set.mem_biUnion (mem_range.mpr hs) hω
+  _ ≤ ∑ s ∈ range (t + 1), (streamMeasure ν).real {ω | p s (∑ i ∈ range s, ω i a)} :=
+    measureReal_biUnion_finset_le _ _
+  _ = ∑ s ∈ range t, (streamMeasure ν).real {ω | p (s + 1) (∑ i ∈ range (s + 1), ω i a)} := by
+    rw [sum_range_succ']
+    simp [hp0]
 
 end LMLExplore.Bandits
