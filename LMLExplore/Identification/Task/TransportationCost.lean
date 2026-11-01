@@ -48,6 +48,9 @@ treatment, and a negative entry of `w` counts as `0`.
   alternatives.
 * `IdentTask.cost_le_iSup_klDiv`: for an allocation, the transportation cost is at most the
   largest divergence between the arm laws.
+* `IdentTask.altCost_eq_biInf_of_subset_closure`: if the transportation cost is continuous in
+  the alternative model, `D(θ, w, ¬i)` is also the infimum of the cost over any set between `¬i`
+  and its closure.
 * `IdentTask.convex_optAlloc`: the optimal allocations of an answer form a convex set.
 * `IdentTask.altCost_eq_zero_of_mem_alt`, `IdentTask.answerValue_eq_zero_of_mem_alt`: the cost
   and the value of the answer `i` vanish at an alternative `θ ∈ ¬i`.
@@ -208,6 +211,32 @@ theorem concaveOn_altCost (θ : Θ) (i : ℐ) :
   refine le_iInf₂ fun θ' hθ' ↦ ?_
   rw [task.cost_add hw' hv', task.cost_smul, task.cost_smul]
   gcongr <;> exact task.altCost_le_cost hθ' _
+
+/-! #### Continuity in the alternative model -/
+
+section Topology
+
+variable [TopologicalSpace Θ] {s : Set Θ}
+
+/-- The transportation cost is continuous in the alternative model on a set where each of the
+divergences `KL(ν_a(θ), ν_a(λ))` is. -/
+lemma continuousOn_cost (h : ∀ a, ContinuousOn (fun θ' ↦ klDiv (task.ν θ a) (task.ν θ' a)) s)
+    (w : α → ℝ) : ContinuousOn (task.cost w θ) s := by
+  refine (continuousOn_finsetSum _ fun a _ ↦ ?_).congr fun θ' _ ↦ task.cost_def w θ θ'
+  exact (ENNReal.continuous_const_mul ENNReal.ofReal_ne_top).comp_continuousOn (h a)
+
+/-- The cost of the alternatives to `i` is the infimum of the transportation cost over any set `s`
+between these alternatives and their closure, on which the cost is continuous: alternatives can be
+replaced by their limits. -/
+theorem altCost_eq_biInf_of_subset_closure (h_alt : task.alt i ⊆ s)
+    (h_closure : s ⊆ closure (task.alt i)) (hc : ContinuousOn (task.cost w θ) s) :
+    task.altCost θ w i = ⨅ θ' ∈ s, task.cost w θ θ' := by
+  refine le_antisymm (le_iInf₂ fun θ' hθ' ↦ ?_) (biInf_mono h_alt)
+  have h_maps : Set.MapsTo (task.cost w θ) (task.alt i) (Set.Ici (task.altCost θ w i)) :=
+    fun θ'' hθ'' ↦ task.altCost_le_cost hθ'' w
+  simpa [closure_Ici] using ((hc θ' hθ').mono h_alt).mem_closure (h_closure hθ') h_maps
+
+end Topology
 
 /-! #### The value of the game and the characteristic time -/
 
