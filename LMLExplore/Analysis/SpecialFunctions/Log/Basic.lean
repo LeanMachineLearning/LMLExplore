@@ -14,9 +14,13 @@ public import Mathlib.Analysis.SpecialFunctions.Log.Basic
 
 * `Real.min_one_le_two_mul_log_one_add`: `min 1 u ≤ 2 log (1 + u)` for `u ≥ 0`.
 * `Real.monotoneOn_log_one_add_mul_log_sq`: `x ↦ log (1 + x log² x)` is monotone on `[1, ∞)`.
+* `Real.tendsto_log_one_add_mul_log_sq_div_log_atTop`: `log (1 + x log² x) / log x → 1` as
+  `x → ∞`.
 -/
 
 public section
+
+open Filter Topology
 
 namespace Real
 
@@ -43,5 +47,39 @@ theorem monotoneOn_log_one_add_mul_log_sq :
   have hy0 : 0 ≤ y := by linarith
   dsimp only
   gcongr
+
+/-- `log (1 + x log² x) / log x → 1` as `x → ∞`: the exploration level `log f(x)` of the
+asymptotically optimal UCB and KL-UCB algorithms, with `f(x) = 1 + x log² x`, is asymptotically
+`log x`. -/
+theorem tendsto_log_one_add_mul_log_sq_div_log_atTop :
+    Tendsto (fun x ↦ log (1 + x * log x ^ 2) / log x) atTop (𝓝 1) := by
+  have h_rem : Tendsto (fun x ↦ 1 + (log 2 + 2 * log (log x)) / log x) atTop (𝓝 1) := by
+    have h_div : Tendsto (fun y ↦ log y / y) atTop (𝓝 0) := by
+      simpa using tendsto_pow_log_div_mul_add_atTop 1 0 1 one_ne_zero
+    have h := ((tendsto_const_nhds (x := log 2)).div_atTop tendsto_log_atTop).add
+      ((h_div.comp tendsto_log_atTop).const_mul 2)
+    simpa [add_div, mul_div_assoc] using h.const_add 1
+  -- For `x ≥ e`, `log x ≤ log (1 + x log² x) ≤ log (2 x log² x) = log 2 + log x + 2 log log x`.
+  have h_large : ∀ᶠ x in atTop, 1 ≤ x ∧ 1 ≤ log x := by
+    filter_upwards [eventually_ge_atTop (exp 1)] with x hx
+    have hx0 : 0 < x := (exp_pos 1).trans_le hx
+    exact ⟨(one_le_exp zero_le_one).trans hx, (le_log_iff_exp_le hx0).mpr hx⟩
+  refine tendsto_of_tendsto_of_tendsto_of_le_of_le' tendsto_const_nhds h_rem ?_ ?_
+  · filter_upwards [h_large] with x ⟨hx1, hlog⟩
+    have hsq : 1 ≤ log x ^ 2 := one_le_pow₀ hlog
+    rw [le_div_iff₀ (by linarith), one_mul]
+    exact log_le_log (by linarith) (by nlinarith)
+  · filter_upwards [h_large] with x ⟨hx1, hlog⟩
+    have hsq : 1 ≤ log x ^ 2 := one_le_pow₀ hlog
+    have hL : log (1 + x * log x ^ 2) ≤ log 2 + log x + 2 * log (log x) := by
+      calc log (1 + x * log x ^ 2) ≤ log (2 * x * log x ^ 2) :=
+        log_le_log (by positivity) (by nlinarith [mul_le_mul_of_nonneg_left hsq (by linarith)])
+      _ = log 2 + log x + 2 * log (log x) := by
+        rw [log_mul (by positivity) (by positivity), log_mul (by norm_num) (by positivity),
+          log_pow]
+        push_cast
+        ring
+    rw [div_le_iff₀ (by linarith), add_mul, div_mul_cancel₀ _ (by linarith)]
+    linarith
 
 end Real

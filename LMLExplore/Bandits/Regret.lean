@@ -25,6 +25,13 @@ each suboptimal arm `a` by `C / Δ_a ^ 2 + B`, where `Δ_a = gap ν a`. The resu
 `2 √(C k n) + B ∑ a, Δ_a` at horizon `n`, with `k` the number of arms, by splitting the arms
 according to whether their gap is below a threshold `δ`, as in the proof of [LS, Theorem 7.2].
 
+The third part turns asymptotic bounds on the expected numbers of pulls into an asymptotic bound
+on the expected regret. Asymptotic bounds are stated in eventual form: `limsup_n u_n / f(n) ≤ C` is
+`∀ c > C, ∀ᶠ n in atTop, u_n ≤ c f(n)`. If `limsup_n E[T_a(n)] / f(n) ≤ C_a` for every arm `a` with
+positive gap, then `limsup_n E[R_n] / f(n) ≤ ∑_{a : Δ_a > 0} Δ_a C_a`. With `f(n) = log n`, this is
+how the asymptotic regret bounds of [LS, Theorems 8.1 and 10.6] follow from the bounds on the
+numbers of pulls.
+
 ## Main statements
 
 * `LMLExplore.Bandits.sub_le_gap`: the gap of an arm is at least its difference of mean with any
@@ -37,6 +44,9 @@ according to whether their gap is below a threshold `δ`, as in the proof of [LS
   `δ n + k C / δ + B ∑ a, Δ_a` for every threshold `δ > 0`.
 * `integral_regret_le_two_mul_sqrt_add_of_forall_integral_pullCount_le`: the bound
   `2 √(C k n) + B ∑ a, Δ_a`, for the optimal threshold `δ = √(C k / n)`.
+* `integral_regret_eventually_le_of_forall_integral_pullCount_eventually_le`: eventual bounds
+  `E[T_a(n)] ≤ c f(n)` for every `c > C_a` give the eventual bound `E[R_n] ≤ c f(n)` for every
+  `c > ∑_{a : Δ_a > 0} Δ_a C_a`.
 
 ## References
 
@@ -45,7 +55,7 @@ according to whether their gap is below a threshold `δ`, as in the proof of [LS
 
 public section
 
-open MeasureTheory ProbabilityTheory Finset Learning Bandits
+open MeasureTheory ProbabilityTheory Finset Filter Learning Bandits
 
 namespace LMLExplore.Bandits
 
@@ -164,5 +174,46 @@ theorem integral_regret_le_two_mul_sqrt_add_of_forall_integral_pullCount_le
     linear_combination -hs_sq
 
 end GapFree
+
+section Asymptotic
+
+variable {α Ω : Type*} [DecidableEq α] [Fintype α] [MeasurableSpace α] [StandardBorelSpace α]
+  {mΩ : MeasurableSpace Ω} {P : Measure Ω} [IsProbabilityMeasure P]
+  {ν : Kernel α ℝ} {A : ℕ → Ω → α}
+
+/-- **Asymptotic regret from asymptotic numbers of pulls.** Let `f` be eventually nonnegative. If
+for every arm `a` with positive gap and every `c > C_a`, eventually `E[T_a(n)] ≤ c f(n)`, then for
+every `c > ∑_{a : Δ_a > 0} Δ_a C_a`, eventually `E[R_n] ≤ c f(n)`: in `limsup` form,
+`limsup_n E[T_a(n)] / f(n) ≤ C_a` for each such arm gives
+`limsup_n E[R_n] / f(n) ≤ ∑_{a : Δ_a > 0} Δ_a C_a`. -/
+theorem integral_regret_eventually_le_of_forall_integral_pullCount_eventually_le
+    (hA : ∀ t, Measurable (A t)) {f : ℕ → ℝ} (hf : ∀ᶠ n in atTop, 0 ≤ f n) (C : α → ℝ)
+    (h_le : ∀ a, 0 < gap ν a → ∀ c > C a,
+      ∀ᶠ n in atTop, P[fun ω ↦ (pullCount A a n ω : ℝ)] ≤ c * f n)
+    {c : ℝ} (hc : ∑ a ∈ univ.filter (fun a ↦ 0 < gap ν a), gap ν a * C a < c) :
+    ∀ᶠ n in atTop, P[regret ν A n] ≤ c * f n := by
+  set S := univ.filter (fun a ↦ 0 < gap ν a)
+  -- Each arm of `S` gets the slack `δ / Δ_a` on its constant, where `#S δ ≤ c - ∑ a ∈ S, Δ_a C_a`.
+  set δ := (c - ∑ a ∈ S, gap ν a * C a) / (#S + 1) with hδ_def
+  have hδ : 0 < δ := div_pos (sub_pos.mpr hc) (by positivity)
+  have hδS : #S * δ ≤ c - ∑ a ∈ S, gap ν a * C a := by
+    rw [hδ_def, mul_div_assoc']
+    exact div_le_of_le_mul₀ (by positivity) (sub_pos.mpr hc).le (by nlinarith)
+  have h_arms : ∀ᶠ n in atTop, ∀ a ∈ S,
+      P[fun ω ↦ (pullCount A a n ω : ℝ)] ≤ (C a + δ / gap ν a) * f n :=
+    (eventually_all_finset S).mpr fun a ha ↦ h_le a (mem_filter.mp ha).2 _
+      (lt_add_of_pos_right _ (div_pos hδ (mem_filter.mp ha).2))
+  filter_upwards [h_arms, hf] with n h_arms hfn
+  rw [integral_regret_eq_sum_gap_mul_integral_pullCount hA,
+    ← sum_filter_of_ne fun a _ ha ↦ gap_nonneg.lt_of_ne' (left_ne_zero_of_mul ha)]
+  calc ∑ a ∈ S, gap ν a * P[fun ω ↦ (pullCount A a n ω : ℝ)]
+  _ ≤ ∑ a ∈ S, gap ν a * ((C a + δ / gap ν a) * f n) :=
+    sum_le_sum fun a ha ↦ mul_le_mul_of_nonneg_left (h_arms a ha) gap_nonneg
+  _ = ∑ a ∈ S, (gap ν a * C a + δ) * f n :=
+    sum_congr rfl fun a ha ↦ by field_simp [(mem_filter.mp ha).2.ne']
+  _ = (∑ a ∈ S, gap ν a * C a + #S * δ) * f n := by simp [← sum_mul, sum_add_distrib]
+  _ ≤ c * f n := mul_le_mul_of_nonneg_right (by linarith) hfn
+
+end Asymptotic
 
 end LMLExplore.Bandits
