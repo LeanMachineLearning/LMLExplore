@@ -29,7 +29,8 @@ value of the sum `∑_{t ≥ 1} 1 / f(t)` is about `2.4919`.
   `∑_{i < m} 1 / ((T + i) log² (T + i)) ≤ 1 / log (T - 1/2)` for `T ≥ 2`.
 * `Real.sum_range_inv_one_add_mul_log_sq_le`: `∑_{t < n} 1 / (1 + (t + 1) log² (t + 1)) ≤ 5 / 2`.
 * `Real.sum_range_inv_mul_sum_range_exp_neg_le`: [LS, Exercise 8.1], the bound
-  `∑_{t ≤ n} 1 / f(t) ∑_{s ≤ n} exp (-s ε² / (2 σ²)) ≤ 5 σ² / ε²`.
+  `∑_{t ≤ n} 1 / f(t) ∑_{s ≤ m} exp (-c s) ≤ 5 / (2 c)` for `c > 0`, which is `5 σ² / ε²` for the
+  sub-Gaussian rate `c = ε² / (2 σ²)`.
 
 ## Implementation notes
 
@@ -46,8 +47,6 @@ and `log 5` of `Mathlib.Analysis.Complex.ExponentialBounds` and lower bounds on 
 public section
 
 open Finset
-
-open scoped NNReal
 
 namespace Real
 
@@ -181,22 +180,16 @@ theorem sum_range_inv_one_add_mul_log_sq_le (n : ℕ) :
   _ ≤ 2.0271 + (2.1399 : ℝ)⁻¹ := add_le_add h_head ((h_tail n).trans h_inv17)
   _ ≤ 5 / 2 := by norm_num
 
-/-- **[LS, Exercise 8.1]** For `σ² ≠ 0` and `ε ≠ 0`,
-`∑_{t ≤ n} 1 / f(t) ∑_{s ≤ n} exp (-s ε² / (2 σ²)) ≤ 5 σ² / ε²` (book indices `t, s ≥ 1`), where
-`f(t) = 1 + t log² t` is the exploration function of [LS, Algorithm 6]. -/
-theorem sum_range_inv_mul_sum_range_exp_neg_le {σ2 : ℝ≥0} {ε : ℝ} (hσ2 : σ2 ≠ 0) (hε : ε ≠ 0)
-    (n : ℕ) :
-    ∑ t ∈ range n, (1 + (t + 1) * log (t + 1) ^ 2)⁻¹ *
-      ∑ s ∈ range n, exp (-(ε ^ 2 / (2 * σ2) * (s + 1))) ≤ 5 * σ2 / ε ^ 2 := by
-  have hσ2' : (0 : ℝ) < σ2 := NNReal.coe_pos.mpr (pos_iff_ne_zero.mpr hσ2)
+/-- **[LS, Exercise 8.1]** For `c > 0`,
+`∑_{t ≤ n} 1 / f(t) ∑_{s ≤ m} exp (-c s) ≤ 5 / (2 c)` (book indices `t, s ≥ 1`), uniformly in `n`
+and `m`, where `f(t) = 1 + t log² t` is the exploration function of [LS, Algorithm 6]. For the
+sub-Gaussian rate `c = ε² / (2 σ²)` the bound is `5 σ² / ε²`. -/
+theorem sum_range_inv_mul_sum_range_exp_neg_le {c : ℝ} (hc : 0 < c) (n m : ℕ) :
+    ∑ t ∈ range n, (1 + (t + 1) * log (t + 1) ^ 2)⁻¹ * ∑ s ∈ range m, exp (-(c * (s + 1))) ≤
+      5 / 2 * c⁻¹ := by
   rw [← sum_mul]
-  calc (∑ t ∈ range n, (1 + (t + 1) * log (t + 1) ^ 2)⁻¹) *
-      ∑ s ∈ range n, exp (-(ε ^ 2 / (2 * σ2) * (s + 1)))
-  _ ≤ 5 / 2 * (ε ^ 2 / (2 * σ2))⁻¹ := by
-    gcongr
-    · exact sum_range_inv_one_add_mul_log_sq_le n
-    · exact sum_range_exp_neg_mul_le (by positivity) n
-  _ = 5 * σ2 / ε ^ 2 := by
-    field_simp
+  gcongr
+  · exact sum_range_inv_one_add_mul_log_sq_le n
+  · exact sum_range_exp_neg_mul_le hc m
 
 end Real

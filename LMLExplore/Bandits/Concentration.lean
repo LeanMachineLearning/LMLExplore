@@ -214,7 +214,12 @@ theorem sum_measureReal_pullCount_ne_zero_and_empMean_add_sqrt_le_le
     ∑ t ∈ range n, P.real {ω | pullCount A a t ω ≠ 0 ∧
         empMean A R a t ω + √(2 * σ2 * log (1 + (t + 1) * log (t + 1) ^ 2) / pullCount A a t ω)
           ≤ (ν a)[id] - ε} ≤ 5 * σ2 / ε ^ 2 := by
-  refine le_trans (sum_le_sum fun t ht ↦ ?_) (sum_range_inv_mul_sum_range_exp_neg_le hσ2 hε.ne' n)
+  have hσ2' : (0 : ℝ) < σ2 := NNReal.coe_pos.mpr (pos_iff_ne_zero.mpr hσ2)
+  -- [LS, Exercise 8.1] for the sub-Gaussian rate `ε² / (2 σ²)`
+  have h_sum := sum_range_inv_mul_sum_range_exp_neg_le
+    (show 0 < ε ^ 2 / (2 * σ2) by positivity) n n
+  rw [show 5 / 2 * (ε ^ 2 / (2 * σ2))⁻¹ = 5 * σ2 / ε ^ 2 by field_simp] at h_sum
+  refine le_trans (sum_le_sum fun t ht ↦ ?_) h_sum
   -- at round `t < n`, the exploration level is `log f(t + 1)`, and `exp (-log f(t + 1))` is
   -- `1 / f(t + 1)`
   have hf : 0 < 1 + ((t : ℝ) + 1) * log (t + 1) ^ 2 := by positivity
