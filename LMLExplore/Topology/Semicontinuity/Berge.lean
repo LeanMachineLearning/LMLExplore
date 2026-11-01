@@ -7,6 +7,7 @@ module
 
 public import Mathlib.Topology.Semicontinuity.Hemicontinuity
 public import Mathlib.Topology.Semicontinuity.Basic
+public import LMLExplore.Order.Cover
 
 /-!
 # Berge's maximum theorem
@@ -35,7 +36,7 @@ semicontinuity of infima is Tau Ceti's `TauCeti.lowerSemicontinuous_iInf_of_comp
 order `β` carries no topology except in the continuity statements.
 
 In bandit identification, these statements give the continuity in the model of the value of the
-pure exploration game and the upper hemicontinuity of its optimal allocations [DK19, Appendix D].
+pure exploration game and the upper hemicontinuity of its optimal allocations [DK19, Appendix F].
 
 ## Main statements
 
@@ -46,7 +47,8 @@ pure exploration game and the upper hemicontinuity of its optimal allocations [D
   of the value function.
 * `UpperHemicontinuousWithinAt.upperHemicontinuousWithinAt_isMaxOn`: upper hemicontinuity of the
   solution correspondence `x ↦ {y ∈ C x | IsMaxOn (f x) (C x) y}`.
-* `UpperSemicontinuousOn.isCompact_setOf_isMaxOn`: the solution correspondence has compact values.
+* `UpperSemicontinuousOn.isCompact_setOfPred_isMaxOn`: the solution correspondence has compact
+  values.
 * The dual statements for `⨅` and `IsMinOn`, and the versions at a point.
 
 ## References
@@ -54,8 +56,8 @@ pure exploration game and the upper hemicontinuity of its optimal allocations [D
 * C. Berge, *Topological spaces*, Oliver and Boyd (1963), Chapter VI, Section 3.
 * C. D. Aliprantis and K. C. Border, *Infinite dimensional analysis*, Springer (2006),
   Lemmas 17.29–17.30 and Theorem 17.31.
-* R. Degenne and W. M. Koolen, *Pure exploration with multiple correct answers*, NeurIPS 2019,
-  Appendix D, Theorem 22.
+* [DK19] R. Degenne and W. M. Koolen, *Pure exploration with multiple correct answers*,
+  NeurIPS 2019, supplementary material, Appendix F, Theorem 22.
 -/
 
 public section
@@ -67,19 +69,16 @@ variable {X Y β : Type*} [TopologicalSpace X] [TopologicalSpace Y] [CompleteLin
 
 /-! ### Semicontinuity of the value function -/
 
-/-- A supremum over an upper hemicontinuous correspondence with compact values of a function that
-is upper semicontinuous at every point of the graph over `x` is upper semicontinuous at `x`. -/
+/-- A supremum over a correspondence that is upper hemicontinuous within `s` at `x` with compact
+value `C x`, of a function that is upper semicontinuous within `s ×ˢ univ` at every point of the
+graph over `x`, is upper semicontinuous within `s` at `x`. -/
 theorem UpperHemicontinuousWithinAt.upperSemicontinuousWithinAt_biSup
     (hC : UpperHemicontinuousWithinAt C s x) (hK : IsCompact (C x))
     (hf : ∀ y ∈ C x, UpperSemicontinuousWithinAt ↿f (s ×ˢ univ) (x, y)) :
     UpperSemicontinuousWithinAt (fun x ↦ ⨆ y ∈ C x, f x y) s x := by
   intro t ht
   -- Find a level `c` above the value at `x` such that values below `c` stay below `d < t`.
-  obtain ⟨c, hc, d, hd, hcd⟩ : ∃ c, (⨆ y ∈ C x, f x y) < c ∧ ∃ d < t, ∀ e < c, e ≤ d := by
-    by_cases h : (⨆ y ∈ C x, f x y) ⋖ t
-    · exact ⟨t, ht, _, ht, fun e he ↦ h.le_of_lt he⟩
-    · obtain ⟨c, h₁, h₂⟩ := (not_covBy_iff ht).1 h
-      exact ⟨c, h₁, c, h₂, fun e he ↦ he.le⟩
+  obtain ⟨c, hc, d, hd, hcd⟩ := exists_gt_exists_lt_forall_lt_le ht
   have hmem : {p : X × Y | ↿f p < c} ∈ 𝓝[s] x ×ˢ 𝓝ˢ (C x) := by
     refine hK.mem_prod_nhdsSet_of_forall fun y hy ↦ ?_
     have := hf y hy c ((le_biSup (f x) hy).trans_lt hc)
@@ -89,8 +88,9 @@ theorem UpperHemicontinuousWithinAt.upperSemicontinuousWithinAt_biSup
   refine lt_of_le_of_lt (iSup₂_le fun y hy ↦ ?_) hd
   exact hcd _ (hUV (mk_mem_prod hx' (subset_of_mem_nhdsSet hV' hy)))
 
-/-- A supremum over a lower hemicontinuous correspondence of a function that is lower
-semicontinuous at every point of the graph over `x` is lower semicontinuous at `x`. -/
+/-- A supremum over a correspondence that is lower hemicontinuous within `s` at `x`, of a function
+that is lower semicontinuous within `s ×ˢ univ` at every point of the graph over `x`, is lower
+semicontinuous within `s` at `x`. -/
 theorem LowerHemicontinuousWithinAt.lowerSemicontinuousWithinAt_biSup
     (hC : LowerHemicontinuousWithinAt C s x)
     (hf : ∀ y ∈ C x, LowerSemicontinuousWithinAt ↿f (s ×ˢ univ) (x, y)) :
@@ -108,16 +108,18 @@ theorem LowerHemicontinuousWithinAt.lowerSemicontinuousWithinAt_biSup
 -- The statements about `⨅` and `IsMinOn` are those about `⨆` and `IsMaxOn` in the order dual
 -- `βᵒᵈ`, where infima, semicontinuity and minimizers are suprema, the opposite semicontinuity
 -- and maximizers by definition, as in Mathlib's `upperSemicontinuous_iInf`.
-/-- An infimum over an upper hemicontinuous correspondence with compact values of a function that
-is lower semicontinuous at every point of the graph over `x` is lower semicontinuous at `x`. -/
+/-- An infimum over a correspondence that is upper hemicontinuous within `s` at `x` with compact
+value `C x`, of a function that is lower semicontinuous within `s ×ˢ univ` at every point of the
+graph over `x`, is lower semicontinuous within `s` at `x`. -/
 theorem UpperHemicontinuousWithinAt.lowerSemicontinuousWithinAt_biInf
     (hC : UpperHemicontinuousWithinAt C s x) (hK : IsCompact (C x))
     (hf : ∀ y ∈ C x, LowerSemicontinuousWithinAt ↿f (s ×ˢ univ) (x, y)) :
     LowerSemicontinuousWithinAt (fun x ↦ ⨅ y ∈ C x, f x y) s x :=
   hC.upperSemicontinuousWithinAt_biSup (β := βᵒᵈ) hK hf
 
-/-- An infimum over a lower hemicontinuous correspondence of a function that is upper
-semicontinuous at every point of the graph over `x` is upper semicontinuous at `x`. -/
+/-- An infimum over a correspondence that is lower hemicontinuous within `s` at `x`, of a function
+that is upper semicontinuous within `s ×ˢ univ` at every point of the graph over `x`, is upper
+semicontinuous within `s` at `x`. -/
 theorem LowerHemicontinuousWithinAt.upperSemicontinuousWithinAt_biInf
     (hC : LowerHemicontinuousWithinAt C s x)
     (hf : ∀ y ∈ C x, UpperSemicontinuousWithinAt ↿f (s ×ˢ univ) (x, y)) :
@@ -164,9 +166,10 @@ section Continuity
 
 variable [TopologicalSpace β] [OrderTopology β]
 
-/-- **Berge's maximum theorem**, continuity of the value function: a supremum over a continuous
-(upper and lower hemicontinuous) correspondence with compact values of a function that is
-continuous at every point of the graph over `x` is continuous at `x`. -/
+/-- **Berge's maximum theorem**, continuity of the value function: a supremum over a correspondence
+that is upper and lower hemicontinuous within `s` at `x` with compact value `C x`, of a function
+that is continuous within `s ×ˢ univ` at every point of the graph over `x`, is continuous within
+`s` at `x`. -/
 theorem UpperHemicontinuousWithinAt.continuousWithinAt_biSup
     (hCu : UpperHemicontinuousWithinAt C s x) (hCl : LowerHemicontinuousWithinAt C s x)
     (hK : IsCompact (C x)) (hf : ∀ y ∈ C x, ContinuousWithinAt ↿f (s ×ˢ univ) (x, y)) :
@@ -175,9 +178,9 @@ theorem UpperHemicontinuousWithinAt.continuousWithinAt_biSup
   exact ⟨hCl.lowerSemicontinuousWithinAt_biSup fun y hy ↦ (hf y hy).1,
     hCu.upperSemicontinuousWithinAt_biSup hK fun y hy ↦ (hf y hy).2⟩
 
-/-- **Berge's maximum theorem** for infima: an infimum over a continuous (upper and lower
-hemicontinuous) correspondence with compact values of a function that is continuous at every
-point of the graph over `x` is continuous at `x`. -/
+/-- **Berge's maximum theorem** for infima: an infimum over a correspondence that is upper and
+lower hemicontinuous within `s` at `x` with compact value `C x`, of a function that is continuous
+within `s ×ˢ univ` at every point of the graph over `x`, is continuous within `s` at `x`. -/
 theorem UpperHemicontinuousWithinAt.continuousWithinAt_biInf
     (hCu : UpperHemicontinuousWithinAt C s x) (hCl : LowerHemicontinuousWithinAt C s x)
     (hK : IsCompact (C x)) (hf : ∀ y ∈ C x, ContinuousWithinAt ↿f (s ×ˢ univ) (x, y)) :
@@ -206,23 +209,29 @@ end Continuity
 
 /-- The maximizers of a function that is upper semicontinuous on a compact set form a compact
 set. -/
-theorem UpperSemicontinuousOn.isCompact_setOf_isMaxOn {g : Y → β} {K : Set Y}
-    (hg : UpperSemicontinuousOn g K) (hK : IsCompact K) : IsCompact {y ∈ K | IsMaxOn g K y} := by
-  convert hg.isCompact_inter_preimage_Ici hK (⨆ y ∈ K, g y) using 1
+theorem UpperSemicontinuousOn.isCompact_setOfPred_isMaxOn {γ : Type*} [LinearOrder γ]
+    {g : Y → γ} {K : Set Y} (hg : UpperSemicontinuousOn g K) (hK : IsCompact K) :
+    IsCompact {y ∈ K | IsMaxOn g K y} := by
+  rcases eq_empty_or_nonempty {y ∈ K | IsMaxOn g K y} with h | ⟨y₀, hy₀, hmax⟩
+  · exact h ▸ isCompact_empty
+  -- With a maximizer `y₀`, the maximizers are the points of `K` where `g` is at least `g y₀`.
+  convert hg.isCompact_inter_preimage_Ici hK (g y₀) using 1
   ext y
-  simp only [mem_ofPred_eq, mem_inter_iff, mem_preimage, mem_Ici, isMaxOn_iff, iSup₂_le_iff]
+  simp only [mem_ofPred_eq, mem_inter_iff, mem_preimage, mem_Ici, isMaxOn_iff]
+  exact and_congr_right fun _ ↦ ⟨fun h ↦ h y₀ hy₀, fun h z hz ↦ (isMaxOn_iff.1 hmax z hz).trans h⟩
 
 /-- The minimizers of a function that is lower semicontinuous on a compact set form a compact
 set. -/
-theorem LowerSemicontinuousOn.isCompact_setOf_isMinOn {g : Y → β} {K : Set Y}
-    (hg : LowerSemicontinuousOn g K) (hK : IsCompact K) : IsCompact {y ∈ K | IsMinOn g K y} :=
-  UpperSemicontinuousOn.isCompact_setOf_isMaxOn (β := βᵒᵈ) hg hK
+theorem LowerSemicontinuousOn.isCompact_setOfPred_isMinOn {γ : Type*} [LinearOrder γ]
+    {g : Y → γ} {K : Set Y} (hg : LowerSemicontinuousOn g K) (hK : IsCompact K) :
+    IsCompact {y ∈ K | IsMinOn g K y} :=
+  UpperSemicontinuousOn.isCompact_setOfPred_isMaxOn (γ := γᵒᵈ) hg hK
 
 /-- **Berge's maximum theorem**, upper hemicontinuity of the solution correspondence: the
-maximizers `{y ∈ C x | IsMaxOn (f x) (C x) y}` of a function `f x` over an upper hemicontinuous
-correspondence `C` with compact values are upper hemicontinuous at `x`, if `f` is upper
-semicontinuous at every point of the graph over `x` and the value function
-`x ↦ ⨆ y ∈ C x, f x y` is lower semicontinuous at `x`.
+maximizers `{y ∈ C x | IsMaxOn (f x) (C x) y}` of a function `f x` over a correspondence `C` that
+is upper hemicontinuous within `s` at `x` with compact value `C x` are upper hemicontinuous within
+`s` at `x`, if `f` is upper semicontinuous within `s ×ˢ univ` at every point of the graph over `x`
+and the value function `x ↦ ⨆ y ∈ C x, f x y` is lower semicontinuous within `s` at `x`.
 
 The value function is lower semicontinuous when `C` is lower hemicontinuous and `f` is lower
 semicontinuous (`LowerHemicontinuousWithinAt.lowerSemicontinuousWithinAt_biSup`). -/
@@ -240,11 +249,7 @@ theorem UpperHemicontinuousWithinAt.upperHemicontinuousWithinAt_isMaxOn
       exact hyU (hsub ⟨hy, isMaxOn_iff.2 h⟩)
     have hlt : f x y < ⨆ z ∈ C x, f x z := hyz.trans_le (le_biSup _ hz)
     -- Separate `f x y` from the value at `x` by a level `c` and a level `d`.
-    obtain ⟨c, hc, d, hd, hcd⟩ : ∃ c, f x y < c ∧ ∃ d < ⨆ z ∈ C x, f x z, ∀ e < c, e ≤ d := by
-      by_cases h : f x y ⋖ ⨆ z ∈ C x, f x z
-      · exact ⟨_, hlt, _, hlt, fun e he ↦ h.le_of_lt he⟩
-      · obtain ⟨c, h₁, h₂⟩ := (not_covBy_iff hlt).1 h
-        exact ⟨c, h₁, c, h₂, fun e he ↦ he.le⟩
+    obtain ⟨c, hc, d, hd, hcd⟩ := exists_gt_exists_lt_forall_lt_le hlt
     have h₁ := hf y hy c hc
     rw [nhdsWithin_prod_eq, nhdsWithin_univ] at h₁
     filter_upwards [h₁, (hm d hd).prod_inl (𝓝 y)] with p hp₁ hp₂
@@ -260,10 +265,11 @@ theorem UpperHemicontinuousWithinAt.upperHemicontinuousWithinAt_isMaxOn
   exact (hWV (mk_mem_prod hx' hyV)).not_ge (iSup₂_le fun z hz ↦ isMaxOn_iff.1 hmax z hz)
 
 /-- **Berge's maximum theorem** for infima, upper hemicontinuity of the solution correspondence:
-the minimizers `{y ∈ C x | IsMinOn (f x) (C x) y}` of a function `f x` over an upper
-hemicontinuous correspondence `C` with compact values are upper hemicontinuous at `x`, if `f` is
-lower semicontinuous at every point of the graph over `x` and the value function
-`x ↦ ⨅ y ∈ C x, f x y` is upper semicontinuous at `x`. -/
+the minimizers `{y ∈ C x | IsMinOn (f x) (C x) y}` of a function `f x` over a correspondence `C`
+that is upper hemicontinuous within `s` at `x` with compact value `C x` are upper hemicontinuous
+within `s` at `x`, if `f` is lower semicontinuous within `s ×ˢ univ` at every point of the graph
+over `x` and the value function `x ↦ ⨅ y ∈ C x, f x y` is upper semicontinuous within `s` at
+`x`. -/
 theorem UpperHemicontinuousWithinAt.upperHemicontinuousWithinAt_isMinOn
     (hC : UpperHemicontinuousWithinAt C s x) (hK : IsCompact (C x))
     (hf : ∀ y ∈ C x, LowerSemicontinuousWithinAt ↿f (s ×ˢ univ) (x, y))
