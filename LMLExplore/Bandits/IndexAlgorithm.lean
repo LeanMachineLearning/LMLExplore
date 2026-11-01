@@ -191,6 +191,7 @@ lemma pullCount_eq_card_filter_of_forall_lt_index
     ∀ᵐ ω ∂P, ∀ n, (∀ t < n, c < I t (history O A Y t ω, O t ω) b) →
       pullCount A a n ω = #{t ∈ range n | A t ω = a ∧ c < I t (history O A Y t ω, O t ω) a} := by
   filter_upwards [index_le_or_lt_index_of_action_eq h a b c] with ω hω n hb
+  rw [pullCount]
   refine congrArg card (filter_congr fun t ht ↦ ⟨fun hat ↦ ⟨hat, ?_⟩, And.left⟩)
   exact (hω t hat).resolve_left (not_le.mpr (hb t (mem_range.mp ht)))
 
