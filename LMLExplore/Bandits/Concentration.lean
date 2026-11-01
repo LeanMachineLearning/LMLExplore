@@ -10,7 +10,7 @@ public import LeanMachineLearning.Online.Bandit.ArrayProbSpace
 public import LMLExplore.Analysis.Real.Sqrt
 public import LMLExplore.Analysis.SpecialFunctions.Exp
 public import LMLExplore.Analysis.SpecialFunctions.Log.InvMulLogSq
-public import LMLExplore.Bandits.SumRewards
+public import LMLExplore.SequentialLearning.SumRewards
 public import LMLExplore.Probability.Distributions.Gaussian.Tail
 public import LMLExplore.Probability.Moments.KLChernoff
 public import Mathlib.Analysis.SpecialFunctions.Gaussian.GaussianIntegral
@@ -468,17 +468,13 @@ theorem measureReal_pullCount_ne_zero_and_empMean_add_sqrt_le_le
         empMean A R a t ω + √(2 * σ2 * L / pullCount A a t ω) ≤ (ν a)[id] - ε} ≤
       exp (-L) * ∑ s ∈ range t, exp (-(ε ^ 2 / (2 * σ2) * (s + 1))) := by
   set p : ℕ → ℝ → Prop := fun s x ↦ s ≠ 0 ∧ x / s + √(2 * σ2 * L / s) ≤ (ν a)[id] - ε with hp_def
-  have hp : Measurable fun q : ℕ × ℝ ↦ p q.1 q.2 :=
-    (measurableSet_setOfPred.mp ((measurableSet_singleton 0).preimage measurable_fst).compl).and
-      (measurableSet_setOfPred.mp (measurableSet_le (measurable_div_add_sqrt_div _)
-        measurable_const))
   -- the event of round `t` is the event `p` for the number of pulls and the sum of rewards, which
   -- is transferred to the reward stream with a union bound over the number of pulls
   calc P.real {ω | pullCount A a t ω ≠ 0 ∧
       empMean A R a t ω + √(2 * σ2 * L / pullCount A a t ω) ≤ (ν a)[id] - ε}
   _ ≤ ∑ s ∈ range t, (streamMeasure ν).real {ω | p (s + 1) (∑ i ∈ range (s + 1), ω i a)} := by
     refine le_trans (measureReal_mono fun ω hω ↦ ?_)
-      (measureReal_pullCount_sumRewards_le_sum h a hp (fun _ h0 ↦ h0.1 rfl) t)
+      (measureReal_pullCount_sumRewards_le_sum h a p (fun _ h0 ↦ h0.1 rfl) t)
     simp only [Set.mem_ofPred_eq, empMean] at hω
     exact hω
   _ ≤ ∑ s ∈ range t, exp (-L) * exp (-(ε ^ 2 / (2 * σ2) * (s + 1))) := by
@@ -700,16 +696,13 @@ theorem measureReal_pullCount_ne_zero_and_klUpper_le_le
       exp (-L) * ∑ s ∈ range t, exp (-(2 * ε ^ 2 * (s + 1))) := by
   set p : ℕ → ℝ → Prop :=
     fun s x ↦ s ≠ 0 ∧ klUpper (x / s) (ENNReal.ofReal (L / s)) ≤ (ν a)[id] - ε with hp_def
-  have hp : Measurable fun q : ℕ × ℝ ↦ p q.1 q.2 :=
-    (measurableSet_setOfPred.mp ((measurableSet_singleton 0).preimage measurable_fst).compl).and
-      (measurableSet_setOfPred.mp (measurableSet_le (by fun_prop) measurable_const))
   -- the event of round `t` is transferred to the reward stream with a union bound over the
   -- number of pulls
   calc P.real {ω | pullCount A a t ω ≠ 0 ∧
       klUpper (empMean A R a t ω) (ENNReal.ofReal (L / pullCount A a t ω)) ≤ (ν a)[id] - ε}
   _ ≤ ∑ s ∈ range t, (streamMeasure ν).real {ω | p (s + 1) (∑ i ∈ range (s + 1), ω i a)} := by
     refine le_trans (measureReal_mono fun ω hω ↦ ?_)
-      (measureReal_pullCount_sumRewards_le_sum h a hp (fun _ h0 ↦ h0.1 rfl) t)
+      (measureReal_pullCount_sumRewards_le_sum h a p (fun _ h0 ↦ h0.1 rfl) t)
     simp only [Set.mem_ofPred_eq, empMean] at hω
     exact hω
   _ ≤ ∑ s ∈ range t, exp (-L) * exp (-(2 * ε ^ 2 * (s + 1))) := by
