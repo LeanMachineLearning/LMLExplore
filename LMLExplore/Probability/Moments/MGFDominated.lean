@@ -35,8 +35,12 @@ member of the family without following its law.
 * `ProbabilityTheory.IdentDistrib.mgfDominatedAbove`,
   `ProbabilityTheory.IdentDistrib.mgfDominatedBelow`: identically distributed random variables
   dominate each other.
-* `ProbabilityTheory.iIndepFun.mgf_sum_le_pow`: for independent `X i` dominated above by `Y` and
-  `t ≥ 0` with `exp (t Y)` integrable, `mgf (∑ i ∈ s, X i) P t ≤ (mgf Y Q t) ^ #s`.
+* `LMLExplore.MGFDominatedAbove.neg`, `LMLExplore.MGFDominatedBelow.neg`: `X` is dominated above
+  by `Y` iff `-X` is dominated below by `-Y`.
+* `ProbabilityTheory.iIndepFun.mgf_sum_le_pow_of_mgfDominatedAbove`,
+  `ProbabilityTheory.iIndepFun.mgf_sum_le_pow_of_mgfDominatedBelow`: for independent `X i`
+  dominated above (resp. below) by `Y` and `t ≥ 0` (resp. `t ≤ 0`) with `exp (t Y)` integrable,
+  `mgf (∑ i ∈ s, X i) P t ≤ (mgf Y Q t) ^ #s`.
 * `ProbabilityTheory.iIndepFun.measureReal_sum_ge_le_exp_mul_mgf_pow`,
   `ProbabilityTheory.iIndepFun.measureReal_sum_le_le_exp_mul_mgf_pow`: the Chernoff bounds
   `P(a ≤ ∑ i ∈ s, X i) ≤ exp (-t a) (mgf Y Q t) ^ #s` for `t ≥ 0` and variables dominated above,
@@ -77,6 +81,16 @@ structure MGFDominatedBelow (X : Ω → ℝ) (P : Measure Ω) (Y : Ω' → ℝ) 
     Integrable (fun ω ↦ exp (t * X ω)) P
   mgf_le ⦃t : ℝ⦄ (ht : t ≤ 0) (hY : Integrable (fun ω ↦ exp (t * Y ω)) Q) :
     mgf X P t ≤ mgf Y Q t
+
+/-- If `X` is dominated above by `Y`, then `-X` is dominated below by `-Y`. -/
+lemma MGFDominatedAbove.neg (h : MGFDominatedAbove X P Y Q) :
+    MGFDominatedBelow (fun ω ↦ -X ω) P (fun ω ↦ -Y ω) Q where
+  integrable_exp_mul t ht hY := by
+    simpa only [mul_neg, neg_mul] using
+      h.integrable_exp_mul (neg_nonneg.2 ht) (by simpa only [mul_neg, neg_mul] using hY)
+  mgf_le t ht hY := by
+    simpa only [mgf, mul_neg, neg_mul] using
+      h.mgf_le (neg_nonneg.2 ht) (by simpa only [mul_neg, neg_mul] using hY)
 
 /-- If `X` is dominated below by `Y`, then `-X` is dominated above by `-Y`. -/
 lemma MGFDominatedBelow.neg (h : MGFDominatedBelow X P Y Q) :
@@ -121,8 +135,8 @@ lemma IdentDistrib.mgfDominatedBelow {X : Ω → ℝ} (h : IdentDistrib X Y P Q)
 /-- For independent random variables `X i`, `i ∈ s`, dominated above by `Y` under `Q`, and
 `t ≥ 0` with `exp (t Y)` integrable, the sum `∑ i ∈ s, X i` has an exponential moment of
 order `t` and `mgf (∑ i ∈ s, X i) P t ≤ (mgf Y Q t) ^ #s`. -/
-private lemma iIndepFun.integrable_exp_mul_sum_and_mgf_sum_le_pow (h_indep : iIndepFun X P)
-    (hX : ∀ i ∈ s, MGFDominatedAbove (X i) P Y Q) (ht : 0 ≤ t)
+private lemma iIndepFun.integrable_exp_mul_sum_and_mgf_sum_le_pow_of_above
+    (h_indep : iIndepFun X P) (hX : ∀ i ∈ s, MGFDominatedAbove (X i) P Y Q) (ht : 0 ≤ t)
     (hY : Integrable (fun ω ↦ exp (t * Y ω)) Q) :
     Integrable (fun ω ↦ exp (t * ∑ i ∈ s, X i ω)) P ∧
       mgf (fun ω ↦ ∑ i ∈ s, X i ω) P t ≤ mgf Y Q t ^ #s := by
@@ -158,15 +172,15 @@ theorem iIndepFun.integrable_exp_mul_sum_of_mgfDominatedAbove (h_indep : iIndepF
     (hX : ∀ i ∈ s, MGFDominatedAbove (X i) P Y Q) (ht : 0 ≤ t)
     (hY : Integrable (fun ω ↦ exp (t * Y ω)) Q) :
     Integrable (fun ω ↦ exp (t * ∑ i ∈ s, X i ω)) P :=
-  (h_indep.integrable_exp_mul_sum_and_mgf_sum_le_pow hX ht hY).1
+  (h_indep.integrable_exp_mul_sum_and_mgf_sum_le_pow_of_above hX ht hY).1
 
 /-- For independent random variables `X i`, `i ∈ s`, dominated above by `Y` under `Q`, and
 `t ≥ 0` with `exp (t Y)` integrable, `mgf (∑ i ∈ s, X i) P t ≤ (mgf Y Q t) ^ #s`. -/
-theorem iIndepFun.mgf_sum_le_pow (h_indep : iIndepFun X P)
+theorem iIndepFun.mgf_sum_le_pow_of_mgfDominatedAbove (h_indep : iIndepFun X P)
     (hX : ∀ i ∈ s, MGFDominatedAbove (X i) P Y Q) (ht : 0 ≤ t)
     (hY : Integrable (fun ω ↦ exp (t * Y ω)) Q) :
     mgf (fun ω ↦ ∑ i ∈ s, X i ω) P t ≤ mgf Y Q t ^ #s :=
-  (h_indep.integrable_exp_mul_sum_and_mgf_sum_le_pow hX ht hY).2
+  (h_indep.integrable_exp_mul_sum_and_mgf_sum_le_pow_of_above hX ht hY).2
 
 /-- **Chernoff bound under domination, upper tail.** For independent random variables `X i`,
 `i ∈ s`, dominated above by `Y` under `Q`, every threshold `a` and every `t ≥ 0` with
@@ -178,7 +192,40 @@ theorem iIndepFun.measureReal_sum_ge_le_exp_mul_mgf_pow (h_indep : iIndepFun X P
   have := h_indep.isProbabilityMeasure
   exact (measure_ge_le_exp_mul_mgf a ht
     (h_indep.integrable_exp_mul_sum_of_mgfDominatedAbove hX ht hY)).trans
-    (mul_le_mul_of_nonneg_left (h_indep.mgf_sum_le_pow hX ht hY) (exp_pos _).le)
+    (mul_le_mul_of_nonneg_left (h_indep.mgf_sum_le_pow_of_mgfDominatedAbove hX ht hY)
+      (exp_pos _).le)
+
+/-- For independent random variables `X i`, `i ∈ s`, dominated below by `Y` under `Q`, and
+`t ≤ 0` with `exp (t Y)` integrable, the sum `∑ i ∈ s, X i` has an exponential moment of
+order `t` and `mgf (∑ i ∈ s, X i) P t ≤ (mgf Y Q t) ^ #s`. -/
+private lemma iIndepFun.integrable_exp_mul_sum_and_mgf_sum_le_pow_of_below
+    (h_indep : iIndepFun X P) (hX : ∀ i ∈ s, MGFDominatedBelow (X i) P Y Q) (ht : t ≤ 0)
+    (hY : Integrable (fun ω ↦ exp (t * Y ω)) Q) :
+    Integrable (fun ω ↦ exp (t * ∑ i ∈ s, X i ω)) P ∧
+      mgf (fun ω ↦ ∑ i ∈ s, X i ω) P t ≤ mgf Y Q t ^ #s := by
+  -- apply the upper-side statement to `-X i`, dominated above by `-Y`, at `-t ≥ 0`
+  have h_indep' : iIndepFun (fun i ω ↦ -X i ω) P :=
+    h_indep.comp (fun _ x ↦ -x) fun _ ↦ measurable_neg
+  have h := h_indep'.integrable_exp_mul_sum_and_mgf_sum_le_pow_of_above (fun i hi ↦ (hX i hi).neg)
+    (neg_nonneg.2 ht) (Y := fun ω ↦ -Y ω) (by simpa only [neg_mul_neg] using hY)
+  simpa only [mgf, Finset.sum_neg_distrib, neg_mul_neg] using h
+
+/-- For independent random variables `X i`, `i ∈ s`, dominated below by `Y` under `Q`, and
+`t ≤ 0` with `exp (t Y)` integrable, the sum `∑ i ∈ s, X i` has an exponential moment of
+order `t`. -/
+theorem iIndepFun.integrable_exp_mul_sum_of_mgfDominatedBelow (h_indep : iIndepFun X P)
+    (hX : ∀ i ∈ s, MGFDominatedBelow (X i) P Y Q) (ht : t ≤ 0)
+    (hY : Integrable (fun ω ↦ exp (t * Y ω)) Q) :
+    Integrable (fun ω ↦ exp (t * ∑ i ∈ s, X i ω)) P :=
+  (h_indep.integrable_exp_mul_sum_and_mgf_sum_le_pow_of_below hX ht hY).1
+
+/-- For independent random variables `X i`, `i ∈ s`, dominated below by `Y` under `Q`, and
+`t ≤ 0` with `exp (t Y)` integrable, `mgf (∑ i ∈ s, X i) P t ≤ (mgf Y Q t) ^ #s`. -/
+theorem iIndepFun.mgf_sum_le_pow_of_mgfDominatedBelow (h_indep : iIndepFun X P)
+    (hX : ∀ i ∈ s, MGFDominatedBelow (X i) P Y Q) (ht : t ≤ 0)
+    (hY : Integrable (fun ω ↦ exp (t * Y ω)) Q) :
+    mgf (fun ω ↦ ∑ i ∈ s, X i ω) P t ≤ mgf Y Q t ^ #s :=
+  (h_indep.integrable_exp_mul_sum_and_mgf_sum_le_pow_of_below hX ht hY).2
 
 /-- **Chernoff bound under domination, lower tail.** For independent random variables `X i`,
 `i ∈ s`, dominated below by `Y` under `Q`, every threshold `a` and every `t ≤ 0` with
@@ -187,15 +234,10 @@ theorem iIndepFun.measureReal_sum_le_le_exp_mul_mgf_pow (h_indep : iIndepFun X P
     (hX : ∀ i ∈ s, MGFDominatedBelow (X i) P Y Q) (a : ℝ) (ht : t ≤ 0)
     (hY : Integrable (fun ω ↦ exp (t * Y ω)) Q) :
     P.real {ω | ∑ i ∈ s, X i ω ≤ a} ≤ exp (-t * a) * mgf Y Q t ^ #s := by
-  -- apply the upper tail to `-X i`, dominated above by `-Y`, at `-t ≥ 0`
-  have h_indep' : iIndepFun (fun i ω ↦ -X i ω) P :=
-    h_indep.comp (fun _ x ↦ -x) fun _ ↦ measurable_neg
-  have h := h_indep'.measureReal_sum_ge_le_exp_mul_mgf_pow (fun i hi ↦ (hX i hi).neg) (-a)
-    (neg_nonneg.2 ht) (Y := fun ω ↦ -Y ω) (by simpa only [neg_mul_neg] using hY)
-  have h_mgf : mgf (fun ω ↦ -Y ω) Q (-t) = mgf Y Q t := by simp only [mgf, neg_mul_neg]
-  rw [h_mgf, neg_mul_neg] at h
-  refine le_of_eq_of_le ?_ h
-  congr 1 with ω
-  simp [Finset.sum_neg_distrib]
+  have := h_indep.isProbabilityMeasure
+  exact (measure_le_le_exp_mul_mgf a ht
+    (h_indep.integrable_exp_mul_sum_of_mgfDominatedBelow hX ht hY)).trans
+    (mul_le_mul_of_nonneg_left (h_indep.mgf_sum_le_pow_of_mgfDominatedBelow hX ht hY)
+      (exp_pos _).le)
 
 end ProbabilityTheory

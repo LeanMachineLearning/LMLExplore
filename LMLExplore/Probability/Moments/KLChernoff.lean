@@ -11,6 +11,7 @@ public import Mathlib.Probability.Moments.SubGaussian
 public import LMLExplore.InformationTheory.KullbackLeibler.Bernoulli
 public import LMLExplore.Probability.Distributions.ExponentialFamily.Bernoulli
 public import LMLExplore.Probability.Distributions.ExponentialFamily.Chernoff
+public import TauCeti.Probability.Distributions.Bernoulli.Basic
 
 /-!
 # Chernoff bounds in relative-entropy form

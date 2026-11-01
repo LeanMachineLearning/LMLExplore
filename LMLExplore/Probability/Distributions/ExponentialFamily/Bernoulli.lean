@@ -8,7 +8,6 @@ module
 public import LMLExplore.Analysis.SpecialFunctions.Sigmoid
 public import LMLExplore.InformationTheory.KullbackLeibler.Bernoulli
 public import LMLExplore.Probability.Distributions.ExponentialFamily.Mean
-public import TauCeti.Probability.Distributions.Bernoulli.Basic
 
 /-!
 # The Bernoulli laws as an exponential family
@@ -39,7 +38,7 @@ public section
 
 open MeasureTheory ProbabilityTheory Real Set
 
-open scoped ENNReal unitInterval
+open scoped unitInterval
 
 namespace LMLExplore
 
@@ -52,37 +51,16 @@ the exponential family of `Ber((1 : ℝ), 0, sigmoid η₀)` with statistic `id`
 theorem expFamily_bernoulliMeasure_sigmoid (η₀ η : ℝ) :
     Ber((1 : ℝ), 0, unitInterval.sigmoid η₀).expFamily id η =
       Ber((1 : ℝ), 0, unitInterval.sigmoid (η₀ + η)) := by
-  -- the normalizing constant is the moment generating function `1 - s + s exp η`, `s = σ(η₀)`
-  set Z := 1 - Real.sigmoid η₀ + Real.sigmoid η₀ * exp η with hZ_def
-  have hZ_pos : 0 < Z := by
-    have := Real.sigmoid_lt_one η₀
-    have := Real.sigmoid_pos η₀
-    positivity
-  have h_one : Real.sigmoid η₀ * exp η / Z = Real.sigmoid (η₀ + η) := by
-    rw [div_eq_iff hZ_pos.ne', hZ_def]
-    simp only [Real.sigmoid_def, exp_neg, exp_add]
-    field_simp
-    ring
-  have h_zero : (1 - Real.sigmoid η₀) / Z = 1 - Real.sigmoid (η₀ + η) := by
-    rw [← h_one]
-    field_simp
-    ring
-  -- `mgf id ρ η` is by definition the normalizing integral of the tilt
-  have hZ : ∫ x, exp (η * id x) ∂Ber((1 : ℝ), 0, unitInterval.sigmoid η₀) = Z :=
-    TauCeti.Probability.mgf_id_bernoulliMeasure _ η
-  -- both measures are combinations of the Dirac masses at `1` and `0`
-  rw [Measure.expFamily_def, Measure.tilted, hZ, bernoulliMeasure_def, bernoulliMeasure_def,
-    withDensity_add_measure, ENNReal.smul_def, ENNReal.smul_def, ENNReal.smul_def,
-    ENNReal.smul_def, withDensity_smul_measure, withDensity_smul_measure, dirac_withDensity,
-    dirac_withDensity, smul_smul, smul_smul]
-  congr 2
-  · simp only [id_eq, mul_one, ENNReal.coe_nnreal_eq, unitInterval.coe_toNNReal]
-    rw [← ENNReal.ofReal_mul (unitInterval.nonneg _), mul_div_assoc', unitInterval.coe_sigmoid,
-      h_one, unitInterval.coe_sigmoid]
-  · simp only [id_eq, mul_zero, exp_zero, ENNReal.coe_nnreal_eq, unitInterval.coe_toNNReal,
-      unitInterval.coe_symm_eq]
-    rw [← ENNReal.ofReal_mul (unitInterval.one_sub_nonneg _), mul_one_div,
-      unitInterval.coe_sigmoid, h_zero, unitInterval.coe_sigmoid]
+  rw [Measure.expFamily_def, tilted_bernoulliMeasure]
+  congr 1
+  ext
+  -- `σ(η₀) exp η / (σ(η₀) exp η + 1 - σ(η₀)) = σ(η₀ + η)`
+  simp only [id_eq, mul_one, mul_zero, exp_zero, unitInterval.coe_sigmoid]
+  rw [div_eq_iff (add_pos (mul_pos (Real.sigmoid_pos η₀) (exp_pos η))
+    (sub_pos.2 (Real.sigmoid_lt_one η₀))).ne']
+  simp only [Real.sigmoid_def, exp_neg, exp_add]
+  field_simp
+  ring
 
 /-- The mean map of the exponential family of `Ber((1 : ℝ), 0, sigmoid η₀)` is
 `η ↦ sigmoid (η₀ + η)`. -/
