@@ -46,6 +46,8 @@ treatment, and a negative entry of `w` counts as `0`.
   nonnegative allocations, `w ↦ D(θ, w, ¬i)` is concave, positively homogeneous and monotone.
 * `IdentTask.altCost_le_altCost_of_alt_subset`: `D(θ, w, ¬i)` is antitone in the set of
   alternatives.
+* `IdentTask.cost_le_iSup_klDiv`: for an allocation, the transportation cost is at most the
+  largest divergence between the arm laws.
 * `IdentTask.convex_optAlloc`: the optimal allocations of an answer form a convex set.
 * `IdentTask.altCost_eq_zero_of_mem_alt`, `IdentTask.answerValue_eq_zero_of_mem_alt`: the cost
   and the value of the answer `i` vanish at an alternative `θ ∈ ¬i`.
@@ -157,6 +159,18 @@ lemma cost_smul (c : ℝ≥0) (w : α → ℝ) (θ θ' : Θ) :
 
 lemma monotone_cost (θ θ' : Θ) : Monotone fun w ↦ task.cost w θ θ' := fun _ _ hwv ↦
   Finset.sum_le_sum fun a _ ↦ by gcongr; exact hwv a
+
+/-- For an allocation `w`, the transportation cost from `θ` to `θ'` is at most the largest
+divergence `max_a KL(ν_a(θ), ν_a(θ'))` between the arm laws. -/
+lemma cost_le_iSup_klDiv (hw : w ∈ simplex α) (θ θ' : Θ) :
+    task.cost w θ θ' ≤ ⨆ a, klDiv (task.ν θ a) (task.ν θ' a) := by
+  calc task.cost w θ θ'
+      ≤ ∑ a, ENNReal.ofReal (w a) * ⨆ b, klDiv (task.ν θ b) (task.ν θ' b) :=
+        Finset.sum_le_sum fun a _ ↦ by gcongr; exact le_iSup (fun b ↦ klDiv _ _) a
+    _ = ⨆ a, klDiv (task.ν θ a) (task.ν θ' a) := by
+        obtain ⟨hw0, hw1⟩ := mem_simplex_iff.1 hw
+        rw [← Finset.sum_mul, ← ENNReal.ofReal_sum_of_nonneg fun a _ ↦ hw0 a, hw1,
+          ENNReal.ofReal_one, one_mul]
 
 /-! #### The cost of the alternatives -/
 
