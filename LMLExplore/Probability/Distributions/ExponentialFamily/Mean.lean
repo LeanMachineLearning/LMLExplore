@@ -28,7 +28,10 @@ exactly on the diagonal, continuous on the pairs of means, strictly convex in it
 and, in each argument, strictly decreasing below the other argument and strictly increasing above
 it. It is not convex in its second argument in general (exponential distributions are a
 counterexample). If `T` has variance at most `v` under the members with mean between `μ` and `μ'`,
-then `d(μ, μ') ≥ (μ - μ')² / (2 v)`, the divergence between Gaussian laws of variance `v`. The
+then `d(μ, μ') ≥ (μ - μ')² / (2 v)`, the divergence between Gaussian laws of variance `v`. For
+weights `w i ≥ 0`, the weighted divergence `z ↦ ∑ i, w i d(μ i, z)` is minimal at the weighted mean
+`m` of the `μ i`, by the compensation identity
+`∑ i, w i d(μ i, z) = ∑ i, w i d(μ i, m) + (∑ i, w i) d(m, z)`. The
 function `d` is the divergence of the transportation costs and of the
 generalized likelihood ratio statistics of identification in bandits with arms in an exponential
 family, for example in A. Garivier and E. Kaufmann, *Optimal best arm identification with fixed
@@ -68,6 +71,17 @@ confidence*, COLT 2016.
   `MeasureTheory.Measure.ofReal_sq_div_le_klDiv_expFamily_natParam`: the sub-Gaussian
   comparison `d(μ, μ') ≥ (μ - μ')² / (2 v)` when `T` has variance at most `v` under the members
   with mean strictly between `μ` and `μ'`.
+* `MeasureTheory.Measure.sum_mul_expFamilyDiv_eq`: the compensation identity
+  `∑ i, w i d(μ i, z) = ∑ i, w i d(μ i, m) + (∑ i, w i) d(m, z)` for the weighted mean `m`.
+* `MeasureTheory.Measure.sum_mul_expFamilyDiv_le`: for nonnegative weights, the weighted mean
+  minimizes the weighted divergence `z ↦ ∑ i, w i d(μ i, z)` over the means of the family.
+* `MeasureTheory.Measure.div_mem_expFamilyMeans`: a weighted mean of two means of the family is a
+  mean of the family.
+* `MeasureTheory.Measure.mul_expFamilyDiv_add_mul_expFamilyDiv_le_of_mul_eq`: the two-point case
+  of `sum_mul_expFamilyDiv_le`.
+* `MeasureTheory.Measure.mul_expFamilyDiv_add_mul_expFamilyDiv_le`: for `μ₂ ≤ μ₁` and nonnegative
+  weights, `w₁ d(μ₁, x) + w₂ d(μ₂, y)` at means `x ≤ y` is at least its value at `x = y = m`, the
+  weighted mean of `μ₁` and `μ₂`; when `w₁ + w₂ > 0`, this is the minimum over these pairs.
 -/
 
 public section
@@ -432,5 +446,91 @@ theorem ofReal_sq_div_le_klDiv_expFamily_natParam (hT : ∀ c, ¬ T =ᵐ[ρ] fun
       klDiv (ρ.expFamily T (ρ.natParam T μ)) (ρ.expFamily T (ρ.natParam T μ')) := by
   rw [klDiv_expFamily_natParam hμ hμ']
   exact ENNReal.ofReal_le_ofReal (sq_div_le_expFamilyDiv hT hμ hμ' hv)
+
+/-! ### Weighted divergences and weighted means -/
+
+/-- **Compensation identity.** If `m` is the mean of the `μ i`, `i ∈ s`, weighted by `w`, that is
+`(∑ i ∈ s, w i) * m = ∑ i ∈ s, w i * μ i`, then for every `z` the weighted divergence
+`∑ i ∈ s, w i d(μ i, z)` is the weighted divergence to `m` plus `(∑ i ∈ s, w i) d(m, z)`. -/
+lemma sum_mul_expFamilyDiv_eq {ι : Type*} (s : Finset ι) (w μ : ι → ℝ) {m : ℝ}
+    (hm : (∑ i ∈ s, w i) * m = ∑ i ∈ s, w i * μ i) (z : ℝ) :
+    ∑ i ∈ s, w i * ρ.expFamilyDiv T (μ i) z =
+      ∑ i ∈ s, w i * ρ.expFamilyDiv T (μ i) m + (∑ i ∈ s, w i) * ρ.expFamilyDiv T m z := by
+  have h (i : ι) : w i * ρ.expFamilyDiv T (μ i) z = w i * ρ.expFamilyDiv T (μ i) m +
+      w i * (cgf T ρ (ρ.natParam T z) - cgf T ρ (ρ.natParam T m)) -
+        w i * μ i * (ρ.natParam T z - ρ.natParam T m) := by
+    simp only [expFamilyDiv_def]
+    ring
+  rw [Finset.sum_congr rfl fun i _ ↦ h i, Finset.sum_sub_distrib, Finset.sum_add_distrib,
+    ← Finset.sum_mul, ← Finset.sum_mul, ← hm, expFamilyDiv_def]
+  ring
+
+/-- The weighted mean `m` of the `μ i`, `i ∈ s`, minimizes the weighted divergence
+`z ↦ ∑ i ∈ s, w i d(μ i, z)` over the means of the family, for nonnegative weights. -/
+theorem sum_mul_expFamilyDiv_le {ι : Type*} (s : Finset ι) {w μ : ι → ℝ}
+    (hw : ∀ i ∈ s, 0 ≤ w i) {m z : ℝ} (hm : (∑ i ∈ s, w i) * m = ∑ i ∈ s, w i * μ i)
+    (hm_mem : m ∈ ρ.expFamilyMeans T) (hz : z ∈ ρ.expFamilyMeans T) :
+    ∑ i ∈ s, w i * ρ.expFamilyDiv T (μ i) m ≤ ∑ i ∈ s, w i * ρ.expFamilyDiv T (μ i) z := by
+  rw [sum_mul_expFamilyDiv_eq s w μ hm z]
+  exact le_add_of_nonneg_right (mul_nonneg (Finset.sum_nonneg hw) (expFamilyDiv_nonneg hm_mem hz))
+
+/-- The mean `(w₁ μ₁ + w₂ μ₂) / (w₁ + w₂)` of two means of the family, weighted by nonnegative
+weights with `w₁ + w₂ > 0`, is a mean of the family. -/
+lemma div_mem_expFamilyMeans {μ₁ μ₂ w₁ w₂ : ℝ} (hμ₁ : μ₁ ∈ ρ.expFamilyMeans T)
+    (hμ₂ : μ₂ ∈ ρ.expFamilyMeans T) (hw₁ : 0 ≤ w₁) (hw₂ : 0 ≤ w₂) (hW : 0 < w₁ + w₂) :
+    (w₁ * μ₁ + w₂ * μ₂) / (w₁ + w₂) ∈ ρ.expFamilyMeans T := by
+  convert convex_iff_div.mp convex_expFamilyMeans hμ₁ hμ₂ hw₁ hw₂ hW using 1
+  simp only [smul_eq_mul]
+  ring
+
+/-- For two points with nonnegative weights `w₁, w₂`, a weighted mean `m` of `μ₁` and `μ₂`, that
+is `(w₁ + w₂) m = w₁ μ₁ + w₂ μ₂`, minimizes `z ↦ w₁ d(μ₁, z) + w₂ d(μ₂, z)` over the means of the
+family. -/
+theorem mul_expFamilyDiv_add_mul_expFamilyDiv_le_of_mul_eq {μ₁ μ₂ w₁ w₂ m z : ℝ} (hw₁ : 0 ≤ w₁)
+    (hw₂ : 0 ≤ w₂) (hm : (w₁ + w₂) * m = w₁ * μ₁ + w₂ * μ₂) (hm_mem : m ∈ ρ.expFamilyMeans T)
+    (hz : z ∈ ρ.expFamilyMeans T) :
+    w₁ * ρ.expFamilyDiv T μ₁ m + w₂ * ρ.expFamilyDiv T μ₂ m ≤
+      w₁ * ρ.expFamilyDiv T μ₁ z + w₂ * ρ.expFamilyDiv T μ₂ z := by
+  have h := sum_mul_expFamilyDiv_le (ρ := ρ) (T := T) Finset.univ (w := ![w₁, w₂])
+    (μ := ![μ₁, μ₂]) (Fin.forall_fin_two.mpr ⟨fun _ ↦ hw₁, fun _ ↦ hw₂⟩)
+    (by rw [Fin.sum_univ_two, Fin.sum_univ_two]; exact hm) hm_mem hz
+  rwa [Fin.sum_univ_two, Fin.sum_univ_two] at h
+
+/-- For means `μ₂ ≤ μ₁` and nonnegative weights `w₁, w₂`, the weighted divergence
+`w₁ d(μ₁, x) + w₂ d(μ₂, y)` at a pair of means `x ≤ y` is at least its value at `x = y = m`, where
+`m = (w₁ μ₁ + w₂ μ₂) / (w₁ + w₂)` is the mean of `μ₁` and `μ₂` weighted by `w₁` and `w₂`. When
+`w₁ + w₂ > 0`, `m` is a mean of the family, so this value is the minimum over these pairs. -/
+theorem mul_expFamilyDiv_add_mul_expFamilyDiv_le (hT : ∀ c, ¬ T =ᵐ[ρ] fun _ ↦ c)
+    {μ₁ μ₂ w₁ w₂ x y : ℝ} (hμ₁ : μ₁ ∈ ρ.expFamilyMeans T) (hμ₂ : μ₂ ∈ ρ.expFamilyMeans T)
+    (hμ₂₁ : μ₂ ≤ μ₁) (hw₁ : 0 ≤ w₁) (hw₂ : 0 ≤ w₂) (hx : x ∈ ρ.expFamilyMeans T)
+    (hy : y ∈ ρ.expFamilyMeans T) (hxy : x ≤ y) :
+    w₁ * ρ.expFamilyDiv T μ₁ ((w₁ * μ₁ + w₂ * μ₂) / (w₁ + w₂)) +
+        w₂ * ρ.expFamilyDiv T μ₂ ((w₁ * μ₁ + w₂ * μ₂) / (w₁ + w₂)) ≤
+      w₁ * ρ.expFamilyDiv T μ₁ x + w₂ * ρ.expFamilyDiv T μ₂ y := by
+  set m := (w₁ * μ₁ + w₂ * μ₂) / (w₁ + w₂) with hm_def
+  rcases (add_nonneg hw₁ hw₂).eq_or_lt with hW | hW
+  · obtain ⟨rfl, rfl⟩ : w₁ = 0 ∧ w₂ = 0 := ⟨by linarith, by linarith⟩
+    simp
+  -- The weighted mean `m` lies between `μ₂` and `μ₁` and is a mean of the family.
+  have hm₂ : μ₂ ≤ m := by rw [hm_def, le_div_iff₀ hW]; nlinarith
+  have hm₁ : m ≤ μ₁ := by rw [hm_def, div_le_iff₀ hW]; nlinarith
+  have hm_mem : m ∈ ρ.expFamilyMeans T := div_mem_expFamilyMeans hμ₁ hμ₂ hw₁ hw₂ hW
+  -- It minimizes `z ↦ w₁ d(μ₁, z) + w₂ d(μ₂, z)`.
+  have hm : (w₁ + w₂) * m = w₁ * μ₁ + w₂ * μ₂ := by rw [hm_def]; field_simp
+  have h_min (z : ℝ) (hz : z ∈ ρ.expFamilyMeans T) :=
+    mul_expFamilyDiv_add_mul_expFamilyDiv_le_of_mul_eq hw₁ hw₂ hm hm_mem hz
+  -- Move `x` and `y` towards `m` without increasing their divergences: `d(μ₁, ·)` is antitone
+  -- below `μ₁` and `d(μ₂, ·)` is monotone above `μ₂`.
+  have h_anti := (strictAntiOn_expFamilyDiv_right hT μ₁).antitoneOn
+  have h_mono := (strictMonoOn_expFamilyDiv_right hT μ₂).monotoneOn
+  rcases le_total m x with hmx | hxm
+  · refine (h_min x hx).trans (add_le_add_right (mul_le_mul_of_nonneg_left ?_ hw₂) _)
+    exact h_mono ⟨hx, hm₂.trans hmx⟩ ⟨hy, (hm₂.trans hmx).trans hxy⟩ hxy
+  rcases le_total y m with hym | hmy
+  · refine (h_min y hy).trans (add_le_add_left (mul_le_mul_of_nonneg_left ?_ hw₁) _)
+    exact h_anti ⟨hx, (hxy.trans hym).trans hm₁⟩ ⟨hy, hym.trans hm₁⟩ hxy
+  exact add_le_add
+    (mul_le_mul_of_nonneg_left (h_anti ⟨hx, hxm.trans hm₁⟩ ⟨hm_mem, hm₁⟩ hxm) hw₁)
+    (mul_le_mul_of_nonneg_left (h_mono ⟨hm_mem, hm₂⟩ ⟨hy, hm₂.trans hmy⟩ hmy) hw₂)
 
 end MeasureTheory.Measure
