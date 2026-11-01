@@ -7,10 +7,11 @@ module
 
 public import LMLExplore.Identification.Task.MeanVector
 public import LMLExplore.Identification.Task.TransportationCost
-public import LMLExplore.Probability.Distributions.ExponentialFamily.Mean
+public import LMLExplore.Bandits.Instances
+public import LMLExplore.Probability.Distributions.ExponentialFamily.Gaussian
 
 /-!
-# The alternatives of best arm identification and their closure
+# The alternatives of best arm identification and the cost of the alternatives
 
 For best arm identification (`baiTask ν`), the alternatives to an arm `a` are the vectors of means
 with a unique best arm `b ≠ a`. This set is not closed: its limits include the vectors where `a`
@@ -30,7 +31,12 @@ When the arms belong to an exponential family with divergence `d` and `a` is a b
 the infimum for the arm `b` is the cost of moving the means of `a` and `b` to their mean weighted
 by the allocation (attained there when `w a + w b > 0`), which gives the closed form of the cost of
 the alternatives used to compute the optimal allocations of best arm identification
-[GK16, Lemma 3].
+[GK16, Lemma 3]. With two arms `a` and `b`, the game is solved by the mean `z` between `μ b` and
+`μ a` at the same divergence from both: `D(μ, ¬a) = d(μ a, z) = d(μ b, z)` [KCG16, Section 3].
+
+For Gaussian arms with a common variance `σ2`, the divergence is `d(x, y) = (x - y)² / (2 σ2)`, so
+that `D(μ, w, ¬a) = min_{b ≠ a} (w a w b / (w a + w b)) (μ a - μ b)² / (2 σ2)`, and two arms have
+characteristic time `T*(μ) = 8 σ2 / (μ a - μ b)²` with the unique optimal allocation `(1/2, 1/2)`.
 
 ## Main statements
 
@@ -46,18 +52,32 @@ the alternatives used to compute the optimal allocations of best arm identificat
   exponential family with divergence `d`, a best arm `a` of `μ` and a nonnegative allocation `w`,
   `D(μ, w, ¬a) = min_{b ≠ a} (w a d(μ a, m_b) + w b d(μ b, m_b))` on the vectors of means of the
   family, with `m_b = (w a μ a + w b μ b) / (w a + w b)` [GK16, Lemma 3].
+* `LMLExplore.Identification.answerValue_baiTask_restrict_eq_expFamilyDiv_of_forall_eq_or_eq`,
+  `LMLExplore.Identification.charTime_baiTask_restrict_eq_inv_expFamilyDiv_of_forall_eq_or_eq`:
+  for two arms `a` and `b` in an exponential family with `μ b ≤ μ a` and a mean `z` between them
+  with `d(μ a, z) = d(μ b, z)`, `D(μ, ¬a) = d(μ a, z)` and (for `μ b < μ a`)
+  `T*(μ) = d(μ a, z)⁻¹`.
+* `LMLExplore.Identification.altCost_baiTask_gaussianBandit`: for Gaussian arms with variance
+  `σ2 ≠ 0`, `D(μ, w, ¬a) = min_{b ≠ a} (w a w b / (w a + w b)) (μ a - μ b)² / (2 σ2)`.
+* `LMLExplore.Identification.answerValue_baiTask_gaussianBandit_of_forall_eq_or_eq`,
+  `LMLExplore.Identification.charTime_baiTask_gaussianBandit_of_forall_eq_or_eq`,
+  `LMLExplore.Identification.optAlloc_baiTask_gaussianBandit_of_forall_eq_or_eq`: for two Gaussian
+  arms, `D(μ, ¬a) = (μ a - μ b)² / (8 σ2)`, `T*(μ) = 8 σ2 / (μ a - μ b)²` and
+  `w*(μ, ¬a) = {(1/2, 1/2)}`.
 
 ## References
 
 * [GK16] A. Garivier and E. Kaufmann, *Optimal best arm identification with fixed confidence*,
   COLT 2016, Section 2 and Lemma 3.
+* [KCG16] E. Kaufmann, O. Cappé and A. Garivier, *On the complexity of best-arm identification in
+  multi-armed bandit models*, JMLR 17 (2016), Section 3.
 -/
 
 public section
 
 open MeasureTheory ProbabilityTheory InformationTheory Filter Topology Measure
 
-open scoped ENNReal
+open scoped ENNReal NNReal
 
 namespace LMLExplore.Identification
 
@@ -252,6 +272,246 @@ theorem altCost_baiTask_restrict_eq_iInf_expFamilyDiv
     exact Finset.sum_le_sum_of_subset_of_nonneg (Finset.subset_univ _) fun c _ _ ↦
       mul_nonneg (hw c) (expFamilyDiv_nonneg (hμ c) (hμ' c))
 
+/-! #### Two arms -/
+
+variable {b : α}
+
+/-- A sum over two arms `a` and `b`. -/
+private lemma sum_eq_add_of_forall_eq_or_eq (hba : b ≠ a) (hα : ∀ c, c = a ∨ c = b)
+    (f : α → ℝ) : ∑ c, f c = f a + f b :=
+  Finset.sum_eq_add a b hba.symm (fun c _ hc ↦ absurd (hα c) (not_or.2 hc))
+    (fun h ↦ absurd (Finset.mem_univ a) h) fun h ↦ absurd (Finset.mem_univ b) h
+
+omit [Fintype α] in
+/-- An infimum over the arms other than `a`, when the only other arm is `b`. -/
+private lemma iInf_ne_eq_of_forall_eq_or_eq (hba : b ≠ a) (hα : ∀ c, c = a ∨ c = b)
+    (f : α → ℝ≥0∞) : ⨅ (c) (_ : c ≠ a), f c = f b :=
+  le_antisymm (iInf₂_le b hba) (le_iInf₂ fun c hc ↦ ((hα c).resolve_left hc).symm ▸ le_rfl)
+
+/-- With two arms `a` and `b`, the entries of an allocation `w` satisfy `w a + w b = 1`. -/
+private lemma add_eq_one_of_mem_simplex (hba : b ≠ a) (hα : ∀ c, c = a ∨ c = b)
+    (hw : w ∈ simplex α) : w a + w b = 1 :=
+  sum_eq_add_of_forall_eq_or_eq hba hα w ▸ (mem_simplex_iff.1 hw).2
+
+omit [Fintype α] in
+/-- With two arms `a` and `b` and `μ b < μ a`, the arm `a` is the only correct answer of best arm
+identification. -/
+private lemma correct_baiTask_of_forall_eq_or_eq (hba : b ≠ a) (hα : ∀ c, c = a ∨ c = b)
+    (hμ : μ b < μ a) : (baiTask ν).correct μ = {a} := by
+  ext c
+  simp only [correct_baiTask, Set.mem_ofPred_eq, Set.mem_singleton_iff]
+  constructor
+  · intro h
+    by_contra hca
+    obtain rfl := (hα c).resolve_left hca
+    exact (h a hba.symm).not_gt hμ
+  · rintro rfl d hd
+    obtain rfl := (hα d).resolve_left hd
+    exact hμ
+
+/-- **The game value of two arms in an exponential family** [KCG16, Section 3]. For two arms `a`
+and `b` whose laws belong to an exponential family with divergence `d` (as in
+`altCost_baiTask_restrict_eq_iInf_expFamilyDiv`), with `μ b ≤ μ a`, and a mean `z` between `μ b`
+and `μ a` at the same divergence from both, `d(μ a, z) = d(μ b, z)`, the value of the game of the
+answer `a` is `D(μ, ¬a) = d(μ a, z)`. Such a `z` exists by `exists_mem_Icc_expFamilyDiv_eq`. -/
+theorem answerValue_baiTask_restrict_eq_expFamilyDiv_of_forall_eq_or_eq
+    (hT : ∀ c, ¬ T =ᵐ[ρ] fun _ ↦ c) (hμ : ∀ c, μ c ∈ ρ.expFamilyMeans T)
+    (hν : ∀ μ' : α → ℝ, (∀ c, μ' c ∈ ρ.expFamilyMeans T) →
+      ∀ c, klDiv (ν μ c) (ν μ' c) = ENNReal.ofReal (ρ.expFamilyDiv T (μ c) (μ' c)))
+    (hba : b ≠ a) (hα : ∀ c, c = a ∨ c = b) (hμab : μ b ≤ μ a) {z : ℝ}
+    (hz : z ∈ Set.Icc (μ b) (μ a))
+    (hd : ρ.expFamilyDiv T (μ a) z = ρ.expFamilyDiv T (μ b) z) :
+    ((baiTask ν).restrict {μ' | ∀ c, μ' c ∈ ρ.expFamilyMeans T}).answerValue μ a =
+      ENNReal.ofReal (ρ.expFamilyDiv T (μ a) z) := by
+  classical
+  have ha (c : α) : μ c ≤ μ a := (hα c).elim (fun h ↦ h ▸ le_rfl) fun h ↦ h ▸ hμab
+  have hz_mem : z ∈ ρ.expFamilyMeans T :=
+    (convex_iff_ordConnected.1 convex_expFamilyMeans).out (hμ b) (hμ a) hz
+  -- With two arms, the cost of the alternatives is the cost of moving both means to `m_b`.
+  have h_alt {w : α → ℝ} (hw : w ∈ simplex α) :
+      ((baiTask ν).restrict {μ' | ∀ c, μ' c ∈ ρ.expFamilyMeans T}).altCost μ w a =
+        ENNReal.ofReal (w a * ρ.expFamilyDiv T (μ a) (w a * μ a + w b * μ b) +
+          w b * ρ.expFamilyDiv T (μ b) (w a * μ a + w b * μ b)) := by
+    rw [altCost_baiTask_restrict_eq_iInf_expFamilyDiv ν hT hμ hν ha fun c ↦
+      (mem_simplex_iff.1 hw).1 c, iInf_ne_eq_of_forall_eq_or_eq hba hα
+        (fun c ↦ ENNReal.ofReal (w a * ρ.expFamilyDiv T (μ a) ((w a * μ a + w c * μ c) /
+          (w a + w c)) + w c * ρ.expFamilyDiv T (μ c) ((w a * μ a + w c * μ c) / (w a + w c)))),
+      add_eq_one_of_mem_simplex hba hα hw, div_one]
+  rw [IdentTask.answerValue_def]
+  refine le_antisymm (iSup₂_le fun w hw ↦ ?_) ?_
+  · -- Upper bound: the weighted mean minimizes the weighted divergence, in particular against `z`.
+    have hsum := add_eq_one_of_mem_simplex hba hα hw
+    have hwa : 0 ≤ w a := (mem_simplex_iff.1 hw).1 a
+    have hwb : 0 ≤ w b := (mem_simplex_iff.1 hw).1 b
+    have hm_mem : w a * μ a + w b * μ b ∈ ρ.expFamilyMeans T := by
+      simpa [hsum] using div_mem_expFamilyMeans (hμ a) (hμ b) hwa hwb (by rw [hsum]; exact one_pos)
+    rw [h_alt hw]
+    refine ENNReal.ofReal_le_ofReal ((mul_expFamilyDiv_add_mul_expFamilyDiv_le_of_mul_eq hwa hwb
+      (by rw [hsum, one_mul]) hm_mem hz_mem).trans_eq ?_)
+    rw [← hd, ← add_mul, hsum, one_mul]
+  · -- Lower bound: the allocation whose weighted mean is `z`.
+    rcases hμab.eq_or_lt with heq | hlt
+    · have hza : z = μ a := le_antisymm hz.2 (heq ▸ hz.1)
+      rw [hza, expFamilyDiv_self, ENNReal.ofReal_zero]
+      exact zero_le
+    set t := (z - μ b) / (μ a - μ b) with ht_def
+    have hΔ : 0 < μ a - μ b := sub_pos.2 hlt
+    have ht0 : 0 ≤ t := div_nonneg (sub_nonneg.2 hz.1) hΔ.le
+    have ht1 : t ≤ 1 := (div_le_one hΔ).2 (by linarith [hz.2])
+    set w : α → ℝ := fun c ↦ if c = a then t else 1 - t with hw_def
+    have hwa : w a = t := by simp [hw_def]
+    have hwb : w b = 1 - t := by simp [hw_def, hba]
+    have hw : w ∈ simplex α := mem_simplex_iff.2 ⟨fun c ↦ by
+      simp only [hw_def]; split_ifs <;> linarith, by
+      rw [sum_eq_add_of_forall_eq_or_eq hba hα, hwa, hwb]; ring⟩
+    have hm : w a * μ a + w b * μ b = z := by
+      rw [hwa, hwb, ht_def]
+      field_simp
+      ring
+    refine le_iSup₂_of_le w hw (le_of_eq ?_)
+    rw [h_alt hw, hm, ← hd, ← add_mul, add_eq_one_of_mem_simplex hba hα hw, one_mul]
+
+/-- **The characteristic time of two arms in an exponential family** [KCG16, Section 3]. For two
+arms `a` and `b` whose laws belong to an exponential family with divergence `d`, with
+`μ b < μ a`, and a mean `z` between `μ b` and `μ a` with `d(μ a, z) = d(μ b, z)`,
+`T*(μ) = d(μ a, z)⁻¹`. -/
+theorem charTime_baiTask_restrict_eq_inv_expFamilyDiv_of_forall_eq_or_eq
+    (hT : ∀ c, ¬ T =ᵐ[ρ] fun _ ↦ c) (hμ : ∀ c, μ c ∈ ρ.expFamilyMeans T)
+    (hν : ∀ μ' : α → ℝ, (∀ c, μ' c ∈ ρ.expFamilyMeans T) →
+      ∀ c, klDiv (ν μ c) (ν μ' c) = ENNReal.ofReal (ρ.expFamilyDiv T (μ c) (μ' c)))
+    (hba : b ≠ a) (hα : ∀ c, c = a ∨ c = b) (hμab : μ b < μ a) {z : ℝ}
+    (hz : z ∈ Set.Icc (μ b) (μ a))
+    (hd : ρ.expFamilyDiv T (μ a) z = ρ.expFamilyDiv T (μ b) z) :
+    ((baiTask ν).restrict {μ' | ∀ c, μ' c ∈ ρ.expFamilyMeans T}).charTime μ =
+      (ENNReal.ofReal (ρ.expFamilyDiv T (μ a) z))⁻¹ := by
+  rw [IdentTask.charTime_eq_inv_answerValue _
+      (by rw [IdentTask.correct_restrict]; exact correct_baiTask_of_forall_eq_or_eq ν hba hα hμab),
+    answerValue_baiTask_restrict_eq_expFamilyDiv_of_forall_eq_or_eq ν hT hμ hν hba hα hμab.le hz hd]
+
 end ExpFamily
+
+section Gaussian
+
+/-! ### Gaussian arms -/
+
+variable [MeasurableSingletonClass α] {μ w : α → ℝ} {σ2 : ℝ≥0}
+
+omit [Fintype α] in
+/-- For Gaussian arms with a common variance `σ2 ≠ 0`, the vectors of means of the exponential
+family of `𝒩(0, σ2)` are all the vectors: best arm identification restricted to them is best arm
+identification. -/
+private lemma restrict_baiTask_gaussianBandit [Countable α] (hσ2 : σ2 ≠ 0) :
+    (baiTask (Bandits.gaussianBandit · σ2)).restrict
+        {μ' : α → ℝ | ∀ c, μ' c ∈ (gaussianReal 0 σ2).expFamilyMeans id} =
+      baiTask (Bandits.gaussianBandit · σ2) := by
+  simp [expFamilyMeans_gaussianReal 0 hσ2]
+
+omit [Fintype α] in
+/-- The arm laws of a Gaussian bandit with variance `σ2 ≠ 0` are members of the exponential family
+of `𝒩(0, σ2)`: their divergences are those of the family. -/
+private lemma klDiv_gaussianBandit_eq_ofReal_expFamilyDiv [Countable α] (hσ2 : σ2 ≠ 0)
+    (μ μ' : α → ℝ) (c : α) :
+    klDiv (Bandits.gaussianBandit μ σ2 c) (Bandits.gaussianBandit μ' σ2 c) =
+      ENNReal.ofReal ((gaussianReal 0 σ2).expFamilyDiv id (μ c) (μ' c)) := by
+  rw [Bandits.klDiv_gaussianBandit _ _ hσ2, expFamilyDiv_gaussianReal 0 hσ2]
+
+/-- **The cost of the alternatives in Gaussian best arm identification** [GK16, Section 2.2]. For
+Gaussian arms with a common variance `σ2 ≠ 0`, a best arm `a` of `μ` and a nonnegative allocation
+`w`, `D(μ, w, ¬a) = min_{b ≠ a} (w a w b / (w a + w b)) (μ a - μ b)² / (2 σ2)`. -/
+theorem altCost_baiTask_gaussianBandit (hσ2 : σ2 ≠ 0) (ha : ∀ b, μ b ≤ μ a) (hw : 0 ≤ w) :
+    (baiTask (Bandits.gaussianBandit · σ2)).altCost μ w a =
+      ⨅ (b) (_ : b ≠ a),
+        ENNReal.ofReal (w a * w b / (w a + w b) * (μ a - μ b) ^ 2 / (2 * σ2)) := by
+  rw [← restrict_baiTask_gaussianBandit hσ2, altCost_baiTask_restrict_eq_iInf_expFamilyDiv _
+    (not_ae_eq_const_gaussianReal 0 hσ2) (fun c ↦ by simp [hσ2])
+    (fun μ' _ ↦ klDiv_gaussianBandit_eq_ofReal_expFamilyDiv hσ2 μ μ') ha hw]
+  refine iInf_congr fun b ↦ iInf_congr fun _ ↦ congrArg ENNReal.ofReal ?_
+  have hσ2' : (σ2 : ℝ) ≠ 0 := NNReal.coe_ne_zero.2 hσ2
+  have hwa : 0 ≤ w a := hw a
+  have hwb : 0 ≤ w b := hw b
+  rw [expFamilyDiv_gaussianReal 0 hσ2, expFamilyDiv_gaussianReal 0 hσ2]
+  rcases eq_or_ne (w a + w b) 0 with hW | hW
+  · obtain ⟨hwa, hwb⟩ : w a = 0 ∧ w b = 0 := ⟨by linarith, by linarith⟩
+    simp [hwa, hwb]
+  · field_simp
+    ring
+
+/-! #### Two Gaussian arms -/
+
+variable {b : α}
+
+/-- **The game value of two Gaussian arms** [KCG16, Section 3]. For two Gaussian arms `a` and `b`
+with a common variance `σ2 ≠ 0` and `μ b ≤ μ a`, `D(μ, ¬a) = (μ a - μ b)² / (8 σ2)`: the mean at
+the same divergence from `μ a` and `μ b` is `(μ a + μ b) / 2`. -/
+theorem answerValue_baiTask_gaussianBandit_of_forall_eq_or_eq (hσ2 : σ2 ≠ 0) (hba : b ≠ a)
+    (hα : ∀ c, c = a ∨ c = b) (hμ : μ b ≤ μ a) :
+    (baiTask (Bandits.gaussianBandit · σ2)).answerValue μ a =
+      ENNReal.ofReal ((μ a - μ b) ^ 2 / (8 * σ2)) := by
+  have hσ2' : (σ2 : ℝ) ≠ 0 := NNReal.coe_ne_zero.2 hσ2
+  rw [← restrict_baiTask_gaussianBandit hσ2,
+    answerValue_baiTask_restrict_eq_expFamilyDiv_of_forall_eq_or_eq _
+      (not_ae_eq_const_gaussianReal 0 hσ2) (fun c ↦ by simp [hσ2])
+      (fun μ' _ ↦ klDiv_gaussianBandit_eq_ofReal_expFamilyDiv hσ2 μ μ') hba hα hμ
+      (z := (μ a + μ b) / 2) ⟨by linarith, by linarith⟩
+      (by rw [expFamilyDiv_gaussianReal 0 hσ2, expFamilyDiv_gaussianReal 0 hσ2]; ring),
+    expFamilyDiv_gaussianReal 0 hσ2]
+  congr 1
+  field_simp
+  ring
+
+/-- **The characteristic time of two Gaussian arms** [KCG16, Section 3]. For two Gaussian arms `a`
+and `b` with a common variance `σ2 ≠ 0` and `μ b < μ a`, `T*(μ) = 8 σ2 / (μ a - μ b)²`. -/
+theorem charTime_baiTask_gaussianBandit_of_forall_eq_or_eq (hσ2 : σ2 ≠ 0) (hba : b ≠ a)
+    (hα : ∀ c, c = a ∨ c = b) (hμ : μ b < μ a) :
+    (baiTask (Bandits.gaussianBandit · σ2)).charTime μ =
+      ENNReal.ofReal (8 * σ2 / (μ a - μ b) ^ 2) := by
+  have hσ2' : 0 < (σ2 : ℝ) := NNReal.coe_pos.2 (pos_iff_ne_zero.2 hσ2)
+  have hΔ : 0 < (μ a - μ b) ^ 2 := pow_pos (sub_pos.2 hμ) 2
+  rw [IdentTask.charTime_eq_inv_answerValue _ (correct_baiTask_of_forall_eq_or_eq _ hba hα hμ),
+    answerValue_baiTask_gaussianBandit_of_forall_eq_or_eq hσ2 hba hα hμ.le,
+    ← ENNReal.ofReal_inv_of_pos (by positivity), inv_div]
+
+/-- **The optimal allocation of two Gaussian arms** [KCG16, Section 3]. For two Gaussian arms `a`
+and `b` with a common variance `σ2 ≠ 0` and `μ b < μ a`, the only optimal allocation is
+`w*(μ, ¬a) = (1/2, 1/2)`. -/
+theorem optAlloc_baiTask_gaussianBandit_of_forall_eq_or_eq (hσ2 : σ2 ≠ 0) (hba : b ≠ a)
+    (hα : ∀ c, c = a ∨ c = b) (hμ : μ b < μ a) :
+    (baiTask (Bandits.gaussianBandit · σ2)).optAlloc μ a = {fun _ ↦ 1 / 2} := by
+  have hσ2' : 0 < (σ2 : ℝ) := NNReal.coe_pos.2 (pos_iff_ne_zero.2 hσ2)
+  have ha (c : α) : μ c ≤ μ a := (hα c).elim (fun h ↦ h ▸ le_rfl) fun h ↦ h ▸ hμ.le
+  -- With two arms, the cost of the alternatives is `w a w b (μ a - μ b)² / (2 σ2)`.
+  have h_alt {w : α → ℝ} (hw : w ∈ simplex α) :
+      (baiTask (Bandits.gaussianBandit · σ2)).altCost μ w a =
+        ENNReal.ofReal (w a * w b * (μ a - μ b) ^ 2 / (2 * σ2)) := by
+    rw [altCost_baiTask_gaussianBandit hσ2 ha fun c ↦ (mem_simplex_iff.1 hw).1 c,
+      iInf_ne_eq_of_forall_eq_or_eq hba hα (fun c ↦ ENNReal.ofReal
+        (w a * w c / (w a + w c) * (μ a - μ c) ^ 2 / (2 * σ2))),
+      add_eq_one_of_mem_simplex hba hα hw, div_one]
+  have h_half : (fun _ ↦ 1 / 2 : α → ℝ) ∈ simplex α :=
+    mem_simplex_iff.2 ⟨fun _ ↦ by norm_num, by rw [sum_eq_add_of_forall_eq_or_eq hba hα]; norm_num⟩
+  ext w
+  rw [IdentTask.mem_optAlloc_iff, Set.mem_singleton_iff,
+    answerValue_baiTask_gaussianBandit_of_forall_eq_or_eq hσ2 hba hα hμ.le]
+  constructor
+  · rintro ⟨hw, h⟩
+    have hwa : 0 ≤ w a := (mem_simplex_iff.1 hw).1 a
+    have hwb : 0 ≤ w b := (mem_simplex_iff.1 hw).1 b
+    have hsum := add_eq_one_of_mem_simplex hba hα hw
+    rw [h_alt hw, ENNReal.ofReal_eq_ofReal_iff (by positivity) (by positivity)] at h
+    -- The equality `w a w b = 1 / 4` with `w a + w b = 1` forces `w a = w b = 1 / 2`.
+    have hD : 0 < (μ a - μ b) ^ 2 / (2 * σ2) := by
+      have := pow_pos (sub_pos.2 hμ) 2
+      positivity
+    have hprod : w a * w b = 1 / 4 := mul_right_cancel₀ hD.ne' (by convert h using 1 <;> ring)
+    have hab : w a = w b := by nlinarith [sq_nonneg (w a - w b)]
+    funext c
+    rcases hα c with rfl | rfl <;> linarith
+  · rintro rfl
+    refine ⟨h_half, ?_⟩
+    rw [h_alt h_half]
+    congr 1
+    ring
+
+end Gaussian
 
 end LMLExplore.Identification

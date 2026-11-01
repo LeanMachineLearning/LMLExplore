@@ -67,6 +67,8 @@ confidence*, COLT 2016.
   `MeasureTheory.Measure.strictAntiOn_expFamilyDiv_right`,
   `MeasureTheory.Measure.strictMonoOn_expFamilyDiv_right`: in each argument, `d` is strictly
   decreasing below the other argument and strictly increasing above it.
+* `MeasureTheory.Measure.exists_mem_Icc_expFamilyDiv_eq`: between two means `μ' ≤ μ` there is a
+  mean `z` with `d(μ, z) = d(μ', z)`.
 * `MeasureTheory.Measure.sq_div_le_expFamilyDiv`,
   `MeasureTheory.Measure.ofReal_sq_div_le_klDiv_expFamily_natParam`: the sub-Gaussian
   comparison `d(μ, μ') ≥ (μ - μ')² / (2 v)` when `T` has variance at most `v` under the members
@@ -365,6 +367,25 @@ theorem strictMonoOn_expFamilyDiv_right (hT : ∀ c, ¬ T =ᵐ[ρ] fun _ ↦ c) 
   rw [(hasDerivAt_expFamilyDiv_right hT μ hy.1).deriv]
   exact div_pos (sub_pos.2 hy.2)
     (iteratedDeriv_two_cgf_pos hT (natParam_mem_interior_integrableExpSet hy.1))
+
+/-- Between two means `μ' ≤ μ` of the family there is a mean `z` at the same divergence from both,
+`d(μ, z) = d(μ', z)`: the divergence `d(μ, ·) - d(μ', ·)` is continuous, nonnegative at `μ'` and
+nonpositive at `μ`. -/
+theorem exists_mem_Icc_expFamilyDiv_eq (hT : ∀ c, ¬ T =ᵐ[ρ] fun _ ↦ c)
+    (hμ : μ ∈ ρ.expFamilyMeans T) (hμ' : μ' ∈ ρ.expFamilyMeans T) (h : μ' ≤ μ) :
+    ∃ z ∈ Icc μ' μ, ρ.expFamilyDiv T μ z = ρ.expFamilyDiv T μ' z := by
+  have h_sub : Icc μ' μ ⊆ ρ.expFamilyMeans T :=
+    (convex_iff_ordConnected.1 convex_expFamilyMeans).out hμ' hμ
+  have h_cont (x : ℝ) (hx : x ∈ ρ.expFamilyMeans T) :
+      ContinuousOn (fun z ↦ ρ.expFamilyDiv T x z) (Icc μ' μ) :=
+    (continuousOn_expFamilyDiv hT).comp (continuousOn_const.prodMk continuousOn_id)
+      fun z hz ↦ ⟨hx, h_sub hz⟩
+  have h0 : (0 : ℝ) ∈ Icc (ρ.expFamilyDiv T μ μ - ρ.expFamilyDiv T μ' μ)
+      (ρ.expFamilyDiv T μ μ' - ρ.expFamilyDiv T μ' μ') := by
+    rw [expFamilyDiv_self, expFamilyDiv_self, zero_sub, sub_zero]
+    exact ⟨neg_nonpos.2 (expFamilyDiv_nonneg hμ' hμ), expFamilyDiv_nonneg hμ hμ'⟩
+  obtain ⟨z, hz, hz0⟩ := intermediate_value_Icc' h ((h_cont μ hμ).sub (h_cont μ' hμ')) h0
+  exact ⟨z, hz, sub_eq_zero.1 hz0⟩
 
 /-! ### Comparison with the Gaussian divergence -/
 
