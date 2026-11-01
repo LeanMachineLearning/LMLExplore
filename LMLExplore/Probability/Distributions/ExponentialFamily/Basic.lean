@@ -243,18 +243,25 @@ private lemma aemeasurable_expFamily (hT : AEMeasurable T ρ) (η : ℝ) :
     AEMeasurable T (ρ.expFamily T η) :=
   hT.mono_ac (Measure.expFamily_absolutelyContinuous ρ T η)
 
+/-- For a random variable `Y` with law `ρ_η`, the statistic `T` is almost everywhere measurable
+for the law of `Y` if it is for `ρ`. -/
+private lemma HasLaw.aemeasurable_map_expFamily (hT : AEMeasurable T ρ)
+    (hY : HasLaw Y (ρ.expFamily T η) P) : AEMeasurable T (P.map Y) := by
+  rw [hY.map_eq]
+  exact aemeasurable_expFamily hT η
+
 /-- For a random variable `Y` with law `ρ_η`, the variable `T (Y)` is almost everywhere
 measurable if `T` is for `ρ`. -/
 private lemma HasLaw.aemeasurable_comp_expFamily (hT : AEMeasurable T ρ)
     (hY : HasLaw Y (ρ.expFamily T η) P) : AEMeasurable (fun ω ↦ T (Y ω)) P :=
-  (hY.map_eq ▸ aemeasurable_expFamily hT η).comp_aemeasurable hY.aemeasurable
+  (hY.aemeasurable_map_expFamily hT).comp_aemeasurable hY.aemeasurable
 
 /-- For a random variable `Y` with law `ρ_η`, the function `x ↦ exp (t T(x))` is almost
 everywhere strongly measurable for the law of `Y` if `T` is for `ρ`. -/
 private lemma HasLaw.aestronglyMeasurable_exp_mul_expFamily (hT : AEMeasurable T ρ)
     (hY : HasLaw Y (ρ.expFamily T η) P) (t : ℝ) :
     AEStronglyMeasurable (fun x ↦ exp (t * T x)) (P.map Y) :=
-  hY.map_eq ▸ ((aemeasurable_expFamily hT η).const_mul t).exp.aestronglyMeasurable
+  ((hY.aemeasurable_map_expFamily hT).const_mul t).exp.aestronglyMeasurable
 
 /-- For a random variable `Y` with law `ρ_η`, the variable `T (Y)` has an exponential moment of
 order `t` iff `η + t` is a natural parameter of `ρ` and `T`. -/
@@ -281,7 +288,13 @@ private lemma iIndepFun.comp_subtype_of_hasLaw_expFamily (h_indep : iIndepFun X 
     (hT : AEMeasurable T ρ) (hX : ∀ i ∈ s, HasLaw (X i) (ρ.expFamily T η) P) :
     iIndepFun (fun i : s ↦ fun ω ↦ T (X i ω)) P :=
   (h_indep.precomp Subtype.val_injective).comp₀ (fun _ ↦ T) (fun i ↦ (hX i i.2).aemeasurable)
-    fun i ↦ (hX i i.2).map_eq ▸ aemeasurable_expFamily hT η
+    fun i ↦ (hX i i.2).aemeasurable_map_expFamily hT
+
+/-- A pointwise sum of functions over a finset is the sum of these functions over the
+corresponding subtype. -/
+private lemma sum_apply_eq_sum_subtype (s : Finset ι) (f : ι → Ω → ℝ) :
+    (fun ω ↦ ∑ i ∈ s, f i ω) = ∑ i : s, f i := by
+  rw [Finset.sum_coe_sort s f, Finset.sum_fn]
 
 /-- The cumulant generating function of `∑ i ∈ s, T (X i)` for independent random variables `X i`
 with law `ρ_η` is `t ↦ #s (ψ(η + t) - ψ(η))`, where `ψ = cgf T ρ`. -/
@@ -290,9 +303,8 @@ lemma iIndepFun.cgf_sum_of_hasLaw_expFamily (h_indep : iIndepFun X P) (hT : AEMe
     (hηt : η + t ∈ integrableExpSet T ρ) :
     cgf (fun ω ↦ ∑ i ∈ s, T (X i ω)) P t = #s * (cgf T ρ (η + t) - cgf T ρ η) := by
   -- Restrict the family to `s`, so that the hypotheses hold for every index.
-  have h_sum : (fun ω ↦ ∑ i ∈ s, T (X i ω)) = ∑ i : s, fun ω ↦ T (X i ω) := by
-    rw [Finset.sum_coe_sort s fun i ω ↦ T (X i ω), Finset.sum_fn]
-  rw [h_sum, (h_indep.comp_subtype_of_hasLaw_expFamily hT hX).cgf_sum₀
+  rw [sum_apply_eq_sum_subtype s fun i ω ↦ T (X i ω),
+    (h_indep.comp_subtype_of_hasLaw_expFamily hT hX).cgf_sum₀
     (fun i ↦ (hX i i.2).aemeasurable_comp_expFamily hT)
     fun i _ ↦ ((hX i i.2).integrable_exp_mul_iff_expFamily hT hη).2 hηt]
   simp [fun i : s ↦ (hX i i.2).cgf_expFamily hT hη hηt, mul_sub]
@@ -304,10 +316,9 @@ lemma iIndepFun.integrable_exp_mul_sum_of_hasLaw_expFamily (h_indep : iIndepFun 
     (hη : η ∈ integrableExpSet T ρ) (hηt : η + t ∈ integrableExpSet T ρ) :
     Integrable (fun ω ↦ exp (t * ∑ i ∈ s, T (X i ω))) P := by
   have := h_indep.isProbabilityMeasure
-  have h_sum : (fun ω ↦ ∑ i ∈ s, T (X i ω)) = ∑ i : s, fun ω ↦ T (X i ω) := by
-    rw [Finset.sum_coe_sort s fun i ω ↦ T (X i ω), Finset.sum_fn]
   refine (mgf_pos_iff (X := fun ω ↦ ∑ i ∈ s, T (X i ω))).1 ?_
-  rw [h_sum, (h_indep.comp_subtype_of_hasLaw_expFamily hT hX).mgf_sum₀
+  rw [sum_apply_eq_sum_subtype s fun i ω ↦ T (X i ω),
+    (h_indep.comp_subtype_of_hasLaw_expFamily hT hX).mgf_sum₀
     fun i ↦ (hX i i.2).aemeasurable_comp_expFamily hT]
   exact Finset.prod_pos fun i _ ↦
     mgf_pos (((hX i i.2).integrable_exp_mul_iff_expFamily hT hη).2 hηt)
