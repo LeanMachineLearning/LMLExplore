@@ -26,7 +26,9 @@ In the mean parametrization, the Kullback–Leibler divergence between two membe
 exactly on the diagonal, continuous on the pairs of means, strictly convex in its first argument
 and, in each argument, strictly decreasing below the other argument and strictly increasing above
 it. It is not convex in its second argument in general (exponential distributions are a
-counterexample). The function `d` is the divergence of the transportation costs and of the
+counterexample). If the members with mean between `μ` and `μ'` have variance at most `v`, then
+`d(μ, μ') ≥ (μ - μ')² / (2 v)`, the divergence between Gaussian laws of variance `v`. The
+function `d` is the divergence of the transportation costs and of the
 generalized likelihood ratio statistics of identification in bandits with arms in an exponential
 family, for example in A. Garivier and E. Kaufmann, *Optimal best arm identification with fixed
 confidence*, COLT 2016.
@@ -61,6 +63,10 @@ confidence*, COLT 2016.
   `MeasureTheory.Measure.strictAntiOn_natExpFamilyDiv_right`,
   `MeasureTheory.Measure.strictMonoOn_natExpFamilyDiv_right`: in each argument, `d` is strictly
   decreasing below the other argument and strictly increasing above it.
+* `MeasureTheory.Measure.sq_div_le_natExpFamilyDiv`,
+  `MeasureTheory.Measure.ofReal_sq_div_le_klDiv_natExpFamily_natParam`: the sub-Gaussian
+  comparison `d(μ, μ') ≥ (μ - μ')² / (2 v)` when the members with mean strictly between `μ` and
+  `μ'` have variance at most `v`.
 -/
 
 public section
@@ -350,6 +356,87 @@ theorem strictMonoOn_natExpFamilyDiv_right (hρ : ∀ c, ρ ≠ dirac c) (μ : �
   rw [(hasDerivAt_natExpFamilyDiv_right hρ μ hy.1).deriv]
   exact div_pos (sub_pos.2 hy.2)
     (iteratedDeriv_two_cgf_id_pos hρ (natParam_mem_interior_integrableExpSet hy.1))
+
+/-! ### Comparison with the Gaussian divergence -/
+
+/-- The derivative of `x ↦ d(x, μ') - (x - μ')² / (2 v)` at a mean `μ` is
+`η(μ) - η(μ') - (μ - μ') / v`. -/
+private lemma hasDerivAt_natExpFamilyDiv_sub_sq_div (hρ : ∀ c, ρ ≠ dirac c)
+    (hμ : μ ∈ ρ.natExpFamilyMeans) (v : ℝ) :
+    HasDerivAt (fun x ↦ ρ.natExpFamilyDiv x μ' - (x - μ') ^ 2 / (2 * v))
+      (ρ.natParam μ - ρ.natParam μ' - (μ - μ') / v) μ := by
+  convert (hasDerivAt_natExpFamilyDiv_left hρ hμ μ').sub
+    ((((hasDerivAt_id' μ).sub_const μ').pow 2).div_const (2 * v)) using 1
+  field_simp
+  ring
+
+/-- The function `x ↦ η(x) - η(μ') - (x - μ') / v` is monotone on an interval `[a, b]` of means
+when the members whose mean lies in `(a, b)` have variance at most `v`: its derivative is
+`1 / ψ''(η(x)) - 1 / v`. -/
+private lemma monotoneOn_natParam_sub_div (hρ : ∀ c, ρ ≠ dirac c) {a b v : ℝ}
+    (hab : Icc a b ⊆ ρ.natExpFamilyMeans)
+    (hv : ∀ x ∈ Ioo a b, Var[id; ρ.natExpFamily (ρ.natParam x)] ≤ v) (μ' : ℝ) :
+    MonotoneOn (fun x ↦ ρ.natParam x - ρ.natParam μ' - (x - μ') / v) (Icc a b) := by
+  have h_deriv (x : ℝ) (hx : x ∈ Icc a b) :
+      HasDerivAt (fun x ↦ ρ.natParam x - ρ.natParam μ' - (x - μ') / v)
+        ((iteratedDeriv 2 (cgf id ρ) (ρ.natParam x))⁻¹ - 1 / v) x := by
+    convert ((hasDerivAt_natParam hρ (hab hx)).sub_const (ρ.natParam μ')).sub
+      (((hasDerivAt_id' x).sub_const μ').div_const v) using 1
+  refine monotoneOn_of_hasDerivWithinAt_nonneg (convex_Icc a b)
+    (fun x hx ↦ (h_deriv x hx).continuousAt.continuousWithinAt)
+    (fun x hx ↦ (h_deriv x (interior_subset hx)).hasDerivWithinAt) fun x hx ↦ ?_
+  rw [interior_Icc] at hx
+  have hη := natParam_mem_interior_integrableExpSet (hab (Ioo_subset_Icc_self hx))
+  have h_le := hv x hx
+  rw [variance_id_natExpFamily hη] at h_le
+  rw [sub_nonneg, one_div]
+  exact inv_anti₀ (iteratedDeriv_two_cgf_id_pos hρ hη) h_le
+
+/-- **Sub-Gaussian comparison.** If the members of the family whose mean lies strictly between
+`μ` and `μ'` have variance at most `v`, then `d(μ, μ') ≥ (μ - μ')² / (2 v)`, the divergence
+between the Gaussian laws of means `μ` and `μ'` and variance `v`. -/
+theorem sq_div_le_natExpFamilyDiv (hρ : ∀ c, ρ ≠ dirac c) (hμ : μ ∈ ρ.natExpFamilyMeans)
+    (hμ' : μ' ∈ ρ.natExpFamilyMeans) {v : ℝ}
+    (hv : ∀ x ∈ uIoo μ μ', Var[id; ρ.natExpFamily (ρ.natParam x)] ≤ v) :
+    (μ - μ') ^ 2 / (2 * v) ≤ ρ.natExpFamilyDiv μ μ' := by
+  rcases le_or_gt v 0 with hv0 | hv0
+  · exact (div_nonpos_of_nonneg_of_nonpos (sq_nonneg _) (by linarith)).trans
+      (natExpFamilyDiv_nonneg hμ hμ')
+  -- `F x = d(x, μ') - (x - μ')² / (2 v)` vanishes at `μ'`, and its derivative `g` is monotone
+  -- with `g μ' = 0`, so `F` is monotone above `μ'` and antitone below `μ'`
+  set F := fun x ↦ ρ.natExpFamilyDiv x μ' - (x - μ') ^ 2 / (2 * v)
+  have hF (x : ℝ) (hx : x ∈ ρ.natExpFamilyMeans) :=
+    hasDerivAt_natExpFamilyDiv_sub_sq_div (μ' := μ') hρ hx v
+  suffices F μ' ≤ F μ by simp [F] at this; linarith
+  have h_means := convex_natExpFamilyMeans (ρ := ρ) |>.ordConnected
+  rcases le_total μ' μ with h | h
+  · rw [uIoo_of_ge h] at hv
+    have hg := monotoneOn_natParam_sub_div hρ (h_means.out hμ' hμ) hv μ'
+    refine monotoneOn_of_hasDerivWithinAt_nonneg (convex_Icc μ' μ)
+      (fun x hx ↦ (hF x (h_means.out hμ' hμ hx)).continuousAt.continuousWithinAt)
+      (fun x hx ↦ (hF x (h_means.out hμ' hμ (interior_subset hx))).hasDerivWithinAt)
+      (fun x hx ↦ ?_) (left_mem_Icc.2 h) (right_mem_Icc.2 h) h
+    rw [interior_Icc] at hx
+    simpa using hg (left_mem_Icc.2 h) (Ioo_subset_Icc_self hx) hx.1.le
+  · rw [uIoo_of_le h] at hv
+    have hg := monotoneOn_natParam_sub_div hρ (h_means.out hμ hμ') hv μ'
+    refine antitoneOn_of_hasDerivWithinAt_nonpos (convex_Icc μ μ')
+      (fun x hx ↦ (hF x (h_means.out hμ hμ' hx)).continuousAt.continuousWithinAt)
+      (fun x hx ↦ (hF x (h_means.out hμ hμ' (interior_subset hx))).hasDerivWithinAt)
+      (fun x hx ↦ ?_) (left_mem_Icc.2 h) (right_mem_Icc.2 h) h
+    rw [interior_Icc] at hx
+    simpa using hg (Ioo_subset_Icc_self hx) (right_mem_Icc.2 h) hx.2.le
+
+/-- **Sub-Gaussian comparison** for the Kullback–Leibler divergence: if the members of the
+family whose mean lies strictly between `μ` and `μ'` have variance at most `v`, then the
+divergence between the members of means `μ` and `μ'` is at least `(μ - μ')² / (2 v)`. -/
+theorem ofReal_sq_div_le_klDiv_natExpFamily_natParam (hρ : ∀ c, ρ ≠ dirac c)
+    (hμ : μ ∈ ρ.natExpFamilyMeans) (hμ' : μ' ∈ ρ.natExpFamilyMeans) {v : ℝ}
+    (hv : ∀ x ∈ uIoo μ μ', Var[id; ρ.natExpFamily (ρ.natParam x)] ≤ v) :
+    ENNReal.ofReal ((μ - μ') ^ 2 / (2 * v)) ≤
+      klDiv (ρ.natExpFamily (ρ.natParam μ)) (ρ.natExpFamily (ρ.natParam μ')) := by
+  rw [klDiv_natExpFamily_natParam hμ hμ']
+  exact ENNReal.ofReal_le_ofReal (sq_div_le_natExpFamilyDiv hρ hμ hμ' hv)
 
 end Analytic
 
