@@ -6,7 +6,6 @@ Authors: Rémy Degenne
 module
 
 public import LMLExplore.Identification.Correctness
-public import LMLExplore.SequentialLearning.DivergenceDecomposition
 public import LMLExplore.SequentialLearning.Wald
 
 /-!
@@ -22,12 +21,11 @@ For finitely many actions, *Wald's identities* express the expectation of a sum 
 before a random time `τ` through the expected numbers of pulls `N_a(τ)` of the actions:
 `𝔼[τ] = ∑ a, 𝔼[N_a(τ)]` when `τ` is almost surely finite
 (`LMLExplore.lintegral_toENNReal_eq_sum_lintegral_pullCount`), and
-`𝔼[∑_{t < τ} f(A_t)] = ∑ a, 𝔼[N_a(τ)] f(a)` for `f ≥ 0` (`LMLExplore.sum_lintegral_pullCount_mul`).
-Both hold for any measurable random time and are in
-`LMLExplore/SequentialLearning/DivergenceDecomposition.lean`. For the rewards `Y_t` of a stationary
-environment `ν` with integrable reward distributions of means `μ_a`, and a stopping time `τ` with
-`𝔼[τ] < ∞`, Wald's identity `𝔼[∑_{t < τ} Y_t] = ∑ a, 𝔼[N_a(τ)] μ_a`
-(`Learning.IsAlgEnvSeq.integral_sum_feedback_eq_sum_integral_pullCount_mul`) is in
+`𝔼[∑_{t < τ} f(A_t)] = ∑ a, 𝔼[N_a(τ)] f(a)` for `f ≥ 0` (`LMLExplore.sum_lintegral_pullCount_mul`),
+both for any measurable random time; and, for the rewards `Y_t` of a stationary environment `ν`
+with integrable reward distributions of means `μ_a` and a stopping time `τ` with `𝔼[τ] < ∞`,
+`𝔼[∑_{t < τ} Y_t] = ∑ a, 𝔼[N_a(τ)] μ_a`
+(`Learning.IsAlgEnvSeq.integral_sum_feedback_eq_sum_integral_pullCount_mul`). All three are in
 `LMLExplore/SequentialLearning/Wald.lean`. This file applies these identities at the stopping
 time of an identification algorithm.
 

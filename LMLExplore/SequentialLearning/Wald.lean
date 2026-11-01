@@ -5,21 +5,30 @@ Authors: Rémy Degenne
 -/
 module
 
+public import LeanMachineLearning.SequentialLearning.FiniteActions
 public import LeanMachineLearning.SequentialLearning.Means
 public import LMLExplore.Probability.HasCondDistrib
-public import LMLExplore.SequentialLearning.DivergenceDecomposition
 public import LMLExplore.Topology.Algebra.InfiniteSum.NatInt
 
 /-!
-# Wald's identity for the rewards of a stationary bandit
+# Wald's identities for sequential algorithms
 
-Let `A`, `Y` be the actions and rewards of an algorithm run against a stationary environment
+*Wald's identities* express the expectation of a sum over the rounds before a random time `τ`
+through the expected numbers of pulls `N_a(τ)` of the actions, where `N_a(τ)` is the number of
+rounds before `τ` at which the action `a` was played.
+
+For finitely many actions and any measurable random time `τ`, regrouping the rounds by the action
+played gives `𝔼[∑_{t < τ} f(A_t)] = ∑ a, 𝔼[N_a(τ)] f(a)` for `f ≥ 0`, and with `f = 1`, Wald's
+identity for the number of rounds `𝔼[τ] = ∑ a, 𝔼[N_a(τ)]` when `τ` is almost surely finite. These
+hold for every sequence of actions; the divergence decomposition of bandit lower bounds and the
+sample complexity of identification algorithms are built on them.
+
+Let now `A`, `Y` be the actions and rewards of an algorithm run against a stationary environment
 `stationaryEnv ν` with finitely many actions and integrable real reward distributions `ν a` of
 means `μ_a`. For a random time `τ` of finite expectation such that the event `{t < τ}` is known
 when the action of round `t` is chosen (a stopping time of `IsAlgEnvSeq.filtrationAction`, such as
-the stopping time of an identification algorithm), *Wald's identity* states
-`𝔼[∑_{t < τ} Y_t] = ∑ a, 𝔼[N_a(τ)] μ_a`, where `N_a(τ)` is the number of rounds before `τ` at
-which the action `a` was played.
+the stopping time of an identification algorithm), *Wald's identity for the rewards* states
+`𝔼[∑_{t < τ} Y_t] = ∑ a, 𝔼[N_a(τ)] μ_a`.
 
 The identity rests on conditioning on the information available when the action of a round is
 chosen: on an event of `IsAlgEnvSeq.filtrationAction n`, the reward `Y_n` can be replaced by the
@@ -27,14 +36,19 @@ mean `μ_{A_n}` of its distribution.
 
 ## Main statements
 
+* `LMLExplore.sum_lintegral_pullCount_mul`: for a measurable random time `g`,
+  `∑ a, 𝔼[N_a(g)] f a = 𝔼[∑ s < g, f (A s)]`.
+* `LMLExplore.natCast_pullCount_toNat_le`: `N_a(n) ≤ n` for `n : ℕ∞`.
+* `LMLExplore.lintegral_toENNReal_eq_sum_lintegral_pullCount`: Wald's identity
+  `𝔼[τ] = ∑ a, 𝔼[N_a(τ)]` for an almost surely finite measurable random time `τ`.
 * `Learning.IsAlgEnvSeq.setLIntegral_comp_feedback_stationaryEnv`: on an event of
   `h.filtrationAction n`, the expectation of `g(Y_n)` is that of `∫ g dν(A_n)`, for `g ≥ 0`.
 * `Learning.IsAlgEnvSeq.integrable_feedback_stationaryEnv`: the rewards are integrable when the
   reward distributions are.
 * `Learning.IsAlgEnvSeq.setIntegral_feedback_stationaryEnv`: on an event of `h.filtrationAction n`,
   the expectation of `Y_n` is that of the mean `μ_{A_n}`.
-* `Learning.IsAlgEnvSeq.integral_sum_feedback_eq_sum_integral_pullCount_mul`: Wald's identity
-  `𝔼[∑_{t < τ} Y_t] = ∑ a, 𝔼[N_a(τ)] μ_a`.
+* `Learning.IsAlgEnvSeq.integral_sum_feedback_eq_sum_integral_pullCount_mul`: Wald's identity for
+  the rewards `𝔼[∑_{t < τ} Y_t] = ∑ a, 𝔼[N_a(τ)] μ_a`.
 
 ## References
 
@@ -46,6 +60,52 @@ public section
 open MeasureTheory ProbabilityTheory Finset
 
 open scoped ENNReal
+
+namespace LMLExplore
+
+variable {𝓐 Ω : Type*} {m𝓐 : MeasurableSpace 𝓐} {mΩ : MeasurableSpace Ω} [DecidableEq 𝓐]
+  [Fintype 𝓐] {P : Measure Ω} {A : ℕ → Ω → 𝓐}
+
+/-- For a finite action set and a measurable random time `g`, the expected number of rounds
+before `g` at which each action is played, weighted by `f`, is the expected sum of `f` over the
+actions played before `g`: `∑ a, E[N_a(g)] f a = E[∑ s < g, f (A s)]`. -/
+lemma sum_lintegral_pullCount_mul [MeasurableSingletonClass 𝓐] (hA : ∀ n, Measurable (A n))
+    {g : Ω → ℕ} (hg : Measurable g) (f : 𝓐 → ℝ≥0∞) :
+    ∑ a, (∫⁻ ω, (Learning.pullCount A a (g ω) ω : ℝ≥0∞) ∂P) * f a =
+      ∫⁻ ω, ∑ s ∈ range (g ω), f (A s ω) ∂P := by
+  have hmeas (a : 𝓐) : Measurable fun ω ↦ (Learning.pullCount A a (g ω) ω : ℝ≥0∞) :=
+    (measurable_of_countable _).comp
+      (Learning.measurable_uncurry_pullCount_comp hA measurable_const hg)
+  calc ∑ a, (∫⁻ ω, (Learning.pullCount A a (g ω) ω : ℝ≥0∞) ∂P) * f a
+      = ∫⁻ ω, ∑ a, (Learning.pullCount A a (g ω) ω : ℝ≥0∞) * f a ∂P := by
+        rw [lintegral_finsetSum _ fun a _ ↦ (hmeas a).mul_const _]
+        exact sum_congr rfl fun a _ ↦ (lintegral_mul_const _ (hmeas a)).symm
+    _ = ∫⁻ ω, ∑ s ∈ range (g ω), f (A s ω) ∂P :=
+        lintegral_congr fun ω ↦ Learning.sum_pullCount_mul ω f (g ω)
+
+omit [Fintype 𝓐] in
+/-- The number of pulls of an action before `n.toNat` is at most `n`, for `n : ℕ∞`. -/
+lemma natCast_pullCount_toNat_le (a : 𝓐) (n : ℕ∞) (ω : Ω) :
+    (Learning.pullCount A a n.toNat ω : ℝ≥0∞) ≤ n := by
+  rw [← ENat.toENNReal_coe, ENat.toENNReal_le]
+  exact (Nat.cast_le.2 (Learning.pullCount_le a _ ω)).trans (ENat.natCast_toNat_le_self _)
+
+/-- **Wald's identity for the number of rounds.** For an almost surely finite measurable random
+time `τ` and finitely many actions, `E[τ] = ∑ a, E[N_a(τ)]`, where `N_a(τ)` is the number of
+rounds before `τ` at which the action `a` is played. -/
+lemma lintegral_toENNReal_eq_sum_lintegral_pullCount [MeasurableSingletonClass 𝓐]
+    (hA : ∀ n, Measurable (A n)) {τ : Ω → ℕ∞} (hτ : Measurable τ) (h_fin : ∀ᵐ ω ∂P, τ ω ≠ ⊤) :
+    ∫⁻ ω, (τ ω : ℝ≥0∞) ∂P = ∑ a, ∫⁻ ω, (Learning.pullCount A a (τ ω).toNat ω : ℝ≥0∞) ∂P := by
+  have h := sum_lintegral_pullCount_mul (P := P) hA (g := fun ω ↦ (τ ω).toNat)
+    (Measurable.of_discrete.comp hτ) fun _ ↦ 1
+  simp only [mul_one, sum_const, card_range, nsmul_eq_mul] at h
+  rw [h]
+  refine lintegral_congr_ae ?_
+  filter_upwards [h_fin] with ω hω
+  rw [← ENat.toENNReal_coe, ENat.natCast_toNat hω]
+
+end LMLExplore
+
 
 namespace Learning
 
@@ -128,8 +188,8 @@ end Finite
 
 variable [Fintype 𝓐] [MeasurableSingletonClass 𝓐] [DecidableEq 𝓐]
 
-/-- **Wald's identity.** For an algorithm run against a stationary environment `ν` with finitely
-many actions and integrable reward distributions, and a stopping time `τ` of
+/-- **Wald's identity for the rewards.** For an algorithm run against a stationary environment
+`ν` with finitely many actions and integrable reward distributions, and a stopping time `τ` of
 `h.filtrationAction` (the event `{t < τ}` is known when the action of round `t` is chosen) with
 `𝔼[τ] < ∞`, the expected sum of the rewards before `τ` is `∑ a, 𝔼[N_a(τ)] μ_a`, where `N_a(τ)` is
 the number of rounds before `τ` at which `a` was played and `μ_a` is the mean of `ν a`. -/

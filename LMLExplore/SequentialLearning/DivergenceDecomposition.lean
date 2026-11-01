@@ -8,8 +8,8 @@ module
 public import LMLExplore.SequentialLearning.Algorithm
 public import LMLExplore.SequentialLearning.FiniteActions
 public import LMLExplore.SequentialLearning.StoppedHistory
+public import LMLExplore.SequentialLearning.Wald
 public import LeanMachineLearning.SequentialLearning.DivergenceDecomposition
-public import LeanMachineLearning.SequentialLearning.FiniteActions
 
 import LMLExplore.InformationTheory.KullbackLeibler.ChainRule
 
@@ -22,7 +22,8 @@ reward kernels `κ` and `κ'` as a sum over the rounds: `∑ t < M, E[KL(κ (A t
 finite set of actions, this file regroups the sum by the action played, which gives the
 *divergence decomposition* of bandit lower bounds [LS, Lemma 15.1]:
 `KL = ∑ a, E[N_a(M)] KL(κ a ‖ κ' a)`, where `N_a(M) = pullCount A a M` is the number of rounds
-before `M` at which `a` was played.
+before `M` at which `a` was played. The regrouping is `LMLExplore.sum_lintegral_pullCount_mul`,
+one of the Wald identities of `LMLExplore/SequentialLearning/Wald.lean`.
 
 The same bound holds at an almost surely finite stopping time `τ`, the hitting time of a stopping
 rule `S`, for the laws of the history stopped by `S`:
@@ -31,11 +32,6 @@ bandit identification.
 
 ## Main statements
 
-* `LMLExplore.sum_lintegral_pullCount_mul`: for a measurable random time `g`,
-  `∑ a, E[N_a(g)] f a = E[∑ s < g, f (A s)]`.
-* `LMLExplore.lintegral_toENNReal_eq_sum_lintegral_pullCount`: Wald's identity
-  `E[τ] = ∑ a, E[N_a(τ)]` for an almost surely finite measurable random time `τ`.
-* `LMLExplore.natCast_pullCount_toNat_le`: `N_a(n) ≤ n` for `n : ℕ∞`.
 * `Learning.IsAlgEnvSeq.klDiv_map_history_eq_sum_pullCount`: the divergence decomposition.
 * `Learning.IsAlgEnvSeq.klDiv_map_history_eq_lintegral_pullCount_mul`: if the reward kernels
   agree outside the action `i`, then `KL = E[N_i(M)] KL(κ i ‖ κ' i)`.
@@ -62,51 +58,6 @@ public section
 
 open MeasureTheory ProbabilityTheory InformationTheory Finset
 open scoped ENNReal
-
-namespace LMLExplore
-
-variable {𝓐 Ω : Type*} {m𝓐 : MeasurableSpace 𝓐} {mΩ : MeasurableSpace Ω} [DecidableEq 𝓐]
-  [Fintype 𝓐] {P : Measure Ω} {A : ℕ → Ω → 𝓐}
-
-/-- For a finite action set and a measurable random time `g`, the expected number of rounds
-before `g` at which each action is played, weighted by `f`, is the expected sum of `f` over the
-actions played before `g`: `∑ a, E[N_a(g)] f a = E[∑ s < g, f (A s)]`. -/
-lemma sum_lintegral_pullCount_mul [MeasurableSingletonClass 𝓐] (hA : ∀ n, Measurable (A n))
-    {g : Ω → ℕ} (hg : Measurable g) (f : 𝓐 → ℝ≥0∞) :
-    ∑ a, (∫⁻ ω, (Learning.pullCount A a (g ω) ω : ℝ≥0∞) ∂P) * f a =
-      ∫⁻ ω, ∑ s ∈ range (g ω), f (A s ω) ∂P := by
-  have hmeas (a : 𝓐) : Measurable fun ω ↦ (Learning.pullCount A a (g ω) ω : ℝ≥0∞) :=
-    (measurable_of_countable _).comp
-      (Learning.measurable_uncurry_pullCount_comp hA measurable_const hg)
-  calc ∑ a, (∫⁻ ω, (Learning.pullCount A a (g ω) ω : ℝ≥0∞) ∂P) * f a
-      = ∫⁻ ω, ∑ a, (Learning.pullCount A a (g ω) ω : ℝ≥0∞) * f a ∂P := by
-        rw [lintegral_finsetSum _ fun a _ ↦ (hmeas a).mul_const _]
-        exact sum_congr rfl fun a _ ↦ (lintegral_mul_const _ (hmeas a)).symm
-    _ = ∫⁻ ω, ∑ s ∈ range (g ω), f (A s ω) ∂P :=
-        lintegral_congr fun ω ↦ Learning.sum_pullCount_mul ω f (g ω)
-
-omit [Fintype 𝓐] in
-/-- The number of pulls of an action before `n.toNat` is at most `n`, for `n : ℕ∞`. -/
-lemma natCast_pullCount_toNat_le (a : 𝓐) (n : ℕ∞) (ω : Ω) :
-    (Learning.pullCount A a n.toNat ω : ℝ≥0∞) ≤ n := by
-  rw [← ENat.toENNReal_coe, ENat.toENNReal_le]
-  exact (Nat.cast_le.2 (Learning.pullCount_le a _ ω)).trans (ENat.natCast_toNat_le_self _)
-
-/-- **Wald's identity for the number of rounds.** For an almost surely finite measurable random
-time `τ` and finitely many actions, `E[τ] = ∑ a, E[N_a(τ)]`, where `N_a(τ)` is the number of
-rounds before `τ` at which the action `a` is played. -/
-lemma lintegral_toENNReal_eq_sum_lintegral_pullCount [MeasurableSingletonClass 𝓐]
-    (hA : ∀ n, Measurable (A n)) {τ : Ω → ℕ∞} (hτ : Measurable τ) (h_fin : ∀ᵐ ω ∂P, τ ω ≠ ⊤) :
-    ∫⁻ ω, (τ ω : ℝ≥0∞) ∂P = ∑ a, ∫⁻ ω, (Learning.pullCount A a (τ ω).toNat ω : ℝ≥0∞) ∂P := by
-  have h := sum_lintegral_pullCount_mul (P := P) hA (g := fun ω ↦ (τ ω).toNat)
-    (Measurable.of_discrete.comp hτ) fun _ ↦ 1
-  simp only [mul_one, sum_const, card_range, nsmul_eq_mul] at h
-  rw [h]
-  refine lintegral_congr_ae ?_
-  filter_upwards [h_fin] with ω hω
-  rw [← ENat.toENNReal_coe, ENat.natCast_toNat hω]
-
-end LMLExplore
 
 namespace Learning
 
