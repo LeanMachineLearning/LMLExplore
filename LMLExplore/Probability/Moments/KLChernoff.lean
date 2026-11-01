@@ -376,18 +376,6 @@ theorem measureReal_klUpper_le_le {X : ι → Ω → ℝ} (h_indep : iIndepFun X
     field_simp
     ring
 
-/-- The number of `s < k` with `(s + 1) D ≤ L` is at most `L / D`, for `D > 0` and `L ≥ 0`. -/
-private lemma sum_range_ite_add_one_mul_le_le {D L : ℝ} (hD : 0 < D) (hL : 0 ≤ L) (k : ℕ) :
-    ∑ s ∈ range k, (if (s + 1) * D ≤ L then (1 : ℝ) else 0) ≤ L / D := by
-  rw [sum_boole]
-  refine le_trans ?_ (Nat.floor_le (div_nonneg hL hD.le))
-  refine Nat.cast_le.2 ((card_le_card fun s hs ↦ ?_).trans (card_range _).le)
-  rw [mem_filter] at hs
-  rw [Finset.mem_range, Nat.lt_iff_add_one_le]
-  refine Nat.le_floor ?_
-  rw [le_div_iff₀ hD]
-  exact_mod_cast hs.2
-
 /-- **Overestimation of the KL-UCB index** ([LS, Lemma 10.8] for rewards in `[0, 1]`). Let
 `X₀, X₁, …` be independent, in `[0, 1]`, with means at most `m`, let `ε > 0` and `c < 1` with
 `m + ε < c`, and let `L ≥ 0`. Then the expected number of sample sizes `s < n` at which `s = 0`, or
