@@ -111,6 +111,13 @@ lemma measurableSet_mem_stopSet_and_eq [MeasurableSingletonClass 𝓓] (d : 𝓓
     MeasurableSet {p : (Σ n : ℕ, Hist 𝓞 𝓐 𝓨 n) × 𝓓 | p.1 ∈ A.stopSet ∧ p.2 = d} :=
   (measurable_fst A.measurableSet_stopSet).inter (measurable_snd (measurableSet_singleton d))
 
+variable (A) in
+/-- The event "the algorithm has stopped and its output is not in `s`" of the stopped history and
+the output is measurable. -/
+lemma measurableSet_mem_stopSet_and_notMem {s : Set 𝓓} (hs : MeasurableSet s) :
+    MeasurableSet {p : (Σ n : ℕ, Hist 𝓞 𝓐 𝓨 n) × 𝓓 | p.1 ∈ A.stopSet ∧ p.2 ∉ s} :=
+  (measurable_fst A.measurableSet_stopSet).inter (measurable_snd hs.compl)
+
 end Learning.IdentAlg
 
 namespace LMLExplore.Identification

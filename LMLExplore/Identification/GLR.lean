@@ -196,20 +196,19 @@ theorem measureReal_histOutputMeasure_glrt_le {env : Environment Unit α 𝓨}
   set A := task.glrt Z alg β rec hrec hstop
   have hg : Measurable fun h : Σ n, Hist Unit α 𝓨 n ↦ (h, rec h.1 h.2) :=
     measurable_id.prodMk (measurable_sigma_of_measurable_comp_mk hrec)
-  have hS : MeasurableSet {p : (Σ n, Hist Unit α 𝓨 n) × ℐ | p.1 ∈ A.stopSet ∧
-      p.2 ∉ task.correct θ} :=
-    (measurable_fst A.measurableSet_stopSet).inter (measurable_snd hc.compl)
+  have hS := A.measurableSet_mem_stopSet_and_notMem hc
   have h_law : HasLaw (A.stoppedHist O X Y) (stoppedHistMeasure A.alg env A.stopSet) P :=
     (task.alg_glrt Z alg β rec hrec hstop ▸ hseq).hasLaw_stoppedValue_sigmaHistory
       A.measurableSet_stopSet
   rw [histOutputMeasure_def, output_glrt_eq_deterministic, Measure.compProd_deterministic,
     map_measureReal_apply hg hS, ← h_law.map_eq,
     map_measureReal_apply_of_aemeasurable h_law.aemeasurable (hg hS)]
-  -- The stopped history is the history of the first `k` rounds, for `k` the stopping time.
+  -- The stopped history is the history of the first `n` rounds, for `n` the stopping time.
   refine measureReal_mono fun ω ⟨hω_stop, hω_wrong⟩ ↦ ?_
-  simp only [IdentAlg.stoppedHist_def, stoppedValue, sigmaHistory_apply, A,
-    mem_stopSet_glrt] at hω_stop hω_wrong
-  exact ⟨_, hω_stop.trans_le (task.glr_le_of_notMem_correct hθ hω_wrong)⟩
+  obtain ⟨n, hn⟩ := WithTop.ne_top_iff_exists.1 (IdentAlg.stoppedHist_mem_stopSet_iff.1 hω_stop)
+  rw [IdentAlg.stoppedHist_eq_of_stoppingTime_eq hn.symm] at hω_stop hω_wrong
+  rw [mem_stopSet_glrt] at hω_stop
+  exact ⟨n, hω_stop.trans_le (task.glr_le_of_notMem_correct hθ hω_wrong)⟩
 
 /-- **Error probability of the GLRT along a run**, for every sampling rule. Along every run of the
 GLRT, the probability that it stops with an answer that is not correct for the model `θ` is at
@@ -220,11 +219,8 @@ theorem measureReal_stoppingTime_ne_top_and_notMem_le_of_isRun_glrt {env : Envir
     P.real {ω | (task.glrt Z alg β rec hrec hstop).stoppingTime O X Y ω ≠ ⊤ ∧
         out ω ∉ task.correct θ} ≤
       P.real {ω | ∃ n, β n < Z n (history O X Y n ω) θ} := by
-  have hS : MeasurableSet {p : (Σ n, Hist Unit α 𝓨 n) × ℐ |
-      p.1 ∈ (task.glrt Z alg β rec hrec hstop).stopSet ∧ p.2 ∉ task.correct θ} :=
-    (measurable_fst (task.glrt Z alg β rec hrec hstop).measurableSet_stopSet).inter
-      (measurable_snd hc.compl)
-  have h_eq := hrun.hasLaw_stoppedHist_output.measureReal_eq hS
+  have h_eq := hrun.hasLaw_stoppedHist_output.measureReal_eq
+    ((task.glrt Z alg β rec hrec hstop).measurableSet_mem_stopSet_and_notMem hc)
   simp only [IdentAlg.stoppedHist_mem_stopSet_iff] at h_eq
   rw [h_eq]
   exact task.measureReal_histOutputMeasure_glrt_le Z alg β rec hrec hstop
