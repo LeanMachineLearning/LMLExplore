@@ -7,6 +7,7 @@ module
 
 public import LMLExplore.Identification.Task.MeanVector
 public import LMLExplore.Identification.Task.TransportationCost
+public import LMLExplore.Probability.Distributions.ExponentialFamily.Mean
 
 /-!
 # The alternatives of best arm identification and their closure
@@ -25,6 +26,11 @@ sets of the arm families (the means of an exponential family form an open interv
 alternatives to `a` is the closed set above, and when the transportation cost is continuous there,
 the cost of the alternatives is the infimum of the cost over it.
 
+When the arms belong to an exponential family with divergence `d` and `a` is a best arm of `μ`,
+the infimum for the arm `b` is attained by moving the means of `a` and `b` to their mean weighted
+by the allocation, which gives the closed form of the cost of the alternatives used to compute the
+optimal allocations of best arm identification [GK16, Lemma 3].
+
 ## Main statements
 
 * `LMLExplore.Identification.mem_alt_baiTask_iff`: the alternatives to `a` are the vectors with a
@@ -35,16 +41,20 @@ the cost of the alternatives is the infimum of the cost over it.
 * `LMLExplore.Identification.altCost_baiTask_restrict_eq_iInf`: for `S` open and a transportation
   cost continuous on `{λ | ∃ b ≠ a, λ a ≤ λ b} ∩ S`,
   `D(μ, w, ¬a) = min_{b ≠ a} inf {cost_μ(w, λ) | λ ∈ S, λ a ≤ λ b}`.
+* `LMLExplore.Identification.altCost_baiTask_restrict_eq_iInf_expFamilyDiv`: for arms in an
+  exponential family with divergence `d`, a best arm `a` of `μ` and a nonnegative allocation `w`,
+  `D(μ, w, ¬a) = min_{b ≠ a} (w a d(μ a, m_b) + w b d(μ b, m_b))` on the vectors of means of the
+  family, with `m_b = (w a μ a + w b μ b) / (w a + w b)` [GK16, Lemma 3].
 
 ## References
 
 * [GK16] A. Garivier and E. Kaufmann, *Optimal best arm identification with fixed confidence*,
-  COLT 2016, Section 2.
+  COLT 2016, Section 2 and Lemma 3.
 -/
 
 public section
 
-open MeasureTheory ProbabilityTheory Filter Topology
+open MeasureTheory ProbabilityTheory InformationTheory Filter Topology Measure
 
 open scoped ENNReal
 
@@ -148,5 +158,104 @@ theorem altCost_baiTask_restrict_eq_iInf (hS : IsOpen S) {μ : α → ℝ} {w : 
   refine iInf_congr fun b ↦ ?_
   rw [iInf_comm]
   exact iInf_congr fun _ ↦ iInf_congr fun _ ↦ iInf_comm
+
+section ExpFamily
+
+/-! ### Arms in an exponential family -/
+
+variable {ρ : Measure 𝓨} {T : 𝓨 → ℝ} {μ w : α → ℝ}
+
+/-- On the vectors of means of an exponential family, the transportation cost from `μ` to `μ'` is
+`∑ c, w c d(μ c, μ' c)` when the divergences between the arm laws are those of the family. -/
+private lemma cost_baiTask_eq_ofReal_sum (hμ : ∀ c, μ c ∈ ρ.expFamilyMeans T)
+    (hν : ∀ μ' : α → ℝ, (∀ c, μ' c ∈ ρ.expFamilyMeans T) →
+      ∀ c, klDiv (ν μ c) (ν μ' c) = ENNReal.ofReal (ρ.expFamilyDiv T (μ c) (μ' c)))
+    (hw : 0 ≤ w) {μ' : α → ℝ} (hμ' : ∀ c, μ' c ∈ ρ.expFamilyMeans T) :
+    (baiTask ν).cost w μ μ' = ENNReal.ofReal (∑ c, w c * ρ.expFamilyDiv T (μ c) (μ' c)) := by
+  rw [IdentTask.cost_def, ENNReal.ofReal_sum_of_nonneg fun c _ ↦
+    mul_nonneg (hw c) (expFamilyDiv_nonneg (hμ c) (hμ' c))]
+  refine Finset.sum_congr rfl fun c _ ↦ ?_
+  rw [ν_baiTask, hν μ' hμ' c, ENNReal.ofReal_mul (hw c)]
+
+/-- Moving the means of two arms `a ≠ b` of `μ` to a common mean `z` of the family gives a vector
+of means of the family in which `b` is at least as good as `a`, at transportation cost
+`w a d(μ a, z) + w b d(μ b, z)` from `μ`. -/
+private lemma iInf_cost_baiTask_le (hμ : ∀ c, μ c ∈ ρ.expFamilyMeans T)
+    (hν : ∀ μ' : α → ℝ, (∀ c, μ' c ∈ ρ.expFamilyMeans T) →
+      ∀ c, klDiv (ν μ c) (ν μ' c) = ENNReal.ofReal (ρ.expFamilyDiv T (μ c) (μ' c)))
+    (hw : 0 ≤ w) {b : α} (hba : b ≠ a) {z : ℝ} (hz : z ∈ ρ.expFamilyMeans T) :
+    ⨅ μ' ∈ {μ' : α → ℝ | ∀ c, μ' c ∈ ρ.expFamilyMeans T}, ⨅ (_ : μ' a ≤ μ' b),
+        (baiTask ν).cost w μ μ' ≤
+      ENNReal.ofReal (w a * ρ.expFamilyDiv T (μ a) z + w b * ρ.expFamilyDiv T (μ b) z) := by
+  classical
+  set μ' := Function.update (Function.update μ a z) b z
+  have hμ' (c : α) : μ' c ∈ ρ.expFamilyMeans T := by
+    simp only [μ', Function.update_apply]
+    split_ifs
+    exacts [hz, hz, hμ c]
+  refine (iInf₂_le μ' hμ').trans (iInf_le_of_le (by simp [μ', hba.symm]) ?_)
+  rw [cost_baiTask_eq_ofReal_sum ν hμ hν hw hμ',
+    ← Finset.sum_subset (Finset.subset_univ {a, b}) fun c _ hc ↦ ?_, Finset.sum_pair hba.symm]
+  · simp [μ', hba.symm]
+  · simp only [Finset.mem_insert, Finset.mem_singleton, not_or] at hc
+    simp [μ', hc.1, hc.2, expFamilyDiv_self]
+
+/-- **The cost of the alternatives in best arm identification with arms in an exponential
+family** [GK16, Lemma 3]. Let the arm laws of best arm identification belong to an exponential
+family with divergence `d`, in the sense that `KL(ν_c(μ), ν_c(μ')) = d(μ c, μ' c)` for all vectors
+of means `μ'` of the family (for example when `ν μ' c` is the member of mean `μ' c`, by
+`klDiv_expFamily_natParam`), and let `a` be a best arm of `μ`. Then on the vectors of means of the
+family, for every nonnegative allocation `w`,
+`D(μ, w, ¬a) = min_{b ≠ a} (w a d(μ a, m_b) + w b d(μ b, m_b))`, where
+`m_b = (w a μ a + w b μ b) / (w a + w b)` is the mean of `μ a` and `μ b` weighted by `w`: the
+cost of the alternatives in which `b` beats `a` is approached by moving both means to `m_b`. -/
+theorem altCost_baiTask_restrict_eq_iInf_expFamilyDiv
+    (hT : ∀ c, ¬ T =ᵐ[ρ] fun _ ↦ c) (hμ : ∀ c, μ c ∈ ρ.expFamilyMeans T)
+    (hν : ∀ μ' : α → ℝ, (∀ c, μ' c ∈ ρ.expFamilyMeans T) →
+      ∀ c, klDiv (ν μ c) (ν μ' c) = ENNReal.ofReal (ρ.expFamilyDiv T (μ c) (μ' c)))
+    (ha : ∀ b, μ b ≤ μ a) (hw : 0 ≤ w) :
+    ((baiTask ν).restrict {μ' | ∀ c, μ' c ∈ ρ.expFamilyMeans T}).altCost μ w a =
+      ⨅ (b) (_ : b ≠ a), ENNReal.ofReal
+        (w a * ρ.expFamilyDiv T (μ a) ((w a * μ a + w b * μ b) / (w a + w b)) +
+          w b * ρ.expFamilyDiv T (μ b) ((w a * μ a + w b * μ b) / (w a + w b))) := by
+  classical
+  have hw' (c : α) : 0 ≤ w c := hw c
+  set S := {μ' : α → ℝ | ∀ c, μ' c ∈ ρ.expFamilyMeans T} with hS_def
+  have hS : IsOpen S := by
+    rw [hS_def, Set.ofPred_forall]
+    exact isOpen_iInter_of_finite fun c ↦ (isOpen_expFamilyMeans hT).preimage (continuous_apply c)
+  have h_cost {μ' : α → ℝ} (hμ' : μ' ∈ S) := cost_baiTask_eq_ofReal_sum ν hμ hν hw hμ'
+  -- The cost is continuous on the vectors of means of the family, so that the alternatives can
+  -- be replaced by their closure, in which `b` is at least as good as `a` for some `b ≠ a`.
+  have hc : ContinuousOn ((baiTask ν).cost w μ) S := by
+    refine ContinuousOn.congr ?_ fun μ' hμ' ↦ h_cost hμ'
+    refine ENNReal.continuous_ofReal.comp_continuousOn
+      (continuousOn_finsetSum _ fun c _ ↦ continuousOn_const.mul ?_)
+    exact (continuousOn_expFamilyDiv hT).comp (f := fun μ' : α → ℝ ↦ (μ c, μ' c)) (by fun_prop)
+      fun μ' hμ' ↦ ⟨hμ c, hμ' c⟩
+  rw [altCost_baiTask_restrict_eq_iInf ν hS (hc.mono Set.inter_subset_right)]
+  refine iInf_congr fun b ↦ iInf_congr fun hba ↦ le_antisymm ?_ ?_
+  · -- Upper bound: move the means of `a` and `b` to the weighted mean `m_b`, a mean of the
+    -- family between `μ b` and `μ a` (or to `μ a` if both weights vanish).
+    rcases (add_nonneg (hw a) (hw b)).eq_or_lt with hW | hW
+    · obtain ⟨hwa, hwb⟩ : w a = 0 ∧ w b = 0 :=
+        ⟨by linarith [hw' a, hw' b], by linarith [hw' a, hw' b]⟩
+      simpa [hwa, hwb, hS_def] using iInf_cost_baiTask_le ν hμ hν hw hba (hμ a)
+    refine iInf_cost_baiTask_le ν hμ hν hw hba
+      (convex_expFamilyMeans.ordConnected.out (hμ b) (hμ a) ⟨?_, ?_⟩)
+    · rw [le_div_iff₀ hW]
+      nlinarith [ha b, hw' a]
+    · rw [div_le_iff₀ hW]
+      nlinarith [ha b, hw' b]
+  · -- Lower bound: drop the arms other than `a` and `b`, then move both means to `m_b`.
+    refine le_iInf₂ fun μ' hμ' ↦ le_iInf fun hab ↦ ?_
+    rw [h_cost hμ']
+    refine ENNReal.ofReal_le_ofReal ((mul_expFamilyDiv_add_mul_expFamilyDiv_le hT (hμ a) (hμ b)
+      (ha b) (hw a) (hw b) (hμ' a) (hμ' b) hab).trans ?_)
+    rw [← Finset.sum_pair (f := fun c ↦ w c * ρ.expFamilyDiv T (μ c) (μ' c)) hba.symm]
+    exact Finset.sum_le_sum_of_subset_of_nonneg (Finset.subset_univ _) fun c _ _ ↦
+      mul_nonneg (hw c) (expFamilyDiv_nonneg (hμ c) (hμ' c))
+
+end ExpFamily
 
 end LMLExplore.Identification
