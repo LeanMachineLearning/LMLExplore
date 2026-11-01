@@ -6,6 +6,7 @@ Authors: Rémy Degenne
 module
 
 public import Mathlib.InformationTheory.KullbackLeibler.Basic
+public import LMLExplore.Probability.HasLaw
 public import LMLExplore.Probability.Moments.Tilted
 
 /-!
@@ -282,14 +283,6 @@ lemma HasLaw.cgf_expFamily (hT : AEMeasurable T ρ) (hY : HasLaw Y (ρ.expFamily
     ← mgf_map hY.aemeasurable (hY.aestronglyMeasurable_exp_mul_expFamily hT t), hY.map_eq, ← cgf,
     Measure.cgf_expFamily hη hηt]
 
-/-- For random variables `X i` with law `ρ_η` for `i ∈ s`, independent as a family, the
-statistics `T (X i)`, `i ∈ s`, are independent. -/
-private lemma iIndepFun.comp_subtype_of_hasLaw_expFamily (h_indep : iIndepFun X P)
-    (hT : AEMeasurable T ρ) (hX : ∀ i ∈ s, HasLaw (X i) (ρ.expFamily T η) P) :
-    iIndepFun (fun i : s ↦ fun ω ↦ T (X i ω)) P :=
-  (h_indep.precomp Subtype.val_injective).comp₀ (fun _ ↦ T) (fun i ↦ (hX i i.2).aemeasurable)
-    fun i ↦ (hX i i.2).aemeasurable_map_expFamily hT
-
 /-- The cumulant generating function of `∑ i ∈ s, T (X i)` for independent random variables `X i`
 with law `ρ_η` is `t ↦ #s (ψ(η + t) - ψ(η))`, where `ψ = cgf T ρ`. -/
 lemma iIndepFun.cgf_sum_of_hasLaw_expFamily (h_indep : iIndepFun X P) (hT : AEMeasurable T ρ)
@@ -298,7 +291,7 @@ lemma iIndepFun.cgf_sum_of_hasLaw_expFamily (h_indep : iIndepFun X P) (hT : AEMe
     cgf (fun ω ↦ ∑ i ∈ s, T (X i ω)) P t = #s * (cgf T ρ (η + t) - cgf T ρ η) := by
   -- Restrict the family to `s`, so that the hypotheses hold for every index.
   rw [← Finset.sum_fn, ← Finset.sum_coe_sort s,
-    (h_indep.comp_subtype_of_hasLaw_expFamily hT hX).cgf_sum₀
+    (h_indep.comp_subtype_of_hasLaw (aemeasurable_expFamily hT η) hX).cgf_sum₀
     (fun i ↦ (hX i i.2).aemeasurable_comp_expFamily hT)
     fun i _ ↦ ((hX i i.2).integrable_exp_mul_iff_expFamily hT hη).2 hηt]
   simp [fun i : s ↦ (hX i i.2).cgf_expFamily hT hη hηt, mul_sub]
@@ -312,7 +305,7 @@ lemma iIndepFun.integrable_exp_mul_sum_of_hasLaw_expFamily (h_indep : iIndepFun 
   have := h_indep.isProbabilityMeasure
   refine (mgf_pos_iff (X := fun ω ↦ ∑ i ∈ s, T (X i ω))).1 ?_
   rw [← Finset.sum_fn, ← Finset.sum_coe_sort s,
-    (h_indep.comp_subtype_of_hasLaw_expFamily hT hX).mgf_sum₀
+    (h_indep.comp_subtype_of_hasLaw (aemeasurable_expFamily hT η) hX).mgf_sum₀
     fun i ↦ (hX i i.2).aemeasurable_comp_expFamily hT]
   exact Finset.prod_pos fun i _ ↦
     mgf_pos (((hX i i.2).integrable_exp_mul_iff_expFamily hT hη).2 hηt)

@@ -14,6 +14,9 @@ public import LMLExplore.Topology.UnitInterval
 
 Exchanging the two points of a Bernoulli law `Ber(x, y, p)` replaces `p` by `1 - p`, and for
 `x ≠ y`, `Ber(x, y, p) ≪ Ber(x, y, q)` exactly when `p` puts no mass on a point that `q` ignores.
+Being supported on two points, a Bernoulli law gives every real function exponential moments of all
+orders, and tilting it by `exp ∘ f` gives the Bernoulli law on the same two points whose odds are
+multiplied by `exp (f x - f y)`.
 
 The real two-point law `Ber(x, y, p)` is supported on the interval between `x` and `y`, hence, by
 Hoeffding's lemma (`ProbabilityTheory.hasSubgaussianMGF_of_mem_Icc`), it is
@@ -26,6 +29,10 @@ stochastic bandit algorithms are analysed.
 * `ProbabilityTheory.bernoulliMeasure_symm`: `Ber(x, y, 1 - p) = Ber(y, x, p)`.
 * `ProbabilityTheory.bernoulliMeasure_absolutelyContinuous_iff`: for `x ≠ y`,
   `Ber(x, y, p) ≪ Ber(x, y, q)` if and only if `q = 0 → p = 0` and `q = 1 → p = 1`.
+* `ProbabilityTheory.integrableExpSet_bernoulliMeasure`: every real function has exponential
+  moments of all orders under `Ber(x, y, p)`.
+* `ProbabilityTheory.tilted_bernoulliMeasure`: tilting `Ber(x, y, p)` by `exp ∘ f` gives
+  `Ber(x, y, p')` with `p' = p exp (f x) / (p exp (f x) + (1 - p) exp (f y))`.
 * `LMLExplore.ae_mem_uIcc_bernoulliMeasure`: `Ber(x, y, p)`-almost every point lies in
   `Set.uIcc x y`.
 * `LMLExplore.hasSubgaussianMGF_bernoulliMeasure`: `Ber(x, y, p)` is
@@ -71,6 +78,38 @@ theorem bernoulliMeasure_absolutelyContinuous_iff [MeasurableSingletonClass X] (
     fun h ↦ bernoulliMeasure_absolutelyContinuous h.1 h.2⟩
   · simpa [hxy.symm] using h (s := {x}) (by simp [hq, hxy.symm])
   · simpa [hxy, unitInterval.symm_eq_zero] using h (s := {y}) (by simp [hq, hxy])
+
+/-- Every real function has exponential moments of all orders under a Bernoulli law. -/
+@[simp]
+lemma integrableExpSet_bernoulliMeasure [MeasurableSingletonClass X] (x y : X) (p : I)
+    (T : X → ℝ) : integrableExpSet T Ber(x, y, p) = Set.univ :=
+  Set.eq_univ_of_forall fun _ ↦ integrable_bernoulliMeasure x y p _
+
+/-- Tilting the Bernoulli law `Ber(x, y, p)` by `exp ∘ f` gives the Bernoulli law on the same two
+points with parameter `p exp (f x) / (p exp (f x) + (1 - p) exp (f y))`. -/
+theorem tilted_bernoulliMeasure [MeasurableSingletonClass X] (x y : X) (p : I) (f : X → ℝ) :
+    Ber(x, y, p).tilted f =
+      Ber(x, y, ⟨p * Real.exp (f x) / (p * Real.exp (f x) + (1 - p) * Real.exp (f y)),
+        unitInterval.div_mem (by have := p.2.1; positivity)
+          (by have := p.2.1; have := unitInterval.one_sub_nonneg p; positivity)
+          (le_add_of_nonneg_right (by have := unitInterval.one_sub_nonneg p; positivity))⟩) := by
+  -- the normalizing constant `∫ exp ∘ f` is positive, since `p` and `1 - p` are not both zero
+  have hZ : 0 < p * Real.exp (f x) + (1 - p) * Real.exp (f y) := by
+    rcases (unitInterval.nonneg p).lt_or_eq with hp | hp
+    · have := unitInterval.one_sub_nonneg p
+      positivity
+    · simp [← hp, Real.exp_pos]
+  -- both measures are combinations of the Dirac masses at `x` and `y`: compare the weights
+  rw [Measure.tilted, integral_bernoulliMeasure]
+  simp only [bernoulliMeasure_def, smul_eq_mul, withDensity_add_measure, ENNReal.smul_def,
+    withDensity_smul_measure, dirac_withDensity, smul_smul]
+  congr 2
+  all_goals simp only [ENNReal.coe_nnreal_eq, unitInterval.coe_toNNReal, unitInterval.coe_symm_eq]
+  · rw [← ENNReal.ofReal_mul (unitInterval.nonneg p), mul_div_assoc]
+  · rw [← ENNReal.ofReal_mul (unitInterval.one_sub_nonneg p)]
+    congr 1
+    field_simp
+    ring
 
 end ProbabilityTheory
 
