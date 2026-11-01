@@ -63,6 +63,8 @@ that it lies below the true mean.
   `LMLExplore.klBer_le_max` is the resulting quasi-convexity in `q`.
 * `LMLExplore.antitoneOn_klBer_left`: `p ↦ d(p, q)` is antitone on `(-∞, q]`.
 * `LMLExplore.klBer_le_klBer`: `d(p', q') ≤ d(p, q)` for `q ≤ q' ≤ p' ≤ p`.
+* `LMLExplore.klBer_add_klBer_le`: the three-point inequality `d(p, q) + d(q, r) ≤ d(p, r)` for
+  `p ≤ q ≤ r`.
 * `LMLExplore.lowerSemicontinuous_klBer`, `LMLExplore.measurable_klBer`: `d` is jointly lower
   semicontinuous and measurable.
 * `LMLExplore.klBerReal_one_sub_right`, `LMLExplore.klBer_one_sub_right`:
@@ -76,6 +78,8 @@ that it lies below the true mean.
 * `LMLExplore.le_klUpper_iff_of_le_one`: for `p ≤ 1` and every real `r`, `r ≤ U(p, c)` if and only
   if `r ≤ p`, or `r ≤ 1` and `d(p, r) ≤ c`; `LMLExplore.le_or_klBer_le_of_le_klUpper` is the
   forward direction for every real `p`.
+* `LMLExplore.le_klBer_of_klUpper_le`: for `p ∈ [0, 1]` and `q < 1`, `U(p, c) ≤ q` implies
+  `c ≤ d(p, q)`.
 * `LMLExplore.klUpper_mono`, `LMLExplore.measurable_klUpper`: `U` is monotone in both arguments
   and jointly measurable.
 * `LMLExplore.klUpper_le_min`: `U(p, c) ≤ min 1 (p + √(c / 2))`, by Pinsker's inequality.
@@ -491,6 +495,54 @@ theorem klBer_le_klBer {p' q' : ℝ} (hq : q ≤ q') (hqp : q' ≤ p') (hp : p' 
         (Set.mem_Ici.2 (by linarith)) (Set.mem_Ici.2 (by linarith)) (by linarith)
     _ = klBer p q := klBer_one_sub_one_sub p q
 
+/-- **Three-point inequality** for the binary relative entropy [LS, Lemma 10.2]: if `p ≤ q ≤ r`,
+then `d(p, q) + d(q, r) ≤ d(p, r)`. With `q = r - ε`, moving the second argument from `r` towards
+`p` by `ε` decreases `d(p, ·)` by at least `d(r - ε, r)`. -/
+theorem klBer_add_klBer_le {r : ℝ} (hpq : p ≤ q) (hqr : q ≤ r) :
+    klBer p q + klBer q r ≤ klBer p r := by
+  -- The case of `p ≤ q ≤ r` in `[0, 1]`.
+  have key {p q r : ℝ} (hp : 0 ≤ p) (hpq : p ≤ q) (hqr : q ≤ r) (hr : r ≤ 1) :
+      klBer p q + klBer q r ≤ klBer p r := by
+    rcases hpq.eq_or_lt with hpq | hpq
+    · simp [hpq]
+    rcases hqr.eq_or_lt with hqr | hqr
+    · simp [hqr]
+    have hp' : p ∈ Set.Icc 0 1 := ⟨hp, by linarith⟩
+    have hq' : q ∈ Set.Ioo 0 1 := ⟨by linarith, by linarith⟩
+    rcases hr.eq_or_lt with rfl | hr1
+    · rw [(klBer_eq_top_iff hp' ⟨zero_le_one, le_rfl⟩).2 (Or.inr ⟨rfl, by linarith⟩)]
+      exact le_top
+    have hr' : r ∈ Set.Ioo 0 1 := ⟨by linarith, hr1⟩
+    rw [klBer_eq_ofReal_klBerReal hp' (Set.Ioo_subset_Icc_self hq') (klBer_ne_top hq'),
+      klBer_eq_ofReal_klBerReal (Set.Ioo_subset_Icc_self hq') (Set.Ioo_subset_Icc_self hr')
+        (klBer_ne_top hr'),
+      klBer_eq_ofReal_klBerReal hp' (Set.Ioo_subset_Icc_self hr') (klBer_ne_top hr'),
+      ← ENNReal.ofReal_add (klBerReal_nonneg hp' (Set.Ioo_subset_Icc_self hq') (klBer_ne_top hq'))
+        (klBerReal_nonneg (Set.Ioo_subset_Icc_self hq') (Set.Ioo_subset_Icc_self hr')
+          (klBer_ne_top hr'))]
+    refine ENNReal.ofReal_le_ofReal ?_
+    -- `d(p, r) - d(p, q)` is affine in `p`, with value `d(q, r)` at `p = q` and a nonpositive
+    -- slope `(log q - log r) - (log (1 - q) - log (1 - r))`
+    have h₁ : p * log (p / r) = p * log (p / q) + p * (log q - log r) := by
+      rcases hp.eq_or_lt with rfl | hp0
+      · simp
+      rw [log_div hp0.ne' (by linarith), log_div hp0.ne' hq'.1.ne']
+      ring
+    have h₂ : (1 - p) * log ((1 - p) / (1 - r)) =
+        (1 - p) * log ((1 - p) / (1 - q)) + (1 - p) * (log (1 - q) - log (1 - r)) := by
+      rw [log_div (by linarith) (by linarith), log_div (by linarith) (by linarith)]
+      ring
+    have h₃ : klBerReal q r = q * (log q - log r) + (1 - q) * (log (1 - q) - log (1 - r)) := by
+      rw [klBerReal_def, log_div hq'.1.ne' hr'.1.ne', log_div (by linarith) (by linarith)]
+    have hA : log q - log r ≤ 0 := by linarith [log_le_log hq'.1 hqr.le]
+    have hB : 0 ≤ log (1 - q) - log (1 - r) := by
+      linarith [log_le_log (sub_pos.2 hr1) (by linarith : 1 - r ≤ 1 - q)]
+    rw [klBerReal_def p r, h₁, h₂, h₃, klBerReal_def p q]
+    nlinarith [mul_nonneg (sub_nonneg.2 hpq.le) (sub_nonneg.2 (hA.trans hB))]
+  rw [← klBer_projIcc p q, ← klBer_projIcc q r, ← klBer_projIcc p r]
+  exact key (Set.projIcc 0 1 zero_le_one p).2.1 (Set.monotone_projIcc zero_le_one hpq)
+    (Set.monotone_projIcc zero_le_one hqr) (Set.projIcc 0 1 zero_le_one r).2.2
+
 /-! ### Semicontinuity and measurability -/
 
 /-- The binary relative entropy is jointly lower semicontinuous. -/
@@ -751,6 +803,41 @@ theorem le_or_klBer_le_of_le_klUpper (h : r ≤ klUpper p c) : r ≤ p ∨ r ≤
   · exact (le_klUpper_iff_of_le_one hp).1 h
   · rw [klUpper_of_one_lt hp] at h
     exact Or.inl (h.trans (zero_le_one.trans hp.le))
+
+/-- For `p ∈ [0, 1]` and `q < 1`, if the upper confidence level `U(p, c)` is at most `q`, then
+`c ≤ d(p, q)`. The hypothesis `q < 1` is needed: `U(p, c) ≤ 1` always holds. -/
+theorem le_klBer_of_klUpper_le (hp : p ∈ Set.Icc 0 1) (hq : q < 1) (h : klUpper p c ≤ q) :
+    c ≤ klBer p q := by
+  have hpq : p ≤ q := (klUpper_mem_Icc hp.2 c).1.trans h
+  by_contra! hlt
+  -- `d(p, ·)` is below `c` on a right neighbourhood of `q`
+  have h_ev : ∀ᶠ q' in 𝓝[>] q, klBer p q' < c := by
+    rcases hpq.eq_or_lt with hpq | hpq
+    · -- for `p = q`, `d(p, q') ≤ (q' - p) / (1 - q')` on `(p, 1)`, which tends to `0`
+      rw [← hpq, klBer_self] at hlt
+      have hg : Tendsto (fun q' ↦ ENNReal.ofReal ((q' - p) / (1 - q'))) (𝓝 p) (𝓝 0) := by
+        have hc : ContinuousAt (fun q' ↦ (q' - p) / (1 - q')) p :=
+          ((continuous_id.sub continuous_const).continuousAt).div
+            (continuous_const.sub continuous_id).continuousAt (by linarith)
+        simpa [Function.comp_def] using (ENNReal.continuous_ofReal.tendsto _).comp hc.tendsto
+      rw [← hpq]
+      filter_upwards [nhdsWithin_le_nhds (hg.eventually (gt_mem_nhds hlt)),
+        Ioo_mem_nhdsGT (by linarith : p < 1)] with q' hq' hq'I
+      have hq'01 : q' ∈ Set.Ioo 0 1 := ⟨hp.1.trans_lt hq'I.1, hq'I.2⟩
+      refine lt_of_le_of_lt ((klBer_le_ofReal_sq_sub_div hp hq'01).trans
+        (ENNReal.ofReal_le_ofReal ?_)) hq'
+      rw [div_le_div_iff₀ (mul_pos hq'01.1 (sub_pos.2 hq'01.2)) (sub_pos.2 hq'01.2)]
+      nlinarith [mul_le_mul_of_nonneg_right (by linarith [hp.1] : q' - p ≤ q')
+        (mul_nonneg (sub_nonneg.2 hq'I.1.le) (sub_pos.2 hq'01.2).le)]
+    · -- for `p < q`, `q ∈ (0, 1)` and `d(p, ·)` is continuous at `q`
+      have hq01 : q ∈ Set.Ioo 0 1 := ⟨hp.1.trans_lt hpq, hq⟩
+      have hcont : ContinuousAt (klBer p) q :=
+        (continuousOn_klBer.comp (continuousOn_const.prodMk continuousOn_id)
+          fun _ hq' ↦ ⟨hp, hq'⟩).continuousAt (isOpen_Ioo.mem_nhds hq01)
+      exact nhdsWithin_le_nhds (hcont.eventually (gt_mem_nhds hlt))
+  obtain ⟨q', hq'c, hq'I⟩ := (h_ev.and (Ioo_mem_nhdsGT hq)).exists
+  have hq'U : q' ≤ klUpper p c := (le_klUpper_iff ⟨hpq.trans hq'I.1.le, hq'I.2.le⟩).2 hq'c.le
+  linarith [hq'I.1]
 
 /-- The upper confidence level is jointly measurable in `(p, c)`. -/
 theorem measurable_klUpper : Measurable (Function.uncurry klUpper) := by
