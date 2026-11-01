@@ -7,6 +7,7 @@ module
 
 public import LeanMachineLearning.ForMathlib.Probability.Moments.SubGaussian
 public import LeanMachineLearning.Online.Bandit.ArrayProbSpace
+public import LMLExplore.Analysis.Convex.Integral
 public import LMLExplore.Analysis.Real.Sqrt
 public import LMLExplore.Analysis.SpecialFunctions.Exp
 public import LMLExplore.Analysis.SpecialFunctions.Log.InvMulLogSq
@@ -665,8 +666,7 @@ theorem measureReal_streamMeasure_klUpper_le_sub_le (hν : ∀ᵐ x ∂(ν a), x
     (hε : 0 < ε) (L : ℝ) {s : ℕ} (hs : s ≠ 0) :
     (streamMeasure ν).real {ω | klUpper ((∑ i ∈ range s, ω i a) / s) (ENNReal.ofReal (L / s)) ≤
         (ν a)[id] - ε} ≤ exp (-L) * exp (-(2 * ε ^ 2 * s)) := by
-  have hμ : (ν a)[id] ∈ Set.Icc 0 1 := (convex_Icc (0 : ℝ) 1).integral_mem isClosed_Icc hν
-    (Integrable.of_mem_Icc 0 1 aemeasurable_id hν)
+  have hμ : (ν a)[id] ∈ Set.Icc 0 1 := integral_id_mem_Icc_of_ae_mem_Icc hν
   have h := measureReal_klUpper_le_le (iIndepFun_eval_streamMeasure'' ν a) (s := range s)
     (nonempty_range_iff.2 hs)
     (fun i _ ↦ (by fun_prop : Measurable fun ω : ℕ → α → ℝ ↦ ω i a).aemeasurable)
