@@ -14,6 +14,8 @@ public import LMLExplore.Topology.UnitInterval
 
 Exchanging the two points of a Bernoulli law `Ber(x, y, p)` replaces `p` by `1 - p`, and for
 `x ≠ y`, `Ber(x, y, p) ≪ Ber(x, y, q)` exactly when `p` puts no mass on a point that `q` ignores.
+Being supported on two points, a Bernoulli law gives every real function exponential moments of all
+orders.
 
 The real two-point law `Ber(x, y, p)` is supported on the interval between `x` and `y`, hence, by
 Hoeffding's lemma (`ProbabilityTheory.hasSubgaussianMGF_of_mem_Icc`), it is
@@ -26,6 +28,8 @@ stochastic bandit algorithms are analysed.
 * `ProbabilityTheory.bernoulliMeasure_symm`: `Ber(x, y, 1 - p) = Ber(y, x, p)`.
 * `ProbabilityTheory.bernoulliMeasure_absolutelyContinuous_iff`: for `x ≠ y`,
   `Ber(x, y, p) ≪ Ber(x, y, q)` if and only if `q = 0 → p = 0` and `q = 1 → p = 1`.
+* `ProbabilityTheory.integrableExpSet_bernoulliMeasure`: every real function has exponential
+  moments of all orders under `Ber(x, y, p)`.
 * `LMLExplore.ae_mem_uIcc_bernoulliMeasure`: `Ber(x, y, p)`-almost every point lies in
   `Set.uIcc x y`.
 * `LMLExplore.hasSubgaussianMGF_bernoulliMeasure`: `Ber(x, y, p)` is
@@ -71,6 +75,12 @@ theorem bernoulliMeasure_absolutelyContinuous_iff [MeasurableSingletonClass X] (
     fun h ↦ bernoulliMeasure_absolutelyContinuous h.1 h.2⟩
   · simpa [hxy.symm] using h (s := {x}) (by simp [hq, hxy.symm])
   · simpa [hxy, unitInterval.symm_eq_zero] using h (s := {y}) (by simp [hq, hxy])
+
+/-- Every real function has exponential moments of all orders under a Bernoulli law. -/
+@[simp]
+lemma integrableExpSet_bernoulliMeasure [MeasurableSingletonClass X] (x y : X) (p : I)
+    (T : X → ℝ) : integrableExpSet T Ber(x, y, p) = Set.univ :=
+  Set.eq_univ_of_forall fun _ ↦ integrable_bernoulliMeasure x y p _
 
 end ProbabilityTheory
 

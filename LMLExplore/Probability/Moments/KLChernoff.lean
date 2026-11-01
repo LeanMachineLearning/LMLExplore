@@ -9,6 +9,8 @@ public import Mathlib.Analysis.Convex.SpecificFunctions.Basic
 public import Mathlib.Probability.Moments.Basic
 public import Mathlib.Probability.Moments.SubGaussian
 public import LMLExplore.InformationTheory.KullbackLeibler.Bernoulli
+public import LMLExplore.Probability.Distributions.ExponentialFamily.Bernoulli
+public import LMLExplore.Probability.Distributions.ExponentialFamily.Chernoff
 
 /-!
 # Chernoff bounds in relative-entropy form
@@ -18,8 +20,16 @@ their sum over a finite set `s` exceeds `#s * p`, for `p ∈ [m, 1]`, is at most
 `exp (-#s * d(p, m))`, where `d = klBerReal` is the binary relative entropy. Symmetrically, if the
 means are at least `m`, the probability that the sum is at most `#s * p`, for `p ∈ [0, m]`, is at
 most `exp (-#s * d(p, m))`. This is the Chernoff bound of the Bernoulli law, which dominates the
-`[0, 1]`-valued case: by convexity of `exp`, `E[exp (t X)] ≤ 1 - m + m exp t` for `t ≥ 0`. By
-Pinsker's inequality `d(p, m) ≥ 2 (p - m)²`, it is sharper than Hoeffding's inequality.
+`[0, 1]`-valued case: by convexity of `exp`, `E[exp (t X)] ≤ 1 - m + m exp t` for `t ≥ 0`, so that
+`X` is dominated above by `Ber((1 : ℝ), 0, m)` (`LMLExplore.MGFDominatedAbove`), and symmetrically
+dominated below when its mean is at least `m`. The Bernoulli laws form an exponential family whose
+divergence is `d`, and for `p, m ∈ (0, 1)` both bounds are the Cramér–Chernoff bounds under
+domination by an exponential family
+(`ProbabilityTheory.iIndepFun.measureReal_sum_ge_le_exp_expFamilyDiv`). At the boundary levels
+`p = 1` (upper tail) and `p = 0` (lower tail), the bounds `m ^ #s` and `(1 - m) ^ #s` follow from
+Markov's inequality, since the sum reaches `#s` (resp. `0`) only if every `X i` is `1`
+(resp. `0`). By Pinsker's
+inequality `d(p, m) ≥ 2 (p - m)²`, these bounds are sharper than Hoeffding's inequality.
 
 The lower tail controls the upper confidence level `U(μ̂, c)` of the KL-UCB algorithm at the
 empirical mean `μ̂ = (∑ i ∈ s, X i) / #s`: for a level `q < 1` with `q ≤ m`, `U(μ̂, L / #s) ≤ q`
@@ -28,10 +38,13 @@ the underestimation of an optimal arm in the analysis of KL-UCB.
 
 ## Main statements
 
+* `LMLExplore.mgf_le_one_sub_integral_add_integral_mul_exp`: for `X ∈ [0, 1]` a.s. and every
+  `t`, `mgf X μ t ≤ 1 - E[X] + E[X] exp t`.
 * `LMLExplore.mgf_le_one_sub_add_mul_exp`: for `X ∈ [0, 1]` a.s. with `E[X] ≤ m` and `t ≥ 0`,
   `mgf X μ t ≤ 1 - m + m exp t`.
-* `LMLExplore.measureReal_sum_ge_le_exp_mul_pow`: the Chernoff bound at a fixed `t ≥ 0`,
-  `P(a ≤ ∑ i ∈ s, X i) ≤ exp (-t a) (1 - m + m exp t) ^ #s`.
+* `LMLExplore.mgfDominatedAbove_bernoulliMeasure`, `LMLExplore.mgfDominatedBelow_bernoulliMeasure`:
+  a random variable with values in `[0, 1]` and mean at most (resp. at least) `q` is dominated
+  above (resp. below) by `Ber((1 : ℝ), 0, q)`.
 * `LMLExplore.measureReal_sum_ge_le_exp_klBerReal`: the upper tail
   `P(#s * p ≤ ∑ i ∈ s, X i) ≤ exp (-(#s * d(p, m)))` for `0 < m ≤ p ≤ 1`.
 * `LMLExplore.measureReal_card_mul_add_le_sum_le`: Hoeffding's inequality
@@ -53,7 +66,7 @@ the underestimation of an optimal arm in the analysis of KL-UCB.
 public section
 
 open MeasureTheory ProbabilityTheory Filter Real Finset
-open scoped NNReal Topology
+open scoped NNReal Topology unitInterval
 
 namespace LMLExplore
 
@@ -66,12 +79,12 @@ theorem exp_mul_le_one_sub_add_mul_exp {x : ℝ} (hx : x ∈ Set.Icc 0 1) (t : �
   simpa using convexOn_exp.2 (Set.mem_univ 0) (Set.mem_univ t) (sub_nonneg.2 hx.2) hx.1
     (sub_add_cancel 1 x)
 
-/-- **Moment generating function of a `[0, 1]`-valued variable**: if `X ∈ [0, 1]` almost surely
-and `E[X] ≤ m`, then for `t ≥ 0`, `mgf X μ t ≤ 1 - m + m exp t`, the moment generating function
-of the Bernoulli law of mean `m`. -/
-theorem mgf_le_one_sub_add_mul_exp [IsProbabilityMeasure μ] {X : Ω → ℝ} (hXm : AEMeasurable X μ)
-    (hX : ∀ᵐ ω ∂μ, X ω ∈ Set.Icc 0 1) (hmean : μ[X] ≤ m) {t : ℝ} (ht : 0 ≤ t) :
-    mgf X μ t ≤ 1 - m + m * exp t := by
+/-- **Moment generating function of a `[0, 1]`-valued variable**: if `X ∈ [0, 1]` almost surely,
+then for every `t`, `mgf X μ t ≤ 1 - E[X] + E[X] exp t`, the moment generating function of the
+Bernoulli law with the mean of `X`. -/
+theorem mgf_le_one_sub_integral_add_integral_mul_exp [IsProbabilityMeasure μ] {X : Ω → ℝ}
+    (hXm : AEMeasurable X μ) (hX : ∀ᵐ ω ∂μ, X ω ∈ Set.Icc 0 1) (t : ℝ) :
+    mgf X μ t ≤ 1 - μ[X] + μ[X] * exp t := by
   have hint : Integrable X μ := .of_mem_Icc 0 1 hXm hX
   have hint_exp : Integrable (fun ω ↦ exp (t * X ω)) μ := integrable_exp_mul_of_mem_Icc hXm hX
   calc mgf X μ t = ∫ ω, exp (t * X ω) ∂μ := rfl
@@ -84,37 +97,70 @@ theorem mgf_le_one_sub_add_mul_exp [IsProbabilityMeasure μ] {X : Ω → ℝ} (h
         rw [integral_add h1 (hint.mul_const _),
           integral_sub (integrable_const 1) hint, integral_const, integral_mul_const]
         simp
-    _ ≤ 1 - m + m * exp t := by
-        have := mul_le_mul_of_nonneg_right hmean (sub_nonneg.2 (one_le_exp ht))
-        linarith
 
-/-- **Chernoff bound for `[0, 1]`-valued variables**: for independent random variables
-`X i ∈ [0, 1]` with means at most `m`, every threshold `a` and every `t ≥ 0`,
-`P(a ≤ ∑ i ∈ s, X i) ≤ exp (-t a) (1 - m + m exp t) ^ #s`. -/
-theorem measureReal_sum_ge_le_exp_mul_pow {X : ι → Ω → ℝ} (h_indep : iIndepFun X μ)
+/-- **Moment generating function of a `[0, 1]`-valued variable**: if `X ∈ [0, 1]` almost surely
+and `E[X] ≤ m`, then for `t ≥ 0`, `mgf X μ t ≤ 1 - m + m exp t`, the moment generating function of
+the Bernoulli law of mean `m`. -/
+theorem mgf_le_one_sub_add_mul_exp [IsProbabilityMeasure μ] {X : Ω → ℝ} (hXm : AEMeasurable X μ)
+    (hX : ∀ᵐ ω ∂μ, X ω ∈ Set.Icc 0 1) (hmean : μ[X] ≤ m) {t : ℝ} (ht : 0 ≤ t) :
+    mgf X μ t ≤ 1 - m + m * exp t := by
+  have := mul_le_mul_of_nonneg_right hmean (sub_nonneg.2 (one_le_exp ht))
+  linarith [mgf_le_one_sub_integral_add_integral_mul_exp hXm hX t]
+
+/-- A random variable with values in `[0, 1]` and mean at most `q` is dominated above by the
+Bernoulli law of mean `q`: `mgf X μ t ≤ mgf id Ber((1 : ℝ), 0, q) t` for `t ≥ 0`. -/
+theorem mgfDominatedAbove_bernoulliMeasure [IsProbabilityMeasure μ] {X : Ω → ℝ}
+    (hXm : AEMeasurable X μ) (hX : ∀ᵐ ω ∂μ, X ω ∈ Set.Icc 0 1) {q : I} (hmean : μ[X] ≤ (q : ℝ)) :
+    MGFDominatedAbove X μ id Ber((1 : ℝ), 0, q) where
+  integrable_exp_mul _ _ _ := integrable_exp_mul_of_mem_Icc hXm hX
+  mgf_le _ ht _ := by
+    rw [TauCeti.Probability.mgf_id_bernoulliMeasure]
+    exact mgf_le_one_sub_add_mul_exp hXm hX hmean ht
+
+/-- A random variable with values in `[0, 1]` and mean at least `q` is dominated below by the
+Bernoulli law of mean `q`: `mgf X μ t ≤ mgf id Ber((1 : ℝ), 0, q) t` for `t ≤ 0`. -/
+theorem mgfDominatedBelow_bernoulliMeasure [IsProbabilityMeasure μ] {X : Ω → ℝ}
+    (hXm : AEMeasurable X μ) (hX : ∀ᵐ ω ∂μ, X ω ∈ Set.Icc 0 1) {q : I} (hmean : (q : ℝ) ≤ μ[X]) :
+    MGFDominatedBelow X μ id Ber((1 : ℝ), 0, q) where
+  integrable_exp_mul _ _ _ := integrable_exp_mul_of_mem_Icc hXm hX
+  mgf_le t ht _ := by
+    rw [TauCeti.Probability.mgf_id_bernoulliMeasure]
+    have := mul_le_mul_of_nonpos_right hmean (sub_nonpos.2 (exp_le_one_iff.2 ht))
+    linarith [mgf_le_one_sub_integral_add_integral_mul_exp hXm hX t]
+
+/-- For independent random variables `X i ∈ [0, 1]` with means at most `m`, the sum
+`∑ i ∈ s, X i` reaches `#s` with probability at most `m ^ #s`: it does so only if every `X i` is
+`1`, which has probability at most `m` by Markov's inequality. -/
+private lemma measureReal_card_le_sum_le_pow {X : ι → Ω → ℝ} (h_indep : iIndepFun X μ)
     {s : Finset ι} (hXm : ∀ i ∈ s, AEMeasurable (X i) μ)
-    (hX : ∀ i ∈ s, ∀ᵐ ω ∂μ, X i ω ∈ Set.Icc 0 1) (hmean : ∀ i ∈ s, μ[X i] ≤ m) (a : ℝ) {t : ℝ}
-    (ht : 0 ≤ t) :
-    μ.real {ω | a ≤ ∑ i ∈ s, X i ω} ≤ exp (-t * a) * (1 - m + m * exp t) ^ #s := by
+    (hX : ∀ i ∈ s, ∀ᵐ ω ∂μ, X i ω ∈ Set.Icc 0 1) (hmean : ∀ i ∈ s, μ[X i] ≤ m) :
+    μ.real {ω | (#s : ℝ) ≤ ∑ i ∈ s, X i ω} ≤ m ^ #s := by
   have := h_indep.isProbabilityMeasure
   have hX' : ∀ᵐ ω ∂μ, ∀ i ∈ s, X i ω ∈ Set.Icc 0 1 := (eventually_all_finset s).2 hX
-  have hint : Integrable (fun ω ↦ exp (t * ∑ i ∈ s, X i ω)) μ := by
-    refine integrable_exp_mul_of_le t #s ht (Finset.aemeasurable_fun_sum s hXm) ?_
-    filter_upwards [hX'] with ω hω
-    calc ∑ i ∈ s, X i ω ≤ ∑ _i ∈ s, (1 : ℝ) := sum_le_sum fun i hi ↦ (hω i hi).2
-      _ = #s := by simp
-  refine (measure_ge_le_exp_mul_mgf _ ht hint).trans
-    (mul_le_mul_of_nonneg_left ?_ (exp_pos _).le)
-  have hsum := (h_indep.precomp (Subtype.val_injective (p := (· ∈ s)))).mgf_sum₀ (t := t)
-    (fun i ↦ hXm i i.2) univ
-  have hfun : (fun ω ↦ ∑ i ∈ s, X i ω) = ∑ i : s, X i := by
-    ext ω
-    rw [Finset.sum_apply, Finset.sum_coe_sort s fun i ↦ X i ω]
-  rw [hfun, hsum, Finset.prod_coe_sort s fun i ↦ mgf (X i) μ t]
-  calc ∏ i ∈ s, mgf (X i) μ t ≤ ∏ _i ∈ s, (1 - m + m * exp t) :=
-        prod_le_prod₀ (fun _ _ ↦ mgf_nonneg)
-          fun i hi ↦ mgf_le_one_sub_add_mul_exp (hXm i hi) (hX i hi) (hmean i hi) ht
-    _ = (1 - m + m * exp t) ^ #s := prod_const _
+  -- the sum reaches `#s` only if every `X i` is at least `1`
+  have h_sub : {ω | (#s : ℝ) ≤ ∑ i ∈ s, X i ω} ≤ᵐ[μ] ⋂ i ∈ s, X i ⁻¹' Set.Ici 1 := by
+    filter_upwards [hX'] with ω hω h_sum
+    simp only [Set.mem_iInter, Set.mem_preimage, Set.mem_Ici]
+    intro i hi
+    by_contra! h
+    have h_lt : ∑ j ∈ s, X j ω < ∑ _j ∈ s, (1 : ℝ) :=
+      Finset.sum_lt_sum (fun j hj ↦ (hω j hj).2) ⟨i, hi, h⟩
+    simp only [sum_const, nsmul_eq_mul, mul_one] at h_lt
+    linarith
+  calc μ.real {ω | (#s : ℝ) ≤ ∑ i ∈ s, X i ω}
+  _ ≤ μ.real (⋂ i ∈ s, X i ⁻¹' Set.Ici 1) :=
+    ENNReal.toReal_mono (measure_ne_top _ _) (measure_mono_ae h_sub)
+  _ = ∏ i ∈ s, μ.real (X i ⁻¹' Set.Ici 1) := by
+    simp only [measureReal_def,
+      h_indep.measure_inter_preimage_eq_mul s (fun _ _ ↦ measurableSet_Ici), ENNReal.toReal_prod]
+  _ ≤ ∏ _i ∈ s, m := by
+    refine prod_le_prod₀ (fun _ _ ↦ measureReal_nonneg) fun i hi ↦ ?_
+    have h_int : Integrable (X i) μ := .of_mem_Icc 0 1 (hXm i hi) (hX i hi)
+    have h_markov := mul_meas_ge_le_integral_of_nonneg
+      ((hX i hi).mono fun _ hω ↦ hω.1) h_int 1
+    rw [one_mul] at h_markov
+    exact h_markov.trans (hmean i hi)
+  _ = m ^ #s := prod_const _
 
 /-- **Chernoff bound in relative-entropy form, upper tail** ([LS, Lemma 10.3 and Note 10.3.1]):
 for independent random variables `X i ∈ [0, 1]` with means at most `m > 0`, and `p ∈ [m, 1]`,
@@ -125,40 +171,23 @@ theorem measureReal_sum_ge_le_exp_klBerReal {X : ι → Ω → ℝ} (h_indep : i
     (hp : p ∈ Set.Icc m 1) :
     μ.real {ω | #s * p ≤ ∑ i ∈ s, X i ω} ≤ exp (-(#s * klBerReal p m)) := by
   have := h_indep.isProbabilityMeasure
-  have hbound (t : ℝ) (ht : 0 ≤ t) :=
-    measureReal_sum_ge_le_exp_mul_pow h_indep hXm hX hmean (#s * p) ht
   rcases hp.1.eq_or_lt with rfl | hmp
   · simp
   have hm1 : m < 1 := hmp.trans_le hp.2
   rcases hp.2.eq_or_lt with rfl | hp1
-  · -- `p = 1`: let `t → ∞` in the Chernoff bound
-    have heq (t : ℝ) : exp (-t * (#s * 1)) * (1 - m + m * exp t) ^ #s
-        = ((1 - m) * exp (-t) + m) ^ #s := by
-      rw [mul_one, mul_comm (-t), exp_nat_mul, ← mul_pow, exp_neg]
-      field_simp
-    have hlim : Tendsto (fun t ↦ ((1 - m) * exp (-t) + m) ^ #s) atTop (𝓝 (m ^ #s)) := by
-      simpa using ((tendsto_exp_neg_atTop_nhds_zero.const_mul (1 - m)).add_const m).pow #s
-    refine (ge_of_tendsto hlim ((eventually_ge_atTop 0).mono fun t ht ↦
-      (hbound t ht).trans_eq (heq t))).trans_eq ?_
-    simp [exp_nat_mul, exp_log hm]
-  · -- `m < p < 1`: the optimal `t = log (p (1 - m) / (m (1 - p)))`
-    have hp0 : 0 < p := hm.trans hmp
-    have h1p : 0 < 1 - p := sub_pos.2 hp1
-    have h1m : 0 < 1 - m := sub_pos.2 hm1
-    have hpos : 0 < p * (1 - m) / (m * (1 - p)) := by positivity
-    have ht : 0 ≤ log (p * (1 - m) / (m * (1 - p))) :=
-      log_nonneg ((one_le_div (by positivity)).2 (by nlinarith))
-    refine (hbound _ ht).trans_eq ?_
-    have h1 : 1 - m + m * exp (log (p * (1 - m) / (m * (1 - p))))
-        = exp (log (1 - m) - log (1 - p)) := by
-      rw [exp_log hpos, exp_sub, exp_log h1m, exp_log h1p]
-      field_simp
-      ring
-    rw [h1, ← exp_nat_mul, ← exp_add, klBerReal_def]
-    simp only [log_div, log_mul, hp0.ne', hm.ne', h1p.ne', h1m.ne', ne_eq, mul_eq_zero, or_self,
-      not_false_eq_true]
-    congr 1
-    ring
+  · -- `p = 1`: the sum reaches `#s` with probability at most `m ^ #s = exp (-(#s * d(1, m)))`
+    rw [mul_one, klBerReal_one_left, mul_neg, neg_neg, exp_nat_mul, exp_log hm]
+    exact measureReal_card_le_sum_le_pow h_indep hXm hX hmean
+  · -- `m < p < 1`: the `X i` are dominated above by `Ber(1, 0, m)`, the member of mean `m` of the
+    -- exponential family of `Ber(1, 0, 1/2)`, whose divergence is `d`
+    have hm' : m ∈ Set.Ioo 0 1 := ⟨hm, hm1⟩
+    have hp' : p ∈ Set.Ioo 0 1 := ⟨hm.trans hmp, hp1⟩
+    rw [← expFamilyDiv_bernoulliMeasure_sigmoid 0 hp' hm']
+    refine h_indep.measureReal_sum_ge_le_exp_expFamilyDiv (fun i hi ↦ ?_)
+      (by rwa [expFamilyMeans_bernoulliMeasure_sigmoid])
+      (by rwa [expFamilyMeans_bernoulliMeasure_sigmoid]) hmp.le
+    rw [expFamily_natParam_bernoulliMeasure_sigmoid 0 hm']
+    exact mgfDominatedAbove_bernoulliMeasure (hXm i hi) (hX i hi) (hmean i hi)
 
 /-- **Hoeffding's inequality** for independent random variables `X i ∈ [0, 1]` with means at
 most `m`: for `ε ≥ 0`, `P(#s * (m + ε) ≤ ∑ i ∈ s, X i) ≤ exp (-2 ε² #s)`. -/
@@ -202,21 +231,37 @@ theorem measureReal_sum_le_le_exp_klBerReal {X : ι → Ω → ℝ} (h_indep : i
     (hp : p ∈ Set.Icc 0 m) :
     μ.real {ω | ∑ i ∈ s, X i ω ≤ #s * p} ≤ exp (-(#s * klBerReal p m)) := by
   have := h_indep.isProbabilityMeasure
-  have h := measureReal_sum_ge_le_exp_klBerReal (X := fun i ω ↦ 1 - X i ω) (m := 1 - m)
-    (p := 1 - p) (h_indep.comp (fun _ x ↦ 1 - x) fun _ ↦ measurable_const.sub measurable_id)
-    (fun i hi ↦ aemeasurable_const.sub (hXm i hi))
-    (fun i hi ↦ by
-      filter_upwards [hX i hi] with ω hω using ⟨sub_nonneg.2 hω.2, sub_le_self _ hω.1⟩)
-    (fun i hi ↦ by
-      simp [integral_sub (integrable_const 1) (.of_mem_Icc 0 1 (hXm i hi) (hX i hi))]
-      linarith [hmean i hi])
-    (sub_pos.2 hm) ⟨sub_le_sub_left hp.2 1, sub_le_self _ hp.1⟩
-  rw [klBerReal_one_sub_one_sub] at h
-  refine le_of_eq_of_le ?_ h
-  congr 1
-  ext ω
-  simp only [Set.mem_ofPred_eq, sum_sub_distrib, sum_const, nsmul_eq_mul, mul_one]
-  constructor <;> intro h <;> linarith
+  rcases hp.2.eq_or_lt with rfl | hpm
+  · simp
+  have hm0 : 0 < m := hp.1.trans_lt hpm
+  rcases hp.1.eq_or_lt with rfl | hp0
+  · -- `p = 0`: the sum vanishes only if every `1 - X i` is `1`, which has probability at most
+    -- `(1 - m) ^ #s = exp (-(#s * d(0, m)))`
+    have h := measureReal_card_le_sum_le_pow (X := fun i ω ↦ 1 - X i ω) (m := 1 - m)
+      (h_indep.comp (fun _ x ↦ 1 - x) fun _ ↦ measurable_const.sub measurable_id)
+      (fun i hi ↦ aemeasurable_const.sub (hXm i hi))
+      (fun i hi ↦ by
+        filter_upwards [hX i hi] with ω hω using ⟨sub_nonneg.2 hω.2, sub_le_self _ hω.1⟩)
+      (fun i hi ↦ by
+        simp [integral_sub (integrable_const 1) (.of_mem_Icc 0 1 (hXm i hi) (hX i hi))]
+        linarith [hmean i hi])
+    rw [← klBerReal_one_sub_one_sub, sub_zero, klBerReal_one_left, mul_neg, neg_neg, exp_nat_mul,
+      exp_log (sub_pos.2 hm)]
+    refine le_of_eq_of_le ?_ h
+    congr 1
+    ext ω
+    simp only [Set.mem_ofPred_eq, mul_zero, sum_sub_distrib, sum_const, nsmul_eq_mul, mul_one]
+    constructor <;> intro h <;> linarith
+  · -- `0 < p < m`: the `X i` are dominated below by `Ber(1, 0, m)`, the member of mean `m` of the
+    -- exponential family of `Ber(1, 0, 1/2)`, whose divergence is `d`
+    have hm' : m ∈ Set.Ioo 0 1 := ⟨hm0, hm⟩
+    have hp' : p ∈ Set.Ioo 0 1 := ⟨hp0, hpm.trans hm⟩
+    rw [← expFamilyDiv_bernoulliMeasure_sigmoid 0 hp' hm']
+    refine h_indep.measureReal_sum_le_le_exp_expFamilyDiv (fun i hi ↦ ?_)
+      (by rwa [expFamilyMeans_bernoulliMeasure_sigmoid])
+      (by rwa [expFamilyMeans_bernoulliMeasure_sigmoid]) hpm.le
+    rw [expFamily_natParam_bernoulliMeasure_sigmoid 0 hm']
+    exact mgfDominatedBelow_bernoulliMeasure (hXm i hi) (hX i hi) (hmean i hi)
 
 /-- **Chernoff bound in relative-entropy form, lower tail, for a set of levels**
 ([LS, (10.3) of Corollary 10.4]): for independent random variables `X i ∈ [0, 1]` with means at

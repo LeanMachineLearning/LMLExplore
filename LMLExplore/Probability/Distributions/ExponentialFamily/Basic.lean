@@ -6,6 +6,7 @@ Authors: Rémy Degenne
 module
 
 public import Mathlib.InformationTheory.KullbackLeibler.Basic
+public import Mathlib.Probability.IdentDistrib
 public import LMLExplore.Probability.Moments.Tilted
 
 /-!
@@ -49,6 +50,8 @@ where the closed form of the divergence makes the transportation costs explicit.
   `T (Y)` for a random variable `Y` with law `ρ_η` is `t ↦ ψ(η + t) - ψ(η)`, and that of
   `∑ i ∈ s, T (Y i)` for `#s` independent random variables `Y i` with law `ρ_η` is
   `t ↦ #s (ψ(η + t) - ψ(η))`.
+* `ProbabilityTheory.HasLaw.identDistrib_comp_expFamily`: for a random variable `Y` with law
+  `ρ_η`, `T (Y)` has the law of `T` under `ρ_η`.
 * `MeasureTheory.Measure.integral_expFamily`, `MeasureTheory.Measure.variance_expFamily`: the
   mean and the variance of `T` under `ρ_η` are `ψ'(η)` and `ψ''(η)`.
 * `MeasureTheory.Measure.llr_expFamily`: the log-likelihood ratio of `ρ_η` with respect to `ρ_η'`
@@ -282,9 +285,17 @@ lemma HasLaw.cgf_expFamily (hT : AEMeasurable T ρ) (hY : HasLaw Y (ρ.expFamily
     ← mgf_map hY.aemeasurable (hY.aestronglyMeasurable_exp_mul_expFamily hT t), hY.map_eq, ← cgf,
     Measure.cgf_expFamily hη hηt]
 
+/-- For a random variable `Y` with law `ρ_η`, the statistic `T (Y)` has the law of `T` under
+`ρ_η`. -/
+lemma HasLaw.identDistrib_comp_expFamily (hT : AEMeasurable T ρ)
+    (hY : HasLaw Y (ρ.expFamily T η) P) :
+    IdentDistrib (fun ω ↦ T (Y ω)) T P (ρ.expFamily T η) :=
+  have hT' := hasLaw_map (aemeasurable_expFamily hT η)
+  (hT'.fun_comp hY).identDistrib hT'
+
 /-- For random variables `X i` with law `ρ_η` for `i ∈ s`, independent as a family, the
 statistics `T (X i)`, `i ∈ s`, are independent. -/
-private lemma iIndepFun.comp_subtype_of_hasLaw_expFamily (h_indep : iIndepFun X P)
+lemma iIndepFun.comp_subtype_of_hasLaw_expFamily (h_indep : iIndepFun X P)
     (hT : AEMeasurable T ρ) (hX : ∀ i ∈ s, HasLaw (X i) (ρ.expFamily T η) P) :
     iIndepFun (fun i : s ↦ fun ω ↦ T (X i ω)) P :=
   (h_indep.precomp Subtype.val_injective).comp₀ (fun _ ↦ T) (fun i ↦ (hX i i.2).aemeasurable)
