@@ -8,7 +8,7 @@ module
 public import LMLExplore.Analysis.SpecialFunctions.Exp
 public import LMLExplore.Probability.Martingale.Basic
 public import LMLExplore.Probability.Martingale.Ville
-public import LMLExplore.Probability.Moments.SubGaussian
+public import LMLExplore.Probability.Moments.SubGaussian.Basic
 public import Mathlib.Analysis.SpecialFunctions.Log.PosLog
 public import Mathlib.Probability.Independence.InfinitePi
 

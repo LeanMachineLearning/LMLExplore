@@ -6,6 +6,7 @@ Authors: Rémy Degenne
 module
 
 public import Mathlib.Analysis.Complex.ExponentialBounds
+public import LMLExplore.Analysis.SpecialFunctions.Exp
 
 /-!
 # Sums of `1 / (t log² t)`
@@ -17,7 +18,9 @@ for `t ≥ 2`, and from it the numerical bound
 
 The function `f(t) = 1 + t log² t` is the exploration function of the asymptotically optimal UCB
 algorithm [LS, Algorithm 6], and the bound `∑_t 1 / f(t) ≤ 5 / 2` gives the constant `5 σ² / ε²` of
-[LS, Theorem 8.1] (see [LS, Exercise 8.1]). The true value of the sum is about `2.4919`.
+[LS, Theorem 8.1]: with the bound `∑_{s ≥ 1} exp (-s ε² / (2 σ²)) ≤ 2 σ² / ε²` on the sub-Gaussian
+tails, `∑_{t ≥ 1} 1 / f(t) ∑_{s ≥ 1} exp (-s ε² / (2 σ²)) ≤ 5 σ² / ε²` [LS, Exercise 8.1]. The true
+value of the sum `∑_{t ≥ 1} 1 / f(t)` is about `2.4919`.
 
 ## Main statements
 
@@ -25,6 +28,9 @@ algorithm [LS, Algorithm 6], and the bound `∑_t 1 / f(t) ≤ 5 / 2` gives the 
 * `Real.sum_range_inv_mul_log_sq_le`: the tail bound
   `∑_{i < m} 1 / ((T + i) log² (T + i)) ≤ 1 / log (T - 1/2)` for `T ≥ 2`.
 * `Real.sum_range_inv_one_add_mul_log_sq_le`: `∑_{t < n} 1 / (1 + (t + 1) log² (t + 1)) ≤ 5 / 2`.
+* `Real.sum_range_inv_mul_sum_range_exp_neg_le`: [LS, Exercise 8.1], the bound
+  `∑_{t ≤ n} 1 / f(t) ∑_{s ≤ m} exp (-c s) ≤ 5 / (2 c)` for `c > 0`, which is `5 σ² / ε²` for the
+  sub-Gaussian rate `c = ε² / (2 σ²)`.
 
 ## Implementation notes
 
@@ -173,5 +179,17 @@ theorem sum_range_inv_one_add_mul_log_sq_le (n : ℕ) :
   _ = ∑ t ∈ range 8, g t + ∑ i ∈ range n, g (8 + i) := sum_range_add g 8 n
   _ ≤ 2.0271 + (2.1399 : ℝ)⁻¹ := add_le_add h_head ((h_tail n).trans h_inv17)
   _ ≤ 5 / 2 := by norm_num
+
+/-- **[LS, Exercise 8.1]** For `c > 0`,
+`∑_{t ≤ n} 1 / f(t) ∑_{s ≤ m} exp (-c s) ≤ 5 / (2 c)` (book indices `t, s ≥ 1`), uniformly in `n`
+and `m`, where `f(t) = 1 + t log² t` is the exploration function of [LS, Algorithm 6]. For the
+sub-Gaussian rate `c = ε² / (2 σ²)` the bound is `5 σ² / ε²`. -/
+theorem sum_range_inv_mul_sum_range_exp_neg_le {c : ℝ} (hc : 0 < c) (n m : ℕ) :
+    ∑ t ∈ range n, (1 + (t + 1) * log (t + 1) ^ 2)⁻¹ * ∑ s ∈ range m, exp (-(c * (s + 1))) ≤
+      5 / 2 * c⁻¹ := by
+  rw [← sum_mul]
+  gcongr
+  · exact sum_range_inv_one_add_mul_log_sq_le n
+  · exact sum_range_exp_neg_mul_le hc m
 
 end Real
