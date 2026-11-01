@@ -10,6 +10,7 @@ public import LeanMachineLearning.SequentialLearning.SumRewards
 public import LMLExplore.Analysis.SpecialFunctions.Log.Basic
 public import LMLExplore.Bandits.Concentration
 public import LMLExplore.Bandits.IndexAlgorithm
+public import LMLExplore.Bandits.Regret
 public import LMLExplore.InformationTheory.KullbackLeibler.Bernoulli
 
 /-!
@@ -49,6 +50,20 @@ Lean round `n` uses `log f(n + 1)`.
   `log f(n) / d(μ_a + ε₁, μ* - ε₂) + 1 / (2 ε₁²) + 2 / ε₂²` on the expected number of pulls of an
   arm `a` with gap `Δ_a`, for all `ε₁, ε₂ > 0` with `ε₁ + ε₂ < Δ_a`.
 * `klucb_regret_le`: [LS, Theorem 10.6], the finite-time bound on the expected regret.
+* `KLUCB.integral_pullCount_eventually_le`: for rewards in `[0, 1]`, an arm `a` with positive gap
+  and every `c > 1 / d(μ_a, μ*)`, eventually `E[T_a(n)] ≤ c log n`, that is,
+  `limsup_n E[T_a(n)] / log n ≤ 1 / d(μ_a, μ*)`.
+* `klucb_regret_eventually_le`: the asymptotic part of [LS, Theorem 10.6]: for every
+  `c > ∑_{a : Δ_a > 0} Δ_a / d(μ_a, μ*)`, eventually `E[R_n] ≤ c log n`, that is,
+  `limsup_n E[R_n] / log n ≤ ∑_{a : Δ_a > 0} Δ_a / d(μ_a, μ*)`.
+
+* `klucb_regret_eventually_le_of_integral_bestArm_eq_one`: when the largest mean is `1`, the
+  expected regret is `o(log n)`.
+
+In the asymptotic statements, `1 / d(μ_a, μ*)` and `Δ_a / d(μ_a, μ*)` are computed from the real
+number `(klBer μ_a μ*).toReal`, which is `0` when `d(μ_a, μ*) = ∞`, so that both quantities are
+then `0`. For an arm with positive gap, `d(μ_a, μ*) = ∞` happens exactly when `μ* = 1`: such an
+arm is pulled `o(log n)` times in expectation.
 
 ## Implementation notes
 
@@ -60,6 +75,13 @@ The second sum, the overestimation of `a`, is at most `1 + log f(n) / d(μ_a + �
 ([LS, Lemma 10.8]), where the `1` accounts for the first pull of `a`. Since `ε₂ < Δ_a ≤ 1`,
 `1 + 3 / (4 ε₂²) ≤ 2 / ε₂²`.
 
+For the asymptotic bound, `ε₁ = ε₂ = ε` is chosen small enough that
+`1 / d(μ_a + ε, μ* - ε) < c`. This uses the lower semicontinuity of `d`
+(`lowerSemicontinuous_klBer`), which also covers the case `d(μ_a, μ*) = ∞`. The bound of
+`KLUCB.integral_pullCount_le` divided by `log n` then tends to `1 / d(μ_a + ε, μ* - ε)`, since
+`log f(n) / log n → 1` (`Real.tendsto_log_one_add_mul_log_sq_div_log_atTop`). The book leaves
+this limit to its Exercise 10.2.
+
 ## References
 
 * [LS] T. Lattimore and Cs. Szepesvári, *Bandit Algorithms*, Cambridge University Press, 2020,
@@ -70,7 +92,7 @@ The second sum, the overestimation of `a`, is at most `1 + log f(n) / d(μ_a + �
 
 public section
 
-open MeasureTheory ProbabilityTheory Finset Real Learning Bandits
+open MeasureTheory ProbabilityTheory Finset Filter Topology Real Learning Bandits
 
 open scoped ENNReal
 
@@ -277,6 +299,96 @@ theorem klucb_regret_le [StandardBorelSpace α]
     (Set.nonempty_Ioo.mpr (sub_pos.mpr ε₁.2.2)).to_subtype
   exact le_ciInf fun ε₂ ↦ mul_le_mul_of_nonneg_left
     (KLUCB.integral_pullCount_le h hν a ε₁.2.1 ε₂.2.1 (by linarith [ε₂.2.2]) n) gap_nonneg
+
+/-- **Asymptotic number of pulls of KL-UCB.** For rewards in `[0, 1]`, an arm `a` with positive gap
+and every `c > 1 / d(μ_a, μ*)`, where `μ_a` is the mean of `a` and `μ*` the largest mean, the
+expected number of pulls of `a` by the KL-UCB algorithm during the first `n` rounds is eventually
+at most `c log n`; that is, `limsup_n E[T_a(n)] / log n ≤ 1 / d(μ_a, μ*)`. Here `1 / d(μ_a, μ*)` is
+`(klBer μ_a μ*).toReal⁻¹`, which is `0` when `d(μ_a, μ*) = ∞`. -/
+theorem KLUCB.integral_pullCount_eventually_le (h : IsAlgEnvSeq O A R klucb (stationaryEnv ν) P)
+    (hν : ∀ a, ∀ᵐ x ∂(ν a), x ∈ Set.Icc 0 1) (a : α) (ha : 0 < gap ν a) {c : ℝ}
+    (hc : (klBer (ν a)[id] (ν (bestArm ν))[id]).toReal⁻¹ < c) :
+    ∀ᶠ n : ℕ in atTop, P[fun ω ↦ (pullCount A a n ω : ℝ)] ≤ c * log n := by
+  set μa := (ν a)[id]
+  set μs := (ν (bestArm ν))[id]
+  have hgap : gap ν a = μs - μa := gap_eq_bestArm_sub
+  -- the means lie in `[0, 1]`
+  have hμ (b : α) : (ν b)[id] ∈ Set.Icc 0 1 :=
+    (convex_Icc (0 : ℝ) 1).integral_mem isClosed_Icc (hν b)
+      (Integrable.of_mem_Icc 0 1 aemeasurable_id (hν b))
+  have hc0 : 0 < c := (inv_nonneg.mpr ENNReal.toReal_nonneg).trans_lt hc
+  -- `c⁻¹ < d(μ_a, μ*)`, also when `d(μ_a, μ*) = ∞`
+  have hlt : ENNReal.ofReal c⁻¹ < klBer μa μs := by
+    by_cases htop : klBer μa μs = ∞
+    · simp [htop]
+    have hpos : 0 < (klBer μa μs).toReal := ENNReal.toReal_pos
+      (fun h0 ↦ by linarith [(klBer_eq_zero_iff (hμ a) (hμ _)).mp h0]) htop
+    exact (ENNReal.ofReal_lt_iff_lt_toReal (inv_nonneg.mpr hc0.le) htop).mpr
+      (inv_lt_of_inv_lt₀ hpos hc)
+  -- Choose `ε ∈ (0, Δ_a / 2)` with `c⁻¹ < d(μ_a + ε, μ* - ε)`, by lower semicontinuity of `d`.
+  have h_tendsto : Tendsto (fun ε : ℝ ↦ (μa + ε, μs - ε)) (𝓝[>] 0) (𝓝 (μa, μs)) := by
+    have : Continuous fun ε : ℝ ↦ (μa + ε, μs - ε) := by fun_prop
+    simpa using (this.tendsto (0 : ℝ)).mono_left nhdsWithin_le_nhds
+  obtain ⟨ε, hεd, hε, hεa⟩ := (h_tendsto.eventually (lowerSemicontinuous_klBer (μa, μs) _ hlt)).and
+    (Ioo_mem_nhdsGT (half_pos ha)) |>.exists
+  simp only [Function.uncurry_apply_pair] at hεd
+  set D := klBerReal (μa + ε) (μs - ε)
+  have hp : μa + ε ∈ Set.Icc 0 1 := ⟨by linarith [(hμ a).1], by linarith [(hμ (bestArm ν)).2]⟩
+  have hq : μs - ε ∈ Set.Ioo 0 1 := ⟨by linarith [(hμ a).1], by linarith [(hμ (bestArm ν)).2]⟩
+  rw [klBer_eq_ofReal_klBerReal hp (Set.Ioo_subset_Icc_self hq) (klBer_ne_top hq), gt_iff_lt,
+    ENNReal.ofReal_lt_ofReal_iff_of_nonneg (inv_nonneg.mpr hc0.le)] at hεd
+  have hDc : D⁻¹ < c := inv_lt_of_inv_lt₀ hc0 hεd
+  -- The bound of `KLUCB.integral_pullCount_le` divided by `log n` tends to `D⁻¹`.
+  set K := 1 / (2 * ε ^ 2) + 2 / ε ^ 2
+  set L : ℕ → ℝ := fun n ↦ log (1 + n * log n ^ 2)
+  have hL : Tendsto (fun n : ℕ ↦ L n / log n) atTop (𝓝 1) :=
+    tendsto_log_one_add_mul_log_sq_div_log_atTop.comp tendsto_natCast_atTop_atTop
+  have h_log : Tendsto (fun n : ℕ ↦ log n) atTop atTop :=
+    tendsto_log_atTop.comp tendsto_natCast_atTop_atTop
+  have h_bound : Tendsto (fun n : ℕ ↦ (L n / D + K) / log n) atTop (𝓝 D⁻¹) := by
+    have := (hL.mul_const D⁻¹).add ((tendsto_inv_atTop_zero.comp h_log).const_mul K)
+    simp only [one_mul, mul_zero, add_zero] at this
+    refine this.congr fun n ↦ ?_
+    simp only [Function.comp_apply]
+    ring
+  filter_upwards [h_bound.eventually_lt_const hDc, h_log.eventually_gt_atTop 0] with n hn hlog
+  rw [div_lt_iff₀ hlog] at hn
+  refine (KLUCB.integral_pullCount_le h hν a hε hε (by linarith) n).trans ?_
+  simp only [K, L] at hn
+  linarith
+
+/-- **[LS, Theorem 10.6], asymptotic part.** For rewards in `[0, 1]` and every
+`c > ∑_{a : Δ_a > 0} Δ_a / d(μ_a, μ*)`, where `μ_a` is the mean of `a` and `μ*` the largest mean,
+the expected regret of the KL-UCB algorithm at horizon `n` is eventually at most `c log n`; that
+is, `limsup_n E[R_n] / log n ≤ ∑_{a : Δ_a > 0} Δ_a / d(μ_a, μ*)`. Here `Δ_a / d(μ_a, μ*)` is
+`Δ_a / (klBer μ_a μ*).toReal`, which is `0` when `d(μ_a, μ*) = ∞`. -/
+theorem klucb_regret_eventually_le [StandardBorelSpace α]
+    (h : IsAlgEnvSeq O A R klucb (stationaryEnv ν) P) (hν : ∀ a, ∀ᵐ x ∂(ν a), x ∈ Set.Icc 0 1)
+    {c : ℝ} (hc : ∑ a ∈ univ.filter (fun a ↦ 0 < gap ν a),
+      gap ν a / (klBer (ν a)[id] (ν (bestArm ν))[id]).toReal < c) :
+    ∀ᶠ n : ℕ in atTop, P[regret ν A n] ≤ c * log n :=
+  integral_regret_eventually_le_of_forall_integral_pullCount_eventually_le
+    h.measurable_action (.of_forall fun n ↦ log_natCast_nonneg n)
+    (fun a ↦ (klBer (ν a)[id] (ν (bestArm ν))[id]).toReal⁻¹)
+    (fun a ha _ hc ↦ KLUCB.integral_pullCount_eventually_le h hν a ha hc)
+    (by simpa only [div_eq_mul_inv] using hc)
+
+/-- For rewards in `[0, 1]` whose largest mean is `1`, the expected regret of the KL-UCB algorithm
+is `o(log n)`: for every `c > 0`, eventually `E[R_n] ≤ c log n`. Indeed `d(μ_a, 1) = ∞` for every
+arm `a` with positive gap, so that the constant of `klucb_regret_eventually_le` vanishes. -/
+theorem klucb_regret_eventually_le_of_integral_bestArm_eq_one [StandardBorelSpace α]
+    (h : IsAlgEnvSeq O A R klucb (stationaryEnv ν) P) (hν : ∀ a, ∀ᵐ x ∂(ν a), x ∈ Set.Icc 0 1)
+    (h1 : (ν (bestArm ν))[id] = 1) {c : ℝ} (hc : 0 < c) :
+    ∀ᶠ n : ℕ in atTop, P[regret ν A n] ≤ c * log n := by
+  refine klucb_regret_eventually_le h hν (lt_of_eq_of_lt (sum_eq_zero fun a ha ↦ ?_) hc)
+  have hμ : (ν a)[id] ∈ Set.Icc 0 1 := (convex_Icc (0 : ℝ) 1).integral_mem isClosed_Icc (hν a)
+    (Integrable.of_mem_Icc 0 1 aemeasurable_id (hν a))
+  have hlt : (ν a)[id] < 1 := by
+    have := (mem_filter.mp ha).2
+    rw [gap_eq_bestArm_sub, h1] at this
+    linarith
+  rw [h1, (klBer_eq_top_iff hμ (by simp)).mpr (Or.inr ⟨rfl, hlt.ne⟩), ENNReal.toReal_top,
+    div_zero]
 
 end Regret
 
