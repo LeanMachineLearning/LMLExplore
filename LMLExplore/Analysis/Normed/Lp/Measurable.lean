@@ -44,6 +44,19 @@ open scoped ENNReal lp
 
 namespace lp
 
+section Algebra
+
+variable {𝕜 I : Type*} {B : I → Type*} [NormedField 𝕜] [∀ i, NormedRing (B i)]
+  [∀ i, NormedAlgebra 𝕜 (B i)] [∀ i, NormOneClass (B i)]
+
+/-- The image of `k : 𝕜` in the algebra `lp B ∞` is the constant function `algebraMap 𝕜 (B i) k`.
+Constants of `LMLExplore.boundedMeasurable α` simplify to this form. -/
+@[simp]
+theorem infty_coeFn_algebraMap (k : 𝕜) : ⇑(algebraMap 𝕜 (lp B ∞) k) = algebraMap 𝕜 (∀ i, B i) k :=
+  rfl
+
+end Algebra
+
 variable {α E : Type*} [MeasurableSpace α] [NormedAddCommGroup E] [MeasurableSpace E]
   [BorelSpace E] {p : ENNReal} [Fact (1 ≤ p)]
 
@@ -78,6 +91,7 @@ variable {α}
 theorem mem_boundedMeasurable_iff {f : ℓ^∞(α, ℝ)} : f ∈ boundedMeasurable α ↔ Measurable ⇑f :=
   Iff.rfl
 
+/-- The bounded measurable functions form a closed subset of `ℓ^∞(α, ℝ)`. -/
 theorem isClosed_boundedMeasurable : IsClosed (boundedMeasurable α : Set ℓ^∞(α, ℝ)) :=
   lp.isClosed_setOf_measurable
 
@@ -101,10 +115,6 @@ noncomputable instance instNormedAlgebra : NormedAlgebra ℝ (boundedMeasurable 
 instance instCompleteSpace : CompleteSpace (boundedMeasurable α) :=
   isClosed_boundedMeasurable.completeSpace_coe
 
-instance instPosSMulMono : PosSMulMono ℝ (boundedMeasurable α) where
-  smul_le_smul_of_nonneg_left _ hc _ _ h := smul_le_smul_of_nonneg_left (α := ℝ)
-    (β := ℓ^∞(α, ℝ)) h hc
-
 theorem measurable (f : boundedMeasurable α) : Measurable ⇑(f : ℓ^∞(α, ℝ)) :=
   f.2
 
@@ -119,6 +129,11 @@ theorem coeFn_zero : ⇑((0 : boundedMeasurable α) : ℓ^∞(α, ℝ)) = 0 :=
 
 @[simp]
 theorem coeFn_one : ⇑((1 : boundedMeasurable α) : ℓ^∞(α, ℝ)) = 1 :=
+  rfl
+
+@[simp]
+theorem coeFn_neg (f : boundedMeasurable α) :
+    ⇑((-f : boundedMeasurable α) : ℓ^∞(α, ℝ)) = -⇑(f : ℓ^∞(α, ℝ)) :=
   rfl
 
 @[simp]
@@ -145,6 +160,13 @@ theorem le_def {f g : boundedMeasurable α} :
     f ≤ g ↔ ∀ x, (f : ℓ^∞(α, ℝ)) x ≤ (g : ℓ^∞(α, ℝ)) x :=
   Iff.rfl
 
+/-- Multiplication by a nonnegative scalar is monotone for the pointwise order on
+`boundedMeasurable α`. -/
+instance instPosSMulMono : PosSMulMono ℝ (boundedMeasurable α) where
+  smul_le_smul_of_nonneg_left _ hc _ _ h := le_def.2 fun x ↦ by
+    simpa only [coeFn_smul, Pi.smul_apply, smul_eq_mul] using
+      mul_le_mul_of_nonneg_left (le_def.1 h x) hc
+
 /-- A measurable function `f : α → ℝ` with bounded absolute value, as an element of
 `boundedMeasurable α`. -/
 noncomputable def mk (f : α → ℝ) (hf : Measurable f) (hb : BddAbove (range fun x ↦ |f x|)) :
@@ -165,9 +187,9 @@ theorem abs_apply_le_norm (f : boundedMeasurable α) (x : α) : |(f : ℓ^∞(α
 
 /-- A pointwise bound `|f x| ≤ C` with `0 ≤ C` bounds the sup norm of `f`. -/
 theorem norm_le_of_forall_le {f : boundedMeasurable α} {C : ℝ} (hC : 0 ≤ C)
-    (hf : ∀ x, |(f : ℓ^∞(α, ℝ)) x| ≤ C) : ‖f‖ ≤ C :=
-  (AddSubgroupClass.coe_norm (boundedMeasurable α) f).symm ▸
-    lp.norm_le_of_forall_le hC fun x ↦ (Real.norm_eq_abs _).trans_le (hf x)
+    (hf : ∀ x, |(f : ℓ^∞(α, ℝ)) x| ≤ C) : ‖f‖ ≤ C := by
+  rw [AddSubgroupClass.coe_norm]
+  exact lp.norm_le_of_forall_le hC fun x ↦ (Real.norm_eq_abs _).trans_le (hf x)
 
 end boundedMeasurable
 

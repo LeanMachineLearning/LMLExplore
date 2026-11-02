@@ -52,9 +52,12 @@ theorem le_def {f g : lp E p} : f ≤ g ↔ ∀ i, f i ≤ g i :=
 theorem coeFn_lt_coeFn {f g : lp E p} : ⇑f < ⇑g ↔ f < g :=
   Iff.rfl
 
+/-- The pointwise order on `lp E p` is compatible with addition. -/
 instance instIsOrderedAddMonoid [∀ i, IsOrderedAddMonoid (E i)] : IsOrderedAddMonoid (lp E p) where
   add_le_add_left _ _ h c i := by simpa using add_le_add_left (h i) (c i)
 
+/-- Multiplication by a nonnegative scalar is monotone for the pointwise order on `lp E p`, when it
+is so on every `E i`. -/
 instance instPosSMulMono {𝕜 : Type*} [NormedRing 𝕜] [Preorder 𝕜] [∀ i, Module 𝕜 (E i)]
     [∀ i, IsBoundedSMul 𝕜 (E i)] [∀ i, PosSMulMono 𝕜 (E i)] : PosSMulMono 𝕜 (lp E p) where
   smul_le_smul_of_nonneg_left _ hc _ _ h i := by

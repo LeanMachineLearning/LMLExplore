@@ -5,7 +5,7 @@ Authors: Rémy Degenne
 -/
 module
 
-public import LMLExplore.Analysis.Normed.Lp.Measurable
+public import LMLExplore.MeasureTheory.Integral.BoundedMeasurable
 public import Mathlib.Probability.Kernel.Composition.IntegralCompProd
 public import Mathlib.Probability.Kernel.MeasurableIntegral
 
@@ -43,7 +43,7 @@ Kernels act on functions contravariantly: `η ∘ₖ κ` acts as the action of `
 
 ## References
 
-* [D. Revuz, *Markov chains*, 1984][Rev84], Chapter 1
+* D. Revuz, *Markov chains*, North-Holland, 2nd edition, 1984, Chapter 1
 -/
 
 public section
@@ -51,38 +51,26 @@ public section
 open MeasureTheory Set LMLExplore
 open scoped ENNReal NNReal lp
 
-namespace LMLExplore.boundedMeasurable
-
-variable {β : Type*} [MeasurableSpace β]
-
-/-- A bounded measurable function is integrable for every finite measure. -/
-lemma integrable (f : boundedMeasurable β) (μ : Measure β) [IsFiniteMeasure μ] :
-    Integrable (⇑(f : ℓ^∞(β, ℝ))) μ :=
-  .of_bound (measurable f).aestronglyMeasurable ‖f‖ <| .of_forall fun y ↦
-    (Real.norm_eq_abs _).trans_le (abs_apply_le_norm f y)
-
-/-- The integral of a bounded measurable function `f` against a finite measure `μ` is at most
-`‖f‖ * μ univ` in absolute value. -/
-lemma abs_integral_le (f : boundedMeasurable β) {μ : Measure β} [IsFiniteMeasure μ] :
-    |∫ y, (f : ℓ^∞(β, ℝ)) y ∂μ| ≤ ‖f‖ * μ.real univ := by
-  rw [← Real.norm_eq_abs]
-  exact norm_integral_le_of_norm_le_const <| .of_forall fun y ↦
-    (Real.norm_eq_abs _).trans_le (abs_apply_le_norm f y)
-
-end LMLExplore.boundedMeasurable
-
 namespace ProbabilityTheory.Kernel
 
 variable {α β γ : Type*} [MeasurableSpace α] [MeasurableSpace β] [MeasurableSpace γ]
   {κ : Kernel α β}
 
-private lemma abs_integral_le_bound_mul (κ : Kernel α β) [IsFiniteKernel κ]
-    (f : boundedMeasurable β) (x : α) :
-    |∫ y, (f : ℓ^∞(β, ℝ)) y ∂κ x| ≤ κ.bound.toReal * ‖f‖ := by
+private lemma abs_integral_le_mul_norm [IsFiniteKernel κ] {C : ℝ≥0} {x : α} (hC : κ x univ ≤ C)
+    (f : boundedMeasurable β) : |∫ y, (f : ℓ^∞(β, ℝ)) y ∂κ x| ≤ C * ‖f‖ := by
   refine (boundedMeasurable.abs_integral_le f).trans ?_
   rw [mul_comm]
   gcongr
-  exact ENNReal.toReal_mono κ.bound_ne_top (κ.measure_le_bound x univ)
+  exact ENNReal.toReal_le_coe_of_le_coe hC
+
+private lemma abs_integral_le_bound_mul (κ : Kernel α β) [IsFiniteKernel κ]
+    (f : boundedMeasurable β) (x : α) :
+    |∫ y, (f : ℓ^∞(β, ℝ)) y ∂κ x| ≤ κ.bound.toReal * ‖f‖ := by
+  have hC : κ x univ ≤ κ.bound.toNNReal := by
+    rw [ENNReal.coe_toNNReal κ.bound_ne_top]
+    exact κ.measure_le_bound x univ
+  rw [← ENNReal.coe_toNNReal_eq_toReal]
+  exact abs_integral_le_mul_norm hC f
 
 private lemma bddAbove_abs_integral (κ : Kernel α β) [IsFiniteKernel κ]
     (f : boundedMeasurable β) : BddAbove (range fun x ↦ |∫ y, (f : ℓ^∞(β, ℝ)) y ∂κ x|) := by
@@ -121,26 +109,24 @@ theorem integralCLM_apply (f : boundedMeasurable β) (x : α) :
   congrFun (boundedMeasurable.coeFn_mk _ _ _) x
 
 /-- The action of a kernel is monotone. -/
-theorem monotone_integralCLM : Monotone κ.integralCLM := fun f g hfg x ↦ by
-  simp only [integralCLM_apply]
-  exact integral_mono (boundedMeasurable.integrable f (κ x)) (boundedMeasurable.integrable g (κ x))
-    fun y ↦ hfg y
+theorem monotone_integralCLM : Monotone κ.integralCLM := fun f g hfg ↦
+  boundedMeasurable.le_def.2 fun x ↦ by
+    simp only [integralCLM_apply]
+    exact integral_mono (boundedMeasurable.integrable f (κ x))
+      (boundedMeasurable.integrable g (κ x)) fun y ↦ boundedMeasurable.le_def.1 hfg y
 
 /-- The action of a kernel is positive. -/
-theorem integralCLM_nonneg {f : boundedMeasurable β} (hf : 0 ≤ f) : 0 ≤ κ.integralCLM f :=
-  κ.integralCLM.map_zero ▸ monotone_integralCLM hf
+theorem integralCLM_nonneg {f : boundedMeasurable β} (hf : 0 ≤ f) : 0 ≤ κ.integralCLM f := by
+  rw [← κ.integralCLM.map_zero]
+  exact monotone_integralCLM hf
 
 /-- If every measure `κ x` has total mass at most `C`, the action of `κ` multiplies the sup norm
 by at most `C`. -/
 theorem norm_integralCLM_apply_le_of_forall_measure_univ_le {C : ℝ≥0}
     (hC : ∀ x, κ x univ ≤ C) (f : boundedMeasurable β) : ‖κ.integralCLM f‖ ≤ C * ‖f‖ := by
   refine boundedMeasurable.norm_le_of_forall_le (by positivity) fun x ↦ ?_
-  rw [integralCLM_apply, mul_comm]
-  refine (boundedMeasurable.abs_integral_le f).trans ?_
-  gcongr
-  rw [measureReal_def, ← ENNReal.coe_toReal, ENNReal.toReal_le_toReal (measure_ne_top _ _)
-    ENNReal.coe_ne_top]
-  exact hC x
+  rw [integralCLM_apply]
+  exact abs_integral_le_mul_norm (hC x) f
 
 /-- The action of `η ∘ₖ κ` is the action of `η` followed by that of `κ`. -/
 theorem integralCLM_comp (η : Kernel β γ) [IsFiniteKernel η] :
@@ -186,8 +172,9 @@ theorem norm_integralCLM_apply_le (f : boundedMeasurable β) : ‖κ.integralCLM
 
 /-- The action of a Markov kernel has operator norm at most `1`. -/
 theorem opNorm_integralCLM_le : ‖κ.integralCLM‖ ≤ 1 :=
-  ContinuousLinearMap.opNorm_le_bound _ zero_le_one fun f ↦
-    (one_mul ‖f‖).symm ▸ norm_integralCLM_apply_le f
+  ContinuousLinearMap.opNorm_le_bound _ zero_le_one fun f ↦ by
+    rw [one_mul]
+    exact norm_integralCLM_apply_le f
 
 end Markov
 
