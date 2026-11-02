@@ -70,7 +70,7 @@ optimal allocation, with `κ` close to the inverse of the characteristic time.
   thresholds are at most `log (1 / δ) + f T` with `f T = o(T)` from above, then
   `𝔼[τ_δ] ≤ c log (1 / δ)` for all small enough `δ`, for every `c > 1 / κ`.
 * `IdentTask.eventually_expectedStoppingTime_glrt_le_of_isBigO`: the same conclusion for
-  thresholds at most `log (r T / δ)` with `r T = O(T ^ α)`.
+  thresholds at most `log (r T / δ)` with `r T = O(T ^ p)`.
 
 ## References
 
@@ -379,37 +379,37 @@ theorem eventually_expectedStoppingTime_glrt_le (hseq : IsAlgEnvSeq O X Y alg en
   _ = c * ENNReal.ofReal L := by rw [ENNReal.ofReal_mul c.coe_nonneg, ENNReal.ofReal_coe_nnreal]
 
 /-- **Asymptotic sample complexity of the GLRT with thresholds `log (r T / δ)`**, for every
-sampling rule and the thresholds of [GK16, Theorem 14], `r T = O(T ^ α)`. Suppose that, along an
+sampling rule and the thresholds of [GK16, Theorem 14], `r T = O(T ^ p)`. Suppose that, along an
 algorithm-environment sequence of the sampling rule in `env`, the GLR statistic of the recommended
 answer after `T` rounds is at least `κ T` on an event `E T`, for every `T ≥ T₀`, and that
-`∑ T, P((E T)ᶜ) < ∞`. Then for thresholds `β δ T ≤ log (r T / δ)` with `r T = O(T ^ α)`,
+`∑ T, P((E T)ᶜ) < ∞`. Then for thresholds `β δ T ≤ log (r T / δ)` with `r T = O(T ^ p)`,
 `𝔼[τ_δ] ≤ c log (1 / δ)` for all small enough `δ`, for every `c > 1 / κ`. -/
 theorem eventually_expectedStoppingTime_glrt_le_of_isBigO (hseq : IsAlgEnvSeq O X Y alg env P)
     (hE_sum : ∑' T, P (E T)ᶜ ≠ ∞) (hκc : 1 < κ * c)
     (hE : ∀ T ≥ T₀, ∀ ω ∈ E T,
       κ * T ≤ task.glr Z T (history O X Y T ω) (rec T (history O X Y T ω)))
-    {r : ℕ → ℝ} {α : ℝ} (hr : r =O[atTop] fun T ↦ (T : ℝ) ^ α)
+    {r : ℕ → ℝ} {p : ℝ} (hr : r =O[atTop] fun T ↦ (T : ℝ) ^ p)
     (hβ : ∀ᶠ δ in 𝓝[>] 0, ∀ T ≥ T₀, β δ T ≤ ENNReal.ofReal (log (r T / δ))) :
     ∀ᶠ δ in 𝓝[>] 0, expectedStoppingTime (task.glrt Z alg (β δ) rec hrec (hstop δ)) env ≤
       c * ENNReal.ofReal (log (1 / δ)) := by
   refine task.eventually_expectedStoppingTime_glrt_le Z alg rec hrec hstop hseq hE_sum hκc hE
     (f := fun T ↦ log (r T)) (fun ε hε ↦ ?_) ?_
-  · -- `log (r T) ≤ log C + α log T = o(T)`.
+  · -- `log (r T) ≤ log C + p log T = o(T)`.
     obtain ⟨C, hC, hrC⟩ := hr.exists_pos
-    have hg : (fun T : ℕ ↦ log C + α * log T) =o[atTop] fun T : ℕ ↦ (T : ℝ) :=
+    have hg : (fun T : ℕ ↦ log C + p * log T) =o[atTop] fun T : ℕ ↦ (T : ℝ) :=
       ((Asymptotics.isLittleO_const_id_atTop (log C)).add
-        (isLittleO_log_id_atTop.const_mul_left α)).comp_tendsto tendsto_natCast_atTop_atTop
+        (isLittleO_log_id_atTop.const_mul_left p)).comp_tendsto tendsto_natCast_atTop_atTop
     filter_upwards [hrC.bound, hg.bound hε, eventually_gt_atTop 0] with T hrT hgT hT
     rcases eq_or_ne (r T) 0 with h | h
     · simp only [h, log_zero]
       positivity
     have hT' : (0 : ℝ) < T := Nat.cast_pos.2 hT
-    rw [Real.norm_eq_abs, Real.norm_of_nonneg (rpow_nonneg hT'.le α)] at hrT
+    rw [Real.norm_eq_abs, Real.norm_of_nonneg (rpow_nonneg hT'.le p)] at hrT
     rw [Real.norm_of_nonneg hT'.le] at hgT
     calc log (r T)
     _ = log |r T| := (log_abs _).symm
-    _ ≤ log (C * T ^ α) := log_le_log (abs_pos.2 h) hrT
-    _ = log C + α * log T := by rw [log_mul hC.ne' (rpow_pos_of_pos hT' α).ne', log_rpow hT']
+    _ ≤ log (C * T ^ p) := log_le_log (abs_pos.2 h) hrT
+    _ = log C + p * log T := by rw [log_mul hC.ne' (rpow_pos_of_pos hT' p).ne', log_rpow hT']
     _ ≤ ε * T := (le_abs_self _).trans hgT
   · -- `log (r T / δ) ≤ log (1 / δ) + log (r T)` for `δ ∈ (0, 1)`.
     filter_upwards [hβ, Ioo_mem_nhdsGT one_pos] with δ hβδ hδ T hT
