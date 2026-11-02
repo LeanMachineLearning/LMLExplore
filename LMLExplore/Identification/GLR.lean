@@ -120,7 +120,7 @@ lemma glr_le (hθ : θ ∈ task.alt i) : task.glr Z n h i ≤ Z n h θ :=
 evidence against `θ`. -/
 lemma glr_le_of_notMem_correct (hθ : θ ∈ task.M) (hi : i ∉ task.correct θ) :
     task.glr Z n h i ≤ Z n h θ :=
-  task.glr_le ((task.mem_alt_iff).2 ⟨hθ, hi⟩)
+  task.glr_le (task.mem_alt_iff.2 ⟨hθ, hi⟩)
 
 lemma glr_mono (hZ : ∀ θ' ∈ task.alt i, Z n h θ' ≤ Z' n h θ') :
     task.glr Z n h i ≤ task.glr Z' n h i :=
@@ -149,7 +149,7 @@ lemma glr_eq_altCost [Fintype α] {w : α → ℝ} {θ₀ : Θ}
     (hZ : ∀ θ' ∈ task.alt i, Z n h θ' = task.cost w θ₀ θ') :
     task.glr Z n h i = task.altCost θ₀ w i := by
   rw [glr_def, altCost_def]
-  exact iInf_congr fun θ' ↦ iInf_congr fun hθ' ↦ hZ θ' hθ'
+  exact biInf_congr hZ
 
 /-! ### The GLRT -/
 
