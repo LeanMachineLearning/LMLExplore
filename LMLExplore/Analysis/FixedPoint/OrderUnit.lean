@@ -184,6 +184,14 @@ end IsTopical
 
 /-! ### Algebraic properties of the order-unit norm and the oscillation -/
 
+/-- Scaling by `r > 0` maps the interval `[-(r⁻¹ * c) • e, (r⁻¹ * c) • e]` onto
+`[-c • e, c • e]`. -/
+lemma smul_mem_Icc_neg_smul_iff_of_pos [PosSMulMono ℝ E] {r : ℝ} (hr : 0 < r) :
+    r • x ∈ Icc (-(c • e)) (c • e) ↔ x ∈ Icc (-((r⁻¹ * c) • e)) ((r⁻¹ * c) • e) := by
+  have h : c • e = r • (r⁻¹ * c) • e := by rw [smul_smul, mul_inv_cancel_left₀ hr.ne']
+  rw [h, ← smul_neg, mem_Icc, mem_Icc, smul_le_smul_iff_of_pos_left hr,
+    smul_le_smul_iff_of_pos_left hr]
+
 variable [IsOrderedAddMonoid E]
 
 @[simp]
@@ -204,12 +212,8 @@ lemma orderUnitNorm_smul [PosSMulMono ℝ E] (r : ℝ) (x : E) :
     ← Real.sInf_smul_of_nonneg hr.le]
   congr 1
   ext c
-  rw [mem_smul_set_iff_inv_smul_mem₀ hr.ne']
-  simp only [mem_ofPred_eq, mem_Icc, smul_eq_mul]
-  rw [mul_nonneg_iff_of_pos_left (inv_pos.2 hr),
-    ← smul_le_smul_iff_of_pos_left hr (b₁ := -((r⁻¹ * c) • e)),
-    ← smul_le_smul_iff_of_pos_left hr (b₂ := (r⁻¹ * c) • e), smul_neg, smul_smul,
-    mul_inv_cancel_left₀ hr.ne']
+  simp [mem_smul_set_iff_inv_smul_mem₀ hr.ne', smul_mem_Icc_neg_smul_iff_of_pos hr,
+    mul_nonneg_iff_of_pos_left (inv_pos.2 hr)]
 
 /-- The triangle inequality for the order-unit norm of an order unit. -/
 lemma orderUnitNorm_add_le (he : IsOrderUnit e) (x y : E) :
