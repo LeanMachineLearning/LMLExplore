@@ -28,6 +28,9 @@ policy `π`, these marginals are given by powers of two kernels:
   `M.P (s, a)` and then an action from `π`; the state-action pair of round `n` has law
   `(M.saKernel π ^ n) ∘ₘ (μ ⊗ₘ π)`.
 
+Integrating a function against `M.stateKernel π s` averages over the actions `a` of `π s` its
+integral against `M.P (s, a)` (`integral_stateKernel`).
+
 The deterministic stationary policies `policyAlg π hπ` are Markov policies
 (`policyAlg_eq_markov`).
 
@@ -119,6 +122,17 @@ next state from `M.P ∘ₘ ν`, then an action from `π`. -/
 lemma saKernel_comp_eq_compProd (ν : Measure (𝓢 × 𝓐)) [SFinite ν] :
     M.saKernel π ∘ₘ ν = (M.P ∘ₘ ν) ⊗ₘ π := by
   rw [saKernel_def, ← Measure.comp_assoc, ← Measure.compProd_eq_comp_prod]
+
+variable {M π} in
+/-- Integrating against the state kernel of `π` from `s` averages over the actions `a` of `π s`
+the integral against `M.P (s, a)`. -/
+lemma integral_stateKernel {s : 𝓢} {v : 𝓢 → ℝ} (hv : Integrable v (M.stateKernel π s)) :
+    ∫ s', v s' ∂(M.stateKernel π s) = ∫ a, ∫ s', v s' ∂(M.P (s, a)) ∂(π s) := by
+  rw [stateKernel_def] at hv ⊢
+  have h := hv.integral_comp.aestronglyMeasurable
+  rw [Kernel.prod_apply, Kernel.id_apply, Measure.dirac_prod] at h
+  rw [Kernel.integral_comp hv, Kernel.prod_apply, Kernel.id_apply, Measure.dirac_prod,
+    integral_map measurable_prodMk_left.aemeasurable h]
 
 @[simp]
 lemma saKernel_apply (p : 𝓢 × 𝓐) : M.saKernel π p = M.P p ⊗ₘ π := by
