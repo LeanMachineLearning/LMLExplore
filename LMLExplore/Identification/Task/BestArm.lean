@@ -66,7 +66,7 @@ allocation `(1/2, 1/2)`.
 * `LMLExplore.Identification.altCost_baiTask_restrict_eq_iInf`: for `S` open and a transportation
   cost continuous on `{λ | ∃ b ≠ a, λ a ≤ λ b} ∩ S`,
   `D(μ, w, ¬a) = min_{b ≠ a} inf {cost_μ(w, λ) | λ ∈ S, λ a ≤ λ b}`.
-* `LMLExplore.Identification.altCost_baiTask_restrict_eq_iInf_expFamilyDiv`: for arms in an
+* `LMLExplore.Identification.altCost_baiTask_restrict_eq_iInf_expFamilyPairCost`: for arms in an
   exponential family with divergence `d`, a best arm `a` of `μ` and a nonnegative allocation `w`,
   `D(μ, w, ¬a) = min_{b ≠ a} (w a d(μ a, m_b) + w b d(μ b, m_b))` on the vectors of means of the
   family, with `m_b = (w a μ a + w b μ b) / (w a + w b)` [GK16, Lemma 3].
@@ -285,17 +285,16 @@ of means `μ'` of the family (for example when `ν μ' c` is the member of mean 
 `klDiv_expFamily_natParam`), and let `a` be a best arm of `μ`. Then on the vectors of means of the
 family, for every nonnegative allocation `w`,
 `D(μ, w, ¬a) = min_{b ≠ a} (w a d(μ a, m_b) + w b d(μ b, m_b))`, where
-`m_b = (w a μ a + w b μ b) / (w a + w b)` is the mean of `μ a` and `μ b` weighted by `w`: the
-cost of the alternatives in which `b` beats `a` is approached by moving both means to `m_b`. -/
-theorem altCost_baiTask_restrict_eq_iInf_expFamilyDiv
+`m_b = (w a μ a + w b μ b) / (w a + w b)` is the mean of `μ a` and `μ b` weighted by `w`, so that
+the cost of the pair `(a, b)` is `expFamilyPairCost ρ T (μ a) (μ b) (w a) (w b)`: the cost of the
+alternatives in which `b` beats `a` is approached by moving both means to `m_b`. -/
+theorem altCost_baiTask_restrict_eq_iInf_expFamilyPairCost
     (hT : ∀ c, ¬ T =ᵐ[ρ] fun _ ↦ c) (hμ : ∀ c, μ c ∈ ρ.expFamilyMeans T)
     (hν : ∀ μ' : α → ℝ, (∀ c, μ' c ∈ ρ.expFamilyMeans T) →
       ∀ c, klDiv (ν μ c) (ν μ' c) = ENNReal.ofReal (ρ.expFamilyDiv T (μ c) (μ' c)))
     (ha : ∀ b, μ b ≤ μ a) (hw : 0 ≤ w) :
     ((baiTask ν).restrict {μ' | ∀ c, μ' c ∈ ρ.expFamilyMeans T}).altCost μ w a =
-      ⨅ (b) (_ : b ≠ a), ENNReal.ofReal
-        (w a * ρ.expFamilyDiv T (μ a) ((w a * μ a + w b * μ b) / (w a + w b)) +
-          w b * ρ.expFamilyDiv T (μ b) ((w a * μ a + w b * μ b) / (w a + w b))) := by
+      ⨅ (b) (_ : b ≠ a), ENNReal.ofReal (ρ.expFamilyPairCost T (μ a) (μ b) (w a) (w b)) := by
   classical
   have hw' (c : α) : 0 ≤ w c := hw c
   set S := {μ' : α → ℝ | ∀ c, μ' c ∈ ρ.expFamilyMeans T} with hS_def
@@ -314,6 +313,7 @@ theorem altCost_baiTask_restrict_eq_iInf_expFamilyDiv
   refine iInf_congr fun b ↦ iInf_congr fun hba ↦ le_antisymm ?_ ?_
   · -- Upper bound: move the means of `a` and `b` to the weighted mean `m_b`, a mean of the
     -- family (or to `μ a` if both weights vanish).
+    rw [expFamilyPairCost_def]
     rcases (add_nonneg (hw a) (hw b)).eq_or_lt with hW | hW
     · obtain ⟨hwa, hwb⟩ : w a = 0 ∧ w b = 0 :=
         ⟨by linarith [hw' a, hw' b], by linarith [hw' a, hw' b]⟩
@@ -323,8 +323,8 @@ theorem altCost_baiTask_restrict_eq_iInf_expFamilyDiv
   · -- Lower bound: drop the arms other than `a` and `b`, then move both means to `m_b`.
     refine le_iInf₂ fun μ' hμ' ↦ le_iInf fun hab ↦ ?_
     rw [h_cost hμ']
-    refine ENNReal.ofReal_le_ofReal ((mul_expFamilyDiv_add_mul_expFamilyDiv_le hT (hμ a) (hμ b)
-      (ha b) (hw a) (hw b) (hμ' a) (hμ' b) hab).trans ?_)
+    refine ENNReal.ofReal_le_ofReal ((expFamilyPairCost_le_mul_expFamilyDiv_add_mul_expFamilyDiv
+      hT (hμ a) (hμ b) (ha b) (hw a) (hw b) (hμ' a) (hμ' b) hab).trans ?_)
     rw [← Finset.sum_pair (f := fun c ↦ w c * ρ.expFamilyDiv T (μ c) (μ' c)) hba.symm]
     exact Finset.sum_le_sum_of_subset_of_nonneg (Finset.subset_univ _) fun c _ _ ↦
       mul_nonneg (hw c) (expFamilyDiv_nonneg (hμ c) (hμ' c))
@@ -346,9 +346,9 @@ private lemma correct_baiTask_of_forall_eq_or_eq (hα : ∀ c, c = a ∨ c = b)
 
 /-- **The game value of two arms in an exponential family** [KCG16, Section 3]. For two arms `a`
 and `b` whose laws belong to an exponential family with divergence `d` (as in
-`altCost_baiTask_restrict_eq_iInf_expFamilyDiv`), with `μ b ≤ μ a`, and a mean `z` between `μ b`
-and `μ a` at the same divergence from both, `d(μ a, z) = d(μ b, z)`, the value of the game of the
-answer `a` is `D(μ, ¬a) = d(μ a, z)`. Such a `z` exists by `exists_mem_Icc_expFamilyDiv_eq`. -/
+`altCost_baiTask_restrict_eq_iInf_expFamilyPairCost`), with `μ b ≤ μ a`, and a mean `z` between
+`μ b` and `μ a` at the same divergence from both, `d(μ a, z) = d(μ b, z)`, the value of the game of
+the answer `a` is `D(μ, ¬a) = d(μ a, z)`. Such a `z` exists by `exists_mem_Icc_expFamilyDiv_eq`. -/
 theorem answerValue_baiTask_restrict_eq_expFamilyDiv_of_forall_eq_or_eq
     (hT : ∀ c, ¬ T =ᵐ[ρ] fun _ ↦ c) (hμ : ∀ c, μ c ∈ ρ.expFamilyMeans T)
     (hν : ∀ μ' : α → ℝ, (∀ c, μ' c ∈ ρ.expFamilyMeans T) →
@@ -366,8 +366,8 @@ theorem answerValue_baiTask_restrict_eq_expFamilyDiv_of_forall_eq_or_eq
       ((baiTask ν).restrict {μ' | ∀ c, μ' c ∈ ρ.expFamilyMeans T}).altCost μ w a =
         ENNReal.ofReal (w a * ρ.expFamilyDiv T (μ a) (w a * μ a + w b * μ b) +
           w b * ρ.expFamilyDiv T (μ b) (w a * μ a + w b * μ b)) := by
-    rw [altCost_baiTask_restrict_eq_iInf_expFamilyDiv ν hT hμ hν ha fun c ↦
-      (mem_simplex_iff.1 hw).1 c, iInf_ne_eq_of_forall_eq_or_eq hba hα,
+    rw [altCost_baiTask_restrict_eq_iInf_expFamilyPairCost ν hT hμ hν ha fun c ↦
+      (mem_simplex_iff.1 hw).1 c, iInf_ne_eq_of_forall_eq_or_eq hba hα, expFamilyPairCost_def,
       add_eq_one_of_mem_simplex hba.symm hα hw, div_one]
   rw [IdentTask.answerValue_def]
   refine le_antisymm (iSup₂_le fun w hw ↦ ?_) ?_
@@ -437,8 +437,8 @@ private lemma altCost_baiTask_restrict_eq_inf [DecidableEq α] (hT : ∀ c, ¬ T
     ((baiTask ν).restrict {μ' | ∀ c, μ' c ∈ ρ.expFamilyMeans T}).altCost μ w a =
       (Finset.univ.filter (· ≠ a)).inf fun b ↦
         ENNReal.ofReal (ρ.expFamilyPairCost T (μ a) (μ b) (w a) (w b)) := by
-  rw [altCost_baiTask_restrict_eq_iInf_expFamilyDiv ν hT hμ hν ha hw, Finset.inf_eq_iInf]
-  simp [expFamilyPairCost_def]
+  rw [altCost_baiTask_restrict_eq_iInf_expFamilyPairCost ν hT hμ hν ha hw, Finset.inf_eq_iInf]
+  simp
 
 /-- The closed form [GK16, Lemma 3] of the cost of the alternatives is continuous in the model
 and the allocation, on the vectors of means of the family and the nonnegative allocations. -/
@@ -548,8 +548,8 @@ theorem continuousAt_charTime_baiTask_restrict (hT : ∀ c, ¬ T =ᵐ[ρ] fun _ 
 /-! #### The optimal allocation -/
 
 /-- In best arm identification with arms in an exponential family (as in
-`altCost_baiTask_restrict_eq_iInf_expFamilyDiv`), the value `D(μ, ¬a)` of the game of the unique
-best arm `a` of `μ` is positive, so that the characteristic time `T*(μ) = D(μ, ¬a)⁻¹` is
+`altCost_baiTask_restrict_eq_iInf_expFamilyPairCost`), the value `D(μ, ¬a)` of the game of the
+unique best arm `a` of `μ` is positive, so that the characteristic time `T*(μ) = D(μ, ¬a)⁻¹` is
 finite. -/
 theorem answerValue_baiTask_restrict_pos (hT : ∀ c, ¬ T =ᵐ[ρ] fun _ ↦ c)
     (hμ : ∀ c, μ c ∈ ρ.expFamilyMeans T)
@@ -573,8 +573,8 @@ theorem answerValue_baiTask_restrict_pos (hT : ∀ c, ¬ T =ᵐ[ρ] fun _ ↦ c)
 
 /-- **The optimal allocations of best arm identification have positive entries**
 [GK16, Proposition 6].
-For arms in an exponential family (as in `altCost_baiTask_restrict_eq_iInf_expFamilyDiv`) and a
-vector of means `μ` of the family with unique best arm `a`, every optimal allocation `w*(μ, ¬a)`
+For arms in an exponential family (as in `altCost_baiTask_restrict_eq_iInf_expFamilyPairCost`) and
+a vector of means `μ` of the family with unique best arm `a`, every optimal allocation `w*(μ, ¬a)`
 gives a positive proportion to every arm. -/
 theorem pos_of_mem_optAlloc_baiTask_restrict (hT : ∀ c, ¬ T =ᵐ[ρ] fun _ ↦ c)
     (hμ : ∀ c, μ c ∈ ρ.expFamilyMeans T)
@@ -608,8 +608,8 @@ theorem pos_of_mem_optAlloc_baiTask_restrict (hT : ∀ c, ¬ T =ᵐ[ρ] fun _ �
 
 /-- **The optimal allocations of best arm identification equalize the costs of the pairs of
 arms** [GK16, Lemma 4]. For arms in an exponential family with divergence `d` (as in
-`altCost_baiTask_restrict_eq_iInf_expFamilyDiv`), a vector of means `μ` of the family with unique
-best arm `a` and an optimal allocation `w`, the minimum
+`altCost_baiTask_restrict_eq_iInf_expFamilyPairCost`), a vector of means `μ` of the family with
+unique best arm `a` and an optimal allocation `w`, the minimum
 `D(μ, w, ¬a) = min_{b ≠ a} (w a d(μ a, m_b) + w b d(μ b, m_b))` is attained at every arm `b ≠ a`:
 `D(μ, ¬a) = w a d(μ a, m_b) + w b d(μ b, m_b)` for every `b ≠ a`, with
 `m_b = (w a μ a + w b μ b) / (w a + w b)`. -/
@@ -621,10 +621,8 @@ theorem answerValue_baiTask_restrict_eq_of_mem_optAlloc (hT : ∀ c, ¬ T =ᵐ[�
     (hw : w ∈ ((baiTask ν).restrict {μ' | ∀ c, μ' c ∈ ρ.expFamilyMeans T}).optAlloc μ a)
     (hba : b ≠ a) :
     ((baiTask ν).restrict {μ' | ∀ c, μ' c ∈ ρ.expFamilyMeans T}).answerValue μ a =
-      ENNReal.ofReal (w a * ρ.expFamilyDiv T (μ a) ((w a * μ a + w b * μ b) / (w a + w b)) +
-        w b * ρ.expFamilyDiv T (μ b) ((w a * μ a + w b * μ b) / (w a + w b))) := by
+      ENNReal.ofReal (ρ.expFamilyPairCost T (μ a) (μ b) (w a) (w b)) := by
   classical
-  rw [← expFamilyPairCost_def]
   set task := (baiTask ν).restrict {μ' | ∀ c, μ' c ∈ ρ.expFamilyMeans T}
   have ha' := le_of_forall_ne_lt ha
   have hw_pos := pos_of_mem_optAlloc_baiTask_restrict ν hT hμ hν ha hw
@@ -687,8 +685,8 @@ theorem answerValue_baiTask_restrict_eq_of_mem_optAlloc (hT : ∀ c, ¬ T =ᵐ[�
   exact (task.altCost_le_answerValue hv).not_gt h_lt
 
 /-- **The optimal allocation of best arm identification is unique** [GK16, Theorem 5]. For arms
-in an exponential family (as in `altCost_baiTask_restrict_eq_iInf_expFamilyDiv`) and a vector of
-means `μ` of the family with unique best arm `a`, there is at most one optimal allocation
+in an exponential family (as in `altCost_baiTask_restrict_eq_iInf_expFamilyPairCost`) and a vector
+of means `μ` of the family with unique best arm `a`, there is at most one optimal allocation
 `w*(μ, ¬a)`. -/
 theorem subsingleton_optAlloc_baiTask_restrict (hT : ∀ c, ¬ T =ᵐ[ρ] fun _ ↦ c)
     (hμ : ∀ c, μ c ∈ ρ.expFamilyMeans T)
@@ -712,9 +710,8 @@ theorem subsingleton_optAlloc_baiTask_restrict (hT : ∀ c, ¬ T =ᵐ[ρ] fun _ 
   have hpos' := pos_of_mem_optAlloc_baiTask_restrict ν hT hμ hν ha hw'
   -- The three allocations equalize the costs of all the pairs `(a, b)`, at the same value.
   have h_eq {v : α → ℝ} (hv : v ∈ task.optAlloc μ a) {b : α} (hba : b ≠ a) :
-      task.answerValue μ a = ENNReal.ofReal (ρ.expFamilyPairCost T (μ a) (μ b) (v a) (v b)) := by
-    rw [expFamilyPairCost_def]
-    exact answerValue_baiTask_restrict_eq_of_mem_optAlloc ν hT hμ hν ha hv hba
+      task.answerValue μ a = ENNReal.ofReal (ρ.expFamilyPairCost T (μ a) (μ b) (v a) (v b)) :=
+    answerValue_baiTask_restrict_eq_of_mem_optAlloc ν hT hμ hν ha hv hba
   have h_nonneg {v : α → ℝ} (hv : v ∈ task.optAlloc μ a) (b : α) :
       0 ≤ ρ.expFamilyPairCost T (μ a) (μ b) (v a) (v b) :=
     expFamilyPairCost_nonneg (hμ a) (hμ b) (hv0 hv a) (hv0 hv b)
@@ -739,10 +736,10 @@ theorem subsingleton_optAlloc_baiTask_restrict (hT : ∀ c, ¬ T =ᵐ[ρ] fun _ 
   exact (mul_left_cancel₀ (h_a ▸ hpos a).ne' h).symm
 
 /-- **The optimal allocation of best arm identification** [GK16, Theorem 5]. For arms in an
-exponential family (as in `altCost_baiTask_restrict_eq_iInf_expFamilyDiv`) and a vector of means
-`μ` of the family with unique best arm `a`, there is exactly one optimal allocation `w*(μ, ¬a)`.
-It has positive entries (`pos_of_mem_optAlloc_baiTask_restrict`) and equalizes the costs of the
-pairs of arms (`answerValue_baiTask_restrict_eq_of_mem_optAlloc`). -/
+exponential family (as in `altCost_baiTask_restrict_eq_iInf_expFamilyPairCost`) and a vector of
+means `μ` of the family with unique best arm `a`, there is exactly one optimal allocation
+`w*(μ, ¬a)`. It has positive entries (`pos_of_mem_optAlloc_baiTask_restrict`) and equalizes the
+costs of the pairs of arms (`answerValue_baiTask_restrict_eq_of_mem_optAlloc`). -/
 theorem exists_optAlloc_baiTask_restrict_eq_singleton (hT : ∀ c, ¬ T =ᵐ[ρ] fun _ ↦ c)
     (hμ : ∀ c, μ c ∈ ρ.expFamilyMeans T)
     (hν : ∀ μ' : α → ℝ, (∀ c, μ' c ∈ ρ.expFamilyMeans T) →
@@ -814,14 +811,14 @@ theorem altCost_baiTask_gaussianBandit (hσ2 : σ2 ≠ 0) (ha : ∀ b, μ b ≤ 
     (baiTask (Bandits.gaussianBandit · σ2)).altCost μ w a =
       ⨅ (b) (_ : b ≠ a),
         ENNReal.ofReal (w a * w b / (w a + w b) * (μ a - μ b) ^ 2 / (2 * σ2)) := by
-  rw [← restrict_baiTask_gaussianBandit hσ2, altCost_baiTask_restrict_eq_iInf_expFamilyDiv _
+  rw [← restrict_baiTask_gaussianBandit hσ2, altCost_baiTask_restrict_eq_iInf_expFamilyPairCost _
     (not_ae_eq_const_gaussianReal 0 hσ2) (fun c ↦ by simp [hσ2])
     (fun μ' _ ↦ klDiv_gaussianBandit_eq_ofReal_expFamilyDiv hσ2 μ μ') ha hw]
   refine iInf_congr fun b ↦ iInf_congr fun _ ↦ congrArg ENNReal.ofReal ?_
   have hσ2' : (σ2 : ℝ) ≠ 0 := NNReal.coe_ne_zero.2 hσ2
   have hwa : 0 ≤ w a := hw a
   have hwb : 0 ≤ w b := hw b
-  rw [expFamilyDiv_gaussianReal 0 hσ2, expFamilyDiv_gaussianReal 0 hσ2]
+  rw [expFamilyPairCost_def, expFamilyDiv_gaussianReal 0 hσ2, expFamilyDiv_gaussianReal 0 hσ2]
   rcases eq_or_ne (w a + w b) 0 with hW | hW
   · obtain ⟨hwa, hwb⟩ : w a = 0 ∧ w b = 0 := ⟨by linarith, by linarith⟩
     simp [hwa, hwb]

@@ -84,9 +84,10 @@ confidence*, COLT 2016.
   mean of the family.
 * `MeasureTheory.Measure.mul_expFamilyDiv_add_mul_expFamilyDiv_le_of_mul_eq`: the two-point case
   of `sum_mul_expFamilyDiv_le`.
-* `MeasureTheory.Measure.mul_expFamilyDiv_add_mul_expFamilyDiv_le`: for `μ₂ ≤ μ₁` and nonnegative
-  weights, `w₁ d(μ₁, x) + w₂ d(μ₂, y)` at means `x ≤ y` is at least its value at `x = y = m`, the
-  weighted mean of `μ₁` and `μ₂`; when `w₁ + w₂ > 0`, this is the minimum over these pairs.
+* `MeasureTheory.Measure.expFamilyPairCost_le_mul_expFamilyDiv_add_mul_expFamilyDiv`: for
+  `μ₂ ≤ μ₁` and nonnegative weights, `w₁ d(μ₁, x) + w₂ d(μ₂, y)` at means `x ≤ y` is at least its
+  value `expFamilyPairCost` at `x = y = m`, the weighted mean of `μ₁` and `μ₂`; when
+  `w₁ + w₂ > 0`, this is the minimum over these pairs.
 * `MeasureTheory.Measure.mul_expFamilyDiv_add_mul_expFamilyDiv_eq`: the two-point compensation
   identity `w₁ d(μ₁, z) + w₂ d(μ₂, z) = w₁ d(μ₁, m) + w₂ d(μ₂, m) + (w₁ + w₂) d(m, z)`.
 * `MeasureTheory.Measure.expFamilyPairCost_nonneg`, `MeasureTheory.Measure.expFamilyPairCost_pos`,
@@ -534,17 +535,33 @@ theorem mul_expFamilyDiv_add_mul_expFamilyDiv_le_of_mul_eq {μ₁ μ₂ w₁ w�
     (by rw [Fin.sum_univ_two, Fin.sum_univ_two]; exact hm) hm_mem hz
   rwa [Fin.sum_univ_two, Fin.sum_univ_two] at h
 
+/-- The cost `w₁ d(μ₁, m) + w₂ d(μ₂, m)` of moving two means `μ₁` and `μ₂` to their mean
+`m = (w₁ μ₁ + w₂ μ₂) / (w₁ + w₂)` weighted by `w₁` and `w₂`. For nonnegative weights, it is the
+minimum over the means `z` of `w₁ d(μ₁, z) + w₂ d(μ₂, z)`
+(`mul_expFamilyDiv_add_mul_expFamilyDiv_le_of_mul_eq`); in best arm identification, it is the cost
+of the alternatives in which the arm of mean `μ₂` beats the arm of mean `μ₁`. -/
+noncomputable def expFamilyPairCost (ρ : Measure 𝓧) (T : 𝓧 → ℝ) (μ₁ μ₂ w₁ w₂ : ℝ) : ℝ :=
+  w₁ * ρ.expFamilyDiv T μ₁ ((w₁ * μ₁ + w₂ * μ₂) / (w₁ + w₂)) +
+    w₂ * ρ.expFamilyDiv T μ₂ ((w₁ * μ₁ + w₂ * μ₂) / (w₁ + w₂))
+
+lemma expFamilyPairCost_def (ρ : Measure 𝓧) (T : 𝓧 → ℝ) (μ₁ μ₂ w₁ w₂ : ℝ) :
+    ρ.expFamilyPairCost T μ₁ μ₂ w₁ w₂ =
+      w₁ * ρ.expFamilyDiv T μ₁ ((w₁ * μ₁ + w₂ * μ₂) / (w₁ + w₂)) +
+        w₂ * ρ.expFamilyDiv T μ₂ ((w₁ * μ₁ + w₂ * μ₂) / (w₁ + w₂)) :=
+  (rfl)
+
 /-- For means `μ₂ ≤ μ₁` and nonnegative weights `w₁, w₂`, the weighted divergence
-`w₁ d(μ₁, x) + w₂ d(μ₂, y)` at a pair of means `x ≤ y` is at least its value at `x = y = m`, where
-`m = (w₁ μ₁ + w₂ μ₂) / (w₁ + w₂)` is the mean of `μ₁` and `μ₂` weighted by `w₁` and `w₂`. When
+`w₁ d(μ₁, x) + w₂ d(μ₂, y)` at a pair of means `x ≤ y` is at least its value
+`expFamilyPairCost ρ T μ₁ μ₂ w₁ w₂` at `x = y = m`, where `m = (w₁ μ₁ + w₂ μ₂) / (w₁ + w₂)` is the
+mean of `μ₁` and `μ₂` weighted by `w₁` and `w₂`. When
 `w₁ + w₂ > 0`, `m` is a mean of the family, so this value is the minimum over these pairs. -/
-theorem mul_expFamilyDiv_add_mul_expFamilyDiv_le (hT : ∀ c, ¬ T =ᵐ[ρ] fun _ ↦ c)
-    {μ₁ μ₂ w₁ w₂ x y : ℝ} (hμ₁ : μ₁ ∈ ρ.expFamilyMeans T) (hμ₂ : μ₂ ∈ ρ.expFamilyMeans T)
-    (hμ₂₁ : μ₂ ≤ μ₁) (hw₁ : 0 ≤ w₁) (hw₂ : 0 ≤ w₂) (hx : x ∈ ρ.expFamilyMeans T)
-    (hy : y ∈ ρ.expFamilyMeans T) (hxy : x ≤ y) :
-    w₁ * ρ.expFamilyDiv T μ₁ ((w₁ * μ₁ + w₂ * μ₂) / (w₁ + w₂)) +
-        w₂ * ρ.expFamilyDiv T μ₂ ((w₁ * μ₁ + w₂ * μ₂) / (w₁ + w₂)) ≤
+theorem expFamilyPairCost_le_mul_expFamilyDiv_add_mul_expFamilyDiv
+    (hT : ∀ c, ¬ T =ᵐ[ρ] fun _ ↦ c) {μ₁ μ₂ w₁ w₂ x y : ℝ} (hμ₁ : μ₁ ∈ ρ.expFamilyMeans T)
+    (hμ₂ : μ₂ ∈ ρ.expFamilyMeans T) (hμ₂₁ : μ₂ ≤ μ₁) (hw₁ : 0 ≤ w₁) (hw₂ : 0 ≤ w₂)
+    (hx : x ∈ ρ.expFamilyMeans T) (hy : y ∈ ρ.expFamilyMeans T) (hxy : x ≤ y) :
+    ρ.expFamilyPairCost T μ₁ μ₂ w₁ w₂ ≤
       w₁ * ρ.expFamilyDiv T μ₁ x + w₂ * ρ.expFamilyDiv T μ₂ y := by
+  rw [expFamilyPairCost_def]
   set m := (w₁ * μ₁ + w₂ * μ₂) / (w₁ + w₂) with hm_def
   rcases (add_nonneg hw₁ hw₂).eq_or_lt with hW | hW
   · obtain ⟨rfl, rfl⟩ : w₁ = 0 ∧ w₂ = 0 := ⟨by linarith, by linarith⟩
@@ -570,21 +587,6 @@ theorem mul_expFamilyDiv_add_mul_expFamilyDiv_le (hT : ∀ c, ¬ T =ᵐ[ρ] fun 
   exact add_le_add
     (mul_le_mul_of_nonneg_left (h_anti ⟨hx, hxm.trans hm₁⟩ ⟨hm_mem, hm₁⟩ hxm) hw₁)
     (mul_le_mul_of_nonneg_left (h_mono ⟨hm_mem, hm₂⟩ ⟨hy, hm₂.trans hmy⟩ hmy) hw₂)
-
-/-- The cost `w₁ d(μ₁, m) + w₂ d(μ₂, m)` of moving two means `μ₁` and `μ₂` to their mean
-`m = (w₁ μ₁ + w₂ μ₂) / (w₁ + w₂)` weighted by `w₁` and `w₂`. For nonnegative weights, it is the
-minimum over the means `z` of `w₁ d(μ₁, z) + w₂ d(μ₂, z)`
-(`mul_expFamilyDiv_add_mul_expFamilyDiv_le_of_mul_eq`); in best arm identification, it is the cost
-of the alternatives in which the arm of mean `μ₂` beats the arm of mean `μ₁`. -/
-noncomputable def expFamilyPairCost (ρ : Measure 𝓧) (T : 𝓧 → ℝ) (μ₁ μ₂ w₁ w₂ : ℝ) : ℝ :=
-  w₁ * ρ.expFamilyDiv T μ₁ ((w₁ * μ₁ + w₂ * μ₂) / (w₁ + w₂)) +
-    w₂ * ρ.expFamilyDiv T μ₂ ((w₁ * μ₁ + w₂ * μ₂) / (w₁ + w₂))
-
-lemma expFamilyPairCost_def (ρ : Measure 𝓧) (T : 𝓧 → ℝ) (μ₁ μ₂ w₁ w₂ : ℝ) :
-    ρ.expFamilyPairCost T μ₁ μ₂ w₁ w₂ =
-      w₁ * ρ.expFamilyDiv T μ₁ ((w₁ * μ₁ + w₂ * μ₂) / (w₁ + w₂)) +
-        w₂ * ρ.expFamilyDiv T μ₂ ((w₁ * μ₁ + w₂ * μ₂) / (w₁ + w₂)) :=
-  (rfl)
 
 lemma expFamilyPairCost_nonneg {μ₁ μ₂ w₁ w₂ : ℝ} (hμ₁ : μ₁ ∈ ρ.expFamilyMeans T)
     (hμ₂ : μ₂ ∈ ρ.expFamilyMeans T) (hw₁ : 0 ≤ w₁) (hw₂ : 0 ≤ w₂) :
