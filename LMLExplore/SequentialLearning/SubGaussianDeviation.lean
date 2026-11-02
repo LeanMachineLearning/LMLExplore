@@ -6,7 +6,7 @@ Authors: Rémy Degenne
 module
 
 public import LeanMachineLearning.Online.Bandit.SumRewards
-public import LMLExplore.Analysis.PSeries
+public import LMLExplore.Algebra.BigOperators.Intervals
 public import LMLExplore.Analysis.SpecialFunctions.Log.Basic
 public import LMLExplore.Probability.Moments.ExponentialTail
 public import LMLExplore.SequentialLearning.SumRewards
