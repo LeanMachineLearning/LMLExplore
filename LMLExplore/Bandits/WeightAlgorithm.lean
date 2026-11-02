@@ -6,8 +6,7 @@ Authors: Rémy Degenne
 module
 
 public import LMLExplore.MeasureTheory.Measure.Weighted
-public import LMLExplore.Probability.HasCondDistrib
-public import LeanMachineLearning.SequentialLearning.Algorithm
+public import LMLExplore.SequentialLearning.Algorithm
 
 /-!
 # Weight-based policies
@@ -30,7 +29,11 @@ policies [LS, Algorithms 9, 10 and 11].
 In the namespace `LMLExplore.Bandits.WeightAlgorithm`, for a run of `weightAlgorithm w …`:
 * `measure_preimage_inter_action_eq`: the run lemma in integral form, for a measurable set `s` of
   pasts and an arm `a`, `P(past ∈ s, A n = a) = ∫_{past ∈ s} w n (past) a dP`;
-* `measure_action_eq`: `P(A n = a) = E[w n (past) a]`.
+* `measure_action_eq`: `P(A n = a) = E[w n (past) a]`;
+* `integrable_comp_action_iff`: a function `f (past, A n)` of the past and the action is integrable
+  iff the weighted sum `∑ a, w n (past) a * ‖f (past, a)‖` is;
+* `condExp_comp_action`: the conditional expectation of `f (past, A n)` given the past is the
+  weighted sum `∑ a, w n (past) a • f (past, a)`.
 
 The conditional law of the action of round `n` given the past is
 `(weightAlgorithm w …).policy n = weightKernel (w n) _`, by LML's
@@ -106,6 +109,45 @@ lemma measure_action_eq (h : IsAlgEnvSeq O A Y (weightAlgorithm w hw hp) env P) 
     (a : α) :
     P (A n ⁻¹' {a}) = ∫⁻ ω, ENNReal.ofReal (w n (history O A Y n ω, O n ω) a) ∂P := by
   simpa using measure_preimage_inter_action_eq h n MeasurableSet.univ a
+
+variable {E : Type*} [NormedAddCommGroup E]
+
+/-- Along a run of a weight-based algorithm, a function `f (past, A n)` of the past (history and
+observation) of round `n` and of the action of round `n` is integrable iff the weighted sum
+`∑ a, w n (past) a * ‖f (past, a)‖` is integrable. -/
+lemma integrable_comp_action_iff (h : IsAlgEnvSeq O A Y (weightAlgorithm w hw hp) env P)
+    (n : ℕ) {f : (Hist 𝓞 α 𝓨 n × 𝓞) × α → E} (hf : StronglyMeasurable f) :
+    Integrable (fun ω ↦ f ((history O A Y n ω, O n ω), A n ω)) P ↔
+      Integrable (fun ω ↦ ∑ a, w n (history O A Y n ω, O n ω) a *
+        ‖f ((history O A Y n ω, O n ω), a)‖) P := by
+  have hX : Measurable fun ω ↦ (history O A Y n ω, O n ω) :=
+    (h.measurable_history n).prodMk (h.measurable_obs n)
+  have hg : Measurable fun x ↦ ∑ a, w n x a * ‖f (x, a)‖ :=
+    Finset.measurable_sum _ fun a _ ↦ (hw n a).mul
+      (hf.norm.measurable.comp (measurable_id.prodMk measurable_const))
+  refine (integrable_map_measure hf.aestronglyMeasurable
+    (hX.prodMk (h.measurable_action n)).aemeasurable).symm.trans ?_
+  rw [(h.hasCondDistrib_action n).map_eq, Measure.integrable_compProd_iff hf.aestronglyMeasurable]
+  simp only [weightAlgorithm_policy, weightKernel_apply, Integrable.of_finite,
+    Filter.eventually_true, true_and]
+  refine Iff.trans ?_ (integrable_map_measure (f := fun ω ↦ (history O A Y n ω, O n ω))
+    (g := fun x ↦ ∑ a, w n x a * ‖f (x, a)‖) hg.aestronglyMeasurable hX.aemeasurable)
+  refine integrable_congr (ae_of_all _ fun x ↦ ?_)
+  simp [integral_weightedMeasure_eq_sum (mem_simplex_iff.1 (hp n x)).1]
+
+variable [NormedSpace ℝ E] [CompleteSpace E]
+
+/-- Along a run of a weight-based algorithm, the conditional expectation of an integrable function
+`f (past, A n)` of the past and of the action of round `n` given the past is the weighted sum
+`∑ a, w n (past) a • f (past, a)`. -/
+lemma condExp_comp_action [Nonempty α] (h : IsAlgEnvSeq O A Y (weightAlgorithm w hw hp) env P)
+    (n : ℕ) {f : (Hist 𝓞 α 𝓨 n × 𝓞) × α → E} (hf : StronglyMeasurable f)
+    (hint : Integrable (fun ω ↦ f ((history O A Y n ω, O n ω), A n ω)) P) :
+    P[fun ω ↦ f ((history O A Y n ω, O n ω), A n ω) | h.filtrationObs n] =ᵐ[P]
+      fun ω ↦ ∑ a, w n (history O A Y n ω, O n ω) a • f ((history O A Y n ω, O n ω), a) := by
+  filter_upwards [h.condExp_comp_action n hf hint] with ω hω
+  rw [hω, weightAlgorithm_policy, weightKernel_apply,
+    integral_weightedMeasure_eq_sum (mem_simplex_iff.1 (hp n _)).1]
 
 end WeightAlgorithm
 
