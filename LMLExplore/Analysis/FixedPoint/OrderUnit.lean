@@ -90,10 +90,11 @@ lemma isOrderUnit_def : IsOrderUnit e ↔ ∀ x : E, ∃ c : ℝ, 0 ≤ c ∧ x 
   (Iff.rfl)
 
 /-- The order-unit norm `‖x‖_e = inf {c ≥ 0 | -c • e ≤ x ≤ c • e}`. When `e` is an order unit it
-is a seminorm (`orderUnitNorm_smul`, `orderUnitNorm_add_le`), and a norm only when the order is
-moreover Archimedean. If `x` lies in no interval `[-c • e, c • e]` (which can only happen when `e`
-is not an order unit), it takes the junk value `sInf ∅ = 0`. On `ι → ℝ` with `ι` finite and a
-positive weight `e`, it is the weighted sup norm (`orderUnitNorm_eq_iSup_abs_div`). -/
+is a seminorm (`orderUnitNorm_smul`, `orderUnitNorm_add_le`); it is a norm exactly when the order
+is moreover almost Archimedean (`-ε • e ≤ x ≤ ε • e` for every `ε > 0` forces `x = 0`), for
+instance when it is Archimedean. If `x` lies in no interval `[-c • e, c • e]` (which can only
+happen when `e` is not an order unit), it takes the junk value `sInf ∅ = 0`. On `ι → ℝ` with `ι`
+finite and a positive weight `e`, it is the weighted sup norm (`orderUnitNorm_eq_iSup_abs_div`). -/
 noncomputable def orderUnitNorm (e x : E) : ℝ := sInf {c : ℝ | 0 ≤ c ∧ x ∈ Icc (-(c • e)) (c • e)}
 
 lemma orderUnitNorm_def (e x : E) :
