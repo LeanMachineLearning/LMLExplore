@@ -56,7 +56,9 @@ theorem monotoneOn_log_one_add_mul_log_sq :
   gcongr
 
 /-- The function `n ↦ log (2 n (n + 1))` on `ℕ` is monotone. It is the boundary of the
-time-uniform deviation bound of [LS, Lemma 33.8]. -/
+sub-Gaussian, two-tailed form of the time-uniform deviation bound of [LS, Lemma 33.8]: Lattimore
+and Szepesvári state that lemma for unit-variance Gaussians with the boundary `log (n (n + 1))`,
+and the factor `2` accounts for the two tails. -/
 theorem monotone_log_two_mul_mul_add_one : Monotone fun n : ℕ ↦ log (2 * n * (n + 1)) := by
   intro n m hnm
   rcases Nat.eq_zero_or_pos n with rfl | hn
