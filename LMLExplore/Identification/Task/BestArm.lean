@@ -282,18 +282,13 @@ variable {b : α}
 omit [Fintype α] in
 /-- With two arms `a` and `b` and `μ b < μ a`, the arm `a` is the only correct answer of best arm
 identification. -/
-private lemma correct_baiTask_of_forall_eq_or_eq (hba : b ≠ a) (hα : ∀ c, c = a ∨ c = b)
+private lemma correct_baiTask_of_forall_eq_or_eq (hα : ∀ c, c = a ∨ c = b)
     (hμ : μ b < μ a) : (baiTask ν).correct μ = {a} := by
-  ext c
-  simp only [correct_baiTask, Set.mem_ofPred_eq, Set.mem_singleton_iff]
-  constructor
-  · intro h
-    by_contra hca
-    obtain rfl := (hα c).resolve_left hca
-    exact (h a hba.symm).not_gt hμ
-  · rintro rfl d hd
-    obtain rfl := (hα d).resolve_left hd
-    exact hμ
+  refine (subsingleton_correct_baiTask ν μ).eq_singleton_of_mem ?_
+  rw [correct_baiTask]
+  intro d hd
+  obtain rfl := (hα d).resolve_left hd
+  exact hμ
 
 /-- **The game value of two arms in an exponential family** [KCG16, Section 3]. For two arms `a`
 and `b` whose laws belong to an exponential family with divergence `d` (as in
@@ -369,7 +364,7 @@ theorem charTime_baiTask_restrict_eq_inv_expFamilyDiv_of_forall_eq_or_eq
     ((baiTask ν).restrict {μ' | ∀ c, μ' c ∈ ρ.expFamilyMeans T}).charTime μ =
       (ENNReal.ofReal (ρ.expFamilyDiv T (μ a) z))⁻¹ := by
   rw [IdentTask.charTime_eq_inv_answerValue _
-      (by rw [IdentTask.correct_restrict]; exact correct_baiTask_of_forall_eq_or_eq ν hba hα hμab),
+      (by rw [IdentTask.correct_restrict]; exact correct_baiTask_of_forall_eq_or_eq ν hα hμab),
     answerValue_baiTask_restrict_eq_expFamilyDiv_of_forall_eq_or_eq ν hT hμ hν hba hα hμab.le hz hd]
 
 end ExpFamily
@@ -451,7 +446,7 @@ theorem charTime_baiTask_gaussianBandit_of_forall_eq_or_eq (hσ2 : σ2 ≠ 0) (h
       ENNReal.ofReal (8 * σ2 / (μ a - μ b) ^ 2) := by
   have hσ2' : 0 < (σ2 : ℝ) := NNReal.coe_pos.2 (pos_iff_ne_zero.2 hσ2)
   have hΔ : 0 < (μ a - μ b) ^ 2 := pow_pos (sub_pos.2 hμ) 2
-  rw [IdentTask.charTime_eq_inv_answerValue _ (correct_baiTask_of_forall_eq_or_eq _ hba hα hμ),
+  rw [IdentTask.charTime_eq_inv_answerValue _ (correct_baiTask_of_forall_eq_or_eq _ hα hμ),
     answerValue_baiTask_gaussianBandit_of_forall_eq_or_eq hσ2 hba hα hμ.le,
     ← ENNReal.ofReal_inv_of_pos (by positivity), inv_div]
 
