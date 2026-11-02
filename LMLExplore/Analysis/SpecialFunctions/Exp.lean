@@ -5,6 +5,7 @@ Authors: Rémy Degenne
 -/
 module
 
+public import Mathlib.Analysis.PSeries
 public import Mathlib.Analysis.SpecialFunctions.Exp
 public import Mathlib.Analysis.SpecialFunctions.Trigonometric.DerivHyp
 
@@ -23,6 +24,12 @@ The sample sizes `s` at which a deviation bound gives nothing, because `(s + 1) 
 divergence `D > 0` and a confidence level `L ≥ 0`, number at most `L / D`. Together with the
 geometric sum above, this bounds the sums over the sample sizes in the proof of [LS, Lemma 10.8].
 
+The tail `∑_{s ≥ m} exp (-s d)` of the geometric series is `exp (-m d) / (1 - exp (-d))`, and a
+sequence `exp (-f n)` is summable as soon as `f n` grows faster than `log n`, for then
+`exp (-f n) ≤ 1 / n²` eventually. With `f n = c m n` for a number `m n` of samples, this sums
+tail bounds `exp (-c m n)` over a sequence of experiments whose sample sizes grow faster than
+logarithmically.
+
 ## Main statements
 
 * `Real.sum_range_exp_neg_mul_le`: `∑_{s < m} exp (-c (s + 1)) ≤ 1 / c` for `c > 0`.
@@ -30,6 +37,9 @@ geometric sum above, this bounds the sums over the sample sizes in the proof of 
   `c > 0`.
 * `Real.sum_range_ite_add_one_mul_le_le`: `#{s < k | (s + 1) D ≤ L} ≤ L / D` for `D > 0` and
   `L ≥ 0`.
+* `Real.hasSum_exp_neg_add_mul`: `∑_{k ≥ 0} exp (-(k + m) d) = exp (-m d) / (1 - exp (-d))` for
+  `d > 0`.
+* `Real.summable_exp_neg_of_tendsto_div_log`: `∑ n, exp (-f n) < ∞` if `f n / log n → ∞`.
 
 ## References
 
@@ -38,7 +48,7 @@ geometric sum above, this bounds the sums over the sample sizes in the proof of 
 
 public section
 
-open Finset
+open Finset Filter
 
 namespace Real
 
@@ -117,5 +127,28 @@ theorem sum_range_ite_add_one_mul_le_le {D L : ℝ} (hD : 0 < D) (hL : 0 ≤ L) 
   refine Nat.le_floor ?_
   rw [le_div_iff₀ hD]
   exact_mod_cast hs.2
+
+/-- The tail `∑_{s ≥ m} exp (-s d)` of a geometric series: for `d > 0`,
+`∑_{k ≥ 0} exp (-(k + m) d) = exp (-m d) / (1 - exp (-d))`. -/
+theorem hasSum_exp_neg_add_mul {d : ℝ} (hd : 0 < d) (m : ℕ) :
+    HasSum (fun k : ℕ ↦ exp (-((k + m) * d))) (exp (-(m * d)) / (1 - exp (-d))) := by
+  have h_eq (k : ℕ) : exp (-((k + m) * d)) = exp (-(m * d)) * exp (-d) ^ k := by
+    rw [← exp_nat_mul, ← exp_add]
+    ring_nf
+  simp_rw [h_eq, div_eq_mul_inv]
+  exact (hasSum_geometric_of_lt_one (exp_pos _).le (exp_lt_one_iff.2 (neg_lt_zero.2 hd))).mul_left _
+
+/-- If `f n` grows faster than `log n`, that is `f n / log n → ∞`, then `exp (-f n)` is
+summable. -/
+theorem summable_exp_neg_of_tendsto_div_log {f : ℕ → ℝ}
+    (hf : Tendsto (fun n : ℕ ↦ f n / log n) atTop atTop) : Summable fun n ↦ exp (-f n) := by
+  refine Summable.of_norm_bounded_eventually_nat (g := fun n : ℕ ↦ 1 / (n : ℝ) ^ 2)
+    (summable_one_div_nat_pow.2 one_lt_two) ?_
+  filter_upwards [hf.eventually_ge_atTop 2, eventually_ge_atTop 2] with n hn hn2
+  have hn1 : (1 : ℝ) < n := by exact_mod_cast hn2
+  rw [le_div_iff₀ (log_pos hn1)] at hn
+  rw [norm_of_nonneg (exp_pos _).le, one_div, ← exp_log (zero_lt_one.trans hn1), ← exp_nat_mul,
+    ← exp_neg, Nat.cast_ofNat]
+  exact exp_le_exp.2 (neg_le_neg hn)
 
 end Real
