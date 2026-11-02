@@ -58,6 +58,8 @@ that it lies below the true mean.
 * `LMLExplore.klBer_le_ofReal_sq_sub_div`, `LMLExplore.klBerReal_le_sq_sub_div`: the reverse
   bound `d(p, q) ≤ (p - q)² / (q (1 - q))` for `p ∈ [0, 1]` and `q ∈ (0, 1)`.
 * `LMLExplore.continuousOn_klBer`: `d` is continuous on `[0, 1] × (0, 1)`.
+* `LMLExplore.tendsto_klBer_nhdsGT`: for `p ∈ [0, 1]`, `q ↦ d(p, q)` is right-continuous on
+  `[p, 1)`.
 * `LMLExplore.strictMonoOn_klBer`, `LMLExplore.strictAntiOn_klBer`: for `p ∈ [0, 1]`,
   `q ↦ d(p, q)` is strictly increasing on `[p, 1]` and strictly decreasing on `[0, p]`;
   `LMLExplore.klBer_le_max` is the resulting quasi-convexity in `q`.
@@ -337,6 +339,33 @@ theorem continuousOn_klBer :
   refine (ENNReal.continuous_ofReal.comp_continuousOn (continuousOn_klBerReal.mono
     (Set.prod_mono (Set.subset_univ _) subset_rfl))).congr fun x hx ↦ ?_
   exact klBer_eq_ofReal_klBerReal hx.1 (Set.Ioo_subset_Icc_self hx.2) (klBer_ne_top hx.2)
+
+/-- For `p ∈ [0, 1]`, the binary relative entropy `d(p, ·)` is right-continuous at every
+`q ∈ [p, 1)`, including at `q = 0` when `p = 0`, outside the domain of `continuousOn_klBer`. -/
+theorem tendsto_klBer_nhdsGT (hp : p ∈ Set.Icc 0 1) (hpq : p ≤ q) (hq : q < 1) :
+    Tendsto (klBer p) (𝓝[>] q) (𝓝 (klBer p q)) := by
+  rcases hpq.eq_or_lt with rfl | hpq
+  · -- for `q = p`, `d(p, q') ≤ (q' - p) / (1 - q')` on `(p, 1)`, which tends to `0`
+    rw [klBer_self]
+    have hg : Tendsto (fun q' ↦ ENNReal.ofReal ((q' - p) / (1 - q'))) (𝓝[>] p) (𝓝 0) := by
+      have hc : ContinuousAt (fun q' ↦ (q' - p) / (1 - q')) p :=
+        ((continuous_id.sub continuous_const).continuousAt).div
+          (continuous_const.sub continuous_id).continuousAt (by linarith)
+      simpa [Function.comp_def] using
+        ((ENNReal.continuous_ofReal.tendsto _).comp hc.tendsto).mono_left nhdsWithin_le_nhds
+    refine tendsto_of_tendsto_of_tendsto_of_le_of_le' tendsto_const_nhds hg
+      (.of_forall fun _ ↦ bot_le) ?_
+    filter_upwards [Ioo_mem_nhdsGT hq] with q' hq'I
+    have hq'01 : q' ∈ Set.Ioo 0 1 := ⟨hp.1.trans_lt hq'I.1, hq'I.2⟩
+    refine (klBer_le_ofReal_sq_sub_div hp hq'01).trans (ENNReal.ofReal_le_ofReal ?_)
+    rw [div_le_div_iff₀ (mul_pos hq'01.1 (sub_pos.2 hq'01.2)) (sub_pos.2 hq'01.2)]
+    nlinarith [mul_le_mul_of_nonneg_right (by linarith [hp.1] : q' - p ≤ q')
+      (mul_nonneg (sub_nonneg.2 hq'I.1.le) (sub_pos.2 hq'01.2).le)]
+  · -- for `p < q`, `q ∈ (0, 1)` and `d(p, ·)` is continuous at `q`
+    have hcont : ContinuousAt (klBer p) q :=
+      (continuousOn_klBer.comp (continuousOn_const.prodMk continuousOn_id)
+        fun _ hq' ↦ ⟨hp, hq'⟩).continuousAt (isOpen_Ioo.mem_nhds ⟨hp.1.trans_lt hpq, hq⟩)
+    exact hcont.tendsto.mono_left nhdsWithin_le_nhds
 
 /-- The derivative of `q ↦ klBerReal p q` on `(0, 1)` is `(q - p) / (q (1 - q))`. -/
 theorem hasDerivAt_klBerReal (p : ℝ) (hq : q ∈ Set.Ioo 0 1) :
@@ -811,30 +840,8 @@ theorem le_klBer_of_klUpper_le (hp : p ∈ Set.Icc 0 1) (hq : q < 1) (h : klUppe
   have hpq : p ≤ q := (klUpper_mem_Icc hp.2 c).1.trans h
   by_contra! hlt
   -- `d(p, ·)` is below `c` on a right neighbourhood of `q`
-  have h_ev : ∀ᶠ q' in 𝓝[>] q, klBer p q' < c := by
-    rcases hpq.eq_or_lt with hpq | hpq
-    · -- for `p = q`, `d(p, q') ≤ (q' - p) / (1 - q')` on `(p, 1)`, which tends to `0`
-      rw [← hpq, klBer_self] at hlt
-      have hg : Tendsto (fun q' ↦ ENNReal.ofReal ((q' - p) / (1 - q'))) (𝓝 p) (𝓝 0) := by
-        have hc : ContinuousAt (fun q' ↦ (q' - p) / (1 - q')) p :=
-          ((continuous_id.sub continuous_const).continuousAt).div
-            (continuous_const.sub continuous_id).continuousAt (by linarith)
-        simpa [Function.comp_def] using (ENNReal.continuous_ofReal.tendsto _).comp hc.tendsto
-      rw [← hpq]
-      filter_upwards [nhdsWithin_le_nhds (hg.eventually (gt_mem_nhds hlt)),
-        Ioo_mem_nhdsGT (by linarith : p < 1)] with q' hq' hq'I
-      have hq'01 : q' ∈ Set.Ioo 0 1 := ⟨hp.1.trans_lt hq'I.1, hq'I.2⟩
-      refine lt_of_le_of_lt ((klBer_le_ofReal_sq_sub_div hp hq'01).trans
-        (ENNReal.ofReal_le_ofReal ?_)) hq'
-      rw [div_le_div_iff₀ (mul_pos hq'01.1 (sub_pos.2 hq'01.2)) (sub_pos.2 hq'01.2)]
-      nlinarith [mul_le_mul_of_nonneg_right (by linarith [hp.1] : q' - p ≤ q')
-        (mul_nonneg (sub_nonneg.2 hq'I.1.le) (sub_pos.2 hq'01.2).le)]
-    · -- for `p < q`, `q ∈ (0, 1)` and `d(p, ·)` is continuous at `q`
-      have hq01 : q ∈ Set.Ioo 0 1 := ⟨hp.1.trans_lt hpq, hq⟩
-      have hcont : ContinuousAt (klBer p) q :=
-        (continuousOn_klBer.comp (continuousOn_const.prodMk continuousOn_id)
-          fun _ hq' ↦ ⟨hp, hq'⟩).continuousAt (isOpen_Ioo.mem_nhds hq01)
-      exact nhdsWithin_le_nhds (hcont.eventually (gt_mem_nhds hlt))
+  have h_ev : ∀ᶠ q' in 𝓝[>] q, klBer p q' < c :=
+    (tendsto_klBer_nhdsGT hp hpq hq).eventually (gt_mem_nhds hlt)
   obtain ⟨q', hq'c, hq'I⟩ := (h_ev.and (Ioo_mem_nhdsGT hq)).exists
   have hq'U : q' ≤ klUpper p c := (le_klUpper_iff ⟨hpq.trans hq'I.1.le, hq'I.2.le⟩).2 hq'c.le
   linarith [hq'I.1]

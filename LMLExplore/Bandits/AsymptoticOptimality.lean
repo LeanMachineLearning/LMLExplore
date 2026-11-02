@@ -5,6 +5,7 @@ Authors: Rémy Degenne
 -/
 module
 
+public import LMLExplore.Analysis.Asymptotics.Lemmas
 public import LMLExplore.Bandits.AsymptoticallyOptimalUCB
 public import LMLExplore.Bandits.KLUCB
 public import LMLExplore.Bandits.LaiRobbins
@@ -102,23 +103,13 @@ theorem tendsto_ucbF_regret_div_log_gaussianBandit (hσ2 : σ2 ≠ 0)
     Tendsto (fun n : ℕ ↦ P[regret (gaussianBandit μ σ2) A n] / log n) atTop
       (𝓝 (∑ a ∈ univ.filter (fun a ↦ 0 < gap (gaussianBandit μ σ2) a),
         2 * σ2 / gap (gaussianBandit μ σ2) a)) := by
-  have hlog : ∀ᶠ n : ℕ in atTop, 0 < log n :=
-    (eventually_gt_atTop 1).mono fun n hn ↦ log_pos (by exact_mod_cast hn)
-  refine tendsto_order.mpr ⟨fun c hc ↦ ?_, fun c hc ↦ ?_⟩
-  · -- The Lai–Robbins lower bound, for a constant `c'` between `c` and the sum.
-    obtain ⟨c', hcc', hc'⟩ := exists_between hc
-    have hlow := eventually_mul_log_le_integral_regret_gaussianBandit hσ2
-      (UCBF.isConsistent_gaussianBandit hσ2) μ hc'
-    filter_upwards [hlow, hlog] with n hn hn_log
-    rw [← h.integral_regret_eq_integral_trajMeasure] at hn
-    rw [lt_div_iff₀ hn_log]
-    exact (mul_lt_mul_of_pos_right hcc' hn_log).trans_le hn
-  · -- The upper bound [LS, (8.2)], for a constant `c'` between the sum and `c`.
-    obtain ⟨c', hc', hc'c⟩ := exists_between hc
-    filter_upwards [ucbF_regret_eventually_le h (hasSubgaussianMGF_gaussianBandit μ σ2) hσ2 hc',
-      hlog] with n hn hn_log
-    rw [div_lt_iff₀ hn_log]
-    exact hn.trans_lt (mul_lt_mul_of_pos_right hc'c hn_log)
+  -- The upper bound is [LS, (8.2)]; the lower bound is the Lai–Robbins lower bound.
+  refine tendsto_div_of_eventually_mul_le
+    ((eventually_gt_atTop 1).mono fun n hn ↦ log_pos (by exact_mod_cast hn)) (fun c hc ↦ ?_)
+    fun c hc ↦ ucbF_regret_eventually_le h (hasSubgaussianMGF_gaussianBandit μ σ2) hσ2 hc
+  filter_upwards [eventually_mul_log_le_integral_regret_gaussianBandit hσ2
+    (UCBF.isConsistent_gaussianBandit hσ2) μ hc] with n hn
+  rwa [← h.integral_regret_eq_integral_trajMeasure] at hn
 
 /-- **Asymptotic optimality of UCB for Gaussian bandits** [LS, §16.2]. On a Gaussian bandit with
 variance `σ² ≠ 0`, the expected regret of the asymptotically optimal UCB algorithm `ucbF σ2` is
@@ -128,17 +119,10 @@ theorem isLittleO_ucbF_regret_sub_mul_log_gaussianBandit (hσ2 : σ2 ≠ 0)
     (h : IsAlgEnvSeq O A R (ucbF σ2) (stationaryEnv (gaussianBandit μ σ2)) P) :
     (fun n : ℕ ↦ P[regret (gaussianBandit μ σ2) A n] -
       (∑ a ∈ univ.filter (fun a ↦ 0 < gap (gaussianBandit μ σ2) a),
-        2 * σ2 / gap (gaussianBandit μ σ2) a) * log n) =o[atTop] fun n : ℕ ↦ log n := by
-  have hlog : ∀ᶠ n : ℕ in atTop, log n ≠ 0 :=
-    (eventually_gt_atTop 1).mono fun n hn ↦ (log_pos (by exact_mod_cast hn)).ne'
-  refine (isLittleO_iff_tendsto' (hlog.mono fun n hn h0 ↦ absurd h0 hn)).mpr ?_
-  have h_lim := (tendsto_ucbF_regret_div_log_gaussianBandit hσ2 h).sub_const
-    (∑ a ∈ univ.filter (fun a ↦ 0 < gap (gaussianBandit μ σ2) a),
-      2 * σ2 / gap (gaussianBandit μ σ2) a)
-  rw [sub_self] at h_lim
-  refine h_lim.congr' (hlog.mono fun n hn ↦ ?_)
-  dsimp only
-  rw [sub_div, mul_div_cancel_right₀ _ hn]
+        2 * σ2 / gap (gaussianBandit μ σ2) a) * log n) =o[atTop] fun n : ℕ ↦ log n :=
+  isLittleO_sub_mul_of_tendsto_div
+    ((eventually_gt_atTop 1).mono fun n hn ↦ (log_pos (by exact_mod_cast hn)).ne')
+    (tendsto_ucbF_regret_div_log_gaussianBandit hσ2 h)
 
 /-- **Asymptotic optimality of KL-UCB for Bernoulli bandits** [LS, §16.2]. On a Bernoulli bandit
 with means `p` and largest mean `μ* = max_b p_b`, the expected regret of the KL-UCB algorithm
@@ -151,8 +135,6 @@ theorem tendsto_klucb_regret_div_log_bernoulliBandit
       (𝓝 (∑ a ∈ univ.filter (fun a ↦ 0 < gap (bernoulliBandit p) a),
         gap (bernoulliBandit p) a / (klBer (p a) (⨆ b, (p b : ℝ))).toReal)) := by
   set ν := bernoulliBandit p
-  have hlog : ∀ᶠ n : ℕ in atTop, 0 < log n :=
-    (eventually_gt_atTop 1).mono fun n hn ↦ log_pos (by exact_mod_cast hn)
   -- The constant of `klucb_regret_eventually_le`, written with the means `p`.
   have hbest : (ν (bestArm ν))[id] = ⨆ b, (p b : ℝ) := by
     have h_gap := gap_eq_bestArm_sub (ν := ν) (a := Classical.arbitrary α)
@@ -161,22 +143,16 @@ theorem tendsto_klucb_regret_div_log_bernoulliBandit
   have hconst : ∀ a, (klBer (ν a)[id] (ν (bestArm ν))[id]).toReal =
       (klBer (p a) (⨆ b, (p b : ℝ))).toReal := fun a ↦ by
     rw [hbest, integral_id_bernoulliBandit]
-  refine tendsto_order.mpr ⟨fun c hc ↦ ?_, fun c hc ↦ ?_⟩
-  · -- The Lai–Robbins lower bound, for a constant `c'` between `c` and the sum.
-    obtain ⟨c', hcc', hc'⟩ := exists_between hc
-    have hlow := eventually_mul_log_le_integral_regret_bernoulliBandit
-      KLUCB.isConsistent_bernoulliBandit p hc'
-    filter_upwards [hlow, hlog] with n hn hn_log
-    rw [← h.integral_regret_eq_integral_trajMeasure] at hn
-    rw [lt_div_iff₀ hn_log]
-    exact (mul_lt_mul_of_pos_right hcc' hn_log).trans_le hn
-  · -- The upper bound of [LS, Theorem 10.6], for a constant `c'` between the sum and `c`.
-    obtain ⟨c', hc', hc'c⟩ := exists_between hc
-    simp_rw [← hconst] at hc'
-    filter_upwards [klucb_regret_eventually_le h (ae_mem_Icc_bernoulliBandit p) hc', hlog]
-      with n hn hn_log
-    rw [div_lt_iff₀ hn_log]
-    exact hn.trans_lt (mul_lt_mul_of_pos_right hc'c hn_log)
+  refine tendsto_div_of_eventually_mul_le
+    ((eventually_gt_atTop 1).mono fun n hn ↦ log_pos (by exact_mod_cast hn)) (fun c hc ↦ ?_)
+    fun c hc ↦ ?_
+  · -- The Lai–Robbins lower bound.
+    filter_upwards [eventually_mul_log_le_integral_regret_bernoulliBandit
+      KLUCB.isConsistent_bernoulliBandit p hc] with n hn
+    rwa [← h.integral_regret_eq_integral_trajMeasure] at hn
+  · -- The upper bound of [LS, Theorem 10.6].
+    simp_rw [← hconst] at hc
+    exact klucb_regret_eventually_le h (ae_mem_Icc_bernoulliBandit p) hc
 
 /-- **Asymptotic optimality of KL-UCB for Bernoulli bandits** [LS, §16.2]. On a Bernoulli bandit
 with means `p` and largest mean `μ* = max_b p_b`, the expected regret of the KL-UCB algorithm is
@@ -187,16 +163,9 @@ theorem isLittleO_klucb_regret_sub_mul_log_bernoulliBandit
     (fun n : ℕ ↦ P[regret (bernoulliBandit p) A n] -
       (∑ a ∈ univ.filter (fun a ↦ 0 < gap (bernoulliBandit p) a),
         gap (bernoulliBandit p) a / (klBer (p a) (⨆ b, (p b : ℝ))).toReal) * log n)
-      =o[atTop] fun n : ℕ ↦ log n := by
-  have hlog : ∀ᶠ n : ℕ in atTop, log n ≠ 0 :=
-    (eventually_gt_atTop 1).mono fun n hn ↦ (log_pos (by exact_mod_cast hn)).ne'
-  refine (isLittleO_iff_tendsto' (hlog.mono fun n hn h0 ↦ absurd h0 hn)).mpr ?_
-  have h_lim := (tendsto_klucb_regret_div_log_bernoulliBandit h).sub_const
-    (∑ a ∈ univ.filter (fun a ↦ 0 < gap (bernoulliBandit p) a),
-      gap (bernoulliBandit p) a / (klBer (p a) (⨆ b, (p b : ℝ))).toReal)
-  rw [sub_self] at h_lim
-  refine h_lim.congr' (hlog.mono fun n hn ↦ ?_)
-  dsimp only
-  rw [sub_div, mul_div_cancel_right₀ _ hn]
+      =o[atTop] fun n : ℕ ↦ log n :=
+  isLittleO_sub_mul_of_tendsto_div
+    ((eventually_gt_atTop 1).mono fun n hn ↦ (log_pos (by exact_mod_cast hn)).ne')
+    (tendsto_klucb_regret_div_log_bernoulliBandit h)
 
 end LMLExplore.Bandits

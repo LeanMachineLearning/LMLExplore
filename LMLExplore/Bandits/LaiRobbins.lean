@@ -49,8 +49,6 @@ integrability assumption.
   of pulls, `liminf_n E[T_a(n)] / log n ≥ 1 / d_inf(ν_a, μ*, M_a)`.
 * `eventually_mul_log_le_integral_regret_of_isConsistent`: [LS, Theorem 16.2],
   `liminf_n E[R_n] / log n ≥ ∑_{a : Δ_a > 0} Δ_a / d_inf(ν_a, μ*, M_a)`.
-* `setOf_forall_mem_range_eq_range`: the unstructured class built from a family of laws is the
-  range of the corresponding parametrized bandits, such as `gaussianBandit` or `bernoulliBandit`.
 * `dInf_range_gaussianReal`: `d_inf` for Gaussian laws with known variance `σ²` is
   `(m - μ)² / (2 σ²)` [LS, Table 16.1].
 * `eventually_mul_log_le_integral_regret_gaussianBandit`: the Lai–Robbins lower bound for Gaussian
@@ -138,18 +136,6 @@ lemma le_dInf_iff : x ≤ dInf M P m ↔ ∀ Q ∈ M, m < Q[id] → x ≤ klDiv 
 
 lemma dInf_lt_iff : dInf M P m < x ↔ ∃ Q ∈ M, m < Q[id] ∧ klDiv P Q < x := by
   simp [dInf_def, iInf_lt_iff, and_assoc]
-
-/-- The unstructured class of the bandits whose arms all have laws in the range of a family `f` of
-laws is the range of a parametrization `κ` of the bandits `a ↦ f (x a)`. -/
-lemma setOf_forall_mem_range_eq_range {X : Type*} {f : X → Measure ℝ}
-    {κ : (α → X) → Kernel α ℝ} (hκ : ∀ x a, κ x a = f (x a)) :
-    {ν : Kernel α ℝ | ∀ a, ν a ∈ Set.range f} = Set.range κ := by
-  ext ν
-  refine ⟨fun h ↦ ?_, ?_⟩
-  · choose x hx using h
-    exact ⟨x, Kernel.ext fun a ↦ (hκ x a).trans (hx a)⟩
-  · rintro ⟨x, rfl⟩ a
-    exact ⟨x a, (hκ x a).symm⟩
 
 end Defs
 
@@ -337,7 +323,7 @@ theorem eventually_mul_log_le_integral_regret_gaussianBandit [Fintype α] (hσ2 
   -- The Gaussian bandits with variance `σ²` form the unstructured class of the Gaussian laws.
   set M : α → Set (Measure ℝ) := fun _ ↦ Set.range fun x ↦ gaussianReal x σ2
   have hE : {ν : Kernel α ℝ | ∀ a, ν a ∈ M a} = Set.range fun μ ↦ gaussianBandit μ σ2 :=
-    setOf_forall_mem_range_eq_range (gaussianBandit_apply · σ2)
+    Kernel.setOf_forall_mem_range_eq_range (gaussianBandit_apply · σ2)
   refine eventually_mul_log_le_integral_regret_of_isConsistent (M := M)
     (fun _ _ ⟨x, hx⟩ ↦ hx ▸ inferInstance) (hE ▸ halg)
     (fun a ↦ ⟨μ a, (gaussianBandit_apply μ σ2 a).symm⟩) ?_
@@ -370,33 +356,7 @@ lemma dInf_range_bernoulliMeasure (hpm : (p : ℝ) ≤ m) (hm : m < 1) :
     dInf (Set.range fun q : I ↦ Ber((1 : ℝ), 0, q)) Ber((1 : ℝ), 0, p) m = klBer p m := by
   refine le_antisymm ?_ (le_dInf_iff.mpr ?_)
   · -- `d(p, q) → d(p, m)` as `q → m` from above, and `d_inf ≤ d(p, q)` for `q ∈ (m, 1)`.
-    have h_tendsto : Tendsto (klBer p) (𝓝[>] m) (𝓝 (klBer p m)) := by
-      rcases (p.2.1.trans hpm).eq_or_lt with hm0 | hm0
-      · -- If `m = 0`, then `p = 0` and `d(0, q) ≤ q / (1 - q)` for `q ∈ (0, 1)`.
-        have hp : (p : ℝ) = 0 := le_antisymm (hm0 ▸ hpm) p.2.1
-        subst hm0
-        rw [hp, klBer_self]
-        have h_lim : Tendsto (fun q : ℝ ↦ ENNReal.ofReal (q / (1 - q))) (𝓝[>] 0) (𝓝 0) := by
-          have : ContinuousAt (fun q : ℝ ↦ ENNReal.ofReal (q / (1 - q))) 0 :=
-            ENNReal.continuous_ofReal.continuousAt.comp
-              (continuousAt_id.div (continuousAt_const.sub continuousAt_id) (by norm_num))
-          simpa using this.tendsto.mono_left nhdsWithin_le_nhds
-        refine tendsto_of_tendsto_of_tendsto_of_le_of_le' tendsto_const_nhds h_lim
-          (.of_forall fun _ ↦ bot_le) ?_
-        filter_upwards [Ioo_mem_nhdsGT zero_lt_one] with q hq
-        have hq1 : 1 - q ≠ 0 := (sub_pos.mpr hq.2).ne'
-        calc klBer 0 q ≤ ENNReal.ofReal ((0 - q) ^ 2 / (q * (1 - q))) :=
-              klBer_le_ofReal_sq_sub_div (by simp) hq
-          _ = ENNReal.ofReal (q / (1 - q)) := by
-            rw [zero_sub, neg_sq]
-            congr 1
-            field_simp [hq.1.ne']
-      · -- If `m ∈ (0, 1)`, then `d(p, ·)` is continuous at `m`.
-        have hcont : ContinuousOn (klBer p) (Set.Ioo 0 1) :=
-          continuousOn_klBer.comp (continuous_const.prodMk continuous_id).continuousOn
-            fun q hq ↦ ⟨p.2, hq⟩
-        exact ((hcont.continuousAt (Ioo_mem_nhds hm0 hm)).tendsto).mono_left nhdsWithin_le_nhds
-    refine ge_of_tendsto h_tendsto ?_
+    refine ge_of_tendsto (tendsto_klBer_nhdsGT p.2 hpm hm) ?_
     filter_upwards [Ioo_mem_nhdsGT hm] with q hq
     have hqI : q ∈ Set.Icc (0 : ℝ) 1 := ⟨(p.2.1.trans hpm).trans hq.1.le, hq.2.le⟩
     calc dInf _ _ m ≤ klDiv Ber((1 : ℝ), 0, p) Ber((1 : ℝ), 0, ⟨q, hqI⟩) :=
@@ -440,7 +400,7 @@ theorem eventually_mul_log_le_integral_regret_bernoulliBandit [Fintype α]
   -- The Bernoulli bandits form the unstructured class of the Bernoulli laws.
   set M : α → Set (Measure ℝ) := fun _ ↦ Set.range fun q : I ↦ Ber((1 : ℝ), 0, q)
   have hE : {ν : Kernel α ℝ | ∀ a, ν a ∈ M a} = Set.range fun p ↦ bernoulliBandit p :=
-    setOf_forall_mem_range_eq_range bernoulliBandit_apply
+    Kernel.setOf_forall_mem_range_eq_range bernoulliBandit_apply
   refine eventually_mul_log_le_integral_regret_of_isConsistent (M := M)
     (fun _ _ ⟨q, hq⟩ ↦ hq ▸ inferInstance) (hE ▸ halg)
     (fun a ↦ ⟨p a, (bernoulliBandit_apply p a).symm⟩) ?_
