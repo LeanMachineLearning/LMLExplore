@@ -13,7 +13,8 @@ public import Mathlib.Probability.Kernel.Composition.Comp
 Mathlib's monoid structure on `Kernel α α` has unit `Kernel.id` and product the composition
 `η * κ = η ∘ₖ κ`, so that `κ ^ n` is the `n`-step transition kernel. This file records these two
 facts as lemmas, in the form of Mathlib's `Module.End.one_eq_id` and `Module.End.mul_eq_comp`, so
-that statements about powers of kernels can be rewritten into compositions.
+that statements about powers of kernels can be rewritten into compositions. It also provides the
+instance stating that the powers of a Markov kernel are Markov kernels.
 -/
 
 public section
@@ -29,5 +30,11 @@ lemma one_eq_id : (1 : Kernel α α) = Kernel.id :=
 /-- The product of the monoid of kernels is the composition of kernels. -/
 lemma mul_eq_comp (η κ : Kernel α α) : η * κ = η ∘ₖ κ :=
   (rfl)
+
+/-- The `n`-step transition kernel of a Markov kernel is a Markov kernel. -/
+instance (κ : Kernel α α) [IsMarkovKernel κ] (n : ℕ) : IsMarkovKernel (κ ^ n) := by
+  induction n with
+  | zero => rw [pow_zero, one_eq_id]; infer_instance
+  | succ n ih => rw [pow_succ, mul_eq_comp]; infer_instance
 
 end ProbabilityTheory.Kernel
