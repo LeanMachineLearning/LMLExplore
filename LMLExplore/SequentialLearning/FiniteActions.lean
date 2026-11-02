@@ -19,6 +19,8 @@ Facts about LML's `pullCount` that hold for any sequence of actions `A : ℕ →
 * `sum_range_ite_action_eq`: a sum over the rounds that play arm `a` of a function of the number
   of previous pulls of `a` is the sum of that function over the pull counts
   `0, …, pullCount A a n - 1`.
+* `cast_pullCount_add_one`, `cast_pullCount_action_add_one`: the recursion for `pullCount`, cast
+  to an additive monoid with one.
 * `exists_pullCount_eq_zero_of_lt_card`: before round `Fintype.card α`, some arm has not been
   pulled yet.
 * `pullCount_card_eq_one_of_forall_pullCount_action_eq_zero`: if each of the first
@@ -63,6 +65,16 @@ lemma sum_range_ite_action_eq {M : Type*} [AddCommMonoid M] (f : ℕ → M) (a :
   | succ n ih =>
     rw [sum_range_succ, ih, pullCount_add_one]
     split_ifs <;> simp [sum_range_succ]
+
+/-- `pullCount_add_one`, cast to an additive monoid with one. -/
+lemma cast_pullCount_add_one {R : Type*} [AddMonoidWithOne R] :
+    (pullCount A a (n + 1) ω : R) = pullCount A a n ω + if A n ω = a then 1 else 0 := by
+  rw [pullCount_add_one, Nat.cast_add, Nat.cast_ite, Nat.cast_one, Nat.cast_zero]
+
+/-- `pullCount_action_eq_pullCount_add_one`, cast to an additive monoid with one. -/
+lemma cast_pullCount_action_add_one {R : Type*} [AddMonoidWithOne R] :
+    (pullCount A (A n ω) (n + 1) ω : R) = pullCount A (A n ω) n ω + 1 := by
+  rw [pullCount_action_eq_pullCount_add_one, Nat.cast_add_one]
 
 variable [Fintype α]
 
