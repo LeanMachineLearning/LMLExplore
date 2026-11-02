@@ -346,7 +346,8 @@ theorem answerValue_baiTask_restrict_eq_expFamilyDiv_of_forall_eq_or_eq
     have hwb : w b = 1 - t := by simp [hw_def, hba]
     have hw : w ∈ simplex α := mem_simplex_iff.2 ⟨fun c ↦ by
       simp only [hw_def]; split_ifs <;> linarith, by
-      rw [Fintype.sum_eq_add_of_forall_eq_or_eq hba.symm hα, hwa, hwb]; ring⟩
+      rw [Fintype.sum_eq_add a b hba.symm fun c hc ↦ absurd (hα c) (not_or.2 hc), hwa, hwb]
+      ring⟩
     have hm : w a * μ a + w b * μ b = z := by
       rw [hwa, hwb, ht_def]
       field_simp
@@ -470,7 +471,7 @@ theorem optAlloc_baiTask_gaussianBandit_of_forall_eq_or_eq (hσ2 : σ2 ≠ 0) (h
       iInf_ne_eq_of_forall_eq_or_eq hba hα, add_eq_one_of_mem_simplex hba.symm hα hw, div_one]
   have h_half : (fun _ ↦ 1 / 2 : α → ℝ) ∈ simplex α :=
     mem_simplex_iff.2 ⟨fun _ ↦ by norm_num, by
-      rw [Fintype.sum_eq_add_of_forall_eq_or_eq hba.symm hα]; norm_num⟩
+      rw [Fintype.sum_eq_add a b hba.symm fun c hc ↦ absurd (hα c) (not_or.2 hc)]; norm_num⟩
   ext w
   rw [IdentTask.mem_optAlloc_iff, Set.mem_singleton_iff,
     answerValue_baiTask_gaussianBandit_of_forall_eq_or_eq hσ2 hba hα hμ.le]

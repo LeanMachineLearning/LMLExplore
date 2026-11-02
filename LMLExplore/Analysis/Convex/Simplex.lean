@@ -5,7 +5,6 @@ Authors: Rémy Degenne
 -/
 module
 
-public import LMLExplore.Algebra.BigOperators.Group.Finset.Basic
 public import Mathlib.Algebra.Order.BigOperators.Group.Finset
 public import Mathlib.Analysis.Convex.Basic
 public import Mathlib.Basic.Real.Basic
@@ -52,7 +51,7 @@ lemma mem_simplex_iff {w : α → ℝ} : w ∈ simplex α ↔ (∀ a, 0 ≤ w a)
 `w a + w b = 1`. -/
 lemma add_eq_one_of_mem_simplex {w : α → ℝ} {a b : α} (hab : a ≠ b) (h : ∀ c, c = a ∨ c = b)
     (hw : w ∈ simplex α) : w a + w b = 1 :=
-  Fintype.sum_eq_add_of_forall_eq_or_eq hab h w ▸ hw.2
+  Fintype.sum_eq_add (f := w) a b hab (fun c hc ↦ absurd (h c) (not_or.2 hc)) ▸ hw.2
 
 lemma simplex_subset_nonneg : simplex α ⊆ Set.Ici 0 := fun _ hw ↦ hw.1
 
