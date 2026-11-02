@@ -11,6 +11,7 @@ public import LMLExplore.Bandits.Instances
 public import LMLExplore.Probability.Distributions.ExponentialFamily.Gaussian
 public import LMLExplore.Order.Basic
 public import LMLExplore.Order.CompleteLattice.Basic
+public import LMLExplore.Algebra.Order.Field.Basic
 
 /-!
 # The alternatives of best arm identification and the cost of the alternatives
@@ -57,6 +58,9 @@ within a factor `2` of the complexity `H(μ) = ∑ c, 2 σ2 / Δ_c²`, where `Δ
 * `LMLExplore.Identification.closure_alt_baiTask_restrict_inter`: for `S` open, the closure of the
   alternatives to `a` within `S` is `{λ | ∃ b ≠ a, λ a ≤ λ b} ∩ S`;
   `LMLExplore.Identification.closure_alt_baiTask` is the case `S = univ`.
+* `LMLExplore.Identification.charTime_baiTask_eq_inv_answerValue`,
+  `LMLExplore.Identification.charTime_baiTask_restrict_eq_inv_answerValue`: if `a` is the unique
+  best arm of `μ`, then `T*(μ) = D(μ, ¬a)⁻¹`.
 * `LMLExplore.Identification.altCost_baiTask_restrict_eq_iInf`: for `S` open and a transportation
   cost continuous on `{λ | ∃ b ≠ a, λ a ≤ λ b} ∩ S`,
   `D(μ, w, ¬a) = min_{b ≠ a} inf {cost_μ(w, λ) | λ ∈ S, λ a ≤ λ b}`.
@@ -203,6 +207,24 @@ theorem closure_alt_baiTask (a : α) :
 end Closure
 
 variable [Fintype α]
+
+/-- If `a` is the unique best arm of `μ'`, then `T*(μ') = D(μ', ¬a)⁻¹` in best arm identification
+restricted to any set `S` of vectors of means. -/
+theorem charTime_baiTask_restrict_eq_inv_answerValue (S : Set (α → ℝ))
+    (ha : ∀ b ≠ a, μ' b < μ' a) :
+    ((baiTask ν).restrict S).charTime μ' = (((baiTask ν).restrict S).answerValue μ' a)⁻¹ :=
+  IdentTask.charTime_eq_inv_answerValue _ (by
+    rw [IdentTask.correct_restrict]
+    refine (subsingleton_correct_baiTask ν μ').eq_singleton_of_mem ?_
+    rw [correct_baiTask]
+    exact ha)
+
+/-- If `a` is the unique best arm of `μ'`, then `T*(μ') = D(μ', ¬a)⁻¹` in best arm
+identification. -/
+theorem charTime_baiTask_eq_inv_answerValue (ha : ∀ b ≠ a, μ' b < μ' a) :
+    (baiTask ν).charTime μ' = ((baiTask ν).answerValue μ' a)⁻¹ :=
+  IdentTask.charTime_eq_inv_answerValue _
+    ((subsingleton_correct_baiTask ν μ').eq_singleton_of_mem (by rw [correct_baiTask]; exact ha))
 
 /-- For an open set `S` of vectors of means and a transportation cost from `μ` continuous on the
 vectors of `S` in which some arm `b ≠ a` has mean at least that of `a`, the cost of the
@@ -507,10 +529,8 @@ theorem continuousAt_charTime_baiTask_restrict (hT : ∀ c, ¬ T =ᵐ[ρ] fun _ 
       ((baiTask ν).restrict {μ' | ∀ c, μ' c ∈ ρ.expFamilyMeans T}).charTime := by
     filter_upwards [(isOpen_answerSet_baiTask ν a).mem_nhds ((mem_answerSet_baiTask_iff ν).2 ha)]
       with μ' hμ'
-    refine (IdentTask.charTime_eq_inv_answerValue _ ?_).symm
-    rw [IdentTask.correct_restrict]
-    exact (subsingleton_correct_baiTask ν μ').eq_singleton_of_mem
-      ((IdentTask.mem_answerSet_iff _).1 hμ').2
+    exact (charTime_baiTask_restrict_eq_inv_answerValue ν _
+      ((mem_answerSet_baiTask_iff ν).1 hμ')).symm
   exact ((continuousAt_answerValue_baiTask_restrict ν hT hν hμ ha).inv).congr h_eq
 
 end ExpFamily
@@ -643,22 +663,6 @@ omit [Fintype α] [MeasurableSingletonClass α] in
 private lemma forall_le_of_forall_ne_lt (ha : ∀ b ≠ a, μ b < μ a) (b : α) : μ b ≤ μ a := by
   rcases eq_or_ne b a with rfl | hb
   exacts [le_rfl, (ha b hb).le]
-
-/-- `x y / (x + y) ≤ x` for `0 ≤ x` and `0 ≤ y`. -/
-private lemma mul_div_add_le_left {x y : ℝ} (hx : 0 ≤ x) (hy : 0 ≤ y) : x * y / (x + y) ≤ x :=
-  div_le_of_le_mul₀ (add_nonneg hx hy) hx (by nlinarith)
-
-/-- `x y / (x + y) ≤ y` for `0 ≤ x` and `0 ≤ y`. -/
-private lemma mul_div_add_le_right {x y : ℝ} (hx : 0 ≤ x) (hy : 0 ≤ y) : x * y / (x + y) ≤ y := by
-  rw [mul_comm, add_comm]
-  exact mul_div_add_le_left hy hx
-
-omit [MeasurableSingletonClass α] in
-/-- If `a` is the unique best arm of `μ`, then `T*(μ) = D(μ, ¬a)⁻¹` in best arm identification. -/
-private lemma charTime_baiTask_eq_inv_answerValue (ha : ∀ b ≠ a, μ b < μ a) :
-    (baiTask ν).charTime μ = ((baiTask ν).answerValue μ a)⁻¹ :=
-  IdentTask.charTime_eq_inv_answerValue _
-    ((subsingleton_correct_baiTask ν μ).eq_singleton_of_mem (by rw [correct_baiTask]; exact ha))
 
 variable [DecidableEq α] {b₀ : α}
 
