@@ -83,8 +83,7 @@ theorem integral_lookahead (h : IsAlgEnvSeq S A Y alg (M.env μ) P)
     (hR : ∀ p, ∀ᵐ x ∂(M.R p), |x| ≤ C) (hv : Measurable v) (hvB : ∀ s, |v s| ≤ B) (n : ℕ) :
     ∫ ω, M.lookahead γ v (S n ω, A n ω) ∂P =
       ∫ ω, meanReward M.R (S n ω, A n ω) ∂P + γ * ∫ ω, v (S (n + 1) ω) ∂P := by
-  have hm : Measurable fun ω ↦ (S n ω, A n ω) :=
-    (h.measurable_obs n).prodMk (h.measurable_action n)
+  have hm : Measurable fun ω ↦ (S n ω, A n ω) := h.measurable_obs_action n
   have hPv : Measurable fun p ↦ ∫ s', v s' ∂(M.P p) :=
     (hv.stronglyMeasurable.integral_kernel (κ := M.P)).measurable
   simp_rw [lookahead_def]
@@ -108,8 +107,7 @@ theorem runValue_eq_integral_add_tsum [IsProbabilityMeasure μ]
     (hv : Measurable v) (hvB : ∀ s, |v s| ≤ B) :
     M.runValue γ alg μ = ∫ s, v s ∂μ +
       ∑' n, (γ : ℝ) ^ n * ∫ ω, (M.lookahead γ v (S n ω, A n ω) - v (S n ω)) ∂P := by
-  have hm (n : ℕ) : Measurable fun ω ↦ (S n ω, A n ω) :=
-    (h.measurable_obs n).prodMk (h.measurable_action n)
+  have hm (n : ℕ) : Measurable fun ω ↦ (S n ω, A n ω) := h.measurable_obs_action n
   -- discounted bounded sequences are summable
   have hsum {f : ℕ → ℝ} {K : ℝ} (hf : ∀ n, |f n| ≤ K) : Summable fun n ↦ (γ : ℝ) ^ n * f n :=
     .of_norm_bounded ((summable_geometric_of_lt_one γ.coe_nonneg hγ).mul_right K) fun n ↦ by
@@ -170,10 +168,8 @@ theorem runValue_markov_const_eq_integral_add_tsum [IsProbabilityMeasure μ] {π
   congr 1
   refine integral_congr_ae (.of_forall fun s ↦ ?_)
   dsimp only
-  rw [integral_sub (integrable_of_abs_le (f := fun a ↦ M.lookahead γ v (s, a))
-      ((measurable_lookahead hv).comp measurable_prodMk_left) (fun _ ↦ abs_lookahead_le hR hvB _)
-      _) (integrable_const _), integral_const, probReal_univ,
-    one_smul, bellmanEval_def]
+  rw [integral_sub (integrable_lookahead_prodMk_left hR hv hvB s _) (integrable_const _),
+    integral_const, probReal_univ, one_smul, bellmanEval_def]
 
 end Runs
 
