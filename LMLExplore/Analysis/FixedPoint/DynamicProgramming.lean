@@ -6,11 +6,10 @@ Authors: Rémy Degenne
 module
 
 public import LMLExplore.Analysis.FixedPoint.OrderUnit
-public import Mathlib.Analysis.SpecificLimits.Basic
+public import LMLExplore.Order.Iterate
+public import LMLExplore.Topology.MetricSpace.Contracting
 public import Mathlib.Data.Fintype.Pigeonhole
-public import Mathlib.Order.Iterate
 public import Mathlib.SetTheory.Cardinal.Finite
-public import Mathlib.Topology.MetricSpace.Contracting
 
 /-!
 # Abstract dynamic programming
@@ -41,9 +40,6 @@ hypothesis, so completeness of `E` is not assumed.
 
 ## Main statements
 
-* `Monotone.iterate_le_of_map_le_succ`: if `f` is monotone and `f (u k) ≤ u (k + 1)` for all `k`,
-  then `f^[k] (u 0) ≤ u k`; `ContractingWith.tendsto_iterate_of_isFixedPt`: the iterates of a
-  contraction converge to a given fixed point, without completeness.
 * `LMLExplore.IsBlackwell.contractingWith`: a map satisfying Blackwell's conditions with modulus
   `γ < 1` is a `γ`-contraction, and `LMLExplore.IsBlackwell.of_isGreatest_range` says that `B`
   satisfies them.
@@ -74,24 +70,6 @@ hypothesis, so completeness of `E` is not assumed.
 public section
 
 open Set Function Filter Topology NNReal
-
-/-! ### Iterates of monotone maps and of contractions -/
-
-/-- If `f` is monotone and `f (u k) ≤ u (k + 1)` for all `k`, then `f^[k] (u 0) ≤ u k`. -/
-theorem Monotone.iterate_le_of_map_le_succ {α : Type*} [Preorder α] {f : α → α} {u : ℕ → α}
-    (hf : Monotone f) (h : ∀ k, f (u k) ≤ u (k + 1)) (k : ℕ) : f^[k] (u 0) ≤ u k :=
-  hf.seq_le_seq k (x := fun n ↦ f^[n] (u 0)) le_rfl (fun n _ ↦ (iterate_succ_apply' f n (u 0)).le)
-    fun n _ ↦ h n
-
-/-- The iterates of a contraction at any point converge to a fixed point of it. Unlike
-`ContractingWith.tendsto_iterate_fixedPoint`, this does not assume completeness, since the fixed
-point is given. -/
-theorem ContractingWith.tendsto_iterate_of_isFixedPt {α : Type*} [MetricSpace α] {K : ℝ≥0}
-    {f : α → α} (hf : ContractingWith K f) {y : α} (hy : IsFixedPt f y) (x : α) :
-    Tendsto (fun n ↦ f^[n] x) atTop (𝓝 y) := by
-  refine tendsto_iff_dist_tendsto_zero.2 (squeeze_zero (fun _ ↦ dist_nonneg) (fun n ↦ ?_)
-    (by simpa using (tendsto_pow_atTop_nhds_zero_of_lt_one K.coe_nonneg hf.1).mul_const (dist x y)))
-  simpa [iterate_fixed hy] using (hf.toLipschitzWith.iterate n).dist_le_mul x y
 
 namespace LMLExplore
 
