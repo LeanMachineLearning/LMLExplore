@@ -84,6 +84,9 @@ confidence*, COLT 2016.
 * `MeasureTheory.Measure.mul_expFamilyDiv_add_mul_expFamilyDiv_le`: for `μ₂ ≤ μ₁` and nonnegative
   weights, `w₁ d(μ₁, x) + w₂ d(μ₂, y)` at means `x ≤ y` is at least its value at `x = y = m`, the
   weighted mean of `μ₁` and `μ₂`; when `w₁ + w₂ > 0`, this is the minimum over these pairs.
+* `MeasureTheory.Measure.continuousOn_mul_expFamilyDiv_add_mul_expFamilyDiv`: the minimum
+  `w₁ d(μ₁, m) + w₂ d(μ₂, m)` at the weighted mean `m` is continuous in the means and the
+  nonnegative weights.
 -/
 
 public section
@@ -557,5 +560,66 @@ theorem mul_expFamilyDiv_add_mul_expFamilyDiv_le (hT : ∀ c, ¬ T =ᵐ[ρ] fun 
   exact add_le_add
     (mul_le_mul_of_nonneg_left (h_anti ⟨hx, hxm.trans hm₁⟩ ⟨hm_mem, hm₁⟩ hxm) hw₁)
     (mul_le_mul_of_nonneg_left (h_mono ⟨hm_mem, hm₂⟩ ⟨hy, hm₂.trans hmy⟩ hmy) hw₂)
+
+
+/-- The minimum `w₁ d(μ₁, m) + w₂ d(μ₂, m)` over the means `z` of `w₁ d(μ₁, z) + w₂ d(μ₂, z)`,
+attained at the weighted mean `m = (w₁ μ₁ + w₂ μ₂) / (w₁ + w₂)`, is a continuous function of
+the means `(μ₁, μ₂)` of the family and of the nonnegative weights `(w₁, w₂)`, including where both
+weights vanish and `m` is not defined. -/
+theorem continuousOn_mul_expFamilyDiv_add_mul_expFamilyDiv (hT : ∀ c, ¬ T =ᵐ[ρ] fun _ ↦ c) :
+    ContinuousOn (fun p : (ℝ × ℝ) × (ℝ × ℝ) ↦
+        p.2.1 * ρ.expFamilyDiv T p.1.1 ((p.2.1 * p.1.1 + p.2.2 * p.1.2) / (p.2.1 + p.2.2)) +
+          p.2.2 * ρ.expFamilyDiv T p.1.2 ((p.2.1 * p.1.1 + p.2.2 * p.1.2) / (p.2.1 + p.2.2)))
+      ((ρ.expFamilyMeans T ×ˢ ρ.expFamilyMeans T) ×ˢ (Ici 0 ×ˢ Ici 0)) := by
+  set S := (ρ.expFamilyMeans T ×ˢ ρ.expFamilyMeans T) ×ˢ (Ici (0 : ℝ) ×ˢ Ici (0 : ℝ)) with hS
+  set m : (ℝ × ℝ) × (ℝ × ℝ) → ℝ := fun p ↦ (p.2.1 * p.1.1 + p.2.2 * p.1.2) / (p.2.1 + p.2.2)
+    with hm_def
+  set G : (ℝ × ℝ) × (ℝ × ℝ) → ℝ := fun p ↦
+    p.2.1 * ρ.expFamilyDiv T p.1.1 (m p) + p.2.2 * ρ.expFamilyDiv T p.1.2 (m p) with hG
+  have hd := continuousOn_expFamilyDiv hT (ρ := ρ)
+  -- On `S`, `0 ≤ G p ≤ w₁ d(μ₁, μ₂)`: the weighted mean minimizes `z ↦ w₁ d(μ₁, z) + w₂ d(μ₂, z)`,
+  -- in particular `G p` is at most its value at `z = μ₂`.
+  have h_bounds (p : (ℝ × ℝ) × (ℝ × ℝ)) (hp : p ∈ S) :
+      0 ≤ G p ∧ G p ≤ p.2.1 * ρ.expFamilyDiv T p.1.1 p.1.2 := by
+    obtain ⟨⟨hx₁, hx₂⟩, hv₁, hv₂⟩ := hp
+    rw [mem_Ici] at hv₁ hv₂
+    rcases (add_nonneg hv₁ hv₂).eq_or_lt with hV | hV
+    · have h₁ : p.2.1 = 0 := by linarith
+      have h₂ : p.2.2 = 0 := by linarith
+      simp [hG, h₁, h₂]
+    have hm := div_mem_expFamilyMeans hx₁ hx₂ hv₁ hv₂ hV
+    refine ⟨add_nonneg (mul_nonneg hv₁ (expFamilyDiv_nonneg hx₁ hm))
+      (mul_nonneg hv₂ (expFamilyDiv_nonneg hx₂ hm)), ?_⟩
+    have h := mul_expFamilyDiv_add_mul_expFamilyDiv_le_of_mul_eq (μ₁ := p.1.1) (μ₂ := p.1.2)
+      hv₁ hv₂ (by field_simp) hm hx₂
+    rwa [expFamilyDiv_self, mul_zero, add_zero] at h
+  rintro ⟨⟨μ₁, μ₂⟩, ⟨w₁, w₂⟩⟩ ⟨⟨hμ₁, hμ₂⟩, hw₁, hw₂⟩
+  rw [mem_Ici] at hw₁ hw₂
+  rcases (add_nonneg hw₁ hw₂).eq_or_lt with hW | hW
+  · -- Both weights vanish: `G` is squeezed between `0` and `w₁ d(μ₁, μ₂)`, which tends to `0`.
+    obtain ⟨rfl, rfl⟩ : w₁ = 0 ∧ w₂ = 0 := ⟨by linarith, by linarith⟩
+    have h_upper : ContinuousWithinAt (fun p : (ℝ × ℝ) × (ℝ × ℝ) ↦
+        p.2.1 * ρ.expFamilyDiv T p.1.1 p.1.2) S ((μ₁, μ₂), (0, 0)) :=
+      continuousWithinAt_snd.fst.mul ((hd (μ₁, μ₂) ⟨hμ₁, hμ₂⟩).comp
+        (x := ((μ₁, μ₂), (0, 0))) (f := Prod.fst) continuousWithinAt_fst fun p hp ↦ hp.1)
+    have h0 : G ((μ₁, μ₂), (0, 0)) = 0 := by simp [hG]
+    rw [ContinuousWithinAt, h0]
+    exact tendsto_of_tendsto_of_tendsto_of_le_of_le' tendsto_const_nhds
+      (by simpa only [ContinuousWithinAt, zero_mul] using h_upper)
+      (eventually_nhdsWithin_of_forall fun p hp ↦ (h_bounds p hp).1)
+      (eventually_nhdsWithin_of_forall fun p hp ↦ (h_bounds p hp).2)
+  · -- A positive weight: the weighted mean is a continuous function with values in the means.
+    have hm : ContinuousWithinAt m S ((μ₁, μ₂), (w₁, w₂)) :=
+      ContinuousAt.continuousWithinAt (by fun_prop (disch := exact hW.ne'))
+    have hm_mem : m ((μ₁, μ₂), (w₁, w₂)) ∈ ρ.expFamilyMeans T :=
+      div_mem_expFamilyMeans hμ₁ hμ₂ hw₁ hw₂ hW
+    have hd_at (x : ℝ) (hx : x ∈ ρ.expFamilyMeans T) :
+        ContinuousAt (fun q : ℝ × ℝ ↦ ρ.expFamilyDiv T q.1 q.2) (x, m ((μ₁, μ₂), (w₁, w₂))) :=
+      hd.continuousAt (prod_mem_nhds (expFamilyMeans_mem_nhds hT hx)
+        (expFamilyMeans_mem_nhds hT hm_mem))
+    exact (continuousWithinAt_snd.fst.mul ((hd_at μ₁ hμ₁).comp_continuousWithinAt
+      (f := fun p ↦ (p.1.1, m p)) (continuousWithinAt_fst.fst.prodMk hm))).add
+      (continuousWithinAt_snd.snd.mul ((hd_at μ₂ hμ₂).comp_continuousWithinAt
+        (f := fun p ↦ (p.1.2, m p)) (continuousWithinAt_fst.snd.prodMk hm)))
 
 end MeasureTheory.Measure

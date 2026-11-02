@@ -51,6 +51,8 @@ treatment, and a negative entry of `w` counts as `0`.
 * `IdentTask.altCost_eq_biInf_of_subset_closure`: if the transportation cost is continuous in
   the alternative model, `D(θ, w, ¬i)` is also the infimum of the cost over any set between `¬i`
   and its closure.
+* `IdentTask.mem_optAlloc_iff_isMaxOn`: the optimal allocations are the maximizers of
+  `w ↦ D(θ, w, ¬i)` on the simplex.
 * `IdentTask.convex_optAlloc`: the optimal allocations of an answer form a convex set.
 * `IdentTask.altCost_eq_zero_of_mem_alt`, `IdentTask.answerValue_eq_zero_of_mem_alt`: the cost
   and the value of the answer `i` vanish at an alternative `θ ∈ ¬i`.
@@ -60,6 +62,8 @@ treatment, and a negative entry of `w` counts as `0`.
   positive cost for some allocation.
 * `IdentTask.gameValue_eq_answerValue`: for a model with a single correct answer `i`,
   `D(θ) = D(θ, ¬i)`.
+* `IdentTask.gameValue_eq_iSup_answerValue`: on an admissible model, `D(θ)` is the supremum of
+  `D(θ, ¬i)` over all answers.
 * `IdentTask.charTime_restrict_le`: restricting the admissible models can only decrease the
   characteristic time.
 
@@ -273,6 +277,27 @@ theorem convex_optAlloc (θ : Θ) (i : ℐ) : Convex ℝ (task.optAlloc θ i) :=
   rw [h, ← NNReal.convex_iff]
   exact ((task.concaveOn_altCost θ i).subset simplex_subset_nonneg
     (NNReal.convex_iff.2 (convex_simplex α))).convex_ge _
+
+/-- The optimal allocations of the answer `i` at `θ` are the maximizers of the cost
+`w ↦ D(θ, w, ¬i)` of the alternatives on the simplex. -/
+lemma mem_optAlloc_iff_isMaxOn :
+    w ∈ task.optAlloc θ i ↔ w ∈ simplex α ∧ IsMaxOn (task.altCost θ · i) (simplex α) w := by
+  rw [mem_optAlloc_iff, isMaxOn_iff]
+  refine and_congr_right fun hw ↦ ⟨fun h v hv ↦ h ▸ task.altCost_le_answerValue hv, fun h ↦ ?_⟩
+  refine (task.altCost_le_answerValue hw).antisymm ?_
+  rw [answerValue_def]
+  exact iSup₂_le h
+
+/-- On an admissible model, the value `D(θ)` of the game is the supremum of the values
+`D(θ, ¬i)` over all answers: those of the incorrect answers vanish. -/
+lemma gameValue_eq_iSup_answerValue (hθ : θ ∈ task.M) :
+    task.gameValue θ = ⨆ i, task.answerValue θ i := by
+  rw [gameValue_def]
+  refine le_antisymm (iSup₂_le fun i _ ↦ le_iSup (task.answerValue θ ·) i) (iSup_le fun i ↦ ?_)
+  by_cases hi : i ∈ task.correct θ
+  · exact le_iSup₂ (f := fun i (_ : i ∈ task.correct θ) ↦ task.answerValue θ i) i hi
+  · rw [task.answerValue_eq_zero_of_mem_alt (task.mem_alt_iff.2 ⟨hθ, hi⟩)]
+    exact bot_le
 
 /-- For a model with a single correct answer `i`, `D(θ) = D(θ, ¬i)`. -/
 lemma gameValue_eq_answerValue (h : task.correct θ = {i}) :
