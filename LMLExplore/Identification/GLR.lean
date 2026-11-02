@@ -5,7 +5,9 @@ Authors: Rémy Degenne
 -/
 module
 
+public import LMLExplore.Identification.SampleComplexity
 public import LMLExplore.Identification.Task.TransportationCost
+public import Mathlib.Analysis.SpecialFunctions.Pow.Asymptotics
 
 /-!
 # Generalized likelihood ratio stopping rules
@@ -30,6 +32,15 @@ deviation event `∃ n, β n < Z n hₙ θ` of the true model, which time-unifor
 inequalities bound by `δ` for suitable thresholds. Together with almost sure stopping, this makes
 the GLRT `δ`-PAC on every task.
 
+The sample complexity of the GLRT reduces to the growth of the GLR statistic along the run. If on
+an event `E T` the statistic after `T` rounds exceeds the threshold, then `τ ≤ T` on `E T`, and
+`𝔼[τ] ≤ T₀ + ∑_{T ≥ T₀} P((E T)ᶜ)`. If the statistic grows linearly, at least `κ T` on `E T`, and
+the thresholds are `log (1 / δ) + o(T)`, then the threshold is crossed on `E T` as soon as
+`T ≥ log (1 / δ) / η` for any `η < κ`, hence `𝔼[τ_δ] ≤ c log (1 / δ)` for small `δ` and every
+`c > 1 / κ` when `∑ T, P((E T)ᶜ) < ∞`. Each sampling rule then only has to prove the linear growth
+of the statistic, typically from the convergence of its empirical proportions of pulls to an
+optimal allocation, with `κ` close to the inverse of the characteristic time.
+
 ## Main definitions
 
 * `IdentTask.glr task Z n h i`: the generalized likelihood ratio statistic
@@ -52,16 +63,24 @@ the GLRT `δ`-PAC on every task.
   every run of the GLRT.
 * `IdentTask.isDeltaPAC_glrt`: if the deviation event has probability at most `δ` on every
   admissible model and the GLRT stops almost surely, then it is `δ`-PAC on the task.
+* `IdentTask.expectedStoppingTime_glrt_le_add_tsum`: if the stopping condition holds after `T`
+  rounds on an event `E T` for every `T ≥ T₀`, then `𝔼[τ] ≤ T₀ + ∑_{T ≥ T₀} P((E T)ᶜ)`.
+* `IdentTask.eventually_expectedStoppingTime_glrt_le`: if the GLR statistic of the recommended
+  answer is at least `κ T` after `T` rounds on events `E T` with `∑ T, P((E T)ᶜ) < ∞`, and the
+  thresholds are at most `log (1 / δ) + f T` with `f T = o(T)` from above, then
+  `𝔼[τ_δ] ≤ c log (1 / δ)` for all small enough `δ`, for every `c > 1 / κ`.
+* `IdentTask.eventually_expectedStoppingTime_glrt_le_of_isBigO`: the same conclusion for
+  thresholds at most `log (r T / δ)` with `r T = O(T ^ α)`.
 
 ## References
 
 * [C59] H. Chernoff, *Sequential design of experiments*, Ann. Math. Statist. 30 (1959).
 * [GK16] A. Garivier and E. Kaufmann, *Optimal best arm identification with fixed confidence*,
-  COLT 2016, Proposition 12.
+  COLT 2016, Proposition 12 and the proof of Theorem 14.
 * [DK19] R. Degenne and W. M. Koolen, *Pure exploration with multiple correct answers*,
   NeurIPS 2019, Theorem 10.
 * [DKM19] R. Degenne, W. M. Koolen and P. Ménard, *Non-asymptotic pure exploration by solving
-  games*, NeurIPS 2019, Theorem 1.
+  games*, NeurIPS 2019, Theorem 1 and Lemma 1.
 -/
 
 public section
@@ -251,5 +270,154 @@ theorem isDeltaPAC_glrt {δ : ℝ} (hc : ∀ θ ∈ task.M, MeasurableSet (task.
       (IT.isAlgEnvSeq_trajMeasure alg _) hθ (hc θ hθ)).trans (hdev θ hθ)
   exact isDeltaPAC_iff_isDeltaPAC.2 <| Identification.isDeltaPAC_iff.2
     ⟨h_correct.isPAC hc, fun θ ↦ h_stops θ θ.2⟩
+
+/-! ### Sample complexity of the GLRT -/
+
+/-- **Sample complexity of the GLRT from good events** [DKM19, Lemma 1], for every sampling rule.
+If, along an algorithm-environment sequence of the sampling rule in `env`, the stopping condition
+of the GLRT holds after `T` rounds on an event `E T` for every `T ≥ T₀`, then
+`𝔼[τ] ≤ T₀ + ∑_{T ≥ T₀} P((E T)ᶜ)`. -/
+theorem expectedStoppingTime_glrt_le_add_tsum {env : Environment Unit α 𝓨}
+    (hseq : IsAlgEnvSeq O X Y alg env P) {E : ℕ → Set Ω} {T₀ : ℕ}
+    (hE : ∀ T ≥ T₀, ∀ ω ∈ E T,
+      β T < task.glr Z T (history O X Y T ω) (rec T (history O X Y T ω))) :
+    expectedStoppingTime (task.glrt Z alg β rec hrec hstop) env ≤ T₀ + ∑' T, P (E (T + T₀))ᶜ :=
+  expectedStoppingTime_le_add_tsum_measure_compl (by rwa [alg_glrt])
+    fun T hT ω hω ↦ task.stoppingTime_glrt_le Z alg β rec hrec hstop (hE T hT ω hω)
+
+end LMLExplore.Identification.IdentTask
+
+/-! ### Asymptotic sample complexity of the GLRT -/
+
+namespace LMLExplore.Identification.IdentTask
+
+open Filter Topology Real
+
+open scoped NNReal
+
+variable {α Θ ℐ 𝓨 : Type*} {mα : MeasurableSpace α} {m𝓨 : MeasurableSpace 𝓨}
+  {mℐ : MeasurableSpace ℐ} (task : IdentTask α Θ ℐ 𝓨) (Z : (n : ℕ) → Hist Unit α 𝓨 n → Θ → ℝ≥0∞)
+  (alg : Algorithm Unit α 𝓨) {β : ℝ → ℕ → ℝ≥0∞} (rec : (n : ℕ) → Hist Unit α 𝓨 n → ℐ)
+  (hrec : ∀ n, Measurable (rec n))
+  (hstop : ∀ δ n, MeasurableSet {h | β δ n < task.glr Z n h (rec n h)})
+  {Ω : Type*} {mΩ : MeasurableSpace Ω} {P : Measure Ω} [IsProbabilityMeasure P]
+  {O : ℕ → Ω → Unit} {X : ℕ → Ω → α} {Y : ℕ → Ω → 𝓨} {env : Environment Unit α 𝓨}
+  {E : ℕ → Set Ω} {κ c : ℝ≥0} {T₀ : ℕ}
+
+/-- **Asymptotic sample complexity of the GLRT** (the reduction in the proof of
+[GK16, Theorem 14]), for every sampling rule. Consider the GLRTs with thresholds
+`β δ T ≤ log (1 / δ) + f T`, where `f T ≤ ε T` eventually for every `ε > 0`. Suppose that, along an
+algorithm-environment sequence of the sampling rule in `env`, the GLR statistic of the recommended
+answer after `T` rounds is at least `κ T` on an event `E T`, for every `T ≥ T₀`, and that
+`∑ T, P((E T)ᶜ) < ∞`. Then `𝔼[τ_δ] ≤ c log (1 / δ)` for all small enough `δ`, for every `c > 1 / κ`,
+that is, `limsup_{δ → 0} 𝔼[τ_δ] / log (1 / δ) ≤ 1 / κ`.
+
+For an asymptotically optimal sampling rule, `κ` is any rate below the inverse `T*(θ)⁻¹` of the
+characteristic time. -/
+theorem eventually_expectedStoppingTime_glrt_le (hseq : IsAlgEnvSeq O X Y alg env P)
+    (hE_sum : ∑' T, P (E T)ᶜ ≠ ∞) (hκc : 1 < κ * c)
+    (hE : ∀ T ≥ T₀, ∀ ω ∈ E T,
+      κ * T ≤ task.glr Z T (history O X Y T ω) (rec T (history O X Y T ω)))
+    {f : ℕ → ℝ} (hf : ∀ ε > 0, ∀ᶠ T in atTop, f T ≤ ε * T)
+    (hβ : ∀ᶠ δ in 𝓝[>] 0, ∀ T ≥ T₀, β δ T ≤ ENNReal.ofReal (log (1 / δ) + f T)) :
+    ∀ᶠ δ in 𝓝[>] 0, expectedStoppingTime (task.glrt Z alg (β δ) rec hrec (hstop δ)) env ≤
+      c * ENNReal.ofReal (log (1 / δ)) := by
+  have hκc' : 1 < (κ : ℝ) * c := mod_cast hκc
+  have hc : 0 < (c : ℝ) := pos_of_mul_pos_right (one_pos.trans hκc') κ.coe_nonneg
+  -- Choose `η` with `1 / c < η < κ`: if `log (1 / δ) ≤ η T`, the threshold is below `κ T`.
+  obtain ⟨η, hcη, hηκ⟩ : ∃ η, (c : ℝ)⁻¹ < η ∧ η < κ :=
+    exists_between ((inv_lt_iff_one_lt_mul₀' hc).2 (by linarith))
+  have hη : 0 < η := (inv_pos.2 hc).trans hcη
+  have hκ : 0 < (κ : ℝ) := hη.trans hηκ
+  have hηc : 0 < (c : ℝ) - η⁻¹ := sub_pos.2 (inv_lt_of_inv_lt₀ hc hcη)
+  obtain ⟨T₁, hT₁⟩ := eventually_atTop.1 (hf ((κ - η) / 2) (by linarith))
+  set S := (∑' T, P (E T)ᶜ).toReal
+  set M := max (max T₀ T₁) 1
+  have hL : Tendsto (fun δ : ℝ ↦ log (1 / δ)) (𝓝[>] 0) atTop := by
+    simpa only [one_div, Function.comp_def] using tendsto_log_atTop.comp tendsto_inv_nhdsGT_zero
+  filter_upwards [hβ, hL.eventually_ge_atTop ((M + 1 + S) / (c - η⁻¹))] with δ hβδ hLδ
+  set L := log (1 / δ)
+  have hL0 : 0 ≤ L := (by positivity : 0 ≤ (M + 1 + S) / (c - η⁻¹)).trans hLδ
+  -- From `N = max M ⌈L / η⌉` rounds on, the stopping condition holds on `E T`.
+  set N := max M ⌈L / η⌉₊
+  have h_stop : ∀ T ≥ N, ∀ ω ∈ E T,
+      β δ T < task.glr Z T (history O X Y T ω) (rec T (history O X Y T ω)) := by
+    intro T hT ω hω
+    have hT₀ : T₀ ≤ T := by omega
+    have hT1 : (1 : ℝ) ≤ T := mod_cast (show 1 ≤ T by omega)
+    have hLT : L ≤ η * T := by
+      rw [← div_le_iff₀' hη]
+      exact (Nat.le_ceil _).trans (mod_cast (le_max_right _ _).trans hT)
+    have hfT := hT₁ T (by omega)
+    calc β δ T
+    _ ≤ ENNReal.ofReal (L + f T) := hβδ T hT₀
+    _ < ENNReal.ofReal (κ * T) := by
+      refine (ENNReal.ofReal_lt_ofReal_iff (mul_pos hκ (by linarith))).2 ?_
+      nlinarith
+    _ = κ * T := by
+      rw [ENNReal.ofReal_mul κ.coe_nonneg, ENNReal.ofReal_coe_nnreal, ENNReal.ofReal_natCast]
+    _ ≤ _ := hE T hT₀ ω hω
+  -- Hence `𝔼[τ_δ] ≤ N + ∑ T, P((E T)ᶜ) ≤ M + L / η + 1 + S ≤ c L`.
+  calc expectedStoppingTime (task.glrt Z alg (β δ) rec hrec (hstop δ)) env
+  _ ≤ N + ∑' T, P (E (T + N))ᶜ :=
+    task.expectedStoppingTime_glrt_le_add_tsum Z alg (β δ) rec hrec (hstop δ) hseq h_stop
+  _ ≤ N + ∑' T, P (E T)ᶜ := add_le_add_right
+    (ENNReal.tsum_comp_le_tsum_of_injective (add_left_injective N) fun T ↦ P (E T)ᶜ) _
+  _ = ENNReal.ofReal (N + S) := by
+    rw [ENNReal.ofReal_add (by positivity) ENNReal.toReal_nonneg, ENNReal.ofReal_natCast,
+      ENNReal.ofReal_toReal hE_sum]
+  _ ≤ ENNReal.ofReal (c * L) := by
+    refine ENNReal.ofReal_le_ofReal ?_
+    have hceil : (⌈L / η⌉₊ : ℝ) ≤ L / η + 1 := (Nat.ceil_lt_add_one (by positivity)).le
+    have hN : (N : ℝ) ≤ M + (L / η + 1) := by
+      rw [Nat.cast_max]
+      have hM : (0 : ℝ) ≤ M := M.cast_nonneg
+      exact max_le (by linarith [div_nonneg hL0 hη.le]) (by linarith)
+    rw [div_le_iff₀ hηc] at hLδ
+    have : L / η = η⁻¹ * L := by ring
+    nlinarith
+  _ = c * ENNReal.ofReal L := by rw [ENNReal.ofReal_mul c.coe_nonneg, ENNReal.ofReal_coe_nnreal]
+
+/-- **Asymptotic sample complexity of the GLRT with thresholds `log (r T / δ)`**, for every
+sampling rule and the thresholds of [GK16, Theorem 14], `r T = O(T ^ α)`. Suppose that, along an
+algorithm-environment sequence of the sampling rule in `env`, the GLR statistic of the recommended
+answer after `T` rounds is at least `κ T` on an event `E T`, for every `T ≥ T₀`, and that
+`∑ T, P((E T)ᶜ) < ∞`. Then for thresholds `β δ T ≤ log (r T / δ)` with `r T = O(T ^ α)`,
+`𝔼[τ_δ] ≤ c log (1 / δ)` for all small enough `δ`, for every `c > 1 / κ`. -/
+theorem eventually_expectedStoppingTime_glrt_le_of_isBigO (hseq : IsAlgEnvSeq O X Y alg env P)
+    (hE_sum : ∑' T, P (E T)ᶜ ≠ ∞) (hκc : 1 < κ * c)
+    (hE : ∀ T ≥ T₀, ∀ ω ∈ E T,
+      κ * T ≤ task.glr Z T (history O X Y T ω) (rec T (history O X Y T ω)))
+    {r : ℕ → ℝ} {α : ℝ} (hr : r =O[atTop] fun T ↦ (T : ℝ) ^ α)
+    (hβ : ∀ᶠ δ in 𝓝[>] 0, ∀ T ≥ T₀, β δ T ≤ ENNReal.ofReal (log (r T / δ))) :
+    ∀ᶠ δ in 𝓝[>] 0, expectedStoppingTime (task.glrt Z alg (β δ) rec hrec (hstop δ)) env ≤
+      c * ENNReal.ofReal (log (1 / δ)) := by
+  refine task.eventually_expectedStoppingTime_glrt_le Z alg rec hrec hstop hseq hE_sum hκc hE
+    (f := fun T ↦ log (r T)) (fun ε hε ↦ ?_) ?_
+  · -- `log (r T) ≤ log C + α log T = o(T)`.
+    obtain ⟨C, hC, hrC⟩ := hr.exists_pos
+    have hg : (fun T : ℕ ↦ log C + α * log T) =o[atTop] fun T : ℕ ↦ (T : ℝ) :=
+      ((Asymptotics.isLittleO_const_id_atTop (log C)).add
+        (isLittleO_log_id_atTop.const_mul_left α)).comp_tendsto tendsto_natCast_atTop_atTop
+    filter_upwards [hrC.bound, hg.bound hε, eventually_gt_atTop 0] with T hrT hgT hT
+    rcases eq_or_ne (r T) 0 with h | h
+    · simp only [h, log_zero]
+      positivity
+    have hT' : (0 : ℝ) < T := Nat.cast_pos.2 hT
+    rw [Real.norm_eq_abs, Real.norm_of_nonneg (rpow_nonneg hT'.le α)] at hrT
+    rw [Real.norm_of_nonneg hT'.le] at hgT
+    calc log (r T)
+    _ = log |r T| := (log_abs _).symm
+    _ ≤ log (C * T ^ α) := log_le_log (abs_pos.2 h) hrT
+    _ = log C + α * log T := by rw [log_mul hC.ne' (rpow_pos_of_pos hT' α).ne', log_rpow hT']
+    _ ≤ ε * T := (le_abs_self _).trans hgT
+  · -- `log (r T / δ) ≤ log (1 / δ) + log (r T)` for `δ ∈ (0, 1)`.
+    filter_upwards [hβ, Ioo_mem_nhdsGT one_pos] with δ hβδ hδ T hT
+    refine (hβδ T hT).trans (ENNReal.ofReal_le_ofReal ?_)
+    rcases eq_or_ne (r T) 0 with h | h
+    · simp only [h, zero_div, log_zero, add_zero]
+      exact log_nonneg (one_le_one_div hδ.1 hδ.2.le)
+    · rw [log_div h hδ.1.ne', one_div, log_inv]
+      linarith
 
 end LMLExplore.Identification.IdentTask

@@ -6,6 +6,7 @@ Authors: Rémy Degenne
 module
 
 public import LMLExplore.Identification.Correctness
+public import LMLExplore.MeasureTheory.Integral.Lebesgue.ENat
 public import LMLExplore.SequentialLearning.Wald
 
 /-!
@@ -42,6 +43,9 @@ time of an identification algorithm.
   along any algorithm-environment sequence of the sampling rule is `expectedStoppingTime A env`.
 * `LMLExplore.Identification.StopsAS.of_expectedStoppingTime_ne_top`: an algorithm with
   `𝔼[τ] < ∞` stops almost surely.
+* `LMLExplore.Identification.expectedStoppingTime_le_add_tsum_measure_compl`: if the algorithm
+  has stopped after `T` rounds on an event `E T` for every `T ≥ T₀`, then
+  `𝔼[τ] ≤ T₀ + ∑_{T ≥ T₀} P((E T)ᶜ)` [DKM19, Lemma 1].
 * `Learning.IdentAlg.lintegral_stoppingTime_eq_sum_lintegral_pullCount`,
   `LMLExplore.Identification.expectedStoppingTime_eq_sum_lintegral_pullCount`: Wald's identity
   `𝔼[τ] = ∑ a, 𝔼[N_a(τ)]` at the stopping time `τ` of an identification algorithm that stops
@@ -58,6 +62,8 @@ time of an identification algorithm.
 
 * E. Kaufmann, O. Cappé and A. Garivier, *On the complexity of best-arm identification in
   multi-armed bandit models*, JMLR 17 (2016).
+* [DKM19] R. Degenne, W. M. Koolen and P. Ménard, *Non-asymptotic pure exploration by solving
+  games*, NeurIPS 2019, Lemma 1.
 * T. Lattimore and Cs. Szepesvári, *Bandit Algorithms*, Cambridge University Press (2020),
   Chapter 33.
 -/
@@ -115,6 +121,22 @@ lemma lintegral_stoppingTime_eq_expectedStoppingTime [IsProbabilityMeasure P]
       IT.measurable_action IT.measurable_feedback)).aemeasurable
 
 end Learning.IdentAlg
+
+namespace LMLExplore.Identification
+
+/-- **Expected stopping time from good events** [DKM19, Lemma 1]. If, along an
+algorithm-environment sequence of the sampling rule of `A` in `env`, the algorithm has stopped
+after `T` rounds on an event `E T` for every `T ≥ T₀`, then
+`𝔼[τ] ≤ T₀ + ∑_{T ≥ T₀} P((E T)ᶜ)`. -/
+lemma expectedStoppingTime_le_add_tsum_measure_compl [IsProbabilityMeasure P]
+    (h : IsAlgEnvSeq O X Y A.alg env P) {E : ℕ → Set Ω} {T₀ : ℕ}
+    (hE : ∀ T ≥ T₀, ∀ ω ∈ E T, A.stoppingTime O X Y ω ≤ T) :
+    expectedStoppingTime A env ≤ T₀ + ∑' T, P (E (T + T₀))ᶜ := by
+  rw [← IdentAlg.lintegral_stoppingTime_eq_expectedStoppingTime h]
+  exact lintegral_toENNReal_le_add_tsum_measure_compl (A.measurable_stoppingTime
+    h.measurable_obs h.measurable_action h.measurable_feedback).aemeasurable hE
+
+end LMLExplore.Identification
 
 /-! ### Wald's identities -/
 
