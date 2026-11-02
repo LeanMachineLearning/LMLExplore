@@ -147,7 +147,7 @@ private lemma abs_tsum_meanReward_le (hγ : γ < 1) (hR : ∀ p, ∀ᵐ x ∂(M.
     gcongr
     exact norm_meanReward_le M.R (hR (x n))
   have h_geom := (hasSum_geometric_of_lt_one γ.coe_nonneg hγ).mul_right C
-  rw [← Real.norm_eq_abs, div_eq_mul_inv, mul_comm]
+  rw [← Real.norm_eq_abs, div_eq_inv_mul]
   exact (Summable.of_norm_bounded h_geom.summable h_le).hasSum.norm_le_of_bounded h_geom h_le
 
 /-- With rewards bounded by `C` and `γ < 1`, the discounted value of every algorithm is bounded by
@@ -176,34 +176,6 @@ section Runs
 
 variable {Ω : Type*} {mΩ : MeasurableSpace Ω} {P : Measure Ω} [IsProbabilityMeasure P]
   {S : ℕ → Ω → 𝓢} {A : ℕ → Ω → 𝓐} {Y : ℕ → Ω → ℝ} {alg : Algorithm 𝓢 𝓐 ℝ} {μ : Measure 𝓢}
-
-/-- Along a run in an MDP with rewards bounded by `C`, the reward of every round is almost surely
-bounded by `C`. -/
-lemma ae_abs_feedback_le (h : IsAlgEnvSeq S A Y alg (M.env μ) P)
-    (hR : ∀ p, ∀ᵐ x ∂(M.R p), |x| ≤ C) (n : ℕ) :
-    ∀ᵐ ω ∂P, |Y n ω| ≤ C := by
-  have h_law := hasCondDistrib_feedback h n
-  have h_ae : ∀ᵐ q ∂(P.map (fun ω ↦ (S n ω, A n ω)) ⊗ₘ M.R), |q.2| ≤ C :=
-    Measure.ae_compProd_of_ae_ae (measurableSet_le (by fun_prop) measurable_const)
-      (.of_forall fun p ↦ hR p)
-  rw [← h_law.map_eq] at h_ae
-  exact ae_of_ae_map h_law.aemeasurable h_ae
-
-/-- Along a run in an MDP with bounded rewards, the expected reward of round `n` is the integral
-of the mean reward against the law of the state-action pair of round `n`. -/
-theorem integral_feedback (h : IsAlgEnvSeq S A Y alg (M.env μ) P)
-    (hR : ∀ p, ∀ᵐ x ∂(M.R p), |x| ≤ C) (n : ℕ) :
-    ∫ ω, Y n ω ∂P = ∫ p, meanReward M.R p ∂(P.map fun ω ↦ (S n ω, A n ω)) := by
-  have h_law := hasCondDistrib_feedback h n
-  have h_int : Integrable (fun q : (𝓢 × 𝓐) × ℝ ↦ q.2)
-      (P.map (fun ω ↦ (S n ω, A n ω)) ⊗ₘ M.R) :=
-    .of_bound measurable_snd.aestronglyMeasurable C <|
-      Measure.ae_compProd_of_ae_ae (measurableSet_le (by fun_prop) measurable_const)
-        (.of_forall hR)
-  have h_eq := h_law.integral_comp (f := Prod.snd) measurable_snd.aestronglyMeasurable
-  simp only [Function.comp_def] at h_eq
-  rw [h_eq, Measure.integral_compProd h_int]
-  simp_rw [meanReward_def]
 
 /-- Along a run in an MDP with rewards bounded by `C`, the expectation of the discounted sum of
 the mean rewards is the discounted sum of their expectations. -/
