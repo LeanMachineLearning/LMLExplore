@@ -45,6 +45,9 @@ confidence*, COLT 2016.
 * `MeasureTheory.Measure.natParam ρ T μ`: the natural parameter `η(μ)` of the member of mean `μ`.
 * `MeasureTheory.Measure.expFamilyDiv ρ T μ μ'`: the divergence
   `d(μ, μ') = ψ(η(μ')) - ψ(η(μ)) - μ (η(μ') - η(μ))`.
+* `MeasureTheory.Measure.expFamilyPairCost ρ T μ₁ μ₂ w₁ w₂`: the cost
+  `w₁ d(μ₁, m) + w₂ d(μ₂, m)` of moving two means to their weighted mean
+  `m = (w₁ μ₁ + w₂ μ₂) / (w₁ + w₂)`.
 
 ## Main statements
 
@@ -84,9 +87,16 @@ confidence*, COLT 2016.
 * `MeasureTheory.Measure.mul_expFamilyDiv_add_mul_expFamilyDiv_le`: for `μ₂ ≤ μ₁` and nonnegative
   weights, `w₁ d(μ₁, x) + w₂ d(μ₂, y)` at means `x ≤ y` is at least its value at `x = y = m`, the
   weighted mean of `μ₁` and `μ₂`; when `w₁ + w₂ > 0`, this is the minimum over these pairs.
-* `MeasureTheory.Measure.continuousOn_mul_expFamilyDiv_add_mul_expFamilyDiv`: the minimum
-  `w₁ d(μ₁, m) + w₂ d(μ₂, m)` at the weighted mean `m` is continuous in the means and the
-  nonnegative weights.
+* `MeasureTheory.Measure.mul_expFamilyDiv_add_mul_expFamilyDiv_eq`: the two-point compensation
+  identity `w₁ d(μ₁, z) + w₂ d(μ₂, z) = w₁ d(μ₁, m) + w₂ d(μ₂, m) + (w₁ + w₂) d(m, z)`.
+* `MeasureTheory.Measure.expFamilyPairCost_nonneg`, `MeasureTheory.Measure.expFamilyPairCost_pos`,
+  `MeasureTheory.Measure.expFamilyPairCost_eq_zero`, `MeasureTheory.Measure.expFamilyPairCost_mul`:
+  the cost of moving two means to their weighted mean is nonnegative, positive for distinct means
+  and positive weights, zero when a weight vanishes, and positively homogeneous in the weights.
+* `MeasureTheory.Measure.mul_eq_mul_of_expFamilyPairCost_midpoint_eq`: that cost is strictly
+  concave along the directions that change the ratio of the weights.
+* `MeasureTheory.Measure.continuousOn_expFamilyPairCost`: that cost is continuous in the means and
+  the nonnegative weights.
 -/
 
 public section
@@ -561,16 +571,125 @@ theorem mul_expFamilyDiv_add_mul_expFamilyDiv_le (hT : ∀ c, ¬ T =ᵐ[ρ] fun 
     (mul_le_mul_of_nonneg_left (h_anti ⟨hx, hxm.trans hm₁⟩ ⟨hm_mem, hm₁⟩ hxm) hw₁)
     (mul_le_mul_of_nonneg_left (h_mono ⟨hm_mem, hm₂⟩ ⟨hy, hm₂.trans hmy⟩ hmy) hw₂)
 
+/-- The cost `w₁ d(μ₁, m) + w₂ d(μ₂, m)` of moving two means `μ₁` and `μ₂` to their mean
+`m = (w₁ μ₁ + w₂ μ₂) / (w₁ + w₂)` weighted by `w₁` and `w₂`. For nonnegative weights, it is the
+minimum over the means `z` of `w₁ d(μ₁, z) + w₂ d(μ₂, z)`
+(`mul_expFamilyDiv_add_mul_expFamilyDiv_le_of_mul_eq`); in best arm identification, it is the cost
+of the alternatives in which the arm of mean `μ₂` beats the arm of mean `μ₁`. -/
+noncomputable def expFamilyPairCost (ρ : Measure 𝓧) (T : 𝓧 → ℝ) (μ₁ μ₂ w₁ w₂ : ℝ) : ℝ :=
+  w₁ * ρ.expFamilyDiv T μ₁ ((w₁ * μ₁ + w₂ * μ₂) / (w₁ + w₂)) +
+    w₂ * ρ.expFamilyDiv T μ₂ ((w₁ * μ₁ + w₂ * μ₂) / (w₁ + w₂))
 
-/-- The minimum `w₁ d(μ₁, m) + w₂ d(μ₂, m)` over the means `z` of `w₁ d(μ₁, z) + w₂ d(μ₂, z)`,
-attained at the weighted mean `m = (w₁ μ₁ + w₂ μ₂) / (w₁ + w₂)`, is a continuous function of
-the means `(μ₁, μ₂)` of the family and of the nonnegative weights `(w₁, w₂)`, including where both
-weights vanish and `m` is not defined. -/
-theorem continuousOn_mul_expFamilyDiv_add_mul_expFamilyDiv (hT : ∀ c, ¬ T =ᵐ[ρ] fun _ ↦ c) :
-    ContinuousOn (fun p : (ℝ × ℝ) × (ℝ × ℝ) ↦
-        p.2.1 * ρ.expFamilyDiv T p.1.1 ((p.2.1 * p.1.1 + p.2.2 * p.1.2) / (p.2.1 + p.2.2)) +
-          p.2.2 * ρ.expFamilyDiv T p.1.2 ((p.2.1 * p.1.1 + p.2.2 * p.1.2) / (p.2.1 + p.2.2)))
+lemma expFamilyPairCost_def (ρ : Measure 𝓧) (T : 𝓧 → ℝ) (μ₁ μ₂ w₁ w₂ : ℝ) :
+    ρ.expFamilyPairCost T μ₁ μ₂ w₁ w₂ =
+      w₁ * ρ.expFamilyDiv T μ₁ ((w₁ * μ₁ + w₂ * μ₂) / (w₁ + w₂)) +
+        w₂ * ρ.expFamilyDiv T μ₂ ((w₁ * μ₁ + w₂ * μ₂) / (w₁ + w₂)) :=
+  (rfl)
+
+lemma expFamilyPairCost_nonneg {μ₁ μ₂ w₁ w₂ : ℝ} (hμ₁ : μ₁ ∈ ρ.expFamilyMeans T)
+    (hμ₂ : μ₂ ∈ ρ.expFamilyMeans T) (hw₁ : 0 ≤ w₁) (hw₂ : 0 ≤ w₂) :
+    0 ≤ ρ.expFamilyPairCost T μ₁ μ₂ w₁ w₂ := by
+  rcases (add_nonneg hw₁ hw₂).eq_or_lt with hW | hW
+  · obtain ⟨rfl, rfl⟩ : w₁ = 0 ∧ w₂ = 0 := ⟨by linarith, by linarith⟩
+    simp [expFamilyPairCost_def]
+  have hm := div_mem_expFamilyMeans hμ₁ hμ₂ hw₁ hw₂ hW
+  exact add_nonneg (mul_nonneg hw₁ (expFamilyDiv_nonneg hμ₁ hm))
+    (mul_nonneg hw₂ (expFamilyDiv_nonneg hμ₂ hm))
+
+/-- The cost of moving two means to their weighted mean vanishes when one of the weights does. -/
+lemma expFamilyPairCost_eq_zero {μ₁ μ₂ w₁ w₂ : ℝ} (h : w₁ = 0 ∨ w₂ = 0) :
+    ρ.expFamilyPairCost T μ₁ μ₂ w₁ w₂ = 0 := by
+  rcases h with rfl | rfl
+  · rcases eq_or_ne w₂ 0 with rfl | h <;> simp [expFamilyPairCost_def, *, expFamilyDiv_self]
+  · rcases eq_or_ne w₁ 0 with rfl | h <;> simp [expFamilyPairCost_def, *, expFamilyDiv_self]
+
+/-- The cost of moving two distinct means to their mean weighted by positive weights is
+positive. -/
+lemma expFamilyPairCost_pos {μ₁ μ₂ w₁ w₂ : ℝ} (hμ₁ : μ₁ ∈ ρ.expFamilyMeans T)
+    (hμ₂ : μ₂ ∈ ρ.expFamilyMeans T) (hμ : μ₂ < μ₁) (hw₁ : 0 < w₁) (hw₂ : 0 < w₂) :
+    0 < ρ.expFamilyPairCost T μ₁ μ₂ w₁ w₂ := by
+  have hW := add_pos hw₁ hw₂
+  have hm := div_mem_expFamilyMeans hμ₁ hμ₂ hw₁.le hw₂.le hW
+  have hlt : (w₁ * μ₁ + w₂ * μ₂) / (w₁ + w₂) < μ₁ := by
+    rw [div_lt_iff₀ hW]
+    nlinarith
+  exact add_pos_of_pos_of_nonneg (mul_pos hw₁ (expFamilyDiv_pos hμ₁ hm hlt.ne'))
+    (mul_nonneg hw₂.le (expFamilyDiv_nonneg hμ₂ hm))
+
+/-- The cost of moving two means to their weighted mean is positively homogeneous in the
+weights. -/
+lemma expFamilyPairCost_mul {μ₁ μ₂ w₁ w₂ t : ℝ} (ht : t ≠ 0) :
+    ρ.expFamilyPairCost T μ₁ μ₂ (t * w₁) (t * w₂) = t * ρ.expFamilyPairCost T μ₁ μ₂ w₁ w₂ := by
+  have hm : (t * w₁ * μ₁ + t * w₂ * μ₂) / (t * w₁ + t * w₂) =
+      (w₁ * μ₁ + w₂ * μ₂) / (w₁ + w₂) := by
+    rw [← mul_div_mul_left (w₁ * μ₁ + w₂ * μ₂) (w₁ + w₂) ht]
+    congr 1 <;> ring
+  simp only [expFamilyPairCost_def, hm]
+  ring
+
+/-- **Compensation identity** for two means: `w₁ d(μ₁, z) + w₂ d(μ₂, z)` is the cost of moving
+`μ₁` and `μ₂` to their weighted mean `m` plus `(w₁ + w₂) d(m, z)`. -/
+lemma mul_expFamilyDiv_add_mul_expFamilyDiv_eq {μ₁ μ₂ w₁ w₂ : ℝ} (hW : w₁ + w₂ ≠ 0) (z : ℝ) :
+    w₁ * ρ.expFamilyDiv T μ₁ z + w₂ * ρ.expFamilyDiv T μ₂ z =
+      ρ.expFamilyPairCost T μ₁ μ₂ w₁ w₂ +
+        (w₁ + w₂) * ρ.expFamilyDiv T ((w₁ * μ₁ + w₂ * μ₂) / (w₁ + w₂)) z := by
+  have h := sum_mul_expFamilyDiv_eq (ρ := ρ) (T := T) Finset.univ ![w₁, w₂] ![μ₁, μ₂]
+    (m := (w₁ * μ₁ + w₂ * μ₂) / (w₁ + w₂)) (by simp [Fin.sum_univ_two]; field_simp) z
+  simpa [Fin.sum_univ_two, expFamilyPairCost_def] using h
+
+/-- If the cost of moving two distinct means to their weighted mean, at the midpoint of two pairs
+of weights, equals its cost at both pairs, then the two pairs of weights are proportional: the
+cost is strictly concave along the directions that change the ratio of the weights. -/
+lemma mul_eq_mul_of_expFamilyPairCost_midpoint_eq {μ₁ μ₂ x₁ y₁ x₂ y₂ : ℝ}
+    (hμ₁ : μ₁ ∈ ρ.expFamilyMeans T) (hμ₂ : μ₂ ∈ ρ.expFamilyMeans T) (hμ : μ₂ < μ₁)
+    (hx₁ : 0 ≤ x₁) (hy₁ : 0 ≤ y₁) (hx₂ : 0 ≤ x₂) (hy₂ : 0 ≤ y₂) (h₁ : 0 < x₁ + y₁)
+    (h₂ : 0 < x₂ + y₂)
+    (he₁ : ρ.expFamilyPairCost T μ₁ μ₂ ((x₁ + x₂) / 2) ((y₁ + y₂) / 2) =
+      ρ.expFamilyPairCost T μ₁ μ₂ x₁ y₁)
+    (he₂ : ρ.expFamilyPairCost T μ₁ μ₂ ((x₁ + x₂) / 2) ((y₁ + y₂) / 2) =
+      ρ.expFamilyPairCost T μ₁ μ₂ x₂ y₂) :
+    x₁ * y₂ = x₂ * y₁ := by
+  set x := (x₁ + x₂) / 2
+  set y := (y₁ + y₂) / 2
+  have h : 0 < x + y := by simp only [x, y]; linarith
+  set m := (x * μ₁ + y * μ₂) / (x + y) with hm_def
+  have hm : m ∈ ρ.expFamilyMeans T := div_mem_expFamilyMeans hμ₁ hμ₂ (by positivity)
+    (by positivity) h
+  have hm₁ := div_mem_expFamilyMeans hμ₁ hμ₂ hx₁ hy₁ h₁
+  have hm₂ := div_mem_expFamilyMeans hμ₁ hμ₂ hx₂ hy₂ h₂
+  -- By the compensation identity at `m`, the cost at the midpoint is the average of the costs at
+  -- the two pairs plus nonnegative terms, which must vanish: the weighted means are all `m`.
+  have e₁ := mul_expFamilyDiv_add_mul_expFamilyDiv_eq (ρ := ρ) (T := T) (μ₁ := μ₁) (μ₂ := μ₂)
+    h₁.ne' m
+  have e₂ := mul_expFamilyDiv_add_mul_expFamilyDiv_eq (ρ := ρ) (T := T) (μ₁ := μ₁) (μ₂ := μ₂)
+    h₂.ne' m
+  have e : ρ.expFamilyPairCost T μ₁ μ₂ x y =
+      x * ρ.expFamilyDiv T μ₁ m + y * ρ.expFamilyDiv T μ₂ m :=
+    expFamilyPairCost_def ρ T μ₁ μ₂ x y
+  have hd₁ := mul_nonneg h₁.le (expFamilyDiv_nonneg hm₁ hm)
+  have hd₂ := mul_nonneg h₂.le (expFamilyDiv_nonneg hm₂ hm)
+  have k₁ : (x₁ + y₁) * ρ.expFamilyDiv T ((x₁ * μ₁ + y₁ * μ₂) / (x₁ + y₁)) m = 0 := by
+    simp only [x, y] at e he₁ he₂
+    linarith
+  have k₂ : (x₂ + y₂) * ρ.expFamilyDiv T ((x₂ * μ₁ + y₂ * μ₂) / (x₂ + y₂)) m = 0 := by
+    simp only [x, y] at e he₁ he₂
+    linarith
+  have hm₁m := (expFamilyDiv_eq_zero_iff hm₁ hm).1 ((mul_eq_zero.1 k₁).resolve_left h₁.ne')
+  have hm₂m := (expFamilyDiv_eq_zero_iff hm₂ hm).1 ((mul_eq_zero.1 k₂).resolve_left h₂.ne')
+  -- Equal weighted means of two distinct means have proportional weights.
+  have h_eq := hm₁m.trans hm₂m.symm
+  rw [div_eq_div_iff h₁.ne' h₂.ne'] at h_eq
+  have : (x₁ * y₂ - x₂ * y₁) * (μ₁ - μ₂) = 0 := by linear_combination h_eq
+  exact sub_eq_zero.1 ((mul_eq_zero.1 this).resolve_right (sub_ne_zero.2 hμ.ne'))
+
+/-- The cost `w₁ d(μ₁, m) + w₂ d(μ₂, m)` of moving two means to their weighted mean
+`m = (w₁ μ₁ + w₂ μ₂) / (w₁ + w₂)`, the minimum over the means `z` of
+`w₁ d(μ₁, z) + w₂ d(μ₂, z)`, is a continuous function of the means `(μ₁, μ₂)` of the family and of
+the nonnegative weights `(w₁, w₂)`, including where both weights vanish and `m` is not defined. -/
+theorem continuousOn_expFamilyPairCost (hT : ∀ c, ¬ T =ᵐ[ρ] fun _ ↦ c) :
+    ContinuousOn (fun p : (ℝ × ℝ) × (ℝ × ℝ) ↦ ρ.expFamilyPairCost T p.1.1 p.1.2 p.2.1 p.2.2)
       ((ρ.expFamilyMeans T ×ˢ ρ.expFamilyMeans T) ×ˢ (Ici 0 ×ˢ Ici 0)) := by
+  simp only [expFamilyPairCost_def]
   set S := (ρ.expFamilyMeans T ×ˢ ρ.expFamilyMeans T) ×ˢ (Ici (0 : ℝ) ×ˢ Ici (0 : ℝ)) with hS
   set m : (ℝ × ℝ) × (ℝ × ℝ) → ℝ := fun p ↦ (p.2.1 * p.1.1 + p.2.2 * p.1.2) / (p.2.1 + p.2.2)
     with hm_def

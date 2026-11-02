@@ -16,10 +16,14 @@ of an upper hemicontinuous correspondence is continuous at the points where the 
 a single value.
 
 Together with Mathlib's `UpperHemicontinuousWithinAt.const` and
-`LowerHemicontinuousWithinAt.const`, this is what is needed to apply Berge's maximum theorem
-(`LMLExplore/Topology/Semicontinuity/Berge.lean`) to a supremum over a fixed compact subset `K` of
-a space, by working in the subtype `K` with the constant correspondence `univ` and mapping the
-maximizers back to the space.
+`LowerHemicontinuousWithinAt.const`, the image lemma `UpperHemicontinuousWithinAt.image` is what is
+needed to apply Berge's maximum theorem (`LMLExplore/Topology/Semicontinuity/Berge.lean`) to a
+supremum over a fixed compact subset `K` of a space, by working in the subtype `K` with the
+constant correspondence `univ` and mapping the maximizers back to the space.
+
+The selection lemma `UpperHemicontinuousAt.continuousAt_of_eventually_mem` turns the upper
+hemicontinuity of a set of maximizers, as given by Berge's theorem, into the continuity of a
+maximizer at the points where that set has a single element.
 
 ## Main statements
 

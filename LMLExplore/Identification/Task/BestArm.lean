@@ -423,6 +423,36 @@ theorem charTime_baiTask_restrict_eq_inv_expFamilyDiv_of_forall_eq_or_eq
 
 /-! #### Continuity in the model and the allocation -/
 
+omit [Fintype α] in
+/-- A unique best arm is a best arm. -/
+private lemma le_of_forall_ne_lt (ha : ∀ b ≠ a, μ b < μ a) (b : α) : μ b ≤ μ a :=
+  (eq_or_ne b a).elim (fun h ↦ h ▸ le_rfl) fun h ↦ (ha b h).le
+
+/-- The closed form [GK16, Lemma 3] of the cost of the alternatives as a finite infimum. -/
+private lemma altCost_baiTask_restrict_eq_inf [DecidableEq α] (hT : ∀ c, ¬ T =ᵐ[ρ] fun _ ↦ c)
+    (hμ : ∀ c, μ c ∈ ρ.expFamilyMeans T)
+    (hν : ∀ μ' : α → ℝ, (∀ c, μ' c ∈ ρ.expFamilyMeans T) →
+      ∀ c, klDiv (ν μ c) (ν μ' c) = ENNReal.ofReal (ρ.expFamilyDiv T (μ c) (μ' c)))
+    (ha : ∀ b, μ b ≤ μ a) (hw : 0 ≤ w) :
+    ((baiTask ν).restrict {μ' | ∀ c, μ' c ∈ ρ.expFamilyMeans T}).altCost μ w a =
+      (Finset.univ.filter (· ≠ a)).inf fun b ↦
+        ENNReal.ofReal (ρ.expFamilyPairCost T (μ a) (μ b) (w a) (w b)) := by
+  rw [altCost_baiTask_restrict_eq_iInf_expFamilyDiv ν hT hμ hν ha hw, Finset.inf_eq_iInf]
+  simp [expFamilyPairCost_def]
+
+/-- The closed form [GK16, Lemma 3] of the cost of the alternatives is continuous in the model
+and the allocation, on the vectors of means of the family and the nonnegative allocations. -/
+private lemma continuousOn_inf_expFamilyPairCost [DecidableEq α] (hT : ∀ c, ¬ T =ᵐ[ρ] fun _ ↦ c)
+    (a : α) :
+    ContinuousOn (fun p : (α → ℝ) × (α → ℝ) ↦ (Finset.univ.filter (· ≠ a)).inf fun b ↦
+        ENNReal.ofReal (ρ.expFamilyPairCost T (p.1 a) (p.1 b) (p.2 a) (p.2 b)))
+      ({μ | ∀ c, μ c ∈ ρ.expFamilyMeans T} ×ˢ Set.Ici 0) := by
+  refine ContinuousOn.finset_inf_apply fun b _ ↦ ENNReal.continuous_ofReal.comp_continuousOn ?_
+  refine (continuousOn_expFamilyPairCost hT).comp
+    (f := fun p : (α → ℝ) × (α → ℝ) ↦ ((p.1 a, p.1 b), (p.2 a, p.2 b))) (by fun_prop) ?_
+  rintro ⟨μ, w⟩ ⟨hμ, hw⟩
+  exact ⟨⟨hμ a, hμ b⟩, hw a, hw b⟩
+
 /-- **Continuity of the cost of the alternatives in best arm identification**, for arms in an
 exponential family with divergence `d` (in the sense that `KL(ν_c(μ), ν_c(μ')) = d(μ c, μ' c)` for
 all vectors of means `μ`, `μ'` of the family): on the vectors of means of the family with best arm
@@ -436,19 +466,9 @@ theorem continuousOn_altCost_baiTask_restrict (hT : ∀ c, ¬ T =ᵐ[ρ] fun _ �
   classical
   -- The closed form `min_{b ≠ a} (w a d(μ a, m_b) + w b d(μ b, m_b))` [GK16, Lemma 3] is a
   -- finite infimum of continuous functions.
-  set G : α → (α → ℝ) × (α → ℝ) → ℝ≥0∞ := fun b p ↦ ENNReal.ofReal
-    (p.2 a * ρ.expFamilyDiv T (p.1 a) ((p.2 a * p.1 a + p.2 b * p.1 b) / (p.2 a + p.2 b)) +
-      p.2 b * ρ.expFamilyDiv T (p.1 b) ((p.2 a * p.1 a + p.2 b * p.1 b) / (p.2 a + p.2 b)))
-  have hG : ContinuousOn (fun p ↦ (Finset.univ.filter (· ≠ a)).inf (G · p))
-      ({μ | (∀ c, μ c ∈ ρ.expFamilyMeans T) ∧ ∀ b, μ b ≤ μ a} ×ˢ Set.Ici 0) := by
-    refine ContinuousOn.finset_inf_apply fun b _ ↦ ENNReal.continuous_ofReal.comp_continuousOn ?_
-    refine (continuousOn_mul_expFamilyDiv_add_mul_expFamilyDiv hT).comp
-      (f := fun p : (α → ℝ) × (α → ℝ) ↦ ((p.1 a, p.1 b), (p.2 a, p.2 b))) (by fun_prop) ?_
-    rintro ⟨μ, w⟩ ⟨⟨hμ, -⟩, hw⟩
-    exact ⟨⟨hμ a, hμ b⟩, hw a, hw b⟩
-  refine hG.congr fun p ⟨⟨hμ, ha⟩, hw⟩ ↦ ?_
-  rw [altCost_baiTask_restrict_eq_iInf_expFamilyDiv ν hT hμ (hν p.1 · hμ) ha hw]
-  simp [G, Finset.inf_eq_iInf]
+  refine ((continuousOn_inf_expFamilyPairCost hT a).mono
+    (Set.prod_mono (fun _ ↦ And.left) subset_rfl)).congr fun p ⟨⟨hμ, ha⟩, hw⟩ ↦ ?_
+  exact altCost_baiTask_restrict_eq_inf ν hT hμ (hν p.1 · hμ) ha hw
 
 /-- Under the hypotheses of `continuousOn_altCost_baiTask_restrict`, at a vector of means `μ` of
 the family with unique best arm `a`, `(μ', w) ↦ D(μ', w, ¬a)` is continuous within
@@ -465,8 +485,7 @@ private lemma continuousWithinAt_altCost_baiTask_restrict (hT : ∀ c, ¬ T =ᵐ
   have h_nhds : {μ' : α → ℝ | (∀ c, μ' c ∈ ρ.expFamilyMeans T) ∧ ∀ b, μ' b ≤ μ' a} ∈ 𝓝 μ :=
     (eventually_all.2 fun c ↦ (continuous_apply c).continuousAt.preimage_mem_nhds
       (expFamilyMeans_mem_nhds hT (hμ c))).and
-      (mem_of_superset h_best fun μ' hμ' b ↦ (eq_or_ne b a).elim (fun h ↦ h ▸ le_rfl)
-        fun hb ↦ ((mem_answerSet_baiTask_iff ν).1 hμ' b hb).le)
+      (mem_of_superset h_best fun _ hμ' ↦ le_of_forall_ne_lt ((mem_answerSet_baiTask_iff ν).1 hμ'))
   have h_mem : {μ' : α → ℝ | (∀ c, μ' c ∈ ρ.expFamilyMeans T) ∧ ∀ b, μ' b ≤ μ' a} ×ˢ Set.Ici 0 ∈
       𝓝[Set.univ ×ˢ simplex α] (μ, w) := by
     rw [nhdsWithin_prod_eq, nhdsWithin_univ]
@@ -528,122 +547,6 @@ theorem continuousAt_charTime_baiTask_restrict (hT : ∀ c, ¬ T =ᵐ[ρ] fun _ 
 
 /-! #### The optimal allocation -/
 
-/-- The cost `w₁ d(μ₁, m) + w₂ d(μ₂, m)` of moving the means `μ₁` and `μ₂` to their mean
-`m = (w₁ μ₁ + w₂ μ₂) / (w₁ + w₂)` weighted by `w₁` and `w₂`: the term of the arm pair `(a, b)` in
-the closed form of the cost of the alternatives. -/
-private noncomputable def pairCost (ρ : Measure 𝓨) (T : 𝓨 → ℝ) (μ₁ μ₂ w₁ w₂ : ℝ) : ℝ :=
-  w₁ * ρ.expFamilyDiv T μ₁ ((w₁ * μ₁ + w₂ * μ₂) / (w₁ + w₂)) +
-    w₂ * ρ.expFamilyDiv T μ₂ ((w₁ * μ₁ + w₂ * μ₂) / (w₁ + w₂))
-
-private lemma pairCost_nonneg {μ₁ μ₂ w₁ w₂ : ℝ} (hμ₁ : μ₁ ∈ ρ.expFamilyMeans T)
-    (hμ₂ : μ₂ ∈ ρ.expFamilyMeans T) (hw₁ : 0 ≤ w₁) (hw₂ : 0 ≤ w₂) :
-    0 ≤ pairCost ρ T μ₁ μ₂ w₁ w₂ := by
-  rcases (add_nonneg hw₁ hw₂).eq_or_lt with hW | hW
-  · obtain ⟨rfl, rfl⟩ : w₁ = 0 ∧ w₂ = 0 := ⟨by linarith, by linarith⟩
-    simp [pairCost]
-  have hm := div_mem_expFamilyMeans hμ₁ hμ₂ hw₁ hw₂ hW
-  exact add_nonneg (mul_nonneg hw₁ (expFamilyDiv_nonneg hμ₁ hm))
-    (mul_nonneg hw₂ (expFamilyDiv_nonneg hμ₂ hm))
-
-/-- The cost of a pair of arms vanishes when one of the weights does. -/
-private lemma pairCost_eq_zero {μ₁ μ₂ w₁ w₂ : ℝ} (h : w₁ = 0 ∨ w₂ = 0) :
-    pairCost ρ T μ₁ μ₂ w₁ w₂ = 0 := by
-  rcases h with rfl | rfl
-  · rcases eq_or_ne w₂ 0 with rfl | h <;> simp [pairCost, *, expFamilyDiv_self]
-  · rcases eq_or_ne w₁ 0 with rfl | h <;> simp [pairCost, *, expFamilyDiv_self]
-
-/-- The cost of a pair of arms with distinct means and positive weights is positive. -/
-private lemma pairCost_pos {μ₁ μ₂ w₁ w₂ : ℝ} (hμ₁ : μ₁ ∈ ρ.expFamilyMeans T)
-    (hμ₂ : μ₂ ∈ ρ.expFamilyMeans T) (hμ : μ₂ < μ₁) (hw₁ : 0 < w₁) (hw₂ : 0 < w₂) :
-    0 < pairCost ρ T μ₁ μ₂ w₁ w₂ := by
-  have hW := add_pos hw₁ hw₂
-  have hm := div_mem_expFamilyMeans hμ₁ hμ₂ hw₁.le hw₂.le hW
-  have hlt : (w₁ * μ₁ + w₂ * μ₂) / (w₁ + w₂) < μ₁ := by
-    rw [div_lt_iff₀ hW]
-    nlinarith
-  exact add_pos_of_pos_of_nonneg (mul_pos hw₁ (expFamilyDiv_pos hμ₁ hm hlt.ne'))
-    (mul_nonneg hw₂.le (expFamilyDiv_nonneg hμ₂ hm))
-
-/-- The cost of a pair of arms is positively homogeneous in the weights. -/
-private lemma pairCost_mul {μ₁ μ₂ w₁ w₂ t : ℝ} (ht : t ≠ 0) :
-    pairCost ρ T μ₁ μ₂ (t * w₁) (t * w₂) = t * pairCost ρ T μ₁ μ₂ w₁ w₂ := by
-  have hm : (t * w₁ * μ₁ + t * w₂ * μ₂) / (t * w₁ + t * w₂) =
-      (w₁ * μ₁ + w₂ * μ₂) / (w₁ + w₂) := by
-    rw [← mul_div_mul_left (w₁ * μ₁ + w₂ * μ₂) (w₁ + w₂) ht]
-    congr 1 <;> ring
-  simp only [pairCost, hm]
-  ring
-
-/-- The compensation identity for two means: `w₁ d(μ₁, z) + w₂ d(μ₂, z)` is the cost of the pair
-plus `(w₁ + w₂) d(m, z)`, with `m` the weighted mean. -/
-private lemma mul_expFamilyDiv_add_mul_expFamilyDiv_eq {μ₁ μ₂ w₁ w₂ : ℝ} (hW : w₁ + w₂ ≠ 0)
-    (z : ℝ) :
-    w₁ * ρ.expFamilyDiv T μ₁ z + w₂ * ρ.expFamilyDiv T μ₂ z = pairCost ρ T μ₁ μ₂ w₁ w₂ +
-      (w₁ + w₂) * ρ.expFamilyDiv T ((w₁ * μ₁ + w₂ * μ₂) / (w₁ + w₂)) z := by
-  have h := sum_mul_expFamilyDiv_eq (ρ := ρ) (T := T) Finset.univ ![w₁, w₂] ![μ₁, μ₂]
-    (m := (w₁ * μ₁ + w₂ * μ₂) / (w₁ + w₂)) (by simp [Fin.sum_univ_two]; field_simp) z
-  simpa [Fin.sum_univ_two, pairCost] using h
-
-/-- If the cost of a pair of arms with distinct means at the midpoint of two pairs of weights
-equals its cost at both pairs, then the two pairs of weights are proportional: the cost is
-strictly concave along the directions that change the ratio of the weights. -/
-private lemma mul_eq_mul_of_pairCost_midpoint_eq {μ₁ μ₂ x₁ y₁ x₂ y₂ : ℝ}
-    (hμ₁ : μ₁ ∈ ρ.expFamilyMeans T) (hμ₂ : μ₂ ∈ ρ.expFamilyMeans T) (hμ : μ₂ < μ₁)
-    (hx₁ : 0 ≤ x₁) (hy₁ : 0 ≤ y₁) (hx₂ : 0 ≤ x₂) (hy₂ : 0 ≤ y₂) (h₁ : 0 < x₁ + y₁)
-    (h₂ : 0 < x₂ + y₂)
-    (he₁ : pairCost ρ T μ₁ μ₂ ((x₁ + x₂) / 2) ((y₁ + y₂) / 2) = pairCost ρ T μ₁ μ₂ x₁ y₁)
-    (he₂ : pairCost ρ T μ₁ μ₂ ((x₁ + x₂) / 2) ((y₁ + y₂) / 2) = pairCost ρ T μ₁ μ₂ x₂ y₂) :
-    x₁ * y₂ = x₂ * y₁ := by
-  set x := (x₁ + x₂) / 2
-  set y := (y₁ + y₂) / 2
-  have h : 0 < x + y := by simp only [x, y]; linarith
-  set m := (x * μ₁ + y * μ₂) / (x + y) with hm_def
-  have hm : m ∈ ρ.expFamilyMeans T := div_mem_expFamilyMeans hμ₁ hμ₂ (by positivity)
-    (by positivity) h
-  have hm₁ := div_mem_expFamilyMeans hμ₁ hμ₂ hx₁ hy₁ h₁
-  have hm₂ := div_mem_expFamilyMeans hμ₁ hμ₂ hx₂ hy₂ h₂
-  -- By the compensation identity at `m`, the cost at the midpoint is the average of the costs at
-  -- the two pairs plus nonnegative terms, which must vanish: the weighted means are all `m`.
-  have e₁ := mul_expFamilyDiv_add_mul_expFamilyDiv_eq (ρ := ρ) (T := T) (μ₁ := μ₁) (μ₂ := μ₂)
-    h₁.ne' m
-  have e₂ := mul_expFamilyDiv_add_mul_expFamilyDiv_eq (ρ := ρ) (T := T) (μ₁ := μ₁) (μ₂ := μ₂)
-    h₂.ne' m
-  have e : pairCost ρ T μ₁ μ₂ x y =
-      x * ρ.expFamilyDiv T μ₁ m + y * ρ.expFamilyDiv T μ₂ m := by
-    rw [pairCost]
-  have hd₁ := mul_nonneg h₁.le (expFamilyDiv_nonneg hm₁ hm)
-  have hd₂ := mul_nonneg h₂.le (expFamilyDiv_nonneg hm₂ hm)
-  have k₁ : (x₁ + y₁) * ρ.expFamilyDiv T ((x₁ * μ₁ + y₁ * μ₂) / (x₁ + y₁)) m = 0 := by
-    simp only [x, y] at e he₁ he₂
-    linarith
-  have k₂ : (x₂ + y₂) * ρ.expFamilyDiv T ((x₂ * μ₁ + y₂ * μ₂) / (x₂ + y₂)) m = 0 := by
-    simp only [x, y] at e he₁ he₂
-    linarith
-  have hm₁m := (expFamilyDiv_eq_zero_iff hm₁ hm).1 ((mul_eq_zero.1 k₁).resolve_left h₁.ne')
-  have hm₂m := (expFamilyDiv_eq_zero_iff hm₂ hm).1 ((mul_eq_zero.1 k₂).resolve_left h₂.ne')
-  -- Equal weighted means of two distinct means have proportional weights.
-  have h_eq := hm₁m.trans hm₂m.symm
-  rw [div_eq_div_iff h₁.ne' h₂.ne'] at h_eq
-  have : (x₁ * y₂ - x₂ * y₁) * (μ₁ - μ₂) = 0 := by linear_combination h_eq
-  exact sub_eq_zero.1 ((mul_eq_zero.1 this).resolve_right (sub_ne_zero.2 hμ.ne'))
-
-omit [Fintype α] in
-/-- A unique best arm is a best arm. -/
-private lemma le_of_forall_ne_lt (ha : ∀ b ≠ a, μ b < μ a) (b : α) : μ b ≤ μ a :=
-  (eq_or_ne b a).elim (fun h ↦ h ▸ le_rfl) fun h ↦ (ha b h).le
-
-/-- The closed form [GK16, Lemma 3] of the cost of the alternatives as a finite infimum. -/
-private lemma altCost_baiTask_restrict_eq_inf [DecidableEq α] (hT : ∀ c, ¬ T =ᵐ[ρ] fun _ ↦ c)
-    (hμ : ∀ c, μ c ∈ ρ.expFamilyMeans T)
-    (hν : ∀ μ' : α → ℝ, (∀ c, μ' c ∈ ρ.expFamilyMeans T) →
-      ∀ c, klDiv (ν μ c) (ν μ' c) = ENNReal.ofReal (ρ.expFamilyDiv T (μ c) (μ' c)))
-    (ha : ∀ b, μ b ≤ μ a) (hw : 0 ≤ w) :
-    ((baiTask ν).restrict {μ' | ∀ c, μ' c ∈ ρ.expFamilyMeans T}).altCost μ w a =
-      (Finset.univ.filter (· ≠ a)).inf fun b ↦
-        ENNReal.ofReal (pairCost ρ T (μ a) (μ b) (w a) (w b)) := by
-  rw [altCost_baiTask_restrict_eq_iInf_expFamilyDiv ν hT hμ hν ha hw, Finset.inf_eq_iInf]
-  simp [pairCost]
-
 /-- In best arm identification with arms in an exponential family (as in
 `altCost_baiTask_restrict_eq_iInf_expFamilyDiv`), the value `D(μ, ¬a)` of the game of the unique
 best arm `a` of `μ` is positive, so that the characteristic time `T*(μ) = D(μ, ¬a)⁻¹` is
@@ -665,7 +568,7 @@ theorem answerValue_baiTask_restrict_pos (hT : ∀ c, ¬ T =ᵐ[ρ] fun _ ↦ c)
   rw [altCost_baiTask_restrict_eq_inf ν hT hμ hν ha' (mem_simplex_iff.1 hu).1,
     Finset.lt_inf_iff ENNReal.zero_lt_top]
   intro b hb
-  exact ENNReal.ofReal_pos.2 (pairCost_pos (hμ a) (hμ b)
+  exact ENNReal.ofReal_pos.2 (expFamilyPairCost_pos (hμ a) (hμ b)
     (ha b (Finset.mem_filter.1 hb).2) (inv_pos.2 hK) (inv_pos.2 hK))
 
 /-- **The optimal allocations of best arm identification have positive entries**
@@ -700,7 +603,7 @@ theorem pos_of_mem_optAlloc_baiTask_restrict (hT : ∀ c, ¬ T =ᵐ[ρ] fun _ �
     rw [altCost_baiTask_restrict_eq_inf ν hT hμ hν ha' hws.1]
     refine le_antisymm ((Finset.inf_le (Finset.mem_filter.2 ⟨Finset.mem_univ b, hba⟩)).trans ?_)
       zero_le
-    rw [pairCost_eq_zero hb, ENNReal.ofReal_zero]
+    rw [expFamilyPairCost_eq_zero hb, ENNReal.ofReal_zero]
   exact (answerValue_baiTask_restrict_pos ν hT hμ hν ha).ne' (hD ▸ h0)
 
 /-- **The optimal allocations of best arm identification equalize the costs of the pairs of
@@ -721,6 +624,7 @@ theorem answerValue_baiTask_restrict_eq_of_mem_optAlloc (hT : ∀ c, ¬ T =ᵐ[�
       ENNReal.ofReal (w a * ρ.expFamilyDiv T (μ a) ((w a * μ a + w b * μ b) / (w a + w b)) +
         w b * ρ.expFamilyDiv T (μ b) ((w a * μ a + w b * μ b) / (w a + w b))) := by
   classical
+  rw [← expFamilyPairCost_def]
   set task := (baiTask ν).restrict {μ' | ∀ c, μ' c ∈ ρ.expFamilyMeans T}
   have ha' := le_of_forall_ne_lt ha
   have hw_pos := pos_of_mem_optAlloc_baiTask_restrict ν hT hμ hν ha hw
@@ -731,7 +635,7 @@ theorem answerValue_baiTask_restrict_eq_of_mem_optAlloc (hT : ∀ c, ¬ T =ᵐ[�
     Finset.mem_filter.2 ⟨Finset.mem_univ c, hc⟩
   -- The value is at most the cost of every pair.
   have h_le {c : α} (hc : c ≠ a) :
-      task.answerValue μ a ≤ ENNReal.ofReal (pairCost ρ T (μ a) (μ c) (w a) (w c)) :=
+      task.answerValue μ a ≤ ENNReal.ofReal (ρ.expFamilyPairCost T (μ a) (μ c) (w a) (w c)) :=
     hD ▸ h_inf ▸ Finset.inf_le (hmem hc)
   refine le_antisymm (h_le hba) (not_lt.1 fun h ↦ ?_)
   -- Otherwise the value `D = ofReal D'` is finite and positive, and `D' < cost of (a, b)`.
@@ -740,19 +644,20 @@ theorem answerValue_baiTask_restrict_eq_of_mem_optAlloc (hT : ∀ c, ¬ T =ᵐ[�
   have hD_eq : task.answerValue μ a = ENNReal.ofReal D' := (ENNReal.ofReal_toReal hD_top).symm
   have hD'_pos : 0 < D' := ENNReal.toReal_pos (answerValue_baiTask_restrict_pos ν hT hμ hν ha).ne'
     hD_top
-  have hD'_le {c : α} (hc : c ≠ a) : D' ≤ pairCost ρ T (μ a) (μ c) (w a) (w c) :=
-    ENNReal.toReal_le_of_le_ofReal (pairCost_nonneg (hμ a) (hμ c) (hw0 a) (hw0 c)) (h_le hc)
-  have hD'_lt : D' < pairCost ρ T (μ a) (μ b) (w a) (w b) :=
+  have hD'_le {c : α} (hc : c ≠ a) : D' ≤ ρ.expFamilyPairCost T (μ a) (μ c) (w a) (w c) :=
+    ENNReal.toReal_le_of_le_ofReal (expFamilyPairCost_nonneg (hμ a) (hμ c) (hw0 a) (hw0 c))
+      (h_le hc)
+  have hD'_lt : D' < ρ.expFamilyPairCost T (μ a) (μ b) (w a) (w b) :=
     (ENNReal.ofReal_lt_ofReal_iff'.1 (hD_eq ▸ h)).1
   -- Removing a little weight `s` from the arm `b` keeps the cost of `(a, b)` above `D'`, by
   -- continuity.
-  have h_cont : ContinuousAt (fun s ↦ pairCost ρ T (μ a) (μ b) (w a) (w b - s)) 0 := by
-    have hc := (continuousOn_mul_expFamilyDiv_add_mul_expFamilyDiv hT (ρ := ρ)).continuousAt
+  have h_cont : ContinuousAt (fun s ↦ ρ.expFamilyPairCost T (μ a) (μ b) (w a) (w b - s)) 0 := by
+    have hc := (continuousOn_expFamilyPairCost hT (ρ := ρ)).continuousAt
       (x := ((μ a, μ b), (w a, w b))) (prod_mem_nhds
         (prod_mem_nhds (expFamilyMeans_mem_nhds hT (hμ a)) (expFamilyMeans_mem_nhds hT (hμ b)))
         (prod_mem_nhds (Ici_mem_nhds (hw_pos a)) (Ici_mem_nhds (hw_pos b))))
     have hf : ContinuousAt (fun s : ℝ ↦ ((μ a, μ b), (w a, w b - s))) 0 := by fun_prop
-    simpa [Function.comp_def, pairCost] using hc.comp_of_eq hf (by simp)
+    exact hc.comp_of_eq hf (by simp)
   obtain ⟨s, hs_lt, hs⟩ := ((h_cont.eventually (lt_mem_nhds (by simpa using hD'_lt))).filter_mono
     nhdsWithin_le_nhds |>.and (Ioo_mem_nhdsGT (hw_pos b))).exists
   have hs1 : s < 1 := hs.2.trans_le ((simplex_subset_Icc hws).2 b)
@@ -761,27 +666,16 @@ theorem answerValue_baiTask_restrict_eq_of_mem_optAlloc (hT : ∀ c, ¬ T =ᵐ[�
   have ht : 1 < t := one_lt_inv_iff₀.2 ⟨by linarith, by linarith [hs.1]⟩
   set v : α → ℝ := t • (w - Pi.single b s) with hv_def
   have hv_apply (c : α) : v c = t * (w c - (Pi.single b s : α → ℝ) c) := by simp [hv_def]
-  have hv : v ∈ simplex α := by
-    refine mem_simplex_iff.2 ⟨fun c ↦ ?_, ?_⟩
-    · rw [hv_apply]
-      refine mul_nonneg (by linarith) ?_
-      by_cases hcb : c = b
-      · subst hcb
-        simp only [Pi.single_eq_same]
-        linarith [hs.2]
-      · simpa [hcb] using hw0 c
-    · simp only [hv_apply, ← Finset.mul_sum, Finset.sum_sub_distrib, Finset.sum_pi_single',
-        Finset.mem_univ, ite_true, (mem_simplex_iff.1 hws).2, ht_def]
-      field_simp [show (1 : ℝ) - s ≠ 0 by linarith]
+  have hv : v ∈ simplex α := smul_sub_single_mem_simplex hws hs.2.le hs1
   have h_lt : task.answerValue μ a < task.altCost μ v a := by
     rw [altCost_baiTask_restrict_eq_inf ν hT hμ hν ha' (mem_simplex_iff.1 hv).1,
       Finset.lt_inf_iff hD_top.lt_top]
     intro c hc
     have hca := (Finset.mem_filter.1 hc).2
-    have hvc : pairCost ρ T (μ a) (μ c) (v a) (v c) =
-        t * pairCost ρ T (μ a) (μ c) (w a) (w c - (Pi.single b s : α → ℝ) c) := by
+    have hvc : ρ.expFamilyPairCost T (μ a) (μ c) (v a) (v c) =
+        t * ρ.expFamilyPairCost T (μ a) (μ c) (w a) (w c - (Pi.single b s : α → ℝ) c) := by
       rw [hv_apply, hv_apply, Pi.single_eq_of_ne hba.symm, sub_zero,
-        pairCost_mul (by linarith)]
+        expFamilyPairCost_mul (by linarith)]
     rw [hD_eq, ENNReal.ofReal_lt_ofReal_iff_of_nonneg hD'_pos.le, hvc]
     by_cases hcb : c = b
     · subst hcb
@@ -818,17 +712,19 @@ theorem subsingleton_optAlloc_baiTask_restrict (hT : ∀ c, ¬ T =ᵐ[ρ] fun _ 
   have hpos' := pos_of_mem_optAlloc_baiTask_restrict ν hT hμ hν ha hw'
   -- The three allocations equalize the costs of all the pairs `(a, b)`, at the same value.
   have h_eq {v : α → ℝ} (hv : v ∈ task.optAlloc μ a) {b : α} (hba : b ≠ a) :
-      task.answerValue μ a = ENNReal.ofReal (pairCost ρ T (μ a) (μ b) (v a) (v b)) :=
-    answerValue_baiTask_restrict_eq_of_mem_optAlloc ν hT hμ hν ha hv hba
+      task.answerValue μ a = ENNReal.ofReal (ρ.expFamilyPairCost T (μ a) (μ b) (v a) (v b)) := by
+    rw [expFamilyPairCost_def]
+    exact answerValue_baiTask_restrict_eq_of_mem_optAlloc ν hT hμ hν ha hv hba
   have h_nonneg {v : α → ℝ} (hv : v ∈ task.optAlloc μ a) (b : α) :
-      0 ≤ pairCost ρ T (μ a) (μ b) (v a) (v b) :=
-    pairCost_nonneg (hμ a) (hμ b) (hv0 hv a) (hv0 hv b)
+      0 ≤ ρ.expFamilyPairCost T (μ a) (μ b) (v a) (v b) :=
+    expFamilyPairCost_nonneg (hμ a) (hμ b) (hv0 hv a) (hv0 hv b)
   -- For each arm `b`, the weights of `a` and `b` are proportional in `w` and `w'`.
   have h_prop (b : α) : w a * w' b = w' a * w b := by
     rcases eq_or_ne b a with rfl | hba
     · ring
-    refine mul_eq_mul_of_pairCost_midpoint_eq (hμ a) (hμ b) (ha b hba) (hv0 hw a) (hv0 hw b)
-      (hv0 hw' a) (hv0 hw' b) (add_pos (hpos a) (hpos b)) (add_pos (hpos' a) (hpos' b)) ?_ ?_
+    refine mul_eq_mul_of_expFamilyPairCost_midpoint_eq (hμ a) (hμ b) (ha b hba) (hv0 hw a)
+      (hv0 hw b) (hv0 hw' a) (hv0 hw' b) (add_pos (hpos a) (hpos b)) (add_pos (hpos' a) (hpos' b))
+      ?_ ?_
     · exact (ENNReal.ofReal_eq_ofReal_iff (h_nonneg hw'' b) (h_nonneg hw b)).1
         ((h_eq hw'' hba).symm.trans (h_eq hw hba))
     · exact (ENNReal.ofReal_eq_ofReal_iff (h_nonneg hw'' b) (h_nonneg hw' b)).1
@@ -859,11 +755,9 @@ theorem exists_optAlloc_baiTask_restrict_eq_singleton (hT : ∀ c, ¬ T =ᵐ[ρ]
   -- By the closed form [GK16, Lemma 3], the cost of the alternatives is continuous in the
   -- allocation on the simplex, so that an optimal allocation exists.
   have h_cont : ContinuousOn (fun w : α → ℝ ↦ (Finset.univ.filter (· ≠ a)).inf fun b ↦
-      ENNReal.ofReal (pairCost ρ T (μ a) (μ b) (w a) (w b))) (Set.Ici 0) := by
-    refine ContinuousOn.finset_inf_apply fun b _ ↦ ENNReal.continuous_ofReal.comp_continuousOn ?_
-    exact (continuousOn_mul_expFamilyDiv_add_mul_expFamilyDiv hT).comp
-      (f := fun w : α → ℝ ↦ ((μ a, μ b), (w a, w b))) (by fun_prop)
-      fun w hw ↦ ⟨⟨hμ a, hμ b⟩, hw a, hw b⟩
+      ENNReal.ofReal (ρ.expFamilyPairCost T (μ a) (μ b) (w a) (w b))) (Set.Ici 0) :=
+    (continuousOn_inf_expFamilyPairCost hT a).comp (f := fun w ↦ (μ, w)) (by fun_prop)
+      fun _ hw ↦ ⟨hμ, hw⟩
   have h_usc : UpperSemicontinuousOn (fun w ↦
       ((baiTask ν).restrict {μ' | ∀ c, μ' c ∈ ρ.expFamilyMeans T}).altCost μ w a)
       (simplex α) :=
