@@ -47,7 +47,8 @@ negative, since a learner that switches arms can beat every fixed arm.
 * `advRegret_of_subsingleton`: with a single arm, the adversarial regret of every learner is `0`.
 * `expertRegret_le_iff`, `sum_sub_integral_le_expertRegret`,
   `Learning.IsAlgEnvSeq.expertRegret_eq_sub_integral_sum_feedback`: the same statements for the
-  regret against expert advice, the last one for runs against `Environment.ofSeq E x _`.
+  regret against expert advice, the last one for runs against `Environment.ofSeq o x _` with any
+  observations `o`, such as the advice `E`.
 * `expertRegret_single`: with the experts that each recommend one arm, the regret against expert
   advice is the adversarial regret.
 
@@ -156,13 +157,14 @@ lemma expertRegret_single [DecidableEq α] :
     expertRegret (fun _ m ↦ Pi.single m 1) x A P n = advRegret x A P n := by
   simp [expertRegret_def, advRegret_def, Pi.single_apply]
 
-/-- Along a run of an algorithm that observes the advice `E t` at round `t` and receives the
-reward `x t a` of its action `a`, that is, a run against `Environment.ofSeq E x _`, the expected
-total reward in the regret against expert advice is the expected total observed feedback. -/
-lemma _root_.Learning.IsAlgEnvSeq.expertRegret_eq_sub_integral_sum_feedback [MeasurableSpace α]
-    [IsProbabilityMeasure P] {hx : ∀ t, Measurable (x t)} {alg : Algorithm (β → α → ℝ) α ℝ}
-    {O : ℕ → Ω → β → α → ℝ} {Y : ℕ → Ω → ℝ}
-    (h : IsAlgEnvSeq O A Y alg (Environment.ofSeq E x hx) P) (n : ℕ) :
+/-- Along a run of an algorithm that receives the reward `x t a` of its action `a` at round `t`,
+that is, a run against `Environment.ofSeq o x _` for any observation sequence `o` (such as the
+advice `E`), the expected total reward in the regret against expert advice is the expected total
+observed feedback. -/
+lemma _root_.Learning.IsAlgEnvSeq.expertRegret_eq_sub_integral_sum_feedback {𝓞 : Type*}
+    [MeasurableSpace 𝓞] [MeasurableSpace α] [IsProbabilityMeasure P] {o : ℕ → 𝓞}
+    {hx : ∀ t, Measurable (x t)} {alg : Algorithm 𝓞 α ℝ} {O : ℕ → Ω → 𝓞} {Y : ℕ → Ω → ℝ}
+    (h : IsAlgEnvSeq O A Y alg (Environment.ofSeq o x hx) P) (n : ℕ) :
     expertRegret E x A P n =
       (⨆ m, ∑ t ∈ range n, ∑ a, E t m a * x t a) - P[fun ω ↦ ∑ t ∈ range n, Y t ω] := by
   rw [expertRegret_def]
