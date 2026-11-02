@@ -95,6 +95,16 @@ lemma meanReward_def (R : Kernel (𝓢 × 𝓐) 𝓡) (p : 𝓢 × 𝓐) :
     meanReward R p = ∫ y, y ∂(R p) :=
   (rfl)
 
+/-- The mean reward is a measurable function of the state-action pair. -/
+lemma measurable_meanReward [SecondCountableTopology 𝓡] [BorelSpace 𝓡]
+    (R : Kernel (𝓢 × 𝓐) 𝓡) : Measurable (meanReward R) :=
+  (stronglyMeasurable_id.integral_kernel (κ := R)).measurable
+
+/-- Rewards bounded by `C` have a mean bounded by `C`. -/
+lemma norm_meanReward_le (R : Kernel (𝓢 × 𝓐) 𝓡) [IsMarkovKernel R] {p : 𝓢 × 𝓐} {C : ℝ}
+    (hR : ∀ᵐ y ∂(R p), ‖y‖ ≤ C) : ‖meanReward R p‖ ≤ C := by
+  simpa [meanReward_def] using norm_integral_le_of_norm_le_const hR
+
 end MeanReward
 
 /-! ### Deterministic stationary policies and their trajectory laws -/
