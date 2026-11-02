@@ -55,6 +55,9 @@ and the deviation inequalities of best arm identification, are bounded this way.
   `n`, for finitely many arms.
 * `measure_exists_pullCount_sumRewards_le`: the bound on the probability of the event at some
   round for one arm, and `measure_exists_lt_pullCount_sumRewards_le`, its form up to a horizon `n`.
+* `sum_le_mul_or_mul_le_sum_of_empMean_notMem_Ioo`: an empirical mean outside `(l, u)` is an
+  event `y ≤ s l ∨ s u ≤ y` about the number of pulls `s` and the sum of rewards `y`, the form to
+  which the event transfers apply.
 * `measureReal_pullCount_sumRewards_le_sum`: in a run of any algorithm against `stationaryEnv ν`,
   the probability that a property `p` of the number of pulls and the sum of rewards of an arm,
   which fails for zero pulls, holds at round `t` is at most the sum over `s < t` of the
@@ -97,6 +100,22 @@ lemma sumRewards_eq_sum_range_rewardByCount {𝓨 : Type*} [AddCommGroup 𝓨] {
   rw [← sum_rewardByCount_eq_sumRewards, range_eq_Ico,
     sum_Ico_add' (fun m ↦ rewardByCount A R a m ω), zero_add,
     Ico_add_one_right_eq_Icc]
+
+/-- An empirical mean outside `(l, u)` after `s` pulls: the sum `y` of the rewards satisfies
+`y ≤ s l` or `s u ≤ y`. With no pull, the empirical mean is `0` and the condition holds. -/
+lemma sum_le_mul_or_mul_le_sum_of_empMean_notMem_Ioo {a : α} {t : ℕ} {ω : Ω} {l u : ℝ}
+    (h : empMean A R a t ω ∉ Set.Ioo l u) :
+    sumRewards A R a t ω ≤ pullCount A a t ω * l ∨
+      pullCount A a t ω * u ≤ sumRewards A R a t ω := by
+  rcases Nat.eq_zero_or_pos (pullCount A a t ω) with h0 | hpos
+  · simp only [h0, Nat.cast_zero, zero_mul]
+    exact le_total _ _
+  have hpos' : (0 : ℝ) < pullCount A a t ω := Nat.cast_pos.2 hpos
+  rw [empMean, Set.mem_Ioo, not_and_or, not_lt, not_lt, div_le_iff₀ hpos', le_div_iff₀ hpos']
+    at h
+  rcases h with h | h
+  · exact Or.inl (h.trans_eq (mul_comm _ _))
+  · exact Or.inr ((mul_comm _ _).trans_le h)
 
 variable [Countable α] [MeasurableSingletonClass α]
 

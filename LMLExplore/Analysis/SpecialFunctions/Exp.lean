@@ -39,6 +39,8 @@ logarithmically.
   `L ≥ 0`.
 * `Real.hasSum_exp_neg_add_mul`: `∑_{k ≥ 0} exp (-(k + m) d) = exp (-m d) / (1 - exp (-d))` for
   `d > 0`.
+* `Real.exp_neg_mul_div_one_sub_exp_neg_nonneg`: the terms `exp (-x d) / (1 - exp (-d))` of these
+  tail sums are nonnegative for `d ≥ 0`.
 * `Real.summable_exp_neg_of_tendsto_div_log`: `∑ n, exp (-f n) < ∞` if `f n / log n → ∞`.
 
 ## References
@@ -137,6 +139,12 @@ theorem hasSum_exp_neg_add_mul {d : ℝ} (hd : 0 < d) (m : ℕ) :
     ring_nf
   simp_rw [h_eq, div_eq_mul_inv]
   exact (hasSum_geometric_of_lt_one (exp_pos _).le (exp_lt_one_iff.2 (neg_lt_zero.2 hd))).mul_left _
+
+/-- The terms `exp (-x d) / (1 - exp (-d))` of the tail bounds of `hasSum_exp_neg_add_mul` are
+nonnegative, for `d ≥ 0`. -/
+theorem exp_neg_mul_div_one_sub_exp_neg_nonneg {d : ℝ} (hd : 0 ≤ d) (x : ℝ) :
+    0 ≤ exp (-(x * d)) / (1 - exp (-d)) :=
+  div_nonneg (exp_pos _).le (sub_nonneg.2 (exp_le_one_iff.2 (neg_nonpos.2 hd)))
 
 /-- If `f n` grows faster than `log n`, that is `f n / log n → ∞`, then `exp (-f n)` is
 summable. -/
