@@ -6,6 +6,7 @@ Authors: Rémy Degenne
 module
 
 public import LMLExplore.Analysis.FixedPoint.OrderUnit
+public import LMLExplore.Order.Bounds.Basic
 public import LMLExplore.Order.Iterate
 public import LMLExplore.Topology.MetricSpace.Contracting
 public import Mathlib.Data.Fintype.Pigeonhole
@@ -79,15 +80,6 @@ variable {E D : Type*}
 
 section Blackwell
 
-/-- The maximum of monotone maps is monotone, when it is attained: `B x` is the greatest of the
-values `T d x`. -/
-lemma monotone_of_isGreatest_range [Preorder E] {T : D → E → E} {B : E → E}
-    (hT : ∀ d, Monotone (T d)) (hB : ∀ x, IsGreatest (range fun d ↦ T d x) (B x)) :
-    Monotone B := fun x y hxy ↦ by
-  obtain ⟨d, hd⟩ := (hB x).1
-  rw [← hd]
-  exact (hT d hxy).trans ((hB y).2 ⟨d, rfl⟩)
-
 variable [AddCommGroup E] [PartialOrder E] [Module ℝ E] {e : E} {γ : ℝ≥0}
 
 /-- The maximum of maps satisfying Blackwell's conditions with modulus `γ` satisfies them, when it
@@ -95,7 +87,7 @@ is attained: `B x` is the greatest of the values `T d x`. -/
 lemma IsBlackwell.of_isGreatest_range [IsOrderedAddMonoid E] {T : D → E → E} {B : E → E}
     (hT : ∀ d, IsBlackwell e γ (T d)) (hB : ∀ x, IsGreatest (range fun d ↦ T d x) (B x)) :
     IsBlackwell e γ B where
-  monotone := monotone_of_isGreatest_range (fun d ↦ (hT d).monotone) hB
+  monotone := Monotone.of_isGreatest_range (fun d ↦ (hT d).monotone) hB
   map_add_smul_le x c hc := by
     obtain ⟨d, hd⟩ := (hB (x + c • e)).1
     rw [← hd]
@@ -174,7 +166,7 @@ theorem map_le (hT : ∀ d, Monotone (T d)) (hB : ∀ x, IsGreatest (range fun d
 iterates of `B`: `B^[k] (u 0) ≤ u k`. -/
 theorem iterate_le (hT : ∀ d, Monotone (T d)) (hB : ∀ x, IsGreatest (range fun d ↦ T d x) (B x))
     (h : IsModifiedPolicyIteration T B m d u) (h₀ : u 0 ≤ B (u 0)) (k : ℕ) : B^[k] (u 0) ≤ u k :=
-  (monotone_of_isGreatest_range hT hB).iterate_le_of_map_le_succ (h.map_le hT hB h₀) k
+  (Monotone.of_isGreatest_range hT hB).iterate_le_of_map_le_succ (h.map_le hT hB h₀) k
 
 end IsModifiedPolicyIteration
 
