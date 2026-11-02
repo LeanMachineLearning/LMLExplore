@@ -8,6 +8,7 @@ module
 public import LeanMachineLearning.SequentialLearning.Algorithm
 public import LeanMachineLearning.SequentialLearning.StoppedHistory
 public import LMLExplore.Probability.HasCondDistrib
+public import Mathlib.Probability.Kernel.CondDistrib
 
 import LMLExplore.Probability.Kernel.Composition.MeasureCompProd
 
@@ -43,6 +44,9 @@ measure at a stopping time is reduced to a change of measure on the whole trajec
   measurable map `g : Ω → Ω'` carrying `P` to `P'`.
 * `Learning.IsAlgEnvSeq.adapted_sigmaHistory_filtrationAction`: the histories of variable length
   are adapted to `IsAlgEnvSeq.filtrationAction`.
+* `Learning.IsAlgEnvSeq.condExp_comp_action`: the conditional expectation of a function
+  `f (past, A n)` of the past (history and observation) and the action of round `n` given the past
+  is the integral of `f (past, ·)` against the policy of round `n`.
 * `Learning.stepKernel_piecewise`: the step kernel of a piecewise environment at a history in
   `s n` is that of `env`, and that of `env'` elsewhere.
 
@@ -80,6 +84,26 @@ lemma IsAlgEnvSeq.adapted_sigmaHistory_filtrationAction {P : Measure Ω} [IsFini
     {O : ℕ → Ω → 𝓞} {X : ℕ → Ω → 𝓐} {Y : ℕ → Ω → 𝓨} (h : IsAlgEnvSeq O X Y alg env P) :
     Adapted h.filtrationAction (sigmaHistory O X Y) :=
   fun n ↦ (measurable_sigma_mk n).comp (h.measurable_history_filtrationAction n)
+
+/-- Along a run of an algorithm, the conditional expectation of an integrable function
+`f (past, A n)` of the past (history and observation) and of the action of round `n` given the
+past is the integral of `f (past, ·)` against the policy of round `n` at the past. -/
+lemma IsAlgEnvSeq.condExp_comp_action [StandardBorelSpace 𝓐] [Nonempty 𝓐] {E : Type*}
+    [NormedAddCommGroup E] [NormedSpace ℝ E] [CompleteSpace E] {P : Measure Ω} [IsFiniteMeasure P]
+    {O : ℕ → Ω → 𝓞} {A : ℕ → Ω → 𝓐} {Y : ℕ → Ω → 𝓨} (h : IsAlgEnvSeq O A Y alg env P) (n : ℕ)
+    {f : (Hist 𝓞 𝓐 𝓨 n × 𝓞) × 𝓐 → E} (hf : StronglyMeasurable f)
+    (hint : Integrable (fun ω ↦ f ((history O A Y n ω, O n ω), A n ω)) P) :
+    P[fun ω ↦ f ((history O A Y n ω, O n ω), A n ω) | h.filtrationObs n] =ᵐ[P]
+      fun ω ↦ ∫ a, f ((history O A Y n ω, O n ω), a)
+        ∂(alg.policy n (history O A Y n ω, O n ω)) := by
+  have hX : Measurable fun ω ↦ (history O A Y n ω, O n ω) :=
+    (h.measurable_history n).prodMk (h.measurable_obs n)
+  rw [h.filtrationObs_eq_comap]
+  refine (condExp_prod_ae_eq_integral_condDistrib hX (h.measurable_action n).aemeasurable hf
+    hint).trans ?_
+  filter_upwards [ae_of_ae_map hX.aemeasurable (h.hasCondDistrib_action n).condDistrib_eq]
+    with ω hω
+  rw [hω]
 
 variable {s : (n : ℕ) → Set (Hist 𝓞 𝓐 𝓨 n)} {hs : ∀ n, MeasurableSet (s n)}
   {env' : Environment 𝓞 𝓐 𝓨} {n : ℕ} {x : Hist 𝓞 𝓐 𝓨 n}
