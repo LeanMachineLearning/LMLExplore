@@ -199,7 +199,7 @@ theorem hasLaw_obs_markov (h : IsAlgEnvSeq O A Y (Algorithm.markov π) (M.env μ
   | zero => rw [stateMarginal_zero]; exact hasLaw_obs_zero h
   | succ n ih =>
     rw [stateMarginal_add_one, ← (ih.prod_of_hasCondDistrib
-      (h.hasCondDistrib_action_markov π n)).map_eq]
+      (h.hasCondDistrib_action_markov n)).map_eq]
     exact hasLaw_obs_add_one h n
 
 /-- In a run of the Markov policy `π` in the environment of an MDP started from the probability
@@ -207,7 +207,7 @@ measure `μ`, the state-action pair of round `n` has law `M.stateMarginal π μ 
 theorem hasLaw_obs_action_markov (h : IsAlgEnvSeq O A Y (Algorithm.markov π) (M.env μ) P)
     (n : ℕ) :
     HasLaw (fun ω ↦ (O n ω, A n ω)) (M.stateMarginal π μ n ⊗ₘ π n) P :=
-  (hasLaw_obs_markov h n).prod_of_hasCondDistrib (h.hasCondDistrib_action_markov π n)
+  (hasLaw_obs_markov h n).prod_of_hasCondDistrib (h.hasCondDistrib_action_markov n)
 
 end Markov
 

@@ -65,12 +65,15 @@ lemma Algorithm.markov_inj [Nonempty 𝓨] {π' : ℕ → Kernel 𝓞 𝓐} [∀
   have h_hist : Hist 𝓞 𝓐 𝓨 n := fun _ ↦ (o, Classical.arbitrary 𝓐, Classical.arbitrary 𝓨)
   simpa using congr(($h).policy n (h_hist, o))
 
+variable {π} in
 /-- In an algorithm-environment sequence of the algorithm playing the Markov policy `π`, the
 action of round `n` has conditional law `π n` given the observation of round `n`. -/
 lemma IsAlgEnvSeq.hasCondDistrib_action_markov {Ω : Type*} {mΩ : MeasurableSpace Ω}
     {P : Measure Ω} [IsFiniteMeasure P] {O : ℕ → Ω → 𝓞} {A : ℕ → Ω → 𝓐} {Y : ℕ → Ω → 𝓨}
     {env : Environment 𝓞 𝓐 𝓨} (h : IsAlgEnvSeq O A Y (Algorithm.markov π) env P) (n : ℕ) :
-    HasCondDistrib (A n) (O n) (π n) P :=
-  (h.hasCondDistrib_action n).comp_right (hf := measurable_snd)
+    HasCondDistrib (A n) (O n) (π n) P := by
+  have h' := h.hasCondDistrib_action n
+  rw [Algorithm.policy_markov] at h'
+  exact h'.comp_right
 
 end Learning
