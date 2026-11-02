@@ -93,7 +93,7 @@ confidence*, COLT 2016.
 * `MeasureTheory.Measure.expFamilyPairCost_nonneg`, `MeasureTheory.Measure.expFamilyPairCost_pos`,
   `MeasureTheory.Measure.expFamilyPairCost_eq_zero`, `MeasureTheory.Measure.expFamilyPairCost_mul`:
   the cost of moving two means to their weighted mean is nonnegative, positive for distinct means
-  and positive weights, zero when a weight vanishes, and positively homogeneous in the weights.
+  and positive weights, zero when a weight vanishes, and homogeneous in the weights.
 * `MeasureTheory.Measure.mul_eq_mul_of_expFamilyPairCost_midpoint_eq`: that cost is strictly
   concave along the directions that change the ratio of the weights.
 * `MeasureTheory.Measure.continuousOn_expFamilyPairCost`: that cost is continuous in the means and
@@ -608,20 +608,23 @@ lemma expFamilyPairCost_eq_zero {μ₁ μ₂ w₁ w₂ : ℝ} (h : w₁ = 0 ∨ 
 /-- The cost of moving two distinct means to their mean weighted by positive weights is
 positive. -/
 lemma expFamilyPairCost_pos {μ₁ μ₂ w₁ w₂ : ℝ} (hμ₁ : μ₁ ∈ ρ.expFamilyMeans T)
-    (hμ₂ : μ₂ ∈ ρ.expFamilyMeans T) (hμ : μ₂ < μ₁) (hw₁ : 0 < w₁) (hw₂ : 0 < w₂) :
+    (hμ₂ : μ₂ ∈ ρ.expFamilyMeans T) (hμ : μ₁ ≠ μ₂) (hw₁ : 0 < w₁) (hw₂ : 0 < w₂) :
     0 < ρ.expFamilyPairCost T μ₁ μ₂ w₁ w₂ := by
   have hW := add_pos hw₁ hw₂
   have hm := div_mem_expFamilyMeans hμ₁ hμ₂ hw₁.le hw₂.le hW
-  have hlt : (w₁ * μ₁ + w₂ * μ₂) / (w₁ + w₂) < μ₁ := by
-    rw [div_lt_iff₀ hW]
-    nlinarith
-  exact add_pos_of_pos_of_nonneg (mul_pos hw₁ (expFamilyDiv_pos hμ₁ hm hlt.ne'))
+  -- The weighted mean differs from `μ₁`, since `w₁ μ₁ + w₂ μ₂ - (w₁ + w₂) μ₁ = w₂ (μ₂ - μ₁)`.
+  have hne : μ₁ ≠ (w₁ * μ₁ + w₂ * μ₂) / (w₁ + w₂) := by
+    rw [Ne, eq_div_iff hW.ne']
+    intro h
+    exact mul_ne_zero hw₂.ne' (sub_ne_zero.2 hμ.symm) (by linear_combination -h)
+  exact add_pos_of_pos_of_nonneg (mul_pos hw₁ (expFamilyDiv_pos hμ₁ hm hne))
     (mul_nonneg hw₂.le (expFamilyDiv_nonneg hμ₂ hm))
 
-/-- The cost of moving two means to their weighted mean is positively homogeneous in the
-weights. -/
-lemma expFamilyPairCost_mul {μ₁ μ₂ w₁ w₂ t : ℝ} (ht : t ≠ 0) :
+/-- The cost of moving two means to their weighted mean is homogeneous in the weights. -/
+lemma expFamilyPairCost_mul {μ₁ μ₂ w₁ w₂ t : ℝ} :
     ρ.expFamilyPairCost T μ₁ μ₂ (t * w₁) (t * w₂) = t * ρ.expFamilyPairCost T μ₁ μ₂ w₁ w₂ := by
+  rcases eq_or_ne t 0 with rfl | ht
+  · simp [expFamilyPairCost_def]
   have hm : (t * w₁ * μ₁ + t * w₂ * μ₂) / (t * w₁ + t * w₂) =
       (w₁ * μ₁ + w₂ * μ₂) / (w₁ + w₂) := by
     rw [← mul_div_mul_left (w₁ * μ₁ + w₂ * μ₂) (w₁ + w₂) ht]
@@ -643,7 +646,7 @@ lemma mul_expFamilyDiv_add_mul_expFamilyDiv_eq {μ₁ μ₂ w₁ w₂ : ℝ} (hW
 of weights, equals its cost at both pairs, then the two pairs of weights are proportional: the
 cost is strictly concave along the directions that change the ratio of the weights. -/
 lemma mul_eq_mul_of_expFamilyPairCost_midpoint_eq {μ₁ μ₂ x₁ y₁ x₂ y₂ : ℝ}
-    (hμ₁ : μ₁ ∈ ρ.expFamilyMeans T) (hμ₂ : μ₂ ∈ ρ.expFamilyMeans T) (hμ : μ₂ < μ₁)
+    (hμ₁ : μ₁ ∈ ρ.expFamilyMeans T) (hμ₂ : μ₂ ∈ ρ.expFamilyMeans T) (hμ : μ₁ ≠ μ₂)
     (hx₁ : 0 ≤ x₁) (hy₁ : 0 ≤ y₁) (hx₂ : 0 ≤ x₂) (hy₂ : 0 ≤ y₂) (h₁ : 0 < x₁ + y₁)
     (h₂ : 0 < x₂ + y₂)
     (he₁ : ρ.expFamilyPairCost T μ₁ μ₂ ((x₁ + x₂) / 2) ((y₁ + y₂) / 2) =
@@ -682,7 +685,7 @@ lemma mul_eq_mul_of_expFamilyPairCost_midpoint_eq {μ₁ μ₂ x₁ y₁ x₂ y�
   have h_eq := hm₁m.trans hm₂m.symm
   rw [div_eq_div_iff h₁.ne' h₂.ne'] at h_eq
   have : (x₁ * y₂ - x₂ * y₁) * (μ₁ - μ₂) = 0 := by linear_combination h_eq
-  exact sub_eq_zero.1 ((mul_eq_zero.1 this).resolve_right (sub_ne_zero.2 hμ.ne'))
+  exact sub_eq_zero.1 ((mul_eq_zero.1 this).resolve_right (sub_ne_zero.2 hμ))
 
 /-- The cost `w₁ d(μ₁, m) + w₂ d(μ₂, m)` of moving two means to their weighted mean
 `m = (w₁ μ₁ + w₂ μ₂) / (w₁ + w₂)`, the minimum over the means `z` of

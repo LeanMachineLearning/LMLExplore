@@ -569,7 +569,7 @@ theorem answerValue_baiTask_restrict_pos (hT : ∀ c, ¬ T =ᵐ[ρ] fun _ ↦ c)
     Finset.lt_inf_iff ENNReal.zero_lt_top]
   intro b hb
   exact ENNReal.ofReal_pos.2 (expFamilyPairCost_pos (hμ a) (hμ b)
-    (ha b (Finset.mem_filter.1 hb).2) (inv_pos.2 hK) (inv_pos.2 hK))
+    (ha b (Finset.mem_filter.1 hb).2).ne' (inv_pos.2 hK) (inv_pos.2 hK))
 
 /-- **The optimal allocations of best arm identification have positive entries**
 [GK16, Proposition 6].
@@ -673,7 +673,7 @@ theorem answerValue_baiTask_restrict_eq_of_mem_optAlloc (hT : ∀ c, ¬ T =ᵐ[�
     have hvc : ρ.expFamilyPairCost T (μ a) (μ c) (v a) (v c) =
         t * ρ.expFamilyPairCost T (μ a) (μ c) (w a) (w c - (Pi.single b s : α → ℝ) c) := by
       rw [hv_apply, hv_apply, Pi.single_eq_of_ne hba.symm, sub_zero,
-        expFamilyPairCost_mul (by linarith)]
+        expFamilyPairCost_mul]
     rw [hD_eq, ENNReal.ofReal_lt_ofReal_iff_of_nonneg hD'_pos.le, hvc]
     by_cases hcb : c = b
     · subst hcb
@@ -719,7 +719,7 @@ theorem subsingleton_optAlloc_baiTask_restrict (hT : ∀ c, ¬ T =ᵐ[ρ] fun _ 
   have h_prop (b : α) : w a * w' b = w' a * w b := by
     rcases eq_or_ne b a with rfl | hba
     · ring
-    refine mul_eq_mul_of_expFamilyPairCost_midpoint_eq (hμ a) (hμ b) (ha b hba) (hv0 hw a)
+    refine mul_eq_mul_of_expFamilyPairCost_midpoint_eq (hμ a) (hμ b) (ha b hba).ne' (hv0 hw a)
       (hv0 hw b) (hv0 hw' a) (hv0 hw' b) (add_pos (hpos a) (hpos b)) (add_pos (hpos' a) (hpos' b))
       ?_ ?_
     · exact (ENNReal.ofReal_eq_ofReal_iff (h_nonneg hw'' b) (h_nonneg hw b)).1
