@@ -23,8 +23,9 @@ This is the Gaussian integral behind the method of mixtures for vector-valued ma
 
 ## Main statements
 
-* `LMLExplore.integral_exp_neg_sum_mul_add`:
-  `∫ v, exp (-∑ bᵢ vᵢ² + ∑ cᵢ vᵢ) = ∏ i, √(π / bᵢ) exp (cᵢ² / (4bᵢ))` on `ι → ℝ`, the real case of
+* `LMLExplore.integrable_exp_neg_sum_mul_add`, `LMLExplore.integral_exp_neg_sum_mul_add`:
+  for `bᵢ > 0`, `v ↦ exp (-∑ bᵢ vᵢ² + ∑ cᵢ vᵢ)` is integrable on `ι → ℝ` and
+  `∫ v, exp (-∑ bᵢ vᵢ² + ∑ cᵢ vᵢ) = ∏ i, √(π / bᵢ) exp (cᵢ² / (4bᵢ))`, the real case of
   Mathlib's complex Gaussian integral.
 * `LMLExplore.integrable_exp_inner_sub_inner_apply`,
   `LMLExplore.integral_exp_inner_sub_inner_apply`: integrability and value of
@@ -38,18 +39,17 @@ open scoped InnerProductSpace
 
 namespace LMLExplore
 
-/-- The real Gaussian function with linear terms `v ↦ exp (-∑ bᵢ vᵢ² + ∑ cᵢ vᵢ)` on `ι → ℝ` is
-integrable, the real case of `GaussianFourier.integrable_cexp_neg_sum_mul_add`. -/
+/-- For `bᵢ > 0`, the real Gaussian function with linear terms `v ↦ exp (-∑ bᵢ vᵢ² + ∑ cᵢ vᵢ)` on
+`ι → ℝ` is integrable, the real case of `GaussianFourier.integrable_cexp_neg_sum_mul_add`. -/
 theorem integrable_exp_neg_sum_mul_add {ι : Type*} [Fintype ι] {b : ι → ℝ} (hb : ∀ i, 0 < b i)
     (c : ι → ℝ) :
     Integrable (fun v : ι → ℝ ↦ exp (-∑ i, b i * v i ^ 2 + ∑ i, c i * v i)) := by
-  convert (GaussianFourier.integrable_cexp_neg_sum_mul_add (b := fun i ↦ (b i : ℂ))
-    (by simpa using hb) (fun i ↦ (c i : ℂ))).re with v
-  rw [← Complex.ofReal_re (exp _)]
-  push_cast
-  exact RCLike.re_to_complex.symm
+  -- the norm of the complex Gaussian `exp (-∑ bᵢ vᵢ² + ∑ cᵢ vᵢ)` is the real one
+  simpa [Complex.norm_exp, ← Complex.ofReal_pow] using
+    (GaussianFourier.integrable_cexp_neg_sum_mul_add (b := fun i ↦ (b i : ℂ)) (by simpa using hb)
+      (fun i ↦ (c i : ℂ))).norm
 
-/-- **Gaussian integral with linear terms** on `ι → ℝ`:
+/-- **Gaussian integral with linear terms** on `ι → ℝ`: for `bᵢ > 0`,
 `∫ v, exp (-∑ bᵢ vᵢ² + ∑ cᵢ vᵢ) = ∏ i, √(π / bᵢ) exp (cᵢ² / (4bᵢ))`, the real case of
 `GaussianFourier.integral_cexp_neg_sum_mul_add`. -/
 theorem integral_exp_neg_sum_mul_add {ι : Type*} [Fintype ι] {b : ι → ℝ} (hb : ∀ i, 0 < b i)
@@ -111,15 +111,11 @@ theorem integrable_exp_inner_sub_inner_apply (hA : A.IsPositive) (hAu : IsUnit A
   obtain ⟨b, μ, hb, hμ, -⟩ := exists_orthonormalBasis_diag hA hAu
   rw [← b.measurePreserving_repr_symm_toLp.integrable_comp_emb
     b.measurableEmbedding_repr_symm_toLp]
-  have : (fun θ : E ↦ exp (⟪θ, s⟫_ℝ - c * ⟪θ, A θ⟫_ℝ / 2)) ∘
-      (fun v ↦ b.repr.symm (WithLp.toLp 2 v)) =
-      fun v ↦ exp (-∑ i, c * μ i / 2 * v i ^ 2 + ∑ i, b.repr s i * v i) :=
-    funext fun v ↦ exp_inner_sub_inner_apply_eq b μ hb s v
-  rw [this]
-  exact integrable_exp_neg_sum_mul_add (fun i ↦ by have := hμ i; positivity) _
+  simpa only [Function.comp_def, exp_inner_sub_inner_apply_eq b μ hb s] using
+    integrable_exp_neg_sum_mul_add (fun i ↦ half_pos (mul_pos hc (hμ i))) _
 
 /-- **Gaussian integral of a positive definite quadratic form**: for a positive invertible
-operator `A` on a real inner product space of dimension `d` and `c > 0`,
+operator `A` on a finite-dimensional real inner product space of dimension `d` and `c > 0`,
 `∫ θ, exp (⟪θ, s⟫ - c ⟪θ, A θ⟫ / 2) = √((2π / c) ^ d / det A) * exp (⟪s, A⁻¹ s⟫ / (2c))`. -/
 theorem integral_exp_inner_sub_inner_apply (hA : A.IsPositive) (hAu : IsUnit A) (hc : 0 < c)
     (s : E) :
@@ -130,7 +126,7 @@ theorem integral_exp_inner_sub_inner_apply (hA : A.IsPositive) (hAu : IsUnit A) 
   rw [← b.measurePreserving_repr_symm_toLp.integral_comp
     b.measurableEmbedding_repr_symm_toLp]
   simp_rw [exp_inner_sub_inner_apply_eq b μ hb s]
-  rw [integral_exp_neg_sum_mul_add (fun i ↦ by have := hμ i; positivity)]
+  rw [integral_exp_neg_sum_mul_add (fun i ↦ half_pos (mul_pos hc (hμ i)))]
   -- `⟪s, A⁻¹ s⟫` in coordinates
   have hW (i : Fin (finrank ℝ E)) : b.repr (Ring.inverse A s) i = b.repr s i / μ i := by
     rw [eq_div_iff (hμ i).ne', mul_comm, ← hb, A.apply_ringInverse_apply hAu]
