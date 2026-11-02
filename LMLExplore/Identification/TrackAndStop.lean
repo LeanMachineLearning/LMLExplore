@@ -25,7 +25,7 @@ with pull counts `N_a` and empirical means `μ̂ = μ̂(h)`, it
 The GLR statistic is the transportation cost of the empirical model with the pull counts as
 allocation, `GLR_n(h, ¬i) = D(μ̂, N, ¬i) = n D(μ̂, N / n, ¬i)`.
 
-**Asymptotic optimality** [GK16, Theorem 14]. Let the true model `μ` have rewards dominated by
+**Sample complexity** [GK16, Theorem 14]. Let the true model `μ` have rewards dominated by
 exponential families with means `μ a`, let the target map be continuous at `μ` and the
 recommendation be `i` near `μ`. By the forced exploration of D-tracking, the empirical means stay
 close to `μ` from round `t₀(T)` on, except on events whose probabilities have a finite sum over `T`
@@ -36,9 +36,12 @@ rounds is `T D(μ̂(T), N(T) / T, ¬i) ≥ κ T` for any `κ < D(μ, w(μ), ¬i)
 `IdentTask.eventually_expectedStoppingTime_glrt_le_of_isBigO` then gives, for thresholds
 `β δ n ≤ log (r n / δ)` with `r n = O(n ^ p)`, the bound `𝔼[τ_δ] ≤ c log (1 / δ)` for all small
 enough `δ`, for every `c > 1 / κ`. When `w(μ)` is an optimal allocation for the single correct
-answer `i` of `μ`, `D(μ, w(μ), ¬i) = T*(μ)⁻¹` and Track-and-Stop is asymptotically optimal:
-`limsup_{δ → 0} 𝔼[τ_δ] / log (1 / δ) ≤ T*(μ)`, which matches the lower bound
-`𝔼[τ_δ] ≥ T*(μ) kl(δ, 1 - δ)` of `Identification/LowerBound.lean`.
+answer `i` of `μ`, `D(μ, w(μ), ¬i) = T*(μ)⁻¹` and the sample complexity of Track-and-Stop is at
+most the characteristic time: `limsup_{δ → 0} 𝔼[τ_δ] / log (1 / δ) ≤ T*(μ)`. This upper bound
+holds for all such thresholds, including ones that are not `δ`-correct, such as `β = 0`.
+Asymptotic optimality, that is, matching the lower bound `𝔼[τ_δ] ≥ T*(μ) kl(δ, 1 - δ)` of
+`Identification/LowerBound.lean`, also needs the `δ`-correctness of the thresholds, which is not
+proved here.
 
 ## Main definitions
 
@@ -54,10 +57,11 @@ answer `i` of `μ`, `D(μ, w(μ), ¬i) = T*(μ)⁻¹` and Track-and-Stop is asym
   costs is `D(μ̂, N, ¬i) = n D(μ̂, N / n, ¬i)`.
 * `IdentTask.eventually_expectedStoppingTime_trackAndStop_le`: [GK16, Theorem 14] with the rate
   `κ < D(μ, w(μ), ¬i)`: `𝔼[τ_δ] ≤ c log (1 / δ)` for all small enough `δ`, for every `c > 1 / κ`.
-* `IdentTask.eventually_expectedStoppingTime_trackAndStop_le_of_charTime_lt`: **asymptotic
-  optimality of Track-and-Stop** [GK16, Theorem 14]: if `w(μ)` is an optimal allocation for the
+* `IdentTask.eventually_expectedStoppingTime_trackAndStop_le_of_charTime_lt`: **sample complexity
+  at the characteristic time** [GK16, Theorem 14]: if `w(μ)` is an optimal allocation for the
   single correct answer `i` of `μ`, then `𝔼[τ_δ] ≤ c log (1 / δ)` for all small enough `δ`, for
-  every `c > T*(μ)`.
+  every `c > T*(μ)`. The `δ`-correctness of the thresholds, which turns this upper bound into
+  asymptotic optimality, is not established here.
 
 ## References
 
@@ -104,8 +108,7 @@ lemma glr_empCost_eq_mul (hn : n ≠ 0) :
   have h_smul :
       (fun a ↦ (pullCount' n h a : ℝ)) = (n : ℝ≥0) • fun a ↦ (pullCount' n h a : ℝ) / n := by
     ext a
-    rw [Pi.smul_apply, NNReal.smul_def, smul_eq_mul, NNReal.coe_natCast,
-      mul_div_cancel₀ _ (Nat.cast_ne_zero.2 hn)]
+    simp [NNReal.smul_def, field]
   rw [glr_empCost, h_smul, task.altCost_smul hn', ENNReal.smul_def, smul_eq_mul,
     ENNReal.coe_natCast]
 
@@ -156,7 +159,7 @@ lemma output_trackAndStop (h : Σ n, Hist Unit α ℝ n) :
       Measure.dirac (rec (empMean' h.1 h.2)) := by
   rw [trackAndStop_def, output_glrt]
 
-/-! ### Asymptotic optimality -/
+/-! ### Sample complexity -/
 
 /-- The forced exploration rounds `t₀(T) = ⌈log⁴ T⌉` after which the empirical means are required
 to be close to the model in the analysis of Track-and-Stop. -/
@@ -189,41 +192,6 @@ private lemma eventually_roundsAfter_le {c : ℝ} (hc : 0 < c) :
 private lemma tendsto_roundsAfter : Tendsto (fun T : ℕ ↦ (roundsAfter T : ℝ)) atTop atTop :=
   tendsto_atTop_mono (fun _ ↦ Nat.le_ceil _)
     ((tendsto_pow_atTop (by norm_num)).comp (tendsto_log_atTop.comp tendsto_natCast_atTop_atTop))
-
-/-- The deterministic tracking step of the analysis of Track-and-Stop. Along a sequence of arms
-following the D-tracking rule with targets `w k` from round `t₀` on, if the targets are `ε`-close
-to a probability vector `l` from round `t₀ ≥ 1 / (4 ε²)` on and `t₀ ≤ 3 ε T`, `1 ≤ ε T`, then the
-proportions of pulls after `T ≥ t₀` rounds are `3 (K - 1) ε`-close to `l`. -/
-private lemma abs_pullCount_div_sub_le {Ω : Type*} {A : ℕ → Ω → α} {ω : Ω}
-    {w : ℕ → α → ℝ} {l : α → ℝ} {ε : ℝ} {t₀ T : ℕ} (hl : l ∈ simplex α) (hε : 0 < ε)
-    (hforced : ∀ (k : ℕ) a, (pullCount A a k ω : ℝ) < √(k : ℝ) - Fintype.card α / 2 →
-      pullCount A (A k ω) k ω ≤ pullCount A a k ω)
-    (htrack : ∀ k : ℕ, (∀ a, √(k : ℝ) - Fintype.card α / 2 ≤ pullCount A a k ω) → ∀ a,
-      k * w k a - pullCount A a k ω ≤ k * w k (A k ω) - pullCount A (A k ω) k ω)
-    (hw : ∀ k ≥ t₀, ∀ a, |w k a - l a| ≤ ε) (ht₀ : 1 / (4 * ε ^ 2) ≤ t₀) (hT : t₀ ≤ T)
-    (ht₀T : (t₀ : ℝ) ≤ 3 * ε * T) (hεT : 1 ≤ ε * T) (a : α) :
-    |(pullCount A a T ω : ℝ) / T - l a| ≤ 3 * (Fintype.card α - 1) * ε := by
-  have hT0 : (0 : ℝ) < T := by nlinarith
-  -- The exploration threshold `√k - K / 2` is below `2 ε k` from round `t₀` on.
-  have hg (k : ℕ) (hk : t₀ ≤ k) : √(k : ℝ) - Fintype.card α / 2 ≤ 2 * ε * k := by
-    have hk' : 1 / (4 * ε ^ 2) ≤ (k : ℝ) := ht₀.trans (Nat.cast_le.2 hk)
-    rw [div_le_iff₀ (by positivity)] at hk'
-    have hsq : √(k : ℝ) ≤ 2 * ε * k := by
-      rw [sqrt_le_left (by positivity)]
-      nlinarith [Nat.cast_nonneg (α := ℝ) k]
-    linarith [show (0 : ℝ) ≤ Fintype.card α / 2 by positivity]
-  have h := abs_pullCount_sub_mul_le (A := A) (ω := ω) (n₀ := t₀) (mem_simplex_iff.1 hl).1
-    (mem_simplex_iff.1 hl).2
-    (fun k _ ↦ hforced k) (fun k _ ↦ htrack k) hw hg hT a
-  have hK : (0 : ℝ) ≤ Fintype.card α - 1 := by
-    have : (1 : ℝ) ≤ Fintype.card α := Nat.one_le_cast.2 Fintype.card_pos
-    linarith
-  have hmax : max (t₀ : ℝ) (2 * ε * T + 1) ≤ 3 * ε * T := max_le ht₀T (by linarith)
-  rw [div_sub' hT0.ne', abs_div, abs_of_pos hT0, div_le_iff₀ hT0]
-  calc |(pullCount A a T ω : ℝ) - T * l a|
-  _ ≤ (Fintype.card α - 1) * max (t₀ : ℝ) (2 * ε * T + 1) := h
-  _ ≤ (Fintype.card α - 1) * (3 * ε * T) := mul_le_mul_of_nonneg_left hmax hK
-  _ = 3 * (Fintype.card α - 1) * ε * T := by ring
 
 variable {𝓧 : Type*} {m𝓧 : MeasurableSpace 𝓧} {ρ : α → Measure 𝓧} {T : α → 𝓧 → ℝ} {μ : α → ℝ}
   {β : ℝ → ℕ → ℝ≥0∞}
@@ -258,6 +226,14 @@ private lemma mul_le_glr_empCost {Ω : Type*} {O : ℕ → Ω → Unit} {A : ℕ
     linarith
   have hw_close : ∀ k ≥ t₀, ∀ a, |w (empMean' k (history O A Y k ω)) a - w μ a| ≤ ε :=
     fun k hk a ↦ (Real.dist_eq _ _ ▸ (dist_pi_lt_iff hε).1 (hmeans k hk).2.1 a).le
+  -- The exploration threshold `√k - K / 2` is below `2 ε k` from round `t₀` on.
+  have hg (k : ℕ) (hk : t₀ ≤ k) : √(k : ℝ) - Fintype.card α / 2 ≤ 2 * ε * k := by
+    have hk' : 1 / (4 * ε ^ 2) ≤ (k : ℝ) := ht₀.trans (Nat.cast_le.2 hk)
+    rw [div_le_iff₀ (by positivity)] at hk'
+    have hsq : √(k : ℝ) ≤ 2 * ε * k := by
+      rw [sqrt_le_left (by positivity)]
+      nlinarith [Nat.cast_nonneg (α := ℝ) k]
+    linarith [show (0 : ℝ) ≤ Fintype.card α / 2 by positivity]
   -- The proportions of pulls `q = N(T) / T` are an allocation `η`-close to `w(μ)`.
   set q : α → ℝ := fun a ↦ (pullCount' T (history O A Y T ω) a : ℝ) / T
   have hq : q ∈ simplex α := by
@@ -268,7 +244,8 @@ private lemma mul_le_glr_empCost {Ω : Type*} {O : ℕ → Ω → Unit} {A : ℕ
       fun a ↦ ?_
     · have : (1 : ℝ) ≤ Fintype.card α := Nat.one_le_cast.2 Fintype.card_pos
       linarith
-    have h := abs_pullCount_div_sub_le hw_mem hε hforced htrack hw_close ht₀ hT ht₀T hεT a
+    have h := abs_pullCount_div_sub_le (mem_simplex_iff.1 hw_mem).1 (mem_simplex_iff.1 hw_mem).2
+      (fun k _ ↦ hforced k) (fun k _ ↦ htrack k) hw_close hg hT ht₀T hεT a
     rw [Real.dist_eq]
     simp only [q, ← pullCount_eq_pullCount']
     linarith
@@ -366,7 +343,7 @@ theorem eventually_expectedStoppingTime_trackAndStop_le (hT : ∀ a c, ¬ T a =�
     obtain ⟨hω_box, hω_forced, hω_track⟩ := hω
     obtain ⟨h3ε, hT_le, ht₀, hεT⟩ := hT₁ T (le_of_max_le_right hT)
     refine task.mul_le_glr_empCost hw_mem hε (le_of_eq (by simp only [ε, K]; field_simp)) hUη
-      (fun k hk ↦ ?_) hω_forced hω_track ht₀ (by exact_mod_cast (one_mul (T : ℝ)) ▸ hT_le) h3ε
+      (fun k hk ↦ ?_) hω_forced hω_track ht₀ (by exact_mod_cast hT_le.trans_eq (one_mul _)) h3ε
       (by rwa [div_le_iff₀' hε] at hεT)
     -- The empirical means at the rounds `k ≥ t₀(T)` are in `W`.
     refine (h_ball _ fun b ↦ ?_).imp_right fun h ↦ ⟨h.1, h.2.1⟩
@@ -380,14 +357,16 @@ theorem eventually_expectedStoppingTime_trackAndStop_le (hT : ∀ a c, ¬ T a =�
     (by filter_upwards [hβ] with δ hδ n hn using hδ n (le_of_max_le_left hn))
   simpa only [trackAndStop_def] using h
 
-/-- **Asymptotic optimality of Track-and-Stop** [GK16, Theorem 14]. Let the rewards of each arm `a`
+/-- **Sample complexity of Track-and-Stop at the characteristic time** [GK16, Theorem 14], the
+upper bound `𝔼[τ_δ] ≤ c log (1 / δ)` with `c > T*(μ)`. Let the rewards of each arm `a`
 of the model `μ` be dominated above and below by the member of mean `μ a` of a nondegenerate
 exponential family `(ρ a, T a)`, let `i` be the single correct answer of `μ`, let the target map
 `w` be continuous at `μ` with `w(μ)` an optimal allocation `w*(μ, ¬i)`, let the recommendation be
 `i` near `μ`, and let `(μ', w') ↦ D(μ', w', ¬i)` be lower semicontinuous at `(μ, w(μ))` on the
 allocations of the simplex. Then for thresholds `β δ n ≤ log (r n / δ)` (for `n ≥ n₀`) with
 `r n = O(n ^ p)`, Track-and-Stop satisfies `𝔼[τ_δ] ≤ c log (1 / δ)` for all small enough `δ`, for
-every `c > T*(μ)`: `limsup_{δ → 0} 𝔼[τ_δ] / log (1 / δ) ≤ T*(μ)`. -/
+every `c > T*(μ)`: `limsup_{δ → 0} 𝔼[τ_δ] / log (1 / δ) ≤ T*(μ)`. This is asymptotic optimality
+only for `δ`-correct thresholds, whose correctness is not proved here. -/
 theorem eventually_expectedStoppingTime_trackAndStop_le_of_charTime_lt
     (hT : ∀ a c, ¬ T a =ᵐ[ρ a] fun _ ↦ c) (hμ : ∀ a, μ a ∈ (ρ a).expFamilyMeans (T a))
     (hν_above : ∀ a, MGFDominatedAbove id (task.ν μ a) (T a)
