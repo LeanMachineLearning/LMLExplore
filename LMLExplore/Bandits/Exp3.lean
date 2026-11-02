@@ -13,8 +13,8 @@ public import LMLExplore.OnlineLearning.ExponentialWeights
 # Exp3
 
 Exp3 [LS, Algorithm 9] is the weight-based algorithm for adversarial bandits with finitely many
-arms `α` that plays at round `t` the exponential weights `P t = expWeights (η • Ŝ t)` of its
-cumulative reward estimates `Ŝ t = ∑ s < t, X̂ s`, where `X̂ s` is the loss-based
+arms `α` that plays at round `t` the exponential weights `P t = expWeights (η • Ŝ t)` of its
+cumulative reward estimates `Ŝ t = ∑ s < t, X̂ s`, where `X̂ s` is the loss-based
 importance-weighted estimate of the rewards of round `s`, computed from the arm `A s` drawn from
 `P s` and its observed reward `X s`: `X̂ s a = 1 - 𝟙{A s = a} (1 - X s) / P s a`. The
 learning rate `η > 0` is a parameter. Exp3 ignores the observations of the environment.
@@ -22,17 +22,17 @@ learning rate `η > 0` is a parameter. Exp3 ignores the observations of the envi
 For rewards in `[0, 1]`, its adversarial regret against the reward table `x` satisfies
 `R_n(x) ≤ log k / η + η n k / 2`, with `k` the number of arms, and the learning rate
 `η = √(2 log k / (n k))` gives `R_n(x) ≤ √(2 n k log k)` [LS, Theorem 11.2]. The proof writes the
-reward estimates as `X̂ s = 1 - Ŷ s` with the importance-weighted estimates `Ŷ s` of the losses
+reward estimates as `X̂ s = 1 - Ŷ s` with the importance-weighted estimates `Ŷ s` of the losses
 `1 - x s`, so that `P t` are the exponential weights of `-η` times the cumulative loss estimates,
-and applies the local-norm bound of exponential weights to the nonnegative losses `Ŷ s`. The
-estimates are conditionally unbiased, and the second-order term `∑ b, P t b * Ŷ t b ^ 2` has
+and applies the local-norm bound of exponential weights to the nonnegative losses `Ŷ s`. The
+estimates are conditionally unbiased, and the second-order term `∑ b, P t b * Ŷ t b ^ 2` has
 expectation `∑ b, (1 - x t b) ^ 2 ≤ k`.
 
 ## Main definitions
 
-* `LMLExplore.Bandits.exp3Sum η n h`: the cumulative reward estimates `Ŝ n` of Exp3, computed
+* `LMLExplore.Bandits.exp3Sum η n h`: the cumulative reward estimates `Ŝ n` of Exp3, computed
   from the history `h` of the first `n` rounds.
-* `LMLExplore.Bandits.exp3Weights η n h`: the weights `P n = expWeights (η • Ŝ n)` of Exp3 at
+* `LMLExplore.Bandits.exp3Weights η n h`: the weights `P n = expWeights (η • Ŝ n)` of Exp3 at
   round `n`.
 * `LMLExplore.Bandits.exp3 η`: the Exp3 algorithm with learning rate `η`.
 
