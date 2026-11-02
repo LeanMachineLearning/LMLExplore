@@ -111,8 +111,8 @@ theorem continuousWithinAt_answerValue
     ContinuousWithinAt (task.answerValue · i) s θ := by
   have : CompactSpace (simplex α) := isCompact_iff_compactSpace.1 (isCompact_simplex α)
   simp_rw [← iSup_altCostSimplex task]
-  exact (upperHemicontinuousWithinAt_const (univ : Set (simplex α))).continuousWithinAt_biSup
-    (lowerHemicontinuousWithinAt_const univ) isCompact_univ
+  exact (UpperHemicontinuousWithinAt.const (z := (univ : Set (simplex α))))
+    |>.continuousWithinAt_biSup .const isCompact_univ
     fun v _ ↦ continuousWithinAt_altCostSimplex task (h v v.2)
 
 /-- **Upper hemicontinuity of the optimal allocations** [DK19, Lemma 28]. If
@@ -128,8 +128,8 @@ theorem upperHemicontinuousWithinAt_optAlloc
       (fun θ ↦ ⨆ w ∈ (univ : Set (simplex α)), altCostSimplex task i θ w) s θ := by
     simp_rw [iSup_altCostSimplex task]
     exact (task.continuousWithinAt_answerValue h).lowerSemicontinuousWithinAt
-  have h_uhc := ((upperHemicontinuousWithinAt_const
-    (univ : Set (simplex α))).upperHemicontinuousWithinAt_isMaxOn isCompact_univ (fun v _ ↦
+  have h_uhc := ((UpperHemicontinuousWithinAt.const
+    (z := (univ : Set (simplex α)))).upperHemicontinuousWithinAt_isMaxOn isCompact_univ (fun v _ ↦
       (continuousWithinAt_altCostSimplex task (h v v.2)).upperSemicontinuousWithinAt) hm).image
     continuous_subtype_val
   -- The maximizers in the subtype are the optimal allocations.
