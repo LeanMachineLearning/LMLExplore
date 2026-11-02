@@ -11,6 +11,7 @@ public import LeanMachineLearning.Online.Bandit.Regret
 public import LeanMachineLearning.SequentialLearning.SumRewards
 public import LMLExplore.Bandits.Concentration
 public import LMLExplore.Bandits.IndexAlgorithm
+public import LMLExplore.MeasureTheory.Integral.Bochner.Set
 public import LMLExplore.MeasureTheory.Integral.Layercake
 public import LMLExplore.Probability.Martingale.SubGaussian
 
@@ -323,10 +324,7 @@ theorem MOSS.mul_sum_measureReal_streamMeasure_le
         {ω | s * (μ + Δ / 2) ≤ ∑ i ∈ range s, ω i a + √(2 * σ2 * (2 * L) * s)} := by
     intro s _
     split_ifs with hs
-    · linarith [measureReal_le_one (μ := streamMeasure ν) (s := {ω | s = 0 ∨
-        μ + Δ / 2 < (∑ i ∈ range s, ω i a) / s + √(4 * σ2 / s * log⁺ (N / (k * s)))}),
-        measureReal_nonneg (μ := streamMeasure ν) (s := {ω | s * (μ + Δ / 2) ≤
-          ∑ i ∈ range s, ω i a + √(2 * σ2 * (2 * L) * s)})]
+    · exact measureReal_le_one.trans (le_add_of_nonneg_right measureReal_nonneg)
     rw [zero_add]
     refine measureReal_mono (fun ω hω ↦ ?_) (measure_ne_top _ _)
     simp only [Set.mem_ofPred_eq] at hω ⊢
@@ -546,6 +544,34 @@ theorem MOSS.regret_le_of_forall_sub_le_index [Nonempty α] {env : Environment U
     · nlinarith [mul_nonneg (gap_nonneg (ν := ν) (a := a)) hT]
     · linarith
 
+/-- The final numerical step of the proof of [LS, Theorem 9.1]: the contribution
+`N (2 (2 √(12 σ² k / N)) + 8 √(σ² k / N))` of the optimal arm and the contribution
+`k (15 √(σ² N / k))` of the arms with large gaps add up to at most `39 √(σ² k N)`, since
+`4 √12 + 8 + 15 ≤ 39`. -/
+private lemma mul_add_mul_sqrt_le_mul_sqrt (σ2 : ℝ≥0) {k N : ℝ} (hk : 0 < k)
+    (hN : 0 < N) :
+    N * (2 * (2 * √(12 * σ2 * k / N)) + 8 * √(σ2 * k / N)) + k * (15 * √(σ2 * N / k)) ≤
+      39 * √(σ2 * k * N) := by
+  -- the square roots in terms of `q = √(σ² k N)`
+  set q := √(σ2 * k * N) with hq_def
+  have hq1 : √(σ2 * k / N) = q / N := by
+    rw [hq_def, show σ2 * k / N = σ2 * k * N / N ^ 2 by field_simp, sqrt_div' _ (by positivity),
+      sqrt_sq hN.le]
+  have hq2 : √(12 * σ2 * k / N) = √12 * (q / N) := by
+    rw [show 12 * σ2 * k / N = 12 * (σ2 * k / N) by ring, sqrt_mul (by norm_num), hq1]
+  have hq3 : √(σ2 * N / k) = q / k := by
+    rw [hq_def, show σ2 * N / k = σ2 * k * N / k ^ 2 by field_simp, sqrt_div' _ (by positivity),
+      sqrt_sq hk.le]
+  have h12 : √12 ≤ 4 := by
+    rw [sqrt_le_left (by norm_num)]
+    norm_num
+  calc N * (2 * (2 * √(12 * σ2 * k / N)) + 8 * √(σ2 * k / N)) + k * (15 * √(σ2 * N / k))
+  _ = (4 * √12 + 8) * q + 15 * q := by
+    rw [hq1, hq2, hq3]
+    field_simp
+    ring
+  _ ≤ 39 * q := by nlinarith [sqrt_nonneg (σ2 * k * N)]
+
 /-- **[LS, Theorem 9.1]** For σ²-sub-Gaussian rewards, the expected regret of the MOSS algorithm
 for the horizon `n` is at most `39 √(σ² k n) + ∑_a Δ_a` at that horizon, where `k` is the number of
 arms. -/
@@ -586,12 +612,8 @@ theorem moss_regret_le [Nonempty α] (n : ℕ)
     integrable_finsetSum _ fun t _ ↦ (integrable_const (1 : ℝ)).indicator (hE_meas a t)
   -- an arm with gap `Δ_a > θ` contributes at most `Δ_a + 15 √(σ² n / k)`
   have h_arm (a : α) (hθa : θ < gap ν a) : gap ν a * P[κ a] ≤ gap ν a + 15 * √(σ2 * N / k) := by
-    have hκ_exp : P[κ a] = ∑ t ∈ range n, P.real (E a t) := by
-      simp only [hκ_def]
-      rw [integral_finsetSum]
-      · exact sum_congr rfl fun t _ ↦ integral_indicator_one (hE_meas a t)
-      · exact fun t _ ↦ (integrable_const (1 : ℝ)).indicator (hE_meas a t)
-    rw [hκ_exp]
+    rw [hκ_def, integral_finsetSum_indicator_one (fun t _ ↦ hE_meas a t)
+      fun _ _ ↦ measure_ne_top _ _]
     exact MOSS.mul_sum_measureReal_action_eq_le h a (hν a) n hθa
   -- the regret is integrated along the pathwise decomposition with `d = D`
   have h_path : ∀ᵐ ω ∂P, regret ν A n ω ≤
@@ -604,19 +626,6 @@ theorem moss_regret_le [Nonempty α] (n : ℕ)
   have hD2 : Integrable (fun ω ↦ 2 * D ω) P := hD_int.const_mul 2
   have hDN : Integrable (fun ω ↦ N * (2 * D ω + θ)) P := (hD2.add (integrable_const θ)).const_mul N
   have hgκ_sum := integrable_finsetSum _ hgκ
-  -- the square roots in terms of `q = √(σ² k n)`
-  set q := √(σ2 * k * N) with hq_def
-  have hq1 : √(σ2 * k / N) = q / N := by
-    rw [hq_def, show σ2 * k / N = σ2 * k * N / N ^ 2 by field_simp, sqrt_div' _ (by positivity),
-      sqrt_sq hN.le]
-  have hq2 : √(12 * σ2 * k / N) = √12 * (q / N) := by
-    rw [show 12 * σ2 * k / N = 12 * (σ2 * k / N) by ring, sqrt_mul (by norm_num), hq1]
-  have hq3 : √(σ2 * N / k) = q / k := by
-    rw [hq_def, show σ2 * N / k = σ2 * k * N / k ^ 2 by field_simp, sqrt_div' _ (by positivity),
-      sqrt_sq hk.le]
-  have h12 : √12 ≤ 4 := by
-    rw [sqrt_le_left (by norm_num)]
-    norm_num
   calc P[regret ν A n]
   _ ≤ ∫ ω, N * (2 * D ω + θ) + ∑ a ∈ univ.filter (fun a ↦ θ < gap ν a), gap ν a * κ a ω ∂P :=
     integral_mono_of_nonneg (f := regret ν A n) (ae_of_all _ fun _ ↦ regret_nonneg)
@@ -633,13 +642,9 @@ theorem moss_regret_le [Nonempty α] (n : ℕ)
     gcongr
     · exact fun a _ _ ↦ by positivity [gap_nonneg (ν := ν) (a := a)]
     · exact subset_univ _
-  _ = (4 * √12 + 8) * q + 15 * q + ∑ a, gap ν a := by
-    rw [sum_add_distrib, sum_const, card_univ, nsmul_eq_mul, hθ_def, hq1, hq2, hq3]
-    field_simp
-    ring
   _ ≤ 39 * √(σ2 * Fintype.card α * n) + ∑ a, gap ν a := by
-    rw [← hq_def]
-    nlinarith [sqrt_nonneg (σ2 * k * N)]
+    rw [sum_add_distrib, sum_const, card_univ, nsmul_eq_mul, hθ_def]
+    linarith [mul_add_mul_sqrt_le_mul_sqrt σ2 hk hN]
 
 end Regret
 

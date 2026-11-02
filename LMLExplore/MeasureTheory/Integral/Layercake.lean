@@ -64,9 +64,9 @@ theorem lintegral_ofReal_le_two_mul_sqrt_of_measure_lt_le (hf : AEMeasurable f P
   have hb0 : 0 < b := sqrt_pos.mpr ha
   have h_int : ∫ x in Ioi b, a * x ^ (-2 : ℝ) = b := by
     rw [integral_const_mul, integral_Ioi_rpow_of_lt (by norm_num) hb0]
-    have : b ^ (-2 + 1 : ℝ) = b⁻¹ := by norm_num [rpow_neg_one]
-    rw [this, hb, show (-2 + 1 : ℝ) = -1 by norm_num, div_neg, div_one, neg_neg, ← div_eq_mul_inv,
-      div_sqrt]
+    norm_num [rpow_neg_one]
+    field_simp
+    rw [hb, sq_sqrt ha.le]
   have h_integrable : IntegrableOn (fun x ↦ a * x ^ (-2 : ℝ)) (Ioi b) :=
     (integrableOn_Ioi_rpow_of_lt (by norm_num) hb0).const_mul a
   calc ∫⁻ x in Ioi 0, P {ω | x < f ω}
