@@ -183,8 +183,7 @@ private lemma integral_tsum_meanReward (h : IsAlgEnvSeq S A Y alg (M.env μ) P) 
     (hR : ∀ p, ∀ᵐ x ∂(M.R p), |x| ≤ C) :
     ∫ ω, ∑' n, (γ : ℝ) ^ n * meanReward M.R (S n ω, A n ω) ∂P =
       ∑' n, (γ : ℝ) ^ n * ∫ p, meanReward M.R p ∂(P.map fun ω ↦ (S n ω, A n ω)) := by
-  have hm (n : ℕ) : Measurable fun ω ↦ (S n ω, A n ω) :=
-    (h.measurable_obs n).prodMk (h.measurable_action n)
+  have hm (n : ℕ) : Measurable fun ω ↦ (S n ω, A n ω) := h.measurable_obs_action n
   have h_tsum := integral_tsum_smul_of_norm_le (μ := P)
     (summable_geometric_of_lt_one γ.coe_nonneg hγ) (C := C)
     (X := fun n ω ↦ meanReward M.R (S n ω, A n ω))
@@ -202,8 +201,7 @@ private lemma integral_sum_meanReward_add (h : IsAlgEnvSeq S A Y alg (M.env μ) 
     ∫ ω, (∑ n ∈ range N, meanReward M.R (S n ω, A n ω) + u (S N ω)) ∂P =
       ∑ n ∈ range N, ∫ p, meanReward M.R p ∂(P.map fun ω ↦ (S n ω, A n ω)) +
         ∫ s, u s ∂(P.map (S N)) := by
-  have hm (n : ℕ) : Measurable fun ω ↦ (S n ω, A n ω) :=
-    (h.measurable_obs n).prodMk (h.measurable_action n)
+  have hm (n : ℕ) : Measurable fun ω ↦ (S n ω, A n ω) := h.measurable_obs_action n
   have hr (p : 𝓢 × 𝓐) : |meanReward M.R p| ≤ C := norm_meanReward_le M.R (hR p)
   have h_int (n : ℕ) : Integrable (fun ω ↦ meanReward M.R (S n ω, A n ω)) P :=
     integrable_of_abs_le ((measurable_meanReward M.R).comp (hm n)) (fun ω ↦ hr _) P

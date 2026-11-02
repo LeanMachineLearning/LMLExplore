@@ -108,6 +108,12 @@ lemma IsAlgEnvSeq.condExp_comp_action [StandardBorelSpace 𝓐] [Nonempty 𝓐] 
     with ω hω
   rw [hω]
 
+/-- Along a run of an algorithm, the pair of the observation and the action of round `n` is
+measurable. -/
+lemma IsAlgEnvSeq.measurable_obs_action (h : IsAlgEnvSeq O X Y alg env P') (n : ℕ) :
+    Measurable fun ω ↦ (O n ω, X n ω) :=
+  (h.measurable_obs n).prodMk (h.measurable_action n)
+
 section Laws
 
 variable {P : Measure Ω} [IsProbabilityMeasure P] {O : ℕ → Ω → 𝓞} {A : ℕ → Ω → 𝓐}
