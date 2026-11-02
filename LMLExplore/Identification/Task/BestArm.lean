@@ -658,12 +658,6 @@ theorem optAlloc_baiTask_gaussianBandit_of_forall_eq_or_eq (hσ2 : σ2 ≠ 0) (h
 
 /-! #### The complexity `H(μ)` -/
 
-omit [Fintype α] [MeasurableSingletonClass α] in
-/-- If `a` is the unique best arm of `μ`, then every arm has mean at most `μ a`. -/
-private lemma forall_le_of_forall_ne_lt (ha : ∀ b ≠ a, μ b < μ a) (b : α) : μ b ≤ μ a := by
-  rcases eq_or_ne b a with rfl | hb
-  exacts [le_rfl, (ha b hb).le]
-
 variable [DecidableEq α] {b₀ : α}
 
 omit [Fintype α] [MeasurableSingletonClass α] in
@@ -723,7 +717,7 @@ theorem answerValue_baiTask_gaussianBandit_le (hσ2 : σ2 ≠ 0) (hb₀a : b₀ 
   rw [IdentTask.answerValue_def]
   refine iSup₂_le fun w hw ↦ ?_
   obtain ⟨hw_nonneg, hw_sum⟩ := mem_simplex_iff.1 hw
-  rw [altCost_baiTask_gaussianBandit hσ2 (forall_le_of_forall_ne_lt ha) hw_nonneg]
+  rw [altCost_baiTask_gaussianBandit hσ2 (apply_le_of_forall_ne_lt ha) hw_nonneg]
   -- Since `∑ c, w c = 1 = ∑ c, (2 σ2 / Δ_c²) / H`, some arm `c` has `w c ≤ (2 σ2 / Δ_c²) / H`.
   obtain ⟨c, -, hc⟩ := Finset.exists_le_of_sum_le ⟨a, Finset.mem_univ a⟩
     (f := w) (g := fun c ↦ 2 * σ2 / (μ a - μ (s c)) ^ 2 / H) (by
@@ -765,7 +759,7 @@ theorem le_answerValue_baiTask_gaussianBandit (hσ2 : σ2 ≠ 0) (hb₀a : b₀ 
   have hw : w ∈ simplex α := mem_simplex_iff.2
     ⟨fun c ↦ by have := hΔ c; positivity, by rw [← Finset.sum_div, div_self hH.ne']⟩
   refine le_trans ?_ (IdentTask.altCost_le_answerValue _ hw)
-  rw [altCost_baiTask_gaussianBandit hσ2 (forall_le_of_forall_ne_lt ha) (mem_simplex_iff.1 hw).1]
+  rw [altCost_baiTask_gaussianBandit hσ2 (apply_le_of_forall_ne_lt ha) (mem_simplex_iff.1 hw).1]
   refine le_iInf₂ fun b hb ↦ ENNReal.ofReal_le_ofReal ?_
   -- With `x = Δ_a² ≤ y = Δ_b²`, the cost of `b` is `y / (H (x + y)) ≥ 1 / (2 H)`.
   have hsb : s b = b := by simp [s, hb]
