@@ -5,7 +5,7 @@ Authors: Rémy Degenne
 -/
 module
 
-public import LeanMachineLearning.SequentialLearning.FiniteActions
+public import LMLExplore.SequentialLearning.FiniteActions
 public import Mathlib.Analysis.Real.Sqrt
 
 /-!
@@ -58,18 +58,15 @@ namespace LMLExplore.Identification
 
 variable {α Ω : Type*} [Fintype α] [DecidableEq α] {A : ℕ → Ω → α} {ω : Ω}
 
-omit [Fintype α] in
-/-- `pullCount_add_one` for the real-valued numbers of pulls. -/
-private lemma pullCount_add_one_real (a : α) (k : ℕ) :
-    (pullCount A a (k + 1) ω : ℝ) = pullCount A a k ω + if A k ω = a then 1 else 0 := by
-  rw [pullCount_add_one]
-  split_ifs <;> simp
+omit [DecidableEq α] in
+/-- There is at least one arm. -/
+private lemma one_le_card_real [Nonempty α] : (1 : ℝ) ≤ Fintype.card α :=
+  Nat.one_le_cast.2 Fintype.card_pos
 
-omit [Fintype α] in
-/-- `pullCount_action_eq_pullCount_add_one` for the real-valued numbers of pulls. -/
-private lemma pullCount_action_add_one_real (k : ℕ) :
-    (pullCount A (A k ω) (k + 1) ω : ℝ) = pullCount A (A k ω) k ω + 1 := by
-  exact_mod_cast pullCount_action_eq_pullCount_add_one k ω
+/-- All arms but `b`: there are `K - 1` of them. -/
+private lemma card_univ_erase_real (b : α) : ((univ.erase b).card : ℝ) = Fintype.card α - 1 := by
+  have : Nonempty α := ⟨b⟩
+  rw [card_erase_of_mem (mem_univ b), card_univ, Nat.cast_pred Fintype.card_pos]
 
 /-! ### Tracking a cumulated sum of proportions -/
 
@@ -80,11 +77,9 @@ private lemma sum_max_sum_sub_pullCount_le (p : ℕ → α → ℝ) (hp0 : ∀ k
     (hA : ∀ k a, ∑ s ∈ range (k + 1), p s a - pullCount A a k ω ≤
       ∑ s ∈ range (k + 1), p s (A k ω) - pullCount A (A k ω) k ω) (n : ℕ) :
     ∑ a, max (∑ s ∈ range n, p s a - pullCount A a n ω) 0 ≤ Fintype.card α - 1 := by
-  have hK : (1 : ℝ) ≤ Fintype.card α := by
-    have : Nonempty α := ⟨A 0 ω⟩
-    exact_mod_cast Fintype.card_pos
+  have : Nonempty α := ⟨A 0 ω⟩
   induction n with
-  | zero => simpa using hK
+  | zero => simpa using one_le_card_real
   | succ k ih =>
     set b := A k ω
     by_cases hb : (pullCount A b (k + 1) ω : ℝ) ≤ ∑ s ∈ range (k + 1), p s b
@@ -95,10 +90,10 @@ private lemma sum_max_sum_sub_pullCount_le (p : ℕ → α → ℝ) (hp0 : ∀ k
               if b = a then 1 else 0) := by
             refine sum_le_sum fun a _ ↦ ?_
             have hle := le_max_left (∑ s ∈ range k, p s a - pullCount A a k ω) 0
-            rw [pullCount_add_one_real, sum_range_succ]
+            rw [cast_pullCount_add_one, sum_range_succ]
             split_ifs with hba
             · subst hba
-              rw [pullCount_action_add_one_real, sum_range_succ] at hb
+              rw [cast_pullCount_action_add_one, sum_range_succ] at hb
               exact max_le (by linarith) (by linarith)
             · have hle' := le_max_right (∑ s ∈ range k, p s a - pullCount A a k ω) 0
               exact max_le (by linarith) (by linarith [hp0 k a])
@@ -107,14 +102,12 @@ private lemma sum_max_sum_sub_pullCount_le (p : ℕ → α → ℝ) (hp0 : ∀ k
         _ ≤ Fintype.card α - 1 := ih
     · -- The played arm `b` is no longer in deficit, and every other deficit is at most the
       -- deficit of `b` before it was played, which is less than `1`.
-      rw [not_le, pullCount_action_add_one_real] at hb
+      rw [not_le, cast_pullCount_action_add_one] at hb
       rw [← add_sum_erase _ _ (mem_univ b)]
       have hb0 : max (∑ s ∈ range (k + 1), p s b - pullCount A b (k + 1) ω) 0 = 0 := by
-        rw [pullCount_action_add_one_real]
+        rw [cast_pullCount_action_add_one]
         exact max_eq_right (by linarith)
-      have hcard : ((univ.erase b).card : ℝ) = Fintype.card α - 1 := by
-        rw [card_erase_of_mem (mem_univ b), card_univ, Nat.cast_pred (by exact_mod_cast hK)]
-      rw [hb0, zero_add, ← hcard, card_eq_sum_ones, Nat.cast_sum, Nat.cast_one]
+      rw [hb0, zero_add, ← card_univ_erase_real b, card_eq_sum_ones, Nat.cast_sum, Nat.cast_one]
       refine sum_le_sum fun a ha ↦ max_le ?_ zero_le_one
       rw [pullCount_eq_pullCount_of_action_ne (ne_of_mem_erase ha).symm]
       linarith [hA k a]
@@ -151,6 +144,39 @@ theorem abs_pullCount_sub_sum_le (p : ℕ → α → ℝ) (hp0 : ∀ k a, 0 ≤ 
 
 /-! ### Forced exploration -/
 
+/-- Suppose that from round `t` on every arm has been pulled at least `c` times, and that an arm
+with exactly `c` pulls forces the play of an arm with at most `c` pulls. Then each round from `t`
+on decreases by one the number of arms with at most `c` pulls, as long as it is positive. -/
+private lemma card_filter_pullCount_le_le {c t : ℕ} (hc : ∀ s ≥ t, ∀ a, c ≤ pullCount A a s ω)
+    (hA : ∀ s ≥ t, ∀ a, pullCount A a s ω = c → pullCount A (A s ω) s ω ≤ c) (j : ℕ) :
+    (univ.filter fun a ↦ pullCount A a (t + j) ω ≤ c).card ≤ Fintype.card α - j := by
+  induction j with
+  | zero => simpa using card_filter_le univ _
+  | succ j ihj =>
+    rw [show t + (j + 1) = t + j + 1 by omega]
+    have hs : t ≤ t + j := by omega
+    generalize t + j = s at ihj hs ⊢
+    by_cases hex : ∃ b, pullCount A b s ω ≤ c
+    · obtain ⟨b, hb⟩ := hex
+      have hAs : pullCount A (A s ω) s ω ≤ c := hA s hs b (le_antisymm hb (hc s hs b))
+      have hsub : (univ.filter fun a ↦ pullCount A a (s + 1) ω ≤ c) ⊆
+          (univ.filter fun a ↦ pullCount A a s ω ≤ c).erase (A s ω) := by
+        intro a ha
+        simp only [mem_filter, mem_univ, true_and, mem_erase] at ha ⊢
+        refine ⟨fun has ↦ ?_, (pullCount_mono a (by omega) ω).trans ha⟩
+        subst has
+        rw [pullCount_action_eq_pullCount_add_one] at ha
+        have := hc s hs (A s ω)
+        omega
+      have := card_le_card hsub
+      rw [card_erase_of_mem (by simpa using hAs)] at this
+      omega
+    · simp only [not_exists, not_le] at hex
+      have : (univ.filter fun a ↦ pullCount A a (s + 1) ω ≤ c) = ∅ :=
+        filter_false_of_mem fun a _ ↦
+          not_le.2 ((hex a).trans_le (pullCount_mono a (Nat.le_succ s) ω))
+      simp [this]
+
 /-- One level of the induction of `sub_one_lt_pullCount`: once `g` has reached the integer `c`,
 every arm has been pulled at least `c` times. -/
 private lemma le_pullCount_of_le {g : ℕ → ℝ} (hg_mono : Monotone g) (hg0 : g 0 ≤ 0)
@@ -179,37 +205,8 @@ private lemma le_pullCount_of_le {g : ℕ → ℝ} (hg_mono : Monotone g) (hg0 :
     -- From round `t + 1` on, every arm has `c` pulls and the arms with exactly `c` pulls are
     -- forced: each round decreases their number by one.
     have hc s (hs : t + 1 ≤ s) a : c ≤ pullCount A a s ω := ih s (ht'.trans_le (hg_mono hs)).le a
-    have hZ : ∀ j, (univ.filter fun a ↦ pullCount A a (t + 1 + j) ω ≤ c).card ≤
-        Fintype.card α - j := by
-      intro j
-      induction j with
-      | zero => simpa using card_filter_le univ _
-      | succ j ihj =>
-        rw [show t + 1 + (j + 1) = t + 1 + j + 1 by omega]
-        have hs : t + 1 ≤ t + 1 + j := by omega
-        generalize t + 1 + j = s at ihj hs ⊢
-        by_cases hex : ∃ b, pullCount A b s ω ≤ c
-        · obtain ⟨b, hb⟩ := hex
-          have hbc : pullCount A b s ω = c := le_antisymm hb (hc s hs b)
-          have hAs : pullCount A (A s ω) s ω ≤ c :=
-            hbc ▸ hA s b (by rw [hbc]; exact ht'.trans_le (hg_mono hs))
-          have hsub : (univ.filter fun a ↦ pullCount A a (s + 1) ω ≤ c) ⊆
-              (univ.filter fun a ↦ pullCount A a s ω ≤ c).erase (A s ω) := by
-            intro a ha
-            simp only [mem_filter, mem_univ, true_and, mem_erase] at ha ⊢
-            refine ⟨fun has ↦ ?_, (pullCount_mono a (by omega) ω).trans ha⟩
-            subst has
-            rw [pullCount_action_eq_pullCount_add_one] at ha
-            have := hc s hs (A s ω)
-            omega
-          have := card_le_card hsub
-          rw [card_erase_of_mem (by simpa using hAs)] at this
-          omega
-        · simp only [not_exists, not_le] at hex
-          have : (univ.filter fun a ↦ pullCount A a (s + 1) ω ≤ c) = ∅ :=
-            filter_false_of_mem fun a _ ↦
-              not_le.2 ((hex a).trans_le (pullCount_mono a (Nat.le_succ s) ω))
-          simp [this]
+    have hZ := card_filter_pullCount_le_le hc
+      (fun s hs b hb ↦ hb ▸ hA s b (by rw [hb]; exact ht'.trans_le (hg_mono hs)))
     intro a
     by_contra! ha
     have hmem : a ∈ univ.filter fun a ↦ pullCount A a (t + 1 + Fintype.card α) ω ≤ c := by
@@ -271,6 +268,64 @@ theorem sqrt_sub_sub_one_lt_pullCount
 
 /-! ### Tracking a changing sequence of targets -/
 
+/-- The excesses `N_b(k) - k l_b` of the arms over a probability vector `l` sum to zero. -/
+private lemma sum_pullCount_sub_mul_eq_zero {l : α → ℝ} (hl1 : ∑ a, l a = 1) (k : ℕ) :
+    ∑ b, ((pullCount A b k ω : ℝ) - k * l b) = 0 := by
+  simp only [sum_sub_distrib, ← Nat.cast_sum, sum_pullCount, ← mul_sum, hl1, mul_one, sub_self]
+
+/-- One round of the rule of `abs_pullCount_sub_mul_le`: if the targets `w k` are `ε`-close to the
+probability vector `l` and `g k ≤ 2 ε k`, the arm played at round `k` has excess `N_a(k) - k l_a`
+at most `2 ε k`, either because it is forced or because it tracks `w k`. -/
+private lemma pullCount_action_sub_mul_le {g : ℕ → ℝ} {w : ℕ → α → ℝ} {l : α → ℝ} {ε : ℝ}
+    {k : ℕ} (hl0 : ∀ a, 0 ≤ l a) (hl1 : ∑ a, l a = 1)
+    (hforced : ∀ a, (pullCount A a k ω : ℝ) < g k → pullCount A (A k ω) k ω ≤ pullCount A a k ω)
+    (htrack : (∀ a, g k ≤ pullCount A a k ω) → ∀ a,
+      k * w k a - pullCount A a k ω ≤ k * w k (A k ω) - pullCount A (A k ω) k ω)
+    (hw : ∀ a, |w k a - l a| ≤ ε) (hg : g k ≤ 2 * ε * k) :
+    (pullCount A (A k ω) k ω : ℝ) - k * l (A k ω) ≤ 2 * ε * k := by
+  have hkl := mul_nonneg (Nat.cast_nonneg (α := ℝ) k) (hl0 (A k ω))
+  by_cases hU : ∃ b, (pullCount A b k ω : ℝ) < g k
+  · obtain ⟨b, hb⟩ := hU
+    have : (pullCount A (A k ω) k ω : ℝ) ≤ pullCount A b k ω := by exact_mod_cast hforced b hb
+    linarith
+  · simp only [not_exists, not_lt] at hU
+    -- Since the excesses sum to zero, some arm `j` has nonpositive excess.
+    have : Nonempty α := ⟨A k ω⟩
+    obtain ⟨j, -, hj⟩ := exists_le_of_sum_le univ_nonempty
+      (show ∑ b, ((pullCount A b k ω : ℝ) - k * l b) ≤ ∑ _b : α, (0 : ℝ) by
+        simp [sum_pullCount_sub_mul_eq_zero hl1])
+    have htj := htrack hU j
+    have hk0 := Nat.cast_nonneg (α := ℝ) k
+    have h1 := mul_le_mul_of_nonneg_left (abs_le.1 (hw j)).1 hk0
+    have h2 := mul_le_mul_of_nonneg_left (abs_le.1 (hw (A k ω))).2 hk0
+    nlinarith
+
+omit [Fintype α] in
+/-- The induction of `abs_pullCount_sub_mul_le`: if from round `n₀` on the arm played at round `k`
+has excess `N_a(k) - k l_a` at most `2 ε k`, then for `n ≥ n₀` the excess of every arm is at most
+`max(n₀, 2 ε n + 1)`. -/
+private lemma pullCount_sub_mul_le_max {l : α → ℝ} {ε : ℝ} {n₀ : ℕ} (hl0 : ∀ a, 0 ≤ l a)
+    (hε : 0 ≤ ε) (hA : ∀ k ≥ n₀, (pullCount A (A k ω) k ω : ℝ) - k * l (A k ω) ≤ 2 * ε * k)
+    (b : α) {n : ℕ} (hn : n₀ ≤ n) :
+    (pullCount A b n ω : ℝ) - n * l b ≤ max (n₀ : ℝ) (2 * ε * n + 1) := by
+  induction n, hn using Nat.le_induction with
+  | base =>
+    refine le_max_of_le_left ?_
+    have := mul_nonneg (Nat.cast_nonneg (α := ℝ) n₀) (hl0 b)
+    have : (pullCount A b n₀ ω : ℝ) ≤ n₀ := by exact_mod_cast pullCount_le b n₀ ω
+    linarith
+  | succ n hn ih =>
+    rw [cast_pullCount_add_one]
+    push_cast
+    split_ifs with hb
+    · have := hA n hn
+      rw [hb] at this
+      refine le_max_of_le_right ?_
+      nlinarith [hl0 b]
+    · have hmono : max (n₀ : ℝ) (2 * ε * n + 1) ≤ max (n₀ : ℝ) (2 * ε * (n + 1) + 1) :=
+        max_le_max le_rfl (by nlinarith)
+      linarith [hl0 b]
+
 /-- **Tracking a changing sequence of targets**, the non-asymptotic bound in the proof of the
 second part of [GK16, Lemma 17]. Let `l` be a probability vector and `n₀` a round from which the
 targets `w k` are `ε`-close to `l` and the exploration threshold satisfies `g k ≤ 2 ε k`. Suppose
@@ -286,107 +341,54 @@ theorem abs_pullCount_sub_mul_le {g : ℕ → ℝ} {w : ℕ → α → ℝ} {l :
     (hw : ∀ k ≥ n₀, ∀ a, |w k a - l a| ≤ ε) (hg : ∀ k ≥ n₀, g k ≤ 2 * ε * k)
     {n : ℕ} (hn : n₀ ≤ n) (a : α) :
     |(pullCount A a n ω : ℝ) - n * l a| ≤ (Fintype.card α - 1) * max (n₀ : ℝ) (2 * ε * n + 1) := by
-  -- `E b k` is the excess of pulls of `b` after `k` rounds; the excesses sum to zero.
-  set E : α → ℕ → ℝ := fun b k ↦ (pullCount A b k ω : ℝ) - k * l b with hE
-  have hsum k : ∑ b, E b k = 0 := by
-    simp only [hE, sum_sub_distrib, ← Nat.cast_sum, sum_pullCount, ← mul_sum, hl1, mul_one,
-      sub_self]
-  have : Nonempty α := ⟨a⟩
   have hε : 0 ≤ ε := (abs_nonneg _).trans (hw n₀ le_rfl a)
-  -- From round `n₀` on, the arm played at round `k` has excess at most `2 ε k`.
-  have h15 k (hk : n₀ ≤ k) : E (A k ω) k ≤ 2 * ε * k := by
-    have hkl := mul_nonneg (Nat.cast_nonneg (α := ℝ) k) (hl0 (A k ω))
-    by_cases hU : ∃ b, (pullCount A b k ω : ℝ) < g k
-    · obtain ⟨b, hb⟩ := hU
-      have : (pullCount A (A k ω) k ω : ℝ) ≤ pullCount A b k ω := by
-        exact_mod_cast hforced k hk b hb
-      simp only [hE]
-      linarith [hg k hk]
-    · simp only [not_exists, not_lt] at hU
-      obtain ⟨j, -, hj⟩ := exists_le_of_sum_le univ_nonempty
-        (show ∑ b, E b k ≤ ∑ _b : α, (0 : ℝ) by simp [hsum])
-      have htj := htrack k hk hU j
-      have hk0 := Nat.cast_nonneg (α := ℝ) k
-      have h1 := mul_le_mul_of_nonneg_left (abs_le.1 (hw k hk j)).1 hk0
-      have h2 := mul_le_mul_of_nonneg_left (abs_le.1 (hw k hk (A k ω))).2 hk0
-      simp only [hE] at hj ⊢
-      nlinarith
-  -- Hence the excess of every arm stays below `max(n₀, 2 ε k + 1)`.
-  have hup b : ∀ m, E b (n₀ + m) ≤ max (n₀ : ℝ) (2 * ε * (n₀ + m : ℕ) + 1) := by
-    intro m
-    induction m with
-    | zero =>
-      refine le_max_of_le_left ?_
-      have := mul_nonneg (Nat.cast_nonneg (α := ℝ) n₀) (hl0 b)
-      have : (pullCount A b n₀ ω : ℝ) ≤ n₀ := by exact_mod_cast pullCount_le b n₀ ω
-      simp only [hE, add_zero]
-      linarith
-    | succ m ih =>
-      have hk : n₀ ≤ n₀ + m := by omega
-      have hrec : E b (n₀ + (m + 1)) =
-          E b (n₀ + m) + (if A (n₀ + m) ω = b then 1 else 0) - l b := by
-        simp only [hE, ← add_assoc, pullCount_add_one_real]
-        push_cast
-        ring
-      have hmono : max (n₀ : ℝ) (2 * ε * (n₀ + m : ℕ) + 1) ≤
-          max (n₀ : ℝ) (2 * ε * (n₀ + (m + 1) : ℕ) + 1) := by
-        gcongr
-        omega
-      rw [hrec]
-      split_ifs with hb
-      · have := h15 _ hk
-        rw [hb] at this
-        refine le_max_of_le_right ?_
-        push_cast at this ⊢
-        nlinarith [hl0 b]
-      · linarith [hl0 b]
-  obtain ⟨m, rfl⟩ := Nat.exists_eq_add_of_le hn
-  set M := max (n₀ : ℝ) (2 * ε * (n₀ + m : ℕ) + 1)
+  -- Every excess is at most `M`, and the excesses sum to zero.
+  have hup b := pullCount_sub_mul_le_max hl0 hε (fun k hk ↦ pullCount_action_sub_mul_le hl0 hl1
+    (hforced k hk) (htrack k hk) (hw k hk) (hg k hk)) b hn
+  set M := max (n₀ : ℝ) (2 * ε * n + 1)
   have hM : 0 ≤ M := le_max_of_le_left (Nat.cast_nonneg _)
-  have hcard : ((univ.erase a).card : ℝ) = Fintype.card α - 1 := by
-    rw [card_erase_of_mem (mem_univ a), card_univ, Nat.cast_pred Fintype.card_pos]
-  have hrest := hsum (n₀ + m)
+  have hrest := sum_pullCount_sub_mul_eq_zero (A := A) (ω := ω) hl1 n
   rw [← add_sum_erase _ _ (mem_univ a)] at hrest
-  have hE_eq : (pullCount A a (n₀ + m) ω : ℝ) - (n₀ + m : ℕ) * l a = E a (n₀ + m) := rfl
-  rw [hE_eq, ← hcard, abs_le]
+  rw [← card_univ_erase_real a, abs_le]
   constructor
   · -- The excess of `a` is minus the excess of the other arms, each at most `M`.
-    have : ∑ b ∈ univ.erase a, E b (n₀ + m) ≤ ∑ _b ∈ univ.erase a, M :=
-      sum_le_sum fun b _ ↦ hup b m
+    have : ∑ b ∈ univ.erase a, ((pullCount A b n ω : ℝ) - n * l b) ≤ ∑ _b ∈ univ.erase a, M :=
+      sum_le_sum fun b _ ↦ hup b
     rw [sum_const, nsmul_eq_mul] at this
     linarith
   · rcases (univ.erase a).eq_empty_or_nonempty with h | h
     · rw [h, sum_empty, add_zero] at hrest
-      simp [h, hrest]
+      rw [h, card_empty, Nat.cast_zero, zero_mul]
+      exact hrest.le
     · have : (1 : ℝ) ≤ (univ.erase a).card := by exact_mod_cast h.card_pos
-      calc E a (n₀ + m) ≤ M := hup a m
+      calc (pullCount A a n ω : ℝ) - n * l a ≤ M := hup a
         _ ≤ (univ.erase a).card * M := le_mul_of_one_le_left hM this
 
 /-- **Tracking a changing sequence of targets**, the second part of [GK16, Lemma 17]. Let `l` be
 a probability vector and `g` a sublinear exploration threshold (`g k ≤ c k` eventually, for every
-`c > 0`). Suppose that the arm played at round `k` has been pulled at most as often as every arm
-`a` in deficit (`N_a(k) < g k`), and, if no arm is in deficit, maximizes `k w k a - N_a(k)`. If
-the targets `w k` are eventually `ε`-close to `l`, then the proportions of pulls are eventually
-`3 (K - 1) ε`-close to `l`. -/
+`c > 0`). Suppose that from some round on, the arm played at round `k` has been pulled at most as
+often as every arm `a` in deficit (`N_a(k) < g k`), and, if no arm is in deficit, maximizes
+`k w k a - N_a(k)`. If the targets `w k` are eventually `ε`-close to `l`, then the proportions of
+pulls are eventually `3 (K - 1) ε`-close to `l`. -/
 theorem eventually_abs_pullCount_div_sub_le {g : ℕ → ℝ} {w : ℕ → α → ℝ} {l : α → ℝ} {ε : ℝ}
     (hl0 : ∀ a, 0 ≤ l a) (hl1 : ∑ a, l a = 1)
-    (hforced : ∀ k a, (pullCount A a k ω : ℝ) < g k →
+    (hforced : ∀ᶠ k in atTop, ∀ a, (pullCount A a k ω : ℝ) < g k →
       pullCount A (A k ω) k ω ≤ pullCount A a k ω)
-    (htrack : ∀ k, (∀ a, g k ≤ pullCount A a k ω) → ∀ a,
+    (htrack : ∀ᶠ k in atTop, (∀ a, g k ≤ pullCount A a k ω) → ∀ a,
       k * w k a - pullCount A a k ω ≤ k * w k (A k ω) - pullCount A (A k ω) k ω)
     (hg : ∀ c > 0, ∀ᶠ k in atTop, g k ≤ c * k) (hε : 0 < ε)
     (hw : ∀ᶠ k in atTop, ∀ a, |w k a - l a| ≤ ε) :
     ∀ᶠ n in atTop, ∀ a, |(pullCount A a n ω : ℝ) / n - l a| ≤ 3 * (Fintype.card α - 1) * ε := by
-  obtain ⟨n₀, hn₀⟩ := eventually_atTop.1 (hw.and (hg (2 * ε) (by positivity)))
-  have hK : (1 : ℝ) ≤ Fintype.card α := by
-    have : Nonempty α := ⟨A 0 ω⟩
-    exact_mod_cast Fintype.card_pos
+  obtain ⟨n₀, hn₀⟩ :=
+    eventually_atTop.1 ((hw.and (hg (2 * ε) (by positivity))).and (hforced.and htrack))
+  have : Nonempty α := ⟨A 0 ω⟩
+  have hK := one_le_card_real (α := α)
   filter_upwards [eventually_ge_atTop n₀, eventually_ge_atTop 1,
     tendsto_natCast_atTop_atTop.eventually_ge_atTop ((n₀ : ℝ) / (3 * ε)),
     tendsto_natCast_atTop_atTop.eventually_ge_atTop (1 / ε)] with n hn hn1 hn₀' hn1' a
   have hpos : (0 : ℝ) < n := by exact_mod_cast hn1
-  have h := abs_pullCount_sub_mul_le hl0 hl1 (fun k _ ↦ hforced k) (fun k _ ↦ htrack k)
-    (fun k hk ↦ (hn₀ k hk).1) (fun k hk ↦ (hn₀ k hk).2) hn a
+  have h := abs_pullCount_sub_mul_le hl0 hl1 (fun k hk ↦ (hn₀ k hk).2.1)
+    (fun k hk ↦ (hn₀ k hk).2.2) (fun k hk ↦ (hn₀ k hk).1.1) (fun k hk ↦ (hn₀ k hk).1.2) hn a
   -- `max(n₀, 2 ε n + 1) ≤ 3 ε n` for `n ≥ n₀ / (3 ε)` and `n ≥ 1 / ε`.
   have hmax : max (n₀ : ℝ) (2 * ε * n + 1) ≤ 3 * ε * n := by
     rw [div_le_iff₀ (by positivity)] at hn₀'
@@ -401,22 +403,21 @@ theorem eventually_abs_pullCount_div_sub_le {g : ℕ → ℝ} {w : ℕ → α �
 
 /-- **Convergence of the proportions of pulls**, a consequence of [GK16, Lemma 17]. Let `l` be a
 probability vector and `g` a sublinear exploration threshold (`g k ≤ c k` eventually, for every
-`c > 0`). Suppose that the arm played at round `k` has been pulled at most as often as every arm
-`a` in deficit (`N_a(k) < g k`), and, if no arm is in deficit, maximizes `k w k a - N_a(k)`. If
-the targets `w k` converge to `l`, then the proportions of pulls `N_a(n) / n` converge to
-`l a`. -/
+`c > 0`). Suppose that from some round on, the arm played at round `k` has been pulled at most as
+often as every arm `a` in deficit (`N_a(k) < g k`), and, if no arm is in deficit, maximizes
+`k w k a - N_a(k)`. If the targets `w k` converge to `l`, then the proportions of pulls
+`N_a(n) / n` converge to `l a`. -/
 theorem tendsto_pullCount_div {g : ℕ → ℝ} {w : ℕ → α → ℝ} {l : α → ℝ}
     (hl0 : ∀ a, 0 ≤ l a) (hl1 : ∑ a, l a = 1)
-    (hforced : ∀ k a, (pullCount A a k ω : ℝ) < g k →
+    (hforced : ∀ᶠ k in atTop, ∀ a, (pullCount A a k ω : ℝ) < g k →
       pullCount A (A k ω) k ω ≤ pullCount A a k ω)
-    (htrack : ∀ k, (∀ a, g k ≤ pullCount A a k ω) → ∀ a,
+    (htrack : ∀ᶠ k in atTop, (∀ a, g k ≤ pullCount A a k ω) → ∀ a,
       k * w k a - pullCount A a k ω ≤ k * w k (A k ω) - pullCount A (A k ω) k ω)
     (hg : ∀ c > 0, ∀ᶠ k in atTop, g k ≤ c * k)
     (hw : ∀ a, Tendsto (fun k ↦ w k a) atTop (𝓝 (l a))) (a : α) :
     Tendsto (fun n ↦ (pullCount A a n ω : ℝ) / n) atTop (𝓝 (l a)) := by
-  have hK : (0 : ℝ) < Fintype.card α := by
-    have : Nonempty α := ⟨a⟩
-    exact_mod_cast Fintype.card_pos
+  have : Nonempty α := ⟨a⟩
+  have hK := one_le_card_real (α := α)
   refine Metric.tendsto_nhds.2 fun δ hδ ↦ ?_
   obtain ⟨ε, hε, hεδ⟩ : ∃ ε > 0, 3 * Fintype.card α * ε = δ :=
     ⟨δ / (3 * Fintype.card α), by positivity, by field_simp⟩
@@ -427,15 +428,15 @@ theorem tendsto_pullCount_div {g : ℕ → ℝ} {w : ℕ → α → ℝ} {l : α
   linarith [hn a]
 
 /-- **Convergence of the proportions of pulls of D-tracking**, the limit form of the second part
-of [GK16, Lemma 8]. Let `l` be a probability vector. Suppose that the arm played at round `k` has
-been pulled at most as often as every arm `a` with `N_a(k) < √k - K / 2`, and, if there is no such
-arm, maximizes `k w k a - N_a(k)`. If the targets `w k` converge to `l`, then the proportions of
-pulls `N_a(n) / n` converge to `l a`. -/
+of [GK16, Lemma 8]. Let `l` be a probability vector. Suppose that from some round on, the arm
+played at round `k` has been pulled at most as often as every arm `a` with `N_a(k) < √k - K / 2`,
+and, if there is no such arm, maximizes `k w k a - N_a(k)`. If the targets `w k` converge to `l`,
+then the proportions of pulls `N_a(n) / n` converge to `l a`. -/
 theorem tendsto_pullCount_div_of_sqrt_sub {w : ℕ → α → ℝ} {l : α → ℝ}
     (hl0 : ∀ a, 0 ≤ l a) (hl1 : ∑ a, l a = 1)
-    (hforced : ∀ k a, (pullCount A a k ω : ℝ) < √(k : ℝ) - Fintype.card α / 2 →
+    (hforced : ∀ᶠ k : ℕ in atTop, ∀ a, (pullCount A a k ω : ℝ) < √(k : ℝ) - Fintype.card α / 2 →
       pullCount A (A k ω) k ω ≤ pullCount A a k ω)
-    (htrack : ∀ k : ℕ, (∀ a, √(k : ℝ) - Fintype.card α / 2 ≤ pullCount A a k ω) → ∀ a,
+    (htrack : ∀ᶠ k : ℕ in atTop, (∀ a, √(k : ℝ) - Fintype.card α / 2 ≤ pullCount A a k ω) → ∀ a,
       k * w k a - pullCount A a k ω ≤ k * w k (A k ω) - pullCount A (A k ω) k ω)
     (hw : ∀ a, Tendsto (fun k ↦ w k a) atTop (𝓝 (l a))) (a : α) :
     Tendsto (fun n ↦ (pullCount A a n ω : ℝ) / n) atTop (𝓝 (l a)) := by
