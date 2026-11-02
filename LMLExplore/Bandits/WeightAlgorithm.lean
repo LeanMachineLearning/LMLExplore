@@ -7,6 +7,7 @@ module
 
 public import LMLExplore.MeasureTheory.Measure.Weighted
 public import LMLExplore.SequentialLearning.Algorithm
+public import Mathlib.Probability.CondVar
 
 /-!
 # Weight-based policies
@@ -33,7 +34,11 @@ In the namespace `LMLExplore.Bandits.WeightAlgorithm`, for a run of `weightAlgor
 * `integrable_comp_action_iff`: a function `f (past, A n)` of the past and the action is integrable
   iff the weighted sum `∑ a, w n (past) a * ‖f (past, a)‖` is;
 * `condExp_comp_action`: the conditional expectation of `f (past, A n)` given the past is the
-  weighted sum `∑ a, w n (past) a • f (past, a)`.
+  weighted sum `∑ a, w n (past) a • f (past, a)`;
+* `integrable_comp_weights`, `condExp_comp_weights`, `condVar_comp_weights`: for a real function
+  `g (w n (past), A n)` of the weights and the action, integrability when the `p`-averages of
+  `|g p ·|` are bounded, and the conditional expectation and variance given the past as
+  `w n (past)`-averages.
 
 The conditional law of the action of round `n` given the past is
 `(weightAlgorithm w …).policy n = weightKernel (w n) _`, by LML's
@@ -148,6 +153,67 @@ lemma condExp_comp_action [Nonempty α] (h : IsAlgEnvSeq O A Y (weightAlgorithm 
   filter_upwards [h.condExp_comp_action n hf hint] with ω hω
   rw [hω, weightAlgorithm_policy, weightKernel_apply,
     integral_weightedMeasure_eq_sum (mem_simplex_iff.1 (hp n _)).1]
+
+omit [Fintype α] [MeasurableSingletonClass α] in
+/-- For `g` measurable, `(past, b) ↦ g (w n past) b` is strongly measurable. -/
+private lemma stronglyMeasurable_comp_weights {n : ℕ}
+    (hwn : ∀ a, Measurable fun x ↦ w n x a) {g : (α → ℝ) → α → ℝ}
+    (hg : Measurable fun z : (α → ℝ) × α ↦ g z.1 z.2) :
+    StronglyMeasurable fun z : (Hist 𝓞 α 𝓨 n × 𝓞) × α ↦ g (w n z.1) z.2 :=
+  (hg.comp (((measurable_pi_iff.2 hwn).comp measurable_fst).prodMk measurable_snd))
+    |>.stronglyMeasurable
+
+/-- Along a run of a weight-based algorithm, `g (w n (past), A n)` is integrable when the
+`p`-averages `∑ b, p b * |g p b|` are bounded over the probability vectors `p`. -/
+lemma integrable_comp_weights (h : IsAlgEnvSeq O A Y (weightAlgorithm w hw hp) env P) (n : ℕ)
+    {g : (α → ℝ) → α → ℝ} (hg : Measurable fun z : (α → ℝ) × α ↦ g z.1 z.2) {C : ℝ}
+    (hC : ∀ p ∈ simplex α, ∑ b, p b * |g p b| ≤ C) :
+    Integrable (fun ω ↦ g (w n (history O A Y n ω, O n ω)) (A n ω)) P := by
+  have hs := stronglyMeasurable_comp_weights (hw n) hg
+  refine (integrable_comp_action_iff h n hs).2 ?_
+  have hm : Measurable fun x : Hist 𝓞 α 𝓨 n × 𝓞 ↦ ∑ b, w n x b * ‖g (w n x) b‖ :=
+    Finset.measurable_sum _ fun b _ ↦ (hw n b).mul
+      (hs.norm.measurable.comp (measurable_id.prodMk measurable_const))
+  refine Integrable.mono' (integrable_const C)
+    (hm.comp ((h.measurable_history n).prodMk (h.measurable_obs n))).aestronglyMeasurable
+    (ae_of_all _ fun ω ↦ ?_)
+  have hpω := hp n (history O A Y n ω, O n ω)
+  rw [Real.norm_of_nonneg (Finset.sum_nonneg fun b _ ↦
+    mul_nonneg ((mem_simplex_iff.1 hpω).1 b) (norm_nonneg _))]
+  exact hC _ hpω
+
+/-- Along a run of a weight-based algorithm, the conditional expectation given the past of
+`g (w n (past), A n)` is the `w n (past)`-average of `g (w n (past))`, for `g` measurable and
+`g (w n (past), A n)` integrable. -/
+lemma condExp_comp_weights [Nonempty α] (h : IsAlgEnvSeq O A Y (weightAlgorithm w hw hp) env P)
+    (n : ℕ) {g : (α → ℝ) → α → ℝ} (hg : Measurable fun z : (α → ℝ) × α ↦ g z.1 z.2)
+    (hint : Integrable (fun ω ↦ g (w n (history O A Y n ω, O n ω)) (A n ω)) P) :
+    P[fun ω ↦ g (w n (history O A Y n ω, O n ω)) (A n ω) | h.filtrationObs n] =ᵐ[P]
+      fun ω ↦ ∑ b, w n (history O A Y n ω, O n ω) b * g (w n (history O A Y n ω, O n ω)) b :=
+  condExp_comp_action h n (stronglyMeasurable_comp_weights (hw n) hg) hint
+
+/-- Along a run of a weight-based algorithm, if `X = g (w n (past), A n)` almost surely has
+conditional expectation `c` given the past, then its conditional variance given the past is the
+`w n (past)`-average of `(g (w n (past)) - c) ^ 2`, provided that average is integrable. -/
+lemma condVar_comp_weights [Nonempty α] (h : IsAlgEnvSeq O A Y (weightAlgorithm w hw hp) env P)
+    (n : ℕ) {g : (α → ℝ) → α → ℝ} (hg : Measurable fun z : (α → ℝ) × α ↦ g z.1 z.2) {X : Ω → ℝ}
+    (hX : X =ᵐ[P] fun ω ↦ g (w n (history O A Y n ω, O n ω)) (A n ω)) {c : ℝ}
+    (hc : P[X | h.filtrationObs n] =ᵐ[P] fun _ ↦ c)
+    (hint : Integrable (fun ω ↦ ∑ b, w n (history O A Y n ω, O n ω) b *
+      (g (w n (history O A Y n ω, O n ω)) b - c) ^ 2) P) :
+    Var[X; P | h.filtrationObs n] =ᵐ[P] fun ω ↦ ∑ b, w n (history O A Y n ω, O n ω) b *
+      (g (w n (history O A Y n ω, O n ω)) b - c) ^ 2 := by
+  have hg' : Measurable fun z : (α → ℝ) × α ↦ (g z.1 z.2 - c) ^ 2 := by fun_prop
+  have hsq : (X - P[X | h.filtrationObs n]) ^ 2 =ᵐ[P]
+      fun ω ↦ (g (w n (history O A Y n ω, O n ω)) (A n ω) - c) ^ 2 := by
+    filter_upwards [hX, hc] with ω hω hcω
+    simp [hω, hcω]
+  have hint' : Integrable (fun ω ↦ (g (w n (history O A Y n ω, O n ω)) (A n ω) - c) ^ 2) P := by
+    refine (integrable_comp_action_iff h n (stronglyMeasurable_comp_weights (hw n)
+      (g := fun p b ↦ (g p b - c) ^ 2) hg')).2 ?_
+    simpa only [Real.norm_of_nonneg (sq_nonneg _)] using hint
+  exact (condExp_congr_ae hsq).trans
+    (condExp_comp_weights h n (g := fun p b ↦ (g p b - c) ^ 2) hg' hint')
 
 end WeightAlgorithm
 

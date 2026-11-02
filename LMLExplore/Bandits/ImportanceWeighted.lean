@@ -6,7 +6,6 @@ Authors: Rémy Degenne
 module
 
 public import LMLExplore.Bandits.WeightAlgorithm
-public import Mathlib.Probability.CondVar
 
 /-!
 # Importance-weighted estimators
@@ -41,6 +40,8 @@ against `Environment.ofSeq o g _` with expert advice `o` (`IsAlgEnvSeq.feedback_
 * `sum_mul_iwEstimator_apply_sub_sq`, `sum_mul_lossIwEstimator_apply_sub_sq`: the corresponding
   variances.
 * `lossIwEstimator_le_one`: the loss-based estimates are at most `1` for rewards at most `1`.
+* `comp_feedback_ae_eq`: when the feedback `Y n` is almost surely `x (A n)`, it can be replaced
+  by `x (A n)` in any function of the past, the action and the feedback of round `n`.
 * `WeightAlgorithm.condExp_iwEstimator`, `WeightAlgorithm.condExp_lossIwEstimator`: conditional
   unbiasedness along a run of a weight-based algorithm [LS, (11.4)].
 * `WeightAlgorithm.integral_iwEstimator`, `WeightAlgorithm.integral_lossIwEstimator`: the
@@ -76,10 +77,10 @@ lemma iwEstimator_apply : iwEstimator p b y a = if a = b then y / p a else 0 := 
   split_ifs with h <;> simp [h]
 
 @[simp]
-lemma iwEstimator_self : iwEstimator p b y b = y / p b := by simp [iwEstimator_def]
+lemma iwEstimator_apply_self : iwEstimator p b y b = y / p b := by simp [iwEstimator_def]
 
 @[simp]
-lemma iwEstimator_of_ne (h : a ≠ b) : iwEstimator p b y a = 0 := by
+lemma iwEstimator_apply_of_ne (h : a ≠ b) : iwEstimator p b y a = 0 := by
   simp [iwEstimator_def, h]
 
 /-- The **loss-based importance-weighted estimator** [LS, (11.6)]: when the arm `b` is drawn from
@@ -156,7 +157,7 @@ lemma sum_mul_lossIwEstimator_apply (hp : ∑ b, p b = 1) (ha : p a ≠ 0) :
 the reward of an arm `a` is at most `|x a|`. -/
 lemma sum_mul_abs_iwEstimator_apply_le (ha : 0 ≤ p a) :
     ∑ b, p b * |iwEstimator p b (x b) a| ≤ |x a| := by
-  rw [Finset.sum_eq_single a (fun b _ hb ↦ by simp [Ne.symm hb]) (by simp), iwEstimator_self,
+  rw [Finset.sum_eq_single a (fun b _ hb ↦ by simp [Ne.symm hb]) (by simp), iwEstimator_apply_self,
     abs_div, abs_of_nonneg ha]
   rcases ha.eq_or_lt with ha | ha
   · simp [← ha]
@@ -172,7 +173,7 @@ lemma sum_mul_iwEstimator_apply_sub_sq (hp : ∑ b, p b = 1) (ha : p a ≠ 0) :
     rw [← eq_sub_of_add_eq' hp, Finset.sum_mul]
     refine Finset.sum_congr rfl fun b hb ↦ ?_
     simp [Ne.symm (Finset.ne_of_mem_erase hb)]
-  rw [hrest, iwEstimator_self]
+  rw [hrest, iwEstimator_apply_self]
   field_simp
   ring
 
@@ -187,6 +188,23 @@ lemma sum_mul_lossIwEstimator_apply_sub_sq (hp : ∑ b, p b = 1) (ha : p a ≠ 0
 
 end Sum
 
+section Feedback
+
+variable {𝓞 Ω E : Type*} {mΩ : MeasurableSpace Ω} {P : Measure Ω} {O : ℕ → Ω → 𝓞}
+  {A : ℕ → Ω → α} {Y : ℕ → Ω → ℝ} {n : ℕ}
+
+omit [DecidableEq α] in
+/-- If the feedback `Y n` of round `n` is almost surely the reward `x (A n)` of the action, then a
+function `g (past, A n, Y n)` of the past (history and observation), the action and the feedback
+of round `n` is almost surely `g (past, A n, x (A n))`. -/
+lemma comp_feedback_ae_eq (hY : Y n =ᵐ[P] x ∘ A n) (g : Hist 𝓞 α ℝ n × 𝓞 → α → ℝ → E) :
+    (fun ω ↦ g (history O A Y n ω, O n ω) (A n ω) (Y n ω)) =ᵐ[P]
+      fun ω ↦ g (history O A Y n ω, O n ω) (A n ω) (x (A n ω)) := by
+  filter_upwards [hY] with ω hω
+  rw [hω, Function.comp_apply]
+
+end Feedback
+
 namespace WeightAlgorithm
 
 variable [Fintype α] [MeasurableSpace α] [MeasurableSingletonClass α]
@@ -196,83 +214,16 @@ variable [Fintype α] [MeasurableSpace α] [MeasurableSingletonClass α]
   [IsFiniteMeasure P] {O : ℕ → Ω → 𝓞} {A : ℕ → Ω → α} {Y : ℕ → Ω → ℝ}
   {env : Environment 𝓞 α ℝ} {n : ℕ}
 
-omit [DecidableEq α] [Fintype α] [MeasurableSingletonClass α] in
-/-- For `g` measurable, `(past, b) ↦ g (w n past) b` is strongly measurable. -/
-private lemma stronglyMeasurable_comp_weights (hw : ∀ a, Measurable fun x ↦ w n x a)
-    {g : (α → ℝ) → α → ℝ} (hg : Measurable fun z : (α → ℝ) × α ↦ g z.1 z.2) :
-    StronglyMeasurable fun z : (Hist 𝓞 α ℝ n × 𝓞) × α ↦ g (w n z.1) z.2 :=
-  (hg.comp (((measurable_pi_iff.2 hw).comp measurable_fst).prodMk measurable_snd))
-    |>.stronglyMeasurable
-
-omit [DecidableEq α] in
-/-- Along a run of a weight-based algorithm, `g (w n (past), A n)` is integrable when the
-`p`-averages `∑ b, p b * |g p b|` are bounded over the probability vectors `p`. -/
-private lemma integrable_comp_weights (h : IsAlgEnvSeq O A Y (weightAlgorithm w hw hp) env P)
-    {g : (α → ℝ) → α → ℝ} (hg : Measurable fun z : (α → ℝ) × α ↦ g z.1 z.2) {C : ℝ}
-    (hC : ∀ p ∈ simplex α, ∑ b, p b * |g p b| ≤ C) :
-    Integrable (fun ω ↦ g (w n (history O A Y n ω, O n ω)) (A n ω)) P := by
-  have hs := stronglyMeasurable_comp_weights (hw n) hg
-  refine (integrable_comp_action_iff h n hs).2 ?_
-  have hm : Measurable fun x : Hist 𝓞 α ℝ n × 𝓞 ↦ ∑ b, w n x b * ‖g (w n x) b‖ :=
-    Finset.measurable_sum _ fun b _ ↦ (hw n b).mul
-      (hs.norm.measurable.comp (measurable_id.prodMk measurable_const))
-  refine Integrable.mono' (integrable_const C)
-    (hm.comp ((h.measurable_history n).prodMk (h.measurable_obs n))).aestronglyMeasurable
-    (ae_of_all _ fun ω ↦ ?_)
-  have hpω := hp n (history O A Y n ω, O n ω)
-  rw [Real.norm_of_nonneg (Finset.sum_nonneg fun b _ ↦
-    mul_nonneg ((mem_simplex_iff.1 hpω).1 b) (norm_nonneg _))]
-  exact hC _ hpω
-
-omit [DecidableEq α] in
-/-- Along a run of a weight-based algorithm, the conditional expectation given the past of
-`g (w n (past), A n)` is the `w n (past)`-average of `g (w n (past))`, for `g` measurable and
-`g (w n (past), A n)` integrable. -/
-private lemma condExp_comp_weights [Nonempty α]
-    (h : IsAlgEnvSeq O A Y (weightAlgorithm w hw hp) env P)
-    {g : (α → ℝ) → α → ℝ} (hg : Measurable fun z : (α → ℝ) × α ↦ g z.1 z.2)
-    (hint : Integrable (fun ω ↦ g (w n (history O A Y n ω, O n ω)) (A n ω)) P) :
-    P[fun ω ↦ g (w n (history O A Y n ω, O n ω)) (A n ω) | h.filtrationObs n] =ᵐ[P]
-      fun ω ↦ ∑ b, w n (history O A Y n ω, O n ω) b * g (w n (history O A Y n ω, O n ω)) b :=
-  condExp_comp_action h n (stronglyMeasurable_comp_weights (hw n) hg) hint
-
-omit [DecidableEq α] in
-/-- Along a run of a weight-based algorithm, if `X = g (w n (past), A n)` almost surely has
-conditional expectation `c` given the past, then its conditional variance given the past is the
-`w n (past)`-average of `(g (w n (past)) - c) ^ 2`, provided that average is integrable. -/
-private lemma condVar_comp_weights [Nonempty α]
-    (h : IsAlgEnvSeq O A Y (weightAlgorithm w hw hp) env P)
-    {g : (α → ℝ) → α → ℝ} (hg : Measurable fun z : (α → ℝ) × α ↦ g z.1 z.2) {X : Ω → ℝ}
-    (hX : X =ᵐ[P] fun ω ↦ g (w n (history O A Y n ω, O n ω)) (A n ω)) {c : ℝ}
-    (hc : P[X | h.filtrationObs n] =ᵐ[P] fun _ ↦ c)
-    (hint : Integrable (fun ω ↦ ∑ b, w n (history O A Y n ω, O n ω) b *
-      (g (w n (history O A Y n ω, O n ω)) b - c) ^ 2) P) :
-    Var[X; P | h.filtrationObs n] =ᵐ[P] fun ω ↦ ∑ b, w n (history O A Y n ω, O n ω) b *
-      (g (w n (history O A Y n ω, O n ω)) b - c) ^ 2 := by
-  have hg' : Measurable fun z : (α → ℝ) × α ↦ (g z.1 z.2 - c) ^ 2 := by fun_prop
-  have hsq : (X - P[X | h.filtrationObs n]) ^ 2 =ᵐ[P]
-      fun ω ↦ (g (w n (history O A Y n ω, O n ω)) (A n ω) - c) ^ 2 := by
-    filter_upwards [hX, hc] with ω hω hcω
-    simp [hω, hcω]
-  have hint' : Integrable (fun ω ↦ (g (w n (history O A Y n ω, O n ω)) (A n ω) - c) ^ 2) P := by
-    refine (integrable_comp_action_iff h n (stronglyMeasurable_comp_weights (hw n)
-      (g := fun p b ↦ (g p b - c) ^ 2) hg')).2 ?_
-    simpa only [Real.norm_of_nonneg (sq_nonneg _)] using hint
-  exact (condExp_congr_ae hsq).trans
-    (condExp_comp_weights h (g := fun p b ↦ (g p b - c) ^ 2) hg' hint')
-
 variable {x : α → ℝ} {a : α}
 
 /-- Along a run of a weight-based algorithm whose feedback at round `n` is the reward `x (A n)` of
 the action, the importance-weighted estimate of the reward of an arm `a` is integrable. -/
 lemma integrable_iwEstimator (h : IsAlgEnvSeq O A Y (weightAlgorithm w hw hp) env P)
     (hY : Y n =ᵐ[P] x ∘ A n) (a : α) :
-    Integrable (fun ω ↦ iwEstimator (w n (history O A Y n ω, O n ω)) (A n ω) (Y n ω) a) P := by
-  refine (integrable_comp_weights (n := n) h (g := fun p b ↦ iwEstimator p b (x b) a)
-    (by fun_prop) fun p hp ↦ sum_mul_abs_iwEstimator_apply_le ((mem_simplex_iff.1 hp).1 a)).congr
-    ?_
-  filter_upwards [hY] with ω hω
-  simp [hω]
+    Integrable (fun ω ↦ iwEstimator (w n (history O A Y n ω, O n ω)) (A n ω) (Y n ω) a) P :=
+  (integrable_comp_weights h n (g := fun p b ↦ iwEstimator p b (x b) a) (by fun_prop)
+    fun p hp ↦ sum_mul_abs_iwEstimator_apply_le ((mem_simplex_iff.1 hp).1 a)).congr
+    (comp_feedback_ae_eq hY fun z b y ↦ iwEstimator (w n z) b y a).symm
 
 /-- Along a run of a weight-based algorithm whose feedback at round `n` is the reward `x (A n)` of
 the action, the loss-based importance-weighted estimate of the reward of an arm `a` is
@@ -280,19 +231,18 @@ integrable. -/
 lemma integrable_lossIwEstimator (h : IsAlgEnvSeq O A Y (weightAlgorithm w hw hp) env P)
     (hY : Y n =ᵐ[P] x ∘ A n) (a : α) :
     Integrable (fun ω ↦ lossIwEstimator (w n (history O A Y n ω, O n ω)) (A n ω) (Y n ω) a) P := by
-  refine (integrable_comp_weights (n := n) h (g := fun p b ↦ lossIwEstimator p b (x b) a)
-    (by fun_prop) (C := 1 + |1 - x a|) fun p hp ↦ ?_).congr ?_
-  · rw [mem_simplex_iff] at hp
-    calc ∑ b, p b * |lossIwEstimator p b (x b) a|
-        ≤ ∑ b, p b * (1 + |iwEstimator p b (1 - x b) a|) := by
-          refine Finset.sum_le_sum fun b _ ↦ mul_le_mul_of_nonneg_left ?_ (hp.1 b)
-          rw [lossIwEstimator_apply]
-          exact (abs_sub _ _).trans (by simp)
-      _ ≤ 1 + |1 - x a| := by
-          simp only [mul_add, mul_one, Finset.sum_add_distrib, hp.2, add_le_add_iff_left]
-          exact sum_mul_abs_iwEstimator_apply_le (x := fun b ↦ 1 - x b) (hp.1 a)
-  · filter_upwards [hY] with ω hω
-    simp [hω]
+  refine (integrable_comp_weights h n (g := fun p b ↦ lossIwEstimator p b (x b) a)
+    (by fun_prop) (C := 1 + |1 - x a|) fun p hp ↦ ?_).congr
+    (comp_feedback_ae_eq hY fun z b y ↦ lossIwEstimator (w n z) b y a).symm
+  rw [mem_simplex_iff] at hp
+  calc ∑ b, p b * |lossIwEstimator p b (x b) a|
+      ≤ ∑ b, p b * (1 + |iwEstimator p b (1 - x b) a|) := by
+        refine Finset.sum_le_sum fun b _ ↦ mul_le_mul_of_nonneg_left ?_ (hp.1 b)
+        rw [lossIwEstimator_apply]
+        exact (abs_sub _ _).trans (by simp)
+    _ ≤ 1 + |1 - x a| := by
+        simp only [mul_add, mul_one, Finset.sum_add_distrib, hp.2, add_le_add_iff_left]
+        exact sum_mul_abs_iwEstimator_apply_le (x := fun b ↦ 1 - x b) (hp.1 a)
 
 variable [Nonempty α]
 
@@ -304,13 +254,10 @@ theorem condExp_iwEstimator (h : IsAlgEnvSeq O A Y (weightAlgorithm w hw hp) env
     (hY : Y n =ᵐ[P] x ∘ A n) (ha : ∀ᵐ ω ∂P, 0 < w n (history O A Y n ω, O n ω) a) :
     P[fun ω ↦ iwEstimator (w n (history O A Y n ω, O n ω)) (A n ω) (Y n ω) a
       | h.filtrationObs n] =ᵐ[P] fun _ ↦ x a := by
-  have hcongr : (fun ω ↦ iwEstimator (w n (history O A Y n ω, O n ω)) (A n ω) (Y n ω) a) =ᵐ[P]
-      fun ω ↦ iwEstimator (w n (history O A Y n ω, O n ω)) (A n ω) (x (A n ω)) a := by
-    filter_upwards [hY] with ω hω
-    simp [hω]
+  have hcongr := comp_feedback_ae_eq (O := O) hY fun z b y ↦ iwEstimator (w n z) b y a
   refine (condExp_congr_ae hcongr).trans ?_
-  filter_upwards [condExp_comp_weights h (g := fun p b ↦ iwEstimator p b (x b) a) (by fun_prop)
-    ((integrable_iwEstimator h hY a).congr hcongr), ha] with ω hω hωa
+  filter_upwards [condExp_comp_weights h n (g := fun p b ↦ iwEstimator p b (x b) a)
+    (by fun_prop) ((integrable_iwEstimator h hY a).congr hcongr), ha] with ω hω hωa
   rw [hω]
   exact sum_mul_iwEstimator_apply hωa.ne'
 
@@ -322,12 +269,9 @@ theorem condExp_lossIwEstimator (h : IsAlgEnvSeq O A Y (weightAlgorithm w hw hp)
     (hY : Y n =ᵐ[P] x ∘ A n) (ha : ∀ᵐ ω ∂P, 0 < w n (history O A Y n ω, O n ω) a) :
     P[fun ω ↦ lossIwEstimator (w n (history O A Y n ω, O n ω)) (A n ω) (Y n ω) a
       | h.filtrationObs n] =ᵐ[P] fun _ ↦ x a := by
-  have hcongr : (fun ω ↦ lossIwEstimator (w n (history O A Y n ω, O n ω)) (A n ω) (Y n ω) a)
-      =ᵐ[P] fun ω ↦ lossIwEstimator (w n (history O A Y n ω, O n ω)) (A n ω) (x (A n ω)) a := by
-    filter_upwards [hY] with ω hω
-    simp [hω]
+  have hcongr := comp_feedback_ae_eq (O := O) hY fun z b y ↦ lossIwEstimator (w n z) b y a
   refine (condExp_congr_ae hcongr).trans ?_
-  filter_upwards [condExp_comp_weights h (g := fun p b ↦ lossIwEstimator p b (x b) a)
+  filter_upwards [condExp_comp_weights h n (g := fun p b ↦ lossIwEstimator p b (x b) a)
     (by fun_prop) ((integrable_lossIwEstimator h hY a).congr hcongr), ha] with ω hω hωa
   rw [hω]
   exact sum_mul_lossIwEstimator_apply (mem_simplex_iff.1 (hp n _)).2 hωa.ne'
@@ -353,6 +297,16 @@ theorem integral_lossIwEstimator [IsProbabilityMeasure P]
     integral_congr_ae (condExp_lossIwEstimator h hY ha)]
   simp
 
+omit [Nonempty α] in
+/-- For `q` almost surely nonzero with `q⁻¹` integrable, `c * (1 - q) / q` is integrable. -/
+private lemma integrable_mul_one_sub_div {q : Ω → ℝ} (hq : ∀ᵐ ω ∂P, q ω ≠ 0)
+    (hint : Integrable (fun ω ↦ (q ω)⁻¹) P) (c : ℝ) :
+    Integrable (fun ω ↦ c * (1 - q ω) / q ω) P := by
+  refine ((hint.sub (integrable_const 1)).const_mul c).congr ?_
+  filter_upwards [hq] with ω hω
+  simp only [Pi.sub_apply]
+  field_simp
+
 /-- **Conditional variance of the importance-weighted estimator** [LS, (11.5)]: along a run of a
 weight-based algorithm whose feedback at round `n` is the reward `x (A n)` of the action, the
 importance-weighted estimate of the reward of an arm `a` with almost surely positive weight `P_a`
@@ -369,15 +323,11 @@ theorem condVar_iwEstimator (h : IsAlgEnvSeq O A Y (weightAlgorithm w hw hp) env
         x a ^ 2 * (1 - w n (history O A Y n ω, O n ω) a) / w n (history O A Y n ω, O n ω) a := by
     filter_upwards [ha] with ω hωa
     exact sum_mul_iwEstimator_apply_sub_sq (mem_simplex_iff.1 (hp n _)).2 hωa.ne'
-  refine (condVar_comp_weights h (g := fun p b ↦ iwEstimator p b (x b) a) (by fun_prop) ?_
+  refine (condVar_comp_weights h n (g := fun p b ↦ iwEstimator p b (x b) a) (by fun_prop)
+    (comp_feedback_ae_eq hY fun z b y ↦ iwEstimator (w n z) b y a)
     (condExp_iwEstimator h hY ha) ?_).trans hsum
-  · filter_upwards [hY] with ω hω
-    simp [hω]
-  · refine Integrable.congr ?_ (hsum.mono fun ω hω ↦ hω.symm)
-    refine ((hint.sub (integrable_const 1)).const_mul (x a ^ 2)).congr ?_
-    filter_upwards [ha] with ω hωa
-    simp only [Pi.sub_apply]
-    field_simp
+  exact (integrable_mul_one_sub_div (ha.mono fun _ h ↦ h.ne') hint (x a ^ 2)).congr
+    (hsum.mono fun _ h ↦ h.symm)
 
 /-- **Conditional variance of the loss-based importance-weighted estimator** [LS, Section 11.2]:
 along a run of a weight-based algorithm whose feedback at round `n` is the reward `x (A n)` of the
@@ -395,15 +345,11 @@ theorem condVar_lossIwEstimator (h : IsAlgEnvSeq O A Y (weightAlgorithm w hw hp)
         (1 - w n (history O A Y n ω, O n ω) a) / w n (history O A Y n ω, O n ω) a := by
     filter_upwards [ha] with ω hωa
     exact sum_mul_lossIwEstimator_apply_sub_sq (mem_simplex_iff.1 (hp n _)).2 hωa.ne'
-  refine (condVar_comp_weights h (g := fun p b ↦ lossIwEstimator p b (x b) a) (by fun_prop) ?_
+  refine (condVar_comp_weights h n (g := fun p b ↦ lossIwEstimator p b (x b) a) (by fun_prop)
+    (comp_feedback_ae_eq hY fun z b y ↦ lossIwEstimator (w n z) b y a)
     (condExp_lossIwEstimator h hY ha) ?_).trans hsum
-  · filter_upwards [hY] with ω hω
-    simp [hω]
-  · refine Integrable.congr ?_ (hsum.mono fun ω hω ↦ hω.symm)
-    refine ((hint.sub (integrable_const 1)).const_mul ((1 - x a) ^ 2)).congr ?_
-    filter_upwards [ha] with ω hωa
-    simp only [Pi.sub_apply]
-    field_simp
+  exact (integrable_mul_one_sub_div (ha.mono fun _ h ↦ h.ne') hint ((1 - x a) ^ 2)).congr
+    (hsum.mono fun _ h ↦ h.symm)
 
 end WeightAlgorithm
 
