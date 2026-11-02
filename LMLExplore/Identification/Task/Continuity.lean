@@ -88,6 +88,19 @@ private lemma iSup_altCostSimplex (θ : Θ) :
   simp only [mem_univ, iSup_pos, altCostSimplex, answerValue_def]
   exact (iSup_subtype' (p := (· ∈ simplex α)) (f := fun w _ ↦ task.altCost θ w i)).symm
 
+/-- The maximizers of the cost of the alternatives over the simplex, as a subtype, are the optimal
+allocations. -/
+private lemma image_val_isMaxOn_altCostSimplex (θ : Θ) :
+    Subtype.val '' {v : simplex α | v ∈ univ ∧ IsMaxOn (altCostSimplex task i θ) univ v} =
+      task.optAlloc θ i := by
+  ext w
+  rw [task.mem_optAlloc_iff_isMaxOn]
+  constructor
+  · rintro ⟨v, ⟨-, hv⟩, rfl⟩
+    exact ⟨v.2, fun w' hw' ↦ hv (mem_univ ⟨w', hw'⟩)⟩
+  · rintro ⟨hw, hmax⟩
+    exact ⟨⟨w, hw⟩, ⟨mem_univ _, fun v _ ↦ hmax v.2⟩, rfl⟩
+
 variable [TopologicalSpace Θ] {s : Set Θ}
 
 /-! ### Continuity in the model, through Berge's maximum theorem -/
@@ -97,8 +110,14 @@ variable [TopologicalSpace Θ] {s : Set Θ}
 private lemma continuousWithinAt_altCostSimplex {w : simplex α}
     (h : ContinuousWithinAt (fun p : Θ × (α → ℝ) ↦ task.altCost p.1 p.2 i) (s ×ˢ simplex α)
       (θ, w)) :
-    ContinuousWithinAt ↿(altCostSimplex task i) (s ×ˢ univ) (θ, w) :=
-  h.comp (x := (θ, w)) (t := s ×ˢ simplex α) (f := fun p : Θ × simplex α ↦ (p.1, (p.2 : α → ℝ)))
+    ContinuousWithinAt ↿(altCostSimplex task i) (s ×ˢ univ) (θ, w) := by
+  -- `↿(altCostSimplex task i)` is the cost of the alternatives composed with `(θ, v) ↦ (θ, ↑v)`.
+  have h_eq : ↿(altCostSimplex task i) =
+      (fun p : Θ × (α → ℝ) ↦ task.altCost p.1 p.2 i) ∘ fun p : Θ × simplex α ↦ (p.1, ↑p.2) := by
+    ext p
+    simp [altCostSimplex, Function.HasUncurry.uncurry]
+  rw [h_eq]
+  exact h.comp (x := (θ, w)) (t := s ×ˢ simplex α)
     (continuous_fst.prodMk (continuous_subtype_val.comp continuous_snd)).continuousWithinAt
     fun p hp ↦ ⟨hp.1, p.2.2⟩
 
@@ -133,11 +152,7 @@ theorem upperHemicontinuousWithinAt_optAlloc
       (continuousWithinAt_altCostSimplex task (h v v.2)).upperSemicontinuousWithinAt) hm).image
     continuous_subtype_val
   -- The maximizers in the subtype are the optimal allocations.
-  convert h_uhc using 2 with θ'
-  ext v
-  simp only [mem_image, mem_univ, true_and, mem_optAlloc_iff_isMaxOn, isMaxOn_iff,
-    Subtype.forall, altCostSimplex, Subtype.exists, exists_and_right, exists_eq_right,
-    mem_ofPred_eq, forall_const, exists_prop]
+  simpa only [image_val_isMaxOn_altCostSimplex] using h_uhc
 
 /-- **Continuity of the value of the game** [DK19, Lemma 29]. For finitely many answers, if for
 every answer `i` the function `(θ, w) ↦ D(θ, w, ¬i)` is continuous within `s ×ˢ simplex α` at

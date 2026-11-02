@@ -35,9 +35,10 @@ by the allocation (attained there when `w a + w b > 0`), which gives the closed 
 the alternatives used to compute the optimal allocations of best arm identification
 [GK16, Lemma 3]. With two arms `a` and `b`, the game is solved by the mean `z` between `μ b` and
 `μ a` at the same divergence from both: `D(μ, ¬a) = d(μ a, z) = d(μ b, z)` [KCG16, Section 3].
-This closed form is continuous in the model and the allocation, so that the value of the game, the
-characteristic time and the optimal allocations depend continuously on the vector of means, in
-the sense of [DK19, Lemmas 28–29] (`LMLExplore/Identification/Task/Continuity.lean`).
+This closed form is continuous in the model and the allocation, so that, at every vector of means
+with a unique best arm, the value of the answer and the characteristic time are continuous, and the
+optimal allocations upper hemicontinuous [DK19, Lemmas 28–29]
+(`LMLExplore/Identification/Task/Continuity.lean`).
 
 For Gaussian arms with a common variance `σ2`, the divergence is `d(x, y) = (x - y)² / (2 σ2)`, so
 that `D(μ, w, ¬a) = min_{b ≠ a} (w a w b / (w a + w b)) (μ a - μ b)² / (2 σ2)`, and two arms with
@@ -452,10 +453,10 @@ private lemma continuousWithinAt_altCost_baiTask_restrict (hT : ∀ c, ¬ T =ᵐ
   exact ((continuousOn_altCost_baiTask_restrict ν hT hν a) _
     ⟨mem_of_mem_nhds h_nhds, simplex_subset_nonneg hw⟩).mono_of_mem_nhdsWithin h_mem
 
-/-- **Continuity of the game value of best arm identification** [DK19, Lemma 28], for arms in an
-exponential family with divergence `d` (as in `continuousOn_altCost_baiTask_restrict`): at a vector
-of means `μ` of the family with unique best arm `a`, the value `μ' ↦ D(μ', ¬a)` of the game of the
-answer `a` is continuous. -/
+/-- **Continuity of the value of the answer `a` in best arm identification** [DK19, Lemma 28], for
+arms in an exponential family with divergence `d` (as in
+`continuousOn_altCost_baiTask_restrict`): at a vector of means `μ` of the family with unique best
+arm `a`, the value `μ' ↦ D(μ', ¬a)` of the game of the answer `a` is continuous. -/
 theorem continuousAt_answerValue_baiTask_restrict (hT : ∀ c, ¬ T =ᵐ[ρ] fun _ ↦ c)
     (hν : ∀ μ μ' : α → ℝ, (∀ c, μ c ∈ ρ.expFamilyMeans T) → (∀ c, μ' c ∈ ρ.expFamilyMeans T) →
       ∀ c, klDiv (ν μ c) (ν μ' c) = ENNReal.ofReal (ρ.expFamilyDiv T (μ c) (μ' c)))
