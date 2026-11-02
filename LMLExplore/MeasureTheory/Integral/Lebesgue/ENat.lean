@@ -8,6 +8,7 @@ module
 public import Mathlib.MeasureTheory.Integral.Lebesgue.Countable
 public import Mathlib.MeasureTheory.Measure.Typeclasses.Probability
 public import Mathlib.Topology.Algebra.InfiniteSum.NatInt
+public import LMLExplore.Topology.Algebra.InfiniteSum.NatInt
 
 /-!
 # Lebesgue integral of an `ℕ∞`-valued function
@@ -41,12 +42,12 @@ lemma lintegral_toENNReal_eq_tsum_measure_lt (hf : AEMeasurable f μ) :
   have h_meas (n : ℕ) : NullMeasurableSet {ω | (n : ℕ∞) < f ω} μ :=
     hf.nullMeasurableSet_preimage (s := Set.Ioi (n : ℕ∞)) .of_discrete
   -- Pointwise, `f ω` is the number of natural numbers below it.
-  have h_card (k : ℕ∞) : (k : ℝ≥0∞) = ∑' n : ℕ, if (n : ℕ∞) < k then 1 else 0 := by
+  have h_card (k : ℕ∞) : (k : ℝ≥0∞) = ∑' n : ℕ, {n : ℕ | (n : ℕ∞) < k}.indicator 1 n := by
     induction k using ENat.recTopCoe with
     | top => simp
     | coe k =>
-      rw [tsum_eq_sum (s := Finset.range k) fun n hn ↦ by simpa using hn]
-      simp [Finset.filter_true_of_mem fun n hn ↦ Finset.mem_range.1 hn]
+      exact ((LMLExplore.tsum_indicator_natCast_lt_eq_sum_range (ENat.natCast_ne_top k) 1).trans
+        (by simp)).symm
   calc ∫⁻ ω, (f ω : ℝ≥0∞) ∂μ
   _ = ∫⁻ ω, ∑' n : ℕ, {ω | (n : ℕ∞) < f ω}.indicator 1 ω ∂μ :=
     lintegral_congr fun ω ↦ by simp [h_card (f ω), Set.indicator_apply]
