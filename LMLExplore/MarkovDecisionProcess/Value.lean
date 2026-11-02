@@ -57,7 +57,7 @@ characterizes the largest such value.
 
 public section
 
-open MeasureTheory ProbabilityTheory Filter Topology LMLExplore Learning
+open MeasureTheory ProbabilityTheory LMLExplore Learning
 open scoped NNReal
 
 namespace Learning.MDP
@@ -82,8 +82,15 @@ lemma measurable_policyReward [IsSFiniteKernel π] : Measurable (M.policyReward 
 /-- With rewards bounded by `C`, the reward of a stationary policy is bounded by `C`. -/
 lemma abs_policyReward_le [IsMarkovKernel π] (hR : ∀ p, ∀ᵐ x ∂(M.R p), |x| ≤ C) (s : 𝓢) :
     |M.policyReward π s| ≤ C :=
-  abs_integral_le_of_abs_le fun a ↦ by
-    simpa only [Real.norm_eq_abs] using norm_meanReward_le M.R (hR (s, a))
+  abs_integral_le_of_abs_le fun a ↦ abs_meanReward_le hR (s, a)
+
+/-- The reward of a deterministic stationary policy `d` is the mean reward of the action `d s`. -/
+@[simp]
+lemma policyReward_deterministic {d : 𝓢 → 𝓐} (hd : Measurable d) (s : 𝓢) :
+    M.policyReward (Kernel.deterministic d hd) s = meanReward M.R (s, d s) := by
+  rw [policyReward_def]
+  exact Kernel.integral_deterministic' hd
+    ((measurable_meanReward M.R).comp measurable_prodMk_left).stronglyMeasurable
 
 /-- With bounded rewards, the evaluation operator of `π` at a bounded measurable `v` is
 `r_π + γ P_π v`. -/
@@ -93,7 +100,7 @@ theorem bellmanEval_eq_policyReward_add [IsMarkovKernel π] (hR : ∀ p, ∀ᵐ 
   have hr : Integrable (fun a ↦ meanReward M.R (s, a)) (π s) :=
     integrable_of_abs_le (f := fun a ↦ meanReward M.R (s, a))
       ((measurable_meanReward M.R).comp measurable_prodMk_left)
-      (fun a ↦ by simpa only [Real.norm_eq_abs] using norm_meanReward_le M.R (hR (s, a))) _
+      (fun a ↦ abs_meanReward_le hR (s, a)) _
   have hPv : Integrable (fun a ↦ ∫ s', v s' ∂(M.P (s, a))) (π s) :=
     integrable_of_abs_le ((hv.stronglyMeasurable.integral_kernel (κ := M.P)).measurable.comp
       measurable_prodMk_left) (fun _ ↦ abs_integral_le_of_abs_le hvB) _
@@ -205,28 +212,11 @@ theorem bellmanEval_value (hγ : γ < 1) (hR : ∀ p, ∀ᵐ x ∂(M.R p), |x| �
 stationary policy is the unique bounded measurable fixed point of its evaluation operator. -/
 theorem eq_value_of_bellmanEval_eq (hγ : γ < 1) (hR : ∀ p, ∀ᵐ x ∂(M.R p), |x| ≤ C)
     (hv : Measurable v) (hvB : ∀ s, |v s| ≤ B) (h : M.bellmanEval γ π v = v) :
-    v = M.value γ π := by
-  -- The evaluation operator is a `γ`-contraction, so `|v - v^π| ≤ γ ^ k * D` for every `k`.
-  have hk (k : ℕ) : ∀ s, |v s - M.value γ π s| ≤ (γ : ℝ) ^ k * (B + C / (1 - γ)) := by
-    induction k with
-    | zero =>
-      intro s
-      rw [pow_zero, one_mul]
-      exact (abs_sub _ _).trans (add_le_add (hvB s) (abs_value_le hγ hR s))
-    | succ k ih =>
-      intro s
-      calc |v s - M.value γ π s|
-          = |M.bellmanEval γ π v s - M.bellmanEval γ π (M.value γ π) s| := by
-            rw [h, bellmanEval_value hγ hR]
-        _ ≤ γ * ((γ : ℝ) ^ k * (B + C / (1 - γ))) :=
-            abs_bellmanEval_sub_le hR hv hvB (measurable_value hγ hR) (abs_value_le hγ hR) ih s
-        _ = (γ : ℝ) ^ (k + 1) * (B + C / (1 - γ)) := by ring
-  ext s
-  have hlim : Tendsto (fun k ↦ (γ : ℝ) ^ k * (B + C / (1 - γ))) atTop (𝓝 0) := by
-    simpa using (tendsto_pow_atTop_nhds_zero_of_lt_one γ.coe_nonneg hγ).mul_const
-      (B + C / (1 - γ))
-  exact sub_eq_zero.1 <| abs_nonpos_iff.1 <|
-    ge_of_tendsto' hlim fun k ↦ hk k s
+    v = M.value γ π :=
+  eq_of_forall_abs_sub_le_mul (NNReal.coe_lt_one.2 hγ)
+    (fun s ↦ (abs_sub _ _).trans (add_le_add (hvB s) (abs_value_le hγ hR s))) fun E hE s ↦ by
+    rw [← h, ← bellmanEval_value hγ hR]
+    exact abs_bellmanEval_sub_le hR hv hvB (measurable_value hγ hR) (abs_value_le hγ hR) hE s
 
 end Value
 

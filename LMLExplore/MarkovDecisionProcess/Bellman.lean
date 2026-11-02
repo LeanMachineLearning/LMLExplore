@@ -115,13 +115,16 @@ lemma measurable_lookahead (hv : Measurable v) : Measurable (M.lookahead γ v) :
   (measurable_meanReward M.R).add <| measurable_const.mul
     (hv.stronglyMeasurable.integral_kernel (κ := M.P)).measurable
 
+/-- Real rewards bounded by `C` have a mean bounded by `C`. -/
+lemma abs_meanReward_le (hR : ∀ p, ∀ᵐ x ∂(M.R p), |x| ≤ C) (p : 𝓢 × 𝓐) :
+    |meanReward M.R p| ≤ C := by
+  simpa only [Real.norm_eq_abs] using norm_meanReward_le M.R (hR p)
+
 /-- With rewards bounded by `C` and `|v| ≤ B`, the lookahead is bounded by `C + γ * B`. -/
 lemma abs_lookahead_le (hR : ∀ p, ∀ᵐ x ∂(M.R p), |x| ≤ C) (hvB : ∀ s, |v s| ≤ B)
     (p : 𝓢 × 𝓐) : |M.lookahead γ v p| ≤ C + γ * B := by
-  have hr : |meanReward M.R p| ≤ C := by
-    simpa only [Real.norm_eq_abs] using norm_meanReward_le M.R (hR p)
   rw [lookahead_def]
-  refine (abs_add_le _ _).trans (add_le_add hr ?_)
+  refine (abs_add_le _ _).trans (add_le_add (abs_meanReward_le hR p) ?_)
   rw [abs_mul, NNReal.abs_eq]
   exact mul_le_mul_of_nonneg_left (abs_integral_le_of_abs_le hvB) γ.coe_nonneg
 
