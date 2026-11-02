@@ -5,8 +5,8 @@ Authors: Rémy Degenne
 -/
 module
 
-public import Mathlib.Probability.Distributions.Gaussian.Real
 public import LMLExplore.Probability.Distributions.ExponentialFamily.Mean
+public import LMLExplore.Probability.Distributions.Gaussian.Real
 
 /-!
 # The Gaussian laws of a fixed variance as an exponential family
@@ -51,43 +51,14 @@ namespace LMLExplore
 
 variable {m : ℝ} {v : ℝ≥0}
 
-/-- The pointwise identity behind the tilting of a Gaussian law: multiplying the density of
-`𝒩(m, v)` by `exp (η x)` and normalizing by the moment generating function gives the density of
-`𝒩(m + v η, v)`. -/
-private lemma gaussianPDFReal_mul_exp_div (m η : ℝ) (hv : v ≠ 0) (x : ℝ) :
-    gaussianPDFReal m v x * (exp (η * x) / exp (m * η + v * η ^ 2 / 2)) =
-      gaussianPDFReal (m + v * η) v x := by
-  have hv' : (v : ℝ) ≠ 0 := NNReal.coe_ne_zero.2 hv
-  rw [gaussianPDFReal_def, gaussianPDFReal_def, mul_assoc, ← exp_sub, ← exp_add]
-  congr 2
-  field_simp
-  ring
-
 /-- Tilting a Gaussian law shifts its mean: the member of natural parameter `η` of the exponential
 family of `𝒩(m, v)` with statistic `id` is `𝒩(m + v η, v)`. For `v = 0`, both sides are the Dirac
 mass at `m`. -/
 @[simp]
 theorem expFamily_gaussianReal (m : ℝ) (v : ℝ≥0) (η : ℝ) :
     (gaussianReal m v).expFamily id η = gaussianReal (m + v * η) v := by
-  rcases eq_or_ne v 0 with rfl | hv
-  · -- The Dirac mass at `m` is unchanged by tilting.
-    simp only [gaussianReal_zero_var, NNReal.coe_zero, zero_mul, add_zero, Measure.expFamily_def,
-      id_eq]
-    rw [tilted_congr (ae_eq_dirac fun x ↦ η * x)]
-    -- `Function.const ℝ (η * m)` is `fun _ ↦ η * m` by definition.
-    exact tilted_const _ _
-  rw [Measure.expFamily_def, Measure.tilted, gaussianReal_of_var_ne_zero _ hv,
-    gaussianReal_of_var_ne_zero _ hv, ← withDensity_mul _ (measurable_gaussianPDF _ _)
-      (by fun_prop)]
-  congr 1
-  funext x
-  have h_mgf : ∫ y, exp (η * id y) ∂(volume.withDensity (gaussianPDF m v)) =
-      exp (m * η + v * η ^ 2 / 2) := by
-    rw [← gaussianReal_of_var_ne_zero _ hv]
-    exact congrFun mgf_id_gaussianReal η
-  simp only [Pi.mul_apply, gaussianPDF_def, id_eq] at h_mgf ⊢
-  rw [h_mgf, ← ENNReal.ofReal_mul (gaussianPDFReal_nonneg _ _ _),
-    gaussianPDFReal_mul_exp_div m η hv x]
+  rw [Measure.expFamily_def]
+  exact tilted_mul_gaussianReal m v η
 
 /-- The mean map of the exponential family of `𝒩(m, v)` is `η ↦ m + v η`. -/
 @[simp]
