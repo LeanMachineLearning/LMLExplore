@@ -71,6 +71,11 @@ public section
 
 open Set
 
+/-- Multiples of the unit `1 : ι → R` are the constant functions. -/
+lemma Pi.smul_one_eq_const {ι R : Type*} [MulOneClass R] (c : R) :
+    c • (1 : ι → R) = fun _ ↦ c :=
+  funext fun _ ↦ by simp
+
 namespace LMLExplore
 
 variable {E : Type*} [AddCommGroup E] [PartialOrder E] [Module ℝ E] {e x y : E} {c : ℝ}
@@ -307,9 +312,6 @@ section Pi
 
 variable {ι : Type*} {w : ι → ℝ}
 
-/-- Multiples of the unit `1 : ι → ℝ` are the constant functions. -/
-private lemma smul_one_eq_const (c : ℝ) : c • (1 : ι → ℝ) = fun _ ↦ c := funext fun _ ↦ by simp
-
 /-- For a positive weight `w`, `x` lies in `[-c • w, c • w]` iff `|x i| / w i ≤ c` for all `i`. -/
 lemma mem_Icc_neg_smul_smul_iff_forall_abs_div_le (hw : ∀ i, 0 < w i) {x : ι → ℝ} :
     x ∈ Icc (-(c • w)) (c • w) ↔ ∀ i, |x i| / w i ≤ c := by
@@ -366,7 +368,7 @@ theorem lipschitzWith_of_monotone_of_add_const_le [Fintype ι] {T : (ι → ℝ)
     LipschitzWith γ T := by
   refine LipschitzWith.of_dist_le_mul fun x y ↦ ?_
   have h' : ∀ x (c : ℝ), 0 ≤ c → T (x + c • 1) ≤ T x + ((γ : ℝ) * c) • 1 := fun x c hc' ↦ by
-    rw [smul_one_eq_const, smul_one_eq_const]
+    rw [Pi.smul_one_eq_const, Pi.smul_one_eq_const]
     exact h x c hc'
   simpa [dist_eq_norm] using
     orderUnitNorm_sub_le_of_monotone_of_add_smul_le γ.coe_nonneg isOrderUnit_one hT h' x y
@@ -393,7 +395,7 @@ theorem orderUnitOsc_one_eq_sup'_sub_inf' [Fintype ι] [Nonempty ι] (x : ι →
 functions. -/
 theorem isTopical_one_iff {T : (ι → ℝ) → ι → ℝ} :
     IsTopical (1 : ι → ℝ) T ↔ Monotone T ∧ ∀ x (c : ℝ), T (x + fun _ ↦ c) = T x + fun _ ↦ c := by
-  simp only [← smul_one_eq_const]
+  simp only [← Pi.smul_one_eq_const]
   exact ⟨fun h ↦ ⟨h.monotone, h.map_add_smul⟩, fun h ↦ ⟨h.1, h.2⟩⟩
 
 /-- Max-plus maps `x ↦ (max_j (A i j + x j))_i` are topical for `1`. -/
