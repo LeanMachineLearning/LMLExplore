@@ -6,6 +6,7 @@ Authors: Rémy Degenne
 module
 
 public import LMLExplore.Analysis.FixedPoint.OrderUnit
+public import Mathlib.Analysis.SpecificLimits.Basic
 public import Mathlib.Data.Fintype.Pigeonhole
 public import Mathlib.Order.Iterate
 public import Mathlib.SetTheory.Cardinal.Finite
@@ -15,7 +16,7 @@ public import Mathlib.Topology.MetricSpace.Contracting
 # Abstract dynamic programming
 
 Let `E` be an ordered real vector space with an order unit `e`, normed by the order-unit norm
-(`∀ x, orderUnitNorm e x = ‖x‖`) and complete, such as `ι → ℝ` with `ι` finite and `e = 1`
+(`∀ x, orderUnitNorm e x = ‖x‖`), such as `ι → ℝ` with `ι` finite and `e = 1`
 (`orderUnitNorm_one_eq_norm`). Let `T d : E → E`, for `d` in a type `D` of *decisions*, be maps
 satisfying Blackwell's conditions with a common modulus `γ < 1`, and let `B : E → E` be their
 maximum, attained at every point: `B x` is the greatest element of `{T d x | d : D}`. A decision
@@ -26,13 +27,13 @@ operator `v ↦ r_d + γ P_d v` of a deterministic stationary policy `d` and `B`
 optimality operator, whose value at `v` is attained by the policy choosing at every state an action
 maximizing `r(s, a) + γ ∫ v dP(s, a)`. The results of this file then say that the optimal value is
 the value of a greedy policy, and that policy iteration and modified policy iteration (with value
-iteration as the case of a single evaluation step) converge geometrically to it. They only use
-monotonicity and Blackwell's conditions, following Bertsekas's abstract dynamic programming.
+iteration as the case of a single evaluation step) converge geometrically to it, the latter when
+started from `x 0 ≤ B (x 0)`. They only use monotonicity and Blackwell's conditions (`IsBlackwell`),
+following Bertsekas's abstract dynamic programming. The fixed point of `B` is taken as a
+hypothesis, so completeness of `E` is not assumed.
 
 ## Main definitions
 
-* `LMLExplore.IsBlackwell e γ T`: `T` is monotone and `T (x + c • e) ≤ T x + (γ * c) • e` for every
-  `x` and `c ≥ 0`.
 * `LMLExplore.IsPolicyIteration T B d v`: `v k` is the fixed point of `T (d k)` and `d (k + 1)` is
   greedy for `v k`.
 * `LMLExplore.IsModifiedPolicyIteration T B m d x`: `d k` is greedy for `x k` and
@@ -40,6 +41,9 @@ monotonicity and Blackwell's conditions, following Bertsekas's abstract dynamic 
 
 ## Main statements
 
+* `Monotone.iterate_le_of_map_le_succ`: if `f` is monotone and `f (u k) ≤ u (k + 1)` for all `k`,
+  then `f^[k] (u 0) ≤ u k`; `ContractingWith.tendsto_iterate_of_isFixedPt`: the iterates of a
+  contraction converge to a given fixed point, without completeness.
 * `LMLExplore.IsBlackwell.contractingWith`: a map satisfying Blackwell's conditions with modulus
   `γ < 1` is a `γ`-contraction, and `LMLExplore.IsBlackwell.of_isGreatest_range` says that `B`
   satisfies them.
@@ -71,6 +75,24 @@ public section
 
 open Set Function Filter Topology NNReal
 
+/-! ### Iterates of monotone maps and of contractions -/
+
+/-- If `f` is monotone and `f (u k) ≤ u (k + 1)` for all `k`, then `f^[k] (u 0) ≤ u k`. -/
+theorem Monotone.iterate_le_of_map_le_succ {α : Type*} [Preorder α] {f : α → α} {u : ℕ → α}
+    (hf : Monotone f) (h : ∀ k, f (u k) ≤ u (k + 1)) (k : ℕ) : f^[k] (u 0) ≤ u k :=
+  hf.seq_le_seq k (x := fun n ↦ f^[n] (u 0)) le_rfl (fun n _ ↦ (iterate_succ_apply' f n (u 0)).le)
+    fun n _ ↦ h n
+
+/-- The iterates of a contraction at any point converge to a fixed point of it. Unlike
+`ContractingWith.tendsto_iterate_fixedPoint`, this does not assume completeness, since the fixed
+point is given. -/
+theorem ContractingWith.tendsto_iterate_of_isFixedPt {α : Type*} [MetricSpace α] {K : ℝ≥0}
+    {f : α → α} (hf : ContractingWith K f) {y : α} (hy : IsFixedPt f y) (x : α) :
+    Tendsto (fun n ↦ f^[n] x) atTop (𝓝 y) := by
+  refine tendsto_iff_dist_tendsto_zero.2 (squeeze_zero (fun _ ↦ dist_nonneg) (fun n ↦ ?_)
+    (by simpa using (tendsto_pow_atTop_nhds_zero_of_lt_one K.coe_nonneg hf.1).mul_const (dist x y)))
+  simpa [iterate_fixed hy] using (hf.toLipschitzWith.iterate n).dist_le_mul x y
+
 namespace LMLExplore
 
 variable {E D : Type*}
@@ -80,20 +102,6 @@ variable {E D : Type*}
 section Blackwell
 
 variable [AddCommGroup E] [PartialOrder E] [Module ℝ E] {e : E} {γ : ℝ≥0}
-
-/-- A map `T` satisfies *Blackwell's conditions* for `e` with modulus `γ` [Bla65] if it is monotone
-and adding `c • e`, for `c ≥ 0`, to its argument adds at most `(γ * c) • e` to its value. When the
-norm is the order-unit norm of `e`, such a map is `γ`-Lipschitz (`IsBlackwell.lipschitzWith`). -/
-structure IsBlackwell (e : E) (γ : ℝ≥0) (T : E → E) : Prop where
-  monotone : Monotone T
-  map_add_smul_le (x : E) (c : ℝ) (hc : 0 ≤ c) : T (x + c • e) ≤ T x + ((γ : ℝ) * c) • e
-
-/-- If `T` is topical, then the discounted map `x ↦ T (γ • x)` satisfies Blackwell's conditions with
-modulus `γ`. -/
-lemma IsTopical.isBlackwell_comp_smul [PosSMulMono ℝ E] {T : E → E} (hT : IsTopical e T)
-    (γ : ℝ≥0) : IsBlackwell e γ fun x ↦ T ((γ : ℝ) • x) where
-  monotone _ _ hxy := hT.monotone (smul_le_smul_of_nonneg_left hxy γ.coe_nonneg)
-  map_add_smul_le x c _ := by rw [smul_add, smul_smul, hT.map_add_smul]
 
 /-- The maximum of maps satisfying Blackwell's conditions with modulus `γ` satisfies them, when it
 is attained: `B x` is the greatest of the values `T d x`. -/
@@ -110,7 +118,6 @@ lemma IsBlackwell.of_isGreatest_range [IsOrderedAddMonoid E] {T : D → E → E}
     refine ((hT d).map_add_smul_le x c hc).trans ?_
     gcongr
     exact (hB x).2 ⟨d, rfl⟩
-
 
 end Blackwell
 
@@ -162,7 +169,7 @@ theorem le_map (hT : ∀ d, Monotone (T d)) (hB : ∀ x, IsGreatest (range fun d
   | zero => exact h₀
   | succ k ih =>
     -- With `f = T (d k)`, `u k ≤ f (u k)`, so the iterates of `f` at `u k` are nondecreasing.
-    have hmono := (hT (d k)).monotone_iterate_of_le_map ((h.map_eq k).symm ▸ ih)
+    have hmono := (hT (d k)).monotone_iterate_of_le_map (ih.trans_eq (h.map_eq k).symm)
     calc u (k + 1) = (T (d k))^[m k + 1] (u k) := h.eq_iterate k
       _ ≤ (T (d k))^[m k + 1 + 1] (u k) := hmono (Nat.le_succ _)
       _ = T (d k) (u (k + 1)) := by rw [iterate_succ_apply', h.eq_iterate k]
@@ -173,7 +180,8 @@ theorem le_map (hT : ∀ d, Monotone (T d)) (hB : ∀ x, IsGreatest (range fun d
 theorem map_le (hT : ∀ d, Monotone (T d)) (hB : ∀ x, IsGreatest (range fun d ↦ T d x) (B x))
     (h : IsModifiedPolicyIteration T B m d u) (h₀ : u 0 ≤ B (u 0)) (k : ℕ) :
     B (u k) ≤ u (k + 1) := by
-  have hmono := (hT (d k)).monotone_iterate_of_le_map ((h.map_eq k).symm ▸ h.le_map hT hB h₀ k)
+  have hmono :=
+    (hT (d k)).monotone_iterate_of_le_map ((h.le_map hT hB h₀ k).trans_eq (h.map_eq k).symm)
   calc B (u k) = (T (d k))^[1] (u k) := by rw [iterate_one, h.map_eq k]
     _ ≤ (T (d k))^[m k + 1] (u k) := hmono (Nat.le_add_left 1 (m k))
     _ = u (k + 1) := (h.eq_iterate k).symm
@@ -193,12 +201,6 @@ namespace IsBlackwell
 
 variable {T : E → E}
 
-/-- A map satisfying Blackwell's conditions with modulus `γ` is `γ`-Lipschitz for the order-unit
-norm. -/
-lemma lipschitzWith (hnorm : ∀ x, orderUnitNorm e x = ‖x‖) (hT : IsBlackwell e γ T) :
-    LipschitzWith γ T :=
-  lipschitzWith_of_monotone_of_add_smul_le hnorm hT.monotone hT.map_add_smul_le
-
 /-- A map satisfying Blackwell's conditions with modulus `γ < 1` is a `γ`-contraction for the
 order-unit norm. -/
 lemma contractingWith (hnorm : ∀ x, orderUnitNorm e x = ‖x‖) (hT : IsBlackwell e γ T)
@@ -212,8 +214,7 @@ theorem norm_sub_le_of_map_le_succ (hnorm : ∀ x, orderUnitNorm e x = ‖x‖)
     (hT : IsBlackwell e γ T) {y : E} (hy : IsFixedPt T y) {u : ℕ → E} (hu : ∀ k, u k ≤ y)
     (hsucc : ∀ k, T (u k) ≤ u (k + 1)) (k : ℕ) : ‖u k - y‖ ≤ γ ^ k * ‖u 0 - y‖ := by
   -- `T^[k] (u 0) ≤ u k ≤ y`, and `T^[k]` is `γ ^ k`-Lipschitz with fixed point `y`.
-  have hle : T^[k] (u 0) ≤ u k := hT.monotone.seq_le_seq k (x := fun n ↦ T^[n] (u 0)) le_rfl
-    (fun n _ ↦ (iterate_succ_apply' T n (u 0)).le) fun n _ ↦ hsucc n
+  have hle : T^[k] (u 0) ≤ u k := hT.monotone.iterate_le_of_map_le_succ hsucc k
   calc ‖u k - y‖ = orderUnitNorm e (y - u k) := by rw [hnorm, norm_sub_rev]
     _ ≤ orderUnitNorm e (y - T^[k] (u 0)) :=
       orderUnitNorm_le_orderUnitNorm_of_nonneg (isOrderUnit_of_forall_orderUnitNorm_eq_norm hnorm)
@@ -223,31 +224,27 @@ theorem norm_sub_le_of_map_le_succ (hnorm : ∀ x, orderUnitNorm e x = ‖x‖)
       simpa using ((hT.lipschitzWith hnorm).iterate k).dist_le_mul y (u 0)
     _ = γ ^ k * ‖u 0 - y‖ := by rw [dist_comm, dist_eq_norm]
 
-variable [CompleteSpace E] {x y : E}
+variable {x y : E}
 
 /-- If `T` satisfies Blackwell's conditions with modulus `γ < 1` and `T x ≤ x`, then the fixed
 point of `T` is below `x`. -/
 theorem le_of_map_le [ClosedIicTopology E] (hnorm : ∀ x, orderUnitNorm e x = ‖x‖)
-    (hT : IsBlackwell e γ T) (hγ : γ < 1) (hy : IsFixedPt T y) (h : T x ≤ x) : y ≤ x := by
-  have hc := hT.contractingWith hnorm hγ
-  rw [hc.fixedPoint_unique hy]
-  exact le_of_tendsto' (hc.tendsto_iterate_fixedPoint x) fun n ↦ by
+    (hT : IsBlackwell e γ T) (hγ : γ < 1) (hy : IsFixedPt T y) (h : T x ≤ x) : y ≤ x :=
+  le_of_tendsto' ((hT.contractingWith hnorm hγ).tendsto_iterate_of_isFixedPt hy x) fun n ↦ by
     simpa using hT.monotone.antitone_iterate_of_map_le h (Nat.zero_le n)
 
 /-- If `T` satisfies Blackwell's conditions with modulus `γ < 1` and `x ≤ T x`, then the fixed
 point of `T` is above `x`. -/
 theorem le_of_le_map [ClosedIciTopology E] (hnorm : ∀ x, orderUnitNorm e x = ‖x‖)
-    (hT : IsBlackwell e γ T) (hγ : γ < 1) (hy : IsFixedPt T y) (h : x ≤ T x) : x ≤ y := by
-  have hc := hT.contractingWith hnorm hγ
-  rw [hc.fixedPoint_unique hy]
-  exact ge_of_tendsto' (hc.tendsto_iterate_fixedPoint x) fun n ↦ by
+    (hT : IsBlackwell e γ T) (hγ : γ < 1) (hy : IsFixedPt T y) (h : x ≤ T x) : x ≤ y :=
+  ge_of_tendsto' ((hT.contractingWith hnorm hγ).tendsto_iterate_of_isFixedPt hy x) fun n ↦ by
     simpa using hT.monotone.monotone_iterate_of_le_map h (Nat.zero_le n)
 
 end IsBlackwell
 
 /-! ### Optimality of greedy decisions -/
 
-variable [CompleteSpace E] {T : D → E → E} {B : E → E} {x : E}
+variable {T : D → E → E} {B : E → E} {x : E}
 
 /-- **Optimality of greedy decisions**: the fixed point of the maximum `B` of maps `T d` satisfying
 Blackwell's conditions with modulus `γ < 1` is the greatest fixed point of the maps `T d`. It is
@@ -294,8 +291,8 @@ theorem iterate_le [ClosedIciTopology E] (hnorm : ∀ x, orderUnitNorm e x = ‖
     (hT : ∀ d, IsBlackwell e γ (T d)) (hγ : γ < 1)
     (hB : ∀ x, IsGreatest (range fun d ↦ T d x) (B x)) (h : IsPolicyIteration T B d v) (k : ℕ) :
     B^[k] (v 0) ≤ v k :=
-  (IsBlackwell.of_isGreatest_range hT hB).monotone.seq_le_seq k (x := fun n ↦ B^[n] (v 0)) le_rfl
-    (fun n _ ↦ (iterate_succ_apply' B n (v 0)).le) fun n _ ↦ h.map_le hnorm hT hγ hB n
+  (IsBlackwell.of_isGreatest_range hT hB).monotone.iterate_le_of_map_le_succ
+    (h.map_le hnorm hT hγ hB) k
 
 /-- The values of policy iteration are below the fixed point of `B`. -/
 theorem le_of_isFixedPt [ClosedIicTopology E] (hnorm : ∀ x, orderUnitNorm e x = ‖x‖)
@@ -346,15 +343,13 @@ namespace IsModifiedPolicyIteration
 
 variable {m : ℕ → ℕ} {d : ℕ → D} {u : ℕ → E}
 
-omit [CompleteSpace E] in
 /-- The values of modified policy iteration are above the iterates of `B`:
 `B^[k] (u 0) ≤ u k`. -/
 theorem iterate_le (hT : ∀ d, IsBlackwell e γ (T d))
     (hB : ∀ x, IsGreatest (range fun d ↦ T d x) (B x)) (h : IsModifiedPolicyIteration T B m d u)
     (h₀ : u 0 ≤ B (u 0)) (k : ℕ) : B^[k] (u 0) ≤ u k :=
-  (IsBlackwell.of_isGreatest_range hT hB).monotone.seq_le_seq k (x := fun n ↦ B^[n] (u 0)) le_rfl
-    (fun n _ ↦ (iterate_succ_apply' B n (u 0)).le)
-    fun n _ ↦ h.map_le (fun d ↦ (hT d).monotone) hB h₀ n
+  (IsBlackwell.of_isGreatest_range hT hB).monotone.iterate_le_of_map_le_succ
+    (h.map_le (fun d ↦ (hT d).monotone) hB h₀) k
 
 /-- The values of modified policy iteration started below their image by `B` are below the fixed
 point of `B`. -/
