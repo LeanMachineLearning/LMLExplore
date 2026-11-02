@@ -39,7 +39,11 @@ against `Environment.ofSeq o g _` with expert advice `o` (`IsAlgEnvSeq.feedback_
   `b ∼ p`, the estimates of the reward `x a` are equal to `x a` when `p a ≠ 0`.
 * `sum_mul_iwEstimator_apply_sub_sq`, `sum_mul_lossIwEstimator_apply_sub_sq`: the corresponding
   variances.
-* `lossIwEstimator_le_one`: the loss-based estimates are at most `1` for rewards at most `1`.
+* `sum_mul_iwEstimator_sq`: the `p`-average of the squared importance-weighted estimates is
+  `y ^ 2 / p b`, the second moment that the analysis of Exp3 controls.
+* `iwEstimator_nonneg`, `lossIwEstimator_le_one`: the importance-weighted estimates of a
+  nonnegative reward are nonnegative, and the loss-based estimates are at most `1` for rewards at
+  most `1`.
 * `comp_feedback_ae_eq`: when the feedback `Y n` is almost surely `x (A n)`, it can be replaced
   by `x (A n)` in any function of the past, the action and the feedback of round `n`.
 * `WeightAlgorithm.condExp_iwEstimator`, `WeightAlgorithm.condExp_lossIwEstimator`: conditional
@@ -82,6 +86,14 @@ lemma iwEstimator_apply_self : iwEstimator p b y b = y / p b := by simp [iwEstim
 @[simp]
 lemma iwEstimator_apply_of_ne (h : a ≠ b) : iwEstimator p b y a = 0 := by
   simp [iwEstimator_def, h]
+
+/-- The importance-weighted estimate of a nonnegative reward is nonnegative. -/
+lemma iwEstimator_nonneg (hp : 0 ≤ p b) (hy : 0 ≤ y) : 0 ≤ iwEstimator p b y a := by
+  rw [iwEstimator_apply]
+  split_ifs with h
+  · subst h
+    exact div_nonneg hy hp
+  · exact le_rfl
 
 /-- The **loss-based importance-weighted estimator** [LS, (11.6)]: when the arm `b` is drawn from
 the probability vector `p` and its reward `y` is observed, the estimate of the reward of arm `a` is
@@ -133,6 +145,13 @@ variable [Fintype α]
 /-- The `p`-average of the importance-weighted estimates is the observed reward. -/
 lemma sum_mul_iwEstimator (hb : p b ≠ 0) : ∑ a, p a * iwEstimator p b y a = y := by
   simp [iwEstimator_def, Pi.single_apply, mul_div_cancel₀ _ hb]
+
+/-- The `p`-average of the squared importance-weighted estimates is `y ^ 2 / p b`. -/
+lemma sum_mul_iwEstimator_sq : ∑ a, p a * iwEstimator p b y a ^ 2 = y ^ 2 / p b := by
+  rw [Finset.sum_eq_single b (fun a _ ha ↦ by simp [ha]) (by simp), iwEstimator_apply_self]
+  rcases eq_or_ne (p b) 0 with hb | hb
+  · simp [hb]
+  · field_simp
 
 /-- The `p`-average of the loss-based importance-weighted estimates is the observed reward. -/
 lemma sum_mul_lossIwEstimator (hp : ∑ a, p a = 1) (hb : p b ≠ 0) :

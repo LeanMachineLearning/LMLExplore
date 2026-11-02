@@ -35,10 +35,10 @@ In the namespace `LMLExplore.Bandits.WeightAlgorithm`, for a run of `weightAlgor
   iff the weighted sum `∑ a, w n (past) a * ‖f (past, a)‖` is;
 * `condExp_comp_action`: the conditional expectation of `f (past, A n)` given the past is the
   weighted sum `∑ a, w n (past) a • f (past, a)`;
-* `integrable_comp_weights`, `condExp_comp_weights`, `condVar_comp_weights`: for a real function
-  `g (w n (past), A n)` of the weights and the action, integrability when the `p`-averages of
-  `|g p ·|` are bounded, and the conditional expectation and variance given the past as
-  `w n (past)`-averages.
+* `integrable_comp_weights`, `condExp_comp_weights`, `integral_comp_weights`,
+  `condVar_comp_weights`: for a real function `g (w n (past), A n)` of the weights and the action,
+  integrability when the `p`-averages of `|g p ·|` are bounded, and the conditional expectation,
+  the expectation and the conditional variance given the past as `w n (past)`-averages.
 
 The conditional law of the action of round `n` given the past is
 `(weightAlgorithm w …).policy n = weightKernel (w n) _`, by LML's
@@ -191,6 +191,17 @@ lemma condExp_comp_weights [Nonempty α] (h : IsAlgEnvSeq O A Y (weightAlgorithm
     P[fun ω ↦ g (w n (history O A Y n ω, O n ω)) (A n ω) | h.filtrationObs n] =ᵐ[P]
       fun ω ↦ ∑ b, w n (history O A Y n ω, O n ω) b * g (w n (history O A Y n ω, O n ω)) b :=
   condExp_comp_action h n (stronglyMeasurable_comp_weights (hw n) hg) hint
+
+/-- Along a run of a weight-based algorithm, the expectation of `g (w n (past), A n)` is the
+expectation of the `w n (past)`-average of `g (w n (past))`, for `g` measurable and
+`g (w n (past), A n)` integrable. -/
+lemma integral_comp_weights [Nonempty α] (h : IsAlgEnvSeq O A Y (weightAlgorithm w hw hp) env P)
+    (n : ℕ) {g : (α → ℝ) → α → ℝ} (hg : Measurable fun z : (α → ℝ) × α ↦ g z.1 z.2)
+    (hint : Integrable (fun ω ↦ g (w n (history O A Y n ω, O n ω)) (A n ω)) P) :
+    P[fun ω ↦ g (w n (history O A Y n ω, O n ω)) (A n ω)] =
+      P[fun ω ↦ ∑ b, w n (history O A Y n ω, O n ω) b * g (w n (history O A Y n ω, O n ω)) b] := by
+  rw [← integral_condExp (h.filtrationObs.le n)]
+  exact integral_congr_ae (condExp_comp_weights h n hg hint)
 
 /-- Along a run of a weight-based algorithm, if `X = g (w n (past), A n)` almost surely has
 conditional expectation `c` given the past, then its conditional variance given the past is the
