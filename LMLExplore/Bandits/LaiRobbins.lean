@@ -49,10 +49,17 @@ integrability assumption.
   of pulls, `liminf_n E[T_a(n)] / log n ≥ 1 / d_inf(ν_a, μ*, M_a)`.
 * `eventually_mul_log_le_integral_regret_of_isConsistent`: [LS, Theorem 16.2],
   `liminf_n E[R_n] / log n ≥ ∑_{a : Δ_a > 0} Δ_a / d_inf(ν_a, μ*, M_a)`.
+* `setOf_forall_mem_range_eq_range`: the unstructured class built from a family of laws is the
+  range of the corresponding parametrized bandits, such as `gaussianBandit` or `bernoulliBandit`.
 * `dInf_range_gaussianReal`: `d_inf` for Gaussian laws with known variance `σ²` is
   `(m - μ)² / (2 σ²)` [LS, Table 16.1].
 * `eventually_mul_log_le_integral_regret_gaussianBandit`: the Lai–Robbins lower bound for Gaussian
   bandits with variance `σ²`, `liminf_n E[R_n] / log n ≥ ∑_{a : Δ_a > 0} 2 σ² / Δ_a`.
+* `dInf_range_bernoulliMeasure`: `d_inf` for Bernoulli laws is the binary relative entropy
+  `d(p, m)` for `p ≤ m < 1` [LS, Table 16.1]; `dInf_range_bernoulliMeasure_of_one_le`: it is `∞`
+  for `m ≥ 1`.
+* `eventually_mul_log_le_integral_regret_bernoulliBandit`: the Lai–Robbins lower bound for
+  Bernoulli bandits, `liminf_n E[R_n] / log n ≥ ∑_{a : Δ_a > 0} Δ_a / d(p_a, μ*)`.
 
 ## References
 
@@ -65,7 +72,7 @@ integrability assumption.
 public section
 
 open MeasureTheory ProbabilityTheory InformationTheory Filter Finset Real Learning Bandits
-open scoped ENNReal NNReal Topology
+open scoped ENNReal NNReal Topology unitInterval
 
 namespace LMLExplore.Bandits
 
@@ -131,6 +138,18 @@ lemma le_dInf_iff : x ≤ dInf M P m ↔ ∀ Q ∈ M, m < Q[id] → x ≤ klDiv 
 
 lemma dInf_lt_iff : dInf M P m < x ↔ ∃ Q ∈ M, m < Q[id] ∧ klDiv P Q < x := by
   simp [dInf_def, iInf_lt_iff, and_assoc]
+
+/-- The unstructured class of the bandits whose arms all have laws in the range of a family `f` of
+laws is the range of a parametrization `κ` of the bandits `a ↦ f (x a)`. -/
+lemma setOf_forall_mem_range_eq_range {X : Type*} {f : X → Measure ℝ}
+    {κ : (α → X) → Kernel α ℝ} (hκ : ∀ x a, κ x a = f (x a)) :
+    {ν : Kernel α ℝ | ∀ a, ν a ∈ Set.range f} = Set.range κ := by
+  ext ν
+  refine ⟨fun h ↦ ?_, ?_⟩
+  · choose x hx using h
+    exact ⟨x, Kernel.ext fun a ↦ (hκ x a).trans (hx a)⟩
+  · rintro ⟨x, rfl⟩ a
+    exact ⟨x a, (hκ x a).symm⟩
 
 end Defs
 
@@ -317,13 +336,8 @@ theorem eventually_mul_log_le_integral_regret_gaussianBandit [Fintype α] (hσ2 
       (integral_nonneg fun _ ↦ regret_nonneg)
   -- The Gaussian bandits with variance `σ²` form the unstructured class of the Gaussian laws.
   set M : α → Set (Measure ℝ) := fun _ ↦ Set.range fun x ↦ gaussianReal x σ2
-  have hE : {ν : Kernel α ℝ | ∀ a, ν a ∈ M a} = Set.range fun μ ↦ gaussianBandit μ σ2 := by
-    ext κ
-    refine ⟨fun h ↦ ?_, ?_⟩
-    · choose μ' hμ' using h
-      exact ⟨μ', Kernel.ext fun a ↦ by rw [gaussianBandit_apply]; exact hμ' a⟩
-    · rintro ⟨μ', rfl⟩ a
-      exact ⟨μ' a, (gaussianBandit_apply μ' σ2 a).symm⟩
+  have hE : {ν : Kernel α ℝ | ∀ a, ν a ∈ M a} = Set.range fun μ ↦ gaussianBandit μ σ2 :=
+    setOf_forall_mem_range_eq_range (gaussianBandit_apply · σ2)
   refine eventually_mul_log_le_integral_regret_of_isConsistent (M := M)
     (fun _ _ ⟨x, hx⟩ ↦ hx ▸ inferInstance) (hE ▸ halg)
     (fun a ↦ ⟨μ a, (gaussianBandit_apply μ σ2 a).symm⟩) ?_
@@ -344,5 +358,121 @@ theorem eventually_mul_log_le_integral_regret_gaussianBandit [Fintype α] (hσ2 
   exact hc
 
 end Gaussian
+
+section Bernoulli
+
+variable {p : I} {m : ℝ}
+
+/-- **`d_inf` for Bernoulli laws** [LS, Table 16.1]: among the Bernoulli laws on `{0, 1}`, the
+infimum of the relative entropies from `Ber(p)` to the laws with a mean above `m ∈ [p, 1)` is the
+binary relative entropy `d(p, m)`. -/
+lemma dInf_range_bernoulliMeasure (hpm : (p : ℝ) ≤ m) (hm : m < 1) :
+    dInf (Set.range fun q : I ↦ Ber((1 : ℝ), 0, q)) Ber((1 : ℝ), 0, p) m = klBer p m := by
+  refine le_antisymm ?_ (le_dInf_iff.mpr ?_)
+  · -- `d(p, q) → d(p, m)` as `q → m` from above, and `d_inf ≤ d(p, q)` for `q ∈ (m, 1)`.
+    have h_tendsto : Tendsto (klBer p) (𝓝[>] m) (𝓝 (klBer p m)) := by
+      rcases (p.2.1.trans hpm).eq_or_lt with hm0 | hm0
+      · -- If `m = 0`, then `p = 0` and `d(0, q) ≤ q / (1 - q)` for `q ∈ (0, 1)`.
+        have hp : (p : ℝ) = 0 := le_antisymm (hm0 ▸ hpm) p.2.1
+        subst hm0
+        rw [hp, klBer_self]
+        have h_lim : Tendsto (fun q : ℝ ↦ ENNReal.ofReal (q / (1 - q))) (𝓝[>] 0) (𝓝 0) := by
+          have : ContinuousAt (fun q : ℝ ↦ ENNReal.ofReal (q / (1 - q))) 0 :=
+            ENNReal.continuous_ofReal.continuousAt.comp
+              (continuousAt_id.div (continuousAt_const.sub continuousAt_id) (by norm_num))
+          simpa using this.tendsto.mono_left nhdsWithin_le_nhds
+        refine tendsto_of_tendsto_of_tendsto_of_le_of_le' tendsto_const_nhds h_lim
+          (.of_forall fun _ ↦ bot_le) ?_
+        filter_upwards [Ioo_mem_nhdsGT zero_lt_one] with q hq
+        have hq1 : 1 - q ≠ 0 := (sub_pos.mpr hq.2).ne'
+        calc klBer 0 q ≤ ENNReal.ofReal ((0 - q) ^ 2 / (q * (1 - q))) :=
+              klBer_le_ofReal_sq_sub_div (by simp) hq
+          _ = ENNReal.ofReal (q / (1 - q)) := by
+            rw [zero_sub, neg_sq]
+            congr 1
+            field_simp [hq.1.ne']
+      · -- If `m ∈ (0, 1)`, then `d(p, ·)` is continuous at `m`.
+        have hcont : ContinuousOn (klBer p) (Set.Ioo 0 1) :=
+          continuousOn_klBer.comp (continuous_const.prodMk continuous_id).continuousOn
+            fun q hq ↦ ⟨p.2, hq⟩
+        exact ((hcont.continuousAt (Ioo_mem_nhds hm0 hm)).tendsto).mono_left nhdsWithin_le_nhds
+    refine ge_of_tendsto h_tendsto ?_
+    filter_upwards [Ioo_mem_nhdsGT hm] with q hq
+    have hqI : q ∈ Set.Icc (0 : ℝ) 1 := ⟨(p.2.1.trans hpm).trans hq.1.le, hq.2.le⟩
+    calc dInf _ _ m ≤ klDiv Ber((1 : ℝ), 0, p) Ber((1 : ℝ), 0, ⟨q, hqI⟩) :=
+          dInf_le (Set.mem_range_self (f := fun q : I ↦ Ber((1 : ℝ), 0, q)) ⟨q, hqI⟩)
+            (by simpa [TauCeti.Probability.integral_id_bernoulliMeasure] using hq.1)
+      _ = klBer p q := klDiv_bernoulliMeasure p ⟨q, hqI⟩
+  · -- `d(p, ·)` is monotone on `[p, 1]`.
+    rintro _ ⟨q, rfl⟩ hq
+    have hq' : m < q := by simpa [TauCeti.Probability.integral_id_bernoulliMeasure] using hq
+    rw [klDiv_bernoulliMeasure]
+    exact monotoneOn_klBer p hpm (hpm.trans hq'.le) hq'.le
+
+/-- **`d_inf` for Bernoulli laws** [LS, Table 16.1]: no Bernoulli law on `{0, 1}` has a mean above
+`m ≥ 1`, so that `d_inf(P, m)` is `∞` for every law `P`. -/
+lemma dInf_range_bernoulliMeasure_of_one_le (P : Measure ℝ) (hm : 1 ≤ m) :
+    dInf (Set.range fun q : I ↦ Ber((1 : ℝ), 0, q)) P m = ∞ := by
+  refine top_le_iff.mp (le_dInf_iff.mpr ?_)
+  rintro _ ⟨q, rfl⟩ hq
+  have hq' : m < q := by simpa [TauCeti.Probability.integral_id_bernoulliMeasure] using hq
+  exact absurd (hm.trans_lt hq') (not_lt.mpr q.2.2)
+
+variable {p : α → I}
+
+/-- **Lai–Robbins lower bound for Bernoulli bandits** [LS, Theorem 16.2 and Table 16.1]: if `alg`
+is consistent over the Bernoulli bandits, then on each of them, with `μ* = max_b p_b`,
+`liminf_n E[R_n] / log n ≥ ∑_{a : Δ_a > 0} Δ_a / d(p_a, μ*)`: for every `c` below that sum,
+eventually `c log n ≤ E[R_n]`. The terms are computed from the real number `d(p_a, μ*).toReal`,
+which is `0` when `d(p_a, μ*) = ∞`, that is, when `μ* = 1`: such terms are then `0`. -/
+theorem eventually_mul_log_le_integral_regret_bernoulliBandit [Fintype α]
+    (halg : IsConsistent alg (Set.range fun p : α → I ↦ bernoulliBandit p)) (p : α → I)
+    {c : ℝ} (hc : c < ∑ a ∈ univ.filter (fun a ↦ 0 < gap (bernoulliBandit p) a),
+      gap (bernoulliBandit p) a / (klBer (p a) (⨆ b, (p b : ℝ))).toReal) :
+    ∀ᶠ n : ℕ in atTop, c * log n ≤ ∫ ω, regret (bernoulliBandit p) IT.action n ω
+      ∂(trajMeasure alg (stationaryEnv (bernoulliBandit p))) := by
+  set ν := bernoulliBandit p
+  set S := univ.filter (fun a ↦ 0 < gap ν a)
+  set μs := ⨆ b, (p b : ℝ)
+  rcases le_or_gt c 0 with hc0 | hc0
+  · exact .of_forall fun n ↦ (mul_nonpos_of_nonpos_of_nonneg hc0 (log_natCast_nonneg n)).trans
+      (integral_nonneg fun _ ↦ regret_nonneg)
+  -- The Bernoulli bandits form the unstructured class of the Bernoulli laws.
+  set M : α → Set (Measure ℝ) := fun _ ↦ Set.range fun q : I ↦ Ber((1 : ℝ), 0, q)
+  have hE : {ν : Kernel α ℝ | ∀ a, ν a ∈ M a} = Set.range fun p ↦ bernoulliBandit p :=
+    setOf_forall_mem_range_eq_range bernoulliBandit_apply
+  refine eventually_mul_log_le_integral_regret_of_isConsistent (M := M)
+    (fun _ _ ⟨q, hq⟩ ↦ hq ▸ inferInstance) (hE ▸ halg)
+    (fun a ↦ ⟨p a, (bernoulliBandit_apply p a).symm⟩) ?_
+  -- The Lai–Robbins constant is `∑_{a : Δ_a > 0} Δ_a / d(p_a, μ*)`.
+  have hterm : ∀ a ∈ S, ENNReal.ofReal (gap ν a) / dInf (M a) (ν a) (⨆ b, (ν b)[id]) =
+      ENNReal.ofReal (gap ν a / (klBer (p a) μs).toReal) := fun a ha ↦ by
+    have : Nonempty α := ⟨a⟩
+    have hgap : 0 < gap ν a := (mem_filter.mp ha).2
+    have hμs : (⨆ b, (ν b)[id]) = μs := by simp_rw [ν, integral_id_bernoulliBandit, μs]
+    have hgap_eq : gap ν a = μs - p a := by rw [gap, hμs, integral_id_bernoulliBandit]
+    have hpa : (p a : ℝ) < μs := by linarith
+    have hμs1 : μs ≤ 1 := ciSup_le fun b ↦ (p b).2.2
+    rw [bernoulliBandit_apply, hμs]
+    rcases hμs1.lt_or_eq with hlt | heq
+    · -- If `μ* < 1`, then `d(p_a, μ*)` is finite and positive.
+      have hμsI : μs ∈ Set.Ioo 0 1 := ⟨(p a).2.1.trans_lt hpa, hlt⟩
+      have hne_top := klBer_ne_top (p := p a) hμsI
+      have hpos : 0 < (klBer (p a) μs).toReal := ENNReal.toReal_pos
+        (fun h ↦ hpa.ne ((klBer_eq_zero_iff (p a).2 (Set.Ioo_subset_Icc_self hμsI)).mp h))
+        hne_top
+      rw [dInf_range_bernoulliMeasure hpa.le hlt, ENNReal.ofReal_div_of_pos hpos,
+        ENNReal.ofReal_toReal hne_top]
+    · -- If `μ* = 1`, then `d_inf = d(p_a, 1) = ∞` and both sides vanish.
+      have htop : klBer (p a) μs = ∞ :=
+        (klBer_eq_top_iff (p a).2 (by simp [heq])).mpr (Or.inr ⟨heq, (heq ▸ hpa).ne⟩)
+      rw [dInf_range_bernoulliMeasure_of_one_le _ heq.ge, htop, ENNReal.div_top,
+        ENNReal.toReal_top, div_zero, ENNReal.ofReal_zero]
+  rw [sum_congr rfl hterm,
+    ← ENNReal.ofReal_sum_of_nonneg fun a _ ↦ div_nonneg gap_nonneg ENNReal.toReal_nonneg,
+    ENNReal.ofReal_lt_ofReal_iff (hc0.trans hc)]
+  exact hc
+
+end Bernoulli
 
 end LMLExplore.Bandits
