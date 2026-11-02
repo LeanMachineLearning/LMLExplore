@@ -11,6 +11,7 @@ public import LMLExplore.Bandits.Instances
 public import LMLExplore.Probability.Distributions.ExponentialFamily.Gaussian
 public import LMLExplore.Order.Basic
 public import LMLExplore.Order.CompleteLattice.Basic
+public import LMLExplore.Algebra.Order.Field.Basic
 
 /-!
 # The alternatives of best arm identification and the cost of the alternatives
@@ -51,7 +52,9 @@ allocations, this makes every selection of the optimal allocations continuous at
 For Gaussian arms with a common variance `σ2`, the divergence is `d(x, y) = (x - y)² / (2 σ2)`, so
 that `D(μ, w, ¬a) = min_{b ≠ a} (w a w b / (w a + w b)) (μ a - μ b)² / (2 σ2)`, and two arms with
 `μ b < μ a` have characteristic time `T*(μ) = 8 σ2 / (μ a - μ b)²` with the unique optimal
-allocation `(1/2, 1/2)`.
+allocation `(1/2, 1/2)`. With more arms and a unique best arm `a`, the characteristic time is
+within a factor `2` of the complexity `H(μ) = ∑ c, 2 σ2 / Δ_c²`, where `Δ_b = μ a - μ b` for
+`b ≠ a` and `Δ_a = min_{b ≠ a} Δ_b`: `H(μ) ≤ T*(μ) ≤ 2 H(μ)` [GK16, Section 2.2].
 
 ## Main statements
 
@@ -63,6 +66,9 @@ allocation `(1/2, 1/2)`.
 * `LMLExplore.Identification.closure_alt_baiTask_restrict_inter`: for `S` open, the closure of the
   alternatives to `a` within `S` is `{λ | ∃ b ≠ a, λ a ≤ λ b} ∩ S`;
   `LMLExplore.Identification.closure_alt_baiTask` is the case `S = univ`.
+* `LMLExplore.Identification.charTime_baiTask_eq_inv_answerValue`,
+  `LMLExplore.Identification.charTime_baiTask_restrict_eq_inv_answerValue`: if `a` is the unique
+  best arm of `μ`, then `T*(μ) = D(μ, ¬a)⁻¹`.
 * `LMLExplore.Identification.altCost_baiTask_restrict_eq_iInf`: for `S` open and a transportation
   cost continuous on `{λ | ∃ b ≠ a, λ a ≤ λ b} ∩ S`,
   `D(μ, w, ¬a) = min_{b ≠ a} inf {cost_μ(w, λ) | λ ∈ S, λ a ≤ λ b}`.
@@ -103,6 +109,12 @@ allocation `(1/2, 1/2)`.
   `LMLExplore.Identification.optAlloc_baiTask_gaussianBandit_of_forall_eq_or_eq`: for two Gaussian
   arms with `μ b ≤ μ a`, `D(μ, ¬a) = (μ a - μ b)² / (8 σ2)`, and with `μ b < μ a`,
   `T*(μ) = 8 σ2 / (μ a - μ b)²` and `w*(μ, ¬a) = {(1/2, 1/2)}`.
+* `LMLExplore.Identification.le_charTime_baiTask_gaussianBandit`,
+  `LMLExplore.Identification.charTime_baiTask_gaussianBandit_le`: for Gaussian arms with variance
+  `σ2 ≠ 0` and a unique best arm, `H(μ) ≤ T*(μ) ≤ 2 H(μ)` [GK16, Section 2.2].
+* `LMLExplore.Identification.le_answerValue_baiTask_gaussianBandit`,
+  `LMLExplore.Identification.answerValue_baiTask_gaussianBandit_le`: the same bounds on the value,
+  `1 / (2 H(μ)) ≤ D(μ, ¬a) ≤ 1 / H(μ)`.
 
 ## References
 
@@ -216,6 +228,24 @@ theorem closure_alt_baiTask (a : α) :
 end Closure
 
 variable [Fintype α]
+
+/-- If `a` is the unique best arm of `μ'`, then `T*(μ') = D(μ', ¬a)⁻¹` in best arm identification
+restricted to any set `S` of vectors of means. -/
+theorem charTime_baiTask_restrict_eq_inv_answerValue (S : Set (α → ℝ))
+    (ha : ∀ b ≠ a, μ' b < μ' a) :
+    ((baiTask ν).restrict S).charTime μ' = (((baiTask ν).restrict S).answerValue μ' a)⁻¹ :=
+  IdentTask.charTime_eq_inv_answerValue _ (by
+    rw [IdentTask.correct_restrict]
+    refine (subsingleton_correct_baiTask ν μ').eq_singleton_of_mem ?_
+    rw [correct_baiTask]
+    exact ha)
+
+/-- If `a` is the unique best arm of `μ'`, then `T*(μ') = D(μ', ¬a)⁻¹` in best arm
+identification. -/
+theorem charTime_baiTask_eq_inv_answerValue (ha : ∀ b ≠ a, μ' b < μ' a) :
+    (baiTask ν).charTime μ' = ((baiTask ν).answerValue μ' a)⁻¹ :=
+  IdentTask.charTime_eq_inv_answerValue _
+    ((subsingleton_correct_baiTask ν μ').eq_singleton_of_mem (by rw [correct_baiTask]; exact ha))
 
 /-- For an open set `S` of vectors of means and a transportation cost from `μ` continuous on the
 vectors of `S` in which some arm `b ≠ a` has mean at least that of `a`, the cost of the
@@ -539,10 +569,8 @@ theorem continuousAt_charTime_baiTask_restrict (hT : ∀ c, ¬ T =ᵐ[ρ] fun _ 
       ((baiTask ν).restrict {μ' | ∀ c, μ' c ∈ ρ.expFamilyMeans T}).charTime := by
     filter_upwards [(isOpen_answerSet_baiTask ν a).mem_nhds ((mem_answerSet_baiTask_iff ν).2 ha)]
       with μ' hμ'
-    refine (IdentTask.charTime_eq_inv_answerValue _ ?_).symm
-    rw [IdentTask.correct_restrict]
-    exact (subsingleton_correct_baiTask ν μ').eq_singleton_of_mem
-      ((IdentTask.mem_answerSet_iff _).1 hμ').2
+    exact (charTime_baiTask_restrict_eq_inv_answerValue ν _
+      ((mem_answerSet_baiTask_iff ν).1 hμ')).symm
   exact ((continuousAt_answerValue_baiTask_restrict ν hT hν hμ ha).inv).congr h_eq
 
 /-! #### The optimal allocation -/
@@ -899,6 +927,158 @@ theorem optAlloc_baiTask_gaussianBandit_of_forall_eq_or_eq (hσ2 : σ2 ≠ 0) (h
     rw [h_alt h_half]
     congr 1
     ring
+
+/-! #### The complexity `H(μ)` -/
+
+variable [DecidableEq α] {b₀ : α}
+
+omit [Fintype α] [MeasurableSingletonClass α] in
+/-- Replacing the arm `a` by an arm `b₀ ≠ a` gives an arm other than `a`. -/
+private lemma ite_ne (hb₀a : b₀ ≠ a) (c : α) : (if c = a then b₀ else c) ≠ a := by
+  split_ifs with hc
+  exacts [hb₀a, hc]
+
+omit [Fintype α] [MeasurableSingletonClass α] in
+/-- If `a` is the unique best arm of `μ`, then the squared gaps `Δ_c²`, with `Δ_a = Δ_{b₀}`, are
+positive. -/
+private lemma sq_sub_ite_pos (hb₀a : b₀ ≠ a) (ha : ∀ b ≠ a, μ b < μ a) (c : α) :
+    0 < (μ a - μ (if c = a then b₀ else c)) ^ 2 :=
+  pow_pos (sub_pos.2 (ha _ (ite_ne hb₀a c))) 2
+
+omit [MeasurableSingletonClass α] in
+/-- The complexity `H(μ) = ∑ c, 2 σ2 / Δ_c²`, where the gap `Δ_a` of `a` is that of `b₀`, as a
+single sum over the arms. -/
+private lemma sum_div_sq_ite (σ2 : ℝ) :
+    2 * σ2 / (μ a - μ b₀) ^ 2 + ∑ b ∈ Finset.univ.erase a, 2 * σ2 / (μ a - μ b) ^ 2 =
+      ∑ c, 2 * σ2 / (μ a - μ (if c = a then b₀ else c)) ^ 2 := by
+  rw [← Finset.add_sum_erase _ _ (Finset.mem_univ a)]
+  congr 1
+  · simp
+  · exact Finset.sum_congr rfl fun c hc ↦ by simp [Finset.ne_of_mem_erase hc]
+
+omit [MeasurableSingletonClass α] in
+/-- The complexity `H(μ)` of a vector of means with unique best arm `a` is positive. -/
+private lemma sum_div_sq_pos (hσ2 : σ2 ≠ 0) (hb₀a : b₀ ≠ a) (ha : ∀ b ≠ a, μ b < μ a) :
+    0 < 2 * σ2 / (μ a - μ b₀) ^ 2 + ∑ b ∈ Finset.univ.erase a, 2 * σ2 / (μ a - μ b) ^ 2 :=
+  add_pos_of_pos_of_nonneg (div_pos (by positivity) (pow_pos (sub_pos.2 (ha b₀ hb₀a)) 2))
+    (Finset.sum_nonneg fun _ _ ↦ by positivity)
+
+omit [MeasurableSingletonClass α] in
+/-- The complexity `H(μ)` of a vector of means with unique best arm `a`, as a single sum over the
+arms, is positive. -/
+private lemma sum_div_sq_ite_pos (hσ2 : σ2 ≠ 0) (hb₀a : b₀ ≠ a) (ha : ∀ b ≠ a, μ b < μ a) :
+    0 < ∑ c, 2 * σ2 / (μ a - μ (if c = a then b₀ else c)) ^ 2 := by
+  rw [← sum_div_sq_ite]
+  exact sum_div_sq_pos hσ2 hb₀a ha
+
+/-- **Upper bound on the game value of Gaussian best arm identification** [GK16, Section 2.2]. For
+Gaussian arms with a common variance `σ2 ≠ 0`, a unique best arm `a` of `μ` and an arm `b₀ ≠ a`,
+`D(μ, ¬a) ≤ 1 / H(μ)`, where `H(μ) = ∑ c, 2 σ2 / Δ_c²` with the gaps `Δ_b = μ a - μ b` for `b ≠ a`
+and `Δ_a = Δ_{b₀}`. The bound is the smallest when `b₀` is a second best arm, for which
+`Δ_a = min_{b ≠ a} Δ_b`. -/
+theorem answerValue_baiTask_gaussianBandit_le (hσ2 : σ2 ≠ 0) (hb₀a : b₀ ≠ a)
+    (ha : ∀ b ≠ a, μ b < μ a) :
+    (baiTask (Bandits.gaussianBandit · σ2)).answerValue μ a ≤
+      ENNReal.ofReal (2 * σ2 / (μ a - μ b₀) ^ 2 +
+        ∑ b ∈ Finset.univ.erase a, 2 * σ2 / (μ a - μ b) ^ 2)⁻¹ := by
+  have hH := sum_div_sq_ite_pos hσ2 hb₀a ha
+  rw [sum_div_sq_ite]
+  set s : α → α := fun c ↦ if c = a then b₀ else c
+  set H := ∑ c, 2 * σ2 / (μ a - μ (s c)) ^ 2
+  have hs (c : α) : s c ≠ a := ite_ne hb₀a c
+  rw [IdentTask.answerValue_def]
+  refine iSup₂_le fun w hw ↦ ?_
+  obtain ⟨hw_nonneg, hw_sum⟩ := mem_simplex_iff.1 hw
+  rw [altCost_baiTask_gaussianBandit hσ2 (apply_le_of_forall_ne_lt ha) hw_nonneg]
+  -- Since `∑ c, w c = 1 = ∑ c, (2 σ2 / Δ_c²) / H`, some arm `c` has `w c ≤ (2 σ2 / Δ_c²) / H`.
+  obtain ⟨c, -, hc⟩ := Finset.exists_le_of_sum_le ⟨a, Finset.mem_univ a⟩
+    (f := w) (g := fun c ↦ 2 * σ2 / (μ a - μ (s c)) ^ 2 / H) (by
+      rw [hw_sum, ← Finset.sum_div, div_self hH.ne'])
+  -- The cost of the alternatives with best arm `s c` is at most `w c Δ_c² / (2 σ2) ≤ 1 / H`, since
+  -- `w a w b / (w a + w b)` is at most `w a` and `w b`, and `c` is `a` or `s c`.
+  refine (iInf₂_le (s c) (hs c)).trans (ENNReal.ofReal_le_ofReal ?_)
+  have h_le : w a * w (s c) / (w a + w (s c)) ≤ w c := by
+    by_cases hca : c = a
+    · subst hca
+      exact mul_div_add_le_left (hw_nonneg _) (hw_nonneg _)
+    · rw [show s c = c by simp [s, hca]]
+      exact mul_div_add_le_right (hw_nonneg _) (hw_nonneg _)
+  have hΔ : μ a - μ (s c) ≠ 0 := (sub_pos.2 (ha _ (hs c))).ne'
+  calc w a * w (s c) / (w a + w (s c)) * (μ a - μ (s c)) ^ 2 / (2 * σ2)
+  _ ≤ 2 * σ2 / (μ a - μ (s c)) ^ 2 / H * (μ a - μ (s c)) ^ 2 / (2 * σ2) := by
+    gcongr ?_ * _ / _
+    exact h_le.trans hc
+  _ = H⁻¹ := by
+    field_simp
+
+/-- **Lower bound on the game value of Gaussian best arm identification** [GK16, Section 2.2]. For
+Gaussian arms with a common variance `σ2 ≠ 0`, a unique best arm `a` of `μ` and a second best arm
+`b₀`, `1 / (2 H(μ)) ≤ D(μ, ¬a)`, where `H(μ) = ∑ c, 2 σ2 / Δ_c²` with the gaps `Δ_b = μ a - μ b`
+for `b ≠ a` and `Δ_a = Δ_{b₀} = min_{b ≠ a} Δ_b`. -/
+theorem le_answerValue_baiTask_gaussianBandit (hσ2 : σ2 ≠ 0) (hb₀a : b₀ ≠ a)
+    (ha : ∀ b ≠ a, μ b < μ a) (hb₀ : ∀ b ≠ a, μ b ≤ μ b₀) :
+    ENNReal.ofReal (2 * (2 * σ2 / (μ a - μ b₀) ^ 2 +
+        ∑ b ∈ Finset.univ.erase a, 2 * σ2 / (μ a - μ b) ^ 2))⁻¹ ≤
+      (baiTask (Bandits.gaussianBandit · σ2)).answerValue μ a := by
+  have hH := sum_div_sq_ite_pos hσ2 hb₀a ha
+  rw [sum_div_sq_ite]
+  set s : α → α := fun c ↦ if c = a then b₀ else c
+  set H := ∑ c, 2 * σ2 / (μ a - μ (s c)) ^ 2
+  have hΔ (c : α) : 0 < (μ a - μ (s c)) ^ 2 := sq_sub_ite_pos hb₀a ha c
+  have hsa : s a = b₀ := by simp [s]
+  -- The allocation proportional to `Δ_c⁻²`.
+  set w : α → ℝ := fun c ↦ 2 * σ2 / (μ a - μ (s c)) ^ 2 / H with hw_def
+  have hw : w ∈ simplex α := mem_simplex_iff.2
+    ⟨fun c ↦ by have := hΔ c; positivity, by rw [← Finset.sum_div, div_self hH.ne']⟩
+  refine le_trans ?_ (IdentTask.altCost_le_answerValue _ hw)
+  rw [altCost_baiTask_gaussianBandit hσ2 (apply_le_of_forall_ne_lt ha) (mem_simplex_iff.1 hw).1]
+  refine le_iInf₂ fun b hb ↦ ENNReal.ofReal_le_ofReal ?_
+  -- With `x = Δ_a² ≤ y = Δ_b²`, the cost of `b` is `y / (H (x + y)) ≥ 1 / (2 H)`.
+  have hsb : s b = b := by simp [s, hb]
+  have hx := hΔ a
+  have hy := hΔ b
+  rw [hsa] at hx
+  rw [hsb] at hy
+  have hxy : (μ a - μ b₀) ^ 2 ≤ (μ a - μ b) ^ 2 :=
+    pow_le_pow_left₀ (sub_pos.2 (ha b₀ hb₀a)).le (by linarith [hb₀ b hb]) 2
+  have key : w a * w b / (w a + w b) * (μ a - μ b) ^ 2 / (2 * σ2) =
+      (μ a - μ b) ^ 2 / (H * ((μ a - μ b₀) ^ 2 + (μ a - μ b) ^ 2)) := by
+    simp only [hw_def, hsa, hsb]
+    generalize (μ a - μ b₀) ^ 2 = x at hx
+    generalize (μ a - μ b) ^ 2 = y at hy
+    field_simp
+    ring
+  rw [key, ← one_div, div_le_div_iff₀ (by positivity) (by positivity)]
+  nlinarith
+
+/-- **Lower bound on the characteristic time of Gaussian best arm identification**
+[GK16, Section 2.2]. For Gaussian arms with a common variance `σ2 ≠ 0`, a unique best arm `a` of
+`μ` and an arm `b₀ ≠ a`, `H(μ) ≤ T*(μ)`, where `H(μ) = ∑ c, 2 σ2 / Δ_c²` with the gaps
+`Δ_b = μ a - μ b` for `b ≠ a` and `Δ_a = Δ_{b₀}`. The bound is the largest when `b₀` is a second
+best arm, for which `Δ_a = min_{b ≠ a} Δ_b`. -/
+theorem le_charTime_baiTask_gaussianBandit (hσ2 : σ2 ≠ 0) (hb₀a : b₀ ≠ a)
+    (ha : ∀ b ≠ a, μ b < μ a) :
+    ENNReal.ofReal (2 * σ2 / (μ a - μ b₀) ^ 2 +
+        ∑ b ∈ Finset.univ.erase a, 2 * σ2 / (μ a - μ b) ^ 2) ≤
+      (baiTask (Bandits.gaussianBandit · σ2)).charTime μ := by
+  rw [charTime_baiTask_eq_inv_answerValue _ ha,
+    ← inv_inv (ENNReal.ofReal _), ← ENNReal.ofReal_inv_of_pos (sum_div_sq_pos hσ2 hb₀a ha),
+    ENNReal.inv_le_inv]
+  exact answerValue_baiTask_gaussianBandit_le hσ2 hb₀a ha
+
+/-- **Upper bound on the characteristic time of Gaussian best arm identification**
+[GK16, Section 2.2]. For Gaussian arms with a common variance `σ2 ≠ 0`, a unique best arm `a` of
+`μ` and a second best arm `b₀`, `T*(μ) ≤ 2 H(μ)`, where `H(μ) = ∑ c, 2 σ2 / Δ_c²` with the gaps
+`Δ_b = μ a - μ b` for `b ≠ a` and `Δ_a = Δ_{b₀} = min_{b ≠ a} Δ_b`. -/
+theorem charTime_baiTask_gaussianBandit_le (hσ2 : σ2 ≠ 0) (hb₀a : b₀ ≠ a)
+    (ha : ∀ b ≠ a, μ b < μ a) (hb₀ : ∀ b ≠ a, μ b ≤ μ b₀) :
+    (baiTask (Bandits.gaussianBandit · σ2)).charTime μ ≤
+      ENNReal.ofReal (2 * (2 * σ2 / (μ a - μ b₀) ^ 2 +
+        ∑ b ∈ Finset.univ.erase a, 2 * σ2 / (μ a - μ b) ^ 2)) := by
+  rw [charTime_baiTask_eq_inv_answerValue _ ha,
+    ← inv_inv (ENNReal.ofReal (2 * _)),
+    ← ENNReal.ofReal_inv_of_pos (mul_pos two_pos (sum_div_sq_pos hσ2 hb₀a ha)), ENNReal.inv_le_inv]
+  exact le_answerValue_baiTask_gaussianBandit hσ2 hb₀a ha hb₀
 
 end Gaussian
 
