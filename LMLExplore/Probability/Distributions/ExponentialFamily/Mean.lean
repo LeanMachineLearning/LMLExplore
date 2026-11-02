@@ -159,6 +159,11 @@ lemma convex_expFamilyMeans : Convex ℝ (ρ.expFamilyMeans T) :=
   ((convex_integrableExpSet.interior.isPreconnected).image _
     analyticOnNhd_cgf.deriv.continuousOn).ordConnected.convex
 
+/-- The interval between two means of an exponential family consists of means of the family. -/
+lemma Icc_subset_expFamilyMeans (hμ' : μ' ∈ ρ.expFamilyMeans T) (hμ : μ ∈ ρ.expFamilyMeans T) :
+    Icc μ' μ ⊆ ρ.expFamilyMeans T :=
+  convex_expFamilyMeans.ordConnected.out hμ' hμ
+
 /-- The natural parameter is monotone in the mean. It is strictly increasing when `T` is not
 `ρ`-almost everywhere constant (`strictMonoOn_natParam`). -/
 theorem monotoneOn_natParam : MonotoneOn (ρ.natParam T) (ρ.expFamilyMeans T) := by
@@ -374,8 +379,7 @@ nonpositive at `μ`. -/
 theorem exists_mem_Icc_expFamilyDiv_eq (hT : ∀ c, ¬ T =ᵐ[ρ] fun _ ↦ c)
     (hμ : μ ∈ ρ.expFamilyMeans T) (hμ' : μ' ∈ ρ.expFamilyMeans T) (h : μ' ≤ μ) :
     ∃ z ∈ Icc μ' μ, ρ.expFamilyDiv T μ z = ρ.expFamilyDiv T μ' z := by
-  have h_sub : Icc μ' μ ⊆ ρ.expFamilyMeans T :=
-    (convex_iff_ordConnected.1 convex_expFamilyMeans).out hμ' hμ
+  have h_sub := Icc_subset_expFamilyMeans hμ' hμ
   have h_cont (x : ℝ) (hx : x ∈ ρ.expFamilyMeans T) :
       ContinuousOn (fun z ↦ ρ.expFamilyDiv T x z) (Icc μ' μ) :=
     (continuousOn_expFamilyDiv hT).comp (continuousOn_const.prodMk continuousOn_id)
