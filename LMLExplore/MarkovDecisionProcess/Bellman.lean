@@ -8,6 +8,7 @@ module
 public import LeanMachineLearning.ForMathlib.MeasureTheory.Order.MeasurableArg
 public import LMLExplore.Analysis.FixedPoint.OrderUnit
 public import LMLExplore.MarkovDecisionProcess.Basic
+public import Mathlib.Probability.Kernel.Integral
 public import Mathlib.Topology.MetricSpace.Contracting
 
 /-!
@@ -83,6 +84,21 @@ namespace Learning.MDP
 variable {𝓢 𝓐 : Type*} {m𝓢 : MeasurableSpace 𝓢} {m𝓐 : MeasurableSpace 𝓐}
   (M : MDP 𝓢 𝓐 ℝ) (γ : ℝ≥0) {v w : 𝓢 → ℝ} {B B' C D : ℝ}
 
+/-- A measurable function bounded by `B` in absolute value is integrable for every finite
+measure. -/
+private lemma integrable_of_abs_le {α : Type*} {_ : MeasurableSpace α} {f : α → ℝ}
+    (hf : Measurable f) (hfB : ∀ x, |f x| ≤ B) (μ : Measure α) [IsFiniteMeasure μ] :
+    Integrable f μ :=
+  .of_bound hf.aestronglyMeasurable B (.of_forall fun x ↦ (Real.norm_eq_abs _).trans_le (hfB x))
+
+/-- The integral against a probability measure of a function bounded by `B` in absolute value is
+bounded by `B` in absolute value. -/
+private lemma abs_integral_le_of_abs_le {α : Type*} {_ : MeasurableSpace α} {f : α → ℝ}
+    {μ : Measure α} [IsProbabilityMeasure μ] (hfB : ∀ x, |f x| ≤ B) : |∫ x, f x ∂μ| ≤ B := by
+  simpa only [Real.norm_eq_abs, probReal_univ, mul_one] using
+    norm_integral_le_of_norm_le_const (μ := μ) (f := f)
+      (.of_forall fun x ↦ (Real.norm_eq_abs _).trans_le (hfB x))
+
 /-! ### The one-step lookahead -/
 
 /-- The one-step lookahead `r (s, a) + γ * ∫ v dP (s, a)` of a value function `v`: the expected
@@ -118,22 +134,32 @@ lemma abs_lookahead_le (hR : ∀ p, ∀ᵐ x ∂(M.R p), |x| ≤ C) (hvB : ∀ s
     (p : 𝓢 × 𝓐) : |M.lookahead γ v p| ≤ C + γ * B := by
   have hr : |meanReward M.R p| ≤ C := by
     simpa only [Real.norm_eq_abs] using norm_meanReward_le M.R (hR p)
-  have hint : |∫ s', v s' ∂(M.P p)| ≤ B := by
-    simpa only [Real.norm_eq_abs, probReal_univ, mul_one] using
-      norm_integral_le_of_norm_le_const (μ := M.P p) (f := v)
-        (.of_forall fun s ↦ (Real.norm_eq_abs _).trans_le (hvB s))
   rw [lookahead_def]
   refine (abs_add_le _ _).trans (add_le_add hr ?_)
   rw [abs_mul, NNReal.abs_eq]
-  exact mul_le_mul_of_nonneg_left hint γ.coe_nonneg
+  exact mul_le_mul_of_nonneg_left (abs_integral_le_of_abs_le hvB) γ.coe_nonneg
 
 /-- With bounded rewards, the lookahead of a bounded measurable function is integrable over the
 actions, for every finite measure on them. -/
 lemma integrable_lookahead_prodMk_left (hR : ∀ p, ∀ᵐ x ∂(M.R p), |x| ≤ C) (hv : Measurable v)
     (hvB : ∀ s, |v s| ≤ B) (s : 𝓢) (ν : Measure 𝓐) [IsFiniteMeasure ν] :
     Integrable (fun a ↦ M.lookahead γ v (s, a)) ν :=
-  .of_bound ((measurable_lookahead hv).comp measurable_prodMk_left).aestronglyMeasurable
-    (C + γ * B) (.of_forall fun a ↦ (Real.norm_eq_abs _).trans_le (abs_lookahead_le hR hvB (s, a)))
+  integrable_of_abs_le ((measurable_lookahead hv).comp measurable_prodMk_left)
+    (fun a ↦ abs_lookahead_le hR hvB (s, a)) ν
+
+/-- Blackwell's argument, pointwise: if `T` is monotone on the pairs `v ≤ w + D` and `w ≤ v + D`,
+and adding `D` to `v` or `w` adds `γ * D` to the value of `T`, then `|v - w| ≤ D` implies
+`|T v - T w| ≤ γ * D`. -/
+private lemma abs_sub_le_of_mono_of_add_const {T : (𝓢 → ℝ) → 𝓢 → ℝ}
+    (hD : ∀ s, |v s - w s| ≤ D) (hvw : v ≤ (w + fun _ ↦ D) → T v ≤ T (w + fun _ ↦ D))
+    (hwv : w ≤ (v + fun _ ↦ D) → T w ≤ T (v + fun _ ↦ D))
+    (hv : T (v + fun _ ↦ D) = T v + fun _ ↦ γ * D) (hw : T (w + fun _ ↦ D) = T w + fun _ ↦ γ * D)
+    (s : 𝓢) : |T v s - T w s| ≤ γ * D := by
+  have h₁ := hvw (fun s ↦ by rw [Pi.add_apply]; linarith [(abs_le.1 (hD s)).2]) s
+  have h₂ := hwv (fun s ↦ by rw [Pi.add_apply]; linarith [(abs_le.1 (hD s)).1]) s
+  rw [hw, Pi.add_apply] at h₁
+  rw [hv, Pi.add_apply] at h₂
+  exact abs_sub_le_iff.2 ⟨by linarith, by linarith⟩
 
 /-! ### The optimality operator -/
 
@@ -173,14 +199,10 @@ theorem bellman_add_const [Finite 𝓐] [Nonempty 𝓐] (hv : ∀ p, Integrable 
 `|M.bellman γ v - M.bellman γ w| ≤ γ * D`. -/
 theorem abs_bellman_sub_le [Finite 𝓐] [Nonempty 𝓐] (hv : ∀ p, Integrable v (M.P p))
     (hw : ∀ p, Integrable w (M.P p)) (hD : ∀ s, |v s - w s| ≤ D) (s : 𝓢) :
-    |M.bellman γ v s - M.bellman γ w s| ≤ γ * D := by
-  have h₁ := bellman_mono (γ := γ) hv (fun p ↦ (hw p).add (integrable_const D))
-    (fun s ↦ by rw [Pi.add_apply]; linarith [(abs_le.1 (hD s)).2]) s
-  have h₂ := bellman_mono (γ := γ) hw (fun p ↦ (hv p).add (integrable_const D))
-    (fun s ↦ by rw [Pi.add_apply]; linarith [(abs_le.1 (hD s)).1]) s
-  rw [bellman_add_const hw, Pi.add_apply] at h₁
-  rw [bellman_add_const hv, Pi.add_apply] at h₂
-  exact abs_sub_le_iff.2 ⟨by linarith, by linarith⟩
+    |M.bellman γ v s - M.bellman γ w s| ≤ γ * D :=
+  abs_sub_le_of_mono_of_add_const hD (bellman_mono hv fun p ↦ (hw p).add (integrable_const D))
+    (bellman_mono hw fun p ↦ (hv p).add (integrable_const D)) (bellman_add_const hv D)
+    (bellman_add_const hw D) s
 
 /-- The optimality operator maps measurable functions to measurable functions, for countably many
 actions. -/
@@ -244,9 +266,9 @@ variable {π : Kernel 𝓢 𝓐}
 @[simp]
 theorem bellmanEval_deterministic (hv : Measurable v) {d : 𝓢 → 𝓐} (hd : Measurable d) (s : 𝓢) :
     M.bellmanEval γ (Kernel.deterministic d hd) v s = M.lookahead γ v (s, d s) := by
-  rw [bellmanEval_def, Kernel.deterministic_apply,
-    integral_dirac' (fun a ↦ M.lookahead γ v (s, a)) _
-      ((measurable_lookahead hv).comp measurable_prodMk_left).stronglyMeasurable]
+  rw [bellmanEval_def]
+  exact Kernel.integral_deterministic' hd
+    ((measurable_lookahead hv).comp measurable_prodMk_left).stronglyMeasurable
 
 /-- With bounded rewards, the evaluation operator is monotone on bounded measurable functions. -/
 theorem bellmanEval_mono [IsFiniteKernel π] (hR : ∀ p, ∀ᵐ x ∂(M.R p), |x| ≤ C)
@@ -254,8 +276,7 @@ theorem bellmanEval_mono [IsFiniteKernel π] (hR : ∀ p, ∀ᵐ x ∂(M.R p), |
     (hvw : v ≤ w) : M.bellmanEval γ π v ≤ M.bellmanEval γ π w := fun s ↦
   integral_mono (integrable_lookahead_prodMk_left hR hv hvB s _)
     (integrable_lookahead_prodMk_left hR hw hwB s _) fun _ ↦
-    lookahead_mono (.of_bound hv.aestronglyMeasurable B (.of_forall fun s ↦ by simpa using hvB s))
-      (.of_bound hw.aestronglyMeasurable B' (.of_forall fun s ↦ by simpa using hwB s)) hvw
+    lookahead_mono (integrable_of_abs_le hv hvB _) (integrable_of_abs_le hw hwB _) hvw
 
 /-- With bounded rewards, adding a constant `c` to a bounded measurable argument of the evaluation
 operator adds `γ * c` to its value. -/
@@ -263,9 +284,7 @@ theorem bellmanEval_add_const [IsMarkovKernel π] (hR : ∀ p, ∀ᵐ x ∂(M.R 
     (hv : Measurable v) (hvB : ∀ s, |v s| ≤ B) (c : ℝ) :
     M.bellmanEval γ π (v + fun _ ↦ c) = M.bellmanEval γ π v + fun _ ↦ γ * c := by
   ext s
-  have hvP (p : 𝓢 × 𝓐) : Integrable v (M.P p) :=
-    .of_bound hv.aestronglyMeasurable B (.of_forall fun s ↦ by simpa using hvB s)
-  simp only [bellmanEval_def, Pi.add_apply, lookahead_add_const (hvP _)]
+  simp only [bellmanEval_def, Pi.add_apply, lookahead_add_const (integrable_of_abs_le hv hvB _)]
   rw [integral_add (integrable_lookahead_prodMk_left hR hv hvB s _) (integrable_const _)]
   simp
 
@@ -279,13 +298,10 @@ theorem abs_bellmanEval_sub_le [IsMarkovKernel π] (hR : ∀ p, ∀ᵐ x ∂(M.R
   have hB (u : 𝓢 → ℝ) {B₀ : ℝ} (huB : ∀ s, |u s| ≤ B₀) (s : 𝓢) :
       |((u + fun _ ↦ D : 𝓢 → ℝ)) s| ≤ B₀ + |D| :=
     (abs_add_le _ _).trans (add_le_add (huB s) le_rfl)
-  have h₁ := bellmanEval_mono (γ := γ) (π := π) hR hv hvB (hw.add measurable_const) (hB w hwB)
-    (fun s ↦ by simp only [Pi.add_apply]; linarith [(abs_le.1 (hD s)).2]) s
-  have h₂ := bellmanEval_mono (γ := γ) (π := π) hR hw hwB (hv.add measurable_const) (hB v hvB)
-    (fun s ↦ by simp only [Pi.add_apply]; linarith [(abs_le.1 (hD s)).1]) s
-  rw [bellmanEval_add_const hR hw hwB, Pi.add_apply] at h₁
-  rw [bellmanEval_add_const hR hv hvB, Pi.add_apply] at h₂
-  exact abs_sub_le_iff.2 ⟨by linarith, by linarith⟩
+  exact abs_sub_le_of_mono_of_add_const hD
+    (bellmanEval_mono hR hv hvB (hw.add measurable_const) (hB w hwB))
+    (bellmanEval_mono hR hw hwB (hv.add measurable_const) (hB v hvB))
+    (bellmanEval_add_const hR hv hvB D) (bellmanEval_add_const hR hw hwB D) s
 
 /-- The evaluation operator maps measurable functions to measurable functions. -/
 theorem measurable_bellmanEval [IsSFiniteKernel π] (hv : Measurable v) :
@@ -297,9 +313,7 @@ theorem measurable_bellmanEval [IsSFiniteKernel π] (hv : Measurable v) :
 theorem abs_bellmanEval_le [IsMarkovKernel π] (hR : ∀ p, ∀ᵐ x ∂(M.R p), |x| ≤ C)
     (hvB : ∀ s, |v s| ≤ B) (s : 𝓢) : |M.bellmanEval γ π v s| ≤ C + γ * B := by
   rw [bellmanEval_def]
-  simpa only [Real.norm_eq_abs, probReal_univ, mul_one] using
-    norm_integral_le_of_norm_le_const (μ := π s) (f := fun a ↦ M.lookahead γ v (s, a))
-      (.of_forall fun a ↦ (Real.norm_eq_abs _).trans_le (abs_lookahead_le hR hvB (s, a)))
+  exact abs_integral_le_of_abs_le fun a ↦ abs_lookahead_le hR hvB (s, a)
 
 /-! ### The optimality operator as the maximum of the evaluation operators -/
 
@@ -362,14 +376,12 @@ policy satisfies Blackwell's conditions. -/
 theorem isBlackwell_bellmanEval [IsMarkovKernel π] (hR : ∀ p, ∀ᵐ x ∂(M.R p), |x| ≤ C) :
     IsBlackwell 1 γ (M.bellmanEval γ π) where
   monotone v w hvw := by
-    obtain ⟨B, hB⟩ := (finite_range fun s ↦ |v s|).bddAbove
-    obtain ⟨B', hB'⟩ := (finite_range fun s ↦ |w s|).bddAbove
-    exact bellmanEval_mono hR .of_discrete (fun s ↦ hB (mem_range_self s)) .of_discrete
-      (fun s ↦ hB' (mem_range_self s)) hvw
+    obtain ⟨B, hB⟩ := Finite.exists_le fun s ↦ |v s|
+    obtain ⟨B', hB'⟩ := Finite.exists_le fun s ↦ |w s|
+    exact bellmanEval_mono hR .of_discrete hB .of_discrete hB' hvw
   map_add_smul_le v c _ := by
-    obtain ⟨B, hB⟩ := (finite_range fun s ↦ |v s|).bddAbove
-    rw [Pi.smul_one_eq_const, Pi.smul_one_eq_const,
-      bellmanEval_add_const hR .of_discrete fun s ↦ hB (mem_range_self s)]
+    obtain ⟨B, hB⟩ := Finite.exists_le fun s ↦ |v s|
+    rw [Pi.smul_one_eq_const, Pi.smul_one_eq_const, bellmanEval_add_const hR .of_discrete hB]
 
 /-- On a finite state space and with bounded rewards, the evaluation operator of a stationary
 policy is `γ`-Lipschitz for the sup norm. -/
