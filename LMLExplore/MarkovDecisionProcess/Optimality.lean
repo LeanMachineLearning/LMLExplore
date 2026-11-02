@@ -201,11 +201,7 @@ theorem eq_optQValue_of_lookahead_iSup_eq (hγ : γ < 1) (hR : ∀ p, ∀ᵐ x �
   -- `v s = ⨆ a, Q (s, a)` is a bounded measurable solution of the optimality equation, hence `v*`
   set v : 𝓢 → ℝ := fun s ↦ ⨆ a, Q (s, a)
   have hv : Measurable v := Measurable.iSup fun _ ↦ hQ.comp measurable_prodMk_right
-  have hvB (s : 𝓢) : |v s| ≤ B := by
-    obtain ⟨a⟩ := ‹Nonempty 𝓐›
-    exact abs_le.2 ⟨(abs_le.1 (hQB (s, a))).1.trans (le_ciSup (f := fun a ↦ Q (s, a))
-      (Finite.bddAbove_range _) a),
-      ciSup_le fun a ↦ (abs_le.1 (hQB (s, a))).2⟩
+  have hvB (s : 𝓢) : |v s| ≤ B := abs_ciSup_le fun a ↦ hQB (s, a)
   have hTv : M.bellman γ v = v := by
     ext s
     rw [bellman_def, h]
