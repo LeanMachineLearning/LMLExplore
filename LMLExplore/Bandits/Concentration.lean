@@ -510,7 +510,8 @@ theorem measure_exists_le_pullCount_and_empMean_notMem_Ioo_le
   calc P {ω | ∃ t, m ≤ pullCount A a t ω ∧ empMean A R a t ω ∉ Set.Ioo l u}
   _ ≤ P {ω | ∃ t, m ≤ pullCount A a t ω ∧ (sumRewards A R a t ω ≤ pullCount A a t ω * l ∨
       pullCount A a t ω * u ≤ sumRewards A R a t ω)} :=
-    measure_mono fun ω ⟨t, hm, ht⟩ ↦ ⟨t, hm, sum_le_mul_or_mul_le_sum_of_empMean_notMem_Ioo ht⟩
+    measure_mono fun ω ⟨t, hm, ht⟩ ↦
+      ⟨t, hm, sumRewards_le_mul_or_mul_le_sumRewards_of_empMean_notMem_Ioo ht⟩
   _ ≤ streamMeasure ν {ω | ∃ s : ℕ, m ≤ s ∧
       (∑ i ∈ range s, ω i a ≤ s * l ∨ s * u ≤ ∑ i ∈ range s, ω i a)} :=
     measure_exists_pullCount_sumRewards_le h a fun s y ↦ m ≤ s ∧ (y ≤ s * l ∨ s * u ≤ y)
