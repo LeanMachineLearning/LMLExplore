@@ -40,6 +40,14 @@ with a unique best arm, the value of the answer and the characteristic time are 
 optimal allocations upper hemicontinuous [DK19, Lemmas 28–29]
 (`LMLExplore/Identification/Task/Continuity.lean`).
 
+At a vector of means `μ` of the family with unique best arm `a`, the optimal allocation is unique
+[GK16, Theorem 5]: there is a single allocation `w*(μ, ¬a)` maximizing `D(μ, w, ¬a)`. It gives a
+positive proportion to every arm [GK16, Proposition 6], and the costs
+`w a d(μ a, m_b) + w b d(μ b, m_b)` of all the pairs `(a, b)`, `b ≠ a`, are equal at it
+[GK16, Lemma 4]. Together with the upper hemicontinuity of the optimal
+allocations, this makes every selection of the optimal allocations continuous at `μ`
+[GK16, Proposition 6], as the analysis of Track-and-Stop requires.
+
 For Gaussian arms with a common variance `σ2`, the divergence is `d(x, y) = (x - y)² / (2 σ2)`, so
 that `D(μ, w, ¬a) = min_{b ≠ a} (w a w b / (w a + w b)) (μ a - μ b)² / (2 σ2)`, and two arms with
 `μ b < μ a` have characteristic time `T*(μ) = 8 σ2 / (μ a - μ b)²` with the unique optimal
@@ -70,6 +78,19 @@ allocation `(1/2, 1/2)`.
   `LMLExplore.Identification.continuousAt_charTime_baiTask_restrict`: for arms in an exponential
   family, at a vector of means with unique best arm `a`, `D(·, ¬a)` and `T*` are continuous and the
   optimal allocations `w*(·, ¬a)` are upper hemicontinuous [DK19, Lemmas 28–29].
+* `LMLExplore.Identification.answerValue_baiTask_restrict_pos`: for arms in an exponential family,
+  the value `D(μ, ¬a)` of the unique best arm `a` of `μ` is positive.
+* `LMLExplore.Identification.exists_optAlloc_baiTask_restrict_eq_singleton`,
+  `LMLExplore.Identification.subsingleton_optAlloc_baiTask_restrict`: for arms in an exponential
+  family and a vector of means with unique best arm `a`, the optimal allocation `w*(μ, ¬a)` exists
+  and is unique [GK16, Theorem 5].
+* `LMLExplore.Identification.pos_of_mem_optAlloc_baiTask_restrict`: the optimal allocation has
+  positive entries [GK16, Proposition 6].
+* `LMLExplore.Identification.answerValue_baiTask_restrict_eq_of_mem_optAlloc`: the costs of all the
+  pairs `(a, b)` equal `D(μ, ¬a)` at the optimal allocation [GK16, Lemma 4].
+* `LMLExplore.Identification.continuousAt_of_mem_optAlloc_baiTask_restrict`: every selection of the
+  optimal allocations is continuous at a vector of means with a unique best arm [GK16,
+  Proposition 6].
 * `LMLExplore.Identification.answerValue_baiTask_restrict_eq_expFamilyDiv_of_forall_eq_or_eq`,
   `LMLExplore.Identification.charTime_baiTask_restrict_eq_inv_expFamilyDiv_of_forall_eq_or_eq`:
   for two arms `a` and `b` in an exponential family with `μ b ≤ μ a` and a mean `z` between them
@@ -86,7 +107,7 @@ allocation `(1/2, 1/2)`.
 ## References
 
 * [GK16] A. Garivier and E. Kaufmann, *Optimal best arm identification with fixed confidence*,
-  COLT 2016, Section 2, Lemmas 3–4 and Proposition 6.
+  COLT 2016, Section 2, Lemmas 3–4, Theorem 5 and Proposition 6.
 * [KCG16] E. Kaufmann, O. Cappé and A. Garivier, *On the complexity of best-arm identification in
   multi-armed bandit models*, JMLR 17 (2016), Section 3.
 * [DK19] R. Degenne and W. M. Koolen, *Pure exploration with multiple correct answers*,
@@ -471,9 +492,9 @@ theorem continuousAt_answerValue_baiTask_restrict (hT : ∀ c, ¬ T =ᵐ[ρ] fun
 [DK19, Lemma 28], for arms in an exponential family with divergence `d` (as in
 `continuousOn_altCost_baiTask_restrict`): at a vector of means `μ` of the family with unique best
 arm `a`, the optimal allocations `μ' ↦ w*(μ', ¬a)` are upper hemicontinuous: for every open set
-`U ⊇ w*(μ, ¬a)`, `w*(μ', ¬a) ⊆ U` for `μ'` close enough to `μ`. When `w*(μ, ¬a)` is a single
-allocation [GK16, Lemma 4], this is the continuity of the optimal allocation at `μ`
-[GK16, Proposition 6]. -/
+`U ⊇ w*(μ, ¬a)`, `w*(μ', ¬a) ⊆ U` for `μ'` close enough to `μ`. Since `w*(μ, ¬a)` is a single
+allocation [GK16, Theorem 5], this gives the continuity of the optimal allocation at `μ`
+[GK16, Proposition 6], `continuousAt_of_mem_optAlloc_baiTask_restrict`. -/
 theorem upperHemicontinuousAt_optAlloc_baiTask_restrict (hT : ∀ c, ¬ T =ᵐ[ρ] fun _ ↦ c)
     (hν : ∀ μ μ' : α → ℝ, (∀ c, μ c ∈ ρ.expFamilyMeans T) → (∀ c, μ' c ∈ ρ.expFamilyMeans T) →
       ∀ c, klDiv (ν μ c) (ν μ' c) = ENNReal.ofReal (ρ.expFamilyDiv T (μ c) (μ' c)))
@@ -504,6 +525,366 @@ theorem continuousAt_charTime_baiTask_restrict (hT : ∀ c, ¬ T =ᵐ[ρ] fun _ 
     exact (subsingleton_correct_baiTask ν μ').eq_singleton_of_mem
       ((IdentTask.mem_answerSet_iff _).1 hμ').2
   exact ((continuousAt_answerValue_baiTask_restrict ν hT hν hμ ha).inv).congr h_eq
+
+/-! #### The optimal allocation -/
+
+/-- The cost `w₁ d(μ₁, m) + w₂ d(μ₂, m)` of moving the means `μ₁` and `μ₂` to their mean
+`m = (w₁ μ₁ + w₂ μ₂) / (w₁ + w₂)` weighted by `w₁` and `w₂`: the term of the arm pair `(a, b)` in
+the closed form of the cost of the alternatives. -/
+private noncomputable def pairCost (ρ : Measure 𝓨) (T : 𝓨 → ℝ) (μ₁ μ₂ w₁ w₂ : ℝ) : ℝ :=
+  w₁ * ρ.expFamilyDiv T μ₁ ((w₁ * μ₁ + w₂ * μ₂) / (w₁ + w₂)) +
+    w₂ * ρ.expFamilyDiv T μ₂ ((w₁ * μ₁ + w₂ * μ₂) / (w₁ + w₂))
+
+private lemma pairCost_nonneg {μ₁ μ₂ w₁ w₂ : ℝ} (hμ₁ : μ₁ ∈ ρ.expFamilyMeans T)
+    (hμ₂ : μ₂ ∈ ρ.expFamilyMeans T) (hw₁ : 0 ≤ w₁) (hw₂ : 0 ≤ w₂) :
+    0 ≤ pairCost ρ T μ₁ μ₂ w₁ w₂ := by
+  rcases (add_nonneg hw₁ hw₂).eq_or_lt with hW | hW
+  · obtain ⟨rfl, rfl⟩ : w₁ = 0 ∧ w₂ = 0 := ⟨by linarith, by linarith⟩
+    simp [pairCost]
+  have hm := div_mem_expFamilyMeans hμ₁ hμ₂ hw₁ hw₂ hW
+  exact add_nonneg (mul_nonneg hw₁ (expFamilyDiv_nonneg hμ₁ hm))
+    (mul_nonneg hw₂ (expFamilyDiv_nonneg hμ₂ hm))
+
+/-- The cost of a pair of arms vanishes when one of the weights does. -/
+private lemma pairCost_eq_zero {μ₁ μ₂ w₁ w₂ : ℝ} (h : w₁ = 0 ∨ w₂ = 0) :
+    pairCost ρ T μ₁ μ₂ w₁ w₂ = 0 := by
+  rcases h with rfl | rfl
+  · rcases eq_or_ne w₂ 0 with rfl | h <;> simp [pairCost, *, expFamilyDiv_self]
+  · rcases eq_or_ne w₁ 0 with rfl | h <;> simp [pairCost, *, expFamilyDiv_self]
+
+/-- The cost of a pair of arms with distinct means and positive weights is positive. -/
+private lemma pairCost_pos {μ₁ μ₂ w₁ w₂ : ℝ} (hμ₁ : μ₁ ∈ ρ.expFamilyMeans T)
+    (hμ₂ : μ₂ ∈ ρ.expFamilyMeans T) (hμ : μ₂ < μ₁) (hw₁ : 0 < w₁) (hw₂ : 0 < w₂) :
+    0 < pairCost ρ T μ₁ μ₂ w₁ w₂ := by
+  have hW := add_pos hw₁ hw₂
+  have hm := div_mem_expFamilyMeans hμ₁ hμ₂ hw₁.le hw₂.le hW
+  have hlt : (w₁ * μ₁ + w₂ * μ₂) / (w₁ + w₂) < μ₁ := by
+    rw [div_lt_iff₀ hW]
+    nlinarith
+  exact add_pos_of_pos_of_nonneg (mul_pos hw₁ (expFamilyDiv_pos hμ₁ hm hlt.ne'))
+    (mul_nonneg hw₂.le (expFamilyDiv_nonneg hμ₂ hm))
+
+/-- The cost of a pair of arms is positively homogeneous in the weights. -/
+private lemma pairCost_mul {μ₁ μ₂ w₁ w₂ t : ℝ} (ht : t ≠ 0) :
+    pairCost ρ T μ₁ μ₂ (t * w₁) (t * w₂) = t * pairCost ρ T μ₁ μ₂ w₁ w₂ := by
+  have hm : (t * w₁ * μ₁ + t * w₂ * μ₂) / (t * w₁ + t * w₂) =
+      (w₁ * μ₁ + w₂ * μ₂) / (w₁ + w₂) := by
+    rw [← mul_div_mul_left (w₁ * μ₁ + w₂ * μ₂) (w₁ + w₂) ht]
+    congr 1 <;> ring
+  simp only [pairCost, hm]
+  ring
+
+/-- The compensation identity for two means: `w₁ d(μ₁, z) + w₂ d(μ₂, z)` is the cost of the pair
+plus `(w₁ + w₂) d(m, z)`, with `m` the weighted mean. -/
+private lemma mul_expFamilyDiv_add_mul_expFamilyDiv_eq {μ₁ μ₂ w₁ w₂ : ℝ} (hW : w₁ + w₂ ≠ 0)
+    (z : ℝ) :
+    w₁ * ρ.expFamilyDiv T μ₁ z + w₂ * ρ.expFamilyDiv T μ₂ z = pairCost ρ T μ₁ μ₂ w₁ w₂ +
+      (w₁ + w₂) * ρ.expFamilyDiv T ((w₁ * μ₁ + w₂ * μ₂) / (w₁ + w₂)) z := by
+  have h := sum_mul_expFamilyDiv_eq (ρ := ρ) (T := T) Finset.univ ![w₁, w₂] ![μ₁, μ₂]
+    (m := (w₁ * μ₁ + w₂ * μ₂) / (w₁ + w₂)) (by simp [Fin.sum_univ_two]; field_simp) z
+  simpa [Fin.sum_univ_two, pairCost] using h
+
+/-- If the cost of a pair of arms with distinct means at the midpoint of two pairs of weights
+equals its cost at both pairs, then the two pairs of weights are proportional: the cost is
+strictly concave along the directions that change the ratio of the weights. -/
+private lemma mul_eq_mul_of_pairCost_midpoint_eq {μ₁ μ₂ x₁ y₁ x₂ y₂ : ℝ}
+    (hμ₁ : μ₁ ∈ ρ.expFamilyMeans T) (hμ₂ : μ₂ ∈ ρ.expFamilyMeans T) (hμ : μ₂ < μ₁)
+    (hx₁ : 0 ≤ x₁) (hy₁ : 0 ≤ y₁) (hx₂ : 0 ≤ x₂) (hy₂ : 0 ≤ y₂) (h₁ : 0 < x₁ + y₁)
+    (h₂ : 0 < x₂ + y₂)
+    (he₁ : pairCost ρ T μ₁ μ₂ ((x₁ + x₂) / 2) ((y₁ + y₂) / 2) = pairCost ρ T μ₁ μ₂ x₁ y₁)
+    (he₂ : pairCost ρ T μ₁ μ₂ ((x₁ + x₂) / 2) ((y₁ + y₂) / 2) = pairCost ρ T μ₁ μ₂ x₂ y₂) :
+    x₁ * y₂ = x₂ * y₁ := by
+  set x := (x₁ + x₂) / 2
+  set y := (y₁ + y₂) / 2
+  have h : 0 < x + y := by simp only [x, y]; linarith
+  set m := (x * μ₁ + y * μ₂) / (x + y) with hm_def
+  have hm : m ∈ ρ.expFamilyMeans T := div_mem_expFamilyMeans hμ₁ hμ₂ (by positivity)
+    (by positivity) h
+  have hm₁ := div_mem_expFamilyMeans hμ₁ hμ₂ hx₁ hy₁ h₁
+  have hm₂ := div_mem_expFamilyMeans hμ₁ hμ₂ hx₂ hy₂ h₂
+  -- By the compensation identity at `m`, the cost at the midpoint is the average of the costs at
+  -- the two pairs plus nonnegative terms, which must vanish: the weighted means are all `m`.
+  have e₁ := mul_expFamilyDiv_add_mul_expFamilyDiv_eq (ρ := ρ) (T := T) (μ₁ := μ₁) (μ₂ := μ₂)
+    h₁.ne' m
+  have e₂ := mul_expFamilyDiv_add_mul_expFamilyDiv_eq (ρ := ρ) (T := T) (μ₁ := μ₁) (μ₂ := μ₂)
+    h₂.ne' m
+  have e : pairCost ρ T μ₁ μ₂ x y =
+      x * ρ.expFamilyDiv T μ₁ m + y * ρ.expFamilyDiv T μ₂ m := by
+    rw [pairCost]
+  have hd₁ := mul_nonneg h₁.le (expFamilyDiv_nonneg hm₁ hm)
+  have hd₂ := mul_nonneg h₂.le (expFamilyDiv_nonneg hm₂ hm)
+  have k₁ : (x₁ + y₁) * ρ.expFamilyDiv T ((x₁ * μ₁ + y₁ * μ₂) / (x₁ + y₁)) m = 0 := by
+    simp only [x, y] at e he₁ he₂
+    linarith
+  have k₂ : (x₂ + y₂) * ρ.expFamilyDiv T ((x₂ * μ₁ + y₂ * μ₂) / (x₂ + y₂)) m = 0 := by
+    simp only [x, y] at e he₁ he₂
+    linarith
+  have hm₁m := (expFamilyDiv_eq_zero_iff hm₁ hm).1 ((mul_eq_zero.1 k₁).resolve_left h₁.ne')
+  have hm₂m := (expFamilyDiv_eq_zero_iff hm₂ hm).1 ((mul_eq_zero.1 k₂).resolve_left h₂.ne')
+  -- Equal weighted means of two distinct means have proportional weights.
+  have h_eq := hm₁m.trans hm₂m.symm
+  rw [div_eq_div_iff h₁.ne' h₂.ne'] at h_eq
+  have : (x₁ * y₂ - x₂ * y₁) * (μ₁ - μ₂) = 0 := by linear_combination h_eq
+  exact sub_eq_zero.1 ((mul_eq_zero.1 this).resolve_right (sub_ne_zero.2 hμ.ne'))
+
+omit [Fintype α] in
+/-- A unique best arm is a best arm. -/
+private lemma le_of_forall_ne_lt (ha : ∀ b ≠ a, μ b < μ a) (b : α) : μ b ≤ μ a :=
+  (eq_or_ne b a).elim (fun h ↦ h ▸ le_rfl) fun h ↦ (ha b h).le
+
+/-- The closed form [GK16, Lemma 3] of the cost of the alternatives as a finite infimum. -/
+private lemma altCost_baiTask_restrict_eq_inf [DecidableEq α] (hT : ∀ c, ¬ T =ᵐ[ρ] fun _ ↦ c)
+    (hμ : ∀ c, μ c ∈ ρ.expFamilyMeans T)
+    (hν : ∀ μ' : α → ℝ, (∀ c, μ' c ∈ ρ.expFamilyMeans T) →
+      ∀ c, klDiv (ν μ c) (ν μ' c) = ENNReal.ofReal (ρ.expFamilyDiv T (μ c) (μ' c)))
+    (ha : ∀ b, μ b ≤ μ a) (hw : 0 ≤ w) :
+    ((baiTask ν).restrict {μ' | ∀ c, μ' c ∈ ρ.expFamilyMeans T}).altCost μ w a =
+      (Finset.univ.filter (· ≠ a)).inf fun b ↦
+        ENNReal.ofReal (pairCost ρ T (μ a) (μ b) (w a) (w b)) := by
+  rw [altCost_baiTask_restrict_eq_iInf_expFamilyDiv ν hT hμ hν ha hw, Finset.inf_eq_iInf]
+  simp [pairCost]
+
+/-- In best arm identification with arms in an exponential family (as in
+`altCost_baiTask_restrict_eq_iInf_expFamilyDiv`), the value `D(μ, ¬a)` of the game of the unique
+best arm `a` of `μ` is positive, so that the characteristic time `T*(μ) = D(μ, ¬a)⁻¹` is
+finite. -/
+theorem answerValue_baiTask_restrict_pos (hT : ∀ c, ¬ T =ᵐ[ρ] fun _ ↦ c)
+    (hμ : ∀ c, μ c ∈ ρ.expFamilyMeans T)
+    (hν : ∀ μ' : α → ℝ, (∀ c, μ' c ∈ ρ.expFamilyMeans T) →
+      ∀ c, klDiv (ν μ c) (ν μ' c) = ENNReal.ofReal (ρ.expFamilyDiv T (μ c) (μ' c)))
+    (ha : ∀ b ≠ a, μ b < μ a) :
+    0 < ((baiTask ν).restrict {μ' | ∀ c, μ' c ∈ ρ.expFamilyMeans T}).answerValue μ a := by
+  classical
+  have ha' := le_of_forall_ne_lt ha
+  -- The uniform allocation collects positive information against every alternative.
+  have hK : (0 : ℝ) < Fintype.card α := Nat.cast_pos.2 (Fintype.card_pos_iff.2 ⟨a⟩)
+  set u : α → ℝ := fun _ ↦ (Fintype.card α : ℝ)⁻¹
+  have hu : u ∈ simplex α :=
+    mem_simplex_iff.2 ⟨fun _ ↦ by positivity, by simp [u, Finset.card_univ, hK.ne']⟩
+  refine lt_of_lt_of_le ?_ (IdentTask.altCost_le_answerValue _ hu)
+  rw [altCost_baiTask_restrict_eq_inf ν hT hμ hν ha' (mem_simplex_iff.1 hu).1,
+    Finset.lt_inf_iff ENNReal.zero_lt_top]
+  intro b hb
+  exact ENNReal.ofReal_pos.2 (pairCost_pos (hμ a) (hμ b)
+    (ha b (Finset.mem_filter.1 hb).2) (inv_pos.2 hK) (inv_pos.2 hK))
+
+/-- **The optimal allocations of best arm identification have positive entries**
+[GK16, Proposition 6].
+For arms in an exponential family (as in `altCost_baiTask_restrict_eq_iInf_expFamilyDiv`) and a
+vector of means `μ` of the family with unique best arm `a`, every optimal allocation `w*(μ, ¬a)`
+gives a positive proportion to every arm. -/
+theorem pos_of_mem_optAlloc_baiTask_restrict (hT : ∀ c, ¬ T =ᵐ[ρ] fun _ ↦ c)
+    (hμ : ∀ c, μ c ∈ ρ.expFamilyMeans T)
+    (hν : ∀ μ' : α → ℝ, (∀ c, μ' c ∈ ρ.expFamilyMeans T) →
+      ∀ c, klDiv (ν μ c) (ν μ' c) = ENNReal.ofReal (ρ.expFamilyDiv T (μ c) (μ' c)))
+    (ha : ∀ b ≠ a, μ b < μ a)
+    (hw : w ∈ ((baiTask ν).restrict {μ' | ∀ c, μ' c ∈ ρ.expFamilyMeans T}).optAlloc μ a)
+    (c : α) : 0 < w c := by
+  classical
+  have ha' := le_of_forall_ne_lt ha
+  obtain ⟨hws, hD⟩ := (IdentTask.mem_optAlloc_iff _).1 hw
+  rw [mem_simplex_iff] at hws
+  refine (hws.1 c).lt_of_ne' fun hc ↦ ?_
+  -- Some arm `b ≠ a` has `w a = 0` or `w b = 0`, so that the pair `(a, b)` costs nothing.
+  obtain ⟨b, hba, hb⟩ : ∃ b ≠ a, w a = 0 ∨ w b = 0 := by
+    by_cases hca : c = a
+    · subst hca
+      obtain ⟨b, hb⟩ : ∃ b, b ≠ c := by
+        by_contra! h
+        have h_sum := hws.2
+        rw [Fintype.sum_eq_single c fun b hb ↦ (hb (h b)).elim, hc] at h_sum
+        exact zero_ne_one h_sum
+      exact ⟨b, hb, Or.inl hc⟩
+    · exact ⟨c, hca, Or.inr hc⟩
+  have h0 : ((baiTask ν).restrict {μ' | ∀ c, μ' c ∈ ρ.expFamilyMeans T}).altCost μ w a = 0 := by
+    rw [altCost_baiTask_restrict_eq_inf ν hT hμ hν ha' hws.1]
+    refine le_antisymm ((Finset.inf_le (Finset.mem_filter.2 ⟨Finset.mem_univ b, hba⟩)).trans ?_)
+      zero_le
+    rw [pairCost_eq_zero hb, ENNReal.ofReal_zero]
+  exact (answerValue_baiTask_restrict_pos ν hT hμ hν ha).ne' (hD ▸ h0)
+
+/-- **The optimal allocations of best arm identification equalize the costs of the pairs of
+arms** [GK16, Lemma 4]. For arms in an exponential family with divergence `d` (as in
+`altCost_baiTask_restrict_eq_iInf_expFamilyDiv`), a vector of means `μ` of the family with unique
+best arm `a` and an optimal allocation `w`, the minimum
+`D(μ, w, ¬a) = min_{b ≠ a} (w a d(μ a, m_b) + w b d(μ b, m_b))` is attained at every arm `b ≠ a`:
+`D(μ, ¬a) = w a d(μ a, m_b) + w b d(μ b, m_b)` for every `b ≠ a`, with
+`m_b = (w a μ a + w b μ b) / (w a + w b)`. -/
+theorem answerValue_baiTask_restrict_eq_of_mem_optAlloc (hT : ∀ c, ¬ T =ᵐ[ρ] fun _ ↦ c)
+    (hμ : ∀ c, μ c ∈ ρ.expFamilyMeans T)
+    (hν : ∀ μ' : α → ℝ, (∀ c, μ' c ∈ ρ.expFamilyMeans T) →
+      ∀ c, klDiv (ν μ c) (ν μ' c) = ENNReal.ofReal (ρ.expFamilyDiv T (μ c) (μ' c)))
+    (ha : ∀ b ≠ a, μ b < μ a)
+    (hw : w ∈ ((baiTask ν).restrict {μ' | ∀ c, μ' c ∈ ρ.expFamilyMeans T}).optAlloc μ a)
+    (hba : b ≠ a) :
+    ((baiTask ν).restrict {μ' | ∀ c, μ' c ∈ ρ.expFamilyMeans T}).answerValue μ a =
+      ENNReal.ofReal (w a * ρ.expFamilyDiv T (μ a) ((w a * μ a + w b * μ b) / (w a + w b)) +
+        w b * ρ.expFamilyDiv T (μ b) ((w a * μ a + w b * μ b) / (w a + w b))) := by
+  classical
+  set task := (baiTask ν).restrict {μ' | ∀ c, μ' c ∈ ρ.expFamilyMeans T}
+  have ha' := le_of_forall_ne_lt ha
+  have hw_pos := pos_of_mem_optAlloc_baiTask_restrict ν hT hμ hν ha hw
+  obtain ⟨hws, hD⟩ := (IdentTask.mem_optAlloc_iff _).1 hw
+  have hw0 := (mem_simplex_iff.1 hws).1
+  have h_inf := altCost_baiTask_restrict_eq_inf ν hT hμ hν ha' hw0
+  have hmem {c : α} (hc : c ≠ a) : c ∈ Finset.univ.filter (· ≠ a) :=
+    Finset.mem_filter.2 ⟨Finset.mem_univ c, hc⟩
+  -- The value is at most the cost of every pair.
+  have h_le {c : α} (hc : c ≠ a) :
+      task.answerValue μ a ≤ ENNReal.ofReal (pairCost ρ T (μ a) (μ c) (w a) (w c)) :=
+    hD ▸ h_inf ▸ Finset.inf_le (hmem hc)
+  refine le_antisymm (h_le hba) (not_lt.1 fun h ↦ ?_)
+  -- Otherwise the value `D = ofReal D'` is finite and positive, and `D' < cost of (a, b)`.
+  have hD_top : task.answerValue μ a ≠ ∞ := (h.trans ENNReal.ofReal_lt_top).ne
+  set D' := (task.answerValue μ a).toReal with hD'_def
+  have hD_eq : task.answerValue μ a = ENNReal.ofReal D' := (ENNReal.ofReal_toReal hD_top).symm
+  have hD'_pos : 0 < D' := ENNReal.toReal_pos (answerValue_baiTask_restrict_pos ν hT hμ hν ha).ne'
+    hD_top
+  have hD'_le {c : α} (hc : c ≠ a) : D' ≤ pairCost ρ T (μ a) (μ c) (w a) (w c) :=
+    ENNReal.toReal_le_of_le_ofReal (pairCost_nonneg (hμ a) (hμ c) (hw0 a) (hw0 c)) (h_le hc)
+  have hD'_lt : D' < pairCost ρ T (μ a) (μ b) (w a) (w b) :=
+    (ENNReal.ofReal_lt_ofReal_iff'.1 (hD_eq ▸ h)).1
+  -- Removing a little weight `s` from the arm `b` keeps the cost of `(a, b)` above `D'`, by
+  -- continuity.
+  have h_cont : ContinuousAt (fun s ↦ pairCost ρ T (μ a) (μ b) (w a) (w b - s)) 0 := by
+    have hc := (continuousOn_mul_expFamilyDiv_add_mul_expFamilyDiv hT (ρ := ρ)).continuousAt
+      (x := ((μ a, μ b), (w a, w b))) (prod_mem_nhds
+        (prod_mem_nhds (expFamilyMeans_mem_nhds hT (hμ a)) (expFamilyMeans_mem_nhds hT (hμ b)))
+        (prod_mem_nhds (Ici_mem_nhds (hw_pos a)) (Ici_mem_nhds (hw_pos b))))
+    have hf : ContinuousAt (fun s : ℝ ↦ ((μ a, μ b), (w a, w b - s))) 0 := by fun_prop
+    simpa [Function.comp_def, pairCost] using hc.comp_of_eq hf (by simp)
+  obtain ⟨s, hs_lt, hs⟩ := ((h_cont.eventually (lt_mem_nhds (by simpa using hD'_lt))).filter_mono
+    nhdsWithin_le_nhds |>.and (Ioo_mem_nhdsGT (hw_pos b))).exists
+  have hs1 : s < 1 := hs.2.trans_le ((simplex_subset_Icc hws).2 b)
+  -- The rescaled allocation `v = (1 - s)⁻¹ (w - s δ_b)` has a larger cost of the alternatives.
+  set t : ℝ := (1 - s)⁻¹ with ht_def
+  have ht : 1 < t := one_lt_inv_iff₀.2 ⟨by linarith, by linarith [hs.1]⟩
+  set v : α → ℝ := t • (w - Pi.single b s) with hv_def
+  have hv_apply (c : α) : v c = t * (w c - (Pi.single b s : α → ℝ) c) := by simp [hv_def]
+  have hv : v ∈ simplex α := by
+    refine mem_simplex_iff.2 ⟨fun c ↦ ?_, ?_⟩
+    · rw [hv_apply]
+      refine mul_nonneg (by linarith) ?_
+      by_cases hcb : c = b
+      · subst hcb
+        simp only [Pi.single_eq_same]
+        linarith [hs.2]
+      · simpa [hcb] using hw0 c
+    · simp only [hv_apply, ← Finset.mul_sum, Finset.sum_sub_distrib, Finset.sum_pi_single',
+        Finset.mem_univ, ite_true, (mem_simplex_iff.1 hws).2, ht_def]
+      field_simp [show (1 : ℝ) - s ≠ 0 by linarith]
+  have h_lt : task.answerValue μ a < task.altCost μ v a := by
+    rw [altCost_baiTask_restrict_eq_inf ν hT hμ hν ha' (mem_simplex_iff.1 hv).1,
+      Finset.lt_inf_iff hD_top.lt_top]
+    intro c hc
+    have hca := (Finset.mem_filter.1 hc).2
+    have hvc : pairCost ρ T (μ a) (μ c) (v a) (v c) =
+        t * pairCost ρ T (μ a) (μ c) (w a) (w c - (Pi.single b s : α → ℝ) c) := by
+      rw [hv_apply, hv_apply, Pi.single_eq_of_ne hba.symm, sub_zero,
+        pairCost_mul (by linarith)]
+    rw [hD_eq, ENNReal.ofReal_lt_ofReal_iff_of_nonneg hD'_pos.le, hvc]
+    by_cases hcb : c = b
+    · subst hcb
+      rw [Pi.single_eq_same]
+      exact hs_lt.trans_le (le_mul_of_one_le_left (hD'_pos.trans hs_lt).le ht.le)
+    · rw [Pi.single_eq_of_ne hcb, sub_zero]
+      exact (lt_mul_of_one_lt_left hD'_pos ht).trans_le
+        (mul_le_mul_of_nonneg_left (hD'_le hca) (by linarith))
+  exact (task.altCost_le_answerValue hv).not_gt h_lt
+
+/-- **The optimal allocation of best arm identification is unique** [GK16, Theorem 5]. For arms
+in an exponential family (as in `altCost_baiTask_restrict_eq_iInf_expFamilyDiv`) and a vector of
+means `μ` of the family with unique best arm `a`, there is at most one optimal allocation
+`w*(μ, ¬a)`. -/
+theorem subsingleton_optAlloc_baiTask_restrict (hT : ∀ c, ¬ T =ᵐ[ρ] fun _ ↦ c)
+    (hμ : ∀ c, μ c ∈ ρ.expFamilyMeans T)
+    (hν : ∀ μ' : α → ℝ, (∀ c, μ' c ∈ ρ.expFamilyMeans T) →
+      ∀ c, klDiv (ν μ c) (ν μ' c) = ENNReal.ofReal (ρ.expFamilyDiv T (μ c) (μ' c)))
+    (ha : ∀ b ≠ a, μ b < μ a) :
+    (((baiTask ν).restrict {μ' | ∀ c, μ' c ∈ ρ.expFamilyMeans T}).optAlloc μ a).Subsingleton := by
+  set task := (baiTask ν).restrict {μ' | ∀ c, μ' c ∈ ρ.expFamilyMeans T}
+  intro w hw w' hw'
+  have hw'' : (fun c ↦ (w c + w' c) / 2) ∈ task.optAlloc μ a := by
+    convert task.convex_optAlloc μ a hw hw' (a := 1 / 2) (b := 1 / 2) (by norm_num) (by norm_num)
+      (by norm_num) using 1
+    funext c
+    simp only [Pi.add_apply, Pi.smul_apply, smul_eq_mul]
+    ring
+  have hv0 {v : α → ℝ} (hv : v ∈ task.optAlloc μ a) : ∀ c, 0 ≤ v c :=
+    (mem_simplex_iff.1 ((IdentTask.mem_optAlloc_iff _).1 hv).1).1
+  have hv1 {v : α → ℝ} (hv : v ∈ task.optAlloc μ a) : ∑ c, v c = 1 :=
+    (mem_simplex_iff.1 ((IdentTask.mem_optAlloc_iff _).1 hv).1).2
+  have hpos := pos_of_mem_optAlloc_baiTask_restrict ν hT hμ hν ha hw
+  have hpos' := pos_of_mem_optAlloc_baiTask_restrict ν hT hμ hν ha hw'
+  -- The three allocations equalize the costs of all the pairs `(a, b)`, at the same value.
+  have h_eq {v : α → ℝ} (hv : v ∈ task.optAlloc μ a) {b : α} (hba : b ≠ a) :
+      task.answerValue μ a = ENNReal.ofReal (pairCost ρ T (μ a) (μ b) (v a) (v b)) :=
+    answerValue_baiTask_restrict_eq_of_mem_optAlloc ν hT hμ hν ha hv hba
+  have h_nonneg {v : α → ℝ} (hv : v ∈ task.optAlloc μ a) (b : α) :
+      0 ≤ pairCost ρ T (μ a) (μ b) (v a) (v b) :=
+    pairCost_nonneg (hμ a) (hμ b) (hv0 hv a) (hv0 hv b)
+  -- For each arm `b`, the weights of `a` and `b` are proportional in `w` and `w'`.
+  have h_prop (b : α) : w a * w' b = w' a * w b := by
+    rcases eq_or_ne b a with rfl | hba
+    · ring
+    refine mul_eq_mul_of_pairCost_midpoint_eq (hμ a) (hμ b) (ha b hba) (hv0 hw a) (hv0 hw b)
+      (hv0 hw' a) (hv0 hw' b) (add_pos (hpos a) (hpos b)) (add_pos (hpos' a) (hpos' b)) ?_ ?_
+    · exact (ENNReal.ofReal_eq_ofReal_iff (h_nonneg hw'' b) (h_nonneg hw b)).1
+        ((h_eq hw'' hba).symm.trans (h_eq hw hba))
+    · exact (ENNReal.ofReal_eq_ofReal_iff (h_nonneg hw'' b) (h_nonneg hw' b)).1
+        ((h_eq hw'' hba).symm.trans (h_eq hw' hba))
+  -- Summing over `b`, the weights of `a` agree, hence all the weights do.
+  have h_a : w a = w' a := by
+    have h := Finset.sum_congr rfl fun b (_ : b ∈ Finset.univ) ↦ h_prop b
+    rwa [← Finset.mul_sum, ← Finset.mul_sum, hv1 hw, hv1 hw', mul_one, mul_one] at h
+  funext b
+  have h := h_prop b
+  rw [h_a] at h
+  exact (mul_left_cancel₀ (h_a ▸ hpos a).ne' h).symm
+
+/-- **The optimal allocation of best arm identification** [GK16, Theorem 5]. For arms in an
+exponential family (as in `altCost_baiTask_restrict_eq_iInf_expFamilyDiv`) and a vector of means
+`μ` of the family with unique best arm `a`, there is exactly one optimal allocation `w*(μ, ¬a)`.
+It has positive entries (`pos_of_mem_optAlloc_baiTask_restrict`) and equalizes the costs of the
+pairs of arms (`answerValue_baiTask_restrict_eq_of_mem_optAlloc`). -/
+theorem exists_optAlloc_baiTask_restrict_eq_singleton (hT : ∀ c, ¬ T =ᵐ[ρ] fun _ ↦ c)
+    (hμ : ∀ c, μ c ∈ ρ.expFamilyMeans T)
+    (hν : ∀ μ' : α → ℝ, (∀ c, μ' c ∈ ρ.expFamilyMeans T) →
+      ∀ c, klDiv (ν μ c) (ν μ' c) = ENNReal.ofReal (ρ.expFamilyDiv T (μ c) (μ' c)))
+    (ha : ∀ b ≠ a, μ b < μ a) :
+    ∃ w, ((baiTask ν).restrict {μ' | ∀ c, μ' c ∈ ρ.expFamilyMeans T}).optAlloc μ a = {w} := by
+  classical
+  have ha' := le_of_forall_ne_lt ha
+  have : Nonempty α := ⟨a⟩
+  -- By the closed form [GK16, Lemma 3], the cost of the alternatives is continuous in the
+  -- allocation on the simplex, so that an optimal allocation exists.
+  have h_cont : ContinuousOn (fun w : α → ℝ ↦ (Finset.univ.filter (· ≠ a)).inf fun b ↦
+      ENNReal.ofReal (pairCost ρ T (μ a) (μ b) (w a) (w b))) (Set.Ici 0) := by
+    refine ContinuousOn.finset_inf_apply fun b _ ↦ ENNReal.continuous_ofReal.comp_continuousOn ?_
+    exact (continuousOn_mul_expFamilyDiv_add_mul_expFamilyDiv hT).comp
+      (f := fun w : α → ℝ ↦ ((μ a, μ b), (w a, w b))) (by fun_prop)
+      fun w hw ↦ ⟨⟨hμ a, hμ b⟩, hw a, hw b⟩
+  have h_usc : UpperSemicontinuousOn (fun w ↦
+      ((baiTask ν).restrict {μ' | ∀ c, μ' c ∈ ρ.expFamilyMeans T}).altCost μ w a)
+      (simplex α) :=
+    ((h_cont.mono simplex_subset_nonneg).congr fun w hw ↦
+      altCost_baiTask_restrict_eq_inf ν hT hμ hν ha' (mem_simplex_iff.1 hw).1).upperSemicontinuousOn
+  obtain ⟨w, hw⟩ := IdentTask.optAlloc_nonempty _ h_usc
+  exact ⟨w, (subsingleton_optAlloc_baiTask_restrict ν hT hμ hν ha).eq_singleton_of_mem hw⟩
+
+/-- **Continuity of the optimal allocation of best arm identification** [GK16, Proposition 6]. For
+arms in an exponential family with divergence `d` (as in `continuousOn_altCost_baiTask_restrict`)
+and a vector of means `μ` of the family with unique best arm `a`, every selection `f` of the
+optimal allocations near `μ`, `f μ' ∈ w*(μ', ¬a)`, is continuous at `μ`. -/
+theorem continuousAt_of_mem_optAlloc_baiTask_restrict (hT : ∀ c, ¬ T =ᵐ[ρ] fun _ ↦ c)
+    (hν : ∀ μ μ' : α → ℝ, (∀ c, μ c ∈ ρ.expFamilyMeans T) → (∀ c, μ' c ∈ ρ.expFamilyMeans T) →
+      ∀ c, klDiv (ν μ c) (ν μ' c) = ENNReal.ofReal (ρ.expFamilyDiv T (μ c) (μ' c)))
+    (hμ : ∀ c, μ c ∈ ρ.expFamilyMeans T) (ha : ∀ b ≠ a, μ b < μ a) {f : (α → ℝ) → α → ℝ}
+    (hf : ∀ᶠ μ' in 𝓝 μ,
+      f μ' ∈ ((baiTask ν).restrict {μ' | ∀ c, μ' c ∈ ρ.expFamilyMeans T}).optAlloc μ' a) :
+    ContinuousAt f μ :=
+  (upperHemicontinuousAt_optAlloc_baiTask_restrict ν hT hν hμ ha).continuousAt_of_eventually_mem
+    (subsingleton_optAlloc_baiTask_restrict ν hT hμ (hν μ · hμ) ha) hf
 
 end ExpFamily
 
