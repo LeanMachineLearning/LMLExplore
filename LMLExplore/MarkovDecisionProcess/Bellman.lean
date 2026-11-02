@@ -8,6 +8,7 @@ module
 public import LeanMachineLearning.ForMathlib.MeasureTheory.Order.MeasurableArg
 public import LMLExplore.Analysis.FixedPoint.OrderUnit
 public import LMLExplore.MarkovDecisionProcess.Basic
+public import LMLExplore.MeasureTheory.Integral.BoundedMeasurable
 public import Mathlib.Probability.Kernel.Integral
 public import Mathlib.Topology.MetricSpace.Contracting
 
@@ -84,21 +85,6 @@ namespace Learning.MDP
 variable {𝓢 𝓐 : Type*} {m𝓢 : MeasurableSpace 𝓢} {m𝓐 : MeasurableSpace 𝓐}
   (M : MDP 𝓢 𝓐 ℝ) (γ : ℝ≥0) {v w : 𝓢 → ℝ} {B B' C D : ℝ}
 
-/-- A measurable function bounded by `B` in absolute value is integrable for every finite
-measure. -/
-private lemma integrable_of_abs_le {α : Type*} {_ : MeasurableSpace α} {f : α → ℝ}
-    (hf : Measurable f) (hfB : ∀ x, |f x| ≤ B) (μ : Measure α) [IsFiniteMeasure μ] :
-    Integrable f μ :=
-  .of_bound hf.aestronglyMeasurable B (.of_forall fun x ↦ (Real.norm_eq_abs _).trans_le (hfB x))
-
-/-- The integral against a probability measure of a function bounded by `B` in absolute value is
-bounded by `B` in absolute value. -/
-private lemma abs_integral_le_of_abs_le {α : Type*} {_ : MeasurableSpace α} {f : α → ℝ}
-    {μ : Measure α} [IsProbabilityMeasure μ] (hfB : ∀ x, |f x| ≤ B) : |∫ x, f x ∂μ| ≤ B := by
-  simpa only [Real.norm_eq_abs, probReal_univ, mul_one] using
-    norm_integral_le_of_norm_le_const (μ := μ) (f := f)
-      (.of_forall fun x ↦ (Real.norm_eq_abs _).trans_le (hfB x))
-
 /-! ### The one-step lookahead -/
 
 /-- The one-step lookahead `r (s, a) + γ * ∫ v dP (s, a)` of a value function `v`: the expected
@@ -147,20 +133,6 @@ lemma integrable_lookahead_prodMk_left (hR : ∀ p, ∀ᵐ x ∂(M.R p), |x| ≤
   integrable_of_abs_le ((measurable_lookahead hv).comp measurable_prodMk_left)
     (fun a ↦ abs_lookahead_le hR hvB (s, a)) ν
 
-/-- Blackwell's argument, pointwise: if `T` is monotone on the pairs `v ≤ w + D` and `w ≤ v + D`,
-and adding `D` to `v` or `w` adds `γ * D` to the value of `T`, then `|v - w| ≤ D` implies
-`|T v - T w| ≤ γ * D`. -/
-private lemma abs_sub_le_of_mono_of_add_const {T : (𝓢 → ℝ) → 𝓢 → ℝ}
-    (hD : ∀ s, |v s - w s| ≤ D) (hvw : v ≤ (w + fun _ ↦ D) → T v ≤ T (w + fun _ ↦ D))
-    (hwv : w ≤ (v + fun _ ↦ D) → T w ≤ T (v + fun _ ↦ D))
-    (hv : T (v + fun _ ↦ D) = T v + fun _ ↦ γ * D) (hw : T (w + fun _ ↦ D) = T w + fun _ ↦ γ * D)
-    (s : 𝓢) : |T v s - T w s| ≤ γ * D := by
-  have h₁ := hvw (fun s ↦ by rw [Pi.add_apply]; linarith [(abs_le.1 (hD s)).2]) s
-  have h₂ := hwv (fun s ↦ by rw [Pi.add_apply]; linarith [(abs_le.1 (hD s)).1]) s
-  rw [hw, Pi.add_apply] at h₁
-  rw [hv, Pi.add_apply] at h₂
-  exact abs_sub_le_iff.2 ⟨by linarith, by linarith⟩
-
 /-! ### The optimality operator -/
 
 variable (M γ) in
@@ -200,7 +172,7 @@ theorem bellman_add_const [Finite 𝓐] [Nonempty 𝓐] (hv : ∀ p, Integrable 
 theorem abs_bellman_sub_le [Finite 𝓐] [Nonempty 𝓐] (hv : ∀ p, Integrable v (M.P p))
     (hw : ∀ p, Integrable w (M.P p)) (hD : ∀ s, |v s - w s| ≤ D) (s : 𝓢) :
     |M.bellman γ v s - M.bellman γ w s| ≤ γ * D :=
-  abs_sub_le_of_mono_of_add_const hD (bellman_mono hv fun p ↦ (hw p).add (integrable_const D))
+  abs_sub_le_of_monotone_of_add_const hD (bellman_mono hv fun p ↦ (hw p).add (integrable_const D))
     (bellman_mono hw fun p ↦ (hv p).add (integrable_const D)) (bellman_add_const hv D)
     (bellman_add_const hw D) s
 
@@ -298,7 +270,7 @@ theorem abs_bellmanEval_sub_le [IsMarkovKernel π] (hR : ∀ p, ∀ᵐ x ∂(M.R
   have hB (u : 𝓢 → ℝ) {B₀ : ℝ} (huB : ∀ s, |u s| ≤ B₀) (s : 𝓢) :
       |((u + fun _ ↦ D : 𝓢 → ℝ)) s| ≤ B₀ + |D| :=
     (abs_add_le _ _).trans (add_le_add (huB s) le_rfl)
-  exact abs_sub_le_of_mono_of_add_const hD
+  exact abs_sub_le_of_monotone_of_add_const hD
     (bellmanEval_mono hR hv hvB (hw.add measurable_const) (hB w hwB))
     (bellmanEval_mono hR hw hwB (hv.add measurable_const) (hB v hvB))
     (bellmanEval_add_const hR hv hvB D) (bellmanEval_add_const hR hw hwB D) s

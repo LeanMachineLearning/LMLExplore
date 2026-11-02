@@ -20,6 +20,8 @@ finite measure `μ`, and its integral is bounded in absolute value by `‖f‖ *
 * `LMLExplore.boundedMeasurable.integrable`: a bounded measurable function is integrable for every
   finite measure.
 * `LMLExplore.boundedMeasurable.abs_integral_le`: `|∫ y, f y ∂μ| ≤ ‖f‖ * μ.real univ`.
+* `LMLExplore.integrable_of_abs_le`, `LMLExplore.abs_integral_le_of_abs_le`: the same statements
+  for a function `f : β → ℝ` with `|f| ≤ B`, the second one against a probability measure.
 -/
 
 public section
@@ -27,15 +29,30 @@ public section
 open MeasureTheory Set
 open scoped ENNReal lp
 
-namespace LMLExplore.boundedMeasurable
+namespace LMLExplore
 
 variable {β : Type*} [MeasurableSpace β]
+
+/-- A measurable function bounded by `B` in absolute value is integrable for every finite
+measure. -/
+lemma integrable_of_abs_le {f : β → ℝ} {B : ℝ} (hf : Measurable f) (hfB : ∀ x, |f x| ≤ B)
+    (μ : Measure β) [IsFiniteMeasure μ] : Integrable f μ :=
+  .of_bound hf.aestronglyMeasurable B (.of_forall fun x ↦ (Real.norm_eq_abs _).trans_le (hfB x))
+
+/-- The integral against a probability measure of a function bounded by `B` in absolute value is
+bounded by `B` in absolute value. -/
+lemma abs_integral_le_of_abs_le {f : β → ℝ} {B : ℝ} {μ : Measure β} [IsProbabilityMeasure μ]
+    (hfB : ∀ x, |f x| ≤ B) : |∫ x, f x ∂μ| ≤ B := by
+  simpa only [Real.norm_eq_abs, probReal_univ, mul_one] using
+    norm_integral_le_of_norm_le_const (μ := μ) (f := f)
+      (.of_forall fun x ↦ (Real.norm_eq_abs _).trans_le (hfB x))
+
+namespace boundedMeasurable
 
 /-- A bounded measurable function is integrable for every finite measure. -/
 lemma integrable (f : boundedMeasurable β) (μ : Measure β) [IsFiniteMeasure μ] :
     Integrable (⇑(f : ℓ^∞(β, ℝ))) μ :=
-  .of_bound (measurable f).aestronglyMeasurable ‖f‖ <| .of_forall fun y ↦
-    (Real.norm_eq_abs _).trans_le (abs_apply_le_norm f y)
+  integrable_of_abs_le (measurable f) (abs_apply_le_norm f) μ
 
 /-- The integral of a bounded measurable function `f` against a finite measure `μ` is at most
 `‖f‖ * μ univ` in absolute value. -/
@@ -45,4 +62,6 @@ lemma abs_integral_le (f : boundedMeasurable β) {μ : Measure β} [IsFiniteMeas
   exact norm_integral_le_of_norm_le_const <| .of_forall fun y ↦
     (Real.norm_eq_abs _).trans_le (abs_apply_le_norm f y)
 
-end LMLExplore.boundedMeasurable
+end boundedMeasurable
+
+end LMLExplore
