@@ -79,6 +79,15 @@ variable {E D : Type*}
 
 section Blackwell
 
+/-- The maximum of monotone maps is monotone, when it is attained: `B x` is the greatest of the
+values `T d x`. -/
+lemma monotone_of_isGreatest_range [Preorder E] {T : D → E → E} {B : E → E}
+    (hT : ∀ d, Monotone (T d)) (hB : ∀ x, IsGreatest (range fun d ↦ T d x) (B x)) :
+    Monotone B := fun x y hxy ↦ by
+  obtain ⟨d, hd⟩ := (hB x).1
+  rw [← hd]
+  exact (hT d hxy).trans ((hB y).2 ⟨d, rfl⟩)
+
 variable [AddCommGroup E] [PartialOrder E] [Module ℝ E] {e : E} {γ : ℝ≥0}
 
 /-- The maximum of maps satisfying Blackwell's conditions with modulus `γ` satisfies them, when it
@@ -86,10 +95,7 @@ is attained: `B x` is the greatest of the values `T d x`. -/
 lemma IsBlackwell.of_isGreatest_range [IsOrderedAddMonoid E] {T : D → E → E} {B : E → E}
     (hT : ∀ d, IsBlackwell e γ (T d)) (hB : ∀ x, IsGreatest (range fun d ↦ T d x) (B x)) :
     IsBlackwell e γ B where
-  monotone x y hxy := by
-    obtain ⟨d, hd⟩ := (hB x).1
-    rw [← hd]
-    exact ((hT d).monotone hxy).trans ((hB y).2 ⟨d, rfl⟩)
+  monotone := monotone_of_isGreatest_range (fun d ↦ (hT d).monotone) hB
   map_add_smul_le x c hc := by
     obtain ⟨d, hd⟩ := (hB (x + c • e)).1
     rw [← hd]
@@ -164,6 +170,12 @@ theorem map_le (hT : ∀ d, Monotone (T d)) (hB : ∀ x, IsGreatest (range fun d
     _ ≤ (T (d k))^[m k + 1] (u k) := hmono (Nat.le_add_left 1 (m k))
     _ = u (k + 1) := (h.eq_iterate k).symm
 
+/-- The values of modified policy iteration started below their image by `B` are above the
+iterates of `B`: `B^[k] (u 0) ≤ u k`. -/
+theorem iterate_le (hT : ∀ d, Monotone (T d)) (hB : ∀ x, IsGreatest (range fun d ↦ T d x) (B x))
+    (h : IsModifiedPolicyIteration T B m d u) (h₀ : u 0 ≤ B (u 0)) (k : ℕ) : B^[k] (u 0) ≤ u k :=
+  (monotone_of_isGreatest_range hT hB).iterate_le_of_map_le_succ (h.map_le hT hB h₀) k
+
 end IsModifiedPolicyIteration
 
 end Order
@@ -186,8 +198,8 @@ lemma contractingWith (hnorm : ∀ x, orderUnitNorm e x = ‖x‖) (hT : IsBlack
   ⟨hγ, hT.lipschitzWith hnorm⟩
 
 /-- If `T` satisfies Blackwell's conditions with modulus `γ` and has the fixed point `y`, a sequence
-`u` below `y` with `T (u k) ≤ u (k + 1)` for all `k` converges to `y` geometrically:
-`‖u k - y‖ ≤ γ ^ k * ‖u 0 - y‖`. -/
+`u` below `y` with `T (u k) ≤ u (k + 1)` for all `k` satisfies `‖u k - y‖ ≤ γ ^ k * ‖u 0 - y‖`,
+so it converges to `y` geometrically when `γ < 1`. -/
 theorem norm_sub_le_of_map_le_succ (hnorm : ∀ x, orderUnitNorm e x = ‖x‖)
     (hT : IsBlackwell e γ T) {y : E} (hy : IsFixedPt T y) {u : ℕ → E} (hu : ∀ k, u k ≤ y)
     (hsucc : ∀ k, T (u k) ≤ u (k + 1)) (k : ℕ) : ‖u k - y‖ ≤ γ ^ k * ‖u 0 - y‖ := by
@@ -320,14 +332,6 @@ end IsPolicyIteration
 namespace IsModifiedPolicyIteration
 
 variable {m : ℕ → ℕ} {d : ℕ → D} {u : ℕ → E}
-
-/-- The values of modified policy iteration are above the iterates of `B`:
-`B^[k] (u 0) ≤ u k`. -/
-theorem iterate_le (hT : ∀ d, IsBlackwell e γ (T d))
-    (hB : ∀ x, IsGreatest (range fun d ↦ T d x) (B x)) (h : IsModifiedPolicyIteration T B m d u)
-    (h₀ : u 0 ≤ B (u 0)) (k : ℕ) : B^[k] (u 0) ≤ u k :=
-  (IsBlackwell.of_isGreatest_range hT hB).monotone.iterate_le_of_map_le_succ
-    (h.map_le (fun d ↦ (hT d).monotone) hB h₀) k
 
 /-- The values of modified policy iteration started below their image by `B` are below the fixed
 point of `B`. -/
