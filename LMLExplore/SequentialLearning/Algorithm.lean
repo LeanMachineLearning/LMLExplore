@@ -47,6 +47,9 @@ measure at a stopping time is reduced to a change of measure on the whole trajec
 * `Learning.IsAlgEnvSeq.condExp_comp_action`: the conditional expectation of a function
   `f (past, A n)` of the past (history and observation) and the action of round `n` given the past
   is the integral of `f (past, ·)` against the policy of round `n`.
+* `Learning.IsAlgEnvSeq.map_obs`, `Learning.IsAlgEnvSeq.map_obs_action`: along every run, the
+  observation of round `n`, and the pair of the observation and the action of round `n`, have the
+  same laws as under the trajectory measure `trajMeasure alg env`.
 * `Learning.stepKernel_piecewise`: the step kernel of a piecewise environment at a history in
   `s n` is that of `env`, and that of `env'` elsewhere.
 
@@ -104,6 +107,29 @@ lemma IsAlgEnvSeq.condExp_comp_action [StandardBorelSpace 𝓐] [Nonempty 𝓐] 
   filter_upwards [ae_of_ae_map hX.aemeasurable (h.hasCondDistrib_action n).condDistrib_eq]
     with ω hω
   rw [hω]
+
+section Laws
+
+variable {P : Measure Ω} [IsProbabilityMeasure P] {O : ℕ → Ω → 𝓞} {A : ℕ → Ω → 𝓐}
+  {Y : ℕ → Ω → 𝓨}
+
+/-- Along a run of an algorithm, the observation of round `n` has the same law as under the
+trajectory measure of the algorithm and the environment. -/
+lemma IsAlgEnvSeq.map_obs (h : IsAlgEnvSeq O A Y alg env P) (n : ℕ) :
+    P.map (O n) = (trajMeasure alg env).map (IT.obs n) := by
+  rw [← h.map_trajectory, Measure.map_map (IT.measurable_obs n) h.measurable_trajectory]
+  simp only [Function.comp_def, trajectory, IT.obs, Round.obs_mk]
+
+/-- Along a run of an algorithm, the observation and the action of round `n` have the same joint
+law as under the trajectory measure of the algorithm and the environment. -/
+lemma IsAlgEnvSeq.map_obs_action (h : IsAlgEnvSeq O A Y alg env P) (n : ℕ) :
+    P.map (fun ω ↦ (O n ω, A n ω)) =
+      (trajMeasure alg env).map fun ω ↦ (IT.obs n ω, IT.action n ω) := by
+  rw [← h.map_trajectory, Measure.map_map
+    ((IT.measurable_obs n).prodMk (IT.measurable_action n)) h.measurable_trajectory]
+  simp only [Function.comp_def, trajectory, IT.obs, IT.action, Round.obs_mk, Round.action_mk]
+
+end Laws
 
 variable {s : (n : ℕ) → Set (Hist 𝓞 𝓐 𝓨 n)} {hs : ∀ n, MeasurableSet (s n)}
   {env' : Environment 𝓞 𝓐 𝓨} {n : ℕ} {x : Hist 𝓞 𝓐 𝓨 n}
