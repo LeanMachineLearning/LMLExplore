@@ -8,6 +8,7 @@ module
 public import Mathlib.Algebra.Order.BigOperators.Group.Finset
 public import Mathlib.Analysis.Convex.Basic
 public import Mathlib.Basic.Real.Basic
+public import Mathlib.Topology.Instances.Real.Lemmas
 
 /-!
 # The probability simplex
@@ -32,6 +33,7 @@ supported distributions, not a subset of `α → ℝ`.
 * `LMLExplore.simplex_subset_nonneg`: the simplex consists of nonnegative vectors.
 * `LMLExplore.simplex_nonempty`: the simplex of a nonempty type is nonempty.
 * `LMLExplore.convex_simplex`: the simplex is convex.
+* `LMLExplore.isCompact_simplex`: the simplex is compact.
 -/
 
 public section
@@ -67,5 +69,21 @@ lemma convex_simplex : Convex ℝ (simplex α) := by
   refine ⟨fun x ↦ ?_, ?_⟩
   · simpa using add_nonneg (mul_nonneg ha (hw.1 x)) (mul_nonneg hb (hv.1 x))
   · simp [Finset.sum_add_distrib, ← Finset.mul_sum, hw.2, hv.2, hab]
+
+variable (α) in
+lemma isClosed_simplex : IsClosed (simplex α) := by
+  have h : simplex α = (⋂ a, {w | 0 ≤ w a}) ∩ {w | ∑ a, w a = 1} := by ext; simp
+  rw [h]
+  exact (isClosed_iInter fun a ↦ isClosed_le continuous_const (continuous_apply a)).inter
+    (isClosed_eq (by fun_prop) continuous_const)
+
+/-- The entries of a vector of the simplex lie in `[0, 1]`. -/
+lemma simplex_subset_Icc : simplex α ⊆ Set.Icc 0 1 := by
+  refine fun w hw ↦ ⟨hw.1, fun a ↦ ?_⟩
+  simpa [hw.2] using Finset.single_le_sum (fun b _ ↦ hw.1 b) (Finset.mem_univ a)
+
+variable (α) in
+lemma isCompact_simplex : IsCompact (simplex α) :=
+  isCompact_Icc.of_isClosed_subset (isClosed_simplex α) simplex_subset_Icc
 
 end LMLExplore

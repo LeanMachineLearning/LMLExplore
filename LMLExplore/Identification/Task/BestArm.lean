@@ -6,7 +6,7 @@ Authors: Rémy Degenne
 module
 
 public import LMLExplore.Identification.Task.MeanVector
-public import LMLExplore.Identification.Task.TransportationCost
+public import LMLExplore.Identification.Task.Continuity
 public import LMLExplore.Bandits.Instances
 public import LMLExplore.Probability.Distributions.ExponentialFamily.Gaussian
 public import LMLExplore.Order.Basic
@@ -35,6 +35,10 @@ by the allocation (attained there when `w a + w b > 0`), which gives the closed 
 the alternatives used to compute the optimal allocations of best arm identification
 [GK16, Lemma 3]. With two arms `a` and `b`, the game is solved by the mean `z` between `μ b` and
 `μ a` at the same divergence from both: `D(μ, ¬a) = d(μ a, z) = d(μ b, z)` [KCG16, Section 3].
+This closed form is continuous in the model and the allocation, so that, at every vector of means
+with a unique best arm, the value of the answer and the characteristic time are continuous, and the
+optimal allocations upper hemicontinuous [DK19, Lemmas 28–29]
+(`LMLExplore/Identification/Task/Continuity.lean`).
 
 For Gaussian arms with a common variance `σ2`, the divergence is `d(x, y) = (x - y)² / (2 σ2)`, so
 that `D(μ, w, ¬a) = min_{b ≠ a} (w a w b / (w a + w b)) (μ a - μ b)² / (2 σ2)`, and two arms with
@@ -45,6 +49,9 @@ allocation `(1/2, 1/2)`.
 
 * `LMLExplore.Identification.mem_alt_baiTask_iff`: the alternatives to `a` are the vectors with a
   unique best arm `b ≠ a`.
+* `LMLExplore.Identification.mem_answerSet_baiTask_iff`,
+  `LMLExplore.Identification.isOpen_answerSet_baiTask`: the vectors of means for which `a` is
+  correct, those with unique best arm `a`, form an open set.
 * `LMLExplore.Identification.closure_alt_baiTask_restrict_inter`: for `S` open, the closure of the
   alternatives to `a` within `S` is `{λ | ∃ b ≠ a, λ a ≤ λ b} ∩ S`;
   `LMLExplore.Identification.closure_alt_baiTask` is the case `S = univ`.
@@ -55,6 +62,14 @@ allocation `(1/2, 1/2)`.
   exponential family with divergence `d`, a best arm `a` of `μ` and a nonnegative allocation `w`,
   `D(μ, w, ¬a) = min_{b ≠ a} (w a d(μ a, m_b) + w b d(μ b, m_b))` on the vectors of means of the
   family, with `m_b = (w a μ a + w b μ b) / (w a + w b)` [GK16, Lemma 3].
+* `LMLExplore.Identification.continuousOn_altCost_baiTask_restrict`: for arms in an exponential
+  family, `(μ, w) ↦ D(μ, w, ¬a)` is continuous on the vectors of means of the family with best arm
+  `a` and the nonnegative allocations.
+* `LMLExplore.Identification.continuousAt_answerValue_baiTask_restrict`,
+  `LMLExplore.Identification.upperHemicontinuousAt_optAlloc_baiTask_restrict`,
+  `LMLExplore.Identification.continuousAt_charTime_baiTask_restrict`: for arms in an exponential
+  family, at a vector of means with unique best arm `a`, `D(·, ¬a)` and `T*` are continuous and the
+  optimal allocations `w*(·, ¬a)` are upper hemicontinuous [DK19, Lemmas 28–29].
 * `LMLExplore.Identification.answerValue_baiTask_restrict_eq_expFamilyDiv_of_forall_eq_or_eq`,
   `LMLExplore.Identification.charTime_baiTask_restrict_eq_inv_expFamilyDiv_of_forall_eq_or_eq`:
   for two arms `a` and `b` in an exponential family with `μ b ≤ μ a` and a mean `z` between them
@@ -71,9 +86,11 @@ allocation `(1/2, 1/2)`.
 ## References
 
 * [GK16] A. Garivier and E. Kaufmann, *Optimal best arm identification with fixed confidence*,
-  COLT 2016, Section 2 and Lemma 3.
+  COLT 2016, Section 2, Lemmas 3–4 and Proposition 6.
 * [KCG16] E. Kaufmann, O. Cappé and A. Garivier, *On the complexity of best-arm identification in
   multi-armed bandit models*, JMLR 17 (2016), Section 3.
+* [DK19] R. Degenne and W. M. Koolen, *Pure exploration with multiple correct answers*,
+  NeurIPS 2019, supplementary material, Appendix F, Lemmas 28 and 29.
 -/
 
 public section
@@ -100,6 +117,22 @@ lemma mem_alt_baiTask_iff : μ' ∈ (baiTask ν).alt a ↔ ∃ b ≠ a, ∀ c �
     exact (hb c hca).not_ge hc
   · rintro ⟨b, hba, hb⟩
     exact ⟨⟨b, hb⟩, b, hba, (hb a hba.symm).le⟩
+
+/-- The vectors of means for which the arm `a` is correct in best arm identification are those
+with unique best arm `a`. -/
+lemma mem_answerSet_baiTask_iff : μ' ∈ (baiTask ν).answerSet a ↔ ∀ b ≠ a, μ' b < μ' a := by
+  rw [IdentTask.mem_answerSet_iff, M_baiTask, correct_baiTask]
+  exact ⟨fun h ↦ h.2, fun h ↦ ⟨⟨a, h⟩, h⟩⟩
+
+/-- The vectors of means with unique best arm `a` form an open set. -/
+lemma isOpen_answerSet_baiTask [Finite α] (a : α) : IsOpen ((baiTask ν).answerSet a) := by
+  have h : (baiTask ν).answerSet a = ⋂ b ∈ ({a}ᶜ : Set α), {μ' | μ' b < μ' a} := by
+    ext μ'
+    rw [mem_answerSet_baiTask_iff]
+    simp
+  rw [h]
+  exact (Set.toFinite _).isOpen_biInter fun b _ ↦
+    isOpen_lt (continuous_apply b) (continuous_apply a)
 
 section Closure
 
@@ -366,6 +399,111 @@ theorem charTime_baiTask_restrict_eq_inv_expFamilyDiv_of_forall_eq_or_eq
   rw [IdentTask.charTime_eq_inv_answerValue _
       (by rw [IdentTask.correct_restrict]; exact correct_baiTask_of_forall_eq_or_eq ν hα hμab),
     answerValue_baiTask_restrict_eq_expFamilyDiv_of_forall_eq_or_eq ν hT hμ hν hba hα hμab.le hz hd]
+
+/-! #### Continuity in the model and the allocation -/
+
+/-- **Continuity of the cost of the alternatives in best arm identification**, for arms in an
+exponential family with divergence `d` (in the sense that `KL(ν_c(μ), ν_c(μ')) = d(μ c, μ' c)` for
+all vectors of means `μ`, `μ'` of the family): on the vectors of means of the family with best arm
+`a`, `(μ, w) ↦ D(μ, w, ¬a)` is continuous in the model and the nonnegative allocation. -/
+theorem continuousOn_altCost_baiTask_restrict (hT : ∀ c, ¬ T =ᵐ[ρ] fun _ ↦ c)
+    (hν : ∀ μ μ' : α → ℝ, (∀ c, μ c ∈ ρ.expFamilyMeans T) → (∀ c, μ' c ∈ ρ.expFamilyMeans T) →
+      ∀ c, klDiv (ν μ c) (ν μ' c) = ENNReal.ofReal (ρ.expFamilyDiv T (μ c) (μ' c))) (a : α) :
+    ContinuousOn (fun p : (α → ℝ) × (α → ℝ) ↦
+        ((baiTask ν).restrict {μ' | ∀ c, μ' c ∈ ρ.expFamilyMeans T}).altCost p.1 p.2 a)
+      ({μ | (∀ c, μ c ∈ ρ.expFamilyMeans T) ∧ ∀ b, μ b ≤ μ a} ×ˢ Set.Ici 0) := by
+  classical
+  -- The closed form `min_{b ≠ a} (w a d(μ a, m_b) + w b d(μ b, m_b))` [GK16, Lemma 3] is a
+  -- finite infimum of continuous functions.
+  set G : α → (α → ℝ) × (α → ℝ) → ℝ≥0∞ := fun b p ↦ ENNReal.ofReal
+    (p.2 a * ρ.expFamilyDiv T (p.1 a) ((p.2 a * p.1 a + p.2 b * p.1 b) / (p.2 a + p.2 b)) +
+      p.2 b * ρ.expFamilyDiv T (p.1 b) ((p.2 a * p.1 a + p.2 b * p.1 b) / (p.2 a + p.2 b)))
+  have hG : ContinuousOn (fun p ↦ (Finset.univ.filter (· ≠ a)).inf (G · p))
+      ({μ | (∀ c, μ c ∈ ρ.expFamilyMeans T) ∧ ∀ b, μ b ≤ μ a} ×ˢ Set.Ici 0) := by
+    refine ContinuousOn.finset_inf_apply fun b _ ↦ ENNReal.continuous_ofReal.comp_continuousOn ?_
+    refine (continuousOn_mul_expFamilyDiv_add_mul_expFamilyDiv hT).comp
+      (f := fun p : (α → ℝ) × (α → ℝ) ↦ ((p.1 a, p.1 b), (p.2 a, p.2 b))) (by fun_prop) ?_
+    rintro ⟨μ, w⟩ ⟨⟨hμ, -⟩, hw⟩
+    exact ⟨⟨hμ a, hμ b⟩, hw a, hw b⟩
+  refine hG.congr fun p ⟨⟨hμ, ha⟩, hw⟩ ↦ ?_
+  rw [altCost_baiTask_restrict_eq_iInf_expFamilyDiv ν hT hμ (hν p.1 · hμ) ha hw]
+  simp [G, Finset.inf_eq_iInf]
+
+/-- Under the hypotheses of `continuousOn_altCost_baiTask_restrict`, at a vector of means `μ` of
+the family with unique best arm `a`, `(μ', w) ↦ D(μ', w, ¬a)` is continuous within
+`univ ×ˢ simplex α` at `(μ, w)` for every allocation `w` of the simplex. -/
+private lemma continuousWithinAt_altCost_baiTask_restrict (hT : ∀ c, ¬ T =ᵐ[ρ] fun _ ↦ c)
+    (hν : ∀ μ μ' : α → ℝ, (∀ c, μ c ∈ ρ.expFamilyMeans T) → (∀ c, μ' c ∈ ρ.expFamilyMeans T) →
+      ∀ c, klDiv (ν μ c) (ν μ' c) = ENNReal.ofReal (ρ.expFamilyDiv T (μ c) (μ' c)))
+    (hμ : ∀ c, μ c ∈ ρ.expFamilyMeans T) (ha : ∀ b ≠ a, μ b < μ a) (hw : w ∈ simplex α) :
+    ContinuousWithinAt (fun p : (α → ℝ) × (α → ℝ) ↦
+        ((baiTask ν).restrict {μ' | ∀ c, μ' c ∈ ρ.expFamilyMeans T}).altCost p.1 p.2 a)
+      (Set.univ ×ˢ simplex α) (μ, w) := by
+  have h_best : (baiTask ν).answerSet a ∈ 𝓝 μ :=
+    (isOpen_answerSet_baiTask ν a).mem_nhds ((mem_answerSet_baiTask_iff ν).2 ha)
+  have h_nhds : {μ' : α → ℝ | (∀ c, μ' c ∈ ρ.expFamilyMeans T) ∧ ∀ b, μ' b ≤ μ' a} ∈ 𝓝 μ :=
+    (eventually_all.2 fun c ↦ (continuous_apply c).continuousAt.preimage_mem_nhds
+      (expFamilyMeans_mem_nhds hT (hμ c))).and
+      (mem_of_superset h_best fun μ' hμ' b ↦ (eq_or_ne b a).elim (fun h ↦ h ▸ le_rfl)
+        fun hb ↦ ((mem_answerSet_baiTask_iff ν).1 hμ' b hb).le)
+  have h_mem : {μ' : α → ℝ | (∀ c, μ' c ∈ ρ.expFamilyMeans T) ∧ ∀ b, μ' b ≤ μ' a} ×ˢ Set.Ici 0 ∈
+      𝓝[Set.univ ×ˢ simplex α] (μ, w) := by
+    rw [nhdsWithin_prod_eq, nhdsWithin_univ]
+    exact prod_mem_prod h_nhds (mem_of_superset self_mem_nhdsWithin simplex_subset_nonneg)
+  exact ((continuousOn_altCost_baiTask_restrict ν hT hν a) _
+    ⟨mem_of_mem_nhds h_nhds, simplex_subset_nonneg hw⟩).mono_of_mem_nhdsWithin h_mem
+
+/-- **Continuity of the value of the answer `a` in best arm identification** [DK19, Lemma 28], for
+arms in an exponential family with divergence `d` (as in
+`continuousOn_altCost_baiTask_restrict`): at a vector of means `μ` of the family with unique best
+arm `a`, the value `μ' ↦ D(μ', ¬a)` of the game of the answer `a` is continuous. -/
+theorem continuousAt_answerValue_baiTask_restrict (hT : ∀ c, ¬ T =ᵐ[ρ] fun _ ↦ c)
+    (hν : ∀ μ μ' : α → ℝ, (∀ c, μ c ∈ ρ.expFamilyMeans T) → (∀ c, μ' c ∈ ρ.expFamilyMeans T) →
+      ∀ c, klDiv (ν μ c) (ν μ' c) = ENNReal.ofReal (ρ.expFamilyDiv T (μ c) (μ' c)))
+    (hμ : ∀ c, μ c ∈ ρ.expFamilyMeans T) (ha : ∀ b ≠ a, μ b < μ a) :
+    ContinuousAt (fun μ' ↦
+      ((baiTask ν).restrict {μ' | ∀ c, μ' c ∈ ρ.expFamilyMeans T}).answerValue μ' a) μ := by
+  rw [← continuousWithinAt_univ]
+  exact IdentTask.continuousWithinAt_answerValue _ fun _ hw ↦
+    continuousWithinAt_altCost_baiTask_restrict ν hT hν hμ ha hw
+
+/-- **Upper hemicontinuity of the optimal allocations of best arm identification**
+[DK19, Lemma 28], for arms in an exponential family with divergence `d` (as in
+`continuousOn_altCost_baiTask_restrict`): at a vector of means `μ` of the family with unique best
+arm `a`, the optimal allocations `μ' ↦ w*(μ', ¬a)` are upper hemicontinuous: for every open set
+`U ⊇ w*(μ, ¬a)`, `w*(μ', ¬a) ⊆ U` for `μ'` close enough to `μ`. When `w*(μ, ¬a)` is a single
+allocation [GK16, Lemma 4], this is the continuity of the optimal allocation at `μ`
+[GK16, Proposition 6]. -/
+theorem upperHemicontinuousAt_optAlloc_baiTask_restrict (hT : ∀ c, ¬ T =ᵐ[ρ] fun _ ↦ c)
+    (hν : ∀ μ μ' : α → ℝ, (∀ c, μ c ∈ ρ.expFamilyMeans T) → (∀ c, μ' c ∈ ρ.expFamilyMeans T) →
+      ∀ c, klDiv (ν μ c) (ν μ' c) = ENNReal.ofReal (ρ.expFamilyDiv T (μ c) (μ' c)))
+    (hμ : ∀ c, μ c ∈ ρ.expFamilyMeans T) (ha : ∀ b ≠ a, μ b < μ a) :
+    UpperHemicontinuousAt (fun μ' ↦
+      ((baiTask ν).restrict {μ' | ∀ c, μ' c ∈ ρ.expFamilyMeans T}).optAlloc μ' a) μ := by
+  rw [← upperHemicontinuousWithinAt_univ_iff]
+  exact IdentTask.upperHemicontinuousWithinAt_optAlloc _ fun _ hw ↦
+    continuousWithinAt_altCost_baiTask_restrict ν hT hν hμ ha hw
+
+/-- **Continuity of the characteristic time of best arm identification** [DK19, Lemma 29], for
+arms in an exponential family with divergence `d` (as in
+`continuousOn_altCost_baiTask_restrict`): the characteristic time `T*` is continuous at every
+vector of means of the family with a unique best arm. -/
+theorem continuousAt_charTime_baiTask_restrict (hT : ∀ c, ¬ T =ᵐ[ρ] fun _ ↦ c)
+    (hν : ∀ μ μ' : α → ℝ, (∀ c, μ c ∈ ρ.expFamilyMeans T) → (∀ c, μ' c ∈ ρ.expFamilyMeans T) →
+      ∀ c, klDiv (ν μ c) (ν μ' c) = ENNReal.ofReal (ρ.expFamilyDiv T (μ c) (μ' c)))
+    (hμ : ∀ c, μ c ∈ ρ.expFamilyMeans T) (ha : ∀ b ≠ a, μ b < μ a) :
+    ContinuousAt ((baiTask ν).restrict {μ' | ∀ c, μ' c ∈ ρ.expFamilyMeans T}).charTime μ := by
+  -- Near `μ`, the arm `a` is the unique best arm, so `T*(μ') = D(μ', ¬a)⁻¹`.
+  have h_eq : (fun μ' ↦ (((baiTask ν).restrict
+        {μ' | ∀ c, μ' c ∈ ρ.expFamilyMeans T}).answerValue μ' a)⁻¹) =ᶠ[𝓝 μ]
+      ((baiTask ν).restrict {μ' | ∀ c, μ' c ∈ ρ.expFamilyMeans T}).charTime := by
+    filter_upwards [(isOpen_answerSet_baiTask ν a).mem_nhds ((mem_answerSet_baiTask_iff ν).2 ha)]
+      with μ' hμ'
+    refine (IdentTask.charTime_eq_inv_answerValue _ ?_).symm
+    rw [IdentTask.correct_restrict]
+    exact (subsingleton_correct_baiTask ν μ').eq_singleton_of_mem
+      ((IdentTask.mem_answerSet_iff _).1 hμ').2
+  exact ((continuousAt_answerValue_baiTask_restrict ν hT hν hμ ha).inv).congr h_eq
 
 end ExpFamily
 
