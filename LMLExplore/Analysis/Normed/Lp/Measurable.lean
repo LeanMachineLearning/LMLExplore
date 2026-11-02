@@ -160,11 +160,6 @@ theorem coeFn_smul (c : ℝ) (f : boundedMeasurable α) :
     ⇑((c • f : boundedMeasurable α) : ℓ^∞(α, ℝ)) = c • ⇑(f : ℓ^∞(α, ℝ)) :=
   rfl
 
-/-- The multiple `c • 1` of the constant function `1` is the constant function `c`. -/
-theorem coeFn_smul_one (c : ℝ) : ⇑((c • 1 : boundedMeasurable α) : ℓ^∞(α, ℝ)) = fun _ ↦ c := by
-  ext
-  simp
-
 theorem le_def {f g : boundedMeasurable α} :
     f ≤ g ↔ ∀ x, (f : ℓ^∞(α, ℝ)) x ≤ (g : ℓ^∞(α, ℝ)) x :=
   Iff.rfl

@@ -89,6 +89,7 @@ lemma coeFn_bellmanOp (v : boundedMeasurable 𝓢) :
   boundedMeasurable.coeFn_mk ..
 
 /-- The iterates of `M.bellmanOp γ hR` are those of `M.bellman γ`. -/
+@[simp]
 lemma coeFn_bellmanOp_iterate (n : ℕ) (v : boundedMeasurable 𝓢) :
     ⇑((M.bellmanOp γ hR)^[n] v : ℓ^∞(𝓢, ℝ)) = (M.bellman γ)^[n] ⇑(v : ℓ^∞(𝓢, ℝ)) := by
   induction n with
@@ -110,17 +111,16 @@ variable (hR)
 conditions on the bounded measurable functions, for the constant function `1`. -/
 theorem isBlackwell_bellmanOp : IsBlackwell 1 γ (M.bellmanOp γ hR) where
   monotone v w hvw := boundedMeasurable.le_def.2 fun s ↦ by
-    simp only [coeFn_bellmanOp, bellman_def]
-    exact ciSup_mono (bddAbove_range_lookahead hR (boundedMeasurable.abs_apply_le_norm w) s)
-      fun a ↦ lookahead_mono (boundedMeasurable.integrable v _)
-        (boundedMeasurable.integrable w _) (boundedMeasurable.le_def.1 hvw)
+    simp only [coeFn_bellmanOp]
+    exact bellman_mono (fun _ ↦ boundedMeasurable.integrable v _)
+      (fun _ ↦ boundedMeasurable.integrable w _)
+      (bddAbove_range_lookahead hR (boundedMeasurable.abs_apply_le_norm w))
+      (boundedMeasurable.le_def.1 hvw) s
   map_add_smul_le v c _ := le_of_eq <| boundedMeasurable.ext fun s ↦ by
-    rw [coeFn_bellmanOp, boundedMeasurable.coeFn_add, boundedMeasurable.coeFn_smul_one,
-      boundedMeasurable.coeFn_add, boundedMeasurable.coeFn_smul_one, coeFn_bellmanOp,
-      Pi.add_apply, bellman_def, bellman_def]
-    simp only [lookahead_add_const (boundedMeasurable.integrable v _)]
-    exact ((OrderIso.addRight ((γ : ℝ) * c)).map_ciSup
-      (bddAbove_range_lookahead hR (boundedMeasurable.abs_apply_le_norm v) s)).symm
+    simp only [coeFn_bellmanOp, boundedMeasurable.coeFn_add, boundedMeasurable.coeFn_smul,
+      boundedMeasurable.coeFn_one, Pi.smul_one_eq_const]
+    rw [bellman_add_const (fun _ ↦ boundedMeasurable.integrable v _)
+      (bddAbove_range_lookahead hR (boundedMeasurable.abs_apply_le_norm v))]
 
 /-- With bounded rewards, countably many actions and `γ < 1`, the optimality operator is a
 `γ`-contraction of the bounded measurable functions with the sup norm [P, Proposition 6.2.4]. -/
@@ -223,6 +223,23 @@ lemma coeFn_bellmanEvalOp (v : boundedMeasurable 𝓢) :
     ⇑(M.bellmanEvalOp γ π hR v : ℓ^∞(𝓢, ℝ)) = M.bellmanEval γ π ⇑(v : ℓ^∞(𝓢, ℝ)) :=
   boundedMeasurable.coeFn_mk ..
 
+/-- The iterates of `M.bellmanEvalOp γ π hR` are those of `M.bellmanEval γ π`. -/
+@[simp]
+lemma coeFn_bellmanEvalOp_iterate (n : ℕ) (v : boundedMeasurable 𝓢) :
+    ⇑((M.bellmanEvalOp γ π hR)^[n] v : ℓ^∞(𝓢, ℝ)) = (M.bellmanEval γ π)^[n] ⇑(v : ℓ^∞(𝓢, ℝ)) := by
+  induction n with
+  | zero => rfl
+  | succ n ih => rw [iterate_succ_apply', coeFn_bellmanEvalOp, ih, iterate_succ_apply']
+
+variable {hR} in
+/-- A bounded measurable fixed point of `M.bellmanEval γ π` is a fixed point of
+`M.bellmanEvalOp γ π hR`. -/
+lemma isFixedPt_bellmanEvalOp_mk (hu : Measurable u) (huB : ∀ s, |u s| ≤ B)
+    (hu_eq : M.bellmanEval γ π u = u) :
+    IsFixedPt (M.bellmanEvalOp γ π hR)
+      (boundedMeasurable.mk u hu (bddAbove_def.2 ⟨B, forall_mem_range.2 huB⟩)) :=
+  boundedMeasurable.ext fun s ↦ by rw [coeFn_bellmanEvalOp, boundedMeasurable.coeFn_mk, hu_eq]
+
 /-- With bounded rewards, the evaluation operator of a stationary policy satisfies Blackwell's
 conditions on the bounded measurable functions, for the constant function `1`. -/
 theorem isBlackwell_bellmanEvalOp : IsBlackwell 1 γ (M.bellmanEvalOp γ π hR) where
@@ -232,10 +249,10 @@ theorem isBlackwell_bellmanEvalOp : IsBlackwell 1 γ (M.bellmanEvalOp γ π hR) 
       (boundedMeasurable.abs_apply_le_norm v) (boundedMeasurable.measurable w)
       (boundedMeasurable.abs_apply_le_norm w) (boundedMeasurable.le_def.1 hvw) s
   map_add_smul_le v c _ := le_of_eq <| boundedMeasurable.ext fun s ↦ by
-    rw [coeFn_bellmanEvalOp, boundedMeasurable.coeFn_add, boundedMeasurable.coeFn_smul_one,
-      boundedMeasurable.coeFn_add, boundedMeasurable.coeFn_smul_one, coeFn_bellmanEvalOp,
-      bellmanEval_add_const hR (boundedMeasurable.measurable v)
-        (boundedMeasurable.abs_apply_le_norm v)]
+    simp only [coeFn_bellmanEvalOp, boundedMeasurable.coeFn_add, boundedMeasurable.coeFn_smul,
+      boundedMeasurable.coeFn_one, Pi.smul_one_eq_const]
+    rw [bellmanEval_add_const hR (boundedMeasurable.measurable v)
+      (boundedMeasurable.abs_apply_le_norm v)]
 
 /-- With bounded rewards and `γ < 1`, the evaluation operator of a stationary policy is a
 `γ`-contraction of the bounded measurable functions with the sup norm [P, Proposition 6.2.4]. -/
