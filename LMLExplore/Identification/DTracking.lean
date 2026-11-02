@@ -5,6 +5,7 @@ Authors: Rémy Degenne
 -/
 module
 
+public import LMLExplore.Analysis.SpecialFunctions.Log.Basic
 public import LMLExplore.Bandits.IndexAlgorithm
 public import LMLExplore.Identification.ForcedExploration
 public import LMLExplore.Identification.Tracking
@@ -239,7 +240,7 @@ theorem tsum_measure_exists_ge_empMean_notMem_Ioo_ne_top [IsProbabilityMeasure P
   refine Identification.tsum_measure_exists_ge_empMean_notMem_Ioo_ne_top h hν_above hν_below hμ
     hl hu hlμ hμu
     (m := fun T ↦ ⌈√(t₀ T : ℝ) - (Fintype.card α / 2 + 1)⌉₊) (fun T ↦ ?_)
-    (tendsto_natCeil_sub_div_log _ ht₀)
+    (Real.tendsto_natCeil_sub_div_log _ ht₀)
   filter_upwards [sqrt_sub_sub_one_lt_pullCount h] with ω hω a
   refine Nat.ceil_le.2 ?_
   linarith [hω (t₀ T) a]
