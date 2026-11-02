@@ -5,8 +5,7 @@ Authors: Rémy Degenne
 -/
 module
 
-public import Mathlib.Analysis.SpecialFunctions.ImproperIntegrals
-public import Mathlib.MeasureTheory.Integral.Layercake
+public import LMLExplore.MeasureTheory.Integral.Layercake
 public import Mathlib.MeasureTheory.Order.Lattice
 public import Mathlib.Probability.Moments.Basic
 
@@ -73,38 +72,23 @@ theorem lintegral_exp_mul_le_inv_one_sub (hXm : AEMeasurable X P)
     (hXm.const_mul t).exp]
   -- above the level `1`, the tail of `exp (t X)` is at most `u ^ (-1 / t)`
   have h_tail (u : ℝ) (hu : 1 < u) :
-      P {ω | u < exp (t * X ω)} ≤ ENNReal.ofReal (u ^ (-t⁻¹)) := by
+      P {ω | u < exp (t * X ω)} ≤ ENNReal.ofReal (1 * u ^ (-t⁻¹)) := by
     have hu0 : 0 < u := one_pos.trans hu
     calc P {ω | u < exp (t * X ω)}
     _ ≤ P {ω | log u / t ≤ X ω} := measure_mono fun ω (hω : u < exp (t * X ω)) ↦ by
       rw [Set.mem_ofPred_eq, div_le_iff₀ ht, mul_comm]
       exact ((log_lt_iff_lt_exp hu0).2 hω).le
     _ ≤ ENNReal.ofReal (exp (-(log u / t))) := hX _ (div_nonneg (log_nonneg hu.le) ht.le)
-    _ = ENNReal.ofReal (u ^ (-t⁻¹)) := by
-      rw [rpow_def_of_pos hu0, div_eq_mul_inv, ← mul_neg]
-  have h_exp : -t⁻¹ < -1 := neg_lt_neg ((one_lt_inv₀ ht).2 ht1)
-  have h_int : ∫ u in Ioi 1, u ^ (-t⁻¹) = t / (1 - t) := by
-    have h1t : 1 - t ≠ 0 := (sub_pos.2 ht1).ne'
-    rw [integral_Ioi_rpow_of_lt h_exp one_pos, one_rpow,
-      show -t⁻¹ + 1 = -(1 - t) / t by field_simp; ring]
-    field_simp
-  calc ∫⁻ u in Ioi 0, P {ω | u < exp (t * X ω)}
-  _ = (∫⁻ u in Ioc 0 1, P {ω | u < exp (t * X ω)}) +
-      ∫⁻ u in Ioi 1, P {ω | u < exp (t * X ω)} := by
-    rw [← Ioc_union_Ioi_eq_Ioi zero_le_one, lintegral_union measurableSet_Ioi Ioc_disjoint_Ioi_same]
-  _ ≤ (∫⁻ _ in Ioc (0 : ℝ) 1, 1) + ∫⁻ u in Ioi 1, ENNReal.ofReal (u ^ (-t⁻¹)) := by
-    refine add_le_add (setLIntegral_mono measurable_const fun _ _ ↦ prob_le_one)
-      (setLIntegral_mono (by fun_prop) fun u hu ↦ h_tail u hu)
-  _ = ENNReal.ofReal 1 + ENNReal.ofReal (t / (1 - t)) := by
-    rw [setLIntegral_const, one_mul, volume_Ioc, sub_zero,
-      ← ofReal_integral_eq_lintegral_ofReal (integrableOn_Ioi_rpow_of_lt h_exp one_pos)
-        (ae_restrict_of_forall_mem measurableSet_Ioi fun u (hu : 1 < u) ↦
-          (rpow_pos_of_pos (one_pos.trans hu) _).le), h_int]
-  _ = ENNReal.ofReal (1 - t)⁻¹ := by
-    rw [← ENNReal.ofReal_add zero_le_one (div_nonneg ht.le (sub_pos.2 ht1).le)]
-    congr 1
-    field_simp [(sub_pos.2 ht1).ne']
-    ring
+    _ = ENNReal.ofReal (1 * u ^ (-t⁻¹)) := by
+      rw [one_mul, rpow_def_of_pos hu0, div_eq_mul_inv, ← mul_neg]
+  -- split the levels at `1`: below, bound the probability by `1`; above, by `u ^ (-1 / t)`
+  refine (lintegral_Ioi_measure_lt_le_of_le_rpow one_pos zero_le_one
+    (neg_lt_neg ((one_lt_inv₀ ht).2 ht1)) h_tail).trans_eq ?_
+  have h1t : 1 - t ≠ 0 := (sub_pos.2 ht1).ne'
+  rw [one_rpow, one_mul, show -t⁻¹ + 1 = -(1 - t) / t by field_simp; ring]
+  congr 1
+  field_simp
+  ring
 
 /-- A random variable with an exponential tail, `P(y ≤ X) ≤ exp (-y)` for every `y ≥ 0`, has
 exponential moments of every order `0 ≤ t < 1`. -/
@@ -167,7 +151,7 @@ theorem measure_le_sum_le_div_pow_mul_exp {X : ι → Ω → ℝ} (h_indep : iIn
     · exact fun i _ ↦ mgf_nonneg
     · exact mgf_le_inv_one_sub (hXm i).aemeasurable (hX i hi) ht0 ht1
   _ = (x / #s) ^ #s * exp (#s - x) := by
-    rw [prod_const, mul_comm, ht, sub_sub_cancel, inv_div]
+    rw [prod_const, mul_comm (exp _), ht, sub_sub_cancel, inv_div]
     congr 2
     field_simp
     ring

@@ -21,8 +21,9 @@ the time-uniform deviation bounds of [LS, Lemma 33.8], thus spends at most `δ` 
 
 ## Main statements
 
-* `sum_range_inv_add_one_mul_add_two`: `∑ i < n, 1 / ((i + 1) (i + 2)) = 1 - 1 / (n + 1)`.
-* `sum_range_inv_add_one_mul_add_two_le_one`: `∑ i < n, 1 / ((i + 1) (i + 2)) ≤ 1`.
+* `LMLExplore.sum_range_inv_add_one_mul_add_two`:
+  `∑ i < n, 1 / ((i + 1) (i + 2)) = 1 - 1 / (n + 1)`.
+* `LMLExplore.sum_range_inv_add_one_mul_add_two_le_one`: `∑ i < n, 1 / ((i + 1) (i + 2)) ≤ 1`.
 
 ## References
 
@@ -32,6 +33,8 @@ the time-uniform deviation bounds of [LS, Lemma 33.8], thus spends at most `δ` 
 public section
 
 open Finset
+
+namespace LMLExplore
 
 variable {α : Type*}
 
@@ -53,3 +56,5 @@ theorem sum_range_inv_add_one_mul_add_two_le_one [Field α] [LinearOrder α] [Is
     (n : ℕ) : ∑ i ∈ range n, ((i + 1 : α) * (i + 2))⁻¹ ≤ 1 := by
   rw [sum_range_inv_add_one_mul_add_two]
   exact sub_le_self _ (by positivity)
+
+end LMLExplore
