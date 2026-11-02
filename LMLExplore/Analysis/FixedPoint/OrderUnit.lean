@@ -51,7 +51,9 @@ weighted sup norm `⨆ i, |x i| / w i`, and the oscillation for `1` is `max x - 
 * `LMLExplore.IsTopical.orderUnitNorm_sub_le`, `LMLExplore.IsTopical.orderUnitOsc_sub_le`:
   topical maps are nonexpansive for the order-unit norm and for the oscillation.
 * `LMLExplore.orderUnitNorm_one_eq_norm`: on `ι → ℝ`, the order-unit norm of `1` is the sup norm.
-* `LMLExplore.lipschitzWith_of_monotone_of_add_const_le`: Blackwell's conditions on `ι → ℝ`.
+* `LMLExplore.lipschitzWith_of_monotone_of_add_smul_le`: Blackwell's conditions in a normed group
+  whose norm is the order-unit norm, and `LMLExplore.lipschitzWith_of_monotone_of_add_const_le`
+  their case `ι → ℝ`.
 * `LMLExplore.orderUnitNorm_eq_iSup_abs_div`: the order-unit norm of a positive weight is the
   weighted sup norm, and `LMLExplore.iSup_abs_sub_div_le_of_monotone_of_add_smul_le` is
   Blackwell's bound for it.
@@ -232,6 +234,12 @@ lemma orderUnitNorm_add_le (he : IsOrderUnit e) (x y : E) :
   exact le_orderUnitNorm he fun c' hc' hy ↦
     sub_le_iff_le_add.2 ((h c hc hx c' hc' hy).trans_eq (add_comm c c'))
 
+/-- The order-unit norm is monotone on nonnegative elements. -/
+lemma orderUnitNorm_le_orderUnitNorm_of_nonneg (he : IsOrderUnit e) (hx : 0 ≤ x) (hxy : x ≤ y) :
+    orderUnitNorm e x ≤ orderUnitNorm e y :=
+  le_orderUnitNorm he fun _ hc hy ↦ orderUnitNorm_le hc
+    ⟨(neg_nonpos.2 (hx.trans (hxy.trans hy.2))).trans hx, hxy.trans hy.2⟩
+
 /-- The oscillation is invariant under adding multiples of `e`. -/
 @[simp]
 lemma orderUnitOsc_add_smul (e x : E) (c : ℝ) : orderUnitOsc e (x + c • e) = orderUnitOsc e x := by
@@ -284,6 +292,28 @@ theorem orderUnitNorm_sub_le_of_monotone_of_add_smul_le {T : E → E} {γ : ℝ}
   have hy : T y ≤ T x + (γ * c) • e := (hT (neg_le_sub_iff_le_add.1 hxy₁)).trans (h x c hc)
   exact ⟨by simpa using mul_nonneg hγ hc, by simpa using neg_le_sub_iff_le_add.2 hy,
     by simpa using sub_le_iff_le_add'.2 hx⟩
+
+/-- If the norm of a normed group `F` is the order-unit norm of `u`, then `u` is an order unit. -/
+lemma isOrderUnit_of_forall_orderUnitNorm_eq_norm {F : Type*} [NormedAddCommGroup F]
+    [PartialOrder F] [Module ℝ F] {u : F} (hnorm : ∀ x, orderUnitNorm u x = ‖x‖) :
+    IsOrderUnit u := by
+  intro x
+  by_contra hx
+  have hS : {c : ℝ | 0 ≤ c ∧ x ∈ Icc (-(c • u)) (c • u)} = ∅ :=
+    eq_empty_iff_forall_notMem.2 fun c hc ↦ hx ⟨c, hc⟩
+  have hx0 : x = 0 := by rw [← norm_eq_zero, ← hnorm, orderUnitNorm_def, hS, Real.sInf_empty]
+  exact hx ⟨0, le_rfl, by simp [hx0]⟩
+
+/-- **Blackwell's sufficient conditions** in a normed group whose norm is the order-unit norm of
+`u`: a monotone map `T` with `T (x + c • u) ≤ T x + (γ * c) • u` for all `x` and `c ≥ 0` is
+`γ`-Lipschitz. For `γ < 1` it is a contraction (`ContractingWith`). -/
+theorem lipschitzWith_of_monotone_of_add_smul_le {F : Type*} [NormedAddCommGroup F]
+    [PartialOrder F] [IsOrderedAddMonoid F] [Module ℝ F] {u : F}
+    (hnorm : ∀ x, orderUnitNorm u x = ‖x‖) {T : F → F} {γ : NNReal} (hT : Monotone T)
+    (h : ∀ x (c : ℝ), 0 ≤ c → T (x + c • u) ≤ T x + ((γ : ℝ) * c) • u) : LipschitzWith γ T :=
+  LipschitzWith.of_dist_le_mul fun x y ↦ by
+    simpa only [dist_eq_norm, ← hnorm] using orderUnitNorm_sub_le_of_monotone_of_add_smul_le
+      γ.coe_nonneg (isOrderUnit_of_forall_orderUnitNorm_eq_norm hnorm) hT h x y
 
 /-! ### Nonexpansiveness of topical maps -/
 
@@ -370,13 +400,9 @@ theorem iSup_abs_sub_div_le_of_monotone_of_add_smul_le [Finite ι] (hw : ∀ i, 
 contraction (`ContractingWith`). -/
 theorem lipschitzWith_of_monotone_of_add_const_le [Fintype ι] {T : (ι → ℝ) → ι → ℝ} {γ : NNReal}
     (hT : Monotone T) (h : ∀ x (c : ℝ), 0 ≤ c → T (x + fun _ ↦ c) ≤ T x + fun _ ↦ γ * c) :
-    LipschitzWith γ T := by
-  refine LipschitzWith.of_dist_le_mul fun x y ↦ ?_
-  have h' : ∀ x (c : ℝ), 0 ≤ c → T (x + c • 1) ≤ T x + ((γ : ℝ) * c) • 1 := fun x c hc' ↦ by
-    rw [Pi.smul_one_eq_const, Pi.smul_one_eq_const]
-    exact h x c hc'
-  simpa [dist_eq_norm] using
-    orderUnitNorm_sub_le_of_monotone_of_add_smul_le γ.coe_nonneg isOrderUnit_one hT h' x y
+    LipschitzWith γ T :=
+  lipschitzWith_of_monotone_of_add_smul_le (u := (1 : ι → ℝ)) orderUnitNorm_one_eq_norm hT
+    fun x c hc ↦ by rw [Pi.smul_one_eq_const, Pi.smul_one_eq_const]; exact h x c hc
 
 /-- On `ι → ℝ` with `ι` finite and nonempty, the oscillation of `1` is `max x - min x`. -/
 theorem orderUnitOsc_one_eq_sup'_sub_inf' [Fintype ι] [Nonempty ι] (x : ι → ℝ) :
