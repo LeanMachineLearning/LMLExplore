@@ -19,6 +19,7 @@ public import Mathlib.Analysis.SpecialFunctions.Log.Basic
   `x → ∞`.
 * `Real.eventually_lt_mul_log_of_tendsto_div_log`: if `g n / log n → D` and `D < c`, then
   eventually `g n < c log n`.
+* `Real.tendsto_natCeil_sub_div_log`: if `f n / log n → ∞`, then `⌈f n - c⌉₊ / log n → ∞`.
 
 ## References
 
@@ -108,5 +109,18 @@ theorem eventually_lt_mul_log_of_tendsto_div_log {g : ℕ → ℝ} {D c : ℝ}
   filter_upwards [hg.eventually_lt_const hc,
     (tendsto_log_atTop.comp tendsto_natCast_atTop_atTop).eventually_gt_atTop 0] with n hn hlog
   exact (div_lt_iff₀ hlog).mp hn
+
+/-- If `f n / log n → ∞` as `n → ∞`, then the natural ceilings `⌈f n - c⌉₊` also grow faster than
+`log n`, which turns a real lower bound `f n - c` on a natural quantity into a natural one. -/
+theorem tendsto_natCeil_sub_div_log {f : ℕ → ℝ} (c : ℝ)
+    (hf : Tendsto (fun n : ℕ ↦ f n / log n) atTop atTop) :
+    Tendsto (fun n : ℕ ↦ (⌈f n - c⌉₊ : ℝ) / log n) atTop atTop := by
+  have hlog : Tendsto (fun n : ℕ ↦ log n) atTop atTop :=
+    tendsto_log_atTop.comp tendsto_natCast_atTop_atTop
+  have hc : Tendsto (fun n : ℕ ↦ -c / log n) atTop (𝓝 0) := hlog.const_div_atTop _
+  refine tendsto_atTop_mono' _ ?_ (hf.atTop_add hc)
+  filter_upwards [hlog.eventually_gt_atTop 0] with n hn
+  rw [← add_div, ← sub_eq_add_neg]
+  exact div_le_div_of_nonneg_right (Nat.le_ceil _) hn.le
 
 end Real
