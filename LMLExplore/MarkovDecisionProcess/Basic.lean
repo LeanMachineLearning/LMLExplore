@@ -282,6 +282,15 @@ private def snocEquiv (n : ℕ) : ((Hist 𝓢 𝓐 𝓡 n × 𝓢) × 𝓐) × �
   (MeasurableEquiv.prodAssoc.trans MeasurableEquiv.prodAssoc).trans
     (MeasurableEquiv.finSuccProd (Round 𝓢 𝓐 𝓡) n).symm
 
+omit [Nonempty 𝓢] in
+/-- `snocEquiv n` appends the round `(s, a, y)` to the history `h`. -/
+@[simp]
+private lemma snocEquiv_apply (n : ℕ) (h : Hist 𝓢 𝓐 𝓡 n) (s : 𝓢) (a : 𝓐) (y : 𝓡) :
+    (snocEquiv n : ((Hist 𝓢 𝓐 𝓡 n × 𝓢) × 𝓐) × 𝓡 ≃ᵐ Hist 𝓢 𝓐 𝓡 (n + 1)) (((h, s), a), y) =
+      Fin.snoc (α := fun _ ↦ Round 𝓢 𝓐 𝓡) h (s, a, y) := by
+  simp only [snocEquiv, MeasurableEquiv.trans_apply, MeasurableEquiv.finSuccProd_symm_apply]
+  rfl
+
 /-- In a run in the environment of an MDP, given the history before round `n`, the state `s` and
 the action `a` of round `n`, the pair formed by the reward of round `n` and the state of
 round `n + 1` has conditional law `M.R (s, a) ⊗ M.P (s, a)`: the reward and the next state are
@@ -303,12 +312,14 @@ lemma hasCondDistrib_feedback_obs_add_one (h : IsAlgEnvSeq O A Y alg (M.env μ) 
         (snocEquiv n : ((Hist 𝓢 𝓐 𝓡 n × 𝓢) × 𝓐) × 𝓡 ≃ᵐ Hist 𝓢 𝓐 𝓡 (n + 1)) ∘
           fun ω ↦ (((history O A Y n ω, O n ω), A n ω), Y n ω) := by
       ext ω : 1
-      simp [history_succ, snocEquiv, MeasurableEquiv.prodAssoc, step]
+      simp only [history_succ, Function.comp_apply, snocEquiv_apply,
+        MeasurableEquiv.finSuccProd_symm_apply]
+      rw [← Round.mk_obs_action_feedback (step O A Y n ω), obs_step, action_step, feedback_step]
     have h' := hasCondDistrib_obs_add_one_history h n
     rw [h_hist, hasCondDistrib_measurableEquiv_comp_right_iff] at h'
     convert h' using 1
-    ext p : 1
-    simp [snocEquiv, MeasurableEquiv.prodAssoc]
+    ext ⟨⟨⟨h, s⟩, a⟩, y⟩ : 1
+    simp
   have h_prod := (hasCondDistrib_feedback_history h n).prod h_obs
   rwa [Kernel.compProd_prodMkRight_eq_prod, ← Kernel.comap_prod] at h_prod
 

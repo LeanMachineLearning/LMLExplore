@@ -33,6 +33,7 @@ variable {α β γ : Type*} {mα : MeasurableSpace α} {mβ : MeasurableSpace β
 
 /-- The composition-product of `κ` with a kernel `η.prodMkRight β` that ignores the draw of `κ` is
 the product `κ ×ₖ η`. -/
+@[simp]
 lemma compProd_prodMkRight_eq_prod (κ : Kernel α β) [IsSFiniteKernel κ] (η : Kernel α γ)
     [IsSFiniteKernel η] :
     κ ⊗ₖ η.prodMkRight β = κ ×ₖ η := by
