@@ -128,6 +128,12 @@ lemma abs_lookahead_le (hR : ∀ p, ∀ᵐ x ∂(M.R p), |x| ≤ C) (hvB : ∀ s
   rw [abs_mul, NNReal.abs_eq]
   exact mul_le_mul_of_nonneg_left (abs_integral_le_of_abs_le hvB) γ.coe_nonneg
 
+/-- With rewards bounded by `C` and `|v| ≤ B`, the lookahead at a state is bounded above in the
+action, so that its supremum over the actions is meaningful. -/
+lemma bddAbove_range_lookahead (hR : ∀ p, ∀ᵐ x ∂(M.R p), |x| ≤ C) (hvB : ∀ s, |v s| ≤ B)
+    (s : 𝓢) : BddAbove (range fun a ↦ M.lookahead γ v (s, a)) :=
+  ⟨C + γ * B, forall_mem_range.2 fun a ↦ (abs_le.1 (abs_lookahead_le hR hvB (s, a))).2⟩
+
 /-- With bounded rewards, the lookahead of a bounded measurable function is integrable over the
 actions, for every finite measure on them. -/
 lemma integrable_lookahead_prodMk_left (hR : ∀ p, ∀ᵐ x ∂(M.R p), |x| ≤ C) (hv : Measurable v)
@@ -156,28 +162,37 @@ lemma bellman_le_iff [Finite 𝓐] [Nonempty 𝓐] {s : 𝓢} {c : ℝ} :
   rw [bellman_def]
   exact ciSup_le_iff (Finite.bddAbove_range fun a ↦ M.lookahead γ v (s, a))
 
-/-- The optimality operator is monotone. -/
-theorem bellman_mono [Finite 𝓐] (hv : ∀ p, Integrable v (M.P p)) (hw : ∀ p, Integrable w (M.P p))
-    (hvw : v ≤ w) : M.bellman γ v ≤ M.bellman γ w := fun s ↦ by
+/-- The optimality operator is monotone, when the lookahead of the larger function is bounded
+above in the action at every state: for instance for finitely many actions
+(`Finite.bddAbove_range`), or for bounded rewards and a bounded function
+(`Learning.MDP.bddAbove_range_lookahead`). -/
+theorem bellman_mono (hv : ∀ p, Integrable v (M.P p)) (hw : ∀ p, Integrable w (M.P p))
+    (hw_bdd : ∀ s, BddAbove (range fun a ↦ M.lookahead γ w (s, a))) (hvw : v ≤ w) :
+    M.bellman γ v ≤ M.bellman γ w := fun s ↦ by
   rw [bellman_def, bellman_def]
-  exact ciSup_mono (Finite.bddAbove_range fun a ↦ M.lookahead γ w (s, a)) fun _ ↦
-    lookahead_mono (hv _) (hw _) hvw
+  exact ciSup_mono (hw_bdd s) fun _ ↦ lookahead_mono (hv _) (hw _) hvw
 
-/-- Adding a constant `c` to the argument of the optimality operator adds `γ * c` to its value. -/
-theorem bellman_add_const [Finite 𝓐] [Nonempty 𝓐] (hv : ∀ p, Integrable v (M.P p)) (c : ℝ) :
+/-- Adding a constant `c` to the argument of the optimality operator adds `γ * c` to its value,
+when the lookahead is bounded above in the action at every state: for instance for finitely many
+actions (`Finite.bddAbove_range`), or for bounded rewards and a bounded function
+(`Learning.MDP.bddAbove_range_lookahead`). -/
+theorem bellman_add_const [Nonempty 𝓐] (hv : ∀ p, Integrable v (M.P p))
+    (hv_bdd : ∀ s, BddAbove (range fun a ↦ M.lookahead γ v (s, a))) (c : ℝ) :
     M.bellman γ (v + fun _ ↦ c) = M.bellman γ v + fun _ ↦ γ * c := by
   ext s
   simp only [bellman_def, Pi.add_apply, lookahead_add_const (hv _)]
-  exact ((OrderIso.addRight ((γ : ℝ) * c)).map_ciSup (Finite.bddAbove_range _)).symm
+  exact ((OrderIso.addRight ((γ : ℝ) * c)).map_ciSup (hv_bdd s)).symm
 
 /-- The optimality operator is a `γ`-contraction for the sup norm: if `|v - w| ≤ D` then
 `|M.bellman γ v - M.bellman γ w| ≤ γ * D`. -/
 theorem abs_bellman_sub_le [Finite 𝓐] [Nonempty 𝓐] (hv : ∀ p, Integrable v (M.P p))
     (hw : ∀ p, Integrable w (M.P p)) (hD : ∀ s, |v s - w s| ≤ D) (s : 𝓢) :
     |M.bellman γ v s - M.bellman γ w s| ≤ γ * D :=
-  abs_sub_le_of_monotone_of_add_const hD (bellman_mono hv fun p ↦ (hw p).add (integrable_const D))
-    (bellman_mono hw fun p ↦ (hv p).add (integrable_const D)) (bellman_add_const hv D)
-    (bellman_add_const hw D) s
+  abs_sub_le_of_monotone_of_add_const hD
+    (bellman_mono hv (fun p ↦ (hw p).add (integrable_const D)) fun _ ↦ Finite.bddAbove_range _)
+    (bellman_mono hw (fun p ↦ (hv p).add (integrable_const D)) fun _ ↦ Finite.bddAbove_range _)
+    (bellman_add_const hv (fun _ ↦ Finite.bddAbove_range _) D)
+    (bellman_add_const hw (fun _ ↦ Finite.bddAbove_range _) D) s
 
 /-- The optimality operator maps measurable functions to measurable functions, for countably many
 actions. -/
@@ -189,10 +204,9 @@ theorem measurable_bellman [Countable 𝓐] (hv : Measurable v) : Measurable (M.
 theorem abs_bellman_le [Nonempty 𝓐] (hR : ∀ p, ∀ᵐ x ∂(M.R p), |x| ≤ C) (hvB : ∀ s, |v s| ≤ B)
     (s : 𝓢) : |M.bellman γ v s| ≤ C + γ * B := by
   have h := fun a ↦ abs_le.1 (abs_lookahead_le (γ := γ) hR hvB (s, a))
-  have hbdd : BddAbove (range fun a ↦ M.lookahead γ v (s, a)) :=
-    ⟨C + γ * B, forall_mem_range.2 fun a ↦ (h a).2⟩
   obtain ⟨a⟩ := ‹Nonempty 𝓐›
-  exact abs_le.2 ⟨(h a).1.trans (le_ciSup hbdd a), ciSup_le fun a ↦ (h a).2⟩
+  exact abs_le.2 ⟨(h a).1.trans (le_ciSup (bddAbove_range_lookahead hR hvB s) a),
+    ciSup_le fun a ↦ (h a).2⟩
 
 /-! ### The greedy policy -/
 
@@ -331,9 +345,11 @@ variable [Finite 𝓢] [MeasurableSingletonClass 𝓢]
 
 /-- On a finite state space, the optimality operator satisfies Blackwell's conditions. -/
 theorem isBlackwell_bellman [Finite 𝓐] [Nonempty 𝓐] : IsBlackwell 1 γ (M.bellman γ) where
-  monotone _ _ := bellman_mono (fun _ ↦ .of_finite) (fun _ ↦ .of_finite)
+  monotone _ _ :=
+    bellman_mono (fun _ ↦ .of_finite) (fun _ ↦ .of_finite) fun _ ↦ Finite.bddAbove_range _
   map_add_smul_le v c _ := by
-    rw [Pi.smul_one_eq_const, Pi.smul_one_eq_const, bellman_add_const fun _ ↦ .of_finite]
+    rw [Pi.smul_one_eq_const, Pi.smul_one_eq_const,
+      bellman_add_const (fun _ ↦ .of_finite) (fun _ ↦ Finite.bddAbove_range _)]
 
 /-- On a finite state space, the optimality operator is `γ`-Lipschitz for the sup norm. -/
 theorem lipschitzWith_bellman [Fintype 𝓢] [Finite 𝓐] [Nonempty 𝓐] :
