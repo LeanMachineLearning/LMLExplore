@@ -56,6 +56,8 @@ weighted sup norm `⨆ i, |x i| / w i`, and the oscillation for `1` is `max x - 
 * `LMLExplore.IsBlackwell.lipschitzWith`: Blackwell's conditions in a normed group whose norm is
   the order-unit norm, and `LMLExplore.lipschitzWith_of_monotone_of_add_const_le` their case
   `ι → ℝ`. `LMLExplore.IsTopical.isBlackwell_comp_smul`: discounted topical maps satisfy them.
+* `LMLExplore.abs_sub_le_of_monotone_of_add_const`: Blackwell's argument on `ι → ℝ`, pointwise
+  and for any index type, with monotonicity and the constant shift only for the pairs it uses.
 * `LMLExplore.orderUnitNorm_eq_iSup_abs_div`: the order-unit norm of a positive weight is the
   weighted sup norm, and `LMLExplore.iSup_abs_sub_div_le_of_monotone_of_add_smul_le` is
   Blackwell's bound for it.
@@ -421,6 +423,20 @@ theorem lipschitzWith_of_monotone_of_add_const_le [Fintype ι] {T : (ι → ℝ)
     LipschitzWith γ T :=
   IsBlackwell.lipschitzWith (u := (1 : ι → ℝ)) orderUnitNorm_one_eq_norm
     ⟨hT, fun x c hc ↦ by rw [Pi.smul_one_eq_const, Pi.smul_one_eq_const]; exact h x c hc⟩
+
+/-- **Blackwell's argument**, pointwise and for any index type: if `T` is monotone on the pairs
+`x ≤ y + D` and `y ≤ x + D`, and adding `D` to `x` or `y` adds `γ * D` to the value of `T`, then
+`|x - y| ≤ D` implies `|T x - T y| ≤ γ * D`. -/
+theorem abs_sub_le_of_monotone_of_add_const {T : (ι → ℝ) → ι → ℝ} {x y : ι → ℝ} {γ D : ℝ}
+    (hD : ∀ i, |x i - y i| ≤ D) (hxy : x ≤ (y + fun _ ↦ D) → T x ≤ T (y + fun _ ↦ D))
+    (hyx : y ≤ (x + fun _ ↦ D) → T y ≤ T (x + fun _ ↦ D))
+    (hx : T (x + fun _ ↦ D) = T x + fun _ ↦ γ * D) (hy : T (y + fun _ ↦ D) = T y + fun _ ↦ γ * D)
+    (i : ι) : |T x i - T y i| ≤ γ * D := by
+  have h₁ := hxy (fun i ↦ by rw [Pi.add_apply]; linarith [(abs_le.1 (hD i)).2]) i
+  have h₂ := hyx (fun i ↦ by rw [Pi.add_apply]; linarith [(abs_le.1 (hD i)).1]) i
+  rw [hy, Pi.add_apply] at h₁
+  rw [hx, Pi.add_apply] at h₂
+  exact abs_sub_le_iff.2 ⟨by linarith, by linarith⟩
 
 /-- On `ι → ℝ` with `ι` finite and nonempty, the oscillation of `1` is `max x - min x`. -/
 theorem orderUnitOsc_one_eq_sup'_sub_inf' [Fintype ι] [Nonempty ι] (x : ι → ℝ) :
