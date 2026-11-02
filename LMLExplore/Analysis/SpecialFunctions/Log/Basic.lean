@@ -14,10 +14,15 @@ public import Mathlib.Analysis.SpecialFunctions.Log.Basic
 
 * `Real.min_one_le_two_mul_log_one_add`: `min 1 u ≤ 2 log (1 + u)` for `u ≥ 0`.
 * `Real.monotoneOn_log_one_add_mul_log_sq`: `x ↦ log (1 + x log² x)` is monotone on `[1, ∞)`.
+* `Real.monotone_log_two_mul_mul_add_one`: `n ↦ log (2 n (n + 1))` is monotone on `ℕ`.
 * `Real.tendsto_log_one_add_mul_log_sq_div_log_atTop`: `log (1 + x log² x) / log x → 1` as
   `x → ∞`.
 * `Real.eventually_lt_mul_log_of_tendsto_div_log`: if `g n / log n → D` and `D < c`, then
   eventually `g n < c log n`.
+
+## References
+
+* [LS] T. Lattimore and Cs. Szepesvári, *Bandit Algorithms*, Cambridge University Press, 2020.
 -/
 
 public section
@@ -49,6 +54,18 @@ theorem monotoneOn_log_one_add_mul_log_sq :
   have hy0 : 0 ≤ y := by linarith
   dsimp only
   gcongr
+
+/-- The function `n ↦ log (2 n (n + 1))` on `ℕ` is monotone. It is the boundary of the
+sub-Gaussian, two-tailed form of the time-uniform deviation bound of [LS, Lemma 33.8]: Lattimore
+and Szepesvári state that lemma for unit-variance Gaussians with the boundary `log (n (n + 1))`,
+and the factor `2` accounts for the two tails. -/
+theorem monotone_log_two_mul_mul_add_one : Monotone fun n : ℕ ↦ log (2 * n * (n + 1)) := by
+  intro n m hnm
+  rcases Nat.eq_zero_or_pos n with rfl | hn
+  · simpa using log_natCast_nonneg (2 * m * (m + 1))
+  · have hn' : (0 : ℝ) < n := Nat.cast_pos.2 hn
+    have hnm' : (n : ℝ) ≤ m := Nat.cast_le.2 hnm
+    exact log_le_log (by positivity) (by gcongr)
 
 /-- `log (1 + x log² x) / log x → 1` as `x → ∞`: the exploration level `log f(x)` of the
 asymptotically optimal UCB and KL-UCB algorithms, with `f(x) = 1 + x log² x`, is asymptotically
