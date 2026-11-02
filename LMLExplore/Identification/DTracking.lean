@@ -99,6 +99,7 @@ lemma dTrackingIndex_of_forall (hb : ∀ b, √(n : ℝ) - Fintype.card α / 2 �
 variable [MeasurableSpace α]
 
 /-- The index of D-tracking is a measurable function of the history if the target rule is. -/
+@[fun_prop]
 lemma measurable_dTrackingIndex [MeasurableSingletonClass α] (hw : Measurable (w n)) :
     Measurable (dTrackingIndex w n) := by
   have hN (b : α) : Measurable fun h : Hist Unit α 𝓨 n ↦ (pullCount' n h b : ℝ) :=
@@ -218,19 +219,6 @@ variable {𝓧 : Type*} {m𝓧 : MeasurableSpace 𝓧} {ν : Kernel α ℝ} [IsM
   {R : ℕ → Ω → ℝ} {w : (n : ℕ) → Hist Unit α ℝ n → α → ℝ} {hw : ∀ n, Measurable (w n)}
   {ρ : α → Measure 𝓧} {T : α → 𝓧 → ℝ} {μ l u : α → ℝ}
 
-/-- If `√(t₀ T) / log T → ∞`, then the integer lower bounds `⌈√(t₀ T) - c⌉₊` on the pull counts
-after `t₀ T` rounds also grow faster than `log T`. -/
-private lemma tendsto_natCeil_sqrt_sub_div_log {t₀ : ℕ → ℕ} (c : ℝ)
-    (ht₀ : Tendsto (fun T : ℕ ↦ √(t₀ T : ℝ) / log T) atTop atTop) :
-    Tendsto (fun T : ℕ ↦ (⌈√(t₀ T : ℝ) - c⌉₊ : ℝ) / log T) atTop atTop := by
-  have hlog : Tendsto (fun T : ℕ ↦ log T) atTop atTop :=
-    tendsto_log_atTop.comp tendsto_natCast_atTop_atTop
-  have hc : Tendsto (fun T : ℕ ↦ -c / log T) atTop (𝓝 0) := hlog.const_div_atTop _
-  refine tendsto_atTop_mono' _ ?_ (ht₀.atTop_add hc)
-  filter_upwards [hlog.eventually_gt_atTop 0] with T hT
-  rw [← add_div, ← sub_eq_add_neg]
-  exact div_le_div_of_nonneg_right (Nat.le_ceil _) hT.le
-
 /-- **Concentration of the empirical means under D-tracking** [GK16, Lemma 19], in the form used
 in the proof of [GK16, Theorem 14]. In a run of D-tracking against the stochastic bandit
 `stationaryEnv ν`, let the rewards of each arm `a` be dominated above and below by the member of
@@ -251,7 +239,7 @@ theorem tsum_measure_exists_ge_empMean_notMem_Ioo_ne_top [IsProbabilityMeasure P
   refine Identification.tsum_measure_exists_ge_empMean_notMem_Ioo_ne_top h hν_above hν_below hμ
     hl hu hlμ hμu
     (m := fun T ↦ ⌈√(t₀ T : ℝ) - (Fintype.card α / 2 + 1)⌉₊) (fun T ↦ ?_)
-    (tendsto_natCeil_sqrt_sub_div_log _ ht₀)
+    (tendsto_natCeil_sub_div_log _ ht₀)
   filter_upwards [sqrt_sub_sub_one_lt_pullCount h] with ω hω a
   refine Nat.ceil_le.2 ?_
   linarith [hω (t₀ T) a]

@@ -42,6 +42,8 @@ The bound holds at all rounds `t ≥ t₀` at once, with no upper horizon, which
 * `LMLExplore.Identification.tsum_measure_exists_ge_empMean_notMem_Ioo_ne_top`: if every arm has
   at least `m T` pulls after `t₀ T` rounds, with `m T / log T → ∞`, the probabilities that the
   empirical means leave the neighbourhoods at some round `t ≥ t₀ T` have a finite sum over `T`.
+* `LMLExplore.Identification.tendsto_natCeil_sub_div_log`: if `f T / log T → ∞`, then
+  `⌈f T - c⌉₊ / log T → ∞`, to obtain integer pull counts `m T` from a real lower bound.
 
 ## References
 
@@ -133,5 +135,19 @@ theorem tsum_measure_exists_ge_empMean_notMem_Ioo_ne_top [Finite α]
       (exp_neg_mul_div_one_sub_exp_neg_nonneg (hdl a).le _))
     (summable_sum fun a _ ↦ ((h_sum (hdu a)).div_const _).add ((h_sum (hdl a)).div_const _))]
   exact ENNReal.ofReal_ne_top
+
+/-- If `f T / log T → ∞`, then the integer lower bounds `⌈f T - c⌉₊` also grow faster than
+`log T`. This turns a real lower bound `f T - c` on the pull counts after `t₀ T` rounds into the
+pull counts `m T` of `tsum_measure_exists_ge_empMean_notMem_Ioo_ne_top`. -/
+lemma tendsto_natCeil_sub_div_log {f : ℕ → ℝ} (c : ℝ)
+    (hf : Tendsto (fun T : ℕ ↦ f T / log T) atTop atTop) :
+    Tendsto (fun T : ℕ ↦ (⌈f T - c⌉₊ : ℝ) / log T) atTop atTop := by
+  have hlog : Tendsto (fun T : ℕ ↦ log T) atTop atTop :=
+    tendsto_log_atTop.comp tendsto_natCast_atTop_atTop
+  have hc : Tendsto (fun T : ℕ ↦ -c / log T) atTop (nhds 0) := hlog.const_div_atTop _
+  refine tendsto_atTop_mono' _ ?_ (hf.atTop_add hc)
+  filter_upwards [hlog.eventually_gt_atTop 0] with T hT
+  rw [← add_div, ← sub_eq_add_neg]
+  exact div_le_div_of_nonneg_right (Nat.le_ceil _) hT.le
 
 end LMLExplore.Identification
