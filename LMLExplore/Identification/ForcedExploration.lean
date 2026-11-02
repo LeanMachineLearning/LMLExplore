@@ -5,7 +5,7 @@ Authors: Rémy Degenne
 -/
 module
 
-public import LMLExplore.Bandits.Concentration
+public import LMLExplore.SequentialLearning.ExpFamilyDeviation
 
 /-!
 # Concentration of the empirical means under forced exploration
@@ -26,7 +26,7 @@ exponential family `(ρ a, T a)` with divergence `d_a` (for instance their law i
 one arm, the probability that, at some round, it has at least `m` pulls and an empirical mean
 outside `(l a, u a)` is bounded by the Cramér–Chernoff bound and a union bound over the numbers of
 pulls `s ≥ m` in LML's i.i.d. reward stream
-(`LMLExplore.Bandits.measure_exists_le_pullCount_and_empMean_notMem_Ioo_le`). Under forced
+(`LMLExplore.measure_exists_le_pullCount_and_empMean_notMem_Ioo_le`). Under forced
 exploration, a union bound over the arms gives the bound
 `∑ a, (exp (-m d_a(u a, μ a)) / (1 - exp (-d_a(u a, μ a))) + exp (-m d_a(l a, μ a)) / (1 - …))`.
 The bound holds at all rounds `t ≥ t₀` at once, with no upper horizon, which improves on the
@@ -99,7 +99,7 @@ theorem measure_exists_ge_empMean_notMem_Ioo_le (h : IsAlgEnvSeq O A R alg (stat
       (exp_neg_mul_div_one_sub_exp_neg_nonneg (Measure.expFamilyDiv_nonneg (hu a) (hμ a)) _)
       (exp_neg_mul_div_one_sub_exp_neg_nonneg (Measure.expFamilyDiv_nonneg (hl a) (hμ a)) _)]
     exact Finset.sum_le_sum fun a _ ↦
-      Bandits.measure_exists_le_pullCount_and_empMean_notMem_Ioo_le h (hν_above a) (hν_below a)
+      measure_exists_le_pullCount_and_empMean_notMem_Ioo_le h (hν_above a) (hν_below a)
         (hμ a) (hl a) (hu a) (hlμ a) (hμu a) m
 
 omit [Fintype α] in
