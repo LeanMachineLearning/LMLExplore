@@ -49,6 +49,8 @@ For every algorithm-environment sequence `IsAlgEnvSeq O A Y alg (M.env μ) P`:
   `μ`;
 * `Learning.MDP.hasCondDistrib_obs_add_one_history`: the state `O (n + 1)` has conditional law
   `M.P (O n, A n)` given the history up to round `n`;
+* `Learning.MDP.hasLaw_obs_add_one`: the state `O (n + 1)` has law `M.P ∘ₘ L`, where `L` is the
+  law of the state-action pair `(O n, A n)`;
 * `Learning.MDP.hasCondDistrib_feedback_history`: the reward `Y n` has conditional law
   `M.R (O n, A n)` given the history before round `n`, `O n` and `A n`;
 * `Learning.MDP.hasCondDistrib_feedback_obs_add_one`: given the history before round `n`, `O n`
@@ -259,6 +261,12 @@ round `n + 1` has conditional law `M.P` given the state and action of round `n`.
 lemma hasCondDistrib_obs_add_one (h : IsAlgEnvSeq O A Y alg (M.env μ) P) (n : ℕ) :
     HasCondDistrib (O (n + 1)) (fun ω ↦ (O n ω, A n ω)) M.P P :=
   (hasCondDistrib_obs_add_one_history h n).comp_right
+
+/-- In a run in the environment of an MDP, the law of the state of round `n + 1` is the law of
+the state-action pair of round `n` composed with the transition kernel `M.P`. -/
+lemma hasLaw_obs_add_one (h : IsAlgEnvSeq O A Y alg (M.env μ) P) (n : ℕ) :
+    HasLaw (O (n + 1)) (M.P ∘ₘ P.map (fun ω ↦ (O n ω, A n ω))) P :=
+  (hasCondDistrib_obs_add_one h n).hasLaw_comp
 
 /-- In a run in the environment of an MDP, the reward of round `n` has conditional law
 `M.R (s, a)` given the history before round `n`, the state `s` and the action `a` of
