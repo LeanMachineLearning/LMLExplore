@@ -5,6 +5,7 @@ Authors: Rémy Degenne
 -/
 module
 
+public import LMLExplore.Analysis.FixedPoint.OrderUnit
 public import LMLExplore.Analysis.Normed.Lp.Order
 public import Mathlib.MeasureTheory.Constructions.BorelSpace.Metrizable
 public import Mathlib.Topology.Algebra.Algebra
@@ -35,6 +36,9 @@ convergence and a pointwise limit of measurable functions is measurable.
   set.
 * `LMLExplore.isClosed_boundedMeasurable`, `LMLExplore.boundedMeasurable.instCompleteSpace`:
   `boundedMeasurable α` is closed in `ℓ^∞(α, ℝ)`, hence complete.
+* `LMLExplore.boundedMeasurable.orderUnitNorm_one_eq_norm`: for the pointwise order, the
+  order-unit norm of the constant `1` is the sup norm, so that maps satisfying Blackwell's
+  conditions for `1` are contractions of `boundedMeasurable α` (`LMLExplore.IsBlackwell`).
 -/
 
 public section
@@ -156,6 +160,11 @@ theorem coeFn_smul (c : ℝ) (f : boundedMeasurable α) :
     ⇑((c • f : boundedMeasurable α) : ℓ^∞(α, ℝ)) = c • ⇑(f : ℓ^∞(α, ℝ)) :=
   rfl
 
+/-- The multiple `c • 1` of the constant function `1` is the constant function `c`. -/
+theorem coeFn_smul_one (c : ℝ) : ⇑((c • 1 : boundedMeasurable α) : ℓ^∞(α, ℝ)) = fun _ ↦ c := by
+  ext
+  simp
+
 theorem le_def {f g : boundedMeasurable α} :
     f ≤ g ↔ ∀ x, (f : ℓ^∞(α, ℝ)) x ≤ (g : ℓ^∞(α, ℝ)) x :=
   Iff.rfl
@@ -190,6 +199,28 @@ theorem norm_le_of_forall_le {f : boundedMeasurable α} {C : ℝ} (hC : 0 ≤ C)
     (hf : ∀ x, |(f : ℓ^∞(α, ℝ)) x| ≤ C) : ‖f‖ ≤ C := by
   rw [AddSubgroupClass.coe_norm]
   exact lp.norm_le_of_forall_le hC fun x ↦ (Real.norm_eq_abs _).trans_le (hf x)
+
+/-- A bounded measurable function lies in the order interval `[-c • 1, c • 1]` if and only if it
+is bounded by `c` in absolute value. -/
+theorem mem_Icc_neg_smul_one_iff {f : boundedMeasurable α} {c : ℝ} :
+    f ∈ Icc (-(c • 1)) (c • 1) ↔ ∀ x, |(f : ℓ^∞(α, ℝ)) x| ≤ c := by
+  simp only [mem_Icc, le_def, coeFn_neg, coeFn_smul, coeFn_one, Pi.neg_apply, Pi.smul_apply,
+    Pi.one_apply, smul_eq_mul, mul_one, ← forall_and, abs_le]
+
+/-- For the pointwise order, the order-unit norm of the constant function `1` on bounded measurable
+functions is the sup norm. -/
+@[simp]
+theorem orderUnitNorm_one_eq_norm (f : boundedMeasurable α) : orderUnitNorm 1 f = ‖f‖ := by
+  have hS : {c : ℝ | 0 ≤ c ∧ f ∈ Icc (-(c • 1)) (c • 1)} = Ici ‖f‖ := by
+    ext c
+    simp only [mem_ofPred_eq, mem_Ici, mem_Icc_neg_smul_one_iff]
+    exact ⟨fun ⟨hc, h⟩ ↦ norm_le_of_forall_le hc h,
+      fun h ↦ ⟨(norm_nonneg f).trans h, fun x ↦ (abs_apply_le_norm f x).trans h⟩⟩
+  rw [orderUnitNorm_def, hS, csInf_Ici]
+
+/-- The constant function `1` is an order unit of the bounded measurable functions. -/
+theorem isOrderUnit_one : IsOrderUnit (1 : boundedMeasurable α) :=
+  isOrderUnit_of_forall_orderUnitNorm_eq_norm orderUnitNorm_one_eq_norm
 
 end boundedMeasurable
 

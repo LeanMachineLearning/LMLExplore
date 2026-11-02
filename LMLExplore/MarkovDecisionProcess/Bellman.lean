@@ -128,6 +128,12 @@ lemma abs_lookahead_le (hR : ∀ p, ∀ᵐ x ∂(M.R p), |x| ≤ C) (hvB : ∀ s
   rw [abs_mul, NNReal.abs_eq]
   exact mul_le_mul_of_nonneg_left (abs_integral_le_of_abs_le hvB) γ.coe_nonneg
 
+/-- With rewards bounded by `C` and `|v| ≤ B`, the lookahead at a state is bounded above in the
+action, so that its supremum over the actions is meaningful. -/
+lemma bddAbove_range_lookahead (hR : ∀ p, ∀ᵐ x ∂(M.R p), |x| ≤ C) (hvB : ∀ s, |v s| ≤ B)
+    (s : 𝓢) : BddAbove (range fun a ↦ M.lookahead γ v (s, a)) :=
+  ⟨C + γ * B, forall_mem_range.2 fun a ↦ (abs_le.1 (abs_lookahead_le hR hvB (s, a))).2⟩
+
 /-- With bounded rewards, the lookahead of a bounded measurable function is integrable over the
 actions, for every finite measure on them. -/
 lemma integrable_lookahead_prodMk_left (hR : ∀ p, ∀ᵐ x ∂(M.R p), |x| ≤ C) (hv : Measurable v)
@@ -189,10 +195,9 @@ theorem measurable_bellman [Countable 𝓐] (hv : Measurable v) : Measurable (M.
 theorem abs_bellman_le [Nonempty 𝓐] (hR : ∀ p, ∀ᵐ x ∂(M.R p), |x| ≤ C) (hvB : ∀ s, |v s| ≤ B)
     (s : 𝓢) : |M.bellman γ v s| ≤ C + γ * B := by
   have h := fun a ↦ abs_le.1 (abs_lookahead_le (γ := γ) hR hvB (s, a))
-  have hbdd : BddAbove (range fun a ↦ M.lookahead γ v (s, a)) :=
-    ⟨C + γ * B, forall_mem_range.2 fun a ↦ (h a).2⟩
   obtain ⟨a⟩ := ‹Nonempty 𝓐›
-  exact abs_le.2 ⟨(h a).1.trans (le_ciSup hbdd a), ciSup_le fun a ↦ (h a).2⟩
+  exact abs_le.2 ⟨(h a).1.trans (le_ciSup (bddAbove_range_lookahead hR hvB s) a),
+    ciSup_le fun a ↦ (h a).2⟩
 
 /-! ### The greedy policy -/
 
