@@ -53,6 +53,9 @@ For every algorithm-environment sequence `IsAlgEnvSeq O A Y alg (M.env μ) P`:
   law of the state-action pair `(O n, A n)`;
 * `Learning.MDP.hasCondDistrib_feedback_history`: the reward `Y n` has conditional law
   `M.R (O n, A n)` given the history before round `n`, `O n` and `A n`;
+* `Learning.MDP.ae_abs_feedback_le`, `Learning.MDP.integral_feedback`: for real rewards bounded
+  by `C`, the reward `Y n` is almost surely bounded by `C`, and its expectation is the integral of
+  the mean reward against the law of `(O n, A n)`;
 * `Learning.MDP.hasCondDistrib_feedback_obs_add_one`: given the history before round `n`, `O n`
   and `A n`, the pair `(Y n, O (n + 1))` has conditional law `M.R (O n, A n) ⊗ M.P (O n, A n)`;
 * `Learning.MDP.condIndepFun_feedback_obs_add_one`: hence `Y n` and `O (n + 1)` are
@@ -293,6 +296,36 @@ given the state and action of round `n`. -/
 lemma hasCondDistrib_feedback (h : IsAlgEnvSeq O A Y alg (M.env μ) P) (n : ℕ) :
     HasCondDistrib (Y n) (fun ω ↦ (O n ω, A n ω)) M.R P :=
   (hasCondDistrib_feedback_history h n).comp_right
+
+/-- Along a run in an MDP with rewards bounded by `C`, the reward of every round is almost surely
+bounded by `C`. -/
+lemma ae_abs_feedback_le {M : MDP 𝓢 𝓐 ℝ} {Y : ℕ → Ω → ℝ} {alg : Algorithm 𝓢 𝓐 ℝ} {C : ℝ}
+    (h : IsAlgEnvSeq O A Y alg (M.env μ) P)
+    (hR : ∀ p, ∀ᵐ x ∂(M.R p), |x| ≤ C) (n : ℕ) :
+    ∀ᵐ ω ∂P, |Y n ω| ≤ C := by
+  have h_law := hasCondDistrib_feedback h n
+  have h_ae : ∀ᵐ q ∂(P.map (fun ω ↦ (O n ω, A n ω)) ⊗ₘ M.R), |q.2| ≤ C :=
+    Measure.ae_compProd_of_ae_ae (measurableSet_le (by fun_prop) measurable_const)
+      (.of_forall fun p ↦ hR p)
+  rw [← h_law.map_eq] at h_ae
+  exact ae_of_ae_map h_law.aemeasurable h_ae
+
+/-- Along a run in an MDP with bounded rewards, the expected reward of round `n` is the integral
+of the mean reward against the law of the state-action pair of round `n`. -/
+theorem integral_feedback {M : MDP 𝓢 𝓐 ℝ} {Y : ℕ → Ω → ℝ} {alg : Algorithm 𝓢 𝓐 ℝ} {C : ℝ}
+    (h : IsAlgEnvSeq O A Y alg (M.env μ) P)
+    (hR : ∀ p, ∀ᵐ x ∂(M.R p), |x| ≤ C) (n : ℕ) :
+    ∫ ω, Y n ω ∂P = ∫ p, meanReward M.R p ∂(P.map fun ω ↦ (O n ω, A n ω)) := by
+  have h_law := hasCondDistrib_feedback h n
+  have h_int : Integrable (fun q : (𝓢 × 𝓐) × ℝ ↦ q.2)
+      (P.map (fun ω ↦ (O n ω, A n ω)) ⊗ₘ M.R) :=
+    .of_bound measurable_snd.aestronglyMeasurable C <|
+      Measure.ae_compProd_of_ae_ae (measurableSet_le (by fun_prop) measurable_const)
+        (.of_forall hR)
+  have h_eq := h_law.integral_comp (f := Prod.snd) measurable_snd.aestronglyMeasurable
+  simp only [Function.comp_def] at h_eq
+  rw [h_eq, Measure.integral_compProd h_int]
+  simp_rw [meanReward_def]
 
 /-- The measurable equivalence between `((Hist 𝓢 𝓐 𝓡 n × 𝓢) × 𝓐) × 𝓡` and the histories of
 `n + 1` rounds, appending the round `(s, a, y)` to a history of `n` rounds. -/
