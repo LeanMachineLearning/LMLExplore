@@ -27,6 +27,8 @@ supported distributions, not a subset of `α → ℝ`.
 ## Main statements
 
 * `LMLExplore.mem_simplex_iff`: membership in the simplex.
+* `LMLExplore.add_eq_one_of_mem_simplex`: on a type with two elements `a` and `b`, the entries of
+  a vector of the simplex satisfy `w a + w b = 1`.
 * `LMLExplore.simplex_subset_nonneg`: the simplex consists of nonnegative vectors.
 * `LMLExplore.simplex_nonempty`: the simplex of a nonempty type is nonempty.
 * `LMLExplore.convex_simplex`: the simplex is convex.
@@ -44,6 +46,12 @@ def simplex : Set (α → ℝ) := {w | (∀ a, 0 ≤ w a) ∧ ∑ a, w a = 1}
 
 @[simp]
 lemma mem_simplex_iff {w : α → ℝ} : w ∈ simplex α ↔ (∀ a, 0 ≤ w a) ∧ ∑ a, w a = 1 := Iff.rfl
+
+/-- On a type whose only elements are `a ≠ b`, the entries of a vector `w` of the simplex satisfy
+`w a + w b = 1`. -/
+lemma add_eq_one_of_mem_simplex {w : α → ℝ} {a b : α} (hab : a ≠ b) (h : ∀ c, c = a ∨ c = b)
+    (hw : w ∈ simplex α) : w a + w b = 1 :=
+  Fintype.sum_eq_add (f := w) a b hab (fun c hc ↦ absurd (h c) (not_or.2 hc)) ▸ hw.2
 
 lemma simplex_subset_nonneg : simplex α ⊆ Set.Ici 0 := fun _ hw ↦ hw.1
 

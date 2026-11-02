@@ -24,6 +24,7 @@ Complements to Mathlib's `ProbabilityTheory.gaussianReal`:
 * `LMLExplore.integral_sub_sq_gaussianReal`: for `X ∼ 𝒩(μ, v)` and every `c`,
   `𝔼[(X - c) ^ 2] = v + (μ - c) ^ 2`, with the integrability statement
   `LMLExplore.integrable_sub_sq_gaussianReal`.
+* `LMLExplore.tilted_mul_gaussianReal`: tilting `𝒩(μ, v)` by `x ↦ η x` gives `𝒩(μ + v η, v)`.
 * `LMLExplore.gaussianReal_absolutelyContinuous_gaussianReal`: two real Gaussian laws with nonzero
   variances are mutually absolutely continuous.
 * `LMLExplore.rnDeriv_gaussianReal_gaussianReal`: the Radon-Nikodym derivative of `𝒩(μ₁, v₁)` with
@@ -134,6 +135,41 @@ lemma integral_sub_sq_gaussianReal (c : ℝ) :
   rw [← gaussianReal_map_sub_const c] at hvar
   rw [integral_map (by fun_prop) (by fun_prop)] at hvar
   linarith
+
+/-- The pointwise identity behind the tilting of a Gaussian law: multiplying the density of
+`𝒩(μ, v)` by `exp (η x)` and normalizing by the moment generating function gives the density of
+`𝒩(μ + v η, v)`. -/
+private lemma gaussianPDFReal_mul_exp_div (μ η : ℝ) (hv : v ≠ 0) (x : ℝ) :
+    gaussianPDFReal μ v x * (exp (η * x) / exp (μ * η + v * η ^ 2 / 2)) =
+      gaussianPDFReal (μ + v * η) v x := by
+  have hv' : (v : ℝ) ≠ 0 := NNReal.coe_ne_zero.2 hv
+  rw [gaussianPDFReal_def, gaussianPDFReal_def, mul_assoc, ← exp_sub, ← exp_add]
+  congr 2
+  field_simp
+  ring
+
+/-- Tilting a Gaussian law by `x ↦ η x` shifts its mean by `v η`: `𝒩(μ, v)` tilted by
+`x ↦ η x` is `𝒩(μ + v η, v)`. For `v = 0`, both sides are the Dirac mass at `μ`. -/
+@[simp]
+lemma tilted_mul_gaussianReal (μ : ℝ) (v : ℝ≥0) (η : ℝ) :
+    (gaussianReal μ v).tilted (fun x ↦ η * x) = gaussianReal (μ + v * η) v := by
+  rcases eq_or_ne v 0 with rfl | hv
+  · -- The Dirac mass at `μ` is unchanged by tilting.
+    simp only [gaussianReal_zero_var, NNReal.coe_zero, zero_mul, add_zero]
+    rw [tilted_congr (ae_eq_dirac fun x ↦ η * x)]
+    -- `Function.const ℝ (η * μ)` is `fun _ ↦ η * μ` by definition.
+    exact tilted_const _ _
+  rw [Measure.tilted, gaussianReal_of_var_ne_zero _ hv, gaussianReal_of_var_ne_zero _ hv,
+    ← withDensity_mul _ (measurable_gaussianPDF _ _) (by fun_prop)]
+  congr 1
+  funext x
+  have h_mgf : ∫ y, exp (η * y) ∂(volume.withDensity (gaussianPDF μ v)) =
+      exp (μ * η + v * η ^ 2 / 2) := by
+    rw [← gaussianReal_of_var_ne_zero _ hv]
+    exact congrFun mgf_id_gaussianReal η
+  simp only [Pi.mul_apply, gaussianPDF_def] at h_mgf ⊢
+  rw [h_mgf, ← ENNReal.ofReal_mul (gaussianPDFReal_nonneg _ _ _),
+    gaussianPDFReal_mul_exp_div μ η hv x]
 
 section TwoGaussians
 
