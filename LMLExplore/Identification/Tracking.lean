@@ -35,6 +35,9 @@ with `N_a(n) = pullCount A a n ω` the number of pulls of `a` in the rounds `0, 
   `w k` that stays `ε`-close to a probability vector `l` from round `n₀` on, with forced
   exploration below a threshold `g k ≤ 2 ε k`: `|N_a(n) - n l_a| ≤ (K - 1) max(n₀, 2 ε n + 1)` for
   `n ≥ n₀`.
+* `LMLExplore.Identification.abs_pullCount_div_sub_le`: under the same assumptions, the
+  proportions of pulls after `n ≥ n₀` rounds with `n₀ ≤ 3 ε n` and `1 ≤ ε n` are
+  `3 (K - 1) ε`-close to `l`.
 * `LMLExplore.Identification.eventually_abs_pullCount_div_sub_le`: for a sublinear threshold `g`,
   if the targets are eventually `ε`-close to `l`, the proportions of pulls are eventually
   `3 (K - 1) ε`-close to `l` [GK16, Lemma 17].
@@ -364,6 +367,31 @@ theorem abs_pullCount_sub_mul_le {g : ℕ → ℝ} {w : ℕ → α → ℝ} {l :
       calc (pullCount A a n ω : ℝ) - n * l a ≤ M := hup a
         _ ≤ (univ.erase a).card * M := le_mul_of_one_le_left hM this
 
+/-- **Tracking a changing sequence of targets**, the bound on the proportions of pulls after a
+fixed round in the proof of the second part of [GK16, Lemma 17]. Under the assumptions of
+`abs_pullCount_sub_mul_le`, if `n ≥ n₀` satisfies `n₀ ≤ 3 ε n` and `1 ≤ ε n`, then the proportions
+of pulls after `n` rounds are `3 (K - 1) ε`-close to `l`. -/
+theorem abs_pullCount_div_sub_le {g : ℕ → ℝ} {w : ℕ → α → ℝ} {l : α → ℝ} {ε : ℝ} {n₀ : ℕ}
+    (hl0 : ∀ a, 0 ≤ l a) (hl1 : ∑ a, l a = 1)
+    (hforced : ∀ k ≥ n₀, ∀ a, (pullCount A a k ω : ℝ) < g k →
+      pullCount A (A k ω) k ω ≤ pullCount A a k ω)
+    (htrack : ∀ k ≥ n₀, (∀ a, g k ≤ pullCount A a k ω) → ∀ a,
+      k * w k a - pullCount A a k ω ≤ k * w k (A k ω) - pullCount A (A k ω) k ω)
+    (hw : ∀ k ≥ n₀, ∀ a, |w k a - l a| ≤ ε) (hg : ∀ k ≥ n₀, g k ≤ 2 * ε * k)
+    {n : ℕ} (hn : n₀ ≤ n) (hn₀ : (n₀ : ℝ) ≤ 3 * ε * n) (hεn : 1 ≤ ε * n) (a : α) :
+    |(pullCount A a n ω : ℝ) / n - l a| ≤ 3 * (Fintype.card α - 1) * ε := by
+  have : Nonempty α := ⟨a⟩
+  have hK := one_le_card_real (α := α)
+  have hpos : (0 : ℝ) < n := Nat.cast_pos.2 (Nat.pos_of_ne_zero fun h ↦ by norm_num [h] at hεn)
+  have h := abs_pullCount_sub_mul_le hl0 hl1 hforced htrack hw hg hn a
+  have hmax : max (n₀ : ℝ) (2 * ε * n + 1) ≤ 3 * ε * n := max_le hn₀ (by linarith)
+  rw [show (pullCount A a n ω : ℝ) / n - l a = ((pullCount A a n ω : ℝ) - n * l a) / n by
+    field_simp, abs_div, abs_of_pos hpos, div_le_iff₀ hpos]
+  calc |(pullCount A a n ω : ℝ) - n * l a| ≤ (Fintype.card α - 1) * max (n₀ : ℝ) (2 * ε * n + 1) :=
+        h
+    _ ≤ (Fintype.card α - 1) * (3 * ε * n) := by gcongr
+    _ = 3 * (Fintype.card α - 1) * ε * n := by ring
+
 /-- **Tracking a changing sequence of targets**, the second part of [GK16, Lemma 17]. Let `l` be
 a probability vector and `g` a sublinear exploration threshold (`g k ≤ c k` eventually, for every
 `c > 0`). Suppose that from some round on, the arm played at round `k` has been pulled at most as
@@ -381,25 +409,13 @@ theorem eventually_abs_pullCount_div_sub_le {g : ℕ → ℝ} {w : ℕ → α �
     ∀ᶠ n in atTop, ∀ a, |(pullCount A a n ω : ℝ) / n - l a| ≤ 3 * (Fintype.card α - 1) * ε := by
   obtain ⟨n₀, hn₀⟩ :=
     eventually_atTop.1 ((hw.and (hg (2 * ε) (by positivity))).and (hforced.and htrack))
-  have : Nonempty α := ⟨A 0 ω⟩
-  have hK := one_le_card_real (α := α)
-  filter_upwards [eventually_ge_atTop n₀, eventually_ge_atTop 1,
+  filter_upwards [eventually_ge_atTop n₀,
     tendsto_natCast_atTop_atTop.eventually_ge_atTop ((n₀ : ℝ) / (3 * ε)),
-    tendsto_natCast_atTop_atTop.eventually_ge_atTop (1 / ε)] with n hn hn1 hn₀' hn1' a
-  have hpos : (0 : ℝ) < n := by exact_mod_cast hn1
-  have h := abs_pullCount_sub_mul_le hl0 hl1 (fun k hk ↦ (hn₀ k hk).2.1)
-    (fun k hk ↦ (hn₀ k hk).2.2) (fun k hk ↦ (hn₀ k hk).1.1) (fun k hk ↦ (hn₀ k hk).1.2) hn a
-  -- `max(n₀, 2 ε n + 1) ≤ 3 ε n` for `n ≥ n₀ / (3 ε)` and `n ≥ 1 / ε`.
-  have hmax : max (n₀ : ℝ) (2 * ε * n + 1) ≤ 3 * ε * n := by
-    rw [div_le_iff₀ (by positivity)] at hn₀'
-    rw [div_le_iff₀ hε] at hn1'
-    exact max_le (by linarith) (by linarith)
-  rw [show (pullCount A a n ω : ℝ) / n - l a = ((pullCount A a n ω : ℝ) - n * l a) / n by
-    field_simp, abs_div, abs_of_pos hpos, div_le_iff₀ hpos]
-  calc |(pullCount A a n ω : ℝ) - n * l a| ≤ (Fintype.card α - 1) * max (n₀ : ℝ) (2 * ε * n + 1) :=
-        h
-    _ ≤ (Fintype.card α - 1) * (3 * ε * n) := by gcongr
-    _ = 3 * (Fintype.card α - 1) * ε * n := by ring
+    tendsto_natCast_atTop_atTop.eventually_ge_atTop (1 / ε)] with n hn hn₀' hn1' a
+  rw [div_le_iff₀ (by positivity)] at hn₀'
+  rw [div_le_iff₀ hε] at hn1'
+  exact abs_pullCount_div_sub_le hl0 hl1 (fun k hk ↦ (hn₀ k hk).2.1) (fun k hk ↦ (hn₀ k hk).2.2)
+    (fun k hk ↦ (hn₀ k hk).1.1) (fun k hk ↦ (hn₀ k hk).1.2) hn (by linarith) (by linarith) a
 
 /-- **Convergence of the proportions of pulls**, a consequence of [GK16, Lemma 17]. Let `l` be a
 probability vector and `g` a sublinear exploration threshold (`g k ≤ c k` eventually, for every
