@@ -10,13 +10,14 @@ public import LMLExplore.MarkovDecisionProcess.RunValue
 /-!
 # Discounted occupancy measures of a Markov decision process
 
-Every algorithm `alg : Algorithm 𝓢 𝓐 ℝ`, run in the environment `M.env μ` of an MDP `M` from the
+Every algorithm `alg : Algorithm 𝓢 𝓐 𝓡`, run in the environment `M.env μ` of an MDP `M` from the
 initial law `μ`, visits the state-action pairs `(S n, A n)`. Its discounted state-action occupancy
 measure is
 `M.occupancy γ alg μ = (1 - γ) • ∑ n, γ ^ n • law (S n, A n)`,
 a probability measure on `𝓢 × 𝓐` for `γ < 1`. It summarizes the run for every discounted
-criterion: the discounted value of `alg` is `(1 - γ)⁻¹ * ∫ r d(M.occupancy γ alg μ)`, where `r` is
-the mean reward. Its first marginal satisfies the flow equation
+criterion: for `γ < 1` and bounded real rewards, the discounted value of `alg` is
+`(1 - γ)⁻¹ * ∫ r d(M.occupancy γ alg μ)`, where `r` is the mean reward. For a probability measure
+`μ`, its first marginal satisfies the flow equation
 `x (B ×ˢ univ) = (1 - γ) * μ B + γ * ∫⁻ p, M.P p B ∂x`,
 which expresses that the law of the state of round `n + 1` is the law of the state-action pair of
 round `n` composed with the transition kernel. Occupancy measures turn statements about runs into
@@ -38,9 +39,10 @@ from its marginals `M.stateMarginal π μ n ⊗ₘ π n`.
   function `f` against it is `(1 - γ) * ∑' n, γ ^ n * ∫ f d law (S n, A n)`;
 * `Learning.MDP.isProbabilityMeasure_occupancy`: for `γ < 1`, the occupancy measure is a
   probability measure;
-* `Learning.MDP.runValue_eq_integral_occupancy`: the discounted value of `alg` is
-  `(1 - γ)⁻¹ * ∫ r d(M.occupancy γ alg μ)`;
-* `Learning.MDP.occupancy_map_fst`, `Learning.MDP.occupancy_prod_univ`: the flow equation;
+* `Learning.MDP.runValue_eq_integral_occupancy`: for `γ < 1` and bounded real rewards, the
+  discounted value of `alg` is `(1 - γ)⁻¹ * ∫ r d(M.occupancy γ alg μ)`;
+* `Learning.MDP.occupancy_map_fst`, `Learning.MDP.occupancy_prod_univ`: the flow equation, for a
+  probability measure `μ`;
 * `Learning.MDP.occupancy_markov`, `Learning.MDP.occupancy_markov_const`: the occupancy measures
   of Markov and stationary policies, in terms of their state-action marginals.
 
@@ -59,8 +61,8 @@ open scoped NNReal ENNReal
 
 namespace Learning.MDP
 
-variable {𝓢 𝓐 : Type*} {m𝓢 : MeasurableSpace 𝓢} {m𝓐 : MeasurableSpace 𝓐} [Nonempty 𝓢]
-  {M : MDP 𝓢 𝓐 ℝ} {γ : ℝ≥0} {C : ℝ}
+variable {𝓢 𝓐 𝓡 : Type*} {m𝓢 : MeasurableSpace 𝓢} {m𝓐 : MeasurableSpace 𝓐}
+  {m𝓡 : MeasurableSpace 𝓡} [Nonempty 𝓢] {M : MDP 𝓢 𝓐 𝓡} {γ : ℝ≥0} {C : ℝ}
 
 /-! ### Definition -/
 
@@ -69,12 +71,12 @@ variable (M γ) in
 initial law `μ`: `(1 - γ) • ∑ n, γ ^ n • law (S n, A n)`, where `S n` and `A n` are the state and
 the action of round `n` of the runs of `alg` in `M.env μ`. For `γ < 1` it is a probability
 measure. -/
-noncomputable def occupancy (alg : Algorithm 𝓢 𝓐 ℝ) (μ : Measure 𝓢) : Measure (𝓢 × 𝓐) :=
+noncomputable def occupancy (alg : Algorithm 𝓢 𝓐 𝓡) (μ : Measure 𝓢) : Measure (𝓢 × 𝓐) :=
   (1 - γ : ℝ≥0∞) • Measure.sum fun n ↦ (γ : ℝ≥0∞) ^ n •
     (trajMeasure alg (M.env μ)).map fun ω ↦ (IT.obs n ω, IT.action n ω)
 
 variable (M γ) in
-lemma occupancy_def (alg : Algorithm 𝓢 𝓐 ℝ) (μ : Measure 𝓢) :
+lemma occupancy_def (alg : Algorithm 𝓢 𝓐 𝓡) (μ : Measure 𝓢) :
     M.occupancy γ alg μ = (1 - γ : ℝ≥0∞) • Measure.sum fun n ↦ (γ : ℝ≥0∞) ^ n •
       (trajMeasure alg (M.env μ)).map fun ω ↦ (IT.obs n ω, IT.action n ω) :=
   (rfl)
@@ -84,7 +86,7 @@ lemma occupancy_def (alg : Algorithm 𝓢 𝓐 ℝ) (μ : Measure 𝓢) :
 section Runs
 
 variable {Ω : Type*} {mΩ : MeasurableSpace Ω} {P : Measure Ω} [IsProbabilityMeasure P]
-  {S : ℕ → Ω → 𝓢} {A : ℕ → Ω → 𝓐} {Y : ℕ → Ω → ℝ} {alg : Algorithm 𝓢 𝓐 ℝ} {μ : Measure 𝓢}
+  {S : ℕ → Ω → 𝓢} {A : ℕ → Ω → 𝓐} {Y : ℕ → Ω → 𝓡} {alg : Algorithm 𝓢 𝓐 𝓡} {μ : Measure 𝓢}
 
 /-- Along every run of `alg` in `M.env μ`, the occupancy measure of `alg` is
 `(1 - γ) • ∑ n, γ ^ n • law (S n, A n)`. -/
@@ -111,21 +113,17 @@ theorem integral_occupancy (h : IsAlgEnvSeq S A Y alg (M.env μ) P) (hγ : γ < 
     {f : 𝓢 × 𝓐 → ℝ} (hf : Integrable f (M.occupancy γ alg μ)) :
     ∫ p, f p ∂(M.occupancy γ alg μ) =
       (1 - γ) * ∑' n, (γ : ℝ) ^ n * ∫ p, f p ∂(P.map fun ω ↦ (S n ω, A n ω)) := by
-  have h1 : (1 - γ : ℝ≥0∞) = ((1 - γ : ℝ≥0) : ℝ≥0∞) := by simp
   have h0 : (1 - γ : ℝ≥0∞) ≠ 0 := (tsub_pos_of_lt (by exact_mod_cast hγ)).ne'
   rw [occupancy_eq_sum h] at hf ⊢
   rw [integral_smul_measure, integral_sum_measure
-      ((integrable_smul_measure h0 (ENNReal.sub_ne_top ENNReal.one_ne_top)).1 hf), h1,
-    ENNReal.coe_toReal, NNReal.coe_sub hγ.le, NNReal.coe_one, smul_eq_mul]
-  congr 1
-  refine tsum_congr fun n ↦ ?_
-  rw [integral_smul_measure, smul_eq_mul, ← ENNReal.coe_pow, ENNReal.coe_toReal, NNReal.coe_pow]
+      ((integrable_smul_measure h0 (ENNReal.sub_ne_top ENNReal.one_ne_top)).1 hf)]
+  simp [integral_smul_measure, ENNReal.toReal_sub_of_le (ENNReal.coe_le_one_iff.2 hγ.le)]
 
 end Runs
 
 section Measure
 
-variable {alg : Algorithm 𝓢 𝓐 ℝ} {μ : Measure 𝓢}
+variable {alg : Algorithm 𝓢 𝓐 𝓡} {μ : Measure 𝓢}
 
 /-- The mass of the occupancy measure. -/
 private lemma occupancy_univ :
@@ -159,8 +157,8 @@ end Measure
 /-- **The value as an integral against the occupancy measure**: with bounded rewards and `γ < 1`,
 the discounted value of every algorithm is `(1 - γ)⁻¹ * ∫ r d(M.occupancy γ alg μ)`, where `r` is
 the mean reward. -/
-theorem runValue_eq_integral_occupancy (hγ : γ < 1) (hR : ∀ p, ∀ᵐ x ∂(M.R p), |x| ≤ C)
-    (alg : Algorithm 𝓢 𝓐 ℝ) (μ : Measure 𝓢) :
+theorem runValue_eq_integral_occupancy {M : MDP 𝓢 𝓐 ℝ} (hγ : γ < 1)
+    (hR : ∀ p, ∀ᵐ x ∂(M.R p), |x| ≤ C) (alg : Algorithm 𝓢 𝓐 ℝ) (μ : Measure 𝓢) :
     M.runValue γ alg μ = (1 - γ : ℝ)⁻¹ * ∫ p, meanReward M.R p ∂(M.occupancy γ alg μ) := by
   have h := IT.isAlgEnvSeq_trajMeasure alg (M.env μ)
   have h0 : (1 - γ : ℝ) ≠ 0 := sub_ne_zero.2 (by exact_mod_cast hγ.ne')
@@ -172,7 +170,7 @@ theorem runValue_eq_integral_occupancy (hγ : γ < 1) (hR : ∀ p, ∀ᵐ x ∂(
 
 section Flow
 
-variable {alg : Algorithm 𝓢 𝓐 ℝ} {μ : Measure 𝓢} [IsProbabilityMeasure μ]
+variable {alg : Algorithm 𝓢 𝓐 𝓡} {μ : Measure 𝓢} [IsProbabilityMeasure μ]
 
 /-- **The flow equation** of occupancy measures: the first marginal of the occupancy measure `x`
 of every algorithm from the probability measure `μ` is `(1 - γ) • μ + γ • (M.P ∘ₘ x)`. -/
