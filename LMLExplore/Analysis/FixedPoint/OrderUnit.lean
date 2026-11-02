@@ -16,9 +16,10 @@ public import Mathlib.Topology.MetricSpace.Lipschitz
 # Order units, Blackwell's conditions and topical maps
 
 Let `E` be an ordered real vector space. An element `e : E` is an *order unit* if every `x : E`
-lies in an order interval `[-c • e, c • e]` with `c ≥ 0`. It defines the order-unit norm
-`‖x‖_e = inf {c ≥ 0 | -c • e ≤ x ≤ c • e}` and the oscillation
-`osc_e x = inf {b - a | a ≤ b, a • e ≤ x ≤ b • e}`.
+lies in an order interval `[-c • e, c • e]` with `c ≥ 0`. It defines the order-unit seminorm
+`‖x‖_e = inf {c ≥ 0 | -c • e ≤ x ≤ c • e}` (a norm when the order is Archimedean) and the
+oscillation `osc_e x = inf {b - a | a ≤ b, a • e ≤ x ≤ b • e}`, which is invariant under adding
+multiples of `e`.
 
 *Blackwell's sufficient conditions* [Bla65] say that a monotone map `T : E → E` with
 `T (x + c • e) ≤ T x + (γ * c) • e` for all `x` and `c ≥ 0` is `γ`-Lipschitz for `‖·‖_e`. This is
@@ -36,21 +37,27 @@ weighted sup norm `⨆ i, |x i| / w i`, and the oscillation for `1` is `max x - 
 ## Main definitions
 
 * `LMLExplore.IsOrderUnit e`: every element lies in `[-c • e, c • e]` for some `c ≥ 0`.
-* `LMLExplore.orderUnitNorm e x`: the order-unit norm `‖x‖_e`.
+* `LMLExplore.orderUnitNorm e x`: the order-unit seminorm `‖x‖_e`.
 * `LMLExplore.orderUnitOsc e x`: the oscillation `osc_e x`.
 * `LMLExplore.IsTopical e T`: `T` is monotone and `T (x + c • e) = T x + c • e`.
 
 ## Main statements
 
+* `LMLExplore.orderUnitNorm_smul`, `LMLExplore.orderUnitNorm_add_le`: the order-unit norm of an
+  order unit is a seminorm.
+* `LMLExplore.orderUnitOsc_add_smul`, `LMLExplore.orderUnitOsc_le_two_mul_orderUnitNorm`: the
+  oscillation is invariant under adding multiples of `e` and bounded by twice the norm.
 * `LMLExplore.orderUnitNorm_sub_le_of_monotone_of_add_smul_le`: Blackwell's sufficient conditions.
 * `LMLExplore.IsTopical.orderUnitNorm_sub_le`, `LMLExplore.IsTopical.orderUnitOsc_sub_le`:
   topical maps are nonexpansive for the order-unit norm and for the oscillation.
-* `LMLExplore.orderUnitNorm_one`: on `ι → ℝ`, the order-unit norm of `1` is the sup norm.
+* `LMLExplore.orderUnitNorm_one_eq_norm`: on `ι → ℝ`, the order-unit norm of `1` is the sup norm.
 * `LMLExplore.lipschitzWith_of_monotone_of_add_const_le`: Blackwell's conditions on `ι → ℝ`.
 * `LMLExplore.orderUnitNorm_eq_iSup_abs_div`: the order-unit norm of a positive weight is the
   weighted sup norm, and `LMLExplore.iSup_abs_sub_div_le_of_monotone_of_add_smul_le` is
   Blackwell's bound for it.
-* `LMLExplore.orderUnitOsc_one`: on `ι → ℝ`, the oscillation of `1` is `max x - min x`.
+* `LMLExplore.orderUnitOsc_one_eq_sup'_sub_inf'`: on `ι → ℝ`, the oscillation of `1` is
+  `max x - min x`.
+* `LMLExplore.isTopical_one_iff`: topical maps for `1` commute with adding constant functions.
 * `LMLExplore.isTopical_one_sup'_add`: max-plus maps are topical.
 
 ## References
@@ -77,15 +84,21 @@ def IsOrderUnit (e : E) : Prop := ∀ x : E, ∃ c : ℝ, 0 ≤ c ∧ x ∈ Icc 
 lemma isOrderUnit_def : IsOrderUnit e ↔ ∀ x : E, ∃ c : ℝ, 0 ≤ c ∧ x ∈ Icc (-(c • e)) (c • e) :=
   (Iff.rfl)
 
-/-- The order-unit norm `‖x‖_e = inf {c ≥ 0 | -c • e ≤ x ≤ c • e}`. On `ι → ℝ` with `ι` finite
-and a positive weight `e`, it is the weighted sup norm (`orderUnitNorm_eq_iSup_abs_div`). -/
+/-- The order-unit norm `‖x‖_e = inf {c ≥ 0 | -c • e ≤ x ≤ c • e}`. When `e` is an order unit it
+is a seminorm (`orderUnitNorm_smul`, `orderUnitNorm_add_le`), and a norm only when the order is
+moreover Archimedean. If `x` lies in no interval `[-c • e, c • e]` (which can only happen when `e`
+is not an order unit), it takes the junk value `sInf ∅ = 0`. On `ι → ℝ` with `ι` finite and a
+positive weight `e`, it is the weighted sup norm (`orderUnitNorm_eq_iSup_abs_div`). -/
 noncomputable def orderUnitNorm (e x : E) : ℝ := sInf {c : ℝ | 0 ≤ c ∧ x ∈ Icc (-(c • e)) (c • e)}
 
 lemma orderUnitNorm_def (e x : E) :
     orderUnitNorm e x = sInf {c : ℝ | 0 ≤ c ∧ x ∈ Icc (-(c • e)) (c • e)} := (rfl)
 
 /-- The oscillation `osc_e x = inf {b - a | a ≤ b, a • e ≤ x ≤ b • e}`, written with `d = b - a`.
-On `ι → ℝ` with `ι` finite and nonempty, `osc_1 x = max x - min x` (`orderUnitOsc_one`). -/
+It is meaningful when `e` is an order unit; if `x` lies in no interval `[a • e, (a + d) • e]`
+(which can only happen when `e` is not an order unit), it takes the junk value `sInf ∅ = 0`. On
+`ι → ℝ` with `ι` finite and nonempty, `osc_1 x = max x - min x`
+(`orderUnitOsc_one_eq_sup'_sub_inf'`). -/
 noncomputable def orderUnitOsc (e x : E) : ℝ :=
   sInf {d : ℝ | 0 ≤ d ∧ ∃ a : ℝ, x ∈ Icc (a • e) ((a + d) • e)}
 
@@ -128,6 +141,18 @@ lemma le_orderUnitOsc {r : ℝ} (he : IsOrderUnit e)
 lemma orderUnitNorm_zero (e : E) : orderUnitNorm e 0 = 0 :=
   (orderUnitNorm_le le_rfl (by simp)).antisymm (orderUnitNorm_nonneg e 0)
 
+@[simp]
+lemma orderUnitOsc_zero (e : E) : orderUnitOsc e 0 = 0 :=
+  (orderUnitOsc_le (a := 0) le_rfl (by simp)).antisymm (orderUnitOsc_nonneg e 0)
+
+/-- The oscillation is at most twice the order-unit norm. -/
+lemma orderUnitOsc_le_two_mul_orderUnitNorm (he : IsOrderUnit e) (x : E) :
+    orderUnitOsc e x ≤ 2 * orderUnitNorm e x := by
+  rw [← div_le_iff₀' two_pos]
+  refine le_orderUnitNorm he fun c hc hx ↦ ?_
+  rw [div_le_iff₀' two_pos]
+  exact orderUnitOsc_le (a := -c) (by positivity) (by rwa [neg_smul, show -c + 2 * c = c by ring])
+
 /-! ### Topical maps -/
 
 /-- A map `T` is *topical* for `e` [GG04] if it is monotone and commutes with adding multiples of
@@ -152,7 +177,7 @@ lemma iterate (hT : IsTopical e T) (n : ℕ) : IsTopical e T^[n] := by
 
 end IsTopical
 
-/-! ### Symmetry of the order-unit norm -/
+/-! ### Algebraic properties of the order-unit norm and the oscillation -/
 
 variable [IsOrderedAddMonoid E]
 
@@ -162,6 +187,74 @@ lemma orderUnitNorm_neg (e x : E) : orderUnitNorm e (-x) = orderUnitNorm e x := 
 
 lemma orderUnitNorm_sub_rev (e x y : E) : orderUnitNorm e (x - y) = orderUnitNorm e (y - x) := by
   rw [← orderUnitNorm_neg, neg_sub]
+
+/-- The order-unit norm is absolutely homogeneous. -/
+lemma orderUnitNorm_smul [PosSMulMono ℝ E] (r : ℝ) (x : E) :
+    orderUnitNorm e (r • x) = |r| * orderUnitNorm e x := by
+  wlog hr : 0 ≤ r generalizing r
+  · rw [← orderUnitNorm_neg, ← neg_smul, this (-r) (by linarith), abs_neg]
+  obtain rfl | hr := hr.eq_or_lt
+  · simp
+  rw [abs_of_pos hr, orderUnitNorm_def, orderUnitNorm_def, ← smul_eq_mul,
+    ← Real.sInf_smul_of_nonneg hr.le]
+  congr 1
+  ext c
+  rw [mem_smul_set_iff_inv_smul_mem₀ hr.ne']
+  simp only [mem_ofPred_eq, mem_Icc, smul_eq_mul]
+  rw [mul_nonneg_iff_of_pos_left (inv_pos.2 hr),
+    ← smul_le_smul_iff_of_pos_left hr (b₁ := -((r⁻¹ * c) • e)),
+    ← smul_le_smul_iff_of_pos_left hr (b₂ := (r⁻¹ * c) • e), smul_neg, smul_smul,
+    mul_inv_cancel_left₀ hr.ne']
+
+/-- The triangle inequality for the order-unit norm of an order unit. -/
+lemma orderUnitNorm_add_le (he : IsOrderUnit e) (x y : E) :
+    orderUnitNorm e (x + y) ≤ orderUnitNorm e x + orderUnitNorm e y := by
+  have h c (hc : 0 ≤ c) (hx : x ∈ Icc (-(c • e)) (c • e)) c' (hc' : 0 ≤ c')
+      (hy : y ∈ Icc (-(c' • e)) (c' • e)) : orderUnitNorm e (x + y) ≤ c + c' := by
+    refine orderUnitNorm_le (add_nonneg hc hc') ⟨?_, ?_⟩
+    · rw [add_smul, neg_add]
+      exact add_le_add hx.1 hy.1
+    · rw [add_smul]
+      exact add_le_add hx.2 hy.2
+  rw [← sub_le_iff_le_add]
+  refine le_orderUnitNorm he fun c hc hx ↦ ?_
+  rw [sub_le_iff_le_add', ← sub_le_iff_le_add]
+  exact le_orderUnitNorm he fun c' hc' hy ↦
+    sub_le_iff_le_add.2 ((h c hc hx c' hc' hy).trans_eq (add_comm c c'))
+
+/-- The oscillation is invariant under adding multiples of `e`. -/
+@[simp]
+lemma orderUnitOsc_add_smul (e x : E) (c : ℝ) : orderUnitOsc e (x + c • e) = orderUnitOsc e x := by
+  simp only [orderUnitOsc_def]
+  congr 1
+  ext d
+  refine and_congr_right fun _ ↦ ⟨fun ⟨a, h₁, h₂⟩ ↦ ⟨a - c, ?_, ?_⟩,
+    fun ⟨a, h₁, h₂⟩ ↦ ⟨a + c, ?_, ?_⟩⟩
+  · rw [sub_smul, sub_le_iff_le_add]
+    exact h₁
+  · rw [sub_add_eq_add_sub, sub_smul, le_sub_iff_add_le]
+    exact h₂
+  · rw [add_smul]
+    exact add_le_add_left h₁ _
+  · rw [add_right_comm, add_smul]
+    exact add_le_add_left h₂ _
+
+/-- The oscillation is invariant under negation. -/
+@[simp]
+lemma orderUnitOsc_neg (e x : E) : orderUnitOsc e (-x) = orderUnitOsc e x := by
+  simp only [orderUnitOsc_def]
+  congr 1
+  ext d
+  refine and_congr_right fun _ ↦ ⟨fun ⟨a, h₁, h₂⟩ ↦ ⟨-(a + d), ?_, ?_⟩,
+    fun ⟨a, h₁, h₂⟩ ↦ ⟨-(a + d), ?_, ?_⟩⟩
+  · rw [neg_smul]
+    exact neg_le.1 h₂
+  · rw [show -(a + d) + d = -a by ring, neg_smul]
+    exact le_neg.1 h₁
+  · rw [neg_smul]
+    exact neg_le_neg h₂
+  · rw [show -(a + d) + d = -a by ring, neg_smul]
+    exact neg_le_neg h₁
 
 /-! ### Blackwell's sufficient conditions -/
 
@@ -214,36 +307,40 @@ section Pi
 
 variable {ι : Type*} {w : ι → ℝ}
 
+/-- Multiples of the unit `1 : ι → ℝ` are the constant functions. -/
+private lemma smul_one_eq_const (c : ℝ) : c • (1 : ι → ℝ) = fun _ ↦ c := funext fun _ ↦ by simp
+
+/-- For a positive weight `w`, `x` lies in `[-c • w, c • w]` iff `|x i| / w i ≤ c` for all `i`. -/
+lemma mem_Icc_neg_smul_smul_iff_forall_abs_div_le (hw : ∀ i, 0 < w i) {x : ι → ℝ} :
+    x ∈ Icc (-(c • w)) (c • w) ↔ ∀ i, |x i| / w i ≤ c := by
+  simp only [mem_Icc, Pi.le_def, ← forall_and, Pi.neg_apply, Pi.smul_apply, smul_eq_mul]
+  exact forall_congr' fun i ↦ by rw [div_le_iff₀ (hw i), abs_le]
+
+/-- The weighted sup norm of a nonnegative weight is nonnegative. -/
+lemma iSup_abs_div_nonneg (hw : ∀ i, 0 ≤ w i) (x : ι → ℝ) : 0 ≤ ⨆ i, |x i| / w i :=
+  Real.iSup_nonneg fun i ↦ div_nonneg (abs_nonneg _) (hw i)
+
 /-- A positive weight `w` is an order unit of `ι → ℝ`. -/
-lemma isOrderUnit_of_pos [Finite ι] (hw : ∀ i, 0 < w i) : IsOrderUnit w := by
-  intro x
-  have h i : |x i| ≤ (⨆ j, |x j| / w j) * w i := by
-    rw [← div_le_iff₀ (hw i)]
-    exact le_ciSup (finite_range fun j ↦ |x j| / w j).bddAbove i
-  refine ⟨⨆ j, |x j| / w j, Real.iSup_nonneg fun j ↦ div_nonneg (abs_nonneg _) (hw j).le,
-    fun i ↦ ?_, fun i ↦ ?_⟩
-  · simpa using neg_le.1 ((neg_le_abs _).trans (h i))
-  · simpa using (le_abs_self _).trans (h i)
+lemma isOrderUnit_of_pos [Finite ι] (hw : ∀ i, 0 < w i) : IsOrderUnit w := fun x ↦
+  ⟨⨆ j, |x j| / w j, iSup_abs_div_nonneg (fun i ↦ (hw i).le) x,
+    (mem_Icc_neg_smul_smul_iff_forall_abs_div_le hw).2 (le_ciSup (finite_range _).bddAbove)⟩
 
 lemma isOrderUnit_one [Finite ι] : IsOrderUnit (1 : ι → ℝ) := isOrderUnit_of_pos fun _ ↦ one_pos
 
 /-- The order-unit norm of a positive weight `w` is the weighted sup norm `⨆ i, |x i| / w i`. -/
 theorem orderUnitNorm_eq_iSup_abs_div [Finite ι] (hw : ∀ i, 0 < w i) (x : ι → ℝ) :
     orderUnitNorm w x = ⨆ i, |x i| / w i := by
-  have hx c : x ∈ Icc (-(c • w)) (c • w) ↔ ∀ i, |x i| / w i ≤ c := by
-    simp only [mem_Icc, Pi.le_def, ← forall_and, Pi.neg_apply, Pi.smul_apply, smul_eq_mul]
-    exact forall_congr' fun i ↦ by rw [div_le_iff₀ (hw i), abs_le]
   have hS : {c : ℝ | 0 ≤ c ∧ x ∈ Icc (-(c • w)) (c • w)} = Ici (⨆ i, |x i| / w i) := by
     ext c
-    simp only [mem_ofPred_eq, mem_Ici, hx]
+    simp only [mem_ofPred_eq, mem_Ici, mem_Icc_neg_smul_smul_iff_forall_abs_div_le hw]
     refine ⟨fun ⟨hc, h⟩ ↦ Real.iSup_le h hc, fun h ↦ ⟨?_, fun i ↦ ?_⟩⟩
-    · exact (Real.iSup_nonneg fun i ↦ div_nonneg (abs_nonneg _) (hw i).le).trans h
+    · exact (iSup_abs_div_nonneg (fun i ↦ (hw i).le) x).trans h
     · exact (le_ciSup (finite_range _).bddAbove i).trans h
   rw [orderUnitNorm_def, hS, csInf_Ici]
 
 /-- On `ι → ℝ` with `ι` finite, the order-unit norm of `1` is the sup norm. -/
 @[simp]
-theorem orderUnitNorm_one [Fintype ι] (x : ι → ℝ) : orderUnitNorm 1 x = ‖x‖ := by
+theorem orderUnitNorm_one_eq_norm [Fintype ι] (x : ι → ℝ) : orderUnitNorm 1 x = ‖x‖ := by
   rw [orderUnitNorm_eq_iSup_abs_div (w := 1) fun _ ↦ one_pos]
   simp only [Pi.one_apply, div_one]
   refine le_antisymm (Real.iSup_le (fun i ↦ ?_) (norm_nonneg x)) ?_
@@ -268,15 +365,14 @@ theorem lipschitzWith_of_monotone_of_add_const_le [Fintype ι] {T : (ι → ℝ)
     (hT : Monotone T) (h : ∀ x (c : ℝ), 0 ≤ c → T (x + fun _ ↦ c) ≤ T x + fun _ ↦ γ * c) :
     LipschitzWith γ T := by
   refine LipschitzWith.of_dist_le_mul fun x y ↦ ?_
-  have hc (c : ℝ) : c • (1 : ι → ℝ) = fun _ ↦ c := funext fun _ ↦ by simp
   have h' : ∀ x (c : ℝ), 0 ≤ c → T (x + c • 1) ≤ T x + ((γ : ℝ) * c) • 1 := fun x c hc' ↦ by
-    rw [hc, hc]
+    rw [smul_one_eq_const, smul_one_eq_const]
     exact h x c hc'
   simpa [dist_eq_norm] using
     orderUnitNorm_sub_le_of_monotone_of_add_smul_le γ.coe_nonneg isOrderUnit_one hT h' x y
 
 /-- On `ι → ℝ` with `ι` finite and nonempty, the oscillation of `1` is `max x - min x`. -/
-theorem orderUnitOsc_one [Fintype ι] [Nonempty ι] (x : ι → ℝ) :
+theorem orderUnitOsc_one_eq_sup'_sub_inf' [Fintype ι] [Nonempty ι] (x : ι → ℝ) :
     orderUnitOsc 1 x = Finset.univ.sup' Finset.univ_nonempty x -
       Finset.univ.inf' Finset.univ_nonempty x := by
   set M := Finset.univ.sup' Finset.univ_nonempty x
@@ -292,6 +388,13 @@ theorem orderUnitOsc_one [Fintype ι] [Nonempty ι] (x : ι → ℝ) :
     have ham : a ≤ m := Finset.le_inf' _ _ fun i _ ↦ by simpa using h₁ i
     have hMa : M ≤ a + d := Finset.sup'_le _ _ fun i _ ↦ by simpa using h₂ i
     linarith
+
+/-- A map on `ι → ℝ` is topical for `1` iff it is monotone and commutes with adding constant
+functions. -/
+theorem isTopical_one_iff {T : (ι → ℝ) → ι → ℝ} :
+    IsTopical (1 : ι → ℝ) T ↔ Monotone T ∧ ∀ x (c : ℝ), T (x + fun _ ↦ c) = T x + fun _ ↦ c := by
+  simp only [← smul_one_eq_const]
+  exact ⟨fun h ↦ ⟨h.monotone, h.map_add_smul⟩, fun h ↦ ⟨h.1, h.2⟩⟩
 
 /-- Max-plus maps `x ↦ (max_j (A i j + x j))_i` are topical for `1`. -/
 theorem isTopical_one_sup'_add [Fintype ι] [Nonempty ι] (A : ι → ι → ℝ) :
