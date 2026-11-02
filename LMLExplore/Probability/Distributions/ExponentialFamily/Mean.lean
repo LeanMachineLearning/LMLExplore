@@ -94,8 +94,8 @@ confidence*, COLT 2016.
   `MeasureTheory.Measure.expFamilyPairCost_eq_zero`, `MeasureTheory.Measure.expFamilyPairCost_mul`:
   the cost of moving two means to their weighted mean is nonnegative, positive for distinct means
   and positive weights, zero when a weight vanishes, and homogeneous in the weights.
-* `MeasureTheory.Measure.mul_eq_mul_of_expFamilyPairCost_midpoint_eq`: that cost is strictly
-  concave along the directions that change the ratio of the weights.
+* `MeasureTheory.Measure.mul_eq_mul_of_expFamilyPairCost_midpoint_eq`: if that cost takes the
+  same value at two pairs of weights and at their midpoint, then the two pairs are proportional.
 * `MeasureTheory.Measure.continuousOn_expFamilyPairCost`: that cost is continuous in the means and
   the nonnegative weights.
 -/
@@ -643,8 +643,9 @@ lemma mul_expFamilyDiv_add_mul_expFamilyDiv_eq {μ₁ μ₂ w₁ w₂ : ℝ} (hW
   simpa [Fin.sum_univ_two, expFamilyPairCost_def] using h
 
 /-- If the cost of moving two distinct means to their weighted mean, at the midpoint of two pairs
-of weights, equals its cost at both pairs, then the two pairs of weights are proportional: the
-cost is strictly concave along the directions that change the ratio of the weights. -/
+of weights, equals its cost at both pairs, then the two pairs of weights are proportional. This
+is a consequence of the strict concavity of the cost along the directions that change the ratio of
+the weights. -/
 lemma mul_eq_mul_of_expFamilyPairCost_midpoint_eq {μ₁ μ₂ x₁ y₁ x₂ y₂ : ℝ}
     (hμ₁ : μ₁ ∈ ρ.expFamilyMeans T) (hμ₂ : μ₂ ∈ ρ.expFamilyMeans T) (hμ : μ₁ ≠ μ₂)
     (hx₁ : 0 ≤ x₁) (hy₁ : 0 ≤ y₁) (hx₂ : 0 ≤ x₂) (hy₂ : 0 ≤ y₂) (h₁ : 0 < x₁ + y₁)
