@@ -41,6 +41,8 @@ integrability assumption.
 
 ## Main statements
 
+* `isConsistent_of_eventually_le_mul_log`: an algorithm whose expected regret on every bandit of a
+  class is `O(log n)` is consistent over that class.
 * `eventually_mul_log_le_integral_pullCount_of_klDiv`: the lower bound on the number of pulls of
   an arm given one alternative bandit `ν'` in the class.
 * `eventually_mul_log_le_integral_pullCount_of_isConsistent`: [LS, Theorem 16.2] for the numbers
@@ -84,6 +86,30 @@ lemma isConsistent_def (alg : Algorithm Unit α ℝ) (E : Set (Kernel α ℝ)) :
       Tendsto (fun n : ℕ ↦ (∫ ω, regret ν IT.action n ω ∂(trajMeasure alg (stationaryEnv ν))) /
         (n : ℝ) ^ p) atTop (𝓝 0) :=
   Iff.rfl
+
+/-- Consistency over a class of bandits implies consistency over every subclass. -/
+lemma IsConsistent.mono {alg : Algorithm Unit α ℝ} {E E' : Set (Kernel α ℝ)}
+    (h : IsConsistent alg E) (hE : E' ⊆ E) : IsConsistent alg E' :=
+  fun ν hν ↦ h ν (hE hν)
+
+/-- An algorithm whose expected regret on every bandit of `E` is eventually at most a multiple of
+`log n` is consistent over `E`. -/
+lemma isConsistent_of_eventually_le_mul_log [Finite α] {alg : Algorithm Unit α ℝ}
+    {E : Set (Kernel α ℝ)}
+    (h : ∀ ν ∈ E, ∀ [IsMarkovKernel ν], ∃ c : ℝ, ∀ᶠ n : ℕ in atTop,
+      ∫ ω, regret ν IT.action n ω ∂(trajMeasure alg (stationaryEnv ν)) ≤ c * log n) :
+    IsConsistent alg E := by
+  intro ν hν _ p hp
+  obtain ⟨c, hc⟩ := h ν hν
+  -- `c log n / n ^ p → 0`, and the regret is nonnegative.
+  have hlog : Tendsto (fun n : ℕ ↦ c * (log n / (n : ℝ) ^ p)) atTop (𝓝 0) := by
+    simpa using ((isLittleO_log_rpow_atTop hp).tendsto_div_nhds_zero.comp
+      tendsto_natCast_atTop_atTop).const_mul c
+  refine tendsto_of_tendsto_of_tendsto_of_le_of_le' tendsto_const_nhds hlog
+    (.of_forall fun n ↦ div_nonneg (integral_nonneg fun _ ↦ regret_nonneg) (by positivity)) ?_
+  filter_upwards [hc] with n hn
+  rw [mul_div_assoc']
+  gcongr
 
 /-- `d_inf(P, m, M)`: the infimum of the relative entropies `D(P, Q)` from `P` to the laws `Q ∈ M`
 whose mean `Q[id]` exceeds `m` [LS, §16.1]. It is `∞` if no law of `M` has a mean above `m`. -/

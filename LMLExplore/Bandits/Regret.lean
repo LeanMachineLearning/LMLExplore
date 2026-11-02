@@ -8,6 +8,7 @@ module
 public import Mathlib.Analysis.Real.Sqrt
 public import LMLExplore.SequentialLearning.FiniteActions
 public import LeanMachineLearning.Online.Bandit.Regret
+public import LeanMachineLearning.SequentialLearning.IonescuTulceaSpace
 
 /-!
 # Bounds on the gaps and the expected regret
@@ -34,6 +35,10 @@ numbers of pulls. Symmetrically, asymptotic lower bounds `liminf_n E[T_a(n)] / f
 constants in `ℝ≥0∞`, give `liminf_n E[R_n] / f(n) ≥ ∑_{a : Δ_a > 0} Δ_a C_a`, as in the Lai–Robbins
 lower bound [LS, Theorem 16.2].
 
+The last part shows that the expected regret along a run of an algorithm in an environment is the
+expected regret under the law `trajMeasure` of the sequence of rounds, so that statements proved
+for `trajMeasure`, such as lower bounds, apply to every run.
+
 ## Main statements
 
 * `LMLExplore.Bandits.sub_le_gap`: the gap of an arm is at least its difference of mean with any
@@ -52,6 +57,8 @@ lower bound [LS, Theorem 16.2].
 * `eventually_le_integral_regret_of_forall_eventually_le_integral_pullCount`: eventual bounds
   `c f(n) ≤ E[T_a(n)]` for every `c < C_a` give the eventual bound `c f(n) ≤ E[R_n]` for every
   `c < ∑_{a : Δ_a > 0} Δ_a C_a`.
+* `Learning.IsAlgEnvSeq.integral_regret_eq_integral_trajMeasure`: the expected regret along any run
+  of an algorithm in an environment is the expected regret under `trajMeasure`.
 
 ## References
 
@@ -290,5 +297,26 @@ theorem eventually_le_integral_regret_of_forall_eventually_le_integral_pullCount
     · simp_rw [mul_left_comm _ (c / s), ← mul_sum, ← hs_def, div_mul_cancel₀ _ hc.2.ne', le_rfl]
 
 end Asymptotic
+
+section Run
+
+variable {α 𝓞 𝓨 Ω : Type*} [MeasurableSpace α] [Countable α] [MeasurableSingletonClass α]
+  [MeasurableSpace 𝓞] [MeasurableSpace 𝓨] {mΩ : MeasurableSpace Ω} {P : Measure Ω}
+  [IsProbabilityMeasure P] {alg : Algorithm 𝓞 α 𝓨} {env : Environment 𝓞 α 𝓨}
+  {O : ℕ → Ω → 𝓞} {A : ℕ → Ω → α} {Y : ℕ → Ω → 𝓨}
+
+/-- The expected regret along a run of an algorithm in an environment depends only on the
+algorithm and the environment: it is the expected regret under the law `trajMeasure alg env` of
+the sequence of rounds. -/
+lemma _root_.Learning.IsAlgEnvSeq.integral_regret_eq_integral_trajMeasure
+    (h : IsAlgEnvSeq O A Y alg env P) (ν : Kernel α ℝ) (n : ℕ) :
+    P[regret ν A n] = ∫ x, regret ν IT.action n x ∂(trajMeasure alg env) := by
+  have hf : Measurable (regret ν (IT.action (𝓞 := 𝓞) (𝓨 := 𝓨)) n) := by
+    simp_rw [funext fun x ↦ regret_eq_sum_gap (ν := ν) (A := IT.action) (t := n) (ω := x)]
+    exact Finset.measurable_sum _ fun s _ ↦
+      (measurable_of_countable (gap ν)).comp (IT.measurable_action s)
+  exact h.hasLaw_trajectory.integral_comp hf.aestronglyMeasurable
+
+end Run
 
 end LMLExplore.Bandits
