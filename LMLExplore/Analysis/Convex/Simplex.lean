@@ -33,6 +33,8 @@ supported distributions, not a subset of `α → ℝ`.
 * `LMLExplore.simplex_subset_nonneg`: the simplex consists of nonnegative vectors.
 * `LMLExplore.simplex_nonempty`: the simplex of a nonempty type is nonempty.
 * `LMLExplore.convex_simplex`: the simplex is convex.
+* `LMLExplore.smul_sub_single_mem_simplex`: removing a mass `s < 1` from an entry of a vector of
+  the simplex and rescaling by `(1 - s)⁻¹` stays in the simplex.
 * `LMLExplore.isCompact_simplex`: the simplex is compact.
 -/
 
@@ -81,6 +83,19 @@ lemma isClosed_simplex : IsClosed (simplex α) := by
 lemma simplex_subset_Icc : simplex α ⊆ Set.Icc 0 1 := by
   refine fun w hw ↦ ⟨hw.1, fun a ↦ ?_⟩
   simpa [hw.2] using Finset.single_le_sum (fun b _ ↦ hw.1 b) (Finset.mem_univ a)
+
+/-- Removing a mass `s < 1` from an entry `w b ≥ s` of a vector `w` of the simplex and rescaling
+by `(1 - s)⁻¹` gives a vector of the simplex. -/
+lemma smul_sub_single_mem_simplex [DecidableEq α] {w : α → ℝ} (hw : w ∈ simplex α) {b : α}
+    {s : ℝ} (hsb : s ≤ w b) (hs1 : s < 1) : (1 - s)⁻¹ • (w - Pi.single b s) ∈ simplex α := by
+  refine ⟨fun c ↦ mul_nonneg (inv_nonneg.2 (sub_nonneg.2 hs1.le)) ?_, ?_⟩
+  · by_cases hcb : c = b
+    · subst hcb
+      simpa using hsb
+    · simpa [hcb] using hw.1 c
+  · simp only [Pi.smul_apply, Pi.sub_apply, smul_eq_mul, ← Finset.mul_sum, Finset.sum_sub_distrib,
+      Finset.sum_pi_single', Finset.mem_univ, ite_true, hw.2]
+    field_simp [(sub_pos.2 hs1).ne']
 
 variable (α) in
 lemma isCompact_simplex : IsCompact (simplex α) :=
