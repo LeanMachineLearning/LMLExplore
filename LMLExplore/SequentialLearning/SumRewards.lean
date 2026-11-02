@@ -47,6 +47,8 @@ and the deviation inequalities of best arm identification, are bounded this way.
 
 * `hasLaw_rewardByCount_streamMeasure`: the rewards by count of all arms, arranged as a reward
   stream, have the law `streamMeasure ν` of the stream model.
+* `iIndepFun_arm_streamMeasure`: in the stream model, the reward sequences of the arms are
+  independent.
 * `sum_measure_action_eq_and_pullCount_sumRewards_le`: the bound on the expected number of rounds,
   as a sum of probabilities in `ℝ≥0∞`, and `sum_measureReal_action_eq_and_pullCount_sumRewards_le`,
   its real-valued form.
@@ -140,6 +142,35 @@ lemma hasLaw_rewardByCount_streamMeasure (h : IsAlgEnvSeq O A R alg (stationaryE
     rw [← h_stream.map_eq, Measure.map_map h_toStream h_swap]
     exact Measure.map_id
   exact h_eq ▸ (hasLaw_map h_toStream.aemeasurable).comp (hasLaw_rewardByCount_infinitePi h)
+
+omit [DecidableEq α] [Countable α] [MeasurableSingletonClass α] in
+/-- In LML's reward stream model, the reward sequences `(ω i a)_i` of the arms `a` are
+independent. -/
+theorem iIndepFun_arm_streamMeasure {𝓡 : Type*} [MeasurableSpace 𝓡] (ν : Kernel α 𝓡)
+    [IsMarkovKernel ν] :
+    iIndepFun (fun a (ω : ℕ → α → 𝓡) i ↦ ω i a) (streamMeasure ν) := by
+  -- the entries `ω i a`, indexed by `(a, i) : Σ _ : α, ℕ`, are independent with laws `ν a`
+  have he : Function.Injective fun p : (_ : α) × ℕ ↦ (p.2, p.1) := by
+    rintro ⟨a, i⟩ ⟨b, j⟩ ⟨⟩
+    rfl
+  have h_entries : HasLaw (fun (ω : ℕ → α → 𝓡) (p : (_ : α) × ℕ) ↦ ω p.2 p.1)
+      (Measure.infinitePi fun p : (_ : α) × ℕ ↦ ν p.1) (streamMeasure ν) :=
+    ((iIndepFun_eval_streamMeasure ν).precomp he).hasLaw_infinitePi
+      (fun p ↦ hasLaw_eval_eval_streamMeasure ν p.2 p.1)
+      (Measurable.of_eval fun p ↦
+        (measurable_pi_apply p.1).comp (measurable_pi_apply p.2)).aemeasurable
+  -- so the array of the reward sequences of the arms has law `⨂ a, ⨂ i, ν a`
+  have h_arms : HasLaw (fun (ω : ℕ → α → 𝓡) a i ↦ ω i a)
+      (Measure.infinitePi fun a : α ↦ Measure.infinitePi fun _ : ℕ ↦ ν a) (streamMeasure ν) := by
+    have h := (hasLaw_map (P := Measure.infinitePi fun p : (_ : α) × ℕ ↦ ν p.1)
+      (MeasurableEquiv.piCurry fun (_ : α) (_ : ℕ) ↦ 𝓡).measurable.aemeasurable).comp h_entries
+    -- `Sigma.curry` arranges the entries indexed by `Σ _ : α, ℕ` as the array of the arms
+    rwa [Measure.infinitePi_map_piCurry (μ := fun a (_ : ℕ) ↦ ν a), MeasurableEquiv.coe_piCurry,
+      Function.comp_def] at h
+  rw [iIndepFun_iff_map_fun_eq_infinitePi_map fun a ↦ by fun_prop, h_arms.map_eq]
+  congr 1
+  ext a : 1
+  rw [← (hasLaw_eval_infinitePi _ a).comp h_arms |>.map_eq, Function.comp_def]
 
 /-- **Counting transfer to the reward stream.** In a run of any algorithm against the stochastic
 bandit `stationaryEnv ν`, the expected number of rounds `t < n` at which arm `a` is pulled while
