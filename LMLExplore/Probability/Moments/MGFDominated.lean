@@ -37,6 +37,8 @@ member of the family without following its law.
   dominate each other.
 * `LMLExplore.MGFDominatedAbove.neg`, `LMLExplore.MGFDominatedBelow.neg`: `X` is dominated above
   by `Y` iff `-X` is dominated below by `-Y`.
+* `LMLExplore.MGFDominatedAbove.trans`, `LMLExplore.MGFDominatedBelow.trans`: domination is
+  transitive.
 * `ProbabilityTheory.iIndepFun.mgf_sum_le_pow_of_mgfDominatedAbove`,
   `ProbabilityTheory.iIndepFun.mgf_sum_le_pow_of_mgfDominatedBelow`: for independent `X i`
   dominated above (resp. below) by `Y` and `t ≥ 0` (resp. `t ≤ 0`) with `exp (t Y)` integrable,
@@ -101,6 +103,24 @@ lemma MGFDominatedBelow.neg (h : MGFDominatedBelow X P Y Q) :
   mgf_le t ht hY := by
     simpa only [mgf, mul_neg, neg_mul] using
       h.mgf_le (neg_nonpos.2 ht) (by simpa only [mul_neg, neg_mul] using hY)
+
+section Trans
+
+variable {Ω'' : Type*} {mΩ'' : MeasurableSpace Ω''} {R : Measure Ω''} {Z : Ω'' → ℝ}
+
+/-- Domination above is transitive. -/
+lemma MGFDominatedAbove.trans (hXY : MGFDominatedAbove X P Y Q)
+    (hYZ : MGFDominatedAbove Y Q Z R) : MGFDominatedAbove X P Z R where
+  integrable_exp_mul _ ht hZ := hXY.integrable_exp_mul ht (hYZ.integrable_exp_mul ht hZ)
+  mgf_le _ ht hZ := (hXY.mgf_le ht (hYZ.integrable_exp_mul ht hZ)).trans (hYZ.mgf_le ht hZ)
+
+/-- Domination below is transitive. -/
+lemma MGFDominatedBelow.trans (hXY : MGFDominatedBelow X P Y Q)
+    (hYZ : MGFDominatedBelow Y Q Z R) : MGFDominatedBelow X P Z R where
+  integrable_exp_mul _ ht hZ := hXY.integrable_exp_mul ht (hYZ.integrable_exp_mul ht hZ)
+  mgf_le _ ht hZ := (hXY.mgf_le ht (hYZ.integrable_exp_mul ht hZ)).trans (hYZ.mgf_le ht hZ)
+
+end Trans
 
 end LMLExplore
 
