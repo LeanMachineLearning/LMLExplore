@@ -39,6 +39,8 @@ weighted sup norm `⨆ i, |x i| / w i`, and the oscillation for `1` is `max x - 
 * `LMLExplore.IsOrderUnit e`: every element lies in `[-c • e, c • e]` for some `c ≥ 0`.
 * `LMLExplore.orderUnitNorm e x`: the order-unit seminorm `‖x‖_e`.
 * `LMLExplore.orderUnitOsc e x`: the oscillation `osc_e x`.
+* `LMLExplore.IsBlackwell e γ T`: `T` is monotone and `T (x + c • e) ≤ T x + (γ * c) • e` for every
+  `x` and `c ≥ 0`.
 * `LMLExplore.IsTopical e T`: `T` is monotone and `T (x + c • e) = T x + c • e`.
 
 ## Main statements
@@ -51,7 +53,9 @@ weighted sup norm `⨆ i, |x i| / w i`, and the oscillation for `1` is `max x - 
 * `LMLExplore.IsTopical.orderUnitNorm_sub_le`, `LMLExplore.IsTopical.orderUnitOsc_sub_le`:
   topical maps are nonexpansive for the order-unit norm and for the oscillation.
 * `LMLExplore.orderUnitNorm_one_eq_norm`: on `ι → ℝ`, the order-unit norm of `1` is the sup norm.
-* `LMLExplore.lipschitzWith_of_monotone_of_add_const_le`: Blackwell's conditions on `ι → ℝ`.
+* `LMLExplore.IsBlackwell.lipschitzWith`: Blackwell's conditions in a normed group whose norm is
+  the order-unit norm, and `LMLExplore.lipschitzWith_of_monotone_of_add_const_le` their case
+  `ι → ℝ`. `LMLExplore.IsTopical.isBlackwell_comp_smul`: discounted topical maps satisfy them.
 * `LMLExplore.orderUnitNorm_eq_iSup_abs_div`: the order-unit norm of a positive weight is the
   weighted sup norm, and `LMLExplore.iSup_abs_sub_div_le_of_monotone_of_add_smul_le` is
   Blackwell's bound for it.
@@ -183,6 +187,22 @@ lemma iterate (hT : IsTopical e T) (n : ℕ) : IsTopical e T^[n] := by
 
 end IsTopical
 
+/-! ### Blackwell's conditions -/
+
+/-- A map `T` satisfies *Blackwell's conditions* for `e` with modulus `γ` [Bla65] if it is monotone
+and adding `c • e`, for `c ≥ 0`, to its argument adds at most `(γ * c) • e` to its value. When the
+norm is the order-unit norm of `e`, such a map is `γ`-Lipschitz (`IsBlackwell.lipschitzWith`). -/
+structure IsBlackwell (e : E) (γ : NNReal) (T : E → E) : Prop where
+  monotone : Monotone T
+  map_add_smul_le (x : E) (c : ℝ) (hc : 0 ≤ c) : T (x + c • e) ≤ T x + ((γ : ℝ) * c) • e
+
+/-- If `T` is topical, then the discounted map `x ↦ T (γ • x)` satisfies Blackwell's conditions with
+modulus `γ`. -/
+lemma IsTopical.isBlackwell_comp_smul [PosSMulMono ℝ E] {T : E → E} (hT : IsTopical e T)
+    (γ : NNReal) : IsBlackwell e γ fun x ↦ T ((γ : ℝ) • x) where
+  monotone _ _ hxy := hT.monotone (smul_le_smul_of_nonneg_left hxy γ.coe_nonneg)
+  map_add_smul_le x c _ := by rw [smul_add, smul_smul, hT.map_add_smul]
+
 /-! ### Algebraic properties of the order-unit norm and the oscillation -/
 
 /-- Scaling by `r > 0` maps the interval `[-(r⁻¹ * c) • e, (r⁻¹ * c) • e]` onto
@@ -231,6 +251,12 @@ lemma orderUnitNorm_add_le (he : IsOrderUnit e) (x y : E) :
   rw [sub_le_iff_le_add', ← sub_le_iff_le_add]
   exact le_orderUnitNorm he fun c' hc' hy ↦
     sub_le_iff_le_add.2 ((h c hc hx c' hc' hy).trans_eq (add_comm c c'))
+
+/-- The order-unit norm is monotone on nonnegative elements. -/
+lemma orderUnitNorm_le_orderUnitNorm_of_nonneg (he : IsOrderUnit e) (hx : 0 ≤ x) (hxy : x ≤ y) :
+    orderUnitNorm e x ≤ orderUnitNorm e y :=
+  le_orderUnitNorm he fun _ hc hy ↦ orderUnitNorm_le hc
+    ⟨(neg_nonpos.2 (hx.trans (hxy.trans hy.2))).trans hx, hxy.trans hy.2⟩
 
 /-- The oscillation is invariant under adding multiples of `e`. -/
 @[simp]
@@ -284,6 +310,28 @@ theorem orderUnitNorm_sub_le_of_monotone_of_add_smul_le {T : E → E} {γ : ℝ}
   have hy : T y ≤ T x + (γ * c) • e := (hT (neg_le_sub_iff_le_add.1 hxy₁)).trans (h x c hc)
   exact ⟨by simpa using mul_nonneg hγ hc, by simpa using neg_le_sub_iff_le_add.2 hy,
     by simpa using sub_le_iff_le_add'.2 hx⟩
+
+/-- If the norm of a normed group `F` is the order-unit norm of `u`, then `u` is an order unit. -/
+lemma isOrderUnit_of_forall_orderUnitNorm_eq_norm {F : Type*} [NormedAddCommGroup F]
+    [PartialOrder F] [Module ℝ F] {u : F} (hnorm : ∀ x, orderUnitNorm u x = ‖x‖) :
+    IsOrderUnit u := by
+  intro x
+  by_contra hx
+  have hS : {c : ℝ | 0 ≤ c ∧ x ∈ Icc (-(c • u)) (c • u)} = ∅ :=
+    eq_empty_iff_forall_notMem.2 fun c hc ↦ hx ⟨c, hc⟩
+  have hx0 : x = 0 := by rw [← norm_eq_zero, ← hnorm, orderUnitNorm_def, hS, Real.sInf_empty]
+  exact hx ⟨0, le_rfl, by simp [hx0]⟩
+
+/-- **Blackwell's sufficient conditions** in a normed group whose norm is the order-unit norm of
+`u`: a map satisfying Blackwell's conditions for `u` with modulus `γ` is `γ`-Lipschitz. For `γ < 1`
+it is a contraction (`ContractingWith`). -/
+theorem IsBlackwell.lipschitzWith {F : Type*} [NormedAddCommGroup F] [PartialOrder F]
+    [IsOrderedAddMonoid F] [Module ℝ F] {u : F} {γ : NNReal} {T : F → F}
+    (hnorm : ∀ x, orderUnitNorm u x = ‖x‖) (hT : IsBlackwell u γ T) : LipschitzWith γ T :=
+  LipschitzWith.of_dist_le_mul fun x y ↦ by
+    simpa only [dist_eq_norm, ← hnorm] using orderUnitNorm_sub_le_of_monotone_of_add_smul_le
+      γ.coe_nonneg (isOrderUnit_of_forall_orderUnitNorm_eq_norm hnorm) hT.monotone
+      hT.map_add_smul_le x y
 
 /-! ### Nonexpansiveness of topical maps -/
 
@@ -370,13 +418,9 @@ theorem iSup_abs_sub_div_le_of_monotone_of_add_smul_le [Finite ι] (hw : ∀ i, 
 contraction (`ContractingWith`). -/
 theorem lipschitzWith_of_monotone_of_add_const_le [Fintype ι] {T : (ι → ℝ) → ι → ℝ} {γ : NNReal}
     (hT : Monotone T) (h : ∀ x (c : ℝ), 0 ≤ c → T (x + fun _ ↦ c) ≤ T x + fun _ ↦ γ * c) :
-    LipschitzWith γ T := by
-  refine LipschitzWith.of_dist_le_mul fun x y ↦ ?_
-  have h' : ∀ x (c : ℝ), 0 ≤ c → T (x + c • 1) ≤ T x + ((γ : ℝ) * c) • 1 := fun x c hc' ↦ by
-    rw [Pi.smul_one_eq_const, Pi.smul_one_eq_const]
-    exact h x c hc'
-  simpa [dist_eq_norm] using
-    orderUnitNorm_sub_le_of_monotone_of_add_smul_le γ.coe_nonneg isOrderUnit_one hT h' x y
+    LipschitzWith γ T :=
+  IsBlackwell.lipschitzWith (u := (1 : ι → ℝ)) orderUnitNorm_one_eq_norm
+    ⟨hT, fun x c hc ↦ by rw [Pi.smul_one_eq_const, Pi.smul_one_eq_const]; exact h x c hc⟩
 
 /-- On `ι → ℝ` with `ι` finite and nonempty, the oscillation of `1` is `max x - min x`. -/
 theorem orderUnitOsc_one_eq_sup'_sub_inf' [Fintype ι] [Nonempty ι] (x : ι → ℝ) :
