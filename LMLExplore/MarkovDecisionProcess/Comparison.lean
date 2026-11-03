@@ -7,7 +7,6 @@ module
 
 public import LMLExplore.MarkovDecisionProcess.RunValue
 public import LMLExplore.MarkovDecisionProcess.Value
-public import LMLExplore.MarkovDecisionProcess.ValueIteration
 
 /-!
 # Comparison of discounted values with sub- and supersolutions of the Bellman equations
@@ -29,8 +28,7 @@ policies, and gives:
   `v ≤ r_π + γ P_π v`, then `v ≤ v^π`;
 * if `v` is a subsolution of the optimality equation, `v ≤ T v`, then `v ≤ v*`, through the
   policy greedy for `v` (for finitely many actions);
-* hence a bounded measurable solution of the optimality equation `T v = v` is `v*`, and, with
-  the bounded measurable solution given by value iteration, `v*` solves it.
+* hence a bounded measurable solution of the optimality equation `T v = v` is `v*`.
 
 For a stationary policy `π` and `v = v^π`, the lookahead is the action value of `π` and the
 differences have mean zero under `π`, so the discounted value of the runs of `π` from `μ` is
@@ -58,12 +56,10 @@ Here `T` is the Bellman optimality operator `M.bellman γ` and `v*` the optimal 
   `Learning.MDP.bellmanEval_le_value`: policy improvement, `v ≤ T_π v → T_π v ≤ v^π`.
 * `Learning.MDP.eq_optValue_of_bellman_eq`: a bounded measurable solution of the optimality
   equation is the optimal value [P, Theorem 6.2.2 (c)].
-* `Learning.MDP.bellman_optValue`, `Learning.MDP.measurable_optValue`: for finitely many actions,
-  `v*` is measurable and solves the optimality equation [P, Theorem 6.2.5 (a)].
 
 ## References
 
-* [M. L. Puterman, *Markov Decision Processes*, 1994][P], Theorems 6.2.2, 6.2.5
+* [M. L. Puterman, *Markov Decision Processes*, 1994][P], Theorem 6.2.2
 -/
 
 public section
@@ -295,22 +291,6 @@ theorem eq_optValue_of_bellman_eq [Finite 𝓐] [Nonempty 𝓐] (hγ : γ < 1)
     v = M.optValue γ :=
   le_antisymm (le_optValue_of_le_bellman hγ hR hv hvB h.ge)
     (optValue_le_of_bellman_le hγ hR hv hvB h.le)
-
-/-- **The optimality equation** [P, Theorem 6.2.5 (a)]: with finitely many actions, bounded
-rewards and `γ < 1`, the optimal value is a fixed point of the Bellman optimality operator. By
-`Learning.MDP.eq_optValue_of_bellman_eq`, it is its only bounded measurable fixed point. -/
-theorem bellman_optValue [Finite 𝓐] [Nonempty 𝓐] (hγ : γ < 1)
-    (hR : ∀ p, ∀ᵐ x ∂(M.R p), |x| ≤ C) :
-    M.bellman γ (M.optValue γ) = M.optValue γ := by
-  obtain ⟨u, hu, huB, hu_eq⟩ := exists_bellman_eq (M := M) hγ hR
-  rwa [← eq_optValue_of_bellman_eq hγ hR hu huB hu_eq]
-
-/-- With finitely many actions, bounded rewards and `γ < 1`, the optimal value is measurable. -/
-theorem measurable_optValue [Finite 𝓐] [Nonempty 𝓐] (hγ : γ < 1)
-    (hR : ∀ p, ∀ᵐ x ∂(M.R p), |x| ≤ C) :
-    Measurable (M.optValue γ) := by
-  obtain ⟨u, hu, huB, hu_eq⟩ := exists_bellman_eq (M := M) hγ hR
-  rwa [← eq_optValue_of_bellman_eq hγ hR hu huB hu_eq]
 
 end Subsolution
 

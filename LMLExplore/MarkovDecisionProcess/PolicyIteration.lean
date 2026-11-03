@@ -5,8 +5,7 @@ Authors: Rémy Degenne
 -/
 module
 
-public import LMLExplore.MarkovDecisionProcess.Comparison
-public import LMLExplore.MarkovDecisionProcess.ValueIteration
+public import LMLExplore.MarkovDecisionProcess.Optimality
 
 /-!
 # Policy iteration for discounted Markov decision processes
