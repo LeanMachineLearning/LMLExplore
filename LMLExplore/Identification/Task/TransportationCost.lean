@@ -69,6 +69,8 @@ treatment, and a negative entry of `w` counts as `0`.
   `D(θ, ¬i)` over all answers.
 * `IdentTask.charTime_restrict_le`: restricting the admissible models can only decrease the
   characteristic time.
+* `IdentTask.answerValue_restrict_setOf_klDiv_ne_top`: removing the models at infinite divergence
+  from `θ` on some arm does not change `D(θ, ¬i)`.
 
 ## References
 
@@ -173,14 +175,21 @@ lemma monotone_cost (θ θ' : Θ) : Monotone fun w ↦ task.cost w θ θ' := fun
 /-- For an allocation `w`, the transportation cost from `θ` to `θ'` is at most the largest
 divergence `max_a KL(ν_a(θ), ν_a(θ'))` between the arm laws. -/
 lemma cost_le_iSup_klDiv (hw : w ∈ simplex α) (θ θ' : Θ) :
-    task.cost w θ θ' ≤ ⨆ a, klDiv (task.ν θ a) (task.ν θ' a) := by
-  calc task.cost w θ θ'
-      ≤ ∑ a, ENNReal.ofReal (w a) * ⨆ b, klDiv (task.ν θ b) (task.ν θ' b) :=
-        Finset.sum_le_sum fun a _ ↦ by gcongr; exact le_iSup (fun b ↦ klDiv _ _) a
-    _ = ⨆ a, klDiv (task.ν θ a) (task.ν θ' a) := by
-        obtain ⟨hw0, hw1⟩ := mem_simplex_iff.1 hw
-        rw [← Finset.sum_mul, ← ENNReal.ofReal_sum_of_nonneg fun a _ ↦ hw0 a, hw1,
-          ENNReal.ofReal_one, one_mul]
+    task.cost w θ θ' ≤ ⨆ a, klDiv (task.ν θ a) (task.ν θ' a) :=
+  sum_ofReal_mul_le_iSup hw _
+
+/-- An allocation that samples an arm `a` pays an infinite transportation cost to a model at
+infinite divergence from `θ` on `a`. -/
+lemma cost_eq_top_of_klDiv_eq_top {a : α} (hw : 0 < w a)
+    (h : klDiv (task.ν θ a) (task.ν θ' a) = ∞) : task.cost w θ θ' = ∞ := by
+  refine top_unique ?_
+  calc ∞ = ENNReal.ofReal (w a) * klDiv (task.ν θ a) (task.ν θ' a) := by
+        rw [h, ENNReal.mul_top (ENNReal.ofReal_pos.2 hw).ne']
+    _ ≤ task.cost w θ θ' := by
+        rw [cost_def]
+        exact Finset.single_le_sum
+          (f := fun b ↦ ENNReal.ofReal (w b) * klDiv (task.ν θ b) (task.ν θ' b))
+          (fun _ _ ↦ zero_le) (Finset.mem_univ a)
 
 /-! #### The cost of the alternatives -/
 
@@ -382,6 +391,56 @@ lemma gameValue_le_gameValue_restrict (S : Set Θ) (θ : Θ) :
 lemma charTime_restrict_le (S : Set Θ) (θ : Θ) :
     (task.restrict S).charTime θ ≤ task.charTime θ :=
   ENNReal.inv_le_inv.2 (task.gameValue_le_gameValue_restrict S θ)
+
+/-- For an allocation with positive entries, removing the models at infinite divergence from `θ`
+on some arm does not change the cost of the alternatives: they cost `∞`. -/
+lemma altCost_restrict_setOf_klDiv_ne_top (hw : ∀ a, 0 < w a) (θ : Θ) (i : ℐ) :
+    (task.restrict {θ' | ∀ a, klDiv (task.ν θ a) (task.ν θ' a) ≠ ∞}).altCost θ w i =
+      task.altCost θ w i := by
+  refine le_antisymm ?_ (task.altCost_le_altCost_restrict _ θ w i)
+  rw [altCost_restrict, task.altCost_def]
+  refine le_iInf₂ fun θ' hθ' ↦ ?_
+  by_cases hfin : ∀ a, klDiv (task.ν θ a) (task.ν θ' a) ≠ ∞
+  · exact iInf₂_le θ' ⟨hθ', hfin⟩
+  · obtain ⟨a, ha⟩ := not_forall_not.1 hfin
+    rw [task.cost_eq_top_of_klDiv_eq_top (hw a) ha]
+    exact le_top
+
+/-- Removing the models at infinite divergence from `θ` on some arm does not change the value
+`D(θ, ¬i)`: the allocations with positive entries approach the value, and against them these
+models cost `∞`. -/
+lemma answerValue_restrict_setOf_klDiv_ne_top (θ : Θ) (i : ℐ) :
+    (task.restrict {θ' | ∀ a, klDiv (task.ν θ a) (task.ν θ' a) ≠ ∞}).answerValue θ i =
+      task.answerValue θ i := by
+  set S := {θ' | ∀ a, klDiv (task.ν θ a) (task.ν θ' a) ≠ ∞}
+  refine le_antisymm ?_ (task.answerValue_le_answerValue_restrict S θ i)
+  rw [answerValue_def]
+  refine iSup₂_le fun w hw ↦ ?_
+  obtain ⟨hw0, hw1⟩ := mem_simplex_iff.1 hw
+  have : Nonempty α := by
+    by_contra h
+    simp [not_nonempty_iff.1 h] at hw1
+  -- Compare `w` with the allocations `w' = t w + (1 - t) u`, for `u` uniform and `t < 1`.
+  refine ENNReal.le_of_forall_lt_one_mul_le fun t ht ↦ ?_
+  lift t to ℝ≥0 using ht.ne_top
+  rcases eq_or_ne t 0 with rfl | ht0
+  · simp
+  have ht1 : (t : ℝ) < 1 := by exact_mod_cast ENNReal.coe_lt_one_iff.1 ht
+  set u : α → ℝ := fun _ ↦ (Fintype.card α : ℝ)⁻¹
+  have hu : u ∈ simplex α := uniform_mem_simplex α
+  set w' : α → ℝ := (t : ℝ) • w + (1 - (t : ℝ)) • u
+  have hw' : w' ∈ simplex α :=
+    convex_simplex α hw hu t.2 (sub_nonneg.2 ht1.le) (add_sub_cancel _ _)
+  have hpos (a : α) : 0 < w' a :=
+    add_pos_of_nonneg_of_pos (mul_nonneg t.2 (hw0 a)) (mul_pos (sub_pos.2 ht1) (by positivity))
+  have hle : t • w ≤ w' := fun a ↦ by
+    simpa [w', NNReal.smul_def] using mul_nonneg (sub_pos.2 ht1).le (by positivity : 0 ≤ u a)
+  calc (t : ℝ≥0∞) * (task.restrict S).altCost θ w i
+      = (task.restrict S).altCost θ (t • w) i := by
+        rw [altCost_smul _ ht0, ENNReal.smul_def, smul_eq_mul]
+    _ ≤ (task.restrict S).altCost θ w' i := (task.restrict S).monotone_altCost θ i hle
+    _ = task.altCost θ w' i := task.altCost_restrict_setOf_klDiv_ne_top hpos θ i
+    _ ≤ task.answerValue θ i := task.altCost_le_answerValue hw'
 
 end IdentTask
 
