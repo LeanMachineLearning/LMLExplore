@@ -136,18 +136,6 @@ private lemma abs_integral_policyReward_le (hR : ∀ p, ∀ᵐ x ∂(M.R p), |x|
     |∫ s', M.policyReward π s' ∂((M.stateKernel π ^ n) s)| ≤ C :=
   abs_integral_le_of_abs_le (abs_policyReward_le hR)
 
-private lemma measurable_integral_policyReward (n : ℕ) :
-    Measurable fun s ↦ ∫ s', M.policyReward π s' ∂((M.stateKernel π ^ n) s) :=
-  (measurable_policyReward.stronglyMeasurable.integral_kernel
-    (κ := M.stateKernel π ^ n)).measurable
-
-private lemma integral_integral_policyReward (hR : ∀ p, ∀ᵐ x ∂(M.R p), |x| ≤ C) (n : ℕ)
-    (s : 𝓢) :
-    ∫ s', (∫ s'', M.policyReward π s'' ∂((M.stateKernel π ^ n) s')) ∂(M.stateKernel π s) =
-      ∫ s', M.policyReward π s' ∂((M.stateKernel π ^ (n + 1)) s) := by
-  rw [pow_succ, Kernel.mul_eq_comp, Kernel.integral_comp
-    (integrable_of_abs_le measurable_policyReward (abs_policyReward_le hR) _)]
-
 /-- The terms of the series defining the value are bounded by `γ ^ n * C`. -/
 private lemma norm_mul_integral_policyReward_le (hR : ∀ p, ∀ᵐ x ∂(M.R p), |x| ≤ C) (n : ℕ)
     (s : 𝓢) :
@@ -176,43 +164,21 @@ theorem value_eq_integral_resolvent (hγ : γ < 1) (hR : ∀ p, ∀ᵐ x ∂(M.R
 `C / (1 - γ)`. -/
 theorem abs_value_le (hγ : γ < 1) (hR : ∀ p, ∀ᵐ x ∂(M.R p), |x| ≤ C) (s : 𝓢) :
     |M.value γ π s| ≤ C / (1 - γ) := by
-  rw [← Real.norm_eq_abs, div_eq_mul_inv, mul_comm]
-  exact (hasSum_value hγ hR s).norm_le_of_bounded
-    ((hasSum_geometric_of_lt_one γ.coe_nonneg hγ).mul_right C)
-    (norm_mul_integral_policyReward_le hR · s)
+  rw [value_eq_integral_resolvent hγ hR]
+  exact Kernel.abs_integral_resolvent_le hγ (abs_policyReward_le hR) s
 
 /-- With bounded rewards and `γ < 1`, the value of a stationary policy is measurable. -/
 theorem measurable_value (hγ : γ < 1) (hR : ∀ p, ∀ᵐ x ∂(M.R p), |x| ≤ C) :
-    Measurable (M.value γ π) :=
-  measurable_of_tendsto_metrizable
-    (fun _ ↦ Finset.measurable_sum _ fun n _ ↦
-      measurable_const.mul (measurable_integral_policyReward n))
-    (tendsto_pi_nhds.2 fun s ↦ (hasSum_value hγ hR s).tendsto_sum_nat)
+    Measurable (M.value γ π) := by
+  rw [funext (value_eq_integral_resolvent hγ hR)]
+  exact Kernel.measurable_integral_resolvent measurable_policyReward
 
 /-- **Evaluation equation**: with bounded rewards and `γ < 1`, the value of a stationary policy
 satisfies `v^π = r_π + γ P_π v^π`. -/
 theorem value_eq_policyReward_add (hγ : γ < 1) (hR : ∀ p, ∀ᵐ x ∂(M.R p), |x| ≤ C) (s : 𝓢) :
     M.value γ π s = M.policyReward π s + γ * ∫ s', M.value γ π s' ∂(M.stateKernel π s) := by
-  have hint (n : ℕ) : Integrable (fun s' ↦ (γ : ℝ) ^ n *
-      ∫ s'', M.policyReward π s'' ∂((M.stateKernel π ^ n) s')) (M.stateKernel π s) :=
-    (integrable_of_abs_le (measurable_integral_policyReward n)
-      (abs_integral_policyReward_le hR n) _).const_mul _
-  have hsum : Summable fun n ↦ ∫ s', ‖(γ : ℝ) ^ n *
-      ∫ s'', M.policyReward π s'' ∂((M.stateKernel π ^ n) s')‖ ∂(M.stateKernel π s) := by
-    refine .of_nonneg_of_le (fun n ↦ integral_nonneg fun _ ↦ norm_nonneg _) (fun n ↦ ?_)
-      ((summable_geometric_of_lt_one γ.coe_nonneg hγ).mul_right C)
-    refine (integral_mono (hint n).norm (integrable_const ((γ : ℝ) ^ n * C))
-      (norm_mul_integral_policyReward_le hR n)).trans_eq ?_
-    simp
-  -- Split off the term `n = 0` of the series and integrate the remaining terms against `P_π`.
-  simp_rw [value_def]
-  rw [← integral_tsum_of_summable_integral_norm hint hsum,
-    (hasSum_value hγ hR s).summable.tsum_eq_zero_add, ← tsum_mul_left]
-  simp_rw [integral_const_mul, integral_integral_policyReward hR, pow_succ]
-  simp only [pow_zero, one_mul, Kernel.one_eq_id, Kernel.id_apply]
-  rw [integral_dirac' _ _ measurable_policyReward.stronglyMeasurable]
-  congr 1
-  exact tsum_congr fun n ↦ by ring
+  simp_rw [value_eq_integral_resolvent hγ hR]
+  exact Kernel.integral_resolvent_eq_add hγ measurable_policyReward (abs_policyReward_le hR) s
 
 /-- With bounded rewards and `γ < 1`, the value of a stationary policy is a fixed point of its
 evaluation operator. -/
@@ -226,11 +192,11 @@ theorem bellmanEval_value (hγ : γ < 1) (hR : ∀ p, ∀ᵐ x ∂(M.R p), |x| �
 stationary policy is the unique bounded measurable fixed point of its evaluation operator. -/
 theorem eq_value_of_bellmanEval_eq (hγ : γ < 1) (hR : ∀ p, ∀ᵐ x ∂(M.R p), |x| ≤ C)
     (hv : Measurable v) (hvB : ∀ s, |v s| ≤ B) (h : M.bellmanEval γ π v = v) :
-    v = M.value γ π :=
-  eq_of_forall_abs_sub_le_mul (NNReal.coe_lt_one.2 hγ)
-    (fun s ↦ (abs_sub _ _).trans (add_le_add (hvB s) (abs_value_le hγ hR s))) fun E hE s ↦ by
-    rw [← h, ← bellmanEval_value hγ hR]
-    exact abs_bellmanEval_sub_le hR hv hvB (measurable_value hγ hR) (abs_value_le hγ hR) hE s
+    v = M.value γ π := by
+  rw [funext (value_eq_integral_resolvent hγ hR)]
+  refine Kernel.eq_integral_resolvent_of_eq_add hγ measurable_policyReward
+    (abs_policyReward_le hR) hv hvB fun s ↦ ?_
+  rw [← bellmanEval_eq_policyReward_add hR hv hvB, h]
 
 /-- With finitely many actions, bounded rewards and `γ < 1`, the value of a measurable
 deterministic stationary policy `d` is below its image by the optimality operator:

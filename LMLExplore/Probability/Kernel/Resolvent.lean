@@ -12,6 +12,7 @@ public import Mathlib.Analysis.SpecificLimits.Basic
 public import Mathlib.MeasureTheory.Integral.Bochner.SumMeasure
 public import Mathlib.Probability.Kernel.Composition.IntegralCompProd
 public import Mathlib.Probability.Kernel.Composition.MeasureComp
+public import Mathlib.Probability.Kernel.WithDensity
 
 /-!
 # The resolvent of a kernel
@@ -21,16 +22,19 @@ For a kernel `κ : Kernel α α` and a discount factor `γ : ℝ≥0`, the resol
 discounted number of visits to `s` of the Markov chain with kernel `κ` started at `x`,
 `∑' n, γ ^ n * (κ ^ n) x s`. Acting on functions, it maps `f` to
 `x ↦ ∫ y, f y ∂(resolvent γ κ x) = ∑' n, γ ^ n * ∫ y, f y ∂((κ ^ n) x)`, the expected discounted sum
-of the values of `f` along the chain. For a Markov kernel and `γ < 1`, it is a finite kernel of
-mass `(1 - γ)⁻¹`.
+of the values of `f` along the chain. The resolvent of an s-finite kernel is s-finite, and for a
+Markov kernel and `γ < 1`, it is a finite kernel of mass `(1 - γ)⁻¹`.
 
-The resolvent is the inverse of `1 - γ κ`, read as an operator on functions. As measures,
+For every kernel and every `γ`, the resolvent satisfies, as measures,
 `resolvent γ κ x = δ_x + γ • (resolvent γ κ ∘ₖ κ) x = δ_x + γ • (κ ∘ₖ resolvent γ κ) x`, which
-are the operator identities `R_γ = 1 + γ κ R_γ = 1 + γ R_γ κ`. Consequently:
-* for a bounded measurable `f`, the function `u = R_γ f` is the unique bounded measurable solution
-  of the equation `u = f + γ κ u`;
-* for a measure `μ`, the measure `ν = μ.bind R_γ` (written `resolvent γ κ ∘ₘ μ`) is the unique
-  finite measure satisfying the flow equation `ν = μ + γ • ν.bind κ`.
+are the operator identities `R_γ = 1 + γ κ R_γ = 1 + γ R_γ κ`. For a Markov kernel and `γ < 1`,
+the resolvent is therefore the inverse of `1 - γ κ`, read as an operator on bounded measurable
+functions. Consequently:
+* for a Markov kernel, `γ < 1` and a bounded measurable `f`, the function `u = R_γ f` is the
+  unique bounded measurable solution of the equation `u = f + γ κ u`;
+* for a measure `μ`, the measure `ν = μ.bind R_γ` (written `resolvent γ κ ∘ₘ μ`) satisfies the
+  flow equation `ν = μ + γ • ν.bind κ` for every kernel and every `γ`; for a Markov kernel and
+  `γ < 1`, it is the unique finite measure satisfying it.
 
 In a Markov decision process, the value of a stationary policy is the resolvent of the state
 kernel of the policy applied to its reward, and the discounted occupancy measure of a stationary
@@ -49,19 +53,21 @@ equation of these objects.
   powers of `κ`.
 * `ProbabilityTheory.Kernel.resolvent_apply_univ`: for a Markov kernel, the mass of the resolvent
   is `(1 - γ)⁻¹`; `ProbabilityTheory.Kernel.isFiniteKernel_resolvent`: it is a finite kernel for
-  `γ < 1`.
+  `γ < 1`. The resolvent of an s-finite kernel is s-finite (an instance).
 * `ProbabilityTheory.Kernel.dirac_add_resolvent_comp_apply`,
   `ProbabilityTheory.Kernel.dirac_add_comp_resolvent_apply`: the resolvent identities
   `R_γ = 1 + γ κ R_γ = 1 + γ R_γ κ`.
 * `ProbabilityTheory.Kernel.integral_resolvent_eq_add`,
-  `ProbabilityTheory.Kernel.eq_integral_resolvent_of_eq_add`: `R_γ f` is the unique bounded
-  measurable solution of `u = f + γ κ u`.
+  `ProbabilityTheory.Kernel.eq_integral_resolvent_of_eq_add`: for a Markov kernel and `γ < 1`,
+  `R_γ f` is the unique bounded measurable solution of `u = f + γ κ u`.
 * `ProbabilityTheory.Kernel.abs_integral_resolvent_le`,
-  `ProbabilityTheory.Kernel.le_integral_resolvent`: `|R_γ f| ≤ sup |f| / (1 - γ)`, and
-  `f ≤ R_γ f` for `f ≥ 0`.
-* `MeasureTheory.Measure.resolvent_comp_eq_add`,
-  `MeasureTheory.Measure.eq_resolvent_comp_of_eq_add`: `resolvent γ κ ∘ₘ μ` is the
-  unique finite solution of the flow equation `ν = μ + γ • (κ ∘ₘ ν)`.
+  `ProbabilityTheory.Kernel.le_integral_resolvent`: for a Markov kernel and `γ < 1`,
+  `|R_γ f| ≤ sup |f| / (1 - γ)`, and `f ≤ R_γ f` for `f ≥ 0`.
+* `MeasureTheory.Measure.resolvent_comp_eq_add`: for every kernel and every `γ`,
+  `resolvent γ κ ∘ₘ μ` solves the flow equation `ν = μ + γ • (κ ∘ₘ ν)`;
+  `MeasureTheory.Measure.eq_resolvent_comp_of_eq_add`: for a Markov kernel and `γ < 1`, it is the
+  unique finite solution. `MeasureTheory.Measure.eq_sum_range_add_of_eq_add` unfolds the flow
+  equation `n` times, for every kernel.
 
 ## References
 
@@ -98,6 +104,17 @@ lemma resolvent_apply' (γ : ℝ≥0) (κ : Kernel α α) (x : α) {s : Set α} 
     resolvent γ κ x s = ∑' n, (γ : ℝ≥0∞) ^ n * (κ ^ n) x s := by
   simp [resolvent_apply, Measure.sum_apply _ hs]
 
+/-- The resolvent of an s-finite kernel is an s-finite kernel. -/
+instance [IsSFiniteKernel κ] : IsSFiniteKernel (resolvent γ κ) := by
+  have h : resolvent γ κ =
+      Kernel.sum fun n ↦ withDensity (κ ^ n) fun _ _ ↦ ((γ ^ n : ℝ≥0) : ℝ≥0∞) := by
+    ext x : 1
+    rw [resolvent_apply, Kernel.sum_apply]
+    congr with n : 1
+    rw [Kernel.withDensity_apply _ (by fun_prop), withDensity_const, ENNReal.coe_pow]
+  rw [h]
+  infer_instance
+
 /-- The lower Lebesgue integral against the resolvent is the discounted series of the integrals
 against the powers of the kernel. -/
 lemma lintegral_resolvent (γ : ℝ≥0) (κ : Kernel α α) (x : α) (f : α → ℝ≥0∞) :
@@ -110,6 +127,12 @@ theorem integral_resolvent {f : α → E} {x : α} (hf : Integrable f (resolvent
     ∫ y, f y ∂(resolvent γ κ x) = ∑' n, ((γ : ℝ) ^ n) • ∫ y, f y ∂((κ ^ n) x) := by
   rw [resolvent_apply] at hf ⊢
   simp [integral_sum_measure hf, integral_smul_measure]
+
+/-- The integral of a measurable function against the resolvent is a measurable function of the
+starting point. -/
+theorem measurable_integral_resolvent {f : α → ℝ} (hf : Measurable f) :
+    Measurable fun x ↦ ∫ y, f y ∂(resolvent γ κ x) :=
+  (hf.stronglyMeasurable.integral_kernel (κ := resolvent γ κ)).measurable
 
 /-- For `γ = 0`, the resolvent is the identity kernel. -/
 @[simp]
@@ -181,8 +204,7 @@ lemma isFiniteKernel_resolvent (hγ : γ < 1) : IsFiniteKernel (resolvent γ κ)
 /-- For `γ < 1`, the resolvent of a Markov kernel has real mass `(1 - γ)⁻¹`. -/
 lemma measureReal_resolvent_univ (hγ : γ < 1) (x : α) :
     (resolvent γ κ x).real univ = (1 - (γ : ℝ))⁻¹ := by
-  rw [measureReal_def, resolvent_apply_univ, ENNReal.toReal_inv, ← ENNReal.coe_one,
-    ← ENNReal.coe_sub, ENNReal.coe_toReal, NNReal.coe_sub hγ.le, NNReal.coe_one]
+  simp [measureReal_def, ENNReal.toReal_inv, ENNReal.toReal_sub_of_le, hγ.le]
 
 /-! ### The resolvent acting on bounded functions -/
 
@@ -194,13 +216,6 @@ theorem abs_integral_resolvent_le (hγ : γ < 1) {f : α → ℝ} {B : ℝ} (hfB
   rw [← Real.norm_eq_abs, div_eq_mul_inv, ← measureReal_resolvent_univ (κ := κ) hγ x]
   exact norm_integral_le_of_norm_le_const <| .of_forall fun y ↦
     (Real.norm_eq_abs _).trans_le (hfB y)
-
-/-- For `γ < 1`, the integral of a measurable function against the resolvent of a Markov kernel is
-a measurable function of the starting point. -/
-theorem measurable_integral_resolvent (hγ : γ < 1) {f : α → ℝ} (hf : Measurable f) :
-    Measurable fun x ↦ ∫ y, f y ∂(resolvent γ κ x) := by
-  have := isFiniteKernel_resolvent (κ := κ) hγ
-  exact (hf.stronglyMeasurable.integral_kernel (κ := resolvent γ κ)).measurable
 
 /-- The resolvent equation `R_γ f = f + γ κ R_γ f`: for `γ < 1` and a bounded measurable `f`, the
 function `u = R_γ f` solves `u = f + γ κ u`. -/
@@ -223,7 +238,7 @@ theorem eq_integral_resolvent_of_eq_add (hγ : γ < 1) {f u : α → ℝ} {B B' 
     (hfB : ∀ y, |f y| ≤ B) (hu : Measurable u) (huB : ∀ y, |u y| ≤ B')
     (h : ∀ x, u x = f x + γ * ∫ y, u y ∂(κ x)) :
     u = fun x ↦ ∫ y, f y ∂(resolvent γ κ x) := by
-  have hR := measurable_integral_resolvent (κ := κ) hγ hf
+  have hR := measurable_integral_resolvent (γ := γ) (κ := κ) hf
   have hRB := abs_integral_resolvent_le (κ := κ) hγ hfB
   refine eq_of_forall_abs_sub_le_mul (NNReal.coe_lt_one.2 hγ)
     (fun x ↦ (abs_sub _ _).trans (add_le_add (huB x) (hRB x))) fun E hE x ↦ ?_
@@ -277,21 +292,23 @@ theorem resolvent_comp_eq_add (γ : ℝ≥0) (κ : Kernel α α) (μ : Measure �
   simp_rw [dirac_apply' _ hs]
   rw [lintegral_indicator_one hs]
 
+/-- Unfolding the flow equation `n` times: if `ν = μ + c • (κ ∘ₘ ν)`, then
+`ν = ∑ k < n, c ^ k • (κ ^ k ∘ₘ μ) + c ^ n • (κ ^ n ∘ₘ ν)`. -/
+theorem eq_sum_range_add_of_eq_add {c : ℝ≥0∞} (h : ν = μ + c • (κ ∘ₘ ν)) (n : ℕ) :
+    ν = (∑ k ∈ Finset.range n, c ^ k • ((κ ^ k : Kernel α α) ∘ₘ μ)) +
+      c ^ n • ((κ ^ n : Kernel α α) ∘ₘ ν) := by
+  induction n with
+  | zero => simp [one_eq_id, id_comp]
+  | succ n ih =>
+    conv_lhs => rw [ih, h]
+    simp [comp_add, comp_smul, comp_assoc, ← mul_eq_comp, ← pow_succ, smul_smul,
+      Finset.sum_range_succ, add_assoc]
+
 /-- **Uniqueness of the solution of the flow equation**: for a Markov kernel `κ` and `γ < 1`, a
 finite measure `ν` with `ν = μ + γ • (κ ∘ₘ ν)` is the image `resolvent γ κ ∘ₘ μ` of `μ` by the
 resolvent. -/
 theorem eq_resolvent_comp_of_eq_add [IsMarkovKernel κ] (hγ : γ < 1) [IsFiniteMeasure ν]
     (h : ν = μ + (γ : ℝ≥0∞) • (κ ∘ₘ ν)) : ν = resolvent γ κ ∘ₘ μ := by
-  -- Unfold the equation `n` times: `ν = ∑ k < n, γ ^ k • κ ^ k ∘ₘ μ + γ ^ n • κ ^ n ∘ₘ ν`.
-  have hn (n : ℕ) : ν = (∑ k ∈ Finset.range n, ((γ : ℝ≥0∞) ^ k) • ((κ ^ k : Kernel α α) ∘ₘ μ)) +
-      ((γ : ℝ≥0∞) ^ n) • ((κ ^ n : Kernel α α) ∘ₘ ν) := by
-    induction n with
-    | zero => simp [one_eq_id, id_comp]
-    | succ n ih =>
-      conv_lhs => rw [ih]
-      conv_lhs => rw [h]
-      rw [comp_add, comp_smul, comp_assoc, ← mul_eq_comp, ← pow_succ, smul_add, smul_smul,
-        ← pow_succ, Finset.sum_range_succ, add_assoc]
   ext s hs
   rw [resolvent_comp, sum_apply _ hs]
   simp_rw [smul_apply, smul_eq_mul]
@@ -309,7 +326,7 @@ theorem eq_resolvent_comp_of_eq_add [IsMarkovKernel κ] (hγ : γ < 1) [IsFinite
   convert (ENNReal.tendsto_nat_tsum fun k ↦
     (γ : ℝ≥0∞) ^ k * ((κ ^ k : Kernel α α) ∘ₘ μ) s).add hrem using 1
   · ext n
-    conv_lhs => rw [hn n]
+    conv_lhs => rw [eq_sum_range_add_of_eq_add h n]
     simp
   · rw [add_zero]
 
