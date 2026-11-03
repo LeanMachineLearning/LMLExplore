@@ -20,8 +20,8 @@ from a vector of means `μ` to a vector of means `λ` of the families is
 `cost_μ(w, λ) = ∑ a, w a d_a(μ a, λ a)`, and let `γ` be a mean of every family.
 
 * *Thresholding* (`thresholdingTask ν γ`): the alternatives to the set `S*` of the arms of `μ` with
-  mean above `γ` are the vectors in which some arm `a` crossed `γ`. The cheapest of them moves a
-  single arm to the other side of `γ`, as close to `γ` as wanted, so that
+  mean above `γ` are the vectors in which some arm `a` crossed `γ`. The infimum of their costs is
+  approached by moving a single arm to the other side of `γ`, ever closer to `γ`, so that
   `D(μ, w, ¬S*) = min_a w a d_a(μ a, γ)`. The allocation maximizing it is proportional to
   `d_a(μ a, γ)⁻¹`, and `T*(μ) = ∑ a, d_a(μ a, γ)⁻¹`. For Gaussian arms with variance `σ2`,
   `T*(μ) = ∑ a, 2 σ2 / (μ a - γ)²`.
@@ -29,7 +29,8 @@ from a vector of means `μ` to a vector of means `λ` of the families is
   the alternatives are the vectors with some mean below `γ`, and the game is that of thresholding:
   `D(μ, w, ¬false) = min_a w a d_a(μ a, γ)` and `T*(μ) = ∑ a, d_a(μ a, γ)⁻¹`
   [DK19, Lemma 37; KKG18, Lemma 1]. If some mean is below `γ` (answer `true`), the alternatives
-  are the vectors with all means above `γ`: every arm below `γ` has to be moved to `γ`, so that
+  are the vectors with all means above `γ`: every arm with mean at most `γ` has to be moved above
+  `γ`, and the infimum of the costs is reached in the limit where these arms are moved to `γ`:
   `D(μ, w, ¬true) = ∑ a, w a d_a(μ a, max (μ a) γ)`, whose supremum over the simplex is
   `D(μ, ¬true) = max_a d_a(μ a, max (μ a) γ)`, and `T*(μ) = (max_a d_a(μ a, max (μ a) γ))⁻¹`. For
   Gaussian arms with a common variance `σ2`, this is `2 σ2 / (μ a₀ - γ)²` for an arm `a₀` of
@@ -112,8 +113,8 @@ families `(ρ a, T a)` with divergences `d_a`, in the sense that
 `KL(ν_c(μ), ν_c(μ')) = d_c(μ c, μ' c)` for all vectors of means `μ'` of the families, let `γ` be a
 mean of every family and let `μ` be a vector of means of the families with no mean equal to `γ`,
 whose correct answer is the set `s` of the arms with mean above `γ`. Then on the vectors of means
-of the families, for every nonnegative allocation `w`, `D(μ, w, ¬s) = min_a w a d_a(μ a, γ)`: the
-cheapest alternatives move a single arm across `γ`. -/
+of the families, for every nonnegative allocation `w`, `D(μ, w, ¬s) = min_a w a d_a(μ a, γ)`: this
+infimum is approached by moving a single arm across `γ`, ever closer to `γ`. -/
 theorem altCost_thresholdingTask_restrict (hT : ∀ a c, ¬ T a =ᵐ[ρ a] fun _ ↦ c)
     (hγ : ∀ a, γ ∈ (ρ a).expFamilyMeans (T a)) (hμ : ∀ a, μ a ∈ (ρ a).expFamilyMeans (T a))
     (hν : ∀ μ' : α → ℝ, (∀ c, μ' c ∈ (ρ c).expFamilyMeans (T c)) →
@@ -274,8 +275,8 @@ lemma mem_alt_minThresholdTask_true_iff {μ' : α → ℝ} :
 /-- **The cost of the alternatives to `false` in minimum threshold** [DK19, Lemma 37;
 KKG18, Lemma 1]. Under the assumptions of `altCost_thresholdingTask_restrict` on the arm laws, if
 all the means of `μ` are at least `γ`, then on the vectors of means of the families, for every
-nonnegative allocation `w`, `D(μ, w, ¬false) = min_a w a d_a(μ a, γ)`: the cheapest alternatives
-move a single arm below `γ`. -/
+nonnegative allocation `w`, `D(μ, w, ¬false) = min_a w a d_a(μ a, γ)`: this infimum is
+approached by moving a single arm below `γ`, ever closer to `γ`. -/
 theorem altCost_minThresholdTask_restrict_false (hT : ∀ a c, ¬ T a =ᵐ[ρ a] fun _ ↦ c)
     (hγ : ∀ a, γ ∈ (ρ a).expFamilyMeans (T a)) (hμ : ∀ a, μ a ∈ (ρ a).expFamilyMeans (T a))
     (hν : ∀ μ' : α → ℝ, (∀ c, μ' c ∈ (ρ c).expFamilyMeans (T c)) →
@@ -363,7 +364,8 @@ theorem charTime_minThresholdTask_restrict_false [Nonempty α] (hT : ∀ a c, ¬
 KKG18, Lemma 1]. Under the assumptions of `altCost_thresholdingTask_restrict` on the arm laws, on
 the vectors of means of the families, for every nonnegative allocation `w`,
 `D(μ, w, ¬true) = ∑ a, w a d_a(μ a, max (μ a) γ)`: the alternatives have all their means above `γ`,
-and the cheapest of them raise every mean below `γ` to `γ`. -/
+and the cost is the infimum over the alternatives that raise every mean at most `γ` to a level
+`x > γ`, as `x` decreases to `γ`. -/
 theorem altCost_minThresholdTask_restrict_true (hT : ∀ a c, ¬ T a =ᵐ[ρ a] fun _ ↦ c)
     (hγ : ∀ a, γ ∈ (ρ a).expFamilyMeans (T a)) (hμ : ∀ a, μ a ∈ (ρ a).expFamilyMeans (T a))
     (hν : ∀ μ' : α → ℝ, (∀ c, μ' c ∈ (ρ c).expFamilyMeans (T c)) →
