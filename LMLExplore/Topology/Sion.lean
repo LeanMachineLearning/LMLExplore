@@ -28,7 +28,6 @@ costs (`LMLExplore/Identification/Task/Minimax.lean`). It is a consequence of Ma
 
 ## Main statements
 
-* `LMLExplore.iSup_simplex_ofReal_dotProduct`: `sup_{w ∈ Δ_α} w ⬝ᵥ y = max_a y a`.
 * `LMLExplore.iSup_simplex_iInf_ofReal_dotProduct`: von Neumann's minimax theorem on the simplex.
 
 ## References
@@ -46,25 +45,6 @@ open scoped ENNReal
 namespace LMLExplore
 
 variable {α : Type*} [Fintype α]
-
-/-- The largest payoff `w ⬝ᵥ y` of a mixed strategy `w` of the simplex is the largest entry of
-`y`. -/
-lemma iSup_simplex_ofReal_dotProduct (y : α → ℝ) :
-    ⨆ w ∈ simplex α, ENNReal.ofReal (w ⬝ᵥ y) = ⨆ a, ENNReal.ofReal (y a) := by
-  classical
-  rcases isEmpty_or_nonempty α with hα | hα
-  · have h : simplex α = ∅ :=
-      Set.eq_empty_of_forall_notMem fun w hw ↦ by simpa using (mem_simplex_iff.1 hw).2
-    simp [h]
-  obtain ⟨b, -, hb⟩ := Finset.exists_max_image Finset.univ y Finset.univ_nonempty
-  refine le_antisymm (iSup₂_le fun w hw ↦ ?_) (iSup_le fun a ↦ ?_)
-  · obtain ⟨hw0, hw1⟩ := mem_simplex_iff.1 hw
-    refine le_iSup_of_le b (ENNReal.ofReal_le_ofReal ?_)
-    calc w ⬝ᵥ y ≤ ∑ a, w a * y b :=
-          Finset.sum_le_sum fun a _ ↦ mul_le_mul_of_nonneg_left (hb a (Finset.mem_univ a)) (hw0 a)
-      _ = y b := by rw [← Finset.sum_mul, hw1, one_mul]
-  · refine le_iSup₂_of_le (Pi.single a 1) (single_mem_simplex a) ?_
-    rw [single_dotProduct, one_mul]
 
 /-- **Von Neumann's minimax theorem** on the probability simplex, for payoffs in `ℝ≥0∞`: for a
 convex set `Y` of vectors,

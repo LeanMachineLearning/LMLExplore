@@ -11,6 +11,7 @@ public import Mathlib.Analysis.Convex.Basic
 public import Mathlib.Basic.ENNReal.BigOperators
 public import Mathlib.Basic.Real.Basic
 public import Mathlib.Data.Finsupp.Order
+public import Mathlib.Data.Matrix.Mul
 public import Mathlib.Topology.Instances.Real.Lemmas
 
 /-!
@@ -53,8 +54,8 @@ supported distributions, not a subset of `α → ℝ`.
 * `LMLExplore.sum_inv_pos`: for positive weights `c` on a nonempty type, `0 < ∑ b, (c b)⁻¹`.
 * `LMLExplore.iInf_ofReal_inv_div_sum_inv_mul`: at the vector proportional to `c⁻¹`, the smallest
   weighted entry `min_a w a c a` is `(∑ b, (c b)⁻¹)⁻¹`.
-* `LMLExplore.iSup_simplex_sum_ofReal_mul`: the supremum of `w ↦ ∑ a, w a e a` over the simplex is
-  the supremum of the entries of `e`, in `ℝ≥0∞`.
+* `LMLExplore.iSup_simplex_ofReal_dotProduct`: the supremum of `w ↦ w ⬝ᵥ y` over the simplex is
+  the supremum of the entries of `y`, in `ℝ≥0∞`.
 * `LMLExplore.convex_setOf_nonneg_support_subset_sum_eq_one`: the finitely supported probability
   weights with support in a set form a convex set.
 * `LMLExplore.convex_setOf_mem_simplex_apply_eq`, `LMLExplore.isCompact_setOf_mem_simplex_apply_eq`:
@@ -195,23 +196,24 @@ lemma isCompact_setOf_mem_simplex_apply_eq (a : α) (β : ℝ) :
 
 /-! ### Linear functions and the smallest weighted entry on the simplex -/
 
-/-- The supremum of `w ↦ ∑ a, ofReal (w a e a)` over the simplex is the supremum
-`⨆ a, ofReal (e a)` of the entries of `e`, in `ℝ≥0∞`. -/
-lemma iSup_simplex_sum_ofReal_mul (e : α → ℝ) :
-    ⨆ w ∈ simplex α, ∑ a, ENNReal.ofReal (w a * e a) = ⨆ a, ENNReal.ofReal (e a) := by
+/-- The largest payoff `w ⬝ᵥ y` of a mixed strategy `w` of the simplex is the largest entry of
+`y`. -/
+lemma iSup_simplex_ofReal_dotProduct (y : α → ℝ) :
+    ⨆ w ∈ simplex α, ENNReal.ofReal (w ⬝ᵥ y) = ⨆ a, ENNReal.ofReal (y a) := by
   classical
+  rcases isEmpty_or_nonempty α with hα | hα
+  · have h : simplex α = ∅ :=
+      Set.eq_empty_of_forall_notMem fun w hw ↦ by simpa using (mem_simplex_iff.1 hw).2
+    simp [h]
+  obtain ⟨b, -, hb⟩ := Finset.exists_max_image Finset.univ y Finset.univ_nonempty
   refine le_antisymm (iSup₂_le fun w hw ↦ ?_) (iSup_le fun a ↦ ?_)
-  · calc ∑ a, ENNReal.ofReal (w a * e a)
-    _ ≤ ∑ a, ENNReal.ofReal (w a) * ⨆ b, ENNReal.ofReal (e b) := by
-      refine Finset.sum_le_sum fun a _ ↦ ?_
-      rw [ENNReal.ofReal_mul (hw.1 a)]
-      exact mul_le_mul_right (le_iSup (fun b ↦ ENNReal.ofReal (e b)) a) _
-    _ = ⨆ b, ENNReal.ofReal (e b) := by
-      rw [← Finset.sum_mul, ← ENNReal.ofReal_sum_of_nonneg fun a _ ↦ hw.1 a, hw.2,
-        ENNReal.ofReal_one, one_mul]
-  · refine le_iSup₂_of_le (Pi.single a 1) (single_mem_simplex a) (le_of_eq ?_)
-    rw [Finset.sum_eq_single a (fun b _ hb ↦ by simp [hb]) (by simp)]
-    simp
+  · obtain ⟨hw0, hw1⟩ := mem_simplex_iff.1 hw
+    refine le_iSup_of_le b (ENNReal.ofReal_le_ofReal ?_)
+    calc w ⬝ᵥ y ≤ ∑ a, w a * y b :=
+          Finset.sum_le_sum fun a _ ↦ mul_le_mul_of_nonneg_left (hb a (Finset.mem_univ a)) (hw0 a)
+      _ = y b := by rw [← Finset.sum_mul, hw1, one_mul]
+  · refine le_iSup₂_of_le (Pi.single a 1) (single_mem_simplex a) ?_
+    rw [single_dotProduct, one_mul]
 
 variable {w c : α → ℝ}
 

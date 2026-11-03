@@ -426,9 +426,14 @@ theorem answerValue_minThresholdTask_restrict_true (hT : ∀ a c, ¬ T a =ᵐ[ρ
     ((minThresholdTask ν γ).restrict {μ' | ∀ c, μ' c ∈ (ρ c).expFamilyMeans (T c)}).answerValue
         μ true =
       ⨆ a, ENNReal.ofReal ((ρ a).expFamilyDiv (T a) (μ a) (max (μ a) γ)) := by
-  rw [IdentTask.answerValue_def, ← iSup_simplex_sum_ofReal_mul]
-  exact iSup_congr fun w ↦ iSup_congr fun hw ↦
-    altCost_minThresholdTask_restrict_true ν hT hγ hμ hν (mem_simplex_iff.1 hw).1
+  have hmax (a : α) : max (μ a) γ ∈ (ρ a).expFamilyMeans (T a) := by
+    rcases max_choice (μ a) γ with h | h <;> rw [h]
+    exacts [hμ a, hγ a]
+  rw [IdentTask.answerValue_def, ← iSup_simplex_ofReal_dotProduct]
+  refine iSup_congr fun w ↦ iSup_congr fun hw ↦ ?_
+  rw [altCost_minThresholdTask_restrict_true ν hT hγ hμ hν (mem_simplex_iff.1 hw).1, dotProduct,
+    ENNReal.ofReal_sum_of_nonneg fun a _ ↦
+      mul_nonneg ((mem_simplex_iff.1 hw).1 a) (expFamilyDiv_nonneg (hμ a) (hmax a))]
 
 /-- **The characteristic time of minimum threshold when some mean is below the threshold**
 [DK19, Lemma 38; KKG18, Lemma 1]. Under the assumptions of
