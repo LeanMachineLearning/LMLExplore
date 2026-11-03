@@ -200,10 +200,10 @@ theorem softmax_regret_le_sqrt {n : ℕ} {ℓ : ℕ → α → ℝ}
   -- the losses as linear functionals on `PiLp 1 (fun _ : α ↦ ℝ)`
   set y : ℕ → PiLp 1 (fun _ : α ↦ ℝ) →L[ℝ] ℝ :=
     fun t ↦ ∑ b, ℓ t b • PiLp.proj (𝕜 := ℝ) 1 (fun _ : α ↦ ℝ) b
-  have hy_apply (t : ℕ) (x : PiLp 1 fun _ : α ↦ ℝ) : y t x = ∑ b, ℓ t b * x b :=
-    PiLp.sum_smul_proj_apply 1 (ℓ t) x
+  have hy_apply (t : ℕ) (x : PiLp 1 fun _ : α ↦ ℝ) : y t x = ∑ b, ℓ t b * x b := by
+    simp [y]
   have hy_single (t : ℕ) : (fun c ↦ y t (PiLp.single 1 c 1)) = ℓ t :=
-    funext (PiLp.sum_smul_proj_apply_single 1 (ℓ t))
+    funext fun c ↦ by simp [y, PiLp.single_apply]
   have hy (t : ℕ) (ht : t < n) : ‖y t‖ ≤ 1 := by
     refine ContinuousLinearMap.opNorm_le_bound _ zero_le_one fun x ↦ ?_
     rw [hy_apply, one_mul, PiLp.norm_eq_of_L1, Real.norm_eq_abs]
