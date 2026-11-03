@@ -7,6 +7,7 @@ module
 
 public import LMLExplore.Identification.Task.MeanVector
 public import LMLExplore.Identification.Task.Continuity
+public import LMLExplore.Identification.Task.TopTwo.Basic
 public import LMLExplore.Bandits.Instances
 public import LMLExplore.Probability.Distributions.ExponentialFamily.Gaussian
 public import LMLExplore.Order.Basic
@@ -96,8 +97,13 @@ within a factor `2` of the complexity `H(μ) = ∑ c, 2 σ2 / Δ_c²`, where `Δ
   and is unique [GK16, Theorem 5].
 * `LMLExplore.Identification.pos_of_mem_optAlloc_baiTask_restrict`: the optimal allocation has
   positive entries [GK16, Proposition 6].
+* `LMLExplore.Identification.betaAnswerValue_baiTask_restrict_eq_of_mem_betaOptAlloc`: for
+  `β > 0`, a `β`-optimal allocation `w` (`LMLExplore/Identification/Task/TopTwo/Basic.lean`)
+  equalizes the costs of the pairs, `D_β(μ, ¬a) = β d(μ a, m_b) + w b d(μ b, m_b)` for every
+  `b ≠ a` [R16, Proposition 7].
 * `LMLExplore.Identification.answerValue_baiTask_restrict_eq_of_mem_optAlloc`: the costs of all the
-  pairs `(a, b)` equal `D(μ, ¬a)` at the optimal allocation [GK16, Lemma 4].
+  pairs `(a, b)` equal `D(μ, ¬a)` at the optimal allocation [GK16, Lemma 4], the case `β = w a` of
+  the previous statement.
 * `LMLExplore.Identification.continuousAt_of_mem_optAlloc_baiTask_restrict`: every selection of the
   optimal allocations is continuous at a vector of means with a unique best arm [GK16,
   Proposition 6].
@@ -128,6 +134,8 @@ within a factor `2` of the complexity `H(μ) = ∑ c, 2 σ2 / Δ_c²`, where `Δ
   multi-armed bandit models*, JMLR 17 (2016), Section 3.
 * [DK19] R. Degenne and W. M. Koolen, *Pure exploration with multiple correct answers*,
   NeurIPS 2019, supplementary material, Appendix F, Lemmas 28 and 29.
+* [R16] D. Russo, *Simple Bayesian algorithms for best arm identification*, COLT 2016;
+  Operations Research 68 (2020). Proposition 7 in the numbering of arXiv:1602.08448v4.
 -/
 
 public section
@@ -656,6 +664,100 @@ theorem pos_of_mem_optAlloc_baiTask_restrict (hT : ∀ c, ¬ T =ᵐ[ρ] fun _ �
     rw [expFamilyPairCost_eq_zero hb, ENNReal.ofReal_zero]
   exact (answerValue_baiTask_restrict_pos ν hT hμ hν ha).ne' (hD ▸ h0)
 
+/-- **The `β`-optimal allocations of best arm identification equalize the costs of the pairs of
+arms** [R16, Proposition 7]. For arms in an exponential family with divergence `d` (as in
+`altCost_baiTask_restrict_eq_iInf_expFamilyPairCost`), a vector of means `μ` of the family with
+unique best arm `a`, `β > 0` and a `β`-optimal allocation `w` of the answer `a` with the arm `a`,
+the minimum `D(μ, w, ¬a) = min_{b ≠ a} (β d(μ a, m_b) + w b d(μ b, m_b))` is attained at every arm
+`b ≠ a`: `D_β(μ, ¬a) = β d(μ a, m_b) + w b d(μ b, m_b)` for every `b ≠ a`, with
+`m_b = (β μ a + w b μ b) / (β + w b)`. -/
+theorem betaAnswerValue_baiTask_restrict_eq_of_mem_betaOptAlloc {β : ℝ}
+    (hT : ∀ c, ¬ T =ᵐ[ρ] fun _ ↦ c)
+    (hμ : ∀ c, μ c ∈ ρ.expFamilyMeans T)
+    (hν : ∀ μ' : α → ℝ, (∀ c, μ' c ∈ ρ.expFamilyMeans T) →
+      ∀ c, klDiv (ν μ c) (ν μ' c) = ENNReal.ofReal (ρ.expFamilyDiv T (μ c) (μ' c)))
+    (ha : ∀ b ≠ a, μ b < μ a) (hβ : 0 < β)
+    (hw : w ∈ ((baiTask ν).restrict {μ' | ∀ c, μ' c ∈ ρ.expFamilyMeans T}).betaOptAlloc μ a a β)
+    (hba : b ≠ a) :
+    ((baiTask ν).restrict {μ' | ∀ c, μ' c ∈ ρ.expFamilyMeans T}).betaAnswerValue μ a a β =
+      ENNReal.ofReal (ρ.expFamilyPairCost T (μ a) (μ b) β (w b)) := by
+  classical
+  set task := (baiTask ν).restrict {μ' | ∀ c, μ' c ∈ ρ.expFamilyMeans T}
+  have ha' := apply_le_of_forall_ne_lt ha
+  obtain ⟨hws, hwa, hV⟩ := task.mem_betaOptAlloc_iff.1 hw
+  have hw0 := (mem_simplex_iff.1 hws).1
+  -- The `β`-value is the cost of the alternatives at `w`, the minimum of the costs of the pairs.
+  have h_inf : task.betaAnswerValue μ a a β = (Finset.univ.filter (· ≠ a)).inf fun c ↦
+      ENNReal.ofReal (ρ.expFamilyPairCost T (μ a) (μ c) β (w c)) := by
+    rw [← hV, altCost_baiTask_restrict_eq_inf ν hT hμ hν ha' hw0, hwa]
+  have hmem {c : α} (hc : c ≠ a) : c ∈ Finset.univ.filter (· ≠ a) :=
+    Finset.mem_filter.2 ⟨Finset.mem_univ c, hc⟩
+  refine le_antisymm (h_inf ▸ Finset.inf_le (hmem hba)) (not_lt.1 fun h ↦ ?_)
+  -- Otherwise the `β`-value `D = ofReal D'` is finite, and `D' < cost of (a, b)`.
+  have hD_top : task.betaAnswerValue μ a a β ≠ ∞ := (h.trans ENNReal.ofReal_lt_top).ne
+  set D' := (task.betaAnswerValue μ a a β).toReal with hD'_def
+  have hD_eq : task.betaAnswerValue μ a a β = ENNReal.ofReal D' :=
+    (ENNReal.ofReal_toReal hD_top).symm
+  have hD'_le {c : α} (hc : c ≠ a) : D' ≤ ρ.expFamilyPairCost T (μ a) (μ c) β (w c) :=
+    ENNReal.toReal_le_of_le_ofReal (expFamilyPairCost_nonneg (hμ a) (hμ c) hβ.le (hw0 c))
+      (h_inf ▸ Finset.inf_le (hmem hc))
+  have hD'_lt : D' < ρ.expFamilyPairCost T (μ a) (μ b) β (w b) :=
+    (ENNReal.ofReal_lt_ofReal_iff'.1 (hD_eq ▸ h)).1
+  -- The pair `(a, b)` costs more than nothing, so that `w b > 0`.
+  have hwb : 0 < w b := by
+    refine (hw0 b).lt_of_ne' fun h0 ↦ ?_
+    rw [h0, expFamilyPairCost_eq_zero (Or.inr rfl)] at hD'_lt
+    exact hD'_lt.not_ge ENNReal.toReal_nonneg
+  -- The arms other than `a` and `b`.
+  set R := Finset.univ.filter fun c ↦ c ≠ a ∧ c ≠ b with hR_def
+  have hmemR {c : α} : c ∈ R ↔ c ≠ a ∧ c ≠ b := by simp [hR_def]
+  rcases R.eq_empty_or_nonempty with hR | hR
+  · -- If `b` is the only arm other than `a`, the `β`-value is the cost of `(a, b)`.
+    have h_eq : Finset.univ.filter (· ≠ a) = {b} := by
+      ext c
+      simp only [Finset.mem_filter, Finset.mem_univ, true_and, Finset.mem_singleton]
+      refine ⟨fun hc ↦ by_contra fun hcb ↦ ?_, fun hcb ↦ hcb ▸ hba⟩
+      simpa [hR] using hmemR.2 ⟨hc, hcb⟩
+    rw [h_inf, h_eq, Finset.inf_singleton] at h
+    exact h.false
+  -- Removing a little weight `s` from the arm `b` keeps the cost of `(a, b)` above `D'`, by
+  -- continuity.
+  have h_cont : ContinuousAt (fun s ↦ ρ.expFamilyPairCost T (μ a) (μ b) β (w b - s)) 0 := by
+    have hc := (continuousOn_expFamilyPairCost hT (ρ := ρ)).continuousAt
+      (x := ((μ a, μ b), (β, w b))) (prod_mem_nhds
+        (prod_mem_nhds (expFamilyMeans_mem_nhds hT (hμ a)) (expFamilyMeans_mem_nhds hT (hμ b)))
+        (prod_mem_nhds (Ici_mem_nhds hβ) (Ici_mem_nhds hwb)))
+    have hf : ContinuousAt (fun s : ℝ ↦ ((μ a, μ b), (β, w b - s))) 0 := by fun_prop
+    exact hc.comp_of_eq hf (by simp)
+  obtain ⟨s, hs_lt, hs⟩ := ((h_cont.eventually (lt_mem_nhds (by simpa using hD'_lt))).filter_mono
+    nhdsWithin_le_nhds |>.and (Ioo_mem_nhdsGT hwb)).exists
+  -- The allocation `v` moves the weight `s` from the arm `b` to the arms other than `a` and `b`,
+  -- in equal parts `r`.
+  set r : ℝ := s / R.card with hr_def
+  have hr : 0 < r := div_pos hs.1 (Nat.cast_pos.2 hR.card_pos)
+  set v : α → ℝ := w - Pi.single b s + (R : Set α).indicator (fun _ ↦ r) with hv_def
+  have hv : v ∈ simplex α := sub_single_add_indicator_mem_simplex hws hs.1.le hs.2.le hR
+  have hv0 := (mem_simplex_iff.1 hv).1
+  have hvR {c : α} (hc : c ∈ R) : v c = w c + r := by
+    simp [hv_def, Set.indicator_of_mem (Finset.mem_coe.2 hc), (hmemR.1 hc).2]
+  have hvb : v b = w b - s := by simp [hv_def, hmemR]
+  have hva : v a = β := by simp [hv_def, hmemR, hba.symm, hwa]
+  -- Every pair costs more than `D'` at `v`, contradicting the `β`-optimality of `w`.
+  have h_lt : task.betaAnswerValue μ a a β < task.altCost μ v a := by
+    rw [altCost_baiTask_restrict_eq_inf ν hT hμ hν ha' hv0, hva, Finset.lt_inf_iff hD_top.lt_top]
+    intro c hc
+    have hca := (Finset.mem_filter.1 hc).2
+    rw [hD_eq, ENNReal.ofReal_lt_ofReal_iff_of_nonneg (ENNReal.toReal_nonneg)]
+    by_cases hcb : c = b
+    · subst hcb
+      rw [hvb]
+      exact hs_lt
+    · have hcR : c ∈ R := hmemR.2 ⟨hca, hcb⟩
+      rw [hvR hcR]
+      exact (hD'_le hca).trans_lt (strictMonoOn_expFamilyPairCost (hμ a) (hμ c) (ha c hca).ne' hβ
+        (Set.mem_Ici.2 (hw0 c)) (Set.mem_Ici.2 (add_nonneg (hw0 c) hr.le)) (by linarith))
+  exact (task.altCost_le_betaAnswerValue hv hva).not_gt h_lt
+
 /-- **The optimal allocations of best arm identification equalize the costs of the pairs of
 arms** [GK16, Lemma 4]. For arms in an exponential family with divergence `d` (as in
 `altCost_baiTask_restrict_eq_iInf_expFamilyPairCost`), a vector of means `μ` of the family with
@@ -672,67 +774,10 @@ theorem answerValue_baiTask_restrict_eq_of_mem_optAlloc (hT : ∀ c, ¬ T =ᵐ[�
     (hba : b ≠ a) :
     ((baiTask ν).restrict {μ' | ∀ c, μ' c ∈ ρ.expFamilyMeans T}).answerValue μ a =
       ENNReal.ofReal (ρ.expFamilyPairCost T (μ a) (μ b) (w a) (w b)) := by
-  classical
-  set task := (baiTask ν).restrict {μ' | ∀ c, μ' c ∈ ρ.expFamilyMeans T}
-  have ha' := le_of_forall_ne_lt ha
-  have hw_pos := pos_of_mem_optAlloc_baiTask_restrict ν hT hμ hν ha hw
-  obtain ⟨hws, hD⟩ := (IdentTask.mem_optAlloc_iff _).1 hw
-  have hw0 := (mem_simplex_iff.1 hws).1
-  have h_inf := altCost_baiTask_restrict_eq_inf ν hT hμ hν ha' hw0
-  have hmem {c : α} (hc : c ≠ a) : c ∈ Finset.univ.filter (· ≠ a) :=
-    Finset.mem_filter.2 ⟨Finset.mem_univ c, hc⟩
-  -- The value is at most the cost of every pair.
-  have h_le {c : α} (hc : c ≠ a) :
-      task.answerValue μ a ≤ ENNReal.ofReal (ρ.expFamilyPairCost T (μ a) (μ c) (w a) (w c)) :=
-    hD ▸ h_inf ▸ Finset.inf_le (hmem hc)
-  refine le_antisymm (h_le hba) (not_lt.1 fun h ↦ ?_)
-  -- Otherwise the value `D = ofReal D'` is finite and positive, and `D' < cost of (a, b)`.
-  have hD_top : task.answerValue μ a ≠ ∞ := (h.trans ENNReal.ofReal_lt_top).ne
-  set D' := (task.answerValue μ a).toReal with hD'_def
-  have hD_eq : task.answerValue μ a = ENNReal.ofReal D' := (ENNReal.ofReal_toReal hD_top).symm
-  have hD'_pos : 0 < D' := ENNReal.toReal_pos (answerValue_baiTask_restrict_pos ν hT hμ hν ha).ne'
-    hD_top
-  have hD'_le {c : α} (hc : c ≠ a) : D' ≤ ρ.expFamilyPairCost T (μ a) (μ c) (w a) (w c) :=
-    ENNReal.toReal_le_of_le_ofReal (expFamilyPairCost_nonneg (hμ a) (hμ c) (hw0 a) (hw0 c))
-      (h_le hc)
-  have hD'_lt : D' < ρ.expFamilyPairCost T (μ a) (μ b) (w a) (w b) :=
-    (ENNReal.ofReal_lt_ofReal_iff'.1 (hD_eq ▸ h)).1
-  -- Removing a little weight `s` from the arm `b` keeps the cost of `(a, b)` above `D'`, by
-  -- continuity.
-  have h_cont : ContinuousAt (fun s ↦ ρ.expFamilyPairCost T (μ a) (μ b) (w a) (w b - s)) 0 := by
-    have hc := (continuousOn_expFamilyPairCost hT (ρ := ρ)).continuousAt
-      (x := ((μ a, μ b), (w a, w b))) (prod_mem_nhds
-        (prod_mem_nhds (expFamilyMeans_mem_nhds hT (hμ a)) (expFamilyMeans_mem_nhds hT (hμ b)))
-        (prod_mem_nhds (Ici_mem_nhds (hw_pos a)) (Ici_mem_nhds (hw_pos b))))
-    have hf : ContinuousAt (fun s : ℝ ↦ ((μ a, μ b), (w a, w b - s))) 0 := by fun_prop
-    exact hc.comp_of_eq hf (by simp)
-  obtain ⟨s, hs_lt, hs⟩ := ((h_cont.eventually (lt_mem_nhds (by simpa using hD'_lt))).filter_mono
-    nhdsWithin_le_nhds |>.and (Ioo_mem_nhdsGT (hw_pos b))).exists
-  have hs1 : s < 1 := hs.2.trans_le ((simplex_subset_Icc hws).2 b)
-  -- The rescaled allocation `v = (1 - s)⁻¹ (w - s δ_b)` has a larger cost of the alternatives.
-  set t : ℝ := (1 - s)⁻¹ with ht_def
-  have ht : 1 < t := one_lt_inv_iff₀.2 ⟨by linarith, by linarith [hs.1]⟩
-  set v : α → ℝ := t • (w - Pi.single b s) with hv_def
-  have hv_apply (c : α) : v c = t * (w c - (Pi.single b s : α → ℝ) c) := by simp [hv_def]
-  have hv : v ∈ simplex α := smul_sub_single_mem_simplex hws hs.2.le hs1
-  have h_lt : task.answerValue μ a < task.altCost μ v a := by
-    rw [altCost_baiTask_restrict_eq_inf ν hT hμ hν ha' (mem_simplex_iff.1 hv).1,
-      Finset.lt_inf_iff hD_top.lt_top]
-    intro c hc
-    have hca := (Finset.mem_filter.1 hc).2
-    have hvc : ρ.expFamilyPairCost T (μ a) (μ c) (v a) (v c) =
-        t * ρ.expFamilyPairCost T (μ a) (μ c) (w a) (w c - (Pi.single b s : α → ℝ) c) := by
-      rw [hv_apply, hv_apply, Pi.single_eq_of_ne hba.symm, sub_zero,
-        expFamilyPairCost_mul]
-    rw [hD_eq, ENNReal.ofReal_lt_ofReal_iff_of_nonneg hD'_pos.le, hvc]
-    by_cases hcb : c = b
-    · subst hcb
-      rw [Pi.single_eq_same]
-      exact hs_lt.trans_le (le_mul_of_one_le_left (hD'_pos.trans hs_lt).le ht.le)
-    · rw [Pi.single_eq_of_ne hcb, sub_zero]
-      exact (lt_mul_of_one_lt_left hD'_pos ht).trans_le
-        (mul_le_mul_of_nonneg_left (hD'_le hca) (by linarith))
-  exact (task.altCost_le_answerValue hv).not_gt h_lt
+  rw [← IdentTask.betaAnswerValue_eq_answerValue_of_mem_optAlloc _ hw a]
+  exact betaAnswerValue_baiTask_restrict_eq_of_mem_betaOptAlloc ν hT hμ hν ha
+    (pos_of_mem_optAlloc_baiTask_restrict ν hT hμ hν ha hw a)
+    (IdentTask.mem_betaOptAlloc_of_mem_optAlloc _ hw a) hba
 
 /-- **The optimal allocation of best arm identification is unique** [GK16, Theorem 5]. For arms
 in an exponential family (as in `altCost_baiTask_restrict_eq_iInf_expFamilyPairCost`) and a vector
