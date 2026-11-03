@@ -7,7 +7,6 @@ module
 
 public import LMLExplore.MarkovDecisionProcess.RunValue
 public import LMLExplore.MarkovDecisionProcess.Value
-public import LMLExplore.MarkovDecisionProcess.ValueIteration.Basic
 
 /-!
 # Comparison of discounted values with sub- and supersolutions of the Bellman equations

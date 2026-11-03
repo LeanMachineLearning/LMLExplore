@@ -55,9 +55,6 @@ conditions, this makes the operators an instance of the abstract dynamic program
 * `Learning.MDP.abs_bellman_iterate_succ_sub_le`: the increments of value iteration decay
   geometrically; `Learning.MDP.bellman_iterate_succ_le`: the one-sided form
   `T^[n + 1] v - T^[n] v ≤ γ ^ n * b` when `T v - v ≤ b`.
-* `Learning.MDP.measurable_bellman_iterate`, `Learning.MDP.exists_abs_bellman_iterate_le`,
-  `Learning.MDP.measurable_bellmanEval_iterate`, `Learning.MDP.exists_abs_bellmanEval_iterate_le`:
-  the iterates of the operators at a bounded measurable function are bounded measurable.
 * `Learning.MDP.antitone_bellman_iterate`, `Learning.MDP.monotone_bellman_iterate`: monotone
   iterates.
 
@@ -109,25 +106,6 @@ lemma coeFn_bellmanOp_iterate (n : ℕ) (v : boundedMeasurable 𝓢) :
   | succ n ih => rw [iterate_succ_apply', coeFn_bellmanOp, ih, iterate_succ_apply']
 
 variable {hR}
-
-omit [Nonempty 𝓐] in
-/-- The iterates of the optimality operator at a measurable `v` are measurable, for countably many
-actions. -/
-theorem measurable_bellman_iterate (hv : Measurable v) (n : ℕ) :
-    Measurable ((M.bellman γ)^[n] v) := by
-  induction n with
-  | zero => exact hv
-  | succ n ih => rw [iterate_succ_apply']; exact measurable_bellman ih
-
-omit [Countable 𝓐] in
-/-- With bounded rewards, the iterates of the optimality operator at a bounded `v` are bounded. -/
-theorem exists_abs_bellman_iterate_le (hR : ∀ p, ∀ᵐ x ∂(M.R p), |x| ≤ C) (hvB : ∀ s, |v s| ≤ B)
-    (n : ℕ) : ∃ B', ∀ s, |(M.bellman γ)^[n] v s| ≤ B' := by
-  induction n with
-  | zero => exact ⟨B, hvB⟩
-  | succ n ih =>
-    obtain ⟨B', hB'⟩ := ih
-    exact ⟨C + γ * B', fun s ↦ by rw [iterate_succ_apply']; exact abs_bellman_le hR hB' s⟩
 
 /-- A bounded measurable fixed point of `M.bellman γ` is a fixed point of `M.bellmanOp γ hR`. -/
 lemma isFixedPt_bellmanOp_mk (hu : Measurable u) (huB : ∀ s, |u s| ≤ B)
@@ -342,24 +320,6 @@ lemma coeFn_bellmanEvalOp_iterate (n : ℕ) (v : boundedMeasurable 𝓢) :
   induction n with
   | zero => rfl
   | succ n ih => rw [iterate_succ_apply', coeFn_bellmanEvalOp, ih, iterate_succ_apply']
-
-/-- The iterates of the evaluation operator of a stationary policy at a measurable `v` are
-measurable. -/
-theorem measurable_bellmanEval_iterate (hv : Measurable v) (n : ℕ) :
-    Measurable ((M.bellmanEval γ π)^[n] v) := by
-  induction n with
-  | zero => exact hv
-  | succ n ih => rw [iterate_succ_apply']; exact measurable_bellmanEval ih
-
-/-- With bounded rewards, the iterates of the evaluation operator of a stationary policy at a
-bounded `v` are bounded. -/
-theorem exists_abs_bellmanEval_iterate_le (hR : ∀ p, ∀ᵐ x ∂(M.R p), |x| ≤ C)
-    (hvB : ∀ s, |v s| ≤ B) (n : ℕ) : ∃ B', ∀ s, |(M.bellmanEval γ π)^[n] v s| ≤ B' := by
-  induction n with
-  | zero => exact ⟨B, hvB⟩
-  | succ n ih =>
-    obtain ⟨B', hB'⟩ := ih
-    exact ⟨C + γ * B', fun s ↦ by rw [iterate_succ_apply']; exact abs_bellmanEval_le hR hB' s⟩
 
 variable {hR} in
 /-- A bounded measurable fixed point of `M.bellmanEval γ π` is a fixed point of

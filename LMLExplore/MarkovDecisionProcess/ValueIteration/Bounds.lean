@@ -6,6 +6,7 @@ Authors: Rémy Degenne
 module
 
 public import LMLExplore.MarkovDecisionProcess.Comparison
+public import LMLExplore.MarkovDecisionProcess.ValueIteration.Basic
 
 /-!
 # Bounds on the optimal value and the span stopping rule
