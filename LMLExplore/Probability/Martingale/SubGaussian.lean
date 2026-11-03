@@ -296,7 +296,7 @@ theorem measure_exists_sum_div_add_sqrt_add_le_zero_le_of_hasCondSubgaussianMGF
       (Nat.lt_pow_succ_log_self (by norm_num) s).le, h_block hs h⟩
   _ ≤ ∑' j, μ {ω | ∃ n ≤ 2 ^ (j + 1), ε j ≤ ∑ k ∈ range n, -Y k ω} := measure_iUnion_le _
   _ ≤ ∑' j, ENNReal.ofReal (2 * δ * (2 ^ j * exp (-(2 ^ j * (Δ ^ 2 / (4 * c)))))) :=
-    ENNReal.tsum_le_tsum fun j ↦ (measure_exists_le_sum_le_of_hasCondSubgaussianMGF hY' hsubG'
+    tsum_le_tsum fun j ↦ (measure_exists_le_sum_le_of_hasCondSubgaussianMGF hY' hsubG'
       (by positivity) _).trans (ENNReal.ofReal_le_ofReal (exp_neg_sq_div_le hc hδ hΔ.le j))
   _ ≤ ENNReal.ofReal (12 * c * δ / Δ ^ 2) := by
     refine ENNReal.tsum_le_of_sum_range_le fun m ↦ ?_

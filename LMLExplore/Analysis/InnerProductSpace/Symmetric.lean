@@ -5,7 +5,7 @@ Authors: Rémy Degenne
 -/
 module
 
-public import LMLExplore.Topology.Algebra.Module.ContinuousLinearMap.Basic
+public import TauCeti.Analysis.Normed.Operator.Basic
 public import Mathlib.Analysis.InnerProductSpace.Symmetric
 
 /-!
@@ -33,8 +33,8 @@ theorem IsSymmetric.ringInverse {V : E →L[𝕜] E} (hV : (V : E →ₗ[𝕜] E
   by_cases hu : IsUnit V
   · intro y z
     rw [ContinuousLinearMap.coe_coe]
-    conv_lhs => rw [← V.apply_ringInverse_apply hu z]
-    conv_rhs => rw [← V.apply_ringInverse_apply hu y]
+    conv_lhs => rw [← ContinuousLinearMap.apply_ringInverse_apply hu z]
+    conv_rhs => rw [← ContinuousLinearMap.apply_ringInverse_apply hu y]
     exact (hV _ _).symm
   · rw [Ring.inverse_non_unit V hu]
     exact IsSymmetric.zero

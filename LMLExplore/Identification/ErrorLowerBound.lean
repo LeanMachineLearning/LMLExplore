@@ -72,17 +72,18 @@ the model `θ`, and let `θ'` be a model without a common correct answer with `�
 arm `a` before the stopping time `τ`, then the probabilities of error of `A` on `θ` and `θ'` satisfy
 `exp(-∑ a, E_θ[N_a(τ)] KL(ν_a(θ), ν_a(θ'))) / 2 ≤ P_θ(error) + P_θ'(error)`. -/
 theorem exp_neg_sum_lintegral_pullCount_mul_klDiv_div_two_le
-    (hstop : StopsAS A (stationaryEnv (task.ν θ)))
+    (hstop : StopsAS A (Environment.bandit (task.ν θ)))
     (hdisj : Disjoint (task.correct θ) (task.correct θ')) (hc : MeasurableSet (task.correct θ))
-    (h : ∑ a, (∫⁻ ω, (pullCount IT.action a (A.stoppingTime IT.obs IT.action IT.feedback ω).toNat
-      ω : ℝ≥0∞) ∂(trajMeasure A.alg (stationaryEnv (task.ν θ)))) *
+    (h : ∑ a, (∫⁻ ω, (pullCount IT.action a
+      (ENat.toNat (A.stoppingTime IT.obs IT.action IT.feedback ω))
+      ω : ℝ≥0∞) ∂(trajMeasure A.alg (Environment.bandit (task.ν θ)))) *
         klDiv (task.ν θ a) (task.ν θ' a) ≠ ∞) :
     exp (-(∑ a, (∫⁻ ω, (pullCount IT.action a
-        (A.stoppingTime IT.obs IT.action IT.feedback ω).toNat ω : ℝ≥0∞)
-          ∂(trajMeasure A.alg (stationaryEnv (task.ν θ)))) *
+        (ENat.toNat (A.stoppingTime IT.obs IT.action IT.feedback ω)) ω : ℝ≥0∞)
+          ∂(trajMeasure A.alg (Environment.bandit (task.ν θ)))) *
             klDiv (task.ν θ a) (task.ν θ' a)).toReal) / 2 ≤
-      (A.outputMeasure (stationaryEnv (task.ν θ))).real (task.correct θ)ᶜ +
-        (A.outputMeasure (stationaryEnv (task.ν θ'))).real (task.correct θ')ᶜ := by
+      (A.outputMeasure (Environment.bandit (task.ν θ))).real (task.correct θ)ᶜ +
+        (A.outputMeasure (Environment.bandit (task.ν θ'))).real (task.correct θ')ᶜ := by
   have h_kl := klDiv_outputMeasure_le A (task.ν θ) (task.ν θ') hstop
   -- Bretagnolle–Huber for the event "the answer is not correct for `θ`", whose complement is
   -- contained in the event "the answer is not correct for `θ'`".
@@ -103,19 +104,20 @@ of models, none of which has a common correct answer with `θ`. If the value
 theorem exists_exp_neg_mul_div_four_le_max {Λ : Finset Θ} (hΛ : Λ.Nonempty)
     (hdisj : ∀ θ' ∈ Λ, Disjoint (task.correct θ) (task.correct θ'))
     (hc : MeasurableSet (task.correct θ))
-    (h : expectedStoppingTime A (stationaryEnv (task.ν θ)) ≠ ∞)
+    (h : expectedStoppingTime A (Environment.bandit (task.ν θ)) ≠ ∞)
     (hD : ⨆ w ∈ simplex α, ⨅ θ' ∈ Λ, task.cost w θ θ' ≠ ∞) :
-    ∃ θ' ∈ Λ, exp (-(expectedStoppingTime A (stationaryEnv (task.ν θ)) *
+    ∃ θ' ∈ Λ, exp (-(expectedStoppingTime A (Environment.bandit (task.ν θ)) *
         ⨆ w ∈ simplex α, ⨅ θ' ∈ Λ, task.cost w θ θ').toReal) / 4 ≤
-      max ((A.outputMeasure (stationaryEnv (task.ν θ))).real (task.correct θ)ᶜ)
-        ((A.outputMeasure (stationaryEnv (task.ν θ'))).real (task.correct θ')ᶜ) := by
+      max ((A.outputMeasure (Environment.bandit (task.ν θ))).real (task.correct θ)ᶜ)
+        ((A.outputMeasure (Environment.bandit (task.ν θ'))).real (task.correct θ')ᶜ) := by
   classical
-  have hstop : StopsAS A (stationaryEnv (task.ν θ)) := .of_expectedStoppingTime_ne_top h
+  have hstop : StopsAS A (Environment.bandit (task.ν θ)) := .of_expectedStoppingTime_ne_top h
   -- It suffices to find `θ' ∈ Λ` with `∑ a, E_θ[N_a(τ)] KL(ν_a(θ), ν_a(θ')) ≤ E_θ[τ] D`.
   suffices ∃ θ' ∈ Λ, ∑ a, (∫⁻ ω, (pullCount IT.action a
-      (A.stoppingTime IT.obs IT.action IT.feedback ω).toNat ω : ℝ≥0∞)
-        ∂(trajMeasure A.alg (stationaryEnv (task.ν θ)))) *
-          klDiv (task.ν θ a) (task.ν θ' a) ≤ expectedStoppingTime A (stationaryEnv (task.ν θ)) *
+      (ENat.toNat (A.stoppingTime IT.obs IT.action IT.feedback ω)) ω : ℝ≥0∞)
+        ∂(trajMeasure A.alg (Environment.bandit (task.ν θ)))) *
+          klDiv (task.ν θ a) (task.ν θ' a) ≤
+          expectedStoppingTime A (Environment.bandit (task.ν θ)) *
             ⨆ w ∈ simplex α, ⨅ θ' ∈ Λ, task.cost w θ θ' by
     obtain ⟨θ', hθ', h_le⟩ := this
     have hED := ENNReal.mul_ne_top h hD
@@ -123,12 +125,12 @@ theorem exists_exp_neg_mul_div_four_le_max {Λ : Finset Θ} (hΛ : Λ.Nonempty)
       (h_le.trans_lt hED.lt_top).ne
     refine ⟨θ', hθ', ?_⟩
     have h_exp := exp_le_exp.2 (neg_le_neg (ENNReal.toReal_mono hED h_le))
-    generalize (A.outputMeasure (stationaryEnv (task.ν θ))).real (task.correct θ)ᶜ = x
+    generalize (A.outputMeasure (Environment.bandit (task.ν θ))).real (task.correct θ)ᶜ = x
       at h_bh ⊢
-    generalize (A.outputMeasure (stationaryEnv (task.ν θ'))).real (task.correct θ')ᶜ = y
+    generalize (A.outputMeasure (Environment.bandit (task.ν θ'))).real (task.correct θ')ᶜ = y
       at h_bh ⊢
     linarith [le_max_left x y, le_max_right x y]
-  rcases eq_or_ne (expectedStoppingTime A (stationaryEnv (task.ν θ))) 0 with h0 | h0
+  rcases eq_or_ne (expectedStoppingTime A (Environment.bandit (task.ν θ))) 0 with h0 | h0
   · -- If `E_θ[τ] = 0`, every expected number of pulls vanishes.
     obtain ⟨θ', hθ'⟩ := hΛ
     refine ⟨θ', hθ', le_of_eq_of_le (Finset.sum_eq_zero fun a _ ↦ ?_) zero_le⟩
@@ -137,13 +139,14 @@ theorem exists_exp_neg_mul_div_four_le_max {Λ : Finset Θ} (hΛ : Λ.Nonempty)
   -- `E_θ[τ] cost_θ(w, θ')`; choose `θ' ∈ Λ` minimizing `cost_θ(w, ·)`.
   have hw := expectedPullProportion_mem_simplex h0 h
   obtain ⟨θ', hθ', hmin⟩ :=
-    Λ.exists_min_image (task.cost (expectedPullProportion A (stationaryEnv (task.ν θ))) θ) hΛ
+    Λ.exists_min_image (task.cost (expectedPullProportion A (Environment.bandit (task.ν θ))) θ) hΛ
   refine ⟨θ', hθ', ?_⟩
   have h_sum : ∑ a, (∫⁻ ω, (pullCount IT.action a
-      (A.stoppingTime IT.obs IT.action IT.feedback ω).toNat ω : ℝ≥0∞)
-        ∂(trajMeasure A.alg (stationaryEnv (task.ν θ)))) *
-          klDiv (task.ν θ a) (task.ν θ' a) = expectedStoppingTime A (stationaryEnv (task.ν θ)) *
-            task.cost (expectedPullProportion A (stationaryEnv (task.ν θ))) θ θ' := by
+      (ENat.toNat (A.stoppingTime IT.obs IT.action IT.feedback ω)) ω : ℝ≥0∞)
+        ∂(trajMeasure A.alg (Environment.bandit (task.ν θ)))) *
+          klDiv (task.ν θ a) (task.ν θ' a) =
+          expectedStoppingTime A (Environment.bandit (task.ν θ)) *
+            task.cost (expectedPullProportion A (Environment.bandit (task.ν θ))) θ θ' := by
     simp_rw [cost_def, Finset.mul_sum, ← mul_assoc,
       expectedStoppingTime_mul_ofReal_expectedPullProportion h]
   rw [h_sum]
@@ -167,14 +170,16 @@ number of pulls of the arm `a` in the first `T` rounds, then the probabilities o
 theorem exp_neg_sum_lintegral_pullCount_mul_klDiv_div_two_le (hA : IsFixedBudget A T)
     (hdisj : Disjoint (task.correct θ) (task.correct θ')) (hc : MeasurableSet (task.correct θ))
     (h : ∑ a, (∫⁻ ω, (pullCount IT.action a T ω : ℝ≥0∞)
-      ∂(trajMeasure A.alg (stationaryEnv (task.ν θ)))) * klDiv (task.ν θ a) (task.ν θ' a) ≠ ∞) :
+      ∂(trajMeasure A.alg (Environment.bandit (task.ν θ)))) * klDiv (task.ν θ a) (task.ν θ' a)
+      ≠ ∞) :
     exp (-(∑ a, (∫⁻ ω, (pullCount IT.action a T ω : ℝ≥0∞)
-        ∂(trajMeasure A.alg (stationaryEnv (task.ν θ)))) *
+        ∂(trajMeasure A.alg (Environment.bandit (task.ν θ)))) *
           klDiv (task.ν θ a) (task.ν θ' a)).toReal) / 2 ≤
-      (A.outputMeasure (stationaryEnv (task.ν θ))).real (task.correct θ)ᶜ +
-        (A.outputMeasure (stationaryEnv (task.ν θ'))).real (task.correct θ')ᶜ := by
-  have hτ : ∀ ω, (A.stoppingTime IT.obs IT.action IT.feedback ω).toNat = T := fun ω ↦ by
-    rw [hA.stoppingTime_eq, ENat.toNat_natCast]
+      (A.outputMeasure (Environment.bandit (task.ν θ))).real (task.correct θ)ᶜ +
+        (A.outputMeasure (Environment.bandit (task.ν θ'))).real (task.correct θ')ᶜ := by
+  have hτ : ∀ ω, ENat.toNat (A.stoppingTime IT.obs IT.action IT.feedback ω) = T := fun ω ↦ by
+    rw [hA.stoppingTime_eq]
+    exact ENat.toNat_natCast T
   simpa only [hτ] using IdentTask.exp_neg_sum_lintegral_pullCount_mul_klDiv_div_two_le
     (hA.stopsAS _) hdisj hc (by simpa only [hτ] using h)
 
@@ -187,8 +192,8 @@ theorem exp_neg_mul_iSup_klDiv_div_four_le_max [Finite α] (hA : IsFixedBudget A
     (hdisj : Disjoint (task.correct θ) (task.correct θ')) (hc : MeasurableSet (task.correct θ))
     (h : ∀ a, klDiv (task.ν θ a) (task.ν θ' a) ≠ ∞) :
     exp (-(T * ⨆ a, klDiv (task.ν θ a) (task.ν θ' a)).toReal) / 4 ≤
-      max ((A.outputMeasure (stationaryEnv (task.ν θ))).real (task.correct θ)ᶜ)
-        ((A.outputMeasure (stationaryEnv (task.ν θ'))).real (task.correct θ')ᶜ) := by
+      max ((A.outputMeasure (Environment.bandit (task.ν θ))).real (task.correct θ)ᶜ)
+        ((A.outputMeasure (Environment.bandit (task.ν θ'))).real (task.correct θ')ᶜ) := by
   have := Fintype.ofFinite α
   have h_sup : ⨆ a, klDiv (task.ν θ a) (task.ν θ' a) ≠ ∞ := iSup_ne_top h
   -- The value `sup_{w ∈ Δ_K} cost_θ(w, θ')` of the family `{θ'}` is at most `max_a KL`.

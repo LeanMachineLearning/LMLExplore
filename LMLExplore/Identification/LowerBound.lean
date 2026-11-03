@@ -84,10 +84,11 @@ stops almost surely on `θ`. Then for every alternative `θ'` to `i`,
 arm `a` before the stopping time `τ`. -/
 theorem IsDeltaCorrect.klBer_le_sum_lintegral_pullCount_mul_klDiv (hA : task.IsDeltaCorrect A δ)
     (hδ : δ ≤ 1 / 2) (hθ : θ ∈ task.M) (hi : task.correct θ = {i}) (hθ' : θ' ∈ task.alt i)
-    (hstop : StopsAS A (stationaryEnv (task.ν θ))) :
+    (hstop : StopsAS A (Environment.bandit (task.ν θ))) :
     klBer δ (1 - δ) ≤
-      ∑ a, (∫⁻ ω, (pullCount IT.action a (A.stoppingTime IT.obs IT.action IT.feedback ω).toNat
-        ω : ℝ≥0∞) ∂(trajMeasure A.alg (stationaryEnv (task.ν θ)))) *
+      ∑ a, (∫⁻ ω, (pullCount IT.action a
+        (ENat.toNat (A.stoppingTime IT.obs IT.action IT.feedback ω))
+        ω : ℝ≥0∞) ∂(trajMeasure A.alg (Environment.bandit (task.ν θ)))) *
           klDiv (task.ν θ a) (task.ν θ' a) := by
   refine le_trans ?_
     (klBer_measureReal_histOutputMeasure_le A _ _ hstop (A.measurableSet_mem_stopSet_and_eq i))
@@ -104,10 +105,10 @@ theorem IsDeltaCorrect.klBer_le_sum_lintegral_pullCount_mul_klDiv (hA : task.IsD
 `kl(δ, 1 - δ) ≤ E_θ[τ] D(θ, w, ¬i)`. -/
 theorem IsDeltaCorrect.klBer_le_expectedStoppingTime_mul_altCost (hA : task.IsDeltaCorrect A δ)
     (hδ : δ ≤ 1 / 2) (hθ : θ ∈ task.M) (hi : task.correct θ = {i})
-    (h0 : expectedStoppingTime A (stationaryEnv (task.ν θ)) ≠ 0)
-    (h : expectedStoppingTime A (stationaryEnv (task.ν θ)) ≠ ∞) :
-    klBer δ (1 - δ) ≤ expectedStoppingTime A (stationaryEnv (task.ν θ)) *
-      task.altCost θ (expectedPullProportion A (stationaryEnv (task.ν θ))) i := by
+    (h0 : expectedStoppingTime A (Environment.bandit (task.ν θ)) ≠ 0)
+    (h : expectedStoppingTime A (Environment.bandit (task.ν θ)) ≠ ∞) :
+    klBer δ (1 - δ) ≤ expectedStoppingTime A (Environment.bandit (task.ν θ)) *
+      task.altCost θ (expectedPullProportion A (Environment.bandit (task.ν θ))) i := by
   simp_rw [altCost_def, ENNReal.mul_iInf_of_ne h0 h]
   refine le_iInf₂ fun θ' hθ' ↦ (hA.klBer_le_sum_lintegral_pullCount_mul_klDiv hδ hθ hi hθ'
     (.of_expectedStoppingTime_ne_top h)).trans_eq ?_
@@ -121,14 +122,14 @@ Then `T*(θ) kl(δ, 1 - δ) ≤ E_θ[τ]`. -/
 theorem IsDeltaCorrect.charTime_mul_le_expectedStoppingTime [Nonempty α]
     (hA : task.IsDeltaCorrect A δ) (hδ : δ ≤ 1 / 2) (hθ : θ ∈ task.M)
     (hi : task.correct θ = {i}) :
-    task.charTime θ * klBer δ (1 - δ) ≤ expectedStoppingTime A (stationaryEnv (task.ν θ)) := by
+    task.charTime θ * klBer δ (1 - δ) ≤ expectedStoppingTime A (Environment.bandit (task.ν θ)) := by
   classical
-  rcases eq_or_ne (expectedStoppingTime A (stationaryEnv (task.ν θ))) ∞ with h | h
+  rcases eq_or_ne (expectedStoppingTime A (Environment.bandit (task.ν θ))) ∞ with h | h
   · exact h ▸ le_top
   -- If `i` has no alternative, then `D(θ) = ∞` and `T*(θ) = 0`.
   rcases (task.alt i).eq_empty_or_nonempty with h_alt | ⟨θ', hθ'⟩
   · simp [charTime_eq_inv_answerValue _ hi, answerValue_eq_top_of_alt_eq_empty _ h_alt]
-  rcases eq_or_ne (expectedStoppingTime A (stationaryEnv (task.ν θ))) 0 with h0 | h0
+  rcases eq_or_ne (expectedStoppingTime A (Environment.bandit (task.ν θ))) 0 with h0 | h0
   · -- If `E_θ[τ] = 0`, then all the expected numbers of pulls vanish, hence so does `kl(δ, 1 - δ)`.
     have h_kl := hA.klBer_le_sum_lintegral_pullCount_mul_klDiv hδ hθ hi hθ'
       (.of_expectedStoppingTime_ne_top h)
@@ -152,7 +153,7 @@ theorem IsDeltaCorrect.charTime_mul_ofReal_log_le_expectedStoppingTime [Nonempty
     (hA : task.IsDeltaCorrect A δ) {c : ℝ} (hc : 2.4 ≤ c) (hθ : θ ∈ task.M)
     (hi : task.correct θ = {i}) :
     task.charTime θ * ENNReal.ofReal (Real.log (1 / (c * δ))) ≤
-      expectedStoppingTime A (stationaryEnv (task.ν θ)) := by
+      expectedStoppingTime A (Environment.bandit (task.ν θ)) := by
   rcases le_or_gt δ (1 / 2) with hδ | hδ
   · exact (mul_le_mul_right (ofReal_log_one_div_le_klBer hc δ) _).trans
       (hA.charTime_mul_le_expectedStoppingTime hδ hθ hi)

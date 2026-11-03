@@ -39,15 +39,16 @@ variable {𝓞 𝓐 𝓨 : Type*} {m𝓞 : MeasurableSpace 𝓞} {m𝓐 : Measur
 /-- The deterministic algorithm that plays the fixed sequence `x : ℕ → 𝓐` regardless of the
 observations and feedbacks (a *fixed design*). -/
 noncomputable def Algorithm.ofSeq (x : ℕ → 𝓐) : Algorithm 𝓞 𝓐 𝓨 :=
-  detAlgorithm (fun n _ ↦ x n) fun _ ↦ measurable_const
+  Algorithm.deterministic (fun n _ ↦ x n) fun _ ↦ measurable_const
 
 /-- The defining formula of `Algorithm.ofSeq`. -/
 lemma Algorithm.ofSeq_def (x : ℕ → 𝓐) :
-    (Algorithm.ofSeq x : Algorithm 𝓞 𝓐 𝓨) = detAlgorithm (fun n _ ↦ x n) fun _ ↦ measurable_const :=
+    (Algorithm.ofSeq x : Algorithm 𝓞 𝓐 𝓨)
+      = Algorithm.deterministic (fun n _ ↦ x n) fun _ ↦ measurable_const :=
   (rfl)
 
-instance (x : ℕ → 𝓐) : IsDeterministicAlg (Algorithm.ofSeq x : Algorithm 𝓞 𝓐 𝓨) :=
-  inferInstanceAs (IsDeterministicAlg (detAlgorithm _ _))
+instance (x : ℕ → 𝓐) : (Algorithm.ofSeq x : Algorithm 𝓞 𝓐 𝓨).IsDeterministic :=
+  inferInstanceAs (Algorithm.deterministic _ _).IsDeterministic
 
 @[simp]
 lemma Algorithm.policy_ofSeq (x : ℕ → 𝓐) (n : ℕ) :
@@ -60,6 +61,6 @@ lemma IsAlgEnvSeq.action_ofSeq_ae_all_eq [MeasurableEq 𝓐] {Ω : Type*} {mΩ :
     {P : Measure Ω} [IsProbabilityMeasure P] {O : ℕ → Ω → 𝓞} {X : ℕ → Ω → 𝓐} {Y : ℕ → Ω → 𝓨}
     {x : ℕ → 𝓐} {env : Environment 𝓞 𝓐 𝓨} (h : IsAlgEnvSeq O X Y (Algorithm.ofSeq x) env P) :
     ∀ᵐ ω ∂P, ∀ n, X n ω = x n :=
-  IsAlgEnvSeq.action_detAlgorithm_ae_all_eq h
+  IsAlgEnvSeq.action_ae_all_eq_deterministic h
 
 end Learning

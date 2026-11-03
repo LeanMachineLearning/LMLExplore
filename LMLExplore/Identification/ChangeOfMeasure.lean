@@ -64,24 +64,27 @@ the joint laws of its stopped history and its output on the bandits `κ` and `κ
 `∑ a, E_κ[N_a(τ)] KL(κ a ‖ κ' a)`, where `N_a(τ)` is the number of pulls of `a` before the stopping
 time `τ`. -/
 theorem klDiv_histOutputMeasure_le (A : IdentAlg Unit 𝓐 𝓨 𝓓) (κ κ' : Kernel 𝓐 𝓨)
-    [IsMarkovKernel κ] [IsMarkovKernel κ'] (hA : StopsAS A (stationaryEnv κ)) :
-    klDiv (histOutputMeasure A (stationaryEnv κ)) (histOutputMeasure A (stationaryEnv κ')) ≤
-      ∑ a, (∫⁻ ω, (pullCount IT.action a (A.stoppingTime IT.obs IT.action IT.feedback ω).toNat
-        ω : ℝ≥0∞) ∂(trajMeasure A.alg (stationaryEnv κ))) * klDiv (κ a) (κ' a) := by
+    [IsMarkovKernel κ] [IsMarkovKernel κ'] (hA : StopsAS A (Environment.bandit κ)) :
+    klDiv (histOutputMeasure A (Environment.bandit κ))
+        (histOutputMeasure A (Environment.bandit κ')) ≤
+      ∑ a, (∫⁻ ω, (pullCount IT.action a
+        (ENat.toNat (A.stoppingTime IT.obs IT.action IT.feedback ω))
+        ω : ℝ≥0∞) ∂(trajMeasure A.alg (Environment.bandit κ))) * klDiv (κ a) (κ' a) := by
   rw [histOutputMeasure_def, histOutputMeasure_def, klDiv_compProd_left,
     IdentAlg.stoppingTime_def]
   exact klDiv_stoppedHistMeasure_le A.measurableSet_stopSet
-    (hA.ae_stoppingTime_ne_top (IT.isAlgEnvSeq_trajMeasure A.alg (stationaryEnv κ)))
+    (hA.ae_stoppingTime_ne_top (IT.isAlgEnvSeq_trajMeasure A.alg (Environment.bandit κ)))
 
 /-- **Divergence decomposition for the output** of an identification algorithm. If `A` stops
 almost surely on the stationary bandit with reward kernel `κ`, then the relative entropy between
 the laws of its output on the bandits `κ` and `κ'` is at most `∑ a, E_κ[N_a(τ)] KL(κ a ‖ κ' a)`,
 where `N_a(τ)` is the number of pulls of `a` before the stopping time `τ`. -/
 theorem klDiv_outputMeasure_le (A : IdentAlg Unit 𝓐 𝓨 𝓓) (κ κ' : Kernel 𝓐 𝓨)
-    [IsMarkovKernel κ] [IsMarkovKernel κ'] (hA : StopsAS A (stationaryEnv κ)) :
-    klDiv (A.outputMeasure (stationaryEnv κ)) (A.outputMeasure (stationaryEnv κ')) ≤
-      ∑ a, (∫⁻ ω, (pullCount IT.action a (A.stoppingTime IT.obs IT.action IT.feedback ω).toNat
-        ω : ℝ≥0∞) ∂(trajMeasure A.alg (stationaryEnv κ))) * klDiv (κ a) (κ' a) := by
+    [IsMarkovKernel κ] [IsMarkovKernel κ'] (hA : StopsAS A (Environment.bandit κ)) :
+    klDiv (A.outputMeasure (Environment.bandit κ)) (A.outputMeasure (Environment.bandit κ')) ≤
+      ∑ a, (∫⁻ ω, (pullCount IT.action a
+        (ENat.toNat (A.stoppingTime IT.obs IT.action IT.feedback ω))
+        ω : ℝ≥0∞) ∂(trajMeasure A.alg (Environment.bandit κ))) * klDiv (κ a) (κ' a) := by
   rw [← snd_histOutputMeasure, ← snd_histOutputMeasure]
   exact (klDiv_map_le _ _ measurable_snd).trans (klDiv_histOutputMeasure_le A κ κ' hA)
 
@@ -91,12 +94,13 @@ the binary relative entropy of the probabilities of `E` on the bandits `κ` and 
 `∑ a, E_κ[N_a(τ)] KL(κ a ‖ κ' a)`, where `N_a(τ)` is the number of pulls of `a` before the stopping
 time `τ`. No absolute continuity is assumed: the inequality holds in `ℝ≥0∞`. -/
 theorem klBer_measureReal_histOutputMeasure_le (A : IdentAlg Unit 𝓐 𝓨 𝓓) (κ κ' : Kernel 𝓐 𝓨)
-    [IsMarkovKernel κ] [IsMarkovKernel κ'] (hA : StopsAS A (stationaryEnv κ))
+    [IsMarkovKernel κ] [IsMarkovKernel κ'] (hA : StopsAS A (Environment.bandit κ))
     {E : Set ((Σ n : ℕ, Hist Unit 𝓐 𝓨 n) × 𝓓)} (hE : MeasurableSet E) :
-    klBer ((histOutputMeasure A (stationaryEnv κ)).real E)
-        ((histOutputMeasure A (stationaryEnv κ')).real E) ≤
-      ∑ a, (∫⁻ ω, (pullCount IT.action a (A.stoppingTime IT.obs IT.action IT.feedback ω).toNat
-        ω : ℝ≥0∞) ∂(trajMeasure A.alg (stationaryEnv κ))) * klDiv (κ a) (κ' a) :=
+    klBer ((histOutputMeasure A (Environment.bandit κ)).real E)
+        ((histOutputMeasure A (Environment.bandit κ')).real E) ≤
+      ∑ a, (∫⁻ ω, (pullCount IT.action a
+        (ENat.toNat (A.stoppingTime IT.obs IT.action IT.feedback ω))
+        ω : ℝ≥0∞) ∂(trajMeasure A.alg (Environment.bandit κ))) * klDiv (κ a) (κ' a) :=
   (klBer_measureReal_le_klDiv hE).trans (klDiv_histOutputMeasure_le A κ κ' hA)
 
 end LMLExplore.Identification

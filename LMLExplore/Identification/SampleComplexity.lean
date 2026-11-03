@@ -87,12 +87,13 @@ namespace LMLExplore.Identification
 environment `env`: the lower integral of its stopping time under `trajMeasure A.alg env`. -/
 noncomputable def expectedStoppingTime (A : IdentAlg 𝓞 𝓐 𝓨 𝓓) (env : Environment 𝓞 𝓐 𝓨) :
     ℝ≥0∞ :=
-  ∫⁻ ω, (A.stoppingTime IT.obs IT.action IT.feedback ω : ℝ≥0∞) ∂(trajMeasure A.alg env)
+  ∫⁻ ω, ENat.toENNReal (A.stoppingTime IT.obs IT.action IT.feedback ω) ∂(trajMeasure A.alg env)
 
 /-- The defining formula of `expectedStoppingTime`. -/
 lemma expectedStoppingTime_def (A : IdentAlg 𝓞 𝓐 𝓨 𝓓) (env : Environment 𝓞 𝓐 𝓨) :
     expectedStoppingTime A env =
-      ∫⁻ ω, (A.stoppingTime IT.obs IT.action IT.feedback ω : ℝ≥0∞) ∂(trajMeasure A.alg env) :=
+      ∫⁻ ω, ENat.toENNReal (A.stoppingTime IT.obs IT.action IT.feedback ω)
+        ∂(trajMeasure A.alg env) :=
   (rfl)
 
 /-- An identification algorithm with a finite expected stopping time in `env` stops almost surely
@@ -102,7 +103,7 @@ lemma StopsAS.of_expectedStoppingTime_ne_top (h : expectedStoppingTime A env ≠
   rw [stopsAS_iff_ae_stoppingTime_ne_top (IT.isAlgEnvSeq_trajMeasure A.alg env)]
   filter_upwards [ae_lt_top (Measurable.of_discrete.comp (A.measurable_stoppingTime
     IT.measurable_obs IT.measurable_action IT.measurable_feedback)) h] with ω hω
-  simpa using hω.ne
+  exact ENat.toENNReal_ne_top.mp hω.ne
 
 end LMLExplore.Identification
 
@@ -114,9 +115,9 @@ open LMLExplore.Identification
 rule in `env` is `expectedStoppingTime A env`. -/
 lemma lintegral_stoppingTime_eq_expectedStoppingTime [IsProbabilityMeasure P]
     (h : IsAlgEnvSeq O X Y A.alg env P) :
-    ∫⁻ ω, (A.stoppingTime O X Y ω : ℝ≥0∞) ∂P = expectedStoppingTime A env :=
+    ∫⁻ ω, ENat.toENNReal (A.stoppingTime O X Y ω) ∂P = expectedStoppingTime A env :=
   h.hasLaw_trajectory.lintegral_comp
-    (f := fun ω ↦ (A.stoppingTime IT.obs IT.action IT.feedback ω : ℝ≥0∞))
+    (f := fun ω ↦ ENat.toENNReal (A.stoppingTime IT.obs IT.action IT.feedback ω))
     (Measurable.of_discrete.comp (A.measurable_stoppingTime IT.measurable_obs
       IT.measurable_action IT.measurable_feedback)).aemeasurable
 
@@ -133,8 +134,9 @@ lemma expectedStoppingTime_le_add_tsum_measure_compl [IsProbabilityMeasure P]
     (hE : ∀ T ≥ T₀, ∀ ω ∈ E T, A.stoppingTime O X Y ω ≤ T) :
     expectedStoppingTime A env ≤ T₀ + ∑' T, P (E (T + T₀))ᶜ := by
   rw [← IdentAlg.lintegral_stoppingTime_eq_expectedStoppingTime h]
-  exact lintegral_toENNReal_le_add_tsum_measure_compl (A.measurable_stoppingTime
-    h.measurable_obs h.measurable_action h.measurable_feedback).aemeasurable hE
+  exact lintegral_toENNReal_le_add_tsum_measure_compl (measurable_to_countable' (α := ℕ∞) fun n ↦
+    A.measurable_stoppingTime h.measurable_obs h.measurable_action h.measurable_feedback
+      (measurableSet_singleton (α := WithTop ℕ) n)).aemeasurable hE
 
 end LMLExplore.Identification
 
@@ -151,10 +153,11 @@ algorithm-environment sequence of its sampling rule, `𝔼[τ] = ∑ a, 𝔼[N_a
 the number of pulls of the action `a` before the stopping time `τ`. -/
 lemma lintegral_stoppingTime_eq_sum_lintegral_pullCount [IsProbabilityMeasure P]
     (h : IsAlgEnvSeq O X Y A.alg env P) (hA : StopsAS A env) :
-    ∫⁻ ω, (A.stoppingTime O X Y ω : ℝ≥0∞) ∂P =
-      ∑ a, ∫⁻ ω, (pullCount X a (A.stoppingTime O X Y ω).toNat ω : ℝ≥0∞) ∂P :=
+    ∫⁻ ω, ENat.toENNReal (A.stoppingTime O X Y ω) ∂P =
+      ∑ a, ∫⁻ ω, (pullCount X a (ENat.toNat (A.stoppingTime O X Y ω)) ω : ℝ≥0∞) ∂P :=
   LMLExplore.lintegral_toENNReal_eq_sum_lintegral_pullCount h.measurable_action
-    (A.measurable_stoppingTime h.measurable_obs h.measurable_action h.measurable_feedback)
+    (measurable_to_countable' (α := ℕ∞) fun n ↦ A.measurable_stoppingTime h.measurable_obs
+      h.measurable_action h.measurable_feedback (measurableSet_singleton (α := WithTop ℕ) n))
     (hA.ae_stoppingTime_ne_top h)
 
 end Learning.IdentAlg
@@ -169,7 +172,8 @@ variable [Fintype 𝓐] [DecidableEq 𝓐] [MeasurableSingletonClass 𝓐]
 lemma expectedStoppingTime_eq_sum_lintegral_pullCount (hA : StopsAS A env) :
     expectedStoppingTime A env =
       ∑ a, ∫⁻ ω, (pullCount IT.action a
-        (A.stoppingTime IT.obs IT.action IT.feedback ω).toNat ω : ℝ≥0∞) ∂(trajMeasure A.alg env) :=
+        (ENat.toNat (A.stoppingTime IT.obs IT.action IT.feedback ω)) ω : ℝ≥0∞)
+          ∂(trajMeasure A.alg env) :=
   IdentAlg.lintegral_stoppingTime_eq_sum_lintegral_pullCount
     (IT.isAlgEnvSeq_trajMeasure A.alg env) hA
 
@@ -181,7 +185,8 @@ variable (A env) in
 action `a` is played, where `N_a(τ)` is the number of pulls of `a` before the stopping time `τ`.
 It is `0` when `𝔼[τ]` is `0` or `∞`. -/
 noncomputable def expectedPullProportion (a : 𝓐) : ℝ :=
-  ((∫⁻ ω, (pullCount IT.action a (A.stoppingTime IT.obs IT.action IT.feedback ω).toNat ω : ℝ≥0∞)
+  ((∫⁻ ω, (pullCount IT.action a
+    (ENat.toNat (A.stoppingTime IT.obs IT.action IT.feedback ω)) ω : ℝ≥0∞)
     ∂(trajMeasure A.alg env)) / expectedStoppingTime A env).toReal
 
 omit [Fintype 𝓐] [MeasurableSingletonClass 𝓐] in
@@ -189,8 +194,9 @@ variable (A env) in
 /-- The defining formula of `expectedPullProportion`. -/
 lemma expectedPullProportion_def (a : 𝓐) :
     expectedPullProportion A env a =
-      ((∫⁻ ω, (pullCount IT.action a (A.stoppingTime IT.obs IT.action IT.feedback ω).toNat ω :
-        ℝ≥0∞) ∂(trajMeasure A.alg env)) / expectedStoppingTime A env).toReal :=
+      ((∫⁻ ω, (pullCount IT.action a
+        (ENat.toNat (A.stoppingTime IT.obs IT.action IT.feedback ω)) ω : ℝ≥0∞)
+          ∂(trajMeasure A.alg env)) / expectedStoppingTime A env).toReal :=
   (rfl)
 
 omit [Fintype 𝓐] [MeasurableSingletonClass 𝓐] in
@@ -216,12 +222,14 @@ omit [Fintype 𝓐] in
 lemma expectedStoppingTime_mul_ofReal_expectedPullProportion [Finite 𝓐]
     (h : expectedStoppingTime A env ≠ ∞) (a : 𝓐) :
     expectedStoppingTime A env * ENNReal.ofReal (expectedPullProportion A env a) =
-      ∫⁻ ω, (pullCount IT.action a (A.stoppingTime IT.obs IT.action IT.feedback ω).toNat ω : ℝ≥0∞)
+      ∫⁻ ω, (pullCount IT.action a
+        (ENat.toNat (A.stoppingTime IT.obs IT.action IT.feedback ω)) ω : ℝ≥0∞)
         ∂(trajMeasure A.alg env) := by
   have := Fintype.ofFinite 𝓐
   -- By Wald's identity, `𝔼[N_a(τ)] ≤ 𝔼[τ]`.
-  have hle : ∫⁻ ω, (pullCount IT.action a (A.stoppingTime IT.obs IT.action IT.feedback ω).toNat ω :
-      ℝ≥0∞) ∂(trajMeasure A.alg env) ≤ expectedStoppingTime A env := by
+  have hle : ∫⁻ ω, (pullCount IT.action a
+      (ENat.toNat (A.stoppingTime IT.obs IT.action IT.feedback ω)) ω : ℝ≥0∞)
+        ∂(trajMeasure A.alg env) ≤ expectedStoppingTime A env := by
     rw [expectedStoppingTime_eq_sum_lintegral_pullCount (StopsAS.of_expectedStoppingTime_ne_top h)]
     apply Finset.single_le_sum_of_canonicallyOrdered (Finset.mem_univ a)
   rcases eq_or_ne (expectedStoppingTime A env) 0 with h0 | h0
@@ -256,10 +264,10 @@ before stopping is `∑ a, 𝔼[N_a(τ)] μ_a`, where `N_a(τ)` is the number of
 before `τ` and `μ_a` is the mean of `ν a`. -/
 lemma integral_sum_feedback_eq_sum_integral_pullCount_mul [IsProbabilityMeasure P]
     {A : IdentAlg Unit 𝓐 ℝ 𝓓} {ν : Kernel 𝓐 ℝ} [IsMarkovKernel ν] {O : ℕ → Ω → Unit}
-    {X : ℕ → Ω → 𝓐} {Y : ℕ → Ω → ℝ} (h : IsAlgEnvSeq O X Y A.alg (stationaryEnv ν) P)
-    (hA : expectedStoppingTime A (stationaryEnv ν) ≠ ∞) (hν : ∀ a, Integrable id (ν a)) :
-    ∫ ω, ∑ t ∈ range (A.stoppingTime O X Y ω).toNat, Y t ω ∂P =
-      ∑ a, (∫ ω, (pullCount X a (A.stoppingTime O X Y ω).toNat ω : ℝ) ∂P) * ∫ y, y ∂(ν a) :=
+    {X : ℕ → Ω → 𝓐} {Y : ℕ → Ω → ℝ} (h : IsAlgEnvSeq O X Y A.alg (Environment.bandit ν) P)
+    (hA : expectedStoppingTime A (Environment.bandit ν) ≠ ∞) (hν : ∀ a, Integrable id (ν a)) :
+    ∫ ω, ∑ t ∈ range (ENat.toNat (A.stoppingTime O X Y ω)), Y t ω ∂P =
+      ∑ a, (∫ ω, (pullCount X a (ENat.toNat (A.stoppingTime O X Y ω)) ω : ℝ) ∂P) * ∫ y, y ∂(ν a) :=
   h.integral_sum_feedback_eq_sum_integral_pullCount_mul
     (A.isStoppingTime_filtrationAction_stoppingTime h)
     (by rwa [A.lintegral_stoppingTime_eq_expectedStoppingTime h]) hν
