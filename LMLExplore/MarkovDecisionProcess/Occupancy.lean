@@ -47,7 +47,8 @@ from its marginals `M.stateMarginal π μ n ⊗ₘ π n`.
 * `Learning.MDP.occupancy_markov`, `Learning.MDP.occupancy_markov_const`: the occupancy measures
   of Markov and stationary policies, in terms of their state-action marginals; for a stationary
   policy, it is the image of the initial state-action law by the resolvent of the state-action
-  kernel, scaled by `1 - γ`.
+  kernel, scaled by `1 - γ`; `Learning.MDP.isCondKernel_occupancy_markov_const`: the occupancy
+  measure of a stationary policy `π` disintegrates as its state marginal composed with `π`.
 
 ## References
 
@@ -238,6 +239,19 @@ theorem occupancy_markov_const {π : Kernel 𝓢 𝓐} [IsMarkovKernel π] :
     M.occupancy γ (Algorithm.markov fun _ ↦ π) μ =
       (1 - γ : ℝ≥0∞) • (Kernel.resolvent γ (M.saKernel π) ∘ₘ (μ ⊗ₘ π)) := by
   simp_rw [Measure.resolvent_comp, occupancy_markov, stateMarginal_const_compProd]
+
+/-- The occupancy measure `x` of the stationary policy `π` from the probability measure `μ`
+disintegrates along `π`: `x.fst ⊗ₘ π = x`, that is, under `x` the action is drawn from `π` at the
+state. -/
+instance isCondKernel_occupancy_markov_const {π : Kernel 𝓢 𝓐} [IsMarkovKernel π] :
+    (M.occupancy γ (Algorithm.markov fun _ ↦ π) μ).IsCondKernel π := by
+  -- the occupancy measure is `ν ⊗ₘ π` for the discounted sum `ν` of the state marginals
+  have h : M.occupancy γ (Algorithm.markov fun _ ↦ π) μ = ((1 - γ : ℝ≥0∞) • Measure.sum fun n ↦
+      (γ : ℝ≥0∞) ^ n • M.stateMarginal (fun _ ↦ π) μ n) ⊗ₘ π := by
+    simp_rw [occupancy_markov, Measure.compProd_smul_left, Measure.compProd_sum_left,
+      Measure.compProd_smul_left]
+  constructor
+  rw [h, Measure.fst_compProd]
 
 end Markov
 
