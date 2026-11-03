@@ -12,9 +12,9 @@ public import LMLExplore.OnlineLearning.ExponentialWeights
 /-!
 # Exp3
 
-Exp3 [LS, Algorithm 9] is the weight-based algorithm for adversarial bandits with finitely many
-arms `α` that plays at round `t` the exponential weights `P t = expWeights (η • Ŝ t)` of its
-cumulative reward estimates `Ŝ t = ∑ s < t, X̂ s`, where `X̂ s` is the loss-based
+Exp3 [ACFS02], [LS, Algorithm 9] is the weight-based algorithm for adversarial bandits with
+finitely many arms `α` that plays at round `t` the exponential weights `P t = softmax (η • Ŝ t)`
+of its cumulative reward estimates `Ŝ t = ∑ s < t, X̂ s`, where `X̂ s` is the loss-based
 importance-weighted estimate of the rewards of round `s`, computed from the arm `A s` drawn from
 `P s` and its observed reward `X s`: `X̂ s a = 1 - 𝟙{A s = a} (1 - X s) / P s a`. The
 learning rate `η > 0` is a parameter. Exp3 ignores the observations of the environment.
@@ -32,7 +32,7 @@ expectation `∑ b, (1 - x t b) ^ 2 ≤ k`.
 
 * `LMLExplore.Bandits.exp3Sum η n h`: the cumulative reward estimates `Ŝ n` of Exp3, computed
   from the history `h` of the first `n` rounds.
-* `LMLExplore.Bandits.exp3Weights η n h`: the weights `P n = expWeights (η • Ŝ n)` of Exp3 at
+* `LMLExplore.Bandits.exp3Weights η n h`: the weights `P n = softmax (η • Ŝ n)` of Exp3 at
   round `n`.
 * `LMLExplore.Bandits.exp3 η`: the Exp3 algorithm with learning rate `η`.
 
@@ -53,6 +53,8 @@ expectation `∑ b, (1 - x t b) ^ 2 ≤ k`.
 
 ## References
 
+* [ACFS02] P. Auer, N. Cesa-Bianchi, Y. Freund and R. E. Schapire, *The nonstochastic multiarmed
+  bandit problem*, SIAM J. Comput. 32(1), 2002.
 * [LS] T. Lattimore and Cs. Szepesvári, *Bandit Algorithms*, Cambridge University Press, 2020.
 -/
 
@@ -69,20 +71,20 @@ section Weights
 /-- The cumulative reward estimates of Exp3 with learning rate `η`, computed from the history `h`
 of the first `n` rounds: `∑ s < n, X̂ s` with `X̂ s = lossIwEstimator (P s) (A s) (X s)` the
 loss-based importance-weighted estimate of round `s`, for the action `A s` and the reward `X s`
-of round `s` of `h` and the weights `P s = expWeights (η • ∑ r < s, X̂ r)` of round `s`. -/
+of round `s` of `h` and the weights `P s = softmax (η • ∑ r < s, X̂ r)` of round `s`. -/
 noncomputable def exp3Sum (η : ℝ) : (n : ℕ) → Hist 𝓞 α ℝ n → α → ℝ
   | 0, _ => 0
   | n + 1, h => exp3Sum η n (Fin.init h) +
-      lossIwEstimator (expWeights (η • exp3Sum η n (Fin.init h))) (h (Fin.last n)).action
+      lossIwEstimator (softmax (η • exp3Sum η n (Fin.init h))) (h (Fin.last n)).action
         (h (Fin.last n)).feedback
 
 /-- The weights of Exp3 with learning rate `η` after the history `h` of the first `n` rounds: the
-exponential weights of `η` times the cumulative reward estimates `exp3Sum η n h`. -/
+softmax of `η` times the cumulative reward estimates `exp3Sum η n h`. -/
 noncomputable def exp3Weights (η : ℝ) (n : ℕ) (h : Hist 𝓞 α ℝ n) : α → ℝ :=
-  expWeights (η • exp3Sum η n h)
+  softmax (η • exp3Sum η n h)
 
 lemma exp3Weights_def (η : ℝ) (n : ℕ) (h : Hist 𝓞 α ℝ n) :
-    exp3Weights η n h = expWeights (η • exp3Sum η n h) := (rfl)
+    exp3Weights η n h = softmax (η • exp3Sum η n h) := (rfl)
 
 @[simp]
 lemma exp3Sum_zero (h : Hist 𝓞 α ℝ 0) : exp3Sum η 0 h = 0 := by
@@ -102,11 +104,11 @@ lemma exp3Weights_zero (h : Hist 𝓞 α ℝ 0) :
 
 lemma exp3Weights_pos [Nonempty α] (n : ℕ) (h : Hist 𝓞 α ℝ n) (a : α) :
     0 < exp3Weights η n h a :=
-  expWeights_pos _ a
+  softmax_pos _ a
 
 lemma exp3Weights_mem_simplex [Nonempty α] (n : ℕ) (h : Hist 𝓞 α ℝ n) :
     exp3Weights η n h ∈ simplex α :=
-  expWeights_mem_simplex _
+  softmax_mem_simplex _
 
 variable [MeasurableSpace α] [MeasurableSingletonClass α] [MeasurableSpace 𝓞]
 
@@ -114,24 +116,23 @@ variable [MeasurableSpace α] [MeasurableSingletonClass α] [MeasurableSpace �
 lemma measurable_exp3Sum (η : ℝ) (n : ℕ) : Measurable (exp3Sum (𝓞 := 𝓞) (α := α) η n) := by
   induction n with
   | zero =>
-    rw [show exp3Sum (𝓞 := 𝓞) (α := α) η 0 = fun _ ↦ 0 from funext exp3Sum_zero]
+    rw [funext exp3Sum_zero]
     exact measurable_const
   | succ n ih =>
     have hinit : Measurable fun h : Hist 𝓞 α ℝ (n + 1) ↦ Fin.init h :=
       Measurable.of_eval fun i ↦ measurable_pi_apply _
     have hS := ih.comp hinit
     have hlast : Measurable fun h : Hist 𝓞 α ℝ (n + 1) ↦ h (Fin.last n) := measurable_pi_apply _
-    rw [show exp3Sum (𝓞 := 𝓞) (α := α) η (n + 1) = fun h ↦ exp3Sum η n (Fin.init h) +
-        lossIwEstimator (expWeights (η • exp3Sum η n (Fin.init h))) (h (Fin.last n)).action
-          (h (Fin.last n)).feedback from funext fun h ↦ by rw [exp3Sum]]
+    rw [funext (exp3Sum_succ n)]
+    simp_rw [exp3Weights_def]
     exact hS.add (measurable_lossIwEstimator.comp
-      ((measurable_expWeights.comp (hS.const_smul η)).prodMk
+      ((measurable_softmax.comp (hS.const_smul η)).prodMk
         ((Round.measurable_action.comp hlast).prodMk (Round.measurable_feedback.comp hlast))))
 
 @[fun_prop]
 lemma measurable_exp3Weights (η : ℝ) (n : ℕ) :
     Measurable (exp3Weights (𝓞 := 𝓞) (α := α) η n) :=
-  measurable_expWeights.comp ((measurable_exp3Sum η n).const_smul η)
+  measurable_softmax.comp ((measurable_exp3Sum η n).const_smul η)
 
 end Weights
 
@@ -181,9 +182,9 @@ and feedbacks `Y`, the weights of Exp3 at round `n` are the exponential weights 
 cumulative importance-weighted estimates of the losses `1 - Y t`, since the loss-based reward
 estimates are one minus these loss estimates. -/
 lemma exp3Weights_history_eq (n : ℕ) (ω : Ω) :
-    exp3Weights η n (history O A Y n ω) = expWeights (-(η • ∑ t ∈ range n,
+    exp3Weights η n (history O A Y n ω) = softmax (-(η • ∑ t ∈ range n,
       iwEstimator (exp3Weights η t (history O A Y t ω)) (A t ω) (1 - Y t ω))) := by
-  rw [exp3Weights_def, exp3Sum_history, ← expWeights_add_const _ (-(η * n))]
+  rw [exp3Weights_def, exp3Sum_history, ← softmax_add_const _ (-(η * n))]
   congr 1
   funext a
   simp only [lossIwEstimator_def, sum_sub_distrib, sum_const, card_range, nsmul_eq_mul, mul_one,
@@ -215,8 +216,8 @@ theorem sum_lossIwEstimator_sub_le (hη : 0 < η) (O : ℕ → Ω → 𝓞) (A :
   set y : ℕ → α → ℝ := fun t ↦ iwEstimator (p t) (A t ω) (1 - Y t ω) with hy
   have hy0 : ∀ t < n, ∀ b, 0 ≤ y t b := fun t ht b ↦
     iwEstimator_nonneg (exp3Weights_pos _ _ _).le (sub_nonneg.2 (hY t ht))
-  have key := expWeights_regret_le hη hy0 a
-  have hpw : ∀ t, expWeights (-(η • ∑ s ∈ range t, y s)) = p t := fun t ↦
+  have key := softmax_regret_le hη hy0 a
+  have hpw : ∀ t, softmax (-(η • ∑ s ∈ range t, y s)) = p t := fun t ↦
     (exp3Weights_history_eq O A Y t ω).symm
   simp only [hpw] at key
   -- the regret and second-order terms of the losses `y t` in terms of `Y t`
@@ -228,18 +229,6 @@ theorem sum_lossIwEstimator_sub_le (hη : 0 < η) (O : ℕ → Ω → 𝓞) (A :
     sum_mul_iwEstimator_sq
   simp only [h1, h2] at key
   exact key
-
-omit [Fintype α] [DecidableEq α] [Nonempty α] in
-/-- Along a run of an algorithm whose feedback at the rounds `t < n` is the reward
-`x t (A t) ∈ [0, 1]` of its action, the feedback of these rounds is integrable. -/
-private lemma integrable_feedback [Finite α] (hY : ∀ t < n, Y t =ᵐ[P] x t ∘ A t)
-    (hx : ∀ t < n, ∀ a, x t a ∈ Set.Icc 0 1)
-    {alg : Algorithm 𝓞 α ℝ} (h : IsAlgEnvSeq O A Y alg env P) {t : ℕ} (ht : t < n) :
-    Integrable (Y t) P :=
-  (Integrable.of_bound ((measurable_of_finite (x t)).comp
-    (h.measurable_action t)).aestronglyMeasurable 1 (ae_of_all _ fun ω ↦ by
-      rw [Function.comp_apply, Real.norm_of_nonneg (hx t ht _).1]
-      exact (hx t ht _).2)).congr (hY t ht).symm
 
 omit [Fintype α] [DecidableEq α] [MeasurableSpace 𝓞] [Nonempty α] in
 /-- The function `(p, b) ↦ (1 - x t b) ^ 2 / p b` whose `p`-averages are the expected
@@ -296,7 +285,8 @@ theorem sum_sub_integral_eq_integral_sum_lossIwEstimator_sub
     ∑ t ∈ range n, x t a - P[fun ω ↦ ∑ t ∈ range n, x t (A t ω)] =
       P[fun ω ↦ ∑ t ∈ range n,
         (lossIwEstimator (exp3Weights η t (history O A Y t ω)) (A t ω) (Y t ω) a - Y t ω)] := by
-  have hYint := fun t (ht : t ∈ range n) ↦ integrable_feedback hY hx h (mem_range.1 ht)
+  have hYint := fun t (ht : t ∈ range n) ↦
+    h.integrable_feedback_of_ae_eq (hY t (mem_range.1 ht)) (hx t (mem_range.1 ht))
   have hXint : ∀ t ∈ range n, Integrable (fun ω ↦
       lossIwEstimator (exp3Weights η t (history O A Y t ω)) (A t ω) (Y t ω) a) P := fun t ht ↦
     WeightAlgorithm.integrable_lossIwEstimator h (hY t (mem_range.1 ht)) a
@@ -346,7 +336,7 @@ theorem advRegret_le (hη : 0 < η) (hY : ∀ t < n, Y t =ᵐ[P] x t ∘ A t)
   _ ≤ P[fun ω ↦ log (Fintype.card α) / η + η / 2 * ∑ t ∈ range n, V t ω] := by
       refine integral_mono_ae (integrable_finsetSum _ fun t ht ↦
         (WeightAlgorithm.integrable_lossIwEstimator h (hY t (mem_range.1 ht)) a).sub
-          (integrable_feedback hY hx h (mem_range.1 ht)))
+          (h.integrable_feedback_of_ae_eq (hY t (mem_range.1 ht)) (hx t (mem_range.1 ht))))
         ((integrable_const _).add ((integrable_finsetSum _ hVint).const_mul _)) ?_
       filter_upwards [hYle] with ω hω
       exact sum_lossIwEstimator_sub_le hη O A Y ω hω a
@@ -408,10 +398,12 @@ theorem exp3_advRegret_le_sqrt (hx : ∀ t < n, ∀ a, x t a ∈ Set.Icc 0 1)
     rw [← sqrt_sq (by positivity : 0 ≤ η * (n * k)), mul_pow, hηsq]
     congr 1
     field_simp
-  rw [hsq]
-  field_simp
-  rw [hηsq]
-  field_simp
+  -- `log k / η = η n k / 2`, from `η ^ 2 = 2 log k / (n k)`
+  have hlog : log k / η = η * (n * k) / 2 := by
+    rw [div_eq_iff hη0.ne']
+    rw [eq_div_iff hm.ne'] at hηsq
+    linear_combination -hηsq / 2
+  rw [hsq, hlog]
   ring
 
 end OnlineEvalEnv
