@@ -30,7 +30,8 @@ where the closed form of the divergence makes the transportation costs explicit.
 
 * `LMLExplore.expFamily_expMeasure`: the member of natural parameter `η` of the exponential family
   of `expMeasure r` is `expMeasure (r - η)`, by `LMLExplore.tilted_mul_expMeasure` (the zero
-  measure for `η ≥ r`, as is `expMeasure` of a nonpositive rate, `LMLExplore.expMeasure_of_nonpos`).
+  measure for `η ≥ r`, as is `expMeasure` of a nonpositive rate,
+  `ProbabilityTheory.expMeasure_of_nonpos`).
 * `LMLExplore.deriv_cgf_expMeasure`: the mean map of the family is `η ↦ (r - η)⁻¹` on `η < r`.
 * `LMLExplore.not_ae_eq_const_expMeasure`: the identity is not almost everywhere constant under
   `expMeasure r`, the nondegeneracy assumption of the mean parametrization.

@@ -9,15 +9,14 @@ public import Mathlib.MeasureTheory.Measure.Tilted
 public import TauCeti.Probability.Distributions.Exponential.Basic
 
 /-!
-# Exponential laws: nonpositive rates and tilting
+# Exponential laws: tilting
 
-The exponential law `expMeasure r` of a nonpositive rate `r` is the zero measure, since its density
-vanishes. Tilting `expMeasure r` of positive rate by `x ↦ η x` lowers its rate by `η`; for `η ≥ r`
-the exponential moment is infinite and both sides are the zero measure.
+Tilting `expMeasure r` of positive rate by `x ↦ η x` lowers its rate by `η`; for `η ≥ r` the
+exponential moment is infinite and both sides are the zero measure (the exponential law of a
+nonpositive rate is the zero measure, `ProbabilityTheory.expMeasure_of_nonpos`).
 
 ## Main statements
 
-* `LMLExplore.expMeasure_of_nonpos`: `expMeasure r = 0` for `r ≤ 0`.
 * `LMLExplore.tilted_mul_expMeasure`: `expMeasure r` tilted by `x ↦ η x` is `expMeasure (r - η)`.
 -/
 
@@ -28,17 +27,6 @@ open MeasureTheory ProbabilityTheory Real Set
 namespace LMLExplore
 
 variable {r : ℝ}
-
-/-- The exponential law of a nonpositive rate is the zero measure: its density vanishes. -/
-@[simp]
-lemma expMeasure_of_nonpos (hr : r ≤ 0) : expMeasure r = 0 := by
-  rw [TauCeti.Probability.expMeasure_eq_withDensity, ← withDensity_zero]
-  congr 1
-  funext x
-  rw [exponentialPDF_eq, Pi.zero_apply, ENNReal.ofReal_eq_zero]
-  split_ifs
-  · exact mul_nonpos_of_nonpos_of_nonneg hr (exp_pos _).le
-  · exact le_rfl
 
 /-- Tilting an exponential law by `x ↦ η x` lowers its rate by `η`: `expMeasure r` tilted by
 `x ↦ η x` is `expMeasure (r - η)`. For `η ≥ r`, both sides are the zero measure. -/
