@@ -75,10 +75,14 @@ within a factor `2` of the complexity `H(μ) = ∑ c, 2 σ2 / Δ_c²`, where `Δ
 * `LMLExplore.Identification.altCost_baiTask_restrict_eq_iInf_expFamilyPairCost`: for arms in an
   exponential family with divergence `d`, a best arm `a` of `μ` and a nonnegative allocation `w`,
   `D(μ, w, ¬a) = min_{b ≠ a} (w a d(μ a, m_b) + w b d(μ b, m_b))` on the vectors of means of the
-  family, with `m_b = (w a μ a + w b μ b) / (w a + w b)` [GK16, Lemma 3].
+  family, with `m_b = (w a μ a + w b μ b) / (w a + w b)` [GK16, Lemma 3];
+  `LMLExplore.Identification.altCost_baiTask_restrict_eq_inf` is the same closed form as a
+  `Finset.inf`.
 * `LMLExplore.Identification.continuousOn_altCost_baiTask_restrict`: for arms in an exponential
   family, `(μ, w) ↦ D(μ, w, ¬a)` is continuous on the vectors of means of the family with best arm
-  `a` and the nonnegative allocations.
+  `a` and the nonnegative allocations;
+  `LMLExplore.Identification.continuousOn_altCost_baiTask_restrict_left` is the continuity in the
+  allocation alone at a fixed vector of means.
 * `LMLExplore.Identification.continuousAt_answerValue_baiTask_restrict`,
   `LMLExplore.Identification.upperHemicontinuousAt_optAlloc_baiTask_restrict`,
   `LMLExplore.Identification.continuousAt_charTime_baiTask_restrict`: for arms in an exponential
@@ -458,8 +462,11 @@ omit [Fintype α] in
 private lemma le_of_forall_ne_lt (ha : ∀ b ≠ a, μ b < μ a) (b : α) : μ b ≤ μ a :=
   (eq_or_ne b a).elim (fun h ↦ h ▸ le_rfl) fun h ↦ (ha b h).le
 
-/-- The closed form [GK16, Lemma 3] of the cost of the alternatives as a finite infimum. -/
-private lemma altCost_baiTask_restrict_eq_inf [DecidableEq α] (hT : ∀ c, ¬ T =ᵐ[ρ] fun _ ↦ c)
+/-- The closed form [GK16, Lemma 3] of the cost of the alternatives as a finite infimum:
+`D(μ, w, ¬a) = min_{b ≠ a} (w a d(μ a, m_b) + w b d(μ b, m_b))`, as in
+`altCost_baiTask_restrict_eq_iInf_expFamilyPairCost`, written with `Finset.inf` so that strict
+inequalities with it reduce to the pairs `(a, b)` (`Finset.lt_inf_iff`). -/
+theorem altCost_baiTask_restrict_eq_inf [DecidableEq α] (hT : ∀ c, ¬ T =ᵐ[ρ] fun _ ↦ c)
     (hμ : ∀ c, μ c ∈ ρ.expFamilyMeans T)
     (hν : ∀ μ' : α → ℝ, (∀ c, μ' c ∈ ρ.expFamilyMeans T) →
       ∀ c, klDiv (ν μ c) (ν μ' c) = ENNReal.ofReal (ρ.expFamilyDiv T (μ c) (μ' c)))
@@ -499,6 +506,21 @@ theorem continuousOn_altCost_baiTask_restrict (hT : ∀ c, ¬ T =ᵐ[ρ] fun _ �
   refine ((continuousOn_inf_expFamilyPairCost hT a).mono
     (Set.prod_mono (fun _ ↦ And.left) subset_rfl)).congr fun p ⟨⟨hμ, ha⟩, hw⟩ ↦ ?_
   exact altCost_baiTask_restrict_eq_inf ν hT hμ (hν p.1 · hμ) ha hw
+
+/-- **Continuity of the cost of the alternatives in the allocation**, for arms in an exponential
+family with divergence `d` (as in `altCost_baiTask_restrict_eq_iInf_expFamilyPairCost`): at a
+vector of means `μ` of the family with best arm `a`, `w ↦ D(μ, w, ¬a)` is continuous on the
+nonnegative allocations. -/
+theorem continuousOn_altCost_baiTask_restrict_left (hT : ∀ c, ¬ T =ᵐ[ρ] fun _ ↦ c)
+    (hμ : ∀ c, μ c ∈ ρ.expFamilyMeans T)
+    (hν : ∀ μ' : α → ℝ, (∀ c, μ' c ∈ ρ.expFamilyMeans T) →
+      ∀ c, klDiv (ν μ c) (ν μ' c) = ENNReal.ofReal (ρ.expFamilyDiv T (μ c) (μ' c)))
+    (ha : ∀ b, μ b ≤ μ a) :
+    ContinuousOn (fun w ↦
+      ((baiTask ν).restrict {μ' | ∀ c, μ' c ∈ ρ.expFamilyMeans T}).altCost μ w a) (Set.Ici 0) := by
+  classical
+  exact ((continuousOn_inf_expFamilyPairCost hT a).comp (f := fun w ↦ (μ, w)) (by fun_prop)
+    fun _ hw ↦ ⟨hμ, hw⟩).congr fun w hw ↦ altCost_baiTask_restrict_eq_inf ν hT hμ hν ha hw
 
 /-- Under the hypotheses of `continuousOn_altCost_baiTask_restrict`, at a vector of means `μ` of
 the family with unique best arm `a`, `(μ', w) ↦ D(μ', w, ¬a)` is continuous within
@@ -774,21 +796,13 @@ theorem exists_optAlloc_baiTask_restrict_eq_singleton (hT : ∀ c, ¬ T =ᵐ[ρ]
       ∀ c, klDiv (ν μ c) (ν μ' c) = ENNReal.ofReal (ρ.expFamilyDiv T (μ c) (μ' c)))
     (ha : ∀ b ≠ a, μ b < μ a) :
     ∃ w, ((baiTask ν).restrict {μ' | ∀ c, μ' c ∈ ρ.expFamilyMeans T}).optAlloc μ a = {w} := by
-  classical
   have ha' := le_of_forall_ne_lt ha
   have : Nonempty α := ⟨a⟩
-  -- By the closed form [GK16, Lemma 3], the cost of the alternatives is continuous in the
-  -- allocation on the simplex, so that an optimal allocation exists.
-  have h_cont : ContinuousOn (fun w : α → ℝ ↦ (Finset.univ.filter (· ≠ a)).inf fun b ↦
-      ENNReal.ofReal (ρ.expFamilyPairCost T (μ a) (μ b) (w a) (w b))) (Set.Ici 0) :=
-    (continuousOn_inf_expFamilyPairCost hT a).comp (f := fun w ↦ (μ, w)) (by fun_prop)
-      fun _ hw ↦ ⟨hμ, hw⟩
-  have h_usc : UpperSemicontinuousOn (fun w ↦
-      ((baiTask ν).restrict {μ' | ∀ c, μ' c ∈ ρ.expFamilyMeans T}).altCost μ w a)
-      (simplex α) :=
-    ((h_cont.mono simplex_subset_nonneg).congr fun w hw ↦
-      altCost_baiTask_restrict_eq_inf ν hT hμ hν ha' (mem_simplex_iff.1 hw).1).upperSemicontinuousOn
-  obtain ⟨w, hw⟩ := IdentTask.optAlloc_nonempty _ h_usc
+  -- The cost of the alternatives is continuous in the allocation, so that an optimal allocation
+  -- exists.
+  obtain ⟨w, hw⟩ := IdentTask.optAlloc_nonempty _
+    ((continuousOn_altCost_baiTask_restrict_left ν hT hμ hν ha').mono
+      simplex_subset_nonneg).upperSemicontinuousOn
   exact ⟨w, (subsingleton_optAlloc_baiTask_restrict ν hT hμ hν ha).eq_singleton_of_mem hw⟩
 
 /-- **Continuity of the optimal allocation of best arm identification** [GK16, Proposition 6]. For
