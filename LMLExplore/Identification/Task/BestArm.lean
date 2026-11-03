@@ -465,11 +465,6 @@ theorem charTime_baiTask_restrict_eq_inv_expFamilyDiv_of_forall_eq_or_eq
 
 /-! #### Continuity in the model and the allocation -/
 
-omit [Fintype α] in
-/-- A unique best arm is a best arm. -/
-private lemma le_of_forall_ne_lt (ha : ∀ b ≠ a, μ b < μ a) (b : α) : μ b ≤ μ a :=
-  (eq_or_ne b a).elim (fun h ↦ h ▸ le_rfl) fun h ↦ (ha b h).le
-
 /-- The closed form [GK16, Lemma 3] of the cost of the alternatives as a finite infimum:
 `D(μ, w, ¬a) = min_{b ≠ a} (w a d(μ a, m_b) + w b d(μ b, m_b))`, as in
 `altCost_baiTask_restrict_eq_iInf_expFamilyPairCost`, written with `Finset.inf` so that strict
@@ -545,7 +540,8 @@ private lemma continuousWithinAt_altCost_baiTask_restrict (hT : ∀ c, ¬ T =ᵐ
   have h_nhds : {μ' : α → ℝ | (∀ c, μ' c ∈ ρ.expFamilyMeans T) ∧ ∀ b, μ' b ≤ μ' a} ∈ 𝓝 μ :=
     (eventually_all.2 fun c ↦ (continuous_apply c).continuousAt.preimage_mem_nhds
       (expFamilyMeans_mem_nhds hT (hμ c))).and
-      (mem_of_superset h_best fun _ hμ' ↦ le_of_forall_ne_lt ((mem_answerSet_baiTask_iff ν).1 hμ'))
+      (mem_of_superset h_best fun _ hμ' ↦
+        apply_le_of_forall_ne_lt ((mem_answerSet_baiTask_iff ν).1 hμ'))
   have h_mem : {μ' : α → ℝ | (∀ c, μ' c ∈ ρ.expFamilyMeans T) ∧ ∀ b, μ' b ≤ μ' a} ×ˢ Set.Ici 0 ∈
       𝓝[Set.univ ×ˢ simplex α] (μ, w) := by
     rw [nhdsWithin_prod_eq, nhdsWithin_univ]
@@ -616,7 +612,7 @@ theorem answerValue_baiTask_restrict_pos (hT : ∀ c, ¬ T =ᵐ[ρ] fun _ ↦ c)
     (ha : ∀ b ≠ a, μ b < μ a) :
     0 < ((baiTask ν).restrict {μ' | ∀ c, μ' c ∈ ρ.expFamilyMeans T}).answerValue μ a := by
   classical
-  have ha' := le_of_forall_ne_lt ha
+  have ha' := apply_le_of_forall_ne_lt ha
   -- The uniform allocation collects positive information against every alternative.
   have hK : (0 : ℝ) < Fintype.card α := Nat.cast_pos.2 (Fintype.card_pos_iff.2 ⟨a⟩)
   set u : α → ℝ := fun _ ↦ (Fintype.card α : ℝ)⁻¹
@@ -642,7 +638,7 @@ theorem pos_of_mem_optAlloc_baiTask_restrict (hT : ∀ c, ¬ T =ᵐ[ρ] fun _ �
     (hw : w ∈ ((baiTask ν).restrict {μ' | ∀ c, μ' c ∈ ρ.expFamilyMeans T}).optAlloc μ a)
     (c : α) : 0 < w c := by
   classical
-  have ha' := le_of_forall_ne_lt ha
+  have ha' := apply_le_of_forall_ne_lt ha
   obtain ⟨hws, hD⟩ := (IdentTask.mem_optAlloc_iff _).1 hw
   rw [mem_simplex_iff] at hws
   refine (hws.1 c).lt_of_ne' fun hc ↦ ?_
@@ -841,7 +837,7 @@ theorem exists_optAlloc_baiTask_restrict_eq_singleton (hT : ∀ c, ¬ T =ᵐ[ρ]
       ∀ c, klDiv (ν μ c) (ν μ' c) = ENNReal.ofReal (ρ.expFamilyDiv T (μ c) (μ' c)))
     (ha : ∀ b ≠ a, μ b < μ a) :
     ∃ w, ((baiTask ν).restrict {μ' | ∀ c, μ' c ∈ ρ.expFamilyMeans T}).optAlloc μ a = {w} := by
-  have ha' := le_of_forall_ne_lt ha
+  have ha' := apply_le_of_forall_ne_lt ha
   have : Nonempty α := ⟨a⟩
   -- The cost of the alternatives is continuous in the allocation, so that an optimal allocation
   -- exists.
