@@ -99,11 +99,11 @@ end OfStop
 /-- The output rule of `A` on the histories of `n` rounds: the law of the output of `A` when it
 stops after `n` rounds, as a function of the history of these rounds. -/
 noncomputable def outputAt (A : IdentAlg 𝓞 𝓐 𝓨 𝓓) (n : ℕ) : Kernel (Hist 𝓞 𝓐 𝓨 n) 𝓓 :=
-  A.output.comap (Sigma.mk n) (measurable_sigma_mk n)
+  A.output.comap (Sigma.mk n) (measurable_sigmaMk n)
 
 /-- The output rule on the histories of `n` rounds is `A.output` restricted to them. -/
 lemma outputAt_eq_comap (A : IdentAlg 𝓞 𝓐 𝓨 𝓓) (n : ℕ) :
-    outputAt A n = A.output.comap (Sigma.mk n) (measurable_sigma_mk n) := (rfl)
+    outputAt A n = A.output.comap (Sigma.mk n) (measurable_sigmaMk n) := (rfl)
 
 @[simp]
 lemma outputAt_apply (A : IdentAlg 𝓞 𝓐 𝓨 𝓓) {n : ℕ} (h : Hist 𝓞 𝓐 𝓨 n) :
@@ -118,7 +118,7 @@ lemma outputAt_ofStop (alg : Algorithm 𝓞 𝓐 𝓨) (stop : (n : ℕ) → His
     (hstop : ∀ n, MeasurableSet {h | stop n h}) (output : (n : ℕ) → Kernel (Hist 𝓞 𝓐 𝓨 n) 𝓓)
     [∀ n, IsMarkovKernel (output n)] (n : ℕ) :
     outputAt (ofStop alg stop hstop output) n = output n := by
-  rw [outputAt_eq_comap, output_ofStop, Kernel.comap_sigma_mk]
+  rw [outputAt_eq_comap, output_ofStop, Kernel.comap_sigmaMk]
 
 end LMLExplore.Identification
 
@@ -189,7 +189,7 @@ end Measurability
 algorithm-environment sequence `O`, `X`, `Y`: whether `A` has stopped after `n` rounds depends only
 on the history of these rounds, not on the feedback of round `n`. -/
 lemma isStoppingTime_filtrationAction_stoppingTime (A : IdentAlg 𝓞 𝓐 𝓨 𝓓)
-    {alg : Algorithm 𝓞 𝓐 𝓨} {env : Environment 𝓞 𝓐 𝓨} {P : Measure Ω} [IsFiniteMeasure P]
+    {alg : Algorithm 𝓞 𝓐 𝓨} {env : Environment 𝓞 𝓐 𝓨} {P : Measure Ω}
     (h : IsAlgEnvSeq O X Y alg env P) :
     IsStoppingTime h.filtrationAction (A.stoppingTime O X Y) :=
   h.adapted_sigmaHistory_filtrationAction.isStoppingTime_hittingAfter A.measurableSet_stopSet
@@ -199,7 +199,7 @@ lemma isStoppingTime_filtrationAction_stoppingTime (A : IdentAlg 𝓞 𝓐 𝓨 
 /-- A run of an identification algorithm is transported along a measurable map `g` carrying `P`
 to `P'`. -/
 lemma IsRun.comp_hasLaw {Ω' : Type*} {mΩ' : MeasurableSpace Ω'} {P : Measure Ω}
-    [IsFiniteMeasure P] {P' : Measure Ω'} [IsFiniteMeasure P'] {g : Ω → Ω'}
+    {P' : Measure Ω'} {g : Ω → Ω'}
     {env : Environment 𝓞 𝓐 𝓨} {O : ℕ → Ω' → 𝓞} {X : ℕ → Ω' → 𝓐} {Y : ℕ → Ω' → 𝓨}
     {out : Ω' → 𝓓} (h : A.IsRun env O X Y out P') (hg : HasLaw g P' P) (hgm : Measurable g) :
     A.IsRun env (fun n ↦ O n ∘ g) (fun n ↦ X n ∘ g) (fun n ↦ Y n ∘ g) (out ∘ g) P where

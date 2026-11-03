@@ -63,7 +63,7 @@ lemma lintegral_toENNReal_le_add_tsum_measure_compl [IsZeroOrProbabilityMeasure 
     (hf : AEMeasurable f μ) {E : ℕ → Set Ω} {T₀ : ℕ} (hE : ∀ T ≥ T₀, ∀ ω ∈ E T, f ω ≤ T) :
     ∫⁻ ω, (f ω : ℝ≥0∞) ∂μ ≤ T₀ + ∑' T, μ (E (T + T₀))ᶜ := by
   rw [lintegral_toENNReal_eq_tsum_measure_lt hf,
-    ← Summable.sum_add_tsum_nat_add' (k := T₀) ENNReal.summable]
+    ← Summable.sum_add_tsum_nat_add' (k := T₀) CompleteLattice.summable]
   gcongr with T
   · -- The first `T₀` tail probabilities are at most `1`.
     calc ∑ n ∈ Finset.range T₀, μ {ω | (n : ℕ∞) < f ω}

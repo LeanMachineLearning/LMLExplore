@@ -136,7 +136,7 @@ lemma dTracking_eq_indexAlgorithm :
       (fun n ↦ measurable_coe_dTrackingIndex (hw n)) :=
   (rfl)
 
-instance : IsDeterministicAlg (dTracking w hw) := by
+instance : (dTracking w hw).IsDeterministic := by
   rw [dTracking_eq_indexAlgorithm]
   infer_instance
 
@@ -222,13 +222,13 @@ variable {𝓧 : Type*} {m𝓧 : MeasurableSpace 𝓧} {ν : Kernel α ℝ} [IsM
 
 /-- **Concentration of the empirical means under D-tracking** [GK16, Lemma 19], in the form used
 in the proof of [GK16, Theorem 14]. In a run of D-tracking against the stochastic bandit
-`stationaryEnv ν`, let the rewards of each arm `a` be dominated above and below by the member of
-mean `μ a` of the exponential family of `ρ a` and `T a`, and let `l a < μ a < u a` be means of the
-family. If the rounds `t₀ T` satisfy `√(t₀ T) / log T → ∞` (for instance `t₀ T = ⌈T ^ (1 / 4)⌉₊`
+`Environment.bandit ν`, let the rewards of each arm `a` be dominated above and below by the member
+of mean `μ a` of the exponential family of `ρ a` and `T a`, and let `l a < μ a < u a` be means of
+the family. If the rounds `t₀ T` satisfy `√(t₀ T) / log T → ∞` (for instance `t₀ T = ⌈T ^ (1 / 4)⌉₊`
 as in [GK16]), then the probabilities that the empirical mean of some arm `a` is outside
 `(l a, u a)` at some round `t ≥ t₀ T` have a finite sum over `T`. -/
 theorem tsum_measure_exists_ge_empMean_notMem_Ioo_ne_top [IsProbabilityMeasure P]
-    (h : IsAlgEnvSeq O A R (dTracking w hw) (stationaryEnv ν) P)
+    (h : IsAlgEnvSeq O A R (dTracking w hw) (Environment.bandit ν) P)
     (hν_above : ∀ a, MGFDominatedAbove id (ν a) (T a)
       ((ρ a).expFamily (T a) ((ρ a).natParam (T a) (μ a))))
     (hν_below : ∀ a, MGFDominatedBelow id (ν a) (T a)

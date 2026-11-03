@@ -8,43 +8,20 @@ module
 public import Mathlib.Probability.Kernel.Composition.MeasureCompProd
 
 /-!
-# Restriction and pointwise congruence of composition-products
-
-Restricting the first marginal of `μ ⊗ₘ κ` to a measurable set `s` is the same as restricting the
-composition-product to the cylinder `s ×ˢ univ`. This is the measure version of Mathlib's
-`ProbabilityTheory.Kernel.compProd_restrict_left`.
+# Pointwise congruence of composition-products
 
 The value of a composition-product of kernels `κ ⊗ₖ η` at a point `a` is the composition-product
 of measures `κ a ⊗ₘ η.sectR a`, so it depends only on `κ a` and on the measures `η (a, b)`.
 
 ## Main statements
 
-* `MeasureTheory.Measure.compProd_restrict_left`:
-  `μ.restrict s ⊗ₘ κ = (μ ⊗ₘ κ).restrict (s ×ˢ univ)`.
 * `ProbabilityTheory.Kernel.compProd_apply_congr`: if `κ a = κ' a` and `η (a, b) = η' (a, b)`
   for all `b`, then `(κ ⊗ₖ η) a = (κ' ⊗ₖ η') a`.
 -/
 
 public section
 
-open ProbabilityTheory Set
-
-namespace MeasureTheory.Measure
-
-variable {α β : Type*} {mα : MeasurableSpace α} {mβ : MeasurableSpace β} {μ : Measure α}
-  {κ : Kernel α β} {s : Set α}
-
-/-- Restricting the first marginal of a composition-product to `s` is restricting the
-composition-product to `s ×ˢ univ`. -/
-lemma compProd_restrict_left [SFinite μ] [IsSFiniteKernel κ] (hs : MeasurableSet s) :
-    μ.restrict s ⊗ₘ κ = (μ ⊗ₘ κ).restrict (s ×ˢ univ) := by
-  ext t ht
-  rw [restrict_apply ht, compProd_apply ht, compProd_apply (ht.inter (hs.prod .univ)),
-    ← lintegral_indicator hs]
-  refine lintegral_congr fun a ↦ ?_
-  by_cases ha : a ∈ s <;> simp [ha, Set.preimage, Set.indicator]
-
-end MeasureTheory.Measure
+open ProbabilityTheory
 
 namespace ProbabilityTheory.Kernel
 

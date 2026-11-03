@@ -64,30 +64,30 @@ variable {α 𝓞 𝓨 : Type*} [Fintype α] [Nonempty α] [MeasurableSpace α]
 the arm `argmax (I n (h, o))`, a maximizer of the index with ties broken by LML's `argmax`. -/
 noncomputable def indexAlgorithm (I : (n : ℕ) → Hist 𝓞 α 𝓨 n × 𝓞 → α → EReal)
     (hI : ∀ n, Measurable (I n)) : Algorithm 𝓞 α 𝓨 :=
-  detAlgorithm (fun n x ↦ argmax (I n x)) fun n ↦ measurable_argmax.comp (hI n)
+  Algorithm.deterministic (fun n x ↦ argmax (I n x)) fun n ↦ measurable_argmax.comp (hI n)
 
 variable {hI : ∀ n, Measurable (I n)}
 
 /-- The index policy is the deterministic algorithm playing `argmax (I n x)` at round `n`. -/
-lemma indexAlgorithm_eq_detAlgorithm :
+lemma indexAlgorithm_eq_deterministic :
     indexAlgorithm I hI =
-      detAlgorithm (fun n x ↦ argmax (I n x)) fun n ↦ measurable_argmax.comp (hI n) :=
+      Algorithm.deterministic (fun n x ↦ argmax (I n x)) fun n ↦ measurable_argmax.comp (hI n) :=
   (rfl)
 
 @[simp]
 lemma indexAlgorithm_policy (n : ℕ) :
     (indexAlgorithm I hI).policy n =
       Kernel.deterministic (fun x ↦ argmax (I n x)) (measurable_argmax.comp (hI n)) := by
-  rw [indexAlgorithm_eq_detAlgorithm, detAlgorithm_policy]
+  rw [indexAlgorithm_eq_deterministic, Algorithm.deterministic_policy]
 
-instance : IsDeterministicAlg (indexAlgorithm I hI) where
+instance : (indexAlgorithm I hI).IsDeterministic where
   exists_nextAction n := ⟨_, _, indexAlgorithm_policy n⟩
 
 /-- The action function of the index policy at round `n` is `x ↦ argmax (I n x)`. -/
 @[simp]
 lemma nextAction_indexAlgorithm [MeasurableSingletonClass α] (n : ℕ) :
-    nextAction (indexAlgorithm I hI) n = fun x ↦ argmax (I n x) := by
-  simpa using (policy_eq_deterministic (indexAlgorithm I hI) n).symm
+    (indexAlgorithm I hI).nextAction n = fun x ↦ argmax (I n x) := by
+  simpa using ((indexAlgorithm I hI).policy_eq_deterministic n).symm
 
 namespace IndexAlgorithm
 
@@ -99,7 +99,7 @@ variable [MeasurableSingletonClass α] {Ω : Type*} {mΩ : MeasurableSpace Ω}
 maximal index, for the history and the observation of the run. -/
 lemma action_ae_eq (h : IsAlgEnvSeq O A Y (indexAlgorithm I hI) env P) (n : ℕ) :
     A n =ᵐ[P] fun ω ↦ argmax (I n (history O A Y n ω, O n ω)) :=
-  (IsDeterministicAlg.action_ae_eq h n).trans (by simp)
+  (h.action_ae_eq_nextAction n).trans (by simp)
 
 /-- The run lemma of the index policy, for all rounds simultaneously. -/
 lemma action_ae_all_eq (h : IsAlgEnvSeq O A Y (indexAlgorithm I hI) env P) :
@@ -112,7 +112,7 @@ lemma index_le_index_action (h : IsAlgEnvSeq O A Y (indexAlgorithm I hI) env P) 
       I n (history O A Y n ω, O n ω) b ≤ I n (history O A Y n ω, O n ω) (A n ω) := by
   filter_upwards [action_ae_all_eq h] with ω hω n b
   rw [hω n]
-  exact isMaxOn_argmax _ b
+  exact isMaxOn_argmax (I n (history O A Y n ω, O n ω)) (Set.mem_univ b)
 
 /-- Along a run of the index policy, if some arm has index `⊤` at round `n`, then the arm played at
 round `n` has index `⊤`: arms with index `⊤` are pulled before arms with a finite index. -/

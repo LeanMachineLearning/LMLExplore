@@ -9,6 +9,8 @@ public import LeanMachineLearning.ForMathlib.Probability.HasCondDistrib
 public import LeanMachineLearning.SequentialLearning.Deterministic
 public import LeanMachineLearning.SequentialLearning.IonescuTulceaSpace
 public import LMLExplore.Probability.Kernel.Composition.KernelLemmas
+public import Mathlib.Probability.Independence.Conditional
+import Mathlib.MeasureTheory.Measure.ProbabilityMeasure
 
 /-!
 # Markov decision processes and their environments
@@ -117,7 +119,7 @@ end MeanReward
 /-- The deterministic stationary policy `π` as an algorithm: it plays `π s` in the current
 state `s`. -/
 noncomputable def policyAlg (π : 𝓢 → 𝓐) (hπ : Measurable π) : Algorithm 𝓢 𝓐 𝓡 :=
-  detAlgorithm (fun _ p ↦ π p.2) fun _ ↦ hπ.comp measurable_snd
+  Algorithm.deterministic (fun _ p ↦ π p.2) fun _ ↦ hπ.comp measurable_snd
 
 /-- The policy of `policyAlg π hπ` at every round is the deterministic kernel playing `π` in the
 current state. -/
@@ -128,7 +130,7 @@ lemma policyAlg_policy (π : 𝓢 → 𝓐) (hπ : Measurable π) (n : ℕ) :
   (rfl)
 
 instance (π : 𝓢 → 𝓐) (hπ : Measurable π) :
-    IsDeterministicAlg (policyAlg π hπ : Algorithm 𝓢 𝓐 𝓡) := by
+    (policyAlg π hπ : Algorithm 𝓢 𝓐 𝓡).IsDeterministic := by
   unfold policyAlg
   infer_instance
 
@@ -166,15 +168,15 @@ lemma env_obs_zero (M : MDP 𝓢 𝓐 𝓡) (μ₀ : Measure 𝓢) :
 
 /-- The first state of the environment of `M` has law `μ₀` when `μ₀` is a probability measure. -/
 @[simp]
-lemma obs0_env (M : MDP 𝓢 𝓐 𝓡) (μ₀ : Measure 𝓢) [hμ₀ : IsProbabilityMeasure μ₀] :
-    (M.env μ₀).obs0 = μ₀ := by
-  simp [Environment.obs0_def, env_obs_zero, hμ₀]
+lemma obsZero_env (M : MDP 𝓢 𝓐 𝓡) (μ₀ : Measure 𝓢) [hμ₀ : IsProbabilityMeasure μ₀] :
+    (M.env μ₀).obsZero = μ₀ := by
+  simp [Environment.obsZero_def, env_obs_zero, hμ₀]
 
 /-- If `μ₀` is not a probability measure, the first state of the environment of `M` is an
 arbitrary fixed state. -/
-lemma obs0_env_of_not_isProbabilityMeasure (M : MDP 𝓢 𝓐 𝓡) (h : ¬IsProbabilityMeasure μ₀) :
-    (M.env μ₀).obs0 = Measure.dirac (Classical.arbitrary 𝓢) := by
-  simp [Environment.obs0_def, env_obs_zero, h]
+lemma obsZero_env_of_not_isProbabilityMeasure (M : MDP 𝓢 𝓐 𝓡) (h : ¬IsProbabilityMeasure μ₀) :
+    (M.env μ₀).obsZero = Measure.dirac (Classical.arbitrary 𝓢) := by
+  simp [Environment.obsZero_def, env_obs_zero, h]
 
 /-- The observation kernel of round `n + 1` of the environment of `M` is the transition kernel,
 applied to the state and action of round `n`. -/
@@ -249,7 +251,7 @@ instance (M : MDP 𝓢 𝓐 𝓡) (π : 𝓢 → 𝓐) (hπ : Measurable π) (s 
 
 section Runs
 
-variable {Ω : Type*} {mΩ : MeasurableSpace Ω} {P : Measure Ω} [IsFiniteMeasure P]
+variable {Ω : Type*} {mΩ : MeasurableSpace Ω} {P : Measure Ω}
   {O : ℕ → Ω → 𝓢} {A : ℕ → Ω → 𝓐} {Y : ℕ → Ω → 𝓡} {alg : Algorithm 𝓢 𝓐 𝓡} {μ : Measure 𝓢}
 
 /-- In a run in the environment of an MDP started from the probability measure `μ`, the first
@@ -271,13 +273,13 @@ lemma hasCondDistrib_obs_add_one_history (h : IsAlgEnvSeq O A Y alg (M.env μ) P
 
 /-- Markov property of the states: in a run in the environment of an MDP, the state of
 round `n + 1` has conditional law `M.P` given the state and action of round `n`. -/
-lemma hasCondDistrib_obs_add_one (h : IsAlgEnvSeq O A Y alg (M.env μ) P) (n : ℕ) :
+lemma hasCondDistrib_obs_add_one [SFinite P] (h : IsAlgEnvSeq O A Y alg (M.env μ) P) (n : ℕ) :
     HasCondDistrib (O (n + 1)) (fun ω ↦ (O n ω, A n ω)) M.P P :=
   (hasCondDistrib_obs_add_one_history h n).comp_right
 
 /-- In a run in the environment of an MDP, the law of the state of round `n + 1` is the law of
 the state-action pair of round `n` composed with the transition kernel `M.P`. -/
-lemma hasLaw_obs_add_one (h : IsAlgEnvSeq O A Y alg (M.env μ) P) (n : ℕ) :
+lemma hasLaw_obs_add_one [SFinite P] (h : IsAlgEnvSeq O A Y alg (M.env μ) P) (n : ℕ) :
     HasLaw (O (n + 1)) (M.P ∘ₘ P.map (fun ω ↦ (O n ω, A n ω))) P :=
   (hasCondDistrib_obs_add_one h n).hasLaw_comp
 
@@ -293,13 +295,13 @@ lemma hasCondDistrib_feedback_history (h : IsAlgEnvSeq O A Y alg (M.env μ) P) (
 
 /-- In a run in the environment of an MDP, the reward of round `n` has conditional law `M.R`
 given the state and action of round `n`. -/
-lemma hasCondDistrib_feedback (h : IsAlgEnvSeq O A Y alg (M.env μ) P) (n : ℕ) :
+lemma hasCondDistrib_feedback [SFinite P] (h : IsAlgEnvSeq O A Y alg (M.env μ) P) (n : ℕ) :
     HasCondDistrib (Y n) (fun ω ↦ (O n ω, A n ω)) M.R P :=
   (hasCondDistrib_feedback_history h n).comp_right
 
 /-- Along a run in an MDP with rewards bounded by `C`, the reward of every round is almost surely
 bounded by `C`. -/
-lemma ae_abs_feedback_le {M : MDP 𝓢 𝓐 ℝ} {Y : ℕ → Ω → ℝ} {alg : Algorithm 𝓢 𝓐 ℝ} {C : ℝ}
+lemma ae_abs_feedback_le [SFinite P] {M : MDP 𝓢 𝓐 ℝ} {Y : ℕ → Ω → ℝ} {alg : Algorithm 𝓢 𝓐 ℝ} {C : ℝ}
     (h : IsAlgEnvSeq O A Y alg (M.env μ) P)
     (hR : ∀ p, ∀ᵐ x ∂(M.R p), |x| ≤ C) (n : ℕ) :
     ∀ᵐ ω ∂P, |Y n ω| ≤ C := by
@@ -312,7 +314,8 @@ lemma ae_abs_feedback_le {M : MDP 𝓢 𝓐 ℝ} {Y : ℕ → Ω → ℝ} {alg :
 
 /-- Along a run in an MDP with bounded rewards, the expected reward of round `n` is the integral
 of the mean reward against the law of the state-action pair of round `n`. -/
-theorem integral_feedback {M : MDP 𝓢 𝓐 ℝ} {Y : ℕ → Ω → ℝ} {alg : Algorithm 𝓢 𝓐 ℝ} {C : ℝ}
+theorem integral_feedback [IsFiniteMeasure P] {M : MDP 𝓢 𝓐 ℝ} {Y : ℕ → Ω → ℝ}
+    {alg : Algorithm 𝓢 𝓐 ℝ} {C : ℝ}
     (h : IsAlgEnvSeq O A Y alg (M.env μ) P)
     (hR : ∀ p, ∀ᵐ x ∂(M.R p), |x| ≤ C) (n : ℕ) :
     ∫ ω, Y n ω ∂P = ∫ p, meanReward M.R p ∂(P.map fun ω ↦ (O n ω, A n ω)) := by
@@ -346,7 +349,8 @@ private lemma snocEquiv_apply (n : ℕ) (h : Hist 𝓢 𝓐 𝓡 n) (s : 𝓢) (
 the action `a` of round `n`, the pair formed by the reward of round `n` and the state of
 round `n + 1` has conditional law `M.R (s, a) ⊗ M.P (s, a)`: the reward and the next state are
 drawn independently. -/
-lemma hasCondDistrib_feedback_obs_add_one (h : IsAlgEnvSeq O A Y alg (M.env μ) P) (n : ℕ) :
+lemma hasCondDistrib_feedback_obs_add_one [SFinite P] (h : IsAlgEnvSeq O A Y alg (M.env μ) P)
+    (n : ℕ) :
     HasCondDistrib (fun ω ↦ (Y n ω, O (n + 1) ω))
       (fun ω ↦ ((history O A Y n ω, O n ω), A n ω))
       ((M.R ×ₖ M.P).comap (fun p ↦ (p.1.2, p.2)) (by fun_prop) :
@@ -371,14 +375,15 @@ lemma hasCondDistrib_feedback_obs_add_one (h : IsAlgEnvSeq O A Y alg (M.env μ) 
     convert h' using 1
     ext ⟨⟨⟨h, s⟩, a⟩, y⟩ : 1
     simp
-  have h_prod := (hasCondDistrib_feedback_history h n).prod h_obs
+  have h_prod := (hasCondDistrib_feedback_history h n).compProd h_obs
   rwa [Kernel.compProd_prodMkRight_eq_prod, ← Kernel.comap_prod] at h_prod
 
 /-- In a run in the environment of an MDP, the reward of round `n` and the state of round `n + 1`
 are conditionally independent given the history before round `n`, the state and the action of
 round `n`. -/
-lemma condIndepFun_feedback_obs_add_one [StandardBorelSpace Ω] [StandardBorelSpace 𝓢]
-    [StandardBorelSpace 𝓡] [Nonempty 𝓡] (h : IsAlgEnvSeq O A Y alg (M.env μ) P) (n : ℕ) :
+lemma condIndepFun_feedback_obs_add_one [IsFiniteMeasure P] [StandardBorelSpace Ω]
+    [StandardBorelSpace 𝓢] [StandardBorelSpace 𝓡] [Nonempty 𝓡]
+    (h : IsAlgEnvSeq O A Y alg (M.env μ) P) (n : ℕ) :
     Y n ⟂ᵢ[fun ω ↦ ((history O A Y n ω, O n ω), A n ω),
       ((h.measurable_history n).prodMk (h.measurable_obs n)).prodMk (h.measurable_action n); P]
       O (n + 1) := by
@@ -388,8 +393,8 @@ lemma condIndepFun_feedback_obs_add_one [StandardBorelSpace Ω] [StandardBorelSp
   have h_pair := hasCondDistrib_feedback_obs_add_one h n
   rw [condIndepFun_iff_map_prod_eq_prod_condDistrib_prod_condDistrib (by fun_prop) (by fun_prop)
     (by fun_prop)]
-  have h_fst := h_pair.fst.condDistrib_eq
-  have h_snd := h_pair.snd.condDistrib_eq
+  have h_fst := h_pair.fst.condDistrib_ae_eq
+  have h_snd := h_pair.snd.condDistrib_ae_eq
   simp only [Kernel.comap_prod, Kernel.fst_prod, Kernel.snd_prod] at h_fst h_snd
   rw [h_pair.map_eq, Measure.compProd_eq_comp_prod]
   refine Measure.bind_congr_right ?_

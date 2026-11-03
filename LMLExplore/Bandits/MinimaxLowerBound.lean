@@ -68,8 +68,8 @@ least `Δ`, then the two expected regrets add up to at least `Δ n exp (-D) / 2`
 relative entropy between the laws of the histories of the first `n` rounds. -/
 theorem le_integral_regret_add_integral_regret [Finite α] {alg : Algorithm Unit α ℝ}
     [IsMarkovKernel ν] [IsMarkovKernel ν'] {O : ℕ → Ω → Unit} {R : ℕ → Ω → ℝ}
-    {O' : ℕ → Ω' → Unit} {R' : ℕ → Ω' → ℝ} (h : IsAlgEnvSeq O A R alg (stationaryEnv ν) P)
-    (h' : IsAlgEnvSeq O' A' R' alg (stationaryEnv ν') P') {a₁ : α} {Δ : ℝ} (hΔ0 : 0 ≤ Δ)
+    {O' : ℕ → Ω' → Unit} {R' : ℕ → Ω' → ℝ} (h : IsAlgEnvSeq O A R alg (Environment.bandit ν) P)
+    (h' : IsAlgEnvSeq O' A' R' alg (Environment.bandit ν') P') {a₁ : α} {Δ : ℝ} (hΔ0 : 0 ≤ Δ)
     (hΔ : ∀ a ≠ a₁, Δ ≤ gap ν a) (hΔ' : Δ ≤ gap ν' a₁) (n : ℕ)
     (hkl : klDiv (P.map (history O A R n)) (P'.map (history O' A' R' n)) ≠ ∞) :
     Δ * n * exp (-(klDiv (P.map (history O A R n)) (P'.map (history O' A' R' n))).toReal) / 2 ≤
@@ -91,8 +91,8 @@ the laws of the histories of the first `n` rounds under `ν` and under `ν'`. Th
 by the Lai–Robbins lower bound [LS, Theorem 16.2], where `ν'` makes the arm `a₁` optimal. -/
 theorem le_integral_regret_add_integral_regret' [Finite α] {alg : Algorithm Unit α ℝ}
     [IsMarkovKernel ν] [IsMarkovKernel ν'] {O : ℕ → Ω → Unit} {R : ℕ → Ω → ℝ}
-    {O' : ℕ → Ω' → Unit} {R' : ℕ → Ω' → ℝ} (h : IsAlgEnvSeq O A R alg (stationaryEnv ν) P)
-    (h' : IsAlgEnvSeq O' A' R' alg (stationaryEnv ν') P') {a₁ : α} {Δ : ℝ} (hΔ0 : 0 ≤ Δ)
+    {O' : ℕ → Ω' → Unit} {R' : ℕ → Ω' → ℝ} (h : IsAlgEnvSeq O A R alg (Environment.bandit ν) P)
+    (h' : IsAlgEnvSeq O' A' R' alg (Environment.bandit ν') P') {a₁ : α} {Δ : ℝ} (hΔ0 : 0 ≤ Δ)
     (hΔ : Δ ≤ gap ν a₁) (hΔ' : ∀ a ≠ a₁, Δ ≤ gap ν' a) (n : ℕ)
     (hkl : klDiv (P.map (history O A R n)) (P'.map (history O' A' R' n)) ≠ ∞) :
     Δ * n * exp (-(klDiv (P.map (history O A R n)) (P'.map (history O' A' R' n))).toReal) / 2 ≤
@@ -121,7 +121,7 @@ theorem exists_le_integral_regret_of_klDiv_le [Fintype α] (alg : Algorithm Unit
     ∃ μ : α → ℝ, (∀ a, μ a ∈ Set.Icc b (b + h)) ∧
       √(σ2 * (Fintype.card α - 1) * n) / 16 ≤
         ∫ ω, regret (Kernel.ofFunOfCountable fun a ↦ κ (μ a)) IT.action n ω
-          ∂(trajMeasure alg (stationaryEnv (Kernel.ofFunOfCountable fun a ↦ κ (μ a)))) := by
+          ∂(trajMeasure alg (Environment.bandit (Kernel.ofFunOfCountable fun a ↦ κ (μ a)))) := by
   classical
   set k := Fintype.card α
   have hk1 : (1 : ℝ) ≤ k - 1 := by
@@ -163,8 +163,8 @@ theorem exists_le_integral_regret_of_klDiv_le [Fintype α] (alg : Algorithm Unit
   have hmean₀ (a : α) : (ν₀ a)[id] = μ₀ a := by
     rw [hν₀, Kernel.ofFunOfCountable_apply]
     exact hmean _ (hμ₀_mem a)
-  set P₀ := trajMeasure alg (stationaryEnv ν₀)
-  have hrun₀ := IT.isAlgEnvSeq_trajMeasure alg (stationaryEnv ν₀)
+  set P₀ := trajMeasure alg (Environment.bandit ν₀)
+  have hrun₀ := IT.isAlgEnvSeq_trajMeasure alg (Environment.bandit ν₀)
   set R₀ := ∫ ω, regret ν₀ IT.action n ω ∂P₀ with hR₀
   -- an arm `i ≠ a₁` played at most `n / (k - 1)` times in expectation
   have := Fintype.one_lt_card_iff_nontrivial.1 hk
@@ -180,8 +180,8 @@ theorem exists_le_integral_regret_of_klDiv_le [Fintype α] (alg : Algorithm Unit
   have hmean₁ (a : α) : (ν₁ a)[id] = μ₁ a := by
     rw [hν₁, Kernel.ofFunOfCountable_apply]
     exact hmean _ (hμ₁_mem a)
-  set P₁ := trajMeasure alg (stationaryEnv ν₁)
-  have hrun₁ := IT.isAlgEnvSeq_trajMeasure alg (stationaryEnv ν₁)
+  set P₁ := trajMeasure alg (Environment.bandit ν₁)
+  have hrun₁ := IT.isAlgEnvSeq_trajMeasure alg (Environment.bandit ν₁)
   set R₁ := ∫ ω, regret ν₁ IT.action n ω ∂P₁ with hR₁
   -- the relative entropy between the laws of the histories is at most `1 / 2`
   have hD : klDiv (P₀.map (history IT.obs IT.action IT.feedback n))
@@ -240,7 +240,7 @@ theorem exists_sqrt_le_integral_regret_gaussianBandit [Fintype α] (alg : Algori
     ∃ μ : α → ℝ, (∀ a, μ a ∈ Set.Icc 0 1) ∧
       √(σ2 * (Fintype.card α - 1) * n) / 16 ≤
         ∫ ω, regret (gaussianBandit μ σ2) IT.action n ω
-          ∂(trajMeasure alg (stationaryEnv (gaussianBandit μ σ2))) := by
+          ∂(trajMeasure alg (Environment.bandit (gaussianBandit μ σ2))) := by
   rcases eq_or_ne σ2 0 with rfl | hσ
   · exact ⟨fun _ ↦ 0, fun _ ↦ ⟨le_rfl, zero_le_one⟩,
       by simpa using integral_nonneg fun _ ↦ regret_nonneg⟩
@@ -262,7 +262,7 @@ theorem exists_sqrt_le_integral_regret_bernoulliBandit [Fintype α] (alg : Algor
     ∃ p : α → I, (∀ a, (p a : ℝ) ∈ Set.Icc (1 / 4) (3 / 4)) ∧
       √(3 / 32 * (Fintype.card α - 1) * n) / 16 ≤
         ∫ ω, regret (bernoulliBandit p) IT.action n ω
-          ∂(trajMeasure alg (stationaryEnv (bernoulliBandit p))) := by
+          ∂(trajMeasure alg (Environment.bandit (bernoulliBandit p))) := by
   set κ : ℝ → Measure ℝ := fun x ↦ Ber((1 : ℝ), 0, Set.projIcc 0 1 zero_le_one x) with hκ
   have hI (x : ℝ) (hx : x ∈ Set.Icc (1 / 4 : ℝ) (1 / 4 + 1 / 2)) : x ∈ Set.Icc (0 : ℝ) 1 :=
     ⟨by linarith [hx.1], by linarith [hx.2]⟩

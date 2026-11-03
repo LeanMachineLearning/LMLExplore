@@ -93,7 +93,7 @@ discounted number of visits to `s` of the Markov chain with kernel `κ` started 
 noncomputable def resolvent (γ : ℝ≥0) (κ : Kernel α α) : Kernel α α where
   toFun x := Measure.sum fun n ↦ ((γ : ℝ≥0∞) ^ n) • (κ ^ n) x
   measurable' := Measure.measurable_of_measurable_coe _ fun s hs ↦ by
-    simp_rw [Measure.sum_apply _ hs, Measure.smul_apply, smul_eq_mul]
+    simp_rw [Measure.sum_apply _ hs, smul_apply, smul_eq_mul]
     exact Measurable.tsum fun n ↦ ((κ ^ n).measurable_coe hs).const_mul _
 
 lemma resolvent_apply (γ : ℝ≥0) (κ : Kernel α α) (x : α) :
@@ -146,7 +146,7 @@ lemma dirac_le_resolvent (γ : ℝ≥0) (κ : Kernel α α) (x : α) :
     Measure.dirac x ≤ resolvent γ κ x := by
   refine Measure.le_iff.2 fun s hs ↦ ?_
   rw [resolvent_apply' _ _ _ hs]
-  refine le_trans ?_ (ENNReal.le_tsum 0)
+  refine le_trans ?_ (le_tsum _ 0)
   simp [one_eq_id, Kernel.id_apply]
 
 /-! ### The resolvent identities -/
@@ -158,8 +158,8 @@ theorem dirac_add_resolvent_comp_apply (γ : ℝ≥0) (κ : Kernel α α) (x : �
   ext s hs
   have h (n : ℕ) : Measurable fun y ↦ (γ : ℝ≥0∞) ^ n * (κ ^ n) y s :=
     ((κ ^ n).measurable_coe hs).const_mul _
-  rw [Measure.add_apply, Measure.smul_apply, smul_eq_mul, comp_apply' _ _ _ hs,
-    resolvent_apply' _ _ _ hs, tsum_eq_zero_add' ENNReal.summable]
+  rw [add_apply, smul_apply, smul_eq_mul, comp_apply' _ _ _ hs,
+    resolvent_apply' _ _ _ hs, tsum_eq_zero_add' CompleteLattice.summable]
   simp_rw [resolvent_apply' _ _ _ hs]
   rw [lintegral_tsum fun n ↦ (h n).aemeasurable, ← ENNReal.tsum_mul_left]
   congr 1
@@ -174,9 +174,9 @@ mass at `x` plus `γ` times the image of the resolvent from `x` by one step of `
 theorem dirac_add_comp_resolvent_apply (γ : ℝ≥0) (κ : Kernel α α) (x : α) :
     Measure.dirac x + (γ : ℝ≥0∞) • (κ ∘ₖ resolvent γ κ) x = resolvent γ κ x := by
   ext s hs
-  rw [Measure.add_apply, Measure.smul_apply, smul_eq_mul, comp_apply' _ _ _ hs,
+  rw [add_apply, smul_apply, smul_eq_mul, comp_apply' _ _ _ hs,
     lintegral_resolvent, resolvent_apply' _ _ _ hs, ← ENNReal.tsum_mul_left]
-  conv_rhs => rw [tsum_eq_zero_add' ENNReal.summable]
+  conv_rhs => rw [tsum_eq_zero_add' CompleteLattice.summable]
   congr 1
   · simp [one_eq_id, Kernel.id_apply]
   · refine tsum_congr fun n ↦ ?_
@@ -274,7 +274,7 @@ the kernel. -/
 theorem resolvent_comp (γ : ℝ≥0) (κ : Kernel α α) (μ : Measure α) :
     resolvent γ κ ∘ₘ μ = Measure.sum fun n ↦ ((γ : ℝ≥0∞) ^ n) • ((κ ^ n : Kernel α α) ∘ₘ μ) := by
   ext s hs
-  rw [bind_apply hs (resolvent γ κ).aemeasurable, sum_apply _ hs]
+  rw [bind_apply hs (resolvent γ κ).aemeasurable, Measure.sum_apply _ hs]
   simp_rw [resolvent_apply' _ _ _ hs, smul_apply, smul_eq_mul, bind_apply hs (κ ^ _).aemeasurable]
   rw [lintegral_tsum fun n ↦ (((κ ^ n).measurable_coe hs).const_mul _).aemeasurable]
   simp_rw [lintegral_const_mul _ ((κ ^ _).measurable_coe hs)]
@@ -310,7 +310,7 @@ resolvent. -/
 theorem eq_resolvent_comp_of_eq_add [IsMarkovKernel κ] (hγ : γ < 1) [IsFiniteMeasure ν]
     (h : ν = μ + (γ : ℝ≥0∞) • (κ ∘ₘ ν)) : ν = resolvent γ κ ∘ₘ μ := by
   ext s hs
-  rw [resolvent_comp, sum_apply _ hs]
+  rw [resolvent_comp, Measure.sum_apply _ hs]
   simp_rw [smul_apply, smul_eq_mul]
   -- The remainder `γ ^ n * (κ ^ n ∘ₘ ν) s` is at most `γ ^ n * ν univ`, which tends to `0`.
   have hrem : Tendsto (fun n ↦ (γ : ℝ≥0∞) ^ n * ((κ ^ n : Kernel α α) ∘ₘ ν) s) atTop (𝓝 0) := by

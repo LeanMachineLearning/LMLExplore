@@ -239,7 +239,7 @@ an arm `a` with gap `Δ_a` at most
 `log f(n) / d(μ_a + ε₁, μ* - ε₂) + 1 / (2 ε₁²) + 2 / ε₂²` times in expectation during the first
 `n` rounds, for all `ε₁, ε₂ > 0` with `ε₁ + ε₂ < Δ_a`, where `μ_a` is the mean of `a`, `μ*` the
 largest mean and `f(n) = 1 + n log² n`. -/
-theorem KLUCB.integral_pullCount_le (h : IsAlgEnvSeq O A R klucb (stationaryEnv ν) P)
+theorem KLUCB.integral_pullCount_le (h : IsAlgEnvSeq O A R klucb (Environment.bandit ν) P)
     (hν : ∀ a, ∀ᵐ x ∂(ν a), x ∈ Set.Icc 0 1) (a : α) {ε₁ ε₂ : ℝ} (hε₁ : 0 < ε₁) (hε₂ : 0 < ε₂)
     (hε : ε₁ + ε₂ < gap ν a) (n : ℕ) :
     P[fun ω ↦ (pullCount A a n ω : ℝ)] ≤
@@ -280,8 +280,8 @@ theorem KLUCB.integral_pullCount_le (h : IsAlgEnvSeq O A R klucb (stationaryEnv 
 horizon `n` is at most the sum over the arms `a` with positive gap `Δ_a` of
 `inf_{ε₁, ε₂ > 0, ε₁ + ε₂ < Δ_a} Δ_a (log f(n) / d(μ_a + ε₁, μ* - ε₂) + 1 / (2 ε₁²) + 2 / ε₂²)`,
 where `μ_a` is the mean of `a`, `μ*` the largest mean and `f(n) = 1 + n log² n`. -/
-theorem klucb_regret_le [StandardBorelSpace α]
-    (h : IsAlgEnvSeq O A R klucb (stationaryEnv ν) P) (hν : ∀ a, ∀ᵐ x ∂(ν a), x ∈ Set.Icc 0 1)
+theorem klucb_regret_le
+    (h : IsAlgEnvSeq O A R klucb (Environment.bandit ν) P) (hν : ∀ a, ∀ᵐ x ∂(ν a), x ∈ Set.Icc 0 1)
     (n : ℕ) :
     P[regret ν A n] ≤ ∑ a ∈ univ.filter (fun a ↦ 0 < gap ν a),
       ⨅ ε₁ : Set.Ioo 0 (gap ν a), ⨅ ε₂ : Set.Ioo 0 (gap ν a - ε₁),
@@ -303,7 +303,8 @@ and every `c > 1 / d(μ_a, μ*)`, where `μ_a` is the mean of `a` and `μ*` the 
 expected number of pulls of `a` by the KL-UCB algorithm during the first `n` rounds is eventually
 at most `c log n`; that is, `limsup_n E[T_a(n)] / log n ≤ 1 / d(μ_a, μ*)`. Here `1 / d(μ_a, μ*)` is
 `(klBer μ_a μ*).toReal⁻¹`, which is `0` when `d(μ_a, μ*) = ∞`. -/
-theorem KLUCB.integral_pullCount_eventually_le (h : IsAlgEnvSeq O A R klucb (stationaryEnv ν) P)
+theorem KLUCB.integral_pullCount_eventually_le
+    (h : IsAlgEnvSeq O A R klucb (Environment.bandit ν) P)
     (hν : ∀ a, ∀ᵐ x ∂(ν a), x ∈ Set.Icc 0 1) (a : α) (ha : 0 < gap ν a) {c : ℝ}
     (hc : (klBer (ν a)[id] (ν (bestArm ν))[id]).toReal⁻¹ < c) :
     ∀ᶠ n : ℕ in atTop, P[fun ω ↦ (pullCount A a n ω : ℝ)] ≤ c * log n := by
@@ -358,7 +359,7 @@ the expected regret of the KL-UCB algorithm at horizon `n` is eventually at most
 is, `limsup_n E[R_n] / log n ≤ ∑_{a : Δ_a > 0} Δ_a / d(μ_a, μ*)`. Here `Δ_a / d(μ_a, μ*)` is
 `Δ_a / (klBer μ_a μ*).toReal`, which is `0` when `d(μ_a, μ*) = ∞`. -/
 theorem klucb_regret_eventually_le [StandardBorelSpace α]
-    (h : IsAlgEnvSeq O A R klucb (stationaryEnv ν) P) (hν : ∀ a, ∀ᵐ x ∂(ν a), x ∈ Set.Icc 0 1)
+    (h : IsAlgEnvSeq O A R klucb (Environment.bandit ν) P) (hν : ∀ a, ∀ᵐ x ∂(ν a), x ∈ Set.Icc 0 1)
     {c : ℝ} (hc : ∑ a ∈ univ.filter (fun a ↦ 0 < gap ν a),
       gap ν a / (klBer (ν a)[id] (ν (bestArm ν))[id]).toReal < c) :
     ∀ᶠ n : ℕ in atTop, P[regret ν A n] ≤ c * log n :=
@@ -372,7 +373,7 @@ theorem klucb_regret_eventually_le [StandardBorelSpace α]
 is `o(log n)`: for every `c > 0`, eventually `E[R_n] ≤ c log n`. Indeed `d(μ_a, 1) = ∞` for every
 arm `a` with positive gap, so that the constant of `klucb_regret_eventually_le` vanishes. -/
 theorem klucb_regret_eventually_le_of_integral_bestArm_eq_one [StandardBorelSpace α]
-    (h : IsAlgEnvSeq O A R klucb (stationaryEnv ν) P) (hν : ∀ a, ∀ᵐ x ∂(ν a), x ∈ Set.Icc 0 1)
+    (h : IsAlgEnvSeq O A R klucb (Environment.bandit ν) P) (hν : ∀ a, ∀ᵐ x ∂(ν a), x ∈ Set.Icc 0 1)
     (h1 : (ν (bestArm ν))[id] = 1) {c : ℝ} (hc : 0 < c) :
     ∀ᶠ n : ℕ in atTop, P[regret ν A n] ≤ c * log n := by
   refine klucb_regret_eventually_le h hν (lt_of_eq_of_lt (sum_eq_zero fun a ha ↦ ?_) hc)

@@ -105,10 +105,10 @@ theorem occupancy_apply (h : IsAlgEnvSeq S A Y alg (M.env μ) P) {s : Set (𝓢 
     (hs : MeasurableSet s) :
     M.occupancy γ alg μ s =
       (1 - γ : ℝ≥0∞) * ∑' n, (γ : ℝ≥0∞) ^ n * P ((fun ω ↦ (S n ω, A n ω)) ⁻¹' s) := by
-  rw [occupancy_eq_sum h, Measure.smul_apply, smul_eq_mul, Measure.sum_apply _ hs]
+  rw [occupancy_eq_sum h, smul_apply, smul_eq_mul, Measure.sum_apply _ hs]
   congr 1
   refine tsum_congr fun n ↦ ?_
-  rw [Measure.smul_apply, smul_eq_mul,
+  rw [smul_apply, smul_eq_mul,
     Measure.map_apply ((h.measurable_obs n).prodMk (h.measurable_action n)) hs]
 
 /-- Along every run of `alg` in `M.env μ`, for `γ < 1`, the integral of a function `f` integrable
@@ -192,15 +192,15 @@ theorem occupancy_map_fst :
       (1 - γ : ℝ≥0∞) *
         ∑' n, (γ : ℝ≥0∞) ^ n * trajMeasure alg (M.env μ) (IT.obs (n + 1) ⁻¹' B) := by
     rw [occupancy_def, Measure.comp_smul, Measure.bind_sum _ _ M.P.aemeasurable,
-      Measure.smul_apply, smul_eq_mul, Measure.sum_apply _ hB]
+      smul_apply, smul_eq_mul, Measure.sum_apply _ hB]
     congr 1
     refine tsum_congr fun n ↦ ?_
-    rw [Measure.comp_smul, Measure.smul_apply, smul_eq_mul, ← (hasLaw_obs_add_one h n).map_eq,
+    rw [Measure.comp_smul, smul_apply, smul_eq_mul, ← (hasLaw_obs_add_one h n).map_eq,
       Measure.map_apply (IT.measurable_obs _) hB]
   have h_zero : μ B = trajMeasure alg (M.env μ) (IT.obs 0 ⁻¹' B) := by
     rw [← Measure.map_apply (IT.measurable_obs 0) hB, (hasLaw_obs_zero h).map_eq]
-  rw [h_lhs, Measure.add_apply, Measure.smul_apply, Measure.smul_apply, smul_eq_mul, smul_eq_mul,
-    h_comp, h_zero, tsum_eq_zero_add' ENNReal.summable]
+  rw [h_lhs, add_apply, smul_apply, smul_apply, smul_eq_mul, smul_eq_mul,
+    h_comp, h_zero, tsum_eq_zero_add' CompleteLattice.summable]
   simp_rw [pow_succ', mul_assoc, ENNReal.tsum_mul_left]
   ring
 
@@ -211,7 +211,7 @@ theorem occupancy_prod_univ {B : Set 𝓢} (hB : MeasurableSet B) :
     M.occupancy γ alg μ (B ×ˢ univ) =
       (1 - γ : ℝ≥0∞) * μ B + γ * ∫⁻ p, M.P p B ∂(M.occupancy γ alg μ) := by
   rw [← Measure.bind_apply hB M.P.aemeasurable, prod_univ, ← Measure.map_apply measurable_fst hB,
-    occupancy_map_fst, Measure.add_apply, Measure.smul_apply, Measure.smul_apply, smul_eq_mul,
+    occupancy_map_fst, add_apply, smul_apply, smul_apply, smul_eq_mul,
     smul_eq_mul]
 
 end Flow

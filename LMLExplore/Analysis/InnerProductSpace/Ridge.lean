@@ -94,7 +94,7 @@ variable [CompleteSpace E]
 /-- The **normal equations**: for `λ > 0`, `V_t θ̂_t = ∑_{s < t} y s • x s`. -/
 theorem designOp_ridgeEstimate (hlam : 0 < lam) (x : ℕ → E) (y : ℕ → ℝ) (t : ℕ) :
     designOp lam x t (ridgeEstimate lam x y t) = ∑ s ∈ range t, y s • x s :=
-  (designOp lam x t).apply_ringInverse_apply (isUnit_designOp hlam x t) _
+  ContinuousLinearMap.apply_ringInverse_apply (isUnit_designOp hlam x t) _
 
 /-- For `λ > 0`, the regularized squared loss is
 `L_t(θ) = L_t(θ̂_t) + ⟪θ - θ̂_t, V_t (θ - θ̂_t)⟫`. -/
@@ -142,7 +142,7 @@ theorem ridgeEstimate_sub_eq (hlam : 0 < lam) (x : ℕ → E) {y η : ℕ → �
     simp only [designOp_apply, hy, add_smul, sum_add_distrib, real_inner_comm θ]
     abel
   rw [ridgeEstimate, hb, map_add,
-    (designOp lam x t).ringInverse_apply_apply (isUnit_designOp hlam x t), add_sub_cancel_left]
+    ContinuousLinearMap.ringInverse_apply_apply (isUnit_designOp hlam x t), add_sub_cancel_left]
 
 /-- **Deterministic confidence bound** in the linear model `y s = ⟪θ, x s⟫ + η s`: for `λ > 0`,
 `‖θ̂_t - θ‖_{V_t} ≤ √λ ‖θ‖ + ‖S_t‖_{V_t⁻¹}`, where `S_t = ∑_{s < t} η s • x s`. -/
@@ -156,8 +156,9 @@ theorem sqrt_inner_ridgeEstimate_sub_le (hlam : 0 < lam) (x : ℕ → E) {y η :
   -- `‖θ̂_t - θ‖_{V_t} = ‖S_t - λ θ‖_{V_t⁻¹}`, then the triangle inequality for `‖·‖_{V_t⁻¹}`
   have heq : ⟪ridgeEstimate lam x y t - θ, V (ridgeEstimate lam x y t - θ)⟫_ℝ =
       ⟪-(lam • θ) + S, Ring.inverse V (-(lam • θ) + S)⟫_ℝ := by
-    rw [ridgeEstimate_sub_eq hlam x θ t hy, V.apply_ringInverse_apply (isUnit_designOp hlam x t),
-      real_inner_comm, neg_add_eq_sub]
+    rw [ridgeEstimate_sub_eq hlam x θ t hy,
+      ContinuousLinearMap.apply_ringInverse_apply (isUnit_designOp hlam x t), real_inner_comm,
+      neg_add_eq_sub]
   have hθ : √⟪-(lam • θ), Ring.inverse V (-(lam • θ))⟫_ℝ ≤ √lam * ‖θ‖ := by
     rw [Real.sqrt_le_left (by positivity)]
     simp [inner_smul_left, inner_smul_right, mul_pow, Real.sq_sqrt hlam.le]

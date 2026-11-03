@@ -7,7 +7,7 @@ module
 
 public import LeanMachineLearning.SequentialLearning.IonescuTulceaSpace
 public import LeanMachineLearning.SequentialLearning.StoppedHistory
-public import LMLExplore.Probability.Kernel.Composition.MeasureCompProd
+public import TauCeti.Probability.Kernel.Composition.MeasureCompProd
 
 /-!
 # The law of a stopped history only depends on the rounds before stopping
@@ -55,7 +55,7 @@ length, is measurable. -/
 private lemma measurable_sigma_prefix {m : ℕ} (hm : m ≤ n) :
     Measurable fun h : Hist 𝓞 𝓐 𝓨 n ↦
       (⟨m, fun i ↦ h (Fin.castLE hm i)⟩ : Σ n : ℕ, Hist 𝓞 𝓐 𝓨 n) :=
-  (measurable_sigma_mk m).comp (Measurable.of_eval fun _ ↦ measurable_pi_apply _)
+  (measurable_sigmaMk m).comp (Measurable.of_eval fun _ ↦ measurable_pi_apply _)
 
 /-- For `m ≤ n`, the history of the first `m` rounds is the prefix of length `m` of the history
 of the first `n` rounds. -/
@@ -172,8 +172,8 @@ private lemma map_history_restrict_notStoppedBeforeSet (h : IsAlgEnvSeq O X Y al
       (h.hasCondDistrib_step n).map_eq, (h'.hasCondDistrib_step n).map_eq,
       Measure.restrict_map he (measurableSet_notStoppedBeforeSet hS _),
       Measure.restrict_map he (measurableSet_notStoppedBeforeSet hS _),
-      preimage_finSuccProd_symm_notStoppedBeforeSet, ← Measure.compProd_restrict_left hm,
-      ← Measure.compProd_restrict_left hm, h_restrict,
+      preimage_finSuccProd_symm_notStoppedBeforeSet, ← Measure.compProd_restrict_left _ _ hm,
+      ← Measure.compProd_restrict_left _ _ hm, h_restrict,
       Measure.compProd_congr (ae_restrict_of_forall_mem hm (h_eq n))]
 
 /-- Under the hypotheses of `map_history_restrict_notStoppedBeforeSet`, the events determined by
@@ -229,7 +229,7 @@ private lemma measure_stoppedValue_preimage_inter_eq_coe (hS : MeasurableSet S)
   rw [h_eq_pre]
   exact measure_history_preimage_eq (IT.isAlgEnvSeq_trajMeasure alg env)
     (IT.isAlgEnvSeq_trajMeasure alg' env') hS h_eq ((measurableSet_notStoppedBeforeSet hS n).inter
-      ((measurable_sigma_mk n) (hS.inter hB))) inter_subset_left
+      ((measurable_sigmaMk n) (hS.inter hB))) inter_subset_left
 
 /-- On the event `{τ = ⊤}` the stopped history is the history of the first `c` rounds for a fixed
 `c`, and `{τ = ⊤}` is the decreasing intersection of the events `{m + c < τ}`, which are determined

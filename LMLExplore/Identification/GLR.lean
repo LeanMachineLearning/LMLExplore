@@ -185,7 +185,7 @@ lemma output_glrt (h : Σ n, Hist Unit α 𝓨 n) :
 /-- The output rule of the GLRT is the deterministic kernel of the recommendation rule. -/
 lemma output_glrt_eq_deterministic :
     (task.glrt Z alg β rec hrec hstop).output = Kernel.deterministic (fun h ↦ rec h.1 h.2)
-      (measurable_sigma_of_measurable_comp_mk hrec) := by
+      (measurable_sigma hrec) := by
   ext h : 1
   rw [output_glrt, Kernel.deterministic_apply]
 
@@ -204,7 +204,7 @@ lemma stoppingTime_glrt_le {ω : Ω}
 [GK16, Proposition 12]). For every model `θ`, the probability that the GLRT stops with an answer
 that is not correct for `θ` is at most the probability of the deviation event
 `∃ n, β n < Z n hₙ θ` of `θ`, along any algorithm-environment sequence of the sampling rule. Only
-the probabilities in `env = stationaryEnv (task.ν θ)` matter for correctness; the inclusion of
+the probabilities in `env = Environment.bandit (task.ν θ)` matter for correctness; the inclusion of
 the events holds in every environment. -/
 theorem measureReal_histOutputMeasure_glrt_le {env : Environment Unit α 𝓨}
     (hseq : IsAlgEnvSeq O X Y alg env P) (hθ : θ ∈ task.M)
@@ -214,7 +214,7 @@ theorem measureReal_histOutputMeasure_glrt_le {env : Environment Unit α 𝓨}
       P.real {ω | ∃ n, β n < Z n (history O X Y n ω) θ} := by
   set A := task.glrt Z alg β rec hrec hstop
   have hg : Measurable fun h : Σ n, Hist Unit α 𝓨 n ↦ (h, rec h.1 h.2) :=
-    measurable_id.prodMk (measurable_sigma_of_measurable_comp_mk hrec)
+    measurable_id.prodMk (measurable_sigma hrec)
   have hS := A.measurableSet_mem_stopSet_and_notMem hc
   have h_law : HasLaw (A.stoppedHist O X Y) (stoppedHistMeasure A.alg env A.stopSet) P :=
     (task.alg_glrt Z alg β rec hrec hstop ▸ hseq).hasLaw_stoppedValue_sigmaHistory
@@ -250,15 +250,15 @@ theorem measureReal_stoppingTime_ne_top_and_notMem_le_of_isRun_glrt {env : Envir
 `∃ n, β n < Z n hₙ θ` has probability at most `δ` and the GLRT stops almost surely, then it is
 `δ`-PAC on the task. -/
 theorem isDeltaPAC_glrt {δ : ℝ} (hc : ∀ θ ∈ task.M, MeasurableSet (task.correct θ))
-    (hdev : ∀ θ ∈ task.M, (trajMeasure alg (stationaryEnv (task.ν θ))).real
+    (hdev : ∀ θ ∈ task.M, (trajMeasure alg (Environment.bandit (task.ν θ))).real
       {ω | ∃ n, β n < Z n (history IT.obs IT.action IT.feedback n ω) θ} ≤ δ)
     (h_stops : ∀ θ ∈ task.M,
-      StopsAS (task.glrt Z alg β rec hrec hstop) (stationaryEnv (task.ν θ))) :
+      StopsAS (task.glrt Z alg β rec hrec hstop) (Environment.bandit (task.ν θ))) :
     task.IsDeltaPAC (task.glrt Z alg β rec hrec hstop) δ := by
   set A := task.glrt Z alg β rec hrec hstop
   have h_correct : task.IsDeltaCorrect A δ := by
     refine isDeltaCorrect_iff.2 fun θ hθ ↦ ?_
-    set μ := histOutputMeasure A (stationaryEnv (task.ν θ))
+    set μ := histOutputMeasure A (Environment.bandit (task.ν θ))
     -- Since the GLRT stops almost surely, not stopping does not contribute to the error.
     have h_ae : ∀ᵐ p ∂μ, p.1 ∈ A.stopSet := ae_of_ae_map measurable_fst.aemeasurable <| by
       rw [← Measure.fst, fst_histOutputMeasure]
@@ -362,7 +362,7 @@ theorem eventually_expectedStoppingTime_glrt_le (hseq : IsAlgEnvSeq O X Y alg en
   _ ≤ N + ∑' T, P (E (T + N))ᶜ :=
     task.expectedStoppingTime_glrt_le_add_tsum Z alg (β δ) rec hrec (hstop δ) hseq h_stop
   _ ≤ N + ∑' T, P (E T)ᶜ := add_le_add_right
-    (ENNReal.tsum_comp_le_tsum_of_injective (add_left_injective N) fun T ↦ P (E T)ᶜ) _
+    (tsum_comp_le_tsum_of_injective (add_left_injective N) fun T ↦ P (E T)ᶜ) _
   _ = ENNReal.ofReal (N + S) := by
     rw [ENNReal.ofReal_add (by positivity) ENNReal.toReal_nonneg, ENNReal.ofReal_natCast,
       ENNReal.ofReal_toReal hE_sum]
