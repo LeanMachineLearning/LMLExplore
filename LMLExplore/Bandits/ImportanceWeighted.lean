@@ -39,6 +39,9 @@ against `Environment.ofSeq o g _` with expert advice `o` (`IsAlgEnvSeq.feedback_
   `b ∼ p`, the estimates of the reward `x a` are equal to `x a` when `p a ≠ 0`.
 * `sum_mul_iwEstimator_apply_sub_sq`, `sum_mul_lossIwEstimator_apply_sub_sq`: the corresponding
   variances.
+* `dotProduct_iwEstimator`, `dotProduct_lossIwEstimator`: the averages of the estimates against
+  a vector `e` summing to `1`, such as the advice of an expert in Exp4, are `e b y / p b` and
+  `1 - e b (1 - y) / p b`.
 * `sum_mul_iwEstimator_sq`: the `p`-average of the squared importance-weighted estimates is
   `y ^ 2 / p b`, the second moment that the analysis of Exp3 controls.
 * `iwEstimator_nonneg`, `lossIwEstimator_le_one`: the importance-weighted estimates of a
@@ -147,6 +150,16 @@ variable [Fintype α]
 /-- The `p`-average of the importance-weighted estimates is the observed reward. -/
 lemma sum_mul_iwEstimator (hb : p b ≠ 0) : ∑ a, p a * iwEstimator p b y a = y := by
   simp [iwEstimator_def, Pi.single_apply, mul_div_cancel₀ _ hb]
+
+/-- The `e`-weighted sum of the importance-weighted estimates is `e b * y / p b`. -/
+lemma dotProduct_iwEstimator (e : α → ℝ) : e ⬝ᵥ iwEstimator p b y = e b * y / p b := by
+  rw [iwEstimator_def, dotProduct_single, mul_div_assoc]
+
+/-- For weights `e` summing to `1`, such as the advice of an expert, the `e`-average of the
+loss-based estimates is `1 - e b * (1 - y) / p b`. -/
+lemma dotProduct_lossIwEstimator {e : α → ℝ} (he : ∑ a, e a = 1) :
+    e ⬝ᵥ lossIwEstimator p b y = 1 - e b * (1 - y) / p b := by
+  rw [lossIwEstimator_def, dotProduct_sub, dotProduct_iwEstimator, dotProduct_one, he]
 
 /-- The `p`-average of the squared importance-weighted estimates is `y ^ 2 / p b`. -/
 lemma sum_mul_iwEstimator_sq : ∑ a, p a * iwEstimator p b y a ^ 2 = y ^ 2 / p b := by

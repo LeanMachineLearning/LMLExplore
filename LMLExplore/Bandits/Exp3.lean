@@ -231,23 +231,6 @@ theorem sum_lossIwEstimator_sub_le (hη : 0 < η) (O : ℕ → Ω → 𝓞) (A :
   simp only [h1, h2] at key
   exact key
 
-omit [Fintype α] [DecidableEq α] [MeasurableSpace 𝓞] [Nonempty α] in
-/-- The function `(p, b) ↦ (1 - x t b) ^ 2 / p b` whose `p`-averages are the expected
-second-order terms of Exp3. -/
-private lemma measurable_sq_div [Finite α] (t : ℕ) :
-    Measurable fun z : (α → ℝ) × α ↦ (1 - x t z.2) ^ 2 / z.1 z.2 :=
-  measurable_from_prod_countable_left fun b ↦ by fun_prop
-
-private lemma integrable_sq_div_exp3Weights' (h : IsAlgEnvSeq O A Y (exp3 η) env P) (t : ℕ) :
-    Integrable (fun ω ↦
-      (1 - x t (A t ω)) ^ 2 / exp3Weights η t (history O A Y t ω) (A t ω)) P := by
-  refine WeightAlgorithm.integrable_comp_weights h t (g := fun p b ↦ (1 - x t b) ^ 2 / p b)
-    (measurable_sq_div t) (C := ∑ b, (1 - x t b) ^ 2) fun p hp ↦ Finset.sum_le_sum fun b _ ↦ ?_
-  rw [abs_of_nonneg (div_nonneg (sq_nonneg _) ((mem_simplex_iff.1 hp).1 b))]
-  rcases ((mem_simplex_iff.1 hp).1 b).eq_or_lt with hb | hb
-  · simp [← hb, sq_nonneg]
-  · rw [mul_div_cancel₀ _ hb.ne']
-
 omit [MeasurableSpace α] [MeasurableSingletonClass α] [MeasurableSpace 𝓞] [Nonempty α]
   [IsProbabilityMeasure P] in
 private lemma sq_div_exp3Weights_ae_eq {t : ℕ} (hY : Y t =ᵐ[P] x t ∘ A t) :
@@ -261,7 +244,8 @@ term `(1 - Y t) ^ 2 / P t (A t)` of round `t` is integrable. -/
 lemma integrable_sq_div_exp3Weights {t : ℕ} (hY : Y t =ᵐ[P] x t ∘ A t)
     (h : IsAlgEnvSeq O A Y (exp3 η) env P) :
     Integrable (fun ω ↦ (1 - Y t ω) ^ 2 / exp3Weights η t (history O A Y t ω) (A t ω)) P :=
-  (integrable_sq_div_exp3Weights' h t).congr (sq_div_exp3Weights_ae_eq hY).symm
+  (WeightAlgorithm.integrable_div_weights h t fun b ↦ (1 - x t b) ^ 2).congr
+    (sq_div_exp3Weights_ae_eq hY).symm
 
 /-- Along a run of Exp3 whose feedback is the reward `x t (A t)` of its action, the second-order
 term `(1 - Y t) ^ 2 / P t (A t)` of round `t` has expectation `∑ b, (1 - x t b) ^ 2`. -/
@@ -269,11 +253,9 @@ lemma integral_sq_div_exp3Weights {t : ℕ} (hY : Y t =ᵐ[P] x t ∘ A t)
     (h : IsAlgEnvSeq O A Y (exp3 η) env P) :
     P[fun ω ↦ (1 - Y t ω) ^ 2 / exp3Weights η t (history O A Y t ω) (A t ω)] =
       ∑ b, (1 - x t b) ^ 2 := by
-  rw [integral_congr_ae (sq_div_exp3Weights_ae_eq hY),
-    WeightAlgorithm.integral_comp_weights h t (g := fun p b ↦ (1 - x t b) ^ 2 / p b)
-      (measurable_sq_div t) (integrable_sq_div_exp3Weights' h t)]
-  simp_rw [mul_div_cancel₀ _ (exp3Weights_pos _ _ _).ne']
-  simp
+  rw [integral_congr_ae (sq_div_exp3Weights_ae_eq hY)]
+  exact WeightAlgorithm.integral_div_weights h t (c := fun b ↦ (1 - x t b) ^ 2)
+    (ae_of_all _ fun _ b hb ↦ absurd hb (exp3Weights_pos _ _ b).ne')
 
 /-- **The estimated regret of Exp3 is unbiased.** Along a run of Exp3 whose feedback at the rounds
 `t < n` is the reward `x t (A t)` of its action, the regret against every arm `a` is the
