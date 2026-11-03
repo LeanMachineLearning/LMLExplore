@@ -39,9 +39,15 @@ against `Environment.ofSeq o g _` with expert advice `o` (`IsAlgEnvSeq.feedback_
   `b ∼ p`, the estimates of the reward `x a` are equal to `x a` when `p a ≠ 0`.
 * `sum_mul_iwEstimator_apply_sub_sq`, `sum_mul_lossIwEstimator_apply_sub_sq`: the corresponding
   variances.
-* `lossIwEstimator_le_one`: the loss-based estimates are at most `1` for rewards at most `1`.
+* `sum_mul_iwEstimator_sq`: the `p`-average of the squared importance-weighted estimates is
+  `y ^ 2 / p b`, the second moment that the analysis of Exp3 controls.
+* `iwEstimator_nonneg`, `lossIwEstimator_le_one`: the importance-weighted estimates of a
+  nonnegative reward are nonnegative, and the loss-based estimates are at most `1` for rewards at
+  most `1`.
 * `comp_feedback_ae_eq`: when the feedback `Y n` is almost surely `x (A n)`, it can be replaced
   by `x (A n)` in any function of the past, the action and the feedback of round `n`.
+* `Learning.IsAlgEnvSeq.integrable_feedback_of_ae_eq`: such a feedback is integrable when there
+  are finitely many actions.
 * `WeightAlgorithm.condExp_iwEstimator`, `WeightAlgorithm.condExp_lossIwEstimator`: conditional
   unbiasedness along a run of a weight-based algorithm [LS, (11.4)].
 * `WeightAlgorithm.integral_iwEstimator`, `WeightAlgorithm.integral_lossIwEstimator`: the
@@ -82,6 +88,14 @@ lemma iwEstimator_apply_self : iwEstimator p b y b = y / p b := by simp [iwEstim
 @[simp]
 lemma iwEstimator_apply_of_ne (h : a ≠ b) : iwEstimator p b y a = 0 := by
   simp [iwEstimator_def, h]
+
+/-- The importance-weighted estimate of a nonnegative reward is nonnegative. -/
+lemma iwEstimator_nonneg (hp : 0 ≤ p b) (hy : 0 ≤ y) : 0 ≤ iwEstimator p b y a := by
+  rw [iwEstimator_apply]
+  split_ifs with h
+  · subst h
+    exact div_nonneg hy hp
+  · exact le_rfl
 
 /-- The **loss-based importance-weighted estimator** [LS, (11.6)]: when the arm `b` is drawn from
 the probability vector `p` and its reward `y` is observed, the estimate of the reward of arm `a` is
@@ -133,6 +147,13 @@ variable [Fintype α]
 /-- The `p`-average of the importance-weighted estimates is the observed reward. -/
 lemma sum_mul_iwEstimator (hb : p b ≠ 0) : ∑ a, p a * iwEstimator p b y a = y := by
   simp [iwEstimator_def, Pi.single_apply, mul_div_cancel₀ _ hb]
+
+/-- The `p`-average of the squared importance-weighted estimates is `y ^ 2 / p b`. -/
+lemma sum_mul_iwEstimator_sq : ∑ a, p a * iwEstimator p b y a ^ 2 = y ^ 2 / p b := by
+  rw [Finset.sum_eq_single b (fun a _ ha ↦ by simp [ha]) (by simp), iwEstimator_apply_self]
+  rcases eq_or_ne (p b) 0 with hb | hb
+  · simp [hb]
+  · field_simp
 
 /-- The `p`-average of the loss-based importance-weighted estimates is the observed reward. -/
 lemma sum_mul_lossIwEstimator (hp : ∑ a, p a = 1) (hb : p b ≠ 0) :
@@ -202,6 +223,20 @@ lemma comp_feedback_ae_eq (hY : Y n =ᵐ[P] x ∘ A n) (g : Hist 𝓞 α ℝ n �
       fun ω ↦ g (history O A Y n ω, O n ω) (A n ω) (x (A n ω)) := by
   filter_upwards [hY] with ω hω
   rw [hω, Function.comp_apply]
+
+omit [DecidableEq α] in
+/-- Along a run of an algorithm with finitely many actions whose feedback at round `n` is almost
+surely the reward `x (A n)` of its action, the feedback of round `n` is integrable. -/
+lemma _root_.Learning.IsAlgEnvSeq.integrable_feedback_of_ae_eq [MeasurableSpace α]
+    [MeasurableSingletonClass α] [Finite α] [MeasurableSpace 𝓞] [IsFiniteMeasure P]
+    {alg : Algorithm 𝓞 α ℝ} {env : Environment 𝓞 α ℝ} (h : IsAlgEnvSeq O A Y alg env P)
+    (hY : Y n =ᵐ[P] x ∘ A n) :
+    Integrable (Y n) P := by
+  have := Fintype.ofFinite α
+  exact (Integrable.of_bound ((measurable_of_finite x).comp
+    (h.measurable_action n)).aestronglyMeasurable (∑ a, |x a|) (ae_of_all _ fun ω ↦
+      Finset.single_le_sum (f := fun a ↦ |x a|) (fun a _ ↦ abs_nonneg _)
+        (Finset.mem_univ (A n ω)))).congr hY.symm
 
 end Feedback
 

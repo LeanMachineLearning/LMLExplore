@@ -10,7 +10,7 @@ public import Mathlib.Analysis.SpecialFunctions.Exp
 public import Mathlib.Analysis.SpecialFunctions.Trigonometric.DerivHyp
 
 /-!
-# Sums of exponentials
+# Sums of exponentials and a quadratic bound on `exp (-x)`
 
 The geometric sum `∑_{s ≥ 1} exp (-c s) = 1 / (exp c - 1)` is at most `1 / c` for `c > 0`. This is
 the form in which the sums over the sample sizes of sub-Gaussian tail bounds `exp (-s ε² / (2 σ²))`
@@ -30,6 +30,9 @@ sequence `exp (-f n)` is summable as soon as `f n` grows faster than `log n`, fo
 tail bounds `exp (-c m n)` over a sequence of experiments whose sample sizes grow faster than
 logarithmically.
 
+For `x ≥ 0`, `exp (-x) ≤ 1 - x + x ^ 2 / 2`, the second-order bound that controls the growth of
+the potential of exponential weights fed with nonnegative losses.
+
 ## Main statements
 
 * `Real.sum_range_exp_neg_mul_le`: `∑_{s < m} exp (-c (s + 1)) ≤ 1 / c` for `c > 0`.
@@ -42,6 +45,7 @@ logarithmically.
 * `Real.exp_neg_mul_div_one_sub_exp_neg_nonneg`: the terms `exp (-x d) / (1 - exp (-d))` of these
   tail sums are nonnegative for `d ≥ 0`.
 * `Real.summable_exp_neg_of_tendsto_div_log`: `∑ n, exp (-f n) < ∞` if `f n / log n → ∞`.
+* `Real.exp_neg_le_one_sub_add_sq_div_two`: `exp (-x) ≤ 1 - x + x ^ 2 / 2` for `x ≥ 0`.
 
 ## References
 
@@ -158,5 +162,16 @@ theorem summable_exp_neg_of_tendsto_div_log {f : ℕ → ℝ}
   rw [norm_of_nonneg (exp_pos _).le, one_div, ← exp_log (zero_lt_one.trans hn1), ← exp_nat_mul,
     ← exp_neg, Nat.cast_ofNat]
   exact exp_le_exp.2 (neg_le_neg hn)
+
+/-- For `x ≥ 0`, `exp (-x) ≤ 1 - x + x ^ 2 / 2`. -/
+theorem exp_neg_le_one_sub_add_sq_div_two {x : ℝ} (hx : 0 ≤ x) :
+    exp (-x) ≤ 1 - x + x ^ 2 / 2 := by
+  -- `exp x ≥ 1 + x + x ^ 2 / 2` and `(1 + x + x ^ 2 / 2) (1 - x + x ^ 2 / 2) = 1 + x ^ 4 / 4`
+  have hpos : 0 < 1 + x + x ^ 2 / 2 := by positivity
+  calc exp (-x) = (exp x)⁻¹ := exp_neg x
+  _ ≤ (1 + x + x ^ 2 / 2)⁻¹ := inv_anti₀ hpos (quadratic_le_exp_of_nonneg hx)
+  _ ≤ 1 - x + x ^ 2 / 2 := by
+    rw [inv_le_iff_one_le_mul₀' hpos]
+    nlinarith [pow_nonneg hx 4]
 
 end Real
