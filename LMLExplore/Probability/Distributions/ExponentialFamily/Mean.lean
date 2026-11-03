@@ -70,6 +70,8 @@ confidence*, COLT 2016.
   `MeasureTheory.Measure.strictAntiOn_expFamilyDiv_right`,
   `MeasureTheory.Measure.strictMonoOn_expFamilyDiv_right`: in each argument, `d` is strictly
   decreasing below the other argument and strictly increasing above it.
+* `MeasureTheory.Measure.expFamilyDiv_le_expFamilyDiv_of_mem_uIcc`: `d(μ, γ) ≤ d(μ, x)` for a mean
+  `γ` between `μ` and a mean `x`.
 * `MeasureTheory.Measure.exists_mem_Icc_expFamilyDiv_eq`: between two means `μ' ≤ μ` there is a
   mean `z` with `d(μ, z) = d(μ', z)`.
 * `MeasureTheory.Measure.sq_div_le_expFamilyDiv`,
@@ -386,6 +388,17 @@ theorem strictMonoOn_expFamilyDiv_right (hT : ∀ c, ¬ T =ᵐ[ρ] fun _ ↦ c) 
   rw [(hasDerivAt_expFamilyDiv_right hT μ hy.1).deriv]
   exact div_pos (sub_pos.2 hy.2)
     (iteratedDeriv_two_cgf_pos hT (natParam_mem_interior_integrableExpSet hy.1))
+
+/-- The divergence from `μ` grows as the second argument moves away from `μ`: for means `γ` and
+`x` of the family with `γ` between `μ` and `x`, `d(μ, γ) ≤ d(μ, x)`. -/
+theorem expFamilyDiv_le_expFamilyDiv_of_mem_uIcc (hT : ∀ c, ¬ T =ᵐ[ρ] fun _ ↦ c) {γ x : ℝ}
+    (hγ : γ ∈ ρ.expFamilyMeans T) (hx : x ∈ ρ.expFamilyMeans T) (h : γ ∈ uIcc μ x) :
+    ρ.expFamilyDiv T μ γ ≤ ρ.expFamilyDiv T μ x := by
+  rcases le_total μ x with hμx | hxμ
+  · rw [uIcc_of_le hμx] at h
+    exact (strictMonoOn_expFamilyDiv_right hT μ).monotoneOn ⟨hγ, h.1⟩ ⟨hx, hμx⟩ h.2
+  · rw [uIcc_of_ge hxμ] at h
+    exact (strictAntiOn_expFamilyDiv_right hT μ).antitoneOn ⟨hx, hxμ⟩ ⟨hγ, h.2⟩ h.1
 
 /-- Between two means `μ' ≤ μ` of the family there is a mean `z` at the same divergence from both,
 `d(μ, z) = d(μ', z)`: the divergence `d(μ, ·) - d(μ', ·)` is continuous, nonnegative at `μ'` and
