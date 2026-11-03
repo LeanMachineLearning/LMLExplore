@@ -7,6 +7,7 @@ module
 
 public import Mathlib.Algebra.Order.BigOperators.Group.Finset
 public import Mathlib.Analysis.Convex.Basic
+public import Mathlib.Basic.ENNReal.BigOperators
 public import Mathlib.Basic.Real.Basic
 public import Mathlib.Topology.Instances.Real.Lemmas
 
@@ -33,6 +34,8 @@ supported distributions, not a subset of `α → ℝ`.
 * `LMLExplore.simplex_subset_nonneg`: the simplex consists of nonnegative vectors.
 * `LMLExplore.simplex_nonempty`: the simplex of a nonempty type is nonempty.
 * `LMLExplore.convex_simplex`: the simplex is convex.
+* `LMLExplore.sum_ofReal_mul_le_iSup`: an average `∑ a, w a * x a` of extended nonnegative reals
+  with weights `w` of the simplex is at most their supremum.
 * `LMLExplore.smul_sub_single_mem_simplex`: removing a mass `s < 1` from an entry of a vector of
   the simplex and rescaling by `(1 - s)⁻¹` stays in the simplex.
 * `LMLExplore.isCompact_simplex`: the simplex is compact.
@@ -78,6 +81,16 @@ lemma isClosed_simplex : IsClosed (simplex α) := by
   rw [h]
   exact (isClosed_iInter fun a ↦ isClosed_le continuous_const (continuous_apply a)).inter
     (isClosed_eq (by fun_prop) continuous_const)
+
+/-- An average `∑ a, w a * x a` of extended nonnegative reals with weights `w` of the simplex is at
+most their supremum. -/
+lemma sum_ofReal_mul_le_iSup {w : α → ℝ} (hw : w ∈ simplex α) (x : α → ENNReal) :
+    ∑ a, ENNReal.ofReal (w a) * x a ≤ ⨆ a, x a :=
+  calc ∑ a, ENNReal.ofReal (w a) * x a ≤ ∑ a, ENNReal.ofReal (w a) * ⨆ b, x b :=
+        Finset.sum_le_sum fun a _ ↦ by gcongr; exact le_iSup x a
+    _ = ⨆ a, x a := by
+        rw [← Finset.sum_mul, ← ENNReal.ofReal_sum_of_nonneg fun a _ ↦ hw.1 a, hw.2,
+          ENNReal.ofReal_one, one_mul]
 
 /-- The entries of a vector of the simplex lie in `[0, 1]`. -/
 lemma simplex_subset_Icc : simplex α ⊆ Set.Icc 0 1 := by
