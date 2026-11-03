@@ -46,8 +46,8 @@ against `Environment.ofSeq o g _` with expert advice `o` (`IsAlgEnvSeq.feedback_
   most `1`.
 * `comp_feedback_ae_eq`: when the feedback `Y n` is almost surely `x (A n)`, it can be replaced
   by `x (A n)` in any function of the past, the action and the feedback of round `n`.
-* `Learning.IsAlgEnvSeq.integrable_feedback_of_ae_eq`: such a feedback is integrable when the
-  rewards `x` lie in `[0, 1]`.
+* `Learning.IsAlgEnvSeq.integrable_feedback_of_ae_eq`: such a feedback is integrable when there
+  are finitely many actions.
 * `WeightAlgorithm.condExp_iwEstimator`, `WeightAlgorithm.condExp_lossIwEstimator`: conditional
   unbiasedness along a run of a weight-based algorithm [LS, (11.4)].
 * `WeightAlgorithm.integral_iwEstimator`, `WeightAlgorithm.integral_lossIwEstimator`: the
@@ -225,17 +225,18 @@ lemma comp_feedback_ae_eq (hY : Y n =ᵐ[P] x ∘ A n) (g : Hist 𝓞 α ℝ n �
   rw [hω, Function.comp_apply]
 
 omit [DecidableEq α] in
-/-- Along a run of an algorithm whose feedback at round `n` is almost surely the reward
-`x (A n) ∈ [0, 1]` of its action, the feedback of round `n` is integrable. -/
+/-- Along a run of an algorithm with finitely many actions whose feedback at round `n` is almost
+surely the reward `x (A n)` of its action, the feedback of round `n` is integrable. -/
 lemma _root_.Learning.IsAlgEnvSeq.integrable_feedback_of_ae_eq [MeasurableSpace α]
     [MeasurableSingletonClass α] [Finite α] [MeasurableSpace 𝓞] [IsFiniteMeasure P]
     {alg : Algorithm 𝓞 α ℝ} {env : Environment 𝓞 α ℝ} (h : IsAlgEnvSeq O A Y alg env P)
-    (hY : Y n =ᵐ[P] x ∘ A n) (hx : ∀ a, x a ∈ Set.Icc 0 1) :
-    Integrable (Y n) P :=
-  (Integrable.of_bound ((measurable_of_finite x).comp
-    (h.measurable_action n)).aestronglyMeasurable 1 (ae_of_all _ fun ω ↦ by
-      rw [Function.comp_apply, Real.norm_of_nonneg (hx _).1]
-      exact (hx _).2)).congr hY.symm
+    (hY : Y n =ᵐ[P] x ∘ A n) :
+    Integrable (Y n) P := by
+  have := Fintype.ofFinite α
+  exact (Integrable.of_bound ((measurable_of_finite x).comp
+    (h.measurable_action n)).aestronglyMeasurable (∑ a, |x a|) (ae_of_all _ fun ω ↦
+      Finset.single_le_sum (f := fun a ↦ |x a|) (fun a _ ↦ abs_nonneg _)
+        (Finset.mem_univ (A n ω)))).congr hY.symm
 
 end Feedback
 
