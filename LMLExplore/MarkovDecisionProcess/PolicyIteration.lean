@@ -24,10 +24,11 @@ This file proves that policy iteration improves monotonically and converges to t
 at the geometric rate `γ ^ k`, on a general measurable state space, and that it terminates on a
 finite state space.
 
-The basic step is *policy improvement*: if `v ≤ T_π v` for a bounded measurable `v`, then
-`T_π v ≤ v^π`. Since `v k = T_{d k} v k ≤ T v k = T_{d (k + 1)} v k`, it gives
-`v k ≤ T v k ≤ v (k + 1) ≤ v*`, hence `T^[k] v 0 ≤ v k ≤ v*`, and the contraction property of `T`
-gives `|v k - v*| ≤ γ ^ k * sup |v 0 - v*|`. On a finite state space there are finitely many
+The basic step is *policy improvement*, `Learning.MDP.bellmanEval_le_value`: if `v ≤ T_π v` for a
+bounded measurable `v`, then `T_π v ≤ v^π`. Since
+`v k = T_{d k} v k ≤ T v k = T_{d (k + 1)} v k`, it gives `v k ≤ T v k ≤ v (k + 1) ≤ v*`, hence
+`T^[k] v 0 ≤ v k ≤ v*`, and the contraction property of `T` gives
+`|v k - v*| ≤ γ ^ k * sup |v 0 - v*|`. On a finite state space there are finitely many
 deterministic policies, and the abstract dynamic programming of
 `LMLExplore.IsPolicyIteration.exists_le_card_eq` shows that the optimal value is reached after at
 most `|𝓐| ^ |𝓢|` improvements. When the improvement keeps `d (k + 1) = d k` whenever `d k` is
@@ -36,21 +37,20 @@ already greedy, as in Puterman's algorithm, the algorithm stops (`d (k + 1) = d 
 
 Policy iteration is also Newton's method for the equation `T v - v = 0`: with the greedy policy
 `d` for `v`, the map `u ↦ T u - u` lies above its affine minorant
-`u ↦ T v - v + (γ P_d - I) (u - v)` (the *support inequality*), and the value of `d` is
-`v + (I - γ P_d)⁻¹ (T_d v - v)`, the zero of that minorant, written here with the Neumann series
-`∑ n, γ ^ n P_d ^ n`.
+`u ↦ T v - v + (γ P_d - I) (u - v)` (the *support inequality*
+`Learning.MDP.bellman_sub_add_le_bellman_sub` [P, Proposition 6.4.3]), and the value of `d` is
+`v + (I - γ P_d)⁻¹ (T_d v - v)`, the zero of that minorant, written with the Neumann series
+`∑ n, γ ^ n P_d ^ n` (`Learning.MDP.value_eq_add_tsum`).
 
 ## Main definitions
 
 * `Learning.MDP.IsPolicyIteration M γ d`: `d` is a run of policy iteration, a sequence of measurable
   deterministic stationary policies each greedy for the value of the previous one.
+* `Learning.MDP.IsPolicyIteration.KeepsGreedy`: the run keeps the current policy whenever it is
+  greedy for its own value.
 
 ## Main statements
 
-* `Learning.MDP.value_eq_add_tsum`: for every stationary policy `π` and bounded measurable `v`,
-  `v^π = v + ∑ n, γ ^ n P_π ^ n (T_π v - v)`.
-* `Learning.MDP.bellmanEval_le_value`: policy improvement, `v ≤ T_π v → T_π v ≤ v^π`.
-* `Learning.MDP.bellman_sub_add_le_bellman_sub`: the support inequality [P, Proposition 6.4.3].
 * `Learning.MDP.IsPolicyIteration.bellman_le_value_succ`,
   `Learning.MDP.IsPolicyIteration.monotone_value`: policy iteration improves monotonically
   [P, Proposition 6.4.1].
@@ -84,61 +84,6 @@ namespace Learning.MDP
 variable {𝓢 𝓐 : Type*} {m𝓢 : MeasurableSpace 𝓢} {m𝓐 : MeasurableSpace 𝓐}
   {M : MDP 𝓢 𝓐 ℝ} {γ : ℝ≥0} {B C D : ℝ} {u v : 𝓢 → ℝ}
 
-/-! ### Policy improvement and the Newton form of the value -/
-
-section Improvement
-
-variable [Nonempty 𝓢] {π : Kernel 𝓢 𝓐} [IsMarkovKernel π]
-
-/-- **Newton form of the value**: with bounded rewards and `γ < 1`, for every bounded measurable
-`v`, the value of the stationary policy `π` is
-`v^π = v + ∑ n, γ ^ n P_π ^ n (T_π v - v)`, where `T_π` is the evaluation operator of `π` and
-`P_π` its state kernel; that is, `v^π = v + (I - γ P_π)⁻¹ (T_π v - v)`. -/
-theorem value_eq_add_tsum (hγ : γ < 1) (hR : ∀ p, ∀ᵐ x ∂(M.R p), |x| ≤ C) (hv : Measurable v)
-    (hvB : ∀ s, |v s| ≤ B) (s : 𝓢) :
-    M.value γ π s = v s + ∑' n, (γ : ℝ) ^ n *
-      ∫ s', (M.bellmanEval γ π v s' - v s') ∂((M.stateKernel π ^ n) s) := by
-  have h := runValue_markov_const_eq_integral_add_tsum (μ := Measure.dirac s) (π := π) hγ hR hv
-    hvB
-  rw [runValue_markov_const hγ hR, integral_dirac' _ s (measurable_value hγ hR).stronglyMeasurable,
-    integral_dirac' _ s hv.stronglyMeasurable] at h
-  simpa only [Measure.dirac_bind (Kernel.measurable _)] using h
-
-/-- **Policy improvement**: with bounded rewards and `γ < 1`, if a bounded measurable `v`
-satisfies `v ≤ T_π v`, where `T_π` is the evaluation operator of the stationary policy `π`, then
-`T_π v ≤ v^π`. -/
-theorem bellmanEval_le_value (hγ : γ < 1) (hR : ∀ p, ∀ᵐ x ∂(M.R p), |x| ≤ C)
-    (hv : Measurable v) (hvB : ∀ s, |v s| ≤ B) (hle : v ≤ M.bellmanEval γ π v) :
-    M.bellmanEval γ π v ≤ M.value γ π :=
-  (bellmanEval_mono hR hv hvB (measurable_value hγ hR) (abs_value_le hγ hR)
-    (le_value_of_le_bellmanEval hγ hR hv hvB hle)).trans_eq (bellmanEval_value hγ hR)
-
-end Improvement
-
-/-- **Support inequality** [P, Proposition 6.4.3]: if the action `a` is greedy for `v` at the
-state `s`, then `T u s - u s ≥ T v s - v s + (γ P_a (u - v) s - (u s - v s))`, where `T` is the
-Bellman optimality operator and `P_a (u - v) s = ∫ (u - v) dP (s, a)`. In other words,
-`u ↦ T u - u` lies above the affine map `u ↦ T v - v + (γ P_d - I) (u - v)` for a policy `d` greedy
-for `v`, which is tangent to it at `v`. -/
-theorem bellman_sub_add_le_bellman_sub [Finite 𝓐] {s : 𝓢} {a : 𝓐}
-    (hu : Integrable u (M.P (s, a))) (hv : Integrable v (M.P (s, a)))
-    (ha : M.lookahead γ v (s, a) = M.bellman γ v s) :
-    M.bellman γ v s - v s + ((γ : ℝ) * ∫ s', (u s' - v s') ∂(M.P (s, a)) - (u s - v s)) ≤
-      M.bellman γ u s - u s := by
-  have hle := lookahead_le_bellman (M := M) (γ := γ) u s a
-  rw [lookahead_def] at hle ha
-  rw [integral_sub hu hv, ← ha]
-  linarith
-
-/-- With finitely many actions, bounded rewards and `γ < 1`, the optimal value is measurable and
-is a fixed point of the optimality operator. -/
-private lemma measurable_optValue_and_bellman_optValue [Nonempty 𝓢] [Finite 𝓐] [Nonempty 𝓐]
-    (hγ : γ < 1) (hR : ∀ p, ∀ᵐ x ∂(M.R p), |x| ≤ C) :
-    Measurable (M.optValue γ) ∧ M.bellman γ (M.optValue γ) = M.optValue γ := by
-  obtain ⟨u, hu, huB, hTu⟩ := exists_bellman_eq hγ hR
-  obtain rfl := eq_optValue_of_bellman_eq hγ hR hu huB hTu
-  exact ⟨hu, hTu⟩
-
 /-! ### Runs of policy iteration -/
 
 variable (M γ) in
@@ -150,11 +95,22 @@ structure IsPolicyIteration (d : ℕ → 𝓢 → 𝓐) : Prop where
   /-- The policies are measurable. -/
   measurable (k : ℕ) : Measurable (d k)
   /-- The policy `d (k + 1)` is greedy for the value of `d k`. -/
-  lookahead_eq (k : ℕ) (s : 𝓢) :
-    M.lookahead γ (M.value γ (Kernel.deterministic (d k) (measurable k))) (s, d (k + 1) s) =
-      M.bellman γ (M.value γ (Kernel.deterministic (d k) (measurable k))) s
+  isGreedy (k : ℕ) :
+    M.IsGreedy γ (M.value γ (Kernel.deterministic (d k) (measurable k))) (d (k + 1))
 
 namespace IsPolicyIteration
+
+/-- The run `d` of policy iteration *keeps the current policy whenever it is greedy* for its own
+value, as in Puterman's algorithm: `d (k + 1) = d k` as soon as `d k` is greedy for the value of
+`d k`. -/
+def KeepsGreedy {d : ℕ → 𝓢 → 𝓐} (h : M.IsPolicyIteration γ d) : Prop :=
+  ∀ k, M.IsGreedy γ (M.value γ (Kernel.deterministic (d k) (h.measurable k))) (d k) →
+    d (k + 1) = d k
+
+lemma keepsGreedy_def {d : ℕ → 𝓢 → 𝓐} (h : M.IsPolicyIteration γ d) :
+    h.KeepsGreedy ↔ ∀ k, M.IsGreedy γ (M.value γ (Kernel.deterministic (d k) (h.measurable k)))
+      (d k) → d (k + 1) = d k :=
+  (Iff.rfl)
 
 variable {d : ℕ → 𝓢 → 𝓐} (h : M.IsPolicyIteration γ d) (hγ : γ < 1)
   (hR : ∀ p, ∀ᵐ x ∂(M.R p), |x| ≤ C)
@@ -176,8 +132,7 @@ theorem bellmanEval_succ_value (k : ℕ) :
     M.bellmanEval γ (Kernel.deterministic (d (k + 1)) (h.measurable (k + 1)))
       (M.value γ (Kernel.deterministic (d k) (h.measurable k))) =
       M.bellman γ (M.value γ (Kernel.deterministic (d k) (h.measurable k))) := by
-  ext s
-  rw [bellmanEval_deterministic (measurable_value hγ hR), h.lookahead_eq]
+  exact (isGreedy_iff_bellmanEval_eq (measurable_value hγ hR) _).1 (h.isGreedy k)
 
 variable [Finite 𝓐]
 
@@ -240,14 +195,11 @@ theorem value_succ_eq_iff [Nonempty 𝓐] (k : ℕ) :
 /-- **Stopping rule with ties kept**: if policy iteration keeps the current policy whenever it is
 greedy for its own value, as in Puterman's algorithm, then the policy does not change at step `k`
 if and only if `d k` is optimal. -/
-theorem succ_eq_iff [Nonempty 𝓐]
-    (hkeep : ∀ k, (∀ s, M.lookahead γ (M.value γ (Kernel.deterministic (d k) (h.measurable k)))
-      (s, d k s) = M.bellman γ (M.value γ (Kernel.deterministic (d k) (h.measurable k))) s) →
-      d (k + 1) = d k) (k : ℕ) :
+theorem succ_eq_iff [Nonempty 𝓐] (hkeep : h.KeepsGreedy) (k : ℕ) :
     d (k + 1) = d k ↔
       M.value γ (Kernel.deterministic (d k) (h.measurable k)) = M.optValue γ := by
   rw [← h.value_succ_eq_iff hγ hR k]
-  refine ⟨fun heq ↦ ?_, fun heq ↦ hkeep k fun s ↦ ?_⟩
+  refine ⟨fun heq ↦ ?_, fun heq ↦ (h.keepsGreedy_def.1 hkeep) k ?_⟩
   · -- the value of a deterministic policy only depends on the policy
     have : Kernel.deterministic (d (k + 1)) (h.measurable (k + 1)) =
         Kernel.deterministic (d k) (h.measurable k) := by
@@ -257,7 +209,7 @@ theorem succ_eq_iff [Nonempty 𝓐]
     have hT : M.bellman γ (M.value γ (Kernel.deterministic (d k) (h.measurable k))) =
         M.value γ (Kernel.deterministic (d k) (h.measurable k)) :=
       le_antisymm ((h.bellman_le_value_succ hγ hR k).trans heq.le) (h.value_le_bellman hγ hR k)
-    rw [← bellmanEval_deterministic (measurable_value hγ hR) (h.measurable k),
+    rw [isGreedy_iff_bellmanEval_eq (measurable_value hγ hR) (h.measurable k),
       bellmanEval_value hγ hR, hT]
 
 section Convergence
@@ -290,7 +242,8 @@ theorem abs_value_sub_optValue_le
     (hD : ∀ s, |M.value γ (Kernel.deterministic (d 0) (h.measurable 0)) s - M.optValue γ s| ≤ D)
     (k : ℕ) (s : 𝓢) :
     |M.value γ (Kernel.deterministic (d k) (h.measurable k)) s - M.optValue γ s| ≤ γ ^ k * D := by
-  obtain ⟨hmeas, hfix⟩ := measurable_optValue_and_bellman_optValue (M := M) hγ hR
+  have hmeas := measurable_optValue (M := M) hγ hR
+  have hfix := bellman_optValue (M := M) hγ hR
   set Y := LMLExplore.boundedMeasurable.mk (M.optValue γ) hmeas
     (bddAbove_def.2 ⟨C / (1 - γ), forall_mem_range.2 (abs_optValue_le hγ hR)⟩) with hYdef
   have hY : IsFixedPt (M.bellmanOp γ hR) Y :=
@@ -333,7 +286,7 @@ theorem exists_le_card_value_eq_optValue [Finite 𝓢] [MeasurableSingletonClass
     ⟨fun _ ↦ bellmanEval_value hγ hR, h.bellmanEval_succ_value hγ hR⟩
   obtain ⟨k, hk, hv⟩ := hpi.exists_le_card_eq LMLExplore.orderUnitNorm_one_eq_norm
     (fun _ ↦ isBlackwell_bellmanEval hR) hγ (fun _ ↦ isGreatest_bellmanEval .of_discrete)
-    (measurable_optValue_and_bellman_optValue hγ hR).2
+    (bellman_optValue hγ hR)
   refine ⟨k, hk.trans ?_, hv⟩
   rw [← Nat.card_fun]
   exact Finite.card_subtype_le _
@@ -342,10 +295,7 @@ theorem exists_le_card_value_eq_optValue [Finite 𝓢] [MeasurableSingletonClass
 state space, if policy iteration keeps the current policy whenever it is greedy for its own value,
 then it stops, with an optimal policy, after at most `|𝓐| ^ |𝓢|` improvements. -/
 theorem exists_le_card_succ_eq [Finite 𝓢] [MeasurableSingletonClass 𝓢]
-    [MeasurableSingletonClass 𝓐] [Nonempty 𝓐]
-    (hkeep : ∀ k, (∀ s, M.lookahead γ (M.value γ (Kernel.deterministic (d k) (h.measurable k)))
-      (s, d k s) = M.bellman γ (M.value γ (Kernel.deterministic (d k) (h.measurable k))) s) →
-      d (k + 1) = d k) :
+    [MeasurableSingletonClass 𝓐] [Nonempty 𝓐] (hkeep : h.KeepsGreedy) :
     ∃ k ≤ Nat.card 𝓐 ^ Nat.card 𝓢, d (k + 1) = d k ∧
       M.value γ (Kernel.deterministic (d k) (h.measurable k)) = M.optValue γ := by
   obtain ⟨k, hk, hv⟩ := h.exists_le_card_value_eq_optValue hγ hR
@@ -359,25 +309,22 @@ iteration that keeps the current policy whenever it is greedy for its own value,
 moves to the greedy policy `Learning.MDP.greedy`. -/
 theorem exists_isPolicyIteration [Finite 𝓐] [Nonempty 𝓐] (hγ : γ < 1)
     (hR : ∀ p, ∀ᵐ x ∂(M.R p), |x| ≤ C) {d₀ : 𝓢 → 𝓐} (hd₀ : Measurable d₀) :
-    ∃ (d : ℕ → 𝓢 → 𝓐) (h : M.IsPolicyIteration γ d), d 0 = d₀ ∧ ∀ k,
-      (∀ s, M.lookahead γ (M.value γ (Kernel.deterministic (d k) (h.measurable k))) (s, d k s) =
-        M.bellman γ (M.value γ (Kernel.deterministic (d k) (h.measurable k))) s) →
-      d (k + 1) = d k := by
+    ∃ (d : ℕ → 𝓢 → 𝓐) (h : M.IsPolicyIteration γ d), d 0 = d₀ ∧ h.KeepsGreedy := by
   classical
   have := Fintype.ofFinite 𝓐
   -- one improvement step, keeping the current policy when it is greedy for its value
   let step (d : {d : 𝓢 → 𝓐 // Measurable d}) : {d : 𝓢 → 𝓐 // Measurable d} :=
-    if ∀ s, M.lookahead γ (M.value γ (Kernel.deterministic d d.2)) (s, d.1 s) =
-        M.bellman γ (M.value γ (Kernel.deterministic d d.2)) s then d
+    if M.IsGreedy γ (M.value γ (Kernel.deterministic d d.2)) d.1 then d
     else ⟨M.greedy γ (M.value γ (Kernel.deterministic d d.2)), measurable_greedy
       (measurable_value hγ hR)⟩
   let seq (k : ℕ) := step^[k] ⟨d₀, hd₀⟩
   have hseq (k : ℕ) : seq (k + 1) = step (seq k) := iterate_succ_apply' _ _ _
-  refine ⟨fun k ↦ (seq k).1, ⟨fun k ↦ (seq k).2, fun k s ↦ ?_⟩, rfl, fun k hk ↦ ?_⟩
+  refine ⟨fun k ↦ (seq k).1, ⟨fun k ↦ (seq k).2, fun k ↦ ?_⟩, rfl,
+    (IsPolicyIteration.keepsGreedy_def _).2 fun k hk ↦ ?_⟩
   · simp only [hseq, step]
     split_ifs with hc
-    · exact hc s
-    · exact lookahead_greedy _ s
+    · exact hc
+    · exact isGreedy_greedy _
   · simp only [hseq, step]
     split_ifs with hc
     · rfl
