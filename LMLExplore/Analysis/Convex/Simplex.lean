@@ -44,8 +44,11 @@ supported distributions, not a subset of `α → ℝ`.
   `w a c a ≤ (∑ b, (c b)⁻¹)⁻¹`, and the vector proportional to `c⁻¹`
   (`LMLExplore.inv_div_sum_inv_mem_simplex`) is the only one with `w a c a` at least this value
   for all `a`: it is the unique maximizer of `w ↦ min_a w a c a` on the simplex.
-* `LMLExplore.iSup_simplex_sum_ofReal_mul`: the largest value of `w ↦ ∑ a, w a e a` on the simplex
-  is the largest entry of `e`, in `ℝ≥0∞`.
+* `LMLExplore.sum_inv_pos`: for positive weights `c` on a nonempty type, `0 < ∑ b, (c b)⁻¹`.
+* `LMLExplore.iInf_ofReal_inv_div_sum_inv_mul`: at the vector proportional to `c⁻¹`, the smallest
+  weighted entry `min_a w a c a` is `(∑ b, (c b)⁻¹)⁻¹`.
+* `LMLExplore.iSup_simplex_sum_ofReal_mul`: the supremum of `w ↦ ∑ a, w a e a` over the simplex is
+  the supremum of the entries of `e`, in `ℝ≥0∞`.
 -/
 
 public section
@@ -117,8 +120,8 @@ lemma isCompact_simplex : IsCompact (simplex α) :=
 
 /-! ### Linear functions and the smallest weighted entry on the simplex -/
 
-/-- The largest value of `w ↦ ∑ a, w a e a` on the simplex, in `ℝ≥0∞`, is the largest entry of
-`e`, attained at the vertex `Pi.single a 1` of an arm `a` with the largest entry. -/
+/-- The supremum of `w ↦ ∑ a, ofReal (w a e a)` over the simplex is the supremum
+`⨆ a, ofReal (e a)` of the entries of `e`, in `ℝ≥0∞`. -/
 lemma iSup_simplex_sum_ofReal_mul (e : α → ℝ) :
     ⨆ w ∈ simplex α, ∑ a, ENNReal.ofReal (w a * e a) = ⨆ a, ENNReal.ofReal (e a) := by
   classical
@@ -143,11 +146,16 @@ lemma nonempty_of_mem_simplex (hw : w ∈ simplex α) : Nonempty α := by
   rw [not_nonempty_iff] at h
   simpa using hw.2
 
+/-- For positive weights `c` on a nonempty type, the sum of the inverses `∑ b, (c b)⁻¹` is
+positive. -/
+lemma sum_inv_pos [Nonempty α] (hc : ∀ a, 0 < c a) : 0 < ∑ b, (c b)⁻¹ :=
+  Finset.sum_pos (fun b _ ↦ inv_pos.2 (hc b)) Finset.univ_nonempty
+
 /-- For positive weights `c` on a nonempty type, the vector proportional to the inverses `c⁻¹`
 belongs to the simplex. -/
 lemma inv_div_sum_inv_mem_simplex [Nonempty α] (hc : ∀ a, 0 < c a) :
     (fun a ↦ (c a)⁻¹ / ∑ b, (c b)⁻¹) ∈ simplex α := by
-  have hs : 0 < ∑ b, (c b)⁻¹ := Finset.sum_pos (fun b _ ↦ inv_pos.2 (hc b)) Finset.univ_nonempty
+  have hs := sum_inv_pos hc
   exact ⟨fun a ↦ div_nonneg (inv_pos.2 (hc a)).le hs.le, by rw [← Finset.sum_div, div_self hs.ne']⟩
 
 /-- For positive weights `c`, every vector `w` of the simplex has an entry with
@@ -156,7 +164,7 @@ lemma inv_div_sum_inv_mem_simplex [Nonempty α] (hc : ∀ a, 0 < c a) :
 lemma exists_mul_le_inv_sum_inv (hw : w ∈ simplex α) (hc : ∀ a, 0 < c a) :
     ∃ a, w a * c a ≤ (∑ b, (c b)⁻¹)⁻¹ := by
   have := nonempty_of_mem_simplex hw
-  have hs : 0 < ∑ b, (c b)⁻¹ := Finset.sum_pos (fun b _ ↦ inv_pos.2 (hc b)) Finset.univ_nonempty
+  have hs := sum_inv_pos hc
   -- Since `∑ a, w a = 1 = ∑ a, (c a)⁻¹ / s`, some entry has `w a ≤ (c a)⁻¹ / s`.
   obtain ⟨a, -, ha⟩ := Finset.exists_le_of_sum_le Finset.univ_nonempty
     (f := w) (g := fun a ↦ (c a)⁻¹ / ∑ b, (c b)⁻¹)
@@ -169,7 +177,7 @@ lemma exists_mul_le_inv_sum_inv (hw : w ∈ simplex α) (hc : ∀ a, 0 < c a) :
 lemma eq_inv_div_sum_inv_of_le_mul (hw : w ∈ simplex α) (hc : ∀ a, 0 < c a)
     (h : ∀ a, (∑ b, (c b)⁻¹)⁻¹ ≤ w a * c a) : w = fun a ↦ (c a)⁻¹ / ∑ b, (c b)⁻¹ := by
   have := nonempty_of_mem_simplex hw
-  have hs : 0 < ∑ b, (c b)⁻¹ := Finset.sum_pos (fun b _ ↦ inv_pos.2 (hc b)) Finset.univ_nonempty
+  have hs := sum_inv_pos hc
   -- Each entry is at least `(c a)⁻¹ / s`, and both vectors sum to `1`.
   have hle (a : α) : (c a)⁻¹ / ∑ b, (c b)⁻¹ ≤ w a := by
     rw [div_eq_inv_mul, ← le_div_iff₀ (inv_pos.2 (hc a)), div_inv_eq_mul]
@@ -177,5 +185,17 @@ lemma eq_inv_div_sum_inv_of_le_mul (hw : w ∈ simplex α) (hc : ∀ a, 0 < c a)
   have h_eq := (Finset.sum_eq_sum_iff_of_le fun a _ ↦ hle a).1
     (by rw [(inv_div_sum_inv_mem_simplex hc).2, hw.2])
   exact funext fun a ↦ (h_eq a (Finset.mem_univ a)).symm
+
+/-- For positive weights `c`, at the vector proportional to `c⁻¹` all the weighted entries
+`w a c a` equal `(∑ b, (c b)⁻¹)⁻¹`, and so does their infimum, in `ℝ≥0∞`. -/
+lemma iInf_ofReal_inv_div_sum_inv_mul [Nonempty α] (hc : ∀ a, 0 < c a) :
+    ⨅ a, ENNReal.ofReal ((c a)⁻¹ / (∑ b, (c b)⁻¹) * c a) =
+      ENNReal.ofReal (∑ b, (c b)⁻¹)⁻¹ := by
+  have h (a : α) : ENNReal.ofReal ((c a)⁻¹ / (∑ b, (c b)⁻¹) * c a) =
+      ENNReal.ofReal (∑ b, (c b)⁻¹)⁻¹ := by
+    congr 1
+    field_simp [(hc a).ne']
+  simp_rw [h]
+  exact iInf_const
 
 end LMLExplore

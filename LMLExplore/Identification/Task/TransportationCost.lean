@@ -54,6 +54,9 @@ treatment, and a negative entry of `w` counts as `0`.
 * `IdentTask.mem_optAlloc_iff_isMaxOn`: the optimal allocations are the maximizers of
   `w ↦ D(θ, w, ¬i)` on the simplex.
 * `IdentTask.convex_optAlloc`: the optimal allocations of an answer form a convex set.
+* `IdentTask.answerValue_eq_of_altCost_eq_iInf`, `IdentTask.optAlloc_eq_of_altCost_eq_iInf`: if
+  `D(θ, w, ¬i) = min_a w a c a` on the simplex for positive weights `c`, then
+  `D(θ, ¬i) = (∑ a, (c a)⁻¹)⁻¹` and the only optimal allocation is proportional to `c⁻¹`.
 * `IdentTask.altCost_eq_zero_of_mem_alt`, `IdentTask.answerValue_eq_zero_of_mem_alt`: the cost
   and the value of the answer `i` vanish at an alternative `θ ∈ ¬i`.
 * `IdentTask.answerValue_eq_top_of_alt_eq_empty`: the value of an answer without alternatives is
@@ -287,6 +290,35 @@ lemma mem_optAlloc_iff_isMaxOn :
   refine (task.altCost_le_answerValue hw).antisymm ?_
   rw [answerValue_def]
   exact iSup₂_le h
+
+/-- **The game value of a weighted minimum.** If `D(θ, w, ¬i) = min_a w a c a` on the simplex, for
+positive weights `c`, then `D(θ, ¬i) = (∑ a, (c a)⁻¹)⁻¹`. -/
+lemma answerValue_eq_of_altCost_eq_iInf [Nonempty α] {c : α → ℝ} (hc : ∀ a, 0 < c a)
+    (h : ∀ w ∈ simplex α, task.altCost θ w i = ⨅ a, ENNReal.ofReal (w a * c a)) :
+    task.answerValue θ i = ENNReal.ofReal (∑ a, (c a)⁻¹)⁻¹ := by
+  have hv := inv_div_sum_inv_mem_simplex hc
+  rw [answerValue_def]
+  refine le_antisymm (iSup₂_le fun w hw ↦ ?_) ?_
+  · obtain ⟨a, ha⟩ := exists_mul_le_inv_sum_inv hw hc
+    rw [h w hw]
+    exact (iInf_le _ a).trans (ENNReal.ofReal_le_ofReal ha)
+  · refine le_of_eq_of_le ?_ (le_iSup₂ (f := fun w _ ↦ task.altCost θ w i) _ hv)
+    rw [h _ hv, iInf_ofReal_inv_div_sum_inv_mul hc]
+
+/-- **The optimal allocation of a weighted minimum.** If `D(θ, w, ¬i) = min_a w a c a` on the
+simplex, for positive weights `c`, then the only optimal allocation is proportional to `c⁻¹`. -/
+lemma optAlloc_eq_of_altCost_eq_iInf [Nonempty α] {c : α → ℝ} (hc : ∀ a, 0 < c a)
+    (h : ∀ w ∈ simplex α, task.altCost θ w i = ⨅ a, ENNReal.ofReal (w a * c a)) :
+    task.optAlloc θ i = {fun a ↦ (c a)⁻¹ / ∑ b, (c b)⁻¹} := by
+  have hv := inv_div_sum_inv_mem_simplex hc
+  ext v
+  rw [mem_optAlloc_iff, Set.mem_singleton_iff, task.answerValue_eq_of_altCost_eq_iInf hc h]
+  refine ⟨fun ⟨hv', hv_eq⟩ ↦ eq_inv_div_sum_inv_of_le_mul hv' hc fun a ↦ ?_, ?_⟩
+  · rw [h v hv'] at hv_eq
+    exact (ENNReal.ofReal_le_ofReal_iff (mul_nonneg ((mem_simplex_iff.1 hv').1 a) (hc a).le)).1
+      (hv_eq ▸ iInf_le _ a)
+  · rintro rfl
+    exact ⟨hv, by rw [h _ hv, iInf_ofReal_inv_div_sum_inv_mul hc]⟩
 
 /-- On an admissible model, the value `D(θ)` of the game is the supremum of the values
 `D(θ, ¬i)` over all answers: those of the incorrect answers vanish. -/

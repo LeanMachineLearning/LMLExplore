@@ -7,6 +7,7 @@ module
 
 public import LMLExplore.Identification.Task.MeanVector
 public import LMLExplore.Identification.Task.Continuity
+public import LMLExplore.Identification.Task.ExpFamily
 public import LMLExplore.Bandits.Instances
 public import LMLExplore.Probability.Distributions.ExponentialFamily.Gaussian
 public import LMLExplore.Order.Basic
@@ -273,18 +274,6 @@ section ExpFamily
 
 variable {ρ : Measure 𝓨} {T : 𝓨 → ℝ} {μ w : α → ℝ}
 
-/-- On the vectors of means of an exponential family, the transportation cost from `μ` to `μ'` is
-`∑ c, w c d(μ c, μ' c)` when the divergences between the arm laws are those of the family. -/
-private lemma cost_baiTask_eq_ofReal_sum (hμ : ∀ c, μ c ∈ ρ.expFamilyMeans T)
-    (hν : ∀ μ' : α → ℝ, (∀ c, μ' c ∈ ρ.expFamilyMeans T) →
-      ∀ c, klDiv (ν μ c) (ν μ' c) = ENNReal.ofReal (ρ.expFamilyDiv T (μ c) (μ' c)))
-    (hw : 0 ≤ w) {μ' : α → ℝ} (hμ' : ∀ c, μ' c ∈ ρ.expFamilyMeans T) :
-    (baiTask ν).cost w μ μ' = ENNReal.ofReal (∑ c, w c * ρ.expFamilyDiv T (μ c) (μ' c)) := by
-  rw [IdentTask.cost_def, ENNReal.ofReal_sum_of_nonneg fun c _ ↦
-    mul_nonneg (hw c) (expFamilyDiv_nonneg (hμ c) (hμ' c))]
-  refine Finset.sum_congr rfl fun c _ ↦ ?_
-  rw [ν_baiTask, hν μ' hμ' c, ENNReal.ofReal_mul (hw c)]
-
 /-- Moving the means of two arms `a ≠ b` of `μ` to a common mean `z` of the family gives a vector
 of means of the family in which `b` is at least as good as `a`, at transportation cost
 `w a d(μ a, z) + w b d(μ b, z)` from `μ`. -/
@@ -302,8 +291,11 @@ private lemma iInf_cost_baiTask_le (hμ : ∀ c, μ c ∈ ρ.expFamilyMeans T)
     split_ifs
     exacts [hz, hz, hμ c]
   refine (iInf₂_le μ' hμ').trans (iInf_le_of_le (by simp [μ', hba.symm]) ?_)
-  rw [cost_baiTask_eq_ofReal_sum ν hμ hν hw hμ',
-    ← Finset.sum_subset (Finset.subset_univ {a, b}) fun c _ hc ↦ ?_, Finset.sum_pair hba.symm]
+  rw [IdentTask.cost_eq_sum_ofReal_mul_expFamilyDiv (ρ := fun _ ↦ ρ) (T := fun _ ↦ T)
+      (ν_baiTask ν) hν hw hμ',
+    ← Finset.sum_subset (Finset.subset_univ {a, b}) fun c _ hc ↦ ?_, Finset.sum_pair hba.symm,
+    ← ENNReal.ofReal_add (mul_nonneg (hw a) (expFamilyDiv_nonneg (hμ a) (hμ' a)))
+      (mul_nonneg (hw b) (expFamilyDiv_nonneg (hμ b) (hμ' b)))]
   · simp [μ', hba.symm]
   · simp only [Finset.mem_insert, Finset.mem_singleton, not_or] at hc
     simp [μ', hc.1, hc.2, expFamilyDiv_self]
@@ -331,7 +323,11 @@ theorem altCost_baiTask_restrict_eq_iInf_expFamilyPairCost
   have hS : IsOpen S := by
     rw [hS_def, Set.ofPred_forall]
     exact isOpen_iInter_of_finite fun c ↦ (isOpen_expFamilyMeans hT).preimage (continuous_apply c)
-  have h_cost {μ' : α → ℝ} (hμ' : μ' ∈ S) := cost_baiTask_eq_ofReal_sum ν hμ hν hw hμ'
+  have h_cost {μ' : α → ℝ} (hμ' : μ' ∈ S) :
+      (baiTask ν).cost w μ μ' = ENNReal.ofReal (∑ c, w c * ρ.expFamilyDiv T (μ c) (μ' c)) := by
+    rw [IdentTask.cost_eq_sum_ofReal_mul_expFamilyDiv (ρ := fun _ ↦ ρ) (T := fun _ ↦ T)
+      (ν_baiTask ν) hν hw hμ', ENNReal.ofReal_sum_of_nonneg fun c _ ↦
+        mul_nonneg (hw c) (expFamilyDiv_nonneg (hμ c) (hμ' c))]
   -- The cost is continuous on the vectors of means of the family, so that the alternatives can
   -- be replaced by their closure, in which `b` is at least as good as `a` for some `b ≠ a`.
   have hc : ContinuousOn ((baiTask ν).cost w μ) S := by
@@ -813,25 +809,6 @@ section Gaussian
 
 variable [MeasurableSingletonClass α] {μ w : α → ℝ} {σ2 : ℝ≥0}
 
-omit [Fintype α] in
-/-- For Gaussian arms with a common variance `σ2 ≠ 0`, the vectors of means of the exponential
-family of `𝒩(0, σ2)` are all the vectors: best arm identification restricted to them is best arm
-identification. -/
-private lemma restrict_baiTask_gaussianBandit [Countable α] (hσ2 : σ2 ≠ 0) :
-    (baiTask (Bandits.gaussianBandit · σ2)).restrict
-        {μ' : α → ℝ | ∀ c, μ' c ∈ (gaussianReal 0 σ2).expFamilyMeans id} =
-      baiTask (Bandits.gaussianBandit · σ2) := by
-  simp [expFamilyMeans_gaussianReal 0 hσ2]
-
-omit [Fintype α] in
-/-- The arm laws of a Gaussian bandit with variance `σ2 ≠ 0` are members of the exponential family
-of `𝒩(0, σ2)`: their divergences are those of the family. -/
-private lemma klDiv_gaussianBandit_eq_ofReal_expFamilyDiv [Countable α] (hσ2 : σ2 ≠ 0)
-    (μ μ' : α → ℝ) (c : α) :
-    klDiv (Bandits.gaussianBandit μ σ2 c) (Bandits.gaussianBandit μ' σ2 c) =
-      ENNReal.ofReal ((gaussianReal 0 σ2).expFamilyDiv id (μ c) (μ' c)) := by
-  rw [Bandits.klDiv_gaussianBandit _ _ hσ2, expFamilyDiv_gaussianReal 0 hσ2]
-
 /-- **The cost of the alternatives in Gaussian best arm identification** [GK16, Section 2.2]. For
 Gaussian arms with a common variance `σ2 ≠ 0`, a best arm `a` of `μ` and a nonnegative allocation
 `w`, `D(μ, w, ¬a) = min_{b ≠ a} (w a w b / (w a + w b)) (μ a - μ b)² / (2 σ2)`. -/
@@ -839,9 +816,11 @@ theorem altCost_baiTask_gaussianBandit (hσ2 : σ2 ≠ 0) (ha : ∀ b, μ b ≤ 
     (baiTask (Bandits.gaussianBandit · σ2)).altCost μ w a =
       ⨅ (b) (_ : b ≠ a),
         ENNReal.ofReal (w a * w b / (w a + w b) * (μ a - μ b) ^ 2 / (2 * σ2)) := by
-  rw [← restrict_baiTask_gaussianBandit hσ2, altCost_baiTask_restrict_eq_iInf_expFamilyPairCost _
-    (not_ae_eq_const_gaussianReal 0 hσ2) (fun c ↦ by simp [hσ2])
-    (fun μ' _ ↦ klDiv_gaussianBandit_eq_ofReal_expFamilyDiv hσ2 μ μ') ha hw]
+  rw [← (baiTask (Bandits.gaussianBandit · σ2)).restrict_univ,
+    ← setOf_forall_mem_expFamilyMeans_gaussianReal 0 hσ2,
+    altCost_baiTask_restrict_eq_iInf_expFamilyPairCost _ (not_ae_eq_const_gaussianReal 0 hσ2)
+      (fun c ↦ mem_expFamilyMeans_gaussianReal 0 hσ2 (μ c))
+      (fun μ' _ ↦ Bandits.klDiv_gaussianBandit_eq_ofReal_expFamilyDiv hσ2 μ μ') ha hw]
   refine iInf_congr fun b ↦ iInf_congr fun _ ↦ congrArg ENNReal.ofReal ?_
   have hσ2' : (σ2 : ℝ) ≠ 0 := NNReal.coe_ne_zero.2 hσ2
   have hwa : 0 ≤ w a := hw a
@@ -865,10 +844,11 @@ theorem answerValue_baiTask_gaussianBandit_of_forall_eq_or_eq (hσ2 : σ2 ≠ 0)
     (baiTask (Bandits.gaussianBandit · σ2)).answerValue μ a =
       ENNReal.ofReal ((μ a - μ b) ^ 2 / (8 * σ2)) := by
   have hσ2' : (σ2 : ℝ) ≠ 0 := NNReal.coe_ne_zero.2 hσ2
-  rw [← restrict_baiTask_gaussianBandit hσ2,
+  rw [← (baiTask (Bandits.gaussianBandit · σ2)).restrict_univ,
+    ← setOf_forall_mem_expFamilyMeans_gaussianReal 0 hσ2,
     answerValue_baiTask_restrict_eq_expFamilyDiv_of_forall_eq_or_eq _
-      (not_ae_eq_const_gaussianReal 0 hσ2) (fun c ↦ by simp [hσ2])
-      (fun μ' _ ↦ klDiv_gaussianBandit_eq_ofReal_expFamilyDiv hσ2 μ μ') hba hα hμ
+      (not_ae_eq_const_gaussianReal 0 hσ2) (fun c ↦ mem_expFamilyMeans_gaussianReal 0 hσ2 (μ c))
+      (fun μ' _ ↦ Bandits.klDiv_gaussianBandit_eq_ofReal_expFamilyDiv hσ2 μ μ') hba hα hμ
       (z := (μ a + μ b) / 2) ⟨by linarith, by linarith⟩
       (by rw [expFamilyDiv_gaussianReal 0 hσ2, expFamilyDiv_gaussianReal 0 hσ2]; ring),
     expFamilyDiv_gaussianReal 0 hσ2]
