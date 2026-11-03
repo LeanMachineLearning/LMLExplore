@@ -27,6 +27,8 @@ public section
 
 open Filter Topology
 
+namespace LMLExplore
+
 variable {α ι δ : Type*} [TopologicalSpace α] [Finite ι] [LinearOrder δ] [TopologicalSpace δ]
   [OrderClosedTopology δ] {g : ι → α → δ} {s : Set α} {x : α}
 
@@ -45,3 +47,5 @@ lemma eventually_setOf_forall_le_subset (hg : ∀ i, ContinuousWithinAt (g i) s 
       exact .inr ⟨j, hx'⟩
   filter_upwards [eventually_all.2 h] with x' hx' i hi
   exact (hx' i).resolve_right fun ⟨j, hj⟩ ↦ (hi j).not_gt hj
+
+end LMLExplore

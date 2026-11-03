@@ -24,7 +24,7 @@ constant correspondence `univ` and mapping the maximizers back to the space.
 
 The union lemma `UpperHemicontinuousWithinAt.biUnion_of_eventually_subset` applies to
 correspondences `x ↦ ⋃ i ∈ I x, f i x` where `I x` is the set of the indices `i` maximizing
-finitely many continuous values `g i x` (`eventually_setOf_forall_le_subset`,
+finitely many continuous values `g i x` (`LMLExplore.eventually_setOf_forall_le_subset`,
 `LMLExplore/Topology/Order/OrderClosed.lean`): for instance the maximizers of `y ↦ max_i φ_i(x, y)`,
 which are the maximizers of the functions `φ_i(x, ·)` whose supremum is largest.
 
