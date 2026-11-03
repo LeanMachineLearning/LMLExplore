@@ -151,6 +151,16 @@ lemma le_orderUnitOsc {r : ℝ} (he : IsOrderUnit e)
     (h : ∀ d, 0 ≤ d → ∀ a : ℝ, x ∈ Icc (a • e) ((a + d) • e) → r ≤ d) : r ≤ orderUnitOsc e x :=
   le_csInf (he.exists_mem_Icc_smul x) fun d ⟨hd, a, hx⟩ ↦ h d hd a hx
 
+/-- If `x` lies in some interval `[a • e, (a + d) • e]` with `d ≥ 0`, then for every `r` above the
+oscillation of `x` it lies in such an interval with `d < r`. -/
+lemma exists_mem_Icc_smul_of_orderUnitOsc_lt {r : ℝ}
+    (hx : ∃ d : ℝ, 0 ≤ d ∧ ∃ a : ℝ, x ∈ Icc (a • e) ((a + d) • e)) (h : orderUnitOsc e x < r) :
+    ∃ d : ℝ, 0 ≤ d ∧ d < r ∧ ∃ a : ℝ, x ∈ Icc (a • e) ((a + d) • e) := by
+  rw [orderUnitOsc_def] at h
+  obtain ⟨d, ⟨hd, a, hxa⟩, hdr⟩ :=
+    exists_lt_of_csInf_lt (s := {d : ℝ | 0 ≤ d ∧ ∃ a : ℝ, x ∈ Icc (a • e) ((a + d) • e)}) hx h
+  exact ⟨d, hd, hdr, a, hxa⟩
+
 @[simp]
 lemma orderUnitNorm_zero (e : E) : orderUnitNorm e 0 = 0 :=
   (orderUnitNorm_le le_rfl (by simp)).antisymm (orderUnitNorm_nonneg e 0)
