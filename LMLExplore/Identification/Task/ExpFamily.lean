@@ -75,28 +75,29 @@ lemma cost_update_eq_ofReal_mul_expFamilyDiv [DecidableEq α]
 arm `a` to `x` are alternatives to `i` for all `x` near `γ` along a filter `l ≤ 𝓝 γ`, then
 `D(μ, w, ¬i) ≤ w a d_a(μ a, γ)`. -/
 lemma altCost_le_ofReal_mul_expFamilyDiv_of_eventually [DecidableEq α]
-    (hT : ∀ a c, ¬ T a =ᵐ[ρ a] fun _ ↦ c)
     (hνt : task.ν = ν) (hν : ∀ μ' : α → ℝ, (∀ c, μ' c ∈ (ρ c).expFamilyMeans (T c)) →
       ∀ c, klDiv (ν μ c) (ν μ' c) = ENNReal.ofReal ((ρ c).expFamilyDiv (T c) (μ c) (μ' c)))
     (hw : 0 ≤ w) (hμ : ∀ c, μ c ∈ (ρ c).expFamilyMeans (T c)) (a : α)
+    (hT : ∀ c, ¬ T a =ᵐ[ρ a] fun _ ↦ c)
     (hγ : γ ∈ (ρ a).expFamilyMeans (T a)) {l : Filter ℝ} [l.NeBot] (hl : l ≤ 𝓝 γ)
     (h_alt : ∀ᶠ x in l, Function.update μ a x ∈ task.alt i) :
     task.altCost μ w i ≤ ENNReal.ofReal (w a * (ρ a).expFamilyDiv (T a) (μ a) γ) := by
   have h_tendsto : Tendsto (fun x ↦ ENNReal.ofReal (w a * (ρ a).expFamilyDiv (T a) (μ a) x)) l
       (𝓝 (ENNReal.ofReal (w a * (ρ a).expFamilyDiv (T a) (μ a) γ))) :=
     (ENNReal.continuous_ofReal.continuousAt.comp (continuousAt_const.mul
-      (hasDerivAt_expFamilyDiv_right (hT a) (μ a) hγ).continuousAt)).tendsto.mono_left hl
+      (hasDerivAt_expFamilyDiv_right hT (μ a) hγ).continuousAt)).tendsto.mono_left hl
   refine ge_of_tendsto h_tendsto ?_
-  filter_upwards [h_alt, hl (expFamilyMeans_mem_nhds (hT a) hγ)] with x hx hxm
+  filter_upwards [h_alt, hl (expFamilyMeans_mem_nhds hT hγ)] with x hx hxm
   rw [← cost_update_eq_ofReal_mul_expFamilyDiv hνt hν hw hμ a hxm]
   exact task.altCost_le_cost hx w
 
 /-- **A lower bound on the cost of a model in which one arm crossed a mean.** If `γ` lies between
 `μ a` and `μ' a`, then `w a d_a(μ a, γ) ≤ cost_μ(w, μ')`. -/
-lemma ofReal_mul_expFamilyDiv_le_cost (hT : ∀ a c, ¬ T a =ᵐ[ρ a] fun _ ↦ c)
+lemma ofReal_mul_expFamilyDiv_le_cost
     (hνt : task.ν = ν) (hν : ∀ μ' : α → ℝ, (∀ c, μ' c ∈ (ρ c).expFamilyMeans (T c)) →
       ∀ c, klDiv (ν μ c) (ν μ' c) = ENNReal.ofReal ((ρ c).expFamilyDiv (T c) (μ c) (μ' c)))
     (hw : 0 ≤ w) {μ' : α → ℝ} (hμ' : ∀ c, μ' c ∈ (ρ c).expFamilyMeans (T c)) (a : α)
+    (hT : ∀ c, ¬ T a =ᵐ[ρ a] fun _ ↦ c)
     (hγ : γ ∈ (ρ a).expFamilyMeans (T a)) (h : γ ∈ uIcc (μ a) (μ' a)) :
     ENNReal.ofReal (w a * (ρ a).expFamilyDiv (T a) (μ a) γ) ≤ task.cost w μ μ' := by
   rw [cost_eq_sum_ofReal_mul_expFamilyDiv hνt hν hw hμ']
@@ -104,6 +105,6 @@ lemma ofReal_mul_expFamilyDiv_le_cost (hT : ∀ a c, ¬ T a =ᵐ[ρ a] fun _ ↦
     ENNReal.ofReal (w c * (ρ c).expFamilyDiv (T c) (μ c) (μ' c))) (fun _ _ ↦ zero_le)
     (Finset.mem_univ a))
   exact ENNReal.ofReal_le_ofReal (mul_le_mul_of_nonneg_left
-    (expFamilyDiv_le_expFamilyDiv_of_mem_uIcc (hT a) hγ (hμ' a) h) (hw a))
+    (expFamilyDiv_le_expFamilyDiv_of_mem_uIcc hT hγ (hμ' a) h) (hw a))
 
 end LMLExplore.Identification.IdentTask
