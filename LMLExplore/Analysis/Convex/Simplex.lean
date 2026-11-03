@@ -38,6 +38,8 @@ supported distributions, not a subset of `α → ℝ`.
 * `LMLExplore.convex_simplex`: the simplex is convex.
 * `LMLExplore.smul_sub_single_mem_simplex`: removing a mass `s < 1` from an entry of a vector of
   the simplex and rescaling by `(1 - s)⁻¹` stays in the simplex.
+* `LMLExplore.exists_mem_simplex_apply_eq_and_smul_le`: a vector of the simplex with a prescribed
+  entry `v_a = β` dominating a multiple `c w` of a vector of the simplex.
 * `LMLExplore.isCompact_simplex`: the simplex is compact.
 * `LMLExplore.exists_mul_le_inv_sum_inv`, `LMLExplore.eq_inv_div_sum_inv_of_le_mul`: for positive
   weights `c`, every vector `w` of the simplex has an entry with
@@ -49,6 +51,8 @@ supported distributions, not a subset of `α → ℝ`.
   weighted entry `min_a w a c a` is `(∑ b, (c b)⁻¹)⁻¹`.
 * `LMLExplore.iSup_simplex_sum_ofReal_mul`: the supremum of `w ↦ ∑ a, w a e a` over the simplex is
   the supremum of the entries of `e`, in `ℝ≥0∞`.
+* `LMLExplore.convex_setOf_mem_simplex_apply_eq`, `LMLExplore.isCompact_setOf_mem_simplex_apply_eq`:
+  the vectors of the simplex with a prescribed entry `w a = β` form a convex compact set.
 -/
 
 public section
@@ -114,9 +118,48 @@ lemma smul_sub_single_mem_simplex [DecidableEq α] {w : α → ℝ} (hw : w ∈ 
       Finset.sum_pi_single', Finset.mem_univ, ite_true, hw.2]
     field_simp [(sub_pos.2 hs1).ne']
 
+/-- Given a vector `w` of the simplex, an entry `a`, another entry `b ≠ a` and a scalar `c ≥ 0`
+with `c w_a ≤ β` and `c (1 - w_a) ≤ 1 - β`, some vector `v` of the simplex has `v_a = β` and
+dominates `c w` entrywise: it adds the missing mass `β - c w_a` to the entry `a` and the rest to
+the entry `b`. -/
+lemma exists_mem_simplex_apply_eq_and_smul_le {w : α → ℝ} (hw : w ∈ simplex α) {a b : α}
+    (hab : b ≠ a) {c β : ℝ} (hc : 0 ≤ c) (hca : c * w a ≤ β) (hcb : c * (1 - w a) ≤ 1 - β) :
+    ∃ v ∈ simplex α, v a = β ∧ c • w ≤ v := by
+  classical
+  have h₁ : 0 ≤ β - c * w a := sub_nonneg.2 hca
+  have h₂ : 0 ≤ 1 - β - c * (1 - w a) := by linarith
+  set v := c • w + Pi.single a (β - c * w a) + Pi.single b (1 - β - c * (1 - w a)) with hv
+  have hle : c • w ≤ v := fun x ↦ by
+    have h (y : α) {r : ℝ} (hr : 0 ≤ r) : 0 ≤ (Pi.single y r : α → ℝ) x := by
+      rw [Pi.single_apply]; split_ifs <;> simp [hr]
+    simp only [hv, Pi.add_apply]
+    linarith [h a h₁, h b h₂]
+  refine ⟨v, ⟨fun x ↦ (mul_nonneg hc (hw.1 x)).trans (hle x), ?_⟩, ?_, hle⟩
+  · simp only [hv, Pi.add_apply, Pi.smul_apply, smul_eq_mul, Finset.sum_add_distrib,
+      ← Finset.mul_sum, hw.2, Finset.sum_pi_single', Finset.mem_univ, ite_true]
+    ring
+  · simp [hv, hab.symm]
+
 variable (α) in
 lemma isCompact_simplex : IsCompact (simplex α) :=
   isCompact_Icc.of_isClosed_subset (isClosed_simplex α) simplex_subset_Icc
+
+/-! ### The vectors of the simplex with a prescribed entry -/
+
+/-- The vectors of the simplex with a prescribed entry `w a = β` form a convex set. -/
+lemma convex_setOf_mem_simplex_apply_eq (a : α) (β : ℝ) :
+    Convex ℝ {w ∈ simplex α | w a = β} :=
+  (convex_simplex α).inter (convex_hyperplane (LinearMap.proj a : (α → ℝ) →ₗ[ℝ] ℝ).isLinear β)
+
+lemma isClosed_setOf_mem_simplex_apply_eq (a : α) (β : ℝ) :
+    IsClosed {w ∈ simplex α | w a = β} :=
+  (isClosed_simplex α).inter (isClosed_eq (continuous_apply a) continuous_const)
+
+/-- The vectors of the simplex with a prescribed entry `w a = β` form a compact set. -/
+lemma isCompact_setOf_mem_simplex_apply_eq (a : α) (β : ℝ) :
+    IsCompact {w ∈ simplex α | w a = β} :=
+  (isCompact_simplex α).of_isClosed_subset (isClosed_setOf_mem_simplex_apply_eq a β)
+    (Set.sep_subset _ _)
 
 /-! ### Linear functions and the smallest weighted entry on the simplex -/
 
