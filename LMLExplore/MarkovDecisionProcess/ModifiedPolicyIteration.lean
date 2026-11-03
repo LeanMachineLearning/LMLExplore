@@ -27,8 +27,8 @@ exactly. Each step expands as
 `v (k + 1) = v k + ∑ j ≤ m k, (γ P_{d k}) ^ j (T v k - v k)` [P, Proposition 6.5.1].
 
 Started from `v 0 ≤ T v 0`, for instance from the constant `c / (1 - γ)` for a lower bound `c` of
-the mean rewards [P, (6.5.8)], modified policy iteration increases monotonically to the optimal
-value at the geometric rate of value iteration:
+the mean rewards (`Learning.MDP.const_le_bellman_const`, [P, (6.5.8)]), modified policy iteration
+increases monotonically to the optimal value at the geometric rate of value iteration:
 `v k ≤ T v k ≤ v (k + 1)`, `T^[k] (v 0) ≤ v k ≤ v*` and `|v k - v*| ≤ γ ^ k * D` when
 `|v 0 - v*| ≤ D`. These are the convergence results of [P, §6.5], here on a general measurable
 state space. The monotonicity statements are the instance, on the bounded measurable functions
@@ -55,8 +55,6 @@ of the abstract dynamic programming of `LMLExplore.IsModifiedPolicyIteration`, a
   `Learning.MDP.IsModifiedPolicyIteration.le_optValue`,
   `Learning.MDP.IsModifiedPolicyIteration.abs_sub_optValue_le`: started from `v 0 ≤ T v 0`, the
   values satisfy `T^[k] (v 0) ≤ v k ≤ v*` and `|v k - v*| ≤ γ ^ k * D` when `|v 0 - v*| ≤ D`.
-* `Learning.MDP.const_le_bellman_const`: if `c` bounds the mean rewards from below, the constant
-  `c / (1 - γ)` is below its image by `T` [P, (6.5.8)].
 * `Learning.MDP.exists_isModifiedPolicyIteration`: from every measurable value function and for
   all orders starts a run of modified policy iteration.
 
@@ -73,7 +71,7 @@ open scoped ENNReal NNReal lp
 namespace Learning.MDP
 
 variable {𝓢 𝓐 : Type*} {m𝓢 : MeasurableSpace 𝓢} {m𝓐 : MeasurableSpace 𝓐}
-  {M : MDP 𝓢 𝓐 ℝ} {γ : ℝ≥0} {B C D c : ℝ}
+  {M : MDP 𝓢 𝓐 ℝ} {γ : ℝ≥0} {B C D : ℝ}
 
 /-! ### Runs of modified policy iteration -/
 
@@ -239,23 +237,7 @@ end Convergence
 
 end IsModifiedPolicyIteration
 
-/-! ### Starting points and existence -/
-
-/-- **A starting point for modified policy iteration** [P, (6.5.8)]: with finitely many actions and
-`γ < 1`, if `c` bounds the mean rewards from below, then the constant function `c / (1 - γ)` is
-below its image by the optimality operator. -/
-theorem const_le_bellman_const [Finite 𝓐] [Nonempty 𝓐] (hγ : γ < 1)
-    (hc : ∀ p, c ≤ meanReward M.R p) :
-    (fun _ ↦ c / (1 - γ)) ≤ M.bellman γ (fun _ : 𝓢 ↦ c / (1 - γ)) := fun s ↦ by
-  obtain ⟨a⟩ := ‹Nonempty 𝓐›
-  refine le_trans ?_ (lookahead_le_bellman _ s a)
-  -- `c / (1 - γ) = c + γ * (c / (1 - γ))`, and `c ≤ r (s, a)`
-  have h1γ : (1 - γ : ℝ) ≠ 0 := (sub_pos.2 (NNReal.coe_lt_one.2 hγ)).ne'
-  have hfix : c / (1 - γ) = c + γ * (c / (1 - γ)) := by
-    field_simp
-    ring
-  rw [lookahead_def, integral_const, probReal_univ, one_smul]
-  linarith [hc (s, a)]
+/-! ### Existence of runs -/
 
 /-- **Existence of runs of modified policy iteration**: with finitely many actions, for all orders
 `m` and every measurable `v₀`, there is a run of modified policy iteration with orders `m` started

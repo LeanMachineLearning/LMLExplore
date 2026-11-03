@@ -58,6 +58,8 @@ when the lookahead is bounded above in the action, for instance for finitely man
 * `Learning.MDP.bellman_mono`, `Learning.MDP.bellman_add_const`,
   `Learning.MDP.bellmanEval_mono`, `Learning.MDP.bellmanEval_add_const`: monotonicity and
   `T (v + c) = T v + γ * c`.
+* `Learning.MDP.const_le_bellman_const`: if `c` bounds the mean rewards from below, the constant
+  `c / (1 - γ)` is below its image by `T` [P, (6.5.8)].
 * `Learning.MDP.abs_bellman_sub_le`, `Learning.MDP.abs_bellmanEval_sub_le`: the operators are
   `γ`-contractions for the sup norm, stated pointwise.
 * `Learning.MDP.measurable_bellman`, `Learning.MDP.abs_bellman_le`,
@@ -79,7 +81,7 @@ when the lookahead is bounded above in the action, for instance for finitely man
 
 ## References
 
-* [M. L. Puterman, *Markov Decision Processes*, 1994][P], §§6.1–6.2, Proposition 6.4.3
+* [M. L. Puterman, *Markov Decision Processes*, 1994][P], §§6.1–6.2, Proposition 6.4.3, (6.5.8)
 * [D. Blackwell, *Discounted dynamic programming*, 1965][Bla65]
 -/
 
@@ -205,6 +207,22 @@ theorem bellman_add_const [Nonempty 𝓐] (hv : ∀ p, Integrable v (M.P p))
   ext s
   simp only [bellman_def, Pi.add_apply, lookahead_add_const (hv _)]
   exact ((OrderIso.addRight ((γ : ℝ) * c)).map_ciSup (hv_bdd s)).symm
+
+/-- **A starting point for modified policy iteration** [P, (6.5.8)]: with finitely many actions and
+`γ < 1`, if `c` bounds the mean rewards from below, then the constant function `c / (1 - γ)` is
+below its image by the optimality operator. -/
+theorem const_le_bellman_const [Finite 𝓐] [Nonempty 𝓐] {c : ℝ} (hγ : γ < 1)
+    (hc : ∀ p, c ≤ meanReward M.R p) :
+    (fun _ ↦ c / (1 - γ)) ≤ M.bellman γ (fun _ : 𝓢 ↦ c / (1 - γ)) := fun s ↦ by
+  obtain ⟨a⟩ := ‹Nonempty 𝓐›
+  refine le_trans ?_ (lookahead_le_bellman _ s a)
+  -- `c / (1 - γ) = c + γ * (c / (1 - γ))`, and `c ≤ r (s, a)`
+  have h1γ : (1 - γ : ℝ) ≠ 0 := (sub_pos.2 (NNReal.coe_lt_one.2 hγ)).ne'
+  have hfix : c / (1 - γ) = c + γ * (c / (1 - γ)) := by
+    field_simp
+    ring
+  rw [lookahead_def, integral_const, probReal_univ, one_smul]
+  linarith [hc (s, a)]
 
 /-- The optimality operator is a `γ`-contraction for the sup norm: if `|v - w| ≤ D` then
 `|M.bellman γ v - M.bellman γ w| ≤ γ * D`. -/
