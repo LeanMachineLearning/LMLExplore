@@ -25,8 +25,8 @@ answer at `θ`, and the oracle allocations are close to `w*(θ)`. The sticky Tra
 algorithm commits to an answer of `i_F(θ̂)` at an estimate `θ̂` of the model and tracks its optimal
 allocations; its analysis rests on these two properties.
 
-The set `w*(θ, ¬i)` is convex for each answer, but `w*(θ)` need not be: it is convex when `θ` has a
-single oracle answer [DK19, Proposition 5].
+The set `w*(θ, ¬i)` is convex for each answer, but `w*(θ)` need not be [DK19, Proposition 5]; it is
+convex when `θ` has a single oracle answer.
 
 These definitions are adapted from the formalization of [DK19] in the LMLPapers project, which
 defines `i_F(θ)` as the answers of value `D(θ)`; the two agree on admissible models.
@@ -44,10 +44,11 @@ defines `i_F(θ)` as the answers of value `D(θ)`; the two agree on admissible m
   answers are correct.
 * `IdentTask.mem_oracleAlloc_iff_isMaxOn`: for finitely many answers, the oracle allocations are the
   maximizers of `w ↦ max_i D(θ, w, ¬i)` on the simplex.
-* `IdentTask.iSup_altCost_eq_gameValue_of_mem_oracleAlloc`: on an admissible model,
-  `max_i D(θ, w, ¬i) = D(θ)` for every oracle allocation `w`.
+* `IdentTask.iSup_altCost_eq_iSup_answerValue_of_mem_oracleAlloc`,
+  `IdentTask.iSup_altCost_eq_gameValue_of_mem_oracleAlloc`: every oracle allocation `w` satisfies
+  `max_i D(θ, w, ¬i) = max_i D(θ, ¬i)`, which is `D(θ)` on an admissible model.
 * `IdentTask.convex_oracleAlloc_of_subsingleton`: with at most one oracle answer, the oracle
-  allocations form a convex set [DK19, Proposition 5].
+  allocations form a convex set.
 * `IdentTask.isCompact_oracleAlloc`, `IdentTask.oracleAlloc_nonempty`: compactness and existence
   of the oracle allocations.
 * `IdentTask.eventually_oracleAnswers_subset`,
@@ -59,7 +60,8 @@ defines `i_F(θ)` as the answers of value `D(θ)`; the two agree on admissible m
 ## References
 
 * [DK19] R. Degenne and W. M. Koolen, *Pure exploration with multiple correct answers*,
-  NeurIPS 2019, Theorem 4 and Proposition 5, and supplementary material, Appendix F, Lemma 30.
+  NeurIPS 2019, Theorem 4, and supplementary material, Appendix F, Lemma 30. Proposition 5 there
+  states that each `w*(θ, ¬i)` is convex while `w*(θ)` need not be.
 -/
 
 public section
@@ -130,6 +132,17 @@ lemma oracleAlloc_subset_simplex (θ : Θ) : task.oracleAlloc θ ⊆ simplex α 
   obtain ⟨_, -, hw⟩ := task.mem_oracleAlloc_iff.1 hw
   exact (task.mem_optAlloc_iff.1 hw).1
 
+/-- The oracle allocations attain the largest value of the answers:
+`max_i D(θ, w, ¬i) = max_i D(θ, ¬i)` for every `w ∈ w*(θ)`. -/
+lemma iSup_altCost_eq_iSup_answerValue_of_mem_oracleAlloc (hw : w ∈ task.oracleAlloc θ) :
+    ⨆ i, task.altCost θ w i = ⨆ i, task.answerValue θ i := by
+  obtain ⟨i, hi, hwi⟩ := task.mem_oracleAlloc_iff.1 hw
+  rw [mem_optAlloc_iff] at hwi
+  refine le_antisymm (iSup_mono fun j ↦ task.altCost_le_answerValue hwi.1) (iSup_le fun j ↦ ?_)
+  -- `D(θ, ¬j) ≤ D(θ, ¬i) = D(θ, w, ¬i)`.
+  exact (task.mem_oracleAnswers_iff.1 hi j).trans
+    (hwi.2.symm.le.trans (le_iSup (task.altCost θ w ·) i))
+
 /-- For finitely many (at least one) answers, the oracle allocations are the maximizers over the
 simplex of `w ↦ max_i D(θ, w, ¬i)`. -/
 theorem mem_oracleAlloc_iff_isMaxOn [Finite ℐ] [Nonempty ℐ] :
@@ -137,12 +150,9 @@ theorem mem_oracleAlloc_iff_isMaxOn [Finite ℐ] [Nonempty ℐ] :
       w ∈ simplex α ∧ IsMaxOn (fun v ↦ ⨆ i, task.altCost θ v i) (simplex α) w := by
   constructor
   · intro hw
-    obtain ⟨i, hi, hwi⟩ := task.mem_oracleAlloc_iff.1 hw
-    rw [mem_optAlloc_iff] at hwi
-    refine ⟨hwi.1, isMaxOn_iff.2 fun v hv ↦ iSup_le fun j ↦ ?_⟩
-    -- `D(θ, v, ¬j) ≤ D(θ, ¬j) ≤ D(θ, ¬i) = D(θ, w, ¬i)`.
-    exact (task.altCost_le_answerValue hv).trans <| (task.mem_oracleAnswers_iff.1 hi j).trans <|
-      hwi.2.symm.le.trans (le_iSup (task.altCost θ w ·) i)
+    refine ⟨task.oracleAlloc_subset_simplex θ hw, isMaxOn_iff.2 fun v hv ↦ ?_⟩
+    rw [task.iSup_altCost_eq_iSup_answerValue_of_mem_oracleAlloc hw]
+    exact iSup_mono fun j ↦ task.altCost_le_answerValue hv
   · rintro ⟨hw, hmax⟩
     -- An answer `i` at which `max_j D(θ, w, ¬j)` is attained is an oracle answer, and `w` is
     -- optimal for it.
@@ -159,15 +169,11 @@ theorem mem_oracleAlloc_iff_isMaxOn [Finite ℐ] [Nonempty ℐ] :
 lemma iSup_altCost_eq_gameValue_of_mem_oracleAlloc (hθ : θ ∈ task.M)
     (hw : w ∈ task.oracleAlloc θ) :
     ⨆ i, task.altCost θ w i = task.gameValue θ := by
-  obtain ⟨i, hi, hwi⟩ := task.mem_oracleAlloc_iff.1 hw
-  rw [mem_optAlloc_iff] at hwi
   rw [task.gameValue_eq_iSup_answerValue hθ]
-  refine le_antisymm (iSup_mono fun j ↦ task.altCost_le_answerValue hwi.1) (iSup_le fun j ↦ ?_)
-  exact (task.mem_oracleAnswers_iff.1 hi j).trans
-    (hwi.2.symm.le.trans (le_iSup (task.altCost θ w ·) i))
+  exact task.iSup_altCost_eq_iSup_answerValue_of_mem_oracleAlloc hw
 
-/-- **Convexity of the oracle allocations** [DK19, Proposition 5]. If there is at most one oracle
-answer, the oracle allocations form a convex set. -/
+/-- If there is at most one oracle answer, the oracle allocations form a convex set, since each
+`w*(θ, ¬i)` is convex (`convex_optAlloc`, [DK19, Proposition 5]). -/
 lemma convex_oracleAlloc_of_subsingleton (h : (task.oracleAnswers θ).Subsingleton) :
     Convex ℝ (task.oracleAlloc θ) := by
   rcases h.eq_empty_or_singleton with he | ⟨i, hi⟩
