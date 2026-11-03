@@ -296,8 +296,7 @@ end IsPolicyIteration
 
 /-- **Existence of runs of policy iteration**: with finitely many actions, bounded rewards and
 `γ < 1`, from every measurable deterministic stationary policy `d₀` starts a run of policy
-iteration that keeps the current policy whenever it is greedy for its own value, and otherwise
-moves to the greedy policy `Learning.MDP.greedy`. -/
+iteration that keeps the current policy whenever it is greedy for its own value. -/
 theorem exists_isPolicyIteration [Finite 𝓐] [Nonempty 𝓐] (hγ : γ < 1)
     (hR : ∀ p, ∀ᵐ x ∂(M.R p), |x| ≤ C) {d₀ : 𝓢 → 𝓐} (hd₀ : Measurable d₀) :
     ∃ (d : ℕ → 𝓢 → 𝓐) (h : M.IsPolicyIteration γ d), d 0 = d₀ ∧ h.KeepsGreedy := by
