@@ -6,7 +6,7 @@ Authors: Rémy Degenne
 module
 
 public import LMLExplore.Probability.Distributions.ExponentialFamily.Mean
-public import TauCeti.Probability.Distributions.Exponential.Basic
+public import LMLExplore.Probability.Distributions.Exponential
 
 /-!
 # The exponential laws as an exponential family
@@ -28,8 +28,8 @@ where the closed form of the divergence makes the transportation costs explicit.
 
 ## Main statements
 
-* `LMLExplore.tilted_mul_expMeasure`, `LMLExplore.expFamily_expMeasure`: the member of natural
-  parameter `η` of the exponential family of `expMeasure r` is `expMeasure (r - η)` (the zero
+* `LMLExplore.expFamily_expMeasure`: the member of natural parameter `η` of the exponential family
+  of `expMeasure r` is `expMeasure (r - η)`, by `LMLExplore.tilted_mul_expMeasure` (the zero
   measure for `η ≥ r`, as is `expMeasure` of a nonpositive rate, `LMLExplore.expMeasure_of_nonpos`).
 * `LMLExplore.deriv_cgf_expMeasure`: the mean map of the family is `η ↦ (r - η)⁻¹` on `η < r`.
 * `LMLExplore.not_ae_eq_const_expMeasure`: the identity is not almost everywhere constant under
@@ -51,48 +51,6 @@ namespace LMLExplore
 
 variable {r η μ μ' : ℝ}
 
-/-- The exponential law of a nonpositive rate is the zero measure: its density vanishes. -/
-@[simp]
-lemma expMeasure_of_nonpos (hr : r ≤ 0) : expMeasure r = 0 := by
-  rw [TauCeti.Probability.expMeasure_eq_withDensity, ← withDensity_zero]
-  congr 1
-  funext x
-  rw [exponentialPDF_eq, Pi.zero_apply, ENNReal.ofReal_eq_zero]
-  split_ifs
-  · exact mul_nonpos_of_nonpos_of_nonneg hr (exp_pos _).le
-  · exact le_rfl
-
-/-- Tilting an exponential law by `x ↦ η x` lowers its rate by `η`: `expMeasure r` tilted by
-`x ↦ η x` is `expMeasure (r - η)`. For `η ≥ r`, both sides are the zero measure. -/
-@[simp]
-theorem tilted_mul_expMeasure (hr : 0 < r) (η : ℝ) :
-    (expMeasure r).tilted (fun x ↦ η * x) = expMeasure (r - η) := by
-  rcases lt_or_ge η r with hη | hη
-  swap
-  · -- `x ↦ exp (η x)` is not integrable, and the rate `r - η` is nonpositive.
-    rw [tilted_of_not_integrable (by simpa [hr] using hη), expMeasure_of_nonpos (by linarith)]
-  rw [Measure.tilted, TauCeti.Probability.expMeasure_eq_withDensity,
-    TauCeti.Probability.expMeasure_eq_withDensity,
-    ← withDensity_mul _ (f := exponentialPDF r) (measurable_exponentialPDFReal r).ennreal_ofReal
-      (by fun_prop)]
-  congr 1
-  funext x
-  have h_mgf : ∫ y, exp (η * y) ∂(volume.withDensity (exponentialPDF r)) = r / (r - η) := by
-    rw [← TauCeti.Probability.expMeasure_eq_withDensity]
-    exact TauCeti.Probability.mgf_id_expMeasure hr hη
-  have hrη : 0 < r - η := sub_pos.2 hη
-  simp only [Pi.mul_apply, h_mgf, exponentialPDF_eq]
-  split_ifs with hx
-  · rw [← ENNReal.ofReal_mul (by positivity)]
-    congr 1
-    -- `r exp (-(r x)) * (exp (η x) / (r / (r - η))) = (r - η) exp (-((r - η) x))`
-    have h : exp (-((r - η) * x)) = exp (-(r * x)) * exp (η * x) := by
-      rw [← exp_add]
-      ring_nf
-    rw [h]
-    field_simp
-  · simp
-
 /-- The member of natural parameter `η` of the exponential family of `expMeasure r` with statistic
 `id` is `expMeasure (r - η)`. For `η ≥ r`, both sides are the zero measure. -/
 @[simp]
@@ -102,6 +60,7 @@ theorem expFamily_expMeasure (hr : 0 < r) (η : ℝ) :
   exact tilted_mul_expMeasure hr η
 
 /-- The mean map of the exponential family of `expMeasure r` is `η ↦ (r - η)⁻¹` on `η < r`. -/
+@[simp]
 theorem deriv_cgf_expMeasure (hr : 0 < r) (hη : η < r) :
     deriv (cgf id (expMeasure r)) η = (r - η)⁻¹ := by
   rw [← Measure.integral_expFamily (by simpa [hr] using hη), expFamily_expMeasure hr η]
@@ -158,9 +117,8 @@ theorem expFamilyDiv_expMeasure (hr : 0 < r) (hμ : 0 < μ) (hμ' : 0 < μ') :
     (expMeasure r).expFamilyDiv id μ μ' = μ / μ' - 1 - log (μ / μ') := by
   rw [Measure.expFamilyDiv_def, natParam_expMeasure hr hμ, natParam_expMeasure hr hμ',
     TauCeti.Probability.cgf_id_expMeasure hr (by simpa using hμ'),
-    TauCeti.Probability.cgf_id_expMeasure hr (by simpa using hμ), sub_sub_cancel, sub_sub_cancel,
-    div_inv_eq_mul, div_inv_eq_mul, log_mul hr.ne' hμ'.ne', log_mul hr.ne' hμ.ne',
-    log_div hμ.ne' hμ'.ne']
+    TauCeti.Probability.cgf_id_expMeasure hr (by simpa using hμ)]
+  simp [log_div, log_mul, hr.ne', hμ.ne', hμ'.ne']
   field_simp
   ring
 
