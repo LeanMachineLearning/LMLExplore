@@ -5,6 +5,7 @@ Authors: Rémy Degenne
 -/
 module
 
+public import Mathlib.Algebra.BigOperators.Field
 public import Mathlib.Algebra.BigOperators.Group.Finset.Indicator
 public import Mathlib.Algebra.Order.BigOperators.Group.Finset
 public import Mathlib.Algebra.Order.Group.Indicator
@@ -12,6 +13,7 @@ public import Mathlib.Analysis.Convex.Basic
 public import Mathlib.Basic.ENNReal.BigOperators
 public import Mathlib.Basic.Real.Basic
 public import Mathlib.Data.Finsupp.Order
+public import Mathlib.Data.Matrix.Mul
 public import Mathlib.Topology.Instances.Real.Lemmas
 
 /-!
@@ -48,6 +50,16 @@ supported distributions, not a subset of `α → ℝ`.
 * `LMLExplore.exists_mem_simplex_apply_eq_and_smul_le`: a vector of the simplex with a prescribed
   entry `v_a = β` dominating a multiple `c w` of a vector of the simplex.
 * `LMLExplore.isCompact_simplex`: the simplex is compact.
+* `LMLExplore.exists_mul_le_inv_sum_inv`, `LMLExplore.eq_inv_div_sum_inv_of_le_mul`: for positive
+  weights `c`, every vector `w` of the simplex has an entry with
+  `w a c a ≤ (∑ b, (c b)⁻¹)⁻¹`, and the vector proportional to `c⁻¹`
+  (`LMLExplore.inv_div_sum_inv_mem_simplex`) is the only one with `w a c a` at least this value
+  for all `a`: it is the unique maximizer of `w ↦ min_a w a c a` on the simplex.
+* `LMLExplore.sum_inv_pos`: for positive weights `c` on a nonempty type, `0 < ∑ b, (c b)⁻¹`.
+* `LMLExplore.iInf_ofReal_inv_div_sum_inv_mul`: at the vector proportional to `c⁻¹`, the smallest
+  weighted entry `min_a w a c a` is `(∑ b, (c b)⁻¹)⁻¹`.
+* `LMLExplore.iSup_simplex_ofReal_dotProduct`: the supremum of `w ↦ w ⬝ᵥ y` over the simplex is
+  the supremum of the entries of `y`, in `ℝ≥0∞`.
 * `LMLExplore.convex_setOf_nonneg_support_subset_sum_eq_one`: the finitely supported probability
   weights with support in a set form a convex set.
 * `LMLExplore.convex_setOf_mem_simplex_apply_eq`, `LMLExplore.isCompact_setOf_mem_simplex_apply_eq`:
@@ -202,5 +214,86 @@ lemma isCompact_setOf_mem_simplex_apply_eq (a : α) (β : ℝ) :
     IsCompact {w ∈ simplex α | w a = β} :=
   (isCompact_simplex α).of_isClosed_subset (isClosed_setOf_mem_simplex_apply_eq a β)
     (Set.sep_subset _ _)
+
+/-! ### Linear functions and the smallest weighted entry on the simplex -/
+
+/-- The largest payoff `w ⬝ᵥ y` of a mixed strategy `w` of the simplex is the largest entry of
+`y`. -/
+lemma iSup_simplex_ofReal_dotProduct (y : α → ℝ) :
+    ⨆ w ∈ simplex α, ENNReal.ofReal (w ⬝ᵥ y) = ⨆ a, ENNReal.ofReal (y a) := by
+  classical
+  rcases isEmpty_or_nonempty α with hα | hα
+  · have h : simplex α = ∅ :=
+      Set.eq_empty_of_forall_notMem fun w hw ↦ by simpa using (mem_simplex_iff.1 hw).2
+    simp [h]
+  obtain ⟨b, -, hb⟩ := Finset.exists_max_image Finset.univ y Finset.univ_nonempty
+  refine le_antisymm (iSup₂_le fun w hw ↦ ?_) (iSup_le fun a ↦ ?_)
+  · obtain ⟨hw0, hw1⟩ := mem_simplex_iff.1 hw
+    refine le_iSup_of_le b (ENNReal.ofReal_le_ofReal ?_)
+    calc w ⬝ᵥ y ≤ ∑ a, w a * y b :=
+          Finset.sum_le_sum fun a _ ↦ mul_le_mul_of_nonneg_left (hb a (Finset.mem_univ a)) (hw0 a)
+      _ = y b := by rw [← Finset.sum_mul, hw1, one_mul]
+  · refine le_iSup₂_of_le (Pi.single a 1) (single_mem_simplex a) ?_
+    rw [single_dotProduct, one_mul]
+
+variable {w c : α → ℝ}
+
+/-- A type whose simplex has an element is nonempty. -/
+lemma nonempty_of_mem_simplex (hw : w ∈ simplex α) : Nonempty α := by
+  by_contra h
+  rw [not_nonempty_iff] at h
+  simpa using hw.2
+
+/-- For positive weights `c` on a nonempty type, the sum of the inverses `∑ b, (c b)⁻¹` is
+positive. -/
+lemma sum_inv_pos [Nonempty α] (hc : ∀ a, 0 < c a) : 0 < ∑ b, (c b)⁻¹ :=
+  Finset.sum_pos (fun b _ ↦ inv_pos.2 (hc b)) Finset.univ_nonempty
+
+/-- For positive weights `c` on a nonempty type, the vector proportional to the inverses `c⁻¹`
+belongs to the simplex. -/
+lemma inv_div_sum_inv_mem_simplex [Nonempty α] (hc : ∀ a, 0 < c a) :
+    (fun a ↦ (c a)⁻¹ / ∑ b, (c b)⁻¹) ∈ simplex α := by
+  have hs := sum_inv_pos hc
+  exact ⟨fun a ↦ div_nonneg (inv_pos.2 (hc a)).le hs.le, by rw [← Finset.sum_div, div_self hs.ne']⟩
+
+/-- For positive weights `c`, every vector `w` of the simplex has an entry with
+`w a c a ≤ (∑ b, (c b)⁻¹)⁻¹`: the smallest weighted entry `min_a w a c a` is at most
+`(∑ b, (c b)⁻¹)⁻¹`. -/
+lemma exists_mul_le_inv_sum_inv (hw : w ∈ simplex α) (hc : ∀ a, 0 < c a) :
+    ∃ a, w a * c a ≤ (∑ b, (c b)⁻¹)⁻¹ := by
+  have := nonempty_of_mem_simplex hw
+  have hs := sum_inv_pos hc
+  -- Since `∑ a, w a = 1 = ∑ a, (c a)⁻¹ / s`, some entry has `w a ≤ (c a)⁻¹ / s`.
+  obtain ⟨a, -, ha⟩ := Finset.exists_le_of_sum_le Finset.univ_nonempty
+    (f := w) (g := fun a ↦ (c a)⁻¹ / ∑ b, (c b)⁻¹)
+    (by rw [hw.2, (inv_div_sum_inv_mem_simplex hc).2])
+  refine ⟨a, (mul_le_mul_of_nonneg_right ha (hc a).le).trans_eq ?_⟩
+  field_simp [(hc a).ne']
+
+/-- For positive weights `c`, the only vector `w` of the simplex with
+`(∑ b, (c b)⁻¹)⁻¹ ≤ w a c a` for every `a` is the vector proportional to `c⁻¹`. -/
+lemma eq_inv_div_sum_inv_of_le_mul (hw : w ∈ simplex α) (hc : ∀ a, 0 < c a)
+    (h : ∀ a, (∑ b, (c b)⁻¹)⁻¹ ≤ w a * c a) : w = fun a ↦ (c a)⁻¹ / ∑ b, (c b)⁻¹ := by
+  have := nonempty_of_mem_simplex hw
+  have hs := sum_inv_pos hc
+  -- Each entry is at least `(c a)⁻¹ / s`, and both vectors sum to `1`.
+  have hle (a : α) : (c a)⁻¹ / ∑ b, (c b)⁻¹ ≤ w a := by
+    rw [div_eq_inv_mul, ← le_div_iff₀ (inv_pos.2 (hc a)), div_inv_eq_mul]
+    exact h a
+  have h_eq := (Finset.sum_eq_sum_iff_of_le fun a _ ↦ hle a).1
+    (by rw [(inv_div_sum_inv_mem_simplex hc).2, hw.2])
+  exact funext fun a ↦ (h_eq a (Finset.mem_univ a)).symm
+
+/-- For positive weights `c`, at the vector proportional to `c⁻¹` all the weighted entries
+`w a c a` equal `(∑ b, (c b)⁻¹)⁻¹`, and so does their infimum, in `ℝ≥0∞`. -/
+lemma iInf_ofReal_inv_div_sum_inv_mul [Nonempty α] (hc : ∀ a, 0 < c a) :
+    ⨅ a, ENNReal.ofReal ((c a)⁻¹ / (∑ b, (c b)⁻¹) * c a) =
+      ENNReal.ofReal (∑ b, (c b)⁻¹)⁻¹ := by
+  have h (a : α) : ENNReal.ofReal ((c a)⁻¹ / (∑ b, (c b)⁻¹) * c a) =
+      ENNReal.ofReal (∑ b, (c b)⁻¹)⁻¹ := by
+    congr 1
+    field_simp [(hc a).ne']
+  simp_rw [h]
+  exact iInf_const
 
 end LMLExplore

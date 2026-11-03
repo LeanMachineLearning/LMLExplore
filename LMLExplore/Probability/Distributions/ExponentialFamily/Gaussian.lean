@@ -33,7 +33,9 @@ Section 2.2.
 * `LMLExplore.deriv_cgf_gaussianReal`: the mean map of the family is `η ↦ m + v η`.
 * `LMLExplore.not_ae_eq_const_gaussianReal`: for `v ≠ 0`, the identity is not almost everywhere
   constant under `𝒩(m, v)`, the nondegeneracy assumption of the mean parametrization.
-* `LMLExplore.expFamilyMeans_gaussianReal`: for `v ≠ 0`, the means of the family are all of `ℝ`.
+* `LMLExplore.expFamilyMeans_gaussianReal`, `LMLExplore.mem_expFamilyMeans_gaussianReal`,
+  `LMLExplore.setOf_forall_mem_expFamilyMeans_gaussianReal`: for `v ≠ 0`, the means of the family
+  are all of `ℝ`, and every vector is a vector of means of the family.
 * `LMLExplore.natParam_gaussianReal`: for `v ≠ 0`, the natural parameter of the mean `μ` is
   `(μ - m) / v`.
 * `LMLExplore.expFamily_natParam_gaussianReal`: for `v ≠ 0`, the member of mean `μ` is `𝒩(μ, v)`.
@@ -90,6 +92,16 @@ theorem expFamilyMeans_gaussianReal (m : ℝ) (hv : v ≠ 0) :
   refine eq_univ_of_forall fun μ ↦ ?_
   rw [Measure.mem_expFamilyMeans_iff, integrableExpSet_id_gaussianReal, interior_univ]
   exact ⟨(μ - m) / v, mem_univ _, by rw [deriv_cgf_gaussianReal]; field_simp; ring⟩
+
+/-- For `v ≠ 0`, every real number is a mean of the exponential family of `𝒩(m, v)`. -/
+lemma mem_expFamilyMeans_gaussianReal (m : ℝ) (hv : v ≠ 0) (μ : ℝ) :
+    μ ∈ (gaussianReal m v).expFamilyMeans id := by
+  simp [hv]
+
+/-- For `v ≠ 0`, every vector is a vector of means of the exponential family of `𝒩(m, v)`. -/
+lemma setOf_forall_mem_expFamilyMeans_gaussianReal {ι : Type*} (m : ℝ) (hv : v ≠ 0) :
+    {μ : ι → ℝ | ∀ i, μ i ∈ (gaussianReal m v).expFamilyMeans id} = univ := by
+  simp [hv]
 
 /-- For `v ≠ 0`, the natural parameter of the member of mean `μ` of the exponential family of
 `𝒩(m, v)` is `(μ - m) / v`. -/

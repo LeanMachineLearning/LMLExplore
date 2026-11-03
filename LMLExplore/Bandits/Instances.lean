@@ -6,6 +6,7 @@ Authors: Rémy Degenne
 module
 
 public import LMLExplore.InformationTheory.KullbackLeibler.Gaussian
+public import LMLExplore.Probability.Distributions.ExponentialFamily.Gaussian
 public import LMLExplore.Probability.Distributions.Bernoulli
 public import LMLExplore.Probability.Kernel.Basic
 public import TauCeti.Probability.Distributions.Bernoulli.Basic
@@ -23,7 +24,9 @@ instances [LS, Chapter 4]:
 We compute their means and show that they satisfy the noise assumptions of the regret analyses:
 Gaussian arms are `σ2`-sub-Gaussian, Bernoulli arms are bounded in `[0, 1]` and
 `1 / 4`-sub-Gaussian. We also compute the relative entropy between the arms of two Gaussian bandits
-with the same variance [LS, Theorem 14.1], the quantity that enters the lower bounds.
+with the same variance [LS, Theorem 14.1], the quantity that enters the lower bounds, and identify
+it with the divergence of the exponential family of `𝒩(0, σ2)`
+(`LMLExplore.Bandits.klDiv_gaussianBandit_eq_ofReal_expFamilyDiv`).
 
 The arm type only needs to be countable with measurable singletons, so that every function on it
 is measurable.
@@ -76,6 +79,14 @@ lemma klDiv_gaussianBandit (μ μ' : α → ℝ) (hσ2 : σ2 ≠ 0) (a : α) :
     klDiv (gaussianBandit μ σ2 a) (gaussianBandit μ' σ2 a) =
       ENNReal.ofReal ((μ a - μ' a) ^ 2 / (2 * σ2)) := by
   rw [gaussianBandit_apply, gaussianBandit_apply, klDiv_gaussianReal_gaussianReal_same_var hσ2]
+
+/-- The arm laws of a Gaussian bandit with variance `σ2 ≠ 0` are members of the exponential family
+of `𝒩(0, σ2)`: the relative entropy between arm `a` of two Gaussian bandits is the divergence
+`d(μ a, μ' a)` of the family. -/
+lemma klDiv_gaussianBandit_eq_ofReal_expFamilyDiv (hσ2 : σ2 ≠ 0) (μ μ' : α → ℝ) (a : α) :
+    klDiv (gaussianBandit μ σ2 a) (gaussianBandit μ' σ2 a) =
+      ENNReal.ofReal ((gaussianReal 0 σ2).expFamilyDiv id (μ a) (μ' a)) := by
+  rw [klDiv_gaussianBandit _ _ hσ2, expFamilyDiv_gaussianReal 0 hσ2]
 
 end Gaussian
 
