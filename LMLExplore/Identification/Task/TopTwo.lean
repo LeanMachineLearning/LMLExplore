@@ -22,8 +22,9 @@ answer `i` is the arm `i` itself, and the *`β`-characteristic time* is
 
 Russo (2016) shows that `T*_β` is within a factor `max(β*/β, (1 - β*)/(1 - β))` of the
 characteristic time `T*`, where `β*` is the proportion of the leader arm in an optimal allocation;
-in particular `T*_{1/2}(θ) ≤ 2 T*(θ)` without knowledge of `β*`. This bounds the loss of Top Two
-algorithms with `β = 1/2` with respect to the asymptotically optimal ones.
+uniformly in `β*`, `T*_β(θ) ≤ min(β, 1 - β)⁻¹ T*(θ)`, and in particular `T*_{1/2}(θ) ≤ 2 T*(θ)`
+without knowledge of `β*`: the `1/2`-characteristic time, the asymptotic target of Top Two rules
+with `β = 1/2`, is at most twice the characteristic time.
 
 ## Main definitions
 
@@ -42,14 +43,20 @@ algorithms with `β = 1/2` with respect to the asymptotically optimal ones.
   proportion `β = w_a` of an optimal allocation `w`.
 * `IdentTask.convex_betaOptAlloc`, `IdentTask.isCompact_betaOptAlloc`,
   `IdentTask.betaOptAlloc_nonempty`: the `β`-optimal allocations form a convex set; if
-  `w ↦ D(θ, w, ¬i)` is upper semicontinuous, it is compact, and nonempty for `β ∈ [0, 1]`.
+  `w ↦ D(θ, w, ¬i)` is upper semicontinuous, it is compact, and nonempty for `β ∈ [0, 1]` when
+  there are two arms.
 * `IdentTask.mul_answerValue_le_betaAnswerValue`: [R16, Lemma 3] if `w` is an optimal allocation
-  and `c ≥ 0` satisfies `c w_a ≤ β` and `c (1 - w_a) ≤ 1 - β`, then
-  `c D(θ, ¬i) ≤ D_β(θ, ¬i)`.
-* `IdentTask.answerValue_le_two_mul_betaAnswerValue_half`: `D(θ, ¬i) ≤ 2 D_{1/2}(θ, ¬i)`.
-* `IdentTask.gameValue_le_two_mul_betaGameValue_half`: `D(θ) ≤ 2 D_{1/2}(θ)`.
-* `IdentTask.charTime_le_betaCharTime`, `IdentTask.betaCharTime_half_le_two_mul_charTime`:
-  `T*(θ) ≤ T*_β(θ)` and `T*_{1/2}(θ) ≤ 2 T*(θ)`.
+  and `c ≥ 0` satisfies `c w_a ≤ β` and `c (1 - w_a) ≤ 1 - β`, then `c D(θ, ¬i) ≤ D_β(θ, ¬i)`, as
+  soon as there is an arm `b ≠ a`.
+* `IdentTask.ofReal_min_mul_answerValue_le_betaAnswerValue`,
+  `IdentTask.answerValue_le_two_mul_betaAnswerValue_half`: `min(β, 1 - β) D(θ, ¬i) ≤ D_β(θ, ¬i)`
+  and `D(θ, ¬i) ≤ 2 D_{1/2}(θ, ¬i)`, as soon as there is an arm `b ≠ a`.
+* `IdentTask.ofReal_min_mul_gameValue_le_betaGameValue`,
+  `IdentTask.gameValue_le_two_mul_betaGameValue_half`: `min(β, 1 - β) D(θ) ≤ D_β(θ)` and
+  `D(θ) ≤ 2 D_{1/2}(θ)`.
+* `IdentTask.charTime_le_betaCharTime`, `IdentTask.betaCharTime_le_inv_ofReal_min_mul_charTime`,
+  `IdentTask.betaCharTime_half_le_two_mul_charTime`: `T*(θ) ≤ T*_β(θ)`,
+  `T*_β(θ) ≤ min(β, 1 - β)⁻¹ T*(θ)` for `β ∈ (0, 1)` and `T*_{1/2}(θ) ≤ 2 T*(θ)`.
 * `IdentTask.betaCharTime_le_inv_mul_charTime`: [R16, Lemma 3] for a model with a single correct
   answer, `T*_β(θ) ≤ c⁻¹ T*(θ)` under the conditions above.
 
@@ -204,8 +211,9 @@ theorem mul_altCost_le_betaAnswerValue (hab : b ≠ a) {c : ℝ≥0} (hw : w ∈
     _ ≤ task.betaAnswerValue θ i a β := task.altCost_le_betaAnswerValue hv hva
 
 /-- **Russo's comparison** [R16, Lemma 3]: if `w` is an optimal allocation of the answer `i` and
-`c ≥ 0` satisfies `c w_a ≤ β` and `c (1 - w_a) ≤ 1 - β`, then `c D(θ, ¬i) ≤ D_β(θ, ¬i)`. For
-`w_a, β ∈ (0, 1)` and `c = min(β / w_a, (1 - β) / (1 - w_a))`, this is Russo's form
+`c ≥ 0` satisfies `c w_a ≤ β` and `c (1 - w_a) ≤ 1 - β`, then `c D(θ, ¬i) ≤ D_β(θ, ¬i)`, as soon
+as there is an arm `b ≠ a`. For `w_a, β ∈ (0, 1)` and `c = min(β / w_a, (1 - β) / (1 - w_a))`,
+this is Russo's form
 `D(θ, ¬i) ≤ max(w_a / β, (1 - w_a) / (1 - β)) D_β(θ, ¬i)`. -/
 theorem mul_answerValue_le_betaAnswerValue (hab : b ≠ a) {c : ℝ≥0} (hw : w ∈ task.optAlloc θ i)
     (hca : c * w a ≤ β) (hcb : c * (1 - w a) ≤ 1 - β) :
@@ -214,21 +222,37 @@ theorem mul_answerValue_le_betaAnswerValue (hab : b ≠ a) {c : ℝ≥0} (hw : w
   rw [← hwv]
   exact task.mul_altCost_le_betaAnswerValue hab hw hca hcb
 
+/-- [R16, Lemma 3] uniformly in the optimal allocation: the `β`-value of an answer is at least
+`min(β, 1 - β)` times its value, `min(β, 1 - β) D(θ, ¬i) ≤ D_β(θ, ¬i)`, as soon as there is an
+arm `b ≠ a`. -/
+theorem ofReal_min_mul_answerValue_le_betaAnswerValue (hab : b ≠ a) (θ : Θ) (i : ℐ) (β : ℝ) :
+    ENNReal.ofReal (min β (1 - β)) * task.answerValue θ i ≤ task.betaAnswerValue θ i a β := by
+  rcases lt_or_ge (min β (1 - β)) 0 with hm | hm
+  · simp [ENNReal.ofReal_of_nonpos hm.le]
+  rw [answerValue_def, ENNReal.mul_iSup]
+  refine iSup_le fun w ↦ ?_
+  rw [ENNReal.mul_iSup]
+  refine iSup_le fun hw ↦ ?_
+  have hw0 : 0 ≤ w a := (mem_simplex_iff.1 hw).1 a
+  have hw1 : w a ≤ 1 := by simpa using (simplex_subset_Icc hw).2 a
+  have hc : ((min β (1 - β)).toNNReal : ℝ) = min β (1 - β) := Real.coe_toNNReal _ hm
+  exact task.mul_altCost_le_betaAnswerValue hab hw
+    (by rw [hc]; nlinarith [min_le_left β (1 - β)])
+    (by rw [hc]; nlinarith [min_le_right β (1 - β)])
+
+private lemma ofReal_min_half : ENNReal.ofReal (min (1 / 2) (1 - 1 / 2)) = 2⁻¹ := by
+  rw [show min (1 / 2 : ℝ) (1 - 1 / 2) = 2⁻¹ by norm_num, ENNReal.ofReal_inv_of_pos zero_lt_two,
+    ENNReal.ofReal_ofNat]
+
 /-- [R16, Lemma 3] for `β = 1/2`: the `1/2`-value of an answer is at least half its value,
 `D(θ, ¬i) ≤ 2 D_{1/2}(θ, ¬i)`, as soon as there is an arm `b ≠ a`. -/
 theorem answerValue_le_two_mul_betaAnswerValue_half (hab : b ≠ a) (θ : Θ) (i : ℐ) :
     task.answerValue θ i ≤ 2 * task.betaAnswerValue θ i a (1 / 2) := by
-  rw [answerValue_def]
-  refine iSup₂_le fun w hw ↦ ?_
-  have hw0 : 0 ≤ w a := (mem_simplex_iff.1 hw).1 a
-  have hw1 : w a ≤ 1 := by simpa using (simplex_subset_Icc hw).2 a
-  have h := task.mul_altCost_le_betaAnswerValue (θ := θ) (i := i) (β := 1 / 2) (c := 2⁻¹) hab hw
-    (by push_cast; linarith) (by push_cast; linarith)
-  calc task.altCost θ w i = 2 * (2⁻¹ * task.altCost θ w i) := by
+  have h := task.ofReal_min_mul_answerValue_le_betaAnswerValue hab θ i (1 / 2)
+  rw [ofReal_min_half] at h
+  calc task.answerValue θ i = 2 * (2⁻¹ * task.answerValue θ i) := by
         rw [← mul_assoc, ENNReal.mul_inv_cancel two_ne_zero ENNReal.ofNat_ne_top, one_mul]
-    _ ≤ 2 * task.betaAnswerValue θ i a (1 / 2) := by
-        gcongr
-        simpa using h
+    _ ≤ 2 * task.betaAnswerValue θ i a (1 / 2) := by gcongr
 
 /-! ### Tasks whose answers are arms -/
 
@@ -276,27 +300,45 @@ lemma charTime_le_betaCharTime (θ : Θ) (β : ℝ) : task.charTime θ ≤ task.
   rw [charTime_def, betaCharTime_def]
   exact ENNReal.inv_le_inv.2 (task.betaGameValue_le_gameValue θ β)
 
+/-- [R16, Lemma 3] uniformly in the optimal allocation: `min(β, 1 - β) D(θ) ≤ D_β(θ)`, as soon as
+there are two arms. -/
+theorem ofReal_min_mul_gameValue_le_betaGameValue [Nontrivial α] (θ : Θ) (β : ℝ) :
+    ENNReal.ofReal (min β (1 - β)) * task.gameValue θ ≤ task.betaGameValue θ β := by
+  rw [gameValue_def, ENNReal.mul_iSup]
+  refine iSup_le fun i ↦ ?_
+  rw [ENNReal.mul_iSup]
+  refine iSup_le fun hi ↦ ?_
+  obtain ⟨b, hb⟩ := exists_ne i
+  exact (task.ofReal_min_mul_answerValue_le_betaAnswerValue hb θ i β).trans
+    (task.betaAnswerValue_le_betaGameValue hi β)
+
+/-- [R16, Lemma 3] uniformly in the optimal allocation: `T*_β(θ) ≤ min(β, 1 - β)⁻¹ T*(θ)` for
+`β ∈ (0, 1)`, as soon as there are two arms. -/
+theorem betaCharTime_le_inv_ofReal_min_mul_charTime [Nontrivial α] (θ : Θ)
+    (hβ : β ∈ Set.Ioo 0 1) :
+    task.betaCharTime θ β ≤ (ENNReal.ofReal (min β (1 - β)))⁻¹ * task.charTime θ := by
+  have hc : ENNReal.ofReal (min β (1 - β)) ≠ 0 := by
+    simpa using lt_min hβ.1 (sub_pos.2 hβ.2)
+  rw [betaCharTime_def, charTime_def,
+    ← ENNReal.mul_inv (Or.inl hc) (Or.inl ENNReal.ofReal_ne_top)]
+  exact ENNReal.inv_le_inv.2 (task.ofReal_min_mul_gameValue_le_betaGameValue θ β)
+
 /-- [R16, Lemma 3] for `β = 1/2`: `D(θ) ≤ 2 D_{1/2}(θ)`, as soon as there are two arms. -/
 theorem gameValue_le_two_mul_betaGameValue_half [Nontrivial α] (θ : Θ) :
     task.gameValue θ ≤ 2 * task.betaGameValue θ (1 / 2) := by
-  rw [gameValue_def]
-  refine iSup₂_le fun i hi ↦ ?_
-  obtain ⟨b, hb⟩ := exists_ne i
-  exact (task.answerValue_le_two_mul_betaAnswerValue_half hb θ i).trans
-    (by gcongr; exact task.betaAnswerValue_le_betaGameValue hi (1 / 2))
+  have h := task.ofReal_min_mul_gameValue_le_betaGameValue θ (1 / 2)
+  rw [ofReal_min_half] at h
+  calc task.gameValue θ = 2 * (2⁻¹ * task.gameValue θ) := by
+        rw [← mul_assoc, ENNReal.mul_inv_cancel two_ne_zero ENNReal.ofNat_ne_top, one_mul]
+    _ ≤ 2 * task.betaGameValue θ (1 / 2) := by gcongr
 
-/-- [R16, Lemma 3] for `β = 1/2`: `T*_{1/2}(θ) ≤ 2 T*(θ)`. Top Two algorithms with `β = 1/2` lose
-at most a factor `2` with respect to the characteristic time. -/
+/-- [R16, Lemma 3] for `β = 1/2`: `T*_{1/2}(θ) ≤ 2 T*(θ)`, as soon as there are two arms. The
+`1/2`-characteristic time, the asymptotic target of Top Two rules with `β = 1/2`, is at most twice
+the characteristic time. -/
 theorem betaCharTime_half_le_two_mul_charTime [Nontrivial α] (θ : Θ) :
     task.betaCharTime θ (1 / 2) ≤ 2 * task.charTime θ := by
-  have h : (2 * task.betaGameValue θ (1 / 2))⁻¹ ≤ task.charTime θ := by
-    rw [charTime_def]
-    exact ENNReal.inv_le_inv.2 (task.gameValue_le_two_mul_betaGameValue_half θ)
-  rw [ENNReal.mul_inv (Or.inl two_ne_zero) (Or.inl ENNReal.ofNat_ne_top)] at h
-  calc task.betaCharTime θ (1 / 2) = 2 * (2⁻¹ * (task.betaGameValue θ (1 / 2))⁻¹) := by
-        rw [betaCharTime_def, ← mul_assoc,
-          ENNReal.mul_inv_cancel two_ne_zero ENNReal.ofNat_ne_top, one_mul]
-    _ ≤ 2 * task.charTime θ := by gcongr
+  have h := task.betaCharTime_le_inv_ofReal_min_mul_charTime θ (β := 1 / 2) (by norm_num)
+  rwa [ofReal_min_half, inv_inv] at h
 
 /-- **Russo's comparison** [R16, Lemma 3] for the characteristic times: for a model with a single
 correct answer `i`, an optimal allocation `w` of `i` and a nonzero `c` with `c w_i ≤ β` and
