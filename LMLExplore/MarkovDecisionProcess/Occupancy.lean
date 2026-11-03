@@ -6,6 +6,7 @@ Authors: Rémy Degenne
 module
 
 public import LMLExplore.MarkovDecisionProcess.RunValue
+public import LMLExplore.Probability.Kernel.Resolvent
 
 /-!
 # Discounted occupancy measures of a Markov decision process
@@ -44,7 +45,9 @@ from its marginals `M.stateMarginal π μ n ⊗ₘ π n`.
 * `Learning.MDP.occupancy_map_fst`, `Learning.MDP.occupancy_prod_univ`: the flow equation, for a
   probability measure `μ`;
 * `Learning.MDP.occupancy_markov`, `Learning.MDP.occupancy_markov_const`: the occupancy measures
-  of Markov and stationary policies, in terms of their state-action marginals.
+  of Markov and stationary policies, in terms of their state-action marginals; for a stationary
+  policy, it is the image of the initial state-action law by the resolvent of the state-action
+  kernel, scaled by `1 - γ`.
 
 ## References
 
@@ -228,12 +231,13 @@ theorem occupancy_markov {π : ℕ → Kernel 𝓢 𝓐} [∀ n, IsMarkovKernel 
   simp_rw [occupancy_eq_sum h, (hasLaw_obs_action_markov h _).map_eq]
 
 /-- The occupancy measure of the stationary policy `π` from the probability measure `μ` is
-`(1 - γ) • ∑ n, γ ^ n • ((M.saKernel π ^ n) ∘ₘ (μ ⊗ₘ π))`, a discounted sum of the laws of the
-state-action Markov chain of `π`. -/
+`(1 - γ) • (R_γ(P^π_SA) ∘ₘ (μ ⊗ₘ π))`, where `R_γ(P^π_SA) = ∑ n, γ ^ n (M.saKernel π) ^ n` is the
+resolvent of the state-action kernel of `π`: a discounted sum of the laws of the state-action
+Markov chain of `π`. -/
 theorem occupancy_markov_const {π : Kernel 𝓢 𝓐} [IsMarkovKernel π] :
-    M.occupancy γ (Algorithm.markov fun _ ↦ π) μ = (1 - γ : ℝ≥0∞) • Measure.sum fun n ↦
-      (γ : ℝ≥0∞) ^ n • ((M.saKernel π ^ n : Kernel (𝓢 × 𝓐) (𝓢 × 𝓐)) ∘ₘ (μ ⊗ₘ π)) := by
-  simp_rw [occupancy_markov, stateMarginal_const_compProd]
+    M.occupancy γ (Algorithm.markov fun _ ↦ π) μ =
+      (1 - γ : ℝ≥0∞) • (Kernel.resolvent γ (M.saKernel π) ∘ₘ (μ ⊗ₘ π)) := by
+  simp_rw [Measure.resolvent_comp, occupancy_markov, stateMarginal_const_compProd]
 
 end Markov
 

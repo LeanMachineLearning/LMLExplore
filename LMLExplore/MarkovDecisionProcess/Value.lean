@@ -7,6 +7,7 @@ module
 
 public import LMLExplore.MarkovDecisionProcess.Bellman
 public import LMLExplore.MarkovDecisionProcess.MarkovPolicy
+public import LMLExplore.Probability.Kernel.Resolvent
 
 /-!
 # Values of stationary policies in a discounted Markov decision process
@@ -39,6 +40,8 @@ characterizes the largest such value.
 ## Main statements
 
 * `Learning.MDP.hasSum_value`: the series `∑ n, γ ^ n * ∫ r_π ∂(P_π ^ n s)` converges to `v^π s`.
+* `Learning.MDP.value_eq_integral_resolvent`: `v^π = R_γ(P_π) r_π`, the resolvent
+  `∑ n, γ ^ n P_π ^ n` of the state kernel applied to the reward.
 * `Learning.MDP.abs_value_le`, `Learning.MDP.measurable_value`: `v^π` is measurable and
   `|v^π| ≤ C / (1 - γ)`; the same holds for `Q^π` (`Learning.MDP.abs_qValue_le`,
   `Learning.MDP.measurable_qValue`).
@@ -159,6 +162,15 @@ theorem hasSum_value (hγ : γ < 1) (hR : ∀ p, ∀ᵐ x ∂(M.R p), |x| ≤ C)
       (M.value γ π s) :=
   (Summable.of_norm_bounded ((summable_geometric_of_lt_one γ.coe_nonneg hγ).mul_right C)
     (norm_mul_integral_policyReward_le hR · s)).hasSum
+
+/-- With bounded rewards and `γ < 1`, the value of a stationary policy is the resolvent of its
+state kernel applied to its reward: `v^π = R_γ(P_π) r_π`, where `R_γ(P_π) = ∑ n, γ ^ n P_π ^ n`. -/
+theorem value_eq_integral_resolvent (hγ : γ < 1) (hR : ∀ p, ∀ᵐ x ∂(M.R p), |x| ≤ C) (s : 𝓢) :
+    M.value γ π s = ∫ s', M.policyReward π s' ∂(Kernel.resolvent γ (M.stateKernel π) s) := by
+  have := Kernel.isFiniteKernel_resolvent (κ := M.stateKernel π) hγ
+  rw [Kernel.integral_resolvent
+    (integrable_of_abs_le measurable_policyReward (abs_policyReward_le hR) _), value_def]
+  simp_rw [smul_eq_mul]
 
 /-- With rewards bounded by `C` and `γ < 1`, the value of a stationary policy is bounded by
 `C / (1 - γ)`. -/
