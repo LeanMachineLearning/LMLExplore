@@ -232,34 +232,10 @@ the value of `d k` is within `γ ^ k * D` of it. -/
 theorem abs_value_sub_optValue_le
     (hD : ∀ s, |M.value γ (Kernel.deterministic (d 0) (h.measurable 0)) s - M.optValue γ s| ≤ D)
     (k : ℕ) (s : 𝓢) :
-    |M.value γ (Kernel.deterministic (d k) (h.measurable k)) s - M.optValue γ s| ≤ γ ^ k * D := by
-  have hmeas := measurable_optValue (M := M) hγ hR
-  have hfix := bellman_optValue (M := M) hγ hR
-  set Y := LMLExplore.boundedMeasurable.mk (M.optValue γ) hmeas
-    (bddAbove_def.2 ⟨C / (1 - γ), forall_mem_range.2 (abs_optValue_le hγ hR)⟩) with hYdef
-  have hY : IsFixedPt (M.bellmanOp γ hR) Y :=
-    isFixedPt_bellmanOp_mk hmeas (abs_optValue_le hγ hR) hfix
-  have hnorm := (isBlackwell_bellmanOp hR).norm_sub_le_of_map_le_succ
-    LMLExplore.boundedMeasurable.orderUnitNorm_one_eq_norm hY (u := h.valueBM hγ hR)
-    (fun k ↦ LMLExplore.boundedMeasurable.le_def.2 fun s ↦ by
-      rw [coeFn_valueBM, hYdef, LMLExplore.boundedMeasurable.coeFn_mk]
-      exact value_le_optValue hγ hR s)
-    (h.bellmanOp_valueBM_le hγ hR) k
-  -- the coordinates of `valueBM k - Y` are the differences between the values and `v*`
-  have hcoe (k : ℕ) (s : 𝓢) :
-      ⇑((h.valueBM hγ hR k - Y : LMLExplore.boundedMeasurable 𝓢) : ℓ^∞(𝓢, ℝ)) s =
-        M.value γ (Kernel.deterministic (d k) (h.measurable k)) s - M.optValue γ s := by
-    rw [LMLExplore.boundedMeasurable.coeFn_sub, Pi.sub_apply, coeFn_valueBM, hYdef,
-      LMLExplore.boundedMeasurable.coeFn_mk]
-  have h0 : ‖h.valueBM hγ hR 0 - Y‖ ≤ D :=
-    LMLExplore.boundedMeasurable.norm_le_of_forall_le ((abs_nonneg _).trans (hD s)) fun s ↦ by
-      rw [hcoe]
-      exact hD s
-  calc |M.value γ (Kernel.deterministic (d k) (h.measurable k)) s - M.optValue γ s|
-      ≤ ‖h.valueBM hγ hR k - Y‖ := by
-        rw [← hcoe]
-        exact LMLExplore.boundedMeasurable.abs_apply_le_norm _ s
-    _ ≤ γ ^ k * D := hnorm.trans (by gcongr)
+    |M.value γ (Kernel.deterministic (d k) (h.measurable k)) s - M.optValue γ s| ≤ γ ^ k * D :=
+  abs_sub_optValue_le_of_bellman_le_succ hγ hR (fun _ ↦ measurable_value hγ hR)
+    (fun _ ↦ ⟨_, abs_value_le hγ hR⟩) (fun _ ↦ value_le_optValue hγ hR)
+    (h.bellman_le_value_succ hγ hR) hD k s
 
 end Convergence
 

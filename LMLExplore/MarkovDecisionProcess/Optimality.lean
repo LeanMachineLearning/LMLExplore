@@ -41,6 +41,8 @@ here on a general measurable state space.
   `Learning.MDP.measurable_optValue`: `v*` is measurable.
 * `Learning.MDP.value_greedy_optValue`: the greedy policy for `v*` has value `v*`
   [P, Theorem 6.2.7 (b)].
+* `Learning.MDP.abs_sub_optValue_le_of_bellman_le_succ`: a sequence of bounded measurable
+  functions below `v*` with `T (u k) ≤ u (k + 1)` converges to `v*` at the geometric rate `γ ^ k`.
 * `Learning.MDP.isGreatest_runValue`: from every initial law `μ`, `∫ v* dμ` is the largest
   discounted value of an algorithm, attained by the greedy policy for `v*`.
 * `Learning.MDP.isGreatest_value`: `v*` is the largest value of a measurable deterministic
@@ -59,7 +61,7 @@ here on a general measurable state space.
 public section
 
 open MeasureTheory ProbabilityTheory Set Learning LMLExplore
-open scoped NNReal
+open scoped ENNReal NNReal lp
 
 namespace Learning.MDP
 
@@ -94,6 +96,49 @@ theorem runValue_le_integral_optValue {μ : Measure 𝓢} [IsProbabilityMeasure 
   runValue_le_integral_of_lookahead_le hγ hR (measurable_optValue hγ hR) (abs_optValue_le hγ hR)
     (fun p ↦ (lookahead_le_bellman _ p.1 p.2).trans_eq (congrFun (bellman_optValue hγ hR) p.1))
     alg
+
+/-! ### Sequences dominating value iteration -/
+
+/-- **Geometric convergence of sequences dominating value iteration**: with finitely many actions,
+bounded rewards and `γ < 1`, let `u` be a sequence of bounded measurable functions below the
+optimal value with `T (u k) ≤ u (k + 1)` for all `k`, where `T` is the Bellman optimality operator.
+If `u 0` is within `D` of the optimal value, then `u k` is within `γ ^ k * D` of it. The values of
+policy iteration and of modified policy iteration are such sequences. -/
+theorem abs_sub_optValue_le_of_bellman_le_succ (hγ : γ < 1) (hR : ∀ p, ∀ᵐ x ∂(M.R p), |x| ≤ C)
+    {D : ℝ} {u : ℕ → 𝓢 → ℝ} (hu : ∀ k, Measurable (u k)) (huB : ∀ k, ∃ B, ∀ s, |u k s| ≤ B)
+    (hle : ∀ k, u k ≤ M.optValue γ) (hsucc : ∀ k, M.bellman γ (u k) ≤ u (k + 1))
+    (hD : ∀ s, |u 0 s - M.optValue γ s| ≤ D) (k : ℕ) (s : 𝓢) :
+    |u k s - M.optValue γ s| ≤ γ ^ k * D := by
+  have hmeas := measurable_optValue (M := M) hγ hR
+  set Y := boundedMeasurable.mk (M.optValue γ) hmeas
+    (bddAbove_def.2 ⟨C / (1 - γ), forall_mem_range.2 (abs_optValue_le hγ hR)⟩) with hYdef
+  have hY : Function.IsFixedPt (M.bellmanOp γ hR) Y :=
+    isFixedPt_bellmanOp_mk hmeas (abs_optValue_le hγ hR) (bellman_optValue hγ hR)
+  -- `u` as a sequence of elements of `boundedMeasurable 𝓢`
+  choose K hK using huB
+  set U : ℕ → boundedMeasurable 𝓢 := fun k ↦
+    boundedMeasurable.mk (u k) (hu k) (bddAbove_def.2 ⟨K k, forall_mem_range.2 (hK k)⟩) with hUdef
+  have hU (k : ℕ) : ⇑(U k : ℓ^∞(𝓢, ℝ)) = u k := boundedMeasurable.coeFn_mk ..
+  have hnorm := (isBlackwell_bellmanOp hR).norm_sub_le_of_map_le_succ
+    boundedMeasurable.orderUnitNorm_one_eq_norm hY (u := U)
+    (fun k ↦ boundedMeasurable.le_def.2 fun s ↦ by
+      rw [hU, hYdef, boundedMeasurable.coeFn_mk]
+      exact hle k s)
+    (fun k ↦ boundedMeasurable.le_def.2 fun s ↦ by
+      rw [coeFn_bellmanOp, hU, hU]
+      exact hsucc k s) k
+  -- the coordinates of `U k - Y` are the differences between `u k` and `v*`
+  have hcoe (k : ℕ) (s : 𝓢) :
+      ⇑((U k - Y : boundedMeasurable 𝓢) : ℓ^∞(𝓢, ℝ)) s = u k s - M.optValue γ s := by
+    rw [boundedMeasurable.coeFn_sub, Pi.sub_apply, hU, hYdef, boundedMeasurable.coeFn_mk]
+  have h0 : ‖U 0 - Y‖ ≤ D :=
+    boundedMeasurable.norm_le_of_forall_le ((abs_nonneg _).trans (hD s)) fun s ↦ by
+      rw [hcoe]
+      exact hD s
+  calc |u k s - M.optValue γ s| ≤ ‖U k - Y‖ := by
+        rw [← hcoe]
+        exact boundedMeasurable.abs_apply_le_norm _ s
+    _ ≤ γ ^ k * D := hnorm.trans (by gcongr)
 
 end Finite
 
