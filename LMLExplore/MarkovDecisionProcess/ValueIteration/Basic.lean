@@ -24,7 +24,11 @@ theorem applies. This gives, on a general measurable state space,
 * a unique bounded measurable solution of the optimality equation `M.bellman γ u = u`, bounded by
   `C / (1 - γ)` (the fixed-point part of [P, Theorem 6.2.5 (a)], where `𝓢` is countable);
 * the convergence of value iteration `v, T v, T² v, …` to it at the geometric rate
-  `|Tⁿ v - u| ≤ γ ^ n * ‖T v - v‖ / (1 - γ)` [P, Theorem 6.3.3 (d)].
+  `|Tⁿ v - u| ≤ γ ^ n * ‖T v - v‖ / (1 - γ)` [P, Theorem 6.3.3 (d)];
+* the geometric decay of its increments, `|Tⁿ⁺¹ v - Tⁿ v| ≤ γ ^ n * D` where `D` bounds
+  `|T v - v|` at every state [P, Theorem 6.3.1 (b)];
+* monotone iterates: they decrease (resp. increase) from the first one with `T v ≤ v`
+  (resp. `v ≤ T v`) [P, Proposition 6.3.2 (b)].
 
 For finitely many actions, the optimality operator at `v` is the greatest value at `v` of the
 evaluation operators of the measurable deterministic stationary policies. Together with Blackwell's
@@ -48,6 +52,10 @@ conditions, this makes the operators an instance of the abstract dynamic program
 * `Learning.MDP.exists_bellman_eq`, `Learning.MDP.eq_of_bellman_eq`: the optimality equation has a
   unique bounded measurable solution, and it is bounded by `C / (1 - γ)`.
 * `Learning.MDP.abs_bellman_iterate_sub_le`: value iteration converges geometrically to it.
+* `Learning.MDP.abs_bellman_iterate_succ_sub_le`: the increments of value iteration decay
+  geometrically.
+* `Learning.MDP.antitone_bellman_iterate`, `Learning.MDP.monotone_bellman_iterate`: monotone
+  iterates.
 
 ## References
 
@@ -179,24 +187,79 @@ theorem abs_bellman_iterate_sub_le (hγ : γ < 1) (hR : ∀ p, ∀ᵐ x ∂(M.R 
   set U := boundedMeasurable.mk u hu (bddAbove_def.2 ⟨B', forall_mem_range.2 huB⟩)
   have hU : U = ContractingWith.fixedPoint _ hT :=
     hT.fixedPoint_unique (isFixedPt_bellmanOp_mk hu huB hu_eq)
-  have hVD : dist V (M.bellmanOp γ hR V) ≤ D := by
-    rw [dist_eq_norm]
-    refine boundedMeasurable.norm_le_of_forall_le ((abs_nonneg _).trans (hD s)) fun s ↦ ?_
-    rw [boundedMeasurable.coeFn_sub, coeFn_bellmanOp, boundedMeasurable.coeFn_mk, Pi.sub_apply,
-      abs_sub_comm]
-    exact hD s
+  have hVD : dist V (M.bellmanOp γ hR V) ≤ D :=
+    boundedMeasurable.dist_le_of_forall_abs_sub_le ((abs_nonneg _).trans (hD s)) fun s ↦ by
+      rw [coeFn_bellmanOp, boundedMeasurable.coeFn_mk, abs_sub_comm]
+      exact hD s
   calc |(M.bellman γ)^[n] v s - u s|
-      = |⇑(((M.bellmanOp γ hR)^[n] V - U : boundedMeasurable 𝓢) : ℓ^∞(𝓢, ℝ)) s| := by
-        rw [boundedMeasurable.coeFn_sub, Pi.sub_apply, coeFn_bellmanOp_iterate,
-          boundedMeasurable.coeFn_mk, boundedMeasurable.coeFn_mk]
-    _ ≤ dist ((M.bellmanOp γ hR)^[n] V) U := by
-        rw [dist_eq_norm]; exact boundedMeasurable.abs_apply_le_norm _ s
+      = |⇑((M.bellmanOp γ hR)^[n] V : ℓ^∞(𝓢, ℝ)) s - ⇑(U : ℓ^∞(𝓢, ℝ)) s| := by
+        rw [coeFn_bellmanOp_iterate, boundedMeasurable.coeFn_mk, boundedMeasurable.coeFn_mk]
+    _ ≤ dist ((M.bellmanOp γ hR)^[n] V) U := boundedMeasurable.abs_sub_apply_le_dist _ _ s
     _ ≤ dist V (M.bellmanOp γ hR V) * γ ^ n / (1 - γ) := by
         rw [hU]; exact hT.apriori_dist_iterate_fixedPoint_le V n
     _ ≤ γ ^ n * D / (1 - γ) := by
         rw [mul_comm]
         gcongr
         exact sub_nonneg.2 (NNReal.coe_le_one.2 hγ.le)
+
+/-- **The increments of value iteration decay geometrically**: with countably many actions and
+rewards bounded by `C`, if a bounded measurable `v` satisfies `|T v - v| ≤ D`, then
+`|T^[n + 1] v - T^[n] v| ≤ γ ^ n * D`. For `γ < 1` and `ε > 0`, the bound `δ = γ ^ n * D` meets
+the stopping rule `2 * γ * δ < ε * (1 - γ)` of value iteration for all large `n`, as in
+[P, Theorem 6.3.1 (b)]. -/
+theorem abs_bellman_iterate_succ_sub_le (hR : ∀ p, ∀ᵐ x ∂(M.R p), |x| ≤ C) (hv : Measurable v)
+    (hvB : ∀ s, |v s| ≤ B) (hD : ∀ s, |M.bellman γ v s - v s| ≤ D) (n : ℕ) (s : 𝓢) :
+    |(M.bellman γ)^[n + 1] v s - (M.bellman γ)^[n] v s| ≤ γ ^ n * D := by
+  have hT := (isBlackwell_bellmanOp (γ := γ) hR).lipschitzWith
+    boundedMeasurable.orderUnitNorm_one_eq_norm
+  set V := boundedMeasurable.mk v hv (bddAbove_def.2 ⟨B, forall_mem_range.2 hvB⟩)
+  have hVD : dist V (M.bellmanOp γ hR V) ≤ D :=
+    boundedMeasurable.dist_le_of_forall_abs_sub_le ((abs_nonneg _).trans (hD s)) fun s ↦ by
+      rw [coeFn_bellmanOp, boundedMeasurable.coeFn_mk, abs_sub_comm]
+      exact hD s
+  calc |(M.bellman γ)^[n + 1] v s - (M.bellman γ)^[n] v s|
+      = |⇑((M.bellmanOp γ hR)^[n] V : ℓ^∞(𝓢, ℝ)) s -
+          ⇑((M.bellmanOp γ hR)^[n + 1] V : ℓ^∞(𝓢, ℝ)) s| := by
+        rw [coeFn_bellmanOp_iterate, coeFn_bellmanOp_iterate, boundedMeasurable.coeFn_mk,
+          abs_sub_comm]
+    _ ≤ dist ((M.bellmanOp γ hR)^[n] V) ((M.bellmanOp γ hR)^[n + 1] V) :=
+        boundedMeasurable.abs_sub_apply_le_dist _ _ s
+    _ ≤ dist V (M.bellmanOp γ hR V) * γ ^ n := hT.dist_iterate_succ_le_geometric V n
+    _ ≤ γ ^ n * D := by
+        rw [mul_comm]
+        gcongr
+
+/-- **Monotone iterates, decreasing case** ([P, Proposition 6.3.2 (b)]): with countably many
+actions and bounded rewards, if a bounded measurable `v` satisfies `T v ≤ v`, then the iterates
+`T^[n] v` decrease. Applied to an iterate `v = T^[N] v₀`, the iterates of value iteration decrease
+from the first `N` with `T^[N + 1] v₀ ≤ T^[N] v₀`. -/
+theorem antitone_bellman_iterate (hR : ∀ p, ∀ᵐ x ∂(M.R p), |x| ≤ C) (hv : Measurable v)
+    (hvB : ∀ s, |v s| ≤ B) (h : M.bellman γ v ≤ v) :
+    Antitone fun n ↦ (M.bellman γ)^[n] v := by
+  set V := boundedMeasurable.mk v hv (bddAbove_def.2 ⟨B, forall_mem_range.2 hvB⟩)
+  have hVv : ⇑(V : ℓ^∞(𝓢, ℝ)) = v := boundedMeasurable.coeFn_mk ..
+  have hV : M.bellmanOp γ hR V ≤ V := boundedMeasurable.le_def.2 fun s ↦ by
+    simpa only [coeFn_bellmanOp, hVv] using h s
+  intro m n hmn s
+  simpa only [coeFn_bellmanOp_iterate, hVv] using
+    boundedMeasurable.le_def.1
+      ((isBlackwell_bellmanOp hR).monotone.antitone_iterate_of_map_le hV hmn) s
+
+/-- **Monotone iterates, increasing case** ([P, Proposition 6.3.2 (b)]): with countably many
+actions and bounded rewards, if a bounded measurable `v` satisfies `v ≤ T v`, then the iterates
+`T^[n] v` increase. Applied to an iterate `v = T^[N] v₀`, the iterates of value iteration increase
+from the first `N` with `T^[N] v₀ ≤ T^[N + 1] v₀`. -/
+theorem monotone_bellman_iterate (hR : ∀ p, ∀ᵐ x ∂(M.R p), |x| ≤ C) (hv : Measurable v)
+    (hvB : ∀ s, |v s| ≤ B) (h : v ≤ M.bellman γ v) :
+    Monotone fun n ↦ (M.bellman γ)^[n] v := by
+  set V := boundedMeasurable.mk v hv (bddAbove_def.2 ⟨B, forall_mem_range.2 hvB⟩)
+  have hVv : ⇑(V : ℓ^∞(𝓢, ℝ)) = v := boundedMeasurable.coeFn_mk ..
+  have hV : V ≤ M.bellmanOp γ hR V := boundedMeasurable.le_def.2 fun s ↦ by
+    simpa only [coeFn_bellmanOp, hVv] using h s
+  intro m n hmn s
+  simpa only [coeFn_bellmanOp_iterate, hVv] using
+    boundedMeasurable.le_def.1
+      ((isBlackwell_bellmanOp hR).monotone.monotone_iterate_of_le_map hV hmn) s
 
 end Optimality
 

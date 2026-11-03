@@ -195,6 +195,18 @@ theorem norm_le_of_forall_le {f : boundedMeasurable α} {C : ℝ} (hC : 0 ≤ C)
   rw [AddSubgroupClass.coe_norm]
   exact lp.norm_le_of_forall_le hC fun x ↦ (Real.norm_eq_abs _).trans_le (hf x)
 
+/-- The values of two bounded measurable functions at a point differ by at most their distance. -/
+theorem abs_sub_apply_le_dist (f g : boundedMeasurable α) (x : α) :
+    |(f : ℓ^∞(α, ℝ)) x - (g : ℓ^∞(α, ℝ)) x| ≤ dist f g := by
+  rw [dist_eq_norm, ← Pi.sub_apply, ← coeFn_sub]
+  exact abs_apply_le_norm _ x
+
+/-- A pointwise bound `|f x - g x| ≤ C` with `0 ≤ C` bounds the distance of `f` and `g`. -/
+theorem dist_le_of_forall_abs_sub_le {f g : boundedMeasurable α} {C : ℝ} (hC : 0 ≤ C)
+    (h : ∀ x, |(f : ℓ^∞(α, ℝ)) x - (g : ℓ^∞(α, ℝ)) x| ≤ C) : dist f g ≤ C := by
+  rw [dist_eq_norm]
+  exact norm_le_of_forall_le hC fun x ↦ by rw [coeFn_sub, Pi.sub_apply]; exact h x
+
 /-- A bounded measurable function lies in the order interval `[-c • 1, c • 1]` if and only if it
 is bounded by `c` in absolute value. -/
 theorem mem_Icc_neg_smul_one_iff {f : boundedMeasurable α} {c : ℝ} :
