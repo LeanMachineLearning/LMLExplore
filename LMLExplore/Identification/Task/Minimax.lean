@@ -5,6 +5,7 @@ Authors: Rémy Degenne
 -/
 module
 
+public import LMLExplore.Basic.ENNReal.BigOperators
 public import LMLExplore.Identification.Task.TransportationCost
 public import LMLExplore.Topology.Sion
 public import Mathlib.Geometry.Convex.ConvexSpace.Defs
@@ -93,15 +94,6 @@ lemma answerValue_le_iSup_sum_klDiv {q : StdSimplex ℝ Θ} (hq : ↑q.weights.s
         exact mul_left_comm _ _ _
     _ ≤ _ := sum_ofReal_mul_le_iSup hw _
 
-/-- A sum `∑ x ∈ s, f x * (g x).toReal` of finite extended nonnegative reals `g x` with
-nonnegative weights `f x`, mapped back to `ℝ≥0∞`, is `∑ x ∈ s, f x * g x`. -/
-private lemma ofReal_sum_mul_toReal {ι : Type*} {s : Finset ι} {f : ι → ℝ} {g : ι → ℝ≥0∞}
-    (hf : ∀ x ∈ s, 0 ≤ f x) (hg : ∀ x ∈ s, g x ≠ ∞) :
-    ENNReal.ofReal (∑ x ∈ s, f x * (g x).toReal) = ∑ x ∈ s, ENNReal.ofReal (f x) * g x := by
-  rw [ENNReal.ofReal_sum_of_nonneg fun x hx ↦ mul_nonneg (hf x hx) ENNReal.toReal_nonneg]
-  refine Finset.sum_congr rfl fun x hx ↦ ?_
-  rw [ENNReal.ofReal_mul (hf x hx), ENNReal.ofReal_toReal (hg x hx)]
-
 /-- The minimax inequality `inf_q max_a E_{λ ∼ q}[KL(ν_a(θ), ν_a(λ))] ≤ D(θ, ¬i)` when all the
 alternatives to `i` are at finite divergence from `θ` on every arm: von Neumann's minimax theorem
 on the simplex, for the convex set of the vectors `(E_{λ ∼ q}[KL(ν_a(θ), ν_a(λ))])_a`. -/
@@ -121,7 +113,7 @@ private lemma iInf_iSup_sum_klDiv_le_of_ne_top [Nonempty α]
         q.sum fun θ' r ↦ ENNReal.ofReal r * klDiv (task.ν θ a) (task.ν θ' a) := by
     rw [Finsupp.linearCombination_apply, Finsupp.sum, Finset.sum_apply, Finsupp.sum]
     simp_rw [Pi.smul_apply, smul_eq_mul]
-    exact ofReal_sum_mul_toReal (fun θ' _ ↦ hq.1 θ') fun θ' hθ' ↦ hfin θ' (hq.2.1 hθ') a
+    exact ENNReal.ofReal_sum_mul_toReal (fun θ' _ ↦ hq.1 θ') fun θ' hθ' ↦ hfin θ' (hq.2.1 hθ') a
   have hsingle (θ' : Θ) (hθ' : θ' ∈ task.alt i) : p θ' ∈ Y := by
     refine ⟨Finsupp.single θ' 1, ⟨Finsupp.single_nonneg.2 zero_le_one, ?_, ?_⟩, ?_⟩
     · exact (Finset.coe_subset.2 Finsupp.support_single_subset).trans (by simpa using hθ')
@@ -142,7 +134,7 @@ private lemma iInf_iSup_sum_klDiv_le_of_ne_top [Nonempty α]
         rw [altCost_def]
         refine le_iInf₂ fun θ' hθ' ↦ iInf₂_le_of_le _ (hsingle θ' hθ') ?_
         rw [dotProduct, cost_def]
-        exact (ofReal_sum_mul_toReal (fun a _ ↦ (mem_simplex_iff.1 hw).1 a)
+        exact (ENNReal.ofReal_sum_mul_toReal (fun a _ ↦ (mem_simplex_iff.1 hw).1 a)
           fun a _ ↦ hfin θ' hθ' a).le
 
 /-- **The pure exploration game in minimax form** [DK19, Lemma 2]. The value `D(θ, ¬i)` of the
