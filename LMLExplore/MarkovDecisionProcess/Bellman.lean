@@ -9,6 +9,7 @@ public import LeanMachineLearning.ForMathlib.MeasureTheory.Order.MeasurableArg
 public import LMLExplore.Analysis.FixedPoint.OrderUnit
 public import LMLExplore.MarkovDecisionProcess.Basic
 public import LMLExplore.MeasureTheory.Integral.BoundedMeasurable
+public import LMLExplore.Order.ConditionallyCompleteLattice.Group
 public import Mathlib.Probability.Kernel.Integral
 public import Mathlib.Topology.MetricSpace.Contracting
 
@@ -203,10 +204,8 @@ theorem measurable_bellman [Countable 𝓐] (hv : Measurable v) : Measurable (M.
 `C + γ * B`. -/
 theorem abs_bellman_le [Nonempty 𝓐] (hR : ∀ p, ∀ᵐ x ∂(M.R p), |x| ≤ C) (hvB : ∀ s, |v s| ≤ B)
     (s : 𝓢) : |M.bellman γ v s| ≤ C + γ * B := by
-  have h := fun a ↦ abs_le.1 (abs_lookahead_le (γ := γ) hR hvB (s, a))
-  obtain ⟨a⟩ := ‹Nonempty 𝓐›
-  exact abs_le.2 ⟨(h a).1.trans (le_ciSup (bddAbove_range_lookahead hR hvB s) a),
-    ciSup_le fun a ↦ (h a).2⟩
+  rw [bellman_def]
+  exact abs_ciSup_le fun a ↦ abs_lookahead_le hR hvB (s, a)
 
 /-! ### The greedy policy -/
 
