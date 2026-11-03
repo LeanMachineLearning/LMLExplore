@@ -217,7 +217,11 @@ jobs:
           # never let the build itself reach a remote cache service. Same rule as the
           # sandboxed build in pr-build.yml and as the publish step below.
           LAKE_NO_CACHE: "true"
-        run: lake build
+        # `--iofail`, as in the sandboxed PR build (TauCetiTools' sandbox-build.sh): the build
+        # fails if any module, dependencies included, logs a warning or an info message. A plain
+        # `lake build` here let main stay green while every PR build failed on deprecation
+        # warnings in LML.
+        run: lake build --iofail
 
       # The same shared checks as trusted PR builds, compiled from merged main's sources.
       - name: Shared ownership and axiom audits
