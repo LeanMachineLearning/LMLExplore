@@ -90,6 +90,9 @@ confidence*, COLT 2016.
   `w₁ + w₂ > 0`, this is the minimum over these pairs.
 * `MeasureTheory.Measure.mul_expFamilyDiv_add_mul_expFamilyDiv_eq`: the two-point compensation
   identity `w₁ d(μ₁, z) + w₂ d(μ₂, z) = w₁ d(μ₁, m) + w₂ d(μ₂, m) + (w₁ + w₂) d(m, z)`.
+* `MeasureTheory.Measure.strictMonoOn_expFamilyPairCost`: for distinct means and `w₁ > 0`, the
+  cost `w₁ d(μ₁, m) + w₂ d(μ₂, m)` of moving them to their weighted mean `m` is strictly
+  increasing in `w₂ ≥ 0`.
 * `MeasureTheory.Measure.expFamilyPairCost_nonneg`, `MeasureTheory.Measure.expFamilyPairCost_pos`,
   `MeasureTheory.Measure.expFamilyPairCost_eq_zero`, `MeasureTheory.Measure.expFamilyPairCost_mul`:
   the cost of moving two means to their weighted mean is nonnegative, positive for distinct means
@@ -641,6 +644,32 @@ lemma mul_expFamilyDiv_add_mul_expFamilyDiv_eq {μ₁ μ₂ w₁ w₂ : ℝ} (hW
   have h := sum_mul_expFamilyDiv_eq (ρ := ρ) (T := T) Finset.univ ![w₁, w₂] ![μ₁, μ₂]
     (m := (w₁ * μ₁ + w₂ * μ₂) / (w₁ + w₂)) (by simp [Fin.sum_univ_two]; field_simp) z
   simpa [Fin.sum_univ_two, expFamilyPairCost_def] using h
+
+/-- For two distinct means `μ₁ ≠ μ₂` of the family and a positive weight `w₁`, the cost of moving
+`μ₁` and `μ₂` to their weighted mean is strictly increasing in the weight `w₂ ≥ 0` of `μ₂`. -/
+theorem strictMonoOn_expFamilyPairCost {μ₁ μ₂ w₁ : ℝ} (hμ₁ : μ₁ ∈ ρ.expFamilyMeans T)
+    (hμ₂ : μ₂ ∈ ρ.expFamilyMeans T) (hμ : μ₁ ≠ μ₂) (hw₁ : 0 < w₁) :
+    StrictMonoOn (ρ.expFamilyPairCost T μ₁ μ₂ w₁) (Ici 0) := by
+  intro y hy y' hy' hyy'
+  rw [mem_Ici] at hy hy'
+  have hW : 0 < w₁ + y := by linarith
+  have hW' : 0 < w₁ + y' := by linarith
+  set m' := (w₁ * μ₁ + y' * μ₂) / (w₁ + y') with hm'_def
+  have hm' : m' ∈ ρ.expFamilyMeans T := div_mem_expFamilyMeans hμ₁ hμ₂ hw₁.le hy' hW'
+  -- The weighted mean `m'` differs from `μ₂`, since `w₁ μ₁ + y' μ₂ - (w₁ + y') μ₂ = w₁ (μ₁ - μ₂)`.
+  have hne : μ₂ ≠ m' := by
+    rw [hm'_def, Ne, eq_div_iff hW'.ne']
+    intro h
+    exact mul_ne_zero hw₁.ne' (sub_ne_zero.2 hμ) (by linear_combination -h)
+  -- By the compensation identity, the cost at `y` is at most `w₁ d(μ₁, m') + y d(μ₂, m')`, which
+  -- is smaller than the cost `w₁ d(μ₁, m') + y' d(μ₂, m')` at `y'`.
+  have h := mul_expFamilyDiv_add_mul_expFamilyDiv_eq (ρ := ρ) (T := T) (μ₁ := μ₁) (μ₂ := μ₂)
+    hW.ne' m'
+  have h_nonneg := mul_nonneg hW.le
+    (expFamilyDiv_nonneg (div_mem_expFamilyMeans hμ₁ hμ₂ hw₁.le hy hW) hm')
+  have h_lt := mul_lt_mul_of_pos_right hyy' (expFamilyDiv_pos hμ₂ hm' hne)
+  rw [expFamilyPairCost_def ρ T μ₁ μ₂ w₁ y']
+  linarith
 
 /-- If the cost of moving two distinct means to their weighted mean, at the midpoint of two pairs
 of weights, equals its cost at both pairs, then the two pairs of weights are proportional. This
