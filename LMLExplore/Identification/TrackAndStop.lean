@@ -274,10 +274,10 @@ theorem eventually_expectedStoppingTime_trackAndStop_le (hT : ∀ a c, ¬ T a =�
     (hr : r =O[atTop] fun n ↦ (n : ℝ) ^ p)
     (hβ : ∀ᶠ δ in 𝓝[>] 0, ∀ n ≥ n₀, β δ n ≤ ENNReal.ofReal (log (r n / δ))) :
     ∀ᶠ δ in 𝓝[>] 0, expectedStoppingTime (task.trackAndStop w hw (β δ) rec hrec (hstop δ))
-      (stationaryEnv (task.ν μ)) ≤ c * ENNReal.ofReal (log (1 / δ)) := by
+      (Environment.bandit (task.ν μ)) ≤ c * ENNReal.ofReal (log (1 / δ)) := by
   set alg := dTracking (fun n h ↦ w (empMean' n h)) fun n ↦ hw.comp (by fun_prop)
-  set P := trajMeasure alg (stationaryEnv (task.ν μ))
-  have hseq : IsAlgEnvSeq IT.obs IT.action IT.feedback alg (stationaryEnv (task.ν μ)) P :=
+  set P := trajMeasure alg (Environment.bandit (task.ν μ))
+  have hseq : IsAlgEnvSeq IT.obs IT.action IT.feedback alg (Environment.bandit (task.ν μ)) P :=
     IT.isAlgEnvSeq_trajMeasure alg _
   set K : ℝ := (Fintype.card α : ℝ)
   -- Near `(μ, w(μ))` on the simplex, the cost of the alternatives exceeds `κ`.
@@ -325,7 +325,7 @@ theorem eventually_expectedStoppingTime_trackAndStop_le (hT : ∀ a c, ¬ T a =�
     refine ne_top_of_le_ne_top (DTracking.tsum_measure_exists_ge_empMean_notMem_Ioo_ne_top hseq
       hν_above hν_below hμ hl hu (fun a ↦ by simp only [l]; linarith)
       (fun a ↦ by simp only [u]; linarith) tendsto_sqrt_roundsAfter_div_log)
-      (ENNReal.tsum_le_tsum fun T ↦ measure_mono_ae ?_)
+      (tsum_le_tsum fun T ↦ measure_mono_ae ?_)
     filter_upwards [DTracking.pullCount_action_le_of_lt hseq,
       DTracking.mul_sub_pullCount_le_of_forall_le hseq] with ω h_forced h_track hωE
     by_contra h_box
@@ -380,7 +380,7 @@ theorem eventually_expectedStoppingTime_trackAndStop_le_of_charTime_lt
     {c : ℝ≥0} (hc : task.charTime μ < c) (hr : r =O[atTop] fun n ↦ (n : ℝ) ^ p)
     (hβ : ∀ᶠ δ in 𝓝[>] 0, ∀ n ≥ n₀, β δ n ≤ ENNReal.ofReal (log (r n / δ))) :
     ∀ᶠ δ in 𝓝[>] 0, expectedStoppingTime (task.trackAndStop w hw (β δ) rec hrec (hstop δ))
-      (stationaryEnv (task.ν μ)) ≤ c * ENNReal.ofReal (log (1 / δ)) := by
+      (Environment.bandit (task.ν μ)) ≤ c * ENNReal.ofReal (log (1 / δ)) := by
   have hc0 : c ≠ 0 := by
     rintro rfl
     exact not_lt_zero (ENNReal.coe_zero ▸ hc)

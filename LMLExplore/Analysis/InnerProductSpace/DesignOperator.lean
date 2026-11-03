@@ -121,7 +121,7 @@ theorem mul_inner_ringInverse_designOp_apply_le (hlam : 0 < lam) (x : ℕ → E)
   swap
   · simp [Ring.inverse_non_unit _ hV]
   set u := Ring.inverse (designOp lam x t) v
-  have hu : designOp lam x t u = v := (designOp lam x t).apply_ringInverse_apply hV v
+  have hu : designOp lam x t u = v := ContinuousLinearMap.apply_ringInverse_apply hV v
   -- `λ ‖u‖² ≤ ⟪u, V u⟫ = ⟪u, v⟫ ≤ ‖u‖ ‖v‖`, hence `λ ‖u‖ ≤ ‖v‖` and `λ ⟪v, u⟫ ≤ ‖v‖²`
   have h1 := mul_norm_sq_le_inner_designOp_apply lam x t u
   rw [hu] at h1

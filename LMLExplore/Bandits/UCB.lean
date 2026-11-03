@@ -45,17 +45,17 @@ variable {K : ℕ} [NeZero K] {c : ℝ} {ν : Kernel (Fin K) ℝ} [IsMarkovKerne
 `a` with positive gap `Δ_a` at most `8 c log (n + 1) / Δ_a ^ 2 + 4 + 2 σ² / (c - 2 σ²)` times in
 expectation during the first `n` rounds. -/
 theorem UCB.expectation_pullCount_le_of_gt_two
-    (h : IsAlgEnvSeq O A R (ucbAlgorithm K c) (stationaryEnv ν) P)
+    (h : IsAlgEnvSeq O A R (ucbAlgorithm K c) (Environment.bandit ν) P)
     (hν : ∀ a, HasSubgaussianMGF (fun x ↦ x - (ν a)[id]) σ2 (ν a)) (hσ2 : σ2 ≠ 0)
     (hc : 2 * σ2 < c) (a : Fin K) (h_gap : 0 < gap ν a) (n : ℕ) :
     P[fun ω ↦ (pullCount A a n ω : ℝ)] ≤
       8 * c * log (n + 1) / gap ν a ^ 2 + (4 + 2 * σ2 / (c - 2 * σ2)) := by
   -- LML's bound is stated for the exploration constant `c' * σ2`, with `c' = c / σ2 > 2`.
   have hσ2' : (0 : ℝ) < σ2 := NNReal.coe_pos.mpr (pos_iff_ne_zero.mpr hσ2)
-  have h' : IsAlgEnvSeq O A R (ucbAlgorithm K (c / σ2 * σ2)) (stationaryEnv ν) P := by
+  have h' : IsAlgEnvSeq O A R (ucbAlgorithm K (c / σ2 * σ2)) (Environment.bandit ν) P := by
     rwa [div_mul_cancel₀ _ hσ2'.ne']
   have hc' : 2 < c / σ2 := by rwa [lt_div_iff₀ hσ2']
-  refine (UCB.expectation_pullCount_le h' hν hσ2 (by linarith) a h_gap n).trans ?_
+  refine (UCB.integral_pullCount_le h' hν hσ2 (by linarith) a h_gap n).trans ?_
   have h_const : 2 + 2 * UCB.constSum (c / σ2) n ≤ 4 + 2 / (c / σ2 - 2) := by
     rw [show (4 : ℝ) + 2 / (c / σ2 - 2) = 2 + 2 * (1 + 1 / (c / σ2 - 2)) by ring]
     gcongr
@@ -70,7 +70,7 @@ theorem UCB.expectation_pullCount_le_of_gt_two
 /-- **Gap-free regret bound for UCB**, the analogue of [LS, Theorem 7.2]. For σ²-sub-Gaussian
 rewards and `c > 2 σ²`, the expected regret of the UCB algorithm `ucbAlgorithm K c` at horizon `n`
 is at most `2 √(8 c K n log (n + 1)) + (4 + 2 σ² / (c - 2 σ²)) ∑ a, Δ_a`. -/
-theorem ucb_regret_le_sqrt (h : IsAlgEnvSeq O A R (ucbAlgorithm K c) (stationaryEnv ν) P)
+theorem ucb_regret_le_sqrt (h : IsAlgEnvSeq O A R (ucbAlgorithm K c) (Environment.bandit ν) P)
     (hν : ∀ a, HasSubgaussianMGF (fun x ↦ x - (ν a)[id]) σ2 (ν a)) (hσ2 : σ2 ≠ 0)
     (hc : 2 * σ2 < c) (n : ℕ) :
     P[regret ν A n] ≤

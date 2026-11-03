@@ -112,8 +112,8 @@ lemma IsFixedBudget.outputMeasure_eq (hA : IsFixedBudget A T) (env : Environment
       rw [sigmaHistory_apply, IT.history_obs_action_feedback (𝓞 := 𝓞) (𝓐 := 𝓐) (𝓨 := 𝓨),
         Function.comp_apply]
   rw [IdentAlg.outputMeasure, hA.stoppedHistMeasure_eq, h_hist,
-    ← Measure.map_map (measurable_sigma_mk T) (IT.measurable_hist T),
-    ← Measure.deterministic_comp_eq_map (measurable_sigma_mk T), Measure.comp_assoc,
+    ← Measure.map_map (measurable_sigmaMk T) (IT.measurable_hist T),
+    ← Measure.deterministic_comp_eq_map (measurable_sigmaMk T), Measure.comp_assoc,
     Kernel.comp_deterministic_eq_comap, outputAt_eq_comap]
 
 /-- The law of the output of a fixed-budget algorithm with budget `0` is the output rule applied
@@ -135,7 +135,8 @@ lemma IsFixedBudget.stopsAS (hA : IsFixedBudget A T) (env : Environment 𝓞 �
 /-- The expected stopping time of a fixed-budget algorithm with budget `T` is `T`. -/
 lemma IsFixedBudget.expectedStoppingTime_eq (hA : IsFixedBudget A T)
     (env : Environment 𝓞 𝓐 𝓨) : expectedStoppingTime A env = T := by
-  simp [expectedStoppingTime_def, hA.stoppingTime_eq]
+  simp only [expectedStoppingTime_def, hA.stoppingTime_eq, lintegral_const, measure_univ, mul_one]
+  exact ENat.toENNReal_coe T
 
 /-- If `A` has budget `T`, `(O, X, Y)` is an algorithm-environment sequence for the sampling rule
 of `A` until time `T` (the interaction may go on after time `T` with another algorithm) and `out`
@@ -168,7 +169,7 @@ lemma IsRun.hasCondDistrib_output_history [IsFiniteMeasure P] {env : Environment
   have h1 := h.hasCondDistrib_output
   rw [show A.stoppedHist O X Y = Sigma.mk T ∘ history O X Y T from funext hA.stoppedHist_eq] at h1
   rw [outputAt_eq_comap]
-  exact h1.of_measurableEmbedding_comp_right (measurableEmbedding_sigma_mk T)
+  exact h1.of_measurableEmbedding_comp_right (measurableEmbedding_sigmaMk T)
 
 /-- For a fixed-budget algorithm whose output rule on the histories of `T` rounds is the
 deterministic map `g`, the output of a run is almost surely `g` of the history of the first `T`
@@ -179,7 +180,7 @@ lemma IsRun.output_ae_eq_of_outputAt_eq_deterministic [MeasurableEq 𝓓] [IsFin
     out =ᵐ[P] fun ω ↦ g (history O X Y T ω) := by
   have h1 := h.hasCondDistrib_output_history hA
   rw [hout] at h1
-  exact ae_eq_of_hasCondDistrib_deterministic hg h1.aemeasurable_fst h1.aemeasurable_snd h1
+  exact h1.ae_eq_of_deterministic
 
 /-- **Transfer of a PAC guarantee to a partial run.** If `A` is PAC at level `δ` with budget `T`,
 `(O, X, Y)` is an algorithm-environment sequence for the sampling rule of `A` until time `T` in

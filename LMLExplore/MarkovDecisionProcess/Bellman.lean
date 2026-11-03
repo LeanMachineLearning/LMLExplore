@@ -274,7 +274,7 @@ theorem lookahead_greedy [Fintype 𝓐] [Nonempty 𝓐] (v : 𝓢 → ℝ) (s : 
     M.lookahead γ v (s, M.greedy γ v s) = M.bellman γ v s :=
   le_antisymm (lookahead_le_bellman v s _)
     (bellman_le_iff.2 fun a ↦ by
-      rw [greedy_def]; exact isMaxOn_argmax (fun a ↦ M.lookahead γ v (s, a)) a)
+      rw [greedy_def]; exact isMaxOn_argmax (fun a ↦ M.lookahead γ v (s, a)) (Set.mem_univ a))
 
 variable (M γ) in
 /-- The deterministic policy `d` is *greedy* for `v`: at every state `s`, the action `d s` attains

@@ -385,14 +385,14 @@ variable [DecidableEq α] [MeasurableSingletonClass α] {Ω : Type*} {mΩ : Meas
   {A : ℕ → Ω → α} {R : ℕ → Ω → ℝ}
 
 /-- **Overestimation of the MOSS index in a run.** In a run of any algorithm against the
-stochastic bandit `stationaryEnv ν`, if arm `a` is σ²-sub-Gaussian with mean `μ_a`, `N` is a
+stochastic bandit `Environment.bandit ν`, if arm `a` is σ²-sub-Gaussian with mean `μ_a`, `N` is a
 horizon, `k` the number of arms and `Δ > 8 √(σ² k / N)`, then `Δ` times the expected number of
 rounds `t < N` at which `a` is played while either it has not been pulled yet or its MOSS index
 `μ̂_a + √(4 σ² / T_a * log⁺ (N / (k T_a)))` exceeds `μ_a + Δ / 2` is at most
 `Δ + 15 √(σ² N / k)`. This bounds the contribution of an arm with gap `Δ` in the proof of
 [LS, Theorem 9.1]. -/
 theorem MOSS.mul_sum_measureReal_action_eq_le
-    (h : IsAlgEnvSeq O A R alg (stationaryEnv ν) P) (a : α)
+    (h : IsAlgEnvSeq O A R alg (Environment.bandit ν) P) (a : α)
     (hν : HasSubgaussianMGF (fun x ↦ x - (ν a)[id]) σ2 (ν a)) (horizon : ℕ) {Δ : ℝ}
     (hΔ : 8 * √(σ2 * Fintype.card α / horizon) < Δ) :
     Δ * ∑ t ∈ range horizon, P.real {ω | A t ω = a ∧ (pullCount A a t ω = 0 ∨
@@ -411,13 +411,13 @@ theorem MOSS.mul_sum_measureReal_action_eq_le
   exact sum_measureReal_action_eq_and_pullCount_sumRewards_le h a horizon hp
 
 /-- **Underestimation of the MOSS index of an arm in a run.** In a run of any algorithm against
-the stochastic bandit `stationaryEnv ν`, if arm `b` is σ²-sub-Gaussian with mean `μ_b`, `N` is a
-horizon and `k` the number of arms, then for `x > 0` the probability that at some round `t < N`
+the stochastic bandit `Environment.bandit ν`, if arm `b` is σ²-sub-Gaussian with mean `μ_b`, `N` is
+a horizon and `k` the number of arms, then for `x > 0` the probability that at some round `t < N`
 the arm `b` has been pulled and its MOSS index `μ̂_b + √(4 σ² / T_b * log⁺ (N / (k T_b)))` is
 below `μ_b - x` is at most `12 σ² k / (N x²)`. This is the peeling bound of [LS, Lemma 9.3],
 transferred from the reward stream to the run. -/
 theorem MOSS.measure_exists_empMean_add_sqrt_add_lt_le
-    (h : IsAlgEnvSeq O A R alg (stationaryEnv ν) P) (b : α)
+    (h : IsAlgEnvSeq O A R alg (Environment.bandit ν) P) (b : α)
     (hν : HasSubgaussianMGF (fun x ↦ x - (ν b)[id]) σ2 (ν b)) (horizon : ℕ) {x : ℝ} (hx : 0 < x) :
     P {ω | ∃ t < horizon, pullCount A b t ω ≠ 0 ∧ empMean A R b t ω +
         √(4 * σ2 / pullCount A b t ω * log⁺ (horizon / (Fintype.card α * pullCount A b t ω))) +
@@ -455,11 +455,11 @@ theorem MOSS.measure_exists_empMean_add_sqrt_add_lt_le
     field_simp
 
 /-- **Expected drop of the MOSS index of an arm.** In a run of any algorithm against the stochastic
-bandit `stationaryEnv ν`, if arm `b` is σ²-sub-Gaussian with mean `μ_b`, there is a nonnegative
+bandit `Environment.bandit ν`, if arm `b` is σ²-sub-Gaussian with mean `μ_b`, there is a nonnegative
 integrable random variable `D` with `E[D] ≤ 2 √(12 σ² k / n)` such that the MOSS index of `b` for
 the horizon `n` is at least `μ_b - D` at every round `t < n` at which `b` has been pulled. -/
 private lemma MOSS.exists_integral_le_and_sub_le_index
-    (h : IsAlgEnvSeq O A R alg (stationaryEnv ν) P) (b : α)
+    (h : IsAlgEnvSeq O A R alg (Environment.bandit ν) P) (b : α)
     (hν : HasSubgaussianMGF (fun x ↦ x - (ν b)[id]) σ2 (ν b)) (n : ℕ) :
     ∃ D : Ω → ℝ, (∀ ω, 0 ≤ D ω) ∧ Integrable D P ∧
       P[D] ≤ 2 * √(12 * σ2 * Fintype.card α / n) ∧
@@ -576,7 +576,7 @@ private lemma mul_add_mul_sqrt_le_mul_sqrt (σ2 : ℝ≥0) {k N : ℝ} (hk : 0 <
 for the horizon `n` is at most `39 √(σ² k n) + ∑_a Δ_a` at that horizon, where `k` is the number of
 arms. -/
 theorem moss_regret_le [Nonempty α] (n : ℕ)
-    (h : IsAlgEnvSeq O A R (moss σ2 n) (stationaryEnv ν) P)
+    (h : IsAlgEnvSeq O A R (moss σ2 n) (Environment.bandit ν) P)
     (hν : ∀ a, HasSubgaussianMGF (fun x ↦ x - (ν a)[id]) σ2 (ν a)) :
     P[regret ν A n] ≤ 39 * √(σ2 * Fintype.card α * n) + ∑ a, gap ν a := by
   have h_gap_sum : 0 ≤ ∑ a, gap ν a := sum_nonneg fun _ _ ↦ gap_nonneg

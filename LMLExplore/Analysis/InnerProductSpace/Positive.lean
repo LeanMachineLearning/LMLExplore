@@ -59,7 +59,7 @@ theorem IsPositive.ringInverse {V : E →L[𝕜] E} (hV : V.IsPositive) :
   by_cases hu : IsUnit V
   · refine ⟨hV.isSymmetric.ringInverse, fun y ↦ ?_⟩
     have := hV.re_inner_nonneg_right (Ring.inverse V y)
-    rwa [V.apply_ringInverse_apply hu] at this
+    rwa [ContinuousLinearMap.apply_ringInverse_apply hu] at this
   · rw [Ring.inverse_non_unit V hu]
     exact isPositive_zero
 

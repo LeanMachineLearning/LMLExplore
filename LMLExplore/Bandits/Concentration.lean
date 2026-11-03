@@ -59,7 +59,7 @@ in relative-entropy form [LS, Lemma 10.7].
   model: it is at most the mean minus `ε` with probability at most `exp (-L) exp (-s ε² / (2 σ²))`.
   This controls the underestimation of an optimal arm in the proof of [LS, Theorem 8.1].
 * `measureReal_pullCount_ne_zero_and_empMean_add_sqrt_le_le`: in a run of any algorithm against
-  `stationaryEnv ν`, the probability that at round `t` a pulled arm has index
+  `Environment.bandit ν`, the probability that at round `t` a pulled arm has index
   `μ̂_a + √(2 σ² L / T_a)` at most its mean minus `ε` is at most
   `exp (-L) ∑_{s < t} exp (-(s + 1) ε² / (2 σ²))`.
 * `sum_measureReal_pullCount_ne_zero_and_empMean_add_sqrt_le_le`: with the exploration level
@@ -168,12 +168,12 @@ private lemma measurable_div_add_sqrt_div (c : ℝ) :
   fun_prop
 
 /-- **Underestimation of an arm by its index, at one round.** In a run of any algorithm against
-the stochastic bandit `stationaryEnv ν`, if arm `a` is σ²-sub-Gaussian with mean `μ_a` and
+the stochastic bandit `Environment.bandit ν`, if arm `a` is σ²-sub-Gaussian with mean `μ_a` and
 `σ² ≠ 0`, then for `L ≥ 0`, `ε ≥ 0` and every round `t`, the probability that `a` has been pulled
 and its index `μ̂_a + √(2 σ² L / T_a)` is at most `μ_a - ε` is at most
 `exp (-L) ∑_{s < t} exp (-(s + 1) ε² / (2 σ²))`. -/
 theorem measureReal_pullCount_ne_zero_and_empMean_add_sqrt_le_le
-    (h : IsAlgEnvSeq O A R alg (stationaryEnv ν) P) (a : α)
+    (h : IsAlgEnvSeq O A R alg (Environment.bandit ν) P) (a : α)
     (hν : HasSubgaussianMGF (fun x ↦ x - (ν a)[id]) σ2 (ν a)) (hσ2 : σ2 ≠ 0) {L : ℝ} (hL : 0 ≤ L)
     (hε : 0 ≤ ε) (t : ℕ) :
     P.real {ω | pullCount A a t ω ≠ 0 ∧
@@ -199,13 +199,13 @@ theorem measureReal_pullCount_ne_zero_and_empMean_add_sqrt_le_le
   _ = exp (-L) * ∑ s ∈ range t, exp (-(ε ^ 2 / (2 * σ2) * (s + 1))) := (mul_sum _ _ _).symm
 
 /-- **Underestimation of an arm by the index of [LS, Algorithm 6].** In a run of any algorithm
-against the stochastic bandit `stationaryEnv ν`, if arm `a` is σ²-sub-Gaussian with mean `μ_a` and
-`σ² ≠ 0`, then for `ε > 0` the expected number of rounds `t < n` at which `a` has been pulled and
-its index `μ̂_a + √(2 σ² log f(t + 1) / T_a)` is at most `μ_a - ε` is at most `5 σ² / ε²`,
+against the stochastic bandit `Environment.bandit ν`, if arm `a` is σ²-sub-Gaussian with mean `μ_a`
+and `σ² ≠ 0`, then for `ε > 0` the expected number of rounds `t < n` at which `a` has been pulled
+and its index `μ̂_a + √(2 σ² log f(t + 1) / T_a)` is at most `μ_a - ε` is at most `5 σ² / ε²`,
 uniformly in `n`, where `f(t) = 1 + t log² t`. This bounds the contribution of an optimal arm in
 the proof of [LS, Theorem 8.1]. -/
 theorem sum_measureReal_pullCount_ne_zero_and_empMean_add_sqrt_le_le
-    (h : IsAlgEnvSeq O A R alg (stationaryEnv ν) P) (a : α)
+    (h : IsAlgEnvSeq O A R alg (Environment.bandit ν) P) (a : α)
     (hν : HasSubgaussianMGF (fun x ↦ x - (ν a)[id]) σ2 (ν a)) (hσ2 : σ2 ≠ 0) (hε : 0 < ε)
     (n : ℕ) :
     ∑ t ∈ range n, P.real {ω | pullCount A a t ω ≠ 0 ∧
@@ -227,13 +227,13 @@ theorem sum_measureReal_pullCount_ne_zero_and_empMean_add_sqrt_le_le
   exact (mem_range.mp ht).le
 
 /-- **Overestimation of an arm by its index.** In a run of any algorithm against the stochastic
-bandit `stationaryEnv ν`, if arm `a` is σ²-sub-Gaussian with mean `μ_a`, then for `δ > 0` and
+bandit `Environment.bandit ν`, if arm `a` is σ²-sub-Gaussian with mean `μ_a`, then for `δ > 0` and
 `c ≥ 0` the expected number of rounds `t < n` at which `a` is played while it has not been pulled
 yet or its index `μ̂_a + √(2 σ² c / T_a)` exceeds `μ_a + δ` is at most
 `1 + 2 σ² / δ² (c + √(π c) + 1)`, uniformly in `n`. This bounds the contribution of a suboptimal
 arm in the proof of [LS, Theorem 8.1]. -/
 theorem sum_measureReal_action_eq_and_pullCount_eq_zero_or_lt_empMean_add_sqrt_le
-    (h : IsAlgEnvSeq O A R alg (stationaryEnv ν) P) (a : α)
+    (h : IsAlgEnvSeq O A R alg (Environment.bandit ν) P) (a : α)
     (hν : HasSubgaussianMGF (fun x ↦ x - (ν a)[id]) σ2 (ν a)) {δ : ℝ} (hδ : 0 < δ) (hc : 0 ≤ c)
     (n : ℕ) :
     ∑ t ∈ range n, P.real {ω | A t ω = a ∧ (pullCount A a t ω = 0 ∨
@@ -308,12 +308,12 @@ variable {α : Type*} [DecidableEq α] [MeasurableSpace α] [Countable α] [Meas
   [IsProbabilityMeasure P] {O : ℕ → Ω → Unit} {A : ℕ → Ω → α} {R : ℕ → Ω → ℝ}
 
 /-- **Underestimation of an arm by the KL-UCB index, at one round.** In a run of any algorithm
-against the stochastic bandit `stationaryEnv ν`, if the rewards of arm `a` lie in `[0, 1]` almost
-surely and have mean `μ_a`, then for `ε > 0`, a real `L` and every round `t`, the probability that
-`a` has been pulled and its upper confidence level `U(μ̂_a, L / T_a)` is at most `μ_a - ε` is at
-most `exp (-L) ∑_{s < t} exp (-2 ε² (s + 1))`. -/
+against the stochastic bandit `Environment.bandit ν`, if the rewards of arm `a` lie in `[0, 1]`
+almost surely and have mean `μ_a`, then for `ε > 0`, a real `L` and every round `t`, the probability
+that `a` has been pulled and its upper confidence level `U(μ̂_a, L / T_a)` is at most `μ_a - ε` is
+at most `exp (-L) ∑_{s < t} exp (-2 ε² (s + 1))`. -/
 theorem measureReal_pullCount_ne_zero_and_klUpper_le_le
-    (h : IsAlgEnvSeq O A R alg (stationaryEnv ν) P) (a : α) (hν : ∀ᵐ x ∂(ν a), x ∈ Set.Icc 0 1)
+    (h : IsAlgEnvSeq O A R alg (Environment.bandit ν) P) (a : α) (hν : ∀ᵐ x ∂(ν a), x ∈ Set.Icc 0 1)
     (hε : 0 < ε) (L : ℝ) (t : ℕ) :
     P.real {ω | pullCount A a t ω ≠ 0 ∧
         klUpper (empMean A R a t ω) (ENNReal.ofReal (L / pullCount A a t ω)) ≤ (ν a)[id] - ε} ≤
@@ -339,14 +339,14 @@ theorem measureReal_pullCount_ne_zero_and_klUpper_le_le
   _ = exp (-L) * ∑ s ∈ range t, exp (-(2 * ε ^ 2 * (s + 1))) := (mul_sum _ _ _).symm
 
 /-- **Underestimation of an arm by the KL-UCB index** ([LS, Lemma 10.7] for rewards in
-`[0, 1]`). In a run of any algorithm against the stochastic bandit `stationaryEnv ν`, if the
+`[0, 1]`). In a run of any algorithm against the stochastic bandit `Environment.bandit ν`, if the
 rewards of arm `a` lie in `[0, 1]` almost surely and have mean `μ_a`, then for `ε > 0` the expected
 number of rounds `t < n` at which `a` has been pulled and its KL-UCB index
 `U(μ̂_a, log f(t + 1) / T_a)` is at most `μ_a - ε` is at most `3 / (4 ε²)`, uniformly in `n`,
 where `f(t) = 1 + t log² t`. This bounds the contribution of an optimal arm in the proof of
 [LS, Theorem 10.6]. -/
 theorem sum_measureReal_pullCount_ne_zero_and_klUpper_le_le
-    (h : IsAlgEnvSeq O A R alg (stationaryEnv ν) P) (a : α) (hν : ∀ᵐ x ∂(ν a), x ∈ Set.Icc 0 1)
+    (h : IsAlgEnvSeq O A R alg (Environment.bandit ν) P) (a : α) (hν : ∀ᵐ x ∂(ν a), x ∈ Set.Icc 0 1)
     (hε : 0 < ε) (n : ℕ) :
     ∑ t ∈ range n, P.real {ω | pullCount A a t ω ≠ 0 ∧
         klUpper (empMean A R a t ω)
@@ -391,14 +391,14 @@ theorem sum_measureReal_pullCount_ne_zero_and_klUpper_le_le
       ring
 
 /-- **Overestimation of an arm by the KL-UCB index** ([LS, Lemma 10.8] for rewards in `[0, 1]`).
-In a run of any algorithm against the stochastic bandit `stationaryEnv ν`, if the rewards of arm
-`a` lie in `[0, 1]` almost surely and have mean `μ_a`, then for `ε > 0`, `c < 1` with
+In a run of any algorithm against the stochastic bandit `Environment.bandit ν`, if the rewards of
+arm `a` lie in `[0, 1]` almost surely and have mean `μ_a`, then for `ε > 0`, `c < 1` with
 `μ_a + ε < c`, and `L ≥ 0`, the expected number of rounds `t < n` at which `a` is played while it
 has not been pulled yet, or `c ≤ μ̂_a`, or `c ≤ 1` and `d(μ̂_a, c) ≤ L / T_a`, is at most
 `1 + L / d(μ_a + ε, c) + 1 / (2 ε²)`, uniformly in `n`. This bounds the contribution of a
 suboptimal arm in the proof of [LS, Theorem 10.6]. -/
 theorem sum_measureReal_action_eq_and_pullCount_eq_zero_or_le_empMean_or_klBer_le_le
-    (h : IsAlgEnvSeq O A R alg (stationaryEnv ν) P) (a : α) (hν : ∀ᵐ x ∂(ν a), x ∈ Set.Icc 0 1)
+    (h : IsAlgEnvSeq O A R alg (Environment.bandit ν) P) (a : α) (hν : ∀ᵐ x ∂(ν a), x ∈ Set.Icc 0 1)
     (hε : 0 < ε) (hc : (ν a)[id] + ε < c) (hc1 : c < 1) {L : ℝ} (hL : 0 ≤ L) (n : ℕ) :
     ∑ t ∈ range n, P.real {ω | A t ω = a ∧ (pullCount A a t ω = 0 ∨ c ≤ empMean A R a t ω ∨
         c ≤ 1 ∧ klBer (empMean A R a t ω) c ≤ ENNReal.ofReal (L / pullCount A a t ω))} ≤

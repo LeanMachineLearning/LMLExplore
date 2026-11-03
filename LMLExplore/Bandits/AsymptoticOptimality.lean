@@ -99,7 +99,7 @@ variance `σ² ≠ 0`, the expected regret of the asymptotically optimal UCB alg
 satisfies `E[R_n] / log n → ∑_{a : Δ_a > 0} 2 σ² / Δ_a`, the Lai–Robbins constant of the Gaussian
 bandits with variance `σ²`. -/
 theorem tendsto_ucbF_regret_div_log_gaussianBandit (hσ2 : σ2 ≠ 0)
-    (h : IsAlgEnvSeq O A R (ucbF σ2) (stationaryEnv (gaussianBandit μ σ2)) P) :
+    (h : IsAlgEnvSeq O A R (ucbF σ2) (Environment.bandit (gaussianBandit μ σ2)) P) :
     Tendsto (fun n : ℕ ↦ P[regret (gaussianBandit μ σ2) A n] / log n) atTop
       (𝓝 (∑ a ∈ univ.filter (fun a ↦ 0 < gap (gaussianBandit μ σ2) a),
         2 * σ2 / gap (gaussianBandit μ σ2) a)) := by
@@ -116,7 +116,7 @@ variance `σ² ≠ 0`, the expected regret of the asymptotically optimal UCB alg
 `c* log n + o(log n)`, where `c* = ∑_{a : Δ_a > 0} 2 σ² / Δ_a` is the Lai–Robbins constant of the
 Gaussian bandits with variance `σ²`. -/
 theorem isLittleO_ucbF_regret_sub_mul_log_gaussianBandit (hσ2 : σ2 ≠ 0)
-    (h : IsAlgEnvSeq O A R (ucbF σ2) (stationaryEnv (gaussianBandit μ σ2)) P) :
+    (h : IsAlgEnvSeq O A R (ucbF σ2) (Environment.bandit (gaussianBandit μ σ2)) P) :
     (fun n : ℕ ↦ P[regret (gaussianBandit μ σ2) A n] -
       (∑ a ∈ univ.filter (fun a ↦ 0 < gap (gaussianBandit μ σ2) a),
         2 * σ2 / gap (gaussianBandit μ σ2) a) * log n) =o[atTop] fun n : ℕ ↦ log n :=
@@ -130,7 +130,7 @@ satisfies `E[R_n] / log n → ∑_{a : Δ_a > 0} Δ_a / d(p_a, μ*)`, the Lai–
 Bernoulli bandits. As in `klucb_regret_eventually_le`, the terms are computed from the real number
 `d(p_a, μ*).toReal`, so that they vanish when `μ* = 1`. -/
 theorem tendsto_klucb_regret_div_log_bernoulliBandit
-    (h : IsAlgEnvSeq O A R klucb (stationaryEnv (bernoulliBandit p)) P) :
+    (h : IsAlgEnvSeq O A R klucb (Environment.bandit (bernoulliBandit p)) P) :
     Tendsto (fun n : ℕ ↦ P[regret (bernoulliBandit p) A n] / log n) atTop
       (𝓝 (∑ a ∈ univ.filter (fun a ↦ 0 < gap (bernoulliBandit p) a),
         gap (bernoulliBandit p) a / (klBer (p a) (⨆ b, (p b : ℝ))).toReal)) := by
@@ -159,7 +159,7 @@ with means `p` and largest mean `μ* = max_b p_b`, the expected regret of the KL
 `c* log n + o(log n)`, where `c* = ∑_{a : Δ_a > 0} Δ_a / d(p_a, μ*)` is the Lai–Robbins constant
 of the Bernoulli bandits, with the terms computed from `d(p_a, μ*).toReal`. -/
 theorem isLittleO_klucb_regret_sub_mul_log_bernoulliBandit
-    (h : IsAlgEnvSeq O A R klucb (stationaryEnv (bernoulliBandit p)) P) :
+    (h : IsAlgEnvSeq O A R klucb (Environment.bandit (bernoulliBandit p)) P) :
     (fun n : ℕ ↦ P[regret (bernoulliBandit p) A n] -
       (∑ a ∈ univ.filter (fun a ↦ 0 < gap (bernoulliBandit p) a),
         gap (bernoulliBandit p) a / (klBer (p a) (⨆ b, (p b : ℝ))).toReal) * log n)

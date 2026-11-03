@@ -12,7 +12,7 @@ public import LMLExplore.SequentialLearning.SumRewards
 /-!
 # Deviations of empirical means for rewards dominated by an exponential family
 
-Let the rewards of arm `a` of a stochastic environment `stationaryEnv ν` be dominated above and
+Let the rewards of arm `a` of a stochastic environment `Environment.bandit ν` be dominated above and
 below by the member of mean `μ` of the exponential family of a measure `ρ` and a statistic `T`,
 with divergence `d` in the mean parametrization. This file bounds the deviations of the empirical
 mean of `a`: first for the first `s` rewards in the reward stream model `streamMeasure ν`, by the
@@ -86,13 +86,13 @@ variable {α 𝓧 : Type*} [DecidableEq α] [MeasurableSpace α] [Countable α]
   {R : ℕ → Ω → ℝ} {ρ : Measure 𝓧} {T : 𝓧 → ℝ} {a : α} {μ l u : ℝ}
 
 /-- **Deviations of the empirical mean of an arm with at least `m` pulls.** In a run of any
-algorithm against the stochastic bandit `stationaryEnv ν`, let the rewards of arm `a` be dominated
-above and below by the member of mean `μ` of the exponential family of `ρ` and `T`, with divergence
-`d`, and let `l < μ < u` be means of the family. The probability that, at some round, `a` has at
-least `m` pulls and an empirical mean outside `(l, u)` is at most
+algorithm against the stochastic bandit `Environment.bandit ν`, let the rewards of arm `a` be
+dominated above and below by the member of mean `μ` of the exponential family of `ρ` and `T`, with
+divergence `d`, and let `l < μ < u` be means of the family. The probability that, at some round, `a`
+has at least `m` pulls and an empirical mean outside `(l, u)` is at most
 `exp (-m d(u, μ)) / (1 - exp (-d(u, μ))) + exp (-m d(l, μ)) / (1 - exp (-d(l, μ)))`. -/
 theorem measure_exists_le_pullCount_and_empMean_notMem_Ioo_le
-    (h : IsAlgEnvSeq O A R alg (stationaryEnv ν) P)
+    (h : IsAlgEnvSeq O A R alg (Environment.bandit ν) P)
     (hν_above : MGFDominatedAbove id (ν a) T (ρ.expFamily T (ρ.natParam T μ)))
     (hν_below : MGFDominatedBelow id (ν a) T (ρ.expFamily T (ρ.natParam T μ)))
     (hμ : μ ∈ ρ.expFamilyMeans T) (hl : l ∈ ρ.expFamilyMeans T) (hu : u ∈ ρ.expFamilyMeans T)
@@ -119,7 +119,7 @@ theorem measure_exists_le_pullCount_and_empMean_notMem_Ioo_le
     rwa [Nat.sub_add_cancel hms]
   _ ≤ ∑' k : ℕ, (ENNReal.ofReal (exp (-((k + m : ℕ) * ρ.expFamilyDiv T u μ))) +
       ENNReal.ofReal (exp (-((k + m : ℕ) * ρ.expFamilyDiv T l μ)))) := by
-    refine ENNReal.tsum_le_tsum fun k ↦ (measure_union_le _ _).trans ?_
+    refine tsum_le_tsum fun k ↦ (measure_union_le _ _).trans ?_
     exact (add_le_add (streamMeasure_sum_le_le_exp_expFamilyDiv hν_below hμ hl hlμ.le _)
       (streamMeasure_sum_ge_le_exp_expFamilyDiv hν_above hμ hu hμu.le _)).trans_eq (add_comm _ _)
   _ = _ := by
@@ -128,7 +128,7 @@ theorem measure_exists_le_pullCount_and_empMean_notMem_Ioo_le
       push_cast
       rw [← ENNReal.ofReal_tsum_of_nonneg (fun k ↦ (exp_pos _).le)
         (hasSum_exp_neg_add_mul hd m).summable, (hasSum_exp_neg_add_mul hd m).tsum_eq]
-    rw [ENNReal.tsum_add, h_tsum hdu, h_tsum hdl,
+    rw [tsum_add, h_tsum hdu, h_tsum hdl,
       ENNReal.ofReal_add (exp_neg_mul_div_one_sub_exp_neg_nonneg hdu.le m)
         (exp_neg_mul_div_one_sub_exp_neg_nonneg hdl.le m)]
 

@@ -47,10 +47,10 @@ expectation `∑ b, (1 - x t b) ^ 2 ≤ k`.
   term `(1 - Y t) ^ 2 / P t (A t)` of round `t` has expectation `∑ b, (1 - x t b) ^ 2`.
 * `Exp3.advRegret_le`: for a run of Exp3 whose feedback is the reward `x t (A t)` of its action,
   with rewards in `[0, 1]`, `R_n(x) ≤ log k / η + η n k / 2`.
-* `exp3_advRegret_le`: the same bound for runs against LML's `onlineEvalEnv x _`.
+* `exp3_advRegret_le`: the same bound for runs against LML's `Environment.evalSeq x _`.
 * `Exp3.advRegret_le_sqrt`: [LS, Theorem 11.2]. With `η = √(2 log k / (n k))`,
   `R_n(x) ≤ √(2 n k log k)`.
-* `exp3_advRegret_le_sqrt`: the same bound for runs against LML's `onlineEvalEnv x _`.
+* `exp3_advRegret_le_sqrt`: the same bound for runs against LML's `Environment.evalSeq x _`.
 
 ## References
 
@@ -398,22 +398,22 @@ variable [MeasurableSpace α] [MeasurableSingletonClass α] [Nonempty α]
   {hxm : ∀ t, Measurable (x t)} {n : ℕ}
 
 /-- **Regret of Exp3** against an oblivious adversary: along a run of Exp3 with learning rate
-`η > 0` against LML's evaluation environment `onlineEvalEnv x _` with rewards in `[0, 1]` at the
-rounds `t < n`, the adversarial regret after `n` rounds is at most `log k / η + η n k / 2`. -/
+`η > 0` against LML's evaluation environment `Environment.evalSeq x _` with rewards in `[0, 1]` at
+the rounds `t < n`, the adversarial regret after `n` rounds is at most `log k / η + η n k / 2`. -/
 theorem exp3_advRegret_le (hη : 0 < η) (hx : ∀ t < n, ∀ a, x t a ∈ Set.Icc 0 1)
-    (h : IsAlgEnvSeq O A Y (exp3 η) (onlineEvalEnv x hxm) P) :
+    (h : IsAlgEnvSeq O A Y (exp3 η) (Environment.evalSeq x hxm) P) :
     advRegret x A P n ≤ log (Fintype.card α) / η + η * n * Fintype.card α / 2 :=
-  Exp3.advRegret_le hη (fun t _ ↦ feedback_onlineEvalEnv_ae_eq_eval_action h t) hx h
+  Exp3.advRegret_le hη (fun t _ ↦ h.feedback_ae_eq_evalSeq t) hx h
 
 /-- **Regret of Exp3** [LS, Theorem 11.2]: along a run of Exp3 with learning rate
-`η = √(2 log k / (n k))` against LML's evaluation environment `onlineEvalEnv x _` with rewards in
-`[0, 1]` at the rounds `t < n`, the adversarial regret after `n` rounds is at most
+`η = √(2 log k / (n k))` against LML's evaluation environment `Environment.evalSeq x _` with rewards
+in `[0, 1]` at the rounds `t < n`, the adversarial regret after `n` rounds is at most
 `√(2 n k log k)`, with `k` the number of arms. -/
 theorem exp3_advRegret_le_sqrt (hx : ∀ t < n, ∀ a, x t a ∈ Set.Icc 0 1)
     (h : IsAlgEnvSeq O A Y
-      (exp3 √(2 * log (Fintype.card α) / (n * Fintype.card α))) (onlineEvalEnv x hxm) P) :
+      (exp3 √(2 * log (Fintype.card α) / (n * Fintype.card α))) (Environment.evalSeq x hxm) P) :
     advRegret x A P n ≤ √(2 * n * Fintype.card α * log (Fintype.card α)) :=
-  Exp3.advRegret_le_sqrt (fun t _ ↦ feedback_onlineEvalEnv_ae_eq_eval_action h t) hx h
+  Exp3.advRegret_le_sqrt (fun t _ ↦ h.feedback_ae_eq_evalSeq t) hx h
 
 end OnlineEvalEnv
 

@@ -16,7 +16,7 @@ import LMLExplore.InformationTheory.KullbackLeibler.ChainRule
 /-!
 # The divergence decomposition, reindexed by the actions, and at a stopping time
 
-LML's `IsAlgEnvSeq.klDiv_map_history` writes the relative entropy between the laws of the
+LML's `IsAlgEnvSeq.klDiv_map_history_bandit` writes the relative entropy between the laws of the
 histories of the first `M` rounds of one algorithm run against two stationary environments with
 reward kernels `κ` and `κ'` as a sum over the rounds: `∑ t < M, E[KL(κ (A t) ‖ κ' (A t))]`. For a
 finite set of actions, this file regroups the sum by the action played, which gives the
@@ -38,9 +38,9 @@ bandit identification.
 * `Learning.IsAlgEnvSeq.klDiv_map_history_le_ofReal_integral_pullCount_mul`: if moreover
   `KL(κ i ‖ κ' i) ≤ c`, then `KL ≤ E[N_i(M)] c`.
 * `Learning.klDiv_stoppedHistMeasure_le`: the divergence decomposition at a stopping time,
-  `KL(stoppedHistMeasure alg (stationaryEnv κ) S ‖ stoppedHistMeasure alg (stationaryEnv κ') S) ≤
-  ∑ a, E_κ[N_a(τ)] KL(κ a ‖ κ' a)` when the hitting time `τ` of `S` is almost surely finite
-  under `κ`.
+  `KL(stoppedHistMeasure alg (Environment.bandit κ) S ‖
+    stoppedHistMeasure alg (Environment.bandit κ') S) ≤ ∑ a, E_κ[N_a(τ)] KL(κ a ‖ κ' a)` when the
+  hitting time `τ` of `S` is almost surely finite under `κ`.
 
 ## References
 
@@ -74,15 +74,15 @@ histories of the first `M` rounds of an algorithm run against two stationary env
 reward kernels `κ` and `κ'` is `∑ a, E[N_a(M)] KL(κ a ‖ κ' a)`, where `N_a(M) = pullCount A a M`
 is the number of rounds before `M` at which `a` was played. -/
 lemma IsAlgEnvSeq.klDiv_map_history_eq_sum_pullCount
-    (h : IsAlgEnvSeq O A Y alg (stationaryEnv κ) P)
-    (h' : IsAlgEnvSeq O' A' Y' alg (stationaryEnv κ') P') (M : ℕ) :
+    (h : IsAlgEnvSeq O A Y alg (Environment.bandit κ) P)
+    (h' : IsAlgEnvSeq O' A' Y' alg (Environment.bandit κ') P') (M : ℕ) :
     klDiv (P.map (history O A Y M)) (P'.map (history O' A' Y' M)) =
       ∑ a, (∫⁻ ω, (pullCount A a M ω : ℝ≥0∞) ∂P) * klDiv (κ a) (κ' a) := by
   have hsum : ∑ t ∈ range M, ∫⁻ ω, klDiv (κ (A t ω)) (κ' (A t ω)) ∂P =
       ∫⁻ ω, ∑ t ∈ range M, klDiv (κ (A t ω)) (κ' (A t ω)) ∂P :=
     (lintegral_finsetSum _ fun t _ ↦
       (measurable_klDiv_kernel κ κ').comp (h.measurable_action t)).symm
-  rw [h.klDiv_map_history h' M, hsum]
+  rw [h.klDiv_map_history_bandit h' M, hsum]
   exact (LMLExplore.sum_lintegral_pullCount_mul (g := fun _ ↦ M) h.measurable_action
     measurable_const fun a ↦ klDiv (κ a) (κ' a)).symm
 
@@ -91,8 +91,8 @@ omit [Fintype 𝓐] in
 `i`: the relative entropy between the laws of the histories of the first `M` rounds is
 `E[N_i(M)] KL(κ i ‖ κ' i)`. -/
 lemma IsAlgEnvSeq.klDiv_map_history_eq_lintegral_pullCount_mul [Finite 𝓐]
-    (h : IsAlgEnvSeq O A Y alg (stationaryEnv κ) P)
-    (h' : IsAlgEnvSeq O' A' Y' alg (stationaryEnv κ') P') {i : 𝓐} (hκ : ∀ a ≠ i, κ a = κ' a)
+    (h : IsAlgEnvSeq O A Y alg (Environment.bandit κ) P)
+    (h' : IsAlgEnvSeq O' A' Y' alg (Environment.bandit κ') P') {i : 𝓐} (hκ : ∀ a ≠ i, κ a = κ' a)
     (M : ℕ) :
     klDiv (P.map (history O A Y M)) (P'.map (history O' A' Y' M)) =
       (∫⁻ ω, (pullCount A i M ω : ℝ≥0∞) ∂P) * klDiv (κ i) (κ' i) := by
@@ -106,8 +106,8 @@ omit [Fintype 𝓐] in
 `KL(κ i ‖ κ' i) ≤ c`, then the relative entropy between the laws of the histories of the first `M`
 rounds is at most `E[N_i(M)] c`. -/
 lemma IsAlgEnvSeq.klDiv_map_history_le_ofReal_integral_pullCount_mul [Finite 𝓐]
-    (h : IsAlgEnvSeq O A Y alg (stationaryEnv κ) P)
-    (h' : IsAlgEnvSeq O' A' Y' alg (stationaryEnv κ') P') {i : 𝓐} (hκ : ∀ a ≠ i, κ a = κ' a)
+    (h : IsAlgEnvSeq O A Y alg (Environment.bandit κ) P)
+    (h' : IsAlgEnvSeq O' A' Y' alg (Environment.bandit κ') P') {i : 𝓐} (hκ : ∀ a ≠ i, κ a = κ' a)
     {c : ℝ} (hc : klDiv (κ i) (κ' i) ≤ ENNReal.ofReal c) (M : ℕ) :
     klDiv (P.map (history O A Y M)) (P'.map (history O' A' Y' M)) ≤
       ENNReal.ofReal ((∫ ω, (pullCount A i M ω : ℝ) ∂P) * c) := by
@@ -132,15 +132,15 @@ variable {S : Set (Σ n : ℕ, Hist Unit 𝓐 𝓨 n)}
 stopped and the reward kernel `κ` afterwards. -/
 private noncomputable abbrev swapEnv (κ κ' : Kernel 𝓐 𝓨) [IsMarkovKernel κ] [IsMarkovKernel κ']
     (hS : MeasurableSet S) : Environment Unit 𝓐 𝓨 :=
-  (stationaryEnv κ').piecewise (notStoppedSet S) (measurableSet_notStoppedSet hS)
-    (stationaryEnv κ)
+  (Environment.bandit κ').piecewise (notStoppedSet S) (measurableSet_notStoppedSet hS)
+    (Environment.bandit κ)
 
 omit [Fintype 𝓐] [DecidableEq 𝓐] [MeasurableSingletonClass 𝓐] in
 /-- The divergence of round `t` between `κ` and `swapEnv κ κ' hS` is the divergence between the
 reward kernels at the played action, on the event that round `t` is played before stopping. -/
-private lemma klDiv_compProd_stepKernel_swapEnv (h : IsAlgEnvSeq O A Y alg (stationaryEnv κ) P)
+private lemma klDiv_compProd_stepKernel_swapEnv (h : IsAlgEnvSeq O A Y alg (Environment.bandit κ) P)
     (hS : MeasurableSet S) (t : ℕ) :
-    klDiv (P.map (history O A Y t) ⊗ₘ stepKernel alg (stationaryEnv κ) t)
+    klDiv (P.map (history O A Y t) ⊗ₘ stepKernel alg (Environment.bandit κ) t)
         (P.map (history O A Y t) ⊗ₘ stepKernel alg (swapEnv κ κ' hS) t) =
       ∫⁻ ω, {ω | history O A Y t ω ∈ notStoppedSet S t}.indicator
         (fun ω ↦ klDiv (κ (A t ω)) (κ' (A t ω))) ω ∂P := by
@@ -150,8 +150,8 @@ private lemma klDiv_compProd_stepKernel_swapEnv (h : IsAlgEnvSeq O A Y alg (stat
   have hX : Measurable fun ω ↦ ((history O A Y t ω, O t ω), A t ω) :=
     ((h.measurable_history t).prodMk (h.measurable_obs t)).prodMk (h.measurable_action t)
   -- Reassociate the step kernels so that only the feedback kernels differ.
-  rw [stepKernel_stationaryEnv, stepKernel_def, h_obs, klDiv_compProd_assoc, klDiv_compProd_assoc,
-    ← obs_stationaryEnv κ t, ← (h.hasCondDistrib_obs t).map_eq,
+  rw [stepKernel_bandit, stepKernel_def, h_obs, klDiv_compProd_assoc, klDiv_compProd_assoc,
+    ← obs_bandit (ν := κ) t, ← (h.hasCondDistrib_obs t).map_eq,
     ← (h.hasCondDistrib_action t).map_eq, klDiv_compProd_right_eq_lintegral,
     lintegral_map (measurable_klDiv_kernel _ _) hX]
   refine lintegral_congr fun ω ↦ ?_
@@ -163,11 +163,11 @@ omit [Fintype 𝓐] [DecidableEq 𝓐] [MeasurableSingletonClass 𝓐] in
 expected sum of the divergences between the reward kernels at the actions played before
 stopping. -/
 private lemma klDiv_trajMeasure_swapEnv (hS : MeasurableSet S) :
-    klDiv (trajMeasure alg (stationaryEnv κ)) (trajMeasure alg (swapEnv κ κ' hS)) =
+    klDiv (trajMeasure alg (Environment.bandit κ)) (trajMeasure alg (swapEnv κ κ' hS)) =
       ∫⁻ ω, ∑' t, {ω | history IT.obs IT.action IT.feedback t ω ∈ notStoppedSet S t}.indicator
         (fun ω ↦ klDiv (κ (IT.action t ω)) (κ' (IT.action t ω))) ω
-        ∂(trajMeasure alg (stationaryEnv κ)) := by
-  have h := IT.isAlgEnvSeq_trajMeasure alg (stationaryEnv κ)
+        ∂(trajMeasure alg (Environment.bandit κ)) := by
+  have h := IT.isAlgEnvSeq_trajMeasure alg (Environment.bandit κ)
   have h' := IT.isAlgEnvSeq_trajMeasure alg (swapEnv κ κ' hS)
   have h_chain := h.klDiv_map_trajectory_stepKernel h'
   rw [h.map_trajectory, h'.map_trajectory] at h_chain
@@ -184,29 +184,29 @@ suppose that `τ` is almost surely finite. Then the relative entropy between the
 stopped by `S` under the reward kernels `κ` and `κ'` is at most
 `∑ a, E_κ[N_a(τ)] KL(κ a ‖ κ' a)`, where `N_a(τ)` is the number of pulls of `a` before `τ`. -/
 theorem klDiv_stoppedHistMeasure_le (hS : MeasurableSet S)
-    (hτ : ∀ᵐ ω ∂(trajMeasure alg (stationaryEnv κ)),
+    (hτ : ∀ᵐ ω ∂(trajMeasure alg (Environment.bandit κ)),
       hittingAfter (sigmaHistory IT.obs IT.action IT.feedback) S 0 ω ≠ ⊤) :
-    klDiv (stoppedHistMeasure alg (stationaryEnv κ) S)
-        (stoppedHistMeasure alg (stationaryEnv κ') S) ≤
+    klDiv (stoppedHistMeasure alg (Environment.bandit κ) S)
+        (stoppedHistMeasure alg (Environment.bandit κ') S) ≤
       ∑ a, (∫⁻ ω, (pullCount IT.action a
           (ENat.toNat (hittingAfter (sigmaHistory IT.obs IT.action IT.feedback) S 0 ω)) ω :
-            ℝ≥0∞) ∂(trajMeasure alg (stationaryEnv κ))) * klDiv (κ a) (κ' a) := by
+            ℝ≥0∞) ∂(trajMeasure alg (Environment.bandit κ))) * klDiv (κ a) (κ' a) := by
   set τ := hittingAfter (sigmaHistory (IT.obs (𝓞 := Unit) (𝓐 := 𝓐) (𝓨 := 𝓨)) IT.action
     IT.feedback) S 0 with hτ_def
   have hτm : Measurable τ := measurable_hittingAfter_sigmaHistory IT.measurable_obs
     IT.measurable_action IT.measurable_feedback hS
   -- The stopped history under `swapEnv κ κ' hS` has the same law as under `κ'`.
-  have h_swap : stoppedHistMeasure alg (stationaryEnv κ') S =
+  have h_swap : stoppedHistMeasure alg (Environment.bandit κ') S =
       stoppedHistMeasure alg (swapEnv κ κ' hS) S :=
     stoppedHistMeasure_congr hS fun _ _ hx ↦ (stepKernel_piecewise_of_mem alg hx).symm
-  calc klDiv (stoppedHistMeasure alg (stationaryEnv κ) S)
-        (stoppedHistMeasure alg (stationaryEnv κ') S)
-      ≤ klDiv (trajMeasure alg (stationaryEnv κ)) (trajMeasure alg (swapEnv κ κ' hS)) := by
+  calc klDiv (stoppedHistMeasure alg (Environment.bandit κ) S)
+        (stoppedHistMeasure alg (Environment.bandit κ') S)
+      ≤ klDiv (trajMeasure alg (Environment.bandit κ)) (trajMeasure alg (swapEnv κ κ' hS)) := by
         rw [h_swap, stoppedHistMeasure, stoppedHistMeasure]
         exact klDiv_map_le _ _ (measurable_stoppedValue_sigmaHistory IT.measurable_obs
           IT.measurable_action IT.measurable_feedback hτm)
     _ = ∫⁻ ω, ∑ t ∈ range (ENat.toNat (τ ω)), klDiv (κ (IT.action t ω)) (κ' (IT.action t ω))
-          ∂(trajMeasure alg (stationaryEnv κ)) := by
+          ∂(trajMeasure alg (Environment.bandit κ)) := by
         rw [klDiv_trajMeasure_swapEnv hS]
         refine lintegral_congr_ae ?_
         filter_upwards [hτ] with ω hω

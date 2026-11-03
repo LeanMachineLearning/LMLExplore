@@ -13,7 +13,7 @@ public import LMLExplore.SequentialLearning.Environments.OfSeq
 In an adversarial bandit with finitely many arms `α`, an oblivious adversary fixes a reward table
 `x : ℕ → α → ℝ` in advance: the reward of arm `a` at round `t` is `x t a`. The learner observes
 only the reward `x t (A t)` of the arm it plays, which is a run against LML's evaluation
-environment `onlineEvalEnv x _`. Its **adversarial regret** after `n` rounds is [LS, (11.1)]
+environment `Environment.evalSeq x _`. Its **adversarial regret** after `n` rounds is [LS, (11.1)]
 `R_n(x) = max_a ∑_{t < n} x t a - E[∑_{t < n} x t (A t)]`,
 the expected shortfall of its total reward against the best fixed arm in hindsight.
 
@@ -42,8 +42,8 @@ negative, since a learner that switches arms can beat every fixed arm.
   the regret against every fixed arm is at most `B`; it is at least the regret against any fixed
   arm.
 * `Learning.IsAlgEnvSeq.advRegret_eq_sub_integral_sum_feedback`: for a run against
-  `onlineEvalEnv x _`, the expected reward of the learner in the adversarial regret is the expected
-  total observed feedback.
+  `Environment.evalSeq x _`, the expected reward of the learner in the adversarial regret is the
+  expected total observed feedback.
 * `advRegret_of_subsingleton`: with a single arm, the adversarial regret of every learner is `0`.
 * `expertRegret_le_iff`, `sum_sub_integral_le_expertRegret`,
   `Learning.IsAlgEnvSeq.expertRegret_eq_sub_integral_sum_feedback`: the same statements for the
@@ -100,17 +100,17 @@ lemma advRegret_of_subsingleton [Subsingleton α] [IsProbabilityMeasure P] :
   have hA : ∀ t ω, A t ω = default := fun _ _ ↦ Unique.eq_default _
   simp [advRegret_def, hA]
 
-/-- Along a run of an algorithm against LML's evaluation environment `onlineEvalEnv x _`, the
+/-- Along a run of an algorithm against LML's evaluation environment `Environment.evalSeq x _`, the
 expected total reward in the adversarial regret is the expected total observed feedback. -/
 lemma _root_.Learning.IsAlgEnvSeq.advRegret_eq_sub_integral_sum_feedback [MeasurableSpace α]
     [IsProbabilityMeasure P] {hx : ∀ t, Measurable (x t)} {alg : Algorithm Unit α ℝ}
-    {O : ℕ → Ω → Unit} {Y : ℕ → Ω → ℝ} (h : IsAlgEnvSeq O A Y alg (onlineEvalEnv x hx) P)
+    {O : ℕ → Ω → Unit} {Y : ℕ → Ω → ℝ} (h : IsAlgEnvSeq O A Y alg (Environment.evalSeq x hx) P)
     (n : ℕ) :
     advRegret x A P n = (⨆ a, ∑ t ∈ range n, x t a) - P[fun ω ↦ ∑ t ∈ range n, Y t ω] := by
   rw [advRegret_def]
   congr 1
   refine integral_congr_ae ?_
-  filter_upwards [forall_feedback_onlineEvalEnv_ae_eq_eval_action h] with ω hω
+  filter_upwards [h.feedback_ae_all_eq_evalSeq] with ω hω
   simp [hω]
 
 end AdvRegret

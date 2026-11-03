@@ -11,6 +11,7 @@ public import LMLExplore.Probability.Distributions.Bernoulli
 public import TauCeti.InformationTheory.KullbackLeibler.Basic
 public import TauCeti.InformationTheory.KullbackLeibler.Pinsker
 public import LeanMachineLearning.ForMathlib.InformationTheory.KullbackLeibler.ChainRule
+public import LeanMachineLearning.ForMathlib.InformationTheory.KullbackLeibler.DataProcessing
 public import TauCeti.InformationTheory.KullbackLeibler.Variational
 import Mathlib.Analysis.Complex.ExponentialBounds
 
