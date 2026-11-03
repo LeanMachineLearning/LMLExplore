@@ -590,8 +590,8 @@ theorem answerValue_baiTask_restrict_pos (hT : ∀ c, ¬ T =ᵐ[ρ] fun _ ↦ c)
   -- The uniform allocation collects positive information against every alternative.
   have hK : (0 : ℝ) < Fintype.card α := Nat.cast_pos.2 (Fintype.card_pos_iff.2 ⟨a⟩)
   set u : α → ℝ := fun _ ↦ (Fintype.card α : ℝ)⁻¹
-  have hu : u ∈ simplex α :=
-    mem_simplex_iff.2 ⟨fun _ ↦ by positivity, by simp [u, Finset.card_univ, hK.ne']⟩
+  have : Nonempty α := ⟨a⟩
+  have hu : u ∈ simplex α := uniform_mem_simplex α
   refine lt_of_lt_of_le ?_ (IdentTask.altCost_le_answerValue _ hu)
   rw [altCost_baiTask_restrict_eq_inf ν hT hμ hν ha' (mem_simplex_iff.1 hu).1,
     Finset.lt_inf_iff ENNReal.zero_lt_top]

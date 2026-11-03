@@ -7,7 +7,9 @@ module
 
 public import Mathlib.Algebra.Order.BigOperators.Group.Finset
 public import Mathlib.Analysis.Convex.Basic
+public import Mathlib.Basic.ENNReal.BigOperators
 public import Mathlib.Basic.Real.Basic
+public import Mathlib.Data.Finsupp.Order
 public import Mathlib.Topology.Instances.Real.Lemmas
 
 /-!
@@ -31,13 +33,19 @@ supported distributions, not a subset of `α → ℝ`.
 * `LMLExplore.add_eq_one_of_mem_simplex`: on a type with two elements `a` and `b`, the entries of
   a vector of the simplex satisfy `w a + w b = 1`.
 * `LMLExplore.simplex_subset_nonneg`: the simplex consists of nonnegative vectors.
+* `LMLExplore.single_mem_simplex`: the vertices `Pi.single a 1` lie in the simplex.
+* `LMLExplore.uniform_mem_simplex`: the uniform distribution lies in the simplex.
 * `LMLExplore.simplex_nonempty`: the simplex of a nonempty type is nonempty.
 * `LMLExplore.convex_simplex`: the simplex is convex.
+* `LMLExplore.sum_ofReal_mul_le_iSup`: an average `∑ a, w a * x a` of extended nonnegative reals
+  with weights `w` of the simplex is at most their supremum.
 * `LMLExplore.smul_sub_single_mem_simplex`: removing a mass `s < 1` from an entry of a vector of
   the simplex and rescaling by `(1 - s)⁻¹` stays in the simplex.
 * `LMLExplore.exists_mem_simplex_apply_eq_and_smul_le`: a vector of the simplex with a prescribed
   entry `v_a = β` dominating a multiple `c w` of a vector of the simplex.
 * `LMLExplore.isCompact_simplex`: the simplex is compact.
+* `LMLExplore.convex_setOf_nonneg_support_subset_sum_eq_one`: the finitely supported probability
+  weights with support in a set form a convex set.
 * `LMLExplore.convex_setOf_mem_simplex_apply_eq`, `LMLExplore.isCompact_setOf_mem_simplex_apply_eq`:
   the vectors of the simplex with a prescribed entry `w a = β` form a convex compact set.
 -/
@@ -63,11 +71,18 @@ lemma add_eq_one_of_mem_simplex {w : α → ℝ} {a b : α} (hab : a ≠ b) (h :
 
 lemma simplex_subset_nonneg : simplex α ⊆ Set.Ici 0 := fun _ hw ↦ hw.1
 
+/-- The vertex `Pi.single a 1` of the simplex: the distribution concentrated on `a`. -/
+lemma single_mem_simplex [DecidableEq α] (a : α) : Pi.single a 1 ∈ simplex α :=
+  ⟨fun b ↦ by by_cases h : b = a <;> simp [h], by simp⟩
+
 variable (α) in
-lemma simplex_nonempty [Nonempty α] : (simplex α).Nonempty := by
-  classical
-  obtain ⟨a⟩ := ‹Nonempty α›
-  exact ⟨Pi.single a 1, fun b ↦ by by_cases h : b = a <;> simp [h], by simp⟩
+/-- The uniform distribution `fun _ ↦ (card α)⁻¹` on a nonempty type lies in the simplex. -/
+lemma uniform_mem_simplex [Nonempty α] : (fun _ ↦ (Fintype.card α : ℝ)⁻¹) ∈ simplex α :=
+  ⟨fun _ ↦ by positivity, by simp⟩
+
+variable (α) in
+lemma simplex_nonempty [Nonempty α] : (simplex α).Nonempty :=
+  ⟨_, uniform_mem_simplex α⟩
 
 variable (α) in
 lemma convex_simplex : Convex ℝ (simplex α) := by
@@ -82,6 +97,16 @@ lemma isClosed_simplex : IsClosed (simplex α) := by
   rw [h]
   exact (isClosed_iInter fun a ↦ isClosed_le continuous_const (continuous_apply a)).inter
     (isClosed_eq (by fun_prop) continuous_const)
+
+/-- An average `∑ a, w a * x a` of extended nonnegative reals with weights `w` of the simplex is at
+most their supremum. -/
+lemma sum_ofReal_mul_le_iSup {w : α → ℝ} (hw : w ∈ simplex α) (x : α → ENNReal) :
+    ∑ a, ENNReal.ofReal (w a) * x a ≤ ⨆ a, x a :=
+  calc ∑ a, ENNReal.ofReal (w a) * x a ≤ ∑ a, ENNReal.ofReal (w a) * ⨆ b, x b :=
+        Finset.sum_le_sum fun a _ ↦ by gcongr; exact le_iSup x a
+    _ = ⨆ a, x a := by
+        rw [← Finset.sum_mul, ← ENNReal.ofReal_sum_of_nonneg fun a _ ↦ hw.1 a, hw.2,
+          ENNReal.ofReal_one, one_mul]
 
 /-- The entries of a vector of the simplex lie in `[0, 1]`. -/
 lemma simplex_subset_Icc : simplex α ⊆ Set.Icc 0 1 := by
@@ -126,6 +151,19 @@ lemma exists_mem_simplex_apply_eq_and_smul_le {w : α → ℝ} (hw : w ∈ simpl
 variable (α) in
 lemma isCompact_simplex : IsCompact (simplex α) :=
   isCompact_Icc.of_isClosed_subset (isClosed_simplex α) simplex_subset_Icc
+
+/-- The finitely supported probability weights with support in a set `s`, the weights of the
+elements of Mathlib's `Convexity.StdSimplex 𝕜 β` supported in `s`, form a convex set. -/
+lemma convex_setOf_nonneg_support_subset_sum_eq_one {𝕜 β : Type*} [Semiring 𝕜] [PartialOrder 𝕜]
+    [IsOrderedRing 𝕜] (s : Set β) :
+    Convex 𝕜 {q : β →₀ 𝕜 | 0 ≤ q ∧ ↑q.support ⊆ s ∧ q.sum (fun _ r ↦ r) = 1} := by
+  classical
+  intro q₁ hq₁ q₂ hq₂ b₁ b₂ hb₁ hb₂ hb
+  refine ⟨fun x ↦ ?_, fun x hx ↦ ?_, ?_⟩
+  · simpa using add_nonneg (mul_nonneg hb₁ (hq₁.1 x)) (mul_nonneg hb₂ (hq₂.1 x))
+  · rcases Finset.mem_union.1 (Finsupp.support_add hx) with h | h
+    exacts [hq₁.2.1 (Finsupp.support_smul h), hq₂.2.1 (Finsupp.support_smul h)]
+  · simp [Finsupp.sum_add_index', Finsupp.sum_smul_index, ← Finsupp.mul_sum, hq₁.2.2, hq₂.2.2, hb]
 
 /-! ### The vectors of the simplex with a prescribed entry -/
 
