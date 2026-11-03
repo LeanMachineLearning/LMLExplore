@@ -64,7 +64,7 @@ theorem det_add_rankOne [FiniteDimensional 𝕜 E] {V : E →L[𝕜] E} (hV : Is
   have h : V + rankOne 𝕜 u v = V * (1 + rankOne 𝕜 (Ring.inverse V u) v) := by
     ext w
     simp only [add_apply, mul_apply_eq_comp, one_apply_eq_self, rankOne_apply, map_add, map_smul,
-      V.apply_ringInverse_apply hV]
+      ContinuousLinearMap.apply_ringInverse_apply hV]
   rw [h, ContinuousLinearMap.toLinearMap_mul, map_mul, det_one_add_rankOne]
 
 /-- For a sequence of invertible operators in finite dimension with rank-one updates
@@ -89,8 +89,8 @@ private theorem add_rankOne_mul_eq_one_and {V : E →L[𝕜] E} (hV : IsUnit V) 
         (rankOne 𝕜 (Ring.inverse V u) v * Ring.inverse V)) * (V + rankOne 𝕜 u v) = 1 := by
   set W := Ring.inverse V
   set c := (1 + ⟪v, W u⟫_𝕜)⁻¹
-  have hVW (y : E) : V (W y) = y := V.apply_ringInverse_apply hV y
-  have hWV (y : E) : W (V y) = y := V.ringInverse_apply_apply hV y
+  have hVW (y : E) : V (W y) = y := ContinuousLinearMap.apply_ringInverse_apply hV y
+  have hWV (y : E) : W (V y) = y := ContinuousLinearMap.ringInverse_apply_apply hV y
   have hcu : c * (1 + ⟪v, W u⟫_𝕜) = 1 := inv_mul_cancel₀ h
   constructor
   · ext w

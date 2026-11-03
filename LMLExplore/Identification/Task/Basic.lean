@@ -26,7 +26,7 @@ required to be vectors of means: vectors of means, parameters of linear models a
 `LMLExplore.Identification.Task.MeanVector`.
 
 An identification algorithm `A : IdentAlg Unit α 𝓨 ℐ` interacts with the model `θ` through the
-stationary environment `stationaryEnv (task.ν θ)`. It is `δ`-correct on the task if on every
+stationary environment `Environment.bandit (task.ν θ)`. It is `δ`-correct on the task if on every
 admissible model, with probability at least `1 - δ`, it stops and outputs a correct answer, and
 `δ`-PAC if moreover it stops almost surely on every admissible model. These are the general
 notions `LMLExplore.Identification.IsDeltaCorrect` and `LMLExplore.Identification.IsDeltaPAC`
@@ -218,7 +218,7 @@ variable (task) in
 admissible model `θ`, with probability at least `1 - δ`, it stops and outputs a correct answer of
 `θ` (see `isDeltaCorrect_iff`). -/
 def IsDeltaCorrect (A : IdentAlg Unit α 𝓨 ℐ) (δ : ℝ) : Prop :=
-  Identification.IsDeltaCorrect A (fun θ : task.M ↦ stationaryEnv (task.ν θ))
+  Identification.IsDeltaCorrect A (fun θ : task.M ↦ Environment.bandit (task.ν θ))
     (fun θ i ↦ i ∉ task.correct θ) δ
 
 variable (task) in
@@ -226,26 +226,26 @@ variable (task) in
 a correct answer with probability at least `1 - δ` and it stops almost surely (see
 `isDeltaPAC_iff`). -/
 def IsDeltaPAC (A : IdentAlg Unit α 𝓨 ℐ) (δ : ℝ) : Prop :=
-  Identification.IsDeltaPAC A (fun θ : task.M ↦ stationaryEnv (task.ν θ))
+  Identification.IsDeltaPAC A (fun θ : task.M ↦ Environment.bandit (task.ν θ))
     (fun θ i ↦ i ∉ task.correct θ) δ
 
 /-- `δ`-correctness on a task is the general `δ`-correctness for the family of environments
 indexed by the admissible models and the badness predicate "the answer is not correct". -/
 lemma isDeltaCorrect_iff_isDeltaCorrect : task.IsDeltaCorrect A δ ↔
-    Identification.IsDeltaCorrect A (fun θ : task.M ↦ stationaryEnv (task.ν θ))
+    Identification.IsDeltaCorrect A (fun θ : task.M ↦ Environment.bandit (task.ν θ))
       (fun θ i ↦ i ∉ task.correct θ) δ := Iff.rfl
 
 /-- `δ`-PAC on a task is the general `δ`-PAC property for the family of environments indexed by
 the admissible models and the badness predicate "the answer is not correct". -/
 lemma isDeltaPAC_iff_isDeltaPAC : task.IsDeltaPAC A δ ↔
-    Identification.IsDeltaPAC A (fun θ : task.M ↦ stationaryEnv (task.ν θ))
+    Identification.IsDeltaPAC A (fun θ : task.M ↦ Environment.bandit (task.ν θ))
       (fun θ i ↦ i ∉ task.correct θ) δ := Iff.rfl
 
 /-- The defining property of a `δ`-correct algorithm on a task: on every admissible model `θ`,
 the joint law of the stopped history and the output gives mass at most `δ` to the event "the
 algorithm does not stop or its answer is not correct for `θ`". -/
 lemma isDeltaCorrect_iff : task.IsDeltaCorrect A δ ↔
-    ∀ θ ∈ task.M, (histOutputMeasure A (stationaryEnv (task.ν θ))).real
+    ∀ θ ∈ task.M, (histOutputMeasure A (Environment.bandit (task.ν θ))).real
       {p | p.1 ∉ A.stopSet ∨ p.2 ∉ task.correct θ} ≤ δ :=
   Identification.isDeltaCorrect_iff.trans
     ⟨fun h θ hθ ↦ h ⟨θ, hθ⟩, fun h θ ↦ h θ θ.2⟩
@@ -253,9 +253,9 @@ lemma isDeltaCorrect_iff : task.IsDeltaCorrect A δ ↔
 /-- The defining property of a `δ`-PAC algorithm on a task: on every admissible model `θ`, its
 answer is not correct for `θ` with probability at most `δ`, and it stops almost surely. -/
 lemma isDeltaPAC_iff : task.IsDeltaPAC A δ ↔
-    (∀ θ ∈ task.M, (A.outputMeasure (stationaryEnv (task.ν θ))).real
+    (∀ θ ∈ task.M, (A.outputMeasure (Environment.bandit (task.ν θ))).real
       {i | i ∉ task.correct θ} ≤ δ) ∧
-    ∀ θ ∈ task.M, StopsAS A (stationaryEnv (task.ν θ)) :=
+    ∀ θ ∈ task.M, StopsAS A (Environment.bandit (task.ν θ)) :=
   Identification.isDeltaPAC_iff.trans
     ⟨fun h ↦ ⟨fun θ hθ ↦ h.1 ⟨θ, hθ⟩, fun θ hθ ↦ h.2 ⟨θ, hθ⟩⟩,
       fun h ↦ ⟨fun θ ↦ h.1 θ θ.2, fun θ ↦ h.2 θ θ.2⟩⟩
@@ -264,7 +264,7 @@ lemma isDeltaPAC_iff : task.IsDeltaPAC A δ ↔
 and answers `i` on `θ` with probability at least `1 - δ`. -/
 lemma IsDeltaCorrect.one_sub_le_measureReal_histOutputMeasure [MeasurableSingletonClass ℐ]
     (h : task.IsDeltaCorrect A δ) (hθ : θ ∈ task.M) (hi : task.correct θ = {i}) :
-    1 - δ ≤ (histOutputMeasure A (stationaryEnv (task.ν θ))).real
+    1 - δ ≤ (histOutputMeasure A (Environment.bandit (task.ν θ))).real
       {p | p.1 ∈ A.stopSet ∧ p.2 = i} := by
   have h_compl : {p : (Σ n : ℕ, Hist Unit α 𝓨 n) × ℐ | p.1 ∈ A.stopSet ∧ p.2 = i}ᶜ =
       {p | p.1 ∉ A.stopSet ∨ p.2 ∉ task.correct θ} := by
@@ -278,12 +278,13 @@ lemma IsDeltaCorrect.one_sub_le_measureReal_histOutputMeasure [MeasurableSinglet
 probability at most `δ`. -/
 lemma IsDeltaCorrect.measureReal_histOutputMeasure_le (h : task.IsDeltaCorrect A δ)
     (hθ : θ ∈ task.alt i) :
-    (histOutputMeasure A (stationaryEnv (task.ν θ))).real {p | p.1 ∈ A.stopSet ∧ p.2 = i} ≤ δ :=
+    (histOutputMeasure A (Environment.bandit (task.ν θ))).real {p | p.1 ∈ A.stopSet ∧ p.2 = i}
+      ≤ δ :=
   (measureReal_mono fun p hp ↦ Or.inr (hp.2 ▸ hθ.2)).trans (isDeltaCorrect_iff.1 h θ hθ.1)
 
 /-- A `δ`-PAC algorithm on a task stops almost surely on every admissible model. -/
 lemma IsDeltaPAC.stopsAS (h : task.IsDeltaPAC A δ) (hθ : θ ∈ task.M) :
-    StopsAS A (stationaryEnv (task.ν θ)) :=
+    StopsAS A (Environment.bandit (task.ν θ)) :=
   (isDeltaPAC_iff.1 h).2 θ hθ
 
 /-- A `δ`-PAC algorithm on a task is `δ`-correct on it. -/
@@ -294,7 +295,7 @@ lemma IsDeltaPAC.isDeltaCorrect (h : task.IsDeltaPAC A δ) : task.IsDeltaCorrect
 level `δ` on the admissible models. -/
 lemma IsDeltaCorrect.isPAC (h : task.IsDeltaCorrect A δ)
     (hc : ∀ θ ∈ task.M, MeasurableSet (task.correct θ)) :
-    A.IsPAC (fun θ : task.M ↦ stationaryEnv (task.ν θ)) (fun θ i ↦ i ∉ task.correct θ) δ :=
+    A.IsPAC (fun θ : task.M ↦ Environment.bandit (task.ν θ)) (fun θ i ↦ i ∉ task.correct θ) δ :=
   Identification.IsDeltaCorrect.isPAC h fun θ ↦ (hc θ θ.2).compl
 
 lemma IsDeltaCorrect.mono (h : task.IsDeltaCorrect A δ) (hδ : δ ≤ δ') :
@@ -323,7 +324,7 @@ variable {Ω : Type*} {mΩ : MeasurableSpace Ω} {P : Measure Ω} [IsProbability
 most `δ` the algorithm does not stop or its answer is not correct for `θ`. -/
 lemma IsDeltaCorrect.measureReal_stoppingTime_eq_top_or_notMem_of_isRun
     (h : task.IsDeltaCorrect A δ) (hθ : θ ∈ task.M) (hc : MeasurableSet (task.correct θ))
-    (hrun : A.IsRun (stationaryEnv (task.ν θ)) O X Y out P) :
+    (hrun : A.IsRun (Environment.bandit (task.ν θ)) O X Y out P) :
     P.real {ω | A.stoppingTime O X Y ω = ⊤ ∨ out ω ∉ task.correct θ} ≤ δ :=
   Identification.IsDeltaCorrect.measureReal_stoppingTime_eq_top_or_bad_of_isRun
     (θ := ⟨θ, hθ⟩) h hc.compl hrun
@@ -332,7 +333,7 @@ lemma IsDeltaCorrect.measureReal_stoppingTime_eq_top_or_notMem_of_isRun
 least `1 - δ` the algorithm stops and its answer is correct for `θ`. -/
 lemma IsDeltaCorrect.one_sub_le_measureReal_of_isRun (h : task.IsDeltaCorrect A δ)
     (hθ : θ ∈ task.M) (hc : MeasurableSet (task.correct θ))
-    (hrun : A.IsRun (stationaryEnv (task.ν θ)) O X Y out P) :
+    (hrun : A.IsRun (Environment.bandit (task.ν θ)) O X Y out P) :
     1 - δ ≤ P.real {ω | A.stoppingTime O X Y ω ≠ ⊤ ∧ out ω ∈ task.correct θ} := by
   simpa using Identification.IsDeltaCorrect.one_sub_le_measureReal_of_isRun
     (θ := ⟨θ, hθ⟩) h hc.compl hrun
@@ -340,7 +341,7 @@ lemma IsDeltaCorrect.one_sub_le_measureReal_of_isRun (h : task.IsDeltaCorrect A 
 /-- Along every run of a `δ`-PAC algorithm on an admissible model, the stopping time is almost
 surely finite. -/
 lemma IsDeltaPAC.ae_stoppingTime_ne_top_of_isRun (h : task.IsDeltaPAC A δ) (hθ : θ ∈ task.M)
-    (hrun : A.IsRun (stationaryEnv (task.ν θ)) O X Y out P) :
+    (hrun : A.IsRun (Environment.bandit (task.ν θ)) O X Y out P) :
     ∀ᵐ ω ∂P, A.stoppingTime O X Y ω ≠ ⊤ :=
   (h.stopsAS hθ).ae_stoppingTime_ne_top hrun.isAlgEnvSeq
 

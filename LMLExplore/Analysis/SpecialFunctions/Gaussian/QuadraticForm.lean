@@ -129,7 +129,7 @@ theorem integral_exp_inner_sub_inner_apply (hA : A.IsPositive) (hAu : IsUnit A) 
   rw [integral_exp_neg_sum_mul_add (fun i ↦ half_pos (mul_pos hc (hμ i)))]
   -- `⟪s, A⁻¹ s⟫` in coordinates
   have hW (i : Fin (finrank ℝ E)) : b.repr (Ring.inverse A s) i = b.repr s i / μ i := by
-    rw [eq_div_iff (hμ i).ne', mul_comm, ← hb, A.apply_ringInverse_apply hAu]
+    rw [eq_div_iff (hμ i).ne', mul_comm, ← hb, ContinuousLinearMap.apply_ringInverse_apply hAu]
   have hinv : ⟪s, Ring.inverse A s⟫_ℝ = ∑ i, b.repr s i ^ 2 / μ i := by
     rw [← b.repr.inner_map_map, PiLp.inner_apply]
     exact sum_congr rfl fun i _ ↦ by simp [hW]; ring

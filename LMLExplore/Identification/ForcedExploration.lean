@@ -67,14 +67,14 @@ variable {α 𝓧 Ω : Type*} {mα : MeasurableSpace α} {m𝓧 : MeasurableSpac
 variable [Fintype α] {ρ : α → Measure 𝓧} {T : α → 𝓧 → ℝ} {μ l u : α → ℝ}
 
 /-- **Concentration of the empirical means under forced exploration** [GK16, Lemma 19]. In a run
-of any algorithm against the stochastic bandit `stationaryEnv ν`, let the rewards of each arm `a`
-be dominated above and below by the member of mean `μ a` of the exponential family of `ρ a` and
+of any algorithm against the stochastic bandit `Environment.bandit ν`, let the rewards of each arm
+`a` be dominated above and below by the member of mean `μ a` of the exponential family of `ρ a` and
 `T a`, with divergence `d_a`, and let `l a < μ a < u a` be means of the family. If almost surely
 every arm has at least `m` pulls after `t₀` rounds, then the probability that the empirical mean of
 some arm `a` is outside `(l a, u a)` at some round `t ≥ t₀` is at most
 `∑ a, (exp (-m d_a(u a, μ a)) / (1 - exp (-d_a(u a, μ a))) +
   exp (-m d_a(l a, μ a)) / (1 - exp (-d_a(l a, μ a))))`. -/
-theorem measure_exists_ge_empMean_notMem_Ioo_le (h : IsAlgEnvSeq O A R alg (stationaryEnv ν) P)
+theorem measure_exists_ge_empMean_notMem_Ioo_le (h : IsAlgEnvSeq O A R alg (Environment.bandit ν) P)
     (hν_above : ∀ a, MGFDominatedAbove id (ν a) (T a)
       ((ρ a).expFamily (T a) ((ρ a).natParam (T a) (μ a))))
     (hν_below : ∀ a, MGFDominatedBelow id (ν a) (T a)
@@ -109,7 +109,7 @@ omit [Fintype α] in
 `t₀ T` rounds, with `m T / log T → ∞`, then the probabilities that the empirical mean of some arm
 `a` is outside `(l a, u a)` at some round `t ≥ t₀ T` have a finite sum over `T`. -/
 theorem tsum_measure_exists_ge_empMean_notMem_Ioo_ne_top [Finite α]
-    (h : IsAlgEnvSeq O A R alg (stationaryEnv ν) P)
+    (h : IsAlgEnvSeq O A R alg (Environment.bandit ν) P)
     (hν_above : ∀ a, MGFDominatedAbove id (ν a) (T a)
       ((ρ a).expFamily (T a) ((ρ a).natParam (T a) (μ a))))
     (hν_below : ∀ a, MGFDominatedBelow id (ν a) (T a)
@@ -126,7 +126,7 @@ theorem tsum_measure_exists_ge_empMean_notMem_Ioo_ne_top [Finite α]
   have h_sum {d : ℝ} (hd : 0 < d) : Summable fun T ↦ exp (-(m T * d)) :=
     summable_exp_neg_of_tendsto_div_log <| (hm.atTop_mul_const hd).congr fun T ↦
       div_mul_eq_mul_div _ _ _
-  refine ne_top_of_le_ne_top ?_ (ENNReal.tsum_le_tsum fun T ↦
+  refine ne_top_of_le_ne_top ?_ (tsum_le_tsum fun T ↦
     measure_exists_ge_empMean_notMem_Ioo_le h hν_above hν_below hμ hl hu hlμ hμu (h_forced T))
   rw [← ENNReal.ofReal_tsum_of_nonneg (fun T ↦ sum_nonneg fun a _ ↦ add_nonneg
       (exp_neg_mul_div_one_sub_exp_neg_nonneg (hdu a).le _)

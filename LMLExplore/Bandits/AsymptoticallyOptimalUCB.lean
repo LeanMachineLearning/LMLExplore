@@ -220,7 +220,7 @@ variable {α : Type*} [Fintype α] [Nonempty α] [DecidableEq α] [MeasurableSpa
 asymptotically optimal UCB algorithm pulls an arm `a` with gap `Δ_a` at most
 `1 + 5 σ² / ε² + 2 σ² (log f(n) + √(π log f(n)) + 1) / (Δ_a - ε)²` times in expectation during the
 first `n` rounds, for every `ε ∈ (0, Δ_a)`, where `f(n) = 1 + n log² n`. -/
-theorem UCBF.integral_pullCount_le (h : IsAlgEnvSeq O A R (ucbF σ2) (stationaryEnv ν) P)
+theorem UCBF.integral_pullCount_le (h : IsAlgEnvSeq O A R (ucbF σ2) (Environment.bandit ν) P)
     (hν : ∀ a, HasSubgaussianMGF (fun x ↦ x - (ν a)[id]) σ2 (ν a)) (hσ2 : σ2 ≠ 0) (a : α)
     {ε : ℝ} (hε : 0 < ε) (hεa : ε < gap ν a) (n : ℕ) :
     P[fun ω ↦ (pullCount A a n ω : ℝ)] ≤
@@ -252,8 +252,8 @@ asymptotically optimal UCB algorithm at horizon `n` is at most the sum over the 
 positive gap `Δ_a` of
 `inf_{ε ∈ (0, Δ_a)} Δ_a (1 + 5 σ² / ε² + 2 σ² (log f(n) + √(π log f(n)) + 1) / (Δ_a - ε)²)`,
 where `f(n) = 1 + n log² n`. -/
-theorem ucbF_regret_le [StandardBorelSpace α]
-    (h : IsAlgEnvSeq O A R (ucbF σ2) (stationaryEnv ν) P)
+theorem ucbF_regret_le
+    (h : IsAlgEnvSeq O A R (ucbF σ2) (Environment.bandit ν) P)
     (hν : ∀ a, HasSubgaussianMGF (fun x ↦ x - (ν a)[id]) σ2 (ν a)) (hσ2 : σ2 ≠ 0) (n : ℕ) :
     P[regret ν A n] ≤ ∑ a ∈ univ.filter (fun a ↦ 0 < gap ν a), ⨅ ε : Set.Ioo 0 (gap ν a),
       gap ν a * (1 + 5 * σ2 / (ε : ℝ) ^ 2 + 2 * σ2 * (log (1 + n * log n ^ 2) +
@@ -270,7 +270,7 @@ with `σ² ≠ 0`, an arm `a` with positive gap `Δ_a`, and every `c > 2 σ² / 
 number of pulls of `a` during the first `n` rounds is eventually at most `c log n`; that is,
 `limsup_n E[T_a(n)] / log n ≤ 2 σ² / Δ_a²`. -/
 theorem UCBF.integral_pullCount_eventually_le
-    (h : IsAlgEnvSeq O A R (ucbF σ2) (stationaryEnv ν) P)
+    (h : IsAlgEnvSeq O A R (ucbF σ2) (Environment.bandit ν) P)
     (hν : ∀ a, HasSubgaussianMGF (fun x ↦ x - (ν a)[id]) σ2 (ν a)) (hσ2 : σ2 ≠ 0) (a : α)
     (ha : 0 < gap ν a) {c : ℝ} (hc : 2 * σ2 / gap ν a ^ 2 < c) :
     ∀ᶠ n : ℕ in atTop, P[fun ω ↦ (pullCount A a n ω : ℝ)] ≤ c * log n := by
@@ -312,7 +312,7 @@ theorem UCBF.integral_pullCount_eventually_le
 optimal UCB algorithm at horizon `n` is eventually at most `c log n`; that is,
 `limsup_n E[R_n] / log n ≤ ∑_{a : Δ_a > 0} 2 σ² / Δ_a`. -/
 theorem ucbF_regret_eventually_le [StandardBorelSpace α]
-    (h : IsAlgEnvSeq O A R (ucbF σ2) (stationaryEnv ν) P)
+    (h : IsAlgEnvSeq O A R (ucbF σ2) (Environment.bandit ν) P)
     (hν : ∀ a, HasSubgaussianMGF (fun x ↦ x - (ν a)[id]) σ2 (ν a)) (hσ2 : σ2 ≠ 0) {c : ℝ}
     (hc : ∑ a ∈ univ.filter (fun a ↦ 0 < gap ν a), 2 * σ2 / gap ν a < c) :
     ∀ᶠ n : ℕ in atTop, P[regret ν A n] ≤ c * log n := by

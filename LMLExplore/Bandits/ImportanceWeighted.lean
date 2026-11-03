@@ -25,7 +25,7 @@ weight-based algorithm (`LMLExplore.Bandits.weightAlgorithm`), the past of round
 of the history and the observation of round `n`, `p` is the weight vector `w n (past)` and the
 conditional statements are given the σ-algebra `h.filtrationObs n` of the past. They assume that
 the feedback `Y n` of round `n` is almost surely the reward `x (A n)` of the action, as for runs
-against LML's `onlineEvalEnv g _` with `x = g n` (`feedback_onlineEvalEnv_ae_eq_eval_action`) and
+against LML's `Environment.evalSeq g _` with `x = g n` (`IsAlgEnvSeq.feedback_ae_eq_evalSeq`) and
 against `Environment.ofSeq o g _` with expert advice `o` (`IsAlgEnvSeq.feedback_ofSeq_ae_eq`).
 
 ## Main definitions

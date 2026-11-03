@@ -5,7 +5,6 @@ Authors: Rémy Degenne
 -/
 module
 
-public import LMLExplore.MeasureTheory.MeasurableSpace.Prod
 public import Mathlib.MeasureTheory.Integral.Prod
 public import Mathlib.Probability.Martingale.Basic
 
@@ -63,7 +62,7 @@ lemma supermartingale_integral_of_integrable [IsFiniteMeasure μ] [SFinite π]
     Supermartingale (fun n ω ↦ ∫ l, f l n ω ∂π) ℱ μ := by
   set G : ℕ → Ω → ℝ≥0∞ := fun n ω ↦ ∫⁻ l, ENNReal.ofReal (f l n ω) ∂π with hG_def
   have hmeas' : ∀ n, Measurable (fun p : L × Ω ↦ f p.1 n p.2) := fun n ↦
-    (hmeas n).mono (MeasurableSpace.prod_mono_right mL (ℱ.le n)) le_rfl
+    (hmeas n).mono (MeasurableSpace.prod_mono le_rfl (ℱ.le n)) le_rfl
   have hsec : ∀ n ω, Measurable (fun l ↦ f l n ω) := fun n ω ↦
     (hmeas' n).comp measurable_prodMk_right
   have hg_eq : ∀ n ω, ∫ l, f l n ω ∂π = (G n ω).toReal := fun n ω ↦
@@ -118,7 +117,7 @@ lemma supermartingale_integral [IsFiniteMeasure μ] [IsFiniteMeasure π]
   obtain ⟨C, hC⟩ := hbdd
   refine supermartingale_integral_of_integrable hf hf_nonneg hmeas ?_
   have hm : Measurable (fun p : L × Ω ↦ f p.1 0 p.2) :=
-    (hmeas 0).mono (MeasurableSpace.prod_mono_right mL (ℱ.le 0)) le_rfl
+    (hmeas 0).mono (MeasurableSpace.prod_mono le_rfl (ℱ.le 0)) le_rfl
   refine Integrable.of_bound (C := C)
     hm.stronglyMeasurable.integral_prod_right'.aestronglyMeasurable (ae_of_all _ fun l ↦ ?_)
   rw [Real.norm_of_nonneg (integral_nonneg (hf_nonneg l 0))]

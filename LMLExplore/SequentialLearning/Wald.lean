@@ -24,7 +24,7 @@ hold for every sequence of actions; the divergence decomposition of bandit lower
 sample complexity of identification algorithms are built on them.
 
 Let now `A`, `Y` be the actions and rewards of an algorithm run against a stationary environment
-`stationaryEnv ν` with finitely many actions and integrable real reward distributions `ν a` of
+`Environment.bandit ν` with finitely many actions and integrable real reward distributions `ν a` of
 means `μ_a`. For a random time `τ` of finite expectation such that the event `{t < τ}` is known
 when the action of round `t` is chosen (a stopping time of `IsAlgEnvSeq.filtrationAction`, such as
 the stopping time of an identification algorithm), *Wald's identity for the rewards* states
@@ -41,11 +41,11 @@ mean `μ_{A_n}` of its distribution.
 * `LMLExplore.natCast_pullCount_toNat_le`: `N_a(n) ≤ n` for `n : ℕ∞`.
 * `LMLExplore.lintegral_toENNReal_eq_sum_lintegral_pullCount`: Wald's identity
   `𝔼[τ] = ∑ a, 𝔼[N_a(τ)]` for an almost surely finite measurable random time `τ`.
-* `Learning.IsAlgEnvSeq.setLIntegral_comp_feedback_stationaryEnv`: on an event of
+* `Learning.IsAlgEnvSeq.setLIntegral_comp_feedback_bandit`: on an event of
   `h.filtrationAction n`, the expectation of `g(Y_n)` is that of `∫ g dν(A_n)`, for `g ≥ 0`.
-* `Learning.IsAlgEnvSeq.integrable_feedback_stationaryEnv`: the rewards are integrable when the
+* `Learning.IsAlgEnvSeq.integrable_feedback_bandit`: the rewards are integrable when the
   reward distributions are.
-* `Learning.IsAlgEnvSeq.setIntegral_feedback_stationaryEnv`: on an event of `h.filtrationAction n`,
+* `Learning.IsAlgEnvSeq.setIntegral_feedback_bandit`: on an event of `h.filtrationAction n`,
   the expectation of `Y_n` is that of the mean `μ_{A_n}`.
 * `Learning.IsAlgEnvSeq.integral_sum_feedback_eq_sum_integral_pullCount_mul`: Wald's identity for
   the rewards `𝔼[∑_{t < τ} Y_t] = ∑ a, 𝔼[N_a(τ)] μ_a`.
@@ -115,14 +115,14 @@ variable {𝓐 𝓨 Ω : Type*} {m𝓐 : MeasurableSpace 𝓐} {m𝓨 : Measurab
 /-- On an event `s` of `h.filtrationAction n` (determined by the history before round `n` and the
 action of round `n`), the expectation of `g(Y_n)` against a stationary environment `ν` is that of
 `∫ g dν(A_n)`, for a measurable `g ≥ 0`. -/
-lemma IsAlgEnvSeq.setLIntegral_comp_feedback_stationaryEnv {O : ℕ → Ω → Unit} {A : ℕ → Ω → 𝓐}
+lemma IsAlgEnvSeq.setLIntegral_comp_feedback_bandit {O : ℕ → Ω → Unit} {A : ℕ → Ω → 𝓐}
     {Y : ℕ → Ω → 𝓨} {alg : Algorithm Unit 𝓐 𝓨} {ν : Kernel 𝓐 𝓨} [IsMarkovKernel ν]
-    (h : IsAlgEnvSeq O A Y alg (stationaryEnv ν) P) {n : ℕ} {s : Set Ω}
+    (h : IsAlgEnvSeq O A Y alg (Environment.bandit ν) P) {n : ℕ} {s : Set Ω}
     (hs : MeasurableSet[h.filtrationAction n] s) {g : 𝓨 → ℝ≥0∞} (hg : Measurable g) :
     ∫⁻ ω in s, g (Y n ω) ∂P = ∫⁻ ω in s, ∫⁻ y, g y ∂(ν (A n ω)) ∂P := by
   rw [h.filtrationAction_eq_comap n] at hs
   obtain ⟨t, ht, rfl⟩ := hs
-  simpa [feedback_stationaryEnv] using
+  simpa [feedback_bandit] using
     (h.hasCondDistrib_feedback n).setLIntegral_comp_eq_setLIntegral_lintegral ht hg
 
 variable {O : ℕ → Ω → Unit} {A : ℕ → Ω → 𝓐} {Y : ℕ → Ω → ℝ} {alg : Algorithm Unit 𝓐 ℝ}
@@ -131,7 +131,7 @@ variable {O : ℕ → Ω → Unit} {A : ℕ → Ω → 𝓐} {Y : ℕ → Ω →
 /-- On an event `s` of `h.filtrationAction n` (determined by the history before round `n` and the
 action of round `n`), the expectation of the reward `Y_n` against a stationary environment `ν` is
 that of the mean of `ν (A_n)`. -/
-lemma IsAlgEnvSeq.setIntegral_feedback_stationaryEnv (h : IsAlgEnvSeq O A Y alg (stationaryEnv ν) P)
+lemma IsAlgEnvSeq.setIntegral_feedback_bandit (h : IsAlgEnvSeq O A Y alg (Environment.bandit ν) P)
     {n : ℕ} (hY : Integrable (Y n) P) {s : Set Ω} (hs : MeasurableSet[h.filtrationAction n] s) :
     ∫ ω in s, Y n ω ∂P = ∫ ω in s, ∫ y, y ∂(ν (A n ω)) ∂P := by
   rw [← setIntegral_condExp (h.filtrationAction.le n) hY hs]
@@ -145,12 +145,12 @@ variable [Finite 𝓐]
 
 /-- Against a stationary environment with finitely many actions and integrable reward
 distributions, the reward of each round is integrable. -/
-lemma IsAlgEnvSeq.integrable_feedback_stationaryEnv (h : IsAlgEnvSeq O A Y alg (stationaryEnv ν) P)
+lemma IsAlgEnvSeq.integrable_feedback_bandit (h : IsAlgEnvSeq O A Y alg (Environment.bandit ν) P)
     (hν : ∀ a, Integrable id (ν a)) (n : ℕ) :
     Integrable (Y n) P := by
   have := Fintype.ofFinite 𝓐
   refine ⟨(h.measurable_feedback n).aestronglyMeasurable, ?_⟩
-  have h_eq := h.setLIntegral_comp_feedback_stationaryEnv (n := n) MeasurableSet.univ
+  have h_eq := h.setLIntegral_comp_feedback_bandit (n := n) MeasurableSet.univ
     measurable_enorm
   simp only [Measure.restrict_univ] at h_eq
   rw [hasFiniteIntegral_iff_enorm, h_eq]
@@ -161,10 +161,11 @@ lemma IsAlgEnvSeq.integrable_feedback_stationaryEnv (h : IsAlgEnvSeq O A Y alg (
         rw [lintegral_const]
         exact ENNReal.mul_lt_top (ENNReal.sum_lt_top.2 fun a _ ↦ (hν a).2) (measure_lt_top _ _)
 
+omit [IsFiniteMeasure P] in
 /-- The expected sum over the rounds before a random time `τ` with `𝔼[τ] < ∞` of the absolute
 moments `∫ |y| dν(A_t)` of the reward distributions is finite. -/
 private lemma tsum_lintegral_indicator_lintegral_enorm_ne_top [MeasurableSingletonClass 𝓐]
-    (h : IsAlgEnvSeq O A Y alg (stationaryEnv ν) P) (hν : ∀ a, Integrable id (ν a))
+    (h : IsAlgEnvSeq O A Y alg (Environment.bandit ν) P) (hν : ∀ a, Integrable id (ν a))
     {τ : Ω → ℕ∞} (hτ : Measurable τ) (hτ_int : ∫⁻ ω, (τ ω : ℝ≥0∞) ∂P ≠ ∞)
     (hτ_fin : ∀ᵐ ω ∂P, τ ω ≠ ⊤) :
     ∑' t : ℕ, ∫⁻ ω, {ω | (t : ℕ∞) < τ ω}.indicator
@@ -194,7 +195,7 @@ variable [Fintype 𝓐] [MeasurableSingletonClass 𝓐] [DecidableEq 𝓐]
 `𝔼[τ] < ∞`, the expected sum of the rewards before `τ` is `∑ a, 𝔼[N_a(τ)] μ_a`, where `N_a(τ)` is
 the number of rounds before `τ` at which `a` was played and `μ_a` is the mean of `ν a`. -/
 theorem IsAlgEnvSeq.integral_sum_feedback_eq_sum_integral_pullCount_mul
-    (h : IsAlgEnvSeq O A Y alg (stationaryEnv ν) P) {τ : Ω → ℕ∞}
+    (h : IsAlgEnvSeq O A Y alg (Environment.bandit ν) P) {τ : Ω → ℕ∞}
     (hτ : IsStoppingTime h.filtrationAction τ) (hτ_int : ∫⁻ ω, (τ ω : ℝ≥0∞) ∂P ≠ ∞)
     (hν : ∀ a, Integrable id (ν a)) :
     ∫ ω, ∑ t ∈ range (τ ω).toNat, Y t ω ∂P =
@@ -225,10 +226,10 @@ theorem IsAlgEnvSeq.integral_sum_feedback_eq_sum_integral_pullCount_mul
   have hY_sum : ∑' t, ∫⁻ ω, ‖(S t).indicator (Y t) ω‖ₑ ∂P ≠ ∞ := by
     refine ne_of_eq_of_ne (tsum_congr fun t ↦ ?_) hB
     simp_rw [enorm_indicator_eq_indicator_enorm, lintegral_indicator (hS t)]
-    exact (h.setLIntegral_comp_feedback_stationaryEnv (hS_F t) measurable_enorm).trans
+    exact (h.setLIntegral_comp_feedback_bandit (hS_F t) measurable_enorm).trans
       (lintegral_indicator (hS t) _).symm
   have hμ_sum : ∑' t, ∫⁻ ω, ‖(S t).indicator (fun ω ↦ μ (A t ω)) ω‖ₑ ∂P ≠ ∞ := by
-    refine ne_top_of_le_ne_top hB (ENNReal.tsum_le_tsum fun t ↦ lintegral_mono fun ω ↦ ?_)
+    refine ne_top_of_le_ne_top hB (tsum_le_tsum fun t ↦ lintegral_mono fun ω ↦ ?_)
     rw [enorm_indicator_eq_indicator_enorm]
     exact Set.indicator_le_indicator (enorm_integral_le_lintegral_enorm _)
   calc ∫ ω, ∑ t ∈ range (τ ω).toNat, Y t ω ∂P
@@ -240,7 +241,7 @@ theorem IsAlgEnvSeq.integral_sum_feedback_eq_sum_integral_pullCount_mul
     -- on `{t < τ}`, the reward `Y t` can be replaced by its conditional mean `μ (A t)`
     _ = ∑' t, ∫ ω, (S t).indicator (fun ω ↦ μ (A t ω)) ω ∂P := tsum_congr fun t ↦ by
         rw [integral_indicator (hS t), integral_indicator (hS t),
-          h.setIntegral_feedback_stationaryEnv (h.integrable_feedback_stationaryEnv hν t) (hS_F t)]
+          h.setIntegral_feedback_bandit (h.integrable_feedback_bandit hν t) (hS_F t)]
     _ = ∫ ω, ∑' t, (S t).indicator (fun ω ↦ μ (A t ω)) ω ∂P := (integral_tsum (fun t ↦
         (((measurable_of_countable μ).comp (h.measurable_action t)).indicator
           (hS t)).aestronglyMeasurable) hμ_sum).symm

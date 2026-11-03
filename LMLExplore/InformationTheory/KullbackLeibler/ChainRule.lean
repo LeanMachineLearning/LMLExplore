@@ -6,6 +6,7 @@ Authors: Rémy Degenne
 module
 
 public import LeanMachineLearning.ForMathlib.InformationTheory.KullbackLeibler.ChainRule
+public import LeanMachineLearning.ForMathlib.InformationTheory.KullbackLeibler.DataProcessing
 
 /-!
 # Reassociating composition-products inside the Kullback–Leibler divergence

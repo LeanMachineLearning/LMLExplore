@@ -83,12 +83,12 @@ section Defs
 [LS, Definition 16.1]. -/
 def IsConsistent (alg : Algorithm Unit α ℝ) (E : Set (Kernel α ℝ)) : Prop :=
   ∀ ν ∈ E, ∀ [IsMarkovKernel ν], ∀ p : ℝ, 0 < p →
-    Tendsto (fun n : ℕ ↦ (∫ ω, regret ν IT.action n ω ∂(trajMeasure alg (stationaryEnv ν))) /
+    Tendsto (fun n : ℕ ↦ (∫ ω, regret ν IT.action n ω ∂(trajMeasure alg (Environment.bandit ν))) /
       (n : ℝ) ^ p) atTop (𝓝 0)
 
 lemma isConsistent_def (alg : Algorithm Unit α ℝ) (E : Set (Kernel α ℝ)) :
     IsConsistent alg E ↔ ∀ ν ∈ E, ∀ [IsMarkovKernel ν], ∀ p : ℝ, 0 < p →
-      Tendsto (fun n : ℕ ↦ (∫ ω, regret ν IT.action n ω ∂(trajMeasure alg (stationaryEnv ν))) /
+      Tendsto (fun n : ℕ ↦ (∫ ω, regret ν IT.action n ω ∂(trajMeasure alg (Environment.bandit ν))) /
         (n : ℝ) ^ p) atTop (𝓝 0) :=
   Iff.rfl
 
@@ -102,7 +102,7 @@ lemma IsConsistent.mono {alg : Algorithm Unit α ℝ} {E E' : Set (Kernel α ℝ
 lemma isConsistent_of_eventually_le_mul_log [Finite α] {alg : Algorithm Unit α ℝ}
     {E : Set (Kernel α ℝ)}
     (h : ∀ ν ∈ E, ∀ [IsMarkovKernel ν], ∃ c : ℝ, ∀ᶠ n : ℕ in atTop,
-      ∫ ω, regret ν IT.action n ω ∂(trajMeasure alg (stationaryEnv ν)) ≤ c * log n) :
+      ∫ ω, regret ν IT.action n ω ∂(trajMeasure alg (Environment.bandit ν)) ≤ c * log n) :
     IsConsistent alg E := by
   intro ν hν _ p hp
   obtain ⟨c, hc⟩ := h ν hν
@@ -153,10 +153,10 @@ theorem eventually_mul_log_le_integral_pullCount_of_klDiv [DecidableEq α] {E : 
     (hmean : (⨆ b, (ν b)[id]) < (ν' a)[id]) (hD : klDiv (ν a) (ν' a) ≠ ∞) {c : ℝ}
     (hc : c * (klDiv (ν a) (ν' a)).toReal < 1) :
     ∀ᶠ n : ℕ in atTop, c * log n ≤
-      ∫ ω, (pullCount IT.action a n ω : ℝ) ∂(trajMeasure alg (stationaryEnv ν)) := by
+      ∫ ω, (pullCount IT.action a n ω : ℝ) ∂(trajMeasure alg (Environment.bandit ν)) := by
   set D := (klDiv (ν a) (ν' a)).toReal
-  have hrun := IT.isAlgEnvSeq_trajMeasure alg (stationaryEnv ν)
-  have hrun' := IT.isAlgEnvSeq_trajMeasure alg (stationaryEnv ν')
+  have hrun := IT.isAlgEnvSeq_trajMeasure alg (Environment.bandit ν)
+  have hrun' := IT.isAlgEnvSeq_trajMeasure alg (Environment.bandit ν')
   -- In `ν` the arm `a` has gap at least `Δ`, and in `ν'` every other arm has gap at least `Δ`.
   set Δ := min (gap ν a) ((ν' a)[id] - ⨆ b, (ν b)[id])
   have hΔ : 0 < Δ := lt_min ha (sub_pos.mpr hmean)
@@ -176,7 +176,7 @@ theorem eventually_mul_log_le_integral_pullCount_of_klDiv [DecidableEq α] {E : 
   have hnp : 0 < (n : ℝ) ^ p := rpow_pos_of_pos hn0 p
   rw [div_lt_iff₀ hnp] at hRn hR'n
   -- The relative entropy `K` between the laws of the histories is at most `E_ν[T_a(n)] D`.
-  set T := ∫ ω, (pullCount IT.action a n ω : ℝ) ∂(trajMeasure alg (stationaryEnv ν))
+  set T := ∫ ω, (pullCount IT.action a n ω : ℝ) ∂(trajMeasure alg (Environment.bandit ν))
   have hT : 0 ≤ T := integral_nonneg fun _ ↦ Nat.cast_nonneg _
   have hKL := hrun.klDiv_map_history_le_ofReal_integral_pullCount_mul hrun' hνν'
     (ENNReal.ofReal_toReal hD).ge n
@@ -212,7 +212,7 @@ theorem eventually_mul_log_le_integral_pullCount_of_isConsistent [DecidableEq α
     (hν : ∀ a, ν a ∈ M a) {a : α} (ha : 0 < gap ν a) {c : ℝ}
     (hc : ENNReal.ofReal c < (dInf (M a) (ν a) (⨆ b, (ν b)[id]))⁻¹) :
     ∀ᶠ n : ℕ in atTop, c * log n ≤
-      ∫ ω, (pullCount IT.action a n ω : ℝ) ∂(trajMeasure alg (stationaryEnv ν)) := by
+      ∫ ω, (pullCount IT.action a n ω : ℝ) ∂(trajMeasure alg (Environment.bandit ν)) := by
   -- An alternative law `Q ∈ M a` with mean above `μ*` and `c D(ν a, Q) < 1`.
   obtain ⟨Q, hQM, hQmean, hQ⟩ := dInf_lt_iff.mp (ENNReal.lt_inv_iff_lt_inv.mp hc)
   have hD : klDiv (ν a) Q ≠ ∞ := ne_top_of_lt hQ
@@ -253,11 +253,11 @@ theorem eventually_mul_log_le_integral_regret_of_isConsistent [Fintype α]
     (hc : ENNReal.ofReal c < ∑ a ∈ univ.filter (fun a ↦ 0 < gap ν a),
       ENNReal.ofReal (gap ν a) / dInf (M a) (ν a) (⨆ b, (ν b)[id])) :
     ∀ᶠ n : ℕ in atTop, c * log n ≤
-      ∫ ω, regret ν IT.action n ω ∂(trajMeasure alg (stationaryEnv ν)) := by
+      ∫ ω, regret ν IT.action n ω ∂(trajMeasure alg (Environment.bandit ν)) := by
   classical
   simp_rw [div_eq_mul_inv] at hc
   exact eventually_le_integral_regret_of_forall_eventually_le_integral_pullCount
-    (IT.isAlgEnvSeq_trajMeasure alg (stationaryEnv ν)).measurable_action
+    (IT.isAlgEnvSeq_trajMeasure alg (Environment.bandit ν)).measurable_action
     (.of_forall log_natCast_nonneg) _
     (fun a ha c hc ↦ eventually_mul_log_le_integral_pullCount_of_isConsistent hM halg hν ha hc) hc
 
@@ -269,7 +269,7 @@ theorem eventually_mul_log_le_integral_regret_of_dInf_eq_zero
     (hν : ∀ a, ν a ∈ M a) {a : α} (ha : 0 < gap ν a)
     (h0 : dInf (M a) (ν a) (⨆ b, (ν b)[id]) = 0) (c : ℝ) :
     ∀ᶠ n : ℕ in atTop, c * log n ≤
-      ∫ ω, regret ν IT.action n ω ∂(trajMeasure alg (stationaryEnv ν)) := by
+      ∫ ω, regret ν IT.action n ω ∂(trajMeasure alg (Environment.bandit ν)) := by
   have := Fintype.ofFinite α
   refine eventually_mul_log_le_integral_regret_of_isConsistent hM halg hν
     (ENNReal.ofReal_lt_top.trans_le ?_)
@@ -314,7 +314,7 @@ theorem eventually_mul_log_le_integral_regret_gaussianBandit [Fintype α] (hσ2 
     {c : ℝ} (hc : c < ∑ a ∈ univ.filter (fun a ↦ 0 < gap (gaussianBandit μ σ2) a),
       2 * σ2 / gap (gaussianBandit μ σ2) a) :
     ∀ᶠ n : ℕ in atTop, c * log n ≤ ∫ ω, regret (gaussianBandit μ σ2) IT.action n ω
-      ∂(trajMeasure alg (stationaryEnv (gaussianBandit μ σ2))) := by
+      ∂(trajMeasure alg (Environment.bandit (gaussianBandit μ σ2))) := by
   set ν := gaussianBandit μ σ2
   set S := univ.filter (fun a ↦ 0 < gap ν a)
   rcases le_or_gt c 0 with hc0 | hc0
@@ -390,7 +390,7 @@ theorem eventually_mul_log_le_integral_regret_bernoulliBandit [Fintype α]
     {c : ℝ} (hc : c < ∑ a ∈ univ.filter (fun a ↦ 0 < gap (bernoulliBandit p) a),
       gap (bernoulliBandit p) a / (klBer (p a) (⨆ b, (p b : ℝ))).toReal) :
     ∀ᶠ n : ℕ in atTop, c * log n ≤ ∫ ω, regret (bernoulliBandit p) IT.action n ω
-      ∂(trajMeasure alg (stationaryEnv (bernoulliBandit p))) := by
+      ∂(trajMeasure alg (Environment.bandit (bernoulliBandit p))) := by
   set ν := bernoulliBandit p
   set S := univ.filter (fun a ↦ 0 < gap ν a)
   set μs := ⨆ b, (p b : ℝ)
