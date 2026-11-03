@@ -114,7 +114,7 @@ lemma IsAlgEnvSeq.condExp_comp_action [StandardBorelSpace 𝓐] [Nonempty 𝓐] 
   rw [h.filtrationObs_eq_comap]
   refine (condExp_prod_ae_eq_integral_condDistrib hX (h.measurable_action n).aemeasurable hf
     hint).trans ?_
-  filter_upwards [ae_of_ae_map hX.aemeasurable (h.hasCondDistrib_action n).condDistrib_eq]
+  filter_upwards [ae_of_ae_map hX.aemeasurable (h.hasCondDistrib_action n).condDistrib_ae_eq]
     with ω hω
   rw [hω]
 

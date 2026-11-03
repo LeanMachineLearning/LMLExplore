@@ -16,7 +16,7 @@ environment is an oblivious adversary that reveals the side information `o n` be
 
 In a bandit with expert advice [LS, Chapter 18], the observation `o n` is the advice of the experts
 at round `n` and `g n a` is the reward of arm `a` at round `n`. Without observations
-(`o = fun _ ↦ ()`), `Environment.ofSeq` is LML's `onlineEvalEnv g hg`.
+(`o = fun _ ↦ ()`), `Environment.ofSeq` is LML's `Environment.evalSeq g hg`.
 
 ## Main definitions
 
@@ -26,10 +26,10 @@ at round `n` and `g n a` is the reward of arm `a` at round `n`. Without observat
 ## Main statements
 
 * `Learning.Environment.ofSeq_unit`: without observations, `Environment.ofSeq` is
-  `onlineEvalEnv`.
-* `Learning.Environment.feedbackCondAction_ofSeq`: `Environment.ofSeq o g hg` is oblivious, and
-  the conditional law of its feedback given the action `a` of round `n` is the Dirac mass at
-  `g n a`.
+  `Environment.evalSeq`.
+* `Learning.Environment.feedbackCondObsAction_ofSeq`: `Environment.ofSeq o g hg` is oblivious, and
+  the conditional law of its feedback given the observation and the action `a` of round `n` is the
+  Dirac mass at `g n a`.
 * `Learning.IsAlgEnvSeq.obs_ofSeq_ae_all_eq`: along a run against `Environment.ofSeq o g hg`, the
   observations are almost surely the sequence `o`.
 * `Learning.IsAlgEnvSeq.feedback_ofSeq_ae_all_eq`: along such a run, the feedback of round `n` is
@@ -67,31 +67,29 @@ lemma Environment.feedback_ofSeq (o : ℕ → 𝓞) (g : ℕ → 𝓐 → 𝓨) 
     (Environment.ofSeq o g hg).feedback n = (Kernel.deterministic (g n) (hg n)).prodMkLeft _ :=
   (rfl)
 
-/-- Without observations, `Environment.ofSeq` is LML's evaluation environment `onlineEvalEnv`. -/
+/-- Without observations, `Environment.ofSeq` is LML's evaluation environment
+`Environment.evalSeq`. -/
 lemma Environment.ofSeq_unit (g : ℕ → 𝓐 → 𝓨) (hg : ∀ n, Measurable (g n)) :
-    Environment.ofSeq (fun _ ↦ ()) g hg = onlineEvalEnv g hg := by
-  ext n : 2 <;> simp [onlineEvalEnv]
+    Environment.ofSeq (fun _ ↦ ()) g hg = Environment.evalSeq g hg := by
+  ext n : 2 <;> simp [Kernel.prodMkLeft_deterministic]
 
 instance (o : ℕ → 𝓞) (g : ℕ → 𝓐 → 𝓨) (hg : ∀ n, Measurable (g n)) :
-    IsObliviousEnv (Environment.ofSeq o g hg) :=
-  ⟨⟨fun n ↦ Kernel.deterministic (g n) (hg n), fun _ ↦ inferInstance, fun _ ↦ rfl⟩⟩
+    (Environment.ofSeq o g hg).IsOblivious where
+  exists_obs_eq_const := ⟨fun n ↦ Measure.dirac (o n), fun _ ↦ inferInstance, fun _ ↦ rfl⟩
+  exists_feedback_eq_comap := ⟨fun n ↦ Kernel.deterministic (fun p ↦ g n p.2) (by fun_prop),
+    fun _ ↦ inferInstance, fun _ ↦ rfl⟩
 
-/-- The conditional law of the feedback given the action in `Environment.ofSeq o g hg` is the
-deterministic kernel of `g n`. -/
+/-- The conditional law of the feedback given the observation and the action in
+`Environment.ofSeq o g hg` is the deterministic kernel of `g n` applied to the action. -/
 @[simp]
-lemma Environment.feedbackCondAction_ofSeq (o : ℕ → 𝓞) (g : ℕ → 𝓐 → 𝓨)
+lemma Environment.feedbackCondObsAction_ofSeq (o : ℕ → 𝓞) (g : ℕ → 𝓐 → 𝓨)
     (hg : ∀ n, Measurable (g n)) (n : ℕ) :
-    feedbackCondAction (Environment.ofSeq o g hg) n = Kernel.deterministic (g n) (hg n) := by
-  rcases isEmpty_or_nonempty 𝓐 with h𝓐 | ⟨⟨a⟩⟩
-  · ext a : 1
-    exact h𝓐.elim a
-  have : Nonempty (Hist 𝓞 𝓐 𝓨 n × 𝓞) := ⟨(fun _ ↦ (o 0, a, g 0 a), o 0)⟩
-  have h_eq := feedback_eq_feedbackCondAction (Environment.ofSeq o g hg) n
-  rw [Environment.feedback_ofSeq, Kernel.prodMkLeft_inj] at h_eq
-  exact h_eq.symm
+    (Environment.ofSeq o g hg).feedbackCondObsAction n =
+      Kernel.deterministic (fun p ↦ g n p.2) (by fun_prop) :=
+  Environment.feedbackCondObsAction_eq_of_feedback_eq _ rfl
 
 instance (o : ℕ → 𝓞) (g : ℕ → 𝓐 → 𝓨) (hg : ∀ n, Measurable (g n)) :
-    IsDeterministicEnv (Environment.ofSeq o g hg) where
+    (Environment.ofSeq o g hg).HasDeterministicFeedback where
   exists_f n := ⟨fun p ↦ g n p.2, by fun_prop, Kernel.prodMkLeft_deterministic _⟩
 
 variable {Ω : Type*} {mΩ : MeasurableSpace Ω} {alg : Algorithm 𝓞 𝓐 𝓨}
@@ -117,10 +115,9 @@ lemma IsAlgEnvSeq.obs_ofSeq_ae_all_eq [MeasurableSingletonClass 𝓞]
 lemma IsAlgEnvSeq.feedback_ofSeq_ae_eq [MeasurableEq 𝓨]
     (h : IsAlgEnvSeq O A Y alg (Environment.ofSeq o g hg) P) (n : ℕ) :
     Y n =ᵐ[P] g n ∘ A n := by
-  have hY := IsObliviousEnv.hasCondDistrib_feedback h n
-  rw [Environment.feedbackCondAction_ofSeq] at hY
-  exact ae_eq_of_hasCondDistrib_deterministic (hg n) (h.measurable_action n).aemeasurable
-    (h.measurable_feedback n).aemeasurable hY
+  have hY := h.hasCondDistrib_feedback_feedbackCondObsAction n
+  rw [Environment.feedbackCondObsAction_ofSeq] at hY
+  exact hY.ae_eq_of_deterministic
 
 /-- Along a run against `Environment.ofSeq o g hg`, the feedback of every round is almost surely
 `g` evaluated at the action of that round. -/

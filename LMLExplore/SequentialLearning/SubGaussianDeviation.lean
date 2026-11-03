@@ -5,7 +5,8 @@ Authors: Rémy Degenne
 -/
 module
 
-public import LeanMachineLearning.Online.Bandit.SumRewards
+public import LeanMachineLearning.Online.Bandit.Concentration
+public import LeanMachineLearning.SequentialLearning.SumRewards
 public import LMLExplore.Algebra.BigOperators.Intervals
 public import LMLExplore.Analysis.SpecialFunctions.Log.Basic
 public import LMLExplore.Probability.Moments.ExponentialTail
@@ -14,7 +15,7 @@ public import LMLExplore.SequentialLearning.SumRewards
 /-!
 # Time-uniform deviations of the empirical means of all the arms, for sub-Gaussian rewards
 
-Let the rewards of each arm `a` of the stochastic environment `stationaryEnv ν` be
+Let the rewards of each arm `a` of the stochastic environment `Environment.bandit ν` be
 `σ²_a`-sub-Gaussian with mean `μ_a`. After `N_a` pulls with empirical mean `μ̂_a`, the
 statistic `N_a (μ̂_a - μ_a)² / (2 σ²_a)` is the divergence `N_a d(μ̂_a, μ_a)` of Gaussian arms of
 variance `σ²_a`, which the generalized likelihood ratio stopping rules of fixed-confidence
@@ -23,8 +24,8 @@ the sum of these statistics over the `K` arms rarely exceeds `K log (2 t (t + 1)
 round `t`: the probability of this event is at most `(x / K) ^ K exp (K - x)` for `x ≥ K`.
 
 For one arm, in LML's i.i.d. reward stream model, Hoeffding's inequality (LML's
-`Bandits.StreamMeasure.prob_sum_range_sub_ge_le_of_HasSubgaussianMGF` and
-`Bandits.StreamMeasure.prob_sum_range_sub_le_le_of_HasSubgaussianMGF`) and a union bound over
+`Bandits.StreamMeasure.prob_sum_range_sub_ge_le_of_hasSubgaussianMGF` and
+`Bandits.StreamMeasure.prob_sum_range_sub_le_le_of_hasSubgaussianMGF`) and a union bound over
 the number `s` of rewards give
 `P(∃ s, log (2 s (s + 1)) + y ≤ s (μ̂_s - μ)² / (2 σ²)) ≤ exp (-y)` [LS, Lemma 33.8]. The arms
 are independent in the stream model (`LMLExplore.iIndepFun_arm_streamMeasure`), so
@@ -100,8 +101,8 @@ theorem streamMeasure_le_sq_div_le {a : α} {σ2 : ℝ≥0}
   _ ≤ ENNReal.ofReal (exp (-z)) + ENNReal.ofReal (exp (-z)) := by
     rw [← hε2]
     exact add_le_add
-      (StreamMeasure.prob_sum_range_sub_ge_le_of_HasSubgaussianMGF hν (sqrt_nonneg _) s)
-      (StreamMeasure.prob_sum_range_sub_le_le_of_HasSubgaussianMGF hν (sqrt_nonneg _) s)
+      (StreamMeasure.prob_sum_range_sub_ge_le_of_hasSubgaussianMGF hν (sqrt_nonneg _) s)
+      (StreamMeasure.prob_sum_range_sub_le_le_of_hasSubgaussianMGF hν (sqrt_nonneg _) s)
   _ = ENNReal.ofReal (2 * exp (-z)) := by
     rw [← ENNReal.ofReal_add (exp_pos _).le (exp_pos _).le, two_mul]
 
@@ -186,13 +187,13 @@ variable [Fintype α] [DecidableEq α] [MeasurableSingletonClass α] {Ω : Type*
   {O : ℕ → Ω → Unit} {A : ℕ → Ω → α} {R : ℕ → Ω → ℝ}
 
 /-- **Time-uniform deviations of the empirical means of sub-Gaussian arms along a run** (the
-deviation inequality of [LS, Lemma 33.7]). In a run of any algorithm against `stationaryEnv ν`,
+deviation inequality of [LS, Lemma 33.7]). In a run of any algorithm against `Environment.bandit ν`,
 if each arm `a` is `σ²_a`-sub-Gaussian with mean `μ_a`, then for `x ≥ K`, with `K` the number of
 arms, the probability that at some round `t`, the pull counts `N_a(t)` and the empirical means
 `μ̂_a(t)` satisfy `K log (2 t (t + 1)) + x ≤ ∑ a, N_a(t) (μ̂_a(t) - μ_a)² / (2 σ²_a)`, is at most
 `(x / K) ^ K exp (K - x)`. -/
 theorem measure_exists_card_mul_log_add_le_sum_pullCount_mul_sq_div_le
-    (h : IsAlgEnvSeq O A R alg (stationaryEnv ν) P) {σ2 : α → ℝ≥0}
+    (h : IsAlgEnvSeq O A R alg (Environment.bandit ν) P) {σ2 : α → ℝ≥0}
     (hν : ∀ a, HasSubgaussianMGF (fun x ↦ x - (ν a)[id]) (σ2 a) (ν a)) {x : ℝ}
     (hx : Fintype.card α ≤ x) :
     P {ω | ∃ t : ℕ, Fintype.card α * log (2 * t * (t + 1)) + x ≤

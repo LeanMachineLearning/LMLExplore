@@ -279,7 +279,7 @@ lemma hasCondDistrib_obs_add_one [SFinite P] (h : IsAlgEnvSeq O A Y alg (M.env �
 
 /-- In a run in the environment of an MDP, the law of the state of round `n + 1` is the law of
 the state-action pair of round `n` composed with the transition kernel `M.P`. -/
-lemma hasLaw_obs_add_one (h : IsAlgEnvSeq O A Y alg (M.env μ) P) (n : ℕ) :
+lemma hasLaw_obs_add_one [SFinite P] (h : IsAlgEnvSeq O A Y alg (M.env μ) P) (n : ℕ) :
     HasLaw (O (n + 1)) (M.P ∘ₘ P.map (fun ω ↦ (O n ω, A n ω))) P :=
   (hasCondDistrib_obs_add_one h n).hasLaw_comp
 
@@ -301,7 +301,7 @@ lemma hasCondDistrib_feedback [SFinite P] (h : IsAlgEnvSeq O A Y alg (M.env μ) 
 
 /-- Along a run in an MDP with rewards bounded by `C`, the reward of every round is almost surely
 bounded by `C`. -/
-lemma ae_abs_feedback_le {M : MDP 𝓢 𝓐 ℝ} {Y : ℕ → Ω → ℝ} {alg : Algorithm 𝓢 𝓐 ℝ} {C : ℝ}
+lemma ae_abs_feedback_le [SFinite P] {M : MDP 𝓢 𝓐 ℝ} {Y : ℕ → Ω → ℝ} {alg : Algorithm 𝓢 𝓐 ℝ} {C : ℝ}
     (h : IsAlgEnvSeq O A Y alg (M.env μ) P)
     (hR : ∀ p, ∀ᵐ x ∂(M.R p), |x| ≤ C) (n : ℕ) :
     ∀ᵐ ω ∂P, |Y n ω| ≤ C := by
@@ -314,7 +314,8 @@ lemma ae_abs_feedback_le {M : MDP 𝓢 𝓐 ℝ} {Y : ℕ → Ω → ℝ} {alg :
 
 /-- Along a run in an MDP with bounded rewards, the expected reward of round `n` is the integral
 of the mean reward against the law of the state-action pair of round `n`. -/
-theorem integral_feedback {M : MDP 𝓢 𝓐 ℝ} {Y : ℕ → Ω → ℝ} {alg : Algorithm 𝓢 𝓐 ℝ} {C : ℝ}
+theorem integral_feedback [IsFiniteMeasure P] {M : MDP 𝓢 𝓐 ℝ} {Y : ℕ → Ω → ℝ}
+    {alg : Algorithm 𝓢 𝓐 ℝ} {C : ℝ}
     (h : IsAlgEnvSeq O A Y alg (M.env μ) P)
     (hR : ∀ p, ∀ᵐ x ∂(M.R p), |x| ≤ C) (n : ℕ) :
     ∫ ω, Y n ω ∂P = ∫ p, meanReward M.R p ∂(P.map fun ω ↦ (O n ω, A n ω)) := by
