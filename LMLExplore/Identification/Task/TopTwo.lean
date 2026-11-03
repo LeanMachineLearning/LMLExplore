@@ -53,12 +53,13 @@ with `β = 1/2`, is at most twice the characteristic time.
   and `D(θ, ¬i) ≤ 2 D_{1/2}(θ, ¬i)`, as soon as there is an arm `b ≠ a`.
 * `IdentTask.ofReal_min_mul_gameValue_le_betaGameValue`,
   `IdentTask.gameValue_le_two_mul_betaGameValue_half`: `min(β, 1 - β) D(θ) ≤ D_β(θ)` and
-  `D(θ) ≤ 2 D_{1/2}(θ)`.
-* `IdentTask.charTime_le_betaCharTime`, `IdentTask.betaCharTime_le_inv_ofReal_min_mul_charTime`,
-  `IdentTask.betaCharTime_half_le_two_mul_charTime`: `T*(θ) ≤ T*_β(θ)`,
-  `T*_β(θ) ≤ min(β, 1 - β)⁻¹ T*(θ)` for `β ∈ (0, 1)` and `T*_{1/2}(θ) ≤ 2 T*(θ)`.
+  `D(θ) ≤ 2 D_{1/2}(θ)`, as soon as there are two arms.
+* `IdentTask.charTime_le_betaCharTime`: `T*(θ) ≤ T*_β(θ)`.
+* `IdentTask.betaCharTime_le_inv_ofReal_min_mul_charTime`,
+  `IdentTask.betaCharTime_half_le_two_mul_charTime`: `T*_β(θ) ≤ min(β, 1 - β)⁻¹ T*(θ)` for
+  `β ∈ (0, 1)` and `T*_{1/2}(θ) ≤ 2 T*(θ)`, as soon as there are two arms.
 * `IdentTask.betaCharTime_le_inv_mul_charTime`: [R16, Lemma 3] for a model with a single correct
-  answer, `T*_β(θ) ≤ c⁻¹ T*(θ)` under the conditions above.
+  answer, `T*_β(θ) ≤ c⁻¹ T*(θ)` under the conditions above, as soon as there are two arms.
 
 ## References
 
