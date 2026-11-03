@@ -48,8 +48,9 @@ expectation `∑ b, (1 - x t b) ^ 2 ≤ k`.
 * `Exp3.advRegret_le`: for a run of Exp3 whose feedback is the reward `x t (A t)` of its action,
   with rewards in `[0, 1]`, `R_n(x) ≤ log k / η + η n k / 2`.
 * `exp3_advRegret_le`: the same bound for runs against LML's `onlineEvalEnv x _`.
-* `exp3_advRegret_le_sqrt`: [LS, Theorem 11.2]. With `η = √(2 log k / (n k))`,
+* `Exp3.advRegret_le_sqrt`: [LS, Theorem 11.2]. With `η = √(2 log k / (n k))`,
   `R_n(x) ≤ √(2 n k log k)`.
+* `exp3_advRegret_le_sqrt`: the same bound for runs against LML's `onlineEvalEnv x _`.
 
 ## References
 
@@ -348,6 +349,47 @@ theorem advRegret_le (hη : 0 < η) (hY : ∀ t < n, Y t =ᵐ[P] x t ∘ A t)
       have := mul_le_mul_of_nonneg_left hle (by positivity : 0 ≤ η / 2)
       linarith
 
+/-- **Regret of Exp3** [LS, Theorem 11.2]: along a run of Exp3 with learning rate
+`η = √(2 log k / (n k))` whose feedback at every round `t < n` is the reward `x t (A t) ∈ [0, 1]`
+of its action, the adversarial regret after `n` rounds is at most `√(2 n k log k)`, with `k` the
+number of arms. -/
+theorem advRegret_le_sqrt (hY : ∀ t < n, Y t =ᵐ[P] x t ∘ A t)
+    (hx : ∀ t < n, ∀ a, x t a ∈ Set.Icc 0 1)
+    (h : IsAlgEnvSeq O A Y (exp3 √(2 * log (Fintype.card α) / (n * Fintype.card α))) env P) :
+    advRegret x A P n ≤ √(2 * n * Fintype.card α * log (Fintype.card α)) := by
+  set k : ℝ := (Fintype.card α : ℝ) with hk
+  have hk1 : (1 : ℝ) ≤ k := by
+    rw [hk, Nat.one_le_cast]
+    exact Fintype.card_pos
+  -- with one arm or no round, the regret is zero
+  rcases hk1.eq_or_lt with hk1 | hk1
+  · have hcard : Fintype.card α ≤ 1 := by
+      rw [hk] at hk1
+      exact_mod_cast hk1.ge
+    have : Subsingleton α := Fintype.card_le_one_iff_subsingleton.1 hcard
+    rw [advRegret_of_subsingleton]
+    positivity
+  rcases Nat.eq_zero_or_pos n with rfl | hn
+  · simp [advRegret_def]
+  have hL : 0 < log k := log_pos hk1
+  have hm : 0 < n * k := mul_pos (by exact_mod_cast hn) (by linarith)
+  set η := √(2 * log k / (n * k)) with hη
+  have hη0 : 0 < η := sqrt_pos.2 (by positivity)
+  -- with `η ^ 2 = 2 log k / (n k)`, both terms of the bound are `η n k / 2`
+  have hηsq : η ^ 2 = 2 * log k / (n * k) := sq_sqrt (by positivity)
+  refine (advRegret_le hη0 hY hx h).trans (le_of_eq ?_)
+  have hsq : √(2 * n * k * log k) = η * (n * k) := by
+    rw [← sqrt_sq (by positivity : 0 ≤ η * (n * k)), mul_pow, hηsq]
+    congr 1
+    field_simp
+  -- `log k / η = η n k / 2`, from `η ^ 2 = 2 log k / (n k)`
+  have hlog : log k / η = η * (n * k) / 2 := by
+    rw [div_eq_iff hη0.ne']
+    rw [eq_div_iff hm.ne'] at hηsq
+    linear_combination -hηsq / 2
+  rw [hsq, hlog]
+  ring
+
 end Exp3
 
 section OnlineEvalEnv
@@ -372,39 +414,8 @@ theorem exp3_advRegret_le (hη : 0 < η) (hx : ∀ t < n, ∀ a, x t a ∈ Set.I
 theorem exp3_advRegret_le_sqrt (hx : ∀ t < n, ∀ a, x t a ∈ Set.Icc 0 1)
     (h : IsAlgEnvSeq O A Y
       (exp3 √(2 * log (Fintype.card α) / (n * Fintype.card α))) (onlineEvalEnv x hxm) P) :
-    advRegret x A P n ≤ √(2 * n * Fintype.card α * log (Fintype.card α)) := by
-  set k : ℝ := (Fintype.card α : ℝ) with hk
-  have hk1 : (1 : ℝ) ≤ k := by
-    rw [hk, Nat.one_le_cast]
-    exact Fintype.card_pos
-  -- with one arm or no round, the regret is zero
-  rcases hk1.eq_or_lt with hk1 | hk1
-  · have hcard : Fintype.card α ≤ 1 := by
-      rw [hk] at hk1
-      exact_mod_cast hk1.ge
-    have : Subsingleton α := Fintype.card_le_one_iff_subsingleton.1 hcard
-    rw [advRegret_of_subsingleton]
-    positivity
-  rcases Nat.eq_zero_or_pos n with rfl | hn
-  · simp [advRegret_def]
-  have hL : 0 < log k := log_pos hk1
-  have hm : 0 < n * k := mul_pos (by exact_mod_cast hn) (by linarith)
-  set η := √(2 * log k / (n * k)) with hη
-  have hη0 : 0 < η := sqrt_pos.2 (by positivity)
-  -- with `η ^ 2 = 2 log k / (n k)`, both terms of the bound are `η n k / 2`
-  have hηsq : η ^ 2 = 2 * log k / (n * k) := sq_sqrt (by positivity)
-  refine (exp3_advRegret_le hη0 hx h).trans (le_of_eq ?_)
-  have hsq : √(2 * n * k * log k) = η * (n * k) := by
-    rw [← sqrt_sq (by positivity : 0 ≤ η * (n * k)), mul_pow, hηsq]
-    congr 1
-    field_simp
-  -- `log k / η = η n k / 2`, from `η ^ 2 = 2 log k / (n k)`
-  have hlog : log k / η = η * (n * k) / 2 := by
-    rw [div_eq_iff hη0.ne']
-    rw [eq_div_iff hm.ne'] at hηsq
-    linear_combination -hηsq / 2
-  rw [hsq, hlog]
-  ring
+    advRegret x A P n ≤ √(2 * n * Fintype.card α * log (Fintype.card α)) :=
+  Exp3.advRegret_le_sqrt (fun t _ ↦ feedback_onlineEvalEnv_ae_eq_eval_action h t) hx h
 
 end OnlineEvalEnv
 
