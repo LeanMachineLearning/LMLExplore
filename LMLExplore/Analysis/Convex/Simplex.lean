@@ -37,7 +37,8 @@ supported distributions, not a subset of `α → ℝ`.
 * `LMLExplore.simplex_subset_nonneg`: the simplex consists of nonnegative vectors.
 * `LMLExplore.single_mem_simplex`: the vertices `Pi.single a 1` lie in the simplex.
 * `LMLExplore.uniform_mem_simplex`: the uniform distribution lies in the simplex.
-* `LMLExplore.simplex_nonempty`: the simplex of a nonempty type is nonempty.
+* `LMLExplore.simplex_nonempty`: the simplex of a nonempty type is nonempty;
+  `LMLExplore.nonempty_of_mem_simplex` is the converse.
 * `LMLExplore.convex_simplex`: the simplex is convex.
 * `LMLExplore.sum_ofReal_mul_le_iSup`: an average `∑ a, w a * x a` of extended nonnegative reals
   with weights `w` of the simplex is at most their supremum.
@@ -87,6 +88,11 @@ lemma uniform_mem_simplex [Nonempty α] : (fun _ ↦ (Fintype.card α : ℝ)⁻�
 variable (α) in
 lemma simplex_nonempty [Nonempty α] : (simplex α).Nonempty :=
   ⟨_, uniform_mem_simplex α⟩
+
+/-- A type whose simplex contains a vector is nonempty. -/
+lemma nonempty_of_mem_simplex {w : α → ℝ} (hw : w ∈ simplex α) : Nonempty α := by
+  by_contra h
+  simpa [not_nonempty_iff.1 h] using hw.2
 
 variable (α) in
 lemma convex_simplex : Convex ℝ (simplex α) := by
