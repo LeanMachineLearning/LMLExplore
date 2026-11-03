@@ -62,8 +62,10 @@ when the lookahead is bounded above in the action, for instance for finitely man
   `γ`-contractions for the sup norm, stated pointwise.
 * `Learning.MDP.measurable_bellman`, `Learning.MDP.abs_bellman_le`,
   `Learning.MDP.measurable_bellmanEval`, `Learning.MDP.abs_bellmanEval_le`: the operators preserve
-  bounded measurable functions; `Learning.MDP.measurable_greedy`: the greedy policy of a measurable
-  function is measurable.
+  bounded measurable functions, and so do their iterates (`Learning.MDP.measurable_bellman_iterate`,
+  `Learning.MDP.exists_abs_bellman_iterate_le`, `Learning.MDP.measurable_bellmanEval_iterate`,
+  `Learning.MDP.exists_abs_bellmanEval_iterate_le`); `Learning.MDP.measurable_greedy`: the greedy
+  policy of a measurable function is measurable.
 * `Learning.MDP.bellmanEval_le_bellman`: randomizing does not increase the supremum
   [P, Proposition 6.2.1]; `Learning.MDP.isGreatest_bellmanEval`: the optimality operator is the
   maximum of the evaluation operators of measurable deterministic stationary policies, attained by
@@ -227,6 +229,24 @@ theorem abs_bellman_le [Nonempty 𝓐] (hR : ∀ p, ∀ᵐ x ∂(M.R p), |x| ≤
   rw [bellman_def]
   exact abs_ciSup_le fun a ↦ abs_lookahead_le hR hvB (s, a)
 
+/-- The iterates of the optimality operator at a measurable `v` are measurable, for countably many
+actions. -/
+theorem measurable_bellman_iterate [Countable 𝓐] (hv : Measurable v) (n : ℕ) :
+    Measurable ((M.bellman γ)^[n] v) := by
+  induction n with
+  | zero => exact hv
+  | succ n ih => rw [Function.iterate_succ_apply']; exact measurable_bellman ih
+
+/-- With bounded rewards, the iterates of the optimality operator at a bounded `v` are bounded. -/
+theorem exists_abs_bellman_iterate_le [Nonempty 𝓐] (hR : ∀ p, ∀ᵐ x ∂(M.R p), |x| ≤ C)
+    (hvB : ∀ s, |v s| ≤ B) (n : ℕ) : ∃ B', ∀ s, |(M.bellman γ)^[n] v s| ≤ B' := by
+  induction n with
+  | zero => exact ⟨B, hvB⟩
+  | succ n ih =>
+    obtain ⟨B', hB'⟩ := ih
+    exact ⟨C + γ * B', fun s ↦ by
+      rw [Function.iterate_succ_apply']; exact abs_bellman_le hR hB' s⟩
+
 /-! ### The greedy policy -/
 
 variable (M γ) in
@@ -344,6 +364,25 @@ theorem abs_bellmanEval_le [IsMarkovKernel π] (hR : ∀ p, ∀ᵐ x ∂(M.R p),
     (hvB : ∀ s, |v s| ≤ B) (s : 𝓢) : |M.bellmanEval γ π v s| ≤ C + γ * B := by
   rw [bellmanEval_def]
   exact abs_integral_le_of_abs_le fun a ↦ abs_lookahead_le hR hvB (s, a)
+
+/-- The iterates of the evaluation operator of a stationary policy at a measurable `v` are
+measurable. -/
+theorem measurable_bellmanEval_iterate [IsSFiniteKernel π] (hv : Measurable v) (n : ℕ) :
+    Measurable ((M.bellmanEval γ π)^[n] v) := by
+  induction n with
+  | zero => exact hv
+  | succ n ih => rw [Function.iterate_succ_apply']; exact measurable_bellmanEval ih
+
+/-- With bounded rewards, the iterates of the evaluation operator of a stationary policy at a
+bounded `v` are bounded. -/
+theorem exists_abs_bellmanEval_iterate_le [IsMarkovKernel π] (hR : ∀ p, ∀ᵐ x ∂(M.R p), |x| ≤ C)
+    (hvB : ∀ s, |v s| ≤ B) (n : ℕ) : ∃ B', ∀ s, |(M.bellmanEval γ π)^[n] v s| ≤ B' := by
+  induction n with
+  | zero => exact ⟨B, hvB⟩
+  | succ n ih =>
+    obtain ⟨B', hB'⟩ := ih
+    exact ⟨C + γ * B', fun s ↦ by
+      rw [Function.iterate_succ_apply']; exact abs_bellmanEval_le hR hB' s⟩
 
 /-! ### The optimality operator as the maximum of the evaluation operators -/
 
