@@ -6,7 +6,9 @@ Authors: Rémy Degenne
 module
 
 public import Mathlib.Algebra.BigOperators.Field
+public import Mathlib.Algebra.BigOperators.Group.Finset.Indicator
 public import Mathlib.Algebra.Order.BigOperators.Group.Finset
+public import Mathlib.Algebra.Order.Group.Indicator
 public import Mathlib.Analysis.Convex.Basic
 public import Mathlib.Basic.ENNReal.BigOperators
 public import Mathlib.Basic.Real.Basic
@@ -43,6 +45,8 @@ supported distributions, not a subset of `α → ℝ`.
   with weights `w` of the simplex is at most their supremum.
 * `LMLExplore.smul_sub_single_mem_simplex`: removing a mass `s < 1` from an entry of a vector of
   the simplex and rescaling by `(1 - s)⁻¹` stays in the simplex.
+* `LMLExplore.sub_single_add_indicator_mem_simplex`: moving a mass `s ≤ w b` from an entry of a
+  vector of the simplex to the entries of a nonempty finset, in equal parts, stays in the simplex.
 * `LMLExplore.exists_mem_simplex_apply_eq_and_smul_le`: a vector of the simplex with a prescribed
   entry `v_a = β` dominating a multiple `c w` of a vector of the simplex.
 * `LMLExplore.isCompact_simplex`: the simplex is compact.
@@ -137,6 +141,23 @@ lemma smul_sub_single_mem_simplex [DecidableEq α] {w : α → ℝ} (hw : w ∈ 
   · simp only [Pi.smul_apply, Pi.sub_apply, smul_eq_mul, ← Finset.mul_sum, Finset.sum_sub_distrib,
       Finset.sum_pi_single', Finset.mem_univ, ite_true, hw.2]
     field_simp [(sub_pos.2 hs1).ne']
+
+/-- Moving a mass `0 ≤ s ≤ w b` from the entry `b` of a vector `w` of the simplex to the entries
+of a nonempty finset `R`, in equal parts `s / #R`, gives a vector of the simplex. -/
+lemma sub_single_add_indicator_mem_simplex [DecidableEq α] {w : α → ℝ} (hw : w ∈ simplex α)
+    {b : α} {s : ℝ} (hs0 : 0 ≤ s) (hsb : s ≤ w b) {R : Finset α} (hR : R.Nonempty) :
+    w - Pi.single b s + (R : Set α).indicator (fun _ ↦ s / R.card) ∈ simplex α := by
+  have hr : 0 ≤ s / R.card := div_nonneg hs0 (Nat.cast_nonneg _)
+  refine ⟨fun c ↦ add_nonneg ?_ (Set.indicator_nonneg (fun _ _ ↦ hr) c), ?_⟩
+  · by_cases hcb : c = b
+    · subst hcb
+      simpa using hsb
+    · simpa [hcb] using hw.1 c
+  · simp only [Pi.add_apply, Pi.sub_apply, Finset.sum_add_distrib, Finset.sum_sub_distrib,
+      Finset.sum_pi_single', Finset.mem_univ, ite_true, hw.2,
+      Finset.sum_indicator_subset _ R.subset_univ, Finset.sum_const, nsmul_eq_mul]
+    field_simp [(Nat.cast_pos.2 hR.card_pos).ne' (α := ℝ)]
+    ring
 
 /-- Given a vector `w` of the simplex, an entry `a`, another entry `b ≠ a` and a scalar `c ≥ 0`
 with `c w_a ≤ β` and `c (1 - w_a) ≤ 1 - β`, some vector `v` of the simplex has `v_a = β` and
