@@ -75,14 +75,11 @@ theorem runValue_sub_integral_eq_integral_occupancy (hγ : γ < 1)
       (1 - γ : ℝ)⁻¹ * ∫ p, (M.lookahead γ v p - v p.1) ∂(M.occupancy γ alg μ) := by
   have h := IT.isAlgEnvSeq_trajMeasure alg (M.env μ)
   have h0 : (1 - γ : ℝ) ≠ 0 := sub_ne_zero.2 (by exact_mod_cast hγ.ne')
-  have hd : Measurable fun p : 𝓢 × 𝓐 ↦ M.lookahead γ v p - v p.1 :=
-    (measurable_lookahead hv).sub (hv.comp measurable_fst)
-  have hdB (p : 𝓢 × 𝓐) : |M.lookahead γ v p - v p.1| ≤ (C + γ * B) + B :=
-    (abs_sub _ _).trans (add_le_add (abs_lookahead_le hR hvB p) (hvB _))
   rw [runValue_eq_integral_add_tsum h hγ hR hv hvB, add_sub_cancel_left,
-    integral_occupancy h hγ (integrable_of_abs_le hd hdB _), inv_mul_cancel_left₀ h0]
+    integral_occupancy h hγ (integrable_lookahead_sub hR hv hvB _), inv_mul_cancel_left₀ h0]
   refine tsum_congr fun n ↦ ?_
-  rw [integral_map (h.measurable_obs_action n).aemeasurable hd.aestronglyMeasurable]
+  rw [integral_map (h.measurable_obs_action n).aemeasurable
+    (integrable_lookahead_sub hR hv hvB _).aestronglyMeasurable]
 
 /-- **Performance difference lemma** [AJKS, Lemma 1.16]: with bounded rewards and `γ < 1`, for
 every algorithm `alg` and every stationary policy `π`, the discounted value of `alg` from the
@@ -117,29 +114,31 @@ theorem integral_integral_sub_integral_value (hγ : γ < 1) (hR : ∀ p, ∀ᵐ 
   have hV : Measurable V :=
     (hQ.stronglyMeasurable.integral_kernel_prod_right' (κ := π')).measurable
   have hVB (s : 𝓢) : |V s| ≤ B := abs_integral_le_of_abs_le fun a ↦ hQB (s, a)
-  have hL : Measurable (M.lookahead γ V) := measurable_lookahead hV
-  have hLB (p : 𝓢 × 𝓐) : |M.lookahead γ V p| ≤ C + γ * B := abs_lookahead_le hR hVB p
+  have hVQ (ν : Measure (𝓢 × 𝓐)) [IsFiniteMeasure ν] : Integrable (fun p ↦ V p.1 - Q p) ν :=
+    integrable_of_abs_le ((hV.comp measurable_fst).sub hQ)
+      (fun p ↦ (abs_sub _ _).trans (add_le_add (hVB _) (hQB p))) ν
+  have hQL : Integrable (fun p ↦ Q p - M.lookahead γ V p) d :=
+    integrable_of_abs_le (hQ.sub (measurable_lookahead hV))
+      (fun p ↦ (abs_sub _ _).trans (add_le_add (hQB p) (abs_lookahead_le hR hVB p))) d
   -- the policy-mismatch term is the integral of `V̂ s - Q̂ (s, a)` against `d = d.fst ⊗ₘ π`
   have h_mismatch : ∫ s, (V s - ∫ a, Q (s, a) ∂(π s)) ∂d.fst = ∫ p, (V p.1 - Q p) ∂d := by
-    have hint : Integrable (fun p : 𝓢 × 𝓐 ↦ V p.1 - Q p) (d.fst ⊗ₘ π) :=
-      integrable_of_abs_le ((hV.comp measurable_fst).sub hQ)
-        (fun p ↦ (abs_sub _ _).trans (add_le_add (hVB _) (hQB p))) _
     conv_rhs => rw [← d.disintegrate π]
-    rw [Measure.integral_compProd hint]
+    rw [Measure.integral_compProd (hVQ _)]
     refine integral_congr_ae (.of_forall fun s ↦ ?_)
     dsimp only
     rw [integral_sub (integrable_const _) (integrable_of_abs_le (f := fun a ↦ Q (s, a))
       (hQ.comp measurable_prodMk_left) (fun a ↦ hQB (s, a)) _), integral_const, probReal_univ,
       one_smul]
-  rw [← runValue_markov_const hγ hR, ← neg_sub,
-    runValue_sub_integral_eq_integral_occupancy hγ hR hV hVB, h_mismatch,
-    ← integral_add (integrable_of_abs_le (f := fun p ↦ V p.1 - Q p)
-      ((hV.comp measurable_fst).sub hQ) (fun p ↦ (abs_sub _ _).trans (add_le_add (hVB _) (hQB p)))
-      _)
-      (integrable_of_abs_le (f := fun p ↦ Q p - M.lookahead γ V p) (hQ.sub hL)
-        (fun p ↦ (abs_sub _ _).trans (add_le_add (hQB p) (hLB p))) _),
-    ← mul_neg, ← integral_neg]
-  congr 2 with p
-  ring
+  -- the Bellman residual of `V̂` is minus the sum of the mismatch and Bellman-error integrands
+  have h_res : ∫ p, (M.lookahead γ V p - V p.1) ∂d =
+      -(∫ p, (V p.1 - Q p) ∂d + ∫ p, (Q p - M.lookahead γ V p) ∂d) := by
+    rw [← integral_add (hVQ d) hQL, ← integral_neg]
+    congr with p
+    ring
+  have h := runValue_sub_integral_eq_integral_occupancy (μ := μ) hγ hR hV hVB
+    (Algorithm.markov fun _ ↦ π)
+  rw [runValue_markov_const hγ hR, h_res] at h
+  rw [h_mismatch]
+  linear_combination -h
 
 end Learning.MDP

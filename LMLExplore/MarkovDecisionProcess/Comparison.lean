@@ -161,15 +161,12 @@ theorem runValue_markov_const_eq_integral_add_tsum [IsProbabilityMeasure μ] {π
   rw [runValue_eq_integral_add_tsum h hγ hR hv hvB]
   congr 1
   refine tsum_congr fun n ↦ ?_
-  have hd : Measurable fun p : 𝓢 × 𝓐 ↦ M.lookahead γ v p - v p.1 :=
-    (measurable_lookahead hv).sub (hv.comp measurable_fst)
-  have hdB (p : 𝓢 × 𝓐) : |M.lookahead γ v p - v p.1| ≤ (C + γ * B) + B :=
-    (abs_sub _ _).trans (add_le_add (abs_lookahead_le hR hvB p) (hvB _))
   -- the state-action pair of round `n` has law `μₙ ⊗ₘ π`, with `μₙ = P_π ^ n ∘ₘ μ`
   have hlaw := (hasLaw_obs_action_markov h n).integral_comp
-    (f := fun p ↦ M.lookahead γ v p - v p.1) hd.aestronglyMeasurable
+    (f := fun p ↦ M.lookahead γ v p - v p.1)
+    (integrable_lookahead_sub hR hv hvB _).aestronglyMeasurable
   simp only [Function.comp_def] at hlaw
-  rw [hlaw, Measure.integral_compProd (integrable_of_abs_le hd hdB _),
+  rw [hlaw, Measure.integral_compProd (integrable_lookahead_sub hR hv hvB _),
     stateMarginal_const]
   congr 1
   refine integral_congr_ae (.of_forall fun s ↦ ?_)

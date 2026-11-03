@@ -150,6 +150,14 @@ lemma integrable_lookahead_prodMk_left (hR : ∀ p, ∀ᵐ x ∂(M.R p), |x| ≤
   integrable_of_abs_le ((measurable_lookahead hv).comp measurable_prodMk_left)
     (fun a ↦ abs_lookahead_le hR hvB (s, a)) ν
 
+/-- With bounded rewards, the Bellman residual `r (s, a) + γ * ∫ v dP (s, a) - v s` of a bounded
+measurable function is integrable for every finite measure on the state-action pairs. -/
+lemma integrable_lookahead_sub (hR : ∀ p, ∀ᵐ x ∂(M.R p), |x| ≤ C) (hv : Measurable v)
+    (hvB : ∀ s, |v s| ≤ B) (ν : Measure (𝓢 × 𝓐)) [IsFiniteMeasure ν] :
+    Integrable (fun p ↦ M.lookahead γ v p - v p.1) ν :=
+  integrable_of_abs_le ((measurable_lookahead hv).sub (hv.comp measurable_fst))
+    (fun p ↦ (abs_sub _ _).trans (add_le_add (abs_lookahead_le hR hvB p) (hvB _))) ν
+
 /-! ### The optimality operator -/
 
 variable (M γ) in
