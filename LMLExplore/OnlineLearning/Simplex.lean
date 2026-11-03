@@ -14,8 +14,8 @@ public import LMLExplore.OnlineLearning.FTRL
 
 Follow the regularized leader on the probability simplex of a finite set `α`, with the unnormalized
 negative entropy `negEntropy` as potential and learning rate `η`, is the exponential weights
-algorithm [LS, Example 28.3, (28.5)]: at round `t` it plays `softmax (-(η • ∑ s < t, ŷ s))`,
-where `ŷ s a` is the loss of the vertex `a` at round `s`.
+algorithm [LS, Example 28.3, (28.5)]: at round `t` it plays `softmax (-(η • ∑ s < t, ŷ s))`,
+where `ŷ s a` is the loss of the vertex `a` at round `s`.
 
 The space of plays is `PiLp 1 (fun _ : α ↦ ℝ)`, whose `ℓ¹` norm makes the negative entropy
 `1`-strongly convex on the simplex (Pinsker's inequality); the losses are in its dual, normed by
