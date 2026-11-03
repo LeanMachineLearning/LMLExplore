@@ -78,8 +78,8 @@ lemma answerValue_le_iSup_sum_klDiv {q : StdSimplex ℝ Θ} (hq : ↑q.weights.s
   rw [answerValue_def]
   refine iSup₂_le fun w hw ↦ ?_
   have hq1 : ∑ θ' ∈ q.weights.support, ENNReal.ofReal (q.weights θ') = 1 := by
-    rw [← ENNReal.ofReal_sum_of_nonneg fun θ' _ ↦ q.weights_nonneg θ', ← ENNReal.ofReal_one]
-    exact congrArg ENNReal.ofReal q.total
+    rw [← ENNReal.ofReal_sum_of_nonneg fun θ' _ ↦ q.weights_nonneg θ', ← ENNReal.ofReal_one,
+      ← q.total, Finsupp.sum]
   calc task.altCost θ w i
       = ∑ θ' ∈ q.weights.support, ENNReal.ofReal (q.weights θ') * task.altCost θ w i := by
         rw [← Finset.sum_mul, hq1, one_mul]
