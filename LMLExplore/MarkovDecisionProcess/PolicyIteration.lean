@@ -135,15 +135,6 @@ theorem bellmanEval_succ_value (k : ℕ) :
 
 variable [Finite 𝓐]
 
-/-- The value of each policy of policy iteration is below its image by the optimality
-operator. -/
-theorem value_le_bellman (k : ℕ) :
-    M.value γ (Kernel.deterministic (d k) (h.measurable k)) ≤
-      M.bellman γ (M.value γ (Kernel.deterministic (d k) (h.measurable k))) := fun s ↦ by
-  conv_lhs => rw [← bellmanEval_value hγ hR]
-  rw [bellmanEval_deterministic (measurable_value hγ hR)]
-  exact lookahead_le_bellman _ s _
-
 variable [Nonempty 𝓢]
 
 /-- **Policy improvement** [P, Proposition 6.4.1]: the value of each policy of policy iteration is
@@ -154,14 +145,14 @@ theorem bellman_le_value_succ (k : ℕ) :
   rw [← h.bellmanEval_succ_value hγ hR k]
   refine bellmanEval_le_value hγ hR (measurable_value hγ hR) (abs_value_le hγ hR) ?_
   rw [h.bellmanEval_succ_value hγ hR k]
-  exact h.value_le_bellman hγ hR k
+  exact value_le_bellman hγ hR (h.measurable k)
 
 /-- **Policy improvement** [P, Proposition 6.4.1]: the values of policy iteration are
 nondecreasing. -/
 theorem monotone_value :
     Monotone fun k ↦ M.value γ (Kernel.deterministic (d k) (h.measurable k)) :=
   monotone_nat_of_le_succ fun k ↦
-    (h.value_le_bellman hγ hR k).trans (h.bellman_le_value_succ hγ hR k)
+    (value_le_bellman hγ hR (h.measurable k)).trans (h.bellman_le_value_succ hγ hR k)
 
 omit [Finite 𝓐] in
 /-- **Newton form of policy iteration** [P, Proposition 6.4.4]: the value of `d (k + 1)` is
@@ -186,7 +177,7 @@ theorem value_succ_eq_iff [Nonempty 𝓐] (k : ℕ) :
       M.value γ (Kernel.deterministic (d k) (h.measurable k)) = M.optValue γ := by
   refine ⟨fun heq ↦ ?_, fun heq ↦ le_antisymm ?_ (h.monotone_value hγ hR k.le_succ)⟩
   · refine eq_optValue_of_bellman_eq hγ hR (measurable_value hγ hR) (abs_value_le hγ hR)
-      (le_antisymm ?_ (h.value_le_bellman hγ hR k))
+      (le_antisymm ?_ (value_le_bellman hγ hR (h.measurable k)))
     exact (h.bellman_le_value_succ hγ hR k).trans heq.le
   · exact (value_le_optValue (π := Kernel.deterministic (d (k + 1)) (h.measurable (k + 1))) hγ
       hR).trans heq.ge
@@ -207,7 +198,8 @@ theorem succ_eq_iff [Nonempty 𝓐] (hkeep : h.KeepsGreedy) (k : ℕ) :
   · -- `d k` is greedy for its value `v k`, since `v k ≤ T v k ≤ v (k + 1) = v k`
     have hT : M.bellman γ (M.value γ (Kernel.deterministic (d k) (h.measurable k))) =
         M.value γ (Kernel.deterministic (d k) (h.measurable k)) :=
-      le_antisymm ((h.bellman_le_value_succ hγ hR k).trans heq.le) (h.value_le_bellman hγ hR k)
+      le_antisymm ((h.bellman_le_value_succ hγ hR k).trans heq.le)
+        (value_le_bellman hγ hR (h.measurable k))
     rw [isGreedy_iff_bellmanEval_eq (measurable_value hγ hR) (h.measurable k),
       bellmanEval_value hγ hR, hT]
 
