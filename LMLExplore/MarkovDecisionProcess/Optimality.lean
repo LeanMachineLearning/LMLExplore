@@ -6,7 +6,7 @@ Authors: Rémy Degenne
 module
 
 public import LMLExplore.MarkovDecisionProcess.Comparison
-public import LMLExplore.MarkovDecisionProcess.ValueIteration
+public import LMLExplore.MarkovDecisionProcess.ValueIteration.Basic
 
 /-!
 # The optimality equation of a discounted MDP
