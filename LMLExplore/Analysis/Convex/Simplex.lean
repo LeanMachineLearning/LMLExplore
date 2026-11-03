@@ -40,6 +40,8 @@ supported distributions, not a subset of `α → ℝ`.
 * `LMLExplore.single_mem_simplex`: the vertices `Pi.single a 1` lie in the simplex.
 * `LMLExplore.uniform_mem_simplex`: the uniform distribution lies in the simplex.
 * `LMLExplore.simplex_nonempty`: the simplex of a nonempty type is nonempty.
+* `LMLExplore.eq_one_of_mem_simplex`: on a type with at most one element, the simplex is the
+  single point `fun _ ↦ 1`.
 * `LMLExplore.convex_simplex`: the simplex is convex.
 * `LMLExplore.sum_ofReal_mul_le_iSup`: an average `∑ a, w a * x a` of extended nonnegative reals
   with weights `w` of the simplex is at most their supremum.
@@ -243,6 +245,11 @@ lemma nonempty_of_mem_simplex (hw : w ∈ simplex α) : Nonempty α := by
   by_contra h
   rw [not_nonempty_iff] at h
   simpa using hw.2
+
+/-- On a type with at most one element, the only point of the simplex is the constant `1`. -/
+lemma eq_one_of_mem_simplex [Subsingleton α] (hw : w ∈ simplex α) : w = fun _ ↦ 1 := by
+  funext a
+  rw [← hw.2, Fintype.sum_subsingleton _ a]
 
 /-- For positive weights `c` on a nonempty type, the sum of the inverses `∑ b, (c b)⁻¹` is
 positive. -/

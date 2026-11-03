@@ -6,6 +6,7 @@ Authors: Rémy Degenne
 module
 
 public import LMLExplore.Analysis.Convex.NegEntropy
+public import LMLExplore.Analysis.Normed.Lp.PiLp
 public import LMLExplore.OnlineLearning.ExponentialWeights
 public import LMLExplore.OnlineLearning.FTRL
 
@@ -31,8 +32,8 @@ point of the simplex, `R_n ≤ log k / η + η / 2 ∑ t < n, ‖y t‖ ^ 2` wit
   entropy of `b` with respect to `softmax v`, up to an additive constant.
 * `isFTRLPlay_negEntropy_iff`: the plays of FTRL on the simplex with the negative entropy are the
   exponential weights of the cumulative losses of the vertices.
-* `ftrl_negEntropy_regret_le`: the regret bound `log k / η + η / 2 ∑ t < n, ‖y t‖ ^ 2`.
-* `ftrl_negEntropy_regret_le_sqrt`: [LS, Proposition 28.7] for FTRL, `R_n ≤ √(2 n log k)`.
+* `ftrl_regret_le_of_negEntropy`: the regret bound `log k / η + η / 2 ∑ t < n, ‖y t‖ ^ 2`.
+* `ftrl_regret_le_sqrt_of_negEntropy`: [LS, Proposition 28.7] for FTRL, `R_n ≤ √(2 n log k)`.
 * `softmax_regret_le_sqrt`: the same bound for exponential weights stated on `α → ℝ`, for losses
   in `[-1, 1]`.
 
@@ -77,18 +78,13 @@ theorem isFTRLPlay_negEntropy_iff [Nonempty α] [DecidableEq α] {η : ℝ}
       ofLp x = softmax (-(η • ∑ s ∈ range t, fun c ↦ y s (PiLp.single 1 c 1))) := by
   set v := -(η • ∑ s ∈ range t, fun c ↦ y s (PiLp.single 1 c 1))
   set p := softmax v
-  -- a linear functional is determined by its values at the vertices
-  have h_coord (L : PiLp 1 (fun _ : α ↦ ℝ) →L[ℝ] ℝ) (b : PiLp 1 fun _ : α ↦ ℝ) :
-      L b = ∑ c, b c * L (PiLp.single 1 c 1) := by
-    conv_lhs => rw [← (PiLp.basisFun 1 ℝ α).sum_repr b]
-    simp [map_sum, map_smul, PiLp.basisFun_apply]
   -- the objective at `b` in the simplex is the relative entropy of `b` with respect to `p`,
   -- up to a constant
   have h_obj (b : PiLp 1 fun _ : α ↦ ℝ) (hb : ofLp b ∈ simplex α) :
       η * ∑ s ∈ range t, y s b + negEntropy (ofLp b) =
         ∑ c, b c * log (b c / p c) - log (∑ c, exp (v c)) - 1 := by
     rw [← negEntropy_sub_sum_mul_eq v hb]
-    simp_rw [h_coord (y _) b, v, Pi.neg_apply, Pi.smul_apply,
+    simp_rw [PiLp.apply_eq_sum_smul_apply_single 1 (y _) b, v, Pi.neg_apply, Pi.smul_apply,
       Finset.sum_apply, smul_eq_mul]
     simp only [mul_neg, sum_neg_distrib, sub_neg_eq_add, mul_sum]
     rw [add_comm, sum_comm]
@@ -99,23 +95,19 @@ theorem isFTRLPlay_negEntropy_iff [Nonempty α] [DecidableEq α] {η : ℝ}
   · intro hx
     -- the objective at `x` is at most its value at `p`, so the relative entropy vanishes
     have h_le := isMinOn_iff.1 hx.isMinOn (toLp 1 p) (by simpa using hp)
-    rw [h_obj x hx.mem, h_obj _ (by simpa using hp)] at h_le
-    have h_self : ∑ c, p c * log (p c / p c) = 0 := by simp [div_self (hp0 _)]
-    have h_pinsker := sq_sum_abs_sub_le_two_mul_sum_mul_log_div (x := ofLp x) hx.mem hp
-      fun c h ↦ absurd h (hp0 c)
-    have h_sum : ∑ c, |x c - p c| = 0 := by
-      nlinarith [sq_nonneg (∑ c, |x c - p c|), sum_nonneg fun c (_ : c ∈ univ) ↦
-        abs_nonneg (x c - p c)]
-    funext c
-    exact sub_eq_zero.1 (abs_eq_zero.1
-      ((sum_eq_zero_iff_of_nonneg fun c _ ↦ abs_nonneg _).1 h_sum c (mem_univ c)))
+    rw [h_obj x hx.mem, h_obj _ (by simpa using hp), ofLp_toLp] at h_le
+    have hxp (c : α) : p c = 0 → x c = 0 := fun h ↦ absurd h (hp0 c)
+    have h_gibbs := sum_mul_log_div_nonneg (mem_simplex_iff.1 hx.mem).1 (mem_simplex_iff.1 hp).1
+      hxp ((mem_simplex_iff.1 hp).2.trans (mem_simplex_iff.1 hx.mem).2.symm).le
+    simp only [log_div_self, mul_zero, sum_const_zero] at h_le
+    exact (sum_mul_log_div_eq_zero_iff hx.mem hp hxp).1 (by linarith)
   · intro hx
     have hx_mem : ofLp x ∈ simplex α := hx ▸ hp
     refine ⟨hx_mem, isMinOn_iff.2 fun b hb ↦ ?_⟩
     rw [h_obj x hx_mem, h_obj b hb, hx]
-    have h_self : ∑ c, p c * log (p c / p c) = 0 := by simp [div_self (hp0 _)]
-    have h_gibbs := sum_mul_log_div_nonneg (x := ofLp b) hb hp fun c h ↦ absurd h (hp0 c)
-    simp only [h_self]
+    have h_gibbs := sum_mul_log_div_nonneg (mem_simplex_iff.1 hb).1 (mem_simplex_iff.1 hp).1
+      (fun c h ↦ absurd h (hp0 c)) ((mem_simplex_iff.1 hp).2.trans (mem_simplex_iff.1 hb).2.symm).le
+    simp only [log_div_self, mul_zero, sum_const_zero]
     linarith
 
 /-- **Regret of FTRL with the negative entropy on the simplex.** Let each `a t`, for `t ≤ n`, be
@@ -123,7 +115,7 @@ a play of FTRL on the simplex of `PiLp 1 (fun _ : α ↦ ℝ)` with the unnormal
 as potential, learning rate `η > 0` and losses `y`. Then the regret against every point `u` of
 the simplex is at most `log k / η + η / 2 ∑ t < n, ‖y t‖ ^ 2`, with `k` the cardinality of `α`
 and `‖y t‖` the operator norm, the sup norm of the losses of the vertices. -/
-theorem ftrl_negEntropy_regret_le {n : ℕ} {η : ℝ} (hη : 0 < η)
+theorem ftrl_regret_le_of_negEntropy {n : ℕ} {η : ℝ} (hη : 0 < η)
     (y : ℕ → PiLp 1 (fun _ : α ↦ ℝ) →L[ℝ] ℝ) (a : ℕ → PiLp 1 fun _ : α ↦ ℝ)
     (ha : ∀ t ≤ n, IsFTRLPlay (ofLp ⁻¹' simplex α) (fun x ↦ negEntropy (ofLp x)) η y t (a t))
     {u : PiLp 1 fun _ : α ↦ ℝ} (hu : ofLp u ∈ simplex α) :
@@ -151,7 +143,7 @@ losses `y t` of operator norm at most `1` (the sup norm of the losses of the ver
 learning rate `η = √(2 log k / n)`, with `k` the cardinality of `α`, the regret of FTRL on the
 simplex with the unnormalized negative entropy as potential, against every point of the simplex,
 is at most `√(2 n log k)`. -/
-theorem ftrl_negEntropy_regret_le_sqrt {n : ℕ}
+theorem ftrl_regret_le_sqrt_of_negEntropy {n : ℕ}
     (y : ℕ → PiLp 1 (fun _ : α ↦ ℝ) →L[ℝ] ℝ) (hy : ∀ t < n, ‖y t‖ ≤ 1)
     (a : ℕ → PiLp 1 fun _ : α ↦ ℝ)
     (ha : ∀ t ≤ n, IsFTRLPlay (ofLp ⁻¹' simplex α) (fun x ↦ negEntropy (ofLp x))
@@ -164,15 +156,10 @@ theorem ftrl_negEntropy_regret_le_sqrt {n : ℕ}
   rcases (Nat.one_le_iff_ne_zero.2 Fintype.card_ne_zero : 1 ≤ Fintype.card α).eq_or_lt with
     hk | hk
   · -- with a single coordinate, the simplex is a single point
-    obtain ⟨c, hc⟩ := Fintype.card_eq_one_iff.1 hk.symm
-    have h_eq (x : α → ℝ) (hx : x ∈ simplex α) : x = fun _ ↦ 1 := by
-      funext b
-      have h_sum := (mem_simplex_iff.1 hx).2
-      rw [Fintype.sum_eq_single c fun d hd ↦ absurd (hc d) hd] at h_sum
-      rw [hc b, h_sum]
+    have : Subsingleton α := Fintype.card_le_one_iff_subsingleton.1 hk.symm.le
     have h_zero (t : ℕ) (ht : t ∈ range n) : y t (a t - u) = 0 := by
       have : a t = u := ofLp_injective 1 <| by
-        rw [h_eq _ (ha t (mem_range.1 ht).le).mem, h_eq _ hu]
+        rw [eq_one_of_mem_simplex (ha t (mem_range.1 ht).le).mem, eq_one_of_mem_simplex hu]
       rw [this, sub_self, map_zero]
     rw [sum_eq_zero h_zero]
     exact sqrt_nonneg _
@@ -182,7 +169,7 @@ theorem ftrl_negEntropy_regret_le_sqrt {n : ℕ}
   set η := √(2 * L / n)
   have hη : 0 < η := sqrt_pos.2 (by positivity)
   have hη2 : η ^ 2 = 2 * L / n := sq_sqrt (by positivity)
-  have h := ftrl_negEntropy_regret_le hη y a ha hu
+  have h := ftrl_regret_le_of_negEntropy hη y a ha hu
   have h_sum : ∑ t ∈ range n, ‖y t‖ ^ 2 ≤ n := by
     calc ∑ t ∈ range n, ‖y t‖ ^ 2
     _ ≤ ∑ t ∈ range n, (1 : ℝ) :=
@@ -213,11 +200,10 @@ theorem softmax_regret_le_sqrt {n : ℕ} {ℓ : ℕ → α → ℝ}
   -- the losses as linear functionals on `PiLp 1 (fun _ : α ↦ ℝ)`
   set y : ℕ → PiLp 1 (fun _ : α ↦ ℝ) →L[ℝ] ℝ :=
     fun t ↦ ∑ b, ℓ t b • PiLp.proj (𝕜 := ℝ) 1 (fun _ : α ↦ ℝ) b
-  have hy_apply (t : ℕ) (x : PiLp 1 fun _ : α ↦ ℝ) : y t x = ∑ b, ℓ t b * x b := by
-    simp [y]
-  have hy_single (t : ℕ) : (fun c ↦ y t (PiLp.single 1 c 1)) = ℓ t := by
-    funext c
-    simp [hy_apply, PiLp.single_apply]
+  have hy_apply (t : ℕ) (x : PiLp 1 fun _ : α ↦ ℝ) : y t x = ∑ b, ℓ t b * x b :=
+    PiLp.sum_smul_proj_apply 1 (ℓ t) x
+  have hy_single (t : ℕ) : (fun c ↦ y t (PiLp.single 1 c 1)) = ℓ t :=
+    funext (PiLp.sum_smul_proj_apply_single 1 (ℓ t))
   have hy (t : ℕ) (ht : t < n) : ‖y t‖ ≤ 1 := by
     refine ContinuousLinearMap.opNorm_le_bound _ zero_le_one fun x ↦ ?_
     rw [hy_apply, one_mul, PiLp.norm_eq_of_L1, Real.norm_eq_abs]
@@ -230,7 +216,7 @@ theorem softmax_regret_le_sqrt {n : ℕ} {ℓ : ℕ → α → ℝ}
       (toLp 1 (softmax (-(η • ∑ s ∈ range t, ℓ s)))) := by
     rw [isFTRLPlay_negEntropy_iff, ofLp_toLp]
     simp_rw [hy_single]
-  have h := ftrl_negEntropy_regret_le_sqrt y hy _ (fun t _ ↦ ha t) (u := toLp 1 u)
+  have h := ftrl_regret_le_sqrt_of_negEntropy y hy _ (fun t _ ↦ ha t) (u := toLp 1 u)
     (by simpa using hu)
   refine (le_of_eq (sum_congr rfl fun t _ ↦ ?_)).trans h
   rw [hy_apply, ← sum_sub_distrib]
