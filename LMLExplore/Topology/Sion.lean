@@ -63,9 +63,8 @@ lemma iSup_simplex_ofReal_dotProduct (y : α → ℝ) :
     calc w ⬝ᵥ y ≤ ∑ a, w a * y b :=
           Finset.sum_le_sum fun a _ ↦ mul_le_mul_of_nonneg_left (hb a (Finset.mem_univ a)) (hw0 a)
       _ = y b := by rw [← Finset.sum_mul, hw1, one_mul]
-  · refine le_iSup₂_of_le (Pi.single a 1) (mem_simplex_iff.2 ⟨fun c ↦ ?_, by simp⟩) ?_
-    · by_cases h : c = a <;> simp [h]
-    · rw [single_dotProduct, one_mul]
+  · refine le_iSup₂_of_le (Pi.single a 1) (single_mem_simplex a) ?_
+    rw [single_dotProduct, one_mul]
 
 /-- **Von Neumann's minimax theorem** on the probability simplex, for payoffs in `ℝ≥0∞`: for a
 convex set `Y` of vectors,

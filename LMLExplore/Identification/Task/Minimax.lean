@@ -93,6 +93,15 @@ lemma answerValue_le_iSup_sum_klDiv {q : StdSimplex ℝ Θ} (hq : ↑q.weights.s
         exact mul_left_comm _ _ _
     _ ≤ _ := sum_ofReal_mul_le_iSup hw _
 
+/-- A sum `∑ x ∈ s, f x * (g x).toReal` of finite extended nonnegative reals `g x` with
+nonnegative weights `f x`, mapped back to `ℝ≥0∞`, is `∑ x ∈ s, f x * g x`. -/
+private lemma ofReal_sum_mul_toReal {ι : Type*} {s : Finset ι} {f : ι → ℝ} {g : ι → ℝ≥0∞}
+    (hf : ∀ x ∈ s, 0 ≤ f x) (hg : ∀ x ∈ s, g x ≠ ∞) :
+    ENNReal.ofReal (∑ x ∈ s, f x * (g x).toReal) = ∑ x ∈ s, ENNReal.ofReal (f x) * g x := by
+  rw [ENNReal.ofReal_sum_of_nonneg fun x hx ↦ mul_nonneg (hf x hx) ENNReal.toReal_nonneg]
+  refine Finset.sum_congr rfl fun x hx ↦ ?_
+  rw [ENNReal.ofReal_mul (hf x hx), ENNReal.ofReal_toReal (hg x hx)]
+
 /-- The minimax inequality `inf_q max_a E_{λ ∼ q}[KL(ν_a(θ), ν_a(λ))] ≤ D(θ, ¬i)` when all the
 alternatives to `i` are at finite divergence from `θ` on every arm: von Neumann's minimax theorem
 on the simplex, for the convex set of the vectors `(E_{λ ∼ q}[KL(ν_a(θ), ν_a(λ))])_a`. -/
@@ -106,26 +115,13 @@ private lemma iInf_iSup_sum_klDiv_le_of_ne_top [Nonempty α]
   set p : Θ → α → ℝ := fun θ' a ↦ (klDiv (task.ν θ a) (task.ν θ' a)).toReal
   set Q : Set (Θ →₀ ℝ) :=
     {q | 0 ≤ q ∧ ↑q.support ⊆ task.alt i ∧ q.sum (fun _ r ↦ r) = 1}
-  have hQ : Convex ℝ Q := by
-    intro q₁ hq₁ q₂ hq₂ b₁ b₂ hb₁ hb₂ hb
-    refine ⟨fun θ' ↦ ?_, ?_, ?_⟩
-    · simpa using add_nonneg (mul_nonneg hb₁ (hq₁.1 θ')) (mul_nonneg hb₂ (hq₂.1 θ'))
-    · intro θ' hθ'
-      rcases Finset.mem_union.1 (Finsupp.support_add hθ') with h | h
-      exacts [hq₁.2.1 (Finsupp.support_smul h), hq₂.2.1 (Finsupp.support_smul h)]
-    · rw [Finsupp.sum_add_index' (fun _ ↦ rfl) (fun _ _ _ ↦ rfl),
-        Finsupp.sum_smul_index (fun _ ↦ rfl), Finsupp.sum_smul_index (fun _ ↦ rfl),
-        ← Finsupp.mul_sum, ← Finsupp.mul_sum, hq₁.2.2, hq₂.2.2, mul_one, mul_one, hb]
   set Y := Finsupp.linearCombination ℝ p '' Q
   have hmix {q : Θ →₀ ℝ} (hq : q ∈ Q) (a : α) :
       ENNReal.ofReal (Finsupp.linearCombination ℝ p q a) =
         q.sum fun θ' r ↦ ENNReal.ofReal r * klDiv (task.ν θ a) (task.ν θ' a) := by
     rw [Finsupp.linearCombination_apply, Finsupp.sum, Finset.sum_apply, Finsupp.sum]
     simp_rw [Pi.smul_apply, smul_eq_mul]
-    rw [ENNReal.ofReal_sum_of_nonneg fun θ' _ ↦ mul_nonneg (hq.1 θ') ENNReal.toReal_nonneg]
-    refine Finset.sum_congr rfl fun θ' hθ' ↦ ?_
-    rw [ENNReal.ofReal_mul (hq.1 θ'),
-      ENNReal.ofReal_toReal (hfin θ' (hq.2.1 hθ') a)]
+    exact ofReal_sum_mul_toReal (fun θ' _ ↦ hq.1 θ') fun θ' hθ' ↦ hfin θ' (hq.2.1 hθ') a
   have hsingle (θ' : Θ) (hθ' : θ' ∈ task.alt i) : p θ' ∈ Y := by
     refine ⟨Finsupp.single θ' 1, ⟨Finsupp.single_nonneg.2 zero_le_one, ?_, ?_⟩, ?_⟩
     · exact (Finset.coe_subset.2 Finsupp.support_single_subset).trans (by simpa using hθ')
@@ -138,17 +134,16 @@ private lemma iInf_iSup_sum_klDiv_le_of_ne_top [Nonempty α]
         subst hy
         exact iInf₂_le_of_le ⟨q, hq.1, hq.2.2⟩ hq.2.1 (by simp_rw [hmix hq]; rfl)
     _ = ⨆ w ∈ simplex α, ⨅ y ∈ Y, ENNReal.ofReal (w ⬝ᵥ y) :=
-        (iSup_simplex_iInf_ofReal_dotProduct (hQ.linear_image _)).symm
+        (iSup_simplex_iInf_ofReal_dotProduct
+          ((convex_setOf_nonneg_support_subset_sum_eq_one _).linear_image _)).symm
     _ ≤ task.answerValue θ i := by
         rw [answerValue_def]
         refine iSup₂_mono fun w hw ↦ ?_
         rw [altCost_def]
         refine le_iInf₂ fun θ' hθ' ↦ iInf₂_le_of_le _ (hsingle θ' hθ') ?_
-        obtain ⟨hw0, -⟩ := mem_simplex_iff.1 hw
-        rw [dotProduct, ENNReal.ofReal_sum_of_nonneg fun a _ ↦
-          mul_nonneg (hw0 a) ENNReal.toReal_nonneg, cost_def]
-        refine (Finset.sum_congr rfl fun a _ ↦ ?_).le
-        rw [ENNReal.ofReal_mul (hw0 a), ENNReal.ofReal_toReal (hfin θ' hθ' a)]
+        rw [dotProduct, cost_def]
+        exact (ofReal_sum_mul_toReal (fun a _ ↦ (mem_simplex_iff.1 hw).1 a)
+          fun a _ ↦ hfin θ' hθ' a).le
 
 /-- **The pure exploration game in minimax form** [DK19, Lemma 2]. The value `D(θ, ¬i)` of the
 answer `i` at the model `θ` is `inf_q max_a E_{λ ∼ q}[KL(ν_a(θ), ν_a(λ))]`, where `q` ranges over

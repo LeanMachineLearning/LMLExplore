@@ -395,7 +395,7 @@ lemma answerValue_restrict_setOf_klDiv_ne_top (θ : Θ) (i : ℐ) :
   · simp
   have ht1 : (t : ℝ) < 1 := by exact_mod_cast ENNReal.coe_lt_one_iff.1 ht
   set u : α → ℝ := fun _ ↦ (Fintype.card α : ℝ)⁻¹
-  have hu : u ∈ simplex α := mem_simplex_iff.2 ⟨fun _ ↦ by positivity, by simp [u]⟩
+  have hu : u ∈ simplex α := uniform_mem_simplex α
   set w' : α → ℝ := (t : ℝ) • w + (1 - (t : ℝ)) • u
   have hw' : w' ∈ simplex α :=
     convex_simplex α hw hu t.2 (sub_nonneg.2 ht1.le) (add_sub_cancel _ _)
