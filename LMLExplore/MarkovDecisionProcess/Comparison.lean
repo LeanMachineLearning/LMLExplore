@@ -69,7 +69,7 @@ Here `T` is the Bellman optimality operator `M.bellman γ` and `v*` the optimal 
 public section
 
 open MeasureTheory ProbabilityTheory Learning LMLExplore
-open scoped ENNReal NNReal lp
+open scoped NNReal
 
 namespace Learning.MDP
 
@@ -249,16 +249,9 @@ theorem bellmanEval_iterate_succ_sub (hR : ∀ p, ∀ᵐ x ∂(M.R p), |x| ≤ C
     (hvB : ∀ s, |v s| ≤ B) (n : ℕ) (s : 𝓢) :
     (M.bellmanEval γ π)^[n + 1] v s - (M.bellmanEval γ π)^[n] v s =
       (γ : ℝ) ^ n * ∫ s', (M.bellmanEval γ π v s' - v s') ∂((M.stateKernel π ^ n) s) := by
-  set V := boundedMeasurable.mk v hv (bddAbove_def.2 ⟨B, Set.forall_mem_range.2 hvB⟩)
-  -- the iterates of `T_π` at `v` are bounded measurable, as iterates of `M.bellmanEvalOp γ π hR`
-  have hn (k : ℕ) :
-      (M.bellmanEval γ π)^[k] v = ⇑((M.bellmanEvalOp γ π hR)^[k] V : ℓ^∞(𝓢, ℝ)) := by
-    rw [coeFn_bellmanEvalOp_iterate, boundedMeasurable.coeFn_mk]
-  have hm (k : ℕ) : Measurable ((M.bellmanEval γ π)^[k] v) :=
-    hn k ▸ boundedMeasurable.measurable _
-  have hB (k : ℕ) (s : 𝓢) :
-      |(M.bellmanEval γ π)^[k] v s| ≤ ‖(M.bellmanEvalOp γ π hR)^[k] V‖ :=
-    hn k ▸ boundedMeasurable.abs_apply_le_norm _ s
+  -- the iterates of `T_π` at `v` are bounded measurable
+  have hm := measurable_bellmanEval_iterate (M := M) (γ := γ) (π := π) hv
+  choose K hB using exists_abs_bellmanEval_iterate_le (M := M) (γ := γ) (π := π) hR hvB
   have hg : Measurable fun s' ↦ M.bellmanEval γ π v s' - v s' :=
     (measurable_bellmanEval hv).sub hv
   have hgi (μ : Measure 𝓢) [IsFiniteMeasure μ] :

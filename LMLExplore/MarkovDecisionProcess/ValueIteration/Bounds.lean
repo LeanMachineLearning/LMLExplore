@@ -45,8 +45,6 @@ involving `v*` assume finitely many actions.
 
 * `Learning.MDP.bellmanEval_iterate_add_le_value`, `Learning.MDP.add_sum_add_le_value`: the lower
   bound `T_π^[n] v + γ ^ n * a / (1 - γ) ≤ v^π` when `a ≤ T_π v - v` [P, Theorem 6.6.3].
-* `Learning.MDP.bellman_iterate_succ_le`: the increments of value iteration satisfy
-  `T^[n + 1] v - T^[n] v ≤ γ ^ n * b` when `T v - v ≤ b`.
 * `Learning.MDP.optValue_le_bellman_iterate_add`: the upper bound
   `v* ≤ T^[n] v + γ ^ n * b / (1 - γ)` when `T v - v ≤ b`, corrected from [P, Theorem 6.6.3].
 * `Learning.MDP.abs_bellman_add_sub_optValue_lt`,
@@ -62,7 +60,7 @@ involving `v*` assume finitely many actions.
 public section
 
 open MeasureTheory ProbabilityTheory Set Function LMLExplore Learning
-open scoped ENNReal NNReal lp
+open scoped NNReal
 
 namespace Learning.MDP
 
@@ -90,13 +88,9 @@ theorem bellmanEval_iterate_add_le_value (hγ : γ < 1) (hR : ∀ p, ∀ᵐ x �
     (hv : Measurable v) (hvB : ∀ s, |v s| ≤ B) (ha : ∀ s, a ≤ M.bellmanEval γ π v s - v s)
     (n : ℕ) (s : 𝓢) :
     (M.bellmanEval γ π)^[n] v s + (γ : ℝ) ^ n * a / (1 - γ) ≤ M.value γ π s := by
-  set V := boundedMeasurable.mk v hv (bddAbove_def.2 ⟨B, forall_mem_range.2 hvB⟩)
-  -- the iterate `T_π^[n] v` is bounded measurable, as an iterate of `M.bellmanEvalOp γ π hR`
-  have hn : (M.bellmanEval γ π)^[n] v = ⇑((M.bellmanEvalOp γ π hR)^[n] V : ℓ^∞(𝓢, ℝ)) := by
-    rw [coeFn_bellmanEvalOp_iterate, boundedMeasurable.coeFn_mk]
-  have hm : Measurable ((M.bellmanEval γ π)^[n] v) := hn ▸ boundedMeasurable.measurable _
-  have hB' (s : 𝓢) : |(M.bellmanEval γ π)^[n] v s| ≤ ‖(M.bellmanEvalOp γ π hR)^[n] V‖ :=
-    hn ▸ boundedMeasurable.abs_apply_le_norm _ s
+  -- the iterate `T_π^[n] v` is bounded measurable
+  have hm := measurable_bellmanEval_iterate (M := M) (γ := γ) (π := π) hv n
+  obtain ⟨K, hB'⟩ := exists_abs_bellmanEval_iterate_le (M := M) (γ := γ) (π := π) hR hvB n
   set u := (M.bellmanEval γ π)^[n] v
   set c := (γ : ℝ) ^ n * a / (1 - γ)
   -- the increment `T_π u - u = γ ^ n P_π ^ n (T_π v - v)` is at least `γ ^ n * a`
@@ -137,36 +131,7 @@ end Evaluation
 
 section Optimality
 
-variable [Finite 𝓐] [Nonempty 𝓐]
-
-/-- With finitely many actions and bounded rewards, if a bounded measurable `v` satisfies
-`T v - v ≤ b`, then the increments of value iteration satisfy
-`T^[n + 1] v - T^[n] v ≤ γ ^ n * b`. -/
-theorem bellman_iterate_succ_le (hR : ∀ p, ∀ᵐ x ∂(M.R p), |x| ≤ C) (hv : Measurable v)
-    (hvB : ∀ s, |v s| ≤ B) (hb : ∀ s, M.bellman γ v s - v s ≤ b) (n : ℕ) (s : 𝓢) :
-    (M.bellman γ)^[n + 1] v s ≤ (M.bellman γ)^[n] v s + (γ : ℝ) ^ n * b := by
-  set V := boundedMeasurable.mk v hv (bddAbove_def.2 ⟨B, forall_mem_range.2 hvB⟩)
-  -- the iterates of `T` at `v` are bounded measurable, as iterates of `M.bellmanOp γ hR`
-  have hn (k : ℕ) : (M.bellman γ)^[k] v = ⇑((M.bellmanOp γ hR)^[k] V : ℓ^∞(𝓢, ℝ)) := by
-    rw [coeFn_bellmanOp_iterate, boundedMeasurable.coeFn_mk]
-  have hint (k : ℕ) (p : 𝓢 × 𝓐) : Integrable ((M.bellman γ)^[k] v) (M.P p) :=
-    hn k ▸ boundedMeasurable.integrable _ _
-  induction n generalizing s with
-  | zero => simpa using (sub_le_iff_le_add').1 (hb s)
-  | succ n ih =>
-    calc (M.bellman γ)^[n + 1 + 1] v s = M.bellman γ ((M.bellman γ)^[n + 1] v) s := by
-          rw [iterate_succ_apply']
-      _ ≤ M.bellman γ ((M.bellman γ)^[n] v + fun _ ↦ (γ : ℝ) ^ n * b) s :=
-          bellman_mono (hint (n + 1))
-            (fun p ↦ (hint n p).add (integrable_const _)) (fun _ ↦ Finite.bddAbove_range _)
-            (fun s ↦ ih s) s
-      _ = M.bellman γ ((M.bellman γ)^[n] v) s + γ * ((γ : ℝ) ^ n * b) := by
-          rw [bellman_add_const (hint n) (fun _ ↦ Finite.bddAbove_range _), Pi.add_apply]
-      _ = (M.bellman γ)^[n + 1] v s + (γ : ℝ) ^ (n + 1) * b := by
-          rw [iterate_succ_apply']
-          ring
-
-variable [Nonempty 𝓢]
+variable [Finite 𝓐] [Nonempty 𝓐] [Nonempty 𝓢]
 
 /-- **Upper bound on the optimal value**, the corrected upper bound of [P, Theorem 6.6.3]: with
 finitely many actions, bounded rewards and `γ < 1`, if a bounded measurable `v` satisfies
@@ -176,13 +141,9 @@ theorem optValue_le_bellman_iterate_add (hγ : γ < 1) (hR : ∀ p, ∀ᵐ x ∂
     (hv : Measurable v) (hvB : ∀ s, |v s| ≤ B) (hb : ∀ s, M.bellman γ v s - v s ≤ b) (n : ℕ)
     (s : 𝓢) :
     M.optValue γ s ≤ (M.bellman γ)^[n] v s + (γ : ℝ) ^ n * b / (1 - γ) := by
-  set V := boundedMeasurable.mk v hv (bddAbove_def.2 ⟨B, forall_mem_range.2 hvB⟩)
-  -- the iterate `T^[n] v` is bounded measurable, as an iterate of `M.bellmanOp γ hR`
-  have hn : (M.bellman γ)^[n] v = ⇑((M.bellmanOp γ hR)^[n] V : ℓ^∞(𝓢, ℝ)) := by
-    rw [coeFn_bellmanOp_iterate, boundedMeasurable.coeFn_mk]
-  have hm : Measurable ((M.bellman γ)^[n] v) := hn ▸ boundedMeasurable.measurable _
-  have hB' (s : 𝓢) : |(M.bellman γ)^[n] v s| ≤ ‖(M.bellmanOp γ hR)^[n] V‖ :=
-    hn ▸ boundedMeasurable.abs_apply_le_norm _ s
+  -- the iterate `T^[n] v` is bounded measurable
+  have hm := measurable_bellman_iterate (M := M) (γ := γ) hv n
+  obtain ⟨K, hB'⟩ := exists_abs_bellman_iterate_le (M := M) (γ := γ) hR hvB n
   set u := (M.bellman γ)^[n] v
   set c := (γ : ℝ) ^ n * b / (1 - γ)
   -- `u + c` is a supersolution of the optimality equation

@@ -53,7 +53,11 @@ conditions, this makes the operators an instance of the abstract dynamic program
   unique bounded measurable solution, and it is bounded by `C / (1 - γ)`.
 * `Learning.MDP.abs_bellman_iterate_sub_le`: value iteration converges geometrically to it.
 * `Learning.MDP.abs_bellman_iterate_succ_sub_le`: the increments of value iteration decay
-  geometrically.
+  geometrically; `Learning.MDP.bellman_iterate_succ_le`: the one-sided form
+  `T^[n + 1] v - T^[n] v ≤ γ ^ n * b` when `T v - v ≤ b`.
+* `Learning.MDP.measurable_bellman_iterate`, `Learning.MDP.exists_abs_bellman_iterate_le`,
+  `Learning.MDP.measurable_bellmanEval_iterate`, `Learning.MDP.exists_abs_bellmanEval_iterate_le`:
+  the iterates of the operators at a bounded measurable function are bounded measurable.
 * `Learning.MDP.antitone_bellman_iterate`, `Learning.MDP.monotone_bellman_iterate`: monotone
   iterates.
 
@@ -71,7 +75,7 @@ open scoped ENNReal NNReal lp
 namespace Learning.MDP
 
 variable {𝓢 𝓐 : Type*} {m𝓢 : MeasurableSpace 𝓢} {m𝓐 : MeasurableSpace 𝓐}
-  {M : MDP 𝓢 𝓐 ℝ} {γ : ℝ≥0} {u v : 𝓢 → ℝ} {B B' C D : ℝ}
+  {M : MDP 𝓢 𝓐 ℝ} {γ : ℝ≥0} {u v : 𝓢 → ℝ} {B B' C D b : ℝ}
 
 /-! ### The optimality operator on bounded measurable functions -/
 
@@ -105,6 +109,25 @@ lemma coeFn_bellmanOp_iterate (n : ℕ) (v : boundedMeasurable 𝓢) :
   | succ n ih => rw [iterate_succ_apply', coeFn_bellmanOp, ih, iterate_succ_apply']
 
 variable {hR}
+
+omit [Nonempty 𝓐] in
+/-- The iterates of the optimality operator at a measurable `v` are measurable, for countably many
+actions. -/
+theorem measurable_bellman_iterate (hv : Measurable v) (n : ℕ) :
+    Measurable ((M.bellman γ)^[n] v) := by
+  induction n with
+  | zero => exact hv
+  | succ n ih => rw [iterate_succ_apply']; exact measurable_bellman ih
+
+omit [Countable 𝓐] in
+/-- With bounded rewards, the iterates of the optimality operator at a bounded `v` are bounded. -/
+theorem exists_abs_bellman_iterate_le (hR : ∀ p, ∀ᵐ x ∂(M.R p), |x| ≤ C) (hvB : ∀ s, |v s| ≤ B)
+    (n : ℕ) : ∃ B', ∀ s, |(M.bellman γ)^[n] v s| ≤ B' := by
+  induction n with
+  | zero => exact ⟨B, hvB⟩
+  | succ n ih =>
+    obtain ⟨B', hB'⟩ := ih
+    exact ⟨C + γ * B', fun s ↦ by rw [iterate_succ_apply']; exact abs_bellman_le hR hB' s⟩
 
 /-- A bounded measurable fixed point of `M.bellman γ` is a fixed point of `M.bellmanOp γ hR`. -/
 lemma isFixedPt_bellmanOp_mk (hu : Measurable u) (huB : ∀ s, |u s| ≤ B)
@@ -229,6 +252,32 @@ theorem abs_bellman_iterate_succ_sub_le (hR : ∀ p, ∀ᵐ x ∂(M.R p), |x| �
         rw [mul_comm]
         gcongr
 
+/-- With countably many actions and bounded rewards, if a bounded measurable `v` satisfies
+`T v - v ≤ b`, then the increments of value iteration satisfy
+`T^[n + 1] v - T^[n] v ≤ γ ^ n * b`. This is the one-sided companion of
+`Learning.MDP.abs_bellman_iterate_succ_sub_le`. -/
+theorem bellman_iterate_succ_le (hR : ∀ p, ∀ᵐ x ∂(M.R p), |x| ≤ C) (hv : Measurable v)
+    (hvB : ∀ s, |v s| ≤ B) (hb : ∀ s, M.bellman γ v s - v s ≤ b) (n : ℕ) (s : 𝓢) :
+    (M.bellman γ)^[n + 1] v s ≤ (M.bellman γ)^[n] v s + (γ : ℝ) ^ n * b := by
+  choose K hK using exists_abs_bellman_iterate_le (M := M) (γ := γ) hR hvB
+  have hint (k : ℕ) (p : 𝓢 × 𝓐) : Integrable ((M.bellman γ)^[k] v) (M.P p) :=
+    integrable_of_abs_le (measurable_bellman_iterate hv k) (hK k) _
+  induction n generalizing s with
+  | zero => simpa using (sub_le_iff_le_add').1 (hb s)
+  | succ n ih =>
+    calc (M.bellman γ)^[n + 1 + 1] v s = M.bellman γ ((M.bellman γ)^[n + 1] v) s := by
+          rw [iterate_succ_apply']
+      _ ≤ M.bellman γ ((M.bellman γ)^[n] v + fun _ ↦ (γ : ℝ) ^ n * b) s :=
+          bellman_mono (hint (n + 1)) (fun p ↦ (hint n p).add (integrable_const _))
+            (bddAbove_range_lookahead hR
+              fun s ↦ (abs_add_le _ _).trans (add_le_add (hK n s) le_rfl))
+            (fun s ↦ ih s) s
+      _ = M.bellman γ ((M.bellman γ)^[n] v) s + γ * ((γ : ℝ) ^ n * b) := by
+          rw [bellman_add_const (hint n) (bddAbove_range_lookahead hR (hK n)), Pi.add_apply]
+      _ = (M.bellman γ)^[n + 1] v s + (γ : ℝ) ^ (n + 1) * b := by
+          rw [iterate_succ_apply']
+          ring
+
 /-- **Monotone iterates, decreasing case** ([P, Proposition 6.3.2 (b)]): with countably many
 actions and bounded rewards, if a bounded measurable `v` satisfies `T v ≤ v`, then the iterates
 `T^[n] v` decrease. Applied to an iterate `v = T^[N] v₀`, the iterates of value iteration decrease
@@ -293,6 +342,24 @@ lemma coeFn_bellmanEvalOp_iterate (n : ℕ) (v : boundedMeasurable 𝓢) :
   induction n with
   | zero => rfl
   | succ n ih => rw [iterate_succ_apply', coeFn_bellmanEvalOp, ih, iterate_succ_apply']
+
+/-- The iterates of the evaluation operator of a stationary policy at a measurable `v` are
+measurable. -/
+theorem measurable_bellmanEval_iterate (hv : Measurable v) (n : ℕ) :
+    Measurable ((M.bellmanEval γ π)^[n] v) := by
+  induction n with
+  | zero => exact hv
+  | succ n ih => rw [iterate_succ_apply']; exact measurable_bellmanEval ih
+
+/-- With bounded rewards, the iterates of the evaluation operator of a stationary policy at a
+bounded `v` are bounded. -/
+theorem exists_abs_bellmanEval_iterate_le (hR : ∀ p, ∀ᵐ x ∂(M.R p), |x| ≤ C)
+    (hvB : ∀ s, |v s| ≤ B) (n : ℕ) : ∃ B', ∀ s, |(M.bellmanEval γ π)^[n] v s| ≤ B' := by
+  induction n with
+  | zero => exact ⟨B, hvB⟩
+  | succ n ih =>
+    obtain ⟨B', hB'⟩ := ih
+    exact ⟨C + γ * B', fun s ↦ by rw [iterate_succ_apply']; exact abs_bellmanEval_le hR hB' s⟩
 
 variable {hR} in
 /-- A bounded measurable fixed point of `M.bellmanEval γ π` is a fixed point of
