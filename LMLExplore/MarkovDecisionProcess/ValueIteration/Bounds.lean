@@ -43,11 +43,10 @@ involving `v*` assume finitely many actions.
 
 ## Main statements
 
-* `Learning.MDP.bellmanEval_iterate_succ_sub`, `Learning.MDP.bellmanEval_iterate_eq_add_sum`: the
-  increments of the iterates of `T_π` are `T_π^[n + 1] v - T_π^[n] v = (γ P_π) ^ n (T_π v - v)`,
-  so `T_π^[n] v = v + ∑ k < n, (γ P_π) ^ k (T_π v - v)`.
 * `Learning.MDP.bellmanEval_iterate_add_le_value`, `Learning.MDP.add_sum_add_le_value`: the lower
   bound `T_π^[n] v + γ ^ n * a / (1 - γ) ≤ v^π` when `a ≤ T_π v - v` [P, Theorem 6.6.3].
+* `Learning.MDP.bellman_iterate_succ_le`: the increments of value iteration satisfy
+  `T^[n + 1] v - T^[n] v ≤ γ ^ n * b` when `T v - v ≤ b`.
 * `Learning.MDP.optValue_le_bellman_iterate_add`: the upper bound
   `v* ≤ T^[n] v + γ ^ n * b / (1 - γ)` when `T v - v ≤ b`, corrected from [P, Theorem 6.6.3].
 * `Learning.MDP.abs_bellman_add_sub_optValue_lt`,
@@ -63,7 +62,7 @@ involving `v*` assume finitely many actions.
 public section
 
 open MeasureTheory ProbabilityTheory Set Function LMLExplore Learning
-open scoped NNReal
+open scoped ENNReal NNReal lp
 
 namespace Learning.MDP
 
@@ -78,80 +77,11 @@ private lemma add_div_one_sub_eq (hγ : γ < 1) (x : ℝ) (n : ℕ) :
   field_simp
   ring
 
-/-! ### Iterates of the evaluation operator -/
+/-! ### Lower bound on the value -/
 
 section Evaluation
 
-variable {π : Kernel 𝓢 𝓐} [IsMarkovKernel π]
-
-private lemma measurable_bellmanEval_iterate (hv : Measurable v) (n : ℕ) :
-    Measurable ((M.bellmanEval γ π)^[n] v) := by
-  induction n with
-  | zero => exact hv
-  | succ n ih => rw [iterate_succ']; exact measurable_bellmanEval ih
-
-private lemma exists_abs_bellmanEval_iterate_le (hR : ∀ p, ∀ᵐ x ∂(M.R p), |x| ≤ C)
-    (hvB : ∀ s, |v s| ≤ B) (n : ℕ) : ∃ B', ∀ s, |(M.bellmanEval γ π)^[n] v s| ≤ B' := by
-  induction n with
-  | zero => exact ⟨B, hvB⟩
-  | succ n ih =>
-    obtain ⟨B', hB'⟩ := ih
-    exact ⟨C + γ * B', fun s ↦ by rw [iterate_succ_apply']; exact abs_bellmanEval_le hR hB' s⟩
-
-/-- With bounded rewards, the increments of the iterates of the evaluation operator `T_π` of a
-stationary policy at a bounded measurable `v` are
-`T_π^[n + 1] v - T_π^[n] v = γ ^ n P_π ^ n (T_π v - v)`, where `P_π` is the state kernel of `π`. -/
-theorem bellmanEval_iterate_succ_sub (hR : ∀ p, ∀ᵐ x ∂(M.R p), |x| ≤ C) (hv : Measurable v)
-    (hvB : ∀ s, |v s| ≤ B) (n : ℕ) (s : 𝓢) :
-    (M.bellmanEval γ π)^[n + 1] v s - (M.bellmanEval γ π)^[n] v s =
-      (γ : ℝ) ^ n * ∫ s', (M.bellmanEval γ π v s' - v s') ∂((M.stateKernel π ^ n) s) := by
-  have hg : Measurable fun s' ↦ M.bellmanEval γ π v s' - v s' :=
-    (measurable_bellmanEval hv).sub hv
-  have hgB (s' : 𝓢) : |M.bellmanEval γ π v s' - v s'| ≤ (C + γ * B) + B :=
-    (abs_sub _ _).trans (add_le_add (abs_bellmanEval_le hR hvB s') (hvB s'))
-  induction n generalizing s with
-  | zero =>
-    simp only [zero_add, iterate_one, iterate_zero, id_eq, pow_zero, one_mul, Kernel.one_eq_id,
-      Kernel.id_apply]
-    rw [integral_dirac' _ s hg.stronglyMeasurable]
-  | succ n ih =>
-    obtain ⟨B₀, hB₀⟩ := exists_abs_bellmanEval_iterate_le (π := π) (γ := γ) hR hvB n
-    obtain ⟨B₁, hB₁⟩ := exists_abs_bellmanEval_iterate_le (π := π) (γ := γ) hR hvB (n + 1)
-    have hm₀ := measurable_bellmanEval_iterate (M := M) (γ := γ) (π := π) hv n
-    have hm₁ := measurable_bellmanEval_iterate (M := M) (γ := γ) (π := π) hv (n + 1)
-    calc (M.bellmanEval γ π)^[n + 1 + 1] v s - (M.bellmanEval γ π)^[n + 1] v s
-        = M.bellmanEval γ π ((M.bellmanEval γ π)^[n + 1] v) s -
-            M.bellmanEval γ π ((M.bellmanEval γ π)^[n] v) s := by
-          rw [iterate_succ_apply' _ (n + 1), iterate_succ_apply' _ n]
-      _ = γ * ∫ s', ((M.bellmanEval γ π)^[n + 1] v s' - (M.bellmanEval γ π)^[n] v s')
-            ∂(M.stateKernel π s) := by
-          rw [bellmanEval_eq_policyReward_add hR hm₁ hB₁,
-            bellmanEval_eq_policyReward_add hR hm₀ hB₀,
-            integral_sub (integrable_of_abs_le hm₁ hB₁ _) (integrable_of_abs_le hm₀ hB₀ _)]
-          ring
-      _ = γ * ∫ s', (γ : ℝ) ^ n * ∫ s'', (M.bellmanEval γ π v s'' - v s'')
-            ∂((M.stateKernel π ^ n) s') ∂(M.stateKernel π s) := by
-          simp_rw [ih]
-      _ = (γ : ℝ) ^ (n + 1) * ∫ s', (M.bellmanEval γ π v s' - v s')
-            ∂((M.stateKernel π ^ (n + 1)) s) := by
-          rw [integral_const_mul, pow_succ (M.stateKernel π) n, Kernel.mul_eq_comp,
-            Kernel.integral_comp (integrable_of_abs_le hg hgB _)]
-          ring
-
-/-- **Expansion of the iterates of the evaluation operator**: with bounded rewards, the iterates of
-the evaluation operator `T_π` of a stationary policy at a bounded measurable `v` are
-`T_π^[n] v = v + ∑ k < n, γ ^ k P_π ^ k (T_π v - v)`, where `P_π` is the state kernel of `π`. As
-`n → ∞`, this becomes the Newton form `Learning.MDP.value_eq_add_tsum` of the value. -/
-theorem bellmanEval_iterate_eq_add_sum (hR : ∀ p, ∀ᵐ x ∂(M.R p), |x| ≤ C) (hv : Measurable v)
-    (hvB : ∀ s, |v s| ≤ B) (n : ℕ) (s : 𝓢) :
-    (M.bellmanEval γ π)^[n] v s = v s + ∑ k ∈ Finset.range n, (γ : ℝ) ^ k *
-      ∫ s', (M.bellmanEval γ π v s' - v s') ∂((M.stateKernel π ^ k) s) := by
-  have h := Finset.sum_range_sub (fun k ↦ (M.bellmanEval γ π)^[k] v s) n
-  simp only [bellmanEval_iterate_succ_sub hR hv hvB, iterate_zero, id_eq] at h
-  rw [h]
-  ring
-
-variable [Nonempty 𝓢]
+variable {π : Kernel 𝓢 𝓐} [IsMarkovKernel π] [Nonempty 𝓢]
 
 /-- **Lower bound on the value** [P, Theorem 6.6.3]: with bounded rewards and `γ < 1`, if a bounded
 measurable `v` satisfies `a ≤ T_π v - v`, where `T_π` is the evaluation operator of the stationary
@@ -160,8 +90,13 @@ theorem bellmanEval_iterate_add_le_value (hγ : γ < 1) (hR : ∀ p, ∀ᵐ x �
     (hv : Measurable v) (hvB : ∀ s, |v s| ≤ B) (ha : ∀ s, a ≤ M.bellmanEval γ π v s - v s)
     (n : ℕ) (s : 𝓢) :
     (M.bellmanEval γ π)^[n] v s + (γ : ℝ) ^ n * a / (1 - γ) ≤ M.value γ π s := by
-  obtain ⟨B', hB'⟩ := exists_abs_bellmanEval_iterate_le (π := π) (γ := γ) hR hvB n
-  have hm := measurable_bellmanEval_iterate (M := M) (γ := γ) (π := π) hv n
+  set V := boundedMeasurable.mk v hv (bddAbove_def.2 ⟨B, forall_mem_range.2 hvB⟩)
+  -- the iterate `T_π^[n] v` is bounded measurable, as an iterate of `M.bellmanEvalOp γ π hR`
+  have hn : (M.bellmanEval γ π)^[n] v = ⇑((M.bellmanEvalOp γ π hR)^[n] V : ℓ^∞(𝓢, ℝ)) := by
+    rw [coeFn_bellmanEvalOp_iterate, boundedMeasurable.coeFn_mk]
+  have hm : Measurable ((M.bellmanEval γ π)^[n] v) := hn ▸ boundedMeasurable.measurable _
+  have hB' (s : 𝓢) : |(M.bellmanEval γ π)^[n] v s| ≤ ‖(M.bellmanEvalOp γ π hR)^[n] V‖ :=
+    hn ▸ boundedMeasurable.abs_apply_le_norm _ s
   set u := (M.bellmanEval γ π)^[n] v
   set c := (γ : ℝ) ^ n * a / (1 - γ)
   -- the increment `T_π u - u = γ ^ n P_π ^ n (T_π v - v)` is at least `γ ^ n * a`
@@ -171,9 +106,8 @@ theorem bellmanEval_iterate_add_le_value (hγ : γ < 1) (hR : ∀ p, ∀ᵐ x �
     have hint : a ≤ ∫ s', (M.bellmanEval γ π v s' - v s') ∂((M.stateKernel π ^ n) s) := by
       calc a = ∫ _, a ∂((M.stateKernel π ^ n) s) := by simp
         _ ≤ _ := integral_mono (integrable_const a)
-            (integrable_of_abs_le ((measurable_bellmanEval hv).sub hv)
-              (fun s' ↦ (abs_sub _ _).trans (add_le_add (abs_bellmanEval_le hR hvB s') (hvB s')))
-              _) ha
+            ((integrable_of_abs_le (measurable_bellmanEval hv) (abs_bellmanEval_le hR hvB) _).sub
+              (integrable_of_abs_le hv hvB _)) ha
     linarith [mul_le_mul_of_nonneg_left hint (pow_nonneg γ.coe_nonneg n)]
   -- so `u + c` is a subsolution of the evaluation equation of `π`
   have hle : (u + fun _ ↦ c) ≤ M.bellmanEval γ π (u + fun _ ↦ c) := fun s ↦ by
@@ -203,45 +137,31 @@ end Evaluation
 
 section Optimality
 
-private lemma measurable_bellman_iterate [Countable 𝓐] (hv : Measurable v) (n : ℕ) :
-    Measurable ((M.bellman γ)^[n] v) := by
-  induction n with
-  | zero => exact hv
-  | succ n ih => rw [iterate_succ']; exact measurable_bellman ih
-
-private lemma exists_abs_bellman_iterate_le [Nonempty 𝓐] (hR : ∀ p, ∀ᵐ x ∂(M.R p), |x| ≤ C)
-    (hvB : ∀ s, |v s| ≤ B) (n : ℕ) : ∃ B', ∀ s, |(M.bellman γ)^[n] v s| ≤ B' := by
-  induction n with
-  | zero => exact ⟨B, hvB⟩
-  | succ n ih =>
-    obtain ⟨B', hB'⟩ := ih
-    exact ⟨C + γ * B', fun s ↦ by rw [iterate_succ_apply']; exact abs_bellman_le hR hB' s⟩
-
 variable [Finite 𝓐] [Nonempty 𝓐]
 
 /-- With finitely many actions and bounded rewards, if a bounded measurable `v` satisfies
 `T v - v ≤ b`, then the increments of value iteration satisfy
 `T^[n + 1] v - T^[n] v ≤ γ ^ n * b`. -/
-private lemma bellman_iterate_succ_le (hR : ∀ p, ∀ᵐ x ∂(M.R p), |x| ≤ C) (hv : Measurable v)
+theorem bellman_iterate_succ_le (hR : ∀ p, ∀ᵐ x ∂(M.R p), |x| ≤ C) (hv : Measurable v)
     (hvB : ∀ s, |v s| ≤ B) (hb : ∀ s, M.bellman γ v s - v s ≤ b) (n : ℕ) (s : 𝓢) :
     (M.bellman γ)^[n + 1] v s ≤ (M.bellman γ)^[n] v s + (γ : ℝ) ^ n * b := by
+  set V := boundedMeasurable.mk v hv (bddAbove_def.2 ⟨B, forall_mem_range.2 hvB⟩)
+  -- the iterates of `T` at `v` are bounded measurable, as iterates of `M.bellmanOp γ hR`
+  have hn (k : ℕ) : (M.bellman γ)^[k] v = ⇑((M.bellmanOp γ hR)^[k] V : ℓ^∞(𝓢, ℝ)) := by
+    rw [coeFn_bellmanOp_iterate, boundedMeasurable.coeFn_mk]
+  have hint (k : ℕ) (p : 𝓢 × 𝓐) : Integrable ((M.bellman γ)^[k] v) (M.P p) :=
+    hn k ▸ boundedMeasurable.integrable _ _
   induction n generalizing s with
   | zero => simpa using (sub_le_iff_le_add').1 (hb s)
   | succ n ih =>
-    obtain ⟨B₀, hB₀⟩ := exists_abs_bellman_iterate_le (M := M) (γ := γ) hR hvB n
-    obtain ⟨B₁, hB₁⟩ := exists_abs_bellman_iterate_le (M := M) (γ := γ) hR hvB (n + 1)
-    have hm₀ := measurable_bellman_iterate (M := M) (γ := γ) hv n
-    have hm₁ := measurable_bellman_iterate (M := M) (γ := γ) hv (n + 1)
-    have hint₀ (p : 𝓢 × 𝓐) : Integrable ((M.bellman γ)^[n] v) (M.P p) :=
-      integrable_of_abs_le hm₀ hB₀ _
     calc (M.bellman γ)^[n + 1 + 1] v s = M.bellman γ ((M.bellman γ)^[n + 1] v) s := by
           rw [iterate_succ_apply']
       _ ≤ M.bellman γ ((M.bellman γ)^[n] v + fun _ ↦ (γ : ℝ) ^ n * b) s :=
-          bellman_mono (fun _ ↦ integrable_of_abs_le hm₁ hB₁ _)
-            (fun p ↦ (hint₀ p).add (integrable_const _)) (fun _ ↦ Finite.bddAbove_range _)
+          bellman_mono (hint (n + 1))
+            (fun p ↦ (hint n p).add (integrable_const _)) (fun _ ↦ Finite.bddAbove_range _)
             (fun s ↦ ih s) s
       _ = M.bellman γ ((M.bellman γ)^[n] v) s + γ * ((γ : ℝ) ^ n * b) := by
-          rw [bellman_add_const hint₀ (fun _ ↦ Finite.bddAbove_range _), Pi.add_apply]
+          rw [bellman_add_const (hint n) (fun _ ↦ Finite.bddAbove_range _), Pi.add_apply]
       _ = (M.bellman γ)^[n + 1] v s + (γ : ℝ) ^ (n + 1) * b := by
           rw [iterate_succ_apply']
           ring
@@ -256,8 +176,13 @@ theorem optValue_le_bellman_iterate_add (hγ : γ < 1) (hR : ∀ p, ∀ᵐ x ∂
     (hv : Measurable v) (hvB : ∀ s, |v s| ≤ B) (hb : ∀ s, M.bellman γ v s - v s ≤ b) (n : ℕ)
     (s : 𝓢) :
     M.optValue γ s ≤ (M.bellman γ)^[n] v s + (γ : ℝ) ^ n * b / (1 - γ) := by
-  obtain ⟨B', hB'⟩ := exists_abs_bellman_iterate_le (M := M) (γ := γ) hR hvB n
-  have hm := measurable_bellman_iterate (M := M) (γ := γ) hv n
+  set V := boundedMeasurable.mk v hv (bddAbove_def.2 ⟨B, forall_mem_range.2 hvB⟩)
+  -- the iterate `T^[n] v` is bounded measurable, as an iterate of `M.bellmanOp γ hR`
+  have hn : (M.bellman γ)^[n] v = ⇑((M.bellmanOp γ hR)^[n] V : ℓ^∞(𝓢, ℝ)) := by
+    rw [coeFn_bellmanOp_iterate, boundedMeasurable.coeFn_mk]
+  have hm : Measurable ((M.bellman γ)^[n] v) := hn ▸ boundedMeasurable.measurable _
+  have hB' (s : 𝓢) : |(M.bellman γ)^[n] v s| ≤ ‖(M.bellmanOp γ hR)^[n] V‖ :=
+    hn ▸ boundedMeasurable.abs_apply_le_norm _ s
   set u := (M.bellman γ)^[n] v
   set c := (γ : ℝ) ^ n * b / (1 - γ)
   -- `u + c` is a supersolution of the optimality equation
