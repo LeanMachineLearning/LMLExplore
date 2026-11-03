@@ -53,7 +53,8 @@ conditions, this makes the operators an instance of the abstract dynamic program
   unique bounded measurable solution, and it is bounded by `C / (1 - γ)`.
 * `Learning.MDP.abs_bellman_iterate_sub_le`: value iteration converges geometrically to it.
 * `Learning.MDP.abs_bellman_iterate_succ_sub_le`: the increments of value iteration decay
-  geometrically.
+  geometrically; `Learning.MDP.bellman_iterate_succ_le`: the one-sided form
+  `T^[n + 1] v - T^[n] v ≤ γ ^ n * b` when `T v - v ≤ b`.
 * `Learning.MDP.antitone_bellman_iterate`, `Learning.MDP.monotone_bellman_iterate`: monotone
   iterates.
 
@@ -71,7 +72,7 @@ open scoped ENNReal NNReal lp
 namespace Learning.MDP
 
 variable {𝓢 𝓐 : Type*} {m𝓢 : MeasurableSpace 𝓢} {m𝓐 : MeasurableSpace 𝓐}
-  {M : MDP 𝓢 𝓐 ℝ} {γ : ℝ≥0} {u v : 𝓢 → ℝ} {B B' C D : ℝ}
+  {M : MDP 𝓢 𝓐 ℝ} {γ : ℝ≥0} {u v : 𝓢 → ℝ} {B B' C D b : ℝ}
 
 /-! ### The optimality operator on bounded measurable functions -/
 
@@ -228,6 +229,32 @@ theorem abs_bellman_iterate_succ_sub_le (hR : ∀ p, ∀ᵐ x ∂(M.R p), |x| �
     _ ≤ γ ^ n * D := by
         rw [mul_comm]
         gcongr
+
+/-- With countably many actions and bounded rewards, if a bounded measurable `v` satisfies
+`T v - v ≤ b`, then the increments of value iteration satisfy
+`T^[n + 1] v - T^[n] v ≤ γ ^ n * b`. This is the one-sided companion of
+`Learning.MDP.abs_bellman_iterate_succ_sub_le`. -/
+theorem bellman_iterate_succ_le (hR : ∀ p, ∀ᵐ x ∂(M.R p), |x| ≤ C) (hv : Measurable v)
+    (hvB : ∀ s, |v s| ≤ B) (hb : ∀ s, M.bellman γ v s - v s ≤ b) (n : ℕ) (s : 𝓢) :
+    (M.bellman γ)^[n + 1] v s ≤ (M.bellman γ)^[n] v s + (γ : ℝ) ^ n * b := by
+  choose K hK using exists_abs_bellman_iterate_le (M := M) (γ := γ) hR hvB
+  have hint (k : ℕ) (p : 𝓢 × 𝓐) : Integrable ((M.bellman γ)^[k] v) (M.P p) :=
+    integrable_of_abs_le (measurable_bellman_iterate hv k) (hK k) _
+  induction n generalizing s with
+  | zero => simpa using (sub_le_iff_le_add').1 (hb s)
+  | succ n ih =>
+    calc (M.bellman γ)^[n + 1 + 1] v s = M.bellman γ ((M.bellman γ)^[n + 1] v) s := by
+          rw [iterate_succ_apply']
+      _ ≤ M.bellman γ ((M.bellman γ)^[n] v + fun _ ↦ (γ : ℝ) ^ n * b) s :=
+          bellman_mono (hint (n + 1)) (fun p ↦ (hint n p).add (integrable_const _))
+            (bddAbove_range_lookahead hR
+              fun s ↦ (abs_add_le _ _).trans (add_le_add (hK n s) le_rfl))
+            (fun s ↦ ih s) s
+      _ = M.bellman γ ((M.bellman γ)^[n] v) s + γ * ((γ : ℝ) ^ n * b) := by
+          rw [bellman_add_const (hint n) (bddAbove_range_lookahead hR (hK n)), Pi.add_apply]
+      _ = (M.bellman γ)^[n + 1] v s + (γ : ℝ) ^ (n + 1) * b := by
+          rw [iterate_succ_apply']
+          ring
 
 /-- **Monotone iterates, decreasing case** ([P, Proposition 6.3.2 (b)]): with countably many
 actions and bounded rewards, if a bounded measurable `v` satisfies `T v ≤ v`, then the iterates

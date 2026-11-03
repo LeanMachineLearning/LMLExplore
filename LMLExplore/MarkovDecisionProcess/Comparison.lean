@@ -49,6 +49,9 @@ Here `T` is the Bellman optimality operator `M.bellman γ` and `v*` the optimal 
   and the optimal value [P, Theorem 6.2.2 (a)].
 * `Learning.MDP.runValue_markov_const`: the value of the runs of a stationary policy `π` from `μ`
   is `∫ v^π dμ`; `Learning.MDP.value_le_optValue`: `v^π ≤ v*`.
+* `Learning.MDP.bellmanEval_iterate_succ_sub`, `Learning.MDP.bellmanEval_iterate_eq_add_sum`: the
+  increments of the iterates of `T_π` are `T_π^[n + 1] v - T_π^[n] v = (γ P_π) ^ n (T_π v - v)`,
+  so `T_π^[n] v = v + ∑ k < n, (γ P_π) ^ k (T_π v - v)`.
 * `Learning.MDP.value_eq_add_tsum`: for every bounded measurable `v`,
   `v^π = v + ∑ n, γ ^ n P_π ^ n (T_π v - v)`, where `T_π` is the evaluation operator of `π`.
 * `Learning.MDP.le_value_of_le_bellmanEval`, `Learning.MDP.le_optValue_of_le_bellman`: a
@@ -236,6 +239,63 @@ theorem value_le_optValue (hγ : γ < 1) (hR : ∀ p, ∀ᵐ x ∂(M.R p), |x| �
   rw [← integral_dirac' _ s (measurable_value hγ hR).stronglyMeasurable,
     ← runValue_markov_const (π := π) hγ hR]
   exact runValue_le_optValue hγ hR _ s
+
+omit [Nonempty 𝓢] in
+/-- With bounded rewards, the increments of the iterates of the evaluation operator `T_π` of a
+stationary policy at a bounded measurable `v` are
+`T_π^[n + 1] v - T_π^[n] v = γ ^ n P_π ^ n (T_π v - v)`, where `P_π` is the state kernel of `π`. -/
+theorem bellmanEval_iterate_succ_sub (hR : ∀ p, ∀ᵐ x ∂(M.R p), |x| ≤ C) (hv : Measurable v)
+    (hvB : ∀ s, |v s| ≤ B) (n : ℕ) (s : 𝓢) :
+    (M.bellmanEval γ π)^[n + 1] v s - (M.bellmanEval γ π)^[n] v s =
+      (γ : ℝ) ^ n * ∫ s', (M.bellmanEval γ π v s' - v s') ∂((M.stateKernel π ^ n) s) := by
+  -- the iterates of `T_π` at `v` are bounded measurable
+  have hm := measurable_bellmanEval_iterate (M := M) (γ := γ) (π := π) hv
+  choose K hB using exists_abs_bellmanEval_iterate_le (M := M) (γ := γ) (π := π) hR hvB
+  have hg : Measurable fun s' ↦ M.bellmanEval γ π v s' - v s' :=
+    (measurable_bellmanEval hv).sub hv
+  have hgi (μ : Measure 𝓢) [IsFiniteMeasure μ] :
+      Integrable (fun s' ↦ M.bellmanEval γ π v s' - v s') μ :=
+    (integrable_of_abs_le (measurable_bellmanEval hv) (abs_bellmanEval_le hR hvB) _).sub
+      (integrable_of_abs_le hv hvB _)
+  induction n generalizing s with
+  | zero =>
+    simp only [zero_add, Function.iterate_one, Function.iterate_zero, id_eq, pow_zero, one_mul,
+      Kernel.one_eq_id, Kernel.id_apply]
+    rw [integral_dirac' _ s hg.stronglyMeasurable]
+  | succ n ih =>
+    calc (M.bellmanEval γ π)^[n + 1 + 1] v s - (M.bellmanEval γ π)^[n + 1] v s
+        = M.bellmanEval γ π ((M.bellmanEval γ π)^[n + 1] v) s -
+            M.bellmanEval γ π ((M.bellmanEval γ π)^[n] v) s := by
+          rw [Function.iterate_succ_apply' _ (n + 1), Function.iterate_succ_apply' _ n]
+      _ = γ * ∫ s', ((M.bellmanEval γ π)^[n + 1] v s' - (M.bellmanEval γ π)^[n] v s')
+            ∂(M.stateKernel π s) := by
+          rw [bellmanEval_eq_policyReward_add hR (hm (n + 1)) (hB (n + 1)),
+            bellmanEval_eq_policyReward_add hR (hm n) (hB n),
+            integral_sub (integrable_of_abs_le (hm (n + 1)) (hB (n + 1)) _)
+              (integrable_of_abs_le (hm n) (hB n) _)]
+          ring
+      _ = γ * ∫ s', (γ : ℝ) ^ n * ∫ s'', (M.bellmanEval γ π v s'' - v s'')
+            ∂((M.stateKernel π ^ n) s') ∂(M.stateKernel π s) := by
+          simp_rw [ih]
+      _ = (γ : ℝ) ^ (n + 1) * ∫ s', (M.bellmanEval γ π v s' - v s')
+            ∂((M.stateKernel π ^ (n + 1)) s) := by
+          rw [integral_const_mul, pow_succ (M.stateKernel π) n, Kernel.mul_eq_comp,
+            Kernel.integral_comp (hgi _)]
+          ring
+
+omit [Nonempty 𝓢] in
+/-- **Expansion of the iterates of the evaluation operator**: with bounded rewards, the iterates of
+the evaluation operator `T_π` of a stationary policy at a bounded measurable `v` are
+`T_π^[n] v = v + ∑ k < n, γ ^ k P_π ^ k (T_π v - v)`, where `P_π` is the state kernel of `π`. As
+`n → ∞`, this becomes the Newton form `Learning.MDP.value_eq_add_tsum` of the value. -/
+theorem bellmanEval_iterate_eq_add_sum (hR : ∀ p, ∀ᵐ x ∂(M.R p), |x| ≤ C) (hv : Measurable v)
+    (hvB : ∀ s, |v s| ≤ B) (n : ℕ) (s : 𝓢) :
+    (M.bellmanEval γ π)^[n] v s = v s + ∑ k ∈ Finset.range n, (γ : ℝ) ^ k *
+      ∫ s', (M.bellmanEval γ π v s' - v s') ∂((M.stateKernel π ^ k) s) := by
+  have h := Finset.sum_range_sub (fun k ↦ (M.bellmanEval γ π)^[k] v s) n
+  simp only [bellmanEval_iterate_succ_sub hR hv hvB, Function.iterate_zero, id_eq] at h
+  rw [h]
+  ring
 
 /-- **Newton form of the value**: with bounded rewards and `γ < 1`, for every bounded measurable
 `v`, the value of the stationary policy `π` is

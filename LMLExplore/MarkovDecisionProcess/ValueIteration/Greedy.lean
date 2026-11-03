@@ -131,12 +131,9 @@ theorem abs_value_sub_optValue_le_of_bellmanEval_iterate_eq {π : Kernel 𝓢 �
     (hπ : M.bellmanEval γ π ((M.bellman γ)^[n] v) = M.bellman γ ((M.bellman γ)^[n] v))
     (hD : ∀ s, |M.bellman γ v s - v s| ≤ D) (s : 𝓢) :
     |M.value γ π s - M.optValue γ s| ≤ 2 * γ ^ n * D / (1 - γ) := by
-  set V := boundedMeasurable.mk v hv (bddAbove_def.2 ⟨B, forall_mem_range.2 hvB⟩)
-  -- the iterate `T^[n] v` is bounded measurable, as an iterate of `M.bellmanOp γ hR`
-  have hn : (M.bellman γ)^[n] v = ⇑((M.bellmanOp γ hR)^[n] V : ℓ^∞(𝓢, ℝ)) := by
-    rw [coeFn_bellmanOp_iterate, boundedMeasurable.coeFn_mk]
+  obtain ⟨K, hK⟩ := exists_abs_bellman_iterate_le (M := M) (γ := γ) hR hvB n
   have h := abs_value_sub_optValue_le_of_bellmanEval_eq hγ hR (w := (M.bellman γ)^[n] v)
-    (hn ▸ boundedMeasurable.measurable _) (hn ▸ boundedMeasurable.abs_apply_le_norm _) hπ
+    (measurable_bellman_iterate hv n) hK hπ
     (fun s ↦ by
       rw [← iterate_succ_apply' (M.bellman γ)]
       exact abs_bellman_iterate_succ_sub_le hR hv hvB hD n s) s
