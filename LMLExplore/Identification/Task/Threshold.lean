@@ -383,24 +383,12 @@ theorem altCost_minThresholdTask_restrict_true (hT : ∀ a c, ¬ T a =ᵐ[ρ a] 
     simp
   refine le_antisymm ?_ ?_
   · -- Upper bound: raise every mean below `x > γ` to `x`, and let `x` decrease to `γ`.
-    have h_tendsto : Tendsto
-        (fun x ↦ ∑ c, ENNReal.ofReal (w c * (ρ c).expFamilyDiv (T c) (μ c) (max (μ c) x)))
-        (𝓝[>] γ)
-        (𝓝 (∑ c, ENNReal.ofReal (w c * (ρ c).expFamilyDiv (T c) (μ c) (max (μ c) γ)))) := by
-      refine tendsto_finsetSum _ fun c _ ↦ ?_
-      have hd := (hasDerivAt_expFamilyDiv_right (hT c) (μ c) (hmax c (hγ c))).continuousAt
-      exact (ENNReal.continuous_ofReal.continuousAt.comp (continuousAt_const.mul
-        (hd.comp (continuous_const.max continuous_id).continuousAt))).tendsto.mono_left
-        nhdsWithin_le_nhds
-    refine ge_of_tendsto h_tendsto ?_
-    filter_upwards [self_mem_nhdsWithin, nhdsWithin_le_nhds
-      (eventually_all.2 fun c ↦ expFamilyMeans_mem_nhds (hT c) (hγ c))] with x (hx : γ < x) hxm
-    have hS (c : α) : max (μ c) x ∈ (ρ c).expFamilyMeans (T c) := hmax c (hxm c)
-    have hgt (c : α) : γ < max (μ c) x := hx.trans_le (le_max_right _ _)
-    rw [← IdentTask.cost_eq_sum_ofReal_mul_expFamilyDiv hνt hν hw hS]
-    refine IdentTask.altCost_le_cost _ ?_ w
+    refine IdentTask.altCost_le_sum_ofReal_mul_expFamilyDiv_of_eventually hνt hν hw hT
+      (μx := fun x c ↦ max (μ c) x) (l := 𝓝[>] γ) nhdsWithin_le_nhds
+      (fun _ ↦ (continuous_const.max continuous_id).continuousAt) (fun c ↦ hmax c (hγ c)) ?_
+    filter_upwards [self_mem_nhdsWithin] with x (hx : γ < x) hS
     rw [IdentTask.alt_restrict, Set.mem_inter_iff, mem_alt_minThresholdTask_true_iff]
-    exact ⟨hgt, hS⟩
+    exact ⟨fun c ↦ hx.trans_le (le_max_right _ _), hS⟩
   · -- Lower bound: an alternative has all its means above `γ`.
     rw [IdentTask.altCost_def]
     refine le_iInf₂ fun μ' hμ' ↦ ?_

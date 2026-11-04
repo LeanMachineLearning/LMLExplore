@@ -26,9 +26,10 @@ algorithm commits to an answer of `i_F(θ̂)` at an estimate `θ̂` of the model
 allocations; its analysis rests on these two properties.
 
 The set `w*(θ, ¬i)` is convex for each answer, but `w*(θ)` need not be [DK19, Proposition 5]: in
-Any Low Arm, two arms with the same smallest mean below the threshold give two oracle answers whose
-optimal allocations are two vertices of the simplex
-(`LMLExplore/Identification/Task/AnyLowArm.lean`). It is convex when `θ` has a single oracle answer.
+Any Low Arm with Gaussian arms of a common variance, two distinct arms sharing the smallest mean
+below the threshold are both oracle answers, whose optimal allocations are vertices of the simplex
+(`not_convex_oracleAlloc_anyLowArmTask_gaussianBandit` in
+`LMLExplore/Identification/Task/AnyLowArm.lean`). It is convex when `θ` has a single oracle answer.
 
 These definitions are adapted from the formalization of [DK19] in the LMLPapers project, which
 defines `i_F(θ)` as the answers of value `D(θ)`; the two agree on admissible models.

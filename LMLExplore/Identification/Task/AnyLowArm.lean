@@ -58,10 +58,10 @@ statements follow those of the formalization of [DK19, Example 1] in the LMLPape
 * `LMLExplore.Identification.gameValue_anyLowArmTask_restrict_of_exists_lt`,
   `LMLExplore.Identification.charTime_anyLowArmTask_restrict_of_exists_lt`: if some mean is below
   `γ`, `D(μ) = max_a d_a(μ a, max (μ a) γ)` and `T*(μ) = (max_a d_a(μ a, max (μ a) γ))⁻¹`.
-* `LMLExplore.Identification.oracleAnswers_anyLowArmTask_restrict`,
-  `LMLExplore.Identification.oracleAlloc_anyLowArmTask_restrict`: if some mean is below `γ`, the
-  oracle answers are the arms maximizing `d_a(μ a, max (μ a) γ)`, and the oracle allocations are
-  their vertices `Pi.single a 1`.
+* `LMLExplore.Identification.oracleAnswers_anyLowArmTask_restrict_of_exists_lt`,
+  `LMLExplore.Identification.oracleAlloc_anyLowArmTask_restrict_of_exists_lt`: if some mean is
+  below `γ`, the oracle answers are the arms maximizing `d_a(μ a, max (μ a) γ)`, and the oracle
+  allocations are their vertices `Pi.single a 1`.
 * `LMLExplore.Identification.not_convex_oracleAlloc_anyLowArmTask_restrict`: if two distinct arms
   maximize `d_a(μ a, max (μ a) γ)`, the oracle allocations are not convex [DK19, Proposition 5].
 * `LMLExplore.Identification.oracleAlloc_anyLowArmTask_gaussianBandit`,
@@ -132,18 +132,12 @@ theorem altCost_anyLowArmTask_restrict_some (hT : ∀ a c, ¬ T a =ᵐ[ρ a] fun
   · -- Upper bound: move the mean of `a` to `x > γ`, as well as the means equal to `γ` so that the
     -- moved vector is admissible, and let `x` decrease to `γ`.
     let μx : ℝ → α → ℝ := fun x c ↦ if c = a ∨ μ c = γ then x else μ c
-    have h_tendsto : Tendsto
-        (fun x ↦ ∑ c, ENNReal.ofReal (w c * (ρ c).expFamilyDiv (T c) (μ c) (μx x c)))
-        (𝓝[>] γ)
-        (𝓝 (∑ c, ENNReal.ofReal (w c * (ρ c).expFamilyDiv (T c) (μ c) (μx γ c)))) := by
-      refine tendsto_finsetSum _ fun c _ ↦ ?_
-      by_cases hc : c = a ∨ μ c = γ
-      · simp only [μx, hc, ite_true]
-        exact (ENNReal.continuous_ofReal.continuousAt.comp (continuousAt_const.mul
-          (hasDerivAt_expFamilyDiv_right (hT c) (μ c) (hγ c)).continuousAt)).tendsto.mono_left
-          nhdsWithin_le_nhds
-      · simp only [μx, hc, ite_false]
-        exact tendsto_const_nhds
+    have hcont (c : α) : ContinuousAt (fun x ↦ μx x c) γ := by
+      by_cases hc : c = a ∨ μ c = γ <;> simp only [μx, hc, ite_true, ite_false]
+      exacts [continuousAt_id, continuousAt_const]
+    have hmem (c : α) : μx γ c ∈ (ρ c).expFamilyMeans (T c) := by
+      by_cases hc : c = a ∨ μ c = γ <;> simp only [μx, hc, ite_true, ite_false]
+      exacts [hγ c, hμ c]
     -- In the limit, only the move of `a` costs something.
     have h_lim : ∑ c, ENNReal.ofReal (w c * (ρ c).expFamilyDiv (T c) (μ c) (μx γ c)) =
         ENNReal.ofReal (w a * (ρ a).expFamilyDiv (T a) (μ a) γ) := by
@@ -153,19 +147,13 @@ theorem altCost_anyLowArmTask_restrict_some (hT : ∀ a c, ¬ T a =ᵐ[ρ a] fun
         · simp [μx, hcγ, expFamilyDiv_self]
         · simp [μx, hc, hcγ, expFamilyDiv_self]
     rw [← h_lim]
-    refine ge_of_tendsto h_tendsto ?_
-    filter_upwards [self_mem_nhdsWithin, nhdsWithin_le_nhds
-      (eventually_all.2 fun c ↦ expFamilyMeans_mem_nhds (hT c) (hγ c))] with x (hx : γ < x) hxm
-    have hS (c : α) : μx x c ∈ (ρ c).expFamilyMeans (T c) := by
-      by_cases hc : c = a ∨ μ c = γ
-      · simpa [μx, hc] using hxm c
-      · simpa [μx, hc] using hμ c
+    refine IdentTask.altCost_le_sum_ofReal_mul_expFamilyDiv_of_eventually hνt hν hw hT
+      (l := 𝓝[>] γ) nhdsWithin_le_nhds hcont hmem ?_
+    filter_upwards [self_mem_nhdsWithin] with x (hx : γ < x) hS
     have hne (c : α) : μx x c ≠ γ := by
       by_cases hc : c = a ∨ μ c = γ
       · simpa [μx, hc] using hx.ne'
       · simpa [μx, hc] using (not_or.1 hc).2
-    rw [← IdentTask.cost_eq_sum_ofReal_mul_expFamilyDiv hνt hν hw hS]
-    refine IdentTask.altCost_le_cost _ ?_ w
     rw [IdentTask.alt_restrict, Set.mem_inter_iff, mem_alt_anyLowArmTask_some_iff]
     refine ⟨⟨by simp [μx, hx.le], ?_⟩, hS⟩
     by_cases h : ∃ b, μx x b < γ
@@ -368,7 +356,8 @@ theorem charTime_anyLowArmTask_restrict_of_exists_lt (hT : ∀ a c, ¬ T a =ᵐ[
 /-- **The oracle answers of Any Low Arm** [DK19, Example 1]. Under the assumptions of
 `altCost_anyLowArmTask_restrict_some` on the arm laws, if some mean of `μ` is below `γ`, then the
 oracle answers are the arms `a` maximizing `d_a(μ a, max (μ a) γ)`. -/
-theorem oracleAnswers_anyLowArmTask_restrict (hT : ∀ a c, ¬ T a =ᵐ[ρ a] fun _ ↦ c)
+theorem oracleAnswers_anyLowArmTask_restrict_of_exists_lt
+    (hT : ∀ a c, ¬ T a =ᵐ[ρ a] fun _ ↦ c)
     (hγ : ∀ a, γ ∈ (ρ a).expFamilyMeans (T a)) (hμ : ∀ a, μ a ∈ (ρ a).expFamilyMeans (T a))
     (hν : ∀ μ' : α → ℝ, (∀ c, μ' c ∈ (ρ c).expFamilyMeans (T c)) →
       ∀ c, klDiv (ν μ c) (ν μ' c) = ENNReal.ofReal ((ρ c).expFamilyDiv (T c) (μ c) (μ' c)))
@@ -401,7 +390,8 @@ theorem oracleAnswers_anyLowArmTask_restrict (hT : ∀ a c, ¬ T a =ᵐ[ρ a] fu
 `altCost_anyLowArmTask_restrict_some` on the arm laws, if some mean of `μ` is below `γ`, then the
 oracle allocations are the vertices `Pi.single a 1` of the arms `a` maximizing
 `d_a(μ a, max (μ a) γ)`. -/
-theorem oracleAlloc_anyLowArmTask_restrict [DecidableEq α] (hT : ∀ a c, ¬ T a =ᵐ[ρ a] fun _ ↦ c)
+theorem oracleAlloc_anyLowArmTask_restrict_of_exists_lt [DecidableEq α]
+    (hT : ∀ a c, ¬ T a =ᵐ[ρ a] fun _ ↦ c)
     (hγ : ∀ a, γ ∈ (ρ a).expFamilyMeans (T a)) (hμ : ∀ a, μ a ∈ (ρ a).expFamilyMeans (T a))
     (hν : ∀ μ' : α → ℝ, (∀ c, μ' c ∈ (ρ c).expFamilyMeans (T c)) →
       ∀ c, klDiv (ν μ c) (ν μ' c) = ENNReal.ofReal ((ρ c).expFamilyDiv (T c) (μ c) (μ' c)))
@@ -419,8 +409,8 @@ theorem oracleAlloc_anyLowArmTask_restrict [DecidableEq α] (hT : ∀ a c, ¬ T 
     rw [max_eq_left (not_lt.1 hge), expFamilyDiv_self, max_eq_right hb.le] at h_le
     exact (expFamilyDiv_pos (hμ b) (hγ b) hb.ne).not_ge h_le
   ext v
-  rw [IdentTask.oracleAlloc_def, oracleAnswers_anyLowArmTask_restrict ν hT hγ hμ hν h,
-    Set.biUnion_image]
+  rw [IdentTask.oracleAlloc_def,
+    oracleAnswers_anyLowArmTask_restrict_of_exists_lt ν hT hγ hμ hν h, Set.biUnion_image]
   simp only [Set.mem_iUnion, exists_prop, Set.mem_image]
   refine exists_congr fun a ↦ and_congr_right fun ha ↦ ?_
   rw [optAlloc_anyLowArmTask_restrict_some ν hT hγ hμ hν (hlt ha), Set.mem_singleton_iff, eq_comm]
@@ -441,7 +431,7 @@ theorem not_convex_oracleAlloc_anyLowArmTask_restrict (hT : ∀ a c, ¬ T a =ᵐ
     ¬ Convex ℝ (((anyLowArmTask ν γ).restrict
         {μ' | ∀ c, μ' c ∈ (ρ c).expFamilyMeans (T c)}).oracleAlloc μ) := by
   classical
-  rw [oracleAlloc_anyLowArmTask_restrict ν hT hγ hμ hν h]
+  rw [oracleAlloc_anyLowArmTask_restrict_of_exists_lt ν hT hγ hμ hν h]
   exact not_convex_image_single ha hb hab
 
 /-! ### Gaussian arms -/
@@ -457,7 +447,8 @@ theorem oracleAlloc_anyLowArmTask_gaussianBandit [DecidableEq α] (hσ2 : σ2 �
       (fun a ↦ Pi.single a 1) '' {a | μ a = μ a₀} := by
   rw [← (anyLowArmTask (Bandits.gaussianBandit · σ2) γ).restrict_univ,
     ← setOf_forall_mem_expFamilyMeans_gaussianReal 0 hσ2,
-    oracleAlloc_anyLowArmTask_restrict (ρ := fun _ ↦ gaussianReal 0 σ2) (T := fun _ ↦ id) _
+    oracleAlloc_anyLowArmTask_restrict_of_exists_lt (ρ := fun _ ↦ gaussianReal 0 σ2)
+      (T := fun _ ↦ id) _
       (fun _ ↦ not_ae_eq_const_gaussianReal 0 hσ2)
       (fun _ ↦ mem_expFamilyMeans_gaussianReal 0 hσ2 _)
       (fun _ ↦ mem_expFamilyMeans_gaussianReal 0 hσ2 _)

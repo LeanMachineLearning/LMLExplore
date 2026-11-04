@@ -19,7 +19,8 @@ families. Then the transportation cost from `μ` to such a `μ'` is
 `cost_μ(w, μ') = ∑ c, w c d_c(μ c, μ' c)`. This file collects the consequences of this formula used
 to compute the cost of the alternatives of tasks on vectors of means (best arm identification,
 thresholding, minimum threshold): the cost of moving a single arm, and the bounds on the cost of
-the alternatives obtained by moving one arm to a mean `γ` or across it.
+the alternatives obtained by moving one arm, or several arms along a path, to a mean `γ` or across
+it.
 
 ## Main statements
 
@@ -30,6 +31,9 @@ the alternatives obtained by moving one arm to a mean `γ` or across it.
 * `LMLExplore.Identification.IdentTask.altCost_le_ofReal_mul_expFamilyDiv_of_eventually`: if
   moving the arm `a` to any mean `x` near `γ` (along a filter) gives an alternative to `i`, then
   `D(μ, w, ¬i) ≤ w a d_a(μ a, γ)`.
+* `LMLExplore.Identification.IdentTask.altCost_le_sum_ofReal_mul_expFamilyDiv_of_eventually`: if
+  moving the arms along a continuous path `μx` gives alternatives to `i` near `γ` (along a
+  filter), then `D(μ, w, ¬i) ≤ ∑ c, w c d_c(μ c, μx γ c)`.
 * `LMLExplore.Identification.IdentTask.ofReal_mul_expFamilyDiv_le_cost`: if `γ` lies between
   `μ a` and `μ' a`, then `w a d_a(μ a, γ) ≤ cost_μ(w, μ')`.
 * `LMLExplore.Identification.IdentTask.cost_gaussianBandit`: for Gaussian arms with a common
@@ -93,6 +97,31 @@ lemma altCost_le_ofReal_mul_expFamilyDiv_of_eventually [DecidableEq α]
   filter_upwards [h_alt, hl (expFamilyMeans_mem_nhds hT hγ)] with x hx hxm
   rw [← cost_update_eq_ofReal_mul_expFamilyDiv hνt hν hw hμ a hxm]
   exact task.altCost_le_cost hx w
+
+/-- **Moving the arms along a path to a vector of means.** Let `μx : ℝ → α → ℝ` be a path of
+vectors with coordinates continuous at `γ`, such that `μx γ` is a vector of means of the families.
+If the vectors `μx x` of means of the families are alternatives to `i` for all `x` near `γ` along a
+filter `l ≤ 𝓝 γ`, then `D(μ, w, ¬i) ≤ ∑ c, w c d_c(μ c, μx γ c)`. -/
+lemma altCost_le_sum_ofReal_mul_expFamilyDiv_of_eventually
+    (hνt : task.ν = ν) (hν : ∀ μ' : α → ℝ, (∀ c, μ' c ∈ (ρ c).expFamilyMeans (T c)) →
+      ∀ c, klDiv (ν μ c) (ν μ' c) = ENNReal.ofReal ((ρ c).expFamilyDiv (T c) (μ c) (μ' c)))
+    (hw : 0 ≤ w) (hT : ∀ a c, ¬ T a =ᵐ[ρ a] fun _ ↦ c) {μx : ℝ → α → ℝ} {l : Filter ℝ}
+    [l.NeBot] (hl : l ≤ 𝓝 γ) (hcont : ∀ c, ContinuousAt (fun x ↦ μx x c) γ)
+    (hmem : ∀ c, μx γ c ∈ (ρ c).expFamilyMeans (T c))
+    (h_alt : ∀ᶠ x in l, (∀ c, μx x c ∈ (ρ c).expFamilyMeans (T c)) → μx x ∈ task.alt i) :
+    task.altCost μ w i ≤
+      ∑ c, ENNReal.ofReal (w c * (ρ c).expFamilyDiv (T c) (μ c) (μx γ c)) := by
+  have h_tendsto : Tendsto
+      (fun x ↦ ∑ c, ENNReal.ofReal (w c * (ρ c).expFamilyDiv (T c) (μ c) (μx x c))) l
+      (𝓝 (∑ c, ENNReal.ofReal (w c * (ρ c).expFamilyDiv (T c) (μ c) (μx γ c)))) :=
+    tendsto_finsetSum _ fun c _ ↦ (ENNReal.continuous_ofReal.continuousAt.comp
+      (continuousAt_const.mul ((hasDerivAt_expFamilyDiv_right (hT c) (μ c)
+        (hmem c)).continuousAt.comp (f := fun x ↦ μx x c) (hcont c)))).tendsto.mono_left hl
+  refine ge_of_tendsto h_tendsto ?_
+  filter_upwards [h_alt, hl (eventually_all.2 fun c ↦
+    (hcont c).eventually_mem (expFamilyMeans_mem_nhds (hT c) (hmem c)))] with x hx hxm
+  rw [← cost_eq_sum_ofReal_mul_expFamilyDiv hνt hν hw hxm]
+  exact task.altCost_le_cost (hx hxm) w
 
 /-- **A lower bound on the cost of a model in which one arm crossed a mean.** If `γ` lies between
 `μ a` and `μ' a`, then `w a d_a(μ a, γ) ≤ cost_μ(w, μ')`. -/
