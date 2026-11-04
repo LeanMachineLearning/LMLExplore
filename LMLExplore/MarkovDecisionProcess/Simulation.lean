@@ -88,11 +88,9 @@ theorem abs_value_sub_value_le (hr : meanReward M'.R = meanReward M.R) (hγ : γ
     (hR : ∀ p, ∀ᵐ x ∂(M.R p), |x| ≤ C) (hR' : ∀ p, ∀ᵐ x ∂(M'.R p), |x| ≤ C')
     (hε : ∀ q, |∫ s, M.value γ π s ∂(M.P q) - ∫ s, M.value γ π s ∂(M'.P q)| ≤ ε) (s : 𝓢) :
     |M.value γ π s - M'.value γ π s| ≤ γ * ε / (1 - γ) := by
-  have hint {M'' : MDP 𝓢 𝓐 ℝ} {C'' : ℝ} (hR'' : ∀ p, ∀ᵐ x ∂(M''.R p), |x| ≤ C'') :
-      Integrable (fun a ↦ M''.qValue γ π (s, a)) (π s) :=
-    integrable_of_abs_le ((measurable_qValue hγ hR'').comp measurable_prodMk_left)
-      (fun a ↦ abs_qValue_le hγ hR'' (s, a)) _
-  rw [← integral_qValue hγ hR, ← integral_qValue hγ hR', ← integral_sub (hint hR) (hint hR')]
+  rw [← integral_qValue hγ hR, ← integral_qValue hγ hR',
+    ← integral_sub (integrable_qValue_prodMk_left hγ hR s _)
+      (integrable_qValue_prodMk_left hγ hR' s _)]
   exact abs_integral_le_of_abs_le fun a ↦ abs_qValue_sub_qValue_le hr hγ hR hR' hε (s, a)
 
 end Learning.MDP
