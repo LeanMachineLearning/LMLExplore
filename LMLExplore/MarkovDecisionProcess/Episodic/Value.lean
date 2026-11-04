@@ -50,13 +50,17 @@ Apache 2.0), from deterministic to stochastic Markov policies.
   `Learning.MDP.Episodic.EpisodicMDP.measurable_qValue`: the values are measurable.
 * `Learning.MDP.Episodic.EpisodicMDP.value_mem_Icc`: for rewards in `[a, b]`, the value at the
   step `h` lies in `[(H - h) a, (H - h) b]`; in particular `0 ≤ V^π_h ≤ H - h` for rewards in
-  `[0, 1]` (`value_nonneg`, `value_le`).
+  `[0, 1]` (`value_nonneg`, `value_le`); for rewards in `[-C, C]`, `|V^π_h| ≤ H |C|` at every
+  step (`abs_value_le_mul_abs`).
 * `Learning.MDP.Episodic.EpisodicMDP.measurable_meanReward_add_integral`,
   `Learning.MDP.Episodic.EpisodicMDP.meanReward_add_integral_mem_Icc`: the measurability and the
   bounds of the backup `r_h (s, a) + ∫ V dP_h (s, a)` of a function `V` of the next state, shared
   by the values of policies and the optimal values.
 * `Learning.MDP.Episodic.EpisodicMDP.value_deterministic_of_lt`: the value of a deterministic
   Markov policy is its action value at the action it plays.
+* `Learning.MDP.Episodic.EpisodicMDP.hasCondDistrib_action_obs_fst_markov`: along a run of
+  `augMarkovPolicy π` started at the step `h₀`, the action of round `n` has conditional law
+  `π (h₀ + n)` given the state of round `n`.
 * `Learning.MDP.Episodic.EpisodicMDP.runReturn_augmented_markov`: the `(H - h)`-step return in
   the augmented MDP of `augMarkovPolicy π`, from an initial law `μ` concentrated on the step `h`,
   is `∫ V^π_h dμ`; `runReturn_augmented_markov_dirac` is the case of a Dirac mass at `(s, h)`.
@@ -257,20 +261,37 @@ theorem abs_value_le (hM : M.RewardsIn (Set.Icc (-C) C)) (h : ℕ) (s : 𝓢) :
   rw [mul_neg] at hV
   exact abs_le.2 hV
 
-/-! ### The values are the returns of the augmented MDP -/
-
-/-- For rewards in `[-C, C]`, the values of `π` are bounded by `H |C|` at all steps. -/
-private lemma abs_value_augmented_le (hM : M.RewardsIn (Set.Icc (-C) C)) (q : 𝓢 × ℕ) :
-    |M.value H π q.2 q.1| ≤ H * |C| :=
-  calc |M.value H π q.2 q.1| ≤ (H - q.2 : ℕ) * C := abs_value_le hM _ _
-    _ ≤ (H - q.2 : ℕ) * |C| := mul_le_mul_of_nonneg_left (le_abs_self C) (Nat.cast_nonneg _)
+/-- For rewards in `[-C, C]`, the value of `π` is at most `H |C|` in absolute value, uniformly
+over the steps. -/
+theorem abs_value_le_mul_abs (hM : M.RewardsIn (Set.Icc (-C) C)) (h : ℕ) (s : 𝓢) :
+    |M.value H π h s| ≤ H * |C| :=
+  calc |M.value H π h s| ≤ (H - h : ℕ) * C := abs_value_le hM h s
+    _ ≤ (H - h : ℕ) * |C| := mul_le_mul_of_nonneg_left (le_abs_self C) (Nat.cast_nonneg _)
     _ ≤ H * |C| := mul_le_mul_of_nonneg_right (by exact_mod_cast Nat.sub_le _ _) (abs_nonneg C)
+
+/-! ### The values are the returns of the augmented MDP -/
 
 section Runs
 
 variable [Nonempty 𝓢] {Ω : Type*} {mΩ : MeasurableSpace Ω} {P : Measure Ω}
   [IsProbabilityMeasure P] {O : ℕ → Ω → 𝓢 × ℕ} {A : ℕ → Ω → 𝓐} {Y : ℕ → Ω → ℝ}
   {μ : Measure (𝓢 × ℕ)} [IsProbabilityMeasure μ] {h₀ : ℕ}
+
+/-- Along a run of the Markov policy `π` in the augmented MDP started at the step `h₀`, the
+action of round `n` has conditional law `π (h₀ + n)` given the state of round `n`. -/
+theorem hasCondDistrib_action_obs_fst_markov (hμ : ∀ᵐ p ∂μ, p.2 = h₀)
+    (h : IsAlgEnvSeq O A Y (Algorithm.markov fun _ ↦ augMarkovPolicy π) (M.augmented.env μ) P)
+    (n : ℕ) :
+    HasCondDistrib (A n) (fun ω ↦ (O n ω).1) (π (h₀ + n)) P := by
+  -- the augmented state of round `n` is almost surely the state of round `n` at the step `h₀ + n`
+  have h_ae : O n =ᵐ[P] (fun s : 𝓢 ↦ (s, h₀ + n)) ∘ fun ω ↦ (O n ω).1 := by
+    filter_upwards [ae_obs_snd_eq hμ h n] with ω hω
+    simp [← hω]
+  have h_cond := ((h.hasCondDistrib_action_markov n).congr h_ae.symm
+    .rfl).of_measurableEmbedding_comp_right (measurableEmbedding_prod_mk_right (h₀ + n))
+  convert h_cond using 1
+  ext s : 1
+  rw [Kernel.comap_apply, augMarkovPolicy_apply]
 
 /-- Along a run of `augMarkovPolicy π` started at the step `h₀`, at a round `n` before the
 horizon, the expected value of the state is the expected mean reward of the round plus the
@@ -282,7 +303,7 @@ private lemma integral_value_obs (hM : M.RewardsIn (Set.Icc (-C) C)) (hμ : ∀�
       ∫ ω, MDP.meanReward M.augmented.R (O n ω, A n ω) ∂P +
         ∫ ω, M.value H π (O (n + 1) ω).2 (O (n + 1) ω).1 ∂P := by
   have hW := measurable_value_augmented (M := M) (H := H) (π := π)
-  have hWB := abs_value_augmented_le (H := H) (π := π) hM
+  have hWB (q : 𝓢 × ℕ) := abs_value_le_mul_abs (H := H) (π := π) hM q.2 q.1
   have hR := hM.ae_abs_augmented_R_le
   have hlaw := MDP.hasLaw_obs_markov h n
   -- the state of round `n` is almost surely at the step `h₀ + n`
