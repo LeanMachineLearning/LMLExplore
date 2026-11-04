@@ -23,9 +23,12 @@ other sign. For Gaussian arms with a common variance `σ2`, the transportation c
   across the hyperplane costs at least this much, and moving it along the direction
   `u a / w a` costs arbitrarily little more. If instead `w a = 0` for some arm with `u a ≠ 0`,
   the mean of that arm can be moved for free and `D(μ, w, ¬i) = 0`.
-* By the Cauchy–Schwarz inequality again, `(∑ a, u a² / w a) ≥ ‖u‖₁²` on the simplex, with equality
-  exactly at `w a = |u a| / ‖u‖₁`. Hence `D(μ, ¬i) = (u ⬝ᵥ μ)² / (2 σ2 ‖u‖₁²)`, the only optimal
-  allocation is `|u| / ‖u‖₁`, and `T*(μ) = 2 σ2 ‖u‖₁² / (u ⬝ᵥ μ)²`.
+* By the identity `∑ a, (|u a| - ‖u‖₁ w a)² / w a = ∑ a, u a² / w a - ‖u‖₁²`
+  (`LMLExplore.sum_sq_abs_sub_mul_div_eq`), `(∑ a, u a² / w a) ≥ ‖u‖₁²` on the allocations of the
+  simplex that are positive where `u a ≠ 0`, with equality, for `u ≠ 0`, exactly at
+  `w a = |u a| / ‖u‖₁`; the other allocations have `D(μ, w, ¬i) = 0` by the previous point. Hence
+  `D(μ, ¬i) = (u ⬝ᵥ μ)² / (2 σ2 ‖u‖₁²)`, the only optimal allocation is `|u| / ‖u‖₁`, and
+  `T*(μ) = 2 σ2 ‖u‖₁² / (u ⬝ᵥ μ)²`.
 
 These values are the divergences of [DK19, Lemma 36], stated there for the hyperplane, which is
 the boundary of the set of alternatives.

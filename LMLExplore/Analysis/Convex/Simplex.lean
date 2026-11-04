@@ -62,7 +62,8 @@ supported distributions, not a subset of `α → ℝ`.
   weighted entry `min_a w a c a` is `(∑ b, (c b)⁻¹)⁻¹`.
 * `LMLExplore.abs_div_sum_abs_mem_simplex`, `LMLExplore.sq_sum_abs_lt_sum_sq_div`: for a nonzero
   vector `u`, the vector `|u| / ‖u‖₁` lies in the simplex, and it is the unique minimizer of
-  `w ↦ ∑ a, u a² / w a` there, with minimum `‖u‖₁²`.
+  `w ↦ ∑ a, u a² / w a` on the vectors of the simplex that are positive where `u` does not
+  vanish, with minimum `‖u‖₁²`.
 * `LMLExplore.iSup_simplex_ofReal_dotProduct`: the supremum of `w ↦ w ⬝ᵥ y` over the simplex is
   the supremum of the entries of `y`, in `ℝ≥0∞`.
 * `LMLExplore.convex_setOf_nonneg_support_subset_sum_eq_one`: the finitely supported probability
@@ -323,8 +324,8 @@ lemma abs_div_sum_abs_mem_simplex (hu : u ≠ 0) :
   rw [← Finset.sum_div, div_self (sum_abs_ne_zero hu)]
 
 /-- The identity `∑ a, (|u a| - ‖u‖₁ w a)² / w a = ∑ a, u a² / w a - ‖u‖₁²` for a vector `w` of the
-simplex that is positive where `u` does not vanish: its left-hand side is nonnegative and vanishes
-only at `w = |u| / ‖u‖₁`. -/
+simplex that is positive where `u` does not vanish: its left-hand side is nonnegative and, for
+`u ≠ 0`, vanishes only at `w = |u| / ‖u‖₁`. -/
 lemma sum_sq_abs_sub_mul_div_eq (hw : w ∈ simplex α) (hwu : ∀ a, w a = 0 → u a = 0) :
     ∑ a, (|u a| - (∑ b, |u b|) * w a) ^ 2 / w a =
       ∑ a, u a ^ 2 / w a - (∑ b, |u b|) ^ 2 := by
@@ -341,7 +342,8 @@ lemma sum_sq_abs_sub_mul_div_eq (hw : w ∈ simplex α) (hwu : ∀ a, w a = 0 �
 
 /-- For a nonzero vector `u` and a vector `w` of the simplex that is positive where `u` does not
 vanish, `‖u‖₁² < ∑ a, u a² / w a` unless `w = |u| / ‖u‖₁`: the vector `|u| / ‖u‖₁` is the unique
-minimizer of `w ↦ ∑ a, u a² / w a` on the simplex. -/
+minimizer of `w ↦ ∑ a, u a² / w a` on the vectors of the simplex that are positive where `u` does
+not vanish. -/
 lemma sq_sum_abs_lt_sum_sq_div (hu : u ≠ 0) (hw : w ∈ simplex α)
     (hwu : ∀ a, w a = 0 → u a = 0) (hne : w ≠ fun a ↦ |u a| / ∑ b, |u b|) :
     (∑ a, |u a|) ^ 2 < ∑ a, u a ^ 2 / w a := by
