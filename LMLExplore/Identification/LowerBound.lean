@@ -39,6 +39,10 @@ Gaussian arms when Track-and-Stop tracks continuous optimal allocations
   `θ`.
 * `IdentTask.IsDeltaCorrect.klBer_le_expectedStoppingTime_mul_altCost`: the allocation form
   `kl(δ, 1 - δ) ≤ E_θ[τ] D(θ, w, ¬i)`, with `w` the expected proportions of pulls.
+* `IdentTask.IsDeltaCorrect.klBer_le_altCost`: the unnormalized form
+  `kl(δ, 1 - δ) ≤ D(θ, n, ¬i)`, with `n` the expected numbers of pulls, for `E_θ[τ] < ∞`.
+* `IdentTask.IsDeltaCorrect.klBer_le_lintegral_pullCount_mul_of_altCost_le`: if
+  `D(θ, w, ¬i) ≤ w a x` for all nonnegative allocations, then `kl(δ, 1 - δ) ≤ E_θ[N_a(τ)] x`.
 * `IdentTask.IsDeltaCorrect.charTime_mul_le_expectedStoppingTime`: the lower bound
   `T*(θ) kl(δ, 1 - δ) ≤ E_θ[τ]`.
 * `IdentTask.IsDeltaCorrect.charTime_mul_ofReal_log_le_expectedStoppingTime`: the lower bound
@@ -119,6 +123,40 @@ theorem IsDeltaCorrect.klBer_le_expectedStoppingTime_mul_altCost (hA : task.IsDe
     (.of_expectedStoppingTime_ne_top h)).trans_eq ?_
   simp_rw [cost_def, Finset.mul_sum, ← mul_assoc,
     expectedStoppingTime_mul_ofReal_expectedPullProportion h]
+
+/-- **Change of measure against all the alternatives.** Let `A` be `δ`-correct with `δ ≤ 1 / 2`,
+let `i` be the only correct answer of the admissible model `θ`, and suppose that `E_θ[τ] < ∞`.
+Then `kl(δ, 1 - δ) ≤ D(θ, n, ¬i)`, where the allocation `n` is the vector of the expected numbers
+of pulls `n a = E_θ[N_a(τ)]`, not normalized. Every upper bound on the cost of the alternatives
+in terms of a single arm, `D(θ, w, ¬i) ≤ w a c`, thus gives the lower bound
+`kl(δ, 1 - δ) ≤ E_θ[N_a(τ)] c` on the expected number of pulls of that arm. -/
+theorem IsDeltaCorrect.klBer_le_altCost (hA : task.IsDeltaCorrect A δ) (hδ : δ ≤ 1 / 2)
+    (hθ : θ ∈ task.M) (hi : task.correct θ = {i})
+    (h : expectedStoppingTime A (Environment.bandit (task.ν θ)) ≠ ∞) :
+    klBer δ (1 - δ) ≤ task.altCost θ (fun a ↦ (∫⁻ ω, (pullCount IT.action a
+        (ENat.toNat (A.stoppingTime IT.obs IT.action IT.feedback ω)) ω : ℝ≥0∞)
+          ∂(trajMeasure A.alg (Environment.bandit (task.ν θ)))).toReal) i := by
+  rw [altCost_def]
+  refine le_iInf₂ fun θ' hθ' ↦ (hA.klBer_le_sum_lintegral_pullCount_mul_klDiv hδ hθ hi hθ'
+    (.of_expectedStoppingTime_ne_top h)).trans_eq ?_
+  simp_rw [cost_def, ENNReal.ofReal_toReal
+    ((lintegral_pullCount_le_expectedStoppingTime _).trans_lt h.lt_top).ne]
+
+/-- **Lower bound on the number of pulls of an arm.** Let `A` be `δ`-correct with `δ ≤ 1 / 2`, let
+`i` be the only correct answer of the admissible model `θ`, and suppose that `E_θ[τ] < ∞`. If
+`D(θ, w, ¬i) ≤ w a x` for every nonnegative allocation `w`, then
+`kl(δ, 1 - δ) ≤ E_θ[N_a(τ)] x`. -/
+theorem IsDeltaCorrect.klBer_le_lintegral_pullCount_mul_of_altCost_le
+    (hA : task.IsDeltaCorrect A δ) (hδ : δ ≤ 1 / 2) (hθ : θ ∈ task.M) (hi : task.correct θ = {i})
+    (h : expectedStoppingTime A (Environment.bandit (task.ν θ)) ≠ ∞) {a : α} {x : ℝ}
+    (h_alt : ∀ w : α → ℝ, 0 ≤ w → task.altCost θ w i ≤ ENNReal.ofReal (w a * x)) :
+    klBer δ (1 - δ) ≤ (∫⁻ ω, (pullCount IT.action a
+        (ENat.toNat (A.stoppingTime IT.obs IT.action IT.feedback ω)) ω : ℝ≥0∞)
+          ∂(trajMeasure A.alg (Environment.bandit (task.ν θ)))) * ENNReal.ofReal x := by
+  refine (hA.klBer_le_altCost hδ hθ hi h).trans
+    ((h_alt _ fun _ ↦ ENNReal.toReal_nonneg).trans_eq ?_)
+  rw [ENNReal.ofReal_mul ENNReal.toReal_nonneg, ENNReal.ofReal_toReal
+    ((lintegral_pullCount_le_expectedStoppingTime a).trans_lt h.lt_top).ne]
 
 omit [DecidableEq α] in
 /-- **Lower bound on the sample complexity** [GK16, Theorem 1; LS, Theorem 33.5]. Let `A` be

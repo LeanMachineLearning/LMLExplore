@@ -55,6 +55,7 @@ time of an identification algorithm.
 * `Learning.IdentAlg.integral_sum_feedback_eq_sum_integral_pullCount_mul`: Wald's identity for the
   rewards, `𝔼[∑_{t < τ} Y_t] = ∑ a, 𝔼[N_a(τ)] μ_a`, at the stopping time `τ` of an identification
   algorithm with `𝔼[τ] < ∞` in a stationary environment with integrable reward distributions.
+* `LMLExplore.Identification.lintegral_pullCount_le_expectedStoppingTime`: `𝔼[N_a(τ)] ≤ 𝔼[τ]`.
 * `LMLExplore.Identification.expectedStoppingTime_mul_ofReal_expectedPullProportion`,
   `LMLExplore.Identification.sum_expectedPullProportion`: if `𝔼[τ] < ∞`, then
   `𝔼[τ] (𝔼[N_a(τ)] / 𝔼[τ]) = 𝔼[N_a(τ)]`, and if moreover `𝔼[τ] ≠ 0`, the expected proportions of
@@ -190,6 +191,22 @@ lemma expectedStoppingTime_eq_sum_lintegral_pullCount (hA : StopsAS A env) :
   IdentAlg.lintegral_stoppingTime_eq_sum_lintegral_pullCount
     (IT.isAlgEnvSeq_trajMeasure A.alg env) hA
 
+omit [Fintype 𝓐] [MeasurableSingletonClass 𝓐] in
+/-- The expected number of pulls of an action before the stopping time is at most the expected
+stopping time: `𝔼[N_a(τ)] ≤ 𝔼[τ]`. -/
+lemma lintegral_pullCount_le_expectedStoppingTime (a : 𝓐) :
+    ∫⁻ ω, (pullCount IT.action a
+      (ENat.toNat (A.stoppingTime IT.obs IT.action IT.feedback ω)) ω : ℝ≥0∞)
+        ∂(trajMeasure A.alg env) ≤ expectedStoppingTime A env := by
+  refine lintegral_mono fun ω ↦ ?_
+  calc (pullCount IT.action a (ENat.toNat (A.stoppingTime IT.obs IT.action IT.feedback ω)) ω
+        : ℝ≥0∞)
+  _ ≤ ENat.toNat (A.stoppingTime IT.obs IT.action IT.feedback ω) := by
+    exact_mod_cast pullCount_le a _ ω
+  _ ≤ ENat.toENNReal (A.stoppingTime IT.obs IT.action IT.feedback ω) := by
+    rw [← ENat.toENNReal_coe]
+    exact ENat.toENNReal_le.2 (ENat.natCast_toNat_le_self _)
+
 /-! ### The expected proportions of pulls -/
 
 omit [Fintype 𝓐] [MeasurableSingletonClass 𝓐] in
@@ -229,22 +246,16 @@ lemma expectedPullProportion_eq_zero_of_expectedStoppingTime_eq_top
     (h : expectedStoppingTime A env = ∞) (a : 𝓐) : expectedPullProportion A env a = 0 := by
   rw [expectedPullProportion_def, h, ENNReal.div_top, ENNReal.toReal_zero]
 
-omit [Fintype 𝓐] in
+omit [Fintype 𝓐] [MeasurableSingletonClass 𝓐] in
 /-- If `𝔼[τ] < ∞`, the expected proportions of pulls recover the expected numbers of pulls:
 `𝔼[τ] * (𝔼[N_a(τ)] / 𝔼[τ]) = 𝔼[N_a(τ)]`. -/
-lemma expectedStoppingTime_mul_ofReal_expectedPullProportion [Finite 𝓐]
+lemma expectedStoppingTime_mul_ofReal_expectedPullProportion
     (h : expectedStoppingTime A env ≠ ∞) (a : 𝓐) :
     expectedStoppingTime A env * ENNReal.ofReal (expectedPullProportion A env a) =
       ∫⁻ ω, (pullCount IT.action a
         (ENat.toNat (A.stoppingTime IT.obs IT.action IT.feedback ω)) ω : ℝ≥0∞)
         ∂(trajMeasure A.alg env) := by
-  have := Fintype.ofFinite 𝓐
-  -- By Wald's identity, `𝔼[N_a(τ)] ≤ 𝔼[τ]`.
-  have hle : ∫⁻ ω, (pullCount IT.action a
-      (ENat.toNat (A.stoppingTime IT.obs IT.action IT.feedback ω)) ω : ℝ≥0∞)
-        ∂(trajMeasure A.alg env) ≤ expectedStoppingTime A env := by
-    rw [expectedStoppingTime_eq_sum_lintegral_pullCount (StopsAS.of_expectedStoppingTime_ne_top h)]
-    apply Finset.single_le_sum_of_canonicallyOrdered (Finset.mem_univ a)
+  have hle := lintegral_pullCount_le_expectedStoppingTime (A := A) (env := env) a
   rcases eq_or_ne (expectedStoppingTime A env) 0 with h0 | h0
   · rw [h0, zero_mul]
     exact (nonpos_iff_eq_zero.1 (h0 ▸ hle)).symm
