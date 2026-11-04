@@ -48,6 +48,10 @@ optimal allocation, with `κ` close to the inverse of the characteristic time.
 * `IdentTask.glrt task Z alg β rec hrec hstop`: the identification algorithm with sampling rule
   `alg` that stops after `n` rounds with history `h` if `β n < task.glr Z n h (rec n h)` and then
   answers `rec n h`.
+* `unionBoundThreshold K x n`: the threshold `K log (2 n (n + 1)) + x` after `n` rounds, for `K`
+  arms and the level `x` [LS, Lemma 33.7].
+* `unionBoundLevel K δ`: the level `x_δ = log (1 / δ) + 2 K (1 + log (1 + log (1 / δ)))` of
+  confidence `δ`.
 
 ## Main statements
 
@@ -71,6 +75,11 @@ optimal allocation, with `κ` close to the inverse of the characteristic time.
   `𝔼[τ_δ] ≤ c log (1 / δ)` for all small enough `δ`, for every `c > 1 / κ`.
 * `IdentTask.eventually_expectedStoppingTime_glrt_le_of_isBigO`: the same conclusion for
   thresholds at most `log (r T / δ)` with `r T = O(T ^ p)`.
+* `div_pow_mul_exp_sub_unionBoundLevel_le`: `f(x_δ) ≤ δ` for the tail bound
+  `f(x) = (x / K) ^ K exp (K - x)` of the time-uniform deviation inequality of
+  `SequentialLearning/SubGaussianDeviation.lean`, which makes the thresholds `β_{x_δ}` `δ`-correct
+  for Gaussian arms (`Identification/GaussianThreshold.lean`).
+* `isLittleO_unionBoundLevel_sub_log`: `x_δ - log (1 / δ) = o(log (1 / δ))` as `δ → 0`.
 
 ## References
 
@@ -81,6 +90,8 @@ optimal allocation, with `κ` close to the inverse of the characteristic time.
   NeurIPS 2019, Theorem 10.
 * [DKM19] R. Degenne, W. M. Koolen and P. Ménard, *Non-asymptotic pure exploration by solving
   games*, NeurIPS 2019, Theorem 1 and Lemma 1.
+* [LS] T. Lattimore and Cs. Szepesvári, *Bandit Algorithms*, Cambridge University Press (2020),
+  Lemma 33.7.
 -/
 
 public section
@@ -421,3 +432,90 @@ theorem eventually_expectedStoppingTime_glrt_le_of_isBigO (hseq : IsAlgEnvSeq O 
       linarith
 
 end LMLExplore.Identification.IdentTask
+
+/-! ### Union-bound thresholds and levels -/
+
+namespace LMLExplore.Identification
+
+open Filter Topology Real Asymptotics
+
+/-- The GLR stopping threshold `K log (2 n (n + 1)) + x` after `n` rounds, for `K` arms and the
+level `x` [LS, Lemma 33.7]. For Gaussian arms and a level `x ≥ K`, the GLRT with these thresholds
+stops with an incorrect answer with probability at most `(x / K) ^ K exp (K - x)`
+(`IdentTask.measureReal_histOutputMeasure_glrt_unionBoundThreshold_le`). -/
+noncomputable def unionBoundThreshold (K : ℕ) (x : ℝ) (n : ℕ) : ℝ≥0∞ :=
+  ENNReal.ofReal (K * log (2 * n * (n + 1)) + x)
+
+lemma unionBoundThreshold_def (K : ℕ) (x : ℝ) (n : ℕ) :
+    unionBoundThreshold K x n = ENNReal.ofReal (K * log (2 * n * (n + 1)) + x) := (rfl)
+
+/-- The level `x_δ = log (1 / δ) + 2 K (1 + log (1 + log (1 / δ)))` of confidence `δ` for `K`
+arms: an explicit upper bound on the inverse at `δ` of the decreasing map
+`x ↦ (x / K) ^ K exp (K - x)` on `[K, ∞)` (`div_pow_mul_exp_sub_unionBoundLevel_le`), with
+`x_δ = (1 + o(1)) log (1 / δ)` as `δ → 0` (`isLittleO_unionBoundLevel_sub_log`). -/
+noncomputable def unionBoundLevel (K : ℕ) (δ : ℝ) : ℝ :=
+  log (1 / δ) + 2 * K * (1 + log (1 + log (1 / δ)))
+
+lemma unionBoundLevel_def (K : ℕ) (δ : ℝ) :
+    unionBoundLevel K δ = log (1 / δ) + 2 * K * (1 + log (1 + log (1 / δ))) := (rfl)
+
+variable {K : ℕ} {δ : ℝ}
+
+/-- For `δ ∈ (0, 1]`, the level `x_δ` is at least `K`, as the deviation inequality of
+`SequentialLearning/SubGaussianDeviation.lean` requires. -/
+lemma card_le_unionBoundLevel (hδ : 0 < δ) (hδ1 : δ ≤ 1) : (K : ℝ) ≤ unionBoundLevel K δ := by
+  have hL : 0 ≤ log (1 / δ) := log_nonneg (one_le_one_div hδ hδ1)
+  have hlog : 0 ≤ log (1 + log (1 / δ)) := log_nonneg (by linarith)
+  have hK : (0 : ℝ) ≤ K := K.cast_nonneg
+  rw [unionBoundLevel_def]
+  nlinarith
+
+/-- **The level `x_δ` has confidence `δ`**: for `K` arms and `δ ∈ (0, 1]`,
+`(x_δ / K) ^ K exp (K - x_δ) ≤ δ`. -/
+theorem div_pow_mul_exp_sub_unionBoundLevel_le (hδ : 0 < δ) (hδ1 : δ ≤ 1) :
+    (unionBoundLevel K δ / K) ^ K * exp (K - unionBoundLevel K δ) ≤ δ := by
+  rcases eq_or_ne K 0 with rfl | hK
+  · simp [unionBoundLevel_def, exp_log hδ]
+  set L := log (1 / δ) with hL_def
+  have hL : 0 ≤ L := log_nonneg (one_le_one_div hδ hδ1)
+  have hK1 : (1 : ℝ) ≤ K := Nat.one_le_cast.2 (Nat.pos_of_ne_zero hK)
+  have hK0 : (0 : ℝ) < K := zero_lt_one.trans_le hK1
+  have hL1 : 0 < 1 + L := by linarith
+  have hx0 : 0 ≤ unionBoundLevel K δ / K :=
+    div_nonneg (hK0.le.trans (card_le_unionBoundLevel hδ hδ1)) hK0.le
+  have hexp : exp (1 + 2 * log (1 + L)) = exp 1 * (1 + L) ^ 2 := by
+    rw [exp_add, two_mul, exp_add, exp_log hL1, sq]
+  -- `x_δ / K ≤ e (1 + L)²`, with `L = log (1 / δ)`.
+  have h_le : unionBoundLevel K δ / K ≤ exp 1 * (1 + L) ^ 2 := by
+    have hlog : log (1 + L) ≤ L := by linarith [log_le_sub_one_of_pos hL1]
+    have he : 2 ≤ exp 1 := by linarith [add_one_le_exp (1 : ℝ)]
+    rw [div_le_iff₀ hK0, unionBoundLevel_def, ← hL_def]
+    nlinarith [mul_nonneg (mul_nonneg (sub_nonneg.2 he) hK0.le) (sq_nonneg (1 + L)),
+      mul_le_mul_of_nonneg_left hlog hK0.le, mul_le_mul_of_nonneg_right hK1 hL]
+  calc (unionBoundLevel K δ / K) ^ K * exp (K - unionBoundLevel K δ)
+  _ ≤ (exp 1 * (1 + L) ^ 2) ^ K * exp (K - unionBoundLevel K δ) := by
+    gcongr
+  _ = exp (-L) := by
+    rw [← hexp, ← exp_nat_mul, ← exp_add, unionBoundLevel_def, ← hL_def]
+    ring_nf
+  _ = δ := by rw [hL_def, one_div, log_inv, neg_neg, exp_log hδ]
+
+/-- **The level `x_δ` is `(1 + o(1)) log (1 / δ)`** as `δ → 0`: `x_δ - log (1 / δ)` is
+negligible compared to `log (1 / δ)`. -/
+theorem isLittleO_unionBoundLevel_sub_log (K : ℕ) :
+    (fun δ ↦ unionBoundLevel K δ - log (1 / δ)) =o[𝓝[>] 0] fun δ ↦ log (1 / δ) := by
+  have hL : Tendsto (fun δ : ℝ ↦ log (1 / δ)) (𝓝[>] 0) atTop := by
+    simpa only [one_div, Function.comp_def] using tendsto_log_atTop.comp tendsto_inv_nhdsGT_zero
+  -- `2 K (1 + log (1 + L)) = o(L)` as `L → ∞`.
+  have h_add : (fun L : ℝ ↦ 1 + L) =O[atTop] id :=
+    (isLittleO_const_id_atTop (1 : ℝ)).isBigO.add (isBigO_refl _ _)
+  have h_log : (fun L : ℝ ↦ log (1 + L)) =o[atTop] id :=
+    (isLittleO_log_id_atTop.comp_tendsto (tendsto_atTop_add_const_left _ 1 tendsto_id)).trans_isBigO
+      h_add
+  have h : (fun L : ℝ ↦ 2 * K * (1 + log (1 + L))) =o[atTop] id :=
+    ((isLittleO_const_id_atTop (1 : ℝ)).add h_log).const_mul_left _
+  refine (h.comp_tendsto hL).congr_left fun δ ↦ ?_
+  simp only [Function.comp_apply, unionBoundLevel_def]
+  ring
+
+end LMLExplore.Identification

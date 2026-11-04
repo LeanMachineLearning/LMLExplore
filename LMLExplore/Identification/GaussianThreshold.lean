@@ -34,18 +34,13 @@ asymptotic sample complexity of Track-and-Stop requires to match the lower bound
 The thresholds of [LS] have `log (t (t + 1))` in place of `log (2 t (t + 1))`; the factor `2`
 accounts for the two tails of the empirical mean of each arm.
 
-## Main definitions
-
-* `LMLExplore.Identification.unionBoundThreshold K x n`: the threshold
-  `K log (2 n (n + 1)) + x` after `n` rounds, for `K` arms and the level `x`.
-* `LMLExplore.Identification.unionBoundLevel K δ`: the level
-  `x_δ = log (1 / δ) + 2 K (1 + log (1 + log (1 / δ)))` of confidence `δ`.
+The thresholds `β_x` (`LMLExplore.Identification.unionBoundThreshold`), the level `x_δ`
+(`LMLExplore.Identification.unionBoundLevel`) and the facts `f(x_δ) ≤ δ` and
+`x_δ - log (1 / δ) = o(log (1 / δ))` do not depend on the arms and live in
+`Identification/GLR.lean`.
 
 ## Main statements
 
-* `LMLExplore.Identification.div_pow_mul_exp_sub_unionBoundLevel_le`: `f(x_δ) ≤ δ`.
-* `LMLExplore.Identification.isLittleO_unionBoundLevel_sub_log`:
-  `x_δ - log (1 / δ) = o(log (1 / δ))` as `δ → 0`.
 * `IdentTask.empCost_gaussianBandit`: the empirical cost of Gaussian arms is
   `∑ a, N_a (μ̂_a - λ_a)² / (2 σ2)`.
 * `IdentTask.measure_exists_unionBoundThreshold_lt_empCost_le`: along a run of any sampling rule
@@ -66,93 +61,8 @@ accounts for the two tails of the empirical mean of each arm.
 
 public section
 
-open MeasureTheory ProbabilityTheory Learning Filter Real Asymptotics
-open scoped Topology ENNReal NNReal
-
-namespace LMLExplore.Identification
-
-/-! ### Thresholds and levels -/
-
-/-- The GLR stopping threshold `K log (2 n (n + 1)) + x` after `n` rounds, for `K` arms and the
-level `x` [LS, Lemma 33.7]. For Gaussian arms, the GLRT with these thresholds stops with an
-incorrect answer with probability at most `(x / K) ^ K exp (K - x)`
-(`IdentTask.measureReal_histOutputMeasure_glrt_unionBoundThreshold_le`). -/
-noncomputable def unionBoundThreshold (K : ℕ) (x : ℝ) (n : ℕ) : ℝ≥0∞ :=
-  ENNReal.ofReal (K * log (2 * n * (n + 1)) + x)
-
-lemma unionBoundThreshold_def (K : ℕ) (x : ℝ) (n : ℕ) :
-    unionBoundThreshold K x n = ENNReal.ofReal (K * log (2 * n * (n + 1)) + x) := (rfl)
-
-/-- The level `x_δ = log (1 / δ) + 2 K (1 + log (1 + log (1 / δ)))` of confidence `δ` for `K`
-arms: an explicit upper bound on the inverse at `δ` of the decreasing map
-`x ↦ (x / K) ^ K exp (K - x)` on `[K, ∞)` (`div_pow_mul_exp_sub_unionBoundLevel_le`), with
-`x_δ = (1 + o(1)) log (1 / δ)` as `δ → 0` (`isLittleO_unionBoundLevel_sub_log`). -/
-noncomputable def unionBoundLevel (K : ℕ) (δ : ℝ) : ℝ :=
-  log (1 / δ) + 2 * K * (1 + log (1 + log (1 / δ)))
-
-lemma unionBoundLevel_def (K : ℕ) (δ : ℝ) :
-    unionBoundLevel K δ = log (1 / δ) + 2 * K * (1 + log (1 + log (1 / δ))) := (rfl)
-
-variable {K : ℕ} {δ : ℝ}
-
-/-- For `δ ∈ (0, 1]`, the level `x_δ` is at least `K`, as the deviation inequality of
-`SequentialLearning/SubGaussianDeviation.lean` requires. -/
-lemma card_le_unionBoundLevel (hδ : 0 < δ) (hδ1 : δ ≤ 1) : (K : ℝ) ≤ unionBoundLevel K δ := by
-  have hL : 0 ≤ log (1 / δ) := log_nonneg (one_le_one_div hδ hδ1)
-  have hlog : 0 ≤ log (1 + log (1 / δ)) := log_nonneg (by linarith)
-  have hK : (0 : ℝ) ≤ K := K.cast_nonneg
-  rw [unionBoundLevel_def]
-  nlinarith
-
-/-- **The level `x_δ` has confidence `δ`**: for `K ≠ 0` arms and `δ ∈ (0, 1]`,
-`(x_δ / K) ^ K exp (K - x_δ) ≤ δ`. -/
-theorem div_pow_mul_exp_sub_unionBoundLevel_le (hK : K ≠ 0) (hδ : 0 < δ) (hδ1 : δ ≤ 1) :
-    (unionBoundLevel K δ / K) ^ K * exp (K - unionBoundLevel K δ) ≤ δ := by
-  set L := log (1 / δ) with hL_def
-  have hL : 0 ≤ L := log_nonneg (one_le_one_div hδ hδ1)
-  have hK1 : (1 : ℝ) ≤ K := Nat.one_le_cast.2 (Nat.pos_of_ne_zero hK)
-  have hK0 : (0 : ℝ) < K := zero_lt_one.trans_le hK1
-  have hL1 : 0 < 1 + L := by linarith
-  have hx0 : 0 ≤ unionBoundLevel K δ / K :=
-    div_nonneg (hK0.le.trans (card_le_unionBoundLevel hδ hδ1)) hK0.le
-  -- `x_δ / K ≤ e (1 + L)²`, with `L = log (1 / δ)`.
-  have h_le : unionBoundLevel K δ / K ≤ exp (1 + 2 * log (1 + L)) := by
-    have hlog : log (1 + L) ≤ L := by linarith [log_le_sub_one_of_pos hL1]
-    have he : 2 ≤ exp 1 := by linarith [add_one_le_exp (1 : ℝ)]
-    have hLK : L / K ≤ L := div_le_self hL hK1
-    rw [exp_add, show 2 * log (1 + L) = (2 : ℕ) * log (1 + L) by norm_num, exp_nat_mul,
-      exp_log hL1, unionBoundLevel_def, ← hL_def, add_div,
-      show (2 : ℝ) * K * (1 + log (1 + L)) / K = 2 * (1 + log (1 + L)) by field_simp]
-    nlinarith
-  calc (unionBoundLevel K δ / K) ^ K * exp (K - unionBoundLevel K δ)
-  _ ≤ exp (1 + 2 * log (1 + L)) ^ K * exp (K - unionBoundLevel K δ) := by
-    gcongr
-  _ = exp (-L) := by
-    rw [← exp_nat_mul, ← exp_add, unionBoundLevel_def, ← hL_def]
-    ring_nf
-  _ = δ := by rw [hL_def, one_div, log_inv, neg_neg, exp_log hδ]
-
-/-- **The level `x_δ` is `(1 + o(1)) log (1 / δ)`** as `δ → 0`: `x_δ - log (1 / δ)` is
-negligible compared to `log (1 / δ)`. -/
-theorem isLittleO_unionBoundLevel_sub_log (K : ℕ) :
-    (fun δ ↦ unionBoundLevel K δ - log (1 / δ)) =o[𝓝[>] 0] fun δ ↦ log (1 / δ) := by
-  have hL : Tendsto (fun δ : ℝ ↦ log (1 / δ)) (𝓝[>] 0) atTop := by
-    simpa only [one_div, Function.comp_def] using tendsto_log_atTop.comp tendsto_inv_nhdsGT_zero
-  -- `2 K (1 + log (1 + L)) = o(L)` as `L → ∞`.
-  have h_add : (fun L : ℝ ↦ 1 + L) =O[atTop] id :=
-    (isLittleO_const_id_atTop (1 : ℝ)).isBigO.add (isBigO_refl _ _)
-  have h_log : (fun L : ℝ ↦ log (1 + L)) =o[atTop] id :=
-    (isLittleO_log_id_atTop.comp_tendsto (tendsto_atTop_add_const_left _ 1 tendsto_id)).trans_isBigO
-      h_add
-  have h : (fun L : ℝ ↦ 2 * K * (1 + log (1 + L))) =o[atTop] id :=
-    ((isLittleO_const_id_atTop (1 : ℝ)).add h_log).const_mul_left _
-  refine (h.comp_tendsto hL).congr_left fun δ ↦ ?_
-  simp only [Function.comp_apply, unionBoundLevel_def]
-  ring
-
-end LMLExplore.Identification
-
-/-! ### Gaussian arms -/
+open MeasureTheory ProbabilityTheory Learning Real
+open scoped ENNReal NNReal
 
 namespace LMLExplore.Identification.IdentTask
 
@@ -225,7 +135,7 @@ theorem measureReal_histOutputMeasure_glrt_unionBoundThreshold_le
 rule. For Gaussian arms with a common variance `σ2 ≠ 0` and `δ ∈ (0, 1]`, the GLRT with the
 empirical costs as statistic and the thresholds `K log (2 n (n + 1)) + x_δ` is `δ`-PAC on the
 task, provided it stops almost surely on every admissible model. -/
-theorem isDeltaPAC_glrt_unionBoundThreshold [Nonempty α]
+theorem isDeltaPAC_glrt_unionBoundThreshold
     (hνt : task.ν = (Bandits.gaussianBandit · σ2)) (hσ2 : σ2 ≠ 0) (hδ : 0 < δ) (hδ1 : δ ≤ 1)
     (hstop : ∀ n, MeasurableSet {h | unionBoundThreshold (Fintype.card α)
       (unionBoundLevel (Fintype.card α) δ) n < task.glr task.empCost n h (rec n h)})
@@ -241,7 +151,7 @@ theorem isDeltaPAC_glrt_unionBoundThreshold [Nonempty α]
   refine ENNReal.toReal_le_of_le_ofReal hδ.le ((measure_exists_unionBoundThreshold_lt_empCost_le
     hνt hσ2 (IT.isAlgEnvSeq_trajMeasure alg _) (card_le_unionBoundLevel hδ hδ1)).trans ?_)
   exact ENNReal.ofReal_le_ofReal
-    (div_pow_mul_exp_sub_unionBoundLevel_le Fintype.card_ne_zero hδ hδ1)
+    (div_pow_mul_exp_sub_unionBoundLevel_le hδ hδ1)
 
 /-- **Track-and-Stop for Gaussian arms is `δ`-PAC** [LS, Lemma 33.7], whatever its target map and
 its recommendation rule. For Gaussian arms with a common variance `σ2 ≠ 0` and `δ ∈ (0, 1]`,
