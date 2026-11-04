@@ -6,6 +6,7 @@ Authors: Rémy Degenne
 module
 
 public import LMLExplore.SequentialLearning.FiniteActions
+public import Mathlib.Analysis.Asymptotics.SpecificAsymptotics
 public import Mathlib.Analysis.Real.Sqrt
 
 /-!
@@ -45,6 +46,22 @@ with `N_a(n) = pullCount A a n ω` the number of pulls of `a` in the rounds `0, 
   `LMLExplore.Identification.tendsto_pullCount_div_of_sqrt_sub`: if the targets converge to `l`,
   the proportions of pulls `N_a(n) / n` converge to `l a`, for a sublinear threshold `g` and for
   the threshold `√k - K / 2` of D-tracking.
+* `LMLExplore.Identification.abs_pullCount_sub_sum_le_add_sum`,
+  `LMLExplore.Identification.sum_sub_le_pullCount`: tracking the cumulated sums of perturbations
+  `p k` of targets `w k`: if `|p k a - w k a| ≤ c k`, then
+  `|N_a(n) - ∑_{s < n} w s a| ≤ K - 1 + ∑_{s < n} c s`, and if `ε k ≤ p k a`, then
+  `∑_{s < n} ε s - (K - 1) ≤ N_a(n)`.
+* `LMLExplore.Identification.abs_pullCount_sub_sum_le_mul_one_add_sqrt`,
+  `LMLExplore.Identification.sqrt_add_sub_le_pullCount`: C-tracking [GK16, Lemma 7]. If the arm
+  played at round `k` maximizes `∑_{s ≤ k} w^{ε_s}_s a - N_a(k)`, with `w^ε` the mixture
+  `cTrackingTarget ε w` of the target `w` with the uniform allocation and
+  `ε_s = 1 / (2 √(K² + s))`, then `|N_a(n) - ∑_{s < n} w s a| ≤ (K - 1) (1 + √n)` and
+  `√(n + K²) - 2 K + 1 ≤ N_a(n)`.
+* `LMLExplore.Identification.tendsto_pullCount_div_sub_average`,
+  `LMLExplore.Identification.tendsto_pullCount_div_of_cTracking`: under C-tracking, the
+  difference between the proportions of pulls `N_a(n) / n` and the averages of the targets
+  `(1 / n) ∑_{s < n} w s a` tends to `0`; in particular the proportions converge to the limit of
+  the targets whenever the targets converge.
 
 ## References
 
@@ -466,5 +483,262 @@ theorem tendsto_pullCount_div_of_sqrt_sub {w : ℕ → α → ℝ} {l : α → �
     rw [div_le_iff₀ (by positivity)] at hk
     nlinarith
   linarith [show (0 : ℝ) ≤ Fintype.card α / 2 by positivity]
+
+/-! ### C-tracking -/
+
+/-- **Tracking perturbed cumulated targets.** Let `p k` be a probability vector for every round
+`k`, and let the arm played at round `k` maximize `∑_{s ≤ k} p s a - N_a(k)`. If `p k` is
+`c k`-close to the target `w k` on every arm, then after every number `n` of rounds,
+`|N_a(n) - ∑_{s < n} w s a| ≤ K - 1 + ∑_{s < n} c s`. -/
+theorem abs_pullCount_sub_sum_le_add_sum (p w : ℕ → α → ℝ) {c : ℕ → ℝ} (hp0 : ∀ k a, 0 ≤ p k a)
+    (hp1 : ∀ k, ∑ a, p k a = 1)
+    (hA : ∀ k a, ∑ s ∈ range (k + 1), p s a - pullCount A a k ω ≤
+      ∑ s ∈ range (k + 1), p s (A k ω) - pullCount A (A k ω) k ω)
+    (hpw : ∀ k a, |p k a - w k a| ≤ c k) (n : ℕ) (a : α) :
+    |(pullCount A a n ω : ℝ) - ∑ s ∈ range n, w s a| ≤
+      Fintype.card α - 1 + ∑ s ∈ range n, c s := by
+  have hp := abs_pullCount_sub_sum_le p hp0 hp1 hA n a
+  have hpw' : |∑ s ∈ range n, p s a - ∑ s ∈ range n, w s a| ≤ ∑ s ∈ range n, c s := by
+    rw [← sum_sub_distrib]
+    exact (abs_sum_le_sum_abs _ _).trans (sum_le_sum fun s _ ↦ hpw s a)
+  calc |(pullCount A a n ω : ℝ) - ∑ s ∈ range n, w s a|
+      = |((pullCount A a n ω : ℝ) - ∑ s ∈ range n, p s a) +
+          (∑ s ∈ range n, p s a - ∑ s ∈ range n, w s a)| := by ring_nf
+    _ ≤ Fintype.card α - 1 + ∑ s ∈ range n, c s := (abs_add_le _ _).trans (add_le_add hp hpw')
+
+/-- **Forced exploration by tracking cumulated targets.** Let `p k` be a probability vector for
+every round `k`, and let the arm played at round `k` maximize `∑_{s ≤ k} p s a - N_a(k)`. If
+`ε k ≤ p k a` for every arm, then after every number `n` of rounds,
+`∑_{s < n} ε s - (K - 1) ≤ N_a(n)`. -/
+theorem sum_sub_le_pullCount (p : ℕ → α → ℝ) {ε : ℕ → ℝ} (hp0 : ∀ k a, 0 ≤ p k a)
+    (hp1 : ∀ k, ∑ a, p k a = 1)
+    (hA : ∀ k a, ∑ s ∈ range (k + 1), p s a - pullCount A a k ω ≤
+      ∑ s ∈ range (k + 1), p s (A k ω) - pullCount A (A k ω) k ω)
+    (hε : ∀ k a, ε k ≤ p k a) (n : ℕ) (a : α) :
+    ∑ s ∈ range n, ε s - (Fintype.card α - 1) ≤ pullCount A a n ω := by
+  have hp := (abs_le.1 (abs_pullCount_sub_sum_le p hp0 hp1 hA n a)).1
+  have : ∑ s ∈ range n, ε s ≤ ∑ s ∈ range n, p s a := sum_le_sum fun s _ ↦ hε s a
+  linarith
+
+omit [DecidableEq α] in
+/-- The target of C-tracking for the allocation `w` and the exploration rate `ε`: the mixture
+`(1 - K ε) w + ε` of `w` with the uniform allocation, which gives at least `ε` to every arm. It
+replaces the `ℓ^∞` projection of `w` on the allocations with entries at least `ε` of [GK16]: both
+are allocations with entries at least `ε` and at distance at most `(K - 1) ε` from `w`, the two
+properties that the guarantees of C-tracking use. -/
+noncomputable def cTrackingTarget (ε : ℝ) (w : α → ℝ) (a : α) : ℝ :=
+  (1 - Fintype.card α * ε) * w a + ε
+
+omit [DecidableEq α] in
+/-- The target of C-tracking is `(1 - K ε) w a + ε` on the arm `a`. -/
+lemma cTrackingTarget_apply (ε : ℝ) (w : α → ℝ) (a : α) :
+    cTrackingTarget ε w a = (1 - Fintype.card α * ε) * w a + ε :=
+  (rfl)
+
+omit [DecidableEq α] in
+/-- The target of C-tracking gives at least `ε` to every arm. -/
+lemma le_cTrackingTarget {ε : ℝ} {w : α → ℝ} (hw0 : ∀ a, 0 ≤ w a)
+    (hε : Fintype.card α * ε ≤ 1) (a : α) : ε ≤ cTrackingTarget ε w a := by
+  rw [cTrackingTarget_apply]
+  nlinarith [hw0 a]
+
+omit [DecidableEq α] in
+/-- The target of C-tracking of an allocation is an allocation. -/
+lemma sum_cTrackingTarget {ε : ℝ} {w : α → ℝ} (hw1 : ∑ a, w a = 1) :
+    ∑ a, cTrackingTarget ε w a = 1 := by
+  simp only [cTrackingTarget_apply, sum_add_distrib, ← mul_sum, hw1, sum_const, card_univ,
+    nsmul_eq_mul]
+  ring
+
+omit [DecidableEq α] in
+/-- The target of C-tracking of an allocation `w` is `(K - 1) ε`-close to `w` on every arm. -/
+lemma abs_cTrackingTarget_sub_le {ε : ℝ} {w : α → ℝ} (hw0 : ∀ a, 0 ≤ w a) (hw1 : ∑ a, w a = 1)
+    (hε : 0 ≤ ε) (a : α) : |cTrackingTarget ε w a - w a| ≤ (Fintype.card α - 1) * ε := by
+  classical
+  have : Nonempty α := ⟨a⟩
+  have hK := one_le_card_real (α := α)
+  have hwa : w a ≤ 1 := hw1 ▸ single_le_sum (fun b _ ↦ hw0 b) (mem_univ a)
+  -- The other arms have total weight `1 - w a ≤ K - 1`.
+  have hrest : 1 - w a ≤ Fintype.card α - 1 := by
+    have hsplit := add_sum_erase univ w (mem_univ a)
+    have : ∑ b ∈ univ.erase a, w b ≤ ∑ _b ∈ univ.erase a, (1 : ℝ) :=
+      sum_le_sum fun b _ ↦ hw1 ▸ single_le_sum (fun b _ ↦ hw0 b) (mem_univ b)
+    rw [sum_const, nsmul_eq_mul, mul_one, card_univ_erase_real a] at this
+    linarith
+  rw [cTrackingTarget_apply, show (1 - Fintype.card α * ε) * w a + ε - w a =
+    (1 - Fintype.card α * w a) * ε by ring, abs_mul, abs_of_nonneg hε]
+  refine mul_le_mul_of_nonneg_right (abs_le.2 ⟨?_, ?_⟩) hε <;> nlinarith [hw0 a]
+
+/-- The exploration rate `ε_s = 1 / (2 √(K² + s))` of C-tracking after `s` rounds with `K` arms
+[GK16]. -/
+noncomputable def cTrackingRate (K s : ℕ) : ℝ := 1 / (2 * √((K : ℝ) ^ 2 + s))
+
+/-- The exploration rate of C-tracking is `ε_s = 1 / (2 √(K² + s))`. -/
+lemma cTrackingRate_def (K s : ℕ) : cTrackingRate K s = 1 / (2 * √((K : ℝ) ^ 2 + s)) :=
+  (rfl)
+
+/-- The exploration rate of C-tracking is nonnegative. -/
+lemma cTrackingRate_nonneg (K s : ℕ) : 0 ≤ cTrackingRate K s := by
+  rw [cTrackingRate_def]
+  positivity
+
+/-- `K ε_s ≤ 1`, so the target of C-tracking is a mixture of the target and the uniform
+allocation. -/
+lemma mul_cTrackingRate_le_one (K s : ℕ) : K * cTrackingRate K s ≤ 1 := by
+  rcases Nat.eq_zero_or_pos K with rfl | hK
+  · simp
+  have hK' : (1 : ℝ) ≤ K := by exact_mod_cast hK
+  have hsq : (K : ℝ) ≤ √((K : ℝ) ^ 2 + s) :=
+    Real.le_sqrt_of_sq_le (by linarith [Nat.cast_nonneg (α := ℝ) s])
+  rw [cTrackingRate_def, mul_one_div, div_le_one (by positivity)]
+  linarith
+
+/-- A lower bound on the increments of the square root: `1 / (2 √(x + 1)) ≤ √(x + 1) - √x` for
+`x ≥ 0`. -/
+private lemma one_div_two_mul_sqrt_add_one_le {x : ℝ} (hx : 0 ≤ x) :
+    1 / (2 * √(x + 1)) ≤ √(x + 1) - √x := by
+  have ha := Real.sq_sqrt (show 0 ≤ x + 1 by linarith)
+  have hb := Real.sq_sqrt hx
+  have ha0 : 0 < √(x + 1) := Real.sqrt_pos.2 (by linarith)
+  -- `√x √(x + 1) ≤ x + 1 / 2`, the inequality between the geometric and arithmetic means.
+  have hab : √x * √(x + 1) ≤ x + 1 / 2 := by nlinarith [sq_nonneg (√(x + 1) - √x)]
+  rw [div_le_iff₀ (by positivity)]
+  nlinarith
+
+/-- An upper bound on the increments of the square root: `√(x + 1) - √x ≤ 1 / (2 √x)` for
+`x > 0`. -/
+private lemma sqrt_add_one_sub_sqrt_le {x : ℝ} (hx : 0 < x) :
+    √(x + 1) - √x ≤ 1 / (2 * √x) := by
+  have ha := Real.sq_sqrt (show 0 ≤ x + 1 by linarith)
+  have hb := Real.sq_sqrt hx.le
+  have hb0 : 0 < √x := Real.sqrt_pos.2 hx
+  -- `√x √(x + 1) ≤ x + 1 / 2`, the inequality between the geometric and arithmetic means.
+  have hab : √x * √(x + 1) ≤ x + 1 / 2 := by nlinarith [sq_nonneg (√(x + 1) - √x)]
+  rw [le_div_iff₀ (by positivity)]
+  nlinarith
+
+/-- The sum of the exploration rates of C-tracking over the first `n` rounds is at most `√n`. -/
+lemma sum_cTrackingRate_le {K : ℕ} (hK : 1 ≤ K) (n : ℕ) :
+    ∑ s ∈ range n, cTrackingRate K s ≤ √(n : ℝ) := by
+  have hK' : (1 : ℝ) ≤ K := by exact_mod_cast hK
+  calc ∑ s ∈ range n, cTrackingRate K s
+      ≤ ∑ s ∈ range n, (√((s : ℝ) + 1) - √(s : ℝ)) := by
+        refine sum_le_sum fun s _ ↦ ?_
+        have hs := Nat.cast_nonneg (α := ℝ) s
+        refine le_trans ?_ (one_div_two_mul_sqrt_add_one_le hs)
+        rw [cTrackingRate_def]
+        exact one_div_le_one_div_of_le (by positivity)
+          (mul_le_mul_of_nonneg_left (Real.sqrt_le_sqrt (by nlinarith)) zero_le_two)
+    _ = √(n : ℝ) := by
+        have h := sum_range_sub (fun s : ℕ ↦ √(s : ℝ)) n
+        push_cast at h
+        simpa using h
+
+/-- The sum of the exploration rates of C-tracking over the first `n` rounds is at least
+`√(n + K²) - K`. -/
+lemma sqrt_add_sub_le_sum_cTrackingRate {K : ℕ} (hK : 1 ≤ K) (n : ℕ) :
+    √((n : ℝ) + K ^ 2) - K ≤ ∑ s ∈ range n, cTrackingRate K s := by
+  have hK' : (1 : ℝ) ≤ K := by exact_mod_cast hK
+  calc √((n : ℝ) + K ^ 2) - K
+      = ∑ s ∈ range n, (√((K : ℝ) ^ 2 + s + 1) - √((K : ℝ) ^ 2 + s)) := by
+        have h := sum_range_sub (fun s : ℕ ↦ √((K : ℝ) ^ 2 + s)) n
+        push_cast at h
+        simp only [← add_assoc] at h
+        rw [h, add_zero, Real.sqrt_sq (by linarith), add_comm]
+    _ ≤ ∑ s ∈ range n, cTrackingRate K s := by
+        refine sum_le_sum fun s _ ↦ ?_
+        rw [cTrackingRate_def]
+        exact sqrt_add_one_sub_sqrt_le (by positivity)
+
+/-- **Tracking of C-tracking** [GK16, Lemma 7]. Let `w k` be an allocation for every round `k`,
+and let the arm played at round `k` maximize `∑_{s ≤ k} w^{ε_s}_s a - N_a(k)`, where `w^{ε_s}_s` is
+the target `cTrackingTarget ε_s (w s)` and `ε_s = cTrackingRate K s`. Then after every number `n`
+of rounds, `|N_a(n) - ∑_{s < n} w s a| ≤ (K - 1) (1 + √n)` for every arm `a`. ([GK16] states
+the bound `K (1 + √n)`.) -/
+theorem abs_pullCount_sub_sum_le_mul_one_add_sqrt {w : ℕ → α → ℝ} (hw0 : ∀ k a, 0 ≤ w k a)
+    (hw1 : ∀ k, ∑ a, w k a = 1)
+    (hA : ∀ k a,
+      ∑ s ∈ range (k + 1), cTrackingTarget (cTrackingRate (Fintype.card α) s) (w s) a -
+          pullCount A a k ω ≤
+        ∑ s ∈ range (k + 1), cTrackingTarget (cTrackingRate (Fintype.card α) s) (w s) (A k ω) -
+          pullCount A (A k ω) k ω) (n : ℕ) (a : α) :
+    |(pullCount A a n ω : ℝ) - ∑ s ∈ range n, w s a| ≤ (Fintype.card α - 1) * (1 + √(n : ℝ)) := by
+  have : Nonempty α := ⟨a⟩
+  have hK : 1 ≤ Fintype.card α := Fintype.card_pos
+  have h := abs_pullCount_sub_sum_le_add_sum _ w
+    (fun k b ↦ (cTrackingRate_nonneg _ k).trans
+      (le_cTrackingTarget (hw0 k) (mul_cTrackingRate_le_one _ k) b))
+    (fun k ↦ sum_cTrackingTarget (hw1 k)) hA
+    (fun k b ↦ abs_cTrackingTarget_sub_le (hw0 k) (hw1 k) (cTrackingRate_nonneg _ k) b) n a
+  rw [← mul_sum] at h
+  have hK1 : (0 : ℝ) ≤ Fintype.card α - 1 := by linarith [one_le_card_real (α := α)]
+  nlinarith [sum_cTrackingRate_le hK n]
+
+/-- **Forced exploration of C-tracking** [GK16, Lemma 7]. Let `w k` be an allocation for every
+round `k`, and let the arm played at round `k` maximize `∑_{s ≤ k} w^{ε_s}_s a - N_a(k)`, where
+`w^{ε_s}_s` is the target `cTrackingTarget ε_s (w s)` and `ε_s = cTrackingRate K s`. Then after
+every number `n` of rounds, `√(n + K²) - 2 K + 1 ≤ N_a(n)` for every arm `a`. ([GK16] states the
+bound `√(n + K²) - 2 K`.) -/
+theorem sqrt_add_sub_le_pullCount {w : ℕ → α → ℝ} (hw0 : ∀ k a, 0 ≤ w k a)
+    (hw1 : ∀ k, ∑ a, w k a = 1)
+    (hA : ∀ k a,
+      ∑ s ∈ range (k + 1), cTrackingTarget (cTrackingRate (Fintype.card α) s) (w s) a -
+          pullCount A a k ω ≤
+        ∑ s ∈ range (k + 1), cTrackingTarget (cTrackingRate (Fintype.card α) s) (w s) (A k ω) -
+          pullCount A (A k ω) k ω) (n : ℕ) (a : α) :
+    √((n : ℝ) + Fintype.card α ^ 2) - 2 * Fintype.card α + 1 ≤ pullCount A a n ω := by
+  have : Nonempty α := ⟨a⟩
+  have hK : 1 ≤ Fintype.card α := Fintype.card_pos
+  have h := sum_sub_le_pullCount _
+    (fun k b ↦ (cTrackingRate_nonneg _ k).trans
+      (le_cTrackingTarget (hw0 k) (mul_cTrackingRate_le_one _ k) b))
+    (fun k ↦ sum_cTrackingTarget (hw1 k)) hA
+    (fun k b ↦ le_cTrackingTarget (hw0 k) (mul_cTrackingRate_le_one _ k) b) n a
+  linarith [sqrt_add_sub_le_sum_cTrackingRate hK n]
+
+/-- **Proportions of pulls of C-tracking.** Under the assumptions of
+`abs_pullCount_sub_sum_le_mul_one_add_sqrt`, the difference between the proportion of pulls
+`N_a(n) / n` and the average `(1 / n) ∑_{s < n} w s a` of the targets tends to `0`. -/
+theorem tendsto_pullCount_div_sub_average {w : ℕ → α → ℝ} (hw0 : ∀ k a, 0 ≤ w k a)
+    (hw1 : ∀ k, ∑ a, w k a = 1)
+    (hA : ∀ k a,
+      ∑ s ∈ range (k + 1), cTrackingTarget (cTrackingRate (Fintype.card α) s) (w s) a -
+          pullCount A a k ω ≤
+        ∑ s ∈ range (k + 1), cTrackingTarget (cTrackingRate (Fintype.card α) s) (w s) (A k ω) -
+          pullCount A (A k ω) k ω) (a : α) :
+    Tendsto (fun n : ℕ ↦ (pullCount A a n ω : ℝ) / n - (n : ℝ)⁻¹ * ∑ s ∈ range n, w s a) atTop
+      (𝓝 0) := by
+  -- The difference is at most `(K - 1) (1 / n + 1 / √n)` in absolute value.
+  have hbound : Tendsto (fun n : ℕ ↦ (Fintype.card α - 1) * ((n : ℝ)⁻¹ + (√(n : ℝ))⁻¹)) atTop
+      (𝓝 0) := by
+    simpa using (tendsto_inv_atTop_zero.comp tendsto_natCast_atTop_atTop |>.add
+      (tendsto_inv_atTop_zero.comp (Real.tendsto_sqrt_atTop.comp
+        tendsto_natCast_atTop_atTop))).const_mul ((Fintype.card α : ℝ) - 1)
+  refine squeeze_zero_norm' ?_ hbound
+  filter_upwards [eventually_gt_atTop 0] with n hn
+  have hn' : (0 : ℝ) < n := Nat.cast_pos.2 hn
+  have hs : 0 < √(n : ℝ) := Real.sqrt_pos.2 hn'
+  have h := abs_pullCount_sub_sum_le_mul_one_add_sqrt hw0 hw1 hA n a
+  rw [Real.norm_eq_abs, show (pullCount A a n ω : ℝ) / n - (n : ℝ)⁻¹ * ∑ s ∈ range n, w s a =
+    ((pullCount A a n ω : ℝ) - ∑ s ∈ range n, w s a) / n by field_simp, abs_div,
+    abs_of_pos hn', div_le_iff₀ hn']
+  calc |(pullCount A a n ω : ℝ) - ∑ s ∈ range n, w s a|
+      ≤ (Fintype.card α - 1) * (1 + √(n : ℝ)) := h
+    _ = (Fintype.card α - 1) * ((n : ℝ)⁻¹ + (√(n : ℝ))⁻¹) * n := by
+        field_simp
+        linear_combination ((Fintype.card α : ℝ) - 1) * Real.sq_sqrt hn'.le
+
+/-- **Convergence of the proportions of pulls of C-tracking.** Under the assumptions of
+`abs_pullCount_sub_sum_le_mul_one_add_sqrt`, if the targets `w k a` converge to `l a`, then the
+proportions of pulls `N_a(n) / n` converge to `l a`. -/
+theorem tendsto_pullCount_div_of_cTracking {w : ℕ → α → ℝ} {l : α → ℝ} (hw0 : ∀ k a, 0 ≤ w k a)
+    (hw1 : ∀ k, ∑ a, w k a = 1)
+    (hA : ∀ k a,
+      ∑ s ∈ range (k + 1), cTrackingTarget (cTrackingRate (Fintype.card α) s) (w s) a -
+          pullCount A a k ω ≤
+        ∑ s ∈ range (k + 1), cTrackingTarget (cTrackingRate (Fintype.card α) s) (w s) (A k ω) -
+          pullCount A (A k ω) k ω) {a : α} (hw : Tendsto (fun k ↦ w k a) atTop (𝓝 (l a))) :
+    Tendsto (fun n ↦ (pullCount A a n ω : ℝ) / n) atTop (𝓝 (l a)) := by
+  simpa using (tendsto_pullCount_div_sub_average hw0 hw1 hA a).add hw.cesaro
 
 end LMLExplore.Identification
