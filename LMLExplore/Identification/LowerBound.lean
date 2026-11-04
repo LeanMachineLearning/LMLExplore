@@ -47,6 +47,9 @@ Gaussian arms when Track-and-Stop tracks continuous optimal allocations
 * `IdentTask.eventually_mul_ofReal_log_le_expectedStoppingTime`: the asymptotic lower bound
   `c log (1 / δ) ≤ E_θ[τ_δ]` for all small enough `δ`, for every `c < T*(θ)`, for a family of
   `δ`-correct algorithms.
+* `IdentTask.tendsto_expectedStoppingTime_div_log`: a family of `δ`-correct algorithms with
+  `E_θ[τ_δ] ≤ c log (1 / δ)` for small `δ`, for every `c > T*(θ)`, has
+  `E_θ[τ_δ] / log (1 / δ) → T*(θ)`.
 
 ## References
 
@@ -202,6 +205,37 @@ theorem eventually_mul_ofReal_log_le_expectedStoppingTime [Nonempty α]
     rw [ENNReal.ofReal_mul c'.coe_nonneg, ENNReal.ofReal_coe_nnreal]
   _ ≤ task.charTime θ * ENNReal.ofReal (Real.log (1 / (2.4 * δ))) := by gcongr
   _ ≤ _ := hAδ.charTime_mul_ofReal_log_le_expectedStoppingTime le_rfl hθ hi
+
+open Filter Topology in
+omit [DecidableEq α] in
+/-- **Asymptotic optimality from a matching upper bound.** Let `A δ` be `δ`-correct for all small
+enough `δ` and let `θ` be an admissible model with a single correct answer. If for every
+`c > T*(θ)`, `E_θ[τ_δ] ≤ c log (1 / δ)` for all small enough `δ`, then
+`E_θ[τ_δ] / log (1 / δ) → T*(θ)` as `δ → 0`: by the lower bound
+`eventually_mul_ofReal_log_le_expectedStoppingTime`, the family `A` has the optimal sample
+complexity. -/
+theorem tendsto_expectedStoppingTime_div_log [Nonempty α] {A : ℝ → IdentAlg Unit α 𝓨 ℐ}
+    (hA : ∀ᶠ δ in 𝓝[>] 0, task.IsDeltaCorrect (A δ) δ) (hθ : θ ∈ task.M)
+    (hi : task.correct θ = {i})
+    (h_upper : ∀ c : ℝ≥0, task.charTime θ < c → ∀ᶠ δ in 𝓝[>] 0,
+      expectedStoppingTime (A δ) (Environment.bandit (task.ν θ)) ≤
+        c * ENNReal.ofReal (Real.log (1 / δ))) :
+    Tendsto (fun δ ↦ expectedStoppingTime (A δ) (Environment.bandit (task.ν θ)) /
+      ENNReal.ofReal (Real.log (1 / δ))) (𝓝[>] 0) (𝓝 (task.charTime θ)) := by
+  have hL : ∀ᶠ δ in 𝓝[>] 0, 0 < Real.log (1 / δ) := by
+    filter_upwards [Ioo_mem_nhdsGT one_pos] with δ hδ
+    exact Real.log_pos (one_lt_one_div hδ.1 hδ.2)
+  refine tendsto_order.2 ⟨fun a ha ↦ ?_, fun a ha ↦ ?_⟩
+  · -- Below `T*(θ)`: the lower bound for `δ`-correct algorithms.
+    obtain ⟨c, hac, hc⟩ := ENNReal.lt_iff_exists_nnreal_btwn.1 ha
+    filter_upwards [eventually_mul_ofReal_log_le_expectedStoppingTime hA hθ hi hc, hL]
+      with δ hδ hLδ
+    exact hac.trans_le ((ENNReal.le_div_iff_mul_le (Or.inl (ENNReal.ofReal_pos.2 hLδ).ne')
+      (Or.inl ENNReal.ofReal_ne_top)).2 hδ)
+  · -- Above `T*(θ)`: the upper bound.
+    obtain ⟨c, hc, hca⟩ := ENNReal.lt_iff_exists_nnreal_btwn.1 ha
+    filter_upwards [h_upper c hc] with δ hδ
+    exact (ENNReal.div_le_of_le_mul hδ).trans_lt hca
 
 end IdentTask
 

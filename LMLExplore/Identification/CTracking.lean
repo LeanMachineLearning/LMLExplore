@@ -5,7 +5,9 @@ Authors: Rémy Degenne
 -/
 module
 
+public import LMLExplore.Analysis.SpecialFunctions.Log.Basic
 public import LMLExplore.Bandits.IndexAlgorithm
+public import LMLExplore.Identification.ForcedExploration
 public import LMLExplore.Identification.Tracking
 
 /-!
@@ -53,11 +55,14 @@ In the namespace `LMLExplore.Identification.CTracking`, along every run of `cTra
 * `tendsto_pullCount_div_sub_inv_mul_sum`, `tendsto_pullCount_div`: almost surely, the
   proportions of pulls get close to the averages of the targets, and converge to the limit of the
   targets whenever the targets converge.
+* `tsum_measure_exists_ge_empMean_notMem_Ioo_ne_top`: under the forced exploration of C-tracking,
+  the empirical means of exponential-family arms stay close to the means after `t₀ T` rounds,
+  except on events whose probabilities have a finite sum over `T` [GK16, Lemma 19].
 
 ## References
 
 * [GK16] A. Garivier and E. Kaufmann, *Optimal best arm identification with fixed confidence*,
-  COLT 2016, Section 3.1 and Lemma 7.
+  COLT 2016, Section 3.1 and Lemmas 7 and 19.
 * [DK19] R. Degenne and W. M. Koolen, *Pure exploration with multiple correct answers*,
   NeurIPS 2019, Lemma 6 and Theorem 7.
 -/
@@ -65,7 +70,7 @@ In the namespace `LMLExplore.Identification.CTracking`, along every run of `cTra
 public section
 
 open MeasureTheory ProbabilityTheory Learning Filter Finset
-open scoped Topology
+open scoped Topology ENNReal
 
 namespace LMLExplore.Identification
 
@@ -219,6 +224,44 @@ theorem tendsto_pullCount_div (h : IsAlgEnvSeq O A Y (cTracking w hw) env P) :
       ∀ a, Tendsto (fun n ↦ (pullCount A a n ω : ℝ) / n) atTop (𝓝 (l a)) := by
   filter_upwards [sum_sub_pullCount_le h] with ω hω l hl a
   exact tendsto_pullCount_div_of_cTracking (fun k ↦ hw0 k _) (fun k ↦ hw1 k _) hω (hl a)
+
+end CTracking
+
+/-! ### Concentration of the empirical means -/
+
+namespace CTracking
+
+variable {Ω 𝓧 : Type*} {mΩ : MeasurableSpace Ω} {m𝓧 : MeasurableSpace 𝓧} {P : Measure Ω}
+  [IsProbabilityMeasure P] {O : ℕ → Ω → Unit} {A : ℕ → Ω → α} {R : ℕ → Ω → ℝ}
+  {ν : Kernel α ℝ} [IsMarkovKernel ν] {w : (n : ℕ) → Hist Unit α ℝ n → α → ℝ}
+  {hw : ∀ n, Measurable (w n)} {ρ : α → Measure 𝓧} {T : α → 𝓧 → ℝ} {μ l u : α → ℝ}
+
+/-- **Concentration of the empirical means under C-tracking** [GK16, Lemma 19], in the form used
+in the proof of [GK16, Theorem 14]. In a run of C-tracking against the stochastic bandit
+`Environment.bandit ν`, with targets that are allocations, let the rewards of each arm `a` be
+dominated above and below by the member of mean `μ a` of the exponential family of `ρ a` and `T a`,
+and let `l a < μ a < u a` be means of the family. If the rounds `t₀ T` satisfy
+`√(t₀ T) / log T → ∞`, then the probabilities that the empirical mean of some arm `a` is outside
+`(l a, u a)` at some round `t ≥ t₀ T` have a finite sum over `T`. -/
+theorem tsum_measure_exists_ge_empMean_notMem_Ioo_ne_top (hw0 : ∀ n h a, 0 ≤ w n h a)
+    (hw1 : ∀ n h, ∑ a, w n h a = 1)
+    (h : IsAlgEnvSeq O A R (cTracking w hw) (Environment.bandit ν) P)
+    (hν_above : ∀ a, MGFDominatedAbove id (ν a) (T a)
+      ((ρ a).expFamily (T a) ((ρ a).natParam (T a) (μ a))))
+    (hν_below : ∀ a, MGFDominatedBelow id (ν a) (T a)
+      ((ρ a).expFamily (T a) ((ρ a).natParam (T a) (μ a))))
+    (hμ : ∀ a, μ a ∈ (ρ a).expFamilyMeans (T a)) (hl : ∀ a, l a ∈ (ρ a).expFamilyMeans (T a))
+    (hu : ∀ a, u a ∈ (ρ a).expFamilyMeans (T a)) (hlμ : ∀ a, l a < μ a) (hμu : ∀ a, μ a < u a)
+    {t₀ : ℕ → ℕ} (ht₀ : Tendsto (fun T : ℕ ↦ √(t₀ T : ℝ) / Real.log T) atTop atTop) :
+    ∑' T, P {ω | ∃ t ≥ t₀ T, ∃ a, empMean A R a t ω ∉ Set.Ioo (l a) (u a)} ≠ ∞ := by
+  refine Identification.tsum_measure_exists_ge_empMean_notMem_Ioo_ne_top h hν_above hν_below hμ
+    hl hu hlμ hμu (m := fun T ↦ ⌈√(t₀ T : ℝ) - 2 * Fintype.card α⌉₊) (fun T ↦ ?_)
+    (Real.tendsto_natCeil_sub_div_log _ ht₀)
+  filter_upwards [sqrt_add_sub_le_pullCount hw0 hw1 h] with ω hω a
+  refine Nat.ceil_le.2 ?_
+  have h_sqrt : √(t₀ T : ℝ) ≤ √((t₀ T : ℝ) + Fintype.card α ^ 2) :=
+    Real.sqrt_le_sqrt (le_add_of_nonneg_right (sq_nonneg _))
+  linarith [hω (t₀ T) a]
 
 end CTracking
 

@@ -88,6 +88,9 @@ optimal allocation, with `κ` close to the inverse of the characteristic time.
   `β_{x_{δ ^ (1 / s)}}` are at most `log ((2 n (n + 1)) ^ K / δ)`, a polynomial-rate threshold of
   the form required by `IdentTask.eventually_expectedStoppingTime_glrt_le_of_isBigO`, whose rate
   `(2 n (n + 1)) ^ K` is `O(n ^ (2 K))` (`isBigO_two_mul_mul_add_one_pow`).
+* `eventually_le_mul_ofReal_log_of_rpow_inv`: bounds `f (δ ^ (1 / s)) ≤ c' log (1 / δ)` for every
+  `c' > t` and `s > 1` give `f δ ≤ c log (1 / δ)` for every `c > t`, which transfers sample
+  complexity bounds to the union-bound thresholds.
 
 ## References
 
@@ -581,5 +584,40 @@ lemma eventually_unionBoundThreshold_rpow_inv_le (K : ℕ) {s : ℝ} (hs : 1 < s
     ring
   rw [unionBoundThreshold_def, log_div (pow_ne_zero _ hn'.ne') hδ0.ne', log_pow]
   exact ENNReal.ofReal_le_ofReal (by linarith)
+
+open scoped NNReal in
+/-- **Rescaling the confidence level.** If for every `c' > t` and every `s > 1`, a quantity `f` of
+the confidence level satisfies `f (δ ^ (1 / s)) ≤ c' log (1 / δ)` for all small enough `δ > 0`,
+then for every `c > t`, `f δ ≤ c log (1 / δ)` for all small enough `δ > 0`. Together with
+`eventually_unionBoundThreshold_rpow_inv_le`, this turns sample complexity bounds for thresholds
+`log (r n / δ)` into bounds for the union-bound thresholds `β_{x_δ}`. -/
+lemma eventually_le_mul_ofReal_log_of_rpow_inv {f : ℝ → ℝ≥0∞} {t : ℝ≥0∞}
+    (h : ∀ c' : ℝ≥0, t < c' → ∀ s : ℝ, 1 < s →
+      ∀ᶠ δ in 𝓝[>] 0, f (δ ^ s⁻¹) ≤ c' * ENNReal.ofReal (log (1 / δ)))
+    {c : ℝ≥0} (hc : t < c) :
+    ∀ᶠ δ in 𝓝[>] 0, f δ ≤ c * ENNReal.ofReal (log (1 / δ)) := by
+  -- Choose `t < c' < c` and the exponent `s = c / c' > 1`.
+  obtain ⟨c', hc', hc'c⟩ := ENNReal.lt_iff_exists_nnreal_btwn.1 hc
+  have hc'c_real : (c' : ℝ) < c := mod_cast ENNReal.coe_lt_coe.1 hc'c
+  have hc'0 : (0 : ℝ) < c' := mod_cast ENNReal.coe_pos.1 (zero_le.trans_lt hc')
+  set s : ℝ := c / c'
+  have hs : 1 < s := (one_lt_div hc'0).2 hc'c_real
+  have hs0 : 0 < s := one_pos.trans hs
+  -- At `δ' = δ ^ s`, `f δ ≤ c' log (1 / δ') = c log (1 / δ)` for small `δ`.
+  filter_upwards [(tendsto_rpow_nhdsGT_zero hs0).eventually (h c' hc' s hs), self_mem_nhdsWithin]
+    with δ hδ hδ0
+  have hδ0 : 0 < δ := Set.mem_Ioi.1 hδ0
+  rw [rpow_rpow_inv hδ0.le hs0.ne'] at hδ
+  have h_log : log (1 / δ ^ s) = s * log (1 / δ) := by
+    rw [one_div, one_div, log_inv, log_inv, log_rpow hδ0, mul_neg]
+  have hc_eq : (c' : ℝ) * s = c := by
+    simp only [s]
+    field_simp
+  refine hδ.trans_eq ?_
+  calc (c' : ℝ≥0∞) * ENNReal.ofReal (log (1 / δ ^ s))
+  _ = ENNReal.ofReal (c' * s * log (1 / δ)) := by
+    rw [h_log, mul_assoc, ENNReal.ofReal_mul c'.coe_nonneg, ENNReal.ofReal_coe_nnreal]
+  _ = c * ENNReal.ofReal (log (1 / δ)) := by
+    rw [hc_eq, ENNReal.ofReal_mul c.coe_nonneg, ENNReal.ofReal_coe_nnreal]
 
 end LMLExplore.Identification
