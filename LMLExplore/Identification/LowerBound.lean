@@ -27,7 +27,8 @@ The binary relative entropy `kl(δ, 1 - δ)` is `LMLExplore.klBer δ (1 - δ)`; 
 `E_θ[τ] ≥ T*(θ) log (1 / (2.4 δ))`. For a family of `δ`-correct algorithms, this gives
 `liminf_{δ → 0} E_θ[τ_δ] / log (1 / δ) ≥ T*(θ)`. That `T*(θ)` is the optimal constant in front
 of `log (1 / δ)`, attained by the Track-and-Stop algorithm [GK16, Theorem 14], is proved for
-Gaussian arms in `Identification/GaussianThreshold.lean`.
+Gaussian arms when Track-and-Stop tracks continuous optimal allocations
+(`Identification/GaussianThreshold.lean`).
 
 ## Main statements
 

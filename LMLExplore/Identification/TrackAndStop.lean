@@ -43,6 +43,14 @@ Asymptotic optimality, that is, matching the lower bound `𝔼[τ_δ] ≥ T*(μ)
 `Identification/LowerBound.lean`, also needs the `δ`-correctness of the thresholds, which is not
 proved here; for Gaussian arms it is in `Identification/GaussianThreshold.lean`.
 
+**Union-bound thresholds.** The thresholds `K log (2 n (n + 1)) + x_δ` of `Identification/GLR.lean`,
+which are `δ`-correct for Gaussian arms, are not of the form `log (r n / δ)`, since
+`x_δ - log (1 / δ)` is unbounded, but for every `s > 1` they are at most
+`log ((2 n (n + 1)) ^ K / δ ^ s)` for small `δ`. The bound at the confidence level `δ ^ s`
+therefore gives `𝔼[τ_δ] ≤ c' s log (1 / δ)` for every `c' > T*(μ)`, and `c' s` is any constant
+above `T*(μ)`. A finite expected stopping time at small `δ` gives almost sure stopping at every
+`δ ∈ (0, 1]`, since the thresholds decrease with `δ`.
+
 ## Main definitions
 
 * `IdentTask.empCost task n h λ`: the statistic `∑ a, N_a KL(ν_a(μ̂), ν_a(λ))` of the history `h`
@@ -61,7 +69,13 @@ proved here; for Gaussian arms it is in `Identification/GaussianThreshold.lean`.
   at the characteristic time** [GK16, Theorem 14]: if `w(μ)` is an optimal allocation for the
   single correct answer `i` of `μ`, then `𝔼[τ_δ] ≤ c log (1 / δ)` for all small enough `δ`, for
   every `c > T*(μ)`. The `δ`-correctness of the thresholds, which turns this upper bound into
-  asymptotic optimality, is not established here.
+  asymptotic optimality, is not established here; for Gaussian arms, see
+  `IdentTask.tendsto_expectedStoppingTime_trackAndStop_unionBoundThreshold_div_log` in
+  `Identification/GaussianThreshold.lean`.
+* `IdentTask.eventually_expectedStoppingTime_trackAndStop_unionBoundThreshold_le`: the same bound
+  for the union-bound thresholds `K log (2 n (n + 1)) + x_δ` of `Identification/GLR.lean`.
+* `IdentTask.stopsAS_trackAndStop_unionBoundThreshold`: with these thresholds, Track-and-Stop
+  stops almost surely for every `δ ∈ (0, 1]`.
 
 ## References
 
@@ -366,7 +380,10 @@ exponential family `(ρ a, T a)`, let `i` be the single correct answer of `μ`, 
 allocations of the simplex. Then for thresholds `β δ n ≤ log (r n / δ)` (for `n ≥ n₀`) with
 `r n = O(n ^ p)`, Track-and-Stop satisfies `𝔼[τ_δ] ≤ c log (1 / δ)` for all small enough `δ`, for
 every `c > T*(μ)`: `limsup_{δ → 0} 𝔼[τ_δ] / log (1 / δ) ≤ T*(μ)`. This is asymptotic optimality
-only for `δ`-correct thresholds, whose correctness is not proved here. -/
+only for `δ`-correct thresholds, whose correctness is not proved here. For Gaussian arms, the
+union-bound thresholds `K log (2 n (n + 1)) + x_δ` are `δ`-correct, and asymptotic optimality is
+`IdentTask.tendsto_expectedStoppingTime_trackAndStop_unionBoundThreshold_div_log` in
+`Identification/GaussianThreshold.lean`. -/
 theorem eventually_expectedStoppingTime_trackAndStop_le_of_charTime_lt
     (hT : ∀ a c, ¬ T a =ᵐ[ρ a] fun _ ↦ c) (hμ : ∀ a, μ a ∈ (ρ a).expFamilyMeans (T a))
     (hν_above : ∀ a, MGFDominatedAbove id (task.ν μ a) (T a)
@@ -393,5 +410,107 @@ theorem eventually_expectedStoppingTime_trackAndStop_le_of_charTime_lt
     exact mul_lt_mul_of_pos_right (ENNReal.coe_lt_coe.1 hcκ) (pos_iff_ne_zero.2 hc0)
   exact task.eventually_expectedStoppingTime_trackAndStop_le hT hμ hν_above hν_below
     (task.mem_optAlloc_iff.1 hw_opt).1 hw_cont hrec_eq h_lsc hκ hκc hr hβ
+
+end LMLExplore.Identification.IdentTask
+
+/-! ### Union-bound thresholds -/
+
+namespace LMLExplore.Identification.IdentTask
+
+open Filter Topology
+
+variable {α ℐ : Type*} [Fintype α] [DecidableEq α] [Nonempty α] {mα : MeasurableSpace α}
+  [MeasurableSingletonClass α] {mℐ : MeasurableSpace ℐ} {task : IdentTask α (α → ℝ) ℐ ℝ}
+  {w : (α → ℝ) → α → ℝ} {hw : Measurable w} {rec : (α → ℝ) → ℐ} {hrec : Measurable rec}
+  {hstop : ∀ δ n, MeasurableSet {h | unionBoundThreshold (Fintype.card α)
+    (unionBoundLevel (Fintype.card α) δ) n < task.glr task.empCost n h (rec (empMean' n h))}}
+  {𝓧 : Type*} {m𝓧 : MeasurableSpace 𝓧} {ρ : α → Measure 𝓧} {T : α → 𝓧 → ℝ} {μ : α → ℝ}
+  {i : ℐ}
+
+/-- **Sample complexity of Track-and-Stop with the union-bound thresholds** [GK16, Theorem 14].
+Under the assumptions of `IdentTask.eventually_expectedStoppingTime_trackAndStop_le_of_charTime_lt`
+on the model `μ`, Track-and-Stop with the thresholds `K log (2 n (n + 1)) + x_δ` satisfies
+`𝔼[τ_δ] ≤ c log (1 / δ)` for all small enough `δ`, for every `c > T*(μ)`:
+`limsup_{δ → 0} 𝔼[τ_δ] / log (1 / δ) ≤ T*(μ)`. For Gaussian arms, these thresholds are
+`δ`-correct (`IdentTask.isDeltaPAC_trackAndStop_unionBoundThreshold`). -/
+theorem eventually_expectedStoppingTime_trackAndStop_unionBoundThreshold_le
+    (hT : ∀ a c, ¬ T a =ᵐ[ρ a] fun _ ↦ c) (hμ : ∀ a, μ a ∈ (ρ a).expFamilyMeans (T a))
+    (hν_above : ∀ a, MGFDominatedAbove id (task.ν μ a) (T a)
+      ((ρ a).expFamily (T a) ((ρ a).natParam (T a) (μ a))))
+    (hν_below : ∀ a, MGFDominatedBelow id (task.ν μ a) (T a)
+      ((ρ a).expFamily (T a) ((ρ a).natParam (T a) (μ a))))
+    (hcorrect : task.correct μ = {i}) (hw_opt : w μ ∈ task.optAlloc μ i)
+    (hw_cont : ContinuousAt w μ) (hrec_eq : ∀ᶠ μ' in 𝓝 μ, rec μ' = i)
+    (h_lsc : LowerSemicontinuousWithinAt (fun q : (α → ℝ) × (α → ℝ) ↦ task.altCost q.1 q.2 i)
+      (Set.univ ×ˢ simplex α) (μ, w μ))
+    {c : ℝ≥0} (hc : task.charTime μ < c) :
+    ∀ᶠ δ in 𝓝[>] 0, expectedStoppingTime (task.trackAndStop w hw
+      (unionBoundThreshold (Fintype.card α) (unionBoundLevel (Fintype.card α) δ)) rec hrec
+      (hstop δ)) (Environment.bandit (task.ν μ)) ≤ c * ENNReal.ofReal (log (1 / δ)) := by
+  set K := Fintype.card α
+  -- Choose `T*(μ) < c' < c` and the exponent `s = c / c' > 1`.
+  obtain ⟨c', hc', hc'c⟩ := ENNReal.lt_iff_exists_nnreal_btwn.1 hc
+  have hc'c_real : (c' : ℝ) < c := mod_cast ENNReal.coe_lt_coe.1 hc'c
+  have hc'0 : (0 : ℝ) < c' := mod_cast ENNReal.coe_pos.1 (zero_le.trans_lt hc')
+  set s : ℝ := c / c'
+  have hs : 1 < s := (one_lt_div hc'0).2 hc'c_real
+  have hs0 : 0 < s := one_pos.trans hs
+  -- At the confidence level `δ' = δ ^ s`, the thresholds of `δ` are at most `log (r n / δ')` with
+  -- `r n = (2 n (n + 1)) ^ K`, so `𝔼[τ_δ] ≤ c' log (1 / δ') = c log (1 / δ)` for small `δ`.
+  have h_sc := task.eventually_expectedStoppingTime_trackAndStop_le_of_charTime_lt (hw := hw)
+    (hrec := hrec) (hstop := fun δ' ↦ hstop (δ' ^ s⁻¹)) hT hμ hν_above hν_below hcorrect hw_opt
+    hw_cont hrec_eq h_lsc hc' (isBigO_two_mul_mul_add_one_pow K)
+    (eventually_unionBoundThreshold_rpow_inv_le K hs)
+  filter_upwards [(tendsto_rpow_nhdsGT_zero hs0).eventually h_sc, self_mem_nhdsWithin]
+    with δ hδ hδ0
+  have hδ0 : 0 < δ := Set.mem_Ioi.1 hδ0
+  rw [rpow_rpow_inv hδ0.le hs0.ne'] at hδ
+  have h_log : log (1 / δ ^ s) = s * log (1 / δ) := by
+    rw [one_div, one_div, log_inv, log_inv, log_rpow hδ0, mul_neg]
+  have hc_eq : (c' : ℝ) * s = c := by
+    simp only [s]
+    field_simp
+  refine hδ.trans_eq ?_
+  calc (c' : ℝ≥0∞) * ENNReal.ofReal (log (1 / δ ^ s))
+  _ = ENNReal.ofReal (c' * s * log (1 / δ)) := by
+    rw [h_log, mul_assoc, ENNReal.ofReal_mul c'.coe_nonneg, ENNReal.ofReal_coe_nnreal]
+  _ = c * ENNReal.ofReal (log (1 / δ)) := by
+    rw [hc_eq, ENNReal.ofReal_mul c.coe_nonneg, ENNReal.ofReal_coe_nnreal]
+
+/-- **Track-and-Stop with the union-bound thresholds stops almost surely**, with the thresholds
+`K log (2 n (n + 1)) + x_δ` of every confidence level `δ ∈ (0, 1]`, on a model `μ` with
+`T*(μ) < ∞` that satisfies the assumptions of
+`IdentTask.eventually_expectedStoppingTime_trackAndStop_unionBoundThreshold_le`. -/
+theorem stopsAS_trackAndStop_unionBoundThreshold
+    (hT : ∀ a c, ¬ T a =ᵐ[ρ a] fun _ ↦ c) (hμ : ∀ a, μ a ∈ (ρ a).expFamilyMeans (T a))
+    (hν_above : ∀ a, MGFDominatedAbove id (task.ν μ a) (T a)
+      ((ρ a).expFamily (T a) ((ρ a).natParam (T a) (μ a))))
+    (hν_below : ∀ a, MGFDominatedBelow id (task.ν μ a) (T a)
+      ((ρ a).expFamily (T a) ((ρ a).natParam (T a) (μ a))))
+    (hcorrect : task.correct μ = {i}) (hw_opt : w μ ∈ task.optAlloc μ i)
+    (hw_cont : ContinuousAt w μ) (hrec_eq : ∀ᶠ μ' in 𝓝 μ, rec μ' = i)
+    (h_lsc : LowerSemicontinuousWithinAt (fun q : (α → ℝ) × (α → ℝ) ↦ task.altCost q.1 q.2 i)
+      (Set.univ ×ˢ simplex α) (μ, w μ))
+    (h_charTime : task.charTime μ ≠ ∞) {δ : ℝ} (hδ : 0 < δ) (hδ1 : δ ≤ 1) :
+    StopsAS (task.trackAndStop w hw
+      (unionBoundThreshold (Fintype.card α) (unionBoundLevel (Fintype.card α) δ)) rec hrec
+      (hstop δ)) (Environment.bandit (task.ν μ)) := by
+  -- Some confidence level `δ₀ ≤ δ` has a finite expected stopping time, and the thresholds of `δ`
+  -- are below those of `δ₀`.
+  have hc : task.charTime μ < (task.charTime μ).toNNReal + 1 := by
+    rw [ENNReal.coe_toNNReal h_charTime]
+    exact ENNReal.lt_add_right h_charTime one_ne_zero
+  obtain ⟨δ₀, hδ₀, hδ₀δ⟩ := ((eventually_expectedStoppingTime_trackAndStop_unionBoundThreshold_le
+    (hw := hw) (hrec := hrec) (hstop := hstop) hT hμ hν_above hν_below hcorrect hw_opt hw_cont
+    hrec_eq h_lsc hc).and
+    (Ioc_mem_nhdsGT hδ)).exists
+  refine StopsAS.of_expectedStoppingTime_ne_top (ne_top_of_le_ne_top
+    (ne_top_of_le_ne_top (ENNReal.mul_ne_top ENNReal.coe_ne_top ENNReal.ofReal_ne_top) hδ₀)
+    (expectedStoppingTime_le_of_stopSet_subset (by simp only [alg_trackAndStop]) fun h hh ↦ ?_))
+  rw [mem_stopSet_trackAndStop] at hh ⊢
+  rw [unionBoundThreshold_def] at hh ⊢
+  refine lt_of_le_of_lt (ENNReal.ofReal_le_ofReal ?_) hh
+  gcongr
+  exact antitoneOn_unionBoundLevel _ ⟨hδ₀δ.1, hδ₀δ.2.trans hδ1⟩ ⟨hδ, hδ1⟩ hδ₀δ.2
 
 end LMLExplore.Identification.IdentTask

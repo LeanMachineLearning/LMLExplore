@@ -86,7 +86,8 @@ optimal allocation, with `κ` close to the inverse of the characteristic time.
 * `antitoneOn_unionBoundLevel`: the level `x_δ` decreases with `δ ∈ (0, 1]`.
 * `eventually_unionBoundThreshold_rpow_inv_le`: for `s > 1` and small `δ`, the thresholds
   `β_{x_{δ ^ (1 / s)}}` are at most `log ((2 n (n + 1)) ^ K / δ)`, a polynomial-rate threshold of
-  the form required by `IdentTask.eventually_expectedStoppingTime_glrt_le_of_isBigO`.
+  the form required by `IdentTask.eventually_expectedStoppingTime_glrt_le_of_isBigO`, whose rate
+  `(2 n (n + 1)) ^ K` is `O(n ^ (2 K))` (`isBigO_two_mul_mul_add_one_pow`).
 
 ## References
 
@@ -545,6 +546,19 @@ lemma antitoneOn_unionBoundLevel (K : ℕ) : AntitoneOn (unionBoundLevel K) (Set
   rw [unionBoundLevel_def, unionBoundLevel_def]
   have hK : (0 : ℝ) ≤ K := K.cast_nonneg
   nlinarith
+
+/-- The rate `r n = (2 n (n + 1)) ^ K` of the union-bound thresholds is polynomial:
+`r n = O(n ^ (2 K))`, the growth required of `r` by
+`IdentTask.eventually_expectedStoppingTime_glrt_le_of_isBigO`. -/
+lemma isBigO_two_mul_mul_add_one_pow (K : ℕ) :
+    (fun n : ℕ ↦ (2 * n * (n + 1) : ℝ) ^ K) =O[atTop] fun n ↦ (n : ℝ) ^ ((2 * K : ℕ) : ℝ) := by
+  have h : (fun n : ℕ ↦ (2 * n * (n + 1) : ℝ)) =O[atTop] fun n ↦ (n : ℝ) ^ 2 := by
+    refine Asymptotics.IsBigO.of_bound 4 ?_
+    filter_upwards [eventually_ge_atTop 1] with n hn
+    have hn' : (1 : ℝ) ≤ n := mod_cast hn
+    rw [Real.norm_of_nonneg (by positivity), Real.norm_of_nonneg (by positivity)]
+    nlinarith
+  simpa only [rpow_natCast, pow_mul] using h.pow K
 
 /-- **Union-bound thresholds are thresholds `log (r n / δ)`** at a higher confidence: for every
 `s > 1` and all small enough `δ > 0`, the thresholds `K log (2 n (n + 1)) + x_{δ ^ (1 / s)}` of the

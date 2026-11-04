@@ -40,17 +40,15 @@ The thresholds `β_x` (`LMLExplore.Identification.unionBoundThreshold`), the lev
 `x_δ - log (1 / δ) = o(log (1 / δ))` do not depend on the arms and live in
 `Identification/GLR.lean`.
 
-**Asymptotic optimality of Track-and-Stop** [GK16, Theorem 14]. The sample complexity bound of
-`Identification/TrackAndStop.lean` applies to thresholds `log (r n / δ)` with `r n` polynomial in
-`n`, and gives `𝔼[τ_δ] ≤ c log (1 / δ)` for small `δ`, for every `c > T*(μ)`. The thresholds
-`K log (2 n (n + 1)) + x_δ` are not of this form, since `x_δ - log (1 / δ)` is unbounded, but for
-every `s > 1` they are at most `log ((2 n (n + 1)) ^ K / δ ^ s)` for small `δ`. The bound at the
-confidence level `δ ^ s` therefore gives `𝔼[τ_δ] ≤ c' s log (1 / δ)` for every `c' > T*(μ)`, and
-`c' s` is any constant above `T*(μ)`. A finite expected stopping time at small `δ` gives almost
-sure stopping at every `δ ∈ (0, 1]`, since the thresholds decrease with `δ`. When Track-and-Stop
-tracks the optimal allocations of every admissible model, it is thus `δ`-PAC for every `δ ∈ (0, 1]`,
-and together with the lower bound of `Identification/LowerBound.lean`, `𝔼[τ_δ] / log (1 / δ)`
-tends to `T*(μ)` on every admissible model `μ`.
+**Asymptotic optimality of Track-and-Stop** [GK16, Theorem 14]. For arms dominated by
+exponential families, `Identification/TrackAndStop.lean` shows that Track-and-Stop with the
+thresholds `K log (2 n (n + 1)) + x_δ` satisfies `𝔼[τ_δ] ≤ c log (1 / δ)` for small `δ`, for every
+`c > T*(μ)`, and stops almost surely at every `δ ∈ (0, 1]`. Gaussian arms are the members of the
+exponential family of `𝒩(0, σ2)` with the identity statistic. When Track-and-Stop tracks the
+optimal allocations of every admissible model, it is thus `δ`-PAC for every `δ ∈ (0, 1]`, and
+together with the lower bound of `Identification/LowerBound.lean`, `𝔼[τ_δ] / log (1 / δ)` tends to
+`T*(μ)` on every admissible model `μ`. For other exponential families, only the `δ`-correctness of
+the thresholds is missing.
 
 ## Main statements
 
@@ -65,13 +63,8 @@ tends to `T*(μ)` on every admissible model `μ`.
 * `IdentTask.isDeltaPAC_glrt_unionBoundThreshold`: with the level `x_δ`, the GLRT is `δ`-PAC on
   the task as soon as it stops almost surely on every admissible model.
 * `IdentTask.isDeltaPAC_trackAndStop_unionBoundThreshold`: the same for Track-and-Stop.
-* `IdentTask.eventually_expectedStoppingTime_trackAndStop_unionBoundThreshold_le`: Track-and-Stop
-  with the thresholds `β_{x_δ}` satisfies `𝔼[τ_δ] ≤ c log (1 / δ)` for all small enough `δ`, for
-  every `c > T*(μ)`.
-* `IdentTask.stopsAS_trackAndStop_unionBoundThreshold`: it stops almost surely for every
-  `δ ∈ (0, 1]`.
-* `IdentTask.isDeltaPAC_trackAndStop_unionBoundThreshold_of_mem_optAlloc`: when it tracks optimal
-  allocations, it is `δ`-PAC for every `δ ∈ (0, 1]`.
+* `IdentTask.isDeltaPAC_trackAndStop_unionBoundThreshold_of_mem_optAlloc`: when Track-and-Stop
+  with the thresholds `β_{x_δ}` tracks optimal allocations, it is `δ`-PAC for every `δ ∈ (0, 1]`.
 * `IdentTask.tendsto_expectedStoppingTime_trackAndStop_unionBoundThreshold_div_log`:
   **asymptotic optimality**, `𝔼[τ_δ] / log (1 / δ) → T*(μ)` as `δ → 0`.
 
@@ -89,6 +82,14 @@ open MeasureTheory ProbabilityTheory Learning Real
 open scoped ENNReal NNReal
 
 namespace LMLExplore.Identification.IdentTask
+
+/-- For a common variance `σ2 ≠ 0`, the arm `a` of the Gaussian bandit with means `θ` has the law
+of the member of mean `θ a` of the exponential family of `𝒩(0, σ2)` with the identity statistic. -/
+private lemma gaussianBandit_apply_eq_expFamily {α : Type*} {mα : MeasurableSpace α} [Countable α]
+    [MeasurableSingletonClass α] {σ2 : ℝ≥0} (hσ2 : σ2 ≠ 0) (θ : α → ℝ) (a : α) :
+    Bandits.gaussianBandit θ σ2 a =
+      (gaussianReal 0 σ2).expFamily id ((gaussianReal 0 σ2).natParam id (θ a)) := by
+  rw [expFamily_natParam_gaussianReal 0 hσ2, Bandits.gaussianBandit_apply]
 
 variable {α ℐ : Type*} [Fintype α] [DecidableEq α] {mα : MeasurableSpace α}
   [MeasurableSingletonClass α] {task : IdentTask α (α → ℝ) ℐ ℝ} {σ2 : ℝ≥0}
@@ -213,102 +214,6 @@ variable {α ℐ : Type*} [Fintype α] [DecidableEq α] [Nonempty α] {mα : Mea
     (unionBoundLevel (Fintype.card α) δ) n < task.glr task.empCost n h (rec (empMean' n h))}}
   {μ : α → ℝ} {i : ℐ}
 
-/-- **Sample complexity of Track-and-Stop for Gaussian arms with `δ`-correct thresholds**
-[GK16, Theorem 14]. Let the arms be Gaussian with a common variance `σ2 ≠ 0`, let `i` be the single
-correct answer of the model `μ`, let the target map `w` be continuous at `μ` with `w(μ)` an
-optimal allocation `w*(μ, ¬i)`, let the recommendation be `i` near `μ`, and let
-`(μ', w') ↦ D(μ', w', ¬i)` be lower semicontinuous at `(μ, w(μ))` on the allocations of the
-simplex. Then Track-and-Stop with the thresholds `K log (2 n (n + 1)) + x_δ`, with which it stops
-with an incorrect answer with probability at most `δ`
-(`IdentTask.isDeltaPAC_trackAndStop_unionBoundThreshold`), satisfies
-`𝔼[τ_δ] ≤ c log (1 / δ)` for all small enough `δ`, for every `c > T*(μ)`:
-`limsup_{δ → 0} 𝔼[τ_δ] / log (1 / δ) ≤ T*(μ)`. -/
-theorem eventually_expectedStoppingTime_trackAndStop_unionBoundThreshold_le
-    (hνt : task.ν = (Bandits.gaussianBandit · σ2)) (hσ2 : σ2 ≠ 0)
-    (hcorrect : task.correct μ = {i}) (hw_opt : w μ ∈ task.optAlloc μ i)
-    (hw_cont : ContinuousAt w μ) (hrec_eq : ∀ᶠ μ' in 𝓝 μ, rec μ' = i)
-    (h_lsc : LowerSemicontinuousWithinAt (fun q : (α → ℝ) × (α → ℝ) ↦ task.altCost q.1 q.2 i)
-      (Set.univ ×ˢ simplex α) (μ, w μ))
-    {c : ℝ≥0} (hc : task.charTime μ < c) :
-    ∀ᶠ δ in 𝓝[>] 0, expectedStoppingTime (task.trackAndStop w hw
-      (unionBoundThreshold (Fintype.card α) (unionBoundLevel (Fintype.card α) δ)) rec hrec
-      (hstop δ)) (Environment.bandit (task.ν μ)) ≤ c * ENNReal.ofReal (log (1 / δ)) := by
-  set K := Fintype.card α
-  -- Choose `T*(μ) < c' < c` and the exponent `s = c / c' > 1`.
-  obtain ⟨c', hc', hc'c⟩ := ENNReal.lt_iff_exists_nnreal_btwn.1 hc
-  have hc'c_real : (c' : ℝ) < c := mod_cast ENNReal.coe_lt_coe.1 hc'c
-  have hc'0 : (0 : ℝ) < c' := mod_cast ENNReal.coe_pos.1 (zero_le.trans_lt hc')
-  set s : ℝ := c / c'
-  have hs : 1 < s := (one_lt_div hc'0).2 hc'c_real
-  have hs0 : 0 < s := one_pos.trans hs
-  have hr : (fun n : ℕ ↦ (2 * n * (n + 1) : ℝ) ^ K) =O[atTop]
-      fun n ↦ (n : ℝ) ^ ((2 * K : ℕ) : ℝ) := by
-    have h : (fun n : ℕ ↦ (2 * n * (n + 1) : ℝ)) =O[atTop] fun n ↦ (n : ℝ) ^ 2 := by
-      refine Asymptotics.IsBigO.of_bound 4 ?_
-      filter_upwards [eventually_ge_atTop 1] with n hn
-      have hn' : (1 : ℝ) ≤ n := mod_cast hn
-      rw [Real.norm_of_nonneg (by positivity), Real.norm_of_nonneg (by positivity)]
-      nlinarith
-    simpa only [rpow_natCast, pow_mul] using h.pow K
-  -- The arm `a` of `μ` has the law of the member of mean `μ a` of the family of `𝒩(0, σ2)`.
-  have hν (a : α) :
-      task.ν μ a = (gaussianReal 0 σ2).expFamily id ((gaussianReal 0 σ2).natParam id (μ a)) := by
-    rw [expFamily_natParam_gaussianReal 0 hσ2, hνt, Bandits.gaussianBandit_apply]
-  -- At the confidence level `δ' = δ ^ s`, the thresholds of `δ` are at most `log (r n / δ')` with
-  -- `r n = (2 n (n + 1)) ^ K`, so `𝔼[τ_δ] ≤ c' log (1 / δ') = c log (1 / δ)` for small `δ`.
-  have h_sc := task.eventually_expectedStoppingTime_trackAndStop_le_of_charTime_lt (hw := hw)
-    (hrec := hrec) (hstop := fun δ' ↦ hstop (δ' ^ s⁻¹)) (ρ := fun _ ↦ gaussianReal 0 σ2)
-    (T := fun _ ↦ id) (fun _ ↦ not_ae_eq_const_gaussianReal 0 hσ2)
-    (fun _ ↦ mem_expFamilyMeans_gaussianReal 0 hσ2 _)
-    (fun a ↦ hν a ▸ (IdentDistrib.refl aemeasurable_id).mgfDominatedAbove)
-    (fun a ↦ hν a ▸ (IdentDistrib.refl aemeasurable_id).mgfDominatedBelow)
-    hcorrect hw_opt hw_cont hrec_eq h_lsc hc' hr (eventually_unionBoundThreshold_rpow_inv_le K hs)
-  filter_upwards [(tendsto_rpow_nhdsGT_zero hs0).eventually h_sc, self_mem_nhdsWithin]
-    with δ hδ hδ0
-  have hδ0 : 0 < δ := Set.mem_Ioi.1 hδ0
-  rw [rpow_rpow_inv hδ0.le hs0.ne'] at hδ
-  have hc_eq : (c : ℝ≥0∞) = c' * ENNReal.ofReal s := by
-    rw [← ENNReal.ofReal_coe_nnreal, ← ENNReal.ofReal_coe_nnreal (p := c'),
-      ← ENNReal.ofReal_mul c'.coe_nonneg]
-    congr 1
-    simp only [s]
-    field_simp
-  refine hδ.trans_eq ?_
-  rw [hc_eq, mul_assoc, ← ENNReal.ofReal_mul hs0.le, one_div, one_div, log_inv, log_inv,
-    log_rpow hδ0, neg_mul_eq_mul_neg]
-
-/-- **Track-and-Stop for Gaussian arms stops almost surely**, with the thresholds
-`K log (2 n (n + 1)) + x_δ` of every confidence level `δ ∈ (0, 1]`, on a model `μ` with
-`T*(μ) < ∞` that satisfies the assumptions of
-`IdentTask.eventually_expectedStoppingTime_trackAndStop_unionBoundThreshold_le`. -/
-theorem stopsAS_trackAndStop_unionBoundThreshold
-    (hνt : task.ν = (Bandits.gaussianBandit · σ2)) (hσ2 : σ2 ≠ 0)
-    (hcorrect : task.correct μ = {i}) (hw_opt : w μ ∈ task.optAlloc μ i)
-    (hw_cont : ContinuousAt w μ) (hrec_eq : ∀ᶠ μ' in 𝓝 μ, rec μ' = i)
-    (h_lsc : LowerSemicontinuousWithinAt (fun q : (α → ℝ) × (α → ℝ) ↦ task.altCost q.1 q.2 i)
-      (Set.univ ×ˢ simplex α) (μ, w μ))
-    (h_charTime : task.charTime μ ≠ ∞) {δ : ℝ} (hδ : 0 < δ) (hδ1 : δ ≤ 1) :
-    StopsAS (task.trackAndStop w hw
-      (unionBoundThreshold (Fintype.card α) (unionBoundLevel (Fintype.card α) δ)) rec hrec
-      (hstop δ)) (Environment.bandit (task.ν μ)) := by
-  -- Some confidence level `δ₀ ≤ δ` has a finite expected stopping time, and the thresholds of `δ`
-  -- are below those of `δ₀`.
-  have hc : task.charTime μ < (task.charTime μ).toNNReal + 1 := by
-    rw [ENNReal.coe_toNNReal h_charTime]
-    exact ENNReal.lt_add_right h_charTime one_ne_zero
-  obtain ⟨δ₀, hδ₀, hδ₀δ⟩ := ((eventually_expectedStoppingTime_trackAndStop_unionBoundThreshold_le
-    (hw := hw) (hrec := hrec) (hstop := hstop) hνt hσ2 hcorrect hw_opt hw_cont hrec_eq h_lsc
-    hc).and
-    (Ioc_mem_nhdsGT hδ)).exists
-  refine StopsAS.of_expectedStoppingTime_ne_top (ne_top_of_le_ne_top
-    (ne_top_of_le_ne_top (ENNReal.mul_ne_top ENNReal.coe_ne_top ENNReal.ofReal_ne_top) hδ₀)
-    (expectedStoppingTime_le_of_stopSet_subset (by simp only [alg_trackAndStop]) fun h hh ↦ ?_))
-  rw [mem_stopSet_trackAndStop] at hh ⊢
-  rw [unionBoundThreshold_def] at hh ⊢
-  refine lt_of_le_of_lt (ENNReal.ofReal_le_ofReal ?_) hh
-  gcongr
-  exact antitoneOn_unionBoundLevel _ ⟨hδ₀δ.1, hδ₀δ.2.trans hδ1⟩ ⟨hδ, hδ1⟩ hδ₀δ.2
-
 /-- **Track-and-Stop for Gaussian arms is `δ`-PAC** for every `δ ∈ (0, 1]`, with the thresholds
 `K log (2 n (n + 1)) + x_δ`, when it tracks optimal allocations: every admissible model `θ` has
 the single correct answer `rec θ`, which is the recommendation near `θ`, and `T*(θ) < ∞`; the
@@ -329,8 +234,14 @@ theorem isDeltaPAC_trackAndStop_unionBoundThreshold_of_mem_optAlloc [MeasurableS
       (hstop δ)) δ :=
   isDeltaPAC_trackAndStop_unionBoundThreshold hνt hσ2 hδ hδ1 hw hrec (hstop δ)
     (fun θ hθ ↦ hcorrect θ hθ ▸ measurableSet_singleton _) fun θ hθ ↦
-    stopsAS_trackAndStop_unionBoundThreshold hνt hσ2 (hcorrect θ hθ) (hw_opt θ hθ)
-      (hw_cont θ hθ) (hrec_eq θ hθ) (h_lsc θ hθ) (h_charTime θ hθ) hδ hδ1
+    stopsAS_trackAndStop_unionBoundThreshold (fun _ ↦ not_ae_eq_const_gaussianReal 0 hσ2)
+      (fun _ ↦ mem_expFamilyMeans_gaussianReal 0 hσ2 _)
+      (fun a ↦ hνt ▸ gaussianBandit_apply_eq_expFamily hσ2 θ a ▸
+        (IdentDistrib.refl aemeasurable_id).mgfDominatedAbove)
+      (fun a ↦ hνt ▸ gaussianBandit_apply_eq_expFamily hσ2 θ a ▸
+        (IdentDistrib.refl aemeasurable_id).mgfDominatedBelow)
+      (hcorrect θ hθ) (hw_opt θ hθ) (hw_cont θ hθ) (hrec_eq θ hθ) (h_lsc θ hθ) (h_charTime θ hθ)
+      hδ hδ1
 
 /-- **Asymptotic optimality of Track-and-Stop for Gaussian arms** [GK16, Theorem 14]. Under the
 assumptions of `IdentTask.isDeltaPAC_trackAndStop_unionBoundThreshold_of_mem_optAlloc`,
@@ -369,7 +280,12 @@ theorem tendsto_expectedStoppingTime_trackAndStop_unionBoundThreshold_div_log
       (Or.inl ENNReal.ofReal_ne_top)).2 hδ)
   · -- Above `T*(μ)`: the sample complexity of Track-and-Stop.
     obtain ⟨c, hc, hca⟩ := ENNReal.lt_iff_exists_nnreal_btwn.1 ha
-    filter_upwards [eventually_expectedStoppingTime_trackAndStop_unionBoundThreshold_le hνt hσ2
+    filter_upwards [eventually_expectedStoppingTime_trackAndStop_unionBoundThreshold_le
+      (fun _ ↦ not_ae_eq_const_gaussianReal 0 hσ2) (fun _ ↦ mem_expFamilyMeans_gaussianReal 0 hσ2 _)
+      (fun a ↦ hνt ▸ gaussianBandit_apply_eq_expFamily hσ2 μ a ▸
+        (IdentDistrib.refl aemeasurable_id).mgfDominatedAbove)
+      (fun a ↦ hνt ▸ gaussianBandit_apply_eq_expFamily hσ2 μ a ▸
+        (IdentDistrib.refl aemeasurable_id).mgfDominatedBelow)
       (hcorrect μ hμ) (hw_opt μ hμ) (hw_cont μ hμ) (hrec_eq μ hμ) (h_lsc μ hμ) hc] with δ hδ
     exact (ENNReal.div_le_of_le_mul hδ).trans_lt hca
 
