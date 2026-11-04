@@ -44,11 +44,10 @@ episodic counterparts of those of the discounted occupancy measure `Learning.MDP
   `μ_h`, and the flow equation `(d^π_{h+1}).fst = P_h ∘ₘ d^π_h`.
 * `Learning.MDP.Episodic.EpisodicMDP.integral_eq_sum_integral_occupancy_add`: the telescoping
   identity for a bounded measurable sequence of functions of the state.
+* `Learning.MDP.Episodic.EpisodicMDP.integral_qValue_occupancy`: before the horizon, the integral
+  of `Q^π_h` against `d^π_h` is the integral of `V^π_h` against `μ_h`.
 * `Learning.MDP.Episodic.EpisodicMDP.integral_value_eq_sum_integral_occupancy`: the value of `π`
   is the sum of the integrals of the mean rewards against the occupancy measures.
-* `Learning.MDP.Episodic.EpisodicMDP.hasCondDistrib_action_obs_fst_markov`: along a run of `π` in
-  the augmented MDP started at the step `h₀`, the action of round `n` has conditional law
-  `π (h₀ + n)` given the state of round `n`.
 * `Learning.MDP.Episodic.EpisodicMDP.hasLaw_obs_fst_markov`,
   `Learning.MDP.Episodic.EpisodicMDP.hasLaw_obs_fst_action_markov`: along a run of `π` in the
   augmented MDP started at the step `0`, the state of round `h` has law `μ_h` and the state-action
@@ -188,6 +187,16 @@ theorem integral_eq_sum_integral_occupancy_add {V : ℕ → 𝓢 → ℝ} (hV : 
       ← integral_stateMarginal_add_one (integrable_of_abs_le (hV (H + 1)) (hVB (H + 1)) _)]
     ring
 
+/-- Before the horizon, the integral of the action value `Q^π_h` against the occupancy measure
+`d^π_h` is the integral of the value `V^π_h` against the law `μ_h` of the state. -/
+theorem integral_qValue_occupancy {a b : ℝ} (hM : M.RewardsIn (Set.Icc a b)) {H h : ℕ}
+    (hh : h < H) :
+    ∫ p, M.qValue H π h p.1 p.2 ∂(M.occupancy π μ h) =
+      ∫ s, M.value H π h s ∂(M.stateMarginal π μ h) := by
+  rw [occupancy_def, Measure.integral_compProd (.of_mem_Icc _ _ (measurable_qValue h).aemeasurable
+    (.of_forall fun p ↦ qValue_mem_Icc hM hh p.1 p.2))]
+  exact integral_congr_ae (.of_forall fun s ↦ (value_of_lt hh s).symm)
+
 /-- **The value as an occupancy integral.** For rewards in `[-C, C]`, the value of the Markov
 policy `π` from the initial law `μ` is the sum over the steps `h < H` of the integrals of the
 mean rewards `r_h` against the occupancy measures `d^π_h`. -/
@@ -195,41 +204,33 @@ theorem integral_value_eq_sum_integral_occupancy {C : ℝ} (hM : M.RewardsIn (Se
     (H : ℕ) :
     ∫ s, M.value H π 0 s ∂μ =
       ∑ h ∈ range H, ∫ p, M.meanReward h p.1 p.2 ∂(M.occupancy π μ h) := by
-  have hle (h : ℕ) : (H - h : ℕ) * C ≤ H * |C| :=
-    calc (H - h : ℕ) * C ≤ (H - h : ℕ) * |C| :=
-          mul_le_mul_of_nonneg_left (le_abs_self C) (Nat.cast_nonneg _)
-      _ ≤ H * |C| := mul_le_mul_of_nonneg_right (by exact_mod_cast Nat.sub_le _ _) (abs_nonneg C)
-  have hVB (h : ℕ) (s : 𝓢) : |M.value H π h s| ≤ H * |C| := (abs_value_le hM h s).trans (hle h)
-  rw [integral_eq_sum_integral_occupancy_add (M := M) (π := π) measurable_value hVB H]
+  rw [integral_eq_sum_integral_occupancy_add (M := M) (π := π) measurable_value
+    (abs_value_le_mul_abs hM) H]
   simp only [value_self, integral_zero, add_zero]
   refine sum_congr rfl fun h hh ↦ ?_
   have hh : h < H := mem_range.1 hh
-  -- the action values at the step `h` are bounded measurable
-  have hQ : Measurable fun p : 𝓢 × 𝓐 ↦ M.qValue H π h p.1 p.2 := measurable_qValue h
-  have hQB (p : 𝓢 × 𝓐) : |M.qValue H π h p.1 p.2| ≤ H * |C| := by
-    have hQ := qValue_mem_Icc (π := π) hM hh p.1 p.2
-    rw [mul_neg] at hQ
-    exact (abs_le.2 hQ).trans (hle h)
-  -- `V^π_h (s) - ∫ V^π_{h+1} dP_h (s, a) = r_h (s, a) + (V^π_h (s) - Q^π_h (s, a))`, and the second
-  -- term has mean zero under `π_h (s)`
+  have hr : Integrable (fun p : 𝓢 × 𝓐 ↦ M.meanReward h p.1 p.2) (M.occupancy π μ h) :=
+    integrable_of_abs_le (M.measurable_meanReward h)
+      (fun p ↦ abs_le.2 (meanReward_mem_Icc hM h p.1 p.2)) _
+  have hQ : Integrable (fun p : 𝓢 × 𝓐 ↦ M.qValue H π h p.1 p.2) (M.occupancy π μ h) :=
+    .of_mem_Icc _ _ (measurable_qValue h).aemeasurable
+      (.of_forall fun p ↦ qValue_mem_Icc hM hh p.1 p.2)
+  have hQr : Integrable (fun p : 𝓢 × 𝓐 ↦ M.qValue H π h p.1 p.2 - M.meanReward h p.1 p.2)
+      (M.occupancy π μ h) :=
+    hQ.sub hr
+  -- `∫ V^π_{h+1} dP_h (s, a) = Q^π_h (s, a) - r_h (s, a)`
   have h_eq : (fun p : 𝓢 × 𝓐 ↦ M.value H π h p.1 - ∫ s', M.value H π (h + 1) s' ∂(M.trans h p)) =
-      fun p ↦ M.meanReward h p.1 p.2 + (M.value H π h p.1 - M.qValue H π h p.1 p.2) := by
+      fun p ↦ M.value H π h p.1 - (M.qValue H π h p.1 p.2 - M.meanReward h p.1 p.2) := by
     ext p
     rw [qValue_def]
     ring
-  have h_int : Integrable (fun p : 𝓢 × 𝓐 ↦ M.value H π h p.1 - M.qValue H π h p.1 p.2)
-      (M.occupancy π μ h) :=
-    (integrable_of_abs_le ((measurable_value h).comp measurable_fst) (fun p ↦ hVB h p.1) _).sub
-      (integrable_of_abs_le hQ hQB _)
-  have h_zero : ∫ p, (M.value H π h p.1 - M.qValue H π h p.1 p.2) ∂(M.occupancy π μ h) = 0 := by
-    rw [occupancy_def, Measure.integral_compProd h_int]
-    refine integral_eq_zero_of_ae (.of_forall fun s ↦ ?_)
-    dsimp only [Pi.zero_apply]
-    rw [integral_sub (integrable_const _) (integrable_of_abs_le (f := fun a ↦ M.qValue H π h s a)
-        (hQ.comp measurable_prodMk_left) (fun a ↦ hQB (s, a)) _),
-      integral_const, probReal_univ, one_smul, value_of_lt hh, sub_self]
-  rw [h_eq, integral_add (integrable_of_abs_le (M.measurable_meanReward h)
-      (fun p ↦ abs_le.2 (meanReward_mem_Icc hM h p.1 p.2)) _) h_int, h_zero, add_zero]
+  have hV : Integrable (fun p : 𝓢 × 𝓐 ↦ M.value H π h p.1) (M.occupancy π μ h) :=
+    integrable_of_abs_le ((measurable_value h).comp measurable_fst)
+      (fun p ↦ abs_value_le_mul_abs hM h p.1) _
+  rw [h_eq, integral_sub hV hQr, integral_sub hQ hr,
+    integral_qValue_occupancy hM hh,
+    integral_occupancy_fst (measurable_value h).aestronglyMeasurable]
+  ring
 
 end Integral
 
@@ -240,23 +241,7 @@ section Runs
 variable [Nonempty 𝓢] {M : EpisodicMDP 𝓢 𝓐} {π : ℕ → Kernel 𝓢 𝓐} [∀ h, IsMarkovKernel (π h)]
   {Ω : Type*} {mΩ : MeasurableSpace Ω} {P : Measure Ω} [IsProbabilityMeasure P]
   {O : ℕ → Ω → 𝓢 × ℕ} {A : ℕ → Ω → 𝓐} {Y : ℕ → Ω → ℝ} {μ : Measure (𝓢 × ℕ)}
-  [IsProbabilityMeasure μ] {h₀ : ℕ}
-
-/-- Along a run of the Markov policy `π` in the augmented MDP started at the step `h₀`, the
-action of round `n` has conditional law `π (h₀ + n)` given the state of round `n`. -/
-theorem hasCondDistrib_action_obs_fst_markov (hμ : ∀ᵐ p ∂μ, p.2 = h₀)
-    (h : IsAlgEnvSeq O A Y (Algorithm.markov fun _ ↦ augMarkovPolicy π) (M.augmented.env μ) P)
-    (n : ℕ) :
-    HasCondDistrib (A n) (fun ω ↦ (O n ω).1) (π (h₀ + n)) P := by
-  -- the augmented state of round `n` is almost surely the state of round `n` at the step `h₀ + n`
-  have h_ae : O n =ᵐ[P] (fun s : 𝓢 ↦ (s, h₀ + n)) ∘ fun ω ↦ (O n ω).1 := by
-    filter_upwards [ae_obs_snd_eq hμ h n] with ω hω
-    simp [← hω]
-  have h_cond := ((h.hasCondDistrib_action_markov n).congr h_ae.symm
-    .rfl).of_measurableEmbedding_comp_right (measurableEmbedding_prod_mk_right (h₀ + n))
-  convert h_cond using 1
-  ext s : 1
-  rw [Kernel.comap_apply, augMarkovPolicy_apply]
+  [IsProbabilityMeasure μ]
 
 /-- Along a run of the Markov policy `π` in the augmented MDP from an initial law `μ`
 concentrated on the step `0`, the state of round `h` has law `μ_h`, the state marginal of `π`
