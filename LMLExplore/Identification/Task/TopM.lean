@@ -35,9 +35,9 @@ Garivier on the sample complexity of top-`m` identification [KCG16, Theorem 4]
 
 ## Main statements
 
-* `LMLExplore.Identification.altCost_restrict_topMTask_le_ofReal_mul_expFamilyDiv_of_mem`: for
+* `LMLExplore.Identification.altCost_topMTask_restrict_le_ofReal_mul_expFamilyDiv_of_mem`: for
   `a ∈ s`, `D(μ, w, ¬s) ≤ w a d_a(μ a, μ b)`.
-* `LMLExplore.Identification.altCost_restrict_topMTask_le_ofReal_mul_expFamilyDiv_of_notMem`: for
+* `LMLExplore.Identification.altCost_topMTask_restrict_le_ofReal_mul_expFamilyDiv_of_notMem`: for
   `a ∉ s`, `D(μ, w, ¬s) ≤ w a d_a(μ a, μ b')`.
 
 ## References
@@ -130,7 +130,7 @@ omit [DecidableEq α] in
 of the families whose top-`m` set is `s`, and let `b ∉ s` be an arm with the largest mean outside
 `s`. For `a ∈ s` such that `μ b` is a mean of the family of `a` and every nonnegative allocation
 `w`, `D(μ, w, ¬s) ≤ w a d_a(μ a, μ b)` within the vectors of means of the families. -/
-theorem altCost_restrict_topMTask_le_ofReal_mul_expFamilyDiv_of_mem
+theorem altCost_topMTask_restrict_le_ofReal_mul_expFamilyDiv_of_mem
     (hT : ∀ c x, ¬ T c =ᵐ[ρ c] fun _ ↦ x) (hμ : ∀ c, μ c ∈ (ρ c).expFamilyMeans (T c))
     (hν : ∀ μ' : α → ℝ, (∀ c, μ' c ∈ (ρ c).expFamilyMeans (T c)) →
       ∀ c, klDiv (ν μ c) (ν μ' c) = ENNReal.ofReal ((ρ c).expFamilyDiv (T c) (μ c) (μ' c)))
@@ -158,7 +158,7 @@ belong to an exponential family `(ρ c, T c)` with divergence `d_c`, let `μ` be
 the families whose top-`m` set is `s`, and let `b ∈ s` be an arm with the smallest mean in `s`. For
 `a ∉ s` such that `μ b` is a mean of the family of `a` and every nonnegative allocation `w`,
 `D(μ, w, ¬s) ≤ w a d_a(μ a, μ b)` within the vectors of means of the families. -/
-theorem altCost_restrict_topMTask_le_ofReal_mul_expFamilyDiv_of_notMem
+theorem altCost_topMTask_restrict_le_ofReal_mul_expFamilyDiv_of_notMem
     (hT : ∀ c x, ¬ T c =ᵐ[ρ c] fun _ ↦ x) (hμ : ∀ c, μ c ∈ (ρ c).expFamilyMeans (T c))
     (hν : ∀ μ' : α → ℝ, (∀ c, μ' c ∈ (ρ c).expFamilyMeans (T c)) →
       ∀ c, klDiv (ν μ c) (ν μ' c) = ENNReal.ofReal ((ρ c).expFamilyDiv (T c) (μ c) (μ' c)))

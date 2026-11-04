@@ -112,7 +112,7 @@ theorem IsDeltaCorrect.klBer_le_lintegral_pullCount_mul_topMTask_of_mem [Finite 
         ENNReal.ofReal ((ρ a).expFamilyDiv (T a) (μ a) (μ b)) := by
   have := Fintype.ofFinite α
   exact hA.klBer_le_lintegral_pullCount_mul_of_altCost_le_topMTask hδ hμ hs h fun _ hw ↦
-    altCost_restrict_topMTask_le_ofReal_mul_expFamilyDiv_of_mem ν hT hμ hν
+    altCost_topMTask_restrict_le_ofReal_mul_expFamilyDiv_of_mem ν hT hμ hν
       hs ha hb hb_max hba hw
 
 omit [Fintype α] in
@@ -137,7 +137,7 @@ theorem IsDeltaCorrect.klBer_le_lintegral_pullCount_mul_topMTask_of_notMem [Fini
         ENNReal.ofReal ((ρ a).expFamilyDiv (T a) (μ a) (μ b)) := by
   have := Fintype.ofFinite α
   exact hA.klBer_le_lintegral_pullCount_mul_of_altCost_le_topMTask hδ hμ hs h fun _ hw ↦
-    altCost_restrict_topMTask_le_ofReal_mul_expFamilyDiv_of_notMem ν hT hμ hν
+    altCost_topMTask_restrict_le_ofReal_mul_expFamilyDiv_of_notMem ν hT hμ hν
       hs ha hb hb_min hba hw
 
 /-- **Lower bound on the sample complexity of top-`m` identification** [KCG16, Theorem 4]. Let the
