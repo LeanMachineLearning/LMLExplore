@@ -41,7 +41,7 @@ most the characteristic time: `limsup_{δ → 0} 𝔼[τ_δ] / log (1 / δ) ≤ 
 holds for all such thresholds, including ones that are not `δ`-correct, such as `β = 0`.
 Asymptotic optimality, that is, matching the lower bound `𝔼[τ_δ] ≥ T*(μ) kl(δ, 1 - δ)` of
 `Identification/LowerBound.lean`, also needs the `δ`-correctness of the thresholds, which is not
-proved here.
+proved here; for Gaussian arms it is in `Identification/GaussianThreshold.lean`.
 
 ## Main definitions
 
