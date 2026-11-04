@@ -31,6 +31,9 @@ martingale bounds.
 
 * `ProbabilityTheory.HasCondSubgaussianMGF.lintegral_mul_exp_le`: for every `m`-measurable `s`
   and `m`-measurable `g ≥ 0`, `∫⁻ g * exp (s * X) ≤ ∫⁻ g * exp (c * s ^ 2 / 2)`.
+* `ProbabilityTheory.HasCondSubgaussianMGF.of_ae_trim_condExp_le`: if `exp (t * X)` is integrable
+  for every `t` and `E[exp (q * X) | m] ≤ exp (c * q ^ 2 / 2)` for every rational `q`, then `X` is
+  conditionally `c`-sub-Gaussian given `m`.
 * `ProbabilityTheory.HasSubgaussianMGF.hasCondSubgaussianMGF_of_indep`: a `c`-sub-Gaussian
   variable independent of `m` is conditionally `c`-sub-Gaussian given `m`.
 * `ProbabilityTheory.HasCondDistrib.hasCondSubgaussianMGF_sub`: if `Y` has conditional
@@ -73,17 +76,31 @@ theorem HasCondSubgaussianMGF.lintegral_mul_exp_le [StandardBorelSpace Ω] [IsFi
     (ae_of_all _ fun _ ↦ (Real.exp_pos _).le)]
   exact ENNReal.ofReal_le_ofReal (hmgf (s ω))
 
+/-- **Conditional sub-Gaussianity from a conditional expectation bound.** If `exp (t * X)` is
+integrable for every `t` and, for every rational `q`, `E[exp (q * X) | m] ≤ exp (c * q ^ 2 / 2)`
+almost everywhere on `m`, then `X` is conditionally `c`-sub-Gaussian given `m`. This is the converse
+of `HasCondSubgaussianMGF.ae_trim_condExp_le`. -/
+theorem HasCondSubgaussianMGF.of_ae_trim_condExp_le [StandardBorelSpace Ω] [IsFiniteMeasure μ]
+    {hm : m ≤ mΩ} (h_int : ∀ t, Integrable (fun ω ↦ Real.exp (t * X ω)) μ)
+    (h_le : ∀ q : ℚ, μ[fun ω ↦ Real.exp (q * X ω) | m]
+      ≤ᵐ[μ.trim hm] fun _ ↦ Real.exp (c * (q : ℝ) ^ 2 / 2)) :
+    HasCondSubgaussianMGF m hm X c μ := by
+  refine Kernel.HasSubgaussianMGF.of_rat (fun t ↦ ?_) (fun q ↦ ?_)
+  · rw [condExpKernel_comp_trim]
+    exact h_int t
+  filter_upwards [condExp_ae_eq_trim_integral_condExpKernel hm (h_int q), h_le q]
+    with ω h_kernel h_bound
+  rw [mgf, ← h_kernel]
+  exact h_bound
+
 /-- **Independence gives conditional sub-Gaussianity.** If `X` is measurable, `c`-sub-Gaussian and
 independent of the sub-σ-algebra `m`, then `X` is conditionally `c`-sub-Gaussian given `m`. -/
 theorem HasSubgaussianMGF.hasCondSubgaussianMGF_of_indep [StandardBorelSpace Ω]
     [IsFiniteMeasure μ] {hm : m ≤ mΩ} (h : HasSubgaussianMGF X c μ) (hX : Measurable X)
     (h_indep : Indep (MeasurableSpace.comap X inferInstance) m μ) :
     HasCondSubgaussianMGF m hm X c μ := by
-  refine Kernel.HasSubgaussianMGF.of_rat (fun t ↦ ?_) (fun q ↦ ?_)
-  · rw [condExpKernel_comp_trim]
-    exact h.integrable_exp_mul t
-  -- the conditional moment generating function is the conditional expectation of `exp (q X)`,
-  -- which is constant by independence
+  refine HasCondSubgaussianMGF.of_ae_trim_condExp_le h.integrable_exp_mul fun q ↦ ?_
+  -- the conditional expectation of `exp (q X)` is constant by independence
   have h_meas : StronglyMeasurable[MeasurableSpace.comap X inferInstance]
       (fun ω ↦ Real.exp (q * X ω)) :=
     (measurable_const.mul (comap_measurable X)).exp.stronglyMeasurable
@@ -91,9 +108,8 @@ theorem HasSubgaussianMGF.hasCondSubgaussianMGF_of_indep [StandardBorelSpace Ω]
       =ᵐ[μ.trim hm] fun _ ↦ μ[fun ω ↦ Real.exp (q * X ω)] :=
     StronglyMeasurable.ae_eq_trim_of_stronglyMeasurable hm stronglyMeasurable_condExp
       stronglyMeasurable_const (condExp_indep_eq hX.comap_le hm h_meas h_indep)
-  filter_upwards [condExp_ae_eq_trim_integral_condExpKernel hm (h.integrable_exp_mul q),
-    h_const] with ω h_kernel h_const
-  rw [mgf, ← h_kernel, h_const]
+  filter_upwards [h_const] with ω h_const
+  rw [h_const]
   exact h.mgf_le q
 
 /-- **Conditional sub-Gaussianity from a conditional distribution.** If `Y` has conditional
@@ -126,9 +142,7 @@ theorem HasCondDistrib.hasCondSubgaussianMGF_sub [StandardBorelSpace Ω] [IsFini
           abs_of_nonneg (integral_nonneg fun _ ↦ (Real.exp_pos _).le)] using h_mgf
     rw [← h.map_eq] at h_prod
     exact h_prod.comp_aemeasurable h.aemeasurable
-  refine Kernel.HasSubgaussianMGF.of_rat (fun t ↦ ?_) (fun q ↦ ?_)
-  · rw [condExpKernel_comp_trim]
-    exact h_int t
+  refine HasCondSubgaussianMGF.of_ae_trim_condExp_le h_int fun q ↦ ?_
   have h_condExp : μ[fun ω ↦ Real.exp (q * (Y ω - g (X ω))) | m𝓧.comap X]
       =ᵐ[μ] fun ω ↦ ∫ y, Real.exp (q * (y - g (X ω))) ∂κ (X ω) := by
     refine (condExp_prod_ae_eq_integral_condDistrib hX h.aemeasurable_snd (hf q) (h_int q)).trans ?_
@@ -140,10 +154,7 @@ theorem HasCondDistrib.hasCondSubgaussianMGF_sub [StandardBorelSpace Ω] [IsFini
     filter_upwards [ae_of_ae_map hX.aemeasurable hκ] with ω hω
     have h_mgf := hω.mgf_le q
     rwa [mgf] at h_mgf
-  filter_upwards [condExp_ae_eq_trim_integral_condExpKernel hm (h_int q),
-    StronglyMeasurable.ae_eq_trim_of_stronglyMeasurable hm stronglyMeasurable_condExp (hF q)
-      h_condExp, h_le] with ω h_kernel h_eq h_bound
-  rw [mgf, ← h_kernel, h_eq]
-  exact h_bound
+  exact (StronglyMeasurable.ae_eq_trim_of_stronglyMeasurable hm stronglyMeasurable_condExp (hF q)
+    h_condExp).trans_le h_le
 
 end ProbabilityTheory
