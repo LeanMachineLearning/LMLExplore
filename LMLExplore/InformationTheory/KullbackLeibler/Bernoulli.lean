@@ -76,6 +76,8 @@ that it lies below the true mean.
 * `LMLExplore.log_one_div_le_klBerReal`, `LMLExplore.ofReal_log_one_div_le_klBer`: the bound
   `log (1 / (2.4 p)) ≤ d(p, 1 - p)`, which turns the lower bounds of fixed-confidence
   identification stated with `d(δ, 1 - δ)` into bounds in `log (1 / δ)`.
+* `LMLExplore.mul_ofReal_log_le_of_mul_klBer_le`: a bound `X d(δ, 1 - δ) ≤ E` for `δ ≤ 1 / 2`
+  gives `X log (1 / (c δ)) ≤ E` for every `δ` and `c ≥ 2.4`.
 * `LMLExplore.le_klUpper_iff`: for `q ∈ [p, 1]`, `q ≤ U(p, c)` if and only if `d(p, q) ≤ c`;
   `LMLExplore.klUpper_mem_Icc` and `LMLExplore.klBer_klUpper_le` say that the maximum is attained.
 * `LMLExplore.le_klUpper_iff_of_le_one`: for `p ≤ 1` and every real `r`, `r ≤ U(p, c)` if and only
@@ -708,6 +710,18 @@ theorem ofReal_log_one_div_le_klBer {c : ℝ} (hc : 2.4 ≤ c) (p : ℝ) :
   have hq : 1 - p ∈ Set.Ioo 0 1 := ⟨by linarith, by linarith⟩
   rw [klBer_eq_ofReal_klBerReal ⟨h0.le, h1.le⟩ (Set.Ioo_subset_Icc_self hq) (klBer_ne_top hq)]
   exact ENNReal.ofReal_le_ofReal (log_one_div_le_klBerReal hc ⟨h0, h1⟩)
+
+/-- **From `d(δ, 1 - δ)` to `log (1 / (c δ))`**: for `c ≥ 2.4`, a lower bound `X d(δ, 1 - δ) ≤ E`
+valid for `δ ≤ 1 / 2` gives `X log (1 / (c δ)) ≤ E` for every real `δ`, since for `δ > 1 / 2` the
+logarithm is negative. -/
+theorem mul_ofReal_log_le_of_mul_klBer_le {c δ : ℝ} {X E : ℝ≥0∞} (hc : 2.4 ≤ c)
+    (h : δ ≤ 1 / 2 → X * klBer δ (1 - δ) ≤ E) : X * ENNReal.ofReal (log (1 / (c * δ))) ≤ E := by
+  rcases le_or_gt δ (1 / 2) with hδ | hδ
+  · exact (mul_le_mul_right (ofReal_log_one_div_le_klBer hc δ) _).trans (h hδ)
+  have h_neg : log (1 / (c * δ)) ≤ 0 :=
+    log_nonpos (by positivity) ((div_le_one (by positivity)).2 (by nlinarith))
+  rw [ENNReal.ofReal_of_nonpos h_neg, mul_zero]
+  exact zero_le
 
 /-! ### The upper confidence level -/
 

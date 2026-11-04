@@ -5,10 +5,11 @@ Authors: Rémy Degenne
 -/
 module
 
+public import LMLExplore.Algebra.BigOperators.Intervals
 public import Mathlib.Analysis.Real.Sqrt
 
 /-!
-# Square roots of quotients and increments of the square root
+# Square roots of quotients, increments of the square root and sums of inverse square roots
 
 ## Main statements
 
@@ -25,6 +26,18 @@ public import Mathlib.Analysis.Real.Sqrt
   `√n`, as for the exploration rates of C-tracking.
 * `Real.tendsto_one_add_sqrt_div_atTop`: `(1 + √x) / x → 0` as `x → ∞`, so that a tracking error
   of order `1 + √n` after `n` rounds, as for C-tracking, is `o(n)`.
+* `Real.sum_range_inv_sqrt_add_one_le`: `∑_{j < n} 1 / √(j + 1) ≤ 2 √n`.
+* `Real.sum_range_inv_sqrt_max_one_le`: `∑_{j < n} 1 / √(max 1 j) ≤ 2 √n + 1`, the same sum with
+  the index clipped at `1`.
+* `Real.sum_div_sqrt_max_one_le`: the doubling bound of Jaksch, Ortner and Auer
+  [JOA10, Lemma 19]. If `0 ≤ z k ≤ max 1 (Z k)` for every `k < n`, where `Z k = ∑_{i < k} z i`,
+  then `∑_{k < n} z k / √(max 1 (Z k)) ≤ (√2 + 1) √(Z n)`. It sums confidence widths over the
+  epochs of algorithms that restart an epoch when some count doubles, as UCRL2.
+
+## References
+
+* [JOA10] T. Jaksch, R. Ortner and P. Auer, *Near-optimal regret bounds for reinforcement
+  learning*, Journal of Machine Learning Research 11 (2010).
 -/
 
 public section
@@ -100,5 +113,62 @@ theorem tendsto_one_add_sqrt_div_atTop : Tendsto (fun x : ℝ ↦ (1 + √x) / x
   refine h.congr' ?_
   filter_upwards with x
   rw [add_div, sqrt_div_self', one_div, Function.comp_apply, one_div]
+
+/-- `∑_{j < n} 1 / √(j + 1) ≤ 2 √n`. -/
+theorem sum_range_inv_sqrt_add_one_le (n : ℕ) :
+    ∑ j ∈ Finset.range n, (√((j : ℝ) + 1))⁻¹ ≤ 2 * √n := by
+  induction n with
+  | zero => simp
+  | succ n ih =>
+    have h := one_div_two_mul_sqrt_add_one_le_sqrt_add_one_sub_sqrt (Nat.cast_nonneg (α := ℝ) n)
+    have h2 : (√((n : ℝ) + 1))⁻¹ = 2 * (1 / (2 * √((n : ℝ) + 1))) := by ring
+    rw [Finset.sum_range_succ, Nat.cast_succ]
+    linarith
+
+/-- `∑_{j < n} 1 / √(max 1 j) ≤ 2 √n + 1`, the sum of inverse square roots with the index clipped
+at `1`. -/
+theorem sum_range_inv_sqrt_max_one_le (n : ℕ) :
+    ∑ j ∈ Finset.range n, (√(max 1 (j : ℝ)))⁻¹ ≤ 2 * √n + 1 := by
+  rcases n with _ | n
+  · simp
+  rw [LMLExplore.sum_range_succ_comp_max_one (fun x : ℝ ↦ (√x)⁻¹), sqrt_one, inv_one]
+  have := sum_range_inv_sqrt_add_one_le n
+  have : √(n : ℝ) ≤ √((n + 1 : ℕ) : ℝ) := sqrt_le_sqrt (by simp)
+  linarith
+
+/-- One step of the doubling bound: for `0 ≤ Z`, `0 ≤ z` and `z ≤ max 1 Z`,
+`z / √(max 1 Z) ≤ (√2 + 1) (√(Z + z) - √Z)`. -/
+private theorem div_sqrt_max_one_le_mul_sqrt_add_sub_sqrt {Z z : ℝ} (hZ : 0 ≤ Z) (hz : 0 ≤ z)
+    (hzZ : z ≤ max 1 Z) : z / √(max 1 Z) ≤ (√2 + 1) * (√(Z + z) - √Z) := by
+  have hM : 0 < √(max 1 Z) := sqrt_pos.2 (lt_max_of_lt_left one_pos)
+  have hd : 0 ≤ √(Z + z) - √Z := sub_nonneg.2 (sqrt_le_sqrt (by linarith))
+  -- `√(Z + z) + √Z ≤ √(2 M) + √M` for `M = max 1 Z`, since `Z ≤ M` and `z ≤ M`
+  have h1 : √(Z + z) ≤ √2 * √(max 1 Z) := by
+    rw [← sqrt_mul zero_le_two]
+    exact sqrt_le_sqrt (by linarith [le_max_right 1 Z])
+  have h2 : √Z ≤ √(max 1 Z) := sqrt_le_sqrt (le_max_right _ _)
+  have ha := sq_sqrt (show 0 ≤ Z + z by linarith)
+  have hb := sq_sqrt hZ
+  rw [div_le_iff₀ hM]
+  calc z = (√(Z + z) - √Z) * (√(Z + z) + √Z) := by nlinarith
+    _ ≤ (√(Z + z) - √Z) * ((√2 + 1) * √(max 1 Z)) := by gcongr; linarith
+    _ = (√2 + 1) * (√(Z + z) - √Z) * √(max 1 Z) := by ring
+
+/-- **The doubling bound** [JOA10, Lemma 19]: if `0 ≤ z k ≤ max 1 (Z k)` for every `k < n`, where
+`Z k = ∑_{i < k} z i`, then `∑_{k < n} z k / √(max 1 (Z k)) ≤ (√2 + 1) √(Z n)`. -/
+theorem sum_div_sqrt_max_one_le {z : ℕ → ℝ} {n : ℕ} (hz : ∀ k < n, 0 ≤ z k)
+    (hzZ : ∀ k < n, z k ≤ max 1 (∑ i ∈ Finset.range k, z i)) :
+    ∑ k ∈ Finset.range n, z k / √(max 1 (∑ i ∈ Finset.range k, z i)) ≤
+      (√2 + 1) * √(∑ k ∈ Finset.range n, z k) := by
+  induction n with
+  | zero => simp
+  | succ n ih =>
+    have hZ : 0 ≤ ∑ i ∈ Finset.range n, z i :=
+      Finset.sum_nonneg fun i hi ↦ hz i (by simp at hi; omega)
+    have hstep := div_sqrt_max_one_le_mul_sqrt_add_sub_sqrt hZ (hz n n.lt_succ_self)
+      (hzZ n n.lt_succ_self)
+    have ih' := ih (fun k hk ↦ hz k (by omega)) (fun k hk ↦ hzZ k (by omega))
+    rw [Finset.sum_range_succ, Finset.sum_range_succ]
+    linarith
 
 end Real

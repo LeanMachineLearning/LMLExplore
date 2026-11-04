@@ -14,6 +14,7 @@ public import Mathlib.Analysis.SpecialFunctions.Log.Basic
 
 * `Real.min_one_le_two_mul_log_one_add`: `min 1 u ≤ 2 log (1 + u)` for `u ≥ 0`.
 * `Real.monotoneOn_log_one_add_mul_log_sq`: `x ↦ log (1 + x log² x)` is monotone on `[1, ∞)`.
+* `Real.log_natCast_le_log_natCast`: `log` is monotone on natural numbers.
 * `Real.monotone_log_two_mul_mul_add_one`: `n ↦ log (2 n (n + 1))` is monotone on `ℕ`.
 * `Real.tendsto_log_one_add_mul_log_sq_div_log_atTop`: `log (1 + x log² x) / log x → 1` as
   `x → ∞`.
@@ -55,6 +56,12 @@ theorem monotoneOn_log_one_add_mul_log_sq :
   have hy0 : 0 ≤ y := by linarith
   dsimp only
   gcongr
+
+/-- The logarithm is monotone on natural numbers, including `0` where `log 0 = 0 = log 1`. -/
+theorem log_natCast_le_log_natCast {m n : ℕ} (h : m ≤ n) : log m ≤ log n := by
+  rcases Nat.eq_zero_or_pos m with rfl | hm
+  · simpa using log_natCast_nonneg n
+  · exact log_le_log (by positivity) (by exact_mod_cast h)
 
 /-- The function `n ↦ log (2 n (n + 1))` on `ℕ` is monotone. It is the boundary of the
 sub-Gaussian, two-tailed form of the time-uniform deviation bound of [LS, Lemma 33.8]: Lattimore
