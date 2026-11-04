@@ -6,7 +6,6 @@ Authors: Rémy Degenne
 module
 
 public import LMLExplore.MarkovDecisionProcess.Episodic.Value
-import Mathlib.Analysis.Convex.Integral
 
 /-!
 # Optimal values and the optimal policy of an episodic MDP
@@ -19,10 +18,20 @@ optimal action values `Q*_h` are defined by the optimality equations, by backwar
 
 For a finite action set, the greedy deterministic Markov policy `π*`, which plays at the step `h`
 an action maximizing `Q*_h (s, ·)` (chosen by LML's measurable `argmax`), has the value `V*_h` at
-every step, and no Markov policy has a larger value: `V^π_h ≤ V*_h` for every Markov policy `π`,
-already for countable action sets. These are the comparisons that the regret and sample
-complexity bounds of episodic learning start from: the regret of a learner is the sum over the
-episodes of `V*_0 - V^{π_k}_0` for the policies `π_k` it plays.
+every step. For bounded rewards and a nonempty countable action set, no Markov policy has a larger
+value: `V^π_h ≤ V*_h` for every Markov policy `π`. These are the comparisons that the regret and
+sample complexity bounds of episodic learning start from: the regret of a learner is the sum over
+the episodes of `V*_0 - V^{π_k}_0` for the policies `π_k` it plays.
+
+In the time-augmented MDP `M.augmented`, `Q*_h (s, a)` is the one-step lookahead of the optimal
+values at the augmented state `(s, h)` (`lookahead_augmented_optValue`), the optimality equation
+is the Bellman optimality operator of `M.augmented` (`optValue_eq_bellman_augmented`), and `π*` is
+the greedy policy `MDP.greedy` of `M.augmented` for the optimal values.
+
+The greedy optimal policy `optPolicy` follows, in its construction as an `argmax` of the
+backed-up action values at each step and state, the policy `greedy` of the formalization
+entropy-mdp (`github.com/RemyDegenne/entropy-mdp`, file `Essakine2026Tight/EV2026/Algorithm.lean`,
+by Rémy Degenne, Apache 2.0), which is its entropic analogue.
 
 ## Main definitions
 
@@ -40,11 +49,14 @@ episodes of `V*_0 - V^{π_k}_0` for the policies `π_k` it plays.
 * `Learning.MDP.Episodic.EpisodicMDP.measurable_optValue`,
   `Learning.MDP.Episodic.EpisodicMDP.measurable_optQValue`: for a countable action set, the
   optimal values are measurable.
-* `Learning.MDP.Episodic.EpisodicMDP.optValue_mem_Icc`: for rewards in `[a, b]`, the optimal
-  value at the step `h` lies in `[(H - h) a, (H - h) b]`.
+* `Learning.MDP.Episodic.EpisodicMDP.lookahead_augmented_optValue`,
+  `Learning.MDP.Episodic.EpisodicMDP.optValue_eq_bellman_augmented`: for a countable action set,
+  the optimal action values and the optimality equation in the augmented MDP.
+* `Learning.MDP.Episodic.EpisodicMDP.optValue_mem_Icc`: for rewards in `[a, b]` and a nonempty
+  countable action set, the optimal value at the step `h` lies in `[(H - h) a, (H - h) b]`.
 * `Learning.MDP.Episodic.EpisodicMDP.value_le_optValue`,
-  `Learning.MDP.Episodic.EpisodicMDP.qValue_le_optQValue`: for bounded rewards and a countable
-  action set, the values of every Markov policy are at most the optimal values.
+  `Learning.MDP.Episodic.EpisodicMDP.qValue_le_optQValue`: for bounded rewards and a nonempty
+  countable action set, the values of every Markov policy are at most the optimal values.
 * `Learning.MDP.Episodic.EpisodicMDP.optQValue_optPolicy`: for a finite action set, the greedy
   action attains the optimal value.
 * `Learning.MDP.Episodic.EpisodicMDP.value_optPolicy`,
@@ -117,13 +129,6 @@ theorem optQValue_of_le_add_one (hh : H ≤ h + 1) (s : 𝓢) (a : 𝓐) :
 
 /-! ### Measurability and bounds -/
 
-/-- If the optimal value at the step `h + 1` is measurable, then the optimal action value at the
-step `h` is a measurable function of the state-action pair. -/
-private lemma measurable_optQValue_of (hV : Measurable (M.optValue H (h + 1))) :
-    Measurable fun p : 𝓢 × 𝓐 ↦ M.optQValue H h p.1 p.2 :=
-  (M.measurable_meanReward h).add
-    (hV.stronglyMeasurable.integral_kernel (κ := M.trans h)).measurable
-
 section Countable
 
 variable [Countable 𝓐]
@@ -132,7 +137,8 @@ variable [Countable 𝓐]
 state. -/
 theorem measurable_optValue (h : ℕ) : Measurable (M.optValue H h) := by
   by_cases hh : h < H
-  · have hQ := measurable_optQValue_of (M := M) (measurable_optValue (h + 1))
+  · have hQ : Measurable fun p : 𝓢 × 𝓐 ↦ M.optQValue H h p.1 p.2 :=
+      measurable_meanReward_add_integral (M := M) (measurable_optValue (h + 1)) h
     rw [funext (optValue_of_lt hh)]
     exact Measurable.iSup fun a ↦ hQ.comp measurable_prodMk_right
   · rw [funext (optValue_of_le (not_lt.1 hh))]
@@ -143,23 +149,31 @@ termination_by H - h
 of the state-action pair. -/
 theorem measurable_optQValue (h : ℕ) :
     Measurable fun p : 𝓢 × 𝓐 ↦ M.optQValue H h p.1 p.2 :=
-  measurable_optQValue_of (measurable_optValue (h + 1))
+  measurable_meanReward_add_integral (M := M) (measurable_optValue (h + 1)) h
+
+/-- The optimal values at all steps, read at the step of the augmented state, form a measurable
+function on the augmented states. -/
+private lemma measurable_optValue_augmented :
+    Measurable fun q : 𝓢 × ℕ ↦ M.optValue H q.2 q.1 :=
+  measurable_from_prod_countable_left fun h ↦ measurable_optValue h
+
+variable (M H) in
+/-- The optimal action value is the one-step lookahead, in the augmented MDP and without discount,
+of the optimal values read at the step of the augmented state. -/
+theorem lookahead_augmented_optValue (s : 𝓢) (h : ℕ) (a' : 𝓐) :
+    M.augmented.lookahead 1 (fun q ↦ M.optValue H q.2 q.1) ((s, h), a') = M.optQValue H h s a' := by
+  simp only [MDP.lookahead_def, meanReward_augmented, augmented_P_apply, NNReal.coe_one, one_mul,
+    optQValue_def, integral_map measurable_prodMk_right.aemeasurable
+      measurable_optValue_augmented.aestronglyMeasurable]
+
+/-- **The optimality equation in the augmented MDP.** Before the horizon, the optimal value is the
+Bellman optimality operator of the augmented MDP, without discount, applied to the optimal values
+read at the step of the augmented state. -/
+theorem optValue_eq_bellman_augmented (hh : h < H) (s : 𝓢) :
+    M.optValue H h s = M.augmented.bellman 1 (fun q ↦ M.optValue H q.2 q.1) (s, h) := by
+  simp only [MDP.bellman_def, lookahead_augmented_optValue, optValue_of_lt hh]
 
 variable {a b : ℝ}
-
-/-- For rewards in `[a, b]`, if the optimal value at the step `h + 1` lies in
-`[(H - (h + 1)) a, (H - (h + 1)) b]`, then the optimal action value at the step `h < H` lies in
-`[(H - h) a, (H - h) b]`. -/
-private lemma optQValue_mem_Icc_of (hM : M.RewardsIn (Set.Icc a b)) (hh : h < H)
-    (hV : ∀ s', M.optValue H (h + 1) s' ∈
-      Set.Icc ((H - (h + 1) : ℕ) * a) ((H - (h + 1) : ℕ) * b))
-    (s : 𝓢) (a' : 𝓐) :
-    M.optQValue H h s a' ∈ Set.Icc ((H - h : ℕ) * a) ((H - h : ℕ) * b) := by
-  have hr := meanReward_mem_Icc hM h s a'
-  have hPV := Convex.integral_mem (μ := M.trans h (s, a')) (convex_Icc _ _) isClosed_Icc
-    (.of_forall hV) (.of_mem_Icc _ _ (measurable_optValue (h + 1)).aemeasurable (.of_forall hV))
-  rw [optQValue_def, show H - h = H - (h + 1) + 1 by omega, Nat.cast_add_one]
-  constructor <;> linarith [hr.1, hr.2, hPV.1, hPV.2]
 
 variable [Nonempty 𝓐]
 
@@ -169,7 +183,9 @@ theorem optValue_mem_Icc (hM : M.RewardsIn (Set.Icc a b)) (h : ℕ) (s : 𝓢) :
     M.optValue H h s ∈ Set.Icc ((H - h : ℕ) * a) ((H - h : ℕ) * b) := by
   by_cases hh : h < H
   · -- the optimal action values lie in the same interval, and so does their supremum
-    have hQ := optQValue_mem_Icc_of hM hh (fun s' ↦ optValue_mem_Icc hM (h + 1) s') s
+    have hQ : ∀ a', M.optQValue H h s a' ∈ Set.Icc ((H - h : ℕ) * a) ((H - h : ℕ) * b) :=
+      meanReward_add_integral_mem_Icc hM hh (measurable_optValue (h + 1))
+        (fun s' ↦ optValue_mem_Icc hM (h + 1) s') s
     have hbdd : BddAbove (Set.range (M.optQValue H h s)) :=
       ⟨_, Set.forall_mem_range.2 fun a' ↦ (hQ a').2⟩
     rw [optValue_of_lt hh]
@@ -182,7 +198,8 @@ termination_by H - h
 step `h < H` lies in `[(H - h) a, (H - h) b]`. -/
 theorem optQValue_mem_Icc (hM : M.RewardsIn (Set.Icc a b)) (hh : h < H) (s : 𝓢) (a' : 𝓐) :
     M.optQValue H h s a' ∈ Set.Icc ((H - h : ℕ) * a) ((H - h : ℕ) * b) :=
-  optQValue_mem_Icc_of hM hh (optValue_mem_Icc hM (h + 1)) s a'
+  meanReward_add_integral_mem_Icc hM hh (measurable_optValue (h + 1)) (optValue_mem_Icc hM (h + 1))
+    s a'
 
 /-- For nonnegative rewards in `[0, b]`, the optimal value is nonnegative. -/
 theorem optValue_nonneg (hM : M.RewardsIn (Set.Icc 0 b)) (h : ℕ) (s : 𝓢) :
@@ -255,27 +272,27 @@ variable [Fintype 𝓐] [Nonempty 𝓐]
 
 variable (M H) in
 /-- The greedy optimal policy: at the step `h` and the state `s`, an action maximizing the optimal
-action value `Q*_h (s, ·)`, chosen by LML's `argmax`. -/
+action value `Q*_h (s, ·)`. It is the greedy policy `MDP.greedy` of the augmented MDP, without
+discount, for the optimal values, at the augmented state `(s, h)`. -/
 noncomputable def optPolicy (h : ℕ) (s : 𝓢) : 𝓐 :=
-  argmax fun a ↦ M.optQValue H h s a
+  M.augmented.greedy 1 (fun q ↦ M.optValue H q.2 q.1) (s, h)
 
 variable (M H) in
-lemma optPolicy_def (h : ℕ) (s : 𝓢) : M.optPolicy H h s = argmax fun a ↦ M.optQValue H h s a :=
+lemma optPolicy_def (h : ℕ) (s : 𝓢) :
+    M.optPolicy H h s = M.augmented.greedy 1 (fun q ↦ M.optValue H q.2 q.1) (s, h) :=
   (rfl)
 
 /-- The greedy optimal policy is measurable at every step. -/
 theorem measurable_optPolicy (h : ℕ) : Measurable (M.optPolicy H h) :=
-  measurable_argmax.comp <| measurable_pi_iff.2 fun _ ↦
-    (measurable_optQValue h).comp measurable_prodMk_right
+  (MDP.measurable_greedy measurable_optValue_augmented).comp measurable_prodMk_right
 
 /-- Before the horizon, the action of the greedy optimal policy attains the optimal value:
 `Q*_h (s, π*_h s) = V*_h s`. -/
 @[simp]
 theorem optQValue_optPolicy (hh : h < H) (s : 𝓢) :
     M.optQValue H h s (M.optPolicy H h s) = M.optValue H h s := by
-  rw [optValue_of_lt hh]
-  exact le_antisymm (le_ciSup (Finite.bddAbove_range _) _)
-    (ciSup_le fun a ↦ isMaxOn_argmax (fun a ↦ M.optQValue H h s a) (Set.mem_univ a))
+  rw [← lookahead_augmented_optValue, optPolicy_def, MDP.lookahead_greedy,
+    optValue_eq_bellman_augmented hh]
 
 /-- **The greedy optimal policy is optimal.** For a finite action set, the deterministic Markov
 policy playing the greedy optimal policy `M.optPolicy H` has the optimal value `V*_h` at every
@@ -285,10 +302,7 @@ theorem value_optPolicy (h : ℕ) (s : 𝓢) :
       M.optValue H h s := by
   by_cases hh : h < H
   · have hV := funext (value_optPolicy (h + 1))
-    rw [value_of_lt hh, Kernel.integral_deterministic' (measurable_optPolicy h)
-      (Measurable.stronglyMeasurable (f := M.qValue H _ h s)
-        ((measurable_qValue h).comp measurable_prodMk_left)), qValue_def, hV,
-      ← optQValue_def, optQValue_optPolicy hh]
+    rw [value_deterministic_of_lt _ hh, qValue_def, hV, ← optQValue_def, optQValue_optPolicy hh]
   · rw [value_of_le (not_lt.1 hh), optValue_of_le (not_lt.1 hh)]
 termination_by H - h
 

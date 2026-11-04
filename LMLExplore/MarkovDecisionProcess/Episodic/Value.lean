@@ -51,6 +51,12 @@ Apache 2.0), from deterministic to stochastic Markov policies.
 * `Learning.MDP.Episodic.EpisodicMDP.value_mem_Icc`: for rewards in `[a, b]`, the value at the
   step `h` lies in `[(H - h) a, (H - h) b]`; in particular `0 ≤ V^π_h ≤ H - h` for rewards in
   `[0, 1]` (`value_nonneg`, `value_le`).
+* `Learning.MDP.Episodic.EpisodicMDP.measurable_meanReward_add_integral`,
+  `Learning.MDP.Episodic.EpisodicMDP.meanReward_add_integral_mem_Icc`: the measurability and the
+  bounds of the backup `r_h (s, a) + ∫ V dP_h (s, a)` of a function `V` of the next state, shared
+  by the values of policies and the optimal values.
+* `Learning.MDP.Episodic.EpisodicMDP.value_deterministic_of_lt`: the value of a deterministic
+  Markov policy is its action value at the action it plays.
 * `Learning.MDP.Episodic.EpisodicMDP.runReturn_augmented_markov`: the `(H - h)`-step return in
   the augmented MDP of `augMarkovPolicy π`, from an initial law `μ` concentrated on the step `h`,
   is `∫ V^π_h dμ`; `runReturn_augmented_markov_dirac` is the case of a Dirac mass at `(s, h)`.
@@ -134,10 +140,10 @@ theorem value_of_le {h : ℕ} (hh : H ≤ h) (s : 𝓢) : M.value H π h s = 0 :
 lemma value_self (s : 𝓢) : M.value H π H s = 0 :=
   value_of_le le_rfl s
 
-/-- If the value at the step `h + 1` is measurable, then the action value at the step `h` is a
-measurable function of the state-action pair. -/
-private lemma measurable_qValue_of {h : ℕ} (hV : Measurable (M.value H π (h + 1))) :
-    Measurable fun p : 𝓢 × 𝓐 ↦ M.qValue H π h p.1 p.2 :=
+/-- For a measurable function `V` of the next state, the backup
+`(s, a) ↦ r_h (s, a) + ∫ V dP_h (s, a)` at the step `h` is measurable. -/
+theorem measurable_meanReward_add_integral {V : 𝓢 → ℝ} (hV : Measurable V) (h : ℕ) :
+    Measurable fun p : 𝓢 × 𝓐 ↦ M.meanReward h p.1 p.2 + ∫ s', V s' ∂(M.trans h p) :=
   (M.measurable_meanReward h).add
     (hV.stronglyMeasurable.integral_kernel (κ := M.trans h)).measurable
 
@@ -148,7 +154,8 @@ variable [∀ h, IsSFiniteKernel (π h)]
 /-- The value at every step is a measurable function of the state. -/
 theorem measurable_value (h : ℕ) : Measurable (M.value H π h) := by
   by_cases hh : h < H
-  · have hQ := measurable_qValue_of (M := M) (measurable_value (h + 1))
+  · have hQ : Measurable fun p : 𝓢 × 𝓐 ↦ M.qValue H π h p.1 p.2 :=
+      measurable_meanReward_add_integral (M := M) (measurable_value (h + 1)) h
     rw [funext (value_of_lt hh)]
     exact (hQ.stronglyMeasurable.integral_kernel_prod_right' (κ := π h)).measurable
   · rw [funext (value_of_le (not_lt.1 hh))]
@@ -157,7 +164,7 @@ termination_by H - h
 
 /-- The action value at every step is a measurable function of the state-action pair. -/
 theorem measurable_qValue (h : ℕ) : Measurable fun p : 𝓢 × 𝓐 ↦ M.qValue H π h p.1 p.2 :=
-  measurable_qValue_of (measurable_value (h + 1))
+  measurable_meanReward_add_integral (M := M) (measurable_value (h + 1)) h
 
 /-- The values of `π` at all steps, read at the step of the augmented state, form a measurable
 function on the augmented states. -/
@@ -175,27 +182,33 @@ theorem lookahead_augmented_value (s : 𝓢) (h : ℕ) (a' : 𝓐) :
 
 end Measurable
 
+/-- Before the horizon, the value of the deterministic Markov policy playing `d h s` at the step
+`h` and the state `s` is its action value at that action: `V^d_h s = Q^d_h (s, d_h s)`. -/
+theorem value_deterministic_of_lt {d : ℕ → 𝓢 → 𝓐} (hd : ∀ h, Measurable (d h)) {h : ℕ}
+    (hh : h < H) (s : 𝓢) :
+    M.value H (fun h ↦ Kernel.deterministic (d h) (hd h)) h s =
+      M.qValue H (fun h ↦ Kernel.deterministic (d h) (hd h)) h s (d h s) := by
+  rw [value_of_lt hh, Kernel.integral_deterministic' (hd h)
+    (Measurable.stronglyMeasurable (f := M.qValue H _ h s)
+      ((measurable_qValue h).comp measurable_prodMk_left))]
+
 /-! ### Bounds -/
 
 variable [∀ h, IsMarkovKernel (π h)] {a b C : ℝ}
 
-/-- The number of steps to go from the step `h` is one more than from the step `h + 1`. -/
-private lemma cast_sub_eq_add_one {h : ℕ} (hh : h < H) :
-    ((H - h : ℕ) : ℝ) = ((H - (h + 1) : ℕ) : ℝ) + 1 := by
-  rw [show H - h = H - (h + 1) + 1 by omega, Nat.cast_add_one]
-
-/-- For rewards in `[a, b]`, if the value of `π` at the step `h + 1` lies in
-`[(H - (h + 1)) a, (H - (h + 1)) b]`, then its action value at the step `h < H` lies in
-`[(H - h) a, (H - h) b]`. -/
-private lemma qValue_mem_Icc_of_value_mem_Icc (hM : M.RewardsIn (Set.Icc a b)) {h : ℕ}
-    (hh : h < H)
-    (hV : ∀ s', M.value H π (h + 1) s' ∈ Set.Icc ((H - (h + 1) : ℕ) * a) ((H - (h + 1) : ℕ) * b))
+/-- For rewards in `[a, b]`, if a measurable function `V` of the next state lies in
+`[(H - (h + 1)) a, (H - (h + 1)) b]`, then the backup `r_h (s, a) + ∫ V dP_h (s, a)` at a step
+`h < H` lies in `[(H - h) a, (H - h) b]`. -/
+theorem meanReward_add_integral_mem_Icc (hM : M.RewardsIn (Set.Icc a b)) {h : ℕ} (hh : h < H)
+    {V : 𝓢 → ℝ} (hVm : Measurable V)
+    (hV : ∀ s', V s' ∈ Set.Icc ((H - (h + 1) : ℕ) * a) ((H - (h + 1) : ℕ) * b))
     (s : 𝓢) (a' : 𝓐) :
-    M.qValue H π h s a' ∈ Set.Icc ((H - h : ℕ) * a) ((H - h : ℕ) * b) := by
+    M.meanReward h s a' + ∫ s', V s' ∂(M.trans h (s, a')) ∈
+      Set.Icc ((H - h : ℕ) * a) ((H - h : ℕ) * b) := by
   have hr := meanReward_mem_Icc hM h s a'
   have hPV := Convex.integral_mem (μ := M.trans h (s, a')) (convex_Icc _ _) isClosed_Icc
-    (.of_forall hV) (.of_mem_Icc _ _ (measurable_value (h + 1)).aemeasurable (.of_forall hV))
-  rw [qValue_def, cast_sub_eq_add_one hh]
+    (.of_forall hV) (.of_mem_Icc _ _ hVm.aemeasurable (.of_forall hV))
+  rw [show H - h = H - (h + 1) + 1 by omega, Nat.cast_add_one]
   constructor <;> linarith [hr.1, hr.2, hPV.1, hPV.2]
 
 /-- For rewards in `[a, b]`, the value of `π` at the step `h` lies in `[(H - h) a, (H - h) b]`. -/
@@ -203,7 +216,9 @@ theorem value_mem_Icc (hM : M.RewardsIn (Set.Icc a b)) (h : ℕ) (s : 𝓢) :
     M.value H π h s ∈ Set.Icc ((H - h : ℕ) * a) ((H - h : ℕ) * b) := by
   by_cases hh : h < H
   · -- the action values lie in the same interval, and so does their average
-    have hQ := qValue_mem_Icc_of_value_mem_Icc hM hh (fun s' ↦ value_mem_Icc hM (h + 1) s') s
+    have hQ : ∀ a', M.qValue H π h s a' ∈ Set.Icc ((H - h : ℕ) * a) ((H - h : ℕ) * b) :=
+      meanReward_add_integral_mem_Icc hM hh (measurable_value (h + 1))
+        (fun s' ↦ value_mem_Icc hM (h + 1) s') s
     rw [value_of_lt hh]
     exact Convex.integral_mem (convex_Icc _ _) isClosed_Icc (.of_forall hQ)
       (.of_mem_Icc _ _ ((measurable_qValue h).comp measurable_prodMk_left).aemeasurable
@@ -216,7 +231,7 @@ termination_by H - h
 `[(H - h) a, (H - h) b]`. -/
 theorem qValue_mem_Icc (hM : M.RewardsIn (Set.Icc a b)) {h : ℕ} (hh : h < H) (s : 𝓢)
     (a' : 𝓐) : M.qValue H π h s a' ∈ Set.Icc ((H - h : ℕ) * a) ((H - h : ℕ) * b) :=
-  qValue_mem_Icc_of_value_mem_Icc hM hh (value_mem_Icc hM (h + 1)) s a'
+  meanReward_add_integral_mem_Icc hM hh (measurable_value (h + 1)) (value_mem_Icc hM (h + 1)) s a'
 
 /-- For nonnegative rewards in `[0, b]`, the value of `π` is nonnegative. -/
 theorem value_nonneg (hM : M.RewardsIn (Set.Icc 0 b)) (h : ℕ) (s : 𝓢) : 0 ≤ M.value H π h s := by
