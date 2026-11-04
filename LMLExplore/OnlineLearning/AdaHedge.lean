@@ -53,9 +53,9 @@ pure exploration games of [DKM19, Lemma 3].
 * `mixLoss_softmax`: the mix loss of exponential weights is the increment of the potential.
 * `hedgePotential_le_of_le`: the potential is nonincreasing in the learning rate.
 * `adaHedge_mem_simplex`: AdaHedge plays probability vectors.
-* `sum_adaHedge_regret_le_two_mul_adaHedgeGap`: the regret of AdaHedge is at most `2 Δ_n`.
+* `adaHedge_regret_le_two_mul_adaHedgeGap`: the regret of AdaHedge is at most `2 Δ_n`.
 * `adaHedgeGap_le`: `Δ_n ≤ B + √((∑ t < n, b t ^ 2) log K) / 2` for loss ranges `b t ≤ B`.
-* `sum_adaHedge_regret_le`: the regret bound `√((∑ t < n, b t ^ 2) log K) + 2 B`.
+* `adaHedge_regret_le`: the regret bound `√((∑ t < n, b t ^ 2) log K) + 2 B`.
 
 The definitions of AdaHedge (its state, the follow-the-leader weights and the mix loss at an
 infinite learning rate) are adapted from the formalization of [DKM19] in the LMLPapers project
@@ -559,7 +559,7 @@ private lemma sum_adaHedgeMixLoss_le (y : ℕ → α → ℝ) (n : ℕ) :
 
 /-- **Regret of AdaHedge** in terms of its cumulative mixability gap: against every expert `a`,
 `∑ t < n, (⟨w_t, y t⟩ - y t a) ≤ 2 Δ_n`. -/
-theorem sum_adaHedge_regret_le_two_mul_adaHedgeGap (y : ℕ → α → ℝ) (n : ℕ) (a : α) :
+theorem adaHedge_regret_le_two_mul_adaHedgeGap (y : ℕ → α → ℝ) (n : ℕ) (a : α) :
     ∑ t ∈ range n, (∑ b, adaHedge y t b * y t b - y t a) ≤ 2 * adaHedgeGap y n := by
   obtain ⟨h0, hη, -⟩ := adaHedgeGap_invariant y n
   have hsplit : ∑ t ∈ range n, (∑ b, adaHedge y t b * y t b - y t a) =
@@ -642,11 +642,11 @@ theorem adaHedgeGap_le (y : ℕ → α → ℝ) {n : ℕ} {b : ℕ → ℝ} {B :
 have range at most `b t` and `b t ≤ B`, then against every expert `a`,
 `∑ t < n, (⟨w_t, y t⟩ - y t a) ≤ √((∑ t < n, b t ^ 2) log K) + 2 B`. The learning rates of
 AdaHedge use neither `b` nor `B`. -/
-theorem sum_adaHedge_regret_le (y : ℕ → α → ℝ) {n : ℕ} {b : ℕ → ℝ} {B : ℝ}
+theorem adaHedge_regret_le (y : ℕ → α → ℝ) {n : ℕ} {b : ℕ → ℝ} {B : ℝ}
     (hb : ∀ t < n, ∀ a a', y t a - y t a' ≤ b t) (hB : ∀ t < n, b t ≤ B) (hB0 : 0 ≤ B) (a : α) :
     ∑ t ∈ range n, (∑ a', adaHedge y t a' * y t a' - y t a) ≤
       √((∑ t ∈ range n, b t ^ 2) * log (Fintype.card α)) + 2 * B := by
-  have h1 := sum_adaHedge_regret_le_two_mul_adaHedgeGap y n a
+  have h1 := adaHedge_regret_le_two_mul_adaHedgeGap y n a
   have h2 := adaHedgeGap_le y hb hB hB0
   linarith
 
