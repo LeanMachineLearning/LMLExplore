@@ -51,7 +51,8 @@ Apache 2.0), from deterministic to stochastic Markov policies.
 * `Learning.MDP.Episodic.EpisodicMDP.value_mem_Icc`: for rewards in `[a, b]`, the value at the
   step `h` lies in `[(H - h) a, (H - h) b]`; in particular `0 ≤ V^π_h ≤ H - h` for rewards in
   `[0, 1]` (`value_nonneg`, `value_le`); for rewards in `[-C, C]`, `|V^π_h| ≤ H |C|` at every
-  step (`abs_value_le_mul_abs`).
+  step (`abs_value_le_mul_abs`) and `|Q^π_h| ≤ H |C|` before the horizon
+  (`abs_qValue_le_mul_abs`).
 * `Learning.MDP.Episodic.EpisodicMDP.measurable_meanReward_add_integral`,
   `Learning.MDP.Episodic.EpisodicMDP.meanReward_add_integral_mem_Icc`: the measurability and the
   bounds of the backup `r_h (s, a) + ∫ V dP_h (s, a)` of a function `V` of the next state, shared
@@ -266,6 +267,16 @@ over the steps. -/
 theorem abs_value_le_mul_abs (hM : M.RewardsIn (Set.Icc (-C) C)) (h : ℕ) (s : 𝓢) :
     |M.value H π h s| ≤ H * |C| :=
   calc |M.value H π h s| ≤ (H - h : ℕ) * C := abs_value_le hM h s
+    _ ≤ (H - h : ℕ) * |C| := mul_le_mul_of_nonneg_left (le_abs_self C) (Nat.cast_nonneg _)
+    _ ≤ H * |C| := mul_le_mul_of_nonneg_right (by exact_mod_cast Nat.sub_le _ _) (abs_nonneg C)
+
+/-- For rewards in `[-C, C]`, the action value of `π` before the horizon is at most `H |C|` in
+absolute value, uniformly over the steps. -/
+theorem abs_qValue_le_mul_abs (hM : M.RewardsIn (Set.Icc (-C) C)) {h : ℕ} (hh : h < H) (s : 𝓢)
+    (a : 𝓐) : |M.qValue H π h s a| ≤ H * |C| := by
+  have hQ := qValue_mem_Icc (π := π) hM hh s a
+  rw [mul_neg] at hQ
+  calc |M.qValue H π h s a| ≤ (H - h : ℕ) * C := abs_le.2 hQ
     _ ≤ (H - h : ℕ) * |C| := mul_le_mul_of_nonneg_left (le_abs_self C) (Nat.cast_nonneg _)
     _ ≤ H * |C| := mul_le_mul_of_nonneg_right (by exact_mod_cast Nat.sub_le _ _) (abs_nonneg C)
 

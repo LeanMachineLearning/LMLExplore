@@ -8,6 +8,7 @@ module
 public import LMLExplore.Analysis.Normed.Lp.Measurable
 public import Mathlib.MeasureTheory.Integral.Bochner.Basic
 public import Mathlib.MeasureTheory.Integral.IntegrableOn
+public import Mathlib.Probability.Kernel.MeasurableIntegral
 
 /-!
 # Integrals of bounded measurable functions
@@ -22,11 +23,13 @@ finite measure `μ`, and its integral is bounded in absolute value by `‖f‖ *
 * `LMLExplore.boundedMeasurable.abs_integral_le`: `|∫ y, f y ∂μ| ≤ ‖f‖ * μ.real univ`.
 * `LMLExplore.integrable_of_abs_le`, `LMLExplore.abs_integral_le_of_abs_le`: the same statements
   for a function `f : β → ℝ` with `|f| ≤ B`, the second one against a probability measure.
+* `LMLExplore.integrable_integral_kernel_of_abs_le`: for a Markov kernel `κ`, the integral
+  `a ↦ ∫ f d(κ a)` of a measurable `f` with `|f| ≤ B` is integrable for every finite measure.
 -/
 
 public section
 
-open MeasureTheory Set
+open MeasureTheory ProbabilityTheory Set
 open scoped ENNReal lp
 
 namespace LMLExplore
@@ -46,6 +49,14 @@ lemma abs_integral_le_of_abs_le {f : β → ℝ} {B : ℝ} {μ : Measure β} [Is
   simpa only [Real.norm_eq_abs, probReal_univ, mul_one] using
     norm_integral_le_of_norm_le_const (μ := μ) (f := f)
       (.of_forall fun x ↦ (Real.norm_eq_abs _).trans_le (hfB x))
+
+/-- For a Markov kernel `κ` and a measurable function `f` bounded by `B` in absolute value, the
+integral `a ↦ ∫ f d(κ a)` is integrable for every finite measure. -/
+lemma integrable_integral_kernel_of_abs_le {α : Type*} [MeasurableSpace α] {f : β → ℝ} {B : ℝ}
+    (hf : Measurable f) (hfB : ∀ x, |f x| ≤ B) (κ : Kernel α β) [IsMarkovKernel κ]
+    (μ : Measure α) [IsFiniteMeasure μ] : Integrable (fun a ↦ ∫ x, f x ∂(κ a)) μ :=
+  integrable_of_abs_le (hf.stronglyMeasurable.integral_kernel (κ := κ)).measurable
+    (fun _ ↦ abs_integral_le_of_abs_le hfB) μ
 
 namespace boundedMeasurable
 
