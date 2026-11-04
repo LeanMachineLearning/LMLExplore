@@ -13,11 +13,11 @@ public import LMLExplore.Bandits.Exp3
 In a bandit with expert advice [LS, Chapter 18], each expert `m` of a finite set `β` recommends at
 round `t` a distribution `E t m ∈ simplex α` over the arms, and the learner sees this advice before
 acting. Exp4 [ACFS02], [LS, Algorithm 11] runs exponential weights over the experts: it keeps
-weights `Q t = softmax (η • S̃ t)` on the experts, plays an arm drawn from the mixture
+weights `Q t = softmax (η • Ŝᴱ t)` on the experts, plays an arm drawn from the mixture
 `P t = ∑ m, Q t m • E t m` of their advice, estimates the rewards of the arms by the loss-based
 importance-weighted estimates `X̂ t` of `P t`, and credits each expert `m` with the estimate
-`X̃ t m = E t m ⬝ᵥ X̂ t` of its expected reward, so that `S̃ t = ∑ s < t, X̃ s`. In matrix form,
-`P t = Q t E t` and `X̃ t = E t X̂ t`. The learning rate `η > 0` is a parameter; this is the
+`X̂ᴱ t m = E t m ⬝ᵥ X̂ t` of its expected reward, so that `Ŝᴱ t = ∑ s < t, X̂ᴱ s`. In matrix form,
+`P t = Q t E t` and `X̂ᴱ t = E t X̂ t`. The learning rate `η > 0` is a parameter; this is the
 algorithm of [LS] with `γ = 0`.
 
 The observation of round `t` is the advice `E t : β → simplex α`. For rewards in `[0, 1]` and a
@@ -30,9 +30,9 @@ weights of Exp3, and so is the mixture of their advice.
 
 ## Main definitions
 
-* `LMLExplore.Bandits.exp4Sum η n h`: the cumulative reward estimates `S̃ n` of the experts,
+* `LMLExplore.Bandits.exp4Sum η n h`: the cumulative reward estimates `Ŝᴱ n` of the experts,
   computed from the history `h` of the first `n` rounds.
-* `LMLExplore.Bandits.exp4ExpertWeights η n h`: the weights `Q n = softmax (η • S̃ n)` of Exp4 on
+* `LMLExplore.Bandits.exp4ExpertWeights η n h`: the weights `Q n = softmax (η • Ŝᴱ n)` of Exp4 on
   the experts at round `n`.
 * `LMLExplore.Bandits.exp4Weights η n h e`: the weights `P n = ∑ m, Q n m • e m` of Exp4 on the
   arms at round `n`, for the advice `e` of round `n`.
@@ -43,18 +43,18 @@ weights of Exp3, and so is the mixture of their advice.
 * `exp4Weights_mem_simplex`: the weights of Exp4 on the arms are a probability vector.
 * `exp4ExpertWeights_history_eq`: along every sequence of observations, actions and feedbacks,
   the weights of Exp4 on the experts are the exponential weights of `-η` times the cumulative
-  estimated losses `E t m ⬝ᵥ Ŷ t` of the experts, with `Ŷ t` the importance-weighted estimates of
+  estimated losses `E t m ⬝ᵥ Ŷ t` of the experts, with `Ŷ t` the importance-weighted estimates of
   the losses `1 - Y t`.
 * `exp4ExpertWeights_single`, `exp4Weights_single`: with the advice of the experts `α` that each
   recommend one arm, the weights of Exp4 on the experts and on the arms are those of Exp3.
 * `exp4_eq_of_subsingleton`: with a single expert, Exp4 does not depend on its learning rate.
 * `Exp4.sum_sub_sum_le`: [LS, Lemma 18.2], the pathwise bound
-  `∑ t < n, (X̃ t m - ⟨Q t, X̃ t⟩) ≤ log M / η + η / 2 * ∑ t < n, ⟨Q t, (1 - X̃ t) ^ 2⟩`.
+  `∑ t < n, (X̂ᴱ t m - ⟨Q t, X̂ᴱ t⟩) ≤ log M / η + η / 2 * ∑ t < n, ⟨Q t, (1 - X̂ᴱ t) ^ 2⟩`.
 * `Exp4.sum_mul_one_sub_sq_le`: the second-order term satisfies
-  `⟨Q t, (1 - X̃ t) ^ 2⟩ ≤ (1 - Y t) ^ 2 / P t (A t)`.
+  `⟨Q t, (1 - X̂ᴱ t) ^ 2⟩ ≤ (1 - Y t) ^ 2 / P t (A t)`.
 * `Exp4.sum_dotProduct_lossIwEstimator_sub_le`: the resulting pathwise bound on the estimated
   regret against an expert.
-* `Exp4.integral_dotProduct_lossIwEstimator`: the estimated reward `X̃ t m` of expert `m` is
+* `Exp4.integral_dotProduct_lossIwEstimator`: the estimated reward `X̂ᴱ t m` of expert `m` is
   unbiased [LS, (18.10)].
 * `Exp4.expertRegret_le`: for a run of Exp4 whose observations are the advice `E t` and whose
   feedback is the reward `x t (A t) ∈ [0, 1]` of its action, `R_n ≤ log M / η + η n k / 2`.
@@ -81,11 +81,11 @@ variable {α β : Type*} [Fintype α] [DecidableEq α] [Fintype β] {η : ℝ}
 section Weights
 
 /-- The cumulative reward estimates of the experts in Exp4 with learning rate `η`, computed from
-the history `h` of the first `n` rounds: `∑ s < n, X̃ s` with `X̃ s m = E s m ⬝ᵥ X̂ s`, for the
+the history `h` of the first `n` rounds: `∑ s < n, X̂ᴱ s` with `X̂ᴱ s m = E s m ⬝ᵥ X̂ s`, for the
 advice `E s` observed at round `s`, the loss-based importance-weighted estimates
 `X̂ s = lossIwEstimator (P s) (A s) (X s)` of the rewards of the arms, computed from the action
 `A s` and the reward `X s` of round `s` of `h`, and the weights
-`P s = ∑ m, softmax (η • ∑ r < s, X̃ r) m • E s m` on the arms at round `s`. -/
+`P s = ∑ m, softmax (η • ∑ r < s, X̂ᴱ r) m • E s m` on the arms at round `s`. -/
 noncomputable def exp4Sum (η : ℝ) : (n : ℕ) → Hist (β → simplex α) α ℝ n → β → ℝ
   | 0, _ => 0
   | n + 1, h => exp4Sum η n (Fin.init h) + fun m ↦ ((h (Fin.last n)).obs m : α → ℝ) ⬝ᵥ
@@ -257,7 +257,7 @@ lemma exp4Sum_history (n : ℕ) (ω : Ω) :
 
 /-- **Exp4 as exponential weights on losses.** Along a sequence of observations `O`, actions `A`
 and feedbacks `Y`, the weights of Exp4 on the experts at round `n` are the exponential weights of
-`-η` times the cumulative estimated losses `O t m ⬝ᵥ Ŷ t` of the experts, with `Ŷ t` the
+`-η` times the cumulative estimated losses `O t m ⬝ᵥ Ŷ t` of the experts, with `Ŷ t` the
 importance-weighted estimates of the losses `1 - Y t`, since the advice of each expert sums to
 `1`. -/
 lemma exp4ExpertWeights_history_eq (n : ℕ) (ω : Ω) :
@@ -326,10 +326,10 @@ variable [Nonempty β]
 
 /-- **Pathwise regret of the experts' weights in Exp4** [LS, Lemma 18.2]. Along every sequence of
 observations `O`, actions `A` and feedbacks `Y ≤ 1` of the rounds `t < n`, with `Q t` the weights
-of Exp4 on the experts at round `t` and `X̃ t m = O t m ⬝ᵥ X̂ t` the estimated reward of expert `m`,
-for every expert `m` and `η > 0`,
-`∑ t < n, (X̃ t m - ∑ m', Q t m' * X̃ t m') ≤
-  log M / η + η / 2 * ∑ t < n, ∑ m', Q t m' * (1 - X̃ t m') ^ 2`,
+of Exp4 on the experts at round `t` and `X̂ᴱ t m = O t m ⬝ᵥ X̂ t` the estimated reward of expert
+`m`, for every expert `m` and `η > 0`,
+`∑ t < n, (X̂ᴱ t m - ∑ m', Q t m' * X̂ᴱ t m') ≤
+  log M / η + η / 2 * ∑ t < n, ∑ m', Q t m' * (1 - X̂ᴱ t m') ^ 2`,
 with `M` the number of experts. -/
 theorem sum_sub_sum_le (hη : 0 < η) (O : ℕ → Ω → β → simplex α) (A : ℕ → Ω → α)
     (Y : ℕ → Ω → ℝ) (ω : Ω) (hY : ∀ t < n, Y t ω ≤ 1) (m : β) :
@@ -368,8 +368,8 @@ theorem sum_sub_sum_le (hη : 0 < η) (O : ℕ → Ω → β → simplex α) (A 
 omit [Nonempty β] in
 /-- **The second-order term of Exp4.** Along every sequence of observations `O`, actions `A` and
 feedbacks `Y`, with `Q t` and `P t` the weights of Exp4 on the experts and on the arms at round `t`
-and `X̃ t m = O t m ⬝ᵥ X̂ t` the estimated reward of expert `m`,
-`∑ m', Q t m' * (1 - X̃ t m') ^ 2 ≤ (1 - Y t) ^ 2 / P t (A t)`. -/
+and `X̂ᴱ t m = O t m ⬝ᵥ X̂ t` the estimated reward of expert `m`,
+`∑ m', Q t m' * (1 - X̂ᴱ t m') ^ 2 ≤ (1 - Y t) ^ 2 / P t (A t)`. -/
 lemma sum_mul_one_sub_sq_le (O : ℕ → Ω → β → simplex α) (A : ℕ → Ω → α) (Y : ℕ → Ω → ℝ)
     (ω : Ω) (t : ℕ) :
     ∑ m', exp4ExpertWeights η t (history O A Y t ω) m' * (1 - (O t ω m' : α → ℝ) ⬝ᵥ
@@ -398,9 +398,9 @@ lemma sum_mul_one_sub_sq_le (O : ℕ → Ω → β → simplex α) (A : ℕ → 
 
 /-- **Pathwise bound on the estimated regret of Exp4.** Along every sequence of observations `O`,
 actions `A` and feedbacks `Y ≤ 1` of the rounds `t < n` whose actions have positive weight
-`P t (A t)`, with `X̃ t m = O t m ⬝ᵥ X̂ t` the estimated reward of expert `m`, for every expert `m`
+`P t (A t)`, with `X̂ᴱ t m = O t m ⬝ᵥ X̂ t` the estimated reward of expert `m`, for every expert `m`
 and `η > 0`,
-`∑ t < n, (X̃ t m - Y t) ≤ log M / η + η / 2 * ∑ t < n, (1 - Y t) ^ 2 / P t (A t)`. -/
+`∑ t < n, (X̂ᴱ t m - Y t) ≤ log M / η + η / 2 * ∑ t < n, (1 - Y t) ^ 2 / P t (A t)`. -/
 theorem sum_dotProduct_lossIwEstimator_sub_le (hη : 0 < η) (O : ℕ → Ω → β → simplex α)
     (A : ℕ → Ω → α) (Y : ℕ → Ω → ℝ) (ω : Ω) (hY : ∀ t < n, Y t ω ≤ 1)
     (hpos : ∀ t < n, exp4Weights η t (history O A Y t ω) (O t ω) (A t ω) ≠ 0) (m : β) :
@@ -471,7 +471,7 @@ private lemma advice_mul_div_ae_eq (hO : O t =ᵐ[P] fun _ ↦ E t) (hY : Y t =�
 
 omit [Nonempty α] in
 /-- Along a run of Exp4 whose observation of round `t` is the advice `E t` and whose feedback is
-the reward `x t (A t)` of its action, the estimated reward `X̃ t m = O t m ⬝ᵥ X̂ t` of expert `m`
+the reward `x t (A t)` of its action, the estimated reward `X̂ᴱ t m = O t m ⬝ᵥ X̂ t` of expert `m`
 is integrable. -/
 lemma integrable_dotProduct_lossIwEstimator (hO : O t =ᵐ[P] fun _ ↦ E t)
     (hY : Y t =ᵐ[P] x t ∘ A t) (h : IsAlgEnvSeq O A Y (exp4 η) env P) (m : β) :
@@ -483,7 +483,7 @@ lemma integrable_dotProduct_lossIwEstimator (hO : O t =ᵐ[P] fun _ ↦ E t)
 
 /-- **The estimated rewards of the experts are unbiased** [LS, (18.10)]. Along a run of Exp4 whose
 observation of round `t` is the advice `E t` and whose feedback is the reward `x t (A t)` of its
-action, the estimated reward `X̃ t m = O t m ⬝ᵥ X̂ t` of expert `m` has expectation
+action, the estimated reward `X̂ᴱ t m = O t m ⬝ᵥ X̂ t` of expert `m` has expectation
 `E t m ⬝ᵥ x t`, the expected reward of following its advice. -/
 theorem integral_dotProduct_lossIwEstimator (hO : O t =ᵐ[P] fun _ ↦ E t)
     (hY : Y t =ᵐ[P] x t ∘ A t) (h : IsAlgEnvSeq O A Y (exp4 η) env P) (m : β) :
