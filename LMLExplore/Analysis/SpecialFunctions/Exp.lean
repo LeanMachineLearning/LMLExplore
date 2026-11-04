@@ -31,7 +31,10 @@ tail bounds `exp (-c m n)` over a sequence of experiments whose sample sizes gro
 logarithmically.
 
 For `x ≥ 0`, `exp (-x) ≤ 1 - x + x ^ 2 / 2`, the second-order bound that controls the growth of
-the potential of exponential weights fed with nonnegative losses.
+the potential of exponential weights fed with nonnegative losses. Conversely, discounting the
+argument of the exponential turns `1 + x` into an upper bound near `0`: `exp (x / (1 + l)) ≤ 1 + x`
+for `0 ≤ x ≤ 2 l` [LS, Lemma 12.5], which controls the exponential moments of the
+implicit-exploration estimates of Exp3-IX.
 
 ## Main statements
 
@@ -46,6 +49,7 @@ the potential of exponential weights fed with nonnegative losses.
   tail sums are nonnegative for `d ≥ 0`.
 * `Real.summable_exp_neg_of_tendsto_div_log`: `∑ n, exp (-f n) < ∞` if `f n / log n → ∞`.
 * `Real.exp_neg_le_one_sub_add_sq_div_two`: `exp (-x) ≤ 1 - x + x ^ 2 / 2` for `x ≥ 0`.
+* `Real.exp_div_one_add_le_one_add`: `exp (x / (1 + l)) ≤ 1 + x` for `0 ≤ x ≤ 2 l`.
 
 ## References
 
@@ -173,5 +177,14 @@ theorem exp_neg_le_one_sub_add_sq_div_two {x : ℝ} (hx : 0 ≤ x) :
   _ ≤ 1 - x + x ^ 2 / 2 := by
     rw [inv_le_iff_one_le_mul₀' hpos]
     nlinarith [pow_nonneg hx 4]
+
+/-- For `0 ≤ x ≤ 2 l`, `exp (x / (1 + l)) ≤ 1 + x` [LS, Lemma 12.5]. -/
+theorem exp_div_one_add_le_one_add {x l : ℝ} (hx : 0 ≤ x) (hxl : x ≤ 2 * l) :
+    exp (x / (1 + l)) ≤ 1 + x := by
+  -- `x / (1 + l) ≤ 2 x / (x + 2) ≤ log (1 + x)`
+  rw [← exp_log (by linarith : 0 < 1 + x), exp_le_exp]
+  refine le_trans ?_ (le_log_one_add_of_nonneg hx)
+  rw [div_le_div_iff₀ (by linarith) (by linarith)]
+  nlinarith [mul_nonneg hx (sub_nonneg.2 hxl)]
 
 end Real
