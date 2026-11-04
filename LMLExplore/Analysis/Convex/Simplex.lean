@@ -38,6 +38,10 @@ supported distributions, not a subset of `α → ℝ`.
   a vector of the simplex satisfy `w a + w b = 1`.
 * `LMLExplore.simplex_subset_nonneg`: the simplex consists of nonnegative vectors.
 * `LMLExplore.single_mem_simplex`: the vertices `Pi.single a 1` lie in the simplex.
+* `LMLExplore.eq_single_of_mem_simplex`: a vector of the simplex with an entry equal to `1` is a
+  vertex.
+* `LMLExplore.not_convex_image_single`: a set of vertices with two distinct elements is not
+  convex.
 * `LMLExplore.uniform_mem_simplex`: the uniform distribution lies in the simplex.
 * `LMLExplore.simplex_nonempty`: the simplex of a nonempty type is nonempty.
 * `LMLExplore.eq_one_of_mem_simplex`: on a type with at most one element, the simplex is the
@@ -129,6 +133,33 @@ lemma sum_ofReal_mul_le_iSup {w : α → ℝ} (hw : w ∈ simplex α) (x : α �
     _ = ⨆ a, x a := by
         rw [← Finset.sum_mul, ← ENNReal.ofReal_sum_of_nonneg fun a _ ↦ hw.1 a, hw.2,
           ENNReal.ofReal_one, one_mul]
+
+/-- A vector of the simplex with an entry equal to `1` is the vertex `Pi.single a 1`. -/
+lemma eq_single_of_mem_simplex [DecidableEq α] {w : α → ℝ} (hw : w ∈ simplex α) {a : α}
+    (ha : w a = 1) : w = Pi.single a 1 := by
+  have h0 : ∑ b ∈ Finset.univ.erase a, w b = 0 := by
+    have hsum := (mem_simplex_iff.1 hw).2
+    rw [← Finset.add_sum_erase _ _ (Finset.mem_univ a), ha] at hsum
+    linarith
+  ext b
+  by_cases hb : b = a
+  · simp [hb, ha]
+  · simp [hb, (Finset.sum_eq_zero_iff_of_nonneg fun c _ ↦ (mem_simplex_iff.1 hw).1 c).1 h0 b
+      (Finset.mem_erase.2 ⟨hb, Finset.mem_univ b⟩)]
+
+omit [Fintype α] in
+/-- A set of vertices `Pi.single a 1` of the simplex containing two distinct vertices is not
+convex: the midpoint of two distinct vertices is not a vertex. -/
+lemma not_convex_image_single [DecidableEq α] {s : Set α} {a b : α} (ha : a ∈ s) (hb : b ∈ s)
+    (hab : a ≠ b) : ¬ Convex ℝ ((fun c ↦ Pi.single c (1 : ℝ)) '' s) := by
+  intro h
+  obtain ⟨c, -, hc⟩ := h ⟨a, ha, rfl⟩ ⟨b, hb, rfl⟩ (by norm_num : (0 : ℝ) ≤ 1 / 2)
+    (by norm_num : (0 : ℝ) ≤ 1 / 2) (by norm_num)
+  have hca := congrFun hc a
+  by_cases hac : a = c
+  · subst hac
+    simp [hab] at hca
+  · simp [Ne.symm hac, hab] at hca
 
 /-- The entries of a vector of the simplex lie in `[0, 1]`. -/
 lemma simplex_subset_Icc : simplex α ⊆ Set.Icc 0 1 := by
