@@ -5,12 +5,13 @@ Authors: Rémy Degenne
 -/
 module
 
+public import LMLExplore.Identification.LowerBound
 public import LMLExplore.Identification.Task.ExpFamily
 public import LMLExplore.Identification.TrackAndStop
 public import LMLExplore.SequentialLearning.SubGaussianDeviation
 
 /-!
-# `δ`-correct GLR stopping thresholds for Gaussian arms
+# `δ`-correct GLR thresholds for Gaussian arms and asymptotic optimality of Track-and-Stop
 
 Let the arms of the models of an identification task be Gaussian with a common known variance
 `σ2 ≠ 0`, the arm `a` of the vector of means `μ` having law `𝒩(μ a, σ2)`. After `n` rounds with
@@ -39,6 +40,16 @@ The thresholds `β_x` (`LMLExplore.Identification.unionBoundThreshold`), the lev
 `x_δ - log (1 / δ) = o(log (1 / δ))` do not depend on the arms and live in
 `Identification/GLR.lean`.
 
+**Asymptotic optimality of Track-and-Stop** [GK16, Theorem 14]. For arms dominated by
+exponential families, `Identification/TrackAndStop.lean` shows that Track-and-Stop with the
+thresholds `K log (2 n (n + 1)) + x_δ` satisfies `𝔼[τ_δ] ≤ c log (1 / δ)` for small `δ`, for every
+`c > T*(μ)`, and stops almost surely at every `δ ∈ (0, 1]`. Gaussian arms are the members of the
+exponential family of `𝒩(0, σ2)` with the identity statistic. When Track-and-Stop tracks the
+optimal allocations of every admissible model, it is thus `δ`-PAC for every `δ ∈ (0, 1]`, and
+together with the lower bound of `Identification/LowerBound.lean`, `𝔼[τ_δ] / log (1 / δ)` tends to
+`T*(μ)` on every admissible model `μ`. For other exponential families, only the `δ`-correctness of
+the thresholds is missing.
+
 ## Main statements
 
 * `IdentTask.empCost_gaussianBandit`: the empirical cost of Gaussian arms is
@@ -52,9 +63,15 @@ The thresholds `β_x` (`LMLExplore.Identification.unionBoundThreshold`), the lev
 * `IdentTask.isDeltaPAC_glrt_unionBoundThreshold`: with the level `x_δ`, the GLRT is `δ`-PAC on
   the task as soon as it stops almost surely on every admissible model.
 * `IdentTask.isDeltaPAC_trackAndStop_unionBoundThreshold`: the same for Track-and-Stop.
+* `IdentTask.isDeltaPAC_trackAndStop_unionBoundThreshold_of_mem_optAlloc`: when Track-and-Stop
+  with the thresholds `β_{x_δ}` tracks optimal allocations, it is `δ`-PAC for every `δ ∈ (0, 1]`.
+* `IdentTask.tendsto_expectedStoppingTime_trackAndStop_unionBoundThreshold_div_log`:
+  **asymptotic optimality**, `𝔼[τ_δ] / log (1 / δ) → T*(μ)` as `δ → 0`.
 
 ## References
 
+* [GK16] A. Garivier and E. Kaufmann, *Optimal best arm identification with fixed confidence*,
+  COLT 2016, Theorem 14.
 * [LS] T. Lattimore and Cs. Szepesvári, *Bandit Algorithms*, Cambridge University Press (2020),
   Lemma 33.7.
 -/
@@ -65,6 +82,28 @@ open MeasureTheory ProbabilityTheory Learning Real
 open scoped ENNReal NNReal
 
 namespace LMLExplore.Identification.IdentTask
+
+/-- For Gaussian arms with a common variance `σ2 ≠ 0`, the arm `a` of the model `θ` is dominated
+above, in moment generating function, by the member of mean `θ a` of the exponential family of
+`𝒩(0, σ2)` with the identity statistic: both have the law `𝒩(θ a, σ2)`. -/
+private lemma mgfDominatedAbove_gaussianBandit {α ℐ : Type*} {mα : MeasurableSpace α} [Countable α]
+    [MeasurableSingletonClass α] {task : IdentTask α (α → ℝ) ℐ ℝ} {σ2 : ℝ≥0}
+    (hνt : task.ν = (Bandits.gaussianBandit · σ2)) (hσ2 : σ2 ≠ 0) (θ : α → ℝ) (a : α) :
+    MGFDominatedAbove id (task.ν θ a) id
+      ((gaussianReal 0 σ2).expFamily id ((gaussianReal 0 σ2).natParam id (θ a))) := by
+  rw [hνt, expFamily_natParam_gaussianReal 0 hσ2, Bandits.gaussianBandit_apply]
+  exact (IdentDistrib.refl aemeasurable_id).mgfDominatedAbove
+
+/-- For Gaussian arms with a common variance `σ2 ≠ 0`, the arm `a` of the model `θ` is dominated
+below, in moment generating function, by the member of mean `θ a` of the exponential family of
+`𝒩(0, σ2)` with the identity statistic: both have the law `𝒩(θ a, σ2)`. -/
+private lemma mgfDominatedBelow_gaussianBandit {α ℐ : Type*} {mα : MeasurableSpace α} [Countable α]
+    [MeasurableSingletonClass α] {task : IdentTask α (α → ℝ) ℐ ℝ} {σ2 : ℝ≥0}
+    (hνt : task.ν = (Bandits.gaussianBandit · σ2)) (hσ2 : σ2 ≠ 0) (θ : α → ℝ) (a : α) :
+    MGFDominatedBelow id (task.ν θ a) id
+      ((gaussianReal 0 σ2).expFamily id ((gaussianReal 0 σ2).natParam id (θ a))) := by
+  rw [hνt, expFamily_natParam_gaussianReal 0 hσ2, Bandits.gaussianBandit_apply]
+  exact (IdentDistrib.refl aemeasurable_id).mgfDominatedBelow
 
 variable {α ℐ : Type*} [Fintype α] [DecidableEq α] {mα : MeasurableSpace α}
   [MeasurableSingletonClass α] {task : IdentTask α (α → ℝ) ℐ ℝ} {σ2 : ℝ≥0}
@@ -172,5 +211,90 @@ theorem isDeltaPAC_trackAndStop_unionBoundThreshold [Nonempty α]
       δ := by
   simp only [trackAndStop_def] at h_stops ⊢
   exact isDeltaPAC_glrt_unionBoundThreshold _ _ hνt hσ2 hδ hδ1 hstop hc h_stops
+
+end LMLExplore.Identification.IdentTask
+
+/-! ### Asymptotic optimality of Track-and-Stop -/
+
+namespace LMLExplore.Identification.IdentTask
+
+open Filter Topology
+
+variable {α ℐ : Type*} [Fintype α] [DecidableEq α] [Nonempty α] {mα : MeasurableSpace α}
+  [MeasurableSingletonClass α] {mℐ : MeasurableSpace ℐ} {task : IdentTask α (α → ℝ) ℐ ℝ}
+  {σ2 : ℝ≥0} {w : (α → ℝ) → α → ℝ} {hw : Measurable w} {rec : (α → ℝ) → ℐ}
+  {hrec : Measurable rec}
+  {hstop : ∀ δ n, MeasurableSet {h | unionBoundThreshold (Fintype.card α)
+    (unionBoundLevel (Fintype.card α) δ) n < task.glr task.empCost n h (rec (empMean' n h))}}
+  {μ : α → ℝ} {i : ℐ}
+
+/-- **Track-and-Stop for Gaussian arms is `δ`-PAC** for every `δ ∈ (0, 1]`, with the thresholds
+`K log (2 n (n + 1)) + x_δ`, when it tracks optimal allocations: every admissible model `θ` has
+the single correct answer `rec θ`, which is the recommendation near `θ`, and `T*(θ) < ∞`; the
+target map `w` is continuous at `θ` with `w(θ)` an optimal allocation `w*(θ, ¬rec θ)`; and
+`(μ', w') ↦ D(μ', w', ¬rec θ)` is lower semicontinuous at `(θ, w(θ))` on the allocations of the
+simplex. -/
+theorem isDeltaPAC_trackAndStop_unionBoundThreshold_of_mem_optAlloc [MeasurableSingletonClass ℐ]
+    (hνt : task.ν = (Bandits.gaussianBandit · σ2)) (hσ2 : σ2 ≠ 0)
+    (hcorrect : ∀ θ ∈ task.M, task.correct θ = {rec θ})
+    (hw_opt : ∀ θ ∈ task.M, w θ ∈ task.optAlloc θ (rec θ))
+    (hw_cont : ∀ θ ∈ task.M, ContinuousAt w θ)
+    (hrec_eq : ∀ θ ∈ task.M, ∀ᶠ θ' in 𝓝 θ, rec θ' = rec θ)
+    (h_lsc : ∀ θ ∈ task.M, LowerSemicontinuousWithinAt
+      (fun q : (α → ℝ) × (α → ℝ) ↦ task.altCost q.1 q.2 (rec θ)) (Set.univ ×ˢ simplex α) (θ, w θ))
+    (h_charTime : ∀ θ ∈ task.M, task.charTime θ ≠ ∞) {δ : ℝ} (hδ : 0 < δ) (hδ1 : δ ≤ 1) :
+    task.IsDeltaPAC (task.trackAndStop w hw
+      (unionBoundThreshold (Fintype.card α) (unionBoundLevel (Fintype.card α) δ)) rec hrec
+      (hstop δ)) δ :=
+  isDeltaPAC_trackAndStop_unionBoundThreshold hνt hσ2 hδ hδ1 hw hrec (hstop δ)
+    (fun θ hθ ↦ hcorrect θ hθ ▸ measurableSet_singleton _) fun θ hθ ↦
+    stopsAS_trackAndStop_unionBoundThreshold (fun _ ↦ not_ae_eq_const_gaussianReal 0 hσ2)
+      (fun _ ↦ mem_expFamilyMeans_gaussianReal 0 hσ2 _)
+      (mgfDominatedAbove_gaussianBandit hνt hσ2 θ) (mgfDominatedBelow_gaussianBandit hνt hσ2 θ)
+      (hcorrect θ hθ) (hw_opt θ hθ) (hw_cont θ hθ) (hrec_eq θ hθ) (h_lsc θ hθ) (h_charTime θ hθ)
+      hδ hδ1
+
+/-- **Asymptotic optimality of Track-and-Stop for Gaussian arms** [GK16, Theorem 14]. Under the
+assumptions of `IdentTask.isDeltaPAC_trackAndStop_unionBoundThreshold_of_mem_optAlloc`,
+Track-and-Stop with the thresholds `K log (2 n (n + 1)) + x_δ` is `δ`-PAC for every `δ ∈ (0, 1]`,
+and on every admissible model `μ` its sample complexity is asymptotically the characteristic time:
+`𝔼[τ_δ] / log (1 / δ) → T*(μ)` as `δ → 0`. By the lower bound
+`IdentTask.eventually_mul_ofReal_log_le_expectedStoppingTime`, no family of `δ`-correct algorithms
+does better. -/
+theorem tendsto_expectedStoppingTime_trackAndStop_unionBoundThreshold_div_log
+    [MeasurableSingletonClass ℐ] (hνt : task.ν = (Bandits.gaussianBandit · σ2)) (hσ2 : σ2 ≠ 0)
+    (hcorrect : ∀ θ ∈ task.M, task.correct θ = {rec θ})
+    (hw_opt : ∀ θ ∈ task.M, w θ ∈ task.optAlloc θ (rec θ))
+    (hw_cont : ∀ θ ∈ task.M, ContinuousAt w θ)
+    (hrec_eq : ∀ θ ∈ task.M, ∀ᶠ θ' in 𝓝 θ, rec θ' = rec θ)
+    (h_lsc : ∀ θ ∈ task.M, LowerSemicontinuousWithinAt
+      (fun q : (α → ℝ) × (α → ℝ) ↦ task.altCost q.1 q.2 (rec θ)) (Set.univ ×ˢ simplex α) (θ, w θ))
+    (h_charTime : ∀ θ ∈ task.M, task.charTime θ ≠ ∞) (hμ : μ ∈ task.M) :
+    Tendsto (fun δ ↦ expectedStoppingTime (task.trackAndStop w hw
+        (unionBoundThreshold (Fintype.card α) (unionBoundLevel (Fintype.card α) δ)) rec hrec
+        (hstop δ)) (Environment.bandit (task.ν μ)) / ENNReal.ofReal (log (1 / δ)))
+      (𝓝[>] 0) (𝓝 (task.charTime μ)) := by
+  have hA : ∀ᶠ δ in 𝓝[>] 0, task.IsDeltaCorrect (task.trackAndStop w hw
+      (unionBoundThreshold (Fintype.card α) (unionBoundLevel (Fintype.card α) δ)) rec hrec
+      (hstop δ)) δ := by
+    filter_upwards [Ioc_mem_nhdsGT one_pos] with δ hδ
+    exact (isDeltaPAC_trackAndStop_unionBoundThreshold_of_mem_optAlloc hνt hσ2 hcorrect hw_opt
+      hw_cont hrec_eq h_lsc h_charTime hδ.1 hδ.2).isDeltaCorrect
+  have hL : ∀ᶠ δ in 𝓝[>] 0, 0 < log (1 / δ) := by
+    filter_upwards [Ioo_mem_nhdsGT one_pos] with δ hδ using log_pos (one_lt_one_div hδ.1 hδ.2)
+  refine tendsto_order.2 ⟨fun a ha ↦ ?_, fun a ha ↦ ?_⟩
+  · -- Below `T*(μ)`: the lower bound for `δ`-correct algorithms.
+    obtain ⟨c, hac, hc⟩ := ENNReal.lt_iff_exists_nnreal_btwn.1 ha
+    filter_upwards [eventually_mul_ofReal_log_le_expectedStoppingTime hA hμ (hcorrect μ hμ) hc,
+      hL] with δ hδ hLδ
+    exact hac.trans_le ((ENNReal.le_div_iff_mul_le (Or.inl (ENNReal.ofReal_pos.2 hLδ).ne')
+      (Or.inl ENNReal.ofReal_ne_top)).2 hδ)
+  · -- Above `T*(μ)`: the sample complexity of Track-and-Stop.
+    obtain ⟨c, hc, hca⟩ := ENNReal.lt_iff_exists_nnreal_btwn.1 ha
+    filter_upwards [eventually_expectedStoppingTime_trackAndStop_unionBoundThreshold_le
+      (fun _ ↦ not_ae_eq_const_gaussianReal 0 hσ2) (fun _ ↦ mem_expFamilyMeans_gaussianReal 0 hσ2 _)
+      (mgfDominatedAbove_gaussianBandit hνt hσ2 μ) (mgfDominatedBelow_gaussianBandit hνt hσ2 μ)
+      (hcorrect μ hμ) (hw_opt μ hμ) (hw_cont μ hμ) (hrec_eq μ hμ) (h_lsc μ hμ) hc] with δ hδ
+    exact (ENNReal.div_le_of_le_mul hδ).trans_lt hca
 
 end LMLExplore.Identification.IdentTask

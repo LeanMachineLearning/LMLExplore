@@ -43,6 +43,8 @@ time of an identification algorithm.
   along any algorithm-environment sequence of the sampling rule is `expectedStoppingTime A env`.
 * `LMLExplore.Identification.StopsAS.of_expectedStoppingTime_ne_top`: an algorithm with
   `𝔼[τ] < ∞` stops almost surely.
+* `LMLExplore.Identification.expectedStoppingTime_le_of_stopSet_subset`: an algorithm with the
+  same sampling rule that stops after more histories has a smaller expected stopping time.
 * `LMLExplore.Identification.expectedStoppingTime_le_add_tsum_measure_compl`: if the algorithm
   has stopped after `T` rounds on an event `E T` for every `T ≥ T₀`, then
   `𝔼[τ] ≤ T₀ + ∑_{T ≥ T₀} P((E T)ᶜ)` [DKM19, Lemma 1].
@@ -104,6 +106,17 @@ lemma StopsAS.of_expectedStoppingTime_ne_top (h : expectedStoppingTime A env ≠
   filter_upwards [ae_lt_top (Measurable.of_discrete.comp (A.measurable_stoppingTime
     IT.measurable_obs IT.measurable_action IT.measurable_feedback)) h] with ω hω
   exact ENat.toENNReal_ne_top.mp hω.ne
+
+/-- **Stopping earlier lowers the expected stopping time.** If the identification algorithm `A'`
+has the same sampling rule as `A` and stops after every history after which `A` stops, then
+`𝔼[τ'] ≤ 𝔼[τ]` in every environment. -/
+lemma expectedStoppingTime_le_of_stopSet_subset {A' : IdentAlg 𝓞 𝓐 𝓨 𝓓} (halg : A'.alg = A.alg)
+    (hs : A.stopSet ⊆ A'.stopSet) :
+    expectedStoppingTime A' env ≤ expectedStoppingTime A env := by
+  rw [expectedStoppingTime_def, expectedStoppingTime_def, halg]
+  refine lintegral_mono fun ω ↦ ENat.toENNReal_le.2 ?_
+  simp only [IdentAlg.stoppingTime_def]
+  exact hittingAfter_anti _ 0 hs ω
 
 end LMLExplore.Identification
 

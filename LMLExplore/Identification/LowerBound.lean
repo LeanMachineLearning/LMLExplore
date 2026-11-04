@@ -24,9 +24,11 @@ proportions of pulls `w`, an allocation, and taking the infimum over the alterna
 
 The binary relative entropy `kl(δ, 1 - δ)` is `LMLExplore.klBer δ (1 - δ)`; it is equivalent to
 `log (1 / δ)` as `δ → 0`, and at least `log (1 / (2.4 δ))` for every `δ`, so that
-`E_θ[τ] ≥ T*(θ) log (1 / (2.4 δ))`. That `T*(θ)` is the optimal constant in front of
-`log (1 / δ)`, attained by the Track-and-Stop algorithm, is a result of [GK16] that is not proved
-here.
+`E_θ[τ] ≥ T*(θ) log (1 / (2.4 δ))`. For a family of `δ`-correct algorithms, this gives
+`liminf_{δ → 0} E_θ[τ_δ] / log (1 / δ) ≥ T*(θ)`. That `T*(θ)` is the optimal constant in front
+of `log (1 / δ)`, attained by the Track-and-Stop algorithm [GK16, Theorem 14], is proved for
+Gaussian arms when Track-and-Stop tracks continuous optimal allocations
+(`Identification/GaussianThreshold.lean`).
 
 ## Main statements
 
@@ -42,11 +44,14 @@ here.
 * `IdentTask.IsDeltaCorrect.charTime_mul_ofReal_log_le_expectedStoppingTime`: the lower bound
   `T*(θ) log (1 / (c δ)) ≤ E_θ[τ]` for `c ≥ 2.4`; for `c = 4` it is the form of
   [LS, Theorem 33.5].
+* `IdentTask.eventually_mul_ofReal_log_le_expectedStoppingTime`: the asymptotic lower bound
+  `c log (1 / δ) ≤ E_θ[τ_δ]` for all small enough `δ`, for every `c < T*(θ)`, for a family of
+  `δ`-correct algorithms.
 
 ## References
 
 * [GK16] A. Garivier and E. Kaufmann, *Optimal best arm identification with fixed confidence*,
-  COLT 2016, Theorem 1.
+  COLT 2016, Theorems 1 and 14.
 * [KCG16] E. Kaufmann, O. Cappé and A. Garivier, *On the complexity of best-arm identification in
   multi-armed bandit models*, JMLR 17 (2016), Lemma 1.
 * [LS] T. Lattimore and Cs. Szepesvári, *Bandit Algorithms*, Cambridge University Press (2020),
@@ -57,7 +62,7 @@ public section
 
 open MeasureTheory ProbabilityTheory InformationTheory Learning
 
-open scoped ENNReal
+open scoped ENNReal NNReal
 
 namespace LMLExplore.Identification
 
@@ -161,6 +166,42 @@ theorem IsDeltaCorrect.charTime_mul_ofReal_log_le_expectedStoppingTime [Nonempty
     Real.log_nonpos (by positivity) ((div_le_one (by positivity)).2 (by nlinarith))
   rw [ENNReal.ofReal_of_nonpos h_neg, mul_zero]
   exact zero_le
+
+open Filter Topology in
+omit [DecidableEq α] in
+/-- **Asymptotic lower bound on the sample complexity** [GK16, Theorem 1], in eventual form. Let
+`A δ` be `δ`-correct for all small enough `δ` and let `θ` be an admissible model with a single
+correct answer. Then for every `c < T*(θ)`, `c log (1 / δ) ≤ E_θ[τ_δ]` for all small enough `δ`:
+`liminf_{δ → 0} E_θ[τ_δ] / log (1 / δ) ≥ T*(θ)`. -/
+theorem eventually_mul_ofReal_log_le_expectedStoppingTime [Nonempty α]
+    {A : ℝ → IdentAlg Unit α 𝓨 ℐ} (hA : ∀ᶠ δ in 𝓝[>] 0, task.IsDeltaCorrect (A δ) δ)
+    (hθ : θ ∈ task.M) (hi : task.correct θ = {i}) {c : ℝ≥0} (hc : c < task.charTime θ) :
+    ∀ᶠ δ in 𝓝[>] 0, c * ENNReal.ofReal (Real.log (1 / δ)) ≤
+      expectedStoppingTime (A δ) (Environment.bandit (task.ν θ)) := by
+  -- Choose `c < c' < T*(θ)`: then `c log (1 / δ) ≤ c' log (1 / (2.4 δ))` for small `δ`.
+  obtain ⟨c', hcc', hc'⟩ := ENNReal.lt_iff_exists_nnreal_btwn.1 hc
+  have hcc'_real : (c : ℝ) < c' := mod_cast ENNReal.coe_lt_coe.1 hcc'
+  have hL : Tendsto (fun δ : ℝ ↦ Real.log (1 / δ)) (𝓝[>] 0) atTop := by
+    simpa only [one_div, Function.comp_def] using
+      Real.tendsto_log_atTop.comp tendsto_inv_nhdsGT_zero
+  filter_upwards [hA, self_mem_nhdsWithin,
+    hL.eventually_ge_atTop (c' * Real.log 2.4 / (c' - c))] with δ hAδ hδ hLδ
+  have h_log : Real.log (1 / (2.4 * δ)) = Real.log (1 / δ) - Real.log 2.4 := by
+    rw [one_div, one_div, Real.log_inv, Real.log_inv,
+      Real.log_mul (by norm_num) (Set.mem_Ioi.1 hδ).ne']
+    ring
+  have h_le : (c : ℝ) * Real.log (1 / δ) ≤ c' * Real.log (1 / (2.4 * δ)) := by
+    rw [div_le_iff₀ (sub_pos.2 hcc'_real)] at hLδ
+    rw [h_log]
+    nlinarith
+  calc (c : ℝ≥0∞) * ENNReal.ofReal (Real.log (1 / δ))
+  _ = ENNReal.ofReal (c * Real.log (1 / δ)) := by
+    rw [ENNReal.ofReal_mul c.coe_nonneg, ENNReal.ofReal_coe_nnreal]
+  _ ≤ ENNReal.ofReal (c' * Real.log (1 / (2.4 * δ))) := ENNReal.ofReal_le_ofReal h_le
+  _ = c' * ENNReal.ofReal (Real.log (1 / (2.4 * δ))) := by
+    rw [ENNReal.ofReal_mul c'.coe_nonneg, ENNReal.ofReal_coe_nnreal]
+  _ ≤ task.charTime θ * ENNReal.ofReal (Real.log (1 / (2.4 * δ))) := by gcongr
+  _ ≤ _ := hAδ.charTime_mul_ofReal_log_le_expectedStoppingTime le_rfl hθ hi
 
 end IdentTask
 
