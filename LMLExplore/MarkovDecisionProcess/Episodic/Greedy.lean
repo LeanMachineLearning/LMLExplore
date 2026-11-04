@@ -106,13 +106,11 @@ private lemma abs_meanReward_add_integral_sub_optQValue_le (hM : M.RewardsIn (Se
     (hVc : ∀ s', |V s' - M.optValue H (h + 1) s'| ≤ c) (s : 𝓢) (a' : 𝓐) :
     |M.meanReward h s a' + ∫ s', V s' ∂(M.trans h (s, a')) - M.optQValue H h s a'| ≤ c := by
   have hV' : Integrable (M.optValue H (h + 1)) (M.trans h (s, a')) := integrable_optValue hM (h + 1)
-  have hc : ∀ᵐ s' ∂(M.trans h (s, a')), ‖V s' - M.optValue H (h + 1) s'‖ ≤ c :=
-    .of_forall fun s' ↦ (Real.norm_eq_abs _).trans_le (hVc s')
   have hint : Integrable V (M.trans h (s, a')) := by
     simpa using
-      (Integrable.of_bound (hV.sub (measurable_optValue (h + 1))).aestronglyMeasurable c hc).add hV'
-  rw [optQValue_def, add_sub_add_left_eq_sub, ← integral_sub hint hV', ← Real.norm_eq_abs]
-  simpa using norm_integral_le_of_norm_le_const hc
+      (integrable_of_abs_le (hV.sub (measurable_optValue (h + 1))) hVc _).add hV'
+  rw [optQValue_def, add_sub_add_left_eq_sub, ← integral_sub hint hV']
+  exact abs_integral_le_of_abs_le hVc
 
 variable {ε : ℝ}
 
