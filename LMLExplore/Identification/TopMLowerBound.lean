@@ -25,7 +25,8 @@ The bound holds arm by arm: an arm `a ∈ s` leaves the top-`m` set when its mea
 `kl(δ, 1 - δ) ≤ E_μ[N_a(τ)] d_a(μ a, μ_[m+1])`; symmetrically for `a ∉ s` and `μ_[m]`. Summing
 over the arms with Wald's identity `E_μ[τ] = ∑ a, E_μ[N_a(τ)]` gives the lower bound. Arms with
 equal means are allowed: the alternatives used to move an arm out of (or into) the top-`m` set
-also move the arms tied with `μ_[m+1]` (or `μ_[m]`) by an amount that vanishes in the limit
+also move every other arm outside `s` (or inside `s`), except the arm with mean `μ_[m+1]` (or
+`μ_[m]`), by an amount `t` that vanishes in the limit
 (`LMLExplore/Identification/Task/TopM.lean`).
 
 The algorithm is only required to be `δ`-correct on the vectors of means of the families
@@ -111,7 +112,8 @@ theorem IsDeltaCorrect.klBer_le_lintegral_pullCount_mul_topMTask_of_mem [Finite 
         ENNReal.ofReal ((ρ a).expFamilyDiv (T a) (μ a) (μ b)) := by
   have := Fintype.ofFinite α
   exact hA.klBer_le_lintegral_pullCount_mul_of_altCost_le_topMTask hδ hμ hs h fun _ hw ↦
-    altCost_topMTask_restrict_le_of_mem ν hT hμ hν hs ha hb hb_max hba hw
+    altCost_restrict_topMTask_le_ofReal_mul_expFamilyDiv_of_mem ν hT hμ hν
+      hs ha hb hb_max hba hw
 
 omit [Fintype α] in
 /-- **Lower bound on the number of pulls of an arm outside the top-`m` set** [KCG16, proof of
@@ -135,7 +137,8 @@ theorem IsDeltaCorrect.klBer_le_lintegral_pullCount_mul_topMTask_of_notMem [Fini
         ENNReal.ofReal ((ρ a).expFamilyDiv (T a) (μ a) (μ b)) := by
   have := Fintype.ofFinite α
   exact hA.klBer_le_lintegral_pullCount_mul_of_altCost_le_topMTask hδ hμ hs h fun _ hw ↦
-    altCost_topMTask_restrict_le_of_notMem ν hT hμ hν hs ha hb hb_min hba hw
+    altCost_restrict_topMTask_le_ofReal_mul_expFamilyDiv_of_notMem ν hT hμ hν
+      hs ha hb hb_min hba hw
 
 /-- **Lower bound on the sample complexity of top-`m` identification** [KCG16, Theorem 4]. Let the
 arm `c` belong to an exponential family `(ρ c, T c)` with divergence `d_c`, let `μ` be a vector of

@@ -35,10 +35,10 @@ Garivier on the sample complexity of top-`m` identification [KCG16, Theorem 4]
 
 ## Main statements
 
-* `LMLExplore.Identification.altCost_topMTask_restrict_le_of_mem`: for `a ∈ s`,
-  `D(μ, w, ¬s) ≤ w a d_a(μ a, μ b)`.
-* `LMLExplore.Identification.altCost_topMTask_restrict_le_of_notMem`: for `a ∉ s`,
-  `D(μ, w, ¬s) ≤ w a d_a(μ a, μ b')`.
+* `LMLExplore.Identification.altCost_restrict_topMTask_le_ofReal_mul_expFamilyDiv_of_mem`: for
+  `a ∈ s`, `D(μ, w, ¬s) ≤ w a d_a(μ a, μ b)`.
+* `LMLExplore.Identification.altCost_restrict_topMTask_le_ofReal_mul_expFamilyDiv_of_notMem`: for
+  `a ∉ s`, `D(μ, w, ¬s) ≤ w a d_a(μ a, μ b')`.
 
 ## References
 
@@ -124,40 +124,14 @@ private lemma update_shift_mem_alt_topMTask_of_notMem (hs : s ∈ (topMTask ν m
     simp [Function.update_of_ne hba] at this
     linarith
 
-/-- If the vectors `g t`, `t > 0`, are alternatives to `s` in top-`m` identification and converge
-to the vector `update μ a γ` as `t → 0`, then within the vectors of means of the families,
-`D(μ, w, ¬s) ≤ w a d_a(μ a, γ)`. -/
-private lemma altCost_topMTask_restrict_le_of_tendsto (hT : ∀ c x, ¬ T c =ᵐ[ρ c] fun _ ↦ x)
-    (hμ : ∀ c, μ c ∈ (ρ c).expFamilyMeans (T c))
-    (hν : ∀ μ' : α → ℝ, (∀ c, μ' c ∈ (ρ c).expFamilyMeans (T c)) →
-      ∀ c, klDiv (ν μ c) (ν μ' c) = ENNReal.ofReal ((ρ c).expFamilyDiv (T c) (μ c) (μ' c)))
-    (hw : 0 ≤ w) {γ : ℝ} (hγ : γ ∈ (ρ a).expFamilyMeans (T a)) {g : ℝ → α → ℝ}
-    (hg : Tendsto g (𝓝[>] 0) (𝓝 (Function.update μ a γ)))
-    (hg_alt : ∀ t > 0, g t ∈ (topMTask ν m).alt s) :
-    ((topMTask ν m).restrict {μ' | ∀ c, μ' c ∈ (ρ c).expFamilyMeans (T c)}).altCost μ w s ≤
-      ENNReal.ofReal (w a * (ρ a).expFamilyDiv (T a) (μ a) γ) := by
-  have hμγ : ∀ c, Function.update μ a γ c ∈ (ρ c).expFamilyMeans (T c) :=
-    (Function.forall_update_iff μ fun c y ↦ y ∈ (ρ c).expFamilyMeans (T c)).2
-      ⟨hγ, fun c _ ↦ hμ c⟩
-  have h_mem : ∀ᶠ t in 𝓝[>] 0, ∀ c, g t c ∈ (ρ c).expFamilyMeans (T c) :=
-    eventually_all.2 fun c ↦ ((continuous_apply c).tendsto _).comp hg
-      (expFamilyMeans_mem_nhds (hT c) (hμγ c))
-  refine (IdentTask.altCost_le_sum_ofReal_mul_expFamilyDiv_of_tendsto (by simp) hν hw hT hμγ hg
-    ?_).trans_eq ?_
-  · filter_upwards [self_mem_nhdsWithin, h_mem] with t ht htm
-    rw [IdentTask.alt_restrict]
-    exact ⟨hg_alt t ht, htm⟩
-  · rw [Finset.sum_eq_single a (fun c _ hc ↦ by simp [Function.update_of_ne hc,
-      expFamilyDiv_self]) (by simp), Function.update_self]
-
 omit [DecidableEq α] in
 /-- **The cost of moving an arm out of the top-`m` set** [KCG16, proof of Theorem 4]. Let the arm
 `c` belong to an exponential family `(ρ c, T c)` with divergence `d_c`, let `μ` be a vector of means
 of the families whose top-`m` set is `s`, and let `b ∉ s` be an arm with the largest mean outside
 `s`. For `a ∈ s` such that `μ b` is a mean of the family of `a` and every nonnegative allocation
 `w`, `D(μ, w, ¬s) ≤ w a d_a(μ a, μ b)` within the vectors of means of the families. -/
-theorem altCost_topMTask_restrict_le_of_mem (hT : ∀ c x, ¬ T c =ᵐ[ρ c] fun _ ↦ x)
-    (hμ : ∀ c, μ c ∈ (ρ c).expFamilyMeans (T c))
+theorem altCost_restrict_topMTask_le_ofReal_mul_expFamilyDiv_of_mem
+    (hT : ∀ c x, ¬ T c =ᵐ[ρ c] fun _ ↦ x) (hμ : ∀ c, μ c ∈ (ρ c).expFamilyMeans (T c))
     (hν : ∀ μ' : α → ℝ, (∀ c, μ' c ∈ (ρ c).expFamilyMeans (T c)) →
       ∀ c, klDiv (ν μ c) (ν μ' c) = ENNReal.ofReal ((ρ c).expFamilyDiv (T c) (μ c) (μ' c)))
     (hs : s ∈ (topMTask ν m).correct μ) (ha : a ∈ s) (hb : b ∉ s)
@@ -165,8 +139,6 @@ theorem altCost_topMTask_restrict_le_of_mem (hT : ∀ c x, ¬ T c =ᵐ[ρ c] fun
     ((topMTask ν m).restrict {μ' | ∀ c, μ' c ∈ (ρ c).expFamilyMeans (T c)}).altCost μ w s ≤
       ENNReal.ofReal (w a * (ρ a).expFamilyDiv (T a) (μ a) (μ b)) := by
   classical
-  refine altCost_topMTask_restrict_le_of_tendsto ν hT hμ hν hw hba ?_
-    fun t ht ↦ update_shift_mem_alt_topMTask_of_mem ν hs ha hb hb_max ht
   have hg : Continuous fun t : ℝ ↦
       Function.update (fun c ↦ if c ∈ s ∨ c = b then μ c else μ c - t) a (μ b - t) :=
     continuous_pi fun c ↦ by
@@ -175,7 +147,10 @@ theorem altCost_topMTask_restrict_le_of_mem (hT : ∀ c x, ¬ T c =ᵐ[ρ c] fun
         fun_prop
       · simp only [Function.update_of_ne hca]
         split_ifs <;> fun_prop
-  simpa using (hg.tendsto 0).mono_left nhdsWithin_le_nhds
+  exact IdentTask.altCost_restrict_le_ofReal_mul_expFamilyDiv_of_tendsto (by simp) hν hw hT
+    hμ a hba (by simpa using (hg.tendsto 0).mono_left nhdsWithin_le_nhds)
+    (eventually_nhdsWithin_of_forall (s := Set.Ioi (0 : ℝ)) fun _ ht ↦
+      update_shift_mem_alt_topMTask_of_mem ν hs ha hb hb_max ht)
 
 omit [DecidableEq α] in
 /-- **The cost of moving an arm into the top-`m` set** [KCG16, proof of Theorem 4]. Let the arm `c`
@@ -183,8 +158,8 @@ belong to an exponential family `(ρ c, T c)` with divergence `d_c`, let `μ` be
 the families whose top-`m` set is `s`, and let `b ∈ s` be an arm with the smallest mean in `s`. For
 `a ∉ s` such that `μ b` is a mean of the family of `a` and every nonnegative allocation `w`,
 `D(μ, w, ¬s) ≤ w a d_a(μ a, μ b)` within the vectors of means of the families. -/
-theorem altCost_topMTask_restrict_le_of_notMem (hT : ∀ c x, ¬ T c =ᵐ[ρ c] fun _ ↦ x)
-    (hμ : ∀ c, μ c ∈ (ρ c).expFamilyMeans (T c))
+theorem altCost_restrict_topMTask_le_ofReal_mul_expFamilyDiv_of_notMem
+    (hT : ∀ c x, ¬ T c =ᵐ[ρ c] fun _ ↦ x) (hμ : ∀ c, μ c ∈ (ρ c).expFamilyMeans (T c))
     (hν : ∀ μ' : α → ℝ, (∀ c, μ' c ∈ (ρ c).expFamilyMeans (T c)) →
       ∀ c, klDiv (ν μ c) (ν μ' c) = ENNReal.ofReal ((ρ c).expFamilyDiv (T c) (μ c) (μ' c)))
     (hs : s ∈ (topMTask ν m).correct μ) (ha : a ∉ s) (hb : b ∈ s)
@@ -192,8 +167,6 @@ theorem altCost_topMTask_restrict_le_of_notMem (hT : ∀ c x, ¬ T c =ᵐ[ρ c] 
     ((topMTask ν m).restrict {μ' | ∀ c, μ' c ∈ (ρ c).expFamilyMeans (T c)}).altCost μ w s ≤
       ENNReal.ofReal (w a * (ρ a).expFamilyDiv (T a) (μ a) (μ b)) := by
   classical
-  refine altCost_topMTask_restrict_le_of_tendsto ν hT hμ hν hw hba ?_
-    fun t ht ↦ update_shift_mem_alt_topMTask_of_notMem ν hs ha hb hb_min ht
   have hg : Continuous fun t : ℝ ↦
       Function.update (fun c ↦ if c ∉ s ∨ c = b then μ c else μ c + t) a (μ b + t) :=
     continuous_pi fun c ↦ by
@@ -202,6 +175,9 @@ theorem altCost_topMTask_restrict_le_of_notMem (hT : ∀ c x, ¬ T c =ᵐ[ρ c] 
         fun_prop
       · simp only [Function.update_of_ne hca]
         split_ifs <;> fun_prop
-  simpa using (hg.tendsto 0).mono_left nhdsWithin_le_nhds
+  exact IdentTask.altCost_restrict_le_ofReal_mul_expFamilyDiv_of_tendsto (by simp) hν hw hT
+    hμ a hba (by simpa using (hg.tendsto 0).mono_left nhdsWithin_le_nhds)
+    (eventually_nhdsWithin_of_forall (s := Set.Ioi (0 : ℝ)) fun _ ht ↦
+      update_shift_mem_alt_topMTask_of_notMem ν hs ha hb hb_min ht)
 
 end LMLExplore.Identification

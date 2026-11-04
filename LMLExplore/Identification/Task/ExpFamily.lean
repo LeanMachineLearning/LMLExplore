@@ -33,6 +33,10 @@ the alternatives obtained by moving one arm to a mean `γ` or across it.
 * `LMLExplore.Identification.IdentTask.altCost_le_sum_ofReal_mul_expFamilyDiv_of_tendsto`: if
   alternatives to `i` converge to a vector of means `μ'` of the families, then
   `D(μ, w, ¬i) ≤ ∑ c, w c d_c(μ c, μ' c)`.
+* `LMLExplore.Identification.IdentTask.altCost_restrict_le_ofReal_mul_expFamilyDiv_of_tendsto`:
+  if alternatives to `i` converge to the vector obtained from `μ` by moving the arm `a` to a mean
+  `γ` of its family, then `D(μ, w, ¬i) ≤ w a d_a(μ a, γ)` within the vectors of means of the
+  families.
 * `LMLExplore.Identification.IdentTask.ofReal_mul_expFamilyDiv_le_cost`: if `γ` lies between
   `μ a` and `μ' a`, then `w a d_a(μ a, γ) ≤ cost_μ(w, μ')`.
 * `LMLExplore.Identification.IdentTask.cost_gaussianBandit`: for Gaussian arms with a common
@@ -122,6 +126,34 @@ lemma altCost_le_sum_ofReal_mul_expFamilyDiv_of_tendsto
   filter_upwards [h_alt, h_mem] with x hx hxm
   rw [← cost_eq_sum_ofReal_mul_expFamilyDiv hνt hν hw hxm]
   exact task.altCost_le_cost hx w
+
+/-- **Alternatives converging to a vector with one arm moved.** If the vectors `f x` are
+alternatives to `i` eventually along a filter `l` and converge to the vector `update μ a γ` obtained
+from `μ` by moving the mean of the arm `a` to a mean `γ` of its family, then
+`D(μ, w, ¬i) ≤ w a d_a(μ a, γ)`, even within the vectors of means of the families. This bound
+implies the one for `task` itself (`altCost_le_altCost_restrict`). -/
+lemma altCost_restrict_le_ofReal_mul_expFamilyDiv_of_tendsto [DecidableEq α]
+    (hνt : task.ν = ν) (hν : ∀ μ' : α → ℝ, (∀ c, μ' c ∈ (ρ c).expFamilyMeans (T c)) →
+      ∀ c, klDiv (ν μ c) (ν μ' c) = ENNReal.ofReal ((ρ c).expFamilyDiv (T c) (μ c) (μ' c)))
+    (hw : 0 ≤ w) (hT : ∀ c x, ¬ T c =ᵐ[ρ c] fun _ ↦ x)
+    (hμ : ∀ c, μ c ∈ (ρ c).expFamilyMeans (T c)) (a : α) (hγ : γ ∈ (ρ a).expFamilyMeans (T a))
+    {ι : Type*} {l : Filter ι} [l.NeBot] {f : ι → α → ℝ}
+    (hf : Tendsto f l (𝓝 (Function.update μ a γ))) (h_alt : ∀ᶠ x in l, f x ∈ task.alt i) :
+    (task.restrict {μ' | ∀ c, μ' c ∈ (ρ c).expFamilyMeans (T c)}).altCost μ w i ≤
+      ENNReal.ofReal (w a * (ρ a).expFamilyDiv (T a) (μ a) γ) := by
+  have hμγ : ∀ c, Function.update μ a γ c ∈ (ρ c).expFamilyMeans (T c) :=
+    (Function.forall_update_iff μ fun c y ↦ y ∈ (ρ c).expFamilyMeans (T c)).2
+      ⟨hγ, fun c _ ↦ hμ c⟩
+  have h_mem : ∀ᶠ x in l, ∀ c, f x c ∈ (ρ c).expFamilyMeans (T c) :=
+    eventually_all.2 fun c ↦ ((continuous_apply c).tendsto _).comp hf
+      (expFamilyMeans_mem_nhds (hT c) (hμγ c))
+  rw [← cost_update_eq_ofReal_mul_expFamilyDiv hνt hν hw hμ a hγ,
+    cost_eq_sum_ofReal_mul_expFamilyDiv hνt hν hw hμγ]
+  refine altCost_le_sum_ofReal_mul_expFamilyDiv_of_tendsto (by rw [ν_restrict, hνt]) hν hw hT hμγ
+    hf ?_
+  filter_upwards [h_alt, h_mem] with x hx hxm
+  rw [alt_restrict]
+  exact ⟨hx, hxm⟩
 
 /-- **A lower bound on the cost of a model in which one arm crossed a mean.** If `γ` lies between
 `μ a` and `μ' a`, then `w a d_a(μ a, γ) ≤ cost_μ(w, μ')`. -/
