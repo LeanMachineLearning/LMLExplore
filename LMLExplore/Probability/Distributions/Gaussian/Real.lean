@@ -10,7 +10,7 @@ public import Mathlib.Probability.Distributions.Gaussian.Real
 public import Mathlib.Probability.Moments.SubGaussian
 
 /-!
-# Real Gaussian distributions: density, second moments and sub-Gaussianity
+# Real Gaussian distributions: density, moments, tilts and sub-Gaussianity
 
 Complements to Mathlib's `ProbabilityTheory.gaussianReal`:
 
@@ -25,6 +25,13 @@ Complements to Mathlib's `ProbabilityTheory.gaussianReal`:
   `𝔼[(X - c) ^ 2] = v + (μ - c) ^ 2`, with the integrability statement
   `LMLExplore.integrable_sub_sq_gaussianReal`.
 * `LMLExplore.tilted_mul_gaussianReal`: tilting `𝒩(μ, v)` by `x ↦ η x` gives `𝒩(μ + v η, v)`.
+* `LMLExplore.integrable_exp_mul_sub_sq_gaussianReal_iff`,
+  `LMLExplore.integrableExpSet_sub_sq_gaussianReal`, `LMLExplore.mgf_sub_sq_gaussianReal`,
+  `LMLExplore.cgf_sub_sq_gaussianReal`: for `X ∼ 𝒩(μ, v)`, `exp (t (X - μ) ^ 2)` is integrable
+  iff `2 v t < 1`, and then `𝔼[exp (t (X - μ) ^ 2)] = (√(1 - 2 v t))⁻¹`; for `v ≠ 0`, the set of
+  these `t` is `(-∞, (2 v)⁻¹)`.
+* `LMLExplore.tilted_mul_sub_sq_gaussianReal`: for `2 v t < 1`, tilting `𝒩(μ, v)` by
+  `x ↦ t (x - μ) ^ 2` gives `𝒩(μ, v / (1 - 2 v t))`.
 * `LMLExplore.gaussianReal_absolutelyContinuous_gaussianReal`: two real Gaussian laws with nonzero
   variances are mutually absolutely continuous.
 * `LMLExplore.rnDeriv_gaussianReal_gaussianReal`: the Radon-Nikodym derivative of `𝒩(μ₁, v₁)` with
@@ -37,6 +44,9 @@ of the Gaussian tail bounds in `LMLExplore.Probability.Distributions.Gaussian.Ta
 `log_gaussianPDFReal`, `integral_sub_sq_gaussianReal`,
 `gaussianReal_absolutelyContinuous_gaussianReal` and `rnDeriv_gaussianReal_gaussianReal` are the
 ingredients of the closed form of the relative entropy between Gaussian laws.
+The exponential moments and tilts of `(X - μ) ^ 2` make the Gaussian laws of a fixed mean an
+exponential family with sufficient statistic `x ↦ (x - μ) ^ 2`, parametrized by the variance
+(`LMLExplore.Probability.Distributions.ExponentialFamily.Gaussian`).
 `hasSubgaussianMGF_sub_of_hasLaw_gaussianReal` shows that Gaussian rewards satisfy the
 sub-Gaussian noise assumption of Mathlib's concentration inequalities.
 
@@ -170,6 +180,107 @@ lemma tilted_mul_gaussianReal (μ : ℝ) (v : ℝ≥0) (η : ℝ) :
   simp only [Pi.mul_apply, gaussianPDF_def] at h_mgf ⊢
   rw [h_mgf, ← ENNReal.ofReal_mul (gaussianPDFReal_nonneg _ _ _),
     gaussianPDFReal_mul_exp_div μ η hv x]
+
+/-! ### Exponential moments of the squared deviation -/
+
+/-- The pointwise identity behind the exponential moments of `(X - μ) ^ 2` for `X ∼ 𝒩(μ, v)`: the
+density of `𝒩(μ, v)` times `exp (t (x - μ) ^ 2)` is the Gaussian function
+`exp (-((2 v)⁻¹ - t) (x - μ) ^ 2)` up to the factor `(√(2πv))⁻¹`. -/
+private lemma gaussianPDFReal_mul_exp_mul_sub_sq (μ : ℝ) (v : ℝ≥0) (t x : ℝ) :
+    gaussianPDFReal μ v x * exp (t * (x - μ) ^ 2) =
+      (√(2 * π * v))⁻¹ * exp (-((2 * (v : ℝ))⁻¹ - t) * (x - μ) ^ 2) := by
+  rw [gaussianPDFReal_def, mul_assoc, ← exp_add]
+  congr 2
+  ring
+
+/-- The exponential moment `𝔼[exp (t (X - μ) ^ 2)]` of `X ∼ 𝒩(μ, v)` is finite iff
+`2 v t < 1`. -/
+@[simp]
+lemma integrable_exp_mul_sub_sq_gaussianReal_iff (μ : ℝ) (v : ℝ≥0) (t : ℝ) :
+    Integrable (fun x ↦ exp (t * (x - μ) ^ 2)) (gaussianReal μ v) ↔ 2 * v * t < 1 := by
+  rcases eq_or_ne v 0 with rfl | hv
+  · simpa [gaussianReal_zero_var] using integrable_dirac (a := μ) (by simp)
+  have hc : (√(2 * π * v))⁻¹ ≠ 0 := by positivity
+  rw [gaussianReal_of_var_ne_zero _ hv, integrable_withDensity_iff (measurable_gaussianPDF _ _)
+    (ae_of_all _ fun _ ↦ gaussianPDF_lt_top)]
+  simp_rw [toReal_gaussianPDF, mul_comm (exp _), gaussianPDFReal_mul_exp_mul_sub_sq,
+    integrable_const_mul_iff (IsUnit.mk0 _ hc)]
+  -- Translate by `μ` and use the integrability criterion of the Gaussian function.
+  have h_iff : Integrable (fun x ↦ exp (-((2 * (v : ℝ))⁻¹ - t) * (x - μ) ^ 2)) ↔
+      Integrable (fun x : ℝ ↦ exp (-((2 * (v : ℝ))⁻¹ - t) * x ^ 2)) :=
+    ⟨fun h ↦ by simpa using h.comp_add_right μ, fun h ↦ h.comp_sub_right μ⟩
+  rw [h_iff, integrable_exp_neg_mul_sq_iff, sub_pos, ← one_div, lt_div_iff₀ (by positivity),
+    mul_comm]
+
+/-- For `v ≠ 0`, the set of `t` at which `exp (t (X - μ) ^ 2)` is integrable for `X ∼ 𝒩(μ, v)` is
+`(-∞, (2 v)⁻¹)`. -/
+@[simp]
+lemma integrableExpSet_sub_sq_gaussianReal (μ : ℝ) (hv : v ≠ 0) :
+    integrableExpSet (fun x ↦ (x - μ) ^ 2) (gaussianReal μ v) = Set.Iio (2 * (v : ℝ))⁻¹ := by
+  ext t
+  rw [Set.mem_Iio, ← one_div, lt_div_iff₀ (by positivity), mul_comm]
+  exact integrable_exp_mul_sub_sq_gaussianReal_iff μ v t
+
+/-- The moment generating function of `(X - μ) ^ 2` for `X ∼ 𝒩(μ, v)` is
+`t ↦ (√(1 - 2 v t))⁻¹` on `2 v t < 1`. -/
+@[simp]
+lemma mgf_sub_sq_gaussianReal (μ : ℝ) (v : ℝ≥0) {t : ℝ} (ht : 2 * v * t < 1) :
+    mgf (fun x ↦ (x - μ) ^ 2) (gaussianReal μ v) t = (√(1 - 2 * v * t))⁻¹ := by
+  rcases eq_or_ne v 0 with rfl | hv
+  · simp [gaussianReal_zero_var, mgf_dirac']
+  have hv' : (0 : ℝ) < v := by positivity
+  have hs : 0 < 1 - 2 * v * t := by linarith
+  have hb : (2 * (v : ℝ))⁻¹ - t = (1 - 2 * v * t) / (2 * v) := by field_simp
+  rw [mgf, integral_gaussianReal_eq_integral_smul hv]
+  simp_rw [smul_eq_mul, gaussianPDFReal_mul_exp_mul_sub_sq, integral_const_mul]
+  rw [integral_sub_right_eq_self (fun x ↦ exp (-((2 * (v : ℝ))⁻¹ - t) * x ^ 2)) μ,
+    integral_gaussian, hb, div_div_eq_mul_div, sqrt_div' _ hs.le, mul_comm π]
+  field_simp
+
+/-- The cumulant generating function of `(X - μ) ^ 2` for `X ∼ 𝒩(μ, v)` is
+`t ↦ -log (1 - 2 v t) / 2` on `2 v t < 1`. -/
+@[simp]
+lemma cgf_sub_sq_gaussianReal (μ : ℝ) (v : ℝ≥0) {t : ℝ} (ht : 2 * v * t < 1) :
+    cgf (fun x ↦ (x - μ) ^ 2) (gaussianReal μ v) t = -log (1 - 2 * v * t) / 2 := by
+  rw [cgf, mgf_sub_sq_gaussianReal μ v ht, log_inv, log_sqrt (by linarith)]
+  ring
+
+/-- Tilting a Gaussian law by `x ↦ t (x - μ) ^ 2` rescales its variance and keeps its mean: for
+`2 v t < 1`, `𝒩(μ, v)` tilted by `x ↦ t (x - μ) ^ 2` is `𝒩(μ, v / (1 - 2 v t))`. For `v = 0`,
+both sides are the Dirac mass at `μ`. -/
+@[simp]
+lemma tilted_mul_sub_sq_gaussianReal (μ : ℝ) (v : ℝ≥0) {t : ℝ} (ht : 2 * v * t < 1) :
+    (gaussianReal μ v).tilted (fun x ↦ t * (x - μ) ^ 2) =
+      gaussianReal μ (v / (1 - 2 * v * t)).toNNReal := by
+  rcases eq_or_ne v 0 with rfl | hv
+  · -- The Dirac mass at `μ` is unchanged by tilting.
+    simp only [gaussianReal_zero_var, NNReal.coe_zero, zero_div, Real.toNNReal_zero]
+    rw [tilted_congr (ae_eq_dirac fun x ↦ t * (x - μ) ^ 2)]
+    exact tilted_const _ _
+  have hv₀ : (0 : ℝ) < v := by positivity
+  have hs : 0 < 1 - 2 * v * t := by linarith
+  have hv' : (v / (1 - 2 * v * t)).toNNReal ≠ 0 := by
+    rw [Ne, Real.toNNReal_eq_zero, not_le]
+    positivity
+  rw [Measure.tilted, gaussianReal_of_var_ne_zero _ hv, gaussianReal_of_var_ne_zero _ hv',
+    ← withDensity_mul _ (measurable_gaussianPDF _ _) (by fun_prop)]
+  congr 1
+  funext x
+  have h_mgf : ∫ y, exp (t * (y - μ) ^ 2) ∂(volume.withDensity (gaussianPDF μ v)) =
+      (√(1 - 2 * v * t))⁻¹ := by
+    rw [← gaussianReal_of_var_ne_zero _ hv]
+    exact mgf_sub_sq_gaussianReal μ v ht
+  simp only [Pi.mul_apply, gaussianPDF_def] at h_mgf ⊢
+  rw [h_mgf, ← ENNReal.ofReal_mul (gaussianPDFReal_nonneg _ _ _)]
+  congr 1
+  -- `φ_v(x) exp (t (x - μ) ^ 2) √(1 - 2 v t) = φ_{v / (1 - 2 v t)}(x)`
+  rw [div_inv_eq_mul, ← mul_assoc, gaussianPDFReal_mul_exp_mul_sub_sq, gaussianPDFReal_def,
+    Real.coe_toNNReal _ (by positivity), mul_right_comm]
+  congr 1
+  · rw [mul_div_assoc', sqrt_div' _ hs.le]
+    field_simp
+  · congr 1
+    field_simp
 
 section TwoGaussians
 
