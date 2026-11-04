@@ -49,8 +49,7 @@ optimal allocations of every admissible model, it is thus `δ`-PAC for every `δ
 together with the lower bound of `Identification/LowerBound.lean`, `𝔼[τ_δ] / log (1 / δ)` tends to
 `T*(μ)` on every admissible model `μ`. The same holds for Track-and-Stop with C-tracking, whose
 targets may be any selection of the optimal allocations, even where these are not unique
-[DK19, Theorem 7]. For other exponential families, only the `δ`-correctness of the thresholds is
-missing.
+[DK19, Theorem 7].
 
 ## Main statements
 
@@ -264,9 +263,9 @@ theorem isDeltaPAC_trackAndStop_unionBoundThreshold_of_mem_optAlloc [MeasurableS
 
 /-- **Asymptotic optimality of Track-and-Stop for Gaussian arms** [GK16, Theorem 14]. Under the
 assumptions of `IdentTask.isDeltaPAC_trackAndStop_unionBoundThreshold_of_mem_optAlloc`,
-Track-and-Stop with the thresholds `K log (2 n (n + 1)) + x_δ` is `δ`-PAC for every `δ ∈ (0, 1]`,
-and on every admissible model `μ` its sample complexity is asymptotically the characteristic time:
-`𝔼[τ_δ] / log (1 / δ) → T*(μ)` as `δ → 0`. By the lower bound
+Track-and-Stop with the thresholds `K log (2 n (n + 1)) + x_δ`, which is `δ`-PAC for every
+`δ ∈ (0, 1]` by that theorem, has on every admissible model `μ` a sample complexity asymptotically
+equal to the characteristic time: `𝔼[τ_δ] / log (1 / δ) → T*(μ)` as `δ → 0`. By the lower bound
 `IdentTask.eventually_mul_ofReal_log_le_expectedStoppingTime`, no family of `δ`-correct algorithms
 does better. -/
 theorem tendsto_expectedStoppingTime_trackAndStop_unionBoundThreshold_div_log
@@ -336,9 +335,10 @@ theorem isDeltaPAC_cTrackAndStop_unionBoundThreshold_of_mem_optAlloc [Measurable
 /-- **Asymptotic optimality of Track-and-Stop with C-tracking for Gaussian arms**
 [DK19, Theorem 7]. Under the assumptions of
 `IdentTask.isDeltaPAC_cTrackAndStop_unionBoundThreshold_of_mem_optAlloc`, Track-and-Stop with
-C-tracking and the thresholds `K log (2 n (n + 1)) + x_δ` is `δ`-PAC for every `δ ∈ (0, 1]`, and
-on every admissible model `μ` its sample complexity is asymptotically the characteristic time:
-`𝔼[τ_δ] / log (1 / δ) → T*(μ)` as `δ → 0`, even where the optimal allocations are not unique. By
+C-tracking and the thresholds `K log (2 n (n + 1)) + x_δ`, which is `δ`-PAC for every
+`δ ∈ (0, 1]` by that theorem, has on every admissible model `μ` a sample complexity asymptotically
+equal to the characteristic time: `𝔼[τ_δ] / log (1 / δ) → T*(μ)` as `δ → 0`, even where the
+optimal allocations are not unique. By
 the lower bound `IdentTask.eventually_mul_ofReal_log_le_expectedStoppingTime`, no family of
 `δ`-correct algorithms does better. -/
 theorem tendsto_expectedStoppingTime_cTrackAndStop_unionBoundThreshold_div_log

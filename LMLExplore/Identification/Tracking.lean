@@ -752,18 +752,10 @@ theorem tendsto_pullCount_div_sub_inv_mul_sum_of_cTracking {w : ℕ → α → �
       (𝓝 0) := by
   refine tendsto_pullCount_div_sub_inv_mul_sum_of_abs_le
     (abs_pullCount_sub_sum_le_mul_one_add_sqrt_of_cTracking hw0 hw1 hA · a) ?_
-  -- `(K - 1) (1 + √n) / n = (K - 1) (1 / n + 1 / √n)` tends to `0`.
-  have hbound : Tendsto (fun n : ℕ ↦ (Fintype.card α - 1) * ((n : ℝ)⁻¹ + (√(n : ℝ))⁻¹)) atTop
-      (𝓝 0) := by
-    simpa using (tendsto_inv_atTop_zero.comp tendsto_natCast_atTop_atTop |>.add
-      (tendsto_inv_atTop_zero.comp (Real.tendsto_sqrt_atTop.comp
-        tendsto_natCast_atTop_atTop))).const_mul ((Fintype.card α : ℝ) - 1)
-  refine hbound.congr' ?_
-  filter_upwards [eventually_gt_atTop 0] with n hn
-  have hn' : (0 : ℝ) < n := Nat.cast_pos.2 hn
-  have hs : 0 < √(n : ℝ) := Real.sqrt_pos.2 hn'
-  field_simp
-  linear_combination (1 - (Fintype.card α : ℝ)) * Real.sq_sqrt hn'.le
+  -- `(K - 1) (1 + √n) / n` tends to `0`.
+  simpa only [mul_div_assoc, mul_zero, Function.comp_def] using
+    (Real.tendsto_one_add_sqrt_div_atTop.comp tendsto_natCast_atTop_atTop).const_mul
+      ((Fintype.card α : ℝ) - 1)
 
 /-- **Convergence of the proportions of pulls of C-tracking.** Under the assumptions of
 `abs_pullCount_sub_sum_le_mul_one_add_sqrt_of_cTracking`, if the targets `w k a` converge to

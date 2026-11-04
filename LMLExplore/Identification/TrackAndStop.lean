@@ -9,6 +9,9 @@ public import LMLExplore.Identification.CTracking
 public import LMLExplore.Identification.DTracking
 public import LMLExplore.Identification.GLR
 public import LMLExplore.Identification.Task.Continuity
+public import LMLExplore.Analysis.Convex.Normed
+public import LMLExplore.Topology.Order.Basic
+public import LMLExplore.Topology.Semicontinuity.Compact
 
 /-!
 # Track-and-Stop
@@ -98,8 +101,9 @@ above `T*(μ)`. A finite expected stopping time at small `δ` gives almost sure 
   `𝔼[τ_δ] ≤ c log (1 / δ)` for all small enough `δ`, for every `c > 1 / κ`.
 * `IdentTask.eventually_expectedStoppingTime_cTrackAndStop_le_of_charTime_lt`: **sample complexity
   of Track-and-Stop with C-tracking at the characteristic time** [DK19, Theorem 7]: if the targets
-  are optimal allocations near `μ` and `(μ', w') ↦ D(μ', w', ¬i)` is continuous at `μ`, then
-  `𝔼[τ_δ] ≤ c log (1 / δ)` for all small enough `δ`, for every `c > T*(μ)`.
+  are optimal allocations near `μ` and `(μ', w') ↦ D(μ', w', ¬i)` is continuous within
+  `univ ×ˢ simplex` at every `(μ, v)` with `v` in the simplex, then `𝔼[τ_δ] ≤ c log (1 / δ)` for
+  all small enough `δ`, for every `c > T*(μ)`.
 * `IdentTask.eventually_expectedStoppingTime_cTrackAndStop_unionBoundThreshold_le`,
   `IdentTask.stopsAS_cTrackAndStop_unionBoundThreshold`: the same bound for the union-bound
   thresholds, with which Track-and-Stop with C-tracking stops almost surely for every
@@ -242,23 +246,21 @@ variable {𝓧 : Type*} {m𝓧 : MeasurableSpace 𝓧} {ρ : α → Measure 𝓧
   {hstop : ∀ δ n, MeasurableSet {h | β δ n < task.glr task.empCost n h (rec (empMean' n h))}}
   {r : ℕ → ℝ} {p : ℝ} {n₀ : ℕ}
 
-omit [Fintype α] [DecidableEq α] [Nonempty α] [MeasurableSingletonClass α] in
-/-- A neighbourhood `W` of `μ` contains a box `∏ (l a, u a)` around `μ` whose corners `l` and `u`
-are in `W`. The good events of the analysis of Track-and-Stop keep the empirical means in such a
-box, inside a neighbourhood on which the targets and the recommendation behave well. -/
-private lemma exists_box_subset_of_mem_nhds [Finite α] {W : Set (α → ℝ)} (hW : W ∈ 𝓝 μ) :
-    ∃ l u : α → ℝ, l ∈ W ∧ u ∈ W ∧ (∀ a, l a < μ a) ∧ (∀ a, μ a < u a) ∧
-      ∀ μ' : α → ℝ, (∀ a, μ' a ∈ Set.Ioo (l a) (u a)) → μ' ∈ W := by
-  have := Fintype.ofFinite α
-  obtain ⟨R, hR, hRW⟩ := Metric.mem_nhds_iff.1 hW
-  have h_ball (μ' : α → ℝ) (hμ' : ∀ b, |μ' b - μ b| < R) : μ' ∈ W :=
-    hRW <| (Metric.mem_ball.trans (dist_pi_lt_iff hR)).2 fun b ↦ Real.dist_eq _ _ ▸ hμ' b
-  refine ⟨fun a ↦ μ a - R / 2, fun a ↦ μ a + R / 2,
-    h_ball _ fun b ↦ abs_sub_lt_iff.2 ⟨by linarith, by linarith⟩,
-    h_ball _ fun b ↦ abs_sub_lt_iff.2 ⟨by linarith, by linarith⟩,
-    fun a ↦ by linarith, fun a ↦ by linarith, fun μ' hμ' ↦ h_ball _ fun b ↦ ?_⟩
-  obtain ⟨h1, h2⟩ := hμ' b
-  exact abs_sub_lt_iff.2 ⟨by linarith, by linarith⟩
+omit [DecidableEq α] [Nonempty α] [MeasurableSingletonClass α] in
+/-- If `T*(μ) < c` for the single correct answer `i` of `μ`, then some rate `κ` satisfies
+`κ < D(μ, ¬i) = T*(μ)⁻¹` and `1 < κ c`: the rate of the sample complexity bounds of Track-and-Stop
+at the characteristic time. -/
+private lemma exists_lt_answerValue_one_lt_mul (hcorrect : task.correct μ = {i}) {c : ℝ≥0}
+    (hc : task.charTime μ < c) : ∃ κ : ℝ≥0, (κ : ℝ≥0∞) < task.answerValue μ i ∧ 1 < κ * c := by
+  have hc0 : c ≠ 0 := by
+    rintro rfl
+    exact not_lt_zero (ENNReal.coe_zero ▸ hc)
+  rw [task.charTime_eq_inv_answerValue hcorrect, ENNReal.inv_lt_iff_inv_lt,
+    ← ENNReal.coe_inv hc0] at hc
+  obtain ⟨κ, hcκ, hκ⟩ := ENNReal.lt_iff_exists_nnreal_btwn.1 hc
+  refine ⟨κ, hκ, ?_⟩
+  rw [← inv_mul_cancel₀ hc0]
+  exact mul_lt_mul_of_pos_right (ENNReal.coe_lt_coe.1 hcκ) (pos_iff_ne_zero.2 hc0)
 
 omit [MeasurableSingletonClass α] in
 /-- The deterministic step of the analysis of Track-and-Stop [GK16, proof of Theorem 14]. Along a
@@ -343,13 +345,11 @@ theorem eventually_expectedStoppingTime_trackAndStop_le (hT : ∀ a c, ¬ T a =�
     IT.isAlgEnvSeq_trajMeasure alg _
   set K : ℝ := (Fintype.card α : ℝ)
   -- Near `(μ, w(μ))` on the simplex, the cost of the alternatives exceeds `κ`.
-  obtain ⟨U, hU, η, hη, hUη⟩ : ∃ U ∈ 𝓝 μ, ∃ η > 0, ∀ μ' ∈ U, ∀ w' ∈ simplex α,
-      dist w' (w μ) < η → (κ : ℝ≥0∞) < task.altCost μ' w' i := by
-    have h := h_lsc κ hκ
-    rw [nhdsWithin_prod_eq, nhdsWithin_univ] at h
-    obtain ⟨pa, hpa, pb, hpb, hp⟩ := eventually_prod_iff.1 h
-    obtain ⟨η, hη, hηb⟩ := Metric.mem_nhdsWithin_iff.1 hpb
-    exact ⟨{x | pa x}, hpa, η, hη, fun μ' hμ' w' hw' hd ↦ hp hμ' (hηb ⟨Metric.mem_ball.2 hd, hw'⟩)⟩
+  obtain ⟨U, hU, η, hη, hUη⟩ :=
+    (isCompact_singleton (x := w μ)).exists_forall_mem_thickening_lt_of_lowerSemicontinuousWithinAt
+      (f := fun q : (α → ℝ) × (α → ℝ) ↦ task.altCost q.1 q.2 i) (c := (κ : ℝ≥0∞))
+      (fun v hv ↦ (Set.mem_singleton_iff.1 hv) ▸ h_lsc)
+      (fun v hv ↦ (Set.mem_singleton_iff.1 hv) ▸ hκ)
   -- Near `μ`, the targets are `ε`-close to `w(μ)`, the recommendation is `i` and the vectors are
   -- vectors of means of the families.
   set ε := η / (3 * K)
@@ -361,7 +361,10 @@ theorem eventually_expectedStoppingTime_trackAndStop_le (hT : ∀ a c, ¬ T a =�
       (continuous_apply a).continuousAt.preimage_mem_nhds
         (Measure.expFamilyMeans_mem_nhds (hT a) (hμ a))] with μ' h1 h2 h3 h4
     exact ⟨h1, Metric.mem_ball.1 h2, h3, h4⟩
-  obtain ⟨l, u, hlW, huW, hlμ, hμu, h_box⟩ := exists_box_subset_of_mem_nhds hW
+  obtain ⟨l, u, hlμ, hμu, h_box⟩ := exists_pi_Icc_subset_of_mem_nhds hW
+  have hlu : l ≤ u := fun a ↦ ((hlμ a).trans (hμu a)).le
+  have hlW := h_box (Set.left_mem_Icc.2 hlu)
+  have huW := h_box (Set.right_mem_Icc.2 hlu)
   -- The good events: the empirical means stay in the box `∏ (l a, u a)` from round `t₀(T)` on,
   -- and the run follows the D-tracking rule.
   set E : ℕ → Set _ := fun T ↦ {ω |
@@ -394,13 +397,18 @@ theorem eventually_expectedStoppingTime_trackAndStop_le (hT : ∀ a c, ¬ T a =�
         (rec (empMean' T (history IT.obs IT.action IT.feedback T ω))) := by
     obtain ⟨hω_box, hω_forced, hω_track⟩ := hω
     obtain ⟨h3ε, hT_le, ht₀, hεT⟩ := hT₁ T (le_of_max_le_right hT)
-    refine task.mul_le_glr_empCost hw_mem hε (le_of_eq (by simp only [ε, K]; field_simp)) hUη
+    refine task.mul_le_glr_empCost (η := η) hw_mem hε
+      (le_of_eq (by simp only [ε, K]; field_simp)) (fun μ' hμ' w' hw' hd ↦
+        hUη μ' hμ' w' hw' (by rwa [Metric.thickening_singleton, Metric.mem_ball]))
       (fun k hk ↦ ?_) hω_forced hω_track ht₀ (by exact_mod_cast hT_le.trans_eq (one_mul _)) h3ε
       (by rwa [div_le_iff₀' hε] at hεT)
     -- The empirical means at the rounds `k ≥ t₀(T)` are in `W`.
-    refine (h_box _ fun b ↦ ?_).imp_right fun h ↦ ⟨h.1, h.2.1⟩
-    rw [← empMean_eq_empMean']
-    exact hω_box k hk b
+    have hk_box (b : α) :
+        empMean' k (history IT.obs IT.action IT.feedback k ω) b ∈ Set.Ioo (l b) (u b) := by
+      rw [← empMean_eq_empMean']
+      exact hω_box k hk b
+    exact (h_box ⟨fun b ↦ (hk_box b).1.le, fun b ↦ (hk_box b).2.le⟩).imp_right
+      fun h ↦ ⟨h.1, h.2.1⟩
   have h := task.eventually_expectedStoppingTime_glrt_le_of_isBigO task.empCost alg
     (fun n h ↦ rec (empMean' n h)) (fun n ↦ hrec.comp (by fun_prop)) hstop hseq
     hE_sum hκc hE hr (T₀ := max n₀ T₁)
@@ -434,18 +442,11 @@ theorem eventually_expectedStoppingTime_trackAndStop_le_of_charTime_lt
     (hβ : ∀ᶠ δ in 𝓝[>] 0, ∀ n ≥ n₀, β δ n ≤ ENNReal.ofReal (log (r n / δ))) :
     ∀ᶠ δ in 𝓝[>] 0, expectedStoppingTime (task.trackAndStop w hw (β δ) rec hrec (hstop δ))
       (Environment.bandit (task.ν μ)) ≤ c * ENNReal.ofReal (log (1 / δ)) := by
-  have hc0 : c ≠ 0 := by
-    rintro rfl
-    exact not_lt_zero (ENNReal.coe_zero ▸ hc)
   -- Choose a rate `κ` with `c⁻¹ < κ < D(μ, w(μ), ¬i) = T*(μ)⁻¹`.
-  rw [task.charTime_eq_inv_answerValue hcorrect, ENNReal.inv_lt_iff_inv_lt,
-    ← (task.mem_optAlloc_iff.1 hw_opt).2, ← ENNReal.coe_inv hc0] at hc
-  obtain ⟨κ, hcκ, hκ⟩ := ENNReal.lt_iff_exists_nnreal_btwn.1 hc
-  have hκc : 1 < κ * c := by
-    rw [← inv_mul_cancel₀ hc0]
-    exact mul_lt_mul_of_pos_right (ENNReal.coe_lt_coe.1 hcκ) (pos_iff_ne_zero.2 hc0)
+  obtain ⟨κ, hκ, hκc⟩ := task.exists_lt_answerValue_one_lt_mul hcorrect hc
   exact task.eventually_expectedStoppingTime_trackAndStop_le hT hμ hν_above hν_below
-    (task.mem_optAlloc_iff.1 hw_opt).1 hw_cont hrec_eq h_lsc hκ hκc hr hβ
+    (task.mem_optAlloc_iff.1 hw_opt).1 hw_cont hrec_eq h_lsc
+    ((task.mem_optAlloc_iff.1 hw_opt).2 ▸ hκ) hκc hr hβ
 
 end LMLExplore.Identification.IdentTask
 
@@ -580,14 +581,14 @@ proof of Theorem 7]. Along a sequence of arms whose pull counts follow the cumul
 `w(μ̂(s))` up to `(K - 1) (1 + √T)` after `T` rounds, suppose that from round `t₀` on, the
 empirical means `μ̂(k)` lie in a set `U` on which the cost of the alternatives to `i` exceeds `κ`
 at every allocation of the simplex `η`-close to the convex set `C`, the targets `w(μ̂(k))` are
-`ε`-close to `C` and the recommendation is `i`. Since the average of points of `C` is in `C`, the
-proportions of pulls after `T` rounds are close to `C`: if the elements of `C` have coordinates
-bounded by `B` and `(K - 1) (1 + √T) + (1 + B) t₀ + ε T < η T`, then the GLR statistic of the
-recommendation after `T` rounds is at least `κ T`. -/
+`ε`-close to `C` and the recommendation is `i`. Since averages of points close to `C` are close
+to `C` (`Convex.exists_mem_norm_sum_sub_smul_le`), the proportions of pulls after `T` rounds are
+close to `C`: if the elements of `C` have norm at most `B` and
+`(K - 1) (1 + √T) + (1 + B) t₀ + ε T < η T`, then the GLR statistic of the recommendation after
+`T` rounds is at least `κ T`. -/
 private lemma mul_le_glr_empCost_of_mem_thickening {Ω : Type*} {O : ℕ → Ω → Unit}
     {A : ℕ → Ω → α} {Y : ℕ → Ω → ℝ} {ω : Ω} {C U : Set (α → ℝ)} {B ε η : ℝ} {κ : ℝ≥0}
-    {t₀ T : ℕ} (hw_mem : ∀ μ', w μ' ∈ simplex α) (hC : Convex ℝ C)
-    (hCB : ∀ v ∈ C, ∀ a, |v a| ≤ B)
+    {t₀ T : ℕ} (hw_mem : ∀ μ', w μ' ∈ simplex α) (hC : Convex ℝ C) (hCB : ∀ v ∈ C, ‖v‖ ≤ B)
     (hU : ∀ μ' ∈ U, ∀ w' ∈ simplex α, w' ∈ thickening η C → (κ : ℝ≥0∞) < task.altCost μ' w' i)
     (hmeans : ∀ k ≥ t₀, empMean' k (history O A Y k ω) ∈ U ∧
       w (empMean' k (history O A Y k ω)) ∈ thickening ε C ∧
@@ -599,37 +600,23 @@ private lemma mul_le_glr_empCost_of_mem_thickening {Ω : Type*} {O : ℕ → Ω 
     κ * T ≤ task.glr task.empCost T (history O A Y T ω) (rec (empMean' T (history O A Y T ω))) := by
   set v : ℕ → α → ℝ := fun s ↦ w (empMean' s (history O A Y s ω))
   have hT' : (0 : ℝ) < T := Nat.cast_pos.2 (Nat.pos_of_ne_zero hT0)
-  -- Points `c s` of `C`, `ε`-close to the targets `v s` from round `t₀` on.
-  obtain ⟨c₀, hc₀, -⟩ := mem_thickening_iff.1 (hmeans T hT).2.1
-  have h_near (s : ℕ) : ∃ c ∈ C, t₀ ≤ s → dist (v s) c < ε := by
-    by_cases hs : t₀ ≤ s
-    · obtain ⟨c, hc, hd⟩ := mem_thickening_iff.1 (hmeans s hs).2.1
-      exact ⟨c, hc, fun _ ↦ hd⟩
-    · exact ⟨c₀, hc₀, fun h ↦ absurd h hs⟩
-  choose c hcC hc using h_near
-  -- Their average `cbar` is in `C`.
-  set cbar : α → ℝ := ∑ s ∈ range T, (T : ℝ)⁻¹ • c s
-  have hcbar : cbar ∈ C := hC.sum_mem (fun _ _ ↦ by positivity)
-    (by rw [sum_const, card_range, nsmul_eq_mul, mul_inv_cancel₀ hT'.ne']) fun s _ ↦ hcC s
-  -- The targets are at total distance at most `(1 + B) t₀ + ε T` from the points `c s`.
-  have h_sum (a : α) : |∑ s ∈ range T, (v s a - c s a)| ≤ (1 + B) * t₀ + ε * T := by
-    rw [← sum_range_add_sum_Ico _ hT]
-    refine (abs_add_le _ _).trans (add_le_add ((abs_sum_le_sum_abs _ _).trans ?_)
-      ((abs_sum_le_sum_abs _ _).trans ?_))
-    · calc ∑ s ∈ range t₀, |v s a - c s a|
-      _ ≤ ∑ s ∈ range t₀, (1 + B) := by
-        refine sum_le_sum fun s _ ↦ (abs_sub _ _).trans (add_le_add ?_ (hCB _ (hcC s) a))
-        have hv := mem_simplex_iff.1 (hw_mem (empMean' s (history O A Y s ω)))
-        exact abs_le.2 ⟨by linarith [hv.1 a],
-          (simplex_subset_Icc (hw_mem (empMean' s (history O A Y s ω)))).2 a⟩
-      _ = (1 + B) * t₀ := by rw [sum_const, card_range, nsmul_eq_mul, mul_comm]
-    · have hε : 0 < ε := dist_nonneg.trans_lt (hc T hT)
-      calc ∑ s ∈ Ico t₀ T, |v s a - c s a|
-      _ ≤ ∑ s ∈ Ico t₀ T, ε := sum_le_sum fun s hs ↦ by
-        rw [← Real.dist_eq]
-        exact (dist_le_pi_dist _ _ a).trans (hc s (mem_Ico.1 hs).1).le
-      _ = (T - t₀) * ε := by rw [sum_const, Nat.card_Ico, nsmul_eq_mul, Nat.cast_sub hT]
-      _ ≤ ε * T := by nlinarith [Nat.cast_nonneg (α := ℝ) t₀]
+  obtain ⟨hU', hεC, hrec'⟩ := hmeans T hT
+  obtain ⟨c₀, hc₀, hdc₀⟩ := mem_thickening_iff.1 hεC
+  have hε : 0 < ε := dist_nonneg.trans_lt hdc₀
+  -- The targets are allocations, of norm at most `1`.
+  have hv (s : ℕ) : ‖v s‖ ≤ 1 := by
+    refine (pi_norm_le_iff_of_nonneg zero_le_one).2 fun a ↦ ?_
+    have hv := mem_simplex_iff.1 (hw_mem (empMean' s (history O A Y s ω)))
+    rw [Real.norm_eq_abs]
+    exact abs_le.2 ⟨by linarith [hv.1 a],
+      (simplex_subset_Icc (hw_mem (empMean' s (history O A Y s ω)))).2 a⟩
+  -- The average of the targets is close to a point `cbar` of the convex set `C`.
+  obtain ⟨cbar, hcbar, h_avg⟩ := hC.exists_mem_norm_sum_sub_smul_le ⟨c₀, hc₀⟩ hT
+    (fun s _ ↦ hv s) hCB fun s hs _ ↦ (hmeans s hs).2.1
+  have h_sum (a : α) : |∑ s ∈ range T, v s a - T * cbar a| ≤ (1 + B) * t₀ + ε * (T - t₀) := by
+    have h := (norm_le_pi_norm (∑ s ∈ range T, v s - (T : ℝ) • cbar) a).trans h_avg
+    simpa only [Pi.sub_apply, Finset.sum_apply, Pi.smul_apply, smul_eq_mul, Real.norm_eq_abs]
+      using h
   -- The proportions of pulls `q = N(T) / T` are an allocation `η`-close to `cbar`.
   set q : α → ℝ := fun a ↦ (pullCount' T (history O A Y T ω) a : ℝ) / T
   have hq : q ∈ simplex α := by
@@ -637,16 +624,15 @@ private lemma mul_le_glr_empCost_of_mem_thickening {Ω : Type*} {O : ℕ → Ω 
     rw [← Finset.sum_div, ← Nat.cast_sum, sum_pullCount', div_self hT'.ne']
   have hq_dist (a : α) : |q a - cbar a| < η := by
     have h_eq : q a - cbar a = ((pullCount A a T ω - ∑ s ∈ range T, v s a) +
-        ∑ s ∈ range T, (v s a - c s a)) / T := by
-      simp only [q, cbar, Finset.sum_apply, Pi.smul_apply, smul_eq_mul, ← Finset.mul_sum,
-        Finset.sum_sub_distrib, ← pullCount_eq_pullCount']
+        (∑ s ∈ range T, v s a - T * cbar a)) / T := by
+      simp only [q, ← pullCount_eq_pullCount']
       field_simp
       ring
     rw [h_eq, abs_div, abs_of_pos hT', div_lt_iff₀ hT']
     linarith [abs_add_le (pullCount A a T ω - ∑ s ∈ range T, v s a)
-      (∑ s ∈ range T, (v s a - c s a)), htrack a, h_sum a]
+      (∑ s ∈ range T, v s a - T * cbar a), htrack a, h_sum a,
+      mul_nonneg hε.le (Nat.cast_nonneg (α := ℝ) t₀)]
   have hη : 0 < η := (abs_nonneg _).trans_lt (hq_dist (Classical.arbitrary α))
-  obtain ⟨hU', -, hrec'⟩ := hmeans T hT
   rw [hrec', glr_empCost_eq_mul task hT0, mul_comm]
   refine mul_le_mul_right (hU _ hU' q hq (mem_thickening_iff.2 ⟨cbar, hcbar, ?_⟩)).le _
   exact (dist_pi_lt_iff hη).2 fun a ↦ Real.dist_eq _ _ ▸ hq_dist a
@@ -693,19 +679,8 @@ theorem eventually_expectedStoppingTime_cTrackAndStop_le (hT : ∀ a c, ¬ T a =
     (mem_simplex_iff.1 (hw_mem _)).2
   -- Uniformly near `{μ} × C` on the simplex, the cost of the alternatives exceeds `κ`, by
   -- compactness of `C`.
-  obtain ⟨U, hU, η, hη, hUη⟩ : ∃ U ∈ 𝓝 μ, ∃ η > 0, ∀ μ' ∈ U, ∀ w' ∈ simplex α,
-      w' ∈ thickening η C → (κ : ℝ≥0∞) < task.altCost μ' w' i := by
-    have h_mem : {q : (α → ℝ) × (α → ℝ) | q.2 ∈ simplex α → (κ : ℝ≥0∞) < task.altCost q.1 q.2 i}
-        ∈ 𝓝 μ ×ˢ 𝓝ˢ C := by
-      refine hC_compact.mem_prod_nhdsSet_of_forall fun v hv ↦ ?_
-      have h_ev : ∀ᶠ q : (α → ℝ) × (α → ℝ) in 𝓝 (μ, v),
-          q ∈ Set.univ ×ˢ simplex α → (κ : ℝ≥0∞) < task.altCost q.1 q.2 i :=
-        eventually_nhdsWithin_iff.1 (h_lsc v hv κ (hκ v hv))
-      rw [nhds_prod_eq] at h_ev
-      exact h_ev.mono fun q hq hq2 ↦ hq ⟨Set.mem_univ _, hq2⟩
-    obtain ⟨V₁, hV₁, V₂, hV₂, hV⟩ := mem_prod_iff.1 h_mem
-    obtain ⟨η, hη, hηV₂⟩ := (hasBasis_nhdsSet_thickening hC_compact).mem_iff.1 hV₂
-    exact ⟨V₁, hV₁, η, hη, fun μ' hμ' w' hw' hw'C ↦ hV (Set.mk_mem_prod hμ' (hηV₂ hw'C)) hw'⟩
+  obtain ⟨U, hU, η, hη, hUη⟩ :=
+    hC_compact.exists_forall_mem_thickening_lt_of_lowerSemicontinuousWithinAt h_lsc hκ
   obtain ⟨B, hB, hCB⟩ := hC_compact.isBounded.exists_pos_norm_le
   -- Near `μ`, the targets are `ε`-close to `C`, the recommendation is `i` and the vectors are
   -- vectors of means of the families.
@@ -718,7 +693,10 @@ theorem eventually_expectedStoppingTime_cTrackAndStop_le (hT : ∀ a c, ¬ T a =
       (continuous_apply a).continuousAt.preimage_mem_nhds
         (Measure.expFamilyMeans_mem_nhds (hT a) (hμ a))] with μ' h1 h2 h3 h4
     exact ⟨h1, h2, h3, h4⟩
-  obtain ⟨l, u, hlW, huW, hlμ, hμu, h_box⟩ := exists_box_subset_of_mem_nhds hW
+  obtain ⟨l, u, hlμ, hμu, h_box⟩ := exists_pi_Icc_subset_of_mem_nhds hW
+  have hlu : l ≤ u := fun a ↦ ((hlμ a).trans (hμu a)).le
+  have hlW := h_box (Set.left_mem_Icc.2 hlu)
+  have huW := h_box (Set.right_mem_Icc.2 hlu)
   -- The good events: the empirical means stay in the box `∏ (l a, u a)` from round `t₀(T)` on,
   -- and the pull counts follow the cumulated targets.
   set E : ℕ → Set _ := fun T ↦ {ω |
@@ -737,10 +715,8 @@ theorem eventually_expectedStoppingTime_cTrackAndStop_le (hT : ∀ a c, ¬ T a =
     push Not at h_box
     exact hωE ⟨h_box, h_track⟩
   -- The tracking error `(K - 1) (1 + √T)` is `o(T)`.
-  have h_sqrt : Tendsto (fun T : ℕ ↦ (1 + √(T : ℝ)) / T) atTop (𝓝 0) := by
-    have h := tendsto_one_div_atTop_nhds_zero_nat.add ((tendsto_const_nhds (x := (1 : ℝ))).div_atTop
-      (tendsto_sqrt_atTop.comp tendsto_natCast_atTop_atTop))
-    simpa only [add_div, sqrt_div_self', add_zero, Function.comp_def] using h
+  have h_sqrt : Tendsto (fun T : ℕ ↦ (1 + √(T : ℝ)) / T) atTop (𝓝 0) :=
+    tendsto_one_add_sqrt_div_atTop.comp tendsto_natCast_atTop_atTop
   -- From some round on, on the good event of round `T`, the GLR statistic is at least `κ T`.
   obtain ⟨T₁, hT₁⟩ := eventually_atTop.1
     ((eventually_roundsAfter_le (by positivity : 0 < η / (4 * (1 + B)))).and
@@ -753,13 +729,15 @@ theorem eventually_expectedStoppingTime_cTrackAndStop_le (hT : ∀ a c, ¬ T a =
     obtain ⟨hω_box, hω_track⟩ := hω
     obtain ⟨h_t₀, hT_le, h_sqrt_le, hT0⟩ := hT₁ T (le_of_max_le_right hT)
     have hT' : (0 : ℝ) < T := Nat.cast_pos.2 hT0
-    refine task.mul_le_glr_empCost_of_mem_thickening (ε := ε) hw_mem hC_conv
-      (fun v hv a ↦ (norm_le_pi_norm v a).trans (hCB v hv)) hUη (fun k hk ↦ ?_) (hω_track T)
-      (by exact_mod_cast hT_le.trans_eq (one_mul _)) hT0.ne' ?_
+    refine task.mul_le_glr_empCost_of_mem_thickening (ε := ε) hw_mem hC_conv hCB hUη
+      (fun k hk ↦ ?_) (hω_track T) (by exact_mod_cast hT_le.trans_eq (one_mul _)) hT0.ne' ?_
     · -- The empirical means at the rounds `k ≥ t₀(T)` are in `W`.
-      refine (h_box _ fun b ↦ ?_).imp_right fun h ↦ ⟨h.1, h.2.1⟩
-      rw [← empMean_eq_empMean']
-      exact hω_box k hk b
+      have hk_box (b : α) :
+          empMean' k (history IT.obs IT.action IT.feedback k ω) b ∈ Set.Ioo (l b) (u b) := by
+        rw [← empMean_eq_empMean']
+        exact hω_box k hk b
+      exact (h_box ⟨fun b ↦ (hk_box b).1.le, fun b ↦ (hk_box b).2.le⟩).imp_right
+        fun h ↦ ⟨h.1, h.2.1⟩
     · -- `(K - 1) (1 + √T) + (1 + B) t₀(T) + ε T ≤ 3 η T / 4 < η T`.
       rw [div_le_iff₀ hT'] at h_sqrt_le
       have h1 : (K - 1) * (1 + √(T : ℝ)) ≤ η / 4 * T := by
@@ -780,15 +758,15 @@ theorem eventually_expectedStoppingTime_cTrackAndStop_le (hT : ∀ a c, ¬ T a =
   simpa only [cTrackAndStop_def] using h
 
 /-- **Sample complexity of Track-and-Stop with C-tracking at the characteristic time**
-[DK19, Theorem 7], the upper bound `𝔼[τ_δ] ≤ c log (1 / δ)` with `c > T*(μ)`, when the optimal
-allocations are not unique. Let the rewards of each arm `a` of the model `μ` be dominated above and
-below by the member of mean `μ a` of a nondegenerate exponential family `(ρ a, T a)`, let `i` be
-the single correct answer of `μ`, let `(μ', w') ↦ D(μ', w', ¬i)` be continuous at every point
-`(μ, v)` with `v` in the simplex, on the allocations of the simplex, let the targets `w` be
-allocations, and optimal allocations `w(μ') ∈ w*(μ', ¬i)` near `μ`, and let the recommendation be
-`i` near `μ`. Then for thresholds `β δ n ≤ log (r n / δ)` (for `n ≥ n₀`) with `r n = O(n ^ p)`,
-Track-and-Stop with C-tracking satisfies `𝔼[τ_δ] ≤ c log (1 / δ)` for all small enough `δ`, for
-every `c > T*(μ)`. Unlike D-tracking
+[DK19, Theorem 7], the upper bound `𝔼[τ_δ] ≤ c log (1 / δ)` with `c > T*(μ)`, even when the
+optimal allocations are not unique. Let the rewards of each arm `a` of the model `μ` be dominated
+above and below by the member of mean `μ a` of a nondegenerate exponential family `(ρ a, T a)`,
+let `i` be the single correct answer of `μ`, let `(μ', w') ↦ D(μ', w', ¬i)` be continuous at
+every point `(μ, v)` with `v` in the simplex, on the allocations of the simplex, let the targets
+`w` be allocations, and optimal allocations `w(μ') ∈ w*(μ', ¬i)` near `μ`, and let the
+recommendation be `i` near `μ`. Then for thresholds `β δ n ≤ log (r n / δ)` (for `n ≥ n₀`) with
+`r n = O(n ^ p)`, Track-and-Stop with C-tracking satisfies `𝔼[τ_δ] ≤ c log (1 / δ)` for all small
+enough `δ`, for every `c > T*(μ)`. Unlike D-tracking
 (`IdentTask.eventually_expectedStoppingTime_trackAndStop_le_of_charTime_lt`), this does not need
 `w` to be continuous at `μ`. -/
 theorem eventually_expectedStoppingTime_cTrackAndStop_le_of_charTime_lt
@@ -805,16 +783,8 @@ theorem eventually_expectedStoppingTime_cTrackAndStop_le_of_charTime_lt
     (hβ : ∀ᶠ δ in 𝓝[>] 0, ∀ n ≥ n₀, β δ n ≤ ENNReal.ofReal (log (r n / δ))) :
     ∀ᶠ δ in 𝓝[>] 0, expectedStoppingTime (task.cTrackAndStop w hw (β δ) rec hrec (hstop δ))
       (Environment.bandit (task.ν μ)) ≤ c * ENNReal.ofReal (log (1 / δ)) := by
-  have hc0 : c ≠ 0 := by
-    rintro rfl
-    exact not_lt_zero (ENNReal.coe_zero ▸ hc)
   -- Choose a rate `κ` with `c⁻¹ < κ < D(μ, ¬i) = T*(μ)⁻¹`.
-  rw [task.charTime_eq_inv_answerValue hcorrect, ENNReal.inv_lt_iff_inv_lt,
-    ← ENNReal.coe_inv hc0] at hc
-  obtain ⟨κ, hcκ, hκ⟩ := ENNReal.lt_iff_exists_nnreal_btwn.1 hc
-  have hκc : 1 < κ * c := by
-    rw [← inv_mul_cancel₀ hc0]
-    exact mul_lt_mul_of_pos_right (ENNReal.coe_lt_coe.1 hcκ) (pos_iff_ne_zero.2 hc0)
+  obtain ⟨κ, hκ, hκc⟩ := task.exists_lt_answerValue_one_lt_mul hcorrect hc
   -- The optimal allocations form a compact set, to which the targets converge.
   have h_usc : UpperSemicontinuousOn (task.altCost μ · i) (simplex α) := fun v hv ↦
     ((h_cont v hv).comp (Continuous.prodMk_right μ).continuousWithinAt
