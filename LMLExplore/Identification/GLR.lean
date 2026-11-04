@@ -88,9 +88,8 @@ optimal allocation, with `κ` close to the inverse of the characteristic time.
   `β_{x_{δ ^ (1 / s)}}` are at most `log ((2 n (n + 1)) ^ K / δ)`, a polynomial-rate threshold of
   the form required by `IdentTask.eventually_expectedStoppingTime_glrt_le_of_isBigO`, whose rate
   `(2 n (n + 1)) ^ K` is `O(n ^ (2 K))` (`isBigO_two_mul_mul_add_one_pow`).
-* `eventually_le_mul_ofReal_log_of_rpow_inv`: bounds `f (δ ^ (1 / s)) ≤ c' log (1 / δ)` for every
-  `c' > t` and `s > 1` give `f δ ≤ c log (1 / δ)` for every `c > t`, which transfers sample
-  complexity bounds to the union-bound thresholds.
+* `IdentTask.stopsAS_glrt_unionBoundThreshold`: a GLRT with the thresholds `β_{x_δ}` and a finite
+  expected stopping time at arbitrarily small `δ` stops almost surely at every `δ ∈ (0, 1]`.
 
 ## References
 
@@ -585,39 +584,40 @@ lemma eventually_unionBoundThreshold_rpow_inv_le (K : ℕ) {s : ℝ} (hs : 1 < s
   rw [unionBoundThreshold_def, log_div (pow_ne_zero _ hn'.ne') hδ0.ne', log_pow]
   exact ENNReal.ofReal_le_ofReal (by linarith)
 
-open scoped NNReal in
-/-- **Rescaling the confidence level.** If for every `c' > t` and every `s > 1`, a quantity `f` of
-the confidence level satisfies `f (δ ^ (1 / s)) ≤ c' log (1 / δ)` for all small enough `δ > 0`,
-then for every `c > t`, `f δ ≤ c log (1 / δ)` for all small enough `δ > 0`. Together with
-`eventually_unionBoundThreshold_rpow_inv_le`, this turns sample complexity bounds for thresholds
-`log (r n / δ)` into bounds for the union-bound thresholds `β_{x_δ}`. -/
-lemma eventually_le_mul_ofReal_log_of_rpow_inv {f : ℝ → ℝ≥0∞} {t : ℝ≥0∞}
-    (h : ∀ c' : ℝ≥0, t < c' → ∀ s : ℝ, 1 < s →
-      ∀ᶠ δ in 𝓝[>] 0, f (δ ^ s⁻¹) ≤ c' * ENNReal.ofReal (log (1 / δ)))
-    {c : ℝ≥0} (hc : t < c) :
-    ∀ᶠ δ in 𝓝[>] 0, f δ ≤ c * ENNReal.ofReal (log (1 / δ)) := by
-  -- Choose `t < c' < c` and the exponent `s = c / c' > 1`.
-  obtain ⟨c', hc', hc'c⟩ := ENNReal.lt_iff_exists_nnreal_btwn.1 hc
-  have hc'c_real : (c' : ℝ) < c := mod_cast ENNReal.coe_lt_coe.1 hc'c
-  have hc'0 : (0 : ℝ) < c' := mod_cast ENNReal.coe_pos.1 (zero_le.trans_lt hc')
-  set s : ℝ := c / c'
-  have hs : 1 < s := (one_lt_div hc'0).2 hc'c_real
-  have hs0 : 0 < s := one_pos.trans hs
-  -- At `δ' = δ ^ s`, `f δ ≤ c' log (1 / δ') = c log (1 / δ)` for small `δ`.
-  filter_upwards [(tendsto_rpow_nhdsGT_zero hs0).eventually (h c' hc' s hs), self_mem_nhdsWithin]
-    with δ hδ hδ0
-  have hδ0 : 0 < δ := Set.mem_Ioi.1 hδ0
-  rw [rpow_rpow_inv hδ0.le hs0.ne'] at hδ
-  have h_log : log (1 / δ ^ s) = s * log (1 / δ) := by
-    rw [one_div, one_div, log_inv, log_inv, log_rpow hδ0, mul_neg]
-  have hc_eq : (c' : ℝ) * s = c := by
-    simp only [s]
-    field_simp
-  refine hδ.trans_eq ?_
-  calc (c' : ℝ≥0∞) * ENNReal.ofReal (log (1 / δ ^ s))
-  _ = ENNReal.ofReal (c' * s * log (1 / δ)) := by
-    rw [h_log, mul_assoc, ENNReal.ofReal_mul c'.coe_nonneg, ENNReal.ofReal_coe_nnreal]
-  _ = c * ENNReal.ofReal (log (1 / δ)) := by
-    rw [hc_eq, ENNReal.ofReal_mul c.coe_nonneg, ENNReal.ofReal_coe_nnreal]
-
 end LMLExplore.Identification
+
+/-! ### The GLRT with the union-bound thresholds -/
+
+namespace LMLExplore.Identification.IdentTask
+
+open Filter Topology
+
+variable {α Θ ℐ 𝓨 : Type*} {mα : MeasurableSpace α} {m𝓨 : MeasurableSpace 𝓨}
+  {mℐ : MeasurableSpace ℐ} {task : IdentTask α Θ ℐ 𝓨} {Z : (n : ℕ) → Hist Unit α 𝓨 n → Θ → ℝ≥0∞}
+  {alg : Algorithm Unit α 𝓨} {rec : (n : ℕ) → Hist Unit α 𝓨 n → ℐ}
+  {hrec : ∀ n, Measurable (rec n)} {K : ℕ}
+  {hstop : ∀ δ n, MeasurableSet
+    {h | unionBoundThreshold K (unionBoundLevel K δ) n < task.glr Z n h (rec n h)}}
+  {env : Environment Unit α 𝓨}
+
+/-- **The GLRT with the union-bound thresholds stops almost surely.** If, for arbitrarily small
+confidence levels `δ₀ > 0`, the GLRT with the thresholds `K log (2 n (n + 1)) + x_δ₀` has a finite
+expected stopping time, then the GLRT with the thresholds `K log (2 n (n + 1)) + x_δ` stops almost
+surely for every `δ ∈ (0, 1]`, since the level `x_δ` decreases with `δ`. -/
+lemma stopsAS_glrt_unionBoundThreshold
+    (h : ∃ᶠ δ in 𝓝[>] 0, expectedStoppingTime
+      (task.glrt Z alg (unionBoundThreshold K (unionBoundLevel K δ)) rec hrec (hstop δ)) env ≠ ∞)
+    {δ : ℝ} (hδ : 0 < δ) (hδ1 : δ ≤ 1) :
+    StopsAS (task.glrt Z alg (unionBoundThreshold K (unionBoundLevel K δ)) rec hrec (hstop δ))
+      env := by
+  -- Some confidence level `δ₀ ≤ δ` has a finite expected stopping time, and the thresholds of `δ`
+  -- are below those of `δ₀`.
+  obtain ⟨δ₀, hδ₀, hδ₀δ⟩ := (h.and_eventually (Ioc_mem_nhdsGT hδ)).exists
+  refine StopsAS.of_expectedStoppingTime_ne_top (ne_top_of_le_ne_top hδ₀
+    (expectedStoppingTime_le_of_stopSet_subset (by simp only [alg_glrt]) fun h hh ↦ ?_))
+  rw [mem_stopSet_glrt, unionBoundThreshold_def] at hh ⊢
+  refine lt_of_le_of_lt (ENNReal.ofReal_le_ofReal ?_) hh
+  gcongr
+  exact antitoneOn_unionBoundLevel _ ⟨hδ₀δ.1, hδ₀δ.2.trans hδ1⟩ ⟨hδ, hδ1⟩ hδ₀δ.2
+
+end LMLExplore.Identification.IdentTask

@@ -64,7 +64,7 @@ which are `δ`-correct for Gaussian arms, are not of the form `log (r n / δ)`, 
 `log ((2 n (n + 1)) ^ K / δ ^ s)` for small `δ`. The bound at the confidence level `δ ^ s`
 therefore gives `𝔼[τ_δ] ≤ c' s log (1 / δ)` for every `c' > T*(μ)`, and `c' s` is any constant
 above `T*(μ)`. A finite expected stopping time at small `δ` gives almost sure stopping at every
-`δ ∈ (0, 1]`, since the thresholds decrease with `δ`.
+`δ ∈ (0, 1]`, since the thresholds decrease with `δ` (`IdentTask.stopsAS_glrt_unionBoundThreshold`).
 
 ## Main definitions
 
@@ -242,6 +242,24 @@ variable {𝓧 : Type*} {m𝓧 : MeasurableSpace 𝓧} {ρ : α → Measure 𝓧
   {hstop : ∀ δ n, MeasurableSet {h | β δ n < task.glr task.empCost n h (rec (empMean' n h))}}
   {r : ℕ → ℝ} {p : ℝ} {n₀ : ℕ}
 
+omit [Fintype α] [DecidableEq α] [Nonempty α] [MeasurableSingletonClass α] in
+/-- A neighbourhood `W` of `μ` contains a box `∏ (l a, u a)` around `μ` whose corners `l` and `u`
+are in `W`. The good events of the analysis of Track-and-Stop keep the empirical means in such a
+box, inside a neighbourhood on which the targets and the recommendation behave well. -/
+private lemma exists_box_subset_of_mem_nhds [Finite α] {W : Set (α → ℝ)} (hW : W ∈ 𝓝 μ) :
+    ∃ l u : α → ℝ, l ∈ W ∧ u ∈ W ∧ (∀ a, l a < μ a) ∧ (∀ a, μ a < u a) ∧
+      ∀ μ' : α → ℝ, (∀ a, μ' a ∈ Set.Ioo (l a) (u a)) → μ' ∈ W := by
+  have := Fintype.ofFinite α
+  obtain ⟨R, hR, hRW⟩ := Metric.mem_nhds_iff.1 hW
+  have h_ball (μ' : α → ℝ) (hμ' : ∀ b, |μ' b - μ b| < R) : μ' ∈ W :=
+    hRW <| (Metric.mem_ball.trans (dist_pi_lt_iff hR)).2 fun b ↦ Real.dist_eq _ _ ▸ hμ' b
+  refine ⟨fun a ↦ μ a - R / 2, fun a ↦ μ a + R / 2,
+    h_ball _ fun b ↦ abs_sub_lt_iff.2 ⟨by linarith, by linarith⟩,
+    h_ball _ fun b ↦ abs_sub_lt_iff.2 ⟨by linarith, by linarith⟩,
+    fun a ↦ by linarith, fun a ↦ by linarith, fun μ' hμ' ↦ h_ball _ fun b ↦ ?_⟩
+  obtain ⟨h1, h2⟩ := hμ' b
+  exact abs_sub_lt_iff.2 ⟨by linarith, by linarith⟩
+
 omit [MeasurableSingletonClass α] in
 /-- The deterministic step of the analysis of Track-and-Stop [GK16, proof of Theorem 14]. Along a
 sequence of arms following the D-tracking rule with targets `w(μ̂(k))`, suppose that from round `t₀`
@@ -343,17 +361,7 @@ theorem eventually_expectedStoppingTime_trackAndStop_le (hT : ∀ a c, ¬ T a =�
       (continuous_apply a).continuousAt.preimage_mem_nhds
         (Measure.expFamilyMeans_mem_nhds (hT a) (hμ a))] with μ' h1 h2 h3 h4
     exact ⟨h1, Metric.mem_ball.1 h2, h3, h4⟩
-  obtain ⟨R, hR, hRW⟩ := Metric.mem_nhds_iff.1 hW
-  have h_ball (μ' : α → ℝ) (hμ' : ∀ b, |μ' b - μ b| < R) : μ' ∈ W :=
-    hRW <| (Metric.mem_ball.trans (dist_pi_lt_iff hR)).2 fun b ↦ Real.dist_eq _ _ ▸ hμ' b
-  set l : α → ℝ := fun a ↦ μ a - R / 2
-  set u : α → ℝ := fun a ↦ μ a + R / 2
-  have hl a : l a ∈ (ρ a).expFamilyMeans (T a) :=
-    (h_ball l fun b ↦ abs_sub_lt_iff.2 ⟨by simp only [l]; linarith,
-      by simp only [l]; linarith⟩).2.2.2 a
-  have hu a : u a ∈ (ρ a).expFamilyMeans (T a) :=
-    (h_ball u fun b ↦ abs_sub_lt_iff.2 ⟨by simp only [u]; linarith,
-      by simp only [u]; linarith⟩).2.2.2 a
+  obtain ⟨l, u, hlW, huW, hlμ, hμu, h_box⟩ := exists_box_subset_of_mem_nhds hW
   -- The good events: the empirical means stay in the box `∏ (l a, u a)` from round `t₀(T)` on,
   -- and the run follows the D-tracking rule.
   set E : ℕ → Set _ := fun T ↦ {ω |
@@ -367,8 +375,8 @@ theorem eventually_expectedStoppingTime_trackAndStop_le (hT : ∀ a c, ¬ T a =�
           pullCount IT.action (IT.action k ω) k ω)}
   have hE_sum : ∑' T, P (E T)ᶜ ≠ ∞ := by
     refine ne_top_of_le_ne_top (DTracking.tsum_measure_exists_ge_empMean_notMem_Ioo_ne_top hseq
-      hν_above hν_below hμ hl hu (fun a ↦ by simp only [l]; linarith)
-      (fun a ↦ by simp only [u]; linarith) tendsto_sqrt_roundsAfter_div_log)
+      hν_above hν_below hμ (fun a ↦ hlW.2.2.2 a) (fun a ↦ huW.2.2.2 a) hlμ hμu
+      tendsto_sqrt_roundsAfter_div_log)
       (tsum_le_tsum fun T ↦ measure_mono_ae ?_)
     filter_upwards [DTracking.pullCount_action_le_of_lt hseq,
       DTracking.mul_sub_pullCount_le_of_forall_le hseq] with ω h_forced h_track hωE
@@ -390,11 +398,9 @@ theorem eventually_expectedStoppingTime_trackAndStop_le (hT : ∀ a c, ¬ T a =�
       (fun k hk ↦ ?_) hω_forced hω_track ht₀ (by exact_mod_cast hT_le.trans_eq (one_mul _)) h3ε
       (by rwa [div_le_iff₀' hε] at hεT)
     -- The empirical means at the rounds `k ≥ t₀(T)` are in `W`.
-    refine (h_ball _ fun b ↦ ?_).imp_right fun h ↦ ⟨h.1, h.2.1⟩
+    refine (h_box _ fun b ↦ ?_).imp_right fun h ↦ ⟨h.1, h.2.1⟩
     rw [← empMean_eq_empMean']
-    obtain ⟨h1, h2⟩ := hω_box k hk b
-    simp only [l, u] at h1 h2
-    exact abs_sub_lt_iff.2 ⟨by linarith, by linarith⟩
+    exact hω_box k hk b
   have h := task.eventually_expectedStoppingTime_glrt_le_of_isBigO task.empCost alg
     (fun n h ↦ rec (empMean' n h)) (fun n ↦ hrec.comp (by fun_prop)) hstop hseq
     hE_sum hκc hE hr (T₀ := max n₀ T₁)
@@ -503,23 +509,14 @@ theorem stopsAS_trackAndStop_unionBoundThreshold
     StopsAS (task.trackAndStop w hw
       (unionBoundThreshold (Fintype.card α) (unionBoundLevel (Fintype.card α) δ)) rec hrec
       (hstop δ)) (Environment.bandit (task.ν μ)) := by
-  -- Some confidence level `δ₀ ≤ δ` has a finite expected stopping time, and the thresholds of `δ`
-  -- are below those of `δ₀`.
   have hc : task.charTime μ < (task.charTime μ).toNNReal + 1 := by
     rw [ENNReal.coe_toNNReal h_charTime]
     exact ENNReal.lt_add_right h_charTime one_ne_zero
-  obtain ⟨δ₀, hδ₀, hδ₀δ⟩ := ((eventually_expectedStoppingTime_trackAndStop_unionBoundThreshold_le
-    (hw := hw) (hrec := hrec) (hstop := hstop) hT hμ hν_above hν_below hcorrect hw_opt hw_cont
-    hrec_eq h_lsc hc).and
-    (Ioc_mem_nhdsGT hδ)).exists
-  refine StopsAS.of_expectedStoppingTime_ne_top (ne_top_of_le_ne_top
-    (ne_top_of_le_ne_top (ENNReal.mul_ne_top ENNReal.coe_ne_top ENNReal.ofReal_ne_top) hδ₀)
-    (expectedStoppingTime_le_of_stopSet_subset (by simp only [alg_trackAndStop]) fun h hh ↦ ?_))
-  rw [mem_stopSet_trackAndStop] at hh ⊢
-  rw [unionBoundThreshold_def] at hh ⊢
-  refine lt_of_le_of_lt (ENNReal.ofReal_le_ofReal ?_) hh
-  gcongr
-  exact antitoneOn_unionBoundLevel _ ⟨hδ₀δ.1, hδ₀δ.2.trans hδ1⟩ ⟨hδ, hδ1⟩ hδ₀δ.2
+  have h := eventually_expectedStoppingTime_trackAndStop_unionBoundThreshold_le (hw := hw)
+    (hrec := hrec) (hstop := hstop) hT hμ hν_above hν_below hcorrect hw_opt hw_cont hrec_eq h_lsc hc
+  simp only [trackAndStop_def] at h ⊢
+  exact stopsAS_glrt_unionBoundThreshold (h.mono fun _ hδ' ↦ ne_top_of_le_ne_top
+    (ENNReal.mul_ne_top ENNReal.coe_ne_top ENNReal.ofReal_ne_top) hδ').frequently hδ hδ1
 
 end LMLExplore.Identification.IdentTask
 
@@ -721,17 +718,7 @@ theorem eventually_expectedStoppingTime_cTrackAndStop_le (hT : ∀ a c, ¬ T a =
       (continuous_apply a).continuousAt.preimage_mem_nhds
         (Measure.expFamilyMeans_mem_nhds (hT a) (hμ a))] with μ' h1 h2 h3 h4
     exact ⟨h1, h2, h3, h4⟩
-  obtain ⟨R, hR, hRW⟩ := Metric.mem_nhds_iff.1 hW
-  have h_ball (μ' : α → ℝ) (hμ' : ∀ b, |μ' b - μ b| < R) : μ' ∈ W :=
-    hRW <| (Metric.mem_ball.trans (dist_pi_lt_iff hR)).2 fun b ↦ Real.dist_eq _ _ ▸ hμ' b
-  set l : α → ℝ := fun a ↦ μ a - R / 2
-  set u : α → ℝ := fun a ↦ μ a + R / 2
-  have hl a : l a ∈ (ρ a).expFamilyMeans (T a) :=
-    (h_ball l fun b ↦ abs_sub_lt_iff.2 ⟨by simp only [l]; linarith,
-      by simp only [l]; linarith⟩).2.2.2 a
-  have hu a : u a ∈ (ρ a).expFamilyMeans (T a) :=
-    (h_ball u fun b ↦ abs_sub_lt_iff.2 ⟨by simp only [u]; linarith,
-      by simp only [u]; linarith⟩).2.2.2 a
+  obtain ⟨l, u, hlW, huW, hlμ, hμu, h_box⟩ := exists_box_subset_of_mem_nhds hW
   -- The good events: the empirical means stay in the box `∏ (l a, u a)` from round `t₀(T)` on,
   -- and the pull counts follow the cumulated targets.
   set E : ℕ → Set _ := fun T ↦ {ω |
@@ -741,8 +728,8 @@ theorem eventually_expectedStoppingTime_cTrackAndStop_le (hT : ∀ a c, ¬ T a =
         (K - 1) * (1 + √(n : ℝ))}
   have hE_sum : ∑' T, P (E T)ᶜ ≠ ∞ := by
     refine ne_top_of_le_ne_top (CTracking.tsum_measure_exists_ge_empMean_notMem_Ioo_ne_top hw0 hw1
-      hseq hν_above hν_below hμ hl hu (fun a ↦ by simp only [l]; linarith)
-      (fun a ↦ by simp only [u]; linarith) tendsto_sqrt_roundsAfter_div_log)
+      hseq hν_above hν_below hμ (fun a ↦ hlW.2.2.2 a) (fun a ↦ huW.2.2.2 a) hlμ hμu
+      tendsto_sqrt_roundsAfter_div_log)
       (tsum_le_tsum fun T ↦ measure_mono_ae ?_)
     filter_upwards [CTracking.abs_pullCount_sub_sum_le_mul_one_add_sqrt hw0 hw1 hseq]
       with ω h_track hωE
@@ -770,11 +757,9 @@ theorem eventually_expectedStoppingTime_cTrackAndStop_le (hT : ∀ a c, ¬ T a =
       (fun v hv a ↦ (norm_le_pi_norm v a).trans (hCB v hv)) hUη (fun k hk ↦ ?_) (hω_track T)
       (by exact_mod_cast hT_le.trans_eq (one_mul _)) hT0.ne' ?_
     · -- The empirical means at the rounds `k ≥ t₀(T)` are in `W`.
-      refine (h_ball _ fun b ↦ ?_).imp_right fun h ↦ ⟨h.1, h.2.1⟩
+      refine (h_box _ fun b ↦ ?_).imp_right fun h ↦ ⟨h.1, h.2.1⟩
       rw [← empMean_eq_empMean']
-      obtain ⟨h1, h2⟩ := hω_box k hk b
-      simp only [l, u] at h1 h2
-      exact abs_sub_lt_iff.2 ⟨by linarith, by linarith⟩
+      exact hω_box k hk b
     · -- `(K - 1) (1 + √T) + (1 + B) t₀(T) + ε T ≤ 3 η T / 4 < η T`.
       rw [div_le_iff₀ hT'] at h_sqrt_le
       have h1 : (K - 1) * (1 + √(T : ℝ)) ≤ η / 4 * T := by
@@ -803,10 +788,9 @@ the single correct answer of `μ`, let `(μ', w') ↦ D(μ', w', ¬i)` be contin
 allocations, and optimal allocations `w(μ') ∈ w*(μ', ¬i)` near `μ`, and let the recommendation be
 `i` near `μ`. Then for thresholds `β δ n ≤ log (r n / δ)` (for `n ≥ n₀`) with `r n = O(n ^ p)`,
 Track-and-Stop with C-tracking satisfies `𝔼[τ_δ] ≤ c log (1 / δ)` for all small enough `δ`, for
-every `c > T*(μ)`. The optimal allocations `w*(μ, ¬i)` form a convex compact set, to which the
-targets converge by upper hemicontinuity of the optimal allocations, and the averages of the
-targets tracked by C-tracking approach it, whereas D-tracking needs `w` continuous at `μ`
-(`IdentTask.eventually_expectedStoppingTime_trackAndStop_le_of_charTime_lt`). -/
+every `c > T*(μ)`. Unlike D-tracking
+(`IdentTask.eventually_expectedStoppingTime_trackAndStop_le_of_charTime_lt`), this does not need
+`w` to be continuous at `μ`. -/
 theorem eventually_expectedStoppingTime_cTrackAndStop_le_of_charTime_lt
     (hT : ∀ a c, ¬ T a =ᵐ[ρ a] fun _ ↦ c) (hμ : ∀ a, μ a ∈ (ρ a).expFamilyMeans (T a))
     (hν_above : ∀ a, MGFDominatedAbove id (task.ν μ a) (T a)
@@ -907,22 +891,13 @@ theorem stopsAS_cTrackAndStop_unionBoundThreshold
     StopsAS (task.cTrackAndStop w hw
       (unionBoundThreshold (Fintype.card α) (unionBoundLevel (Fintype.card α) δ)) rec hrec
       (hstop δ)) (Environment.bandit (task.ν μ)) := by
-  -- Some confidence level `δ₀ ≤ δ` has a finite expected stopping time, and the thresholds of `δ`
-  -- are below those of `δ₀`.
   have hc : task.charTime μ < (task.charTime μ).toNNReal + 1 := by
     rw [ENNReal.coe_toNNReal h_charTime]
     exact ENNReal.lt_add_right h_charTime one_ne_zero
-  obtain ⟨δ₀, hδ₀, hδ₀δ⟩ := ((eventually_expectedStoppingTime_cTrackAndStop_unionBoundThreshold_le
-    (hw := hw) (hrec := hrec) (hstop := hstop) hT hμ hν_above hν_below hcorrect hw_mem hw_opt
-    hrec_eq h_cont hc).and
-    (Ioc_mem_nhdsGT hδ)).exists
-  refine StopsAS.of_expectedStoppingTime_ne_top (ne_top_of_le_ne_top
-    (ne_top_of_le_ne_top (ENNReal.mul_ne_top ENNReal.coe_ne_top ENNReal.ofReal_ne_top) hδ₀)
-    (expectedStoppingTime_le_of_stopSet_subset (by simp only [alg_cTrackAndStop]) fun h hh ↦ ?_))
-  rw [mem_stopSet_cTrackAndStop] at hh ⊢
-  rw [unionBoundThreshold_def] at hh ⊢
-  refine lt_of_le_of_lt (ENNReal.ofReal_le_ofReal ?_) hh
-  gcongr
-  exact antitoneOn_unionBoundLevel _ ⟨hδ₀δ.1, hδ₀δ.2.trans hδ1⟩ ⟨hδ, hδ1⟩ hδ₀δ.2
+  have h := eventually_expectedStoppingTime_cTrackAndStop_unionBoundThreshold_le (hw := hw)
+    (hrec := hrec) (hstop := hstop) hT hμ hν_above hν_below hcorrect hw_mem hw_opt hrec_eq h_cont hc
+  simp only [cTrackAndStop_def] at h ⊢
+  exact stopsAS_glrt_unionBoundThreshold (h.mono fun _ hδ' ↦ ne_top_of_le_ne_top
+    (ENNReal.mul_ne_top ENNReal.coe_ne_top ENNReal.ofReal_ne_top) hδ').frequently hδ hδ1
 
 end LMLExplore.Identification.IdentTask
