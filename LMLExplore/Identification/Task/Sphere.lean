@@ -180,33 +180,50 @@ lemma sum_abs_add_sphereShift (c : α → ℝ) (ρ : ℝ) (μ : α → ℝ) :
     card_mul_sphereShift]
   ring
 
-/-- Under the condition `|μ a - c a| + r ≥ 0` on every arm, the expression under the square root
-in the definition of `r = sphereShift c ρ μ` is positive. -/
-private lemma radicand_sphereShift_pos (hρ : ρ ≠ 0)
-    (h : ∀ a, 0 ≤ |μ a - c a| + sphereShift c ρ μ) :
-    0 < (∑ a, |μ a - c a|) ^ 2 + Fintype.card α * (ρ ^ 2 - ∑ a, (μ a - c a) ^ 2) := by
+/-- Under the condition `|μ a - c a| + r ≥ 0` on every arm, if the expression under the square
+root in the definition of `r = sphereShift c ρ μ` is nonpositive, then it equals `K ρ²`, with `K`
+the number of arms. -/
+private lemma radicand_sphereShift_eq_of_nonpos (h : ∀ a, 0 ≤ |μ a - c a| + sphereShift c ρ μ)
+    (hR : (∑ a, |μ a - c a|) ^ 2 + Fintype.card α * (ρ ^ 2 - ∑ a, (μ a - c a) ^ 2) ≤ 0) :
+    (∑ a, |μ a - c a|) ^ 2 + Fintype.card α * (ρ ^ 2 - ∑ a, (μ a - c a) ^ 2) =
+      Fintype.card α * ρ ^ 2 := by
   set r := sphereShift c ρ μ
-  have hK : (0 : ℝ) < Fintype.card α := Nat.cast_pos.2 Fintype.card_pos
-  by_contra hR
   -- The coordinates of the point reached on the sphere sum to `0`, so they all vanish.
   have h0 := sum_abs_add_sphereShift c ρ μ
-  rw [Real.sqrt_eq_zero'.2 (not_lt.1 hR)] at h0
+  rw [Real.sqrt_eq_zero'.2 hR] at h0
   have hd (a : α) : |μ a - c a| = -r := by
     have := (Finset.sum_eq_zero_iff_of_nonneg fun a _ ↦ h a).1 h0 a (Finset.mem_univ a)
     linarith
   have hs : ∑ a, |μ a - c a| = Fintype.card α * -r := by simp [hd]
   have hq : ∑ a, (μ a - c a) ^ 2 = Fintype.card α * r ^ 2 := by simp [← sq_abs, hd]
-  rw [hs, hq] at hR
-  exact hR (by nlinarith [sq_pos_of_ne_zero hρ])
+  rw [hs, hq]
+  ring
+
+/-- Under the condition `|μ a - c a| + r ≥ 0` on every arm, the expression under the square root
+in the definition of `r = sphereShift c ρ μ` is nonnegative. -/
+private lemma radicand_sphereShift_nonneg (h : ∀ a, 0 ≤ |μ a - c a| + sphereShift c ρ μ) :
+    0 ≤ (∑ a, |μ a - c a|) ^ 2 + Fintype.card α * (ρ ^ 2 - ∑ a, (μ a - c a) ^ 2) := by
+  by_contra hR
+  rw [radicand_sphereShift_eq_of_nonpos h (not_le.1 hR).le] at hR
+  exact hR (by positivity)
+
+/-- Under the condition `|μ a - c a| + r ≥ 0` on every arm, the expression under the square root
+in the definition of `r = sphereShift c ρ μ` is positive. -/
+private lemma radicand_sphereShift_pos (hρ : ρ ≠ 0)
+    (h : ∀ a, 0 ≤ |μ a - c a| + sphereShift c ρ μ) :
+    0 < (∑ a, |μ a - c a|) ^ 2 + Fintype.card α * (ρ ^ 2 - ∑ a, (μ a - c a) ^ 2) := by
+  have hK : (0 : ℝ) < Fintype.card α := Nat.cast_pos.2 Fintype.card_pos
+  by_contra hR
+  rw [radicand_sphereShift_eq_of_nonpos h (not_lt.1 hR)] at hR
+  exact hR (by positivity)
 
 /-- **The displacement to the sphere.** Under the condition `|μ a - c a| + r ≥ 0` on every arm,
 `r = sphereShift c ρ μ` solves `∑ a, (|μ a - c a| + r)² = ρ²`: moving every coordinate of `μ`
 away from `c` by `r` reaches the sphere. -/
-theorem sum_sq_abs_add_sphereShift (hρ : ρ ≠ 0)
-    (h : ∀ a, 0 ≤ |μ a - c a| + sphereShift c ρ μ) :
+theorem sum_sq_abs_add_sphereShift (h : ∀ a, 0 ≤ |μ a - c a| + sphereShift c ρ μ) :
     ∑ a, (|μ a - c a| + sphereShift c ρ μ) ^ 2 = ρ ^ 2 := by
   have hK : (Fintype.card α : ℝ) ≠ 0 := Nat.cast_ne_zero.2 Fintype.card_ne_zero
-  have hR := (radicand_sphereShift_pos hρ h).le
+  have hR := radicand_sphereShift_nonneg h
   have hL := Real.sq_sqrt hR
   rw [sum_sq_abs_add]
   refine mul_left_cancel₀ hK ?_
@@ -242,10 +259,10 @@ theorem sphereShift_pos_iff : 0 < sphereShift c ρ μ ↔ ∑ a, (μ a - c a) ^ 
 
 /-- Off the sphere, the displacement to the sphere does not vanish, under the condition
 `|μ a - c a| + r ≥ 0` on every arm. -/
-lemma sphereShift_ne_zero (hρ : ρ ≠ 0) (hμ : ∑ a, (μ a - c a) ^ 2 ≠ ρ ^ 2)
+lemma sphereShift_ne_zero (hμ : ∑ a, (μ a - c a) ^ 2 ≠ ρ ^ 2)
     (h : ∀ a, 0 ≤ |μ a - c a| + sphereShift c ρ μ) : sphereShift c ρ μ ≠ 0 := by
   intro hr
-  have hq := sub_eq_sphereShift_mul (radicand_sphereShift_pos hρ h).le
+  have hq := sub_eq_sphereShift_mul (radicand_sphereShift_nonneg h)
   rw [hr, zero_mul, sub_eq_zero] at hq
   exact hμ hq.symm
 
@@ -317,8 +334,8 @@ private lemma altCost_sphereTask_gaussianBandit_le (hσ2 : σ2 ≠ 0) (hρ : ρ 
   have hs : 0 ≤ ∑ a, |μ a - c a| := Finset.sum_nonneg fun a _ ↦ abs_nonneg _
   have hRpos := radicand_sphereShift_pos hρ h
   have hq := sub_eq_sphereShift_mul hRpos.le
-  have hr0 := sphereShift_ne_zero hρ hμ h
-  have h_sphere := sum_sq_abs_add_sphereShift hρ h
+  have hr0 := sphereShift_ne_zero hμ h
+  have h_sphere := sum_sq_abs_add_sphereShift h
   have hrK := card_mul_sphereShift c ρ μ
   set r := sphereShift c ρ μ with hr_def
   set s := ∑ a, |μ a - c a| with hs_def
@@ -394,7 +411,7 @@ private lemma le_cost_sphereTask_gaussianBandit (hσ2 : σ2 ≠ 0) (hρ : ρ ≠
   have hs : 0 ≤ ∑ a, |μ a - c a| := Finset.sum_nonneg fun a _ ↦ abs_nonneg _
   have hRpos := radicand_sphereShift_pos hρ h
   have hq := sub_eq_sphereShift_mul hRpos.le
-  have h_sphere := sum_sq_abs_add_sphereShift hρ h
+  have h_sphere := sum_sq_abs_add_sphereShift h
   have hsum := sum_abs_add_sphereShift c ρ μ
   rw [mem_alt_sphereTask_iff_mul_neg _ hμ hi] at hμ'
   rw [IdentTask.cost_gaussianBandit (ν_sphereTask _) hσ2
@@ -489,7 +506,7 @@ theorem charTime_sphereTask_gaussianBandit (hσ2 : σ2 ≠ 0) (hρ : ρ ≠ 0)
     (hμ : ∑ a, (μ a - c a) ^ 2 ≠ ρ ^ 2) (h : ∀ a, 0 ≤ |μ a - c a| + sphereShift c ρ μ) :
     (sphereTask (Bandits.gaussianBandit · σ2) c ρ).charTime μ =
       ENNReal.ofReal (2 * σ2 / sphereShift c ρ μ ^ 2) := by
-  have hr := sphereShift_ne_zero hρ hμ h
+  have hr := sphereShift_ne_zero hμ h
   have hσ2' : (0 : ℝ) < σ2 := by positivity
   rw [IdentTask.charTime_eq_inv_answerValue _ (correct_sphereTask_eq_singleton _),
     answerValue_sphereTask_gaussianBandit hσ2 hρ hμ (by simp) h,
