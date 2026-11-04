@@ -525,7 +525,7 @@ theorem expertRegret_le (hη : 0 < η) (hO : ∀ t < n, O t =ᵐ[P] fun _ ↦ E 
   have hgood : ∀ᵐ ω ∂P, (∀ t < n, Y t ω ≤ 1) ∧
       ∀ t, exp4Weights η t (history O A Y t ω) (O t ω) (A t ω) ≠ 0 :=
     (ae_feedback_le_one hY fun t ht a ↦ (hx t ht a).2).and
-      (ae_all_iff.2 fun t ↦ (WeightAlgorithm.ae_pos_weights_action h t).mono fun _ h ↦ h.ne')
+      (ae_all_iff.2 fun t ↦ (WeightAlgorithm.ae_weights_action_pos h t).mono fun _ h ↦ h.ne')
   have hle : ∑ t ∈ range n, P[V t] ≤ (n * Fintype.card α : ℝ) :=
     WeightAlgorithm.sum_integral_one_sub_sq_div_weights_le h hY hx
   refine expertRegret_le_iff.2 fun m ↦ ?_

@@ -32,7 +32,7 @@ In the namespace `LMLExplore.Bandits.WeightAlgorithm`, for a run of `weightAlgor
 * `measure_preimage_inter_action_eq`: the run lemma in integral form, for a measurable set `s` of
   pasts and an arm `a`, `P(past ∈ s, A n = a) = ∫_{past ∈ s} w n (past) a dP`;
 * `measure_action_eq`: `P(A n = a) = E[w n (past) a]`;
-* `ae_pos_weights_action`: the action of round `n` almost surely has positive weight;
+* `ae_weights_action_pos`: the action of round `n` almost surely has positive weight;
 * `integrable_comp_action_iff`: a function `f (past, A n)` of the past and the action is integrable
   iff the weighted sum `∑ a, w n (past) a * ‖f (past, a)‖` is;
 * `condExp_comp_action`: the conditional expectation of `f (past, A n)` given the past is the
@@ -123,7 +123,7 @@ lemma measure_action_eq (h : IsAlgEnvSeq O A Y (weightAlgorithm w hw hp) env P) 
 
 /-- Along a run of a weight-based algorithm, the action of round `n` almost surely has positive
 weight: arms of weight zero are almost surely never played. -/
-lemma ae_pos_weights_action (h : IsAlgEnvSeq O A Y (weightAlgorithm w hw hp) env P) (n : ℕ) :
+lemma ae_weights_action_pos (h : IsAlgEnvSeq O A Y (weightAlgorithm w hw hp) env P) (n : ℕ) :
     ∀ᵐ ω ∂P, 0 < w n (history O A Y n ω, O n ω) (A n ω) := by
   have hX : Measurable fun ω ↦ (history O A Y n ω, O n ω) :=
     (h.measurable_history n).prodMk (h.measurable_obs n)
