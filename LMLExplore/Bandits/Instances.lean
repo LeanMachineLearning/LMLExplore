@@ -19,6 +19,8 @@ reward with law `ν a`, and the mean of arm `a` is `(ν a)[id]`. This file defin
 instances [LS, Chapter 4]:
 
 * `LMLExplore.Bandits.gaussianBandit μ σ2`: arm `a` has law `𝒩(μ a, σ2)`;
+* `LMLExplore.Bandits.gaussianMeanVarBandit θ`: arm `a` has law `𝒩((θ a).1, (θ a).2)`, with a mean
+  and a variance for each arm, the model of Gaussian arms with unknown variances;
 * `LMLExplore.Bandits.bernoulliBandit p`: arm `a` has law `Ber((1 : ℝ), 0, p a)` on `{0, 1}`.
 
 We compute their means and show that they satisfy the noise assumptions of the regret analyses:
@@ -89,6 +91,40 @@ lemma klDiv_gaussianBandit_eq_ofReal_expFamilyDiv (hσ2 : σ2 ≠ 0) (μ μ' : �
   rw [klDiv_gaussianBandit _ _ hσ2, expFamilyDiv_gaussianReal 0 hσ2]
 
 end Gaussian
+
+section GaussianMeanVar
+
+/-- The Gaussian bandit with means and variances `θ`: arm `a` has law `𝒩((θ a).1, (θ a).2)`. This
+is the model of Gaussian arms with unknown variances, whose parameter `θ a` is the pair of the
+mean and the variance of the arm `a`. -/
+noncomputable def gaussianMeanVarBandit (θ : α → ℝ × ℝ≥0) : Kernel α ℝ :=
+  Kernel.ofFunOfCountable fun a ↦ gaussianReal (θ a).1 (θ a).2
+
+@[simp]
+lemma gaussianMeanVarBandit_apply (θ : α → ℝ × ℝ≥0) (a : α) :
+    gaussianMeanVarBandit θ a = gaussianReal (θ a).1 (θ a).2 :=
+  (rfl)
+
+instance (θ : α → ℝ × ℝ≥0) : IsMarkovKernel (gaussianMeanVarBandit θ) :=
+  inferInstanceAs (IsMarkovKernel (Kernel.ofFunOfCountable _))
+
+/-- The mean of arm `a` of the Gaussian bandit with means and variances `θ` is `(θ a).1`. -/
+lemma integral_id_gaussianMeanVarBandit (θ : α → ℝ × ℝ≥0) (a : α) :
+    (gaussianMeanVarBandit θ a)[id] = (θ a).1 := by
+  simp
+
+/-- The variance of arm `a` of the Gaussian bandit with means and variances `θ` is `(θ a).2`. -/
+lemma variance_id_gaussianMeanVarBandit (θ : α → ℝ × ℝ≥0) (a : α) :
+    Var[id; gaussianMeanVarBandit θ a] = (θ a).2 := by
+  simp [variance_id_gaussianReal]
+
+/-- The Gaussian bandit with means `μ` and common variance `σ2` is the Gaussian bandit with means
+and variances `(μ a, σ2)`. -/
+lemma gaussianBandit_eq_gaussianMeanVarBandit (μ : α → ℝ) (σ2 : ℝ≥0) :
+    gaussianBandit μ σ2 = gaussianMeanVarBandit fun a ↦ (μ a, σ2) :=
+  Kernel.ext fun a ↦ by simp
+
+end GaussianMeanVar
 
 section Bernoulli
 
