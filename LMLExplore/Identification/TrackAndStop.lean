@@ -610,7 +610,7 @@ private lemma mul_le_glr_empCost_of_mem_thickening {Ω : Type*} {O : ℕ → Ω 
       exact ⟨c, hc, fun _ ↦ hd⟩
     · exact ⟨c₀, hc₀, fun h ↦ absurd h hs⟩
   choose c hcC hc using h_near
-  -- Their average `c̄` is in `C`.
+  -- Their average `cbar` is in `C`.
   set cbar : α → ℝ := ∑ s ∈ range T, (T : ℝ)⁻¹ • c s
   have hcbar : cbar ∈ C := hC.sum_mem (fun _ _ ↦ by positivity)
     (by rw [sum_const, card_range, nsmul_eq_mul, mul_inv_cancel₀ hT'.ne']) fun s _ ↦ hcC s
@@ -633,7 +633,7 @@ private lemma mul_le_glr_empCost_of_mem_thickening {Ω : Type*} {O : ℕ → Ω 
         exact (dist_le_pi_dist _ _ a).trans (hc s (mem_Ico.1 hs).1).le
       _ = (T - t₀) * ε := by rw [sum_const, Nat.card_Ico, nsmul_eq_mul, Nat.cast_sub hT]
       _ ≤ ε * T := by nlinarith [Nat.cast_nonneg (α := ℝ) t₀]
-  -- The proportions of pulls `q = N(T) / T` are an allocation `η`-close to `c̄`.
+  -- The proportions of pulls `q = N(T) / T` are an allocation `η`-close to `cbar`.
   set q : α → ℝ := fun a ↦ (pullCount' T (history O A Y T ω) a : ℝ) / T
   have hq : q ∈ simplex α := by
     refine mem_simplex_iff.2 ⟨fun a ↦ by positivity, ?_⟩
