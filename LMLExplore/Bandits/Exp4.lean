@@ -542,19 +542,10 @@ theorem expertRegret_le (hη : 0 < η) (hO : ∀ t < n, O t =ᵐ[P] fun _ ↦ E 
       integral_dotProduct_lossIwEstimator (hO t (mem_range.1 ht)) (hY t (mem_range.1 ht)) h m,
       integral_congr_ae (hY t (mem_range.1 ht)), Function.comp_def, dotProduct]
   rw [hreg]
-  calc P[fun ω ↦ ∑ t ∈ range n, (X t m ω - Y t ω)]
-  _ ≤ P[fun ω ↦ log (Fintype.card β) / η + η / 2 * ∑ t ∈ range n, V t ω] := by
-      refine integral_mono_ae (integrable_finsetSum _ fun t ht ↦ (hXint m t ht).sub (hYint t ht))
-        ((integrable_const _).add ((integrable_finsetSum _ hVint).const_mul _)) ?_
-      filter_upwards [hgood] with ω hω
-      exact sum_dotProduct_lossIwEstimator_sub_le hη O A Y ω hω.1 (fun t _ ↦ hω.2 t) m
-  _ = log (Fintype.card β) / η + η / 2 * ∑ t ∈ range n, P[V t] := by
-      rw [integral_add (integrable_const _) ((integrable_finsetSum _ hVint).const_mul _),
-        integral_const_mul, integral_finsetSum _ hVint, integral_const, probReal_univ,
-        one_smul]
-  _ ≤ log (Fintype.card β) / η + η * n * Fintype.card α / 2 := by
-      have := mul_le_mul_of_nonneg_left hle (by positivity : 0 ≤ η / 2)
-      linarith
+  refine (integral_sum_le_add_mul_of_ae_le (B := log (Fintype.card β) / η) (c := η / 2)
+    (by positivity) (fun t ht ↦ (hXint m t ht).sub (hYint t ht)) hVint hle ?_).trans_eq (by ring)
+  filter_upwards [hgood] with ω hω
+  exact sum_dotProduct_lossIwEstimator_sub_le hη O A Y ω hω.1 (fun t _ ↦ hω.2 t) m
 
 /-- **Regret of Exp4 with a single expert.** Along a run of Exp4 with any learning rate whose
 observation of every round `t < n` is the advice `E t` of the single expert and whose feedback is

@@ -292,22 +292,12 @@ theorem advRegret_le (hη : 0 < η) (hY : ∀ t < n, Y t =ᵐ[P] x t ∘ A t)
     WeightAlgorithm.sum_integral_one_sub_sq_div_weights_le h hY hx
   refine advRegret_le_iff.2 fun a ↦ ?_
   rw [sum_sub_integral_eq_integral_sum_lossIwEstimator_sub hY h a]
-  calc P[fun ω ↦ ∑ t ∈ range n,
-        (lossIwEstimator (exp3Weights η t (history O A Y t ω)) (A t ω) (Y t ω) a - Y t ω)]
-  _ ≤ P[fun ω ↦ log (Fintype.card α) / η + η / 2 * ∑ t ∈ range n, V t ω] := by
-      refine integral_mono_ae (integrable_finsetSum _ fun t ht ↦
-        (WeightAlgorithm.integrable_lossIwEstimator h (hY t (mem_range.1 ht)) a).sub
-          (h.integrable_feedback_of_ae_eq (hY t (mem_range.1 ht))))
-        ((integrable_const _).add ((integrable_finsetSum _ hVint).const_mul _)) ?_
-      filter_upwards [hYle] with ω hω
-      exact sum_lossIwEstimator_sub_le hη O A Y ω hω a
-  _ = log (Fintype.card α) / η + η / 2 * ∑ t ∈ range n, P[V t] := by
-      rw [integral_add (integrable_const _) ((integrable_finsetSum _ hVint).const_mul _),
-        integral_const_mul, integral_finsetSum _ hVint, integral_const, probReal_univ,
-        one_smul]
-  _ ≤ log (Fintype.card α) / η + η * n * Fintype.card α / 2 := by
-      have := mul_le_mul_of_nonneg_left hle (by positivity : 0 ≤ η / 2)
-      linarith
+  refine (integral_sum_le_add_mul_of_ae_le (B := log (Fintype.card α) / η) (c := η / 2)
+    (by positivity) (fun t ht ↦
+      (WeightAlgorithm.integrable_lossIwEstimator h (hY t (mem_range.1 ht)) a).sub
+        (h.integrable_feedback_of_ae_eq (hY t (mem_range.1 ht)))) hVint hle ?_).trans_eq (by ring)
+  filter_upwards [hYle] with ω hω
+  exact sum_lossIwEstimator_sub_le hη O A Y ω hω a
 
 /-- **Regret of Exp3** [LS, Theorem 11.2]: along a run of Exp3 with learning rate
 `η = √(2 log k / (n k))` whose feedback at every round `t < n` is the reward `x t (A t) ∈ [0, 1]`

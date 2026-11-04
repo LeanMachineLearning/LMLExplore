@@ -62,6 +62,8 @@ against `Environment.ofSeq o g _` with expert advice `o` (`IsAlgEnvSeq.feedback_
 * `WeightAlgorithm.sum_integral_one_sub_sq_div_weights_le`: for rewards in `[0, 1]`, the
   expected second-order terms `(1 - Y t) ^ 2 / w t (past) (A t)` of Exp3 and Exp4 sum to at most
   `n k` over `n` rounds with `k` arms.
+* `integral_sum_le_add_mul_of_ae_le`: an almost sure bound `∑ t < n, Z t ≤ B + c ∑ t < n, V t`
+  gives `𝔼[∑ t < n, Z t] ≤ B + c C` when the expectations of the `V t` sum to at most `C`.
 
 ## References
 
@@ -440,5 +442,31 @@ lemma sum_integral_one_sub_sq_div_weights_le [IsProbabilityMeasure P] {x : ℕ �
   _ = n * Fintype.card α := by simp
 
 end WeightAlgorithm
+
+section Expectation
+
+variable {Ω : Type*} {mΩ : MeasurableSpace Ω} {P : Measure Ω} [IsProbabilityMeasure P] {n : ℕ}
+
+/-- If almost surely `∑ t < n, Z t ≤ B + c ∑ t < n, V t` with `c ≥ 0`, where the `Z t` and `V t`
+are integrable and the expectations of the `V t` sum to at most `C`, then the expectation of
+`∑ t < n, Z t` is at most `B + c C`. This turns the pathwise bounds of the analyses of Exp3 and
+Exp4 into bounds on the expected estimated regret. -/
+lemma integral_sum_le_add_mul_of_ae_le {Z V : ℕ → Ω → ℝ} {B c C : ℝ} (hc : 0 ≤ c)
+    (hZ : ∀ t ∈ range n, Integrable (Z t) P) (hV : ∀ t ∈ range n, Integrable (V t) P)
+    (hVC : ∑ t ∈ range n, P[V t] ≤ C)
+    (hZV : ∀ᵐ ω ∂P, ∑ t ∈ range n, Z t ω ≤ B + c * ∑ t ∈ range n, V t ω) :
+    P[fun ω ↦ ∑ t ∈ range n, Z t ω] ≤ B + c * C := by
+  calc P[fun ω ↦ ∑ t ∈ range n, Z t ω]
+  _ ≤ P[fun ω ↦ B + c * ∑ t ∈ range n, V t ω] := by
+      refine integral_mono_ae (integrable_finsetSum _ hZ)
+        ((integrable_const _).add ((integrable_finsetSum _ hV).const_mul _)) ?_
+      filter_upwards [hZV] with ω hω
+      exact hω
+  _ = B + c * ∑ t ∈ range n, P[V t] := by
+      rw [integral_add (integrable_const _) ((integrable_finsetSum _ hV).const_mul _),
+        integral_const_mul, integral_finsetSum _ hV, integral_const, probReal_univ, one_smul]
+  _ ≤ B + c * C := by gcongr
+
+end Expectation
 
 end LMLExplore.Bandits
