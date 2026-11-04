@@ -6,6 +6,7 @@ Authors: Rémy Degenne
 module
 
 public import LMLExplore.Algebra.BigOperators.Intervals
+public import LMLExplore.Analysis.SpecialFunctions.Log.Basic
 public import Mathlib.NumberTheory.Harmonic.Bounds
 
 /-!
@@ -26,12 +27,6 @@ public section
 open Finset
 
 namespace Real
-
-/-- The logarithm is monotone on natural numbers, including `0` where `log 0 = 0 = log 1`. -/
-theorem log_natCast_le_log_natCast {m n : ℕ} (h : m ≤ n) : log m ≤ log n := by
-  rcases Nat.eq_zero_or_pos m with rfl | hm
-  · simpa using log_natCast_nonneg n
-  · exact log_le_log (by positivity) (by exact_mod_cast h)
 
 /-- The partial sums of the harmonic series in `ℝ`: `∑_{j < n} (j + 1)⁻¹ ≤ 1 + log n`. -/
 theorem sum_range_inv_add_one_le (n : ℕ) :
