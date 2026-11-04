@@ -19,13 +19,14 @@ weighted squared distance, and the game has a closed form [DK19, Lemma 39].
 
 Write `K` for the number of arms, `d a = |μ a - c a|`, `s = ∑ a, d a` and
 `q = ∑ a, (μ a - c a)²`. Moving every coordinate of `μ` away from `c` by the same amount `r`
-reaches the sphere when `∑ a, (d a + r)² = ρ²`, that is `K r² + 2 s r + q - ρ² = 0`; the root
+reaches the sphere when `∑ a, (d a + r)² = ρ²`, that is `K r² + 2 s r + q - ρ² = 0`. When
+`s² + K (ρ² - q) ≥ 0` (in particular under the condition `d a + r ≥ 0` below), its root
 `r = (√(s² + K (ρ² - q)) - s) / K` is `sphereShift c ρ μ`. It is positive inside the sphere and
 negative outside of it. The point `λ*` so obtained costs `r² / (2 σ2)` for every allocation of the
 simplex, and so do points on the other side of the sphere arbitrarily close to it, which bounds
 `D(μ, w, ¬i) ≤ r² / (2 σ2)` for every allocation `w`. Conversely, provided that `d a + r ≥ 0` for
-every arm, the allocation `w* a = (d a + r) / ∑ b, (d b + r)` proportional to the coordinates of
-`λ* - c` satisfies the identity
+every arm, the allocation `w* a = (d a + r) / ∑ b, (d b + r)` proportional to the absolute values
+`d a + r` of the coordinates of `λ* - c` satisfies the identity
 `∑ a, (d a + r) (d a - x a)² = ∑ a, d a (d a + r - x a)² + r (∑ a, x a² - ρ²) + r² ∑ a, (d a + r)`
 for every vector `x`, which shows that every alternative costs at least `r² / (2 σ2)` at `w*`.
 Hence `D(μ, ¬i) = r² / (2 σ2)`, `w*` is an optimal allocation and `T*(μ) = 2 σ2 / r²`. The
@@ -150,16 +151,33 @@ lemma sphereShift_def (c : α → ℝ) (ρ : ℝ) (μ : α → ℝ) :
       (√((∑ a, |μ a - c a|) ^ 2 + Fintype.card α * (ρ ^ 2 - ∑ a, (μ a - c a) ^ 2)) -
         ∑ a, |μ a - c a|) / Fintype.card α := (rfl)
 
+/-- The expansion `∑ a, (|μ a - c a| + y)² = q + 2 y s + K y²`, with `K` the number of arms,
+`s = ∑ a, |μ a - c a|` and `q = ∑ a, (μ a - c a)²`. -/
+private lemma sum_sq_abs_add (y : ℝ) : ∑ a, (|μ a - c a| + y) ^ 2 =
+    ∑ a, (μ a - c a) ^ 2 + 2 * y * ∑ a, |μ a - c a| + Fintype.card α * y ^ 2 := by
+  simp only [add_sq, sq_abs, Finset.sum_add_distrib, Finset.sum_const, Finset.card_univ,
+    nsmul_eq_mul, ← Finset.sum_mul, ← Finset.mul_sum]
+  ring
+
 variable [Nonempty α]
+
+/-- `K r = √(s² + K (ρ² - q)) - s` for `r = sphereShift c ρ μ`, with `K` the number of arms,
+`s = ∑ a, |μ a - c a|` and `q = ∑ a, (μ a - c a)²`. -/
+private lemma card_mul_sphereShift (c : α → ℝ) (ρ : ℝ) (μ : α → ℝ) :
+    Fintype.card α * sphereShift c ρ μ =
+      √((∑ a, |μ a - c a|) ^ 2 + Fintype.card α * (ρ ^ 2 - ∑ a, (μ a - c a) ^ 2)) -
+        ∑ a, |μ a - c a| := by
+  have hK : (Fintype.card α : ℝ) ≠ 0 := Nat.cast_ne_zero.2 Fintype.card_ne_zero
+  rw [sphereShift_def]
+  field_simp
 
 /-- The sum of the coordinates `|μ a - c a| + r` of the point reached on the sphere is the square
 root `√(s² + K (ρ² - q))` in the definition of `r = sphereShift c ρ μ`. -/
 lemma sum_abs_add_sphereShift (c : α → ℝ) (ρ : ℝ) (μ : α → ℝ) :
     ∑ a, (|μ a - c a| + sphereShift c ρ μ) =
       √((∑ a, |μ a - c a|) ^ 2 + Fintype.card α * (ρ ^ 2 - ∑ a, (μ a - c a) ^ 2)) := by
-  have hK : (Fintype.card α : ℝ) ≠ 0 := Nat.cast_ne_zero.2 Fintype.card_ne_zero
-  rw [Finset.sum_add_distrib, Finset.sum_const, Finset.card_univ, nsmul_eq_mul, sphereShift_def]
-  field_simp
+  rw [Finset.sum_add_distrib, Finset.sum_const, Finset.card_univ, nsmul_eq_mul,
+    card_mul_sphereShift]
   ring
 
 /-- Under the condition `|μ a - c a| + r ≥ 0` on every arm, the expression under the square root
@@ -190,21 +208,12 @@ theorem sum_sq_abs_add_sphereShift (hρ : ρ ≠ 0)
   have hK : (Fintype.card α : ℝ) ≠ 0 := Nat.cast_ne_zero.2 Fintype.card_ne_zero
   have hR := (radicand_sphereShift_pos hρ h).le
   have hL := Real.sq_sqrt hR
-  have hr : Fintype.card α * sphereShift c ρ μ =
-      √((∑ a, |μ a - c a|) ^ 2 + Fintype.card α * (ρ ^ 2 - ∑ a, (μ a - c a) ^ 2)) -
-        ∑ a, |μ a - c a| := by
-    rw [sphereShift_def]
-    field_simp
-  have h_sum : ∑ a, (|μ a - c a| + sphereShift c ρ μ) ^ 2 = ∑ a, (μ a - c a) ^ 2 +
-      2 * sphereShift c ρ μ * ∑ a, |μ a - c a| + Fintype.card α * sphereShift c ρ μ ^ 2 := by
-    simp only [add_sq, sq_abs, Finset.sum_add_distrib, Finset.sum_const, Finset.card_univ,
-      nsmul_eq_mul, ← Finset.sum_mul, ← Finset.mul_sum]
-    ring
-  rw [h_sum]
+  rw [sum_sq_abs_add]
   refine mul_left_cancel₀ hK ?_
   linear_combination hL +
     (Fintype.card α * sphereShift c ρ μ + ∑ a, |μ a - c a| +
-      √((∑ a, |μ a - c a|) ^ 2 + Fintype.card α * (ρ ^ 2 - ∑ a, (μ a - c a) ^ 2))) * hr
+      √((∑ a, |μ a - c a|) ^ 2 + Fintype.card α * (ρ ^ 2 - ∑ a, (μ a - c a) ^ 2))) *
+        card_mul_sphereShift c ρ μ
 
 /-- The distance from the sphere: `ρ² - q = r (√(s² + K (ρ² - q)) + s)` for
 `r = sphereShift c ρ μ`, whenever the expression under the square root is nonnegative. -/
@@ -256,9 +265,44 @@ private lemma sgn_mul_sub (a : α) : sgn c μ a * (μ a - c a) = |μ a - c a| :=
     ring
 
 omit [Fintype α] [Nonempty α] [MeasurableSingletonClass α] in
-private lemma sgn_sq (a : α) : sgn c μ a ^ 2 = 1 := by
+private lemma sq_sgn_mul (a : α) (y : ℝ) : (sgn c μ a * y) ^ 2 = y ^ 2 := by
   unfold sgn
-  split_ifs <;> norm_num
+  split_ifs <;> ring
+
+omit [Fintype α] [Nonempty α] [MeasurableSingletonClass α] in
+/-- Moving the coordinate `μ a` away from `c a` by `y`. -/
+private lemma add_mul_sgn_sub (a : α) (y : ℝ) :
+    μ a + y * sgn c μ a - c a = sgn c μ a * (|μ a - c a| + y) := by
+  unfold sgn
+  split_ifs with h
+  · rw [abs_of_nonneg (sub_nonneg.2 h)]
+    ring
+  · rw [abs_of_neg (sub_neg.2 (not_le.1 h))]
+    ring
+
+omit [Nonempty α] [MeasurableSingletonClass α] in
+/-- The squared distance to `c` of the vector `μ + y sgn(μ - c)` obtained by moving every
+coordinate of `μ` away from `c` by `y`. -/
+private lemma sum_sq_add_mul_sgn_sub (y : ℝ) :
+    ∑ a, (μ a + y * sgn c μ a - c a) ^ 2 =
+      ∑ a, (μ a - c a) ^ 2 + 2 * y * ∑ a, |μ a - c a| + Fintype.card α * y ^ 2 := by
+  simp only [add_mul_sgn_sub, sq_sgn_mul, sum_sq_abs_add]
+
+omit [Nonempty α] in
+/-- The transportation cost of the vector `μ + y sgn(μ - c)` is `y² / (2 σ2)` for every
+allocation of the simplex. -/
+private lemma cost_add_mul_sgn_sphereTask_gaussianBandit (hσ2 : σ2 ≠ 0) {w : α → ℝ}
+    (hw : w ∈ simplex α) (y : ℝ) :
+    (sphereTask (Bandits.gaussianBandit · σ2) c ρ).cost w μ (fun a ↦ μ a + y * sgn c μ a) =
+      ENNReal.ofReal (y ^ 2 / (2 * σ2)) := by
+  rw [IdentTask.cost_gaussianBandit (ν_sphereTask _) hσ2 (mem_simplex_iff.1 hw).1]
+  congr 1
+  have hterm (a : α) : w a * (μ a - (μ a + y * sgn c μ a)) ^ 2 / (2 * σ2) =
+      w a * (y ^ 2 / (2 * σ2)) := by
+    rw [show μ a - (μ a + y * sgn c μ a) = sgn c μ a * -y by ring, sq_sgn_mul]
+    ring
+  rw [Finset.sum_congr rfl fun a _ ↦ hterm a, ← Finset.sum_mul, (mem_simplex_iff.1 hw).2,
+    one_mul]
 
 /-- **Approaching the sphere from the other side.** For a model `μ` off the sphere with
 `|μ a - c a| + r ≥ 0` on every arm, every allocation `w` of the simplex has
@@ -275,12 +319,7 @@ private lemma altCost_sphereTask_gaussianBandit_le (hσ2 : σ2 ≠ 0) (hρ : ρ 
   have hq := sub_eq_sphereShift_mul hRpos.le
   have hr0 := sphereShift_ne_zero hρ hμ h
   have h_sphere := sum_sq_abs_add_sphereShift hρ h
-  have hrK : Fintype.card α * sphereShift c ρ μ =
-      √((∑ a, |μ a - c a|) ^ 2 + Fintype.card α * (ρ ^ 2 - ∑ a, (μ a - c a) ^ 2)) -
-        ∑ a, |μ a - c a| := by
-    rw [← sum_abs_add_sphereShift c ρ μ, Finset.sum_add_distrib, Finset.sum_const,
-      Finset.card_univ, nsmul_eq_mul]
-    ring
+  have hrK := card_mul_sphereShift c ρ μ
   set r := sphereShift c ρ μ with hr_def
   set s := ∑ a, |μ a - c a| with hs_def
   set R := s ^ 2 + Fintype.card α * (ρ ^ 2 - ∑ a, (μ a - c a) ^ 2) with hR_def
@@ -290,28 +329,12 @@ private lemma altCost_sphereTask_gaussianBandit_le (hσ2 : σ2 ≠ 0) (hρ : ρ 
   set f : ℝ → α → ℝ := fun t a ↦ μ a + t * r * sgn c μ a with hf
   have hf_sq (t : ℝ) : ∑ a, (f t a - c a) ^ 2 - ρ ^ 2 =
       (t - 1) * r * (2 * √R + (t - 1) * (Fintype.card α * r)) := by
-    have hterm (a : α) : (f t a - c a) ^ 2 =
-        (|μ a - c a| + r) ^ 2 + (t - 1) * r * 2 * |μ a - c a| + (t - 1) * r * ((t + 1) * r) := by
-      rw [← sgn_mul_sub]
-      have := sgn_sq (c := c) (μ := μ) a
-      simp only [hf]
-      linear_combination (t ^ 2 * r ^ 2 - (μ a - c a) ^ 2) * this
-    rw [Finset.sum_congr rfl fun a _ ↦ hterm a, Finset.sum_add_distrib, Finset.sum_add_distrib,
-      ← Finset.mul_sum, Finset.sum_const, Finset.card_univ, nsmul_eq_mul, h_sphere, ← hs_def]
+    rw [hf, sum_sq_add_mul_sgn_sub, ← h_sphere, sum_sq_abs_add, ← hs_def]
     linear_combination 2 * (t - 1) * r * hrK
   have hf_cost (t : ℝ) : (sphereTask (Bandits.gaussianBandit · σ2) c ρ).cost w μ (f t) =
       ENNReal.ofReal (t ^ 2 * (r ^ 2 / (2 * σ2))) := by
-    rw [IdentTask.cost_gaussianBandit (ν_sphereTask _) hσ2 (mem_simplex_iff.1 hw).1]
-    congr 1
-    have hterm (a : α) : w a * (μ a - f t a) ^ 2 / (2 * σ2) =
-        w a * (t ^ 2 * (r ^ 2 / (2 * σ2))) := by
-      have := sgn_sq (c := c) (μ := μ) a
-      rw [show (μ a - f t a) ^ 2 = t ^ 2 * r ^ 2 by
-        simp only [hf]
-        linear_combination t ^ 2 * r ^ 2 * this]
-      ring
-    rw [Finset.sum_congr rfl fun a _ ↦ hterm a, ← Finset.sum_mul, (mem_simplex_iff.1 hw).2,
-      one_mul]
+    rw [hf, cost_add_mul_sgn_sphereTask_gaussianBandit hσ2 hw]
+    ring_nf
   -- For `t > 1` close to `1`, the moved vector is on the other side of the sphere.
   have h_alt : ∀ᶠ t in 𝓝[>] (1 : ℝ),
       f t ∈ (sphereTask (Bandits.gaussianBandit · σ2) c ρ).alt i := by
@@ -386,21 +409,17 @@ private lemma le_cost_sphereTask_gaussianBandit (hσ2 : σ2 ≠ 0) (hρ : ρ ≠
   -- The coordinates of `μ' - c` with the signs of those of `μ - c`.
   set x : α → ℝ := fun a ↦ sgn c μ a * (μ' a - c a) with hx
   have h_sq (a : α) : (μ a - μ' a) ^ 2 = (|μ a - c a| - x a) ^ 2 := by
-    have := sgn_sq (c := c) (μ := μ) a
-    rw [← sgn_mul_sub, hx]
-    linear_combination -(μ a - μ' a) ^ 2 * this
-  have hx_sq : ∑ a, x a ^ 2 = ∑ a, (μ' a - c a) ^ 2 := by
-    refine Finset.sum_congr rfl fun a _ ↦ ?_
-    have := sgn_sq (c := c) (μ := μ) a
-    rw [hx]
-    linear_combination (μ' a - c a) ^ 2 * this
+    rw [← sgn_mul_sub, hx, ← mul_sub, sq_sgn_mul]
+    ring
+  have hx_sq : ∑ a, x a ^ 2 = ∑ a, (μ' a - c a) ^ 2 :=
+    Finset.sum_congr rfl fun a _ ↦ sq_sgn_mul a _
   -- The identity `∑ a, (d a + r) (d a - x a)² = ∑ a, d a (d a + r - x a)² + r (∑ a, x a² - ρ²)
   -- + r² ∑ a, (d a + r)`, whose first two terms are nonnegative.
   have h_id : ∑ a, (|μ a - c a| + r) * (|μ a - c a| - x a) ^ 2 =
       ∑ a, |μ a - c a| * (|μ a - c a| + r - x a) ^ 2 +
         r * (∑ a, (μ' a - c a) ^ 2 - ρ ^ 2) + r ^ 2 * L := by
-    rw [← hx_sq, ← h_sphere, hL_def, Finset.mul_sum, ← Finset.sum_sub_distrib, Finset.mul_sum,
-      ← Finset.sum_add_distrib, ← Finset.sum_add_distrib]
+    rw [← hx_sq, ← h_sphere, hL_def]
+    simp only [Finset.mul_sum, ← Finset.sum_add_distrib, ← Finset.sum_sub_distrib]
     exact Finset.sum_congr rfl fun a _ ↦ by ring
   have h_nonneg : 0 ≤ ∑ a, |μ a - c a| * (|μ a - c a| + r - x a) ^ 2 :=
     Finset.sum_nonneg fun a _ ↦ mul_nonneg (abs_nonneg _) (sq_nonneg _)
