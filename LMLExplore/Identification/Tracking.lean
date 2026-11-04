@@ -17,10 +17,19 @@ A *tracking* sampling rule plays, at each round, the arm whose number of pulls l
 behind a target, so that the empirical proportions of pulls follow a sequence of target
 allocations. Track-and-Stop tracks the optimal allocations `w*(μ̂(t))` at the empirical means,
 either through their cumulated sums (C-tracking) or directly, with forced exploration of the arms
-that are pulled too rarely (D-tracking). This file contains the deterministic statements behind
+that are pulled too rarely (D-tracking). The pure exploration algorithms of [DKM19] track the
+cumulated sums of the allocations played by an online learner, through the ratios of the pull
+counts to these sums (cumulative tracking). This file contains the deterministic statements behind
 these rules: they hold for every sequence of actions `A k ω` (at a fixed `ω`) following the rule,
 with `N_a(n) = pullCount A a n ω` the number of pulls of `a` in the rounds `0, …, n - 1` and
-`K = Fintype.card α`.
+`K = Fintype.card α`. The cumulated targets of a target rule along a history, which C-tracking and
+cumulative tracking compare with the pull counts, are defined here as well.
+
+## Main definitions
+
+* `LMLExplore.Identification.cumulatedTargets v n h`: the cumulated targets `∑_{s ≤ n} v_a(s)` of
+  the target rule `v` after `n` rounds with history `h`, where `v(s)` is the target of the prefix
+  of length `s` of `h`.
 
 ## Main statements
 
@@ -70,11 +79,24 @@ with `N_a(n) = pullCount A a n ω` the number of pulls of `a` in the rounds `0, 
   difference between the proportions of pulls `N_a(n) / n` and the averages of the targets
   `n⁻¹ ∑_{s < n} w s a` tends to `0`; in particular the proportions converge to the limit of
   the targets whenever the targets converge.
+* `LMLExplore.Identification.pullCount_le_sum_add_one_of_cumulativeTracking`,
+  `LMLExplore.Identification.sum_sub_le_pullCount_of_cumulativeTracking`,
+  `LMLExplore.Identification.abs_pullCount_sub_sum_le_of_cumulativeTracking`: cumulative tracking
+  [DKM19, Lemma 7]. If `p k` is a probability vector for every `k` and the arm played at round
+  `k` minimizes `N_a(k) / ∑_{s ≤ k} p s a` (in cross-multiplied form), then
+  `∑_{s < n} p s a - (K - 1) ≤ N_a(n) ≤ ∑_{s < n} p s a + 1`, so that
+  `|N_a(n) - ∑_{s < n} p s a| ≤ K - 1`.
+* `LMLExplore.Identification.tendsto_pullCount_div_sub_inv_mul_sum_of_cumulativeTracking`,
+  `LMLExplore.Identification.tendsto_pullCount_div_of_cumulativeTracking`: under cumulative
+  tracking, the proportions of pulls get close to the averages of the proportions `p k`, and
+  converge to their limit whenever they converge.
 
 ## References
 
 * [GK16] A. Garivier and E. Kaufmann, *Optimal best arm identification with fixed confidence*,
   COLT 2016, Section 3.1 and Appendix B.
+* [DKM19] R. Degenne, W. M. Koolen and P. Ménard, *Non-asymptotic pure exploration by solving
+  games*, NeurIPS 2019, Lemma 7 (in the numbering of arXiv:1906.10431).
 -/
 
 public section
@@ -97,6 +119,13 @@ private lemma card_univ_erase_real (b : α) : ((univ.erase b).card : ℝ) = Fint
   rw [card_erase_of_mem (mem_univ b), card_univ, Nat.cast_pred Fintype.card_pos]
 
 /-! ### Tracking a cumulated sum of proportions -/
+
+/-- The pull counts and the cumulated proportions both sum to the number of rounds. -/
+private lemma sum_pullCount_sub_sum_eq_zero (p : ℕ → α → ℝ) (hp1 : ∀ k, ∑ a, p k a = 1)
+    (n : ℕ) : ∑ b, ((pullCount A b n ω : ℝ) - ∑ s ∈ range n, p s b) = 0 := by
+  simp only [sum_sub_distrib, ← Nat.cast_sum, sum_pullCount]
+  rw [sum_comm]
+  simp [hp1]
 
 /-- The sum of the positive parts of the deficits `∑_{s < n} p s a - N_a(n)` stays at most
 `K - 1` along the tracking rule of `abs_pullCount_sub_sum_le`. -/
@@ -150,10 +179,7 @@ theorem abs_pullCount_sub_sum_le (p : ℕ → α → ℝ) (hp0 : ∀ k a, 0 ≤ 
     |(pullCount A a n ω : ℝ) - ∑ s ∈ range n, p s a| ≤ Fintype.card α - 1 := by
   have hr := sum_max_sum_sub_pullCount_le p hp0 hp1 hA n
   set f := fun b ↦ (pullCount A b n ω : ℝ) - ∑ s ∈ range n, p s b with hf
-  have hsum : ∑ b, f b = 0 := by
-    simp only [hf, sum_sub_distrib, ← Nat.cast_sum, sum_pullCount]
-    rw [sum_comm]
-    simp [hp1]
+  have hsum : ∑ b, f b = 0 := sum_pullCount_sub_sum_eq_zero p hp1 n
   have hmax : ∀ b, -f b ≤ max (∑ s ∈ range n, p s b - pullCount A b n ω) 0 :=
     fun b ↦ by simp [hf]
   rw [abs_le]
@@ -751,5 +777,153 @@ theorem tendsto_pullCount_div_of_cTracking {w : ℕ → α → ℝ} {l : α → 
           pullCount A (A k ω) k ω) {a : α} (hw : Tendsto (fun k ↦ w k a) atTop (𝓝 (l a))) :
     Tendsto (fun n ↦ (pullCount A a n ω : ℝ) / n) atTop (𝓝 (l a)) := by
   simpa using (tendsto_pullCount_div_sub_inv_mul_sum_of_cTracking hw0 hw1 hA a).add hw.cesaro
+
+/-! ### Cumulative tracking -/
+
+/-- The step of cumulative tracking: if the arm `b` played at round `k` minimizes
+`N_a(k) / ∑_{s ≤ k} p s a` (in cross-multiplied form), then `N_b(k) ≤ ∑_{s ≤ k} p s b`. Summing
+the inequalities over `a` gives `(k + 1) N_b(k) ≤ k ∑_{s ≤ k} p s b`. -/
+private lemma pullCount_action_le_sum_of_cumulativeTracking (p : ℕ → α → ℝ)
+    (hp0 : ∀ k a, 0 ≤ p k a) (hp1 : ∀ k, ∑ a, p k a = 1) {k : ℕ}
+    (hA : ∀ a, (pullCount A (A k ω) k ω : ℝ) * ∑ s ∈ range (k + 1), p s a ≤
+      pullCount A a k ω * ∑ s ∈ range (k + 1), p s (A k ω)) :
+    (pullCount A (A k ω) k ω : ℝ) ≤ ∑ s ∈ range (k + 1), p s (A k ω) := by
+  have hsum := sum_le_sum fun a (_ : a ∈ univ) ↦ hA a
+  rw [← mul_sum, ← sum_mul, ← Nat.cast_sum, sum_pullCount, sum_comm] at hsum
+  simp only [hp1, sum_const, card_range, nsmul_eq_mul, mul_one] at hsum
+  have hS : 0 ≤ ∑ s ∈ range (k + 1), p s (A k ω) := sum_nonneg fun s _ ↦ hp0 s _
+  push_cast at hsum
+  nlinarith
+
+/-- **Cumulative tracking, upper bound** [DKM19, Lemma 7]. Let `p k` be a probability vector for
+every round `k`. If the arm played at round `k` minimizes `N_a(k) / ∑_{s ≤ k} p s a`, in the
+cross-multiplied form `N_{A_k}(k) ∑_{s ≤ k} p s a ≤ N_a(k) ∑_{s ≤ k} p s A_k`, then after every
+number `n` of rounds, `N_a(n) ≤ ∑_{s < n} p s a + 1` for every arm `a`. In [DKM19], the first `K`
+proportions are the vertices of the simplex, so that the first `K` rounds pull every arm once and
+the ratios are defined from round `K` on; the cross-multiplied form needs no such
+initialization. -/
+theorem pullCount_le_sum_add_one_of_cumulativeTracking (p : ℕ → α → ℝ) (hp0 : ∀ k a, 0 ≤ p k a)
+    (hp1 : ∀ k, ∑ a, p k a = 1)
+    (hA : ∀ k a, (pullCount A (A k ω) k ω : ℝ) * ∑ s ∈ range (k + 1), p s a ≤
+      pullCount A a k ω * ∑ s ∈ range (k + 1), p s (A k ω)) (n : ℕ) (a : α) :
+    (pullCount A a n ω : ℝ) ≤ ∑ s ∈ range n, p s a + 1 := by
+  induction n generalizing a with
+  | zero => simp
+  | succ k ih =>
+    by_cases ha : A k ω = a
+    · subst ha
+      rw [cast_pullCount_action_add_one]
+      linarith [pullCount_action_le_sum_of_cumulativeTracking p hp0 hp1 (hA k)]
+    · rw [pullCount_eq_pullCount_of_action_ne ha, sum_range_succ]
+      linarith [ih a, hp0 k a]
+
+/-- **Cumulative tracking, lower bound** [DKM19, Lemma 7]. Under the assumptions of
+`pullCount_le_sum_add_one_of_cumulativeTracking`, after every number `n` of rounds,
+`∑_{s < n} p s a - (K - 1) ≤ N_a(n)` for every arm `a`. -/
+theorem sum_sub_le_pullCount_of_cumulativeTracking (p : ℕ → α → ℝ) (hp0 : ∀ k a, 0 ≤ p k a)
+    (hp1 : ∀ k, ∑ a, p k a = 1)
+    (hA : ∀ k a, (pullCount A (A k ω) k ω : ℝ) * ∑ s ∈ range (k + 1), p s a ≤
+      pullCount A a k ω * ∑ s ∈ range (k + 1), p s (A k ω)) (n : ℕ) (a : α) :
+    ∑ s ∈ range n, p s a - (Fintype.card α - 1) ≤ pullCount A a n ω := by
+  -- The excesses of pulls sum to zero, and the excess of every other arm is at most `1`.
+  have hsum := sum_pullCount_sub_sum_eq_zero (A := A) (ω := ω) p hp1 n
+  rw [← add_sum_erase _ _ (mem_univ a)] at hsum
+  have hle : ∑ b ∈ univ.erase a, ((pullCount A b n ω : ℝ) - ∑ s ∈ range n, p s b) ≤
+      Fintype.card α - 1 := by
+    rw [← card_univ_erase_real a, card_eq_sum_ones, Nat.cast_sum, Nat.cast_one]
+    exact sum_le_sum fun b _ ↦ by
+      linarith [pullCount_le_sum_add_one_of_cumulativeTracking p hp0 hp1 hA n b]
+  linarith
+
+/-- **Cumulative tracking** [DKM19, Lemma 7]. Under the assumptions of
+`pullCount_le_sum_add_one_of_cumulativeTracking`, after every number `n` of rounds,
+`|N_a(n) - ∑_{s < n} p s a| ≤ K - 1` for every arm `a`. -/
+theorem abs_pullCount_sub_sum_le_of_cumulativeTracking (p : ℕ → α → ℝ) (hp0 : ∀ k a, 0 ≤ p k a)
+    (hp1 : ∀ k, ∑ a, p k a = 1)
+    (hA : ∀ k a, (pullCount A (A k ω) k ω : ℝ) * ∑ s ∈ range (k + 1), p s a ≤
+      pullCount A a k ω * ∑ s ∈ range (k + 1), p s (A k ω)) (n : ℕ) (a : α) :
+    |(pullCount A a n ω : ℝ) - ∑ s ∈ range n, p s a| ≤ Fintype.card α - 1 := by
+  have hlow := sum_sub_le_pullCount_of_cumulativeTracking p hp0 hp1 hA n a
+  have hup := pullCount_le_sum_add_one_of_cumulativeTracking p hp0 hp1 hA n a
+  rw [abs_le]
+  refine ⟨by linarith, ?_⟩
+  rcases Nat.lt_or_ge 1 (Fintype.card α) with hK | hK
+  · have : (2 : ℝ) ≤ Fintype.card α := by exact_mod_cast Nat.succ_le_of_lt hK
+    linarith
+  · -- With a single arm, it is played at every round.
+    have hK1 : Fintype.card α = 1 := le_antisymm hK (Fintype.card_pos_iff.2 ⟨a⟩)
+    have he : univ.erase a = ∅ := by
+      rw [← card_eq_zero, card_erase_of_mem (mem_univ a), card_univ, hK1]
+    have hsum := sum_pullCount_sub_sum_eq_zero (A := A) (ω := ω) p hp1 n
+    rw [← add_sum_erase _ _ (mem_univ a), he, sum_empty, add_zero] at hsum
+    rw [hK1, hsum]
+    simp
+
+/-- **Proportions of pulls of cumulative tracking.** Under the assumptions of
+`pullCount_le_sum_add_one_of_cumulativeTracking`, the difference between the proportion of pulls
+`N_a(n) / n` and the average `n⁻¹ ∑_{s < n} p s a` of the proportions tends to `0`. -/
+theorem tendsto_pullCount_div_sub_inv_mul_sum_of_cumulativeTracking (p : ℕ → α → ℝ)
+    (hp0 : ∀ k a, 0 ≤ p k a) (hp1 : ∀ k, ∑ a, p k a = 1)
+    (hA : ∀ k a, (pullCount A (A k ω) k ω : ℝ) * ∑ s ∈ range (k + 1), p s a ≤
+      pullCount A a k ω * ∑ s ∈ range (k + 1), p s (A k ω)) (a : α) :
+    Tendsto (fun n : ℕ ↦ (pullCount A a n ω : ℝ) / n - (n : ℝ)⁻¹ * ∑ s ∈ range n, p s a) atTop
+      (𝓝 0) :=
+  tendsto_pullCount_div_sub_inv_mul_sum_of_abs_le
+    (abs_pullCount_sub_sum_le_of_cumulativeTracking p hp0 hp1 hA · a)
+    (tendsto_const_div_atTop_nhds_zero_nat _)
+
+/-- **Convergence of the proportions of pulls of cumulative tracking.** Under the assumptions of
+`pullCount_le_sum_add_one_of_cumulativeTracking`, if the proportions `p k a` converge to `l a`,
+then the proportions of pulls `N_a(n) / n` converge to `l a`. -/
+theorem tendsto_pullCount_div_of_cumulativeTracking (p : ℕ → α → ℝ) {l : α → ℝ}
+    (hp0 : ∀ k a, 0 ≤ p k a) (hp1 : ∀ k, ∑ a, p k a = 1)
+    (hA : ∀ k a, (pullCount A (A k ω) k ω : ℝ) * ∑ s ∈ range (k + 1), p s a ≤
+      pullCount A a k ω * ∑ s ∈ range (k + 1), p s (A k ω)) {a : α}
+    (hp : Tendsto (fun k ↦ p k a) atTop (𝓝 (l a))) :
+    Tendsto (fun n ↦ (pullCount A a n ω : ℝ) / n) atTop (𝓝 (l a)) :=
+  tendsto_pullCount_div_of_abs_sub_sum_le
+    (abs_pullCount_sub_sum_le_of_cumulativeTracking p hp0 hp1 hA · a)
+    (tendsto_const_div_atTop_nhds_zero_nat _) hp
+
+/-! ### Cumulated targets along a history -/
+
+section CumulatedTargets
+
+omit [Fintype α] [DecidableEq α]
+
+variable {𝓞 𝓨 : Type*} {v : (n : ℕ) → Hist 𝓞 α 𝓨 n → α → ℝ}
+
+/-- The cumulated targets `∑_{s ≤ n} v_a(s)` of the target rule `v` after `n` rounds with history
+`h`, where `v(s)` is the target `v s` of the prefix of length `s` of `h` (for `s = n`, of `h`
+itself). C-tracking and cumulative tracking compare these sums with the pull counts. -/
+noncomputable def cumulatedTargets (v : (n : ℕ) → Hist 𝓞 α 𝓨 n → α → ℝ) (n : ℕ)
+    (h : Hist 𝓞 α 𝓨 n) (a : α) : ℝ :=
+  ∑ s : Fin (n + 1), v s (fun i ↦ h (Fin.castLE (Nat.lt_succ_iff.1 s.isLt) i)) a
+
+/-- The cumulated targets, unfolded. -/
+lemma cumulatedTargets_def (v : (n : ℕ) → Hist 𝓞 α 𝓨 n → α → ℝ) (n : ℕ) (h : Hist 𝓞 α 𝓨 n)
+    (a : α) :
+    cumulatedTargets v n h a =
+      ∑ s : Fin (n + 1), v s (fun i ↦ h (Fin.castLE (Nat.lt_succ_iff.1 s.isLt) i)) a :=
+  (rfl)
+
+/-- Along a sequence of rounds, the cumulated targets at the history of the first `k` rounds are
+`∑_{s ≤ k} v_a(s)`, with `v(s)` the target of the history of the first `s` rounds. -/
+lemma cumulatedTargets_history (O : ℕ → Ω → 𝓞) (A : ℕ → Ω → α) (Y : ℕ → Ω → 𝓨) (k : ℕ) (ω : Ω)
+    (a : α) :
+    cumulatedTargets v k (history O A Y k ω) a =
+      ∑ s ∈ range (k + 1), v s (history O A Y s ω) a := by
+  rw [cumulatedTargets_def, ← Fin.sum_univ_eq_sum_range (fun s ↦ v s (history O A Y s ω) a)]
+  refine Finset.sum_congr rfl fun s _ ↦ ?_
+  rw [history_eq_comp_history (Nat.lt_succ_iff.1 s.isLt), Function.comp_apply]
+
+/-- The cumulated targets are a measurable function of the history if the target rule is. -/
+@[fun_prop]
+lemma measurable_cumulatedTargets [MeasurableSpace 𝓞] [MeasurableSpace α] [MeasurableSpace 𝓨]
+    {n : ℕ} (hv : ∀ n, Measurable (v n)) : Measurable (cumulatedTargets v n) :=
+  Measurable.of_eval fun a ↦ Finset.measurable_sum _ fun s _ ↦ (measurable_pi_apply a).comp
+    ((hv s).comp (Measurable.of_eval fun _ ↦ measurable_pi_apply _))
+
+end CumulatedTargets
 
 end LMLExplore.Identification
