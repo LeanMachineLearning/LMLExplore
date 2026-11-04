@@ -38,7 +38,9 @@ for positive `V` by `ContinuousLinearMap.IsPositive.ringInverse`.
   `LMLExplore.det_designOp_eq_mul_prod`: `det V_t = λ ^ d * ∏_{s < t} (1 + ‖x s‖²_{V_s⁻¹})`.
 * `LMLExplore.trace_designOp`: `trace V_t(λ) = λ d + ∑_{s < t} ‖x s‖²`, and
   `LMLExplore.det_designOp_div_pow_le`: if `‖x s‖ ≤ L` for `s < t`, then
-  `det V_t(λ) / λ ^ d ≤ (1 + t L² / (λ d)) ^ d` [LS, (20.9)].
+  `det V_t(λ) / λ ^ d ≤ (1 + t L² / (λ d)) ^ d` [LS, (20.9)], and
+  `LMLExplore.log_det_designOp_div_pow_le` its logarithmic form
+  `log (det V_t(λ) / λ ^ d) ≤ d log (1 + t L² / (λ d))`.
 
 The design operator, its determinant recursion `det_designOp_succ` and the bound
 `det_designOp_div_pow_le` follow the matrix versions `regGram`, `det_regGram_succ` and
@@ -214,5 +216,15 @@ theorem det_designOp_div_pow_le [FiniteDimensional ℝ E] (hlam : 0 < lam) (x : 
     · field_simp
   rw [h]
   gcongr
+
+/-- [LS, (20.9)] in logarithmic form: for `λ > 0`, if `‖x s‖ ≤ L` for all `s < t`, then
+`log (det V_t(λ) / λ ^ d) ≤ d log (1 + t L² / (λ d))`. -/
+theorem log_det_designOp_div_pow_le [FiniteDimensional ℝ E] (hlam : 0 < lam) (x : ℕ → E) {t : ℕ}
+    {L : ℝ} (hx : ∀ s < t, ‖x s‖ ≤ L) :
+    Real.log (LinearMap.det (designOp lam x t : E →ₗ[ℝ] E) / lam ^ finrank ℝ E) ≤
+      finrank ℝ E * Real.log (1 + t * L ^ 2 / (lam * finrank ℝ E)) := by
+  rw [← Real.log_pow]
+  exact Real.log_le_log (div_pos (det_designOp_pos hlam _ t) (pow_pos hlam _))
+    (det_designOp_div_pow_le hlam x hx)
 
 end LMLExplore

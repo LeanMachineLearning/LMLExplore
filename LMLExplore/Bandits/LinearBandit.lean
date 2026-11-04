@@ -40,6 +40,8 @@ features.
 
 * `LMLExplore.Bandits.IsSubgaussianLinearEnv φ θ σ2 env`: `env` is a linear bandit environment
   with features `φ`, parameter `θ` and σ²-sub-Gaussian noise.
+* `LMLExplore.Bandits.histFeature φ h`, `LMLExplore.Bandits.histReward h`: the features and the
+  rewards of the rounds of a history, as sequences.
 * `LMLExplore.Bandits.linearRegret φ θ O A n`: the random regret `R̂_n` of the actions `A` in
   the contexts `O`.
 * `LMLExplore.Bandits.gaussianLinearKernel φ θ σ2 hφ`: the kernel `(o, a) ↦ 𝒩(⟪θ, φ o a⟫, σ2)`.
@@ -55,8 +57,11 @@ features.
   ellipsoids of ridge regression along a run [LS, Theorem 20.5], and
   `Learning.IsAlgEnvSeq.le_measureReal_forall_sqrt_inner_ridgeEstimate_sub_lt_of_norm_le` their
   form for bounded features [LS, Theorem 20.5 and (20.9)];
-  `Learning.IsAlgEnvSeq.measure_exists_sqrt_inner_ridgeEstimate_sub_ge_le` the bound on the
-  probability that they fail.
+  `Learning.IsAlgEnvSeq.measure_exists_sqrt_inner_ridgeEstimate_sub_ge_le_of_norm_le` the bound
+  on the probability that the latter fail.
+* `bddAbove_range_inner_of_gap`, `iSup_inner_sub_inner_le_of_gap`: if the gaps between the
+  expected rewards of the actions and that of an action `b` are at most `G`, then the expected
+  rewards are bounded above and `sup_a ⟪θ, f a⟫ - ⟪θ, f b⟫ ≤ G`.
 * `linearRegret_nonneg`, `linearRegret_le_mul`: the random regret is nonnegative, and at most
   `n G` after `n` rounds when the gaps between the expected rewards of the actions are at most `G`.
 * `isSubgaussianLinearEnv_gaussianLinearEnv`: the Gaussian linear environment is linear with
@@ -109,6 +114,43 @@ lemma IsSubgaussianLinearEnv.hasSubgaussianMGF (henv : IsSubgaussianLinearEnv φ
 
 end Environment
 
+section History
+
+omit [InnerProductSpace ℝ E] in
+/-- The features `φ o a` of the rounds `s < n` of a history `h` of length `n`, as a sequence
+extended by `0` from round `n` on. -/
+noncomputable def histFeature (φ : 𝓞 → 𝓐 → E) {n : ℕ} (h : Hist 𝓞 𝓐 ℝ n) (s : ℕ) : E :=
+  if hs : s < n then φ (h ⟨s, hs⟩).obs (h ⟨s, hs⟩).action else 0
+
+omit [InnerProductSpace ℝ E] in
+lemma histFeature_def {n : ℕ} (h : Hist 𝓞 𝓐 ℝ n) (s : ℕ) :
+    histFeature φ h s = if hs : s < n then φ (h ⟨s, hs⟩).obs (h ⟨s, hs⟩).action else 0 :=
+  (rfl)
+
+/-- The rewards of the rounds `s < n` of a history `h` of length `n`, as a sequence extended by
+`0` from round `n` on. -/
+noncomputable def histReward {n : ℕ} (h : Hist 𝓞 𝓐 ℝ n) (s : ℕ) : ℝ :=
+  if hs : s < n then (h ⟨s, hs⟩).feedback else 0
+
+lemma histReward_def {n : ℕ} (h : Hist 𝓞 𝓐 ℝ n) (s : ℕ) :
+    histReward h s = if hs : s < n then (h ⟨s, hs⟩).feedback else 0 :=
+  (rfl)
+
+omit [InnerProductSpace ℝ E] in
+@[simp]
+lemma histFeature_history {O : ℕ → Ω → 𝓞} {A : ℕ → Ω → 𝓐} {Y : ℕ → Ω → ℝ} {n s : ℕ}
+    (hs : s < n) (ω : Ω) :
+    histFeature φ (history O A Y n ω) s = φ (O s ω) (A s ω) := by
+  simp [histFeature_def, hs, history_apply]
+
+@[simp]
+lemma histReward_history {O : ℕ → Ω → 𝓞} {A : ℕ → Ω → 𝓐} {Y : ℕ → Ω → ℝ} {n s : ℕ}
+    (hs : s < n) (ω : Ω) :
+    histReward (history O A Y n ω) s = Y s ω := by
+  simp [histReward_def, hs, history_apply]
+
+end History
+
 section Run
 
 variable [MeasurableSpace 𝓞] [MeasurableSpace 𝓐] {env : Environment 𝓞 𝓐 ℝ} {P : Measure Ω}
@@ -145,28 +187,6 @@ private lemma measurable_features_noise [MeasurableSpace E] [BorelSpace E]
 
 variable [StandardBorelSpace Ω] [IsProbabilityMeasure P] [MeasurableSpace E] [BorelSpace E]
   [FiniteDimensional ℝ E] {lam δ : ℝ}
-
-/-- **Confidence ellipsoids along a run** [LS, Theorem 20.5], failure-probability form. Along a
-run of any algorithm in a linear bandit environment with σ²-sub-Gaussian noise, `σ² ≠ 0`, let
-`V_t = designOp λ x t` and `θ̂_t = ridgeEstimate λ x Y t` be the design operator and the ridge
-estimate of the features `x s = φ (O s) (A s)` and the rewards `Y s` of the rounds `s < t`. For
-`λ > 0` and `δ > 0`, the probability that for some `t`,
-`√λ ‖θ‖ + √(2σ² log (1 / δ) + σ² log (det V_t / λ ^ d)) ≤ ‖θ̂_t - θ‖_{V_t}` is at most `δ`. -/
-theorem _root_.Learning.IsAlgEnvSeq.measure_exists_sqrt_inner_ridgeEstimate_sub_ge_le
-    (h : IsAlgEnvSeq O A Y alg env P) (henv : IsSubgaussianLinearEnv φ θ σ2 env)
-    (hφ : Measurable (Function.uncurry φ)) (hσ : σ2 ≠ 0) (hlam : 0 < lam) (hδ : 0 < δ) :
-    P {ω | ∃ t, √lam * ‖θ‖ + √(2 * σ2 * log (1 / δ) +
-        σ2 * log (LinearMap.det (designOp lam (fun s ↦ φ (O s ω) (A s ω)) t : E →ₗ[ℝ] E) /
-          lam ^ finrank ℝ E)) ≤
-      √⟪ridgeEstimate lam (fun s ↦ φ (O s ω) (A s ω)) (fun s ↦ Y s ω) t - θ,
-        designOp lam (fun s ↦ φ (O s ω) (A s ω)) t
-          (ridgeEstimate lam (fun s ↦ φ (O s ω) (A s ω)) (fun s ↦ Y s ω) t - θ)⟫_ℝ} ≤
-      ENNReal.ofReal δ :=
-  LMLExplore.measure_exists_sqrt_inner_ridgeEstimate_sub_ge_le
-    (fun t ↦ (measurable_features_noise θ h hφ t).1)
-    (fun t ↦ (measurable_features_noise θ h hφ t).2)
-    (h.hasCondSubgaussianMGF_feedback_sub_inner henv (by fun_prop)) hσ θ
-    (fun _ _ ↦ (add_sub_cancel _ _).symm) hlam hδ
 
 /-- **Confidence ellipsoids along a run** [LS, Theorem 20.5]. Along a run of any algorithm in a
 linear bandit environment with σ²-sub-Gaussian noise, `σ² ≠ 0`, let `V_t = designOp λ x t` and
@@ -212,6 +232,27 @@ theorem _root_.Learning.IsAlgEnvSeq.le_measureReal_forall_sqrt_inner_ridgeEstima
     (h.hasCondSubgaussianMGF_feedback_sub_inner henv (by fun_prop)) hσ θ
     (fun _ _ ↦ (add_sub_cancel _ _).symm) (fun _ _ ↦ hL _ _) hlam hδ
 
+/-- **Confidence ellipsoids along a run, for bounded features** [LS, Theorem 20.5 and (20.9)],
+failure-probability form: under the assumptions of
+`Learning.IsAlgEnvSeq.le_measureReal_forall_sqrt_inner_ridgeEstimate_sub_lt_of_norm_le`, the
+probability that for some `t`,
+`√λ ‖θ‖ + √(2σ² log (1 / δ) + σ² d log (1 + t L² / (λ d))) ≤ ‖θ̂_t - θ‖_{V_t}` is at most `δ`. -/
+theorem _root_.Learning.IsAlgEnvSeq.measure_exists_sqrt_inner_ridgeEstimate_sub_ge_le_of_norm_le
+    (h : IsAlgEnvSeq O A Y alg env P) (henv : IsSubgaussianLinearEnv φ θ σ2 env)
+    (hφ : Measurable (Function.uncurry φ)) (hσ : σ2 ≠ 0) {L : ℝ} (hL : ∀ o a, ‖φ o a‖ ≤ L)
+    (hlam : 0 < lam) (hδ : 0 < δ) :
+    P {ω | ∃ t : ℕ, √lam * ‖θ‖ + √(2 * σ2 * log (1 / δ) +
+        σ2 * finrank ℝ E * log (1 + t * L ^ 2 / (lam * finrank ℝ E))) ≤
+      √⟪ridgeEstimate lam (fun s ↦ φ (O s ω) (A s ω)) (fun s ↦ Y s ω) t - θ,
+        designOp lam (fun s ↦ φ (O s ω) (A s ω)) t
+          (ridgeEstimate lam (fun s ↦ φ (O s ω) (A s ω)) (fun s ↦ Y s ω) t - θ)⟫_ℝ} ≤
+      ENNReal.ofReal δ :=
+  LMLExplore.measure_exists_sqrt_inner_ridgeEstimate_sub_ge_le_of_norm_le
+    (fun t ↦ (measurable_features_noise θ h hφ t).1)
+    (fun t ↦ (measurable_features_noise θ h hφ t).2)
+    (h.hasCondSubgaussianMGF_feedback_sub_inner henv (by fun_prop)) hσ θ
+    (fun _ _ ↦ (add_sub_cancel _ _).symm) (fun _ _ ↦ hL _ _) hlam hδ
+
 end Run
 
 section Regret
@@ -247,15 +288,27 @@ lemma linearRegret_nonneg (hbdd : ∀ o, BddAbove (Set.range fun a ↦ ⟪θ, φ
     0 ≤ linearRegret φ θ O A n ω :=
   sum_nonneg fun t _ ↦ sub_nonneg.2 (le_ciSup (hbdd (O t ω)) (A t ω))
 
+/-- If the gaps `⟪θ, f a⟫ - ⟪θ, f b⟫` between the expected rewards of the actions and that of an
+action `b` are at most `G`, then the expected rewards are bounded above. -/
+lemma bddAbove_range_inner_of_gap {f : 𝓐 → E} {b : 𝓐} {G : ℝ}
+    (hgap : ∀ a, ⟪θ, f a⟫_ℝ - ⟪θ, f b⟫_ℝ ≤ G) :
+    BddAbove (Set.range fun a ↦ ⟪θ, f a⟫_ℝ) :=
+  ⟨G + ⟪θ, f b⟫_ℝ, by rintro _ ⟨a, rfl⟩; linarith [hgap a]⟩
+
+/-- If the gaps `⟪θ, f a⟫ - ⟪θ, f b⟫` between the expected rewards of the actions and that of an
+action `b` are at most `G`, then so is the gap `sup_a ⟪θ, f a⟫ - ⟪θ, f b⟫`. -/
+lemma iSup_inner_sub_inner_le_of_gap {f : 𝓐 → E} {b : 𝓐} {G : ℝ}
+    (hgap : ∀ a, ⟪θ, f a⟫_ℝ - ⟪θ, f b⟫_ℝ ≤ G) :
+    (⨆ a, ⟪θ, f a⟫_ℝ) - ⟪θ, f b⟫_ℝ ≤ G :=
+  have : Nonempty 𝓐 := ⟨b⟩
+  sub_le_iff_le_add.2 (ciSup_le fun a ↦ sub_le_iff_le_add.1 (hgap a))
+
 /-- If the gaps between the expected rewards of two actions are at most `G` at every context, then
 the random regret after `n` rounds is at most `n G`. -/
 lemma linearRegret_le_mul {G : ℝ} (hgap : ∀ o a b, ⟪θ, φ o a⟫_ℝ - ⟪θ, φ o b⟫_ℝ ≤ G) :
     linearRegret φ θ O A n ω ≤ n * G := by
-  have h : ∀ t ∈ range n, (⨆ a, ⟪θ, φ (O t ω) a⟫_ℝ) - ⟪θ, φ (O t ω) (A t ω)⟫_ℝ ≤ G := by
-    intro t _
-    have : Nonempty 𝓐 := ⟨A t ω⟩
-    exact sub_le_iff_le_add.2 (ciSup_le fun a ↦ sub_le_iff_le_add.1 (hgap _ a _))
-  simpa [linearRegret_def] using sum_le_sum h
+  simpa [linearRegret_def] using
+    sum_le_sum fun t (_ : t ∈ range n) ↦ iSup_inner_sub_inner_le_of_gap (hgap (O t ω) · (A t ω))
 
 end Regret
 

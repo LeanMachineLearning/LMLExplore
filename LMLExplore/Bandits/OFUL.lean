@@ -31,9 +31,10 @@ is a parameter of the algorithm, since an infinite action set has no canonical m
 of maximizers.
 
 The regret analysis [LS, Theorem 19.2] is pathwise. If `θ` lies in the confidence ellipsoids of
-the rounds `t < n` with radii `r t ≤ R`, where `1 ≤ 2 R`, and the gaps between the expected rewards
-of the actions are at most `1`, then the instantaneous regret of an optimistic action is at most
-`min 1 (2 R ‖x t‖_{V_t⁻¹})` and the elliptical potential lemma gives
+the rounds `t < n` with radii `r t ≤ R`, and the gaps between the expected rewards of the actions
+are at most `G ≤ 2 R` (for example `G = 2` and `R ≥ 1` under [LS, Assumption 19.1]), then the
+instantaneous regret of an optimistic action is at most `min G (2 R ‖x t‖_{V_t⁻¹})` and the
+elliptical potential lemma gives
 `R̂_n ≤ √(8 n R² log (det V_n / det V_0)) ≤ √(8 n R² d log (1 + n L² / (λ d)))` for features
 bounded by `L`. Along the runs of OFUL in a linear bandit environment with σ²-sub-Gaussian noise,
 the confidence ellipsoids of ridge regression [LS, Theorem 20.5] contain `θ` with probability at
@@ -43,8 +44,6 @@ least `1 - δ` for the radii [LS, (19.8)]
 ## Main definitions
 
 * `LMLExplore.Bandits.ofulIndex lam x y r t v`: the optimistic index `⟪θ̂_t, v⟫ + r ‖v‖_{V_t⁻¹}`.
-* `LMLExplore.Bandits.histFeature φ h`, `LMLExplore.Bandits.histReward h`: the features and the
-  rewards of the rounds of a history, as sequences.
 * `LMLExplore.Bandits.OptimisticSelection φ lam r`: a measurable choice of an action of maximal
   optimistic index at every round.
 * `LMLExplore.Bandits.oful S`: the OFUL algorithm.
@@ -62,8 +61,8 @@ least `1 - δ` for the radii [LS, (19.8)]
 * `OFUL.le_measureReal_linearRegret_le`: [LS, Theorem 19.2], with probability at least `1 - δ`
   the random regret of OFUL is at most `√(8 n R² d log (1 + n L² / (λ d)))`.
 * `OFUL.integral_linearRegret_le`, `OFUL.integral_linearRegret_le_one_add`: the expected regret
-  of OFUL is at most `n δ + √(8 n R² d log (1 + n L² / (λ d)))`, and at most
-  `1 + √(8 n R² d log (1 + n L² / (λ d)))` for `δ = 1 / n` [LS, Corollary 19.3, with explicit
+  of OFUL is at most `n G δ + √(8 n R² d log (1 + n L² / (λ d)))`, and at most
+  `G + √(8 n R² d log (1 + n L² / (λ d)))` for `δ = 1 / n` [LS, Corollary 19.3, with explicit
   constants].
 
 ## References
@@ -148,53 +147,49 @@ end Index
 
 section Pathwise
 
-variable [FiniteDimensional ℝ E] {f : ℕ → 𝓐 → E} {b : ℕ → 𝓐} {y : ℕ → ℝ} {r : ℕ → ℝ} {R : ℝ}
-  {n : ℕ}
+variable [FiniteDimensional ℝ E] {f : ℕ → 𝓐 → E} {b : ℕ → 𝓐} {y : ℕ → ℝ} {r : ℕ → ℝ}
+  {G R : ℝ} {n : ℕ}
 
 /-- The square of the instantaneous regret of an optimistic action is at most
-`4 R² min 1 ‖x‖²_{V⁻¹}`, for the features `x` of that action, when the gaps are at most `1`, the
-radius is at most `R` and `1 ≤ 2 R`. -/
-private lemma sq_iSup_inner_sub_inner_le (hlam : 0 < lam) (hR : 1 ≤ 2 * R) {t : ℕ}
-    (hrR : r t ≤ R) (hgap : ∀ a, ⟪θ, f t a⟫_ℝ - ⟪θ, f t (b t)⟫_ℝ ≤ 1)
+`4 R² min 1 ‖x‖²_{V⁻¹}`, for the features `x` of that action, when the gaps are at most `G`, the
+radius is at most `R` and `G ≤ 2 R`. -/
+private lemma sq_iSup_inner_sub_inner_le (hlam : 0 < lam) (hG : G ≤ 2 * R) {t : ℕ}
+    (hrR : r t ≤ R) (hgap : ∀ a, ⟪θ, f t a⟫_ℝ - ⟪θ, f t (b t)⟫_ℝ ≤ G)
     (hθ : √⟪ridgeEstimate lam (fun s ↦ f s (b s)) y t - θ, designOp lam (fun s ↦ f s (b s)) t
       (ridgeEstimate lam (fun s ↦ f s (b s)) y t - θ)⟫_ℝ ≤ r t)
     (hopt : ∀ a, ofulIndex lam (fun s ↦ f s (b s)) y (r t) t (f t a) ≤
       ofulIndex lam (fun s ↦ f s (b s)) y (r t) t (f t (b t))) :
-    0 ≤ (⨆ a, ⟪θ, f t a⟫_ℝ) - ⟪θ, f t (b t)⟫_ℝ ∧
-      ((⨆ a, ⟪θ, f t a⟫_ℝ) - ⟪θ, f t (b t)⟫_ℝ) ^ 2 ≤ 4 * R ^ 2 *
+    ((⨆ a, ⟪θ, f t a⟫_ℝ) - ⟪θ, f t (b t)⟫_ℝ) ^ 2 ≤ 4 * R ^ 2 *
         min 1 ⟪f t (b t), Ring.inverse (designOp lam (fun s ↦ f s (b s)) t) (f t (b t))⟫_ℝ := by
   have := FiniteDimensional.complete ℝ E
   have : Nonempty 𝓐 := ⟨b t⟩
   set u := ⟪f t (b t), Ring.inverse (designOp lam (fun s ↦ f s (b s)) t) (f t (b t))⟫_ℝ
   have hu : 0 ≤ u := (isPositive_designOp hlam.le _ t).ringInverse.inner_nonneg_right _
-  have hbdd : BddAbove (Set.range fun a ↦ ⟪θ, f t a⟫_ℝ) :=
-    ⟨1 + ⟪θ, f t (b t)⟫_ℝ, by rintro _ ⟨a, rfl⟩; linarith [hgap a]⟩
-  have h0 := sub_nonneg.2 (le_ciSup hbdd (b t))
-  have h1 : (⨆ a, ⟪θ, f t a⟫_ℝ) - ⟪θ, f t (b t)⟫_ℝ ≤ 1 :=
-    sub_le_iff_le_add.2 (ciSup_le fun a ↦ by linarith [hgap a])
+  have h0 := sub_nonneg.2 (le_ciSup (bddAbove_range_inner_of_gap hgap) (b t))
+  have h1 := (iSup_inner_sub_inner_le_of_gap hgap).trans hG
   have h2 : (⨆ a, ⟪θ, f t a⟫_ℝ) - ⟪θ, f t (b t)⟫_ℝ ≤ 2 * R * √u := by
     refine sub_le_iff_le_add.2 (ciSup_le fun a ↦ ?_)
     have h := inner_sub_inner_le_of_ofulIndex_le (f := f t) hlam hθ hopt a
     nlinarith [Real.sqrt_nonneg u]
-  refine ⟨h0, ?_⟩
   rcases le_total u 1 with hu1 | hu1
   · rw [min_eq_right hu1]
     calc ((⨆ a, ⟪θ, f t a⟫_ℝ) - ⟪θ, f t (b t)⟫_ℝ) ^ 2 ≤ (2 * R * √u) ^ 2 :=
           pow_le_pow_left₀ h0 h2 2
       _ = 4 * R ^ 2 * u := by rw [mul_pow, Real.sq_sqrt hu]; ring
   · rw [min_eq_left hu1]
-    nlinarith
+    calc ((⨆ a, ⟪θ, f t a⟫_ℝ) - ⟪θ, f t (b t)⟫_ℝ) ^ 2 ≤ (2 * R) ^ 2 := pow_le_pow_left₀ h0 h1 2
+      _ = 4 * R ^ 2 * 1 := by ring
 
 /-- **Regret of optimistic actions** [LS, Theorem 19.2], pathwise form. At every round `t < n` the
 actions have features `f t a`, the action `b t` is played and the response `y t` observed. Let
 `V_t` and `θ̂_t` be the design operator and the ridge estimate of the features `f s (b s)` and the
 responses `y s` of the rounds `s < t`, with `λ > 0`. Suppose that at every round `t < n` the
-gaps between the expected rewards `⟪θ, f t a⟫` are at most `1`, the parameter `θ` lies in the
+gaps between the expected rewards `⟪θ, f t a⟫` are at most `G`, the parameter `θ` lies in the
 confidence ellipsoid `‖θ̂_t - θ‖_{V_t} ≤ r t`, and `b t` has maximal optimistic index with radius
-`r t`. If `r t ≤ R` for `t < n` and `1 ≤ 2 R`, then the regret is
+`r t`. If `r t ≤ R` for `t < n` and `G ≤ 2 R`, then the regret is
 `∑_{t < n} (sup_a ⟪θ, f t a⟫ - ⟪θ, f t (b t)⟫) ≤ √(8 n R² log (det V_n / det V_0))`. -/
-theorem sum_iSup_inner_sub_inner_le_sqrt_log_det (hlam : 0 < lam) (hR : 1 ≤ 2 * R)
-    (hrR : ∀ t < n, r t ≤ R) (hgap : ∀ t < n, ∀ a, ⟪θ, f t a⟫_ℝ - ⟪θ, f t (b t)⟫_ℝ ≤ 1)
+theorem sum_iSup_inner_sub_inner_le_sqrt_log_det (hlam : 0 < lam) (hG : G ≤ 2 * R)
+    (hrR : ∀ t < n, r t ≤ R) (hgap : ∀ t < n, ∀ a, ⟪θ, f t a⟫_ℝ - ⟪θ, f t (b t)⟫_ℝ ≤ G)
     (hθ : ∀ t < n, √⟪ridgeEstimate lam (fun s ↦ f s (b s)) y t - θ,
       designOp lam (fun s ↦ f s (b s)) t (ridgeEstimate lam (fun s ↦ f s (b s)) y t - θ)⟫_ℝ ≤
         r t)
@@ -203,7 +198,7 @@ theorem sum_iSup_inner_sub_inner_le_sqrt_log_det (hlam : 0 < lam) (hR : 1 ≤ 2 
     ∑ t ∈ range n, ((⨆ a, ⟪θ, f t a⟫_ℝ) - ⟪θ, f t (b t)⟫_ℝ) ≤
       √(8 * n * R ^ 2 * log (LinearMap.det (designOp lam (fun s ↦ f s (b s)) n : E →ₗ[ℝ] E) /
         LinearMap.det (designOp lam (fun s ↦ f s (b s)) 0 : E →ₗ[ℝ] E))) := by
-  have hg (t : ℕ) (ht : t ∈ range n) := sq_iSup_inner_sub_inner_le hlam hR
+  have hg (t : ℕ) (ht : t ∈ range n) := sq_iSup_inner_sub_inner_le hlam hG
     (hrR t (mem_range.1 ht)) (hgap t (mem_range.1 ht)) (hθ t (mem_range.1 ht))
     (hopt t (mem_range.1 ht))
   have hpot := sum_min_one_inner_inverse_designOp_le_log_det hlam (fun s ↦ f s (b s)) n
@@ -217,7 +212,7 @@ theorem sum_iSup_inner_sub_inner_le_sqrt_log_det (hlam : 0 < lam) (hR : 1 ≤ 2 
         ≤ n * ∑ t ∈ range n, 4 * R ^ 2 * min 1
             ⟪f t (b t), Ring.inverse (designOp lam (fun s ↦ f s (b s)) t) (f t (b t))⟫_ℝ := by
           gcongr with t ht
-          exact (hg t ht).2
+          exact hg t ht
       _ ≤ n * (4 * R ^ 2 * (2 * log
             (LinearMap.det (designOp lam (fun s ↦ f s (b s)) n : E →ₗ[ℝ] E) /
               LinearMap.det (designOp lam (fun s ↦ f s (b s)) 0 : E →ₗ[ℝ] E)))) := by
@@ -230,8 +225,8 @@ theorem sum_iSup_inner_sub_inner_le_sqrt_log_det (hlam : 0 < lam) (hR : 1 ≤ 2 
 under the assumptions of `sum_iSup_inner_sub_inner_le_sqrt_log_det`, if moreover the features of
 the played actions satisfy `‖f t (b t)‖ ≤ L` for `t < n`, then the regret is at most
 `√(8 n R² d log (1 + n L² / (λ d)))`, where `d` is the dimension of `E`. -/
-theorem sum_iSup_inner_sub_inner_le_sqrt_mul_log (hlam : 0 < lam) (hR : 1 ≤ 2 * R)
-    (hrR : ∀ t < n, r t ≤ R) (hgap : ∀ t < n, ∀ a, ⟪θ, f t a⟫_ℝ - ⟪θ, f t (b t)⟫_ℝ ≤ 1)
+theorem sum_iSup_inner_sub_inner_le_sqrt_mul_log (hlam : 0 < lam) (hG : G ≤ 2 * R)
+    (hrR : ∀ t < n, r t ≤ R) (hgap : ∀ t < n, ∀ a, ⟪θ, f t a⟫_ℝ - ⟪θ, f t (b t)⟫_ℝ ≤ G)
     {L : ℝ} (hL : ∀ t < n, ‖f t (b t)‖ ≤ L)
     (hθ : ∀ t < n, √⟪ridgeEstimate lam (fun s ↦ f s (b s)) y t - θ,
       designOp lam (fun s ↦ f s (b s)) t (ridgeEstimate lam (fun s ↦ f s (b s)) y t - θ)⟫_ℝ ≤
@@ -240,7 +235,7 @@ theorem sum_iSup_inner_sub_inner_le_sqrt_mul_log (hlam : 0 < lam) (hR : 1 ≤ 2 
       ofulIndex lam (fun s ↦ f s (b s)) y (r t) t (f t (b t))) :
     ∑ t ∈ range n, ((⨆ a, ⟪θ, f t a⟫_ℝ) - ⟪θ, f t (b t)⟫_ℝ) ≤
       √(8 * n * R ^ 2 * (finrank ℝ E * log (1 + n * L ^ 2 / (lam * finrank ℝ E)))) := by
-  refine (sum_iSup_inner_sub_inner_le_sqrt_log_det hlam hR hrR hgap hθ hopt).trans ?_
+  refine (sum_iSup_inner_sub_inner_le_sqrt_log_det hlam hG hrR hgap hθ hopt).trans ?_
   rw [det_designOp_zero]
   gcongr
   exact log_det_designOp_div_pow_le hlam _ hL
@@ -248,39 +243,6 @@ theorem sum_iSup_inner_sub_inner_le_sqrt_mul_log (hlam : 0 < lam) (hR : 1 ≤ 2 
 end Pathwise
 
 section Algorithm
-
-omit [InnerProductSpace ℝ E] in
-/-- The features `φ o a` of the rounds `s < n` of a history `h` of length `n`, as a sequence
-extended by `0` from round `n` on. -/
-noncomputable def histFeature (φ : 𝓞 → 𝓐 → E) {n : ℕ} (h : Hist 𝓞 𝓐 ℝ n) (s : ℕ) : E :=
-  if hs : s < n then φ (h ⟨s, hs⟩).obs (h ⟨s, hs⟩).action else 0
-
-omit [InnerProductSpace ℝ E] in
-lemma histFeature_def {n : ℕ} (h : Hist 𝓞 𝓐 ℝ n) (s : ℕ) :
-    histFeature φ h s = if hs : s < n then φ (h ⟨s, hs⟩).obs (h ⟨s, hs⟩).action else 0 :=
-  (rfl)
-
-/-- The rewards of the rounds `s < n` of a history `h` of length `n`, as a sequence extended by
-`0` from round `n` on. -/
-noncomputable def histReward {n : ℕ} (h : Hist 𝓞 𝓐 ℝ n) (s : ℕ) : ℝ :=
-  if hs : s < n then (h ⟨s, hs⟩).feedback else 0
-
-lemma histReward_def {n : ℕ} (h : Hist 𝓞 𝓐 ℝ n) (s : ℕ) :
-    histReward h s = if hs : s < n then (h ⟨s, hs⟩).feedback else 0 :=
-  (rfl)
-
-omit [InnerProductSpace ℝ E] in
-@[simp]
-lemma histFeature_history {O : ℕ → Ω → 𝓞} {A : ℕ → Ω → 𝓐} {Y : ℕ → Ω → ℝ} {n s : ℕ}
-    (hs : s < n) (ω : Ω) :
-    histFeature φ (history O A Y n ω) s = φ (O s ω) (A s ω) := by
-  simp [histFeature_def, hs, history_apply]
-
-@[simp]
-lemma histReward_history {O : ℕ → Ω → 𝓞} {A : ℕ → Ω → 𝓐} {Y : ℕ → Ω → ℝ} {n s : ℕ}
-    (hs : s < n) (ω : Ω) :
-    histReward (history O A Y n ω) s = Y s ω := by
-  simp [histReward_def, hs, history_apply]
 
 variable [MeasurableSpace 𝓞] [MeasurableSpace 𝓐]
 
@@ -345,135 +307,132 @@ theorem ofulIndex_le_ofulIndex_action [MeasurableEq 𝓐] [SFinite P]
   exact S.ofulIndex_le_ofulIndex_sel n _ _ a
 
 variable [StandardBorelSpace Ω] [IsProbabilityMeasure P] [MeasurableSpace E] [BorelSpace E]
-  [FiniteDimensional ℝ E] [MeasurableEq 𝓐] {σ2 : ℝ≥0} {δ L m R : ℝ} {n : ℕ}
+  [FiniteDimensional ℝ E] [MeasurableEq 𝓐] {σ2 : ℝ≥0} {δ L m G R : ℝ} {n : ℕ}
 
 omit [StandardBorelSpace Ω] [MeasurableSpace E] [BorelSpace E] in
 /-- Along a run of OFUL, almost surely, if `θ` lies in all the confidence ellipsoids of ridge
-regression of [LS, Theorem 20.5], then the random regret after `n` rounds is at most
-`√(8 n R² d log (1 + n L² / (λ d)))`, for radii `r t` above the radii [LS, (19.8)]. -/
+regression for bounded features of [LS, Theorem 20.5 and (20.9)], then the random regret after
+`n` rounds is at most `√(8 n R² d log (1 + n L² / (λ d)))`, for radii `r t` above the radii
+[LS, (19.8)]. -/
 private lemma ae_linearRegret_le (h : IsAlgEnvSeq O A Y (oful S) env P)
-    (hgap : ∀ o a b, ⟪θ, φ o a⟫_ℝ - ⟪θ, φ o b⟫_ℝ ≤ 1) (hL : ∀ o a, ‖φ o a‖ ≤ L)
+    (hgap : ∀ o a b, ⟪θ, φ o a⟫_ℝ - ⟪θ, φ o b⟫_ℝ ≤ G) (hL : ∀ o a, ‖φ o a‖ ≤ L)
     (hlam : 0 < lam) (hθ : ‖θ‖ ≤ m)
     (hr : ∀ t < n, √lam * m + √(2 * σ2 * log (1 / δ) +
       σ2 * finrank ℝ E * log (1 + t * L ^ 2 / (lam * finrank ℝ E))) ≤ r t)
-    (hR : 1 ≤ 2 * R) (hrR : ∀ t < n, r t ≤ R) :
-    ∀ᵐ ω ∂P, (∀ t,
+    (hG : G ≤ 2 * R) (hrR : ∀ t < n, r t ≤ R) :
+    ∀ᵐ ω ∂P, (∀ t : ℕ,
       √⟪ridgeEstimate lam (fun s ↦ φ (O s ω) (A s ω)) (fun s ↦ Y s ω) t - θ,
         designOp lam (fun s ↦ φ (O s ω) (A s ω)) t
           (ridgeEstimate lam (fun s ↦ φ (O s ω) (A s ω)) (fun s ↦ Y s ω) t - θ)⟫_ℝ <
       √lam * ‖θ‖ + √(2 * σ2 * log (1 / δ) +
-        σ2 * log (LinearMap.det (designOp lam (fun s ↦ φ (O s ω) (A s ω)) t : E →ₗ[ℝ] E) /
-          lam ^ finrank ℝ E))) →
+        σ2 * finrank ℝ E * log (1 + t * L ^ 2 / (lam * finrank ℝ E)))) →
       linearRegret φ θ O A n ω ≤
         √(8 * n * R ^ 2 * (finrank ℝ E * log (1 + n * L ^ 2 / (lam * finrank ℝ E)))) := by
   filter_upwards [ofulIndex_le_ofulIndex_action h] with ω hω hgood
   rw [linearRegret_def]
-  refine sum_iSup_inner_sub_inner_le_sqrt_mul_log (f := fun t ↦ φ (O t ω)) hlam hR hrR
+  refine sum_iSup_inner_sub_inner_le_sqrt_mul_log (f := fun t ↦ φ (O t ω)) hlam hG hrR
     (fun t _ a ↦ hgap _ a _) (fun t _ ↦ hL _ _) (fun t ht ↦ (hgood t).le.trans ?_)
     (fun t _ ↦ hω t)
   refine le_trans ?_ (hr t ht)
-  -- the radius of [LS, Theorem 20.5] is at most the radius [LS, (19.8)]
-  have hdet := log_det_designOp_div_pow_le hlam (fun s ↦ φ (O s ω) (A s ω))
-    (t := t) fun s _ ↦ hL _ _
-  gcongr √lam * ?_ + √(_ + ?_)
-  rw [mul_assoc]
-  exact mul_le_mul_of_nonneg_left hdet σ2.2
+  gcongr
 
 /-- **Regret of OFUL with high probability** [LS, Theorem 19.2]. Let `oful S` run in a linear
 bandit environment with features `φ`, parameter `θ` and σ²-sub-Gaussian noise, `σ² ≠ 0`, where
 the features are measurable and bounded by `L`, `‖θ‖ ≤ m`, and the gaps between the expected
-rewards of two actions are at most `1` at every context. Let `λ > 0` and `δ > 0`, and let the
+rewards of two actions are at most `G` at every context. Let `λ > 0` and `δ > 0`, and let the
 radii of the optimistic selection satisfy
 `√λ m + √(2σ² log (1 / δ) + σ² d log (1 + t L² / (λ d))) ≤ r t ≤ R` for `t < n`, with
-`1 ≤ 2 R`. Then with probability at least `1 - δ`, the random regret after `n` rounds is at most
+`G ≤ 2 R`. Then with probability at least `1 - δ`, the random regret after `n` rounds is at most
 `√(8 n R² d log (1 + n L² / (λ d)))`. -/
 theorem le_measureReal_linearRegret_le (h : IsAlgEnvSeq O A Y (oful S) env P)
     (henv : IsSubgaussianLinearEnv φ θ σ2 env) (hφ : Measurable (Function.uncurry φ))
-    (hσ : σ2 ≠ 0) (hgap : ∀ o a b, ⟪θ, φ o a⟫_ℝ - ⟪θ, φ o b⟫_ℝ ≤ 1) (hL : ∀ o a, ‖φ o a‖ ≤ L)
+    (hσ : σ2 ≠ 0) (hgap : ∀ o a b, ⟪θ, φ o a⟫_ℝ - ⟪θ, φ o b⟫_ℝ ≤ G) (hL : ∀ o a, ‖φ o a‖ ≤ L)
     (hlam : 0 < lam) (hδ : 0 < δ) (hθ : ‖θ‖ ≤ m)
     (hr : ∀ t < n, √lam * m + √(2 * σ2 * log (1 / δ) +
       σ2 * finrank ℝ E * log (1 + t * L ^ 2 / (lam * finrank ℝ E))) ≤ r t)
-    (hR : 1 ≤ 2 * R) (hrR : ∀ t < n, r t ≤ R) :
+    (hG : G ≤ 2 * R) (hrR : ∀ t < n, r t ≤ R) :
     1 - δ ≤ P.real {ω | linearRegret φ θ O A n ω ≤
       √(8 * n * R ^ 2 * (finrank ℝ E * log (1 + n * L ^ 2 / (lam * finrank ℝ E))))} := by
-  refine (h.le_measureReal_forall_sqrt_inner_ridgeEstimate_sub_lt henv hφ hσ hlam hδ).trans ?_
+  refine (h.le_measureReal_forall_sqrt_inner_ridgeEstimate_sub_lt_of_norm_le henv hφ hσ hL hlam
+    hδ).trans ?_
   rw [measureReal_def, measureReal_def]
   refine ENNReal.toReal_mono (measure_ne_top _ _) (measure_mono_ae ?_)
-  filter_upwards [ae_linearRegret_le h hgap hL hlam hθ hr hR hrR] with ω hω hgood
+  filter_upwards [ae_linearRegret_le h hgap hL hlam hθ hr hG hrR] with ω hω hgood
   exact hω hgood
 
 /-- **Expected regret of OFUL** [LS, Corollary 19.3, with explicit constants]: under the
 assumptions of `le_measureReal_linearRegret_le`, the expected regret after `n` rounds is at most
-`n δ + √(8 n R² d log (1 + n L² / (λ d)))`. -/
+`n G δ + √(8 n R² d log (1 + n L² / (λ d)))`. -/
 theorem integral_linearRegret_le (h : IsAlgEnvSeq O A Y (oful S) env P)
     (henv : IsSubgaussianLinearEnv φ θ σ2 env) (hφ : Measurable (Function.uncurry φ))
-    (hσ : σ2 ≠ 0) (hgap : ∀ o a b, ⟪θ, φ o a⟫_ℝ - ⟪θ, φ o b⟫_ℝ ≤ 1) (hL : ∀ o a, ‖φ o a‖ ≤ L)
+    (hσ : σ2 ≠ 0) (hgap : ∀ o a b, ⟪θ, φ o a⟫_ℝ - ⟪θ, φ o b⟫_ℝ ≤ G) (hL : ∀ o a, ‖φ o a‖ ≤ L)
     (hlam : 0 < lam) (hδ : 0 < δ) (hθ : ‖θ‖ ≤ m)
     (hr : ∀ t < n, √lam * m + √(2 * σ2 * log (1 / δ) +
       σ2 * finrank ℝ E * log (1 + t * L ^ 2 / (lam * finrank ℝ E))) ≤ r t)
-    (hR : 1 ≤ 2 * R) (hrR : ∀ t < n, r t ≤ R) :
+    (hG : G ≤ 2 * R) (hrR : ∀ t < n, r t ≤ R) :
     P[linearRegret φ θ O A n] ≤
-      n * δ + √(8 * n * R ^ 2 * (finrank ℝ E * log (1 + n * L ^ 2 / (lam * finrank ℝ E)))) := by
+      n * G * δ + √(8 * n * R ^ 2 * (finrank ℝ E * log (1 + n * L ^ 2 / (lam * finrank ℝ E)))) := by
   set B := √(8 * n * R ^ 2 * (finrank ℝ E * log (1 + n * L ^ 2 / (lam * finrank ℝ E))))
   -- the event on which some confidence ellipsoid fails to contain `θ`
-  set bad := {ω | ∃ t, √lam * ‖θ‖ + √(2 * σ2 * log (1 / δ) +
-      σ2 * log (LinearMap.det (designOp lam (fun s ↦ φ (O s ω) (A s ω)) t : E →ₗ[ℝ] E) /
-        lam ^ finrank ℝ E)) ≤
+  set bad := {ω | ∃ t : ℕ, √lam * ‖θ‖ + √(2 * σ2 * log (1 / δ) +
+      σ2 * finrank ℝ E * log (1 + t * L ^ 2 / (lam * finrank ℝ E))) ≤
     √⟪ridgeEstimate lam (fun s ↦ φ (O s ω) (A s ω)) (fun s ↦ Y s ω) t - θ,
       designOp lam (fun s ↦ φ (O s ω) (A s ω)) t
         (ridgeEstimate lam (fun s ↦ φ (O s ω) (A s ω)) (fun s ↦ Y s ω) t - θ)⟫_ℝ}
   have hbad : P bad ≤ ENNReal.ofReal δ :=
-    h.measure_exists_sqrt_inner_ridgeEstimate_sub_ge_le henv hφ hσ hlam hδ
-  -- the regret is at most `B` outside `bad`, and at most `n` everywhere
+    h.measure_exists_sqrt_inner_ridgeEstimate_sub_ge_le_of_norm_le henv hφ hσ hL hlam hδ
+  have hG0 : 0 ≤ G := by
+    obtain ⟨ω⟩ := nonempty_of_isProbabilityMeasure P
+    simpa using hgap (O 0 ω) (A 0 ω) (A 0 ω)
+  -- the regret is at most `B` outside `bad`, and at most `n G` everywhere
   have hle : ∀ᵐ ω ∂P,
-      linearRegret φ θ O A n ω ≤ B + n * (toMeasurable P bad).indicator 1 ω := by
-    filter_upwards [ae_linearRegret_le h hgap hL hlam hθ hr hR hrR] with ω hω
+      linearRegret φ θ O A n ω ≤ B + n * G * (toMeasurable P bad).indicator 1 ω := by
+    filter_upwards [ae_linearRegret_le h hgap hL hlam hθ hr hG hrR] with ω hω
     by_cases hω' : ω ∈ bad
     · rw [Set.indicator_of_mem (subset_toMeasurable P bad hω'), Pi.one_apply, mul_one]
-      exact ((linearRegret_le_mul hgap).trans_eq (mul_one _)).trans
-        (le_add_of_nonneg_left (Real.sqrt_nonneg _))
+      exact (linearRegret_le_mul hgap).trans (le_add_of_nonneg_left (Real.sqrt_nonneg _))
     · refine (hω fun t ↦ ?_).trans (le_add_of_nonneg_right ?_)
       · simp only [bad, Set.mem_ofPred_eq, not_exists, not_le] at hω'
         exact hω' t
-      · exact mul_nonneg n.cast_nonneg (Set.indicator_nonneg (fun _ _ ↦ zero_le_one) _)
-  have hint : Integrable (fun ω ↦ (n : ℝ) * (toMeasurable P bad).indicator 1 ω) P :=
+      · exact mul_nonneg (mul_nonneg n.cast_nonneg hG0)
+          (Set.indicator_nonneg (fun _ _ ↦ zero_le_one) _)
+  have hint : Integrable (fun ω ↦ (n : ℝ) * G * (toMeasurable P bad).indicator 1 ω) P :=
     ((integrable_const (1 : ℝ)).indicator (measurableSet_toMeasurable P bad)).const_mul _
-  have hnonneg : 0 ≤ᵐ[P] linearRegret φ θ O A n := ae_of_all _ fun ω ↦ by
-    have : Nonempty 𝓐 := ⟨A 0 ω⟩
-    exact linearRegret_nonneg fun o ↦
-      ⟨1 + ⟪θ, φ o (A 0 ω)⟫_ℝ, by rintro _ ⟨a, rfl⟩; linarith [hgap o a (A 0 ω)]⟩
+  have hnonneg : 0 ≤ᵐ[P] linearRegret φ θ O A n := ae_of_all _ fun ω ↦
+    linearRegret_nonneg fun o ↦ bddAbove_range_inner_of_gap (hgap o · (A 0 ω))
   calc P[linearRegret φ θ O A n]
-      ≤ ∫ ω, B + n * (toMeasurable P bad).indicator 1 ω ∂P :=
+      ≤ ∫ ω, B + n * G * (toMeasurable P bad).indicator 1 ω ∂P :=
         integral_mono_of_nonneg hnonneg ((integrable_const B).add hint) hle
-    _ = B + n * P.real (toMeasurable P bad) := by
+    _ = B + n * G * P.real (toMeasurable P bad) := by
         rw [integral_add (integrable_const B) hint, integral_const_mul,
           integral_indicator_one (measurableSet_toMeasurable P bad)]
         simp
-    _ ≤ B + n * δ := by
+    _ ≤ B + n * G * δ := by
         gcongr
         rw [measureReal_def, measure_toMeasurable]
         exact ENNReal.toReal_le_of_le_ofReal hδ.le hbad
-    _ = n * δ + B := add_comm _ _
+    _ = n * G * δ + B := add_comm _ _
 
 /-- **Expected regret of OFUL for `δ = 1 / n`** [LS, Corollary 19.3, with explicit constants]:
 under the assumptions of `integral_linearRegret_le` with `δ = 1 / n`, that is for radii
 `√λ m + √(2σ² log n + σ² d log (1 + t L² / (λ d))) ≤ r t ≤ R` for `t < n`, the expected regret
-after `n` rounds is at most `1 + √(8 n R² d log (1 + n L² / (λ d)))`. -/
+after `n` rounds is at most `G + √(8 n R² d log (1 + n L² / (λ d)))`. -/
 theorem integral_linearRegret_le_one_add (h : IsAlgEnvSeq O A Y (oful S) env P)
     (henv : IsSubgaussianLinearEnv φ θ σ2 env) (hφ : Measurable (Function.uncurry φ))
-    (hσ : σ2 ≠ 0) (hgap : ∀ o a b, ⟪θ, φ o a⟫_ℝ - ⟪θ, φ o b⟫_ℝ ≤ 1) (hL : ∀ o a, ‖φ o a‖ ≤ L)
+    (hσ : σ2 ≠ 0) (hgap : ∀ o a b, ⟪θ, φ o a⟫_ℝ - ⟪θ, φ o b⟫_ℝ ≤ G) (hL : ∀ o a, ‖φ o a‖ ≤ L)
     (hlam : 0 < lam) (hθ : ‖θ‖ ≤ m)
     (hr : ∀ t < n, √lam * m + √(2 * σ2 * log n +
       σ2 * finrank ℝ E * log (1 + t * L ^ 2 / (lam * finrank ℝ E))) ≤ r t)
-    (hR : 1 ≤ 2 * R) (hrR : ∀ t < n, r t ≤ R) :
+    (hG : G ≤ 2 * R) (hrR : ∀ t < n, r t ≤ R) :
     P[linearRegret φ θ O A n] ≤
-      1 + √(8 * n * R ^ 2 * (finrank ℝ E * log (1 + n * L ^ 2 / (lam * finrank ℝ E)))) := by
+      G + √(8 * n * R ^ 2 * (finrank ℝ E * log (1 + n * L ^ 2 / (lam * finrank ℝ E)))) := by
   rcases n.eq_zero_or_pos with rfl | hn
-  · simp
+  · obtain ⟨ω⟩ := nonempty_of_isProbabilityMeasure P
+    simpa using hgap (O 0 ω) (A 0 ω) (A 0 ω)
   have hn' : (0 : ℝ) < n := Nat.cast_pos.2 hn
   have := integral_linearRegret_le (δ := 1 / n) h henv hφ hσ hgap hL hlam (by positivity) hθ
-    (by simpa only [one_div_one_div] using hr) hR hrR
-  rwa [mul_one_div_cancel hn'.ne'] at this
+    (by simpa only [one_div_one_div] using hr) hG hrR
+  rwa [mul_assoc, mul_comm G, ← mul_assoc, mul_one_div_cancel hn'.ne', one_mul] at this
 
 end OFUL
 
