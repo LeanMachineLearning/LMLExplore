@@ -119,11 +119,12 @@ theorem _root_.Learning.IsAlgEnvSeq.hasCondSubgaussianMGF_feedback_sub_inner
     (h : IsAlgEnvSeq O A Y alg env P) (henv : IsSubgaussianLinearEnv φ θ σ2 env)
     (hφ : Measurable fun p : 𝓞 × 𝓐 ↦ ⟪θ, φ p.1 p.2⟫_ℝ) (n : ℕ) :
     HasCondSubgaussianMGF (h.filtrationAction n) (h.filtrationAction.le n)
-      (fun ω ↦ Y n ω - ⟪θ, φ (O n ω) (A n ω)⟫_ℝ) σ2 P :=
-  (h.hasCondDistrib_feedback n).hasCondSubgaussianMGF_sub
+      (fun ω ↦ Y n ω - ⟪θ, φ (O n ω) (A n ω)⟫_ℝ) σ2 P := by
+  convert (h.hasCondDistrib_feedback n).hasCondSubgaussianMGF_sub
     (((h.measurable_history n).prodMk (h.measurable_obs n)).prodMk (h.measurable_action n))
     (hφ.comp (measurable_fst.snd.prodMk measurable_snd))
-    (ae_of_all _ fun p ↦ henv.hasSubgaussianMGF n p.1.1 p.1.2 p.2)
+    (ae_of_all _ fun p ↦ henv.hasSubgaussianMGF n p.1.1 p.1.2 p.2) using 1
+  exacts [h.filtrationAction_eq_comap n, rfl]
 
 /-- The features and the noises of a run in a linear bandit environment satisfy the
 measurability and the noise assumptions of the confidence ellipsoids of ridge regression, for the
