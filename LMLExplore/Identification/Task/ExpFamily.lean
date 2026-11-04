@@ -5,6 +5,7 @@ Authors: Rémy Degenne
 -/
 module
 
+public import LMLExplore.Bandits.Instances
 public import LMLExplore.Identification.Task.TransportationCost
 public import LMLExplore.Probability.Distributions.ExponentialFamily.Mean
 
@@ -31,13 +32,15 @@ the alternatives obtained by moving one arm to a mean `γ` or across it.
   `D(μ, w, ¬i) ≤ w a d_a(μ a, γ)`.
 * `LMLExplore.Identification.IdentTask.ofReal_mul_expFamilyDiv_le_cost`: if `γ` lies between
   `μ a` and `μ' a`, then `w a d_a(μ a, γ) ≤ cost_μ(w, μ')`.
+* `LMLExplore.Identification.IdentTask.cost_gaussianBandit`: for Gaussian arms with a common
+  variance `σ2`, `cost_μ(w, μ') = ∑ c, w c (μ c - μ' c)² / (2 σ2)`.
 -/
 
 public section
 
 open MeasureTheory ProbabilityTheory InformationTheory Filter Topology Measure Set
 
-open scoped ENNReal
+open scoped ENNReal NNReal
 
 namespace LMLExplore.Identification.IdentTask
 
@@ -106,5 +109,16 @@ lemma ofReal_mul_expFamilyDiv_le_cost
     (Finset.mem_univ a))
   exact ENNReal.ofReal_le_ofReal (mul_le_mul_of_nonneg_left
     (expFamilyDiv_le_expFamilyDiv_of_mem_uIcc hT hγ (hμ' a) h) (hw a))
+
+/-- For Gaussian arms with a common variance `σ2 ≠ 0`, the transportation cost is a weighted
+squared distance between the vectors of means: `cost_μ(w, μ') = ∑ c, w c (μ c - μ' c)² / (2 σ2)`. -/
+lemma cost_gaussianBandit [MeasurableSingletonClass α] {σ2 : ℝ≥0}
+    {task : IdentTask α (α → ℝ) ℐ ℝ} (hνt : task.ν = (Bandits.gaussianBandit · σ2))
+    (hσ2 : σ2 ≠ 0) (hw : 0 ≤ w) (μ' : α → ℝ) :
+    task.cost w μ μ' = ENNReal.ofReal (∑ c, w c * (μ c - μ' c) ^ 2 / (2 * σ2)) := by
+  rw [cost_def, hνt, ENNReal.ofReal_sum_of_nonneg fun c _ ↦
+    div_nonneg (mul_nonneg (hw c) (sq_nonneg _)) (by positivity)]
+  refine Finset.sum_congr rfl fun c _ ↦ ?_
+  rw [Bandits.klDiv_gaussianBandit _ _ hσ2, ← ENNReal.ofReal_mul (hw c), mul_div_assoc]
 
 end LMLExplore.Identification.IdentTask

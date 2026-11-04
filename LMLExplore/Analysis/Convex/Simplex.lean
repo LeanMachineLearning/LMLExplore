@@ -60,6 +60,10 @@ supported distributions, not a subset of `α → ℝ`.
 * `LMLExplore.sum_inv_pos`: for positive weights `c` on a nonempty type, `0 < ∑ b, (c b)⁻¹`.
 * `LMLExplore.iInf_ofReal_inv_div_sum_inv_mul`: at the vector proportional to `c⁻¹`, the smallest
   weighted entry `min_a w a c a` is `(∑ b, (c b)⁻¹)⁻¹`.
+* `LMLExplore.abs_div_sum_abs_mem_simplex`, `LMLExplore.sq_sum_abs_lt_sum_sq_div`: for a nonzero
+  vector `u`, the vector `|u| / ‖u‖₁` lies in the simplex, and it is the unique minimizer of
+  `w ↦ ∑ a, u a² / w a` on the vectors of the simplex that are positive where `u` does not
+  vanish, with minimum `‖u‖₁²`.
 * `LMLExplore.iSup_simplex_ofReal_dotProduct`: the supremum of `w ↦ w ⬝ᵥ y` over the simplex is
   the supremum of the entries of `y`, in `ℝ≥0∞`.
 * `LMLExplore.convex_setOf_nonneg_support_subset_sum_eq_one`: the finitely supported probability
@@ -302,5 +306,56 @@ lemma iInf_ofReal_inv_div_sum_inv_mul [Nonempty α] (hc : ∀ a, 0 < c a) :
     field_simp [(hc a).ne']
   simp_rw [h]
   exact iInf_const
+
+/-! ### The vector proportional to `|u|` -/
+
+variable {u : α → ℝ}
+
+/-- For a nonzero vector `u`, the `ℓ¹` norm `∑ a, |u a|` is nonzero. -/
+lemma sum_abs_ne_zero (hu : u ≠ 0) : ∑ a, |u a| ≠ 0 := fun h ↦
+  hu <| funext fun a ↦ abs_eq_zero.1
+    ((Finset.sum_eq_zero_iff_of_nonneg fun a _ ↦ abs_nonneg (u a)).1 h a (Finset.mem_univ a))
+
+/-- For a nonzero vector `u`, the vector `|u| / ‖u‖₁` proportional to `|u|` belongs to the
+simplex. -/
+lemma abs_div_sum_abs_mem_simplex (hu : u ≠ 0) :
+    (fun a ↦ |u a| / ∑ b, |u b|) ∈ simplex α := by
+  refine ⟨fun a ↦ div_nonneg (abs_nonneg _) (Finset.sum_nonneg fun b _ ↦ abs_nonneg _), ?_⟩
+  rw [← Finset.sum_div, div_self (sum_abs_ne_zero hu)]
+
+/-- The identity `∑ a, (|u a| - ‖u‖₁ w a)² / w a = ∑ a, u a² / w a - ‖u‖₁²` for a vector `w` of the
+simplex that is positive where `u` does not vanish: its left-hand side is nonnegative and, for
+`u ≠ 0`, vanishes only at `w = |u| / ‖u‖₁`. -/
+lemma sum_sq_abs_sub_mul_div_eq (hw : w ∈ simplex α) (hwu : ∀ a, w a = 0 → u a = 0) :
+    ∑ a, (|u a| - (∑ b, |u b|) * w a) ^ 2 / w a =
+      ∑ a, u a ^ 2 / w a - (∑ b, |u b|) ^ 2 := by
+  set L := ∑ b, |u b|
+  have h_term (a : α) :
+      (|u a| - L * w a) ^ 2 / w a = u a ^ 2 / w a - 2 * L * |u a| + L ^ 2 * w a := by
+    rcases eq_or_ne (w a) 0 with h | h
+    · simp [h, hwu a h]
+    · rw [sub_sq, sq_abs]
+      field_simp
+  rw [Finset.sum_congr rfl fun a _ ↦ h_term a, Finset.sum_add_distrib, Finset.sum_sub_distrib,
+    ← Finset.mul_sum, ← Finset.mul_sum, (mem_simplex_iff.1 hw).2]
+  ring
+
+/-- For a nonzero vector `u` and a vector `w` of the simplex that is positive where `u` does not
+vanish, `‖u‖₁² < ∑ a, u a² / w a` unless `w = |u| / ‖u‖₁`: the vector `|u| / ‖u‖₁` is the unique
+minimizer of `w ↦ ∑ a, u a² / w a` on the vectors of the simplex that are positive where `u` does
+not vanish. -/
+lemma sq_sum_abs_lt_sum_sq_div (hu : u ≠ 0) (hw : w ∈ simplex α)
+    (hwu : ∀ a, w a = 0 → u a = 0) (hne : w ≠ fun a ↦ |u a| / ∑ b, |u b|) :
+    (∑ a, |u a|) ^ 2 < ∑ a, u a ^ 2 / w a := by
+  have h_nonneg (a : α) : 0 ≤ (|u a| - (∑ b, |u b|) * w a) ^ 2 / w a :=
+    div_nonneg (sq_nonneg _) (hw.1 a)
+  rw [← sub_pos, ← sum_sq_abs_sub_mul_div_eq hw hwu]
+  refine (Finset.sum_nonneg fun a _ ↦ h_nonneg a).lt_of_ne fun h ↦ hne (funext fun a ↦ ?_)
+  have ha := (Finset.sum_eq_zero_iff_of_nonneg fun a _ ↦ h_nonneg a).1 h.symm a
+    (Finset.mem_univ a)
+  rcases div_eq_zero_iff.1 ha with ha | ha
+  · rw [eq_div_iff (sum_abs_ne_zero hu)]
+    linarith [pow_eq_zero_iff two_ne_zero |>.1 ha]
+  · rw [ha, hwu a ha, abs_zero, zero_div]
 
 end LMLExplore
