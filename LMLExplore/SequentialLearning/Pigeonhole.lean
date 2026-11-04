@@ -9,7 +9,7 @@ public import LeanMachineLearning.SequentialLearning.FiniteActions
 public import LMLExplore.Analysis.Real.Sqrt
 public import Mathlib.Analysis.Convex.Jensen
 public import Mathlib.Analysis.Convex.SpecificFunctions.Basic
-public import Mathlib.NumberTheory.Harmonic.Bounds
+public import LMLExplore.NumberTheory.Harmonic.Bounds
 
 /-!
 # Pigeonhole sums of inverse counts
@@ -22,6 +22,7 @@ the step `k` that visits `x` sees the counts `0, 1, …, N_K(x) - 1`, each exact
 (`Learning.sum_comp_pullCount`), these sums reduce to one-dimensional sums over the counts of each
 element, which are then combined over the `m` elements. This file proves:
 
+* `LMLExplore.sum_natCast_pullCount`: `∑_x N_K(x) = K`, cast to any additive monoid with one.
 * `LMLExplore.sum_sqrt_pullCount_le`: `∑_x √(N_K(x)) ≤ √(m K)`, by Cauchy–Schwarz.
 * `LMLExplore.sum_inv_sqrt_pullCount_add_one_le`: `∑_{k < K} (N_k(x_k) + 1)^{-1/2} ≤ 2 √(m K)`.
 * `LMLExplore.sum_inv_pullCount_add_one_le`:
@@ -48,10 +49,11 @@ namespace LMLExplore
 
 variable {α Ω : Type*} [DecidableEq α] [Fintype α] {A : ℕ → Ω → α}
 
-/-- The partial sums of the harmonic series in `ℝ`: `∑_{j < n} (j + 1)⁻¹ ≤ 1 + log n`. -/
-private theorem sum_range_inv_add_one_le (n : ℕ) :
-    ∑ j ∈ range n, ((j : ℝ) + 1)⁻¹ ≤ 1 + log n := by
-  simpa [harmonic] using harmonic_le_one_add_log n
+/-- `∑_x N_K(x) = K` with the counts cast to `R`: every step before `K` visits exactly one
+element of `α`. -/
+theorem sum_natCast_pullCount {R : Type*} [AddCommMonoidWithOne R] (ω : Ω) (K : ℕ) :
+    ∑ a, (pullCount A a K ω : R) = K := by
+  rw [← Nat.cast_sum, sum_pullCount]
 
 /-- `∑_x √(N_K(x)) ≤ √(m K)`: by Cauchy–Schwarz, the square roots of the counts of the elements of
 `α` before step `K` add up to at most `√(Fintype.card α * K)`. -/
@@ -59,9 +61,8 @@ theorem sum_sqrt_pullCount_le (ω : Ω) (K : ℕ) :
     ∑ a, √(pullCount A a K ω : ℝ) ≤ √(Fintype.card α * K) := by
   have h := Real.sum_sqrt_mul_sqrt_le univ (f := fun _ : α ↦ (1 : ℝ))
     (g := fun a ↦ (pullCount A a K ω : ℝ)) (fun _ ↦ zero_le_one) (fun _ ↦ Nat.cast_nonneg _)
-  have hK : ∑ a, (pullCount A a K ω : ℝ) = K := by
-    exact_mod_cast sum_pullCount (A := A) (t := K) (ω := ω)
-  simp only [sqrt_one, one_mul, sum_const, card_univ, nsmul_eq_mul, mul_one, hK] at h
+  simp only [sqrt_one, one_mul, sum_const, card_univ, nsmul_eq_mul, mul_one,
+    sum_natCast_pullCount] at h
   rwa [sqrt_mul (Nat.cast_nonneg _)]
 
 /-- **Pigeonhole sum of inverse square roots**: `∑_{k < K} (N_k(x_k) + 1)^{-1/2} ≤ 2 √(m K)`,
@@ -96,10 +97,8 @@ theorem sum_inv_pullCount_add_one_le (ω : Ω) (K : ℕ) :
   have h_jensen := strictConcaveOn_log_Ioi.concaveOn.le_map_sum (t := univ)
     (w := fun _ : α ↦ (Fintype.card α : ℝ)⁻¹) (p := fun a ↦ 1 + (pullCount A a K ω : ℝ))
     (fun _ _ ↦ by positivity) (by simp [hm.ne']) (fun _ _ ↦ Set.mem_Ioi.2 (by positivity))
-  have hK : ∑ a, (pullCount A a K ω : ℝ) = K := by
-    exact_mod_cast sum_pullCount (A := A) (t := K) (ω := ω)
   simp only [smul_eq_mul, ← mul_sum, sum_add_distrib, sum_const, card_univ, nsmul_eq_mul,
-    mul_one, hK] at h_jensen
+    mul_one, sum_natCast_pullCount] at h_jensen
   have h_mean : (Fintype.card α : ℝ)⁻¹ * (Fintype.card α + K) = 1 + K / Fintype.card α := by
     field_simp
   rw [h_mean, inv_mul_le_iff₀ hm] at h_jensen
@@ -115,20 +114,9 @@ theorem sum_inv_sqrt_max_one_pullCount_le (ω : Ω) (K : ℕ) :
     ∑ k ∈ range K, (√(max 1 (pullCount A (A k ω) k ω : ℝ)))⁻¹ ≤
       2 * √(Fintype.card α * K) + Fintype.card α := by
   refine (sum_comp_pullCount (fun j : ℕ ↦ (√(max 1 (j : ℝ)))⁻¹) K ω).trans_le ?_
-  -- each element contributes at most `2 √(N_K(x)) + 1`: the visit with count `0` contributes `1`
-  -- and the later ones `j ↦ (j + 1)^{-1/2}`
-  have h_arm (n : ℕ) : ∑ j ∈ range n, (√(max 1 (j : ℝ)))⁻¹ ≤ 2 * √(n : ℝ) + 1 := by
-    rcases n with _ | n
-    · simp
-    rw [sum_range_succ']
-    have h_succ (j : ℕ) : (√(max 1 ((j + 1 : ℕ) : ℝ)))⁻¹ = (√((j : ℝ) + 1))⁻¹ := by
-      rw [max_eq_right (by simp), Nat.cast_succ]
-    simp only [h_succ, CharP.cast_eq_zero, zero_le_one, max_eq_left, sqrt_one, inv_one]
-    have := sum_range_inv_sqrt_add_one_le n
-    have : √(n : ℝ) ≤ √((n + 1 : ℕ) : ℝ) := sqrt_le_sqrt (by simp)
-    linarith
   calc ∑ a, ∑ j ∈ range (pullCount A a K ω), (√(max 1 (j : ℝ)))⁻¹
-      ≤ ∑ a, (2 * √(pullCount A a K ω : ℝ) + 1) := sum_le_sum fun a _ ↦ h_arm _
+      ≤ ∑ a, (2 * √(pullCount A a K ω : ℝ) + 1) :=
+        sum_le_sum fun a _ ↦ sum_range_inv_sqrt_max_one_le _
     _ = 2 * ∑ a, √(pullCount A a K ω : ℝ) + Fintype.card α := by
         rw [sum_add_distrib, mul_sum, sum_const, card_univ, nsmul_eq_mul, mul_one]
     _ ≤ 2 * √(Fintype.card α * K) + Fintype.card α := by
@@ -141,20 +129,13 @@ theorem sum_inv_max_one_pullCount_le (ω : Ω) (K : ℕ) :
     ∑ k ∈ range K, (max 1 (pullCount A (A k ω) k ω : ℝ))⁻¹ ≤
       Fintype.card α * (2 + log K) := by
   refine (sum_comp_pullCount (fun j : ℕ ↦ (max 1 (j : ℝ))⁻¹) K ω).trans_le ?_
-  -- each element, visited `n ≤ K` times, contributes at most `2 + log K`: the visit with count `0`
-  -- contributes `1` and the later ones the harmonic sum `∑_{j < n - 1} (j + 1)⁻¹`
+  -- each element, visited `n ≤ K` times, contributes at most `2 + log n ≤ 2 + log K`
   have h_arm (n : ℕ) (hn : n ≤ K) : ∑ j ∈ range n, (max 1 (j : ℝ))⁻¹ ≤ 2 + log K := by
-    rcases n with _ | n
-    · simpa using (log_natCast_nonneg K).trans (by linarith)
-    rw [sum_range_succ']
-    have h_succ (j : ℕ) : (max 1 ((j + 1 : ℕ) : ℝ))⁻¹ = ((j : ℝ) + 1)⁻¹ := by
-      rw [max_eq_right (by simp), Nat.cast_succ]
-    simp only [h_succ, CharP.cast_eq_zero, zero_le_one, max_eq_left, inv_one]
-    have h_log : log n ≤ log K := by
-      rcases Nat.eq_zero_or_pos n with rfl | hn0
-      · simpa using log_natCast_nonneg K
-      · exact log_le_log (by positivity) (by exact_mod_cast (Nat.le_succ n).trans hn)
-    linarith [sum_range_inv_add_one_le n]
+    refine (sum_range_inv_max_one_le n).trans ?_
+    gcongr 2 + ?_
+    rcases Nat.eq_zero_or_pos n with rfl | hn0
+    · simpa using log_natCast_nonneg K
+    · exact log_le_log (by positivity) (by exact_mod_cast hn)
   calc ∑ a, ∑ j ∈ range (pullCount A a K ω), (max 1 (j : ℝ))⁻¹
       ≤ ∑ _a : α, (2 + log K) := sum_le_sum fun a _ ↦ h_arm _ (pullCount_le a K ω)
     _ = Fintype.card α * (2 + log K) := by rw [sum_const, card_univ, nsmul_eq_mul]

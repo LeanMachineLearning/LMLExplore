@@ -5,6 +5,7 @@ Authors: Rémy Degenne
 -/
 module
 
+public import LMLExplore.Algebra.BigOperators.Intervals
 public import Mathlib.Analysis.Real.Sqrt
 
 /-!
@@ -24,6 +25,8 @@ public import Mathlib.Analysis.Real.Sqrt
   `1 / (2 √(x + 1)) ≤ √(x + 1) - √x ≤ 1 / (2 √x)`. They compare sums `∑_{s < n} 1 / (2 √s)` with
   `√n`, as for the exploration rates of C-tracking.
 * `Real.sum_range_inv_sqrt_add_one_le`: `∑_{j < n} 1 / √(j + 1) ≤ 2 √n`.
+* `Real.sum_range_inv_sqrt_max_one_le`: `∑_{j < n} 1 / √(max 1 j) ≤ 2 √n + 1`, the same sum with
+  the index clipped at `1`.
 * `Real.sum_div_sqrt_max_one_le`: the doubling bound of Jaksch, Ortner and Auer
   [JOA10, Lemma 19]. If `0 ≤ z k ≤ max 1 Z k`, where `Z k = ∑_{i < k} z i`, then
   `∑_{k < n} z k / √(max 1 (Z k)) ≤ (√2 + 1) √(Z n)`. It sums confidence widths over the epochs of
@@ -109,6 +112,17 @@ theorem sum_range_inv_sqrt_add_one_le (n : ℕ) :
     have h2 : (√((n : ℝ) + 1))⁻¹ = 2 * (1 / (2 * √((n : ℝ) + 1))) := by ring
     rw [Finset.sum_range_succ, Nat.cast_succ]
     linarith
+
+/-- `∑_{j < n} 1 / √(max 1 j) ≤ 2 √n + 1`: the term `j = 0` contributes `1` and the others are
+bounded by `Real.sum_range_inv_sqrt_add_one_le`. -/
+theorem sum_range_inv_sqrt_max_one_le (n : ℕ) :
+    ∑ j ∈ Finset.range n, (√(max 1 (j : ℝ)))⁻¹ ≤ 2 * √n + 1 := by
+  rcases n with _ | n
+  · simp
+  rw [LMLExplore.sum_range_succ_comp_max_one (fun x : ℝ ↦ (√x)⁻¹), sqrt_one, inv_one]
+  have := sum_range_inv_sqrt_add_one_le n
+  have : √(n : ℝ) ≤ √((n + 1 : ℕ) : ℝ) := sqrt_le_sqrt (by simp)
+  linarith
 
 /-- One step of the doubling bound: for `0 ≤ Z`, `0 ≤ z` and `z ≤ max 1 Z`,
 `z / √(max 1 Z) ≤ (√2 + 1) (√(Z + z) - √Z)`. -/
