@@ -50,9 +50,9 @@ In the namespace `LMLExplore.Identification.CTracking`, along every run of `cTra
 * `abs_pullCount_sub_sum_le_mul_one_add_sqrt`, `sqrt_add_sub_le_pullCount`: the guarantees of
   C-tracking [GK16, Lemma 7].
 * `tendsto_pullCount_atTop`: almost surely, every arm is pulled infinitely often.
-* `tendsto_pullCount_div_sub_average`, `tendsto_pullCount_div`: almost surely, the proportions of
-  pulls get close to the averages of the targets, and converge to the limit of the targets
-  whenever the targets converge.
+* `tendsto_pullCount_div_sub_inv_mul_sum`, `tendsto_pullCount_div`: almost surely, the
+  proportions of pulls get close to the averages of the targets, and converge to the limit of the
+  targets whenever the targets converge.
 
 ## References
 
@@ -108,6 +108,7 @@ lemma cTrackingIndex_history {Ω : Type*} (O : ℕ → Ω → Unit) (A : ℕ →
 variable [MeasurableSpace α]
 
 /-- The index of C-tracking is a measurable function of the history if the target rule is. -/
+@[fun_prop]
 lemma measurable_cTrackingIndex [MeasurableSingletonClass α] (hw : ∀ n, Measurable (w n)) :
     Measurable (cTrackingIndex w n) := by
   have hN (b : α) : Measurable fun h : Hist Unit α 𝓨 n ↦ (pullCount' n h b : ℝ) :=
@@ -178,7 +179,7 @@ theorem abs_pullCount_sub_sum_le_mul_one_add_sqrt (h : IsAlgEnvSeq O A Y (cTrack
     ∀ᵐ ω ∂P, ∀ (n : ℕ) a, |(pullCount A a n ω : ℝ) - ∑ s ∈ range n, w s (history O A Y s ω) a| ≤
       (Fintype.card α - 1) * (1 + √(n : ℝ)) := by
   filter_upwards [sum_sub_pullCount_le h] with ω hω n a
-  exact Identification.abs_pullCount_sub_sum_le_mul_one_add_sqrt (fun k ↦ hw0 k _)
+  exact abs_pullCount_sub_sum_le_mul_one_add_sqrt_of_cTracking (fun k ↦ hw0 k _)
     (fun k ↦ hw1 k _) hω n a
 
 /-- **Forced exploration of C-tracking** [GK16, Lemma 7]. If the targets are allocations, then
@@ -188,7 +189,7 @@ theorem sqrt_add_sub_le_pullCount (h : IsAlgEnvSeq O A Y (cTracking w hw) env P)
     ∀ᵐ ω ∂P, ∀ (n : ℕ) a,
       √((n : ℝ) + Fintype.card α ^ 2) - 2 * Fintype.card α + 1 ≤ pullCount A a n ω := by
   filter_upwards [sum_sub_pullCount_le h] with ω hω n a
-  exact Identification.sqrt_add_sub_le_pullCount (fun k ↦ hw0 k _) (fun k ↦ hw1 k _) hω n a
+  exact sqrt_add_sub_le_pullCount_of_cTracking (fun k ↦ hw0 k _) (fun k ↦ hw1 k _) hω n a
 
 /-- If the targets are allocations, then almost surely, C-tracking pulls every arm infinitely
 often. -/
@@ -202,13 +203,13 @@ theorem tendsto_pullCount_atTop (h : IsAlgEnvSeq O A Y (cTracking w hw) env P) :
 
 /-- **Proportions of pulls of C-tracking.** If the targets are allocations, then almost surely,
 for every arm `a`, the difference between the proportion of pulls `N_a(n) / n` and the average
-`(1 / n) ∑_{s < n} w_a(s)` of the targets tends to `0`, with `w(s)` the target of the history of
+`n⁻¹ ∑_{s < n} w_a(s)` of the targets tends to `0`, with `w(s)` the target of the history of
 the first `s` rounds. -/
-theorem tendsto_pullCount_div_sub_average (h : IsAlgEnvSeq O A Y (cTracking w hw) env P) :
+theorem tendsto_pullCount_div_sub_inv_mul_sum (h : IsAlgEnvSeq O A Y (cTracking w hw) env P) :
     ∀ᵐ ω ∂P, ∀ a, Tendsto (fun n : ℕ ↦ (pullCount A a n ω : ℝ) / n -
       (n : ℝ)⁻¹ * ∑ s ∈ range n, w s (history O A Y s ω) a) atTop (𝓝 0) := by
   filter_upwards [sum_sub_pullCount_le h] with ω hω a
-  exact Identification.tendsto_pullCount_div_sub_average (fun k ↦ hw0 k _) (fun k ↦ hw1 k _) hω a
+  exact tendsto_pullCount_div_sub_inv_mul_sum_of_cTracking (fun k ↦ hw0 k _) (fun k ↦ hw1 k _) hω a
 
 /-- **Convergence of the proportions of pulls of C-tracking.** If the targets are allocations,
 then almost surely, for every `l : α → ℝ`, if the targets `w_a(k)` of the histories of the run

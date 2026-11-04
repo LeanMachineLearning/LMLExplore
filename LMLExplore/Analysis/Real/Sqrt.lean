@@ -8,7 +8,7 @@ module
 public import Mathlib.Analysis.Real.Sqrt
 
 /-!
-# Square roots of quotients
+# Square roots of quotients and increments of the square root
 
 ## Main statements
 
@@ -17,6 +17,12 @@ public import Mathlib.Analysis.Real.Sqrt
 * `Real.div_sqrt_add_sqrt_mul_div_two`: `a / η + η b / 2 = √(2 b a)` for `η = √(2 a / b)` and
   `b ≥ 0`. It is the tuning of the learning rate `η` in regret bounds of the form
   `log k / η + η n / 2`, as for exponential weights, Exp3 and Exp4.
+* `Real.sqrt_mul_sqrt_add_one_le`: `√x √(x + 1) ≤ x + 1 / 2` for `x ≥ 0`, the inequality between
+  the geometric and arithmetic means of `x` and `x + 1`.
+* `Real.one_div_two_mul_sqrt_add_one_le_sqrt_add_one_sub_sqrt`,
+  `Real.sqrt_add_one_sub_sqrt_le_one_div_two_mul_sqrt`: the increments of the square root satisfy
+  `1 / (2 √(x + 1)) ≤ √(x + 1) - √x ≤ 1 / (2 √x)`. They compare sums `∑_{s < n} 1 / (2 √s)` with
+  `√n`, as for the exploration rates of C-tracking.
 -/
 
 public section
@@ -55,5 +61,32 @@ theorem div_sqrt_add_sqrt_mul_div_two (a : ℝ) {b : ℝ} (hb : 0 ≤ b) :
     field_simp
   rw [h, mul_right_comm 2 b a, ← mul_sqrt_div_eq_sqrt_mul _ hb.le]
   ring
+
+/-- The inequality between the geometric and arithmetic means of `x` and `x + 1`:
+`√x √(x + 1) ≤ x + 1 / 2` for `x ≥ 0`. -/
+theorem sqrt_mul_sqrt_add_one_le {x : ℝ} (hx : 0 ≤ x) : √x * √(x + 1) ≤ x + 1 / 2 := by
+  have ha := sq_sqrt (show 0 ≤ x + 1 by linarith)
+  have hb := sq_sqrt hx
+  nlinarith [sq_nonneg (√(x + 1) - √x)]
+
+/-- A lower bound on the increments of the square root: `1 / (2 √(x + 1)) ≤ √(x + 1) - √x` for
+`x ≥ 0`. -/
+theorem one_div_two_mul_sqrt_add_one_le_sqrt_add_one_sub_sqrt {x : ℝ} (hx : 0 ≤ x) :
+    1 / (2 * √(x + 1)) ≤ √(x + 1) - √x := by
+  have ha := sq_sqrt (show 0 ≤ x + 1 by linarith)
+  have ha0 : 0 < √(x + 1) := sqrt_pos.2 (by linarith)
+  have hab := sqrt_mul_sqrt_add_one_le hx
+  rw [div_le_iff₀ (by positivity)]
+  nlinarith
+
+/-- An upper bound on the increments of the square root: `√(x + 1) - √x ≤ 1 / (2 √x)` for
+`x > 0`. -/
+theorem sqrt_add_one_sub_sqrt_le_one_div_two_mul_sqrt {x : ℝ} (hx : 0 < x) :
+    √(x + 1) - √x ≤ 1 / (2 * √x) := by
+  have hb := sq_sqrt hx.le
+  have hb0 : 0 < √x := sqrt_pos.2 hx
+  have hab := sqrt_mul_sqrt_add_one_le hx.le
+  rw [le_div_iff₀ (by positivity)]
+  nlinarith
 
 end Real
