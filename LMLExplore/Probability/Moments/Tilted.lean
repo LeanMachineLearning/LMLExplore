@@ -43,6 +43,8 @@ measure proves the lower bound of Cramér's theorem.
   `deriv (cgf X μ)` is strictly increasing on the interior of `integrableExpSet X μ`.
 * `ProbabilityTheory.iteratedDeriv_two_cgf_id_pos`, `ProbabilityTheory.strictMonoOn_deriv_cgf_id`:
   the versions for a probability measure on `ℝ` which is not a Dirac mass.
+* `ProbabilityTheory.tilted_mul_apply_mem_Icc`: if `a ≤ t X ≤ b` on `A`, then
+  `μ.tilted (t * X ·) A` lies between `exp (a - cgf X μ t) μ(A)` and `exp (b - cgf X μ t) μ(A)`.
 * `ProbabilityTheory.exp_mul_le_measureReal_abs_sub_deriv_cgf_le`: for `t` in the interior of
   `integrableExpSet X μ`, `Λ = cgf X μ` and `c > 0`,
   `exp (-(t Λ'(t) - Λ(t) + |t| c)) (1 - Λ''(t) / c²) ≤ μ(|X - Λ'(t)| ≤ c)`.
@@ -141,6 +143,22 @@ lemma iteratedDeriv_two_cgf_id_pos {ρ : Measure ℝ} [IsProbabilityMeasure ρ]
 
 /-! ### Lower bounds on probabilities by exponential tilting -/
 
+/-- **Density bounds for an exponential tilt.** The tilted measure `μ.tilted (t * X ·)` has
+density `exp (t X - cgf X μ t)` with respect to `μ`. If `t X` takes values in `[a, b]` on a set
+`A`, the tilted measure of `A` therefore lies between `exp (a - cgf X μ t) μ(A)` and
+`exp (b - cgf X μ t) μ(A)`. -/
+lemma tilted_mul_apply_mem_Icc (ht : Integrable (fun ω ↦ exp (t * X ω)) μ) {A : Set Ω}
+    (hA : NullMeasurableSet A μ) {a b : ℝ} (hX : ∀ ω ∈ A, t * X ω ∈ Icc a b) :
+    μ.tilted (t * X ·) A ∈ Icc (ENNReal.ofReal (exp (a - cgf X μ t)) * μ A)
+      (ENNReal.ofReal (exp (b - cgf X μ t)) * μ A) := by
+  have h_mono {f g : Ω → ℝ} (h : ∀ ω ∈ A, f ω ≤ g ω) :
+      ∫⁻ ω in A, ENNReal.ofReal (exp (f ω)) ∂μ ≤ ∫⁻ ω in A, ENNReal.ofReal (exp (g ω)) ∂μ :=
+    lintegral_mono_ae ((ae_restrict_iff'₀ hA).2 (ae_of_all _ fun ω hω ↦ by gcongr; exact h ω hω))
+  rw [← measure_congr ((tilted_absolutelyContinuous _ _).ae_eq hA.toMeasurable_ae_eq),
+    tilted_mul_apply_cgf' (measurableSet_toMeasurable _ _) ht,
+    setLIntegral_congr hA.toMeasurable_ae_eq, ← setLIntegral_const, ← setLIntegral_const]
+  exact ⟨h_mono fun ω hω ↦ by linarith [(hX ω hω).1], h_mono fun ω hω ↦ by linarith [(hX ω hω).2]⟩
+
 /-- **Lower bound by exponential tilting.** Let `t` be in the interior of `integrableExpSet X μ`
 for a nonzero measure `μ`, and let `Λ = cgf X μ`. Under the tilted measure `μ.tilted (t * X ·)`,
 `X` has mean `m = Λ'(t)` and variance `Λ''(t)`. For every `c > 0`, the measure under `μ` of the
@@ -175,39 +193,20 @@ lemma exp_mul_le_measureReal_abs_sub_deriv_cgf_le [NeZero μ]
       exact hω.le
     rw [measureReal_compl₀ (hA.mono_ac (tilted_absolutelyContinuous _ _)), probReal_univ] at h_compl
     linarith
-  -- The tilted measure has density `exp (t X - Λ(t))` with respect to `μ`.
-  have h_apply :
-      μ.tilted (t * X ·) A = ∫⁻ ω in A, ENNReal.ofReal (exp (t * X ω - cgf X μ t)) ∂μ := by
-    rw [← measure_congr ((tilted_absolutelyContinuous _ _).ae_eq hA.toMeasurable_ae_eq),
-      tilted_mul_apply_cgf' (measurableSet_toMeasurable _ _) h_int,
-      setLIntegral_congr hA.toMeasurable_ae_eq]
-  -- On `A`, `t X` is within `|t| c` of `t m`.
-  have h_abs (ω : Ω) (hω : ω ∈ A) : |t * X ω - t * m| ≤ |t| * c := by
-    simp only [A, mem_ofPred_eq] at hω
-    rw [← mul_sub, abs_mul]
-    gcongr
+  -- On `A`, `t X` is within `|t| c` of `t m`, which bounds the density of the tilted measure.
+  have h_bounds := tilted_mul_apply_mem_Icc h_int hA (a := t * m - |t| * c) (b := t * m + |t| * c)
+    fun ω hω ↦ by
+      simp only [A, mem_ofPred_eq] at hω
+      have := abs_le.1 (show |t * X ω - t * m| ≤ |t| * c by rw [← mul_sub, abs_mul]; gcongr)
+      constructor <;> linarith
   -- `μ A` is finite, since the density of the tilted measure is bounded below on `A`.
   have h_fin : μ A ≠ ⊤ := by
-    have h_ge :
-        ENNReal.ofReal (exp (t * m - |t| * c - cgf X μ t)) * μ A ≤ μ.tilted (t * X ·) A := by
-      rw [h_apply, ← setLIntegral_const]
-      refine lintegral_mono_ae ((ae_restrict_iff'₀ hA).2 (ae_of_all _ fun ω hω ↦ ?_))
-      have := (abs_le.1 (h_abs ω hω)).1
-      gcongr
-      linarith
     intro h
+    have h_ge := h_bounds.1
     rw [h, ENNReal.mul_top (ENNReal.ofReal_pos.2 (exp_pos _)).ne'] at h_ge
     exact measure_ne_top _ A (top_le_iff.1 h_ge)
-  -- On `A`, the density of the tilted measure is at most `exp (t m + |t| c - Λ(t))`.
   have h_le : (μ.tilted (t * X ·)).real A ≤ exp (t * m + |t| * c - cgf X μ t) * μ.real A := by
-    have h_meas :
-        μ.tilted (t * X ·) A ≤ ENNReal.ofReal (exp (t * m + |t| * c - cgf X μ t)) * μ A := by
-      rw [h_apply, ← setLIntegral_const]
-      refine lintegral_mono_ae ((ae_restrict_iff'₀ hA).2 (ae_of_all _ fun ω hω ↦ ?_))
-      have := (abs_le.1 (h_abs ω hω)).2
-      gcongr
-      linarith
-    have := ENNReal.toReal_mono (ENNReal.mul_ne_top ENNReal.ofReal_ne_top h_fin) h_meas
+    have := ENNReal.toReal_mono (ENNReal.mul_ne_top ENNReal.ofReal_ne_top h_fin) h_bounds.2
     rwa [ENNReal.toReal_mul, ENNReal.toReal_ofReal (exp_pos _).le] at this
   calc exp (-(t * m - cgf X μ t + |t| * c)) * (1 - iteratedDeriv 2 (cgf X μ) t / c ^ 2)
   _ ≤ exp (-(t * m - cgf X μ t + |t| * c)) * (μ.tilted (t * X ·)).real A := by gcongr
