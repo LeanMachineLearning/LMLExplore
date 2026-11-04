@@ -24,6 +24,8 @@ public import Mathlib.Analysis.Real.Sqrt
   `Real.sqrt_add_one_sub_sqrt_le_one_div_two_mul_sqrt`: the increments of the square root satisfy
   `1 / (2 √(x + 1)) ≤ √(x + 1) - √x ≤ 1 / (2 √x)`. They compare sums `∑_{s < n} 1 / (2 √s)` with
   `√n`, as for the exploration rates of C-tracking.
+* `Real.tendsto_one_add_sqrt_div_atTop`: `(1 + √x) / x → 0` as `x → ∞`, so that a tracking error
+  of order `1 + √n` after `n` rounds, as for C-tracking, is `o(n)`.
 * `Real.sum_range_inv_sqrt_add_one_le`: `∑_{j < n} 1 / √(j + 1) ≤ 2 √n`.
 * `Real.sum_range_inv_sqrt_max_one_le`: `∑_{j < n} 1 / √(max 1 j) ≤ 2 √n + 1`, the same sum with
   the index clipped at `1`.
@@ -39,6 +41,8 @@ public import Mathlib.Analysis.Real.Sqrt
 -/
 
 public section
+
+open Filter Topology
 
 namespace Real
 
@@ -101,6 +105,14 @@ theorem sqrt_add_one_sub_sqrt_le_one_div_two_mul_sqrt {x : ℝ} (hx : 0 < x) :
   have hab := sqrt_mul_sqrt_add_one_le hx.le
   rw [le_div_iff₀ (by positivity)]
   nlinarith
+
+/-- `(1 + √x) / x → 0` as `x → ∞`. -/
+theorem tendsto_one_add_sqrt_div_atTop : Tendsto (fun x : ℝ ↦ (1 + √x) / x) atTop (𝓝 0) := by
+  have h := tendsto_inv_atTop_zero.add (tendsto_inv_atTop_zero.comp tendsto_sqrt_atTop)
+  rw [add_zero] at h
+  refine h.congr' ?_
+  filter_upwards with x
+  rw [add_div, sqrt_div_self', one_div, Function.comp_apply, one_div]
 
 /-- `∑_{j < n} 1 / √(j + 1) ≤ 2 √n`. -/
 theorem sum_range_inv_sqrt_add_one_le (n : ℕ) :
