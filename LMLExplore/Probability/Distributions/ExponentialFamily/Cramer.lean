@@ -15,17 +15,20 @@ function `ψ = cgf T ρ`, and let `ρ_η(μ)` be the member of mean `μ` of thei
 For independent observations `Y i` with law `ρ_η(μ)` and a mean `x` of the family, the empirical
 mean of the statistics `T (Y i)` is close to `x` with probability at least of the order of
 `exp (-(n d(x, μ)))` for `n` observations, where `d(x, μ) = KL(ρ_η(x), ρ_η(μ))`. This is the lower
-half of Cramér's theorem for exponential families: together with the Cramér–Chernoff upper bounds
-of `LMLExplore.Probability.Distributions.ExponentialFamily.Chernoff`, it shows that `d(x, μ)` is
-the exact exponential rate of the probability that the empirical mean is near `x`. In
-identification, these bounds give the error exponents of algorithms that sample the arms with
-fixed proportions.
+half of Cramér's theorem for exponential families: for every `r > 0`, the probability that the
+empirical mean is within `r` of `x` decays at an exponential rate at most `d(x, μ)`. The
+Cramér–Chernoff bounds of `LMLExplore.Probability.Distributions.ExponentialFamily.Chernoff` bound
+the same probability from above by `exp (-(n d(x - r, μ)))` when `μ ≤ x - r` is a mean of the
+family, and symmetrically when `x + r ≤ μ`; the upper and lower rates agree only in the limit
+`r → 0`, which this file does not prove. In identification, these bounds give the error exponents
+of algorithms that sample the arms with fixed proportions.
 
 The proof tilts the law of the sum `S = ∑ i ∈ s, T (Y i)` by `t = η(x) - η(μ)`
 (`ProbabilityTheory.exp_mul_le_measureReal_abs_sub_deriv_cgf_le`). The cumulant generating
-function of `S` is `u ↦ #s (ψ(η(μ) + u) - ψ(η(μ)))` near `t`, so that under the tilted measure
-`S` has mean `#s x` and variance `#s Var(T)`, with the variance of `T` under `ρ_η(x)`, and the
-exponent `t (#s x) - cgf S t` of the change of measure is `#s d(x, μ)`.
+function of `S` is `u ↦ #s (ψ(η(μ) + u) - ψ(η(μ)))` near `t`
+(`ProbabilityTheory.iIndepFun.cgf_sum_eventuallyEq_of_hasLaw_expFamily`), so that under the
+tilted measure `S` has mean `#s x` and variance `#s Var(T)`, with the variance of `T` under
+`ρ_η(x)`, and the exponent `t (#s x) - cgf S t` of the change of measure is `#s d(x, μ)`.
 
 ## Main statements
 
@@ -72,48 +75,30 @@ theorem iIndepFun.exp_mul_le_measureReal_abs_sum_sub_le_of_hasLaw {Y : ι → Ω
   · simp
   set η := ρ.natParam T μ
   set t := ρ.natParam T x - η
-  set I := integrableExpSet T ρ
-  have hη : η ∈ interior I := Measure.natParam_mem_interior_integrableExpSet hμ
+  set V := Var[T; ρ.expFamily T (ρ.natParam T x)]
+  have hη : η ∈ interior (integrableExpSet T ρ) :=
+    Measure.natParam_mem_interior_integrableExpSet hμ
   have hηt : η + t = ρ.natParam T x := add_sub_cancel η _
-  have hx' : η + t ∈ interior I := hηt ▸ Measure.natParam_mem_interior_integrableExpSet hx
+  have hx' : η + t ∈ interior (integrableExpSet T ρ) :=
+    hηt ▸ Measure.natParam_mem_interior_integrableExpSet hx
   have hT : AEMeasurable T ρ := aemeasurable_of_mem_interior_integrableExpSet hη
-  -- The open set of the parameters `u` with `η + u` in the interior of the natural parameters.
-  set U := (η + ·) ⁻¹' interior I
-  have hU : IsOpen U := isOpen_interior.preimage (continuous_const_add η)
-  have hU_sub : U ⊆ integrableExpSet (fun ω ↦ ∑ i ∈ s, T (Y i ω)) P := fun u hu ↦
-    h_indep.integrable_exp_mul_sum_of_hasLaw_expFamily hT hY (interior_subset hη)
-      (interior_subset hu)
-  have ht : t ∈ interior (integrableExpSet (fun ω ↦ ∑ i ∈ s, T (Y i ω)) P) :=
-    interior_maximal hU_sub hU hx'
-  -- Near `t`, the cumulant generating function of the sum is `u ↦ #s (ψ(η + u) - ψ(η))`.
-  have h_cgf (u : ℝ) (hu : u ∈ U) : cgf (fun ω ↦ ∑ i ∈ s, T (Y i ω)) P u =
-      #s * (cgf T ρ (η + u) - cgf T ρ η) :=
-    h_indep.cgf_sum_of_hasLaw_expFamily hT hY (interior_subset hη) (interior_subset hu)
-  have h_eq : cgf (fun ω ↦ ∑ i ∈ s, T (Y i ω)) P =ᶠ[𝓝 t]
-      fun u ↦ #s * (cgf T ρ (η + u) - cgf T ρ η) :=
-    eventually_of_mem (hU.mem_nhds hx') h_cgf
-  have h_deriv : deriv (fun u ↦ #s * (cgf T ρ (η + u) - cgf T ρ η)) =
-      fun u ↦ #s * deriv (cgf T ρ) (η + u) := by
-    ext u
-    simp only [deriv_const_mul_field', deriv_sub_const, deriv_comp_const_add]
-  have h_mean : deriv (cgf (fun ω ↦ ∑ i ∈ s, T (Y i ω)) P) t = #s * x := by
-    rw [h_eq.deriv_eq, h_deriv]
-    beta_reduce
-    rw [hηt, Measure.deriv_cgf_natParam hx]
-  have h_var : iteratedDeriv 2 (cgf (fun ω ↦ ∑ i ∈ s, T (Y i ω)) P) t =
-      #s * Var[T; ρ.expFamily T (ρ.natParam T x)] := by
-    rw [iteratedDeriv_succ, iteratedDeriv_one, h_eq.deriv.deriv_eq, h_deriv]
-    simp only [deriv_const_mul_field', deriv_comp_const_add]
-    rw [hηt, Measure.variance_expFamily (Measure.natParam_mem_interior_integrableExpSet hx),
-      iteratedDeriv_succ, iteratedDeriv_one]
-  have h_bound := exp_mul_le_measureReal_abs_sub_deriv_cgf_le ht
+  have h_bound := exp_mul_le_measureReal_abs_sub_deriv_cgf_le
+    (h_indep.mem_interior_integrableExpSet_sum_of_hasLaw_expFamily hT hY (interior_subset hη) hx')
     (mul_pos (Nat.cast_pos.2 hs.card_pos) hr)
-  rw [h_mean, h_var, h_cgf t (hx' : η + t ∈ interior I)] at h_bound
-  convert h_bound using 3
-  · rw [Measure.expFamilyDiv_def, hηt]
+  rw [h_indep.deriv_cgf_sum_of_hasLaw_expFamily hT hY (interior_subset hη) hx',
+    h_indep.iteratedDeriv_two_cgf_sum_of_hasLaw_expFamily hT hY (interior_subset hη) hx',
+    h_indep.cgf_sum_of_hasLaw_expFamily hT hY (interior_subset hη) (interior_subset hx'), hηt,
+    Measure.deriv_cgf_natParam hx,
+    ← Measure.variance_expFamily (Measure.natParam_mem_interior_integrableExpSet hx)] at h_bound
+  -- The exponent of the change of measure is `#s (d(x, μ) + |t| r)`.
+  have h_exp : t * (#s * x) - #s * (cgf T ρ (ρ.natParam T x) - cgf T ρ η) + |t| * (#s * r) =
+      #s * (ρ.expFamilyDiv T x μ + |t| * r) := by
+    rw [Measure.expFamilyDiv_def]
     ring
-  · have : (#s : ℝ) ≠ 0 := Nat.cast_ne_zero.2 hs.card_pos.ne'
+  have h_ratio : #s * V / (#s * r) ^ 2 = V / (#s * r ^ 2) := by
+    have : (#s : ℝ) ≠ 0 := Nat.cast_ne_zero.2 hs.card_pos.ne'
     field_simp
+  rwa [h_exp, h_ratio] at h_bound
 
 /-- **Cramér's lower bound for exponential families.** For a sequence of independent random
 variables `Y i` with law the member `ρ_η(μ)` of mean `μ` of the exponential family of `ρ` and `T`,

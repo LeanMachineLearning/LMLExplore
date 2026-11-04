@@ -50,6 +50,10 @@ where the closed form of the divergence makes the transportation costs explicit.
   `T (Y)` for a random variable `Y` with law `ρ_η` is `t ↦ ψ(η + t) - ψ(η)`, and that of
   `∑ i ∈ s, T (Y i)` for `#s` independent random variables `Y i` with law `ρ_η` is
   `t ↦ #s (ψ(η + t) - ψ(η))`.
+* `ProbabilityTheory.iIndepFun.deriv_cgf_sum_of_hasLaw_expFamily`,
+  `ProbabilityTheory.iIndepFun.iteratedDeriv_two_cgf_sum_of_hasLaw_expFamily`: the first and second
+  derivatives at `t` of the cumulant generating function of `∑ i ∈ s, T (Y i)` are `#s ψ'(η + t)`
+  and `#s ψ''(η + t)`.
 * `MeasureTheory.Measure.integral_expFamily`, `MeasureTheory.Measure.variance_expFamily`: the
   mean and the variance of `T` under `ρ_η` are `ψ'(η)` and `ψ''(η)`.
 * `MeasureTheory.Measure.llr_expFamily`: the log-likelihood ratio of `ρ_η` with respect to `ρ_η'`
@@ -231,7 +235,7 @@ end MeasureTheory.Measure
 namespace ProbabilityTheory
 
 open MeasureTheory
-open scoped Finset
+open scoped Finset Topology
 
 variable {Ω ι 𝓧 : Type*} {mΩ : MeasurableSpace Ω} {m𝓧 : MeasurableSpace 𝓧} {P : Measure Ω}
   {ρ : Measure 𝓧} {T : 𝓧 → ℝ} {Y : Ω → 𝓧} {X : ι → Ω → 𝓧} {s : Finset ι} {η t : ℝ}
@@ -309,5 +313,51 @@ lemma iIndepFun.integrable_exp_mul_sum_of_hasLaw_expFamily (h_indep : iIndepFun 
     fun i ↦ (hX i i.2).aemeasurable_comp_expFamily hT]
   exact Finset.prod_pos fun i _ ↦
     mgf_pos (((hX i i.2).integrable_exp_mul_iff_expFamily hT hη).2 hηt)
+
+/-- For independent random variables `X i` with law `ρ_η`, the cumulant generating function of
+`∑ i ∈ s, T (X i)` agrees with `u ↦ #s (ψ(η + u) - ψ(η))` near every `t` such that `η + t` is in
+the interior of the natural parameters of `ρ` and `T`, where `ψ = cgf T ρ`. -/
+lemma iIndepFun.cgf_sum_eventuallyEq_of_hasLaw_expFamily (h_indep : iIndepFun X P)
+    (hT : AEMeasurable T ρ) (hX : ∀ i ∈ s, HasLaw (X i) (ρ.expFamily T η) P)
+    (hη : η ∈ integrableExpSet T ρ) (hηt : η + t ∈ interior (integrableExpSet T ρ)) :
+    cgf (fun ω ↦ ∑ i ∈ s, T (X i ω)) P =ᶠ[𝓝 t] fun u ↦ #s * (cgf T ρ (η + u) - cgf T ρ η) :=
+  Filter.eventually_of_mem ((isOpen_interior.preimage (continuous_const_add η)).mem_nhds hηt)
+    fun _ hu ↦ h_indep.cgf_sum_of_hasLaw_expFamily hT hX hη (interior_subset hu)
+
+/-- For independent random variables `X i` with law `ρ_η`, `t` is in the interior of
+`integrableExpSet` for the sum `∑ i ∈ s, T (X i)` if `η + t` is in the interior of the natural
+parameters of `ρ` and `T`. -/
+lemma iIndepFun.mem_interior_integrableExpSet_sum_of_hasLaw_expFamily (h_indep : iIndepFun X P)
+    (hT : AEMeasurable T ρ) (hX : ∀ i ∈ s, HasLaw (X i) (ρ.expFamily T η) P)
+    (hη : η ∈ integrableExpSet T ρ) (hηt : η + t ∈ interior (integrableExpSet T ρ)) :
+    t ∈ interior (integrableExpSet (fun ω ↦ ∑ i ∈ s, T (X i ω)) P) :=
+  interior_maximal (fun _ hu ↦ h_indep.integrable_exp_mul_sum_of_hasLaw_expFamily hT hX hη
+    (interior_subset hu)) (isOpen_interior.preimage (continuous_const_add η)) hηt
+
+/-- For independent random variables `X i` with law `ρ_η`, the derivative at `t` of the cumulant
+generating function of `∑ i ∈ s, T (X i)` is `#s ψ'(η + t)` if `η + t` is in the interior of the
+natural parameters of `ρ` and `T`, where `ψ = cgf T ρ`. -/
+lemma iIndepFun.deriv_cgf_sum_of_hasLaw_expFamily (h_indep : iIndepFun X P)
+    (hT : AEMeasurable T ρ) (hX : ∀ i ∈ s, HasLaw (X i) (ρ.expFamily T η) P)
+    (hη : η ∈ integrableExpSet T ρ) (hηt : η + t ∈ interior (integrableExpSet T ρ)) :
+    deriv (cgf (fun ω ↦ ∑ i ∈ s, T (X i ω)) P) t = #s * deriv (cgf T ρ) (η + t) := by
+  rw [(h_indep.cgf_sum_eventuallyEq_of_hasLaw_expFamily hT hX hη hηt).deriv_eq,
+    deriv_const_mul_field, deriv_sub_const, deriv_comp_const_add]
+
+/-- For independent random variables `X i` with law `ρ_η`, the second derivative at `t` of the
+cumulant generating function of `∑ i ∈ s, T (X i)` is `#s ψ''(η + t)` if `η + t` is in the
+interior of the natural parameters of `ρ` and `T`, where `ψ = cgf T ρ`. -/
+lemma iIndepFun.iteratedDeriv_two_cgf_sum_of_hasLaw_expFamily (h_indep : iIndepFun X P)
+    (hT : AEMeasurable T ρ) (hX : ∀ i ∈ s, HasLaw (X i) (ρ.expFamily T η) P)
+    (hη : η ∈ integrableExpSet T ρ) (hηt : η + t ∈ interior (integrableExpSet T ρ)) :
+    iteratedDeriv 2 (cgf (fun ω ↦ ∑ i ∈ s, T (X i ω)) P) t =
+      #s * iteratedDeriv 2 (cgf T ρ) (η + t) := by
+  have h_deriv : deriv (fun u ↦ #s * (cgf T ρ (η + u) - cgf T ρ η)) =
+      fun u ↦ #s * deriv (cgf T ρ) (η + u) := by
+    ext u
+    rw [deriv_const_mul_field, deriv_sub_const, deriv_comp_const_add]
+  rw [iteratedDeriv_succ, iteratedDeriv_one,
+    (h_indep.cgf_sum_eventuallyEq_of_hasLaw_expFamily hT hX hη hηt).deriv.deriv_eq, h_deriv,
+    deriv_const_mul_field, deriv_comp_const_add, iteratedDeriv_succ, iteratedDeriv_one]
 
 end ProbabilityTheory
