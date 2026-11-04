@@ -83,9 +83,7 @@ theorem sum_inv_pullCount_add_one_le (ω : Ω) (K : ℕ) :
   have h_arm (n : ℕ) : ∑ j ∈ range n, ((j : ℝ) + 1)⁻¹ ≤ 1 + log (1 + n) := by
     refine (sum_range_inv_add_one_le n).trans ?_
     gcongr 1 + ?_
-    rcases Nat.eq_zero_or_pos n with rfl | hn
-    · simp
-    · exact log_le_log (by positivity) (by linarith)
+    simpa [add_comm] using log_natCast_le_log_natCast n.le_succ
   -- Jensen's inequality for the concave logarithm, with uniform weights `1 / m`
   have h_jensen := strictConcaveOn_log_Ioi.concaveOn.le_map_sum (t := univ)
     (w := fun _ : α ↦ (Fintype.card α : ℝ)⁻¹) (p := fun a ↦ 1 + (pullCount A a K ω : ℝ))
@@ -126,9 +124,7 @@ theorem sum_inv_max_one_pullCount_le (ω : Ω) (K : ℕ) :
   have h_arm (n : ℕ) (hn : n ≤ K) : ∑ j ∈ range n, (max 1 (j : ℝ))⁻¹ ≤ 2 + log K := by
     refine (sum_range_inv_max_one_le n).trans ?_
     gcongr 2 + ?_
-    rcases Nat.eq_zero_or_pos n with rfl | hn0
-    · simpa using log_natCast_nonneg K
-    · exact log_le_log (by positivity) (by exact_mod_cast hn)
+    exact log_natCast_le_log_natCast hn
   calc ∑ a, ∑ j ∈ range (pullCount A a K ω), (max 1 (j : ℝ))⁻¹
       ≤ ∑ _a : α, (2 + log K) := sum_le_sum fun a _ ↦ h_arm _ (pullCount_le a K ω)
     _ = Fintype.card α * (2 + log K) := by rw [sum_const, card_univ, nsmul_eq_mul]
