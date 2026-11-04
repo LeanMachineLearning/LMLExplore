@@ -21,6 +21,8 @@ Facts about LML's `pullCount` that hold for any sequence of actions `A : ℕ →
   `0, …, pullCount A a n - 1`.
 * `cast_pullCount_add_one`, `cast_pullCount_action_add_one`: the recursion for `pullCount`, cast
   to an additive monoid with one.
+* `sum_natCast_pullCount`: the pull counts of all arms before `K` add up to `K`, cast to an
+  additive commutative monoid with one.
 * `exists_pullCount_eq_zero_of_lt_card`: before round `Fintype.card α`, some arm has not been
   pulled yet.
 * `pullCount_card_eq_one_of_forall_pullCount_action_eq_zero`: if each of the first
@@ -77,6 +79,12 @@ lemma cast_pullCount_action_add_one {R : Type*} [AddMonoidWithOne R] :
   rw [pullCount_action_eq_pullCount_add_one, Nat.cast_add_one]
 
 variable [Fintype α]
+
+/-- `∑_x N_K(x) = K` with the counts cast to `R`: every round before `K` plays exactly one
+arm. -/
+lemma sum_natCast_pullCount {R : Type*} [AddCommMonoidWithOne R] (ω : Ω) (K : ℕ) :
+    ∑ a, (pullCount A a K ω : R) = K := by
+  rw [← Nat.cast_sum, sum_pullCount]
 
 /-- Before round `Fintype.card α`, some arm has not been pulled yet. -/
 lemma exists_pullCount_eq_zero_of_lt_card (hn : n < Fintype.card α) :

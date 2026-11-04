@@ -12,7 +12,7 @@ public import Mathlib.Tactic.Positivity
 public import Mathlib.Tactic.Ring
 
 /-!
-# The telescoping series `∑ 1 / ((i + 1) (i + 2))`
+# The telescoping series `∑ 1 / ((i + 1) (i + 2))` and sums of clipped indices
 
 Since `1 / ((i + 1) (i + 2)) = 1 / (i + 1) - 1 / (i + 2)`, the partial sums of the series
 `∑ 1 / ((i + 1) (i + 2))` telescope to `1 - 1 / (n + 1)`, so they are at most `1`. A union bound
@@ -24,6 +24,9 @@ the time-uniform deviation bounds of [LS, Lemma 33.8], thus spends at most `δ` 
 * `LMLExplore.sum_range_inv_add_one_mul_add_two`:
   `∑ i < n, 1 / ((i + 1) (i + 2)) = 1 - 1 / (n + 1)`.
 * `LMLExplore.sum_range_inv_add_one_mul_add_two_le_one`: `∑ i < n, 1 / ((i + 1) (i + 2)) ≤ 1`.
+* `LMLExplore.sum_range_succ_comp_max_one`:
+  `∑ j < n + 1, f (max 1 j) = ∑ j < n, f (j + 1) + f 1`. Clipping the index at `1` only changes
+  the term `j = 0`, as for the confidence widths `max(1, N)^{-1/2}` of optimistic algorithms.
 
 ## References
 
@@ -56,5 +59,13 @@ theorem sum_range_inv_add_one_mul_add_two_le_one [Field α] [LinearOrder α] [Is
     (n : ℕ) : ∑ i ∈ range n, ((i + 1 : α) * (i + 2))⁻¹ ≤ 1 := by
   rw [sum_range_inv_add_one_mul_add_two]
   exact sub_le_self _ (by positivity)
+
+/-- Clipping the index at `1` only changes the term `j = 0`:
+`∑_{j < n + 1} f (max 1 j) = ∑_{j < n} f (j + 1) + f 1`. -/
+theorem sum_range_succ_comp_max_one {M : Type*} [AddCommMonoid M] [Semiring α] [LinearOrder α]
+    [IsOrderedRing α] (f : α → M) (n : ℕ) :
+    ∑ j ∈ range (n + 1), f (max 1 (j : α)) = ∑ j ∈ range n, f ((j : α) + 1) + f 1 := by
+  rw [sum_range_succ']
+  simp [max_eq_right (le_add_of_nonneg_left (Nat.cast_nonneg (α := α) _))]
 
 end LMLExplore
