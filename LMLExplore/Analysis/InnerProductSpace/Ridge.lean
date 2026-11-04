@@ -25,6 +25,7 @@ error is `θ̂_t - θ = V_t⁻¹ (∑_{s < t} η s • x s - λ • θ)`, so tha
 
 ## Main statements
 
+* `LMLExplore.ridgeEstimate_congr`: `θ̂_t` only depends on the first `t` observations.
 * `LMLExplore.designOp_ridgeEstimate`: the normal equations `V_t θ̂_t = ∑_{s < t} y s • x s`.
 * `LMLExplore.ridgeLoss_eq_ridgeLoss_ridgeEstimate_add`:
   `L_t(θ) = L_t(θ̂_t) + ⟪θ - θ̂_t, V_t (θ - θ̂_t)⟫`.
@@ -35,6 +36,8 @@ error is `θ̂_t - θ = V_t⁻¹ (∑_{s < t} η s • x s - λ • θ)`, so tha
 * `LMLExplore.sqrt_inner_ridgeEstimate_sub_le`: the bound
   `‖θ̂_t - θ‖_{V_t} ≤ √λ ‖θ‖ + ‖∑_{s < t} η s • x s‖_{V_t⁻¹}` in the linear model, the
   deterministic part of the confidence ellipsoids of ridge regression.
+* `LMLExplore.abs_inner_ridgeEstimate_sub_le`: on the confidence ellipsoid
+  `‖θ̂_t - θ‖_{V_t} ≤ r`, the prediction error is `|⟪θ̂_t - θ, v⟫| ≤ r ‖v‖_{V_t⁻¹}`.
 
 The bound `sqrt_inner_ridgeEstimate_sub_le` follows the matrix version
 `sqrt_mahalanobisSq_sub_ridgeEstimate_le` of the LMLPapers project (Rémy Degenne,
@@ -74,6 +77,14 @@ theorem ridgeLoss_def (lam : ℝ) (x : ℕ → E) (y : ℕ → ℝ) (t : ℕ) (�
 theorem ridgeEstimate_def (lam : ℝ) (x : ℕ → E) (y : ℕ → ℝ) (t : ℕ) :
     ridgeEstimate lam x y t = Ring.inverse (designOp lam x t) (∑ s ∈ range t, y s • x s) :=
   (rfl)
+
+/-- The ridge estimate `θ̂_t` only depends on the covariates `x s` and the responses `y s` for
+`s < t`. -/
+theorem ridgeEstimate_congr {x x' : ℕ → E} {y y' : ℕ → ℝ} {t : ℕ} (hx : ∀ s < t, x s = x' s)
+    (hy : ∀ s < t, y s = y' s) :
+    ridgeEstimate lam x y t = ridgeEstimate lam x' y' t := by
+  rw [ridgeEstimate, ridgeEstimate, designOp_congr hx,
+    sum_congr rfl fun s hs ↦ by rw [hx s (mem_range.1 hs), hy s (mem_range.1 hs)]]
 
 /-- The regularized squared loss is the quadratic function
 `L_t(θ) = ∑_{s < t} y s ² - 2 ⟪θ, ∑_{s < t} y s • x s⟫ + ⟪θ, V_t θ⟫`. -/
@@ -166,5 +177,16 @@ theorem sqrt_inner_ridgeEstimate_sub_le (hlam : 0 < lam) (x : ℕ → E) {y η :
   rw [heq]
   exact ((isPositive_designOp hlam.le x t).ringInverse.sqrt_inner_add_le _ _).trans
     (add_le_add_left hθ _)
+
+/-- **Prediction error of the ridge estimate**: for `λ > 0`, if `θ` lies in the confidence
+ellipsoid `‖θ̂_t - θ‖_{V_t} ≤ r`, then `|⟪θ̂_t - θ, v⟫| ≤ r ‖v‖_{V_t⁻¹}` for every `v`. -/
+theorem abs_inner_ridgeEstimate_sub_le (hlam : 0 < lam) (x : ℕ → E) (y : ℕ → ℝ) (t : ℕ)
+    {θ : E} {r : ℝ}
+    (hθ : √⟪ridgeEstimate lam x y t - θ, designOp lam x t (ridgeEstimate lam x y t - θ)⟫_ℝ ≤ r)
+    (v : E) :
+    |⟪ridgeEstimate lam x y t - θ, v⟫_ℝ| ≤
+      r * √⟪v, Ring.inverse (designOp lam x t) v⟫_ℝ :=
+  ((isPositive_designOp hlam.le x t).abs_inner_le_sqrt_mul_sqrt_ringInverse
+    (isUnit_designOp hlam x t) _ v).trans (mul_le_mul_of_nonneg_right hθ (Real.sqrt_nonneg _))
 
 end LMLExplore
