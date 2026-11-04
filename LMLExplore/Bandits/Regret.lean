@@ -16,8 +16,9 @@ public import LeanMachineLearning.SequentialLearning.IonescuTulceaSpace
 Facts about LML's `gap` and `regret` of a bandit `ν : Kernel α ℝ` that hold for any sequence of
 actions `A : ℕ → Ω → α`.
 
-The first part gives lower bounds on the gaps and on the expected regret in terms of the expected
-numbers of pulls.
+The first part gives lower bounds on the gaps, identifies the best arm when a single arm has the
+largest mean, and gives lower bounds on the expected regret in terms of the expected numbers of
+pulls.
 
 The second part turns gap-dependent regret bounds into gap-free ones. The analysis of an algorithm
 for stochastic bandits with finitely many arms typically bounds the expected number of pulls of
@@ -43,6 +44,9 @@ for `trajMeasure`, such as lower bounds, apply to every run.
 
 * `LMLExplore.Bandits.sub_le_gap`: the gap of an arm is at least its difference of mean with any
   other arm.
+* `LMLExplore.Bandits.bestArm_eq_of_forall_lt`: an arm whose mean is larger than the means of all
+  the other arms is the best arm, and `LMLExplore.Bandits.gap_pos_of_forall_lt`: the other arms
+  then have positive gaps.
 * `LMLExplore.Bandits.mul_sub_integral_pullCount_le_integral_regret`: if every arm other than `a₁`
   has gap at least `Δ`, the expected regret is at least `Δ (n - E[T_{a₁}(n)])`.
 * `LMLExplore.Bandits.mul_integral_pullCount_le_integral_regret`: if the arm `a₁` has gap at least
@@ -82,6 +86,18 @@ theorem sub_le_gap [Finite α] (ν : Kernel α ℝ) (a j : α) :
     (ν j)[id] - (ν a)[id] ≤ gap ν a := by
   rw [gap]
   exact sub_le_sub_right (le_ciSup (f := fun i ↦ (ν i)[id]) (Set.finite_range _).bddAbove j) _
+
+/-- If the mean of `a` is larger than the means of all the other arms, every other arm has a
+positive gap. -/
+theorem gap_pos_of_forall_lt [Finite α] {ν : Kernel α ℝ} {a : α}
+    (ha : ∀ b ≠ a, (ν b)[id] < (ν a)[id]) {b : α} (hb : b ≠ a) : 0 < gap ν b :=
+  (sub_pos.2 (ha b hb)).trans_le (sub_le_gap ν b a)
+
+/-- An arm whose mean is larger than the means of all the other arms is the best arm. -/
+theorem bestArm_eq_of_forall_lt [Fintype α] [Nonempty α] {ν : Kernel α ℝ} {a : α}
+    (ha : ∀ b ≠ a, (ν b)[id] < (ν a)[id]) : bestArm ν = a := by
+  by_contra hne
+  exact (ha _ hne).not_ge (le_bestArm a)
 
 variable [StandardBorelSpace α] {Ω : Type*} {mΩ : MeasurableSpace Ω} {P : Measure Ω}
   [IsProbabilityMeasure P] {A : ℕ → Ω → α} {ν : Kernel α ℝ}

@@ -7,10 +7,11 @@ module
 
 public import LeanMachineLearning.ForMathlib.MeasureTheory.Order.MeasurableArg
 public import LeanMachineLearning.Online.Bandit.Concentration
+public import LMLExplore.Algebra.BigOperators.Intervals
 public import LMLExplore.Data.Finset.Card
+public import LMLExplore.Data.Finset.RoundRobin
+public import LMLExplore.Identification.Complexity
 public import LMLExplore.Identification.FixedBudget
-public import Mathlib.Data.Int.CardIntervalMod
-public import Mathlib.NumberTheory.Harmonic.Defs
 
 /-!
 # Successive rejects
@@ -28,7 +29,8 @@ sub-Gaussian concentration of the rewards give the bound
 `P(error) ≤ ∑_{k < K - 1} ∑_{b ∈ B k} exp(-n (k + 1) Δ_b² / (4 σ2))` for `σ2`-sub-Gaussian arms with
 gaps `Δ`. With the numbers of pulls `n k = ⌈(T - K) / (log‾ K (K + 1 - k))⌉` of [ABM10], which
 fit in a budget `T ≥ K`, and with `B k` a set of `k + 1` arms with the largest gaps, every term is
-at most `exp(-(T - K) / (4 σ2 log‾ K H₂))`, with the complexity `H₂ = max_i i Δ_(i)⁻²`. This is
+at most `exp(-(T - K) / (4 σ2 log‾ K H₂))`, with the complexity `H₂ = max_i i Δ_(i)⁻²` and the
+constant `log‾ K` of `LMLExplore.Identification.Complexity`. This is
 [ABM10, Theorem 2]: `P(error) ≤ K (K - 1) / 2 · exp(-(T - K) / (log‾ K H₂))` for rewards in
 `[0, 1]`.
 
@@ -42,9 +44,7 @@ In the namespace `LMLExplore.Identification`:
   `n`, which pulls the surviving arms in a round robin.
 * `successiveRejects n T`: successive rejects with numbers of pulls `n` and budget `T`, as a
   fixed-budget identification algorithm.
-* `SuccessiveRejects.logBar K`: the constant `log‾ K = 1 / 2 + ∑_{i = 2}^K 1 / i`.
 * `SuccessiveRejects.pullSchedule K T`: the numbers of pulls of [ABM10].
-* `complexityTwo ν`: the complexity `H₂` of best arm identification.
 
 ## Main statements
 
@@ -55,6 +55,8 @@ In the namespace `LMLExplore.Identification.SuccessiveRejects`:
 * `empMean_le_of_mem_survivors_of_notMem_survivors_succ`: along a run, the arm eliminated at the
   end of a phase has the smallest empirical mean among the arms of that phase.
 * `measureReal_output_ne_le_sum`: the error bound for any numbers of pulls and any sets `B k`.
+* `exp_neg_pullSchedule_mul_gap_sq_div_le`: with the numbers of pulls of [ABM10], each term of
+  that bound is at most `exp(-(T - K) / (4 σ2 log‾ K H₂))`.
 * `measureReal_output_ne_le`: [ABM10, Theorem 2] for `σ2`-sub-Gaussian arms, and
   `measureReal_output_ne_le_of_mem_Icc`, its form for rewards in `[0, 1]`.
 
@@ -62,9 +64,10 @@ In the namespace `LMLExplore.Identification.SuccessiveRejects`:
 
 All the surviving arms have the same number of pulls at the end of a phase, so the arm with the
 smallest empirical mean is the arm with the smallest sum of rewards: the eliminations compare sums
-of rewards. Ties are broken by LML's `argmin`, where [ABM10] breaks them at random. The survivors
-are a function `survivors g` of the statistics `g j` of the arms at the ends of the phases, computed
-from the history by the sampling rule and from the actions and rewards along a run.
+of rewards. Ties are broken by LML's `argmin`, where [ABM10] breaks them at random. The surviving
+arms are pulled in the round robin `Finset.roundRobinOn`. The survivors are a function
+`survivors g` of the statistics `g j` of the arms at the ends of the phases, computed from the
+history by the sampling rule and from the actions and rewards along a run.
 
 ## References
 
@@ -113,46 +116,6 @@ lemma phaseOf_eq {K : ℕ} {n : ℕ → ℕ} {k t : ℕ} (hk : k + 1 ≤ K - 1) 
   by_contra! h
   exact h₂.not_ge ((monotone_phaseEnd K n h).trans (phaseEnd_phaseOf_le K n t))
 
-/-! ### Round robins -/
-
-section RoundRobin
-
-variable {α : Type*} [Nonempty α]
-
-/-- The arm played at offset `r` of a round robin over the finite set `S` (an arbitrary arm if
-`S` is empty). -/
-noncomputable def roundRobinOn (S : Finset α) (r : ℕ) : α :=
-  if h : S.Nonempty then (S.equivFin.symm ⟨r % #S, Nat.mod_lt _ h.card_pos⟩ : α)
-  else Classical.arbitrary α
-
-lemma roundRobinOn_def (S : Finset α) (r : ℕ) :
-    roundRobinOn S r = if h : S.Nonempty
-      then (S.equivFin.symm ⟨r % #S, Nat.mod_lt _ h.card_pos⟩ : α) else Classical.arbitrary α :=
-  (rfl)
-
-lemma roundRobinOn_mem {S : Finset α} (hS : S.Nonempty) (r : ℕ) : roundRobinOn S r ∈ S := by
-  simp only [roundRobinOn, hS, dite_true, coe_mem]
-
-/-- A round robin over `S` during `#S * d` rounds plays each arm of `S` exactly `d` times. -/
-lemma card_filter_roundRobinOn_eq [DecidableEq α] (S : Finset α) (d : ℕ) (a : α) :
-    #{r ∈ range (#S * d) | roundRobinOn S r = a} = if a ∈ S then d else 0 := by
-  rcases S.eq_empty_or_nonempty with rfl | hS
-  · simp
-  split_ifs with ha
-  · have h_iff (r : ℕ) : roundRobinOn S r = a ↔ r ≡ (S.equivFin ⟨a, ha⟩ : ℕ) [MOD #S] := by
-      have : roundRobinOn S r = a ↔
-          S.equivFin.symm ⟨r % #S, Nat.mod_lt _ hS.card_pos⟩ = ⟨a, ha⟩ := by
-        simp only [roundRobinOn, hS, dite_true, Subtype.ext_iff]
-      rw [this, Equiv.symm_apply_eq, Fin.ext_iff, Nat.ModEq,
-        Nat.mod_eq_of_lt (S.equivFin ⟨a, ha⟩).isLt]
-    simp_rw [h_iff, ← Nat.count_eq_card_filter_range, Nat.count_modEq_card _ hS.card_pos,
-      Nat.mul_mod_right, Nat.not_lt_zero, ite_false, add_zero,
-      Nat.mul_div_cancel_left _ hS.card_pos]
-  · rw [card_eq_zero, filter_eq_empty_iff]
-    exact fun r _ h ↦ ha (h ▸ roundRobinOn_mem hS r)
-
-end RoundRobin
-
 /-! ### Survivors -/
 
 variable {α : Type*} [Fintype α] [DecidableEq α] [Nonempty α]
@@ -165,19 +128,20 @@ noncomputable def eliminated (S : Finset α) (x : α → ℝ) : α :=
 lemma eliminated_def (S : Finset α) (x : α → ℝ) :
     eliminated S x = argmin fun a ↦ if a ∈ S then (x a : EReal) else ⊤ := (rfl)
 
+/-- The arm `eliminated S x` minimizes the values `x`, extended by `⊤` outside `S`. -/
+lemma ite_eliminated_le (S : Finset α) (x : α → ℝ) (b : α) :
+    (if eliminated S x ∈ S then (x (eliminated S x) : EReal) else ⊤) ≤
+      if b ∈ S then (x b : EReal) else ⊤ :=
+  isMinOn_univ_iff.1 (isMinOn_argmin fun a ↦ if a ∈ S then (x a : EReal) else ⊤) b
+
 lemma eliminated_mem {S : Finset α} (hS : S.Nonempty) (x : α → ℝ) : eliminated S x ∈ S := by
   obtain ⟨b, hb⟩ := hS
   by_contra h
-  have hmin := isMinOn_univ_iff.1 (isMinOn_argmin fun a ↦ if a ∈ S then (x a : EReal) else ⊤) b
-  rw [← eliminated_def] at hmin
-  simp only [h, hb, ite_true, ite_false, top_le_iff] at hmin
-  exact EReal.coe_ne_top _ hmin
+  simpa [h, hb] using ite_eliminated_le S x b
 
 lemma le_of_eliminated_mem {S : Finset α} {x : α → ℝ} (h : eliminated S x ∈ S) {b : α}
     (hb : b ∈ S) : x (eliminated S x) ≤ x b := by
-  have hmin := isMinOn_univ_iff.1 (isMinOn_argmin fun a ↦ if a ∈ S then (x a : EReal) else ⊤) b
-  rw [← eliminated_def] at hmin
-  simpa only [h, hb, ite_true, EReal.coe_le_coe_iff] using hmin
+  simpa [h, hb] using ite_eliminated_le S x b
 
 /-- The arms that survive the first `k` phases of successive rejects, when `g j` gives the
 statistics of the arms at the end of phase `j`: phase `k + 1` eliminates the surviving arm with
@@ -264,11 +228,11 @@ omit [Fintype α] [Nonempty α] in
 rounds is its sum of rewards before round `t`. -/
 lemma histSum_history {Ω : Type*} (O : ℕ → Ω → Unit) (A : ℕ → Ω → α) (R : ℕ → Ω → ℝ) {m t : ℕ}
     (ht : t ≤ m) (ω : Ω) (a : α) : histSum (history O A R m ω) t a = sumRewards A R a t ω := by
-  rw [histSum, sum_fin_eq_sum_range, sumRewards, ← sum_range_add_sum_Ico _ ht,
-    sum_eq_zero (s := Ico t m) fun s hs ↦ by simp [(mem_Ico.1 hs).1.not_gt], add_zero]
-  refine sum_congr rfl fun s hs ↦ ?_
-  have hs := mem_range.1 hs
-  simp [hs, hs.trans_le ht, history_apply]
+  rw [histSum_def, sum_fin_eq_sum_range, sumRewards, ← sum_range_add_sum_Ico _ ht]
+  -- The rounds `s ≥ t` do not count, and the rounds `s < t ≤ m` are those of the history.
+  rw [sum_eq_zero (s := Ico t m) fun s hs ↦ by simp [(mem_Ico.1 hs).1.not_gt], add_zero]
+  exact sum_congr rfl fun s hs ↦ by
+    simp [mem_range.1 hs, (mem_range.1 hs).trans_le ht, history_apply]
 
 /-- The arm played by successive rejects with numbers of pulls `n` after `t` rounds with history
 `h`: `armAt n` for the sums of rewards of the arms at the ends of the phases. -/
@@ -373,10 +337,9 @@ lemma pullCount_phaseEnd_succ_eq_add (hω : ∀ t, A t ω = armAt n (phaseSums n
   set K := Fintype.card α
   set S := survivors (phaseSums n A R ω) k
   have hS : #S = K - k := card_survivors _ (by omega)
-  rw [pullCount_eq_sum, ← sum_range_add_sum_Ico _ (monotone_phaseEnd K n (Nat.le_succ k)),
-    ← pullCount_eq_sum, sum_Ico_eq_sum_range, phaseEnd_succ, Nat.add_sub_cancel_left, ← hS,
-    sum_boole, Nat.cast_id]
-  congr 1
+  -- The rounds of phase `k + 1` are the `r`-th rounds after the end of phase `k`, `r < #S d`.
+  rw [phaseEnd_succ, ← hS, pullCount_eq_sum, pullCount_eq_sum, sum_range_add]
+  simp only [sum_boole, Nat.cast_id, Nat.add_left_cancel_iff]
   calc #{r ∈ range (#S * (n (k + 1) - n k)) | A (phaseEnd K n k + r) ω = a}
   _ = #{r ∈ range (#S * (n (k + 1) - n k)) | roundRobinOn S r = a} := by
     refine congrArg card (filter_congr fun r hr ↦ ?_)
@@ -531,9 +494,6 @@ theorem SuccessiveRejects.measureReal_output_ne_le_sum (hn0 : n 0 = 0)
   have hK : 0 < K := Fintype.card_pos
   have h_alg : IsAlgEnvSeq O A R (samplingRule n) (Environment.bandit ν) P := by
     simpa using h.isAlgEnvSeq
-  have h_best : Bandits.bestArm ν = a' := by
-    by_contra hne
-    exact (ha' _ hne).not_ge (Bandits.le_bestArm a')
   set E : ℕ → α → Set Ω := fun k b ↦ {ω |
     pullCount A a' (phaseEnd K n (k + 1)) ω = n (k + 1) ∧
     pullCount A b (phaseEnd K n (k + 1)) ω = n (k + 1) ∧
@@ -560,7 +520,7 @@ theorem SuccessiveRejects.measureReal_output_ne_le_sum (hn0 : n 0 = 0)
       Real.exp (-(n (k + 1) : ℝ) * Bandits.gap ν b ^ 2 / (4 * σ2)) := by
     refine sum_le_sum fun k _ ↦ sum_le_sum fun b _ ↦ ?_
     refine (Bandits.probReal_sumRewards_le_sumRewards_le h_alg a' b _ _ _).trans ?_
-    rw [← h_best]
+    rw [← Bandits.bestArm_eq_of_forall_lt ha']
     exact Bandits.probReal_sum_le_sum_streamMeasure hν b _
 
 /-! ### The schedule of [ABM10] -/
@@ -581,39 +541,6 @@ lemma phaseEnd_eq_sum {K : ℕ} {n : ℕ → ℕ} (hn0 : n 0 = 0) (hn : Monotone
     obtain ⟨e, he⟩ : ∃ e, K - k = e + 1 := ⟨K - k - 1, by omega⟩
     rw [hd, he, show K - (k + 1) = e by omega, Nat.add_sub_cancel_left]
     ring
-
-private lemma sum_range_inv_succ_sub (m : ℕ) :
-    ∑ j ∈ range m, ((m + 1 - j : ℝ))⁻¹ = harmonic (m + 1) - 1 := by
-  induction m with
-  | zero => simp
-  | succ m ih =>
-    rw [sum_range_succ', harmonic_succ (m + 1)]
-    push_cast
-    rw [sum_congr rfl fun j _ ↦ by rw [show (m + 1 + 1 - (j + 1) : ℝ) = m + 1 - j by ring], ih]
-    ring
-
-/-- `∑_{j < K - 1} 1 / (K - j) = H_K - 1`, with `H` the harmonic numbers. -/
-private lemma sum_range_inv_sub_eq_harmonic_sub_one {K : ℕ} (hK : K ≠ 0) :
-    ∑ j ∈ range (K - 1), ((K - j : ℝ))⁻¹ = harmonic K - 1 := by
-  obtain ⟨m, rfl⟩ := Nat.exists_eq_succ_of_ne_zero hK
-  rw [Nat.succ_sub_one, ← sum_range_inv_succ_sub]
-  push_cast
-  rfl
-
-/-- The constant `log‾ K = 1 / 2 + ∑_{i = 2}^K 1 / i` of successive rejects [ABM10]. -/
-noncomputable def logBar (K : ℕ) : ℝ := harmonic K - 1 / 2
-
-lemma logBar_def (K : ℕ) : logBar K = harmonic K - 1 / 2 := (rfl)
-
-lemma logBar_eq_sum {K : ℕ} (hK : K ≠ 0) :
-    logBar K = ∑ j ∈ range (K - 1), ((K - j : ℝ))⁻¹ + 1 / 2 := by
-  rw [sum_range_inv_sub_eq_harmonic_sub_one hK, logBar]
-  ring
-
-lemma one_half_le_logBar {K : ℕ} (hK : K ≠ 0) : 1 / 2 ≤ logBar K := by
-  rw [logBar_eq_sum hK, le_add_iff_nonneg_left]
-  refine sum_nonneg fun j hj ↦ inv_nonneg.2 (sub_nonneg.2 ?_)
-  exact_mod_cast (mem_range.1 hj).le.trans (Nat.sub_le K 1)
 
 /-- The numbers of pulls of successive rejects with `K` arms and budget `T` [ABM10]:
 `n k = ⌈(T - K) / (log‾ K (K + 1 - k))⌉` after `k ≥ 1` phases, and `n 0 = 0`. -/
@@ -679,68 +606,43 @@ lemma phaseEnd_pullSchedule_le {K T : ℕ} (hKT : K ≤ T) :
       _ = T := by rw [hx]; ring
   exact_mod_cast this
 
+omit [Nonempty α] [MeasurableSingletonClass α] [IsMarkovKernel ν] in
+/-- With the numbers of pulls of [ABM10], if `B` is a set of `k + 1` arms other than the unique best
+arm `a'` whose gaps are at least those of the other arms `c ≠ a'`, the term of `b ∈ B` in the
+error bound `measureReal_output_ne_le_sum` of phase `k + 1` is at most
+`exp(-(T - K) / (4 σ2 log‾ K H₂))`: `n (k + 1) ≥ (T - K) / (log‾ K (K - k))` and
+`Δ_b² ≥ (K - k) / H₂`. -/
+lemma exp_neg_pullSchedule_mul_gap_sq_div_le (T : ℕ) (σ2 : ℝ≥0) {a' : α}
+    (ha' : ∀ b ≠ a', (ν b)[id] < (ν a')[id]) {B : Finset α} (hB : B ⊆ univ.erase a')
+    (h_top : ∀ b ∈ B, ∀ c ∈ univ.erase a' \ B, Bandits.gap ν c ≤ Bandits.gap ν b) {k : ℕ}
+    (hk : k + 1 < Fintype.card α) (hBk : #B = k + 1) {b : α} (hb : b ∈ B) :
+    Real.exp (-(pullSchedule (Fintype.card α) T (k + 1) : ℝ) * Bandits.gap ν b ^ 2 / (4 * σ2)) ≤
+      Real.exp (-((T : ℝ) - Fintype.card α) /
+        (4 * σ2 * logBar (Fintype.card α) * complexityTwo ν)) := by
+  set K := Fintype.card α
+  set x : ℝ := (T : ℝ) - K
+  have hKk : (0 : ℝ) < K - k := by
+    have : (k : ℝ) + 1 < K := by exact_mod_cast hk
+    linarith
+  have h_gap : (K - k : ℝ) / complexityTwo ν ≤ Bandits.gap ν b ^ 2 := by
+    have := sub_card_div_complexityTwo_le_gap_sq ha' hB h_top hb
+    rwa [hBk, Nat.cast_add, Nat.cast_one, add_sub_add_right_eq_sub] at this
+  have h_pulls : x / (logBar K * (K - k)) ≤ pullSchedule K T (k + 1) := by
+    refine (le_of_eq ?_).trans (le_pullSchedule K T (Nat.succ_ne_zero k))
+    rw [show ((K : ℝ) + 1 - ((k + 1 : ℕ) : ℝ)) = K - k by push_cast; ring]
+  have h_main : x / (logBar K * complexityTwo ν) ≤
+      pullSchedule K T (k + 1) * Bandits.gap ν b ^ 2 := by
+    calc x / (logBar K * complexityTwo ν)
+        = x / (logBar K * (K - k)) * ((K - k : ℝ) / complexityTwo ν) := by
+          field_simp
+      _ ≤ _ := mul_le_mul h_pulls h_gap (div_nonneg hKk.le (complexityTwo_nonneg ν))
+          (Nat.cast_nonneg _)
+  refine Real.exp_le_exp.2 ?_
+  rw [show -x / (4 * σ2 * logBar K * complexityTwo ν) =
+    -(x / (logBar K * complexityTwo ν)) / (4 * σ2) by ring, neg_mul]
+  exact div_le_div_of_nonneg_right (neg_le_neg h_main) (by positivity)
+
 end SuccessiveRejects
-
-/-- The complexity `H₂` of best arm identification [ABM10]: the largest `r_b / Δ_b²` over the
-arms `b`, where `Δ_b` is the gap of `b` and `r_b` is the number of arms whose gap is at most `Δ_b`.
-The term of an arm of gap zero is `0`. When the best arm is unique and `Δ_(1) ≤ ⋯ ≤ Δ_(K)` are the
-gaps sorted increasingly, with the gap `0` of the best arm replaced by the smallest gap of the
-other arms, this is `max_i i Δ_(i)⁻²`: within a block of equal gaps, `i Δ_(i)⁻²` is largest at
-the last index of the block, which is `r_b` for the arms `b` of the block. -/
-noncomputable def complexityTwo (ν : Kernel α ℝ) : ℝ :=
-  ⨆ b, (#{c | Bandits.gap ν c ≤ Bandits.gap ν b} : ℝ) / Bandits.gap ν b ^ 2
-
-omit [DecidableEq α] [Nonempty α] [MeasurableSingletonClass α] in
-lemma complexityTwo_def (ν : Kernel α ℝ) :
-    complexityTwo ν = ⨆ b, (#{c | Bandits.gap ν c ≤ Bandits.gap ν b} : ℝ) / Bandits.gap ν b ^ 2 :=
-  (rfl)
-
-omit [DecidableEq α] [Nonempty α] [MeasurableSingletonClass α] in
-lemma le_complexityTwo (ν : Kernel α ℝ) (b : α) :
-    (#{c | Bandits.gap ν c ≤ Bandits.gap ν b} : ℝ) / Bandits.gap ν b ^ 2 ≤ complexityTwo ν :=
-  le_ciSup (Set.finite_range fun b ↦
-    (#{c | Bandits.gap ν c ≤ Bandits.gap ν b} : ℝ) / Bandits.gap ν b ^ 2).bddAbove b
-
-omit [MeasurableSingletonClass α] [IsMarkovKernel ν] in
-/-- If `B` is a set of arms other than the unique best arm `a'` whose gaps are at least those of
-the other arms `c ≠ a'`, and `b ∈ B`, then `Δ_b² ≥ (K + 1 - #B) / H₂`: the `K + 1 - #B` arms
-outside `B`, together with `b`, have gaps at most `Δ_b`. -/
-lemma sub_card_div_complexityTwo_le_gap_sq {a' : α} (ha' : ∀ b ≠ a', (ν b)[id] < (ν a')[id])
-    {B : Finset α} (hB : B ⊆ univ.erase a')
-    (h_top : ∀ b ∈ B, ∀ c ∈ univ.erase a' \ B, Bandits.gap ν c ≤ Bandits.gap ν b)
-    {b : α} (hb : b ∈ B) :
-    ((Fintype.card α : ℝ) + 1 - #B) / complexityTwo ν ≤ Bandits.gap ν b ^ 2 := by
-  have h_best : Bandits.bestArm ν = a' := by
-    by_contra hne
-    exact (ha' _ hne).not_ge (Bandits.le_bestArm a')
-  have hΔ : 0 < Bandits.gap ν b := by
-    rw [Bandits.gap_eq_bestArm_sub, h_best, sub_pos]
-    exact ha' b (mem_erase.1 (hB hb)).1
-  -- The arms outside `B`, and `b`, have gaps at most that of `b`.
-  have h_rank : #(B.erase b)ᶜ ≤ #{c | Bandits.gap ν c ≤ Bandits.gap ν b} := by
-    refine card_le_card fun c hc ↦ ?_
-    rw [mem_compl, mem_erase, not_and_or, not_not] at hc
-    rw [mem_filter_univ]
-    rcases hc with rfl | hc
-    · exact le_rfl
-    rcases eq_or_ne c a' with rfl | hca
-    · rw [← h_best, Bandits.gap_bestArm]
-      exact Bandits.gap_nonneg
-    · exact h_top b hb c (mem_sdiff.2 ⟨mem_erase.2 ⟨hca, mem_univ c⟩, hc⟩)
-  rw [card_compl, card_erase_of_mem hb] at h_rank
-  have h_rank' : (Fintype.card α : ℝ) + 1 - #B ≤ #{c | Bandits.gap ν c ≤ Bandits.gap ν b} := by
-    have hBK : #B ≤ Fintype.card α := card_le_univ B
-    have hB1 : 1 ≤ #B := card_pos.2 ⟨b, hb⟩
-    calc (Fintype.card α : ℝ) + 1 - #B = (Fintype.card α - (#B - 1) : ℕ) := by
-          rw [Nat.cast_sub (by omega), Nat.cast_sub hB1]
-          ring
-      _ ≤ _ := by exact_mod_cast h_rank
-  have hH := le_complexityTwo ν b
-  have hH0 : 0 < complexityTwo ν :=
-    (div_pos (by exact_mod_cast card_pos.2 ⟨b, by simp⟩) (pow_pos hΔ 2)).trans_le hH
-  rw [div_le_iff₀ (pow_pos hΔ 2)] at hH
-  rw [div_le_iff₀ hH0]
-  nlinarith
 
 /-- **Successive rejects** [ABM10, Theorem 2]. For `σ2`-sub-Gaussian arms with a unique best arm
 `a'` and a budget `T ≥ K`, successive rejects with the numbers of pulls
@@ -766,54 +668,19 @@ theorem SuccessiveRejects.measureReal_output_ne_le (hKT : Fintype.card α ≤ T)
   refine (measureReal_output_ne_le_sum (pullSchedule_zero _ _) (monotoneOn_pullSchedule hKT)
     (phaseEnd_pullSchedule_le hKT) hν ha' hB_sub
     (fun k hk ↦ (hB_card' k (mem_range.2 hk)).ge) h).trans ?_
-  set x : ℝ := (T : ℝ) - K
-  have hx : 0 ≤ x := by simp [x, hKT]
-  have hL := one_half_le_logBar (K := K) (by omega)
-  -- Each term of the sum is at most `exp(-(T - K) / (4 σ2 log‾ K H₂))`, since
-  -- `n (k + 1) ≥ (T - K) / (log‾ K (K - k))` and `Δ_b² ≥ (K - k) / H₂` for `b ∈ B k`.
-  have h_term (k : ℕ) (hk : k ∈ range (K - 1)) (b : α) (hb : b ∈ B k) :
-      Real.exp (-(pullSchedule K T (k + 1) : ℝ) * Bandits.gap ν b ^ 2 / (4 * σ2)) ≤
-        Real.exp (-x / (4 * σ2 * logBar K * complexityTwo ν)) := by
-    have hKk : (0 : ℝ) < K - k := by
-      have : (k : ℝ) + 1 < K := by exact_mod_cast (by have := mem_range.1 hk; omega : k + 1 < K)
-      linarith
-    have h_gap : (K - k : ℝ) / complexityTwo ν ≤ Bandits.gap ν b ^ 2 := by
-      have := sub_card_div_complexityTwo_le_gap_sq ha' (hB_sub k) (hB_top k) hb
-      rwa [hB_card' k hk, Nat.cast_add, Nat.cast_one, add_sub_add_right_eq_sub] at this
-    have h_pulls : x / (logBar K * (K - k)) ≤ pullSchedule K T (k + 1) := by
-      refine (le_of_eq ?_).trans (le_pullSchedule K T (Nat.succ_ne_zero k))
-      rw [show ((K : ℝ) + 1 - ((k + 1 : ℕ) : ℝ)) = K - k by push_cast; ring]
-    have h_main : x / (logBar K * complexityTwo ν) ≤
-        pullSchedule K T (k + 1) * Bandits.gap ν b ^ 2 := by
-      calc x / (logBar K * complexityTwo ν)
-          = x / (logBar K * (K - k)) * ((K - k : ℝ) / complexityTwo ν) := by
-            field_simp
-        _ ≤ _ := mul_le_mul h_pulls h_gap (div_nonneg hKk.le ?_) (Nat.cast_nonneg _)
-      exact (le_complexityTwo ν b).trans' (by positivity)
-    refine Real.exp_le_exp.2 ?_
-    rw [show -x / (4 * σ2 * logBar K * complexityTwo ν) =
-      -(x / (logBar K * complexityTwo ν)) / (4 * σ2) by ring, neg_mul]
-    exact div_le_div_of_nonneg_right (neg_le_neg h_main) (by positivity)
+  set y := Real.exp (-((T : ℝ) - K) / (4 * σ2 * logBar K * complexityTwo ν))
   calc ∑ k ∈ range (K - 1), ∑ b ∈ B k,
         Real.exp (-(pullSchedule K T (k + 1) : ℝ) * Bandits.gap ν b ^ 2 / (4 * σ2))
-  _ ≤ ∑ k ∈ range (K - 1), ∑ _b ∈ B k, Real.exp (-x / (4 * σ2 * logBar K * complexityTwo ν)) :=
-    sum_le_sum fun k hk ↦ sum_le_sum fun b hb ↦ h_term k hk b hb
-  _ = (∑ k ∈ range (K - 1), ((k : ℝ) + 1)) *
-      Real.exp (-x / (4 * σ2 * logBar K * complexityTwo ν)) := by
-    rw [sum_mul]
-    refine sum_congr rfl fun k hk ↦ ?_
-    rw [sum_const, hB_card' k hk, nsmul_eq_mul]
-    push_cast
-    ring
-  _ = K * (K - 1) / 2 * Real.exp (-x / (4 * σ2 * logBar K * complexityTwo ν)) := by
+  _ ≤ ∑ k ∈ range (K - 1), ∑ _b ∈ B k, y :=
+    sum_le_sum fun k hk ↦ sum_le_sum fun b hb ↦ exp_neg_pullSchedule_mul_gap_sq_div_le T σ2 ha'
+      (hB_sub k) (hB_top k) (by have := mem_range.1 hk; omega) (hB_card' k hk) hb
+  _ = (∑ k ∈ range (K - 1), ((k : ℝ) + 1)) * y := by
+    simp_rw [sum_const, sum_mul]
+    exact sum_congr rfl fun k hk ↦ by rw [hB_card' k hk, nsmul_eq_mul]; push_cast; ring
+  _ = K * (K - 1) / 2 * y := by
     congr 1
-    obtain ⟨m, hm⟩ : ∃ m, K = m + 1 := ⟨K - 1, by omega⟩
-    have h_gauss := sum_range_id_mul_two (m + 1)
-    rw [sum_range_succ'] at h_gauss
-    rw [hm, Nat.add_sub_cancel]
-    have : (∑ k ∈ range m, ((k : ℝ) + 1)) * 2 = (m + 1) * m := by exact_mod_cast h_gauss
-    push_cast
-    linarith
+    rw [eq_div_iff two_ne_zero, sum_range_add_one_mul_two, Nat.cast_sub hK, Nat.cast_one]
+    ring
 
 /-- **Successive rejects for rewards in `[0, 1]`** [ABM10, Theorem 2]: with a unique best arm `a'`
 and a budget `T ≥ K`, successive rejects with the numbers of pulls
