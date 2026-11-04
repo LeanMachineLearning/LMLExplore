@@ -383,7 +383,7 @@ theorem integral_linearRegret_le (h : IsAlgEnvSeq O A Y (oful S) env P)
     h.measure_exists_sqrt_inner_ridgeEstimate_sub_ge_le_of_norm_le henv hφ hσ hL hlam hδ
   have hG0 : 0 ≤ G := by
     obtain ⟨ω⟩ := nonempty_of_isProbabilityMeasure P
-    simpa using hgap (O 0 ω) (A 0 ω) (A 0 ω)
+    exact nonneg_of_gap (hgap (O 0 ω) · (A 0 ω))
   -- the regret is at most `B` outside `bad`, and at most `n G` everywhere
   have hle : ∀ᵐ ω ∂P,
       linearRegret φ θ O A n ω ≤ B + n * G * (toMeasurable P bad).indicator 1 ω := by
@@ -428,11 +428,11 @@ theorem integral_linearRegret_le_one_add (h : IsAlgEnvSeq O A Y (oful S) env P)
       G + √(8 * n * R ^ 2 * (finrank ℝ E * log (1 + n * L ^ 2 / (lam * finrank ℝ E)))) := by
   rcases n.eq_zero_or_pos with rfl | hn
   · obtain ⟨ω⟩ := nonempty_of_isProbabilityMeasure P
-    simpa using hgap (O 0 ω) (A 0 ω) (A 0 ω)
-  have hn' : (0 : ℝ) < n := Nat.cast_pos.2 hn
+    simpa using nonneg_of_gap (hgap (O 0 ω) · (A 0 ω))
   have := integral_linearRegret_le (δ := 1 / n) h henv hφ hσ hgap hL hlam (by positivity) hθ
     (by simpa only [one_div_one_div] using hr) hG hrR
-  rwa [mul_assoc, mul_comm G, ← mul_assoc, mul_one_div_cancel hn'.ne', one_mul] at this
+  have hnG : (n : ℝ) * G * (1 / n) = G := by field_simp
+  linarith
 
 end OFUL
 

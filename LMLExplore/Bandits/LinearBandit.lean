@@ -59,9 +59,9 @@ features.
   form for bounded features [LS, Theorem 20.5 and (20.9)];
   `Learning.IsAlgEnvSeq.measure_exists_sqrt_inner_ridgeEstimate_sub_ge_le_of_norm_le` the bound
   on the probability that the latter fail.
-* `bddAbove_range_inner_of_gap`, `iSup_inner_sub_inner_le_of_gap`: if the gaps between the
-  expected rewards of the actions and that of an action `b` are at most `G`, then the expected
-  rewards are bounded above and `sup_a ⟪θ, f a⟫ - ⟪θ, f b⟫ ≤ G`.
+* `nonneg_of_gap`, `bddAbove_range_inner_of_gap`, `iSup_inner_sub_inner_le_of_gap`: if the gaps
+  between the expected rewards of the actions and that of an action `b` are at most `G`, then
+  `0 ≤ G`, the expected rewards are bounded above and `sup_a ⟪θ, f a⟫ - ⟪θ, f b⟫ ≤ G`.
 * `linearRegret_nonneg`, `linearRegret_le_mul`: the random regret is nonnegative, and at most
   `n G` after `n` rounds when the gaps between the expected rewards of the actions are at most `G`.
 * `isSubgaussianLinearEnv_gaussianLinearEnv`: the Gaussian linear environment is linear with
@@ -294,6 +294,12 @@ lemma bddAbove_range_inner_of_gap {f : 𝓐 → E} {b : 𝓐} {G : ℝ}
     (hgap : ∀ a, ⟪θ, f a⟫_ℝ - ⟪θ, f b⟫_ℝ ≤ G) :
     BddAbove (Set.range fun a ↦ ⟪θ, f a⟫_ℝ) :=
   ⟨G + ⟪θ, f b⟫_ℝ, by rintro _ ⟨a, rfl⟩; linarith [hgap a]⟩
+
+/-- If the gaps `⟪θ, f a⟫ - ⟪θ, f b⟫` between the expected rewards of the actions and that of an
+action `b` are at most `G`, then `G` is nonnegative. -/
+lemma nonneg_of_gap {f : 𝓐 → E} {b : 𝓐} {G : ℝ} (hgap : ∀ a, ⟪θ, f a⟫_ℝ - ⟪θ, f b⟫_ℝ ≤ G) :
+    0 ≤ G := by
+  simpa using hgap b
 
 /-- If the gaps `⟪θ, f a⟫ - ⟪θ, f b⟫` between the expected rewards of the actions and that of an
 action `b` are at most `G`, then so is the gap `sup_a ⟪θ, f a⟫ - ⟪θ, f b⟫`. -/
