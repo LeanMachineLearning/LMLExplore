@@ -15,7 +15,7 @@ public import Mathlib.Order.ConditionallyCompleteLattice.Indexed
 
 * `abs_ciSup_le`: in a conditionally complete linearly ordered additive group, if `|f i| ≤ B` for
   every `i` of a nonempty index type, then `|⨆ i, f i| ≤ B`.
-* `abs_ciSup_sub_ciSup_le`: if two families bounded above over a nonempty index type satisfy
+* `abs_ciSup_sub_ciSup_le`: if `g` is bounded above over a nonempty index type and
   `|f i - g i| ≤ c` for every `i`, then `|⨆ i, f i - ⨆ i, g i| ≤ c`.
 -/
 
@@ -33,10 +33,14 @@ theorem abs_ciSup_le [Nonempty ι] {f : ι → α} {B : α} (h : ∀ i, |f i| �
     (le_ciSup ⟨B, forall_mem_range.2 fun i ↦ (abs_le.1 (h i)).2⟩ i),
     ciSup_le fun i ↦ (abs_le.1 (h i)).2⟩
 
-/-- Two families bounded above over a nonempty index type that are within `c` of each other at
-every index have suprema within `c` of each other. -/
-theorem abs_ciSup_sub_ciSup_le [Nonempty ι] {f g : ι → α} {c : α} (hf : BddAbove (range f))
-    (hg : BddAbove (range g)) (h : ∀ i, |f i - g i| ≤ c) : |(⨆ i, f i) - ⨆ i, g i| ≤ c := by
+/-- If `g` is bounded above over a nonempty index type and `f` is within `c` of `g` at every
+index, then the suprema of `f` and `g` are within `c` of each other. -/
+theorem abs_ciSup_sub_ciSup_le [Nonempty ι] {f g : ι → α} {c : α} (hg : BddAbove (range g))
+    (h : ∀ i, |f i - g i| ≤ c) : |(⨆ i, f i) - ⨆ i, g i| ≤ c := by
+  have hf : BddAbove (range f) := by
+    obtain ⟨B, hB⟩ := hg
+    exact ⟨c + B, forall_mem_range.2 fun i ↦ (sub_le_iff_le_add.1 (abs_sub_le_iff.1 (h i)).1).trans
+      (add_le_add_right (hB (mem_range_self i)) c)⟩
   refine abs_sub_le_iff.2 ⟨sub_le_iff_le_add.2 (ciSup_le fun i ↦ ?_),
     sub_le_iff_le_add.2 (ciSup_le fun i ↦ ?_)⟩
   · calc f i ≤ c + g i := sub_le_iff_le_add.1 (abs_sub_le_iff.1 (h i)).1

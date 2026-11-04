@@ -233,6 +233,12 @@ theorem qValue_mem_Icc (hM : M.RewardsIn (Set.Icc a b)) {h : ℕ} (hh : h < H) (
     (a' : 𝓐) : M.qValue H π h s a' ∈ Set.Icc ((H - h : ℕ) * a) ((H - h : ℕ) * b) :=
   meanReward_add_integral_mem_Icc hM hh (measurable_value (h + 1)) (value_mem_Icc hM (h + 1)) s a'
 
+/-- For bounded rewards, the value of `π` at every step is integrable with respect to every finite
+measure on the states. -/
+theorem integrable_value (hM : M.RewardsIn (Set.Icc a b)) (h : ℕ) {μ : Measure 𝓢}
+    [IsFiniteMeasure μ] : Integrable (M.value H π h) μ :=
+  .of_mem_Icc _ _ (measurable_value h).aemeasurable (.of_forall (value_mem_Icc hM h))
+
 /-- For nonnegative rewards in `[0, b]`, the value of `π` is nonnegative. -/
 theorem value_nonneg (hM : M.RewardsIn (Set.Icc 0 b)) (h : ℕ) (s : 𝓢) : 0 ≤ M.value H π h s := by
   simpa using (value_mem_Icc (H := H) (π := π) hM h s).1

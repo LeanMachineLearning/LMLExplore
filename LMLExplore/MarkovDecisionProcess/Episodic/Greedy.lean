@@ -81,11 +81,9 @@ theorem optValue_sub_value_le_of_abs_sub_optQValue_le (hM : M.RewardsIn (Set.Icc
     have h₂ : M.optQValue H h s (d h s) - M.qValue H π h s (d h s) ≤
         2 * ∑ k ∈ Ico (h + 1) H, ε k := by
       have hV : Integrable (M.optValue H (h + 1)) (M.trans h (s, d h s)) :=
-        .of_mem_Icc _ _ (measurable_optValue (h + 1)).aemeasurable
-          (.of_forall (optValue_mem_Icc hM (h + 1)))
+        integrable_optValue hM (h + 1)
       have hVπ : Integrable (M.value H π (h + 1)) (M.trans h (s, d h s)) :=
-        .of_mem_Icc _ _ (measurable_value (h + 1)).aemeasurable
-          (.of_forall (value_mem_Icc hM (h + 1)))
+        integrable_value hM (h + 1)
       rw [optQValue_def, qValue_def, add_sub_add_left_eq_sub, ← integral_sub hV hVπ]
       calc ∫ s', (M.optValue H (h + 1) s' - M.value H π (h + 1) s') ∂(M.trans h (s, d h s))
           ≤ ∫ _, 2 * ∑ k ∈ Ico (h + 1) H, ε k ∂(M.trans h (s, d h s)) :=
@@ -107,9 +105,7 @@ private lemma abs_meanReward_add_integral_sub_optQValue_le (hM : M.RewardsIn (Se
     {V : 𝓢 → ℝ} (hV : Measurable V) {c : ℝ}
     (hVc : ∀ s', |V s' - M.optValue H (h + 1) s'| ≤ c) (s : 𝓢) (a' : 𝓐) :
     |M.meanReward h s a' + ∫ s', V s' ∂(M.trans h (s, a')) - M.optQValue H h s a'| ≤ c := by
-  have hV' : Integrable (M.optValue H (h + 1)) (M.trans h (s, a')) :=
-    .of_mem_Icc _ _ (measurable_optValue (h + 1)).aemeasurable
-      (.of_forall (optValue_mem_Icc hM (h + 1)))
+  have hV' : Integrable (M.optValue H (h + 1)) (M.trans h (s, a')) := integrable_optValue hM (h + 1)
   have hc : ∀ᵐ s' ∂(M.trans h (s, a')), ‖V s' - M.optValue H (h + 1) s'‖ ≤ c :=
     .of_forall fun s' ↦ (Real.norm_eq_abs _).trans_le (hVc s')
   have hint : Integrable V (M.trans h (s, a')) := by
@@ -118,21 +114,25 @@ private lemma abs_meanReward_add_integral_sub_optQValue_le (hM : M.RewardsIn (Se
   rw [optQValue_def, add_sub_add_left_eq_sub, ← integral_sub hint hV', ← Real.norm_eq_abs]
   simpa using norm_integral_le_of_norm_le_const hc
 
-/-- One step of backward induction: for bounded rewards, if the estimate `Q h` has Bellman residual
-at most `ε` with respect to the estimates `Q (h + 1)`, measurable in the state, whose suprema are
-within `c` of the optimal value at the step `h + 1`, then `Q h` is within `ε + c` of the optimal
-action value at the step `h`. -/
-private lemma abs_sub_optQValue_le_add (hM : M.RewardsIn (Set.Icc a b))
-    (hQm : ∀ a', Measurable fun s ↦ Q (h + 1) s a') {ε c : ℝ}
+variable {ε : ℝ}
+
+/-- One step of backward induction: for bounded rewards, if the estimate `Q h` at a step `h < H`
+has Bellman residual at most `ε` with respect to the estimates `Q (h + 1)`, measurable in the
+state, whose suprema are within `(H - (h + 1)) ε` of the optimal value at the step `h + 1`, then
+`Q h` is within `(H - h) ε` of the optimal action value at the step `h`. -/
+private lemma abs_sub_optQValue_le_of_abs_iSup_sub_optValue_le (hM : M.RewardsIn (Set.Icc a b))
+    (hQm : ∀ a', Measurable fun s ↦ Q (h + 1) s a') (hh : h < H)
     (hε : ∀ s a', |Q h s a' -
       (M.meanReward h s a' + ∫ s', ⨆ a'', Q (h + 1) s' a'' ∂(M.trans h (s, a')))| ≤ ε)
-    (hc : ∀ s', |(⨆ a'', Q (h + 1) s' a'') - M.optValue H (h + 1) s'| ≤ c) (s : 𝓢) (a' : 𝓐) :
-    |Q h s a' - M.optQValue H h s a'| ≤ ε + c :=
-  (abs_sub_le _ _ _).trans <| add_le_add (hε s a')
+    (hc : ∀ s', |(⨆ a'', Q (h + 1) s' a'') - M.optValue H (h + 1) s'| ≤ (H - (h + 1) : ℕ) * ε)
+    (s : 𝓢) (a' : 𝓐) :
+    |Q h s a' - M.optQValue H h s a'| ≤ (H - h : ℕ) * ε := by
+  have := (abs_sub_le _ _ _).trans <| add_le_add (hε s a')
     (abs_meanReward_add_integral_sub_optQValue_le hM (V := fun s' ↦ ⨆ a'', Q (h + 1) s' a'')
       (.iSup hQm) hc s a')
-
-variable {ε : ℝ}
+  rw [show H - h = H - (h + 1) + 1 by omega]
+  push_cast
+  linarith
 
 /-- **Accuracy of the estimates of the optimal value** ([AJKS, Lemma 3.4 (1)]): for bounded
 rewards and a nonempty countable action set, let `Q k` be estimates of the optimal action values,
@@ -148,16 +148,11 @@ theorem abs_iSup_sub_optValue_le (hM : M.RewardsIn (Set.Icc a b))
   obtain hh | rfl := hh.lt_or_eq
   · -- the estimates at the step `h` are within `(H - h) ε` of the optimal action values
     have hc := abs_iSup_sub_optValue_le hM hQm hQH hε (Nat.succ_le_of_lt hh)
-    have hQ (a' : 𝓐) : |Q h s a' - M.optQValue H h s a'| ≤ (H - h : ℕ) * ε := by
-      have := abs_sub_optQValue_le_add hM (hQm (h + 1)) (hε h hh) hc s a'
-      rwa [show H - h = H - (h + 1) + 1 by omega, Nat.cast_add_one, add_one_mul, add_comm]
+    have hQ := abs_sub_optQValue_le_of_abs_iSup_sub_optValue_le hM (hQm (h + 1)) hh (hε h hh) hc s
     have hbdd : BddAbove (Set.range (M.optQValue H h s)) :=
       ⟨_, Set.forall_mem_range.2 fun a' ↦ (optQValue_mem_Icc hM hh s a').2⟩
-    have hbdd' : BddAbove (Set.range (Q h s)) :=
-      ⟨(H - h : ℕ) * b + (H - h : ℕ) * ε, Set.forall_mem_range.2 fun a' ↦ by
-        linarith [(abs_sub_le_iff.1 (hQ a')).1, (optQValue_mem_Icc hM hh s a').2]⟩
     rw [optValue_of_lt hh]
-    exact abs_ciSup_sub_ciSup_le hbdd' hbdd hQ
+    exact abs_ciSup_sub_ciSup_le hbdd hQ
   · simp [hQH]
 termination_by H - h
 
@@ -171,10 +166,9 @@ theorem abs_sub_optQValue_le (hM : M.RewardsIn (Set.Icc a b))
     (hε : ∀ k < H, ∀ s a', |Q k s a' -
       (M.meanReward k s a' + ∫ s', ⨆ a'', Q (k + 1) s' a'' ∂(M.trans k (s, a')))| ≤ ε)
     (hh : h < H) (s : 𝓢) (a' : 𝓐) :
-    |Q h s a' - M.optQValue H h s a'| ≤ (H - h : ℕ) * ε := by
-  have := abs_sub_optQValue_le_add hM (hQm (h + 1)) (hε h hh)
+    |Q h s a' - M.optQValue H h s a'| ≤ (H - h : ℕ) * ε :=
+  abs_sub_optQValue_le_of_abs_iSup_sub_optValue_le hM (hQm (h + 1)) hh (hε h hh)
     (abs_iSup_sub_optValue_le hM hQm hQH hε (Nat.succ_le_of_lt hh)) s a'
-  rwa [show H - h = H - (h + 1) + 1 by omega, Nat.cast_add_one, add_one_mul, add_comm]
 
 /-- **Greedy policies for estimates with small Bellman residuals** ([AJKS, Lemma 3.4 (2)]): for
 bounded rewards and a nonempty countable action set, let `Q k` be estimates of the optimal action
