@@ -45,11 +45,14 @@ weights of Exp3, and so is the mixture of their advice.
   the weights of Exp4 on the experts are the exponential weights of `-η` times the cumulative
   estimated losses `E t m ⬝ᵥ Ŷ t` of the experts, with `Ŷ t` the importance-weighted estimates of
   the losses `1 - Y t`.
-* `exp4ExpertWeights_single`, `exp4Weights_single`: with the advice of the experts `α` that each
-  recommend one arm, the weights of Exp4 on the experts and on the arms are those of Exp3.
+* `exp4ExpertWeights_eq_exp3Weights`, `exp4Weights_eq_exp3Weights`: with the advice of the
+  experts `α` that each recommend one arm, the weights of Exp4 on the experts and on the arms are
+  those of Exp3.
 * `exp4_eq_of_subsingleton`: with a single expert, Exp4 does not depend on its learning rate.
 * `Exp4.sum_sub_sum_le`: [LS, Lemma 18.2], the pathwise bound
   `∑ t < n, (X̂ᴱ t m - ⟨Q t, X̂ᴱ t⟩) ≤ log M / η + η / 2 * ∑ t < n, ⟨Q t, (1 - X̂ᴱ t) ^ 2⟩`.
+* `Exp4.sum_exp4ExpertWeights_mul_dotProduct_lossIwEstimator`: the `Q t`-average of the
+  estimated rewards `X̂ᴱ t` of the experts is the observed reward `Y t`.
 * `Exp4.sum_mul_one_sub_sq_le`: the second-order term satisfies
   `⟨Q t, (1 - X̂ᴱ t) ^ 2⟩ ≤ (1 - Y t) ^ 2 / P t (A t)`.
 * `Exp4.sum_dotProduct_lossIwEstimator_sub_le`: the resulting pathwise bound on the estimated
@@ -58,6 +61,7 @@ weights of Exp3, and so is the mixture of their advice.
   unbiased [LS, (18.10)].
 * `Exp4.expertRegret_le`: for a run of Exp4 whose observations are the advice `E t` and whose
   feedback is the reward `x t (A t) ∈ [0, 1]` of its action, `R_n ≤ log M / η + η n k / 2`.
+* `Exp4.expertRegret_nonpos_of_subsingleton`: with a single expert, the regret is nonpositive.
 * `Exp4.expertRegret_le_sqrt`: [LS, Theorem 18.1]. With `η = √(2 log M / (n k))`,
   `R_n ≤ √(2 n k log M)`.
 * `exp4_expertRegret_le`, `exp4_expertRegret_le_sqrt`: the same bounds for runs against
@@ -281,7 +285,7 @@ omit [Fintype β] in
 /-- **Exp3 is Exp4 with one expert per arm.** Along a history whose observations are the advice of
 the experts `α` that each recommend one arm, the weights of Exp4 on the experts are the weights of
 Exp3. -/
-lemma exp4ExpertWeights_single (n : ℕ) (h : Hist (α → simplex α) α ℝ n)
+lemma exp4ExpertWeights_eq_exp3Weights (n : ℕ) (h : Hist (α → simplex α) α ℝ n)
     (hh : ∀ i, (h i).obs = fun a ↦ ⟨Pi.single a 1, single_mem_simplex a⟩) :
     exp4ExpertWeights η n h = exp3Weights η n h := by
   rw [exp4ExpertWeights_def, exp3Weights_def]
@@ -300,10 +304,10 @@ omit [Fintype β] in
 /-- **Exp3 is Exp4 with one expert per arm.** Along a history whose observations are the advice of
 the experts `α` that each recommend one arm, and for that advice at the current round, the weights
 of Exp4 on the arms are the weights of Exp3. -/
-lemma exp4Weights_single (n : ℕ) (h : Hist (α → simplex α) α ℝ n)
+lemma exp4Weights_eq_exp3Weights (n : ℕ) (h : Hist (α → simplex α) α ℝ n)
     (hh : ∀ i, (h i).obs = fun a ↦ ⟨Pi.single a 1, single_mem_simplex a⟩) :
     exp4Weights η n h (fun a ↦ ⟨Pi.single a 1, single_mem_simplex a⟩) = exp3Weights η n h := by
-  rw [exp4Weights_def, ← exp4ExpertWeights_single n h hh]
+  rw [exp4Weights_def, ← exp4ExpertWeights_eq_exp3Weights n h hh]
   exact (pi_eq_sum_univ' _).symm
 
 end Exp3
@@ -323,6 +327,18 @@ private lemma dotProduct_lossIwEstimator_advice (e : β → simplex α) (m : β)
   dotProduct_lossIwEstimator (mem_simplex_iff.1 (e m).2).2
 
 variable [Nonempty β]
+
+/-- The `Q`-average of the estimated rewards `e m ⬝ᵥ X̂` of the experts, with
+`Q = exp4ExpertWeights η n h` the weights of Exp4 on the experts and `X̂` the loss-based
+importance-weighted estimates of the weights `P = exp4Weights η n h e` on the arms, is the observed
+reward `y` of an arm `b` with `P b ≠ 0`, since it is the `P`-average of `X̂`. -/
+lemma sum_exp4ExpertWeights_mul_dotProduct_lossIwEstimator (n : ℕ)
+    (h : Hist (β → simplex α) α ℝ n) (e : β → simplex α) {b : α} (y : ℝ)
+    (hb : exp4Weights η n h e b ≠ 0) :
+    ∑ m, exp4ExpertWeights η n h m * (e m : α → ℝ) ⬝ᵥ lossIwEstimator (exp4Weights η n h e) b y =
+      y := by
+  simp_rw [← smul_eq_mul, ← smul_dotProduct, ← sum_dotProduct, ← exp4Weights_def]
+  exact sum_mul_lossIwEstimator (mem_simplex_iff.1 (exp4Weights_mem_simplex _ _ _)).2 hb
 
 /-- **Pathwise regret of the experts' weights in Exp4** [LS, Lemma 18.2]. Along every sequence of
 observations `O`, actions `A` and feedbacks `Y ≤ 1` of the rounds `t < n`, with `Q t` the weights
@@ -408,39 +424,14 @@ theorem sum_dotProduct_lossIwEstimator_sub_le (hη : 0 < η) (O : ℕ → Ω →
         lossIwEstimator (exp4Weights η t (history O A Y t ω) (O t ω)) (A t ω) (Y t ω) - Y t ω) ≤
       log (Fintype.card β) / η + η / 2 * ∑ t ∈ range n,
         (1 - Y t ω) ^ 2 / exp4Weights η t (history O A Y t ω) (O t ω) (A t ω) := by
-  -- the `Q t`-average of the estimated rewards of the experts is the observed reward
-  have havg : ∀ t < n, ∑ m', exp4ExpertWeights η t (history O A Y t ω) m' *
-      (O t ω m' : α → ℝ) ⬝ᵥ
-        lossIwEstimator (exp4Weights η t (history O A Y t ω) (O t ω)) (A t ω) (Y t ω) = Y t ω := by
-    intro t ht
-    set P := exp4Weights η t (history O A Y t ω) (O t ω) (A t ω) with hP
-    have hsum : ∑ m', exp4ExpertWeights η t (history O A Y t ω) m' *
-        ((O t ω m' : α → ℝ) (A t ω) * (1 - Y t ω) / P) = 1 - Y t ω := by
-      calc ∑ m', exp4ExpertWeights η t (history O A Y t ω) m' *
-          ((O t ω m' : α → ℝ) (A t ω) * (1 - Y t ω) / P)
-      _ = (∑ m', exp4ExpertWeights η t (history O A Y t ω) m' * (O t ω m' : α → ℝ) (A t ω)) *
-          (1 - Y t ω) / P := by
-          rw [Finset.sum_mul, Finset.sum_div]
-          exact Finset.sum_congr rfl fun _ _ ↦ by ring
-      _ = 1 - Y t ω := by rw [← exp4Weights_apply, ← hP, mul_div_cancel_left₀ _ (hpos t ht)]
-    simp only [dotProduct_lossIwEstimator_advice]
-    calc ∑ m', exp4ExpertWeights η t (history O A Y t ω) m' *
-        (1 - (O t ω m' : α → ℝ) (A t ω) * (1 - Y t ω) / P)
-    _ = ∑ m', exp4ExpertWeights η t (history O A Y t ω) m' - ∑ m',
-        exp4ExpertWeights η t (history O A Y t ω) m' *
-          ((O t ω m' : α → ℝ) (A t ω) * (1 - Y t ω) / P) := by
-        rw [← sum_sub_distrib]
-        exact Finset.sum_congr rfl fun _ _ ↦ by ring
-    _ = Y t ω := by
-        rw [(mem_simplex_iff.1 (exp4ExpertWeights_mem_simplex t _)).2, hsum]
-        ring
   calc ∑ t ∈ range n, ((O t ω m : α → ℝ) ⬝ᵥ
         lossIwEstimator (exp4Weights η t (history O A Y t ω) (O t ω)) (A t ω) (Y t ω) - Y t ω)
   _ = ∑ t ∈ range n, ((O t ω m : α → ℝ) ⬝ᵥ
         lossIwEstimator (exp4Weights η t (history O A Y t ω) (O t ω)) (A t ω) (Y t ω) -
       ∑ m', exp4ExpertWeights η t (history O A Y t ω) m' * (O t ω m' : α → ℝ) ⬝ᵥ
         lossIwEstimator (exp4Weights η t (history O A Y t ω) (O t ω)) (A t ω) (Y t ω)) :=
-      Finset.sum_congr rfl fun t ht ↦ by rw [havg t (mem_range.1 ht)]
+      Finset.sum_congr rfl fun t ht ↦ by
+        rw [sum_exp4ExpertWeights_mul_dotProduct_lossIwEstimator _ _ _ _ (hpos t (mem_range.1 ht))]
   _ ≤ _ := sum_sub_sum_le hη O A Y ω hY m
   _ ≤ _ := by
       gcongr with t ht
@@ -509,14 +500,6 @@ theorem integral_dotProduct_lossIwEstimator (hO : O t =ᵐ[P] fun _ ↦ E t)
     (mem_simplex_iff.1 (E t m).2).2, dotProduct]
   ring
 
-omit [MeasurableSpace α] [MeasurableSingletonClass α] [Nonempty α] [Nonempty β]
-  [IsProbabilityMeasure P] in
-private lemma sq_div_exp4Weights_ae_eq (hY : Y t =ᵐ[P] x t ∘ A t) :
-    (fun ω ↦ (1 - Y t ω) ^ 2 / exp4Weights η t (history O A Y t ω) (O t ω) (A t ω)) =ᵐ[P]
-      fun ω ↦ (1 - x t (A t ω)) ^ 2 / exp4Weights η t (history O A Y t ω) (O t ω) (A t ω) := by
-  filter_upwards [hY] with ω hω
-  rw [hω, Function.comp_apply]
-
 /-- **Regret of Exp4.** Along a run of Exp4 with learning rate `η > 0` whose observation of every
 round `t < n` is the advice `E t` and whose feedback is the reward `x t (A t) ∈ [0, 1]` of its
 action, the regret against the best expert after `n` rounds is at most `log M / η + η n k / 2`,
@@ -532,7 +515,8 @@ theorem expertRegret_le (hη : 0 < η) (hO : ∀ t < n, O t =ᵐ[P] fun _ ↦ E 
     (1 - Y t ω) ^ 2 / exp4Weights η t (history O A Y t ω) (O t ω) (A t ω) with hV
   have hVint : ∀ t ∈ range n, Integrable (V t) P := fun t ht ↦
     (WeightAlgorithm.integrable_div_weights h t fun b ↦ (1 - x t b) ^ 2).congr
-      (sq_div_exp4Weights_ae_eq (hY t (mem_range.1 ht))).symm
+      (comp_feedback_ae_eq (hY t (mem_range.1 ht))
+        fun z b y ↦ (1 - y) ^ 2 / exp4Weights η t z.1 z.2 b).symm
   have hYint := fun t (ht : t ∈ range n) ↦
     h.integrable_feedback_of_ae_eq (hY t (mem_range.1 ht))
   have hXint : ∀ m, ∀ t ∈ range n, Integrable (X t m) P := fun m t ht ↦
@@ -551,7 +535,8 @@ theorem expertRegret_le (hη : 0 < η) (hO : ∀ t < n, O t =ᵐ[P] fun _ ↦ E 
   have hle : ∑ t ∈ range n, P[V t] ≤ (n * Fintype.card α : ℝ) := by
     calc ∑ t ∈ range n, P[V t]
     _ ≤ ∑ t ∈ range n, ∑ b, (1 - x t b) ^ 2 := Finset.sum_le_sum fun t ht ↦ by
-        rw [hV, integral_congr_ae (sq_div_exp4Weights_ae_eq (hY t (mem_range.1 ht)))]
+        rw [hV, integral_congr_ae (comp_feedback_ae_eq (hY t (mem_range.1 ht))
+          fun z b y ↦ (1 - y) ^ 2 / exp4Weights η t z.1 z.2 b)]
         exact WeightAlgorithm.integral_div_weights_le h t (c := fun b ↦ (1 - x t b) ^ 2)
           fun b ↦ sq_nonneg _
     _ ≤ ∑ t ∈ range n, ∑ _b : α, (1 : ℝ) := Finset.sum_le_sum fun t ht ↦
@@ -587,6 +572,31 @@ theorem expertRegret_le (hη : 0 < η) (hO : ∀ t < n, O t =ᵐ[P] fun _ ↦ E 
       have := mul_le_mul_of_nonneg_left hle (by positivity : 0 ≤ η / 2)
       linarith
 
+/-- **Regret of Exp4 with a single expert.** Along a run of Exp4 with any learning rate whose
+observation of every round `t < n` is the advice `E t` of the single expert and whose feedback is
+the reward `x t (A t) ∈ [0, 1]` of its action, the regret against that expert is nonpositive: Exp4
+follows the advice for every learning rate, so the regret is at most `η' n k / 2` for all
+`η' > 0`. -/
+theorem expertRegret_nonpos_of_subsingleton [Subsingleton β]
+    (hO : ∀ t < n, O t =ᵐ[P] fun _ ↦ E t) (hY : ∀ t < n, Y t =ᵐ[P] x t ∘ A t)
+    (hx : ∀ t < n, ∀ a, x t a ∈ Set.Icc 0 1) (h : IsAlgEnvSeq O A Y (exp4 η) env P) :
+    expertRegret (fun t m ↦ (E t m : α → ℝ)) x A P n ≤ 0 := by
+  set k : ℝ := (Fintype.card α : ℝ) with hk
+  have hM : (Fintype.card β : ℝ) = 1 := by
+    exact_mod_cast le_antisymm (Fintype.card_le_one_iff_subsingleton.2 ‹_›) Fintype.card_pos
+  refine le_of_forall_pos_le_add fun ε hε ↦ ?_
+  have hc : 0 ≤ (n : ℝ) * k := by positivity
+  have hη' : 0 < ε / (n * k + 1) := by positivity
+  have hle := expertRegret_le hη' hO hY hx (exp4_eq_of_subsingleton (α := α) (β := β) _ _ ▸ h)
+  rw [hM, log_one, zero_div, zero_add, ← hk] at hle
+  refine hle.trans ?_
+  have h1 : ε / (n * k + 1) * (n * k) ≤ ε := by
+    rw [div_mul_eq_mul_div, div_le_iff₀ (by positivity)]
+    nlinarith
+  have h2 : ε / (n * k + 1) * n * k / 2 = ε / (n * k + 1) * (n * k) / 2 := by ring
+  rw [h2, zero_add]
+  linarith [(by positivity : 0 ≤ ε / (n * k + 1) * (n * k))]
+
 /-- **Regret of Exp4** [LS, Theorem 18.1]: along a run of Exp4 with learning rate
 `η = √(2 log M / (n k))` whose observation of every round `t < n` is the advice `E t` and whose
 feedback is the reward `x t (A t) ∈ [0, 1]` of its action, the regret against the best expert after
@@ -605,26 +615,14 @@ theorem expertRegret_le_sqrt (hO : ∀ t < n, O t =ᵐ[P] fun _ ↦ E t)
   have hM1 : (1 : ℝ) ≤ M := by
     rw [hM, Nat.one_le_cast]
     exact Fintype.card_pos
-  -- with one expert, Exp4 follows its advice for every learning rate: the regret is at most
-  -- `η' n k / 2` for every `η' > 0`, hence nonpositive
+  -- with one expert, the regret is nonpositive
   rcases hM1.eq_or_lt with hM1 | hM1
   · have hcard : Fintype.card β ≤ 1 := by
       rw [hM] at hM1
       exact_mod_cast hM1.ge
     have : Subsingleton β := Fintype.card_le_one_iff_subsingleton.1 hcard
     rw [← hM1, log_one, mul_zero, sqrt_zero]
-    refine le_of_forall_pos_le_add fun ε hε ↦ ?_
-    have hc : 0 ≤ (n : ℝ) * k := by positivity
-    have hη' : 0 < ε / (n * k + 1) := by positivity
-    have hle := expertRegret_le hη' hO hY hx (exp4_eq_of_subsingleton (α := α) (β := β) _ _ ▸ h)
-    rw [← hM, ← hM1, log_one, zero_div, zero_add, ← hk] at hle
-    refine hle.trans ?_
-    have h1 : ε / (n * k + 1) * (n * k) ≤ ε := by
-      rw [div_mul_eq_mul_div, div_le_iff₀ (by positivity)]
-      nlinarith
-    have h2 : ε / (n * k + 1) * n * k / 2 = ε / (n * k + 1) * (n * k) / 2 := by ring
-    rw [h2, zero_add]
-    linarith [(by positivity : 0 ≤ ε / (n * k + 1) * (n * k))]
+    exact expertRegret_nonpos_of_subsingleton hO hY hx h
   rcases Nat.eq_zero_or_pos n with rfl | hn
   · simp [expertRegret_def]
   have hL : 0 < log M := log_pos hM1

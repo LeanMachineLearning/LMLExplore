@@ -152,6 +152,7 @@ lemma sum_mul_iwEstimator (hb : p b ≠ 0) : ∑ a, p a * iwEstimator p b y a = 
   simp [iwEstimator_def, Pi.single_apply, mul_div_cancel₀ _ hb]
 
 /-- The `e`-weighted sum of the importance-weighted estimates is `e b * y / p b`. -/
+@[simp]
 lemma dotProduct_iwEstimator (e : α → ℝ) : e ⬝ᵥ iwEstimator p b y = e b * y / p b := by
   rw [iwEstimator_def, dotProduct_single, mul_div_assoc]
 

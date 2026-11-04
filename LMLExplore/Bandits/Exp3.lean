@@ -231,21 +231,13 @@ theorem sum_lossIwEstimator_sub_le (hη : 0 < η) (O : ℕ → Ω → 𝓞) (A :
   simp only [h1, h2] at key
   exact key
 
-omit [MeasurableSpace α] [MeasurableSingletonClass α] [MeasurableSpace 𝓞] [Nonempty α]
-  [IsProbabilityMeasure P] in
-private lemma sq_div_exp3Weights_ae_eq {t : ℕ} (hY : Y t =ᵐ[P] x t ∘ A t) :
-    (fun ω ↦ (1 - Y t ω) ^ 2 / exp3Weights η t (history O A Y t ω) (A t ω)) =ᵐ[P]
-      fun ω ↦ (1 - x t (A t ω)) ^ 2 / exp3Weights η t (history O A Y t ω) (A t ω) := by
-  filter_upwards [hY] with ω hω
-  rw [hω, Function.comp_apply]
-
 /-- Along a run of Exp3 whose feedback is the reward `x t (A t)` of its action, the second-order
 term `(1 - Y t) ^ 2 / P t (A t)` of round `t` is integrable. -/
 lemma integrable_sq_div_exp3Weights {t : ℕ} (hY : Y t =ᵐ[P] x t ∘ A t)
     (h : IsAlgEnvSeq O A Y (exp3 η) env P) :
     Integrable (fun ω ↦ (1 - Y t ω) ^ 2 / exp3Weights η t (history O A Y t ω) (A t ω)) P :=
   (WeightAlgorithm.integrable_div_weights h t fun b ↦ (1 - x t b) ^ 2).congr
-    (sq_div_exp3Weights_ae_eq hY).symm
+    (comp_feedback_ae_eq hY fun z b y ↦ (1 - y) ^ 2 / exp3Weights η t z.1 b).symm
 
 /-- Along a run of Exp3 whose feedback is the reward `x t (A t)` of its action, the second-order
 term `(1 - Y t) ^ 2 / P t (A t)` of round `t` has expectation `∑ b, (1 - x t b) ^ 2`. -/
@@ -253,7 +245,8 @@ lemma integral_sq_div_exp3Weights {t : ℕ} (hY : Y t =ᵐ[P] x t ∘ A t)
     (h : IsAlgEnvSeq O A Y (exp3 η) env P) :
     P[fun ω ↦ (1 - Y t ω) ^ 2 / exp3Weights η t (history O A Y t ω) (A t ω)] =
       ∑ b, (1 - x t b) ^ 2 := by
-  rw [integral_congr_ae (sq_div_exp3Weights_ae_eq hY)]
+  rw [integral_congr_ae
+    (comp_feedback_ae_eq hY fun z b y ↦ (1 - y) ^ 2 / exp3Weights η t z.1 b)]
   exact WeightAlgorithm.integral_div_weights h t (c := fun b ↦ (1 - x t b) ^ 2)
     (ae_of_all _ fun _ b hb ↦ absurd hb (exp3Weights_pos _ _ b).ne')
 

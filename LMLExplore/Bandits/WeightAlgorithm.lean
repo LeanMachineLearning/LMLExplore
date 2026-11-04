@@ -95,6 +95,13 @@ variable {w : (n : ℕ) → Hist 𝓞 α 𝓨 n × 𝓞 → α → ℝ} {hw : �
 lemma weightAlgorithm_policy (n : ℕ) :
     (weightAlgorithm w hw hp).policy n = weightKernel (w n) (hw n) := (rfl)
 
+omit [Fintype α] in
+/-- The function `(p, b) ↦ c b / p b`, whose value at the weights and the action of a round is
+an inverse-weighted function of the action, is measurable. -/
+lemma measurable_div_apply [Finite α] [MeasurableSingletonClass α] (c : α → ℝ) :
+    Measurable fun z : (α → ℝ) × α ↦ c z.2 / z.1 z.2 :=
+  measurable_from_prod_countable_left fun b ↦ by fun_prop
+
 namespace WeightAlgorithm
 
 variable [MeasurableSingletonClass α] {Ω : Type*} {mΩ : MeasurableSpace Ω} {P : Measure Ω}
@@ -252,13 +259,6 @@ lemma condVar_comp_weights [Nonempty α] (h : IsAlgEnvSeq O A Y (weightAlgorithm
     simpa only [Real.norm_of_nonneg (sq_nonneg _)] using hint
   exact (condExp_congr_ae hsq).trans
     (condExp_comp_weights h n (g := fun p b ↦ (g p b - c) ^ 2) hg' hint')
-
-omit [Fintype α] in
-/-- The function `(p, b) ↦ c b / p b`, whose value at the weights and the action of a round is
-an inverse-weighted function of the action, is measurable. -/
-private lemma measurable_div_apply [Finite α] (c : α → ℝ) :
-    Measurable fun z : (α → ℝ) × α ↦ c z.2 / z.1 z.2 :=
-  measurable_from_prod_countable_left fun b ↦ by fun_prop
 
 /-- Along a run of a weight-based algorithm, the inverse-weighted value
 `c (A n) / w n (past) (A n)` of the action of round `n` is integrable, for every `c : α → ℝ`. -/
