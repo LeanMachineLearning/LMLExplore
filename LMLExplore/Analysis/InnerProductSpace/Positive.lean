@@ -32,6 +32,9 @@ AM-GM inequality.
   `ContinuousLinearMap.IsPositive.sqrt_inner_add_le`: for a positive operator `T` on a real inner
   product space, the Cauchy–Schwarz inequality `⟪x, T y⟫² ≤ ⟪x, T x⟫ * ⟪y, T y⟫` and the triangle
   inequality for the seminorm `x ↦ √⟪x, T x⟫`.
+* `ContinuousLinearMap.IsPositive.abs_inner_le_sqrt_mul_sqrt_ringInverse`: for a positive
+  invertible operator `T`, the Cauchy–Schwarz inequality `|⟪x, y⟫| ≤ ‖x‖_T ‖y‖_{T⁻¹}` for the
+  dual weighted norms.
 * `LinearMap.IsPositive.eigenvalues_pos`: the eigenvalues of a positive invertible operator on a
   finite-dimensional inner product space are positive.
 * `LinearMap.IsPositive.det_le_trace_div_finrank_pow`,
@@ -95,6 +98,17 @@ theorem IsPositive.sqrt_inner_add_le (hT : T.IsPositive) (x y : F) :
   rw [Real.sqrt_le_left (by positivity)]
   simp only [map_add, inner_add_left, inner_add_right]
   nlinarith [Real.sq_sqrt hx, Real.sq_sqrt hy, hxy, hyx]
+
+/-- **Cauchy–Schwarz inequality** for the dual weighted norms of a positive invertible operator
+`T` on a real inner product space: `|⟪x, y⟫| ≤ ‖x‖_T ‖y‖_{T⁻¹}`, where `‖x‖_T = √⟪x, T x⟫`. -/
+theorem IsPositive.abs_inner_le_sqrt_mul_sqrt_ringInverse (hT : T.IsPositive) (hTu : IsUnit T)
+    (x y : F) :
+    |⟪x, y⟫_ℝ| ≤ √⟪x, T x⟫_ℝ * √⟪y, Ring.inverse T y⟫_ℝ := by
+  have h := hT.ringInverse.sq_inner_apply_le (T x) y
+  rw [ringInverse_apply_apply hTu, hT.inner_left_eq_inner_right, apply_ringInverse_apply hTu,
+    real_inner_comm x (T x)] at h
+  rw [← Real.sqrt_mul (hT.inner_nonneg_right x)]
+  exact Real.abs_le_sqrt h
 
 end Real
 

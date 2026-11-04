@@ -54,7 +54,11 @@ features.
 * `Learning.IsAlgEnvSeq.le_measureReal_forall_sqrt_inner_ridgeEstimate_sub_lt`: the confidence
   ellipsoids of ridge regression along a run [LS, Theorem 20.5], and
   `Learning.IsAlgEnvSeq.le_measureReal_forall_sqrt_inner_ridgeEstimate_sub_lt_of_norm_le` their
-  form for bounded features [LS, Theorem 20.5 and (20.9)].
+  form for bounded features [LS, Theorem 20.5 and (20.9)];
+  `Learning.IsAlgEnvSeq.measure_exists_sqrt_inner_ridgeEstimate_sub_ge_le` the bound on the
+  probability that they fail.
+* `linearRegret_nonneg`, `linearRegret_le_mul`: the random regret is nonnegative, and at most
+  `n G` after `n` rounds when the gaps between the expected rewards of the actions are at most `G`.
 * `isSubgaussianLinearEnv_gaussianLinearEnv`: the Gaussian linear environment is linear with
   σ²-sub-Gaussian noise.
 * `isSubgaussianLinearEnv_bandit`, `linearRegret_single_eq_regret`: a stochastic bandit with
@@ -142,6 +146,28 @@ private lemma measurable_features_noise [MeasurableSpace E] [BorelSpace E]
 variable [StandardBorelSpace Ω] [IsProbabilityMeasure P] [MeasurableSpace E] [BorelSpace E]
   [FiniteDimensional ℝ E] {lam δ : ℝ}
 
+/-- **Confidence ellipsoids along a run** [LS, Theorem 20.5], failure-probability form. Along a
+run of any algorithm in a linear bandit environment with σ²-sub-Gaussian noise, `σ² ≠ 0`, let
+`V_t = designOp λ x t` and `θ̂_t = ridgeEstimate λ x Y t` be the design operator and the ridge
+estimate of the features `x s = φ (O s) (A s)` and the rewards `Y s` of the rounds `s < t`. For
+`λ > 0` and `δ > 0`, the probability that for some `t`,
+`√λ ‖θ‖ + √(2σ² log (1 / δ) + σ² log (det V_t / λ ^ d)) ≤ ‖θ̂_t - θ‖_{V_t}` is at most `δ`. -/
+theorem _root_.Learning.IsAlgEnvSeq.measure_exists_sqrt_inner_ridgeEstimate_sub_ge_le
+    (h : IsAlgEnvSeq O A Y alg env P) (henv : IsSubgaussianLinearEnv φ θ σ2 env)
+    (hφ : Measurable (Function.uncurry φ)) (hσ : σ2 ≠ 0) (hlam : 0 < lam) (hδ : 0 < δ) :
+    P {ω | ∃ t, √lam * ‖θ‖ + √(2 * σ2 * log (1 / δ) +
+        σ2 * log (LinearMap.det (designOp lam (fun s ↦ φ (O s ω) (A s ω)) t : E →ₗ[ℝ] E) /
+          lam ^ finrank ℝ E)) ≤
+      √⟪ridgeEstimate lam (fun s ↦ φ (O s ω) (A s ω)) (fun s ↦ Y s ω) t - θ,
+        designOp lam (fun s ↦ φ (O s ω) (A s ω)) t
+          (ridgeEstimate lam (fun s ↦ φ (O s ω) (A s ω)) (fun s ↦ Y s ω) t - θ)⟫_ℝ} ≤
+      ENNReal.ofReal δ :=
+  LMLExplore.measure_exists_sqrt_inner_ridgeEstimate_sub_ge_le
+    (fun t ↦ (measurable_features_noise θ h hφ t).1)
+    (fun t ↦ (measurable_features_noise θ h hφ t).2)
+    (h.hasCondSubgaussianMGF_feedback_sub_inner henv (by fun_prop)) hσ θ
+    (fun _ _ ↦ (add_sub_cancel _ _).symm) hlam hδ
+
 /-- **Confidence ellipsoids along a run** [LS, Theorem 20.5]. Along a run of any algorithm in a
 linear bandit environment with σ²-sub-Gaussian noise, `σ² ≠ 0`, let `V_t = designOp λ x t` and
 `θ̂_t = ridgeEstimate λ x Y t` be the design operator and the ridge estimate of the features
@@ -220,6 +246,16 @@ above, for example for finitely many actions. -/
 lemma linearRegret_nonneg (hbdd : ∀ o, BddAbove (Set.range fun a ↦ ⟪θ, φ o a⟫_ℝ)) :
     0 ≤ linearRegret φ θ O A n ω :=
   sum_nonneg fun t _ ↦ sub_nonneg.2 (le_ciSup (hbdd (O t ω)) (A t ω))
+
+/-- If the gaps between the expected rewards of two actions are at most `G` at every context, then
+the random regret after `n` rounds is at most `n G`. -/
+lemma linearRegret_le_mul {G : ℝ} (hgap : ∀ o a b, ⟪θ, φ o a⟫_ℝ - ⟪θ, φ o b⟫_ℝ ≤ G) :
+    linearRegret φ θ O A n ω ≤ n * G := by
+  have h : ∀ t ∈ range n, (⨆ a, ⟪θ, φ (O t ω) a⟫_ℝ) - ⟪θ, φ (O t ω) (A t ω)⟫_ℝ ≤ G := by
+    intro t _
+    have : Nonempty 𝓐 := ⟨A t ω⟩
+    exact sub_le_iff_le_add.2 (ciSup_le fun a ↦ sub_le_iff_le_add.1 (hgap _ a _))
+  simpa [linearRegret_def] using sum_le_sum h
 
 end Regret
 

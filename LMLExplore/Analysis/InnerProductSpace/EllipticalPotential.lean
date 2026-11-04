@@ -27,6 +27,11 @@ of ridge regression along the played actions. By the determinant update
   log-determinant form [LS, Lemma 19.4, first inequality], for a positive definite `V_0`.
 * `LMLExplore.sum_min_one_inner_inverse_designOp_le_log_det`: its specialization to the design
   operators `V_t = designOp λ x t`, for which `V_0 = λ • 1`.
+* `LMLExplore.log_det_designOp_div_pow_le`: `log (det V_t / λ ^ d) ≤ d log (1 + t L² / (λ d))`
+  for vectors bounded by `L` [LS, (20.9)].
+* `LMLExplore.sum_min_one_inner_inverse_designOp_le_mul_log`: the elliptical potential lemma for
+  vectors bounded by `L`, `∑_{t < n} min 1 ‖x t‖²_{V_t⁻¹} ≤ 2 d log (1 + n L² / (λ d))`
+  [LS, Lemma 19.4, second inequality, for `V_0 = λ • 1`].
 
 The design-operator version follows the matrix version `sum_min_one_mahalanobisSq_inv_regGram_le`
 of the LMLPapers project (Rémy Degenne, <https://github.com/LeanMachineLearning/LMLPapers>),
@@ -99,5 +104,27 @@ theorem sum_min_one_inner_inverse_designOp_le_log_det {lam : ℝ} (hlam : 0 < la
   have := FiniteDimensional.complete ℝ E
   sum_min_one_inner_inverse_le_log_det (designOp_succ lam x) (isPositive_designOp hlam.le x 0)
     (isUnit_designOp hlam x 0) n
+
+/-- [LS, (20.9)] in logarithmic form: for `λ > 0`, if `‖x s‖ ≤ L` for all `s < t`, then
+`log (det V_t(λ) / λ ^ d) ≤ d log (1 + t L² / (λ d))`. -/
+theorem log_det_designOp_div_pow_le {lam : ℝ} (hlam : 0 < lam) (x : ℕ → E) {t : ℕ} {L : ℝ}
+    (hx : ∀ s < t, ‖x s‖ ≤ L) :
+    log (LinearMap.det (designOp lam x t : E →ₗ[ℝ] E) / lam ^ Module.finrank ℝ E) ≤
+      Module.finrank ℝ E * log (1 + t * L ^ 2 / (lam * Module.finrank ℝ E)) := by
+  rw [← log_pow]
+  exact log_le_log (div_pos (det_designOp_pos hlam _ t) (pow_pos hlam _))
+    (det_designOp_div_pow_le hlam x hx)
+
+/-- **Elliptical potential lemma** for design operators and bounded vectors [LS, Lemma 19.4]: for
+`λ > 0`, if `‖x t‖ ≤ L` for all `t < n`, then
+`∑_{t < n} min 1 ‖x t‖²_{V_t⁻¹} ≤ 2 d log (1 + n L² / (λ d))`, where `V_t = designOp λ x t`. -/
+theorem sum_min_one_inner_inverse_designOp_le_mul_log {lam : ℝ} (hlam : 0 < lam) (x : ℕ → E)
+    {n : ℕ} {L : ℝ} (hx : ∀ t < n, ‖x t‖ ≤ L) :
+    ∑ t ∈ range n, min 1 ⟪x t, Ring.inverse (designOp lam x t) (x t)⟫_ℝ ≤
+      2 * (Module.finrank ℝ E * log (1 + n * L ^ 2 / (lam * Module.finrank ℝ E))) := by
+  refine (sum_min_one_inner_inverse_designOp_le_log_det hlam x n).trans ?_
+  rw [det_designOp_zero]
+  gcongr
+  exact log_det_designOp_div_pow_le hlam x hx
 
 end LMLExplore
