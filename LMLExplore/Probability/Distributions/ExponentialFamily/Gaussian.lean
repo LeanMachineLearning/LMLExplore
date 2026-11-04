@@ -65,7 +65,7 @@ Fixed mean, statistic `x ↦ (x - m) ^ 2`:
 
 * `LMLExplore.expFamily_sub_sq_gaussianReal`: for `2 v η < 1`, the member of natural parameter `η`
   of the exponential family of `𝒩(m, v)` is `𝒩(m, v / (1 - 2 v η))`.
-* `LMLExplore.deriv_cgf_sub_sq_gaussianReal`: for `v ≠ 0`, the mean map of the family is
+* `LMLExplore.deriv_cgf_sub_sq_gaussianReal`: the mean map of the family is
   `η ↦ v / (1 - 2 v η)` on `2 v η < 1`.
 * `LMLExplore.not_ae_eq_const_sub_sq_gaussianReal`: for `v ≠ 0`, `x ↦ (x - m) ^ 2` is not almost
   everywhere constant under `𝒩(m, v)`.
@@ -194,15 +194,22 @@ with statistic `x ↦ (x - m) ^ 2` is the open half-line `2 v η < 1`. -/
 private lemma mem_interior_integrableExpSet_sub_sq_gaussianReal (m : ℝ) (hv : v ≠ 0) :
     η ∈ interior (integrableExpSet (fun x ↦ (x - m) ^ 2) (gaussianReal m v)) ↔
       2 * v * η < 1 := by
-  rw [integrableExpSet_sub_sq_gaussianReal m hv, interior_Iio, mem_Iio, ← one_div,
-    lt_div_iff₀ (by positivity), mul_comm]
+  rw [integrableExpSet_sub_sq_gaussianReal m hv, interior_Iio,
+    ← integrableExpSet_sub_sq_gaussianReal m hv]
+  -- Membership in `integrableExpSet` is integrability of the exponential, by definition.
+  exact integrable_exp_mul_sub_sq_gaussianReal_iff m v η
 
-/-- For `v ≠ 0`, the mean map of the exponential family of `𝒩(m, v)` with statistic
-`x ↦ (x - m) ^ 2` is `η ↦ v / (1 - 2 v η)` on `2 v η < 1`: the variance of the member of natural
-parameter `η`. -/
+/-- The mean map of the exponential family of `𝒩(m, v)` with statistic `x ↦ (x - m) ^ 2` is
+`η ↦ v / (1 - 2 v η)` on `2 v η < 1`: the variance of the member of natural parameter `η`. For
+`v = 0`, both sides vanish. -/
 @[simp]
-theorem deriv_cgf_sub_sq_gaussianReal (m : ℝ) (hv : v ≠ 0) (hη : 2 * v * η < 1) :
+theorem deriv_cgf_sub_sq_gaussianReal (m : ℝ) (v : ℝ≥0) (hη : 2 * v * η < 1) :
     deriv (cgf (fun x ↦ (x - m) ^ 2) (gaussianReal m v)) η = v / (1 - 2 * v * η) := by
+  rcases eq_or_ne v 0 with rfl | hv
+  · -- Under the Dirac mass at `m`, the cumulant generating function of `(X - m) ^ 2` is zero.
+    rw [show cgf (fun x ↦ (x - m) ^ 2) (gaussianReal m 0) = fun _ ↦ 0 from
+      funext fun t ↦ by simp [cgf, gaussianReal_zero_var, mgf_dirac']]
+    simp
   have hs : 0 < 1 - 2 * v * η := by linarith
   rw [← Measure.integral_expFamily ((mem_interior_integrableExpSet_sub_sq_gaussianReal m hv).2 hη),
     expFamily_sub_sq_gaussianReal m v hη, integral_sub_sq_gaussianReal, sub_self,
@@ -239,6 +246,19 @@ private lemma two_mul_mul_inv_sub_inv_lt_one (hv : v ≠ 0) (hμ : 0 < μ) :
   rw [← sub_pos, one_sub_two_mul_mul_inv_sub_inv (NNReal.coe_ne_zero.2 hv) hμ.ne']
   positivity
 
+/-- The value `(v⁻¹ - μ⁻¹) / 2` of the natural parameter of a variance `μ > 0` is mapped back to
+`μ` by `η ↦ v / (1 - 2 v η)`. -/
+private lemma div_one_sub_two_mul_mul_inv_sub_inv {v μ : ℝ} (hv : v ≠ 0) (hμ : μ ≠ 0) :
+    v / (1 - 2 * v * ((v⁻¹ - μ⁻¹) / 2)) = μ := by
+  rw [one_sub_two_mul_mul_inv_sub_inv hv hμ, div_div_cancel₀ hv]
+
+/-- The mean map of the exponential family of `𝒩(m, v)` with statistic `x ↦ (x - m) ^ 2` maps the
+value `(v⁻¹ - μ⁻¹) / 2` back to the variance `μ > 0`. -/
+private lemma deriv_cgf_sub_sq_gaussianReal_natParam (m : ℝ) (hv : v ≠ 0) (hμ : 0 < μ) :
+    deriv (cgf (fun x ↦ (x - m) ^ 2) (gaussianReal m v)) (((v : ℝ)⁻¹ - μ⁻¹) / 2) = μ := by
+  rw [deriv_cgf_sub_sq_gaussianReal m v (two_mul_mul_inv_sub_inv_lt_one hv hμ),
+    div_one_sub_two_mul_mul_inv_sub_inv (NNReal.coe_ne_zero.2 hv) hμ.ne']
+
 /-- For `v ≠ 0`, the means of the exponential family of `𝒩(m, v)` with statistic
 `x ↦ (x - m) ^ 2` are the variances `(0, ∞)`. -/
 @[simp]
@@ -251,11 +271,9 @@ theorem expFamilyMeans_sub_sq_gaussianReal (m : ℝ) (hv : v ≠ 0) :
       (two_mul_mul_inv_sub_inv_lt_one hv hμ), ?_⟩⟩
   · rw [mem_interior_integrableExpSet_sub_sq_gaussianReal m hv] at hη
     have : 0 < 1 - 2 * v * η := by linarith
-    rw [← h, deriv_cgf_sub_sq_gaussianReal m hv hη]
+    rw [← h, deriv_cgf_sub_sq_gaussianReal m v hη]
     positivity
-  · rw [deriv_cgf_sub_sq_gaussianReal m hv (two_mul_mul_inv_sub_inv_lt_one hv hμ),
-      one_sub_two_mul_mul_inv_sub_inv (NNReal.coe_ne_zero.2 hv) hμ.ne',
-      div_div_cancel₀ (NNReal.coe_ne_zero.2 hv)]
+  · exact deriv_cgf_sub_sq_gaussianReal_natParam m hv hμ
 
 /-- For `v ≠ 0`, the natural parameter of the member of mean `μ > 0` (the variance) of the
 exponential family of `𝒩(m, v)` with statistic `x ↦ (x - m) ^ 2` is `(v⁻¹ - μ⁻¹) / 2`. -/
@@ -263,11 +281,7 @@ exponential family of `𝒩(m, v)` with statistic `x ↦ (x - m) ^ 2` is `(v⁻�
 theorem natParam_sub_sq_gaussianReal (m : ℝ) (hv : v ≠ 0) (hμ : 0 < μ) :
     (gaussianReal m v).natParam (fun x ↦ (x - m) ^ 2) μ = ((v : ℝ)⁻¹ - μ⁻¹) / 2 := by
   have h := two_mul_mul_inv_sub_inv_lt_one hv hμ
-  have h_deriv : deriv (cgf (fun x ↦ (x - m) ^ 2) (gaussianReal m v)) (((v : ℝ)⁻¹ - μ⁻¹) / 2) =
-      μ := by
-    rw [deriv_cgf_sub_sq_gaussianReal m hv h,
-      one_sub_two_mul_mul_inv_sub_inv (NNReal.coe_ne_zero.2 hv) hμ.ne',
-      div_div_cancel₀ (NNReal.coe_ne_zero.2 hv)]
+  have h_deriv := deriv_cgf_sub_sq_gaussianReal_natParam m hv hμ
   rw [← h_deriv, Measure.natParam_deriv_cgf (not_ae_eq_const_sub_sq_gaussianReal m hv)
     ((mem_interior_integrableExpSet_sub_sq_gaussianReal m hv).2 h), h_deriv]
 
@@ -278,8 +292,7 @@ theorem expFamily_natParam_sub_sq_gaussianReal (m : ℝ) (hv : v ≠ 0) (hμ : 0
       ((gaussianReal m v).natParam (fun x ↦ (x - m) ^ 2) μ) = gaussianReal m μ.toNNReal := by
   rw [natParam_sub_sq_gaussianReal m hv hμ,
     expFamily_sub_sq_gaussianReal m v (two_mul_mul_inv_sub_inv_lt_one hv hμ),
-    one_sub_two_mul_mul_inv_sub_inv (NNReal.coe_ne_zero.2 hv) hμ.ne',
-    div_div_cancel₀ (NNReal.coe_ne_zero.2 hv)]
+    div_one_sub_two_mul_mul_inv_sub_inv (NNReal.coe_ne_zero.2 hv) hμ.ne']
 
 /-- For `v ≠ 0`, the divergence of the exponential family of `𝒩(m, v)` with statistic
 `x ↦ (x - m) ^ 2` in the mean parametrization is `d(μ, μ') = (μ / μ' - 1 - log (μ / μ')) / 2` for

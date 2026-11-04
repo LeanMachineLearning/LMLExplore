@@ -193,6 +193,11 @@ private lemma gaussianPDFReal_mul_exp_mul_sub_sq (μ : ℝ) (v : ℝ≥0) (t x :
   congr 2
   ring
 
+/-- For `v ≠ 0`, `t < (2 v)⁻¹` iff `2 v t < 1`: the two forms of the condition on `t` under which
+`exp (t (X - μ) ^ 2)` is integrable for `X ∼ 𝒩(μ, v)`. -/
+private lemma lt_inv_two_mul_iff (hv : v ≠ 0) {t : ℝ} : t < (2 * (v : ℝ))⁻¹ ↔ 2 * v * t < 1 := by
+  rw [← one_div, lt_div_iff₀ (by positivity), mul_comm]
+
 /-- The exponential moment `𝔼[exp (t (X - μ) ^ 2)]` of `X ∼ 𝒩(μ, v)` is finite iff
 `2 v t < 1`. -/
 @[simp]
@@ -209,8 +214,7 @@ lemma integrable_exp_mul_sub_sq_gaussianReal_iff (μ : ℝ) (v : ℝ≥0) (t : �
   have h_iff : Integrable (fun x ↦ exp (-((2 * (v : ℝ))⁻¹ - t) * (x - μ) ^ 2)) ↔
       Integrable (fun x : ℝ ↦ exp (-((2 * (v : ℝ))⁻¹ - t) * x ^ 2)) :=
     ⟨fun h ↦ by simpa using h.comp_add_right μ, fun h ↦ h.comp_sub_right μ⟩
-  rw [h_iff, integrable_exp_neg_mul_sq_iff, sub_pos, ← one_div, lt_div_iff₀ (by positivity),
-    mul_comm]
+  rw [h_iff, integrable_exp_neg_mul_sq_iff, sub_pos, lt_inv_two_mul_iff hv]
 
 /-- For `v ≠ 0`, the set of `t` at which `exp (t (X - μ) ^ 2)` is integrable for `X ∼ 𝒩(μ, v)` is
 `(-∞, (2 v)⁻¹)`. -/
@@ -218,7 +222,7 @@ lemma integrable_exp_mul_sub_sq_gaussianReal_iff (μ : ℝ) (v : ℝ≥0) (t : �
 lemma integrableExpSet_sub_sq_gaussianReal (μ : ℝ) (hv : v ≠ 0) :
     integrableExpSet (fun x ↦ (x - μ) ^ 2) (gaussianReal μ v) = Set.Iio (2 * (v : ℝ))⁻¹ := by
   ext t
-  rw [Set.mem_Iio, ← one_div, lt_div_iff₀ (by positivity), mul_comm]
+  rw [Set.mem_Iio, lt_inv_two_mul_iff hv]
   exact integrable_exp_mul_sub_sq_gaussianReal_iff μ v t
 
 /-- The moment generating function of `(X - μ) ^ 2` for `X ∼ 𝒩(μ, v)` is
@@ -256,6 +260,7 @@ lemma tilted_mul_sub_sq_gaussianReal (μ : ℝ) (v : ℝ≥0) {t : ℝ} (ht : 2 
   · -- The Dirac mass at `μ` is unchanged by tilting.
     simp only [gaussianReal_zero_var, NNReal.coe_zero, zero_div, Real.toNNReal_zero]
     rw [tilted_congr (ae_eq_dirac fun x ↦ t * (x - μ) ^ 2)]
+    -- `Function.const ℝ (t * (μ - μ) ^ 2)` is `fun _ ↦ t * (μ - μ) ^ 2` by definition.
     exact tilted_const _ _
   have hv₀ : (0 : ℝ) < v := by positivity
   have hs : 0 < 1 - 2 * v * t := by linarith
