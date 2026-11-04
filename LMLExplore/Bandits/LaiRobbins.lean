@@ -5,7 +5,7 @@ Authors: Rémy Degenne
 -/
 module
 
-public import LMLExplore.Bandits.MinimaxLowerBound
+public import LMLExplore.Bandits.InstanceDependentLowerBound
 
 /-!
 # The Lai–Robbins lower bound
@@ -22,9 +22,10 @@ The proof compares `ν` with the bandit `ν'` in which the law of a suboptimal a
 a law `Q ∈ M_a` with mean above `μ*`, which makes `a` the unique optimal arm. The divergence
 decomposition bounds the relative entropy between the laws of the histories of the first `n`
 rounds by `E_ν[T_a(n)] D(ν_a, Q)`. The Bretagnolle–Huber inequality, through the two-bandit
-inequality `le_integral_regret_add_integral_regret'`, bounds the sum of the regrets on `ν` and
-`ν'` from below by `Δ n exp (-E_ν[T_a(n)] D(ν_a, Q)) / 2`, while consistency bounds it from above
-by `o(n ^ p)` for every `p > 0`. Hence `E_ν[T_a(n)] D(ν_a, Q) ≥ (1 - p) log n` eventually.
+inequality `mul_exp_neg_le_integral_regret_add_integral_regret`, bounds the sum of the regrets
+on `ν` and `ν'` from below by `Δ n exp (-E_ν[T_a(n)] D(ν_a, Q)) / 2`, while consistency bounds
+it from above by `o(n ^ p)` for every `p > 0`. Hence `E_ν[T_a(n)] D(ν_a, Q) ≥ (1 - p) log n`
+eventually.
 
 Asymptotic statements are in eventual form: `liminf_n u_n / log n ≥ C` is
 `∀ c < C, ∀ᶠ n in atTop, c log n ≤ u_n`. The constants are in `ℝ≥0∞`: `d_inf` is `∞` when no law
@@ -157,15 +158,8 @@ theorem eventually_mul_log_le_integral_pullCount_of_klDiv [DecidableEq α] {E : 
   set D := (klDiv (ν a) (ν' a)).toReal
   have hrun := IT.isAlgEnvSeq_trajMeasure alg (Environment.bandit ν)
   have hrun' := IT.isAlgEnvSeq_trajMeasure alg (Environment.bandit ν')
-  -- In `ν` the arm `a` has gap at least `Δ`, and in `ν'` every other arm has gap at least `Δ`.
-  set Δ := min (gap ν a) ((ν' a)[id] - ⨆ b, (ν b)[id])
-  have hΔ : 0 < Δ := lt_min ha (sub_pos.mpr hmean)
-  have hgap' : ∀ b ≠ a, Δ ≤ gap ν' b := fun b hb ↦ by
-    have h1 := sub_le_gap ν' b a
-    have h2 : (ν b)[id] ≤ ⨆ b, (ν b)[id] :=
-      le_ciSup (f := fun b ↦ (ν b)[id]) (Set.finite_range _).bddAbove b
-    rw [← hνν' b hb] at h1
-    exact (min_le_right _ _).trans (by linarith)
+  set Δ := min ((ν' a)[id] - ⨆ b, (ν b)[id]) (gap ν a)
+  have hΔ : 0 < Δ := lt_min (sub_pos.mpr hmean) ha
   -- By consistency, both regrets are eventually at most `Δ n ^ p / 8`, for `p = 1 - c D > 0`.
   set p := 1 - c * D
   have hp : 0 < p := sub_pos.mpr hc
@@ -175,19 +169,10 @@ theorem eventually_mul_log_le_integral_pullCount_of_klDiv [DecidableEq α] {E : 
   have hn0 : (0 : ℝ) < n := by exact_mod_cast hn
   have hnp : 0 < (n : ℝ) ^ p := rpow_pos_of_pos hn0 p
   rw [div_lt_iff₀ hnp] at hRn hR'n
-  -- The relative entropy `K` between the laws of the histories is at most `E_ν[T_a(n)] D`.
   set T := ∫ ω, (pullCount IT.action a n ω : ℝ) ∂(trajMeasure alg (Environment.bandit ν))
-  have hT : 0 ≤ T := integral_nonneg fun _ ↦ Nat.cast_nonneg _
-  have hKL := hrun.klDiv_map_history_le_ofReal_integral_pullCount_mul hrun' hνν'
-    (ENNReal.ofReal_toReal hD).ge n
-  have htwo := le_integral_regret_add_integral_regret' hrun hrun' hΔ.le (min_le_left _ _) hgap'
-    n (hKL.trans_lt ENNReal.ofReal_lt_top).ne
-  generalize klDiv _ _ = K at hKL htwo
-  have hK : K.toReal ≤ T * D := ENNReal.toReal_le_of_le_ofReal (by positivity) hKL
   -- The two-bandit inequality gives `n exp (-T D) < n ^ p / 2`, hence `c D log n + log 2 < T D`.
-  have h1 : Δ * (n * exp (-(T * D))) < Δ * ((n : ℝ) ^ p / 2) := by
-    have h2 : Δ * n * exp (-(T * D)) ≤ Δ * n * exp (-K.toReal) := by gcongr
-    linarith
+  have hexp := mul_exp_neg_le_integral_regret_add_integral_regret hrun hrun' hνν' hD n
+  have h1 : Δ * (n * exp (-(T * D))) < Δ * ((n : ℝ) ^ p / 2) := by linarith
   have hlog := log_lt_log (by positivity) (lt_of_mul_lt_mul_left h1 hΔ.le)
   rw [log_mul hn0.ne' (exp_pos _).ne', log_exp, log_div hnp.ne' two_ne_zero,
     log_rpow hn0] at hlog

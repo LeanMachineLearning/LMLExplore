@@ -130,16 +130,12 @@ theorem log_div_le_integral_pullCount (h : IsAlgEnvSeq O A R alg (Environment.ba
   · rw [← h0, log_zero]
     exact hTD
   -- The argument of the logarithm is at most `exp (T D)`.
-  have hS0 : 0 < S := by
-    rcases hS.eq_or_lt with h0 | h0
-    · rw [← h0, mul_zero, div_zero] at hpos
-      exact absurd hpos (lt_irrefl _)
-    · exact h0
+  have hS0 : 0 < S := hS.lt_of_ne fun h0 ↦ by simp [← h0] at hpos
   have hexp := mul_exp_neg_le_integral_regret_add_integral_regret h h' hνν' hD n
   have hle : Δ * n / (2 * S) ≤ exp (T * D) := by
     rw [div_le_iff₀ (by positivity)]
     have h1 : Δ * n * exp (-(T * D)) / 2 * exp (T * D) = Δ * n / 2 := by
-      rw [div_mul_eq_mul_div, mul_assoc (Δ * n), ← exp_add, neg_add_cancel, exp_zero, mul_one]
+      simp [div_mul_eq_mul_div, mul_assoc, ← exp_add]
     have h2 := mul_le_mul_of_nonneg_right hexp (exp_pos (T * D)).le
     linarith
   calc log (Δ * n / (2 * S)) ≤ log (exp (T * D)) := log_le_log hpos hle
