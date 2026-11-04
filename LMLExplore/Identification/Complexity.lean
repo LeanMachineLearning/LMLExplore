@@ -22,9 +22,7 @@ the best arm replaced by `Δ_(2)`; `complexityOne` extends it to every bandit, a
 logarithmic factor [ABM10]: `H₂ ≤ H₁` when the best arm is unique, and
 `H₁ ≤ log‾ K H₂ ≤ log (2 K) H₂` for every bandit, so that bounds stated with `H₂`, such as the
 probability of error of successive rejects, can be read in terms of the more familiar `H₁` at the
-price of a factor `log (2 K)`. For Gaussian arms, `2 σ2 H₁` is the complexity `H(μ)` of [GK16]
-that bounds the characteristic time of best arm identification
-(`LMLExplore/Identification/Task/BestArm.lean`).
+price of a factor `log (2 K)`.
 
 ## Main definitions
 
@@ -57,8 +55,6 @@ In the namespace `LMLExplore.Identification`:
 
 * [ABM10] J.-Y. Audibert, S. Bubeck and R. Munos, *Best arm identification in multi-armed
   bandits*, COLT 2010.
-* [GK16] A. Garivier and E. Kaufmann, *Optimal best arm identification with fixed confidence*,
-  COLT 2016, Section 2.2.
 -/
 
 public section
