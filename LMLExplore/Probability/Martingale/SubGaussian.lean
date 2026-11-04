@@ -86,49 +86,30 @@ theorem supermartingale_exp_sum_mul_of_hasCondSubgaussianMGF [IsFiniteMeasure μ
     (hsubG : ∀ n, HasCondSubgaussianMGF (ℱ n) (ℱ.le n) (Y n) c μ) (hw : Adapted ℱ w) (t : ℝ) :
     Supermartingale (fun n ω ↦ exp (t * ∑ k ∈ range n, w k ω * Y k ω
       - c * t ^ 2 * (∑ k ∈ range n, w k ω ^ 2) / 2)) ℱ μ := by
-  set U : ℕ → Ω → ℝ := fun n ω ↦ exp (t * ∑ k ∈ range n, w k ω * Y k ω
-      - c * t ^ 2 * (∑ k ∈ range n, w k ω ^ 2) / 2) with hU_def
-  have hU_adapted : Adapted ℱ U := by
-    intro n
-    have hT : Measurable[ℱ n] (fun ω ↦ ∑ k ∈ range n, w k ω * Y k ω) := by
-      refine Finset.measurable_fun_sum _ fun k hk ↦ ?_
-      have hk : k + 1 ≤ n := mem_range.1 hk
-      exact (hw.measurable_le (by omega)).mul ((hY k).mono (ℱ.mono hk) le_rfl)
-    have hA : Measurable[ℱ n] (fun ω ↦ ∑ k ∈ range n, w k ω ^ 2) :=
-      Finset.measurable_fun_sum _ fun k hk ↦ (hw.measurable_le (mem_range.1 hk).le).pow_const 2
-    exact ((hT.const_mul t).sub ((hA.const_mul (c * t ^ 2)).div_const 2)).exp
-  refine supermartingale_of_setLIntegral_succ_le hU_adapted
-    (fun n ↦ ae_of_all _ fun ω ↦ (exp_pos _).le) (by simp [hU_def]) fun n A hA ↦ ?_
-  -- the `ℱ n`-measurable factor, with the parameter `s = t * w n`
-  set g : Ω → ℝ≥0∞ := A.indicator fun ω ↦
-    ENNReal.ofReal (U n ω * exp (-(c * (t * w n ω) ^ 2 / 2))) with hg_def
+  -- the sum of the rounds `Z k = t * w k * Y k - c * (t * w k) ^ 2 / 2`
+  have h_eq : (fun n ω ↦ exp (t * ∑ k ∈ range n, w k ω * Y k ω
+      - c * t ^ 2 * (∑ k ∈ range n, w k ω ^ 2) / 2)) = fun n ω ↦
+      exp (∑ k ∈ range n, (t * w k ω * Y k ω - c * (t * w k ω) ^ 2 / 2)) := by
+    ext n ω
+    simp only [sum_sub_distrib, mul_sum, ← sum_div, mul_pow, mul_assoc]
+  rw [h_eq]
+  refine supermartingale_exp_sum_of_lintegral_mul_exp_le (fun n ↦ ?_) fun n g hg ↦ ?_
+  · have hw' : Measurable[ℱ (n + 1)] (w n) := hw.measurable_le (by omega)
+    exact ((hw'.const_mul t).mul (hY n)).sub ((((hw'.const_mul t).pow_const 2).const_mul
+      (c : ℝ)).div_const 2)
+  -- `g * exp (Z n) = g * exp (-c * (t * w n) ^ 2 / 2) * exp (t * w n * Y n)`
   have hs : Measurable[ℱ n] (fun ω ↦ t * w n ω) := (hw n).const_mul t
-  have hg : Measurable[ℱ n] g :=
-    ((hU_adapted n).mul ((((hs.pow_const 2).const_mul c).div_const 2).neg.exp)).ennreal_ofReal
-      |>.indicator hA
-  have h_succ : ∀ ω, A.indicator (fun ω ↦ ENNReal.ofReal (U (n + 1) ω)) ω
-      = g ω * ENNReal.ofReal (exp ((t * w n ω) * Y n ω)) := by
-    intro ω
-    by_cases hω : ω ∈ A
-    · simp only [hg_def, Set.indicator_of_mem hω]
-      rw [← ENNReal.ofReal_mul (mul_nonneg (exp_pos _).le (exp_pos _).le)]
-      congr 1
-      simp only [hU_def, sum_range_succ, ← exp_add]
-      congr 1
-      ring
-    · simp [hg_def, hω]
-  have h_n : ∀ ω, g ω * ENNReal.ofReal (exp (c * (t * w n ω) ^ 2 / 2))
-      = A.indicator (fun ω ↦ ENNReal.ofReal (U n ω)) ω := by
-    intro ω
-    by_cases hω : ω ∈ A
-    · simp only [hg_def, Set.indicator_of_mem hω]
-      rw [← ENNReal.ofReal_mul (mul_nonneg (exp_pos _).le (exp_pos _).le), mul_assoc,
-        ← exp_add]
-      simp [hU_def]
-    · simp [hg_def, hω]
-  rw [← lintegral_indicator (ℱ.le n _ hA), ← lintegral_indicator (ℱ.le n _ hA)]
-  simp_rw [h_succ, ← h_n]
-  exact (hsubG n).lintegral_mul_exp_le ((hY n).mono (ℱ.le _) le_rfl) hs hg
+  set G : Ω → ℝ≥0∞ := fun ω ↦ g ω * ENNReal.ofReal (exp (-(c * (t * w n ω) ^ 2 / 2))) with hG_def
+  have hG : Measurable[ℱ n] G :=
+    hg.mul ((((hs.pow_const 2).const_mul (c : ℝ)).div_const 2).neg.exp.ennreal_ofReal)
+  calc ∫⁻ ω, g ω * ENNReal.ofReal (exp (t * w n ω * Y n ω - c * (t * w n ω) ^ 2 / 2)) ∂μ
+      = ∫⁻ ω, G ω * ENNReal.ofReal (exp (t * w n ω * Y n ω)) ∂μ := by
+        simp only [hG_def, mul_assoc, ← ENNReal.ofReal_mul (exp_pos _).le, ← exp_add,
+          neg_add_eq_sub]
+    _ ≤ ∫⁻ ω, G ω * ENNReal.ofReal (exp (c * (t * w n ω) ^ 2 / 2)) ∂μ :=
+        (hsubG n).lintegral_mul_exp_le ((hY n).mono (ℱ.le _) le_rfl) hs hG
+    _ = ∫⁻ ω, g ω ∂μ := by
+        simp [hG_def, mul_assoc, ← ENNReal.ofReal_mul (exp_pos _).le, ← exp_add]
 
 /-- **Time-uniform bound for sub-Gaussian sums.** If `Y n` is `ℱ (n + 1)`-measurable and
 conditionally `c`-sub-Gaussian given `ℱ n`, and the weights `w` are adapted, then for all

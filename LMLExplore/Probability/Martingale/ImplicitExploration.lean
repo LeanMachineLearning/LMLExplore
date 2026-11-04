@@ -76,16 +76,14 @@ namespace LMLExplore
 variable {Ω ι : Type*} {m mΩ : MeasurableSpace Ω} {μ : Measure Ω} [Fintype ι]
   {ℱ : Filtration ℕ mΩ} {X w l y : ℕ → ι → Ω → ℝ}
 
-/-- The sum `∑ t < n, ∑ i, w t i * (X t i / (1 + l t i) - y t i)` is `ℱ n`-measurable when the
-`X t` are `ℱ (t + 1)`-measurable and the `w t`, `l t` and `y t` are `ℱ t`-measurable. -/
-private lemma measurable_sum_sum_mul_div_one_add_sub (hX : ∀ t i, Measurable[ℱ (t + 1)] (X t i))
+/-- The sum `∑ i, w t i * (X t i / (1 + l t i) - y t i)` of round `t` is `ℱ (t + 1)`-measurable
+when the `X t` are `ℱ (t + 1)`-measurable and the `w t`, `l t` and `y t` are `ℱ t`-measurable. -/
+private lemma measurable_sum_mul_div_one_add_sub (hX : ∀ t i, Measurable[ℱ (t + 1)] (X t i))
     (hw : ∀ t i, Measurable[ℱ t] (w t i)) (hl : ∀ t i, Measurable[ℱ t] (l t i))
-    (hy : ∀ t i, Measurable[ℱ t] (y t i)) (n : ℕ) :
-    Measurable[ℱ n] fun ω ↦ ∑ t ∈ range n, ∑ i, w t i ω * (X t i ω / (1 + l t i ω) - y t i ω) := by
-  refine Finset.measurable_fun_sum _ fun t ht ↦ Finset.measurable_fun_sum _ fun i _ ↦ ?_
-  have htn : t + 1 ≤ n := mem_range.1 ht
-  have hle : ℱ t ≤ ℱ n := ℱ.mono (by omega)
-  exact ((hw t i).mono hle le_rfl).mul ((((hX t i).mono (ℱ.mono htn) le_rfl).div
+    (hy : ∀ t i, Measurable[ℱ t] (y t i)) (t : ℕ) :
+    Measurable[ℱ (t + 1)] fun ω ↦ ∑ i, w t i ω * (X t i ω / (1 + l t i ω) - y t i ω) := by
+  have hle : ℱ t ≤ ℱ (t + 1) := ℱ.mono (by omega)
+  exact Finset.measurable_fun_sum _ fun i _ ↦ ((hw t i).mono hle le_rfl).mul (((hX t i).div
     (measurable_const.add ((hl t i).mono hle le_rfl))).sub ((hy t i).mono hle le_rfl))
 
 /-- The one-round bound behind [LS, Lemma 12.2]: if `0 ≤ w i * X i ≤ 2 * l i` for all `i` and
@@ -98,8 +96,30 @@ private lemma exp_sum_mul_div_one_add_le {w X l : ι → ℝ} (hwX : ∀ i, 0 �
   exact prod_le_prod₀ (fun i _ ↦ (exp_pos _).le)
     fun i _ ↦ exp_div_one_add_le_one_add (hwX i) (hwl i)
 
+/-- For `a i ≥ 0` and `z i ≥ 0`,
+`ofReal r * (1 + ∑ i, ofReal (a i) * ofReal (z i)) = ofReal (r * (1 + ∑ i, a i * z i))`. -/
+private lemma ofReal_mul_one_add_sum_ofReal_mul {a z : ι → ℝ} (r : ℝ) (ha : ∀ i, 0 ≤ a i)
+    (hz : ∀ i, 0 ≤ z i) :
+    ENNReal.ofReal r * (1 + ∑ i, ENNReal.ofReal (a i) * ENNReal.ofReal (z i)) =
+      ENNReal.ofReal (r * (1 + ∑ i, a i * z i)) := by
+  have haz : ∀ i, 0 ≤ a i * z i := fun i ↦ mul_nonneg (ha i) (hz i)
+  rw [← sum_congr rfl fun i _ ↦ ENNReal.ofReal_mul (ha i),
+    ← ENNReal.ofReal_sum_of_nonneg fun i _ ↦ haz i, ← ENNReal.ofReal_one,
+    ← ENNReal.ofReal_add zero_le_one (sum_nonneg fun i _ ↦ haz i), ENNReal.ofReal_mul']
+  exact add_nonneg zero_le_one (sum_nonneg fun i _ ↦ haz i)
+
+/-- The expansion
+`∫⁻ G * (1 + ∑ i, ofReal (a i) * ofReal (z i)) = ∫⁻ G + ∑ i, ∫⁻ G * ofReal (a i) * ofReal (z i)`
+for measurable `G` and a.e.-measurable `G * ofReal (a i) * ofReal (z i)`. -/
+private lemma lintegral_mul_one_add_sum {G : Ω → ℝ≥0∞} {a z : ι → Ω → ℝ} (hG : Measurable G)
+    (haz : ∀ i, AEMeasurable (fun ω ↦ G ω * ENNReal.ofReal (a i ω) * ENNReal.ofReal (z i ω)) μ) :
+    ∫⁻ ω, G ω * (1 + ∑ i, ENNReal.ofReal (a i ω) * ENNReal.ofReal (z i ω)) ∂μ =
+      ∫⁻ ω, G ω ∂μ + ∑ i, ∫⁻ ω, G ω * ENNReal.ofReal (a i ω) * ENNReal.ofReal (z i ω) ∂μ := by
+  simp only [mul_add, mul_one, mul_sum, ← mul_assoc]
+  rw [lintegral_add_left hG, lintegral_finsetSum' _ fun i _ ↦ haz i]
+
 /-- **One round of implicit exploration** [LS, (12.10)]. Let `m` be a sub-σ-algebra, `X i ≥ 0`
-integrable with `μ[X i | m] ≤ y i`, and `w i ≥ 0`, `l i` and `y i` `m`-measurable with
+integrable with `μ[X i | m] ≤ y i`, `w i ≥ 0` and `y i` `m`-measurable, and `l i` arbitrary with
 `w i * X i ≤ 2 * l i`. If the products `(w i * X i) * (w j * X j)` of distinct `i, j` vanish, then
 the conditional expectation of `exp (∑ i, w i * (X i / (1 + l i) - y i))` given `m` is at most `1`:
 for every `m`-measurable `g : Ω → ℝ≥0∞`,
@@ -135,10 +155,8 @@ theorem lintegral_mul_exp_sum_mul_div_one_add_sub_le (hm : m ≤ mΩ) [SigmaFini
       G ω * (1 + ∑ i, ENNReal.ofReal (w i ω) * ENNReal.ofReal (X i ω)) := by
     filter_upwards [hall, hall_mul] with ω hω hω_mul
     have hwX : ∀ i, 0 ≤ w i ω * X i ω := fun i ↦ mul_nonneg (hω i).1 (hω i).2.1
-    rw [hG_def, mul_assoc, ← sum_congr rfl fun i _ ↦ ENNReal.ofReal_mul (hω i).1,
-      ← ENNReal.ofReal_sum_of_nonneg fun i _ ↦ hwX i, ← ENNReal.ofReal_one,
-      ← ENNReal.ofReal_add zero_le_one (sum_nonneg fun i _ ↦ hwX i),
-      ← ENNReal.ofReal_mul (exp_pos _).le]
+    rw [hG_def, mul_assoc,
+      ofReal_mul_one_add_sum_ofReal_mul _ (fun i ↦ (hω i).1) fun i ↦ (hω i).2.1]
     gcongr
     simp only [mul_sub, sum_sub_distrib, mul_div_assoc', sub_eq_neg_add _ (∑ i, w i ω * y i ω),
       exp_add]
@@ -147,11 +165,8 @@ theorem lintegral_mul_exp_sum_mul_div_one_add_sub_le (hm : m ≤ mΩ) [SigmaFini
   -- `exp (-∑ i, w i * y i) * (1 + ∑ i, w i * y i) ≤ 1`
   have h_one : ∀ᵐ ω ∂μ, G ω * (1 + ∑ i, ENNReal.ofReal (w i ω) * ENNReal.ofReal (y i ω)) ≤ g ω := by
     filter_upwards [hall] with ω hω
-    have hwy : ∀ i, 0 ≤ w i ω * y i ω := fun i ↦ mul_nonneg (hω i).1 (hω i).2.2.1
-    rw [hG_def, mul_assoc, ← sum_congr rfl fun i _ ↦ ENNReal.ofReal_mul (hω i).1,
-      ← ENNReal.ofReal_sum_of_nonneg fun i _ ↦ hwy i, ← ENNReal.ofReal_one,
-      ← ENNReal.ofReal_add zero_le_one (sum_nonneg fun i _ ↦ hwy i),
-      ← ENNReal.ofReal_mul (exp_pos _).le]
+    rw [hG_def, mul_assoc,
+      ofReal_mul_one_add_sum_ofReal_mul _ (fun i ↦ (hω i).1) fun i ↦ (hω i).2.2.1]
     refine mul_le_of_le_one_right' (ENNReal.ofReal_le_one.2 ?_)
     rw [exp_neg, inv_mul_le_one₀ (exp_pos _)]
     linarith [add_one_le_exp (∑ i, w i ω * y i ω)]
@@ -159,19 +174,15 @@ theorem lintegral_mul_exp_sum_mul_div_one_add_sub_le (hm : m ≤ mΩ) [SigmaFini
   calc ∫⁻ ω, g ω * ENNReal.ofReal (exp (∑ i, w i ω * (X i ω / (1 + l i ω) - y i ω))) ∂μ
       ≤ ∫⁻ ω, G ω * (1 + ∑ i, ENNReal.ofReal (w i ω) * ENNReal.ofReal (X i ω)) ∂μ :=
         lintegral_mono_ae h_le
-    _ = ∫⁻ ω, G ω ∂μ + ∑ i, ∫⁻ ω, G ω * ENNReal.ofReal (w i ω) * ENNReal.ofReal (X i ω) ∂μ := by
-        simp only [mul_add, mul_one, mul_sum, ← mul_assoc]
-        rw [lintegral_add_left hGm, lintegral_finsetSum' (f := fun i ω ↦
-          G ω * ENNReal.ofReal (w i ω) * ENNReal.ofReal (X i ω)) _ fun i _ ↦
-          ((hGw i).mono hm le_rfl).aemeasurable.mul (hX_int i).1.aemeasurable.ennreal_ofReal]
+    _ = ∫⁻ ω, G ω ∂μ + ∑ i, ∫⁻ ω, G ω * ENNReal.ofReal (w i ω) * ENNReal.ofReal (X i ω) ∂μ :=
+        lintegral_mul_one_add_sum hGm fun i ↦
+          ((hGw i).mono hm le_rfl).aemeasurable.mul (hX_int i).1.aemeasurable.ennreal_ofReal
     _ ≤ ∫⁻ ω, G ω ∂μ + ∑ i, ∫⁻ ω, G ω * ENNReal.ofReal (w i ω) * ENNReal.ofReal (y i ω) ∂μ :=
         add_le_add le_rfl <| sum_le_sum fun i _ ↦
           lintegral_mul_ofReal_le_of_condExp_le hm (hX_int i) (hX_nonneg i) (hXy i) (hGw i)
-    _ = ∫⁻ ω, G ω * (1 + ∑ i, ENNReal.ofReal (w i ω) * ENNReal.ofReal (y i ω)) ∂μ := by
-        simp only [mul_add, mul_one, mul_sum, ← mul_assoc]
-        rw [lintegral_add_left hGm, lintegral_finsetSum (f := fun i ω ↦
-          G ω * ENNReal.ofReal (w i ω) * ENNReal.ofReal (y i ω)) _ fun i _ ↦
-          ((hGw i).mono hm le_rfl).mul ((hy i).mono hm le_rfl).ennreal_ofReal]
+    _ = ∫⁻ ω, G ω * (1 + ∑ i, ENNReal.ofReal (w i ω) * ENNReal.ofReal (y i ω)) ∂μ :=
+        (lintegral_mul_one_add_sum hGm fun i ↦
+          (((hGw i).mono hm le_rfl).mul ((hy i).mono hm le_rfl).ennreal_ofReal).aemeasurable).symm
     _ ≤ ∫⁻ ω, g ω ∂μ := lintegral_mono_ae h_one
 
 /-- **The exponential supermartingale of implicit exploration** [LS, proof of Lemma 12.2]. Let
@@ -188,22 +199,10 @@ theorem supermartingale_exp_sum_sum_mul_div_one_add_sub [IsFiniteMeasure μ]
     (hmul : ∀ t i j, i ≠ j → ∀ᵐ ω ∂μ, w t i ω * X t i ω * (w t j ω * X t j ω) = 0) :
     Supermartingale
       (fun n ω ↦ exp (∑ t ∈ range n, ∑ i, w t i ω * (X t i ω / (1 + l t i ω) - y t i ω))) ℱ μ := by
-  have hS := measurable_sum_sum_mul_div_one_add_sub hX hw hl hy
-  refine supermartingale_of_setLIntegral_succ_le (fun n ↦ (hS n).exp)
-    (fun n ↦ ae_of_all _ fun ω ↦ (exp_pos _).le) (by simp) fun n s hs ↦ ?_
-  -- `𝟙_s exp (S (n + 1))` is `𝟙_s exp (S n)` times the exponential of the sum of round `n`
-  rw [← lintegral_indicator (ℱ.le n _ hs), ← lintegral_indicator (ℱ.le n _ hs)]
-  have h_succ : ∀ ω, s.indicator (fun ω ↦ ENNReal.ofReal (exp (∑ t ∈ range (n + 1),
-      ∑ i, w t i ω * (X t i ω / (1 + l t i ω) - y t i ω)))) ω =
-      s.indicator (fun ω ↦ ENNReal.ofReal (exp (∑ t ∈ range n,
-        ∑ i, w t i ω * (X t i ω / (1 + l t i ω) - y t i ω)))) ω *
-      ENNReal.ofReal (exp (∑ i, w n i ω * (X n i ω / (1 + l n i ω) - y n i ω))) := fun ω ↦ by
-    by_cases hωs : ω ∈ s
-    · simp [hωs, sum_range_succ, exp_add, ENNReal.ofReal_mul (exp_pos _).le]
-    · simp [hωs]
-  simp_rw [h_succ]
-  exact lintegral_mul_exp_sum_mul_div_one_add_sub_le (ℱ.le n) (hX_int n) (hX_nonneg n) (hXy n)
-    (hw n) (hy n) (hw_nonneg n) (hwl n) (hmul n) ((hS n).exp.ennreal_ofReal.indicator hs)
+  exact supermartingale_exp_sum_of_lintegral_mul_exp_le
+    (measurable_sum_mul_div_one_add_sub hX hw hl hy) fun n _ hg ↦
+    lintegral_mul_exp_sum_mul_div_one_add_sub_le (ℱ.le n) (hX_int n) (hX_nonneg n) (hXy n)
+      (hw n) (hy n) (hw_nonneg n) (hwl n) (hmul n) hg
 
 /-- **Time-uniform concentration of implicit-exploration estimates.** Under the hypotheses of
 `supermartingale_exp_sum_sum_mul_div_one_add_sub`, for every `x : ℝ`, the probability that

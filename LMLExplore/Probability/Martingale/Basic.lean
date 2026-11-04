@@ -5,6 +5,7 @@ Authors: Rémy Degenne
 -/
 module
 
+public import Mathlib.MeasureTheory.Function.SpecialFunctions.Basic
 public import Mathlib.Probability.Martingale.Basic
 
 /-!
@@ -14,11 +15,18 @@ Mathlib's `MeasureTheory.supermartingale_of_setIntegral_succ_le` asks for the in
 every `f n`. For an almost surely nonnegative process, the comparison of the set integrals can be
 made in `ℝ≥0∞`, where it needs no integrability, and integrability then propagates from `f 0`.
 
+For an exponential of partial sums `exp (∑ k < n, Z k)`, the comparison reduces to a one-round
+bound: the conditional expectation of `exp (Z n)` given `ℱ n` is at most `1`, which is expressed
+without conditional expectations as `∫⁻ g * exp (Z n) ≤ ∫⁻ g` for every `ℱ n`-measurable `g ≥ 0`.
+
 ## Main statements
 
 * `LMLExplore.supermartingale_of_setLIntegral_succ_le`: an adapted, a.s. nonnegative process with
   `f 0` integrable whose lower Lebesgue set integrals over `s ∈ ℱ n` do not increase from `n` to
   `n + 1` is a supermartingale.
+* `LMLExplore.supermartingale_exp_sum_of_lintegral_mul_exp_le`: `n ↦ exp (∑ k < n, Z k)` is a
+  supermartingale if each `Z n` is `ℱ (n + 1)`-measurable and
+  `∫⁻ g * exp (Z n) ≤ ∫⁻ g` for every `ℱ n`-measurable `g ≥ 0`.
 
 ## References
 
@@ -28,7 +36,7 @@ made in `ℝ≥0∞`, where it needs no integrability, and integrability then pr
 
 public section
 
-open MeasureTheory
+open MeasureTheory Finset Real
 open scoped ENNReal
 
 namespace LMLExplore
@@ -60,5 +68,29 @@ theorem supermartingale_of_setLIntegral_succ_le [IsFiniteMeasure μ] {ℱ : Filt
     integral_eq_lintegral_of_nonneg_ae (ae_restrict_of_ae (hf_nonneg n))
       (hfm n).aestronglyMeasurable]
   exact ENNReal.toReal_mono ((setLIntegral_le_lintegral _ _).trans_lt (hfin n)).ne (hle n s hs)
+
+/-- **Exponential supermartingale from a one-round bound.** If each `Z n` is
+`ℱ (n + 1)`-measurable and `∫⁻ g * exp (Z n) ≤ ∫⁻ g` for every `ℱ n`-measurable `g : Ω → ℝ≥0∞`
+(that is, the conditional expectation of `exp (Z n)` given `ℱ n` is at most `1`), then
+`n ↦ exp (∑ k < n, Z k)` is a supermartingale. -/
+theorem supermartingale_exp_sum_of_lintegral_mul_exp_le [IsFiniteMeasure μ]
+    {ℱ : Filtration ℕ mΩ} {Z : ℕ → Ω → ℝ} (hZ : ∀ n, Measurable[ℱ (n + 1)] (Z n))
+    (hle : ∀ n, ∀ g : Ω → ℝ≥0∞, Measurable[ℱ n] g →
+      ∫⁻ ω, g ω * ENNReal.ofReal (exp (Z n ω)) ∂μ ≤ ∫⁻ ω, g ω ∂μ) :
+    Supermartingale (fun n ω ↦ exp (∑ k ∈ range n, Z k ω)) ℱ μ := by
+  have hS : ∀ n, Measurable[ℱ n] fun ω ↦ ∑ k ∈ range n, Z k ω := fun n ↦
+    Finset.measurable_fun_sum _ fun k hk ↦ (hZ k).mono (ℱ.mono (mem_range.1 hk)) le_rfl
+  refine supermartingale_of_setLIntegral_succ_le (fun n ↦ (hS n).exp)
+    (fun n ↦ ae_of_all _ fun ω ↦ (exp_pos _).le) (by simp) fun n s hs ↦ ?_
+  -- `𝟙_s exp (S (n + 1))` is `𝟙_s exp (S n)` times `exp (Z n)`
+  rw [← lintegral_indicator (ℱ.le n _ hs), ← lintegral_indicator (ℱ.le n _ hs)]
+  have h_succ : ∀ ω, s.indicator (fun ω ↦ ENNReal.ofReal (exp (∑ k ∈ range (n + 1), Z k ω))) ω =
+      s.indicator (fun ω ↦ ENNReal.ofReal (exp (∑ k ∈ range n, Z k ω))) ω *
+        ENNReal.ofReal (exp (Z n ω)) := fun ω ↦ by
+    by_cases hωs : ω ∈ s
+    · simp [hωs, sum_range_succ, exp_add, ENNReal.ofReal_mul (exp_pos _).le]
+    · simp [hωs]
+  simp_rw [h_succ]
+  exact hle n _ ((hS n).exp.ennreal_ofReal.indicator hs)
 
 end LMLExplore
