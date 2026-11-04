@@ -7,6 +7,7 @@ module
 
 public import LMLExplore.Analysis.Convex.NegEntropy
 public import LMLExplore.Analysis.Normed.Lp.PiLp
+public import LMLExplore.Analysis.Real.Sqrt
 public import LMLExplore.OnlineLearning.ExponentialWeights
 public import LMLExplore.OnlineLearning.FTRL
 
@@ -166,24 +167,17 @@ theorem ftrl_regret_le_sqrt_of_negEntropy {n : ℕ}
   set L := log (Fintype.card α)
   have hL : 0 < L := log_pos (by exact_mod_cast hk)
   have hn' : (0 : ℝ) < n := Nat.cast_pos.2 hn
+  -- with this learning rate, both terms of the bound are `η n / 2`, which sum to `√(2 n L)`
+  have h_tune := div_sqrt_add_sqrt_mul_div_two L hn'.le
   set η := √(2 * L / n)
   have hη : 0 < η := sqrt_pos.2 (by positivity)
-  have hη2 : η ^ 2 = 2 * L / n := sq_sqrt (by positivity)
   have h := ftrl_regret_le_of_negEntropy hη y a ha hu
   have h_sum : ∑ t ∈ range n, ‖y t‖ ^ 2 ≤ n := by
     calc ∑ t ∈ range n, ‖y t‖ ^ 2
     _ ≤ ∑ t ∈ range n, (1 : ℝ) :=
       sum_le_sum fun t ht ↦ pow_le_one₀ (norm_nonneg _) (hy t (mem_range.1 ht))
     _ = n := by simp
-  -- with this learning rate, both terms of the bound are `η n / 2 = √(n L / 2)`
-  have h_pen : L / η = η * n / 2 := by
-    rw [div_eq_iff hη.ne', show η * n / 2 * η = η ^ 2 * n / 2 by ring, hη2]
-    field_simp
-  have h_sqrt : √(2 * n * L) = η * n := by
-    rw [← sqrt_sq (by positivity : 0 ≤ η * n), mul_pow, hη2]
-    congr 1
-    field_simp
-  rw [h_sqrt]
+  rw [← h_tune]
   nlinarith
 
 /-- **Regret of exponential weights** for losses in `[-1, 1]` [LS, Proposition 28.7]. For losses

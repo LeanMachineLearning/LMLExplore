@@ -5,6 +5,7 @@ Authors: Rémy Degenne
 -/
 module
 
+public import LMLExplore.MeasureTheory.MeasurableSpace.Constructions
 public import LMLExplore.MeasureTheory.Measure.Weighted
 public import LMLExplore.SequentialLearning.Algorithm
 public import Mathlib.Probability.CondVar
@@ -31,6 +32,7 @@ In the namespace `LMLExplore.Bandits.WeightAlgorithm`, for a run of `weightAlgor
 * `measure_preimage_inter_action_eq`: the run lemma in integral form, for a measurable set `s` of
   pasts and an arm `a`, `P(past ∈ s, A n = a) = ∫_{past ∈ s} w n (past) a dP`;
 * `measure_action_eq`: `P(A n = a) = E[w n (past) a]`;
+* `ae_weights_action_pos`: the action of round `n` almost surely has positive weight;
 * `integrable_comp_action_iff`: a function `f (past, A n)` of the past and the action is integrable
   iff the weighted sum `∑ a, w n (past) a * ‖f (past, a)‖` is;
 * `condExp_comp_action`: the conditional expectation of `f (past, A n)` given the past is the
@@ -38,7 +40,11 @@ In the namespace `LMLExplore.Bandits.WeightAlgorithm`, for a run of `weightAlgor
 * `integrable_comp_weights`, `condExp_comp_weights`, `integral_comp_weights`,
   `condVar_comp_weights`: for a real function `g (w n (past), A n)` of the weights and the action,
   integrability when the `p`-averages of `|g p ·|` are bounded, and the conditional expectation,
-  the expectation and the conditional variance given the past as `w n (past)`-averages.
+  the expectation and the conditional variance given the past as `w n (past)`-averages;
+* `integrable_div_weights`, `integral_div_weights_le`, `integral_div_weights`: the
+  inverse-weighted value `c (A n) / w n (past) (A n)` of the action is integrable, its expectation
+  is at most `∑ b, c b` for `c ≥ 0`, with equality when `c` vanishes on the arms of weight zero.
+  The second-order terms in the analysis of Exp3 and Exp4 have this form.
 
 The conditional law of the action of round `n` given the past is
 `(weightAlgorithm w …).policy n = weightKernel (w n) _`, by LML's
@@ -114,6 +120,28 @@ lemma measure_action_eq (h : IsAlgEnvSeq O A Y (weightAlgorithm w hw hp) env P) 
     (a : α) :
     P (A n ⁻¹' {a}) = ∫⁻ ω, ENNReal.ofReal (w n (history O A Y n ω, O n ω) a) ∂P := by
   simpa using measure_preimage_inter_action_eq h n MeasurableSet.univ a
+
+/-- Along a run of a weight-based algorithm, the action of round `n` almost surely has positive
+weight: arms of weight zero are almost surely never played. -/
+lemma ae_weights_action_pos (h : IsAlgEnvSeq O A Y (weightAlgorithm w hw hp) env P) (n : ℕ) :
+    ∀ᵐ ω ∂P, 0 < w n (history O A Y n ω, O n ω) (A n ω) := by
+  have hX : Measurable fun ω ↦ (history O A Y n ω, O n ω) :=
+    (h.measurable_history n).prodMk (h.measurable_obs n)
+  -- for each arm `a`, playing `a` while its weight is zero has probability zero
+  have hnull : ∀ a, P ((fun ω ↦ (history O A Y n ω, O n ω)) ⁻¹' {x | w n x a = 0} ∩
+      A n ⁻¹' {a}) = 0 := fun a ↦ by
+    have hs : MeasurableSet {x : Hist 𝓞 α 𝓨 n × 𝓞 | w n x a = 0} :=
+      measurableSet_eq_fun (hw n a) measurable_const
+    rw [measure_preimage_inter_action_eq h n hs a,
+      setLIntegral_congr_fun (hX hs) (g := fun _ ↦ 0) fun ω hω ↦ by
+        rw [Set.mem_preimage, Set.mem_ofPred_eq] at hω
+        rw [hω, ENNReal.ofReal_zero]]
+    simp
+  rw [ae_iff]
+  refine measure_mono_null (fun ω hω ↦ Set.mem_iUnion.2 ⟨A n ω, Set.mem_inter ?_ rfl⟩)
+    (measure_iUnion_null hnull)
+  rw [Set.mem_ofPred_eq, not_lt] at hω
+  exact le_antisymm hω ((mem_simplex_iff.1 (hp n _)).1 _)
 
 variable {E : Type*} [NormedAddCommGroup E]
 
@@ -225,6 +253,52 @@ lemma condVar_comp_weights [Nonempty α] (h : IsAlgEnvSeq O A Y (weightAlgorithm
     simpa only [Real.norm_of_nonneg (sq_nonneg _)] using hint
   exact (condExp_congr_ae hsq).trans
     (condExp_comp_weights h n (g := fun p b ↦ (g p b - c) ^ 2) hg' hint')
+
+/-- Along a run of a weight-based algorithm, the inverse-weighted value
+`c (A n) / w n (past) (A n)` of the action of round `n` is integrable, for every `c : α → ℝ`. -/
+lemma integrable_div_weights (h : IsAlgEnvSeq O A Y (weightAlgorithm w hw hp) env P) (n : ℕ)
+    (c : α → ℝ) :
+    Integrable (fun ω ↦ c (A n ω) / w n (history O A Y n ω, O n ω) (A n ω)) P := by
+  refine integrable_comp_weights h n (g := fun p b ↦ c b / p b) (measurable_div_apply c)
+    (C := ∑ b, |c b|) fun p hp ↦ Finset.sum_le_sum fun b _ ↦ ?_
+  rw [abs_div, abs_of_nonneg ((mem_simplex_iff.1 hp).1 b)]
+  rcases ((mem_simplex_iff.1 hp).1 b).eq_or_lt with hb | hb
+  · simp [← hb]
+  · rw [mul_div_cancel₀ _ hb.ne']
+
+variable [IsProbabilityMeasure P] [Nonempty α]
+
+/-- Along a run of a weight-based algorithm, for a nonnegative `c : α → ℝ`, the inverse-weighted
+value `c (A n) / w n (past) (A n)` of the action of round `n` has expectation at most
+`∑ b, c b`, with equality when the weights are positive (`integral_div_weights`). -/
+lemma integral_div_weights_le (h : IsAlgEnvSeq O A Y (weightAlgorithm w hw hp) env P) (n : ℕ)
+    {c : α → ℝ} (hc : ∀ b, 0 ≤ c b) :
+    P[fun ω ↦ c (A n ω) / w n (history O A Y n ω, O n ω) (A n ω)] ≤ ∑ b, c b := by
+  rw [integral_comp_weights h n (g := fun p b ↦ c b / p b) (measurable_div_apply c)
+    (integrable_div_weights h n c)]
+  refine (integral_mono_of_nonneg (ae_of_all _ fun ω ↦ ?_) (integrable_const (∑ b, c b))
+    (ae_of_all _ fun ω ↦ Finset.sum_le_sum fun b _ ↦ ?_)).trans (by simp)
+  · exact Finset.sum_nonneg fun b _ ↦ mul_nonneg ((mem_simplex_iff.1 (hp n _)).1 b)
+      (div_nonneg (hc b) ((mem_simplex_iff.1 (hp n _)).1 b))
+  · rcases ((mem_simplex_iff.1 (hp n (history O A Y n ω, O n ω))).1 b).eq_or_lt with hb | hb
+    · simp [← hb, hc b]
+    · rw [mul_div_cancel₀ _ hb.ne']
+
+/-- Along a run of a weight-based algorithm, if `c : α → ℝ` almost surely vanishes on the arms of
+weight zero at round `n` (for instance, if the weights are positive), the inverse-weighted value
+`c (A n) / w n (past) (A n)` of the action of round `n` has expectation `∑ b, c b`. -/
+lemma integral_div_weights (h : IsAlgEnvSeq O A Y (weightAlgorithm w hw hp) env P) (n : ℕ)
+    {c : α → ℝ} (hc : ∀ᵐ ω ∂P, ∀ b, w n (history O A Y n ω, O n ω) b = 0 → c b = 0) :
+    P[fun ω ↦ c (A n ω) / w n (history O A Y n ω, O n ω) (A n ω)] = ∑ b, c b := by
+  rw [integral_comp_weights h n (g := fun p b ↦ c b / p b) (measurable_div_apply c)
+    (integrable_div_weights h n c),
+    integral_congr_ae (g := fun _ ↦ ∑ b, c b) ?_]
+  · simp
+  filter_upwards [hc] with ω hω
+  refine Finset.sum_congr rfl fun b _ ↦ ?_
+  by_cases hb : w n (history O A Y n ω, O n ω) b = 0
+  · simp [hb, hω b hb]
+  · exact mul_div_cancel₀ _ hb
 
 end WeightAlgorithm
 

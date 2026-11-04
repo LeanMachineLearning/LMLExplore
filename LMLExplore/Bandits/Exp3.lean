@@ -5,8 +5,10 @@ Authors: Rémy Degenne
 -/
 module
 
+public import LMLExplore.Analysis.Real.Sqrt
 public import LMLExplore.Bandits.AdversarialRegret
 public import LMLExplore.Bandits.ImportanceWeighted
+public import LMLExplore.MeasureTheory.Integral.Bochner.Basic
 public import LMLExplore.OnlineLearning.ExponentialWeights
 
 /-!
@@ -231,37 +233,13 @@ theorem sum_lossIwEstimator_sub_le (hη : 0 < η) (O : ℕ → Ω → 𝓞) (A :
   simp only [h1, h2] at key
   exact key
 
-omit [Fintype α] [DecidableEq α] [MeasurableSpace 𝓞] [Nonempty α] in
-/-- The function `(p, b) ↦ (1 - x t b) ^ 2 / p b` whose `p`-averages are the expected
-second-order terms of Exp3. -/
-private lemma measurable_sq_div [Finite α] (t : ℕ) :
-    Measurable fun z : (α → ℝ) × α ↦ (1 - x t z.2) ^ 2 / z.1 z.2 :=
-  measurable_from_prod_countable_left fun b ↦ by fun_prop
-
-private lemma integrable_sq_div_exp3Weights' (h : IsAlgEnvSeq O A Y (exp3 η) env P) (t : ℕ) :
-    Integrable (fun ω ↦
-      (1 - x t (A t ω)) ^ 2 / exp3Weights η t (history O A Y t ω) (A t ω)) P := by
-  refine WeightAlgorithm.integrable_comp_weights h t (g := fun p b ↦ (1 - x t b) ^ 2 / p b)
-    (measurable_sq_div t) (C := ∑ b, (1 - x t b) ^ 2) fun p hp ↦ Finset.sum_le_sum fun b _ ↦ ?_
-  rw [abs_of_nonneg (div_nonneg (sq_nonneg _) ((mem_simplex_iff.1 hp).1 b))]
-  rcases ((mem_simplex_iff.1 hp).1 b).eq_or_lt with hb | hb
-  · simp [← hb, sq_nonneg]
-  · rw [mul_div_cancel₀ _ hb.ne']
-
-omit [MeasurableSpace α] [MeasurableSingletonClass α] [MeasurableSpace 𝓞] [Nonempty α]
-  [IsProbabilityMeasure P] in
-private lemma sq_div_exp3Weights_ae_eq {t : ℕ} (hY : Y t =ᵐ[P] x t ∘ A t) :
-    (fun ω ↦ (1 - Y t ω) ^ 2 / exp3Weights η t (history O A Y t ω) (A t ω)) =ᵐ[P]
-      fun ω ↦ (1 - x t (A t ω)) ^ 2 / exp3Weights η t (history O A Y t ω) (A t ω) := by
-  filter_upwards [hY] with ω hω
-  rw [hω, Function.comp_apply]
-
 /-- Along a run of Exp3 whose feedback is the reward `x t (A t)` of its action, the second-order
 term `(1 - Y t) ^ 2 / P t (A t)` of round `t` is integrable. -/
 lemma integrable_sq_div_exp3Weights {t : ℕ} (hY : Y t =ᵐ[P] x t ∘ A t)
     (h : IsAlgEnvSeq O A Y (exp3 η) env P) :
     Integrable (fun ω ↦ (1 - Y t ω) ^ 2 / exp3Weights η t (history O A Y t ω) (A t ω)) P :=
-  (integrable_sq_div_exp3Weights' h t).congr (sq_div_exp3Weights_ae_eq hY).symm
+  (WeightAlgorithm.integrable_div_weights h t fun b ↦ (1 - x t b) ^ 2).congr
+    (comp_feedback_ae_eq hY fun z b y ↦ (1 - y) ^ 2 / exp3Weights η t z.1 b).symm
 
 /-- Along a run of Exp3 whose feedback is the reward `x t (A t)` of its action, the second-order
 term `(1 - Y t) ^ 2 / P t (A t)` of round `t` has expectation `∑ b, (1 - x t b) ^ 2`. -/
@@ -269,11 +247,10 @@ lemma integral_sq_div_exp3Weights {t : ℕ} (hY : Y t =ᵐ[P] x t ∘ A t)
     (h : IsAlgEnvSeq O A Y (exp3 η) env P) :
     P[fun ω ↦ (1 - Y t ω) ^ 2 / exp3Weights η t (history O A Y t ω) (A t ω)] =
       ∑ b, (1 - x t b) ^ 2 := by
-  rw [integral_congr_ae (sq_div_exp3Weights_ae_eq hY),
-    WeightAlgorithm.integral_comp_weights h t (g := fun p b ↦ (1 - x t b) ^ 2 / p b)
-      (measurable_sq_div t) (integrable_sq_div_exp3Weights' h t)]
-  simp_rw [mul_div_cancel₀ _ (exp3Weights_pos _ _ _).ne']
-  simp
+  rw [integral_congr_ae
+    (comp_feedback_ae_eq hY fun z b y ↦ (1 - y) ^ 2 / exp3Weights η t z.1 b)]
+  exact WeightAlgorithm.integral_div_weights h t (c := fun b ↦ (1 - x t b) ^ 2)
+    (ae_of_all _ fun _ b hb ↦ absurd hb (exp3Weights_pos _ _ b).ne')
 
 /-- **The estimated regret of Exp3 is unbiased.** Along a run of Exp3 whose feedback at the rounds
 `t < n` is the reward `x t (A t)` of its action, the regret against every arm `a` is the
@@ -308,44 +285,20 @@ theorem advRegret_le (hη : 0 < η) (hY : ∀ t < n, Y t =ᵐ[P] x t ∘ A t)
     (hx : ∀ t < n, ∀ a, x t a ∈ Set.Icc 0 1) (h : IsAlgEnvSeq O A Y (exp3 η) env P) :
     advRegret x A P n ≤ log (Fintype.card α) / η + η * n * Fintype.card α / 2 := by
   set V : ℕ → Ω → ℝ := fun t ω ↦
-    (1 - Y t ω) ^ 2 / exp3Weights η t (history O A Y t ω) (A t ω) with hV
+    (1 - Y t ω) ^ 2 / exp3Weights η t (history O A Y t ω) (A t ω)
   have hVint : ∀ t ∈ range n, Integrable (V t) P := fun t ht ↦
     integrable_sq_div_exp3Weights (hY t (mem_range.1 ht)) h
-  have hYle : ∀ᵐ ω ∂P, ∀ t < n, Y t ω ≤ 1 := by
-    refine ae_all_iff.2 fun t ↦ ?_
-    by_cases ht : t < n
-    · filter_upwards [hY t ht] with ω hω _
-      rw [hω]
-      exact (hx t ht _).2
-    · exact ae_of_all _ fun _ ht' ↦ absurd ht' ht
-  -- `∑ t < n, E[V t] ≤ n k`, as `(1 - x t b) ^ 2 ≤ 1`
-  have hle : ∑ t ∈ range n, P[V t] ≤ (n * Fintype.card α : ℝ) := by
-    calc ∑ t ∈ range n, P[V t]
-    _ = ∑ t ∈ range n, ∑ b, (1 - x t b) ^ 2 := Finset.sum_congr rfl fun t ht ↦
-        integral_sq_div_exp3Weights (hY t (mem_range.1 ht)) h
-    _ ≤ ∑ t ∈ range n, ∑ _b : α, (1 : ℝ) := Finset.sum_le_sum fun t ht ↦
-        Finset.sum_le_sum fun b _ ↦ by
-          obtain ⟨h0, h1⟩ := hx t (mem_range.1 ht) b
-          nlinarith
-    _ = n * Fintype.card α := by simp
+  have hYle : ∀ᵐ ω ∂P, ∀ t < n, Y t ω ≤ 1 := ae_feedback_le_one hY fun t ht a ↦ (hx t ht a).2
+  have hle : ∑ t ∈ range n, P[V t] ≤ (n * Fintype.card α : ℝ) :=
+    WeightAlgorithm.sum_integral_one_sub_sq_div_weights_le h hY hx
   refine advRegret_le_iff.2 fun a ↦ ?_
   rw [sum_sub_integral_eq_integral_sum_lossIwEstimator_sub hY h a]
-  calc P[fun ω ↦ ∑ t ∈ range n,
-        (lossIwEstimator (exp3Weights η t (history O A Y t ω)) (A t ω) (Y t ω) a - Y t ω)]
-  _ ≤ P[fun ω ↦ log (Fintype.card α) / η + η / 2 * ∑ t ∈ range n, V t ω] := by
-      refine integral_mono_ae (integrable_finsetSum _ fun t ht ↦
-        (WeightAlgorithm.integrable_lossIwEstimator h (hY t (mem_range.1 ht)) a).sub
-          (h.integrable_feedback_of_ae_eq (hY t (mem_range.1 ht))))
-        ((integrable_const _).add ((integrable_finsetSum _ hVint).const_mul _)) ?_
-      filter_upwards [hYle] with ω hω
-      exact sum_lossIwEstimator_sub_le hη O A Y ω hω a
-  _ = log (Fintype.card α) / η + η / 2 * ∑ t ∈ range n, P[V t] := by
-      rw [integral_add (integrable_const _) ((integrable_finsetSum _ hVint).const_mul _),
-        integral_const_mul, integral_finsetSum _ hVint, integral_const, probReal_univ,
-        one_smul]
-  _ ≤ log (Fintype.card α) / η + η * n * Fintype.card α / 2 := by
-      have := mul_le_mul_of_nonneg_left hle (by positivity : 0 ≤ η / 2)
-      linarith
+  refine (integral_sum_le_add_mul_of_ae_le (B := log (Fintype.card α) / η) (c := η / 2)
+    (by positivity) (fun t ht ↦
+      (WeightAlgorithm.integrable_lossIwEstimator h (hY t (mem_range.1 ht)) a).sub
+        (h.integrable_feedback_of_ae_eq (hY t (mem_range.1 ht)))) hVint hle ?_).trans_eq (by ring)
+  filter_upwards [hYle] with ω hω
+  exact sum_lossIwEstimator_sub_le hη O A Y ω hω a
 
 /-- **Regret of Exp3** [LS, Theorem 11.2]: along a run of Exp3 with learning rate
 `η = √(2 log k / (n k))` whose feedback at every round `t < n` is the reward `x t (A t) ∈ [0, 1]`
@@ -373,20 +326,9 @@ theorem advRegret_le_sqrt (hY : ∀ t < n, Y t =ᵐ[P] x t ∘ A t)
   have hm : 0 < n * k := mul_pos (by exact_mod_cast hn) (by linarith)
   set η := √(2 * log k / (n * k)) with hη
   have hη0 : 0 < η := sqrt_pos.2 (by positivity)
-  -- with `η ^ 2 = 2 log k / (n k)`, both terms of the bound are `η n k / 2`
-  have hηsq : η ^ 2 = 2 * log k / (n * k) := sq_sqrt (by positivity)
   refine (advRegret_le hη0 hY hx h).trans (le_of_eq ?_)
-  have hsq : √(2 * n * k * log k) = η * (n * k) := by
-    rw [← sqrt_sq (by positivity : 0 ≤ η * (n * k)), mul_pow, hηsq]
-    congr 1
-    field_simp
-  -- `log k / η = η n k / 2`, from `η ^ 2 = 2 log k / (n k)`
-  have hlog : log k / η = η * (n * k) / 2 := by
-    rw [div_eq_iff hη0.ne']
-    rw [eq_div_iff hm.ne'] at hηsq
-    linear_combination -hηsq / 2
-  rw [hsq, hlog]
-  ring
+  rw [mul_assoc η, mul_assoc 2 (n : ℝ)]
+  exact div_sqrt_add_sqrt_mul_div_two _ hm.le
 
 end Exp3
 
