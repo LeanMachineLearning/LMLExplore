@@ -15,7 +15,7 @@ public import TauCeti.Probability.Distributions.Bernoulli.Basic
 # Gaussian and Bernoulli bandits
 
 A stochastic bandit with arms `α` is a Markov kernel `ν : Kernel α ℝ`: pulling arm `a` returns a
-reward with law `ν a`, and the mean of arm `a` is `(ν a)[id]`. This file defines the two standard
+reward with law `ν a`, and the mean of arm `a` is `(ν a)[id]`. This file defines the standard
 instances [LS, Chapter 4]:
 
 * `LMLExplore.Bandits.gaussianBandit μ σ2`: arm `a` has law `𝒩(μ a, σ2)`;
@@ -24,11 +24,14 @@ instances [LS, Chapter 4]:
 * `LMLExplore.Bandits.bernoulliBandit p`: arm `a` has law `Ber((1 : ℝ), 0, p a)` on `{0, 1}`.
 
 We compute their means and show that they satisfy the noise assumptions of the regret analyses:
-Gaussian arms are `σ2`-sub-Gaussian, Bernoulli arms are bounded in `[0, 1]` and
-`1 / 4`-sub-Gaussian. We also compute the relative entropy between the arms of two Gaussian bandits
-with the same variance [LS, Theorem 14.1], the quantity that enters the lower bounds, and identify
-it with the divergence of the exponential family of `𝒩(0, σ2)`
-(`LMLExplore.Bandits.klDiv_gaussianBandit_eq_ofReal_expFamilyDiv`).
+the arms of `gaussianBandit μ σ2` are `σ2`-sub-Gaussian, Bernoulli arms are bounded in `[0, 1]`
+and `1 / 4`-sub-Gaussian. We also compute the relative entropy between the arms of two Gaussian
+bandits with the same variance [LS, Theorem 14.1], the quantity that enters the lower bounds, and
+identify it with the divergence of the exponential family of `𝒩(0, σ2)`
+(`LMLExplore.Bandits.klDiv_gaussianBandit_eq_ofReal_expFamilyDiv`). For the Gaussian bandit with
+unknown variances we compute the mean and the variance of each arm, and identify
+`gaussianBandit μ σ2` with `gaussianMeanVarBandit fun a ↦ (μ a, σ2)`
+(`LMLExplore.Bandits.gaussianBandit_eq_gaussianMeanVarBandit`).
 
 The arm type only needs to be countable with measurable singletons, so that every function on it
 is measurable.
