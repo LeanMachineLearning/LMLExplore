@@ -83,13 +83,27 @@ open scoped ENNReal NNReal
 
 namespace LMLExplore.Identification.IdentTask
 
-/-- For a common variance `σ2 ≠ 0`, the arm `a` of the Gaussian bandit with means `θ` has the law
-of the member of mean `θ a` of the exponential family of `𝒩(0, σ2)` with the identity statistic. -/
-private lemma gaussianBandit_apply_eq_expFamily {α : Type*} {mα : MeasurableSpace α} [Countable α]
-    [MeasurableSingletonClass α] {σ2 : ℝ≥0} (hσ2 : σ2 ≠ 0) (θ : α → ℝ) (a : α) :
-    Bandits.gaussianBandit θ σ2 a =
-      (gaussianReal 0 σ2).expFamily id ((gaussianReal 0 σ2).natParam id (θ a)) := by
-  rw [expFamily_natParam_gaussianReal 0 hσ2, Bandits.gaussianBandit_apply]
+/-- For Gaussian arms with a common variance `σ2 ≠ 0`, the arm `a` of the model `θ` is dominated
+above, in moment generating function, by the member of mean `θ a` of the exponential family of
+`𝒩(0, σ2)` with the identity statistic: both have the law `𝒩(θ a, σ2)`. -/
+private lemma mgfDominatedAbove_gaussianBandit {α ℐ : Type*} {mα : MeasurableSpace α} [Countable α]
+    [MeasurableSingletonClass α] {task : IdentTask α (α → ℝ) ℐ ℝ} {σ2 : ℝ≥0}
+    (hνt : task.ν = (Bandits.gaussianBandit · σ2)) (hσ2 : σ2 ≠ 0) (θ : α → ℝ) (a : α) :
+    MGFDominatedAbove id (task.ν θ a) id
+      ((gaussianReal 0 σ2).expFamily id ((gaussianReal 0 σ2).natParam id (θ a))) := by
+  rw [hνt, expFamily_natParam_gaussianReal 0 hσ2, Bandits.gaussianBandit_apply]
+  exact (IdentDistrib.refl aemeasurable_id).mgfDominatedAbove
+
+/-- For Gaussian arms with a common variance `σ2 ≠ 0`, the arm `a` of the model `θ` is dominated
+below, in moment generating function, by the member of mean `θ a` of the exponential family of
+`𝒩(0, σ2)` with the identity statistic: both have the law `𝒩(θ a, σ2)`. -/
+private lemma mgfDominatedBelow_gaussianBandit {α ℐ : Type*} {mα : MeasurableSpace α} [Countable α]
+    [MeasurableSingletonClass α] {task : IdentTask α (α → ℝ) ℐ ℝ} {σ2 : ℝ≥0}
+    (hνt : task.ν = (Bandits.gaussianBandit · σ2)) (hσ2 : σ2 ≠ 0) (θ : α → ℝ) (a : α) :
+    MGFDominatedBelow id (task.ν θ a) id
+      ((gaussianReal 0 σ2).expFamily id ((gaussianReal 0 σ2).natParam id (θ a))) := by
+  rw [hνt, expFamily_natParam_gaussianReal 0 hσ2, Bandits.gaussianBandit_apply]
+  exact (IdentDistrib.refl aemeasurable_id).mgfDominatedBelow
 
 variable {α ℐ : Type*} [Fintype α] [DecidableEq α] {mα : MeasurableSpace α}
   [MeasurableSingletonClass α] {task : IdentTask α (α → ℝ) ℐ ℝ} {σ2 : ℝ≥0}
@@ -236,10 +250,7 @@ theorem isDeltaPAC_trackAndStop_unionBoundThreshold_of_mem_optAlloc [MeasurableS
     (fun θ hθ ↦ hcorrect θ hθ ▸ measurableSet_singleton _) fun θ hθ ↦
     stopsAS_trackAndStop_unionBoundThreshold (fun _ ↦ not_ae_eq_const_gaussianReal 0 hσ2)
       (fun _ ↦ mem_expFamilyMeans_gaussianReal 0 hσ2 _)
-      (fun a ↦ hνt ▸ gaussianBandit_apply_eq_expFamily hσ2 θ a ▸
-        (IdentDistrib.refl aemeasurable_id).mgfDominatedAbove)
-      (fun a ↦ hνt ▸ gaussianBandit_apply_eq_expFamily hσ2 θ a ▸
-        (IdentDistrib.refl aemeasurable_id).mgfDominatedBelow)
+      (mgfDominatedAbove_gaussianBandit hνt hσ2 θ) (mgfDominatedBelow_gaussianBandit hνt hσ2 θ)
       (hcorrect θ hθ) (hw_opt θ hθ) (hw_cont θ hθ) (hrec_eq θ hθ) (h_lsc θ hθ) (h_charTime θ hθ)
       hδ hδ1
 
@@ -282,10 +293,7 @@ theorem tendsto_expectedStoppingTime_trackAndStop_unionBoundThreshold_div_log
     obtain ⟨c, hc, hca⟩ := ENNReal.lt_iff_exists_nnreal_btwn.1 ha
     filter_upwards [eventually_expectedStoppingTime_trackAndStop_unionBoundThreshold_le
       (fun _ ↦ not_ae_eq_const_gaussianReal 0 hσ2) (fun _ ↦ mem_expFamilyMeans_gaussianReal 0 hσ2 _)
-      (fun a ↦ hνt ▸ gaussianBandit_apply_eq_expFamily hσ2 μ a ▸
-        (IdentDistrib.refl aemeasurable_id).mgfDominatedAbove)
-      (fun a ↦ hνt ▸ gaussianBandit_apply_eq_expFamily hσ2 μ a ▸
-        (IdentDistrib.refl aemeasurable_id).mgfDominatedBelow)
+      (mgfDominatedAbove_gaussianBandit hνt hσ2 μ) (mgfDominatedBelow_gaussianBandit hνt hσ2 μ)
       (hcorrect μ hμ) (hw_opt μ hμ) (hw_cont μ hμ) (hrec_eq μ hμ) (h_lsc μ hμ) hc] with δ hδ
     exact (ENNReal.div_le_of_le_mul hδ).trans_lt hca
 
