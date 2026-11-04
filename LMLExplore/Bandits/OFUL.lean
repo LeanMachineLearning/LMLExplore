@@ -60,7 +60,7 @@ least `1 - δ` for the radii [LS, (19.8)]
   maximal optimistic index.
 * `OFUL.le_measureReal_linearRegret_le`: [LS, Theorem 19.2], with probability at least `1 - δ`
   the random regret of OFUL is at most `√(8 n R² d log (1 + n L² / (λ d)))`.
-* `OFUL.integral_linearRegret_le`, `OFUL.integral_linearRegret_le_one_add`: the expected regret
+* `OFUL.integral_linearRegret_le`, `OFUL.integral_linearRegret_le_add_sqrt`: the expected regret
   of OFUL is at most `n G δ + √(8 n R² d log (1 + n L² / (λ d)))`, and at most
   `G + √(8 n R² d log (1 + n L² / (λ d)))` for `δ = 1 / n` [LS, Corollary 19.3, with explicit
   constants].
@@ -417,7 +417,7 @@ theorem integral_linearRegret_le (h : IsAlgEnvSeq O A Y (oful S) env P)
 under the assumptions of `integral_linearRegret_le` with `δ = 1 / n`, that is for radii
 `√λ m + √(2σ² log n + σ² d log (1 + t L² / (λ d))) ≤ r t ≤ R` for `t < n`, the expected regret
 after `n` rounds is at most `G + √(8 n R² d log (1 + n L² / (λ d)))`. -/
-theorem integral_linearRegret_le_one_add (h : IsAlgEnvSeq O A Y (oful S) env P)
+theorem integral_linearRegret_le_add_sqrt (h : IsAlgEnvSeq O A Y (oful S) env P)
     (henv : IsSubgaussianLinearEnv φ θ σ2 env) (hφ : Measurable (Function.uncurry φ))
     (hσ : σ2 ≠ 0) (hgap : ∀ o a b, ⟪θ, φ o a⟫_ℝ - ⟪θ, φ o b⟫_ℝ ≤ G) (hL : ∀ o a, ‖φ o a‖ ≤ L)
     (hlam : 0 < lam) (hθ : ‖θ‖ ≤ m)
