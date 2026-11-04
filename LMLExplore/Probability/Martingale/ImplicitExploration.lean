@@ -16,9 +16,10 @@ public import LMLExplore.Probability.Martingale.Ville
 
 Let `ℱ` be a filtration and, for every round `t` and every index `i` of a finite type `ι`, let
 `X t i ≥ 0` be an integrable `ℱ (t + 1)`-measurable variable whose conditional expectation given
-`ℱ t` is at most `y t i`, with `y t i` `ℱ t`-measurable. Let `w t i ≥ 0` and `l t i` be
-`ℱ t`-measurable with `w t i * X t i ≤ 2 * l t i`, and assume that at each round at most one of
-the products `w t i * X t i` is nonzero: `(w t i * X t i) * (w t j * X t j) = 0` for `i ≠ j`.
+`ℱ t` is at most `y t i`, with `y t i` `ℱ t`-measurable. Let `w t i ≥ 0` be `ℱ t`-measurable
+and `l t i` be `ℱ (t + 1)`-measurable with `w t i * X t i ≤ 2 * l t i`, and assume that at each
+round at most one of the products `w t i * X t i` is nonzero:
+`(w t i * X t i) * (w t j * X t j) = 0` for `i ≠ j`.
 Then the process
 `exp (∑ t < n, ∑ i, w t i * (X t i / (1 + l t i) - y t i))`
 is a supermartingale, and with probability at least `1 - δ`, for all `n` simultaneously,
@@ -77,14 +78,15 @@ variable {Ω ι : Type*} {m mΩ : MeasurableSpace Ω} {μ : Measure Ω} [Fintype
   {ℱ : Filtration ℕ mΩ} {X w l y : ℕ → ι → Ω → ℝ}
 
 /-- The sum `∑ i, w t i * (X t i / (1 + l t i) - y t i)` of round `t` is `ℱ (t + 1)`-measurable
-when the `X t` are `ℱ (t + 1)`-measurable and the `w t`, `l t` and `y t` are `ℱ t`-measurable. -/
+when the `X t` and `l t` are `ℱ (t + 1)`-measurable and the `w t` and `y t` are
+`ℱ t`-measurable. -/
 private lemma measurable_sum_mul_div_one_add_sub (hX : ∀ t i, Measurable[ℱ (t + 1)] (X t i))
-    (hw : ∀ t i, Measurable[ℱ t] (w t i)) (hl : ∀ t i, Measurable[ℱ t] (l t i))
+    (hw : ∀ t i, Measurable[ℱ t] (w t i)) (hl : ∀ t i, Measurable[ℱ (t + 1)] (l t i))
     (hy : ∀ t i, Measurable[ℱ t] (y t i)) (t : ℕ) :
     Measurable[ℱ (t + 1)] fun ω ↦ ∑ i, w t i ω * (X t i ω / (1 + l t i ω) - y t i ω) := by
   have hle : ℱ t ≤ ℱ (t + 1) := ℱ.mono (by omega)
   exact Finset.measurable_fun_sum _ fun i _ ↦ ((hw t i).mono hle le_rfl).mul (((hX t i).div
-    (measurable_const.add ((hl t i).mono hle le_rfl))).sub ((hy t i).mono hle le_rfl))
+    (measurable_const.add (hl t i))).sub ((hy t i).mono hle le_rfl))
 
 /-- The one-round bound behind [LS, Lemma 12.2]: if `0 ≤ w i * X i ≤ 2 * l i` for all `i` and
 the products `(w i * X i) * (w j * X j)` of distinct `i, j` vanish, then
@@ -187,13 +189,14 @@ theorem lintegral_mul_exp_sum_mul_div_one_add_sub_le (hm : m ≤ mΩ) [SigmaFini
 
 /-- **The exponential supermartingale of implicit exploration** [LS, proof of Lemma 12.2]. Let
 `X t i ≥ 0` be integrable and `ℱ (t + 1)`-measurable with `μ[X t i | ℱ t] ≤ y t i`, and let
-`w t i ≥ 0`, `l t i` and `y t i` be `ℱ t`-measurable with `w t i * X t i ≤ 2 * l t i`. If the
-products `(w t i * X t i) * (w t j * X t j)` of distinct `i, j` vanish, then
-`n ↦ exp (∑ t < n, ∑ i, w t i * (X t i / (1 + l t i) - y t i))` is a supermartingale. -/
+`w t i ≥ 0` and `y t i` be `ℱ t`-measurable and `l t i` be `ℱ (t + 1)`-measurable with
+`w t i * X t i ≤ 2 * l t i`. If the products `(w t i * X t i) * (w t j * X t j)` of distinct
+`i, j` vanish, then `n ↦ exp (∑ t < n, ∑ i, w t i * (X t i / (1 + l t i) - y t i))` is a
+supermartingale. -/
 theorem supermartingale_exp_sum_sum_mul_div_one_add_sub [IsFiniteMeasure μ]
     (hX : ∀ t i, Measurable[ℱ (t + 1)] (X t i)) (hX_int : ∀ t i, Integrable (X t i) μ)
     (hX_nonneg : ∀ t i, 0 ≤ᵐ[μ] X t i) (hXy : ∀ t i, μ[X t i | ℱ t] ≤ᵐ[μ] y t i)
-    (hw : ∀ t i, Measurable[ℱ t] (w t i)) (hl : ∀ t i, Measurable[ℱ t] (l t i))
+    (hw : ∀ t i, Measurable[ℱ t] (w t i)) (hl : ∀ t i, Measurable[ℱ (t + 1)] (l t i))
     (hy : ∀ t i, Measurable[ℱ t] (y t i)) (hw_nonneg : ∀ t i, 0 ≤ᵐ[μ] w t i)
     (hwl : ∀ t i, ∀ᵐ ω ∂μ, w t i ω * X t i ω ≤ 2 * l t i ω)
     (hmul : ∀ t i j, i ≠ j → ∀ᵐ ω ∂μ, w t i ω * X t i ω * (w t j ω * X t j ω) = 0) :
@@ -210,7 +213,7 @@ theorem supermartingale_exp_sum_sum_mul_div_one_add_sub [IsFiniteMeasure μ]
 theorem measure_exists_le_sum_sum_mul_div_one_add_sub_le [IsProbabilityMeasure μ]
     (hX : ∀ t i, Measurable[ℱ (t + 1)] (X t i)) (hX_int : ∀ t i, Integrable (X t i) μ)
     (hX_nonneg : ∀ t i, 0 ≤ᵐ[μ] X t i) (hXy : ∀ t i, μ[X t i | ℱ t] ≤ᵐ[μ] y t i)
-    (hw : ∀ t i, Measurable[ℱ t] (w t i)) (hl : ∀ t i, Measurable[ℱ t] (l t i))
+    (hw : ∀ t i, Measurable[ℱ t] (w t i)) (hl : ∀ t i, Measurable[ℱ (t + 1)] (l t i))
     (hy : ∀ t i, Measurable[ℱ t] (y t i)) (hw_nonneg : ∀ t i, 0 ≤ᵐ[μ] w t i)
     (hwl : ∀ t i, ∀ᵐ ω ∂μ, w t i ω * X t i ω ≤ 2 * l t i ω)
     (hmul : ∀ t i j, i ≠ j → ∀ᵐ ω ∂μ, w t i ω * X t i ω * (w t j ω * X t j ω) = 0) (x : ℝ) :
@@ -222,15 +225,15 @@ theorem measure_exists_le_sum_sum_mul_div_one_add_sub_le [IsProbabilityMeasure �
   simpa [← exp_neg] using h
 
 /-- **Concentration of implicit-exploration estimates** [LS, Lemma 12.2]. Let `X t i ≥ 0` be
-integrable and `ℱ (t + 1)`-measurable with `μ[X t i | ℱ t] ≤ y t i`, and let `w t i ≥ 0`,
-`l t i` and `y t i` be `ℱ t`-measurable with `w t i * X t i ≤ 2 * l t i`. If the products
-`(w t i * X t i) * (w t j * X t j)` of distinct `i, j` vanish, then for `δ > 0` and every
-horizon `n`, the probability that
+integrable and `ℱ (t + 1)`-measurable with `μ[X t i | ℱ t] ≤ y t i`, and let `w t i ≥ 0`
+and `y t i` be `ℱ t`-measurable and `l t i` be `ℱ (t + 1)`-measurable with
+`w t i * X t i ≤ 2 * l t i`. If the products `(w t i * X t i) * (w t j * X t j)` of distinct
+`i, j` vanish, then for `δ > 0` and every horizon `n`, the probability that
 `log (1 / δ) ≤ ∑ t < n, ∑ i, w t i * (X t i / (1 + l t i) - y t i)` is at most `δ`. -/
 theorem measure_log_one_div_le_sum_sum_mul_div_one_add_sub_le [IsProbabilityMeasure μ]
     (hX : ∀ t i, Measurable[ℱ (t + 1)] (X t i)) (hX_int : ∀ t i, Integrable (X t i) μ)
     (hX_nonneg : ∀ t i, 0 ≤ᵐ[μ] X t i) (hXy : ∀ t i, μ[X t i | ℱ t] ≤ᵐ[μ] y t i)
-    (hw : ∀ t i, Measurable[ℱ t] (w t i)) (hl : ∀ t i, Measurable[ℱ t] (l t i))
+    (hw : ∀ t i, Measurable[ℱ t] (w t i)) (hl : ∀ t i, Measurable[ℱ (t + 1)] (l t i))
     (hy : ∀ t i, Measurable[ℱ t] (y t i)) (hw_nonneg : ∀ t i, 0 ≤ᵐ[μ] w t i)
     (hwl : ∀ t i, ∀ᵐ ω ∂μ, w t i ω * X t i ω ≤ 2 * l t i ω)
     (hmul : ∀ t i j, i ≠ j → ∀ᵐ ω ∂μ, w t i ω * X t i ω * (w t j ω * X t j ω) = 0)
