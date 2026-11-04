@@ -12,10 +12,7 @@ public import Mathlib.Tactic.Positivity
 public import Mathlib.Tactic.Ring
 
 /-!
-# The partial sums of `∑ (i + 1)` and of the telescoping series `∑ 1 / ((i + 1) (i + 2))`
-
-Gauss' summation formula `∑ i < n, (i + 1) = n (n + 1) / 2` is stated without division, as
-`2 ∑ i < n, (i + 1) = n (n + 1)`, in any commutative semiring.
+# The telescoping series `∑ 1 / ((i + 1) (i + 2))`
 
 Since `1 / ((i + 1) (i + 2)) = 1 / (i + 1) - 1 / (i + 2)`, the partial sums of the series
 `∑ 1 / ((i + 1) (i + 2))` telescope to `1 - 1 / (n + 1)`, so they are at most `1`. A union bound
@@ -24,7 +21,6 @@ the time-uniform deviation bounds of [LS, Lemma 33.8], thus spends at most `δ` 
 
 ## Main statements
 
-* `LMLExplore.sum_range_add_one_mul_two`: `2 ∑ i < n, (i + 1) = n (n + 1)`.
 * `LMLExplore.sum_range_inv_add_one_mul_add_two`:
   `∑ i < n, 1 / ((i + 1) (i + 2)) = 1 - 1 / (n + 1)`.
 * `LMLExplore.sum_range_inv_add_one_mul_add_two_le_one`: `∑ i < n, 1 / ((i + 1) (i + 2)) ≤ 1`.
@@ -41,16 +37,6 @@ open Finset
 namespace LMLExplore
 
 variable {α : Type*}
-
-/-- Gauss' summation formula: `2 ∑ i < n, (i + 1) = n (n + 1)`, in any commutative semiring. -/
-theorem sum_range_add_one_mul_two [CommSemiring α] (n : ℕ) :
-    (∑ i ∈ range n, ((i : α) + 1)) * 2 = n * (n + 1) := by
-  induction n with
-  | zero => simp
-  | succ n ih =>
-    rw [sum_range_succ, add_mul, ih]
-    push_cast
-    ring
 
 /-- The partial sums of the telescoping series
 `∑ 1 / ((i + 1) (i + 2)) = ∑ (1 / (i + 1) - 1 / (i + 2))` are `1 - 1 / (n + 1)`. -/

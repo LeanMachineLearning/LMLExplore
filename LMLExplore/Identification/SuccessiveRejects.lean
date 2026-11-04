@@ -5,9 +5,9 @@ Authors: Rémy Degenne
 -/
 module
 
+public import Mathlib.Algebra.BigOperators.Intervals
 public import LeanMachineLearning.ForMathlib.MeasureTheory.Order.MeasurableArg
 public import LeanMachineLearning.Online.Bandit.Concentration
-public import LMLExplore.Algebra.BigOperators.Intervals
 public import LMLExplore.Data.Finset.Card
 public import LMLExplore.Data.Finset.RoundRobin
 public import LMLExplore.Identification.Complexity
@@ -679,8 +679,12 @@ theorem SuccessiveRejects.measureReal_output_ne_le (hKT : Fintype.card α ≤ T)
     exact sum_congr rfl fun k hk ↦ by rw [hB_card' k hk, nsmul_eq_mul]; push_cast; ring
   _ = K * (K - 1) / 2 * y := by
     congr 1
-    rw [eq_div_iff two_ne_zero, sum_range_add_one_mul_two, Nat.cast_sub hK, Nat.cast_one]
-    ring
+    -- Gauss' formula `(∑ i < K, i) * 2 = K (K - 1)`, shifted to `∑ i < K - 1, (i + 1)`.
+    have h := sum_range_id_mul_two K
+    rw [← Nat.sub_add_cancel hK, sum_range_succ', Nat.add_sub_cancel, add_zero,
+      Nat.sub_add_cancel hK] at h
+    rw [eq_div_iff two_ne_zero, ← Nat.cast_pred hK]
+    exact_mod_cast h
 
 /-- **Successive rejects for rewards in `[0, 1]`** [ABM10, Theorem 2]: with a unique best arm `a'`
 and a budget `T ≥ K`, successive rejects with the numbers of pulls
