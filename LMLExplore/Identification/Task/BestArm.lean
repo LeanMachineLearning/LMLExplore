@@ -5,6 +5,7 @@ Authors: Rémy Degenne
 -/
 module
 
+public import LMLExplore.Identification.Complexity
 public import LMLExplore.Identification.Task.MeanVector
 public import LMLExplore.Identification.Task.Continuity
 public import LMLExplore.Identification.Task.ExpFamily
@@ -56,7 +57,9 @@ that `D(μ, w, ¬a) = min_{b ≠ a} (w a w b / (w a + w b)) (μ a - μ b)² / (2
 `μ b < μ a` have characteristic time `T*(μ) = 8 σ2 / (μ a - μ b)²` with the unique optimal
 allocation `(1/2, 1/2)`. With more arms and a unique best arm `a`, the characteristic time is
 within a factor `2` of the complexity `H(μ) = ∑ c, 2 σ2 / Δ_c²`, where `Δ_b = μ a - μ b` for
-`b ≠ a` and `Δ_a = min_{b ≠ a} Δ_b`: `H(μ) ≤ T*(μ) ≤ 2 H(μ)` [GK16, Section 2.2].
+`b ≠ a` and `Δ_a = min_{b ≠ a} Δ_b`: `H(μ) ≤ T*(μ) ≤ 2 H(μ)` [GK16, Section 2.2]. This
+complexity is `H(μ) = 2 σ2 H₁`, with `H₁` the complexity `complexityOne` of [ABM10]
+(`LMLExplore/Identification/Complexity.lean`).
 
 ## Main statements
 
@@ -126,9 +129,16 @@ within a factor `2` of the complexity `H(μ) = ∑ c, 2 σ2 / Δ_c²`, where `Δ
 * `LMLExplore.Identification.le_answerValue_baiTask_gaussianBandit`,
   `LMLExplore.Identification.answerValue_baiTask_gaussianBandit_le`: the same bounds on the value,
   `1 / (2 H(μ)) ≤ D(μ, ¬a) ≤ 1 / H(μ)`.
+* `LMLExplore.Identification.two_mul_mul_complexityOne_gaussianBandit`: for Gaussian arms with a
+  unique best arm, `H(μ) = 2 σ2 H₁`.
+* `LMLExplore.Identification.ofReal_two_mul_mul_complexityOne_le_charTime_baiTask_gaussianBandit`,
+  `LMLExplore.Identification.charTime_baiTask_gaussianBandit_le_ofReal_four_mul_mul_complexityOne`:
+  the same bounds in terms of `H₁`, `2 σ2 H₁ ≤ T*(μ) ≤ 4 σ2 H₁`.
 
 ## References
 
+* [ABM10] J.-Y. Audibert, S. Bubeck and R. Munos, *Best arm identification in multi-armed
+  bandits*, COLT 2010.
 * [GK16] A. Garivier and E. Kaufmann, *Optimal best arm identification with fixed confidence*,
   COLT 2016, Section 2, Lemmas 3–4, Theorem 5 and Proposition 6.
 * [KCG16] E. Kaufmann, O. Cappé and A. Garivier, *On the complexity of best-arm identification in
@@ -1114,6 +1124,89 @@ theorem charTime_baiTask_gaussianBandit_le (hσ2 : σ2 ≠ 0) (hb₀a : b₀ ≠
     ← inv_inv (ENNReal.ofReal (2 * _)),
     ← ENNReal.ofReal_inv_of_pos (mul_pos two_pos (sum_div_sq_pos hσ2 hb₀a ha)), ENNReal.inv_le_inv]
   exact le_answerValue_baiTask_gaussianBandit hσ2 hb₀a ha hb₀
+
+/-- For Gaussian arms with a unique best arm `a` of `μ` and a second best arm `b₀`, the complexity
+`H(μ) = ∑ c, 2 σ2 / Δ_c²` of [GK16], with `Δ_a = Δ_{b₀}`, is `2 σ2 H₁`, where `H₁` is the
+complexity `complexityOne` of [ABM10]. -/
+theorem two_mul_mul_complexityOne_gaussianBandit (hb₀a : b₀ ≠ a) (ha : ∀ b ≠ a, μ b < μ a)
+    (hb₀ : ∀ b ≠ a, μ b ≤ μ b₀) :
+    2 * σ2 * complexityOne (Bandits.gaussianBandit μ σ2) =
+      2 * σ2 / (μ a - μ b₀) ^ 2 + ∑ b ∈ Finset.univ.erase a, 2 * σ2 / (μ a - μ b) ^ 2 := by
+  have : Nonempty α := ⟨a⟩
+  have ha' (b : α) (hb : b ≠ a) :
+      (Bandits.gaussianBandit μ σ2 b)[id] < (Bandits.gaussianBandit μ σ2 a)[id] := by
+    simpa only [Bandits.integral_id_gaussianBandit] using ha b hb
+  have h_gap (b : α) : Bandits.gap (Bandits.gaussianBandit μ σ2) b = μ a - μ b := by
+    rw [Bandits.gap_eq_bestArm_sub, Bandits.bestArm_eq_of_forall_lt ha',
+      Bandits.integral_id_gaussianBandit, Bandits.integral_id_gaussianBandit]
+  have hb₀_mem : b₀ ∈ Finset.univ.erase a := Finset.mem_erase.2 ⟨hb₀a, Finset.mem_univ _⟩
+  have h_inf : (Finset.univ.erase a).inf' ⟨b₀, hb₀_mem⟩
+      (Bandits.gap (Bandits.gaussianBandit μ σ2)) = μ a - μ b₀ := by
+    refine le_antisymm ((Finset.inf'_le _ hb₀_mem).trans_eq (h_gap b₀))
+      (Finset.le_inf' _ _ fun b hb ↦ ?_)
+    rw [h_gap]
+    linarith [hb₀ b (Finset.ne_of_mem_erase hb)]
+  rw [complexityOne_eq_of_forall_lt ha' ⟨b₀, hb₀_mem⟩, h_inf, mul_add, Finset.mul_sum, add_comm]
+  simp only [h_gap, div_eq_mul_inv]
+
+omit [Fintype α] [MeasurableSingletonClass α] [DecidableEq α] in
+/-- With at least two arms, some arm `b₀ ≠ a` has the largest mean among the arms other than
+`a`. -/
+private lemma exists_ne_forall_ne_le [Finite α] [Nontrivial α] (μ : α → ℝ) (a : α) :
+    ∃ b₀ ≠ a, ∀ b ≠ a, μ b ≤ μ b₀ := by
+  classical
+  have := Fintype.ofFinite α
+  obtain ⟨c, hc⟩ := exists_ne a
+  obtain ⟨b₀, hb₀, h⟩ := Finset.exists_max_image (Finset.univ.erase a) μ
+    ⟨c, Finset.mem_erase.2 ⟨hc, Finset.mem_univ _⟩⟩
+  exact ⟨b₀, Finset.ne_of_mem_erase hb₀,
+    fun b hb ↦ h b (Finset.mem_erase.2 ⟨hb, Finset.mem_univ _⟩)⟩
+
+omit [DecidableEq α] in
+/-- **Lower bound on the characteristic time of Gaussian best arm identification in terms of
+`H₁`** [GK16, Section 2.2]. For Gaussian arms with a common variance `σ2 ≠ 0` and a unique best
+arm `a` of `μ`, `2 σ2 H₁ ≤ T*(μ)`, where `H₁` is the complexity `complexityOne`
+of [ABM10]. -/
+theorem ofReal_two_mul_mul_complexityOne_le_charTime_baiTask_gaussianBandit (hσ2 : σ2 ≠ 0)
+    (ha : ∀ b ≠ a, μ b < μ a) :
+    ENNReal.ofReal (2 * σ2 * complexityOne (Bandits.gaussianBandit μ σ2)) ≤
+      (baiTask (Bandits.gaussianBandit · σ2)).charTime μ := by
+  classical
+  rcases subsingleton_or_nontrivial α with hα | hα
+  · -- With a single arm, every gap is `0`, so that `H₁ = 0`.
+    have : Nonempty α := ⟨a⟩
+    have h_gap (b : α) : Bandits.gap (Bandits.gaussianBandit μ σ2) b = 0 := by
+      rw [Subsingleton.elim b (Bandits.bestArm _), Bandits.gap_bestArm]
+    simp [complexityOne_def, h_gap]
+  obtain ⟨b₀, hb₀a, hb₀⟩ := exists_ne_forall_ne_le μ a
+  rw [two_mul_mul_complexityOne_gaussianBandit hb₀a ha hb₀]
+  exact le_charTime_baiTask_gaussianBandit hσ2 hb₀a ha
+
+omit [DecidableEq α] in
+/-- **Upper bound on the characteristic time of Gaussian best arm identification in terms of
+`H₁`** [GK16, Section 2.2]. For Gaussian arms with a common variance `σ2 ≠ 0` and a unique best
+arm `a` of `μ`, `T*(μ) ≤ 4 σ2 H₁`, where `H₁` is the complexity `complexityOne`
+of [ABM10]. -/
+theorem charTime_baiTask_gaussianBandit_le_ofReal_four_mul_mul_complexityOne (hσ2 : σ2 ≠ 0)
+    (ha : ∀ b ≠ a, μ b < μ a) :
+    (baiTask (Bandits.gaussianBandit · σ2)).charTime μ ≤
+      ENNReal.ofReal (4 * σ2 * complexityOne (Bandits.gaussianBandit μ σ2)) := by
+  classical
+  rcases subsingleton_or_nontrivial α with hα | hα
+  · -- With a single arm, `a` has no alternatives, so that `T*(μ) = 0`.
+    have : Nonempty α := ⟨a⟩
+    have h_alt : (baiTask (Bandits.gaussianBandit · σ2)).alt a = ∅ :=
+      Set.eq_empty_of_forall_notMem fun μ' hμ' ↦ by
+        obtain ⟨b, hba, -⟩ := (mem_alt_baiTask_iff _).1 hμ'
+        exact hba (Subsingleton.elim b a)
+    rw [charTime_baiTask_eq_inv_answerValue _ ha,
+      IdentTask.answerValue_eq_top_of_alt_eq_empty _ h_alt, ENNReal.inv_top]
+    exact zero_le
+  obtain ⟨b₀, hb₀a, hb₀⟩ := exists_ne_forall_ne_le μ a
+  rw [show (4 : ℝ) * σ2 * complexityOne (Bandits.gaussianBandit μ σ2) =
+      2 * (2 * σ2 * complexityOne (Bandits.gaussianBandit μ σ2)) by ring,
+    two_mul_mul_complexityOne_gaussianBandit hb₀a ha hb₀]
+  exact charTime_baiTask_gaussianBandit_le hσ2 hb₀a ha hb₀
 
 end Gaussian
 

@@ -15,11 +15,16 @@ public import Mathlib.NumberTheory.Harmonic.Bounds
 The fixed-budget guarantees of [ABM10] for best arm identification are stated in terms of the
 gaps `Δ_b` of the arms of a bandit `ν` through the complexity `H₂ = max_i i Δ_(i)⁻²`, where
 `Δ_(1) ≤ ⋯ ≤ Δ_(K)` are the gaps sorted increasingly, and through the constant
-`log‾ K = 1 / 2 + ∑_{i = 2}^K 1 / i`. The complexity `H₁ = ∑_i Δ_(i)⁻²` is the sum of the inverse
-squared gaps, with the gap `Δ_(1) = 0` of the best arm replaced by `Δ_(2)`. The two complexities
-are equivalent up to a logarithmic factor, `H₂ ≤ H₁ ≤ log‾ K H₂ ≤ log (2 K) H₂` [ABM10], so that
-bounds stated with `H₂`, such as the probability of error of successive rejects, can be read in
-terms of the more familiar `H₁` at the price of a factor `log (2 K)`.
+`log‾ K = 1 / 2 + ∑_{i = 2}^K 1 / i`. When the best arm is unique, the complexity
+`H₁ = ∑_i Δ_(i)⁻²` of [ABM10] is the sum of the inverse squared gaps, with the gap `Δ_(1) = 0` of
+the best arm replaced by `Δ_(2)`; `complexityOne` extends it to every bandit, and agrees with the
+[ABM10] quantity only when the best arm is unique. The two complexities are equivalent up to a
+logarithmic factor [ABM10]: `H₂ ≤ H₁` when the best arm is unique, and
+`H₁ ≤ log‾ K H₂ ≤ log (2 K) H₂` for every bandit, so that bounds stated with `H₂`, such as the
+probability of error of successive rejects, can be read in terms of the more familiar `H₁` at the
+price of a factor `log (2 K)`. For Gaussian arms, `2 σ2 H₁` is the complexity `H(μ)` of [GK16]
+that bounds the characteristic time of best arm identification
+(`LMLExplore/Identification/Task/BestArm.lean`).
 
 ## Main definitions
 
@@ -30,7 +35,8 @@ In the namespace `LMLExplore.Identification`:
   most `Δ_b`.
 * `logBar K`: the constant `log‾ K = 1 / 2 + ∑_{i = 2}^K 1 / i`.
 * `complexityOne ν`: the complexity `H₁` of best arm identification, written without sorting the
-  gaps: `∑_b Δ_b⁻² + max_b Δ_b⁻²`, with the inverse of a zero gap equal to `0`.
+  gaps: `∑_b Δ_b⁻² + max_b Δ_b⁻²`, with the inverse of a zero gap equal to `0`. It is the [ABM10]
+  quantity when the best arm is unique.
 
 ## Main statements
 
@@ -51,6 +57,8 @@ In the namespace `LMLExplore.Identification`:
 
 * [ABM10] J.-Y. Audibert, S. Bubeck and R. Munos, *Best arm identification in multi-armed
   bandits*, COLT 2010.
+* [GK16] A. Garivier and E. Kaufmann, *Optimal best arm identification with fixed confidence*,
+  COLT 2016, Section 2.2.
 -/
 
 public section
