@@ -201,6 +201,12 @@ theorem optQValue_mem_Icc (hM : M.RewardsIn (Set.Icc a b)) (hh : h < H) (s : �
   meanReward_add_integral_mem_Icc hM hh (measurable_optValue (h + 1)) (optValue_mem_Icc hM (h + 1))
     s a'
 
+/-- For bounded rewards and a nonempty countable action set, the optimal value at every step is
+integrable with respect to every finite measure on the states. -/
+theorem integrable_optValue (hM : M.RewardsIn (Set.Icc a b)) (h : ℕ) {μ : Measure 𝓢}
+    [IsFiniteMeasure μ] : Integrable (M.optValue H h) μ :=
+  .of_mem_Icc _ _ (measurable_optValue h).aemeasurable (.of_forall (optValue_mem_Icc hM h))
+
 /-- For nonnegative rewards in `[0, b]`, the optimal value is nonnegative. -/
 theorem optValue_nonneg (hM : M.RewardsIn (Set.Icc 0 b)) (h : ℕ) (s : 𝓢) :
     0 ≤ M.optValue H h s := by
@@ -228,13 +234,9 @@ value at the step `h`. -/
 private lemma qValue_le_optQValue_of (hM : M.RewardsIn (Set.Icc a b))
     (hV : ∀ s', M.value H π (h + 1) s' ≤ M.optValue H (h + 1) s') (s : 𝓢) (a' : 𝓐) :
     M.qValue H π h s a' ≤ M.optQValue H h s a' := by
-  have hVπ := value_mem_Icc (H := H) (π := π) hM (h + 1)
-  have hV' := optValue_mem_Icc (H := H) hM (h + 1)
   rw [qValue_def, optQValue_def]
   gcongr M.meanReward h s a' + ?_
-  exact integral_mono (μ := M.trans h (s, a'))
-    (.of_mem_Icc _ _ (measurable_value (h + 1)).aemeasurable (.of_forall hVπ))
-    (.of_mem_Icc _ _ (measurable_optValue (h + 1)).aemeasurable (.of_forall hV')) hV
+  exact integral_mono (integrable_value hM (h + 1)) (integrable_optValue hM (h + 1)) hV
 
 /-- **Optimality of the optimal values.** For bounded rewards and a nonempty countable action
 set, the value of every Markov policy is at most the optimal value, at every step and state:

@@ -37,7 +37,9 @@ vector-valued martingales (`LMLExplore.measure_exists_inner_ringInverse_designOp
   on the probability of the good event.
 * `LMLExplore.le_measureReal_forall_sqrt_inner_ridgeEstimate_sub_lt_of_norm_le`: the good event
   with the radius `√λ ‖θ‖ + √(2σ² log (1 / δ) + σ² d log (1 + t L² / (λ d)))`, for features
-  bounded by `L` [LS, Theorem 20.5 and (20.9)].
+  bounded by `L` [LS, Theorem 20.5 and (20.9)], and
+  `LMLExplore.measure_exists_sqrt_inner_ridgeEstimate_sub_ge_le_of_norm_le` the bound on the
+  probability that it fails.
 
 ## References
 
@@ -107,6 +109,20 @@ theorem le_measureReal_forall_sqrt_inner_ridgeEstimate_sub_lt
   exact Real.sqrt_lt_sqrt ((isPositive_designOp hlam.le _ t).ringInverse.inner_nonneg_right _)
     (hω t)
 
+omit [MeasurableSpace E] [BorelSpace E] in
+/-- For vectors bounded by `L`, the radius `√λ ‖θ‖ + √(2σ² log (1 / δ) + σ² log (det V_t / λ ^ d))`
+of the confidence ellipsoids is at most `√λ ‖θ‖ + √(2σ² log (1 / δ) + σ² d log (1 + t L² / (λ d)))`
+[LS, (20.9)]. -/
+private lemma radius_le_of_norm_le {x : ℕ → E} {θ : E} {t : ℕ} {L : ℝ} (hlam : 0 < lam)
+    (hL : ∀ s < t, ‖x s‖ ≤ L) :
+    √lam * ‖θ‖ + √(2 * σ2 * log (1 / δ) +
+        σ2 * log (LinearMap.det (designOp lam x t : E →ₗ[ℝ] E) / lam ^ finrank ℝ E)) ≤
+      √lam * ‖θ‖ + √(2 * σ2 * log (1 / δ) +
+        σ2 * finrank ℝ E * log (1 + t * L ^ 2 / (lam * finrank ℝ E))) := by
+  gcongr _ + √(_ + ?_)
+  rw [mul_assoc]
+  exact mul_le_mul_of_nonneg_left (log_det_designOp_div_pow_le hlam x hL) σ2.2
+
 /-- **Confidence ellipsoids for ridge regression with bounded features**
 [LS, Theorem 20.5 and (20.9)]: under the assumptions of
 `le_measureReal_forall_sqrt_inner_ridgeEstimate_sub_lt`, if moreover `‖x t‖ ≤ L` for all `t`,
@@ -122,16 +138,29 @@ theorem le_measureReal_forall_sqrt_inner_ridgeEstimate_sub_lt_of_norm_le
         designOp lam (fun s ↦ x s ω) t
           (ridgeEstimate lam (fun s ↦ x s ω) (fun s ↦ y s ω) t - θ)⟫_ℝ <
       √lam * ‖θ‖ + √(2 * σ2 * log (1 / δ) +
-        σ2 * finrank ℝ E * log (1 + t * L ^ 2 / (lam * finrank ℝ E)))} := by
-  refine (le_measureReal_forall_sqrt_inner_ridgeEstimate_sub_lt hx hη hsub hσ θ hy hlam
-    hδ).trans (measureReal_mono fun ω hω t ↦ (hω t).trans_le ?_)
-  have hdet : log (LinearMap.det (designOp lam (fun s ↦ x s ω) t : E →ₗ[ℝ] E) /
-      lam ^ finrank ℝ E) ≤ finrank ℝ E * log (1 + t * L ^ 2 / (lam * finrank ℝ E)) := by
-    rw [← log_pow]
-    exact log_le_log (div_pos (det_designOp_pos hlam _ t) (pow_pos hlam _))
-      (det_designOp_div_pow_le hlam _ fun s _ ↦ hL s ω)
-  gcongr _ + √(_ + ?_)
-  rw [mul_assoc]
-  exact mul_le_mul_of_nonneg_left hdet σ2.2
+        σ2 * finrank ℝ E * log (1 + t * L ^ 2 / (lam * finrank ℝ E)))} :=
+  (le_measureReal_forall_sqrt_inner_ridgeEstimate_sub_lt hx hη hsub hσ θ hy hlam hδ).trans
+    (measureReal_mono fun ω hω t ↦ (hω t).trans_le
+      (radius_le_of_norm_le hlam fun s _ ↦ hL s ω))
+
+/-- **Confidence ellipsoids for ridge regression with bounded features**
+[LS, Theorem 20.5 and (20.9)], failure-probability form: under the assumptions of
+`measure_exists_sqrt_inner_ridgeEstimate_sub_ge_le`, if moreover `‖x t‖ ≤ L` for all `t`, then
+the probability that for some `t`,
+`√λ ‖θ‖ + √(2σ² log (1 / δ) + σ² d log (1 + t L² / (λ d))) ≤ ‖θ̂_t - θ‖_{V_t}` is at most `δ`. -/
+theorem measure_exists_sqrt_inner_ridgeEstimate_sub_ge_le_of_norm_le
+    (hx : ∀ t, Measurable[𝓕 t] (x t)) (hη : ∀ t, Measurable[𝓕 (t + 1)] (η t))
+    (hsub : ∀ t, HasCondSubgaussianMGF (𝓕 t) (𝓕.le t) (η t) σ2 P) (hσ : σ2 ≠ 0) (θ : E)
+    (hy : ∀ t ω, y t ω = ⟪θ, x t ω⟫_ℝ + η t ω) {L : ℝ} (hL : ∀ t ω, ‖x t ω‖ ≤ L)
+    (hlam : 0 < lam) (hδ : 0 < δ) :
+    P {ω | ∃ t : ℕ, √lam * ‖θ‖ + √(2 * σ2 * log (1 / δ) +
+        σ2 * finrank ℝ E * log (1 + t * L ^ 2 / (lam * finrank ℝ E))) ≤
+      √⟪ridgeEstimate lam (fun s ↦ x s ω) (fun s ↦ y s ω) t - θ,
+        designOp lam (fun s ↦ x s ω) t
+          (ridgeEstimate lam (fun s ↦ x s ω) (fun s ↦ y s ω) t - θ)⟫_ℝ} ≤
+      ENNReal.ofReal δ :=
+  (measure_mono fun ω ↦ Exists.imp fun _ ↦
+    (radius_le_of_norm_le hlam fun s _ ↦ hL s ω).trans).trans
+    (measure_exists_sqrt_inner_ridgeEstimate_sub_ge_le hx hη hsub hσ θ hy hlam hδ)
 
 end LMLExplore

@@ -52,6 +52,10 @@ here on a general measurable state space.
 * `Learning.MDP.iSup_optQValue`, `Learning.MDP.lookahead_iSup_optQValue`,
   `Learning.MDP.eq_optQValue_of_lookahead_iSup_eq`: the optimality equation for action values and
   the uniqueness of its bounded measurable solution.
+* `Learning.MDP.qValue_le_optQValue`, `Learning.MDP.qValue_eq_optQValue`: the action value of a
+  stationary policy is at most `Q*`, with equality for an optimal policy.
+* `Learning.MDP.integral_optQValue_saKernel_le`: for every stationary policy `π` and transition
+  kernel `P'`, `P'^π_SA Q* ≤ P' v*`.
 
 ## References
 
@@ -251,6 +255,45 @@ theorem eq_optQValue_of_lookahead_iSup_eq (hγ : γ < 1) (hR : ∀ p, ∀ᵐ x �
     ext s
     rw [bellman_def, h]
   rw [← h, eq_optValue_of_bellman_eq hγ hR hv hvB hTv, optQValue_eq_lookahead]
+
+/-! ### Action values of stationary policies -/
+
+section Stationary
+
+variable {π : Kernel 𝓢 𝓐} [IsMarkovKernel π]
+
+/-- With finitely many actions, bounded rewards and `γ < 1`, the action value of every stationary
+policy is at most the optimal action value: `Q^π ≤ Q*`. -/
+theorem qValue_le_optQValue (hγ : γ < 1) (hR : ∀ p, ∀ᵐ x ∂(M.R p), |x| ≤ C) :
+    M.qValue γ π ≤ M.optQValue γ := fun p ↦ by
+  rw [qValue_eq_lookahead, optQValue_eq_lookahead]
+  exact lookahead_mono (integrable_of_abs_le (measurable_value hγ hR) (abs_value_le hγ hR) _)
+    (integrable_of_abs_le (measurable_optValue hγ hR) (abs_optValue_le hγ hR) _)
+    (value_le_optValue hγ hR)
+
+/-- With finitely many actions, bounded rewards and `γ < 1`, the optimal action value integrated
+against the state-action kernel of a stationary policy `π` built on the transition kernel of any
+MDP `M'` is at most the optimal value integrated against that transition kernel:
+`P'^π_SA Q* ≤ P' v*`. This is the inequality counterpart of `integral_qValue_saKernel`. -/
+theorem integral_optQValue_saKernel_le {𝓡 : Type*} {m𝓡 : MeasurableSpace 𝓡} (M' : MDP 𝓢 𝓐 𝓡)
+    (hγ : γ < 1) (hR : ∀ p, ∀ᵐ x ∂(M.R p), |x| ≤ C) (p : 𝓢 × 𝓐) :
+    ∫ q, M.optQValue γ q ∂(M'.saKernel π p) ≤ ∫ s, M.optValue γ s ∂(M'.P p) := by
+  have hint : Integrable (fun q : 𝓢 × 𝓐 ↦ M.optValue γ q.1) (M'.saKernel π p) :=
+    integrable_of_abs_le ((measurable_optValue hγ hR).comp measurable_fst)
+      (fun q ↦ abs_optValue_le hγ hR q.1) _
+  calc ∫ q, M.optQValue γ q ∂(M'.saKernel π p)
+      ≤ ∫ q, M.optValue γ q.1 ∂(M'.saKernel π p) :=
+        integral_mono (integrable_of_abs_le (measurable_optQValue hγ hR) (abs_optQValue_le hγ hR) _)
+          hint fun q ↦ optQValue_le_optValue hγ hR q.1 q.2
+    _ = ∫ s, M.optValue γ s ∂(M'.P p) := by rw [integral_saKernel hint]; simp
+
+omit [Finite 𝓐] [Nonempty 𝓐] [IsMarkovKernel π] in
+/-- The action value of an optimal stationary policy is the optimal action value: if
+`v^π = v*`, then `Q^π = Q*`. -/
+theorem qValue_eq_optQValue (h : M.value γ π = M.optValue γ) : M.qValue γ π = M.optQValue γ := by
+  rw [qValue_eq_lookahead, h, optQValue_eq_lookahead]
+
+end Stationary
 
 end Finite
 
