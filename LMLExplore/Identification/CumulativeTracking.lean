@@ -20,8 +20,9 @@ count to the cumulated allocations. Equivalently, it plays an arm maximizing the
 rounds pull every arm once, as in [DKM19], where `K` is the number of arms.
 
 This file defines the rule as a deterministic algorithm (an index policy of LML) for any measurable
-target rule, and proves that the hypothesis of the deterministic cumulative tracking lemmas of
-`Identification/Tracking.lean` holds almost surely along every run. Consequently, along every run
+target rule, and proves that, whenever the targets are nonnegative, the hypothesis of the
+deterministic cumulative tracking lemmas of `Identification/Tracking.lean` holds almost surely
+along every run. Consequently, along every run
 whose targets are allocations [DKM19, Lemma 7]: after `n` rounds, every arm satisfies
 `∑_{s < n} w_a(s) - (K - 1) ≤ N_a(n) ≤ ∑_{s < n} w_a(s) + 1`; the proportions of pulls get close
 to the averages of the targets, and converge to the limit of the targets whenever the targets
@@ -73,20 +74,17 @@ variable {α 𝓨 : Type*} [DecidableEq α] {m𝓨 : MeasurableSpace 𝓨}
 
 /-- The index of the cumulative tracking rule with target rule `w`, after `n` rounds with history
 `h`: `⊤` if the arm `a` has not been pulled, and otherwise the cumulated targets
-`∑_{s ≤ n} w_a(s)` divided by the pull count `N_a` of `h`, where `w(s)` is the target `w s` of the
-prefix of length `s` of `h` (for `s = n`, of `h` itself). -/
+`∑_{s ≤ n} w_a(s)` (`cumulatedTargets w n h a`) divided by the pull count `N_a` of `h`, where `w(s)`
+is the target `w s` of the prefix of length `s` of `h` (for `s = n`, of `h` itself). -/
 noncomputable def cumulativeTrackingIndex (w : (n : ℕ) → Hist Unit α 𝓨 n → α → ℝ) (n : ℕ)
     (h : Hist Unit α 𝓨 n) (a : α) : EReal :=
-  if pullCount' n h a = 0 then ⊤ else
-    ((∑ s : Fin (n + 1), w s (fun i ↦ h (Fin.castLE (Nat.lt_succ_iff.1 s.isLt) i)) a) /
-      pullCount' n h a : ℝ)
+  if pullCount' n h a = 0 then ⊤ else (cumulatedTargets w n h a / pullCount' n h a : ℝ)
 
 /-- The index of cumulative tracking, unfolded. -/
 lemma cumulativeTrackingIndex_def (w : (n : ℕ) → Hist Unit α 𝓨 n → α → ℝ) (n : ℕ)
     (h : Hist Unit α 𝓨 n) (a : α) :
     cumulativeTrackingIndex w n h a = if pullCount' n h a = 0 then ⊤ else
-      (((∑ s : Fin (n + 1), w s (fun i ↦ h (Fin.castLE (Nat.lt_succ_iff.1 s.isLt) i)) a) /
-        pullCount' n h a : ℝ) : EReal) :=
+      ((cumulatedTargets w n h a / pullCount' n h a : ℝ) : EReal) :=
   (rfl)
 
 /-- An arm that has not been pulled has index `⊤`. -/
@@ -99,8 +97,7 @@ lemma cumulativeTrackingIndex_of_pullCount'_eq_zero (h0 : pullCount' n h a = 0) 
 count. -/
 lemma cumulativeTrackingIndex_of_pullCount'_ne_zero (h0 : pullCount' n h a ≠ 0) :
     cumulativeTrackingIndex w n h a =
-      (((∑ s : Fin (n + 1), w s (fun i ↦ h (Fin.castLE (Nat.lt_succ_iff.1 s.isLt) i)) a) /
-        pullCount' n h a : ℝ) : EReal) := by
+      ((cumulatedTargets w n h a / pullCount' n h a : ℝ) : EReal) := by
   simp [cumulativeTrackingIndex_def, h0]
 
 /-- The index of an arm is `⊤` if and only if the arm has not been pulled yet. -/
@@ -117,13 +114,7 @@ lemma cumulativeTrackingIndex_history {Ω : Type*} (O : ℕ → Ω → Unit) (A 
     (Y : ℕ → Ω → 𝓨) (k : ℕ) (ω : Ω) (a : α) :
     cumulativeTrackingIndex w k (history O A Y k ω) a = if pullCount A a k ω = 0 then ⊤ else
       (((∑ s ∈ range (k + 1), w s (history O A Y s ω) a) / pullCount A a k ω : ℝ) : EReal) := by
-  have hS : ∑ s : Fin (k + 1),
-      w s (fun i ↦ history O A Y k ω (Fin.castLE (Nat.lt_succ_iff.1 s.isLt) i)) a =
-        ∑ s ∈ range (k + 1), w s (history O A Y s ω) a := by
-    rw [← Fin.sum_univ_eq_sum_range (fun s ↦ w s (history O A Y s ω) a)]
-    refine Finset.sum_congr rfl fun s _ ↦ ?_
-    rw [history_eq_comp_history (Nat.lt_succ_iff.1 s.isLt), Function.comp_apply]
-  rw [cumulativeTrackingIndex_def, ← pullCount_eq_pullCount', hS]
+  rw [cumulativeTrackingIndex_def, ← pullCount_eq_pullCount', cumulatedTargets_history]
 
 variable [MeasurableSpace α] [MeasurableSingletonClass α]
 
@@ -135,10 +126,9 @@ lemma measurable_cumulativeTrackingIndex (hw : ∀ n, Measurable (w n)) :
   refine Measurable.of_eval fun a ↦ ?_
   simp_rw [cumulativeTrackingIndex_def]
   refine Measurable.ite ((measurableSet_singleton 0).preimage (measurable_pullCount' n a))
-    measurable_const (measurable_coe_real_ereal.comp (Measurable.div ?_ ?_))
-  · exact Finset.measurable_sum _ fun s _ ↦ (measurable_pi_apply a).comp
-      ((hw s).comp (Measurable.of_eval fun _ ↦ measurable_pi_apply _))
-  · exact measurable_from_top.comp (measurable_pullCount' n a)
+    measurable_const (measurable_coe_real_ereal.comp (Measurable.div
+      ((measurable_pi_apply a).comp (measurable_cumulatedTargets hw))
+      (measurable_from_top.comp (measurable_pullCount' n a))))
 
 variable [Fintype α] [Nonempty α]
 

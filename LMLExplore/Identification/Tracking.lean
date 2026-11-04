@@ -22,7 +22,14 @@ cumulated sums of the allocations played by an online learner, through the ratio
 counts to these sums (cumulative tracking). This file contains the deterministic statements behind
 these rules: they hold for every sequence of actions `A k ω` (at a fixed `ω`) following the rule,
 with `N_a(n) = pullCount A a n ω` the number of pulls of `a` in the rounds `0, …, n - 1` and
-`K = Fintype.card α`.
+`K = Fintype.card α`. The cumulated targets of a target rule along a history, which C-tracking and
+cumulative tracking compare with the pull counts, are defined here as well.
+
+## Main definitions
+
+* `LMLExplore.Identification.cumulatedTargets v n h`: the cumulated targets `∑_{s ≤ n} v_a(s)` of
+  the target rule `v` after `n` rounds with history `h`, where `v(s)` is the target of the prefix
+  of length `s` of `h`.
 
 ## Main statements
 
@@ -877,5 +884,46 @@ theorem tendsto_pullCount_div_of_cumulativeTracking (p : ℕ → α → ℝ) {l 
   tendsto_pullCount_div_of_abs_sub_sum_le
     (abs_pullCount_sub_sum_le_of_cumulativeTracking p hp0 hp1 hA · a)
     (tendsto_const_div_atTop_nhds_zero_nat _) hp
+
+/-! ### Cumulated targets along a history -/
+
+section CumulatedTargets
+
+omit [Fintype α] [DecidableEq α]
+
+variable {𝓞 𝓨 : Type*} {v : (n : ℕ) → Hist 𝓞 α 𝓨 n → α → ℝ}
+
+/-- The cumulated targets `∑_{s ≤ n} v_a(s)` of the target rule `v` after `n` rounds with history
+`h`, where `v(s)` is the target `v s` of the prefix of length `s` of `h` (for `s = n`, of `h`
+itself). C-tracking and cumulative tracking compare these sums with the pull counts. -/
+noncomputable def cumulatedTargets (v : (n : ℕ) → Hist 𝓞 α 𝓨 n → α → ℝ) (n : ℕ)
+    (h : Hist 𝓞 α 𝓨 n) (a : α) : ℝ :=
+  ∑ s : Fin (n + 1), v s (fun i ↦ h (Fin.castLE (Nat.lt_succ_iff.1 s.isLt) i)) a
+
+/-- The cumulated targets, unfolded. -/
+lemma cumulatedTargets_def (v : (n : ℕ) → Hist 𝓞 α 𝓨 n → α → ℝ) (n : ℕ) (h : Hist 𝓞 α 𝓨 n)
+    (a : α) :
+    cumulatedTargets v n h a =
+      ∑ s : Fin (n + 1), v s (fun i ↦ h (Fin.castLE (Nat.lt_succ_iff.1 s.isLt) i)) a :=
+  (rfl)
+
+/-- Along a sequence of rounds, the cumulated targets at the history of the first `k` rounds are
+`∑_{s ≤ k} v_a(s)`, with `v(s)` the target of the history of the first `s` rounds. -/
+lemma cumulatedTargets_history (O : ℕ → Ω → 𝓞) (A : ℕ → Ω → α) (Y : ℕ → Ω → 𝓨) (k : ℕ) (ω : Ω)
+    (a : α) :
+    cumulatedTargets v k (history O A Y k ω) a =
+      ∑ s ∈ range (k + 1), v s (history O A Y s ω) a := by
+  rw [cumulatedTargets_def, ← Fin.sum_univ_eq_sum_range (fun s ↦ v s (history O A Y s ω) a)]
+  refine Finset.sum_congr rfl fun s _ ↦ ?_
+  rw [history_eq_comp_history (Nat.lt_succ_iff.1 s.isLt), Function.comp_apply]
+
+/-- The cumulated targets are a measurable function of the history if the target rule is. -/
+@[fun_prop]
+lemma measurable_cumulatedTargets [MeasurableSpace 𝓞] [MeasurableSpace α] [MeasurableSpace 𝓨]
+    {n : ℕ} (hv : ∀ n, Measurable (v n)) : Measurable (cumulatedTargets v n) :=
+  Measurable.of_eval fun a ↦ Finset.measurable_sum _ fun s _ ↦ (measurable_pi_apply a).comp
+    ((hv s).comp (Measurable.of_eval fun _ ↦ measurable_pi_apply _))
+
+end CumulatedTargets
 
 end LMLExplore.Identification

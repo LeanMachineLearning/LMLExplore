@@ -77,18 +77,19 @@ variable {α 𝓨 : Type*} [Fintype α] [DecidableEq α] {m𝓨 : MeasurableSpac
 /-- The index of the C-tracking rule with target rule `w`, after `n` rounds with history `h`: the
 cumulated targets `∑_{s ≤ n} w^{ε_s}_a(s)` minus the pull count `N_a` of `h`, where `w(s)` is the
 target `w s` of the prefix of length `s` of `h` (for `s = n`, of `h` itself) and `w^{ε_s}(s)` its
-mixture `cTrackingTarget ε_s (w(s))` with the uniform allocation, `ε_s = cTrackingRate K s`. -/
+mixture `cTrackingTarget ε_s (w(s))` with the uniform allocation, `ε_s = cTrackingRate K s`
+(`cumulatedTargets` of the mixed targets). -/
 noncomputable def cTrackingIndex (w : (n : ℕ) → Hist Unit α 𝓨 n → α → ℝ) (n : ℕ)
     (h : Hist Unit α 𝓨 n) (a : α) : ℝ :=
-  ∑ s : Fin (n + 1), cTrackingTarget (cTrackingRate (Fintype.card α) s)
-      (w s fun i ↦ h (Fin.castLE (Nat.lt_succ_iff.1 s.isLt) i)) a - pullCount' n h a
+  cumulatedTargets (fun s h ↦ cTrackingTarget (cTrackingRate (Fintype.card α) s) (w s h)) n h a -
+    pullCount' n h a
 
 /-- The index of C-tracking, unfolded. -/
 lemma cTrackingIndex_def (w : (n : ℕ) → Hist Unit α 𝓨 n → α → ℝ) (n : ℕ) (h : Hist Unit α 𝓨 n)
     (a : α) :
     cTrackingIndex w n h a =
-      ∑ s : Fin (n + 1), cTrackingTarget (cTrackingRate (Fintype.card α) s)
-        (w s fun i ↦ h (Fin.castLE (Nat.lt_succ_iff.1 s.isLt) i)) a - pullCount' n h a :=
+      cumulatedTargets (fun s h ↦ cTrackingTarget (cTrackingRate (Fintype.card α) s) (w s h)) n h
+        a - pullCount' n h a :=
   (rfl)
 
 /-- Along a sequence of rounds, the index of C-tracking at the history of the first `k` rounds is
@@ -99,11 +100,7 @@ lemma cTrackingIndex_history {Ω : Type*} (O : ℕ → Ω → Unit) (A : ℕ →
     cTrackingIndex w k (history O A Y k ω) a =
       ∑ s ∈ range (k + 1), cTrackingTarget (cTrackingRate (Fintype.card α) s)
         (w s (history O A Y s ω)) a - pullCount A a k ω := by
-  rw [cTrackingIndex_def, ← pullCount_eq_pullCount',
-    ← Fin.sum_univ_eq_sum_range (fun s ↦ cTrackingTarget (cTrackingRate (Fintype.card α) s)
-      (w s (history O A Y s ω)) a)]
-  refine congrArg (· - _) (Finset.sum_congr rfl fun s _ ↦ ?_)
-  rw [history_eq_comp_history (Nat.lt_succ_iff.1 s.isLt), Function.comp_apply]
+  rw [cTrackingIndex_def, ← pullCount_eq_pullCount', cumulatedTargets_history]
 
 variable [MeasurableSpace α]
 
@@ -114,10 +111,12 @@ lemma measurable_cTrackingIndex [MeasurableSingletonClass α] (hw : ∀ n, Measu
   have hN (b : α) : Measurable fun h : Hist Unit α 𝓨 n ↦ (pullCount' n h b : ℝ) :=
     measurable_from_top.comp (measurable_pullCount' n b)
   refine Measurable.of_eval fun a ↦ ?_
-  simp_rw [cTrackingIndex_def, cTrackingTarget_apply]
-  refine Measurable.sub (Finset.measurable_sum _ fun s _ ↦ ?_) (hN a)
-  exact (((measurable_pi_apply a).comp ((hw s).comp
-    (Measurable.of_eval fun _ ↦ measurable_pi_apply _))).const_mul _).add_const _
+  simp_rw [cTrackingIndex_def]
+  refine Measurable.sub ((measurable_pi_apply a).comp (measurable_cumulatedTargets fun s ↦ ?_))
+    (hN a)
+  refine Measurable.of_eval fun b ↦ ?_
+  simp_rw [cTrackingTarget_apply]
+  exact (((measurable_pi_apply b).comp (hw s)).const_mul _).add_const _
 
 /-- The index of C-tracking, as an `EReal`-valued index of the history and the observation, is
 measurable. -/
