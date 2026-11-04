@@ -42,6 +42,7 @@ against `Environment.ofSeq o g _` with expert advice `o` (`IsAlgEnvSeq.feedback_
 * `dotProduct_iwEstimator`, `dotProduct_lossIwEstimator`: the averages of the estimates against
   a vector `e` summing to `1`, such as the advice of an expert in Exp4, are `e b y / p b` and
   `1 - e b (1 - y) / p b`.
+* `sum_iwEstimator`: the importance-weighted estimates of all the arms sum to `y / p b`.
 * `sum_mul_iwEstimator_sq`: the `p`-average of the squared importance-weighted estimates is
   `y ^ 2 / p b`, the second moment that the analysis of Exp3 controls.
 * `iwEstimator_nonneg`, `lossIwEstimator_le_one`: the importance-weighted estimates of a
@@ -53,6 +54,9 @@ against `Environment.ofSeq o g _` with expert advice `o` (`IsAlgEnvSeq.feedback_
   are finitely many actions.
 * `ae_feedback_le_one`: when the feedbacks are almost surely rewards at most `1`, they are almost
   surely at most `1`.
+* `ae_forall_feedback_eq`, `ae_feedback_mem_Icc`: when the feedbacks of the rounds `t < n` are
+  almost surely rewards, they are almost surely these rewards at all these rounds simultaneously,
+  and almost surely in `[0, 1]` when the rewards are.
 * `WeightAlgorithm.condExp_iwEstimator`, `WeightAlgorithm.condExp_lossIwEstimator`: conditional
   unbiasedness along a run of a weight-based algorithm [LS, (11.4)].
 * `WeightAlgorithm.integral_iwEstimator`, `WeightAlgorithm.integral_lossIwEstimator`: the
@@ -167,6 +171,11 @@ lemma dotProduct_lossIwEstimator {e : α → ℝ} (he : ∑ a, e a = 1) :
     e ⬝ᵥ lossIwEstimator p b y = 1 - e b * (1 - y) / p b := by
   rw [lossIwEstimator_def, dotProduct_sub, dotProduct_iwEstimator, dotProduct_one, he]
 
+/-- The sum of the importance-weighted estimates over the arms is `y / p b`. -/
+lemma sum_iwEstimator : ∑ a, iwEstimator p b y a = y / p b := by
+  simpa only [one_dotProduct, Pi.one_apply, one_mul] using dotProduct_iwEstimator (p := p) (b := b)
+    (y := y) 1
+
 /-- The `p`-average of the squared importance-weighted estimates is `y ^ 2 / p b`. -/
 lemma sum_mul_iwEstimator_sq : ∑ a, p a * iwEstimator p b y a ^ 2 = y ^ 2 / p b := by
   rw [Finset.sum_eq_single b (fun a _ ha ↦ by simp [ha]) (by simp), iwEstimator_apply_self]
@@ -269,6 +278,26 @@ lemma ae_feedback_le_one {x : ℕ → α → ℝ} (hY : ∀ t < n, Y t =ᵐ[P] x
     rw [hω]
     exact hx t ht _
   · exact ae_of_all _ fun _ ht' ↦ absurd ht' ht
+
+omit [DecidableEq α] in
+/-- If the feedback `Y t` of every round `t < n` is almost surely the reward `x t (A t)` of the
+action, then almost surely the feedbacks of all the rounds `t < n` are these rewards. -/
+lemma ae_forall_feedback_eq {x : ℕ → α → ℝ} (hY : ∀ t < n, Y t =ᵐ[P] x t ∘ A t) :
+    ∀ᵐ ω ∂P, ∀ t < n, Y t ω = x t (A t ω) := by
+  refine ae_all_iff.2 fun t ↦ ?_
+  by_cases ht : t < n
+  · filter_upwards [hY t ht] with ω hω _ using hω
+  · exact ae_of_all _ fun _ ht' ↦ absurd ht' ht
+
+omit [DecidableEq α] in
+/-- If the feedback `Y t` of every round `t < n` is almost surely the reward `x t (A t)` of the
+action and the rewards are in `[0, 1]`, then almost surely the feedbacks of the rounds `t < n` are
+in `[0, 1]`. -/
+lemma ae_feedback_mem_Icc {x : ℕ → α → ℝ} (hY : ∀ t < n, Y t =ᵐ[P] x t ∘ A t)
+    (hx : ∀ t < n, ∀ a, x t a ∈ Set.Icc 0 1) : ∀ᵐ ω ∂P, ∀ t < n, Y t ω ∈ Set.Icc 0 1 := by
+  filter_upwards [ae_forall_feedback_eq hY] with ω hω t ht
+  rw [hω t ht]
+  exact hx t ht _
 
 end Feedback
 

@@ -5,7 +5,7 @@ Authors: Rémy Degenne
 -/
 module
 
-public import LMLExplore.Bandits.Exp3
+public import LMLExplore.Bandits.Exp3.Basic
 
 /-!
 # Exp4
