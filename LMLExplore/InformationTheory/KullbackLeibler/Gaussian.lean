@@ -18,14 +18,31 @@ integrating it against `𝒩(μ₁, v₁)` gives the closed form
 For equal variances this is `(μ₁ - μ₂) ^ 2 / (2 v)` [LS, Theorem 14.1], the value used in the
 lower bounds for Gaussian bandits.
 
+When the variance of the second law is free, as in the model of Gaussian arms with unknown
+variances, the relevant quantity is the smallest relative entropy from `𝒩(μ₁, v₁)` to a Gaussian
+law of mean `μ₂`. Since `log x ≤ x - 1`, the closed form is at least
+`log (1 + (μ₁ - μ₂) ^ 2 / v₁) / 2`, with equality for the variance `v₂ = v₁ + (μ₁ - μ₂) ^ 2`; the
+degenerate law `𝒩(μ₂, 0)`, a Dirac mass, is at infinite relative entropy. Hence
+`inf_{v₂} D(𝒩(μ₁, v₁), 𝒩(μ₂, v₂)) = log (1 + (μ₁ - μ₂) ^ 2 / v₁) / 2` [JDK23, proof of Lemma 11].
+
 ## Main statements
 
 * `LMLExplore.llr_gaussianReal_gaussianReal`: the log-likelihood ratio, almost everywhere.
 * `LMLExplore.klDiv_gaussianReal_gaussianReal`: the relative entropy for arbitrary variances.
 * `LMLExplore.klDiv_gaussianReal_gaussianReal_same_var`: the relative entropy for equal variances.
+* `LMLExplore.klDiv_gaussianReal_gaussianReal_zero`: the relative entropy to a Dirac mass `𝒩(μ₂, 0)`
+  is infinite.
+* `LMLExplore.ofReal_log_one_add_div_le_klDiv_gaussianReal`,
+  `LMLExplore.klDiv_gaussianReal_gaussianReal_add_sq`: the relative entropy from `𝒩(μ₁, v₁)` to a
+  Gaussian law of mean `μ₂` is at least `log (1 + (μ₁ - μ₂) ^ 2 / v₁) / 2`, with equality for the
+  variance `v₁ + (μ₁ - μ₂) ^ 2`.
+* `LMLExplore.iInf_klDiv_gaussianReal_gaussianReal`: the infimum over the variance of the second
+  law, `inf_{v₂} D(𝒩(μ₁, v₁), 𝒩(μ₂, v₂)) = log (1 + (μ₁ - μ₂) ^ 2 / v₁) / 2`.
 
 ## References
 
+* [JDK23] M. Jourdan, R. Degenne and E. Kaufmann, *Dealing with unknown variances in best-arm
+  identification*, ALT 2023, Appendix C.1, proof of Lemma 11.
 * [LS] T. Lattimore and Cs. Szepesvári, *Bandit Algorithms*, Cambridge University Press, 2020.
 -/
 
@@ -103,5 +120,59 @@ theorem klDiv_gaussianReal_gaussianReal_same_var {v : ℝ≥0} (hv : v ≠ 0) :
   rw [div_self hv', log_one]
   field_simp
   ring
+
+/-- The relative entropy from a nondegenerate Gaussian law to the Dirac mass `𝒩(μ₂, 0)` is
+infinite: the Gaussian law is not absolutely continuous with respect to it. -/
+theorem klDiv_gaussianReal_gaussianReal_zero (hv₁ : v₁ ≠ 0) :
+    klDiv (gaussianReal μ₁ v₁) (gaussianReal μ₂ 0) = ∞ := by
+  refine klDiv_of_not_ac fun h ↦ ?_
+  have := nullSingletonClass_gaussianReal (μ := μ₁) hv₁
+  have h_compl : gaussianReal μ₁ v₁ {μ₂}ᶜ = 0 := h (by simp)
+  rw [measure_compl (measurableSet_singleton μ₂) (measure_ne_top _ _), measure_univ,
+    measure_singleton, tsub_zero] at h_compl
+  exact one_ne_zero h_compl
+
+/-- The relative entropy from `𝒩(μ₁, v₁)` to a Gaussian law of mean `μ₂`, whatever its variance,
+is at least `log (1 + (μ₁ - μ₂) ^ 2 / v₁) / 2`. -/
+theorem ofReal_log_one_add_div_le_klDiv_gaussianReal (hv₁ : v₁ ≠ 0) (v₂ : ℝ≥0) :
+    ENNReal.ofReal (log (1 + (μ₁ - μ₂) ^ 2 / v₁) / 2) ≤
+      klDiv (gaussianReal μ₁ v₁) (gaussianReal μ₂ v₂) := by
+  rcases eq_or_ne v₂ 0 with rfl | hv₂
+  · rw [klDiv_gaussianReal_gaussianReal_zero hv₁]
+    exact le_top
+  rw [klDiv_gaussianReal_gaussianReal hv₁ hv₂]
+  refine ENNReal.ofReal_le_ofReal ?_
+  have hv₁' : (0 : ℝ) < v₁ := by positivity
+  have hv₂' : (0 : ℝ) < v₂ := by positivity
+  have hc : 0 < (v₁ : ℝ) + (μ₁ - μ₂) ^ 2 := by positivity
+  have h_log := log_le_sub_one_of_pos (div_pos hc hv₂')
+  have h_eq : 1 + (μ₁ - μ₂) ^ 2 / v₁ = ((v₁ + (μ₁ - μ₂) ^ 2) / v₂) * (v₂ / v₁) := by
+    field_simp
+  rw [h_eq, log_mul (div_pos hc hv₂').ne' (div_pos hv₂' hv₁').ne']
+  linarith
+
+/-- The relative entropy from `𝒩(μ₁, v₁)` to the Gaussian law of mean `μ₂` and variance
+`v₁ + (μ₁ - μ₂) ^ 2` is `log (1 + (μ₁ - μ₂) ^ 2 / v₁) / 2`: this variance attains the lower bound
+`LMLExplore.ofReal_log_one_add_div_le_klDiv_gaussianReal`. -/
+theorem klDiv_gaussianReal_gaussianReal_add_sq (hv₁ : v₁ ≠ 0) :
+    klDiv (gaussianReal μ₁ v₁) (gaussianReal μ₂ (v₁ + ((μ₁ - μ₂) ^ 2).toNNReal)) =
+      ENNReal.ofReal (log (1 + (μ₁ - μ₂) ^ 2 / v₁) / 2) := by
+  have hv₁' : (0 : ℝ) < v₁ := by positivity
+  have hc : 0 < (v₁ : ℝ) + (μ₁ - μ₂) ^ 2 := by positivity
+  have hv₂ : v₁ + ((μ₁ - μ₂) ^ 2).toNNReal ≠ 0 := by
+    rw [← NNReal.coe_ne_zero, NNReal.coe_add, Real.coe_toNNReal _ (sq_nonneg _)]
+    exact hc.ne'
+  rw [klDiv_gaussianReal_gaussianReal hv₁ hv₂, NNReal.coe_add, Real.coe_toNNReal _ (sq_nonneg _),
+    div_self hc.ne', add_div, div_self hv₁'.ne']
+  ring_nf
+
+/-- The smallest relative entropy from `𝒩(μ₁, v₁)` to a Gaussian law of mean `μ₂`:
+`inf_{v₂} D(𝒩(μ₁, v₁), 𝒩(μ₂, v₂)) = log (1 + (μ₁ - μ₂) ^ 2 / v₁) / 2` [JDK23, proof of Lemma 11],
+attained at the variance `v₁ + (μ₁ - μ₂) ^ 2`. -/
+theorem iInf_klDiv_gaussianReal_gaussianReal (hv₁ : v₁ ≠ 0) (μ₂ : ℝ) :
+    ⨅ v₂ : ℝ≥0, klDiv (gaussianReal μ₁ v₁) (gaussianReal μ₂ v₂) =
+      ENNReal.ofReal (log (1 + (μ₁ - μ₂) ^ 2 / v₁) / 2) :=
+  le_antisymm ((iInf_le _ _).trans (klDiv_gaussianReal_gaussianReal_add_sq hv₁).le)
+    (le_iInf fun v₂ ↦ ofReal_log_one_add_div_le_klDiv_gaussianReal hv₁ v₂)
 
 end LMLExplore
