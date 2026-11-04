@@ -5,10 +5,9 @@ Authors: Rémy Degenne
 -/
 module
 
-public import LMLExplore.MeasureTheory.Measure.Weighted
 public import LMLExplore.OnlineLearning.ExponentialWeights
+public import LMLExplore.Probability.Moments.SubGaussian.Simplex
 public import Mathlib.Analysis.MeanInequalitiesPow
-public import Mathlib.Probability.Moments.SubGaussian
 
 /-!
 # AdaHedge
@@ -30,7 +29,7 @@ loss of the exponential weights is the increment of the potential
 `L a + log K / η` and nonincreasing in `η` (`hedgePotential_le_of_le`). Since the learning rates of
 AdaHedge decrease, the total mix loss is at most `min_a L_n a + Δ_n`, so that the regret is at most
 `2 Δ_n`. The mixability gap of a round is at most the range `b_t` of the losses of the round and,
-by Hoeffding's lemma, at most `η_t b_t ^ 2 / 8`; this gives
+by Hoeffding's lemma (`LMLExplore.log_sum_mul_exp_le`), at most `η_t b_t ^ 2 / 8`; this gives
 `Δ_n ^ 2 ≤ (log K / 4) ∑ t < n, b t ^ 2 + (max_t b_t) Δ_n`. The regret of AdaHedge is therefore at
 most `√((∑ t < n, b t ^ 2) log K) + 2 max_{t < n} b t`. This implies the bound
 `√((∑ t < n, b t ^ 2) log K) + max_{t < n} b t (4/3 log K + 2)` used for the `w`-player of the
@@ -49,9 +48,8 @@ pure exploration games of [DKM19, Lemma 3].
 
 ## Main statements
 
-* `log_sum_mul_exp_le`: Hoeffding's lemma for a probability vector `w` and values `ℓ` in an
-  interval `[lo, hi]`, `log ∑ a, w a exp (t ℓ a) ≤ t ⟨w, ℓ⟩ + t ^ 2 (hi - lo) ^ 2 / 8`.
 * `mixLoss_le_sum_mul`, `sum_mul_le_mixLoss_add`: `⟨w, ℓ⟩ - η (hi - lo) ^ 2 / 8 ≤ m ≤ ⟨w, ℓ⟩`.
+* `hedgePotential_eq_mixLoss`: the potential is the mix loss of the uniform weights.
 * `mixLoss_softmax`: the mix loss of exponential weights is the increment of the potential.
 * `hedgePotential_le_of_le`: the potential is nonincreasing in the learning rate.
 * `adaHedge_mem_simplex`: AdaHedge plays probability vectors.
@@ -73,46 +71,23 @@ infinite learning rate) are adapted from the formalization of [DKM19] in the LML
 
 public section
 
-open Finset Real MeasureTheory ProbabilityTheory
+open Finset Real
 
 namespace LMLExplore.OnlineLearning
 
 variable {α : Type*} [Fintype α]
 
-/-! ### Hoeffding's lemma for probability vectors -/
-
-/-- **Hoeffding's lemma** for a probability vector. If `w` is a probability vector and the values
-`ℓ a` lie in `[lo, hi]`, then `log ∑ a, w a exp (t ℓ a) ≤ t ⟨w, ℓ⟩ + t ^ 2 (hi - lo) ^ 2 / 8`. -/
-theorem log_sum_mul_exp_le {w : α → ℝ} (hw : w ∈ simplex α) {ℓ : α → ℝ} {lo hi : ℝ}
-    (hℓ : ∀ a, ℓ a ∈ Set.Icc lo hi) (t : ℝ) :
-    log (∑ a, w a * exp (t * ℓ a)) ≤ t * ∑ a, w a * ℓ a + t ^ 2 * (hi - lo) ^ 2 / 8 := by
-  let _ : MeasurableSpace α := ⊤
-  have _ : DiscreteMeasurableSpace α := ⟨fun _ ↦ trivial⟩
-  have _ := isProbabilityMeasure_weightedMeasure hw
-  have hint (f : α → ℝ) : ∫ a, f a ∂(weightedMeasure w) = ∑ a, w a * f a := by
-    simp [integral_weightedMeasure_eq_sum (mem_simplex_iff.1 hw).1]
-  have h := (hasSubgaussianMGF_of_mem_Icc (μ := weightedMeasure w)
-    (measurable_of_countable ℓ).aemeasurable (ae_of_all _ hℓ)).mgf_le t
-  simp only [mgf, hint] at h
-  set m := ∑ a, w a * ℓ a
-  have hsplit : ∑ a, w a * exp (t * (ℓ a - m)) = exp (-(t * m)) * ∑ a, w a * exp (t * ℓ a) := by
-    rw [Finset.mul_sum]
-    refine Finset.sum_congr rfl fun a _ ↦ ?_
-    rw [mul_sub, sub_eq_add_neg, exp_add]
-    ring
-  obtain ⟨a, -, ha⟩ := Finset.exists_lt_of_sum_lt (s := univ) (f := fun _ ↦ (0 : ℝ)) (g := w)
-    (by simp [(mem_simplex_iff.1 hw).2])
-  have hpos : 0 < ∑ a, w a * exp (t * ℓ a) :=
-    Finset.sum_pos' (fun b _ ↦ mul_nonneg ((mem_simplex_iff.1 hw).1 b) (exp_pos _).le)
-      ⟨a, mem_univ a, mul_pos ha (exp_pos _)⟩
-  rw [hsplit, ← le_div_iff₀' (exp_pos _), ← exp_sub] at h
-  rw [log_le_iff_le_exp hpos]
-  refine h.trans_eq (congrArg exp ?_)
-  simp only [NNReal.coe_pow, NNReal.coe_div, coe_nnnorm, Real.norm_eq_abs, NNReal.coe_ofNat,
-    div_pow, sq_abs]
-  ring
-
 /-! ### The mix loss and the potential of exponential weights -/
+
+/-- Multiplying an inequality by `-η⁻¹` for `0 < η`: `-η⁻¹ X ≤ c ↔ -η c ≤ X`. -/
+private lemma neg_inv_mul_le_iff {η : ℝ} (hη : 0 < η) {X c : ℝ} :
+    -η⁻¹ * X ≤ c ↔ -η * c ≤ X := by
+  rw [neg_mul, neg_le, inv_mul_eq_div, le_div_iff₀ hη, neg_mul, mul_comm, neg_mul]
+
+/-- Multiplying an inequality by `-η⁻¹` for `0 < η`: `c ≤ -η⁻¹ X ↔ X ≤ -η c`. -/
+private lemma le_neg_inv_mul_iff {η : ℝ} (hη : 0 < η) {X c : ℝ} :
+    c ≤ -η⁻¹ * X ↔ X ≤ -η * c := by
+  rw [neg_mul, le_neg, inv_mul_eq_div, div_le_iff₀ hη, neg_mul, mul_comm, neg_mul]
 
 /-- The **mix loss** `-(1/η) log ∑ a, w a exp (-η ℓ a)` of the loss vector `ℓ` under the weights
 `w`, at the learning rate `η`. -/
@@ -133,28 +108,16 @@ lemma mixLoss_le_sum_mul {w : α → ℝ} (hw : w ∈ simplex α) {η : ℝ} (h�
     rw [Finset.mul_sum]
     exact Finset.sum_congr rfl fun a _ ↦ by ring
   rw [hsum] at h
-  have hlog : -η * ∑ a, w a * ℓ a ≤ log (∑ a, w a * exp (-η * ℓ a)) := by
-    rw [← log_exp (-η * ∑ a, w a * ℓ a)]
-    exact log_le_log (exp_pos _) h
-  have h' := mul_le_mul_of_nonneg_left hlog (inv_nonneg.2 hη.le)
-  rw [show η⁻¹ * (-η * ∑ a, w a * ℓ a) = -∑ a, w a * ℓ a by field_simp] at h'
-  rw [mixLoss_def, neg_mul]
-  linarith
+  rw [mixLoss_def, neg_inv_mul_le_iff hη, ← log_exp (-η * ∑ a, w a * ℓ a)]
+  exact log_le_log (exp_pos _) h
 
 /-- The mix loss is at least `⟨w, ℓ⟩ - η (hi - lo) ^ 2 / 8` for losses in `[lo, hi]`, by Hoeffding's
 lemma. -/
 lemma sum_mul_le_mixLoss_add {w : α → ℝ} (hw : w ∈ simplex α) {η : ℝ} (hη : 0 < η)
     {ℓ : α → ℝ} {lo hi : ℝ} (hℓ : ∀ a, ℓ a ∈ Set.Icc lo hi) :
     ∑ a, w a * ℓ a ≤ mixLoss η w ℓ + η * (hi - lo) ^ 2 / 8 := by
-  have h := log_sum_mul_exp_le hw hℓ (-η)
-  rw [mixLoss_def]
-  have h' : η⁻¹ * log (∑ a, w a * exp (-η * ℓ a)) ≤
-      η⁻¹ * (-η * ∑ a, w a * ℓ a + (-η) ^ 2 * (hi - lo) ^ 2 / 8) :=
-    mul_le_mul_of_nonneg_left h (inv_nonneg.2 hη.le)
-  have he : η⁻¹ * (-η * ∑ a, w a * ℓ a + (-η) ^ 2 * (hi - lo) ^ 2 / 8) =
-      -∑ a, w a * ℓ a + η * (hi - lo) ^ 2 / 8 := by
-    field_simp
-  linarith
+  rw [← sub_le_iff_le_add, mixLoss_def, le_neg_inv_mul_iff hη]
+  exact (log_sum_mul_exp_le hw hℓ (-η)).trans_eq (by ring)
 
 /-- The mix loss of losses at least `lo` is at least `lo`. -/
 lemma le_mixLoss {w : α → ℝ} (hw : w ∈ simplex α) {η : ℝ} (hη : 0 < η) {ℓ : α → ℝ} {lo : ℝ}
@@ -171,14 +134,8 @@ lemma le_mixLoss {w : α → ℝ} (hw : w ∈ simplex α) {η : ℝ} (hη : 0 < 
   have hpos : 0 < ∑ a, w a * exp (-η * ℓ a) :=
     Finset.sum_pos' (fun b _ ↦ mul_nonneg (hw'.1 b) (exp_pos _).le)
       ⟨a, mem_univ a, mul_pos ha (exp_pos _)⟩
-  have hlog : log (∑ a, w a * exp (-η * ℓ a)) ≤ -η * lo := by
-    rw [← log_exp (-η * lo)]
-    exact log_le_log hpos hle
-  rw [mixLoss_def]
-  have : η⁻¹ * log (∑ a, w a * exp (-η * ℓ a)) ≤ η⁻¹ * (-η * lo) :=
-    mul_le_mul_of_nonneg_left hlog (inv_nonneg.2 hη.le)
-  rw [show η⁻¹ * (-η * lo) = -lo by field_simp] at this
-  linarith
+  rw [mixLoss_def, le_neg_inv_mul_iff hη, ← log_exp (-η * lo)]
+  exact log_le_log hpos hle
 
 /-- The potential `-(1/η) log ((1/K) ∑ a, exp (-η L a))` of exponential weights with learning rate
 `η` at the cumulative loss vector `L`, with `K` the cardinality of `α`. -/
@@ -187,6 +144,11 @@ noncomputable def hedgePotential (η : ℝ) (L : α → ℝ) : ℝ :=
 
 lemma hedgePotential_def (η : ℝ) (L : α → ℝ) :
     hedgePotential η L = -η⁻¹ * log ((∑ a, exp (-η * L a)) / Fintype.card α) := (rfl)
+
+/-- The potential is the mix loss of the cumulative losses under the uniform weights. -/
+lemma hedgePotential_eq_mixLoss (η : ℝ) (L : α → ℝ) :
+    hedgePotential η L = mixLoss η (fun _ ↦ (Fintype.card α : ℝ)⁻¹) L := by
+  simp_rw [hedgePotential_def, mixLoss_def, Finset.sum_div, div_eq_inv_mul]
 
 /-- The mix loss of the exponential weights `softmax (-(η • L))` is the increment
 `Φ_η(L + ℓ) - Φ_η(L)` of the potential. -/
@@ -217,34 +179,16 @@ lemma hedgePotential_le {η : ℝ} (hη : 0 < η) (L : α → ℝ) (a : α) :
     rw [log_div (Finset.sum_pos (fun b _ ↦ exp_pos _) univ_nonempty).ne' hK.ne',
       ← log_exp (-η * L a)]
     exact sub_le_sub_right (log_le_log (exp_pos _) hle) _
-  rw [hedgePotential_def]
-  have : η⁻¹ * (-η * L a - log (Fintype.card α)) ≤
-      η⁻¹ * log ((∑ b, exp (-η * L b)) / Fintype.card α) :=
-    mul_le_mul_of_nonneg_left hlog (inv_nonneg.2 hη.le)
-  rw [show η⁻¹ * (-η * L a - log (Fintype.card α)) = -(L a + log (Fintype.card α) / η) by
-    field_simp; ring] at this
-  linarith
+  rw [hedgePotential_def, neg_inv_mul_le_iff hη]
+  refine le_of_eq_of_le ?_ hlog
+  field_simp
+  ring
 
 /-- The potential is at least every lower bound of the cumulative losses. -/
 lemma le_hedgePotential [Nonempty α] {η : ℝ} (hη : 0 < η) {L : α → ℝ} {x : ℝ}
     (hL : ∀ a, x ≤ L a) :
-    x ≤ hedgePotential η L := by
-  have hK : (0 : ℝ) < Fintype.card α := by exact_mod_cast Fintype.card_pos
-  have hpos : 0 < (∑ a, exp (-η * L a)) / Fintype.card α :=
-    div_pos (Finset.sum_pos (fun a _ ↦ exp_pos _) univ_nonempty) hK
-  have hle : (∑ a, exp (-η * L a)) / Fintype.card α ≤ exp (-η * x) := by
-    rw [div_le_iff₀ hK]
-    calc ∑ a, exp (-η * L a) ≤ ∑ _a : α, exp (-η * x) :=
-          Finset.sum_le_sum fun a _ ↦ exp_le_exp.2 (by nlinarith [hL a])
-      _ = exp (-η * x) * Fintype.card α := by simp [mul_comm]
-  have hlog : log ((∑ a, exp (-η * L a)) / Fintype.card α) ≤ -η * x := by
-    rw [← log_exp (-η * x)]
-    exact log_le_log hpos hle
-  rw [hedgePotential_def]
-  have : η⁻¹ * log ((∑ a, exp (-η * L a)) / Fintype.card α) ≤ η⁻¹ * (-η * x) :=
-    mul_le_mul_of_nonneg_left hlog (inv_nonneg.2 hη.le)
-  rw [show η⁻¹ * (-η * x) = -x by field_simp] at this
-  linarith
+    x ≤ hedgePotential η L :=
+  hedgePotential_eq_mixLoss η L ▸ le_mixLoss (uniform_mem_simplex α) hη hL
 
 /-- The potential is nonincreasing in the learning rate: for `0 < η' ≤ η`,
 `Φ_η(L) ≤ Φ_η'(L)`. This is the power mean inequality. -/
@@ -268,14 +212,11 @@ lemma hedgePotential_le_of_le [Nonempty α] {η η' : ℝ} (hη' : 0 < η') (hη
     mul_pos (inv_pos.2 hK) (Finset.sum_pos (fun a _ ↦ exp_pos _) univ_nonempty)
   have hlog := log_le_log (rpow_pos_of_pos hpos' p) hmean
   rw [log_rpow hpos'] at hlog
-  rw [hedgePotential_def, hedgePotential_def, div_eq_inv_mul, div_eq_inv_mul]
-  have : η⁻¹ * (p * log ((Fintype.card α : ℝ)⁻¹ * ∑ a, exp (-η' * L a))) ≤
-      η⁻¹ * log ((Fintype.card α : ℝ)⁻¹ * ∑ a, exp (-η * L a)) :=
-    mul_le_mul_of_nonneg_left hlog (inv_nonneg.2 hη0.le)
-  rw [show η⁻¹ * (p * log ((Fintype.card α : ℝ)⁻¹ * ∑ a, exp (-η' * L a))) =
-      η'⁻¹ * log ((Fintype.card α : ℝ)⁻¹ * ∑ a, exp (-η' * L a)) by
-    rw [hp]; field_simp] at this
-  linarith
+  rw [hedgePotential_def, hedgePotential_def, div_eq_inv_mul, div_eq_inv_mul,
+    neg_inv_mul_le_iff hη0]
+  refine le_of_eq_of_le ?_ hlog
+  rw [hp]
+  field_simp
 
 /-! ### Follow the leader -/
 
@@ -292,18 +233,40 @@ lemma mem_leaders {L : α → ℝ} {a : α} : a ∈ leaders L ↔ ∀ b, L a ≤
 lemma leaders_eq_univ {L : α → ℝ} (hL : ∀ a b, L a = L b) : leaders L = univ :=
   Finset.eq_univ_of_forall fun a ↦ mem_leaders.2 fun b ↦ (hL a b).le
 
+/-- If all the experts have the same cumulative loss after `t` rounds, they are all leaders. -/
+private lemma leaders_sum_range_eq_univ {y : ℕ → α → ℝ} {t : ℕ}
+    (hL : ∀ a b, ∑ s ∈ range t, y s a = ∑ s ∈ range t, y s b) :
+    leaders (∑ s ∈ range t, y s) = univ :=
+  leaders_eq_univ fun a b ↦ by simpa [Finset.sum_apply] using hL a b
+
+open scoped Classical in
 /-- The *follow-the-leader weights*: the uniform distribution on the leaders of `L`. -/
 noncomputable def ftlWeights (L : α → ℝ) (a : α) : ℝ :=
-  if ∀ b, L a ≤ L b then ((#(leaders L) : ℕ) : ℝ)⁻¹ else 0
+  if a ∈ leaders L then ((#(leaders L) : ℕ) : ℝ)⁻¹ else 0
 
+open scoped Classical in
 lemma ftlWeights_def (L : α → ℝ) (a : α) :
-    ftlWeights L a = if ∀ b, L a ≤ L b then ((#(leaders L) : ℕ) : ℝ)⁻¹ else 0 := (rfl)
+    ftlWeights L a = if a ∈ leaders L then ((#(leaders L) : ℕ) : ℝ)⁻¹ else 0 := (rfl)
+
+/-- The follow-the-leader weight of a leader is `1 / #(leaders L)`. -/
+@[simp]
+lemma ftlWeights_of_mem_leaders {L : α → ℝ} {a : α} (h : a ∈ leaders L) :
+    ftlWeights L a = ((#(leaders L) : ℕ) : ℝ)⁻¹ := by
+  simp [ftlWeights_def, h]
+
+/-- The follow-the-leader weight of an expert that is not a leader is `0`. -/
+@[simp]
+lemma ftlWeights_of_notMem_leaders {L : α → ℝ} {a : α} (h : a ∉ leaders L) :
+    ftlWeights L a = 0 := by
+  simp [ftlWeights_def, h]
 
 /-- The loss of the follow-the-leader weights is the average loss of the leaders. -/
 lemma sum_ftlWeights_mul (L ℓ : α → ℝ) :
     ∑ a, ftlWeights L a * ℓ a = ((#(leaders L) : ℕ) : ℝ)⁻¹ * ∑ a ∈ leaders L, ℓ a := by
-  simp_rw [ftlWeights_def, ite_mul, zero_mul, leaders, Finset.sum_filter, Finset.mul_sum,
-    mul_ite, mul_zero]
+  classical
+  rw [Finset.mul_sum, ← Finset.sum_subset (subset_univ (leaders L)) fun a _ ha ↦ by
+    rw [ftlWeights_of_notMem_leaders ha, zero_mul]]
+  exact Finset.sum_congr rfl fun a ha ↦ by rw [ftlWeights_of_mem_leaders ha]
 
 variable [Nonempty α]
 
@@ -314,9 +277,10 @@ lemma leaders_nonempty (L : α → ℝ) : (leaders L).Nonempty := by
 lemma ftlWeights_mem_simplex (L : α → ℝ) : ftlWeights L ∈ simplex α := by
   have hcard : (0 : ℝ) < (#(leaders L) : ℕ) := by exact_mod_cast (leaders_nonempty L).card_pos
   refine mem_simplex_iff.2 ⟨fun a ↦ ?_, ?_⟩
-  · rw [ftlWeights_def]
-    split_ifs
-    exacts [inv_nonneg.2 hcard.le, le_rfl]
+  · by_cases ha : a ∈ leaders L
+    · rw [ftlWeights_of_mem_leaders ha]
+      exact inv_nonneg.2 hcard.le
+    · rw [ftlWeights_of_notMem_leaders ha]
   · have h := sum_ftlWeights_mul L (fun _ ↦ 1)
     simp only [mul_one, Finset.sum_const, nsmul_eq_mul] at h
     rw [h, inv_mul_cancel₀ hcard.ne']
@@ -334,12 +298,17 @@ noncomputable def adaHedgeWeights (Δ : ℝ) (L : α → ℝ) : α → ℝ :=
   if Δ = 0 then ftlWeights L else softmax (-((log (Fintype.card α) / Δ) • L))
 
 @[simp]
-lemma adaHedgeWeights_of_eq_zero (L : α → ℝ) : adaHedgeWeights 0 L = ftlWeights L := by
+lemma adaHedgeWeights_zero (L : α → ℝ) : adaHedgeWeights 0 L = ftlWeights L := by
   simp [adaHedgeWeights]
 
 lemma adaHedgeWeights_of_ne_zero {Δ : ℝ} (hΔ : Δ ≠ 0) (L : α → ℝ) :
     adaHedgeWeights Δ L = softmax (-((log (Fintype.card α) / Δ) • L)) := by
   simp [adaHedgeWeights, hΔ]
+
+/-- A positive learning rate `log K / Δ` with `0 ≤ Δ ≠ 0` forces `0 < log K`. -/
+private lemma log_card_pos_of_div_pos {Δ : ℝ} (h0 : 0 ≤ Δ) (hΔ : Δ ≠ 0)
+    (hη : 0 < log (Fintype.card α) / Δ) : 0 < log (Fintype.card α) :=
+  (div_pos_iff_of_pos_right (lt_of_le_of_ne h0 (Ne.symm hΔ))).1 hη
 
 variable [Nonempty α]
 
@@ -355,7 +324,7 @@ noncomputable def adaHedgeMixLoss (Δ : ℝ) (L ℓ : α → ℝ) : ℝ :=
   else mixLoss (log (Fintype.card α) / Δ) (adaHedgeWeights Δ L) ℓ
 
 @[simp]
-lemma adaHedgeMixLoss_of_eq_zero (L ℓ : α → ℝ) :
+lemma adaHedgeMixLoss_zero (L ℓ : α → ℝ) :
     adaHedgeMixLoss 0 L ℓ = (leaders L).inf' (leaders_nonempty L) ℓ := by
   simp [adaHedgeMixLoss]
 
@@ -415,7 +384,7 @@ private lemma adaHedge_gap_step_nonneg {Δ : ℝ} (hΔ : Δ ≠ 0 → 0 < log (F
     0 ≤ ∑ a, adaHedgeWeights Δ L a * ℓ a - adaHedgeMixLoss Δ L ℓ := by
   by_cases h0 : Δ = 0
   · subst h0
-    rw [adaHedgeWeights_of_eq_zero, adaHedgeMixLoss_of_eq_zero]
+    rw [adaHedgeWeights_zero, adaHedgeMixLoss_zero]
     exact sum_ftlWeights_mul_sub_inf'_nonneg L ℓ
   · rw [adaHedgeMixLoss_of_ne_zero h0, sub_nonneg]
     exact mixLoss_le_sum_mul (adaHedgeWeights_mem_simplex Δ L) (hΔ h0) ℓ
@@ -432,7 +401,7 @@ private lemma adaHedge_gap_step_le {Δ : ℝ} (hΔ : Δ ≠ 0 → 0 < log (Finty
   have hlow : lo ≤ adaHedgeMixLoss Δ L ℓ := by
     by_cases h0 : Δ = 0
     · subst h0
-      rw [adaHedgeMixLoss_of_eq_zero]
+      rw [adaHedgeMixLoss_zero]
       exact Finset.le_inf' _ _ fun a _ ↦ (hℓ a).1
     · rw [adaHedgeMixLoss_of_ne_zero h0]
       exact le_mixLoss (adaHedgeWeights_mem_simplex Δ L) (hΔ h0) fun a ↦ (hℓ a).1
@@ -450,6 +419,42 @@ private lemma adaHedge_gap_step_le_rate {Δ : ℝ} (hΔ : 0 < log (Fintype.card 
   rw [add_sub_cancel_left] at h
   linarith
 
+/-- With all the experts tied, the mixability gap of a round of follow the leader is the mean of
+`ℓ a - min ℓ`. -/
+private lemma adaHedge_gap_step_zero_of_leaders_eq_univ {L : α → ℝ} (hL : leaders L = univ)
+    (ℓ : α → ℝ) :
+    ∑ a, adaHedgeWeights 0 L a * ℓ a - adaHedgeMixLoss 0 L ℓ =
+      ((Fintype.card α : ℕ) : ℝ)⁻¹ * ∑ a, (ℓ a - univ.inf' univ_nonempty ℓ) := by
+  have hK : (0 : ℝ) < Fintype.card α := by exact_mod_cast Fintype.card_pos
+  rw [adaHedgeWeights_zero, adaHedgeMixLoss_zero, sum_ftlWeights_mul]
+  simp only [hL, card_univ, Finset.sum_sub_distrib, Finset.sum_const, nsmul_eq_mul]
+  field_simp
+
+/-- A positive mean of `ℓ a - min ℓ` needs two experts with different losses, so `1 < K`. -/
+private lemma one_lt_card_of_mean_sub_inf'_pos {ℓ : α → ℝ}
+    (h : 0 < ((Fintype.card α : ℕ) : ℝ)⁻¹ * ∑ a, (ℓ a - univ.inf' univ_nonempty ℓ)) :
+    1 < Fintype.card α := by
+  obtain ⟨a, -, ha⟩ : ∃ a ∈ univ, 0 < ℓ a - univ.inf' univ_nonempty ℓ := by
+    by_contra hcon
+    push Not at hcon
+    have : ∑ a, (ℓ a - univ.inf' univ_nonempty ℓ) ≤ 0 :=
+      Finset.sum_nonpos fun a _ ↦ hcon a (mem_univ a)
+    nlinarith [inv_pos.2 (show (0 : ℝ) < ((Fintype.card α : ℕ) : ℝ) by
+      exact_mod_cast Fintype.card_pos)]
+  obtain ⟨b, -, hb⟩ := Finset.exists_mem_eq_inf' univ_nonempty ℓ
+  have hab : a ≠ b := by rintro rfl; rw [← hb] at ha; simp at ha
+  exact Fintype.one_lt_card_iff.2 ⟨a, b, hab⟩
+
+/-- A zero mean of `ℓ a - min ℓ` forces every loss `ℓ a` to be the minimum. -/
+private lemma eq_inf'_of_mean_sub_inf'_eq_zero {ℓ : α → ℝ}
+    (h : ((Fintype.card α : ℕ) : ℝ)⁻¹ * ∑ a, (ℓ a - univ.inf' univ_nonempty ℓ) = 0) (a : α) :
+    ℓ a = univ.inf' univ_nonempty ℓ := by
+  have hK : (0 : ℝ) < ((Fintype.card α : ℕ) : ℝ) := by exact_mod_cast Fintype.card_pos
+  have hsum := (mul_eq_zero.1 h).resolve_left (inv_ne_zero hK.ne')
+  have := (Finset.sum_eq_zero_iff_of_nonneg fun a _ ↦
+    sub_nonneg.2 (Finset.inf'_le ℓ (mem_univ a))).1 hsum a (mem_univ a)
+  linarith
+
 /-- The invariants of AdaHedge: the cumulative gap `Δ_t` is nonnegative, its learning rate
 `log K / Δ_t` is positive when `Δ_t ≠ 0`, and all the experts have the same cumulative loss while
 `Δ_t = 0`. -/
@@ -464,59 +469,32 @@ private lemma adaHedgeGap_invariant (y : ℕ → α → ℝ) (t : ℕ) :
     set L := ∑ s ∈ range t, y s
     set δ := ∑ a, adaHedgeWeights Δ L a * y t a - adaHedgeMixLoss Δ L (y t) with hδ
     have hstep : 0 ≤ δ := adaHedge_gap_step_nonneg hη L (y t)
-    have hsucc : adaHedgeGap y (t + 1) = Δ + δ := rfl
+    have hsucc : adaHedgeGap y (t + 1) = Δ + δ := by rw [adaHedgeGap_succ, adaHedge_def]
     have hLsucc : ∀ a, ∑ s ∈ range (t + 1), y s a = L a + y t a := fun a ↦ by
       simp [L, sum_range_succ]
     by_cases hΔ : Δ = 0
     · -- follow the leader with all the experts tied: the gap is the mean loss minus the minimum
-      have hlead : leaders L = univ := leaders_eq_univ fun a b ↦ by
-        simpa [L, Finset.sum_apply] using hL hΔ a b
-      rw [hΔ, zero_add] at hsucc
       have hδ' : δ = ((Fintype.card α : ℕ) : ℝ)⁻¹ *
           ∑ a, (y t a - univ.inf' univ_nonempty (y t)) := by
-        have hK : (0 : ℝ) < Fintype.card α := by exact_mod_cast Fintype.card_pos
-        rw [hδ, hΔ, adaHedgeWeights_of_eq_zero, adaHedgeMixLoss_of_eq_zero, sum_ftlWeights_mul]
-        simp only [hlead, card_univ, Finset.sum_sub_distrib, Finset.sum_const, nsmul_eq_mul]
-        field_simp
-      have hterm : ∀ a, 0 ≤ y t a - univ.inf' univ_nonempty (y t) := fun a ↦
-        sub_nonneg.2 (Finset.inf'_le _ (mem_univ a))
+        rw [hδ, hΔ]
+        exact adaHedge_gap_step_zero_of_leaders_eq_univ (leaders_sum_range_eq_univ (hL hΔ)) _
+      rw [hΔ, zero_add] at hsucc
       refine ⟨hsucc ▸ hstep, fun hne ↦ ?_, fun heq ↦ ?_⟩
       · rw [hsucc] at hne ⊢
         have hδpos : 0 < δ := lt_of_le_of_ne hstep (Ne.symm hne)
-        -- a positive gap needs two experts with different losses, so `K ≥ 2`
-        obtain ⟨a, -, ha⟩ : ∃ a ∈ univ, 0 < y t a - univ.inf' univ_nonempty (y t) := by
-          by_contra hcon
-          push Not at hcon
-          have : ∑ a, (y t a - univ.inf' univ_nonempty (y t)) ≤ 0 :=
-            Finset.sum_nonpos fun a _ ↦ hcon a (mem_univ a)
-          rw [hδ'] at hδpos
-          nlinarith [inv_pos.2 (show (0 : ℝ) < ((Fintype.card α : ℕ) : ℝ) by
-            exact_mod_cast Fintype.card_pos)]
-        obtain ⟨b, -, hb⟩ := Finset.exists_mem_eq_inf' univ_nonempty (y t)
-        have hab : a ≠ b := by rintro rfl; rw [← hb] at ha; simp at ha
-        have hK : 1 < Fintype.card α := Fintype.one_lt_card_iff.2 ⟨a, b, hab⟩
+        have hK := one_lt_card_of_mean_sub_inf'_pos (hδ' ▸ hδpos)
         exact div_pos (log_pos (by exact_mod_cast hK)) hδpos
-      · rw [hsucc] at heq
-        have hzero : ∀ a, y t a = univ.inf' univ_nonempty (y t) := by
-          have hsum : ∑ a, (y t a - univ.inf' univ_nonempty (y t)) = 0 := by
-            have hK : (0 : ℝ) < ((Fintype.card α : ℕ) : ℝ) := by exact_mod_cast Fintype.card_pos
-            rw [hδ'] at heq
-            rcases mul_eq_zero.1 heq with h | h
-            · exact absurd h (inv_ne_zero hK.ne')
-            · exact h
-          intro a
-          have := (Finset.sum_eq_zero_iff_of_nonneg fun a _ ↦ hterm a).1 hsum a (mem_univ a)
-          linarith
+      · rw [hsucc, hδ'] at heq
+        have hzero := eq_inf'_of_mean_sub_inf'_eq_zero heq
         intro a b
         rw [hLsucc, hLsucc, hzero a, hzero b]
         congr 1
         simpa [L, Finset.sum_apply] using hL hΔ a b
     · -- exponential weights: the gap is positive and grows
-      have hΔpos : 0 < Δ := lt_of_le_of_ne h0 (Ne.symm hΔ)
-      have hlogK : 0 < log (Fintype.card α) := by
-        have := hη hΔ
-        rwa [div_pos_iff_of_pos_right hΔpos] at this
-      have hpos : 0 < adaHedgeGap y (t + 1) := by rw [hsucc]; linarith
+      have hlogK := log_card_pos_of_div_pos h0 hΔ (hη hΔ)
+      have hpos : 0 < adaHedgeGap y (t + 1) := by
+        rw [hsucc]
+        linarith [lt_of_le_of_ne h0 (Ne.symm hΔ)]
       exact ⟨hpos.le, fun _ ↦ div_pos hlogK hpos, fun h ↦ absurd h hpos.ne'⟩
 
 /-- The cumulative mixability gap of AdaHedge is nonnegative. -/
@@ -551,10 +529,9 @@ private lemma sum_adaHedgeMixLoss_le (y : ℕ → α → ℝ) (n : ℕ) :
     simp only [Finset.sum_range_succ]
     by_cases hΔ : Δ = 0
     · -- infinite learning rate, all experts tied: the mix loss is the smallest loss
-      have hlead : leaders L = univ := leaders_eq_univ fun a b ↦ by
-        simpa [L, Finset.sum_apply] using hL hΔ a b
+      have hlead : leaders L = univ := leaders_sum_range_eq_univ (hL hΔ)
       have hm : adaHedgeMixLoss Δ L (y n) = univ.inf' univ_nonempty (y n) := by
-        rw [hΔ, adaHedgeMixLoss_of_eq_zero]
+        rw [hΔ, adaHedgeMixLoss_zero]
         simp_rw [hlead]
       have hS : ∀ a, S ≤ L a := fun a ↦ by simpa [L, Finset.sum_apply] using ih.1 hΔ a
       have hle : ∀ a, S + adaHedgeMixLoss Δ L (y n) ≤ (L + y n) a := fun a ↦ by
@@ -567,9 +544,7 @@ private lemma sum_adaHedgeMixLoss_le (y : ℕ → α → ℝ) (n : ℕ) :
       -- potential grows when the learning rate decreases
       have hΔpos : 0 < Δ := lt_of_le_of_ne h0 (Ne.symm hΔ)
       have hpos : 0 < adaHedgeGap y (n + 1) := hΔpos.trans_le hmono
-      have hlogK : 0 < log (Fintype.card α) := by
-        have := hη hΔ
-        rwa [div_pos_iff_of_pos_right hΔpos] at this
+      have hlogK := log_card_pos_of_div_pos h0 hΔ (hη hΔ)
       have hm : adaHedgeMixLoss Δ L (y n) =
           hedgePotential (log (Fintype.card α) / Δ) (L + y n) -
             hedgePotential (log (Fintype.card α) / Δ) L := by
@@ -598,11 +573,7 @@ theorem sum_adaHedge_regret_le_two_mul_adaHedgeGap (y : ℕ → α → ℝ) (n :
   · have := (sum_adaHedgeMixLoss_le y n).1 hΔ a
     linarith
   · have hS := (sum_adaHedgeMixLoss_le y n).2 hΔ
-    have hpos : 0 < adaHedgeGap y n := lt_of_le_of_ne h0 (Ne.symm hΔ)
-    have hlogK : log (Fintype.card α) ≠ 0 := by
-      have := hη hΔ
-      rw [div_pos_iff_of_pos_right hpos] at this
-      exact this.ne'
+    have hlogK := (log_card_pos_of_div_pos h0 hΔ (hη hΔ)).ne'
     have hpot := hedgePotential_le (hη hΔ) (∑ t ∈ range n, y t) a
     rw [div_div_cancel₀ hlogK, Finset.sum_apply] at hpot
     linarith
@@ -628,7 +599,7 @@ theorem adaHedgeGap_le (y : ℕ → α → ℝ) {n : ℕ} {b : ℕ → ℝ} {B :
       set Δ := adaHedgeGap y m
       set L := ∑ s ∈ range m, y s
       set δ := ∑ a, adaHedgeWeights Δ L a * y m a - adaHedgeMixLoss Δ L (y m) with hδ
-      have hsucc : adaHedgeGap y (m + 1) = Δ + δ := rfl
+      have hsucc : adaHedgeGap y (m + 1) = Δ + δ := by rw [adaHedgeGap_succ, adaHedge_def]
       -- the losses of the round lie in `[lo, lo + b m]`
       set lo := univ.inf' univ_nonempty (y m)
       have hℓ : ∀ a, y m a ∈ Set.Icc lo (lo + b m) := fun a ↦ by
