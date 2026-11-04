@@ -22,6 +22,11 @@ constant. For a measure on `ℝ` and `X = id`, that derivative is the mean of th
 so the tilts of a probability measure which is not a Dirac mass by parameters in that interior
 have pairwise distinct means.
 
+Comparing a measure with its tilts also bounds probabilities from below. Under the tilt by
+`t * X`, the event that `X` is near its mean `deriv (cgf X μ) t` has probability close to `1` by
+Chebyshev's inequality, and the density of the tilt is bounded on that event. This change of
+measure proves the lower bound of Cramér's theorem.
+
 ## Main statements
 
 * `ProbabilityTheory.mgf_tilted_mul`: `mgf X (μ.tilted (t * X ·)) s = mgf X μ (t + s) / mgf X μ t`.
@@ -38,6 +43,9 @@ have pairwise distinct means.
   `deriv (cgf X μ)` is strictly increasing on the interior of `integrableExpSet X μ`.
 * `ProbabilityTheory.iteratedDeriv_two_cgf_id_pos`, `ProbabilityTheory.strictMonoOn_deriv_cgf_id`:
   the versions for a probability measure on `ℝ` which is not a Dirac mass.
+* `ProbabilityTheory.exp_mul_le_measureReal_abs_sub_deriv_cgf_le`: for `t` in the interior of
+  `integrableExpSet X μ`, `Λ = cgf X μ` and `c > 0`,
+  `exp (-(t Λ'(t) - Λ(t) + |t| c)) (1 - Λ''(t) / c²) ≤ μ(|X - Λ'(t)| ≤ c)`.
 -/
 
 public section
@@ -130,5 +138,71 @@ lemma iteratedDeriv_two_cgf_id_pos {ρ : Measure ℝ} [IsProbabilityMeasure ρ]
     (hρ : ∀ c, ρ ≠ Measure.dirac c) (ht : t ∈ interior (integrableExpSet id ρ)) :
     0 < iteratedDeriv 2 (cgf id ρ) t :=
   iteratedDeriv_two_cgf_pos (fun c h ↦ hρ c <| by simpa using (hasLaw_dirac_of_ae_eq h).map_eq) ht
+
+/-! ### Lower bounds on probabilities by exponential tilting -/
+
+/-- **Lower bound by exponential tilting.** Let `t` be in the interior of `integrableExpSet X μ`
+for a nonzero finite measure `μ`, and let `Λ = cgf X μ`. Under the tilted measure
+`μ.tilted (t * X ·)`, `X` has mean `m = Λ'(t)` and variance `Λ''(t)`. For every `c > 0`, the
+measure under `μ` of the event that `X` is within `c` of `m` is at least
+`exp (-(t m - Λ(t) + |t| c)) (1 - Λ''(t) / c²)`.
+
+The tilted measure has density `exp (t X - Λ(t))` with respect to `μ`, which is at most
+`exp (t m + |t| c - Λ(t))` on the event `|X - m| ≤ c`, and that event has probability at least
+`1 - Λ''(t) / c²` under the tilted measure by Chebyshev's inequality. This is the change of
+measure in the proof of the lower bound of Cramér's theorem, where `X` is a sum of `n`
+independent copies of a random variable, `Λ` and `Λ''` grow linearly in `n`, and `c` is
+proportional to `n`. -/
+lemma exp_mul_le_measureReal_abs_sub_deriv_cgf_le [IsFiniteMeasure μ] [NeZero μ]
+    (ht : t ∈ interior (integrableExpSet X μ)) {c : ℝ} (hc : 0 < c) :
+    exp (-(t * deriv (cgf X μ) t - cgf X μ t + |t| * c)) *
+        (1 - iteratedDeriv 2 (cgf X μ) t / c ^ 2) ≤
+      μ.real {ω | |X ω - deriv (cgf X μ) t| ≤ c} := by
+  set m := deriv (cgf X μ) t
+  set A := {ω | |X ω - m| ≤ c}
+  have h_int : Integrable (fun ω ↦ exp (t * X ω)) μ := interior_subset ht
+  have hA : NullMeasurableSet A μ :=
+    nullMeasurableSet_le
+      (continuous_abs.measurable.comp_aemeasurable
+        ((aemeasurable_of_mem_interior_integrableExpSet ht).sub_const m))
+      aemeasurable_const
+  have := isProbabilityMeasure_tilted h_int
+  -- Chebyshev's inequality under the tilted measure, where `X` has mean `m`.
+  have h_tilt : 1 - iteratedDeriv 2 (cgf X μ) t / c ^ 2 ≤ (μ.tilted (t * X ·)).real A := by
+    have h_compl : (μ.tilted (t * X ·)).real Aᶜ ≤ iteratedDeriv 2 (cgf X μ) t / c ^ 2 := by
+      rw [← variance_tilted_mul ht]
+      refine ENNReal.toReal_le_of_le_ofReal (div_nonneg (variance_nonneg _ _) (sq_nonneg c)) ?_
+      refine (measure_mono fun ω hω ↦ ?_).trans
+        (meas_ge_le_variance_div_sq (memLp_tilted_mul ht 2) hc)
+      simp only [A, mem_compl_iff, mem_ofPred_eq, not_le] at hω
+      simp only [mem_ofPred_eq, integral_tilted_mul_self ht]
+      exact hω.le
+    rw [measureReal_compl₀ (hA.mono_ac (tilted_absolutelyContinuous _ _)), probReal_univ] at h_compl
+    linarith
+  -- On `A`, the density of the tilted measure is at most `exp (t m + |t| c - Λ(t))`.
+  have h_le : (μ.tilted (t * X ·)).real A ≤ exp (t * m + |t| * c - cgf X μ t) * μ.real A := by
+    have h_meas :
+        μ.tilted (t * X ·) A ≤ ENNReal.ofReal (exp (t * m + |t| * c - cgf X μ t)) * μ A := by
+      rw [tilted_mul_apply_cgf A h_int, ← setLIntegral_const]
+      refine lintegral_mono_ae ((ae_restrict_iff'₀ hA).2 (ae_of_all _ fun ω hω ↦ ?_))
+      simp only [A, mem_ofPred_eq] at hω
+      have h_exp : t * X ω ≤ t * m + |t| * c := by
+        calc t * X ω = t * m + t * (X ω - m) := by ring
+        _ ≤ t * m + |t| * |X ω - m| := by
+          rw [← abs_mul]
+          exact add_le_add_right (le_abs_self _) _
+        _ ≤ t * m + |t| * c := by gcongr
+      gcongr
+    have := ENNReal.toReal_mono (ENNReal.mul_ne_top ENNReal.ofReal_ne_top (measure_ne_top _ _))
+      h_meas
+    rwa [ENNReal.toReal_mul, ENNReal.toReal_ofReal (exp_pos _).le] at this
+  calc exp (-(t * m - cgf X μ t + |t| * c)) * (1 - iteratedDeriv 2 (cgf X μ) t / c ^ 2)
+  _ ≤ exp (-(t * m - cgf X μ t + |t| * c)) * (μ.tilted (t * X ·)).real A := by gcongr
+  _ ≤ exp (-(t * m - cgf X μ t + |t| * c)) * (exp (t * m + |t| * c - cgf X μ t) * μ.real A) := by
+    gcongr
+  _ = μ.real A := by
+    rw [← mul_assoc, ← exp_add,
+      (by ring : -(t * m - cgf X μ t + |t| * c) + (t * m + |t| * c - cgf X μ t) = 0), exp_zero,
+      one_mul]
 
 end ProbabilityTheory
