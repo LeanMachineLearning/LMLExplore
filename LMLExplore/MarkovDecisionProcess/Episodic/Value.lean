@@ -28,6 +28,11 @@ run of this policy is the integral of `V^π_h` (`runReturn_augmented_markov`,
 complexity bounds of episodic learning consume: they compare these values for the policies chosen
 by a learner.
 
+The definition `augMarkovPolicy` is adapted from `augPolicy` in the formalization entropy-mdp
+(`github.com/RemyDegenne/entropy-mdp`, file
+`Essakine2026Tight/LeanMachineLearning/ReinforcementLearning/MDP/Episodic.lean`, by Rémy Degenne,
+Apache 2.0), from deterministic to stochastic Markov policies.
+
 ## Main definitions
 
 * `Learning.MDP.Episodic.augMarkovPolicy π`: the stationary policy of the augmented MDP playing the
@@ -129,6 +134,13 @@ theorem value_of_le {h : ℕ} (hh : H ≤ h) (s : 𝓢) : M.value H π h s = 0 :
 lemma value_self (s : 𝓢) : M.value H π H s = 0 :=
   value_of_le le_rfl s
 
+/-- If the value at the step `h + 1` is measurable, then the action value at the step `h` is a
+measurable function of the state-action pair. -/
+private lemma measurable_qValue_of {h : ℕ} (hV : Measurable (M.value H π (h + 1))) :
+    Measurable fun p : 𝓢 × 𝓐 ↦ M.qValue H π h p.1 p.2 :=
+  (M.measurable_meanReward h).add
+    (hV.stronglyMeasurable.integral_kernel (κ := M.trans h)).measurable
+
 section Measurable
 
 variable [∀ h, IsSFiniteKernel (π h)]
@@ -136,9 +148,7 @@ variable [∀ h, IsSFiniteKernel (π h)]
 /-- The value at every step is a measurable function of the state. -/
 theorem measurable_value (h : ℕ) : Measurable (M.value H π h) := by
   by_cases hh : h < H
-  · have hQ : Measurable fun p : 𝓢 × 𝓐 ↦ M.qValue H π h p.1 p.2 :=
-      (M.measurable_meanReward h).add
-        ((measurable_value (h + 1)).stronglyMeasurable.integral_kernel (κ := M.trans h)).measurable
+  · have hQ := measurable_qValue_of (M := M) (measurable_value (h + 1))
     rw [funext (value_of_lt hh)]
     exact (hQ.stronglyMeasurable.integral_kernel_prod_right' (κ := π h)).measurable
   · rw [funext (value_of_le (not_lt.1 hh))]
@@ -147,8 +157,7 @@ termination_by H - h
 
 /-- The action value at every step is a measurable function of the state-action pair. -/
 theorem measurable_qValue (h : ℕ) : Measurable fun p : 𝓢 × 𝓐 ↦ M.qValue H π h p.1 p.2 :=
-  (M.measurable_meanReward h).add
-    ((measurable_value (h + 1)).stronglyMeasurable.integral_kernel (κ := M.trans h)).measurable
+  measurable_qValue_of (measurable_value (h + 1))
 
 /-- The values of `π` at all steps, read at the step of the augmented state, form a measurable
 function on the augmented states. -/
@@ -160,9 +169,9 @@ variable (M H π) in
 values read at the step of the augmented state. -/
 theorem lookahead_augmented_value (s : 𝓢) (h : ℕ) (a' : 𝓐) :
     M.augmented.lookahead 1 (fun q ↦ M.value H π q.2 q.1) ((s, h), a') = M.qValue H π h s a' := by
-  rw [MDP.lookahead_def, meanReward_augmented, augmented_P_apply,
-    integral_map measurable_prodMk_right.aemeasurable
-      measurable_value_augmented.aestronglyMeasurable, NNReal.coe_one, one_mul, qValue_def]
+  simp only [MDP.lookahead_def, meanReward_augmented, augmented_P_apply, NNReal.coe_one, one_mul,
+    qValue_def, integral_map measurable_prodMk_right.aemeasurable
+      measurable_value_augmented.aestronglyMeasurable]
 
 end Measurable
 
