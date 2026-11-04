@@ -45,18 +45,24 @@ against `Environment.ofSeq o g _` with expert advice `o` (`IsAlgEnvSeq.feedback_
 * `sum_iwEstimator`: the importance-weighted estimates of all the arms sum to `y / p b`.
 * `sum_mul_iwEstimator_sq`: the `p`-average of the squared importance-weighted estimates is
   `y ^ 2 / p b`, the second moment that the analysis of Exp3 controls.
-* `iwEstimator_nonneg`, `lossIwEstimator_le_one`: the importance-weighted estimates of a
-  nonnegative reward are nonnegative, and the loss-based estimates are at most `1` for rewards at
-  most `1`.
+* `iwEstimator_nonneg`, `iwEstimator_le_one_div`, `lossIwEstimator_le_one`: the
+  importance-weighted estimates of a nonnegative reward are nonnegative, those of a reward at most
+  `1` are at most `1 / p a`, and the loss-based estimates are at most `1` for rewards at most `1`.
+* `iwEstimator_mul_iwEstimator_of_ne`: the importance-weighted estimates of two different arms
+  multiply to `0`.
+* `iwEstimator_div_one_add_div`, `sub_sum_mul_iwEstimator_add`, `sum_mul_iwEstimator_add_sq_le`:
+  the importance-weighted estimator for the weights `p + γ`, the implicit-exploration estimator of
+  Exp3-IX [LS, (12.4)], is the estimator for the weights `p` discounted by `1 + γ / p a`; its bias
+  is `γ` times the sum of the estimates [LS, Lemma 12.4]; and for losses in `[0, 1]` the
+  `p`-average of its squares is at most this sum.
 * `comp_feedback_ae_eq`: when the feedback `Y n` is almost surely `x (A n)`, it can be replaced
   by `x (A n)` in any function of the past, the action and the feedback of round `n`.
 * `Learning.IsAlgEnvSeq.integrable_feedback_of_ae_eq`: such a feedback is integrable when there
   are finitely many actions.
-* `ae_feedback_le_one`: when the feedbacks are almost surely rewards at most `1`, they are almost
-  surely at most `1`.
-* `ae_forall_feedback_eq`, `ae_feedback_mem_Icc`: when the feedbacks of the rounds `t < n` are
-  almost surely rewards, they are almost surely these rewards at all these rounds simultaneously,
-  and almost surely in `[0, 1]` when the rewards are.
+* `ae_forall_feedback_eq`, `ae_feedback_le_one`, `ae_feedback_mem_Icc`: when the feedbacks of the
+  rounds `t < n` are almost surely rewards, they are almost surely these rewards at all these
+  rounds simultaneously, and almost surely at most `1`, respectively in `[0, 1]`, when the rewards
+  are.
 * `WeightAlgorithm.condExp_iwEstimator`, `WeightAlgorithm.condExp_lossIwEstimator`: conditional
   unbiasedness along a run of a weight-based algorithm [LS, (11.4)].
 * `WeightAlgorithm.integral_iwEstimator`, `WeightAlgorithm.integral_lossIwEstimator`: the
@@ -78,7 +84,7 @@ open MeasureTheory ProbabilityTheory Learning Finset
 
 namespace LMLExplore.Bandits
 
-variable {α : Type*} [DecidableEq α] {p x : α → ℝ} {a b : α} {y : ℝ}
+variable {α : Type*} [DecidableEq α] {p x : α → ℝ} {a b : α} {y γ : ℝ}
 
 section Estimator
 
@@ -108,6 +114,30 @@ lemma iwEstimator_nonneg (hp : 0 ≤ p b) (hy : 0 ≤ y) : 0 ≤ iwEstimator p b
   · subst h
     exact div_nonneg hy hp
   · exact le_rfl
+
+/-- The importance-weighted estimate of a reward at most `1` is at most `1 / p a`. -/
+lemma iwEstimator_le_one_div (ha : 0 ≤ p a) (hy : y ≤ 1) : iwEstimator p b y a ≤ 1 / p a := by
+  rw [iwEstimator_apply]
+  split_ifs
+  · exact div_le_div_of_nonneg_right hy ha
+  · positivity
+
+/-- The importance-weighted estimates of two different arms multiply to `0`: at most one of them,
+that of the drawn arm, is nonzero. -/
+lemma iwEstimator_mul_iwEstimator_of_ne {a a' : α} (h : a ≠ a') :
+    iwEstimator p b y a * iwEstimator p b y a' = 0 := by
+  rcases eq_or_ne a b with rfl | ha
+  · simp [iwEstimator_apply_of_ne h.symm]
+  · simp [iwEstimator_apply_of_ne ha]
+
+/-- The importance-weighted estimate for the weights `p` with the discount `1 / (1 + γ / p a)` of
+[LS, Lemma 12.2] is the implicit-exploration estimate for the weights `p + γ`. -/
+lemma iwEstimator_div_one_add_div (ha : 0 < p a) :
+    iwEstimator p b y a / (1 + γ / p a) = iwEstimator (fun c ↦ p c + γ) b y a := by
+  rw [iwEstimator_apply, iwEstimator_apply]
+  split_ifs
+  · field_simp
+  · simp
 
 /-- The **loss-based importance-weighted estimator** [LS, (11.6)]: when the arm `b` is drawn from
 the probability vector `p` and its reward `y` is observed, the estimate of the reward of arm `a` is
@@ -182,6 +212,30 @@ lemma sum_mul_iwEstimator_sq : ∑ a, p a * iwEstimator p b y a ^ 2 = y ^ 2 / p 
   rcases eq_or_ne (p b) 0 with hb | hb
   · simp [hb]
   · field_simp
+
+/-- **Bias of the implicit-exploration estimator** [LS, proof of Lemma 12.4]: the observed loss `y`
+exceeds the `p`-average of its importance-weighted estimates for the weights `p + γ` by `γ` times
+their sum. -/
+lemma sub_sum_mul_iwEstimator_add (hb : p b + γ ≠ 0) :
+    y - ∑ a, p a * iwEstimator (fun c ↦ p c + γ) b y a =
+      γ * ∑ a, iwEstimator (fun c ↦ p c + γ) b y a := by
+  have hp : ∑ a, p a * iwEstimator (fun c ↦ p c + γ) b y a = p b * y / (p b + γ) := by
+    simpa only [dotProduct] using dotProduct_iwEstimator (p := fun c ↦ p c + γ) (b := b) (y := y) p
+  rw [hp, sum_iwEstimator]
+  field_simp
+  ring
+
+/-- For a loss `y ∈ [0, 1]` and `γ ≥ 0`, the `p`-average of the squared importance-weighted
+estimates for the weights `p + γ` is at most their sum. -/
+lemma sum_mul_iwEstimator_add_sq_le (hp : 0 ≤ p b) (hγ : 0 ≤ γ) (hb : 0 < p b + γ)
+    (hy : y ∈ Set.Icc 0 1) :
+    ∑ a, p a * iwEstimator (fun c ↦ p c + γ) b y a ^ 2 ≤
+      ∑ a, iwEstimator (fun c ↦ p c + γ) b y a := by
+  rw [Finset.sum_eq_single b (fun a _ ha ↦ by simp [ha]) (by simp), iwEstimator_apply_self,
+    sum_iwEstimator, div_pow, mul_div_assoc', div_le_div_iff₀ (pow_pos hb 2) hb]
+  have : p b * y ^ 2 ≤ y * (p b + γ) := by
+    nlinarith [mul_nonneg (mul_nonneg hp hy.1) (sub_nonneg.2 hy.2), mul_nonneg hy.1 hγ]
+  nlinarith [mul_le_mul_of_nonneg_right this hb.le]
 
 /-- The `p`-average of the loss-based importance-weighted estimates is the observed reward. -/
 lemma sum_mul_lossIwEstimator (hp : ∑ a, p a = 1) (hb : p b ≠ 0) :
@@ -268,19 +322,6 @@ lemma _root_.Learning.IsAlgEnvSeq.integrable_feedback_of_ae_eq [MeasurableSpace 
 
 omit [DecidableEq α] in
 /-- If the feedback `Y t` of every round `t < n` is almost surely the reward `x t (A t)` of the
-action and the rewards are at most `1`, then almost surely the feedbacks of the rounds `t < n` are
-at most `1`. -/
-lemma ae_feedback_le_one {x : ℕ → α → ℝ} (hY : ∀ t < n, Y t =ᵐ[P] x t ∘ A t)
-    (hx : ∀ t < n, ∀ a, x t a ≤ 1) : ∀ᵐ ω ∂P, ∀ t < n, Y t ω ≤ 1 := by
-  refine ae_all_iff.2 fun t ↦ ?_
-  by_cases ht : t < n
-  · filter_upwards [hY t ht] with ω hω _
-    rw [hω]
-    exact hx t ht _
-  · exact ae_of_all _ fun _ ht' ↦ absurd ht' ht
-
-omit [DecidableEq α] in
-/-- If the feedback `Y t` of every round `t < n` is almost surely the reward `x t (A t)` of the
 action, then almost surely the feedbacks of all the rounds `t < n` are these rewards. -/
 lemma ae_forall_feedback_eq {x : ℕ → α → ℝ} (hY : ∀ t < n, Y t =ᵐ[P] x t ∘ A t) :
     ∀ᵐ ω ∂P, ∀ t < n, Y t ω = x t (A t ω) := by
@@ -288,6 +329,16 @@ lemma ae_forall_feedback_eq {x : ℕ → α → ℝ} (hY : ∀ t < n, Y t =ᵐ[P
   by_cases ht : t < n
   · filter_upwards [hY t ht] with ω hω _ using hω
   · exact ae_of_all _ fun _ ht' ↦ absurd ht' ht
+
+omit [DecidableEq α] in
+/-- If the feedback `Y t` of every round `t < n` is almost surely the reward `x t (A t)` of the
+action and the rewards are at most `1`, then almost surely the feedbacks of the rounds `t < n` are
+at most `1`. -/
+lemma ae_feedback_le_one {x : ℕ → α → ℝ} (hY : ∀ t < n, Y t =ᵐ[P] x t ∘ A t)
+    (hx : ∀ t < n, ∀ a, x t a ≤ 1) : ∀ᵐ ω ∂P, ∀ t < n, Y t ω ≤ 1 := by
+  filter_upwards [ae_forall_feedback_eq hY] with ω hω t ht
+  rw [hω t ht]
+  exact hx t ht _
 
 omit [DecidableEq α] in
 /-- If the feedback `Y t` of every round `t < n` is almost surely the reward `x t (A t)` of the

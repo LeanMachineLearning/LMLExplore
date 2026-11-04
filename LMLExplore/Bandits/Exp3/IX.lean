@@ -48,6 +48,8 @@ with probability at least `1 - δ`, and the confidence-dependent learning rate
 * `exp3IX_eq_exp3`: Exp3-IX with `γ = 0` is Exp3.
 * `Exp3IX.sum_sub_sum_mul_eq_mul_sum`: [LS, Lemma 12.4], the bias of the loss estimates.
 * `Exp3IX.sum_sub_exp3IXSum_le`: the pathwise bound on the estimated regret of Exp3-IX.
+* `Exp3IX.mul_sum_mul_exp3IXSum_sub_eq`: the weighted deviations of the loss estimates from the
+  losses, written as the sum to which the concentration of [LS, Lemma 12.2] applies.
 * `Exp3IX.measure_le_sum_mul_exp3IXSum_sub_le`: the concentration of a weighted sum of the
   deviations `L̂ n a - L n a` of the loss estimates from the losses.
 * `Exp3IX.measure_le_exp3IXSum_sub_le`, `Exp3IX.measure_le_sum_exp3IXSum_sub_le`: the
@@ -55,6 +57,8 @@ with probability at least `1 - δ`, and the confidence-dependent learning rate
 * `Exp3IX.measure_exists_le_exp3IXSum_sub_union_le`: [LS, Lemma 12.3].
 * `Exp3IX.measure_exists_le_sum_sub_le`: the high-probability bound on the random regret of
   Exp3-IX for every `η, γ > 0`.
+* `Exp3IX.measure_exists_div_add_mul_add_le_sum_sub_le`: the same bound for `γ = η / 2`, in the
+  form `L / η + η n k + log ((k + 1) / δ)` from which both bounds of [LS, Theorem 12.1] follow.
 * `Exp3IX.measure_exists_sqrt_le_sum_sub_le`, `Exp3IX.measure_exists_two_mul_sqrt_le_sum_sub_le`:
   the two bounds of [LS, Theorem 12.1].
 * `exp3IX_measure_exists_sqrt_le_sum_sub_le`, `exp3IX_measure_exists_two_mul_sqrt_le_sum_sub_le`:
@@ -239,47 +243,6 @@ lemma exp3IXWeights_history_eq (n : ℕ) (ω : Ω) :
 
 end History
 
-/-! ### The implicit-exploration estimate of one round -/
-
-section Estimator
-
-variable {p : α → ℝ} {b : α} {z : ℝ}
-
-/-- **Bias of one round** [LS, proof of Lemma 12.4]: the observed loss `z` exceeds the
-`p`-average of its implicit-exploration estimates by `γ` times their sum. -/
-private lemma sub_sum_mul_iwEstimator_add (hb : p b + γ ≠ 0) :
-    z - ∑ a, p a * iwEstimator (fun c ↦ p c + γ) b z a =
-      γ * ∑ a, iwEstimator (fun c ↦ p c + γ) b z a := by
-  have hp : ∑ a, p a * iwEstimator (fun c ↦ p c + γ) b z a = p b * z / (p b + γ) := by
-    simpa only [dotProduct] using dotProduct_iwEstimator (p := fun c ↦ p c + γ) (b := b) (y := z) p
-  rw [hp, sum_iwEstimator]
-  field_simp
-  ring
-
-/-- For a loss `z ∈ [0, 1]`, the `p`-average of the squared implicit-exploration estimates is at
-most their sum. -/
-private lemma sum_mul_iwEstimator_add_sq_le (hp : 0 ≤ p b) (hγ : 0 ≤ γ) (hb : 0 < p b + γ)
-    (hz : z ∈ Set.Icc 0 1) :
-    ∑ a, p a * iwEstimator (fun c ↦ p c + γ) b z a ^ 2 ≤
-      ∑ a, iwEstimator (fun c ↦ p c + γ) b z a := by
-  rw [Finset.sum_eq_single b (fun a _ ha ↦ by simp [ha]) (by simp), iwEstimator_apply_self,
-    sum_iwEstimator, div_pow, mul_div_assoc', div_le_div_iff₀ (pow_pos hb 2) hb]
-  have : p b * z ^ 2 ≤ z * (p b + γ) := by
-    nlinarith [mul_nonneg (mul_nonneg hp hz.1) (sub_nonneg.2 hz.2), mul_nonneg hz.1 hγ]
-  nlinarith [mul_le_mul_of_nonneg_right this hb.le]
-
-omit [Fintype α] in
-/-- The importance-weighted estimate for the weights `p` with the discount `1 / (1 + γ / p a)` of
-[LS, Lemma 12.2] is the implicit-exploration estimate for the weights `p + γ`. -/
-private lemma iwEstimator_div_one_add_div {a : α} (ha : 0 < p a) :
-    iwEstimator p b z a / (1 + γ / p a) = iwEstimator (fun c ↦ p c + γ) b z a := by
-  rw [iwEstimator_apply, iwEstimator_apply]
-  split_ifs
-  · field_simp
-  · simp
-
-end Estimator
-
 namespace Exp3IX
 
 /-! ### Pathwise bounds -/
@@ -340,6 +303,24 @@ theorem sum_sub_exp3IXSum_le (hη : 0 < η) (hγ : 0 ≤ γ) (hY : ∀ t < n, Y 
   have h2' := mul_le_mul_of_nonneg_left h2 (half_pos hη).le
   rw [hLa]
   linarith
+
+/-- Along every sequence of actions `A` and feedbacks `Y`, with `P t` the weights of Exp3-IX at
+round `t` and `L̂ n` its cumulative loss estimates, the weighted deviations
+`c ∑ a, v a * (L̂ n a - L n a)` from the cumulative losses `L n a = ∑ t < n, (1 - x t a)` are the
+sums over the rounds `t < n` and the arms of `c v a` times the deviations of the importance-weighted
+estimates for the weights `P t`, discounted by `1 + γ / P t a` as in [LS, Lemma 12.2], from the
+losses `1 - x t a`. -/
+lemma mul_sum_mul_exp3IXSum_sub_eq (c : ℝ) (v : α → ℝ) (x : ℕ → α → ℝ) :
+    c * ∑ a, v a * (exp3IXSum η γ n (history O A Y n ω) a - ∑ t ∈ range n, (1 - x t a)) =
+      ∑ t ∈ range n, ∑ a, c * v a *
+        (iwEstimator (exp3IXWeights η γ t (history O A Y t ω)) (A t ω) (1 - Y t ω) a /
+          (1 + γ / exp3IXWeights η γ t (history O A Y t ω) a) - (1 - x t a)) := by
+  rw [exp3IXSum_history, Finset.mul_sum, Finset.sum_comm]
+  refine Finset.sum_congr rfl fun a _ ↦ ?_
+  rw [Finset.sum_apply, ← Finset.sum_sub_distrib, Finset.mul_sum, Finset.mul_sum]
+  refine Finset.sum_congr rfl fun t _ ↦ ?_
+  rw [iwEstimator_div_one_add_div (exp3IXWeights_pos _ _ a)]
+  ring
 
 end Pathwise
 
@@ -429,11 +410,8 @@ theorem measure_le_sum_mul_exp3IXSum_sub_le {v : α → ℝ} (hv : ∀ a, v a �
     have hl0 : 0 ≤ 2 * l t a ω := by positivity
     simp only [hw, hX, hl]
     split_ifs with ht
-    · have hX1 : iwEstimator (p t ω) (A t ω) (1 - Y t ω) a ≤ 1 / p t ω a := by
-        rw [iwEstimator_apply]
-        split_ifs
-        · exact div_le_div_of_nonneg_right (sub_le_self _ (hω t ht).1) hpa.le
-        · positivity
+    · have hX1 : iwEstimator (p t ω) (A t ω) (1 - Y t ω) a ≤ 1 / p t ω a :=
+        iwEstimator_le_one_div hpa.le (sub_le_self _ (hω t ht).1)
       have hX0 : 0 ≤ iwEstimator (p t ω) (A t ω) (1 - Y t ω) a :=
         iwEstimator_nonneg (exp3IXWeights_pos _ _ _).le (sub_nonneg.2 (hω t ht).2)
       have hvX : v a * iwEstimator (p t ω) (A t ω) (1 - Y t ω) a ≤ 1 / p t ω a :=
@@ -447,9 +425,7 @@ theorem measure_le_sum_mul_exp3IXSum_sub_le {v : α → ℝ} (hv : ∀ a, v a �
     fun t i j hij ↦ ae_of_all _ fun ω ↦ by
       simp only [hX]
       split_ifs
-      · rcases eq_or_ne i (A t ω) with rfl | hi
-        · simp [iwEstimator_apply_of_ne hij.symm]
-        · simp [iwEstimator_apply_of_ne hi]
+      · rw [mul_mul_mul_comm, iwEstimator_mul_iwEstimator_of_ne hij, mul_zero]
       · simp
   have key := measure_log_one_div_le_sum_sum_mul_div_one_add_sub_le (ℱ := h.filtrationObs)
     hXm hXint hX0 hXy (fun _ _ ↦ measurable_const) (fun t a ↦ measurable_const.div (hpm' t a))
@@ -458,20 +434,9 @@ theorem measure_le_sum_mul_exp3IXSum_sub_le {v : α → ℝ} (hv : ∀ a, v a �
   -- the sum of the concentration inequality is `2 γ ∑ a, v a * (L̂ n a - L n a)`
   refine le_trans (measure_mono fun ω hω ↦ ?_) key
   simp only [Set.mem_ofPred_eq] at hω ⊢
-  refine hω.trans_eq ?_
-  calc 2 * γ * ∑ a, v a * (exp3IXSum η γ n (history O A Y n ω) a - ∑ t ∈ range n, (1 - x t a))
-      = ∑ a, ∑ t ∈ range n, 2 * γ * v a * (iwEstimator
-          (fun c ↦ exp3IXWeights η γ t (history O A Y t ω) c + γ) (A t ω) (1 - Y t ω) a -
-            (1 - x t a)) := by
-        rw [exp3IXSum_history, Finset.mul_sum]
-        refine Finset.sum_congr rfl fun a _ ↦ ?_
-        rw [Finset.sum_apply, ← Finset.sum_sub_distrib, Finset.mul_sum, Finset.mul_sum]
-        exact Finset.sum_congr rfl fun t _ ↦ by ring
-    _ = ∑ t ∈ range n, ∑ a, w t a ω * (X t a ω / (1 + l t a ω) - y t a ω) := by
-        rw [Finset.sum_comm]
-        refine Finset.sum_congr rfl fun t ht ↦ Finset.sum_congr rfl fun a _ ↦ ?_
-        simp only [hw, hX, hl, hy, hp, mem_range.1 ht, ite_true,
-          iwEstimator_div_one_add_div (exp3IXWeights_pos _ _ a)]
+  rw [mul_sum_mul_exp3IXSum_sub_eq O A Y ω] at hω
+  refine hω.trans_eq (Finset.sum_congr rfl fun t ht ↦ Finset.sum_congr rfl fun a _ ↦ ?_)
+  simp only [hX, hy, hp, mem_range.1 ht, ite_true, Pi.div_apply]
 
 /-- **Concentration of the loss estimates of one arm** [LS, (12.9)]. Along a run of Exp3-IX with
 `γ > 0` whose feedback at every round `t < n` is the reward `x t (A t) ∈ [0, 1]` of its action, for
@@ -596,6 +561,47 @@ theorem measure_exists_le_sum_sub_le (hη : 0 < η) (hγ : 0 < γ)
   have hS' := mul_le_mul_of_nonneg_left hS (by positivity : 0 ≤ γ + η / 2)
   linarith [hEa a]
 
+/-- **High-probability regret bound of Exp3-IX with `γ = η / 2`** [LS, proof of Theorem 12.1].
+Along a run of Exp3-IX with learning rate `η ≥ 0` and implicit-exploration parameter `γ = η / 2`
+whose feedback at every round `t < n` is the reward `x t (A t) ∈ [0, 1]` of its action, for
+`δ > 0` and `L ≥ log k + log ((k + 1) / δ)` such that `η > 0` whenever `n` and `L` are positive,
+the probability that the random regret `∑ t < n, (x t a - x t (A t))` against some arm `a` is at
+least `L / η + η n k + log ((k + 1) / δ)` is at most `δ`, with `k` the number of arms. -/
+theorem measure_exists_div_add_mul_add_le_sum_sub_le {L : ℝ} (hη : 0 ≤ η)
+    (hηL : 0 < n → 0 < L → 0 < η)
+    (hL : log (Fintype.card α) + log ((Fintype.card α + 1) / δ) ≤ L)
+    (hY : ∀ t < n, Y t =ᵐ[P] x t ∘ A t) (hx : ∀ t < n, ∀ a, x t a ∈ Set.Icc 0 1)
+    (h : IsAlgEnvSeq O A Y (exp3IX η (η / 2)) env P) (hδ : 0 < δ) :
+    P {ω | ∃ a, L / η + η * (n * Fintype.card α) + log ((Fintype.card α + 1) / δ) ≤
+      ∑ t ∈ range n, (x t a - x t (A t ω))} ≤ ENNReal.ofReal δ := by
+  rcases le_or_gt 1 δ with hδ1 | hδ1
+  · exact prob_le_one.trans (ENNReal.one_le_ofReal.2 hδ1)
+  have hk0 : (0 : ℝ) < Fintype.card α := by exact_mod_cast Fintype.card_pos
+  have hlogδ : 0 < log ((Fintype.card α + 1) / δ) := log_pos ((one_lt_div hδ).2 (by linarith))
+  have hlogk : 0 ≤ log (Fintype.card α) := log_nonneg (by exact_mod_cast Fintype.card_pos)
+  have hL0 : 0 < L := by linarith
+  -- with no round, the regret is zero
+  rcases Nat.eq_zero_or_pos n with rfl | hn
+  · refine (measure_mono_null (fun ω hω ↦ ?_) measure_empty).trans_le zero_le
+    obtain ⟨a, ha⟩ := hω
+    simp only [CharP.cast_eq_zero, zero_mul, mul_zero, add_zero, range_zero, sum_empty] at ha
+    linarith [div_nonneg hL0.le hη]
+  have hη0 := hηL hn hL0
+  refine (measure_mono fun ω hω ↦ ?_).trans
+    (measure_exists_le_sum_sub_le hη0 (half_pos hη0) hY hx h hδ)
+  obtain ⟨a, ha⟩ := hω
+  refine ⟨a, le_trans ?_ ha⟩
+  -- the bound of `measure_exists_le_sum_sub_le` for `γ = η / 2`
+  have e1 : log (Fintype.card α) / η + (η / 2 + η / 2) * (n * Fintype.card α +
+      log ((Fintype.card α + 1) / δ) / (2 * (η / 2))) +
+        log ((Fintype.card α + 1) / δ) / (2 * (η / 2)) =
+      (log (Fintype.card α) + log ((Fintype.card α + 1) / δ)) / η + η * (n * Fintype.card α) +
+        log ((Fintype.card α + 1) / δ) := by
+    field_simp
+    ring
+  rw [e1]
+  gcongr
+
 /-- **High-probability regret bound of Exp3-IX** [LS, Theorem 12.1, (12.5)]. Along a run of
 Exp3-IX with learning rate `η = √(2 log (k + 1) / (n k))` and implicit-exploration parameter
 `γ = η / 2` whose feedback at every round `t < n` is the reward `x t (A t) ∈ [0, 1]` of its action,
@@ -612,52 +618,32 @@ theorem measure_exists_sqrt_le_sum_sub_le (hY : ∀ t < n, Y t =ᵐ[P] x t ∘ A
           log ((Fintype.card α + 1) / δ) ≤ ∑ t ∈ range n, (x t a - x t (A t ω))} ≤
       ENNReal.ofReal δ := by
   set k : ℝ := (Fintype.card α : ℝ) with hk
-  rcases le_or_gt 1 δ with hδ1 | hδ1
-  · exact prob_le_one.trans (ENNReal.one_le_ofReal.2 hδ1)
   have hk0 : 0 < k := by rw [hk]; exact_mod_cast Fintype.card_pos
   have hL : 0 < log (k + 1) := log_pos (by linarith)
-  have hlogδ : 0 < log ((k + 1) / δ) := log_pos ((one_lt_div hδ).2 (by linarith))
-  -- with no round, the regret is zero
-  rcases Nat.eq_zero_or_pos n with rfl | hn
-  · refine (measure_mono_null (fun ω hω ↦ ?_) measure_empty).trans_le zero_le
-    obtain ⟨a, ha⟩ := hω
-    simp only [CharP.cast_eq_zero, zero_mul, mul_zero, sqrt_zero, zero_div, zero_add,
-      range_zero, sum_empty] at ha
-    linarith
   set m : ℝ := n * k with hm
-  have hm0 : 0 < m := mul_pos (by exact_mod_cast hn) hk0
+  have hm0 : 0 ≤ m := mul_nonneg n.cast_nonneg hk0.le
   set η := √(2 * log (k + 1) / m) with hη
-  have hη0 : 0 < η := sqrt_pos.2 (by positivity)
-  refine (measure_mono fun ω hω ↦ ?_).trans
-    (measure_exists_le_sum_sub_le hη0 (half_pos hη0) hY hx h hδ)
-  obtain ⟨a, ha⟩ := hω
-  refine ⟨a, le_trans ?_ ha⟩
-  -- the bound of `measure_exists_le_sum_sub_le` for `γ = η / 2`
-  rw [← hk]
+  -- `L = 2 log (k + 1) + log (1 / δ)` in `measure_exists_div_add_mul_add_le_sum_sub_le`
   have hlog : log ((k + 1) / δ) = log (k + 1) + log (1 / δ) := by
     rw [div_eq_mul_one_div, log_mul (by linarith) (by positivity)]
-  have e1 : log k / η + (η / 2 + η / 2) * (n * k + log ((k + 1) / δ) / (2 * (η / 2))) +
-      log ((k + 1) / δ) / (2 * (η / 2)) =
-        log k / η + η * m + log ((k + 1) / δ) + log ((k + 1) / δ) / η := by
-    rw [hm]
-    field_simp
-    ring
+  have hLle : log k + log ((k + 1) / δ) ≤ 2 * log (k + 1) + log (1 / δ) := by
+    rw [hlog]
+    linarith [log_le_log hk0 (by linarith : k ≤ k + 1)]
+  refine (measure_mono fun ω hω ↦ ?_).trans
+    (measure_exists_div_add_mul_add_le_sum_sub_le (sqrt_nonneg _)
+      (fun hn _ ↦ sqrt_pos.2 (div_pos (by positivity) (mul_pos (Nat.cast_pos.2 hn) hk0))) hLle
+      hY hx h hδ)
+  obtain ⟨a, ha⟩ := hω
+  refine ⟨a, le_trans (le_of_eq ?_) ha⟩
   have e2 : √(8 * n * k * log (k + 1)) = 2 * log (k + 1) / η + η * m := by
-    have := div_sqrt_add_sqrt_mul_div_two (log (k + 1)) hm0.le
+    have := div_sqrt_add_sqrt_mul_div_two (log (k + 1)) hm0
     rw [show (8 : ℝ) * n * k * log (k + 1) = 2 ^ 2 * (2 * m * log (k + 1)) by rw [hm]; ring,
       sqrt_mul (by positivity), sqrt_sq zero_le_two, ← this, hη]
     ring
   have e3 : √(n * k / (2 * log (k + 1))) = 1 / η := by
     rw [hη, one_div, ← sqrt_inv, inv_div, hm]
-  have hd : 0 ≤ (log (k + 1) - log k) / η :=
-    div_nonneg (sub_nonneg.2 (log_le_log hk0 (by linarith))) hη0.le
-  have hdiff : 2 * log (k + 1) / η + η * m + 1 / η * log (1 / δ) +
-      (log (k + 1) + log (1 / δ)) - (log k / η + η * m + (log (k + 1) + log (1 / δ)) +
-        (log (k + 1) + log (1 / δ)) / η) = (log (k + 1) - log k) / η := by
-    field_simp
-    ring
-  rw [e1, e2, e3, hlog]
-  linarith
+  rw [e2, e3, ← hm]
+  ring
 
 /-- **High-probability regret bound of Exp3-IX for a fixed confidence level**
 [LS, Theorem 12.1, (12.6)]. Along a run of Exp3-IX with learning rate
@@ -676,37 +662,20 @@ theorem measure_exists_two_mul_sqrt_le_sum_sub_le (hY : ∀ t < n, Y t =ᵐ[P] x
           log ((Fintype.card α + 1) / δ) ≤ ∑ t ∈ range n, (x t a - x t (A t ω))} ≤
       ENNReal.ofReal δ := by
   set k : ℝ := (Fintype.card α : ℝ) with hk
-  rcases le_or_gt 1 δ with hδ1 | hδ1
-  · exact prob_le_one.trans (ENNReal.one_le_ofReal.2 hδ1)
   have hk0 : 0 < k := by rw [hk]; exact_mod_cast Fintype.card_pos
-  have hlogδ : 0 < log ((k + 1) / δ) := log_pos ((one_lt_div hδ).2 (by linarith))
-  have hlogk : 0 ≤ log k := log_nonneg (by rw [hk]; exact_mod_cast Fintype.card_pos)
-  -- with no round, the regret is zero
-  rcases Nat.eq_zero_or_pos n with rfl | hn
-  · refine (measure_mono_null (fun ω hω ↦ ?_) measure_empty).trans_le zero_le
-    obtain ⟨a, ha⟩ := hω
-    simp only [CharP.cast_eq_zero, mul_zero, zero_mul, sqrt_zero, range_zero,
-      sum_empty] at ha
-    linarith
   set m : ℝ := n * k with hm
-  have hm0 : 0 < m := mul_pos (by exact_mod_cast hn) hk0
+  have hm0 : 0 ≤ m := mul_nonneg n.cast_nonneg hk0.le
   set M := log k + log ((k + 1) / δ) with hM
-  have hM0 : 0 < M := by positivity
   set η := √(M / m) with hη
-  have hη0 : 0 < η := sqrt_pos.2 (by positivity)
   refine (measure_mono fun ω hω ↦ ?_).trans
-    (measure_exists_le_sum_sub_le hη0 (half_pos hη0) hY hx h hδ)
+    (measure_exists_div_add_mul_add_le_sum_sub_le (L := M) (sqrt_nonneg _)
+      (fun hn hM0 ↦ sqrt_pos.2 (div_pos hM0 (mul_pos (Nat.cast_pos.2 hn) hk0))) le_rfl
+      hY hx h hδ)
   obtain ⟨a, ha⟩ := hω
   refine ⟨a, le_trans ?_ ha⟩
-  -- the bound of `measure_exists_le_sum_sub_le` for `γ = η / 2` is `2 √(M m) + log ((k + 1) / δ)`
-  rw [← hk]
-  have e1 : log k / η + (η / 2 + η / 2) * (n * k + log ((k + 1) / δ) / (2 * (η / 2))) +
-      log ((k + 1) / δ) / (2 * (η / 2)) = M / η + η * m + log ((k + 1) / δ) := by
-    rw [hM, hm]
-    field_simp
-    ring
+  -- the bound `M / η + η m + log ((k + 1) / δ)` is `2 √(M m) + log ((k + 1) / δ)`
   have hbal : M / η + η * m = 2 * √(M * m) := by
-    have := div_sqrt_add_sqrt_mul_div_two (M / 2) hm0.le
+    have := div_sqrt_add_sqrt_mul_div_two (M / 2) hm0
     rw [show 2 * (M / 2) / m = M / m by ring, show 2 * m * (M / 2) = M * m by ring, ← hη] at this
     rw [← this]
     ring
@@ -719,8 +688,8 @@ theorem measure_exists_two_mul_sqrt_le_sum_sub_le (hY : ∀ t < n, Y t =ᵐ[P] x
     linarith
   have hsqrt : √(M * m) ≤ √((2 * log (k + 1) + log (1 / δ)) * n * k) := by
     rw [mul_assoc _ (n : ℝ) k, ← hm]
-    exact sqrt_le_sqrt (mul_le_mul_of_nonneg_right hMle hm0.le)
-  rw [e1, hbal]
+    exact sqrt_le_sqrt (mul_le_mul_of_nonneg_right hMle hm0)
+  rw [← hm, hbal]
   linarith
 
 end Regret
