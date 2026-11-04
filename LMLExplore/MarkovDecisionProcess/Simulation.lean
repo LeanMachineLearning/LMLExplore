@@ -42,7 +42,7 @@ an error of at most `γ ε / (1 - γ)` in the optimal action values and the opti
 When the transition kernels are within `η` in total variation, `tvDist (P (s, a)) (P' (s, a)) ≤ η`
 (Mathlib's `tvDist`, with values in `[0, 2]`), and the rewards of `M` satisfy `|r| ≤ C`, the
 one-step predictions of every function bounded by `C / (1 - γ)`, such as `v^π_M` and `v*`, differ
-by at most `C η / (1 - γ)` (`MeasureTheory.abs_integral_sub_integral_le_mul_tvDist`). The action
+by at most `C η / (1 - γ)` (`MeasureTheory.norm_integral_sub_integral_le_mul_tvDist`). The action
 values, values, optimal action values and optimal values of the two MDPs then differ by at most
 `γ C η / (1 - γ) ^ 2`. This is the form in which the simulation lemma is used for a model estimated
 from samples, whose kernels concentrate in total variation around the true ones.
@@ -132,7 +132,7 @@ private lemma abs_integral_sub_integral_le_of_tvDist_le {v : 𝓢 → ℝ} {B η
     (hv : Measurable v) (hvB : ∀ s, |v s| ≤ B) (hη : ∀ q, tvDist (M.P q) (M'.P q) ≤ η)
     (q : 𝓢 × 𝓐) :
     |∫ s, v s ∂(M.P q) - ∫ s, v s ∂(M'.P q)| ≤ B * η :=
-  (abs_integral_sub_integral_le_mul_tvDist hv.aestronglyMeasurable hv.aestronglyMeasurable
+  (norm_integral_sub_integral_le_mul_tvDist hv.aestronglyMeasurable hv.aestronglyMeasurable
     (.of_forall hvB) (.of_forall hvB)).trans
     (mul_le_mul_of_nonneg_left (hη q) ((abs_nonneg _).trans (hvB q.1)))
 
