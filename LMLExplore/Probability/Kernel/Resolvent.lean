@@ -68,8 +68,9 @@ equation of these objects.
   `ProbabilityTheory.Kernel.eq_integral_resolvent_of_eq_add`: for a Markov kernel and `γ < 1`,
   `R_γ f` is the unique bounded measurable solution of `u = f + γ κ u`.
 * `ProbabilityTheory.Kernel.abs_integral_resolvent_le`,
+  `ProbabilityTheory.Kernel.abs_mul_integral_resolvent_le`,
   `ProbabilityTheory.Kernel.le_integral_resolvent`: for a Markov kernel and `γ < 1`,
-  `|R_γ f| ≤ sup |f| / (1 - γ)`, and `f ≤ R_γ f` for `f ≥ 0`.
+  `|R_γ f| ≤ sup |f| / (1 - γ)`, `|γ R_γ f| ≤ γ sup |f| / (1 - γ)`, and `f ≤ R_γ f` for `f ≥ 0`.
 * `ProbabilityTheory.Kernel.integral_resolvent_sub_eq_integral_resolvent`: the
   performance-difference identity `R_γ f - y = R_γ (f + γ κ y - y)`.
 * `ProbabilityTheory.Kernel.integral_resolvent_le_of_add_le`,
@@ -234,6 +235,13 @@ theorem abs_integral_resolvent_le (hγ : γ < 1) {f : α → ℝ} {B : ℝ} (hfB
   rw [← Real.norm_eq_abs, div_eq_mul_inv, ← measureReal_resolvent_univ (κ := κ) hγ x]
   exact norm_integral_le_of_norm_le_const <| .of_forall fun y ↦
     (Real.norm_eq_abs _).trans_le (hfB y)
+
+/-- For `γ < 1`, a function bounded by `B` has a discounted integral against the resolvent of a
+Markov kernel bounded by `γ B / (1 - γ)`: `|γ R_γ f| ≤ γ sup |f| / (1 - γ)`. -/
+theorem abs_mul_integral_resolvent_le (hγ : γ < 1) {f : α → ℝ} {B : ℝ} (hfB : ∀ y, |f y| ≤ B)
+    (x : α) : |γ * ∫ y, f y ∂(resolvent γ κ x)| ≤ γ * B / (1 - γ) := by
+  rw [abs_mul, NNReal.abs_eq, mul_div_assoc]
+  exact mul_le_mul_of_nonneg_left (abs_integral_resolvent_le hγ hfB x) γ.coe_nonneg
 
 /-- The resolvent equation `R_γ f = f + γ κ R_γ f`: for `γ < 1` and a bounded measurable `f`, the
 function `u = R_γ f` solves `u = f + γ κ u`. -/

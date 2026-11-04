@@ -94,8 +94,8 @@ theorem abs_qValue_sub_qValue_le (hr : meanReward M'.R = meanReward M.R) (hγ : 
     (hε : ∀ q, |∫ s, M.value γ π s ∂(M.P q) - ∫ s, M.value γ π s ∂(M'.P q)| ≤ ε)
     (p : 𝓢 × 𝓐) :
     |M.qValue γ π p - M'.qValue γ π p| ≤ γ * ε / (1 - γ) := by
-  rw [qValue_sub_qValue hr hγ hR hR', abs_mul, NNReal.abs_eq, mul_div_assoc]
-  exact mul_le_mul_of_nonneg_left (Kernel.abs_integral_resolvent_le hγ hε p) γ.coe_nonneg
+  rw [qValue_sub_qValue hr hγ hR hR']
+  exact Kernel.abs_mul_integral_resolvent_le hγ hε p
 
 /-- For two MDPs `M` and `M'` with the same mean reward and bounded rewards, `γ < 1` and a
 stationary policy `π`, if the one-step predictions of the value of `π` in `M` differ by at most
@@ -154,18 +154,13 @@ theorem le_optQValue_sub_optQValue (hr : meanReward M'.R = meanReward M.R) (hγ 
       (add_le_add (abs_optQValue_le hγ hR q) (abs_optQValue_le hγ hR' q)))
     (fun q ↦ ?_) p
   · rw [abs_mul, NNReal.abs_eq]
-    exact mul_le_mul_of_nonneg_left ((abs_sub _ _).trans
-      (add_le_add (abs_integral_le_of_abs_le hvB) (abs_integral_le_of_abs_le hvB))) γ.coe_nonneg
+    gcongr
+    exact (abs_sub _ _).trans
+      (add_le_add (abs_integral_le_of_abs_le hvB) (abs_integral_le_of_abs_le hvB))
   have hint := integrable_of_abs_le hQ (abs_optQValue_le hγ hR) (M'.saKernel π' q)
   have hint' := integrable_of_abs_le hQ' (abs_optQValue_le hγ hR') (M'.saKernel π' q)
   -- `π'` is suboptimal in `M`: `P'^π'_SA Q*_M ≤ P' v*_M`
-  have hint₁ : Integrable (fun w : 𝓢 × 𝓐 ↦ M.optValue γ w.1) (M'.saKernel π' q) :=
-    integrable_of_abs_le (hv.comp measurable_fst) (fun w ↦ hvB w.1) _
-  have h₁ : ∫ w, M.optQValue γ w ∂(M'.saKernel π' q) ≤ ∫ s, M.optValue γ s ∂(M'.P q) := by
-    calc ∫ w, M.optQValue γ w ∂(M'.saKernel π' q)
-        ≤ ∫ w, M.optValue γ w.1 ∂(M'.saKernel π' q) :=
-          integral_mono hint hint₁ fun w ↦ optQValue_le_optValue hγ hR w.1 w.2
-      _ = ∫ s, M.optValue γ s ∂(M'.P q) := by rw [integral_saKernel hint₁]; simp
+  have h₁ := integral_optQValue_saKernel_le (π := π') M' hγ hR q
   -- `π'` is optimal in `M'`: `P'^π'_SA Q*_M' = P' v*_M'`
   have h₂ : ∫ w, M'.optQValue γ w ∂(M'.saKernel π' q) = ∫ s, M'.optValue γ s ∂(M'.P q) := by
     rw [← qValue_eq_optQValue hπ', integral_qValue_saKernel M' hγ hR' q, hπ']
@@ -183,11 +178,8 @@ theorem abs_optQValue_sub_optQValue_le (hr : meanReward M'.R = meanReward M.R) (
     (p : 𝓢 × 𝓐) :
     |M.optQValue γ p - M'.optQValue γ p| ≤ γ * ε / (1 - γ) := by
   have := Fintype.ofFinite 𝓐
-  have hb (π : Kernel 𝓢 𝓐) [IsMarkovKernel π] :
-      |γ * ∫ q, (∫ s, M.optValue γ s ∂(M.P q) - ∫ s, M.optValue γ s ∂(M'.P q))
-        ∂(Kernel.resolvent γ (M'.saKernel π) p)| ≤ γ * ε / (1 - γ) := by
-    rw [abs_mul, NNReal.abs_eq, mul_div_assoc]
-    exact mul_le_mul_of_nonneg_left (Kernel.abs_integral_resolvent_le hγ hε p) γ.coe_nonneg
+  have hb (π : Kernel 𝓢 𝓐) [IsMarkovKernel π] :=
+    Kernel.abs_mul_integral_resolvent_le (κ := M'.saKernel π) hγ hε p
   -- the greedy policies for the optimal values are optimal stationary policies
   have hg := measurable_greedy (M := M) (γ := γ) (measurable_optValue hγ hR)
   have hg' := measurable_greedy (M := M') (γ := γ) (measurable_optValue hγ hR')
