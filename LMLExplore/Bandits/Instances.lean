@@ -6,6 +6,7 @@ Authors: Rémy Degenne
 module
 
 public import LMLExplore.InformationTheory.KullbackLeibler.Gaussian
+public import LMLExplore.Probability.Distributions.ExponentialFamily.Bernoulli
 public import LMLExplore.Probability.Distributions.ExponentialFamily.Gaussian
 public import LMLExplore.Probability.Distributions.Bernoulli
 public import LMLExplore.Probability.Kernel.Basic
@@ -28,7 +29,10 @@ the arms of `gaussianBandit μ σ2` are `σ2`-sub-Gaussian, Bernoulli arms are b
 and `1 / 4`-sub-Gaussian. We also compute the relative entropy between the arms of two Gaussian
 bandits with the same variance [LS, Theorem 14.1], the quantity that enters the lower bounds, and
 identify it with the divergence of the exponential family of `𝒩(0, σ2)`
-(`LMLExplore.Bandits.klDiv_gaussianBandit_eq_ofReal_expFamilyDiv`). For the Gaussian bandit with
+(`LMLExplore.Bandits.klDiv_gaussianBandit_eq_ofReal_expFamilyDiv`), and the relative entropy
+between the arms of two Bernoulli bandits with means in `(0, 1)` with the divergence of the
+exponential family of a Bernoulli law
+(`LMLExplore.Bandits.klDiv_bernoulliBandit_eq_ofReal_expFamilyDiv`). For the Gaussian bandit with
 unknown variances we compute the mean and the variance of each arm, and identify
 `gaussianBandit μ σ2` with `gaussianMeanVarBandit fun a ↦ (μ a, σ2)`
 (`LMLExplore.Bandits.gaussianBandit_eq_gaussianMeanVarBandit`).
@@ -162,6 +166,17 @@ lemma hasSubgaussianMGF_bernoulliBandit (p : α → I) (a : α) :
     norm_num
   rw [integral_id_bernoulliBandit, bernoulliBandit_apply, ← hc]
   simpa using hasSubgaussianMGF_bernoulliMeasure 1 0 (p a)
+
+/-- The arm laws of a Bernoulli bandit with means in `(0, 1)` are members of the exponential family
+of `Ber((1 : ℝ), 0, sigmoid η₀)`: the relative entropy between arm `a` of two Bernoulli bandits is
+the divergence `d(p a, p' a)` of the family, the binary relative entropy. -/
+lemma klDiv_bernoulliBandit_eq_ofReal_expFamilyDiv (η₀ : ℝ) {p p' : α → I} {a : α}
+    (hp : (p a : ℝ) ∈ Set.Ioo 0 1) (hp' : (p' a : ℝ) ∈ Set.Ioo 0 1) :
+    klDiv (bernoulliBandit p a) (bernoulliBandit p' a) =
+      ENNReal.ofReal (Ber((1 : ℝ), 0, unitInterval.sigmoid η₀).expFamilyDiv id (p a) (p' a)) := by
+  rw [bernoulliBandit_apply, bernoulliBandit_apply, klDiv_bernoulliMeasure,
+    expFamilyDiv_bernoulliMeasure_sigmoid η₀ hp hp', klBer_eq_ofReal_klBerReal
+      (Set.Ioo_subset_Icc_self hp) (Set.Ioo_subset_Icc_self hp') (klBer_ne_top hp')]
 
 end Bernoulli
 

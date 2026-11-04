@@ -25,6 +25,8 @@ Bernoulli laws in relative-entropy form.
 
 ## Main statements
 
+* `LMLExplore.not_ae_eq_const_bernoulliMeasure`: for `q ∈ (0, 1)`, the identity is not almost
+  everywhere constant under `Ber((1 : ℝ), 0, q)`.
 * `LMLExplore.expFamily_bernoulliMeasure_sigmoid`: the member of natural parameter `η` of the
   exponential family of `Ber((1 : ℝ), 0, sigmoid η₀)` is `Ber((1 : ℝ), 0, sigmoid (η₀ + η))`.
 * `LMLExplore.expFamilyMeans_bernoulliMeasure_sigmoid`: the means of the family are `(0, 1)`.
@@ -43,6 +45,18 @@ open scoped unitInterval
 namespace LMLExplore
 
 variable {η₀ m p : ℝ}
+
+/-- For `q ∈ (0, 1)`, the identity is not almost everywhere constant under `Ber((1 : ℝ), 0, q)`:
+both values `0` and `1` have positive probability. This is the nondegeneracy assumption of the mean
+parametrization of the exponential family of `Ber((1 : ℝ), 0, q)`. -/
+lemma not_ae_eq_const_bernoulliMeasure {q : I} (hq : (q : ℝ) ∈ Ioo 0 1) (c : ℝ) :
+    ¬ id =ᵐ[Ber((1 : ℝ), 0, q)] fun _ ↦ c := by
+  intro h
+  -- The mean `q` and the second moment `q` would both be determined by `c`: `q = c = c²`.
+  have h1 := integral_congr_ae h
+  have h2 := integral_congr_ae (h.fun_comp (· ^ 2))
+  simp [integral_bernoulliMeasure] at h1 h2
+  nlinarith [hq.1, hq.2]
 
 /-- Tilting a Bernoulli law multiplies its odds by `exp η`: the member of natural parameter `η` of
 the exponential family of `Ber((1 : ℝ), 0, sigmoid η₀)` with statistic `id` is
