@@ -5,7 +5,7 @@ Authors: Rémy Degenne
 -/
 module
 
-public import LeanMachineLearning.SequentialLearning.FiniteActions
+public import LMLExplore.SequentialLearning.FiniteActions
 public import LMLExplore.Analysis.Real.Sqrt
 public import Mathlib.Analysis.Convex.Jensen
 public import Mathlib.Analysis.Convex.SpecificFunctions.Basic
@@ -22,7 +22,6 @@ the step `k` that visits `x` sees the counts `0, 1, …, N_K(x) - 1`, each exact
 (`Learning.sum_comp_pullCount`), these sums reduce to one-dimensional sums over the counts of each
 element, which are then combined over the `m` elements. This file proves:
 
-* `LMLExplore.sum_natCast_pullCount`: `∑_x N_K(x) = K`, cast to any additive monoid with one.
 * `LMLExplore.sum_sqrt_pullCount_le`: `∑_x √(N_K(x)) ≤ √(m K)`, by Cauchy–Schwarz.
 * `LMLExplore.sum_inv_sqrt_pullCount_add_one_le`: `∑_{k < K} (N_k(x_k) + 1)^{-1/2} ≤ 2 √(m K)`.
 * `LMLExplore.sum_inv_pullCount_add_one_le`:
@@ -48,12 +47,6 @@ open Finset Learning Real
 namespace LMLExplore
 
 variable {α Ω : Type*} [DecidableEq α] [Fintype α] {A : ℕ → Ω → α}
-
-/-- `∑_x N_K(x) = K` with the counts cast to `R`: every step before `K` visits exactly one
-element of `α`. -/
-theorem sum_natCast_pullCount {R : Type*} [AddCommMonoidWithOne R] (ω : Ω) (K : ℕ) :
-    ∑ a, (pullCount A a K ω : R) = K := by
-  rw [← Nat.cast_sum, sum_pullCount]
 
 /-- `∑_x √(N_K(x)) ≤ √(m K)`: by Cauchy–Schwarz, the square roots of the counts of the elements of
 `α` before step `K` add up to at most `√(Fintype.card α * K)`. -/
