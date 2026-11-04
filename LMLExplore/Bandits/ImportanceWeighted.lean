@@ -51,12 +51,17 @@ against `Environment.ofSeq o g _` with expert advice `o` (`IsAlgEnvSeq.feedback_
   by `x (A n)` in any function of the past, the action and the feedback of round `n`.
 * `Learning.IsAlgEnvSeq.integrable_feedback_of_ae_eq`: such a feedback is integrable when there
   are finitely many actions.
+* `ae_feedback_le_one`: when the feedbacks are almost surely rewards at most `1`, they are almost
+  surely at most `1`.
 * `WeightAlgorithm.condExp_iwEstimator`, `WeightAlgorithm.condExp_lossIwEstimator`: conditional
   unbiasedness along a run of a weight-based algorithm [LS, (11.4)].
 * `WeightAlgorithm.integral_iwEstimator`, `WeightAlgorithm.integral_lossIwEstimator`: the
   estimates are unbiased.
 * `WeightAlgorithm.condVar_iwEstimator`, `WeightAlgorithm.condVar_lossIwEstimator`: the
   conditional variances [LS, (11.5)].
+* `WeightAlgorithm.sum_integral_one_sub_sq_div_weights_le`: for rewards in `[0, 1]`, the
+  expected second-order terms `(1 - Y t) ^ 2 / w t (past) (A t)` of Exp3 and Exp4 sum to at most
+  `n k` over `n` rounds with `k` arms.
 
 ## References
 
@@ -252,6 +257,19 @@ lemma _root_.Learning.IsAlgEnvSeq.integrable_feedback_of_ae_eq [MeasurableSpace 
       Finset.single_le_sum (f := fun a ↦ |x a|) (fun a _ ↦ abs_nonneg _)
         (Finset.mem_univ (A n ω)))).congr hY.symm
 
+omit [DecidableEq α] in
+/-- If the feedback `Y t` of every round `t < n` is almost surely the reward `x t (A t)` of the
+action and the rewards are at most `1`, then almost surely the feedbacks of the rounds `t < n` are
+at most `1`. -/
+lemma ae_feedback_le_one {x : ℕ → α → ℝ} (hY : ∀ t < n, Y t =ᵐ[P] x t ∘ A t)
+    (hx : ∀ t < n, ∀ a, x t a ≤ 1) : ∀ᵐ ω ∂P, ∀ t < n, Y t ω ≤ 1 := by
+  refine ae_all_iff.2 fun t ↦ ?_
+  by_cases ht : t < n
+  · filter_upwards [hY t ht] with ω hω _
+    rw [hω]
+    exact hx t ht _
+  · exact ae_of_all _ fun _ ht' ↦ absurd ht' ht
+
 end Feedback
 
 namespace WeightAlgorithm
@@ -399,6 +417,27 @@ theorem condVar_lossIwEstimator (h : IsAlgEnvSeq O A Y (weightAlgorithm w hw hp)
     (condExp_lossIwEstimator h hY ha) ?_).trans hsum
   exact (integrable_mul_one_sub_div (ha.mono fun _ h ↦ h.ne') hint ((1 - x a) ^ 2)).congr
     (hsum.mono fun _ h ↦ h.symm)
+
+omit [DecidableEq α] in
+/-- Along a run of a weight-based algorithm whose feedback at every round `t < n` is the reward
+`x t (A t) ∈ [0, 1]` of the action, the second-order terms `(1 - Y t) ^ 2 / w t (past) (A t)` of
+the analysis of Exp3 and Exp4 have expectations summing to at most `n k` over the rounds `t < n`,
+with `k` the number of arms. -/
+lemma sum_integral_one_sub_sq_div_weights_le [IsProbabilityMeasure P] {x : ℕ → α → ℝ}
+    (h : IsAlgEnvSeq O A Y (weightAlgorithm w hw hp) env P) (hY : ∀ t < n, Y t =ᵐ[P] x t ∘ A t)
+    (hx : ∀ t < n, ∀ a, x t a ∈ Set.Icc 0 1) :
+    ∑ t ∈ range n, P[fun ω ↦ (1 - Y t ω) ^ 2 / w t (history O A Y t ω, O t ω) (A t ω)] ≤
+      (n * Fintype.card α : ℝ) := by
+  calc ∑ t ∈ range n, P[fun ω ↦ (1 - Y t ω) ^ 2 / w t (history O A Y t ω, O t ω) (A t ω)]
+  _ ≤ ∑ t ∈ range n, ∑ b, (1 - x t b) ^ 2 := Finset.sum_le_sum fun t ht ↦ by
+      rw [integral_congr_ae (comp_feedback_ae_eq (hY t (mem_range.1 ht))
+        fun z b y ↦ (1 - y) ^ 2 / w t z b)]
+      exact integral_div_weights_le h t (c := fun b ↦ (1 - x t b) ^ 2) fun b ↦ sq_nonneg _
+  _ ≤ ∑ t ∈ range n, ∑ _b : α, (1 : ℝ) := Finset.sum_le_sum fun t ht ↦
+      Finset.sum_le_sum fun b _ ↦ by
+        obtain ⟨h0, h1⟩ := hx t (mem_range.1 ht) b
+        nlinarith
+  _ = n * Fintype.card α := by simp
 
 end WeightAlgorithm
 

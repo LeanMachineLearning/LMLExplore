@@ -5,6 +5,7 @@ Authors: Rémy Degenne
 -/
 module
 
+public import LMLExplore.Analysis.Real.Sqrt
 public import LMLExplore.Bandits.AdversarialRegret
 public import LMLExplore.Bandits.ImportanceWeighted
 public import LMLExplore.OnlineLearning.ExponentialWeights
@@ -283,26 +284,12 @@ theorem advRegret_le (hη : 0 < η) (hY : ∀ t < n, Y t =ᵐ[P] x t ∘ A t)
     (hx : ∀ t < n, ∀ a, x t a ∈ Set.Icc 0 1) (h : IsAlgEnvSeq O A Y (exp3 η) env P) :
     advRegret x A P n ≤ log (Fintype.card α) / η + η * n * Fintype.card α / 2 := by
   set V : ℕ → Ω → ℝ := fun t ω ↦
-    (1 - Y t ω) ^ 2 / exp3Weights η t (history O A Y t ω) (A t ω) with hV
+    (1 - Y t ω) ^ 2 / exp3Weights η t (history O A Y t ω) (A t ω)
   have hVint : ∀ t ∈ range n, Integrable (V t) P := fun t ht ↦
     integrable_sq_div_exp3Weights (hY t (mem_range.1 ht)) h
-  have hYle : ∀ᵐ ω ∂P, ∀ t < n, Y t ω ≤ 1 := by
-    refine ae_all_iff.2 fun t ↦ ?_
-    by_cases ht : t < n
-    · filter_upwards [hY t ht] with ω hω _
-      rw [hω]
-      exact (hx t ht _).2
-    · exact ae_of_all _ fun _ ht' ↦ absurd ht' ht
-  -- `∑ t < n, E[V t] ≤ n k`, as `(1 - x t b) ^ 2 ≤ 1`
-  have hle : ∑ t ∈ range n, P[V t] ≤ (n * Fintype.card α : ℝ) := by
-    calc ∑ t ∈ range n, P[V t]
-    _ = ∑ t ∈ range n, ∑ b, (1 - x t b) ^ 2 := Finset.sum_congr rfl fun t ht ↦
-        integral_sq_div_exp3Weights (hY t (mem_range.1 ht)) h
-    _ ≤ ∑ t ∈ range n, ∑ _b : α, (1 : ℝ) := Finset.sum_le_sum fun t ht ↦
-        Finset.sum_le_sum fun b _ ↦ by
-          obtain ⟨h0, h1⟩ := hx t (mem_range.1 ht) b
-          nlinarith
-    _ = n * Fintype.card α := by simp
+  have hYle : ∀ᵐ ω ∂P, ∀ t < n, Y t ω ≤ 1 := ae_feedback_le_one hY fun t ht a ↦ (hx t ht a).2
+  have hle : ∑ t ∈ range n, P[V t] ≤ (n * Fintype.card α : ℝ) :=
+    WeightAlgorithm.sum_integral_one_sub_sq_div_weights_le h hY hx
   refine advRegret_le_iff.2 fun a ↦ ?_
   rw [sum_sub_integral_eq_integral_sum_lossIwEstimator_sub hY h a]
   calc P[fun ω ↦ ∑ t ∈ range n,
@@ -348,20 +335,9 @@ theorem advRegret_le_sqrt (hY : ∀ t < n, Y t =ᵐ[P] x t ∘ A t)
   have hm : 0 < n * k := mul_pos (by exact_mod_cast hn) (by linarith)
   set η := √(2 * log k / (n * k)) with hη
   have hη0 : 0 < η := sqrt_pos.2 (by positivity)
-  -- with `η ^ 2 = 2 log k / (n k)`, both terms of the bound are `η n k / 2`
-  have hηsq : η ^ 2 = 2 * log k / (n * k) := sq_sqrt (by positivity)
   refine (advRegret_le hη0 hY hx h).trans (le_of_eq ?_)
-  have hsq : √(2 * n * k * log k) = η * (n * k) := by
-    rw [← sqrt_sq (by positivity : 0 ≤ η * (n * k)), mul_pow, hηsq]
-    congr 1
-    field_simp
-  -- `log k / η = η n k / 2`, from `η ^ 2 = 2 log k / (n k)`
-  have hlog : log k / η = η * (n * k) / 2 := by
-    rw [div_eq_iff hη0.ne']
-    rw [eq_div_iff hm.ne'] at hηsq
-    linear_combination -hηsq / 2
-  rw [hsq, hlog]
-  ring
+  rw [mul_assoc η, mul_assoc 2 (n : ℝ)]
+  exact div_sqrt_add_sqrt_mul_div_two _ hm.le
 
 end Exp3
 

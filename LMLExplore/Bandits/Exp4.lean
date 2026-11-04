@@ -512,7 +512,7 @@ theorem expertRegret_le (hη : 0 < η) (hO : ∀ t < n, O t =ᵐ[P] fun _ ↦ E 
   set X : ℕ → β → Ω → ℝ := fun t m ω ↦ (O t ω m : α → ℝ) ⬝ᵥ
     lossIwEstimator (exp4Weights η t (history O A Y t ω) (O t ω)) (A t ω) (Y t ω) with hXdef
   set V : ℕ → Ω → ℝ := fun t ω ↦
-    (1 - Y t ω) ^ 2 / exp4Weights η t (history O A Y t ω) (O t ω) (A t ω) with hV
+    (1 - Y t ω) ^ 2 / exp4Weights η t (history O A Y t ω) (O t ω) (A t ω)
   have hVint : ∀ t ∈ range n, Integrable (V t) P := fun t ht ↦
     (WeightAlgorithm.integrable_div_weights h t fun b ↦ (1 - x t b) ^ 2).congr
       (comp_feedback_ae_eq (hY t (mem_range.1 ht))
@@ -523,27 +523,11 @@ theorem expertRegret_le (hη : 0 < η) (hO : ∀ t < n, O t =ᵐ[P] fun _ ↦ E 
     integrable_dotProduct_lossIwEstimator (hO t (mem_range.1 ht)) (hY t (mem_range.1 ht)) h m
   -- almost surely, the feedbacks are at most `1` and the actions have positive weight
   have hgood : ∀ᵐ ω ∂P, (∀ t < n, Y t ω ≤ 1) ∧
-      ∀ t, exp4Weights η t (history O A Y t ω) (O t ω) (A t ω) ≠ 0 := by
-    refine (ae_all_iff.2 fun t ↦ ?_).and
+      ∀ t, exp4Weights η t (history O A Y t ω) (O t ω) (A t ω) ≠ 0 :=
+    (ae_feedback_le_one hY fun t ht a ↦ (hx t ht a).2).and
       (ae_all_iff.2 fun t ↦ (WeightAlgorithm.ae_pos_weights_action h t).mono fun _ h ↦ h.ne')
-    by_cases ht : t < n
-    · filter_upwards [hY t ht] with ω hω _
-      rw [hω]
-      exact (hx t ht _).2
-    · exact ae_of_all _ fun _ ht' ↦ absurd ht' ht
-  -- `∑ t < n, E[V t] ≤ n k`, as `(1 - x t b) ^ 2 ≤ 1`
-  have hle : ∑ t ∈ range n, P[V t] ≤ (n * Fintype.card α : ℝ) := by
-    calc ∑ t ∈ range n, P[V t]
-    _ ≤ ∑ t ∈ range n, ∑ b, (1 - x t b) ^ 2 := Finset.sum_le_sum fun t ht ↦ by
-        rw [hV, integral_congr_ae (comp_feedback_ae_eq (hY t (mem_range.1 ht))
-          fun z b y ↦ (1 - y) ^ 2 / exp4Weights η t z.1 z.2 b)]
-        exact WeightAlgorithm.integral_div_weights_le h t (c := fun b ↦ (1 - x t b) ^ 2)
-          fun b ↦ sq_nonneg _
-    _ ≤ ∑ t ∈ range n, ∑ _b : α, (1 : ℝ) := Finset.sum_le_sum fun t ht ↦
-        Finset.sum_le_sum fun b _ ↦ by
-          obtain ⟨h0, h1⟩ := hx t (mem_range.1 ht) b
-          nlinarith
-    _ = n * Fintype.card α := by simp
+  have hle : ∑ t ∈ range n, P[V t] ≤ (n * Fintype.card α : ℝ) :=
+    WeightAlgorithm.sum_integral_one_sub_sq_div_weights_le h hY hx
   refine expertRegret_le_iff.2 fun m ↦ ?_
   -- the regret against `m` is the expectation of its estimated regret
   have hreg : ∑ t ∈ range n, ∑ a, (E t m : α → ℝ) a * x t a -
@@ -629,20 +613,9 @@ theorem expertRegret_le_sqrt (hO : ∀ t < n, O t =ᵐ[P] fun _ ↦ E t)
   have hm : 0 < n * k := mul_pos (by exact_mod_cast hn) hk0
   set η := √(2 * log M / (n * k)) with hη
   have hη0 : 0 < η := sqrt_pos.2 (by positivity)
-  -- with `η ^ 2 = 2 log M / (n k)`, both terms of the bound are `η n k / 2`
-  have hηsq : η ^ 2 = 2 * log M / (n * k) := sq_sqrt (by positivity)
   refine (expertRegret_le hη0 hO hY hx h).trans (le_of_eq ?_)
-  have hsq : √(2 * n * k * log M) = η * (n * k) := by
-    rw [← sqrt_sq (by positivity : 0 ≤ η * (n * k)), mul_pow, hηsq]
-    congr 1
-    field_simp
-  -- `log M / η = η n k / 2`, from `η ^ 2 = 2 log M / (n k)`
-  have hlog : log M / η = η * (n * k) / 2 := by
-    rw [div_eq_iff hη0.ne']
-    rw [eq_div_iff hm.ne'] at hηsq
-    linear_combination -hηsq / 2
-  rw [hsq, hlog]
-  ring
+  rw [mul_assoc η, mul_assoc 2 (n : ℝ)]
+  exact div_sqrt_add_sqrt_mul_div_two _ hm.le
 
 end Run
 
