@@ -29,7 +29,8 @@ policy `π`, these marginals are given by powers of two kernels:
   `(M.saKernel π ^ n) ∘ₘ (μ ⊗ₘ π)`.
 
 Integrating a function against `M.stateKernel π s` averages over the actions `a` of `π s` its
-integral against `M.P (s, a)` (`integral_stateKernel`).
+integral against `M.P (s, a)` (`integral_stateKernel`); integrating a function against
+`M.saKernel π p` integrates over `M.P p` its average over the actions of `π` (`integral_saKernel`).
 
 The deterministic stationary policies `policyAlg π hπ` are Markov policies
 (`policyAlg_eq_markov`).
@@ -137,6 +138,14 @@ lemma integral_stateKernel {s : 𝓢} {v : 𝓢 → ℝ} (hv : Integrable v (M.s
 @[simp]
 lemma saKernel_apply (p : 𝓢 × 𝓐) : M.saKernel π p = M.P p ⊗ₘ π := by
   rw [saKernel_def, Kernel.comp_apply, Measure.compProd_eq_comp_prod]
+
+variable {M π} in
+/-- Integrating against the state-action kernel of `π` from `p` integrates over the next state `s`
+drawn from `M.P p` the average over the actions `a` of `π s`. -/
+lemma integral_saKernel {p : 𝓢 × 𝓐} {f : 𝓢 × 𝓐 → ℝ} (hf : Integrable f (M.saKernel π p)) :
+    ∫ q, f q ∂(M.saKernel π p) = ∫ s, ∫ a, f (s, a) ∂(π s) ∂(M.P p) := by
+  rw [saKernel_apply] at hf ⊢
+  exact Measure.integral_compProd hf
 
 end Kernels
 

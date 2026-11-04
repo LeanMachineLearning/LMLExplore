@@ -36,6 +36,11 @@ functions. Consequently:
   flow equation `ν = μ + γ • ν.bind κ` for every kernel and every `γ`; for a Markov kernel and
   `γ < 1`, it is the unique finite measure satisfying it.
 
+Uniqueness also compares resolvents: for every bounded measurable `y`, `R_γ f - y` is the resolvent
+`R_γ (f + γ κ y - y)` of the residual of `y` in the equation `u = f + γ κ u` (the
+performance-difference identity), and for a second Markov kernel `κ'`, taking `y = R_γ(κ') f` gives
+the simulation identity `R_γ(κ) f - R_γ(κ') f = γ R_γ(κ) ((κ - κ') R_γ(κ') f)`.
+
 In a Markov decision process, the value of a stationary policy is the resolvent of the state
 kernel of the policy applied to its reward, and the discounted occupancy measure of a stationary
 policy is, up to the factor `1 - γ`, the image of the initial state-action law by the resolvent of
@@ -63,6 +68,10 @@ equation of these objects.
 * `ProbabilityTheory.Kernel.abs_integral_resolvent_le`,
   `ProbabilityTheory.Kernel.le_integral_resolvent`: for a Markov kernel and `γ < 1`,
   `|R_γ f| ≤ sup |f| / (1 - γ)`, and `f ≤ R_γ f` for `f ≥ 0`.
+* `ProbabilityTheory.Kernel.integral_resolvent_sub_eq_integral_resolvent`: the
+  performance-difference identity `R_γ f - y = R_γ (f + γ κ y - y)`.
+* `ProbabilityTheory.Kernel.integral_resolvent_sub_integral_resolvent`: the simulation identity
+  `R_γ(κ) f - R_γ(κ') f = γ R_γ(κ) ((κ - κ') R_γ(κ') f)`.
 * `MeasureTheory.Measure.resolvent_comp_eq_add`: for every kernel and every `γ`,
   `resolvent γ κ ∘ₘ μ` solves the flow equation `ν = μ + γ • (κ ∘ₘ ν)`;
   `MeasureTheory.Measure.eq_resolvent_comp_of_eq_add`: for a Markov kernel and `γ < 1`, it is the
@@ -73,6 +82,10 @@ equation of these objects.
 
 * D. Revuz, *Markov chains*, North-Holland, 2nd edition, 1984, Chapter 2
 * [M. L. Puterman, *Markov Decision Processes*, 1994][P], §6.1
+* [A. Agarwal, S. M. Kakade, J. D. Lee and G. Mahajan, *On the theory of policy gradient methods:
+  optimality, approximation, and distribution shift*, 2021][AKLM21], Lemma 3.2
+* [A. Agarwal, N. Jiang, S. M. Kakade and W. Sun, *Reinforcement Learning: Theory and
+  Algorithms*, 2022][AJKS], Lemma 2.2
 -/
 
 public section
@@ -256,6 +269,49 @@ theorem le_integral_resolvent (hγ : γ < 1) {f : α → ℝ} {B : ℝ} (hf : Me
   rw [← integral_dirac' f x hf.stronglyMeasurable]
   exact integral_mono_measure (dirac_le_resolvent γ κ x) (.of_forall hf₀)
     (integrable_of_abs_le hf hfB _)
+
+/-! ### Resolvent identities for differences -/
+
+/-- **The performance-difference identity** `R_γ f - y = R_γ (f + γ κ y - y)`: for `γ < 1` and
+bounded measurable `f` and `y`, the function `R_γ f` differs from `y` by the resolvent of the
+residual of `y` in the equation `u = f + γ κ u`. -/
+theorem integral_resolvent_sub_eq_integral_resolvent (hγ : γ < 1) {f y : α → ℝ} {B B' : ℝ}
+    (hf : Measurable f) (hfB : ∀ z, |f z| ≤ B) (hy : Measurable y) (hyB : ∀ z, |y z| ≤ B')
+    (x : α) :
+    ∫ z, f z ∂(resolvent γ κ x) - y x =
+      ∫ z, (f z + γ * ∫ w, y w ∂(κ z) - y z) ∂(resolvent γ κ x) := by
+  have hR := measurable_integral_resolvent (γ := γ) (κ := κ) hf
+  have hRB := abs_integral_resolvent_le (κ := κ) hγ hfB
+  have hκy : Measurable fun z ↦ ∫ w, y w ∂(κ z) :=
+    (hy.stronglyMeasurable.integral_kernel (κ := κ)).measurable
+  have hgB (z : α) : |f z + γ * ∫ w, y w ∂(κ z) - y z| ≤ B + γ * B' + B' := by
+    refine (abs_sub _ _).trans (add_le_add ((abs_add_le _ _).trans (add_le_add (hfB z) ?_))
+      (hyB z))
+    rw [abs_mul, NNReal.abs_eq]
+    exact mul_le_mul_of_nonneg_left (abs_integral_le_of_abs_le hyB) γ.coe_nonneg
+  -- `u = R_γ f - y` solves `u = (f + γ κ y - y) + γ κ u`, hence is the resolvent of that residual.
+  refine congrFun (eq_integral_resolvent_of_eq_add hγ ((hf.add (hκy.const_mul _)).sub hy) hgB
+    (u := fun x ↦ ∫ z, f z ∂(resolvent γ κ x) - y x) (hR.sub hy)
+    (fun z ↦ (abs_sub _ _).trans (add_le_add (hRB z) (hyB z))) fun x ↦ ?_) x
+  rw [integral_sub (integrable_of_abs_le hR hRB _) (integrable_of_abs_le hy hyB _),
+    integral_resolvent_eq_add hγ hf hfB x, Pi.sub_apply, Pi.add_apply]
+  ring
+
+/-- **The simulation identity** `R_γ(κ) f - R_γ(κ') f = γ R_γ(κ) ((κ - κ') R_γ(κ') f)`: for Markov
+kernels `κ` and `κ'`, `γ < 1` and a bounded measurable `f`, the discounted sums of `f` along the
+chains with kernels `κ` and `κ'` differ by the resolvent of `κ` applied to the one-step difference
+of the kernels, acting on the discounted sum of `f` along the chain with kernel `κ'`. -/
+theorem integral_resolvent_sub_integral_resolvent (κ' : Kernel α α) [IsMarkovKernel κ']
+    (hγ : γ < 1) {f : α → ℝ} {B : ℝ} (hf : Measurable f) (hfB : ∀ z, |f z| ≤ B) (x : α) :
+    ∫ z, f z ∂(resolvent γ κ x) - ∫ z, f z ∂(resolvent γ κ' x) =
+      γ * ∫ z, (∫ w, (∫ y, f y ∂(resolvent γ κ' w)) ∂(κ z) -
+        ∫ w, (∫ y, f y ∂(resolvent γ κ' w)) ∂(κ' z)) ∂(resolvent γ κ x) := by
+  rw [integral_resolvent_sub_eq_integral_resolvent hγ hf hfB
+    (measurable_integral_resolvent (κ := κ') hf) (abs_integral_resolvent_le (κ := κ') hγ hfB),
+    ← integral_const_mul]
+  congr with z
+  rw [integral_resolvent_eq_add (κ := κ') hγ hf hfB z]
+  ring
 
 end Markov
 

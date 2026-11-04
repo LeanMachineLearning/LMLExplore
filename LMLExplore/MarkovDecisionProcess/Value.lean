@@ -48,6 +48,9 @@ characterizes the largest such value.
 * `Learning.MDP.value_eq_policyReward_add`: the evaluation equation `v^π = r_π + γ P_π v^π`.
 * `Learning.MDP.integral_qValue`: `v^π s = ∫ a, Q^π (s, a) ∂(π s)`, and
   `Learning.MDP.integral_advantage`: the advantage has mean zero under `π`.
+* `Learning.MDP.qValue_eq_meanReward_add`, `Learning.MDP.qValue_eq_integral_resolvent`: the
+  evaluation equation `Q^π = r + γ P^π_SA Q^π` for the state-action kernel `P^π_SA` of `π`, and
+  `Q^π = R_γ(P^π_SA) r`.
 * `Learning.MDP.bellmanEval_value`, `Learning.MDP.eq_value_of_bellmanEval_eq`: `v^π` is the
   unique bounded measurable fixed point of the evaluation operator of `π` [P, Theorem 6.1.1].
 * `Learning.MDP.value_le_bellman`: the value of a measurable deterministic stationary policy is a
@@ -260,11 +263,51 @@ theorem abs_qValue_le (hγ : γ < 1) (hR : ∀ p, ∀ᵐ x ∂(M.R p), |x| ≤ C
   field_simp
   ring
 
+/-- With bounded rewards and `γ < 1`, the action value of a stationary policy is integrable for
+every finite measure on state-action pairs. -/
+theorem integrable_qValue (hγ : γ < 1) (hR : ∀ p, ∀ᵐ x ∂(M.R p), |x| ≤ C)
+    (μ : Measure (𝓢 × 𝓐)) [IsFiniteMeasure μ] : Integrable (M.qValue γ π) μ :=
+  integrable_of_abs_le (measurable_qValue hγ hR) (abs_qValue_le hγ hR) μ
+
+/-- With bounded rewards and `γ < 1`, the section `a ↦ Q^π (s, a)` of the action value of a
+stationary policy is integrable for every finite measure on actions. -/
+theorem integrable_qValue_prodMk_left (hγ : γ < 1) (hR : ∀ p, ∀ᵐ x ∂(M.R p), |x| ≤ C) (s : 𝓢)
+    (μ : Measure 𝓐) [IsFiniteMeasure μ] : Integrable (fun a ↦ M.qValue γ π (s, a)) μ :=
+  integrable_of_abs_le ((measurable_qValue hγ hR).comp measurable_prodMk_left)
+    (fun a ↦ abs_qValue_le hγ hR (s, a)) μ
+
 /-- **Evaluation equation**: with bounded rewards and `γ < 1`, the value of a stationary policy
 is the mean under the policy of its action value: `v^π s = ∫ a, Q^π (s, a) ∂(π s)`. -/
 theorem integral_qValue (hγ : γ < 1) (hR : ∀ p, ∀ᵐ x ∂(M.R p), |x| ≤ C) (s : 𝓢) :
     ∫ a, M.qValue γ π (s, a) ∂(π s) = M.value γ π s := by
   rw [qValue_eq_lookahead, ← bellmanEval_def, bellmanEval_value hγ hR]
+
+/-- With bounded rewards and `γ < 1`, integrating the action value of a stationary policy `π`
+against the state-action kernel of `π` in an MDP `M'` with the same states and actions gives the
+integral of the value against the transition kernel of `M'`: `P'^π_SA Q^π = P' v^π`. -/
+theorem integral_qValue_saKernel {𝓡 : Type*} {m𝓡 : MeasurableSpace 𝓡} (M' : MDP 𝓢 𝓐 𝓡)
+    (hγ : γ < 1) (hR : ∀ p, ∀ᵐ x ∂(M.R p), |x| ≤ C) (p : 𝓢 × 𝓐) :
+    ∫ q, M.qValue γ π q ∂(M'.saKernel π p) = ∫ s, M.value γ π s ∂(M'.P p) := by
+  rw [integral_saKernel (integrable_qValue hγ hR _)]
+  simp_rw [integral_qValue hγ hR]
+
+/-- **Evaluation equation for action values**: with bounded rewards and `γ < 1`, the action value
+of a stationary policy satisfies `Q^π = r + γ P^π_SA Q^π`, with the state-action kernel
+`P^π_SA = M.saKernel π`. -/
+theorem qValue_eq_meanReward_add (hγ : γ < 1) (hR : ∀ p, ∀ᵐ x ∂(M.R p), |x| ≤ C)
+    (p : 𝓢 × 𝓐) :
+    M.qValue γ π p = meanReward M.R p + γ * ∫ q, M.qValue γ π q ∂(M.saKernel π p) := by
+  rw [integral_qValue_saKernel M hγ hR, qValue_def]
+
+/-- With bounded rewards and `γ < 1`, the action value of a stationary policy is the resolvent of
+its state-action kernel applied to the mean reward: `Q^π = R_γ(P^π_SA) r`, where
+`R_γ(P^π_SA) = ∑ n, γ ^ n (P^π_SA) ^ n`. -/
+theorem qValue_eq_integral_resolvent (hγ : γ < 1) (hR : ∀ p, ∀ᵐ x ∂(M.R p), |x| ≤ C)
+    (p : 𝓢 × 𝓐) :
+    M.qValue γ π p = ∫ q, meanReward M.R q ∂(Kernel.resolvent γ (M.saKernel π) p) :=
+  congrFun (Kernel.eq_integral_resolvent_of_eq_add hγ (measurable_meanReward _)
+    (abs_meanReward_le hR) (measurable_qValue hγ hR) (abs_qValue_le hγ hR)
+    (qValue_eq_meanReward_add hγ hR)) p
 
 /-- With bounded rewards and `γ < 1`, the advantage of a stationary policy is measurable. -/
 theorem measurable_advantage (hγ : γ < 1) (hR : ∀ p, ∀ᵐ x ∂(M.R p), |x| ≤ C) :
@@ -282,12 +325,9 @@ theorem abs_advantage_le (hγ : γ < 1) (hR : ∀ p, ∀ᵐ x ∂(M.R p), |x| �
 the policy. -/
 theorem integral_advantage (hγ : γ < 1) (hR : ∀ p, ∀ᵐ x ∂(M.R p), |x| ≤ C) (s : 𝓢) :
     ∫ a, M.advantage γ π (s, a) ∂(π s) = 0 := by
-  have hQ : Integrable (fun a ↦ M.qValue γ π (s, a)) (π s) :=
-    integrable_of_abs_le ((measurable_qValue hγ hR).comp measurable_prodMk_left)
-      (fun a ↦ abs_qValue_le hγ hR (s, a)) _
   simp_rw [advantage_def]
-  rw [integral_sub hQ (integrable_const _), integral_qValue hγ hR, integral_const, probReal_univ,
-    one_smul, sub_self]
+  rw [integral_sub (integrable_qValue_prodMk_left hγ hR s _) (integrable_const _),
+    integral_qValue hγ hR, integral_const, probReal_univ, one_smul, sub_self]
 
 end QValue
 
