@@ -286,9 +286,7 @@ theorem hasCondDistrib_obs_fst_add_one (hμ : ∀ᵐ p ∂μ, p.2 = h₀)
       (measurableEmbedding_augment (h₀ + n))
   convert h_cond using 1
   ext q : 1
-  rw [Kernel.comap_apply, Kernel.fst_apply, augmented_P_apply,
-    Measure.map_map measurable_fst measurable_prodMk_right]
-  exact (Measure.map_id).symm
+  simp [Kernel.fst_apply, Measure.map_map measurable_fst measurable_prodMk_right, Function.comp_def]
 
 /-- Along a run of the augmented MDP started at the step `h₀`, the reward of round `n` has
 conditional law `M.reward (h₀ + n)` given the state and action of round `n`. -/
