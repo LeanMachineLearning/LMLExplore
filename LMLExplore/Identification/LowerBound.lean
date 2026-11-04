@@ -196,14 +196,8 @@ theorem IsDeltaCorrect.charTime_mul_ofReal_log_le_expectedStoppingTime [Nonempty
     (hA : task.IsDeltaCorrect A δ) {c : ℝ} (hc : 2.4 ≤ c) (hθ : θ ∈ task.M)
     (hi : task.correct θ = {i}) :
     task.charTime θ * ENNReal.ofReal (Real.log (1 / (c * δ))) ≤
-      expectedStoppingTime A (Environment.bandit (task.ν θ)) := by
-  rcases le_or_gt δ (1 / 2) with hδ | hδ
-  · exact (mul_le_mul_right (ofReal_log_one_div_le_klBer hc δ) _).trans
-      (hA.charTime_mul_le_expectedStoppingTime hδ hθ hi)
-  have h_neg : Real.log (1 / (c * δ)) ≤ 0 :=
-    Real.log_nonpos (by positivity) ((div_le_one (by positivity)).2 (by nlinarith))
-  rw [ENNReal.ofReal_of_nonpos h_neg, mul_zero]
-  exact zero_le
+      expectedStoppingTime A (Environment.bandit (task.ν θ)) :=
+  mul_ofReal_log_le_of_mul_klBer_le hc fun hδ ↦ hA.charTime_mul_le_expectedStoppingTime hδ hθ hi
 
 open Filter Topology in
 omit [DecidableEq α] in

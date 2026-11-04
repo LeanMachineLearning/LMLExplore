@@ -197,15 +197,8 @@ stopping time: `𝔼[N_a(τ)] ≤ 𝔼[τ]`. -/
 lemma lintegral_pullCount_le_expectedStoppingTime (a : 𝓐) :
     ∫⁻ ω, (pullCount IT.action a
       (ENat.toNat (A.stoppingTime IT.obs IT.action IT.feedback ω)) ω : ℝ≥0∞)
-        ∂(trajMeasure A.alg env) ≤ expectedStoppingTime A env := by
-  refine lintegral_mono fun ω ↦ ?_
-  calc (pullCount IT.action a (ENat.toNat (A.stoppingTime IT.obs IT.action IT.feedback ω)) ω
-        : ℝ≥0∞)
-  _ ≤ ENat.toNat (A.stoppingTime IT.obs IT.action IT.feedback ω) := by
-    exact_mod_cast pullCount_le a _ ω
-  _ ≤ ENat.toENNReal (A.stoppingTime IT.obs IT.action IT.feedback ω) := by
-    rw [← ENat.toENNReal_coe]
-    exact ENat.toENNReal_le.2 (ENat.natCast_toNat_le_self _)
+        ∂(trajMeasure A.alg env) ≤ expectedStoppingTime A env :=
+  lintegral_mono fun ω ↦ LMLExplore.natCast_pullCount_toNat_le a _ ω
 
 /-! ### The expected proportions of pulls -/
 
