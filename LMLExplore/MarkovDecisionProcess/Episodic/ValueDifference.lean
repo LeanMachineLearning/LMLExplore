@@ -70,21 +70,6 @@ variable {𝓢 𝓐 : Type*} {m𝓢 : MeasurableSpace 𝓢} {m𝓐 : MeasurableS
   {M : EpisodicMDP 𝓢 𝓐} {π : ℕ → Kernel 𝓢 𝓐} [∀ h, IsMarkovKernel (π h)] {μ : Measure 𝓢}
   [IsProbabilityMeasure μ] {H : ℕ} {C B B' : ℝ} {V : ℕ → 𝓢 → ℝ} {Q : ℕ → 𝓢 → 𝓐 → ℝ}
 
-/-- The integral against the law `μ_h` of the state of `V s - ∫ Q (s, a) dπ_h(a | s)` is the
-integral of `V s - Q (s, a)` against the occupancy measure `d^π_h`. -/
-private lemma integral_sub_integral_stateMarginal {V : 𝓢 → ℝ} {Q : 𝓢 → 𝓐 → ℝ}
-    (hV : Measurable V) (hVB : ∀ s, |V s| ≤ B) (hQ : Measurable fun p : 𝓢 × 𝓐 ↦ Q p.1 p.2)
-    (hQB : ∀ s a, |Q s a| ≤ B') (h : ℕ) :
-    ∫ s, (V s - ∫ a, Q s a ∂(π h s)) ∂(M.stateMarginal π μ h) =
-      ∫ p, (V p.1 - Q p.1 p.2) ∂(M.occupancy π μ h) := by
-  rw [occupancy_def, Measure.integral_compProd (integrable_of_abs_le
-    (f := fun p : 𝓢 × 𝓐 ↦ V p.1 - Q p.1 p.2) ((hV.comp measurable_fst).sub hQ)
-    (fun p ↦ (abs_sub _ _).trans (add_le_add (hVB p.1) (hQB p.1 p.2))) _)]
-  refine integral_congr_ae (.of_forall fun s ↦ ?_)
-  dsimp only
-  rw [integral_sub (integrable_const _) (integrable_of_abs_le (f := fun a ↦ Q s a)
-    (hQ.comp measurable_prodMk_left) (hQB s) _), integral_const, probReal_univ, one_smul]
-
 /-- **Value difference along the occupancy measures**: for rewards in `[-C, C]`, a Markov policy
 `π` and an initial probability measure `μ`, let `V h` and `Q h` be measurable estimates of the
 values and the action values, bounded up to the horizon `H`. Then `∫ V 0 dμ - ∫ V^π_0 dμ` is the
@@ -122,20 +107,17 @@ theorem integral_sub_integral_value (hM : M.RewardsIn (Set.Icc (-C) C))
   congr 1
   refine sum_congr rfl fun h hh ↦ ?_
   have hh : h < H := mem_range.1 hh
-  rw [hWV hh.le, hWV (h := h + 1) hh, integral_sub_integral_stateMarginal (hV h hh.le)
-    (hVB h hh.le) (hQ h hh) (hQB h hh)]
   -- all the integrands are bounded and measurable
-  have hPV : Measurable fun p ↦ ∫ s', V (h + 1) s' ∂(M.trans h p) :=
-    ((hV (h + 1) hh).stronglyMeasurable.integral_kernel (κ := M.trans h)).measurable
+  have iQ : Integrable (fun p : 𝓢 × 𝓐 ↦ Q h p.1 p.2) (M.occupancy π μ h) :=
+    integrable_of_abs_le (hQ h hh) (fun p ↦ hQB h hh p.1 p.2) _
+  rw [hWV hh.le, hWV (h := h + 1) hh, integral_sub_integral_stateMarginal
+    (integrable_of_abs_le (hV h hh.le) (hVB h hh.le) _) iQ]
   have iV : Integrable (fun p : 𝓢 × 𝓐 ↦ V h p.1) (M.occupancy π μ h) :=
     integrable_of_abs_le ((hV h hh.le).comp measurable_fst) (fun p ↦ hVB h hh.le p.1) _
   have iPV : Integrable (fun p ↦ ∫ s', V (h + 1) s' ∂(M.trans h p)) (M.occupancy π μ h) :=
-    integrable_of_abs_le hPV (fun p ↦ abs_integral_le_of_abs_le (hVB (h + 1) hh)) _
+    integrable_integral_kernel_of_abs_le (hV (h + 1) hh) (hVB (h + 1) hh) _ _
   have ir : Integrable (fun p : 𝓢 × 𝓐 ↦ M.meanReward h p.1 p.2) (M.occupancy π μ h) :=
-    integrable_of_abs_le (M.measurable_meanReward h)
-      (fun p ↦ abs_le.2 (meanReward_mem_Icc hM h p.1 p.2)) _
-  have iQ : Integrable (fun p : 𝓢 × 𝓐 ↦ Q h p.1 p.2) (M.occupancy π μ h) :=
-    integrable_of_abs_le (hQ h hh) (fun p ↦ hQB h hh p.1 p.2) _
+    integrable_meanReward hM h
   have iQr : Integrable (fun p : 𝓢 × 𝓐 ↦ Q h p.1 p.2 - M.meanReward h p.1 p.2)
       (M.occupancy π μ h) :=
     iQ.sub ir
@@ -179,16 +161,9 @@ theorem integral_value_sub_integral_value (hM : M.RewardsIn (Set.Icc (-C) C))
     ∫ s, M.value H π 0 s ∂μ - ∫ s, M.value H π' 0 s ∂μ =
       ∑ h ∈ range H, ∫ p, (M.qValue H π' h p.1 p.2 - M.value H π' h p.1)
         ∂(M.occupancy π μ h) := by
-  have hQB (h : ℕ) (hh : h < H) (s : 𝓢) (a : 𝓐) : |M.qValue H π' h s a| ≤ H * |C| := by
-    have hQ := qValue_mem_Icc (π := π') hM hh s a
-    rw [mul_neg] at hQ
-    calc |M.qValue H π' h s a| ≤ (H - h : ℕ) * C := abs_le.2 hQ
-      _ ≤ (H - h : ℕ) * |C| := mul_le_mul_of_nonneg_left (le_abs_self C) (Nat.cast_nonneg _)
-      _ ≤ H * |C| :=
-        mul_le_mul_of_nonneg_right (by exact_mod_cast Nat.sub_le _ _) (abs_nonneg C)
   have h := integral_sub_integral_value (V := M.value H π') (Q := M.qValue H π') (μ := μ)
     (π := π) hM (fun h _ ↦ measurable_value h) (fun h _ ↦ abs_value_le_mul_abs hM h)
-    (fun h _ ↦ measurable_qValue h) hQB
+    (fun h _ ↦ measurable_qValue h) (fun _ hh ↦ abs_qValue_le_mul_abs hM hh)
   -- the Bellman errors of `Q^π'` with respect to `V^π'` vanish
   have h_bellman (h : ℕ) (p : 𝓢 × 𝓐) : M.qValue H π' h p.1 p.2 - M.meanReward h p.1 p.2 -
       ∫ s', M.value H π' (h + 1) s' ∂(M.trans h p) = 0 := by
@@ -197,8 +172,8 @@ theorem integral_value_sub_integral_value (hM : M.RewardsIn (Set.Icc (-C) C))
   rw [← neg_sub, h, ← sum_neg_distrib]
   refine sum_congr rfl fun k hk ↦ ?_
   have hk : k < H := mem_range.1 hk
-  rw [integral_sub_integral_stateMarginal (measurable_value k) (abs_value_le_mul_abs hM k)
-    (measurable_qValue k) (hQB k hk), ← integral_neg]
+  rw [integral_sub_integral_stateMarginal (integrable_value hM k) (integrable_of_abs_le
+    (measurable_qValue k) (fun p ↦ abs_qValue_le_mul_abs hM hk p.1 p.2) _), ← integral_neg]
   refine integral_congr_ae (.of_forall fun p ↦ ?_)
   dsimp only
   ring
@@ -240,11 +215,9 @@ theorem integral_sub_integral_value_le (hM : M.RewardsIn (Set.Icc (-C) C))
     have hh : h < H := mem_range.1 hh
     have hPV (κ : Kernel (𝓢 × 𝓐) 𝓢) [IsMarkovKernel κ] :
         Integrable (fun p ↦ ∫ s', V (h + 1) s' ∂(κ p)) (M.occupancy π μ h) :=
-      integrable_of_abs_le ((hV (h + 1) hh).stronglyMeasurable.integral_kernel (κ := κ)).measurable
-        (fun p ↦ abs_integral_le_of_abs_le (hVB (h + 1) hh)) _
+      integrable_integral_kernel_of_abs_le (hV (h + 1) hh) (hVB (h + 1) hh) κ _
     have ir : Integrable (fun p : 𝓢 × 𝓐 ↦ M.meanReward h p.1 p.2) (M.occupancy π μ h) :=
-      integrable_of_abs_le (M.measurable_meanReward h)
-        (fun p ↦ abs_le.2 (meanReward_mem_Icc hM h p.1 p.2)) _
+      integrable_meanReward hM h
     have iQ : Integrable (fun p : 𝓢 × 𝓐 ↦ Q h p.1 p.2) (M.occupancy π μ h) :=
       integrable_of_abs_le (hQ h hh) (fun p ↦ hQB h hh p.1 p.2) _
     have ib : Integrable (fun p : 𝓢 × 𝓐 ↦ b h p.1 p.2) (M.occupancy π μ h) :=

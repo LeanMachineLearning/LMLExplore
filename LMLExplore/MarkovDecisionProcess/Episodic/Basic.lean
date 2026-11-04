@@ -149,6 +149,15 @@ lemma meanReward_mem_Icc {c d : ℝ} (hM : M.RewardsIn (Set.Icc c d)) (h : ℕ) 
   exact (convex_Icc c d).integral_mem isClosed_Icc (hM h s a)
     (.of_mem_Icc c d measurable_id.aemeasurable (hM h s a))
 
+variable {M} in
+/-- For rewards almost surely in `[c, d]`, the mean reward of each step is integrable with respect
+to every finite measure on the state-action pairs. -/
+lemma integrable_meanReward {c d : ℝ} (hM : M.RewardsIn (Set.Icc c d)) (h : ℕ)
+    {ν : Measure (𝓢 × 𝓐)} [IsFiniteMeasure ν] :
+    Integrable (fun p : 𝓢 × 𝓐 ↦ M.meanReward h p.1 p.2) ν :=
+  .of_mem_Icc c d (M.measurable_meanReward h).aemeasurable
+    (.of_forall fun p ↦ meanReward_mem_Icc hM h p.1 p.2)
+
 /-- The rewards of `M` are the deterministic function `r`: the reward of the pair `(s, a)` at
 step `h` is `r h s a`. -/
 def HasRewardFn (r : ℕ → 𝓢 → 𝓐 → ℝ) : Prop :=

@@ -6,6 +6,7 @@ Authors: Rémy Degenne
 module
 
 public import LMLExplore.MarkovDecisionProcess.Episodic.Value
+public import LMLExplore.Probability.Kernel.Composition.IntegralCompProd
 
 /-!
 # Occupancy measures of Markov policies in an episodic MDP
@@ -42,6 +43,10 @@ episodic counterparts of those of the discounted occupancy measure `Learning.MDP
 * `Learning.MDP.Episodic.EpisodicMDP.occupancy_fst`,
   `Learning.MDP.Episodic.EpisodicMDP.occupancy_add_one_fst`: the state marginal of `d^π_h` is
   `μ_h`, and the flow equation `(d^π_{h+1}).fst = P_h ∘ₘ d^π_h`.
+* `Learning.MDP.Episodic.EpisodicMDP.integral_occupancy`: the integral against `d^π_h` is the
+  integral against `μ_h` of the integral against `π_h`.
+* `Learning.MDP.Episodic.EpisodicMDP.integral_sub_integral_stateMarginal`:
+  `∫ (V s - ∫ Q (s, a) dπ_h(a | s)) dμ_h = ∫ (V - Q) dd^π_h`.
 * `Learning.MDP.Episodic.EpisodicMDP.integral_eq_sum_integral_occupancy_add`: the telescoping
   identity for a bounded measurable sequence of functions of the state.
 * `Learning.MDP.Episodic.EpisodicMDP.integral_qValue_occupancy`: before the horizon, the integral
@@ -163,6 +168,27 @@ lemma integral_stateMarginal_add_one {E : Type*} [NormedAddCommGroup E] [NormedS
   rw [stateMarginal_add_one, Measure.comp_eq_comp_const_apply] at hf ⊢
   rw [Kernel.integral_comp hf, Kernel.const_apply]
 
+/-- The integral of a function `f` of the state-action pair against the occupancy measure `d^π_h`
+is the integral against the law `μ_h` of the state of the integral of `f` against the policy
+`π_h`. -/
+lemma integral_occupancy [SFinite μ] [∀ h, IsMarkovKernel (π h)] {E : Type*}
+    [NormedAddCommGroup E] [NormedSpace ℝ E] {h : ℕ} {f : 𝓢 × 𝓐 → E}
+    (hf : Integrable f (M.occupancy π μ h)) :
+    ∫ p, f p ∂(M.occupancy π μ h) = ∫ s, ∫ a, f (s, a) ∂(π h s) ∂(M.stateMarginal π μ h) := by
+  rw [occupancy_def] at hf ⊢
+  exact Measure.integral_compProd hf
+
+/-- The integral against the law `μ_h` of the state of `V s - ∫ Q (s, a) dπ_h(a | s)` is the
+integral of `V s - Q (s, a)` against the occupancy measure `d^π_h`. -/
+lemma integral_sub_integral_stateMarginal [SFinite μ] [∀ h, IsMarkovKernel (π h)] {E : Type*}
+    [NormedAddCommGroup E] [NormedSpace ℝ E] [CompleteSpace E] {h : ℕ} {V : 𝓢 → E}
+    {Q : 𝓢 → 𝓐 → E} (hV : Integrable V (M.stateMarginal π μ h))
+    (hQ : Integrable (fun p : 𝓢 × 𝓐 ↦ Q p.1 p.2) (M.occupancy π μ h)) :
+    ∫ s, (V s - ∫ a, Q s a ∂(π h s)) ∂(M.stateMarginal π μ h) =
+      ∫ p, (V p.1 - Q p.1 p.2) ∂(M.occupancy π μ h) := by
+  rw [occupancy_def] at hQ ⊢
+  exact Measure.integral_sub_integral_eq_integral_compProd hV hQ
+
 variable [IsProbabilityMeasure μ] [∀ h, IsMarkovKernel (π h)]
 
 /-- **Telescoping identity.** For a bounded measurable sequence of functions `V_h` of the state,
@@ -177,12 +203,10 @@ theorem integral_eq_sum_integral_occupancy_add {V : ℕ → 𝓢 → ℝ} (hV : 
   induction H with
   | zero => simp
   | succ H ih =>
-    have hPV : Measurable fun p ↦ ∫ s', V (H + 1) s' ∂(M.trans H p) :=
-      ((hV (H + 1)).stronglyMeasurable.integral_kernel (κ := M.trans H)).measurable
     rw [ih, sum_range_succ, add_assoc,
       integral_sub (integrable_of_abs_le (f := fun p : 𝓢 × 𝓐 ↦ V H p.1)
           ((hV H).comp measurable_fst) (fun p ↦ hVB H p.1) _)
-        (integrable_of_abs_le hPV (fun p ↦ abs_integral_le_of_abs_le (hVB (H + 1))) _),
+        (integrable_integral_kernel_of_abs_le (hV (H + 1)) (hVB (H + 1)) _ _),
       integral_occupancy_fst (hV H).aestronglyMeasurable,
       ← integral_stateMarginal_add_one (integrable_of_abs_le (hV (H + 1)) (hVB (H + 1)) _)]
     ring
@@ -193,7 +217,7 @@ theorem integral_qValue_occupancy {a b : ℝ} (hM : M.RewardsIn (Set.Icc a b)) {
     (hh : h < H) :
     ∫ p, M.qValue H π h p.1 p.2 ∂(M.occupancy π μ h) =
       ∫ s, M.value H π h s ∂(M.stateMarginal π μ h) := by
-  rw [occupancy_def, Measure.integral_compProd (.of_mem_Icc _ _ (measurable_qValue h).aemeasurable
+  rw [integral_occupancy (.of_mem_Icc _ _ (measurable_qValue h).aemeasurable
     (.of_forall fun p ↦ qValue_mem_Icc hM hh p.1 p.2))]
   exact integral_congr_ae (.of_forall fun s ↦ (value_of_lt hh s).symm)
 
@@ -210,8 +234,7 @@ theorem integral_value_eq_sum_integral_occupancy {C : ℝ} (hM : M.RewardsIn (Se
   refine sum_congr rfl fun h hh ↦ ?_
   have hh : h < H := mem_range.1 hh
   have hr : Integrable (fun p : 𝓢 × 𝓐 ↦ M.meanReward h p.1 p.2) (M.occupancy π μ h) :=
-    integrable_of_abs_le (M.measurable_meanReward h)
-      (fun p ↦ abs_le.2 (meanReward_mem_Icc hM h p.1 p.2)) _
+    integrable_meanReward hM h
   have hQ : Integrable (fun p : 𝓢 × 𝓐 ↦ M.qValue H π h p.1 p.2) (M.occupancy π μ h) :=
     .of_mem_Icc _ _ (measurable_qValue h).aemeasurable
       (.of_forall fun p ↦ qValue_mem_Icc hM hh p.1 p.2)

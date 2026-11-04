@@ -7,6 +7,7 @@ module
 
 public import LMLExplore.MarkovDecisionProcess.Comparison
 public import LMLExplore.MarkovDecisionProcess.Occupancy
+public import LMLExplore.Probability.Kernel.Composition.IntegralCompProd
 
 /-!
 # The performance difference lemma and the discounted value-difference identity
@@ -123,12 +124,8 @@ theorem integral_integral_sub_integral_value (hγ : γ < 1) (hR : ∀ p, ∀ᵐ 
   -- the policy-mismatch term is the integral of `V̂ s - Q̂ (s, a)` against `d = d.fst ⊗ₘ π`
   have h_mismatch : ∫ s, (V s - ∫ a, Q (s, a) ∂(π s)) ∂d.fst = ∫ p, (V p.1 - Q p) ∂d := by
     conv_rhs => rw [← d.disintegrate π]
-    rw [Measure.integral_compProd (hVQ _)]
-    refine integral_congr_ae (.of_forall fun s ↦ ?_)
-    dsimp only
-    rw [integral_sub (integrable_const _) (integrable_of_abs_le (f := fun a ↦ Q (s, a))
-      (hQ.comp measurable_prodMk_left) (fun a ↦ hQB (s, a)) _), integral_const, probReal_univ,
-      one_smul]
+    exact Measure.integral_sub_integral_eq_integral_compProd (integrable_of_abs_le hV hVB _)
+      (integrable_of_abs_le hQ hQB _)
   -- the Bellman residual of `V̂` is minus the sum of the mismatch and Bellman-error integrands
   have h_res : ∫ p, (M.lookahead γ V p - V p.1) ∂d =
       -(∫ p, (V p.1 - Q p) ∂d + ∫ p, (Q p - M.lookahead γ V p) ∂d) := by
