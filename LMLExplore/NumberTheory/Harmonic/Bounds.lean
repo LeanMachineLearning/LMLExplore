@@ -38,8 +38,7 @@ theorem sum_range_inv_add_one_le (n : ℕ) :
     ∑ j ∈ range n, ((j : ℝ) + 1)⁻¹ ≤ 1 + log n := by
   simpa [harmonic] using harmonic_le_one_add_log n
 
-/-- The harmonic sum with index clipped at `1`: `∑_{j < n} max(1, j)⁻¹ ≤ 2 + log n`. The term
-`j = 0` contributes `1` and the others the harmonic sum `∑_{j < n - 1} (j + 1)⁻¹`. -/
+/-- The harmonic sum with index clipped at `1`: `∑_{j < n} max(1, j)⁻¹ ≤ 2 + log n`. -/
 theorem sum_range_inv_max_one_le (n : ℕ) :
     ∑ j ∈ range n, (max 1 (j : ℝ))⁻¹ ≤ 2 + log n := by
   rcases n with _ | n

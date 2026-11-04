@@ -28,9 +28,9 @@ public import Mathlib.Analysis.Real.Sqrt
 * `Real.sum_range_inv_sqrt_max_one_le`: `∑_{j < n} 1 / √(max 1 j) ≤ 2 √n + 1`, the same sum with
   the index clipped at `1`.
 * `Real.sum_div_sqrt_max_one_le`: the doubling bound of Jaksch, Ortner and Auer
-  [JOA10, Lemma 19]. If `0 ≤ z k ≤ max 1 Z k`, where `Z k = ∑_{i < k} z i`, then
-  `∑_{k < n} z k / √(max 1 (Z k)) ≤ (√2 + 1) √(Z n)`. It sums confidence widths over the epochs of
-  algorithms that restart an epoch when some count doubles, as UCRL2.
+  [JOA10, Lemma 19]. If `0 ≤ z k ≤ max 1 (Z k)` for every `k < n`, where `Z k = ∑_{i < k} z i`,
+  then `∑_{k < n} z k / √(max 1 (Z k)) ≤ (√2 + 1) √(Z n)`. It sums confidence widths over the
+  epochs of algorithms that restart an epoch when some count doubles, as UCRL2.
 
 ## References
 
@@ -113,8 +113,8 @@ theorem sum_range_inv_sqrt_add_one_le (n : ℕ) :
     rw [Finset.sum_range_succ, Nat.cast_succ]
     linarith
 
-/-- `∑_{j < n} 1 / √(max 1 j) ≤ 2 √n + 1`: the term `j = 0` contributes `1` and the others are
-bounded by `Real.sum_range_inv_sqrt_add_one_le`. -/
+/-- `∑_{j < n} 1 / √(max 1 j) ≤ 2 √n + 1`, the sum of inverse square roots with the index clipped
+at `1`. -/
 theorem sum_range_inv_sqrt_max_one_le (n : ℕ) :
     ∑ j ∈ Finset.range n, (√(max 1 (j : ℝ)))⁻¹ ≤ 2 * √n + 1 := by
   rcases n with _ | n

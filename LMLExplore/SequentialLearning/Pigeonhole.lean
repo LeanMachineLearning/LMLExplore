@@ -48,8 +48,8 @@ namespace LMLExplore
 
 variable {α Ω : Type*} [DecidableEq α] [Fintype α] {A : ℕ → Ω → α}
 
-/-- `∑_x √(N_K(x)) ≤ √(m K)`: by Cauchy–Schwarz, the square roots of the counts of the elements of
-`α` before step `K` add up to at most `√(Fintype.card α * K)`. -/
+/-- `∑_x √(N_K(x)) ≤ √(m K)`: the square roots of the counts of the elements of `α` before step
+`K` add up to at most `√(Fintype.card α * K)`. -/
 theorem sum_sqrt_pullCount_le (ω : Ω) (K : ℕ) :
     ∑ a, √(pullCount A a K ω : ℝ) ≤ √(Fintype.card α * K) := by
   have h := Real.sum_sqrt_mul_sqrt_le univ (f := fun _ : α ↦ (1 : ℝ))
