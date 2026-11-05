@@ -61,6 +61,10 @@ probability that the arm leaves its interval on one side at some round.
   side at some round `n` is at most `∑_n ∑_{u = 1}^n exp (-u β(u, n)² / (2 σ²))`, for any
   exploration rate `β ≥ 0` depending on the number of pulls `N_a` and the round `n`. These are the
   deviation bounds of the stopping rule of LUCB [KTAS12, Theorem 1].
+* `LMLExplore.measureReal_exists_sqrt_lt_abs_empMean_sub_le`: [LS, Lemma 33.8] along a run of any
+  algorithm: a σ²-sub-Gaussian arm leaves the confidence interval
+  `μ̂_a ∓ √(2 σ² (log (2 N_a (N_a + 1)) + y) / N_a)` at some round with probability at most
+  `exp (-y)`.
 
 ## References
 
@@ -291,6 +295,45 @@ theorem measureReal_exists_lt_empMean_sub_le_tsum
     linarith
   · congr 2
     field_simp
+
+/-- **Time-uniform deviations of the empirical mean of a sub-Gaussian arm along a run**
+([LS, Lemma 33.8] along a run). In a run of any algorithm against `Environment.bandit ν`, if the
+arm `a` is σ²-sub-Gaussian with mean `μ_a` and `σ² ≠ 0`, then for `y ≥ 0`, the probability that at
+some round `n` the arm `a` has been pulled and its pull count `N_a(n)` and empirical mean
+`μ̂_a(n)` satisfy `√(2 σ² (log (2 N_a(n) (N_a(n) + 1)) + y) / N_a(n)) < |μ̂_a(n) - μ_a|` is at
+most `exp (-y)`. -/
+theorem measureReal_exists_sqrt_lt_abs_empMean_sub_le
+    (h : IsAlgEnvSeq O A R alg (Environment.bandit ν) P) (a : α) {σ2 : ℝ≥0} (hσ2 : σ2 ≠ 0)
+    (hν : HasSubgaussianMGF (fun x ↦ x - (ν a)[id]) σ2 (ν a)) {y : ℝ} (hy : 0 ≤ y) :
+    P.real {ω | ∃ n, pullCount A a n ω ≠ 0 ∧
+        √(2 * σ2 * (log (2 * pullCount A a n ω * (pullCount A a n ω + 1)) + y) /
+          pullCount A a n ω) < |empMean A R a n ω - (ν a)[id]|} ≤ exp (-y) := by
+  have hσ : (0 : ℝ) < σ2 := NNReal.coe_pos.2 (pos_iff_ne_zero.2 hσ2)
+  -- the event of the stream model at `s ≠ 0` rewards with sum `x`
+  set p : ℕ → ℝ → Prop := fun s x ↦ s ≠ 0 ∧
+    √(2 * σ2 * (log (2 * s * (s + 1)) + y) / s) < |x / s - (ν a)[id]|
+  have h_stream : streamMeasure ν {ω | ∃ s, p s (∑ i ∈ range s, ω i a)} ≤
+      streamMeasure ν {ω | ∃ s : ℕ, log (2 * s * (s + 1)) + y ≤
+        (∑ i ∈ range s, (ω i a - (ν a)[id])) ^ 2 / (2 * σ2 * s)} := by
+    refine measure_mono fun ω ⟨s, hs0, hs⟩ ↦ ⟨s, ?_⟩
+    -- the deviation `D = μ̂_s - μ_a` satisfies `2 σ² (log (2 s (s + 1)) + y) < s D²`
+    have hs' : (0 : ℝ) < s := Nat.cast_pos.2 (Nat.pos_of_ne_zero hs0)
+    set x := ∑ i ∈ range s, ω i a
+    rw [sqrt_lt' ((sqrt_nonneg _).trans_lt hs), sq_abs, div_lt_iff₀ hs'] at hs
+    have h_sum : ∑ i ∈ range s, (ω i a - (ν a)[id]) = (x / s - (ν a)[id]) * s := by
+      rw [sum_sub_distrib, sum_const, card_range, nsmul_eq_mul, sub_mul,
+        div_mul_cancel₀ _ hs'.ne', mul_comm]
+    rw [h_sum, le_div_iff₀ (by positivity)]
+    nlinarith
+  refine ENNReal.toReal_le_of_le_ofReal (exp_pos _).le ?_
+  calc P {ω | ∃ n, pullCount A a n ω ≠ 0 ∧
+        √(2 * σ2 * (log (2 * pullCount A a n ω * (pullCount A a n ω + 1)) + y) /
+          pullCount A a n ω) < |empMean A R a n ω - (ν a)[id]|}
+  _ ≤ P {ω | ∃ n, p (pullCount A a n ω) (sumRewards A R a n ω)} :=
+    measure_mono fun ω ⟨n, hn⟩ ↦ ⟨n, by rwa [empMean] at hn⟩
+  _ ≤ streamMeasure ν {ω | ∃ s, p s (∑ i ∈ range s, ω i a)} :=
+    measure_exists_pullCount_sumRewards_le h a p
+  _ ≤ ENNReal.ofReal (exp (-y)) := h_stream.trans (streamMeasure_exists_log_add_le_sq_div_le hν hy)
 
 end ExplorationRate
 
