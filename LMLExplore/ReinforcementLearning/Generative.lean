@@ -40,8 +40,8 @@ and `γ < 1`, this gives the crude bounds of [AJKS, Proposition 2.1]: with proba
   the transition kernels of `M` and `M.empirical N ω` are within `η` in total variation.
 * `Learning.MDP.le_streamMeasure_forall_abs_qValue_sub_qValue_empirical_le`,
   `Learning.MDP.le_streamMeasure_forall_abs_optQValue_sub_optQValue_empirical_le`,
-  `Learning.MDP.le_streamMeasure_forall_abs_qValue_sub_optQValue_le`: the crude bounds
-  [AJKS, Proposition 2.1].
+  `Learning.MDP.le_streamMeasure_forall_abs_qValue_sub_optQValue_le_of_value_empirical_eq_optValue`:
+  the crude bounds [AJKS, Proposition 2.1].
 
 ## References
 
@@ -138,9 +138,9 @@ model of an MDP `M` with `S` states, `A` actions and rewards bounded by `C`, for
 and `δ > 0`, with probability at least `1 - δ`, every optimal stationary policy `π̂` of
 `M.empirical N ω` has action values in `M` within `2 γ C η / (1 - γ) ^ 2` of the optimal action
 values of `M`, with `η = √(2 (log (S A / δ) + S log 2) / N)`. -/
-theorem le_streamMeasure_forall_abs_qValue_sub_optQValue_le {M : MDP 𝓢 𝓐 ℝ} {γ : ℝ≥0}
-    (hγ : γ < 1) {C : ℝ} (hR : ∀ p, ∀ᵐ x ∂(M.R p), |x| ≤ C) (N : ℕ) [NeZero N] {δ : ℝ}
-    (hδ : 0 < δ) :
+theorem le_streamMeasure_forall_abs_qValue_sub_optQValue_le_of_value_empirical_eq_optValue
+    {M : MDP 𝓢 𝓐 ℝ} {γ : ℝ≥0} (hγ : γ < 1) {C : ℝ} (hR : ∀ p, ∀ᵐ x ∂(M.R p), |x| ≤ C) (N : ℕ)
+    [NeZero N] {δ : ℝ} (hδ : 0 < δ) :
     1 - δ ≤ (streamMeasure M.P).real {ω | ∀ (π : Kernel 𝓢 𝓐) [IsMarkovKernel π],
       (M.empirical N ω).value γ π = (M.empirical N ω).optValue γ → ∀ p,
         |M.qValue γ π p - M.optQValue γ p| ≤ 2 * γ * C *

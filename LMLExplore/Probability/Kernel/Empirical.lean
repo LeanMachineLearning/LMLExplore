@@ -7,6 +7,7 @@ module
 
 public import LeanMachineLearning.Online.Bandit.ArrayProbSpace
 public import LMLExplore.MeasureTheory.Measure.TotalVariation.Basic
+public import LMLExplore.Probability.Kernel.Basic
 public import LMLExplore.Probability.Moments.SubGaussian.EmpiricalLaw
 public import TauCeti.Probability.Process.EmpiricalMeasure
 
@@ -81,10 +82,11 @@ lemma empiricalKernel_apply_of_measurableSet (N : ℕ) (ω : ℕ → α → β) 
     Fin.sum_univ_eq_sum_range (fun i ↦ s.indicator (1 : β → ℝ≥0∞) (ω i a))]
 
 instance (N : ℕ) [NeZero N] (ω : ℕ → α → β) : IsMarkovKernel (empiricalKernel N ω) :=
-  ⟨fun a ↦ by rw [empiricalKernel_apply]; infer_instance⟩
+  inferInstanceAs (IsMarkovKernel (Kernel.ofFunOfCountable _))
 
 /-- The empirical kernel gives a point `b` the proportion `#{i < N | ω i a = b} / N` of the first
 `N` samples equal to `b`. -/
+@[simp]
 lemma measureReal_empiricalKernel_apply_singleton [MeasurableSingletonClass β] [DecidableEq β]
     (N : ℕ) (ω : ℕ → α → β) (a : α) (b : β) :
     (empiricalKernel N ω a).real {b} = (#{i ∈ range N | ω i a = b} : ℝ) / N := by
@@ -130,7 +132,7 @@ theorem le_streamMeasure_forall_tvDist_empiricalKernel_lt [Fintype α] [Fintype 
   -- the bad event of a key is measurable and has probability at most `δ / card α`
   set bad : α → Set (ℕ → α → β) := fun a ↦ {ω | r ≤ tvDist (ν a) (empiricalKernel N ω a)}
   have h_meas (a : α) : MeasurableSet (bad a) := by
-    simp_rw [bad, h_tv]
+    simp_rw [bad, h_tv, measureReal_def]
     refine measurableSet_le measurable_const (Finset.measurable_sum _ fun b _ ↦ ?_)
     have h := (Measure.measurable_coe (measurableSet_singleton b)).comp
       (measurable_empiricalKernel_apply (β := β) N a)
@@ -144,7 +146,7 @@ theorem le_streamMeasure_forall_tvDist_empiricalKernel_lt [Fintype α] [Fintype 
         (ν a).real {b}| < √(2 * (log (1 / (δ / Fintype.card α)) + Fintype.card β * log 2) /
           #(range N))} = (bad a)ᶜ := by
       ext ω
-      simp [bad, h_tv, measureReal_empiricalKernel_apply_singleton, r]
+      simp [bad, h_tv, r]
     rw [h_set, probReal_compl_eq_one_sub (h_meas a)] at h
     linarith
   -- a union bound over the keys
