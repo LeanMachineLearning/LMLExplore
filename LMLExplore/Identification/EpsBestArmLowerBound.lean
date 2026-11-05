@@ -216,9 +216,8 @@ private lemma ofReal_card_div_le_sum_erase_add (a : α) {x : ℝ} (hx : 0 < x)
     rw [← Nat.cast_add_one, Nat.sub_add_cancel (Fintype.card_pos_iff.2 ⟨a⟩)]
   have h_sum : ((Fintype.card α - 1 : ℕ) : ℝ≥0∞) * (ENNReal.ofReal x)⁻¹ ≤
       ∑ b ∈ Finset.univ.erase a, f b := by
-    rw [← Finset.card_univ, ← Finset.card_erase_of_mem (Finset.mem_univ a), ← nsmul_eq_mul,
-      ← Finset.sum_const]
-    exact Finset.sum_le_sum hf
+    rw [← Finset.card_univ, ← Finset.card_erase_of_mem (Finset.mem_univ a), ← nsmul_eq_mul]
+    exact Finset.card_nsmul_le_sum _ _ _ hf
   calc ENNReal.ofReal (Fintype.card α / x)
       = ((Fintype.card α - 1 : ℕ) : ℝ≥0∞) * (ENNReal.ofReal x)⁻¹ + (ENNReal.ofReal x)⁻¹ := by
         rw [ENNReal.ofReal_div_of_pos hx, ENNReal.ofReal_natCast, div_eq_mul_inv, ← h_card,
