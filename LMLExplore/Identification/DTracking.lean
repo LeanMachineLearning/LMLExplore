@@ -237,13 +237,15 @@ theorem tsum_measure_exists_ge_empMean_notMem_Ioo_ne_top [IsProbabilityMeasure P
     (hu : ∀ a, u a ∈ (ρ a).expFamilyMeans (T a)) (hlμ : ∀ a, l a < μ a) (hμu : ∀ a, μ a < u a)
     {t₀ : ℕ → ℕ} (ht₀ : Tendsto (fun T : ℕ ↦ √(t₀ T : ℝ) / log T) atTop atTop) :
     ∑' T, P {ω | ∃ t ≥ t₀ T, ∃ a, empMean A R a t ω ∉ Set.Ioo (l a) (u a)} ≠ ∞ := by
-  refine Identification.tsum_measure_exists_ge_empMean_notMem_Ioo_ne_top h hν_above hν_below hμ
-    hl hu hlμ hμu
-    (m := fun T ↦ ⌈√(t₀ T : ℝ) - (Fintype.card α / 2 + 1)⌉₊) (fun T ↦ ?_)
-    (Real.tendsto_natCeil_sub_div_log _ ht₀)
-  filter_upwards [sqrt_sub_sub_one_lt_pullCount h] with ω hω a
-  refine Nat.ceil_le.2 ?_
-  linarith [hω (t₀ T) a]
+  have h_forced (T : ℕ) :
+      ∀ᵐ ω ∂P, ∀ a, ⌈√(t₀ T : ℝ) - (Fintype.card α / 2 + 1)⌉₊ ≤ pullCount A a (t₀ T) ω := by
+    filter_upwards [sqrt_sub_sub_one_lt_pullCount h] with ω hω a
+    refine Nat.ceil_le.2 ?_
+    linarith [hω (t₀ T) a]
+  -- Forced exploration is sufficient exploration on the sure event.
+  simpa only [Set.univ_inter] using Identification.tsum_measure_exists_ge_empMean_notMem_Ioo_ne_top
+    h hν_above hν_below hμ hl hu hlμ hμu (G := fun _ ↦ Set.univ)
+    (fun T ↦ (h_forced T).mono fun _ hω _ ↦ hω) (Real.tendsto_natCeil_sub_div_log _ ht₀)
 
 end DTracking
 
