@@ -18,19 +18,22 @@ public import LMLExplore.Topology.Semicontinuity.Compact
 
 Track-and-Stop [GK16] is the fixed-confidence identification algorithm that samples the arms so
 that their proportions of pulls follow an optimal allocation at the current estimate of the model,
-and stops with the generalized likelihood ratio test. For an identification task whose models are
-vectors of means `μ : α → ℝ` (the arms have real observations), after `n` rounds with history `h`,
-with pull counts `N_a` and empirical means `μ̂ = μ̂(h)`, it
+and stops with the generalized likelihood ratio test. For an identification task with models `Θ`
+and observations in `𝓨`, and an estimator `est` of the model, after `n` rounds with history `h`,
+with pull counts `N_a` and estimated model `θ̂ = est n h`, it
 * samples with the D-tracking rule of `Identification/DTracking.lean` or the C-tracking rule of
-  `Identification/CTracking.lean`, whose target is `w(μ̂)` for a target map `w`, typically a
-  selection of the optimal allocations `w*(μ̂, ¬i)`;
-* recommends the answer `rec(μ̂)`, typically the correct answer of `μ̂`;
-* stops when the GLR statistic
-  `GLR_n(h, ¬rec(μ̂)) = inf_{λ ∈ ¬rec(μ̂)} ∑ a, N_a KL(ν_a(μ̂), ν_a(λ))` exceeds a threshold
+  `Identification/CTracking.lean`, whose target is `w(θ̂)` for a target map `w`, typically a
+  selection of the optimal allocations `w*(θ̂, ¬i)`;
+* recommends the answer `rec(θ̂)`, typically the correct answer of `θ̂`;
+* stops when the GLR statistic of the plug-in statistic
+  `GLR_n(h, ¬rec(θ̂)) = inf_{λ ∈ ¬rec(θ̂)} ∑ a, N_a KL(ν_a(θ̂), ν_a(λ))` exceeds a threshold
   `β n h`, which may depend on the history.
 
-The GLR statistic is the transportation cost of the empirical model with the pull counts as
-allocation, `GLR_n(h, ¬i) = D(μ̂, N, ¬i) = n D(μ̂, N / n, ¬i)`.
+The GLR statistic is the transportation cost of the estimated model with the pull counts as
+allocation, `GLR_n(h, ¬i) = D(θ̂, N, ¬i) = n D(θ̂, N / n, ¬i)`.
+
+The sample complexity bounds below are stated for tasks whose models are vectors of means
+`μ : α → ℝ` of arms with real observations, with the vector `μ̂` of empirical means as estimator.
 
 **Sample complexity with D-tracking** [GK16, Theorem 14]. Let the true model `μ` have rewards
 dominated by exponential families with means `μ a`, let the target map be continuous at `μ` and the
@@ -72,18 +75,21 @@ above `T*(μ)`. A finite expected stopping time at small `δ` gives almost sure 
 
 ## Main definitions
 
-* `IdentTask.empCost task n h λ`: the statistic `∑ a, N_a KL(ν_a(μ̂), ν_a(λ))` of the history `h`
-  of the first `n` rounds against the model `λ`, the transportation cost from the empirical model
-  `μ̂` with the pull counts `N` as allocation.
-* `IdentTask.trackAndStop task w hw β rec hrec hstop`: Track-and-Stop with D-tracking of the
-  targets `w(μ̂)`, recommendation `rec(μ̂)` and GLR stopping with thresholds `β`.
-* `IdentTask.cTrackAndStop task w hw β rec hrec hstop`: Track-and-Stop with C-tracking of the
-  targets `w(μ̂)`, recommendation `rec(μ̂)` and GLR stopping with thresholds `β`.
+* `IdentTask.plugInCost task est n h λ`: the plug-in statistic `∑ a, N_a KL(ν_a(θ̂), ν_a(λ))` of
+  the estimator `est` for the history `h` of the first `n` rounds against the model `λ`, the
+  transportation cost from the estimated model `θ̂ = est n h` with the pull counts `N` as
+  allocation.
+* `IdentTask.trackAndStop task est w hw β rec hrec hstop`: Track-and-Stop with D-tracking of the
+  targets `w(θ̂)`, recommendation `rec(θ̂)` and GLR stopping with the plug-in statistic of `est` and
+  thresholds `β`.
+* `IdentTask.cTrackAndStop task est w hw β rec hrec hstop`: Track-and-Stop with C-tracking of the
+  targets `w(θ̂)`, recommendation `rec(θ̂)` and GLR stopping with the plug-in statistic of `est` and
+  thresholds `β`.
 
 ## Main statements
 
-* `IdentTask.glr_empCost`, `IdentTask.glr_empCost_eq_mul`: the GLR statistic of the empirical
-  costs is `D(μ̂, N, ¬i) = n D(μ̂, N / n, ¬i)`.
+* `IdentTask.glr_plugInCost`, `IdentTask.glr_plugInCost_eq_mul`: the GLR statistic of the plug-in
+  statistic is `D(θ̂, N, ¬i) = n D(θ̂, N / n, ¬i)`.
 * `IdentTask.eventually_expectedStoppingTime_trackAndStop_le`: [GK16, Theorem 14] with the rate
   `κ < D(μ, w(μ), ¬i)`: `𝔼[τ_δ] ≤ c log (1 / δ)` for all small enough `δ`, for every `c > 1 / κ`.
 * `IdentTask.eventually_expectedStoppingTime_trackAndStop_le_of_charTime_lt`: **sample complexity
@@ -125,91 +131,150 @@ open scoped Topology ENNReal NNReal
 
 namespace LMLExplore.Identification.IdentTask
 
-variable {α ℐ : Type*} [Fintype α] [DecidableEq α] {mα : MeasurableSpace α}
-  (task : IdentTask α (α → ℝ) ℐ ℝ) {n : ℕ} {h : Hist Unit α ℝ n} {i : ℐ}
+variable {α Θ ℐ 𝓨 : Type*} [Fintype α] [DecidableEq α] {mα : MeasurableSpace α}
+  {m𝓨 : MeasurableSpace 𝓨} (task : IdentTask α Θ ℐ 𝓨) (est : (n : ℕ) → Hist Unit α 𝓨 n → Θ)
+  {n : ℕ} {h : Hist Unit α 𝓨 n} {i : ℐ}
 
-/-! ### The GLR statistic of the empirical model -/
+/-! ### The plug-in GLR statistic -/
 
-/-- The statistic `∑ a, N_a KL(ν_a(μ̂), ν_a(λ))` of the history `h` of the first `n` rounds against
-the model `λ`, with `N_a` the number of pulls of the arm `a` and `μ̂` the vector of empirical means
-of `h`: the transportation cost from the empirical model `μ̂` to `λ` with the pull counts as
-allocation. When the arm laws of the models are the members of exponential families with
-divergence `d`, indexed by their means, and `μ̂` and `λ` are vectors of means of the families, it
-is `∑ a, N_a d(μ̂_a, λ_a)`, the log-likelihood ratio of the maximum-likelihood model against `λ`. -/
-noncomputable def empCost (n : ℕ) (h : Hist Unit α ℝ n) (θ' : α → ℝ) : ℝ≥0∞ :=
-  task.cost (fun a ↦ (pullCount' n h a : ℝ)) (empMean' n h) θ'
+/-- The *plug-in statistic* of the estimator `est`: the statistic `∑ a, N_a KL(ν_a(θ̂), ν_a(λ))` of
+the history `h` of the first `n` rounds against the model `λ`, with `N_a` the number of pulls of
+the arm `a` in `h` and `θ̂ = est n h` the estimate of the model from `h`. It is the transportation
+cost from the estimated model `θ̂` to `λ` with the pull counts as allocation. When the arm laws of
+the models are the members of exponential families with divergence `d`, indexed by their means,
+the estimate is the vector `μ̂` of empirical means, and `μ̂` and `λ` are vectors of means of the
+families, it is `∑ a, N_a d(μ̂_a, λ_a)`, the log-likelihood ratio of the maximum-likelihood model
+against `λ`. -/
+noncomputable def plugInCost (n : ℕ) (h : Hist Unit α 𝓨 n) (θ' : Θ) : ℝ≥0∞ :=
+  task.cost (fun a ↦ (pullCount' n h a : ℝ)) (est n h) θ'
 
-lemma empCost_def (n : ℕ) (h : Hist Unit α ℝ n) (θ' : α → ℝ) :
-    task.empCost n h θ' = task.cost (fun a ↦ (pullCount' n h a : ℝ)) (empMean' n h) θ' := (rfl)
+lemma plugInCost_def (n : ℕ) (h : Hist Unit α 𝓨 n) (θ' : Θ) :
+    task.plugInCost est n h θ' = task.cost (fun a ↦ (pullCount' n h a : ℝ)) (est n h) θ' :=
+  (rfl)
 
-/-- The GLR statistic of the empirical costs is the cost `D(μ̂, N, ¬i)` of the alternatives to `i`
-from the empirical model `μ̂` with the pull counts `N` as allocation. -/
-lemma glr_empCost :
-    task.glr task.empCost n h i = task.altCost (empMean' n h) (fun a ↦ (pullCount' n h a : ℝ)) i :=
-  task.glr_eq_altCost fun _ _ ↦ task.empCost_def n h _
+/-- The GLR statistic of the plug-in statistic is the cost `D(θ̂, N, ¬i)` of the alternatives to
+`i` from the estimated model `θ̂ = est n h` with the pull counts `N` as allocation. -/
+lemma glr_plugInCost :
+    task.glr (task.plugInCost est) n h i =
+      task.altCost (est n h) (fun a ↦ (pullCount' n h a : ℝ)) i :=
+  task.glr_eq_altCost fun _ _ ↦ task.plugInCost_def est n h _
 
-/-- After `n ≠ 0` rounds, the GLR statistic of the empirical costs is `n D(μ̂, N / n, ¬i)`, with the
-proportions of pulls `N / n` as allocation. -/
-lemma glr_empCost_eq_mul (hn : n ≠ 0) :
-    task.glr task.empCost n h i =
-      n * task.altCost (empMean' n h) (fun a ↦ (pullCount' n h a : ℝ) / n) i := by
+/-- After `n ≠ 0` rounds, the GLR statistic of the plug-in statistic is `n D(θ̂, N / n, ¬i)`, with
+the estimated model `θ̂ = est n h` and the proportions of pulls `N / n` as allocation. -/
+lemma glr_plugInCost_eq_mul (hn : n ≠ 0) :
+    task.glr (task.plugInCost est) n h i =
+      n * task.altCost (est n h) (fun a ↦ (pullCount' n h a : ℝ) / n) i := by
   have hn' : (n : ℝ≥0) ≠ 0 := Nat.cast_ne_zero.2 hn
   have h_smul :
       (fun a ↦ (pullCount' n h a : ℝ)) = (n : ℝ≥0) • fun a ↦ (pullCount' n h a : ℝ) / n := by
     ext a
     simp [NNReal.smul_def, field]
-  rw [glr_empCost, h_smul, task.altCost_smul hn', ENNReal.smul_def, smul_eq_mul,
+  rw [glr_plugInCost, h_smul, task.altCost_smul hn', ENNReal.smul_def, smul_eq_mul,
     ENNReal.coe_natCast]
 
 /-! ### Track-and-Stop -/
 
 variable [Nonempty α] [MeasurableSingletonClass α] {mℐ : MeasurableSpace ℐ}
 
-/-- **Track-and-Stop** with D-tracking [GK16, Section 3]: the GLRT of the task with the empirical
-costs `IdentTask.empCost` as statistic, thresholds `β`, the recommendation `rec(μ̂)` and the
-D-tracking sampling rule with targets `w(μ̂)`, where `μ̂` is the vector of empirical means of the
-history. After `n` rounds with history `h`, it stops if `β n h < GLR_n(h, ¬rec(μ̂))` and then
-answers `rec(μ̂)`. The target map `w` is typically a selection of the optimal allocations
-`w*(μ̂, ¬rec(μ̂))`, and `rec(μ̂)` a correct answer of `μ̂`. -/
-noncomputable def trackAndStop (w : (α → ℝ) → α → ℝ) (hw : Measurable w)
-    (β : (n : ℕ) → Hist Unit α ℝ n → ℝ≥0∞) (rec : (α → ℝ) → ℐ) (hrec : Measurable rec)
-    (hstop : ∀ n, MeasurableSet {h | β n h < task.glr task.empCost n h (rec (empMean' n h))}) :
-    IdentAlg Unit α ℝ ℐ :=
-  task.glrt task.empCost
-    (dTracking (fun n h ↦ w (empMean' n h)) fun n ↦ hw.comp (by fun_prop)) β
-    (fun n h ↦ rec (empMean' n h)) (fun n ↦ hrec.comp (by fun_prop)) hstop
+/-- **Track-and-Stop** with D-tracking [GK16, Section 3], for any task and any estimator `est` of
+the model: the GLRT of the task with the plug-in statistic `IdentTask.plugInCost est`, thresholds
+`β`, the recommendation `rec(θ̂)` and the D-tracking sampling rule with targets `w(θ̂)`, where
+`θ̂ = est n h` is the estimate of the model from the history `h` of the first `n` rounds. After `n`
+rounds with history `h`, it stops if `β n h < GLR_n(h, ¬rec(θ̂))` and then answers `rec(θ̂)`. The
+target map `w` is typically a selection of the optimal allocations `w*(θ̂, ¬rec(θ̂))`, and `rec(θ̂)`
+a correct answer of `θ̂`. -/
+noncomputable def trackAndStop (w : Θ → α → ℝ)
+    (hw : ∀ n, Measurable fun h : Hist Unit α 𝓨 n ↦ w (est n h))
+    (β : (n : ℕ) → Hist Unit α 𝓨 n → ℝ≥0∞) (rec : Θ → ℐ)
+    (hrec : ∀ n, Measurable fun h : Hist Unit α 𝓨 n ↦ rec (est n h))
+    (hstop : ∀ n, MeasurableSet {h | β n h < task.glr (task.plugInCost est) n h (rec (est n h))}) :
+    IdentAlg Unit α 𝓨 ℐ :=
+  task.glrt (task.plugInCost est) (dTracking (fun n h ↦ w (est n h)) hw) β
+    (fun n h ↦ rec (est n h)) hrec hstop
 
-variable {w : (α → ℝ) → α → ℝ} {hw : Measurable w} {β : (n : ℕ) → Hist Unit α ℝ n → ℝ≥0∞}
-  {rec : (α → ℝ) → ℐ} {hrec : Measurable rec}
-  {hstop : ∀ n, MeasurableSet {h | β n h < task.glr task.empCost n h (rec (empMean' n h))}}
+variable {w : Θ → α → ℝ} {hw : ∀ n, Measurable fun h : Hist Unit α 𝓨 n ↦ w (est n h)}
+  {β : (n : ℕ) → Hist Unit α 𝓨 n → ℝ≥0∞} {rec : Θ → ℐ}
+  {hrec : ∀ n, Measurable fun h : Hist Unit α 𝓨 n ↦ rec (est n h)}
+  {hstop : ∀ n, MeasurableSet {h | β n h < task.glr (task.plugInCost est) n h (rec (est n h))}}
 
-lemma trackAndStop_def : task.trackAndStop w hw β rec hrec hstop = task.glrt task.empCost
-    (dTracking (fun n h ↦ w (empMean' n h)) fun n ↦ hw.comp (by fun_prop)) β
-    (fun n h ↦ rec (empMean' n h)) (fun n ↦ hrec.comp (by fun_prop)) hstop := (rfl)
+lemma trackAndStop_def : task.trackAndStop est w hw β rec hrec hstop =
+    task.glrt (task.plugInCost est) (dTracking (fun n h ↦ w (est n h)) hw) β
+      (fun n h ↦ rec (est n h)) hrec hstop := (rfl)
 
-/-- The sampling rule of Track-and-Stop is D-tracking of the targets `w(μ̂)`. -/
+/-- The sampling rule of Track-and-Stop is D-tracking of the targets `w(θ̂)`. -/
 @[simp]
-lemma alg_trackAndStop : (task.trackAndStop w hw β rec hrec hstop).alg =
-    dTracking (fun n h ↦ w (empMean' n h)) fun n ↦ hw.comp (by fun_prop) := by
+lemma alg_trackAndStop :
+    (task.trackAndStop est w hw β rec hrec hstop).alg = dTracking (fun n h ↦ w (est n h)) hw := by
   rw [trackAndStop_def, alg_glrt]
 
 /-- Track-and-Stop stops after the history `h` of the first `n` rounds iff the GLR statistic of
-the recommendation `rec(μ̂)` exceeds the threshold `β n h`. -/
+the recommendation `rec(θ̂)` exceeds the threshold `β n h`. -/
 @[simp]
-lemma mem_stopSet_trackAndStop {h : Σ n, Hist Unit α ℝ n} :
-    h ∈ (task.trackAndStop w hw β rec hrec hstop).stopSet ↔
-      β h.1 h.2 < task.glr task.empCost h.1 h.2 (rec (empMean' h.1 h.2)) := by
+lemma mem_stopSet_trackAndStop {h : Σ n, Hist Unit α 𝓨 n} :
+    h ∈ (task.trackAndStop est w hw β rec hrec hstop).stopSet ↔
+      β h.1 h.2 < task.glr (task.plugInCost est) h.1 h.2 (rec (est h.1 h.2)) := by
   rw [trackAndStop_def, mem_stopSet_glrt]
 
-/-- Track-and-Stop answers the recommendation `rec(μ̂)` of the empirical means. -/
+/-- Track-and-Stop answers the recommendation `rec(θ̂)` of the estimated model. -/
 @[simp]
-lemma output_trackAndStop (h : Σ n, Hist Unit α ℝ n) :
-    (task.trackAndStop w hw β rec hrec hstop).output h =
-      Measure.dirac (rec (empMean' h.1 h.2)) := by
+lemma output_trackAndStop (h : Σ n, Hist Unit α 𝓨 n) :
+    (task.trackAndStop est w hw β rec hrec hstop).output h =
+      Measure.dirac (rec (est h.1 h.2)) := by
   rw [trackAndStop_def, output_glrt]
+
+/-- **Track-and-Stop with C-tracking** [GK16, Section 3; DK19, Theorem 7], for any task and any
+estimator `est` of the model: the GLRT of the task with the plug-in statistic
+`IdentTask.plugInCost est`, thresholds `β`, the recommendation `rec(θ̂)` and the C-tracking
+sampling rule with targets `w(θ̂)`, where `θ̂ = est n h` is the estimate of the model from the
+history `h` of the first `n` rounds. After `n` rounds with history `h`, it stops if
+`β n h < GLR_n(h, ¬rec(θ̂))` and then answers `rec(θ̂)`. Unlike D-tracking
+(`IdentTask.trackAndStop`), C-tracking follows the averages of the past targets, so that the target
+map `w` may be any selection of the optimal allocations `w*(θ̂, ¬rec(θ̂))`, even when these are not
+unique. -/
+noncomputable def cTrackAndStop (w : Θ → α → ℝ)
+    (hw : ∀ n, Measurable fun h : Hist Unit α 𝓨 n ↦ w (est n h))
+    (β : (n : ℕ) → Hist Unit α 𝓨 n → ℝ≥0∞) (rec : Θ → ℐ)
+    (hrec : ∀ n, Measurable fun h : Hist Unit α 𝓨 n ↦ rec (est n h))
+    (hstop : ∀ n, MeasurableSet {h | β n h < task.glr (task.plugInCost est) n h (rec (est n h))}) :
+    IdentAlg Unit α 𝓨 ℐ :=
+  task.glrt (task.plugInCost est) (cTracking (fun n h ↦ w (est n h)) hw) β
+    (fun n h ↦ rec (est n h)) hrec hstop
+
+lemma cTrackAndStop_def : task.cTrackAndStop est w hw β rec hrec hstop =
+    task.glrt (task.plugInCost est) (cTracking (fun n h ↦ w (est n h)) hw) β
+      (fun n h ↦ rec (est n h)) hrec hstop := (rfl)
+
+/-- The sampling rule of Track-and-Stop with C-tracking is C-tracking of the targets `w(θ̂)`. -/
+@[simp]
+lemma alg_cTrackAndStop :
+    (task.cTrackAndStop est w hw β rec hrec hstop).alg = cTracking (fun n h ↦ w (est n h)) hw := by
+  rw [cTrackAndStop_def, alg_glrt]
+
+/-- Track-and-Stop with C-tracking stops after the history `h` of the first `n` rounds iff the
+GLR statistic of the recommendation `rec(θ̂)` exceeds the threshold `β n h`. -/
+@[simp]
+lemma mem_stopSet_cTrackAndStop {h : Σ n, Hist Unit α 𝓨 n} :
+    h ∈ (task.cTrackAndStop est w hw β rec hrec hstop).stopSet ↔
+      β h.1 h.2 < task.glr (task.plugInCost est) h.1 h.2 (rec (est h.1 h.2)) := by
+  rw [cTrackAndStop_def, mem_stopSet_glrt]
+
+/-- Track-and-Stop with C-tracking answers the recommendation `rec(θ̂)` of the estimated model. -/
+@[simp]
+lemma output_cTrackAndStop (h : Σ n, Hist Unit α 𝓨 n) :
+    (task.cTrackAndStop est w hw β rec hrec hstop).output h =
+      Measure.dirac (rec (est h.1 h.2)) := by
+  rw [cTrackAndStop_def, output_glrt]
+
+end LMLExplore.Identification.IdentTask
 
 /-! ### Sample complexity -/
 
+namespace LMLExplore.Identification.IdentTask
+
+variable {α ℐ : Type*} [Fintype α] [DecidableEq α] [Nonempty α] {mα : MeasurableSpace α}
+  [MeasurableSingletonClass α] {mℐ : MeasurableSpace ℐ} (task : IdentTask α (α → ℝ) ℐ ℝ)
+  {i : ℐ} {w : (α → ℝ) → α → ℝ} {hw : ∀ n, Measurable fun h : Hist Unit α ℝ n ↦ w (empMean' n h)}
+  {rec : (α → ℝ) → ℐ} {hrec : ∀ n, Measurable fun h : Hist Unit α ℝ n ↦ rec (empMean' n h)}
 /-- The forced exploration rounds `t₀(T) = ⌈log⁴ T⌉` after which the empirical means are required
 to be close to the model in the analysis of Track-and-Stop. -/
 private noncomputable def roundsAfter (T : ℕ) : ℕ := ⌈log T ^ 4⌉₊
@@ -244,7 +309,8 @@ private lemma tendsto_roundsAfter : Tendsto (fun T : ℕ ↦ (roundsAfter T : �
 
 variable {𝓧 : Type*} {m𝓧 : MeasurableSpace 𝓧} {ρ : α → Measure 𝓧} {T : α → 𝓧 → ℝ} {μ : α → ℝ}
   {β : ℝ → (n : ℕ) → Hist Unit α ℝ n → ℝ≥0∞}
-  {hstop : ∀ δ n, MeasurableSet {h | β δ n h < task.glr task.empCost n h (rec (empMean' n h))}}
+  {hstop : ∀ δ n, MeasurableSet
+    {h | β δ n h < task.glr (task.plugInCost empMean') n h (rec (empMean' n h))}}
   {r : ℕ → ℝ} {p : ℝ} {n₀ : ℕ}
 
 omit [DecidableEq α] [Nonempty α] [MeasurableSingletonClass α] in
@@ -271,7 +337,7 @@ exceeds `κ` at every allocation of the simplex `η`-close to `w(μ)`, the targe
 `ε`-close to `w(μ)` with `3 K ε ≤ η`, and the recommendation is `i`. If `t₀ ≥ 1 / (4 ε²)`,
 `t₀ ≤ T`, `t₀ ≤ 3 ε T` and `1 ≤ ε T`, then the GLR statistic of the recommendation after `T`
 rounds is at least `κ T`. -/
-private lemma mul_le_glr_empCost {Ω : Type*} {O : ℕ → Ω → Unit} {A : ℕ → Ω → α}
+private lemma mul_le_glr_plugInCost {Ω : Type*} {O : ℕ → Ω → Unit} {A : ℕ → Ω → α}
     {Y : ℕ → Ω → ℝ} {ω : Ω} {U : Set (α → ℝ)} {ε η : ℝ} {κ : ℝ≥0} {t₀ T : ℕ}
     (hw_mem : w μ ∈ simplex α) (hε : 0 < ε) (hεη : 3 * Fintype.card α * ε ≤ η)
     (hU : ∀ μ' ∈ U, ∀ w' ∈ simplex α, dist w' (w μ) < η → (κ : ℝ≥0∞) < task.altCost μ' w' i)
@@ -284,7 +350,8 @@ private lemma mul_le_glr_empCost {Ω : Type*} {O : ℕ → Ω → Unit} {A : ℕ
       k * w (empMean' k (history O A Y k ω)) a - pullCount A a k ω ≤
         k * w (empMean' k (history O A Y k ω)) (A k ω) - pullCount A (A k ω) k ω)
     (ht₀ : 1 / (4 * ε ^ 2) ≤ t₀) (hT : t₀ ≤ T) (ht₀T : (t₀ : ℝ) ≤ 3 * ε * T) (hεT : 1 ≤ ε * T) :
-    κ * T ≤ task.glr task.empCost T (history O A Y T ω) (rec (empMean' T (history O A Y T ω))) := by
+    κ * T ≤ task.glr (task.plugInCost empMean') T (history O A Y T ω)
+      (rec (empMean' T (history O A Y T ω))) := by
   have hT0 : T ≠ 0 := by
     rintro rfl
     simp only [CharP.cast_eq_zero, mul_zero] at hεT
@@ -315,7 +382,7 @@ private lemma mul_le_glr_empCost {Ω : Type*} {O : ℕ → Ω → Unit} {A : ℕ
     simp only [q, ← pullCount_eq_pullCount']
     linarith
   obtain ⟨hU', -, hrec'⟩ := hmeans T hT
-  rw [hrec', glr_empCost_eq_mul task hT0, mul_comm]
+  rw [hrec', glr_plugInCost_eq_mul task empMean' hT0, mul_comm]
   exact mul_le_mul_right (hU _ hU' q hq hq_dist).le _
 
 /-- **Sample complexity of Track-and-Stop** [GK16, Theorem 14], with the rate
@@ -324,8 +391,8 @@ by the member of mean `μ a` of a nondegenerate exponential family `(ρ a, T a)`
 `w` be continuous at `μ` with `w(μ)` a probability vector, let the recommendation be `i` near `μ`,
 and let `(μ', w') ↦ D(μ', w', ¬i)` be lower semicontinuous at `(μ, w(μ))` on the allocations of the
 simplex. Then for thresholds `β δ n h ≤ log (r n / δ)` (for `n ≥ n₀`) with `r n = O(n ^ p)`,
-Track-and-Stop satisfies `𝔼[τ_δ] ≤ c log (1 / δ)` for all small enough `δ`, for every `c` with
-`1 < κ c`. -/
+Track-and-Stop with the empirical means as estimator satisfies `𝔼[τ_δ] ≤ c log (1 / δ)` for all
+small enough `δ`, for every `c` with `1 < κ c`. -/
 theorem eventually_expectedStoppingTime_trackAndStop_le (hT : ∀ a c, ¬ T a =ᵐ[ρ a] fun _ ↦ c)
     (hμ : ∀ a, μ a ∈ (ρ a).expFamilyMeans (T a))
     (hν_above : ∀ a, MGFDominatedAbove id (task.ν μ a) (T a)
@@ -338,9 +405,9 @@ theorem eventually_expectedStoppingTime_trackAndStop_le (hT : ∀ a c, ¬ T a =�
     {κ c : ℝ≥0} (hκ : κ < task.altCost μ (w μ) i) (hκc : 1 < κ * c)
     (hr : r =O[atTop] fun n ↦ (n : ℝ) ^ p)
     (hβ : ∀ᶠ δ in 𝓝[>] 0, ∀ n ≥ n₀, ∀ h, β δ n h ≤ ENNReal.ofReal (log (r n / δ))) :
-    ∀ᶠ δ in 𝓝[>] 0, expectedStoppingTime (task.trackAndStop w hw (β δ) rec hrec (hstop δ))
+    ∀ᶠ δ in 𝓝[>] 0, expectedStoppingTime (task.trackAndStop empMean' w hw (β δ) rec hrec (hstop δ))
       (Environment.bandit (task.ν μ)) ≤ c * ENNReal.ofReal (log (1 / δ)) := by
-  set alg := dTracking (fun n h ↦ w (empMean' n h)) fun n ↦ hw.comp (by fun_prop)
+  set alg := dTracking (fun n h ↦ w (empMean' n h)) hw
   set P := trajMeasure alg (Environment.bandit (task.ν μ))
   have hseq : IsAlgEnvSeq IT.obs IT.action IT.feedback alg (Environment.bandit (task.ν μ)) P :=
     IT.isAlgEnvSeq_trajMeasure alg _
@@ -394,11 +461,11 @@ theorem eventually_expectedStoppingTime_trackAndStop_le (hT : ∀ a c, ¬ T a =�
     ((tendsto_roundsAfter.eventually_ge_atTop (1 / (4 * ε ^ 2))).and
     (tendsto_natCast_atTop_atTop.eventually_ge_atTop (1 / ε)))))
   have hE (T : ℕ) (hT : max n₀ T₁ ≤ T) (ω) (hω : ω ∈ E T) :
-      κ * T ≤ task.glr task.empCost T (history IT.obs IT.action IT.feedback T ω)
+      κ * T ≤ task.glr (task.plugInCost empMean') T (history IT.obs IT.action IT.feedback T ω)
         (rec (empMean' T (history IT.obs IT.action IT.feedback T ω))) := by
     obtain ⟨hω_box, hω_forced, hω_track⟩ := hω
     obtain ⟨h3ε, hT_le, ht₀, hεT⟩ := hT₁ T (le_of_max_le_right hT)
-    refine task.mul_le_glr_empCost (η := η) hw_mem hε
+    refine task.mul_le_glr_plugInCost (η := η) hw_mem hε
       (le_of_eq (by simp only [ε, K]; field_simp)) (fun μ' hμ' w' hw' hd ↦
         hUη μ' hμ' w' hw' (by rwa [Metric.thickening_singleton, Metric.mem_ball]))
       (fun k hk ↦ ?_) hω_forced hω_track ht₀ (by exact_mod_cast hT_le.trans_eq (one_mul _)) h3ε
@@ -410,8 +477,8 @@ theorem eventually_expectedStoppingTime_trackAndStop_le (hT : ∀ a c, ¬ T a =�
       exact hω_box k hk b
     exact (h_box ⟨fun b ↦ (hk_box b).1.le, fun b ↦ (hk_box b).2.le⟩).imp_right
       fun h ↦ ⟨h.1, h.2.1⟩
-  have h := task.eventually_expectedStoppingTime_glrt_le_of_isBigO task.empCost alg
-    (fun n h ↦ rec (empMean' n h)) (fun n ↦ hrec.comp (by fun_prop)) hstop hseq
+  have h := task.eventually_expectedStoppingTime_glrt_le_of_isBigO (task.plugInCost empMean') alg
+    (fun n h ↦ rec (empMean' n h)) hrec hstop hseq
     hE_sum hκc hE hr (T₀ := max n₀ T₁)
     (by filter_upwards [hβ] with δ hδ n hn h using hδ n (le_of_max_le_left hn) h)
   simpa only [trackAndStop_def] using h
@@ -423,8 +490,9 @@ exponential family `(ρ a, T a)`, let `i` be the single correct answer of `μ`, 
 `w` be continuous at `μ` with `w(μ)` an optimal allocation `w*(μ, ¬i)`, let the recommendation be
 `i` near `μ`, and let `(μ', w') ↦ D(μ', w', ¬i)` be lower semicontinuous at `(μ, w(μ))` on the
 allocations of the simplex. Then for thresholds `β δ n h ≤ log (r n / δ)` (for `n ≥ n₀`) with
-`r n = O(n ^ p)`, Track-and-Stop satisfies `𝔼[τ_δ] ≤ c log (1 / δ)` for all small enough `δ`, for
-every `c > T*(μ)`: `limsup_{δ → 0} 𝔼[τ_δ] / log (1 / δ) ≤ T*(μ)`. This is asymptotic optimality
+`r n = O(n ^ p)`, Track-and-Stop with the empirical means as estimator satisfies
+`𝔼[τ_δ] ≤ c log (1 / δ)` for all small enough `δ`, for every `c > T*(μ)`:
+`limsup_{δ → 0} 𝔼[τ_δ] / log (1 / δ) ≤ T*(μ)`. This is asymptotic optimality
 only for `δ`-correct thresholds, whose correctness is not proved here. For Gaussian arms, the
 union-bound thresholds `K log (2 n (n + 1)) + x_δ` are `δ`-correct, and asymptotic optimality is
 `IdentTask.tendsto_expectedStoppingTime_trackAndStop_unionBoundThreshold_div_log` in
@@ -441,7 +509,7 @@ theorem eventually_expectedStoppingTime_trackAndStop_le_of_charTime_lt
       (Set.univ ×ˢ simplex α) (μ, w μ))
     {c : ℝ≥0} (hc : task.charTime μ < c) (hr : r =O[atTop] fun n ↦ (n : ℝ) ^ p)
     (hβ : ∀ᶠ δ in 𝓝[>] 0, ∀ n ≥ n₀, ∀ h, β δ n h ≤ ENNReal.ofReal (log (r n / δ))) :
-    ∀ᶠ δ in 𝓝[>] 0, expectedStoppingTime (task.trackAndStop w hw (β δ) rec hrec (hstop δ))
+    ∀ᶠ δ in 𝓝[>] 0, expectedStoppingTime (task.trackAndStop empMean' w hw (β δ) rec hrec (hstop δ))
       (Environment.bandit (task.ν μ)) ≤ c * ENNReal.ofReal (log (1 / δ)) := by
   -- Choose a rate `κ` with `c⁻¹ < κ < D(μ, w(μ), ¬i) = T*(μ)⁻¹`.
   obtain ⟨κ, hκ, hκc⟩ := task.exists_lt_answerValue_one_lt_mul hcorrect hc
@@ -459,9 +527,12 @@ open Filter Topology
 
 variable {α ℐ : Type*} [Fintype α] [DecidableEq α] [Nonempty α] {mα : MeasurableSpace α}
   [MeasurableSingletonClass α] {mℐ : MeasurableSpace ℐ} {task : IdentTask α (α → ℝ) ℐ ℝ}
-  {w : (α → ℝ) → α → ℝ} {hw : Measurable w} {rec : (α → ℝ) → ℐ} {hrec : Measurable rec}
+  {w : (α → ℝ) → α → ℝ}
+  {hw : ∀ n, Measurable fun h : Hist Unit α ℝ n ↦ w (empMean' n h)} {rec : (α → ℝ) → ℐ}
+  {hrec : ∀ n, Measurable fun h : Hist Unit α ℝ n ↦ rec (empMean' n h)}
   {hstop : ∀ δ n, MeasurableSet {h | unionBoundThreshold (Fintype.card α)
-    (unionBoundLevel (Fintype.card α) δ) n < task.glr task.empCost n h (rec (empMean' n h))}}
+    (unionBoundLevel (Fintype.card α) δ) n <
+      task.glr (task.plugInCost empMean') n h (rec (empMean' n h))}}
   {𝓧 : Type*} {m𝓧 : MeasurableSpace 𝓧} {ρ : α → Measure 𝓧} {T : α → 𝓧 → ℝ} {μ : α → ℝ}
   {i : ℐ}
 
@@ -482,7 +553,7 @@ theorem eventually_expectedStoppingTime_trackAndStop_unionBoundThreshold_le
     (h_lsc : LowerSemicontinuousWithinAt (fun q : (α → ℝ) × (α → ℝ) ↦ task.altCost q.1 q.2 i)
       (Set.univ ×ˢ simplex α) (μ, w μ))
     {c : ℝ≥0} (hc : task.charTime μ < c) :
-    ∀ᶠ δ in 𝓝[>] 0, expectedStoppingTime (task.trackAndStop w hw
+    ∀ᶠ δ in 𝓝[>] 0, expectedStoppingTime (task.trackAndStop empMean' w hw
       (fun n _ ↦ unionBoundThreshold (Fintype.card α) (unionBoundLevel (Fintype.card α) δ) n)
       rec hrec (hstop δ)) (Environment.bandit (task.ν μ)) ≤ c * ENNReal.ofReal (log (1 / δ)) := by
   refine eventually_le_mul_ofReal_log_of_rpow_inv (fun c' hc' s hs ↦ ?_) hc
@@ -508,7 +579,7 @@ theorem stopsAS_trackAndStop_unionBoundThreshold
     (h_lsc : LowerSemicontinuousWithinAt (fun q : (α → ℝ) × (α → ℝ) ↦ task.altCost q.1 q.2 i)
       (Set.univ ×ˢ simplex α) (μ, w μ))
     (h_charTime : task.charTime μ ≠ ∞) {δ : ℝ} (hδ : 0 < δ) (hδ1 : δ ≤ 1) :
-    StopsAS (task.trackAndStop w hw
+    StopsAS (task.trackAndStop empMean' w hw
       (fun n _ ↦ unionBoundThreshold (Fintype.card α) (unionBoundLevel (Fintype.card α) δ) n)
       rec hrec (hstop δ)) (Environment.bandit (task.ν μ)) := by
   have hc : task.charTime μ < (task.charTime μ).toNNReal + 1 := by
@@ -532,50 +603,8 @@ variable {α ℐ : Type*} [Fintype α] [DecidableEq α] [Nonempty α] {mα : Mea
   [MeasurableSingletonClass α] {mℐ : MeasurableSpace ℐ} (task : IdentTask α (α → ℝ) ℐ ℝ)
   {i : ℐ}
 
-/-- **Track-and-Stop with C-tracking** [GK16, Section 3; DK19, Theorem 7]: the GLRT of the task
-with the empirical costs `IdentTask.empCost` as statistic, thresholds `β`, the recommendation
-`rec(μ̂)` and the C-tracking sampling rule with targets `w(μ̂)`, where `μ̂` is the vector of
-empirical means of the history. After `n` rounds with history `h`, it stops if
-`β n h < GLR_n(h, ¬rec(μ̂))` and then answers `rec(μ̂)`. Unlike D-tracking
-(`IdentTask.trackAndStop`), C-tracking follows the averages of the past targets, so that the target
-map `w` may be any selection of the optimal allocations `w*(μ̂, ¬rec(μ̂))`, even when these are not
-unique. -/
-noncomputable def cTrackAndStop (w : (α → ℝ) → α → ℝ) (hw : Measurable w)
-    (β : (n : ℕ) → Hist Unit α ℝ n → ℝ≥0∞) (rec : (α → ℝ) → ℐ) (hrec : Measurable rec)
-    (hstop : ∀ n, MeasurableSet {h | β n h < task.glr task.empCost n h (rec (empMean' n h))}) :
-    IdentAlg Unit α ℝ ℐ :=
-  task.glrt task.empCost
-    (cTracking (fun n h ↦ w (empMean' n h)) fun n ↦ hw.comp (by fun_prop)) β
-    (fun n h ↦ rec (empMean' n h)) (fun n ↦ hrec.comp (by fun_prop)) hstop
-
-variable {w : (α → ℝ) → α → ℝ} {hw : Measurable w} {β : (n : ℕ) → Hist Unit α ℝ n → ℝ≥0∞}
-  {rec : (α → ℝ) → ℐ} {hrec : Measurable rec}
-  {hstop : ∀ n, MeasurableSet {h | β n h < task.glr task.empCost n h (rec (empMean' n h))}}
-
-lemma cTrackAndStop_def : task.cTrackAndStop w hw β rec hrec hstop = task.glrt task.empCost
-    (cTracking (fun n h ↦ w (empMean' n h)) fun n ↦ hw.comp (by fun_prop)) β
-    (fun n h ↦ rec (empMean' n h)) (fun n ↦ hrec.comp (by fun_prop)) hstop := (rfl)
-
-/-- The sampling rule of Track-and-Stop with C-tracking is C-tracking of the targets `w(μ̂)`. -/
-@[simp]
-lemma alg_cTrackAndStop : (task.cTrackAndStop w hw β rec hrec hstop).alg =
-    cTracking (fun n h ↦ w (empMean' n h)) fun n ↦ hw.comp (by fun_prop) := by
-  rw [cTrackAndStop_def, alg_glrt]
-
-/-- Track-and-Stop with C-tracking stops after the history `h` of the first `n` rounds iff the
-GLR statistic of the recommendation `rec(μ̂)` exceeds the threshold `β n h`. -/
-@[simp]
-lemma mem_stopSet_cTrackAndStop {h : Σ n, Hist Unit α ℝ n} :
-    h ∈ (task.cTrackAndStop w hw β rec hrec hstop).stopSet ↔
-      β h.1 h.2 < task.glr task.empCost h.1 h.2 (rec (empMean' h.1 h.2)) := by
-  rw [cTrackAndStop_def, mem_stopSet_glrt]
-
-/-- Track-and-Stop with C-tracking answers the recommendation `rec(μ̂)` of the empirical means. -/
-@[simp]
-lemma output_cTrackAndStop (h : Σ n, Hist Unit α ℝ n) :
-    (task.cTrackAndStop w hw β rec hrec hstop).output h =
-      Measure.dirac (rec (empMean' h.1 h.2)) := by
-  rw [cTrackAndStop_def, output_glrt]
+variable {w : (α → ℝ) → α → ℝ} {hw : ∀ n, Measurable fun h : Hist Unit α ℝ n ↦ w (empMean' n h)}
+  {rec : (α → ℝ) → ℐ} {hrec : ∀ n, Measurable fun h : Hist Unit α ℝ n ↦ rec (empMean' n h)}
 
 omit [MeasurableSingletonClass α] in
 /-- The deterministic step of the analysis of Track-and-Stop with C-tracking [DK19, Lemma 6 and
@@ -588,7 +617,7 @@ to `C` (`Convex.exists_mem_norm_sum_sub_smul_le`), the proportions of pulls afte
 close to `C`: if the elements of `C` have norm at most `B` and
 `(K - 1) (1 + √T) + (1 + B) t₀ + ε T < η T`, then the GLR statistic of the recommendation after
 `T` rounds is at least `κ T`. -/
-private lemma mul_le_glr_empCost_of_mem_thickening {Ω : Type*} {O : ℕ → Ω → Unit}
+private lemma mul_le_glr_plugInCost_of_mem_thickening {Ω : Type*} {O : ℕ → Ω → Unit}
     {A : ℕ → Ω → α} {Y : ℕ → Ω → ℝ} {ω : Ω} {C U : Set (α → ℝ)} {B ε η : ℝ} {κ : ℝ≥0}
     {t₀ T : ℕ} (hw_mem : ∀ μ', w μ' ∈ simplex α) (hC : Convex ℝ C) (hCB : ∀ v ∈ C, ‖v‖ ≤ B)
     (hU : ∀ μ' ∈ U, ∀ w' ∈ simplex α, w' ∈ thickening η C → (κ : ℝ≥0∞) < task.altCost μ' w' i)
@@ -599,7 +628,8 @@ private lemma mul_le_glr_empCost_of_mem_thickening {Ω : Type*} {O : ℕ → Ω 
       ∑ s ∈ range T, w (empMean' s (history O A Y s ω)) a| ≤ (Fintype.card α - 1) * (1 + √(T : ℝ)))
     (hT : t₀ ≤ T) (hT0 : T ≠ 0)
     (hTη : (Fintype.card α - 1) * (1 + √(T : ℝ)) + (1 + B) * t₀ + ε * T < η * T) :
-    κ * T ≤ task.glr task.empCost T (history O A Y T ω) (rec (empMean' T (history O A Y T ω))) := by
+    κ * T ≤ task.glr (task.plugInCost empMean') T (history O A Y T ω)
+      (rec (empMean' T (history O A Y T ω))) := by
   set v : ℕ → α → ℝ := fun s ↦ w (empMean' s (history O A Y s ω))
   have hT' : (0 : ℝ) < T := Nat.cast_pos.2 (Nat.pos_of_ne_zero hT0)
   obtain ⟨hU', hεC, hrec'⟩ := hmeans T hT
@@ -635,13 +665,14 @@ private lemma mul_le_glr_empCost_of_mem_thickening {Ω : Type*} {O : ℕ → Ω 
       (∑ s ∈ range T, v s a - T * cbar a), htrack a, h_sum a,
       mul_nonneg hε.le (Nat.cast_nonneg (α := ℝ) t₀)]
   have hη : 0 < η := (abs_nonneg _).trans_lt (hq_dist (Classical.arbitrary α))
-  rw [hrec', glr_empCost_eq_mul task hT0, mul_comm]
+  rw [hrec', glr_plugInCost_eq_mul task empMean' hT0, mul_comm]
   refine mul_le_mul_right (hU _ hU' q hq (mem_thickening_iff.2 ⟨cbar, hcbar, ?_⟩)).le _
   exact (dist_pi_lt_iff hη).2 fun a ↦ Real.dist_eq _ _ ▸ hq_dist a
 
 variable {𝓧 : Type*} {m𝓧 : MeasurableSpace 𝓧} {ρ : α → Measure 𝓧} {T : α → 𝓧 → ℝ} {μ : α → ℝ}
   {β : ℝ → (n : ℕ) → Hist Unit α ℝ n → ℝ≥0∞}
-  {hstop : ∀ δ n, MeasurableSet {h | β δ n h < task.glr task.empCost n h (rec (empMean' n h))}}
+  {hstop : ∀ δ n, MeasurableSet
+    {h | β δ n h < task.glr (task.plugInCost empMean') n h (rec (empMean' n h))}}
   {r : ℕ → ℝ} {p : ℝ} {n₀ : ℕ}
 
 /-- **Sample complexity of Track-and-Stop with C-tracking** [DK19, Lemma 6 and Theorem 7], with the
@@ -651,8 +682,8 @@ dominated above and below by the member of mean `μ a` of a nondegenerate expone
 (they eventually lie in every neighbourhood of `C`), let the recommendation be `i` near `μ`, and
 let `(μ', w') ↦ D(μ', w', ¬i)` be lower semicontinuous at every point of `{μ} × C` on the
 allocations of the simplex. Then for thresholds `β δ n h ≤ log (r n / δ)` (for `n ≥ n₀`) with
-`r n = O(n ^ p)`, Track-and-Stop with C-tracking satisfies `𝔼[τ_δ] ≤ c log (1 / δ)` for all small
-enough `δ`, for every `c` with `1 < κ c`. -/
+`r n = O(n ^ p)`, Track-and-Stop with C-tracking and the empirical means as estimator satisfies
+`𝔼[τ_δ] ≤ c log (1 / δ)` for all small enough `δ`, for every `c` with `1 < κ c`. -/
 theorem eventually_expectedStoppingTime_cTrackAndStop_le (hT : ∀ a c, ¬ T a =ᵐ[ρ a] fun _ ↦ c)
     (hμ : ∀ a, μ a ∈ (ρ a).expFamilyMeans (T a))
     (hν_above : ∀ a, MGFDominatedAbove id (task.ν μ a) (T a)
@@ -667,9 +698,9 @@ theorem eventually_expectedStoppingTime_cTrackAndStop_le (hT : ∀ a c, ¬ T a =
     {κ c : ℝ≥0} (hκ : ∀ v ∈ C, κ < task.altCost μ v i) (hκc : 1 < κ * c)
     (hr : r =O[atTop] fun n ↦ (n : ℝ) ^ p)
     (hβ : ∀ᶠ δ in 𝓝[>] 0, ∀ n ≥ n₀, ∀ h, β δ n h ≤ ENNReal.ofReal (log (r n / δ))) :
-    ∀ᶠ δ in 𝓝[>] 0, expectedStoppingTime (task.cTrackAndStop w hw (β δ) rec hrec (hstop δ))
+    ∀ᶠ δ in 𝓝[>] 0, expectedStoppingTime (task.cTrackAndStop empMean' w hw (β δ) rec hrec (hstop δ))
       (Environment.bandit (task.ν μ)) ≤ c * ENNReal.ofReal (log (1 / δ)) := by
-  set alg := cTracking (fun n h ↦ w (empMean' n h)) fun n ↦ hw.comp (by fun_prop)
+  set alg := cTracking (fun n h ↦ w (empMean' n h)) hw
   set P := trajMeasure alg (Environment.bandit (task.ν μ))
   have hseq : IsAlgEnvSeq IT.obs IT.action IT.feedback alg (Environment.bandit (task.ν μ)) P :=
     IT.isAlgEnvSeq_trajMeasure alg _
@@ -726,12 +757,12 @@ theorem eventually_expectedStoppingTime_cTrackAndStop_le (hT : ∀ a c, ¬ T a =
     ((h_sqrt.eventually_le_const (by positivity : 0 < η / (4 * K))).and
     (eventually_gt_atTop 0))))
   have hE (T : ℕ) (hT : max n₀ T₁ ≤ T) (ω) (hω : ω ∈ E T) :
-      κ * T ≤ task.glr task.empCost T (history IT.obs IT.action IT.feedback T ω)
+      κ * T ≤ task.glr (task.plugInCost empMean') T (history IT.obs IT.action IT.feedback T ω)
         (rec (empMean' T (history IT.obs IT.action IT.feedback T ω))) := by
     obtain ⟨hω_box, hω_track⟩ := hω
     obtain ⟨h_t₀, hT_le, h_sqrt_le, hT0⟩ := hT₁ T (le_of_max_le_right hT)
     have hT' : (0 : ℝ) < T := Nat.cast_pos.2 hT0
-    refine task.mul_le_glr_empCost_of_mem_thickening (ε := ε) hw_mem hC_conv hCB hUη
+    refine task.mul_le_glr_plugInCost_of_mem_thickening (ε := ε) hw_mem hC_conv hCB hUη
       (fun k hk ↦ ?_) (hω_track T) (by exact_mod_cast hT_le.trans_eq (one_mul _)) hT0.ne' ?_
     · -- The empirical means at the rounds `k ≥ t₀(T)` are in `W`.
       have hk_box (b : α) :
@@ -753,8 +784,8 @@ theorem eventually_expectedStoppingTime_cTrackAndStop_le (hT : ∀ a c, ¬ T a =
       have h3 : 0 < η * T := mul_pos hη hT'
       simp only [ε]
       linarith
-  have h := task.eventually_expectedStoppingTime_glrt_le_of_isBigO task.empCost alg
-    (fun n h ↦ rec (empMean' n h)) (fun n ↦ hrec.comp (by fun_prop)) hstop hseq
+  have h := task.eventually_expectedStoppingTime_glrt_le_of_isBigO (task.plugInCost empMean') alg
+    (fun n h ↦ rec (empMean' n h)) hrec hstop hseq
     hE_sum hκc hE hr (T₀ := max n₀ T₁)
     (by filter_upwards [hβ] with δ hδ n hn h using hδ n (le_of_max_le_left hn) h)
   simpa only [cTrackAndStop_def] using h
@@ -767,8 +798,8 @@ let `i` be the single correct answer of `μ`, let `(μ', w') ↦ D(μ', w', ¬i)
 every point `(μ, v)` with `v` in the simplex, on the allocations of the simplex, let the targets
 `w` be allocations, and optimal allocations `w(μ') ∈ w*(μ', ¬i)` near `μ`, and let the
 recommendation be `i` near `μ`. Then for thresholds `β δ n h ≤ log (r n / δ)` (for `n ≥ n₀`) with
-`r n = O(n ^ p)`, Track-and-Stop with C-tracking satisfies `𝔼[τ_δ] ≤ c log (1 / δ)` for all small
-enough `δ`, for every `c > T*(μ)`. Unlike D-tracking
+`r n = O(n ^ p)`, Track-and-Stop with C-tracking and the empirical means as estimator satisfies
+`𝔼[τ_δ] ≤ c log (1 / δ)` for all small enough `δ`, for every `c > T*(μ)`. Unlike D-tracking
 (`IdentTask.eventually_expectedStoppingTime_trackAndStop_le_of_charTime_lt`), this does not need
 `w` to be continuous at `μ`. -/
 theorem eventually_expectedStoppingTime_cTrackAndStop_le_of_charTime_lt
@@ -783,7 +814,7 @@ theorem eventually_expectedStoppingTime_cTrackAndStop_le_of_charTime_lt
       (fun q : (α → ℝ) × (α → ℝ) ↦ task.altCost q.1 q.2 i) (Set.univ ×ˢ simplex α) (μ, v))
     {c : ℝ≥0} (hc : task.charTime μ < c) (hr : r =O[atTop] fun n ↦ (n : ℝ) ^ p)
     (hβ : ∀ᶠ δ in 𝓝[>] 0, ∀ n ≥ n₀, ∀ h, β δ n h ≤ ENNReal.ofReal (log (r n / δ))) :
-    ∀ᶠ δ in 𝓝[>] 0, expectedStoppingTime (task.cTrackAndStop w hw (β δ) rec hrec (hstop δ))
+    ∀ᶠ δ in 𝓝[>] 0, expectedStoppingTime (task.cTrackAndStop empMean' w hw (β δ) rec hrec (hstop δ))
       (Environment.bandit (task.ν μ)) ≤ c * ENNReal.ofReal (log (1 / δ)) := by
   -- Choose a rate `κ` with `c⁻¹ < κ < D(μ, ¬i) = T*(μ)⁻¹`.
   obtain ⟨κ, hκ, hκc⟩ := task.exists_lt_answerValue_one_lt_mul hcorrect hc
@@ -811,9 +842,12 @@ open Filter Topology
 
 variable {α ℐ : Type*} [Fintype α] [DecidableEq α] [Nonempty α] {mα : MeasurableSpace α}
   [MeasurableSingletonClass α] {mℐ : MeasurableSpace ℐ} {task : IdentTask α (α → ℝ) ℐ ℝ}
-  {w : (α → ℝ) → α → ℝ} {hw : Measurable w} {rec : (α → ℝ) → ℐ} {hrec : Measurable rec}
+  {w : (α → ℝ) → α → ℝ}
+  {hw : ∀ n, Measurable fun h : Hist Unit α ℝ n ↦ w (empMean' n h)} {rec : (α → ℝ) → ℐ}
+  {hrec : ∀ n, Measurable fun h : Hist Unit α ℝ n ↦ rec (empMean' n h)}
   {hstop : ∀ δ n, MeasurableSet {h | unionBoundThreshold (Fintype.card α)
-    (unionBoundLevel (Fintype.card α) δ) n < task.glr task.empCost n h (rec (empMean' n h))}}
+    (unionBoundLevel (Fintype.card α) δ) n <
+      task.glr (task.plugInCost empMean') n h (rec (empMean' n h))}}
   {𝓧 : Type*} {m𝓧 : MeasurableSpace 𝓧} {ρ : α → Measure 𝓧} {T : α → 𝓧 → ℝ} {μ : α → ℝ}
   {i : ℐ}
 
@@ -834,7 +868,7 @@ theorem eventually_expectedStoppingTime_cTrackAndStop_unionBoundThreshold_le
     (h_cont : ∀ v ∈ simplex α, ContinuousWithinAt
       (fun q : (α → ℝ) × (α → ℝ) ↦ task.altCost q.1 q.2 i) (Set.univ ×ˢ simplex α) (μ, v))
     {c : ℝ≥0} (hc : task.charTime μ < c) :
-    ∀ᶠ δ in 𝓝[>] 0, expectedStoppingTime (task.cTrackAndStop w hw
+    ∀ᶠ δ in 𝓝[>] 0, expectedStoppingTime (task.cTrackAndStop empMean' w hw
       (fun n _ ↦ unionBoundThreshold (Fintype.card α) (unionBoundLevel (Fintype.card α) δ) n)
       rec hrec (hstop δ)) (Environment.bandit (task.ν μ)) ≤ c * ENNReal.ofReal (log (1 / δ)) := by
   refine eventually_le_mul_ofReal_log_of_rpow_inv (fun c' hc' s hs ↦ ?_) hc
@@ -860,7 +894,7 @@ theorem stopsAS_cTrackAndStop_unionBoundThreshold
     (h_cont : ∀ v ∈ simplex α, ContinuousWithinAt
       (fun q : (α → ℝ) × (α → ℝ) ↦ task.altCost q.1 q.2 i) (Set.univ ×ˢ simplex α) (μ, v))
     (h_charTime : task.charTime μ ≠ ∞) {δ : ℝ} (hδ : 0 < δ) (hδ1 : δ ≤ 1) :
-    StopsAS (task.cTrackAndStop w hw
+    StopsAS (task.cTrackAndStop empMean' w hw
       (fun n _ ↦ unionBoundThreshold (Fintype.card α) (unionBoundLevel (Fintype.card α) δ) n)
       rec hrec (hstop δ)) (Environment.bandit (task.ν μ)) := by
   have hc : task.charTime μ < (task.charTime μ).toNNReal + 1 := by

@@ -15,8 +15,8 @@ public import LMLExplore.SequentialLearning.SubGaussianDeviation
 
 Let the arms of the models of an identification task be Gaussian with a common known variance
 `σ2 ≠ 0`, the arm `a` of the vector of means `μ` having law `𝒩(μ a, σ2)`. After `n` rounds with
-pull counts `N_a` and empirical means `μ̂_a`, the empirical cost of the GLR stopping rule of
-`Identification/TrackAndStop.lean` against a model `λ` is
+pull counts `N_a` and empirical means `μ̂_a`, the plug-in statistic of the empirical means, the
+statistic of the GLR stopping rule of `Identification/TrackAndStop.lean`, against a model `λ` is
 `∑ a, N_a KL(𝒩(μ̂_a, σ2), 𝒩(λ_a, σ2)) = ∑ a, N_a (μ̂_a - λ_a)² / (2 σ2)`. By the time-uniform
 deviation inequality of `SequentialLearning/SubGaussianDeviation.lean`, along a run of any sampling
 rule on the model `μ`, this statistic at `λ = μ` exceeds `K log (2 n (n + 1)) + x` at some round
@@ -53,10 +53,11 @@ targets may be any selection of the optimal allocations, even where these are no
 
 ## Main statements
 
-* `IdentTask.empCost_gaussianBandit`: the empirical cost of Gaussian arms is
-  `∑ a, N_a (μ̂_a - λ_a)² / (2 σ2)`.
-* `IdentTask.measure_exists_unionBoundThreshold_lt_empCost_le`: along a run of any sampling rule
-  on the model `μ`, the empirical cost at `μ` exceeds the threshold `β_x(n)` at some round with
+* `IdentTask.plugInCost_gaussianBandit`: the plug-in statistic of the empirical means of
+  Gaussian arms is `∑ a, N_a (μ̂_a - λ_a)² / (2 σ2)`.
+* `IdentTask.measure_exists_unionBoundThreshold_lt_plugInCost_le`: along a run of any sampling rule
+  on the model `μ`, the plug-in statistic of the empirical means at `μ` exceeds the threshold
+  `β_x(n)` at some round with
   probability at most `f(x)`.
 * `IdentTask.measureReal_histOutputMeasure_glrt_unionBoundThreshold_le`: [LS, Lemma 33.7] for
   every task with Gaussian arms and every sampling rule: the GLRT with the thresholds `β_x`
@@ -115,29 +116,32 @@ private lemma mgfDominatedBelow_gaussianBandit {α ℐ : Type*} {mα : Measurabl
 variable {α ℐ : Type*} [Fintype α] [DecidableEq α] {mα : MeasurableSpace α}
   [MeasurableSingletonClass α] {task : IdentTask α (α → ℝ) ℐ ℝ} {σ2 : ℝ≥0}
 
-/-- For Gaussian arms with a common variance `σ2 ≠ 0`, the empirical cost of the history `h` of
-the first `n` rounds against the model `λ` is `∑ a, N_a (μ̂_a - λ_a)² / (2 σ2)`, with the pull
-counts `N_a` and the empirical means `μ̂_a` of `h`. -/
-lemma empCost_gaussianBandit (hνt : task.ν = (Bandits.gaussianBandit · σ2)) (hσ2 : σ2 ≠ 0)
-    (n : ℕ) (h : Hist Unit α ℝ n) (θ' : α → ℝ) :
-    task.empCost n h θ' =
-      ENNReal.ofReal (∑ a, pullCount' n h a * (empMean' n h a - θ' a) ^ 2 / (2 * σ2)) := by
-  rw [empCost_def, cost_gaussianBandit hνt hσ2 fun a ↦ by positivity]
+/-- For Gaussian arms with a common variance `σ2 ≠ 0`, the plug-in statistic of an estimator
+`est` of the vector of means, for the history `h` of the first `n` rounds against the model `λ`, is
+`∑ a, N_a (θ̂_a - λ_a)² / (2 σ2)`, with the pull counts `N_a` of `h` and the estimate
+`θ̂ = est n h`. For the empirical means `est = empMean'`, it is
+`∑ a, N_a (μ̂_a - λ_a)² / (2 σ2)`. -/
+lemma plugInCost_gaussianBandit (hνt : task.ν = (Bandits.gaussianBandit · σ2)) (hσ2 : σ2 ≠ 0)
+    (est : (n : ℕ) → Hist Unit α ℝ n → α → ℝ) (n : ℕ) (h : Hist Unit α ℝ n) (θ' : α → ℝ) :
+    task.plugInCost est n h θ' =
+      ENNReal.ofReal (∑ a, pullCount' n h a * (est n h a - θ' a) ^ 2 / (2 * σ2)) := by
+  rw [plugInCost_def, cost_gaussianBandit hνt hσ2 fun a ↦ by positivity]
 
 variable {Ω : Type*} {mΩ : MeasurableSpace Ω} {P : Measure Ω} [IsProbabilityMeasure P]
   {alg : Algorithm Unit α ℝ} {O : ℕ → Ω → Unit} {A : ℕ → Ω → α} {R : ℕ → Ω → ℝ} {μ : α → ℝ}
   {x δ : ℝ}
 
-/-- **Deviation of the empirical cost of Gaussian arms**, along a run of any sampling rule. For
-Gaussian arms with a common variance `σ2 ≠ 0` and a level `x ≥ K`, the probability that at some
-round `n`, the empirical cost against the true model `μ` exceeds the threshold
+/-- **Deviation of the plug-in statistic of the empirical means of Gaussian arms**, along a run of
+any sampling rule. For Gaussian arms with a common variance `σ2 ≠ 0` and a level `x ≥ K`, the
+probability that at some round `n`, the plug-in statistic of the empirical means against the true
+model `μ` exceeds the threshold
 `K log (2 n (n + 1)) + x`, is at most `(x / K) ^ K exp (K - x)`. -/
-theorem measure_exists_unionBoundThreshold_lt_empCost_le
+theorem measure_exists_unionBoundThreshold_lt_plugInCost_le
     (hνt : task.ν = (Bandits.gaussianBandit · σ2)) (hσ2 : σ2 ≠ 0)
     (hseq : IsAlgEnvSeq O A R alg (Environment.bandit (task.ν μ)) P)
     (hx : Fintype.card α ≤ x) :
     P {ω | ∃ n, unionBoundThreshold (Fintype.card α) x n <
-        task.empCost n (history O A R n ω) μ} ≤
+        task.plugInCost empMean' n (history O A R n ω) μ} ≤
       ENNReal.ofReal ((x / Fintype.card α) ^ Fintype.card α * exp (Fintype.card α - x)) := by
   simp only [hνt] at hseq
   refine (measure_mono ?_).trans
@@ -145,7 +149,7 @@ theorem measure_exists_unionBoundThreshold_lt_empCost_le
       (fun a ↦ Bandits.hasSubgaussianMGF_gaussianBandit μ σ2 a) hx)
   rintro ω ⟨n, hn⟩
   refine ⟨n, ?_⟩
-  rw [unionBoundThreshold_def, empCost_gaussianBandit hνt hσ2] at hn
+  rw [unionBoundThreshold_def, plugInCost_gaussianBandit hνt hσ2] at hn
   refine (ENNReal.ofReal_lt_ofReal_iff'.1 hn).1.le.trans_eq ?_
   simp only [Bandits.integral_id_gaussianBandit, pullCount_eq_pullCount' (O := O) (R' := R),
     empMean_eq_empMean' (O := O)]
@@ -155,65 +159,70 @@ variable {mℐ : MeasurableSpace ℐ} (rec : (n : ℕ) → Hist Unit α ℝ n �
 
 /-- **Error probability of the GLRT for Gaussian arms** [LS, Lemma 33.7], for every task and every
 sampling rule. For Gaussian arms with a common variance `σ2 ≠ 0`, an admissible model `μ` and a
-level `x ≥ K`, the GLRT with the empirical costs as statistic and the thresholds
+level `x ≥ K`, the GLRT with the plug-in statistic of the empirical means and the thresholds
 `K log (2 n (n + 1)) + x` stops with an answer that is not correct for `μ` with probability at most
 `(x / K) ^ K exp (K - x)`. -/
 theorem measureReal_histOutputMeasure_glrt_unionBoundThreshold_le
     (hνt : task.ν = (Bandits.gaussianBandit · σ2)) (hσ2 : σ2 ≠ 0)
     (hstop : ∀ n, MeasurableSet
-      {h | unionBoundThreshold (Fintype.card α) x n < task.glr task.empCost n h (rec n h)})
+      {h | unionBoundThreshold (Fintype.card α) x n <
+        task.glr (task.plugInCost empMean') n h (rec n h)})
     (hμ : μ ∈ task.M) (hc : MeasurableSet (task.correct μ)) (hx : Fintype.card α ≤ x) :
     (histOutputMeasure
-        (task.glrt task.empCost alg (fun n _ ↦ unionBoundThreshold (Fintype.card α) x n) rec hrec
-          hstop) (Environment.bandit (task.ν μ))).real
-        {p | p.1 ∈ (task.glrt task.empCost alg (fun n _ ↦ unionBoundThreshold (Fintype.card α) x n)
-          rec hrec hstop).stopSet ∧ p.2 ∉ task.correct μ} ≤
+        (task.glrt (task.plugInCost empMean') alg
+          (fun n _ ↦ unionBoundThreshold (Fintype.card α) x n) rec hrec hstop)
+          (Environment.bandit (task.ν μ))).real
+        {p | p.1 ∈ (task.glrt (task.plugInCost empMean') alg
+          (fun n _ ↦ unionBoundThreshold (Fintype.card α) x n) rec hrec hstop).stopSet ∧
+          p.2 ∉ task.correct μ} ≤
       (x / Fintype.card α) ^ Fintype.card α * exp (Fintype.card α - x) := by
   have hseq := IT.isAlgEnvSeq_trajMeasure alg (Environment.bandit (task.ν μ))
-  refine (task.measureReal_histOutputMeasure_glrt_le task.empCost alg _ rec hrec hstop hseq hμ
-    hc).trans ?_
+  refine (task.measureReal_histOutputMeasure_glrt_le (task.plugInCost empMean') alg _ rec hrec hstop
+    hseq hμ hc).trans ?_
   rw [measureReal_def]
   have hx0 : 0 ≤ x := (Nat.cast_nonneg _).trans hx
   exact ENNReal.toReal_le_of_le_ofReal (by positivity)
-    (measure_exists_unionBoundThreshold_lt_empCost_le hνt hσ2 hseq hx)
+    (measure_exists_unionBoundThreshold_lt_plugInCost_le hνt hσ2 hseq hx)
 
 /-- **The GLRT for Gaussian arms is `δ`-PAC** [LS, Lemma 33.7], for every task and every sampling
 rule. For Gaussian arms with a common variance `σ2 ≠ 0` and `δ ∈ (0, 1]`, the GLRT with the
-empirical costs as statistic and the thresholds `K log (2 n (n + 1)) + x_δ` is `δ`-PAC on the
-task, provided it stops almost surely on every admissible model. -/
+plug-in statistic of the empirical means and the thresholds `K log (2 n (n + 1)) + x_δ` is
+`δ`-PAC on the task, provided it stops almost surely on every admissible model. -/
 theorem isDeltaPAC_glrt_unionBoundThreshold
     (hνt : task.ν = (Bandits.gaussianBandit · σ2)) (hσ2 : σ2 ≠ 0) (hδ : 0 < δ) (hδ1 : δ ≤ 1)
     (hstop : ∀ n, MeasurableSet {h | unionBoundThreshold (Fintype.card α)
-      (unionBoundLevel (Fintype.card α) δ) n < task.glr task.empCost n h (rec n h)})
+      (unionBoundLevel (Fintype.card α) δ) n < task.glr (task.plugInCost empMean') n h (rec n h)})
     (hc : ∀ θ ∈ task.M, MeasurableSet (task.correct θ))
-    (h_stops : ∀ θ ∈ task.M, StopsAS (task.glrt task.empCost alg
+    (h_stops : ∀ θ ∈ task.M, StopsAS (task.glrt (task.plugInCost empMean') alg
       (fun n _ ↦ unionBoundThreshold (Fintype.card α) (unionBoundLevel (Fintype.card α) δ) n) rec
       hrec hstop) (Environment.bandit (task.ν θ))) :
-    task.IsDeltaPAC (task.glrt task.empCost alg
+    task.IsDeltaPAC (task.glrt (task.plugInCost empMean') alg
       (fun n _ ↦ unionBoundThreshold (Fintype.card α) (unionBoundLevel (Fintype.card α) δ) n) rec
       hrec hstop) δ := by
-  refine task.isDeltaPAC_glrt task.empCost alg _ rec hrec hstop hc (fun θ hθ ↦ ?_) h_stops
+  refine task.isDeltaPAC_glrt (task.plugInCost empMean') alg _ rec hrec hstop hc (fun θ hθ ↦ ?_)
+    h_stops
   rw [measureReal_def]
-  refine ENNReal.toReal_le_of_le_ofReal hδ.le ((measure_exists_unionBoundThreshold_lt_empCost_le
+  refine ENNReal.toReal_le_of_le_ofReal hδ.le ((measure_exists_unionBoundThreshold_lt_plugInCost_le
     hνt hσ2 (IT.isAlgEnvSeq_trajMeasure alg _) (card_le_unionBoundLevel hδ hδ1)).trans ?_)
   exact ENNReal.ofReal_le_ofReal
     (div_pow_mul_exp_sub_unionBoundLevel_le hδ hδ1)
 
 /-- **Track-and-Stop for Gaussian arms is `δ`-PAC** [LS, Lemma 33.7], whatever its target map and
 its recommendation rule. For Gaussian arms with a common variance `σ2 ≠ 0` and `δ ∈ (0, 1]`,
-Track-and-Stop with the thresholds `K log (2 n (n + 1)) + x_δ` is `δ`-PAC on the task, provided it
-stops almost surely on every admissible model. -/
+Track-and-Stop with the empirical means as estimator and the thresholds `K log (2 n (n + 1)) + x_δ`
+is `δ`-PAC on the task, provided it stops almost surely on every admissible model. -/
 theorem isDeltaPAC_trackAndStop_unionBoundThreshold [Nonempty α]
     (hνt : task.ν = (Bandits.gaussianBandit · σ2)) (hσ2 : σ2 ≠ 0) (hδ : 0 < δ) (hδ1 : δ ≤ 1)
-    {w : (α → ℝ) → α → ℝ} (hw : Measurable w) {rec : (α → ℝ) → ℐ} (hrec : Measurable rec)
+    {w : (α → ℝ) → α → ℝ} (hw : ∀ n, Measurable fun h : Hist Unit α ℝ n ↦ w (empMean' n h))
+    {rec : (α → ℝ) → ℐ} (hrec : ∀ n, Measurable fun h : Hist Unit α ℝ n ↦ rec (empMean' n h))
     (hstop : ∀ n, MeasurableSet {h | unionBoundThreshold (Fintype.card α)
       (unionBoundLevel (Fintype.card α) δ) n <
-        task.glr task.empCost n h (rec (empMean' n h))})
+        task.glr (task.plugInCost empMean') n h (rec (empMean' n h))})
     (hc : ∀ θ ∈ task.M, MeasurableSet (task.correct θ))
-    (h_stops : ∀ θ ∈ task.M, StopsAS (task.trackAndStop w hw
+    (h_stops : ∀ θ ∈ task.M, StopsAS (task.trackAndStop empMean' w hw
       (fun n _ ↦ unionBoundThreshold (Fintype.card α) (unionBoundLevel (Fintype.card α) δ) n) rec
       hrec hstop) (Environment.bandit (task.ν θ))) :
-    task.IsDeltaPAC (task.trackAndStop w hw
+    task.IsDeltaPAC (task.trackAndStop empMean' w hw
       (fun n _ ↦ unionBoundThreshold (Fintype.card α) (unionBoundLevel (Fintype.card α) δ) n) rec
       hrec hstop) δ := by
   simp only [trackAndStop_def] at h_stops ⊢
@@ -229,10 +238,12 @@ open Filter Topology
 
 variable {α ℐ : Type*} [Fintype α] [DecidableEq α] [Nonempty α] {mα : MeasurableSpace α}
   [MeasurableSingletonClass α] {mℐ : MeasurableSpace ℐ} {task : IdentTask α (α → ℝ) ℐ ℝ}
-  {σ2 : ℝ≥0} {w : (α → ℝ) → α → ℝ} {hw : Measurable w} {rec : (α → ℝ) → ℐ}
-  {hrec : Measurable rec}
+  {σ2 : ℝ≥0} {w : (α → ℝ) → α → ℝ}
+  {hw : ∀ n, Measurable fun h : Hist Unit α ℝ n ↦ w (empMean' n h)} {rec : (α → ℝ) → ℐ}
+  {hrec : ∀ n, Measurable fun h : Hist Unit α ℝ n ↦ rec (empMean' n h)}
   {hstop : ∀ δ n, MeasurableSet {h | unionBoundThreshold (Fintype.card α)
-    (unionBoundLevel (Fintype.card α) δ) n < task.glr task.empCost n h (rec (empMean' n h))}}
+    (unionBoundLevel (Fintype.card α) δ) n <
+      task.glr (task.plugInCost empMean') n h (rec (empMean' n h))}}
   {μ : α → ℝ} {i : ℐ}
 
 /-- **Track-and-Stop for Gaussian arms is `δ`-PAC** for every `δ ∈ (0, 1]`, with the thresholds
@@ -250,7 +261,7 @@ theorem isDeltaPAC_trackAndStop_unionBoundThreshold_of_mem_optAlloc [MeasurableS
     (h_lsc : ∀ θ ∈ task.M, LowerSemicontinuousWithinAt
       (fun q : (α → ℝ) × (α → ℝ) ↦ task.altCost q.1 q.2 (rec θ)) (Set.univ ×ˢ simplex α) (θ, w θ))
     (h_charTime : ∀ θ ∈ task.M, task.charTime θ ≠ ∞) {δ : ℝ} (hδ : 0 < δ) (hδ1 : δ ≤ 1) :
-    task.IsDeltaPAC (task.trackAndStop w hw
+    task.IsDeltaPAC (task.trackAndStop empMean' w hw
       (fun n _ ↦ unionBoundThreshold (Fintype.card α) (unionBoundLevel (Fintype.card α) δ) n) rec
       hrec (hstop δ)) δ :=
   isDeltaPAC_trackAndStop_unionBoundThreshold hνt hσ2 hδ hδ1 hw hrec (hstop δ)
@@ -277,7 +288,7 @@ theorem tendsto_expectedStoppingTime_trackAndStop_unionBoundThreshold_div_log
     (h_lsc : ∀ θ ∈ task.M, LowerSemicontinuousWithinAt
       (fun q : (α → ℝ) × (α → ℝ) ↦ task.altCost q.1 q.2 (rec θ)) (Set.univ ×ˢ simplex α) (θ, w θ))
     (h_charTime : ∀ θ ∈ task.M, task.charTime θ ≠ ∞) (hμ : μ ∈ task.M) :
-    Tendsto (fun δ ↦ expectedStoppingTime (task.trackAndStop w hw
+    Tendsto (fun δ ↦ expectedStoppingTime (task.trackAndStop empMean' w hw
         (fun n _ ↦ unionBoundThreshold (Fintype.card α) (unionBoundLevel (Fintype.card α) δ) n) rec
         hrec (hstop δ)) (Environment.bandit (task.ν μ)) / ENNReal.ofReal (log (1 / δ)))
       (𝓝[>] 0) (𝓝 (task.charTime μ)) := by
@@ -300,10 +311,12 @@ open Filter Topology
 
 variable {α ℐ : Type*} [Fintype α] [DecidableEq α] [Nonempty α] {mα : MeasurableSpace α}
   [MeasurableSingletonClass α] {mℐ : MeasurableSpace ℐ} {task : IdentTask α (α → ℝ) ℐ ℝ}
-  {σ2 : ℝ≥0} {w : (α → ℝ) → α → ℝ} {hw : Measurable w} {rec : (α → ℝ) → ℐ}
-  {hrec : Measurable rec}
+  {σ2 : ℝ≥0} {w : (α → ℝ) → α → ℝ}
+  {hw : ∀ n, Measurable fun h : Hist Unit α ℝ n ↦ w (empMean' n h)} {rec : (α → ℝ) → ℐ}
+  {hrec : ∀ n, Measurable fun h : Hist Unit α ℝ n ↦ rec (empMean' n h)}
   {hstop : ∀ δ n, MeasurableSet {h | unionBoundThreshold (Fintype.card α)
-    (unionBoundLevel (Fintype.card α) δ) n < task.glr task.empCost n h (rec (empMean' n h))}}
+    (unionBoundLevel (Fintype.card α) δ) n <
+      task.glr (task.plugInCost empMean') n h (rec (empMean' n h))}}
   {μ : α → ℝ}
 
 /-- **Track-and-Stop with C-tracking for Gaussian arms is `δ`-PAC** for every `δ ∈ (0, 1]`, with
@@ -320,7 +333,7 @@ theorem isDeltaPAC_cTrackAndStop_unionBoundThreshold_of_mem_optAlloc [Measurable
     (h_cont : ∀ θ ∈ task.M, ∀ v ∈ simplex α, ContinuousWithinAt
       (fun q : (α → ℝ) × (α → ℝ) ↦ task.altCost q.1 q.2 (rec θ)) (Set.univ ×ˢ simplex α) (θ, v))
     (h_charTime : ∀ θ ∈ task.M, task.charTime θ ≠ ∞) {δ : ℝ} (hδ : 0 < δ) (hδ1 : δ ≤ 1) :
-    task.IsDeltaPAC (task.cTrackAndStop w hw
+    task.IsDeltaPAC (task.cTrackAndStop empMean' w hw
       (fun n _ ↦ unionBoundThreshold (Fintype.card α) (unionBoundLevel (Fintype.card α) δ) n) rec
       hrec (hstop δ)) δ := by
   have h_stops (θ : α → ℝ) (hθ : θ ∈ task.M) := stopsAS_cTrackAndStop_unionBoundThreshold
@@ -349,7 +362,7 @@ theorem tendsto_expectedStoppingTime_cTrackAndStop_unionBoundThreshold_div_log
     (h_cont : ∀ θ ∈ task.M, ∀ v ∈ simplex α, ContinuousWithinAt
       (fun q : (α → ℝ) × (α → ℝ) ↦ task.altCost q.1 q.2 (rec θ)) (Set.univ ×ˢ simplex α) (θ, v))
     (h_charTime : ∀ θ ∈ task.M, task.charTime θ ≠ ∞) (hμ : μ ∈ task.M) :
-    Tendsto (fun δ ↦ expectedStoppingTime (task.cTrackAndStop w hw
+    Tendsto (fun δ ↦ expectedStoppingTime (task.cTrackAndStop empMean' w hw
         (fun n _ ↦ unionBoundThreshold (Fintype.card α) (unionBoundLevel (Fintype.card α) δ) n) rec
         hrec (hstop δ)) (Environment.bandit (task.ν μ)) / ENNReal.ofReal (log (1 / δ)))
       (𝓝[>] 0) (𝓝 (task.charTime μ)) := by
