@@ -5,6 +5,7 @@ Authors: Rémy Degenne
 -/
 module
 
+public import LMLExplore.MeasureTheory.Function.ConditionalExpectation.LebesgueBochner
 public import Mathlib.MeasureTheory.Function.SpecialFunctions.Basic
 public import Mathlib.Probability.Martingale.Basic
 
@@ -106,26 +107,7 @@ theorem supermartingale_exp_sum_of_condExp_exp_le_one [IsFiniteMeasure μ]
     (hle : ∀ n, μ[fun ω ↦ exp (Z n ω) | ℱ n] ≤ᵐ[μ] 1) :
     Supermartingale (fun n ω ↦ exp (∑ k ∈ range n, Z k ω)) ℱ μ := by
   refine supermartingale_exp_sum_of_lintegral_mul_exp_le hZ fun n g hg ↦ ?_
-  have hd : Measurable fun ω ↦ ENNReal.ofReal (exp (Z n ω)) :=
-    ((hZ n).mono (ℱ.le _) le_rfl).exp.ennreal_ofReal
-  -- on `ℱ n`, the measure with density `exp (Z n)` is at most `μ`
-  have hμ : (μ.withDensity fun ω ↦ ENNReal.ofReal (exp (Z n ω))).trim (ℱ.le n) ≤
-      μ.trim (ℱ.le n) := by
-    refine Measure.le_iff.2 fun s hs ↦ ?_
-    rw [trim_measurableSet_eq _ hs, trim_measurableSet_eq _ hs, withDensity_apply _ (ℱ.le n _ hs),
-      ← ofReal_integral_eq_lintegral_ofReal (hint n).restrict
-        (ae_of_all _ fun ω ↦ (exp_pos _).le),
-      ← setIntegral_condExp (ℱ.le n) (hint n) hs, ← ofReal_measureReal]
-    refine ENNReal.ofReal_le_ofReal ((setIntegral_mono_ae (g := fun _ ↦ 1)
-      integrable_condExp.integrableOn (integrableOn_const (measure_ne_top _ _))
-      (hle n)).trans_eq ?_)
-    simp
-  calc ∫⁻ ω, g ω * ENNReal.ofReal (exp (Z n ω)) ∂μ
-      = ∫⁻ ω, g ω ∂(μ.withDensity fun ω ↦ ENNReal.ofReal (exp (Z n ω))).trim (ℱ.le n) := by
-        rw [lintegral_trim _ hg,
-          lintegral_withDensity_eq_lintegral_mul _ hd (hg.mono (ℱ.le n) le_rfl)]
-        simp_rw [Pi.mul_apply, mul_comm]
-    _ ≤ ∫⁻ ω, g ω ∂μ.trim (ℱ.le n) := lintegral_mono' hμ le_rfl
-    _ = ∫⁻ ω, g ω ∂μ := lintegral_trim _ hg
+  simpa using lintegral_mul_ofReal_le_of_condExp_le (ℱ.le n) (hint n)
+    (ae_of_all _ fun _ ↦ (exp_pos _).le) (hle n) hg
 
 end LMLExplore
