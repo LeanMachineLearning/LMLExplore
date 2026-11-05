@@ -5,11 +5,10 @@ Authors: Rémy Degenne
 -/
 module
 
-public import LeanMachineLearning.ForMathlib.Analysis.Convex.Bregman.Basic
+public import LMLExplore.Analysis.Convex.Bregman.Euclidean
+public import LMLExplore.Analysis.Convex.Bregman.StrongConvex
 public import Mathlib.Analysis.Calculus.LocalExtr.Basic
-public import Mathlib.Analysis.InnerProductSpace.Calculus
 public import Mathlib.Topology.Order.Compact
-public import TauCeti.Analysis.Convex.Strong
 
 /-!
 # Follow the regularized leader
@@ -239,11 +238,8 @@ theorem sum_apply_sub_sub_bregDiv_le_of_strongConvexOn {F : E → ℝ} {m : ℝ}
         (∑ t ∈ range n, bregDiv F (a (t + 1)) (a t) (F' t)) / η ≤
       η / (2 * m) * ∑ t ∈ range n, ‖y t‖ ^ 2 := by
   rw [mul_sum]
-  refine sum_apply_sub_sub_bregDiv_le_of_mul_norm_sq_le hη y a F' (fun _ _ ↦ hm) fun t ht ↦ ?_
-  -- the Bregman divergence of `F` is at least `m / 2` times the squared distance
-  have := hF.add_add_le_of_hasFDerivWithinAt (ha t ht.le) (ha (t + 1) ht) (hF' t ht)
-  simp only [bregDiv]
-  linarith
+  exact sum_apply_sub_sub_bregDiv_le_of_mul_norm_sq_le hη y a F' (fun _ _ ↦ hm) fun t ht ↦
+    hF.mul_norm_sub_sq_le_bregDiv (ha t ht.le) (ha (t + 1) ht) (hF' t ht)
 
 /-- **Regret of FTRL with a strongly convex potential** [LS, Corollary 28.8]. Under the
 assumptions of `ftrl_regret_le`, if the potential `F` is `m`-strongly convex on `K` for the norm
@@ -293,17 +289,9 @@ theorem ftrl_regret_le_sqrt_of_closedBall (g a : ℕ → E) (hg : ∀ t < n, ‖
   rcases Nat.eq_zero_or_pos n with rfl | hn
   · simp
   have hsqrt : 0 < √(n : ℝ) := Real.sqrt_pos.mpr (Nat.cast_pos.mpr hn)
-  -- `‖·‖ ^ 2 / 2` is `1`-strongly convex, with derivative `⟪b, ·⟫` at `b`
-  have hF : StrongConvexOn (closedBall (0 : E) 1) 1 fun b ↦ ‖b‖ ^ 2 / 2 := by
-    refine strongConvexOn_iff_convex.mpr ?_
-    convert convexOn_const (0 : ℝ) (convex_closedBall (0 : E) 1) using 2 with b
-    ring
-  have hF' (t : ℕ) : HasFDerivWithinAt (fun b ↦ ‖b‖ ^ 2 / 2)
-      ((2 : ℝ)⁻¹ • (2 • innerSL ℝ (a t))) (closedBall 0 1) (a t) := by
-    simpa only [div_eq_mul_inv, mul_comm _ (2 : ℝ)⁻¹] using
-      ((hasStrictFDerivAt_norm_sq (a t)).hasFDerivAt.const_mul (2 : ℝ)⁻¹).hasFDerivWithinAt
-  have h := ftrl_regret_le_of_strongConvexOn hF one_pos (inv_pos.mpr hsqrt) _ a ha _
-    (fun t _ ↦ hF' t) hu
+  have h := ftrl_regret_le_of_strongConvexOn
+    (strongConvexOn_norm_sq_div_two (convex_closedBall 0 1)) one_pos (inv_pos.mpr hsqrt) _ a ha _
+    (fun t _ ↦ (hasFDerivAt_norm_sq_div_two (a t)).hasFDerivWithinAt) hu
   simp only [innerSL_apply_apply, innerSL_apply_norm] at h
   -- the penalty is at most `√n / 2` and the stability terms add up to at most `√n / 2`
   have hu' : ‖u‖ ≤ 1 := mem_closedBall_zero_iff.mp hu

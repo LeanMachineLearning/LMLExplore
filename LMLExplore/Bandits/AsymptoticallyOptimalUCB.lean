@@ -273,39 +273,12 @@ theorem UCBF.integral_pullCount_eventually_le
     (h : IsAlgEnvSeq O A R (ucbF σ2) (Environment.bandit ν) P)
     (hν : ∀ a, HasSubgaussianMGF (fun x ↦ x - (ν a)[id]) σ2 (ν a)) (hσ2 : σ2 ≠ 0) (a : α)
     (ha : 0 < gap ν a) {c : ℝ} (hc : 2 * σ2 / gap ν a ^ 2 < c) :
-    ∀ᶠ n : ℕ in atTop, P[fun ω ↦ (pullCount A a n ω : ℝ)] ≤ c * log n := by
-  -- Choose `ε ∈ (0, Δ_a)` with `2 σ² / (Δ_a - ε)² < c`, by continuity at `ε = 0`.
-  have h_cont : ContinuousAt (fun ε : ℝ ↦ 2 * σ2 / (gap ν a - ε) ^ 2) 0 :=
-    continuousAt_const.div ((continuousAt_const.sub continuousAt_id).pow 2) (by simpa using ha.ne')
-  obtain ⟨ε, hεc, hε, hεa⟩ := ((h_cont.tendsto.mono_left nhdsWithin_le_nhds).eventually_lt_const
-    (by simpa using hc)).and (Ioo_mem_nhdsGT ha) |>.exists
-  set D := 2 * σ2 / (gap ν a - ε) ^ 2
-  set K := 1 + 5 * σ2 / ε ^ 2
-  set L : ℕ → ℝ := fun n ↦ log (1 + n * log n ^ 2)
-  -- The bound of `UCBF.integral_pullCount_le` divided by `log n` tends to `D`.
-  have hL : Tendsto (fun n : ℕ ↦ L n / log n) atTop (𝓝 1) :=
-    tendsto_log_one_add_mul_log_sq_div_log_atTop.comp tendsto_natCast_atTop_atTop
-  have h_log : Tendsto (fun n : ℕ ↦ log n) atTop atTop :=
-    tendsto_log_atTop.comp tendsto_natCast_atTop_atTop
-  have h_inv : Tendsto (fun n : ℕ ↦ (log n)⁻¹) atTop (𝓝 0) := tendsto_inv_atTop_zero.comp h_log
-  have h_sqrt : Tendsto (fun n : ℕ ↦ √(L n) / log n) atTop (𝓝 0) := by
-    have : Tendsto (fun n : ℕ ↦ √(L n / log n * (log n)⁻¹)) atTop (𝓝 0) := by
-      simpa using ((hL.mul h_inv).sqrt)
-    refine this.congr' ?_
-    filter_upwards [h_log.eventually_gt_atTop 0] with n hn
-    field_simp
-    simp [sqrt_div', hn.le, mul_div_cancel₀ _ hn.ne']
-  have h_bound : Tendsto (fun n : ℕ ↦ (K + D * (L n + √(π * L n) + 1)) / log n) atTop (𝓝 D) := by
-    have := ((h_inv.const_mul (K + D)).add (hL.const_mul D)).add (h_sqrt.const_mul (D * √π))
-    simp only [mul_zero, mul_one, zero_add, add_zero] at this
-    refine this.congr fun n ↦ ?_
-    rw [sqrt_mul pi_pos.le]
-    ring
-  filter_upwards [eventually_lt_mul_log_of_tendsto_div_log h_bound hεc] with n hn
-  refine (UCBF.integral_pullCount_le h hν hσ2 a hε hεa n).trans ?_
-  refine le_of_lt (lt_of_eq_of_lt ?_ hn)
-  simp only [K, D, L]
-  ring
+    ∀ᶠ n : ℕ in atTop, P[fun ω ↦ (pullCount A a n ω : ℝ)] ≤ c * log n :=
+  eventually_le_mul_log_of_forall_le_add_mul_add_sqrt_add_one
+    (L := fun n ↦ log (1 + n * log n ^ 2)) ha
+    (tendsto_log_one_add_mul_log_sq_div_log_atTop.comp tendsto_natCast_atTop_atTop) pi_pos.le
+    (fun ε hε ↦ ⟨1 + 5 * σ2 / ε ^ 2, fun n ↦
+      (UCBF.integral_pullCount_le h hν hσ2 a hε.1 hε.2 n).trans_eq (by ring)⟩) hc
 
 /-- **[LS, (8.2)]**, the asymptotic part of [LS, Theorem 8.1]. For σ²-sub-Gaussian rewards with
 `σ² ≠ 0` and every `c > ∑_{a : Δ_a > 0} 2 σ² / Δ_a`, the expected regret of the asymptotically
