@@ -155,9 +155,9 @@ theorem tvDist_le_two_mul_of_forall_measureReal_le_add [IsFiniteMeasure μ] [IsF
     rw [← ofReal_measureReal (μ := μ), ← ofReal_measureReal (μ := ν),
       ← ENNReal.ofReal_add measureReal_nonneg hc]
     exact ENNReal.ofReal_le_ofReal (h s hs)
-  calc tvDist μ ν = (etvDist μ ν).toReal := (rfl)
-    _ ≤ (2 * ENNReal.ofReal c).toReal := ENNReal.toReal_mono (by finiteness) he
-    _ = 2 * c := by simp [ENNReal.toReal_ofReal hc]
+  rw [← ENNReal.ofReal_le_ofReal_iff (by positivity), ofReal_tvDist,
+    ENNReal.ofReal_mul zero_le_two, ENNReal.ofReal_ofNat]
+  exact he
 
 /-! ### Sums and mixtures -/
 
@@ -173,8 +173,8 @@ theorem tvDist_add_smul_add_smul {ξ : Measure 𝓧} [IsFiniteMeasure ξ] [IsFin
   refine iSup_congr fun P ↦ ?_
   rw [Finset.mul_sum]
   refine Finset.sum_congr rfl fun p _ ↦ ?_
-  rw [measureReal_add_apply, measureReal_add_apply, measureReal_nnreal_smul_apply,
-    measureReal_nnreal_smul_apply, add_sub_add_left_eq_sub, ← mul_sub, abs_mul, NNReal.abs_eq]
+  rw [measureReal_add_apply, measureReal_add_apply]
+  simp [← mul_sub, abs_mul]
 
 /-- **Total variation of a mixture**: for finite measures `μ` and `ν` and `α ≤ 1`, the mixture
 `(1 - α) • μ + α • ν` is at distance `α * tvDist ν μ` from `μ`. -/
