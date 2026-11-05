@@ -23,9 +23,10 @@ Follow the regularized leader (FTRL) with regularizers `ψ t` plays at round `t`
 `K` of the cumulative loss plus the regularizer, `b ↦ ∑ s < t, y s b + ψ t b`. With a potential
 `F` and a learning rate `η > 0`, it plays a minimizer of `b ↦ η ∑ s < t, y s b + F b`
 [LS, (28.3)]. The learning rate may change over the rounds: with nonincreasing learning rates
-`η t`, the play of round `t` uses `η t`, which is FTRL with the regularizers `F / η t` up to a
-constant, nondecreasing in `t`, and the regret bounds hold for every horizon, without tuning the
-rates to it. The bounds for a constant learning rate are their constant cases.
+`η t`, the play of round `t` uses `η t`, which is FTRL with the regularizers
+`(F - F (a 0)) / η t`. These are nondecreasing in `t` on `K` since the first play `a 0` minimizes
+`F` over `K`, and the regret bounds hold for every horizon, without tuning the rates to it. The
+bounds for a constant learning rate are their constant cases.
 
 The norm of `E` only enters through strong convexity: the bound for an `m`-strongly convex
 potential measures the losses in the operator norm, the dual norm of the norm of `E`. Choosing the
@@ -156,8 +157,8 @@ the regularizers `ψ t` be nondecreasing in `t` on `K`. Let each `a t`, for `t <
 `∑ t < n, y t (a t - u)
   ≤ ψ n u - ψ 0 (a 0) + ∑ t < n, (y t (a t - a (t + 1)) - D_{ψ t}(a (t + 1), a t))`.
 The last point `a n` is typically the minimizer of the objective of round `n` over `K`, for
-`u ∈ K`; since it only enters the bound, the regularizer `ψ n` may also be chosen freely, for
-example `ψ n = ψ (n - 1)` with `a n = u`. -/
+`u ∈ K`; the regularizer `ψ n` may also be any regularizer that keeps the sequence nondecreasing
+on `K`, for example `ψ n = ψ (n - 1)` with `a n = u`. -/
 theorem ftrl_regret_le_of_monotone (hK : Convex ℝ K) (ψ : ℕ → E → ℝ) (y : ℕ → E →L[ℝ] ℝ)
     (a : ℕ → E) (ha : ∀ t < n, IsMinOn (fun b ↦ ∑ s ∈ range t, y s b + ψ t b) K (a t))
     (haK : ∀ t ≤ n, a t ∈ K)
