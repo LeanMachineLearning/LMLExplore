@@ -6,6 +6,7 @@ Authors: Rémy Degenne
 module
 
 public import LeanMachineLearning.Online.Bandit.ArrayProbSpace
+public import LMLExplore.MeasureTheory.Measure.Real
 public import LMLExplore.MeasureTheory.Measure.TotalVariation.Basic
 public import LMLExplore.Probability.Kernel.Basic
 public import LMLExplore.Probability.Moments.SubGaussian.Bounded
@@ -140,18 +141,19 @@ theorem measureReal_le_abs_integral_sub_integral_empiricalKernel_le (ν : Kernel
     (iIndepFun_eval_streamMeasure'' ν a).comp (fun _ ↦ f) fun _ ↦ hf
   have h_mean (i : ℕ) : ∫ ω, f (ω i a) ∂(streamMeasure ν) = ∫ y, f y ∂(ν a) :=
     (h_law i).integral_comp hf.aestronglyMeasurable
-  have h := measureReal_le_abs_sum_sub_integral_le h_indep (s := range N)
-    (fun i _ ↦ hf.comp_aemeasurable (h_law i).aemeasurable)
+  have h := measureReal_le_abs_sum_sub_integral_le h_indep (s := range N) (l := fun _ ↦ l)
+    (u := fun _ ↦ u) (fun i _ ↦ hf.comp_aemeasurable (h_law i).aemeasurable)
     (fun i _ ↦ ae_of_ae_map (h_law i).aemeasurable ((h_law i).map_eq ▸ hfb))
     (t := N * t) (by positivity)
-  simp_rw [h_mean, card_range] at h
+  simp_rw [h_mean, sum_const, card_range, nsmul_eq_mul] at h
   refine le_trans (measureReal_mono ?_) (h.trans_eq ?_)
   · intro ω (hω : t ≤ _)
     -- the centered sum is `-N` times the deviation of the empirical mean
     have h_sum : ∑ i ∈ range N, (f (ω i a) - ∫ y, f y ∂(ν a)) =
         -(N * (∫ y, f y ∂(ν a) - ∫ y, f y ∂(empiricalKernel N ω a))) := by
-      rw [integral_empiricalKernel N ω a hf.stronglyMeasurable, smul_eq_mul, mul_sub,
-        mul_inv_cancel_left₀ hN'.ne', sum_sub_distrib, sum_const, card_range, nsmul_eq_mul]
+      rw [integral_empiricalKernel N ω a hf.stronglyMeasurable]
+      simp [sum_sub_distrib]
+      field_simp
       ring
     simp only [Set.mem_ofPred_eq, h_sum, abs_neg, abs_mul, abs_of_pos hN']
     exact mul_le_mul_of_nonneg_left hω hN'.le
@@ -251,14 +253,7 @@ theorem le_streamMeasure_forall_tvDist_empiricalKernel_lt [Fintype α] [Fintype 
   have h_eq : {ω | ∀ a, tvDist (ν a) (empiricalKernel N ω a) < r} = (⋃ a, bad a)ᶜ := by
     ext ω
     simp [bad]
-  rw [h_eq, probReal_compl_eq_one_sub (MeasurableSet.iUnion h_meas)]
-  have h_sum : ∑ a, (streamMeasure ν).real (bad a) ≤ δ := by
-    refine (sum_le_sum fun a _ ↦ h_bad a).trans ?_
-    rw [sum_const, card_univ, nsmul_eq_mul]
-    rcases eq_or_ne (Fintype.card α) 0 with h | h
-    · simp [h, hδ.le]
-    · rw [mul_div_cancel₀ _ (by exact_mod_cast h)]
-  linarith [measureReal_iUnion_fintype_le (μ := streamMeasure ν) bad]
+  exact h_eq ▸ one_sub_le_measureReal_compl_iUnion hδ.le h_bad
 
 /-- **Uniform Hoeffding bound for the empirical kernel.** Under the stream model `streamMeasure ν`
 of a Markov kernel `ν` with finitely many keys, let `f` be a measurable function with values in
@@ -275,14 +270,9 @@ theorem le_streamMeasure_forall_abs_integral_sub_integral_empiricalKernel_le [Fi
   rcases le_or_gt 1 δ with hδ1 | hδ1
   · exact (sub_nonpos.2 hδ1).trans measureReal_nonneg
   set r := (u - l) * √(log (2 * Fintype.card α / δ) / (2 * N))
-  -- the bad event of a key is measurable and has probability at most `δ / card α`
+  -- the bad event of a key has probability at most `δ / card α`
   set bad : α → Set (ℕ → α → β) :=
     fun a ↦ {ω | r < |∫ y, f y ∂(ν a) - ∫ y, f y ∂(empiricalKernel N ω a)|}
-  have h_meas (a : α) : MeasurableSet (bad a) := by
-    simp_rw [bad, integral_empiricalKernel _ _ a hf.stronglyMeasurable, smul_eq_mul]
-    refine measurableSet_lt measurable_const (continuous_abs.measurable.comp
-      (measurable_const.sub (measurable_const.mul (Finset.measurable_sum _ fun i _ ↦ ?_))))
-    exact hf.comp ((measurable_pi_apply a).comp (measurable_pi_apply i))
   have h_bad (a : α) : (streamMeasure ν).real (bad a) ≤ δ / Fintype.card α :=
     measureReal_lt_abs_integral_sub_integral_empiricalKernel_le ν hf (hfb a) N hδ hδ1
       (by exact_mod_cast Fintype.card_pos_iff.2 ⟨a⟩)
@@ -291,13 +281,6 @@ theorem le_streamMeasure_forall_abs_integral_sub_integral_empiricalKernel_le [Fi
       (⋃ a, bad a)ᶜ := by
     ext ω
     simp [bad]
-  rw [h_eq, probReal_compl_eq_one_sub (MeasurableSet.iUnion h_meas)]
-  have h_sum : ∑ a, (streamMeasure ν).real (bad a) ≤ δ := by
-    refine (sum_le_sum fun a _ ↦ h_bad a).trans ?_
-    rw [sum_const, card_univ, nsmul_eq_mul]
-    rcases eq_or_ne (Fintype.card α) 0 with h | h
-    · simp [h, hδ.le]
-    · rw [mul_div_cancel₀ _ (by exact_mod_cast h)]
-  linarith [measureReal_iUnion_fintype_le (μ := streamMeasure ν) bad]
+  exact h_eq ▸ one_sub_le_measureReal_compl_iUnion hδ.le h_bad
 
 end LMLExplore

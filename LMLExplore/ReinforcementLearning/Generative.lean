@@ -191,12 +191,11 @@ theorem le_streamMeasure_forall_abs_integral_optValue_sub_integral_optValue_empi
   have h_r : (C / (1 - γ) - -(C / (1 - γ))) *
       √(log (2 * Fintype.card (𝓢 × 𝓐) / δ) / (2 * N)) =
         C / (1 - γ) * √(2 * log (2 * Fintype.card 𝓢 * Fintype.card 𝓐 / δ) / N) := by
-    rw [Fintype.card_prod, Nat.cast_mul, ← mul_assoc, sub_neg_eq_add, ← two_mul,
-      mul_comm 2 (C / (1 - γ)), mul_assoc]
-    congr 1
-    rw [show 2 * log (2 * Fintype.card 𝓢 * Fintype.card 𝓐 / δ) / N =
+    rw [Fintype.card_prod, Nat.cast_mul, ← mul_assoc,
+      show 2 * log (2 * Fintype.card 𝓢 * Fintype.card 𝓐 / δ) / N =
         2 ^ 2 * (log (2 * Fintype.card 𝓢 * Fintype.card 𝓐 / δ) / (2 * N)) by field_simp,
-      Real.sqrt_mul (by norm_num), Real.sqrt_sq (by norm_num)]
+      Real.sqrt_mul (by positivity), Real.sqrt_sq zero_le_two]
+    ring
   refine (le_streamMeasure_forall_abs_integral_sub_integral_empiricalKernel_le M.P
     (measurable_optValue hγ hR) (fun _ ↦ ae_of_all _ fun s ↦ abs_le.1 (abs_optValue_le hγ hR s))
     N hδ).trans (measureReal_mono (fun ω hω p ↦ ?_) (measure_ne_top _ _))
