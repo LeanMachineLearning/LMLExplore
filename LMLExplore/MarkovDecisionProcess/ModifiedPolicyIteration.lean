@@ -187,7 +187,8 @@ theorem le_bellman (h₀ : v 0 ≤ M.bellman γ (v 0)) (k : ℕ) : v k ≤ M.bel
   fun s ↦ by
     simpa only [coeFn_bellmanOp, coeFn_valueBM] using LMLExplore.boundedMeasurable.le_def.1
       ((h.isModifiedPolicyIteration_valueBM hR hv hvB).le_map
-        (fun _ ↦ (isBlackwell_bellmanEvalOp hR).monotone) (isGreatest_bellmanEvalOp hR)
+        (fun _ ↦ (isBlackwell_bellmanEvalOp hR).monotone)
+        (fun _ ↦ bellmanEvalOp_le_bellmanOp hR)
         (h.valueBM_zero_le hR hv hvB h₀) k) s
 
 /-- **Improvement in modified policy iteration**: started below its image by the optimality
@@ -197,7 +198,7 @@ theorem bellman_le_succ (h₀ : v 0 ≤ M.bellman γ (v 0)) (k : ℕ) :
     M.bellman γ (v k) ≤ v (k + 1) := fun s ↦ by
   simpa only [coeFn_bellmanOp, coeFn_valueBM] using LMLExplore.boundedMeasurable.le_def.1
     ((h.isModifiedPolicyIteration_valueBM hR hv hvB).map_le
-      (fun _ ↦ (isBlackwell_bellmanEvalOp hR).monotone) (isGreatest_bellmanEvalOp hR)
+      (fun _ ↦ (isBlackwell_bellmanEvalOp hR).monotone) (fun _ ↦ bellmanEvalOp_le_bellmanOp hR)
       (h.valueBM_zero_le hR hv hvB h₀) k) s
 
 /-- The values of modified policy iteration started below their image by the optimality operator
@@ -212,7 +213,8 @@ theorem bellman_iterate_le (h₀ : v 0 ≤ M.bellman γ (v 0)) (k : ℕ) :
     (M.bellman γ)^[k] (v 0) ≤ v k := fun s ↦ by
   simpa only [coeFn_bellmanOp_iterate, coeFn_valueBM] using LMLExplore.boundedMeasurable.le_def.1
     ((h.isModifiedPolicyIteration_valueBM hR hv hvB).iterate_le
-      (fun _ ↦ (isBlackwell_bellmanEvalOp hR).monotone) (isGreatest_bellmanEvalOp hR)
+      (fun _ ↦ (isBlackwell_bellmanEvalOp hR).monotone)
+      (fun _ ↦ bellmanEvalOp_le_bellmanOp hR) (isBlackwell_bellmanOp hR).monotone
       (h.valueBM_zero_le hR hv hvB h₀) k) s
 
 variable [Nonempty 𝓢]

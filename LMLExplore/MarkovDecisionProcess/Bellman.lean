@@ -69,9 +69,9 @@ when the lookahead is bounded above in the action, for instance for finitely man
   `Learning.MDP.exists_abs_bellmanEval_iterate_le`); `Learning.MDP.measurable_greedy`: the greedy
   policy of a measurable function is measurable.
 * `Learning.MDP.bellmanEval_le_bellman`: randomizing does not increase the supremum
-  [P, Proposition 6.2.1]; `Learning.MDP.isGreatest_bellmanEval`: the optimality operator is the
-  maximum of the evaluation operators of measurable deterministic stationary policies, attained by
-  the greedy policy (`Learning.MDP.bellmanEval_greedy`); `Learning.MDP.isGreedy_iff_bellmanEval_eq`:
+  [P, Proposition 6.2.1]; `Learning.MDP.bellmanEval_greedy`: the greedy policy attains it, so the
+  optimality operator is the maximum of the evaluation operators of measurable deterministic
+  stationary policies; `Learning.MDP.isGreedy_iff_bellmanEval_eq`:
   a measurable deterministic policy is greedy for `v` exactly when its evaluation operator
   attains the optimality operator at `v`.
 * `Learning.MDP.isBlackwell_bellman`, `Learning.MDP.contractingWith_bellman`,
@@ -429,16 +429,6 @@ theorem bellmanEval_greedy [Fintype 𝓐] [Nonempty 𝓐] (hv : Measurable v) :
       M.bellman γ v := by
   ext s
   rw [bellmanEval_deterministic hv, lookahead_greedy]
-
-/-- The optimality operator at a measurable `v` is the greatest value at `v` of the evaluation
-operators of the measurable deterministic stationary policies. -/
-theorem isGreatest_bellmanEval [Finite 𝓐] [Nonempty 𝓐] [MeasurableSingletonClass 𝓐]
-    (hv : Measurable v) :
-    IsGreatest (range fun d : {d : 𝓢 → 𝓐 // Measurable d} ↦
-      M.bellmanEval γ (Kernel.deterministic d d.2) v) (M.bellman γ v) := by
-  have := Fintype.ofFinite 𝓐
-  exact ⟨⟨⟨_, measurable_greedy hv⟩, bellmanEval_greedy hv⟩,
-    forall_mem_range.2 fun _ ↦ bellmanEval_le_bellman v⟩
 
 /-! ### Finite state spaces
 
