@@ -33,9 +33,9 @@ variable {Ω : Type*} {mΩ : MeasurableSpace Ω} {f : Filtration ℕ mΩ} {τ : 
 σ-algebra of `ℕ∞`.
 
 `IsStoppingTime.measurable'` gives measurability for the Borel σ-algebra of `WithTop ℕ`, a
-different instance on the same type, so measurability for `ℕ∞` is rebuilt from the measurable
-preimages of the (Borel-measurable) singletons. -/
+different instance on the same type. -/
 lemma measurable_enat (hτ : IsStoppingTime f τ) : Measurable τ :=
+  -- the preimage of each (Borel-measurable) singleton is measurable
   measurable_to_countable' fun x ↦ hτ.measurable' (measurableSet_singleton (α := WithTop ℕ) x)
 
 end MeasureTheory.IsStoppingTime
