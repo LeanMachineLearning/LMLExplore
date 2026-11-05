@@ -6,7 +6,6 @@ Authors: Rémy Degenne
 module
 
 public import LMLExplore.Analysis.FixedPoint.OrderUnit
-public import LMLExplore.Order.Bounds.Basic
 public import LMLExplore.Order.Iterate
 public import LMLExplore.Topology.MetricSpace.Contracting
 public import Mathlib.Data.Fintype.Pigeonhole
@@ -77,7 +76,17 @@ lower intervals `Set.Iic x` and the compatibility of the order with scalars (`Po
   `LMLExplore.IsModifiedPolicyIteration.norm_sub_le`: the same bounds for modified policy iteration
   started from `x 0 ≤ B (x 0)`.
 
-The results on policy iteration and modified policy iteration assume an attained maximum.
+The results on policy iteration and modified policy iteration assume no attainment beyond the
+greedy decisions that the runs record: they assume `T d x ≤ B x` for every decision `d` and, where
+needed, that `B` is monotone or satisfies Blackwell's conditions. A uniform supremum satisfies
+`T d x ≤ B x` (`IsUniformSup.le`) and, with closed lower intervals and `PosSMulMono`, a uniform
+supremum of maps satisfying Blackwell's conditions satisfies them, hence is monotone
+(`IsBlackwell.of_isUniformSup`). Taking these properties of `B` as hypotheses keeps policy
+improvement, finite termination of policy iteration and the results on modified policy iteration
+available on spaces without closed lower intervals, where the Archimedean step is not available;
+the comparison of policy iteration with the fixed point of `B`
+(`IsPolicyIteration.le_of_isFixedPt`, `IsPolicyIteration.norm_sub_le`) still needs closed lower
+intervals.
 
 ## References
 
@@ -131,7 +140,10 @@ needs no approximation step. -/
 lemma IsBlackwell.of_isGreatest_range [IsOrderedAddMonoid E] {T : D → E → E} {B : E → E}
     (hT : ∀ d, IsBlackwell e γ (T d)) (hB : ∀ x, IsGreatest (range fun d ↦ T d x) (B x)) :
     IsBlackwell e γ B where
-  monotone := Monotone.of_isGreatest_range (fun d ↦ (hT d).monotone) hB
+  monotone x y hxy := by
+    obtain ⟨d, hd⟩ := (hB x).1
+    rw [← hd]
+    exact ((hT d).monotone hxy).trans ((hB y).2 ⟨d, rfl⟩)
   map_add_smul_le x c hc := by
     obtain ⟨d, hd⟩ := (hB (x + c • e)).1
     rw [← hd]
@@ -168,22 +180,24 @@ structure IsModifiedPolicyIteration (T : D → E → E) (B : E → E) (m : ℕ �
 
 variable [Preorder E]
 
-/-- A fixed point of a map `T d` is below its image by the maximum `B` of the maps `T d`. -/
-lemma le_map_of_isFixedPt (hB : ∀ x, IsGreatest (range fun d ↦ T d x) (B x)) {d : D}
-    (hx : IsFixedPt (T d) x) : x ≤ B x :=
-  hx.symm.le.trans ((hB x).2 ⟨d, rfl⟩)
+/-- A fixed point `x` of a map `T d` is below `B x` when `T d x ≤ B x` for every decision `d`, for
+instance when `B` is the uniform supremum of the `T d`. -/
+lemma le_map_of_isFixedPt (hB : ∀ d, T d x ≤ B x) {d : D} (hx : IsFixedPt (T d) x) : x ≤ B x :=
+  hx.symm.le.trans (hB d)
 
-/-- Each value of policy iteration is below its image by `B`. -/
-lemma IsPolicyIteration.le_map (hB : ∀ x, IsGreatest (range fun d ↦ T d x) (B x)) {d : ℕ → D}
-    {v : ℕ → E} (h : IsPolicyIteration T B d v) (k : ℕ) : v k ≤ B (v k) :=
-  le_map_of_isFixedPt hB (h.isFixedPt k)
+/-- Each value of policy iteration is below its image by `B`, when `T d x ≤ B x` for every
+decision `d` and every `x`. -/
+lemma IsPolicyIteration.le_map (hB : ∀ d x, T d x ≤ B x) {d : ℕ → D} {v : ℕ → E}
+    (h : IsPolicyIteration T B d v) (k : ℕ) : v k ≤ B (v k) :=
+  le_map_of_isFixedPt (fun d ↦ hB d (v k)) (h.isFixedPt k)
 
 namespace IsModifiedPolicyIteration
 
 variable {m : ℕ → ℕ} {d : ℕ → D} {u : ℕ → E}
 
-/-- Modified policy iteration started below its image by `B` stays below its image by `B`. -/
-theorem le_map (hT : ∀ d, Monotone (T d)) (hB : ∀ x, IsGreatest (range fun d ↦ T d x) (B x))
+/-- Modified policy iteration started below its image by `B` stays below its image by `B`, when
+`T d x ≤ B x` for every decision `d` and every `x`. -/
+theorem le_map (hT : ∀ d, Monotone (T d)) (hB : ∀ d x, T d x ≤ B x)
     (h : IsModifiedPolicyIteration T B m d u) (h₀ : u 0 ≤ B (u 0)) (k : ℕ) : u k ≤ B (u k) := by
   induction k with
   | zero => exact h₀
@@ -193,11 +207,11 @@ theorem le_map (hT : ∀ d, Monotone (T d)) (hB : ∀ x, IsGreatest (range fun d
     calc u (k + 1) = (T (d k))^[m k + 1] (u k) := h.eq_iterate k
       _ ≤ (T (d k))^[m k + 1 + 1] (u k) := hmono (Nat.le_succ _)
       _ = T (d k) (u (k + 1)) := by rw [iterate_succ_apply', h.eq_iterate k]
-      _ ≤ B (u (k + 1)) := (hB _).2 ⟨d k, rfl⟩
+      _ ≤ B (u (k + 1)) := hB (d k) _
 
 /-- Each value of modified policy iteration started below its image by `B` is above the image by
 `B` of the previous one. -/
-theorem map_le (hT : ∀ d, Monotone (T d)) (hB : ∀ x, IsGreatest (range fun d ↦ T d x) (B x))
+theorem map_le (hT : ∀ d, Monotone (T d)) (hB : ∀ d x, T d x ≤ B x)
     (h : IsModifiedPolicyIteration T B m d u) (h₀ : u 0 ≤ B (u 0)) (k : ℕ) :
     B (u k) ≤ u (k + 1) := by
   have hmono :=
@@ -206,11 +220,12 @@ theorem map_le (hT : ∀ d, Monotone (T d)) (hB : ∀ x, IsGreatest (range fun d
     _ ≤ (T (d k))^[m k + 1] (u k) := hmono (Nat.le_add_left 1 (m k))
     _ = u (k + 1) := (h.eq_iterate k).symm
 
-/-- The values of modified policy iteration started below their image by `B` are above the
-iterates of `B`: `B^[k] (u 0) ≤ u k`. -/
-theorem iterate_le (hT : ∀ d, Monotone (T d)) (hB : ∀ x, IsGreatest (range fun d ↦ T d x) (B x))
+/-- The values of modified policy iteration started below their image by a monotone `B` are above
+the iterates of `B`: `B^[k] (u 0) ≤ u k`. With closed lower intervals and `PosSMulMono`, a uniform
+supremum of maps satisfying Blackwell's conditions is monotone (`IsBlackwell.of_isUniformSup`). -/
+theorem iterate_le (hT : ∀ d, Monotone (T d)) (hB : ∀ d x, T d x ≤ B x) (hBm : Monotone B)
     (h : IsModifiedPolicyIteration T B m d u) (h₀ : u 0 ≤ B (u 0)) (k : ℕ) : B^[k] (u 0) ≤ u k :=
-  (Monotone.of_isGreatest_range hT hB).iterate_le_of_map_le_succ (h.map_le hT hB h₀) k
+  hBm.iterate_le_of_map_le_succ (h.map_le hT hB h₀) k
 
 end IsModifiedPolicyIteration
 
@@ -392,50 +407,46 @@ variable {d : ℕ → D} {v : ℕ → E}
 /-- **Policy improvement**: each value of policy iteration is above the image by `B` of the
 previous one. -/
 theorem map_le [ClosedIciTopology E] (hnorm : ∀ x, orderUnitNorm e x = ‖x‖)
-    (hT : ∀ d, IsBlackwell e γ (T d)) (hγ : γ < 1)
-    (hB : ∀ x, IsGreatest (range fun d ↦ T d x) (B x)) (h : IsPolicyIteration T B d v) (k : ℕ) :
-    B (v k) ≤ v (k + 1) :=
+    (hT : ∀ d, IsBlackwell e γ (T d)) (hγ : γ < 1) (hB : ∀ d x, T d x ≤ B x)
+    (h : IsPolicyIteration T B d v) (k : ℕ) : B (v k) ≤ v (k + 1) :=
   map_le_of_le_map hnorm hT hγ (h.le_map hB k) (h.map_eq k) (h.isFixedPt (k + 1))
 
 /-- The values of policy iteration are nondecreasing. -/
 theorem monotone [ClosedIciTopology E] (hnorm : ∀ x, orderUnitNorm e x = ‖x‖)
-    (hT : ∀ d, IsBlackwell e γ (T d)) (hγ : γ < 1)
-    (hB : ∀ x, IsGreatest (range fun d ↦ T d x) (B x)) (h : IsPolicyIteration T B d v) :
-    Monotone v :=
+    (hT : ∀ d, IsBlackwell e γ (T d)) (hγ : γ < 1) (hB : ∀ d x, T d x ≤ B x)
+    (h : IsPolicyIteration T B d v) : Monotone v :=
   monotone_nat_of_le_succ fun k ↦ (h.le_map hB k).trans (h.map_le hnorm hT hγ hB k)
 
-/-- The values of policy iteration are above the iterates of `B`: `B^[k] (v 0) ≤ v k`. -/
+/-- The values of policy iteration are above the iterates of a monotone `B`:
+`B^[k] (v 0) ≤ v k`. -/
 theorem iterate_le [ClosedIciTopology E] (hnorm : ∀ x, orderUnitNorm e x = ‖x‖)
-    (hT : ∀ d, IsBlackwell e γ (T d)) (hγ : γ < 1)
-    (hB : ∀ x, IsGreatest (range fun d ↦ T d x) (B x)) (h : IsPolicyIteration T B d v) (k : ℕ) :
-    B^[k] (v 0) ≤ v k :=
-  (Monotone.of_isGreatest_range (fun d ↦ (hT d).monotone) hB).iterate_le_of_map_le_succ
-    (h.map_le hnorm hT hγ hB) k
+    (hT : ∀ d, IsBlackwell e γ (T d)) (hγ : γ < 1) (hB : ∀ d x, T d x ≤ B x)
+    (hBm : Monotone B) (h : IsPolicyIteration T B d v) (k : ℕ) : B^[k] (v 0) ≤ v k :=
+  hBm.iterate_le_of_map_le_succ (h.map_le hnorm hT hγ hB) k
 
-/-- The values of policy iteration are below the fixed point of `B`. -/
+/-- The values of policy iteration are below the fixed point `x` of `B`, when `T d x ≤ B x` for
+every decision `d`. -/
 theorem le_of_isFixedPt [ClosedIicTopology E] (hnorm : ∀ x, orderUnitNorm e x = ‖x‖)
-    (hT : ∀ d, IsBlackwell e γ (T d)) (hγ : γ < 1)
-    (hB : ∀ x, IsGreatest (range fun d ↦ T d x) (B x)) (h : IsPolicyIteration T B d v)
-    (hx : IsFixedPt B x) (k : ℕ) : v k ≤ x :=
-  mem_upperBounds_iUnion_fixedPoints hnorm hT hγ (fun d ↦ (hB x).2 ⟨d, rfl⟩) hx
-    (mem_iUnion.2 ⟨d k, h.isFixedPt k⟩)
+    (hT : ∀ d, IsBlackwell e γ (T d)) (hγ : γ < 1) (hB : ∀ d, T d x ≤ B x)
+    (h : IsPolicyIteration T B d v) (hx : IsFixedPt B x) (k : ℕ) : v k ≤ x :=
+  mem_upperBounds_iUnion_fixedPoints hnorm hT hγ hB hx (mem_iUnion.2 ⟨d k, h.isFixedPt k⟩)
 
 /-- **Convergence of policy iteration**: `‖v k - x‖ ≤ γ ^ k * ‖v 0 - x‖`, where `x` is the fixed
 point of `B`. -/
 theorem norm_sub_le [ClosedIicTopology E] [ClosedIciTopology E]
     (hnorm : ∀ x, orderUnitNorm e x = ‖x‖) (hT : ∀ d, IsBlackwell e γ (T d)) (hγ : γ < 1)
-    (hB : ∀ x, IsGreatest (range fun d ↦ T d x) (B x)) (h : IsPolicyIteration T B d v)
+    (hB : ∀ d x, T d x ≤ B x) (hBb : IsBlackwell e γ B) (h : IsPolicyIteration T B d v)
     (hx : IsFixedPt B x) (k : ℕ) : ‖v k - x‖ ≤ γ ^ k * ‖v 0 - x‖ :=
-  (IsBlackwell.of_isGreatest_range hT hB).norm_sub_le_of_map_le_succ hnorm hx
-    (h.le_of_isFixedPt hnorm hT hγ hB hx) (h.map_le hnorm hT hγ hB) k
+  hBb.norm_sub_le_of_map_le_succ hnorm hx (h.le_of_isFixedPt hnorm hT hγ (fun d ↦ hB d x) hx)
+    (h.map_le hnorm hT hγ hB) k
 
 /-- **Finite termination of policy iteration**: with finitely many decisions, policy iteration
 reaches the fixed point of `B` after at most `Nat.card D` improvements. -/
 theorem exists_le_card_eq [Finite D] [ClosedIciTopology E]
     (hnorm : ∀ x, orderUnitNorm e x = ‖x‖) (hT : ∀ d, IsBlackwell e γ (T d)) (hγ : γ < 1)
-    (hB : ∀ x, IsGreatest (range fun d ↦ T d x) (B x)) (h : IsPolicyIteration T B d v)
+    (hB : ∀ d x, T d x ≤ B x) (hBb : IsBlackwell e γ B) (h : IsPolicyIteration T B d v)
     (hx : IsFixedPt B x) : ∃ k ≤ Nat.card D, v k = x := by
-  have hBc := (IsBlackwell.of_isGreatest_range hT hB).contractingWith hnorm hγ
+  have hBc := hBb.contractingWith hnorm hγ
   have hmono := h.monotone hnorm hT hγ hB
   by_contra! hne
   -- Before reaching `x`, the values increase strictly, since a repeated value is a fixed point of
@@ -463,23 +474,22 @@ namespace IsModifiedPolicyIteration
 variable {m : ℕ → ℕ} {d : ℕ → D} {u : ℕ → E}
 
 /-- The values of modified policy iteration started below their image by `B` are below the fixed
-point of `B`. -/
+point of `B`, when `B` satisfies Blackwell's conditions with modulus `γ < 1`. -/
 theorem le_of_isFixedPt [ClosedIciTopology E] (hnorm : ∀ x, orderUnitNorm e x = ‖x‖)
-    (hT : ∀ d, IsBlackwell e γ (T d)) (hγ : γ < 1)
-    (hB : ∀ x, IsGreatest (range fun d ↦ T d x) (B x)) (h : IsModifiedPolicyIteration T B m d u)
-    (h₀ : u 0 ≤ B (u 0)) (hx : IsFixedPt B x) (k : ℕ) : u k ≤ x :=
-  (IsBlackwell.of_isGreatest_range hT hB).le_of_le_map hnorm hγ hx
-    (h.le_map (fun d ↦ (hT d).monotone) hB h₀ k)
+    (hT : ∀ d, Monotone (T d)) (hγ : γ < 1) (hB : ∀ d x, T d x ≤ B x) (hBb : IsBlackwell e γ B)
+    (h : IsModifiedPolicyIteration T B m d u) (h₀ : u 0 ≤ B (u 0)) (hx : IsFixedPt B x)
+    (k : ℕ) : u k ≤ x :=
+  hBb.le_of_le_map hnorm hγ hx (h.le_map hT hB h₀ k)
 
 /-- **Convergence of modified policy iteration**: started from `u 0 ≤ B (u 0)`, the values of
 modified policy iteration satisfy `‖u k - x‖ ≤ γ ^ k * ‖u 0 - x‖`, where `x` is the fixed point of
 `B`. -/
 theorem norm_sub_le [ClosedIciTopology E] (hnorm : ∀ x, orderUnitNorm e x = ‖x‖)
-    (hT : ∀ d, IsBlackwell e γ (T d)) (hγ : γ < 1)
-    (hB : ∀ x, IsGreatest (range fun d ↦ T d x) (B x)) (h : IsModifiedPolicyIteration T B m d u)
-    (h₀ : u 0 ≤ B (u 0)) (hx : IsFixedPt B x) (k : ℕ) : ‖u k - x‖ ≤ γ ^ k * ‖u 0 - x‖ :=
-  (IsBlackwell.of_isGreatest_range hT hB).norm_sub_le_of_map_le_succ hnorm hx
-    (h.le_of_isFixedPt hnorm hT hγ hB h₀ hx) (h.map_le (fun d ↦ (hT d).monotone) hB h₀) k
+    (hT : ∀ d, Monotone (T d)) (hγ : γ < 1) (hB : ∀ d x, T d x ≤ B x) (hBb : IsBlackwell e γ B)
+    (h : IsModifiedPolicyIteration T B m d u) (h₀ : u 0 ≤ B (u 0)) (hx : IsFixedPt B x)
+    (k : ℕ) : ‖u k - x‖ ≤ γ ^ k * ‖u 0 - x‖ :=
+  hBb.norm_sub_le_of_map_le_succ hnorm hx (h.le_of_isFixedPt hnorm hT hγ hB hBb h₀ hx)
+    (h.map_le hT hB h₀) k
 
 end IsModifiedPolicyIteration
 

@@ -252,7 +252,7 @@ theorem exists_le_card_value_eq_optValue [Finite 𝓢] [MeasurableSingletonClass
       (fun k ↦ M.value γ (Kernel.deterministic (d k) (h.measurable k))) :=
     ⟨fun _ ↦ bellmanEval_value hγ hR, h.bellmanEval_succ_value hγ hR⟩
   obtain ⟨k, hk, hv⟩ := hpi.exists_le_card_eq LMLExplore.orderUnitNorm_one_eq_norm
-    (fun _ ↦ isBlackwell_bellmanEval hR) hγ (fun _ ↦ isGreatest_bellmanEval .of_discrete)
+    (fun _ ↦ isBlackwell_bellmanEval hR) hγ (fun _ ↦ bellmanEval_le_bellman) isBlackwell_bellman
     (bellman_optValue hγ hR)
   refine ⟨k, hk.trans ?_, hv⟩
   rw [← Nat.card_fun]
