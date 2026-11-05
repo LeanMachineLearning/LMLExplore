@@ -79,16 +79,13 @@ private lemma IsDeltaCorrect.klBer_le_lintegral_pullCount_mul_of_altCost_le_topM
     klBer δ (1 - δ) ≤ (∫⁻ ω, (pullCount IT.action a
         (ENat.toNat (A.stoppingTime IT.obs IT.action IT.feedback ω)) ω : ℝ≥0∞)
           ∂(trajMeasure A.alg (Environment.bandit (ν μ)))) * ENNReal.ofReal x := by
-  have hμM : μ ∈ ((topMTask ν m).restrict {μ' | ∀ c, μ' c ∈ (ρ c).expFamilyMeans (T c)}).M := by
+  have hμM : μ ∈ (topMTask ν m).M := by
     have hs' := hs
     simp only [correct_topMTask, Set.mem_ofPred_eq] at hs'
-    simp only [M_restrict, M_topMTask, Set.mem_inter_iff, Set.mem_ofPred_eq]
-    exact ⟨⟨s, hs'⟩, hμ⟩
-  have hi : ((topMTask ν m).restrict {μ' | ∀ c, μ' c ∈ (ρ c).expFamilyMeans (T c)}).correct μ =
-      {s} := by
-    rw [correct_restrict]
-    exact (subsingleton_correct_topMTask ν m μ).eq_singleton_of_mem hs
-  simpa using hA.klBer_le_lintegral_pullCount_mul_of_altCost_le hδ hμM hi (by simpa using h) h_alt
+    simp only [M_topMTask, Set.mem_ofPred_eq]
+    exact ⟨s, hs'⟩
+  simpa using hA.klBer_le_lintegral_pullCount_mul_of_altCost_le_restrict hδ hμM hμ
+    ((subsingleton_correct_topMTask ν m μ).eq_singleton_of_mem hs) (by simpa using h) h_alt
 
 omit [Fintype α] in
 /-- **Lower bound on the number of pulls of an arm of the top-`m` set** [KCG16, proof of
@@ -165,16 +162,13 @@ theorem IsDeltaCorrect.mul_klBer_le_expectedStoppingTime_topMTask {b₀ b₁ : �
   · simp [h]
   -- Divide the lower bound on the number of pulls of each arm by its divergence, then sum over
   -- the arms with Wald's identity.
-  have h_div {x : ℝ} {N : ℝ≥0∞} (hN : klBer δ (1 - δ) ≤ N * ENNReal.ofReal x) :
-      (ENNReal.ofReal x)⁻¹ * klBer δ (1 - δ) ≤ N := by
-    rw [mul_comm, ← div_eq_mul_inv]
-    exact ENNReal.div_le_of_le_mul hN
   rw [expectedStoppingTime_eq_sum_lintegral_pullCount (.of_expectedStoppingTime_ne_top h),
     ← Finset.sum_add_sum_compl s, add_mul, Finset.sum_mul, Finset.sum_mul]
-  exact add_le_add (Finset.sum_le_sum fun a ha ↦ h_div <|
+  simp_rw [← ENNReal.div_eq_inv_mul]
+  exact add_le_add (Finset.sum_le_sum fun a ha ↦ ENNReal.div_le_of_le_mul <|
       hA.klBer_le_lintegral_pullCount_mul_topMTask_of_mem hδ hT hμ hν hs ha hb₀ hb₀_max
         (hb₀s a ha) h)
-    (Finset.sum_le_sum fun a ha ↦ h_div <|
+    (Finset.sum_le_sum fun a ha ↦ ENNReal.div_le_of_le_mul <|
       hA.klBer_le_lintegral_pullCount_mul_topMTask_of_notMem hδ hT hμ hν hs
         (Finset.mem_compl.1 ha) hb₁ hb₁_min (hb₁s a (Finset.mem_compl.1 ha)) h)
 
