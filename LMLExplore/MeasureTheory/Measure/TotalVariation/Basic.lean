@@ -11,7 +11,6 @@ public import Mathlib.MeasureTheory.Measure.TotalVariation.Defs
 import Mathlib.MeasureTheory.Integral.Bochner.Set
 import Mathlib.MeasureTheory.Integral.IntegrableOn
 import Mathlib.MeasureTheory.VectorMeasure.Integral
-import LMLExplore.Algebra.Order.BigOperators.Group.Finset
 import TauCeti.MeasureTheory.Measure.TotalVariation
 
 /-!
