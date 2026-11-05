@@ -73,7 +73,7 @@ private lemma tendsto_sum_of_abs_measureReal_sub_le {ν : ℕ → Measure 𝓧}
     refine ((ENNReal.tendsto_toReal (measure_ne_top _ _)).comp hsum).congr fun N ↦ ?_
     rw [Function.comp_apply, measureReal_biUnion_finset (fun i _ j _ hij ↦ hd hij) fun i _ ↦ hf i,
       ENNReal.toReal_sum fun i _ ↦ measure_ne_top _ _]
-    rfl
+    simp only [measureReal_def]
   obtain ⟨N₀, hN₀⟩ := Metric.tendsto_atTop.1 hlim (ε / 3) (by positivity)
   refine ⟨N₀, fun N hN ↦ ?_⟩
   have h1 := hνL n _ (hmeas N)
