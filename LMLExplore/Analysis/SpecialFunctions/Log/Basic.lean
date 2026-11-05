@@ -21,6 +21,7 @@ public import Mathlib.Analysis.SpecialFunctions.Log.Basic
 * `Real.eventually_lt_mul_log_of_tendsto_div_log`: if `g n / log n → D` and `D < c`, then
   eventually `g n < c log n`.
 * `Real.tendsto_natCeil_sub_div_log`: if `f n / log n → ∞`, then `⌈f n - c⌉₊ / log n → ∞`.
+* `Real.mul_log_add_lt`: `a log x + b < x` as soon as `x ≥ 2 a log (2 a) + 2 b`, for `a, x > 0`.
 
 ## References
 
@@ -129,5 +130,22 @@ theorem tendsto_natCeil_sub_div_log {f : ℕ → ℝ} (c : ℝ)
   filter_upwards [hlog.eventually_gt_atTop 0] with n hn
   rw [← add_div, ← sub_eq_add_neg]
   exact div_le_div_of_nonneg_right (Nat.le_ceil _) hn.le
+
+/-- **Inverting `x ↦ x - a log x`.** For `a > 0` and `x > 0`, `a log x + b < x` as soon as
+`x ≥ 2 a log (2 a) + 2 b`. This turns a sample size condition of the form `a log n + b < n`, which
+defines `n` only implicitly, into an explicit lower bound on `n`. -/
+theorem mul_log_add_lt {a b x : ℝ} (ha : 0 < a) (hx : 0 < x)
+    (h : 2 * a * log (2 * a) + 2 * b ≤ x) : a * log x + b < x := by
+  -- `log x = log (2 a) + log (x / (2 a)) ≤ log (2 a) + x / (2 a) - 1`.
+  have hlog : log x ≤ log (2 * a) + x / (2 * a) - 1 := by
+    have h_div := log_le_sub_one_of_pos (div_pos hx (mul_pos two_pos ha))
+    rw [log_div hx.ne' (by positivity)] at h_div
+    linarith
+  have h_mul : a * log x ≤ a * log (2 * a) + x / 2 - a := by
+    have := mul_le_mul_of_nonneg_left hlog ha.le
+    rw [show a * (log (2 * a) + x / (2 * a) - 1) = a * log (2 * a) + x / 2 - a by
+      field_simp] at this
+    exact this
+  linarith
 
 end Real

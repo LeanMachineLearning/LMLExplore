@@ -32,8 +32,10 @@ For σ²-sub-Gaussian arms and the confidence intervals `μ̂_a ∓ β(N_a)` wit
 their means at all rounds with probability at least `1 - δ` ([LS, Lemma 33.8] and a union bound
 over the `K` arms). Hence successive elimination is `δ`-correct for best arm identification, and
 it stops after at most `∑_a T_a` rounds with probability at least `1 - δ`, where `w = 2 β`
-[EMM02, Theorem 3; EMM06, Theorem 8]. Solving `4 β(T_a) < Δ_a` shows that `T_a` can be taken of
-order `σ² Δ_a⁻² log (K / (δ Δ_a))`; this computation is not carried out here.
+[EMM02, Theorem 3; EMM06, Theorem 8]. Solving `4 β(u) < Δ_a` for all `u ≥ T_a` shows that `T_a`
+can be taken equal to `N(Δ_a) = max ⌈64 σ² Δ_a⁻² (log (K / δ) + 2 log (256 σ² Δ_a⁻²))⌉₊ 1`, of
+order `σ² Δ_a⁻² log (K / (δ Δ_a))` for `σ² = 1`, with the smallest gap in place of the gap `0` of
+the best arm.
 
 ## Main definitions
 
@@ -48,6 +50,8 @@ In the namespace `LMLExplore.Identification`:
   algorithm.
 * `successiveEliminationOfRate β`: successive elimination with the confidence bounds
   `μ̂_a ∓ β(N_a)`.
+* `SuccessiveElimination.pullBound σ2 y Δ`: the number of pulls
+  `max ⌈64 σ² Δ⁻² (y + 2 log (256 σ² Δ⁻²))⌉₊ 1` after which `4 subgaussianRate σ2 y < Δ`.
 
 ## Main statements
 
@@ -60,6 +64,10 @@ In the namespace `LMLExplore.Identification`:
 * `measureReal_sum_lt_stoppingTime_successiveEliminationOfRate_le`: for σ²-sub-Gaussian arms,
   successive elimination with the rate `β = subgaussianRate σ2 (log (K / δ))` stops after more than
   `∑_a T_a` rounds with probability at most `δ`, for `w = 2 β` [EMM02, Theorem 3].
+* `measureReal_pullBound_add_sum_lt_stoppingTime_successiveEliminationOfRate_le`: the same bound
+  in closed form: if `μ_a - μ_b ≥ Δ > 0` for every arm `b ≠ a`, successive elimination stops
+  after more than `N(Δ) + ∑_{b ≠ a} N(μ_a - μ_b)` rounds with probability at most `δ`, for
+  `N = pullBound σ2 (log (K / δ))` [EMM02, Theorem 3].
 * `isDeltaCorrect_successiveEliminationOfRate`: for σ²-sub-Gaussian arms, successive elimination
   with that rate is `δ`-correct for best arm identification [EMM02, Theorem 3].
 
@@ -563,6 +571,83 @@ theorem measureReal_sum_lt_stoppingTime_successiveEliminationOfRate_le
   rw [hτ] at hω
   have h_lt : ∑ b, T b < n := WithTop.coe_lt_coe.1 hω
   omega
+
+/-- The number of pulls `max ⌈64 σ² Δ⁻² (y + 2 log (256 σ² Δ⁻²))⌉₊ 1`, of order
+`σ² Δ⁻² (y + log (σ² / Δ²))`, after which the exploration rate `β = subgaussianRate σ2 y`
+satisfies `4 β < Δ` (`SuccessiveElimination.four_mul_subgaussianRate_lt`). With `y = log (K / δ)`
+and `Δ` the gap of an arm, successive elimination pulls that arm at most this number of times on
+the event where all the confidence intervals hold. -/
+noncomputable def SuccessiveElimination.pullBound (σ2 : ℝ≥0) (y Δ : ℝ) : ℕ :=
+  max ⌈64 * σ2 / Δ ^ 2 * (y + 2 * log (256 * σ2 / Δ ^ 2))⌉₊ 1
+
+lemma SuccessiveElimination.pullBound_def (σ2 : ℝ≥0) (y Δ : ℝ) :
+    SuccessiveElimination.pullBound σ2 y Δ =
+      max ⌈64 * σ2 / Δ ^ 2 * (y + 2 * log (256 * σ2 / Δ ^ 2))⌉₊ 1 := (rfl)
+
+lemma SuccessiveElimination.one_le_pullBound (σ2 : ℝ≥0) (y Δ : ℝ) :
+    1 ≤ SuccessiveElimination.pullBound σ2 y Δ :=
+  le_max_right _ _
+
+/-- After `u ≥ pullBound σ2 y Δ` pulls, four times the exploration rate `subgaussianRate σ2 y` is
+less than `Δ > 0`. -/
+lemma SuccessiveElimination.four_mul_subgaussianRate_lt {σ2 : ℝ≥0} {y Δ : ℝ} (hΔ : 0 < Δ) {u : ℕ}
+    (hu : SuccessiveElimination.pullBound σ2 y Δ ≤ u) :
+    4 * subgaussianRate σ2 y u < Δ := by
+  have hu' : 64 * (σ2 : ℝ) / Δ ^ 2 * (y + 2 * log (256 * σ2 / Δ ^ 2)) ≤ u :=
+    (Nat.le_ceil _).trans (Nat.cast_le.2 ((le_max_left _ _).trans hu))
+  have h := subgaussianRate_lt (σ2 := σ2) (y := y) (u := u) (div_pos hΔ four_pos) (by
+    rw [show 4 * (σ2 : ℝ) / (Δ / 4) ^ 2 = 64 * σ2 / Δ ^ 2 by field_simp; ring,
+      show 16 * (σ2 : ℝ) / (Δ / 4) ^ 2 = 256 * σ2 / Δ ^ 2 by field_simp; ring]
+    exact hu')
+  linarith
+
+/-- **Sample complexity of successive elimination for sub-Gaussian arms, in closed form**
+[EMM02, Theorem 3; EMM06, Theorem 8]. Let the arms of `ν₀` be σ²-sub-Gaussian with `σ² ≠ 0`, let
+`0 < δ ≤ K`, and let `a` be an arm and `Δ > 0` with `μ_a - μ_b ≥ Δ` for every arm `b ≠ a`, so that
+`a` is the unique best arm and `Δ` is at most the smallest gap. Along every algorithm-environment
+sequence of the sampling rule, successive elimination with exploration rate
+`β = subgaussianRate σ2 (log (K / δ))` stops after more than `N(Δ) + ∑_{b ≠ a} N(μ_a - μ_b)`
+rounds with probability at most `δ`, where `N = pullBound σ2 (log (K / δ))` and
+`N(d) = max ⌈64 σ² d⁻² (log (K / δ) + 2 log (256 σ² d⁻²))⌉₊ 1`. With `Δ` the smallest gap, this is
+the bound `∑_b c σ² Δ_b⁻² log (K / (δ Δ_b))` of [EMM02] in a scale-invariant form, the gap of the
+best arm being the smallest gap: for `σ² = 1` and `d ≤ 16`,
+`N(d) ≤ 256 d⁻² log (16 K / (δ d)) + 1`. -/
+theorem measureReal_pullBound_add_sum_lt_stoppingTime_successiveEliminationOfRate_le
+    (hseq : IsAlgEnvSeq O X Y
+      (successiveEliminationOfRate (subgaussianRate σ2 (log (Fintype.card α / δ)))).alg
+      (Environment.bandit ν₀) P)
+    (hσ2 : σ2 ≠ 0) (hν : ∀ a, HasSubgaussianMGF (fun x ↦ x - (ν₀ a)[id]) σ2 (ν₀ a))
+    (hδ : 0 < δ) (hδK : δ ≤ Fintype.card α) {a : α} {Δ : ℝ} (hΔ : 0 < Δ)
+    (ha : ∀ b ≠ a, Δ ≤ (ν₀ a)[id] - (ν₀ b)[id]) :
+    P.real {ω | ((SuccessiveElimination.pullBound σ2 (log (Fintype.card α / δ)) Δ +
+      ∑ b ∈ univ.erase a, SuccessiveElimination.pullBound σ2 (log (Fintype.card α / δ))
+        ((ν₀ a)[id] - (ν₀ b)[id]) : ℕ) : WithTop ℕ) < (successiveEliminationOfRate
+      (subgaussianRate σ2 (log (Fintype.card α / δ)))).stoppingTime O X Y ω} ≤ δ := by
+  set y := log (Fintype.card α / δ)
+  -- The number of pulls of each arm: `N(Δ)` for `a` and `N(μ_a - μ_b)` for `b ≠ a`.
+  set T : α → ℕ := fun b ↦ if b = a then SuccessiveElimination.pullBound σ2 y Δ
+    else SuccessiveElimination.pullBound σ2 y ((ν₀ a)[id] - (ν₀ b)[id]) with hT_def
+  have h_sum : SuccessiveElimination.pullBound σ2 y Δ +
+      ∑ b ∈ univ.erase a, SuccessiveElimination.pullBound σ2 y ((ν₀ a)[id] - (ν₀ b)[id]) =
+      ∑ b, T b := by
+    rw [← add_sum_erase univ T (mem_univ a)]
+    congr 1
+    · simp [hT_def]
+    · exact sum_congr rfl fun b hb ↦ by simp [hT_def, (mem_erase.1 hb).1]
+  rw [h_sum]
+  refine measureReal_sum_lt_stoppingTime_successiveEliminationOfRate_le hseq hσ2 hν hδ hδK (a := a)
+    (fun b hb u v hu huv ↦ ?_) fun b ↦ by
+      simp only [hT_def]
+      split_ifs <;> exact Nat.one_le_iff_ne_zero.1 (SuccessiveElimination.one_le_pullBound _ _ _)
+  -- After `min (T a) (T b)` pulls, four times the rate is less than the gap of `b`.
+  have h_lt {w : ℕ} (hw : min (T a) (T b) ≤ w) :
+      4 * subgaussianRate σ2 y w < (ν₀ a)[id] - (ν₀ b)[id] := by
+    rcases min_le_iff.1 hw with hw | hw
+    · simp only [hT_def, ↓reduceIte] at hw
+      exact (SuccessiveElimination.four_mul_subgaussianRate_lt hΔ hw).trans_le (ha b hb)
+    · simp only [hT_def, hb, ↓reduceIte] at hw
+      exact SuccessiveElimination.four_mul_subgaussianRate_lt (hΔ.trans_le (ha b hb)) hw
+  linarith [h_lt hu, h_lt (hu.trans huv)]
 
 omit [IsProbabilityMeasure P] in
 /-- **Successive elimination is `δ`-correct** for best arm identification with σ²-sub-Gaussian
