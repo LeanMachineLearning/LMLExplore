@@ -8,7 +8,9 @@ module
 public import Mathlib.Algebra.BigOperators.Field
 public import Mathlib.Algebra.BigOperators.Intervals
 public import Mathlib.Algebra.Module.Basic
-public import Mathlib.Analysis.SpecialFunctions.Sqrt
+public import Mathlib.Analysis.Real.Sqrt
+public import Mathlib.Order.Filter.AtTopBot.Archimedean
+public import Mathlib.Tactic.Module
 public import Mathlib.Topology.Algebra.InfiniteSum.ENNReal
 
 /-!
@@ -186,9 +188,9 @@ theorem prod_Ioc_one_sub_qLearningRate_nonneg (hH : 0 ≤ H) (i t : ℕ) :
 
 /-- The weights of the learning rate `(H + 1) / (H + t)` are nonnegative. -/
 theorem learningRateWeight_qLearningRate_nonneg (hH : 0 ≤ H) (t i : ℕ) :
-    0 ≤ learningRateWeight (qLearningRate H) t i := by
-  rw [learningRateWeight_def]
-  exact mul_nonneg (qLearningRate_nonneg hH i) (prod_Ioc_one_sub_qLearningRate_nonneg hH i t)
+    0 ≤ learningRateWeight (qLearningRate H) t i :=
+  learningRateWeight_nonneg (qLearningRate_nonneg hH i) fun j hj ↦
+    qLearningRate_le_one hH (by have := (mem_Ioc.1 hj).1; omega)
 
 /-- The weight of every target of the `t`-th iterate is at most the learning rate
 `(H + 1) / (H + t)` of the last one. -/
