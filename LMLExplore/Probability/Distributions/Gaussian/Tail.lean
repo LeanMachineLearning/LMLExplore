@@ -8,7 +8,7 @@ module
 public import LMLExplore.Probability.Distributions.Gaussian.Real
 
 /-!
-# Tail bounds for the standard Gaussian distribution
+# Tail bounds for Gaussian distributions
 
 For a standard Gaussian random variable `Z` with density `φ = gaussianPDFReal 0 1` and `t > 0`,
 
@@ -22,6 +22,8 @@ For a standard Gaussian random variable `Z` with density `φ = gaussianPDFReal 0
   `P(Z ≥ t) ≤ φ(t) / t`.
 * `LMLExplore.measureReal_Ici_gaussianReal_zero_one_le_exp`: `P(Z ≥ t) ≤ exp (-t² / 2) / 2` for
   `t ≥ 0`.
+* `LMLExplore.measureReal_Ici_gaussianReal_le_exp`: the Chernoff bound
+  `P(X ≥ t) ≤ exp (-(t - μ)² / (2 v))` for `X ~ N(μ, v)` and `t ≥ μ`, for every variance `v`.
 
 Along the way: the tail probability as an integral of the density
 (`measureReal_Ici_gaussianReal`), `P(X ≥ μ) = 1 / 2` for `X ~ N(μ, v)` with `v ≠ 0`
@@ -35,7 +37,9 @@ helpers are adapted from the LMLPapers project (Rémy Degenne),
 `LMLPapers/LeanMachineLearning/ForMathlib/Probability/Distributions/Gaussian/Real.lean` in
 <https://github.com/LeanMachineLearning/LMLPapers>. The two upper bounds,
 `integral_Ioi_sub_mul_gaussianPDFReal`, `measureReal_Ici_gaussianReal` and
-`measureReal_Ici_gaussianReal_self` are new here.
+`measureReal_Ici_gaussianReal_self` are new here. The Chernoff bound
+`measureReal_Ici_gaussianReal_le_exp` is Mathlib's sub-Gaussian tail bound
+`HasSubgaussianMGF.measure_ge_le` applied to the Gaussian distribution.
 
 ## References
 
@@ -177,6 +181,17 @@ private lemma gaussianPDFReal_zero_one_le_exp_mul {t x : ℝ} (ht : 0 ≤ t) (hx
     _ = exp (-t ^ 2 / 2) * gaussianPDFReal t 1 x := by
         rw [gaussianPDFReal_def, exp_add, NNReal.coe_one, mul_one, mul_one]
         ring
+
+/-- The Chernoff bound for the upper tail of a Gaussian distribution: for `X ~ N(μ, v)` and
+`t ≥ μ`, `P(X ≥ t) ≤ exp (-(t - μ)² / (2 v))`. It holds for every variance `v`: for `v = 0` the
+right-hand side is `exp 0 = 1` with Lean's division by zero. -/
+lemma measureReal_Ici_gaussianReal_le_exp {μ t : ℝ} (v : ℝ≥0) (ht : μ ≤ t) :
+    (gaussianReal μ v).real (Ici t) ≤ exp (-(t - μ) ^ 2 / (2 * v)) := by
+  have h := (hasSubgaussianMGF_sub_of_hasLaw_gaussianReal
+    (HasLaw.id (μ := gaussianReal μ v))).measure_ge_le (sub_nonneg.2 ht)
+  convert h using 2
+  ext x
+  simp
 
 /-- `P(Z ≥ t) ≤ exp (-t² / 2) / 2` for a standard Gaussian `Z` and `t ≥ 0`. -/
 lemma measureReal_Ici_gaussianReal_zero_one_le_exp {t : ℝ} (ht : 0 ≤ t) :
