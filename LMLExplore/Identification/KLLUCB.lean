@@ -172,7 +172,7 @@ theorem measureReal_histOutputMeasure_kllucb_le
     (hε : 0 ≤ ε) (hm : m ≤ Fintype.card α) :
     (histOutputMeasure (kllucb alg β ε m) (Environment.bandit ν₀)).real
         {p | p.1 ∈ (kllucb alg β ε m).stopSet ∧
-          p.2 ∉ (epsTopMTask ν m ε).correct fun a ↦ (ν₀ a)[id]} ≤ δ := by
+          p.2 ∉ (epsTopMTask ν id m ε).correct fun a ↦ (ν₀ a)[id]} ≤ δ := by
   rw [kllucb_def]
   have hseq := IT.isAlgEnvSeq_trajMeasure alg (Environment.bandit ν₀)
   have hP : IsProbabilityMeasure (trajMeasure alg (Environment.bandit ν₀)) :=
@@ -206,7 +206,7 @@ theorem measureReal_stoppingTime_ne_top_and_notMem_le_of_isRun_kllucb {out : Ω 
     (hδ : ∑' n, ∑ u ∈ Icc 1 n, exp (-β u n) ≤ δ / Fintype.card α)
     (hε : 0 ≤ ε) (hm : m ≤ Fintype.card α) :
     P.real {ω | (kllucb alg β ε m).stoppingTime O X Y ω ≠ ⊤ ∧
-        out ω ∉ (epsTopMTask ν m ε).correct fun a ↦ (ν₀ a)[id]} ≤ δ := by
+        out ω ∉ (epsTopMTask ν id m ε).correct fun a ↦ (ν₀ a)[id]} ≤ δ := by
   rw [hrun.measureReal_stoppingTime_ne_top_and_notMem_eq (Set.to_countable _).measurableSet]
   exact measureReal_histOutputMeasure_kllucb_le hν hsum hδ hε hm
 
@@ -223,8 +223,8 @@ theorem isDeltaPAC_kllucb {S : Set (α → ℝ)} (hmean : ∀ μ ∈ S, ∀ a, (
     (hδ : ∑' n, ∑ u ∈ Icc 1 n, exp (-β u n) ≤ δ / Fintype.card α)
     (hε : 0 ≤ ε) (hm : m ≤ Fintype.card α)
     (h_stops : ∀ μ ∈ S, StopsAS (kllucb alg β ε m) (Environment.bandit (ν μ))) :
-    ((epsTopMTask ν m ε).restrict S).IsDeltaPAC (kllucb alg β ε m) δ := by
-  have hS (μ : α → ℝ) (hμ : μ ∈ ((epsTopMTask ν m ε).restrict S).M) : μ ∈ S := by
+    ((epsTopMTask ν id m ε).restrict S).IsDeltaPAC (kllucb alg β ε m) δ := by
+  have hS (μ : α → ℝ) (hμ : μ ∈ ((epsTopMTask ν id m ε).restrict S).M) : μ ∈ S := by
     rw [IdentTask.M_restrict] at hμ
     exact hμ.2
   refine IdentTask.isDeltaPAC_of_measureReal_mem_stopSet_and_notMem_le

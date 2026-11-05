@@ -11,11 +11,11 @@ public import LMLExplore.Identification.Task.Threshold
 /-!
 # The pure exploration game of Any Low Arm
 
-In *Any Low Arm* (`anyLowArmTask ν γ`) [DK19, Example 1], the correct answers of a vector of means
-`μ` are the arms `a` with mean below a threshold `γ` (answer `some a`), and "none" (answer `none`)
-if all the means are above `γ`. It is the running example of a task with multiple correct answers.
-Let the arm `a` belong to an exponential family `(ρ a, T a)` with divergence `d_a` in the mean
-parametrization, and let `γ` be a mean of every family.
+In *Any Low Arm* (`anyLowArmTask ν id γ`) [DK19, Example 1], the correct answers of a vector of
+means `μ` are the arms `a` with mean below a threshold `γ` (answer `some a`), and "none" (answer
+`none`) if all the means are above `γ`. It is the running example of a task with multiple correct
+answers. Let the arm `a` belong to an exponential family `(ρ a, T a)` with divergence `d_a` in the
+mean parametrization, and let `γ` be a mean of every family.
 
 * The alternatives to an arm `a` are the vectors in which the mean of `a` is at least `γ`. If
   `μ a ≤ γ`, the infimum of their costs is approached by moving the mean of `a` above `γ`, ever
@@ -84,28 +84,35 @@ open scoped ENNReal NNReal
 
 namespace LMLExplore.Identification
 
-variable {α 𝓨 : Type*} {mα : MeasurableSpace α} {m𝓨 : MeasurableSpace 𝓨} [Fintype α]
+variable {α Θ 𝓨 : Type*} {mα : MeasurableSpace α} {m𝓨 : MeasurableSpace 𝓨} [Fintype α]
   {ρ : α → Measure 𝓨} {T : α → 𝓨 → ℝ} {γ : ℝ} {μ w : α → ℝ}
-  (ν : (α → ℝ) → Kernel α 𝓨) [∀ μ, IsMarkovKernel (ν μ)]
+
+section MeanFunctional
+
+variable (ν : Θ → Kernel α 𝓨) [∀ θ, IsMarkovKernel (ν θ)] (mean : Θ → α → ℝ) {θ' : Θ}
 
 omit [Fintype α] in
-/-- The alternatives to an arm `a` in Any Low Arm are the admissible vectors of means in which the
-mean of `a` is at least `γ`. -/
-lemma mem_alt_anyLowArmTask_some_iff {a : α} {μ' : α → ℝ} :
-    μ' ∈ (anyLowArmTask ν γ).alt (some a) ↔
-      γ ≤ μ' a ∧ ((∃ b, μ' b < γ) ∨ ∀ b, γ < μ' b) := by
+/-- The alternatives to an arm `a` in Any Low Arm are the admissible models in which the mean of
+`a` is at least `γ`. -/
+lemma mem_alt_anyLowArmTask_some_iff {a : α} :
+    θ' ∈ (anyLowArmTask ν mean γ).alt (some a) ↔
+      γ ≤ mean θ' a ∧ ((∃ b, mean θ' b < γ) ∨ ∀ b, γ < mean θ' b) := by
   simp only [IdentTask.mem_alt_iff, M_anyLowArmTask, Set.mem_ofPred_eq,
     some_mem_correct_anyLowArmTask, not_lt]
   exact and_comm
 
 omit [Fintype α] in
-/-- The alternatives to `none` in Any Low Arm are the vectors with some mean below `γ`. -/
-lemma mem_alt_anyLowArmTask_none_iff {μ' : α → ℝ} :
-    μ' ∈ (anyLowArmTask ν γ).alt none ↔ ∃ a, μ' a < γ := by
+/-- The alternatives to `none` in Any Low Arm are the models with some mean below `γ`. -/
+lemma mem_alt_anyLowArmTask_none_iff :
+    θ' ∈ (anyLowArmTask ν mean γ).alt none ↔ ∃ a, mean θ' a < γ := by
   simp only [IdentTask.mem_alt_iff, M_anyLowArmTask, Set.mem_ofPred_eq,
     none_mem_correct_anyLowArmTask]
   exact ⟨fun ⟨h, h'⟩ ↦ h.resolve_right h', fun h ↦
     ⟨Or.inl h, fun h' ↦ let ⟨a, ha⟩ := h; (h' a).not_gt ha⟩⟩
+
+end MeanFunctional
+
+variable (ν : (α → ℝ) → Kernel α 𝓨) [∀ μ, IsMarkovKernel (ν μ)]
 
 /-! ### The answers `some a` -/
 
@@ -121,11 +128,11 @@ theorem altCost_anyLowArmTask_restrict_some (hT : ∀ a c, ¬ T a =ᵐ[ρ a] fun
     (hν : ∀ μ' : α → ℝ, (∀ c, μ' c ∈ (ρ c).expFamilyMeans (T c)) →
       ∀ c, klDiv (ν μ c) (ν μ' c) = ENNReal.ofReal ((ρ c).expFamilyDiv (T c) (μ c) (μ' c)))
     {a : α} (ha : μ a ≤ γ) (hw : 0 ≤ w) :
-    ((anyLowArmTask ν γ).restrict {μ' | ∀ c, μ' c ∈ (ρ c).expFamilyMeans (T c)}).altCost
+    ((anyLowArmTask ν id γ).restrict {μ' | ∀ c, μ' c ∈ (ρ c).expFamilyMeans (T c)}).altCost
         μ w (some a) =
       ENNReal.ofReal (w a * (ρ a).expFamilyDiv (T a) (μ a) γ) := by
   classical
-  have hνt : ((anyLowArmTask ν γ).restrict
+  have hνt : ((anyLowArmTask ν id γ).restrict
       {μ' | ∀ c, μ' c ∈ (ρ c).expFamilyMeans (T c)}).ν = ν := by
     simp
   refine le_antisymm ?_ ?_
@@ -173,7 +180,7 @@ theorem answerValue_anyLowArmTask_restrict_some (hT : ∀ a c, ¬ T a =ᵐ[ρ a]
     (hν : ∀ μ' : α → ℝ, (∀ c, μ' c ∈ (ρ c).expFamilyMeans (T c)) →
       ∀ c, klDiv (ν μ c) (ν μ' c) = ENNReal.ofReal ((ρ c).expFamilyDiv (T c) (μ c) (μ' c)))
     {a : α} (ha : μ a ≤ γ) :
-    ((anyLowArmTask ν γ).restrict {μ' | ∀ c, μ' c ∈ (ρ c).expFamilyMeans (T c)}).answerValue
+    ((anyLowArmTask ν id γ).restrict {μ' | ∀ c, μ' c ∈ (ρ c).expFamilyMeans (T c)}).answerValue
         μ (some a) =
       ENNReal.ofReal ((ρ a).expFamilyDiv (T a) (μ a) γ) := by
   classical
@@ -195,7 +202,7 @@ theorem optAlloc_anyLowArmTask_restrict_some [DecidableEq α] (hT : ∀ a c, ¬ 
     (hν : ∀ μ' : α → ℝ, (∀ c, μ' c ∈ (ρ c).expFamilyMeans (T c)) →
       ∀ c, klDiv (ν μ c) (ν μ' c) = ENNReal.ofReal ((ρ c).expFamilyDiv (T c) (μ c) (μ' c)))
     {a : α} (ha : μ a < γ) :
-    ((anyLowArmTask ν γ).restrict {μ' | ∀ c, μ' c ∈ (ρ c).expFamilyMeans (T c)}).optAlloc
+    ((anyLowArmTask ν id γ).restrict {μ' | ∀ c, μ' c ∈ (ρ c).expFamilyMeans (T c)}).optAlloc
         μ (some a) = {Pi.single a 1} := by
   have hd := expFamilyDiv_pos (hμ a) (hγ a) ha.ne
   ext v
@@ -218,10 +225,11 @@ theorem optAlloc_anyLowArmTask_restrict_some [DecidableEq α] (hT : ∀ a c, ¬ 
 /-- The cost of the alternatives to `none` in Any Low Arm is the cost of the alternatives to
 `false` in minimum threshold: both are the vectors with some mean below `γ`. -/
 private lemma altCost_anyLowArmTask_restrict_none_eq (S : Set (α → ℝ)) (μ w : α → ℝ) :
-    ((anyLowArmTask ν γ).restrict S).altCost μ w none =
-      ((minThresholdTask ν γ).restrict S).altCost μ w false := by
-  have h_alt : (anyLowArmTask ν γ).alt none = (minThresholdTask ν γ).alt false := Set.ext
-    fun _ ↦ (mem_alt_anyLowArmTask_none_iff ν).trans (mem_alt_minThresholdTask_false_iff ν).symm
+    ((anyLowArmTask ν id γ).restrict S).altCost μ w none =
+      ((minThresholdTask ν id γ).restrict S).altCost μ w false := by
+  have h_alt : (anyLowArmTask ν id γ).alt none = (minThresholdTask ν id γ).alt false := Set.ext
+    fun _ ↦ (mem_alt_anyLowArmTask_none_iff ν id).trans
+      (mem_alt_minThresholdTask_false_iff ν id).symm
   simp only [IdentTask.altCost_def, IdentTask.cost_def, IdentTask.alt_restrict, h_alt,
     IdentTask.ν_restrict, ν_anyLowArmTask, ν_minThresholdTask]
 
@@ -234,7 +242,7 @@ theorem altCost_anyLowArmTask_restrict_none (hT : ∀ a c, ¬ T a =ᵐ[ρ a] fun
     (hν : ∀ μ' : α → ℝ, (∀ c, μ' c ∈ (ρ c).expFamilyMeans (T c)) →
       ∀ c, klDiv (ν μ c) (ν μ' c) = ENNReal.ofReal ((ρ c).expFamilyDiv (T c) (μ c) (μ' c)))
     (hμγ : ∀ a, γ ≤ μ a) (hw : 0 ≤ w) :
-    ((anyLowArmTask ν γ).restrict {μ' | ∀ c, μ' c ∈ (ρ c).expFamilyMeans (T c)}).altCost
+    ((anyLowArmTask ν id γ).restrict {μ' | ∀ c, μ' c ∈ (ρ c).expFamilyMeans (T c)}).altCost
         μ w none =
       ⨅ a, ENNReal.ofReal (w a * (ρ a).expFamilyDiv (T a) (μ a) γ) := by
   rw [altCost_anyLowArmTask_restrict_none_eq,
@@ -249,7 +257,7 @@ theorem answerValue_anyLowArmTask_restrict_none [Nonempty α]
     (hν : ∀ μ' : α → ℝ, (∀ c, μ' c ∈ (ρ c).expFamilyMeans (T c)) →
       ∀ c, klDiv (ν μ c) (ν μ' c) = ENNReal.ofReal ((ρ c).expFamilyDiv (T c) (μ c) (μ' c)))
     (hμγ : ∀ a, γ < μ a) :
-    ((anyLowArmTask ν γ).restrict {μ' | ∀ c, μ' c ∈ (ρ c).expFamilyMeans (T c)}).answerValue
+    ((anyLowArmTask ν id γ).restrict {μ' | ∀ c, μ' c ∈ (ρ c).expFamilyMeans (T c)}).answerValue
         μ none =
       ENNReal.ofReal (∑ a, ((ρ a).expFamilyDiv (T a) (μ a) γ)⁻¹)⁻¹ := by
   rw [← answerValue_minThresholdTask_restrict_false ν hT hγ hμ hν hμγ]
@@ -264,7 +272,7 @@ theorem optAlloc_anyLowArmTask_restrict_none [Nonempty α]
     (hν : ∀ μ' : α → ℝ, (∀ c, μ' c ∈ (ρ c).expFamilyMeans (T c)) →
       ∀ c, klDiv (ν μ c) (ν μ' c) = ENNReal.ofReal ((ρ c).expFamilyDiv (T c) (μ c) (μ' c)))
     (hμγ : ∀ a, γ < μ a) :
-    ((anyLowArmTask ν γ).restrict {μ' | ∀ c, μ' c ∈ (ρ c).expFamilyMeans (T c)}).optAlloc
+    ((anyLowArmTask ν id γ).restrict {μ' | ∀ c, μ' c ∈ (ρ c).expFamilyMeans (T c)}).optAlloc
         μ none =
       {fun a ↦ ((ρ a).expFamilyDiv (T a) (μ a) γ)⁻¹ /
         ∑ b, ((ρ b).expFamilyDiv (T b) (μ b) γ)⁻¹} := by
@@ -282,10 +290,10 @@ theorem charTime_anyLowArmTask_restrict_of_forall_lt [Nonempty α]
     (hν : ∀ μ' : α → ℝ, (∀ c, μ' c ∈ (ρ c).expFamilyMeans (T c)) →
       ∀ c, klDiv (ν μ c) (ν μ' c) = ENNReal.ofReal ((ρ c).expFamilyDiv (T c) (μ c) (μ' c)))
     (hμγ : ∀ a, γ < μ a) :
-    ((anyLowArmTask ν γ).restrict {μ' | ∀ c, μ' c ∈ (ρ c).expFamilyMeans (T c)}).charTime μ =
+    ((anyLowArmTask ν id γ).restrict {μ' | ∀ c, μ' c ∈ (ρ c).expFamilyMeans (T c)}).charTime μ =
       ENNReal.ofReal (∑ a, ((ρ a).expFamilyDiv (T a) (μ a) γ)⁻¹) := by
   have hpos := sum_inv_pos fun a ↦ expFamilyDiv_pos (hμ a) (hγ a) (hμγ a).ne'
-  have h_corr : ((anyLowArmTask ν γ).restrict
+  have h_corr : ((anyLowArmTask ν id γ).restrict
       {μ' | ∀ c, μ' c ∈ (ρ c).expFamilyMeans (T c)}).correct μ = {none} := by
     ext i
     cases i with
@@ -305,7 +313,7 @@ private lemma answerValue_anyLowArmTask_restrict_some_of_exists_lt
     (hν : ∀ μ' : α → ℝ, (∀ c, μ' c ∈ (ρ c).expFamilyMeans (T c)) →
       ∀ c, klDiv (ν μ c) (ν μ' c) = ENNReal.ofReal ((ρ c).expFamilyDiv (T c) (μ c) (μ' c)))
     (h : ∃ b, μ b < γ) (a : α) :
-    ((anyLowArmTask ν γ).restrict {μ' | ∀ c, μ' c ∈ (ρ c).expFamilyMeans (T c)}).answerValue
+    ((anyLowArmTask ν id γ).restrict {μ' | ∀ c, μ' c ∈ (ρ c).expFamilyMeans (T c)}).answerValue
         μ (some a) =
       ENNReal.ofReal ((ρ a).expFamilyDiv (T a) (μ a) (max (μ a) γ)) := by
   rcases le_or_gt (μ a) γ with ha | ha
@@ -318,7 +326,7 @@ private lemma answerValue_anyLowArmTask_restrict_some_of_exists_lt
 /-- If some mean is below `γ`, the answer `none` is incorrect and has value `0`. -/
 private lemma answerValue_anyLowArmTask_restrict_none_of_exists_lt
     (hμ : ∀ a, μ a ∈ (ρ a).expFamilyMeans (T a)) (h : ∃ b, μ b < γ) :
-    ((anyLowArmTask ν γ).restrict {μ' | ∀ c, μ' c ∈ (ρ c).expFamilyMeans (T c)}).answerValue
+    ((anyLowArmTask ν id γ).restrict {μ' | ∀ c, μ' c ∈ (ρ c).expFamilyMeans (T c)}).answerValue
         μ none = 0 := by
   refine IdentTask.answerValue_eq_zero_of_mem_alt _ ?_
   rw [IdentTask.alt_restrict, Set.mem_inter_iff, mem_alt_anyLowArmTask_none_iff]
@@ -333,7 +341,7 @@ theorem gameValue_anyLowArmTask_restrict_of_exists_lt (hT : ∀ a c, ¬ T a =ᵐ
     (hν : ∀ μ' : α → ℝ, (∀ c, μ' c ∈ (ρ c).expFamilyMeans (T c)) →
       ∀ c, klDiv (ν μ c) (ν μ' c) = ENNReal.ofReal ((ρ c).expFamilyDiv (T c) (μ c) (μ' c)))
     (h : ∃ b, μ b < γ) :
-    ((anyLowArmTask ν γ).restrict {μ' | ∀ c, μ' c ∈ (ρ c).expFamilyMeans (T c)}).gameValue μ =
+    ((anyLowArmTask ν id γ).restrict {μ' | ∀ c, μ' c ∈ (ρ c).expFamilyMeans (T c)}).gameValue μ =
       ⨆ a, ENNReal.ofReal ((ρ a).expFamilyDiv (T a) (μ a) (max (μ a) γ)) := by
   rw [IdentTask.gameValue_eq_iSup_answerValue _ (by
     rw [IdentTask.M_restrict, M_anyLowArmTask]; exact ⟨Or.inl h, hμ⟩),
@@ -349,7 +357,7 @@ theorem charTime_anyLowArmTask_restrict_of_exists_lt (hT : ∀ a c, ¬ T a =ᵐ[
     (hν : ∀ μ' : α → ℝ, (∀ c, μ' c ∈ (ρ c).expFamilyMeans (T c)) →
       ∀ c, klDiv (ν μ c) (ν μ' c) = ENNReal.ofReal ((ρ c).expFamilyDiv (T c) (μ c) (μ' c)))
     (h : ∃ b, μ b < γ) :
-    ((anyLowArmTask ν γ).restrict {μ' | ∀ c, μ' c ∈ (ρ c).expFamilyMeans (T c)}).charTime μ =
+    ((anyLowArmTask ν id γ).restrict {μ' | ∀ c, μ' c ∈ (ρ c).expFamilyMeans (T c)}).charTime μ =
       (⨆ a, ENNReal.ofReal ((ρ a).expFamilyDiv (T a) (μ a) (max (μ a) γ)))⁻¹ := by
   rw [IdentTask.charTime_def, gameValue_anyLowArmTask_restrict_of_exists_lt ν hT hγ hμ hν h]
 
@@ -362,7 +370,7 @@ theorem oracleAnswers_anyLowArmTask_restrict_of_exists_lt
     (hν : ∀ μ' : α → ℝ, (∀ c, μ' c ∈ (ρ c).expFamilyMeans (T c)) →
       ∀ c, klDiv (ν μ c) (ν μ' c) = ENNReal.ofReal ((ρ c).expFamilyDiv (T c) (μ c) (μ' c)))
     (h : ∃ b, μ b < γ) :
-    ((anyLowArmTask ν γ).restrict
+    ((anyLowArmTask ν id γ).restrict
         {μ' | ∀ c, μ' c ∈ (ρ c).expFamilyMeans (T c)}).oracleAnswers μ =
       some '' {a | ∀ b, (ρ b).expFamilyDiv (T b) (μ b) (max (μ b) γ) ≤
         (ρ a).expFamilyDiv (T a) (μ a) (max (μ a) γ)} := by
@@ -396,7 +404,7 @@ theorem oracleAlloc_anyLowArmTask_restrict_of_exists_lt [DecidableEq α]
     (hν : ∀ μ' : α → ℝ, (∀ c, μ' c ∈ (ρ c).expFamilyMeans (T c)) →
       ∀ c, klDiv (ν μ c) (ν μ' c) = ENNReal.ofReal ((ρ c).expFamilyDiv (T c) (μ c) (μ' c)))
     (h : ∃ b, μ b < γ) :
-    ((anyLowArmTask ν γ).restrict
+    ((anyLowArmTask ν id γ).restrict
         {μ' | ∀ c, μ' c ∈ (ρ c).expFamilyMeans (T c)}).oracleAlloc μ =
       (fun a ↦ Pi.single a 1) '' {a | ∀ b, (ρ b).expFamilyDiv (T b) (μ b) (max (μ b) γ) ≤
         (ρ a).expFamilyDiv (T a) (μ a) (max (μ a) γ)} := by
@@ -428,7 +436,7 @@ theorem not_convex_oracleAlloc_anyLowArmTask_restrict (hT : ∀ a c, ¬ T a =ᵐ
       (ρ a).expFamilyDiv (T a) (μ a) (max (μ a) γ))
     (hb : ∀ c, (ρ c).expFamilyDiv (T c) (μ c) (max (μ c) γ) ≤
       (ρ b).expFamilyDiv (T b) (μ b) (max (μ b) γ)) :
-    ¬ Convex ℝ (((anyLowArmTask ν γ).restrict
+    ¬ Convex ℝ (((anyLowArmTask ν id γ).restrict
         {μ' | ∀ c, μ' c ∈ (ρ c).expFamilyMeans (T c)}).oracleAlloc μ) := by
   classical
   rw [oracleAlloc_anyLowArmTask_restrict_of_exists_lt ν hT hγ hμ hν h]
@@ -443,9 +451,9 @@ common variance `σ2 ≠ 0` and a vector of means `μ` whose smallest mean `μ a
 oracle allocations are the vertices `Pi.single a 1` of the arms `a` of smallest mean. -/
 theorem oracleAlloc_anyLowArmTask_gaussianBandit [DecidableEq α] (hσ2 : σ2 ≠ 0) {a₀ : α}
     (ha₀ : ∀ a, μ a₀ ≤ μ a) (hγ : μ a₀ < γ) :
-    (anyLowArmTask (Bandits.gaussianBandit · σ2) γ).oracleAlloc μ =
+    (anyLowArmTask (Bandits.gaussianBandit · σ2) id γ).oracleAlloc μ =
       (fun a ↦ Pi.single a 1) '' {a | μ a = μ a₀} := by
-  rw [← (anyLowArmTask (Bandits.gaussianBandit · σ2) γ).restrict_univ,
+  rw [← (anyLowArmTask (Bandits.gaussianBandit · σ2) id γ).restrict_univ,
     ← setOf_forall_mem_expFamilyMeans_gaussianReal 0 hσ2,
     oracleAlloc_anyLowArmTask_restrict_of_exists_lt (ρ := fun _ ↦ gaussianReal 0 σ2)
       (T := fun _ ↦ id) _
@@ -484,7 +492,7 @@ smallest mean `μ a = μ b < γ`, then the oracle allocations `w*(μ)`, which co
 `Pi.single a 1` and `Pi.single b 1` but not their midpoint, are not convex. -/
 theorem not_convex_oracleAlloc_anyLowArmTask_gaussianBandit (hσ2 : σ2 ≠ 0) {a b : α}
     (hab : a ≠ b) (hμab : μ a = μ b) (ha : ∀ c, μ a ≤ μ c) (hγ : μ a < γ) :
-    ¬ Convex ℝ ((anyLowArmTask (Bandits.gaussianBandit · σ2) γ).oracleAlloc μ) := by
+    ¬ Convex ℝ ((anyLowArmTask (Bandits.gaussianBandit · σ2) id γ).oracleAlloc μ) := by
   classical
   rw [oracleAlloc_anyLowArmTask_gaussianBandit hσ2 ha hγ]
   exact not_convex_image_single (s := {c | μ c = μ a}) rfl hμab.symm hab

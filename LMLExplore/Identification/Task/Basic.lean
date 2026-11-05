@@ -23,7 +23,7 @@ Several answers may be correct for the same model, as in Degenne and Koolen (201
 *single-answer* task has exactly one correct answer on every admissible model. Models are not
 required to be vectors of means: vectors of means, parameters of linear models and pairs
 (mean, variance) are all models. The classical tasks on vectors of means are in
-`LMLExplore.Identification.Task.MeanVector`.
+`LMLExplore.Identification.Task.Classical`.
 
 An identification algorithm `A : IdentAlg Unit α 𝓨 ℐ` interacts with the model `θ` through the
 stationary environment `Environment.bandit (task.ν θ)`. It is `δ`-correct on the task if on every

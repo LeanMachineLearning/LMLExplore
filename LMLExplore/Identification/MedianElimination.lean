@@ -7,7 +7,7 @@ module
 
 public import LMLExplore.Analysis.SpecificLimits.Normed
 public import LMLExplore.Identification.SuccessiveRejects
-public import LMLExplore.Identification.Task.MeanVector
+public import LMLExplore.Identification.Task.Classical
 public import LMLExplore.MeasureTheory.Integral.Lebesgue.Markov
 public import Mathlib.Algebra.Order.Field.GeomSum
 public import Mathlib.Analysis.SpecificLimits.Basic

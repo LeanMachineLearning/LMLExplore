@@ -7,7 +7,7 @@ module
 
 public import LMLExplore.Bandits.IndexAlgorithm
 public import LMLExplore.Identification.ConfidenceBound
-public import LMLExplore.Identification.Task.MeanVector
+public import LMLExplore.Identification.Task.Classical
 public import LMLExplore.SequentialLearning.SubGaussianDeviation
 
 /-!

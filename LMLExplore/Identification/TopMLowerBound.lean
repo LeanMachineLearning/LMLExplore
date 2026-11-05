@@ -70,22 +70,23 @@ the vectors of means of the families: if `A` is `δ`-correct with `δ ≤ 1 / 2`
 then `kl(δ, 1 - δ) ≤ E_μ[N_a(τ)] x` for every arm
 `a` and every `x` such that `D(μ, w, ¬s) ≤ w a x` for all nonnegative allocations `w`. -/
 private lemma IsDeltaCorrect.klBer_le_lintegral_pullCount_mul_of_altCost_le_topMTask
-    (hA : ((topMTask ν m).restrict {μ' | ∀ c, μ' c ∈ (ρ c).expFamilyMeans (T c)}).IsDeltaCorrect
+    (hA : ((topMTask ν id m).restrict {μ' | ∀ c, μ' c ∈ (ρ c).expFamilyMeans (T c)}).IsDeltaCorrect
       A δ) (hδ : δ ≤ 1 / 2) (hμ : ∀ c, μ c ∈ (ρ c).expFamilyMeans (T c))
-    (hs : s ∈ (topMTask ν m).correct μ) (h : expectedStoppingTime A (Environment.bandit (ν μ)) ≠ ∞)
+    (hs : s ∈ (topMTask ν id m).correct μ)
+    (h : expectedStoppingTime A (Environment.bandit (ν μ)) ≠ ∞)
     {x : ℝ} (h_alt : ∀ w : α → ℝ, 0 ≤ w →
-      ((topMTask ν m).restrict {μ' | ∀ c, μ' c ∈ (ρ c).expFamilyMeans (T c)}).altCost μ w s ≤
+      ((topMTask ν id m).restrict {μ' | ∀ c, μ' c ∈ (ρ c).expFamilyMeans (T c)}).altCost μ w s ≤
         ENNReal.ofReal (w a * x)) :
     klBer δ (1 - δ) ≤ (∫⁻ ω, (pullCount IT.action a
         (ENat.toNat (A.stoppingTime IT.obs IT.action IT.feedback ω)) ω : ℝ≥0∞)
           ∂(trajMeasure A.alg (Environment.bandit (ν μ)))) * ENNReal.ofReal x := by
-  have hμM : μ ∈ (topMTask ν m).M := by
+  have hμM : μ ∈ (topMTask ν id m).M := by
     have hs' := hs
     simp only [correct_topMTask, Set.mem_ofPred_eq] at hs'
     simp only [M_topMTask, Set.mem_ofPred_eq]
     exact ⟨s, hs'⟩
   simpa using hA.klBer_le_lintegral_pullCount_mul_of_altCost_le_restrict hδ hμM hμ
-    ((subsingleton_correct_topMTask ν m μ).eq_singleton_of_mem hs) (by simpa using h) h_alt
+    ((subsingleton_correct_topMTask ν id m μ).eq_singleton_of_mem hs) (by simpa using h) h_alt
 
 omit [Fintype α] in
 /-- **Lower bound on the number of pulls of an arm of the top-`m` set** [KCG16, proof of
@@ -95,12 +96,12 @@ the largest mean outside `s`. Let `A` be `δ`-correct for top-`m` identification
 means of the families, with `δ ≤ 1 / 2` and `E_μ[τ] < ∞`. For `a ∈ s` such that `μ b` is a mean
 of the family of `a`, `kl(δ, 1 - δ) ≤ E_μ[N_a(τ)] d_a(μ a, μ b)`. -/
 theorem IsDeltaCorrect.klBer_le_lintegral_pullCount_mul_topMTask_of_mem [Finite α]
-    (hA : ((topMTask ν m).restrict {μ' | ∀ c, μ' c ∈ (ρ c).expFamilyMeans (T c)}).IsDeltaCorrect
+    (hA : ((topMTask ν id m).restrict {μ' | ∀ c, μ' c ∈ (ρ c).expFamilyMeans (T c)}).IsDeltaCorrect
       A δ) (hδ : δ ≤ 1 / 2) (hT : ∀ c x, ¬ T c =ᵐ[ρ c] fun _ ↦ x)
     (hμ : ∀ c, μ c ∈ (ρ c).expFamilyMeans (T c))
     (hν : ∀ μ' : α → ℝ, (∀ c, μ' c ∈ (ρ c).expFamilyMeans (T c)) →
       ∀ c, klDiv (ν μ c) (ν μ' c) = ENNReal.ofReal ((ρ c).expFamilyDiv (T c) (μ c) (μ' c)))
-    (hs : s ∈ (topMTask ν m).correct μ) (ha : a ∈ s) (hb : b ∉ s)
+    (hs : s ∈ (topMTask ν id m).correct μ) (ha : a ∈ s) (hb : b ∉ s)
     (hb_max : ∀ c ∉ s, μ c ≤ μ b) (hba : μ b ∈ (ρ a).expFamilyMeans (T a))
     (h : expectedStoppingTime A (Environment.bandit (ν μ)) ≠ ∞) :
     klBer δ (1 - δ) ≤ (∫⁻ ω, (pullCount IT.action a
@@ -120,12 +121,12 @@ the smallest mean in `s`. Let `A` be `δ`-correct for top-`m` identification on 
 means of the families, with `δ ≤ 1 / 2` and `E_μ[τ] < ∞`. For `a ∉ s` such that `μ b` is a mean
 of the family of `a`, `kl(δ, 1 - δ) ≤ E_μ[N_a(τ)] d_a(μ a, μ b)`. -/
 theorem IsDeltaCorrect.klBer_le_lintegral_pullCount_mul_topMTask_of_notMem [Finite α]
-    (hA : ((topMTask ν m).restrict {μ' | ∀ c, μ' c ∈ (ρ c).expFamilyMeans (T c)}).IsDeltaCorrect
+    (hA : ((topMTask ν id m).restrict {μ' | ∀ c, μ' c ∈ (ρ c).expFamilyMeans (T c)}).IsDeltaCorrect
       A δ) (hδ : δ ≤ 1 / 2) (hT : ∀ c x, ¬ T c =ᵐ[ρ c] fun _ ↦ x)
     (hμ : ∀ c, μ c ∈ (ρ c).expFamilyMeans (T c))
     (hν : ∀ μ' : α → ℝ, (∀ c, μ' c ∈ (ρ c).expFamilyMeans (T c)) →
       ∀ c, klDiv (ν μ c) (ν μ' c) = ENNReal.ofReal ((ρ c).expFamilyDiv (T c) (μ c) (μ' c)))
-    (hs : s ∈ (topMTask ν m).correct μ) (ha : a ∉ s) (hb : b ∈ s)
+    (hs : s ∈ (topMTask ν id m).correct μ) (ha : a ∉ s) (hb : b ∈ s)
     (hb_min : ∀ c ∈ s, μ b ≤ μ c) (hba : μ b ∈ (ρ a).expFamilyMeans (T a))
     (h : expectedStoppingTime A (Environment.bandit (ν μ)) ≠ ∞) :
     klBer δ (1 - δ) ≤ (∫⁻ ω, (pullCount IT.action a
@@ -145,12 +146,12 @@ the families of the arms of `s` and `μ b₁` of the families of the other arms.
 `δ`-correct for top-`m` identification on the vectors of means of the families, with `δ ≤ 1 / 2`,
 then `(∑_{a ∈ s} d_a(μ a, μ b₀)⁻¹ + ∑_{a ∉ s} d_a(μ a, μ b₁)⁻¹) kl(δ, 1 - δ) ≤ E_μ[τ]`. -/
 theorem IsDeltaCorrect.mul_klBer_le_expectedStoppingTime_topMTask {b₀ b₁ : α}
-    (hA : ((topMTask ν m).restrict {μ' | ∀ c, μ' c ∈ (ρ c).expFamilyMeans (T c)}).IsDeltaCorrect
+    (hA : ((topMTask ν id m).restrict {μ' | ∀ c, μ' c ∈ (ρ c).expFamilyMeans (T c)}).IsDeltaCorrect
       A δ) (hδ : δ ≤ 1 / 2) (hT : ∀ c x, ¬ T c =ᵐ[ρ c] fun _ ↦ x)
     (hμ : ∀ c, μ c ∈ (ρ c).expFamilyMeans (T c))
     (hν : ∀ μ' : α → ℝ, (∀ c, μ' c ∈ (ρ c).expFamilyMeans (T c)) →
       ∀ c, klDiv (ν μ c) (ν μ' c) = ENNReal.ofReal ((ρ c).expFamilyDiv (T c) (μ c) (μ' c)))
-    (hs : s ∈ (topMTask ν m).correct μ) (hb₀ : b₀ ∉ s) (hb₀_max : ∀ c ∉ s, μ c ≤ μ b₀)
+    (hs : s ∈ (topMTask ν id m).correct μ) (hb₀ : b₀ ∉ s) (hb₀_max : ∀ c ∉ s, μ c ≤ μ b₀)
     (hb₁ : b₁ ∈ s) (hb₁_min : ∀ c ∈ s, μ b₁ ≤ μ c)
     (hb₀s : ∀ a ∈ s, μ b₀ ∈ (ρ a).expFamilyMeans (T a))
     (hb₁s : ∀ a ∉ s, μ b₁ ∈ (ρ a).expFamilyMeans (T a)) :
@@ -178,12 +179,12 @@ theorem IsDeltaCorrect.mul_klBer_le_expectedStoppingTime_topMTask {b₀ b₁ : �
 `(∑_{a ∈ s} d_a(μ a, μ b₀)⁻¹ + ∑_{a ∉ s} d_a(μ a, μ b₁)⁻¹) log (1 / (c δ)) ≤ E_μ[τ]`; the constant
 of Kaufmann, Cappé and Garivier is `c = 2.4`. -/
 theorem IsDeltaCorrect.mul_ofReal_log_le_expectedStoppingTime_topMTask {b₀ b₁ : α}
-    (hA : ((topMTask ν m).restrict {μ' | ∀ c, μ' c ∈ (ρ c).expFamilyMeans (T c)}).IsDeltaCorrect
+    (hA : ((topMTask ν id m).restrict {μ' | ∀ c, μ' c ∈ (ρ c).expFamilyMeans (T c)}).IsDeltaCorrect
       A δ) {c : ℝ} (hc : 2.4 ≤ c) (hT : ∀ c x, ¬ T c =ᵐ[ρ c] fun _ ↦ x)
     (hμ : ∀ c, μ c ∈ (ρ c).expFamilyMeans (T c))
     (hν : ∀ μ' : α → ℝ, (∀ c, μ' c ∈ (ρ c).expFamilyMeans (T c)) →
       ∀ c, klDiv (ν μ c) (ν μ' c) = ENNReal.ofReal ((ρ c).expFamilyDiv (T c) (μ c) (μ' c)))
-    (hs : s ∈ (topMTask ν m).correct μ) (hb₀ : b₀ ∉ s) (hb₀_max : ∀ c ∉ s, μ c ≤ μ b₀)
+    (hs : s ∈ (topMTask ν id m).correct μ) (hb₀ : b₀ ∉ s) (hb₀_max : ∀ c ∉ s, μ c ≤ μ b₀)
     (hb₁ : b₁ ∈ s) (hb₁_min : ∀ c ∈ s, μ b₁ ≤ μ c)
     (hb₀s : ∀ a ∈ s, μ b₀ ∈ (ρ a).expFamilyMeans (T a))
     (hb₁s : ∀ a ∉ s, μ b₁ ∈ (ρ a).expFamilyMeans (T a)) :

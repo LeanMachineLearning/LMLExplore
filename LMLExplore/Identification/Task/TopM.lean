@@ -6,16 +6,16 @@ Authors: Rémy Degenne
 module
 
 public import LMLExplore.Identification.Task.ExpFamily
-public import LMLExplore.Identification.Task.MeanVector
+public import LMLExplore.Identification.Task.Classical
 
 /-!
 # The cost of the alternatives of top-`m` identification
 
-In top-`m` identification (`topMTask ν m`), the correct answer of a vector of means `μ` is the set
-`s` of its `m` arms with the largest means, on the vectors where these means are larger than the
-other ones. Let the arm `c` belong to an exponential family `(ρ c, T c)` with divergence `d_c` in
-the mean parametrization, and let `b` be an arm outside `s` with the largest mean outside `s` (the
-`(m + 1)`-th largest mean) and `b'` an arm of `s` with the smallest mean in `s` (the `m`-th
+In top-`m` identification (`topMTask ν id m`), the correct answer of a vector of means `μ` is the
+set `s` of its `m` arms with the largest means, on the vectors where these means are larger than
+the other ones. Let the arm `c` belong to an exponential family `(ρ c, T c)` with divergence `d_c`
+in the mean parametrization, and let `b` be an arm outside `s` with the largest mean outside `s`
+(the `(m + 1)`-th largest mean) and `b'` an arm of `s` with the smallest mean in `s` (the `m`-th
 largest mean).
 
 * An arm `a ∈ s` leaves the top-`m` set once its mean drops below `μ b`. Moving it to `μ b - t`
@@ -62,13 +62,14 @@ omit [Fintype α] in
 /-- Moving an arm `a ∈ s` of `μ` to `μ b - t`, where `b ∉ s` has the largest mean outside `s`,
 and the other arms outside `s` but `b` down by `t > 0`, gives an alternative to `s` in top-`m`
 identification: in the new vector, `b` has replaced `a` in the top-`m` set. -/
-private lemma update_shift_mem_alt_topMTask_of_mem (hs : s ∈ (topMTask ν m).correct μ)
+private lemma update_shift_mem_alt_topMTask_of_mem (hs : s ∈ (topMTask ν id m).correct μ)
     (ha : a ∈ s) (hb : b ∉ s) (hb_max : ∀ c ∉ s, μ c ≤ μ b) {t : ℝ} (ht : 0 < t) :
     Function.update (fun c ↦ if c ∈ s ∨ c = b then μ c else μ c - t) a (μ b - t) ∈
-      (topMTask ν m).alt s := by
-  simp only [correct_topMTask, Set.mem_ofPred_eq] at hs
+      (topMTask ν id m).alt s := by
+  simp only [correct_topMTask, Set.mem_ofPred_eq, id_eq] at hs
   obtain ⟨hcard, hsep⟩ := hs
   rw [IdentTask.mem_alt_iff, M_topMTask, correct_topMTask, Set.mem_ofPred_eq, Set.mem_ofPred_eq]
+  simp only [id_eq]
   have hba : b ≠ a := fun h ↦ hb (h ▸ ha)
   refine ⟨⟨insert b (s.erase a), ?_, fun x hx y hy ↦ ?_⟩, fun ⟨_, h⟩ ↦ ?_⟩
   · rw [Finset.card_insert_of_notMem (by simp [hb]), Finset.card_erase_add_one ha, hcard]
@@ -94,13 +95,14 @@ omit [Fintype α] in
 /-- Moving an arm `a ∉ s` of `μ` to `μ b + t`, where `b ∈ s` has the smallest mean in `s`, and the
 other arms of `s` but `b` up by `t > 0`, gives an alternative to `s` in top-`m` identification: in
 the new vector, `a` has replaced `b` in the top-`m` set. -/
-private lemma update_shift_mem_alt_topMTask_of_notMem (hs : s ∈ (topMTask ν m).correct μ)
+private lemma update_shift_mem_alt_topMTask_of_notMem (hs : s ∈ (topMTask ν id m).correct μ)
     (ha : a ∉ s) (hb : b ∈ s) (hb_min : ∀ c ∈ s, μ b ≤ μ c) {t : ℝ} (ht : 0 < t) :
     Function.update (fun c ↦ if c ∉ s ∨ c = b then μ c else μ c + t) a (μ b + t) ∈
-      (topMTask ν m).alt s := by
-  simp only [correct_topMTask, Set.mem_ofPred_eq] at hs
+      (topMTask ν id m).alt s := by
+  simp only [correct_topMTask, Set.mem_ofPred_eq, id_eq] at hs
   obtain ⟨hcard, hsep⟩ := hs
   rw [IdentTask.mem_alt_iff, M_topMTask, correct_topMTask, Set.mem_ofPred_eq, Set.mem_ofPred_eq]
+  simp only [id_eq]
   have hba : b ≠ a := fun h ↦ ha (h ▸ hb)
   refine ⟨⟨insert a (s.erase b), ?_, fun x hx y hy ↦ ?_⟩, fun ⟨_, h⟩ ↦ ?_⟩
   · rw [Finset.card_insert_of_notMem (by simp [ha]), Finset.card_erase_add_one hb, hcard]
@@ -134,9 +136,9 @@ theorem altCost_topMTask_restrict_le_ofReal_mul_expFamilyDiv_of_mem
     (hT : ∀ c x, ¬ T c =ᵐ[ρ c] fun _ ↦ x) (hμ : ∀ c, μ c ∈ (ρ c).expFamilyMeans (T c))
     (hν : ∀ μ' : α → ℝ, (∀ c, μ' c ∈ (ρ c).expFamilyMeans (T c)) →
       ∀ c, klDiv (ν μ c) (ν μ' c) = ENNReal.ofReal ((ρ c).expFamilyDiv (T c) (μ c) (μ' c)))
-    (hs : s ∈ (topMTask ν m).correct μ) (ha : a ∈ s) (hb : b ∉ s)
+    (hs : s ∈ (topMTask ν id m).correct μ) (ha : a ∈ s) (hb : b ∉ s)
     (hb_max : ∀ c ∉ s, μ c ≤ μ b) (hba : μ b ∈ (ρ a).expFamilyMeans (T a)) (hw : 0 ≤ w) :
-    ((topMTask ν m).restrict {μ' | ∀ c, μ' c ∈ (ρ c).expFamilyMeans (T c)}).altCost μ w s ≤
+    ((topMTask ν id m).restrict {μ' | ∀ c, μ' c ∈ (ρ c).expFamilyMeans (T c)}).altCost μ w s ≤
       ENNReal.ofReal (w a * (ρ a).expFamilyDiv (T a) (μ a) (μ b)) := by
   classical
   have hg : Continuous fun t : ℝ ↦
@@ -162,9 +164,9 @@ theorem altCost_topMTask_restrict_le_ofReal_mul_expFamilyDiv_of_notMem
     (hT : ∀ c x, ¬ T c =ᵐ[ρ c] fun _ ↦ x) (hμ : ∀ c, μ c ∈ (ρ c).expFamilyMeans (T c))
     (hν : ∀ μ' : α → ℝ, (∀ c, μ' c ∈ (ρ c).expFamilyMeans (T c)) →
       ∀ c, klDiv (ν μ c) (ν μ' c) = ENNReal.ofReal ((ρ c).expFamilyDiv (T c) (μ c) (μ' c)))
-    (hs : s ∈ (topMTask ν m).correct μ) (ha : a ∉ s) (hb : b ∈ s)
+    (hs : s ∈ (topMTask ν id m).correct μ) (ha : a ∉ s) (hb : b ∈ s)
     (hb_min : ∀ c ∈ s, μ b ≤ μ c) (hba : μ b ∈ (ρ a).expFamilyMeans (T a)) (hw : 0 ≤ w) :
-    ((topMTask ν m).restrict {μ' | ∀ c, μ' c ∈ (ρ c).expFamilyMeans (T c)}).altCost μ w s ≤
+    ((topMTask ν id m).restrict {μ' | ∀ c, μ' c ∈ (ρ c).expFamilyMeans (T c)}).altCost μ w s ≤
       ENNReal.ofReal (w a * (ρ a).expFamilyDiv (T a) (μ a) (μ b)) := by
   classical
   have hg : Continuous fun t : ℝ ↦
