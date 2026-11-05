@@ -45,10 +45,11 @@ rounds is `T D(μ̂(T), N(T) / T, ¬i) ≥ κ T` for any `κ < D(μ, w(μ), ¬i)
 `(μ', w') ↦ D(μ', w', ¬i)` is lower semicontinuous at `(μ, w(μ))`. The generic reduction
 `IdentTask.eventually_expectedStoppingTime_glrt_le_of_isBigO` then gives, for thresholds
 `β δ n h ≤ log (r n / δ)` with `r n = O(n ^ p)`, the bound `𝔼[τ_δ] ≤ c log (1 / δ)` for all small
-enough `δ`, for every `c > 1 / κ`. When `w(μ)` is an optimal allocation for the single correct
-answer `i` of `μ`, `D(μ, w(μ), ¬i) = T*(μ)⁻¹` and the sample complexity of Track-and-Stop is at
-most the characteristic time: `limsup_{δ → 0} 𝔼[τ_δ] / log (1 / δ) ≤ T*(μ)`. This upper bound
-holds for all such thresholds, including ones that are not `δ`-correct, such as `β = 0`.
+enough `δ`, for every `c > 1 / κ`, hence for every `c > D(μ, w(μ), ¬i)⁻¹`. When `w(μ)` is an
+optimal allocation for the single correct answer `i` of `μ`, `D(μ, w(μ), ¬i) = T*(μ)⁻¹` and the
+sample complexity of Track-and-Stop is at most the characteristic time:
+`limsup_{δ → 0} 𝔼[τ_δ] / log (1 / δ) ≤ T*(μ)`. This upper bound holds for all such thresholds,
+including ones that are not `δ`-correct, such as `β = 0`.
 Asymptotic optimality, that is, matching the lower bound `𝔼[τ_δ] ≥ T*(μ) kl(δ, 1 - δ)` of
 `Identification/LowerBound.lean`, also needs the `δ`-correctness of the thresholds, which is not
 proved here; for Gaussian arms it is in `Identification/GaussianThreshold.lean`.
@@ -90,8 +91,9 @@ above `T*(μ)`. A finite expected stopping time at small `δ` gives almost sure 
 
 * `IdentTask.glr_plugInCost`, `IdentTask.glr_plugInCost_eq_mul`: the GLR statistic of the plug-in
   statistic is `D(θ̂, N, ¬i) = n D(θ̂, N / n, ¬i)`.
-* `IdentTask.eventually_expectedStoppingTime_trackAndStop_le`: [GK16, Theorem 14] with the rate
-  `κ < D(μ, w(μ), ¬i)`: `𝔼[τ_δ] ≤ c log (1 / δ)` for all small enough `δ`, for every `c > 1 / κ`.
+* `IdentTask.eventually_expectedStoppingTime_trackAndStop_le`: [GK16, Theorem 14] for any target
+  map continuous at `μ`: `𝔼[τ_δ] ≤ c log (1 / δ)` for all small enough `δ`, for every
+  `c > D(μ, w(μ), ¬i)⁻¹`.
 * `IdentTask.eventually_expectedStoppingTime_trackAndStop_le_of_charTime_lt`: **sample complexity
   at the characteristic time** [GK16, Theorem 14]: if `w(μ)` is an optimal allocation for the
   single correct answer `i` of `μ`, then `𝔼[τ_δ] ≤ c log (1 / δ)` for all small enough `δ`, for
@@ -103,9 +105,9 @@ above `T*(μ)`. A finite expected stopping time at small `δ` gives almost sure 
   for the union-bound thresholds `K log (2 n (n + 1)) + x_δ` of `Identification/GLR.lean`.
 * `IdentTask.stopsAS_trackAndStop_unionBoundThreshold`: with these thresholds, Track-and-Stop
   stops almost surely for every `δ ∈ (0, 1]`.
-* `IdentTask.eventually_expectedStoppingTime_cTrackAndStop_le`: [DK19, Theorem 7] with the rate
-  `κ < D(μ, v, ¬i)` for all `v` in a convex compact set `C` to which the targets converge:
-  `𝔼[τ_δ] ≤ c log (1 / δ)` for all small enough `δ`, for every `c > 1 / κ`.
+* `IdentTask.eventually_expectedStoppingTime_cTrackAndStop_le`: [DK19, Theorem 7] for targets that
+  converge to a convex compact set `C`: `𝔼[τ_δ] ≤ c log (1 / δ)` for all small enough `δ`, for
+  every `c > (inf_{v ∈ C} D(μ, v, ¬i))⁻¹`.
 * `IdentTask.eventually_expectedStoppingTime_cTrackAndStop_le_of_charTime_lt`: **sample complexity
   of Track-and-Stop with C-tracking at the characteristic time** [DK19, Theorem 7]: if the targets
   are optimal allocations near `μ` and `(μ', w') ↦ D(μ', w', ¬i)` is continuous within
@@ -313,17 +315,14 @@ variable {𝓧 : Type*} {m𝓧 : MeasurableSpace 𝓧} {ρ : α → Measure 𝓧
     {h | β δ n h < task.glr (task.plugInCost empMean') n h (rec (empMean' n h))}}
   {r : ℕ → ℝ} {p : ℝ} {n₀ : ℕ}
 
-omit [DecidableEq α] [Nonempty α] [MeasurableSingletonClass α] in
-/-- If `T*(μ) < c` for the single correct answer `i` of `μ`, then some rate `κ` satisfies
-`κ < D(μ, ¬i) = T*(μ)⁻¹` and `1 < κ c`: the rate of the sample complexity bounds of Track-and-Stop
-at the characteristic time. -/
-private lemma exists_lt_answerValue_one_lt_mul (hcorrect : task.correct μ = {i}) {c : ℝ≥0}
-    (hc : task.charTime μ < c) : ∃ κ : ℝ≥0, (κ : ℝ≥0∞) < task.answerValue μ i ∧ 1 < κ * c := by
+/-- If `D⁻¹ < c`, then some rate `κ` satisfies `κ < D` and `1 < κ c`: the rate at which the proofs
+of the sample complexity bounds of Track-and-Stop make the GLR statistic grow. -/
+private lemma exists_lt_one_lt_mul_of_inv_lt {D : ℝ≥0∞} {c : ℝ≥0} (hc : D⁻¹ < c) :
+    ∃ κ : ℝ≥0, (κ : ℝ≥0∞) < D ∧ 1 < κ * c := by
   have hc0 : c ≠ 0 := by
     rintro rfl
     exact not_lt_zero (ENNReal.coe_zero ▸ hc)
-  rw [task.charTime_eq_inv_answerValue hcorrect, ENNReal.inv_lt_iff_inv_lt,
-    ← ENNReal.coe_inv hc0] at hc
+  rw [ENNReal.inv_lt_iff_inv_lt, ← ENNReal.coe_inv hc0] at hc
   obtain ⟨κ, hcκ, hκ⟩ := ENNReal.lt_iff_exists_nnreal_btwn.1 hc
   refine ⟨κ, hκ, ?_⟩
   rw [← inv_mul_cancel₀ hc0]
@@ -385,14 +384,15 @@ private lemma mul_le_glr_plugInCost {Ω : Type*} {O : ℕ → Ω → Unit} {A : 
   rw [hrec', glr_plugInCost_eq_mul task empMean' hT0, mul_comm]
   exact mul_le_mul_right (hU _ hU' q hq hq_dist).le _
 
-/-- **Sample complexity of Track-and-Stop** [GK16, Theorem 14], with the rate
-`κ < D(μ, w(μ), ¬i)`. Let the rewards of each arm `a` of the model `μ` be dominated above and below
-by the member of mean `μ a` of a nondegenerate exponential family `(ρ a, T a)`. Let the target map
-`w` be continuous at `μ` with `w(μ)` a probability vector, let the recommendation be `i` near `μ`,
-and let `(μ', w') ↦ D(μ', w', ¬i)` be lower semicontinuous at `(μ, w(μ))` on the allocations of the
-simplex. Then for thresholds `β δ n h ≤ log (r n / δ)` (for `n ≥ n₀`) with `r n = O(n ^ p)`,
-Track-and-Stop with the empirical means as estimator satisfies `𝔼[τ_δ] ≤ c log (1 / δ)` for all
-small enough `δ`, for every `c` with `1 < κ c`. -/
+/-- **Sample complexity of Track-and-Stop** [GK16, Theorem 14]. Let the rewards of each arm `a` of
+the model `μ` be dominated above and below by the member of mean `μ a` of a nondegenerate
+exponential family `(ρ a, T a)`. Let the target map `w` be continuous at `μ` with `w(μ)` a
+probability vector, let the recommendation be `i` near `μ`, and let `(μ', w') ↦ D(μ', w', ¬i)` be
+lower semicontinuous at `(μ, w(μ))` on the allocations of the simplex. Then for thresholds
+`β δ n h ≤ log (r n / δ)` (for `n ≥ n₀`) with `r n = O(n ^ p)`, Track-and-Stop with the empirical
+means as estimator satisfies `𝔼[τ_δ] ≤ c log (1 / δ)` for all small enough `δ`, for every
+`c > D(μ, w(μ), ¬i)⁻¹`. The constant does not depend on `p`, unlike in [GK16, Theorem 14], whose
+bound for `r(t) = O(t ^ α)` has a factor `α ∈ [1, e / 2]`. -/
 theorem eventually_expectedStoppingTime_trackAndStop_le (hT : ∀ a c, ¬ T a =ᵐ[ρ a] fun _ ↦ c)
     (hμ : ∀ a, μ a ∈ (ρ a).expFamilyMeans (T a))
     (hν_above : ∀ a, MGFDominatedAbove id (task.ν μ a) (T a)
@@ -402,11 +402,13 @@ theorem eventually_expectedStoppingTime_trackAndStop_le (hT : ∀ a c, ¬ T a =�
     (hw_mem : w μ ∈ simplex α) (hw_cont : ContinuousAt w μ) (hrec_eq : ∀ᶠ μ' in 𝓝 μ, rec μ' = i)
     (h_lsc : LowerSemicontinuousWithinAt (fun q : (α → ℝ) × (α → ℝ) ↦ task.altCost q.1 q.2 i)
       (Set.univ ×ˢ simplex α) (μ, w μ))
-    {κ c : ℝ≥0} (hκ : κ < task.altCost μ (w μ) i) (hκc : 1 < κ * c)
+    {c : ℝ≥0} (hc : (task.altCost μ (w μ) i)⁻¹ < c)
     (hr : r =O[atTop] fun n ↦ (n : ℝ) ^ p)
     (hβ : ∀ᶠ δ in 𝓝[>] 0, ∀ n ≥ n₀, ∀ h, β δ n h ≤ ENNReal.ofReal (log (r n / δ))) :
     ∀ᶠ δ in 𝓝[>] 0, expectedStoppingTime (task.trackAndStop empMean' w hw (β δ) rec hrec (hstop δ))
       (Environment.bandit (task.ν μ)) ≤ c * ENNReal.ofReal (log (1 / δ)) := by
+  -- A rate `κ` with `c⁻¹ < κ < D(μ, w(μ), ¬i)`, at which the GLR statistic grows.
+  obtain ⟨κ, hκ, hκc⟩ := exists_lt_one_lt_mul_of_inv_lt hc
   set alg := dTracking (fun n h ↦ w (empMean' n h)) hw
   set P := trajMeasure alg (Environment.bandit (task.ν μ))
   have hseq : IsAlgEnvSeq IT.obs IT.action IT.feedback alg (Environment.bandit (task.ν μ)) P :=
@@ -511,11 +513,10 @@ theorem eventually_expectedStoppingTime_trackAndStop_le_of_charTime_lt
     (hβ : ∀ᶠ δ in 𝓝[>] 0, ∀ n ≥ n₀, ∀ h, β δ n h ≤ ENNReal.ofReal (log (r n / δ))) :
     ∀ᶠ δ in 𝓝[>] 0, expectedStoppingTime (task.trackAndStop empMean' w hw (β δ) rec hrec (hstop δ))
       (Environment.bandit (task.ν μ)) ≤ c * ENNReal.ofReal (log (1 / δ)) := by
-  -- Choose a rate `κ` with `c⁻¹ < κ < D(μ, w(μ), ¬i) = T*(μ)⁻¹`.
-  obtain ⟨κ, hκ, hκc⟩ := task.exists_lt_answerValue_one_lt_mul hcorrect hc
+  -- At an optimal allocation, `D(μ, w(μ), ¬i)⁻¹ = D(μ, ¬i)⁻¹ = T*(μ)`.
+  rw [task.charTime_eq_inv_answerValue hcorrect, ← (task.mem_optAlloc_iff.1 hw_opt).2] at hc
   exact task.eventually_expectedStoppingTime_trackAndStop_le hT hμ hν_above hν_below
-    (task.mem_optAlloc_iff.1 hw_opt).1 hw_cont hrec_eq h_lsc
-    ((task.mem_optAlloc_iff.1 hw_opt).2 ▸ hκ) hκc hr hβ
+    (task.mem_optAlloc_iff.1 hw_opt).1 hw_cont hrec_eq h_lsc hc hr hβ
 
 end LMLExplore.Identification.IdentTask
 
@@ -675,15 +676,15 @@ variable {𝓧 : Type*} {m𝓧 : MeasurableSpace 𝓧} {ρ : α → Measure 𝓧
     {h | β δ n h < task.glr (task.plugInCost empMean') n h (rec (empMean' n h))}}
   {r : ℕ → ℝ} {p : ℝ} {n₀ : ℕ}
 
-/-- **Sample complexity of Track-and-Stop with C-tracking** [DK19, Lemma 6 and Theorem 7], with the
-rate `κ < D(μ, v, ¬i)` for all `v ∈ C`. Let the rewards of each arm `a` of the model `μ` be
-dominated above and below by the member of mean `μ a` of a nondegenerate exponential family
-`(ρ a, T a)`. Let the targets `w` be allocations that converge at `μ` to a convex compact set `C`
-(they eventually lie in every neighbourhood of `C`), let the recommendation be `i` near `μ`, and
-let `(μ', w') ↦ D(μ', w', ¬i)` be lower semicontinuous at every point of `{μ} × C` on the
-allocations of the simplex. Then for thresholds `β δ n h ≤ log (r n / δ)` (for `n ≥ n₀`) with
-`r n = O(n ^ p)`, Track-and-Stop with C-tracking and the empirical means as estimator satisfies
-`𝔼[τ_δ] ≤ c log (1 / δ)` for all small enough `δ`, for every `c` with `1 < κ c`. -/
+/-- **Sample complexity of Track-and-Stop with C-tracking** [DK19, Lemma 6 and Theorem 7]. Let the
+rewards of each arm `a` of the model `μ` be dominated above and below by the member of mean `μ a`
+of a nondegenerate exponential family `(ρ a, T a)`. Let the targets `w` be allocations that
+converge at `μ` to a convex compact set `C` (they eventually lie in every neighbourhood of `C`),
+let the recommendation be `i` near `μ`, and let `(μ', w') ↦ D(μ', w', ¬i)` be lower
+semicontinuous at every point of `{μ} × C` on the allocations of the simplex. Then for thresholds
+`β δ n h ≤ log (r n / δ)` (for `n ≥ n₀`) with `r n = O(n ^ p)`, Track-and-Stop with C-tracking and
+the empirical means as estimator satisfies `𝔼[τ_δ] ≤ c log (1 / δ)` for all small enough `δ`, for
+every `c > (inf_{v ∈ C} D(μ, v, ¬i))⁻¹`. -/
 theorem eventually_expectedStoppingTime_cTrackAndStop_le (hT : ∀ a c, ¬ T a =ᵐ[ρ a] fun _ ↦ c)
     (hμ : ∀ a, μ a ∈ (ρ a).expFamilyMeans (T a))
     (hν_above : ∀ a, MGFDominatedAbove id (task.ν μ a) (T a)
@@ -695,11 +696,14 @@ theorem eventually_expectedStoppingTime_cTrackAndStop_le (hT : ∀ a c, ¬ T a =
     (hrec_eq : ∀ᶠ μ' in 𝓝 μ, rec μ' = i)
     (h_lsc : ∀ v ∈ C, LowerSemicontinuousWithinAt
       (fun q : (α → ℝ) × (α → ℝ) ↦ task.altCost q.1 q.2 i) (Set.univ ×ˢ simplex α) (μ, v))
-    {κ c : ℝ≥0} (hκ : ∀ v ∈ C, κ < task.altCost μ v i) (hκc : 1 < κ * c)
+    {c : ℝ≥0} (hc : (⨅ v ∈ C, task.altCost μ v i)⁻¹ < c)
     (hr : r =O[atTop] fun n ↦ (n : ℝ) ^ p)
     (hβ : ∀ᶠ δ in 𝓝[>] 0, ∀ n ≥ n₀, ∀ h, β δ n h ≤ ENNReal.ofReal (log (r n / δ))) :
     ∀ᶠ δ in 𝓝[>] 0, expectedStoppingTime (task.cTrackAndStop empMean' w hw (β δ) rec hrec (hstop δ))
       (Environment.bandit (task.ν μ)) ≤ c * ENNReal.ofReal (log (1 / δ)) := by
+  -- A rate `κ` with `c⁻¹ < κ < D(μ, v, ¬i)` for all `v ∈ C`, at which the GLR statistic grows.
+  obtain ⟨κ, hκ', hκc⟩ := exists_lt_one_lt_mul_of_inv_lt hc
+  have hκ : ∀ v ∈ C, (κ : ℝ≥0∞) < task.altCost μ v i := fun v hv ↦ hκ'.trans_le (iInf₂_le v hv)
   set alg := cTracking (fun n h ↦ w (empMean' n h)) hw
   set P := trajMeasure alg (Environment.bandit (task.ν μ))
   have hseq : IsAlgEnvSeq IT.obs IT.action IT.feedback alg (Environment.bandit (task.ν μ)) P :=
@@ -816,8 +820,10 @@ theorem eventually_expectedStoppingTime_cTrackAndStop_le_of_charTime_lt
     (hβ : ∀ᶠ δ in 𝓝[>] 0, ∀ n ≥ n₀, ∀ h, β δ n h ≤ ENNReal.ofReal (log (r n / δ))) :
     ∀ᶠ δ in 𝓝[>] 0, expectedStoppingTime (task.cTrackAndStop empMean' w hw (β δ) rec hrec (hstop δ))
       (Environment.bandit (task.ν μ)) ≤ c * ENNReal.ofReal (log (1 / δ)) := by
-  -- Choose a rate `κ` with `c⁻¹ < κ < D(μ, ¬i) = T*(μ)⁻¹`.
-  obtain ⟨κ, hκ, hκc⟩ := task.exists_lt_answerValue_one_lt_mul hcorrect hc
+  -- On the optimal allocations, `D(μ, v, ¬i) = D(μ, ¬i) = T*(μ)⁻¹`.
+  rw [task.charTime_eq_inv_answerValue hcorrect] at hc
+  have hc' : (⨅ v ∈ task.optAlloc μ i, task.altCost μ v i)⁻¹ < c :=
+    (ENNReal.inv_le_inv.2 (le_iInf₂ fun v hv ↦ (task.mem_optAlloc_iff.1 hv).2.ge)).trans_lt hc
   -- The optimal allocations form a compact set, to which the targets converge.
   have h_usc : UpperSemicontinuousOn (task.altCost μ · i) (simplex α) := fun v hv ↦
     ((h_cont v hv).comp (Continuous.prodMk_right μ).continuousWithinAt
@@ -830,7 +836,7 @@ theorem eventually_expectedStoppingTime_cTrackAndStop_le_of_charTime_lt
   exact task.eventually_expectedStoppingTime_cTrackAndStop_le hT hμ hν_above hν_below hw_mem
     (task.convex_optAlloc μ i) (task.isCompact_optAlloc h_usc) hw_tendsto hrec_eq
     (fun v hv ↦ (h_cont v (task.mem_optAlloc_iff.1 hv).1).lowerSemicontinuousWithinAt)
-    (fun v hv ↦ (task.mem_optAlloc_iff.1 hv).2 ▸ hκ) hκc hr hβ
+    hc' hr hβ
 
 end LMLExplore.Identification.IdentTask
 
