@@ -203,13 +203,6 @@ lemma output_glrt (h : Σ n, Hist Unit α 𝓨 n) :
     (task.glrt Z alg β rec hrec hstop).output h = Measure.dirac (rec h.1 h.2) := by
   rw [glrt_def, output_ofStop, Kernel.sigma_apply, Kernel.deterministic_apply]
 
-/-- The output rule of the GLRT is the deterministic kernel of the recommendation rule. -/
-lemma output_glrt_eq_deterministic :
-    (task.glrt Z alg β rec hrec hstop).output = Kernel.deterministic (fun h ↦ rec h.1 h.2)
-      (measurable_sigma hrec) := by
-  ext h : 1
-  rw [output_glrt, Kernel.deterministic_apply]
-
 variable {Ω : Type*} {mΩ : MeasurableSpace Ω} {P : Measure Ω} [IsProbabilityMeasure P]
   {O : ℕ → Ω → Unit} {X : ℕ → Ω → α} {Y : ℕ → Ω → 𝓨}
 

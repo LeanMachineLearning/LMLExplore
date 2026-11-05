@@ -92,6 +92,16 @@ lemma output_ofStop : (ofStop alg stop hstop output).output = Kernel.sigma outpu
 lemma output_ofStop_mk {n : ℕ} (h : Hist 𝓞 𝓐 𝓨 n) :
     (ofStop alg stop hstop output).output ⟨n, h⟩ = output n h := (rfl)
 
+/-- If the output after `n` rounds with history `h` is the deterministic `rec n h`, then the
+output rule of `ofStop` is the deterministic kernel of `fun h ↦ rec h.1 h.2`. -/
+lemma output_ofStop_deterministic {rec : (n : ℕ) → Hist 𝓞 𝓐 𝓨 n → 𝓓}
+    (hrec : ∀ n, Measurable (rec n)) :
+    (ofStop alg stop hstop fun n ↦ Kernel.deterministic (rec n) (hrec n)).output =
+      Kernel.deterministic (fun h ↦ rec h.1 h.2) (measurable_sigma hrec) := by
+  ext h : 1
+  rw [output_ofStop, Kernel.sigma_apply, Kernel.deterministic_apply,
+    Kernel.deterministic_apply]
+
 end OfStop
 
 /-! ### The output rule on the histories of a given length -/

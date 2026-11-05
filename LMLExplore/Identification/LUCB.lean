@@ -217,15 +217,6 @@ lemma output_lucb (h : Σ n, Hist Unit α ℝ n) :
       Measure.dirac (topArms (empMean' h.1 h.2) m) := by
   rw [lucb_def, output_ofStop, Kernel.sigma_apply, Kernel.deterministic_apply]
 
-/-- The output rule of LUCB is the deterministic kernel of the `m` arms with the largest empirical
-means. -/
-lemma output_lucb_eq_deterministic :
-    (lucb alg lcb ucb hlcb hucb ε m).output =
-      Kernel.deterministic (fun h : Σ n, Hist Unit α ℝ n ↦ topArms (empMean' h.1 h.2) m)
-        (measurable_sigma fun n ↦ LUCB.measurable_topArms_empMean' n m) := by
-  ext h : 1
-  rw [output_lucb, Kernel.deterministic_apply]
-
 /-- LUCB has stopped after `n` rounds if its stopping rule holds after `n` rounds. -/
 lemma stoppingTime_lucb_le {Ω : Type*} {O : ℕ → Ω → Unit} {X : ℕ → Ω → α} {Y : ℕ → Ω → ℝ}
     {ω : Ω} {n : ℕ} (hn : LUCB.StopRule lcb ucb ε m n (history O X Y n ω)) :

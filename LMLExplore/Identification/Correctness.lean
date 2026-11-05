@@ -154,17 +154,13 @@ theorem measureReal_histOutputMeasure_ofStop_deterministic_le [IsProbabilityMeas
           Kernel.deterministic (rec n) (hrec n)).stopSet ∧ p.2 ∉ s} ≤
       P.real {ω | ∃ n, stop n (history O X Y n ω) ∧ rec n (history O X Y n ω) ∉ s} := by
   set A := ofStop alg stop hstop fun n ↦ Kernel.deterministic (rec n) (hrec n)
-  have h_out : A.output = Kernel.deterministic (fun h ↦ rec h.1 h.2) (measurable_sigma hrec) := by
-    ext h : 1
-    rw [output_ofStop, Kernel.sigma_apply, Kernel.deterministic_apply,
-      Kernel.deterministic_apply]
   have hg : Measurable fun h : Σ n, Hist 𝓞 𝓐 𝓨 n ↦ (h, rec h.1 h.2) :=
     measurable_id.prodMk (measurable_sigma hrec)
   have hS := A.measurableSet_mem_stopSet_and_notMem hs
   have h_alg : A.alg = alg := alg_ofStop _ _ _ _
   have h_law : HasLaw (A.stoppedHist O X Y) (stoppedHistMeasure A.alg env A.stopSet) P :=
     (h_alg ▸ hseq).hasLaw_stoppedValue_sigmaHistory A.measurableSet_stopSet
-  rw [histOutputMeasure_def, h_out, Measure.compProd_deterministic,
+  rw [histOutputMeasure_def, output_ofStop_deterministic, Measure.compProd_deterministic,
     map_measureReal_apply hg hS, ← h_law.map_eq,
     map_measureReal_apply_of_aemeasurable h_law.aemeasurable (hg hS)]
   -- The stopped history is the history of the first `n` rounds, for `n` the stopping time.
