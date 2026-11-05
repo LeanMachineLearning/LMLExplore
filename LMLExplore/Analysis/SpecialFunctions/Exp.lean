@@ -67,6 +67,7 @@ these into Bernstein's form.
 * `Real.exp_neg_le_one_sub_add_sq_div_two`: `exp (-x) ≤ 1 - x + x ^ 2 / 2` for `x ≥ 0`.
 * `Real.exp_div_one_add_le_one_add`: `exp (x / (1 + l)) ≤ 1 + x` for `0 ≤ x ≤ 2 l`.
 * `Real.hasSum_pow_add_two_div_factorial`: `∑_j x ^ (j + 2) / (j + 2)! = exp x - 1 - x`.
+* `Real.exp_sub_one_sub_id_div_sq_nonneg`: `0 ≤ (exp x - 1 - x) / y ^ 2`.
 * `Real.monotoneOn_exp_sub_one_sub_id_div_sq`: `x ↦ (exp x - 1 - x) / x ^ 2` is monotone on
   `[0, ∞)`.
 * `Real.exp_mul_le_one_add_mul_add_mul_sq`: Bennett's bound
@@ -242,6 +243,11 @@ theorem hasSum_pow_add_two_div_factorial (x : ℝ) :
   rw [← hasSum_nat_add_iff' 2] at h
   simpa [sum_range_succ, sub_sub] using h
 
+/-- The tail `exp x - 1 - x` of the exponential is nonnegative, so its quotient by a square is
+nonnegative. -/
+theorem exp_sub_one_sub_id_div_sq_nonneg (x y : ℝ) : 0 ≤ (exp x - 1 - x) / y ^ 2 :=
+  div_nonneg (by linarith [add_one_le_exp x]) (sq_nonneg y)
+
 /-- The function `x ↦ (exp x - 1 - x) / x ^ 2` is monotone on `[0, ∞)`. -/
 theorem monotoneOn_exp_sub_one_sub_id_div_sq :
     MonotoneOn (fun x ↦ (exp x - 1 - x) / x ^ 2) (Set.Ici 0) := by
@@ -251,10 +257,11 @@ theorem monotoneOn_exp_sub_one_sub_id_div_sq :
       HasSum (fun j : ℕ ↦ x ^ j / (j + 2).factorial) ((exp x - 1 - x) / x ^ 2) := by
     convert (hasSum_pow_add_two_div_factorial x).div_const (x ^ 2) using 1
     ext j
-    rw [pow_add, mul_div_right_comm, mul_div_assoc, div_self (by positivity), mul_one]
+    field_simp
+    ring
   rcases hu.eq_or_lt with rfl | hu'
   · simp only [zero_pow two_ne_zero, div_zero]
-    exact div_nonneg (by linarith [add_one_le_exp v]) (sq_nonneg v)
+    exact exp_sub_one_sub_id_div_sq_nonneg v v
   · refine hasSum_le (fun j ↦ ?_) (hseries u hu') (hseries v (hu'.trans_le huv))
     gcongr
 

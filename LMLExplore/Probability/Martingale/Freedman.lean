@@ -110,6 +110,20 @@ theorem condExp_exp_mul_le [IsFiniteMeasure μ] (hm : m ≤ mΩ) {X : Ω → ℝ
   simpa only [h₁, Pi.add_apply, h₂, condExp_const hm, h₃, h₄, Pi.smul_apply, smul_eq_mul]
     using h
 
+/-- If `X ≤ b` almost surely, then for `l, c ≥ 0` the exponent `l X - c E[X ^ 2 | m]` is at most
+`l b` almost surely, so its exponential is integrable. -/
+theorem integrable_exp_mul_sub_mul_condExp_sq [IsFiniteMeasure μ] (hm : m ≤ mΩ) {X : Ω → ℝ}
+    {b l c : ℝ} (hl : 0 ≤ l) (hc : 0 ≤ c) (hX : AEStronglyMeasurable X μ)
+    (h_bdd : ∀ᵐ ω ∂μ, X ω ≤ b) :
+    Integrable (fun ω ↦ exp (l * X ω - c * μ[fun ω ↦ X ω ^ 2 | m] ω)) μ := by
+  simpa using integrable_exp_mul_of_le 1 (l * b) zero_le_one
+    ((hX.const_mul l).sub ((stronglyMeasurable_condExp.mono hm).aestronglyMeasurable.const_mul
+      c)).aemeasurable (by
+      filter_upwards [h_bdd, condExp_nonneg (μ := μ) (m := m)
+        (ae_of_all _ fun ω ↦ sq_nonneg (X ω))] with ω hω hW
+      simp only [Pi.sub_apply, Pi.zero_apply] at hW ⊢
+      nlinarith [mul_le_mul_of_nonneg_left hω hl, mul_nonneg hc hW])
+
 /-- **The one-step bound behind Freedman's inequality.** If `X ≤ b` almost surely with `b > 0`,
 `X ^ 2` is integrable and `E[X | m] ≤ 0`, then for `l ≥ 0` and
 `c ≥ ψ_b(l) = (exp (l b) - 1 - l b) / b ^ 2`,
@@ -120,10 +134,8 @@ theorem condExp_exp_mul_sub_mul_condExp_sq_le_one [IsFiniteMeasure μ]
     (hX2 : Integrable (fun ω ↦ X ω ^ 2) μ) (h_mean : μ[X | m] ≤ᵐ[μ] 0)
     (h_bdd : ∀ᵐ ω ∂μ, X ω ≤ b) :
     μ[fun ω ↦ exp (l * X ω - c * μ[fun ω ↦ X ω ^ 2 | m] ω) | m] ≤ᵐ[μ] 1 := by
-  set W := μ[fun ω ↦ X ω ^ 2 | m] with hW_def
-  have hψ : 0 ≤ (exp (l * b) - 1 - l * b) / b ^ 2 :=
-    div_nonneg (by linarith [add_one_le_exp (l * b)]) (sq_nonneg b)
-  have hc0 : 0 ≤ c := hψ.trans hc
+  set W := μ[fun ω ↦ X ω ^ 2 | m]
+  have hc0 : 0 ≤ c := (exp_sub_one_sub_id_div_sq_nonneg (l * b) b).trans hc
   have hW0 : 0 ≤ᵐ[μ] W := condExp_nonneg (ae_of_all _ fun ω ↦ sq_nonneg (X ω))
   -- `exp (l X - c W)` is the `m`-measurable factor `exp (-c W)` times `exp (l X)`
   have h_eq : (fun ω ↦ exp (l * X ω - c * W ω)) =
@@ -132,12 +144,7 @@ theorem condExp_exp_mul_sub_mul_condExp_sq_le_one [IsFiniteMeasure μ]
     rw [Pi.mul_apply, ← exp_add, neg_add_eq_sub]
   have hprod : Integrable ((fun ω ↦ exp (-(c * W ω))) * fun ω ↦ exp (l * X ω)) μ := by
     rw [← h_eq]
-    simpa using integrable_exp_mul_of_le 1 (l * b) zero_le_one
-      ((hX.const_mul l).sub ((stronglyMeasurable_condExp.mono hm).aestronglyMeasurable.const_mul
-        c)).aemeasurable (by
-        filter_upwards [h_bdd, hW0] with ω hω hWω
-        simp only [Pi.sub_apply, Pi.zero_apply, ← hW_def] at hWω ⊢
-        nlinarith [mul_le_mul_of_nonneg_left hω hl, mul_nonneg hc0 hWω])
+    exact integrable_exp_mul_sub_mul_condExp_sq hm hl hc0 hX h_bdd
   have hE : StronglyMeasurable[m] fun ω ↦ exp (-(c * W ω)) :=
     (stronglyMeasurable_condExp.measurable.const_mul c).neg.exp.stronglyMeasurable
   rw [h_eq]
@@ -169,8 +176,7 @@ theorem supermartingale_exp_mul_sum_sub_mul_sum_condExp_sq [IsFiniteMeasure μ] 
     (h_mean : ∀ n, μ[X n | ℱ n] ≤ᵐ[μ] 0) (h_bdd : ∀ n, ∀ᵐ ω ∂μ, X n ω ≤ b) :
     Supermartingale (fun n ω ↦ exp (l * ∑ k ∈ range n, X k ω
       - c * ∑ k ∈ range n, μ[fun ω ↦ X k ω ^ 2 | ℱ k] ω)) ℱ μ := by
-  have hc0 : 0 ≤ c :=
-    (div_nonneg (by linarith [add_one_le_exp (l * b)]) (sq_nonneg b)).trans hc
+  have hc0 : 0 ≤ c := (exp_sub_one_sub_id_div_sq_nonneg (l * b) b).trans hc
   -- the rounds are `Z k = l X k - c E[X k ^ 2 | ℱ k]`
   have h_eq : (fun n ω ↦ exp (l * ∑ k ∈ range n, X k ω
       - c * ∑ k ∈ range n, μ[fun ω ↦ X k ω ^ 2 | ℱ k] ω)) = fun n ω ↦
@@ -178,14 +184,14 @@ theorem supermartingale_exp_mul_sum_sub_mul_sum_condExp_sq [IsFiniteMeasure μ] 
     ext n ω
     rw [sum_sub_distrib, mul_sum, mul_sum]
   rw [h_eq]
-  refine supermartingale_exp_sum_of_condExp_exp_le_one (C := fun _ ↦ l * b) (fun n ↦ ?_)
-    (fun n ↦ ?_) fun n ↦ condExp_exp_mul_sub_mul_condExp_sq_le_one (ℱ.le n) hb hl hc
-      ((hX n).mono (ℱ.le _) le_rfl).aestronglyMeasurable (hX2 n) (h_mean n) (h_bdd n)
-  · exact ((hX n).const_mul l).sub ((stronglyMeasurable_condExp.measurable.mono
-      (ℱ.mono n.le_succ) le_rfl).const_mul c)
-  · filter_upwards [h_bdd n, condExp_nonneg (μ := μ) (m := ℱ n)
-      (ae_of_all _ fun ω ↦ sq_nonneg (X n ω))] with ω hω hW
-    nlinarith [mul_le_mul_of_nonneg_left hω hl, mul_nonneg hc0 hW]
+  have hXm : ∀ n, AEStronglyMeasurable (X n) μ := fun n ↦
+    ((hX n).mono (ℱ.le _) le_rfl).aestronglyMeasurable
+  refine supermartingale_exp_sum_of_condExp_exp_le_one (fun n ↦ ?_)
+    (fun n ↦ integrable_exp_mul_sub_mul_condExp_sq (ℱ.le n) hl hc0 (hXm n) (h_bdd n))
+    fun n ↦ condExp_exp_mul_sub_mul_condExp_sq_le_one (ℱ.le n) hb hl hc (hXm n) (hX2 n)
+      (h_mean n) (h_bdd n)
+  exact ((hX n).const_mul l).sub ((stronglyMeasurable_condExp.measurable.mono
+    (ℱ.mono n.le_succ) le_rfl).const_mul c)
 
 /-- **Time-uniform exponential bound.** Under the hypotheses of
 `supermartingale_exp_mul_sum_sub_mul_sum_condExp_sq`, for every `x : ℝ`, the probability that
@@ -200,7 +206,8 @@ theorem measure_exists_le_mul_sum_sub_mul_sum_condExp_sq_le [IsProbabilityMeasur
     h_bdd).measure_exists_le_le (fun n ↦ ae_of_all _ fun ω ↦ (exp_pos _).le) (exp_pos x)
   simpa [← exp_neg] using h
 
-/-- **Freedman's inequality** [Fre75], [BLM13, Theorem 2.10]. Let `X n` be
+/-- **Freedman's inequality** [Fre75], the martingale analogue of Bernstein's inequality
+[BLM13, Theorem 2.10]. Let `X n` be
 `ℱ (n + 1)`-measurable, with `X n ^ 2` integrable, `E[X n | ℱ n] ≤ 0` and `X n ≤ b` almost surely,
 with `b > 0`. For `a ≥ 0` and `σ² ≥ 0`, the probability that, for some `n`,
 `a ≤ ∑ k < n, X k` while `∑ k < n, E[X k ^ 2 | ℱ k] ≤ σ²`, is at most
@@ -220,7 +227,7 @@ theorem measure_exists_le_sum_and_sum_condExp_sq_le_le [IsProbabilityMeasure μ]
   set l := a / D with hl_def
   have hl : 0 ≤ l := by positivity
   set c := (exp (l * b) - 1 - l * b) / b ^ 2 with hc_def
-  have hc0 : 0 ≤ c := div_nonneg (by linarith [add_one_le_exp (l * b)]) (sq_nonneg b)
+  have hc0 : 0 ≤ c := exp_sub_one_sub_id_div_sq_nonneg (l * b) b
   -- `c σ² ≤ a ^ 2 / (2 D)`, from `exp u - 1 - u ≤ u ^ 2 / (2 (1 - u / 3))` at `u = l b < 3`
   have hcσ : c * σ2 ≤ a ^ 2 / (2 * D) := by
     rcases hσ2.eq_or_lt with rfl | hσ2
@@ -264,7 +271,7 @@ theorem measure_exists_mul_sum_condExp_sq_add_log_div_le_sum_le [IsProbabilityMe
   have hbdd : ∀ n, ∀ᵐ ω ∂μ, X n ω ≤ 1 / η := fun n ↦ (h_bdd n).mono fun ω hω ↦ by
     rwa [le_div_iff₀ hη, mul_comm]
   have hc : (exp (η * (1 / η)) - 1 - η * (1 / η)) / (1 / η) ^ 2 ≤ η ^ 2 := by
-    rw [mul_one_div_cancel hη.ne', one_div, inv_pow, div_inv_eq_mul]
+    field_simp
     have := exp_one_lt_d9
     nlinarith [sq_nonneg η]
   refine (measure_mono fun ω hω ↦ ?_).trans
@@ -330,8 +337,7 @@ private theorem le_three_mul_sqrt_add_of_forall_lt {S W b ℓ : ℝ} {N J : ℕ}
 /-- **Freedman's inequality, peeled form.** Let `X n` be `ℱ (n + 1)`-measurable, with
 `E[X n | ℱ n] ≤ 0` and `|X n| ≤ b` almost surely, with `b > 0`. Let `N : ℕ`, `δ > 0`,
 `K = ⌈log₄ N⌉ + 1` and `ℓ = max 1 (log (K / δ))`. With probability at least `1 - δ`, for every
-`n ≤ N`, `∑ k < n, X k ≤ 3 √(ℓ ∑ k < n, E[X k ^ 2 | ℱ k]) + 2 b ℓ`. The fixed-`η` form is applied
-to `η = 2 ^ (-j) / b` for `j < K`, each with probability `δ / K`. -/
+`n ≤ N`, `∑ k < n, X k ≤ 3 √(ℓ ∑ k < n, E[X k ^ 2 | ℱ k]) + 2 b ℓ`. -/
 theorem measure_exists_three_mul_sqrt_add_lt_sum_le [IsProbabilityMeasure μ] {δ : ℝ} (hb : 0 < b)
     (hδ : 0 < δ) (N : ℕ) (hX : ∀ n, Measurable[ℱ (n + 1)] (X n))
     (h_mean : ∀ n, μ[X n | ℱ n] ≤ᵐ[μ] 0) (h_bdd : ∀ n, ∀ᵐ ω ∂μ, |X n ω| ≤ b) :
@@ -391,7 +397,7 @@ theorem measure_exists_three_mul_sqrt_add_lt_sum_le [IsProbabilityMeasure μ] {�
         · have hj' : ω ∉ E j := hnot j (Nat.lt_succ_of_le hj)
           simp only [hE_def, Set.mem_ofPred_eq, not_exists, not_le] at hj'
           refine (hj' n).trans_le ?_
-          rw [one_div_mul_eq_div, one_div_div δ, div_div_eq_mul_div, div_one]
+          field_simp
           gcongr
           exact le_max_right _ _
     _ ≤ ∑ j ∈ range (J + 1), μ (E j) := measure_biUnion_finset_le _ _
