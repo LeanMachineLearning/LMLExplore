@@ -49,6 +49,8 @@ and the deviation inequalities of best arm identification, are bounded this way.
   stream, have the law `streamMeasure ν` of the stream model.
 * `iIndepFun_arm_streamMeasure`: in the stream model, the reward sequences of the arms are
   independent.
+* `sum_setLIntegral_action_eq_pullCount_sumRewards_le`: the weighted form of the first statement,
+  for a measurable weight `g s x ≥ 0` in place of the indicator of `p`.
 * `sum_measure_action_eq_and_pullCount_sumRewards_le`: the bound on the expected number of rounds,
   as a sum of probabilities in `ℝ≥0∞`, and `sum_measureReal_action_eq_and_pullCount_sumRewards_le`,
   its real-valued form.
@@ -173,6 +175,52 @@ theorem iIndepFun_arm_streamMeasure {𝓡 : Type*} [MeasurableSpace 𝓡] (ν : 
   ext a : 1
   rw [← (hasLaw_eval_infinitePi _ a).comp h_arms |>.map_eq, Function.comp_def]
 
+/-- **Counting transfer to the reward stream, weighted form.** In a run of any algorithm against the
+stochastic bandit `Environment.bandit ν`, for a measurable `g ≥ 0` of a number of pulls and a sum of
+rewards, the expected sum over the rounds `t < n` that pull arm `a` of `g` at the number of previous
+pulls and the sum of the previous rewards of `a` is at most
+`∑ s < n, E[g s (X₀ + ⋯ + X_{s-1})]` for an i.i.d. sequence `X` with law `ν a`, the rewards of `a`
+in the stream model `streamMeasure ν`. -/
+theorem sum_setLIntegral_action_eq_pullCount_sumRewards_le
+    (h : IsAlgEnvSeq O A R alg (Environment.bandit ν) P) (a : α) (n : ℕ) {g : ℕ → ℝ → ℝ≥0∞}
+    (hg : Measurable fun q : ℕ × ℝ ↦ g q.1 q.2) :
+    ∑ t ∈ range n, ∫⁻ ω in A t ⁻¹' {a}, g (pullCount A a t ω) (sumRewards A R a t ω) ∂P ≤
+      ∑ s ∈ range n, ∫⁻ x, g s (∑ i ∈ range s, x i a) ∂(streamMeasure ν) := by
+  classical
+  have hA := h.measurable_action
+  have hR := h.measurable_feedback
+  -- the weight of round `t`, and the weight of the first `s` rewards of `a` in a stream
+  set f : ℕ → Ω → ℝ≥0∞ := fun t ↦ (A t ⁻¹' {a}).indicator
+    fun ω ↦ g (pullCount A a t ω) (sumRewards A R a t ω)
+  set G : ℕ → (ℕ → α → ℝ) → ℝ≥0∞ := fun s x ↦ g s (∑ i ∈ range s, x i a)
+  have hf t : Measurable (f t) :=
+    (hg.comp ((measurable_pullCount hA a t).prodMk (measurable_sumRewards hA hR a t))).indicator
+      (hA t (measurableSet_singleton a))
+  have hG s : Measurable (G s) := hg.of_uncurry_left.comp (by fun_prop)
+  have hZ := hasLaw_rewardByCount_streamMeasure h
+  set Z : Ω × (ℕ → α → ℝ) → ℕ → α → ℝ := fun ω i b ↦ rewardByCount A R b (i + 1) ω
+  -- pathwise, the rounds that pull `a` see the pull counts `0, 1, …` once each
+  have h_path (ω : Ω × (ℕ → α → ℝ)) :
+      ∑ t ∈ range n, f t ω.1 = ∑ s ∈ range (pullCount A a n ω.1), G s (Z ω) := by
+    rw [← sum_range_ite_action_eq]
+    refine sum_congr rfl fun t _ ↦ ?_
+    by_cases hat : A t ω.1 = a <;>
+      simp [f, G, Z, hat, sumRewards_eq_sum_range_rewardByCount a t ω]
+  calc ∑ t ∈ range n, ∫⁻ ω in A t ⁻¹' {a}, g (pullCount A a t ω) (sumRewards A R a t ω) ∂P
+  _ = ∑ t ∈ range n, ∫⁻ ω, f t ω.1 ∂(P.prod (streamMeasure ν)) := by
+    refine sum_congr rfl fun t _ ↦ ?_
+    rw [lintegral_prod (fun ω ↦ f t ω.1) ((hf t).comp measurable_fst).aemeasurable]
+    simp [f, lintegral_indicator (hA t (measurableSet_singleton a))]
+  _ = ∫⁻ ω, ∑ t ∈ range n, f t ω.1 ∂(P.prod (streamMeasure ν)) :=
+    (lintegral_finsetSum _ fun t _ ↦ (hf t).comp measurable_fst).symm
+  _ ≤ ∫⁻ ω, ∑ s ∈ range n, G s (Z ω) ∂(P.prod (streamMeasure ν)) := by
+    refine lintegral_mono fun ω ↦ (h_path ω).trans_le ?_
+    exact sum_le_sum_of_subset (range_subset_range.mpr (pullCount_le a n ω.1))
+  _ = ∑ s ∈ range n, ∫⁻ ω, G s (Z ω) ∂(P.prod (streamMeasure ν)) :=
+    lintegral_finsetSum' _ fun s _ ↦ (hG s).comp_aemeasurable hZ.aemeasurable
+  _ = ∑ s ∈ range n, ∫⁻ x, g s (∑ i ∈ range s, x i a) ∂(streamMeasure ν) :=
+    sum_congr rfl fun s _ ↦ hZ.lintegral_comp (hG s).aemeasurable
+
 /-- **Counting transfer to the reward stream.** In a run of any algorithm against the stochastic
 bandit `Environment.bandit ν`, the expected number of rounds `t < n` at which arm `a` is pulled
 while `p` holds for its number of previous pulls and the sum of its previous rewards is at most
@@ -183,42 +231,31 @@ theorem sum_measure_action_eq_and_pullCount_sumRewards_le
     (hp : Measurable fun q : ℕ × ℝ ↦ p q.1 q.2) :
     ∑ t ∈ range n, P {ω | A t ω = a ∧ p (pullCount A a t ω) (sumRewards A R a t ω)} ≤
       ∑ s ∈ range n, streamMeasure ν {ω | p s (∑ i ∈ range s, ω i a)} := by
-  classical
   have hA := h.measurable_action
   have hR := h.measurable_feedback
-  -- the event of round `t`, and the event about the first `s` rewards of `a` in a stream
-  set E : ℕ → Set Ω := fun t ↦ {ω | A t ω = a ∧ p (pullCount A a t ω) (sumRewards A R a t ω)}
-  set B : ℕ → Set (ℕ → α → ℝ) := fun s ↦ {x | p s (∑ i ∈ range s, x i a)}
-  have hE t : MeasurableSet (E t) :=
-    (measurableSet_eq_fun (hA t) measurable_const).inter
-      (measurableSet_setOfPred.mpr (hp.comp ((measurable_pullCount hA a t).prodMk
-        (measurable_sumRewards hA hR a t))))
-  have hB s : MeasurableSet (B s) :=
-    measurableSet_setOfPred.mpr (hp.of_uncurry_left.comp (by fun_prop))
-  have hZ := hasLaw_rewardByCount_streamMeasure h
-  set Z : Ω × (ℕ → α → ℝ) → ℕ → α → ℝ := fun ω i b ↦ rewardByCount A R b (i + 1) ω
-  have hZ_meas : Measurable Z :=
-    .of_eval fun i ↦ .of_eval fun b ↦ measurable_rewardByCount hA hR b (i + 1)
-  -- pathwise, the rounds that pull `a` see the pull counts `0, 1, …` once each
-  have h_path (ω : Ω × (ℕ → α → ℝ)) :
-      ∑ t ∈ range n, (Prod.fst ⁻¹' E t).indicator (1 : Ω × (ℕ → α → ℝ) → ℝ≥0∞) ω =
-        ∑ s ∈ range (pullCount A a n ω.1), (Z ⁻¹' B s).indicator 1 ω := by
-    rw [← sum_range_ite_action_eq]
-    refine sum_congr rfl fun t _ ↦ ?_
-    by_cases hat : A t ω.1 = a <;>
-      simp [Set.indicator_apply, E, B, Z, hat, sumRewards_eq_sum_range_rewardByCount a t ω]
-  calc ∑ t ∈ range n, P (E t)
-  _ = ∑ t ∈ range n, P.prod (streamMeasure ν) (Prod.fst ⁻¹' E t) := by
-    simp
-  _ = ∫⁻ ω, ∑ t ∈ range n, (Prod.fst ⁻¹' E t).indicator 1 ω ∂(P.prod (streamMeasure ν)) :=
-    (lintegral_finsetSum_indicator_one fun t _ ↦ measurable_fst (hE t)).symm
-  _ ≤ ∫⁻ ω, ∑ s ∈ range n, (Z ⁻¹' B s).indicator 1 ω ∂(P.prod (streamMeasure ν)) := by
-    refine lintegral_mono fun ω ↦ (h_path ω).trans_le ?_
-    exact sum_le_sum_of_subset (range_subset_range.mpr (pullCount_le a n ω.1))
-  _ = ∑ s ∈ range n, P.prod (streamMeasure ν) (Z ⁻¹' B s) :=
-    lintegral_finsetSum_indicator_one fun s _ ↦ hZ_meas (hB s)
-  _ = ∑ s ∈ range n, streamMeasure ν {ω | p s (∑ i ∈ range s, ω i a)} :=
-    sum_congr rfl fun s _ ↦ hZ.measure_eq (hB s)
+  -- the weighted transfer with the indicator of `p` as the weight
+  set B : Set (ℕ × ℝ) := {q | p q.1 q.2}
+  have hB : MeasurableSet B := measurableSet_setOfPred.mpr hp
+  refine (sum_le_sum fun t _ ↦ ?_).trans ((sum_setLIntegral_action_eq_pullCount_sumRewards_le h a n
+    (g := fun s x ↦ B.indicator 1 (s, x)) (measurable_one.indicator hB)).trans
+      (sum_le_sum fun s _ ↦ ?_))
+  · have hE : MeasurableSet {ω | p (pullCount A a t ω) (sumRewards A R a t ω)} :=
+      measurableSet_setOfPred.mpr (hp.comp ((measurable_pullCount hA a t).prodMk
+        (measurable_sumRewards hA hR a t)))
+    calc P {ω | A t ω = a ∧ p (pullCount A a t ω) (sumRewards A R a t ω)}
+    _ = P ({ω | p (pullCount A a t ω) (sumRewards A R a t ω)} ∩ A t ⁻¹' {a}) := by
+      congr 1 with ω
+      simp [and_comm]
+    _ = ∫⁻ ω in A t ⁻¹' {a}, B.indicator 1 (pullCount A a t ω, sumRewards A R a t ω) ∂P := by
+      rw [← Measure.restrict_apply hE, ← lintegral_indicator_one hE]
+      refine lintegral_congr fun ω ↦ ?_
+      by_cases hpt : p (pullCount A a t ω) (sumRewards A R a t ω) <;> simp [B, hpt]
+    _ ≤ _ := le_rfl
+  · have hE : MeasurableSet {x : ℕ → α → ℝ | p s (∑ i ∈ range s, x i a)} :=
+      measurableSet_setOfPred.mpr (hp.of_uncurry_left.comp (by fun_prop))
+    rw [← lintegral_indicator_one hE]
+    refine lintegral_mono fun x ↦ ?_
+    by_cases hpx : p s (∑ i ∈ range s, x i a) <;> simp [B, hpx]
 
 /-- Real-valued form of `sum_measure_action_eq_and_pullCount_sumRewards_le`: in a run against
 `Environment.bandit ν`, the expected number of rounds `t < n` at which arm `a` is pulled while `p`

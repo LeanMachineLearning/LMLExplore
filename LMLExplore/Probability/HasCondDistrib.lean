@@ -15,9 +15,9 @@ public import TauCeti.Probability.Kernel.Composition.MeasureCompProd
 If `κ` is the conditional distribution of `Y` given `X` under `P`, then the joint mass of a
 rectangle is obtained by integrating the conditional mass: for measurable sets `s` and `t`,
 `P(X ∈ s, Y ∈ t) = ∫_{X ∈ s} κ X t dP`, and more generally
-`∫_{X ∈ s} g(Y) dP = ∫_{X ∈ s} (∫ g dκ(X)) dP` for measurable `g ≥ 0`. The second coordinate of
-a composition-product `μ ⊗ₘ η.comap f` has conditional distribution `η` given `f` of the first
-coordinate.
+`∫_{X ∈ s} g(Y) dP = ∫_{X ∈ s} (∫ g dκ(X)) dP` and `∫ g(X, Y) dP = ∫ (∫ g(X, y) dκ(X)(y)) dP`
+for measurable `g ≥ 0`. The second coordinate of a composition-product `μ ⊗ₘ η.comap f` has
+conditional distribution `η` given `f` of the first coordinate.
 
 ## Main statements
 
@@ -25,6 +25,8 @@ coordinate.
   `P (X ⁻¹' s ∩ Y ⁻¹' t) = ∫⁻ ω in X ⁻¹' s, κ (X ω) t ∂P`.
 * `ProbabilityTheory.HasCondDistrib.setLIntegral_comp_eq_setLIntegral_lintegral`:
   `∫⁻ ω in X ⁻¹' s, g (Y ω) ∂P = ∫⁻ ω in X ⁻¹' s, ∫⁻ y, g y ∂(κ (X ω)) ∂P`.
+* `ProbabilityTheory.HasCondDistrib.lintegral_comp_prodMk_eq_lintegral_lintegral`:
+  `∫⁻ ω, g (X ω, Y ω) ∂P = ∫⁻ ω, ∫⁻ y, g (X ω, y) ∂(κ (X ω)) ∂P`.
 * `ProbabilityTheory.hasCondDistrib_snd_compProd_comap`: under `μ ⊗ₘ η.comap f`, the second
   coordinate has conditional distribution `η` given `f` of the first coordinate.
 
@@ -77,6 +79,19 @@ lemma HasCondDistrib.setLIntegral_comp_eq_setLIntegral_lintegral (h : HasCondDis
     _ = ∫⁻ ω in X ⁻¹' s, ∫⁻ y, g y ∂(κ (X ω)) ∂P := by
         rw [Measure.restrict_map_of_aemeasurable h.aemeasurable_fst hs,
           lintegral_map' hg.lintegral_kernel.aemeasurable h.aemeasurable_fst.restrict]
+
+/-- If `κ` is the conditional distribution of `Y` given `X`, then for a measurable function
+`g ≥ 0` of both, `∫ g(X, Y) dP = ∫ (∫ g(X, y) dκ(X)(y)) dP`. -/
+lemma HasCondDistrib.lintegral_comp_prodMk_eq_lintegral_lintegral (h : HasCondDistrib Y X κ P)
+    {g : 𝓧 × 𝓨 → ℝ≥0∞} (hg : Measurable g) :
+    ∫⁻ ω, g (X ω, Y ω) ∂P = ∫⁻ ω, ∫⁻ y, g (X ω, y) ∂(κ (X ω)) ∂P := by
+  calc ∫⁻ ω, g (X ω, Y ω) ∂P
+      = ∫⁻ p, g p ∂(P.map (fun ω ↦ (X ω, Y ω))) :=
+        (lintegral_map' hg.aemeasurable h.aemeasurable).symm
+    _ = ∫⁻ p, g p ∂(P.map X ⊗ₘ κ) := by rw [h.map_eq]
+    _ = ∫⁻ x, ∫⁻ y, g (x, y) ∂(κ x) ∂(P.map X) := Measure.lintegral_compProd hg
+    _ = ∫⁻ ω, ∫⁻ y, g (X ω, y) ∂(κ (X ω)) ∂P :=
+        lintegral_map' hg.lintegral_kernel_prod_right'.aemeasurable h.aemeasurable_fst
 
 end JointMass
 

@@ -43,6 +43,9 @@ is `1 / s`, here `σ² / s`.
   played has not been pulled before.
 * `GaussianTS.pullCount_card_eq_one`: Gaussian Thompson sampling pulls every arm exactly once
   during the first `Fintype.card α` rounds.
+* `GaussianTS.lintegral_pullCount_le`: [LS, Theorem 36.2] for Gaussian Thompson sampling, the
+  bound on the expected number of pulls of an arm in terms of the perturbation laws of the
+  reward-stack model.
 
 ## References
 
@@ -52,9 +55,9 @@ is `1 / s`, here `σ² / s`.
 
 public section
 
-open MeasureTheory ProbabilityTheory Learning
+open MeasureTheory ProbabilityTheory Learning Bandits
 
-open scoped NNReal
+open scoped NNReal ENNReal
 
 namespace LMLExplore.Bandits
 
@@ -197,6 +200,34 @@ lemma pullCount_card_eq_one (h : IsAlgEnvSeq O A R (gaussianTS σ2) env P) :
   filter_upwards [pullCount_action_eq_zero h] with ω hω a
   exact pullCount_card_eq_one_of_forall_pullCount_action_eq_zero
     (fun n hn ↦ hω n (exists_pullCount_eq_zero_of_lt_card hn)) a
+
+omit [IsFiniteMeasure P] in
+/-- **[LS, Theorem 36.2] for Gaussian Thompson sampling.** In a run of Gaussian Thompson sampling
+against the stochastic bandit `Environment.bandit ν`, for arms `i ≠ j`, a level `c` and a horizon
+`n`, `E[T_i(n)] ≤ 1 + E[∑_{s < n} (G_{j s}⁻¹ - 1)] + ∑_{s < n} P(G_{i s} > 1 / n)`, where in the
+reward-stack model `streamMeasure ν`, `G_{a s}` is the probability that the perturbation of arm `a`
+after `s` pulls exceeds `c`: the probability that a sample of `𝒩(μ̂_{a s}, σ² / s)` exceeds `c`,
+for the mean `μ̂_{a s}` of the first `s` rewards of `a`, and `G_{a 0} = 1` if `c < ⊤`. -/
+theorem lintegral_pullCount_le [IsProbabilityMeasure P] {ν : Kernel α ℝ} [IsMarkovKernel ν]
+    (h : IsAlgEnvSeq O A R (gaussianTS σ2) (Environment.bandit ν) P) {i j : α} (hij : i ≠ j)
+    (c : EReal) (n : ℕ) :
+    ∫⁻ ω, (pullCount A i n ω : ℝ≥0∞) ∂P ≤
+      1 + ∑ s ∈ Finset.range n, ∫⁻ x, ((if s = 0 then Measure.dirac ⊤ else
+          (gaussianReal ((∑ k ∈ Finset.range s, x k j) / s) (σ2 / s)).map ((↑) : ℝ → EReal))
+            (Set.Ioi c))⁻¹ - 1 ∂(streamMeasure ν) +
+        ∑ s ∈ Finset.range n, streamMeasure ν {x | (n : ℝ≥0∞)⁻¹ <
+          (if s = 0 then Measure.dirac ⊤ else
+            (gaussianReal ((∑ k ∈ Finset.range s, x k i) / s) (σ2 / s)).map ((↑) : ℝ → EReal))
+              (Set.Ioi c)} := by
+  -- the perturbation law of an arm is a function of its number of pulls and its sum of rewards
+  refine PerturbedLeader.lintegral_pullCount_le h (fun _ s y ↦ if s = 0 then Measure.dirac ⊤ else
+    (gaussianReal (y / s) (σ2 / s)).map ((↑) : ℝ → EReal)) (fun _ s ↦ ?_)
+    (fun t x a ↦ by simp [gaussianTSLaw_def, empMean']) hij c n
+  by_cases hs : s = 0
+  · simp [hs]
+  · simp only [hs, ite_false]
+    exact (Measure.measurable_map _ (by fun_prop)).comp
+      (measurable_gaussianReal.comp ((measurable_id.div_const _).prodMk measurable_const))
 
 end GaussianTS
 

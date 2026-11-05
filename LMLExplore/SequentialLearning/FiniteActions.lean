@@ -28,7 +28,8 @@ Facts about LML's `pullCount` that hold for any sequence of actions `A : ℕ →
 * `pullCount_card_eq_one_of_forall_pullCount_action_eq_zero`: if each of the first
   `Fintype.card α` rounds plays an arm not pulled before, then every arm is pulled exactly once
   during those rounds.
-* `integral_pullCount_eq_sum`: `E[T_a(n)] = ∑_{t < n} P(A t = a)`.
+* `integral_pullCount_eq_sum`: `E[T_a(n)] = ∑_{t < n} P(A t = a)`, and
+  `lintegral_pullCount_eq_sum`, its form in `ℝ≥0∞`.
 * `sum_probReal_preimage_compl_eq_sub_integral_pullCount`: `∑_{t < n} P(A t ≠ a) = n - E[T_a(n)]`.
 * `lintegral_pullCount_eq_ofReal_integral`: the expected number of pulls is the same whether
   computed as a lower Lebesgue integral in `ℝ≥0∞` or as a Bochner integral in `ℝ`.
@@ -137,6 +138,20 @@ theorem integral_pullCount_eq_sum [IsFiniteMeasure P] (hA : ∀ t, Measurable (A
   simp_rw [h]
   rw [integral_finsetSum _ fun t _ ↦ (integrable_const (1 : ℝ)).indicator (hs t)]
   exact sum_congr rfl fun t _ ↦ by rw [integral_indicator_const _ (hs t), smul_eq_mul, mul_one]
+
+/-- The expected number of pulls of `a` before `n` is `∑_{t < n} P(A t = a)`, in `ℝ≥0∞`. -/
+theorem lintegral_pullCount_eq_sum (hA : ∀ t, Measurable (A t)) (a : α) (n : ℕ) :
+    ∫⁻ ω, (pullCount A a n ω : ℝ≥0∞) ∂P = ∑ t ∈ range n, P (A t ⁻¹' {a}) := by
+  have hs (t : ℕ) : MeasurableSet (A t ⁻¹' {a}) := hA t (measurableSet_singleton a)
+  have h (ω : Ω) : (pullCount A a n ω : ℝ≥0∞) =
+      ∑ t ∈ range n, (A t ⁻¹' {a}).indicator 1 ω := by
+    rw [pullCount_eq_sum]
+    push_cast
+    refine sum_congr rfl fun t _ ↦ ?_
+    by_cases hω : A t ω = a <;> simp [hω]
+  simp_rw [h]
+  rw [lintegral_finsetSum _ fun t _ ↦ measurable_one.indicator (hs t)]
+  exact sum_congr rfl fun t _ ↦ lintegral_indicator_one (hs t)
 
 /-- The expected number of rounds before `n` that do not play `a` is `∑_{t < n} P(A t ≠ a)`. -/
 theorem sum_probReal_preimage_compl_eq_sub_integral_pullCount [IsProbabilityMeasure P]
