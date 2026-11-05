@@ -290,7 +290,7 @@ theorem advRegret_le (hη : 0 < η) (hY : ∀ t < n, Y t =ᵐ[P] x t ∘ A t)
     integrable_sq_div_exp3Weights (hY t (mem_range.1 ht)) h
   have hYle : ∀ᵐ ω ∂P, ∀ t < n, Y t ω ≤ 1 := ae_feedback_le_one hY fun t ht a ↦ (hx t ht a).2
   have hle : ∑ t ∈ range n, P[V t] ≤ (n * Fintype.card α : ℝ) :=
-    WeightAlgorithm.sum_integral_one_sub_sq_div_weights_le h hY hx
+    WeightAlgorithm.sum_integral_one_sub_sq_div_weights_le h (ae_feedback_mem_Icc hY hx)
   refine advRegret_le_iff.2 fun a ↦ ?_
   rw [sum_sub_integral_eq_integral_sum_lossIwEstimator_sub hY h a]
   refine (integral_sum_le_add_mul_of_ae_le (B := log (Fintype.card α) / η) (c := η / 2)
