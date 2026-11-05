@@ -9,7 +9,6 @@ public import LMLExplore.Probability.Kernel.Composition.Comp
 public import LMLExplore.Probability.Kernel.Operator
 public import LMLExplore.MeasureTheory.Measure.TotalVariation.Cauchy
 public import LMLExplore.Probability.Kernel.TotalVariation
-public import Mathlib.Probability.Kernel.Invariance
 public import Mathlib.Topology.UniformSpace.UniformConvergence
 
 import Mathlib.Analysis.SpecificLimits.Basic
@@ -243,7 +242,7 @@ theorem antitone_dobrushinCoeff_pow (κ : Kernel α α) [IsMarkovKernel κ] :
 that of all longer powers. -/
 theorem dobrushinCoeff_pow_le_pow_div (κ : Kernel α α) [IsMarkovKernel κ] (m n : ℕ) :
     dobrushinCoeff (κ ^ n) ≤ dobrushinCoeff (κ ^ m) ^ (n / m) := by
-  conv_lhs => rw [← Nat.div_add_mod n m, pow_add, pow_mul]
+  conv_lhs => rw [← Nat.div_add_mod n m, Kernel.pow_add, pow_mul]
   exact (dobrushinCoeff_comp_le _ _).trans <|
     (mul_le_of_le_one_right (dobrushinCoeff_nonneg _) dobrushinCoeff_le_one).trans
       (dobrushinCoeff_pow_le _ _)
@@ -303,17 +302,10 @@ lemma isUniformlyErgodic_def (κ : Kernel α α) :
       TendstoUniformly (fun n x ↦ tvDist ((κ ^ n) x) π) (fun _ ↦ 0) atTop :=
   Iff.rfl
 
-/-- An invariant measure of `κ` is invariant for all its powers. -/
-lemma Invariant.pow {κ : Kernel α α} {π : Measure α} (hπ : κ.Invariant π) (n : ℕ) :
-    (κ ^ n).Invariant π := by
-  induction n with
-  | zero => simp [Invariant, one_eq_id]
-  | succ n ih => rw [pow_succ, mul_eq_comp]; exact ih.comp hπ
-
 variable {κ : Kernel α α} [IsMarkovKernel κ]
 
-/-- **Geometric convergence to an invariant measure**: the `n`-step law from any starting point
-is within `2 * δ(κ ^ n)` of an invariant probability measure in total variation. -/
+/-- **Distance to an invariant measure**: the `n`-step law from any starting point is within
+`2 * δ(κ ^ n)` of an invariant probability measure in total variation. -/
 theorem tvDist_pow_apply_le_two_mul_dobrushinCoeff {π : Measure α} [IsProbabilityMeasure π]
     (hπ : κ.Invariant π) (n : ℕ) (x : α) :
     tvDist ((κ ^ n) x) π ≤ 2 * dobrushinCoeff (κ ^ n) := by
@@ -350,7 +342,7 @@ theorem exists_invariant_of_dobrushinCoeff_pow_lt_one [Nonempty α] {m : ℕ}
   have hcauchy (n m : ℕ) (hnm : n ≤ m) :
       tvDist ((κ ^ m) x₀) ((κ ^ n) x₀) ≤ 2 * dobrushinCoeff (κ ^ n) := by
     obtain ⟨k, rfl⟩ := Nat.exists_eq_add_of_le hnm
-    rw [pow_add, comp_apply, ← Measure.dirac_bind (κ ^ n).measurable x₀]
+    rw [Kernel.pow_add, comp_apply, ← Measure.dirac_bind (κ ^ n).measurable x₀]
     exact tvDist_comp_right_le_two_mul_dobrushinCoeff _
   obtain ⟨π, hπ, hdist⟩ :=
     exists_isProbabilityMeasure_forall_tvDist_le (by simpa using h.const_mul 2) hcauchy

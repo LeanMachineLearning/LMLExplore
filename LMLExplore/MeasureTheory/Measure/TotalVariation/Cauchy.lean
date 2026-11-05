@@ -67,14 +67,13 @@ private lemma tendsto_sum_of_abs_measureReal_sub_le {ν : ℕ → Measure 𝓧}
   obtain ⟨n, hn⟩ := (he.eventually (gt_mem_nhds (by positivity : 0 < ε / 3))).exists
   have hlim : Tendsto (fun N ↦ (ν n).real (⋃ i ∈ Finset.range N, f i)) atTop
       (𝓝 ((ν n).real (⋃ i, f i))) := by
-    have := tendsto_measure_iUnion_atTop (μ := ν n) (s := fun N ↦ ⋃ i ∈ Finset.range N, f i)
-      fun N M hNM ↦ iUnion₂_mono' fun i hi ↦
-        ⟨i, Finset.mem_range.2 ((Finset.mem_range.1 hi).trans_le hNM), subset_rfl⟩
-    rw [show (⋃ N, ⋃ i ∈ Finset.range N, f i) = ⋃ i, f i by
-      ext x
-      simp only [mem_iUnion, Finset.mem_range]
-      exact ⟨fun ⟨_, i, _, h⟩ ↦ ⟨i, h⟩, fun ⟨i, h⟩ ↦ ⟨i + 1, i, by omega, h⟩⟩] at this
-    exact (ENNReal.tendsto_toReal (measure_ne_top _ _)).comp this
+    -- countable additivity of `ν n`, through its partial sums
+    have hsum : Tendsto (fun N ↦ ∑ i ∈ Finset.range N, ν n (f i)) atTop (𝓝 (ν n (⋃ i, f i))) :=
+      measure_iUnion hd hf ▸ ENNReal.tendsto_nat_tsum _
+    refine ((ENNReal.tendsto_toReal (measure_ne_top _ _)).comp hsum).congr fun N ↦ ?_
+    rw [Function.comp_apply, measureReal_biUnion_finset (fun i _ j _ hij ↦ hd hij) fun i _ ↦ hf i,
+      ENNReal.toReal_sum fun i _ ↦ measure_ne_top _ _]
+    rfl
   obtain ⟨N₀, hN₀⟩ := Metric.tendsto_atTop.1 hlim (ε / 3) (by positivity)
   refine ⟨N₀, fun N hN ↦ ?_⟩
   have h1 := hνL n _ (hmeas N)

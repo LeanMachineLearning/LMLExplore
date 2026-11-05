@@ -9,7 +9,7 @@ public import Mathlib.Algebra.Order.Group.Abs
 public import Mathlib.Order.ConditionallyCompleteLattice.Indexed
 
 /-!
-# Absolute value of an indexed supremum
+# Indexed suprema and infima in ordered additive groups
 
 ## Main statements
 
@@ -17,6 +17,8 @@ public import Mathlib.Order.ConditionallyCompleteLattice.Indexed
   every `i` of a nonempty index type, then `|⨆ i, f i| ≤ B`.
 * `abs_ciSup_sub_ciSup_le`: if `g` is bounded above over a nonempty index type and
   `|f i - g i| ≤ c` for every `i`, then `|⨆ i, f i - ⨆ i, g i| ≤ c`.
+* `mem_Icc_ciInf_of_forall_sub_le`: if `f i - f j ≤ c` for all `i` and `j`, then the values of `f`
+  lie in `[⨅ j, f j, ⨅ j, f j + c]`.
 -/
 
 public section
@@ -47,3 +49,11 @@ theorem abs_ciSup_sub_ciSup_le [Nonempty ι] {f g : ι → α} {c : α} (hg : Bd
       _ ≤ c + ⨆ i, g i := by gcongr; exact le_ciSup hg i
   · calc g i ≤ c + f i := sub_le_iff_le_add.1 (abs_sub_le_iff.1 (h i)).2
       _ ≤ c + ⨆ i, f i := by gcongr; exact le_ciSup hf i
+
+/-- If the values of `f` differ by at most `c`, they lie in `[a, a + c]` for `a = ⨅ j, f j`. -/
+theorem mem_Icc_ciInf_of_forall_sub_le {f : ι → α} {c : α} (h : ∀ i j, f i - f j ≤ c) (i : ι) :
+    f i ∈ Icc (⨅ j, f j) ((⨅ j, f j) + c) := by
+  have : Nonempty ι := ⟨i⟩
+  have hbdd : BddBelow (range f) :=
+    ⟨f i - c, forall_mem_range.2 fun j ↦ sub_le_comm.1 (h i j)⟩
+  exact ⟨ciInf_le hbdd i, sub_le_iff_le_add.1 (le_ciInf fun j ↦ sub_le_comm.1 (h i j))⟩

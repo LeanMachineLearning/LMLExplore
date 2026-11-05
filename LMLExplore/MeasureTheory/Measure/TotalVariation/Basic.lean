@@ -11,6 +11,7 @@ public import Mathlib.MeasureTheory.Measure.TotalVariation.Defs
 import Mathlib.MeasureTheory.Integral.Bochner.Set
 import Mathlib.MeasureTheory.Integral.IntegrableOn
 import Mathlib.MeasureTheory.VectorMeasure.Integral
+import LMLExplore.Order.ConditionallyCompleteLattice.Group
 import TauCeti.MeasureTheory.Measure.TotalVariation
 
 /-!
@@ -139,13 +140,8 @@ theorem abs_integral_sub_integral_le_mul_tvDist_of_forall_sub_le [IsFiniteMeasur
     (hfμ : AEStronglyMeasurable f μ) (hfν : AEStronglyMeasurable f ν)
     (hf : ∀ x y, f x - f y ≤ c) :
     |∫ x, f x ∂μ - ∫ x, f x ∂ν| ≤ c / 2 * tvDist μ ν := by
-  rcases isEmpty_or_nonempty 𝓧 with h𝓧 | h𝓧
-  · simp [Measure.eq_zero_of_isEmpty μ, Measure.eq_zero_of_isEmpty ν]
-  obtain ⟨x₀⟩ := id h𝓧
   -- `f` takes values in `[a, a + c]` with `a` its infimum
-  have hbdd : BddBelow (range f) := ⟨f x₀ - c, by rintro _ ⟨y, rfl⟩; linarith [hf x₀ y]⟩
-  have hmem (x : 𝓧) : f x ∈ Icc (⨅ y, f y) ((⨅ y, f y) + c) :=
-    ⟨ciInf_le hbdd x, by rw [← sub_le_iff_le_add]; exact le_ciInf fun y ↦ by linarith [hf x y]⟩
+  have hmem := mem_Icc_ciInf_of_forall_sub_le hf
   simpa using abs_integral_sub_integral_le_mul_tvDist_of_mem_Icc hμν hfμ hfν
     (ae_of_all _ hmem) (ae_of_all _ hmem)
 

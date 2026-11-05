@@ -10,6 +10,8 @@ public import LMLExplore.Analysis.Normed.Lp.Order
 public import Mathlib.MeasureTheory.Constructions.BorelSpace.Metrizable
 public import Mathlib.Topology.Algebra.Algebra
 
+import LMLExplore.Order.ConditionallyCompleteLattice.Group
+
 /-!
 # Bounded measurable functions
 
@@ -246,17 +248,12 @@ theorem sub_apply_le_orderUnitOsc_one (f : boundedMeasurable α) (x y : α) :
 the constant function `1` is at most `c`. -/
 theorem orderUnitOsc_one_le_of_forall_sub_le {f : boundedMeasurable α} {c : ℝ} (hc : 0 ≤ c)
     (h : ∀ x y, (f : ℓ^∞(α, ℝ)) x - (f : ℓ^∞(α, ℝ)) y ≤ c) : orderUnitOsc 1 f ≤ c := by
-  rcases isEmpty_or_nonempty α with hα | hα
-  · exact orderUnitOsc_le (a := 0) hc ⟨le_def.2 isEmptyElim, le_def.2 isEmptyElim⟩
   -- `f` takes values in `[a, a + c]` with `a` its infimum
-  have hbdd : BddBelow (range fun x ↦ (f : ℓ^∞(α, ℝ)) x) :=
-    ⟨-‖f‖, by rintro _ ⟨x, rfl⟩; exact neg_le_of_abs_le (abs_apply_le_norm f x)⟩
   refine orderUnitOsc_le (a := ⨅ x, (f : ℓ^∞(α, ℝ)) x) hc
     ⟨le_def.2 fun x ↦ ?_, le_def.2 fun x ↦ ?_⟩ <;>
     simp only [coeFn_smul, coeFn_one, Pi.smul_apply, Pi.one_apply, smul_eq_mul, mul_one]
-  · exact ciInf_le hbdd x
-  · rw [← sub_le_iff_le_add]
-    exact le_ciInf fun y ↦ by linarith [h x y]
+  · exact (mem_Icc_ciInf_of_forall_sub_le h x).1
+  · exact (mem_Icc_ciInf_of_forall_sub_le h x).2
 
 end boundedMeasurable
 
