@@ -403,23 +403,29 @@ lemma correct_epsTopMTask (μ : α → ℝ) :
     (epsTopMTask ν m ε).correct μ =
       {s | s.card = m ∧ ∀ a ∈ s, (Finset.univ.filter fun b ↦ μ a + ε < μ b).card < m} := (rfl)
 
+/-- If every mean of the set `t` of `m` arms is at least every mean outside `t` and some arm
+`i ∈ t` has `μ i ≤ μ x + ε`, then fewer than `m` arms have a mean larger than `μ x + ε`: they are
+all arms of `t` other than `i`. -/
+private lemma card_filter_add_lt_lt_of_mem {t : Finset α} (ht : t.card = m)
+    (ht' : ∀ a ∈ t, ∀ c ∉ t, μ c ≤ μ a) {i x : α} (hi : i ∈ t) (hle : μ i ≤ μ x + ε) :
+    (Finset.univ.filter fun b ↦ μ x + ε < μ b).card < m := by
+  classical
+  calc (Finset.univ.filter fun b ↦ μ x + ε < μ b).card
+  _ ≤ (t.erase i).card := Finset.card_le_card fun b hb ↦ by
+    have hb : μ x + ε < μ b := (Finset.mem_filter.1 hb).2
+    refine Finset.mem_erase.2 ⟨fun hbi ↦ by subst hbi; linarith, ?_⟩
+    by_contra hbt
+    linarith [ht' i hi b hbt]
+  _ < m := by
+    have := Finset.card_pos.2 ⟨i, hi⟩
+    rw [Finset.card_erase_of_mem hi]
+    omega
+
 /-- For `ε ≥ 0`, if every mean of the set `t` of `m` arms is at least every mean outside `t`, then
 `t` is a correct answer of `(ε, m)`-top identification. -/
 lemma mem_correct_epsTopMTask_of_forall_le (hε : 0 ≤ ε) {t : Finset α} (ht : t.card = m)
-    (ht' : ∀ a ∈ t, ∀ c ∉ t, μ c ≤ μ a) : t ∈ (epsTopMTask ν m ε).correct μ := by
-  classical
-  refine ⟨ht, fun a ha ↦ ?_⟩
-  -- The arms with mean larger than `μ a + ε ≥ μ a` are arms of `t` other than `a`.
-  calc (Finset.univ.filter fun b ↦ μ a + ε < μ b).card
-  _ ≤ (t.erase a).card := Finset.card_le_card fun b hb ↦ by
-    have hb : μ a + ε < μ b := (Finset.mem_filter.1 hb).2
-    refine Finset.mem_erase.2 ⟨fun hba ↦ by subst hba; linarith, ?_⟩
-    by_contra hbt
-    linarith [ht' a ha b hbt]
-  _ < m := by
-    have := Finset.card_pos.2 ⟨a, ha⟩
-    rw [Finset.card_erase_of_mem ha]
-    omega
+    (ht' : ∀ a ∈ t, ∀ c ∉ t, μ c ≤ μ a) : t ∈ (epsTopMTask ν m ε).correct μ :=
+  ⟨ht, fun _ ha ↦ card_filter_add_lt_lt_of_mem ht ht' ha (le_add_of_nonneg_right hε)⟩
 
 /-- For `ε ≥ 0` and `m` at most the number of arms, every vector of means has a correct answer of
 `(ε, m)`-top identification: a set of `m` arms with the largest means. -/
@@ -445,17 +451,9 @@ lemma exists_add_lt_of_notMem_correct_epsTopMTask (hε : 0 ≤ ε) {s t : Finset
     exact hs' ⟨hs, h⟩
   -- Every arm `i ∈ t` has `μ b + ε < μ i`: otherwise the arms with mean larger than `μ b + ε`
   -- would be arms of `t` other than `i`, and there are fewer than `m` of those.
-  have hlt : ∀ i ∈ t, μ b + ε < μ i := by
-    intro i hi
+  have hlt : ∀ i ∈ t, μ b + ε < μ i := fun i hi ↦ by
     by_contra! hib
-    have hsub : (Finset.univ.filter fun c ↦ μ b + ε < μ c) ⊆ t.erase i := fun c hc ↦ by
-      have hc : μ b + ε < μ c := (Finset.mem_filter.1 hc).2
-      refine Finset.mem_erase.2 ⟨fun hci ↦ by subst hci; linarith, ?_⟩
-      by_contra hct
-      linarith [ht' i hi c hct]
-    have := (Finset.card_le_card hsub).trans_eq (Finset.card_erase_of_mem hi)
-    have hpos : 0 < t.card := Finset.card_pos.2 ⟨i, hi⟩
-    omega
+    exact (card_filter_add_lt_lt_of_mem ht ht' hi hib).not_ge hb
   have hbt : b ∉ t := fun hbt ↦ by linarith [hlt b hbt]
   -- Since `s ≠ t` have the same size, some arm of `t` is not in `s`.
   obtain ⟨i, hit, his⟩ : ∃ i ∈ t, i ∉ s := by

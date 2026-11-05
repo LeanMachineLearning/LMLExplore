@@ -5,8 +5,8 @@ Authors: Rémy Degenne
 -/
 module
 
-public import LeanMachineLearning.ForMathlib.MeasureTheory.Order.MeasurableArg
 public import LMLExplore.Identification.Task.MeanVector
+public import LMLExplore.MeasureTheory.Order.MeasurableArg
 public import LMLExplore.SequentialLearning.SubGaussianDeviation
 
 /-!
@@ -38,7 +38,6 @@ condition `∑_t ∑_{u = 1}^t exp (-2 u β(u, t)²) ≤ δ / K`.
 
 In the namespace `LMLExplore.Identification`:
 
-* `LUCB.topArms x k`: `k` arms with the largest values of `x`.
 * `LUCB.StopRule lcb ucb ε m n h`: the stopping rule of LUCB with confidence bounds `lcb` and
   `ucb`, after `n` rounds with history `h`.
 * `lucb alg lcb ucb hlcb hucb ε m`: LUCB with sampling rule `alg` and confidence bounds `lcb` and
@@ -48,6 +47,8 @@ In the namespace `LMLExplore.Identification`:
 
 ## Main statements
 
+* `topArms_mem_correct_epsTopMTask`: for `ε ≥ 0`, the `m` arms with the largest values of `μ`
+  (`topArms μ m`) are a correct answer of top-`m` identification with tolerance `ε`.
 * `LUCB.exists_ucb_lt_or_lt_lcb_of_stopRule`: if LUCB stops with a wrong answer, an arm of a set
   `t` of `m` arms with the largest means has an upper bound below its mean or an arm outside `t`
   has a lower bound above its mean.
@@ -68,7 +69,7 @@ round `t = n + 1` of [KTAS12], where the number of pulls `u` is at most `t - 1 =
 `∑_n ∑_{u = 1}^n exp (-u β(u, n)² / (2 σ²)) ≤ δ / K` is therefore implied by the condition of
 [KTAS12] for the rate `β(u, t - 1)`. LUCB starts by sampling each arm once; here this is part of
 the stopping rule, which only stops once every arm has been pulled. The `m` arms with the largest
-empirical means are chosen one at a time, ties being broken by LML's `argmax`.
+empirical means are chosen one at a time by `topArms`, ties being broken by LML's `argmax`.
 
 ## References
 
@@ -130,57 +131,15 @@ end LUCB
 
 variable [Fintype α] [DecidableEq α] [Nonempty α]
 
+/-- For `ε ≥ 0` and `m` at most the number of arms, the `m` arms with the largest values of `μ`
+are a correct answer of top-`m` identification with tolerance `ε` for the means `μ`. -/
+lemma topArms_mem_correct_epsTopMTask [MeasurableSpace α] {𝓨 : Type*} {m𝓨 : MeasurableSpace 𝓨}
+    (ν : (α → ℝ) → Kernel α 𝓨) [∀ μ, IsMarkovKernel (ν μ)] {ε : ℝ} {m : ℕ} (hε : 0 ≤ ε)
+    (hm : m ≤ Fintype.card α) (μ : α → ℝ) : topArms μ m ∈ (epsTopMTask ν m ε).correct μ :=
+  mem_correct_epsTopMTask_of_forall_le ν hε (card_topArms μ hm)
+    fun _ ha _ hc ↦ le_of_mem_topArms_of_notMem_topArms μ ha hc
+
 namespace LUCB
-
-/-! ### The arms with the largest values -/
-
-/-- `k` arms with the largest values of `x`, chosen one at a time: `topArms x (k + 1)` adds to
-`topArms x k` an arm outside it with the largest value. -/
-noncomputable def topArms (x : α → ℝ) : ℕ → Finset α
-  | 0 => ∅
-  | k + 1 => insert (argmax fun a ↦ if a ∈ topArms x k then (⊥ : EReal) else x a) (topArms x k)
-
-@[simp]
-lemma topArms_zero (x : α → ℝ) : topArms x 0 = ∅ := (rfl)
-
-lemma topArms_succ (x : α → ℝ) (k : ℕ) :
-    topArms x (k + 1) =
-      insert (argmax fun a ↦ if a ∈ topArms x k then (⊥ : EReal) else x a) (topArms x k) := (rfl)
-
-/-- If some arm `b` is outside `S`, the arm with the largest value of `x` outside `S` is outside
-`S` and its value is at least that of `b`. -/
-private lemma argmax_notMem_and_le {S : Finset α} {x : α → ℝ} {b : α} (hb : b ∉ S) :
-    (argmax fun a ↦ if a ∈ S then (⊥ : EReal) else x a) ∉ S ∧
-      x b ≤ x (argmax fun a ↦ if a ∈ S then (⊥ : EReal) else x a) := by
-  have h := isMaxOn_univ_iff.1 (isMaxOn_argmax fun a ↦ if a ∈ S then (⊥ : EReal) else x a) b
-  by_cases hc : (argmax fun a ↦ if a ∈ S then (⊥ : EReal) else x a) ∈ S
-  · simp [hb, hc] at h
-  · simp only [hb, hc, ↓reduceIte, EReal.coe_le_coe_iff] at h
-    exact ⟨hc, h⟩
-
-/-- There are `k` arms in `topArms x k` for `k` at most the number of arms. -/
-lemma card_topArms (x : α → ℝ) {k : ℕ} (hk : k ≤ Fintype.card α) : #(topArms x k) = k := by
-  induction k with
-  | zero => simp
-  | succ k ih =>
-    have ih := ih (by omega)
-    obtain ⟨b, hb⟩ : ∃ b, b ∉ topArms x k := by
-      by_contra! h
-      rw [eq_univ_of_forall h, card_univ] at ih
-      omega
-    rw [topArms_succ, card_insert_of_notMem (argmax_notMem_and_le hb).1, ih]
-
-/-- The values of `x` on `topArms x k` are at least its values outside `topArms x k`. -/
-lemma le_of_mem_topArms_of_notMem_topArms (x : α → ℝ) {k : ℕ} {a b : α}
-    (ha : a ∈ topArms x k) (hb : b ∉ topArms x k) : x b ≤ x a := by
-  induction k with
-  | zero => simp at ha
-  | succ k ih =>
-    rw [topArms_succ, mem_insert, not_or] at hb
-    rw [topArms_succ, mem_insert] at ha
-    rcases ha with rfl | ha
-    · exact (argmax_notMem_and_le hb.2).2
-    · exact ih ha hb.2
 
 /-! ### The stopping rule -/
 
@@ -200,18 +159,6 @@ lemma stopRule_iff {n : ℕ} {h : Hist Unit α ℝ n} :
         ucb n h b < lcb n h a + ε := (Iff.rfl)
 
 variable [MeasurableSpace α] [MeasurableSingletonClass α]
-
-lemma measurable_topArms (k : ℕ) : Measurable fun x : α → ℝ ↦ topArms x k := by
-  induction k with
-  | zero => exact measurable_const
-  | succ k ih =>
-    have hc : Measurable fun x : α → ℝ ↦
-        argmax fun a ↦ if a ∈ topArms x k then (⊥ : EReal) else x a := by
-      refine (measurable_argmax (ι := α) (α := EReal)).comp (Measurable.of_eval fun a ↦ ?_)
-      exact Measurable.ite ((measurableSet_mem_finset a).preimage ih) measurable_const
-        (measurable_coe_real_ereal.comp (measurable_pi_apply a))
-    simp_rw [topArms_succ, insert_eq]
-    exact ((measurable_of_countable fun a : α ↦ ({a} : Finset α)).comp hc).union_finset ih
 
 /-- The `m` arms with the largest empirical means after `n` rounds are a measurable function of
 the history. -/
@@ -247,12 +194,12 @@ and `ucb`, tolerance `ε` and `m` arms to select: it stops after `n` rounds with
 means. -/
 noncomputable def lucb : IdentAlg Unit α ℝ (Finset α) :=
   ofStop alg (LUCB.StopRule lcb ucb ε m) (LUCB.measurableSet_stopRule ε m hlcb hucb)
-    fun n ↦ Kernel.deterministic (fun h ↦ LUCB.topArms (empMean' n h) m)
+    fun n ↦ Kernel.deterministic (fun h ↦ topArms (empMean' n h) m)
       (LUCB.measurable_topArms_empMean' n m)
 
 lemma lucb_def : lucb alg lcb ucb hlcb hucb ε m =
     ofStop alg (LUCB.StopRule lcb ucb ε m) (LUCB.measurableSet_stopRule ε m hlcb hucb)
-      (fun n ↦ Kernel.deterministic (fun h ↦ LUCB.topArms (empMean' n h) m)
+      (fun n ↦ Kernel.deterministic (fun h ↦ topArms (empMean' n h) m)
         (LUCB.measurable_topArms_empMean' n m)) := (rfl)
 
 @[simp]
@@ -267,14 +214,14 @@ lemma mem_stopSet_lucb {h : Σ n, Hist Unit α ℝ n} :
 @[simp]
 lemma output_lucb (h : Σ n, Hist Unit α ℝ n) :
     (lucb alg lcb ucb hlcb hucb ε m).output h =
-      Measure.dirac (LUCB.topArms (empMean' h.1 h.2) m) := by
+      Measure.dirac (topArms (empMean' h.1 h.2) m) := by
   rw [lucb_def, output_ofStop, Kernel.sigma_apply, Kernel.deterministic_apply]
 
 /-- The output rule of LUCB is the deterministic kernel of the `m` arms with the largest empirical
 means. -/
 lemma output_lucb_eq_deterministic :
     (lucb alg lcb ucb hlcb hucb ε m).output =
-      Kernel.deterministic (fun h : Σ n, Hist Unit α ℝ n ↦ LUCB.topArms (empMean' h.1 h.2) m)
+      Kernel.deterministic (fun h : Σ n, Hist Unit α ℝ n ↦ topArms (empMean' h.1 h.2) m)
         (measurable_sigma fun n ↦ LUCB.measurable_topArms_empMean' n m) := by
   ext h : 1
   rw [output_lucb, Kernel.deterministic_apply]
@@ -333,23 +280,11 @@ theorem measureReal_histOutputMeasure_lucb_le {env : Environment Unit α ℝ}
       P.real {ω | ∃ n a, pullCount X a n ω ≠ 0 ∧
         (a ∈ t ∧ ucb n (history O X Y n ω) a < μ a ∨
           a ∉ t ∧ μ a < lcb n (history O X Y n ω) a)} := by
-  set A := lucb alg lcb ucb hlcb hucb ε m
-  have hg : Measurable fun h : Σ n, Hist Unit α ℝ n ↦ (h, LUCB.topArms (empMean' h.1 h.2) m) :=
-    measurable_id.prodMk (measurable_sigma fun n ↦ LUCB.measurable_topArms_empMean' n m)
-  have hS := A.measurableSet_mem_stopSet_and_notMem
-    (s := (epsTopMTask ν m ε).correct μ) (Set.to_countable _).measurableSet
-  have h_law : HasLaw (A.stoppedHist O X Y) (stoppedHistMeasure A.alg env A.stopSet) P :=
-    ((alg_lucb alg lcb ucb hlcb hucb ε m).symm ▸ hseq).hasLaw_stoppedValue_sigmaHistory
-      A.measurableSet_stopSet
-  rw [histOutputMeasure_def, output_lucb_eq_deterministic, Measure.compProd_deterministic,
-    map_measureReal_apply hg hS, ← h_law.map_eq,
-    map_measureReal_apply_of_aemeasurable h_law.aemeasurable (hg hS)]
-  -- The stopped history is the history of the first `n` rounds, for `n` the stopping time.
-  refine measureReal_mono fun ω ⟨hω_stop, hω_wrong⟩ ↦ ?_
-  obtain ⟨n, hn⟩ := WithTop.ne_top_iff_exists.1 (IdentAlg.stoppedHist_mem_stopSet_iff.1 hω_stop)
-  rw [IdentAlg.stoppedHist_eq_of_stoppingTime_eq hn.symm] at hω_stop hω_wrong
-  rw [mem_stopSet_lucb] at hω_stop
-  obtain ⟨a, ha, h⟩ := LUCB.exists_ucb_lt_or_lt_lcb_of_stopRule hε hm ht ht' hω_stop hω_wrong
+  rw [lucb_def]
+  refine (measureReal_histOutputMeasure_ofStop_deterministic_le hseq
+    (Set.to_countable ((epsTopMTask ν m ε).correct μ)).measurableSet).trans
+    (measureReal_mono fun ω ⟨n, hn_stop, hn_wrong⟩ ↦ ?_)
+  obtain ⟨a, ha, h⟩ := LUCB.exists_ucb_lt_or_lt_lcb_of_stopRule hε hm ht ht' hn_stop hn_wrong
   exact ⟨n, a, by rwa [pullCount_eq_pullCount' (O := O) (R' := Y)], h⟩
 
 /-! ### LUCB for sub-Gaussian arms -/
@@ -466,11 +401,7 @@ theorem measureReal_stoppingTime_ne_top_and_notMem_le_of_isRun_lucbOfRate {out :
     (hε : 0 ≤ ε) (hm : m ≤ Fintype.card α) :
     P.real {ω | (lucbOfRate alg β ε m).stoppingTime O X Y ω ≠ ⊤ ∧
         out ω ∉ (epsTopMTask ν m ε).correct fun a ↦ (ν₀ a)[id]} ≤ δ := by
-  have h_eq := hrun.hasLaw_stoppedHist_output.measureReal_eq
-    ((lucbOfRate alg β ε m).measurableSet_mem_stopSet_and_notMem
-      (s := (epsTopMTask ν m ε).correct fun a ↦ (ν₀ a)[id]) (Set.to_countable _).measurableSet)
-  simp only [IdentAlg.stoppedHist_mem_stopSet_iff] at h_eq
-  rw [h_eq]
+  rw [hrun.measureReal_stoppingTime_ne_top_and_notMem_eq (Set.to_countable _).measurableSet]
   exact measureReal_histOutputMeasure_lucbOfRate_le_of_hasSubgaussianMGF hν hβ hsum hδ hε hm
 
 /-- **LUCB is `δ`-PAC** for top-`m` identification with tolerance `ε` [KTAS12, Theorem 1], for
@@ -486,26 +417,12 @@ theorem isDeltaPAC_lucbOfRate (hmean : ∀ (μ : α → ℝ) a, (ν μ a)[id] = 
     (hε : 0 ≤ ε) (hm : m ≤ Fintype.card α)
     (h_stops : ∀ μ : α → ℝ, StopsAS (lucbOfRate alg β ε m) (Environment.bandit (ν μ))) :
     (epsTopMTask ν m ε).IsDeltaPAC (lucbOfRate alg β ε m) δ := by
-  set A := lucbOfRate alg β ε m
-  have hc (μ : α → ℝ) : MeasurableSet ((epsTopMTask ν m ε).correct μ) :=
-    (Set.to_countable _).measurableSet
-  have h_correct : (epsTopMTask ν m ε).IsDeltaCorrect A δ := by
-    refine IdentTask.isDeltaCorrect_iff.2 fun μ _ ↦ ?_
-    simp only [ν_epsTopMTask]
-    set ρ := histOutputMeasure A (Environment.bandit (ν μ))
-    -- Since LUCB stops almost surely, not stopping does not contribute to the error.
-    have h_ae : ∀ᵐ p ∂ρ, p.1 ∈ A.stopSet := ae_of_ae_map measurable_fst.aemeasurable <| by
-      rw [← Measure.fst, fst_histOutputMeasure]
-      exact stopsAS_iff.1 (h_stops μ)
-    have hμ : (fun a ↦ (ν μ a)[id]) = μ := funext (hmean μ)
-    calc ρ.real {p | p.1 ∉ A.stopSet ∨ p.2 ∉ (epsTopMTask ν m ε).correct μ}
-    _ = ρ.real {p | p.1 ∈ A.stopSet ∧ p.2 ∉ (epsTopMTask ν m ε).correct μ} :=
-      measureReal_congr <| Filter.eventuallyEqSet_iff.2 <| h_ae.mono fun p hp ↦ by simp [hp]
-    _ ≤ δ := by
-      have h := measureReal_histOutputMeasure_lucbOfRate_le_of_hasSubgaussianMGF (alg := alg)
-        (ν := ν) (hν μ) hβ hsum hδ hε hm
-      rwa [hμ] at h
-  exact IdentTask.isDeltaPAC_iff_isDeltaPAC.2 <| Identification.isDeltaPAC_iff.2
-    ⟨h_correct.isPAC fun μ _ ↦ hc μ, fun μ ↦ by simpa only [ν_epsTopMTask] using h_stops μ⟩
+  refine IdentTask.isDeltaPAC_of_measureReal_mem_stopSet_and_notMem_le
+    (fun μ _ ↦ (Set.to_countable _).measurableSet) (fun μ _ ↦ ?_)
+    fun μ _ ↦ by simpa only [ν_epsTopMTask] using h_stops μ
+  simp only [ν_epsTopMTask]
+  have h := measureReal_histOutputMeasure_lucbOfRate_le_of_hasSubgaussianMGF (alg := alg)
+    (ν := ν) (hν μ) hβ hsum hδ hε hm
+  rwa [funext (hmean μ)] at h
 
 end LMLExplore.Identification

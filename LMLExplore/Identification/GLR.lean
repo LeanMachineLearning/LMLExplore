@@ -233,22 +233,10 @@ theorem measureReal_histOutputMeasure_glrt_le {env : Environment Unit α 𝓨}
     (histOutputMeasure (task.glrt Z alg β rec hrec hstop) env).real
         {p | p.1 ∈ (task.glrt Z alg β rec hrec hstop).stopSet ∧ p.2 ∉ task.correct θ} ≤
       P.real {ω | ∃ n, β n < Z n (history O X Y n ω) θ} := by
-  set A := task.glrt Z alg β rec hrec hstop
-  have hg : Measurable fun h : Σ n, Hist Unit α 𝓨 n ↦ (h, rec h.1 h.2) :=
-    measurable_id.prodMk (measurable_sigma hrec)
-  have hS := A.measurableSet_mem_stopSet_and_notMem hc
-  have h_law : HasLaw (A.stoppedHist O X Y) (stoppedHistMeasure A.alg env A.stopSet) P :=
-    (task.alg_glrt Z alg β rec hrec hstop ▸ hseq).hasLaw_stoppedValue_sigmaHistory
-      A.measurableSet_stopSet
-  rw [histOutputMeasure_def, output_glrt_eq_deterministic, Measure.compProd_deterministic,
-    map_measureReal_apply hg hS, ← h_law.map_eq,
-    map_measureReal_apply_of_aemeasurable h_law.aemeasurable (hg hS)]
-  -- The stopped history is the history of the first `n` rounds, for `n` the stopping time.
-  refine measureReal_mono fun ω ⟨hω_stop, hω_wrong⟩ ↦ ?_
-  obtain ⟨n, hn⟩ := WithTop.ne_top_iff_exists.1 (IdentAlg.stoppedHist_mem_stopSet_iff.1 hω_stop)
-  rw [IdentAlg.stoppedHist_eq_of_stoppingTime_eq hn.symm] at hω_stop hω_wrong
-  rw [mem_stopSet_glrt] at hω_stop
-  exact ⟨n, hω_stop.trans_le (task.glr_le_of_notMem_correct hθ hω_wrong)⟩
+  rw [glrt_def]
+  refine (measureReal_histOutputMeasure_ofStop_deterministic_le hseq hc).trans
+    (measureReal_mono fun ω ⟨n, hn_stop, hn_wrong⟩ ↦ ?_)
+  exact ⟨n, hn_stop.trans_le (task.glr_le_of_notMem_correct hθ hn_wrong)⟩
 
 /-- **Error probability of the GLRT along a run**, for every sampling rule. Along every run of the
 GLRT, the probability that it stops with an answer that is not correct for the model `θ` is at
@@ -259,10 +247,7 @@ theorem measureReal_stoppingTime_ne_top_and_notMem_le_of_isRun_glrt {env : Envir
     P.real {ω | (task.glrt Z alg β rec hrec hstop).stoppingTime O X Y ω ≠ ⊤ ∧
         out ω ∉ task.correct θ} ≤
       P.real {ω | ∃ n, β n < Z n (history O X Y n ω) θ} := by
-  have h_eq := hrun.hasLaw_stoppedHist_output.measureReal_eq
-    ((task.glrt Z alg β rec hrec hstop).measurableSet_mem_stopSet_and_notMem hc)
-  simp only [IdentAlg.stoppedHist_mem_stopSet_iff] at h_eq
-  rw [h_eq]
+  rw [hrun.measureReal_stoppingTime_ne_top_and_notMem_eq hc]
   exact task.measureReal_histOutputMeasure_glrt_le Z alg β rec hrec hstop
     (task.alg_glrt Z alg β rec hrec hstop ▸ hrun.isAlgEnvSeq) hθ hc
 
@@ -275,22 +260,10 @@ theorem isDeltaPAC_glrt {δ : ℝ} (hc : ∀ θ ∈ task.M, MeasurableSet (task.
       {ω | ∃ n, β n < Z n (history IT.obs IT.action IT.feedback n ω) θ} ≤ δ)
     (h_stops : ∀ θ ∈ task.M,
       StopsAS (task.glrt Z alg β rec hrec hstop) (Environment.bandit (task.ν θ))) :
-    task.IsDeltaPAC (task.glrt Z alg β rec hrec hstop) δ := by
-  set A := task.glrt Z alg β rec hrec hstop
-  have h_correct : task.IsDeltaCorrect A δ := by
-    refine isDeltaCorrect_iff.2 fun θ hθ ↦ ?_
-    set μ := histOutputMeasure A (Environment.bandit (task.ν θ))
-    -- Since the GLRT stops almost surely, not stopping does not contribute to the error.
-    have h_ae : ∀ᵐ p ∂μ, p.1 ∈ A.stopSet := ae_of_ae_map measurable_fst.aemeasurable <| by
-      rw [← Measure.fst, fst_histOutputMeasure]
-      exact stopsAS_iff.1 (h_stops θ hθ)
-    calc μ.real {p | p.1 ∉ A.stopSet ∨ p.2 ∉ task.correct θ}
-    _ = μ.real {p | p.1 ∈ A.stopSet ∧ p.2 ∉ task.correct θ} :=
-      measureReal_congr <| Filter.eventuallyEqSet_iff.2 <| h_ae.mono fun p hp ↦ by simp [hp]
-    _ ≤ δ := (task.measureReal_histOutputMeasure_glrt_le Z alg β rec hrec hstop
-      (IT.isAlgEnvSeq_trajMeasure alg _) hθ (hc θ hθ)).trans (hdev θ hθ)
-  exact isDeltaPAC_iff_isDeltaPAC.2 <| Identification.isDeltaPAC_iff.2
-    ⟨h_correct.isPAC hc, fun θ ↦ h_stops θ θ.2⟩
+    task.IsDeltaPAC (task.glrt Z alg β rec hrec hstop) δ :=
+  isDeltaPAC_of_measureReal_mem_stopSet_and_notMem_le hc
+    (fun θ hθ ↦ (task.measureReal_histOutputMeasure_glrt_le Z alg β rec hrec hstop
+      (IT.isAlgEnvSeq_trajMeasure alg _) hθ (hc θ hθ)).trans (hdev θ hθ)) h_stops
 
 /-! ### Sample complexity of the GLRT -/
 
