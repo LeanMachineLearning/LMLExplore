@@ -15,7 +15,7 @@ Let `𝓕` be a filtration on a standard Borel space, `x` a sequence of features
 finite-dimensional real inner product space `E` with `x t` `𝓕 t`-measurable (predictable), and
 `η` a real noise with `η t` `𝓕 (t + 1)`-measurable and conditionally `σ²`-sub-Gaussian given
 `𝓕 t`. The responses follow the linear model `y t = ⟪θ, x t⟫ + η t` for an unknown `θ : E`.
-For `λ > 0`, let `V_t = designOp λ x t` and `θ̂_t = ridgeEstimate λ x y t`.
+For `λ > 0`, let `V_t = designOp (λ • 1) x t` and `θ̂_t = ridgeEstimate λ x y t`.
 
 With probability at least `1 - δ`, for all `t` simultaneously, `θ` lies in the ellipsoid
 centered at the ridge estimate
@@ -65,26 +65,25 @@ variable {Ω E : Type*} {mΩ : MeasurableSpace Ω} [StandardBorelSpace Ω] {P : 
 `x`, a conditionally `σ²`-sub-Gaussian noise `η` with `σ² ≠ 0`, responses
 `y t = ⟪θ, x t⟫ + η t`, `λ > 0` and `δ > 0`, the probability that for some `t`,
 `√λ ‖θ‖ + √(2σ² log (1 / δ) + σ² log (det V_t / λ ^ d)) ≤ ‖θ̂_t - θ‖_{V_t}` is at most `δ`, where
-`V_t = designOp λ x t` and `θ̂_t = ridgeEstimate λ x y t`. -/
+`V_t = designOp (λ • 1) x t` and `θ̂_t = ridgeEstimate λ x y t`. -/
 theorem measure_exists_sqrt_inner_ridgeEstimate_sub_ge_le
     (hx : ∀ t, Measurable[𝓕 t] (x t)) (hη : ∀ t, Measurable[𝓕 (t + 1)] (η t))
     (hsub : ∀ t, HasCondSubgaussianMGF (𝓕 t) (𝓕.le t) (η t) σ2 P) (hσ : σ2 ≠ 0) (θ : E)
     (hy : ∀ t ω, y t ω = ⟪θ, x t ω⟫_ℝ + η t ω) (hlam : 0 < lam) (hδ : 0 < δ) :
     P {ω | ∃ t, √lam * ‖θ‖ + √(2 * σ2 * log (1 / δ) +
-        σ2 * log (LinearMap.det (designOp lam (fun s ↦ x s ω) t : E →ₗ[ℝ] E) /
+        σ2 * log (LinearMap.det (designOp (lam • 1) (fun s ↦ x s ω) t : E →ₗ[ℝ] E) /
           lam ^ finrank ℝ E)) ≤
       √⟪ridgeEstimate lam (fun s ↦ x s ω) (fun s ↦ y s ω) t - θ,
-        designOp lam (fun s ↦ x s ω) t
+        designOp (lam • 1) (fun s ↦ x s ω) t
           (ridgeEstimate lam (fun s ↦ x s ω) (fun s ↦ y s ω) t - θ)⟫_ℝ} ≤
       ENNReal.ofReal δ := by
-  have := FiniteDimensional.complete ℝ E
   refine (measure_mono fun ω hω ↦ ?_).trans
     (measure_exists_inner_ringInverse_designOp_ge_le hx hη hsub hσ hlam hδ)
   obtain ⟨t, ht⟩ := hω
   refine ⟨t, ?_⟩
   have h := ht.trans (sqrt_inner_ridgeEstimate_sub_le hlam (fun s ↦ x s ω) θ t (hy · ω))
   rwa [add_le_add_iff_left, Real.sqrt_le_sqrt_iff
-    ((isPositive_designOp hlam.le _ t).ringInverse.inner_nonneg_right _)] at h
+    ((isPositive_designOp_smul_one hlam.le _ t).ringInverse.inner_nonneg_right _)] at h
 
 /-- **Confidence ellipsoids for ridge regression** [LS, Theorem 20.5], good-event form: under
 the assumptions of `measure_exists_sqrt_inner_ridgeEstimate_sub_ge_le`, with probability at least
@@ -96,18 +95,17 @@ theorem le_measureReal_forall_sqrt_inner_ridgeEstimate_sub_lt
     (hy : ∀ t ω, y t ω = ⟪θ, x t ω⟫_ℝ + η t ω) (hlam : 0 < lam) (hδ : 0 < δ) :
     1 - δ ≤ P.real {ω | ∀ t,
       √⟪ridgeEstimate lam (fun s ↦ x s ω) (fun s ↦ y s ω) t - θ,
-        designOp lam (fun s ↦ x s ω) t
+        designOp (lam • 1) (fun s ↦ x s ω) t
           (ridgeEstimate lam (fun s ↦ x s ω) (fun s ↦ y s ω) t - θ)⟫_ℝ <
       √lam * ‖θ‖ + √(2 * σ2 * log (1 / δ) +
-        σ2 * log (LinearMap.det (designOp lam (fun s ↦ x s ω) t : E →ₗ[ℝ] E) /
+        σ2 * log (LinearMap.det (designOp (lam • 1) (fun s ↦ x s ω) t : E →ₗ[ℝ] E) /
           lam ^ finrank ℝ E))} := by
-  have := FiniteDimensional.complete ℝ E
   refine (le_measureReal_forall_inner_ringInverse_designOp_lt hx hη hsub hσ hlam hδ).trans
     (measureReal_mono fun ω hω t ↦ ?_)
   refine (sqrt_inner_ridgeEstimate_sub_le hlam (fun s ↦ x s ω) θ t (hy · ω)).trans_lt ?_
   rw [add_lt_add_iff_left]
-  exact Real.sqrt_lt_sqrt ((isPositive_designOp hlam.le _ t).ringInverse.inner_nonneg_right _)
-    (hω t)
+  exact Real.sqrt_lt_sqrt
+    ((isPositive_designOp_smul_one hlam.le _ t).ringInverse.inner_nonneg_right _) (hω t)
 
 omit [MeasurableSpace E] [BorelSpace E] in
 /-- For vectors bounded by `L`, the radius `√λ ‖θ‖ + √(2σ² log (1 / δ) + σ² log (det V_t / λ ^ d))`
@@ -116,7 +114,7 @@ of the confidence ellipsoids is at most `√λ ‖θ‖ + √(2σ² log (1 / δ)
 private lemma radius_le_of_norm_le {x : ℕ → E} {θ : E} {t : ℕ} {L : ℝ} (hlam : 0 < lam)
     (hL : ∀ s < t, ‖x s‖ ≤ L) :
     √lam * ‖θ‖ + √(2 * σ2 * log (1 / δ) +
-        σ2 * log (LinearMap.det (designOp lam x t : E →ₗ[ℝ] E) / lam ^ finrank ℝ E)) ≤
+        σ2 * log (LinearMap.det (designOp (lam • 1) x t : E →ₗ[ℝ] E) / lam ^ finrank ℝ E)) ≤
       √lam * ‖θ‖ + √(2 * σ2 * log (1 / δ) +
         σ2 * finrank ℝ E * log (1 + t * L ^ 2 / (lam * finrank ℝ E))) := by
   gcongr _ + √(_ + ?_)
@@ -135,7 +133,7 @@ theorem le_measureReal_forall_sqrt_inner_ridgeEstimate_sub_lt_of_norm_le
     (hlam : 0 < lam) (hδ : 0 < δ) :
     1 - δ ≤ P.real {ω | ∀ t,
       √⟪ridgeEstimate lam (fun s ↦ x s ω) (fun s ↦ y s ω) t - θ,
-        designOp lam (fun s ↦ x s ω) t
+        designOp (lam • 1) (fun s ↦ x s ω) t
           (ridgeEstimate lam (fun s ↦ x s ω) (fun s ↦ y s ω) t - θ)⟫_ℝ <
       √lam * ‖θ‖ + √(2 * σ2 * log (1 / δ) +
         σ2 * finrank ℝ E * log (1 + t * L ^ 2 / (lam * finrank ℝ E)))} :=
@@ -156,7 +154,7 @@ theorem measure_exists_sqrt_inner_ridgeEstimate_sub_ge_le_of_norm_le
     P {ω | ∃ t : ℕ, √lam * ‖θ‖ + √(2 * σ2 * log (1 / δ) +
         σ2 * finrank ℝ E * log (1 + t * L ^ 2 / (lam * finrank ℝ E))) ≤
       √⟪ridgeEstimate lam (fun s ↦ x s ω) (fun s ↦ y s ω) t - θ,
-        designOp lam (fun s ↦ x s ω) t
+        designOp (lam • 1) (fun s ↦ x s ω) t
           (ridgeEstimate lam (fun s ↦ x s ω) (fun s ↦ y s ω) t - θ)⟫_ℝ} ≤
       ENNReal.ofReal δ :=
   (measure_mono fun ω ↦ Exists.imp fun _ ↦

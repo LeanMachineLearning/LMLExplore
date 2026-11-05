@@ -189,7 +189,7 @@ variable [StandardBorelSpace Ω] [IsProbabilityMeasure P] [MeasurableSpace E] [B
   [FiniteDimensional ℝ E] {lam δ : ℝ}
 
 /-- **Confidence ellipsoids along a run** [LS, Theorem 20.5]. Along a run of any algorithm in a
-linear bandit environment with σ²-sub-Gaussian noise, `σ² ≠ 0`, let `V_t = designOp λ x t` and
+linear bandit environment with σ²-sub-Gaussian noise, `σ² ≠ 0`, let `V_t = designOp (λ • 1) x t` and
 `θ̂_t = ridgeEstimate λ x Y t` be the design operator and the ridge estimate of the features
 `x s = φ (O s) (A s)` and the rewards `Y s` of the rounds `s < t`. For `λ > 0` and `δ > 0`, with
 probability at least `1 - δ`, for all `t`,
@@ -199,10 +199,10 @@ theorem _root_.Learning.IsAlgEnvSeq.le_measureReal_forall_sqrt_inner_ridgeEstima
     (hφ : Measurable (Function.uncurry φ)) (hσ : σ2 ≠ 0) (hlam : 0 < lam) (hδ : 0 < δ) :
     1 - δ ≤ P.real {ω | ∀ t,
       √⟪ridgeEstimate lam (fun s ↦ φ (O s ω) (A s ω)) (fun s ↦ Y s ω) t - θ,
-        designOp lam (fun s ↦ φ (O s ω) (A s ω)) t
+        designOp (lam • 1) (fun s ↦ φ (O s ω) (A s ω)) t
           (ridgeEstimate lam (fun s ↦ φ (O s ω) (A s ω)) (fun s ↦ Y s ω) t - θ)⟫_ℝ <
       √lam * ‖θ‖ + √(2 * σ2 * log (1 / δ) +
-        σ2 * log (LinearMap.det (designOp lam (fun s ↦ φ (O s ω) (A s ω)) t : E →ₗ[ℝ] E) /
+        σ2 * log (LinearMap.det (designOp (lam • 1) (fun s ↦ φ (O s ω) (A s ω)) t : E →ₗ[ℝ] E) /
           lam ^ finrank ℝ E))} :=
   LMLExplore.le_measureReal_forall_sqrt_inner_ridgeEstimate_sub_lt
     (fun t ↦ (measurable_features_noise θ h hφ t).1)
@@ -222,7 +222,7 @@ theorem _root_.Learning.IsAlgEnvSeq.le_measureReal_forall_sqrt_inner_ridgeEstima
     (hlam : 0 < lam) (hδ : 0 < δ) :
     1 - δ ≤ P.real {ω | ∀ t,
       √⟪ridgeEstimate lam (fun s ↦ φ (O s ω) (A s ω)) (fun s ↦ Y s ω) t - θ,
-        designOp lam (fun s ↦ φ (O s ω) (A s ω)) t
+        designOp (lam • 1) (fun s ↦ φ (O s ω) (A s ω)) t
           (ridgeEstimate lam (fun s ↦ φ (O s ω) (A s ω)) (fun s ↦ Y s ω) t - θ)⟫_ℝ <
       √lam * ‖θ‖ + √(2 * σ2 * log (1 / δ) +
         σ2 * finrank ℝ E * log (1 + t * L ^ 2 / (lam * finrank ℝ E)))} :=
@@ -244,7 +244,7 @@ theorem _root_.Learning.IsAlgEnvSeq.measure_exists_sqrt_inner_ridgeEstimate_sub_
     P {ω | ∃ t : ℕ, √lam * ‖θ‖ + √(2 * σ2 * log (1 / δ) +
         σ2 * finrank ℝ E * log (1 + t * L ^ 2 / (lam * finrank ℝ E))) ≤
       √⟪ridgeEstimate lam (fun s ↦ φ (O s ω) (A s ω)) (fun s ↦ Y s ω) t - θ,
-        designOp lam (fun s ↦ φ (O s ω) (A s ω)) t
+        designOp (lam • 1) (fun s ↦ φ (O s ω) (A s ω)) t
           (ridgeEstimate lam (fun s ↦ φ (O s ω) (A s ω)) (fun s ↦ Y s ω) t - θ)⟫_ℝ} ≤
       ENNReal.ofReal δ :=
   LMLExplore.measure_exists_sqrt_inner_ridgeEstimate_sub_ge_le_of_norm_le

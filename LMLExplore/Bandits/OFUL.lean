@@ -16,8 +16,8 @@ public import LMLExplore.Bandits.LinearBandit
 OFUL (optimism in the face of uncertainty for linear bandits, also called LinUCB) plays at every
 round an action whose features maximize an upper confidence bound on the expected reward
 [LS, §19.3]. With the features `x s` and the rewards `y s` of the past rounds `s < t`, the design
-operator `V_t = designOp λ x t`, the ridge estimate `θ̂_t = ridgeEstimate λ x y t` and a radius
-`r`, the optimistic index of a feature vector `v` is [LS, (19.13)]
+operator `V_t = designOp (λ • 1) x t`, the ridge estimate `θ̂_t = ridgeEstimate λ x y t` and a
+radius `r`, the optimistic index of a feature vector `v` is [LS, (19.13)]
 `ofulIndex λ x y r t v = ⟪θ̂_t, v⟫ + r ‖v‖_{V_t⁻¹}`, with `‖v‖_{V⁻¹} = √⟪v, V⁻¹ v⟫`.
 By the Cauchy–Schwarz inequality for the dual norms `‖·‖_{V_t}` and `‖·‖_{V_t⁻¹}`, it is at
 least the expected reward `⟪θ', v⟫` of every parameter `θ'` of the confidence ellipsoid
@@ -89,14 +89,14 @@ variable {x : ℕ → E} {y : ℕ → ℝ} {r : ℝ} {t : ℕ}
 
 /-- The **optimistic index** of OFUL [LS, (19.13)]: for the covariates `x s` and the responses
 `y s` of the rounds `s < t`, a radius `r` and a feature vector `v`, the upper confidence bound
-`⟪θ̂_t, v⟫ + r ‖v‖_{V_t⁻¹}` on the expected reward `⟪θ, v⟫`, where `V_t = designOp λ x t`,
+`⟪θ̂_t, v⟫ + r ‖v‖_{V_t⁻¹}` on the expected reward `⟪θ, v⟫`, where `V_t = designOp (λ • 1) x t`,
 `θ̂_t = ridgeEstimate λ x y t` and `‖v‖_{V⁻¹} = √⟪v, V⁻¹ v⟫`. -/
 noncomputable def ofulIndex (lam : ℝ) (x : ℕ → E) (y : ℕ → ℝ) (r : ℝ) (t : ℕ) (v : E) : ℝ :=
-  ⟪ridgeEstimate lam x y t, v⟫_ℝ + r * √⟪v, Ring.inverse (designOp lam x t) v⟫_ℝ
+  ⟪ridgeEstimate lam x y t, v⟫_ℝ + r * √⟪v, Ring.inverse (designOp (lam • 1) x t) v⟫_ℝ
 
 lemma ofulIndex_def (v : E) :
     ofulIndex lam x y r t v =
-      ⟪ridgeEstimate lam x y t, v⟫_ℝ + r * √⟪v, Ring.inverse (designOp lam x t) v⟫_ℝ :=
+      ⟪ridgeEstimate lam x y t, v⟫_ℝ + r * √⟪v, Ring.inverse (designOp (lam • 1) x t) v⟫_ℝ :=
   (rfl)
 
 /-- The optimistic index of round `t` only depends on the covariates and the responses of the
@@ -107,12 +107,11 @@ lemma ofulIndex_congr {x' : ℕ → E} {y' : ℕ → ℝ} (hx : ∀ s < t, x s =
   funext v
   rw [ofulIndex_def, ofulIndex_def, ridgeEstimate_congr hx hy, designOp_congr hx]
 
-variable [CompleteSpace E]
-
 /-- **Optimism**: if `θ` lies in the confidence ellipsoid `‖θ̂_t - θ‖_{V_t} ≤ r`, then the
 optimistic index of `v` is an upper bound on the expected reward `⟪θ, v⟫`. -/
 theorem inner_le_ofulIndex (hlam : 0 < lam)
-    (hθ : √⟪ridgeEstimate lam x y t - θ, designOp lam x t (ridgeEstimate lam x y t - θ)⟫_ℝ ≤ r)
+    (hθ : √⟪ridgeEstimate lam x y t - θ,
+      designOp (lam • 1) x t (ridgeEstimate lam x y t - θ)⟫_ℝ ≤ r)
     (v : E) :
     ⟪θ, v⟫_ℝ ≤ ofulIndex lam x y r t v := by
   have h := (abs_le.1 (abs_inner_ridgeEstimate_sub_le hlam x y t hθ v)).1
@@ -123,10 +122,11 @@ theorem inner_le_ofulIndex (hlam : 0 < lam)
 /-- If `θ` lies in the confidence ellipsoid `‖θ̂_t - θ‖_{V_t} ≤ r`, then the optimistic index of
 `v` exceeds the expected reward `⟪θ, v⟫` by at most `2 r ‖v‖_{V_t⁻¹}`. -/
 theorem ofulIndex_le_inner_add (hlam : 0 < lam)
-    (hθ : √⟪ridgeEstimate lam x y t - θ, designOp lam x t (ridgeEstimate lam x y t - θ)⟫_ℝ ≤ r)
+    (hθ : √⟪ridgeEstimate lam x y t - θ,
+      designOp (lam • 1) x t (ridgeEstimate lam x y t - θ)⟫_ℝ ≤ r)
     (v : E) :
     ofulIndex lam x y r t v ≤
-      ⟪θ, v⟫_ℝ + 2 * r * √⟪v, Ring.inverse (designOp lam x t) v⟫_ℝ := by
+      ⟪θ, v⟫_ℝ + 2 * r * √⟪v, Ring.inverse (designOp (lam • 1) x t) v⟫_ℝ := by
   have h := (abs_le.1 (abs_inner_ridgeEstimate_sub_le hlam x y t hθ v)).2
   rw [inner_sub_left] at h
   rw [ofulIndex_def]
@@ -137,10 +137,11 @@ ellipsoid `‖θ̂_t - θ‖_{V_t} ≤ r` and the action `b` has maximal optimis
 actions with features `f a`, then `⟪θ, f a⟫ - ⟪θ, f b⟫ ≤ 2 r ‖f b‖_{V_t⁻¹}` for every action
 `a`. -/
 theorem inner_sub_inner_le_of_ofulIndex_le (hlam : 0 < lam)
-    (hθ : √⟪ridgeEstimate lam x y t - θ, designOp lam x t (ridgeEstimate lam x y t - θ)⟫_ℝ ≤ r)
+    (hθ : √⟪ridgeEstimate lam x y t - θ,
+      designOp (lam • 1) x t (ridgeEstimate lam x y t - θ)⟫_ℝ ≤ r)
     {f : 𝓐 → E} {b : 𝓐} (hb : ∀ a, ofulIndex lam x y r t (f a) ≤ ofulIndex lam x y r t (f b))
     (a : 𝓐) :
-    ⟪θ, f a⟫_ℝ - ⟪θ, f b⟫_ℝ ≤ 2 * r * √⟪f b, Ring.inverse (designOp lam x t) (f b)⟫_ℝ := by
+    ⟪θ, f a⟫_ℝ - ⟪θ, f b⟫_ℝ ≤ 2 * r * √⟪f b, Ring.inverse (designOp (lam • 1) x t) (f b)⟫_ℝ := by
   linarith [inner_le_ofulIndex hlam hθ (f a), ofulIndex_le_inner_add hlam hθ (f b), hb a]
 
 end Index
@@ -150,21 +151,23 @@ section Pathwise
 variable [FiniteDimensional ℝ E] {f : ℕ → 𝓐 → E} {b : ℕ → 𝓐} {y : ℕ → ℝ} {r : ℕ → ℝ}
   {G R : ℝ} {n : ℕ}
 
+omit [FiniteDimensional ℝ E] in
 /-- The square of the instantaneous regret of an optimistic action is at most
 `4 R² min 1 ‖x‖²_{V⁻¹}`, for the features `x` of that action, when the gaps are at most `G`, the
 radius is at most `R` and `G ≤ 2 R`. -/
 private lemma sq_iSup_inner_sub_inner_le (hlam : 0 < lam) (hG : G ≤ 2 * R) {t : ℕ}
     (hrR : r t ≤ R) (hgap : ∀ a, ⟪θ, f t a⟫_ℝ - ⟪θ, f t (b t)⟫_ℝ ≤ G)
-    (hθ : √⟪ridgeEstimate lam (fun s ↦ f s (b s)) y t - θ, designOp lam (fun s ↦ f s (b s)) t
-      (ridgeEstimate lam (fun s ↦ f s (b s)) y t - θ)⟫_ℝ ≤ r t)
+    (hθ : √⟪ridgeEstimate lam (fun s ↦ f s (b s)) y t - θ,
+      designOp (lam • 1) (fun s ↦ f s (b s)) t (ridgeEstimate lam (fun s ↦ f s (b s)) y t - θ)⟫_ℝ ≤
+        r t)
     (hopt : ∀ a, ofulIndex lam (fun s ↦ f s (b s)) y (r t) t (f t a) ≤
       ofulIndex lam (fun s ↦ f s (b s)) y (r t) t (f t (b t))) :
     ((⨆ a, ⟪θ, f t a⟫_ℝ) - ⟪θ, f t (b t)⟫_ℝ) ^ 2 ≤ 4 * R ^ 2 *
-        min 1 ⟪f t (b t), Ring.inverse (designOp lam (fun s ↦ f s (b s)) t) (f t (b t))⟫_ℝ := by
-  have := FiniteDimensional.complete ℝ E
+        min 1 ⟪f t (b t),
+          Ring.inverse (designOp (lam • 1) (fun s ↦ f s (b s)) t) (f t (b t))⟫_ℝ := by
   have : Nonempty 𝓐 := ⟨b t⟩
-  set u := ⟪f t (b t), Ring.inverse (designOp lam (fun s ↦ f s (b s)) t) (f t (b t))⟫_ℝ
-  have hu : 0 ≤ u := (isPositive_designOp hlam.le _ t).ringInverse.inner_nonneg_right _
+  set u := ⟪f t (b t), Ring.inverse (designOp (lam • 1) (fun s ↦ f s (b s)) t) (f t (b t))⟫_ℝ
+  have hu : 0 ≤ u := (isPositive_designOp_smul_one hlam.le _ t).ringInverse.inner_nonneg_right _
   have h0 := sub_nonneg.2 (le_ciSup (bddAbove_range_inner_of_gap hgap) (b t))
   have h1 := (iSup_inner_sub_inner_le_of_gap hgap).trans hG
   have h2 : (⨆ a, ⟪θ, f t a⟫_ℝ) - ⟪θ, f t (b t)⟫_ℝ ≤ 2 * R * √u := by
@@ -187,35 +190,40 @@ responses `y s` of the rounds `s < t`, with `λ > 0`. Suppose that at every roun
 gaps between the expected rewards `⟪θ, f t a⟫` are at most `G`, the parameter `θ` lies in the
 confidence ellipsoid `‖θ̂_t - θ‖_{V_t} ≤ r t`, and `b t` has maximal optimistic index with radius
 `r t`. If `r t ≤ R` for `t < n` and `G ≤ 2 R`, then the regret is
-`∑_{t < n} (sup_a ⟪θ, f t a⟫ - ⟪θ, f t (b t)⟫) ≤ √(8 n R² log (det V_n / det V_0))`. -/
+`∑_{t < n} (sup_a ⟪θ, f t a⟫ - ⟪θ, f t (b t)⟫) ≤ √(8 n R² log (det V_n / λ ^ d))`, where `d` is
+the dimension of `E`. -/
 theorem sum_iSup_inner_sub_inner_le_sqrt_log_det (hlam : 0 < lam) (hG : G ≤ 2 * R)
     (hrR : ∀ t < n, r t ≤ R) (hgap : ∀ t < n, ∀ a, ⟪θ, f t a⟫_ℝ - ⟪θ, f t (b t)⟫_ℝ ≤ G)
     (hθ : ∀ t < n, √⟪ridgeEstimate lam (fun s ↦ f s (b s)) y t - θ,
-      designOp lam (fun s ↦ f s (b s)) t (ridgeEstimate lam (fun s ↦ f s (b s)) y t - θ)⟫_ℝ ≤
+      designOp (lam • 1) (fun s ↦ f s (b s)) t (ridgeEstimate lam (fun s ↦ f s (b s)) y t - θ)⟫_ℝ ≤
         r t)
     (hopt : ∀ t < n, ∀ a, ofulIndex lam (fun s ↦ f s (b s)) y (r t) t (f t a) ≤
       ofulIndex lam (fun s ↦ f s (b s)) y (r t) t (f t (b t))) :
     ∑ t ∈ range n, ((⨆ a, ⟪θ, f t a⟫_ℝ) - ⟪θ, f t (b t)⟫_ℝ) ≤
-      √(8 * n * R ^ 2 * log (LinearMap.det (designOp lam (fun s ↦ f s (b s)) n : E →ₗ[ℝ] E) /
-        LinearMap.det (designOp lam (fun s ↦ f s (b s)) 0 : E →ₗ[ℝ] E))) := by
+      √(8 * n * R ^ 2 * log (LinearMap.det (designOp (lam • 1) (fun s ↦ f s (b s)) n : E →ₗ[ℝ] E) /
+        lam ^ finrank ℝ E)) := by
   have hg (t : ℕ) (ht : t ∈ range n) := sq_iSup_inner_sub_inner_le hlam hG
     (hrR t (mem_range.1 ht)) (hgap t (mem_range.1 ht)) (hθ t (mem_range.1 ht))
     (hopt t (mem_range.1 ht))
-  have hpot := sum_min_one_inner_inverse_designOp_le_log_det hlam (fun s ↦ f s (b s)) n
+  have hpot := sum_min_one_inner_inverse_designOp_le_log_det
+    (ContinuousLinearMap.isPositive_one.smul_of_nonneg hlam.le)
+    (isUnit_one.smul (Units.mk0 lam hlam.ne')) (fun s ↦ f s (b s)) n
+  rw [show LinearMap.det ((lam • 1 : E →L[ℝ] E) : E →ₗ[ℝ] E) = lam ^ finrank ℝ E by
+    simp [LinearMap.det_smul]] at hpot
   -- Cauchy–Schwarz, the bound on the squared instantaneous regrets, and the elliptical potential
   have hsq : (∑ t ∈ range n, ((⨆ a, ⟪θ, f t a⟫_ℝ) - ⟪θ, f t (b t)⟫_ℝ)) ^ 2 ≤
-      8 * n * R ^ 2 * log (LinearMap.det (designOp lam (fun s ↦ f s (b s)) n : E →ₗ[ℝ] E) /
-        LinearMap.det (designOp lam (fun s ↦ f s (b s)) 0 : E →ₗ[ℝ] E)) := by
+      8 * n * R ^ 2 * log (LinearMap.det (designOp (lam • 1) (fun s ↦ f s (b s)) n : E →ₗ[ℝ] E) /
+        lam ^ finrank ℝ E) := by
     refine sq_sum_le_card_mul_sum_sq.trans ?_
     rw [card_range]
     calc (n : ℝ) * ∑ t ∈ range n, ((⨆ a, ⟪θ, f t a⟫_ℝ) - ⟪θ, f t (b t)⟫_ℝ) ^ 2
         ≤ n * ∑ t ∈ range n, 4 * R ^ 2 * min 1
-            ⟪f t (b t), Ring.inverse (designOp lam (fun s ↦ f s (b s)) t) (f t (b t))⟫_ℝ := by
+            ⟪f t (b t), Ring.inverse (designOp (lam • 1) (fun s ↦ f s (b s)) t) (f t (b t))⟫_ℝ := by
           gcongr with t ht
           exact hg t ht
       _ ≤ n * (4 * R ^ 2 * (2 * log
-            (LinearMap.det (designOp lam (fun s ↦ f s (b s)) n : E →ₗ[ℝ] E) /
-              LinearMap.det (designOp lam (fun s ↦ f s (b s)) 0 : E →ₗ[ℝ] E)))) := by
+            (LinearMap.det (designOp (lam • 1) (fun s ↦ f s (b s)) n : E →ₗ[ℝ] E) /
+              lam ^ finrank ℝ E))) := by
           rw [← mul_sum]
           gcongr
       _ = _ := by ring
@@ -229,14 +237,13 @@ theorem sum_iSup_inner_sub_inner_le_sqrt_mul_log (hlam : 0 < lam) (hG : G ≤ 2 
     (hrR : ∀ t < n, r t ≤ R) (hgap : ∀ t < n, ∀ a, ⟪θ, f t a⟫_ℝ - ⟪θ, f t (b t)⟫_ℝ ≤ G)
     {L : ℝ} (hL : ∀ t < n, ‖f t (b t)‖ ≤ L)
     (hθ : ∀ t < n, √⟪ridgeEstimate lam (fun s ↦ f s (b s)) y t - θ,
-      designOp lam (fun s ↦ f s (b s)) t (ridgeEstimate lam (fun s ↦ f s (b s)) y t - θ)⟫_ℝ ≤
+      designOp (lam • 1) (fun s ↦ f s (b s)) t (ridgeEstimate lam (fun s ↦ f s (b s)) y t - θ)⟫_ℝ ≤
         r t)
     (hopt : ∀ t < n, ∀ a, ofulIndex lam (fun s ↦ f s (b s)) y (r t) t (f t a) ≤
       ofulIndex lam (fun s ↦ f s (b s)) y (r t) t (f t (b t))) :
     ∑ t ∈ range n, ((⨆ a, ⟪θ, f t a⟫_ℝ) - ⟪θ, f t (b t)⟫_ℝ) ≤
       √(8 * n * R ^ 2 * (finrank ℝ E * log (1 + n * L ^ 2 / (lam * finrank ℝ E)))) := by
   refine (sum_iSup_inner_sub_inner_le_sqrt_log_det hlam hG hrR hgap hθ hopt).trans ?_
-  rw [det_designOp_zero]
   gcongr
   exact log_det_designOp_div_pow_le hlam _ hL
 
@@ -322,7 +329,7 @@ private lemma ae_linearRegret_le (h : IsAlgEnvSeq O A Y (oful S) env P)
     (hG : G ≤ 2 * R) (hrR : ∀ t < n, r t ≤ R) :
     ∀ᵐ ω ∂P, (∀ t : ℕ,
       √⟪ridgeEstimate lam (fun s ↦ φ (O s ω) (A s ω)) (fun s ↦ Y s ω) t - θ,
-        designOp lam (fun s ↦ φ (O s ω) (A s ω)) t
+        designOp (lam • 1) (fun s ↦ φ (O s ω) (A s ω)) t
           (ridgeEstimate lam (fun s ↦ φ (O s ω) (A s ω)) (fun s ↦ Y s ω) t - θ)⟫_ℝ <
       √lam * ‖θ‖ + √(2 * σ2 * log (1 / δ) +
         σ2 * finrank ℝ E * log (1 + t * L ^ 2 / (lam * finrank ℝ E)))) →
@@ -377,7 +384,7 @@ theorem integral_linearRegret_le (h : IsAlgEnvSeq O A Y (oful S) env P)
   set bad := {ω | ∃ t : ℕ, √lam * ‖θ‖ + √(2 * σ2 * log (1 / δ) +
       σ2 * finrank ℝ E * log (1 + t * L ^ 2 / (lam * finrank ℝ E))) ≤
     √⟪ridgeEstimate lam (fun s ↦ φ (O s ω) (A s ω)) (fun s ↦ Y s ω) t - θ,
-      designOp lam (fun s ↦ φ (O s ω) (A s ω)) t
+      designOp (lam • 1) (fun s ↦ φ (O s ω) (A s ω)) t
         (ridgeEstimate lam (fun s ↦ φ (O s ω) (A s ω)) (fun s ↦ Y s ω) t - θ)⟫_ℝ}
   have hbad : P bad ≤ ENNReal.ofReal δ :=
     h.measure_exists_sqrt_inner_ridgeEstimate_sub_ge_le_of_norm_le henv hφ hσ hL hlam hδ
