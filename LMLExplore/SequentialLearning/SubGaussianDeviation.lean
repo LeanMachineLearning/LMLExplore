@@ -246,7 +246,7 @@ theorem measureReal_exists_empMean_add_lt_le_tsum
       ∑' n, ∑ u ∈ Icc 1 n, exp (-(u * β u n ^ 2 / (2 * σ2))) := by
   refine le_trans ?_ (measureReal_exists_pullCount_sumRewards_le_tsum h a
     (fun n s x ↦ s ≠ 0 ∧ x / s + β s n < (ν a)[id]) (fun _ _ h0 ↦ h0.1 rfl) (fun n u ↦ ?_) hsum)
-  · exact measureReal_mono fun ω ⟨n, hn⟩ ↦ ⟨n, hn⟩
+  · exact measureReal_mono fun ω ⟨n, hn⟩ ↦ ⟨n, by rwa [empMean] at hn⟩
   rcases eq_or_ne u 0 with rfl | hu
   · simp
   have hu' : (0 : ℝ) < u := Nat.cast_pos.2 (Nat.pos_of_ne_zero hu)
@@ -277,7 +277,7 @@ theorem measureReal_exists_lt_empMean_sub_le_tsum
       ∑' n, ∑ u ∈ Icc 1 n, exp (-(u * β u n ^ 2 / (2 * σ2))) := by
   refine le_trans ?_ (measureReal_exists_pullCount_sumRewards_le_tsum h a
     (fun n s x ↦ s ≠ 0 ∧ (ν a)[id] < x / s - β s n) (fun _ _ h0 ↦ h0.1 rfl) (fun n u ↦ ?_) hsum)
-  · exact measureReal_mono fun ω ⟨n, hn⟩ ↦ ⟨n, hn⟩
+  · exact measureReal_mono fun ω ⟨n, hn⟩ ↦ ⟨n, by rwa [empMean] at hn⟩
   rcases eq_or_ne u 0 with rfl | hu
   · simp
   have hu' : (0 : ℝ) < u := Nat.cast_pos.2 (Nat.pos_of_ne_zero hu)
