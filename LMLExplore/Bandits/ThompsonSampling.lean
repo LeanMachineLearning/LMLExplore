@@ -157,10 +157,11 @@ variable {σ2 : ℝ≥0} {Ω : Type*} {mΩ : MeasurableSpace Ω} {env : Environm
   {P : Measure Ω} [IsFiniteMeasure P] {O : ℕ → Ω → Unit} {A : ℕ → Ω → α} {R : ℕ → Ω → ℝ}
 
 /-- Along a run of Gaussian Thompson sampling, while some arm has not been pulled yet, the arm
-played has not been pulled before: arms that have not been pulled have perturbation `⊤` and the
-others almost surely have a finite perturbation. -/
+played has not been pulled before. -/
 lemma pullCount_action_eq_zero (h : IsAlgEnvSeq O A R (gaussianTS σ2) env P) :
     ∀ᵐ ω ∂P, ∀ n, (∃ b, pullCount A b n ω = 0) → pullCount A (A n ω) n ω = 0 := by
+  -- arms that have not been pulled have perturbation `⊤` and the others almost surely have a
+  -- finite perturbation
   rw [ae_all_iff]
   intro n
   rw [gaussianTS_def] at h

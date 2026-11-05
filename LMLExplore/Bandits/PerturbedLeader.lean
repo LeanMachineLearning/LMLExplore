@@ -31,12 +31,12 @@ policy, with `F n (h, o) a` the posterior law of the mean of arm `a`.
 
 * `perturbedLeaderKernel_apply_singleton`: the probability of playing `a` is the probability that
   `a` is the `argmax` of independent perturbations.
-* `perturbedLeaderKernel_apply_singleton_le`: for every arm `b` and level `c`, the probability of
-  playing `a` is at most `P(θ a ≥ c) + P(θ b < c)`, since the arm played has the largest
+* `measure_pi_argmax_eq_le_add`: for independent perturbations `θ b ∼ μ b`, every arm `b` and
+  level `c`, `P(argmax θ = a) ≤ P(θ a ≥ c) + P(θ b < c)`, since the `argmax` has the largest
   perturbation.
 * `mul_measure_pi_argmax_eq_and_le_le_mul`: the key inequality of the analysis of
-  [LS, Theorem 36.2], [LS, (36.5)]: for arms `i ≠ j`, a level `c` and `G = P(θ j > c)`,
-  `G * P(argmax θ = i, θ i ≤ c) ≤ (1 - G) * P(argmax θ = j)`.
+  [LS, Theorem 36.2], [LS, (36.5)]: for independent perturbations `θ b ∼ μ b`, arms `i ≠ j`, a
+  level `c` and `G = P(θ j > c)`, `G * P(argmax θ = i, θ i ≤ c) ≤ (1 - G) * P(argmax θ = j)`.
 
 In the namespace `LMLExplore.Bandits.PerturbedLeader`, for a run of `perturbedLeaderAlgorithm`:
 * `measure_preimage_inter_action_eq`: the run lemma in integral form, for a measurable set `s` of
@@ -97,16 +97,15 @@ lemma perturbedLeaderKernel_apply_singleton [MeasurableSingletonClass α] (x : X
   rw [perturbedLeaderKernel_apply, Measure.map_apply measurable_argmax (measurableSet_singleton a)]
   rfl
 
-/-- The arm played by the perturbed-leader kernel has the largest perturbation: for every arm `b`
-and every level `c`, the probability of playing `a` is at most `P(c ≤ θ a) + P(θ b < c)`. -/
-lemma perturbedLeaderKernel_apply_singleton_le [MeasurableSingletonClass α]
-    [TopologicalSpace β] [OpensMeasurableSpace β] [OrderClosedTopology β] (x : X) (a b : α)
+omit [MeasurableSpace α] [MeasurableEq β] [MeasurableSup₂ β] in
+/-- The `argmax` of independent perturbations `θ b ∼ μ b` has the largest perturbation: for every
+arm `b` and every level `c`, `P(argmax θ = a) ≤ P(c ≤ θ a) + P(θ b < c)`. -/
+lemma measure_pi_argmax_eq_le_add [TopologicalSpace β] [OpensMeasurableSpace β]
+    [OrderClosedTopology β] (μ : α → Measure β) [∀ a, IsProbabilityMeasure (μ a)] (a b : α)
     (c : β) :
-    perturbedLeaderKernel F hF hP x {a} ≤ F x a (Set.Ici c) + F x b (Set.Iio c) := by
-  have := hP x
-  rw [perturbedLeaderKernel_apply_singleton,
-    ← (measurePreserving_eval (μ := F x) a).measure_preimage measurableSet_Ici.nullMeasurableSet,
-    ← (measurePreserving_eval (μ := F x) b).measure_preimage measurableSet_Iio.nullMeasurableSet]
+    Measure.pi μ {θ | argmax θ = a} ≤ μ a (Set.Ici c) + μ b (Set.Iio c) := by
+  rw [← (measurePreserving_eval μ a).measure_preimage measurableSet_Ici.nullMeasurableSet,
+    ← (measurePreserving_eval μ b).measure_preimage measurableSet_Iio.nullMeasurableSet]
   have hsub : {θ : α → β | argmax θ = a} ⊆
       Function.eval a ⁻¹' Set.Ici c ∪ Function.eval b ⁻¹' Set.Iio c := by
     intro θ (hθ : argmax θ = a)
@@ -117,20 +116,20 @@ lemma perturbedLeaderKernel_apply_singleton_le [MeasurableSingletonClass α]
   exact (measure_mono hsub).trans (measure_union_le _ _)
 
 open Finset in
+omit [MeasurableSpace α] [MeasurableEq β] [MeasurableSup₂ β] in
 /-- The key inequality of the analysis of follow-the-perturbed-leader [LS, (36.5)]: for arms
-`i ≠ j` and a level `c`, with `G = P(θ j > c)` the probability that the perturbation of `j` exceeds
-`c`, `G * P(argmax θ = i, θ i ≤ c) ≤ (1 - G) * P(j is played)`.
-
-Indeed, `i` is the `argmax` with `θ i ≤ c` only if `θ i ≤ c` is the largest perturbation among the
-arms other than `j` and `θ j ≤ c`, while `j` is the `argmax` as soon as that same event holds with
-`θ j > c` instead; the perturbation of `j` is independent of the others. -/
-lemma mul_measure_pi_argmax_eq_and_le_le_mul [MeasurableSingletonClass α] [TopologicalSpace β]
-    [OrderClosedTopology β] [SecondCountableTopology β] [OpensMeasurableSpace β] (x : X)
-    {i j : α} (hij : i ≠ j) (c : β) :
-    F x j (Set.Ioi c) * Measure.pi (F x) {θ | argmax θ = i ∧ θ i ≤ c} ≤
-      F x j (Set.Iic c) * perturbedLeaderKernel F hF hP x {j} := by
+`i ≠ j`, a level `c` and independent perturbations `θ b ∼ μ b`, with `G = P(θ j > c)` the
+probability that the perturbation of `j` exceeds `c`,
+`G * P(argmax θ = i, θ i ≤ c) ≤ (1 - G) * P(argmax θ = j)`. -/
+lemma mul_measure_pi_argmax_eq_and_le_le_mul [TopologicalSpace β] [OrderClosedTopology β]
+    [SecondCountableTopology β] [OpensMeasurableSpace β] (μ : α → Measure β)
+    [∀ a, IsProbabilityMeasure (μ a)] {i j : α} (hij : i ≠ j) (c : β) :
+    μ j (Set.Ioi c) * Measure.pi μ {θ | argmax θ = i ∧ θ i ≤ c} ≤
+      μ j (Set.Iic c) * Measure.pi μ {θ | argmax θ = j} := by
   classical
-  have := hP x
+  -- `i` is the `argmax` with `θ i ≤ c` only if `θ i ≤ c` is the largest perturbation among the
+  -- arms other than `j` and `θ j ≤ c`, while `j` is the `argmax` as soon as that same event holds
+  -- with `θ j > c` instead; the perturbation of `j` is independent of the others.
   -- the perturbations of the arms other than `j`, and the event that `θ i ≤ c` is the largest
   let R : (α → β) → (↥(univ.erase j) → β) := fun θ k ↦ θ k
   have hi : i ∈ univ.erase j := mem_erase.2 ⟨hij, mem_univ i⟩
@@ -141,17 +140,17 @@ lemma mul_measure_pi_argmax_eq_and_le_le_mul [MeasurableSingletonClass α] [Topo
       (MeasurableSet.iInter fun k ↦ measurableSet_le (measurable_pi_apply k)
         (measurable_pi_apply _))
   -- the perturbation of `j` is independent of the others
-  have hind : IndepFun (fun θ : α → β ↦ θ j) R (Measure.pi (F x)) := by
-    have h0 := (iIndepFun_pi (μ := F x) (X := fun _ y ↦ y) fun _ ↦ aemeasurable_id).indepFun_finset
+  have hind : IndepFun (fun θ : α → β ↦ θ j) R (Measure.pi μ) := by
+    have h0 := (iIndepFun_pi (μ := μ) (X := fun _ y ↦ y) fun _ ↦ aemeasurable_id).indepFun_finset
       {j} (univ.erase j) (by simp) fun b ↦ measurable_pi_apply b
     have hφ : Measurable fun g : ↥({j} : Finset α) → β ↦ g ⟨j, mem_singleton_self j⟩ :=
       measurable_pi_apply _
     exact h0.comp hφ measurable_id
   have hmul {S : Set β} (hS : MeasurableSet S) :
-      Measure.pi (F x) ((fun θ ↦ θ j) ⁻¹' S ∩ R ⁻¹' B) =
-        F x j S * Measure.pi (F x) (R ⁻¹' B) := by
+      Measure.pi μ ((fun θ ↦ θ j) ⁻¹' S ∩ R ⁻¹' B) =
+        μ j S * Measure.pi μ (R ⁻¹' B) := by
     rw [hind.measure_inter_preimage_eq_mul _ _ hS hB,
-      ← (measurePreserving_eval (F x) j).measure_preimage hS.nullMeasurableSet]
+      ← (measurePreserving_eval μ j).measure_preimage hS.nullMeasurableSet]
   have h_sub_i : {θ : α → β | argmax θ = i ∧ θ i ≤ c} ⊆
       (fun θ ↦ θ j) ⁻¹' Set.Iic c ∩ R ⁻¹' B := by
     rintro θ ⟨hθ, hc⟩
@@ -164,14 +163,13 @@ lemma mul_measure_pi_argmax_eq_and_le_le_mul [MeasurableSingletonClass α] [Topo
       ((hmax ⟨b, mem_erase.2 ⟨hb, mem_univ b⟩⟩).trans hc).trans_lt hj
     by_contra hne
     exact (hlt _ hne).not_ge (isMaxOn_argmax θ (Set.mem_univ j))
-  calc F x j (Set.Ioi c) * Measure.pi (F x) {θ | argmax θ = i ∧ θ i ≤ c}
-      ≤ F x j (Set.Ioi c) * (F x j (Set.Iic c) * Measure.pi (F x) (R ⁻¹' B)) := by
+  calc μ j (Set.Ioi c) * Measure.pi μ {θ | argmax θ = i ∧ θ i ≤ c}
+      ≤ μ j (Set.Ioi c) * (μ j (Set.Iic c) * Measure.pi μ (R ⁻¹' B)) := by
         rw [← hmul measurableSet_Iic]
         gcongr
-    _ = F x j (Set.Iic c) * Measure.pi (F x) ((fun θ ↦ θ j) ⁻¹' Set.Ioi c ∩ R ⁻¹' B) := by
+    _ = μ j (Set.Iic c) * Measure.pi μ ((fun θ ↦ θ j) ⁻¹' Set.Ioi c ∩ R ⁻¹' B) := by
         rw [hmul measurableSet_Ioi, mul_left_comm]
-    _ ≤ F x j (Set.Iic c) * perturbedLeaderKernel F hF hP x {j} := by
-        rw [perturbedLeaderKernel_apply_singleton]
+    _ ≤ μ j (Set.Iic c) * Measure.pi μ {θ | argmax θ = j} := by
         gcongr
 
 variable {𝓞 𝓨 : Type*} [MeasurableSpace 𝓞] [MeasurableSpace 𝓨]
@@ -235,9 +233,9 @@ lemma measure_preimage_inter_action_eq_zero [TopologicalSpace β] [OpensMeasurab
     setLIntegral_congr_fun (hX hs) (g := fun _ ↦ 0) fun ω hω ↦ ?_]
   · simp
   obtain ⟨b, c, hac, hbc⟩ := hab _ hω
-  have hle := perturbedLeaderKernel_apply_singleton_le (hF := hF n) (hP := hP n)
-    (history O A Y n ω, O n ω) a b c
-  rwa [perturbedLeaderKernel_apply_singleton, hac, hbc, add_zero, nonpos_iff_eq_zero] at hle
+  have := hP n (history O A Y n ω, O n ω)
+  have hle := measure_pi_argmax_eq_le_add (F n (history O A Y n ω, O n ω)) a b c
+  rwa [hac, hbc, add_zero, nonpos_iff_eq_zero] at hle
 
 end PerturbedLeader
 
