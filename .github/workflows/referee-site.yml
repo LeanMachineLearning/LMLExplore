@@ -1,0 +1,179 @@
+name: Referee site
+
+# The referee site of LMLExplore, served by GitHub Pages at https://leanmachinelearning.org/LMLExplore/,
+# built with the LeanTrustBuilders suite as LML builds its own:
+#   check    skips a scheduled run when main has not moved since the last build;
+#   extract  builds main and extracts its dataset (S2) with trust-extract;
+#   site     publishes the dataset as the release dataset-<commit12>, records the build in the
+#            provenance ledger (the branch trust-ledger), and builds the site with referee-site,
+#            against the previous recorded build and with the evidence store
+#            LeanMachineLearning/LMLExplore-evidence and the stores it imports (LML's, Mathlib
+#            probability's);
+#   deploy   deploys the site to GitHub Pages.
+#
+# The split is the security boundary, as in ci.yml: Lean runs code at elaboration time, so the job
+# that builds and imports LMLExplore holds only a read token, and the jobs that write (releases, the
+# ledger branch, Pages) run no Lean, only Python tools that read the dataset and the sources as data.
+
+# Twice a day (05:17 and 17:17 UTC) rather than on every push: main moves many times a day, and the
+# site needs to be recent, not one build per commit. A manual run always builds.
+on:
+  schedule:
+    - cron: '17 5,17 * * *'
+  workflow_dispatch:
+
+permissions: {}
+
+# One build at a time, so that ledger pushes never race when a manual run meets a scheduled one.
+concurrency:
+  group: referee-site
+  cancel-in-progress: false
+
+jobs:
+  check:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    outputs:
+      build: ${{ steps.check.outputs.build }}
+    steps:
+      # The dataset release of main's commit exists when an earlier run built it.
+      - id: check
+        env:
+          GH_TOKEN: ${{ github.token }}
+          EVENT: ${{ github.event_name }}
+        run: |
+          if [ "$EVENT" = schedule ] && gh release view "dataset-${GITHUB_SHA:0:12}" -R "$GITHUB_REPOSITORY" > /dev/null 2>&1; then
+            echo "::notice::main is still at ${GITHUB_SHA:0:12}, which is built already"
+            echo "build=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "build=true" >> "$GITHUB_OUTPUT"
+          fi
+
+  extract:
+    needs: check
+    if: needs.check.outputs.build == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    permissions:
+      contents: read
+    outputs:
+      version: ${{ steps.extract.outputs.version }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          # This job builds and imports every LMLExplore module: no credentials in .git/config.
+          persist-credentials: false
+
+      # The same pinned elan as ci.yml.
+      - name: Install elan (pinned + checksum) and the toolchain
+        env:
+          ELAN_SHA256: df0b2b3a439961ffcbb3985214365ffe40f49bc871df04dff268c7d8e21ca8b2
+          ELAN_VER: v4.2.3
+        run: |
+          curl -sSL -H "Accept: application/octet-stream" \
+            "https://github.com/leanprover/elan/releases/download/${ELAN_VER}/elan-x86_64-unknown-linux-gnu.tar.gz" -o elan.tar.gz
+          echo "${ELAN_SHA256}  elan.tar.gz" | sha256sum -c -
+          tar -xzf elan.tar.gz elan-init
+          ./elan-init -y --default-toolchain none
+          rm -f elan.tar.gz elan-init
+          echo "$HOME/.elan/bin" >> "$GITHUB_PATH"
+          export PATH="$HOME/.elan/bin:$PATH"
+          elan toolchain install "$(cat lean-toolchain)"
+          lean --version
+          lake --version
+
+      # Mathlib's and Tau Ceti's prebuilt files, then LMLExplore. main is already checked by ci.yml.
+      - name: Build
+        run: bash scripts/build.sh
+
+      # The newest trust-extract release for lean-toolchain. The upstream closure brings in the LML,
+      # Tau Ceti and Mathlib declarations LMLExplore rests on: the site shows them, and the reviews
+      # of them in the imported stores. The kernel checks that each declaration's dependency
+      # closure is all it needs, proofs included.
+      - name: Extract the dataset
+        id: extract
+        uses: LeanTrustBuilders/extractor/extract@23d25769a793e0af52c798b43c9369c8fd57fa3e
+        with:
+          root: LMLExplore
+          repo: ${{ github.repository }}
+          args: --upstream-closure term
+          check: meaning term
+
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: dataset
+          path: ${{ steps.extract.outputs.dataset }}
+          if-no-files-found: error
+          retention-days: 1
+
+  site:
+    needs: extract
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: write   # the dataset's release, and the ledger's branch
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          # The ledger dates builds with git, and referee-site reads the sources at this commit.
+          fetch-depth: 0
+
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with:
+          name: dataset
+          path: ${{ runner.temp }}/dataset
+
+      # What the extractor's action does when asked to publish, with the tag on this commit rather
+      # than on whatever main is by now. Later builds take it as their baseline, and the evidence
+      # store's intake keys records against it.
+      - name: Publish the dataset as the release dataset-<commit12>
+        env:
+          GH_TOKEN: ${{ github.token }}
+          DATASET: ${{ runner.temp }}/dataset
+          VERSION: ${{ needs.extract.outputs.version }}
+        run: |
+          set -euo pipefail
+          tag="dataset-${GITHUB_SHA:0:12}"
+          tar -czf "$RUNNER_TEMP/dataset.tar.gz" -C "$DATASET" .
+          read -r spec commit library < <(python3 -c "import json,sys; m=json.load(open(sys.argv[1])); l=m['library']; print(m['spec'], l.get('commit',''), l.get('repo') or l.get('root',''))" "$DATASET/meta.json")
+          [ "$commit" = "$GITHUB_SHA" ] || { echo "::error::the dataset is of $commit, not $GITHUB_SHA"; exit 1; }
+          notes="The dataset (S2, $spec) of $library at $commit, by $VERSION (LeanTrustBuilders/extractor)."
+          if gh release view "$tag" > /dev/null 2>&1; then
+            gh release upload "$tag" "$RUNNER_TEMP/dataset.tar.gz" --clobber
+            gh release edit "$tag" --notes "$notes"
+          else
+            gh release create "$tag" "$RUNNER_TEMP/dataset.tar.gz" --target "$GITHUB_SHA" --latest=false \
+              --title "LMLExplore $GITHUB_SHA" --notes "$notes"
+          fi
+
+      # Pinned to v0.12.0, which pins the evidence-core and evidence-store releases it was tested with.
+      - name: Build the referee site
+        id: referee
+        uses: LeanTrustBuilders/referee-site@3b745e5b418ceff84f30f2f9a64af0c4938effa7 # v0.12.0
+        with:
+          root: LMLExplore
+          dataset: ${{ runner.temp }}/dataset
+          # An editorial claim: the publisher vouches for Mathlib and everything under it. LML and
+          # Tau Ceti are not under Mathlib, so the declarations of theirs that LMLExplore rests on
+          # count as unaudited, unless reviews in the imported stores say otherwise.
+          trust: mathlib
+          evidence: LeanMachineLearning/LMLExplore-evidence
+
+      - uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5.0.0
+        with:
+          path: ${{ steps.referee.outputs.site }}
+
+  deploy:
+    needs: site
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@368f82528645a54fb793d4d04e342629a3f51346 # v5.0.1
