@@ -25,7 +25,8 @@ let `γ ≥ 0` be a discount factor. For a value function `v : 𝓢 → ℝ`, th
 * the optimality operator `M.bellman γ`, which maximizes it over the actions:
   `M.bellman γ v s = ⨆ a, M.lookahead γ v (s, a)`;
 * the greedy policy `M.greedy γ v`, which picks at every state an action attaining that maximum
-  (for finitely many actions).
+  (for finitely many actions), and the predicate `M.IsApproxGreedy γ ε v d` that the deterministic
+  policy `d` comes within `ε` of the maximum at every state.
 
 These operators are monotone and adding a constant `c` to their argument adds `γ * c` to their
 value. As in Blackwell's sufficient conditions, they are therefore `γ`-contractions for the sup
@@ -41,7 +42,10 @@ is bounded and measurable, the operators satisfy `LMLExplore.IsBlackwell` for th
 are `γ`-Lipschitz for the sup norm of `𝓢 → ℝ`.
 
 The optimality operator is defined for every action space, as a supremum in `ℝ`; it is meaningful
-when the lookahead is bounded above in the action, for instance for finitely many actions.
+when the lookahead is bounded above in the action. The statements about it assume that bound,
+together with integrability over the actions where they average the lookahead. Finitely many
+actions give both, and so do bounded rewards and a bounded measurable value function
+(`Learning.MDP.bddAbove_range_lookahead`, `Learning.MDP.integrable_lookahead_prodMk_left`).
 
 ## Main definitions
 
@@ -49,7 +53,8 @@ when the lookahead is bounded above in the action, for instance for finitely man
 * `Learning.MDP.bellmanEval M γ π`: the evaluation operator of the stationary policy `π`.
 * `Learning.MDP.bellman M γ`: the Bellman optimality operator.
 * `Learning.MDP.greedy M γ v`: the greedy deterministic policy for `v`.
-* `Learning.MDP.IsGreedy M γ v d`: the deterministic policy `d` is greedy for `v`.
+* `Learning.MDP.IsApproxGreedy M γ ε v d`: the deterministic policy `d` is `ε`-greedy for `v`;
+  greedy for `ε = 0`.
 
 ## Main statements
 
@@ -71,9 +76,10 @@ when the lookahead is bounded above in the action, for instance for finitely man
 * `Learning.MDP.bellmanEval_le_bellman`: randomizing does not increase the supremum
   [P, Proposition 6.2.1]; `Learning.MDP.bellmanEval_greedy`: the greedy policy attains it, so the
   optimality operator is the maximum of the evaluation operators of measurable deterministic
-  stationary policies; `Learning.MDP.isGreedy_iff_bellmanEval_eq`:
-  a measurable deterministic policy is greedy for `v` exactly when its evaluation operator
-  attains the optimality operator at `v`.
+  stationary policies; `Learning.MDP.isApproxGreedy_iff_bellman_sub_le_bellmanEval`,
+  `Learning.MDP.isApproxGreedy_zero_iff_bellmanEval_eq`: a measurable deterministic policy is
+  `ε`-greedy for `v` exactly when its evaluation operator at `v` is within `ε` of the optimality
+  operator, and greedy exactly when it attains it.
 * `Learning.MDP.isBlackwell_bellman`, `Learning.MDP.contractingWith_bellman`,
   `Learning.MDP.isBlackwell_bellmanEval`, `Learning.MDP.contractingWith_bellmanEval`: on a finite
   state space, the operators satisfy Blackwell's conditions and are `γ`-contractions of `𝓢 → ℝ`
@@ -170,27 +176,35 @@ variable (M γ) in
 lemma bellman_def (v : 𝓢 → ℝ) (s : 𝓢) : M.bellman γ v s = ⨆ a, M.lookahead γ v (s, a) :=
   (rfl)
 
-lemma lookahead_le_bellman [Finite 𝓐] (v : 𝓢 → ℝ) (s : 𝓢) (a : 𝓐) :
-    M.lookahead γ v (s, a) ≤ M.bellman γ v s := by
+/-- The lookahead at every action is below the optimality operator, when the lookahead is bounded
+above in the action: for instance for finitely many actions (`Finite.bddAbove_range`), or for
+bounded rewards and a bounded function (`Learning.MDP.bddAbove_range_lookahead`). -/
+lemma lookahead_le_bellman {s : 𝓢} (hv : BddAbove (range fun a ↦ M.lookahead γ v (s, a)))
+    (a : 𝓐) : M.lookahead γ v (s, a) ≤ M.bellman γ v s := by
   rw [bellman_def]
-  exact le_ciSup (Finite.bddAbove_range fun a ↦ M.lookahead γ v (s, a)) a
+  exact le_ciSup hv a
 
-lemma bellman_le_iff [Finite 𝓐] [Nonempty 𝓐] {s : 𝓢} {c : ℝ} :
+/-- The optimality operator at `s` is at most `c` if and only if the lookahead at every action is,
+when the lookahead is bounded above in the action. -/
+lemma bellman_le_iff [Nonempty 𝓐] {s : 𝓢} {c : ℝ}
+    (hv : BddAbove (range fun a ↦ M.lookahead γ v (s, a))) :
     M.bellman γ v s ≤ c ↔ ∀ a, M.lookahead γ v (s, a) ≤ c := by
   rw [bellman_def]
-  exact ciSup_le_iff (Finite.bddAbove_range fun a ↦ M.lookahead γ v (s, a))
+  exact ciSup_le_iff hv
 
 /-- **Support inequality** [P, Proposition 6.4.3]: if the action `a` is greedy for `v` at the
 state `s`, then `T u s - u s ≥ T v s - v s + (γ P_a (u - v) s - (u s - v s))`, where `T` is the
 Bellman optimality operator and `P_a (u - v) s = ∫ (u - v) dP (s, a)`. In other words,
 `u ↦ T u - u` lies above the affine map `u ↦ T v - v + (γ P_d - I) (u - v)` for a policy `d` greedy
-for `v`, which is tangent to it at `v`. -/
-theorem bellman_sub_add_le_bellman_sub [Finite 𝓐] {u : 𝓢 → ℝ} {s : 𝓢} {a : 𝓐}
+for `v`, which is tangent to it at `v`. The lookahead of `u` is assumed bounded above in the action
+at `s`, as it is for finitely many actions. -/
+theorem bellman_sub_add_le_bellman_sub {u : 𝓢 → ℝ} {s : 𝓢} {a : 𝓐}
     (hu : Integrable u (M.P (s, a))) (hv : Integrable v (M.P (s, a)))
+    (hu_bdd : BddAbove (range fun a ↦ M.lookahead γ u (s, a)))
     (ha : M.lookahead γ v (s, a) = M.bellman γ v s) :
     M.bellman γ v s - v s + ((γ : ℝ) * ∫ s', (u s' - v s') ∂(M.P (s, a)) - (u s - v s)) ≤
       M.bellman γ u s - u s := by
-  have hle := lookahead_le_bellman (M := M) (γ := γ) u s a
+  have hle := lookahead_le_bellman hu_bdd a
   rw [lookahead_def] at hle ha
   rw [integral_sub hu hv, ← ha]
   linarith
@@ -216,14 +230,16 @@ theorem bellman_add_const [Nonempty 𝓐] (hv : ∀ p, Integrable v (M.P p))
   simp only [bellman_def, Pi.add_apply, lookahead_add_const (hv _)]
   exact ((OrderIso.addRight ((γ : ℝ) * c)).map_ciSup (hv_bdd s)).symm
 
-/-- **A starting point for modified policy iteration** [P, (6.5.8)]: with finitely many actions and
-`γ < 1`, if `c` bounds the mean rewards from below, then the constant function `c / (1 - γ)` is
-below its image by the optimality operator. -/
-theorem const_le_bellman_const [Finite 𝓐] [Nonempty 𝓐] {c : ℝ} (hγ : γ < 1)
-    (hc : ∀ p, c ≤ meanReward M.R p) :
+/-- **A starting point for modified policy iteration** [P, (6.5.8)]: for `γ < 1`, if `c` bounds the
+mean rewards from below, then the constant function `c / (1 - γ)` is below its image by the
+optimality operator. The lookahead of that constant is assumed bounded above in the action, as it
+is for finitely many actions or bounded rewards. -/
+theorem const_le_bellman_const [Nonempty 𝓐] {c : ℝ} (hγ : γ < 1)
+    (hc : ∀ p, c ≤ meanReward M.R p)
+    (hbdd : ∀ s, BddAbove (range fun a ↦ M.lookahead γ (fun _ ↦ c / (1 - γ)) (s, a))) :
     (fun _ ↦ c / (1 - γ)) ≤ M.bellman γ (fun _ : 𝓢 ↦ c / (1 - γ)) := fun s ↦ by
   obtain ⟨a⟩ := ‹Nonempty 𝓐›
-  refine le_trans ?_ (lookahead_le_bellman _ s a)
+  refine le_trans ?_ (lookahead_le_bellman (hbdd s) a)
   -- `c / (1 - γ) = c + γ * (c / (1 - γ))`, and `c ≤ r (s, a)`
   have h1γ : (1 - γ : ℝ) ≠ 0 := (sub_pos.2 (NNReal.coe_lt_one.2 hγ)).ne'
   have hfix : c / (1 - γ) = c + γ * (c / (1 - γ)) := by
@@ -290,25 +306,41 @@ lemma greedy_def [Fintype 𝓐] [Nonempty 𝓐] (v : 𝓢 → ℝ) (s : 𝓢) :
 @[simp]
 theorem lookahead_greedy [Fintype 𝓐] [Nonempty 𝓐] (v : 𝓢 → ℝ) (s : 𝓢) :
     M.lookahead γ v (s, M.greedy γ v s) = M.bellman γ v s :=
-  le_antisymm (lookahead_le_bellman v s _)
-    (bellman_le_iff.2 fun a ↦ by
+  le_antisymm (lookahead_le_bellman (Finite.bddAbove_range _) _)
+    ((bellman_le_iff (Finite.bddAbove_range _)).2 fun a ↦ by
       rw [greedy_def]; exact isMaxOn_argmax (fun a ↦ M.lookahead γ v (s, a)) (Set.mem_univ a))
 
 variable (M γ) in
-/-- The deterministic policy `d` is *greedy* for `v`: at every state `s`, the action `d s` attains
-the maximum `M.bellman γ v s` of the lookahead `r (s, a) + γ * ∫ v dP (s, a)`. -/
-def IsGreedy (v : 𝓢 → ℝ) (d : 𝓢 → 𝓐) : Prop :=
-  ∀ s, M.lookahead γ v (s, d s) = M.bellman γ v s
+/-- The deterministic policy `d` is *`ε`-greedy* for `v`: at every state `s`, the lookahead
+`r (s, d s) + γ * ∫ v dP (s, d s)` at the action `d s` is at least `M.bellman γ v s - ε`. A policy
+is *greedy* for `v` when it is `0`-greedy: when the lookahead is bounded above in the action, the
+action `d s` then attains the supremum `M.bellman γ v s`
+(`Learning.MDP.isApproxGreedy_zero_iff`). -/
+def IsApproxGreedy (ε : ℝ) (v : 𝓢 → ℝ) (d : 𝓢 → 𝓐) : Prop :=
+  ∀ s, M.bellman γ v s - ε ≤ M.lookahead γ v (s, d s)
 
 variable (M γ) in
-lemma isGreedy_def (v : 𝓢 → ℝ) (d : 𝓢 → 𝓐) :
-    M.IsGreedy γ v d ↔ ∀ s, M.lookahead γ v (s, d s) = M.bellman γ v s :=
+lemma isApproxGreedy_def (ε : ℝ) (v : 𝓢 → ℝ) (d : 𝓢 → 𝓐) :
+    M.IsApproxGreedy γ ε v d ↔ ∀ s, M.bellman γ v s - ε ≤ M.lookahead γ v (s, d s) :=
   (Iff.rfl)
 
+/-- An `ε`-greedy policy is `ε'`-greedy for every `ε' ≥ ε`. -/
+lemma IsApproxGreedy.mono {ε ε' : ℝ} {d : 𝓢 → 𝓐} (h : M.IsApproxGreedy γ ε v d) (hε : ε ≤ ε') :
+    M.IsApproxGreedy γ ε' v d :=
+  fun s ↦ (sub_le_sub_left hε _).trans (h s)
+
+/-- When the lookahead is bounded above in the action, a deterministic policy is greedy for `v`
+if and only if its actions attain the optimality operator at `v`. -/
+theorem isApproxGreedy_zero_iff {d : 𝓢 → 𝓐}
+    (hv : ∀ s, BddAbove (range fun a ↦ M.lookahead γ v (s, a))) :
+    M.IsApproxGreedy γ 0 v d ↔ ∀ s, M.lookahead γ v (s, d s) = M.bellman γ v s := by
+  simp only [isApproxGreedy_def, sub_zero]
+  exact forall_congr' fun s ↦ ⟨fun h ↦ le_antisymm (lookahead_le_bellman (hv s) _) h, ge_of_eq⟩
+
 /-- The greedy policy `M.greedy γ v` is greedy for `v`. -/
-theorem isGreedy_greedy [Fintype 𝓐] [Nonempty 𝓐] (v : 𝓢 → ℝ) :
-    M.IsGreedy γ v (M.greedy γ v) :=
-  (isGreedy_def M γ v _).2 (lookahead_greedy v)
+theorem isApproxGreedy_greedy [Fintype 𝓐] [Nonempty 𝓐] (v : 𝓢 → ℝ) :
+    M.IsApproxGreedy γ 0 v (M.greedy γ v) :=
+  fun s ↦ by rw [lookahead_greedy, sub_zero]
 
 /-- The greedy policy of a measurable function is measurable. -/
 theorem measurable_greedy [Fintype 𝓐] [Nonempty 𝓐] (hv : Measurable v) :
@@ -340,11 +372,22 @@ theorem bellmanEval_deterministic (hv : Measurable v) {d : 𝓢 → 𝓐} (hd : 
   exact Kernel.integral_deterministic' hd
     ((measurable_lookahead hv).comp measurable_prodMk_left).stronglyMeasurable
 
-/-- A measurable deterministic policy `d` is greedy for a measurable `v` if and only if its
-evaluation operator agrees with the optimality operator at `v`. -/
-theorem isGreedy_iff_bellmanEval_eq (hv : Measurable v) {d : 𝓢 → 𝓐} (hd : Measurable d) :
-    M.IsGreedy γ v d ↔ M.bellmanEval γ (Kernel.deterministic d hd) v = M.bellman γ v := by
-  simp only [isGreedy_def, funext_iff, bellmanEval_deterministic hv hd]
+/-- A measurable deterministic policy `d` is `ε`-greedy for a measurable `v` if and only if its
+evaluation operator at `v` is at least the optimality operator minus `ε`. -/
+theorem isApproxGreedy_iff_bellman_sub_le_bellmanEval (hv : Measurable v) {ε : ℝ} {d : 𝓢 → 𝓐}
+    (hd : Measurable d) :
+    M.IsApproxGreedy γ ε v d ↔
+      M.bellman γ v - (fun _ ↦ ε) ≤ M.bellmanEval γ (Kernel.deterministic d hd) v := by
+  simp only [isApproxGreedy_def, Pi.le_def, Pi.sub_apply, bellmanEval_deterministic hv hd]
+
+/-- When the lookahead is bounded above in the action, a measurable deterministic policy `d` is
+greedy for a measurable `v` if and only if its evaluation operator agrees with the optimality
+operator at `v`. -/
+theorem isApproxGreedy_zero_iff_bellmanEval_eq (hv : Measurable v) {d : 𝓢 → 𝓐}
+    (hd : Measurable d) (hv_bdd : ∀ s, BddAbove (range fun a ↦ M.lookahead γ v (s, a))) :
+    M.IsApproxGreedy γ 0 v d ↔
+      M.bellmanEval γ (Kernel.deterministic d hd) v = M.bellman γ v := by
+  simp only [isApproxGreedy_zero_iff hv_bdd, funext_iff, bellmanEval_deterministic hv hd]
 
 /-- With bounded rewards, the evaluation operator is monotone on bounded measurable functions. -/
 theorem bellmanEval_mono [IsFiniteKernel π] (hR : ∀ p, ∀ᵐ x ∂(M.R p), |x| ≤ C)
@@ -413,13 +456,19 @@ theorem exists_abs_bellmanEval_iterate_le [IsMarkovKernel π] (hR : ∀ p, ∀�
 /-! ### The optimality operator as the maximum of the evaluation operators -/
 
 /-- **Randomizing does not increase the supremum** [P, Proposition 6.2.1]: the evaluation operator
-of every stationary policy is below the optimality operator. -/
-theorem bellmanEval_le_bellman [Finite 𝓐] [MeasurableSingletonClass 𝓐] [IsMarkovKernel π]
-    (v : 𝓢 → ℝ) : M.bellmanEval γ π v ≤ M.bellman γ v := fun s ↦ by
+of every stationary policy is below the optimality operator, when the lookahead is integrable for
+the policy and bounded above in the action. Both hold for finitely many actions
+(`Integrable.of_finite`, `Finite.bddAbove_range`), and for bounded rewards and a bounded measurable
+function (`Learning.MDP.integrable_lookahead_prodMk_left`,
+`Learning.MDP.bddAbove_range_lookahead`). -/
+theorem bellmanEval_le_bellman [IsMarkovKernel π]
+    (hv : ∀ s, Integrable (fun a ↦ M.lookahead γ v (s, a)) (π s))
+    (hv_bdd : ∀ s, BddAbove (range fun a ↦ M.lookahead γ v (s, a))) :
+    M.bellmanEval γ π v ≤ M.bellman γ v := fun s ↦ by
   rw [bellmanEval_def]
   calc ∫ a, M.lookahead γ v (s, a) ∂(π s)
       ≤ ∫ _, M.bellman γ v s ∂(π s) :=
-        integral_mono .of_finite (integrable_const _) fun a ↦ lookahead_le_bellman v s a
+        integral_mono (hv s) (integrable_const _) fun a ↦ lookahead_le_bellman (hv_bdd s) a
     _ = M.bellman γ v s := by simp
 
 /-- The greedy policy for `v` attains the optimality operator at `v`. -/

@@ -203,14 +203,14 @@ theorem optValue_le_of_lookahead_le [Nonempty 𝓐] (hγ : γ < 1)
     (runValue_le_integral_of_lookahead_le hγ hR hv hvB hle alg).trans_eq
       (integral_dirac' _ s hv.stronglyMeasurable)
 
-/-- [P, Theorem 6.2.2 (a)]: with finitely many actions, bounded rewards and `γ < 1`, a bounded
-measurable `v` with `T v ≤ v` dominates the optimal value, where `T` is the Bellman optimality
-operator. -/
-theorem optValue_le_of_bellman_le [Finite 𝓐] [Nonempty 𝓐] (hγ : γ < 1)
+/-- [P, Theorem 6.2.2 (a)]: with bounded rewards and `γ < 1`, a bounded measurable `v` with
+`T v ≤ v` dominates the optimal value, where `T` is the Bellman optimality operator. -/
+theorem optValue_le_of_bellman_le [Nonempty 𝓐] (hγ : γ < 1)
     (hR : ∀ p, ∀ᵐ x ∂(M.R p), |x| ≤ C) (hv : Measurable v) (hvB : ∀ s, |v s| ≤ B)
     (hle : M.bellman γ v ≤ v) :
     M.optValue γ ≤ v :=
-  optValue_le_of_lookahead_le hγ hR hv hvB fun p ↦ bellman_le_iff.1 (hle p.1) p.2
+  optValue_le_of_lookahead_le hγ hR hv hvB fun p ↦
+    (bellman_le_iff (bddAbove_range_lookahead hR hvB p.1)).1 (hle p.1) p.2
 
 end Supersolution
 

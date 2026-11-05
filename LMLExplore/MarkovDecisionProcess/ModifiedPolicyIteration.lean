@@ -84,7 +84,7 @@ structure IsModifiedPolicyIteration (m : ℕ → ℕ) (d : ℕ → 𝓢 → 𝓐
   /-- The policies are measurable. -/
   measurable_policy (k : ℕ) : Measurable (d k)
   /-- The policy `d k` is greedy for `v k`. -/
-  isGreedy (k : ℕ) : M.IsGreedy γ (v k) (d k)
+  isGreedy (k : ℕ) : M.IsApproxGreedy γ 0 (v k) (d k)
   /-- The value `v (k + 1)` is obtained from `v k` by `m k + 1` steps of the evaluation operator
   of `d k`. -/
   eq_iterate (k : ℕ) :
@@ -115,11 +115,14 @@ theorem exists_abs_le (hR : ∀ p, ∀ᵐ x ∂(M.R p), |x| ≤ C) (hvB : ∀ s,
     rw [h.eq_iterate k]
     exact exists_abs_bellmanEval_iterate_le hR hB' _
 
-/-- The policy `d k` of modified policy iteration attains the optimality operator at `v k`. -/
-theorem bellmanEval_eq (hv : Measurable (v 0)) (k : ℕ) :
+/-- With bounded rewards and a bounded measurable `v 0`, the policy `d k` of modified policy
+iteration attains the optimality operator at `v k`. -/
+theorem bellmanEval_eq (hR : ∀ p, ∀ᵐ x ∂(M.R p), |x| ≤ C) (hv : Measurable (v 0))
+    (hvB : ∀ s, |v 0 s| ≤ B) (k : ℕ) :
     M.bellmanEval γ (Kernel.deterministic (d k) (h.measurable_policy k)) (v k) =
       M.bellman γ (v k) :=
-  (isGreedy_iff_bellmanEval_eq (h.measurable hv k) _).1 (h.isGreedy k)
+  (isApproxGreedy_zero_iff_bellmanEval_eq (h.measurable hv k) _
+    (bddAbove_range_lookahead hR (h.exists_abs_le hR hvB k).choose_spec)).1 (h.isGreedy k)
 
 /-- **The expansion of modified policy iteration** [P, Proposition 6.5.1]: with bounded rewards
 and a bounded measurable `v 0`, each step of modified policy iteration is
@@ -132,16 +135,18 @@ theorem eq_add_sum (hR : ∀ p, ∀ᵐ x ∂(M.R p), |x| ≤ C) (hv : Measurable
         ∂((M.stateKernel (Kernel.deterministic (d k) (h.measurable_policy k)) ^ j) s) := by
   obtain ⟨B', hB'⟩ := h.exists_abs_le hR hvB k
   rw [h.eq_iterate k, bellmanEval_iterate_eq_add_sum hR (h.measurable hv k) hB',
-    h.bellmanEval_eq hv k]
+    h.bellmanEval_eq hR hv hvB k]
 
-/-- **Value iteration is modified policy iteration of order `0`**: if `m k = 0` for all `k`, the
-values of modified policy iteration are the iterates `T^[k] (v 0)` of the optimality operator. -/
-theorem eq_bellman_iterate (hm : ∀ k, m k = 0) (hv : Measurable (v 0)) (k : ℕ) :
+/-- **Value iteration is modified policy iteration of order `0`**: with bounded rewards and a
+bounded measurable `v 0`, if `m k = 0` for all `k`, the values of modified policy iteration are the
+iterates `T^[k] (v 0)` of the optimality operator. -/
+theorem eq_bellman_iterate (hm : ∀ k, m k = 0) (hR : ∀ p, ∀ᵐ x ∂(M.R p), |x| ≤ C)
+    (hv : Measurable (v 0)) (hvB : ∀ s, |v 0 s| ≤ B) (k : ℕ) :
     v k = (M.bellman γ)^[k] (v 0) := by
   induction k with
   | zero => rfl
   | succ k ih =>
-    rw [h.eq_iterate k, hm k, zero_add, iterate_one, h.bellmanEval_eq hv k, ih,
+    rw [h.eq_iterate k, hm k, zero_add, iterate_one, h.bellmanEval_eq hR hv hvB k, ih,
       iterate_succ_apply']
 
 /-! ### Convergence -/
@@ -160,7 +165,9 @@ private noncomputable def valueBM (k : ℕ) : LMLExplore.boundedMeasurable 𝓢 
 private lemma coeFn_valueBM (k : ℕ) : ⇑(h.valueBM hR hv hvB k : ℓ^∞(𝓢, ℝ)) = v k :=
   LMLExplore.boundedMeasurable.coeFn_mk ..
 
-variable [Finite 𝓐] [Nonempty 𝓐]
+section Countable
+
+variable [Countable 𝓐] [Nonempty 𝓐]
 
 /-- On the bounded measurable functions, `v` is a run of the abstract modified policy iteration of
 the evaluation operators of the measurable deterministic stationary policies. -/
@@ -169,7 +176,7 @@ private lemma isModifiedPolicyIteration_valueBM :
       (fun d : {d : 𝓢 → 𝓐 // Measurable d} ↦ M.bellmanEvalOp γ (Kernel.deterministic d d.2) hR)
       (M.bellmanOp γ hR) m (fun k ↦ ⟨d k, h.measurable_policy k⟩) (h.valueBM hR hv hvB) where
   map_eq k := LMLExplore.boundedMeasurable.ext fun s ↦ by
-    simp only [coeFn_bellmanEvalOp, coeFn_bellmanOp, coeFn_valueBM, h.bellmanEval_eq hv k]
+    simp only [coeFn_bellmanEvalOp, coeFn_bellmanOp, coeFn_valueBM, h.bellmanEval_eq hR hv hvB k]
   eq_iterate k := LMLExplore.boundedMeasurable.ext fun s ↦ by
     simp only [coeFn_bellmanEvalOp_iterate, coeFn_valueBM, h.eq_iterate k]
 
@@ -178,8 +185,6 @@ private lemma valueBM_zero_le (h₀ : v 0 ≤ M.bellman γ (v 0)) :
     h.valueBM hR hv hvB 0 ≤ M.bellmanOp γ hR (h.valueBM hR hv hvB 0) :=
   LMLExplore.boundedMeasurable.le_def.2 fun s ↦ by
     simpa only [coeFn_bellmanOp, coeFn_valueBM] using h₀ s
-
-variable [MeasurableSingletonClass 𝓐]
 
 /-- Modified policy iteration started below its image by the optimality operator stays below its
 image: `v k ≤ T v k`. -/
@@ -217,7 +222,9 @@ theorem bellman_iterate_le (h₀ : v 0 ≤ M.bellman γ (v 0)) (k : ℕ) :
       (fun _ ↦ bellmanEvalOp_le_bellmanOp hR) (isBlackwell_bellmanOp hR).monotone
       (h.valueBM_zero_le hR hv hvB h₀) k) s
 
-variable [Nonempty 𝓢]
+end Countable
+
+variable [Finite 𝓐] [Nonempty 𝓐] [Nonempty 𝓢]
 
 /-- The values of modified policy iteration started below their image by the optimality operator
 are below the optimal value. -/
@@ -256,7 +263,7 @@ theorem exists_isModifiedPolicyIteration [Finite 𝓐] [Nonempty 𝓐] (m : ℕ 
   -- `seq (k + 1) = step k (seq k)` holds by the defining equation of the recursor
   have hseq (k : ℕ) : seq (k + 1) = step k (seq k) := rfl
   refine ⟨fun k ↦ M.greedy γ (seq k).1, fun k ↦ (seq k).1,
-    ⟨fun k ↦ measurable_greedy (seq k).2, fun k ↦ isGreedy_greedy _, fun k ↦ ?_⟩, rfl⟩
+    ⟨fun k ↦ measurable_greedy (seq k).2, fun k ↦ isApproxGreedy_greedy _, fun k ↦ ?_⟩, rfl⟩
   rw [hseq]
 
 end Learning.MDP

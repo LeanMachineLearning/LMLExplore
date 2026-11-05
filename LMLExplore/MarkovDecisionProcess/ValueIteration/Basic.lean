@@ -30,12 +30,11 @@ theorem applies. This gives, on a general measurable state space,
 * monotone iterates: they decrease (resp. increase) from the first one with `T v ≤ v`
   (resp. `v ≤ T v`) [P, Proposition 6.3.2 (b)].
 
-For finitely many actions, the evaluation operators of the stationary policies are below the
-optimality operator, and at every `v` the greedy policy for `v`, which is measurable and
-deterministic, attains it. Together with Blackwell's conditions, this makes the operators an
-instance of the abstract dynamic programming of
-`LMLExplore.IsPolicyIteration` and `LMLExplore.IsModifiedPolicyIteration`, with
-`boundedMeasurable 𝓢` as space of values.
+For countably many actions, the evaluation operators of the stationary policies are below the
+optimality operator, and for finitely many actions, at every `v` the greedy policy for `v`, which
+is measurable and deterministic, attains it. Together with Blackwell's conditions, this makes the
+operators an instance of the abstract dynamic programming of `LMLExplore.IsPolicyIteration` and
+`LMLExplore.IsModifiedPolicyIteration`, with `boundedMeasurable 𝓢` as space of values.
 
 ## Main definitions
 
@@ -48,9 +47,9 @@ instance of the abstract dynamic programming of
 * `Learning.MDP.isBlackwell_bellmanOp`, `Learning.MDP.contractingWith_bellmanOp`,
   `Learning.MDP.isBlackwell_bellmanEvalOp`, `Learning.MDP.contractingWith_bellmanEvalOp`: the
   operators satisfy Blackwell's conditions and are `γ`-contractions of `boundedMeasurable 𝓢`.
-* `Learning.MDP.bellmanEvalOp_le_bellmanOp`, `Learning.MDP.bellmanEvalOp_greedy`: for finitely
-  many actions, the evaluation operators of the stationary policies are below the optimality
-  operator, and the greedy policy attains it.
+* `Learning.MDP.bellmanEvalOp_le_bellmanOp`, `Learning.MDP.bellmanEvalOp_greedy`: the evaluation
+  operators of the stationary policies are below the optimality operator, and for finitely many
+  actions the greedy policy attains it.
 * `Learning.MDP.exists_bellman_eq`, `Learning.MDP.eq_of_bellman_eq`: the optimality equation has a
   unique bounded measurable solution, and it is bounded by `C / (1 - γ)`.
 * `Learning.MDP.abs_bellman_iterate_sub_le`: value iteration converges geometrically to it.
@@ -353,14 +352,17 @@ theorem contractingWith_bellmanEvalOp (hγ : γ < 1) : ContractingWith γ (M.bel
 
 end Evaluation
 
-/-- **Randomizing does not increase the supremum**: for finitely many actions and bounded rewards,
-the evaluation operator of every stationary policy is below the optimality operator on the bounded
-measurable functions. -/
-theorem bellmanEvalOp_le_bellmanOp [Finite 𝓐] [Nonempty 𝓐] [MeasurableSingletonClass 𝓐]
-    {π : Kernel 𝓢 𝓐} [IsMarkovKernel π] (hR : ∀ p, ∀ᵐ x ∂(M.R p), |x| ≤ C)
-    (v : boundedMeasurable 𝓢) : M.bellmanEvalOp γ π hR v ≤ M.bellmanOp γ hR v :=
+/-- **Randomizing does not increase the supremum**: for countably many actions and bounded
+rewards, the evaluation operator of every stationary policy is below the optimality operator on the
+bounded measurable functions. -/
+theorem bellmanEvalOp_le_bellmanOp [Countable 𝓐] [Nonempty 𝓐] {π : Kernel 𝓢 𝓐} [IsMarkovKernel π]
+    (hR : ∀ p, ∀ᵐ x ∂(M.R p), |x| ≤ C) (v : boundedMeasurable 𝓢) :
+    M.bellmanEvalOp γ π hR v ≤ M.bellmanOp γ hR v :=
   boundedMeasurable.le_def.2 fun s ↦ by
-    simpa using bellmanEval_le_bellman (M := M) (γ := γ) (π := π) _ s
+    simpa using bellmanEval_le_bellman (M := M) (γ := γ) (π := π)
+      (fun s ↦ integrable_lookahead_prodMk_left hR (boundedMeasurable.measurable v)
+        (boundedMeasurable.abs_apply_le_norm v) s _)
+      (bddAbove_range_lookahead hR (boundedMeasurable.abs_apply_le_norm v)) s
 
 /-- For finitely many actions and bounded rewards, the greedy policy for a bounded measurable `v`
 attains the optimality operator at `v`. -/

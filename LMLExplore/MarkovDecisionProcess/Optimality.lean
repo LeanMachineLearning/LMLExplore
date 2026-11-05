@@ -98,8 +98,8 @@ theorem runValue_le_integral_optValue {μ : Measure 𝓢} [IsProbabilityMeasure 
     (hR : ∀ p, ∀ᵐ x ∂(M.R p), |x| ≤ C) (alg : Algorithm 𝓢 𝓐 ℝ) :
     M.runValue γ alg μ ≤ ∫ s, M.optValue γ s ∂μ :=
   runValue_le_integral_of_lookahead_le hγ hR (measurable_optValue hγ hR) (abs_optValue_le hγ hR)
-    (fun p ↦ (lookahead_le_bellman _ p.1 p.2).trans_eq (congrFun (bellman_optValue hγ hR) p.1))
-    alg
+    (fun p ↦ (lookahead_le_bellman (Finite.bddAbove_range _) p.2).trans_eq
+      (congrFun (bellman_optValue hγ hR) p.1)) alg
 
 /-! ### Sequences dominating value iteration -/
 
@@ -226,7 +226,8 @@ the optimal value: `Q* (s, a) ≤ v* s`. -/
 theorem optQValue_le_optValue (hγ : γ < 1) (hR : ∀ p, ∀ᵐ x ∂(M.R p), |x| ≤ C) (s : 𝓢) (a : 𝓐) :
     M.optQValue γ (s, a) ≤ M.optValue γ s := by
   rw [optQValue_eq_lookahead]
-  exact (lookahead_le_bellman _ s a).trans_eq (congrFun (bellman_optValue hγ hR) s)
+  exact (lookahead_le_bellman (Finite.bddAbove_range _) a).trans_eq
+    (congrFun (bellman_optValue hγ hR) s)
 
 /-- With finitely many actions, bounded rewards and `γ < 1`, the optimal value at `s` is the
 largest optimal action value at `s`: `v* s = ⨆ a, Q* (s, a)`. -/
