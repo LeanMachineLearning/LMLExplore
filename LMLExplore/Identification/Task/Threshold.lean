@@ -6,7 +6,7 @@ Authors: Rémy Degenne
 module
 
 public import LMLExplore.Identification.Task.ExpFamily
-public import LMLExplore.Identification.Task.MeanVector
+public import LMLExplore.Identification.Task.Classical
 public import LMLExplore.Bandits.Instances
 public import LMLExplore.Probability.Distributions.ExponentialFamily.Gaussian
 
@@ -19,13 +19,13 @@ and the characteristic time have closed forms. Let the arm `a` belong to an expo
 from a vector of means `μ` to a vector of means `λ` of the families is
 `cost_μ(w, λ) = ∑ a, w a d_a(μ a, λ a)`, and let `γ` be a mean of every family.
 
-* *Thresholding* (`thresholdingTask ν γ`): the alternatives to the set `S*` of the arms of `μ` with
-  mean above `γ` are the vectors in which some arm `a` crossed `γ`. The infimum of their costs is
-  approached by moving a single arm to the other side of `γ`, ever closer to `γ`, so that
+* *Thresholding* (`thresholdingTask ν id γ`): the alternatives to the set `S*` of the arms of `μ`
+  with mean above `γ` are the vectors in which some arm `a` crossed `γ`. The infimum of their costs
+  is approached by moving a single arm to the other side of `γ`, ever closer to `γ`, so that
   `D(μ, w, ¬S*) = min_a w a d_a(μ a, γ)`. The allocation maximizing it is proportional to
   `d_a(μ a, γ)⁻¹`, and `T*(μ) = ∑ a, d_a(μ a, γ)⁻¹`. For Gaussian arms with variance `σ2`,
   `T*(μ) = ∑ a, 2 σ2 / (μ a - γ)²`.
-* *Minimum threshold* (`minThresholdTask ν γ`): if all the means are above `γ` (answer `false`),
+* *Minimum threshold* (`minThresholdTask ν id γ`): if all the means are above `γ` (answer `false`),
   the alternatives are the vectors with some mean below `γ`, and the game is that of thresholding:
   `D(μ, w, ¬false) = min_a w a d_a(μ a, γ)` and `T*(μ) = ∑ a, d_a(μ a, γ)⁻¹`
   [DK19, Lemma 37; KKG18, Lemma 1]. If some mean is below `γ` (answer `true`), the alternatives
@@ -91,22 +91,24 @@ open scoped ENNReal NNReal
 
 namespace LMLExplore.Identification
 
-variable {α 𝓨 ℐ : Type*} {mα : MeasurableSpace α} {m𝓨 : MeasurableSpace 𝓨} [Fintype α]
+variable {α Θ 𝓨 ℐ : Type*} {mα : MeasurableSpace α} {m𝓨 : MeasurableSpace 𝓨} [Fintype α]
   {ρ : α → Measure 𝓨} {T : α → 𝓨 → ℝ} {γ : ℝ} {μ w : α → ℝ}
 
 /-! ### Thresholding -/
 
 section Thresholding
 
-variable (ν : (α → ℝ) → Kernel α 𝓨) [∀ μ, IsMarkovKernel (ν μ)]
-
 omit [Fintype α] in
-/-- The alternatives to a set of arms `s` in thresholding are the vectors with no mean equal to `γ`
+/-- The alternatives to a set of arms `s` in thresholding are the models with no mean equal to `γ`
 in which some arm is on the other side of `γ` than `s` prescribes. -/
-lemma mem_alt_thresholdingTask_iff {s : Finset α} {μ' : α → ℝ} :
-    μ' ∈ (thresholdingTask ν γ).alt s ↔ (∀ a, μ' a ≠ γ) ∧ ∃ a, ¬ (a ∈ s ↔ γ < μ' a) := by
+lemma mem_alt_thresholdingTask_iff (ν : Θ → Kernel α 𝓨) [∀ θ, IsMarkovKernel (ν θ)]
+    (mean : Θ → α → ℝ) {s : Finset α} {θ' : Θ} :
+    θ' ∈ (thresholdingTask ν mean γ).alt s ↔
+      (∀ a, mean θ' a ≠ γ) ∧ ∃ a, ¬ (a ∈ s ↔ γ < mean θ' a) := by
   simp only [IdentTask.mem_alt_iff, M_thresholdingTask, correct_thresholdingTask,
     Set.mem_ofPred_eq, not_forall]
+
+variable (ν : (α → ℝ) → Kernel α 𝓨) [∀ μ, IsMarkovKernel (ν μ)]
 
 /-- **The cost of the alternatives in thresholding.** Let the arm laws belong to exponential
 families `(ρ a, T a)` with divergences `d_a`, in the sense that
@@ -120,7 +122,7 @@ theorem altCost_thresholdingTask_restrict (hT : ∀ a c, ¬ T a =ᵐ[ρ a] fun _
     (hν : ∀ μ' : α → ℝ, (∀ c, μ' c ∈ (ρ c).expFamilyMeans (T c)) →
       ∀ c, klDiv (ν μ c) (ν μ' c) = ENNReal.ofReal ((ρ c).expFamilyDiv (T c) (μ c) (μ' c)))
     (hμγ : ∀ a, μ a ≠ γ) {s : Finset α} (hs : ∀ a, a ∈ s ↔ γ < μ a) (hw : 0 ≤ w) :
-    ((thresholdingTask ν γ).restrict {μ' | ∀ c, μ' c ∈ (ρ c).expFamilyMeans (T c)}).altCost
+    ((thresholdingTask ν id γ).restrict {μ' | ∀ c, μ' c ∈ (ρ c).expFamilyMeans (T c)}).altCost
         μ w s =
       ⨅ a, ENNReal.ofReal (w a * (ρ a).expFamilyDiv (T a) (μ a) γ) := by
   classical
@@ -128,9 +130,9 @@ theorem altCost_thresholdingTask_restrict (hT : ∀ a c, ¬ T a =ᵐ[ρ a] fun _
   · -- Upper bound: move the mean of `a` across `γ`, close to `γ`.
     have h_alt {x : ℝ} (hxγ : (γ < x ↔ ¬ γ < μ a)) (hx : x ≠ γ)
         (hxm : x ∈ (ρ a).expFamilyMeans (T a)) :
-        Function.update μ a x ∈ ((thresholdingTask ν γ).restrict
+        Function.update μ a x ∈ ((thresholdingTask ν id γ).restrict
           {μ' | ∀ c, μ' c ∈ (ρ c).expFamilyMeans (T c)}).alt s := by
-      rw [IdentTask.alt_restrict, Set.mem_inter_iff, mem_alt_thresholdingTask_iff]
+      rw [IdentTask.alt_restrict, Set.mem_inter_iff, mem_alt_thresholdingTask_iff, id_eq]
       refine ⟨⟨(Function.forall_update_iff μ fun _ y ↦ y ≠ γ).2 ⟨hx, fun c _ ↦ hμγ c⟩,
         a, ?_⟩, (Function.forall_update_iff μ fun c y ↦ y ∈ (ρ c).expFamilyMeans (T c)).2
           ⟨hxm, fun c _ ↦ hμ c⟩⟩
@@ -149,7 +151,7 @@ theorem altCost_thresholdingTask_restrict (hT : ∀ a c, ¬ T a =ᵐ[ρ a] fun _
   · -- Lower bound: some arm `a` is on different sides of `γ` in `μ` and `μ'`.
     rw [IdentTask.altCost_def]
     refine le_iInf₂ fun μ' hμ' ↦ ?_
-    rw [IdentTask.alt_restrict, Set.mem_inter_iff, mem_alt_thresholdingTask_iff] at hμ'
+    rw [IdentTask.alt_restrict, Set.mem_inter_iff, mem_alt_thresholdingTask_iff, id_eq] at hμ'
     obtain ⟨⟨-, a, ha⟩, hμ'⟩ := hμ'
     rw [hs a] at ha
     have h_mem : γ ∈ uIcc (μ a) (μ' a) := by
@@ -169,7 +171,7 @@ theorem answerValue_thresholdingTask_restrict [Nonempty α]
     (hν : ∀ μ' : α → ℝ, (∀ c, μ' c ∈ (ρ c).expFamilyMeans (T c)) →
       ∀ c, klDiv (ν μ c) (ν μ' c) = ENNReal.ofReal ((ρ c).expFamilyDiv (T c) (μ c) (μ' c)))
     (hμγ : ∀ a, μ a ≠ γ) {s : Finset α} (hs : ∀ a, a ∈ s ↔ γ < μ a) :
-    ((thresholdingTask ν γ).restrict {μ' | ∀ c, μ' c ∈ (ρ c).expFamilyMeans (T c)}).answerValue
+    ((thresholdingTask ν id γ).restrict {μ' | ∀ c, μ' c ∈ (ρ c).expFamilyMeans (T c)}).answerValue
         μ s =
       ENNReal.ofReal (∑ a, ((ρ a).expFamilyDiv (T a) (μ a) γ)⁻¹)⁻¹ :=
   IdentTask.answerValue_eq_of_altCost_eq_iInf _ (fun a ↦ expFamilyDiv_pos (hμ a) (hγ a) (hμγ a))
@@ -184,7 +186,7 @@ theorem optAlloc_thresholdingTask_restrict [Nonempty α]
     (hν : ∀ μ' : α → ℝ, (∀ c, μ' c ∈ (ρ c).expFamilyMeans (T c)) →
       ∀ c, klDiv (ν μ c) (ν μ' c) = ENNReal.ofReal ((ρ c).expFamilyDiv (T c) (μ c) (μ' c)))
     (hμγ : ∀ a, μ a ≠ γ) {s : Finset α} (hs : ∀ a, a ∈ s ↔ γ < μ a) :
-    ((thresholdingTask ν γ).restrict {μ' | ∀ c, μ' c ∈ (ρ c).expFamilyMeans (T c)}).optAlloc
+    ((thresholdingTask ν id γ).restrict {μ' | ∀ c, μ' c ∈ (ρ c).expFamilyMeans (T c)}).optAlloc
         μ s =
       {fun a ↦ ((ρ a).expFamilyDiv (T a) (μ a) γ)⁻¹ /
         ∑ b, ((ρ b).expFamilyDiv (T b) (μ b) γ)⁻¹} :=
@@ -199,13 +201,13 @@ theorem charTime_thresholdingTask_restrict [Nonempty α]
     (hν : ∀ μ' : α → ℝ, (∀ c, μ' c ∈ (ρ c).expFamilyMeans (T c)) →
       ∀ c, klDiv (ν μ c) (ν μ' c) = ENNReal.ofReal ((ρ c).expFamilyDiv (T c) (μ c) (μ' c)))
     (hμγ : ∀ a, μ a ≠ γ) :
-    ((thresholdingTask ν γ).restrict {μ' | ∀ c, μ' c ∈ (ρ c).expFamilyMeans (T c)}).charTime μ =
+    ((thresholdingTask ν id γ).restrict {μ' | ∀ c, μ' c ∈ (ρ c).expFamilyMeans (T c)}).charTime μ =
       ENNReal.ofReal (∑ a, ((ρ a).expFamilyDiv (T a) (μ a) γ)⁻¹) := by
   classical
   have hs (a : α) : a ∈ Finset.univ.filter (γ < μ ·) ↔ γ < μ a := by simp
   have hpos := sum_inv_pos fun a ↦ expFamilyDiv_pos (hμ a) (hγ a) (hμγ a)
   rw [IdentTask.charTime_eq_inv_answerValue _
-      (by rw [IdentTask.correct_restrict]; exact correct_thresholdingTask_eq_singleton ν),
+      (by rw [IdentTask.correct_restrict, correct_thresholdingTask_eq_singleton ν id, id_eq]),
     answerValue_thresholdingTask_restrict ν hT hγ hμ hν hμγ hs, ENNReal.ofReal_inv_of_pos hpos,
     inv_inv]
 
@@ -219,9 +221,9 @@ variance `σ2 ≠ 0`, a vector of means `μ` with no mean equal to `γ`, whose c
 `D(μ, w, ¬s) = min_a w a (μ a - γ)² / (2 σ2)`. -/
 theorem altCost_thresholdingTask_gaussianBandit (hσ2 : σ2 ≠ 0) (hμγ : ∀ a, μ a ≠ γ)
     {s : Finset α} (hs : ∀ a, a ∈ s ↔ γ < μ a) (hw : 0 ≤ w) :
-    (thresholdingTask (Bandits.gaussianBandit · σ2) γ).altCost μ w s =
+    (thresholdingTask (Bandits.gaussianBandit · σ2) id γ).altCost μ w s =
       ⨅ a, ENNReal.ofReal (w a * (μ a - γ) ^ 2 / (2 * σ2)) := by
-  rw [← (thresholdingTask (Bandits.gaussianBandit · σ2) γ).restrict_univ,
+  rw [← (thresholdingTask (Bandits.gaussianBandit · σ2) id γ).restrict_univ,
     ← setOf_forall_mem_expFamilyMeans_gaussianReal 0 hσ2,
     altCost_thresholdingTask_restrict (ρ := fun _ ↦ gaussianReal 0 σ2) (T := fun _ ↦ id) _
       (fun _ ↦ not_ae_eq_const_gaussianReal 0 hσ2)
@@ -235,9 +237,9 @@ theorem altCost_thresholdingTask_gaussianBandit (hσ2 : σ2 ≠ 0) (hμγ : ∀ 
 `σ2 ≠ 0` and a vector of means `μ` with no mean equal to `γ`, `T*(μ) = ∑ a, 2 σ2 / (μ a - γ)²`. -/
 theorem charTime_thresholdingTask_gaussianBandit [Nonempty α] (hσ2 : σ2 ≠ 0)
     (hμγ : ∀ a, μ a ≠ γ) :
-    (thresholdingTask (Bandits.gaussianBandit · σ2) γ).charTime μ =
+    (thresholdingTask (Bandits.gaussianBandit · σ2) id γ).charTime μ =
       ENNReal.ofReal (∑ a, 2 * σ2 / (μ a - γ) ^ 2) := by
-  rw [← (thresholdingTask (Bandits.gaussianBandit · σ2) γ).restrict_univ,
+  rw [← (thresholdingTask (Bandits.gaussianBandit · σ2) id γ).restrict_univ,
     ← setOf_forall_mem_expFamilyMeans_gaussianReal 0 hσ2,
     charTime_thresholdingTask_restrict (ρ := fun _ ↦ gaussianReal 0 σ2) (T := fun _ ↦ id) _
       (fun _ ↦ not_ae_eq_const_gaussianReal 0 hσ2)
@@ -253,24 +255,30 @@ end Thresholding
 
 section MinThreshold
 
-variable (ν : (α → ℝ) → Kernel α 𝓨) [∀ μ, IsMarkovKernel (ν μ)]
+section MeanFunctional
+
+variable (ν : Θ → Kernel α 𝓨) [∀ θ, IsMarkovKernel (ν θ)] (mean : Θ → α → ℝ) {θ' : Θ}
 
 omit [Fintype α] in
-/-- The alternatives to `false` in minimum threshold are the vectors with some mean below `γ`. -/
-lemma mem_alt_minThresholdTask_false_iff {μ' : α → ℝ} :
-    μ' ∈ (minThresholdTask ν γ).alt false ↔ ∃ a, μ' a < γ := by
+/-- The alternatives to `false` in minimum threshold are the models with some mean below `γ`. -/
+lemma mem_alt_minThresholdTask_false_iff :
+    θ' ∈ (minThresholdTask ν mean γ).alt false ↔ ∃ a, mean θ' a < γ := by
   simp only [IdentTask.mem_alt_iff, M_minThresholdTask, correct_minThresholdTask,
     Set.mem_ofPred_eq, Bool.false_eq_true, false_iff, not_not]
   exact ⟨And.right, fun h ↦ ⟨Or.inl h, h⟩⟩
 
 omit [Fintype α] in
-/-- The alternatives to `true` in minimum threshold are the vectors with all means above `γ`. -/
-lemma mem_alt_minThresholdTask_true_iff {μ' : α → ℝ} :
-    μ' ∈ (minThresholdTask ν γ).alt true ↔ ∀ a, γ < μ' a := by
+/-- The alternatives to `true` in minimum threshold are the models with all means above `γ`. -/
+lemma mem_alt_minThresholdTask_true_iff :
+    θ' ∈ (minThresholdTask ν mean γ).alt true ↔ ∀ a, γ < mean θ' a := by
   simp only [IdentTask.mem_alt_iff, M_minThresholdTask, correct_minThresholdTask,
     Set.mem_ofPred_eq, true_iff]
   exact ⟨fun ⟨h, h'⟩ ↦ h.resolve_left h', fun h ↦
     ⟨Or.inr h, fun ⟨a, ha⟩ ↦ (h a).not_gt ha⟩⟩
+
+end MeanFunctional
+
+variable (ν : (α → ℝ) → Kernel α 𝓨) [∀ μ, IsMarkovKernel (ν μ)]
 
 /-- **The cost of the alternatives to `false` in minimum threshold** [DK19, Lemma 37;
 KKG18, Lemma 1]. Under the assumptions of `altCost_thresholdingTask_restrict` on the arm laws, if
@@ -282,7 +290,7 @@ theorem altCost_minThresholdTask_restrict_false (hT : ∀ a c, ¬ T a =ᵐ[ρ a]
     (hν : ∀ μ' : α → ℝ, (∀ c, μ' c ∈ (ρ c).expFamilyMeans (T c)) →
       ∀ c, klDiv (ν μ c) (ν μ' c) = ENNReal.ofReal ((ρ c).expFamilyDiv (T c) (μ c) (μ' c)))
     (hμγ : ∀ a, γ ≤ μ a) (hw : 0 ≤ w) :
-    ((minThresholdTask ν γ).restrict {μ' | ∀ c, μ' c ∈ (ρ c).expFamilyMeans (T c)}).altCost
+    ((minThresholdTask ν id γ).restrict {μ' | ∀ c, μ' c ∈ (ρ c).expFamilyMeans (T c)}).altCost
         μ w false =
       ⨅ a, ENNReal.ofReal (w a * (ρ a).expFamilyDiv (T a) (μ a) γ) := by
   classical
@@ -299,7 +307,7 @@ theorem altCost_minThresholdTask_restrict_false (hT : ∀ a c, ¬ T a =ᵐ[ρ a]
   · -- Lower bound: some arm `a` of an alternative has mean below `γ`.
     rw [IdentTask.altCost_def]
     refine le_iInf₂ fun μ' hμ' ↦ ?_
-    rw [IdentTask.alt_restrict, Set.mem_inter_iff, mem_alt_minThresholdTask_false_iff] at hμ'
+    rw [IdentTask.alt_restrict, Set.mem_inter_iff, mem_alt_minThresholdTask_false_iff, id_eq] at hμ'
     obtain ⟨⟨a, ha⟩, hμ'⟩ := hμ'
     exact (iInf_le _ a).trans (IdentTask.ofReal_mul_expFamilyDiv_le_cost (by simp) hν hw hμ' a
       (hT a) (hγ a) (Set.mem_uIcc.2 (Or.inr ⟨ha.le, hμγ a⟩)))
@@ -313,7 +321,7 @@ theorem answerValue_minThresholdTask_restrict_false [Nonempty α]
     (hν : ∀ μ' : α → ℝ, (∀ c, μ' c ∈ (ρ c).expFamilyMeans (T c)) →
       ∀ c, klDiv (ν μ c) (ν μ' c) = ENNReal.ofReal ((ρ c).expFamilyDiv (T c) (μ c) (μ' c)))
     (hμγ : ∀ a, γ < μ a) :
-    ((minThresholdTask ν γ).restrict {μ' | ∀ c, μ' c ∈ (ρ c).expFamilyMeans (T c)}).answerValue
+    ((minThresholdTask ν id γ).restrict {μ' | ∀ c, μ' c ∈ (ρ c).expFamilyMeans (T c)}).answerValue
         μ false =
       ENNReal.ofReal (∑ a, ((ρ a).expFamilyDiv (T a) (μ a) γ)⁻¹)⁻¹ :=
   IdentTask.answerValue_eq_of_altCost_eq_iInf _
@@ -329,7 +337,7 @@ theorem optAlloc_minThresholdTask_restrict_false [Nonempty α] (hT : ∀ a c, ¬
     (hν : ∀ μ' : α → ℝ, (∀ c, μ' c ∈ (ρ c).expFamilyMeans (T c)) →
       ∀ c, klDiv (ν μ c) (ν μ' c) = ENNReal.ofReal ((ρ c).expFamilyDiv (T c) (μ c) (μ' c)))
     (hμγ : ∀ a, γ < μ a) :
-    ((minThresholdTask ν γ).restrict {μ' | ∀ c, μ' c ∈ (ρ c).expFamilyMeans (T c)}).optAlloc
+    ((minThresholdTask ν id γ).restrict {μ' | ∀ c, μ' c ∈ (ρ c).expFamilyMeans (T c)}).optAlloc
         μ false =
       {fun a ↦ ((ρ a).expFamilyDiv (T a) (μ a) γ)⁻¹ /
         ∑ b, ((ρ b).expFamilyDiv (T b) (μ b) γ)⁻¹} :=
@@ -346,15 +354,15 @@ theorem charTime_minThresholdTask_restrict_false [Nonempty α] (hT : ∀ a c, ¬
     (hν : ∀ μ' : α → ℝ, (∀ c, μ' c ∈ (ρ c).expFamilyMeans (T c)) →
       ∀ c, klDiv (ν μ c) (ν μ' c) = ENNReal.ofReal ((ρ c).expFamilyDiv (T c) (μ c) (μ' c)))
     (hμγ : ∀ a, γ < μ a) :
-    ((minThresholdTask ν γ).restrict {μ' | ∀ c, μ' c ∈ (ρ c).expFamilyMeans (T c)}).charTime μ =
+    ((minThresholdTask ν id γ).restrict {μ' | ∀ c, μ' c ∈ (ρ c).expFamilyMeans (T c)}).charTime μ =
       ENNReal.ofReal (∑ a, ((ρ a).expFamilyDiv (T a) (μ a) γ)⁻¹) := by
   classical
   have hc (a : α) : 0 < (ρ a).expFamilyDiv (T a) (μ a) γ :=
     expFamilyDiv_pos (hμ a) (hγ a) (hμγ a).ne'
   have hpos := sum_inv_pos hc
-  have h_corr : ((minThresholdTask ν γ).restrict
+  have h_corr : ((minThresholdTask ν id γ).restrict
       {μ' | ∀ c, μ' c ∈ (ρ c).expFamilyMeans (T c)}).correct μ = {false} := by
-    rw [IdentTask.correct_restrict, correct_minThresholdTask_eq_singleton,
+    rw [IdentTask.correct_restrict, correct_minThresholdTask_eq_singleton, id_eq,
       decide_eq_false (not_exists.2 fun a ha ↦ lt_asymm ha (hμγ a))]
   rw [IdentTask.charTime_eq_inv_answerValue _ h_corr,
     answerValue_minThresholdTask_restrict_false ν hT hγ hμ hν hμγ, ENNReal.ofReal_inv_of_pos hpos,
@@ -371,14 +379,14 @@ theorem altCost_minThresholdTask_restrict_true (hT : ∀ a c, ¬ T a =ᵐ[ρ a] 
     (hν : ∀ μ' : α → ℝ, (∀ c, μ' c ∈ (ρ c).expFamilyMeans (T c)) →
       ∀ c, klDiv (ν μ c) (ν μ' c) = ENNReal.ofReal ((ρ c).expFamilyDiv (T c) (μ c) (μ' c)))
     (hw : 0 ≤ w) :
-    ((minThresholdTask ν γ).restrict {μ' | ∀ c, μ' c ∈ (ρ c).expFamilyMeans (T c)}).altCost
+    ((minThresholdTask ν id γ).restrict {μ' | ∀ c, μ' c ∈ (ρ c).expFamilyMeans (T c)}).altCost
         μ w true =
       ∑ a, ENNReal.ofReal (w a * (ρ a).expFamilyDiv (T a) (μ a) (max (μ a) γ)) := by
   have hmax (c : α) {x : ℝ} (hx : x ∈ (ρ c).expFamilyMeans (T c)) :
       max (μ c) x ∈ (ρ c).expFamilyMeans (T c) := by
     rcases max_choice (μ c) x with h | h <;> rw [h]
     exacts [hμ c, hx]
-  have hνt : ((minThresholdTask ν γ).restrict
+  have hνt : ((minThresholdTask ν id γ).restrict
       {μ' | ∀ c, μ' c ∈ (ρ c).expFamilyMeans (T c)}).ν = ν := by
     simp
   refine le_antisymm ?_ ?_
@@ -392,7 +400,7 @@ theorem altCost_minThresholdTask_restrict_true (hT : ∀ a c, ¬ T a =ᵐ[ρ a] 
   · -- Lower bound: an alternative has all its means above `γ`.
     rw [IdentTask.altCost_def]
     refine le_iInf₂ fun μ' hμ' ↦ ?_
-    rw [IdentTask.alt_restrict, Set.mem_inter_iff, mem_alt_minThresholdTask_true_iff] at hμ'
+    rw [IdentTask.alt_restrict, Set.mem_inter_iff, mem_alt_minThresholdTask_true_iff, id_eq] at hμ'
     obtain ⟨hgt, hμ'⟩ := hμ'
     have hge (c : α) : γ ≤ μ' c := (hgt c).le
     rw [IdentTask.cost_eq_sum_ofReal_mul_expFamilyDiv hνt hν hw hμ']
@@ -411,7 +419,7 @@ theorem answerValue_minThresholdTask_restrict_true (hT : ∀ a c, ¬ T a =ᵐ[ρ
     (hγ : ∀ a, γ ∈ (ρ a).expFamilyMeans (T a)) (hμ : ∀ a, μ a ∈ (ρ a).expFamilyMeans (T a))
     (hν : ∀ μ' : α → ℝ, (∀ c, μ' c ∈ (ρ c).expFamilyMeans (T c)) →
       ∀ c, klDiv (ν μ c) (ν μ' c) = ENNReal.ofReal ((ρ c).expFamilyDiv (T c) (μ c) (μ' c))) :
-    ((minThresholdTask ν γ).restrict {μ' | ∀ c, μ' c ∈ (ρ c).expFamilyMeans (T c)}).answerValue
+    ((minThresholdTask ν id γ).restrict {μ' | ∀ c, μ' c ∈ (ρ c).expFamilyMeans (T c)}).answerValue
         μ true =
       ⨆ a, ENNReal.ofReal ((ρ a).expFamilyDiv (T a) (μ a) (max (μ a) γ)) := by
   have hmax (a : α) : max (μ a) γ ∈ (ρ a).expFamilyMeans (T a) := by
@@ -432,12 +440,12 @@ theorem charTime_minThresholdTask_restrict_true (hT : ∀ a c, ¬ T a =ᵐ[ρ a]
     (hν : ∀ μ' : α → ℝ, (∀ c, μ' c ∈ (ρ c).expFamilyMeans (T c)) →
       ∀ c, klDiv (ν μ c) (ν μ' c) = ENNReal.ofReal ((ρ c).expFamilyDiv (T c) (μ c) (μ' c)))
     (h : ∃ a, μ a < γ) :
-    ((minThresholdTask ν γ).restrict {μ' | ∀ c, μ' c ∈ (ρ c).expFamilyMeans (T c)}).charTime μ =
+    ((minThresholdTask ν id γ).restrict {μ' | ∀ c, μ' c ∈ (ρ c).expFamilyMeans (T c)}).charTime μ =
       (⨆ a, ENNReal.ofReal ((ρ a).expFamilyDiv (T a) (μ a) (max (μ a) γ)))⁻¹ := by
   classical
-  have h_corr : ((minThresholdTask ν γ).restrict
+  have h_corr : ((minThresholdTask ν id γ).restrict
       {μ' | ∀ c, μ' c ∈ (ρ c).expFamilyMeans (T c)}).correct μ = {true} := by
-    rw [IdentTask.correct_restrict, correct_minThresholdTask_eq_singleton, decide_eq_true h]
+    rw [IdentTask.correct_restrict, correct_minThresholdTask_eq_singleton, id_eq, decide_eq_true h]
   rw [IdentTask.charTime_eq_inv_answerValue _ h_corr,
     answerValue_minThresholdTask_restrict_true ν hT hγ hμ hν]
 
@@ -450,9 +458,9 @@ threshold** [DK19, Lemma 37]. For Gaussian arms with a common variance `σ2 ≠ 
 means `μ` with all its means above `γ`, `T*(μ) = ∑ a, 2 σ2 / (μ a - γ)²`. -/
 theorem charTime_minThresholdTask_gaussianBandit_false [Nonempty α] (hσ2 : σ2 ≠ 0)
     (hμγ : ∀ a, γ < μ a) :
-    (minThresholdTask (Bandits.gaussianBandit · σ2) γ).charTime μ =
+    (minThresholdTask (Bandits.gaussianBandit · σ2) id γ).charTime μ =
       ENNReal.ofReal (∑ a, 2 * σ2 / (μ a - γ) ^ 2) := by
-  rw [← (minThresholdTask (Bandits.gaussianBandit · σ2) γ).restrict_univ,
+  rw [← (minThresholdTask (Bandits.gaussianBandit · σ2) id γ).restrict_univ,
     ← setOf_forall_mem_expFamilyMeans_gaussianReal 0 hσ2,
     charTime_minThresholdTask_restrict_false (ρ := fun _ ↦ gaussianReal 0 σ2) (T := fun _ ↦ id) _
       (fun _ ↦ not_ae_eq_const_gaussianReal 0 hσ2)
@@ -467,10 +475,10 @@ threshold** [DK19, Lemma 38]. For Gaussian arms with a common variance `σ2 ≠ 
 means `μ` whose smallest mean `μ a₀` is below `γ`, `T*(μ) = 2 σ2 / (μ a₀ - γ)²`. -/
 theorem charTime_minThresholdTask_gaussianBandit_true (hσ2 : σ2 ≠ 0) {a₀ : α}
     (ha₀ : ∀ a, μ a₀ ≤ μ a) (hγ : μ a₀ < γ) :
-    (minThresholdTask (Bandits.gaussianBandit · σ2) γ).charTime μ =
+    (minThresholdTask (Bandits.gaussianBandit · σ2) id γ).charTime μ =
       ENNReal.ofReal (2 * σ2 / (μ a₀ - γ) ^ 2) := by
   have hσ2' : 0 < (σ2 : ℝ) := NNReal.coe_pos.2 (pos_iff_ne_zero.2 hσ2)
-  rw [← (minThresholdTask (Bandits.gaussianBandit · σ2) γ).restrict_univ,
+  rw [← (minThresholdTask (Bandits.gaussianBandit · σ2) id γ).restrict_univ,
     ← setOf_forall_mem_expFamilyMeans_gaussianReal 0 hσ2,
     charTime_minThresholdTask_restrict_true (ρ := fun _ ↦ gaussianReal 0 σ2) (T := fun _ ↦ id) _
       (fun _ ↦ not_ae_eq_const_gaussianReal 0 hσ2)

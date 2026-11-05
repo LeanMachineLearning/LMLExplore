@@ -5,7 +5,7 @@ Authors: Rémy Degenne
 -/
 module
 
-public import LMLExplore.Identification.Task.MeanVector
+public import LMLExplore.Identification.Task.Classical
 public import LMLExplore.Identification.Task.Continuity
 public import LMLExplore.Identification.Task.ExpFamily
 public import LMLExplore.Identification.Task.TopTwo.Basic

@@ -22,8 +22,8 @@ stochastic bandit with arms `α` and observations in `𝓨`. It consists of
 Several answers may be correct for the same model, as in Degenne and Koolen (2019); a
 *single-answer* task has exactly one correct answer on every admissible model. Models are not
 required to be vectors of means: vectors of means, parameters of linear models and pairs
-(mean, variance) are all models. The classical tasks on vectors of means are in
-`LMLExplore.Identification.Task.MeanVector`.
+(mean, variance) are all models. The classical tasks, stated for any type of models with a mean
+functional `mean : Θ → α → ℝ`, are in `LMLExplore.Identification.Task.Classical`.
 
 An identification algorithm `A : IdentAlg Unit α 𝓨 ℐ` interacts with the model `θ` through the
 stationary environment `Environment.bandit (task.ν θ)`. It is `δ`-correct on the task if on every

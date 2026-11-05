@@ -6,12 +6,12 @@ Authors: Rémy Degenne
 module
 
 public import LMLExplore.Identification.Task.ExpFamily
-public import LMLExplore.Identification.Task.MeanVector
+public import LMLExplore.Identification.Task.Classical
 
 /-!
 # The pure exploration game of half-space identification with Gaussian arms
 
-In half-space identification (`halfSpaceTask ν u`) the correct answer of a vector of means `μ` is
+In half-space identification (`halfSpaceTask ν id u`) the correct answer of a vector of means `μ` is
 the sign of `u ⬝ᵥ μ`, and the alternatives to it are the vectors of means `λ` with `u ⬝ᵥ λ` of the
 other sign. For Gaussian arms with a common variance `σ2`, the transportation cost
 `∑ a, w a (μ a - λ a)² / (2 σ2)` is a weighted squared distance, and the game has a closed form
@@ -59,14 +59,15 @@ open scoped ENNReal NNReal
 
 namespace LMLExplore.Identification
 
-variable {α 𝓨 : Type*} {mα : MeasurableSpace α} {m𝓨 : MeasurableSpace 𝓨} [Fintype α]
+variable {α Θ 𝓨 : Type*} {mα : MeasurableSpace α} {m𝓨 : MeasurableSpace 𝓨} [Fintype α]
   {u μ w : α → ℝ} {i : Bool}
 
-/-- The alternatives to the answer `i` in half-space identification are the vectors `μ'` with
-`u ⬝ᵥ μ' ≠ 0` whose sign is not the one `i` prescribes. -/
-lemma mem_alt_halfSpaceTask_iff (ν : (α → ℝ) → Kernel α 𝓨) [∀ μ, IsMarkovKernel (ν μ)]
-    {μ' : α → ℝ} :
-    μ' ∈ (halfSpaceTask ν u).alt i ↔ u ⬝ᵥ μ' ≠ 0 ∧ ¬ (i = true ↔ 0 < u ⬝ᵥ μ') := by
+/-- The alternatives to the answer `i` in half-space identification are the models `θ'` with
+`u ⬝ᵥ mean θ' ≠ 0` whose sign is not the one `i` prescribes. -/
+lemma mem_alt_halfSpaceTask_iff (ν : Θ → Kernel α 𝓨) [∀ θ, IsMarkovKernel (ν θ)]
+    (mean : Θ → α → ℝ) {θ' : Θ} :
+    θ' ∈ (halfSpaceTask ν mean u).alt i ↔
+      u ⬝ᵥ mean θ' ≠ 0 ∧ ¬ (i = true ↔ 0 < u ⬝ᵥ mean θ') := by
   simp only [IdentTask.mem_alt_iff, M_halfSpaceTask, correct_halfSpaceTask, Set.mem_ofPred_eq]
 
 /-! ### Gaussian arms -/
@@ -78,17 +79,18 @@ vectors `μ - t (u ⬝ᵥ μ) v` with `t > 1` are alternatives, which bounds the
 by `(u ⬝ᵥ μ)² (∑ a, w a v a²) / (2 σ2)` in the limit `t → 1`. -/
 private lemma altCost_halfSpaceTask_gaussianBandit_le (hσ2 : σ2 ≠ 0) (hμ : u ⬝ᵥ μ ≠ 0)
     (hi : i = true ↔ 0 < u ⬝ᵥ μ) (hw : 0 ≤ w) {v : α → ℝ} (hv : u ⬝ᵥ v = 1) :
-    (halfSpaceTask (Bandits.gaussianBandit · σ2) u).altCost μ w i ≤
+    (halfSpaceTask (Bandits.gaussianBandit · σ2) id u).altCost μ w i ≤
       ENNReal.ofReal ((u ⬝ᵥ μ) ^ 2 * (∑ a, w a * v a ^ 2) / (2 * σ2)) := by
   set C := (u ⬝ᵥ μ) ^ 2 * (∑ a, w a * v a ^ 2) / (2 * σ2)
   have key (t : ℝ) (ht : 1 < t) :
-      (halfSpaceTask (Bandits.gaussianBandit · σ2) u).altCost μ w i ≤
+      (halfSpaceTask (Bandits.gaussianBandit · σ2) id u).altCost μ w i ≤
         ENNReal.ofReal (t ^ 2 * C) := by
     have h_dot : u ⬝ᵥ (μ - (t * u ⬝ᵥ μ) • v) = (1 - t) * u ⬝ᵥ μ := by
       rw [dotProduct_sub, dotProduct_smul, hv, smul_eq_mul]
       ring
-    have hmem : μ - (t * u ⬝ᵥ μ) • v ∈ (halfSpaceTask (Bandits.gaussianBandit · σ2) u).alt i := by
-      rw [mem_alt_halfSpaceTask_iff, h_dot, hi]
+    have hmem :
+        μ - (t * u ⬝ᵥ μ) • v ∈ (halfSpaceTask (Bandits.gaussianBandit · σ2) id u).alt i := by
+      rw [mem_alt_halfSpaceTask_iff, id_eq, h_dot, hi]
       refine ⟨mul_ne_zero (by linarith) hμ, ?_⟩
       rcases hμ.lt_or_gt with h | h
       · have : 0 < (1 - t) * u ⬝ᵥ μ := mul_pos_of_neg_of_neg (by linarith) h
@@ -96,7 +98,7 @@ private lemma altCost_halfSpaceTask_gaussianBandit_le (hσ2 : σ2 ≠ 0) (hμ : 
       · have : (1 - t) * u ⬝ᵥ μ < 0 := mul_neg_of_neg_of_pos (by linarith) h
         simp [h, this.not_gt]
     refine (IdentTask.altCost_le_cost _ hmem w).trans_eq ?_
-    rw [IdentTask.cost_gaussianBandit (ν_halfSpaceTask _) hσ2 hw]
+    rw [IdentTask.cost_gaussianBandit (ν_halfSpaceTask _ _) hσ2 hw]
     congr 1
     simp only [C, Pi.sub_apply, Pi.smul_apply, smul_eq_mul, sub_sub_cancel, Finset.mul_sum,
       Finset.sum_div]
@@ -114,12 +116,12 @@ alternative is at least `(u ⬝ᵥ μ)² / (2 σ2 ∑ a, u a² / w a)`, by the C
 `(u ⬝ᵥ (μ - μ'))² ≤ (∑ a, u a² / w a) ∑ a, w a (μ a - μ' a)²`. -/
 private lemma le_cost_halfSpaceTask_gaussianBandit (hσ2 : σ2 ≠ 0)
     (hi : i = true ↔ 0 < u ⬝ᵥ μ) (hw : 0 ≤ w) (hwu : ∀ a, w a = 0 → u a = 0) {μ' : α → ℝ}
-    (hμ' : μ' ∈ (halfSpaceTask (Bandits.gaussianBandit · σ2) u).alt i) :
+    (hμ' : μ' ∈ (halfSpaceTask (Bandits.gaussianBandit · σ2) id u).alt i) :
     ENNReal.ofReal ((u ⬝ᵥ μ) ^ 2 / (2 * σ2 * ∑ a, u a ^ 2 / w a)) ≤
-      (halfSpaceTask (Bandits.gaussianBandit · σ2) u).cost w μ μ' := by
-  rw [IdentTask.cost_gaussianBandit (ν_halfSpaceTask _) hσ2 hw, ← Finset.sum_div]
+      (halfSpaceTask (Bandits.gaussianBandit · σ2) id u).cost w μ μ' := by
+  rw [IdentTask.cost_gaussianBandit (ν_halfSpaceTask _ _) hσ2 hw, ← Finset.sum_div]
   refine ENNReal.ofReal_le_ofReal ?_
-  rw [mem_alt_halfSpaceTask_iff, hi] at hμ'
+  rw [mem_alt_halfSpaceTask_iff, id_eq, hi] at hμ'
   obtain ⟨hne, hsign⟩ := hμ'
   -- `μ` and `μ'` are on different sides of the hyperplane.
   have h_sign : u ⬝ᵥ μ * u ⬝ᵥ μ' ≤ 0 := by
@@ -156,7 +158,7 @@ nonnegative allocation `w` that is positive on the arms with `u a ≠ 0`,
 hyperplane `u ⬝ᵥ λ = 0` in the norm of `w`. -/
 theorem altCost_halfSpaceTask_gaussianBandit (hσ2 : σ2 ≠ 0) (hμ : u ⬝ᵥ μ ≠ 0)
     (hi : i = true ↔ 0 < u ⬝ᵥ μ) (hw : 0 ≤ w) (hwu : ∀ a, w a = 0 → u a = 0) :
-    (halfSpaceTask (Bandits.gaussianBandit · σ2) u).altCost μ w i =
+    (halfSpaceTask (Bandits.gaussianBandit · σ2) id u).altCost μ w i =
       ENNReal.ofReal ((u ⬝ᵥ μ) ^ 2 / (2 * σ2 * ∑ a, u a ^ 2 / w a)) := by
   refine le_antisymm ?_ ?_
   swap
@@ -192,7 +194,7 @@ sample an arm `a` with `u a ≠ 0`, the mean of `a` can be moved across the hype
 and `D(μ, w, ¬i) = 0`. -/
 theorem altCost_halfSpaceTask_gaussianBandit_eq_zero (hσ2 : σ2 ≠ 0) (hμ : u ⬝ᵥ μ ≠ 0)
     (hi : i = true ↔ 0 < u ⬝ᵥ μ) (hw : 0 ≤ w) {a : α} (hua : u a ≠ 0) (hwa : w a = 0) :
-    (halfSpaceTask (Bandits.gaussianBandit · σ2) u).altCost μ w i = 0 := by
+    (halfSpaceTask (Bandits.gaussianBandit · σ2) id u).altCost μ w i = 0 := by
   classical
   have hv : u ⬝ᵥ Pi.single a (u a)⁻¹ = 1 := by
     rw [dotProduct_single, mul_inv_cancel₀ hua]
@@ -209,7 +211,7 @@ theorem altCost_halfSpaceTask_gaussianBandit_eq_zero (hσ2 : σ2 ≠ 0) (hμ : u
 `(u ⬝ᵥ μ)² / (2 σ2 ‖u‖₁²)`. -/
 private lemma altCost_halfSpaceTask_gaussianBandit_abs_div (hσ2 : σ2 ≠ 0) (hμ : u ⬝ᵥ μ ≠ 0)
     (hi : i = true ↔ 0 < u ⬝ᵥ μ) :
-    (halfSpaceTask (Bandits.gaussianBandit · σ2) u).altCost μ (fun a ↦ |u a| / ∑ b, |u b|) i =
+    (halfSpaceTask (Bandits.gaussianBandit · σ2) id u).altCost μ (fun a ↦ |u a| / ∑ b, |u b|) i =
       ENNReal.ofReal ((u ⬝ᵥ μ) ^ 2 / (2 * σ2 * (∑ a, |u a|) ^ 2)) := by
   have hu : u ≠ 0 := fun h ↦ hμ (by simp [h])
   have hL := sum_abs_ne_zero hu
@@ -230,7 +232,7 @@ smaller than `(u ⬝ᵥ μ)² / (2 σ2 ‖u‖₁²)`. -/
 private lemma altCost_halfSpaceTask_gaussianBandit_lt (hσ2 : σ2 ≠ 0) (hμ : u ⬝ᵥ μ ≠ 0)
     (hi : i = true ↔ 0 < u ⬝ᵥ μ) (hw : w ∈ simplex α)
     (hne : w ≠ fun a ↦ |u a| / ∑ b, |u b|) :
-    (halfSpaceTask (Bandits.gaussianBandit · σ2) u).altCost μ w i <
+    (halfSpaceTask (Bandits.gaussianBandit · σ2) id u).altCost μ w i <
       ENNReal.ofReal ((u ⬝ᵥ μ) ^ 2 / (2 * σ2 * (∑ a, |u a|) ^ 2)) := by
   have hu : u ≠ 0 := fun h ↦ hμ (by simp [h])
   have hL := sum_abs_ne_zero hu
@@ -255,7 +257,7 @@ with a common variance `σ2 ≠ 0`, a vector of means `μ` with `u ⬝ᵥ μ ≠
 `i`, `D(μ, ¬i) = (u ⬝ᵥ μ)² / (2 σ2 ‖u‖₁²)`. -/
 theorem answerValue_halfSpaceTask_gaussianBandit (hσ2 : σ2 ≠ 0) (hμ : u ⬝ᵥ μ ≠ 0)
     (hi : i = true ↔ 0 < u ⬝ᵥ μ) :
-    (halfSpaceTask (Bandits.gaussianBandit · σ2) u).answerValue μ i =
+    (halfSpaceTask (Bandits.gaussianBandit · σ2) id u).answerValue μ i =
       ENNReal.ofReal ((u ⬝ᵥ μ) ^ 2 / (2 * σ2 * (∑ a, |u a|) ^ 2)) := by
   rw [IdentTask.answerValue_def]
   refine le_antisymm (iSup₂_le fun w hw ↦ ?_) ?_
@@ -264,7 +266,7 @@ theorem answerValue_halfSpaceTask_gaussianBandit (hσ2 : σ2 ≠ 0) (hμ : u ⬝
     · exact (altCost_halfSpaceTask_gaussianBandit_lt hσ2 hμ hi hw h).le
   · rw [← altCost_halfSpaceTask_gaussianBandit_abs_div hσ2 hμ hi]
     exact le_iSup₂ (f := fun w (_ : w ∈ simplex α) ↦
-      (halfSpaceTask (Bandits.gaussianBandit · σ2) u).altCost μ w i) _
+      (halfSpaceTask (Bandits.gaussianBandit · σ2) id u).altCost μ w i) _
       (abs_div_sum_abs_mem_simplex (fun h ↦ hμ (by simp [h])))
 
 /-- **The optimal allocation of Gaussian half-space identification** [DK19, Lemma 36]. Under the
@@ -272,7 +274,7 @@ assumptions of `answerValue_halfSpaceTask_gaussianBandit`, the only optimal allo
 `|u| / ‖u‖₁`. -/
 theorem optAlloc_halfSpaceTask_gaussianBandit (hσ2 : σ2 ≠ 0) (hμ : u ⬝ᵥ μ ≠ 0)
     (hi : i = true ↔ 0 < u ⬝ᵥ μ) :
-    (halfSpaceTask (Bandits.gaussianBandit · σ2) u).optAlloc μ i =
+    (halfSpaceTask (Bandits.gaussianBandit · σ2) id u).optAlloc μ i =
       {fun a ↦ |u a| / ∑ b, |u b|} := by
   ext w
   rw [IdentTask.mem_optAlloc_iff, Set.mem_singleton_iff,
@@ -288,11 +290,11 @@ theorem optAlloc_halfSpaceTask_gaussianBandit (hσ2 : σ2 ≠ 0) (hμ : u ⬝ᵥ
 Gaussian arms with a common variance `σ2 ≠ 0` and a vector of means `μ` with `u ⬝ᵥ μ ≠ 0`,
 `T*(μ) = 2 σ2 ‖u‖₁² / (u ⬝ᵥ μ)²`. -/
 theorem charTime_halfSpaceTask_gaussianBandit (hσ2 : σ2 ≠ 0) (hμ : u ⬝ᵥ μ ≠ 0) :
-    (halfSpaceTask (Bandits.gaussianBandit · σ2) u).charTime μ =
+    (halfSpaceTask (Bandits.gaussianBandit · σ2) id u).charTime μ =
       ENNReal.ofReal (2 * σ2 * (∑ a, |u a|) ^ 2 / (u ⬝ᵥ μ) ^ 2) := by
   have hL := sum_abs_ne_zero (u := u) fun h ↦ hμ (by simp [h])
   have hσ2' : (0 : ℝ) < σ2 := by positivity
-  rw [IdentTask.charTime_eq_inv_answerValue _ (correct_halfSpaceTask_eq_singleton _),
+  rw [IdentTask.charTime_eq_inv_answerValue _ (correct_halfSpaceTask_eq_singleton _ _),
     answerValue_halfSpaceTask_gaussianBandit hσ2 hμ (by simp),
     ← ENNReal.ofReal_inv_of_pos (by positivity), inv_div]
 

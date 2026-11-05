@@ -6,7 +6,7 @@ Authors: Rémy Degenne
 module
 
 public import LMLExplore.Identification.Task.ExpFamily
-public import LMLExplore.Identification.Task.MeanVector
+public import LMLExplore.Identification.Task.Classical
 
 /-!
 # The alternatives of `ε`-best arm identification and the cost of the alternatives

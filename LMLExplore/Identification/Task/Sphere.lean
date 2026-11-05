@@ -10,7 +10,7 @@ public import LMLExplore.Identification.Task.ExpFamily
 /-!
 # The pure exploration game of sphere identification with Gaussian arms
 
-In sphere identification (`sphereTask ν c ρ`) the correct answer of a vector of means `μ` is
+In sphere identification (`sphereTask ν id c ρ`) the correct answer of a vector of means `μ` is
 whether `μ` lies inside the sphere of center `c` and radius `ρ`, that is whether
 `∑ a, (μ a - c a)² < ρ²`, and the admissible models are those off the sphere. The alternatives to
 the correct answer of `μ` are the vectors of means on the other side of the sphere. For Gaussian
@@ -35,7 +35,8 @@ some coordinate of `μ` is too close to that of `c`.
 
 ## Main definitions
 
-* `LMLExplore.Identification.sphereTask ν c ρ`: sphere identification.
+* `LMLExplore.Identification.sphereTask ν mean c ρ`: sphere identification, on any type of
+  models with a mean functional `mean`.
 * `LMLExplore.Identification.sphereShift c ρ μ`: the common displacement `r` of the coordinates
   of `μ` that reaches the sphere.
 
@@ -66,55 +67,64 @@ open scoped ENNReal NNReal
 
 namespace LMLExplore.Identification
 
-variable {α 𝓨 : Type*} {mα : MeasurableSpace α} {m𝓨 : MeasurableSpace 𝓨} [Fintype α]
+variable {α Θ 𝓨 : Type*} {mα : MeasurableSpace α} {m𝓨 : MeasurableSpace 𝓨} [Fintype α]
   {c μ : α → ℝ} {ρ : ℝ} {i : Bool}
 
 section Task
 
-variable (ν : (α → ℝ) → Kernel α 𝓨) [∀ μ, IsMarkovKernel (ν μ)]
+section MeanFunctional
 
-/-- *Sphere identification*: the correct answer of a vector of means `μ` is whether it lies
-inside the sphere of center `c` and radius `ρ` (`true` iff `∑ a, (μ a - c a)² < ρ²`), and the
-admissible models are those off the sphere. -/
-noncomputable def sphereTask (c : α → ℝ) (ρ : ℝ) : IdentTask α (α → ℝ) Bool 𝓨 where
-  M := {μ | ∑ a, (μ a - c a) ^ 2 ≠ ρ ^ 2}
+variable (ν : Θ → Kernel α 𝓨) [∀ θ, IsMarkovKernel (ν θ)] (mean : Θ → α → ℝ) {θ : Θ}
+
+/-- *Sphere identification* on a type `Θ` of models with the mean functional
+`mean : Θ → α → ℝ`: the correct answer of a model `θ` is whether its vector of means `mean θ` lies
+inside the sphere of center `c` and radius `ρ` (`true` iff `∑ a, (mean θ a - c a)² < ρ²`), and
+the admissible models are those off the sphere. The task on vectors of means is
+`sphereTask ν id c ρ`. -/
+noncomputable def sphereTask (c : α → ℝ) (ρ : ℝ) : IdentTask α Θ Bool 𝓨 where
+  M := {θ | ∑ a, (mean θ a - c a) ^ 2 ≠ ρ ^ 2}
   ν := ν
   isMarkovKernel_ν _ := inferInstance
-  correct μ := {i | i = true ↔ ∑ a, (μ a - c a) ^ 2 < ρ ^ 2}
+  correct θ := {i | i = true ↔ ∑ a, (mean θ a - c a) ^ 2 < ρ ^ 2}
 
 @[simp]
-lemma M_sphereTask : (sphereTask ν c ρ).M = {μ | ∑ a, (μ a - c a) ^ 2 ≠ ρ ^ 2} := (rfl)
+lemma M_sphereTask : (sphereTask ν mean c ρ).M = {θ | ∑ a, (mean θ a - c a) ^ 2 ≠ ρ ^ 2} := (rfl)
 
 @[simp]
-lemma ν_sphereTask : (sphereTask ν c ρ).ν = ν := (rfl)
+lemma ν_sphereTask : (sphereTask ν mean c ρ).ν = ν := (rfl)
 
 @[simp]
-lemma correct_sphereTask (μ : α → ℝ) :
-    (sphereTask ν c ρ).correct μ = {i | i = true ↔ ∑ a, (μ a - c a) ^ 2 < ρ ^ 2} := (rfl)
+lemma correct_sphereTask (θ : Θ) :
+    (sphereTask ν mean c ρ).correct θ = {i | i = true ↔ ∑ a, (mean θ a - c a) ^ 2 < ρ ^ 2} :=
+  (rfl)
 
-/-- The unique correct answer of every vector of means `μ` is `true` iff `μ` lies inside the
+/-- The unique correct answer of every model `θ` is `true` iff `mean θ` lies inside the
 sphere. -/
 lemma correct_sphereTask_eq_singleton :
-    (sphereTask ν c ρ).correct μ = {decide (∑ a, (μ a - c a) ^ 2 < ρ ^ 2)} := by
+    (sphereTask ν mean c ρ).correct θ = {decide (∑ a, (mean θ a - c a) ^ 2 < ρ ^ 2)} := by
   ext i
   cases i <;> simp
 
 /-- Sphere identification is a single-answer task. -/
-lemma isSingleAnswer_sphereTask (c : α → ℝ) (ρ : ℝ) : (sphereTask ν c ρ).IsSingleAnswer :=
-  (IdentTask.isSingleAnswer_iff _).2 fun _ _ ↦ ⟨_, correct_sphereTask_eq_singleton ν⟩
+lemma isSingleAnswer_sphereTask (c : α → ℝ) (ρ : ℝ) : (sphereTask ν mean c ρ).IsSingleAnswer :=
+  (IdentTask.isSingleAnswer_iff _).2 fun _ _ ↦ ⟨_, correct_sphereTask_eq_singleton ν mean⟩
 
-/-- The alternatives to the answer `i` in sphere identification are the vectors `μ'` off the
+/-- The alternatives to the answer `i` in sphere identification are the models `θ'` off the
 sphere whose side of the sphere is not the one `i` prescribes. -/
-lemma mem_alt_sphereTask_iff {μ' : α → ℝ} :
-    μ' ∈ (sphereTask ν c ρ).alt i ↔
-      ∑ a, (μ' a - c a) ^ 2 ≠ ρ ^ 2 ∧ ¬ (i = true ↔ ∑ a, (μ' a - c a) ^ 2 < ρ ^ 2) := by
+lemma mem_alt_sphereTask_iff {θ' : Θ} :
+    θ' ∈ (sphereTask ν mean c ρ).alt i ↔
+      ∑ a, (mean θ' a - c a) ^ 2 ≠ ρ ^ 2 ∧ ¬ (i = true ↔ ∑ a, (mean θ' a - c a) ^ 2 < ρ ^ 2) := by
   simp only [IdentTask.mem_alt_iff, M_sphereTask, correct_sphereTask, Set.mem_ofPred_eq]
+
+end MeanFunctional
+
+variable (ν : (α → ℝ) → Kernel α 𝓨) [∀ μ, IsMarkovKernel (ν μ)]
 
 /-- The alternatives to the correct answer of a model `μ` off the sphere are the vectors on the
 other side of the sphere. -/
 private lemma mem_alt_sphereTask_iff_mul_neg (hμ : ∑ a, (μ a - c a) ^ 2 ≠ ρ ^ 2)
     (hi : i = true ↔ ∑ a, (μ a - c a) ^ 2 < ρ ^ 2) {μ' : α → ℝ} :
-    μ' ∈ (sphereTask ν c ρ).alt i ↔
+    μ' ∈ (sphereTask ν id c ρ).alt i ↔
       (∑ a, (μ' a - c a) ^ 2 - ρ ^ 2) * (∑ a, (μ a - c a) ^ 2 - ρ ^ 2) < 0 := by
   rw [mem_alt_sphereTask_iff, hi]
   constructor
@@ -310,9 +320,9 @@ omit [Nonempty α] in
 allocation of the simplex. -/
 private lemma cost_add_mul_sgn_sphereTask_gaussianBandit (hσ2 : σ2 ≠ 0) {w : α → ℝ}
     (hw : w ∈ simplex α) (y : ℝ) :
-    (sphereTask (Bandits.gaussianBandit · σ2) c ρ).cost w μ (fun a ↦ μ a + y * sgn c μ a) =
+    (sphereTask (Bandits.gaussianBandit · σ2) id c ρ).cost w μ (fun a ↦ μ a + y * sgn c μ a) =
       ENNReal.ofReal (y ^ 2 / (2 * σ2)) := by
-  rw [IdentTask.cost_gaussianBandit (ν_sphereTask _) hσ2 (mem_simplex_iff.1 hw).1]
+  rw [IdentTask.cost_gaussianBandit (ν_sphereTask _ _) hσ2 (mem_simplex_iff.1 hw).1]
   congr 1
   have hterm (a : α) : w a * (μ a - (μ a + y * sgn c μ a)) ^ 2 / (2 * σ2) =
       w a * (y ^ 2 / (2 * σ2)) := by
@@ -328,7 +338,7 @@ private lemma cost_add_mul_sgn_sphereTask_gaussianBandit (hσ2 : σ2 ≠ 0) {w :
 private lemma altCost_sphereTask_gaussianBandit_le (hσ2 : σ2 ≠ 0) (hρ : ρ ≠ 0)
     (hμ : ∑ a, (μ a - c a) ^ 2 ≠ ρ ^ 2) (hi : i = true ↔ ∑ a, (μ a - c a) ^ 2 < ρ ^ 2)
     (h : ∀ a, 0 ≤ |μ a - c a| + sphereShift c ρ μ) {w : α → ℝ} (hw : w ∈ simplex α) :
-    (sphereTask (Bandits.gaussianBandit · σ2) c ρ).altCost μ w i ≤
+    (sphereTask (Bandits.gaussianBandit · σ2) id c ρ).altCost μ w i ≤
       ENNReal.ofReal (sphereShift c ρ μ ^ 2 / (2 * σ2)) := by
   have hK : (0 : ℝ) < Fintype.card α := Nat.cast_pos.2 Fintype.card_pos
   have hs : 0 ≤ ∑ a, |μ a - c a| := Finset.sum_nonneg fun a _ ↦ abs_nonneg _
@@ -348,13 +358,13 @@ private lemma altCost_sphereTask_gaussianBandit_le (hσ2 : σ2 ≠ 0) (hρ : ρ 
       (t - 1) * r * (2 * √R + (t - 1) * (Fintype.card α * r)) := by
     rw [hf, sum_sq_add_mul_sgn_sub, ← h_sphere, sum_sq_abs_add, ← hs_def]
     linear_combination 2 * (t - 1) * r * hrK
-  have hf_cost (t : ℝ) : (sphereTask (Bandits.gaussianBandit · σ2) c ρ).cost w μ (f t) =
+  have hf_cost (t : ℝ) : (sphereTask (Bandits.gaussianBandit · σ2) id c ρ).cost w μ (f t) =
       ENNReal.ofReal (t ^ 2 * (r ^ 2 / (2 * σ2))) := by
     rw [hf, cost_add_mul_sgn_sphereTask_gaussianBandit hσ2 hw]
     ring_nf
   -- For `t > 1` close to `1`, the moved vector is on the other side of the sphere.
   have h_alt : ∀ᶠ t in 𝓝[>] (1 : ℝ),
-      f t ∈ (sphereTask (Bandits.gaussianBandit · σ2) c ρ).alt i := by
+      f t ∈ (sphereTask (Bandits.gaussianBandit · σ2) id c ρ).alt i := by
     have hr' : 0 < |r| := abs_pos.2 hr0
     have hlt : (1 : ℝ) < 1 + √R / (Fintype.card α * |r|) := by
       have : 0 < √R / (Fintype.card α * |r|) := by positivity
@@ -403,9 +413,9 @@ cost at least `r² / (2 σ2)` at the allocation `w*` proportional to `|μ a - c 
 private lemma le_cost_sphereTask_gaussianBandit (hσ2 : σ2 ≠ 0) (hρ : ρ ≠ 0)
     (hμ : ∑ a, (μ a - c a) ^ 2 ≠ ρ ^ 2) (hi : i = true ↔ ∑ a, (μ a - c a) ^ 2 < ρ ^ 2)
     (h : ∀ a, 0 ≤ |μ a - c a| + sphereShift c ρ μ) {μ' : α → ℝ}
-    (hμ' : μ' ∈ (sphereTask (Bandits.gaussianBandit · σ2) c ρ).alt i) :
+    (hμ' : μ' ∈ (sphereTask (Bandits.gaussianBandit · σ2) id c ρ).alt i) :
     ENNReal.ofReal (sphereShift c ρ μ ^ 2 / (2 * σ2)) ≤
-      (sphereTask (Bandits.gaussianBandit · σ2) c ρ).cost
+      (sphereTask (Bandits.gaussianBandit · σ2) id c ρ).cost
         (fun a ↦ (|μ a - c a| + sphereShift c ρ μ) / ∑ b, (|μ b - c b| + sphereShift c ρ μ))
         μ μ' := by
   have hs : 0 ≤ ∑ a, |μ a - c a| := Finset.sum_nonneg fun a _ ↦ abs_nonneg _
@@ -414,7 +424,7 @@ private lemma le_cost_sphereTask_gaussianBandit (hσ2 : σ2 ≠ 0) (hρ : ρ ≠
   have h_sphere := sum_sq_abs_add_sphereShift h
   have hsum := sum_abs_add_sphereShift c ρ μ
   rw [mem_alt_sphereTask_iff_mul_neg _ hμ hi] at hμ'
-  rw [IdentTask.cost_gaussianBandit (ν_sphereTask _) hσ2
+  rw [IdentTask.cost_gaussianBandit (ν_sphereTask _ _) hσ2
     (mem_simplex_iff.1 (sphereAlloc_mem_simplex hρ h)).1, ← Finset.sum_div]
   refine ENNReal.ofReal_le_ofReal (div_le_div_of_nonneg_right ?_ (by positivity))
   set r := sphereShift c ρ μ with hr_def
@@ -463,7 +473,7 @@ radius `ρ ≠ 0`, a vector of means `μ` off the sphere, its correct answer `i`
 theorem altCost_sphereTask_gaussianBandit (hσ2 : σ2 ≠ 0) (hρ : ρ ≠ 0)
     (hμ : ∑ a, (μ a - c a) ^ 2 ≠ ρ ^ 2) (hi : i = true ↔ ∑ a, (μ a - c a) ^ 2 < ρ ^ 2)
     (h : ∀ a, 0 ≤ |μ a - c a| + sphereShift c ρ μ) :
-    (sphereTask (Bandits.gaussianBandit · σ2) c ρ).altCost μ
+    (sphereTask (Bandits.gaussianBandit · σ2) id c ρ).altCost μ
         (fun a ↦ (|μ a - c a| + sphereShift c ρ μ) / ∑ b, (|μ b - c b| + sphereShift c ρ μ)) i =
       ENNReal.ofReal (sphereShift c ρ μ ^ 2 / (2 * σ2)) :=
   le_antisymm (altCost_sphereTask_gaussianBandit_le hσ2 hρ hμ hi h (sphereAlloc_mem_simplex hρ h))
@@ -476,7 +486,7 @@ of `altCost_sphereTask_gaussianBandit`, `D(μ, ¬i) = r² / (2 σ2)` for `r = sp
 theorem answerValue_sphereTask_gaussianBandit (hσ2 : σ2 ≠ 0) (hρ : ρ ≠ 0)
     (hμ : ∑ a, (μ a - c a) ^ 2 ≠ ρ ^ 2) (hi : i = true ↔ ∑ a, (μ a - c a) ^ 2 < ρ ^ 2)
     (h : ∀ a, 0 ≤ |μ a - c a| + sphereShift c ρ μ) :
-    (sphereTask (Bandits.gaussianBandit · σ2) c ρ).answerValue μ i =
+    (sphereTask (Bandits.gaussianBandit · σ2) id c ρ).answerValue μ i =
       ENNReal.ofReal (sphereShift c ρ μ ^ 2 / (2 * σ2)) := by
   refine le_antisymm ?_ ?_
   · rw [IdentTask.answerValue_def]
@@ -493,7 +503,7 @@ theorem mem_optAlloc_sphereTask_gaussianBandit (hσ2 : σ2 ≠ 0) (hρ : ρ ≠ 
     (hμ : ∑ a, (μ a - c a) ^ 2 ≠ ρ ^ 2) (hi : i = true ↔ ∑ a, (μ a - c a) ^ 2 < ρ ^ 2)
     (h : ∀ a, 0 ≤ |μ a - c a| + sphereShift c ρ μ) :
     (fun a ↦ (|μ a - c a| + sphereShift c ρ μ) / ∑ b, (|μ b - c b| + sphereShift c ρ μ)) ∈
-      (sphereTask (Bandits.gaussianBandit · σ2) c ρ).optAlloc μ i := by
+      (sphereTask (Bandits.gaussianBandit · σ2) id c ρ).optAlloc μ i := by
   rw [IdentTask.mem_optAlloc_iff, altCost_sphereTask_gaussianBandit hσ2 hρ hμ hi h,
     answerValue_sphereTask_gaussianBandit hσ2 hρ hμ hi h]
   exact ⟨sphereAlloc_mem_simplex hρ h, rfl⟩
@@ -504,11 +514,11 @@ means `μ` off the sphere with `|μ a - c a| + r ≥ 0` on every arm for `r = sp
 `T*(μ) = 2 σ2 / r²`. -/
 theorem charTime_sphereTask_gaussianBandit (hσ2 : σ2 ≠ 0) (hρ : ρ ≠ 0)
     (hμ : ∑ a, (μ a - c a) ^ 2 ≠ ρ ^ 2) (h : ∀ a, 0 ≤ |μ a - c a| + sphereShift c ρ μ) :
-    (sphereTask (Bandits.gaussianBandit · σ2) c ρ).charTime μ =
+    (sphereTask (Bandits.gaussianBandit · σ2) id c ρ).charTime μ =
       ENNReal.ofReal (2 * σ2 / sphereShift c ρ μ ^ 2) := by
   have hr := sphereShift_ne_zero hμ h
   have hσ2' : (0 : ℝ) < σ2 := by positivity
-  rw [IdentTask.charTime_eq_inv_answerValue _ (correct_sphereTask_eq_singleton _),
+  rw [IdentTask.charTime_eq_inv_answerValue _ (correct_sphereTask_eq_singleton _ _),
     answerValue_sphereTask_gaussianBandit hσ2 hρ hμ (by simp) h,
     ← ENNReal.ofReal_inv_of_pos (div_pos (sq_pos_of_ne_zero hr) (by positivity)), inv_div]
 
