@@ -19,6 +19,8 @@ Facts about LML's `pullCount` that hold for any sequence of actions `A : ℕ →
 * `sum_range_ite_action_eq`: a sum over the rounds that play arm `a` of a function of the number
   of previous pulls of `a` is the sum of that function over the pull counts
   `0, …, pullCount A a n - 1`.
+* `stepsUntil_lt_of_lt_pullCount`: the pulls of an arm counted by `pullCount A a t` happen
+  before round `t`.
 * `cast_pullCount_add_one`, `cast_pullCount_action_add_one`: the recursion for `pullCount`, cast
   to an additive monoid with one.
 * `sum_natCast_pullCount`: the pull counts of all arms before `K` add up to `K`, cast to an
@@ -68,6 +70,15 @@ lemma sum_range_ite_action_eq {M : Type*} [AddCommMonoid M] (f : ℕ → M) (a :
   | succ n ih =>
     rw [sum_range_succ, ih, pullCount_add_one]
     split_ifs <;> simp [sum_range_succ]
+
+/-- If arm `a` has been pulled more than `i` times before round `t`, its `(i + 1)`-th pull happens
+at a round before `t`. -/
+lemma stepsUntil_lt_of_lt_pullCount {i t : ℕ} (hi : i < pullCount A a t ω) :
+    stepsUntil A a (i + 1) ω < t := by
+  obtain _ | t := t
+  · simp at hi
+  exact ((stepsUntil_mono a ω i.succ_ne_zero hi).trans (stepsUntil_pullCount_le ω a t)).trans_lt
+    (by exact_mod_cast t.lt_succ_self)
 
 /-- `pullCount_add_one`, cast to an additive monoid with one. -/
 lemma cast_pullCount_add_one {R : Type*} [AddMonoidWithOne R] :

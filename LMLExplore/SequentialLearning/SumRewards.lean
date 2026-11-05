@@ -22,14 +22,20 @@ for all numbers of pulls `s` simultaneously, without a union bound over the roun
 depends on how the algorithm chooses its actions, so the statements apply to the sampling rules of
 identification algorithms as well as to the policies of regret minimization.
 
-For a property `p s x` of a number of pulls `s` and a sum of rewards `x`:
+The observations of arm `a` before round `t`, `armObs A R a t ω : Fin (pullCount A a t ω) → ℝ`,
+are its rewards in the order of the pulls. For a property `p s y` of `s` observations
+`y : Fin s → ℝ`:
 
-* the expected number of rounds `t < n` at which `a` is pulled and `p` holds for the number of
-  previous pulls and the sum of the previous rewards of `a` is at most
-  `∑ s < n, P(p s (X₀ + ⋯ + X_{s-1}))` for an i.i.d. sequence `X` with law `ν a`;
-* the probability that `p` holds for these quantities at some round is at most the probability
-  that `p s (X₀ + ⋯ + X_{s-1})` holds for some `s`, and the same holds with rounds `t < n` and
+* the expected number of rounds `t < n` at which `a` is pulled and `p` holds for the previous
+  observations of `a` is at most `∑ s < n, P(p s (X₀, …, X_{s-1}))` for an i.i.d. sequence `X`
+  with law `ν a`;
+* the probability that `p` holds for these observations at some round is at most the probability
+  that `p s (X₀, …, X_{s-1})` holds for some `s`, and the same holds with rounds `t < n` and
   counts `s < n`.
+
+Events about the empirical mean are events about the number of pulls and the sum of the
+observations, and the file states both transfers for a property `p s x` of a number of pulls `s`
+and a sum of rewards `x` too, as consequences of the transfers for the observations.
 
 The first statement is the step of the proofs of [LS, Theorems 8.1, 9.1 and 10.6] that bounds the
 contribution of the rounds at which a suboptimal arm has an overestimated index; the second is the
@@ -37,11 +43,12 @@ step that controls an underestimated index of the optimal arm by a maximal inequ
 a horizon, the step that turns a maximal inequality for i.i.d. sums into a confidence bound valid
 at all rounds of the run.
 
-The event transfer also holds jointly over the arms: for a property `q s x` of the numbers of pulls
-`s : α → ℕ` and the sums of rewards `x : α → ℝ` of all arms, the probability that `q` holds at
-some round is at most the probability that it holds in the stream model for some `s`. Events about
-the counts and the sums of all arms at once, such as the generalized likelihood ratio statistics
-and the deviation inequalities of best arm identification, are bounded this way.
+The event transfer also holds jointly over the arms: for a property `q s y` of the numbers of
+pulls `s : α → ℕ` and the observations `y : (a : α) → Fin (s a) → ℝ` of all arms, the probability
+that `q` holds at some round is at most the probability that it holds in the stream model for some
+`s`. Events about the counts and the observations of all arms at once, such as the generalized
+likelihood ratio statistics and the deviation inequalities of best arm identification, are bounded
+this way.
 
 ## Main statements
 
@@ -49,16 +56,25 @@ and the deviation inequalities of best arm identification, are bounded this way.
   stream, have the law `streamMeasure ν` of the stream model.
 * `iIndepFun_arm_streamMeasure`: in the stream model, the reward sequences of the arms are
   independent.
-* `sum_setLIntegral_action_eq_pullCount_sumRewards_le`: the weighted form of the first statement,
-  for a measurable weight `g s x ≥ 0` in place of the indicator of `p`.
-* `sum_measure_action_eq_and_pullCount_sumRewards_le`: the bound on the expected number of rounds,
-  as a sum of probabilities in `ℝ≥0∞`, and `sum_measureReal_action_eq_and_pullCount_sumRewards_le`,
-  its real-valued form.
-* `measure_exists_pullCount_sumRewards_pi_le`: the bound on the probability of an event about all
-  arms at some round, and `measure_exists_lt_pullCount_sumRewards_pi_le`, its form up to a horizon
-  `n`, for finitely many arms.
-* `measure_exists_pullCount_sumRewards_le`: the bound on the probability of the event at some
-  round for one arm, and `measure_exists_lt_pullCount_sumRewards_le`, its form up to a horizon `n`.
+* `armObs`: the observations of an arm before a round, in the order of the pulls;
+  `armObs_eq_rewardByCount` relates them to LML's rewards by count, and `sum_armObs` to the sum of
+  rewards.
+* `sum_setLIntegral_action_eq_pullCount_armObs_le`: the weighted form of the first statement, for
+  measurable weights `g s y ≥ 0` in place of the indicator of `p`, and
+  `sum_measure_action_eq_and_pullCount_armObs_le`, the bound on the expected number of rounds.
+* `measure_exists_pullCount_armObs_pi_le`: the bound on the probability of an event about the
+  observations of all arms at some round, and `measure_exists_lt_pullCount_armObs_pi_le`, its form
+  up to a horizon `n`, for finitely many arms.
+* `measure_exists_pullCount_armObs_le`: the bound on the probability of an event about the
+  observations of one arm at some round, and `measure_exists_lt_pullCount_armObs_le`, its form up
+  to a horizon `n`.
+* `sum_setLIntegral_action_eq_pullCount_sumRewards_le`,
+  `sum_measure_action_eq_and_pullCount_sumRewards_le` and its real-valued form
+  `sum_measureReal_action_eq_and_pullCount_sumRewards_le`: the counting transfers for a property
+  of the number of pulls and the sum of rewards.
+* `measure_exists_pullCount_sumRewards_pi_le`, `measure_exists_lt_pullCount_sumRewards_pi_le`,
+  `measure_exists_pullCount_sumRewards_le` and `measure_exists_lt_pullCount_sumRewards_le`: the
+  event transfers for properties of the numbers of pulls and the sums of rewards.
 * `sumRewards_le_mul_or_mul_le_sumRewards_of_empMean_notMem_Ioo`: an empirical mean outside
   `(l, u)` is an event `y ≤ s l ∨ s u ≤ y` about the number of pulls `s` and the sum of rewards
   `y`, the form to which the event transfers apply.
@@ -74,8 +90,10 @@ The proofs work on the product of the probability space of the run with `streamM
 LML's `rewardByCount A R b (i + 1)` is the reward of the `(i + 1)`-th pull of `b`, and the array
 `(i, b) ↦ rewardByCount A R b (i + 1)` has the law of the stream
 (`hasLaw_rewardByCount_streamMeasure`, from LML's `Bandits.hasLaw_rewardByCount_infinitePi`). The
-sum of the rewards of `a` before round `t` is the sum of the first `pullCount A a t` of them, and
-the rounds that pull `a` see the pull counts `0, 1, …` each once (`sum_range_ite_action_eq`).
+observations of `a` before round `t` are the first `pullCount A a t` of them
+(`armObs_eq_rewardByCount`), and the rounds that pull `a` see the pull counts `0, 1, …` each once
+(`sum_range_ite_action_eq`). The transfers for sums of rewards are the transfers for the
+observations applied to properties of their sums (`sum_armObs`).
 The event transfers need no measurability of the event: they bound the outer measure of the event
 of the run by that of the event in the stream model, through `Measure.le_map_apply`.
 
@@ -99,7 +117,7 @@ variable {α Ω : Type*} {mα : MeasurableSpace α} {mΩ : MeasurableSpace Ω} [
 
 /-- The sum of the rewards of arm `a` before round `t` is the sum of its first `pullCount A a t`
 rewards by count. -/
-lemma sumRewards_eq_sum_range_rewardByCount {𝓨 : Type*} [AddCommGroup 𝓨] {R : ℕ → Ω → 𝓨}
+lemma sumRewards_eq_sum_range_rewardByCount {𝓨 : Type*} [AddCommMonoid 𝓨] {R : ℕ → Ω → 𝓨}
     (a : α) (t : ℕ) (ω : Ω × (ℕ → α → 𝓨)) :
     sumRewards A R a t ω.1 = ∑ i ∈ range (pullCount A a t ω.1), rewardByCount A R a (i + 1) ω := by
   rw [← sum_rewardByCount_eq_sumRewards, range_eq_Ico,
@@ -121,6 +139,46 @@ lemma sumRewards_le_mul_or_mul_le_sumRewards_of_empMean_notMem_Ioo {a : α} {t :
   rcases h with h | h
   · exact Or.inl (h.trans_eq (mul_comm _ _))
   · exact Or.inr ((mul_comm _ _).trans_le h)
+
+/-- The observations of arm `a` before round `t`, in the order of the pulls: the entry `i` is the
+feedback `Y` at the round `stepsUntil A a (i + 1) ω < t` of the `(i + 1)`-th pull of `a`. -/
+noncomputable def armObs {𝓨 : Type*} (A : ℕ → Ω → α) (Y : ℕ → Ω → 𝓨) (a : α) (t : ℕ) (ω : Ω) :
+    Fin (pullCount A a t ω) → 𝓨 :=
+  fun i ↦ Y (stepsUntil A a ((i : ℕ) + 1) ω).toNat ω
+
+/-- The defining formula of `armObs`. -/
+lemma armObs_def {𝓨 : Type*} (Y : ℕ → Ω → 𝓨) (a : α) (t : ℕ) (ω : Ω) :
+    armObs A Y a t ω = fun i : Fin (pullCount A a t ω) ↦ Y (stepsUntil A a (i + 1) ω).toNat ω :=
+  (rfl)
+
+/-- The observation `i` of arm `a` before round `t` is LML's reward by count of the `(i + 1)`-th
+pull of `a`, whatever the auxiliary stream. -/
+lemma armObs_eq_rewardByCount {𝓨 : Type*} (Y : ℕ → Ω → 𝓨) (a : α) (t : ℕ)
+    (ω : Ω × (ℕ → α → 𝓨)) (i : Fin (pullCount A a t ω.1)) :
+    armObs A Y a t ω.1 i = rewardByCount A Y a (i + 1) ω := by
+  rw [armObs_def, rewardByCount_of_stepsUntil_ne_top (stepsUntil_lt_of_lt_pullCount i.2).ne_top]
+
+/-- The observations of arm `a` before round `t` add up to the sum of its rewards. -/
+@[simp]
+lemma sum_armObs {𝓨 : Type*} [AddCommMonoid 𝓨] (Y : ℕ → Ω → 𝓨) (a : α) (t : ℕ) (ω : Ω) :
+    ∑ i, armObs A Y a t ω i = sumRewards A Y a t ω := by
+  rw [sumRewards_eq_sum_range_rewardByCount a t (ω, 0), ← Fin.sum_univ_eq_sum_range]
+  exact sum_congr rfl fun i _ ↦ armObs_eq_rewardByCount Y a t (ω, 0) i
+
+/-- A measurable function of a number of observations and of that many observations, evaluated at
+the number of pulls of arm `a` before round `t` and at its observations, is measurable. -/
+lemma measurable_comp_pullCount_armObs [MeasurableSingletonClass α] {𝓨 β : Type*}
+    [MeasurableSpace 𝓨] [MeasurableSpace β] {Y : ℕ → Ω → 𝓨} (hA : ∀ n, Measurable (A n))
+    (hY : ∀ n, Measurable (Y n)) {g : (s : ℕ) → (Fin s → 𝓨) → β} (hg : ∀ s, Measurable (g s))
+    (a : α) (t : ℕ) :
+    Measurable fun ω ↦ g (pullCount A a t ω) (armObs A Y a t ω) := by
+  -- for a fixed number `s` of pulls, the first `s` observations are measurable
+  have hF : Measurable fun q : ℕ × Ω ↦ g q.1 fun i ↦ Y (stepsUntil A a (i + 1) q.2).toNat q.2 :=
+    measurable_from_prod_countable_right fun s ↦ (hg s).comp <| .of_eval fun i ↦
+      (measurable_from_prod_countable_right (f := fun q : ℕ × Ω ↦ Y q.1 q.2) hY).comp
+        ((measurable_stepsUntil hA a (i + 1)).enat_toNat.prodMk measurable_id)
+  simpa only [Function.comp_def, id, armObs_def] using
+    hF.comp ((measurable_pullCount hA a t).prodMk measurable_id)
 
 variable [Countable α] [MeasurableSingletonClass α]
 
@@ -175,38 +233,38 @@ theorem iIndepFun_arm_streamMeasure {𝓡 : Type*} [MeasurableSpace 𝓡] (ν : 
   ext a : 1
   rw [← (hasLaw_eval_infinitePi _ a).comp h_arms |>.map_eq, Function.comp_def]
 
-/-- **Counting transfer to the reward stream, weighted form.** In a run of any algorithm against the
-stochastic bandit `Environment.bandit ν`, for a measurable `g ≥ 0` of a number of pulls and a sum of
-rewards, the expected sum over the rounds `t < n` that pull arm `a` of `g` at the number of previous
-pulls and the sum of the previous rewards of `a` is at most
-`∑ s < n, E[g s (X₀ + ⋯ + X_{s-1})]` for an i.i.d. sequence `X` with law `ν a`, the rewards of `a`
-in the stream model `streamMeasure ν`. -/
-theorem sum_setLIntegral_action_eq_pullCount_sumRewards_le
-    (h : IsAlgEnvSeq O A R alg (Environment.bandit ν) P) (a : α) (n : ℕ) {g : ℕ → ℝ → ℝ≥0∞}
-    (hg : Measurable fun q : ℕ × ℝ ↦ g q.1 q.2) :
-    ∑ t ∈ range n, ∫⁻ ω in A t ⁻¹' {a}, g (pullCount A a t ω) (sumRewards A R a t ω) ∂P ≤
-      ∑ s ∈ range n, ∫⁻ x, g s (∑ i ∈ range s, x i a) ∂(streamMeasure ν) := by
+/-- **Counting transfer of the observations to the reward stream, weighted form.** In a run of any
+algorithm against the stochastic bandit `Environment.bandit ν`, for measurable functions
+`g s ≥ 0` of `s` observations, the expected sum over the rounds `t < n` that pull arm `a` of `g` at
+the previous observations of `a` is at most `∑ s < n, E[g s (X₀, …, X_{s-1})]` for an i.i.d.
+sequence `X` with law `ν a`, the rewards of `a` in the stream model `streamMeasure ν`. -/
+theorem sum_setLIntegral_action_eq_pullCount_armObs_le
+    (h : IsAlgEnvSeq O A R alg (Environment.bandit ν) P) (a : α) (n : ℕ)
+    {g : (s : ℕ) → (Fin s → ℝ) → ℝ≥0∞} (hg : ∀ s, Measurable (g s)) :
+    ∑ t ∈ range n, ∫⁻ ω in A t ⁻¹' {a}, g (pullCount A a t ω) (armObs A R a t ω) ∂P ≤
+      ∑ s ∈ range n, ∫⁻ x, g s (fun i ↦ x i a) ∂(streamMeasure ν) := by
   classical
   have hA := h.measurable_action
-  have hR := h.measurable_feedback
   -- the weight of round `t`, and the weight of the first `s` rewards of `a` in a stream
   set f : ℕ → Ω → ℝ≥0∞ := fun t ↦ (A t ⁻¹' {a}).indicator
-    fun ω ↦ g (pullCount A a t ω) (sumRewards A R a t ω)
-  set G : ℕ → (ℕ → α → ℝ) → ℝ≥0∞ := fun s x ↦ g s (∑ i ∈ range s, x i a)
+    fun ω ↦ g (pullCount A a t ω) (armObs A R a t ω)
+  set G : ℕ → (ℕ → α → ℝ) → ℝ≥0∞ := fun s x ↦ g s (fun i ↦ x i a)
   have hf t : Measurable (f t) :=
-    (hg.comp ((measurable_pullCount hA a t).prodMk (measurable_sumRewards hA hR a t))).indicator
+    (measurable_comp_pullCount_armObs hA h.measurable_feedback hg a t).indicator
       (hA t (measurableSet_singleton a))
-  have hG s : Measurable (G s) := hg.of_uncurry_left.comp (by fun_prop)
+  have hG s : Measurable (G s) := (hg s).comp (by fun_prop)
   have hZ := hasLaw_rewardByCount_streamMeasure h
   set Z : Ω × (ℕ → α → ℝ) → ℕ → α → ℝ := fun ω i b ↦ rewardByCount A R b (i + 1) ω
-  -- pathwise, the rounds that pull `a` see the pull counts `0, 1, …` once each
+  -- pathwise, the rounds that pull `a` see the pull counts `0, 1, …` once each, and their
+  -- observations are rewards by count
   have h_path (ω : Ω × (ℕ → α → ℝ)) :
       ∑ t ∈ range n, f t ω.1 = ∑ s ∈ range (pullCount A a n ω.1), G s (Z ω) := by
     rw [← sum_range_ite_action_eq]
     refine sum_congr rfl fun t _ ↦ ?_
-    by_cases hat : A t ω.1 = a <;>
-      simp [f, G, Z, hat, sumRewards_eq_sum_range_rewardByCount a t ω]
-  calc ∑ t ∈ range n, ∫⁻ ω in A t ⁻¹' {a}, g (pullCount A a t ω) (sumRewards A R a t ω) ∂P
+    have h_obs : armObs A R a t ω.1 = fun i : Fin _ ↦ Z ω i a :=
+      funext (armObs_eq_rewardByCount R a t ω)
+    by_cases hat : A t ω.1 = a <;> simp [f, G, hat, h_obs]
+  calc ∑ t ∈ range n, ∫⁻ ω in A t ⁻¹' {a}, g (pullCount A a t ω) (armObs A R a t ω) ∂P
   _ = ∑ t ∈ range n, ∫⁻ ω, f t ω.1 ∂(P.prod (streamMeasure ν)) := by
     refine sum_congr rfl fun t _ ↦ ?_
     rw [lintegral_prod (fun ω ↦ f t ω.1) ((hf t).comp measurable_fst).aemeasurable]
@@ -218,8 +276,59 @@ theorem sum_setLIntegral_action_eq_pullCount_sumRewards_le
     exact sum_le_sum_of_subset (range_subset_range.mpr (pullCount_le a n ω.1))
   _ = ∑ s ∈ range n, ∫⁻ ω, G s (Z ω) ∂(P.prod (streamMeasure ν)) :=
     lintegral_finsetSum' _ fun s _ ↦ (hG s).comp_aemeasurable hZ.aemeasurable
-  _ = ∑ s ∈ range n, ∫⁻ x, g s (∑ i ∈ range s, x i a) ∂(streamMeasure ν) :=
+  _ = ∑ s ∈ range n, ∫⁻ x, g s (fun i ↦ x i a) ∂(streamMeasure ν) :=
     sum_congr rfl fun s _ ↦ hZ.lintegral_comp (hG s).aemeasurable
+
+/-- **Counting transfer of the observations to the reward stream.** In a run of any algorithm
+against the stochastic bandit `Environment.bandit ν`, for a property `p s` of `s` observations,
+measurable for each `s`, the expected number of rounds `t < n` at which arm `a` is pulled while
+`p` holds for its previous observations is at most `∑ s < n, P(p s (X₀, …, X_{s-1}))` for an
+i.i.d. sequence `X` with law `ν a`, the rewards of `a` in the stream model `streamMeasure ν`. -/
+theorem sum_measure_action_eq_and_pullCount_armObs_le
+    (h : IsAlgEnvSeq O A R alg (Environment.bandit ν) P) (a : α) (n : ℕ)
+    {p : (s : ℕ) → (Fin s → ℝ) → Prop} (hp : ∀ s, Measurable (p s)) :
+    ∑ t ∈ range n, P {ω | A t ω = a ∧ p (pullCount A a t ω) (armObs A R a t ω)} ≤
+      ∑ s ∈ range n, streamMeasure ν {x | p s (fun i ↦ x i a)} := by
+  -- the weighted transfer with the indicator of `p` as the weight
+  set B : (s : ℕ) → Set (Fin s → ℝ) := fun s ↦ {y | p s y}
+  have hB s : MeasurableSet (B s) := measurableSet_setOfPred.mpr (hp s)
+  refine (sum_le_sum fun t _ ↦ ?_).trans ((sum_setLIntegral_action_eq_pullCount_armObs_le h a n
+    (g := fun s y ↦ (B s).indicator 1 y) fun s ↦ measurable_one.indicator (hB s)).trans
+      (sum_le_sum fun s _ ↦ ?_))
+  · have hE : MeasurableSet {ω | p (pullCount A a t ω) (armObs A R a t ω)} :=
+      measurableSet_setOfPred.mpr
+        (measurable_comp_pullCount_armObs h.measurable_action h.measurable_feedback hp a t)
+    calc P {ω | A t ω = a ∧ p (pullCount A a t ω) (armObs A R a t ω)}
+    _ = P ({ω | p (pullCount A a t ω) (armObs A R a t ω)} ∩ A t ⁻¹' {a}) := by
+      congr 1 with ω
+      simp [and_comm]
+    _ = ∫⁻ ω in A t ⁻¹' {a}, (B _).indicator 1 (armObs A R a t ω) ∂P := by
+      rw [← Measure.restrict_apply hE, ← lintegral_indicator_one hE]
+      refine lintegral_congr fun ω ↦ ?_
+      by_cases hpt : p (pullCount A a t ω) (armObs A R a t ω) <;> simp [B, hpt]
+    _ ≤ _ := le_rfl
+  · have hE : MeasurableSet {x : ℕ → α → ℝ | p s (fun i ↦ x i a)} := (hB s).preimage (by fun_prop)
+    rw [← lintegral_indicator_one hE]
+    refine lintegral_mono fun x ↦ ?_
+    by_cases hpx : p s (fun i ↦ x i a) <;> simp [B, hpx]
+
+/-- **Counting transfer to the reward stream, weighted form.** In a run of any algorithm against the
+stochastic bandit `Environment.bandit ν`, for a measurable `g ≥ 0` of a number of pulls and a sum of
+rewards, the expected sum over the rounds `t < n` that pull arm `a` of `g` at the number of previous
+pulls and the sum of the previous rewards of `a` is at most
+`∑ s < n, E[g s (X₀ + ⋯ + X_{s-1})]` for an i.i.d. sequence `X` with law `ν a`, the rewards of `a`
+in the stream model `streamMeasure ν`. -/
+theorem sum_setLIntegral_action_eq_pullCount_sumRewards_le
+    (h : IsAlgEnvSeq O A R alg (Environment.bandit ν) P) (a : α) (n : ℕ) {g : ℕ → ℝ → ℝ≥0∞}
+    (hg : Measurable fun q : ℕ × ℝ ↦ g q.1 q.2) :
+    ∑ t ∈ range n, ∫⁻ ω in A t ⁻¹' {a}, g (pullCount A a t ω) (sumRewards A R a t ω) ∂P ≤
+      ∑ s ∈ range n, ∫⁻ x, g s (∑ i ∈ range s, x i a) ∂(streamMeasure ν) := by
+  -- the observation form for the weights `g s (y₀ + ⋯ + y_{s-1})`
+  have h_obs := sum_setLIntegral_action_eq_pullCount_armObs_le h a n
+    (g := fun s y ↦ g s (∑ i, y i)) fun s ↦ hg.of_uncurry_left.comp (by fun_prop)
+  simp only [sum_armObs] at h_obs
+  refine h_obs.trans_eq (sum_congr rfl fun s _ ↦ lintegral_congr fun x ↦ ?_)
+  rw [Fin.sum_univ_eq_sum_range (fun i ↦ x i a)]
 
 /-- **Counting transfer to the reward stream.** In a run of any algorithm against the stochastic
 bandit `Environment.bandit ν`, the expected number of rounds `t < n` at which arm `a` is pulled
@@ -272,6 +381,82 @@ theorem sum_measureReal_action_eq_and_pullCount_sumRewards_le
   exact ENNReal.toReal_mono (ENNReal.sum_ne_top.mpr fun _ _ ↦ measure_ne_top _ _)
     (sum_measure_action_eq_and_pullCount_sumRewards_le h a n hp)
 
+/-- **Joint event transfer of the observations to the reward stream.** In a run of any algorithm
+against the stochastic bandit `Environment.bandit ν`, the probability that `q` holds at some round
+for the numbers of previous pulls of all arms and their previous observations is at most the
+probability that `q s (fun a ↦ (X₀ a, …, X_{s a - 1} a))` holds for some numbers of pulls
+`s : α → ℕ`, for the i.i.d. rewards `X` of the stream model `streamMeasure ν`. The predicate `q`
+need not be measurable: for a non-measurable event, both sides are outer measures. -/
+theorem measure_exists_pullCount_armObs_pi_le
+    (h : IsAlgEnvSeq O A R alg (Environment.bandit ν) P)
+    (q : (s : α → ℕ) → ((a : α) → Fin (s a) → ℝ) → Prop) :
+    P {ω | ∃ t, q (fun a ↦ pullCount A a t ω) (fun a ↦ armObs A R a t ω)} ≤
+      streamMeasure ν {x | ∃ s : α → ℕ, q s (fun a i ↦ x i a)} := by
+  set Z : Ω × (ℕ → α → ℝ) → ℕ → α → ℝ := fun ω i b ↦ rewardByCount A R b (i + 1) ω
+  have hZ : HasLaw Z (streamMeasure ν) (P.prod (streamMeasure ν)) :=
+    hasLaw_rewardByCount_streamMeasure h
+  calc P {ω | ∃ t, q (fun a ↦ pullCount A a t ω) (fun a ↦ armObs A R a t ω)}
+  _ = P.prod (streamMeasure ν) (Prod.fst ⁻¹'
+      {ω | ∃ t, q (fun a ↦ pullCount A a t ω) (fun a ↦ armObs A R a t ω)}) := by
+    rw [Measure.prod_preimage_fst, measure_univ, one_mul]
+  _ ≤ P.prod (streamMeasure ν) (Z ⁻¹' {x | ∃ s : α → ℕ, q s (fun a i ↦ x i a)}) := by
+    -- at round `t`, the observations of each arm `a` are its first `pullCount A a t ω` rewards
+    -- by count
+    refine measure_mono fun ω ⟨t, ht⟩ ↦ ⟨fun a ↦ pullCount A a t ω.1, ?_⟩
+    have h_obs : (fun a ↦ armObs A R a t ω.1) = fun a (i : Fin _) ↦ Z ω i a :=
+      funext fun a ↦ funext (armObs_eq_rewardByCount R a t ω)
+    rwa [h_obs] at ht
+  _ ≤ streamMeasure ν {x | ∃ s : α → ℕ, q s (fun a i ↦ x i a)} :=
+    (Measure.le_map_apply hZ.aemeasurable _).trans_eq (by rw [hZ.map_eq])
+
+omit [Countable α] in
+/-- **Joint event transfer of the observations to the reward stream, up to a horizon.** For
+finitely many arms, in a run of any algorithm against the stochastic bandit
+`Environment.bandit ν`, the probability that `q` holds at some round `t < n` for the numbers of
+previous pulls of all arms and their previous observations is at most the probability that
+`q s (fun a ↦ (X₀ a, …, X_{s a - 1} a))` holds for some numbers of pulls `s : α → ℕ` with
+`∑ a, s a < n`, for the i.i.d. rewards `X` of the stream model `streamMeasure ν`. -/
+theorem measure_exists_lt_pullCount_armObs_pi_le [Fintype α]
+    (h : IsAlgEnvSeq O A R alg (Environment.bandit ν) P) (n : ℕ)
+    (q : (s : α → ℕ) → ((a : α) → Fin (s a) → ℝ) → Prop) :
+    P {ω | ∃ t < n, q (fun a ↦ pullCount A a t ω) (fun a ↦ armObs A R a t ω)} ≤
+      streamMeasure ν {x | ∃ s : α → ℕ, ∑ a, s a < n ∧ q s (fun a i ↦ x i a)} := by
+  calc P {ω | ∃ t < n, q (fun a ↦ pullCount A a t ω) (fun a ↦ armObs A R a t ω)}
+  _ ≤ P {ω | ∃ t, ∑ a, pullCount A a t ω < n ∧
+      q (fun a ↦ pullCount A a t ω) (fun a ↦ armObs A R a t ω)} :=
+    -- at round `t`, the arms have been pulled `t` times in total
+    measure_mono fun ω ⟨t, ht, hqt⟩ ↦ ⟨t, by rwa [sum_pullCount], hqt⟩
+  _ ≤ streamMeasure ν {x | ∃ s : α → ℕ, ∑ a, s a < n ∧ q s (fun a i ↦ x i a)} :=
+    measure_exists_pullCount_armObs_pi_le h fun s y ↦ ∑ a, s a < n ∧ q s y
+
+/-- **Event transfer of the observations to the reward stream.** In a run of any algorithm against
+the stochastic bandit `Environment.bandit ν`, the probability that `p` holds for the previous
+observations of arm `a` at some round is at most the probability that `p s (X₀, …, X_{s-1})` holds
+for some `s`, for the i.i.d. rewards `X` of `a` in the stream model `streamMeasure ν`. -/
+theorem measure_exists_pullCount_armObs_le (h : IsAlgEnvSeq O A R alg (Environment.bandit ν) P)
+    (a : α) (p : (s : ℕ) → (Fin s → ℝ) → Prop) :
+    P {ω | ∃ t, p (pullCount A a t ω) (armObs A R a t ω)} ≤
+      streamMeasure ν {x | ∃ s, p s (fun i ↦ x i a)} :=
+  (measure_exists_pullCount_armObs_pi_le h fun s y ↦ p (s a) (y a)).trans
+    (measure_mono fun _ ⟨s, hs⟩ ↦ ⟨s a, hs⟩)
+
+/-- **Event transfer of the observations to the reward stream, up to a horizon.** In a run of any
+algorithm against the stochastic bandit `Environment.bandit ν`, the probability that `p` holds for
+the previous observations of arm `a` at some round `t < n` is at most the probability that
+`p s (X₀, …, X_{s-1})` holds for some `s < n`, for the i.i.d. rewards `X` of `a` in the stream
+model `streamMeasure ν`. -/
+theorem measure_exists_lt_pullCount_armObs_le
+    (h : IsAlgEnvSeq O A R alg (Environment.bandit ν) P) (a : α) (n : ℕ)
+    (p : (s : ℕ) → (Fin s → ℝ) → Prop) :
+    P {ω | ∃ t < n, p (pullCount A a t ω) (armObs A R a t ω)} ≤
+      streamMeasure ν {x | ∃ s < n, p s (fun i ↦ x i a)} := by
+  calc P {ω | ∃ t < n, p (pullCount A a t ω) (armObs A R a t ω)}
+  _ ≤ P {ω | ∃ t, pullCount A a t ω < n ∧ p (pullCount A a t ω) (armObs A R a t ω)} :=
+    -- at round `t < n`, arm `a` has been pulled `pullCount A a t ω ≤ t < n` times
+    measure_mono fun ω ⟨t, ht, hpt⟩ ↦ ⟨t, (pullCount_le a t ω).trans_lt ht, hpt⟩
+  _ ≤ streamMeasure ν {x | ∃ s < n, p s (fun i ↦ x i a)} :=
+    measure_exists_pullCount_armObs_le h a fun s y ↦ s < n ∧ p s y
+
 /-- **Joint event transfer to the reward stream.** In a run of any algorithm against the
 stochastic bandit `Environment.bandit ν`, the probability that `q` holds at some round for the
 numbers of previous pulls of all arms and the sums of their previous rewards is at most the
@@ -282,21 +467,11 @@ theorem measure_exists_pullCount_sumRewards_pi_le
     (h : IsAlgEnvSeq O A R alg (Environment.bandit ν) P) (q : (α → ℕ) → (α → ℝ) → Prop) :
     P {ω | ∃ t, q (fun a ↦ pullCount A a t ω) (fun a ↦ sumRewards A R a t ω)} ≤
       streamMeasure ν {ω | ∃ s : α → ℕ, q s (fun a ↦ ∑ i ∈ range (s a), ω i a)} := by
-  set Z : Ω × (ℕ → α → ℝ) → ℕ → α → ℝ := fun ω i b ↦ rewardByCount A R b (i + 1) ω
-  have hZ : HasLaw Z (streamMeasure ν) (P.prod (streamMeasure ν)) :=
-    hasLaw_rewardByCount_streamMeasure h
-  calc P {ω | ∃ t, q (fun a ↦ pullCount A a t ω) (fun a ↦ sumRewards A R a t ω)}
-  _ = P.prod (streamMeasure ν) (Prod.fst ⁻¹'
-      {ω | ∃ t, q (fun a ↦ pullCount A a t ω) (fun a ↦ sumRewards A R a t ω)}) := by
-    rw [Measure.prod_preimage_fst, measure_univ, one_mul]
-  _ ≤ P.prod (streamMeasure ν)
-      (Z ⁻¹' {x | ∃ s : α → ℕ, q s (fun a ↦ ∑ i ∈ range (s a), x i a)}) := by
-    -- at round `t`, the rewards of each arm `a` so far are its first `pullCount A a t ω` rewards
-    -- by count
-    refine measure_mono fun ω ⟨t, ht⟩ ↦ ⟨fun a ↦ pullCount A a t ω.1, ?_⟩
-    simpa only [sumRewards_eq_sum_range_rewardByCount _ t ω] using ht
-  _ ≤ streamMeasure ν {x | ∃ s : α → ℕ, q s (fun a ↦ ∑ i ∈ range (s a), x i a)} :=
-    (Measure.le_map_apply hZ.aemeasurable _).trans_eq (by rw [hZ.map_eq])
+  -- the observation form for the event `q s (fun a ↦ y a 0 + ⋯ + y a (s a - 1))`
+  have h_obs := measure_exists_pullCount_armObs_pi_le h fun s y ↦ q s fun a ↦ ∑ i, y a i
+  simp only [sum_armObs] at h_obs
+  refine h_obs.trans (measure_mono fun x ⟨s, hs⟩ ↦ ⟨s, ?_⟩)
+  simpa only [Finset.sum_range] using hs
 
 omit [Countable α] in
 /-- **Joint event transfer to the reward stream, up to a horizon.** For finitely many arms, in a
