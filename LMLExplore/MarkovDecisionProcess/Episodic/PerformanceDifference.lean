@@ -124,6 +124,30 @@ theorem integral_sub_integral_value (hM : M.RewardsIn (Set.Icc (-C) C))
   rw [integral_sub iV iPV, integral_sub iV iQ, integral_sub iQr iPV, integral_sub iQ ir]
   ring
 
+/-- The values `V h s = ∫ Q h s a dπ'_h(a | s)` induced by measurable action values `Q h` before
+the horizon `H`, with `V H = 0`, are measurable up to the horizon. -/
+theorem measurable_of_eq_integral {π' : ℕ → Kernel 𝓢 𝓐} [∀ h, IsSFiniteKernel (π' h)]
+    (hQ : ∀ h < H, Measurable fun p : 𝓢 × 𝓐 ↦ Q h p.1 p.2) (hVH : ∀ s, V H s = 0)
+    (hVQ : ∀ h < H, ∀ s, V h s = ∫ a, Q h s a ∂(π' h s)) {h : ℕ} (hh : h ≤ H) :
+    Measurable (V h) := by
+  obtain hh | rfl := hh.lt_or_eq
+  · rw [funext (hVQ h hh)]
+    exact ((hQ h hh).stronglyMeasurable.integral_kernel_prod_right' (κ := π' h)).measurable
+  · rw [funext hVH]
+    exact measurable_const
+
+/-- The values `V h s = ∫ Q h s a dπ'_h(a | s)` induced by action values `Q h` bounded by `B` in
+absolute value before the horizon `H`, with `V H = 0`, are bounded by `|B|` in absolute value up
+to the horizon. -/
+theorem abs_le_abs_of_eq_integral {π' : ℕ → Kernel 𝓢 𝓐} [∀ h, IsMarkovKernel (π' h)]
+    (hQB : ∀ h < H, ∀ s a, |Q h s a| ≤ B) (hVH : ∀ s, V H s = 0)
+    (hVQ : ∀ h < H, ∀ s, V h s = ∫ a, Q h s a ∂(π' h s)) {h : ℕ} (hh : h ≤ H) (s : 𝓢) :
+    |V h s| ≤ |B| := by
+  obtain hh | rfl := hh.lt_or_eq
+  · rw [hVQ h hh]
+    exact abs_integral_le_of_abs_le fun a ↦ (hQB h hh s a).trans (le_abs_self B)
+  · simp [hVH]
+
 /-- **Extended value-difference identity** [JYW21, Lemma A.1]: for rewards in `[-C, C]`, Markov
 policies `π` and `π'` and an initial probability measure `μ`, let `Q h` be measurable estimates of
 the action values, bounded before the horizon `H`, with `Q H = 0`, and let
@@ -141,16 +165,11 @@ theorem integral_integral_sub_integral_value (hM : M.RewardsIn (Set.Icc (-C) C))
           ∂(M.stateMarginal π μ h) +
         ∑ h ∈ range H, ∫ p, (Q h p.1 p.2 - M.meanReward h p.1 p.2 -
           ∫ s', ∫ a, Q (h + 1) s' a ∂(π' (h + 1) s') ∂(M.trans h p)) ∂(M.occupancy π μ h) := by
-  have hVm (h : ℕ) (hh : h ≤ H) : Measurable fun s ↦ ∫ a, Q h s a ∂(π' h s) := by
-    obtain hh | rfl := hh.lt_or_eq
-    · exact ((hQ h hh).stronglyMeasurable.integral_kernel_prod_right' (κ := π' h)).measurable
-    · simp [hQH]
-  have hVB (h : ℕ) (hh : h ≤ H) (s : 𝓢) : |∫ a, Q h s a ∂(π' h s)| ≤ |B| := by
-    obtain hh | rfl := hh.lt_or_eq
-    · exact abs_integral_le_of_abs_le fun a ↦ (hQB h hh s a).trans (le_abs_self B)
-    · simp [hQH]
+  have hVH (s : 𝓢) : ∫ a, Q H s a ∂(π' H s) = 0 := by simp [hQH]
+  have hVQ (h : ℕ) (_ : h < H) (s : 𝓢) : ∫ a, Q h s a ∂(π' h s) = ∫ a, Q h s a ∂(π' h s) := rfl
   simpa [hQH] using integral_sub_integral_value (V := fun h s ↦ ∫ a, Q h s a ∂(π' h s)) (μ := μ)
-    (π := π) hM hVm hVB hQ hQB
+    (π := π) hM (fun _ ↦ measurable_of_eq_integral hQ hVH hVQ)
+    (fun _ ↦ abs_le_abs_of_eq_integral hQB hVH hVQ) hQ hQB
 
 /-- **Performance difference lemma**, the episodic form of [AJKS, Lemma 1.16]: for rewards in
 `[-C, C]`, Markov policies `π` and `π'` and an initial probability measure `μ`, the value of `π`

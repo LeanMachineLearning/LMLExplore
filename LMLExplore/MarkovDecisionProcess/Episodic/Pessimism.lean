@@ -77,17 +77,6 @@ variable {𝓢 𝓐 : Type*} {m𝓢 : MeasurableSpace 𝓢} {m𝓐 : MeasurableS
 
 /-! ### The decomposition of suboptimality -/
 
-/-- The values `V h s = ∫ Q h s a dπ'_h(a | s)` induced by measurable action values `Q h` before
-the horizon, with `V H = 0`, are measurable up to the horizon. -/
-private lemma measurable_of_eq_integral (hQ : ∀ h < H, Measurable fun p : 𝓢 × 𝓐 ↦ Q h p.1 p.2)
-    (hVH : ∀ s, V H s = 0) (hVQ : ∀ h < H, ∀ s, V h s = ∫ a, Q h s a ∂(π' h s)) {h : ℕ}
-    (hh : h ≤ H) : Measurable (V h) := by
-  obtain hh | rfl := hh.lt_or_eq
-  · rw [funext (hVQ h hh)]
-    exact ((hQ h hh).stronglyMeasurable.integral_kernel_prod_right' (κ := π' h)).measurable
-  · rw [funext hVH]
-    exact measurable_const
-
 /-- **Decomposition of suboptimality** [JYW21, Lemma 3.1]: for rewards in `[-C, C]`, Markov
 policies `π` and `π'` and an initial probability measure `μ`, let `Q h` be measurable estimates of
 the action values, bounded before the horizon `H`, and let `V h s = ∫ Q h s a dπ'_h(a | s)` before
@@ -110,11 +99,7 @@ theorem integral_value_sub_integral_value_eq_sum_add_sum_sub_sum
         ∑ h ∈ range H, ∫ p, (M.meanReward h p.1 p.2 + ∫ s', V (h + 1) s' ∂(M.trans h p) -
           Q h p.1 p.2) ∂(M.occupancy π' μ h) := by
   have hV (h : ℕ) (hh : h ≤ H) : Measurable (V h) := measurable_of_eq_integral hQ hVH hVQ hh
-  have hVB (h : ℕ) (hh : h ≤ H) (s : 𝓢) : |V h s| ≤ |B| := by
-    obtain hh | rfl := hh.lt_or_eq
-    · rw [hVQ h hh]
-      exact abs_integral_le_of_abs_le fun a ↦ (hQB h hh s a).trans (le_abs_self B)
-    · simp [hVH]
+  have hVB (h : ℕ) (hh : h ≤ H) : ∀ s, |V h s| ≤ |B| := abs_le_abs_of_eq_integral hQB hVH hVQ hh
   -- the value difference along `π` and along `π'`
   have h₁ := integral_sub_integral_value (π := π) (μ := μ) hM hV hVB hQ hQB
   have h₂ := integral_sub_integral_value (π := π') (μ := μ) hM hV hVB hQ hQB
