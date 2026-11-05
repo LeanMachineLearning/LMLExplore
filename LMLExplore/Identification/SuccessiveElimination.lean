@@ -659,17 +659,16 @@ theorem isDeltaCorrect_successiveEliminationOfRate {ν : (α → ℝ) → Kernel
     [∀ μ, IsMarkovKernel (ν μ)] (hmean : ∀ μ a, (ν μ a)[id] = μ a) (hσ2 : σ2 ≠ 0)
     (hν : ∀ μ a, HasSubgaussianMGF (fun x ↦ x - (ν μ a)[id]) σ2 (ν μ a)) (hδ : 0 < δ)
     (hδK : δ ≤ Fintype.card α) :
-    (baiTask ν).IsDeltaCorrect (successiveEliminationOfRate
+    (baiTask ν id).IsDeltaCorrect (successiveEliminationOfRate
       (subgaussianRate σ2 (log (Fintype.card α / δ)))) δ := by
   set β := subgaussianRate σ2 (log (Fintype.card α / δ))
   refine IdentTask.isDeltaCorrect_iff.2 fun μ hμ ↦ ?_
-  rw [M_baiTask] at hμ
+  simp only [M_baiTask, id_eq, Set.mem_ofPred_eq] at hμ
   obtain ⟨a, ha⟩ := hμ
   have ha' (b : α) : μ b ≤ μ a := by
     rcases eq_or_ne b a with rfl | hba
     exacts [le_rfl, (ha b hba).le]
-  have h_correct : (baiTask ν).correct μ = {a} :=
-    (subsingleton_correct_baiTask ν μ).eq_singleton_of_mem (by rw [correct_baiTask]; exact ha)
+  have h_correct : (baiTask ν id).correct μ = {a} := (correct_baiTask_eq_singleton_iff ν id).2 ha
   -- A number of pulls `T₀` beyond which `4 β(u) < μ_a - μ_b` for every arm `b ≠ a`.
   obtain ⟨T₀, hT₀⟩ : ∃ T₀, ∀ u ≥ T₀, ∀ b, b ≠ a → 4 * β u < μ a - μ b := by
     refine eventually_atTop.1 (eventually_all.2 fun b ↦ ?_)

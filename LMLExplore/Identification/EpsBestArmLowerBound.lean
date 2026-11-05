@@ -80,17 +80,18 @@ identification on the vectors of means of the families: if `A` is `δ`-correct w
 `a` is the only `ε`-good arm of `μ` and `E_μ[τ] < ∞`, then `kl(δ, 1 - δ) ≤ E_μ[N_c(τ)] x` for every
 arm `c` and every `x` such that `D(μ, w, ¬a) ≤ w c x` for all nonnegative allocations `w`. -/
 private lemma IsDeltaCorrect.klBer_le_lintegral_pullCount_mul_of_altCost_le_epsBaiTask
-    (hA : ((epsBaiTask ν ε).restrict {μ' | ∀ c, μ' c ∈ (ρ c).expFamilyMeans (T c)}).IsDeltaCorrect
-      A δ) (hδ : δ ≤ 1 / 2) (hε : 0 ≤ ε) (hμ : ∀ c, μ c ∈ (ρ c).expFamilyMeans (T c))
+    (hA : ((epsBaiTask ν id ε).restrict
+      {μ' | ∀ c, μ' c ∈ (ρ c).expFamilyMeans (T c)}).IsDeltaCorrect A δ)
+    (hδ : δ ≤ 1 / 2) (hε : 0 ≤ ε) (hμ : ∀ c, μ c ∈ (ρ c).expFamilyMeans (T c))
     (ha : ∀ b ≠ a, μ b + ε < μ a) (h : expectedStoppingTime A (Environment.bandit (ν μ)) ≠ ∞)
     {c : α} {x : ℝ} (h_alt : ∀ w : α → ℝ, 0 ≤ w →
-      ((epsBaiTask ν ε).restrict {μ' | ∀ c, μ' c ∈ (ρ c).expFamilyMeans (T c)}).altCost μ w a ≤
+      ((epsBaiTask ν id ε).restrict {μ' | ∀ c, μ' c ∈ (ρ c).expFamilyMeans (T c)}).altCost μ w a ≤
         ENNReal.ofReal (w c * x)) :
     klBer δ (1 - δ) ≤ (∫⁻ ω, (pullCount IT.action c
         (ENat.toNat (A.stoppingTime IT.obs IT.action IT.feedback ω)) ω : ℝ≥0∞)
           ∂(trajMeasure A.alg (Environment.bandit (ν μ)))) * ENNReal.ofReal x := by
   simpa using hA.klBer_le_lintegral_pullCount_mul_of_altCost_le_restrict hδ (by simp) hμ
-    ((correct_epsBaiTask_eq_singleton_iff ν hε).2 ha) (by simpa using h) h_alt
+    ((correct_epsBaiTask_eq_singleton_iff ν id hε).2 ha) (by simpa using h) h_alt
 
 omit [Fintype α] in
 /-- **Lower bound on the number of pulls of an arm that is not `ε`-good** [MT04; KCG16, Lemma 1].
@@ -100,8 +101,9 @@ vector of means of the families whose only `ε`-good arm is `a`, with `ε ≥ 0`
 `δ ≤ 1 / 2` and `E_μ[τ] < ∞`. For `b ≠ a` such that `μ a + ε` is a mean of the family of `b`,
 `kl(δ, 1 - δ) ≤ E_μ[N_b(τ)] d_b(μ b, μ a + ε)`. -/
 theorem IsDeltaCorrect.klBer_le_lintegral_pullCount_mul_epsBaiTask_add [Finite α]
-    (hA : ((epsBaiTask ν ε).restrict {μ' | ∀ c, μ' c ∈ (ρ c).expFamilyMeans (T c)}).IsDeltaCorrect
-      A δ) (hδ : δ ≤ 1 / 2) (hε : 0 ≤ ε) (hT : ∀ c x, ¬ T c =ᵐ[ρ c] fun _ ↦ x)
+    (hA : ((epsBaiTask ν id ε).restrict
+      {μ' | ∀ c, μ' c ∈ (ρ c).expFamilyMeans (T c)}).IsDeltaCorrect A δ)
+    (hδ : δ ≤ 1 / 2) (hε : 0 ≤ ε) (hT : ∀ c x, ¬ T c =ᵐ[ρ c] fun _ ↦ x)
     (hμ : ∀ c, μ c ∈ (ρ c).expFamilyMeans (T c))
     (hν : ∀ μ' : α → ℝ, (∀ c, μ' c ∈ (ρ c).expFamilyMeans (T c)) →
       ∀ c, klDiv (ν μ c) (ν μ' c) = ENNReal.ofReal ((ρ c).expFamilyDiv (T c) (μ c) (μ' c)))
@@ -123,8 +125,9 @@ means of the families whose only `ε`-good arm is `a`, with `ε ≥ 0`, and let 
 `E_μ[τ] < ∞`. For `b ≠ a` such that `μ b - ε` is a mean of the family of `a`,
 `kl(δ, 1 - δ) ≤ E_μ[N_a(τ)] d_a(μ a, μ b - ε)`. -/
 theorem IsDeltaCorrect.klBer_le_lintegral_pullCount_mul_epsBaiTask_sub [Finite α]
-    (hA : ((epsBaiTask ν ε).restrict {μ' | ∀ c, μ' c ∈ (ρ c).expFamilyMeans (T c)}).IsDeltaCorrect
-      A δ) (hδ : δ ≤ 1 / 2) (hε : 0 ≤ ε) (hT : ∀ c x, ¬ T c =ᵐ[ρ c] fun _ ↦ x)
+    (hA : ((epsBaiTask ν id ε).restrict
+      {μ' | ∀ c, μ' c ∈ (ρ c).expFamilyMeans (T c)}).IsDeltaCorrect A δ)
+    (hδ : δ ≤ 1 / 2) (hε : 0 ≤ ε) (hT : ∀ c x, ¬ T c =ᵐ[ρ c] fun _ ↦ x)
     (hμ : ∀ c, μ c ∈ (ρ c).expFamilyMeans (T c))
     (hν : ∀ μ' : α → ℝ, (∀ c, μ' c ∈ (ρ c).expFamilyMeans (T c)) →
       ∀ c, klDiv (ν μ c) (ν μ' c) = ENNReal.ofReal ((ρ c).expFamilyDiv (T c) (μ c) (μ' c)))
@@ -146,8 +149,9 @@ and let `b₀ ≠ a`. Suppose that `μ a + ε` is a mean of the families of the 
 vectors of means of the families, with `δ ≤ 1 / 2`, then
 `(∑_{b ≠ a} d_b(μ b, μ a + ε)⁻¹ + d_a(μ a, μ b₀ - ε)⁻¹) kl(δ, 1 - δ) ≤ E_μ[τ]`. -/
 theorem IsDeltaCorrect.mul_klBer_le_expectedStoppingTime_epsBaiTask {b₀ : α}
-    (hA : ((epsBaiTask ν ε).restrict {μ' | ∀ c, μ' c ∈ (ρ c).expFamilyMeans (T c)}).IsDeltaCorrect
-      A δ) (hδ : δ ≤ 1 / 2) (hε : 0 ≤ ε) (hT : ∀ c x, ¬ T c =ᵐ[ρ c] fun _ ↦ x)
+    (hA : ((epsBaiTask ν id ε).restrict
+      {μ' | ∀ c, μ' c ∈ (ρ c).expFamilyMeans (T c)}).IsDeltaCorrect A δ)
+    (hδ : δ ≤ 1 / 2) (hε : 0 ≤ ε) (hT : ∀ c x, ¬ T c =ᵐ[ρ c] fun _ ↦ x)
     (hμ : ∀ c, μ c ∈ (ρ c).expFamilyMeans (T c))
     (hν : ∀ μ' : α → ℝ, (∀ c, μ' c ∈ (ρ c).expFamilyMeans (T c)) →
       ∀ c, klDiv (ν μ c) (ν μ' c) = ENNReal.ofReal ((ρ c).expFamilyDiv (T c) (μ c) (μ' c)))
@@ -176,8 +180,9 @@ theorem IsDeltaCorrect.mul_klBer_le_expectedStoppingTime_epsBaiTask {b₀ : α}
 `mul_klBer_le_expectedStoppingTime_epsBaiTask` (except `δ ≤ 1 / 2`), for every `c ≥ 2.4`,
 `(∑_{b ≠ a} d_b(μ b, μ a + ε)⁻¹ + d_a(μ a, μ b₀ - ε)⁻¹) log (1 / (c δ)) ≤ E_μ[τ]`. -/
 theorem IsDeltaCorrect.mul_ofReal_log_le_expectedStoppingTime_epsBaiTask {b₀ : α}
-    (hA : ((epsBaiTask ν ε).restrict {μ' | ∀ c, μ' c ∈ (ρ c).expFamilyMeans (T c)}).IsDeltaCorrect
-      A δ) {c : ℝ} (hc : 2.4 ≤ c) (hε : 0 ≤ ε) (hT : ∀ c x, ¬ T c =ᵐ[ρ c] fun _ ↦ x)
+    (hA : ((epsBaiTask ν id ε).restrict
+      {μ' | ∀ c, μ' c ∈ (ρ c).expFamilyMeans (T c)}).IsDeltaCorrect A δ)
+    {c : ℝ} (hc : 2.4 ≤ c) (hε : 0 ≤ ε) (hT : ∀ c x, ¬ T c =ᵐ[ρ c] fun _ ↦ x)
     (hμ : ∀ c, μ c ∈ (ρ c).expFamilyMeans (T c))
     (hν : ∀ μ' : α → ℝ, (∀ c, μ' c ∈ (ρ c).expFamilyMeans (T c)) →
       ∀ c, klDiv (ν μ c) (ν μ' c) = ENNReal.ofReal ((ρ c).expFamilyDiv (T c) (μ c) (μ' c)))
@@ -232,7 +237,7 @@ arms. On the Bernoulli bandit in which `a` has mean `1 / 2 + ε` and every other
 theorem IsDeltaCorrect.ofReal_card_div_mul_klBer_le_expectedStoppingTime_epsBaiTask_bernoulliBandit
     [Nontrivial α] {A : IdentAlg Unit α ℝ α}
     (hA : ((epsBaiTask (fun μ ↦ Bandits.bernoulliBandit fun c ↦ projIcc 0 1 zero_le_one (μ c))
-      ε).restrict {μ | ∀ c, μ c ∈ Ioo 0 1}).IsDeltaCorrect A δ)
+      id ε).restrict {μ | ∀ c, μ c ∈ Ioo 0 1}).IsDeltaCorrect A δ)
     (hδ : δ ≤ 1 / 2) (hε : 0 < ε) (hε' : ε ≤ 1 / 8) (a : α) :
     ENNReal.ofReal (Fintype.card α / (48 * ε ^ 2)) * klBer δ (1 - δ) ≤
       expectedStoppingTime A (Environment.bandit (Bandits.bernoulliBandit fun c ↦
@@ -293,7 +298,7 @@ theorem
     IsDeltaCorrect.ofReal_card_div_mul_ofReal_log_le_expectedStoppingTime_epsBaiTask_bernoulliBandit
     [Nontrivial α] {A : IdentAlg Unit α ℝ α}
     (hA : ((epsBaiTask (fun μ ↦ Bandits.bernoulliBandit fun c ↦ projIcc 0 1 zero_le_one (μ c))
-      ε).restrict {μ | ∀ c, μ c ∈ Ioo 0 1}).IsDeltaCorrect A δ)
+      id ε).restrict {μ | ∀ c, μ c ∈ Ioo 0 1}).IsDeltaCorrect A δ)
     {c : ℝ} (hc : 2.4 ≤ c) (hε : 0 < ε) (hε' : ε ≤ 1 / 8) (a : α) :
     ENNReal.ofReal (Fintype.card α / (48 * ε ^ 2)) * ENNReal.ofReal (Real.log (1 / (c * δ))) ≤
       expectedStoppingTime A (Environment.bandit (Bandits.bernoulliBandit fun c ↦
