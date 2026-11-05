@@ -18,7 +18,8 @@ public import Mathlib.MeasureTheory.Function.SpecialFunctions.Inner
 Let `𝓕` be a filtration on a standard Borel space, `x` a sequence of features in a
 finite-dimensional real inner product space `E` with `x t` `𝓕 t`-measurable (predictable), and
 `η` a real noise with `η t` `𝓕 (t + 1)`-measurable and conditionally `σ²`-sub-Gaussian given
-`𝓕 t`. Let `S_t = ∑_{s < t} η s • x s` and `V_t = designOp λ x t = λ • 1 + ∑_{s < t} x s ⊗ x s`.
+`𝓕 t`. Let `S_t = ∑_{s < t} η s • x s` and
+`V_t = designOp (λ • 1) x t = λ • 1 + ∑_{s < t} x s ⊗ x s`.
 
 * For every `θ : E`, `exp (⟪θ, S_t⟫ - σ² ‖θ‖²_{V_t(0)} / 2)` is a supermartingale
   [LS, Lemma 20.2], and so is `exp (⟪θ, S_t⟫ - σ² ⟪θ, V_t θ⟫ / 2)`.
@@ -89,21 +90,21 @@ theorem supermartingale_exp_inner_sum_smul_sub [IsFiniteMeasure P]
   exact h
 
 /-- For every `θ`, `t ↦ exp (⟪θ, S_t⟫ - σ² ⟪θ, V_t θ⟫ / 2)` is a supermartingale, where
-`S_t = ∑_{s < t} η s • x s` and `V_t = designOp λ x t`: it is the supermartingale of
+`S_t = ∑_{s < t} η s • x s` and `V_t = designOp (λ • 1) x t`: it is the supermartingale of
 `supermartingale_exp_inner_sum_smul_sub` times the constant `exp (-σ² λ ‖θ‖² / 2)`. -/
 theorem supermartingale_exp_inner_sum_smul_sub_designOp [IsFiniteMeasure P]
     (hx : ∀ t, Measurable[𝓕 t] (x t)) (hη : ∀ t, Measurable[𝓕 (t + 1)] (η t))
     (hsub : ∀ t, HasCondSubgaussianMGF (𝓕 t) (𝓕.le t) (η t) σ2 P) (lam : ℝ) (θ : E) :
     Supermartingale (fun t ω ↦ exp (⟪θ, ∑ s ∈ range t, η s ω • x s ω⟫_ℝ -
-      σ2 * ⟪θ, designOp lam (fun s ↦ x s ω) t θ⟫_ℝ / 2)) 𝓕 P := by
+      σ2 * ⟪θ, designOp (lam • 1) (fun s ↦ x s ω) t θ⟫_ℝ / 2)) 𝓕 P := by
   have h := (supermartingale_exp_inner_sum_smul_sub hx hη hsub θ).smul_nonneg
     (exp_pos (-(σ2 * lam * ‖θ‖ ^ 2 / 2))).le
   have heq : (fun t ω ↦ exp (⟪θ, ∑ s ∈ range t, η s ω • x s ω⟫_ℝ -
-      σ2 * ⟪θ, designOp lam (fun s ↦ x s ω) t θ⟫_ℝ / 2)) =
+      σ2 * ⟪θ, designOp (lam • 1) (fun s ↦ x s ω) t θ⟫_ℝ / 2)) =
       exp (-(σ2 * lam * ‖θ‖ ^ 2 / 2)) • fun t ω ↦ exp (⟪θ, ∑ s ∈ range t, η s ω • x s ω⟫_ℝ -
         σ2 * (∑ s ∈ range t, ⟪θ, x s ω⟫_ℝ ^ 2) / 2) := by
     funext t ω
-    simp only [Pi.smul_apply, smul_eq_mul, ← exp_add, inner_designOp_apply_self,
+    simp only [Pi.smul_apply, smul_eq_mul, ← exp_add, inner_designOp_smul_one_apply_self,
       real_inner_comm θ]
     congr 1
     ring
@@ -122,7 +123,7 @@ theorem supermartingale_integral_exp_inner_sum_smul_sub_designOp [IsFiniteMeasur
     (hsub : ∀ t, HasCondSubgaussianMGF (𝓕 t) (𝓕.le t) (η t) σ2 P) (hσ : σ2 ≠ 0) {lam : ℝ}
     (hlam : 0 < lam) :
     Supermartingale (fun t ω ↦ ∫ θ : E, exp (⟪θ, ∑ s ∈ range t, η s ω • x s ω⟫_ℝ -
-      σ2 * ⟪θ, designOp lam (fun s ↦ x s ω) t θ⟫_ℝ / 2)) 𝓕 P := by
+      σ2 * ⟪θ, designOp (lam • 1) (fun s ↦ x s ω) t θ⟫_ℝ / 2)) 𝓕 P := by
   have hσpos : (0 : ℝ) < σ2 := NNReal.coe_pos.2 (pos_iff_ne_zero.2 hσ)
   refine supermartingale_integral_of_integrable
     (fun θ ↦ supermartingale_exp_inner_sum_smul_sub_designOp hx hη hsub lam θ)
@@ -140,24 +141,25 @@ theorem supermartingale_integral_exp_inner_sum_smul_sub_designOp [IsFiniteMeasur
     simp only [inner_designOp_apply_self]
     fun_prop
   · -- integrability of the initial expectations, a Gaussian integral
-    refine ((integrable_exp_inner_sub_inner_apply (isPositive_designOp hlam.le (fun _ ↦ 0) 0)
-      (isUnit_designOp hlam (fun _ ↦ 0) 0) hσpos 0).const_mul (P.real Set.univ)).congr
+    refine ((integrable_exp_inner_sub_inner_apply
+      (ContinuousLinearMap.isPositive_smul_one hlam.le)
+      (ContinuousLinearMap.isUnit_smul_one hlam.ne') hσpos 0).const_mul (P.real Set.univ)).congr
       (ae_of_all _ fun θ ↦ ?_)
     simp
 
 /-- **The self-normalized bound** [LS, Theorem 20.4]: for predictable features `x`, a
 conditionally `σ²`-sub-Gaussian noise `η` with `σ² ≠ 0`, `λ > 0` and `δ > 0`, the probability
 that for some `t`, `2σ² log (1 / δ) + σ² log (det V_t / λ ^ d) ≤ ‖S_t‖²_{V_t⁻¹}` is at most `δ`,
-where `S_t = ∑_{s < t} η s • x s` and `V_t = designOp λ x t`. -/
+where `S_t = ∑_{s < t} η s • x s` and `V_t = designOp (λ • 1) x t`. -/
 theorem measure_exists_inner_ringInverse_designOp_ge_le [IsProbabilityMeasure P]
     (hx : ∀ t, Measurable[𝓕 t] (x t)) (hη : ∀ t, Measurable[𝓕 (t + 1)] (η t))
     (hsub : ∀ t, HasCondSubgaussianMGF (𝓕 t) (𝓕.le t) (η t) σ2 P) (hσ : σ2 ≠ 0)
     {lam δ : ℝ} (hlam : 0 < lam) (hδ : 0 < δ) :
     P {ω | ∃ t, 2 * σ2 * log (1 / δ) +
-        σ2 * log (LinearMap.det (designOp lam (fun s ↦ x s ω) t : E →ₗ[ℝ] E) /
+        σ2 * log (LinearMap.det (designOp (lam • 1) (fun s ↦ x s ω) t : E →ₗ[ℝ] E) /
           lam ^ finrank ℝ E) ≤
       ⟪∑ s ∈ range t, η s ω • x s ω,
-        Ring.inverse (designOp lam (fun s ↦ x s ω) t) (∑ s ∈ range t, η s ω • x s ω)⟫_ℝ} ≤
+        Ring.inverse (designOp (lam • 1) (fun s ↦ x s ω) t) (∑ s ∈ range t, η s ω • x s ω)⟫_ℝ} ≤
       ENNReal.ofReal δ := by
   have hσpos : (0 : ℝ) < σ2 := NNReal.coe_pos.2 (pos_iff_ne_zero.2 hσ)
   set d := finrank ℝ E with hd
@@ -165,15 +167,15 @@ theorem measure_exists_inner_ringInverse_designOp_ge_le [IsProbabilityMeasure P]
   have hKd : 0 < (2 * π / σ2) ^ d := by positivity
   -- the mixture in closed form
   have hclosed (t : ℕ) (ω : Ω) : ∫ θ : E, exp (⟪θ, ∑ s ∈ range t, η s ω • x s ω⟫_ℝ -
-      σ2 * ⟪θ, designOp lam (fun s ↦ x s ω) t θ⟫_ℝ / 2) =
-      √((2 * π / σ2) ^ d / LinearMap.det (designOp lam (fun s ↦ x s ω) t : E →ₗ[ℝ] E)) *
-        exp (⟪∑ s ∈ range t, η s ω • x s ω, Ring.inverse (designOp lam (fun s ↦ x s ω) t)
+      σ2 * ⟪θ, designOp (lam • 1) (fun s ↦ x s ω) t θ⟫_ℝ / 2) =
+      √((2 * π / σ2) ^ d / LinearMap.det (designOp (lam • 1) (fun s ↦ x s ω) t : E →ₗ[ℝ] E)) *
+        exp (⟪∑ s ∈ range t, η s ω • x s ω, Ring.inverse (designOp (lam • 1) (fun s ↦ x s ω) t)
           (∑ s ∈ range t, η s ω • x s ω)⟫_ℝ / (2 * σ2)) :=
-    integral_exp_inner_sub_inner_apply (isPositive_designOp hlam.le _ t) (isUnit_designOp hlam _ t)
-      hσpos _
+    integral_exp_inner_sub_inner_apply (isPositive_designOp_smul_one hlam.le _ t)
+      (isUnit_designOp_smul_one hlam _ t) hσpos _
   have hM0 (ω : Ω) : ∫ θ : E, exp (⟪θ, ∑ s ∈ range 0, η s ω • x s ω⟫_ℝ -
-      σ2 * ⟪θ, designOp lam (fun s ↦ x s ω) 0 θ⟫_ℝ / 2) = √((2 * π / σ2) ^ d / lam ^ d) := by
-    rw [hclosed, det_designOp_zero, ← hd]
+      σ2 * ⟪θ, designOp (lam • 1) (fun s ↦ x s ω) 0 θ⟫_ℝ / 2) = √((2 * π / σ2) ^ d / lam ^ d) := by
+    rw [hclosed, designOp_zero, ContinuousLinearMap.det_smul_one, ← hd]
     simp
   have hK : 0 < √((2 * π / σ2) ^ d / lam ^ d) := Real.sqrt_pos.2 (div_pos hKd hΛ)
   have hville := (supermartingale_integral_exp_inner_sum_smul_sub_designOp hx hη hsub hσ
@@ -185,10 +187,10 @@ theorem measure_exists_inner_ringInverse_designOp_ge_le [IsProbabilityMeasure P]
   obtain ⟨t, ht⟩ := hω
   refine ⟨t, ?_⟩
   rw [hclosed]
-  set D := LinearMap.det (designOp lam (fun s ↦ x s ω) t : E →ₗ[ℝ] E)
+  set D := LinearMap.det (designOp (lam • 1) (fun s ↦ x s ω) t : E →ₗ[ℝ] E)
   set Q := ⟪∑ s ∈ range t, η s ω • x s ω,
-    Ring.inverse (designOp lam (fun s ↦ x s ω) t) (∑ s ∈ range t, η s ω • x s ω)⟫_ℝ
-  have hD : 0 < D := det_designOp_pos hlam _ t
+    Ring.inverse (designOp (lam • 1) (fun s ↦ x s ω) t) (∑ s ∈ range t, η s ω • x s ω)⟫_ℝ
+  have hD : 0 < D := det_designOp_smul_one_pos hlam _ t
   have hlog : log (1 / δ) + log (D / lam ^ d) / 2 ≤ Q / (2 * σ2) := by
     rw [le_div_iff₀ (by positivity)]
     linarith
@@ -213,12 +215,12 @@ theorem le_measureReal_forall_inner_ringInverse_designOp_lt [IsProbabilityMeasur
     (hsub : ∀ t, HasCondSubgaussianMGF (𝓕 t) (𝓕.le t) (η t) σ2 P) (hσ : σ2 ≠ 0)
     {lam δ : ℝ} (hlam : 0 < lam) (hδ : 0 < δ) :
     1 - δ ≤ P.real {ω | ∀ t, ⟪∑ s ∈ range t, η s ω • x s ω,
-        Ring.inverse (designOp lam (fun s ↦ x s ω) t) (∑ s ∈ range t, η s ω • x s ω)⟫_ℝ <
-      2 * σ2 * log (1 / δ) + σ2 * log (LinearMap.det (designOp lam (fun s ↦ x s ω) t :
+        Ring.inverse (designOp (lam • 1) (fun s ↦ x s ω) t) (∑ s ∈ range t, η s ω • x s ω)⟫_ℝ <
+      2 * σ2 * log (1 / δ) + σ2 * log (LinearMap.det (designOp (lam • 1) (fun s ↦ x s ω) t :
         E →ₗ[ℝ] E) / lam ^ finrank ℝ E)} := by
   set G := {ω | ∀ t, ⟪∑ s ∈ range t, η s ω • x s ω,
-      Ring.inverse (designOp lam (fun s ↦ x s ω) t) (∑ s ∈ range t, η s ω • x s ω)⟫_ℝ <
-    2 * σ2 * log (1 / δ) + σ2 * log (LinearMap.det (designOp lam (fun s ↦ x s ω) t :
+      Ring.inverse (designOp (lam • 1) (fun s ↦ x s ω) t) (∑ s ∈ range t, η s ω • x s ω)⟫_ℝ <
+    2 * σ2 * log (1 / δ) + σ2 * log (LinearMap.det (designOp (lam • 1) (fun s ↦ x s ω) t :
       E →ₗ[ℝ] E) / lam ^ finrank ℝ E)}
   have hbad : P.real Gᶜ ≤ δ := by
     refine ENNReal.toReal_le_of_le_ofReal hδ.le ((measure_mono fun ω hω ↦ ?_).trans

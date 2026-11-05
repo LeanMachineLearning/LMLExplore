@@ -12,10 +12,10 @@ public import LMLExplore.Analysis.InnerProductSpace.DesignOperator
 
 Given covariates `x : ℕ → E` in a real inner product space, responses `y : ℕ → ℝ` and a
 regularization parameter `λ > 0`, the *ridge estimate* after `t` observations is
-`θ̂_t = V_t⁻¹ ∑_{s < t} y s • x s`, where `V_t = designOp λ x t`. It is the unique minimizer of
-the regularized squared loss `L_t(θ) = ∑_{s < t} (y s - ⟪θ, x s⟫)² + λ ‖θ‖²`; more precisely,
-`L_t(θ) = L_t(θ̂_t) + ⟪θ - θ̂_t, V_t (θ - θ̂_t)⟫`. In the linear model `y s = ⟪θ, x s⟫ + η s`, its
-error is `θ̂_t - θ = V_t⁻¹ (∑_{s < t} η s • x s - λ • θ)`, so that
+`θ̂_t = V_t⁻¹ ∑_{s < t} y s • x s`, where `V_t = designOp (λ • 1) x t`. It is the unique
+minimizer of the regularized squared loss `L_t(θ) = ∑_{s < t} (y s - ⟪θ, x s⟫)² + λ ‖θ‖²`; more
+precisely, `L_t(θ) = L_t(θ̂_t) + ⟪θ - θ̂_t, V_t (θ - θ̂_t)⟫`. In the linear model
+`y s = ⟪θ, x s⟫ + η s`, its error is `θ̂_t - θ = V_t⁻¹ (∑_{s < t} η s • x s - λ • θ)`, so that
 `‖θ̂_t - θ‖_{V_t} ≤ √λ ‖θ‖ + ‖∑_{s < t} η s • x s‖_{V_t⁻¹}`, with `‖v‖_V = √⟪v, V v⟫`.
 
 ## Main definitions
@@ -64,9 +64,10 @@ variable {E : Type*} [NormedAddCommGroup E] [InnerProductSpace ℝ E] {lam : ℝ
 noncomputable def ridgeLoss (lam : ℝ) (x : ℕ → E) (y : ℕ → ℝ) (t : ℕ) (θ : E) : ℝ :=
   ∑ s ∈ range t, (y s - ⟪θ, x s⟫_ℝ) ^ 2 + lam * ‖θ‖ ^ 2
 
-/-- The **ridge estimate** `θ̂_t = V_t⁻¹ ∑_{s < t} y s • x s`, where `V_t = designOp λ x t`. -/
+/-- The **ridge estimate** `θ̂_t = V_t⁻¹ ∑_{s < t} y s • x s`, where
+`V_t = designOp (λ • 1) x t`. -/
 noncomputable def ridgeEstimate (lam : ℝ) (x : ℕ → E) (y : ℕ → ℝ) (t : ℕ) : E :=
-  Ring.inverse (designOp lam x t) (∑ s ∈ range t, y s • x s)
+  Ring.inverse (designOp (lam • 1) x t) (∑ s ∈ range t, y s • x s)
 
 /-- The defining equation of `ridgeLoss`. -/
 theorem ridgeLoss_def (lam : ℝ) (x : ℕ → E) (y : ℕ → ℝ) (t : ℕ) (θ : E) :
@@ -75,7 +76,7 @@ theorem ridgeLoss_def (lam : ℝ) (x : ℕ → E) (y : ℕ → ℝ) (t : ℕ) (�
 
 /-- The defining equation of `ridgeEstimate`. -/
 theorem ridgeEstimate_def (lam : ℝ) (x : ℕ → E) (y : ℕ → ℝ) (t : ℕ) :
-    ridgeEstimate lam x y t = Ring.inverse (designOp lam x t) (∑ s ∈ range t, y s • x s) :=
+    ridgeEstimate lam x y t = Ring.inverse (designOp (lam • 1) x t) (∑ s ∈ range t, y s • x s) :=
   (rfl)
 
 /-- The ridge estimate `θ̂_t` only depends on the covariates `x s` and the responses `y s` for
@@ -90,8 +91,8 @@ theorem ridgeEstimate_congr {x x' : ℕ → E} {y y' : ℕ → ℝ} {t : ℕ} (h
 `L_t(θ) = ∑_{s < t} y s ² - 2 ⟪θ, ∑_{s < t} y s • x s⟫ + ⟪θ, V_t θ⟫`. -/
 theorem ridgeLoss_eq (lam : ℝ) (x : ℕ → E) (y : ℕ → ℝ) (t : ℕ) (θ : E) :
     ridgeLoss lam x y t θ = ∑ s ∈ range t, y s ^ 2 - 2 * ⟪θ, ∑ s ∈ range t, y s • x s⟫_ℝ +
-      ⟪θ, designOp lam x t θ⟫_ℝ := by
-  rw [ridgeLoss, inner_designOp_apply_self, inner_sum]
+      ⟪θ, designOp (lam • 1) x t θ⟫_ℝ := by
+  rw [ridgeLoss, inner_designOp_smul_one_apply_self, inner_sum]
   simp only [inner_smul_right]
   have h : ∑ s ∈ range t, (y s - ⟪θ, x s⟫_ℝ) ^ 2 = ∑ s ∈ range t, y s ^ 2 -
       2 * ∑ s ∈ range t, y s * ⟪θ, x s⟫_ℝ + ∑ s ∈ range t, ⟪x s, θ⟫_ℝ ^ 2 := by
@@ -100,22 +101,20 @@ theorem ridgeLoss_eq (lam : ℝ) (x : ℕ → E) (y : ℕ → ℝ) (t : ℕ) (θ
   rw [h]
   ring
 
-variable [CompleteSpace E]
-
 /-- The **normal equations**: for `λ > 0`, `V_t θ̂_t = ∑_{s < t} y s • x s`. -/
 theorem designOp_ridgeEstimate (hlam : 0 < lam) (x : ℕ → E) (y : ℕ → ℝ) (t : ℕ) :
-    designOp lam x t (ridgeEstimate lam x y t) = ∑ s ∈ range t, y s • x s :=
-  ContinuousLinearMap.apply_ringInverse_apply (isUnit_designOp hlam x t) _
+    designOp (lam • 1) x t (ridgeEstimate lam x y t) = ∑ s ∈ range t, y s • x s :=
+  ContinuousLinearMap.apply_ringInverse_apply (isUnit_designOp_smul_one hlam x t) _
 
 /-- For `λ > 0`, the regularized squared loss is
 `L_t(θ) = L_t(θ̂_t) + ⟪θ - θ̂_t, V_t (θ - θ̂_t)⟫`. -/
 theorem ridgeLoss_eq_ridgeLoss_ridgeEstimate_add (hlam : 0 < lam) (x : ℕ → E) (y : ℕ → ℝ)
     (t : ℕ) (θ : E) :
     ridgeLoss lam x y t θ = ridgeLoss lam x y t (ridgeEstimate lam x y t) +
-      ⟪θ - ridgeEstimate lam x y t, designOp lam x t (θ - ridgeEstimate lam x y t)⟫_ℝ := by
-  have hsymm : ⟪ridgeEstimate lam x y t, designOp lam x t θ⟫_ℝ
-      = ⟪θ, designOp lam x t (ridgeEstimate lam x y t)⟫_ℝ := by
-    rw [← (isPositive_designOp hlam.le x t).inner_left_eq_inner_right, real_inner_comm]
+      ⟪θ - ridgeEstimate lam x y t, designOp (lam • 1) x t (θ - ridgeEstimate lam x y t)⟫_ℝ := by
+  have hsymm : ⟪ridgeEstimate lam x y t, designOp (lam • 1) x t θ⟫_ℝ
+      = ⟪θ, designOp (lam • 1) x t (ridgeEstimate lam x y t)⟫_ℝ := by
+    rw [← (isPositive_designOp_smul_one hlam.le x t).inner_left_eq_inner_right, real_inner_comm]
   rw [ridgeLoss_eq, ridgeLoss_eq, ← designOp_ridgeEstimate hlam x y t, map_sub, inner_sub_left,
     inner_sub_right, inner_sub_right]
   linarith
@@ -124,7 +123,7 @@ theorem ridgeLoss_eq_ridgeLoss_ridgeEstimate_add (hlam : 0 < lam) (x : ℕ → E
 theorem ridgeLoss_ridgeEstimate_le (hlam : 0 < lam) (x : ℕ → E) (y : ℕ → ℝ) (t : ℕ) (θ : E) :
     ridgeLoss lam x y t (ridgeEstimate lam x y t) ≤ ridgeLoss lam x y t θ := by
   rw [ridgeLoss_eq_ridgeLoss_ridgeEstimate_add hlam x y t θ]
-  exact le_add_of_nonneg_right ((isPositive_designOp hlam.le x t).inner_nonneg_right _)
+  exact le_add_of_nonneg_right ((isPositive_designOp_smul_one hlam.le x t).inner_nonneg_right _)
 
 /-- For `λ > 0`, the ridge estimate is a minimizer of the regularized squared loss on the whole
 space. -/
@@ -147,46 +146,48 @@ theorem eq_ridgeEstimate_of_ridgeLoss_le (hlam : 0 < lam) {x : ℕ → E} {y : �
 theorem ridgeEstimate_sub_eq (hlam : 0 < lam) (x : ℕ → E) {y η : ℕ → ℝ} (θ : E) (t : ℕ)
     (hy : ∀ s, y s = ⟪θ, x s⟫_ℝ + η s) :
     ridgeEstimate lam x y t - θ =
-      Ring.inverse (designOp lam x t) (∑ s ∈ range t, η s • x s - lam • θ) := by
+      Ring.inverse (designOp (lam • 1) x t) (∑ s ∈ range t, η s • x s - lam • θ) := by
   have hb : ∑ s ∈ range t, y s • x s
-      = designOp lam x t θ + (∑ s ∈ range t, η s • x s - lam • θ) := by
-    simp only [designOp_apply, hy, add_smul, sum_add_distrib, real_inner_comm θ]
+      = designOp (lam • 1) x t θ + (∑ s ∈ range t, η s • x s - lam • θ) := by
+    simp only [designOp_smul_one_apply, hy, add_smul, sum_add_distrib, real_inner_comm θ]
     abel
   rw [ridgeEstimate, hb, map_add,
-    ContinuousLinearMap.ringInverse_apply_apply (isUnit_designOp hlam x t), add_sub_cancel_left]
+    ContinuousLinearMap.ringInverse_apply_apply (isUnit_designOp_smul_one hlam x t),
+    add_sub_cancel_left]
 
 /-- **Deterministic confidence bound** in the linear model `y s = ⟪θ, x s⟫ + η s`: for `λ > 0`,
 `‖θ̂_t - θ‖_{V_t} ≤ √λ ‖θ‖ + ‖S_t‖_{V_t⁻¹}`, where `S_t = ∑_{s < t} η s • x s`. -/
 theorem sqrt_inner_ridgeEstimate_sub_le (hlam : 0 < lam) (x : ℕ → E) {y η : ℕ → ℝ} (θ : E)
     (t : ℕ) (hy : ∀ s, y s = ⟪θ, x s⟫_ℝ + η s) :
-    √⟪ridgeEstimate lam x y t - θ, designOp lam x t (ridgeEstimate lam x y t - θ)⟫_ℝ ≤
+    √⟪ridgeEstimate lam x y t - θ, designOp (lam • 1) x t (ridgeEstimate lam x y t - θ)⟫_ℝ ≤
       √lam * ‖θ‖ + √⟪∑ s ∈ range t, η s • x s,
-        Ring.inverse (designOp lam x t) (∑ s ∈ range t, η s • x s)⟫_ℝ := by
-  set V := designOp lam x t
+        Ring.inverse (designOp (lam • 1) x t) (∑ s ∈ range t, η s • x s)⟫_ℝ := by
+  set V := designOp (lam • 1) x t
   set S := ∑ s ∈ range t, η s • x s
   -- `‖θ̂_t - θ‖_{V_t} = ‖S_t - λ θ‖_{V_t⁻¹}`, then the triangle inequality for `‖·‖_{V_t⁻¹}`
   have heq : ⟪ridgeEstimate lam x y t - θ, V (ridgeEstimate lam x y t - θ)⟫_ℝ =
       ⟪-(lam • θ) + S, Ring.inverse V (-(lam • θ) + S)⟫_ℝ := by
     rw [ridgeEstimate_sub_eq hlam x θ t hy,
-      ContinuousLinearMap.apply_ringInverse_apply (isUnit_designOp hlam x t), real_inner_comm,
-      neg_add_eq_sub]
+      ContinuousLinearMap.apply_ringInverse_apply (isUnit_designOp_smul_one hlam x t),
+      real_inner_comm, neg_add_eq_sub]
   have hθ : √⟪-(lam • θ), Ring.inverse V (-(lam • θ))⟫_ℝ ≤ √lam * ‖θ‖ := by
     rw [Real.sqrt_le_left (by positivity)]
     simp [inner_smul_left, inner_smul_right, mul_pow, Real.sq_sqrt hlam.le]
     nlinarith [mul_inner_ringInverse_designOp_apply_le hlam x t θ]
   rw [heq]
-  exact ((isPositive_designOp hlam.le x t).ringInverse.sqrt_inner_add_le _ _).trans
+  exact ((isPositive_designOp_smul_one hlam.le x t).ringInverse.sqrt_inner_add_le _ _).trans
     (add_le_add_left hθ _)
 
 /-- **Prediction error of the ridge estimate**: for `λ > 0`, if `θ` lies in the confidence
 ellipsoid `‖θ̂_t - θ‖_{V_t} ≤ r`, then `|⟪θ̂_t - θ, v⟫| ≤ r ‖v‖_{V_t⁻¹}` for every `v`. -/
 theorem abs_inner_ridgeEstimate_sub_le (hlam : 0 < lam) (x : ℕ → E) (y : ℕ → ℝ) (t : ℕ)
     {θ : E} {r : ℝ}
-    (hθ : √⟪ridgeEstimate lam x y t - θ, designOp lam x t (ridgeEstimate lam x y t - θ)⟫_ℝ ≤ r)
-    (v : E) :
+    (hθ : √⟪ridgeEstimate lam x y t - θ,
+      designOp (lam • 1) x t (ridgeEstimate lam x y t - θ)⟫_ℝ ≤ r) (v : E) :
     |⟪ridgeEstimate lam x y t - θ, v⟫_ℝ| ≤
-      r * √⟪v, Ring.inverse (designOp lam x t) v⟫_ℝ :=
-  ((isPositive_designOp hlam.le x t).abs_inner_le_sqrt_mul_sqrt_ringInverse
-    (isUnit_designOp hlam x t) _ v).trans (mul_le_mul_of_nonneg_right hθ (Real.sqrt_nonneg _))
+      r * √⟪v, Ring.inverse (designOp (lam • 1) x t) v⟫_ℝ :=
+  ((isPositive_designOp_smul_one hlam.le x t).abs_inner_le_sqrt_mul_sqrt_ringInverse
+    (isUnit_designOp_smul_one hlam x t) _ v).trans
+      (mul_le_mul_of_nonneg_right hθ (Real.sqrt_nonneg _))
 
 end LMLExplore
