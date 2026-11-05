@@ -127,7 +127,7 @@ theorem le_streamMeasure_forall_tvDist_empiricalKernel_lt [Fintype α] [Fintype 
   -- the total variation distance is the `ℓ¹` distance of the mass functions
   have h_tv (ω : ℕ → α → β) (a : α) : tvDist (ν a) (empiricalKernel N ω a) =
       ∑ b, |(empiricalKernel N ω a).real {b} - (ν a).real {b}| := by
-    rw [tvDist_eq_sum_abs_measureReal_singleton_sub (by simp)]
+    rw [tvDist_eq_sum_abs_measureReal_singleton_sub]
     exact sum_congr rfl fun b _ ↦ abs_sub_comm _ _
   -- the bad event of a key is measurable and has probability at most `δ / card α`
   set bad : α → Set (ℕ → α → β) := fun a ↦ {ω | r ≤ tvDist (ν a) (empiricalKernel N ω a)}
