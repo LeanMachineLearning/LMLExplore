@@ -164,10 +164,10 @@ theorem measureReal_histOutputMeasure_glrt_unionBoundThreshold_le
       {h | unionBoundThreshold (Fintype.card α) x n < task.glr task.empCost n h (rec n h)})
     (hμ : μ ∈ task.M) (hc : MeasurableSet (task.correct μ)) (hx : Fintype.card α ≤ x) :
     (histOutputMeasure
-        (task.glrt task.empCost alg (unionBoundThreshold (Fintype.card α) x) rec hrec hstop)
-        (Environment.bandit (task.ν μ))).real
-        {p | p.1 ∈ (task.glrt task.empCost alg (unionBoundThreshold (Fintype.card α) x) rec hrec
-          hstop).stopSet ∧ p.2 ∉ task.correct μ} ≤
+        (task.glrt task.empCost alg (fun n _ ↦ unionBoundThreshold (Fintype.card α) x n) rec hrec
+          hstop) (Environment.bandit (task.ν μ))).real
+        {p | p.1 ∈ (task.glrt task.empCost alg (fun n _ ↦ unionBoundThreshold (Fintype.card α) x n)
+          rec hrec hstop).stopSet ∧ p.2 ∉ task.correct μ} ≤
       (x / Fintype.card α) ^ Fintype.card α * exp (Fintype.card α - x) := by
   have hseq := IT.isAlgEnvSeq_trajMeasure alg (Environment.bandit (task.ν μ))
   refine (task.measureReal_histOutputMeasure_glrt_le task.empCost alg _ rec hrec hstop hseq hμ
@@ -187,11 +187,11 @@ theorem isDeltaPAC_glrt_unionBoundThreshold
       (unionBoundLevel (Fintype.card α) δ) n < task.glr task.empCost n h (rec n h)})
     (hc : ∀ θ ∈ task.M, MeasurableSet (task.correct θ))
     (h_stops : ∀ θ ∈ task.M, StopsAS (task.glrt task.empCost alg
-      (unionBoundThreshold (Fintype.card α) (unionBoundLevel (Fintype.card α) δ)) rec hrec hstop)
-      (Environment.bandit (task.ν θ))) :
+      (fun n _ ↦ unionBoundThreshold (Fintype.card α) (unionBoundLevel (Fintype.card α) δ) n) rec
+      hrec hstop) (Environment.bandit (task.ν θ))) :
     task.IsDeltaPAC (task.glrt task.empCost alg
-      (unionBoundThreshold (Fintype.card α) (unionBoundLevel (Fintype.card α) δ)) rec hrec hstop)
-      δ := by
+      (fun n _ ↦ unionBoundThreshold (Fintype.card α) (unionBoundLevel (Fintype.card α) δ) n) rec
+      hrec hstop) δ := by
   refine task.isDeltaPAC_glrt task.empCost alg _ rec hrec hstop hc (fun θ hθ ↦ ?_) h_stops
   rw [measureReal_def]
   refine ENNReal.toReal_le_of_le_ofReal hδ.le ((measure_exists_unionBoundThreshold_lt_empCost_le
@@ -211,11 +211,11 @@ theorem isDeltaPAC_trackAndStop_unionBoundThreshold [Nonempty α]
         task.glr task.empCost n h (rec (empMean' n h))})
     (hc : ∀ θ ∈ task.M, MeasurableSet (task.correct θ))
     (h_stops : ∀ θ ∈ task.M, StopsAS (task.trackAndStop w hw
-      (unionBoundThreshold (Fintype.card α) (unionBoundLevel (Fintype.card α) δ)) rec hrec hstop)
-      (Environment.bandit (task.ν θ))) :
+      (fun n _ ↦ unionBoundThreshold (Fintype.card α) (unionBoundLevel (Fintype.card α) δ) n) rec
+      hrec hstop) (Environment.bandit (task.ν θ))) :
     task.IsDeltaPAC (task.trackAndStop w hw
-      (unionBoundThreshold (Fintype.card α) (unionBoundLevel (Fintype.card α) δ)) rec hrec hstop)
-      δ := by
+      (fun n _ ↦ unionBoundThreshold (Fintype.card α) (unionBoundLevel (Fintype.card α) δ) n) rec
+      hrec hstop) δ := by
   simp only [trackAndStop_def] at h_stops ⊢
   exact isDeltaPAC_glrt_unionBoundThreshold _ _ hνt hσ2 hδ hδ1 hstop hc h_stops
 
@@ -251,8 +251,8 @@ theorem isDeltaPAC_trackAndStop_unionBoundThreshold_of_mem_optAlloc [MeasurableS
       (fun q : (α → ℝ) × (α → ℝ) ↦ task.altCost q.1 q.2 (rec θ)) (Set.univ ×ˢ simplex α) (θ, w θ))
     (h_charTime : ∀ θ ∈ task.M, task.charTime θ ≠ ∞) {δ : ℝ} (hδ : 0 < δ) (hδ1 : δ ≤ 1) :
     task.IsDeltaPAC (task.trackAndStop w hw
-      (unionBoundThreshold (Fintype.card α) (unionBoundLevel (Fintype.card α) δ)) rec hrec
-      (hstop δ)) δ :=
+      (fun n _ ↦ unionBoundThreshold (Fintype.card α) (unionBoundLevel (Fintype.card α) δ) n) rec
+      hrec (hstop δ)) δ :=
   isDeltaPAC_trackAndStop_unionBoundThreshold hνt hσ2 hδ hδ1 hw hrec (hstop δ)
     (fun θ hθ ↦ hcorrect θ hθ ▸ measurableSet_singleton _) fun θ hθ ↦
     stopsAS_trackAndStop_unionBoundThreshold (fun _ ↦ not_ae_eq_const_gaussianReal 0 hσ2)
@@ -278,8 +278,8 @@ theorem tendsto_expectedStoppingTime_trackAndStop_unionBoundThreshold_div_log
       (fun q : (α → ℝ) × (α → ℝ) ↦ task.altCost q.1 q.2 (rec θ)) (Set.univ ×ˢ simplex α) (θ, w θ))
     (h_charTime : ∀ θ ∈ task.M, task.charTime θ ≠ ∞) (hμ : μ ∈ task.M) :
     Tendsto (fun δ ↦ expectedStoppingTime (task.trackAndStop w hw
-        (unionBoundThreshold (Fintype.card α) (unionBoundLevel (Fintype.card α) δ)) rec hrec
-        (hstop δ)) (Environment.bandit (task.ν μ)) / ENNReal.ofReal (log (1 / δ)))
+        (fun n _ ↦ unionBoundThreshold (Fintype.card α) (unionBoundLevel (Fintype.card α) δ) n) rec
+        hrec (hstop δ)) (Environment.bandit (task.ν μ)) / ENNReal.ofReal (log (1 / δ)))
       (𝓝[>] 0) (𝓝 (task.charTime μ)) := by
   refine tendsto_expectedStoppingTime_div_log ?_ hμ (hcorrect μ hμ) fun c hc ↦ ?_
   · filter_upwards [Ioc_mem_nhdsGT one_pos] with δ hδ
@@ -321,8 +321,8 @@ theorem isDeltaPAC_cTrackAndStop_unionBoundThreshold_of_mem_optAlloc [Measurable
       (fun q : (α → ℝ) × (α → ℝ) ↦ task.altCost q.1 q.2 (rec θ)) (Set.univ ×ˢ simplex α) (θ, v))
     (h_charTime : ∀ θ ∈ task.M, task.charTime θ ≠ ∞) {δ : ℝ} (hδ : 0 < δ) (hδ1 : δ ≤ 1) :
     task.IsDeltaPAC (task.cTrackAndStop w hw
-      (unionBoundThreshold (Fintype.card α) (unionBoundLevel (Fintype.card α) δ)) rec hrec
-      (hstop δ)) δ := by
+      (fun n _ ↦ unionBoundThreshold (Fintype.card α) (unionBoundLevel (Fintype.card α) δ) n) rec
+      hrec (hstop δ)) δ := by
   have h_stops (θ : α → ℝ) (hθ : θ ∈ task.M) := stopsAS_cTrackAndStop_unionBoundThreshold
     (hw := hw) (hrec := hrec) (hstop := hstop) (fun _ ↦ not_ae_eq_const_gaussianReal 0 hσ2)
     (fun _ ↦ mem_expFamilyMeans_gaussianReal 0 hσ2 _) (mgfDominatedAbove_gaussianBandit hνt hσ2 θ)
@@ -350,8 +350,8 @@ theorem tendsto_expectedStoppingTime_cTrackAndStop_unionBoundThreshold_div_log
       (fun q : (α → ℝ) × (α → ℝ) ↦ task.altCost q.1 q.2 (rec θ)) (Set.univ ×ˢ simplex α) (θ, v))
     (h_charTime : ∀ θ ∈ task.M, task.charTime θ ≠ ∞) (hμ : μ ∈ task.M) :
     Tendsto (fun δ ↦ expectedStoppingTime (task.cTrackAndStop w hw
-        (unionBoundThreshold (Fintype.card α) (unionBoundLevel (Fintype.card α) δ)) rec hrec
-        (hstop δ)) (Environment.bandit (task.ν μ)) / ENNReal.ofReal (log (1 / δ)))
+        (fun n _ ↦ unionBoundThreshold (Fintype.card α) (unionBoundLevel (Fintype.card α) δ) n) rec
+        hrec (hstop δ)) (Environment.bandit (task.ν μ)) / ENNReal.ofReal (log (1 / δ)))
       (𝓝[>] 0) (𝓝 (task.charTime μ)) := by
   refine tendsto_expectedStoppingTime_div_log ?_ hμ (hcorrect μ hμ) fun c hc ↦ ?_
   · filter_upwards [Ioc_mem_nhdsGT one_pos] with δ hδ
