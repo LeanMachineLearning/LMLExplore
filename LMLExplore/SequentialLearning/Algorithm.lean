@@ -13,7 +13,7 @@ public import Mathlib.Probability.Kernel.CondDistrib
 import LMLExplore.Probability.Kernel.Composition.MeasureCompProd
 
 /-!
-# Algorithm-environment sequences: transport, history before each action, piecewise environments
+# Algorithm-environment sequences: transport, prior history, piecewise algorithms and environments
 
 Complements to LML's `LeanMachineLearning.SequentialLearning.Algorithm`.
 

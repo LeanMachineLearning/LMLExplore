@@ -56,15 +56,18 @@ lemma klDiv_compProd_piecewise (μ : Measure α) [IsFiniteMeasure μ] (κ η : K
     [DecidablePred (· ∈ s)] :
     klDiv (μ ⊗ₘ κ) (μ ⊗ₘ Kernel.piecewise hs η κ) =
       klDiv (μ.restrict s ⊗ₘ κ) (μ.restrict s ⊗ₘ η) := by
+  -- The piecewise kernel agrees with `η` almost everywhere on `s` and with `κ` on `sᶜ`.
+  have h_on : μ.restrict s ⊗ₘ Kernel.piecewise hs η κ = μ.restrict s ⊗ₘ η :=
+    Measure.compProd_congr ((ae_restrict_mem hs).mono fun x hx ↦ by
+      simp [Kernel.piecewise_apply, hx])
+  have h_off : μ.restrict sᶜ ⊗ₘ Kernel.piecewise hs η κ = μ.restrict sᶜ ⊗ₘ κ :=
+    Measure.compProd_congr ((ae_restrict_mem hs.compl).mono fun x hx ↦ by
+      simp [Kernel.piecewise_apply, Set.notMem_of_mem_compl hx])
   have h_compl : (s ×ˢ (Set.univ : Set β))ᶜ = sᶜ ×ˢ Set.univ := by ext; simp
+  -- Split the divergence over `s` and `sᶜ`; the part over `sᶜ` vanishes.
   rw [← klDiv_restrict_add_restrict_compl (hs.prod .univ), h_compl,
     ← Measure.compProd_restrict_left _ _ hs, ← Measure.compProd_restrict_left _ _ hs,
     ← Measure.compProd_restrict_left _ _ hs.compl, ← Measure.compProd_restrict_left _ _ hs.compl,
-    Measure.compProd_congr (κ := Kernel.piecewise hs η κ) (η := η)
-      ((ae_restrict_mem hs).mono fun x hx ↦ by simp [Kernel.piecewise_apply, hx]),
-    Measure.compProd_congr (κ := Kernel.piecewise hs η κ) (η := κ)
-      ((ae_restrict_mem hs.compl).mono fun x hx ↦ by
-        simp [Kernel.piecewise_apply, Set.notMem_of_mem_compl hx]),
-    klDiv_self, add_zero]
+    h_on, h_off, klDiv_self, add_zero]
 
 end InformationTheory

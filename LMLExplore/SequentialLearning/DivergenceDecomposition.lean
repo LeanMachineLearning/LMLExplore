@@ -27,11 +27,14 @@ one of the Wald identities of `LMLExplore/SequentialLearning/Wald.lean`.
 
 At a stopping time `τ`, the hitting time of a stopping rule `S`, the chain rule bounds the
 relative entropy between the laws of the histories stopped by `S` under any two
-algorithm-environment pairs `(alg, env)` and `(alg', env')` by the divergences of the steps of the
-rounds before `τ`: `KL ≤ E[∑ t < τ, KL(stepKernel alg env t (H t) ‖ stepKernel alg' env' t (H t))]`
-under `(alg, env)`. For one algorithm against two stationary environments and an almost surely
-finite `τ`, it gives `KL ≤ ∑ a, E[N_a(τ)] KL(κ a ‖ κ' a)`. This is the change of measure behind
-the lower bounds of bandit identification.
+algorithm-environment pairs `(alg, env)` and `(alg', env')` by the series over the rounds `t` of
+the divergences of the step of round `t`, on the event that `S` has not stopped after the first `t`
+rounds under `(alg, env)`. For countably generated spaces and a `τ` that is almost surely finite
+under `(alg, env)`, this series is
+`E[∑ t < τ, KL(stepKernel alg env t (H t) ‖ stepKernel alg' env' t (H t))]`. For one algorithm
+against two stationary environments and an almost surely finite `τ`, it gives
+`KL ≤ ∑ a, E[N_a(τ)] KL(κ a ‖ κ' a)`. This is the change of measure behind the lower bounds of
+bandit identification.
 
 ## Main statements
 
@@ -126,39 +129,6 @@ theorem klDiv_stoppedHistMeasure_le_tsum (hS : MeasurableSet S) :
         rw [h_chain]
         exact tsum_congr fun t ↦ by rw [stepKernel_piecewise, klDiv_compProd_piecewise]
 
-/-- The series over the rounds `t` of the expectations of `f t` on the event that the stopping
-rule `S` has not stopped after the first `t` rounds is the expectation of the sum of the `f t`
-over the rounds before the hitting time of `S`, when that hitting time is almost surely
-finite. -/
-private lemma tsum_setLIntegral_notStoppedSet (hS : MeasurableSet S)
-    (hτ : ∀ᵐ ω ∂(trajMeasure alg env),
-      hittingAfter (sigmaHistory IT.obs IT.action IT.feedback) S 0 ω ≠ ⊤)
-    {f : ℕ → (ℕ → Round 𝓞 𝓐 𝓨) → ℝ≥0∞} (hf : ∀ t, Measurable (f t)) :
-    ∑' t, ∫⁻ ω in history IT.obs IT.action IT.feedback t ⁻¹' notStoppedSet S t, f t ω
-        ∂(trajMeasure alg env) =
-      ∫⁻ ω, ∑ t ∈ range (ENat.toNat
-          (hittingAfter (sigmaHistory IT.obs IT.action IT.feedback) S 0 ω)), f t ω
-        ∂(trajMeasure alg env) := by
-  set τ := hittingAfter (sigmaHistory (IT.obs (𝓞 := 𝓞) (𝓐 := 𝓐) (𝓨 := 𝓨)) IT.action
-    IT.feedback) S 0 with hτ_def
-  have hmeas (t : ℕ) :
-      MeasurableSet (history IT.obs IT.action IT.feedback t ⁻¹' notStoppedSet S t) :=
-    measurable_history IT.measurable_obs IT.measurable_action IT.measurable_feedback t
-      (measurableSet_notStoppedSet hS t)
-  simp_rw [← lintegral_indicator (hmeas _)]
-  rw [← lintegral_tsum fun t ↦ ((hf t).indicator (hmeas t)).aemeasurable]
-  refine lintegral_congr_ae ?_
-  filter_upwards [hτ] with ω hω
-  have h_lt (t : ℕ) : history IT.obs IT.action IT.feedback t ω ∈ notStoppedSet S t ↔
-      t < ENat.toNat (τ ω) := by
-    rw [history_mem_notStoppedSet_iff, ← hτ_def]
-    -- For finite `τ ω`, `ENat.toNat (τ ω)` is `ENat.lift (τ ω)`, below which lie exactly
-    -- the `t` with `↑t < τ ω`.
-    exact ENat.lift_eq_toNat_of_lt_top (lt_top_iff_ne_top.2 hω) ▸ ENat.lt_lift_iff.symm
-  rw [tsum_eq_sum (s := range (ENat.toNat (τ ω))) fun t ht ↦ by
-    simp [Set.indicator, h_lt, mem_range.not.1 ht]]
-  exact sum_congr rfl fun t ht ↦ by simp [Set.indicator, h_lt, mem_range.1 ht]
-
 /-- **Chain rule at a stopping time**, integral form. For two algorithms `alg`, `alg'` run against
 two environments `env`, `env'` with countably generated spaces of observations, actions and
 feedback, and a measurable stopping rule `S` whose hitting time `τ` is almost surely finite under
@@ -183,8 +153,9 @@ theorem klDiv_stoppedHistMeasure_le_lintegral [MeasurableSpace.CountablyGenerate
       klDiv (stepKernel alg env t (history IT.obs IT.action IT.feedback t ω))
         (stepKernel alg' env' t (history IT.obs IT.action IT.feedback t ω)) :=
     (measurable_klDiv_kernel _ _).comp (hH t)
-  refine (klDiv_stoppedHistMeasure_le_tsum hS).trans_eq
-    ((tsum_congr fun t ↦ ?_).trans (tsum_setLIntegral_notStoppedSet hS hτ hf))
+  refine (klDiv_stoppedHistMeasure_le_tsum hS).trans_eq ((tsum_congr fun t ↦ ?_).trans
+    (tsum_setLIntegral_notStoppedSet IT.measurable_obs IT.measurable_action IT.measurable_feedback
+      hS hτ hf))
   rw [klDiv_compProd_right_eq_lintegral,
     setLIntegral_map (measurableSet_notStoppedSet hS t) (measurable_klDiv_kernel _ _) (hH t)]
 
@@ -262,12 +233,24 @@ lemma IsAlgEnvSeq.klDiv_restrict_compProd_stepKernel_bandit
       ∫⁻ ω in history O A Y t ⁻¹' s, klDiv (κ (A t ω)) (κ' (A t ω)) ∂P := by
   have hX : Measurable fun ω ↦ ((history O A Y t ω, O t ω), A t ω) :=
     ((h.measurable_history t).prodMk (h.measurable_obs t)).prodMk (h.measurable_action t)
-  -- Reassociate the step kernels so that only the feedback kernels differ, and move the
-  -- restriction to the joint law of the history, the observation and the action.
-  rw [stepKernel_bandit, stepKernel_bandit, klDiv_compProd_assoc, klDiv_compProd_assoc,
-    Measure.compProd_restrict_left _ _ hs, Measure.compProd_restrict_left _ _ (hs.prod .univ),
-    ← obs_bandit (ν := κ) t, ← (h.hasCondDistrib_obs t).map_eq,
-    ← (h.hasCondDistrib_action t).map_eq, klDiv_compProd_right_eq_lintegral,
+  -- The restriction to `s` of the law of the history, followed by the observation and the action
+  -- of round `t`, is the restricted joint law of the history, the observation and the action.
+  have h_joint : (P.map (history O A Y t)).restrict s ⊗ₘ Kernel.const _ (Measure.dirac ()) ⊗ₘ
+        alg.policy t =
+      (P.map fun ω ↦ ((history O A Y t ω, O t ω), A t ω)).restrict ((s ×ˢ .univ) ×ˢ .univ) := by
+    rw [Measure.compProd_restrict_left _ _ hs, Measure.compProd_restrict_left _ _ (hs.prod .univ),
+      ← obs_bandit (ν := κ) t, ← (h.hasCondDistrib_obs t).map_eq,
+      ← (h.hasCondDistrib_action t).map_eq]
+  -- Reassociated, the two steps only differ in their feedback kernels.
+  have h_assoc : klDiv
+        ((P.map (history O A Y t)).restrict s ⊗ₘ stepKernel alg (Environment.bandit κ) t)
+        ((P.map (history O A Y t)).restrict s ⊗ₘ stepKernel alg (Environment.bandit κ') t) =
+      klDiv ((P.map fun ω ↦ ((history O A Y t ω, O t ω), A t ω)).restrict
+          ((s ×ˢ .univ) ×ˢ .univ) ⊗ₘ κ.prodMkLeft _)
+        ((P.map fun ω ↦ ((history O A Y t ω, O t ω), A t ω)).restrict
+          ((s ×ˢ .univ) ×ˢ .univ) ⊗ₘ κ'.prodMkLeft _) := by
+    rw [stepKernel_bandit, stepKernel_bandit, klDiv_compProd_assoc, klDiv_compProd_assoc, h_joint]
+  rw [h_assoc, klDiv_compProd_right_eq_lintegral,
     setLIntegral_map ((hs.prod .univ).prod .univ) (measurable_klDiv_kernel _ _) hX]
   have h_pre : (fun ω ↦ ((history O A Y t ω, O t ω), A t ω)) ⁻¹' ((s ×ˢ .univ) ×ˢ .univ) =
       history O A Y t ⁻¹' s := by
@@ -297,8 +280,9 @@ theorem klDiv_stoppedHistMeasure_le (hS : MeasurableSet S)
     (measurable_klDiv_kernel κ κ').comp (IT.measurable_action t)
   refine (klDiv_stoppedHistMeasure_le_tsum hS).trans_eq
     (((tsum_congr fun t ↦ h.klDiv_restrict_compProd_stepKernel_bandit (κ' := κ')
-      (measurableSet_notStoppedSet hS t)).trans (tsum_setLIntegral_notStoppedSet hS hτ hf)).trans
-        ?_)
+      (measurableSet_notStoppedSet hS t)).trans
+        (tsum_setLIntegral_notStoppedSet IT.measurable_obs IT.measurable_action
+          IT.measurable_feedback hS hτ hf)).trans ?_)
   exact (LMLExplore.sum_lintegral_pullCount_mul IT.measurable_action
     (Measurable.of_discrete.comp hτm) fun a ↦ klDiv (κ a) (κ' a)).symm
 
