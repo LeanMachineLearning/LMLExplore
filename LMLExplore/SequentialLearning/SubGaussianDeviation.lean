@@ -13,7 +13,7 @@ public import LMLExplore.Probability.Moments.ExponentialTail
 public import LMLExplore.SequentialLearning.SumRewards
 
 /-!
-# Time-uniform deviations of the empirical means of all the arms, for sub-Gaussian rewards
+# Time-uniform deviations of the empirical means, for sub-Gaussian rewards
 
 Let the rewards of each arm `a` of the stochastic environment `Environment.bandit ν` be
 `σ²_a`-sub-Gaussian with mean `μ_a`. After `N_a` pulls with empirical mean `μ̂_a`, the
@@ -37,6 +37,11 @@ the proof of [LS, Lemma 33.7]; Lattimore and Szepesvári state it for Gaussian a
 variance and `log (t (t + 1))` in place of `log (2 t (t + 1))`, which accounts for the two tails
 of a sub-Gaussian variable.
 
+For a single arm and confidence intervals `μ̂_a ∓ β(N_a, n)` whose width depends on the number of
+pulls `N_a` and on the round `n`, as in the stopping rule of LUCB [KTAS12], a union bound over the
+rounds and the numbers of pulls, with Hoeffding's inequality for each number of pulls, bounds the
+probability that the arm leaves its interval on one side at some round.
+
 ## Main statements
 
 * `LMLExplore.streamMeasure_le_sq_div_le`: for a σ²-sub-Gaussian arm and `s ≠ 0` rewards in the
@@ -48,9 +53,19 @@ of a sub-Gaussian variable.
 * `LMLExplore.measure_exists_card_mul_log_add_le_sum_pullCount_mul_sq_div_le`: along a run of any
   algorithm, `P(∃ t, K log (2 t (t + 1)) + x ≤ ∑ a, N_a(t) (μ̂_a(t) - μ_a)² / (2 σ²_a))` is at most
   `(x / K) ^ K exp (K - x)` for `x ≥ K`.
+* `LMLExplore.measureReal_exists_pullCount_sumRewards_le_tsum`: a union bound over the rounds and
+  the numbers of pulls of one arm, along a run of any algorithm.
+* `LMLExplore.measureReal_exists_empMean_add_lt_le_tsum`,
+  `LMLExplore.measureReal_exists_lt_empMean_sub_le_tsum`: along a run of any algorithm, the
+  probability that a σ²-sub-Gaussian arm leaves the confidence interval `μ̂_a ∓ β(N_a, n)` on one
+  side at some round `n` is at most `∑_n ∑_{u = 1}^n exp (-u β(u, n)² / (2 σ²))`, for any
+  exploration rate `β ≥ 0` depending on the number of pulls `N_a` and the round `n`. These are the
+  deviation bounds of the stopping rule of LUCB [KTAS12, Theorem 1].
 
 ## References
 
+* [KTAS12] S. Kalyanakrishnan, A. Tewari, P. Auer and P. Stone, *PAC subset selection in
+  stochastic multi-armed bandits*, ICML 2012, Theorem 1.
 * [LS] T. Lattimore and Cs. Szepesvári, *Bandit Algorithms*, Cambridge University Press (2020),
   Lemmas 33.7 and 33.8 and Proposition 33.9.
 -/
@@ -179,6 +194,105 @@ theorem streamMeasure_exists_card_mul_log_add_le_sum_sq_div_le [Fintype α] {σ2
     (g := fun n : ℕ ↦ log (2 * n * (n + 1))) h_indep (fun a s ↦ by fun_prop)
     Real.monotone_log_two_mul_mul_add_one
     (fun a y hy ↦ streamMeasure_exists_log_add_le_sq_div_le (hν a) hy) hx
+
+/-! ### Confidence bounds of one arm with an exploration rate -/
+
+section ExplorationRate
+
+variable [DecidableEq α] [Countable α] [MeasurableSingletonClass α] {Ω : Type*}
+  {mΩ : MeasurableSpace Ω} {P : Measure Ω} [IsProbabilityMeasure P] {alg : Algorithm Unit α ℝ}
+  {O : ℕ → Ω → Unit} {A : ℕ → Ω → α} {R : ℕ → Ω → ℝ}
+
+/-- **Union bound over the rounds and the numbers of pulls.** In a run of any algorithm against
+the stochastic bandit `Environment.bandit ν`, let `p n s x` be a property of a round `n`, a number
+of pulls `s` and a sum of rewards `x` that fails for `s = 0`, and let `f n u` bound the probability
+that `p n u` holds for the sum of the first `u` rewards of the arm `a` in the i.i.d. reward stream
+model. Then the probability that `p n` holds at some round `n` for the number of pulls and the sum
+of rewards of `a` is at most `∑_n ∑_{u = 1}^n f n u`. -/
+theorem measureReal_exists_pullCount_sumRewards_le_tsum
+    (h : IsAlgEnvSeq O A R alg (Environment.bandit ν) P) (a : α) (p : ℕ → ℕ → ℝ → Prop)
+    (hp0 : ∀ n x, ¬ p n 0 x) {f : ℕ → ℕ → ℝ}
+    (hf : ∀ n u, (streamMeasure ν).real {ω | p n u (∑ i ∈ range u, ω i a)} ≤ f n u)
+    (hsum : Summable fun n ↦ ∑ u ∈ Icc 1 n, f n u) :
+    P.real {ω | ∃ n, p n (pullCount A a n ω) (sumRewards A R a n ω)} ≤
+      ∑' n, ∑ u ∈ Icc 1 n, f n u := by
+  have hg0 (n : ℕ) : 0 ≤ ∑ u ∈ Icc 1 n, f n u :=
+    sum_nonneg fun u _ ↦ measureReal_nonneg.trans (hf n u)
+  -- at round `n`, a union bound over the number `u ∈ [1, n]` of pulls of `a`
+  have hn (n : ℕ) : P {ω | p n (pullCount A a n ω) (sumRewards A R a n ω)} ≤
+      ENNReal.ofReal (∑ u ∈ Icc 1 n, f n u) := by
+    rw [← ofReal_measureReal]
+    refine ENNReal.ofReal_le_ofReal
+      ((measureReal_pullCount_sumRewards_le_sum h a (p n) (hp0 n) n).trans ?_)
+    rw [← Ico_add_one_right_eq_Icc, sum_Ico_eq_sum_range, Nat.add_sub_cancel]
+    exact sum_le_sum fun s _ ↦ add_comm s 1 ▸ hf n (s + 1)
+  refine ENNReal.toReal_le_of_le_ofReal (tsum_nonneg hg0) ?_
+  rw [ENNReal.ofReal_tsum_of_nonneg hg0 hsum, Set.ofPred_exists]
+  exact (measure_iUnion_le _).trans (tsum_le_tsum hn)
+
+/-- **Time-uniform underestimation of a sub-Gaussian arm, with an exploration rate.** In a run of
+any algorithm against `Environment.bandit ν`, if the arm `a` is σ²-sub-Gaussian with mean `μ_a` and
+the exploration rate `β ≥ 0` is a function of the number of pulls and the round, then the
+probability that at some round `n`, the arm `a` has been pulled and its pull count `N_a(n)` and
+empirical mean `μ̂_a(n)` satisfy `μ̂_a(n) + β(N_a(n), n) < μ_a` is at most
+`∑_n ∑_{u = 1}^n exp (-u β(u, n)² / (2 σ²))`. -/
+theorem measureReal_exists_empMean_add_lt_le_tsum
+    (h : IsAlgEnvSeq O A R alg (Environment.bandit ν) P) (a : α) {σ2 : ℝ≥0}
+    (hν : HasSubgaussianMGF (fun x ↦ x - (ν a)[id]) σ2 (ν a)) {β : ℕ → ℕ → ℝ}
+    (hβ : ∀ u n, 0 ≤ β u n)
+    (hsum : Summable fun n ↦ ∑ u ∈ Icc 1 n, exp (-(u * β u n ^ 2 / (2 * σ2)))) :
+    P.real {ω | ∃ n, pullCount A a n ω ≠ 0 ∧
+        empMean A R a n ω + β (pullCount A a n ω) n < (ν a)[id]} ≤
+      ∑' n, ∑ u ∈ Icc 1 n, exp (-(u * β u n ^ 2 / (2 * σ2))) := by
+  refine le_trans ?_ (measureReal_exists_pullCount_sumRewards_le_tsum h a
+    (fun n s x ↦ s ≠ 0 ∧ x / s + β s n < (ν a)[id]) (fun _ _ h0 ↦ h0.1 rfl) (fun n u ↦ ?_) hsum)
+  · exact measureReal_mono fun ω ⟨n, hn⟩ ↦ ⟨n, by rwa [empMean] at hn⟩
+  rcases eq_or_ne u 0 with rfl | hu
+  · simp
+  have hu' : (0 : ℝ) < u := Nat.cast_pos.2 (Nat.pos_of_ne_zero hu)
+  -- multiplied by `u`, the event says that the centered sum is less than `-u β(u, n)`
+  refine le_trans (measureReal_mono fun ω hω ↦ ?_) (ENNReal.toReal_le_of_le_ofReal (exp_pos _).le
+    ((Bandits.StreamMeasure.prob_sum_range_sub_le_le_of_hasSubgaussianMGF hν
+      (mul_nonneg hu'.le (hβ u n)) u).trans_eq ?_))
+  · obtain ⟨-, hω⟩ := hω
+    rw [div_add' _ _ _ hu'.ne', div_lt_iff₀ hu'] at hω
+    simp only [Set.mem_ofPred_eq, sum_sub_distrib, sum_const, card_range, nsmul_eq_mul]
+    linarith
+  · congr 2
+    field_simp
+
+/-- **Time-uniform overestimation of a sub-Gaussian arm, with an exploration rate.** In a run of
+any algorithm against `Environment.bandit ν`, if the arm `a` is σ²-sub-Gaussian with mean `μ_a` and
+the exploration rate `β ≥ 0` is a function of the number of pulls and the round, then the
+probability that at some round `n`, the arm `a` has been pulled and its pull count `N_a(n)` and
+empirical mean `μ̂_a(n)` satisfy `μ_a < μ̂_a(n) - β(N_a(n), n)` is at most
+`∑_n ∑_{u = 1}^n exp (-u β(u, n)² / (2 σ²))`. -/
+theorem measureReal_exists_lt_empMean_sub_le_tsum
+    (h : IsAlgEnvSeq O A R alg (Environment.bandit ν) P) (a : α) {σ2 : ℝ≥0}
+    (hν : HasSubgaussianMGF (fun x ↦ x - (ν a)[id]) σ2 (ν a)) {β : ℕ → ℕ → ℝ}
+    (hβ : ∀ u n, 0 ≤ β u n)
+    (hsum : Summable fun n ↦ ∑ u ∈ Icc 1 n, exp (-(u * β u n ^ 2 / (2 * σ2)))) :
+    P.real {ω | ∃ n, pullCount A a n ω ≠ 0 ∧
+        (ν a)[id] < empMean A R a n ω - β (pullCount A a n ω) n} ≤
+      ∑' n, ∑ u ∈ Icc 1 n, exp (-(u * β u n ^ 2 / (2 * σ2))) := by
+  refine le_trans ?_ (measureReal_exists_pullCount_sumRewards_le_tsum h a
+    (fun n s x ↦ s ≠ 0 ∧ (ν a)[id] < x / s - β s n) (fun _ _ h0 ↦ h0.1 rfl) (fun n u ↦ ?_) hsum)
+  · exact measureReal_mono fun ω ⟨n, hn⟩ ↦ ⟨n, by rwa [empMean] at hn⟩
+  rcases eq_or_ne u 0 with rfl | hu
+  · simp
+  have hu' : (0 : ℝ) < u := Nat.cast_pos.2 (Nat.pos_of_ne_zero hu)
+  -- multiplied by `u`, the event says that the centered sum is more than `u β(u, n)`
+  refine le_trans (measureReal_mono fun ω hω ↦ ?_) (ENNReal.toReal_le_of_le_ofReal (exp_pos _).le
+    ((Bandits.StreamMeasure.prob_sum_range_sub_ge_le_of_hasSubgaussianMGF hν
+      (mul_nonneg hu'.le (hβ u n)) u).trans_eq ?_))
+  · obtain ⟨-, hω⟩ := hω
+    rw [div_sub' hu'.ne', lt_div_iff₀ hu'] at hω
+    simp only [Set.mem_ofPred_eq, sum_sub_distrib, sum_const, card_range, nsmul_eq_mul]
+    linarith
+  · congr 2
+    field_simp
+
+end ExplorationRate
 
 /-! ### Runs of an algorithm -/
 

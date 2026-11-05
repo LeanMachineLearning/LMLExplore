@@ -56,6 +56,9 @@ answer is not correct".
   runs, quantified over the admissible models.
 * `IdentTask.IsDeltaPAC.isDeltaCorrect`, `IdentTask.IsDeltaCorrect.isPAC`: `δ`-PAC implies
   `δ`-correct, which implies LML's PAC property at level `δ`.
+* `IdentTask.isDeltaPAC_of_measureReal_mem_stopSet_and_notMem_le`: an algorithm that stops almost
+  surely and stops with a wrong answer with probability at most `δ` on every admissible model is
+  `δ`-PAC.
 * `IdentTask.IsDeltaCorrect.one_sub_le_measureReal_histOutputMeasure`,
   `IdentTask.IsDeltaCorrect.measureReal_histOutputMeasure_le`: a `δ`-correct algorithm stops and
   answers `i` with probability at least `1 - δ` on a model whose only correct answer is `i`, and
@@ -297,6 +300,29 @@ lemma IsDeltaCorrect.isPAC (h : task.IsDeltaCorrect A δ)
     (hc : ∀ θ ∈ task.M, MeasurableSet (task.correct θ)) :
     A.IsPAC (fun θ : task.M ↦ Environment.bandit (task.ν θ)) (fun θ i ↦ i ∉ task.correct θ) δ :=
   Identification.IsDeltaCorrect.isPAC h fun θ ↦ (hc θ θ.2).compl
+
+/-- **`δ`-PAC from the error of the stopped algorithm.** If on every admissible model `θ` the
+algorithm stops almost surely, and it stops with an answer that is not correct for `θ` with
+probability at most `δ`, then it is `δ`-PAC on the task. -/
+lemma isDeltaPAC_of_measureReal_mem_stopSet_and_notMem_le
+    (hc : ∀ θ ∈ task.M, MeasurableSet (task.correct θ))
+    (h_err : ∀ θ ∈ task.M, (histOutputMeasure A (Environment.bandit (task.ν θ))).real
+      {p | p.1 ∈ A.stopSet ∧ p.2 ∉ task.correct θ} ≤ δ)
+    (h_stops : ∀ θ ∈ task.M, StopsAS A (Environment.bandit (task.ν θ))) :
+    task.IsDeltaPAC A δ := by
+  have h_correct : task.IsDeltaCorrect A δ := by
+    refine isDeltaCorrect_iff.2 fun θ hθ ↦ ?_
+    set μ := histOutputMeasure A (Environment.bandit (task.ν θ))
+    -- Since `A` stops almost surely, not stopping does not contribute to the error.
+    have h_ae : ∀ᵐ p ∂μ, p.1 ∈ A.stopSet := ae_of_ae_map measurable_fst.aemeasurable <| by
+      rw [← Measure.fst, fst_histOutputMeasure]
+      exact stopsAS_iff.1 (h_stops θ hθ)
+    calc μ.real {p | p.1 ∉ A.stopSet ∨ p.2 ∉ task.correct θ}
+    _ = μ.real {p | p.1 ∈ A.stopSet ∧ p.2 ∉ task.correct θ} :=
+      measureReal_congr <| Filter.eventuallyEqSet_iff.2 <| h_ae.mono fun p hp ↦ by simp [hp]
+    _ ≤ δ := h_err θ hθ
+  exact isDeltaPAC_iff_isDeltaPAC.2 <| Identification.isDeltaPAC_iff.2
+    ⟨h_correct.isPAC hc, fun θ ↦ h_stops θ θ.2⟩
 
 lemma IsDeltaCorrect.mono (h : task.IsDeltaCorrect A δ) (hδ : δ ≤ δ') :
     task.IsDeltaCorrect A δ' :=

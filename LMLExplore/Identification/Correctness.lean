@@ -32,6 +32,11 @@ property comes with a statement about every run of the algorithm (`Learning.Iden
 
 * `Learning.IdentAlg.IsRun.hasLaw_stoppedHist_output`: the joint law of the stopped history and
   the output of every run of `A` in `env` is `histOutputMeasure A env`.
+* `Learning.IdentAlg.IsRun.measureReal_stoppingTime_ne_top_and_notMem_eq`: along every run, the
+  probability of stopping with an output outside `s` is given by `histOutputMeasure A env`.
+* `LMLExplore.Identification.measureReal_histOutputMeasure_ofStop_deterministic_le`: an algorithm
+  built by `ofStop` with a deterministic output rule `rec` stops with an output outside `s` with
+  probability at most that of the event `∃ n, stop n hₙ ∧ rec n hₙ ∉ s`.
 * `LMLExplore.Identification.stopsAS_iff_ae_stoppingTime_ne_top`: `A` stops almost surely iff its
   stopping time is almost surely finite along any algorithm-environment sequence of its sampling
   rule.
@@ -118,9 +123,52 @@ lemma measurableSet_mem_stopSet_and_notMem {s : Set 𝓓} (hs : MeasurableSet s)
     MeasurableSet {p : (Σ n : ℕ, Hist 𝓞 𝓐 𝓨 n) × 𝓓 | p.1 ∈ A.stopSet ∧ p.2 ∉ s} :=
   (measurable_fst A.measurableSet_stopSet).inter (measurable_snd hs.compl)
 
+/-- Along every run of `A` in `env`, the probability that `A` stops with an output outside `s` is
+the mass that `histOutputMeasure A env` gives to this event. -/
+lemma IsRun.measureReal_stoppingTime_ne_top_and_notMem_eq {env : Environment 𝓞 𝓐 𝓨}
+    [IsProbabilityMeasure P] (h : A.IsRun env O X Y out P) {s : Set 𝓓} (hs : MeasurableSet s) :
+    P.real {ω | A.stoppingTime O X Y ω ≠ ⊤ ∧ out ω ∉ s} =
+      (histOutputMeasure A env).real {p | p.1 ∈ A.stopSet ∧ p.2 ∉ s} := by
+  have h_eq := h.hasLaw_stoppedHist_output.measureReal_eq
+    (A.measurableSet_mem_stopSet_and_notMem hs)
+  simp only [IdentAlg.stoppedHist_mem_stopSet_iff] at h_eq
+  exact h_eq
+
 end Learning.IdentAlg
 
 namespace LMLExplore.Identification
+
+/-! ### Algorithms with a deterministic output rule -/
+
+/-- **Stopping with a wrong deterministic output.** Let an algorithm stop after `n` rounds with
+history `h` if `stop n h` holds, and then output `rec n h`. Along any algorithm-environment
+sequence of its sampling rule, the probability that it stops with an output outside `s` is at most
+the probability that at some round `n`, the stopping rule holds and `rec n hₙ ∉ s`. -/
+theorem measureReal_histOutputMeasure_ofStop_deterministic_le [IsProbabilityMeasure P]
+    {alg : Algorithm 𝓞 𝓐 𝓨} {stop : (n : ℕ) → Hist 𝓞 𝓐 𝓨 n → Prop}
+    {hstop : ∀ n, MeasurableSet {h | stop n h}} {rec : (n : ℕ) → Hist 𝓞 𝓐 𝓨 n → 𝓓}
+    {hrec : ∀ n, Measurable (rec n)} {env : Environment 𝓞 𝓐 𝓨}
+    (hseq : IsAlgEnvSeq O X Y alg env P) {s : Set 𝓓} (hs : MeasurableSet s) :
+    (histOutputMeasure (ofStop alg stop hstop fun n ↦ Kernel.deterministic (rec n) (hrec n))
+        env).real {p | p.1 ∈ (ofStop alg stop hstop fun n ↦
+          Kernel.deterministic (rec n) (hrec n)).stopSet ∧ p.2 ∉ s} ≤
+      P.real {ω | ∃ n, stop n (history O X Y n ω) ∧ rec n (history O X Y n ω) ∉ s} := by
+  set A := ofStop alg stop hstop fun n ↦ Kernel.deterministic (rec n) (hrec n)
+  have hg : Measurable fun h : Σ n, Hist 𝓞 𝓐 𝓨 n ↦ (h, rec h.1 h.2) :=
+    measurable_id.prodMk (measurable_sigma hrec)
+  have hS := A.measurableSet_mem_stopSet_and_notMem hs
+  have h_alg : A.alg = alg := alg_ofStop _ _ _ _
+  have h_law : HasLaw (A.stoppedHist O X Y) (stoppedHistMeasure A.alg env A.stopSet) P :=
+    (h_alg ▸ hseq).hasLaw_stoppedValue_sigmaHistory A.measurableSet_stopSet
+  rw [histOutputMeasure_def, output_ofStop_deterministic, Measure.compProd_deterministic,
+    map_measureReal_apply hg hS, ← h_law.map_eq,
+    map_measureReal_apply_of_aemeasurable h_law.aemeasurable (hg hS)]
+  -- The stopped history is the history of the first `n` rounds, for `n` the stopping time.
+  refine measureReal_mono fun ω ⟨hω_stop, hω_wrong⟩ ↦ ?_
+  obtain ⟨n, hn⟩ := WithTop.ne_top_iff_exists.1 (IdentAlg.stoppedHist_mem_stopSet_iff.1 hω_stop)
+  rw [IdentAlg.stoppedHist_eq_of_stoppingTime_eq hn.symm] at hω_stop hω_wrong
+  have h_mem : ∀ h, h ∈ A.stopSet ↔ stop h.1 h.2 := fun _ ↦ mem_stopSet_ofStop _ _ _ _
+  exact ⟨n, (h_mem _).1 hω_stop, hω_wrong⟩
 
 /-! ### Stopping almost surely -/
 
