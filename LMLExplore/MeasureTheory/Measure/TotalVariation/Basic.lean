@@ -23,9 +23,9 @@ bound depends only on the oscillation of `f`: if `f` takes values in `[a, b]`, t
 `|∫ f dμ - ∫ f dν| ≤ (b - a) / 2 * tvDist μ ν`. For measures of the same mass, the total
 variation distance is also controlled by events: `|μ s - ν s| ≤ tvDist μ ν / 2` for every
 measurable `s`, and conversely `tvDist μ ν ≤ 2 * c` as soon as `μ s ≤ ν s + c` for every
-measurable `s`. From these, adding a common finite measure and scaling both measures by `t`
-multiplies the distance by at most `t`, which bounds the distance from a mixture
-`(1 - α) • μ + α • ν` to `μ` by `α * tvDist ν μ`.
+measurable `s`. Adding a common finite measure and scaling both measures by `t` multiplies the
+distance by `t`, so the distance from a mixture `(1 - α) • μ + α • ν` to `μ` is
+`α * tvDist ν μ`, at most `2 * α` for probability measures.
 
 These are the bounds through which errors in transition kernels, measured in total variation,
 propagate to expected values, as in the simulation lemma for Markov decision processes and in the
@@ -45,17 +45,19 @@ contraction of the oscillation of functions by a Markov kernel (Dobrushin's coef
   `MeasureTheory.tvDist_le_two_mul_of_forall_measureReal_le_add`: for measures of the same mass,
   the total variation distance bounds the difference of the masses of every event, and eventwise
   bounds bound the total variation distance.
-* `MeasureTheory.tvDist_add_smul_le`: `tvDist (ξ + t • μ) (ξ + t • ν) ≤ t * tvDist μ ν` for
-  measures `μ` and `ν` of the same mass.
-* `MeasureTheory.tvDist_smul_add_smul_le`: the mixture `(1 - α) • μ + α • ν` is within
-  `α * tvDist ν μ` of `μ`.
+* `MeasureTheory.tvDist_add_smul_add_smul`: `tvDist (ξ + t • μ) (ξ + t • ν) = t * tvDist μ ν`.
+* `MeasureTheory.tvDist_one_sub_smul_add_smul`, `MeasureTheory.tvDist_one_sub_smul_add_smul_le`:
+  the mixture `(1 - α) • μ + α • ν` is at distance `α * tvDist ν μ` from `μ`, at most `2 * α`
+  for probability measures.
 
 ## Implementation notes
 
 The first bound is the bound `MeasureTheory.VectorMeasure.norm_integral_le_of_norm_le_const` on
 integrals against the signed measure `μ - ν`, whose variation has mass `tvDist μ ν`. The eventwise
 characterization is Tau Ceti's `MeasureTheory.etvDist_le_two_mul_iff`, transferred to the real
-distance `tvDist`.
+distance `tvDist`. The behaviour under sums and scalings is read off the supremum over finite
+measurable partitions, `MeasureTheory.tvDist_eq_iSup_finPartition_abs`, so it needs no assumption
+on the masses.
 -/
 
 public section
@@ -159,25 +161,36 @@ theorem tvDist_le_two_mul_of_forall_measureReal_le_add [IsFiniteMeasure μ] [IsF
 
 /-! ### Sums and mixtures -/
 
-/-- Adding a common finite measure to two finite measures `μ` and `ν` of the same mass, after
-scaling both by `t`, multiplies their total variation distance by at most `t`:
-`tvDist (ξ + t • μ) (ξ + t • ν) ≤ t * tvDist μ ν`. -/
-theorem tvDist_add_smul_le {ξ : Measure 𝓧} [IsFiniteMeasure ξ] [IsFiniteMeasure μ]
-    [IsFiniteMeasure ν] (hμν : μ univ = ν univ) (t : ℝ≥0) :
-    tvDist (ξ + t • μ) (ξ + t • ν) ≤ t * tvDist μ ν := by
-  rw [← mul_div_cancel_left₀ (t * tvDist μ ν) (two_ne_zero' ℝ), mul_div_assoc]
-  refine tvDist_le_two_mul_of_forall_measureReal_le_add (by simp [hμν]) fun s hs ↦ ?_
-  have h := (abs_le.1 (abs_measureReal_sub_measureReal_le_tvDist_div_two hμν hs)).2
+/-- Adding a common finite measure to two finite measures `μ` and `ν`, after scaling both by
+`t`, multiplies their total variation distance by `t`:
+`tvDist (ξ + t • μ) (ξ + t • ν) = t * tvDist μ ν`. -/
+theorem tvDist_add_smul_add_smul {ξ : Measure 𝓧} [IsFiniteMeasure ξ] [IsFiniteMeasure μ]
+    [IsFiniteMeasure ν] (t : ℝ≥0) :
+    tvDist (ξ + t • μ) (ξ + t • ν) = t * tvDist μ ν := by
+  rw [tvDist_eq_iSup_finPartition_abs, tvDist_eq_iSup_finPartition_abs,
+    Real.mul_iSup_of_nonneg t.coe_nonneg]
+  -- on every event, the differences of masses are scaled by `t`
+  refine iSup_congr fun P ↦ ?_
+  rw [Finset.mul_sum]
+  refine Finset.sum_congr rfl fun p _ ↦ ?_
   rw [measureReal_add_apply, measureReal_add_apply, measureReal_nnreal_smul_apply,
-    measureReal_nnreal_smul_apply]
-  linear_combination mul_le_mul_of_nonneg_left h t.coe_nonneg
+    measureReal_nnreal_smul_apply, add_sub_add_left_eq_sub, ← mul_sub, abs_mul, NNReal.abs_eq]
 
-/-- **Total variation of a mixture**: for finite measures `μ` and `ν` of the same mass and
-`α ≤ 1`, the mixture `(1 - α) • μ + α • ν` is within `α * tvDist ν μ` of `μ`. -/
-theorem tvDist_smul_add_smul_le [IsFiniteMeasure μ] [IsFiniteMeasure ν]
-    (hμν : ν univ = μ univ) {α : ℝ≥0} (hα : α ≤ 1) :
-    tvDist ((1 - α) • μ + α • ν) μ ≤ α * tvDist ν μ := by
+/-- **Total variation of a mixture**: for finite measures `μ` and `ν` and `α ≤ 1`, the mixture
+`(1 - α) • μ + α • ν` is at distance `α * tvDist ν μ` from `μ`. -/
+theorem tvDist_one_sub_smul_add_smul [IsFiniteMeasure μ] [IsFiniteMeasure ν] {α : ℝ≥0}
+    (hα : α ≤ 1) :
+    tvDist ((1 - α) • μ + α • ν) μ = α * tvDist ν μ := by
   conv_lhs => enter [2]; rw [← one_smul ℝ≥0 μ, ← tsub_add_cancel_of_le hα, add_smul]
-  exact tvDist_add_smul_le hμν α
+  exact tvDist_add_smul_add_smul α
+
+/-- **Total variation of a mixture of probability measures**: for probability measures `μ` and
+`ν` and `α ≤ 1`, the mixture `(1 - α) • μ + α • ν` is within `2 * α` of `μ`. -/
+theorem tvDist_one_sub_smul_add_smul_le [IsProbabilityMeasure μ] [IsProbabilityMeasure ν]
+    {α : ℝ≥0} (hα : α ≤ 1) :
+    tvDist ((1 - α) • μ + α • ν) μ ≤ 2 * α := by
+  rw [tvDist_one_sub_smul_add_smul hα, mul_comm]
+  gcongr
+  simpa [one_add_one_eq_two] using tvDist_le_add (μ := ν) (ν := μ)
 
 end MeasureTheory

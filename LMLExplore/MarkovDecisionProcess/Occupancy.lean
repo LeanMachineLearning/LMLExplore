@@ -50,8 +50,8 @@ the occupancy measure by `O(α)`, the estimate behind the analysis of conservati
   probability measure;
 * `Learning.MDP.runValue_eq_integral_occupancy`: for `γ < 1` and bounded real rewards, the
   discounted value of `alg` is `(1 - γ)⁻¹ * ∫ r d(M.occupancy γ alg μ)`;
-* `Learning.MDP.occupancy_map_fst`, `Learning.MDP.occupancy_prod_univ`: the flow equation, for a
-  probability measure `μ`;
+* `Learning.MDP.occupancy_map_fst`, `Learning.MDP.occupancy_fst`,
+  `Learning.MDP.occupancy_prod_univ`: the flow equation, for a probability measure `μ`;
 * `Learning.MDP.occupancy_markov`, `Learning.MDP.occupancy_markov_const`: the occupancy measures
   of Markov and stationary policies, in terms of their state-action marginals; for a stationary
   policy, it is the image of the initial state-action law by the resolvent of the state-action
@@ -217,6 +217,14 @@ theorem occupancy_map_fst :
   simp_rw [pow_succ', mul_assoc, ENNReal.tsum_mul_left]
   ring
 
+/-- **The flow equation** of occupancy measures, for the state marginal `Measure.fst` with
+`ℝ≥0` weights: the state marginal of the occupancy measure `x` of every algorithm from the
+probability measure `μ` is `(1 - γ) • μ + γ • (M.P ∘ₘ x)`. -/
+theorem occupancy_fst :
+    (M.occupancy γ alg μ).fst = (1 - γ) • μ + γ • (M.P ∘ₘ M.occupancy γ alg μ) := by
+  ext B hB
+  simp [Measure.fst, occupancy_map_fst, ENNReal.coe_sub]
+
 /-- **The flow equation** of occupancy measures, setwise: the occupancy measure `x` of every
 algorithm from the probability measure `μ` satisfies, for every measurable set `B` of states,
 `x (B ×ˢ univ) = (1 - γ) * μ B + γ * ∫⁻ p, M.P p B ∂x`. -/
@@ -285,12 +293,9 @@ private lemma tvDist_fst_occupancy_le_mul (hγ : γ < 1) :
   have := isProbabilityMeasure_occupancy (M := M) (alg := Algorithm.markov fun _ ↦ π') (μ := μ) hγ
   have := isProbabilityMeasure_occupancy (M := M) (alg := Algorithm.markov fun _ ↦ π) (μ := μ) hγ
   -- both marginals are `(1 - γ) • μ + γ • (M.P ∘ₘ x)` for their occupancy measure `x`
-  rw [Measure.fst, Measure.fst, occupancy_map_fst, occupancy_map_fst, ← ENNReal.coe_one,
-    ← ENNReal.coe_sub, Measure.coe_nnreal_smul, Measure.coe_nnreal_smul, Measure.coe_nnreal_smul]
-  refine (tvDist_add_smul_le (by rw [Measure.comp_apply_univ, Measure.comp_apply_univ,
-    measure_univ, measure_univ]) γ).trans ?_
+  rw [occupancy_fst, occupancy_fst, tvDist_add_smul_add_smul]
   gcongr
-  exact tvDist_comp_right_le (by simp) M.P
+  exact tvDist_comp_right_le M.P
 
 /-- The occupancy measures of two stationary policies `π'` and `π` with
 `tvDist (π' s) (π s) ≤ ε` for every state `s` are within `ε` plus the distance of their state
@@ -315,7 +320,7 @@ private lemma tvDist_occupancy_le_add (hγ : γ < 1) (hε : ∀ s, tvDist (π' s
       gcongr
       · simpa using tvDist_compProd_right_le
           (μ := (M.occupancy γ (Algorithm.markov fun _ ↦ π') μ).fst) (ae_of_all _ hε)
-      · exact tvDist_compProd_left_le (by simp) π
+      · exact tvDist_compProd_left_le π
 
 /-- **Occupancy measures of close policies**: if the stationary policies `π'` and `π` satisfy
 `tvDist (π' s) (π s) ≤ ε` at every state `s`, then for `γ < 1` the state marginals of their
@@ -343,17 +348,6 @@ theorem tvDist_occupancy_le (hγ : γ < 1) (hε : ∀ s, tvDist (π' s) (π s) �
 
 variable {π'' : Kernel 𝓢 𝓐} [IsMarkovKernel π''] {α : ℝ≥0}
 
-omit [Nonempty 𝓢] [IsMarkovKernel π'] in
-/-- A mixture `(1 - α) • π s + α • π'' s` of stationary policies is within `2 * α` of `π s` in
-total variation. -/
-private lemma tvDist_mixture_le (hα : α ≤ 1) (hπ' : ∀ s, π' s = (1 - α) • π s + α • π'' s)
-    (s : 𝓢) : tvDist (π' s) (π s) ≤ 2 * α := by
-  rw [hπ']
-  refine (tvDist_smul_add_smul_le (by simp) hα).trans ?_
-  rw [mul_comm]
-  gcongr
-  simpa [one_add_one_eq_two] using tvDist_le_add (μ := π'' s) (ν := π s)
-
 /-- **The policy-mixture lemma** [AJKS, Lemma 14.1], for state marginals: for `γ < 1` and
 `α ≤ 1`, the mixture `π'` of the stationary policies `π` and `π''` with weights `1 - α` and `α`
 has an occupancy measure from `μ` whose state marginal is within `2 * α * γ / (1 - γ)` of that
@@ -363,7 +357,7 @@ theorem tvDist_fst_occupancy_le_of_mixture (hγ : γ < 1) (hα : α ≤ 1)
     tvDist (M.occupancy γ (Algorithm.markov fun _ ↦ π') μ).fst
         (M.occupancy γ (Algorithm.markov fun _ ↦ π) μ).fst ≤ 2 * α * γ / (1 - γ) := by
   rw [show (2 * α * γ : ℝ) = γ * (2 * α) by ring]
-  exact tvDist_fst_occupancy_le hγ (tvDist_mixture_le hα hπ')
+  exact tvDist_fst_occupancy_le hγ fun s ↦ hπ' s ▸ tvDist_one_sub_smul_add_smul_le hα
 
 /-- **The policy-mixture lemma** [AJKS, Lemma 14.1], for state-action occupancy measures: for
 `γ < 1` and `α ≤ 1`, the mixture `π'` of the stationary policies `π` and `π''` with weights
@@ -373,7 +367,7 @@ theorem tvDist_occupancy_le_of_mixture (hγ : γ < 1) (hα : α ≤ 1)
     (hπ' : ∀ s, π' s = (1 - α) • π s + α • π'' s) :
     tvDist (M.occupancy γ (Algorithm.markov fun _ ↦ π') μ)
         (M.occupancy γ (Algorithm.markov fun _ ↦ π) μ) ≤ 2 * α / (1 - γ) :=
-  tvDist_occupancy_le hγ (tvDist_mixture_le hα hπ')
+  tvDist_occupancy_le hγ fun s ↦ hπ' s ▸ tvDist_one_sub_smul_add_smul_le hα
 
 end Perturbation
 
