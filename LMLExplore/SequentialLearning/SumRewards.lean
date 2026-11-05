@@ -340,31 +340,12 @@ theorem sum_measure_action_eq_and_pullCount_sumRewards_le
     (hp : Measurable fun q : ℕ × ℝ ↦ p q.1 q.2) :
     ∑ t ∈ range n, P {ω | A t ω = a ∧ p (pullCount A a t ω) (sumRewards A R a t ω)} ≤
       ∑ s ∈ range n, streamMeasure ν {ω | p s (∑ i ∈ range s, ω i a)} := by
-  have hA := h.measurable_action
-  have hR := h.measurable_feedback
-  -- the weighted transfer with the indicator of `p` as the weight
-  set B : Set (ℕ × ℝ) := {q | p q.1 q.2}
-  have hB : MeasurableSet B := measurableSet_setOfPred.mpr hp
-  refine (sum_le_sum fun t _ ↦ ?_).trans ((sum_setLIntegral_action_eq_pullCount_sumRewards_le h a n
-    (g := fun s x ↦ B.indicator 1 (s, x)) (measurable_one.indicator hB)).trans
-      (sum_le_sum fun s _ ↦ ?_))
-  · have hE : MeasurableSet {ω | p (pullCount A a t ω) (sumRewards A R a t ω)} :=
-      measurableSet_setOfPred.mpr (hp.comp ((measurable_pullCount hA a t).prodMk
-        (measurable_sumRewards hA hR a t)))
-    calc P {ω | A t ω = a ∧ p (pullCount A a t ω) (sumRewards A R a t ω)}
-    _ = P ({ω | p (pullCount A a t ω) (sumRewards A R a t ω)} ∩ A t ⁻¹' {a}) := by
-      congr 1 with ω
-      simp [and_comm]
-    _ = ∫⁻ ω in A t ⁻¹' {a}, B.indicator 1 (pullCount A a t ω, sumRewards A R a t ω) ∂P := by
-      rw [← Measure.restrict_apply hE, ← lintegral_indicator_one hE]
-      refine lintegral_congr fun ω ↦ ?_
-      by_cases hpt : p (pullCount A a t ω) (sumRewards A R a t ω) <;> simp [B, hpt]
-    _ ≤ _ := le_rfl
-  · have hE : MeasurableSet {x : ℕ → α → ℝ | p s (∑ i ∈ range s, x i a)} :=
-      measurableSet_setOfPred.mpr (hp.of_uncurry_left.comp (by fun_prop))
-    rw [← lintegral_indicator_one hE]
-    refine lintegral_mono fun x ↦ ?_
-    by_cases hpx : p s (∑ i ∈ range s, x i a) <;> simp [B, hpx]
+  -- the observation form for the property `p s (y₀ + ⋯ + y_{s-1})`
+  have h_obs := sum_measure_action_eq_and_pullCount_armObs_le h a n
+    (p := fun s y ↦ p s (∑ i, y i)) fun s ↦ hp.of_uncurry_left.comp (by fun_prop)
+  simp only [sum_armObs] at h_obs
+  refine h_obs.trans_eq ?_
+  simp only [Finset.sum_range]
 
 /-- Real-valued form of `sum_measure_action_eq_and_pullCount_sumRewards_le`: in a run against
 `Environment.bandit ν`, the expected number of rounds `t < n` at which arm `a` is pulled while `p`
@@ -485,14 +466,11 @@ theorem measure_exists_lt_pullCount_sumRewards_pi_le [Fintype α]
     P {ω | ∃ t < n, q (fun a ↦ pullCount A a t ω) (fun a ↦ sumRewards A R a t ω)} ≤
       streamMeasure ν
         {ω | ∃ s : α → ℕ, ∑ a, s a < n ∧ q s (fun a ↦ ∑ i ∈ range (s a), ω i a)} := by
-  calc P {ω | ∃ t < n, q (fun a ↦ pullCount A a t ω) (fun a ↦ sumRewards A R a t ω)}
-  _ ≤ P {ω | ∃ t, ∑ a, pullCount A a t ω < n ∧
-      q (fun a ↦ pullCount A a t ω) (fun a ↦ sumRewards A R a t ω)} :=
-    -- at round `t`, the arms have been pulled `t` times in total
-    measure_mono fun ω ⟨t, ht, hqt⟩ ↦ ⟨t, by rwa [sum_pullCount], hqt⟩
-  _ ≤ streamMeasure ν
-      {ω | ∃ s : α → ℕ, ∑ a, s a < n ∧ q s (fun a ↦ ∑ i ∈ range (s a), ω i a)} :=
-    measure_exists_pullCount_sumRewards_pi_le h fun s x ↦ ∑ a, s a < n ∧ q s x
+  -- the observation form for the event `q s (fun a ↦ y a 0 + ⋯ + y a (s a - 1))`
+  have h_obs := measure_exists_lt_pullCount_armObs_pi_le h n fun s y ↦ q s fun a ↦ ∑ i, y a i
+  simp only [sum_armObs] at h_obs
+  refine h_obs.trans_eq ?_
+  simp only [Finset.sum_range]
 
 /-- **Event transfer to the reward stream.** In a run of any algorithm against the stochastic
 bandit `Environment.bandit ν`, the probability that `p` holds for the number of previous pulls of
@@ -502,9 +480,12 @@ arm `a` and the sum of its previous rewards at some round is at most the probabi
 theorem measure_exists_pullCount_sumRewards_le (h : IsAlgEnvSeq O A R alg (Environment.bandit ν) P)
     (a : α) (p : ℕ → ℝ → Prop) :
     P {ω | ∃ t, p (pullCount A a t ω) (sumRewards A R a t ω)} ≤
-      streamMeasure ν {ω | ∃ s, p s (∑ i ∈ range s, ω i a)} :=
-  (measure_exists_pullCount_sumRewards_pi_le h fun s x ↦ p (s a) (x a)).trans
-    (measure_mono fun _ ⟨s, hs⟩ ↦ ⟨s a, hs⟩)
+      streamMeasure ν {ω | ∃ s, p s (∑ i ∈ range s, ω i a)} := by
+  -- the observation form for the event `p s (y₀ + ⋯ + y_{s-1})`
+  have h_obs := measure_exists_pullCount_armObs_le h a fun s y ↦ p s (∑ i, y i)
+  simp only [sum_armObs] at h_obs
+  refine h_obs.trans_eq ?_
+  simp only [Finset.sum_range]
 
 /-- **Event transfer to the reward stream, up to a horizon.** In a run of any algorithm against the
 stochastic bandit `Environment.bandit ν`, the probability that `p` holds for the number of previous
@@ -515,12 +496,11 @@ theorem measure_exists_lt_pullCount_sumRewards_le
     (h : IsAlgEnvSeq O A R alg (Environment.bandit ν) P) (a : α) (n : ℕ) (p : ℕ → ℝ → Prop) :
     P {ω | ∃ t < n, p (pullCount A a t ω) (sumRewards A R a t ω)} ≤
       streamMeasure ν {ω | ∃ s < n, p s (∑ i ∈ range s, ω i a)} := by
-  calc P {ω | ∃ t < n, p (pullCount A a t ω) (sumRewards A R a t ω)}
-  _ ≤ P {ω | ∃ t, pullCount A a t ω < n ∧ p (pullCount A a t ω) (sumRewards A R a t ω)} :=
-    -- at round `t < n`, arm `a` has been pulled `pullCount A a t ω ≤ t < n` times
-    measure_mono fun ω ⟨t, ht, hpt⟩ ↦ ⟨t, (pullCount_le a t ω).trans_lt ht, hpt⟩
-  _ ≤ streamMeasure ν {ω | ∃ s < n, p s (∑ i ∈ range s, ω i a)} :=
-    measure_exists_pullCount_sumRewards_le h a fun s x ↦ s < n ∧ p s x
+  -- the observation form for the event `p s (y₀ + ⋯ + y_{s-1})`
+  have h_obs := measure_exists_lt_pullCount_armObs_le h a n fun s y ↦ p s (∑ i, y i)
+  simp only [sum_armObs] at h_obs
+  refine h_obs.trans_eq ?_
+  simp only [Finset.sum_range]
 
 /-- **Union bound over the number of pulls.** In a run of any algorithm against the stochastic
 bandit `Environment.bandit ν`, let `p s x` be a property of a number of pulls `s` and a sum
