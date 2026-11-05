@@ -203,6 +203,18 @@ lemma armsCount_eq (K j : ℕ) : armsCount K j = (K + 2 ^ j - 1) / 2 ^ j := by
       show K + 2 ^ j * 2 - 1 = (K + 2 ^ j - 1) + 2 ^ j * 1 by omega, Nat.add_mul_div_left _ _ h2]
     omega
 
+/-- At most `K` arms survive the first `j` phases. -/
+lemma armsCount_le (K j : ℕ) : armsCount K j ≤ K := by
+  induction j with
+  | zero => exact le_rfl
+  | succ j ih => exact (Nat.sub_le _ _).trans ih
+
+/-- At least one arm survives the first `j` phases, if there is one arm. -/
+lemma armsCount_pos {K : ℕ} (hK : 0 < K) (j : ℕ) : 0 < armsCount K j := by
+  induction j with
+  | zero => exact hK
+  | succ j ih => rw [armsCount_succ]; omega
+
 /-- The number of phases of median elimination with `K` arms, `⌈log₂ K⌉`: after it, a single arm
 survives. -/
 def numPhases (K : ℕ) : ℕ := Nat.clog 2 K
@@ -675,6 +687,42 @@ lemma measure_streamStats_sub_le_le {ν : Kernel α ℝ} [IsMarkovKernel ν] {σ
 
 /-! ### Correctness on the reward stream -/
 
+/-- In the reward stream, if the statistics of phase `j` lie in `Bad S` with probability at most `η`
+for every set `S` of `armsCount K j` arms, then they lie in `Bad` of the survivors of the first `j`
+phases with probability at most `η`, the survivors being independent of the statistics of
+phase `j`. -/
+lemma measure_streamStats_mem_survivors_le (ν : Kernel α ℝ) [IsMarkovKernel ν] (t : ℕ → ℕ)
+    (j : ℕ) {Bad : Finset α → Set (α → ℝ)} (hBad : ∀ S, MeasurableSet (Bad S)) {η : ℝ≥0∞}
+    (h : ∀ S : Finset α, #S = armsCount (Fintype.card α) j →
+      Bandits.streamMeasure ν {z | streamStats t z j ∈ Bad S} ≤ η) :
+    Bandits.streamMeasure ν {z | streamStats t z j ∈ Bad (survivors (streamStats t z) j)} ≤ η := by
+  set P := Bandits.streamMeasure ν
+  set F : (ℕ → α → ℝ) → Finset α := fun z ↦ survivors (streamStats t z) j
+  calc P {z | streamStats t z j ∈ Bad (F z)}
+  _ = P (⋃ S : Finset α, F ⁻¹' {S} ∩ (fun z ↦ streamStats t z j) ⁻¹' Bad S) := by
+    congr 1
+    ext z
+    simp
+  _ ≤ ∑ S : Finset α, P (F ⁻¹' {S} ∩ (fun z ↦ streamStats t z j) ⁻¹' Bad S) :=
+    measure_iUnion_fintype_le _ _
+  _ = ∑ S : Finset α, P (F ⁻¹' {S}) * P {z | streamStats t z j ∈ Bad S} := by
+    refine sum_congr rfl fun S _ ↦ ?_
+    exact (indepFun_survivors_streamStats ν t j).measure_inter_preimage_eq_mul _ _
+      (measurableSet_singleton S) (hBad S)
+  _ ≤ ∑ S : Finset α, P (F ⁻¹' {S}) * η := by
+    refine sum_le_sum fun S _ ↦ ?_
+    by_cases hS : #S = armsCount (Fintype.card α) j
+    · gcongr
+      exact h S hS
+    -- The survivors of the first `j` phases are `armsCount K j` arms.
+    have h_empty : F ⁻¹' {S} = ∅ := Set.eq_empty_of_forall_notMem fun z hz ↦
+      hS (hz ▸ card_survivors _ j)
+    simp [h_empty]
+  _ = η := by
+    rw [← sum_mul, sum_measure_preimage_singleton (μ := P) univ (f := F) fun S _ ↦
+      measurable_survivors_streamStats t j (measurableSet_singleton S)]
+    simp
+
 /-- **One phase of median elimination** on the reward stream of `σ2`-sub-Gaussian arms
 [EMM02, proof of Theorem 4]: the probability that every arm that survives phase `j` has a mean
 more than `ε` below that of an arm that survives the first `j` phases is at most
@@ -711,26 +759,9 @@ lemma measure_exists_forall_mem_survivors_succ_add_lt_le {ν : Kernel α ℝ} [I
   -- statistics of phase `j`.
   calc P {z | ∃ a ∈ survivors (streamStats t z) j,
       ∀ b ∈ survivors (streamStats t z) (j + 1), μ b + ε < μ a}
-  _ = P (⋃ S : Finset α, (fun z ↦ survivors (streamStats t z) j) ⁻¹' {S} ∩
-      (fun z ↦ streamStats t z j) ⁻¹' Bad S) := by
-    congr 1
-    ext z
+  _ = P {z | streamStats t z j ∈ Bad (survivors (streamStats t z) j)} := by
     simp [survivors_succ, Bad]
-  _ ≤ ∑ S : Finset α, P ((fun z ↦ survivors (streamStats t z) j) ⁻¹' {S} ∩
-      (fun z ↦ streamStats t z j) ⁻¹' Bad S) := measure_iUnion_fintype_le _ _
-  _ = ∑ S : Finset α, P ((fun z ↦ survivors (streamStats t z) j) ⁻¹' {S}) *
-      P {z | streamStats t z j ∈ Bad S} := by
-    refine sum_congr rfl fun S _ ↦ ?_
-    exact (indepFun_survivors_streamStats ν t j).measure_inter_preimage_eq_mul _ _
-      (measurableSet_singleton S) (hBad S)
-  _ ≤ ∑ S : Finset α, P ((fun z ↦ survivors (streamStats t z) j) ⁻¹' {S}) * (3 * η) := by
-    gcongr with S
-    exact h_tail S
-  _ = 3 * η := by
-    rw [← sum_mul, sum_measure_preimage_singleton (μ := P) univ
-      (f := fun z ↦ survivors (streamStats t z) j) fun S _ ↦
-      measurable_survivors_streamStats t j (measurableSet_singleton S)]
-    simp
+  _ ≤ 3 * η := measure_streamStats_mem_survivors_le ν t j hBad fun S _ ↦ h_tail S
 
 /-- **Correctness of median elimination on the reward stream** [EMM02, Theorem 4]. For
 `σ2`-sub-Gaussian arms and tolerances `ε j ≥ 0`, the probability that the arm surviving the
