@@ -920,6 +920,44 @@ theorem klLower_le_iff (hq : q ∈ Set.Icc 0 p) : klLower p c ≤ q ↔ klBer p 
   rw [klLower_def, sub_le_comm, le_klUpper_iff ⟨by linarith [hq.2], by linarith [hq.1]⟩,
     klBer_one_sub_one_sub]
 
+/-- For `p < 0`, the set defining `klLower p c` is empty and `klLower p c = 1`. -/
+theorem klLower_of_neg (hp : p < 0) (c : ℝ≥0∞) : klLower p c = 1 := by
+  rw [klLower_def, klUpper_of_one_lt (by linarith), sub_zero]
+
+/-- The lower confidence level is monotone in `p` and antitone in the level `c`. -/
+theorem klLower_mono {p p' : ℝ} (hp : 0 ≤ p) (hpp' : p ≤ p') (hc : c ≤ c') :
+    klLower p c' ≤ klLower p' c := by
+  rw [klLower_def, klLower_def]
+  exact sub_le_sub_left (klUpper_mono (by linarith) (by linarith) hc) 1
+
+/-- The lower confidence level is antitone in the level `c`, for every real `p`. -/
+theorem antitone_klLower (p : ℝ) : Antitone (klLower p) := fun c c' hc ↦ by
+  rw [klLower_def, klLower_def]
+  exact sub_le_sub_left (monotone_klUpper _ hc) 1
+
+/-- `L(p, 0) = p`. -/
+@[simp]
+theorem klLower_zero (hp : p ∈ Set.Icc 0 1) : klLower p 0 = p := by
+  rw [klLower_def, klUpper_zero ⟨by linarith [hp.2], by linarith [hp.1]⟩, sub_sub_cancel]
+
+/-- `L(0, c) = 0`. -/
+@[simp]
+theorem klLower_zero_left (c : ℝ≥0∞) : klLower 0 c = 0 := by
+  rw [klLower_def, sub_zero, klUpper_one_left, sub_self]
+
+/-- `L(p, ∞) = 0` for `0 ≤ p`. -/
+@[simp]
+theorem klLower_top (hp : 0 ≤ p) : klLower p ∞ = 0 := by
+  rw [klLower_def, klUpper_top (by linarith), sub_self]
+
+/-- **Pinsker bound on the lower confidence level**: the lower KL confidence level is at least the
+Hoeffding one, `max 0 (p - √(c / 2)) ≤ L(p, c)`. -/
+theorem max_le_klLower (hp : p ∈ Set.Icc 0 1) (c : ℝ≥0) :
+    max 0 (p - √((c : ℝ) / 2)) ≤ klLower p c := by
+  have h := klUpper_le_min (p := 1 - p) ⟨by linarith [hp.2], by linarith [hp.1]⟩ c
+  rw [klLower_def]
+  exact max_le (by linarith [h.trans (min_le_left _ _)]) (by linarith [h.trans (min_le_right _ _)])
+
 /-- The lower confidence level is jointly measurable in `(p, c)`. -/
 theorem measurable_klLower : Measurable (Function.uncurry klLower) :=
   measurable_const.sub ((measurable_const.sub measurable_fst).klUpper measurable_snd)

@@ -21,11 +21,12 @@ tolerance `ε` whose confidence bounds are the confidence levels of the binary r
   confidence level `L(μ̂_a, β(N_a, n) / N_a)` (`klLower`).
 
 By Pinsker's inequality these intervals are contained in the Hoeffding intervals of LUCB with the
-same exploration level [KK13, (6)], and the Chernoff bound in relative-entropy form shows that they
-have the same coverage: after `u` pulls, `u_a < μ_a` and `μ_a < l_a` each have probability at most
-`exp (-β)`. A union bound over the rounds `n` and the numbers of pulls `u ≤ n` then bounds the
-probability that some arm violates one of its bounds at some round, whatever the sampling rule,
-and LUCB is correct outside this event (`measureReal_histOutputMeasure_lucb_le_card_mul`). If
+same exploration level [KK13, (6)] (`LMLExplore.max_le_klLower`, `LMLExplore.klUpper_le_min`),
+and the Chernoff bound in relative-entropy form shows that they have the same coverage: after `u`
+pulls, `u_a < μ_a` and `μ_a < l_a` each have probability at most `exp (-β)`. A union bound over
+the rounds `n` and the numbers of pulls `u ≤ n` then bounds the probability that some arm violates
+one of its bounds at some round, whatever the sampling rule, and LUCB is correct outside this
+event (`measureReal_histOutputMeasure_lucb_le_card_mul`). If
 `∑_n ∑_{u = 1}^n exp (-β(u, n)) ≤ δ / K`, KL-LUCB stops with a wrong answer with probability at
 most `δ`, for every sampling rule. This is the union-bound condition of [KTAS12, Theorem 1] for
 the relative-entropy confidence bounds, and the union-bound proof of correctness mentioned in
@@ -157,11 +158,12 @@ variable {ν : (α → ℝ) → Kernel α ℝ} [∀ μ, IsMarkovKernel (ν μ)] 
   [IsMarkovKernel ν₀] {alg : Algorithm Unit α ℝ} {β : ℕ → ℕ → ℝ} {ε δ : ℝ} {m : ℕ}
 
 /-- **Error probability of KL-LUCB for rewards in `[0, 1]`**, for every sampling rule
-[KK13, Theorem 1 and Lemma 4, with a union bound over the numbers of pulls]. Let the rewards of the
-arms of `ν₀` be in `[0, 1]`, with means `μ`, let `ε ≥ 0` and `m ≤ K`, and let the exploration rate
-`β` satisfy `∑_n ∑_{u = 1}^n exp (-β(u, n)) ≤ δ / K`. Then the probability that KL-LUCB stops with
-an answer that is not a correct answer of top-`m` identification with tolerance `ε` for `μ` is at
-most `δ`. -/
+[KTAS12, Theorem 1] for the confidence bounds of [KK13, (4), (5)]; this is the union-bound proof
+mentioned in [KK13, Appendix A]. Let the rewards of the arms of `ν₀` be in `[0, 1]`, with means
+`μ`, let `ε ≥ 0` and `m ≤ K`, and let the exploration rate `β` satisfy
+`∑_n ∑_{u = 1}^n exp (-β(u, n)) ≤ δ / K`. Then the probability that KL-LUCB stops with an answer
+that is not a correct answer of top-`m` identification with tolerance `ε` for `μ` is at most
+`δ`. -/
 theorem measureReal_histOutputMeasure_kllucb_le
     (hν : ∀ a, ∀ᵐ x ∂(ν₀ a), x ∈ Set.Icc (0 : ℝ) 1)
     (hsum : Summable fun n ↦ ∑ u ∈ Icc 1 n, exp (-β u n))
@@ -208,11 +210,12 @@ theorem measureReal_stoppingTime_ne_top_and_notMem_le_of_isRun_kllucb {out : Ω 
   exact measureReal_histOutputMeasure_kllucb_le hν hsum hδ hε hm
 
 /-- **KL-LUCB is `δ`-PAC** for top-`m` identification with tolerance `ε`, for every sampling rule
-[KK13, Theorem 1, with a union bound over the numbers of pulls]. Let `S` be a set of models whose
-arms have rewards in `[0, 1]` and means given by the model, let `ε ≥ 0` and `m ≤ K`, and let the
-exploration rate `β` satisfy `∑_n ∑_{u = 1}^n exp (-β(u, n)) ≤ δ / K`. If KL-LUCB stops almost
-surely on every model of `S`, then it is `δ`-PAC on the task restricted to `S`. For Bernoulli
-arms, `S` is the set of mean vectors in `[0, 1]`. -/
+[KTAS12, Theorem 1] for the confidence bounds of [KK13, (4), (5)]; this is the union-bound proof
+mentioned in [KK13, Appendix A]. Let `S` be a set of models whose arms have rewards in `[0, 1]`
+and means given by the model, let `ε ≥ 0` and `m ≤ K`, and let the exploration rate `β` satisfy
+`∑_n ∑_{u = 1}^n exp (-β(u, n)) ≤ δ / K`. If KL-LUCB stops almost surely on every model of `S`,
+then it is `δ`-PAC on the task restricted to `S`. For Bernoulli arms, `S` is the set of mean
+vectors in `[0, 1]`. -/
 theorem isDeltaPAC_kllucb {S : Set (α → ℝ)} (hmean : ∀ μ ∈ S, ∀ a, (ν μ a)[id] = μ a)
     (hν : ∀ μ ∈ S, ∀ a, ∀ᵐ x ∂(ν μ a), x ∈ Set.Icc (0 : ℝ) 1)
     (hsum : Summable fun n ↦ ∑ u ∈ Icc 1 n, exp (-β u n))

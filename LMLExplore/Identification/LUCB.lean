@@ -282,10 +282,10 @@ theorem measureReal_histOutputMeasure_lucb_le {env : Environment Unit α ℝ}
 
 /-- **Error probability of LUCB from per-arm deviation bounds**, for every sampling rule and all
 confidence bounds. Let `ε ≥ 0` and `m ≤ K`. If, along an algorithm-environment sequence of the
-sampling rule, the probability that some arm `a` is pulled and has, at some round, an upper bound
-less than `μ a` is at most `S`, and the same holds for a lower bound more than `μ a`, then LUCB
-stops with an answer that is not a correct answer of top-`m` identification with tolerance `ε` for
-`μ` with probability at most `K S`. -/
+sampling rule, for every arm `a`, the probability that at some round `a` has been pulled and its
+upper bound is less than `μ a` is at most `S`, and the same holds for its lower bound exceeding
+`μ a`, then LUCB stops with an answer that is not a correct answer of top-`m` identification with
+tolerance `ε` for `μ` with probability at most `K S`. -/
 theorem measureReal_histOutputMeasure_lucb_le_card_mul {env : Environment Unit α ℝ}
     (hseq : IsAlgEnvSeq O X Y alg env P) (hε : 0 ≤ ε) (hm : m ≤ Fintype.card α) {S : ℝ}
     (h_ucb : ∀ a, P.real {ω | ∃ n, pullCount X a n ω ≠ 0 ∧
