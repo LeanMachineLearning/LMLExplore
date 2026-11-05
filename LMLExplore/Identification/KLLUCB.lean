@@ -20,10 +20,11 @@ tolerance `ε` whose confidence bounds are the confidence levels of the binary r
 * the lower confidence bound `l_a = min {q ∈ [0, μ̂_a] | N_a d(μ̂_a, q) ≤ β(N_a, n)}`, the lower
   confidence level `L(μ̂_a, β(N_a, n) / N_a)` (`klLower`).
 
-By Pinsker's inequality these intervals are contained in the Hoeffding intervals of LUCB with the
-same exploration level [KK13, (6)] (`LMLExplore.max_le_klLower`, `LMLExplore.klUpper_le_min`),
-and the Chernoff bound in relative-entropy form shows that they have the same coverage: after `u`
-pulls, `u_a < μ_a` and `μ_a < l_a` each have probability at most `exp (-β)`. A union bound over
+By Pinsker's inequality these intervals are contained in the Hoeffding intervals
+`[μ̂_a - √(β(N_a, n) / (2 N_a)), μ̂_a + √(β(N_a, n) / (2 N_a))]` [KK13, (6)]
+(`LMLExplore.max_le_klLower`, `LMLExplore.klUpper_le_min`), and the Chernoff bound in
+relative-entropy form shows that they have the same coverage: after `u` pulls, `u_a < μ_a` and
+`μ_a < l_a` each have probability at most `exp (-β)`. A union bound over
 the rounds `n` and the numbers of pulls `u ≤ n` then bounds the probability that some arm violates
 one of its bounds at some round, whatever the sampling rule, and LUCB is correct outside this
 event (`measureReal_histOutputMeasure_lucb_le_card_mul`). If
