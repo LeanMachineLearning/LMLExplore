@@ -108,8 +108,8 @@ theorem eq_prod_smul_add_sum_learningRateWeight_smul {η : ℕ → R} {x y : ℕ
   induction t with
   | zero => simp
   | succ t ih =>
-    rw [hx, ih, sum_learningRateWeight_smul_succ, prod_Icc_succ_top (by omega), smul_add,
-      smul_smul, mul_comm, add_assoc]
+    rw [hx, ih, sum_learningRateWeight_smul_succ, prod_Icc_succ_top (by omega)]
+    module
 
 /-- The weights of the targets add up to `1 - ∏_{j=1}^t (1 - η j)`, the complement of the weight of
 the initial value. This is `Finset.prod_one_sub_ordered` with the order of the factors reversed. -/
@@ -178,11 +178,17 @@ theorem sum_learningRateWeight_qLearningRate (hH : H + 1 ≠ 0) {t : ℕ} (ht : 
     ∑ i ∈ Icc 1 t, learningRateWeight (qLearningRate H) t i = 1 := by
   rw [sum_learningRateWeight, prod_one_sub_qLearningRate_eq_zero hH ht, sub_zero]
 
+/-- The products `∏_{j=i+1}^t (1 - α j)` of the learning rate `(H + 1) / (H + t)` are
+nonnegative, since `α j ≤ 1` for `j ≥ 1`. -/
+theorem prod_Ioc_one_sub_qLearningRate_nonneg (hH : 0 ≤ H) (i t : ℕ) :
+    0 ≤ ∏ j ∈ Ioc i t, (1 - qLearningRate H j) :=
+  prod_nonneg fun j hj ↦ sub_nonneg.2 (qLearningRate_le_one hH (by have := (mem_Ioc.1 hj).1; omega))
+
 /-- The weights of the learning rate `(H + 1) / (H + t)` are nonnegative. -/
 theorem learningRateWeight_qLearningRate_nonneg (hH : 0 ≤ H) (t i : ℕ) :
-    0 ≤ learningRateWeight (qLearningRate H) t i :=
-  learningRateWeight_nonneg (qLearningRate_nonneg hH i) fun j hj ↦
-    qLearningRate_le_one hH (by have := (mem_Ioc.1 hj).1; omega)
+    0 ≤ learningRateWeight (qLearningRate H) t i := by
+  rw [learningRateWeight_def]
+  exact mul_nonneg (qLearningRate_nonneg hH i) (prod_Ioc_one_sub_qLearningRate_nonneg hH i t)
 
 /-- The weight of every target of the `t`-th iterate is at most the learning rate
 `(H + 1) / (H + t)` of the last one. -/
@@ -237,6 +243,15 @@ theorem one_div_sqrt_le_sum_learningRateWeight_qLearningRate_div_sqrt (hH : 0 �
           (Real.sqrt_pos.2 (by linarith))
           (Real.sqrt_le_sqrt (by exact_mod_cast (mem_Icc.1 hi).2))
 
+/-- The algebraic identity behind the induction step of
+`sum_learningRateWeight_qLearningRate_div_sqrt_le`, with `a = √t` and `b = √(t + 1)`. -/
+private lemma div_mul_two_div_add_div_mul_inv_eq {H t a b : ℝ} (hb : 0 < b)
+    (hHt : 0 < H + (t + 1)) (ha2 : a ^ 2 = t) :
+    t / (H + (t + 1)) * (2 * a⁻¹) + (H + 1) / (H + (t + 1)) * b⁻¹ =
+      (2 * (a * b) + (H + 1)) / ((H + (t + 1)) * b) := by
+  subst ha2
+  field_simp
+
 /-- `∑_{i=1}^t α^i_t / √i ≤ 2 / √t` [JABJ18, Lemma 4.1]. -/
 theorem sum_learningRateWeight_qLearningRate_div_sqrt_le (hH : 0 ≤ H) {t : ℕ} (ht : 1 ≤ t) :
     ∑ i ∈ Icc 1 t, learningRateWeight (qLearningRate H) t i / √i ≤ 2 / √t := by
@@ -259,17 +274,16 @@ theorem sum_learningRateWeight_qLearningRate_div_sqrt_le (hH : 0 ≤ H) {t : ℕ
     -- `2 √t √(t + 1) ≤ 2 t + 1`, by the inequality of arithmetic and geometric means
     have key : 2 * (√(t : ℝ) * √((t : ℝ) + 1)) + (H + 1) ≤ 2 * (H + (t + 1)) := by
       nlinarith [sq_nonneg (√(t : ℝ) - √((t : ℝ) + 1))]
-    set a := √(t : ℝ)
-    set b := √((t : ℝ) + 1)
     calc (t : ℝ) / (H + (t + 1)) *
           ∑ i ∈ Icc 1 t, learningRateWeight (qLearningRate H) t i * (√(i : ℝ))⁻¹ +
-            (H + 1) / (H + (t + 1)) * b⁻¹
-        ≤ t / (H + (t + 1)) * (2 * a⁻¹) + (H + 1) / (H + (t + 1)) * b⁻¹ := by gcongr
-      _ = (2 * (a * b) + (H + 1)) / ((H + (t + 1)) * b) := by
-        rw [← ha2]
-        field_simp
-      _ ≤ 2 * (H + (t + 1)) / ((H + (t + 1)) * b) := by gcongr
-      _ = 2 * b⁻¹ := by
+            (H + 1) / (H + (t + 1)) * (√((t : ℝ) + 1))⁻¹
+        ≤ t / (H + (t + 1)) * (2 * (√(t : ℝ))⁻¹) +
+            (H + 1) / (H + (t + 1)) * (√((t : ℝ) + 1))⁻¹ := by
+          gcongr
+      _ = (2 * (√(t : ℝ) * √((t : ℝ) + 1)) + (H + 1)) / ((H + (t + 1)) * √((t : ℝ) + 1)) :=
+          div_mul_two_div_add_div_mul_inv_eq hb (by positivity) ha2
+      _ ≤ 2 * (H + (t + 1)) / ((H + (t + 1)) * √((t : ℝ) + 1)) := by gcongr
+      _ = 2 * (√((t : ℝ) + 1))⁻¹ := by
         field_simp
 
 /-- The partial sums of the weights of the `i`-th target over the iterates `t = i, …, i + N - 1`
@@ -287,14 +301,18 @@ theorem sum_range_learningRateWeight_qLearningRate (hH : 0 < H) (i N : ℕ) :
     field_simp
     ring
 
+/-- The remainder `(H + i + N) / (H + i) * ∏_{j=i+1}^{i+N} (1 - α j)` in the closed form of the
+partial sums `sum_range_learningRateWeight_qLearningRate` is nonnegative. -/
+private lemma div_mul_prod_Ioc_one_sub_qLearningRate_nonneg (hH : 0 ≤ H) (i N : ℕ) :
+    0 ≤ (H + i + N) / (H + i) * ∏ j ∈ Ioc i (i + N), (1 - qLearningRate H j) :=
+  mul_nonneg (by positivity) (prod_Ioc_one_sub_qLearningRate_nonneg hH i (i + N))
+
 /-- The partial sums of the weights of the `i`-th target over the iterates `t ≥ i` are at most
 `1 + 1 / H`. -/
 theorem sum_range_learningRateWeight_qLearningRate_le (hH : 0 < H) (i N : ℕ) :
     ∑ n ∈ range N, learningRateWeight (qLearningRate H) (i + n) i ≤ 1 + 1 / H := by
   rw [sum_range_learningRateWeight_qLearningRate hH]
-  have : 0 ≤ (H + i + N) / (H + i) * ∏ j ∈ Ioc i (i + N), (1 - qLearningRate H j) :=
-    mul_nonneg (by positivity) (prod_nonneg fun j hj ↦
-      sub_nonneg.2 (qLearningRate_le_one hH.le (by have := (mem_Ioc.1 hj).1; omega)))
+  have := div_mul_prod_Ioc_one_sub_qLearningRate_nonneg hH.le i N
   have : 0 ≤ 1 + 1 / H := by positivity
   nlinarith
 
@@ -305,9 +323,7 @@ private lemma mul_prod_one_sub_qLearningRate_le (hH : 1 ≤ H) (i N : ℕ) :
   induction N with
   | zero => simp
   | succ N ih =>
-    have hprod : 0 ≤ ∏ j ∈ Ioc i (i + N), (1 - qLearningRate H j) :=
-      prod_nonneg fun j hj ↦ sub_nonneg.2
-        (qLearningRate_le_one (by linarith) (by have := (mem_Ioc.1 hj).1; omega))
+    have hprod := prod_Ioc_one_sub_qLearningRate_nonneg (by linarith : 0 ≤ H) i (i + N)
     rw [← add_assoc, prod_Ioc_succ_top (by omega), one_sub_qLearningRate (by positivity)]
     push_cast
     calc (H + i + (N + 1)) * ((∏ j ∈ Ioc i (i + N), (1 - qLearningRate H j)) *
@@ -328,9 +344,7 @@ theorem hasSum_learningRateWeight_qLearningRate (hH : 1 ≤ H) (i : ℕ) :
     (fun n ↦ learningRateWeight_qLearningRate_nonneg hH0.le _ _)]
   simp_rw [sum_range_learningRateWeight_qLearningRate hH0]
   -- the remainder is squeezed between `0` and `i / (i + N)`
-  have hr0 : ∀ N : ℕ, 0 ≤ (H + i + N) / (H + i) * ∏ j ∈ Ioc i (i + N), (1 - qLearningRate H j) :=
-    fun N ↦ mul_nonneg (by positivity) (prod_nonneg fun j hj ↦
-      sub_nonneg.2 (qLearningRate_le_one hH0.le (by have := (mem_Ioc.1 hj).1; omega)))
+  have hr0 := div_mul_prod_Ioc_one_sub_qLearningRate_nonneg hH0.le i
   have hr : ∀ N : ℕ, 1 ≤ N →
       (H + i + N) / (H + i) * ∏ j ∈ Ioc i (i + N), (1 - qLearningRate H j) ≤ i / (i + N) :=
     fun N hN ↦ by
