@@ -6,7 +6,9 @@ Authors: Rémy Degenne
 module
 
 public import LMLExplore.Bandits.IndexAlgorithm
-public import LMLExplore.Identification.LUCB
+public import LMLExplore.Identification.ConfidenceBound
+public import LMLExplore.Identification.Task.MeanVector
+public import LMLExplore.SequentialLearning.SubGaussianDeviation
 
 /-!
 # Successive elimination
@@ -44,7 +46,6 @@ In the namespace `LMLExplore.Identification`:
 * `SuccessiveElimination.StopRule lcb ucb n h`: at most one arm is active.
 * `successiveElimination lcb ucb hlcb hucb`: successive elimination as an identification
   algorithm.
-* `SuccessiveElimination.rate σ2 y`: the exploration rate `√(2 σ² (log (2 u (u + 1)) + y) / u)`.
 * `successiveEliminationOfRate β`: successive elimination with the confidence bounds
   `μ̂_a ∓ β(N_a)`.
 
@@ -56,11 +57,8 @@ In the namespace `LMLExplore.Identification`:
 * `exists_stoppingTime_successiveElimination_eq`: along a run in which the confidence intervals
   contain the means and have widths at most `w`, successive elimination stops after at most
   `∑_a T_a` rounds and outputs the best arm.
-* `SuccessiveElimination.measureReal_exists_rate_lt_abs_empMean_sub_le`: for σ²-sub-Gaussian arms,
-  the confidence intervals `μ̂_a ∓ β(N_a)` with `β = rate σ2 (log (K / δ))` all contain the means
-  at all rounds with probability at least `1 - δ`.
 * `measureReal_sum_lt_stoppingTime_successiveEliminationOfRate_le`: for σ²-sub-Gaussian arms,
-  successive elimination with the rate `β = rate σ2 (log (K / δ))` stops after more than
+  successive elimination with the rate `β = subGaussianRate σ2 (log (K / δ))` stops after more than
   `∑_a T_a` rounds with probability at most `δ`, for `w = 2 β` [EMM02, Theorem 3].
 * `isDeltaCorrect_successiveEliminationOfRate`: for σ²-sub-Gaussian arms, successive elimination
   with that rate is `δ`-correct for best arm identification [EMM02, Theorem 3].
@@ -72,8 +70,12 @@ sampled arm is the active arm of largest index, that is a least pulled active ar
 broken by LML's `argmax`, and eliminations are checked after every round. The active arms are
 therefore sampled in turn, as in a phase, and the analysis is the same. An arm is only eliminated
 by an arm when both have been pulled, so that unpulled arms are active, and an eliminated arm stays
-eliminated. The confidence bounds `μ̂_a ∓ β(N_a)` of `successiveEliminationOfRate` are LUCB's
-bounds `LUCB.lowerBound` and `LUCB.upperBound` for a rate that does not depend on the round.
+eliminated. The confidence bounds `μ̂_a ∓ β(N_a)` of `successiveEliminationOfRate` are the bounds
+`lowerBound` and `upperBound`, also used by LUCB, for a rate that does not depend on the round.
+The rate `subGaussianRate σ2 (log (K / δ))` and the probability that the confidence intervals of
+all the arms contain their means at all rounds
+(`measureReal_exists_exists_subGaussianRate_lt_abs_empMean_sub_le`) are in
+`SequentialLearning/SubGaussianDeviation.lean`.
 
 ## References
 
@@ -399,7 +401,7 @@ theorem measureReal_histOutputMeasure_successiveElimination_le [IsProbabilityMea
   exact SuccessiveElimination.not_isEliminated_history ha (fun m b hb ↦ (h_con m b hb).symm) n
     (SuccessiveElimination.isEliminated_of_stopRule hn_stop hn_wrong)
 
-/-- **Sample complexity of successive elimination along a run.** Let `a` be the best arm for the
+/-- **Sample complexity of successive elimination along a run.** Let `a` be a best arm for the
 means `μ`, and let `w : ℕ → ℝ` and `T : α → ℕ` with `T b ≠ 0` satisfy `w u + w v < μ_a - μ_b` for
 every arm `b ≠ a` and all `min (T a) (T b) ≤ u ≤ v`. Consider a sequence of actions in
 which the arm played at every round is the arm of largest index, and in which at every round, the
@@ -407,7 +409,7 @@ confidence interval `[lcb, ucb]` of every pulled arm `b` contains `μ_b` and has
 `w (N_b)` of `μ_b`. Then successive elimination stops after at most `∑_b T_b` rounds and outputs
 `a`. -/
 theorem exists_stoppingTime_successiveElimination_eq {ω : Ω} {μ : α → ℝ} {a : α} {w : ℕ → ℝ}
-    {T : α → ℕ} (ha : ∀ b ≠ a, μ b < μ a)
+    {T : α → ℕ} (ha : ∀ b, μ b ≤ μ a)
     (hT : ∀ b ≠ a, ∀ u v, min (T a) (T b) ≤ u → u ≤ v → w u + w v < μ a - μ b)
     (hT0 : ∀ b, T b ≠ 0)
     (hX : ∀ n, X n ω = argmax (SuccessiveElimination.index lcb ucb n (history O X Y n ω)))
@@ -417,10 +419,7 @@ theorem exists_stoppingTime_successiveElimination_eq {ω : Ω} {μ : α → ℝ}
       ucb n (history O X Y n ω) b ≤ μ b + w (pullCount X b n ω)) :
     ∃ n ≤ ∑ b, T b, (successiveElimination lcb ucb hlcb hucb).stoppingTime O X Y ω = n ∧
       argmax (SuccessiveElimination.index lcb ucb n (history O X Y n ω)) = a := by
-  have ha' (b : α) : μ b ≤ μ a := by
-    rcases eq_or_ne b a with rfl | hba
-    exacts [le_rfl, (ha b hba).le]
-  have ha_act := SuccessiveElimination.not_isEliminated_history ha' hmem
+  have ha_act := SuccessiveElimination.not_isEliminated_history ha hmem
   -- Before the stopping rule holds, the arm played at round `n` has been pulled fewer than
   -- `T` times.
   have h_step (n : ℕ) (hn : ¬ SuccessiveElimination.StopRule lcb ucb n (history O X Y n ω)) :
@@ -468,41 +467,6 @@ end Algorithm
 
 /-! ### Successive elimination for sub-Gaussian arms -/
 
-namespace SuccessiveElimination
-
-/-- The exploration rate `√(2 σ² (log (2 u (u + 1)) + y) / u)` of successive elimination after `u`
-pulls, for σ²-sub-Gaussian arms. With `y = log (K / δ)`, the confidence intervals of all the arms
-contain their means at all rounds with probability at least `1 - δ`
-(`measureReal_exists_rate_lt_abs_empMean_sub_le`). -/
-noncomputable def rate (σ2 : ℝ≥0) (y : ℝ) (u : ℕ) : ℝ :=
-  √(2 * σ2 * (log (2 * u * (u + 1)) + y) / u)
-
-lemma rate_def (σ2 : ℝ≥0) (y : ℝ) (u : ℕ) :
-    rate σ2 y u = √(2 * σ2 * (log (2 * u * (u + 1)) + y) / u) := (rfl)
-
-/-- The exploration rate tends to `0` as the number of pulls tends to infinity. -/
-lemma tendsto_rate_atTop (σ2 : ℝ≥0) (y : ℝ) : Tendsto (rate σ2 y) atTop (𝓝 0) := by
-  have h_log : Tendsto (fun u : ℕ ↦ log (u : ℝ) / u) atTop (𝓝 0) := by
-    simpa [Function.comp_def] using (tendsto_pow_log_div_mul_add_atTop 1 0 1 one_ne_zero).comp
-      tendsto_natCast_atTop_atTop
-  have h_log_succ : Tendsto (fun u : ℕ ↦ log ((u : ℝ) + 1) / u) atTop (𝓝 0) := by
-    simpa [Function.comp_def] using (tendsto_pow_log_div_mul_add_atTop 1 (-1) 1 one_ne_zero).comp
-      (tendsto_natCast_atTop_atTop.comp (tendsto_add_atTop_nat 1))
-  have h_sum := ((tendsto_const_div_atTop_nhds_zero_nat (log 2 + y)).add
-    (h_log.add h_log_succ)).const_mul (2 * (σ2 : ℝ))
-  rw [add_zero, add_zero, mul_zero] at h_sum
-  have h_sqrt := (continuous_sqrt.tendsto 0).comp h_sum
-  rw [sqrt_zero] at h_sqrt
-  refine h_sqrt.congr' ((eventually_ne_atTop 0).mono fun u hu ↦ ?_)
-  have hu' : (u : ℝ) ≠ 0 := Nat.cast_ne_zero.2 hu
-  rw [Function.comp_apply, rate_def, log_mul (by positivity) (by positivity),
-    log_mul (by positivity) hu']
-  congr 1
-  field_simp
-  ring
-
-end SuccessiveElimination
-
 section Rate
 
 variable [Fintype α] [DecidableEq α] [Nonempty α] [MeasurableSpace α] [MeasurableSingletonClass α]
@@ -511,13 +475,13 @@ variable [Fintype α] [DecidableEq α] [Nonempty α] [MeasurableSpace α] [Measu
 with the confidence bounds `μ̂_a ∓ β(N_a)` after `n` rounds, where `N_a` and `μ̂_a` are the number
 of pulls and the empirical mean of the arm `a`. -/
 noncomputable def successiveEliminationOfRate (β : ℕ → ℝ) : IdentAlg Unit α ℝ α :=
-  successiveElimination (LUCB.lowerBound fun u _ ↦ β u) (LUCB.upperBound fun u _ ↦ β u)
-    (LUCB.measurable_lowerBound _) (LUCB.measurable_upperBound _)
+  successiveElimination (lowerBound fun u _ ↦ β u) (upperBound fun u _ ↦ β u)
+    (measurable_lowerBound _) (measurable_upperBound _)
 
 lemma successiveEliminationOfRate_def (β : ℕ → ℝ) :
     successiveEliminationOfRate (α := α) β =
-      successiveElimination (LUCB.lowerBound fun u _ ↦ β u) (LUCB.upperBound fun u _ ↦ β u)
-        (LUCB.measurable_lowerBound _) (LUCB.measurable_upperBound _) := (rfl)
+      successiveElimination (lowerBound fun u _ ↦ β u) (upperBound fun u _ ↦ β u)
+        (measurable_lowerBound _) (measurable_upperBound _) := (rfl)
 
 variable {Ω : Type*} {mΩ : MeasurableSpace Ω} {P : Measure Ω} {O : ℕ → Ω → Unit} {X : ℕ → Ω → α}
   {Y : ℕ → Ω → ℝ} {β : ℕ → ℝ} {μ : α → ℝ} {ω : Ω}
@@ -529,91 +493,66 @@ lemma SuccessiveElimination.mem_and_le_of_abs_empMean_sub_le
     (hgood : ∀ n b, pullCount X b n ω ≠ 0 →
       |empMean X Y b n ω - μ b| ≤ β (pullCount X b n ω)) {n : ℕ} {b : α}
     (hb : pullCount X b n ω ≠ 0) :
-    (LUCB.lowerBound (fun u _ ↦ β u) n (history O X Y n ω) b ≤ μ b ∧
-      μ b ≤ LUCB.upperBound (fun u _ ↦ β u) n (history O X Y n ω) b) ∧
-    (μ b - 2 * β (pullCount X b n ω) ≤ LUCB.lowerBound (fun u _ ↦ β u) n (history O X Y n ω) b ∧
-      LUCB.upperBound (fun u _ ↦ β u) n (history O X Y n ω) b ≤
+    (lowerBound (fun u _ ↦ β u) n (history O X Y n ω) b ≤ μ b ∧
+      μ b ≤ upperBound (fun u _ ↦ β u) n (history O X Y n ω) b) ∧
+    (μ b - 2 * β (pullCount X b n ω) ≤ lowerBound (fun u _ ↦ β u) n (history O X Y n ω) b ∧
+      upperBound (fun u _ ↦ β u) n (history O X Y n ω) b ≤
         μ b + 2 * β (pullCount X b n ω)) := by
-  simp only [LUCB.lowerBound_def, LUCB.upperBound_def, ← empMean_eq_empMean',
+  simp only [lowerBound_def, upperBound_def, ← empMean_eq_empMean',
     ← pullCount_eq_pullCount']
   have h := abs_le.1 (hgood n b hb)
   refine ⟨⟨?_, ?_⟩, ?_, ?_⟩ <;> linarith [h.1, h.2]
 
 /-- **Sample complexity of successive elimination with exploration rate `β` along a run.** Let `a`
-be the best arm for the means `μ`, and let `T : α → ℕ` with `T b ≠ 0` satisfy
+be a best arm for the means `μ`, and let `T : α → ℕ` with `T b ≠ 0` satisfy
 `2 β(u) + 2 β(v) < μ_a - μ_b` for every arm `b ≠ a` and all `min (T a) (T b) ≤ u ≤ v`. Consider
 a sequence of actions in which the arm played at every round is the arm of largest index, and in
 which at every round, the empirical mean of every pulled arm `b` is within `β(N_b)` of `μ_b`.
 Then successive elimination stops after at most `∑_b T_b` rounds and outputs `a`. -/
 theorem exists_stoppingTime_successiveEliminationOfRate_eq {a : α} {T : α → ℕ}
-    (ha : ∀ b ≠ a, μ b < μ a)
+    (ha : ∀ b, μ b ≤ μ a)
     (hT : ∀ b ≠ a, ∀ u v, min (T a) (T b) ≤ u → u ≤ v → 2 * β u + 2 * β v < μ a - μ b)
     (hT0 : ∀ b, T b ≠ 0)
-    (hX : ∀ n, X n ω = argmax (SuccessiveElimination.index (LUCB.lowerBound fun u _ ↦ β u)
-      (LUCB.upperBound fun u _ ↦ β u) n (history O X Y n ω)))
+    (hX : ∀ n, X n ω = argmax (SuccessiveElimination.index (lowerBound fun u _ ↦ β u)
+      (upperBound fun u _ ↦ β u) n (history O X Y n ω)))
     (hgood : ∀ n b, pullCount X b n ω ≠ 0 →
       |empMean X Y b n ω - μ b| ≤ β (pullCount X b n ω)) :
     ∃ n ≤ ∑ b, T b, (successiveEliminationOfRate β).stoppingTime O X Y ω = n ∧
-      argmax (SuccessiveElimination.index (LUCB.lowerBound fun u _ ↦ β u)
-        (LUCB.upperBound fun u _ ↦ β u) n (history O X Y n ω)) = a :=
+      argmax (SuccessiveElimination.index (lowerBound fun u _ ↦ β u)
+        (upperBound fun u _ ↦ β u) n (history O X Y n ω)) = a :=
   exists_stoppingTime_successiveElimination_eq (w := fun u ↦ 2 * β u) ha hT hT0 hX
     (fun _ _ hb ↦ (SuccessiveElimination.mem_and_le_of_abs_empMean_sub_le hgood hb).1)
     (fun _ _ hb ↦ (SuccessiveElimination.mem_and_le_of_abs_empMean_sub_le hgood hb).2)
 
 variable [IsProbabilityMeasure P] {ν₀ : Kernel α ℝ} [IsMarkovKernel ν₀] {σ2 : ℝ≥0} {δ : ℝ}
 
-/-- **The confidence intervals of successive elimination for sub-Gaussian arms.** Along a run of
-any algorithm against `Environment.bandit ν₀` with σ²-sub-Gaussian arms, `σ² ≠ 0` and
-`0 < δ ≤ K`, the probability that at some round, the empirical mean of some pulled arm `b` is not
-within `β(N_b)` of the mean of `b`, for `β = rate σ2 (log (K / δ))`, is at most `δ`. -/
-theorem SuccessiveElimination.measureReal_exists_rate_lt_abs_empMean_sub_le
-    {alg : Algorithm Unit α ℝ} (hseq : IsAlgEnvSeq O X Y alg (Environment.bandit ν₀) P)
-    (hσ2 : σ2 ≠ 0) (hν : ∀ a, HasSubgaussianMGF (fun x ↦ x - (ν₀ a)[id]) σ2 (ν₀ a))
-    (hδ : 0 < δ) (hδK : δ ≤ Fintype.card α) :
-    P.real {ω | ∃ n b, pullCount X b n ω ≠ 0 ∧
-      rate σ2 (log (Fintype.card α / δ)) (pullCount X b n ω) <
-        |empMean X Y b n ω - (ν₀ b)[id]|} ≤ δ := by
-  have hy : 0 ≤ log (Fintype.card α / δ) := log_nonneg ((one_le_div hδ).2 hδK)
-  simp only [rate_def]
-  calc P.real {ω | ∃ n b, pullCount X b n ω ≠ 0 ∧
-      √(2 * σ2 * (log (2 * pullCount X b n ω * (pullCount X b n ω + 1)) +
-        log (Fintype.card α / δ)) / pullCount X b n ω) < |empMean X Y b n ω - (ν₀ b)[id]|}
-  _ ≤ P.real (⋃ b ∈ (univ : Finset α), {ω | ∃ n, pullCount X b n ω ≠ 0 ∧
-      √(2 * σ2 * (log (2 * pullCount X b n ω * (pullCount X b n ω + 1)) +
-        log (Fintype.card α / δ)) / pullCount X b n ω) < |empMean X Y b n ω - (ν₀ b)[id]|}) :=
-    measureReal_mono (fun ω ⟨n, b, hb⟩ ↦ Set.mem_biUnion (mem_univ b) ⟨n, hb⟩)
-      (measure_ne_top _ _)
-  _ ≤ ∑ b, P.real {ω | ∃ n, pullCount X b n ω ≠ 0 ∧
-      √(2 * σ2 * (log (2 * pullCount X b n ω * (pullCount X b n ω + 1)) +
-        log (Fintype.card α / δ)) / pullCount X b n ω) < |empMean X Y b n ω - (ν₀ b)[id]|} :=
-    measureReal_biUnion_finset_le _ _
-  _ ≤ ∑ _b : α, exp (-log (Fintype.card α / δ)) :=
-    sum_le_sum fun b _ ↦ measureReal_exists_sqrt_lt_abs_empMean_sub_le hseq b hσ2 (hν b) hy
-  _ = δ := by
-    rw [sum_const, card_univ, nsmul_eq_mul, exp_neg, exp_log (by positivity)]
-    field_simp
-
 /-- **Sample complexity of successive elimination for sub-Gaussian arms** [EMM02, Theorem 3;
 EMM06, Theorem 8]. Let the arms of `ν₀` be σ²-sub-Gaussian with `σ² ≠ 0`, let `0 < δ ≤ K` and
-`β = rate σ2 (log (K / δ))`, and let `a` be the best arm. Let `T : α → ℕ` with `T b ≠ 0` satisfy
-`2 β(u) + 2 β(v) < μ_a - μ_b` for every arm `b ≠ a` and all `min (T a) (T b) ≤ u ≤ v`. Along
-every algorithm-environment sequence of the sampling rule, successive elimination with exploration
-rate `β` stops after more than `∑_b T_b` rounds with probability at most `δ`. -/
+`β = subGaussianRate σ2 (log (K / δ))`. Let `a` be an arm and `T : α → ℕ` with `T b ≠ 0` satisfy
+`2 β(u) + 2 β(v) < μ_a - μ_b` for every arm `b ≠ a` and all `min (T a) (T b) ≤ u ≤ v` (so that
+`a` is the best arm). Along every algorithm-environment sequence of the sampling rule, successive
+elimination with exploration rate `β` stops after more than `∑_b T_b` rounds with probability at
+most `δ`. -/
 theorem measureReal_sum_lt_stoppingTime_successiveEliminationOfRate_le
     (hseq : IsAlgEnvSeq O X Y
-      (successiveEliminationOfRate (SuccessiveElimination.rate σ2 (log (Fintype.card α / δ)))).alg
+      (successiveEliminationOfRate (subGaussianRate σ2 (log (Fintype.card α / δ)))).alg
       (Environment.bandit ν₀) P)
     (hσ2 : σ2 ≠ 0) (hν : ∀ a, HasSubgaussianMGF (fun x ↦ x - (ν₀ a)[id]) σ2 (ν₀ a))
     (hδ : 0 < δ) (hδK : δ ≤ Fintype.card α) {a : α} {T : α → ℕ}
-    (ha : ∀ b ≠ a, (ν₀ b)[id] < (ν₀ a)[id])
     (hT : ∀ b ≠ a, ∀ u v, min (T a) (T b) ≤ u → u ≤ v →
-      2 * SuccessiveElimination.rate σ2 (log (Fintype.card α / δ)) u +
-        2 * SuccessiveElimination.rate σ2 (log (Fintype.card α / δ)) v < (ν₀ a)[id] - (ν₀ b)[id])
+      2 * subGaussianRate σ2 (log (Fintype.card α / δ)) u +
+        2 * subGaussianRate σ2 (log (Fintype.card α / δ)) v < (ν₀ a)[id] - (ν₀ b)[id])
     (hT0 : ∀ b, T b ≠ 0) :
     P.real {ω | ((∑ b, T b : ℕ) : WithTop ℕ) < (successiveEliminationOfRate
-      (SuccessiveElimination.rate σ2 (log (Fintype.card α / δ)))).stoppingTime O X Y ω} ≤ δ := by
+      (subGaussianRate σ2 (log (Fintype.card α / δ)))).stoppingTime O X Y ω} ≤ δ := by
+  -- The arm `a` is a best arm, as `0 ≤ 4 β(T a) < μ_a - μ_b` for every arm `b ≠ a`.
+  have ha (b : α) : (ν₀ b)[id] ≤ (ν₀ a)[id] := by
+    rcases eq_or_ne b a with rfl | hba
+    · exact le_rfl
+    · have h := hT b hba (T a) (T a) (min_le_left _ _) le_rfl
+      linarith [subGaussianRate_nonneg σ2 (log (Fintype.card α / δ)) (T a)]
   refine le_trans ?_
-    (SuccessiveElimination.measureReal_exists_rate_lt_abs_empMean_sub_le hseq hσ2 hν hδ hδK)
+    (measureReal_exists_exists_subGaussianRate_lt_abs_empMean_sub_le hseq hσ2 hν hδ hδK)
   refine ENNReal.toReal_mono (measure_ne_top _ _) (measure_mono_ae ?_)
   filter_upwards [ae_action_eq_argmax_index hseq] with ω hX hω
   -- On the event where all the confidence intervals hold, the algorithm stops in time.
@@ -629,15 +568,15 @@ omit [IsProbabilityMeasure P] in
 /-- **Successive elimination is `δ`-correct** for best arm identification with σ²-sub-Gaussian
 arms [EMM02, Theorem 3; EMM06, Theorem 8]. Let the arms of every model `μ` be σ²-sub-Gaussian with
 means `μ`, with `σ² ≠ 0`, and let `0 < δ ≤ K`. On every vector of means with a unique best arm,
-successive elimination with exploration rate `rate σ2 (log (K / δ))` stops and outputs the best
-arm with probability at least `1 - δ`. -/
+successive elimination with exploration rate `subGaussianRate σ2 (log (K / δ))` stops and outputs
+the best arm with probability at least `1 - δ`. -/
 theorem isDeltaCorrect_successiveEliminationOfRate {ν : (α → ℝ) → Kernel α ℝ}
     [∀ μ, IsMarkovKernel (ν μ)] (hmean : ∀ μ a, (ν μ a)[id] = μ a) (hσ2 : σ2 ≠ 0)
     (hν : ∀ μ a, HasSubgaussianMGF (fun x ↦ x - (ν μ a)[id]) σ2 (ν μ a)) (hδ : 0 < δ)
     (hδK : δ ≤ Fintype.card α) :
     (baiTask ν).IsDeltaCorrect (successiveEliminationOfRate
-      (SuccessiveElimination.rate σ2 (log (Fintype.card α / δ)))) δ := by
-  set β := SuccessiveElimination.rate σ2 (log (Fintype.card α / δ))
+      (subGaussianRate σ2 (log (Fintype.card α / δ)))) δ := by
+  set β := subGaussianRate σ2 (log (Fintype.card α / δ))
   refine IdentTask.isDeltaCorrect_iff.2 fun μ hμ ↦ ?_
   rw [M_baiTask] at hμ
   obtain ⟨a, ha⟩ := hμ
@@ -652,7 +591,7 @@ theorem isDeltaCorrect_successiveEliminationOfRate {ν : (α → ℝ) → Kernel
     by_cases hba : b = a
     · exact .of_forall fun _ h ↦ absurd hba h
     · have hpos : 0 < (μ a - μ b) / 4 := by linarith [ha b hba]
-      have h_lim : Tendsto β atTop (𝓝 0) := SuccessiveElimination.tendsto_rate_atTop σ2 _
+      have h_lim : Tendsto β atTop (𝓝 0) := tendsto_subGaussianRate_atTop σ2 _
       filter_upwards [(tendsto_order.1 h_lim).2 _ hpos] with u hu _
       linarith
   have hT : ∀ b ≠ a, ∀ u v, min (max T₀ 1) (max T₀ 1) ≤ u → u ≤ v →
@@ -671,7 +610,7 @@ theorem isDeltaCorrect_successiveEliminationOfRate {ν : (α → ℝ) → Kernel
     inferInstanceAs (IsProbabilityMeasure (trajMeasure _ _))
   refine (measureReal_histOutputMeasure_successiveElimination_notMem_or_le hseq
     (measurableSet_singleton a)).trans (le_trans ?_
-    (SuccessiveElimination.measureReal_exists_rate_lt_abs_empMean_sub_le hseq hσ2 (hν μ) hδ hδK))
+    (measureReal_exists_exists_subGaussianRate_lt_abs_empMean_sub_le hseq hσ2 (hν μ) hδ hδK))
   refine ENNReal.toReal_mono (measure_ne_top _ _) (measure_mono_ae ?_)
   filter_upwards [ae_action_eq_argmax_index hseq] with ω hX hω
   -- On the event where all the confidence intervals hold, the algorithm stops with the answer `a`.
@@ -679,7 +618,7 @@ theorem isDeltaCorrect_successiveEliminationOfRate {ν : (α → ℝ) → Kernel
   simp only [not_exists, not_and, not_lt, hmean] at h_good
   rcases hω with h_never | ⟨n, h_stop, h_wrong⟩
   · obtain ⟨n, -, hτ, -⟩ := exists_stoppingTime_successiveEliminationOfRate_eq
-      (T := fun _ ↦ max T₀ 1) ha hT
+      (T := fun _ ↦ max T₀ 1) ha' hT
       (fun _ ↦ (Nat.lt_of_lt_of_le one_pos (le_max_right T₀ 1)).ne') hX h_good
     exact h_never n ((mem_stopSet_successiveElimination _ _ _ _).1
       (IdentAlg.stoppingTime_eq_coe_iff.1 hτ).1)
