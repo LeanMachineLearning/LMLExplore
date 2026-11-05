@@ -5,6 +5,7 @@ Authors: Rémy Degenne
 -/
 module
 
+public import LMLExplore.Data.Finset.Card
 public import LMLExplore.Identification.Task.Basic
 public import Mathlib.Data.Matrix.Mul
 
@@ -32,6 +33,9 @@ sets (the means of an exponential family, `[0, 1]` for Bernoulli arms, ...) are 
   mean below `γ` (`some a`), or "none" (`none`) if all means are above `γ`, on the models where
   one of these holds. Several answers may be correct.
 * `halfSpaceTask ν u`: the answer is the sign of `u ⬝ᵥ μ`, on the models with `u ⬝ᵥ μ ≠ 0`.
+* `epsTopMTask ν m ε`: top-`m` identification with tolerance `ε` [KTAS12]. The correct answers are
+  the sets of `m` arms whose means are all at least the `m`-th largest mean minus `ε`, on every
+  model. Several answers may be correct.
 
 ## Main statements
 
@@ -47,6 +51,13 @@ sets (the means of an exponential family, `[0, 1]` for Bernoulli arms, ...) are 
 * `nonempty_correct_anyLowArmTask_iff`: the admissible models of Any Low Arm are exactly the
   models with a correct answer.
 * `correct_baiTask_subset_correct_epsBaiTask`: the best arm is `ε`-good for every `ε ≥ 0`.
+* `mem_correct_epsTopMTask_of_forall_le`, `nonempty_correct_epsTopMTask`: for `ε ≥ 0`, a set of `m`
+  arms with the largest means is a correct answer of `(ε, m)`-top identification, so every model
+  has one when `m ≤ K`.
+* `exists_add_lt_of_notMem_correct_epsTopMTask`: if a set `s` of `m` arms is not a correct
+  answer, then for every set `t` of `m` arms with the largest means, some arm `b ∈ s \ t` has
+  `μ b + ε < μ i` for some arm `i ∈ t \ s`. This is the step of the proof of [KTAS12, Theorem 1]
+  that reduces a wrong answer of LUCB to a violated confidence bound.
 
 ## References
 
@@ -367,5 +378,103 @@ lemma correct_halfSpaceTask_eq_singleton :
 `u ⬝ᵥ μ`. -/
 lemma isSingleAnswer_halfSpaceTask (u : α → ℝ) : (halfSpaceTask ν u).IsSingleAnswer :=
   (IdentTask.isSingleAnswer_iff _).2 fun _ _ ↦ ⟨_, correct_halfSpaceTask_eq_singleton ν⟩
+
+/-! ### Top-`m` identification with tolerance `ε` -/
+
+/-- *Top-`m` identification with tolerance `ε`* [KTAS12]: the correct answers of a vector of means
+`μ` are the sets of `m` arms that are all *`(ε, m)`-optimal*, and every model is admissible. The arm
+`a` is `(ε, m)`-optimal if fewer than `m` arms have a mean larger than `μ a + ε`, that is, if `μ a`
+is at least the `m`-th largest mean minus `ε`. For `m = 1` this is `ε`-best arm identification
+(`singleton_mem_correct_epsTopMTask_one_iff`). -/
+noncomputable def epsTopMTask (m : ℕ) (ε : ℝ) : IdentTask α (α → ℝ) (Finset α) 𝓨 where
+  M := Set.univ
+  ν := ν
+  isMarkovKernel_ν _ := inferInstance
+  correct μ := {s | s.card = m ∧ ∀ a ∈ s, (Finset.univ.filter fun b ↦ μ a + ε < μ b).card < m}
+
+@[simp]
+lemma M_epsTopMTask : (epsTopMTask ν m ε).M = Set.univ := (rfl)
+
+@[simp]
+lemma ν_epsTopMTask : (epsTopMTask ν m ε).ν = ν := (rfl)
+
+@[simp]
+lemma correct_epsTopMTask (μ : α → ℝ) :
+    (epsTopMTask ν m ε).correct μ =
+      {s | s.card = m ∧ ∀ a ∈ s, (Finset.univ.filter fun b ↦ μ a + ε < μ b).card < m} := (rfl)
+
+/-- For `ε ≥ 0`, if every mean of the set `t` of `m` arms is at least every mean outside `t`, then
+`t` is a correct answer of `(ε, m)`-top identification. -/
+lemma mem_correct_epsTopMTask_of_forall_le (hε : 0 ≤ ε) {t : Finset α} (ht : t.card = m)
+    (ht' : ∀ a ∈ t, ∀ c ∉ t, μ c ≤ μ a) : t ∈ (epsTopMTask ν m ε).correct μ := by
+  classical
+  refine ⟨ht, fun a ha ↦ ?_⟩
+  -- The arms with mean larger than `μ a + ε ≥ μ a` are arms of `t` other than `a`.
+  calc (Finset.univ.filter fun b ↦ μ a + ε < μ b).card
+  _ ≤ (t.erase a).card := Finset.card_le_card fun b hb ↦ by
+    have hb : μ a + ε < μ b := (Finset.mem_filter.1 hb).2
+    refine Finset.mem_erase.2 ⟨fun hba ↦ by subst hba; linarith, ?_⟩
+    by_contra hbt
+    linarith [ht' a ha b hbt]
+  _ < m := by
+    have := Finset.card_pos.2 ⟨a, ha⟩
+    rw [Finset.card_erase_of_mem ha]
+    omega
+
+/-- For `ε ≥ 0` and `m` at most the number of arms, every vector of means has a correct answer of
+`(ε, m)`-top identification: a set of `m` arms with the largest means. -/
+lemma nonempty_correct_epsTopMTask (hε : 0 ≤ ε) (hm : m ≤ Fintype.card α) (μ : α → ℝ) :
+    ((epsTopMTask ν m ε).correct μ).Nonempty := by
+  classical
+  obtain ⟨t, -, ht, ht'⟩ := Finset.exists_subset_card_eq_forall_le μ
+    (s := Finset.univ) (j := m) (by rwa [Finset.card_univ])
+  exact ⟨t, mem_correct_epsTopMTask_of_forall_le ν hε ht fun a ha c hc ↦
+    ht' a ha c (Finset.mem_sdiff.2 ⟨Finset.mem_univ c, hc⟩)⟩
+
+/-- For `ε ≥ 0`, if the set `s` of `m` arms is not a correct answer of `(ε, m)`-top identification
+and every mean of the set `t` of `m` arms is at least every mean outside `t`, then some arm
+`b ∈ s` outside `t` has `μ b + ε < μ i` for some arm `i ∈ t` outside `s`. -/
+lemma exists_add_lt_of_notMem_correct_epsTopMTask (hε : 0 ≤ ε) {s t : Finset α}
+    (hs : s.card = m) (hs' : s ∉ (epsTopMTask ν m ε).correct μ) (ht : t.card = m)
+    (ht' : ∀ a ∈ t, ∀ c ∉ t, μ c ≤ μ a) :
+    ∃ b ∈ s, b ∉ t ∧ ∃ i ∈ t, i ∉ s ∧ μ b + ε < μ i := by
+  classical
+  -- An arm `b ∈ s` that is not `(ε, m)`-optimal.
+  obtain ⟨b, hbs, hb⟩ : ∃ b ∈ s, m ≤ (Finset.univ.filter fun c ↦ μ b + ε < μ c).card := by
+    by_contra! h
+    exact hs' ⟨hs, h⟩
+  -- Every arm `i ∈ t` has `μ b + ε < μ i`: otherwise the arms with mean larger than `μ b + ε`
+  -- would be arms of `t` other than `i`, and there are fewer than `m` of those.
+  have hlt : ∀ i ∈ t, μ b + ε < μ i := by
+    intro i hi
+    by_contra! hib
+    have hsub : (Finset.univ.filter fun c ↦ μ b + ε < μ c) ⊆ t.erase i := fun c hc ↦ by
+      have hc : μ b + ε < μ c := (Finset.mem_filter.1 hc).2
+      refine Finset.mem_erase.2 ⟨fun hci ↦ by subst hci; linarith, ?_⟩
+      by_contra hct
+      linarith [ht' i hi c hct]
+    have := (Finset.card_le_card hsub).trans_eq (Finset.card_erase_of_mem hi)
+    have hpos : 0 < t.card := Finset.card_pos.2 ⟨i, hi⟩
+    omega
+  have hbt : b ∉ t := fun hbt ↦ by linarith [hlt b hbt]
+  -- Since `s ≠ t` have the same size, some arm of `t` is not in `s`.
+  obtain ⟨i, hit, his⟩ : ∃ i ∈ t, i ∉ s := by
+    by_contra! h
+    exact hbt (Finset.eq_of_subset_of_card_le h (by rw [hs, ht]) ▸ hbs)
+  exact ⟨b, hbs, hbt, i, hit, his, hlt i hit⟩
+
+/-- A set of `m` arms with the largest means is a correct answer of top-`m` identification with
+tolerance `ε ≥ 0`. -/
+lemma correct_topMTask_subset_correct_epsTopMTask (hε : 0 ≤ ε) (μ : α → ℝ) :
+    (topMTask ν m).correct μ ⊆ (epsTopMTask ν m ε).correct μ :=
+  fun _ hs ↦ mem_correct_epsTopMTask_of_forall_le ν hε hs.1 fun a ha c hc ↦ (hs.2 a ha c hc).le
+
+/-- Top-`1` identification with tolerance `ε` is `ε`-best arm identification: `{a}` is a correct
+answer iff `a` is `ε`-good. -/
+lemma singleton_mem_correct_epsTopMTask_one_iff {a : α} :
+    {a} ∈ (epsTopMTask ν 1 ε).correct μ ↔ a ∈ (epsBaiTask ν ε).correct μ := by
+  simp only [correct_epsTopMTask, Set.mem_ofPred_eq, Finset.card_singleton, Finset.mem_singleton,
+    forall_eq, true_and, Nat.lt_one_iff, Finset.card_eq_zero, Finset.filter_eq_empty_iff,
+    Finset.mem_univ, not_lt, forall_const, correct_epsBaiTask]
 
 end LMLExplore.Identification
