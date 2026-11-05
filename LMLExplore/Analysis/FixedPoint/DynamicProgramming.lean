@@ -50,7 +50,9 @@ lower intervals `Set.Iic x` and the compatibility of the order with scalars (`Po
 
 * `LMLExplore.IsBlackwell.contractingWith`: a map satisfying Blackwell's conditions with modulus
   `γ < 1` is a `γ`-contraction, and `LMLExplore.IsBlackwell.of_isUniformSup` says that `B`
-  satisfies them.
+  satisfies them (`LMLExplore.IsBlackwell.of_isGreatest_range` for an attained maximum).
+* `LMLExplore.IsUniformSup.isLUB_range`: `B x` is the least upper bound of the values `T d x`, so
+  `B` is determined by the maps `T d` (`LMLExplore.IsUniformSup.unique`).
 * `LMLExplore.IsBlackwell.le_of_map_le`, `LMLExplore.IsBlackwell.le_of_le_map`: if `T x ≤ x` then
   the fixed point of `T` is below `x`, and if `x ≤ T x` it is above;
   `LMLExplore.IsBlackwell.sub_smul_le_of_sub_smul_le_map`: if `x - ε • e ≤ T x` it is above
@@ -116,6 +118,28 @@ lemma IsUniformSup.of_isGreatest_range [IsOrderedAddMonoid E] [PosSMulMono ℝ E
     exact ⟨d, hd.symm ▸ sub_le_self _ (smul_nonneg hε.le he)⟩
 
 end UniformSup
+
+/-! ### Blackwell's conditions for an attained maximum -/
+
+section Blackwell
+
+variable [AddCommGroup E] [PartialOrder E] [Module ℝ E] {e : E} {γ : ℝ≥0}
+
+/-- The maximum of maps satisfying Blackwell's conditions with modulus `γ` satisfies them, when it
+is attained: `B x` is the greatest of the values `T d x`. Unlike `IsBlackwell.of_isUniformSup`, this
+needs no approximation step. -/
+lemma IsBlackwell.of_isGreatest_range [IsOrderedAddMonoid E] {T : D → E → E} {B : E → E}
+    (hT : ∀ d, IsBlackwell e γ (T d)) (hB : ∀ x, IsGreatest (range fun d ↦ T d x) (B x)) :
+    IsBlackwell e γ B where
+  monotone := Monotone.of_isGreatest_range (fun d ↦ (hT d).monotone) hB
+  map_add_smul_le x c hc := by
+    obtain ⟨d, hd⟩ := (hB (x + c • e)).1
+    rw [← hd]
+    refine ((hT d).map_add_smul_le x c hc).trans ?_
+    gcongr
+    exact (hB x).2 ⟨d, rfl⟩
+
+end Blackwell
 
 /-! ### Greedy decisions, policy iteration and modified policy iteration -/
 
@@ -279,6 +303,22 @@ end IsBlackwell
 
 variable {T : D → E → E} {B : E → E} {x : E}
 
+/-- A uniform supremum is the pointwise least upper bound: `B x` is the least upper bound of the
+values `T d x`. -/
+theorem IsUniformSup.isLUB_range [PosSMulMono ℝ E] [ClosedIicTopology E]
+    (hnorm : ∀ x, orderUnitNorm e x = ‖x‖) (hB : IsUniformSup e T B) (x : E) :
+    IsLUB (range fun d ↦ T d x) (B x) := by
+  refine ⟨forall_mem_range.2 fun d ↦ hB.le d x, fun b hb ↦ ?_⟩
+  refine le_of_forall_sub_smul_le hnorm fun ε hε ↦ ?_
+  obtain ⟨d, hd⟩ := hB.exists_sub_smul_le x ε hε
+  exact hd.trans (hb ⟨d, rfl⟩)
+
+/-- The uniform supremum of the maps `T d` is unique. -/
+theorem IsUniformSup.unique [PosSMulMono ℝ E] [ClosedIicTopology E] {B' : E → E}
+    (hnorm : ∀ x, orderUnitNorm e x = ‖x‖) (hB : IsUniformSup e T B) (hB' : IsUniformSup e T B') :
+    B = B' :=
+  funext fun x ↦ (hB.isLUB_range hnorm x).unique (hB'.isLUB_range hnorm x)
+
 /-- **Existence of greedy decisions**: with finitely many decisions, a uniform supremum is
 attained, so every `x` has a greedy decision. -/
 theorem IsUniformSup.exists_map_eq [Finite D] [PosSMulMono ℝ E] [ClosedIicTopology E]
@@ -382,23 +422,20 @@ theorem le_of_isFixedPt [ClosedIicTopology E] (hnorm : ∀ x, orderUnitNorm e x 
 
 /-- **Convergence of policy iteration**: `‖v k - x‖ ≤ γ ^ k * ‖v 0 - x‖`, where `x` is the fixed
 point of `B`. -/
-theorem norm_sub_le [PosSMulMono ℝ E] [ClosedIicTopology E] [ClosedIciTopology E]
+theorem norm_sub_le [ClosedIicTopology E] [ClosedIciTopology E]
     (hnorm : ∀ x, orderUnitNorm e x = ‖x‖) (hT : ∀ d, IsBlackwell e γ (T d)) (hγ : γ < 1)
     (hB : ∀ x, IsGreatest (range fun d ↦ T d x) (B x)) (h : IsPolicyIteration T B d v)
     (hx : IsFixedPt B x) (k : ℕ) : ‖v k - x‖ ≤ γ ^ k * ‖v 0 - x‖ :=
-  (IsBlackwell.of_isUniformSup hnorm hT (.of_isGreatest_range
-    (isOrderUnit_of_forall_orderUnitNorm_eq_norm hnorm).nonneg hB)).norm_sub_le_of_map_le_succ
-    hnorm hx
+  (IsBlackwell.of_isGreatest_range hT hB).norm_sub_le_of_map_le_succ hnorm hx
     (h.le_of_isFixedPt hnorm hT hγ hB hx) (h.map_le hnorm hT hγ hB) k
 
 /-- **Finite termination of policy iteration**: with finitely many decisions, policy iteration
 reaches the fixed point of `B` after at most `Nat.card D` improvements. -/
-theorem exists_le_card_eq [Finite D] [PosSMulMono ℝ E] [ClosedIicTopology E] [ClosedIciTopology E]
+theorem exists_le_card_eq [Finite D] [ClosedIciTopology E]
     (hnorm : ∀ x, orderUnitNorm e x = ‖x‖) (hT : ∀ d, IsBlackwell e γ (T d)) (hγ : γ < 1)
     (hB : ∀ x, IsGreatest (range fun d ↦ T d x) (B x)) (h : IsPolicyIteration T B d v)
     (hx : IsFixedPt B x) : ∃ k ≤ Nat.card D, v k = x := by
-  have hBc := (IsBlackwell.of_isUniformSup hnorm hT (.of_isGreatest_range
-    (isOrderUnit_of_forall_orderUnitNorm_eq_norm hnorm).nonneg hB)).contractingWith hnorm hγ
+  have hBc := (IsBlackwell.of_isGreatest_range hT hB).contractingWith hnorm hγ
   have hmono := h.monotone hnorm hT hγ hB
   by_contra! hne
   -- Before reaching `x`, the values increase strictly, since a repeated value is a fixed point of
@@ -427,24 +464,21 @@ variable {m : ℕ → ℕ} {d : ℕ → D} {u : ℕ → E}
 
 /-- The values of modified policy iteration started below their image by `B` are below the fixed
 point of `B`. -/
-theorem le_of_isFixedPt [PosSMulMono ℝ E] [ClosedIicTopology E] [ClosedIciTopology E]
-    (hnorm : ∀ x, orderUnitNorm e x = ‖x‖) (hT : ∀ d, IsBlackwell e γ (T d)) (hγ : γ < 1)
+theorem le_of_isFixedPt [ClosedIciTopology E] (hnorm : ∀ x, orderUnitNorm e x = ‖x‖)
+    (hT : ∀ d, IsBlackwell e γ (T d)) (hγ : γ < 1)
     (hB : ∀ x, IsGreatest (range fun d ↦ T d x) (B x)) (h : IsModifiedPolicyIteration T B m d u)
     (h₀ : u 0 ≤ B (u 0)) (hx : IsFixedPt B x) (k : ℕ) : u k ≤ x :=
-  (IsBlackwell.of_isUniformSup hnorm hT (.of_isGreatest_range
-    (isOrderUnit_of_forall_orderUnitNorm_eq_norm hnorm).nonneg hB)).le_of_le_map hnorm hγ hx
+  (IsBlackwell.of_isGreatest_range hT hB).le_of_le_map hnorm hγ hx
     (h.le_map (fun d ↦ (hT d).monotone) hB h₀ k)
 
 /-- **Convergence of modified policy iteration**: started from `u 0 ≤ B (u 0)`, the values of
 modified policy iteration satisfy `‖u k - x‖ ≤ γ ^ k * ‖u 0 - x‖`, where `x` is the fixed point of
 `B`. -/
-theorem norm_sub_le [PosSMulMono ℝ E] [ClosedIicTopology E] [ClosedIciTopology E]
-    (hnorm : ∀ x, orderUnitNorm e x = ‖x‖) (hT : ∀ d, IsBlackwell e γ (T d)) (hγ : γ < 1)
+theorem norm_sub_le [ClosedIciTopology E] (hnorm : ∀ x, orderUnitNorm e x = ‖x‖)
+    (hT : ∀ d, IsBlackwell e γ (T d)) (hγ : γ < 1)
     (hB : ∀ x, IsGreatest (range fun d ↦ T d x) (B x)) (h : IsModifiedPolicyIteration T B m d u)
     (h₀ : u 0 ≤ B (u 0)) (hx : IsFixedPt B x) (k : ℕ) : ‖u k - x‖ ≤ γ ^ k * ‖u 0 - x‖ :=
-  (IsBlackwell.of_isUniformSup hnorm hT (.of_isGreatest_range
-    (isOrderUnit_of_forall_orderUnitNorm_eq_norm hnorm).nonneg hB)).norm_sub_le_of_map_le_succ
-    hnorm hx
+  (IsBlackwell.of_isGreatest_range hT hB).norm_sub_le_of_map_le_succ hnorm hx
     (h.le_of_isFixedPt hnorm hT hγ hB h₀ hx) (h.map_le (fun d ↦ (hT d).monotone) hB h₀) k
 
 end IsModifiedPolicyIteration

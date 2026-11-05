@@ -48,6 +48,8 @@ weighted sup norm `⨆ i, |x i| / w i`, and the oscillation for `1` is `max x - 
 * `LMLExplore.orderUnitNorm_smul`, `LMLExplore.orderUnitNorm_add_le`: the order-unit norm of an
   order unit is a seminorm.
 * `LMLExplore.IsOrderUnit.nonneg`: an order unit is nonnegative.
+* `LMLExplore.norm_smul_of_forall_orderUnitNorm_eq_norm`: when the order-unit norm is the norm,
+  `‖r • x‖ = |r| * ‖x‖`.
 * `LMLExplore.le_of_forall_sub_smul_le`: when the order-unit norm is the norm and the lower
   intervals are closed, `x - ε • u ≤ y` for every `ε > 0` gives `x ≤ y`.
 * `LMLExplore.orderUnitOsc_add_smul`, `LMLExplore.orderUnitOsc_le_two_mul_orderUnitNorm`: the
@@ -348,6 +350,13 @@ lemma isOrderUnit_of_forall_orderUnitNorm_eq_norm {F : Type*} [NormedAddCommGrou
   have hx0 : x = 0 := by rw [← norm_eq_zero, ← hnorm, orderUnitNorm_def, hS, Real.sInf_empty]
   exact hx ⟨0, le_rfl, by simp [hx0]⟩
 
+/-- In a normed group whose norm is the order-unit norm of `u`, the norm is absolutely
+homogeneous: `‖r • x‖ = |r| * ‖x‖`. -/
+lemma norm_smul_of_forall_orderUnitNorm_eq_norm {F : Type*} [NormedAddCommGroup F]
+    [PartialOrder F] [IsOrderedAddMonoid F] [Module ℝ F] [PosSMulMono ℝ F] {u : F}
+    (hnorm : ∀ x, orderUnitNorm u x = ‖x‖) (r : ℝ) (x : F) : ‖r • x‖ = |r| * ‖x‖ := by
+  rw [← hnorm, orderUnitNorm_smul, hnorm]
+
 /-- In a normed group whose norm is the order-unit norm of `u`, with closed lower intervals: if
 `x - ε • u ≤ y` for every `ε > 0`, then `x ≤ y`. -/
 theorem le_of_forall_sub_smul_le {F : Type*} [NormedAddCommGroup F] [PartialOrder F]
@@ -355,8 +364,8 @@ theorem le_of_forall_sub_smul_le {F : Type*} [NormedAddCommGroup F] [PartialOrde
     (hnorm : ∀ x, orderUnitNorm u x = ‖x‖) (h : ∀ ε : ℝ, 0 < ε → x - ε • u ≤ y) : x ≤ y := by
   -- `ε ↦ x - ε • u` is `‖u‖`-Lipschitz, since `‖(b - a) • u‖ = |b - a| * ‖u‖`.
   have hlip : LipschitzWith ‖u‖₊ fun ε : ℝ ↦ x - ε • u := LipschitzWith.of_dist_le_mul fun a b ↦ by
-    rw [dist_eq_norm, sub_sub_sub_cancel_left, ← sub_smul, ← hnorm, orderUnitNorm_smul, hnorm,
-      Real.dist_eq, abs_sub_comm, coe_nnnorm, mul_comm]
+    simp [dist_eq_norm, ← sub_smul, norm_smul_of_forall_orderUnitNorm_eq_norm hnorm, abs_sub_comm,
+      mul_comm]
   have hlim : Tendsto (fun ε : ℝ ↦ x - ε • u) (𝓝[>] 0) (𝓝 x) := by
     simpa using (hlip.continuous.tendsto 0).mono_left nhdsWithin_le_nhds
   exact le_of_tendsto hlim (eventually_nhdsWithin_of_forall h)
