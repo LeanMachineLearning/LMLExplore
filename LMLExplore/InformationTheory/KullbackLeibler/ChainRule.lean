@@ -7,18 +7,28 @@ module
 
 public import LeanMachineLearning.ForMathlib.InformationTheory.KullbackLeibler.ChainRule
 public import LeanMachineLearning.ForMathlib.InformationTheory.KullbackLeibler.DataProcessing
+public import LeanMachineLearning.ForMathlib.InformationTheory.KullbackLeibler.Restrict
+public import TauCeti.Probability.Kernel.Composition.MeasureCompProd
 
 /-!
-# Reassociating composition-products inside the Kullback–Leibler divergence
+# Composition-products inside the Kullback–Leibler divergence
 
 The measures `μ ⊗ₘ (κ ⊗ₖ η)` on `α × β × γ` and `μ ⊗ₘ κ ⊗ₘ η` on `(α × β) × γ` are images of
 each other under `MeasurableEquiv.prodAssoc` (`MeasureTheory.Measure.compProd_assoc`), and the
 Kullback–Leibler divergence is invariant under measurable equivalences.
 
+If the second kernel `Kernel.piecewise hs η κ` agrees with the first kernel `κ` outside a
+measurable set `s`, the divergence between `μ ⊗ₘ κ` and `μ ⊗ₘ Kernel.piecewise hs η κ` only
+collects the points of `s`: it is the divergence between the composition-products with the
+restriction `μ.restrict s`. This is how a change of measure that only acts on an event, such as
+the rounds before a stopping time, is computed.
+
 ## Main statements
 
 * `InformationTheory.klDiv_compProd_assoc`:
   `klDiv (μ ⊗ₘ (κ ⊗ₖ η)) (ν ⊗ₘ (κ' ⊗ₖ η')) = klDiv (μ ⊗ₘ κ ⊗ₘ η) (ν ⊗ₘ κ' ⊗ₘ η')`.
+* `InformationTheory.klDiv_compProd_piecewise`:
+  `klDiv (μ ⊗ₘ κ) (μ ⊗ₘ Kernel.piecewise hs η κ) = klDiv (μ.restrict s ⊗ₘ κ) (μ.restrict s ⊗ₘ η)`.
 -/
 
 public section
@@ -37,5 +47,24 @@ lemma klDiv_compProd_assoc [IsFiniteMeasure μ] [IsFiniteMeasure ν] [IsFiniteKe
     klDiv (μ ⊗ₘ (κ ⊗ₖ η)) (ν ⊗ₘ (κ' ⊗ₖ η')) = klDiv (μ ⊗ₘ κ ⊗ₘ η) (ν ⊗ₘ κ' ⊗ₘ η') := by
   rw [← klDiv_map_measurableEquiv _ _ MeasurableEquiv.prodAssoc.symm, Measure.compProd_assoc,
     Measure.compProd_assoc]
+
+/-- The divergence between `μ ⊗ₘ κ` and `μ ⊗ₘ Kernel.piecewise hs η κ`, whose second kernel is
+`η` on `s` and `κ` elsewhere, is the divergence between the composition-products of the
+restriction of `μ` to `s` with `κ` and with `η`. -/
+lemma klDiv_compProd_piecewise (μ : Measure α) [IsFiniteMeasure μ] (κ η : Kernel α β)
+    [IsFiniteKernel κ] [IsFiniteKernel η] {s : Set α} (hs : MeasurableSet s)
+    [DecidablePred (· ∈ s)] :
+    klDiv (μ ⊗ₘ κ) (μ ⊗ₘ Kernel.piecewise hs η κ) =
+      klDiv (μ.restrict s ⊗ₘ κ) (μ.restrict s ⊗ₘ η) := by
+  have h_compl : (s ×ˢ (Set.univ : Set β))ᶜ = sᶜ ×ˢ Set.univ := by ext; simp
+  rw [← klDiv_restrict_add_restrict_compl (hs.prod .univ), h_compl,
+    ← Measure.compProd_restrict_left _ _ hs, ← Measure.compProd_restrict_left _ _ hs,
+    ← Measure.compProd_restrict_left _ _ hs.compl, ← Measure.compProd_restrict_left _ _ hs.compl,
+    Measure.compProd_congr (κ := Kernel.piecewise hs η κ) (η := η)
+      ((ae_restrict_mem hs).mono fun x hx ↦ by simp [Kernel.piecewise_apply, hx]),
+    Measure.compProd_congr (κ := Kernel.piecewise hs η κ) (η := κ)
+      ((ae_restrict_mem hs.compl).mono fun x hx ↦ by
+        simp [Kernel.piecewise_apply, Set.notMem_of_mem_compl hx]),
+    klDiv_self, add_zero]
 
 end InformationTheory
