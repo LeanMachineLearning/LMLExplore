@@ -105,9 +105,8 @@ theorem onlineSubgradientDescent_regret_le (hK : Convex ℝ K) {η : ℕ → ℝ
     (hu : u ∈ K) :
     ∑ t ∈ range n, (f t (a t) - f t u) ≤
       D ^ 2 / (2 * η (n - 1)) + ∑ t ∈ range n, η t / 2 * ‖g t‖ ^ 2 := by
-  have h_mem (t : ℕ) (ht : t ≤ n) : a t ∈ K := by
-    rcases t with _ | t
-    exacts [ha0, (ha t ht).1]
+  have ha' (t : ℕ) (ht : t < n) := isMirrorDescentStep_norm_sq_div_two_iff.mpr (ha t ht)
+  have h_mem := mem_of_isMirrorDescentStep ha0 ha'
   have hD : 0 ≤ D := (norm_nonneg _).trans (hKD u hu u hu)
   -- the Bregman divergences to `u` are at most `D ^ 2 / 2`
   have hDu (t : ℕ) (ht : t < n) :
@@ -117,8 +116,7 @@ theorem onlineSubgradientDescent_regret_le (hK : Convex ℝ K) {η : ℕ → ℝ
     exact hKD u hu (a t) (h_mem t ht.le)
   have h := mirrorDescent_regret_le_of_strongConvexOn_of_antitone
     (strongConvexOn_norm_sq_div_two hK) one_pos hη hη_anti (fun t ↦ innerSL ℝ (g t)) a
-    (fun t ↦ innerSL ℝ (a t)) ha0
-    (fun t ht ↦ isMirrorDescentStep_norm_sq_div_two_iff.mpr (ha t ht))
+    (fun t ↦ innerSL ℝ (a t)) ha0 ha'
     (fun t _ ↦ (hasFDerivAt_norm_sq_div_two (a t)).hasFDerivWithinAt) (by positivity) hDu hu
   simp only [innerSL_apply_norm, mul_one] at h
   rw [div_div] at h
@@ -140,9 +138,8 @@ theorem onlineSubgradientDescent_regret_le_sqrt (hK : Convex ℝ K) {D G : ℝ}
     ∑ t ∈ range n, (f t (a t) - f t u) ≤ 3 / 2 * D * G * √n := by
   rcases n with _ | n
   · simp
-  have h_mem (t : ℕ) (ht : t ≤ n + 1) : a t ∈ K := by
-    rcases t with _ | t
-    exacts [ha0, (ha t ht).1]
+  have h_mem := mem_of_isMirrorDescentStep (η := fun t ↦ D / (G * √((t : ℝ) + 1))) ha0
+    fun t ht ↦ isMirrorDescentStep_norm_sq_div_two_iff.mpr (ha t ht)
   have hD : 0 ≤ D := (norm_nonneg _).trans (hKD u hu u hu)
   have hG : 0 ≤ G := (norm_nonneg _).trans (hgG 0 n.succ_pos)
   have h_lin := sum_sub_le_sum_apply_sub_of_hasSubgradientWithinAt f _ a hg hu

@@ -5,11 +5,10 @@ Authors: Rémy Degenne
 -/
 module
 
-public import LeanMachineLearning.ForMathlib.Analysis.Convex.Bregman.Basic
+public import LMLExplore.Analysis.Convex.Bregman.Euclidean
+public import LMLExplore.Analysis.Convex.Bregman.StrongConvex
 public import Mathlib.Analysis.Calculus.LocalExtr.Basic
-public import Mathlib.Analysis.InnerProductSpace.Calculus
 public import Mathlib.Topology.Order.Compact
-public import TauCeti.Analysis.Convex.Strong
 
 /-!
 # Follow the regularized leader
@@ -53,9 +52,6 @@ norm, whose dual norm is the sup norm.
   modulus that changes over the rounds.
 * `exists_ftrl`: on a nonempty compact set, FTRL with a potential continuous on that set has
   plays.
-* `hasFDerivAt_norm_sq_div_two`, `strongConvexOn_norm_sq_div_two`, `bregDiv_norm_sq_div_two`: the
-  Euclidean potential `‖b‖ ^ 2 / 2` of a real inner product space has derivative `⟪x, ·⟫` at `x`,
-  is `1`-strongly convex, and has Bregman divergence `‖x - y‖ ^ 2 / 2`.
 * `ftrl_regret_le_sqrt_of_closedBall`: [LS, Proposition 28.6] for FTRL. On the closed unit ball
   of a real inner product space, with the potential `‖b‖ ^ 2 / 2` and the learning rate `1 / √n`,
   the regret after `n` rounds against every point of the ball is at most `√n` for the losses
@@ -242,11 +238,8 @@ theorem sum_apply_sub_sub_bregDiv_le_of_strongConvexOn {F : E → ℝ} {m : ℝ}
         (∑ t ∈ range n, bregDiv F (a (t + 1)) (a t) (F' t)) / η ≤
       η / (2 * m) * ∑ t ∈ range n, ‖y t‖ ^ 2 := by
   rw [mul_sum]
-  refine sum_apply_sub_sub_bregDiv_le_of_mul_norm_sq_le hη y a F' (fun _ _ ↦ hm) fun t ht ↦ ?_
-  -- the Bregman divergence of `F` is at least `m / 2` times the squared distance
-  have := hF.add_add_le_of_hasFDerivWithinAt (ha t ht.le) (ha (t + 1) ht) (hF' t ht)
-  simp only [bregDiv]
-  linarith
+  exact sum_apply_sub_sub_bregDiv_le_of_mul_norm_sq_le hη y a F' (fun _ _ ↦ hm) fun t ht ↦
+    hF.mul_norm_sub_sq_le_bregDiv (ha t ht.le) (ha (t + 1) ht) (hF' t ht)
 
 /-- **Regret of FTRL with a strongly convex potential** [LS, Corollary 28.8]. Under the
 assumptions of `ftrl_regret_le`, if the potential `F` is `m`-strongly convex on `K` for the norm
@@ -280,33 +273,7 @@ end NormedSpace
 
 section InnerProductSpace
 
-variable {E : Type*} [NormedAddCommGroup E] [InnerProductSpace ℝ E] {K : Set E} {n : ℕ} {u : E}
-
-/-- The derivative of `‖b‖ ^ 2 / 2` at `x` is `⟪x, ·⟫`. -/
-theorem hasFDerivAt_norm_sq_div_two (x : E) :
-    HasFDerivAt (fun b : E ↦ ‖b‖ ^ 2 / 2) (innerSL ℝ x) x := by
-  convert (hasStrictFDerivAt_norm_sq x).hasFDerivAt.const_mul (2 : ℝ)⁻¹ using 1
-  · ext b
-    ring
-  · ext v
-    simp
-
-/-- The Bregman divergence of `‖b‖ ^ 2 / 2` is half the squared distance:
-`D(x, y) = ‖x - y‖ ^ 2 / 2`, for the derivative `⟪y, ·⟫` at `y`. -/
-@[simp]
-theorem bregDiv_norm_sq_div_two (x y : E) :
-    bregDiv (fun b : E ↦ ‖b‖ ^ 2 / 2) x y (innerSL ℝ y) = ‖x - y‖ ^ 2 / 2 := by
-  simp only [bregDiv, innerSL_apply_apply, @norm_sub_sq_real, inner_sub_right,
-    real_inner_self_eq_norm_sq]
-  rw [real_inner_comm]
-  ring
-
-/-- `‖b‖ ^ 2 / 2` is `1`-strongly convex on every convex set. -/
-theorem strongConvexOn_norm_sq_div_two (hK : Convex ℝ K) :
-    StrongConvexOn K 1 fun b : E ↦ ‖b‖ ^ 2 / 2 := by
-  refine strongConvexOn_iff_convex.mpr ?_
-  convert convexOn_const (0 : ℝ) hK using 2 with b
-  ring
+variable {E : Type*} [NormedAddCommGroup E] [InnerProductSpace ℝ E] {n : ℕ} {u : E}
 
 /-- **FTRL on the unit ball** [LS, Proposition 28.6], which [LS] states for mirror descent and
 notes for FTRL. Let the losses be `⟪g t, ·⟫` for vectors `g t` of norm at most `1`, and let each

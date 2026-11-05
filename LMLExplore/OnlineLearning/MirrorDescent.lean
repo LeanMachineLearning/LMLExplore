@@ -46,7 +46,9 @@ of losses, in particular for losses chosen adaptively from the past plays.
 * `exists_isMirrorDescentStep`: on a nonempty compact set, with a potential continuous on it,
   mirror descent steps exist.
 * `IsMirrorDescentStep.mul_apply_sub_le`: the one-step inequality
-  `η y (x - u) ≤ D_F(u, a) - D_F(u, x) - D_F(x, a)`.
+  `η y (x - u) ≤ D_F(u, a) - D_F(u, x) - D_F(x, a)`, and its form
+  `IsMirrorDescentStep.apply_sub_le` for `η > 0`, which splits `y (a - u)` at `x`.
+* `mem_of_isMirrorDescentStep`: plays of mirror descent started in `K` stay in `K`.
 * `sum_apply_sub_le_mirrorDescent`: the regret against `u` is at most
   `(D_F(u, a 0) - D_F(u, a n)) / η + ∑ t < n, y t (a t - a (t + 1))
     - (∑ t < n, D_F(a (t + 1), a t)) / η`, for any initial play.
@@ -161,6 +163,17 @@ theorem IsMirrorDescentStep.mul_apply_sub_le {y F' G : E →L[ℝ] ℝ} {a x : E
     smul_eq_mul] at h_breg ⊢
   linarith
 
+/-- **One step of mirror descent, split at the step.** Under the assumptions of
+`IsMirrorDescentStep.mul_apply_sub_le`, if `η > 0`, then for every `u ∈ K`,
+`y (a - u) ≤ y (a - x) + (D_F(u, a) - D_F(u, x) - D_F(x, a)) / η`. -/
+theorem IsMirrorDescentStep.apply_sub_le {y F' G : E →L[ℝ] ℝ} {a x : E}
+    (h : IsMirrorDescentStep K F η y a F' x) (hK : Convex ℝ K) (hη : 0 < η)
+    (hG : HasFDerivWithinAt F G K x) (hu : u ∈ K) :
+    y (a - u) ≤ y (a - x) + (bregDiv F u a F' - bregDiv F u x G - bregDiv F x a F') / η := by
+  have h_split : y (a - u) = y (a - x) + y (x - u) := by rw [← map_add, sub_add_sub_cancel]
+  rw [h_split, add_le_add_iff_left, le_div_iff₀ hη, mul_comm]
+  exact h.mul_apply_sub_le hK hG hu
+
 /-- **Regret of mirror descent from any initial play.** Let `K` be convex and `η > 0`. Let each
 `a (t + 1)`, for `t < n`, be a mirror descent step on `K` from `a t` with derivative `F' t`, for
 the loss `y t`, where `F` has derivative `F' (t + 1)` within `K` at `a (t + 1)`. Then for every
@@ -179,21 +192,17 @@ theorem sum_apply_sub_le_mirrorDescent (hK : Convex ℝ K) (hη : 0 < η) (y : �
   -- split `a t - u` at `a (t + 1)` and bound the second part by the one-step inequality
   have h_step (t : ℕ) (ht : t ∈ range n) : y t (a t - u) ≤ y t (a t - a (t + 1)) +
       (bregDiv F u (a t) (F' t) - bregDiv F u (a (t + 1)) (F' (t + 1)) -
-        bregDiv F (a (t + 1)) (a t) (F' t)) / η := by
-    have ht' := mem_range.mp ht
-    have h_one := (ha t ht').mul_apply_sub_le hK (hF' t ht') hu
-    have h_split : y t (a t - u) = y t (a t - a (t + 1)) + y t (a (t + 1) - u) := by
-      rw [← map_add, sub_add_sub_cancel]
-    rw [h_split, add_le_add_iff_left, le_div_iff₀ hη, mul_comm]
-    exact h_one
+        bregDiv F (a (t + 1)) (a t) (F' t)) / η :=
+    (ha t (mem_range.mp ht)).apply_sub_le hK hη (hF' t (mem_range.mp ht)) hu
   -- the divergences to `u` telescope
   have h_tele := sum_range_sub' (fun t ↦ bregDiv F u (a t) (F' t)) n
   refine (sum_le_sum h_step).trans_eq ?_
   rw [sum_add_distrib, ← sum_div, sum_sub_distrib, h_tele, sub_div]
   ring
 
-/-- Plays of mirror descent started in `K` stay in `K`. -/
-private lemma mem_of_isMirrorDescentStep {η : ℕ → ℝ} {y : ℕ → E →L[ℝ] ℝ} {a : ℕ → E}
+/-- **Plays of mirror descent stay in `K`.** If `a 0 ∈ K` and each `a (t + 1)`, for `t < n`, is a
+mirror descent step on `K` from `a t`, then `a t ∈ K` for every `t ≤ n`. -/
+theorem mem_of_isMirrorDescentStep {η : ℕ → ℝ} {y : ℕ → E →L[ℝ] ℝ} {a : ℕ → E}
     {F' : ℕ → E →L[ℝ] ℝ} (ha0 : a 0 ∈ K)
     (ha : ∀ t < n, IsMirrorDescentStep K F (η t) (y t) (a t) (F' t) (a (t + 1))) :
     ∀ t ≤ n, a t ∈ K
@@ -331,15 +340,8 @@ theorem mirrorDescent_regret_le_of_antitone (hF : ConvexOn ℝ K F) (hη : ∀ t
       (y t (a t - a (t + 1)) - bregDiv F (a (t + 1)) (a t) (F' t) / η t) +
         (d t - d (t + 1)) / η t := by
     have ht' := mem_range.mp ht
-    have h_one := (ha t ht').mul_apply_sub_le hF.1 (hF' (t + 1) ht') hu
-    have h_split : y t (a t - u) = y t (a t - a (t + 1)) + y t (a (t + 1) - u) := by
-      rw [← map_add, sub_add_sub_cancel]
-    have h_le : y t (a (t + 1) - u) ≤ (d t - d (t + 1) - bregDiv F (a (t + 1)) (a t) (F' t)) /
-        η t := by
-      rw [le_div_iff₀ (hη t), mul_comm]
-      exact h_one
-    rw [sub_div] at h_le
-    rw [h_split]
+    have h_one := (ha t ht').apply_sub_le hF.1 (hη t) (hF' (t + 1) ht') hu
+    rw [sub_div] at h_one
     linarith
   -- with nonincreasing rates, the divergences to `u` telescope to at most `(D - d m) / η (m - 1)`
   have h_tele (m : ℕ) (hm : m < n) :
@@ -385,11 +387,8 @@ theorem mirrorDescent_regret_le_of_strongConvexOn_of_antitone {m : ℝ}
     y a F' ha0K ha hF' hD hDu hu).trans (add_le_add le_rfl (sum_le_sum fun t ht ↦ ?_))
   have ht := mem_range.mp ht
   have h_mem := mem_of_isMirrorDescentStep ha0K ha
-  refine apply_sub_sub_div_le_of_mul_norm_sq_le hm (hη t) (y t) ?_
-  -- the Bregman divergence of `F` is at least `m / 2` times the squared distance
-  have := hF.add_add_le_of_hasFDerivWithinAt (h_mem t ht.le) (h_mem (t + 1) ht) (hF' t ht.le)
-  simp only [bregDiv]
-  linarith
+  exact apply_sub_sub_div_le_of_mul_norm_sq_le hm (hη t) (y t)
+    (hF.mul_norm_sub_sq_le_bregDiv (h_mem t ht.le) (h_mem (t + 1) ht) (hF' t ht.le))
 
 end Antitone
 
