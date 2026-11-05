@@ -78,9 +78,15 @@ lower intervals `Set.Iic x` and the compatibility of the order with scalars (`Po
 
 The results on policy iteration and modified policy iteration assume no attainment beyond the
 greedy decisions that the runs record: they assume `T d x ≤ B x` for every decision `d` and, where
-needed, that `B` is monotone or satisfies Blackwell's conditions, which a uniform supremum does
-(`IsBlackwell.of_isUniformSup`). Taking these properties of `B` as hypotheses keeps the results
-available on spaces without closed lower intervals, where the Archimedean step is not available.
+needed, that `B` is monotone or satisfies Blackwell's conditions. A uniform supremum satisfies
+`T d x ≤ B x` (`IsUniformSup.le`) and, with closed lower intervals and `PosSMulMono`, a uniform
+supremum of maps satisfying Blackwell's conditions satisfies them, hence is monotone
+(`IsBlackwell.of_isUniformSup`). Taking these properties of `B` as hypotheses keeps policy
+improvement, finite termination of policy iteration and the results on modified policy iteration
+available on spaces without closed lower intervals, where the Archimedean step is not available;
+the comparison of policy iteration with the fixed point of `B`
+(`IsPolicyIteration.le_of_isFixedPt`, `IsPolicyIteration.norm_sub_le`) still needs closed lower
+intervals.
 
 ## References
 
@@ -215,8 +221,8 @@ theorem map_le (hT : ∀ d, Monotone (T d)) (hB : ∀ d x, T d x ≤ B x)
     _ = u (k + 1) := (h.eq_iterate k).symm
 
 /-- The values of modified policy iteration started below their image by a monotone `B` are above
-the iterates of `B`: `B^[k] (u 0) ≤ u k`. A uniform supremum is monotone
-(`IsBlackwell.of_isUniformSup`). -/
+the iterates of `B`: `B^[k] (u 0) ≤ u k`. With closed lower intervals and `PosSMulMono`, a uniform
+supremum of maps satisfying Blackwell's conditions is monotone (`IsBlackwell.of_isUniformSup`). -/
 theorem iterate_le (hT : ∀ d, Monotone (T d)) (hB : ∀ d x, T d x ≤ B x) (hBm : Monotone B)
     (h : IsModifiedPolicyIteration T B m d u) (h₀ : u 0 ≤ B (u 0)) (k : ℕ) : B^[k] (u 0) ≤ u k :=
   hBm.iterate_le_of_map_le_succ (h.map_le hT hB h₀) k
