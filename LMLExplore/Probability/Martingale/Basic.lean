@@ -5,6 +5,7 @@ Authors: Rémy Degenne
 -/
 module
 
+public import LMLExplore.MeasureTheory.Function.ConditionalExpectation.LebesgueBochner
 public import Mathlib.MeasureTheory.Function.SpecialFunctions.Basic
 public import Mathlib.Probability.Martingale.Basic
 
@@ -18,6 +19,8 @@ made in `ℝ≥0∞`, where it needs no integrability, and integrability then pr
 For an exponential of partial sums `exp (∑ k < n, Z k)`, the comparison reduces to a one-round
 bound: the conditional expectation of `exp (Z n)` given `ℱ n` is at most `1`, which is expressed
 without conditional expectations as `∫⁻ g * exp (Z n) ≤ ∫⁻ g` for every `ℱ n`-measurable `g ≥ 0`.
+When each `exp (Z n)` is integrable, the one-round bound can be stated with the conditional
+expectation itself.
 
 ## Main statements
 
@@ -27,6 +30,8 @@ without conditional expectations as `∫⁻ g * exp (Z n) ≤ ∫⁻ g` for ever
 * `LMLExplore.supermartingale_exp_sum_of_lintegral_mul_exp_le`: `n ↦ exp (∑ k < n, Z k)` is a
   supermartingale if each `Z n` is `ℱ (n + 1)`-measurable and
   `∫⁻ g * exp (Z n) ≤ ∫⁻ g` for every `ℱ n`-measurable `g ≥ 0`.
+* `LMLExplore.supermartingale_exp_sum_of_condExp_exp_le_one`: the same conclusion if each `Z n` is
+  `ℱ (n + 1)`-measurable, `exp (Z n)` is integrable and `E[exp (Z n) | ℱ n] ≤ 1`.
 
 ## References
 
@@ -92,5 +97,17 @@ theorem supermartingale_exp_sum_of_lintegral_mul_exp_le [IsFiniteMeasure μ]
     · simp [hωs]
   simp_rw [h_succ]
   exact hle n _ ((hS n).exp.ennreal_ofReal.indicator hs)
+
+/-- **Exponential supermartingale from a conditional one-round bound.** If each `Z n` is
+`ℱ (n + 1)`-measurable, `exp (Z n)` is integrable and `E[exp (Z n) | ℱ n] ≤ 1`, then
+`n ↦ exp (∑ k < n, Z k)` is a supermartingale. -/
+theorem supermartingale_exp_sum_of_condExp_exp_le_one [IsFiniteMeasure μ]
+    {ℱ : Filtration ℕ mΩ} {Z : ℕ → Ω → ℝ} (hZ : ∀ n, Measurable[ℱ (n + 1)] (Z n))
+    (hint : ∀ n, Integrable (fun ω ↦ exp (Z n ω)) μ)
+    (hle : ∀ n, μ[fun ω ↦ exp (Z n ω) | ℱ n] ≤ᵐ[μ] 1) :
+    Supermartingale (fun n ω ↦ exp (∑ k ∈ range n, Z k ω)) ℱ μ := by
+  refine supermartingale_exp_sum_of_lintegral_mul_exp_le hZ fun n g hg ↦ ?_
+  simpa using lintegral_mul_ofReal_le_of_condExp_le (ℱ.le n) (hint n)
+    (ae_of_all _ fun _ ↦ (exp_pos _).le) (hle n) hg
 
 end LMLExplore
