@@ -273,24 +273,12 @@ theorem UCBF.integral_pullCount_eventually_le
     (h : IsAlgEnvSeq O A R (ucbF σ2) (Environment.bandit ν) P)
     (hν : ∀ a, HasSubgaussianMGF (fun x ↦ x - (ν a)[id]) σ2 (ν a)) (hσ2 : σ2 ≠ 0) (a : α)
     (ha : 0 < gap ν a) {c : ℝ} (hc : 2 * σ2 / gap ν a ^ 2 < c) :
-    ∀ᶠ n : ℕ in atTop, P[fun ω ↦ (pullCount A a n ω : ℝ)] ≤ c * log n := by
-  -- Choose `ε ∈ (0, Δ_a)` with `2 σ² / (Δ_a - ε)² < c`, by continuity at `ε = 0`.
-  have h_cont : ContinuousAt (fun ε : ℝ ↦ 2 * σ2 / (gap ν a - ε) ^ 2) 0 :=
-    continuousAt_const.div ((continuousAt_const.sub continuousAt_id).pow 2) (by simpa using ha.ne')
-  obtain ⟨ε, hεc, hε, hεa⟩ := ((h_cont.tendsto.mono_left nhdsWithin_le_nhds).eventually_lt_const
-    (by simpa using hc)).and (Ioo_mem_nhdsGT ha) |>.exists
-  set D := 2 * σ2 / (gap ν a - ε) ^ 2
-  set K := 1 + 5 * σ2 / ε ^ 2
-  set L : ℕ → ℝ := fun n ↦ log (1 + n * log n ^ 2)
-  -- The bound of `UCBF.integral_pullCount_le` divided by `log n` tends to `D`.
-  have h_bound : Tendsto (fun n : ℕ ↦ (K + D * (L n + √(π * L n) + 1)) / log n) atTop (𝓝 D) :=
-    tendsto_add_mul_add_sqrt_add_one_div_log
-      (tendsto_log_one_add_mul_log_sq_div_log_atTop.comp tendsto_natCast_atTop_atTop) K D pi_pos.le
-  filter_upwards [eventually_lt_mul_log_of_tendsto_div_log h_bound hεc] with n hn
-  refine (UCBF.integral_pullCount_le h hν hσ2 a hε hεa n).trans ?_
-  refine le_of_lt (lt_of_eq_of_lt ?_ hn)
-  simp only [K, D, L]
-  ring
+    ∀ᶠ n : ℕ in atTop, P[fun ω ↦ (pullCount A a n ω : ℝ)] ≤ c * log n :=
+  eventually_le_mul_log_of_forall_le_add_mul_add_sqrt_add_one
+    (L := fun n ↦ log (1 + n * log n ^ 2)) ha
+    (tendsto_log_one_add_mul_log_sq_div_log_atTop.comp tendsto_natCast_atTop_atTop) pi_pos.le
+    (fun ε hε ↦ ⟨1 + 5 * σ2 / ε ^ 2, fun n ↦
+      (UCBF.integral_pullCount_le h hν hσ2 a hε.1 hε.2 n).trans_eq (by ring)⟩) hc
 
 /-- **[LS, (8.2)]**, the asymptotic part of [LS, Theorem 8.1]. For σ²-sub-Gaussian rewards with
 `σ² ≠ 0` and every `c > ∑_{a : Δ_a > 0} 2 σ² / Δ_a`, the expected regret of the asymptotically

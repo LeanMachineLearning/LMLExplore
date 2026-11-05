@@ -22,6 +22,9 @@ public import Mathlib.Analysis.SpecialFunctions.Log.Basic
   eventually `g n < c log n`.
 * `Real.tendsto_add_mul_add_sqrt_add_one_div_log`: if `L n / log n → 1`, then
   `(K + D (L n + √(b L n) + 1)) / log n → D`.
+* `Real.eventually_le_mul_log_of_forall_le_add_mul_add_sqrt_add_one`: if for every `ε ∈ (0, Δ)`,
+  `x n ≤ K_ε + C / (Δ - ε)² (L n + √(b L n) + 1)` and `L n / log n → 1`, then eventually
+  `x n ≤ c log n` for every `c > C / Δ²`.
 * `Real.tendsto_natCeil_sub_div_log`: if `f n / log n → ∞`, then `⌈f n - c⌉₊ / log n → ∞`.
 
 ## References
@@ -141,6 +144,27 @@ theorem tendsto_add_mul_add_sqrt_add_one_div_log {L : ℕ → ℝ}
   refine this.congr fun n ↦ ?_
   rw [sqrt_mul hb]
   ring
+
+/-- Let `0 < Δ`, `b ≥ 0`, `L n / log n → 1` and `C / Δ² < c`. If for every `ε ∈ (0, Δ)` some
+constant `K` gives `x n ≤ K + C / (Δ - ε)² (L n + √(b L n) + 1)` for all `n`, then eventually
+`x n ≤ c log n`; that is, `limsup_n x n / log n ≤ C / Δ²`. This turns finite-time bounds of the
+shape of [LS, Lemma 8.2] on the expected number of pulls of an arm with gap `Δ` into asymptotic
+ones. -/
+theorem eventually_le_mul_log_of_forall_le_add_mul_add_sqrt_add_one {x L : ℕ → ℝ} {Δ C b c : ℝ}
+    (hΔ : 0 < Δ) (hL : Tendsto (fun n : ℕ ↦ L n / log n) atTop (𝓝 1)) (hb : 0 ≤ b)
+    (hx : ∀ ε ∈ Set.Ioo 0 Δ, ∃ K, ∀ n, x n ≤ K + C / (Δ - ε) ^ 2 * (L n + √(b * L n) + 1))
+    (hc : C / Δ ^ 2 < c) :
+    ∀ᶠ n : ℕ in atTop, x n ≤ c * log n := by
+  -- choose `ε ∈ (0, Δ)` with `C / (Δ - ε)² < c`, by continuity at `ε = 0`
+  have h_cont : ContinuousAt (fun ε : ℝ ↦ C / (Δ - ε) ^ 2) 0 :=
+    continuousAt_const.div ((continuousAt_const.sub continuousAt_id).pow 2)
+      (by simpa using hΔ.ne')
+  obtain ⟨ε, hεc, hε⟩ := ((h_cont.tendsto.mono_left nhdsWithin_le_nhds).eventually_lt_const
+    (by simpa using hc)).and (Ioo_mem_nhdsGT hΔ) |>.exists
+  obtain ⟨K, hK⟩ := hx ε hε
+  filter_upwards [eventually_lt_mul_log_of_tendsto_div_log
+    (tendsto_add_mul_add_sqrt_add_one_div_log hL K _ hb) hεc] with n hn
+  exact (hK n).trans hn.le
 
 /-- If `f n / log n → ∞` as `n → ∞`, then the natural ceilings `⌈f n - c⌉₊` also grow faster than
 `log n`, which turns a real lower bound `f n - c` on a natural quantity into a natural one. -/

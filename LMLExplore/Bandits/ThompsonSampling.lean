@@ -72,7 +72,8 @@ is `1 / s`, here `σ² / s`.
   last term is logarithmic in the horizon.
 * `GaussianTS.lintegral_pullCount_le_of_gaussianBandit`: on a Gaussian bandit, both parts of
   [LS, Exercise 36.6] together: `E[T_i(n)] ≤ 2 + σ² / ε² (8 + 2 log (1 + 2 σ² / ε²))
-  + 2 σ² / (μ_j - ε - μ_i)² (log n + √(π log n) + 1)` for arms with `μ_i < μ_j - ε`.
+  + 2 σ² / (μ_j - ε - μ_i)² (log n + √(π log n) + 1)` for arms with `μ_i < μ_j - ε`, and
+  `GaussianTS.integral_pullCount_le_of_gaussianBandit`, the same bound as a Bochner integral.
 * `GaussianTS.integral_pullCount_eventually_le`: on a Gaussian bandit, for an arm `a` with positive
   gap `Δ_a` and every `c > 2 σ² / Δ_a²`, eventually `E[T_a(n)] ≤ c log n`.
 * `gaussianTS_regret_eventually_le`: [LS, Theorem 36.3], upper bound of the asymptotic part: on a
@@ -576,6 +577,33 @@ theorem lintegral_pullCount_le_of_gaussianBandit [IsProbabilityMeasure P] {μ : 
   exact sum_lintegral_inv_gaussianTSStackLaw_Ioi_sub_one_le (gaussianBandit_apply μ σ2 j) hσ hε n
 
 omit [IsFiniteMeasure P] in
+/-- **[LS, Theorem 36.2] with [LS, Exercise 36.6] for Gaussian Thompson sampling on a Gaussian
+bandit**, as a Bochner integral. In a run of Gaussian Thompson sampling with variance proxy
+`σ² ≠ 0` against the Gaussian bandit `gaussianBandit μ σ2`, let `ε > 0` and let `i`, `j` be arms
+with `μ_i < μ_j - ε`. Then for every horizon `n`,
+`E[T_i(n)] ≤ 2 + σ² / ε² (8 + 2 log (1 + 2 σ² / ε²))
+  + 2 σ² / (μ_j - ε - μ_i)² (log n + √(π log n) + 1)`. -/
+theorem integral_pullCount_le_of_gaussianBandit [IsProbabilityMeasure P] {μ : α → ℝ}
+    (hσ : σ2 ≠ 0)
+    (h : IsAlgEnvSeq O A R (gaussianTS σ2) (Environment.bandit (gaussianBandit μ σ2)) P)
+    {i j : α} {ε : ℝ} (hε : 0 < ε) (hij : μ i < μ j - ε) (n : ℕ) :
+    P[fun ω ↦ (pullCount A i n ω : ℝ)] ≤
+      2 + σ2 / ε ^ 2 * (8 + 2 * Real.log (1 + 2 * σ2 / ε ^ 2)) +
+        2 * σ2 / (μ j - ε - μ i) ^ 2 * (Real.log n + √(Real.pi * Real.log n) + 1) := by
+  have hK : 0 ≤ σ2 / ε ^ 2 * (8 + 2 * Real.log (1 + 2 * σ2 / ε ^ 2)) :=
+    mul_nonneg (by positivity) (by linarith [Real.log_nonneg (le_add_of_nonneg_right
+      (show 0 ≤ 2 * (σ2 : ℝ) / ε ^ 2 by positivity))])
+  have hD : 0 ≤ 1 + 2 * σ2 / (μ j - ε - μ i) ^ 2 *
+      (Real.log n + √(Real.pi * Real.log n) + 1) := by
+    have := Real.log_natCast_nonneg n
+    positivity
+  have h_le := lintegral_pullCount_le_of_gaussianBandit hσ h hε hij n
+  rw [lintegral_pullCount_eq_ofReal_integral h.measurable_action, ← ENNReal.ofReal_one,
+    ← ENNReal.ofReal_add zero_le_one hK, ← ENNReal.ofReal_add (by positivity) hD,
+    ENNReal.ofReal_le_ofReal_iff (by positivity)] at h_le
+  linarith
+
+omit [IsFiniteMeasure P] in
 /-- **Asymptotic number of pulls of Gaussian Thompson sampling.** In a run of Gaussian Thompson
 sampling with variance proxy `σ² ≠ 0` against the Gaussian bandit `gaussianBandit μ σ2`, for an arm
 `a` with positive gap `Δ_a` and every `c > 2 σ² / Δ_a²`, the expected number of pulls of `a` during
@@ -589,38 +617,16 @@ theorem integral_pullCount_eventually_le [IsProbabilityMeasure P] {μ : α → �
   set ν := gaussianBandit μ σ2
   have hgap : gap ν a = μ (bestArm ν) - μ a := by
     rw [gap_eq_bestArm_sub, integral_id_gaussianBandit, integral_id_gaussianBandit]
-  -- choose `ε ∈ (0, Δ_a)` with `2 σ² / (Δ_a - ε)² < c`, by continuity at `ε = 0`
-  have h_cont : ContinuousAt (fun ε : ℝ ↦ 2 * σ2 / (gap ν a - ε) ^ 2) 0 :=
-    continuousAt_const.div ((continuousAt_const.sub continuousAt_id).pow 2) (by simpa using ha.ne')
-  obtain ⟨ε, hεc, hε, hεa⟩ := ((h_cont.tendsto.mono_left nhdsWithin_le_nhds).eventually_lt_const
-    (by simpa using hc)).and (Ioo_mem_nhdsGT ha) |>.exists
-  set D := 2 * σ2 / (gap ν a - ε) ^ 2
-  set K := 2 + σ2 / ε ^ 2 * (8 + 2 * Real.log (1 + 2 * σ2 / ε ^ 2))
-  -- the bound of `lintegral_pullCount_le_of_gaussianBandit` divided by `log n` tends to `D`
   have hL : Filter.Tendsto (fun n : ℕ ↦ Real.log n / Real.log n) Filter.atTop (nhds 1) := by
     refine tendsto_const_nhds.congr' ?_
     filter_upwards [Filter.eventually_gt_atTop 1] with n hn
     exact (div_self (Real.log_pos (by exact_mod_cast hn)).ne').symm
-  filter_upwards [Real.eventually_lt_mul_log_of_tendsto_div_log
-    (Real.tendsto_add_mul_add_sqrt_add_one_div_log hL K D Real.pi_pos.le) hεc] with n hn
-  have h_le := lintegral_pullCount_le_of_gaussianBandit hσ h hε (i := a) (j := bestArm ν)
-    (by linarith) n
-  have hK : 0 ≤ σ2 / ε ^ 2 * (8 + 2 * Real.log (1 + 2 * σ2 / ε ^ 2)) :=
-    mul_nonneg (by positivity) (by linarith [Real.log_nonneg (le_add_of_nonneg_right
-      (show 0 ≤ 2 * (σ2 : ℝ) / ε ^ 2 by positivity))])
-  have hD : 0 ≤ 1 + 2 * σ2 / (μ (bestArm ν) - ε - μ a) ^ 2 *
-      (Real.log n + √(Real.pi * Real.log n) + 1) := by
-    have := Real.log_natCast_nonneg n
-    positivity
-  rw [← ENNReal.ofReal_one, ← ENNReal.ofReal_add zero_le_one hK,
-    ← ENNReal.ofReal_add (by positivity) hD] at h_le
-  rw [integral_eq_lintegral_of_nonneg_ae (ae_of_all _ fun ω ↦ Nat.cast_nonneg _)
-    (measurable_from_nat.comp (measurable_pullCount h.measurable_action a n)).aestronglyMeasurable]
-  simp_rw [ENNReal.ofReal_natCast]
-  refine (ENNReal.toReal_le_of_le_ofReal (by positivity) h_le).trans
-    (le_of_lt (lt_of_eq_of_lt ?_ hn))
-  rw [show μ (bestArm ν) - ε - μ a = gap ν a - ε by rw [hgap]; ring]
-  ring
+  refine Real.eventually_le_mul_log_of_forall_le_add_mul_add_sqrt_add_one
+    (L := fun n ↦ Real.log n) ha hL Real.pi_pos.le
+    (fun ε hε ↦ ⟨2 + σ2 / ε ^ 2 * (8 + 2 * Real.log (1 + 2 * σ2 / ε ^ 2)), fun n ↦ ?_⟩) hc
+  have h_le := integral_pullCount_le_of_gaussianBandit hσ h hε.1 (i := a) (j := bestArm ν)
+    (by linarith [hε.2]) n
+  rwa [show μ (bestArm ν) - ε - μ a = gap ν a - ε by rw [hgap]; ring] at h_le
 
 end GaussianTS
 
