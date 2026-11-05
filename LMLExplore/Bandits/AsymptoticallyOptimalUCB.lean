@@ -283,24 +283,9 @@ theorem UCBF.integral_pullCount_eventually_le
   set K := 1 + 5 * σ2 / ε ^ 2
   set L : ℕ → ℝ := fun n ↦ log (1 + n * log n ^ 2)
   -- The bound of `UCBF.integral_pullCount_le` divided by `log n` tends to `D`.
-  have hL : Tendsto (fun n : ℕ ↦ L n / log n) atTop (𝓝 1) :=
-    tendsto_log_one_add_mul_log_sq_div_log_atTop.comp tendsto_natCast_atTop_atTop
-  have h_log : Tendsto (fun n : ℕ ↦ log n) atTop atTop :=
-    tendsto_log_atTop.comp tendsto_natCast_atTop_atTop
-  have h_inv : Tendsto (fun n : ℕ ↦ (log n)⁻¹) atTop (𝓝 0) := tendsto_inv_atTop_zero.comp h_log
-  have h_sqrt : Tendsto (fun n : ℕ ↦ √(L n) / log n) atTop (𝓝 0) := by
-    have : Tendsto (fun n : ℕ ↦ √(L n / log n * (log n)⁻¹)) atTop (𝓝 0) := by
-      simpa using ((hL.mul h_inv).sqrt)
-    refine this.congr' ?_
-    filter_upwards [h_log.eventually_gt_atTop 0] with n hn
-    field_simp
-    simp [sqrt_div', hn.le, mul_div_cancel₀ _ hn.ne']
-  have h_bound : Tendsto (fun n : ℕ ↦ (K + D * (L n + √(π * L n) + 1)) / log n) atTop (𝓝 D) := by
-    have := ((h_inv.const_mul (K + D)).add (hL.const_mul D)).add (h_sqrt.const_mul (D * √π))
-    simp only [mul_zero, mul_one, zero_add, add_zero] at this
-    refine this.congr fun n ↦ ?_
-    rw [sqrt_mul pi_pos.le]
-    ring
+  have h_bound : Tendsto (fun n : ℕ ↦ (K + D * (L n + √(π * L n) + 1)) / log n) atTop (𝓝 D) :=
+    tendsto_add_mul_add_sqrt_add_one_div_log
+      (tendsto_log_one_add_mul_log_sq_div_log_atTop.comp tendsto_natCast_atTop_atTop) K D pi_pos.le
   filter_upwards [eventually_lt_mul_log_of_tendsto_div_log h_bound hεc] with n hn
   refine (UCBF.integral_pullCount_le h hν hσ2 a hε hεa n).trans ?_
   refine le_of_lt (lt_of_eq_of_lt ?_ hn)

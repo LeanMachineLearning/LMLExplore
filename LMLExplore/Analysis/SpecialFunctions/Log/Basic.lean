@@ -20,6 +20,8 @@ public import Mathlib.Analysis.SpecialFunctions.Log.Basic
   `x → ∞`.
 * `Real.eventually_lt_mul_log_of_tendsto_div_log`: if `g n / log n → D` and `D < c`, then
   eventually `g n < c log n`.
+* `Real.tendsto_add_mul_add_sqrt_add_one_div_log`: if `L n / log n → 1`, then
+  `(K + D (L n + √(b L n) + 1)) / log n → D`.
 * `Real.tendsto_natCeil_sub_div_log`: if `f n / log n → ∞`, then `⌈f n - c⌉₊ / log n → ∞`.
 
 ## References
@@ -116,6 +118,29 @@ theorem eventually_lt_mul_log_of_tendsto_div_log {g : ℕ → ℝ} {D c : ℝ}
   filter_upwards [hg.eventually_lt_const hc,
     (tendsto_log_atTop.comp tendsto_natCast_atTop_atTop).eventually_gt_atTop 0] with n hn hlog
   exact (div_lt_iff₀ hlog).mp hn
+
+/-- If `L n / log n → 1` as `n → ∞`, then `(K + D (L n + √(b L n) + 1)) / log n → D` for every
+`b ≥ 0`. Bounds of this shape on the expected number of pulls of an arm come from [LS, Lemma 8.2]
+(with `b = π`) at an exploration level `L n`, for example `log n` or `log (1 + n log² n)`. -/
+theorem tendsto_add_mul_add_sqrt_add_one_div_log {L : ℕ → ℝ}
+    (hL : Tendsto (fun n : ℕ ↦ L n / log n) atTop (𝓝 1)) (K D : ℝ) {b : ℝ} (hb : 0 ≤ b) :
+    Tendsto (fun n : ℕ ↦ (K + D * (L n + √(b * L n) + 1)) / log n) atTop (𝓝 D) := by
+  have h_log : Tendsto (fun n : ℕ ↦ log n) atTop atTop :=
+    tendsto_log_atTop.comp tendsto_natCast_atTop_atTop
+  have h_inv : Tendsto (fun n : ℕ ↦ (log n)⁻¹) atTop (𝓝 0) := tendsto_inv_atTop_zero.comp h_log
+  -- `√(L n) / log n = √(L n / log n · (log n)⁻¹)` tends to `√(1 · 0) = 0`
+  have h_sqrt : Tendsto (fun n : ℕ ↦ √(L n) / log n) atTop (𝓝 0) := by
+    have : Tendsto (fun n : ℕ ↦ √(L n / log n * (log n)⁻¹)) atTop (𝓝 0) := by
+      simpa using (hL.mul h_inv).sqrt
+    refine this.congr' ?_
+    filter_upwards [h_log.eventually_gt_atTop 0] with n hn
+    field_simp
+    simp [sqrt_div', hn.le, mul_div_cancel₀ _ hn.ne']
+  have := ((h_inv.const_mul (K + D)).add (hL.const_mul D)).add (h_sqrt.const_mul (D * √b))
+  simp only [mul_zero, mul_one, zero_add, add_zero] at this
+  refine this.congr fun n ↦ ?_
+  rw [sqrt_mul hb]
+  ring
 
 /-- If `f n / log n → ∞` as `n → ∞`, then the natural ceilings `⌈f n - c⌉₊` also grow faster than
 `log n`, which turns a real lower bound `f n - c` on a natural quantity into a natural one. -/
