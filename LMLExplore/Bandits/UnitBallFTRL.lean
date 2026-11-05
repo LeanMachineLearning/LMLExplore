@@ -41,8 +41,8 @@ comparison of the regret against `u` and against `r • u`, this gives the regre
 As in `LMLExplore.Bandits.StochasticMirrorDescent`, the interaction is described round by round
 relative to σ-algebras `m t`, the information available before the action of round `t` is drawn:
 the play and the loss are `m t`-measurable, and the outcome of round `t` has conditional law
-`unitBallProb (a t)` given `m t`. The plays are FTRL plays for the estimated losses on every
-sample path.
+`unitBallProb (a t)` given `m t`. The plays are, almost surely, FTRL plays for the estimated
+losses.
 
 ## Main definitions
 
@@ -413,7 +413,7 @@ private lemma integral_sum_apply_smul_sub_le (hr1 : r ≤ 1) (hu : ‖u‖ ≤ 1
           _ = 1 - r := by simp
     _ = (1 - r) * n := by rw [sum_const, card_range, nsmul_eq_mul, mul_comm]
 
-/-- **Regret of FTRL with bandit feedback on the unit ball.** Let `0 ≤ r < 1` and `η > 0`. For
+/-- **Regret of FTRL with bandit feedback on the unit ball.** Let `r < 1` and `η > 0`. For
 each round `t < n`, let the play `a t` and the loss `y t`, of norm at most `1`, be
 `m t`-measurable, and let the outcome `X t` have conditional law `unitBallProb (a t)` given
 `m t`. Let the plays be, almost surely, FTRL plays on the closed ball of radius `r` with potential
@@ -423,8 +423,8 @@ Then the actions `unitBallAction b (a t) (X t)` satisfy, for every `u` of the cl
 where `d` is the cardinality of `ι`. The last term is half the corresponding term of [LS], which
 bounds the stability terms of FTRL through the Hessian of the potential on a segment rather than
 at the plays. -/
-theorem ftrl_integral_regret_le_of_unitBallEstimate (b : OrthonormalBasis ι ℝ E) (hr0 : 0 ≤ r)
-    (hr : r < 1) (hη : 0 < η) (hm : ∀ t < n, m t ≤ mΩ)
+theorem ftrl_integral_regret_le_of_unitBallEstimate (b : OrthonormalBasis ι ℝ E) (hr : r < 1)
+    (hη : 0 < η) (hm : ∀ t < n, m t ≤ mΩ)
     (hX : ∀ t < n, ∀ o, MeasurableSet (X t ⁻¹' {o}))
     (hXa : ∀ t < n, ∀ o, P⟦X t ⁻¹' {o} | m t⟧ =ᵐ[P] fun ω ↦ unitBallProb (a t ω) o)
     (ha : ∀ t < n, AEStronglyMeasurable[m t] (a t) P)
@@ -466,6 +466,9 @@ theorem ftrl_integral_regret_le_of_unitBallEstimate (b : OrthonormalBasis ι ℝ
     integrable_one_sub_norm_mul_norm_unitBallEstimate_sq b (hm t ht) (hX t ht) (ha t ht) (hy t ht)
       (hy2 t ht) hr (har t ht.le)
   -- the regret against `r • u`, through the full-information bound
+  -- the closed ball of radius `r` contains the plays, so `r` is nonnegative
+  obtain ⟨ω₀, hω₀⟩ := hftrl.exists
+  have hr0 : 0 ≤ r := (norm_nonneg _).trans (mem_closedBall_zero_iff.1 (hω₀ 0 (Nat.zero_le n)).mem)
   have hru : r • u ∈ closedBall (0 : E) r := by
     rw [mem_closedBall_zero_iff, norm_smul, Real.norm_of_nonneg hr0]
     exact mul_le_of_le_one_right hr0 hu
@@ -507,14 +510,15 @@ theorem ftrl_integral_regret_le_of_unitBallEstimate (b : OrthonormalBasis ι ℝ
 
 /-- **Regret of FTRL with bandit feedback on the unit ball** [LS, Theorem 28.11]. Let `n ≥ 2`,
 let `d ≥ 1` be the cardinality of `ι`, and tune the learning rate to `η = √(log n / (3 d n))` and
-the radius to `r = 1 - 2 η d`, assumed nonnegative. Under the hypotheses of
+the radius to `r = 1 - 2 η d`. Under the hypotheses of
 `ftrl_integral_regret_le_of_unitBallEstimate`, the expected regret against every `u` of the closed
-unit ball is at most `2 √(3 n d log n)`. When `1 - 2 η d < 0`, the closed ball of radius `r` is
-empty and the algorithm is not defined; the bound `2 √(3 n d log n)` is then at least `3 n`, more
-than the trivial bound `2 n`. -/
+unit ball is at most `2 √(3 n d log n)`. The FTRL plays lie in the closed ball of radius `r`, so
+the hypotheses force `1 - 2 η d ≥ 0`; when `1 - 2 η d < 0` the ball is empty and the algorithm is
+not defined, and the bound `2 √(3 n d log n)` is then at least `3 n`, more than the trivial bound
+`2 n`. -/
 theorem ftrl_integral_regret_le_two_mul_sqrt_of_unitBallEstimate [Nonempty ι]
     (b : OrthonormalBasis ι ℝ E) (hn : 2 ≤ n) (hη : η = √(log n / (3 * Fintype.card ι * n)))
-    (hr : r = 1 - 2 * η * Fintype.card ι) (hr0 : 0 ≤ r)
+    (hr : r = 1 - 2 * η * Fintype.card ι)
     (hm : ∀ t < n, m t ≤ mΩ) (hX : ∀ t < n, ∀ o, MeasurableSet (X t ⁻¹' {o}))
     (hXa : ∀ t < n, ∀ o, P⟦X t ⁻¹' {o} | m t⟧ =ᵐ[P] fun ω ↦ unitBallProb (a t ω) o)
     (ha : ∀ t < n, AEStronglyMeasurable[m t] (a t) P)
@@ -550,7 +554,7 @@ theorem ftrl_integral_regret_le_two_mul_sqrt_of_unitBallEstimate [Nonempty ι]
     rw [log_mul (by positivity) (by positivity)] at this
     linarith
   have h2ηd : 0 < 2 * η * d := by positivity
-  refine (ftrl_integral_regret_le_of_unitBallEstimate b hr0 (by linarith) hη0 hm hX hXa ha hy hy1
+  refine (ftrl_integral_regret_le_of_unitBallEstimate b (by linarith) hη0 hm hX hXa ha hy hy1
     hftrl hu).trans ?_
   -- the bound is at most `6 d n η = 2 √(3 n d log n)`
   have h_sqrt : √(3 * n * d * log n) = 3 * d * n * η := by
