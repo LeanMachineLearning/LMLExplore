@@ -6,8 +6,8 @@ Authors: Rémy Degenne
 module
 
 public import LMLExplore.Algebra.Order.BigOperators.Group.Finset
+public import LMLExplore.Probability.Moments.KLChernoff
 public import Mathlib.Probability.HasLaw
-public import Mathlib.Probability.Moments.SubGaussian
 
 /-!
 # The `ℓ¹` deviation of empirical laws
@@ -28,6 +28,8 @@ empirical estimate from independent samples.
 
 ## Main statements
 
+* `LMLExplore.measureReal_le_sum_empirical_sub_le`: Hoeffding's inequality for the empirical mass
+  of a fixed set.
 * `LMLExplore.measure_sum_abs_empirical_sub_ge_le`: the tail bound on a finite type.
 * `LMLExplore.le_measureReal_sum_abs_empirical_sub_lt`: the high-probability form on a finite type.
 * `LMLExplore.measure_sum_abs_empirical_preimage_sub_ge_le`,
@@ -52,58 +54,47 @@ variable {Ω ι β : Type*} {mΩ : MeasurableSpace Ω} {P : Measure Ω} [IsProba
   [Fintype β] [DecidableEq β] [MeasurableSpace β] [MeasurableSingletonClass β]
 
 omit [Fintype β] in
-/-- The deviation of the empirical law from `p` on a set `B` is a normalized sum of independent
-centered indicators, which Hoeffding's inequality bounds. -/
-private theorem measureReal_le_sum_empirical_sub_le {Y : ι → Ω → β} (h_indep : iIndepFun Y P)
-    {p : Measure β} {s : Finset ι} (hs : s.Nonempty) (hY : ∀ i ∈ s, HasLaw (Y i) p P)
+/-- **Hoeffding's inequality for the empirical law of a set.** If the `Y i`, `i ∈ s`, are
+independent with law `p`, then for `ε ≥ 0` the empirical mass `p̂(B) = ∑ b ∈ B, p̂(b)` of a finite
+set `B`, where `p̂(b) = #{i ∈ s | Y i = b} / #s`, satisfies
+`P(ε ≤ p̂(B) - p(B)) ≤ exp (-2 #s ε²)`. It is Hoeffding's inequality
+(`LMLExplore.measureReal_card_mul_add_le_sum_le`) for the indicators `1[Y i ∈ B]`. -/
+theorem measureReal_le_sum_empirical_sub_le {Y : ι → Ω → β} (h_indep : iIndepFun Y P)
+    {p : Measure β} {s : Finset ι} (hY : ∀ i ∈ s, HasLaw (Y i) p P)
     (B : Finset β) {ε : ℝ} (hε : 0 ≤ ε) :
     P.real {ω | ε ≤ ∑ b ∈ B, ((#{i ∈ s | Y i ω = b} : ℝ) / #s - p.real {b})} ≤
       exp (-2 * #s * ε ^ 2) := by
-  obtain ⟨i₀, hi₀⟩ := hs
+  rcases s.eq_empty_or_nonempty with rfl | ⟨i₀, hi₀⟩
+  · simp
   have := (hY i₀ hi₀).isProbabilityMeasure_iff.1 ‹_›
   have hn : (0 : ℝ) < #s := by exact_mod_cast card_pos.2 ⟨i₀, hi₀⟩
-  -- The centered indicators `Z i = 1[Y i ∈ B] - p(B)`.
+  -- The indicator `f = 1[· ∈ B]`, so that `#s * p̂(B) = ∑ i ∈ s, f (Y i)`.
   set f : β → ℝ := fun y ↦ if y ∈ B then 1 else 0 with hf
   have hf_meas : Measurable f :=
     Measurable.ite (p := (· ∈ B)) B.finite_toSet.measurableSet measurable_const measurable_const
-  set Z : ι → Ω → ℝ := fun i ω ↦ f (Y i ω) - p.real B with hZ
-  have hZ_indep : iIndepFun Z P :=
-    h_indep.comp (fun _ y ↦ f y - p.real B) fun _ ↦ hf_meas.sub_const _
-  have hZ_subG : ∀ i ∈ s, HasSubgaussianMGF (Z i) (1 / 4) P := by
-    intro i hi
-    have hfY : P[f ∘ Y i] = p.real B := by
-      rw [(hY i hi).integral_comp hf_meas.aestronglyMeasurable, hf,
-        ← integral_indicator_one (B.finite_toSet.measurableSet)]
-      congr 1 with y
-      simp [Set.indicator_apply]
-    have h := hasSubgaussianMGF_of_mem_Icc (X := f ∘ Y i) (μ := P) (a := 0) (b := 1)
-      (hf_meas.comp_aemeasurable (hY i hi).aemeasurable)
-      (ae_of_all _ fun ω ↦ by by_cases h : Y i ω ∈ B <;> simp [hf, h])
-    have h_param : ((‖(1 : ℝ) - 0‖₊ / 2) ^ 2 : ℝ≥0) = 1 / 4 := by
-      ext
-      norm_num
-    rwa [hfY, h_param] at h
-  -- The deviation on `B` is `(1 / #s) ∑ i ∈ s, Z i`.
+  have hfY (i : ι) (hi : i ∈ s) : P[f ∘ Y i] = p.real B := by
+    rw [(hY i hi).integral_comp hf_meas.aestronglyMeasurable, hf,
+      ← integral_indicator_one (B.finite_toSet.measurableSet)]
+    congr 1 with y
+    simp [Set.indicator_apply]
   have h_eq (ω : Ω) : ∑ b ∈ B, ((#{i ∈ s | Y i ω = b} : ℝ) / #s - p.real {b}) =
-      (∑ i ∈ s, Z i ω) / #s := by
+      (∑ i ∈ s, f (Y i ω)) / #s - p.real B := by
     have hcount : ∑ b ∈ B, (#{i ∈ s | Y i ω = b} : ℝ) = ∑ i ∈ s, f (Y i ω) := by
       simp_rw [natCast_card_filter]
       rw [sum_comm]
       exact sum_congr rfl fun i _ ↦ by simp [hf, sum_ite_eq]
-    rw [sum_sub_distrib, ← sum_div, hcount, sum_measureReal_singleton, hZ]
-    simp only [sum_sub_distrib, sum_const, nsmul_eq_mul]
-    field_simp
+    rw [sum_sub_distrib, ← sum_div, hcount, sum_measureReal_singleton]
   have h_set : {ω | ε ≤ ∑ b ∈ B, ((#{i ∈ s | Y i ω = b} : ℝ) / #s - p.real {b})} =
-      {ω | #s * ε ≤ ∑ i ∈ s, Z i ω} := by
+      {ω | #s * (p.real B + ε) ≤ ∑ i ∈ s, (f ∘ Y i) ω} := by
     ext ω
-    simp only [Set.mem_ofPred_eq, h_eq, le_div_iff₀ hn, mul_comm]
+    simp only [Set.mem_ofPred_eq, h_eq, Function.comp_apply]
+    rw [le_sub_iff_add_le', le_div_iff₀ hn, mul_comm]
   rw [h_set]
-  refine (HasSubgaussianMGF.measure_sum_ge_le_of_iIndepFun hZ_indep hZ_subG
-    (by positivity)).trans_eq ?_
+  refine (measureReal_card_mul_add_le_sum_le (h_indep.comp (fun _ ↦ f) fun _ ↦ hf_meas)
+    (fun i hi ↦ hf_meas.comp_aemeasurable (hY i hi).aemeasurable)
+    (fun i _ ↦ ae_of_all _ fun ω ↦ by by_cases h : Y i ω ∈ B <;> simp [hf, h])
+    (fun i hi ↦ (hfY i hi).le) hε).trans_eq ?_
   congr 1
-  simp only [sum_const, nsmul_eq_mul, NNReal.coe_mul, NNReal.coe_natCast]
-  push_cast
-  field_simp
   ring
 
 /-- **The `ℓ¹` deviation of the empirical law** [WOSVW03, Theorem 2.1], [LS, Exercise 5.17]. If
@@ -158,7 +149,7 @@ theorem measure_sum_abs_empirical_sub_ge_le {Y : ι → Ω → β} (h_indep : iI
         measureReal_biUnion_finset_le _ _
     _ ≤ ∑ _B ∈ T, exp (-2 * #s * (ε / 2) ^ 2) :=
         sum_le_sum fun B _ ↦
-          measureReal_le_sum_empirical_sub_le h_indep ⟨i₀, hi₀⟩ hY B (by positivity)
+          measureReal_le_sum_empirical_sub_le h_indep hY B (by positivity)
     _ = (2 ^ Fintype.card β - 2) * exp (-#s * ε ^ 2 / 2) := by
       rw [sum_const, nsmul_eq_mul, hT_card]
       congr 2
