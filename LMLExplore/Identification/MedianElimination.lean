@@ -5,6 +5,7 @@ Authors: Rémy Degenne
 -/
 module
 
+public import LMLExplore.Analysis.SpecificLimits.Normed
 public import LMLExplore.Identification.SuccessiveRejects
 public import LMLExplore.Identification.Task.MeanVector
 public import Mathlib.Algebra.Order.Field.GeomSum
@@ -929,13 +930,6 @@ lemma three_mul_exp_neg_pullSchedule_le {σ2 ε δ : ℝ} (hσ2 : 0 < σ2) (hε 
   _ = δ / 2 ^ (j + 1) := by
     rw [exp_neg, exp_log hc]
     field_simp
-
-/-- The partial sums of the series `∑ j, j * r ^ j` are at most `r / (1 - r) ^ 2` for
-`0 ≤ r < 1`. -/
-private lemma sum_range_natCast_mul_pow_le {r : ℝ} (hr0 : 0 ≤ r) (hr1 : r < 1) (n : ℕ) :
-    ∑ j ∈ range n, (j * r ^ j : ℝ) ≤ r / (1 - r) ^ 2 :=
-  sum_le_hasSum (range n) (fun j _ ↦ by positivity)
-    (hasSum_coe_mul_geometric_of_norm_lt_one (by rwa [Real.norm_of_nonneg hr0]))
 
 /-- In phase `j`, each surviving arm is pulled at most
 `128 σ2 ε⁻² (16 / 9) ^ j (log (6 / δ) + j log 2) + 1` times by the schedule `pullSchedule σ2 ε δ`,
