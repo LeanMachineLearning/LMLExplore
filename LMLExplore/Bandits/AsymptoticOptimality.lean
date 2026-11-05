@@ -9,9 +9,10 @@ public import LMLExplore.Analysis.Asymptotics.Lemmas
 public import LMLExplore.Bandits.AsymptoticallyOptimalUCB
 public import LMLExplore.Bandits.KLUCB
 public import LMLExplore.Bandits.LaiRobbins
+public import LMLExplore.Bandits.ThompsonSampling
 
 /-!
-# Consistency and asymptotic optimality of UCB-type algorithms
+# Consistency and asymptotic optimality of UCB-type algorithms and Thompson sampling
 
 An algorithm whose expected regret is `O(log n)` on every bandit of a class is consistent over that
 class [LS, Definition 16.1]. The asymptotically optimal UCB algorithm `ucbF σ2` [LS, Algorithm 6]
@@ -26,7 +27,9 @@ optimal on these bandits: its expected regret is `c* log n + o(log n)` with
 `c* = ∑_{a : Δ_a > 0} 2 σ² / Δ_a` [LS, §16.2]. Likewise, for Bernoulli bandits with largest mean
 `μ*`, the Lai–Robbins constant `∑_{a : Δ_a > 0} Δ_a / d(μ_a, μ*)`, with `d` the binary relative
 entropy, is the constant of the asymptotic upper bound of `klucb` [LS, Theorem 10.6], so `klucb` is
-asymptotically optimal on these bandits.
+asymptotically optimal on these bandits. Gaussian Thompson sampling `gaussianTS σ2` with a flat
+prior has the same asymptotic upper bound on Gaussian bandits with variance `σ²`
+[LS, Theorem 36.3], so it is asymptotically optimal on these bandits too.
 
 ## Main statements
 
@@ -37,6 +40,13 @@ asymptotically optimal on these bandits.
 * `tendsto_ucbF_regret_div_log_gaussianBandit`: on a Gaussian bandit with variance `σ²`, the
   expected regret of `ucbF σ2` satisfies `E[R_n] / log n → ∑_{a : Δ_a > 0} 2 σ² / Δ_a`.
 * `isLittleO_ucbF_regret_sub_mul_log_gaussianBandit`: the same statement in the form
+  `E[R_n] = c* log n + o(log n)`.
+* `GaussianTS.isConsistent_gaussianBandit`: `gaussianTS σ2` is consistent over the Gaussian bandits
+  with variance `σ²`.
+* `tendsto_gaussianTS_regret_div_log_gaussianBandit`: [LS, Theorem 36.3], asymptotic part: on a
+  Gaussian bandit with variance `σ²`, the expected regret of `gaussianTS σ2` satisfies
+  `E[R_n] / log n → ∑_{a : Δ_a > 0} 2 σ² / Δ_a`.
+* `isLittleO_gaussianTS_regret_sub_mul_log_gaussianBandit`: the same statement in the form
   `E[R_n] = c* log n + o(log n)`.
 * `KLUCB.isConsistent_bernoulliBandit`: `klucb` is consistent over the Bernoulli bandits.
 * `tendsto_klucb_regret_div_log_bernoulliBandit`: on a Bernoulli bandit with means `p`, the
@@ -51,7 +61,7 @@ exactly when `μ* = 1`, where `d(p_a, 1) = ∞`.
 ## References
 
 * T. Lattimore and Cs. Szepesvári, *Bandit Algorithms*, Cambridge University Press, 2020,
-  Chapters 8, 10 and 16.
+  Chapters 8, 10, 16 and 36.
 -/
 
 public section
@@ -91,6 +101,13 @@ theorem KLUCB.isConsistent_bernoulliBandit :
     IsConsistent klucb (Set.range fun p : α → I ↦ bernoulliBandit p) :=
   KLUCB.isConsistent.mono <| Set.range_subset_iff.mpr fun p a ↦ ae_mem_Icc_bernoulliBandit p a
 
+/-- Gaussian Thompson sampling `gaussianTS σ2` is consistent over the Gaussian bandits with variance
+`σ² ≠ 0`. -/
+theorem GaussianTS.isConsistent_gaussianBandit (hσ2 : σ2 ≠ 0) :
+    IsConsistent (gaussianTS σ2) (Set.range fun μ : α → ℝ ↦ gaussianBandit μ σ2) :=
+  isConsistent_of_eventually_le_mul_log <| Set.forall_mem_range.mpr fun _ _ ↦
+    ⟨_, gaussianTS_regret_eventually_le hσ2 (IT.isAlgEnvSeq_trajMeasure _ _) (lt_add_one _)⟩
+
 variable {Ω : Type*} {mΩ : MeasurableSpace Ω} {P : Measure Ω} [IsProbabilityMeasure P]
   {O : ℕ → Ω → Unit} {A : ℕ → Ω → α} {R : ℕ → Ω → ℝ} {μ : α → ℝ} {p : α → I}
 
@@ -123,6 +140,37 @@ theorem isLittleO_ucbF_regret_sub_mul_log_gaussianBandit (hσ2 : σ2 ≠ 0)
   isLittleO_sub_mul_of_tendsto_div
     ((eventually_gt_atTop 1).mono fun n hn ↦ (log_pos (by exact_mod_cast hn)).ne')
     (tendsto_ucbF_regret_div_log_gaussianBandit hσ2 h)
+
+/-- **[LS, Theorem 36.3], asymptotic part: asymptotic optimality of Gaussian Thompson sampling.**
+On a Gaussian bandit with variance `σ² ≠ 0`, the expected regret of Gaussian Thompson sampling
+`gaussianTS σ2` with a flat prior satisfies `E[R_n] / log n → ∑_{a : Δ_a > 0} 2 σ² / Δ_a`, the
+Lai–Robbins constant of the Gaussian bandits with variance `σ²`. -/
+theorem tendsto_gaussianTS_regret_div_log_gaussianBandit (hσ2 : σ2 ≠ 0)
+    (h : IsAlgEnvSeq O A R (gaussianTS σ2) (Environment.bandit (gaussianBandit μ σ2)) P) :
+    Tendsto (fun n : ℕ ↦ P[regret (gaussianBandit μ σ2) A n] / log n) atTop
+      (𝓝 (∑ a ∈ univ.filter (fun a ↦ 0 < gap (gaussianBandit μ σ2) a),
+        2 * σ2 / gap (gaussianBandit μ σ2) a)) := by
+  -- The upper bound is `gaussianTS_regret_eventually_le`; the lower bound is the
+  -- Lai–Robbins lower bound.
+  refine tendsto_div_of_eventually_mul_le
+    ((eventually_gt_atTop 1).mono fun n hn ↦ log_pos (by exact_mod_cast hn)) (fun c hc ↦ ?_)
+    fun c hc ↦ gaussianTS_regret_eventually_le hσ2 h hc
+  filter_upwards [eventually_mul_log_le_integral_regret_gaussianBandit hσ2
+    (GaussianTS.isConsistent_gaussianBandit hσ2) μ hc] with n hn
+  rwa [← h.integral_regret_eq_integral_trajMeasure] at hn
+
+/-- **[LS, Theorem 36.3], asymptotic part: asymptotic optimality of Gaussian Thompson sampling.**
+On a Gaussian bandit with variance `σ² ≠ 0`, the expected regret of Gaussian Thompson sampling
+`gaussianTS σ2` is `c* log n + o(log n)`, where `c* = ∑_{a : Δ_a > 0} 2 σ² / Δ_a` is the
+Lai–Robbins constant of the Gaussian bandits with variance `σ²`. -/
+theorem isLittleO_gaussianTS_regret_sub_mul_log_gaussianBandit (hσ2 : σ2 ≠ 0)
+    (h : IsAlgEnvSeq O A R (gaussianTS σ2) (Environment.bandit (gaussianBandit μ σ2)) P) :
+    (fun n : ℕ ↦ P[regret (gaussianBandit μ σ2) A n] -
+      (∑ a ∈ univ.filter (fun a ↦ 0 < gap (gaussianBandit μ σ2) a),
+        2 * σ2 / gap (gaussianBandit μ σ2) a) * log n) =o[atTop] fun n : ℕ ↦ log n :=
+  isLittleO_sub_mul_of_tendsto_div
+    ((eventually_gt_atTop 1).mono fun n hn ↦ (log_pos (by exact_mod_cast hn)).ne')
+    (tendsto_gaussianTS_regret_div_log_gaussianBandit hσ2 h)
 
 /-- **Asymptotic optimality of KL-UCB for Bernoulli bandits** [LS, §16.2]. On a Bernoulli bandit
 with means `p` and largest mean `μ* = max_b p_b`, the expected regret of the KL-UCB algorithm
