@@ -30,6 +30,8 @@ is `1 / s`, here `σ² / s`.
 
 ## Main definitions
 
+* `LMLExplore.Bandits.gaussianTSStackLaw σ2 s y`: the law of the perturbation of an arm that has
+  been pulled `s` times with sum of rewards `y`: `δ_⊤` if `s = 0`, `𝒩(y / s, σ² / s)` otherwise.
 * `LMLExplore.Bandits.gaussianTSLaw σ2 n h a`: the law of the perturbation of arm `a` after the
   history `h` of length `n`: `δ_⊤` if `a` has not been pulled, `𝒩(μ̂_a, σ² / T_a)` otherwise.
 * `LMLExplore.Bandits.gaussianTS σ2`: Gaussian Thompson sampling, the follow-the-perturbed-leader
@@ -64,6 +66,45 @@ namespace LMLExplore.Bandits
 section Law
 
 variable {α : Type*} [DecidableEq α] {σ2 : ℝ≥0} {n : ℕ} {h : Hist Unit α ℝ n} {a : α}
+  {s : ℕ} {y : ℝ}
+
+/-- The law of the perturbation of an arm in Gaussian Thompson sampling, as a function of its
+number of pulls `s` and its sum of rewards `y`: the Dirac mass at `⊤` if `s = 0`, and otherwise the
+Gaussian law `𝒩(y / s, σ² / s)` on `EReal`. This is the perturbation law of the reward-stack model,
+in which the sum of rewards after `s` pulls is the sum of the first `s` rewards of the stack. -/
+noncomputable def gaussianTSStackLaw (σ2 : ℝ≥0) (s : ℕ) (y : ℝ) : Measure EReal :=
+  if s = 0 then Measure.dirac ⊤ else (gaussianReal (y / s) (σ2 / s)).map ((↑) : ℝ → EReal)
+
+/-- The defining equation of `gaussianTSStackLaw`. -/
+lemma gaussianTSStackLaw_def (σ2 : ℝ≥0) (s : ℕ) (y : ℝ) :
+    gaussianTSStackLaw σ2 s y =
+      if s = 0 then Measure.dirac ⊤ else (gaussianReal (y / s) (σ2 / s)).map ((↑) : ℝ → EReal) :=
+  (rfl)
+
+/-- The perturbation of an arm that has not been pulled is `⊤`. -/
+@[simp]
+lemma gaussianTSStackLaw_zero (σ2 : ℝ≥0) (y : ℝ) : gaussianTSStackLaw σ2 0 y = Measure.dirac ⊤ := by
+  simp [gaussianTSStackLaw_def]
+
+/-- The perturbation of an arm that has been pulled `s ≠ 0` times with sum of rewards `y` has the
+Gaussian law `𝒩(y / s, σ² / s)`. -/
+@[simp]
+lemma gaussianTSStackLaw_of_ne_zero (hs : s ≠ 0) :
+    gaussianTSStackLaw σ2 s y = (gaussianReal (y / s) (σ2 / s)).map ((↑) : ℝ → EReal) := by
+  simp [gaussianTSStackLaw_def, hs]
+
+instance : IsProbabilityMeasure (gaussianTSStackLaw σ2 s y) := by
+  rw [gaussianTSStackLaw_def]
+  split_ifs <;> infer_instance
+
+@[fun_prop]
+lemma measurable_gaussianTSStackLaw (σ2 : ℝ≥0) (s : ℕ) :
+    Measurable fun y : ℝ ↦ gaussianTSStackLaw σ2 s y := by
+  by_cases hs : s = 0
+  · simp [hs]
+  · simp only [gaussianTSStackLaw_of_ne_zero hs]
+    exact (Measure.measurable_map _ (by fun_prop)).comp
+      (measurable_gaussianReal.comp ((measurable_id.div_const _).prodMk measurable_const))
 
 /-- The law of the perturbation of arm `a` in Gaussian Thompson sampling at Lean round `n`, for the
 history `h` of the first `n` rounds: the Dirac mass at `⊤` if the arm `a` has not been pulled, and
@@ -71,13 +112,12 @@ otherwise the Gaussian law `𝒩(μ̂_a, σ² / T_a)` on `EReal`, where `T_a` is
 `a` and `μ̂_a` its empirical mean. -/
 noncomputable def gaussianTSLaw (σ2 : ℝ≥0) (n : ℕ) (h : Hist Unit α ℝ n) (a : α) :
     Measure EReal :=
-  if pullCount' n h a = 0 then Measure.dirac ⊤ else
-    (gaussianReal (empMean' n h a) (σ2 / pullCount' n h a)).map ((↑) : ℝ → EReal)
+  gaussianTSStackLaw σ2 (pullCount' n h a) (sumRewards' n h a)
 
-/-- The defining equation of `gaussianTSLaw`. -/
+/-- The defining equation of `gaussianTSLaw`: the law `gaussianTSStackLaw` at the number of pulls
+and the sum of rewards of the arm. -/
 lemma gaussianTSLaw_def (σ2 : ℝ≥0) (n : ℕ) (h : Hist Unit α ℝ n) (a : α) :
-    gaussianTSLaw σ2 n h a = if pullCount' n h a = 0 then Measure.dirac ⊤ else
-      (gaussianReal (empMean' n h a) (σ2 / pullCount' n h a)).map ((↑) : ℝ → EReal) :=
+    gaussianTSLaw σ2 n h a = gaussianTSStackLaw σ2 (pullCount' n h a) (sumRewards' n h a) :=
   (rfl)
 
 /-- The perturbation of an arm that has not been pulled is `⊤`. -/
@@ -90,11 +130,11 @@ lemma gaussianTSLaw_of_pullCount'_eq_zero (h0 : pullCount' n h a = 0) :
 lemma gaussianTSLaw_of_pullCount'_ne_zero (h0 : pullCount' n h a ≠ 0) :
     gaussianTSLaw σ2 n h a =
       (gaussianReal (empMean' n h a) (σ2 / pullCount' n h a)).map ((↑) : ℝ → EReal) := by
-  simp [gaussianTSLaw_def, h0]
+  simp [gaussianTSLaw_def, h0, empMean']
 
 instance : IsProbabilityMeasure (gaussianTSLaw σ2 n h a) := by
   rw [gaussianTSLaw_def]
-  split_ifs <;> infer_instance
+  infer_instance
 
 /-- The perturbation of an arm that has been pulled is almost surely finite. -/
 lemma gaussianTSLaw_Ici_top_eq_zero (h0 : pullCount' n h a ≠ 0) :
@@ -110,16 +150,10 @@ lemma gaussianTSLaw_Iio_top_eq_zero (h0 : pullCount' n h a = 0) :
 
 @[fun_prop]
 lemma measurable_gaussianTSLaw [MeasurableSpace α] [MeasurableSingletonClass α] (σ2 : ℝ≥0)
-    (n : ℕ) (a : α) : Measurable fun h : Hist Unit α ℝ n ↦ gaussianTSLaw σ2 n h a := by
-  simp_rw [gaussianTSLaw_def]
-  refine Measurable.ite ((measurableSet_singleton 0).preimage (measurable_pullCount' n a))
-    measurable_const ?_
-  have hparam : Measurable fun h : Hist Unit α ℝ n ↦
-      (empMean' n h a, σ2 / (pullCount' n h a : ℝ≥0)) :=
-    (measurable_empMean' n a).prodMk
-      (measurable_const.div ((measurable_from_nat (f := ((↑) : ℕ → ℝ≥0))).comp
-        (measurable_pullCount' n a)))
-  exact (Measure.measurable_map _ (by fun_prop)).comp (measurable_gaussianReal.comp hparam)
+    (n : ℕ) (a : α) : Measurable fun h : Hist Unit α ℝ n ↦ gaussianTSLaw σ2 n h a :=
+  (measurable_from_prod_countable_right (f := fun q : ℕ × ℝ ↦ gaussianTSStackLaw σ2 q.1 q.2)
+    (measurable_gaussianTSStackLaw σ2)).comp
+    ((measurable_pullCount' n a).prodMk (measurable_sumRewards' n a))
 
 /-- Along a sequence of rounds `(O, A, R)`, the perturbation law of an arm at round `n` is the
 Dirac mass at `⊤` if the arm has not been pulled before `n`, and otherwise `𝒩(μ̂_a, σ² / T_a)` for
@@ -128,7 +162,8 @@ lemma gaussianTSLaw_history {Ω : Type*} (O : ℕ → Ω → Unit) (A : ℕ → 
     (σ2 : ℝ≥0) (n : ℕ) (ω : Ω) (a : α) :
     gaussianTSLaw σ2 n (history O A R n ω) a = if pullCount A a n ω = 0 then Measure.dirac ⊤ else
       (gaussianReal (empMean A R a n ω) (σ2 / pullCount A a n ω)).map ((↑) : ℝ → EReal) := by
-  rw [gaussianTSLaw_def, ← pullCount_eq_pullCount', ← empMean_eq_empMean']
+  rw [gaussianTSLaw_def, gaussianTSStackLaw_def, ← pullCount_eq_pullCount',
+    ← sumRewards_eq_sumRewards', empMean]
 
 end Law
 
@@ -212,22 +247,14 @@ theorem lintegral_pullCount_le [IsProbabilityMeasure P] {ν : Kernel α ℝ} [Is
     (h : IsAlgEnvSeq O A R (gaussianTS σ2) (Environment.bandit ν) P) {i j : α} (hij : i ≠ j)
     (c : EReal) (n : ℕ) :
     ∫⁻ ω, (pullCount A i n ω : ℝ≥0∞) ∂P ≤
-      1 + ∑ s ∈ Finset.range n, ∫⁻ x, ((if s = 0 then Measure.dirac ⊤ else
-          (gaussianReal ((∑ k ∈ Finset.range s, x k j) / s) (σ2 / s)).map ((↑) : ℝ → EReal))
-            (Set.Ioi c))⁻¹ - 1 ∂(streamMeasure ν) +
+      1 + ∑ s ∈ Finset.range n, ∫⁻ x,
+          (gaussianTSStackLaw σ2 s (∑ k ∈ Finset.range s, x k j) (Set.Ioi c))⁻¹ - 1
+            ∂(streamMeasure ν) +
         ∑ s ∈ Finset.range n, streamMeasure ν {x | (n : ℝ≥0∞)⁻¹ <
-          (if s = 0 then Measure.dirac ⊤ else
-            (gaussianReal ((∑ k ∈ Finset.range s, x k i) / s) (σ2 / s)).map ((↑) : ℝ → EReal))
-              (Set.Ioi c)} := by
+          gaussianTSStackLaw σ2 s (∑ k ∈ Finset.range s, x k i) (Set.Ioi c)} :=
   -- the perturbation law of an arm is a function of its number of pulls and its sum of rewards
-  refine PerturbedLeader.lintegral_pullCount_le h (fun _ s y ↦ if s = 0 then Measure.dirac ⊤ else
-    (gaussianReal (y / s) (σ2 / s)).map ((↑) : ℝ → EReal)) (fun _ s ↦ ?_)
-    (fun t x a ↦ by simp [gaussianTSLaw_def, empMean']) hij c n
-  by_cases hs : s = 0
-  · simp [hs]
-  · simp only [hs, ite_false]
-    exact (Measure.measurable_map _ (by fun_prop)).comp
-      (measurable_gaussianReal.comp ((measurable_id.div_const _).prodMk measurable_const))
+  PerturbedLeader.lintegral_pullCount_le h (fun _ ↦ gaussianTSStackLaw σ2)
+    (fun _ ↦ measurable_gaussianTSStackLaw σ2) (fun t x a ↦ gaussianTSLaw_def σ2 t x.1 a) hij c n
 
 end GaussianTS
 
