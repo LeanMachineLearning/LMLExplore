@@ -2,25 +2,34 @@ name: Referee site
 
 # The referee site of LMLExplore, served by GitHub Pages at https://leanmachinelearning.org/LMLExplore/,
 # built with the LeanTrustBuilders suite as LML builds its own:
-#   check    skips a scheduled run when main has not moved since the last build;
+#   check    decides whether main's commit needs its dataset extracted: not when an earlier run
+#            published it already;
 #   extract  builds main and extracts its dataset (S2) with trust-extract;
-#   site     publishes the dataset as the release dataset-<commit12>, records the build in the
-#            provenance ledger (the branch trust-ledger), and builds the site with referee-site,
-#            against the previous recorded build and with the evidence store
-#            LeanMachineLearning/LMLExplore-evidence and the stores it imports (LML's, Mathlib
-#            probability's);
-#   deploy   deploys the site to GitHub Pages.
+#   site     publishes the new dataset as the release dataset-<commit12> (or takes the one
+#            published already), records the build in the provenance ledger (the branch
+#            trust-ledger), and builds the site with referee-site, against the previous recorded
+#            build and with the evidence store LeanMachineLearning/LMLExplore-evidence and the
+#            stores it imports (LML's, Mathlib probability's);
+#   deploy   deploys the site to GitHub Pages;
+#   prune    deletes the dataset releases nobody needs any more.
 #
 # The split is the security boundary, as in ci.yml: Lean runs code at elaboration time, so the job
 # that builds and imports LMLExplore holds only a read token, and the jobs that write (releases, the
 # ledger branch, Pages) run no Lean, only Python tools that read the dataset and the sources as data.
 
 # Twice a day (05:17 and 17:17 UTC) rather than on every push: main moves many times a day, and the
-# site needs to be recent, not one build per commit. A manual run always builds.
+# site needs to be recent, not one build per commit. The site is rebuilt at every run, so that the
+# reviews filed since the last one show even when main has not moved; only the expensive part,
+# building and extracting, is skipped then.
 on:
   schedule:
     - cron: '17 5,17 * * *'
   workflow_dispatch:
+    inputs:
+      extract:
+        description: Extract the dataset again even when this commit's is published already
+        type: boolean
+        default: false
 
 permissions: {}
 
@@ -36,24 +45,24 @@ jobs:
     permissions:
       contents: read
     outputs:
-      build: ${{ steps.check.outputs.build }}
+      extract: ${{ steps.check.outputs.extract }}
     steps:
       # The dataset release of main's commit exists when an earlier run built it.
       - id: check
         env:
           GH_TOKEN: ${{ github.token }}
-          EVENT: ${{ github.event_name }}
+          FORCE: ${{ inputs.extract && 'true' || 'false' }}
         run: |
-          if [ "$EVENT" = schedule ] && gh release view "dataset-${GITHUB_SHA:0:12}" -R "$GITHUB_REPOSITORY" > /dev/null 2>&1; then
-            echo "::notice::main is still at ${GITHUB_SHA:0:12}, which is built already"
-            echo "build=false" >> "$GITHUB_OUTPUT"
+          if [ "$FORCE" != true ] && gh release view "dataset-${GITHUB_SHA:0:12}" -R "$GITHUB_REPOSITORY" > /dev/null 2>&1; then
+            echo "::notice::main is still at ${GITHUB_SHA:0:12}, whose dataset is published: rebuilding the site only"
+            echo "extract=false" >> "$GITHUB_OUTPUT"
           else
-            echo "build=true" >> "$GITHUB_OUTPUT"
+            echo "extract=true" >> "$GITHUB_OUTPUT"
           fi
 
   extract:
     needs: check
-    if: needs.check.outputs.build == 'true'
+    if: needs.check.outputs.extract == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 120
     permissions:
@@ -109,7 +118,9 @@ jobs:
           retention-days: 1
 
   site:
-    needs: extract
+    needs: [check, extract]
+    # Also when extract was skipped: the site is then built from the dataset published already.
+    if: ${{ !cancelled() && needs.check.result == 'success' && (needs.extract.result == 'success' || needs.extract.result == 'skipped') }}
     runs-on: ubuntu-latest
     timeout-minutes: 30
     permissions:
@@ -120,7 +131,8 @@ jobs:
           # The ledger dates builds with git, and referee-site reads the sources at this commit.
           fetch-depth: 0
 
-      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+      - if: needs.extract.result == 'success'
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
         with:
           name: dataset
           path: ${{ runner.temp }}/dataset
@@ -129,6 +141,7 @@ jobs:
       # than on whatever main is by now. Later builds take it as their baseline, and the evidence
       # store's intake keys records against it.
       - name: Publish the dataset as the release dataset-<commit12>
+        if: needs.extract.result == 'success'
         env:
           GH_TOKEN: ${{ github.token }}
           DATASET: ${{ runner.temp }}/dataset
@@ -148,6 +161,19 @@ jobs:
               --title "LMLExplore $GITHUB_SHA" --notes "$notes"
           fi
 
+      - name: Take the dataset published already for this commit
+        if: needs.extract.result == 'skipped'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          DATASET: ${{ runner.temp }}/dataset
+        run: |
+          set -euo pipefail
+          mkdir -p "$DATASET"
+          gh release download "dataset-${GITHUB_SHA:0:12}" -R "$GITHUB_REPOSITORY" -p dataset.tar.gz -D "$RUNNER_TEMP"
+          tar -xzf "$RUNNER_TEMP/dataset.tar.gz" -C "$DATASET"
+          commit=$(python3 -c "import json,sys; print(json.load(open(sys.argv[1]))['library'].get('commit',''))" "$DATASET/meta.json")
+          [ "$commit" = "$GITHUB_SHA" ] || { echo "::error::the dataset is of $commit, not $GITHUB_SHA"; exit 1; }
+
       # Pinned to v0.12.0, which pins the evidence-core and evidence-store releases it was tested with.
       - name: Build the referee site
         id: referee
@@ -165,8 +191,11 @@ jobs:
         with:
           path: ${{ steps.referee.outputs.site }}
 
+  # The explicit conditions: by default a job is skipped when any job it rests on was, and extract
+  # is skipped whenever main has not moved.
   deploy:
     needs: site
+    if: ${{ !cancelled() && needs.site.result == 'success' }}
     runs-on: ubuntu-latest
     permissions:
       pages: write
@@ -177,3 +206,45 @@ jobs:
     steps:
       - id: deployment
         uses: actions/deploy-pages@368f82528645a54fb793d4d04e342629a3f51346 # v5.0.1
+
+  # The dataset releases kept: those of the last 30 days; the newest two, this build's and its
+  # baseline (the previous build, which the next build compares against); and any whose commit an
+  # open issue of the evidence store names, since intake keys a form's record in the dataset of the
+  # commit the form names, and waits while it is missing. The site needs no other: the ledger keeps
+  # the history its pages show. A deleted release takes its tag with it.
+  prune:
+    needs: site
+    if: ${{ !cancelled() && needs.site.result == 'success' }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Delete the dataset releases nobody needs any more
+        env:
+          GH_TOKEN: ${{ github.token }}
+          STORE: LeanMachineLearning/LMLExplore-evidence
+          KEEP_DAYS: '30'
+        shell: python3 {0}
+        run: |
+          import json, os, subprocess
+          from datetime import datetime, timedelta, timezone
+
+          def gh(*args):
+              return subprocess.run(["gh", *args], check=True, capture_output=True, text=True).stdout
+
+          repo = os.environ["GITHUB_REPOSITORY"]
+          releases = json.loads(gh("release", "list", "-R", repo, "--limit", "1000", "--json", "tagName,createdAt"))
+          datasets = sorted((r for r in releases if r["tagName"].startswith("dataset-")), key=lambda r: r["createdAt"])
+          issues = json.loads(gh("issue", "list", "-R", os.environ["STORE"], "--state", "open", "--limit", "1000",
+                                 "--json", "title,body"))
+          named = "\n".join(f"{i['title']}\n{i['body']}" for i in issues)
+          cutoff = datetime.now(timezone.utc) - timedelta(days=int(os.environ["KEEP_DAYS"]))
+          deleted = 0
+          for r in datasets[:-2]:
+              commit12 = r["tagName"].removeprefix("dataset-")
+              if datetime.fromisoformat(r["createdAt"].replace("Z", "+00:00")) >= cutoff or commit12 in named:
+                  continue
+              print("deleting", r["tagName"])
+              gh("release", "delete", r["tagName"], "-R", repo, "--cleanup-tag", "--yes")
+              deleted += 1
+          print(f"{len(datasets)} dataset releases, {deleted} deleted")
