@@ -85,7 +85,7 @@ structure IsUnbiasedRound {mΩ : MeasurableSpace Ω} (m : MeasurableSpace Ω) (P
   /-- The loss estimate has conditional mean `y` given `m`. -/
   condExp_estimate : P[Y | m] =ᵐ[P] fun _ ↦ y
   /-- The estimated loss of the play is integrable. -/
-  integrable_estimate_apply : Integrable (fun ω ↦ Y ω (a ω)) P
+  integrable_estimate_apply_play : Integrable (fun ω ↦ Y ω (a ω)) P
 
 namespace IsUnbiasedRound
 
@@ -109,7 +109,7 @@ lemma integral_estimate_apply_play [IsFiniteMeasure P] (h : IsUnbiasedRound m P 
   -- pull the `m`-measurable play out of the conditional expectation
   have h_pull := condExp_bilin_of_aestronglyMeasurable_right
     (ContinuousLinearMap.id ℝ (E →L[ℝ] ℝ)) h.aestronglyMeasurable_play
-    h.integrable_estimate_apply h.integrable_estimate
+    h.integrable_estimate_apply_play h.integrable_estimate
   rw [← integral_condExp h.le]
   refine integral_congr_ae ?_
   filter_upwards [h_pull, h.condExp_estimate] with ω h_pull_ω h_est_ω
@@ -133,7 +133,7 @@ integrable. -/
 lemma integrable_estimate_apply_play_sub (h : IsUnbiasedRound m P y A a Y) (u : E) :
     Integrable (fun ω ↦ Y ω (a ω - u)) P := by
   simp_rw [map_sub]
-  exact h.integrable_estimate_apply.sub (h.integrable_estimate.apply_continuousLinearMap u)
+  exact h.integrable_estimate_apply_play.sub (h.integrable_estimate.apply_continuousLinearMap u)
 
 /-- In an unbiased round, the expected loss of the action against a fixed point `u` is the
 expected estimated loss of the play against `u`. -/
@@ -141,7 +141,8 @@ lemma integral_apply_action_sub [CompleteSpace E] [IsProbabilityMeasure P]
     (h : IsUnbiasedRound m P y A a Y) (u : E) : ∫ ω, y (A ω - u) ∂P = ∫ ω, Y ω (a ω - u) ∂P := by
   simp_rw [map_sub]
   rw [integral_sub (y.integrable_comp h.integrable_action) (integrable_const _),
-    integral_sub h.integrable_estimate_apply (h.integrable_estimate.apply_continuousLinearMap u),
+    integral_sub h.integrable_estimate_apply_play
+      (h.integrable_estimate.apply_continuousLinearMap u),
     h.integral_apply_action, h.integral_estimate_apply_play, h.integral_estimate_apply,
     integral_const, probReal_univ, one_smul]
 
