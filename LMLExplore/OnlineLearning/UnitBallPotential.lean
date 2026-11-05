@@ -231,10 +231,11 @@ theorem apply_sub_sub_bregDiv_unitBallPotential_div_le (hη : 0 < η) (y : E →
     y (a - b) - D_[unitBallPotential](b, a, (1 - ‖a‖)⁻¹ • innerSL ℝ a) / η ≤
       η / 2 * (1 - ‖a‖) * ‖y‖ ^ 2 := by
   -- the stability bound for the modulus `(1 - ‖a‖)⁻¹`
-  have h := apply_sub_sub_div_le_of_mul_norm_sq_le (inv_pos.2 (sub_pos.2 ha)) hη y
-    ((norm_sub_sq_div_le_bregDiv_unitBallPotential ha hb).trans_eq'
-      (by rw [div_mul_eq_mul_div, inv_mul_eq_div, div_div, mul_comm (1 - ‖a‖)]))
-  rwa [← div_div, div_inv_eq_mul] at h
+  calc y (a - b) - D_[unitBallPotential](b, a, (1 - ‖a‖)⁻¹ • innerSL ℝ a) / η
+      ≤ η / (2 * (1 - ‖a‖)⁻¹) * ‖y‖ ^ 2 :=
+        apply_sub_sub_div_le_of_mul_norm_sq_le (inv_pos.2 (sub_pos.2 ha)) hη y
+          ((norm_sub_sq_div_le_bregDiv_unitBallPotential ha hb).trans_eq' (by field_simp))
+    _ = η / 2 * (1 - ‖a‖) * ‖y‖ ^ 2 := by field_simp
 
 /-- **Penalty and stability terms of FTRL with the potential `unitBallPotential`**, the bound in
 the proof of [LS, Theorem 28.11] on the right-hand side of `ftrl_regret_le`. Let `r < 1`, `η > 0`,
@@ -256,15 +257,14 @@ theorem sub_div_add_sum_apply_sub_sub_bregDiv_unitBallPotential_le (hr : r < 1) 
     have := unitBallPotential_le_neg_log_one_sub hu hr
     linarith
   -- each stability term is at most `η / 2 * (1 - ‖a t‖) * ‖y t‖ ^ 2`
-  have h_stab := sum_apply_sub_sub_bregDiv_le_of_mul_norm_sq_le hη y a
-    (fun t ↦ (1 - ‖a t‖)⁻¹ • innerSL ℝ (a t)) (m := fun t ↦ (1 - ‖a t‖)⁻¹)
-    (fun t ht ↦ inv_pos.2 (sub_pos.2 (ha t ht.le))) fun t ht ↦
-      (norm_sub_sq_div_le_bregDiv_unitBallPotential (ha t ht.le) (ha (t + 1) ht)).trans_eq'
-        (by rw [div_mul_eq_mul_div, inv_mul_eq_div, div_div, mul_comm (1 - ‖a t‖)])
-  have h_eq : ∑ t ∈ range n, η / (2 * (1 - ‖a t‖)⁻¹) * ‖y t‖ ^ 2 =
+  have h_stab : ∑ t ∈ range n, y t (a t - a (t + 1)) - (∑ t ∈ range n,
+        D_[unitBallPotential](a (t + 1), a t, (1 - ‖a t‖)⁻¹ • innerSL ℝ (a t))) / η ≤
       η / 2 * ∑ t ∈ range n, (1 - ‖a t‖) * ‖y t‖ ^ 2 := by
-    rw [mul_sum]
-    exact sum_congr rfl fun t _ ↦ by rw [← div_div, div_inv_eq_mul, mul_assoc]
+    rw [sum_div, ← sum_sub_distrib, mul_sum]
+    refine sum_le_sum fun t ht ↦ ?_
+    have ht' := mem_range.mp ht
+    exact (apply_sub_sub_bregDiv_unitBallPotential_div_le hη (y t) (ha t ht'.le)
+      (ha (t + 1) ht')).trans_eq (mul_assoc _ _ _)
   linarith
 
 /-- **Regret of FTRL with the potential `unitBallPotential`**, the full-information bound in the
