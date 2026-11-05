@@ -23,34 +23,38 @@ counts `N_a`, the empirical means `μ̂_a` and the divergence `d` of the family.
 alternative to `i`,
 `GLR_n(h, ¬i) = inf_{λ ∈ ¬i} Z n h λ`.
 The GLRT (Chernoff's stopping rule) runs any sampling rule, recommends an answer `rec n h` after
-each round and stops as soon as `GLR_n(h, ¬rec n h)` exceeds a threshold `β n`.
+each round and stops as soon as `GLR_n(h, ¬rec n h)` exceeds a threshold `β n h`. The thresholds
+may read the history, for instance through the pull counts [KK21]; thresholds depending on the
+round only are the case `fun n _ ↦ β n`.
 
 Whatever the sampling rule and the recommendation rule, if the GLRT stops with an answer `i` that
 is not correct for the true model `θ`, then `θ` is an alternative to `i`, so that
-`β n < GLR_n(h, ¬i) ≤ Z n h θ`: the evidence against the true model exceeds the threshold. The
+`β n h < GLR_n(h, ¬i) ≤ Z n h θ`: the evidence against the true model exceeds the threshold. The
 probability of stopping with an incorrect answer is therefore at most the probability of the
-deviation event `∃ n, β n < Z n hₙ θ` of the true model, which time-uniform concentration
+deviation event `∃ n, β n hₙ < Z n hₙ θ` of the true model, which time-uniform concentration
 inequalities bound by `δ` for suitable thresholds. Together with almost sure stopping, this makes
 the GLRT `δ`-PAC on every task.
 
 The sample complexity of the GLRT reduces to the growth of the GLR statistic along the run. If on
 an event `E T` the statistic after `T` rounds exceeds the threshold, then `τ ≤ T` on `E T`, and
 `𝔼[τ] ≤ T₀ + ∑_{T ≥ T₀} P((E T)ᶜ)`. If the statistic grows linearly, at least `κ T` on `E T`, and
-the thresholds are `log (1 / δ) + o(T)`, then the threshold is crossed on `E T` as soon as
-`T ≥ log (1 / δ) / η` for any `η < κ`, hence `𝔼[τ_δ] ≤ c log (1 / δ)` for small `δ` and every
-`c > 1 / κ` when `∑ T, P((E T)ᶜ) < ∞`. Each sampling rule then only has to prove the linear growth
-of the statistic, typically from the convergence of its empirical proportions of pulls to an
-optimal allocation, with `κ` close to the inverse of the characteristic time.
+the thresholds are at most `log (1 / δ) + o(T)` whatever the history, then the threshold is
+crossed on `E T` as soon as `T ≥ log (1 / δ) / η` for any `η < κ`, hence `𝔼[τ_δ] ≤ c log (1 / δ)`
+for small `δ` and every `c > 1 / κ` when `∑ T, P((E T)ᶜ) < ∞`. Each sampling rule then only has
+to prove the linear growth of the statistic, typically from the convergence of its empirical
+proportions of pulls to an optimal allocation, with `κ` close to the inverse of the characteristic
+time.
 
 ## Main definitions
 
 * `IdentTask.glr task Z n h i`: the generalized likelihood ratio statistic
   `inf_{λ ∈ ¬i} Z n h λ` of the answer `i` after `n` rounds with history `h`.
 * `IdentTask.glrt task Z alg β rec hrec hstop`: the identification algorithm with sampling rule
-  `alg` that stops after `n` rounds with history `h` if `β n < task.glr Z n h (rec n h)` and then
+  `alg` that stops after `n` rounds with history `h` if `β n h < task.glr Z n h (rec n h)` and then
   answers `rec n h`.
 * `unionBoundThreshold K x n`: the threshold `K log (2 n (n + 1)) + x` after `n` rounds, for `K`
-  arms and the level `x` [LS, Lemma 33.7].
+  arms and the level `x` [LS, Lemma 33.7], which does not read the history; the GLRT uses it as
+  `fun n _ ↦ unionBoundThreshold K x n`.
 * `unionBoundLevel K δ`: the level `x_δ = log (1 / δ) + 2 K (1 + log (1 + log (1 / δ)))` of
   confidence `δ`.
 
@@ -63,7 +67,7 @@ optimal allocation, with `κ` close to the inverse of the characteristic time.
   condition holds after `n` rounds.
 * `IdentTask.measureReal_histOutputMeasure_glrt_le`: for every sampling rule and every model `θ`,
   the probability that the GLRT stops with an answer that is not correct for `θ` is at most the
-  probability of the deviation event `∃ n, β n < Z n hₙ θ`.
+  probability of the deviation event `∃ n, β n hₙ < Z n hₙ θ`.
 * `IdentTask.measureReal_stoppingTime_ne_top_and_notMem_le_of_isRun_glrt`: the same bound along
   every run of the GLRT.
 * `IdentTask.isDeltaPAC_glrt`: if the deviation event has probability at most `δ` on every
@@ -72,10 +76,10 @@ optimal allocation, with `κ` close to the inverse of the characteristic time.
   rounds on an event `E T` for every `T ≥ T₀`, then `𝔼[τ] ≤ T₀ + ∑_{T ≥ T₀} P((E T)ᶜ)`.
 * `IdentTask.eventually_expectedStoppingTime_glrt_le`: if the GLR statistic of the recommended
   answer is at least `κ T` after `T` rounds on events `E T` with `∑ T, P((E T)ᶜ) < ∞`, and the
-  thresholds are at most `log (1 / δ) + f T` with `f T = o(T)` from above, then
-  `𝔼[τ_δ] ≤ c log (1 / δ)` for all small enough `δ`, for every `c > 1 / κ`.
+  thresholds are at most `log (1 / δ) + f T` on every history, with `f T = o(T)` from above,
+  then `𝔼[τ_δ] ≤ c log (1 / δ)` for all small enough `δ`, for every `c > 1 / κ`.
 * `IdentTask.eventually_expectedStoppingTime_glrt_le_of_isBigO`: the same conclusion for
-  thresholds at most `log (r T / δ)` with `r T = O(T ^ p)`.
+  thresholds at most `log (r T / δ)` on every history, with `r T = O(T ^ p)`.
 * `div_pow_mul_exp_sub_unionBoundLevel_le`: `f(x_δ) ≤ δ` for the tail bound
   `f(x) = (x / K) ^ K exp (K - x)` of the time-uniform deviation inequality of
   `SequentialLearning/SubGaussianDeviation.lean`, which makes the thresholds `β_{x_δ}` `δ`-correct
@@ -100,6 +104,9 @@ optimal allocation, with `κ` close to the inverse of the characteristic time.
   NeurIPS 2019, Theorem 10.
 * [DKM19] R. Degenne, W. M. Koolen and P. Ménard, *Non-asymptotic pure exploration by solving
   games*, NeurIPS 2019, Theorem 1 and Lemma 1.
+* [KK21] E. Kaufmann and W. M. Koolen, *Mixture martingales revisited with applications to
+  sequential tests and confidence intervals*, JMLR 22 (2021), whose thresholds depend on the pull
+  counts.
 * [LS] T. Lattimore and Cs. Szepesvári, *Bandit Algorithms*, Cambridge University Press (2020),
   Lemma 33.7.
 -/
@@ -174,19 +181,20 @@ lemma glr_eq_altCost [Fintype α] {w : α → ℝ} {θ₀ : Θ}
 
 /-! ### The GLRT -/
 
-variable (Z) {mℐ : MeasurableSpace ℐ} (alg : Algorithm Unit α 𝓨) (β : ℕ → ℝ≥0∞)
+variable (Z) {mℐ : MeasurableSpace ℐ} (alg : Algorithm Unit α 𝓨)
+  (β : (n : ℕ) → Hist Unit α 𝓨 n → ℝ≥0∞)
   (rec : (n : ℕ) → Hist Unit α 𝓨 n → ℐ) (hrec : ∀ n, Measurable (rec n))
-  (hstop : ∀ n, MeasurableSet {h | β n < task.glr Z n h (rec n h)})
+  (hstop : ∀ n, MeasurableSet {h | β n h < task.glr Z n h (rec n h)})
 
 /-- The *GLRT* with sampling rule `alg`, statistic `Z`, thresholds `β` and recommendation rule
 `rec` (Chernoff's stopping rule): after `n` rounds with history `h`, it stops if the GLR statistic
-of the recommended answer `rec n h` exceeds the threshold `β n`, and then answers `rec n h`. -/
+of the recommended answer `rec n h` exceeds the threshold `β n h`, and then answers `rec n h`. -/
 noncomputable def glrt : IdentAlg Unit α 𝓨 ℐ :=
-  ofStop alg (fun n h ↦ β n < task.glr Z n h (rec n h)) hstop
+  ofStop alg (fun n h ↦ β n h < task.glr Z n h (rec n h)) hstop
     fun n ↦ Kernel.deterministic (rec n) (hrec n)
 
 lemma glrt_def : task.glrt Z alg β rec hrec hstop = ofStop alg
-    (fun n h ↦ β n < task.glr Z n h (rec n h)) hstop
+    (fun n h ↦ β n h < task.glr Z n h (rec n h)) hstop
     (fun n ↦ Kernel.deterministic (rec n) (hrec n)) := (rfl)
 
 @[simp]
@@ -195,7 +203,8 @@ lemma alg_glrt : (task.glrt Z alg β rec hrec hstop).alg = alg := by
 
 @[simp]
 lemma mem_stopSet_glrt {h : Σ n, Hist Unit α 𝓨 n} :
-    h ∈ (task.glrt Z alg β rec hrec hstop).stopSet ↔ β h.1 < task.glr Z h.1 h.2 (rec h.1 h.2) := by
+    h ∈ (task.glrt Z alg β rec hrec hstop).stopSet ↔
+      β h.1 h.2 < task.glr Z h.1 h.2 (rec h.1 h.2) := by
   rw [glrt_def, mem_stopSet_ofStop]
 
 @[simp]
@@ -208,7 +217,8 @@ variable {Ω : Type*} {mΩ : MeasurableSpace Ω} {P : Measure Ω} [IsProbability
 
 /-- The GLRT has stopped after `n` rounds if its stopping condition holds after `n` rounds. -/
 lemma stoppingTime_glrt_le {ω : Ω}
-    (hn : β n < task.glr Z n (history O X Y n ω) (rec n (history O X Y n ω))) :
+    (hn : β n (history O X Y n ω) <
+      task.glr Z n (history O X Y n ω) (rec n (history O X Y n ω))) :
     (task.glrt Z alg β rec hrec hstop).stoppingTime O X Y ω ≤ n :=
   IdentAlg.stoppingTime_le_of_mem_stopSet ((task.mem_stopSet_glrt Z alg β rec hrec hstop).2 hn)
 
@@ -217,7 +227,7 @@ lemma stoppingTime_glrt_le {ω : Ω}
 /-- **Error probability of the GLRT**, for every sampling rule (the reduction in the proof of
 [GK16, Proposition 12]). For every model `θ`, the probability that the GLRT stops with an answer
 that is not correct for `θ` is at most the probability of the deviation event
-`∃ n, β n < Z n hₙ θ` of `θ`, along any algorithm-environment sequence of the sampling rule. Only
+`∃ n, β n hₙ < Z n hₙ θ` of `θ`, along any algorithm-environment sequence of the sampling rule. Only
 the probabilities in `env = Environment.bandit (task.ν θ)` matter for correctness; the inclusion of
 the events holds in every environment. -/
 theorem measureReal_histOutputMeasure_glrt_le {env : Environment Unit α 𝓨}
@@ -225,7 +235,7 @@ theorem measureReal_histOutputMeasure_glrt_le {env : Environment Unit α 𝓨}
     (hc : MeasurableSet (task.correct θ)) :
     (histOutputMeasure (task.glrt Z alg β rec hrec hstop) env).real
         {p | p.1 ∈ (task.glrt Z alg β rec hrec hstop).stopSet ∧ p.2 ∉ task.correct θ} ≤
-      P.real {ω | ∃ n, β n < Z n (history O X Y n ω) θ} := by
+      P.real {ω | ∃ n, β n (history O X Y n ω) < Z n (history O X Y n ω) θ} := by
   rw [glrt_def]
   refine (measureReal_histOutputMeasure_ofStop_deterministic_le hseq hc).trans
     (measureReal_mono fun ω ⟨n, hn_stop, hn_wrong⟩ ↦ ?_)
@@ -233,24 +243,25 @@ theorem measureReal_histOutputMeasure_glrt_le {env : Environment Unit α 𝓨}
 
 /-- **Error probability of the GLRT along a run**, for every sampling rule. Along every run of the
 GLRT, the probability that it stops with an answer that is not correct for the model `θ` is at
-most the probability of the deviation event `∃ n, β n < Z n hₙ θ` of `θ`. -/
+most the probability of the deviation event `∃ n, β n hₙ < Z n hₙ θ` of `θ`. -/
 theorem measureReal_stoppingTime_ne_top_and_notMem_le_of_isRun_glrt {env : Environment Unit α 𝓨}
     {out : Ω → ℐ} (hrun : (task.glrt Z alg β rec hrec hstop).IsRun env O X Y out P)
     (hθ : θ ∈ task.M) (hc : MeasurableSet (task.correct θ)) :
     P.real {ω | (task.glrt Z alg β rec hrec hstop).stoppingTime O X Y ω ≠ ⊤ ∧
         out ω ∉ task.correct θ} ≤
-      P.real {ω | ∃ n, β n < Z n (history O X Y n ω) θ} := by
+      P.real {ω | ∃ n, β n (history O X Y n ω) < Z n (history O X Y n ω) θ} := by
   rw [hrun.measureReal_stoppingTime_ne_top_and_notMem_eq hc]
   exact task.measureReal_histOutputMeasure_glrt_le Z alg β rec hrec hstop
     (task.alg_glrt Z alg β rec hrec hstop ▸ hrun.isAlgEnvSeq) hθ hc
 
 /-- **The GLRT is `δ`-PAC**, for every sampling rule and every task ([GK16, Proposition 12],
 [DKM19, Theorem 1], [DK19, Theorem 10]): if on every admissible model `θ` the deviation event
-`∃ n, β n < Z n hₙ θ` has probability at most `δ` and the GLRT stops almost surely, then it is
+`∃ n, β n hₙ < Z n hₙ θ` has probability at most `δ` and the GLRT stops almost surely, then it is
 `δ`-PAC on the task. -/
 theorem isDeltaPAC_glrt {δ : ℝ} (hc : ∀ θ ∈ task.M, MeasurableSet (task.correct θ))
     (hdev : ∀ θ ∈ task.M, (trajMeasure alg (Environment.bandit (task.ν θ))).real
-      {ω | ∃ n, β n < Z n (history IT.obs IT.action IT.feedback n ω) θ} ≤ δ)
+      {ω | ∃ n, β n (history IT.obs IT.action IT.feedback n ω) <
+        Z n (history IT.obs IT.action IT.feedback n ω) θ} ≤ δ)
     (h_stops : ∀ θ ∈ task.M,
       StopsAS (task.glrt Z alg β rec hrec hstop) (Environment.bandit (task.ν θ))) :
     task.IsDeltaPAC (task.glrt Z alg β rec hrec hstop) δ :=
@@ -267,7 +278,7 @@ of the GLRT holds after `T` rounds on an event `E T` for every `T ≥ T₀`, the
 theorem expectedStoppingTime_glrt_le_add_tsum {env : Environment Unit α 𝓨}
     (hseq : IsAlgEnvSeq O X Y alg env P) {E : ℕ → Set Ω} {T₀ : ℕ}
     (hE : ∀ T ≥ T₀, ∀ ω ∈ E T,
-      β T < task.glr Z T (history O X Y T ω) (rec T (history O X Y T ω))) :
+      β T (history O X Y T ω) < task.glr Z T (history O X Y T ω) (rec T (history O X Y T ω))) :
     expectedStoppingTime (task.glrt Z alg β rec hrec hstop) env ≤ T₀ + ∑' T, P (E (T + T₀))ᶜ :=
   expectedStoppingTime_le_add_tsum_measure_compl (by rwa [alg_glrt])
     fun T hT ω hω ↦ task.stoppingTime_glrt_le Z alg β rec hrec hstop (hE T hT ω hω)
@@ -284,20 +295,21 @@ open scoped NNReal
 
 variable {α Θ ℐ 𝓨 : Type*} {mα : MeasurableSpace α} {m𝓨 : MeasurableSpace 𝓨}
   {mℐ : MeasurableSpace ℐ} (task : IdentTask α Θ ℐ 𝓨) (Z : (n : ℕ) → Hist Unit α 𝓨 n → Θ → ℝ≥0∞)
-  (alg : Algorithm Unit α 𝓨) {β : ℝ → ℕ → ℝ≥0∞} (rec : (n : ℕ) → Hist Unit α 𝓨 n → ℐ)
+  (alg : Algorithm Unit α 𝓨) {β : ℝ → (n : ℕ) → Hist Unit α 𝓨 n → ℝ≥0∞}
+  (rec : (n : ℕ) → Hist Unit α 𝓨 n → ℐ)
   (hrec : ∀ n, Measurable (rec n))
-  (hstop : ∀ δ n, MeasurableSet {h | β δ n < task.glr Z n h (rec n h)})
+  (hstop : ∀ δ n, MeasurableSet {h | β δ n h < task.glr Z n h (rec n h)})
   {Ω : Type*} {mΩ : MeasurableSpace Ω} {P : Measure Ω} [IsProbabilityMeasure P]
   {O : ℕ → Ω → Unit} {X : ℕ → Ω → α} {Y : ℕ → Ω → 𝓨} {env : Environment Unit α 𝓨}
   {E : ℕ → Set Ω} {κ c : ℝ≥0} {T₀ : ℕ}
 
 /-- **Asymptotic sample complexity of the GLRT** (the reduction in the proof of
 [GK16, Theorem 14]), for every sampling rule. Consider the GLRTs with thresholds
-`β δ T ≤ log (1 / δ) + f T`, where `f T ≤ ε T` eventually for every `ε > 0`. Suppose that, along an
-algorithm-environment sequence of the sampling rule in `env`, the GLR statistic of the recommended
-answer after `T` rounds is at least `κ T` on an event `E T`, for every `T ≥ T₀`, and that
-`∑ T, P((E T)ᶜ) < ∞`. Then `𝔼[τ_δ] ≤ c log (1 / δ)` for all small enough `δ`, for every `c > 1 / κ`,
-that is, `limsup_{δ → 0} 𝔼[τ_δ] / log (1 / δ) ≤ 1 / κ`.
+`β δ T h ≤ log (1 / δ) + f T` for every history `h`, where `f T ≤ ε T` eventually for every
+`ε > 0`. Suppose that, along an algorithm-environment sequence of the sampling rule in `env`, the
+GLR statistic of the recommended answer after `T` rounds is at least `κ T` on an event `E T`, for
+every `T ≥ T₀`, and that `∑ T, P((E T)ᶜ) < ∞`. Then `𝔼[τ_δ] ≤ c log (1 / δ)` for all small enough
+`δ`, for every `c > 1 / κ`, that is, `limsup_{δ → 0} 𝔼[τ_δ] / log (1 / δ) ≤ 1 / κ`.
 
 For an asymptotically optimal sampling rule, `κ` is any rate below the inverse `T*(θ)⁻¹` of the
 characteristic time. -/
@@ -306,7 +318,7 @@ theorem eventually_expectedStoppingTime_glrt_le (hseq : IsAlgEnvSeq O X Y alg en
     (hE : ∀ T ≥ T₀, ∀ ω ∈ E T,
       κ * T ≤ task.glr Z T (history O X Y T ω) (rec T (history O X Y T ω)))
     {f : ℕ → ℝ} (hf : ∀ ε > 0, ∀ᶠ T in atTop, f T ≤ ε * T)
-    (hβ : ∀ᶠ δ in 𝓝[>] 0, ∀ T ≥ T₀, β δ T ≤ ENNReal.ofReal (log (1 / δ) + f T)) :
+    (hβ : ∀ᶠ δ in 𝓝[>] 0, ∀ T ≥ T₀, ∀ h, β δ T h ≤ ENNReal.ofReal (log (1 / δ) + f T)) :
     ∀ᶠ δ in 𝓝[>] 0, expectedStoppingTime (task.glrt Z alg (β δ) rec hrec (hstop δ)) env ≤
       c * ENNReal.ofReal (log (1 / δ)) := by
   have hκc' : 1 < (κ : ℝ) * c := mod_cast hκc
@@ -328,7 +340,8 @@ theorem eventually_expectedStoppingTime_glrt_le (hseq : IsAlgEnvSeq O X Y alg en
   -- From `N = max M ⌈L / η⌉` rounds on, the stopping condition holds on `E T`.
   set N := max M ⌈L / η⌉₊
   have h_stop : ∀ T ≥ N, ∀ ω ∈ E T,
-      β δ T < task.glr Z T (history O X Y T ω) (rec T (history O X Y T ω)) := by
+      β δ T (history O X Y T ω) <
+        task.glr Z T (history O X Y T ω) (rec T (history O X Y T ω)) := by
     intro T hT ω hω
     have hT₀ : T₀ ≤ T := by omega
     have hT1 : (1 : ℝ) ≤ T := mod_cast (show 1 ≤ T by omega)
@@ -336,8 +349,8 @@ theorem eventually_expectedStoppingTime_glrt_le (hseq : IsAlgEnvSeq O X Y alg en
       rw [← div_le_iff₀' hη]
       exact (Nat.le_ceil _).trans (mod_cast (le_max_right _ _).trans hT)
     have hfT := hT₁ T (by omega)
-    calc β δ T
-    _ ≤ ENNReal.ofReal (L + f T) := hβδ T hT₀
+    calc β δ T (history O X Y T ω)
+    _ ≤ ENNReal.ofReal (L + f T) := hβδ T hT₀ _
     _ < ENNReal.ofReal (κ * T) := by
       refine (ENNReal.ofReal_lt_ofReal_iff (mul_pos hκ (by linarith))).2 ?_
       nlinarith
@@ -369,14 +382,15 @@ theorem eventually_expectedStoppingTime_glrt_le (hseq : IsAlgEnvSeq O X Y alg en
 sampling rule and the thresholds of [GK16, Theorem 14], `r T = O(T ^ p)`. Suppose that, along an
 algorithm-environment sequence of the sampling rule in `env`, the GLR statistic of the recommended
 answer after `T` rounds is at least `κ T` on an event `E T`, for every `T ≥ T₀`, and that
-`∑ T, P((E T)ᶜ) < ∞`. Then for thresholds `β δ T ≤ log (r T / δ)` with `r T = O(T ^ p)`,
+`∑ T, P((E T)ᶜ) < ∞`. Then for thresholds `β δ T h ≤ log (r T / δ)` for every history `h`, with
+`r T = O(T ^ p)`,
 `𝔼[τ_δ] ≤ c log (1 / δ)` for all small enough `δ`, for every `c > 1 / κ`. -/
 theorem eventually_expectedStoppingTime_glrt_le_of_isBigO (hseq : IsAlgEnvSeq O X Y alg env P)
     (hE_sum : ∑' T, P (E T)ᶜ ≠ ∞) (hκc : 1 < κ * c)
     (hE : ∀ T ≥ T₀, ∀ ω ∈ E T,
       κ * T ≤ task.glr Z T (history O X Y T ω) (rec T (history O X Y T ω)))
     {r : ℕ → ℝ} {p : ℝ} (hr : r =O[atTop] fun T ↦ (T : ℝ) ^ p)
-    (hβ : ∀ᶠ δ in 𝓝[>] 0, ∀ T ≥ T₀, β δ T ≤ ENNReal.ofReal (log (r T / δ))) :
+    (hβ : ∀ᶠ δ in 𝓝[>] 0, ∀ T ≥ T₀, ∀ h, β δ T h ≤ ENNReal.ofReal (log (r T / δ))) :
     ∀ᶠ δ in 𝓝[>] 0, expectedStoppingTime (task.glrt Z alg (β δ) rec hrec (hstop δ)) env ≤
       c * ENNReal.ofReal (log (1 / δ)) := by
   refine task.eventually_expectedStoppingTime_glrt_le Z alg rec hrec hstop hseq hE_sum hκc hE
@@ -399,8 +413,8 @@ theorem eventually_expectedStoppingTime_glrt_le_of_isBigO (hseq : IsAlgEnvSeq O 
     _ = log C + p * log T := by rw [log_mul hC.ne' (rpow_pos_of_pos hT' p).ne', log_rpow hT']
     _ ≤ ε * T := (le_abs_self _).trans hgT
   · -- `log (r T / δ) ≤ log (1 / δ) + log (r T)` for `δ ∈ (0, 1)`.
-    filter_upwards [hβ, Ioo_mem_nhdsGT one_pos] with δ hβδ hδ T hT
-    refine (hβδ T hT).trans (ENNReal.ofReal_le_ofReal ?_)
+    filter_upwards [hβ, Ioo_mem_nhdsGT one_pos] with δ hβδ hδ T hT h
+    refine (hβδ T hT h).trans (ENNReal.ofReal_le_ofReal ?_)
     rcases eq_or_ne (r T) 0 with h | h
     · simp only [h, zero_div, log_zero, add_zero]
       exact log_nonneg (one_le_one_div hδ.1 hδ.2.le)
@@ -572,10 +586,11 @@ expected stopping time, then the GLRT with the thresholds `K log (2 n (n + 1)) +
 surely for every `δ ∈ (0, 1]`, since the level `x_δ` decreases with `δ`. -/
 lemma stopsAS_glrt_unionBoundThreshold
     (h : ∃ᶠ δ in 𝓝[>] 0, expectedStoppingTime
-      (task.glrt Z alg (unionBoundThreshold K (unionBoundLevel K δ)) rec hrec (hstop δ)) env ≠ ∞)
+      (task.glrt Z alg (fun n _ ↦ unionBoundThreshold K (unionBoundLevel K δ) n) rec hrec
+        (hstop δ)) env ≠ ∞)
     {δ : ℝ} (hδ : 0 < δ) (hδ1 : δ ≤ 1) :
-    StopsAS (task.glrt Z alg (unionBoundThreshold K (unionBoundLevel K δ)) rec hrec (hstop δ))
-      env := by
+    StopsAS (task.glrt Z alg (fun n _ ↦ unionBoundThreshold K (unionBoundLevel K δ) n) rec hrec
+      (hstop δ)) env := by
   -- Some confidence level `δ₀ ≤ δ` has a finite expected stopping time, and the thresholds of `δ`
   -- are below those of `δ₀`.
   obtain ⟨δ₀, hδ₀, hδ₀δ⟩ := (h.and_eventually (Ioc_mem_nhdsGT hδ)).exists
