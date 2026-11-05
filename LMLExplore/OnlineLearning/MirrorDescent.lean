@@ -17,7 +17,9 @@ with potential `F` and learning rate `η` starts at a minimizer `a 0` of `F` ove
 and, after the loss `y t` of round `t`, plays a minimizer over `K` of
 `b ↦ η y t b + D_F(b, a t)` [LS, (28.2)], where `D_F(b, a) = F b - F a - F'(b - a)` is the
 Bregman divergence of `F` for a derivative `F'` of `F` at `a`. Where FTRL regularizes the
-cumulative loss, mirror descent only uses the last loss and the last play.
+cumulative loss, mirror descent only uses the last loss and the last play. The learning rate may
+change over the rounds: with nonincreasing learning rates `η t`, the step of round `t` uses `η t`,
+and the regret bound holds for every horizon, without tuning the rate to it.
 
 The step can be computed in two stages [LS, (28.7)–(28.9)]: an unconstrained step to a point `b`
 where `F` has derivative `F' - η y`, followed by the Bregman projection of `b` onto `K`. The
@@ -54,10 +56,17 @@ of losses, in particular for losses chosen adaptively from the past plays.
   for any initial play.
 * `mirrorDescent_regret_le_sub_add_sum_bregDiv`: [LS, Theorem 28.4], second bound.
 * `mirrorDescent_regret_le_of_strongConvexOn`: [LS, Corollary 28.8] for mirror descent.
+* `mirrorDescent_regret_le_of_antitone`: with nonincreasing learning rates `η t` and divergences
+  `D_F(u, a t) ≤ D`, the regret is at most
+  `D / η (n - 1) + ∑ t < n, (y t (a t - a (t + 1)) - D_F(a (t + 1), a t) / η t)`.
+* `mirrorDescent_regret_le_of_strongConvexOn_of_antitone`: [Ora, Theorem 6.11], its form
+  `D / η (n - 1) + ∑ t < n, η t / (2 m) * ‖y t‖ ^ 2` for an `m`-strongly convex potential.
 
 ## References
 
 * [LS] T. Lattimore and Cs. Szepesvári, *Bandit Algorithms*, Cambridge University Press, 2020.
+* [Ora] F. Orabona, *Online learning: a modern introduction using convex optimization*,
+  arXiv:1912.13213v10, 2026.
 -/
 
 public section
@@ -184,8 +193,9 @@ theorem sum_apply_sub_le_mirrorDescent (hK : Convex ℝ K) (hη : 0 < η) (y : �
   ring
 
 /-- Plays of mirror descent started in `K` stay in `K`. -/
-private lemma mem_of_isMirrorDescentStep {y : ℕ → E →L[ℝ] ℝ} {a : ℕ → E} {F' : ℕ → E →L[ℝ] ℝ}
-    (ha0 : a 0 ∈ K) (ha : ∀ t < n, IsMirrorDescentStep K F η (y t) (a t) (F' t) (a (t + 1))) :
+private lemma mem_of_isMirrorDescentStep {η : ℕ → ℝ} {y : ℕ → E →L[ℝ] ℝ} {a : ℕ → E}
+    {F' : ℕ → E →L[ℝ] ℝ} (ha0 : a 0 ∈ K)
+    (ha : ∀ t < n, IsMirrorDescentStep K F (η t) (y t) (a t) (F' t) (a (t + 1))) :
     ∀ t ≤ n, a t ∈ K
   | 0, _ => ha0
   | t + 1, ht => (ha t ht).mem
@@ -294,5 +304,93 @@ theorem mirrorDescent_regret_le_of_strongConvexOn {m : ℝ} (hF : StrongConvexOn
   have h_stab := sum_apply_sub_sub_bregDiv_le_of_strongConvexOn hF hm hη y a
     (mem_of_isMirrorDescentStep ha0K ha) F' fun t ht ↦ hF' t ht.le
   linarith
+
+section Antitone
+
+variable {η : ℕ → ℝ}
+
+/-- **Regret of mirror descent with nonincreasing learning rates**, before the use of strong
+convexity [Ora, Theorem 6.11]. Let `F` be convex on `K` and let the learning rates `η t > 0` be
+nonincreasing. Let `a 0 ∈ K` and let each `a (t + 1)`, for `t < n`, be a mirror descent step on
+`K` from `a t` with derivative `F' t` and learning rate `η t`, for the loss `y t`, where `F` has
+derivative `F' t` within `K` at `a t` for `t ≤ n`. If `D ≥ 0` bounds the Bregman divergences
+`D_F(u, a t)` for `t < n`, then
+`∑ t < n, y t (a t - u)
+  ≤ D / η (n - 1) + ∑ t < n, (y t (a t - a (t + 1)) - D_F(a (t + 1), a t) / η t)`.
+The play `a 0` need not minimize `F`. -/
+theorem mirrorDescent_regret_le_of_antitone (hF : ConvexOn ℝ K F) (hη : ∀ t, 0 < η t)
+    (hη_anti : Antitone η) (y : ℕ → E →L[ℝ] ℝ) (a : ℕ → E) (F' : ℕ → E →L[ℝ] ℝ)
+    (ha0K : a 0 ∈ K) (ha : ∀ t < n, IsMirrorDescentStep K F (η t) (y t) (a t) (F' t) (a (t + 1)))
+    (hF' : ∀ t ≤ n, HasFDerivWithinAt F (F' t) K (a t)) {D : ℝ} (hD : 0 ≤ D)
+    (hDu : ∀ t < n, bregDiv F u (a t) (F' t) ≤ D) (hu : u ∈ K) :
+    ∑ t ∈ range n, y t (a t - u) ≤ D / η (n - 1) +
+      ∑ t ∈ range n, (y t (a t - a (t + 1)) - bregDiv F (a (t + 1)) (a t) (F' t) / η t) := by
+  set d : ℕ → ℝ := fun t ↦ bregDiv F u (a t) (F' t) with hd
+  -- split `a t - u` at `a (t + 1)` and bound the second part by the one-step inequality
+  have h_step (t : ℕ) (ht : t ∈ range n) : y t (a t - u) ≤
+      (y t (a t - a (t + 1)) - bregDiv F (a (t + 1)) (a t) (F' t) / η t) +
+        (d t - d (t + 1)) / η t := by
+    have ht' := mem_range.mp ht
+    have h_one := (ha t ht').mul_apply_sub_le hF.1 (hF' (t + 1) ht') hu
+    have h_split : y t (a t - u) = y t (a t - a (t + 1)) + y t (a (t + 1) - u) := by
+      rw [← map_add, sub_add_sub_cancel]
+    have h_le : y t (a (t + 1) - u) ≤ (d t - d (t + 1) - bregDiv F (a (t + 1)) (a t) (F' t)) /
+        η t := by
+      rw [le_div_iff₀ (hη t), mul_comm]
+      exact h_one
+    rw [sub_div] at h_le
+    rw [h_split]
+    linarith
+  -- with nonincreasing rates, the divergences to `u` telescope to at most `(D - d m) / η (m - 1)`
+  have h_tele (m : ℕ) (hm : m < n) :
+      ∑ t ∈ range (m + 1), (d t - d (t + 1)) / η t ≤ (D - d (m + 1)) / η m := by
+    induction m with
+    | zero => simpa using div_le_div_of_nonneg_right (by linarith [hDu 0 hm]) (hη 0).le
+    | succ m ih =>
+      have h_coef : (D - d (m + 1)) / η m ≤ (D - d (m + 1)) / η (m + 1) :=
+        div_le_div_of_nonneg_left (by linarith [hDu (m + 1) hm]) (hη (m + 1))
+          (hη_anti (Nat.le_succ m))
+      rw [sum_range_succ]
+      have := ih (by omega)
+      calc _ ≤ (D - d (m + 1)) / η (m + 1) + (d (m + 1) - d (m + 1 + 1)) / η (m + 1) := by
+            linarith
+        _ = (D - d (m + 1 + 1)) / η (m + 1) := by rw [← add_div, sub_add_sub_cancel]
+  refine (sum_le_sum h_step).trans ?_
+  rw [sum_add_distrib, add_comm]
+  refine add_le_add_left ?_ _
+  rcases n with _ | n
+  · simpa using div_nonneg hD (hη _).le
+  -- the last divergence `d (n + 1)` is nonnegative by convexity
+  have h_last : 0 ≤ d (n + 1) :=
+    (hF' (n + 1) le_rfl).hasSubgradientWithinAt hF (mem_of_isMirrorDescentStep ha0K ha _ le_rfl)
+      u hu
+  refine (h_tele n (Nat.lt_succ_self n)).trans ?_
+  rw [Nat.add_sub_cancel]
+  exact div_le_div_of_nonneg_right (by linarith) (hη n).le
+
+/-- **Regret of mirror descent with nonincreasing learning rates and a strongly convex potential**
+[Ora, Theorem 6.11]. Under the assumptions of `mirrorDescent_regret_le_of_antitone`, if the
+potential `F` is `m`-strongly convex on `K` for the norm of `E`, with `m > 0`, then for every
+`u ∈ K`,
+`∑ t < n, y t (a t - u) ≤ D / η (n - 1) + ∑ t < n, η t / (2 m) * ‖y t‖ ^ 2`,
+where `‖y t‖` is the operator norm of the loss, the dual norm of the norm of `E`. -/
+theorem mirrorDescent_regret_le_of_strongConvexOn_of_antitone {m : ℝ}
+    (hF : StrongConvexOn K m F) (hm : 0 < m) (hη : ∀ t, 0 < η t) (hη_anti : Antitone η)
+    (y : ℕ → E →L[ℝ] ℝ) (a : ℕ → E) (F' : ℕ → E →L[ℝ] ℝ) (ha0K : a 0 ∈ K)
+    (ha : ∀ t < n, IsMirrorDescentStep K F (η t) (y t) (a t) (F' t) (a (t + 1)))
+    (hF' : ∀ t ≤ n, HasFDerivWithinAt F (F' t) K (a t)) {D : ℝ} (hD : 0 ≤ D)
+    (hDu : ∀ t < n, bregDiv F u (a t) (F' t) ≤ D) (hu : u ∈ K) :
+    ∑ t ∈ range n, y t (a t - u) ≤ D / η (n - 1) + ∑ t ∈ range n, η t / (2 * m) * ‖y t‖ ^ 2 := by
+  refine (mirrorDescent_regret_le_of_antitone (strongConvexOn_zero.mp (hF.mono hm.le)) hη hη_anti
+    y a F' ha0K ha hF' hD hDu hu).trans (add_le_add le_rfl (sum_le_sum fun t ht ↦ ?_))
+  have ht := mem_range.mp ht
+  have h_mem := mem_of_isMirrorDescentStep ha0K ha
+  refine apply_sub_sub_div_le_of_mul_norm_sq_le hm (hη t) (y t) ?_
+  -- the Bregman divergence of `F` is at least `m / 2` times the squared distance
+  have := hF.add_add_le_of_hasFDerivWithinAt (h_mem t ht.le) (h_mem (t + 1) ht) (hF' t ht.le)
+  simp only [bregDiv]
+  linarith
+
+end Antitone
 
 end LMLExplore.OnlineLearning

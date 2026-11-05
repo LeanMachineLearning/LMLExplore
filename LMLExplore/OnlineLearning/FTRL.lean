@@ -53,6 +53,9 @@ norm, whose dual norm is the sup norm.
   modulus that changes over the rounds.
 * `exists_ftrl`: on a nonempty compact set, FTRL with a potential continuous on that set has
   plays.
+* `hasFDerivAt_norm_sq_div_two`, `strongConvexOn_norm_sq_div_two`, `bregDiv_norm_sq_div_two`: the
+  Euclidean potential `‖b‖ ^ 2 / 2` of a real inner product space has derivative `⟪x, ·⟫` at `x`,
+  is `1`-strongly convex, and has Bregman divergence `‖x - y‖ ^ 2 / 2`.
 * `ftrl_regret_le_sqrt_of_closedBall`: [LS, Proposition 28.6] for FTRL. On the closed unit ball
   of a real inner product space, with the potential `‖b‖ ^ 2 / 2` and the learning rate `1 / √n`,
   the regret after `n` rounds against every point of the ball is at most `√n` for the losses
@@ -277,7 +280,33 @@ end NormedSpace
 
 section InnerProductSpace
 
-variable {E : Type*} [NormedAddCommGroup E] [InnerProductSpace ℝ E] {n : ℕ} {u : E}
+variable {E : Type*} [NormedAddCommGroup E] [InnerProductSpace ℝ E] {K : Set E} {n : ℕ} {u : E}
+
+/-- The derivative of `‖b‖ ^ 2 / 2` at `x` is `⟪x, ·⟫`. -/
+theorem hasFDerivAt_norm_sq_div_two (x : E) :
+    HasFDerivAt (fun b : E ↦ ‖b‖ ^ 2 / 2) (innerSL ℝ x) x := by
+  convert (hasStrictFDerivAt_norm_sq x).hasFDerivAt.const_mul (2 : ℝ)⁻¹ using 1
+  · ext b
+    ring
+  · ext v
+    simp
+
+/-- The Bregman divergence of `‖b‖ ^ 2 / 2` is half the squared distance:
+`D(x, y) = ‖x - y‖ ^ 2 / 2`, for the derivative `⟪y, ·⟫` at `y`. -/
+@[simp]
+theorem bregDiv_norm_sq_div_two (x y : E) :
+    bregDiv (fun b : E ↦ ‖b‖ ^ 2 / 2) x y (innerSL ℝ y) = ‖x - y‖ ^ 2 / 2 := by
+  simp only [bregDiv, innerSL_apply_apply, @norm_sub_sq_real, inner_sub_right,
+    real_inner_self_eq_norm_sq]
+  rw [real_inner_comm]
+  ring
+
+/-- `‖b‖ ^ 2 / 2` is `1`-strongly convex on every convex set. -/
+theorem strongConvexOn_norm_sq_div_two (hK : Convex ℝ K) :
+    StrongConvexOn K 1 fun b : E ↦ ‖b‖ ^ 2 / 2 := by
+  refine strongConvexOn_iff_convex.mpr ?_
+  convert convexOn_const (0 : ℝ) hK using 2 with b
+  ring
 
 /-- **FTRL on the unit ball** [LS, Proposition 28.6], which [LS] states for mirror descent and
 notes for FTRL. Let the losses be `⟪g t, ·⟫` for vectors `g t` of norm at most `1`, and let each
@@ -293,17 +322,9 @@ theorem ftrl_regret_le_sqrt_of_closedBall (g a : ℕ → E) (hg : ∀ t < n, ‖
   rcases Nat.eq_zero_or_pos n with rfl | hn
   · simp
   have hsqrt : 0 < √(n : ℝ) := Real.sqrt_pos.mpr (Nat.cast_pos.mpr hn)
-  -- `‖·‖ ^ 2 / 2` is `1`-strongly convex, with derivative `⟪b, ·⟫` at `b`
-  have hF : StrongConvexOn (closedBall (0 : E) 1) 1 fun b ↦ ‖b‖ ^ 2 / 2 := by
-    refine strongConvexOn_iff_convex.mpr ?_
-    convert convexOn_const (0 : ℝ) (convex_closedBall (0 : E) 1) using 2 with b
-    ring
-  have hF' (t : ℕ) : HasFDerivWithinAt (fun b ↦ ‖b‖ ^ 2 / 2)
-      ((2 : ℝ)⁻¹ • (2 • innerSL ℝ (a t))) (closedBall 0 1) (a t) := by
-    simpa only [div_eq_mul_inv, mul_comm _ (2 : ℝ)⁻¹] using
-      ((hasStrictFDerivAt_norm_sq (a t)).hasFDerivAt.const_mul (2 : ℝ)⁻¹).hasFDerivWithinAt
-  have h := ftrl_regret_le_of_strongConvexOn hF one_pos (inv_pos.mpr hsqrt) _ a ha _
-    (fun t _ ↦ hF' t) hu
+  have h := ftrl_regret_le_of_strongConvexOn
+    (strongConvexOn_norm_sq_div_two (convex_closedBall 0 1)) one_pos (inv_pos.mpr hsqrt) _ a ha _
+    (fun t _ ↦ (hasFDerivAt_norm_sq_div_two (a t)).hasFDerivWithinAt) hu
   simp only [innerSL_apply_apply, innerSL_apply_norm] at h
   -- the penalty is at most `√n / 2` and the stability terms add up to at most `√n / 2`
   have hu' : ‖u‖ ≤ 1 := mem_closedBall_zero_iff.mp hu
