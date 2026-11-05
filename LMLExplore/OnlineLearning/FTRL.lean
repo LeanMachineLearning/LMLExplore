@@ -47,7 +47,8 @@ norm, whose dual norm is the sup norm.
   with `D_F` the Bregman divergence. The potential need not be convex.
 * `ftrl_regret_le_of_strongConvexOn`: [LS, Corollary 28.8]. For an `m`-strongly convex potential
   with respect to the norm of `E`, the regret is at most
-  `(F u - F (a 0)) / η + η / (2 m) ∑ t < n, ‖y t‖ ^ 2`, with `‖y t‖` the operator norm.
+  `(F u - F (a 0)) / η + η / (2 m) ∑ t < n, ‖y t‖ ^ 2`, with `‖y t‖` the operator norm. Its
+  stability step `sum_apply_sub_sub_bregDiv_le_of_strongConvexOn` also serves mirror descent.
 * `exists_ftrl`: on a nonempty compact set, FTRL with a potential continuous on that set has
   plays.
 * `ftrl_regret_le_sqrt_of_closedBall`: [LS, Proposition 28.6] for FTRL. On the closed unit ball
@@ -121,6 +122,13 @@ lemma bregDiv_le_sub_of_isMinOn {F : E → ℝ} {L F' : E →L[ℝ] ℝ} {a b : 
   simp only [bregDiv, map_sub]
   linarith
 
+/-- Let `a` minimize `F` over `K`, where `F` has derivative `F'` within `K` at `a`. If the
+segment from `a` to `b` lies in `K`, then `D_F(b, a) ≤ F b - F a`. -/
+lemma bregDiv_le_sub_of_isMinOn_self {F : E → ℝ} {F' : E →L[ℝ] ℝ} {a b : E}
+    (h_seg : segment ℝ a b ⊆ K) (ha : IsMinOn F K a) (hF' : HasFDerivWithinAt F F' K a) :
+    bregDiv F b a F' ≤ F b - F a := by
+  simpa using bregDiv_le_sub_of_isMinOn (L := 0) h_seg (by simpa using ha) hF'
+
 /-- **Regret of follow the regularized leader** [LS, Theorem 28.5]. Let `K` be convex and
 `η > 0`. Let each `a t`, for `t ≤ n`, be a play of FTRL on `K` with potential `F` and learning
 rate `η` (`IsFTRLPlay`), where `F` has derivative `F' t` within `K` at `a t` for `t < n`.
@@ -174,26 +182,27 @@ theorem ftrl_regret_le {F : E → ℝ} (hK : Convex ℝ K) {η : ℝ} (hη : 0 <
     rw [sum_sub_distrib, sum_div, sub_div]
     ring
 
-/-- **Regret of FTRL with a strongly convex potential** [LS, Corollary 28.8]. Under the
-assumptions of `ftrl_regret_le`, if the potential `F` is `m`-strongly convex on `K` for the norm
-of `E`, with `m > 0`, then for every `u ∈ K`,
-`∑ t < n, y t (a t - u) ≤ (F u - F (a 0)) / η + η / (2 m) ∑ t < n, ‖y t‖ ^ 2`,
-where `‖y t‖` is the operator norm of the loss, the dual norm of the norm of `E`. [LS] states it
-with the diameter of `K` for `F` in place of `F u - F (a 0)`. -/
-theorem ftrl_regret_le_of_strongConvexOn {F : E → ℝ} {m : ℝ} (hF : StrongConvexOn K m F)
-    (hm : 0 < m) {η : ℝ} (hη : 0 < η) (y : ℕ → E →L[ℝ] ℝ) (a : ℕ → E)
-    (ha : ∀ t ≤ n, IsFTRLPlay K F η y t (a t))
-    (F' : ℕ → E →L[ℝ] ℝ) (hF' : ∀ t < n, HasFDerivWithinAt F (F' t) K (a t)) (hu : u ∈ K) :
-    ∑ t ∈ range n, y t (a t - u) ≤
-      (F u - F (a 0)) / η + η / (2 * m) * ∑ t ∈ range n, ‖y t‖ ^ 2 := by
-  refine (ftrl_regret_le hF.1 hη y a ha F' hF' hu).trans ?_
-  rw [add_sub_assoc, add_le_add_iff_left, sum_div, ← sum_sub_distrib, mul_sum]
+/-- **Stability terms for a strongly convex potential**, the step shared by FTRL and mirror
+descent in [LS, Corollary 28.8]. Let `F` be `m`-strongly convex on `K` for the norm of `E`, with
+`m > 0`, let `η > 0`, let `a t ∈ K` for `t ≤ n`, and let `F` have derivative `F' t` within `K` at
+`a t` for `t < n`. Then
+`∑ t < n, y t (a t - a (t + 1)) - (∑ t < n, D_F(a (t + 1), a t)) / η
+  ≤ η / (2 m) ∑ t < n, ‖y t‖ ^ 2`,
+where `D_F` is the Bregman divergence and `‖y t‖` the operator norm of the loss, the dual norm of
+the norm of `E`. -/
+theorem sum_apply_sub_sub_bregDiv_le_of_strongConvexOn {F : E → ℝ} {m : ℝ}
+    (hF : StrongConvexOn K m F) (hm : 0 < m) {η : ℝ} (hη : 0 < η) (y : ℕ → E →L[ℝ] ℝ)
+    (a : ℕ → E) (ha : ∀ t ≤ n, a t ∈ K) (F' : ℕ → E →L[ℝ] ℝ)
+    (hF' : ∀ t < n, HasFDerivWithinAt F (F' t) K (a t)) :
+    ∑ t ∈ range n, y t (a t - a (t + 1)) -
+        (∑ t ∈ range n, bregDiv F (a (t + 1)) (a t) (F' t)) / η ≤
+      η / (2 * m) * ∑ t ∈ range n, ‖y t‖ ^ 2 := by
+  rw [sum_div, ← sum_sub_distrib, mul_sum]
   refine sum_le_sum fun t ht ↦ ?_
   have ht' := mem_range.mp ht
   -- the Bregman divergence of `F` is at least `m / 2` times the squared distance
   have h_breg : m / 2 * ‖a (t + 1) - a t‖ ^ 2 ≤ bregDiv F (a (t + 1)) (a t) (F' t) := by
-    have := hF.add_add_le_of_hasFDerivWithinAt (ha t ht'.le).mem (ha (t + 1) ht').mem
-      (hF' t ht')
+    have := hF.add_add_le_of_hasFDerivWithinAt (ha t ht'.le) (ha (t + 1) ht') (hF' t ht')
     simp only [bregDiv]
     linarith
   have h_apply : y t (a t - a (t + 1)) ≤ ‖a (t + 1) - a t‖ * ‖y t‖ := by
@@ -209,6 +218,23 @@ theorem ftrl_regret_le_of_strongConvexOn {F : E → ℝ} {m : ℝ} (hF : StrongC
   have h_nonneg : 0 ≤ (m * x - η * z) ^ 2 / (2 * m * η) := by positivity
   have h_div : -(bregDiv F (a (t + 1)) (a t) (F' t) / η) ≤ -(m / 2 * x ^ 2 / η) :=
     neg_le_neg (div_le_div_of_nonneg_right h_breg hη.le)
+  linarith
+
+/-- **Regret of FTRL with a strongly convex potential** [LS, Corollary 28.8]. Under the
+assumptions of `ftrl_regret_le`, if the potential `F` is `m`-strongly convex on `K` for the norm
+of `E`, with `m > 0`, then for every `u ∈ K`,
+`∑ t < n, y t (a t - u) ≤ (F u - F (a 0)) / η + η / (2 m) ∑ t < n, ‖y t‖ ^ 2`,
+where `‖y t‖` is the operator norm of the loss, the dual norm of the norm of `E`. [LS] states it
+with the diameter of `K` for `F` in place of `F u - F (a 0)`. -/
+theorem ftrl_regret_le_of_strongConvexOn {F : E → ℝ} {m : ℝ} (hF : StrongConvexOn K m F)
+    (hm : 0 < m) {η : ℝ} (hη : 0 < η) (y : ℕ → E →L[ℝ] ℝ) (a : ℕ → E)
+    (ha : ∀ t ≤ n, IsFTRLPlay K F η y t (a t))
+    (F' : ℕ → E →L[ℝ] ℝ) (hF' : ∀ t < n, HasFDerivWithinAt F (F' t) K (a t)) (hu : u ∈ K) :
+    ∑ t ∈ range n, y t (a t - u) ≤
+      (F u - F (a 0)) / η + η / (2 * m) * ∑ t ∈ range n, ‖y t‖ ^ 2 := by
+  have h := ftrl_regret_le hF.1 hη y a ha F' hF' hu
+  have h_stab := sum_apply_sub_sub_bregDiv_le_of_strongConvexOn hF hm hη y a
+    (fun t ht ↦ (ha t ht).mem) F' hF'
   linarith
 
 /-- **Existence of FTRL plays.** On a nonempty compact set `K`, with a potential `F` continuous
