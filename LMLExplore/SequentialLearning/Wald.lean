@@ -6,9 +6,9 @@ Authors: Rémy Degenne
 module
 
 public import LeanMachineLearning.SequentialLearning.FiniteActions
-public import LeanMachineLearning.SequentialLearning.Means
 public import LMLExplore.MeasureTheory.Integral.Lebesgue.ENat
-public import LMLExplore.Probability.HasCondDistrib
+public import LMLExplore.Probability.Process.Stopping
+public import LMLExplore.SequentialLearning.Algorithm
 public import LMLExplore.Topology.Algebra.InfiniteSum.NatInt
 
 /-!
@@ -39,7 +39,7 @@ the rounds by the action played gives *Wald's identity for the rewards*
 
 The identity rests on conditioning on the information available when the action of a round is
 chosen: on an event of `IsAlgEnvSeq.filtrationAction n`, the feedback `Y_n` can be replaced by its
-conditional mean `m_n(A_n)`.
+conditional mean `m_n(A_n)` (`Learning.IsAlgEnvSeq.setIntegral_feedback`).
 
 ## Main statements
 
@@ -48,12 +48,6 @@ conditional mean `m_n(A_n)`.
 * `LMLExplore.natCast_pullCount_toNat_le`: `N_a(n) ≤ n` for `n : ℕ∞`.
 * `LMLExplore.lintegral_toENNReal_eq_sum_lintegral_pullCount`: Wald's identity
   `𝔼[τ] = ∑ a, 𝔼[N_a(τ)]` for an almost surely finite measurable random time `τ`.
-* `Learning.IsAlgEnvSeq.setLIntegral_comp_feedback`: on an event of `h.filtrationAction n`, the
-  expectation of `g(Y_n)` is that of `∫ g` against the conditional law of `Y_n`, for `g ≥ 0`.
-* `Learning.IsAlgEnvSeq.integrable_feedback`: the feedback of a round is integrable when its
-  conditional absolute mean has finite expectation.
-* `Learning.IsAlgEnvSeq.setIntegral_feedback`: on an event of `h.filtrationAction n`, the
-  expectation of `Y_n` is that of its conditional mean `m_n(A_n)`.
 * `Learning.IsAlgEnvSeq.integral_sum_feedback_eq_integral_sum_means`: Wald's identity for the
   feedback `𝔼[∑_{t < τ} Y_t] = 𝔼[∑_{t < τ} m_t(A_t)]`, for every environment.
 * `Learning.IsAlgEnvSeq.integrable_feedback_bandit`: the rewards are integrable when the
@@ -127,46 +121,7 @@ variable {𝓞 𝓐 𝓨 Ω : Type*} {m𝓞 : MeasurableSpace 𝓞} {m𝓐 : Mea
   {O : ℕ → Ω → 𝓞} {A : ℕ → Ω → 𝓐} {Y : ℕ → Ω → 𝓨} {alg : Algorithm 𝓞 𝓐 𝓨}
   {env : Environment 𝓞 𝓐 𝓨}
 
-/-- On an event `s` of `h.filtrationAction n` (determined by the history before round `n`, the
-observation of round `n` and the action of round `n`), the expectation of `g(Y_n)` is that of
-`∫ g` against the law `env.feedbackKernel O A Y n ω (A n ω)` of the feedback given that
-information, for a measurable `g ≥ 0`. -/
-lemma IsAlgEnvSeq.setLIntegral_comp_feedback [SFinite P] (h : IsAlgEnvSeq O A Y alg env P) {n : ℕ}
-    {s : Set Ω} (hs : MeasurableSet[h.filtrationAction n] s) {g : 𝓨 → ℝ≥0∞} (hg : Measurable g) :
-    ∫⁻ ω in s, g (Y n ω) ∂P =
-      ∫⁻ ω in s, ∫⁻ y, g y ∂(env.feedbackKernel O A Y n ω (A n ω)) ∂P := by
-  rw [h.filtrationAction_eq_comap n] at hs
-  obtain ⟨t, ht, rfl⟩ := hs
-  simpa [Environment.feedbackKernel] using
-    (h.hasCondDistrib_feedback n).setLIntegral_comp_eq_setLIntegral_lintegral ht hg
-
-variable [NormedAddCommGroup 𝓨]
-
-/-- The feedback of round `n` is integrable when the expected conditional absolute mean
-`𝔼[∫ ‖y‖ d(env.feedbackKernel O A Y n · (A n ·))]` is finite. -/
-lemma IsAlgEnvSeq.integrable_feedback [SFinite P] [OpensMeasurableSpace 𝓨]
-    [SecondCountableTopology 𝓨]
-    (h : IsAlgEnvSeq O A Y alg env P) {n : ℕ}
-    (hY : ∫⁻ ω, ∫⁻ y, ‖y‖ₑ ∂(env.feedbackKernel O A Y n ω (A n ω)) ∂P ≠ ∞) :
-    Integrable (Y n) P := by
-  refine ⟨(h.measurable_feedback n).aestronglyMeasurable, ?_⟩
-  have h_eq := h.setLIntegral_comp_feedback (n := n) MeasurableSet.univ measurable_enorm
-  simp only [Measure.restrict_univ] at h_eq
-  rw [hasFiniteIntegral_iff_enorm, h_eq]
-  exact hY.lt_top
-
-variable [NormedSpace ℝ 𝓨]
-
-/-- On an event `s` of `h.filtrationAction n` (determined by the history before round `n`, the
-observation of round `n` and the action of round `n`), the expectation of the feedback `Y_n` is
-that of its conditional mean `env.means O A Y (A n) n`. -/
-lemma IsAlgEnvSeq.setIntegral_feedback [IsFiniteMeasure P] [BorelSpace 𝓨]
-    [SecondCountableTopology 𝓨] [CompleteSpace 𝓨] (h : IsAlgEnvSeq O A Y alg env P) {n : ℕ}
-    (hY : Integrable (Y n) P) {s : Set Ω} (hs : MeasurableSet[h.filtrationAction n] s) :
-    ∫ ω in s, Y n ω ∂P = ∫ ω in s, env.means O A Y (A n ω) n ω ∂P := by
-  rw [← setIntegral_condExp (h.filtrationAction.le n) hY hs]
-  exact setIntegral_congr_ae (h.filtrationAction.le n _ hs) <| by
-    filter_upwards [h.condExp_feedback n hY] with ω hω _ using hω
+variable [NormedAddCommGroup 𝓨] [NormedSpace ℝ 𝓨]
 
 /-- **Wald's identity for the feedback.** For an algorithm run against any environment, a stopping
 time `τ` of `h.filtrationAction` (the event `{t < τ}` is known when the action of round `t` is
@@ -187,12 +142,7 @@ theorem IsAlgEnvSeq.integral_sum_feedback_eq_integral_sum_means [IsFiniteMeasure
   set S : ℕ → Set Ω := fun t ↦ {ω | (t : ℕ∞) < τ ω}
   have hS_F (t : ℕ) : MeasurableSet[h.filtrationAction t] (S t) := hτ.measurableSet_gt t
   have hS (t : ℕ) : MeasurableSet (S t) := h.filtrationAction.le t _ (hS_F t)
-  -- `hτ.measurable'` is measurability for Mathlib's Borel σ-algebra on `WithTop ℕ`, the
-  -- codomain of stopping times, whereas `ℕ∞` carries the discrete σ-algebra `⊤`: the two
-  -- instances live on the same type but are not syntactically equal, so measurability for `ℕ∞`
-  -- is rebuilt from the measurable preimages of the (Borel-measurable) singletons.
-  have hτ_meas : Measurable τ :=
-    measurable_to_countable' fun x ↦ hτ.measurable' (measurableSet_singleton (α := WithTop ℕ) x)
+  have hτ_meas : Measurable τ := hτ.measurable_enat
   have hτ_fin : ∀ᵐ ω ∂P, τ ω ≠ ⊤ := by
     filter_upwards [ae_lt_top (Measurable.of_discrete.comp hτ_meas) hτ_int] with ω hω
     simpa using hω.ne
@@ -280,10 +230,7 @@ theorem IsAlgEnvSeq.integral_sum_feedback_eq_sum_integral_pullCount_mul
     ∫ ω, ∑ t ∈ range (τ ω).toNat, Y t ω ∂P =
       ∑ a, (∫ ω, (pullCount A a (τ ω).toNat ω : ℝ) ∂P) * ∫ y, y ∂(ν a) := by
   have hν_top : ∑ a, ∫⁻ y, ‖y‖ₑ ∂(ν a) ≠ ∞ := ENNReal.sum_ne_top.2 fun a _ ↦ (hν a).2.ne
-  -- measurability of `τ` for the discrete σ-algebra of `ℕ∞`, as in
-  -- `integral_sum_feedback_eq_integral_sum_means`
-  have hτ_meas : Measurable τ :=
-    measurable_to_countable' fun x ↦ hτ.measurable' (measurableSet_singleton (α := WithTop ℕ) x)
+  have hτ_meas : Measurable τ := hτ.measurable_enat
   have hN_int (a : 𝓐) : Integrable (fun ω ↦ (pullCount A a (τ ω).toNat ω : ℝ)) P := by
     refine ⟨(Measurable.of_discrete.comp (measurable_uncurry_pullCount_comp h.measurable_action
       measurable_const (Measurable.of_discrete.comp hτ_meas))).aestronglyMeasurable, ?_⟩
