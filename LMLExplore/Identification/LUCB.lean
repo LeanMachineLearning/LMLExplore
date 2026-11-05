@@ -53,6 +53,8 @@ In the namespace `LMLExplore.Identification`:
   has a lower bound above its mean.
 * `measureReal_histOutputMeasure_lucb_le`: for every sampling rule and all confidence bounds, the
   probability that LUCB stops with a wrong answer is at most the probability of these deviations.
+* `measureReal_histOutputMeasure_lucb_le_card_mul`: the same bound, `K S`, when every arm violates
+  each of its confidence bounds at some round with probability at most `S`.
 * `measureReal_histOutputMeasure_lucbOfRate_le_of_hasSubgaussianMGF`: [KTAS12, Theorem 1] for
   σ²-sub-Gaussian arms, and `measureReal_histOutputMeasure_lucbOfRate_le_of_mem_Icc`, its form for
   rewards in `[0, 1]`.
@@ -235,6 +237,46 @@ theorem measureReal_histOutputMeasure_lucb_le {env : Environment Unit α ℝ}
   obtain ⟨a, ha, h⟩ := LUCB.exists_ucb_lt_or_lt_lcb_of_stopRule hε hm ht ht' hn_stop hn_wrong
   exact ⟨n, a, by rwa [pullCount_eq_pullCount' (O := O) (R' := Y)], h⟩
 
+/-- **Error probability of LUCB from per-arm deviation bounds**, for every sampling rule and all
+confidence bounds. Let `ε ≥ 0` and `m ≤ K`. If, along an algorithm-environment sequence of the
+sampling rule, for every arm `a`, the probability that at some round `a` has been pulled and its
+upper bound is less than `μ a` is at most `S`, and the same holds for its lower bound exceeding
+`μ a`, then LUCB stops with an answer that is not a correct answer of top-`m` identification with
+tolerance `ε` for `μ` with probability at most `K S`. -/
+theorem measureReal_histOutputMeasure_lucb_le_card_mul {env : Environment Unit α ℝ}
+    (hseq : IsAlgEnvSeq O X Y alg env P) (hε : 0 ≤ ε) (hm : m ≤ Fintype.card α) {S : ℝ}
+    (h_ucb : ∀ a, P.real {ω | ∃ n, pullCount X a n ω ≠ 0 ∧
+      ucb n (history O X Y n ω) a < μ a} ≤ S)
+    (h_lcb : ∀ a, P.real {ω | ∃ n, pullCount X a n ω ≠ 0 ∧
+      μ a < lcb n (history O X Y n ω) a} ≤ S) :
+    (histOutputMeasure (lucb alg lcb ucb hlcb hucb ε m) env).real
+        {p | p.1 ∈ (lucb alg lcb ucb hlcb hucb ε m).stopSet ∧
+          p.2 ∉ (epsTopMTask ν m ε).correct μ} ≤ Fintype.card α * S := by
+  -- A set `t` of `m` arms with the largest means.
+  obtain ⟨t, -, ht, ht'⟩ := exists_subset_card_eq_forall_le μ (s := univ) (j := m)
+    (by rwa [card_univ])
+  have ht'' : ∀ a ∈ t, ∀ c ∉ t, μ c ≤ μ a := fun a ha c hc ↦ ht' a ha c (by simp [hc])
+  -- The deviation event of the arm `a`: underestimation if `a ∈ t`, overestimation otherwise.
+  set E : α → Set Ω := fun a ↦ {ω | ∃ n, pullCount X a n ω ≠ 0 ∧
+    (a ∈ t ∧ ucb n (history O X Y n ω) a < μ a ∨ a ∉ t ∧ μ a < lcb n (history O X Y n ω) a)}
+  have hE (a : α) : P.real (E a) ≤ S := by
+    by_cases ha : a ∈ t
+    · refine le_trans (measureReal_mono fun ω hω ↦ ?_) (h_ucb a)
+      obtain ⟨n, hn, h⟩ := hω
+      exact ⟨n, hn, (h.resolve_right fun h ↦ h.1 ha).2⟩
+    · refine le_trans (measureReal_mono fun ω hω ↦ ?_) (h_lcb a)
+      obtain ⟨n, hn, h⟩ := hω
+      exact ⟨n, hn, (h.resolve_left fun h ↦ ha h.1).2⟩
+  refine (measureReal_histOutputMeasure_lucb_le hseq hε hm ht ht'').trans ?_
+  calc P.real {ω | ∃ n a, pullCount X a n ω ≠ 0 ∧
+        (a ∈ t ∧ ucb n (history O X Y n ω) a < μ a ∨
+          a ∉ t ∧ μ a < lcb n (history O X Y n ω) a)}
+  _ ≤ P.real (⋃ a ∈ (univ : Finset α), E a) := measureReal_mono
+      (fun ω ⟨n, a, hn, h⟩ ↦ Set.mem_biUnion (Finset.mem_univ a) ⟨n, hn, h⟩) (measure_ne_top _ _)
+  _ ≤ ∑ a, P.real (E a) := measureReal_biUnion_finset_le _ _
+  _ ≤ ∑ _a : α, S := sum_le_sum fun a _ ↦ hE a
+  _ = Fintype.card α * S := by rw [sum_const, card_univ, nsmul_eq_mul]
+
 /-! ### LUCB for sub-Gaussian arms -/
 
 section Rate
@@ -270,43 +312,24 @@ theorem measureReal_histOutputMeasure_lucbOfRate_le_of_hasSubgaussianMGF
         {p | p.1 ∈ (lucbOfRate alg β ε m).stopSet ∧
           p.2 ∉ (epsTopMTask ν m ε).correct fun a ↦ (ν₀ a)[id]} ≤ δ := by
   rw [lucbOfRate_def]
-  set μ : α → ℝ := fun a ↦ (ν₀ a)[id]
-  set S := ∑' n, ∑ u ∈ Icc 1 n, exp (-(u * β u n ^ 2 / (2 * σ2)))
   have hseq := IT.isAlgEnvSeq_trajMeasure alg (Environment.bandit ν₀)
-  set P := trajMeasure alg (Environment.bandit ν₀)
-  have hP : IsProbabilityMeasure P :=
+  have hP : IsProbabilityMeasure (trajMeasure alg (Environment.bandit ν₀)) :=
     inferInstanceAs (IsProbabilityMeasure (trajMeasure alg (Environment.bandit ν₀)))
-  -- A set `t` of `m` arms with the largest means.
-  obtain ⟨t, -, ht, ht'⟩ := exists_subset_card_eq_forall_le μ (s := univ) (j := m)
-    (by rwa [card_univ])
-  have ht'' : ∀ a ∈ t, ∀ c ∉ t, μ c ≤ μ a := fun a ha c hc ↦ ht' a ha c (by simp [hc])
-  -- The deviation event of the arm `a`: underestimation if `a ∈ t`, overestimation otherwise.
-  set E : α → Set (ℕ → Round Unit α ℝ) := fun a ↦ {ω | ∃ n, pullCount IT.action a n ω ≠ 0 ∧
-    (a ∈ t ∧ empMean IT.action IT.feedback a n ω + β (pullCount IT.action a n ω) n < μ a ∨
-      a ∉ t ∧ μ a < empMean IT.action IT.feedback a n ω - β (pullCount IT.action a n ω) n)}
-  have hE (a : α) : P.real (E a) ≤ S := by
-    by_cases ha : a ∈ t
-    · refine le_trans ?_ (measureReal_exists_empMean_add_lt_le_tsum hseq a (hν a) hβ hsum)
-      exact measureReal_mono fun ω ⟨n, hn, h⟩ ↦ ⟨n, hn, (h.resolve_right fun h ↦ h.1 ha).2⟩
-    · refine le_trans ?_ (measureReal_exists_lt_empMean_sub_le_tsum hseq a (hν a) hβ hsum)
-      exact measureReal_mono fun ω ⟨n, hn, h⟩ ↦ ⟨n, hn, (h.resolve_left fun h ↦ ha h.1).2⟩
-  refine (measureReal_histOutputMeasure_lucb_le hseq hε hm ht ht'').trans ?_
-  calc P.real {ω | ∃ n a, pullCount IT.action a n ω ≠ 0 ∧
-        (a ∈ t ∧ upperBound β n (history IT.obs IT.action IT.feedback n ω) a < μ a ∨
-          a ∉ t ∧ μ a < lowerBound β n (history IT.obs IT.action IT.feedback n ω) a)}
-  _ ≤ P.real (⋃ a ∈ (univ : Finset α), E a) := by
-    refine measureReal_mono
-      (fun ω ⟨n, a, hn, h⟩ ↦ Set.mem_biUnion (Finset.mem_univ a) ⟨n, hn, ?_⟩) (measure_ne_top _ _)
-    simpa only [lowerBound_def, upperBound_def, ← empMean_eq_empMean',
-      ← pullCount_eq_pullCount'] using h
-  _ ≤ ∑ a, P.real (E a) := measureReal_biUnion_finset_le _ _
-  _ ≤ ∑ _a : α, S := sum_le_sum fun a _ ↦ hE a
-  _ ≤ δ := by
-    have hK : (0 : ℝ) < Fintype.card α := Nat.cast_pos.2 Fintype.card_pos
-    rw [sum_const, card_univ, nsmul_eq_mul]
-    calc (Fintype.card α : ℝ) * S
-    _ ≤ Fintype.card α * (δ / Fintype.card α) := by gcongr
-    _ = δ := mul_div_cancel₀ δ hK.ne'
+  refine (measureReal_histOutputMeasure_lucb_le_card_mul hseq hε hm
+    (S := ∑' n, ∑ u ∈ Icc 1 n, exp (-(u * β u n ^ 2 / (2 * σ2)))) (fun a ↦ ?_)
+    (fun a ↦ ?_)).trans ?_
+  · refine le_trans (measureReal_mono fun ω hω ↦ ?_)
+      (measureReal_exists_empMean_add_lt_le_tsum hseq a (hν a) hβ hsum)
+    obtain ⟨n, hn, h⟩ := hω
+    rw [upperBound_def, ← empMean_eq_empMean', ← pullCount_eq_pullCount'] at h
+    exact ⟨n, hn, h⟩
+  · refine le_trans (measureReal_mono fun ω hω ↦ ?_)
+      (measureReal_exists_lt_empMean_sub_le_tsum hseq a (hν a) hβ hsum)
+    obtain ⟨n, hn, h⟩ := hω
+    rw [lowerBound_def, ← empMean_eq_empMean', ← pullCount_eq_pullCount'] at h
+    exact ⟨n, hn, h⟩
+  · have hK : (0 : ℝ) < Fintype.card α := Nat.cast_pos.2 Fintype.card_pos
+    rwa [← le_div_iff₀' hK]
 
 /-- **Error probability of LUCB for rewards in `[0, 1]`** [KTAS12, Theorem 1], for every sampling
 rule. Let the rewards of the arms of `ν₀` be in `[0, 1]`, with means `μ`, let `ε ≥ 0` and `m ≤ K`,
