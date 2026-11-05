@@ -26,6 +26,10 @@ AM-GM inequality.
 * `ContinuousLinearMap.IsPositive.ringInverse`: the inverse `Ring.inverse V` of a positive
   continuous linear operator `V` is positive. In particular `0 ≤ ⟪v, V⁻¹ v⟫` for every `v`, by
   `IsPositive.inner_nonneg_right`.
+* `ContinuousLinearMap.isPositive_smul_one`, `ContinuousLinearMap.isUnit_smul_one`,
+  `ContinuousLinearMap.det_smul_one`, `ContinuousLinearMap.trace_smul_one`: the scalar operator
+  `c • 1` is positive for `c ≥ 0` and invertible for `c ≠ 0`, with `det (c • 1) = c ^ d` and
+  `trace (c • 1) = c d`.
 * `ContinuousLinearMap.IsPositive.one_add_inner_ringInverse_pos`: for a positive operator `V` on
   a real inner product space, `0 < 1 + ⟪x, V⁻¹ x⟫`.
 * `ContinuousLinearMap.IsPositive.sq_inner_apply_le`,
@@ -65,6 +69,25 @@ theorem IsPositive.ringInverse {V : E →L[𝕜] E} (hV : V.IsPositive) :
     rwa [ContinuousLinearMap.apply_ringInverse_apply hu] at this
   · rw [Ring.inverse_non_unit V hu]
     exact isPositive_zero
+
+open scoped ComplexOrder in
+/-- The scalar operator `c • 1` is positive for `c ≥ 0`. -/
+theorem isPositive_smul_one {c : 𝕜} (hc : 0 ≤ c) : (c • 1 : E →L[𝕜] E).IsPositive :=
+  isPositive_one.smul_of_nonneg hc
+
+/-- The scalar operator `c • 1` is invertible for `c ≠ 0`. -/
+theorem isUnit_smul_one {c : 𝕜} (hc : c ≠ 0) : IsUnit (c • 1 : E →L[𝕜] E) :=
+  isUnit_one.smul (Units.mk0 c hc)
+
+/-- The determinant of the scalar operator `c • 1` is `c ^ d`. -/
+theorem det_smul_one (c : 𝕜) :
+    LinearMap.det ((c • 1 : E →L[𝕜] E) : E →ₗ[𝕜] E) = c ^ Module.finrank 𝕜 E := by
+  simp [LinearMap.det_smul]
+
+/-- The trace of the scalar operator `c • 1` is `c d`. -/
+theorem trace_smul_one [FiniteDimensional 𝕜 E] (c : 𝕜) :
+    LinearMap.trace 𝕜 E ((c • 1 : E →L[𝕜] E) : E →ₗ[𝕜] E) = c * Module.finrank 𝕜 E := by
+  simp
 
 /-- For a positive operator `V` on a real inner product space, `0 < 1 + ⟪x, V⁻¹ x⟫`. -/
 theorem IsPositive.one_add_inner_ringInverse_pos {F : Type*} [NormedAddCommGroup F]

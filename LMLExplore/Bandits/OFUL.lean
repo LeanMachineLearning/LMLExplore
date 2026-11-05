@@ -205,9 +205,10 @@ theorem sum_iSup_inner_sub_inner_le_sqrt_log_det (hlam : 0 < lam) (hG : G ≤ 2 
   have hg (t : ℕ) (ht : t ∈ range n) := sq_iSup_inner_sub_inner_le hlam hG
     (hrR t (mem_range.1 ht)) (hgap t (mem_range.1 ht)) (hθ t (mem_range.1 ht))
     (hopt t (mem_range.1 ht))
-  have hpot := sum_min_one_inner_inverse_designOp_le_log_det (isPositive_smul_one hlam.le)
-    (isUnit_smul_one hlam.ne') (fun s ↦ f s (b s)) n
-  rw [det_smul_one] at hpot
+  have hpot := sum_min_one_inner_inverse_designOp_le_log_det
+    (ContinuousLinearMap.isPositive_smul_one hlam.le)
+    (ContinuousLinearMap.isUnit_smul_one hlam.ne') (fun s ↦ f s (b s)) n
+  rw [ContinuousLinearMap.det_smul_one] at hpot
   -- Cauchy–Schwarz, the bound on the squared instantaneous regrets, and the elliptical potential
   have hsq : (∑ t ∈ range n, ((⨆ a, ⟪θ, f t a⟫_ℝ) - ⟪θ, f t (b t)⟫_ℝ)) ^ 2 ≤
       8 * n * R ^ 2 * log (LinearMap.det (designOp (lam • 1) (fun s ↦ f s (b s)) n : E →ₗ[ℝ] E) /

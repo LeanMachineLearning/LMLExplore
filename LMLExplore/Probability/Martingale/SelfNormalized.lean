@@ -104,9 +104,8 @@ theorem supermartingale_exp_inner_sum_smul_sub_designOp [IsFiniteMeasure P]
       exp (-(σ2 * lam * ‖θ‖ ^ 2 / 2)) • fun t ω ↦ exp (⟪θ, ∑ s ∈ range t, η s ω • x s ω⟫_ℝ -
         σ2 * (∑ s ∈ range t, ⟪θ, x s ω⟫_ℝ ^ 2) / 2) := by
     funext t ω
-    simp only [Pi.smul_apply, smul_eq_mul, ← exp_add, inner_designOp_apply_self,
-      real_inner_comm θ, smul_apply, one_apply_eq_self, real_inner_smul_right,
-      real_inner_self_eq_norm_sq]
+    simp only [Pi.smul_apply, smul_eq_mul, ← exp_add, inner_designOp_smul_one_apply_self,
+      real_inner_comm θ]
     congr 1
     ring
   rw [heq]
@@ -142,8 +141,9 @@ theorem supermartingale_integral_exp_inner_sum_smul_sub_designOp [IsFiniteMeasur
     simp only [inner_designOp_apply_self]
     fun_prop
   · -- integrability of the initial expectations, a Gaussian integral
-    refine ((integrable_exp_inner_sub_inner_apply (isPositive_smul_one hlam.le)
-      (isUnit_smul_one hlam.ne') hσpos 0).const_mul (P.real Set.univ)).congr
+    refine ((integrable_exp_inner_sub_inner_apply
+      (ContinuousLinearMap.isPositive_smul_one hlam.le)
+      (ContinuousLinearMap.isUnit_smul_one hlam.ne') hσpos 0).const_mul (P.real Set.univ)).congr
       (ae_of_all _ fun θ ↦ ?_)
     simp
 
@@ -175,7 +175,7 @@ theorem measure_exists_inner_ringInverse_designOp_ge_le [IsProbabilityMeasure P]
       (isUnit_designOp_smul_one hlam _ t) hσpos _
   have hM0 (ω : Ω) : ∫ θ : E, exp (⟪θ, ∑ s ∈ range 0, η s ω • x s ω⟫_ℝ -
       σ2 * ⟪θ, designOp (lam • 1) (fun s ↦ x s ω) 0 θ⟫_ℝ / 2) = √((2 * π / σ2) ^ d / lam ^ d) := by
-    rw [hclosed, designOp_zero, det_smul_one, ← hd]
+    rw [hclosed, designOp_zero, ContinuousLinearMap.det_smul_one, ← hd]
     simp
   have hK : 0 < √((2 * π / σ2) ^ d / lam ^ d) := Real.sqrt_pos.2 (div_pos hKd hΛ)
   have hville := (supermartingale_integral_exp_inner_sum_smul_sub_designOp hx hη hsub hσ

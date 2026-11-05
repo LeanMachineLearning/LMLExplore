@@ -23,9 +23,10 @@ is nonnegative for positive `V` by `ContinuousLinearMap.IsPositive.ringInverse`.
 
 A positive definite regularizer is a positive invertible operator `V₀`
 (`V₀.IsPositive` and `IsUnit V₀`); in finite dimension these are the operators with positive
-eigenvalues. The ridge regularizer `λ • 1` is one for `λ > 0` (`LMLExplore.isPositive_smul_one`,
-`LMLExplore.isUnit_smul_one`), with `det (λ • 1) = λ ^ d` (`LMLExplore.det_smul_one`) and
-`trace (λ • 1) = λ d` (`LMLExplore.trace_smul_one`).
+eigenvalues. The ridge regularizer `λ • 1` is one for `λ > 0`
+(`ContinuousLinearMap.isPositive_smul_one`, `ContinuousLinearMap.isUnit_smul_one`), with
+`det (λ • 1) = λ ^ d` (`ContinuousLinearMap.det_smul_one`) and `trace (λ • 1) = λ d`
+(`ContinuousLinearMap.trace_smul_one`).
 
 ## Main definitions
 
@@ -33,6 +34,8 @@ eigenvalues. The ridge regularizer `λ • 1` is one for `λ > 0` (`LMLExplore.i
 
 ## Main statements
 
+* `LMLExplore.designOp_smul_one_apply`, `LMLExplore.inner_designOp_smul_one_apply_self`:
+  `V_t(λ) v = λ • v + ∑_{s < t} ⟪x s, v⟫ • x s` and `⟪v, V_t(λ) v⟫ = λ ‖v‖² + ∑_{s < t} ⟪x s, v⟫²`.
 * `LMLExplore.designOp_congr`: `V_t(V₀)` only depends on the first `t` vectors.
 * `LMLExplore.toLinearMap_designOp`: `V_t(V₀) = V₀ + frameOperator ℝ (fun s : Fin t ↦ x s)`.
 * `LMLExplore.isPositive_designOp`: `V_t(V₀)` is positive for a positive `V₀`;
@@ -112,6 +115,19 @@ theorem inner_designOp_apply_self (V₀ : E →L[ℝ] E) (x : ℕ → E) (t : �
   refine sum_congr rfl fun s _ ↦ ?_
   rw [inner_smul_right, real_inner_comm (x s) v, sq]
 
+/-- Evaluation of the design operator with the ridge regularizer:
+`V_t(λ) v = λ • v + ∑_{s < t} ⟪x s, v⟫ • x s`. -/
+theorem designOp_smul_one_apply (lam : ℝ) (x : ℕ → E) (t : ℕ) (v : E) :
+    designOp (lam • 1) x t v = lam • v + ∑ s ∈ range t, ⟪x s, v⟫_ℝ • x s := by
+  rw [designOp_apply, smul_apply, one_apply_eq_self]
+
+/-- The quadratic form of the design operator with the ridge regularizer:
+`⟪v, V_t(λ) v⟫ = λ ‖v‖² + ∑_{s < t} ⟪x s, v⟫²`. -/
+theorem inner_designOp_smul_one_apply_self (lam : ℝ) (x : ℕ → E) (t : ℕ) (v : E) :
+    ⟪v, designOp (lam • 1) x t v⟫_ℝ = lam * ‖v‖ ^ 2 + ∑ s ∈ range t, ⟪x s, v⟫_ℝ ^ 2 := by
+  rw [inner_designOp_apply_self, smul_apply, one_apply_eq_self, real_inner_smul_right,
+    real_inner_self_eq_norm_sq]
+
 /-- The design operator is `V₀` plus Tau Ceti's frame operator of `(x s)_{s < t}`. -/
 theorem toLinearMap_designOp (V₀ : E →L[ℝ] E) (x : ℕ → E) (t : ℕ) :
     (designOp V₀ x t : E →ₗ[ℝ] E) =
@@ -125,19 +141,6 @@ theorem isPositive_designOp (hV₀ : V₀.IsPositive) (x : ℕ → E) (t : ℕ) 
     (designOp V₀ x t).IsPositive :=
   hV₀.add (isPositive_sum _ fun _ _ ↦ isPositive_rankOne_self _)
 
-/-- The ridge regularizer `λ • 1` is positive for `λ ≥ 0`. -/
-theorem isPositive_smul_one (hlam : 0 ≤ lam) : (lam • 1 : E →L[ℝ] E).IsPositive :=
-  isPositive_one.smul_of_nonneg hlam
-
-/-- The ridge regularizer `λ • 1` is invertible for `λ ≠ 0`. -/
-theorem isUnit_smul_one (hlam : lam ≠ 0) : IsUnit (lam • 1 : E →L[ℝ] E) :=
-  isUnit_one.smul (Units.mk0 lam hlam)
-
-/-- The determinant of the ridge regularizer: `det (λ • 1) = λ ^ d`. -/
-theorem det_smul_one (lam : ℝ) :
-    LinearMap.det ((lam • 1 : E →L[ℝ] E) : E →ₗ[ℝ] E) = lam ^ finrank ℝ E := by
-  simp [LinearMap.det_smul]
-
 /-- The design operator `V_t(λ)` is positive for `λ ≥ 0`. -/
 theorem isPositive_designOp_smul_one (hlam : 0 ≤ lam) (x : ℕ → E) (t : ℕ) :
     (designOp (lam • 1) x t).IsPositive :=
@@ -146,8 +149,7 @@ theorem isPositive_designOp_smul_one (hlam : 0 ≤ lam) (x : ℕ → E) (t : ℕ
 /-- The coercivity bound `λ ‖v‖² ≤ ⟪v, V_t(λ) v⟫`, valid for every `λ`. -/
 theorem mul_norm_sq_le_inner_designOp_apply (lam : ℝ) (x : ℕ → E) (t : ℕ) (v : E) :
     lam * ‖v‖ ^ 2 ≤ ⟪v, designOp (lam • 1) x t v⟫_ℝ := by
-  rw [inner_designOp_apply_self, smul_apply, one_apply_eq_self, real_inner_smul_right,
-    real_inner_self_eq_norm_sq]
+  rw [inner_designOp_smul_one_apply_self]
   exact le_add_of_nonneg_right (sum_nonneg fun _ _ ↦ sq_nonneg _)
 
 /-- For a positive definite regularizer `V₀` (positive and invertible), the design operator is
@@ -234,11 +236,6 @@ theorem trace_designOp (V₀ : E →L[ℝ] E) (x : ℕ → E) (t : ℕ) :
     LinearMap.trace ℝ E (designOp V₀ x t : E →ₗ[ℝ] E) =
       LinearMap.trace ℝ E (V₀ : E →ₗ[ℝ] E) + ∑ s ∈ range t, ‖x s‖ ^ 2 := by
   simp [designOp, map_sum, InnerProductSpace.trace_rankOne]
-
-/-- The trace of the ridge regularizer: `trace (λ • 1) = λ d`. -/
-theorem trace_smul_one (lam : ℝ) :
-    LinearMap.trace ℝ E ((lam • 1 : E →L[ℝ] E) : E →ₗ[ℝ] E) = lam * finrank ℝ E := by
-  simp
 
 /-- For a positive regularizer `V₀`, `det V_t(V₀) ≤ ((trace V₀ + ∑_{s < t} ‖x s‖²) / d) ^ d`. -/
 theorem det_designOp_le (hV₀ : V₀.IsPositive) (x : ℕ → E) (t : ℕ) :

@@ -92,9 +92,8 @@ theorem ridgeEstimate_congr {x x' : ℕ → E} {y y' : ℕ → ℝ} {t : ℕ} (h
 theorem ridgeLoss_eq (lam : ℝ) (x : ℕ → E) (y : ℕ → ℝ) (t : ℕ) (θ : E) :
     ridgeLoss lam x y t θ = ∑ s ∈ range t, y s ^ 2 - 2 * ⟪θ, ∑ s ∈ range t, y s • x s⟫_ℝ +
       ⟪θ, designOp (lam • 1) x t θ⟫_ℝ := by
-  rw [ridgeLoss, inner_designOp_apply_self, inner_sum]
-  simp only [inner_smul_right, smul_apply, one_apply_eq_self,
-    real_inner_self_eq_norm_sq]
+  rw [ridgeLoss, inner_designOp_smul_one_apply_self, inner_sum]
+  simp only [inner_smul_right]
   have h : ∑ s ∈ range t, (y s - ⟪θ, x s⟫_ℝ) ^ 2 = ∑ s ∈ range t, y s ^ 2 -
       2 * ∑ s ∈ range t, y s * ⟪θ, x s⟫_ℝ + ∑ s ∈ range t, ⟪x s, θ⟫_ℝ ^ 2 := by
     rw [mul_sum, ← sum_sub_distrib, ← sum_add_distrib]
@@ -150,8 +149,7 @@ theorem ridgeEstimate_sub_eq (hlam : 0 < lam) (x : ℕ → E) {y η : ℕ → �
       Ring.inverse (designOp (lam • 1) x t) (∑ s ∈ range t, η s • x s - lam • θ) := by
   have hb : ∑ s ∈ range t, y s • x s
       = designOp (lam • 1) x t θ + (∑ s ∈ range t, η s • x s - lam • θ) := by
-    simp only [designOp_apply, hy, add_smul, sum_add_distrib, real_inner_comm θ,
-      smul_apply, one_apply_eq_self]
+    simp only [designOp_smul_one_apply, hy, add_smul, sum_add_distrib, real_inner_comm θ]
     abel
   rw [ridgeEstimate, hb, map_add,
     ContinuousLinearMap.ringInverse_apply_apply (isUnit_designOp_smul_one hlam x t),
