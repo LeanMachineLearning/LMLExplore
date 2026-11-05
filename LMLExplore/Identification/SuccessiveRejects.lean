@@ -143,6 +143,24 @@ lemma le_of_eliminated_mem {S : Finset α} {x : α → ℝ} (h : eliminated S x 
     (hb : b ∈ S) : x (eliminated S x) ≤ x b := by
   simpa [h, hb] using ite_eliminated_le S x b
 
+/-- An arm of `S` removed by the elimination of `eliminated S x` has a value at most that of every
+arm of `S`. -/
+lemma le_of_mem_of_notMem_erase_eliminated {S : Finset α} {x : α → ℝ} {a b : α} (ha : a ∈ S)
+    (ha' : a ∉ S.erase (eliminated S x)) (hb : b ∈ S) : x a ≤ x b := by
+  rw [mem_erase, not_and_or, not_not] at ha'
+  obtain rfl := ha'.resolve_right (not_not.2 ha)
+  exact le_of_eliminated_mem ha hb
+
+/-- The arm eliminated from `S` only depends on the values of the arms of `S`. -/
+lemma eliminated_congr {S : Finset α} {x y : α → ℝ} (h : ∀ a ∈ S, x a = y a) :
+    eliminated S x = eliminated S y := by
+  rw [eliminated_def, eliminated_def]
+  congr 1
+  funext a
+  split_ifs with ha
+  · rw [h a ha]
+  · rfl
+
 /-- The arms that survive the first `k` phases of successive rejects, when `g j` gives the
 statistics of the arms at the end of phase `j`: phase `k + 1` eliminates the surviving arm with
 the smallest statistic `g (k + 1)`. -/
@@ -181,9 +199,8 @@ the survivors of `k` phases. -/
 lemma le_of_mem_survivors_of_notMem_survivors_succ {g : ℕ → α → ℝ} {k : ℕ} {a b : α}
     (ha : a ∈ survivors g k) (ha' : a ∉ survivors g (k + 1)) (hb : b ∈ survivors g k) :
     g (k + 1) a ≤ g (k + 1) b := by
-  rw [survivors_succ, mem_erase, not_and_or, not_not] at ha'
-  obtain rfl := ha'.resolve_right (not_not.2 ha)
-  exact le_of_eliminated_mem ha hb
+  rw [survivors_succ] at ha'
+  exact le_of_mem_of_notMem_erase_eliminated ha ha' hb
 
 /-- The arm played by successive rejects with numbers of pulls `n` at round `t`, when `g j` gives
 the statistics of the arms at the end of phase `j`: after `k` completed phases, the round robin over
@@ -265,16 +282,21 @@ lemma measurable_histSum (m t : ℕ) (a : α) :
     exact (measurable_snd.fst.comp (measurable_pi_apply s)) (measurableSet_singleton a)
   · exact measurable_snd.snd.comp (measurable_pi_apply s)
 
+omit [MeasurableSingletonClass α] in
+/-- The arm eliminated from `S` by the values `x` is a measurable function of `(S, x)`. -/
+lemma measurable_eliminated : Measurable fun p : Finset α × (α → ℝ) ↦ eliminated p.1 p.2 := by
+  simp_rw [eliminated_def]
+  refine (measurable_argmin (ι := α) (α := EReal)).comp (Measurable.of_eval fun a ↦ ?_)
+  refine Measurable.ite ((measurableSet_mem_finset a).preimage measurable_fst) ?_ measurable_const
+  exact measurable_coe_real_ereal.comp ((measurable_pi_apply a).comp measurable_snd)
+
 lemma measurable_survivors (k : ℕ) : Measurable fun g : ℕ → α → ℝ ↦ survivors g k := by
   induction k with
   | zero => exact measurable_const
   | succ k ih =>
-    have he : Measurable fun g : ℕ → α → ℝ ↦ eliminated (survivors g k) (g (k + 1)) := by
-      refine (measurable_argmin (ι := α) (α := EReal)).comp (Measurable.of_eval fun a ↦ ?_)
-      refine Measurable.ite ((measurableSet_mem_finset a).preimage ih) ?_ measurable_const
-      exact measurable_coe_real_ereal.comp ((measurable_pi_apply a).comp (measurable_pi_apply _))
     simp_rw [survivors_succ, erase_eq]
-    exact ih.sdiff_finset ((measurable_of_countable fun a : α ↦ ({a} : Finset α)).comp he)
+    exact ih.sdiff_finset ((measurable_of_countable fun a : α ↦ ({a} : Finset α)).comp
+      (measurable_eliminated.comp (ih.prodMk (measurable_pi_apply _))))
 
 lemma measurable_survivors_histSum (m : ℕ) (n : ℕ → ℕ) (k : ℕ) :
     Measurable fun h : Hist Unit α ℝ m ↦

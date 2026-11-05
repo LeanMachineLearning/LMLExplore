@@ -27,9 +27,10 @@ is too low, or if at least half of the arms of the phase have an empirical mean 
 probability at most three times the probability of a deviation by `ε_j / 2` of the empirical mean
 of one arm, that is `3 exp(-t j ε_j² / (8 σ2))` for `σ2`-sub-Gaussian arms. The best surviving mean
 then loses at most `∑ j, ε_j` over the phases, except with probability at most
-`∑ j, 3 exp(-t j ε_j² / (8 σ2))`. With the tolerances `ε_j = (ε / 4) (3 / 4) ^ j` and the numbers
-of pulls `t j = ⌈8 σ2 ε_j⁻² log (3 · 2 ^ (j + 1) / δ)⌉` of [EMM02], the output is `ε`-good with
-probability at least `1 - δ`: median elimination is `(ε, δ)`-PAC.
+`∑ j, 3 exp(-t j ε_j² / (8 σ2))`. With the tolerances `ε_j = (ε / 4) (3 / 4) ^ j` and the
+confidences `δ_j = δ / 2 ^ (j + 1)` of [EMM02], and the numbers of pulls
+`t j = ⌈8 σ2 ε_j⁻² log (3 / δ_j)⌉` for which this sub-Gaussian bound is at most `δ_j`, the output is
+`ε`-good with probability at least `1 - δ`: median elimination is `(ε, δ)`-PAC.
 
 ## Main definitions
 
@@ -43,7 +44,8 @@ In the namespace `LMLExplore.Identification`:
   `t`, which pulls the surviving arms in a round robin.
 * `medianElimination t`: median elimination with numbers of pulls `t`, as a fixed-budget
   identification algorithm.
-* `MedianElimination.pullSchedule σ2 ε δ`: the numbers of pulls of [EMM02].
+* `MedianElimination.pullSchedule σ2 ε δ`: the numbers of pulls for `σ2`-sub-Gaussian arms and the
+  tolerances and confidences of [EMM02].
 
 ## Main statements
 
@@ -58,7 +60,8 @@ In the namespace `LMLExplore.Identification`:
   more than `∑ j, ε j` below the largest mean with probability at most
   `∑ j, 3 exp(-t j (ε j)² / (8 σ2))`, for any numbers of pulls and tolerances.
 * `MedianElimination.measureReal_exists_output_add_lt_le_of_pullSchedule`: with the numbers of
-  pulls of [EMM02], the output is not `ε`-good with probability at most `δ` [EMM02, Theorem 4].
+  pulls `pullSchedule σ2 ε δ`, the output is not `ε`-good with probability at most `δ`
+  [EMM02, Theorem 4].
 * `isDeltaPAC_medianElimination`: median elimination is `δ`-PAC for `ε`-best arm identification.
 
 ## Implementation notes
@@ -99,24 +102,22 @@ variable {α : Type*} [Fintype α] [DecidableEq α] [Nonempty α]
 /-! ### Halving a set of arms -/
 
 /-- The step of the halving: remove from `T` an arm with the smallest value `x`. -/
-noncomputable def halveStep (x : α → ℝ) (T : Finset α) : Finset α := T.erase (eliminated T x)
-
-lemma halveStep_def (x : α → ℝ) (T : Finset α) : halveStep x T = T.erase (eliminated T x) := (rfl)
+private noncomputable def halveStep (x : α → ℝ) (T : Finset α) : Finset α :=
+  T.erase (eliminated T x)
 
 /-- The arms of `S` that survive the halving by the values `x`: the `⌊#S / 2⌋` arms of `S` with the
 smallest values are removed, one at a time, so that `#S - ⌊#S / 2⌋` arms remain. -/
 noncomputable def halve (S : Finset α) (x : α → ℝ) : Finset α := (halveStep x)^[#S / 2] S
 
-lemma halve_def (S : Finset α) (x : α → ℝ) : halve S x = (halveStep x)^[#S / 2] S := (rfl)
-
-lemma iterate_halveStep_subset (S : Finset α) (x : α → ℝ) (n : ℕ) : (halveStep x)^[n] S ⊆ S := by
+private lemma iterate_halveStep_subset (S : Finset α) (x : α → ℝ) (n : ℕ) :
+    (halveStep x)^[n] S ⊆ S := by
   induction n with
   | zero => simp
   | succ n ih =>
     rw [Function.iterate_succ_apply']
     exact (erase_subset _ _).trans ih
 
-lemma card_iterate_halveStep (S : Finset α) (x : α → ℝ) {n : ℕ} (hn : n ≤ #S) :
+private lemma card_iterate_halveStep (S : Finset α) (x : α → ℝ) {n : ℕ} (hn : n ≤ #S) :
     #((halveStep x)^[n] S) = #S - n := by
   induction n with
   | zero => simp
@@ -128,30 +129,23 @@ lemma card_iterate_halveStep (S : Finset α) (x : α → ℝ) {n : ℕ} (hn : n 
 
 /-- An arm removed by the first `n` steps of the halving has a value at most that of every arm
 that remains. -/
-lemma le_of_notMem_iterate_halveStep {S : Finset α} {x : α → ℝ} {n : ℕ} {a b : α} (ha : a ∈ S)
-    (ha' : a ∉ (halveStep x)^[n] S) (hb : b ∈ (halveStep x)^[n] S) : x a ≤ x b := by
+private lemma le_of_notMem_iterate_halveStep {S : Finset α} {x : α → ℝ} {n : ℕ} {a b : α}
+    (ha : a ∈ S) (ha' : a ∉ (halveStep x)^[n] S) (hb : b ∈ (halveStep x)^[n] S) : x a ≤ x b := by
   induction n with
   | zero => exact absurd ha ha'
   | succ n ih =>
     rw [Function.iterate_succ_apply', halveStep] at ha' hb
     by_cases han : a ∈ (halveStep x)^[n] S
-    · rw [mem_erase, not_and_or, not_not] at ha'
-      obtain rfl := ha'.resolve_right (not_not.2 han)
-      exact le_of_eliminated_mem han (mem_of_mem_erase hb)
+    · exact le_of_mem_of_notMem_erase_eliminated han ha' (mem_of_mem_erase hb)
     · exact ih han (mem_of_mem_erase hb)
 
-lemma iterate_halveStep_congr {S : Finset α} {x y : α → ℝ} (h : ∀ a ∈ S, x a = y a) (n : ℕ) :
-    (halveStep x)^[n] S = (halveStep y)^[n] S := by
+private lemma iterate_halveStep_congr {S : Finset α} {x y : α → ℝ} (h : ∀ a ∈ S, x a = y a)
+    (n : ℕ) : (halveStep x)^[n] S = (halveStep y)^[n] S := by
   induction n with
   | zero => simp
   | succ n ih =>
     rw [Function.iterate_succ_apply', Function.iterate_succ_apply', ih, halveStep, halveStep,
-      eliminated_def, eliminated_def]
-    congr 2
-    funext a
-    split_ifs with ha
-    · rw [h a (iterate_halveStep_subset S y n ha)]
-    · rfl
+      eliminated_congr fun a ha ↦ h a (iterate_halveStep_subset S y n ha)]
 
 lemma halve_subset (S : Finset α) (x : α → ℝ) : halve S x ⊆ S := iterate_halveStep_subset S x _
 
@@ -175,14 +169,9 @@ lemma measurable_halve [MeasurableSpace α] [MeasurableSingletonClass α] (S : F
     induction n with
     | zero => exact measurable_const
     | succ n ih =>
-      simp_rw [Function.iterate_succ_apply']
-      refine (measurable_from_prod_countable_right (f := fun p : Finset α × (α → ℝ) ↦
-        halveStep p.2 p.1) fun T ↦ ?_).comp (ih.prodMk measurable_id)
-      simp_rw [halveStep_def, eliminated_def]
-      refine (measurable_of_countable fun a : α ↦ T.erase a).comp ?_
-      refine (measurable_argmin (ι := α) (α := EReal)).comp (Measurable.of_eval fun a ↦ ?_)
-      exact Measurable.ite (MeasurableSet.const _)
-        (measurable_coe_real_ereal.comp (measurable_pi_apply a)) measurable_const
+      simp_rw [Function.iterate_succ_apply', halveStep, erase_eq]
+      exact ih.sdiff_finset ((measurable_of_countable fun a : α ↦ ({a} : Finset α)).comp
+        (measurable_eliminated.comp (ih.prodMk measurable_id)))
   exact h_step _
 
 /-! ### Phases -/
@@ -272,6 +261,7 @@ lemma survivors_succ (g : ℕ → α → ℝ) (j : ℕ) :
 lemma survivors_succ_subset (g : ℕ → α → ℝ) (j : ℕ) : survivors g (j + 1) ⊆ survivors g j :=
   halve_subset _ _
 
+@[simp]
 lemma card_survivors (g : ℕ → α → ℝ) (j : ℕ) : #(survivors g j) = armsCount (Fintype.card α) j := by
   induction j with
   | zero => simp
@@ -408,6 +398,16 @@ lemma runStats_def {Ω : Type*} (t : ℕ → ℕ) (A : ℕ → Ω → α) (R : �
 
 variable {Ω : Type*} {A : ℕ → Ω → α} {R : ℕ → Ω → ℝ} {t : ℕ → ℕ} {ω : Ω}
 
+omit [Nonempty α] in
+/-- The statistics of phase `j` computed from the history of the first `m` rounds, once phase `j`
+is over, are those of the run. -/
+lemma histStats_history (O : ℕ → Ω → Unit) (A : ℕ → Ω → α) (R : ℕ → Ω → ℝ) {m j : ℕ}
+    (hj : phaseEnd (Fintype.card α) t (j + 1) ≤ m) (ω : Ω) :
+    histStats t (history O A R m ω) j = runStats t A R ω j := by
+  funext a
+  rw [histStats, runStats, histSum_history O A R hj ω a,
+    histSum_history O A R ((monotone_phaseEnd _ t (Nat.le_succ j)).trans hj) ω a]
+
 /-- Along a run of the sampling rule of median elimination, the arm played at every round is
 `armAt t` for the sums of rewards of the arms in the phases. -/
 lemma action_ae_eq [MeasurableSpace α] [MeasurableSingletonClass α]
@@ -416,9 +416,7 @@ lemma action_ae_eq [MeasurableSpace α] [MeasurableSingletonClass α]
     ∀ᵐ ω ∂P, ∀ r, A r ω = armAt t (runStats t A R ω) r := by
   filter_upwards [h.action_ae_all_eq_deterministic] with ω hω r
   rw [hω r, nextArm]
-  refine armAt_congr fun i hi ↦ funext fun a ↦ ?_
-  rw [histStats, runStats, histSum_history O A R hi ω a,
-    histSum_history O A R ((monotone_phaseEnd _ t (Nat.le_succ i)).trans hi) ω a]
+  exact armAt_congr fun i hi ↦ histStats_history O A R hi ω
 
 /-- If the actions follow median elimination, then during phase `j`, every arm that survives the
 first `j` phases is pulled `t j` times. -/
@@ -566,6 +564,10 @@ section Stream
 
 variable [MeasurableSpace α] [MeasurableSingletonClass α]
 
+lemma measurable_survivors_streamStats (t : ℕ → ℕ) (j : ℕ) :
+    Measurable fun z : ℕ → α → ℝ ↦ survivors (streamStats t z) j :=
+  (measurable_survivors j).comp (Measurable.of_eval fun i ↦ measurable_streamStats t i)
+
 /-- Under the law of the reward stream, the survivors of the first `j` phases are independent of
 the statistics of phase `j`, which are computed from the next entries of the stream. -/
 lemma indepFun_survivors_streamStats (ν : Kernel α ℝ) [IsMarkovKernel ν] (t : ℕ → ℕ) (j : ℕ) :
@@ -588,8 +590,7 @@ lemma indepFun_survivors_streamStats (ν : Kernel α ℝ) [IsMarkovKernel ν] (t
   have h_indep := ((Bandits.iIndepFun_eval_streamMeasure' ν).indepFun_finset U V hUV
     fun _ ↦ measurable_pi_apply _).comp
       (φ := fun w ↦ survivors (streamStats t (ext w)) j) (ψ := fun w a ↦ ∑ k : V, w k a)
-      ((measurable_survivors j).comp ((Measurable.of_eval fun _ ↦
-        measurable_streamStats _ _).comp h_ext))
+      ((measurable_survivors_streamStats t j).comp h_ext)
       (measurable_pi_iff.2 fun a ↦ Finset.measurable_sum _ fun k _ ↦ by fun_prop)
   convert h_indep using 1
   · funext z
@@ -699,11 +700,9 @@ lemma measure_exists_forall_mem_survivors_succ_add_lt_le {ν : Kernel α ℝ} [I
     gcongr with S
     exact h_tail S
   _ = 3 * η := by
-    have h_meas : Measurable fun z ↦ survivors (streamStats t z) j :=
-      (measurable_survivors (α := α) j).comp (Measurable.of_eval fun i ↦ measurable_streamStats t i)
     rw [← sum_mul, sum_measure_preimage_singleton (μ := P) univ
       (f := fun z ↦ survivors (streamStats t z) j) fun S _ ↦
-      h_meas (measurableSet_singleton S)]
+      measurable_survivors_streamStats t j (measurableSet_singleton S)]
     simp
 
 /-- **Correctness of median elimination on the reward stream** [EMM02, Theorem 4]. For
@@ -833,10 +832,7 @@ lemma MedianElimination.output_ae_eq
     (measurable_recommendation t _) outputAt_medianElimination] with ω hω
   rw [hω, recommendation]
   refine congrArg (roundRobinOn · 0) (survivors_congr fun j hj a _ ↦ ?_)
-  have hj' : phaseEnd (Fintype.card α) t (j + 1) ≤
-      phaseEnd (Fintype.card α) t (numPhases (Fintype.card α)) := monotone_phaseEnd _ t hj
-  rw [histStats, runStats, SuccessiveRejects.histSum_history O A R hj' ω a,
-    SuccessiveRejects.histSum_history O A R ((monotone_phaseEnd _ t (Nat.le_succ j)).trans hj') ω a]
+  rw [histStats_history O A R (monotone_phaseEnd _ t hj) ω]
 
 /-- **Correctness of median elimination**, for any numbers of pulls [EMM02, proof of Theorem 4].
 Let the arms be `σ2`-sub-Gaussian and let `ε j ≥ 0` be tolerances for the phases. Along every run
@@ -868,13 +864,15 @@ theorem MedianElimination.measureReal_exists_output_add_lt_le {σ2 : ℝ≥0}
     rw [ENNReal.toReal_sum fun _ _ ↦ by finiteness]
     simp [ENNReal.toReal_ofReal (exp_pos _).le]
 
-/-! ### The schedule of [EMM02] -/
+/-! ### The schedule of the numbers of pulls -/
 
 namespace MedianElimination
 
-/-- The numbers of pulls of median elimination [EMM02] for `σ2`-sub-Gaussian arms, tolerance `ε`
-and confidence `δ`: in phase `j`, with the tolerance `ε_j = (ε / 4) (3 / 4) ^ j` and the confidence
-`δ_j = δ / 2 ^ (j + 1)`, each surviving arm is pulled `⌈8 σ2 ε_j⁻² log (3 / δ_j)⌉` times. -/
+/-- The numbers of pulls of median elimination for `σ2`-sub-Gaussian arms, tolerance `ε` and
+confidence `δ`: in phase `j`, with the tolerance `ε_j = (ε / 4) (3 / 4) ^ j` and the confidence
+`δ_j = δ / 2 ^ (j + 1)` of [EMM02], each surviving arm is pulled `⌈8 σ2 ε_j⁻² log (3 / δ_j)⌉` times,
+so that the sub-Gaussian bound `3 exp(-t j ε_j² / (8 σ2))` on the failure of phase `j` is at most
+`δ_j`. -/
 noncomputable def pullSchedule (σ2 ε δ : ℝ) (j : ℕ) : ℕ :=
   ⌈8 * σ2 / (ε / 4 * (3 / 4) ^ j) ^ 2 * log (3 * 2 ^ (j + 1) / δ)⌉₊
 
@@ -882,7 +880,7 @@ lemma pullSchedule_def (σ2 ε δ : ℝ) (j : ℕ) :
     pullSchedule σ2 ε δ j = ⌈8 * σ2 / (ε / 4 * (3 / 4) ^ j) ^ 2 * log (3 * 2 ^ (j + 1) / δ)⌉₊ :=
   (rfl)
 
-/-- With the numbers of pulls of [EMM02], phase `j` fails with probability at most
+/-- With the numbers of pulls `pullSchedule σ2 ε δ`, phase `j` fails with probability at most
 `δ / 2 ^ (j + 1)`. -/
 lemma three_mul_exp_neg_pullSchedule_le {σ2 ε δ : ℝ} (hσ2 : 0 < σ2) (hε : 0 < ε) (hδ : 0 < δ)
     (j : ℕ) :
@@ -910,8 +908,8 @@ end MedianElimination
 
 /-- **Median elimination is `(ε, δ)`-correct** [EMM02, Theorem 4; EMM06, Theorem 10]. For
 `σ2`-sub-Gaussian arms with `σ2 > 0`, a tolerance `ε > 0` and a confidence `δ > 0`, along every run
-of median elimination with the numbers of pulls of [EMM02], the output is not `ε`-good (some arm
-has a mean larger than its mean plus `ε`) with probability at most `δ`. -/
+of median elimination with the numbers of pulls `pullSchedule σ2 ε δ`, the output is not `ε`-good
+(some arm has a mean larger than its mean plus `ε`) with probability at most `δ`. -/
 theorem MedianElimination.measureReal_exists_output_add_lt_le_of_pullSchedule {σ2 : ℝ≥0}
     (hν : ∀ a, HasSubgaussianMGF (fun x ↦ x - (ν a)[id]) σ2 (ν a)) (hσ2 : 0 < σ2) {ε δ : ℝ}
     (hε : 0 < ε) (hδ : 0 < δ)
@@ -943,9 +941,9 @@ theorem MedianElimination.measureReal_exists_output_add_lt_le_of_pullSchedule {�
 
 /-- **Median elimination is `(ε, δ)`-PAC** [EMM02, Theorem 4; EMM06, Theorem 10]. Let the arm `a`
 of the model `μ` have mean `μ a` and be `σ2`-sub-Gaussian, with `σ2 > 0`. For a tolerance `ε > 0`
-and a confidence `δ > 0`, median elimination with the numbers of pulls of [EMM02] is `δ`-PAC for
-`ε`-best arm identification: on every model, it stops after a fixed number of rounds and outputs an
-`ε`-good arm with probability at least `1 - δ`. -/
+and a confidence `δ > 0`, median elimination with the numbers of pulls `pullSchedule σ2 ε δ` is
+`δ`-PAC for `ε`-best arm identification: on every model, it stops after a fixed number of rounds
+and outputs an `ε`-good arm with probability at least `1 - δ`. -/
 theorem isDeltaPAC_medianElimination {ν : (α → ℝ) → Kernel α ℝ} [∀ μ, IsMarkovKernel (ν μ)]
     {σ2 : ℝ≥0} (hmean : ∀ (μ : α → ℝ) a, (ν μ a)[id] = μ a)
     (hν : ∀ (μ : α → ℝ) a, HasSubgaussianMGF (fun x ↦ x - (ν μ a)[id]) σ2 (ν μ a))
