@@ -7,6 +7,7 @@ module
 
 public import LeanMachineLearning.SequentialLearning.FiniteActions
 public import LeanMachineLearning.SequentialLearning.Means
+public import LMLExplore.MeasureTheory.Integral.Lebesgue.ENat
 public import LMLExplore.Probability.HasCondDistrib
 public import LMLExplore.Topology.Algebra.InfiniteSum.NatInt
 
@@ -23,16 +24,22 @@ identity for the number of rounds `𝔼[τ] = ∑ a, 𝔼[N_a(τ)]` when `τ` is
 hold for every sequence of actions; the divergence decomposition of bandit lower bounds and the
 sample complexity of identification algorithms are built on them.
 
-Let now `A`, `Y` be the actions and rewards of an algorithm run against a stationary environment
-`Environment.bandit ν` with finitely many actions and integrable real reward distributions `ν a` of
-means `μ_a`. For a random time `τ` of finite expectation such that the event `{t < τ}` is known
-when the action of round `t` is chosen (a stopping time of `IsAlgEnvSeq.filtrationAction`, such as
-the stopping time of an identification algorithm), *Wald's identity for the rewards* states
+Let now `A`, `Y` be the actions and feedbacks of an algorithm run against any environment `env`,
+with feedbacks in a separable Banach space such as `ℝ`. For a random time `τ` of finite expectation
+such that the event `{t < τ}` is known when the action of round `t` is chosen (a stopping time of
+`IsAlgEnvSeq.filtrationAction`, such as the stopping time of an identification algorithm), and
+conditional absolute means of the feedback bounded by a constant, *Wald's identity for the
+feedback* states `𝔼[∑_{t < τ} Y_t] = 𝔼[∑_{t < τ} m_t(A_t)]`, where `m_t(a) = env.means O A Y a t`
+is the conditional mean of the feedback of round `t` given the history, the observation and the
+action `a`.
+Against a stationary environment `Environment.bandit ν` with finitely many actions and integrable
+real reward distributions `ν a` of means `μ_a`, the conditional means are the `μ_a`, and regrouping
+the rounds by the action played gives *Wald's identity for the rewards*
 `𝔼[∑_{t < τ} Y_t] = ∑ a, 𝔼[N_a(τ)] μ_a`.
 
 The identity rests on conditioning on the information available when the action of a round is
-chosen: on an event of `IsAlgEnvSeq.filtrationAction n`, the reward `Y_n` can be replaced by the
-mean `μ_{A_n}` of its distribution.
+chosen: on an event of `IsAlgEnvSeq.filtrationAction n`, the feedback `Y_n` can be replaced by its
+conditional mean `m_n(A_n)`.
 
 ## Main statements
 
@@ -41,14 +48,18 @@ mean `μ_{A_n}` of its distribution.
 * `LMLExplore.natCast_pullCount_toNat_le`: `N_a(n) ≤ n` for `n : ℕ∞`.
 * `LMLExplore.lintegral_toENNReal_eq_sum_lintegral_pullCount`: Wald's identity
   `𝔼[τ] = ∑ a, 𝔼[N_a(τ)]` for an almost surely finite measurable random time `τ`.
-* `Learning.IsAlgEnvSeq.setLIntegral_comp_feedback_bandit`: on an event of
-  `h.filtrationAction n`, the expectation of `g(Y_n)` is that of `∫ g dν(A_n)`, for `g ≥ 0`.
+* `Learning.IsAlgEnvSeq.setLIntegral_comp_feedback`: on an event of `h.filtrationAction n`, the
+  expectation of `g(Y_n)` is that of `∫ g` against the conditional law of `Y_n`, for `g ≥ 0`.
+* `Learning.IsAlgEnvSeq.integrable_feedback`: the feedback of a round is integrable when its
+  conditional absolute mean has finite expectation.
+* `Learning.IsAlgEnvSeq.setIntegral_feedback`: on an event of `h.filtrationAction n`, the
+  expectation of `Y_n` is that of its conditional mean `m_n(A_n)`.
+* `Learning.IsAlgEnvSeq.integral_sum_feedback_eq_integral_sum_means`: Wald's identity for the
+  feedback `𝔼[∑_{t < τ} Y_t] = 𝔼[∑_{t < τ} m_t(A_t)]`, for every environment.
 * `Learning.IsAlgEnvSeq.integrable_feedback_bandit`: the rewards are integrable when the
   reward distributions are.
-* `Learning.IsAlgEnvSeq.setIntegral_feedback_bandit`: on an event of `h.filtrationAction n`,
-  the expectation of `Y_n` is that of the mean `μ_{A_n}`.
 * `Learning.IsAlgEnvSeq.integral_sum_feedback_eq_sum_integral_pullCount_mul`: Wald's identity for
-  the rewards `𝔼[∑_{t < τ} Y_t] = ∑ a, 𝔼[N_a(τ)] μ_a`.
+  the rewards `𝔼[∑_{t < τ} Y_t] = ∑ a, 𝔼[N_a(τ)] μ_a` against a stationary environment.
 
 ## References
 
@@ -59,7 +70,7 @@ public section
 
 open MeasureTheory ProbabilityTheory Finset
 
-open scoped ENNReal
+open scoped ENNReal NNReal
 
 namespace LMLExplore
 
@@ -109,97 +120,69 @@ end LMLExplore
 
 namespace Learning
 
-variable {𝓐 𝓨 Ω : Type*} {m𝓐 : MeasurableSpace 𝓐} {m𝓨 : MeasurableSpace 𝓨}
-  {mΩ : MeasurableSpace Ω} {P : Measure Ω} [IsFiniteMeasure P]
+section AnyEnvironment
 
-/-- On an event `s` of `h.filtrationAction n` (determined by the history before round `n` and the
-action of round `n`), the expectation of `g(Y_n)` against a stationary environment `ν` is that of
-`∫ g dν(A_n)`, for a measurable `g ≥ 0`. -/
-lemma IsAlgEnvSeq.setLIntegral_comp_feedback_bandit {O : ℕ → Ω → Unit} {A : ℕ → Ω → 𝓐}
-    {Y : ℕ → Ω → 𝓨} {alg : Algorithm Unit 𝓐 𝓨} {ν : Kernel 𝓐 𝓨} [IsMarkovKernel ν]
-    (h : IsAlgEnvSeq O A Y alg (Environment.bandit ν) P) {n : ℕ} {s : Set Ω}
-    (hs : MeasurableSet[h.filtrationAction n] s) {g : 𝓨 → ℝ≥0∞} (hg : Measurable g) :
-    ∫⁻ ω in s, g (Y n ω) ∂P = ∫⁻ ω in s, ∫⁻ y, g y ∂(ν (A n ω)) ∂P := by
+variable {𝓞 𝓐 𝓨 Ω : Type*} {m𝓞 : MeasurableSpace 𝓞} {m𝓐 : MeasurableSpace 𝓐}
+  {m𝓨 : MeasurableSpace 𝓨} {mΩ : MeasurableSpace Ω} {P : Measure Ω}
+  {O : ℕ → Ω → 𝓞} {A : ℕ → Ω → 𝓐} {Y : ℕ → Ω → 𝓨} {alg : Algorithm 𝓞 𝓐 𝓨}
+  {env : Environment 𝓞 𝓐 𝓨}
+
+/-- On an event `s` of `h.filtrationAction n` (determined by the history before round `n`, the
+observation of round `n` and the action of round `n`), the expectation of `g(Y_n)` is that of
+`∫ g` against the law `env.feedbackKernel O A Y n ω (A n ω)` of the feedback given that
+information, for a measurable `g ≥ 0`. -/
+lemma IsAlgEnvSeq.setLIntegral_comp_feedback [SFinite P] (h : IsAlgEnvSeq O A Y alg env P) {n : ℕ}
+    {s : Set Ω} (hs : MeasurableSet[h.filtrationAction n] s) {g : 𝓨 → ℝ≥0∞} (hg : Measurable g) :
+    ∫⁻ ω in s, g (Y n ω) ∂P =
+      ∫⁻ ω in s, ∫⁻ y, g y ∂(env.feedbackKernel O A Y n ω (A n ω)) ∂P := by
   rw [h.filtrationAction_eq_comap n] at hs
   obtain ⟨t, ht, rfl⟩ := hs
-  simpa [feedback_bandit] using
+  simpa [Environment.feedbackKernel] using
     (h.hasCondDistrib_feedback n).setLIntegral_comp_eq_setLIntegral_lintegral ht hg
 
-variable {O : ℕ → Ω → Unit} {A : ℕ → Ω → 𝓐} {Y : ℕ → Ω → ℝ} {alg : Algorithm Unit 𝓐 ℝ}
-  {ν : Kernel 𝓐 ℝ} [IsMarkovKernel ν]
+variable [NormedAddCommGroup 𝓨]
 
-/-- On an event `s` of `h.filtrationAction n` (determined by the history before round `n` and the
-action of round `n`), the expectation of the reward `Y_n` against a stationary environment `ν` is
-that of the mean of `ν (A_n)`. -/
-lemma IsAlgEnvSeq.setIntegral_feedback_bandit (h : IsAlgEnvSeq O A Y alg (Environment.bandit ν) P)
-    {n : ℕ} (hY : Integrable (Y n) P) {s : Set Ω} (hs : MeasurableSet[h.filtrationAction n] s) :
-    ∫ ω in s, Y n ω ∂P = ∫ ω in s, ∫ y, y ∂(ν (A n ω)) ∂P := by
-  rw [← setIntegral_condExp (h.filtrationAction.le n) hY hs]
-  refine setIntegral_congr_ae (h.filtrationAction.le n _ hs) ?_
-  filter_upwards [h.condExp_feedback n hY] with ω hω _
-  simp [hω]
-
-section Finite
-
-variable [Finite 𝓐]
-
-/-- Against a stationary environment with finitely many actions and integrable reward
-distributions, the reward of each round is integrable. -/
-lemma IsAlgEnvSeq.integrable_feedback_bandit (h : IsAlgEnvSeq O A Y alg (Environment.bandit ν) P)
-    (hν : ∀ a, Integrable id (ν a)) (n : ℕ) :
+/-- The feedback of round `n` is integrable when the expected conditional absolute mean
+`𝔼[∫ ‖y‖ d(env.feedbackKernel O A Y n · (A n ·))]` is finite. -/
+lemma IsAlgEnvSeq.integrable_feedback [SFinite P] [OpensMeasurableSpace 𝓨]
+    [SecondCountableTopology 𝓨]
+    (h : IsAlgEnvSeq O A Y alg env P) {n : ℕ}
+    (hY : ∫⁻ ω, ∫⁻ y, ‖y‖ₑ ∂(env.feedbackKernel O A Y n ω (A n ω)) ∂P ≠ ∞) :
     Integrable (Y n) P := by
-  have := Fintype.ofFinite 𝓐
   refine ⟨(h.measurable_feedback n).aestronglyMeasurable, ?_⟩
-  have h_eq := h.setLIntegral_comp_feedback_bandit (n := n) MeasurableSet.univ
-    measurable_enorm
+  have h_eq := h.setLIntegral_comp_feedback (n := n) MeasurableSet.univ measurable_enorm
   simp only [Measure.restrict_univ] at h_eq
   rw [hasFiniteIntegral_iff_enorm, h_eq]
-  calc ∫⁻ ω, ∫⁻ y, ‖y‖ₑ ∂(ν (A n ω)) ∂P ≤ ∫⁻ _, ∑ a, ∫⁻ y, ‖y‖ₑ ∂(ν a) ∂P :=
-        lintegral_mono fun ω ↦ single_le_sum (f := fun a ↦ ∫⁻ y, ‖y‖ₑ ∂(ν a))
-          (fun _ _ ↦ bot_le) (mem_univ _)
-    _ < ∞ := by
-        rw [lintegral_const]
-        exact ENNReal.mul_lt_top (ENNReal.sum_lt_top.2 fun a _ ↦ (hν a).2) (measure_lt_top _ _)
+  exact hY.lt_top
 
-omit [IsFiniteMeasure P] in
-/-- The expected sum over the rounds before a random time `τ` with `𝔼[τ] < ∞` of the absolute
-moments `∫ |y| dν(A_t)` of the reward distributions is finite. -/
-private lemma tsum_lintegral_indicator_lintegral_enorm_ne_top [MeasurableSingletonClass 𝓐]
-    (h : IsAlgEnvSeq O A Y alg (Environment.bandit ν) P) (hν : ∀ a, Integrable id (ν a))
-    {τ : Ω → ℕ∞} (hτ : Measurable τ) (hτ_int : ∫⁻ ω, (τ ω : ℝ≥0∞) ∂P ≠ ∞)
-    (hτ_fin : ∀ᵐ ω ∂P, τ ω ≠ ⊤) :
-    ∑' t : ℕ, ∫⁻ ω, {ω | (t : ℕ∞) < τ ω}.indicator
-      (fun ω ↦ ∫⁻ y, ‖y‖ₑ ∂(ν (A t ω))) ω ∂P ≠ ∞ := by
-  classical
-  have := Fintype.ofFinite 𝓐
-  set c : 𝓐 → ℝ≥0∞ := fun a ↦ ∫⁻ y, ‖y‖ₑ ∂(ν a)
-  rw [← lintegral_tsum (f := fun t : ℕ ↦ {ω | (t : ℕ∞) < τ ω}.indicator (fun ω ↦ c (A t ω)))
-      fun t ↦ (((measurable_of_countable c).comp (h.measurable_action t)).indicator
-        (hτ (MeasurableSet.of_discrete (s := Set.Ioi (t : ℕ∞))))).aemeasurable,
-    lintegral_congr_ae (by
-      filter_upwards [hτ_fin] with ω hω using
-        LMLExplore.tsum_indicator_natCast_lt_eq_sum_range hω fun t ↦ c (A t ω)),
-    ← LMLExplore.sum_lintegral_pullCount_mul (g := fun ω ↦ (τ ω).toNat) h.measurable_action
-      (Measurable.of_discrete.comp hτ) c]
-  refine (ENNReal.sum_lt_top.2 fun a _ ↦ ENNReal.mul_lt_top ?_ (hν a).2).ne
-  exact (lintegral_mono fun ω ↦ LMLExplore.natCast_pullCount_toNat_le a (τ ω) ω).trans_lt
-    hτ_int.lt_top
+variable [NormedSpace ℝ 𝓨]
 
-end Finite
+/-- On an event `s` of `h.filtrationAction n` (determined by the history before round `n`, the
+observation of round `n` and the action of round `n`), the expectation of the feedback `Y_n` is
+that of its conditional mean `env.means O A Y (A n) n`. -/
+lemma IsAlgEnvSeq.setIntegral_feedback [IsFiniteMeasure P] [BorelSpace 𝓨]
+    [SecondCountableTopology 𝓨] [CompleteSpace 𝓨] (h : IsAlgEnvSeq O A Y alg env P) {n : ℕ}
+    (hY : Integrable (Y n) P) {s : Set Ω} (hs : MeasurableSet[h.filtrationAction n] s) :
+    ∫ ω in s, Y n ω ∂P = ∫ ω in s, env.means O A Y (A n ω) n ω ∂P := by
+  rw [← setIntegral_condExp (h.filtrationAction.le n) hY hs]
+  exact setIntegral_congr_ae (h.filtrationAction.le n _ hs) <| by
+    filter_upwards [h.condExp_feedback n hY] with ω hω _ using hω
 
-variable [Fintype 𝓐] [MeasurableSingletonClass 𝓐] [DecidableEq 𝓐]
+/-- **Wald's identity for the feedback.** For an algorithm run against any environment, a stopping
+time `τ` of `h.filtrationAction` (the event `{t < τ}` is known when the action of round `t` is
+chosen) with `𝔼[τ] < ∞`, and conditional absolute means of the feedback bounded by a constant `C`,
+the expected sum of the feedbacks before `τ` is the expected sum of their conditional means
+`env.means O A Y (A t) t`.
 
-/-- **Wald's identity for the rewards.** For an algorithm run against a stationary environment
-`ν` with finitely many actions and integrable reward distributions, and a stopping time `τ` of
-`h.filtrationAction` (the event `{t < τ}` is known when the action of round `t` is chosen) with
-`𝔼[τ] < ∞`, the expected sum of the rewards before `τ` is `∑ a, 𝔼[N_a(τ)] μ_a`, where `N_a(τ)` is
-the number of rounds before `τ` at which `a` was played and `μ_a` is the mean of `ν a`. -/
-theorem IsAlgEnvSeq.integral_sum_feedback_eq_sum_integral_pullCount_mul
-    (h : IsAlgEnvSeq O A Y alg (Environment.bandit ν) P) {τ : Ω → ℕ∞}
-    (hτ : IsStoppingTime h.filtrationAction τ) (hτ_int : ∫⁻ ω, (τ ω : ℝ≥0∞) ∂P ≠ ∞)
-    (hν : ∀ a, Integrable id (ν a)) :
+The conditional absolute means are lower Lebesgue integrals `∫⁻ y, ‖y‖ₑ`, which are finite when
+bounded by `C`: a bound on Bochner integrals would hold vacuously for non-integrable laws. -/
+theorem IsAlgEnvSeq.integral_sum_feedback_eq_integral_sum_means [IsFiniteMeasure P]
+    [BorelSpace 𝓨] [SecondCountableTopology 𝓨] [CompleteSpace 𝓨]
+    (h : IsAlgEnvSeq O A Y alg env P) {τ : Ω → ℕ∞} (hτ : IsStoppingTime h.filtrationAction τ)
+    (hτ_int : ∫⁻ ω, (τ ω : ℝ≥0∞) ∂P ≠ ∞) {C : ℝ≥0}
+    (hC : ∀ n, ∀ᵐ ω ∂P, ∫⁻ y, ‖y‖ₑ ∂(env.feedbackKernel O A Y n ω (A n ω)) ≤ C) :
     ∫ ω, ∑ t ∈ range (τ ω).toNat, Y t ω ∂P =
-      ∑ a, (∫ ω, (pullCount A a (τ ω).toNat ω : ℝ) ∂P) * ∫ y, y ∂(ν a) := by
+      ∫ ω, ∑ t ∈ range (τ ω).toNat, env.means O A Y (A t ω) t ω ∂P := by
   -- `S t = {t < τ}` is known when the action of round `t` is chosen
   set S : ℕ → Set Ω := fun t ↦ {ω | (t : ℕ∞) < τ ω}
   have hS_F (t : ℕ) : MeasurableSet[h.filtrationAction t] (S t) := hτ.measurableSet_gt t
@@ -213,44 +196,109 @@ theorem IsAlgEnvSeq.integral_sum_feedback_eq_sum_integral_pullCount_mul
   have hτ_fin : ∀ᵐ ω ∂P, τ ω ≠ ⊤ := by
     filter_upwards [ae_lt_top (Measurable.of_discrete.comp hτ_meas) hτ_int] with ω hω
     simpa using hω.ne
-  set μ : 𝓐 → ℝ := fun a ↦ ∫ y, y ∂(ν a)
-  have hN_int (a : 𝓐) : Integrable (fun ω ↦ (pullCount A a (τ ω).toNat ω : ℝ)) P := by
-    refine ⟨(Measurable.of_discrete.comp (measurable_uncurry_pullCount_comp h.measurable_action
-      measurable_const (Measurable.of_discrete.comp hτ_meas))).aestronglyMeasurable, ?_⟩
-    refine (lintegral_mono fun ω ↦ ?_).trans_lt hτ_int.lt_top
-    rw [Real.enorm_natCast]
-    exact LMLExplore.natCast_pullCount_toNat_le a (τ ω) ω
-  -- the series `∑ t, 1{t < τ} Y_t` and `∑ t, 1{t < τ} μ (A t)` are dominated by the finite
-  -- `𝔼[∑_{t < τ} ∫ |y| dν(A t)]`
-  have hB := tsum_lintegral_indicator_lintegral_enorm_ne_top h hν hτ_meas hτ_int hτ_fin
+  set m : ℕ → Ω → 𝓨 := fun t ω ↦ env.means O A Y (A t ω) t ω
+  set c : ℕ → Ω → ℝ≥0∞ := fun t ω ↦ ∫⁻ y, ‖y‖ₑ ∂(env.feedbackKernel O A Y t ω (A t ω))
+  have hY_int (t : ℕ) : Integrable (Y t) P := by
+    refine h.integrable_feedback (ne_top_of_le_ne_top (b := C * P Set.univ) ?_ ?_)
+    · exact ENNReal.mul_ne_top ENNReal.coe_ne_top (measure_ne_top _ _)
+    · simpa using lintegral_mono_ae (hC t)
+  -- the series `∑ t, 1{t < τ} Y_t` and `∑ t, 1{t < τ} m_t` are dominated by the series
+  -- `∑ t, 𝔼[1{t < τ} c_t] ≤ C ∑ t, P(t < τ) = C 𝔼[τ]`
+  have hB : ∑' t, ∫⁻ ω in S t, c t ω ∂P ≠ ∞ := by
+    refine ne_top_of_le_ne_top (b := C * ∫⁻ ω, (τ ω : ℝ≥0∞) ∂P)
+      (ENNReal.mul_ne_top ENNReal.coe_ne_top hτ_int) ?_
+    rw [lintegral_toENNReal_eq_tsum_measure_lt hτ_meas.aemeasurable, ← ENNReal.tsum_mul_left]
+    refine tsum_le_tsum fun t ↦ ?_
+    rw [← setLIntegral_const]
+    exact setLIntegral_mono_ae' (hS t) ((hC t).mono fun ω hω _ ↦ hω)
   have hY_sum : ∑' t, ∫⁻ ω, ‖(S t).indicator (Y t) ω‖ₑ ∂P ≠ ∞ := by
     refine ne_of_eq_of_ne (tsum_congr fun t ↦ ?_) hB
     simp_rw [enorm_indicator_eq_indicator_enorm, lintegral_indicator (hS t)]
-    exact (h.setLIntegral_comp_feedback_bandit (hS_F t) measurable_enorm).trans
-      (lintegral_indicator (hS t) _).symm
-  have hμ_sum : ∑' t, ∫⁻ ω, ‖(S t).indicator (fun ω ↦ μ (A t ω)) ω‖ₑ ∂P ≠ ∞ := by
-    refine ne_top_of_le_ne_top hB (tsum_le_tsum fun t ↦ lintegral_mono fun ω ↦ ?_)
-    rw [enorm_indicator_eq_indicator_enorm]
-    exact Set.indicator_le_indicator (enorm_integral_le_lintegral_enorm _)
+    exact h.setLIntegral_comp_feedback (hS_F t) measurable_enorm
+  have hm_sum : ∑' t, ∫⁻ ω, ‖(S t).indicator (m t) ω‖ₑ ∂P ≠ ∞ := by
+    refine ne_top_of_le_ne_top hB (tsum_le_tsum fun t ↦ ?_)
+    simp_rw [enorm_indicator_eq_indicator_enorm, lintegral_indicator (hS t)]
+    exact lintegral_mono fun ω ↦ enorm_integral_le_lintegral_enorm _
+  have hm_meas (t : ℕ) : StronglyMeasurable (m t) :=
+    (h.stronglyAdapted_means_filtrationAction t).mono (h.filtrationAction.le t)
   calc ∫ ω, ∑ t ∈ range (τ ω).toNat, Y t ω ∂P
       = ∫ ω, ∑' t, (S t).indicator (Y t) ω ∂P := integral_congr_ae (by
         filter_upwards [hτ_fin] with ω hω using
           (LMLExplore.tsum_indicator_natCast_lt_eq_sum_range hω fun t ↦ Y t ω).symm)
     _ = ∑' t, ∫ ω, (S t).indicator (Y t) ω ∂P := integral_tsum (fun t ↦
         ((h.measurable_feedback t).indicator (hS t)).aestronglyMeasurable) hY_sum
-    -- on `{t < τ}`, the reward `Y t` can be replaced by its conditional mean `μ (A t)`
-    _ = ∑' t, ∫ ω, (S t).indicator (fun ω ↦ μ (A t ω)) ω ∂P := tsum_congr fun t ↦ by
+    -- on `{t < τ}`, the feedback `Y t` can be replaced by its conditional mean `m t`
+    _ = ∑' t, ∫ ω, (S t).indicator (m t) ω ∂P := tsum_congr fun t ↦ by
         rw [integral_indicator (hS t), integral_indicator (hS t),
-          h.setIntegral_feedback_bandit (h.integrable_feedback_bandit hν t) (hS_F t)]
-    _ = ∫ ω, ∑' t, (S t).indicator (fun ω ↦ μ (A t ω)) ω ∂P := (integral_tsum (fun t ↦
-        (((measurable_of_countable μ).comp (h.measurable_action t)).indicator
-          (hS t)).aestronglyMeasurable) hμ_sum).symm
-    _ = ∫ ω, ∑ a, (pullCount A a (τ ω).toNat ω : ℝ) * μ a ∂P := integral_congr_ae (by
-        filter_upwards [hτ_fin] with ω hω
-        exact (LMLExplore.tsum_indicator_natCast_lt_eq_sum_range hω fun t ↦ μ (A t ω)).trans
-          (sum_pullCount_mul ω μ _).symm)
-    _ = ∑ a, (∫ ω, (pullCount A a (τ ω).toNat ω : ℝ) ∂P) * μ a := by
-        rw [integral_finsetSum _ fun a _ ↦ (hN_int a).mul_const _]
-        exact sum_congr rfl fun a _ ↦ integral_mul_const _ _
+          h.setIntegral_feedback (hY_int t) (hS_F t)]
+    _ = ∫ ω, ∑' t, (S t).indicator (m t) ω ∂P := (integral_tsum (fun t ↦
+        ((hm_meas t).indicator (hS t)).aestronglyMeasurable) hm_sum).symm
+    _ = ∫ ω, ∑ t ∈ range (τ ω).toNat, m t ω ∂P := integral_congr_ae (by
+        filter_upwards [hτ_fin] with ω hω using
+          LMLExplore.tsum_indicator_natCast_lt_eq_sum_range hω fun t ↦ m t ω)
+
+end AnyEnvironment
+
+section Bandit
+
+variable {𝓐 Ω : Type*} {m𝓐 : MeasurableSpace 𝓐} {mΩ : MeasurableSpace Ω} {P : Measure Ω}
+  {O : ℕ → Ω → Unit} {A : ℕ → Ω → 𝓐} {Y : ℕ → Ω → ℝ} {alg : Algorithm Unit 𝓐 ℝ}
+  {ν : Kernel 𝓐 ℝ} [IsMarkovKernel ν]
+
+/-- Against a stationary environment with finitely many actions, the conditional absolute mean of
+each reward is at most the sum over the actions of the absolute means of their reward
+distributions. -/
+private lemma lintegral_enorm_feedbackKernel_bandit_le [Fintype 𝓐] (t : ℕ) (ω : Ω) :
+    ∫⁻ y, ‖y‖ₑ ∂((Environment.bandit ν).feedbackKernel O A Y t ω (A t ω)) ≤
+      ∑ a, ∫⁻ y, ‖y‖ₑ ∂(ν a) := by
+  simpa [Environment.feedbackKernel, feedback_bandit] using
+    single_le_sum (f := fun a ↦ ∫⁻ y, ‖y‖ₑ ∂(ν a)) (fun _ _ ↦ bot_le) (mem_univ (A t ω))
+
+/-- Against a stationary environment with finitely many actions and integrable reward
+distributions, the reward of each round is integrable. -/
+lemma IsAlgEnvSeq.integrable_feedback_bandit [Finite 𝓐]
+    (h : IsAlgEnvSeq O A Y alg (Environment.bandit ν) P) [IsFiniteMeasure P]
+    (hν : ∀ a, Integrable id (ν a)) (n : ℕ) :
+    Integrable (Y n) P := by
+  have := Fintype.ofFinite 𝓐
+  refine h.integrable_feedback (ne_top_of_le_ne_top ?_ (lintegral_mono fun ω ↦
+    lintegral_enorm_feedbackKernel_bandit_le n ω))
+  rw [lintegral_const]
+  exact ENNReal.mul_ne_top (ENNReal.sum_ne_top.2 fun a _ ↦ (hν a).2.ne) (measure_ne_top _ _)
+
+variable [Fintype 𝓐] [MeasurableSingletonClass 𝓐] [DecidableEq 𝓐] [IsFiniteMeasure P]
+
+/-- **Wald's identity for the rewards.** For an algorithm run against a stationary environment
+`ν` with finitely many actions and integrable reward distributions, and a stopping time `τ` of
+`h.filtrationAction` (the event `{t < τ}` is known when the action of round `t` is chosen) with
+`𝔼[τ] < ∞`, the expected sum of the rewards before `τ` is `∑ a, 𝔼[N_a(τ)] μ_a`, where `N_a(τ)` is
+the number of rounds before `τ` at which `a` was played and `μ_a` is the mean of `ν a`. -/
+theorem IsAlgEnvSeq.integral_sum_feedback_eq_sum_integral_pullCount_mul
+    (h : IsAlgEnvSeq O A Y alg (Environment.bandit ν) P) {τ : Ω → ℕ∞}
+    (hτ : IsStoppingTime h.filtrationAction τ) (hτ_int : ∫⁻ ω, (τ ω : ℝ≥0∞) ∂P ≠ ∞)
+    (hν : ∀ a, Integrable id (ν a)) :
+    ∫ ω, ∑ t ∈ range (τ ω).toNat, Y t ω ∂P =
+      ∑ a, (∫ ω, (pullCount A a (τ ω).toNat ω : ℝ) ∂P) * ∫ y, y ∂(ν a) := by
+  have hν_top : ∑ a, ∫⁻ y, ‖y‖ₑ ∂(ν a) ≠ ∞ := ENNReal.sum_ne_top.2 fun a _ ↦ (hν a).2.ne
+  -- measurability of `τ` for the discrete σ-algebra of `ℕ∞`, as in
+  -- `integral_sum_feedback_eq_integral_sum_means`
+  have hτ_meas : Measurable τ :=
+    measurable_to_countable' fun x ↦ hτ.measurable' (measurableSet_singleton (α := WithTop ℕ) x)
+  have hN_int (a : 𝓐) : Integrable (fun ω ↦ (pullCount A a (τ ω).toNat ω : ℝ)) P := by
+    refine ⟨(Measurable.of_discrete.comp (measurable_uncurry_pullCount_comp h.measurable_action
+      measurable_const (Measurable.of_discrete.comp hτ_meas))).aestronglyMeasurable, ?_⟩
+    refine (lintegral_mono fun ω ↦ ?_).trans_lt hτ_int.lt_top
+    rw [Real.enorm_natCast]
+    exact LMLExplore.natCast_pullCount_toNat_le a (τ ω) ω
+  -- the conditional absolute means are bounded by `∑ a, ∫ |y| dν(a)`
+  rw [h.integral_sum_feedback_eq_integral_sum_means hτ hτ_int
+    (C := (∑ a, ∫⁻ y, ‖y‖ₑ ∂(ν a)).toNNReal) fun n ↦ ae_of_all _ fun ω ↦ by
+      rw [ENNReal.coe_toNNReal hν_top]
+      exact lintegral_enorm_feedbackKernel_bandit_le n ω]
+  simp_rw [means_bandit, id_eq, ← sum_pullCount_mul (A := A) _ (fun a ↦ ∫ y, y ∂(ν a))]
+  rw [integral_finsetSum _ fun a _ ↦ (hN_int a).mul_const _]
+  exact sum_congr rfl fun a _ ↦ integral_mul_const _ _
+
+end Bandit
 
 end Learning
