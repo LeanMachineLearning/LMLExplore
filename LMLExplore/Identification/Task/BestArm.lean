@@ -18,9 +18,10 @@ public import LMLExplore.Algebra.Order.Field.Basic
 /-!
 # The alternatives of best arm identification and the cost of the alternatives
 
-For best arm identification (`baiTask ν`), the alternatives to an arm `a` are the vectors of means
-with a unique best arm `b ≠ a`. This set is not closed: its limits include the vectors where `a`
-ties with another best arm, which have no correct answer. The cost of the alternatives
+For best arm identification on vectors of means (`baiTask ν id`), the alternatives to an arm `a`
+are the vectors of means with a unique best arm `b ≠ a` (`mem_alt_baiTask_iff`, for any mean
+functional). This set is not closed: its limits include the vectors where `a` ties with another
+best arm, which have no correct answer. The cost of the alternatives
 `D(μ, w, ¬a) = inf_{λ ∈ ¬a} ∑ b, w b KL(ν_b(μ), ν_b(λ))` is an infimum over this set, and the
 analysis of best arm identification of Garivier and Kaufmann (2016) computes it on the closed set
 `{λ | ∃ b ≠ a, λ a ≤ λ b}` of the vectors whose largest mean is attained at an arm `b ≠ a`, one
@@ -28,7 +29,7 @@ arm `b` at a time.
 
 The admissible models of an identification problem are the vectors whose means lie in the mean
 sets of the arm families (the means of an exponential family form an open interval), that is
-`(baiTask ν).restrict S` for an open set `S` of vectors of means. Within `S`, the closure of the
+`(baiTask ν id).restrict S` for an open set `S` of vectors of means. Within `S`, the closure of the
 alternatives to `a` is the closed set above, and when the transportation cost is continuous there,
 the cost of the alternatives is the infimum of the cost over it.
 
@@ -147,13 +148,16 @@ open scoped ENNReal NNReal
 
 namespace LMLExplore.Identification
 
-variable {α 𝓨 : Type*} {mα : MeasurableSpace α} {m𝓨 : MeasurableSpace 𝓨}
-  (ν : (α → ℝ) → Kernel α 𝓨) [∀ μ, IsMarkovKernel (ν μ)] {S : Set (α → ℝ)} {a : α}
-  {μ' : α → ℝ}
+variable {α Θ 𝓨 : Type*} {mα : MeasurableSpace α} {m𝓨 : MeasurableSpace 𝓨} {a : α}
 
-/-- The alternatives to the arm `a` in best arm identification are the vectors of means with a
-unique best arm `b ≠ a`. -/
-lemma mem_alt_baiTask_iff : μ' ∈ (baiTask ν).alt a ↔ ∃ b ≠ a, ∀ c ≠ b, μ' c < μ' b := by
+section MeanFunctional
+
+variable (ν : Θ → Kernel α 𝓨) [∀ θ, IsMarkovKernel (ν θ)] (mean : Θ → α → ℝ) {θ : Θ}
+
+/-- The alternatives to the arm `a` in best arm identification are the models with a unique best
+arm `b ≠ a`. -/
+lemma mem_alt_baiTask_iff :
+    θ ∈ (baiTask ν mean).alt a ↔ ∃ b ≠ a, ∀ c ≠ b, mean θ c < mean θ b := by
   simp only [IdentTask.mem_alt_iff, M_baiTask, correct_baiTask, Set.mem_ofPred_eq, not_forall,
     not_lt, exists_prop]
   constructor
@@ -164,15 +168,21 @@ lemma mem_alt_baiTask_iff : μ' ∈ (baiTask ν).alt a ↔ ∃ b ≠ a, ∀ c �
   · rintro ⟨b, hba, hb⟩
     exact ⟨⟨b, hb⟩, b, hba, (hb a hba.symm).le⟩
 
-/-- The vectors of means for which the arm `a` is correct in best arm identification are those
-with unique best arm `a`. -/
-lemma mem_answerSet_baiTask_iff : μ' ∈ (baiTask ν).answerSet a ↔ ∀ b ≠ a, μ' b < μ' a := by
+/-- The models for which the arm `a` is correct in best arm identification are those with unique
+best arm `a`. -/
+lemma mem_answerSet_baiTask_iff :
+    θ ∈ (baiTask ν mean).answerSet a ↔ ∀ b ≠ a, mean θ b < mean θ a := by
   rw [IdentTask.mem_answerSet_iff, M_baiTask, correct_baiTask]
   exact ⟨fun h ↦ h.2, fun h ↦ ⟨⟨a, h⟩, h⟩⟩
 
+end MeanFunctional
+
+variable (ν : (α → ℝ) → Kernel α 𝓨) [∀ μ, IsMarkovKernel (ν μ)] {S : Set (α → ℝ)}
+  {μ' : α → ℝ}
+
 /-- The vectors of means with unique best arm `a` form an open set. -/
-lemma isOpen_answerSet_baiTask [Finite α] (a : α) : IsOpen ((baiTask ν).answerSet a) := by
-  have h : (baiTask ν).answerSet a = ⋂ b ∈ ({a}ᶜ : Set α), {μ' | μ' b < μ' a} := by
+lemma isOpen_answerSet_baiTask [Finite α] (a : α) : IsOpen ((baiTask ν id).answerSet a) := by
+  have h : (baiTask ν id).answerSet a = ⋂ b ∈ ({a}ᶜ : Set α), {μ' | μ' b < μ' a} := by
     ext μ'
     rw [mem_answerSet_baiTask_iff]
     simp
@@ -186,9 +196,9 @@ variable [Finite α]
 
 /-- For a neighbourhood `S` of a vector of means `μ'` in which some arm `b ≠ a` has mean at least
 that of `a`, the vector `μ'` lies in the closure of the alternatives to `a` of
-`(baiTask ν).restrict S`. -/
+`(baiTask ν id).restrict S`. -/
 lemma mem_closure_alt_baiTask_restrict (hS : S ∈ 𝓝 μ')
-    (hμ' : ∃ b ≠ a, μ' a ≤ μ' b) : μ' ∈ closure (((baiTask ν).restrict S).alt a) := by
+    (hμ' : ∃ b ≠ a, μ' a ≤ μ' b) : μ' ∈ closure (((baiTask ν id).restrict S).alt a) := by
   classical
   -- An arm `b ≠ a` with the largest mean.
   obtain ⟨b, hba, hb⟩ : ∃ b ≠ a, ∀ c, μ' c ≤ μ' b := by
@@ -207,7 +217,7 @@ lemma mem_closure_alt_baiTask_restrict (hS : S ∈ 𝓝 μ')
   refine mem_closure_of_tendsto hf_tendsto ?_
   filter_upwards [hf_tendsto.eventually hS, self_mem_nhdsWithin] with t htS ht
   rw [IdentTask.alt_restrict]
-  refine ⟨(mem_alt_baiTask_iff ν).2 ⟨b, hba, fun c hcb ↦ ?_⟩, htS⟩
+  refine ⟨(mem_alt_baiTask_iff ν id).2 ⟨b, hba, fun c hcb ↦ ?_⟩, htS⟩
   simpa [hf, Pi.single_apply, hcb] using (hb c).trans_lt (lt_add_of_pos_right _ ht)
 
 /-- For an open set `S` of vectors of means, the closure within `S` of the alternatives to the arm
@@ -215,7 +225,7 @@ lemma mem_closure_alt_baiTask_restrict (hS : S ∈ 𝓝 μ')
 arm `b ≠ a` has mean at least that of `a`, that is, whose largest mean is attained at an arm
 `b ≠ a`. -/
 theorem closure_alt_baiTask_restrict_inter (hS : IsOpen S) (a : α) :
-    closure (((baiTask ν).restrict S).alt a) ∩ S = {μ' | ∃ b ≠ a, μ' a ≤ μ' b} ∩ S := by
+    closure (((baiTask ν id).restrict S).alt a) ∩ S = {μ' | ∃ b ≠ a, μ' a ≤ μ' b} ∩ S := by
   refine Set.Subset.antisymm (fun μ' ⟨hμ', hμ'S⟩ ↦ ⟨?_, hμ'S⟩)
     (fun μ' ⟨hμ', hμ'S⟩ ↦ ⟨mem_closure_alt_baiTask_restrict ν (hS.mem_nhds hμ'S) hμ', hμ'S⟩)
   -- The set is closed, as a finite union of the closed sets `{μ' | μ' a ≤ μ' b}`, `b ≠ a`, and it
@@ -228,14 +238,14 @@ theorem closure_alt_baiTask_restrict_inter (hS : IsOpen S) (a : α) :
     · simpa [hba] using isClosed_le (continuous_apply a) (continuous_apply b)
   refine closure_minimal (fun μ'' hμ'' ↦ ?_) h_closed hμ'
   rw [IdentTask.alt_restrict] at hμ''
-  obtain ⟨b, hba, hb⟩ := (mem_alt_baiTask_iff ν).1 hμ''.1
+  obtain ⟨b, hba, hb⟩ := (mem_alt_baiTask_iff ν id).1 hμ''.1
   exact ⟨b, hba, (hb a hba.symm).le⟩
 
 /-- The closure of the alternatives to the arm `a` in best arm identification is the set of the
 vectors of means in which some arm `b ≠ a` has mean at least that of `a`, that is, whose largest
 mean is attained at an arm `b ≠ a`. -/
 theorem closure_alt_baiTask (a : α) :
-    closure ((baiTask ν).alt a) = {μ' | ∃ b ≠ a, μ' a ≤ μ' b} := by
+    closure ((baiTask ν id).alt a) = {μ' | ∃ b ≠ a, μ' a ≤ μ' b} := by
   simpa using closure_alt_baiTask_restrict_inter ν isOpen_univ a
 
 end Closure
@@ -246,31 +256,31 @@ variable [Fintype α]
 restricted to any set `S` of vectors of means. -/
 theorem charTime_baiTask_restrict_eq_inv_answerValue (S : Set (α → ℝ))
     (ha : ∀ b ≠ a, μ' b < μ' a) :
-    ((baiTask ν).restrict S).charTime μ' = (((baiTask ν).restrict S).answerValue μ' a)⁻¹ :=
+    ((baiTask ν id).restrict S).charTime μ' = (((baiTask ν id).restrict S).answerValue μ' a)⁻¹ :=
   IdentTask.charTime_eq_inv_answerValue _ (by
     rw [IdentTask.correct_restrict]
-    refine (subsingleton_correct_baiTask ν μ').eq_singleton_of_mem ?_
+    refine (subsingleton_correct_baiTask ν id μ').eq_singleton_of_mem ?_
     rw [correct_baiTask]
     exact ha)
 
 /-- If `a` is the unique best arm of `μ'`, then `T*(μ') = D(μ', ¬a)⁻¹` in best arm
 identification. -/
 theorem charTime_baiTask_eq_inv_answerValue (ha : ∀ b ≠ a, μ' b < μ' a) :
-    (baiTask ν).charTime μ' = ((baiTask ν).answerValue μ' a)⁻¹ :=
+    (baiTask ν id).charTime μ' = ((baiTask ν id).answerValue μ' a)⁻¹ :=
   IdentTask.charTime_eq_inv_answerValue _
-    ((subsingleton_correct_baiTask ν μ').eq_singleton_of_mem (by rw [correct_baiTask]; exact ha))
+    ((subsingleton_correct_baiTask ν id μ').eq_singleton_of_mem (by rw [correct_baiTask]; exact ha))
 
 /-- For an open set `S` of vectors of means and a transportation cost from `μ` continuous on the
 vectors of `S` in which some arm `b ≠ a` has mean at least that of `a`, the cost of the
 alternatives to `a` in best arm identification restricted to `S` is
 `D(μ, w, ¬a) = min_{b ≠ a} inf {cost_μ(w, λ) | λ ∈ S, λ a ≤ λ b}` [GK16, Section 2]. -/
 theorem altCost_baiTask_restrict_eq_iInf (hS : IsOpen S) {μ : α → ℝ} {w : α → ℝ}
-    (hc : ContinuousOn ((baiTask ν).cost w μ) ({μ' | ∃ b ≠ a, μ' a ≤ μ' b} ∩ S)) :
-    ((baiTask ν).restrict S).altCost μ w a =
-      ⨅ (b) (_ : b ≠ a) (μ' ∈ S) (_ : μ' a ≤ μ' b), (baiTask ν).cost w μ μ' := by
+    (hc : ContinuousOn ((baiTask ν id).cost w μ) ({μ' | ∃ b ≠ a, μ' a ≤ μ' b} ∩ S)) :
+    ((baiTask ν id).restrict S).altCost μ w a =
+      ⨅ (b) (_ : b ≠ a) (μ' ∈ S) (_ : μ' a ≤ μ' b), (baiTask ν id).cost w μ μ' := by
   have h_eq := closure_alt_baiTask_restrict_inter ν hS a
-  have h_alt : ((baiTask ν).restrict S).alt a ⊆ {μ' | ∃ b ≠ a, μ' a ≤ μ' b} ∩ S := fun μ' hμ' ↦
-    h_eq ▸ ⟨subset_closure hμ', ((baiTask ν).alt_restrict a ▸ hμ').2⟩
+  have h_alt : ((baiTask ν id).restrict S).alt a ⊆ {μ' | ∃ b ≠ a, μ' a ≤ μ' b} ∩ S := fun μ' hμ' ↦
+    h_eq ▸ ⟨subset_closure hμ', ((baiTask ν id).alt_restrict a ▸ hμ').2⟩
   rw [IdentTask.altCost_eq_biInf_of_subset_closure _ h_alt (fun μ' hμ' ↦ (h_eq.symm.subset hμ').1)
     (by rwa [IdentTask.cost_restrict]), IdentTask.cost_restrict]
   simp only [Set.mem_inter_iff, Set.mem_ofPred_eq, iInf_and, iInf_exists]
@@ -294,7 +304,7 @@ private lemma iInf_cost_baiTask_le (hμ : ∀ c, μ c ∈ ρ.expFamilyMeans T)
       ∀ c, klDiv (ν μ c) (ν μ' c) = ENNReal.ofReal (ρ.expFamilyDiv T (μ c) (μ' c)))
     (hw : 0 ≤ w) {b : α} (hba : b ≠ a) {z : ℝ} (hz : z ∈ ρ.expFamilyMeans T) :
     ⨅ μ' ∈ {μ' : α → ℝ | ∀ c, μ' c ∈ ρ.expFamilyMeans T}, ⨅ (_ : μ' a ≤ μ' b),
-        (baiTask ν).cost w μ μ' ≤
+        (baiTask ν id).cost w μ μ' ≤
       ENNReal.ofReal (w a * ρ.expFamilyDiv T (μ a) z + w b * ρ.expFamilyDiv T (μ b) z) := by
   classical
   set μ' := Function.update (Function.update μ a z) b z
@@ -304,7 +314,7 @@ private lemma iInf_cost_baiTask_le (hμ : ∀ c, μ c ∈ ρ.expFamilyMeans T)
     exacts [hz, hz, hμ c]
   refine (iInf₂_le μ' hμ').trans (iInf_le_of_le (by simp [μ', hba.symm]) ?_)
   rw [IdentTask.cost_eq_sum_ofReal_mul_expFamilyDiv (ρ := fun _ ↦ ρ) (T := fun _ ↦ T)
-      (ν_baiTask ν) hν hw hμ',
+      (ν_baiTask ν id) hν hw hμ',
     ← Finset.sum_subset (Finset.subset_univ {a, b}) fun c _ hc ↦ ?_, Finset.sum_pair hba.symm,
     ← ENNReal.ofReal_add (mul_nonneg (hw a) (expFamilyDiv_nonneg (hμ a) (hμ' a)))
       (mul_nonneg (hw b) (expFamilyDiv_nonneg (hμ b) (hμ' b)))]
@@ -327,7 +337,7 @@ theorem altCost_baiTask_restrict_eq_iInf_expFamilyPairCost
     (hν : ∀ μ' : α → ℝ, (∀ c, μ' c ∈ ρ.expFamilyMeans T) →
       ∀ c, klDiv (ν μ c) (ν μ' c) = ENNReal.ofReal (ρ.expFamilyDiv T (μ c) (μ' c)))
     (ha : ∀ b, μ b ≤ μ a) (hw : 0 ≤ w) :
-    ((baiTask ν).restrict {μ' | ∀ c, μ' c ∈ ρ.expFamilyMeans T}).altCost μ w a =
+    ((baiTask ν id).restrict {μ' | ∀ c, μ' c ∈ ρ.expFamilyMeans T}).altCost μ w a =
       ⨅ (b) (_ : b ≠ a), ENNReal.ofReal (ρ.expFamilyPairCost T (μ a) (μ b) (w a) (w b)) := by
   classical
   have hw' (c : α) : 0 ≤ w c := hw c
@@ -336,14 +346,14 @@ theorem altCost_baiTask_restrict_eq_iInf_expFamilyPairCost
     rw [hS_def, Set.ofPred_forall]
     exact isOpen_iInter_of_finite fun c ↦ (isOpen_expFamilyMeans hT).preimage (continuous_apply c)
   have h_cost {μ' : α → ℝ} (hμ' : μ' ∈ S) :
-      (baiTask ν).cost w μ μ' = ENNReal.ofReal (∑ c, w c * ρ.expFamilyDiv T (μ c) (μ' c)) := by
+      (baiTask ν id).cost w μ μ' = ENNReal.ofReal (∑ c, w c * ρ.expFamilyDiv T (μ c) (μ' c)) := by
     rw [IdentTask.cost_eq_sum_ofReal_mul_expFamilyDiv (ρ := fun _ ↦ ρ) (T := fun _ ↦ T)
-      (ν_baiTask ν) hν hw hμ', ENNReal.ofReal_sum_of_nonneg fun c _ ↦
+      (ν_baiTask ν id) hν hw hμ', ENNReal.ofReal_sum_of_nonneg fun c _ ↦
         mul_nonneg (hw c) (expFamilyDiv_nonneg (hμ c) (hμ' c))]
   -- The cost is continuous on the vectors of means of the family, so that the alternatives can
   -- be replaced by their closure, in which `b` is at least as good as `a` for some `b ≠ a`.
-  have hc : ContinuousOn ((baiTask ν).cost w μ) S := by
-    refine (baiTask ν).continuousOn_cost (fun c ↦ ?_) w
+  have hc : ContinuousOn ((baiTask ν id).cost w μ) S := by
+    refine (baiTask ν id).continuousOn_cost (fun c ↦ ?_) w
     have h := ENNReal.continuous_ofReal.comp_continuousOn ((continuousOn_expFamilyDiv hT).comp
       (f := fun μ' : α → ℝ ↦ (μ c, μ' c)) (s := S) (by fun_prop) fun μ' hμ' ↦ ⟨hμ c, hμ' c⟩)
     exact h.congr fun μ' hμ' ↦ by rw [ν_baiTask, hν μ' hμ' c]; rfl
@@ -375,8 +385,8 @@ omit [Fintype α] in
 /-- With two arms `a` and `b` and `μ b < μ a`, the arm `a` is the only correct answer of best arm
 identification. -/
 private lemma correct_baiTask_of_forall_eq_or_eq (hα : ∀ c, c = a ∨ c = b)
-    (hμ : μ b < μ a) : (baiTask ν).correct μ = {a} := by
-  refine (subsingleton_correct_baiTask ν μ).eq_singleton_of_mem ?_
+    (hμ : μ b < μ a) : (baiTask ν id).correct μ = {a} := by
+  refine (subsingleton_correct_baiTask ν id μ).eq_singleton_of_mem ?_
   rw [correct_baiTask]
   intro d hd
   obtain rfl := (hα d).resolve_left hd
@@ -394,14 +404,14 @@ theorem answerValue_baiTask_restrict_eq_expFamilyDiv_of_forall_eq_or_eq
     (hba : b ≠ a) (hα : ∀ c, c = a ∨ c = b) (hμab : μ b ≤ μ a) {z : ℝ}
     (hz : z ∈ Set.Icc (μ b) (μ a))
     (hd : ρ.expFamilyDiv T (μ a) z = ρ.expFamilyDiv T (μ b) z) :
-    ((baiTask ν).restrict {μ' | ∀ c, μ' c ∈ ρ.expFamilyMeans T}).answerValue μ a =
+    ((baiTask ν id).restrict {μ' | ∀ c, μ' c ∈ ρ.expFamilyMeans T}).answerValue μ a =
       ENNReal.ofReal (ρ.expFamilyDiv T (μ a) z) := by
   classical
   have ha := apply_le_of_forall_eq_or_eq hα hμab
   have hz_mem : z ∈ ρ.expFamilyMeans T := Icc_subset_expFamilyMeans (hμ b) (hμ a) hz
   -- With two arms, the cost of the alternatives is the cost of moving both means to `m_b`.
   have h_alt {w : α → ℝ} (hw : w ∈ simplex α) :
-      ((baiTask ν).restrict {μ' | ∀ c, μ' c ∈ ρ.expFamilyMeans T}).altCost μ w a =
+      ((baiTask ν id).restrict {μ' | ∀ c, μ' c ∈ ρ.expFamilyMeans T}).altCost μ w a =
         ENNReal.ofReal (w a * ρ.expFamilyDiv T (μ a) (w a * μ a + w b * μ b) +
           w b * ρ.expFamilyDiv T (μ b) (w a * μ a + w b * μ b)) := by
     rw [altCost_baiTask_restrict_eq_iInf_expFamilyPairCost ν hT hμ hν ha fun c ↦
@@ -453,7 +463,7 @@ theorem charTime_baiTask_restrict_eq_inv_expFamilyDiv_of_forall_eq_or_eq
     (hba : b ≠ a) (hα : ∀ c, c = a ∨ c = b) (hμab : μ b < μ a) {z : ℝ}
     (hz : z ∈ Set.Icc (μ b) (μ a))
     (hd : ρ.expFamilyDiv T (μ a) z = ρ.expFamilyDiv T (μ b) z) :
-    ((baiTask ν).restrict {μ' | ∀ c, μ' c ∈ ρ.expFamilyMeans T}).charTime μ =
+    ((baiTask ν id).restrict {μ' | ∀ c, μ' c ∈ ρ.expFamilyMeans T}).charTime μ =
       (ENNReal.ofReal (ρ.expFamilyDiv T (μ a) z))⁻¹ := by
   rw [IdentTask.charTime_eq_inv_answerValue _
       (by rw [IdentTask.correct_restrict]; exact correct_baiTask_of_forall_eq_or_eq ν hα hμab),
@@ -470,7 +480,7 @@ theorem altCost_baiTask_restrict_eq_inf [DecidableEq α] (hT : ∀ c, ¬ T =ᵐ[
     (hν : ∀ μ' : α → ℝ, (∀ c, μ' c ∈ ρ.expFamilyMeans T) →
       ∀ c, klDiv (ν μ c) (ν μ' c) = ENNReal.ofReal (ρ.expFamilyDiv T (μ c) (μ' c)))
     (ha : ∀ b, μ b ≤ μ a) (hw : 0 ≤ w) :
-    ((baiTask ν).restrict {μ' | ∀ c, μ' c ∈ ρ.expFamilyMeans T}).altCost μ w a =
+    ((baiTask ν id).restrict {μ' | ∀ c, μ' c ∈ ρ.expFamilyMeans T}).altCost μ w a =
       (Finset.univ.filter (· ≠ a)).inf fun b ↦
         ENNReal.ofReal (ρ.expFamilyPairCost T (μ a) (μ b) (w a) (w b)) := by
   rw [altCost_baiTask_restrict_eq_iInf_expFamilyPairCost ν hT hμ hν ha hw, Finset.inf_eq_iInf]
@@ -497,7 +507,7 @@ theorem continuousOn_altCost_baiTask_restrict (hT : ∀ c, ¬ T =ᵐ[ρ] fun _ �
     (hν : ∀ μ μ' : α → ℝ, (∀ c, μ c ∈ ρ.expFamilyMeans T) → (∀ c, μ' c ∈ ρ.expFamilyMeans T) →
       ∀ c, klDiv (ν μ c) (ν μ' c) = ENNReal.ofReal (ρ.expFamilyDiv T (μ c) (μ' c))) (a : α) :
     ContinuousOn (fun p : (α → ℝ) × (α → ℝ) ↦
-        ((baiTask ν).restrict {μ' | ∀ c, μ' c ∈ ρ.expFamilyMeans T}).altCost p.1 p.2 a)
+        ((baiTask ν id).restrict {μ' | ∀ c, μ' c ∈ ρ.expFamilyMeans T}).altCost p.1 p.2 a)
       ({μ | (∀ c, μ c ∈ ρ.expFamilyMeans T) ∧ ∀ b, μ b ≤ μ a} ×ˢ Set.Ici 0) := by
   classical
   -- The closed form `min_{b ≠ a} (w a d(μ a, m_b) + w b d(μ b, m_b))` [GK16, Lemma 3] is a
@@ -516,7 +526,8 @@ theorem continuousOn_altCost_baiTask_restrict_left (hT : ∀ c, ¬ T =ᵐ[ρ] fu
       ∀ c, klDiv (ν μ c) (ν μ' c) = ENNReal.ofReal (ρ.expFamilyDiv T (μ c) (μ' c)))
     (ha : ∀ b, μ b ≤ μ a) :
     ContinuousOn (fun w ↦
-      ((baiTask ν).restrict {μ' | ∀ c, μ' c ∈ ρ.expFamilyMeans T}).altCost μ w a) (Set.Ici 0) := by
+      ((baiTask ν id).restrict {μ' | ∀ c, μ' c ∈ ρ.expFamilyMeans T}).altCost μ w a)
+      (Set.Ici 0) := by
   classical
   exact ((continuousOn_inf_expFamilyPairCost hT a).comp (f := fun w ↦ (μ, w)) (by fun_prop)
     fun _ hw ↦ ⟨hμ, hw⟩).congr fun w hw ↦ altCost_baiTask_restrict_eq_inf ν hT hμ hν ha hw
@@ -529,15 +540,15 @@ private lemma continuousWithinAt_altCost_baiTask_restrict (hT : ∀ c, ¬ T =ᵐ
       ∀ c, klDiv (ν μ c) (ν μ' c) = ENNReal.ofReal (ρ.expFamilyDiv T (μ c) (μ' c)))
     (hμ : ∀ c, μ c ∈ ρ.expFamilyMeans T) (ha : ∀ b ≠ a, μ b < μ a) (hw : w ∈ simplex α) :
     ContinuousWithinAt (fun p : (α → ℝ) × (α → ℝ) ↦
-        ((baiTask ν).restrict {μ' | ∀ c, μ' c ∈ ρ.expFamilyMeans T}).altCost p.1 p.2 a)
+        ((baiTask ν id).restrict {μ' | ∀ c, μ' c ∈ ρ.expFamilyMeans T}).altCost p.1 p.2 a)
       (Set.univ ×ˢ simplex α) (μ, w) := by
-  have h_best : (baiTask ν).answerSet a ∈ 𝓝 μ :=
-    (isOpen_answerSet_baiTask ν a).mem_nhds ((mem_answerSet_baiTask_iff ν).2 ha)
+  have h_best : (baiTask ν id).answerSet a ∈ 𝓝 μ :=
+    (isOpen_answerSet_baiTask ν a).mem_nhds ((mem_answerSet_baiTask_iff ν id).2 ha)
   have h_nhds : {μ' : α → ℝ | (∀ c, μ' c ∈ ρ.expFamilyMeans T) ∧ ∀ b, μ' b ≤ μ' a} ∈ 𝓝 μ :=
     (eventually_all.2 fun c ↦ (continuous_apply c).continuousAt.preimage_mem_nhds
       (expFamilyMeans_mem_nhds hT (hμ c))).and
       (mem_of_superset h_best fun _ hμ' ↦
-        apply_le_of_forall_ne_lt ((mem_answerSet_baiTask_iff ν).1 hμ'))
+        apply_le_of_forall_ne_lt ((mem_answerSet_baiTask_iff ν id).1 hμ'))
   have h_mem : {μ' : α → ℝ | (∀ c, μ' c ∈ ρ.expFamilyMeans T) ∧ ∀ b, μ' b ≤ μ' a} ×ˢ Set.Ici 0 ∈
       𝓝[Set.univ ×ˢ simplex α] (μ, w) := by
     rw [nhdsWithin_prod_eq, nhdsWithin_univ]
@@ -554,7 +565,7 @@ theorem continuousAt_answerValue_baiTask_restrict (hT : ∀ c, ¬ T =ᵐ[ρ] fun
       ∀ c, klDiv (ν μ c) (ν μ' c) = ENNReal.ofReal (ρ.expFamilyDiv T (μ c) (μ' c)))
     (hμ : ∀ c, μ c ∈ ρ.expFamilyMeans T) (ha : ∀ b ≠ a, μ b < μ a) :
     ContinuousAt (fun μ' ↦
-      ((baiTask ν).restrict {μ' | ∀ c, μ' c ∈ ρ.expFamilyMeans T}).answerValue μ' a) μ := by
+      ((baiTask ν id).restrict {μ' | ∀ c, μ' c ∈ ρ.expFamilyMeans T}).answerValue μ' a) μ := by
   rw [← continuousWithinAt_univ]
   exact IdentTask.continuousWithinAt_answerValue _ fun _ hw ↦
     continuousWithinAt_altCost_baiTask_restrict ν hT hν hμ ha hw
@@ -571,7 +582,7 @@ theorem upperHemicontinuousAt_optAlloc_baiTask_restrict (hT : ∀ c, ¬ T =ᵐ[�
       ∀ c, klDiv (ν μ c) (ν μ' c) = ENNReal.ofReal (ρ.expFamilyDiv T (μ c) (μ' c)))
     (hμ : ∀ c, μ c ∈ ρ.expFamilyMeans T) (ha : ∀ b ≠ a, μ b < μ a) :
     UpperHemicontinuousAt (fun μ' ↦
-      ((baiTask ν).restrict {μ' | ∀ c, μ' c ∈ ρ.expFamilyMeans T}).optAlloc μ' a) μ := by
+      ((baiTask ν id).restrict {μ' | ∀ c, μ' c ∈ ρ.expFamilyMeans T}).optAlloc μ' a) μ := by
   rw [← upperHemicontinuousWithinAt_univ_iff]
   exact IdentTask.upperHemicontinuousWithinAt_optAlloc _ fun _ hw ↦
     continuousWithinAt_altCost_baiTask_restrict ν hT hν hμ ha hw
@@ -584,15 +595,15 @@ theorem continuousAt_charTime_baiTask_restrict (hT : ∀ c, ¬ T =ᵐ[ρ] fun _ 
     (hν : ∀ μ μ' : α → ℝ, (∀ c, μ c ∈ ρ.expFamilyMeans T) → (∀ c, μ' c ∈ ρ.expFamilyMeans T) →
       ∀ c, klDiv (ν μ c) (ν μ' c) = ENNReal.ofReal (ρ.expFamilyDiv T (μ c) (μ' c)))
     (hμ : ∀ c, μ c ∈ ρ.expFamilyMeans T) (ha : ∀ b ≠ a, μ b < μ a) :
-    ContinuousAt ((baiTask ν).restrict {μ' | ∀ c, μ' c ∈ ρ.expFamilyMeans T}).charTime μ := by
+    ContinuousAt ((baiTask ν id).restrict {μ' | ∀ c, μ' c ∈ ρ.expFamilyMeans T}).charTime μ := by
   -- Near `μ`, the arm `a` is the unique best arm, so `T*(μ') = D(μ', ¬a)⁻¹`.
-  have h_eq : (fun μ' ↦ (((baiTask ν).restrict
+  have h_eq : (fun μ' ↦ (((baiTask ν id).restrict
         {μ' | ∀ c, μ' c ∈ ρ.expFamilyMeans T}).answerValue μ' a)⁻¹) =ᶠ[𝓝 μ]
-      ((baiTask ν).restrict {μ' | ∀ c, μ' c ∈ ρ.expFamilyMeans T}).charTime := by
-    filter_upwards [(isOpen_answerSet_baiTask ν a).mem_nhds ((mem_answerSet_baiTask_iff ν).2 ha)]
+      ((baiTask ν id).restrict {μ' | ∀ c, μ' c ∈ ρ.expFamilyMeans T}).charTime := by
+    filter_upwards [(isOpen_answerSet_baiTask ν a).mem_nhds ((mem_answerSet_baiTask_iff ν id).2 ha)]
       with μ' hμ'
     exact (charTime_baiTask_restrict_eq_inv_answerValue ν _
-      ((mem_answerSet_baiTask_iff ν).1 hμ')).symm
+      ((mem_answerSet_baiTask_iff ν id).1 hμ')).symm
   exact ((continuousAt_answerValue_baiTask_restrict ν hT hν hμ ha).inv).congr h_eq
 
 /-! #### The optimal allocation -/
@@ -606,7 +617,7 @@ theorem answerValue_baiTask_restrict_pos (hT : ∀ c, ¬ T =ᵐ[ρ] fun _ ↦ c)
     (hν : ∀ μ' : α → ℝ, (∀ c, μ' c ∈ ρ.expFamilyMeans T) →
       ∀ c, klDiv (ν μ c) (ν μ' c) = ENNReal.ofReal (ρ.expFamilyDiv T (μ c) (μ' c)))
     (ha : ∀ b ≠ a, μ b < μ a) :
-    0 < ((baiTask ν).restrict {μ' | ∀ c, μ' c ∈ ρ.expFamilyMeans T}).answerValue μ a := by
+    0 < ((baiTask ν id).restrict {μ' | ∀ c, μ' c ∈ ρ.expFamilyMeans T}).answerValue μ a := by
   classical
   have ha' := apply_le_of_forall_ne_lt ha
   -- The uniform allocation collects positive information against every alternative.
@@ -631,7 +642,7 @@ theorem pos_of_mem_optAlloc_baiTask_restrict (hT : ∀ c, ¬ T =ᵐ[ρ] fun _ �
     (hν : ∀ μ' : α → ℝ, (∀ c, μ' c ∈ ρ.expFamilyMeans T) →
       ∀ c, klDiv (ν μ c) (ν μ' c) = ENNReal.ofReal (ρ.expFamilyDiv T (μ c) (μ' c)))
     (ha : ∀ b ≠ a, μ b < μ a)
-    (hw : w ∈ ((baiTask ν).restrict {μ' | ∀ c, μ' c ∈ ρ.expFamilyMeans T}).optAlloc μ a)
+    (hw : w ∈ ((baiTask ν id).restrict {μ' | ∀ c, μ' c ∈ ρ.expFamilyMeans T}).optAlloc μ a)
     (c : α) : 0 < w c := by
   classical
   have ha' := apply_le_of_forall_ne_lt ha
@@ -649,7 +660,7 @@ theorem pos_of_mem_optAlloc_baiTask_restrict (hT : ∀ c, ¬ T =ᵐ[ρ] fun _ �
         exact zero_ne_one h_sum
       exact ⟨b, hb, Or.inl hc⟩
     · exact ⟨c, hca, Or.inr hc⟩
-  have h0 : ((baiTask ν).restrict {μ' | ∀ c, μ' c ∈ ρ.expFamilyMeans T}).altCost μ w a = 0 := by
+  have h0 : ((baiTask ν id).restrict {μ' | ∀ c, μ' c ∈ ρ.expFamilyMeans T}).altCost μ w a = 0 := by
     rw [altCost_baiTask_restrict_eq_inf ν hT hμ hν ha' hws.1]
     refine le_antisymm ((Finset.inf_le (Finset.mem_filter.2 ⟨Finset.mem_univ b, hba⟩)).trans ?_)
       zero_le
@@ -669,12 +680,12 @@ theorem betaAnswerValue_baiTask_restrict_eq_of_mem_betaOptAlloc {β : ℝ}
     (hν : ∀ μ' : α → ℝ, (∀ c, μ' c ∈ ρ.expFamilyMeans T) →
       ∀ c, klDiv (ν μ c) (ν μ' c) = ENNReal.ofReal (ρ.expFamilyDiv T (μ c) (μ' c)))
     (ha : ∀ b ≠ a, μ b < μ a) (hβ : 0 < β)
-    (hw : w ∈ ((baiTask ν).restrict {μ' | ∀ c, μ' c ∈ ρ.expFamilyMeans T}).betaOptAlloc μ a a β)
+    (hw : w ∈ ((baiTask ν id).restrict {μ' | ∀ c, μ' c ∈ ρ.expFamilyMeans T}).betaOptAlloc μ a a β)
     (hba : b ≠ a) :
-    ((baiTask ν).restrict {μ' | ∀ c, μ' c ∈ ρ.expFamilyMeans T}).betaAnswerValue μ a a β =
+    ((baiTask ν id).restrict {μ' | ∀ c, μ' c ∈ ρ.expFamilyMeans T}).betaAnswerValue μ a a β =
       ENNReal.ofReal (ρ.expFamilyPairCost T (μ a) (μ b) β (w b)) := by
   classical
-  set task := (baiTask ν).restrict {μ' | ∀ c, μ' c ∈ ρ.expFamilyMeans T}
+  set task := (baiTask ν id).restrict {μ' | ∀ c, μ' c ∈ ρ.expFamilyMeans T}
   have ha' := apply_le_of_forall_ne_lt ha
   obtain ⟨hws, hwa, hV⟩ := task.mem_betaOptAlloc_iff.1 hw
   have hw0 := (mem_simplex_iff.1 hws).1
@@ -762,9 +773,9 @@ theorem answerValue_baiTask_restrict_eq_of_mem_optAlloc (hT : ∀ c, ¬ T =ᵐ[�
     (hν : ∀ μ' : α → ℝ, (∀ c, μ' c ∈ ρ.expFamilyMeans T) →
       ∀ c, klDiv (ν μ c) (ν μ' c) = ENNReal.ofReal (ρ.expFamilyDiv T (μ c) (μ' c)))
     (ha : ∀ b ≠ a, μ b < μ a)
-    (hw : w ∈ ((baiTask ν).restrict {μ' | ∀ c, μ' c ∈ ρ.expFamilyMeans T}).optAlloc μ a)
+    (hw : w ∈ ((baiTask ν id).restrict {μ' | ∀ c, μ' c ∈ ρ.expFamilyMeans T}).optAlloc μ a)
     (hba : b ≠ a) :
-    ((baiTask ν).restrict {μ' | ∀ c, μ' c ∈ ρ.expFamilyMeans T}).answerValue μ a =
+    ((baiTask ν id).restrict {μ' | ∀ c, μ' c ∈ ρ.expFamilyMeans T}).answerValue μ a =
       ENNReal.ofReal (ρ.expFamilyPairCost T (μ a) (μ b) (w a) (w b)) := by
   rw [← IdentTask.betaAnswerValue_eq_answerValue_of_mem_optAlloc _ hw a]
   exact betaAnswerValue_baiTask_restrict_eq_of_mem_betaOptAlloc ν hT hμ hν ha
@@ -780,8 +791,9 @@ theorem subsingleton_optAlloc_baiTask_restrict (hT : ∀ c, ¬ T =ᵐ[ρ] fun _ 
     (hν : ∀ μ' : α → ℝ, (∀ c, μ' c ∈ ρ.expFamilyMeans T) →
       ∀ c, klDiv (ν μ c) (ν μ' c) = ENNReal.ofReal (ρ.expFamilyDiv T (μ c) (μ' c)))
     (ha : ∀ b ≠ a, μ b < μ a) :
-    (((baiTask ν).restrict {μ' | ∀ c, μ' c ∈ ρ.expFamilyMeans T}).optAlloc μ a).Subsingleton := by
-  set task := (baiTask ν).restrict {μ' | ∀ c, μ' c ∈ ρ.expFamilyMeans T}
+    (((baiTask ν id).restrict {μ' | ∀ c, μ' c ∈ ρ.expFamilyMeans T}).optAlloc μ a).Subsingleton :=
+    by
+  set task := (baiTask ν id).restrict {μ' | ∀ c, μ' c ∈ ρ.expFamilyMeans T}
   intro w hw w' hw'
   have hw'' : (fun c ↦ (w c + w' c) / 2) ∈ task.optAlloc μ a := by
     convert task.convex_optAlloc μ a hw hw' (a := 1 / 2) (b := 1 / 2) (by norm_num) (by norm_num)
@@ -832,7 +844,7 @@ theorem exists_optAlloc_baiTask_restrict_eq_singleton (hT : ∀ c, ¬ T =ᵐ[ρ]
     (hν : ∀ μ' : α → ℝ, (∀ c, μ' c ∈ ρ.expFamilyMeans T) →
       ∀ c, klDiv (ν μ c) (ν μ' c) = ENNReal.ofReal (ρ.expFamilyDiv T (μ c) (μ' c)))
     (ha : ∀ b ≠ a, μ b < μ a) :
-    ∃ w, ((baiTask ν).restrict {μ' | ∀ c, μ' c ∈ ρ.expFamilyMeans T}).optAlloc μ a = {w} := by
+    ∃ w, ((baiTask ν id).restrict {μ' | ∀ c, μ' c ∈ ρ.expFamilyMeans T}).optAlloc μ a = {w} := by
   have ha' := apply_le_of_forall_ne_lt ha
   have : Nonempty α := ⟨a⟩
   -- The cost of the alternatives is continuous in the allocation, so that an optimal allocation
@@ -851,7 +863,7 @@ theorem continuousAt_of_mem_optAlloc_baiTask_restrict (hT : ∀ c, ¬ T =ᵐ[ρ]
       ∀ c, klDiv (ν μ c) (ν μ' c) = ENNReal.ofReal (ρ.expFamilyDiv T (μ c) (μ' c)))
     (hμ : ∀ c, μ c ∈ ρ.expFamilyMeans T) (ha : ∀ b ≠ a, μ b < μ a) {f : (α → ℝ) → α → ℝ}
     (hf : ∀ᶠ μ' in 𝓝 μ,
-      f μ' ∈ ((baiTask ν).restrict {μ' | ∀ c, μ' c ∈ ρ.expFamilyMeans T}).optAlloc μ' a) :
+      f μ' ∈ ((baiTask ν id).restrict {μ' | ∀ c, μ' c ∈ ρ.expFamilyMeans T}).optAlloc μ' a) :
     ContinuousAt f μ :=
   (upperHemicontinuousAt_optAlloc_baiTask_restrict ν hT hν hμ ha).continuousAt_of_eventually_mem
     (subsingleton_optAlloc_baiTask_restrict ν hT hμ (hν μ · hμ) ha) hf
@@ -868,10 +880,10 @@ variable [MeasurableSingletonClass α] {μ w : α → ℝ} {σ2 : ℝ≥0}
 Gaussian arms with a common variance `σ2 ≠ 0`, a best arm `a` of `μ` and a nonnegative allocation
 `w`, `D(μ, w, ¬a) = min_{b ≠ a} (w a w b / (w a + w b)) (μ a - μ b)² / (2 σ2)`. -/
 theorem altCost_baiTask_gaussianBandit (hσ2 : σ2 ≠ 0) (ha : ∀ b, μ b ≤ μ a) (hw : 0 ≤ w) :
-    (baiTask (Bandits.gaussianBandit · σ2)).altCost μ w a =
+    (baiTask (Bandits.gaussianBandit · σ2) id).altCost μ w a =
       ⨅ (b) (_ : b ≠ a),
         ENNReal.ofReal (w a * w b / (w a + w b) * (μ a - μ b) ^ 2 / (2 * σ2)) := by
-  rw [← (baiTask (Bandits.gaussianBandit · σ2)).restrict_univ,
+  rw [← (baiTask (Bandits.gaussianBandit · σ2) id).restrict_univ,
     ← setOf_forall_mem_expFamilyMeans_gaussianReal 0 hσ2,
     altCost_baiTask_restrict_eq_iInf_expFamilyPairCost _ (not_ae_eq_const_gaussianReal 0 hσ2)
       (fun c ↦ mem_expFamilyMeans_gaussianReal 0 hσ2 (μ c))
@@ -896,10 +908,10 @@ with a common variance `σ2 ≠ 0` and `μ b ≤ μ a`, `D(μ, ¬a) = (μ a - μ
 the same divergence from `μ a` and `μ b` is `(μ a + μ b) / 2`. -/
 theorem answerValue_baiTask_gaussianBandit_of_forall_eq_or_eq (hσ2 : σ2 ≠ 0) (hba : b ≠ a)
     (hα : ∀ c, c = a ∨ c = b) (hμ : μ b ≤ μ a) :
-    (baiTask (Bandits.gaussianBandit · σ2)).answerValue μ a =
+    (baiTask (Bandits.gaussianBandit · σ2) id).answerValue μ a =
       ENNReal.ofReal ((μ a - μ b) ^ 2 / (8 * σ2)) := by
   have hσ2' : (σ2 : ℝ) ≠ 0 := NNReal.coe_ne_zero.2 hσ2
-  rw [← (baiTask (Bandits.gaussianBandit · σ2)).restrict_univ,
+  rw [← (baiTask (Bandits.gaussianBandit · σ2) id).restrict_univ,
     ← setOf_forall_mem_expFamilyMeans_gaussianReal 0 hσ2,
     answerValue_baiTask_restrict_eq_expFamilyDiv_of_forall_eq_or_eq _
       (not_ae_eq_const_gaussianReal 0 hσ2) (fun c ↦ mem_expFamilyMeans_gaussianReal 0 hσ2 (μ c))
@@ -915,7 +927,7 @@ theorem answerValue_baiTask_gaussianBandit_of_forall_eq_or_eq (hσ2 : σ2 ≠ 0)
 and `b` with a common variance `σ2 ≠ 0` and `μ b < μ a`, `T*(μ) = 8 σ2 / (μ a - μ b)²`. -/
 theorem charTime_baiTask_gaussianBandit_of_forall_eq_or_eq (hσ2 : σ2 ≠ 0) (hba : b ≠ a)
     (hα : ∀ c, c = a ∨ c = b) (hμ : μ b < μ a) :
-    (baiTask (Bandits.gaussianBandit · σ2)).charTime μ =
+    (baiTask (Bandits.gaussianBandit · σ2) id).charTime μ =
       ENNReal.ofReal (8 * σ2 / (μ a - μ b) ^ 2) := by
   have hσ2' : 0 < (σ2 : ℝ) := NNReal.coe_pos.2 (pos_iff_ne_zero.2 hσ2)
   have hΔ : 0 < (μ a - μ b) ^ 2 := pow_pos (sub_pos.2 hμ) 2
@@ -928,12 +940,12 @@ and `b` with a common variance `σ2 ≠ 0` and `μ b < μ a`, the only optimal a
 `w*(μ, ¬a) = (1/2, 1/2)`. -/
 theorem optAlloc_baiTask_gaussianBandit_of_forall_eq_or_eq (hσ2 : σ2 ≠ 0) (hba : b ≠ a)
     (hα : ∀ c, c = a ∨ c = b) (hμ : μ b < μ a) :
-    (baiTask (Bandits.gaussianBandit · σ2)).optAlloc μ a = {fun _ ↦ 1 / 2} := by
+    (baiTask (Bandits.gaussianBandit · σ2) id).optAlloc μ a = {fun _ ↦ 1 / 2} := by
   have hσ2' : 0 < (σ2 : ℝ) := NNReal.coe_pos.2 (pos_iff_ne_zero.2 hσ2)
   have ha := apply_le_of_forall_eq_or_eq hα hμ.le
   -- With two arms, the cost of the alternatives is `w a w b (μ a - μ b)² / (2 σ2)`.
   have h_alt {w : α → ℝ} (hw : w ∈ simplex α) :
-      (baiTask (Bandits.gaussianBandit · σ2)).altCost μ w a =
+      (baiTask (Bandits.gaussianBandit · σ2) id).altCost μ w a =
         ENNReal.ofReal (w a * w b * (μ a - μ b) ^ 2 / (2 * σ2)) := by
     rw [altCost_baiTask_gaussianBandit hσ2 ha fun c ↦ (mem_simplex_iff.1 hw).1 c,
       iInf_ne_eq_of_forall_eq_or_eq hba hα, add_eq_one_of_mem_simplex hba.symm hα hw, div_one]
@@ -1013,7 +1025,7 @@ and `Δ_a = Δ_{b₀}`. The bound is the smallest when `b₀` is a second best a
 `Δ_a = min_{b ≠ a} Δ_b`. -/
 theorem answerValue_baiTask_gaussianBandit_le (hσ2 : σ2 ≠ 0) (hb₀a : b₀ ≠ a)
     (ha : ∀ b ≠ a, μ b < μ a) :
-    (baiTask (Bandits.gaussianBandit · σ2)).answerValue μ a ≤
+    (baiTask (Bandits.gaussianBandit · σ2) id).answerValue μ a ≤
       ENNReal.ofReal (2 * σ2 / (μ a - μ b₀) ^ 2 +
         ∑ b ∈ Finset.univ.erase a, 2 * σ2 / (μ a - μ b) ^ 2)⁻¹ := by
   have hH := sum_div_sq_ite_pos hσ2 hb₀a ha
@@ -1054,7 +1066,7 @@ theorem le_answerValue_baiTask_gaussianBandit (hσ2 : σ2 ≠ 0) (hb₀a : b₀ 
     (ha : ∀ b ≠ a, μ b < μ a) (hb₀ : ∀ b ≠ a, μ b ≤ μ b₀) :
     ENNReal.ofReal (2 * (2 * σ2 / (μ a - μ b₀) ^ 2 +
         ∑ b ∈ Finset.univ.erase a, 2 * σ2 / (μ a - μ b) ^ 2))⁻¹ ≤
-      (baiTask (Bandits.gaussianBandit · σ2)).answerValue μ a := by
+      (baiTask (Bandits.gaussianBandit · σ2) id).answerValue μ a := by
   have hH := sum_div_sq_ite_pos hσ2 hb₀a ha
   rw [sum_div_sq_ite]
   set s : α → α := fun c ↦ if c = a then b₀ else c
@@ -1095,7 +1107,7 @@ theorem le_charTime_baiTask_gaussianBandit (hσ2 : σ2 ≠ 0) (hb₀a : b₀ ≠
     (ha : ∀ b ≠ a, μ b < μ a) :
     ENNReal.ofReal (2 * σ2 / (μ a - μ b₀) ^ 2 +
         ∑ b ∈ Finset.univ.erase a, 2 * σ2 / (μ a - μ b) ^ 2) ≤
-      (baiTask (Bandits.gaussianBandit · σ2)).charTime μ := by
+      (baiTask (Bandits.gaussianBandit · σ2) id).charTime μ := by
   rw [charTime_baiTask_eq_inv_answerValue _ ha,
     ← inv_inv (ENNReal.ofReal _), ← ENNReal.ofReal_inv_of_pos (sum_div_sq_pos hσ2 hb₀a ha),
     ENNReal.inv_le_inv]
@@ -1107,7 +1119,7 @@ theorem le_charTime_baiTask_gaussianBandit (hσ2 : σ2 ≠ 0) (hb₀a : b₀ ≠
 `Δ_b = μ a - μ b` for `b ≠ a` and `Δ_a = Δ_{b₀} = min_{b ≠ a} Δ_b`. -/
 theorem charTime_baiTask_gaussianBandit_le (hσ2 : σ2 ≠ 0) (hb₀a : b₀ ≠ a)
     (ha : ∀ b ≠ a, μ b < μ a) (hb₀ : ∀ b ≠ a, μ b ≤ μ b₀) :
-    (baiTask (Bandits.gaussianBandit · σ2)).charTime μ ≤
+    (baiTask (Bandits.gaussianBandit · σ2) id).charTime μ ≤
       ENNReal.ofReal (2 * (2 * σ2 / (μ a - μ b₀) ^ 2 +
         ∑ b ∈ Finset.univ.erase a, 2 * σ2 / (μ a - μ b) ^ 2)) := by
   rw [charTime_baiTask_eq_inv_answerValue _ ha,

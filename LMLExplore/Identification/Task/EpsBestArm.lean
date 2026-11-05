@@ -11,7 +11,7 @@ public import LMLExplore.Identification.Task.MeanVector
 /-!
 # The alternatives of `ε`-best arm identification and the cost of the alternatives
 
-In `ε`-best arm identification (`epsBaiTask ν ε`), the correct answers of a vector of means `μ`
+In `ε`-best arm identification (`epsBaiTask ν id ε`), the correct answers of a vector of means `μ`
 are its `ε`-good arms, the arms `a` with `μ b ≤ μ a + ε` for every arm `b`. An arm `a` is thus not
 `ε`-good for `μ'` exactly when some arm `b` has `μ' a + ε < μ' b`.
 
@@ -32,8 +32,8 @@ the expected number of pulls of every arm, whose sum is a lower bound on the sam
 
 ## Main statements
 
-* `LMLExplore.Identification.mem_alt_epsBaiTask_iff`: `μ'` is an alternative to `a` iff some arm
-  `b` has `μ' a + ε < μ' b`.
+* `LMLExplore.Identification.mem_alt_epsBaiTask_iff`: a model `θ` is an alternative to `a` iff
+  some arm `b` has `mean θ a + ε < mean θ b`, for any mean functional `mean`.
 * `LMLExplore.Identification.altCost_epsBaiTask_restrict_le_ofReal_mul_expFamilyDiv_add`: for an
   arm `b ≠ a`, `D(μ, w, ¬a) ≤ w b d_b(μ b, μ a + ε)`.
 * `LMLExplore.Identification.altCost_epsBaiTask_restrict_le_ofReal_mul_expFamilyDiv_sub`: for an
@@ -53,14 +53,17 @@ open scoped ENNReal
 
 namespace LMLExplore.Identification
 
-variable {α 𝓨 : Type*} {mα : MeasurableSpace α} {m𝓨 : MeasurableSpace 𝓨}
+variable {α Θ 𝓨 : Type*} {mα : MeasurableSpace α} {m𝓨 : MeasurableSpace 𝓨}
   {ρ : α → Measure 𝓨} {T : α → 𝓨 → ℝ} {μ μ' w : α → ℝ} {ε : ℝ} {a b : α}
-  (ν : (α → ℝ) → Kernel α 𝓨) [∀ μ, IsMarkovKernel (ν μ)]
 
-/-- In `ε`-best arm identification, `μ'` is an alternative to the arm `a` iff `a` is not `ε`-good
-for `μ'`: some arm `b` has `μ' a + ε < μ' b`. -/
-lemma mem_alt_epsBaiTask_iff : μ' ∈ (epsBaiTask ν ε).alt a ↔ ∃ b, μ' a + ε < μ' b := by
+/-- In `ε`-best arm identification, `θ` is an alternative to the arm `a` iff `a` is not `ε`-good
+for `θ`: some arm `b` has `mean θ a + ε < mean θ b`. -/
+lemma mem_alt_epsBaiTask_iff (ν : Θ → Kernel α 𝓨) [∀ θ, IsMarkovKernel (ν θ)]
+    (mean : Θ → α → ℝ) {θ : Θ} :
+    θ ∈ (epsBaiTask ν mean ε).alt a ↔ ∃ b, mean θ a + ε < mean θ b := by
   simp [IdentTask.mem_alt_iff]
+
+variable (ν : (α → ℝ) → Kernel α 𝓨) [∀ μ, IsMarkovKernel (ν μ)]
 
 variable [Fintype α] [DecidableEq α]
 
@@ -75,13 +78,13 @@ theorem altCost_epsBaiTask_restrict_le_ofReal_mul_expFamilyDiv_add
     (hν : ∀ μ' : α → ℝ, (∀ c, μ' c ∈ (ρ c).expFamilyMeans (T c)) →
       ∀ c, klDiv (ν μ c) (ν μ' c) = ENNReal.ofReal ((ρ c).expFamilyDiv (T c) (μ c) (μ' c)))
     (hba : b ≠ a) (hb : μ a + ε ∈ (ρ b).expFamilyMeans (T b)) (hw : 0 ≤ w) :
-    ((epsBaiTask ν ε).restrict {μ' | ∀ c, μ' c ∈ (ρ c).expFamilyMeans (T c)}).altCost μ w a ≤
+    ((epsBaiTask ν id ε).restrict {μ' | ∀ c, μ' c ∈ (ρ c).expFamilyMeans (T c)}).altCost μ w a ≤
       ENNReal.ofReal (w b * (ρ b).expFamilyDiv (T b) (μ b) (μ a + ε)) := by
   classical
   exact IdentTask.altCost_restrict_le_ofReal_mul_expFamilyDiv_of_tendsto (by simp) hν hw hT
     hμ b hb (l := 𝓝[>] (μ a + ε))
     (((continuous_const.update b continuous_id).tendsto _).mono_left nhdsWithin_le_nhds)
-    (eventually_nhdsWithin_of_forall fun x hx ↦ (mem_alt_epsBaiTask_iff ν).2
+    (eventually_nhdsWithin_of_forall fun x hx ↦ (mem_alt_epsBaiTask_iff ν id).2
       ⟨b, by simpa [Function.update_of_ne hba.symm] using hx⟩)
 
 omit [DecidableEq α] in
@@ -95,13 +98,13 @@ theorem altCost_epsBaiTask_restrict_le_ofReal_mul_expFamilyDiv_sub
     (hν : ∀ μ' : α → ℝ, (∀ c, μ' c ∈ (ρ c).expFamilyMeans (T c)) →
       ∀ c, klDiv (ν μ c) (ν μ' c) = ENNReal.ofReal ((ρ c).expFamilyDiv (T c) (μ c) (μ' c)))
     (hba : b ≠ a) (ha : μ b - ε ∈ (ρ a).expFamilyMeans (T a)) (hw : 0 ≤ w) :
-    ((epsBaiTask ν ε).restrict {μ' | ∀ c, μ' c ∈ (ρ c).expFamilyMeans (T c)}).altCost μ w a ≤
+    ((epsBaiTask ν id ε).restrict {μ' | ∀ c, μ' c ∈ (ρ c).expFamilyMeans (T c)}).altCost μ w a ≤
       ENNReal.ofReal (w a * (ρ a).expFamilyDiv (T a) (μ a) (μ b - ε)) := by
   classical
   exact IdentTask.altCost_restrict_le_ofReal_mul_expFamilyDiv_of_tendsto (by simp) hν hw hT
     hμ a ha (l := 𝓝[<] (μ b - ε))
     (((continuous_const.update a continuous_id).tendsto _).mono_left nhdsWithin_le_nhds)
-    (eventually_nhdsWithin_of_forall fun x hx ↦ (mem_alt_epsBaiTask_iff ν).2
+    (eventually_nhdsWithin_of_forall fun x hx ↦ (mem_alt_epsBaiTask_iff ν id).2
       ⟨b, by simpa [Function.update_of_ne hba] using (lt_sub_iff_add_lt.1 hx)⟩)
 
 end LMLExplore.Identification

@@ -10,21 +10,26 @@ public import LMLExplore.Identification.Task.Basic
 public import Mathlib.Data.Matrix.Mul
 
 /-!
-# Classical identification tasks on vectors of means
+# Classical identification tasks
 
-The classical identification tasks whose models are vectors of means `μ : α → ℝ`, one per arm.
-Each task takes the bandit `ν μ : Kernel α 𝓨` of each mean vector as a parameter (typically arm
-`a` of `ν μ` has mean `μ a`, for example `ν μ = gaussianBandit μ σ2`), and constrains the
-admissible models only through the question asked. Admissible models whose means lie in given
-sets (the means of an exponential family, `[0, 1]` for Bernoulli arms, ...) are obtained with
-`IdentTask.restrict`.
+The classical identification tasks, which constrain the admissible models only through the question
+asked about their means. Each task takes the bandit `ν θ : Kernel α 𝓨` of each model `θ` as a
+parameter. Admissible models whose means lie in given sets (the means of an exponential family,
+`[0, 1]` for Bernoulli arms, ...) are obtained with `IdentTask.restrict`.
 
-* `baiTask ν`: best arm identification. The answer is the arm with the largest mean, on the models
-  with a unique best arm.
+Best arm identification and `ε`-best arm identification are stated for any type `Θ` of models with
+a mean functional `mean : Θ → α → ℝ`, the mean `mean θ a` of arm `a` under the model `θ`. For
+example, Gaussian arms with unknown variances are the models `θ : α → ℝ × ℝ≥0` with
+`mean θ a = (θ a).1`. The tasks on vectors of means `μ : α → ℝ`, one per arm, are the case
+`Θ = α → ℝ`, `mean = id`, with typically arm `a` of `ν μ` of mean `μ a`, for example
+`ν μ = gaussianBandit μ σ2`. The other tasks are stated on vectors of means.
+
+* `baiTask ν mean`: best arm identification. The answer is the arm with the largest mean, on the
+  models with a unique best arm.
+* `epsBaiTask ν mean ε`: `ε`-best arm identification. The correct answers are the arms whose mean
+  is within `ε` of the largest mean, on every model. Several answers may be correct.
 * `topMTask ν m`: top-`m` identification. The answer is the set of the `m` arms with the largest
   means, on the models where it is unique.
-* `epsBaiTask ν ε`: `ε`-best arm identification. The correct answers are the arms whose mean is
-  within `ε` of the largest mean, on every model. Several answers may be correct.
 * `thresholdingTask ν γ`: the answer is the set of arms with mean above `γ`, on the models with no
   mean equal to `γ`.
 * `minThresholdTask ν γ`: the answer is whether the smallest mean is below `γ`, on the models
@@ -46,8 +51,8 @@ sets (the means of an exponential family, `[0, 1]` for Bernoulli arms, ...) are 
   answer on every admissible model.
 * `nonempty_correct_epsBaiTask`: for `ε ≥ 0` and finitely many (at least one) arms, every model
   has an `ε`-good arm.
-* `correct_epsBaiTask_eq_singleton_iff`: for `ε ≥ 0`, `a` is the only `ε`-good arm of `μ` iff
-  `μ b + ε < μ a` for every arm `b ≠ a`.
+* `correct_epsBaiTask_eq_singleton_iff`: for `ε ≥ 0`, `a` is the only `ε`-good arm of `θ` iff
+  `mean θ b + ε < mean θ a` for every arm `b ≠ a`.
 * `nonempty_correct_anyLowArmTask_iff`: the admissible models of Any Low Arm are exactly the
   models with a correct answer.
 * `correct_baiTask_subset_correct_epsBaiTask`: the best arm is `ε`-good for every `ε ≥ 0`.
@@ -75,30 +80,36 @@ open MeasureTheory ProbabilityTheory
 
 namespace LMLExplore.Identification
 
-variable {α 𝓨 : Type*} {mα : MeasurableSpace α} {m𝓨 : MeasurableSpace 𝓨}
-  (ν : (α → ℝ) → Kernel α 𝓨) [∀ μ, IsMarkovKernel (ν μ)] {μ : α → ℝ}
+variable {α Θ 𝓨 : Type*} {mα : MeasurableSpace α} {m𝓨 : MeasurableSpace 𝓨}
+
+section MeanFunctional
 
 /-! ### Best arm identification -/
 
-/-- *Best arm identification* [GK16]: the correct answer of a vector of means is its arm with the
-largest mean, and the admissible models are those with a unique best arm. -/
-noncomputable def baiTask : IdentTask α (α → ℝ) α 𝓨 where
-  M := {μ | ∃ a, ∀ b ≠ a, μ b < μ a}
+variable (ν : Θ → Kernel α 𝓨) [∀ θ, IsMarkovKernel (ν θ)] (mean : Θ → α → ℝ) {θ : Θ}
+
+/-- *Best arm identification* [GK16] on a type `Θ` of models with the mean functional
+`mean : Θ → α → ℝ`: the correct answer of a model `θ` is its arm with the largest mean
+`mean θ a`, and the admissible models are those with a unique best arm. The task on vectors of
+means is `baiTask ν id`. -/
+noncomputable def baiTask : IdentTask α Θ α 𝓨 where
+  M := {θ | ∃ a, ∀ b ≠ a, mean θ b < mean θ a}
   ν := ν
   isMarkovKernel_ν _ := inferInstance
-  correct μ := {a | ∀ b ≠ a, μ b < μ a}
+  correct θ := {a | ∀ b ≠ a, mean θ b < mean θ a}
 
 @[simp]
-lemma M_baiTask : (baiTask ν).M = {μ | ∃ a, ∀ b ≠ a, μ b < μ a} := (rfl)
+lemma M_baiTask : (baiTask ν mean).M = {θ | ∃ a, ∀ b ≠ a, mean θ b < mean θ a} := (rfl)
 
 @[simp]
-lemma ν_baiTask : (baiTask ν).ν = ν := (rfl)
+lemma ν_baiTask : (baiTask ν mean).ν = ν := (rfl)
 
 @[simp]
-lemma correct_baiTask (μ : α → ℝ) : (baiTask ν).correct μ = {a | ∀ b ≠ a, μ b < μ a} := (rfl)
+lemma correct_baiTask (θ : Θ) :
+    (baiTask ν mean).correct θ = {a | ∀ b ≠ a, mean θ b < mean θ a} := (rfl)
 
-/-- A vector of means has at most one best arm. -/
-lemma subsingleton_correct_baiTask (μ : α → ℝ) : ((baiTask ν).correct μ).Subsingleton := by
+/-- A model has at most one best arm. -/
+lemma subsingleton_correct_baiTask (θ : Θ) : ((baiTask ν mean).correct θ).Subsingleton := by
   intro a ha a' ha'
   by_contra h
   simp only [correct_baiTask, Set.mem_ofPred_eq] at ha ha'
@@ -106,10 +117,87 @@ lemma subsingleton_correct_baiTask (μ : α → ℝ) : ((baiTask ν).correct μ)
 
 /-- Best arm identification is a single-answer task: every model with a unique best arm has
 exactly one correct answer, its best arm. -/
-lemma isSingleAnswer_baiTask : (baiTask ν).IsSingleAnswer := by
+lemma isSingleAnswer_baiTask : (baiTask ν mean).IsSingleAnswer := by
   refine (IdentTask.isSingleAnswer_iff _).2 ?_
-  rintro μ ⟨a, ha⟩
-  exact ⟨a, (subsingleton_correct_baiTask ν μ).eq_singleton_of_mem ha⟩
+  rintro θ ⟨a, ha⟩
+  exact ⟨a, (subsingleton_correct_baiTask ν mean θ).eq_singleton_of_mem ha⟩
+
+/-! ### `ε`-best arm identification -/
+
+/-- *`ε`-best arm identification* on a type `Θ` of models with the mean functional
+`mean : Θ → α → ℝ`: the correct answers of a model `θ` are its `ε`-good arms, whose mean is within
+`ε` of the largest mean, and every model is admissible. The task on vectors of means is
+`epsBaiTask ν id ε`. -/
+noncomputable def epsBaiTask (ε : ℝ) : IdentTask α Θ α 𝓨 where
+  M := Set.univ
+  ν := ν
+  isMarkovKernel_ν _ := inferInstance
+  correct θ := {a | ∀ b, mean θ b ≤ mean θ a + ε}
+
+variable {ε : ℝ}
+
+@[simp]
+lemma M_epsBaiTask : (epsBaiTask ν mean ε).M = Set.univ := (rfl)
+
+@[simp]
+lemma ν_epsBaiTask : (epsBaiTask ν mean ε).ν = ν := (rfl)
+
+@[simp]
+lemma correct_epsBaiTask (θ : Θ) :
+    (epsBaiTask ν mean ε).correct θ = {a | ∀ b, mean θ b ≤ mean θ a + ε} := (rfl)
+
+/-- For `ε ≥ 0`, every model on finitely many arms has an `ε`-good arm: an arm with the largest
+mean. -/
+lemma nonempty_correct_epsBaiTask [Finite α] [Nonempty α] (hε : 0 ≤ ε) (θ : Θ) :
+    ((epsBaiTask ν mean ε).correct θ).Nonempty := by
+  obtain ⟨a, ha⟩ := Finite.exists_max (mean θ)
+  exact ⟨a, fun b ↦ (ha b).trans (le_add_of_nonneg_right hε)⟩
+
+/-- For `ε ≥ 0`, the arm `a` is the only `ε`-good arm of `θ` iff every other arm `b` has
+`mean θ b + ε < mean θ a`. -/
+lemma correct_epsBaiTask_eq_singleton_iff {a : α} (hε : 0 ≤ ε) :
+    (epsBaiTask ν mean ε).correct θ = {a} ↔ ∀ b ≠ a, mean θ b + ε < mean θ a := by
+  set μ := mean θ
+  simp only [correct_epsBaiTask]
+  constructor
+  · intro h b hba
+    have ha : ∀ c, μ c ≤ μ a + ε := by
+      have : a ∈ {a' | ∀ c, μ c ≤ μ a' + ε} := h ▸ Set.mem_singleton a
+      exact this
+    -- An arm with a larger mean than `a` would be `ε`-good, so `a` has the largest mean.
+    have ha_max : ∀ c, μ c ≤ μ a := fun c ↦ by
+      by_contra! hc
+      have : c ∈ {a' | ∀ c, μ c ≤ μ a' + ε} := fun d ↦ (ha d).trans (by linarith)
+      rw [h, Set.mem_singleton_iff] at this
+      exact hc.ne' (this ▸ rfl)
+    -- If `μ a ≤ μ b + ε`, then `b` would be `ε`-good.
+    by_contra! hb
+    have : b ∈ {a' | ∀ c, μ c ≤ μ a' + ε} := fun c ↦ (ha_max c).trans hb
+    rw [h, Set.mem_singleton_iff] at this
+    exact hba this
+  · intro h
+    ext c
+    simp only [Set.mem_ofPred_eq, Set.mem_singleton_iff]
+    refine ⟨fun hc ↦ ?_, ?_⟩
+    · by_contra hca
+      linarith [h c hca, hc a]
+    · rintro rfl b
+      rcases eq_or_ne b c with rfl | hbc
+      · linarith
+      · linarith [h b hbc]
+
+/-- For `ε ≥ 0`, the best arm is `ε`-good. -/
+lemma correct_baiTask_subset_correct_epsBaiTask (hε : 0 ≤ ε) (θ : Θ) :
+    (baiTask ν mean).correct θ ⊆ (epsBaiTask ν mean ε).correct θ := by
+  intro a ha b
+  simp only [correct_baiTask, Set.mem_ofPred_eq] at ha
+  rcases eq_or_ne b a with rfl | hb
+  · exact le_add_of_nonneg_right hε
+  · exact (ha b hb).le.trans (le_add_of_nonneg_right hε)
+
+end MeanFunctional
+
+variable (ν : (α → ℝ) → Kernel α 𝓨) [∀ μ, IsMarkovKernel (ν μ)] {μ : α → ℝ} {ε : ℝ}
 
 /-! ### Top-`m` identification -/
 
@@ -158,76 +246,6 @@ lemma isSingleAnswer_topMTask (m : ℕ) : (topMTask (α := α) ν m).IsSingleAns
   refine (IdentTask.isSingleAnswer_iff _).2 ?_
   rintro μ ⟨s, hs⟩
   exact ⟨s, (subsingleton_correct_topMTask ν m μ).eq_singleton_of_mem hs⟩
-
-/-! ### `ε`-best arm identification -/
-
-/-- *`ε`-best arm identification*: the correct answers of a vector of means are its `ε`-good arms,
-whose mean is within `ε` of the largest mean, and every model is admissible. -/
-noncomputable def epsBaiTask (ε : ℝ) : IdentTask α (α → ℝ) α 𝓨 where
-  M := Set.univ
-  ν := ν
-  isMarkovKernel_ν _ := inferInstance
-  correct μ := {a | ∀ b, μ b ≤ μ a + ε}
-
-variable {ε : ℝ}
-
-@[simp]
-lemma M_epsBaiTask : (epsBaiTask ν ε).M = Set.univ := (rfl)
-
-@[simp]
-lemma ν_epsBaiTask : (epsBaiTask ν ε).ν = ν := (rfl)
-
-@[simp]
-lemma correct_epsBaiTask (μ : α → ℝ) :
-    (epsBaiTask ν ε).correct μ = {a | ∀ b, μ b ≤ μ a + ε} := (rfl)
-
-/-- For `ε ≥ 0`, every vector of means on finitely many arms has an `ε`-good arm: an arm with the
-largest mean. -/
-lemma nonempty_correct_epsBaiTask [Finite α] [Nonempty α] (hε : 0 ≤ ε) (μ : α → ℝ) :
-    ((epsBaiTask ν ε).correct μ).Nonempty := by
-  obtain ⟨a, ha⟩ := Finite.exists_max μ
-  exact ⟨a, fun b ↦ (ha b).trans (le_add_of_nonneg_right hε)⟩
-
-/-- For `ε ≥ 0`, the arm `a` is the only `ε`-good arm of `μ` iff every other arm `b` has
-`μ b + ε < μ a`. -/
-lemma correct_epsBaiTask_eq_singleton_iff {a : α} (hε : 0 ≤ ε) :
-    (epsBaiTask ν ε).correct μ = {a} ↔ ∀ b ≠ a, μ b + ε < μ a := by
-  simp only [correct_epsBaiTask]
-  constructor
-  · intro h b hba
-    have ha : ∀ c, μ c ≤ μ a + ε := by
-      have : a ∈ {a' | ∀ c, μ c ≤ μ a' + ε} := h ▸ Set.mem_singleton a
-      exact this
-    -- An arm with a larger mean than `a` would be `ε`-good, so `a` has the largest mean.
-    have ha_max : ∀ c, μ c ≤ μ a := fun c ↦ by
-      by_contra! hc
-      have : c ∈ {a' | ∀ c, μ c ≤ μ a' + ε} := fun d ↦ (ha d).trans (by linarith)
-      rw [h, Set.mem_singleton_iff] at this
-      exact hc.ne' (this ▸ rfl)
-    -- If `μ a ≤ μ b + ε`, then `b` would be `ε`-good.
-    by_contra! hb
-    have : b ∈ {a' | ∀ c, μ c ≤ μ a' + ε} := fun c ↦ (ha_max c).trans hb
-    rw [h, Set.mem_singleton_iff] at this
-    exact hba this
-  · intro h
-    ext c
-    simp only [Set.mem_ofPred_eq, Set.mem_singleton_iff]
-    refine ⟨fun hc ↦ ?_, ?_⟩
-    · by_contra hca
-      linarith [h c hca, hc a]
-    · rintro rfl b
-      rcases eq_or_ne b c with rfl | hbc
-      · linarith
-      · linarith [h b hbc]
-
-/-- For `ε ≥ 0`, the best arm is `ε`-good. -/
-lemma correct_baiTask_subset_correct_epsBaiTask (hε : 0 ≤ ε) (μ : α → ℝ) :
-    (baiTask ν).correct μ ⊆ (epsBaiTask ν ε).correct μ := by
-  intro a ha b
-  simp only [correct_baiTask, Set.mem_ofPred_eq] at ha
-  rcases eq_or_ne b a with rfl | hb
-  · exact le_add_of_nonneg_right hε
-  · exact (ha b hb).le.trans (le_add_of_nonneg_right hε)
 
 /-! ### Thresholding -/
 
@@ -470,9 +488,9 @@ lemma correct_topMTask_subset_correct_epsTopMTask (hε : 0 ≤ ε) (μ : α → 
 /-- Top-`1` identification with tolerance `ε` is `ε`-best arm identification: `{a}` is a correct
 answer iff `a` is `ε`-good. -/
 lemma singleton_mem_correct_epsTopMTask_one_iff {a : α} :
-    {a} ∈ (epsTopMTask ν 1 ε).correct μ ↔ a ∈ (epsBaiTask ν ε).correct μ := by
+    {a} ∈ (epsTopMTask ν 1 ε).correct μ ↔ a ∈ (epsBaiTask ν id ε).correct μ := by
   simp only [correct_epsTopMTask, Set.mem_ofPred_eq, Finset.card_singleton, Finset.mem_singleton,
     forall_eq, true_and, Nat.lt_one_iff, Finset.card_eq_zero, Finset.filter_eq_empty_iff,
-    Finset.mem_univ, not_lt, forall_const, correct_epsBaiTask]
+    Finset.mem_univ, not_lt, forall_const, correct_epsBaiTask, id_eq]
 
 end LMLExplore.Identification

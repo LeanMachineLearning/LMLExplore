@@ -83,7 +83,7 @@ theorem betaAnswerValue_baiTask_restrict_pos (hT : ∀ c, ¬ T =ᵐ[ρ] fun _ �
     (hν : ∀ μ' : α → ℝ, (∀ c, μ' c ∈ ρ.expFamilyMeans T) →
       ∀ c, klDiv (ν μ c) (ν μ' c) = ENNReal.ofReal (ρ.expFamilyDiv T (μ c) (μ' c)))
     (ha : ∀ b ≠ a, μ b < μ a) (hba : b ≠ a) (hβ : β ∈ Set.Ioo 0 1) :
-    0 < ((baiTask ν).restrict {μ' | ∀ c, μ' c ∈ ρ.expFamilyMeans T}).betaAnswerValue μ a a β :=
+    0 < ((baiTask ν id).restrict {μ' | ∀ c, μ' c ∈ ρ.expFamilyMeans T}).betaAnswerValue μ a a β :=
   (ENNReal.mul_pos (by simpa using lt_min hβ.1 (sub_pos.2 hβ.2))
     (answerValue_baiTask_restrict_pos ν hT hμ hν ha).ne').trans_le
     (IdentTask.ofReal_min_mul_answerValue_le_betaAnswerValue _ hba μ a β)
@@ -98,8 +98,9 @@ theorem expFamilyPairCost_eq_of_mem_betaOptAlloc_baiTask_restrict
     (hν : ∀ μ' : α → ℝ, (∀ c, μ' c ∈ ρ.expFamilyMeans T) →
       ∀ c, klDiv (ν μ c) (ν μ' c) = ENNReal.ofReal (ρ.expFamilyDiv T (μ c) (μ' c)))
     (ha : ∀ b ≠ a, μ b < μ a) (hβ : 0 < β) {w' : α → ℝ} {c : α}
-    (hw : w ∈ ((baiTask ν).restrict {μ' | ∀ c, μ' c ∈ ρ.expFamilyMeans T}).betaOptAlloc μ a a β)
-    (hw' : w' ∈ ((baiTask ν).restrict {μ' | ∀ c, μ' c ∈ ρ.expFamilyMeans T}).betaOptAlloc μ a a β)
+    (hw : w ∈ ((baiTask ν id).restrict {μ' | ∀ c, μ' c ∈ ρ.expFamilyMeans T}).betaOptAlloc μ a a β)
+    (hw' : w' ∈
+      ((baiTask ν id).restrict {μ' | ∀ c, μ' c ∈ ρ.expFamilyMeans T}).betaOptAlloc μ a a β)
     (hba : b ≠ a) (hca : c ≠ a) :
     ρ.expFamilyPairCost T (μ a) (μ b) β (w b) = ρ.expFamilyPairCost T (μ a) (μ c) β (w' c) := by
   have hw0 := (mem_simplex_iff.1 ((IdentTask.mem_betaOptAlloc_iff _).1 hw).1).1
@@ -120,11 +121,11 @@ theorem mem_betaOptAlloc_baiTask_restrict_iff (hT : ∀ c, ¬ T =ᵐ[ρ] fun _ �
     (hν : ∀ μ' : α → ℝ, (∀ c, μ' c ∈ ρ.expFamilyMeans T) →
       ∀ c, klDiv (ν μ c) (ν μ' c) = ENNReal.ofReal (ρ.expFamilyDiv T (μ c) (μ' c)))
     (ha : ∀ b ≠ a, μ b < μ a) (hβ : 0 < β) :
-    w ∈ ((baiTask ν).restrict {μ' | ∀ c, μ' c ∈ ρ.expFamilyMeans T}).betaOptAlloc μ a a β ↔
+    w ∈ ((baiTask ν id).restrict {μ' | ∀ c, μ' c ∈ ρ.expFamilyMeans T}).betaOptAlloc μ a a β ↔
       w ∈ simplex α ∧ w a = β ∧ ∀ b ≠ a, ∀ c ≠ a,
         ρ.expFamilyPairCost T (μ a) (μ b) β (w b) = ρ.expFamilyPairCost T (μ a) (μ c) β (w c) := by
   classical
-  set task := (baiTask ν).restrict {μ' | ∀ c, μ' c ∈ ρ.expFamilyMeans T}
+  set task := (baiTask ν id).restrict {μ' | ∀ c, μ' c ∈ ρ.expFamilyMeans T}
   have ha' := apply_le_of_forall_ne_lt ha
   refine ⟨fun hw ↦ ⟨(task.mem_betaOptAlloc_iff.1 hw).1, (task.mem_betaOptAlloc_iff.1 hw).2.1,
     fun b hb c hc ↦ expFamilyPairCost_eq_of_mem_betaOptAlloc_baiTask_restrict ν hT hμ hν ha hβ hw hw
@@ -172,8 +173,8 @@ theorem subsingleton_betaOptAlloc_baiTask_restrict (hT : ∀ c, ¬ T =ᵐ[ρ] fu
       ∀ c, klDiv (ν μ c) (ν μ' c) = ENNReal.ofReal (ρ.expFamilyDiv T (μ c) (μ' c)))
     (ha : ∀ b ≠ a, μ b < μ a) (hβ : 0 < β) :
     Set.Subsingleton
-      (((baiTask ν).restrict {μ' | ∀ c, μ' c ∈ ρ.expFamilyMeans T}).betaOptAlloc μ a a β) := by
-  set task := (baiTask ν).restrict {μ' | ∀ c, μ' c ∈ ρ.expFamilyMeans T}
+      (((baiTask ν id).restrict {μ' | ∀ c, μ' c ∈ ρ.expFamilyMeans T}).betaOptAlloc μ a a β) := by
+  set task := (baiTask ν id).restrict {μ' | ∀ c, μ' c ∈ ρ.expFamilyMeans T}
   intro w hw w' hw'
   obtain ⟨hws, hwa, -⟩ := task.mem_betaOptAlloc_iff.1 hw
   obtain ⟨hws', hwa', -⟩ := task.mem_betaOptAlloc_iff.1 hw'
@@ -199,7 +200,7 @@ theorem exists_betaOptAlloc_baiTask_restrict_eq_singleton (hT : ∀ c, ¬ T =ᵐ
     (hν : ∀ μ' : α → ℝ, (∀ c, μ' c ∈ ρ.expFamilyMeans T) →
       ∀ c, klDiv (ν μ c) (ν μ' c) = ENNReal.ofReal (ρ.expFamilyDiv T (μ c) (μ' c)))
     (ha : ∀ b ≠ a, μ b < μ a) (hba : b ≠ a) (hβ : β ∈ Set.Ioc 0 1) :
-    ∃ w, ((baiTask ν).restrict {μ' | ∀ c, μ' c ∈ ρ.expFamilyMeans T}).betaOptAlloc μ a a β =
+    ∃ w, ((baiTask ν id).restrict {μ' | ∀ c, μ' c ∈ ρ.expFamilyMeans T}).betaOptAlloc μ a a β =
       {w} := by
   have ha' := apply_le_of_forall_ne_lt ha
   obtain ⟨w, hw⟩ := IdentTask.betaOptAlloc_nonempty _
@@ -216,7 +217,7 @@ theorem pos_of_mem_betaOptAlloc_baiTask_restrict (hT : ∀ c, ¬ T =ᵐ[ρ] fun 
     (hν : ∀ μ' : α → ℝ, (∀ c, μ' c ∈ ρ.expFamilyMeans T) →
       ∀ c, klDiv (ν μ c) (ν μ' c) = ENNReal.ofReal (ρ.expFamilyDiv T (μ c) (μ' c)))
     (ha : ∀ b ≠ a, μ b < μ a) (hβ : β ∈ Set.Ioo 0 1)
-    (hw : w ∈ ((baiTask ν).restrict {μ' | ∀ c, μ' c ∈ ρ.expFamilyMeans T}).betaOptAlloc μ a a β)
+    (hw : w ∈ ((baiTask ν id).restrict {μ' | ∀ c, μ' c ∈ ρ.expFamilyMeans T}).betaOptAlloc μ a a β)
     (c : α) : 0 < w c := by
   obtain ⟨hws, hwa, -⟩ := (IdentTask.mem_betaOptAlloc_iff _).1 hw
   rcases eq_or_ne c a with rfl | hca

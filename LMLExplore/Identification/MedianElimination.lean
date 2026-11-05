@@ -1267,13 +1267,13 @@ theorem isDeltaPAC_medianElimination {ν : (α → ℝ) → Kernel α ℝ} [∀ 
     {σ2 : ℝ≥0} (hmean : ∀ (μ : α → ℝ) a, (ν μ a)[id] = μ a)
     (hν : ∀ (μ : α → ℝ) a, HasSubgaussianMGF (fun x ↦ x - (ν μ a)[id]) σ2 (ν μ a))
     (hσ2 : 0 < σ2) {ε δ : ℝ} (hε : 0 < ε) (hδ : 0 < δ) :
-    (epsBaiTask ν ε).IsDeltaPAC (medianElimination (pullSchedule σ2 ε δ)) δ := by
+    (epsBaiTask ν id ε).IsDeltaPAC (medianElimination (pullSchedule σ2 ε δ)) δ := by
   refine IdentTask.isDeltaPAC_iff.2 ⟨fun μ _ ↦ ?_, fun μ _ ↦
     isFixedBudget_medianElimination.stopsAS _⟩
   have hrun := isRun_runMeasure (medianElimination (α := α) (pullSchedule σ2 ε δ))
     (Environment.bandit (ν μ))
   simp only [ν_epsBaiTask]
-  rw [← hrun.hasLaw_output.measureReal_eq (p := fun i ↦ i ∉ (epsBaiTask ν ε).correct μ)
+  rw [← hrun.hasLaw_output.measureReal_eq (p := fun i ↦ i ∉ (epsBaiTask ν id ε).correct μ)
     MeasurableSet.of_discrete]
   refine (measureReal_mono fun ω hω ↦ ?_).trans
     (MedianElimination.measureReal_exists_output_add_lt_le_of_pullSchedule (hν μ) hσ2 hε hδ hrun)
