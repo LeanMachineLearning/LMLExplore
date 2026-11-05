@@ -930,6 +930,13 @@ lemma three_mul_exp_neg_pullSchedule_le {σ2 ε δ : ℝ} (hσ2 : 0 < σ2) (hε 
     rw [exp_neg, exp_log hc]
     field_simp
 
+/-- The partial sums of the series `∑ j, j * r ^ j` are at most `r / (1 - r) ^ 2` for
+`0 ≤ r < 1`. -/
+private lemma sum_range_natCast_mul_pow_le {r : ℝ} (hr0 : 0 ≤ r) (hr1 : r < 1) (n : ℕ) :
+    ∑ j ∈ range n, (j * r ^ j : ℝ) ≤ r / (1 - r) ^ 2 :=
+  sum_le_hasSum (range n) (fun j _ ↦ by positivity)
+    (hasSum_coe_mul_geometric_of_norm_lt_one (by rwa [Real.norm_of_nonneg hr0]))
+
 /-- In phase `j`, each surviving arm is pulled at most
 `128 σ2 ε⁻² (16 / 9) ^ j (log (6 / δ) + j log 2) + 1` times by the schedule `pullSchedule σ2 ε δ`,
 for a confidence `δ ≤ 6` (for which the logarithms are nonnegative). -/
@@ -942,11 +949,12 @@ lemma pullSchedule_le {σ2 ε δ : ℝ} (hσ2 : 0 ≤ σ2) (hδ : 0 < δ) (hδ6 
   have h_nonneg : 0 ≤ log (6 / δ) + j * log 2 :=
     add_nonneg (log_nonneg (by rw [le_div_iff₀ hδ]; linarith)) (by positivity)
   have h_coef : 8 * σ2 / (ε / 4 * (3 / 4) ^ j) ^ 2 = 128 * σ2 / ε ^ 2 * (16 / 9) ^ j := by
-    have h : (ε / 4 * (3 / 4) ^ j) ^ 2 = ε ^ 2 / 16 * ((16 / 9) ^ j)⁻¹ := by
-      rw [mul_pow, div_pow, ← pow_mul, mul_comm j 2, pow_mul, ← inv_pow]
-      norm_num
-    rw [h, ← div_div, div_inv_eq_mul, div_div_eq_mul_div]
-    ring
+    -- The identity holds because `((3 / 4) ^ j) ^ 2 * (16 / 9) ^ j = 1`.
+    have h : ((3 / 4 : ℝ) ^ j) ^ 2 * (16 / 9) ^ j = 1 := by
+      rw [pow_right_comm, ← mul_pow]; norm_num
+    calc 8 * σ2 / (ε / 4 * (3 / 4) ^ j) ^ 2
+    _ = 128 * σ2 / ε ^ 2 * (((3 / 4) ^ j) ^ 2)⁻¹ := by ring
+    _ = 128 * σ2 / ε ^ 2 * (16 / 9) ^ j := by rw [inv_eq_of_mul_eq_one_right h]
   rw [pullSchedule_def, h_log, h_coef]
   exact (Nat.ceil_lt_add_one (mul_nonneg (by positivity) h_nonneg)).le
 
@@ -982,17 +990,11 @@ theorem phaseEnd_pullSchedule_le {σ2 ε δ : ℝ} (hσ2 : 0 ≤ σ2) (hδ : 0 <
     _ = 2 * K * (c * ℓ * (8 / 9) ^ j + c * log 2 * (j * (8 / 9) ^ j) + (1 / 2) ^ j) := by
       linear_combination 2 * K * c * (ℓ + j * log 2) * h89
   -- The geometric sums over the phases.
-  have h_geom : ∑ j ∈ range (numPhases K), (8 / 9 : ℝ) ^ j ≤ 9 := by
-    have h := sum_le_hasSum (range (numPhases K)) (fun j _ ↦ by positivity)
-      (hasSum_geometric_of_lt_one (r := 8 / 9) (by norm_num) (by norm_num))
-    norm_num at h
-    exact h
-  have h_geom' : ∑ j ∈ range (numPhases K), (j * (8 / 9) ^ j : ℝ) ≤ 72 := by
-    have h := sum_le_hasSum (range (numPhases K)) (fun j _ ↦ by positivity)
-      (hasSum_coe_mul_geometric_of_norm_lt_one (𝕜 := ℝ) (r := 8 / 9)
-        (by rw [Real.norm_of_nonneg (by norm_num)]; norm_num))
-    norm_num at h
-    exact h
+  have h_geom : ∑ j ∈ range (numPhases K), (8 / 9 : ℝ) ^ j ≤ 9 :=
+    (sum_le_hasSum _ (fun j _ ↦ by positivity)
+      (hasSum_geometric_of_lt_one (r := 8 / 9) (by norm_num) (by norm_num))).trans_eq (by norm_num)
+  have h_geom' : ∑ j ∈ range (numPhases K), (j * (8 / 9) ^ j : ℝ) ≤ 72 :=
+    (sum_range_natCast_mul_pow_le (by norm_num) (by norm_num) _).trans_eq (by norm_num)
   rw [phaseEnd_eq_sum, Nat.cast_sum]
   refine (sum_le_sum h_term).trans ?_
   rw [← mul_sum, sum_add_distrib, sum_add_distrib, ← mul_sum, ← mul_sum, h_log]
