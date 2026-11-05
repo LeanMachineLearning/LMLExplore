@@ -11,6 +11,7 @@ public import Mathlib.MeasureTheory.Measure.TotalVariation.Defs
 import Mathlib.MeasureTheory.Integral.Bochner.Set
 import Mathlib.MeasureTheory.Integral.IntegrableOn
 import Mathlib.MeasureTheory.VectorMeasure.Integral
+import LMLExplore.Algebra.Order.BigOperators.Group.Finset
 import TauCeti.MeasureTheory.Measure.TotalVariation
 
 /-!
@@ -23,7 +24,9 @@ bound depends only on the oscillation of `f`: if `f` takes values in `[a, b]`, t
 `|∫ f dμ - ∫ f dν| ≤ (b - a) / 2 * tvDist μ ν`. For measures of the same mass, the total
 variation distance is also controlled by events: `|μ s - ν s| ≤ tvDist μ ν / 2` for every
 measurable `s`, and conversely `tvDist μ ν ≤ 2 * c` as soon as `μ s ≤ ν s + c` for every
-measurable `s`. Adding a common finite measure and scaling both measures by `t` multiplies the
+measurable `s`. On a finite type, the total variation distance of two
+measures of the same mass is the `ℓ¹` distance `∑ x, |μ {x} - ν {x}|` of their mass functions.
+Adding a common finite measure and scaling both measures by `t` multiplies the
 distance by `t`, so the distance from a mixture `(1 - α) • μ + α • ν` to `μ` is
 `α * tvDist ν μ`, at most `2 * α` for probability measures.
 
@@ -45,6 +48,8 @@ contraction of the oscillation of functions by a Markov kernel (Dobrushin's coef
   `MeasureTheory.tvDist_le_two_mul_of_forall_measureReal_le_add`: for measures of the same mass,
   the total variation distance bounds the difference of the masses of every event, and eventwise
   bounds bound the total variation distance.
+* `MeasureTheory.tvDist_eq_sum_abs_measureReal_singleton_sub`: on a finite type, for measures of
+  the same mass, `tvDist μ ν = ∑ x, |μ {x} - ν {x}|`.
 * `MeasureTheory.tvDist_add_smul_add_smul`: `tvDist (ξ + t • μ) (ξ + t • ν) = t * tvDist μ ν`.
 * `MeasureTheory.tvDist_one_sub_smul_add_smul`, `MeasureTheory.tvDist_one_sub_smul_add_smul_le`:
   the mixture `(1 - α) • μ + α • ν` is at distance `α * tvDist ν μ` from `μ`, at most `2 * α`
@@ -158,6 +163,40 @@ theorem tvDist_le_two_mul_of_forall_measureReal_le_add [IsFiniteMeasure μ] [IsF
   rw [← ENNReal.ofReal_le_ofReal_iff (by positivity), ofReal_tvDist,
     ENNReal.ofReal_mul zero_le_two, ENNReal.ofReal_ofNat]
   exact he
+
+/-- **Total variation on a finite type**: for finite measures `μ` and `ν` of the same mass on a
+finite type with measurable singletons, `tvDist μ ν = ∑ x, |μ {x} - ν {x}|`, the `ℓ¹` distance of
+their mass functions. -/
+theorem tvDist_eq_sum_abs_measureReal_singleton_sub [Fintype 𝓧] [MeasurableSingletonClass 𝓧]
+    [IsFiniteMeasure μ] [IsFiniteMeasure ν] (hμν : μ univ = ν univ) :
+    tvDist μ ν = ∑ x, |μ.real {x} - ν.real {x}| := by
+  classical
+  set u : 𝓧 → ℝ := fun x ↦ μ.real {x} - ν.real {x}
+  have hu : ∑ x, u x = 0 := by
+    simp only [u, Finset.sum_sub_distrib, sum_measureReal_singleton, Finset.coe_univ]
+    rw [measureReal_def, measureReal_def, hμν, sub_self]
+  -- `∑ x, |u x|` is twice the excess `μ B - ν B` of `μ` on the set `B` where `u` is positive
+  set B : Finset 𝓧 := {x | 0 < u x}
+  have hB : ∑ x ∈ B, u x = μ.real B - ν.real B := by
+    simp [u, Finset.sum_sub_distrib]
+  have h_abs : ∑ x, |u x| = 2 * (μ.real B - ν.real B) := by
+    rw [Finset.sum_abs_eq_two_nsmul_sum_filter_pos hu, ← hB, two_nsmul, two_mul]
+  refine le_antisymm ((tvDist_le_two_mul_of_forall_measureReal_le_add hμν fun s _ ↦ ?_).trans_eq
+    h_abs.symm) ?_
+  · -- the excess of `μ` on any event is at most its excess on `B`
+    have hs : μ.real s - ν.real s = ∑ x ∈ {x | x ∈ s}, u x := by
+      simp [u, Finset.sum_sub_distrib]
+    have h_le : ∑ x ∈ {x | x ∈ s}, u x ≤ ∑ x ∈ B, u x := by
+      calc ∑ x ∈ {x | x ∈ s}, u x
+          ≤ ∑ x ∈ {x | x ∈ s}, if 0 < u x then u x else 0 :=
+            Finset.sum_le_sum fun x _ ↦ by split_ifs with h; exacts [le_rfl, not_lt.1 h]
+        _ ≤ ∑ x, if 0 < u x then u x else 0 :=
+            Finset.sum_le_sum_of_subset_of_nonneg (Finset.subset_univ _) fun x _ _ ↦ by
+              split_ifs with h; exacts [h.le, le_rfl]
+        _ = ∑ x ∈ B, u x := (Finset.sum_filter _ _).symm
+    linarith
+  · rw [h_abs]
+    linarith [abs_le.1 (abs_measureReal_sub_measureReal_le_tvDist_div_two hμν B.measurableSet)]
 
 /-! ### Sums and mixtures -/
 
