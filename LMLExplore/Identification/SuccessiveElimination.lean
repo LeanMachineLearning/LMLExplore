@@ -58,7 +58,7 @@ In the namespace `LMLExplore.Identification`:
   contain the means and have widths at most `w`, successive elimination stops after at most
   `∑_a T_a` rounds and outputs the best arm.
 * `measureReal_sum_lt_stoppingTime_successiveEliminationOfRate_le`: for σ²-sub-Gaussian arms,
-  successive elimination with the rate `β = subGaussianRate σ2 (log (K / δ))` stops after more than
+  successive elimination with the rate `β = subgaussianRate σ2 (log (K / δ))` stops after more than
   `∑_a T_a` rounds with probability at most `δ`, for `w = 2 β` [EMM02, Theorem 3].
 * `isDeltaCorrect_successiveEliminationOfRate`: for σ²-sub-Gaussian arms, successive elimination
   with that rate is `δ`-correct for best arm identification [EMM02, Theorem 3].
@@ -72,9 +72,9 @@ therefore sampled in turn, as in a phase, and the analysis is the same. An arm i
 by an arm when both have been pulled, so that unpulled arms are active, and an eliminated arm stays
 eliminated. The confidence bounds `μ̂_a ∓ β(N_a)` of `successiveEliminationOfRate` are the bounds
 `lowerBound` and `upperBound`, also used by LUCB, for a rate that does not depend on the round.
-The rate `subGaussianRate σ2 (log (K / δ))` and the probability that the confidence intervals of
+The rate `subgaussianRate σ2 (log (K / δ))` and the probability that the confidence intervals of
 all the arms contain their means at all rounds
-(`measureReal_exists_exists_subGaussianRate_lt_abs_empMean_sub_le`) are in
+(`measureReal_exists_exists_subgaussianRate_lt_abs_empMean_sub_le`) are in
 `SequentialLearning/SubGaussianDeviation.lean`.
 
 ## References
@@ -528,31 +528,31 @@ variable [IsProbabilityMeasure P] {ν₀ : Kernel α ℝ} [IsMarkovKernel ν₀]
 
 /-- **Sample complexity of successive elimination for sub-Gaussian arms** [EMM02, Theorem 3;
 EMM06, Theorem 8]. Let the arms of `ν₀` be σ²-sub-Gaussian with `σ² ≠ 0`, let `0 < δ ≤ K` and
-`β = subGaussianRate σ2 (log (K / δ))`. Let `a` be an arm and `T : α → ℕ` with `T b ≠ 0` satisfy
+`β = subgaussianRate σ2 (log (K / δ))`. Let `a` be an arm and `T : α → ℕ` with `T b ≠ 0` satisfy
 `2 β(u) + 2 β(v) < μ_a - μ_b` for every arm `b ≠ a` and all `min (T a) (T b) ≤ u ≤ v` (so that
 `a` is the best arm). Along every algorithm-environment sequence of the sampling rule, successive
 elimination with exploration rate `β` stops after more than `∑_b T_b` rounds with probability at
 most `δ`. -/
 theorem measureReal_sum_lt_stoppingTime_successiveEliminationOfRate_le
     (hseq : IsAlgEnvSeq O X Y
-      (successiveEliminationOfRate (subGaussianRate σ2 (log (Fintype.card α / δ)))).alg
+      (successiveEliminationOfRate (subgaussianRate σ2 (log (Fintype.card α / δ)))).alg
       (Environment.bandit ν₀) P)
     (hσ2 : σ2 ≠ 0) (hν : ∀ a, HasSubgaussianMGF (fun x ↦ x - (ν₀ a)[id]) σ2 (ν₀ a))
     (hδ : 0 < δ) (hδK : δ ≤ Fintype.card α) {a : α} {T : α → ℕ}
     (hT : ∀ b ≠ a, ∀ u v, min (T a) (T b) ≤ u → u ≤ v →
-      2 * subGaussianRate σ2 (log (Fintype.card α / δ)) u +
-        2 * subGaussianRate σ2 (log (Fintype.card α / δ)) v < (ν₀ a)[id] - (ν₀ b)[id])
+      2 * subgaussianRate σ2 (log (Fintype.card α / δ)) u +
+        2 * subgaussianRate σ2 (log (Fintype.card α / δ)) v < (ν₀ a)[id] - (ν₀ b)[id])
     (hT0 : ∀ b, T b ≠ 0) :
     P.real {ω | ((∑ b, T b : ℕ) : WithTop ℕ) < (successiveEliminationOfRate
-      (subGaussianRate σ2 (log (Fintype.card α / δ)))).stoppingTime O X Y ω} ≤ δ := by
+      (subgaussianRate σ2 (log (Fintype.card α / δ)))).stoppingTime O X Y ω} ≤ δ := by
   -- The arm `a` is a best arm, as `0 ≤ 4 β(T a) < μ_a - μ_b` for every arm `b ≠ a`.
   have ha (b : α) : (ν₀ b)[id] ≤ (ν₀ a)[id] := by
     rcases eq_or_ne b a with rfl | hba
     · exact le_rfl
     · have h := hT b hba (T a) (T a) (min_le_left _ _) le_rfl
-      linarith [subGaussianRate_nonneg σ2 (log (Fintype.card α / δ)) (T a)]
+      linarith [subgaussianRate_nonneg σ2 (log (Fintype.card α / δ)) (T a)]
   refine le_trans ?_
-    (measureReal_exists_exists_subGaussianRate_lt_abs_empMean_sub_le hseq hσ2 hν hδ hδK)
+    (measureReal_exists_exists_subgaussianRate_lt_abs_empMean_sub_le hseq hσ2 hν hδ hδK)
   refine ENNReal.toReal_mono (measure_ne_top _ _) (measure_mono_ae ?_)
   filter_upwards [ae_action_eq_argmax_index hseq] with ω hX hω
   -- On the event where all the confidence intervals hold, the algorithm stops in time.
@@ -568,15 +568,15 @@ omit [IsProbabilityMeasure P] in
 /-- **Successive elimination is `δ`-correct** for best arm identification with σ²-sub-Gaussian
 arms [EMM02, Theorem 3; EMM06, Theorem 8]. Let the arms of every model `μ` be σ²-sub-Gaussian with
 means `μ`, with `σ² ≠ 0`, and let `0 < δ ≤ K`. On every vector of means with a unique best arm,
-successive elimination with exploration rate `subGaussianRate σ2 (log (K / δ))` stops and outputs
+successive elimination with exploration rate `subgaussianRate σ2 (log (K / δ))` stops and outputs
 the best arm with probability at least `1 - δ`. -/
 theorem isDeltaCorrect_successiveEliminationOfRate {ν : (α → ℝ) → Kernel α ℝ}
     [∀ μ, IsMarkovKernel (ν μ)] (hmean : ∀ μ a, (ν μ a)[id] = μ a) (hσ2 : σ2 ≠ 0)
     (hν : ∀ μ a, HasSubgaussianMGF (fun x ↦ x - (ν μ a)[id]) σ2 (ν μ a)) (hδ : 0 < δ)
     (hδK : δ ≤ Fintype.card α) :
     (baiTask ν).IsDeltaCorrect (successiveEliminationOfRate
-      (subGaussianRate σ2 (log (Fintype.card α / δ)))) δ := by
-  set β := subGaussianRate σ2 (log (Fintype.card α / δ))
+      (subgaussianRate σ2 (log (Fintype.card α / δ)))) δ := by
+  set β := subgaussianRate σ2 (log (Fintype.card α / δ))
   refine IdentTask.isDeltaCorrect_iff.2 fun μ hμ ↦ ?_
   rw [M_baiTask] at hμ
   obtain ⟨a, ha⟩ := hμ
@@ -591,7 +591,7 @@ theorem isDeltaCorrect_successiveEliminationOfRate {ν : (α → ℝ) → Kernel
     by_cases hba : b = a
     · exact .of_forall fun _ h ↦ absurd hba h
     · have hpos : 0 < (μ a - μ b) / 4 := by linarith [ha b hba]
-      have h_lim : Tendsto β atTop (𝓝 0) := tendsto_subGaussianRate_atTop σ2 _
+      have h_lim : Tendsto β atTop (𝓝 0) := tendsto_subgaussianRate_atTop σ2 _
       filter_upwards [(tendsto_order.1 h_lim).2 _ hpos] with u hu _
       linarith
   have hT : ∀ b ≠ a, ∀ u v, min (max T₀ 1) (max T₀ 1) ≤ u → u ≤ v →
@@ -610,7 +610,7 @@ theorem isDeltaCorrect_successiveEliminationOfRate {ν : (α → ℝ) → Kernel
     inferInstanceAs (IsProbabilityMeasure (trajMeasure _ _))
   refine (measureReal_histOutputMeasure_successiveElimination_notMem_or_le hseq
     (measurableSet_singleton a)).trans (le_trans ?_
-    (measureReal_exists_exists_subGaussianRate_lt_abs_empMean_sub_le hseq hσ2 (hν μ) hδ hδK))
+    (measureReal_exists_exists_subgaussianRate_lt_abs_empMean_sub_le hseq hσ2 (hν μ) hδ hδK))
   refine ENNReal.toReal_mono (measure_ne_top _ _) (measure_mono_ae ?_)
   filter_upwards [ae_action_eq_argmax_index hseq] with ω hX hω
   -- On the event where all the confidence intervals hold, the algorithm stops with the answer `a`.
