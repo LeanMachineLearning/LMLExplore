@@ -30,7 +30,9 @@ then loses at most `∑ j, ε_j` over the phases, except with probability at mos
 `∑ j, 3 exp(-t j ε_j² / (8 σ2))`. With the tolerances `ε_j = (ε / 4) (3 / 4) ^ j` and the
 confidences `δ_j = δ / 2 ^ (j + 1)` of [EMM02], and the numbers of pulls
 `t j = ⌈8 σ2 ε_j⁻² log (3 / δ_j)⌉` for which this sub-Gaussian bound is at most `δ_j`, the output is
-`ε`-good with probability at least `1 - δ`: median elimination is `(ε, δ)`-PAC.
+`ε`-good with probability at least `1 - δ`: median elimination is `(ε, δ)`-PAC. Since phase `j`
+has fewer than `2 K / 2 ^ j` arms and `t j` grows like `(16 / 9) ^ j`, the number of rounds is a
+geometric sum in `8 / 9`, at most `2304 K σ2 ε⁻² log (1536 / δ) + 4 K`.
 
 ## Main definitions
 
@@ -63,6 +65,9 @@ In the namespace `LMLExplore.Identification`:
   pulls `pullSchedule σ2 ε δ`, the output is not `ε`-good with probability at most `δ`
   [EMM02, Theorem 4].
 * `isDeltaPAC_medianElimination`: median elimination is `δ`-PAC for `ε`-best arm identification.
+* `MedianElimination.phaseEnd_pullSchedule_le`, `expectedStoppingTime_medianElimination_le`: with
+  the numbers of pulls `pullSchedule σ2 ε δ`, median elimination stops after at most
+  `2304 K σ2 ε⁻² log (1536 / δ) + 4 K` rounds [EMM02, Theorem 4].
 
 ## Implementation notes
 
@@ -209,6 +214,20 @@ lemma armsCount_numPhases {K : ℕ} (hK : 0 < K) : armsCount K (numPhases K) = 1
   rw [armsCount_eq, numPhases]
   exact Nat.div_eq_of_lt_le (by omega) (by omega)
 
+/-- `⌈K / 2 ^ j⌉ < K / 2 ^ j + 1` arms survive the first `j` phases. -/
+lemma armsCount_mul_two_pow_lt (K j : ℕ) : armsCount K j * 2 ^ j < K + 2 ^ j := by
+  have h := Nat.div_mul_le_self (K + 2 ^ j - 1) (2 ^ j)
+  have h2 : 0 < 2 ^ j := Nat.two_pow_pos j
+  rw [armsCount_eq]
+  omega
+
+/-- Fewer than `2 K / 2 ^ j` arms survive the first `j` phases, for every phase `j < ⌈log₂ K⌉`. -/
+lemma armsCount_mul_two_pow_lt_two_mul {K j : ℕ} (hj : j < numPhases K) :
+    armsCount K j * 2 ^ j < 2 * K := by
+  have h := Nat.pow_lt_of_lt_clog hj
+  have h' := armsCount_mul_two_pow_lt K j
+  omega
+
 /-- The number of rounds of the first `j` phases of median elimination with `K` arms, when each
 arm that survives the first `i` phases is pulled `t i` times during phase `i`: phase `j` occupies
 the rounds from `phaseEnd K t j` to `phaseEnd K t (j + 1)`. Phases are numbered from `0`. -/
@@ -224,6 +243,13 @@ lemma phaseEnd_succ (K : ℕ) (t : ℕ → ℕ) (j : ℕ) :
 
 lemma monotone_phaseEnd (K : ℕ) (t : ℕ → ℕ) : Monotone (phaseEnd K t) :=
   monotone_nat_of_le_succ fun j ↦ by rw [phaseEnd_succ]; exact Nat.le_add_right _ _
+
+/-- The first `j` phases take `∑ i < j, armsCount K i * t i` rounds. -/
+lemma phaseEnd_eq_sum (K : ℕ) (t : ℕ → ℕ) (j : ℕ) :
+    phaseEnd K t j = ∑ i ∈ range j, armsCount K i * t i := by
+  induction j with
+  | zero => simp
+  | succ j ih => rw [phaseEnd_succ, ih, sum_range_succ]
 
 /-- The number of phases of median elimination completed before round `r`, at most the number
 `⌈log₂ K⌉` of phases. -/
@@ -904,6 +930,79 @@ lemma three_mul_exp_neg_pullSchedule_le {σ2 ε δ : ℝ} (hσ2 : 0 < σ2) (hε 
     rw [exp_neg, exp_log hc]
     field_simp
 
+/-- In phase `j`, each surviving arm is pulled at most
+`128 σ2 ε⁻² (16 / 9) ^ j (log (6 / δ) + j log 2) + 1` times by the schedule `pullSchedule σ2 ε δ`,
+for a confidence `δ ≤ 6` (for which the logarithms are nonnegative). -/
+lemma pullSchedule_le {σ2 ε δ : ℝ} (hσ2 : 0 ≤ σ2) (hδ : 0 < δ) (hδ6 : δ ≤ 6) (j : ℕ) :
+    (pullSchedule σ2 ε δ j : ℝ) ≤
+      128 * σ2 / ε ^ 2 * (16 / 9) ^ j * (log (6 / δ) + j * log 2) + 1 := by
+  have h_log : log (3 * 2 ^ (j + 1) / δ) = log (6 / δ) + j * log 2 := by
+    rw [show 3 * 2 ^ (j + 1) / δ = 6 / δ * 2 ^ j by ring, log_mul (by positivity) (by positivity),
+      log_pow]
+  have h_nonneg : 0 ≤ log (6 / δ) + j * log 2 :=
+    add_nonneg (log_nonneg (by rw [le_div_iff₀ hδ]; linarith)) (by positivity)
+  have h_coef : 8 * σ2 / (ε / 4 * (3 / 4) ^ j) ^ 2 = 128 * σ2 / ε ^ 2 * (16 / 9) ^ j := by
+    have h : (ε / 4 * (3 / 4) ^ j) ^ 2 = ε ^ 2 / 16 * ((16 / 9) ^ j)⁻¹ := by
+      rw [mul_pow, div_pow, ← pow_mul, mul_comm j 2, pow_mul, ← inv_pow]
+      norm_num
+    rw [h, ← div_div, div_inv_eq_mul, div_div_eq_mul_div]
+    ring
+  rw [pullSchedule_def, h_log, h_coef]
+  exact (Nat.ceil_lt_add_one (mul_nonneg (by positivity) h_nonneg)).le
+
+/-- **Budget of median elimination** [EMM02, Theorem 4; EMM06, Theorem 10]. With `K` arms, the
+numbers of pulls `pullSchedule σ2 ε δ` for `σ2 ≥ 0` and a confidence `0 < δ ≤ 6`, the `⌈log₂ K⌉`
+phases of median elimination take at most `2304 K σ2 ε⁻² log (1536 / δ) + 4 K` rounds.
+
+The term `4 K` accounts for the rounding up of the numbers of pulls: it cannot be dropped, since
+for `δ < 6`, `σ2 > 0` and `ε ≠ 0`, each arm is pulled at least once in the first phase, however
+large `ε` is. -/
+theorem phaseEnd_pullSchedule_le {σ2 ε δ : ℝ} (hσ2 : 0 ≤ σ2) (hδ : 0 < δ) (hδ6 : δ ≤ 6) (K : ℕ) :
+    (phaseEnd K (pullSchedule σ2 ε δ) (numPhases K) : ℝ) ≤
+      2304 * K * σ2 / ε ^ 2 * log (1536 / δ) + 4 * K := by
+  have h_log : log (1536 / δ) = log (6 / δ) + 8 * log 2 := by
+    rw [show 1536 / δ = 6 / δ * 2 ^ 8 by ring, log_mul (by positivity) (by positivity), log_pow]
+    norm_num
+  set c := 128 * σ2 / ε ^ 2
+  set ℓ := log (6 / δ)
+  have hc : 0 ≤ c := by positivity
+  have hℓ : 0 ≤ ℓ := log_nonneg (by rw [le_div_iff₀ hδ]; linarith)
+  -- Phase `j` has at most `2 K / 2 ^ j` arms, each pulled `c (16 / 9) ^ j (ℓ + j log 2) + 1` times.
+  have h_term : ∀ j ∈ range (numPhases K), ((armsCount K j * pullSchedule σ2 ε δ j : ℕ) : ℝ) ≤
+      2 * K * (c * ℓ * (8 / 9) ^ j + c * log 2 * (j * (8 / 9) ^ j) + (1 / 2) ^ j) := by
+    intro j hj
+    have h_arms : (armsCount K j : ℝ) ≤ 2 * K * (1 / 2) ^ j := by
+      rw [one_div_pow, mul_one_div, le_div_iff₀ (by positivity)]
+      exact_mod_cast (armsCount_mul_two_pow_lt_two_mul (mem_range.1 hj)).le
+    have h89 : (1 / 2 : ℝ) ^ j * (16 / 9) ^ j = (8 / 9) ^ j := by rw [← mul_pow]; norm_num
+    push_cast
+    calc (armsCount K j : ℝ) * pullSchedule σ2 ε δ j
+    _ ≤ 2 * K * (1 / 2) ^ j * (c * (16 / 9) ^ j * (ℓ + j * log 2) + 1) :=
+      mul_le_mul h_arms (pullSchedule_le hσ2 hδ hδ6 j) (Nat.cast_nonneg _) (by positivity)
+    _ = 2 * K * (c * ℓ * (8 / 9) ^ j + c * log 2 * (j * (8 / 9) ^ j) + (1 / 2) ^ j) := by
+      linear_combination 2 * K * c * (ℓ + j * log 2) * h89
+  -- The geometric sums over the phases.
+  have h_geom : ∑ j ∈ range (numPhases K), (8 / 9 : ℝ) ^ j ≤ 9 := by
+    have h := sum_le_hasSum (range (numPhases K)) (fun j _ ↦ by positivity)
+      (hasSum_geometric_of_lt_one (r := 8 / 9) (by norm_num) (by norm_num))
+    norm_num at h
+    exact h
+  have h_geom' : ∑ j ∈ range (numPhases K), (j * (8 / 9) ^ j : ℝ) ≤ 72 := by
+    have h := sum_le_hasSum (range (numPhases K)) (fun j _ ↦ by positivity)
+      (hasSum_coe_mul_geometric_of_norm_lt_one (𝕜 := ℝ) (r := 8 / 9)
+        (by rw [Real.norm_of_nonneg (by norm_num)]; norm_num))
+    norm_num at h
+    exact h
+  rw [phaseEnd_eq_sum, Nat.cast_sum]
+  refine (sum_le_sum h_term).trans ?_
+  rw [← mul_sum, sum_add_distrib, sum_add_distrib, ← mul_sum, ← mul_sum, h_log]
+  have := sum_geometric_two_le (numPhases K)
+  calc 2 * K * (c * ℓ * ∑ j ∈ range (numPhases K), (8 / 9 : ℝ) ^ j +
+        c * log 2 * ∑ j ∈ range (numPhases K), (j * (8 / 9) ^ j : ℝ) +
+        ∑ j ∈ range (numPhases K), (1 / 2 : ℝ) ^ j)
+  _ ≤ 2 * K * (c * ℓ * 9 + c * log 2 * 72 + 2) := by gcongr
+  _ = 2304 * K * σ2 / ε ^ 2 * (ℓ + 8 * log 2) + 4 * K := by ring
+
 end MedianElimination
 
 /-- **Median elimination is `(ε, δ)`-correct** [EMM02, Theorem 4; EMM06, Theorem 10]. For
@@ -961,5 +1060,17 @@ theorem isDeltaPAC_medianElimination {ν : (α → ℝ) → Kernel α ℝ} [∀ 
   simp only [correct_epsBaiTask, Set.mem_ofPred_eq, not_forall, not_le] at hω
   obtain ⟨b, hb⟩ := hω
   exact ⟨b, by rwa [hmean, hmean]⟩
+
+/-- **Sample complexity of median elimination** [EMM02, Theorem 4; EMM06, Theorem 10]. With `K`
+arms, for `σ2 ≥ 0` and a confidence `0 < δ ≤ 6`, median elimination with the numbers of pulls
+`pullSchedule σ2 ε δ` stops after at most `2304 K σ2 ε⁻² log (1536 / δ) + 4 K` rounds in
+expectation, in every environment: it is a fixed-budget algorithm with at most this budget. -/
+theorem expectedStoppingTime_medianElimination_le {σ2 ε δ : ℝ} (hσ2 : 0 ≤ σ2) (hδ : 0 < δ)
+    (hδ6 : δ ≤ 6) (env : Environment Unit α ℝ) :
+    expectedStoppingTime (medianElimination (α := α) (pullSchedule σ2 ε δ)) env ≤
+      ENNReal.ofReal (2304 * Fintype.card α * σ2 / ε ^ 2 * log (1536 / δ) +
+        4 * Fintype.card α) := by
+  rw [isFixedBudget_medianElimination.expectedStoppingTime_eq, ← ENNReal.ofReal_natCast]
+  exact ENNReal.ofReal_le_ofReal (MedianElimination.phaseEnd_pullSchedule_le hσ2 hδ hδ6 _)
 
 end LMLExplore.Identification
