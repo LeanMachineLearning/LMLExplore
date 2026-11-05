@@ -49,6 +49,8 @@ probability that the arm leaves its interval on one side at some round.
 
 ## Main statements
 
+* `LMLExplore.subgaussianRate_lt`: the exploration rate is less than `ε` after
+  `u ≥ 4 σ² ε⁻² (y + 2 log (16 σ² ε⁻²))` pulls.
 * `LMLExplore.streamMeasure_le_sq_div_le`: for a σ²-sub-Gaussian arm and `s ≠ 0` rewards in the
   stream model, `P(z ≤ s (μ̂_s - μ)² / (2 σ²)) ≤ 2 exp (-z)`.
 * `LMLExplore.streamMeasure_exists_log_add_le_sq_div_le`: [LS, Lemma 33.8] for a σ²-sub-Gaussian
@@ -338,6 +340,34 @@ lemma tendsto_subgaussianRate_atTop (σ2 : ℝ≥0) (y : ℝ) :
   congr 1
   field_simp
   ring
+
+/-- **Number of pulls after which the exploration rate is below `ε`.** For `ε > 0`, the rate
+`√(2 σ² (log (2 u (u + 1)) + y) / u)` is less than `ε` as soon as
+`u ≥ 4 σ² ε⁻² (y + 2 log (16 σ² ε⁻²))`. -/
+lemma subgaussianRate_lt {σ2 : ℝ≥0} {y ε : ℝ} {u : ℕ} (hε : 0 < ε)
+    (hu : 4 * σ2 / ε ^ 2 * (y + 2 * log (16 * σ2 / ε ^ 2)) ≤ u) :
+    subgaussianRate σ2 y u < ε := by
+  rcases eq_or_ne u 0 with rfl | hu0
+  · simpa [subgaussianRate_def] using hε
+  rcases eq_or_ne σ2 0 with rfl | hσ0
+  · simpa [subgaussianRate_def] using hε
+  have hσ : (0 : ℝ) < σ2 := NNReal.coe_pos.2 (pos_iff_ne_zero.2 hσ0)
+  have hu1 : (1 : ℝ) ≤ u := Nat.one_le_cast.2 (Nat.one_le_iff_ne_zero.2 hu0)
+  have hε2 : 0 < ε ^ 2 := pow_pos hε 2
+  -- `log (2 u (u + 1)) ≤ 2 log (2 u)`, as `u + 1 ≤ 2 u`.
+  have hlog : log (2 * u * (u + 1)) ≤ 2 * log (2 * u) := by
+    calc log (2 * u * (u + 1)) ≤ log ((2 * u) ^ 2) := log_le_log (by positivity) (by nlinarith)
+      _ = 2 * log (2 * u) := by rw [log_pow, Nat.cast_ofNat]
+  -- Inverting `x ↦ x - a log x` with `a = 8 σ² ε⁻²` at `x = 2 u`.
+  have hkey := mul_log_add_lt (a := 8 * σ2 / ε ^ 2) (b := 4 * σ2 * y / ε ^ 2) (x := 2 * u)
+    (by positivity) (by positivity) (by
+      rw [show 2 * (8 * (σ2 : ℝ) / ε ^ 2) * log (2 * (8 * σ2 / ε ^ 2)) + 2 * (4 * σ2 * y / ε ^ 2)
+        = 2 * (4 * σ2 / ε ^ 2 * (y + 2 * log (16 * σ2 / ε ^ 2))) by ring_nf]
+      linarith)
+  rw [show 8 * (σ2 : ℝ) / ε ^ 2 * log (2 * u) + 4 * σ2 * y / ε ^ 2 =
+    (8 * σ2 * log (2 * u) + 4 * σ2 * y) / ε ^ 2 by ring, div_lt_iff₀ hε2] at hkey
+  rw [subgaussianRate_def, sqrt_lt' hε, div_lt_iff₀ (by positivity)]
+  nlinarith [mul_le_mul_of_nonneg_left hlog hσ.le]
 
 /-- **Time-uniform deviations of the empirical mean of a sub-Gaussian arm along a run**
 ([LS, Lemma 33.8] along a run). In a run of any algorithm against `Environment.bandit ν`, if the
