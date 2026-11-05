@@ -32,7 +32,8 @@ closed form above. For `p, q ∈ [0, 1]`, the two agree wherever `klBer p q` is 
 The upper confidence level `U(p, c)` is the largest `q ∈ [p, 1]` with `d(p, q) ≤ c`: evaluated at
 an empirical mean `p` and an exploration level `c` divided by a number of samples, it is the index
 of the KL-UCB algorithm, and the Chernoff bounds in relative-entropy form control the probability
-that it lies below the true mean.
+that it lies below the true mean. Symmetrically, the lower confidence level `L(p, c)` is the
+smallest `q ∈ [0, p]` with `d(p, q) ≤ c`; together they are the confidence bounds of KL-LUCB.
 
 ## Main definitions
 
@@ -41,6 +42,8 @@ that it lies below the true mean.
 * `LMLExplore.klBerReal p q`: the real number `p log (p / q) + (1 - p) log ((1 - p) / (1 - q))`.
 * `LMLExplore.klUpper p c`: the upper confidence level `U(p, c) = max {q ∈ [p, 1] | d(p, q) ≤ c}`
   of the KL-UCB algorithm, for `c : ℝ≥0∞`.
+* `LMLExplore.klLower p c`: the lower confidence level `L(p, c) = min {q ∈ [0, p] | d(p, q) ≤ c}`,
+  the reflection `1 - U(1 - p, c)`.
 
 ## Main statements
 
@@ -90,6 +93,8 @@ that it lies below the true mean.
 * `LMLExplore.klUpper_le_min`: `U(p, c) ≤ min 1 (p + √(c / 2))`, by Pinsker's inequality.
 * `LMLExplore.klUpper_zero`, `LMLExplore.klUpper_one_left`, `LMLExplore.tendsto_klUpper_nhds_top`:
   `U(p, 0) = p`, `U(1, c) = 1` and `U(p, c) → 1` as `c → ∞`.
+* `LMLExplore.klLower_le_iff`: for `q ∈ [0, p]`, `L(p, c) ≤ q` if and only if `d(p, q) ≤ c`;
+  `LMLExplore.klLower_mem_Icc` and `LMLExplore.klBer_klLower_le` say that the minimum is attained.
 
 ## References
 
@@ -885,5 +890,44 @@ theorem _root_.Measurable.klUpper {α : Type*} {mα : MeasurableSpace α} {f : �
     Measurable fun x ↦ klUpper (f x) (g x) := by
   simpa only [Function.comp_def, Function.uncurry_apply_pair] using
     measurable_klUpper.comp (hf.prodMk hg)
+
+/-! ### The lower confidence level -/
+
+/-- The **lower confidence level** `L(p, c) = min {q ∈ [0, p] | d(p, q) ≤ c}`: the smallest mean
+`q ≤ p` of a Bernoulli law within relative entropy `c` of the Bernoulli law of mean `p`. Since
+`d(1 - p, 1 - q) = d(p, q)`, it is the reflection `1 - U(1 - p, c)` of the upper confidence level,
+which we take as its definition. For `p ≥ 0` the minimum is attained
+(`LMLExplore.klLower_mem_Icc`, `LMLExplore.klBer_klLower_le`, `LMLExplore.klLower_le_iff`). -/
+noncomputable def klLower (p : ℝ) (c : ℝ≥0∞) : ℝ := 1 - klUpper (1 - p) c
+
+theorem klLower_def (p : ℝ) (c : ℝ≥0∞) : klLower p c = 1 - klUpper (1 - p) c := (rfl)
+
+/-- For `p ≥ 0`, the lower confidence level lies in `[0, p]`. -/
+theorem klLower_mem_Icc (hp : 0 ≤ p) (c : ℝ≥0∞) : klLower p c ∈ Set.Icc 0 p := by
+  have h := klUpper_mem_Icc (p := 1 - p) (by linarith) c
+  rw [klLower_def]
+  exact ⟨by linarith [h.2], by linarith [h.1]⟩
+
+/-- For `p ≥ 0`, the lower confidence level is at relative entropy at most `c` from `p`:
+`d(p, L(p, c)) ≤ c`. -/
+theorem klBer_klLower_le (hp : 0 ≤ p) (c : ℝ≥0∞) : klBer p (klLower p c) ≤ c := by
+  rw [klLower_def, ← klBer_one_sub_one_sub, sub_sub_cancel]
+  exact klBer_klUpper_le (by linarith) c
+
+/-- **Characterization of the lower confidence level**: a point `q ∈ [0, p]` is at least
+`klLower p c` if and only if `d(p, q) ≤ c`. -/
+theorem klLower_le_iff (hq : q ∈ Set.Icc 0 p) : klLower p c ≤ q ↔ klBer p q ≤ c := by
+  rw [klLower_def, sub_le_comm, le_klUpper_iff ⟨by linarith [hq.2], by linarith [hq.1]⟩,
+    klBer_one_sub_one_sub]
+
+/-- The lower confidence level is jointly measurable in `(p, c)`. -/
+theorem measurable_klLower : Measurable (Function.uncurry klLower) :=
+  measurable_const.sub ((measurable_const.sub measurable_fst).klUpper measurable_snd)
+
+@[fun_prop]
+theorem _root_.Measurable.klLower {α : Type*} {mα : MeasurableSpace α} {f : α → ℝ}
+    {g : α → ℝ≥0∞} (hf : Measurable f) (hg : Measurable g) :
+    Measurable fun x ↦ klLower (f x) (g x) :=
+  measurable_const.sub ((measurable_const.sub hf).klUpper hg)
 
 end LMLExplore

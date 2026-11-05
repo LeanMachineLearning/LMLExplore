@@ -63,6 +63,9 @@ expected number of sample sizes `s` at which `s = 0`, `c ≤ μ̂_s` or `d(μ̂_
   ≤ exp (-(#s * y))`.
 * `LMLExplore.measureReal_klUpper_le_le`: for `q < 1` with `q ≤ m`,
   `P(U(μ̂, L / #s) ≤ q) ≤ exp (-L) exp (-2 (m - q)² #s)` for the empirical mean `μ̂`.
+* `LMLExplore.measureReal_klUpper_lt_le`, `LMLExplore.measureReal_lt_klLower_le`: the coverage
+  bounds `P(U(μ̂, L / #s) < m) ≤ exp (-L)` if the means are at least `m`, and
+  `P(m < L(μ̂, L / #s)) ≤ exp (-L)` if they are at most `m`, for the lower confidence level `L`.
 * `LMLExplore.sum_measureReal_eq_zero_or_le_div_or_klBer_div_le_le`: [LS, Lemma 10.8], for
   `m + ε < c < 1` and `L ≥ 0`, `∑_{s < n} P(s = 0 ∨ c ≤ μ̂_s ∨ d(μ̂_s, c) ≤ L / s)
   ≤ 1 + L / d(m + ε, c) + 1 / (2 ε²)` for the empirical means `μ̂_s` of the first `s` variables.
@@ -375,6 +378,70 @@ theorem measureReal_klUpper_le_le {X : ι → Ω → ℝ} (h_indep : iIndepFun X
     congr 1
     field_simp
     ring
+
+/-- **Coverage of the upper confidence level**: for independent random variables `X i ∈ [0, 1]`
+with means at least `m`, a nonempty finite set `s` with empirical mean
+`μ̂ = (∑ i ∈ s, X i) / #s` and a real `L`, the upper confidence level `U(μ̂, L / #s)` is less than
+`m` with probability at most `exp (-L)`. -/
+theorem measureReal_klUpper_lt_le {X : ι → Ω → ℝ} (h_indep : iIndepFun X μ) {s : Finset ι}
+    (hs : s.Nonempty) (hXm : ∀ i ∈ s, AEMeasurable (X i) μ)
+    (hX : ∀ i ∈ s, ∀ᵐ ω ∂μ, X i ω ∈ Set.Icc 0 1) (hmean : ∀ i ∈ s, m ≤ μ[X i]) (L : ℝ) :
+    μ.real {ω | klUpper ((∑ i ∈ s, X i ω) / #s) (ENNReal.ofReal (L / #s)) < m} ≤ exp (-L) := by
+  have := h_indep.isProbabilityMeasure
+  -- `m ≤ 1`, since the means are at most `1`
+  obtain ⟨j, hj⟩ := hs
+  have hm1 : m ≤ 1 := (hmean j hj).trans <| (integral_mono_ae
+    (.of_mem_Icc 0 1 (hXm j hj) (hX j hj)) (integrable_const 1)
+    ((hX j hj).mono fun ω hω ↦ hω.2)).trans_eq (by simp)
+  -- the event is the increasing union of the events `U(μ̂, L / #s) ≤ m - 1 / (k + 1)`, each of
+  -- probability at most `exp (-L)`
+  set E : ℕ → Set Ω := fun k ↦
+    {ω | klUpper ((∑ i ∈ s, X i ω) / #s) (ENNReal.ofReal (L / #s)) ≤ m - 1 / (k + 1)} with hE_def
+  have hE_mono : Monotone E := fun k l hkl ω hω ↦ by
+    simp only [hE_def, Set.mem_ofPred_eq] at hω ⊢
+    exact hω.trans (by gcongr)
+  have h_union : {ω | klUpper ((∑ i ∈ s, X i ω) / #s) (ENNReal.ofReal (L / #s)) < m} =
+      ⋃ k, E k := by
+    ext ω
+    simp only [hE_def, Set.mem_ofPred_eq, Set.mem_iUnion]
+    refine ⟨fun h ↦ ?_, fun ⟨k, hk⟩ ↦ hk.trans_lt (sub_lt_self m (by positivity))⟩
+    obtain ⟨k, hk⟩ := exists_nat_one_div_lt (sub_pos.2 h)
+    exact ⟨k, by linarith⟩
+  have hE (k : ℕ) : μ (E k) ≤ ENNReal.ofReal (exp (-L)) := by
+    have hk : 0 < 1 / ((k : ℝ) + 1) := by positivity
+    rw [← ofReal_measureReal]
+    refine ENNReal.ofReal_le_ofReal ((measureReal_klUpper_le_le h_indep ⟨j, hj⟩ hXm hX hmean
+      (by linarith) (by linarith) L).trans ?_)
+    exact mul_le_of_le_one_right (exp_pos _).le (exp_le_one_iff.2 (neg_nonpos.2 (by positivity)))
+  rw [h_union]
+  refine ENNReal.toReal_le_of_le_ofReal (exp_pos _).le ?_
+  rw [hE_mono.measure_iUnion]
+  exact iSup_le hE
+
+/-- **Coverage of the lower confidence level**: for independent random variables `X i ∈ [0, 1]`
+with means at most `m`, a nonempty finite set `s` with empirical mean
+`μ̂ = (∑ i ∈ s, X i) / #s` and a real `L`, the lower confidence level `L(μ̂, L / #s)` is more than
+`m` with probability at most `exp (-L)`. -/
+theorem measureReal_lt_klLower_le {X : ι → Ω → ℝ} (h_indep : iIndepFun X μ) {s : Finset ι}
+    (hs : s.Nonempty) (hXm : ∀ i ∈ s, AEMeasurable (X i) μ)
+    (hX : ∀ i ∈ s, ∀ᵐ ω ∂μ, X i ω ∈ Set.Icc 0 1) (hmean : ∀ i ∈ s, μ[X i] ≤ m) (L : ℝ) :
+    μ.real {ω | m < klLower ((∑ i ∈ s, X i ω) / #s) (ENNReal.ofReal (L / #s))} ≤ exp (-L) := by
+  have := h_indep.isProbabilityMeasure
+  have hs0 : (#s : ℝ) ≠ 0 := Nat.cast_ne_zero.2 hs.card_pos.ne'
+  -- the variables `1 - X i` lie in `[0, 1]` and have means at least `1 - m`, and
+  -- `m < L(μ̂, c)` if and only if `U(1 - μ̂, c) < 1 - m`
+  have h := measureReal_klUpper_lt_le (X := fun i ω ↦ 1 - X i ω) (m := 1 - m)
+    (h_indep.comp (fun _ x ↦ 1 - x) fun _ ↦ by fun_prop) hs
+    (fun i hi ↦ (hXm i hi).const_sub 1)
+    (fun i hi ↦ (hX i hi).mono fun ω hω ↦ ⟨by linarith [hω.2], by linarith [hω.1]⟩)
+    (fun i hi ↦ ?_) L
+  · refine le_of_eq_of_le (congrArg μ.real (Set.ext fun ω ↦ ?_)) h
+    simp only [Set.mem_ofPred_eq, klLower_def, sum_sub_distrib, sum_const, nsmul_eq_mul, mul_one,
+      sub_div, div_self hs0]
+    exact lt_sub_comm
+  · rw [integral_sub (integrable_const 1) (.of_mem_Icc 0 1 (hXm i hi) (hX i hi))]
+    simp only [integral_const, probReal_univ, smul_eq_mul, one_mul]
+    linarith [hmean i hi]
 
 /-- **Overestimation of the KL-UCB index** ([LS, Lemma 10.8] for rewards in `[0, 1]`). Let
 `X₀, X₁, …` be independent, in `[0, 1]`, with means at most `m`, let `ε > 0` and `c < 1` with
