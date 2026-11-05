@@ -23,7 +23,9 @@ bound depends only on the oscillation of `f`: if `f` takes values in `[a, b]`, t
 `|∫ f dμ - ∫ f dν| ≤ (b - a) / 2 * tvDist μ ν`. For measures of the same mass, the total
 variation distance is also controlled by events: `|μ s - ν s| ≤ tvDist μ ν / 2` for every
 measurable `s`, and conversely `tvDist μ ν ≤ 2 * c` as soon as `μ s ≤ ν s + c` for every
-measurable `s`. Adding a common finite measure and scaling both measures by `t` multiplies the
+measurable `s`. On a finite type, the total variation distance of two
+finite measures is the `ℓ¹` distance `∑ x, |μ {x} - ν {x}|` of their mass functions.
+Adding a common finite measure and scaling both measures by `t` multiplies the
 distance by `t`, so the distance from a mixture `(1 - α) • μ + α • ν` to `μ` is
 `α * tvDist ν μ`, at most `2 * α` for probability measures.
 
@@ -45,6 +47,8 @@ contraction of the oscillation of functions by a Markov kernel (Dobrushin's coef
   `MeasureTheory.tvDist_le_two_mul_of_forall_measureReal_le_add`: for measures of the same mass,
   the total variation distance bounds the difference of the masses of every event, and eventwise
   bounds bound the total variation distance.
+* `MeasureTheory.tvDist_eq_sum_abs_measureReal_singleton_sub`: on a finite type,
+  `tvDist μ ν = ∑ x, |μ {x} - ν {x}|`.
 * `MeasureTheory.tvDist_add_smul_add_smul`: `tvDist (ξ + t • μ) (ξ + t • ν) = t * tvDist μ ν`.
 * `MeasureTheory.tvDist_one_sub_smul_add_smul`, `MeasureTheory.tvDist_one_sub_smul_add_smul_le`:
   the mixture `(1 - α) • μ + α • ν` is at distance `α * tvDist ν μ` from `μ`, at most `2 * α`
@@ -158,6 +162,41 @@ theorem tvDist_le_two_mul_of_forall_measureReal_le_add [IsFiniteMeasure μ] [IsF
   rw [← ENNReal.ofReal_le_ofReal_iff (by positivity), ofReal_tvDist,
     ENNReal.ofReal_mul zero_le_two, ENNReal.ofReal_ofNat]
   exact he
+
+/-- **Total variation on a finite type**: for finite measures `μ` and `ν` on a finite type with
+measurable singletons, `tvDist μ ν = ∑ x, |μ {x} - ν {x}|`, the `ℓ¹` distance of their mass
+functions. -/
+theorem tvDist_eq_sum_abs_measureReal_singleton_sub [Fintype 𝓧] [MeasurableSingletonClass 𝓧]
+    [IsFiniteMeasure μ] [IsFiniteMeasure ν] :
+    tvDist μ ν = ∑ x, |μ.real {x} - ν.real {x}| := by
+  classical
+  -- on a singleton, the restrictions of two measures are comparable
+  have h_le {ρ ρ' : Measure 𝓧} {x : 𝓧} (h : ρ {x} ≤ ρ' {x}) : ρ.restrict {x} ≤ ρ'.restrict {x} :=
+    Measure.le_iff'.2 fun t ↦ by
+      simp only [Measure.restrict_singleton, FunLike.coe_smul, Pi.smul_apply, smul_eq_mul]
+      gcongr
+  have h_single (x : 𝓧) :
+      tvDist (μ.restrict {x}) (ν.restrict {x}) = |μ.real {x} - ν.real {x}| := by
+    rcases le_total (μ {x}) (ν {x}) with h | h
+    · rw [tvDist_of_le (h_le h), abs_of_nonpos (sub_nonpos.2 (show μ.real {x} ≤ ν.real {x} from
+        ENNReal.toReal_mono (measure_ne_top _ _) h))]
+      simp [measureReal_def]
+    · rw [tvDist_of_ge (h_le h), abs_of_nonneg (sub_nonneg.2 (show ν.real {x} ≤ μ.real {x} from
+        ENNReal.toReal_mono (measure_ne_top _ _) h))]
+      simp [measureReal_def]
+  -- split the restriction to a finite set into its singletons
+  have h_fin (s : Finset 𝓧) :
+      tvDist (μ.restrict s) (ν.restrict s) = ∑ x ∈ s, |μ.real {x} - ν.real {x}| := by
+    induction s using Finset.induction_on with
+    | empty => simp
+    | insert a s ha ih =>
+      have h1 : ({a} : Set 𝓧) ∩ ↑(insert a s) = {a} := by ext; simp +contextual
+      have h2 : ({a} : Set 𝓧)ᶜ ∩ ↑(insert a s) = s := by
+        ext y; simp; grind
+      rw [← tvDist_restrict_add_compl (measurableSet_singleton a)]
+      simp only [Measure.restrict_restrict, measurableSet_singleton,
+        (measurableSet_singleton a).compl, h1, h2, h_single, ih, Finset.sum_insert ha]
+  simpa using h_fin Finset.univ
 
 /-! ### Sums and mixtures -/
 
