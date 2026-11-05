@@ -192,15 +192,10 @@ theorem tvDist_eq_sum_abs_measureReal_singleton_sub [Fintype 𝓧] [MeasurableSi
     | insert a s ha ih =>
       have h1 : ({a} : Set 𝓧) ∩ ↑(insert a s) = {a} := by ext; simp +contextual
       have h2 : ({a} : Set 𝓧)ᶜ ∩ ↑(insert a s) = s := by
-        ext y; simp only [Finset.coe_insert, mem_inter_iff, mem_compl_iff, mem_singleton_iff,
-          mem_insert_iff, Finset.mem_coe]
-        exact ⟨fun h ↦ h.2.resolve_left h.1, fun h ↦ ⟨fun hy ↦ ha (hy ▸ h), Or.inr h⟩⟩
-      rw [← tvDist_restrict_add_compl (measurableSet_singleton a),
-        Measure.restrict_restrict (measurableSet_singleton a),
-        Measure.restrict_restrict (measurableSet_singleton a),
-        Measure.restrict_restrict (measurableSet_singleton a).compl,
-        Measure.restrict_restrict (measurableSet_singleton a).compl, h1, h2, h_single, ih,
-        Finset.sum_insert ha]
+        ext y; simp; grind
+      rw [← tvDist_restrict_add_compl (measurableSet_singleton a)]
+      simp only [Measure.restrict_restrict, measurableSet_singleton,
+        (measurableSet_singleton a).compl, h1, h2, h_single, ih, Finset.sum_insert ha]
   simpa using h_fin Finset.univ
 
 /-! ### Sums and mixtures -/
