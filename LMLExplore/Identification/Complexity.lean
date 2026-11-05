@@ -40,6 +40,8 @@ In the namespace `LMLExplore.Identification`:
 
 * `le_complexityTwo`, `complexityTwo_le`: `H₂` is the least upper bound of the `r_b / Δ_b²`.
 * `complexityTwo_nonneg`, `complexityTwo_pos`: `H₂ ≥ 0`, and `H₂ > 0` when some gap is positive.
+* `card_div_complexityTwo_le_gap_sq`: an arm `b` with a positive gap has `Δ_b² ≥ #C / H₂` for
+  every set `C` of arms with gaps at most `Δ_b`.
 * `sub_card_div_complexityTwo_le_gap_sq`: an arm of a set `B` of arms with the largest gaps among
   the arms other than the unique best arm has `Δ_b² ≥ (K + 1 - #B) / H₂`.
 * `logBar_eq_sum`, `one_half_le_logBar`: `log‾ K` as a sum, and `log‾ K ≥ 1 / 2`.
@@ -128,6 +130,18 @@ lemma complexityTwo_pos {b : α} (hb : 0 < Bandits.gap ν b) : 0 < complexityTwo
   (div_pos (by exact_mod_cast card_pos.2 ⟨b, by simp⟩) (pow_pos hb 2)).trans_le
     (le_complexityTwo ν b)
 
+/-- If the arms of `C` have gaps at most the positive gap `Δ_b` of `b`, then `Δ_b² ≥ #C / H₂`: at
+least `#C` arms have gaps at most `Δ_b`. -/
+lemma card_div_complexityTwo_le_gap_sq {b : α} (hb : 0 < Bandits.gap ν b) {C : Finset α}
+    (hC : ∀ c ∈ C, Bandits.gap ν c ≤ Bandits.gap ν b) :
+    (#C : ℝ) / complexityTwo ν ≤ Bandits.gap ν b ^ 2 := by
+  have h_rank : (#C : ℝ) ≤ #{c | Bandits.gap ν c ≤ Bandits.gap ν b} := by
+    exact_mod_cast card_le_card fun c hc ↦ (mem_filter_univ c).2 (hC c hc)
+  have hH := le_complexityTwo ν b
+  rw [div_le_iff₀ (pow_pos hb 2)] at hH
+  rw [div_le_iff₀ (complexityTwo_pos hb)]
+  nlinarith
+
 /-- If `B` is a set of arms other than the unique best arm `a'` whose gaps are at least those of
 the other arms `c ≠ a'`, and `b ∈ B`, then `Δ_b² ≥ (K + 1 - #B) / H₂`: the `K + 1 - #B` arms
 outside `B`, together with `b`, have gaps at most `Δ_b`. -/
@@ -139,28 +153,21 @@ lemma sub_card_div_complexityTwo_le_gap_sq [DecidableEq α] {a' : α}
   have : Nonempty α := ⟨a'⟩
   have hΔ : 0 < Bandits.gap ν b := Bandits.gap_pos_of_forall_lt ha' (mem_erase.1 (hB hb)).1
   -- The arms outside `B`, and `b`, have gaps at most that of `b`.
-  have h_rank : #(B.erase b)ᶜ ≤ #{c | Bandits.gap ν c ≤ Bandits.gap ν b} := by
-    refine card_le_card fun c hc ↦ ?_
+  have h_rank (c : α) (hc : c ∈ (B.erase b)ᶜ) : Bandits.gap ν c ≤ Bandits.gap ν b := by
     rw [mem_compl, mem_erase, not_and_or, not_not] at hc
-    rw [mem_filter_univ]
     rcases hc with rfl | hc
     · exact le_rfl
     rcases eq_or_ne c a' with rfl | hca
     · rw [← Bandits.bestArm_eq_of_forall_lt ha', Bandits.gap_bestArm]
       exact Bandits.gap_nonneg
     · exact h_top b hb c (mem_sdiff.2 ⟨mem_erase.2 ⟨hca, mem_univ c⟩, hc⟩)
-  rw [card_compl, card_erase_of_mem hb] at h_rank
-  have h_rank' : (Fintype.card α : ℝ) + 1 - #B ≤ #{c | Bandits.gap ν c ≤ Bandits.gap ν b} := by
+  have h_card : (Fintype.card α : ℝ) + 1 - #B = #(B.erase b)ᶜ := by
     have hBK : #B ≤ Fintype.card α := card_le_univ B
     have hB1 : 1 ≤ #B := card_pos.2 ⟨b, hb⟩
-    calc (Fintype.card α : ℝ) + 1 - #B = (Fintype.card α - (#B - 1) : ℕ) := by
-          rw [Nat.cast_sub (by omega), Nat.cast_sub hB1]
-          ring
-      _ ≤ _ := by exact_mod_cast h_rank
-  have hH := le_complexityTwo ν b
-  rw [div_le_iff₀ (pow_pos hΔ 2)] at hH
-  rw [div_le_iff₀ (complexityTwo_pos hΔ)]
-  nlinarith
+    rw [card_compl, card_erase_of_mem hb, Nat.cast_sub (by omega), Nat.cast_sub hB1]
+    ring
+  rw [h_card]
+  exact card_div_complexityTwo_le_gap_sq hΔ h_rank
 
 /-! ### The complexity `H₁` -/
 

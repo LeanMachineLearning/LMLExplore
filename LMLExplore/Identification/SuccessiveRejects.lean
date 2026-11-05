@@ -12,6 +12,7 @@ public import LMLExplore.Data.Finset.Card
 public import LMLExplore.Data.Finset.RoundRobin
 public import LMLExplore.Identification.Complexity
 public import LMLExplore.Identification.FixedBudget
+public import LMLExplore.Probability.Moments.SubGaussian.Bounded
 
 /-!
 # Successive rejects
@@ -720,11 +721,8 @@ theorem SuccessiveRejects.measureReal_output_ne_le_of_mem_Icc (hKT : Fintype.car
     P.real {ω | out ω ≠ a'} ≤ Fintype.card α * (Fintype.card α - 1) / 2 *
       Real.exp (-((T : ℝ) - Fintype.card α) /
         (logBar (Fintype.card α) * complexityTwo ν)) := by
-  have hσ : (‖(1 : ℝ) - 0‖₊ / 2) ^ 2 = 1 / 4 := by
-    ext
-    norm_num
   have h_sub (a : α) : HasSubgaussianMGF (fun x ↦ x - (ν a)[id]) (1 / 4) (ν a) :=
-    hσ ▸ hasSubgaussianMGF_of_mem_Icc aemeasurable_id (hν a)
+    hasSubgaussianMGF_of_mem_Icc_zero_one aemeasurable_id (hν a)
   refine (measureReal_output_ne_le hKT h_sub ha' h).trans_eq ?_
   norm_num
 

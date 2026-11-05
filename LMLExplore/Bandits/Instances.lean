@@ -10,6 +10,7 @@ public import LMLExplore.Probability.Distributions.ExponentialFamily.Bernoulli
 public import LMLExplore.Probability.Distributions.ExponentialFamily.Gaussian
 public import LMLExplore.Probability.Distributions.Bernoulli
 public import LMLExplore.Probability.Kernel.Basic
+public import LMLExplore.Probability.Moments.SubGaussian.Bounded
 public import TauCeti.Probability.Distributions.Bernoulli.Basic
 
 /-!
@@ -162,12 +163,8 @@ lemma ae_mem_Icc_bernoulliBandit (p : α → I) (a : α) :
 
 /-- The arms of the Bernoulli bandit are `1 / 4`-sub-Gaussian. -/
 lemma hasSubgaussianMGF_bernoulliBandit (p : α → I) (a : α) :
-    HasSubgaussianMGF (fun x ↦ x - (bernoulliBandit p a)[id]) (1 / 4) (bernoulliBandit p a) := by
-  have hc : (‖(1 : ℝ) - 0‖₊ / 2) ^ 2 = 1 / 4 := by
-    ext
-    norm_num
-  rw [integral_id_bernoulliBandit, bernoulliBandit_apply, ← hc]
-  simpa using hasSubgaussianMGF_bernoulliMeasure 1 0 (p a)
+    HasSubgaussianMGF (fun x ↦ x - (bernoulliBandit p a)[id]) (1 / 4) (bernoulliBandit p a) :=
+  hasSubgaussianMGF_of_mem_Icc_zero_one aemeasurable_id (ae_mem_Icc_bernoulliBandit p a)
 
 /-- The arm laws of a Bernoulli bandit with means in `(0, 1)` are members of the exponential family
 of `Ber((1 : ℝ), 0, sigmoid η₀)`: the relative entropy between arm `a` of two Bernoulli bandits is

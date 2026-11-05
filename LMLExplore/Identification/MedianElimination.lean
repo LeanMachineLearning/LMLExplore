@@ -8,6 +8,7 @@ module
 public import LMLExplore.Analysis.SpecificLimits.Normed
 public import LMLExplore.Identification.SuccessiveRejects
 public import LMLExplore.Identification.Task.MeanVector
+public import LMLExplore.MeasureTheory.Integral.Lebesgue.Markov
 public import Mathlib.Algebra.Order.Field.GeomSum
 public import Mathlib.Analysis.SpecificLimits.Basic
 
@@ -35,6 +36,12 @@ confidences `δ_j = δ / 2 ^ (j + 1)` of [EMM02], and the numbers of pulls
 has fewer than `2 K / 2 ^ j` arms and `t j` grows like `(16 / 9) ^ j`, the number of rounds is a
 geometric sum in `8 / 9`, at most `2304 K σ2 ε⁻² log (1536 / δ) + 4 K`.
 
+The same phases also identify a unique best arm `a'` [KKS13, Lemma 4.3]: if `a'` is eliminated from
+a set `S` of `n` arms, then at least `n - ⌊n / 2⌋ - ⌊n / 4⌋` of the `n - 1 - ⌊n / 4⌋` arms of `S`
+with the largest gaps have an empirical mean at least that of `a'`, which by Markov's inequality
+has probability at most `3 exp(-t j (⌊n / 4⌋ + 2) / (4 σ2 H₂))`, with the complexity `H₂` of
+`LMLExplore.Identification.Complexity`. These bounds are used by sequential halving.
+
 ## Main definitions
 
 In the namespace `LMLExplore.Identification`:
@@ -57,6 +64,11 @@ In the namespace `LMLExplore.Identification`:
 * `MedianElimination.measure_exists_forall_mem_halve_add_lt_le`: one phase loses more than `ε` on
   the best mean with probability at most `3 η`, if each sum deviates by `n ε / 2` with probability
   at most `η`.
+* `MedianElimination.measure_notMem_halve_le`: an arm `a` is removed by the halving of a set `S`
+  with probability at most `3 η`, if each arm of a set of `#S - 1 - ⌊#S / 4⌋` other arms has a
+  value at least that of `a` with probability at most `η` [KKS13, proof of Lemma 4.3].
+* `MedianElimination.hasSubgaussianMGF_streamStats_sub`: for `σ2`-sub-Gaussian arms, the centered
+  statistic of an arm in phase `j` of the reward stream is `t j σ2`-sub-Gaussian.
 * `MedianElimination.indepFun_survivors_streamStats`: in the reward stream, the survivors of the
   first `j` phases are independent of the statistics of phase `j`.
 * `MedianElimination.measureReal_exists_output_add_lt_le`: along every run, the output has a mean
@@ -65,6 +77,9 @@ In the namespace `LMLExplore.Identification`:
 * `MedianElimination.measureReal_exists_output_add_lt_le_of_pullSchedule`: with the numbers of
   pulls `pullSchedule σ2 ε δ`, the output is not `ε`-good with probability at most `δ`
   [EMM02, Theorem 4].
+* `MedianElimination.measureReal_output_ne_le_sum`: for `σ2`-sub-Gaussian arms with a unique best
+  arm, along every run, the output is not the best arm with probability at most
+  `∑ j, 3 exp(-t j (⌊n_j / 4⌋ + 2) / (4 σ2 H₂))`, for any numbers of pulls [KKS13, Theorem 4.1].
 * `isDeltaPAC_medianElimination`: median elimination is `δ`-PAC for `ε`-best arm identification.
 * `MedianElimination.phaseEnd_pullSchedule_le`, `expectedStoppingTime_medianElimination_le`: with
   the numbers of pulls `pullSchedule σ2 ε δ`, median elimination stops after at most
@@ -92,6 +107,8 @@ phases that the analysis of [EMM02] uses. The law of the survivors does not depe
   decision processes*, COLT 2002, Theorem 4 (median elimination).
 * [EMM06] E. Even-Dar, S. Mannor and Y. Mansour, *Action elimination and stopping conditions for
   the multi-armed bandit and reinforcement learning problems*, JMLR 7 (2006), Theorem 10.
+* [KKS13] Z. Karnin, T. Koren and O. Somekh, *Almost optimal exploration in multi-armed bandits*,
+  ICML 2013, Section 4 (Lemmas 4.2–4.3, Theorem 4.1).
 -/
 
 public section
@@ -203,6 +220,18 @@ lemma armsCount_eq (K j : ℕ) : armsCount K j = (K + 2 ^ j - 1) / 2 ^ j := by
       show K + 2 ^ j * 2 - 1 = (K + 2 ^ j - 1) + 2 ^ j * 1 by omega, Nat.add_mul_div_left _ _ h2]
     omega
 
+/-- At most `K` arms survive the first `j` phases. -/
+lemma armsCount_le (K j : ℕ) : armsCount K j ≤ K := by
+  induction j with
+  | zero => exact le_rfl
+  | succ j ih => exact (Nat.sub_le _ _).trans ih
+
+/-- At least one arm survives the first `j` phases, if there is one arm. -/
+lemma armsCount_pos {K : ℕ} (hK : 0 < K) (j : ℕ) : 0 < armsCount K j := by
+  induction j with
+  | zero => exact hK
+  | succ j ih => rw [armsCount_succ]; omega
+
 /-- The number of phases of median elimination with `K` arms, `⌈log₂ K⌉`: after it, a single arm
 survives. -/
 def numPhases (K : ℕ) : ℕ := Nat.clog 2 K
@@ -302,6 +331,23 @@ lemma survivors_nonempty (g : ℕ → α → ℝ) (j : ℕ) : (survivors g j).No
 lemma card_survivors_numPhases (g : ℕ → α → ℝ) :
     #(survivors g (numPhases (Fintype.card α))) = 1 := by
   rw [card_survivors, armsCount_numPhases Fintype.card_pos]
+
+/-- If the arm that survives the `⌈log₂ K⌉` phases is not `a`, then some phase `j` removes `a`
+from the survivors of the first `j` phases. -/
+lemma exists_mem_survivors_notMem_halve_of_roundRobinOn_ne {g : ℕ → α → ℝ} {a : α}
+    (h : roundRobinOn (survivors g (numPhases (Fintype.card α))) 0 ≠ a) :
+    ∃ j < numPhases (Fintype.card α), a ∈ survivors g j ∧ a ∉ halve (survivors g j) (g j) := by
+  by_contra h'
+  simp only [not_exists, not_and, not_not] at h'
+  -- If no phase removes `a`, it survives every phase, hence is the only survivor of the last one.
+  have h_mem (j : ℕ) (hj : j ≤ numPhases (Fintype.card α)) : a ∈ survivors g j := by
+    induction j with
+    | zero => exact mem_univ a
+    | succ j ih =>
+      rw [survivors_succ]
+      exact h' j (by omega) (ih (by omega))
+  exact h (card_le_one.1 (card_survivors_numPhases g).le _
+    (roundRobinOn_mem (survivors_nonempty _ _) 0) _ (h_mem _ le_rfl))
 
 /-- The survivors of the first `j` phases only depend on the statistics, in each phase `i < j`, of
 the arms that survive the first `i` phases. -/
@@ -514,15 +560,10 @@ lemma measure_exists_forall_mem_halve_add_lt_le {Ω : Type*} {mΩ : MeasurableSp
   · simp
   -- The best arm `a'` of `S`.
   obtain ⟨a', ha'S, ha'⟩ := exists_max_image S μ hS
-  set m := #S - #S / 2 with hm
-  have hm0 : m ≠ 0 := by have := hS.card_pos; omega
-  -- The number of arms of `S` whose sum is too high.
-  set N : Ω → ℝ≥0∞ := fun ω ↦
-    ∑ b ∈ S, {ω | n * ε / 2 ≤ Y ω b - n * μ b}.indicator 1 ω with hN
-  have h_meas (b : α) : MeasurableSet {ω | n * ε / 2 ≤ Y ω b - n * μ b} :=
-    measurableSet_le measurable_const ((hY b).sub_const _)
+  -- The arms of `S` whose sum is too high.
+  set E : α → Set Ω := fun b ↦ {ω | n * ε / 2 ≤ Y ω b - n * μ b}
   have h_sub : {ω | ∃ a ∈ S, ∀ b ∈ halve S (Y ω), μ b + ε < μ a} ⊆
-      {ω | Y ω a' - n * μ a' ≤ -(n * ε / 2)} ∪ {ω | (m : ℝ≥0∞) ≤ N ω} := by
+      {ω | Y ω a' - n * μ a' ≤ -(n * ε / 2)} ∪ {ω | #S - #S / 2 ≤ #{b ∈ S | ω ∈ E b}} := by
     rintro ω ⟨a, ha, hlt⟩
     have hlt' (b : α) (hb : b ∈ halve S (Y ω)) : μ b + ε < μ a' := (hlt b hb).trans_le (ha' a ha)
     by_cases hlow : Y ω a' - n * μ a' ≤ -(n * ε / 2)
@@ -531,37 +572,54 @@ lemma measure_exists_forall_mem_halve_add_lt_le {Ω : Type*} {mΩ : MeasurableSp
     -- The best arm is eliminated, so every survivor has a sum at least that of the best arm,
     -- hence too high.
     have ha'h : a' ∉ halve S (Y ω) := fun h ↦ by linarith [hlt' a' h]
-    have h_high : halve S (Y ω) ⊆ {b ∈ S | n * ε / 2 ≤ Y ω b - n * μ b} := by
+    have h_high : halve S (Y ω) ⊆ {b ∈ S | ω ∈ E b} := by
       intro b hb
       have h1 := le_of_notMem_halve ha'S ha'h hb
       have h2 : n * ε ≤ n * (μ a' - μ b) :=
         mul_le_mul_of_nonneg_left (by linarith [hlt' b hb]) hn
-      exact mem_filter.2 ⟨halve_subset _ _ hb, by nlinarith⟩
-    calc (m : ℝ≥0∞) = #(halve S (Y ω)) := by simp [hm]
-    _ ≤ #{b ∈ S | n * ε / 2 ≤ Y ω b - n * μ b} := by exact_mod_cast card_le_card h_high
-    _ = N ω := by
-      simp only [hN, Set.indicator_apply, Set.mem_ofPred_eq, Pi.one_apply]
-      rw [sum_boole]
+      exact mem_filter.2 ⟨halve_subset _ _ hb, by simp only [E, Set.mem_ofPred_eq]; nlinarith⟩
+    exact (card_halve S (Y ω)).symm.trans_le (card_le_card h_high)
   -- Markov's inequality for the number of arms whose sum is too high.
-  have h_markov : P {ω | (m : ℝ≥0∞) ≤ N ω} ≤ 2 * η := by
-    have h_int : ∫⁻ ω, N ω ∂P ≤ #S * η := by
-      rw [lintegral_finsetSum _ fun b _ ↦ (measurable_one.indicator (h_meas b))]
-      simp_rw [lintegral_indicator_one (h_meas _)]
-      calc ∑ b ∈ S, P {ω | n * ε / 2 ≤ Y ω b - n * μ b} ≤ ∑ _b ∈ S, η := sum_le_sum h_up
-      _ = #S * η := by simp
-    have h := (mul_meas_ge_le_lintegral₀ (μ := P) (Finset.measurable_sum _ fun b _ ↦
-      measurable_one.indicator (h_meas b)).aemeasurable (m : ℝ≥0∞)).trans h_int
-    have hS2 : (#S : ℝ≥0∞) * η ≤ m * (2 * η) := by
-      rw [← mul_assoc]
-      gcongr
-      norm_cast
-      omega
-    exact (ENNReal.mul_le_mul_iff_right (by exact_mod_cast hm0) (by simp)).1 (h.trans hS2)
+  have h_markov : P {ω | #S - #S / 2 ≤ #{b ∈ S | ω ∈ E b}} ≤ 2 * η := by
+    refine (measure_le_card_filter_le (c := 2)
+      (fun b _ ↦ measurableSet_le measurable_const ((hY b).sub_const _)) h_up
+      (by have := hS.card_pos; omega) (by omega)).trans_eq ?_
+    norm_num
   calc P {ω | ∃ a ∈ S, ∀ b ∈ halve S (Y ω), μ b + ε < μ a}
-  _ ≤ P {ω | Y ω a' - n * μ a' ≤ -(n * ε / 2)} + P {ω | (m : ℝ≥0∞) ≤ N ω} :=
+  _ ≤ P {ω | Y ω a' - n * μ a' ≤ -(n * ε / 2)} + P {ω | #S - #S / 2 ≤ #{b ∈ S | ω ∈ E b}} :=
     (measure_mono h_sub).trans (measure_union_le _ _)
   _ ≤ η + 2 * η := add_le_add (h_low a' ha'S) h_markov
   _ = 3 * η := by ring
+
+/-- **One phase of sequential halving** [KKS13, proof of Lemma 4.3]. Let `a ∈ S` and let `S'` be
+a set of `#S - 1 - ⌊#S / 4⌋` arms of `S` other than `a`, each of whose values `Y b` is at least
+`Y a` with probability at most `η`. Then `a` is removed by the halving of `S` by the values `Y` with
+probability at most `3 η`. -/
+lemma measure_notMem_halve_le {Ω : Type*} {mΩ : MeasurableSpace Ω} {P : Measure Ω}
+    {Y : Ω → α → ℝ} (hY : ∀ a, Measurable fun ω ↦ Y ω a) {S S' : Finset α} {a : α} (ha : a ∈ S)
+    (hS' : S' ⊆ S.erase a) (hcard : #S' + #S / 4 + 1 = #S) {η : ℝ≥0∞}
+    (h : ∀ b ∈ S', P {ω | Y ω a ≤ Y ω b} ≤ η) :
+    P {ω | a ∉ halve S (Y ω)} ≤ 3 * η := by
+  -- The arms of `S'` whose value is at least that of `a`.
+  set E : α → Set Ω := fun b ↦ {ω | Y ω a ≤ Y ω b}
+  have h_sub : {ω | a ∉ halve S (Y ω)} ⊆ {ω | #S - #S / 2 - #S / 4 ≤ #{b ∈ S' | ω ∈ E b}} := by
+    intro ω hω
+    -- Every survivor has a value at least that of `a`, and at most `⌊#S / 4⌋` survivors are
+    -- outside `S'`.
+    have h_halve : #(halve S (Y ω)) ≤ #{b ∈ S' | ω ∈ E b} + #(S.erase a \ S') := by
+      refine (card_le_card fun b hb ↦ ?_).trans (card_union_le _ _)
+      by_cases hbS' : b ∈ S'
+      · exact mem_union_left _ (mem_filter.2 ⟨hbS', le_of_notMem_halve ha hω hb⟩)
+      · exact mem_union_right _ (mem_sdiff.2
+          ⟨mem_erase.2 ⟨fun hba ↦ hω (hba ▸ hb), halve_subset _ _ hb⟩, hbS'⟩)
+    rw [card_halve, card_sdiff_of_subset hS', card_erase_of_mem ha] at h_halve
+    rw [Set.mem_ofPred_eq]
+    omega
+  -- Markov's inequality for the number of arms of `S'` whose value is at least that of `a`.
+  refine (measure_mono h_sub).trans ((measure_le_card_filter_le (c := 3)
+    (fun b _ ↦ measurableSet_le (hY a) (hY b)) h (by have := card_pos.2 ⟨a, ha⟩; omega)
+    (by omega)).trans_eq ?_)
+  norm_num
 
 /-! ### Independence of the phases of the reward stream -/
 
@@ -629,6 +687,23 @@ lemma indepFun_survivors_streamStats (ν : Kernel α ℝ) [IsMarkovKernel ν] (t
 /-! ### Concentration of the phase statistics -/
 
 omit [Fintype α] [DecidableEq α] [Nonempty α] [MeasurableSingletonClass α] in
+/-- For `σ2`-sub-Gaussian arms, the statistic of an arm in phase `j` of the reward stream, centered
+at `t j` times its mean, is `t j σ2`-sub-Gaussian. -/
+lemma hasSubgaussianMGF_streamStats_sub {ν : Kernel α ℝ} [IsMarkovKernel ν] {σ2 : ℝ≥0}
+    (hν : ∀ a, HasSubgaussianMGF (fun x ↦ x - (ν a)[id]) σ2 (ν a)) (t : ℕ → ℕ) (j : ℕ) (a : α) :
+    HasSubgaussianMGF (fun z ↦ streamStats t z j a - t j * (ν a)[id]) (t j * σ2)
+      (Bandits.streamMeasure ν) := by
+  have h := HasSubgaussianMGF.sum_of_iIndepFun (c := fun _ ↦ σ2)
+    (s := Ico (∑ i ∈ range j, t i) (∑ i ∈ range (j + 1), t i))
+    ((Bandits.iIndepFun_eval_streamMeasure'' ν a).comp (fun _ x ↦ x - (ν a)[id]) (by fun_prop))
+    (fun _ _ ↦ (hν a).congr_identDistrib
+      ((Bandits.identDistrib_eval_eval_id_streamMeasure _ _ _).symm.sub_const _))
+  convert h using 1
+  · funext z
+    simp [streamStats_def, sum_sub_distrib, sum_range_succ]
+  · simp [sum_range_succ]
+
+omit [Fintype α] [DecidableEq α] [Nonempty α] [MeasurableSingletonClass α] in
 /-- For `σ2`-sub-Gaussian arms, the statistic of an arm in phase `j` exceeds `t j` times its mean
 by `x ≥ 0` or more with probability at most `exp(-x² / (2 t j σ2))`. -/
 lemma measure_le_streamStats_sub_le {ν : Kernel α ℝ} [IsMarkovKernel ν] {σ2 : ℝ≥0}
@@ -636,17 +711,10 @@ lemma measure_le_streamStats_sub_le {ν : Kernel α ℝ} [IsMarkovKernel ν] {σ
     {x : ℝ} (hx : 0 ≤ x) :
     Bandits.streamMeasure ν {z | x ≤ streamStats t z j a - t j * (ν a)[id]} ≤
       ENNReal.ofReal (exp (-x ^ 2 / (2 * t j * σ2))) := by
-  have h_eq : {z : ℕ → α → ℝ | x ≤ streamStats t z j a - t j * (ν a)[id]} =
-      {z | x ≤ ∑ k ∈ Ico (∑ i ∈ range j, t i) (∑ i ∈ range (j + 1), t i), (z k a - (ν a)[id])} := by
-    ext z
-    simp [streamStats_def, sum_sub_distrib, sum_range_succ]
-  rw [h_eq, ← ofReal_measureReal]
+  rw [← ofReal_measureReal]
   gcongr
-  refine (HasSubgaussianMGF.measure_sum_ge_le_of_iIndepFun (c := fun _ ↦ σ2)
-    ((Bandits.iIndepFun_eval_streamMeasure'' ν a).comp (fun _ x ↦ x - (ν a)[id]) (by fun_prop))
-    (fun _ _ ↦ (hν a).congr_identDistrib
-      ((Bandits.identDistrib_eval_eval_id_streamMeasure _ _ _).symm.sub_const _)) hx).trans_eq ?_
-  simp [sum_range_succ, mul_assoc]
+  refine ((hasSubgaussianMGF_streamStats_sub hν t j a).measure_ge_le hx).trans_eq ?_
+  simp [mul_assoc]
 
 omit [Fintype α] [DecidableEq α] [Nonempty α] [MeasurableSingletonClass α] in
 /-- For `σ2`-sub-Gaussian arms, the statistic of an arm in phase `j` falls below `t j` times its
@@ -657,23 +725,89 @@ lemma measure_streamStats_sub_le_le {ν : Kernel α ℝ} [IsMarkovKernel ν] {σ
     Bandits.streamMeasure ν {z | streamStats t z j a - t j * (ν a)[id] ≤ -x} ≤
       ENNReal.ofReal (exp (-x ^ 2 / (2 * t j * σ2))) := by
   have h_eq : {z : ℕ → α → ℝ | streamStats t z j a - t j * (ν a)[id] ≤ -x} =
-      {z | x ≤ ∑ k ∈ Ico (∑ i ∈ range j, t i) (∑ i ∈ range (j + 1), t i),
-        -(z k a - (ν a)[id])} := by
+      {z | x ≤ (-fun z ↦ streamStats t z j a - t j * (ν a)[id]) z} := by
     ext z
-    simp only [Set.mem_ofPred_eq, streamStats_def, sum_neg_distrib, sum_sub_distrib, sum_const,
-      Nat.card_Ico, sum_range_succ, Nat.add_sub_cancel_left, nsmul_eq_mul]
+    simp only [Set.mem_ofPred_eq, Pi.neg_apply]
     constructor <;> intro h <;> linarith
   rw [h_eq, ← ofReal_measureReal]
   gcongr
-  refine (HasSubgaussianMGF.measure_sum_ge_le_of_iIndepFun (c := fun _ ↦ σ2)
-    ((Bandits.iIndepFun_eval_streamMeasure'' ν a).comp (fun _ x ↦ -(x - (ν a)[id]))
-      (by fun_prop))
-    (fun k _ ↦ ((hν a).congr_identDistrib
-      ((Bandits.identDistrib_eval_eval_id_streamMeasure ν k a).symm.sub_const _)).neg.congr
-        (ae_of_all _ fun z ↦ by simp)) hx).trans_eq ?_
-  simp [sum_range_succ, mul_assoc]
+  refine ((hasSubgaussianMGF_streamStats_sub hν t j a).neg.measure_ge_le hx).trans_eq ?_
+  simp [mul_assoc]
+
+omit [Fintype α] [DecidableEq α] [Nonempty α] [MeasurableSingletonClass α] in
+/-- **Comparison of two arms** [KKS13, Lemma 4.2]. For `σ2`-sub-Gaussian arms `a ≠ b` with
+`μ b ≤ μ a`, the statistic of `a` in phase `j` of the reward stream is at most that of `b` with
+probability at most `exp(-t j (μ a - μ b)² / (4 σ2))`. -/
+lemma measure_streamStats_le_streamStats_le {ν : Kernel α ℝ} [IsMarkovKernel ν] {σ2 : ℝ≥0}
+    (hν : ∀ a, HasSubgaussianMGF (fun x ↦ x - (ν a)[id]) σ2 (ν a)) (t : ℕ → ℕ) (j : ℕ)
+    {a b : α} (hab : a ≠ b) (h_le : (ν b)[id] ≤ (ν a)[id]) :
+    Bandits.streamMeasure ν {z | streamStats t z j a ≤ streamStats t z j b} ≤
+      ENNReal.ofReal (exp (-(t j * ((ν a)[id] - (ν b)[id]) ^ 2) / (4 * σ2))) := by
+  -- The centered statistic of an arm, as a function of its row of the stream.
+  set g : α → (ℕ → ℝ) → ℝ := fun c w ↦
+    ∑ k ∈ Ico (∑ i ∈ range j, t i) (∑ i ∈ range (j + 1), t i), w k - t j * (ν c)[id]
+  have hg (c : α) : Measurable (g c) :=
+    (Finset.measurable_sum _ fun k _ ↦ measurable_pi_apply k).sub_const _
+  have h_indep : IndepFun (fun z ↦ streamStats t z j b - t j * (ν b)[id])
+      (fun z ↦ streamStats t z j a - t j * (ν a)[id]) (Bandits.streamMeasure ν) :=
+    (Bandits.indepFun_eval_streamMeasure' ν hab.symm).comp (hg b) (hg a)
+  have h_eq : {z : ℕ → α → ℝ | streamStats t z j a ≤ streamStats t z j b} =
+      {z | t j * ((ν a)[id] - (ν b)[id]) ≤
+        (streamStats t z j b - t j * (ν b)[id]) - (streamStats t z j a - t j * (ν a)[id])} := by
+    ext z
+    simp only [Set.mem_ofPred_eq]
+    constructor <;> intro h <;> linarith
+  rw [h_eq, ← ofReal_measureReal]
+  gcongr
+  refine (((hasSubgaussianMGF_streamStats_sub hν t j b).sub_of_indepFun
+    (hasSubgaussianMGF_streamStats_sub hν t j a) h_indep).measure_ge_le
+      (mul_nonneg (Nat.cast_nonneg _) (sub_nonneg.2 h_le))).trans_eq ?_
+  push_cast
+  rcases eq_or_ne (t j : ℝ) 0 with ht | ht
+  · simp [ht]
+  rcases eq_or_ne (σ2 : ℝ) 0 with hσ | hσ
+  · simp [hσ]
+  congr 1
+  field_simp
+  ring
 
 /-! ### Correctness on the reward stream -/
+
+/-- In the reward stream, if the statistics of phase `j` lie in `Bad S` with probability at most `η`
+for every set `S` of `armsCount K j` arms, then they lie in `Bad` of the survivors of the first `j`
+phases with probability at most `η`, the survivors being independent of the statistics of
+phase `j`. -/
+lemma measure_streamStats_mem_survivors_le (ν : Kernel α ℝ) [IsMarkovKernel ν] (t : ℕ → ℕ)
+    (j : ℕ) {Bad : Finset α → Set (α → ℝ)} (hBad : ∀ S, MeasurableSet (Bad S)) {η : ℝ≥0∞}
+    (h : ∀ S : Finset α, #S = armsCount (Fintype.card α) j →
+      Bandits.streamMeasure ν {z | streamStats t z j ∈ Bad S} ≤ η) :
+    Bandits.streamMeasure ν {z | streamStats t z j ∈ Bad (survivors (streamStats t z) j)} ≤ η := by
+  set P := Bandits.streamMeasure ν
+  set F : (ℕ → α → ℝ) → Finset α := fun z ↦ survivors (streamStats t z) j
+  calc P {z | streamStats t z j ∈ Bad (F z)}
+  _ = P (⋃ S : Finset α, F ⁻¹' {S} ∩ (fun z ↦ streamStats t z j) ⁻¹' Bad S) := by
+    congr 1
+    ext z
+    simp
+  _ ≤ ∑ S : Finset α, P (F ⁻¹' {S} ∩ (fun z ↦ streamStats t z j) ⁻¹' Bad S) :=
+    measure_iUnion_fintype_le _ _
+  _ = ∑ S : Finset α, P (F ⁻¹' {S}) * P {z | streamStats t z j ∈ Bad S} := by
+    refine sum_congr rfl fun S _ ↦ ?_
+    exact (indepFun_survivors_streamStats ν t j).measure_inter_preimage_eq_mul _ _
+      (measurableSet_singleton S) (hBad S)
+  _ ≤ ∑ S : Finset α, P (F ⁻¹' {S}) * η := by
+    refine sum_le_sum fun S _ ↦ ?_
+    by_cases hS : #S = armsCount (Fintype.card α) j
+    · gcongr
+      exact h S hS
+    -- The survivors of the first `j` phases are `armsCount K j` arms.
+    have h_empty : F ⁻¹' {S} = ∅ := Set.eq_empty_of_forall_notMem fun z hz ↦
+      hS (hz ▸ card_survivors _ j)
+    simp [h_empty]
+  _ = η := by
+    rw [← sum_mul, sum_measure_preimage_singleton (μ := P) univ (f := F) fun S _ ↦
+      measurable_survivors_streamStats t j (measurableSet_singleton S)]
+    simp
 
 /-- **One phase of median elimination** on the reward stream of `σ2`-sub-Gaussian arms
 [EMM02, proof of Theorem 4]: the probability that every arm that survives phase `j` has a mean
@@ -711,26 +845,9 @@ lemma measure_exists_forall_mem_survivors_succ_add_lt_le {ν : Kernel α ℝ} [I
   -- statistics of phase `j`.
   calc P {z | ∃ a ∈ survivors (streamStats t z) j,
       ∀ b ∈ survivors (streamStats t z) (j + 1), μ b + ε < μ a}
-  _ = P (⋃ S : Finset α, (fun z ↦ survivors (streamStats t z) j) ⁻¹' {S} ∩
-      (fun z ↦ streamStats t z j) ⁻¹' Bad S) := by
-    congr 1
-    ext z
+  _ = P {z | streamStats t z j ∈ Bad (survivors (streamStats t z) j)} := by
     simp [survivors_succ, Bad]
-  _ ≤ ∑ S : Finset α, P ((fun z ↦ survivors (streamStats t z) j) ⁻¹' {S} ∩
-      (fun z ↦ streamStats t z j) ⁻¹' Bad S) := measure_iUnion_fintype_le _ _
-  _ = ∑ S : Finset α, P ((fun z ↦ survivors (streamStats t z) j) ⁻¹' {S}) *
-      P {z | streamStats t z j ∈ Bad S} := by
-    refine sum_congr rfl fun S _ ↦ ?_
-    exact (indepFun_survivors_streamStats ν t j).measure_inter_preimage_eq_mul _ _
-      (measurableSet_singleton S) (hBad S)
-  _ ≤ ∑ S : Finset α, P ((fun z ↦ survivors (streamStats t z) j) ⁻¹' {S}) * (3 * η) := by
-    gcongr with S
-    exact h_tail S
-  _ = 3 * η := by
-    rw [← sum_mul, sum_measure_preimage_singleton (μ := P) univ
-      (f := fun z ↦ survivors (streamStats t z) j) fun S _ ↦
-      measurable_survivors_streamStats t j (measurableSet_singleton S)]
-    simp
+  _ ≤ 3 * η := measure_streamStats_mem_survivors_le ν t j hBad fun S _ ↦ h_tail S
 
 /-- **Correctness of median elimination on the reward stream** [EMM02, Theorem 4]. For
 `σ2`-sub-Gaussian arms and tolerances `ε j ≥ 0`, the probability that the arm surviving the
@@ -767,6 +884,80 @@ theorem measure_exists_add_lt_streamStats_le {ν : Kernel α ℝ} [IsMarkovKerne
       (roundRobinOn_mem (survivors_nonempty _ _) 0)
   rw [← hc_eq] at hb
   linarith
+
+omit [MeasurableSingletonClass α] in
+/-- **One phase of sequential halving on the reward stream** [KKS13, Lemma 4.3]. Let the arms be
+`σ2`-sub-Gaussian with a unique best arm `a'`, and let `S` be a set of arms containing `a'`. The
+halving of `S` by the statistics of phase `j` of the reward stream removes `a'` with probability at
+most `3 exp(-t j (⌊#S / 4⌋ + 2) / (4 σ2 H₂))`. -/
+lemma measure_notMem_halve_streamStats_le {ν : Kernel α ℝ} [IsMarkovKernel ν] {σ2 : ℝ≥0}
+    (hν : ∀ a, HasSubgaussianMGF (fun x ↦ x - (ν a)[id]) σ2 (ν a)) (t : ℕ → ℕ) (j : ℕ)
+    {a' : α} (ha' : ∀ b ≠ a', (ν b)[id] < (ν a')[id]) {S : Finset α} (ha'S : a' ∈ S) :
+    Bandits.streamMeasure ν {z | a' ∉ halve S (streamStats t z j)} ≤
+      3 * ENNReal.ofReal (exp (-(t j * (#S / 4 + 2 : ℕ)) / (4 * σ2 * complexityTwo ν))) := by
+  -- The set `S'` of the `#S - 1 - ⌊#S / 4⌋` arms of `S` other than `a'` with the largest gaps.
+  obtain ⟨S', hS'_sub, hS'_card, hS'_top⟩ := Finset.exists_subset_card_eq_forall_le
+    (Bandits.gap ν) (s := S.erase a') (j := #S - 1 - #S / 4)
+    (by rw [card_erase_of_mem ha'S]; omega)
+  have hS_pos : 0 < #S := card_pos.2 ⟨a', ha'S⟩
+  have h_gap_eq (c : α) : Bandits.gap ν c = (ν a')[id] - (ν c)[id] := by
+    rw [Bandits.gap_eq_bestArm_sub, Bandits.bestArm_eq_of_forall_lt ha']
+  refine measure_notMem_halve_le (fun a ↦ measurable_streamStats_apply t j a) ha'S hS'_sub
+    (by omega) fun b hb ↦ ?_
+  have hba' : b ≠ a' := (mem_erase.1 (hS'_sub hb)).1
+  have hΔ : 0 < Bandits.gap ν b := Bandits.gap_pos_of_forall_lt ha' hba'
+  -- The arms of `S` outside `S'`, and `b`, have gaps at most that of `b`.
+  have h_gap : ((#S / 4 + 2 : ℕ) : ℝ) / complexityTwo ν ≤ Bandits.gap ν b ^ 2 := by
+    have hC : ∀ c ∈ insert b (S \ S'), Bandits.gap ν c ≤ Bandits.gap ν b := by
+      intro c hc
+      rcases mem_insert.1 hc with rfl | hc
+      · exact le_rfl
+      rcases eq_or_ne c a' with hca | hca
+      · rw [hca, h_gap_eq a', sub_self]
+        exact hΔ.le
+      · exact hS'_top b hb c (mem_sdiff.2 ⟨mem_erase.2 ⟨hca, (mem_sdiff.1 hc).1⟩,
+          (mem_sdiff.1 hc).2⟩)
+    have h_card : #S / 4 + 2 ≤ #(insert b (S \ S')) := by
+      have hS'S : S' ⊆ S := hS'_sub.trans (erase_subset _ _)
+      rw [card_insert_of_notMem fun h ↦ (mem_sdiff.1 h).2 hb, card_sdiff_of_subset hS'S]
+      omega
+    refine le_trans ?_ (card_div_complexityTwo_le_gap_sq hΔ hC)
+    gcongr
+    exact complexityTwo_nonneg ν
+  refine (measure_streamStats_le_streamStats_le hν t j hba'.symm (ha' b hba').le).trans
+    (ENNReal.ofReal_le_ofReal (exp_le_exp.2 ?_))
+  rw [← h_gap_eq, show -(t j * ((#S / 4 + 2 : ℕ) : ℝ)) / (4 * σ2 * complexityTwo ν) =
+    -(t j * (((#S / 4 + 2 : ℕ) : ℝ) / complexityTwo ν)) / (4 * σ2) by ring]
+  gcongr
+
+/-- **Sequential halving on the reward stream** [KKS13, Lemma 4.3, Theorem 4.1]. For
+`σ2`-sub-Gaussian arms with a unique best arm `a'` and any numbers of pulls `t`, the arm that
+survives the `⌈log₂ K⌉` phases of the reward stream is not `a'` with probability at most
+`∑ j, 3 exp(-t j (⌊n_j / 4⌋ + 2) / (4 σ2 H₂))`, where `n_j` is the number of arms of phase `j`. -/
+theorem measure_roundRobinOn_survivors_streamStats_ne_le {ν : Kernel α ℝ} [IsMarkovKernel ν]
+    {σ2 : ℝ≥0} (hν : ∀ a, HasSubgaussianMGF (fun x ↦ x - (ν a)[id]) σ2 (ν a)) (t : ℕ → ℕ)
+    {a' : α} (ha' : ∀ b ≠ a', (ν b)[id] < (ν a')[id]) :
+    Bandits.streamMeasure ν
+        {z | roundRobinOn (survivors (streamStats t z) (numPhases (Fintype.card α))) 0 ≠ a'} ≤
+      ∑ j ∈ range (numPhases (Fintype.card α)), 3 * ENNReal.ofReal (exp
+        (-(t j * (armsCount (Fintype.card α) j / 4 + 2 : ℕ)) / (4 * σ2 * complexityTwo ν))) := by
+  -- Phase `j` fails from the set `S` if `a' ∈ S` is removed by the halving.
+  set Bad : Finset α → Set (α → ℝ) := fun S ↦ {y | a' ∈ S ∧ a' ∉ halve S y}
+  have hBad (S : Finset α) : MeasurableSet (Bad S) :=
+    (MeasurableSet.const (a' ∈ S)).inter
+      (measurable_halve S (MeasurableSet.of_discrete (s := {T : Finset α | a' ∉ T})))
+  -- A union bound over the phases, each phase being bounded for a fixed set of survivors.
+  refine (measure_mono fun z hz ↦ ?_).trans
+    ((measure_biUnion_finset_le (range (numPhases (Fintype.card α)))
+      fun j ↦ {z | streamStats t z j ∈ Bad (survivors (streamStats t z) j)}).trans
+        (sum_le_sum fun j _ ↦ measure_streamStats_mem_survivors_le ν t j hBad fun S hS ↦ ?_))
+  · obtain ⟨j, hj, hz⟩ := exists_mem_survivors_notMem_halve_of_roundRobinOn_ne hz
+    exact Set.mem_iUnion₂.2 ⟨j, mem_range.2 hj, hz⟩
+  by_cases ha'S : a' ∈ S
+  · simp only [Bad, ha'S, true_and]
+    rw [← hS]
+    exact measure_notMem_halve_streamStats_le hν t j ha' ha'S
+  · simp [Bad, ha'S]
 
 /-- Along every run of the sampling rule of median elimination in a stochastic bandit, the law of
 the survivors of the `⌈log₂ K⌉` phases is that of the survivors computed from the phases of the
@@ -888,6 +1079,39 @@ theorem MedianElimination.measureReal_exists_output_add_lt_le {σ2 : ℝ≥0}
     ENNReal.toReal_mono (ENNReal.sum_ne_top.2 fun _ _ ↦ ENNReal.mul_ne_top (by simp)
       ENNReal.ofReal_ne_top) (measure_exists_add_lt_streamStats_le hν t hε)
   _ = ∑ j ∈ range L, 3 * exp (-(t j * ε j ^ 2) / (8 * σ2)) := by
+    rw [ENNReal.toReal_sum fun _ _ ↦ by finiteness]
+    simp [ENNReal.toReal_ofReal (exp_pos _).le]
+
+/-- **Correctness of the halving of median elimination for best arm identification**, for any
+numbers of pulls [KKS13, Lemma 4.3, Theorem 4.1]. Let the arms be `σ2`-sub-Gaussian with a unique
+best arm `a'`. Along every run of median elimination in which each surviving arm is pulled `t j`
+times during phase `j`, the output is not `a'` with probability at most
+`∑ j, 3 exp(-t j (⌊n_j / 4⌋ + 2) / (4 σ2 H₂))`, the sum ranging over the `⌈log₂ K⌉` phases, where
+`n_j` is the number of arms of phase `j`. -/
+theorem MedianElimination.measureReal_output_ne_le_sum {σ2 : ℝ≥0}
+    (hν : ∀ a, HasSubgaussianMGF (fun x ↦ x - (ν a)[id]) σ2 (ν a)) {a' : α}
+    (ha' : ∀ b ≠ a', (ν b)[id] < (ν a')[id])
+    (h : (medianElimination t).IsRun (Environment.bandit ν) O A R out P) :
+    P.real {ω | out ω ≠ a'} ≤ ∑ j ∈ range (numPhases (Fintype.card α)),
+      3 * exp (-(t j * (armsCount (Fintype.card α) j / 4 + 2 : ℕ)) /
+        (4 * σ2 * complexityTwo ν)) := by
+  set L := numPhases (Fintype.card α)
+  have h_alg : IsAlgEnvSeq O A R (samplingRule t) (Environment.bandit ν) P := by
+    simpa using h.isAlgEnvSeq
+  set B : Set (Finset α) := {S | roundRobinOn S 0 ≠ a'}
+  calc P.real {ω | out ω ≠ a'}
+  _ = P.real {ω | survivors (runStats t A R ω) L ∈ B} := by
+    refine measureReal_congr ?_
+    filter_upwards [output_ae_eq h] with ω hω
+    simp [B, hω, L]
+  _ = (Bandits.streamMeasure ν).real {z | survivors (streamStats t z) L ∈ B} := by
+    rw [measureReal_def, measureReal_def, measure_survivors_runStats_mem_eq h_alg B]
+  _ ≤ (∑ j ∈ range L, 3 * ENNReal.ofReal (exp (-(t j * (armsCount (Fintype.card α) j / 4 + 2 : ℕ))
+      / (4 * σ2 * complexityTwo ν)))).toReal :=
+    ENNReal.toReal_mono (ENNReal.sum_ne_top.2 fun _ _ ↦ ENNReal.mul_ne_top (by simp)
+      ENNReal.ofReal_ne_top) (measure_roundRobinOn_survivors_streamStats_ne_le hν t ha')
+  _ = ∑ j ∈ range L, 3 * exp (-(t j * (armsCount (Fintype.card α) j / 4 + 2 : ℕ)) /
+      (4 * σ2 * complexityTwo ν)) := by
     rw [ENNReal.toReal_sum fun _ _ ↦ by finiteness]
     simp [ENNReal.toReal_ofReal (exp_pos _).le]
 
