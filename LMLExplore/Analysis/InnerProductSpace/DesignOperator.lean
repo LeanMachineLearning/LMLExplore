@@ -23,7 +23,9 @@ is nonnegative for positive `V` by `ContinuousLinearMap.IsPositive.ringInverse`.
 
 A positive definite regularizer is a positive invertible operator `V₀`
 (`V₀.IsPositive` and `IsUnit V₀`); in finite dimension these are the operators with positive
-eigenvalues.
+eigenvalues. The ridge regularizer `λ • 1` is one for `λ > 0` (`LMLExplore.isPositive_smul_one`,
+`LMLExplore.isUnit_smul_one`), with `det (λ • 1) = λ ^ d` (`LMLExplore.det_smul_one`) and
+`trace (λ • 1) = λ d` (`LMLExplore.trace_smul_one`).
 
 ## Main definitions
 
@@ -123,10 +125,23 @@ theorem isPositive_designOp (hV₀ : V₀.IsPositive) (x : ℕ → E) (t : ℕ) 
     (designOp V₀ x t).IsPositive :=
   hV₀.add (isPositive_sum _ fun _ _ ↦ isPositive_rankOne_self _)
 
+/-- The ridge regularizer `λ • 1` is positive for `λ ≥ 0`. -/
+theorem isPositive_smul_one (hlam : 0 ≤ lam) : (lam • 1 : E →L[ℝ] E).IsPositive :=
+  isPositive_one.smul_of_nonneg hlam
+
+/-- The ridge regularizer `λ • 1` is invertible for `λ ≠ 0`. -/
+theorem isUnit_smul_one (hlam : lam ≠ 0) : IsUnit (lam • 1 : E →L[ℝ] E) :=
+  isUnit_one.smul (Units.mk0 lam hlam)
+
+/-- The determinant of the ridge regularizer: `det (λ • 1) = λ ^ d`. -/
+theorem det_smul_one (lam : ℝ) :
+    LinearMap.det ((lam • 1 : E →L[ℝ] E) : E →ₗ[ℝ] E) = lam ^ finrank ℝ E := by
+  simp [LinearMap.det_smul]
+
 /-- The design operator `V_t(λ)` is positive for `λ ≥ 0`. -/
 theorem isPositive_designOp_smul_one (hlam : 0 ≤ lam) (x : ℕ → E) (t : ℕ) :
     (designOp (lam • 1) x t).IsPositive :=
-  isPositive_designOp (isPositive_one.smul_of_nonneg hlam) x t
+  isPositive_designOp (isPositive_smul_one hlam) x t
 
 /-- The coercivity bound `λ ‖v‖² ≤ ⟪v, V_t(λ) v⟫`, valid for every `λ`. -/
 theorem mul_norm_sq_le_inner_designOp_apply (lam : ℝ) (x : ℕ → E) (t : ℕ) (v : E) :
@@ -149,8 +164,7 @@ theorem isUnit_designOp (hV₀ : V₀.IsPositive) (hV₀u : IsUnit V₀) (x : �
 /-- The design operator `V_t(λ)` is invertible for `λ > 0`. -/
 theorem isUnit_designOp_smul_one (hlam : 0 < lam) (x : ℕ → E) (t : ℕ) :
     IsUnit (designOp (lam • 1) x t) :=
-  isUnit_designOp (isPositive_one.smul_of_nonneg hlam.le) (isUnit_one.smul (Units.mk0 lam hlam.ne'))
-    x t
+  isUnit_designOp (isPositive_smul_one hlam.le) (isUnit_smul_one hlam.ne') x t
 
 /-- For `λ > 0`, `λ ‖v‖²_{V_t(λ)⁻¹} ≤ ‖v‖²`, that is `V_t(λ)⁻¹ ≤ λ⁻¹ • 1`. -/
 theorem mul_inner_ringInverse_designOp_apply_le (hlam : 0 < lam) (x : ℕ → E) (t : ℕ) (v : E) :
@@ -210,13 +224,19 @@ theorem det_designOp_pos (hV₀ : V₀.IsPositive) (hV₀u : IsUnit V₀) (x : �
   (isPositive_designOp hV₀ x t).toLinearMap.det_pos
     ((LinearMap.isUnit_iff_ker_eq_bot _).1 ((isUnit_designOp hV₀ hV₀u x t).map toLinearMapRingHom))
 
+/-- The determinant of the design operator `V_t(λ)` is positive for `λ > 0`. -/
+theorem det_designOp_smul_one_pos (hlam : 0 < lam) (x : ℕ → E) (t : ℕ) :
+    0 < LinearMap.det (designOp (lam • 1) x t : E →ₗ[ℝ] E) :=
+  det_designOp_pos (isPositive_smul_one hlam.le) (isUnit_smul_one hlam.ne') x t
+
 /-- The trace of the design operator: `trace V_t(V₀) = trace V₀ + ∑_{s < t} ‖x s‖²`. -/
 theorem trace_designOp (V₀ : E →L[ℝ] E) (x : ℕ → E) (t : ℕ) :
     LinearMap.trace ℝ E (designOp V₀ x t : E →ₗ[ℝ] E) =
       LinearMap.trace ℝ E (V₀ : E →ₗ[ℝ] E) + ∑ s ∈ range t, ‖x s‖ ^ 2 := by
   simp [designOp, map_sum, InnerProductSpace.trace_rankOne]
 
-private lemma trace_smul_one :
+/-- The trace of the ridge regularizer: `trace (λ • 1) = λ d`. -/
+theorem trace_smul_one (lam : ℝ) :
     LinearMap.trace ℝ E ((lam • 1 : E →L[ℝ] E) : E →ₗ[ℝ] E) = lam * finrank ℝ E := by
   simp
 
@@ -249,7 +269,7 @@ theorem det_designOp_div_pow_le (hlam : 0 < lam) (x : ℕ → E) {t : ℕ} {L : 
     LinearMap.det (designOp (lam • 1) x t : E →ₗ[ℝ] E) / lam ^ finrank ℝ E ≤
       (1 + t * L ^ 2 / (lam * finrank ℝ E)) ^ finrank ℝ E := by
   rw [div_le_iff₀ (pow_pos hlam _), ← mul_pow]
-  refine (det_designOp_le_of_norm_le (isPositive_one.smul_of_nonneg hlam.le) x hx).trans_eq ?_
+  refine (det_designOp_le_of_norm_le (isPositive_smul_one hlam.le) x hx).trans_eq ?_
   rcases (finrank ℝ E).eq_zero_or_pos with hd | hd
   · simp [hd]
   · congr 1
@@ -291,12 +311,10 @@ theorem log_det_designOp_div_pow_le (hlam : 0 < lam) (x : ℕ → E) {t : ℕ} {
     (hx : ∀ s < t, ‖x s‖ ≤ L) :
     Real.log (LinearMap.det (designOp (lam • 1) x t : E →ₗ[ℝ] E) / lam ^ finrank ℝ E) ≤
       finrank ℝ E * Real.log (1 + t * L ^ 2 / (lam * finrank ℝ E)) := by
-  have h := log_det_designOp_div_le (isPositive_one.smul_of_nonneg hlam.le)
-    (isUnit_one.smul (Units.mk0 lam hlam.ne')) x hx
+  have h := log_det_designOp_div_le (isPositive_smul_one hlam.le) (isUnit_smul_one hlam.ne') x hx
   rcases (finrank ℝ E).eq_zero_or_pos with hd | hd
   · simp [hd, LinearMap.det_eq_one_of_finrank_eq_zero hd]
-  rw [show LinearMap.det ((lam • 1 : E →L[ℝ] E) : E →ₗ[ℝ] E) = lam ^ finrank ℝ E by
-    simp [LinearMap.det_smul], trace_smul_one] at h
+  rw [det_smul_one, trace_smul_one] at h
   rwa [Real.pow_rpow_inv_natCast hlam.le hd.ne', show lam * finrank ℝ E + t * L ^ 2 =
     (finrank ℝ E * lam) * (1 + t * L ^ 2 / (lam * finrank ℝ E)) by field_simp,
     mul_div_cancel_left₀ _ (by positivity)] at h
