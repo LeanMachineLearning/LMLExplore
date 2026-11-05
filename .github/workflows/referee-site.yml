@@ -2,6 +2,7 @@ name: Referee site
 
 # The referee site of LMLExplore, served by GitHub Pages at https://leanmachinelearning.org/LMLExplore/,
 # built with the LeanTrustBuilders suite as LML builds its own:
+#   check    skips a scheduled run when main has not moved since the last build;
 #   extract  builds main and extracts its dataset (S2) with trust-extract;
 #   site     publishes the dataset as the release dataset-<commit12>, records the build in the
 #            provenance ledger (the branch trust-ledger), and builds the site with referee-site,
@@ -14,22 +15,45 @@ name: Referee site
 # that builds and imports LMLExplore holds only a read token, and the jobs that write (releases, the
 # ledger branch, Pages) run no Lean, only Python tools that read the dataset and the sources as data.
 
+# Twice a day (05:17 and 17:17 UTC) rather than on every push: main moves many times a day, and the
+# site needs to be recent, not one build per commit. A manual run always builds.
 on:
-  push:
-    branches: [main]
+  schedule:
+    - cron: '17 5,17 * * *'
   workflow_dispatch:
 
 permissions: {}
 
-# One build at a time, so that ledger pushes never race. A burst of pushes coalesces: the running
-# build finishes, and only the newest pending one runs after it.
+# One build at a time, so that ledger pushes never race when a manual run meets a scheduled one.
 concurrency:
   group: referee-site
   cancel-in-progress: false
 
 jobs:
-  extract:
+  check:
     if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    outputs:
+      build: ${{ steps.check.outputs.build }}
+    steps:
+      # The dataset release of main's commit exists when an earlier run built it.
+      - id: check
+        env:
+          GH_TOKEN: ${{ github.token }}
+          EVENT: ${{ github.event_name }}
+        run: |
+          if [ "$EVENT" = schedule ] && gh release view "dataset-${GITHUB_SHA:0:12}" -R "$GITHUB_REPOSITORY" > /dev/null 2>&1; then
+            echo "::notice::main is still at ${GITHUB_SHA:0:12}, which is built already"
+            echo "build=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "build=true" >> "$GITHUB_OUTPUT"
+          fi
+
+  extract:
+    needs: check
+    if: needs.check.outputs.build == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 120
     permissions:
