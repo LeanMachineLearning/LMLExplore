@@ -37,6 +37,9 @@ In the namespace `LMLExplore.Bandits.WeightAlgorithm`, for a run of `weightAlgor
   iff the weighted sum `∑ a, w n (past) a * ‖f (past, a)‖` is;
 * `condExp_comp_action`: the conditional expectation of `f (past, A n)` given the past is the
   weighted sum `∑ a, w n (past) a • f (past, a)`;
+* `condExp_comp_action_mul`: if `Z` has conditional expectation `m (past) (A n)` given the past
+  and the action, the conditional expectation of `f (past) (A n) * Z` given the past is the
+  weighted sum `∑ b, w n (past) b * (f (past) b * m (past) b)`;
 * `integrable_comp_weights`, `condExp_comp_weights`, `integral_comp_weights`,
   `condVar_comp_weights`: for a real function `g (w n (past), A n)` of the weights and the action,
   integrability when the `p`-averages of `|g p ·|` are bounded, and the conditional expectation,
@@ -181,6 +184,39 @@ lemma condExp_comp_action [Nonempty α] (h : IsAlgEnvSeq O A Y (weightAlgorithm 
   filter_upwards [h.condExp_comp_action n hf hint] with ω hω
   rw [hω, weightAlgorithm_policy, weightKernel_apply,
     integral_weightedMeasure_eq_sum (mem_simplex_iff.1 (hp n _)).1]
+
+/-- Along a run of a weight-based algorithm, let `Z` be an integrable real random variable whose
+conditional expectation given the past (history and observation) and the action of round `n` is
+`m (past) (A n)`, such as the feedback of round `n` with `m` its conditional means. Then for every
+measurable `f`, the conditional expectation of `f (past) (A n) * Z` given the past is the weighted
+sum `∑ b, w n (past) b * (f (past) b * m (past) b)`, provided `f (past) (A n) * Z` is
+integrable. -/
+lemma condExp_comp_action_mul [Nonempty α]
+    (h : IsAlgEnvSeq O A Y (weightAlgorithm w hw hp) env P) (n : ℕ)
+    {f m : Hist 𝓞 α 𝓨 n × 𝓞 → α → ℝ} (hf : ∀ b, Measurable fun x ↦ f x b)
+    (hm : ∀ b, Measurable fun x ↦ m x b) {Z : Ω → ℝ} (hZ : Integrable Z P)
+    (hZm : P[Z | h.filtrationAction n] =ᵐ[P] fun ω ↦ m (history O A Y n ω, O n ω) (A n ω))
+    (hint : Integrable (fun ω ↦ f (history O A Y n ω, O n ω) (A n ω) * Z ω) P) :
+    P[fun ω ↦ f (history O A Y n ω, O n ω) (A n ω) * Z ω | h.filtrationObs n] =ᵐ[P]
+      fun ω ↦ ∑ b, w n (history O A Y n ω, O n ω) b *
+        (f (history O A Y n ω, O n ω) b * m (history O A Y n ω, O n ω) b) := by
+  have hX : Measurable[h.filtrationAction n] fun ω ↦ ((history O A Y n ω, O n ω), A n ω) := by
+    rw [h.filtrationAction_eq_comap]
+    exact measurable_iff_comap_le.2 le_rfl
+  have hf' : StronglyMeasurable fun z : (Hist 𝓞 α 𝓨 n × 𝓞) × α ↦ f z.1 z.2 :=
+    (measurable_from_prod_countable_left hf).stronglyMeasurable
+  have hm' : StronglyMeasurable fun z : (Hist 𝓞 α 𝓨 n × 𝓞) × α ↦ m z.1 z.2 :=
+    (measurable_from_prod_countable_left hm).stronglyMeasurable
+  -- given the past and the action, `f (past) (A n)` is known and `Z` has conditional mean `m`
+  have hact : P[fun ω ↦ f (history O A Y n ω, O n ω) (A n ω) * Z ω | h.filtrationAction n]
+      =ᵐ[P] fun ω ↦ f (history O A Y n ω, O n ω) (A n ω) * m (history O A Y n ω, O n ω) (A n ω) :=
+    (condExp_mul_of_stronglyMeasurable_left (hf'.comp_measurable hX) hint hZ).trans
+      (hZm.mono fun ω hω ↦ by simp [hω])
+  refine (condExp_condExp_of_le (h.filtrationObs_le_filtrationAction n)
+    (h.filtrationAction.le n)).symm.trans ((condExp_congr_ae hact).trans ?_)
+  filter_upwards [condExp_comp_action h n (f := fun z ↦ f z.1 z.2 * m z.1 z.2) (hf'.mul hm')
+    (integrable_condExp.congr hact)] with ω hω
+  simpa only [smul_eq_mul] using hω
 
 omit [Fintype α] [MeasurableSingletonClass α] in
 /-- For `g` measurable, `(past, b) ↦ g (w n past) b` is strongly measurable. -/

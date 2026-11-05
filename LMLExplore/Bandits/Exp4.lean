@@ -527,7 +527,7 @@ theorem expertRegret_le (hη : 0 < η) (hO : ∀ t < n, O t =ᵐ[P] fun _ ↦ E 
     (ae_feedback_le_one hY fun t ht a ↦ (hx t ht a).2).and
       (ae_all_iff.2 fun t ↦ (WeightAlgorithm.ae_weights_action_pos h t).mono fun _ h ↦ h.ne')
   have hle : ∑ t ∈ range n, P[V t] ≤ (n * Fintype.card α : ℝ) :=
-    WeightAlgorithm.sum_integral_one_sub_sq_div_weights_le h hY hx
+    WeightAlgorithm.sum_integral_one_sub_sq_div_weights_le h (ae_feedback_mem_Icc hY hx)
   refine expertRegret_le_iff.2 fun m ↦ ?_
   -- the regret against `m` is the expectation of its estimated regret
   have hreg : ∑ t ∈ range n, ∑ a, (E t m : α → ℝ) a * x t a -
