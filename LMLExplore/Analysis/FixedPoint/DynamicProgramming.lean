@@ -19,21 +19,28 @@ Let `E` be an ordered real vector space with an order unit `e`, normed by the or
 (`∀ x, orderUnitNorm e x = ‖x‖`), such as `ι → ℝ` with `ι` finite and `e = 1`
 (`orderUnitNorm_one_eq_norm`). Let `T d : E → E`, for `d` in a type `D` of *decisions*, be maps
 satisfying Blackwell's conditions with a common modulus `γ < 1`, and let `B : E → E` be their
-maximum, attained at every point: `B x` is the greatest element of `{T d x | d : D}`. A decision
-`d` with `T d x = B x` is *greedy* for `x`.
+*uniform supremum* (`IsUniformSup`): `T d x ≤ B x` for every `d`, and for every `x` and `ε > 0`
+some decision `d` is *`ε`-greedy* for `x`, `B x - ε • e ≤ T d x`. The supremum need not be
+attained; a decision `d` with `T d x = B x` is *greedy* for `x`, and an attained maximum
+(`B x` the greatest element of `{T d x | d : D}`) is the case where every `x` has a greedy
+decision.
 
 For a Markov decision process, `E` is a space of bounded value functions, `T d` is the evaluation
 operator `v ↦ r_d + γ P_d v` of a deterministic stationary policy `d` and `B` is the Bellman
-optimality operator, whose value at `v` is attained by the policy choosing at every state an action
-maximizing `r(s, a) + γ ∫ v dP(s, a)`. The results of this file then say that the optimal value is
-the value of a greedy policy, and that policy iteration and modified policy iteration (with value
-iteration as the case of a single evaluation step) converge geometrically to it, the latter when
-started from `x 0 ≤ B (x 0)`. They only use monotonicity and Blackwell's conditions (`IsBlackwell`),
-following Bertsekas's abstract dynamic programming. The fixed point of `B` is taken as a
-hypothesis, so completeness of `E` is not assumed.
+optimality operator, whose value at `v` is the supremum over the actions at every state of
+`r(s, a) + γ ∫ v dP(s, a)`. The results of this file then say that the optimal value is the least
+upper bound of the values of the policies, and the value of a greedy policy when one exists, and
+that policy iteration and modified policy iteration (with value iteration as the case of a single
+evaluation step) converge geometrically to it, the latter when started from `x 0 ≤ B (x 0)`. They
+only use monotonicity and Blackwell's conditions (`IsBlackwell`), following Bertsekas's abstract
+dynamic programming. The fixed point of `B` is taken as a hypothesis; completeness of `E` is only
+assumed to give the maps `T d` their fixed points, in `isLUB_iUnion_fixedPoints`. Dropping
+attainment costs an Archimedean step, `le_of_forall_sub_smul_le`, which needs the closedness of the
+lower intervals `Set.Iic x` and the compatibility of the order with scalars (`PosSMulMono`).
 
 ## Main definitions
 
+* `LMLExplore.IsUniformSup e T B`: `B` is the uniform supremum of the maps `T d`.
 * `LMLExplore.IsPolicyIteration T B d v`: `v k` is the fixed point of `T (d k)` and `d (k + 1)` is
   greedy for `v k`.
 * `LMLExplore.IsModifiedPolicyIteration T B m d x`: `d k` is greedy for `x k` and
@@ -42,13 +49,22 @@ hypothesis, so completeness of `E` is not assumed.
 ## Main statements
 
 * `LMLExplore.IsBlackwell.contractingWith`: a map satisfying Blackwell's conditions with modulus
-  `γ < 1` is a `γ`-contraction, and `LMLExplore.IsBlackwell.of_isGreatest_range` says that `B`
-  satisfies them.
+  `γ < 1` is a `γ`-contraction, and `LMLExplore.IsBlackwell.of_isUniformSup` says that `B`
+  satisfies them (`LMLExplore.IsBlackwell.of_isGreatest_range` for an attained maximum).
+* `LMLExplore.IsUniformSup.isLUB_range`: `B x` is the least upper bound of the values `T d x`, so
+  `B` is determined by the maps `T d` (`LMLExplore.IsUniformSup.unique`).
 * `LMLExplore.IsBlackwell.le_of_map_le`, `LMLExplore.IsBlackwell.le_of_le_map`: if `T x ≤ x` then
-  the fixed point of `T` is below `x`, and if `x ≤ T x` it is above.
-* `LMLExplore.isGreatest_iUnion_fixedPoints`: the fixed point of `B` is the greatest fixed point of
-  the maps `T d`; `LMLExplore.isFixedPt_of_map_eq`: it is the fixed point of every decision greedy
-  for it.
+  the fixed point of `T` is below `x`, and if `x ≤ T x` it is above;
+  `LMLExplore.IsBlackwell.sub_smul_le_of_sub_smul_le_map`: if `x - ε • e ≤ T x` it is above
+  `x - (ε / (1 - γ)) • e`.
+* `LMLExplore.isLUB_iUnion_fixedPoints`: the fixed point of `B` is the least upper bound of the
+  fixed points of the maps `T d`; `LMLExplore.mem_upperBounds_iUnion_fixedPoints`: it is above
+  them.
+* `LMLExplore.isGreatest_iUnion_fixedPoints`: when a decision is greedy for it, the fixed point of
+  `B` is the greatest fixed point of the maps `T d`; `LMLExplore.isFixedPt_of_map_eq`: it is the
+  fixed point of every decision greedy for it.
+* `LMLExplore.IsUniformSup.exists_map_eq`: with finitely many decisions, every `x` has a greedy
+  decision.
 * `LMLExplore.map_le_of_le_map`, `LMLExplore.IsPolicyIteration.map_le`: policy improvement; the
   values `v k` of policy iteration satisfy `v k ≤ B (v k) ≤ v (k + 1)`.
 * `LMLExplore.IsPolicyIteration.iterate_le`, `LMLExplore.IsPolicyIteration.le_of_isFixedPt`,
@@ -60,6 +76,8 @@ hypothesis, so completeness of `E` is not assumed.
   `LMLExplore.IsModifiedPolicyIteration.le_of_isFixedPt`,
   `LMLExplore.IsModifiedPolicyIteration.norm_sub_le`: the same bounds for modified policy iteration
   started from `x 0 ≤ B (x 0)`.
+
+The results on policy iteration and modified policy iteration assume an attained maximum.
 
 ## References
 
@@ -76,14 +94,40 @@ namespace LMLExplore
 
 variable {E D : Type*}
 
-/-! ### Blackwell's conditions -/
+/-! ### Uniform suprema -/
+
+section UniformSup
+
+variable [AddCommGroup E] [PartialOrder E] [Module ℝ E]
+
+/-- `B` is the *uniform supremum* of the maps `T d` for the unit `e`: `T d x ≤ B x` for every
+decision `d`, and for every `x` and `ε > 0` some decision `d` is *`ε`-greedy* for `x`,
+`B x - ε • e ≤ T d x`. The supremum need not be attained. -/
+structure IsUniformSup (e : E) (T : D → E → E) (B : E → E) : Prop where
+  le (d : D) (x : E) : T d x ≤ B x
+  exists_sub_smul_le (x : E) (ε : ℝ) (hε : 0 < ε) : ∃ d, B x - ε • e ≤ T d x
+
+/-- An attained maximum is a uniform supremum: if `B x` is the greatest of the values `T d x`, a
+decision greedy for `x` is `ε`-greedy for every `ε > 0`. -/
+lemma IsUniformSup.of_isGreatest_range [IsOrderedAddMonoid E] [PosSMulMono ℝ E] {e : E}
+    (he : 0 ≤ e) {T : D → E → E} {B : E → E} (hB : ∀ x, IsGreatest (range fun d ↦ T d x) (B x)) :
+    IsUniformSup e T B where
+  le d x := (hB x).2 ⟨d, rfl⟩
+  exists_sub_smul_le x ε hε := by
+    obtain ⟨d, hd⟩ := (hB x).1
+    exact ⟨d, hd.symm ▸ sub_le_self _ (smul_nonneg hε.le he)⟩
+
+end UniformSup
+
+/-! ### Blackwell's conditions for an attained maximum -/
 
 section Blackwell
 
 variable [AddCommGroup E] [PartialOrder E] [Module ℝ E] {e : E} {γ : ℝ≥0}
 
 /-- The maximum of maps satisfying Blackwell's conditions with modulus `γ` satisfies them, when it
-is attained: `B x` is the greatest of the values `T d x`. -/
+is attained: `B x` is the greatest of the values `T d x`. Unlike `IsBlackwell.of_isUniformSup`, this
+needs no approximation step. -/
 lemma IsBlackwell.of_isGreatest_range [IsOrderedAddMonoid E] {T : D → E → E} {B : E → E}
     (hT : ∀ d, IsBlackwell e γ (T d)) (hB : ∀ x, IsGreatest (range fun d ↦ T d x) (B x)) :
     IsBlackwell e γ B where
@@ -222,23 +266,115 @@ theorem le_of_le_map [ClosedIciTopology E] (hnorm : ∀ x, orderUnitNorm e x = �
   ge_of_tendsto' ((hT.contractingWith hnorm hγ).tendsto_iterate_of_isFixedPt hy x) fun n ↦ by
     simpa using hT.monotone.monotone_iterate_of_le_map h (Nat.zero_le n)
 
+/-- If `T` satisfies Blackwell's conditions with modulus `γ < 1` and `x - ε • e ≤ T x` with
+`ε ≥ 0`, then the fixed point of `T` is above `x - (ε / (1 - γ)) • e`. For a decision `ε`-greedy for
+the fixed point `x` of the uniform supremum `B` of maps `T d`, this bounds the loss of following the
+decision by `ε / (1 - γ)`. The case `ε = 0` is `IsBlackwell.le_of_le_map`. -/
+theorem sub_smul_le_of_sub_smul_le_map [ClosedIciTopology E]
+    (hnorm : ∀ x, orderUnitNorm e x = ‖x‖) (hT : IsBlackwell e γ T) (hγ : γ < 1)
+    (hy : IsFixedPt T y) {ε : ℝ} (hε : 0 ≤ ε) (h : x - ε • e ≤ T x) :
+    x - (ε / (1 - γ)) • e ≤ y := by
+  have hγ' : (0 : ℝ) < 1 - γ := sub_pos.2 (by exact_mod_cast hγ)
+  set c := ε / (1 - γ)
+  have hεc : ε + γ * c = c := by simp only [c]; field_simp; ring
+  refine hT.le_of_le_map hnorm hγ hy ?_
+  -- Blackwell's condition at `x - c • e` gives `T x ≤ T (x - c • e) + (γ * c) • e`.
+  have hle := hT.map_add_smul_le (x - c • e) c (div_nonneg hε hγ'.le)
+  rw [sub_add_cancel] at hle
+  calc x - c • e = x - ε • e - (γ * c) • e := by rw [sub_sub, ← add_smul, hεc]
+    _ ≤ T x - (γ * c) • e := sub_le_sub_right h _
+    _ ≤ T (x - c • e) := sub_le_iff_le_add.2 hle
+
+/-- The uniform supremum of maps satisfying Blackwell's conditions with modulus `γ` satisfies
+them. -/
+theorem of_isUniformSup [PosSMulMono ℝ E] [ClosedIicTopology E] {T : D → E → E} {B : E → E}
+    (hnorm : ∀ x, orderUnitNorm e x = ‖x‖) (hT : ∀ d, IsBlackwell e γ (T d))
+    (hB : IsUniformSup e T B) : IsBlackwell e γ B where
+  monotone x y hxy := le_of_forall_sub_smul_le hnorm fun ε hε ↦ by
+    obtain ⟨d, hd⟩ := hB.exists_sub_smul_le x ε hε
+    exact hd.trans (((hT d).monotone hxy).trans (hB.le d y))
+  map_add_smul_le x c hc := le_of_forall_sub_smul_le hnorm fun ε hε ↦ by
+    obtain ⟨d, hd⟩ := hB.exists_sub_smul_le (x + c • e) ε hε
+    exact hd.trans (((hT d).map_add_smul_le x c hc).trans (add_le_add (hB.le d x) le_rfl))
+
 end IsBlackwell
 
 /-! ### Optimality of greedy decisions -/
 
 variable {T : D → E → E} {B : E → E} {x : E}
 
-/-- **Optimality of greedy decisions**: the fixed point of the maximum `B` of maps `T d` satisfying
-Blackwell's conditions with modulus `γ < 1` is the greatest fixed point of the maps `T d`. It is
-attained by every decision greedy for it (`isFixedPt_of_map_eq`). -/
+/-- A uniform supremum is the pointwise least upper bound: `B x` is the least upper bound of the
+values `T d x`. -/
+theorem IsUniformSup.isLUB_range [PosSMulMono ℝ E] [ClosedIicTopology E]
+    (hnorm : ∀ x, orderUnitNorm e x = ‖x‖) (hB : IsUniformSup e T B) (x : E) :
+    IsLUB (range fun d ↦ T d x) (B x) := by
+  refine ⟨forall_mem_range.2 fun d ↦ hB.le d x, fun b hb ↦ ?_⟩
+  refine le_of_forall_sub_smul_le hnorm fun ε hε ↦ ?_
+  obtain ⟨d, hd⟩ := hB.exists_sub_smul_le x ε hε
+  exact hd.trans (hb ⟨d, rfl⟩)
+
+/-- The uniform supremum of the maps `T d` is unique. -/
+theorem IsUniformSup.unique [PosSMulMono ℝ E] [ClosedIicTopology E] {B' : E → E}
+    (hnorm : ∀ x, orderUnitNorm e x = ‖x‖) (hB : IsUniformSup e T B) (hB' : IsUniformSup e T B') :
+    B = B' :=
+  funext fun x ↦ (hB.isLUB_range hnorm x).unique (hB'.isLUB_range hnorm x)
+
+/-- **Existence of greedy decisions**: with finitely many decisions, a uniform supremum is
+attained, so every `x` has a greedy decision. -/
+theorem IsUniformSup.exists_map_eq [Finite D] [PosSMulMono ℝ E] [ClosedIicTopology E]
+    (hnorm : ∀ x, orderUnitNorm e x = ‖x‖) (hB : IsUniformSup e T B) (x : E) :
+    ∃ d, T d x = B x := by
+  obtain ⟨d₀, -⟩ := hB.exists_sub_smul_le x 1 one_pos
+  have := Nonempty.intro d₀
+  by_contra! h
+  -- Each decision `d` is not `ε d`-greedy for some `ε d > 0`, so no decision is `ε`-greedy for
+  -- the least of the `ε d`.
+  have hε (d : D) : ∃ ε : ℝ, 0 < ε ∧ ¬B x - ε • e ≤ T d x := by
+    by_contra! hd
+    exact h d ((hB.le d x).antisymm (le_of_forall_sub_smul_le hnorm hd))
+  choose ε hε_pos hε using hε
+  obtain ⟨d₁, hd₁⟩ := Finite.exists_min ε
+  obtain ⟨d, hd⟩ := hB.exists_sub_smul_le x (ε d₁) (hε_pos d₁)
+  refine hε d (le_trans ?_ hd)
+  have he := (isOrderUnit_of_forall_orderUnitNorm_eq_norm hnorm).nonneg
+  exact sub_le_sub_left (smul_le_smul_of_nonneg_right (hd₁ d) he) _
+
+/-- The fixed point `x` of `B` is above the fixed points of the maps `T d` when `T d x ≤ B x` for
+every decision `d`, for instance when `B` is the uniform supremum of the `T d`. -/
+theorem mem_upperBounds_iUnion_fixedPoints [ClosedIicTopology E]
+    (hnorm : ∀ x, orderUnitNorm e x = ‖x‖) (hT : ∀ d, IsBlackwell e γ (T d)) (hγ : γ < 1)
+    (hB : ∀ d, T d x ≤ B x) (hx : IsFixedPt B x) : x ∈ upperBounds (⋃ d, fixedPoints (T d)) := by
+  intro y hy
+  obtain ⟨d, hy⟩ := mem_iUnion.1 hy
+  exact (hT d).le_of_map_le hnorm hγ hy ((hB d).trans_eq hx)
+
+/-- **Optimality without attainment**: the fixed point of the uniform supremum `B` of maps `T d`
+satisfying Blackwell's conditions with modulus `γ < 1` is the least upper bound of the fixed points
+of the maps `T d`, which need not be attained. -/
+theorem isLUB_iUnion_fixedPoints [CompleteSpace E] [PosSMulMono ℝ E] [ClosedIicTopology E]
+    [ClosedIciTopology E] (hnorm : ∀ x, orderUnitNorm e x = ‖x‖)
+    (hT : ∀ d, IsBlackwell e γ (T d)) (hγ : γ < 1) (hB : IsUniformSup e T B)
+    (hx : IsFixedPt B x) : IsLUB (⋃ d, fixedPoints (T d)) x := by
+  refine ⟨mem_upperBounds_iUnion_fixedPoints hnorm hT hγ (fun d ↦ hB.le d x) hx,
+    fun b hb ↦ le_of_forall_sub_smul_le hnorm fun ε hε ↦ ?_⟩
+  -- The fixed point of a decision `ε * (1 - γ)`-greedy for `x` is above `x - ε • e`.
+  have hγ' : (0 : ℝ) < 1 - γ := sub_pos.2 (by exact_mod_cast hγ)
+  obtain ⟨d, hd⟩ := hB.exists_sub_smul_le x (ε * (1 - γ)) (mul_pos hε hγ')
+  have hfix := ((hT d).contractingWith hnorm hγ).fixedPoint_isFixedPt
+  refine le_trans ?_ (hb (mem_iUnion.2 ⟨d, hfix⟩))
+  have := (hT d).sub_smul_le_of_sub_smul_le_map hnorm hγ hfix (mul_pos hε hγ').le
+    (hx.eq ▸ hd)
+  rwa [mul_div_cancel_right₀ _ hγ'.ne'] at this
+
+/-- **Optimality of greedy decisions**: if `T d x ≤ B x` for every decision `d`, the fixed point
+`x` of `B` is the greatest fixed point of the maps `T d` as soon as some decision `d` is greedy for
+it, and it is then the fixed point of `T d` (`isFixedPt_of_map_eq`). -/
 theorem isGreatest_iUnion_fixedPoints [ClosedIicTopology E]
     (hnorm : ∀ x, orderUnitNorm e x = ‖x‖) (hT : ∀ d, IsBlackwell e γ (T d)) (hγ : γ < 1)
-    (hB : ∀ x, IsGreatest (range fun d ↦ T d x) (B x)) (hx : IsFixedPt B x) :
-    IsGreatest (⋃ d, fixedPoints (T d)) x := by
-  obtain ⟨d, hd⟩ := (hB x).1
-  refine ⟨mem_iUnion.2 ⟨d, isFixedPt_of_map_eq hx hd⟩, fun y hy ↦ ?_⟩
-  obtain ⟨d', hy⟩ := mem_iUnion.1 hy
-  exact (hT d').le_of_map_le hnorm hγ hy (((hB x).2 ⟨d', rfl⟩).trans_eq hx)
+    (hB : ∀ d, T d x ≤ B x) (hx : IsFixedPt B x) {d : D} (hd : T d x = B x) :
+    IsGreatest (⋃ d, fixedPoints (T d)) x :=
+  ⟨mem_iUnion.2 ⟨d, isFixedPt_of_map_eq hx hd⟩,
+    mem_upperBounds_iUnion_fixedPoints hnorm hT hγ hB hx⟩
 
 /-- **Policy improvement**: if `x ≤ B x` and the decision `d` is greedy for `x`, then the fixed
 point of `T d` is above `B x`. -/
@@ -273,7 +409,7 @@ theorem iterate_le [ClosedIciTopology E] (hnorm : ∀ x, orderUnitNorm e x = ‖
     (hT : ∀ d, IsBlackwell e γ (T d)) (hγ : γ < 1)
     (hB : ∀ x, IsGreatest (range fun d ↦ T d x) (B x)) (h : IsPolicyIteration T B d v) (k : ℕ) :
     B^[k] (v 0) ≤ v k :=
-  (IsBlackwell.of_isGreatest_range hT hB).monotone.iterate_le_of_map_le_succ
+  (Monotone.of_isGreatest_range (fun d ↦ (hT d).monotone) hB).iterate_le_of_map_le_succ
     (h.map_le hnorm hT hγ hB) k
 
 /-- The values of policy iteration are below the fixed point of `B`. -/
@@ -281,7 +417,8 @@ theorem le_of_isFixedPt [ClosedIicTopology E] (hnorm : ∀ x, orderUnitNorm e x 
     (hT : ∀ d, IsBlackwell e γ (T d)) (hγ : γ < 1)
     (hB : ∀ x, IsGreatest (range fun d ↦ T d x) (B x)) (h : IsPolicyIteration T B d v)
     (hx : IsFixedPt B x) (k : ℕ) : v k ≤ x :=
-  (isGreatest_iUnion_fixedPoints hnorm hT hγ hB hx).2 (mem_iUnion.2 ⟨d k, h.isFixedPt k⟩)
+  mem_upperBounds_iUnion_fixedPoints hnorm hT hγ (fun d ↦ (hB x).2 ⟨d, rfl⟩) hx
+    (mem_iUnion.2 ⟨d k, h.isFixedPt k⟩)
 
 /-- **Convergence of policy iteration**: `‖v k - x‖ ≤ γ ^ k * ‖v 0 - x‖`, where `x` is the fixed
 point of `B`. -/

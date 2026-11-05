@@ -47,6 +47,11 @@ weighted sup norm `⨆ i, |x i| / w i`, and the oscillation for `1` is `max x - 
 
 * `LMLExplore.orderUnitNorm_smul`, `LMLExplore.orderUnitNorm_add_le`: the order-unit norm of an
   order unit is a seminorm.
+* `LMLExplore.IsOrderUnit.nonneg`: an order unit is nonnegative.
+* `LMLExplore.norm_smul_of_forall_orderUnitNorm_eq_norm`: when the order-unit norm is the norm,
+  `‖r • x‖ = |r| * ‖x‖`.
+* `LMLExplore.le_of_forall_sub_smul_le`: when the order-unit norm is the norm and the lower
+  intervals are closed, `x - ε • u ≤ y` for every `ε > 0` gives `x ≤ y`.
 * `LMLExplore.orderUnitOsc_add_smul`, `LMLExplore.orderUnitOsc_le_two_mul_orderUnitNorm`: the
   oscillation is invariant under adding multiples of `e` and bounded by twice the norm.
 * `LMLExplore.orderUnitNorm_sub_le_of_monotone_of_add_smul_le`: Blackwell's sufficient conditions.
@@ -77,7 +82,7 @@ weighted sup norm `⨆ i, |x i| / w i`, and the oscillation for `1` is `max x - 
 
 public section
 
-open Set
+open Set Filter Topology
 
 /-- Multiples of the unit `1 : ι → R` are the constant functions. -/
 lemma Pi.smul_one_eq_const {ι R : Type*} [MulOneClass R] (c : R) :
@@ -250,6 +255,15 @@ lemma orderUnitNorm_smul [PosSMulMono ℝ E] (r : ℝ) (x : E) :
   simp [mem_smul_set_iff_inv_smul_mem₀ hr.ne', smul_mem_Icc_neg_smul_iff_of_pos hr,
     mul_nonneg_iff_of_pos_left (inv_pos.2 hr)]
 
+/-- An order unit of an ordered vector space is nonnegative. -/
+lemma IsOrderUnit.nonneg [PosSMulMono ℝ E] (he : IsOrderUnit e) : 0 ≤ e := by
+  obtain ⟨c, hc, hce, -⟩ := he e
+  have h : 0 ≤ (1 + c) • e := by
+    rw [add_smul, one_smul]
+    exact neg_le_iff_add_nonneg.1 hce
+  simpa [smul_smul, inv_mul_cancel₀ (by positivity : (1 + c : ℝ) ≠ 0)] using
+    smul_nonneg (inv_nonneg.2 (by positivity : (0 : ℝ) ≤ 1 + c)) h
+
 /-- The triangle inequality for the order-unit norm of an order unit. -/
 lemma orderUnitNorm_add_le (he : IsOrderUnit e) (x y : E) :
     orderUnitNorm e (x + y) ≤ orderUnitNorm e x + orderUnitNorm e y := by
@@ -335,6 +349,26 @@ lemma isOrderUnit_of_forall_orderUnitNorm_eq_norm {F : Type*} [NormedAddCommGrou
     eq_empty_iff_forall_notMem.2 fun c hc ↦ hx ⟨c, hc⟩
   have hx0 : x = 0 := by rw [← norm_eq_zero, ← hnorm, orderUnitNorm_def, hS, Real.sInf_empty]
   exact hx ⟨0, le_rfl, by simp [hx0]⟩
+
+/-- In a normed group whose norm is the order-unit norm of `u`, the norm is absolutely
+homogeneous: `‖r • x‖ = |r| * ‖x‖`. -/
+lemma norm_smul_of_forall_orderUnitNorm_eq_norm {F : Type*} [NormedAddCommGroup F]
+    [PartialOrder F] [IsOrderedAddMonoid F] [Module ℝ F] [PosSMulMono ℝ F] {u : F}
+    (hnorm : ∀ x, orderUnitNorm u x = ‖x‖) (r : ℝ) (x : F) : ‖r • x‖ = |r| * ‖x‖ := by
+  rw [← hnorm, orderUnitNorm_smul, hnorm]
+
+/-- In a normed group whose norm is the order-unit norm of `u`, with closed lower intervals: if
+`x - ε • u ≤ y` for every `ε > 0`, then `x ≤ y`. -/
+theorem le_of_forall_sub_smul_le {F : Type*} [NormedAddCommGroup F] [PartialOrder F]
+    [IsOrderedAddMonoid F] [Module ℝ F] [PosSMulMono ℝ F] [ClosedIicTopology F] {u x y : F}
+    (hnorm : ∀ x, orderUnitNorm u x = ‖x‖) (h : ∀ ε : ℝ, 0 < ε → x - ε • u ≤ y) : x ≤ y := by
+  -- `ε ↦ x - ε • u` is `‖u‖`-Lipschitz, since `‖(b - a) • u‖ = |b - a| * ‖u‖`.
+  have hlip : LipschitzWith ‖u‖₊ fun ε : ℝ ↦ x - ε • u := LipschitzWith.of_dist_le_mul fun a b ↦ by
+    simp [dist_eq_norm, ← sub_smul, norm_smul_of_forall_orderUnitNorm_eq_norm hnorm, abs_sub_comm,
+      mul_comm]
+  have hlim : Tendsto (fun ε : ℝ ↦ x - ε • u) (𝓝[>] 0) (𝓝 x) := by
+    simpa using (hlip.continuous.tendsto 0).mono_left nhdsWithin_le_nhds
+  exact le_of_tendsto hlim (eventually_nhdsWithin_of_forall h)
 
 /-- **Blackwell's sufficient conditions** in a normed group whose norm is the order-unit norm of
 `u`: a map satisfying Blackwell's conditions for `u` with modulus `γ` is `γ`-Lipschitz. For `γ < 1`
