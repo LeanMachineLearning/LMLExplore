@@ -8,6 +8,7 @@ module
 public import LeanMachineLearning.Online.Bandit.ArrayProbSpace
 public import LMLExplore.MeasureTheory.Measure.TotalVariation.Basic
 public import LMLExplore.Probability.Kernel.Basic
+public import LMLExplore.Probability.Moments.SubGaussian.Bounded
 public import LMLExplore.Probability.Moments.SubGaussian.EmpiricalLaw
 public import TauCeti.Probability.Process.EmpiricalMeasure
 
@@ -26,6 +27,13 @@ types, the `ℓ¹` deviation of empirical laws [WOSVW03, Theorem 2.1] and a unio
 give: for `δ > 0`, with probability at least `1 - δ`, every key `a` satisfies
 `tvDist (ν a) (empiricalKernel N ω a) < √(2 (log (card α / δ) + card β log 2) / N)`.
 
+For a single function `f` with values in `[l, u]`, Hoeffding's inequality gives the sharper
+deviation of its empirical means, which does not depend on the size of `β`: for every key `a` and
+`t ≥ 0`, `|∫ f d(ν a) - ∫ f d(empiricalKernel N ω a)| ≥ t` has probability at most
+`2 exp (-2 N t² / (u - l)²)`. For finitely many keys and `δ > 0`, with probability at least
+`1 - δ`, every key `a` satisfies
+`|∫ f d(ν a) - ∫ f d(empiricalKernel N ω a)| ≤ (u - l) √(log (2 card α / δ) / (2 N))`.
+
 ## Main definitions
 
 * `LMLExplore.empiricalKernel N ω`: the empirical kernel of the first `N` samples of `ω`.
@@ -41,6 +49,10 @@ give: for `δ > 0`, with probability at least `1 - δ`, every key `a` satisfies
   function of the array.
 * `LMLExplore.le_streamMeasure_forall_tvDist_empiricalKernel_lt`: the uniform deviation in total
   variation of the empirical kernel under the stream model.
+* `LMLExplore.measureReal_le_abs_integral_sub_integral_empiricalKernel_le`,
+  `LMLExplore.le_streamMeasure_forall_abs_integral_sub_integral_empiricalKernel_le`: Hoeffding's
+  inequality for the empirical means of a bounded function, for one key and uniformly over finitely
+  many keys.
 
 ## References
 
@@ -109,6 +121,92 @@ lemma measurable_empiricalKernel_apply (N : ℕ) (a : α) :
   refine Measurable.const_mul (Finset.measurable_sum _ fun i _ ↦ ?_) _
   exact (measurable_one.indicator hs).comp ((measurable_pi_apply a).comp (measurable_pi_apply i))
 
+/-- **Hoeffding's inequality for the empirical kernel.** Under the stream model `streamMeasure ν`
+of a Markov kernel `ν`, let `f` be a measurable function with values in `[l, u]`
+`ν a`-almost everywhere. For `t ≥ 0`, the mean of `f` over the first `N` samples of the key `a`
+deviates from its mean under `ν a` by at least `t` with probability at most
+`2 exp (-2 N t² / (u - l)²)`. -/
+theorem measureReal_le_abs_integral_sub_integral_empiricalKernel_le (ν : Kernel α β)
+    [IsMarkovKernel ν] {f : β → ℝ} (hf : Measurable f) {l u : ℝ} {a : α}
+    (hfb : ∀ᵐ y ∂(ν a), f y ∈ Set.Icc l u) (N : ℕ) {t : ℝ} (ht : 0 ≤ t) :
+    (streamMeasure ν).real {ω | t ≤ |∫ y, f y ∂(ν a) - ∫ y, f y ∂(empiricalKernel N ω a)|} ≤
+      2 * exp (-(2 * N * t ^ 2 / (u - l) ^ 2)) := by
+  rcases Nat.eq_zero_or_pos N with rfl | hN
+  · exact measureReal_le_one.trans (by norm_num)
+  have hN' : (0 : ℝ) < N := by exact_mod_cast hN
+  -- the samples `f (ω i a)` are independent, with values in `[l, u]` and mean `∫ f d(ν a)`
+  have h_law (i : ℕ) := hasLaw_eval_eval_streamMeasure ν i a
+  have h_indep : iIndepFun (fun i (ω : ℕ → α → β) ↦ f (ω i a)) (streamMeasure ν) :=
+    (iIndepFun_eval_streamMeasure'' ν a).comp (fun _ ↦ f) fun _ ↦ hf
+  have h_mean (i : ℕ) : ∫ ω, f (ω i a) ∂(streamMeasure ν) = ∫ y, f y ∂(ν a) :=
+    (h_law i).integral_comp hf.aestronglyMeasurable
+  have h := measureReal_le_abs_sum_sub_integral_le h_indep (s := range N)
+    (fun i _ ↦ hf.comp_aemeasurable (h_law i).aemeasurable)
+    (fun i _ ↦ ae_of_ae_map (h_law i).aemeasurable ((h_law i).map_eq ▸ hfb))
+    (t := N * t) (by positivity)
+  simp_rw [h_mean, card_range] at h
+  refine le_trans (measureReal_mono ?_) (h.trans_eq ?_)
+  · intro ω (hω : t ≤ _)
+    -- the centered sum is `-N` times the deviation of the empirical mean
+    have h_sum : ∑ i ∈ range N, (f (ω i a) - ∫ y, f y ∂(ν a)) =
+        -(N * (∫ y, f y ∂(ν a) - ∫ y, f y ∂(empiricalKernel N ω a))) := by
+      rw [integral_empiricalKernel N ω a hf.stronglyMeasurable, smul_eq_mul, mul_sub,
+        mul_inv_cancel_left₀ hN'.ne', sum_sub_distrib, sum_const, card_range, nsmul_eq_mul]
+      ring
+    simp only [Set.mem_ofPred_eq, h_sum, abs_neg, abs_mul, abs_of_pos hN']
+    exact mul_le_mul_of_nonneg_left hω hN'.le
+  · rw [show 2 * (N * t) ^ 2 = N * (2 * N * t ^ 2) by ring, mul_div_mul_left _ _ hN'.ne']
+
+/-- For `0 < δ < 1` and `m ≥ 1`, the mean of `f` over the first `N` samples of the key `a`
+deviates from its mean under `ν a` by more than `(u - l) √(log (2 m / δ) / (2 N))` with
+probability at most `δ / m`: by Hoeffding's inequality, or, when `l = u`, because both means are
+almost surely equal to `l`. -/
+private lemma measureReal_lt_abs_integral_sub_integral_empiricalKernel_le (ν : Kernel α β)
+    [IsMarkovKernel ν] {f : β → ℝ} (hf : Measurable f) {l u : ℝ} {a : α}
+    (hfb : ∀ᵐ y ∂(ν a), f y ∈ Set.Icc l u) (N : ℕ) [NeZero N] {δ m : ℝ} (hδ : 0 < δ)
+    (hδ1 : δ < 1) (hm : 1 ≤ m) :
+    (streamMeasure ν).real {ω | (u - l) * √(log (2 * m / δ) / (2 * N)) <
+      |∫ y, f y ∂(ν a) - ∫ y, f y ∂(empiricalKernel N ω a)|} ≤ δ / m := by
+  have hN : (0 : ℝ) < N := by exact_mod_cast Nat.pos_of_ne_zero (NeZero.ne N)
+  have hlu : l ≤ u := by
+    obtain ⟨y, hy⟩ := hfb.exists
+    exact hy.1.trans hy.2
+  rcases hlu.lt_or_eq with hlu | rfl
+  · -- Hoeffding's inequality at the radius `r`, where `2 N r² / (u - l)² = log (2 m / δ)`
+    have hlog : 0 ≤ log (2 * m / δ) / (2 * N) := by
+      refine div_nonneg (log_nonneg ?_) (by positivity)
+      rw [le_div_iff₀ hδ]
+      linarith
+    have hr : 2 * N * ((u - l) * √(log (2 * m / δ) / (2 * N))) ^ 2 / (u - l) ^ 2 =
+        log (2 * m / δ) := by
+      rw [mul_pow, sq_sqrt hlog]
+      field_simp [(sub_pos.2 hlu).ne']
+    refine le_trans (measureReal_mono fun ω (hω : _ < _) ↦ hω.le)
+      ((measureReal_le_abs_integral_sub_integral_empiricalKernel_le ν hf hfb N
+        (mul_nonneg (sub_pos.2 hlu).le (sqrt_nonneg _))).trans_eq ?_)
+    rw [hr, exp_neg, exp_log (by positivity)]
+    field_simp
+  · -- for `l = u`, the samples are almost surely equal to `l`, and so are both means
+    have h_const : f =ᵐ[ν a] fun _ ↦ l := by
+      filter_upwards [hfb] with y hy
+      exact le_antisymm hy.2 hy.1
+    have h_mean : ∫ y, f y ∂(ν a) = l := by
+      rw [integral_congr_ae h_const]
+      simp
+    have h_ae : ∀ᵐ ω ∂(streamMeasure ν), ∀ i, f (ω i a) = l := by
+      refine ae_all_iff.2 fun i ↦ ?_
+      have h_law := hasLaw_eval_eval_streamMeasure ν i a
+      filter_upwards [ae_of_ae_map h_law.aemeasurable (h_law.map_eq ▸ hfb)] with ω hω
+      exact le_antisymm hω.2 hω.1
+    have h_null : streamMeasure ν {ω | (l - l) * √(log (2 * m / δ) / (2 * N)) <
+        |∫ y, f y ∂(ν a) - ∫ y, f y ∂(empiricalKernel N ω a)|} = 0 := by
+      refine measure_eq_zero_iff_ae_notMem.2 ?_
+      filter_upwards [h_ae] with ω hω
+      simp [integral_empiricalKernel N ω a hf.stronglyMeasurable, h_mean, hω,
+        inv_mul_cancel_left₀ hN.ne']
+    rw [measureReal_def, h_null, ENNReal.toReal_zero]
+    positivity
+
 end Countable
 
 /-- **Uniform deviation of the empirical kernel in total variation.** Under the stream model
@@ -151,6 +249,46 @@ theorem le_streamMeasure_forall_tvDist_empiricalKernel_lt [Fintype α] [Fintype 
     linarith
   -- a union bound over the keys
   have h_eq : {ω | ∀ a, tvDist (ν a) (empiricalKernel N ω a) < r} = (⋃ a, bad a)ᶜ := by
+    ext ω
+    simp [bad]
+  rw [h_eq, probReal_compl_eq_one_sub (MeasurableSet.iUnion h_meas)]
+  have h_sum : ∑ a, (streamMeasure ν).real (bad a) ≤ δ := by
+    refine (sum_le_sum fun a _ ↦ h_bad a).trans ?_
+    rw [sum_const, card_univ, nsmul_eq_mul]
+    rcases eq_or_ne (Fintype.card α) 0 with h | h
+    · simp [h, hδ.le]
+    · rw [mul_div_cancel₀ _ (by exact_mod_cast h)]
+  linarith [measureReal_iUnion_fintype_le (μ := streamMeasure ν) bad]
+
+/-- **Uniform Hoeffding bound for the empirical kernel.** Under the stream model `streamMeasure ν`
+of a Markov kernel `ν` with finitely many keys, let `f` be a measurable function with values in
+`[l, u]` `ν a`-almost everywhere for every key `a`. For `N ≠ 0` and `δ > 0`, with probability at
+least `1 - δ`, the mean of `f` over the first `N` samples of every key `a` is within
+`(u - l) √(log (2 card α / δ) / (2 N))` of its mean under `ν a`. It is Hoeffding's inequality
+for each key, with confidence `δ / card α`, and a union bound over the keys. -/
+theorem le_streamMeasure_forall_abs_integral_sub_integral_empiricalKernel_le [Fintype α]
+    (ν : Kernel α β) [IsMarkovKernel ν] {f : β → ℝ} (hf : Measurable f) {l u : ℝ}
+    (hfb : ∀ a, ∀ᵐ y ∂(ν a), f y ∈ Set.Icc l u) (N : ℕ) [NeZero N] {δ : ℝ} (hδ : 0 < δ) :
+    1 - δ ≤ (streamMeasure ν).real {ω | ∀ a,
+      |∫ y, f y ∂(ν a) - ∫ y, f y ∂(empiricalKernel N ω a)| ≤
+        (u - l) * √(log (2 * Fintype.card α / δ) / (2 * N))} := by
+  rcases le_or_gt 1 δ with hδ1 | hδ1
+  · exact (sub_nonpos.2 hδ1).trans measureReal_nonneg
+  set r := (u - l) * √(log (2 * Fintype.card α / δ) / (2 * N))
+  -- the bad event of a key is measurable and has probability at most `δ / card α`
+  set bad : α → Set (ℕ → α → β) :=
+    fun a ↦ {ω | r < |∫ y, f y ∂(ν a) - ∫ y, f y ∂(empiricalKernel N ω a)|}
+  have h_meas (a : α) : MeasurableSet (bad a) := by
+    simp_rw [bad, integral_empiricalKernel _ _ a hf.stronglyMeasurable, smul_eq_mul]
+    refine measurableSet_lt measurable_const (continuous_abs.measurable.comp
+      (measurable_const.sub (measurable_const.mul (Finset.measurable_sum _ fun i _ ↦ ?_))))
+    exact hf.comp ((measurable_pi_apply a).comp (measurable_pi_apply i))
+  have h_bad (a : α) : (streamMeasure ν).real (bad a) ≤ δ / Fintype.card α :=
+    measureReal_lt_abs_integral_sub_integral_empiricalKernel_le ν hf (hfb a) N hδ hδ1
+      (by exact_mod_cast Fintype.card_pos_iff.2 ⟨a⟩)
+  -- a union bound over the keys
+  have h_eq : {ω | ∀ a, |∫ y, f y ∂(ν a) - ∫ y, f y ∂(empiricalKernel N ω a)| ≤ r} =
+      (⋃ a, bad a)ᶜ := by
     ext ω
     simp [bad]
   rw [h_eq, probReal_compl_eq_one_sub (MeasurableSet.iUnion h_meas)]
