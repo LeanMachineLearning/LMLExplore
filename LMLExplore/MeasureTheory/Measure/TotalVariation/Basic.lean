@@ -40,7 +40,9 @@ contraction of the oscillation of functions by a Markov kernel (Dobrushin's coef
   normed space.
 * `MeasureTheory.abs_integral_sub_integral_le_mul_tvDist_of_mem_Icc`: for measures of the same
   mass and `f` with values in `[a, b]` almost everywhere,
-  `|∫ f dμ - ∫ f dν| ≤ (b - a) / 2 * tvDist μ ν`.
+  `|∫ f dμ - ∫ f dν| ≤ (b - a) / 2 * tvDist μ ν`, and
+  `MeasureTheory.abs_integral_sub_integral_le_mul_tvDist_of_forall_sub_le` its form for `f` whose
+  values differ by at most `c`.
 * `MeasureTheory.abs_measureReal_sub_measureReal_le_tvDist_div_two`,
   `MeasureTheory.tvDist_le_two_mul_of_forall_measureReal_le_add`: for measures of the same mass,
   the total variation distance bounds the difference of the masses of every event, and eventwise
@@ -128,6 +130,24 @@ theorem abs_integral_sub_integral_le_mul_tvDist_of_mem_Icc [IsFiniteMeasure μ]
   rw [integral_sub (Integrable.of_bound hfμ _ (hfμ'.mono fun _ ↦ hB)) (integrable_const _),
     integral_sub (Integrable.of_bound hfν _ (hfν'.mono fun _ ↦ hB)) (integrable_const _)] at h
   simpa [measureReal_def, hμν] using h
+
+/-- **Integrals against measures of the same mass close in total variation**, oscillation form:
+for finite measures `μ` and `ν` of the same mass and a real function `f` whose values differ by at
+most `c`, `|∫ f dμ - ∫ f dν| ≤ c / 2 * tvDist μ ν`. -/
+theorem abs_integral_sub_integral_le_mul_tvDist_of_forall_sub_le [IsFiniteMeasure μ]
+    [IsFiniteMeasure ν] (hμν : μ univ = ν univ) {f : 𝓧 → ℝ} {c : ℝ}
+    (hfμ : AEStronglyMeasurable f μ) (hfν : AEStronglyMeasurable f ν)
+    (hf : ∀ x y, f x - f y ≤ c) :
+    |∫ x, f x ∂μ - ∫ x, f x ∂ν| ≤ c / 2 * tvDist μ ν := by
+  rcases isEmpty_or_nonempty 𝓧 with h𝓧 | h𝓧
+  · simp [Measure.eq_zero_of_isEmpty μ, Measure.eq_zero_of_isEmpty ν]
+  obtain ⟨x₀⟩ := id h𝓧
+  -- `f` takes values in `[a, a + c]` with `a` its infimum
+  have hbdd : BddBelow (range f) := ⟨f x₀ - c, by rintro _ ⟨y, rfl⟩; linarith [hf x₀ y]⟩
+  have hmem (x : 𝓧) : f x ∈ Icc (⨅ y, f y) ((⨅ y, f y) + c) :=
+    ⟨ciInf_le hbdd x, by rw [← sub_le_iff_le_add]; exact le_ciInf fun y ↦ by linarith [hf x y]⟩
+  simpa using abs_integral_sub_integral_le_mul_tvDist_of_mem_Icc hμν hfμ hfν
+    (ae_of_all _ hmem) (ae_of_all _ hmem)
 
 /-! ### Eventwise bounds -/
 
