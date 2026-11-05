@@ -8,6 +8,7 @@ module
 public import LMLExplore.Identification.ConfidenceBound
 public import LMLExplore.Identification.Task.MeanVector
 public import LMLExplore.MeasureTheory.Order.MeasurableArg
+public import LMLExplore.Probability.Moments.SubGaussian.Bounded
 public import LMLExplore.SequentialLearning.SubGaussianDeviation
 
 /-!
@@ -344,11 +345,8 @@ theorem measureReal_histOutputMeasure_lucbOfRate_le_of_mem_Icc
     (histOutputMeasure (lucbOfRate alg β ε m) (Environment.bandit ν₀)).real
         {p | p.1 ∈ (lucbOfRate alg β ε m).stopSet ∧
           p.2 ∉ (epsTopMTask ν m ε).correct fun a ↦ (ν₀ a)[id]} ≤ δ := by
-  have hσ : (‖(1 : ℝ) - 0‖₊ / 2) ^ 2 = 1 / 4 := by
-    ext
-    norm_num
   have h_sub (a : α) : HasSubgaussianMGF (fun x ↦ x - (ν₀ a)[id]) (1 / 4) (ν₀ a) :=
-    hσ ▸ hasSubgaussianMGF_of_mem_Icc aemeasurable_id (hν a)
+    hasSubgaussianMGF_of_mem_Icc_zero_one aemeasurable_id (hν a)
   -- For `σ² = 1 / 4`, the terms `exp (-u β(u, n)² / (2 σ²))` are `exp (-2 u β(u, n)²)`.
   have h_eq : (fun n ↦ ∑ u ∈ Icc 1 n, exp (-(u * β u n ^ 2 / (2 * ((1 / 4 : ℝ≥0) : ℝ))))) =
       fun n ↦ ∑ u ∈ Icc 1 n, exp (-(2 * u * β u n ^ 2)) := by
