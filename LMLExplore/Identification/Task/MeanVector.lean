@@ -42,6 +42,8 @@ sets (the means of an exponential family, `[0, 1]` for Bernoulli arms, ...) are 
   answer on every admissible model.
 * `nonempty_correct_epsBaiTask`: for `ε ≥ 0` and finitely many (at least one) arms, every model
   has an `ε`-good arm.
+* `correct_epsBaiTask_eq_singleton_iff`: for `ε ≥ 0`, `a` is the only `ε`-good arm of `μ` iff
+  `μ b + ε < μ a` for every arm `b ≠ a`.
 * `nonempty_correct_anyLowArmTask_iff`: the admissible models of Any Low Arm are exactly the
   models with a correct answer.
 * `correct_baiTask_subset_correct_epsBaiTask`: the best arm is `ε`-good for every `ε ≥ 0`.
@@ -174,6 +176,38 @@ lemma nonempty_correct_epsBaiTask [Finite α] [Nonempty α] (hε : 0 ≤ ε) (μ
     ((epsBaiTask ν ε).correct μ).Nonempty := by
   obtain ⟨a, ha⟩ := Finite.exists_max μ
   exact ⟨a, fun b ↦ (ha b).trans (le_add_of_nonneg_right hε)⟩
+
+/-- For `ε ≥ 0`, the arm `a` is the only `ε`-good arm of `μ` iff every other arm `b` has
+`μ b + ε < μ a`. -/
+lemma correct_epsBaiTask_eq_singleton_iff {a : α} (hε : 0 ≤ ε) :
+    (epsBaiTask ν ε).correct μ = {a} ↔ ∀ b ≠ a, μ b + ε < μ a := by
+  simp only [correct_epsBaiTask]
+  constructor
+  · intro h b hba
+    have ha : ∀ c, μ c ≤ μ a + ε := by
+      have : a ∈ {a' | ∀ c, μ c ≤ μ a' + ε} := h ▸ Set.mem_singleton a
+      exact this
+    -- An arm with a larger mean than `a` would be `ε`-good, so `a` has the largest mean.
+    have ha_max : ∀ c, μ c ≤ μ a := fun c ↦ by
+      by_contra! hc
+      have : c ∈ {a' | ∀ c, μ c ≤ μ a' + ε} := fun d ↦ (ha d).trans (by linarith)
+      rw [h, Set.mem_singleton_iff] at this
+      exact hc.ne' (this ▸ rfl)
+    -- If `μ a ≤ μ b + ε`, then `b` would be `ε`-good.
+    by_contra! hb
+    have : b ∈ {a' | ∀ c, μ c ≤ μ a' + ε} := fun c ↦ (ha_max c).trans hb
+    rw [h, Set.mem_singleton_iff] at this
+    exact hba this
+  · intro h
+    ext c
+    simp only [Set.mem_ofPred_eq, Set.mem_singleton_iff]
+    refine ⟨fun hc ↦ ?_, ?_⟩
+    · by_contra hca
+      linarith [h c hca, hc a]
+    · rintro rfl b
+      rcases eq_or_ne b c with rfl | hbc
+      · linarith
+      · linarith [h b hbc]
 
 /-- For `ε ≥ 0`, the best arm is `ε`-good. -/
 lemma correct_baiTask_subset_correct_epsBaiTask (hε : 0 ≤ ε) (μ : α → ℝ) :

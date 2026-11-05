@@ -13,8 +13,7 @@ public import LMLExplore.Identification.Task.MeanVector
 
 In `ε`-best arm identification (`epsBaiTask ν ε`), the correct answers of a vector of means `μ`
 are its `ε`-good arms, the arms `a` with `μ b ≤ μ a + ε` for every arm `b`. An arm `a` is thus not
-`ε`-good for `μ'` exactly when some arm `b` has `μ' a + ε < μ' b`, and for `ε ≥ 0` the arm `a` is
-the only `ε`-good arm of `μ` exactly when every other arm `b` has `μ b + ε < μ a`.
+`ε`-good for `μ'` exactly when some arm `b` has `μ' a + ε < μ' b`.
 
 Let the arm `c` belong to an exponential family `(ρ c, T c)` with divergence `d_c` in the mean
 parametrization. The arm `a` stops being `ε`-good once one of the following happens:
@@ -35,8 +34,6 @@ the expected number of pulls of every arm, whose sum is a lower bound on the sam
 
 * `LMLExplore.Identification.mem_alt_epsBaiTask_iff`: `μ'` is an alternative to `a` iff some arm
   `b` has `μ' a + ε < μ' b`.
-* `LMLExplore.Identification.correct_epsBaiTask_eq_singleton_iff`: for `ε ≥ 0`, `a` is the only
-  `ε`-good arm of `μ` iff `μ b + ε < μ a` for every arm `b ≠ a`.
 * `LMLExplore.Identification.altCost_epsBaiTask_restrict_le_ofReal_mul_expFamilyDiv_add`: for an
   arm `b ≠ a`, `D(μ, w, ¬a) ≤ w b d_b(μ b, μ a + ε)`.
 * `LMLExplore.Identification.altCost_epsBaiTask_restrict_le_ofReal_mul_expFamilyDiv_sub`: for an
@@ -64,38 +61,6 @@ variable {α 𝓨 : Type*} {mα : MeasurableSpace α} {m𝓨 : MeasurableSpace �
 for `μ'`: some arm `b` has `μ' a + ε < μ' b`. -/
 lemma mem_alt_epsBaiTask_iff : μ' ∈ (epsBaiTask ν ε).alt a ↔ ∃ b, μ' a + ε < μ' b := by
   simp [IdentTask.mem_alt_iff]
-
-/-- For `ε ≥ 0`, the arm `a` is the only `ε`-good arm of `μ` iff every other arm `b` has
-`μ b + ε < μ a`. -/
-lemma correct_epsBaiTask_eq_singleton_iff (hε : 0 ≤ ε) :
-    (epsBaiTask ν ε).correct μ = {a} ↔ ∀ b ≠ a, μ b + ε < μ a := by
-  simp only [correct_epsBaiTask]
-  constructor
-  · intro h b hba
-    have ha : ∀ c, μ c ≤ μ a + ε := by
-      have : a ∈ {a' | ∀ c, μ c ≤ μ a' + ε} := h ▸ Set.mem_singleton a
-      exact this
-    -- An arm with a larger mean than `a` would be `ε`-good, so `a` has the largest mean.
-    have ha_max : ∀ c, μ c ≤ μ a := fun c ↦ by
-      by_contra! hc
-      have : c ∈ {a' | ∀ c, μ c ≤ μ a' + ε} := fun d ↦ (ha d).trans (by linarith)
-      rw [h, Set.mem_singleton_iff] at this
-      exact hc.ne' (this ▸ rfl)
-    -- If `μ a ≤ μ b + ε`, then `b` would be `ε`-good.
-    by_contra! hb
-    have : b ∈ {a' | ∀ c, μ c ≤ μ a' + ε} := fun c ↦ (ha_max c).trans hb
-    rw [h, Set.mem_singleton_iff] at this
-    exact hba this
-  · intro h
-    ext c
-    simp only [Set.mem_ofPred_eq, Set.mem_singleton_iff]
-    refine ⟨fun hc ↦ ?_, ?_⟩
-    · by_contra hca
-      linarith [h c hca, hc a]
-    · rintro rfl b
-      rcases eq_or_ne b c with rfl | hbc
-      · linarith
-      · linarith [h b hbc]
 
 variable [Fintype α] [DecidableEq α]
 
