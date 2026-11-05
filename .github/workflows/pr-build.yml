@@ -27,7 +27,9 @@ permissions:
   actions: read
 jobs:
   validate:
-    uses: TauCetiProject/TauCetiTools/.github/workflows/pr-build.yml@68ca7893e90b82454ab58ba64dca753a05cd2720
+    # Temporary: the pinned workflow plus TauCetiProject/TauCetiTools#114, so that PRs from forks
+    # can be checked out. Return to TauCetiProject/TauCetiTools once the pin includes that fix.
+    uses: RemyDegenne/TauCetiTools/.github/workflows/pr-build.yml@a48245cc90a0cb8bdca3c59eb170e350161e4d1a
     with:
       pr: ${{ inputs.pr || '' }}
       tools_repository: TauCetiProject/TauCetiTools
