@@ -14,7 +14,7 @@ public import Mathlib.Probability.Kernel.CondDistrib
 import LMLExplore.Probability.Kernel.Composition.MeasureCompProd
 
 /-!
-# Algorithm-environment sequences: transport, history before each action, piecewise environments
+# Algorithm-environment sequences: transport, prior history, piecewise algorithms and environments
 
 Complements to LML's `LeanMachineLearning.SequentialLearning.Algorithm`.
 
@@ -31,13 +31,17 @@ stopping times for this filtration, which does not contain the feedback of the r
 event of this filtration, the feedback of round `n` can be replaced by its conditional mean given
 that information.
 
-The piecewise environment `env.piecewise s hs env'` follows `env` on the histories in `s n` and
-`env'` elsewhere. With `s n` the histories after which a stopping rule has not stopped, it is the
-environment that switches from `env` to `env'` at the stopping time, which is how a change of
-measure at a stopping time is reduced to a change of measure on the whole trajectory.
+The piecewise algorithm `alg.piecewise s hs alg'` and the piecewise environment
+`env.piecewise s hs env'` follow `alg` and `env` on the histories in `s n` and `alg'` and `env'`
+elsewhere. With `s n` the histories after which a stopping rule has not stopped, they are the
+algorithm and the environment that switch from `(alg, env)` to `(alg', env')` at the stopping
+time, which is how a change of measure at a stopping time is reduced to a change of measure on
+the whole trajectory.
 
 ## Main definitions
 
+* `Learning.Algorithm.piecewise s hs alg alg'`: the algorithm whose policy at round `n` is that of
+  `alg` on the histories in `s n` and that of `alg'` elsewhere.
 * `Learning.Environment.piecewise s hs env env'`: the environment whose kernels at round `n` are
   those of `env` on the histories in `s n` and those of `env'` elsewhere.
 
@@ -61,8 +65,9 @@ measure at a stopping time is reduced to a change of measure on the whole trajec
 * `Learning.IsAlgEnvSeq.map_obs`, `Learning.IsAlgEnvSeq.map_obs_action`: along every run, the
   observation of round `n`, and the pair of the observation and the action of round `n`, have the
   same laws as under the trajectory measure `trajMeasure alg env`.
-* `Learning.stepKernel_piecewise`: the step kernel of a piecewise environment at a history in
-  `s n` is that of `env`, and that of `env'` elsewhere.
+* `Learning.stepKernel_piecewise`: the step kernel of `alg.piecewise s hs alg'` against
+  `env.piecewise s hs env'` at a history in `s n` is that of `(alg, env)`, and that of
+  `(alg', env')` elsewhere.
 
 The transport lemma is adapted from the LMLPapers project (same author).
 -/
@@ -208,6 +213,24 @@ end Laws
 variable {s : (n : ℕ) → Set (Hist 𝓞 𝓐 𝓨 n)} {hs : ∀ n, MeasurableSet (s n)}
   {env' : Environment 𝓞 𝓐 𝓨} {n : ℕ} {x : Hist 𝓞 𝓐 𝓨 n}
 
+namespace Algorithm
+
+open scoped Classical in
+/-- The algorithm whose policy at round `n` is that of `alg` when the history of the previous
+rounds belongs to `s n`, and that of `alg'` otherwise. -/
+noncomputable def piecewise (s : (n : ℕ) → Set (Hist 𝓞 𝓐 𝓨 n)) (hs : ∀ n, MeasurableSet (s n))
+    (alg alg' : Algorithm 𝓞 𝓐 𝓨) : Algorithm 𝓞 𝓐 𝓨 where
+  policy n := Kernel.piecewise ((hs n).preimage measurable_fst) (alg.policy n) (alg'.policy n)
+
+open scoped Classical in
+@[simp]
+lemma policy_piecewise (alg alg' : Algorithm 𝓞 𝓐 𝓨) (n : ℕ) :
+    (alg.piecewise s hs alg').policy n =
+      Kernel.piecewise ((hs n).preimage measurable_fst) (alg.policy n) (alg'.policy n) :=
+  (rfl)
+
+end Algorithm
+
 namespace Environment
 
 open scoped Classical in
@@ -236,28 +259,33 @@ lemma feedback_piecewise (n : ℕ) :
 end Environment
 
 open scoped Classical in
-/-- The step kernel of `env.piecewise s hs env'` at round `n` is that of `env` on `s n` and that
-of `env'` elsewhere. -/
-lemma stepKernel_piecewise (alg : Algorithm 𝓞 𝓐 𝓨) (n : ℕ) :
-    stepKernel alg (env.piecewise s hs env') n =
-      Kernel.piecewise (hs n) (stepKernel alg env n) (stepKernel alg env' n) := by
+/-- The step kernel of `alg.piecewise s hs alg'` against `env.piecewise s hs env'` at round `n` is
+that of `(alg, env)` on `s n` and that of `(alg', env')` elsewhere. -/
+lemma stepKernel_piecewise (alg alg' : Algorithm 𝓞 𝓐 𝓨) (n : ℕ) :
+    stepKernel (alg.piecewise s hs alg') (env.piecewise s hs env') n =
+      Kernel.piecewise (hs n) (stepKernel alg env n) (stepKernel alg' env' n) := by
   ext x : 1
   by_cases hx : x ∈ s n <;>
   · simp only [Kernel.piecewise_apply, hx, ↓reduceIte, stepKernel_def]
     exact Kernel.compProd_apply_congr (by simp [Kernel.piecewise_apply, hx])
-      fun _ ↦ Kernel.compProd_apply_congr rfl fun _ ↦ by simp [Kernel.piecewise_apply, hx]
+      fun _ ↦ Kernel.compProd_apply_congr (by simp [Kernel.piecewise_apply, hx])
+        fun _ ↦ by simp [Kernel.piecewise_apply, hx]
 
-/-- At a history in `s n`, the step kernel of `env.piecewise s hs env'` is that of `env`. -/
+/-- At a history in `s n`, the step kernel of `alg.piecewise s hs alg'` against
+`env.piecewise s hs env'` is that of `(alg, env)`. -/
 @[simp]
-lemma stepKernel_piecewise_of_mem (alg : Algorithm 𝓞 𝓐 𝓨) (hx : x ∈ s n) :
-    stepKernel alg (env.piecewise s hs env') n x = stepKernel alg env n x := by
+lemma stepKernel_piecewise_of_mem (alg alg' : Algorithm 𝓞 𝓐 𝓨) (hx : x ∈ s n) :
+    stepKernel (alg.piecewise s hs alg') (env.piecewise s hs env') n x =
+      stepKernel alg env n x := by
   classical
   simp [stepKernel_piecewise, Kernel.piecewise_apply, hx]
 
-/-- At a history outside `s n`, the step kernel of `env.piecewise s hs env'` is that of `env'`. -/
+/-- At a history outside `s n`, the step kernel of `alg.piecewise s hs alg'` against
+`env.piecewise s hs env'` is that of `(alg', env')`. -/
 @[simp]
-lemma stepKernel_piecewise_of_notMem (alg : Algorithm 𝓞 𝓐 𝓨) (hx : x ∉ s n) :
-    stepKernel alg (env.piecewise s hs env') n x = stepKernel alg env' n x := by
+lemma stepKernel_piecewise_of_notMem (alg alg' : Algorithm 𝓞 𝓐 𝓨) (hx : x ∉ s n) :
+    stepKernel (alg.piecewise s hs alg') (env.piecewise s hs env') n x =
+      stepKernel alg' env' n x := by
   classical
   simp [stepKernel_piecewise, Kernel.piecewise_apply, hx]
 

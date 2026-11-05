@@ -14,7 +14,7 @@ public import LeanMachineLearning.SequentialLearning.DivergenceDecomposition
 import LMLExplore.InformationTheory.KullbackLeibler.ChainRule
 
 /-!
-# The divergence decomposition, reindexed by the actions, and at a stopping time
+# The divergence decomposition, reindexed by the actions, and the chain rule at a stopping time
 
 LML's `IsAlgEnvSeq.klDiv_map_history_bandit` writes the relative entropy between the laws of the
 histories of the first `M` rounds of one algorithm run against two stationary environments with
@@ -25,8 +25,14 @@ finite set of actions, this file regroups the sum by the action played, which gi
 before `M` at which `a` was played. The regrouping is `LMLExplore.sum_lintegral_pullCount_mul`,
 one of the Wald identities of `LMLExplore/SequentialLearning/Wald.lean`.
 
-The same bound holds at an almost surely finite stopping time `τ`, the hitting time of a stopping
-rule `S`, for the laws of the history stopped by `S`:
+At a stopping time `τ`, the hitting time of a stopping rule `S`, the chain rule bounds the
+relative entropy between the laws of the histories stopped by `S` under any two
+algorithm-environment pairs `(alg, env)` and `(alg', env')` by the series over the rounds `t` of
+the divergences of the step of round `t`, on the event that `S` has not stopped after the first `t`
+rounds under `(alg, env)`. For countably generated spaces and a `τ` that is almost surely finite
+under `(alg, env)`, this series is
+`E[∑ t < τ, KL(stepKernel alg env t (H t) ‖ stepKernel alg' env' t (H t))]`. For one algorithm
+against two stationary environments and an almost surely finite `τ`, it gives
 `KL ≤ ∑ a, E[N_a(τ)] KL(κ a ‖ κ' a)`. This is the change of measure behind the lower bounds of
 bandit identification.
 
@@ -37,6 +43,16 @@ bandit identification.
   agree outside the action `i`, then `KL = E[N_i(M)] KL(κ i ‖ κ' i)`.
 * `Learning.IsAlgEnvSeq.klDiv_map_history_le_ofReal_integral_pullCount_mul`: if moreover
   `KL(κ i ‖ κ' i) ≤ c`, then `KL ≤ E[N_i(M)] c`.
+* `Learning.klDiv_stoppedHistMeasure_le_tsum`: the chain rule at a stopping time for any two
+  algorithm-environment pairs, as a series over the rounds of the divergences of the steps, with
+  the law of the history restricted to the histories after which `S` has not stopped.
+* `Learning.klDiv_stoppedHistMeasure_le_lintegral`: its integral form
+  `KL ≤ E[∑ t < τ, KL(stepKernel alg env t (H t) ‖ stepKernel alg' env' t (H t))]`, for countably
+  generated spaces and an almost surely finite hitting time `τ`.
+* `Learning.IsAlgEnvSeq.klDiv_restrict_compProd_stepKernel_bandit`: for one algorithm against two
+  stationary environments, the divergence of the step of round `t` on an event of the history of
+  the first `t` rounds is the expected divergence between the reward kernels at the played action
+  on that event.
 * `Learning.klDiv_stoppedHistMeasure_le`: the divergence decomposition at a stopping time,
   `KL(stoppedHistMeasure alg (Environment.bandit κ) S ‖
     stoppedHistMeasure alg (Environment.bandit κ') S) ≤ ∑ a, E_κ[N_a(τ)] KL(κ a ‖ κ' a)` when the
@@ -49,6 +65,9 @@ bandit identification.
 * E. Kaufmann, O. Cappé and A. Garivier, *On the complexity of best-arm identification in
   multi-armed bandit models*, JMLR 17 (2016), proof of Lemma 1, for the decomposition at a
   stopping time.
+* A. Garivier, P. Ménard and G. Stoltz, *Explore first, exploit next: the true shape of regret in
+  bandit problems*, Mathematics of Operations Research 44(2) (2019), Section 2, for the chain rule
+  at a stopping time.
 * The proofs of the fixed-horizon statements are adapted from the formalization in the LMLPapers
   project
   (`LMLPapers/LeanMachineLearning/SequentialLearning/DivergenceDecomposition.lean`).
@@ -60,6 +79,87 @@ open MeasureTheory ProbabilityTheory InformationTheory Finset
 open scoped ENNReal
 
 namespace Learning
+
+section ChainRule
+
+/-! ### The chain rule at a stopping time
+
+Let `τ` be the hitting time of a stopping rule `S`. The algorithm `alg'.piecewise` and the
+environment `env'.piecewise` below follow `(alg', env')` until `τ` and `(alg, env)` afterwards.
+Their stopped history has the same law as under `(alg', env')` (`stoppedHistMeasure_congr`), and
+the divergence between their trajectory and the trajectory under `(alg, env)` only collects the
+rounds before `τ` (`klDiv_compProd_piecewise`). The data processing inequality for the stopped
+history, a function of the trajectory, concludes. -/
+
+variable {𝓞 𝓐 𝓨 : Type*} {m𝓞 : MeasurableSpace 𝓞} {m𝓐 : MeasurableSpace 𝓐}
+  {m𝓨 : MeasurableSpace 𝓨} {alg alg' : Algorithm 𝓞 𝓐 𝓨} {env env' : Environment 𝓞 𝓐 𝓨}
+  {S : Set (Σ n : ℕ, Hist 𝓞 𝓐 𝓨 n)}
+
+/-- **Chain rule at a stopping time.** For two algorithms `alg`, `alg'` run against two
+environments `env`, `env'` and a measurable stopping rule `S`, the divergence between the laws of
+the histories stopped by `S` is at most the series over the rounds `t` of the divergences of the
+step at round `t`, where the law of the history of the first `t` rounds under `(alg, env)` is
+restricted to the histories after which `S` has not stopped. -/
+theorem klDiv_stoppedHistMeasure_le_tsum (hS : MeasurableSet S) :
+    klDiv (stoppedHistMeasure alg env S) (stoppedHistMeasure alg' env' S) ≤
+      ∑' t, klDiv
+        (((trajMeasure alg env).map (history IT.obs IT.action IT.feedback t)).restrict
+          (notStoppedSet S t) ⊗ₘ stepKernel alg env t)
+        (((trajMeasure alg env).map (history IT.obs IT.action IT.feedback t)).restrict
+          (notStoppedSet S t) ⊗ₘ stepKernel alg' env' t) := by
+  have hs : ∀ n, MeasurableSet (notStoppedSet S n) := measurableSet_notStoppedSet hS
+  -- The stopped history under the pair that switches to `(alg, env)` at the stopping time has
+  -- the same law as under `(alg', env')`.
+  have h_swap : stoppedHistMeasure alg' env' S =
+      stoppedHistMeasure (alg'.piecewise _ hs alg) (env'.piecewise _ hs env) S :=
+    stoppedHistMeasure_congr hS fun _ _ hx ↦ (stepKernel_piecewise_of_mem alg' alg hx).symm
+  have h := IT.isAlgEnvSeq_trajMeasure alg env
+  have h' := IT.isAlgEnvSeq_trajMeasure (alg'.piecewise _ hs alg) (env'.piecewise _ hs env)
+  have h_chain := h.klDiv_map_trajectory_stepKernel h'
+  rw [h.map_trajectory, h'.map_trajectory] at h_chain
+  calc klDiv (stoppedHistMeasure alg env S) (stoppedHistMeasure alg' env' S)
+      ≤ klDiv (trajMeasure alg env)
+          (trajMeasure (alg'.piecewise _ hs alg) (env'.piecewise _ hs env)) := by
+        rw [h_swap, stoppedHistMeasure, stoppedHistMeasure]
+        exact klDiv_map_le _ _ (measurable_stoppedValue_sigmaHistory IT.measurable_obs
+          IT.measurable_action IT.measurable_feedback (measurable_hittingAfter_sigmaHistory
+            IT.measurable_obs IT.measurable_action IT.measurable_feedback hS))
+    _ = _ := by
+        classical
+        rw [h_chain]
+        exact tsum_congr fun t ↦ by rw [stepKernel_piecewise, klDiv_compProd_piecewise]
+
+/-- **Chain rule at a stopping time**, integral form. For two algorithms `alg`, `alg'` run against
+two environments `env`, `env'` with countably generated spaces of observations, actions and
+feedback, and a measurable stopping rule `S` whose hitting time `τ` is almost surely finite under
+`(alg, env)`, the divergence between the laws of the histories stopped by `S` is at most
+`E[∑ t < τ, KL(stepKernel alg env t (H t) ‖ stepKernel alg' env' t (H t))]`, where `H t` is the
+history of the first `t` rounds under `(alg, env)`. -/
+theorem klDiv_stoppedHistMeasure_le_lintegral [MeasurableSpace.CountablyGenerated 𝓞]
+    [MeasurableSpace.CountablyGenerated 𝓐] [MeasurableSpace.CountablyGenerated 𝓨]
+    (hS : MeasurableSet S)
+    (hτ : ∀ᵐ ω ∂(trajMeasure alg env),
+      hittingAfter (sigmaHistory IT.obs IT.action IT.feedback) S 0 ω ≠ ⊤) :
+    klDiv (stoppedHistMeasure alg env S) (stoppedHistMeasure alg' env' S) ≤
+      ∫⁻ ω, ∑ t ∈ range (ENat.toNat
+          (hittingAfter (sigmaHistory IT.obs IT.action IT.feedback) S 0 ω)),
+        klDiv (stepKernel alg env t (history IT.obs IT.action IT.feedback t ω))
+          (stepKernel alg' env' t (history IT.obs IT.action IT.feedback t ω))
+        ∂(trajMeasure alg env) := by
+  have hH (t : ℕ) : Measurable (history (IT.obs (𝓞 := 𝓞) (𝓐 := 𝓐) (𝓨 := 𝓨)) IT.action
+      IT.feedback t) :=
+    measurable_history IT.measurable_obs IT.measurable_action IT.measurable_feedback t
+  have hf (t : ℕ) : Measurable fun ω ↦
+      klDiv (stepKernel alg env t (history IT.obs IT.action IT.feedback t ω))
+        (stepKernel alg' env' t (history IT.obs IT.action IT.feedback t ω)) :=
+    (measurable_klDiv_kernel _ _).comp (hH t)
+  refine (klDiv_stoppedHistMeasure_le_tsum hS).trans_eq ((tsum_congr fun t ↦ ?_).trans
+    (tsum_setLIntegral_notStoppedSet IT.measurable_obs IT.measurable_action IT.measurable_feedback
+      hS hτ hf))
+  rw [klDiv_compProd_right_eq_lintegral,
+    setLIntegral_map (measurableSet_notStoppedSet hS t) (measurable_klDiv_kernel _ _) (hH t)]
+
+end ChainRule
 
 variable {𝓐 𝓨 : Type*} {m𝓐 : MeasurableSpace 𝓐} {m𝓨 : MeasurableSpace 𝓨}
   [Fintype 𝓐] [DecidableEq 𝓐] [MeasurableSingletonClass 𝓐] [MeasurableSpace.CountablyGenerated 𝓨]
@@ -118,65 +218,46 @@ lemma IsAlgEnvSeq.klDiv_map_history_le_ofReal_integral_pullCount_mul [Finite �
 
 section StoppingTime
 
-/-! ### The divergence decomposition at a stopping time
-
-Let `τ` be the hitting time of a stopping rule `S`. The environment `swapEnv` below follows `κ'`
-until `τ` and `κ` afterwards. Its stopped history has the same law as under `κ'`
-(`stoppedHistMeasure_congr`), and the divergence between its trajectory and the trajectory
-under `κ` only collects the rounds before `τ`. The data processing inequality for the stopped
-history, a function of the trajectory, concludes. -/
-
-variable {S : Set (Σ n : ℕ, Hist Unit 𝓐 𝓨 n)}
-
-/-- The environment that follows the reward kernel `κ'` while the stopping rule `S` has not
-stopped and the reward kernel `κ` afterwards. -/
-private noncomputable abbrev swapEnv (κ κ' : Kernel 𝓐 𝓨) [IsMarkovKernel κ] [IsMarkovKernel κ']
-    (hS : MeasurableSet S) : Environment Unit 𝓐 𝓨 :=
-  (Environment.bandit κ').piecewise (notStoppedSet S) (measurableSet_notStoppedSet hS)
-    (Environment.bandit κ)
+/-! ### The divergence decomposition at a stopping time for one algorithm and two bandits -/
 
 omit [Fintype 𝓐] [DecidableEq 𝓐] [MeasurableSingletonClass 𝓐] in
-/-- The divergence of round `t` between `κ` and `swapEnv κ κ' hS` is the divergence between the
-reward kernels at the played action, on the event that round `t` is played before stopping. -/
-private lemma klDiv_compProd_stepKernel_swapEnv (h : IsAlgEnvSeq O A Y alg (Environment.bandit κ) P)
-    (hS : MeasurableSet S) (t : ℕ) :
-    klDiv (P.map (history O A Y t) ⊗ₘ stepKernel alg (Environment.bandit κ) t)
-        (P.map (history O A Y t) ⊗ₘ stepKernel alg (swapEnv κ κ' hS) t) =
-      ∫⁻ ω, {ω | history O A Y t ω ∈ notStoppedSet S t}.indicator
-        (fun ω ↦ klDiv (κ (A t ω)) (κ' (A t ω))) ω ∂P := by
-  have h_obs : (swapEnv κ κ' hS).obs t = Kernel.const _ (Measure.dirac ()) := by
-    ext x : 1
-    simp [Kernel.piecewise_apply]
+/-- The divergence of round `t` of an algorithm run against two stationary environments with
+reward kernels `κ` and `κ'`, with the law of the history of the first `t` rounds restricted to a
+measurable set `s`, is the expected divergence between the reward kernels at the played action on
+the event that this history belongs to `s`. -/
+lemma IsAlgEnvSeq.klDiv_restrict_compProd_stepKernel_bandit
+    (h : IsAlgEnvSeq O A Y alg (Environment.bandit κ) P) {t : ℕ} {s : Set (Hist Unit 𝓐 𝓨 t)}
+    (hs : MeasurableSet s) :
+    klDiv ((P.map (history O A Y t)).restrict s ⊗ₘ stepKernel alg (Environment.bandit κ) t)
+        ((P.map (history O A Y t)).restrict s ⊗ₘ stepKernel alg (Environment.bandit κ') t) =
+      ∫⁻ ω in history O A Y t ⁻¹' s, klDiv (κ (A t ω)) (κ' (A t ω)) ∂P := by
   have hX : Measurable fun ω ↦ ((history O A Y t ω, O t ω), A t ω) :=
     ((h.measurable_history t).prodMk (h.measurable_obs t)).prodMk (h.measurable_action t)
-  -- Reassociate the step kernels so that only the feedback kernels differ.
-  rw [stepKernel_bandit, stepKernel_def, h_obs, klDiv_compProd_assoc, klDiv_compProd_assoc,
-    ← obs_bandit (ν := κ) t, ← (h.hasCondDistrib_obs t).map_eq,
-    ← (h.hasCondDistrib_action t).map_eq, klDiv_compProd_right_eq_lintegral,
-    lintegral_map (measurable_klDiv_kernel _ _) hX]
-  refine lintegral_congr fun ω ↦ ?_
-  by_cases hω : history O A Y t ω ∈ notStoppedSet S t <;>
-    simp [hω, Kernel.piecewise_apply]
+  -- The restriction to `s` of the law of the history, followed by the observation and the action
+  -- of round `t`, is the restricted joint law of the history, the observation and the action.
+  have h_joint : (P.map (history O A Y t)).restrict s ⊗ₘ Kernel.const _ (Measure.dirac ()) ⊗ₘ
+        alg.policy t =
+      (P.map fun ω ↦ ((history O A Y t ω, O t ω), A t ω)).restrict ((s ×ˢ .univ) ×ˢ .univ) := by
+    rw [Measure.compProd_restrict_left _ _ hs, Measure.compProd_restrict_left _ _ (hs.prod .univ),
+      ← obs_bandit (ν := κ) t, ← (h.hasCondDistrib_obs t).map_eq,
+      ← (h.hasCondDistrib_action t).map_eq]
+  -- Reassociated, the two steps only differ in their feedback kernels.
+  have h_assoc : klDiv
+        ((P.map (history O A Y t)).restrict s ⊗ₘ stepKernel alg (Environment.bandit κ) t)
+        ((P.map (history O A Y t)).restrict s ⊗ₘ stepKernel alg (Environment.bandit κ') t) =
+      klDiv ((P.map fun ω ↦ ((history O A Y t ω, O t ω), A t ω)).restrict
+          ((s ×ˢ .univ) ×ˢ .univ) ⊗ₘ κ.prodMkLeft _)
+        ((P.map fun ω ↦ ((history O A Y t ω, O t ω), A t ω)).restrict
+          ((s ×ˢ .univ) ×ˢ .univ) ⊗ₘ κ'.prodMkLeft _) := by
+    rw [stepKernel_bandit, stepKernel_bandit, klDiv_compProd_assoc, klDiv_compProd_assoc, h_joint]
+  rw [h_assoc, klDiv_compProd_right_eq_lintegral,
+    setLIntegral_map ((hs.prod .univ).prod .univ) (measurable_klDiv_kernel _ _) hX]
+  have h_pre : (fun ω ↦ ((history O A Y t ω, O t ω), A t ω)) ⁻¹' ((s ×ˢ .univ) ×ˢ .univ) =
+      history O A Y t ⁻¹' s := by
+    ext; simp
+  simp only [h_pre, Kernel.prodMkLeft_apply]
 
-omit [Fintype 𝓐] [DecidableEq 𝓐] [MeasurableSingletonClass 𝓐] in
-/-- The divergence between the trajectories under `κ` and under `swapEnv κ κ' hS` is the
-expected sum of the divergences between the reward kernels at the actions played before
-stopping. -/
-private lemma klDiv_trajMeasure_swapEnv (hS : MeasurableSet S) :
-    klDiv (trajMeasure alg (Environment.bandit κ)) (trajMeasure alg (swapEnv κ κ' hS)) =
-      ∫⁻ ω, ∑' t, {ω | history IT.obs IT.action IT.feedback t ω ∈ notStoppedSet S t}.indicator
-        (fun ω ↦ klDiv (κ (IT.action t ω)) (κ' (IT.action t ω))) ω
-        ∂(trajMeasure alg (Environment.bandit κ)) := by
-  have h := IT.isAlgEnvSeq_trajMeasure alg (Environment.bandit κ)
-  have h' := IT.isAlgEnvSeq_trajMeasure alg (swapEnv κ κ' hS)
-  have h_chain := h.klDiv_map_trajectory_stepKernel h'
-  rw [h.map_trajectory, h'.map_trajectory] at h_chain
-  rw [h_chain, lintegral_tsum (f := fun t ↦ {ω | history IT.obs IT.action IT.feedback t ω ∈
-      notStoppedSet S t}.indicator fun ω ↦ klDiv (κ (IT.action t ω)) (κ' (IT.action t ω)))
-    fun t ↦ (((measurable_klDiv_kernel κ κ').comp
-    (IT.measurable_action t)).indicator ((h.measurable_history t)
-      (measurableSet_notStoppedSet hS t))).aemeasurable]
-  exact tsum_congr fun t ↦ klDiv_compProd_stepKernel_swapEnv h hS t
+variable {S : Set (Σ n : ℕ, Hist Unit 𝓐 𝓨 n)}
 
 /-- **Divergence decomposition at a stopping time.** Let `τ` be the hitting time of a measurable
 stopping rule `S` by an algorithm run against a stationary environment with reward kernel `κ`, and
@@ -191,36 +272,19 @@ theorem klDiv_stoppedHistMeasure_le (hS : MeasurableSet S)
       ∑ a, (∫⁻ ω, (pullCount IT.action a
           (ENat.toNat (hittingAfter (sigmaHistory IT.obs IT.action IT.feedback) S 0 ω)) ω :
             ℝ≥0∞) ∂(trajMeasure alg (Environment.bandit κ))) * klDiv (κ a) (κ' a) := by
-  set τ := hittingAfter (sigmaHistory (IT.obs (𝓞 := Unit) (𝓐 := 𝓐) (𝓨 := 𝓨)) IT.action
-    IT.feedback) S 0 with hτ_def
-  have hτm : Measurable τ := measurable_hittingAfter_sigmaHistory IT.measurable_obs
-    IT.measurable_action IT.measurable_feedback hS
-  -- The stopped history under `swapEnv κ κ' hS` has the same law as under `κ'`.
-  have h_swap : stoppedHistMeasure alg (Environment.bandit κ') S =
-      stoppedHistMeasure alg (swapEnv κ κ' hS) S :=
-    stoppedHistMeasure_congr hS fun _ _ hx ↦ (stepKernel_piecewise_of_mem alg hx).symm
-  calc klDiv (stoppedHistMeasure alg (Environment.bandit κ) S)
-        (stoppedHistMeasure alg (Environment.bandit κ') S)
-      ≤ klDiv (trajMeasure alg (Environment.bandit κ)) (trajMeasure alg (swapEnv κ κ' hS)) := by
-        rw [h_swap, stoppedHistMeasure, stoppedHistMeasure]
-        exact klDiv_map_le _ _ (measurable_stoppedValue_sigmaHistory IT.measurable_obs
-          IT.measurable_action IT.measurable_feedback hτm)
-    _ = ∫⁻ ω, ∑ t ∈ range (ENat.toNat (τ ω)), klDiv (κ (IT.action t ω)) (κ' (IT.action t ω))
-          ∂(trajMeasure alg (Environment.bandit κ)) := by
-        rw [klDiv_trajMeasure_swapEnv hS]
-        refine lintegral_congr_ae ?_
-        filter_upwards [hτ] with ω hω
-        have h_lt (t : ℕ) : history IT.obs IT.action IT.feedback t ω ∈ notStoppedSet S t ↔
-            t < ENat.toNat (τ ω) := by
-          rw [history_mem_notStoppedSet_iff, ← hτ_def]
-          -- For finite `τ ω`, `ENat.toNat (τ ω)` is `ENat.lift (τ ω)`, below which lie exactly
-          -- the `t` with `↑t < τ ω`.
-          exact ENat.lift_eq_toNat_of_lt_top (lt_top_iff_ne_top.2 hω) ▸ ENat.lt_lift_iff.symm
-        rw [tsum_eq_sum (s := range (ENat.toNat (τ ω))) fun t ht ↦ by
-          simp [Set.indicator, h_lt, mem_range.not.1 ht]]
-        exact sum_congr rfl fun t ht ↦ by simp [Set.indicator, h_lt, mem_range.1 ht]
-    _ = _ := (LMLExplore.sum_lintegral_pullCount_mul IT.measurable_action
-        (Measurable.of_discrete.comp hτm) fun a ↦ klDiv (κ a) (κ' a)).symm
+  have h := IT.isAlgEnvSeq_trajMeasure alg (Environment.bandit κ)
+  have hτm := measurable_hittingAfter_sigmaHistory (𝓞 := Unit) (𝓐 := 𝓐) (𝓨 := 𝓨)
+    IT.measurable_obs IT.measurable_action IT.measurable_feedback hS
+  have hf (t : ℕ) : Measurable fun ω : ℕ → Round Unit 𝓐 𝓨 ↦
+      klDiv (κ (IT.action t ω)) (κ' (IT.action t ω)) :=
+    (measurable_klDiv_kernel κ κ').comp (IT.measurable_action t)
+  refine (klDiv_stoppedHistMeasure_le_tsum hS).trans_eq
+    (((tsum_congr fun t ↦ h.klDiv_restrict_compProd_stepKernel_bandit (κ' := κ')
+      (measurableSet_notStoppedSet hS t)).trans
+        (tsum_setLIntegral_notStoppedSet IT.measurable_obs IT.measurable_action
+          IT.measurable_feedback hS hτ hf)).trans ?_)
+  exact (LMLExplore.sum_lintegral_pullCount_mul IT.measurable_action
+    (Measurable.of_discrete.comp hτm) fun a ↦ klDiv (κ a) (κ' a)).symm
 
 end StoppingTime
 

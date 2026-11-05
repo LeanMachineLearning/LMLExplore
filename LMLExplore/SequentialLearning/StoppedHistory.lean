@@ -7,6 +7,7 @@ module
 
 public import LeanMachineLearning.SequentialLearning.IonescuTulceaSpace
 public import LeanMachineLearning.SequentialLearning.StoppedHistory
+public import LMLExplore.Topology.Algebra.InfiniteSum.NatInt
 public import TauCeti.Probability.Kernel.Composition.MeasureCompProd
 
 /-!
@@ -34,6 +35,9 @@ can be modified after the stopping time without changing the law of the stopped 
 
 * `Learning.history_mem_notStoppedSet_iff`: the history of the first `n` rounds belongs to
   `notStoppedSet S n` if and only if the hitting time of `S` is larger than `n`.
+* `Learning.tsum_setLIntegral_notStoppedSet`: the series over the rounds `t` of the integrals of
+  `f t` on the event `history t ∈ notStoppedSet S t` is the integral of `∑ t < τ, f t` for an
+  almost surely finite hitting time `τ` of `S`.
 * `Learning.stoppedHistMeasure_congr`: if the step kernels of `(alg, env)` and `(alg', env')`
   agree on `notStoppedSet S n` for every `n`, then
   `stoppedHistMeasure alg env S = stoppedHistMeasure alg' env' S`.
@@ -42,6 +46,7 @@ can be modified after the stopping time without changing the law of the stopped 
 public section
 
 open MeasureTheory ProbabilityTheory Set
+open scoped ENNReal
 
 namespace Learning
 
@@ -94,6 +99,31 @@ lemma history_mem_notStoppedSet_iff :
   refine Iff.trans ?_ (not_congr hittingAfter_le_iff).symm
   simp only [mem_notStoppedSet_iff, mem_Icc, zero_le, true_and, not_exists, not_and]
   exact forall₂_congr fun m hm ↦ by rw [sigmaHistory_eq_prefix hm]
+
+/-- The series over the rounds `t` of the integrals of `f t` on the event that the stopping rule
+`S` has not stopped after the first `t` rounds is the integral of the sum of the `f t` over the
+rounds before the hitting time of `S`, when that hitting time is almost surely finite. -/
+lemma tsum_setLIntegral_notStoppedSet {P : Measure Ω} (hO : ∀ n, Measurable (O n))
+    (hX : ∀ n, Measurable (X n)) (hY : ∀ n, Measurable (Y n)) (hS : MeasurableSet S)
+    (hτ : ∀ᵐ ω ∂P, hittingAfter (sigmaHistory O X Y) S 0 ω ≠ ⊤)
+    {f : ℕ → Ω → ℝ≥0∞} (hf : ∀ t, Measurable (f t)) :
+    ∑' t, ∫⁻ ω in history O X Y t ⁻¹' notStoppedSet S t, f t ω ∂P =
+      ∫⁻ ω, ∑ t ∈ Finset.range (ENat.toNat (hittingAfter (sigmaHistory O X Y) S 0 ω)), f t ω
+        ∂P := by
+  have hmeas (t : ℕ) : MeasurableSet (history O X Y t ⁻¹' notStoppedSet S t) :=
+    measurable_history hO hX hY t (measurableSet_notStoppedSet hS t)
+  simp_rw [← lintegral_indicator (hmeas _)]
+  rw [← lintegral_tsum fun t ↦ ((hf t).indicator (hmeas t)).aemeasurable]
+  refine lintegral_congr_ae ?_
+  filter_upwards [hτ] with ω hω
+  have h_ind (t : ℕ) : (history O X Y t ⁻¹' notStoppedSet S t).indicator (f t) ω =
+      {t : ℕ | (t : ℕ∞) < hittingAfter (sigmaHistory O X Y) S 0 ω}.indicator
+        (fun t ↦ f t ω) t := by
+    simp only [indicator, mem_preimage, history_mem_notStoppedSet_iff]
+    -- Both conditions are `t < τ ω`, with `t` cast to `WithTop ℕ` and to `ℕ∞ = WithTop ℕ`.
+    congr 1
+  simp_rw [h_ind]
+  exact LMLExplore.tsum_indicator_natCast_lt_eq_sum_range hω fun t ↦ f t ω
 
 section Congr
 
