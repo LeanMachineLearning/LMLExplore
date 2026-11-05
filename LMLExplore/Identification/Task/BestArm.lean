@@ -71,7 +71,7 @@ within a factor `2` of the complexity `H(μ) = ∑ c, 2 σ2 / Δ_c²`, where `Δ
   `LMLExplore.Identification.closure_alt_baiTask` is the case `S = univ`.
 * `LMLExplore.Identification.charTime_baiTask_eq_inv_answerValue`,
   `LMLExplore.Identification.charTime_baiTask_restrict_eq_inv_answerValue`: if `a` is the unique
-  best arm of `μ`, then `T*(μ) = D(μ, ¬a)⁻¹`.
+  best arm of `θ`, then `T*(θ) = D(θ, ¬a)⁻¹`.
 * `LMLExplore.Identification.altCost_baiTask_restrict_eq_iInf`: for `S` open and a transportation
   cost continuous on `{λ | ∃ b ≠ a, λ a ≤ λ b} ∩ S`,
   `D(μ, w, ¬a) = min_{b ≠ a} inf {cost_μ(w, λ) | λ ∈ S, λ a ≤ λ b}`.
@@ -175,6 +175,24 @@ lemma mem_answerSet_baiTask_iff :
   rw [IdentTask.mem_answerSet_iff, M_baiTask, correct_baiTask]
   exact ⟨fun h ↦ h.2, fun h ↦ ⟨⟨a, h⟩, h⟩⟩
 
+variable [Fintype α]
+
+/-- If `a` is the unique best arm of `θ`, then `T*(θ) = D(θ, ¬a)⁻¹` in best arm identification
+restricted to any set `S` of models. -/
+theorem charTime_baiTask_restrict_eq_inv_answerValue (S : Set Θ)
+    (ha : ∀ b ≠ a, mean θ b < mean θ a) :
+    ((baiTask ν mean).restrict S).charTime θ =
+      (((baiTask ν mean).restrict S).answerValue θ a)⁻¹ :=
+  IdentTask.charTime_eq_inv_answerValue _ (by
+    rw [IdentTask.correct_restrict]
+    exact (correct_baiTask_eq_singleton_iff ν mean).2 ha)
+
+/-- If `a` is the unique best arm of `θ`, then `T*(θ) = D(θ, ¬a)⁻¹` in best arm
+identification. -/
+theorem charTime_baiTask_eq_inv_answerValue (ha : ∀ b ≠ a, mean θ b < mean θ a) :
+    (baiTask ν mean).charTime θ = ((baiTask ν mean).answerValue θ a)⁻¹ :=
+  IdentTask.charTime_eq_inv_answerValue _ ((correct_baiTask_eq_singleton_iff ν mean).2 ha)
+
 end MeanFunctional
 
 variable (ν : (α → ℝ) → Kernel α 𝓨) [∀ μ, IsMarkovKernel (ν μ)] {S : Set (α → ℝ)}
@@ -251,24 +269,6 @@ theorem closure_alt_baiTask (a : α) :
 end Closure
 
 variable [Fintype α]
-
-/-- If `a` is the unique best arm of `μ'`, then `T*(μ') = D(μ', ¬a)⁻¹` in best arm identification
-restricted to any set `S` of vectors of means. -/
-theorem charTime_baiTask_restrict_eq_inv_answerValue (S : Set (α → ℝ))
-    (ha : ∀ b ≠ a, μ' b < μ' a) :
-    ((baiTask ν id).restrict S).charTime μ' = (((baiTask ν id).restrict S).answerValue μ' a)⁻¹ :=
-  IdentTask.charTime_eq_inv_answerValue _ (by
-    rw [IdentTask.correct_restrict]
-    refine (subsingleton_correct_baiTask ν id μ').eq_singleton_of_mem ?_
-    rw [correct_baiTask]
-    exact ha)
-
-/-- If `a` is the unique best arm of `μ'`, then `T*(μ') = D(μ', ¬a)⁻¹` in best arm
-identification. -/
-theorem charTime_baiTask_eq_inv_answerValue (ha : ∀ b ≠ a, μ' b < μ' a) :
-    (baiTask ν id).charTime μ' = ((baiTask ν id).answerValue μ' a)⁻¹ :=
-  IdentTask.charTime_eq_inv_answerValue _
-    ((subsingleton_correct_baiTask ν id μ').eq_singleton_of_mem (by rw [correct_baiTask]; exact ha))
 
 /-- For an open set `S` of vectors of means and a transportation cost from `μ` continuous on the
 vectors of `S` in which some arm `b ≠ a` has mean at least that of `a`, the cost of the
@@ -386,8 +386,7 @@ omit [Fintype α] in
 identification. -/
 private lemma correct_baiTask_of_forall_eq_or_eq (hα : ∀ c, c = a ∨ c = b)
     (hμ : μ b < μ a) : (baiTask ν id).correct μ = {a} := by
-  refine (subsingleton_correct_baiTask ν id μ).eq_singleton_of_mem ?_
-  rw [correct_baiTask]
+  refine (correct_baiTask_eq_singleton_iff ν id).2 ?_
   intro d hd
   obtain rfl := (hα d).resolve_left hd
   exact hμ
@@ -602,7 +601,7 @@ theorem continuousAt_charTime_baiTask_restrict (hT : ∀ c, ¬ T =ᵐ[ρ] fun _ 
       ((baiTask ν id).restrict {μ' | ∀ c, μ' c ∈ ρ.expFamilyMeans T}).charTime := by
     filter_upwards [(isOpen_answerSet_baiTask ν a).mem_nhds ((mem_answerSet_baiTask_iff ν id).2 ha)]
       with μ' hμ'
-    exact (charTime_baiTask_restrict_eq_inv_answerValue ν _
+    exact (charTime_baiTask_restrict_eq_inv_answerValue ν id _
       ((mem_answerSet_baiTask_iff ν id).1 hμ')).symm
   exact ((continuousAt_answerValue_baiTask_restrict ν hT hν hμ ha).inv).congr h_eq
 
@@ -1108,7 +1107,7 @@ theorem le_charTime_baiTask_gaussianBandit (hσ2 : σ2 ≠ 0) (hb₀a : b₀ ≠
     ENNReal.ofReal (2 * σ2 / (μ a - μ b₀) ^ 2 +
         ∑ b ∈ Finset.univ.erase a, 2 * σ2 / (μ a - μ b) ^ 2) ≤
       (baiTask (Bandits.gaussianBandit · σ2) id).charTime μ := by
-  rw [charTime_baiTask_eq_inv_answerValue _ ha,
+  rw [charTime_baiTask_eq_inv_answerValue _ id ha,
     ← inv_inv (ENNReal.ofReal _), ← ENNReal.ofReal_inv_of_pos (sum_div_sq_pos hσ2 hb₀a ha),
     ENNReal.inv_le_inv]
   exact answerValue_baiTask_gaussianBandit_le hσ2 hb₀a ha
@@ -1122,7 +1121,7 @@ theorem charTime_baiTask_gaussianBandit_le (hσ2 : σ2 ≠ 0) (hb₀a : b₀ ≠
     (baiTask (Bandits.gaussianBandit · σ2) id).charTime μ ≤
       ENNReal.ofReal (2 * (2 * σ2 / (μ a - μ b₀) ^ 2 +
         ∑ b ∈ Finset.univ.erase a, 2 * σ2 / (μ a - μ b) ^ 2)) := by
-  rw [charTime_baiTask_eq_inv_answerValue _ ha,
+  rw [charTime_baiTask_eq_inv_answerValue _ id ha,
     ← inv_inv (ENNReal.ofReal (2 * _)),
     ← ENNReal.ofReal_inv_of_pos (mul_pos two_pos (sum_div_sq_pos hσ2 hb₀a ha)), ENNReal.inv_le_inv]
   exact le_answerValue_baiTask_gaussianBandit hσ2 hb₀a ha hb₀

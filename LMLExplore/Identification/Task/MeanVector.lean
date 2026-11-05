@@ -49,6 +49,8 @@ example, Gaussian arms with unknown variances are the models `θ : α → ℝ ×
   model.
 * `isSingleAnswer_thresholdingTask`: on finitely many arms, thresholding has a single correct
   answer on every admissible model.
+* `correct_baiTask_eq_singleton_iff`: `a` is the only best arm of `θ` iff
+  `mean θ b < mean θ a` for every arm `b ≠ a`.
 * `nonempty_correct_epsBaiTask`: for `ε ≥ 0` and finitely many (at least one) arms, every model
   has an `ε`-good arm.
 * `correct_epsBaiTask_eq_singleton_iff`: for `ε ≥ 0`, `a` is the only `ε`-good arm of `θ` iff
@@ -115,12 +117,18 @@ lemma subsingleton_correct_baiTask (θ : Θ) : ((baiTask ν mean).correct θ).Su
   simp only [correct_baiTask, Set.mem_ofPred_eq] at ha ha'
   exact lt_asymm (ha a' (Ne.symm h)) (ha' a h)
 
+/-- The arm `a` is the only best arm of `θ` iff every other arm `b` has `mean θ b < mean θ a`. -/
+lemma correct_baiTask_eq_singleton_iff {a : α} :
+    (baiTask ν mean).correct θ = {a} ↔ ∀ b ≠ a, mean θ b < mean θ a :=
+  ⟨fun h ↦ by simpa using h.symm.subset (Set.mem_singleton a),
+    fun h ↦ (subsingleton_correct_baiTask ν mean θ).eq_singleton_of_mem h⟩
+
 /-- Best arm identification is a single-answer task: every model with a unique best arm has
 exactly one correct answer, its best arm. -/
 lemma isSingleAnswer_baiTask : (baiTask ν mean).IsSingleAnswer := by
   refine (IdentTask.isSingleAnswer_iff _).2 ?_
   rintro θ ⟨a, ha⟩
-  exact ⟨a, (subsingleton_correct_baiTask ν mean θ).eq_singleton_of_mem ha⟩
+  exact ⟨a, (correct_baiTask_eq_singleton_iff ν mean).2 ha⟩
 
 /-! ### `ε`-best arm identification -/
 
