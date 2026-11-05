@@ -114,13 +114,18 @@ theorem eq_prod_smul_add_sum_learningRateWeight_smul {η : ℕ → R} {x y : ℕ
     module
 
 /-- The weights of the targets add up to `1 - ∏_{j=1}^t (1 - η j)`, the complement of the weight of
-the initial value. This is `Finset.prod_one_sub_ordered` with the order of the factors reversed. -/
+the initial value. This is `Finset.prod_one_sub_ordered'` on `Icc 1 t`, with
+`{j ∈ Icc 1 t | i < j}` rewritten to `Ioc i t`. -/
 theorem sum_learningRateWeight (η : ℕ → R) (t : ℕ) :
     ∑ i ∈ Icc 1 t, learningRateWeight η t i = 1 - ∏ j ∈ Icc 1 t, (1 - η j) := by
-  have h := eq_prod_smul_add_sum_learningRateWeight_smul (η := η) (x := fun _ ↦ (1 : R))
-    (y := fun _ ↦ 1) (fun _ ↦ by simp) t
-  simp only [smul_eq_mul, mul_one] at h
-  exact eq_sub_of_add_eq' h.symm
+  rw [prod_one_sub_ordered', sub_sub_cancel]
+  refine sum_congr rfl fun i hi ↦ ?_
+  rw [learningRateWeight_def]
+  congr 2
+  ext j
+  simp only [mem_filter, mem_Icc, mem_Ioc]
+  have := (mem_Icc.1 hi).1
+  omega
 
 /-- The weights are nonnegative when the learning rates lie in `[0, 1]`. -/
 theorem learningRateWeight_nonneg {R : Type*} [CommRing R] [PartialOrder R] [IsOrderedRing R]
