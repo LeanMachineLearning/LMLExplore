@@ -5,6 +5,7 @@ Authors: Rémy Degenne
 -/
 module
 
+public import LMLExplore.Identification.ConfidenceBound
 public import LMLExplore.Identification.Task.MeanVector
 public import LMLExplore.MeasureTheory.Order.MeasurableArg
 public import LMLExplore.SequentialLearning.SubGaussianDeviation
@@ -42,8 +43,6 @@ In the namespace `LMLExplore.Identification`:
   `ucb`, after `n` rounds with history `h`.
 * `lucb alg lcb ucb hlcb hucb ε m`: LUCB with sampling rule `alg` and confidence bounds `lcb` and
   `ucb`, as an identification algorithm.
-* `LUCB.lowerBound β`, `LUCB.upperBound β`: the confidence bounds `μ̂_a ∓ β(N_a, n)` with
-  exploration rate `β`.
 
 ## Main statements
 
@@ -88,48 +87,6 @@ open scoped ENNReal NNReal
 namespace LMLExplore.Identification
 
 variable {α : Type*}
-
-/-! ### Confidence bounds from an exploration rate -/
-
-namespace LUCB
-
-section Bounds
-
-variable [DecidableEq α]
-
-/-- The lower confidence bound `μ̂_a - β(N_a, n)` of LUCB with exploration rate `β`
-[KTAS12, Section 3.1], after `n` rounds with history `h`, where `N_a` and `μ̂_a` are the number of
-pulls and the empirical mean of the arm `a`. -/
-noncomputable def lowerBound (β : ℕ → ℕ → ℝ) (n : ℕ) (h : Hist Unit α ℝ n) (a : α) : ℝ :=
-  empMean' n h a - β (pullCount' n h a) n
-
-lemma lowerBound_def (β : ℕ → ℕ → ℝ) (n : ℕ) (h : Hist Unit α ℝ n) (a : α) :
-    lowerBound β n h a = empMean' n h a - β (pullCount' n h a) n := (rfl)
-
-/-- The upper confidence bound `μ̂_a + β(N_a, n)` of LUCB with exploration rate `β`
-[KTAS12, Section 3.1], after `n` rounds with history `h`, where `N_a` and `μ̂_a` are the number of
-pulls and the empirical mean of the arm `a`. -/
-noncomputable def upperBound (β : ℕ → ℕ → ℝ) (n : ℕ) (h : Hist Unit α ℝ n) (a : α) : ℝ :=
-  empMean' n h a + β (pullCount' n h a) n
-
-lemma upperBound_def (β : ℕ → ℕ → ℝ) (n : ℕ) (h : Hist Unit α ℝ n) (a : α) :
-    upperBound β n h a = empMean' n h a + β (pullCount' n h a) n := (rfl)
-
-variable [MeasurableSpace α] [MeasurableSingletonClass α]
-
-lemma measurable_lowerBound (β : ℕ → ℕ → ℝ) (n : ℕ) (a : α) :
-    Measurable fun h : Hist Unit α ℝ n ↦ lowerBound β n h a :=
-  (measurable_empMean' n a).sub
-    ((measurable_of_countable fun u ↦ β u n).comp (measurable_pullCount' n a))
-
-lemma measurable_upperBound (β : ℕ → ℕ → ℝ) (n : ℕ) (a : α) :
-    Measurable fun h : Hist Unit α ℝ n ↦ upperBound β n h a :=
-  (measurable_empMean' n a).add
-    ((measurable_of_countable fun u ↦ β u n).comp (measurable_pullCount' n a))
-
-end Bounds
-
-end LUCB
 
 variable [Fintype α] [DecidableEq α] [Nonempty α]
 
@@ -329,13 +286,13 @@ variable (alg) in
 tolerance `ε` and `m` arms to select: LUCB with the confidence bounds `μ̂_a ∓ β(N_a, n)` after `n`
 rounds, where `N_a` and `μ̂_a` are the number of pulls and the empirical mean of the arm `a`. -/
 noncomputable def lucbOfRate (β : ℕ → ℕ → ℝ) (ε : ℝ) (m : ℕ) : IdentAlg Unit α ℝ (Finset α) :=
-  lucb alg (LUCB.lowerBound β) (LUCB.upperBound β) (LUCB.measurable_lowerBound β)
-    (LUCB.measurable_upperBound β) ε m
+  lucb alg (lowerBound β) (upperBound β) (measurable_lowerBound β)
+    (measurable_upperBound β) ε m
 
 variable (alg) in
 lemma lucbOfRate_def (β : ℕ → ℕ → ℝ) (ε : ℝ) (m : ℕ) :
-    lucbOfRate alg β ε m = lucb alg (LUCB.lowerBound β) (LUCB.upperBound β)
-      (LUCB.measurable_lowerBound β) (LUCB.measurable_upperBound β) ε m := (rfl)
+    lucbOfRate alg β ε m = lucb alg (lowerBound β) (upperBound β)
+      (measurable_lowerBound β) (measurable_upperBound β) ε m := (rfl)
 
 end Rate
 
@@ -364,12 +321,12 @@ theorem measureReal_histOutputMeasure_lucbOfRate_le_of_hasSubgaussianMGF
   · refine le_trans (measureReal_mono fun ω hω ↦ ?_)
       (measureReal_exists_empMean_add_lt_le_tsum hseq a (hν a) hβ hsum)
     obtain ⟨n, hn, h⟩ := hω
-    rw [LUCB.upperBound_def, ← empMean_eq_empMean', ← pullCount_eq_pullCount'] at h
+    rw [upperBound_def, ← empMean_eq_empMean', ← pullCount_eq_pullCount'] at h
     exact ⟨n, hn, h⟩
   · refine le_trans (measureReal_mono fun ω hω ↦ ?_)
       (measureReal_exists_lt_empMean_sub_le_tsum hseq a (hν a) hβ hsum)
     obtain ⟨n, hn, h⟩ := hω
-    rw [LUCB.lowerBound_def, ← empMean_eq_empMean', ← pullCount_eq_pullCount'] at h
+    rw [lowerBound_def, ← empMean_eq_empMean', ← pullCount_eq_pullCount'] at h
     exact ⟨n, hn, h⟩
   · have hK : (0 : ℝ) < Fintype.card α := Nat.cast_pos.2 Fintype.card_pos
     rwa [← le_div_iff₀' hK]

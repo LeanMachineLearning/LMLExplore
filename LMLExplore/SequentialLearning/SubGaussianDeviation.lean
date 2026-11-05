@@ -42,6 +42,11 @@ pulls `N_a` and on the round `n`, as in the stopping rule of LUCB [KTAS12], a un
 rounds and the numbers of pulls, with Hoeffding's inequality for each number of pulls, bounds the
 probability that the arm leaves its interval on one side at some round.
 
+## Main definitions
+
+* `LMLExplore.subgaussianRate σ2 y`: the time-uniform exploration rate
+  `√(2 σ² (log (2 u (u + 1)) + y) / u)` after `u` pulls of a σ²-sub-Gaussian arm.
+
 ## Main statements
 
 * `LMLExplore.streamMeasure_le_sq_div_le`: for a σ²-sub-Gaussian arm and `s ≠ 0` rewards in the
@@ -61,6 +66,12 @@ probability that the arm leaves its interval on one side at some round.
   side at some round `n` is at most `∑_n ∑_{u = 1}^n exp (-u β(u, n)² / (2 σ²))`, for any
   exploration rate `β ≥ 0` depending on the number of pulls `N_a` and the round `n`. These are the
   deviation bounds of the stopping rule of LUCB [KTAS12, Theorem 1].
+* `LMLExplore.measureReal_exists_subgaussianRate_lt_abs_empMean_sub_le`: [LS, Lemma 33.8] along a
+  run of any algorithm: a σ²-sub-Gaussian arm leaves the confidence interval
+  `μ̂_a ∓ √(2 σ² (log (2 N_a (N_a + 1)) + y) / N_a)` (`subgaussianRate`) at some round with
+  probability at most `exp (-y)`.
+* `LMLExplore.measureReal_exists_exists_subgaussianRate_lt_abs_empMean_sub_le`: the same for all
+  the `K` arms at once, with `y = log (K / δ)` and probability at most `δ`.
 
 ## References
 
@@ -292,6 +303,82 @@ theorem measureReal_exists_lt_empMean_sub_le_tsum
   · congr 2
     field_simp
 
+/-- The time-uniform exploration rate `√(2 σ² (log (2 u (u + 1)) + y) / u)` after `u` pulls of a
+σ²-sub-Gaussian arm [LS, Lemma 33.8]: the empirical mean of the arm stays within this rate of its
+mean at all rounds with probability at least `1 - exp (-y)`
+(`measureReal_exists_subgaussianRate_lt_abs_empMean_sub_le`). -/
+noncomputable def subgaussianRate (σ2 : ℝ≥0) (y : ℝ) (u : ℕ) : ℝ :=
+  √(2 * σ2 * (log (2 * u * (u + 1)) + y) / u)
+
+lemma subgaussianRate_def (σ2 : ℝ≥0) (y : ℝ) (u : ℕ) :
+    subgaussianRate σ2 y u = √(2 * σ2 * (log (2 * u * (u + 1)) + y) / u) := (rfl)
+
+lemma subgaussianRate_nonneg (σ2 : ℝ≥0) (y : ℝ) (u : ℕ) : 0 ≤ subgaussianRate σ2 y u :=
+  sqrt_nonneg _
+
+open Filter Topology in
+/-- The time-uniform exploration rate tends to `0` as the number of pulls tends to infinity. -/
+lemma tendsto_subgaussianRate_atTop (σ2 : ℝ≥0) (y : ℝ) :
+    Tendsto (subgaussianRate σ2 y) atTop (𝓝 0) := by
+  have h_log : Tendsto (fun u : ℕ ↦ log (u : ℝ) / u) atTop (𝓝 0) := by
+    simpa [Function.comp_def] using (tendsto_pow_log_div_mul_add_atTop 1 0 1 one_ne_zero).comp
+      tendsto_natCast_atTop_atTop
+  have h_log_succ : Tendsto (fun u : ℕ ↦ log ((u : ℝ) + 1) / u) atTop (𝓝 0) := by
+    simpa [Function.comp_def] using (tendsto_pow_log_div_mul_add_atTop 1 (-1) 1 one_ne_zero).comp
+      (tendsto_natCast_atTop_atTop.comp (tendsto_add_atTop_nat 1))
+  have h_sum := ((tendsto_const_div_atTop_nhds_zero_nat (log 2 + y)).add
+    (h_log.add h_log_succ)).const_mul (2 * (σ2 : ℝ))
+  rw [add_zero, add_zero, mul_zero] at h_sum
+  have h_sqrt := (continuous_sqrt.tendsto 0).comp h_sum
+  rw [sqrt_zero] at h_sqrt
+  refine h_sqrt.congr' ((eventually_ne_atTop 0).mono fun u hu ↦ ?_)
+  have hu' : (u : ℝ) ≠ 0 := Nat.cast_ne_zero.2 hu
+  rw [Function.comp_apply, subgaussianRate_def, log_mul (by positivity) (by positivity),
+    log_mul (by positivity) hu']
+  congr 1
+  field_simp
+  ring
+
+/-- **Time-uniform deviations of the empirical mean of a sub-Gaussian arm along a run**
+([LS, Lemma 33.8] along a run). In a run of any algorithm against `Environment.bandit ν`, if the
+arm `a` is σ²-sub-Gaussian with mean `μ_a` and `σ² ≠ 0`, then for `y ≥ 0`, the probability that at
+some round `n` the arm `a` has been pulled and its pull count `N_a(n)` and empirical mean
+`μ̂_a(n)` satisfy `√(2 σ² (log (2 N_a(n) (N_a(n) + 1)) + y) / N_a(n)) < |μ̂_a(n) - μ_a|`
+(`subgaussianRate`) is at most `exp (-y)`. -/
+theorem measureReal_exists_subgaussianRate_lt_abs_empMean_sub_le
+    (h : IsAlgEnvSeq O A R alg (Environment.bandit ν) P) (a : α) {σ2 : ℝ≥0} (hσ2 : σ2 ≠ 0)
+    (hν : HasSubgaussianMGF (fun x ↦ x - (ν a)[id]) σ2 (ν a)) {y : ℝ} (hy : 0 ≤ y) :
+    P.real {ω | ∃ n, pullCount A a n ω ≠ 0 ∧
+        subgaussianRate σ2 y (pullCount A a n ω) < |empMean A R a n ω - (ν a)[id]|} ≤
+      exp (-y) := by
+  simp only [subgaussianRate_def]
+  have hσ : (0 : ℝ) < σ2 := NNReal.coe_pos.2 (pos_iff_ne_zero.2 hσ2)
+  -- the event of the stream model at `s ≠ 0` rewards with sum `x`
+  set p : ℕ → ℝ → Prop := fun s x ↦ s ≠ 0 ∧
+    √(2 * σ2 * (log (2 * s * (s + 1)) + y) / s) < |x / s - (ν a)[id]|
+  have h_stream : streamMeasure ν {ω | ∃ s, p s (∑ i ∈ range s, ω i a)} ≤
+      streamMeasure ν {ω | ∃ s : ℕ, log (2 * s * (s + 1)) + y ≤
+        (∑ i ∈ range s, (ω i a - (ν a)[id])) ^ 2 / (2 * σ2 * s)} := by
+    refine measure_mono fun ω ⟨s, hs0, hs⟩ ↦ ⟨s, ?_⟩
+    -- the deviation `D = μ̂_s - μ_a` satisfies `2 σ² (log (2 s (s + 1)) + y) < s D²`
+    have hs' : (0 : ℝ) < s := Nat.cast_pos.2 (Nat.pos_of_ne_zero hs0)
+    set x := ∑ i ∈ range s, ω i a
+    rw [sqrt_lt' ((sqrt_nonneg _).trans_lt hs), sq_abs, div_lt_iff₀ hs'] at hs
+    have h_sum : ∑ i ∈ range s, (ω i a - (ν a)[id]) = (x / s - (ν a)[id]) * s := by
+      rw [sum_sub_distrib, sum_const, card_range, nsmul_eq_mul, sub_mul,
+        div_mul_cancel₀ _ hs'.ne', mul_comm]
+    rw [h_sum, le_div_iff₀ (by positivity)]
+    nlinarith
+  refine ENNReal.toReal_le_of_le_ofReal (exp_pos _).le ?_
+  calc P {ω | ∃ n, pullCount A a n ω ≠ 0 ∧
+        √(2 * σ2 * (log (2 * pullCount A a n ω * (pullCount A a n ω + 1)) + y) /
+          pullCount A a n ω) < |empMean A R a n ω - (ν a)[id]|}
+  _ ≤ P {ω | ∃ n, p (pullCount A a n ω) (sumRewards A R a n ω)} :=
+    measure_mono fun ω ⟨n, hn⟩ ↦ ⟨n, by rwa [empMean] at hn⟩
+  _ ≤ streamMeasure ν {ω | ∃ s, p s (∑ i ∈ range s, ω i a)} :=
+    measure_exists_pullCount_sumRewards_le h a p
+  _ ≤ ENNReal.ofReal (exp (-y)) := h_stream.trans (streamMeasure_exists_log_add_le_sq_div_le hν hy)
+
 end ExplorationRate
 
 /-! ### Runs of an algorithm -/
@@ -333,5 +420,37 @@ theorem measure_exists_card_mul_log_add_le_sum_pullCount_mul_sq_div_le
   · congr 1
     ext ω
     simp only [Set.mem_ofPred_eq, sum_sub_distrib, sum_const, card_range, nsmul_eq_mul]
+
+/-- **Time-uniform deviations of the empirical means of all the sub-Gaussian arms along a run**
+([LS, Lemma 33.8] and a union bound over the arms). In a run of any algorithm against
+`Environment.bandit ν` with σ²-sub-Gaussian arms, `σ² ≠ 0` and `0 < δ ≤ K`, with `K` the number of
+arms, the probability that at some round `n`, the empirical mean of some pulled arm `b` is not
+within `subgaussianRate σ2 (log (K / δ)) (N_b(n))` of the mean of `b` is at most `δ`. -/
+theorem measureReal_exists_exists_subgaussianRate_lt_abs_empMean_sub_le
+    (h : IsAlgEnvSeq O A R alg (Environment.bandit ν) P) {σ2 : ℝ≥0} (hσ2 : σ2 ≠ 0)
+    (hν : ∀ a, HasSubgaussianMGF (fun x ↦ x - (ν a)[id]) σ2 (ν a)) {δ : ℝ} (hδ : 0 < δ)
+    (hδK : δ ≤ Fintype.card α) :
+    P.real {ω | ∃ n b, pullCount A b n ω ≠ 0 ∧
+      subgaussianRate σ2 (log (Fintype.card α / δ)) (pullCount A b n ω) <
+        |empMean A R b n ω - (ν b)[id]|} ≤ δ := by
+  have hy : 0 ≤ log (Fintype.card α / δ) := log_nonneg ((one_le_div hδ).2 hδK)
+  calc P.real {ω | ∃ n b, pullCount A b n ω ≠ 0 ∧
+      subgaussianRate σ2 (log (Fintype.card α / δ)) (pullCount A b n ω) <
+        |empMean A R b n ω - (ν b)[id]|}
+  _ ≤ P.real (⋃ b ∈ (univ : Finset α), {ω | ∃ n, pullCount A b n ω ≠ 0 ∧
+      subgaussianRate σ2 (log (Fintype.card α / δ)) (pullCount A b n ω) <
+        |empMean A R b n ω - (ν b)[id]|}) :=
+    measureReal_mono (fun ω ⟨n, b, hb⟩ ↦ Set.mem_biUnion (mem_univ b) ⟨n, hb⟩)
+      (measure_ne_top _ _)
+  _ ≤ ∑ b, P.real {ω | ∃ n, pullCount A b n ω ≠ 0 ∧
+      subgaussianRate σ2 (log (Fintype.card α / δ)) (pullCount A b n ω) <
+        |empMean A R b n ω - (ν b)[id]|} :=
+    measureReal_biUnion_finset_le _ _
+  _ ≤ ∑ _b : α, exp (-log (Fintype.card α / δ)) :=
+    sum_le_sum fun b _ ↦ measureReal_exists_subgaussianRate_lt_abs_empMean_sub_le h b hσ2 (hν b) hy
+  _ = δ := by
+    have hK : (0 : ℝ) < Fintype.card α := hδ.trans_le hδK
+    rw [sum_const, card_univ, nsmul_eq_mul, exp_neg, exp_log (by positivity)]
+    field_simp
 
 end LMLExplore

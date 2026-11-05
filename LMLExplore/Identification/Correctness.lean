@@ -36,7 +36,9 @@ property comes with a statement about every run of the algorithm (`Learning.Iden
   probability of stopping with an output outside `s` is given by `histOutputMeasure A env`.
 * `LMLExplore.Identification.measureReal_histOutputMeasure_ofStop_deterministic_le`: an algorithm
   built by `ofStop` with a deterministic output rule `rec` stops with an output outside `s` with
-  probability at most that of the event `∃ n, stop n hₙ ∧ rec n hₙ ∉ s`.
+  probability at most that of the event `∃ n, stop n hₙ ∧ rec n hₙ ∉ s`, and
+  `LMLExplore.Identification.measureReal_histOutputMeasure_ofStop_deterministic_notMem_or_le`
+  bounds in the same way the probability that it does not stop or stops with such an output.
 * `LMLExplore.Identification.stopsAS_iff_ae_stoppingTime_ne_top`: `A` stops almost surely iff its
   stopping time is almost surely finite along any algorithm-environment sequence of its sampling
   rule.
@@ -140,35 +142,85 @@ namespace LMLExplore.Identification
 
 /-! ### Algorithms with a deterministic output rule -/
 
-/-- **Stopping with a wrong deterministic output.** Let an algorithm stop after `n` rounds with
+section Deterministic
+
+variable [IsProbabilityMeasure P] {alg : Algorithm 𝓞 𝓐 𝓨} {stop : (n : ℕ) → Hist 𝓞 𝓐 𝓨 n → Prop}
+  {hstop : ∀ n, MeasurableSet {h | stop n h}} {rec : (n : ℕ) → Hist 𝓞 𝓐 𝓨 n → 𝓓}
+  {hrec : ∀ n, Measurable (rec n)} {env : Environment 𝓞 𝓐 𝓨}
+
+/-- **The joint law for a deterministic output rule.** Let an algorithm stop after `n` rounds with
 history `h` if `stop n h` holds, and then output `rec n h`. Along any algorithm-environment
-sequence of its sampling rule, the probability that it stops with an output outside `s` is at most
-the probability that at some round `n`, the stopping rule holds and `rec n hₙ ∉ s`. -/
-theorem measureReal_histOutputMeasure_ofStop_deterministic_le [IsProbabilityMeasure P]
-    {alg : Algorithm 𝓞 𝓐 𝓨} {stop : (n : ℕ) → Hist 𝓞 𝓐 𝓨 n → Prop}
-    {hstop : ∀ n, MeasurableSet {h | stop n h}} {rec : (n : ℕ) → Hist 𝓞 𝓐 𝓨 n → 𝓓}
-    {hrec : ∀ n, Measurable (rec n)} {env : Environment 𝓞 𝓐 𝓨}
-    (hseq : IsAlgEnvSeq O X Y alg env P) {s : Set 𝓓} (hs : MeasurableSet s) :
+sequence of its sampling rule, the joint law of the stopped history `h` and the output gives to a
+measurable set `S` the probability that `(h, rec h) ∈ S`. -/
+lemma measureReal_histOutputMeasure_ofStop_deterministic_eq
+    (hseq : IsAlgEnvSeq O X Y alg env P)
+    {S : Set ((Σ n, Hist 𝓞 𝓐 𝓨 n) × 𝓓)} (hS : MeasurableSet S) :
     (histOutputMeasure (ofStop alg stop hstop fun n ↦ Kernel.deterministic (rec n) (hrec n))
-        env).real {p | p.1 ∈ (ofStop alg stop hstop fun n ↦
-          Kernel.deterministic (rec n) (hrec n)).stopSet ∧ p.2 ∉ s} ≤
-      P.real {ω | ∃ n, stop n (history O X Y n ω) ∧ rec n (history O X Y n ω) ∉ s} := by
+        env).real S =
+      P.real {ω | ((ofStop alg stop hstop fun n ↦ Kernel.deterministic (rec n) (hrec n)).stoppedHist
+          O X Y ω, rec _ ((ofStop alg stop hstop fun n ↦
+            Kernel.deterministic (rec n) (hrec n)).stoppedHist O X Y ω).2) ∈ S} := by
   set A := ofStop alg stop hstop fun n ↦ Kernel.deterministic (rec n) (hrec n)
   have hg : Measurable fun h : Σ n, Hist 𝓞 𝓐 𝓨 n ↦ (h, rec h.1 h.2) :=
     measurable_id.prodMk (measurable_sigma hrec)
-  have hS := A.measurableSet_mem_stopSet_and_notMem hs
   have h_alg : A.alg = alg := alg_ofStop _ _ _ _
   have h_law : HasLaw (A.stoppedHist O X Y) (stoppedHistMeasure A.alg env A.stopSet) P :=
     (h_alg ▸ hseq).hasLaw_stoppedValue_sigmaHistory A.measurableSet_stopSet
   rw [histOutputMeasure_def, output_ofStop_deterministic, Measure.compProd_deterministic,
     map_measureReal_apply hg hS, ← h_law.map_eq,
     map_measureReal_apply_of_aemeasurable h_law.aemeasurable (hg hS)]
+  rfl
+
+/-- **Stopping with a wrong deterministic output.** Let an algorithm stop after `n` rounds with
+history `h` if `stop n h` holds, and then output `rec n h`. Along any algorithm-environment
+sequence of its sampling rule, the probability that it stops with an output outside `s` is at most
+the probability that at some round `n`, the stopping rule holds and `rec n hₙ ∉ s`. -/
+theorem measureReal_histOutputMeasure_ofStop_deterministic_le (hseq : IsAlgEnvSeq O X Y alg env P)
+    {s : Set 𝓓} (hs : MeasurableSet s) :
+    (histOutputMeasure (ofStop alg stop hstop fun n ↦ Kernel.deterministic (rec n) (hrec n))
+        env).real {p | p.1 ∈ (ofStop alg stop hstop fun n ↦
+          Kernel.deterministic (rec n) (hrec n)).stopSet ∧ p.2 ∉ s} ≤
+      P.real {ω | ∃ n, stop n (history O X Y n ω) ∧ rec n (history O X Y n ω) ∉ s} := by
+  set A := ofStop alg stop hstop fun n ↦ Kernel.deterministic (rec n) (hrec n)
+  rw [measureReal_histOutputMeasure_ofStop_deterministic_eq hseq
+    (A.measurableSet_mem_stopSet_and_notMem hs)]
   -- The stopped history is the history of the first `n` rounds, for `n` the stopping time.
   refine measureReal_mono fun ω ⟨hω_stop, hω_wrong⟩ ↦ ?_
   obtain ⟨n, hn⟩ := WithTop.ne_top_iff_exists.1 (IdentAlg.stoppedHist_mem_stopSet_iff.1 hω_stop)
   rw [IdentAlg.stoppedHist_eq_of_stoppingTime_eq hn.symm] at hω_stop hω_wrong
+  exact ⟨n, (mem_stopSet_ofStop _ _ _ _).1 hω_stop, hω_wrong⟩
+
+/-- **Not stopping, or stopping with a wrong deterministic output.** Let an algorithm stop after
+`n` rounds with history `h` if `stop n h` holds, and then output `rec n h`. Along any
+algorithm-environment sequence of its sampling rule, the probability that it does not stop or
+stops with an output outside `s` is at most the probability that the stopping rule never holds or
+that at some round `n`, the stopping rule holds and `rec n hₙ ∉ s`. -/
+theorem measureReal_histOutputMeasure_ofStop_deterministic_notMem_or_le
+    (hseq : IsAlgEnvSeq O X Y alg env P) {s : Set 𝓓} (hs : MeasurableSet s) :
+    (histOutputMeasure (ofStop alg stop hstop fun n ↦ Kernel.deterministic (rec n) (hrec n))
+        env).real {p | p.1 ∉ (ofStop alg stop hstop fun n ↦
+          Kernel.deterministic (rec n) (hrec n)).stopSet ∨ p.2 ∉ s} ≤
+      P.real {ω | (∀ n, ¬ stop n (history O X Y n ω)) ∨
+        ∃ n, stop n (history O X Y n ω) ∧ rec n (history O X Y n ω) ∉ s} := by
+  refine (measureReal_histOutputMeasure_ofStop_deterministic_eq hseq ?_).trans_le ?_
+  · exact (measurable_fst (IdentAlg.measurableSet_stopSet _).compl).union (measurable_snd hs.compl)
+  set A := ofStop alg stop hstop fun n ↦ Kernel.deterministic (rec n) (hrec n)
+  refine measureReal_mono fun ω hω ↦ ?_
   have h_mem : ∀ h, h ∈ A.stopSet ↔ stop h.1 h.2 := fun _ ↦ mem_stopSet_ofStop _ _ _ _
-  exact ⟨n, (h_mem _).1 hω_stop, hω_wrong⟩
+  by_cases hτ : A.stoppingTime O X Y ω = ⊤
+  · -- The stopping rule never holds.
+    exact Or.inl fun n hn ↦ IdentAlg.stoppingTime_eq_top_iff.1 hτ n ((h_mem _).2 hn)
+  · -- The stopped history is the history of the first `n` rounds, for `n` the stopping time.
+    obtain ⟨n, hn⟩ := WithTop.ne_top_iff_exists.1 hτ
+    have h_stop := IdentAlg.stoppedHist_mem_stopSet_iff.2 hτ
+    simp only [Set.mem_ofPred_eq] at hω
+    -- The output depends on the stopped history as a dependent pair: generalize before rewriting.
+    generalize hH : A.stoppedHist O X Y ω = H at h_stop hω
+    rw [IdentAlg.stoppedHist_eq_of_stoppingTime_eq hn.symm] at hH
+    subst hH
+    exact Or.inr ⟨n, (h_mem _).1 h_stop, hω.resolve_left (not_not.2 h_stop)⟩
+
+end Deterministic
 
 /-! ### Stopping almost surely -/
 
