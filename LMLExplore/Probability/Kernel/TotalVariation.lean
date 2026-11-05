@@ -11,6 +11,7 @@ public import LMLExplore.MeasureTheory.Measure.TotalVariation.Basic
 import Mathlib.MeasureTheory.Integral.IntegrableOn
 import Mathlib.MeasureTheory.Measure.TotalVariation.Basic
 import Mathlib.Probability.Kernel.Composition.MeasureComp
+import Mathlib.Probability.Kernel.Integral
 
 /-!
 # Total variation distance under Markov kernels
@@ -91,15 +92,12 @@ theorem tvDist_comp_right_le [IsFiniteMeasure μ] [IsFiniteMeasure ν] (κ : Ker
     constructor <;> linarith [measureReal_nonneg (μ := κ x) (s := s),
       measureReal_nonneg (μ := κ x) (s := sᶜ), measureReal_le_one (μ := κ x) (s := s),
       measureReal_le_one (μ := κ x) (s := sᶜ)]
-  have hint (ρ : Measure α) [IsFiniteMeasure ρ] {t : Set β} (ht : MeasurableSet t) :
-      Integrable (fun x ↦ (κ x).real t) ρ :=
-    Integrable.of_bound (κ.measurable_coe ht).ennreal_toReal.aestronglyMeasurable 1
-      (ae_of_all _ fun x ↦ by
-        rw [Real.norm_of_nonneg measureReal_nonneg]; exact measureReal_le_one)
   have h := norm_integral_sub_integral_le_mul_tvDist hf.aestronglyMeasurable
     hf.aestronglyMeasurable (ae_of_all μ hf1) (ae_of_all ν hf1)
-  rw [integral_sub (hint μ hm.compl) (hint μ hm), integral_sub (hint ν hm.compl) (hint ν hm),
-    one_mul, Real.norm_eq_abs] at h
+  rw [integral_sub (Kernel.IsMarkovKernel.integrable μ κ hm.compl)
+      (Kernel.IsMarkovKernel.integrable μ κ hm),
+    integral_sub (Kernel.IsMarkovKernel.integrable ν κ hm.compl)
+      (Kernel.IsMarkovKernel.integrable ν κ hm), one_mul, Real.norm_eq_abs] at h
   rw [hs.tvDist_eq, Measure.measureReal_bind_eq_integral κ hm,
     Measure.measureReal_bind_eq_integral κ hm, Measure.measureReal_bind_eq_integral κ hm.compl,
     Measure.measureReal_bind_eq_integral κ hm.compl]
