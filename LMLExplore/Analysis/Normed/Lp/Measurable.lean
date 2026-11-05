@@ -10,6 +10,8 @@ public import LMLExplore.Analysis.Normed.Lp.Order
 public import Mathlib.MeasureTheory.Constructions.BorelSpace.Metrizable
 public import Mathlib.Topology.Algebra.Algebra
 
+import LMLExplore.Order.ConditionallyCompleteLattice.Group
+
 /-!
 # Bounded measurable functions
 
@@ -39,6 +41,9 @@ convergence and a pointwise limit of measurable functions is measurable.
 * `LMLExplore.boundedMeasurable.orderUnitNorm_one_eq_norm`: for the pointwise order, the
   order-unit norm of the constant `1` is the sup norm, so that maps satisfying Blackwell's
   conditions for `1` are contractions of `boundedMeasurable α` (`LMLExplore.IsBlackwell`).
+* `LMLExplore.boundedMeasurable.sub_apply_le_orderUnitOsc_one`,
+  `LMLExplore.boundedMeasurable.orderUnitOsc_one_le_of_forall_sub_le`: the oscillation of `f` for
+  `1` is the least bound on the differences `f x - f y`.
 -/
 
 public section
@@ -228,6 +233,27 @@ theorem orderUnitNorm_one_eq_norm (f : boundedMeasurable α) : orderUnitNorm 1 f
 /-- The constant function `1` is an order unit of the bounded measurable functions. -/
 theorem isOrderUnit_one : IsOrderUnit (1 : boundedMeasurable α) :=
   isOrderUnit_of_forall_orderUnitNorm_eq_norm orderUnitNorm_one_eq_norm
+
+/-- The values of a bounded measurable function differ by at most its oscillation for the
+constant function `1`. -/
+theorem sub_apply_le_orderUnitOsc_one (f : boundedMeasurable α) (x y : α) :
+    (f : ℓ^∞(α, ℝ)) x - (f : ℓ^∞(α, ℝ)) y ≤ orderUnitOsc 1 f := by
+  refine le_orderUnitOsc isOrderUnit_one fun d _ a hf ↦ ?_
+  have hy := le_def.1 hf.1 y
+  have hx := le_def.1 hf.2 x
+  simp only [coeFn_smul, coeFn_one, Pi.smul_apply, Pi.one_apply, smul_eq_mul, mul_one] at hx hy
+  linarith
+
+/-- If the values of a bounded measurable function differ by at most `c ≥ 0`, its oscillation for
+the constant function `1` is at most `c`. -/
+theorem orderUnitOsc_one_le_of_forall_sub_le {f : boundedMeasurable α} {c : ℝ} (hc : 0 ≤ c)
+    (h : ∀ x y, (f : ℓ^∞(α, ℝ)) x - (f : ℓ^∞(α, ℝ)) y ≤ c) : orderUnitOsc 1 f ≤ c := by
+  -- `f` takes values in `[a, a + c]` with `a` its infimum
+  refine orderUnitOsc_le (a := ⨅ x, (f : ℓ^∞(α, ℝ)) x) hc
+    ⟨le_def.2 fun x ↦ ?_, le_def.2 fun x ↦ ?_⟩ <;>
+    simp only [coeFn_smul, coeFn_one, Pi.smul_apply, Pi.one_apply, smul_eq_mul, mul_one]
+  · exact (mem_Icc_ciInf_of_forall_sub_le h x).1
+  · exact (mem_Icc_ciInf_of_forall_sub_le h x).2
 
 end boundedMeasurable
 

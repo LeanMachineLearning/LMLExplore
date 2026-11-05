@@ -11,6 +11,7 @@ public import Mathlib.MeasureTheory.Measure.TotalVariation.Defs
 import Mathlib.MeasureTheory.Integral.Bochner.Set
 import Mathlib.MeasureTheory.Integral.IntegrableOn
 import Mathlib.MeasureTheory.VectorMeasure.Integral
+import LMLExplore.Order.ConditionallyCompleteLattice.Group
 import TauCeti.MeasureTheory.Measure.TotalVariation
 
 /-!
@@ -42,7 +43,9 @@ contraction of the oscillation of functions by a Markov kernel (Dobrushin's coef
   normed space.
 * `MeasureTheory.abs_integral_sub_integral_le_mul_tvDist_of_mem_Icc`: for measures of the same
   mass and `f` with values in `[a, b]` almost everywhere,
-  `|∫ f dμ - ∫ f dν| ≤ (b - a) / 2 * tvDist μ ν`.
+  `|∫ f dμ - ∫ f dν| ≤ (b - a) / 2 * tvDist μ ν`, and
+  `MeasureTheory.abs_integral_sub_integral_le_mul_tvDist_of_forall_sub_le` its form for `f` whose
+  values differ by at most `c`.
 * `MeasureTheory.abs_measureReal_sub_measureReal_le_tvDist_div_two`,
   `MeasureTheory.tvDist_le_two_mul_of_forall_measureReal_le_add`: for measures of the same mass,
   the total variation distance bounds the difference of the masses of every event, and eventwise
@@ -132,6 +135,19 @@ theorem abs_integral_sub_integral_le_mul_tvDist_of_mem_Icc [IsFiniteMeasure μ]
   rw [integral_sub (Integrable.of_bound hfμ _ (hfμ'.mono fun _ ↦ hB)) (integrable_const _),
     integral_sub (Integrable.of_bound hfν _ (hfν'.mono fun _ ↦ hB)) (integrable_const _)] at h
   simpa [measureReal_def, hμν] using h
+
+/-- **Integrals against measures of the same mass close in total variation**, oscillation form:
+for finite measures `μ` and `ν` of the same mass and a real function `f` whose values differ by at
+most `c`, `|∫ f dμ - ∫ f dν| ≤ c / 2 * tvDist μ ν`. -/
+theorem abs_integral_sub_integral_le_mul_tvDist_of_forall_sub_le [IsFiniteMeasure μ]
+    [IsFiniteMeasure ν] (hμν : μ univ = ν univ) {f : 𝓧 → ℝ} {c : ℝ}
+    (hfμ : AEStronglyMeasurable f μ) (hfν : AEStronglyMeasurable f ν)
+    (hf : ∀ x y, f x - f y ≤ c) :
+    |∫ x, f x ∂μ - ∫ x, f x ∂ν| ≤ c / 2 * tvDist μ ν := by
+  -- `f` takes values in `[a, a + c]` with `a` its infimum
+  have hmem := mem_Icc_ciInf_of_forall_sub_le hf
+  simpa using abs_integral_sub_integral_le_mul_tvDist_of_mem_Icc hμν hfμ hfν
+    (ae_of_all _ hmem) (ae_of_all _ hmem)
 
 /-! ### Eventwise bounds -/
 
