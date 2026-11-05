@@ -48,7 +48,9 @@ norm, whose dual norm is the sup norm.
 * `ftrl_regret_le_of_strongConvexOn`: [LS, Corollary 28.8]. For an `m`-strongly convex potential
   with respect to the norm of `E`, the regret is at most
   `(F u - F (a 0)) / η + η / (2 m) ∑ t < n, ‖y t‖ ^ 2`, with `‖y t‖` the operator norm. Its
-  stability step `sum_apply_sub_sub_bregDiv_le_of_strongConvexOn` also serves mirror descent.
+  stability step `sum_apply_sub_sub_bregDiv_le_of_strongConvexOn` also serves mirror descent. It
+  follows from `sum_apply_sub_sub_bregDiv_le_of_mul_norm_sq_le`, which allows a strong convexity
+  modulus that changes over the rounds.
 * `exists_ftrl`: on a nonempty compact set, FTRL with a potential continuous on that set has
   plays.
 * `ftrl_regret_le_sqrt_of_closedBall`: [LS, Proposition 28.6] for FTRL. On the closed unit ball
@@ -182,6 +184,45 @@ theorem ftrl_regret_le {F : E → ℝ} (hK : Convex ℝ K) {η : ℝ} (hη : 0 <
     rw [sum_sub_distrib, sum_div, sub_div]
     ring
 
+/-- **Stability of one round.** Let `m > 0` and `η > 0`. If `D` dominates `m / 2 * ‖b - a‖ ^ 2`,
+then `y (a - b) - D / η ≤ η / (2 m) * ‖y‖ ^ 2`, where `‖y‖` is the operator norm of the loss, the
+dual norm of the norm of `E`. With `D = D_F(b, a)` the Bregman divergence of a potential `F`, this
+bounds the stability term of a round of FTRL or mirror descent [LS, Corollary 28.8]; the
+modulus `m` may depend on the base point `a`. -/
+lemma apply_sub_sub_div_le_of_mul_norm_sq_le {m η D : ℝ} (hm : 0 < m) (hη : 0 < η)
+    (y : E →L[ℝ] ℝ) {a b : E} (h : m / 2 * ‖b - a‖ ^ 2 ≤ D) :
+    y (a - b) - D / η ≤ η / (2 * m) * ‖y‖ ^ 2 := by
+  have h_apply : y (a - b) ≤ ‖b - a‖ * ‖y‖ := by
+    rw [norm_sub_rev, mul_comm]
+    exact (Real.le_norm_self _).trans (y.le_opNorm _)
+  -- `x z - m x² / (2 η) ≤ η z² / (2 m)`, a square completion
+  set x := ‖b - a‖
+  set z := ‖y‖
+  have h_sq : η / (2 * m) * z ^ 2 - (x * z - m / 2 * x ^ 2 / η) =
+      (m * x - η * z) ^ 2 / (2 * m * η) := by
+    field_simp
+    ring
+  have h_nonneg : 0 ≤ (m * x - η * z) ^ 2 / (2 * m * η) := by positivity
+  have h_div := div_le_div_of_nonneg_right h hη.le
+  linarith
+
+/-- **Stability terms for a local strong convexity modulus.** Let `η > 0` and, for `t < n`, let
+`m t > 0` be such that the Bregman divergence `D_F(a (t + 1), a t)` dominates
+`m t / 2 * ‖a (t + 1) - a t‖ ^ 2`. Then
+`∑ t < n, y t (a t - a (t + 1)) - (∑ t < n, D_F(a (t + 1), a t)) / η
+  ≤ ∑ t < n, η / (2 m t) * ‖y t‖ ^ 2`,
+where `‖y t‖` is the operator norm of the loss, the dual norm of the norm of `E`. -/
+theorem sum_apply_sub_sub_bregDiv_le_of_mul_norm_sq_le {F : E → ℝ} {η : ℝ} (hη : 0 < η)
+    (y : ℕ → E →L[ℝ] ℝ) (a : ℕ → E) (F' : ℕ → E →L[ℝ] ℝ) {m : ℕ → ℝ} (hm : ∀ t < n, 0 < m t)
+    (h : ∀ t < n, m t / 2 * ‖a (t + 1) - a t‖ ^ 2 ≤ bregDiv F (a (t + 1)) (a t) (F' t)) :
+    ∑ t ∈ range n, y t (a t - a (t + 1)) -
+        (∑ t ∈ range n, bregDiv F (a (t + 1)) (a t) (F' t)) / η ≤
+      ∑ t ∈ range n, η / (2 * m t) * ‖y t‖ ^ 2 := by
+  rw [sum_div, ← sum_sub_distrib]
+  refine sum_le_sum fun t ht ↦ ?_
+  have ht' := mem_range.mp ht
+  exact apply_sub_sub_div_le_of_mul_norm_sq_le (hm t ht') hη (y t) (h t ht')
+
 /-- **Stability terms for a strongly convex potential**, the step shared by FTRL and mirror
 descent in [LS, Corollary 28.8]. Let `F` be `m`-strongly convex on `K` for the norm of `E`, with
 `m > 0`, let `η > 0`, let `a t ∈ K` for `t ≤ n`, and let `F` have derivative `F' t` within `K` at
@@ -197,27 +238,11 @@ theorem sum_apply_sub_sub_bregDiv_le_of_strongConvexOn {F : E → ℝ} {m : ℝ}
     ∑ t ∈ range n, y t (a t - a (t + 1)) -
         (∑ t ∈ range n, bregDiv F (a (t + 1)) (a t) (F' t)) / η ≤
       η / (2 * m) * ∑ t ∈ range n, ‖y t‖ ^ 2 := by
-  rw [sum_div, ← sum_sub_distrib, mul_sum]
-  refine sum_le_sum fun t ht ↦ ?_
-  have ht' := mem_range.mp ht
+  rw [mul_sum]
+  refine sum_apply_sub_sub_bregDiv_le_of_mul_norm_sq_le hη y a F' (fun _ _ ↦ hm) fun t ht ↦ ?_
   -- the Bregman divergence of `F` is at least `m / 2` times the squared distance
-  have h_breg : m / 2 * ‖a (t + 1) - a t‖ ^ 2 ≤ bregDiv F (a (t + 1)) (a t) (F' t) := by
-    have := hF.add_add_le_of_hasFDerivWithinAt (ha t ht'.le) (ha (t + 1) ht') (hF' t ht')
-    simp only [bregDiv]
-    linarith
-  have h_apply : y t (a t - a (t + 1)) ≤ ‖a (t + 1) - a t‖ * ‖y t‖ := by
-    rw [norm_sub_rev, mul_comm]
-    exact (Real.le_norm_self _).trans ((y t).le_opNorm _)
-  -- `x z - m x² / (2 η) ≤ η z² / (2 m)`, a square completion
-  set x := ‖a (t + 1) - a t‖
-  set z := ‖y t‖
-  have h_sq : η / (2 * m) * z ^ 2 - (x * z - m / 2 * x ^ 2 / η) =
-      (m * x - η * z) ^ 2 / (2 * m * η) := by
-    field_simp
-    ring
-  have h_nonneg : 0 ≤ (m * x - η * z) ^ 2 / (2 * m * η) := by positivity
-  have h_div : -(bregDiv F (a (t + 1)) (a t) (F' t) / η) ≤ -(m / 2 * x ^ 2 / η) :=
-    neg_le_neg (div_le_div_of_nonneg_right h_breg hη.le)
+  have := hF.add_add_le_of_hasFDerivWithinAt (ha t ht.le) (ha (t + 1) ht) (hF' t ht)
+  simp only [bregDiv]
   linarith
 
 /-- **Regret of FTRL with a strongly convex potential** [LS, Corollary 28.8]. Under the

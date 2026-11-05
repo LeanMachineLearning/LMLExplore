@@ -43,7 +43,11 @@ the base point needs neither.
   `‖b - a‖ ^ 2 / (2 (1 - ‖a‖)) ≤ D_F(b, a)`.
 * `apply_sub_sub_bregDiv_unitBallPotential_div_le`: the stability term
   `y (a - b) - D_F(b, a) / η` is at most `η / 2 * (1 - ‖a‖) * ‖y‖ ^ 2`.
-* `ftrl_regret_le_unitBallPotential`: the regret of FTRL with this potential on a convex subset
+* `sub_div_add_sum_apply_sub_sub_bregDiv_unitBallPotential_le`: the penalty and stability terms
+  of the bound `ftrl_regret_le` are at most
+  `-log (1 - r) / η + η / 2 * ∑ t < n, (1 - ‖a t‖) * ‖y t‖ ^ 2` when the plays lie in the open
+  unit ball and the comparator in the closed ball of radius `r < 1`.
+* `ftrl_regret_le_of_unitBallPotential`: the regret of FTRL with this potential on a convex subset
   of the closed ball of radius `r < 1` is at most
   `-log (1 - r) / η + η / 2 * ∑ t < n, (1 - ‖a t‖) * ‖y t‖ ^ 2`, the full-information bound in
   the proof of [LS, Theorem 28.11].
@@ -226,21 +230,41 @@ theorem apply_sub_sub_bregDiv_unitBallPotential_div_le (hη : 0 < η) (y : E →
     (ha : ‖a‖ < 1) (hb : ‖b‖ < 1) :
     y (a - b) - D_[unitBallPotential](b, a, (1 - ‖a‖)⁻¹ • innerSL ℝ a) / η ≤
       η / 2 * (1 - ‖a‖) * ‖y‖ ^ 2 := by
-  have h1 : 0 < 1 - ‖a‖ := sub_pos.2 ha
-  have h_breg := norm_sub_sq_div_le_bregDiv_unitBallPotential ha hb
-  have h_apply : y (a - b) ≤ ‖b - a‖ * ‖y‖ := by
-    rw [norm_sub_rev, mul_comm]
-    exact (Real.le_norm_self _).trans (y.le_opNorm _)
-  -- `x z - x ^ 2 / (2 κ η) ≤ η κ z ^ 2 / 2` for `κ = 1 - ‖a‖`, a square completion
-  set x := ‖b - a‖
-  set z := ‖y‖
-  set κ := 1 - ‖a‖
-  have h_sq : η / 2 * κ * z ^ 2 - (x * z - x ^ 2 / (2 * κ) / η) =
-      (x - η * κ * z) ^ 2 / (2 * κ * η) := by
-    field_simp
-    ring
-  have h_nonneg : 0 ≤ (x - η * κ * z) ^ 2 / (2 * κ * η) := by positivity
-  have h_div := div_le_div_of_nonneg_right h_breg hη.le
+  -- the stability bound for the modulus `(1 - ‖a‖)⁻¹`
+  have h := apply_sub_sub_div_le_of_mul_norm_sq_le (inv_pos.2 (sub_pos.2 ha)) hη y
+    ((norm_sub_sq_div_le_bregDiv_unitBallPotential ha hb).trans_eq'
+      (by rw [div_mul_eq_mul_div, inv_mul_eq_div, div_div, mul_comm (1 - ‖a‖)]))
+  rwa [← div_div, div_inv_eq_mul] at h
+
+/-- **Penalty and stability terms of FTRL with the potential `unitBallPotential`**, the bound in
+the proof of [LS, Theorem 28.11] on the right-hand side of `ftrl_regret_le`. Let `r < 1`, `η > 0`,
+let `a t` be in the open unit ball for `t ≤ n` and let `‖u‖ ≤ r`. Then
+`(F u - F (a 0)) / η + ∑ t < n, y t (a t - a (t + 1)) - (∑ t < n, D_F(a (t + 1), a t)) / η
+  ≤ -log (1 - r) / η + η / 2 * ∑ t < n, (1 - ‖a t‖) * ‖y t‖ ^ 2`,
+with `F = unitBallPotential`, `D_F` its Bregman divergence and `‖y t‖` the operator norm of the
+loss. It bounds the integrand of `ftrl_integral_regret_le` path by path. -/
+theorem sub_div_add_sum_apply_sub_sub_bregDiv_unitBallPotential_le (hr : r < 1) (hη : 0 < η)
+    (y : ℕ → E →L[ℝ] ℝ) (a : ℕ → E) (ha : ∀ t ≤ n, ‖a t‖ < 1) (hu : ‖u‖ ≤ r) :
+    (unitBallPotential u - unitBallPotential (a 0)) / η +
+        ∑ t ∈ range n, y t (a t - a (t + 1)) - (∑ t ∈ range n,
+          D_[unitBallPotential](a (t + 1), a t, (1 - ‖a t‖)⁻¹ • innerSL ℝ (a t))) / η ≤
+      -log (1 - r) / η + η / 2 * ∑ t ∈ range n, (1 - ‖a t‖) * ‖y t‖ ^ 2 := by
+  -- the penalty is at most the diameter `-log (1 - r)`
+  have h_pen : (unitBallPotential u - unitBallPotential (a 0)) / η ≤ -log (1 - r) / η := by
+    refine div_le_div_of_nonneg_right ?_ hη.le
+    have := unitBallPotential_nonneg (ha 0 (Nat.zero_le n))
+    have := unitBallPotential_le_neg_log_one_sub hu hr
+    linarith
+  -- each stability term is at most `η / 2 * (1 - ‖a t‖) * ‖y t‖ ^ 2`
+  have h_stab := sum_apply_sub_sub_bregDiv_le_of_mul_norm_sq_le hη y a
+    (fun t ↦ (1 - ‖a t‖)⁻¹ • innerSL ℝ (a t)) (m := fun t ↦ (1 - ‖a t‖)⁻¹)
+    (fun t ht ↦ inv_pos.2 (sub_pos.2 (ha t ht.le))) fun t ht ↦
+      (norm_sub_sq_div_le_bregDiv_unitBallPotential (ha t ht.le) (ha (t + 1) ht)).trans_eq'
+        (by rw [div_mul_eq_mul_div, inv_mul_eq_div, div_div, mul_comm (1 - ‖a t‖)])
+  have h_eq : ∑ t ∈ range n, η / (2 * (1 - ‖a t‖)⁻¹) * ‖y t‖ ^ 2 =
+      η / 2 * ∑ t ∈ range n, (1 - ‖a t‖) * ‖y t‖ ^ 2 := by
+    rw [mul_sum]
+    exact sum_congr rfl fun t _ ↦ by rw [← div_div, div_inv_eq_mul, mul_assoc]
   linarith
 
 /-- **Regret of FTRL with the potential `unitBallPotential`**, the full-information bound in the
@@ -249,7 +273,7 @@ proof of [LS, Theorem 28.11]. Let `K` be a convex subset of the closed ball of r
 `unitBallPotential` and learning rate `η` for the losses `y`. Then for every `u ∈ K`,
 `∑ t < n, y t (a t - u) ≤ -log (1 - r) / η + η / 2 * ∑ t < n, (1 - ‖a t‖) * ‖y t‖ ^ 2`,
 with `‖y t‖` the operator norm of the loss. -/
-theorem ftrl_regret_le_unitBallPotential (hK : Convex ℝ K) (hKr : K ⊆ closedBall 0 r)
+theorem ftrl_regret_le_of_unitBallPotential (hK : Convex ℝ K) (hKr : K ⊆ closedBall 0 r)
     (hr : r < 1) (hη : 0 < η) (y : ℕ → E →L[ℝ] ℝ) (a : ℕ → E)
     (ha : ∀ t ≤ n, IsFTRLPlay K unitBallPotential η y t (a t)) (hu : u ∈ K) :
     ∑ t ∈ range n, y t (a t - u) ≤
@@ -258,23 +282,8 @@ theorem ftrl_regret_le_unitBallPotential (hK : Convex ℝ K) (hKr : K ⊆ closed
     (mem_closedBall_zero_iff.1 (hKr hx)).trans_lt hr
   have h := ftrl_regret_le hK hη y a ha (fun t ↦ (1 - ‖a t‖)⁻¹ • innerSL ℝ (a t))
     (fun t ht ↦ (hasFDerivAt_unitBallPotential (h_norm (ha t ht.le).mem)).hasFDerivWithinAt) hu
-  -- the penalty is at most the diameter `-log (1 - r)`
-  have h_pen : (unitBallPotential u - unitBallPotential (a 0)) / η ≤ -log (1 - r) / η := by
-    refine div_le_div_of_nonneg_right ?_ hη.le
-    have := unitBallPotential_nonneg (h_norm (ha 0 (Nat.zero_le n)).mem)
-    have := unitBallPotential_le_neg_log_one_sub (mem_closedBall_zero_iff.1 (hKr hu)) hr
-    linarith
-  -- each stability term is at most `η / 2 * (1 - ‖a t‖) * ‖y t‖ ^ 2`
-  have h_stab : ∑ t ∈ range n, y t (a t - a (t + 1)) - (∑ t ∈ range n,
-      D_[unitBallPotential](a (t + 1), a t, (1 - ‖a t‖)⁻¹ • innerSL ℝ (a t))) / η ≤
-      η / 2 * ∑ t ∈ range n, (1 - ‖a t‖) * ‖y t‖ ^ 2 := by
-    rw [sum_div, ← sum_sub_distrib, mul_sum]
-    refine sum_le_sum fun t ht ↦ ?_
-    have ht' := mem_range.mp ht
-    rw [← mul_assoc]
-    exact apply_sub_sub_bregDiv_unitBallPotential_div_le hη (y t) (h_norm (ha t ht'.le).mem)
-      (h_norm (ha (t + 1) ht').mem)
-  linarith
+  exact h.trans (sub_div_add_sum_apply_sub_sub_bregDiv_unitBallPotential_le hr hη y a
+    (fun t ht ↦ h_norm (ha t ht).mem) (mem_closedBall_zero_iff.1 (hKr hu)))
 
 /-- **FTRL with the potential `unitBallPotential` is well defined** [LS, proof of
 Theorem 28.11]. In a finite-dimensional real inner product space (more generally, a proper
