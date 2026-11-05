@@ -6,9 +6,10 @@ Authors: Rémy Degenne
 module
 
 public import LeanMachineLearning.SequentialLearning.SumRewards
+public import LMLExplore.Bandits.Concentration
 public import LMLExplore.Bandits.PerturbedLeader
+public import LMLExplore.Probability.Distributions.Gaussian.Tail
 public import LMLExplore.SequentialLearning.FiniteActions
-public import Mathlib.Probability.Distributions.Gaussian.Real
 
 /-!
 # Gaussian Thompson sampling
@@ -45,14 +46,24 @@ is `1 / s`, here `σ² / s`.
   played has not been pulled before.
 * `GaussianTS.pullCount_card_eq_one`: Gaussian Thompson sampling pulls every arm exactly once
   during the first `Fintype.card α` rounds.
+* `gaussianTSStackLaw_Ioi_le_inv_of_add_sqrt_lt`: the perturbation of an arm pulled `s ≠ 0` times
+  exceeds a level `c` with probability at most `1 / n` as soon as the UCB index
+  `μ̂ + √(2 σ² log n / s)` of the arm is below `c`, by the Gaussian Chernoff bound.
+* `sum_streamMeasure_inv_lt_gaussianTSStackLaw_Ioi_le`: [LS, Exercise 36.6(b)]: for a
+  σ²-sub-Gaussian arm `i` of mean `μ_i < c`, the expected number of sample sizes `s < n` at which
+  the perturbation of `i` exceeds `c` with probability more than `1 / n` is at most
+  `1 + 2 σ² / (c - μ_i)² (log n + √(π log n) + 1)`, by [LS, Lemma 8.2].
 * `GaussianTS.lintegral_pullCount_le`: [LS, Theorem 36.2] for Gaussian Thompson sampling, the
   bound on the expected number of pulls of an arm in terms of the perturbation laws of the
   reward-stack model.
+* `GaussianTS.lintegral_pullCount_le_add_log`: [LS, Theorem 36.2] combined with
+  [LS, Exercise 36.6(b)]: the bound on the expected number of pulls of a σ²-sub-Gaussian arm whose
+  last term is logarithmic in the horizon.
 
 ## References
 
 * [LS] T. Lattimore and Cs. Szepesvári, *Bandit Algorithms*, Cambridge University Press, 2020,
-  Section 36.2.
+  Section 36.2 and Exercise 36.6.
 -/
 
 public section
@@ -167,6 +178,80 @@ lemma gaussianTSLaw_history {Ω : Type*} (O : ℕ → Ω → Unit) (A : ℕ → 
 
 end Law
 
+section Concentration
+
+variable {σ2 : ℝ≥0} {s : ℕ} {y : ℝ}
+
+/-- The perturbation of an arm that has been pulled `s ≠ 0` times with sum of rewards `y` exceeds a
+level `c` with probability at most `1 / n` as soon as the index `y / s + √(2 σ² log n / s)` of
+[LS, Algorithm 6] is below `c`, here in the form `y + √(2 σ² log n s) < s c`. This is the Gaussian
+Chernoff bound `P(𝒩(m, σ² / s) > c) ≤ exp (-s (c - m)² / (2 σ²))` for `m = y / s < c`. -/
+lemma gaussianTSStackLaw_Ioi_le_inv_of_add_sqrt_lt {c : ℝ} (n : ℕ) (hs : s ≠ 0)
+    (h : y + √(2 * σ2 * Real.log n * s) < s * c) :
+    gaussianTSStackLaw σ2 s y (Set.Ioi (c : EReal)) ≤ (n : ℝ≥0∞)⁻¹ := by
+  rcases Nat.eq_zero_or_pos n with rfl | hn
+  · simp
+  have hs' : (0 : ℝ) < s := by positivity
+  have hsqrt := Real.sqrt_nonneg (2 * σ2 * Real.log n * s)
+  have hmc : y / s < c := by
+    rw [div_lt_iff₀ hs']
+    linarith
+  rw [gaussianTSStackLaw_of_ne_zero hs, Measure.map_apply (by fun_prop) measurableSet_Ioi,
+    EReal.preimage_coe_Ioi]
+  rcases eq_or_ne σ2 0 with rfl | hσ
+  · -- with zero variance, the perturbation is the empirical mean, which is below `c`
+    simp [Set.mem_Ioi, hmc.le]
+  -- with `d = s c - y`, the hypothesis says `2 σ² log n s < d²`
+  have hd : 2 * σ2 * Real.log n * s < (s * c - y) ^ 2 :=
+    (Real.sqrt_lt' (by linarith)).mp (by linarith)
+  have hexp :
+      Real.exp (-(c - y / s) ^ 2 / (2 * ((σ2 / s : ℝ≥0) : ℝ))) ≤ Real.exp (-Real.log n) := by
+    gcongr
+    have hσ' : (0 : ℝ) < σ2 := by positivity
+    rw [NNReal.coe_div, NNReal.coe_natCast, div_le_iff₀ (by positivity)]
+    field_simp
+    nlinarith
+  calc gaussianReal (y / s) (σ2 / s) (Set.Ioi c)
+      ≤ gaussianReal (y / s) (σ2 / s) (Set.Ici c) := measure_mono Set.Ioi_subset_Ici_self
+    _ = ENNReal.ofReal ((gaussianReal (y / s) (σ2 / s)).real (Set.Ici c)) :=
+        (ofReal_measureReal).symm
+    _ ≤ ENNReal.ofReal (Real.exp (-Real.log n)) :=
+        ENNReal.ofReal_le_ofReal ((measureReal_Ici_gaussianReal_le_exp _ hmc.le).trans hexp)
+    _ = (n : ℝ≥0∞)⁻¹ := by
+        rw [Real.exp_neg, Real.exp_log (by positivity), ENNReal.ofReal_inv_of_pos (by positivity),
+          ENNReal.ofReal_natCast]
+
+/-- **[LS, Exercise 36.6(b)].** Let arm `i` be σ²-sub-Gaussian with mean `μ_i` and let `c > μ_i`.
+In the reward-stack model `streamMeasure ν`, write `G_{i s}` for the probability that the
+perturbation of Gaussian Thompson sampling of `i` after its first `s` rewards exceeds `c`. Then the
+expected number of sample sizes `s < n` with `G_{i s} > 1 / n` is at most
+`1 + 2 σ² / (c - μ_i)² (log n + √(π log n) + 1)`, which is `2 σ² log n / (c - μ_i)² + o(log n)`.
+
+[LS] takes `c = μ* - ε` for the mean `μ*` of an optimal arm. -/
+theorem sum_streamMeasure_inv_lt_gaussianTSStackLaw_Ioi_le {α : Type*} [MeasurableSpace α]
+    {ν : Kernel α ℝ} [IsMarkovKernel ν] {i : α}
+    (hν : HasSubgaussianMGF (fun x ↦ x - (ν i)[id]) σ2 (ν i)) {c : ℝ} (hc : (ν i)[id] < c)
+    (n : ℕ) :
+    ∑ s ∈ Finset.range n, streamMeasure ν {x | (n : ℝ≥0∞)⁻¹ <
+        gaussianTSStackLaw σ2 s (∑ k ∈ Finset.range s, x k i) (Set.Ioi (c : EReal))} ≤
+      ENNReal.ofReal (1 + 2 * σ2 / (c - (ν i)[id]) ^ 2 *
+        (Real.log n + √(Real.pi * Real.log n) + 1)) := by
+  -- the event `G_{i s} > 1 / n` forces the index of [LS, Algorithm 6] at exploration level
+  -- `log n` to be at least `c`, whose expected count is bounded by [LS, Lemma 8.2]
+  refine le_trans ?_ (ENNReal.ofReal_le_ofReal (sum_measureReal_streamMeasure_mul_le_sum_add_sqrt_le
+    hν (sub_pos.2 hc) (Real.log_natCast_nonneg n) n))
+  rw [ENNReal.ofReal_sum_of_nonneg fun _ _ ↦ measureReal_nonneg]
+  refine Finset.sum_le_sum fun s _ ↦ ?_
+  rw [ofReal_measureReal]
+  refine measure_mono fun x hx ↦ ?_
+  simp only [Set.mem_ofPred_eq, add_sub_cancel] at hx ⊢
+  rcases eq_or_ne s 0 with rfl | hs
+  · simp
+  by_contra hlt
+  exact (gaussianTSStackLaw_Ioi_le_inv_of_add_sqrt_lt n hs (not_le.mp hlt)).not_gt hx
+
+end Concentration
+
 section Algorithm
 
 variable {α : Type*} [Fintype α] [Nonempty α] [DecidableEq α] [MeasurableSpace α]
@@ -255,6 +340,26 @@ theorem lintegral_pullCount_le [IsProbabilityMeasure P] {ν : Kernel α ℝ} [Is
   -- the perturbation law of an arm is a function of its number of pulls and its sum of rewards
   PerturbedLeader.lintegral_pullCount_le h (fun _ ↦ gaussianTSStackLaw σ2)
     (fun _ ↦ measurable_gaussianTSStackLaw σ2) (fun t x a ↦ gaussianTSLaw_def σ2 t x.1 a) hij c n
+
+omit [IsFiniteMeasure P] in
+/-- **[LS, Theorem 36.2] with [LS, Exercise 36.6(b)] for Gaussian Thompson sampling.** In a run of
+Gaussian Thompson sampling against the stochastic bandit `Environment.bandit ν`, let `i ≠ j` be
+arms, `i` σ²-sub-Gaussian with mean `μ_i`, and `c > μ_i` a level. Then for every horizon `n`,
+`E[T_i(n)] ≤ 1 + E[∑_{s < n} (G_{j s}⁻¹ - 1)] + 1 + 2 σ² / (c - μ_i)² (log n + √(π log n) + 1)`,
+where `G_{j s}` is the probability that the perturbation of arm `j` after its first `s` rewards in
+the reward-stack model `streamMeasure ν` exceeds `c`. -/
+theorem lintegral_pullCount_le_add_log [IsProbabilityMeasure P] {ν : Kernel α ℝ}
+    [IsMarkovKernel ν] (h : IsAlgEnvSeq O A R (gaussianTS σ2) (Environment.bandit ν) P) {i j : α}
+    (hij : i ≠ j) (hν : HasSubgaussianMGF (fun x ↦ x - (ν i)[id]) σ2 (ν i)) {c : ℝ}
+    (hc : (ν i)[id] < c) (n : ℕ) :
+    ∫⁻ ω, (pullCount A i n ω : ℝ≥0∞) ∂P ≤
+      1 + ∑ s ∈ Finset.range n, ∫⁻ x,
+          (gaussianTSStackLaw σ2 s (∑ k ∈ Finset.range s, x k j) (Set.Ioi (c : EReal)))⁻¹ - 1
+            ∂(streamMeasure ν) +
+        ENNReal.ofReal (1 + 2 * σ2 / (c - (ν i)[id]) ^ 2 *
+          (Real.log n + √(Real.pi * Real.log n) + 1)) :=
+  (lintegral_pullCount_le h hij c n).trans
+    (add_le_add le_rfl (sum_streamMeasure_inv_lt_gaussianTSStackLaw_Ioi_le hν hc n))
 
 end GaussianTS
 
