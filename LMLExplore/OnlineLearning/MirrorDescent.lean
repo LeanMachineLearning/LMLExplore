@@ -69,9 +69,11 @@ namespace LMLExplore.OnlineLearning
 variable {E : Type*} [NormedAddCommGroup E] [NormedSpace ℝ E] {K D : Set E} {F : E → ℝ} {η : ℝ}
   {n : ℕ} {u : E}
 
-/-- `x` is a **mirror descent step** [LS, (28.2)] on `K` from `a`, with potential `F`, derivative
-`F'` of `F` at `a`, learning rate `η` and loss `y`: `x ∈ K` minimizes over `K` the objective
-`b ↦ η y b + D_F(b, a)`, where `D_F(b, a) = F b - F a - F' (b - a)` is the Bregman divergence. -/
+/-- `x` is a **mirror descent step** [LS, (28.2)] on `K` from `a`, with potential `F`, linear map
+`F'`, learning rate `η` and loss `y`: `x ∈ K` minimizes over `K` the objective
+`b ↦ η y b + D_F(b, a)`, where `D_F(b, a) = F b - F a - F' (b - a)` is the Bregman divergence.
+`F'` is intended to be a derivative of `F` at `a`, but the predicate does not require it: the
+theorems below assume `HasFDerivWithinAt` separately. -/
 structure IsMirrorDescentStep (K : Set E) (F : E → ℝ) (η : ℝ) (y : E →L[ℝ] ℝ) (a : E)
     (F' : E →L[ℝ] ℝ) (x : E) : Prop where
   /-- The step lies in `K`. -/
@@ -156,7 +158,7 @@ the loss `y t`, where `F` has derivative `F' (t + 1)` within `K` at `a (t + 1)`.
 `u ∈ K`, with `D_F` the Bregman divergence,
 `∑ t < n, y t (a t - u) ≤ (D_F(u, a 0) - D_F(u, a n)) / η + ∑ t < n, y t (a t - a (t + 1))
   - (∑ t < n, D_F(a (t + 1), a t)) / η`.
-This is the identity behind [LS, (28.10)], before any use of the convexity of `F`. -/
+This is the telescoped inequality behind [LS, (28.10)], before any use of the convexity of `F`. -/
 theorem sum_apply_sub_le_mirrorDescent (hK : Convex ℝ K) (hη : 0 < η) (y : ℕ → E →L[ℝ] ℝ)
     (a : ℕ → E) (F' : ℕ → E →L[ℝ] ℝ)
     (ha : ∀ t < n, IsMirrorDescentStep K F η (y t) (a t) (F' t) (a (t + 1)))
