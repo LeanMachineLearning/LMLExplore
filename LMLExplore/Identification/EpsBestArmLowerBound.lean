@@ -89,14 +89,8 @@ private lemma IsDeltaCorrect.klBer_le_lintegral_pullCount_mul_of_altCost_le_epsB
     klBer δ (1 - δ) ≤ (∫⁻ ω, (pullCount IT.action c
         (ENat.toNat (A.stoppingTime IT.obs IT.action IT.feedback ω)) ω : ℝ≥0∞)
           ∂(trajMeasure A.alg (Environment.bandit (ν μ)))) * ENNReal.ofReal x := by
-  have hμM : μ ∈ ((epsBaiTask ν ε).restrict
-      {μ' | ∀ c, μ' c ∈ (ρ c).expFamilyMeans (T c)}).M := by
-    simpa [M_restrict] using hμ
-  have hi : ((epsBaiTask ν ε).restrict
-      {μ' | ∀ c, μ' c ∈ (ρ c).expFamilyMeans (T c)}).correct μ = {a} := by
-    rw [correct_restrict]
-    exact (correct_epsBaiTask_eq_singleton_iff ν hε).2 ha
-  simpa using hA.klBer_le_lintegral_pullCount_mul_of_altCost_le hδ hμM hi (by simpa using h) h_alt
+  simpa using hA.klBer_le_lintegral_pullCount_mul_of_altCost_le_restrict hδ (by simp) hμ
+    ((correct_epsBaiTask_eq_singleton_iff ν hε).2 ha) (by simpa using h) h_alt
 
 omit [Fintype α] in
 /-- **Lower bound on the number of pulls of an arm that is not `ε`-good** [MT04; KCG16, Lemma 1].
@@ -168,16 +162,14 @@ theorem IsDeltaCorrect.mul_klBer_le_expectedStoppingTime_epsBaiTask {b₀ : α}
   · simp [h]
   -- Divide the lower bound on the number of pulls of each arm by its divergence, then sum over
   -- the arms with Wald's identity.
-  have h_div {x : ℝ} {N : ℝ≥0∞} (hN : klBer δ (1 - δ) ≤ N * ENNReal.ofReal x) :
-      (ENNReal.ofReal x)⁻¹ * klBer δ (1 - δ) ≤ N := by
-    rw [mul_comm, ← div_eq_mul_inv]
-    exact ENNReal.div_le_of_le_mul hN
   rw [expectedStoppingTime_eq_sum_lintegral_pullCount (.of_expectedStoppingTime_ne_top h),
     ← Finset.sum_erase_add _ _ (Finset.mem_univ a), add_mul, Finset.sum_mul]
-  exact add_le_add (Finset.sum_le_sum fun b hb ↦ h_div <|
+  simp_rw [← ENNReal.div_eq_inv_mul]
+  exact add_le_add (Finset.sum_le_sum fun b hb ↦ ENNReal.div_le_of_le_mul <|
       hA.klBer_le_lintegral_pullCount_mul_epsBaiTask_add hδ hε hT hμ hν ha
         (Finset.ne_of_mem_erase hb) (hab b (Finset.ne_of_mem_erase hb)) h)
-    (h_div <| hA.klBer_le_lintegral_pullCount_mul_epsBaiTask_sub hδ hε hT hμ hν ha hb₀ hb₀a h)
+    (ENNReal.div_le_of_le_mul <|
+      hA.klBer_le_lintegral_pullCount_mul_epsBaiTask_sub hδ hε hT hμ hν ha hb₀ hb₀a h)
 
 /-- **Lower bound on the sample complexity of `ε`-best arm identification in logarithmic form**
 [MT04, Theorem 1; KCG16, Lemma 1]. Under the assumptions of
@@ -233,21 +225,6 @@ private lemma ofReal_card_div_le_sum_erase_add (a : α) {x : ℝ} (hx : 0 < x)
           add_mul, one_mul]
     _ ≤ _ := add_le_add h_sum hy
 
-omit [Fintype α] [DecidableEq α] in
-/-- The relative entropies between the arms of the Bernoulli bandits with means `μ` and `μ'` in
-`(0, 1)` are the divergences of the exponential family of `Ber((1 : ℝ), 0, 1 / 2)`. -/
-private lemma klDiv_bernoulliBandit_projIcc [Countable α] {μ μ' : α → ℝ} (hμ : ∀ c, μ c ∈ Ioo 0 1)
-    (hμ' : ∀ c, μ' c ∈ Ioo 0 1) (c : α) :
-    klDiv (Bandits.bernoulliBandit (fun c ↦ projIcc 0 1 zero_le_one (μ c)) c)
-        (Bandits.bernoulliBandit (fun c ↦ projIcc 0 1 zero_le_one (μ' c)) c) =
-      ENNReal.ofReal (Ber((1 : ℝ), 0, unitInterval.sigmoid 0).expFamilyDiv id (μ c) (μ' c)) := by
-  have h_coe {x : ℝ} (hx : x ∈ Ioo 0 1) : ((projIcc 0 1 zero_le_one x : I) : ℝ) = x := by
-    rw [projIcc_of_mem _ (Ioo_subset_Icc_self hx)]
-  have := Bandits.klDiv_bernoulliBandit_eq_ofReal_expFamilyDiv 0
-    (p := fun c ↦ projIcc 0 1 zero_le_one (μ c)) (p' := fun c ↦ projIcc 0 1 zero_le_one (μ' c))
-    (a := c) (by rw [h_coe (hμ c)]; exact hμ c) (by rw [h_coe (hμ' c)]; exact hμ' c)
-  rwa [h_coe (hμ c), h_coe (hμ' c)] at this
-
 /-- **Lower bound on the sample complexity of `ε`-best arm identification for Bernoulli arms**
 [MT04, Theorem 1]. Let `A` be `δ`-correct for `ε`-best arm identification on the Bernoulli bandits
 with means in `(0, 1)`, with `δ ≤ 1 / 2` and `0 < ε ≤ 1 / 8`, and let `a` be an arm, among `K ≥ 2`
@@ -278,7 +255,8 @@ theorem IsDeltaCorrect.ofReal_card_div_mul_klBer_le_expectedStoppingTime_epsBaiT
   refine le_trans ?_ (IsDeltaCorrect.mul_klBer_le_expectedStoppingTime_epsBaiTask (a := a)
     (ρ := fun _ ↦ Ber((1 : ℝ), 0, unitInterval.sigmoid 0)) (T := fun _ ↦ id)
     (by simpa only [hρ] using hA) hδ hε.le hT (fun c ↦ hmem (hμ c))
-    (fun μ' hμ' ↦ klDiv_bernoulliBandit_projIcc hμ fun c ↦ hρ ▸ hμ' c)
+    (fun μ' hμ' c ↦
+      Bandits.klDiv_bernoulliBandit_projIcc_eq_ofReal_expFamilyDiv 0 (hμ c) (hρ ▸ hμ' c))
     (fun b hb ↦ by simp [hμ_def, hb]; linarith) hb₀
     (fun b _ ↦ hmem (by simp only [hμ_def]; constructor <;> simp <;> linarith))
     (hmem (by simp only [hμ_def]; constructor <;> simp [hb₀] <;> linarith)))

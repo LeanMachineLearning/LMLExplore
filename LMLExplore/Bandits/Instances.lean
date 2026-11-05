@@ -32,7 +32,9 @@ identify it with the divergence of the exponential family of `𝒩(0, σ2)`
 (`LMLExplore.Bandits.klDiv_gaussianBandit_eq_ofReal_expFamilyDiv`), and the relative entropy
 between the arms of two Bernoulli bandits with means in `(0, 1)` with the divergence of the
 exponential family of a Bernoulli law
-(`LMLExplore.Bandits.klDiv_bernoulliBandit_eq_ofReal_expFamilyDiv`). For the Gaussian bandit with
+(`LMLExplore.Bandits.klDiv_bernoulliBandit_eq_ofReal_expFamilyDiv`, and
+`LMLExplore.Bandits.klDiv_bernoulliBandit_projIcc_eq_ofReal_expFamilyDiv` for bandits indexed by
+real means). For the Gaussian bandit with
 unknown variances we compute the mean and the variance of each arm, and identify
 `gaussianBandit μ σ2` with `gaussianMeanVarBandit fun a ↦ (μ a, σ2)`
 (`LMLExplore.Bandits.gaussianBandit_eq_gaussianMeanVarBandit`).
@@ -177,6 +179,23 @@ lemma klDiv_bernoulliBandit_eq_ofReal_expFamilyDiv (η₀ : ℝ) {p p' : α → 
   rw [bernoulliBandit_apply, bernoulliBandit_apply, klDiv_bernoulliMeasure,
     expFamilyDiv_bernoulliMeasure_sigmoid η₀ hp hp', klBer_eq_ofReal_klBerReal
       (Set.Ioo_subset_Icc_self hp) (Set.Ioo_subset_Icc_self hp') (klBer_ne_top hp')]
+
+/-- `klDiv_bernoulliBandit_eq_ofReal_expFamilyDiv` for Bernoulli bandits indexed by real means
+`μ`, with arm `c` of mean `projIcc 0 1 (μ c)`: if `μ a` and `μ' a` lie in `(0, 1)`, the relative
+entropy between arm `a` of the bandits of `μ` and `μ'` is the divergence `d(μ a, μ' a)` of the
+exponential family of `Ber((1 : ℝ), 0, sigmoid η₀)`. -/
+lemma klDiv_bernoulliBandit_projIcc_eq_ofReal_expFamilyDiv (η₀ : ℝ) {μ μ' : α → ℝ} {a : α}
+    (hμ : μ a ∈ Set.Ioo 0 1) (hμ' : μ' a ∈ Set.Ioo 0 1) :
+    klDiv (bernoulliBandit (fun c ↦ Set.projIcc 0 1 zero_le_one (μ c)) a)
+        (bernoulliBandit (fun c ↦ Set.projIcc 0 1 zero_le_one (μ' c)) a) =
+      ENNReal.ofReal (Ber((1 : ℝ), 0, unitInterval.sigmoid η₀).expFamilyDiv id (μ a) (μ' a)) := by
+  have h_coe {x : ℝ} (hx : x ∈ Set.Ioo 0 1) : ((Set.projIcc 0 1 zero_le_one x : I) : ℝ) = x := by
+    rw [Set.projIcc_of_mem _ (Set.Ioo_subset_Icc_self hx)]
+  have := klDiv_bernoulliBandit_eq_ofReal_expFamilyDiv η₀
+    (p := fun c ↦ Set.projIcc 0 1 zero_le_one (μ c))
+    (p' := fun c ↦ Set.projIcc 0 1 zero_le_one (μ' c)) (a := a)
+    (by rw [h_coe hμ]; exact hμ) (by rw [h_coe hμ']; exact hμ')
+  rwa [h_coe hμ, h_coe hμ'] at this
 
 end Bernoulli
 

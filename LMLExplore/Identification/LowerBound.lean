@@ -47,6 +47,8 @@ C-tracking [DK19, Theorem 7]
   `kl(δ, 1 - δ) ≤ D(θ, n, ¬i)`, with `n` the expected numbers of pulls, for `E_θ[τ] < ∞`.
 * `IdentTask.IsDeltaCorrect.klBer_le_lintegral_pullCount_mul_of_altCost_le`: if
   `D(θ, w, ¬i) ≤ w a x` for all nonnegative allocations, then `kl(δ, 1 - δ) ≤ E_θ[N_a(τ)] x`.
+* `IdentTask.IsDeltaCorrect.klBer_le_lintegral_pullCount_mul_of_altCost_le_restrict`: the same
+  bound for an algorithm that is only `δ`-correct on the models of a set `S`.
 * `IdentTask.IsDeltaCorrect.charTime_mul_le_expectedStoppingTime`: the lower bound
   `T*(θ) kl(δ, 1 - δ) ≤ E_θ[τ]`.
 * `IdentTask.IsDeltaCorrect.charTime_mul_ofReal_log_le_expectedStoppingTime`: the lower bound
@@ -166,6 +168,21 @@ theorem IsDeltaCorrect.klBer_le_lintegral_pullCount_mul_of_altCost_le
     ((h_alt _ fun _ ↦ ENNReal.toReal_nonneg).trans_eq ?_)
   rw [ENNReal.ofReal_mul ENNReal.toReal_nonneg, ENNReal.ofReal_toReal
     ((lintegral_pullCount_le_expectedStoppingTime a).trans_lt h.lt_top).ne]
+
+/-- `IsDeltaCorrect.klBer_le_lintegral_pullCount_mul_of_altCost_le` for an algorithm that is only
+`δ`-correct on the models of a set `S`: if `θ ∈ S` is an admissible model of `task` with the single
+correct answer `i` and `D(θ, w, ¬i) ≤ w a x` for every nonnegative allocation `w`, the cost being
+taken over the alternatives in `S`, then `kl(δ, 1 - δ) ≤ E_θ[N_a(τ)] x`. -/
+theorem IsDeltaCorrect.klBer_le_lintegral_pullCount_mul_of_altCost_le_restrict {S : Set Θ}
+    (hA : (task.restrict S).IsDeltaCorrect A δ) (hδ : δ ≤ 1 / 2) (hθ : θ ∈ task.M) (hθS : θ ∈ S)
+    (hi : task.correct θ = {i}) (h : expectedStoppingTime A (Environment.bandit (task.ν θ)) ≠ ∞)
+    {a : α} {x : ℝ}
+    (h_alt : ∀ w : α → ℝ, 0 ≤ w → (task.restrict S).altCost θ w i ≤ ENNReal.ofReal (w a * x)) :
+    klBer δ (1 - δ) ≤ (∫⁻ ω, (pullCount IT.action a
+        (ENat.toNat (A.stoppingTime IT.obs IT.action IT.feedback ω)) ω : ℝ≥0∞)
+          ∂(trajMeasure A.alg (Environment.bandit (task.ν θ)))) * ENNReal.ofReal x := by
+  simpa using hA.klBer_le_lintegral_pullCount_mul_of_altCost_le hδ
+    (by rw [M_restrict]; exact ⟨hθ, hθS⟩) (by rwa [correct_restrict]) (by simpa using h) h_alt
 
 omit [DecidableEq α] in
 /-- **Lower bound on the sample complexity** [GK16, Theorem 1; LS, Theorem 33.5]. Let `A` be
