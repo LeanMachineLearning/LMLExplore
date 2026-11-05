@@ -12,6 +12,7 @@ public import LMLExplore.Analysis.SpecialFunctions.Exp
 public import LMLExplore.InformationTheory.KullbackLeibler.Bernoulli
 public import LMLExplore.Probability.Distributions.ExponentialFamily.Bernoulli
 public import LMLExplore.Probability.Distributions.ExponentialFamily.Chernoff
+public import LMLExplore.Probability.Moments.SubGaussian.Bounded
 public import TauCeti.Probability.Distributions.Bernoulli.Basic
 
 /-!
@@ -216,20 +217,15 @@ theorem measureReal_card_mul_add_le_sum_le {X : ι → Ω → ℝ} (h_indep : iI
   -- the centered variables are independent and `1 / 4`-sub-Gaussian
   have h_indep' : iIndepFun (fun i ω ↦ X i ω - μ[X i]) μ :=
     h_indep.comp (g := fun i (y : ℝ) ↦ y - ∫ ω, X i ω ∂μ) fun _ ↦ measurable_sub_const _
-  have h_subG : ∀ i ∈ s,
-      HasSubgaussianMGF (fun ω ↦ X i ω - μ[X i]) ((‖(1 : ℝ) - 0‖₊ / 2) ^ 2) μ :=
-    fun i hi ↦ hasSubgaussianMGF_of_mem_Icc (hXm i hi) (hX i hi)
-  have hc : ((‖(1 : ℝ) - 0‖₊ / 2) ^ 2 : ℝ≥0) = 1 / 4 := by
-    ext
-    norm_num
+  have h_subG : ∀ i ∈ s, HasSubgaussianMGF (fun ω ↦ X i ω - μ[X i]) (1 / 4) μ :=
+    fun i hi ↦ hasSubgaussianMGF_of_mem_Icc_zero_one (hXm i hi) (hX i hi)
   refine le_trans (measureReal_mono fun ω (hω : _ ≤ _) ↦ ?_)
     ((HasSubgaussianMGF.measure_sum_ge_le_of_iIndepFun h_indep' h_subG (ε := #s * ε)
       (by positivity)).trans_eq ?_)
   · have : ∑ i ∈ s, μ[X i] ≤ #s * m := (sum_le_sum hmean).trans_eq (by simp)
     simp only [Set.mem_ofPred_eq, sum_sub_distrib]
     linarith
-  · rw [hc]
-    congr 1
+  · congr 1
     simp only [sum_const, nsmul_eq_mul, NNReal.coe_mul, NNReal.coe_natCast]
     field_simp
     norm_num

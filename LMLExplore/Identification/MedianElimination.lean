@@ -8,6 +8,7 @@ module
 public import LMLExplore.Analysis.SpecificLimits.Normed
 public import LMLExplore.Identification.SuccessiveRejects
 public import LMLExplore.Identification.Task.MeanVector
+public import LMLExplore.MeasureTheory.Integral.Lebesgue.Markov
 public import Mathlib.Algebra.Order.Field.GeomSum
 public import Mathlib.Analysis.SpecificLimits.Basic
 
@@ -60,8 +61,6 @@ In the namespace `LMLExplore.Identification`:
 
 In the namespace `LMLExplore.Identification`:
 
-* `MedianElimination.measure_le_card_filter_le`: Markov's inequality for the number of events
-  of a finite family that occur.
 * `MedianElimination.measure_exists_forall_mem_halve_add_lt_le`: one phase loses more than `ε` on
   the best mean with probability at most `3 η`, if each sum deviates by `n ε / 2` with probability
   at most `η`.
@@ -546,37 +545,6 @@ lemma survivors_runStats_eq_streamStats (hω : ∀ r, A r ω = armAt t (runStats
 
 /-! ### One phase -/
 
-omit [Fintype α] [DecidableEq α] [Nonempty α] in
-/-- **Markov's inequality for a number of events.** If each of the events `E b`, `b ∈ S`, has
-probability at most `η` and `#S ≤ m c` with `m ≠ 0`, then at least `m` of these events occur with
-probability at most `c η`. -/
-lemma measure_le_card_filter_le {Ω : Type*} {mΩ : MeasurableSpace Ω} {P : Measure Ω}
-    {E : α → Set Ω} [∀ b, DecidablePred (· ∈ E b)] {S : Finset α}
-    (hE : ∀ b ∈ S, MeasurableSet (E b)) {η : ℝ≥0∞} (h : ∀ b ∈ S, P (E b) ≤ η) {m c : ℕ}
-    (hm : m ≠ 0) (hc : #S ≤ m * c) :
-    P {ω | m ≤ #{b ∈ S | ω ∈ E b}} ≤ c * η := by
-  -- The number of events that occur.
-  set N : Ω → ℝ≥0∞ := fun ω ↦ ∑ b ∈ S, (E b).indicator 1 ω with hN
-  have h_eq : {ω | m ≤ #{b ∈ S | ω ∈ E b}} = {ω | (m : ℝ≥0∞) ≤ N ω} := by
-    ext ω
-    simp only [Set.mem_ofPred_eq, hN, Set.indicator_apply, Pi.one_apply]
-    rw [sum_boole]
-    norm_cast
-  have h_int : ∫⁻ ω, N ω ∂P ≤ #S * η := by
-    rw [lintegral_finsetSum _ fun b hb ↦ measurable_one.indicator (hE b hb)]
-    calc ∑ b ∈ S, ∫⁻ ω, (E b).indicator 1 ω ∂P = ∑ b ∈ S, P (E b) :=
-          sum_congr rfl fun b hb ↦ lintegral_indicator_one (hE b hb)
-    _ ≤ ∑ _b ∈ S, η := sum_le_sum h
-    _ = #S * η := by simp
-  have h_markov := (mul_meas_ge_le_lintegral₀ (μ := P) (Finset.measurable_sum _ fun b hb ↦
-    measurable_one.indicator (hE b hb)).aemeasurable (m : ℝ≥0∞)).trans h_int
-  have hSc : (#S : ℝ≥0∞) * η ≤ m * (c * η) := by
-    rw [← mul_assoc]
-    gcongr
-    exact_mod_cast hc
-  rw [h_eq]
-  exact (ENNReal.mul_le_mul_iff_right (by exact_mod_cast hm) (by simp)).1 (h_markov.trans hSc)
-
 /-- **One phase of median elimination** [EMM02, proof of Theorem 4]. Let `S` be a set of arms with
 means `μ`, and let `Y a` be the sum of `n ≥ 0` observations of the arm `a`, which deviates from
 `n μ a` by `n ε / 2` or more, upwards or downwards, with probability at most `η`. Then the
@@ -609,7 +577,7 @@ lemma measure_exists_forall_mem_halve_add_lt_le {Ω : Type*} {mΩ : MeasurableSp
       have h1 := le_of_notMem_halve ha'S ha'h hb
       have h2 : n * ε ≤ n * (μ a' - μ b) :=
         mul_le_mul_of_nonneg_left (by linarith [hlt' b hb]) hn
-      exact mem_filter.2 ⟨halve_subset _ _ hb, show n * ε / 2 ≤ Y ω b - n * μ b by nlinarith⟩
+      exact mem_filter.2 ⟨halve_subset _ _ hb, by simp only [E, Set.mem_ofPred_eq]; nlinarith⟩
     exact (card_halve S (Y ω)).symm.trans_le (card_le_card h_high)
   -- Markov's inequality for the number of arms whose sum is too high.
   have h_markov : P {ω | #S - #S / 2 ≤ #{b ∈ S | ω ∈ E b}} ≤ 2 * η := by
@@ -645,7 +613,8 @@ lemma measure_notMem_halve_le {Ω : Type*} {mΩ : MeasurableSpace Ω} {P : Measu
       · exact mem_union_right _ (mem_sdiff.2
           ⟨mem_erase.2 ⟨fun hba ↦ hω (hba ▸ hb), halve_subset _ _ hb⟩, hbS'⟩)
     rw [card_halve, card_sdiff_of_subset hS', card_erase_of_mem ha] at h_halve
-    exact show #S - #S / 2 - #S / 4 ≤ #{b ∈ S' | ω ∈ E b} by omega
+    rw [Set.mem_ofPred_eq]
+    omega
   -- Markov's inequality for the number of arms of `S'` whose value is at least that of `a`.
   refine (measure_mono h_sub).trans ((measure_le_card_filter_le (c := 3)
     (fun b _ ↦ measurableSet_le (hY a) (hY b)) h (by have := card_pos.2 ⟨a, ha⟩; omega)
