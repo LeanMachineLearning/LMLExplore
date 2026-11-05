@@ -7,6 +7,7 @@ module
 
 public import LeanMachineLearning.SequentialLearning.SumRewards
 public import LMLExplore.Bandits.Concentration
+public import LMLExplore.Bandits.Instances
 public import LMLExplore.Bandits.PerturbedLeader
 public import LMLExplore.Probability.Distributions.Gaussian.Tail
 public import LMLExplore.SequentialLearning.FiniteActions
@@ -53,12 +54,23 @@ is `1 / s`, here `σ² / s`.
   σ²-sub-Gaussian arm `i` of mean `μ_i < c`, the expected number of sample sizes `s < n` at which
   the perturbation of `i` exceeds `c` with probability more than `1 / n` is at most
   `1 + 2 σ² / (c - μ_i)² (log n + √(π log n) + 1)`, by [LS, Lemma 8.2].
+* `hasLaw_sum_streamMeasure_of_eq_gaussianReal`: in the reward-stack model, the sum of the first `s`
+  rewards of an arm with Gaussian rewards `𝒩(μ, σ²)` has law `𝒩(s μ, s σ²)`.
+* `lintegral_inv_gaussianTSStackLaw_Ioi_sub_one_le`: for an arm with Gaussian rewards `𝒩(μ, σ²)`,
+  `ε > 0` and `s ≠ 0` rewards, the probability `G_{j s}` that its perturbation exceeds `μ - ε`
+  satisfies `E[1 / G_{j s} - 1] ≤ exp (-x / 4) / √2 + exp (-x / 2) (1 / √x + 1 / x)` with
+  `x = s ε² / σ²`.
+* `sum_lintegral_inv_gaussianTSStackLaw_Ioi_sub_one_le`: [LS, Exercise 36.6(a)]: for such an arm,
+  `E[∑_{s < n} (1 / G_{j s} - 1)] ≤ σ² / ε² (8 + 2 log (1 + 2 σ² / ε²))`, uniformly in `n`.
 * `GaussianTS.lintegral_pullCount_le`: [LS, Theorem 36.2] for Gaussian Thompson sampling, the
   bound on the expected number of pulls of an arm in terms of the perturbation laws of the
   reward-stack model.
 * `GaussianTS.lintegral_pullCount_le_add_log`: [LS, Theorem 36.2] combined with
   [LS, Exercise 36.6(b)]: the bound on the expected number of pulls of a σ²-sub-Gaussian arm whose
   last term is logarithmic in the horizon.
+* `GaussianTS.lintegral_pullCount_le_of_gaussianBandit`: on a Gaussian bandit, both parts of
+  [LS, Exercise 36.6] together: `E[T_i(n)] ≤ 2 + σ² / ε² (8 + 2 log (1 + 2 σ² / ε²))
+  + 2 σ² / (μ_j - ε - μ_i)² (log n + √(π log n) + 1)` for arms with `μ_i < μ_j - ε`.
 
 ## References
 
@@ -250,6 +262,171 @@ theorem sum_streamMeasure_inv_lt_gaussianTSStackLaw_Ioi_le {α : Type*} [Measura
   by_contra hlt
   exact (gaussianTSStackLaw_Ioi_le_inv_of_add_sqrt_lt n hs (not_le.mp hlt)).not_gt hx
 
+/-- In the reward-stack model `streamMeasure ν`, if arm `j` has Gaussian rewards `𝒩(μ, σ²)`, the sum
+of its first `s` rewards has law `𝒩(s μ, s σ²)`. -/
+lemma hasLaw_sum_streamMeasure_of_eq_gaussianReal {α : Type*} [MeasurableSpace α]
+    {ν : Kernel α ℝ} [IsMarkovKernel ν] {j : α} {μ : ℝ} (hν : ν j = gaussianReal μ σ2) (s : ℕ) :
+    HasLaw (fun x : ℕ → α → ℝ ↦ ∑ k ∈ Finset.range s, x k j) (gaussianReal (s * μ) (s * σ2))
+      (streamMeasure ν) := by
+  simpa using (iIndepFun_eval_streamMeasure'' ν j).hasLaw_sum_gaussianReal
+    (m := fun _ ↦ μ) (v := fun _ ↦ σ2) (fun k ↦ hν ▸ hasLaw_eval_eval_streamMeasure ν k j)
+    (Finset.range s)
+
+/-- Let arm `j` have Gaussian rewards `𝒩(μ, σ²)` with `σ² ≠ 0`, let `ε > 0` and `s ≠ 0`. In the
+reward-stack model `streamMeasure ν`, write `G_{j s}` for the probability that the perturbation of
+Gaussian Thompson sampling of `j` after its first `s` rewards exceeds `μ - ε`. Then, with
+`x = s ε² / σ²`, `E[1 / G_{j s} - 1] ≤ exp (-x / 4) / √2 + exp (-x / 2) (1 / √x + 1 / x)`.
+
+The perturbation exceeds `μ - ε` with probability `P(Z > U)` for a standard Gaussian `Z`, where
+`U ∼ 𝒩(-√x, 1)` is the standardized gap between `μ - ε` and the empirical mean, so this is
+`lintegral_inv_gaussianReal_Ioi_sub_one_le`. -/
+theorem lintegral_inv_gaussianTSStackLaw_Ioi_sub_one_le {α : Type*} [MeasurableSpace α]
+    {ν : Kernel α ℝ} [IsMarkovKernel ν] {j : α} {μ : ℝ} (hν : ν j = gaussianReal μ σ2)
+    (hσ : σ2 ≠ 0) {ε : ℝ} (hε : 0 < ε) (hs : s ≠ 0) :
+    ∫⁻ x, (gaussianTSStackLaw σ2 s (∑ k ∈ Finset.range s, x k j)
+        (Set.Ioi ((μ - ε : ℝ) : EReal)))⁻¹ - 1 ∂(streamMeasure ν) ≤
+      ENNReal.ofReal (Real.exp (-(s * ε ^ 2 / σ2) / 4) / √2 + Real.exp (-(s * ε ^ 2 / σ2) / 2) *
+        (1 / √(s * ε ^ 2 / σ2) + 1 / (s * ε ^ 2 / σ2))) := by
+  have hv : σ2 / (s : ℝ≥0) ≠ 0 := by positivity
+  -- the standard deviation `τ` of the perturbation and the standardized gap `a = ε / τ`
+  set τ := √((σ2 / (s : ℝ≥0) : ℝ≥0) : ℝ) with hτ
+  have hτ0 : 0 < τ := by positivity
+  set a := ε / τ with ha
+  have ha0 : 0 < a := by positivity
+  have hτ2 : τ ^ 2 = σ2 / s := by
+    rw [hτ, Real.sq_sqrt (by positivity), NNReal.coe_div, NNReal.coe_natCast]
+  have ha2 : a ^ 2 = s * ε ^ 2 / σ2 := by
+    rw [ha, div_pow, hτ2]
+    field_simp
+  -- `G_{j s}` is the standard Gaussian tail at the standardized gap
+  have hG (y : ℝ) : gaussianTSStackLaw σ2 s y (Set.Ioi ((μ - ε : ℝ) : EReal)) =
+      gaussianReal 0 1 (Set.Ioi ((μ - ε - y / s) / τ)) := by
+    rw [gaussianTSStackLaw_of_ne_zero hs, Measure.map_apply (by fun_prop) measurableSet_Ioi,
+      EReal.preimage_coe_Ioi, ← ofReal_measureReal, ← ofReal_measureReal,
+      TauCeti.Probability.measureReal_Ioi_gaussianReal_eq_cdf _ hv,
+      TauCeti.Probability.measureReal_Ioi_gaussianReal_eq_cdf 0 one_ne_zero]
+    congr 2
+    simp only [NNReal.coe_one, Real.sqrt_one, div_one, zero_sub, ← neg_div, neg_sub, hτ]
+  -- the standardized gap has law `𝒩(-a, 1)` under the stream model
+  have hT : HasLaw (fun x : ℕ → α → ℝ ↦ (μ - ε - (∑ k ∈ Finset.range s, x k j) / s) / τ)
+      (gaussianReal (-a) 1) (streamMeasure ν) := by
+    have h := gaussianReal_add_const (gaussianReal_mul_const
+      (hasLaw_sum_streamMeasure_of_eq_gaussianReal hν s) (-(1 / (s * τ)))) ((μ - ε) / τ)
+    convert h using 2
+    · field_simp
+      ring
+    · rw [ha]
+      field_simp
+      ring
+    · ext
+      simp only [NNReal.coe_mul, NNReal.coe_mk, NNReal.coe_natCast, NNReal.coe_one]
+      rw [neg_sq, div_pow, mul_pow, hτ2]
+      field_simp
+  have hmeas : Measurable fun u : ℝ ↦ (gaussianReal 0 1 (Set.Ioi u))⁻¹ - 1 := by
+    have : Antitone fun u : ℝ ↦ gaussianReal 0 1 (Set.Ioi u) := fun _ _ h ↦
+      measure_mono (Set.Ioi_subset_Ioi h)
+    exact this.measurable.inv.sub_const 1
+  simp_rw [hG]
+  rw [hT.lintegral_comp hmeas.aemeasurable]
+  refine (lintegral_inv_gaussianReal_Ioi_sub_one_le ha0).trans_eq ?_
+  rw [← ha2, Real.sqrt_sq ha0.le]
+
+/-- The sum over the sample sizes of the bounds of
+`lintegral_inv_gaussianTSStackLaw_Ioi_sub_one_le`: for `κ > 0` and `x = (s + 1) κ`,
+`∑_{s < n} (exp (-x / 4) / √2 + exp (-x / 2) (1 / √x + 1 / x)) ≤ (8 + 2 log (1 + 2 / κ)) / κ`. -/
+private lemma sum_range_exp_div_sqrt_two_add_le {κ : ℝ} (hκ : 0 < κ) (n : ℕ) :
+    ∑ s ∈ Finset.range n, (Real.exp (-((s + 1) * κ) / 4) / √2 + Real.exp (-((s + 1) * κ) / 2) *
+      (1 / √((s + 1) * κ) + 1 / ((s + 1) * κ))) ≤ (8 + 2 * Real.log (1 + 2 / κ)) / κ := by
+  -- each term is at most `2 exp (-x / 4) + 2 exp (-x / 2) / x`
+  have hterm (s : ℕ) : Real.exp (-((s + 1) * κ) / 4) / √2 + Real.exp (-((s + 1) * κ) / 2) *
+      (1 / √((s + 1) * κ) + 1 / ((s + 1) * κ)) ≤
+      2 * Real.exp (-(κ / 4 * (s + 1))) +
+        2 / κ * (Real.exp (-(κ / 2 * (s + 1))) / (s + 1)) := by
+    set x := (s + 1 : ℝ) * κ with hx
+    have hx0 : 0 < x := by positivity
+    have h1 : Real.exp (-x / 4) / √2 ≤ Real.exp (-x / 4) :=
+      div_le_self (Real.exp_pos _).le (Real.one_le_sqrt.2 one_le_two)
+    have h2 : Real.exp (-x / 2) ≤ Real.exp (-x / 4) := Real.exp_le_exp.2 (by linarith)
+    have h3 : 1 / √x ≤ 1 + 1 / x := by
+      rcases le_total 1 x with h | h
+      · have : 1 / √x ≤ 1 := by
+          rw [div_le_one (by positivity)]
+          exact Real.one_le_sqrt.2 h
+        linarith [show 0 ≤ 1 / x by positivity]
+      · have hxs : x ≤ √x := (Real.le_sqrt hx0.le hx0.le).2 (by nlinarith)
+        have : 1 / √x ≤ 1 / x := one_div_le_one_div_of_le hx0 hxs
+        linarith
+    have h4 : Real.exp (-x / 2) * (2 / x) =
+        2 / κ * (Real.exp (-(κ / 2 * (s + 1))) / (s + 1)) := by
+      rw [hx]
+      field_simp
+    have h5 : Real.exp (-x / 4) = Real.exp (-(κ / 4 * (s + 1))) := by
+      rw [hx]
+      ring_nf
+    calc Real.exp (-x / 4) / √2 + Real.exp (-x / 2) * (1 / √x + 1 / x)
+        ≤ Real.exp (-x / 4) + Real.exp (-x / 2) * (1 + 1 / x + 1 / x) := by gcongr
+      _ = Real.exp (-x / 4) + Real.exp (-x / 2) + Real.exp (-x / 2) * (2 / x) := by ring
+      _ ≤ 2 * Real.exp (-(κ / 4 * (s + 1))) +
+          2 / κ * (Real.exp (-(κ / 2 * (s + 1))) / (s + 1)) := by
+        rw [h4, ← h5]
+        linarith
+  refine (Finset.sum_le_sum fun s _ ↦ hterm s).trans ?_
+  rw [Finset.sum_add_distrib, ← Finset.mul_sum, ← Finset.mul_sum]
+  have h1 := Real.sum_range_exp_neg_mul_le (c := κ / 4) (by positivity) n
+  have h2 := Real.sum_range_exp_neg_mul_div_le (c := κ / 2) (by positivity) n
+  rw [one_div_div] at h2
+  calc 2 * ∑ s ∈ Finset.range n, Real.exp (-(κ / 4 * (s + 1))) +
+        2 / κ * ∑ s ∈ Finset.range n, Real.exp (-(κ / 2 * (s + 1))) / (s + 1)
+      ≤ 2 * (κ / 4)⁻¹ + 2 / κ * Real.log (1 + 2 / κ) := by gcongr
+    _ = (8 + 2 * Real.log (1 + 2 / κ)) / κ := by
+        field_simp
+        ring
+
+/-- **[LS, Exercise 36.6(a)].** Let arm `j` have Gaussian rewards `𝒩(μ, σ²)` with `σ² ≠ 0`, and
+let `ε > 0`. In the reward-stack model `streamMeasure ν`, write `G_{j s}` for the probability that
+the perturbation of Gaussian Thompson sampling of `j` after its first `s` rewards exceeds
+`μ - ε`. Then, uniformly in the horizon `n`,
+`E[∑_{s < n} (1 / G_{j s} - 1)] ≤ σ² / ε² (8 + 2 log (1 + 2 σ² / ε²))`.
+
+This is the first sum in the bound of [LS, Theorem 36.2] (`GaussianTS.lintegral_pullCount_le`)
+for an optimal arm `j`; [LS] states it as `O(log (1 / ε) / ε²)` for `σ² = 1`. -/
+theorem sum_lintegral_inv_gaussianTSStackLaw_Ioi_sub_one_le {α : Type*} [MeasurableSpace α]
+    {ν : Kernel α ℝ} [IsMarkovKernel ν] {j : α} {μ : ℝ} (hν : ν j = gaussianReal μ σ2)
+    (hσ : σ2 ≠ 0) {ε : ℝ} (hε : 0 < ε) (n : ℕ) :
+    ∑ s ∈ Finset.range n, ∫⁻ x, (gaussianTSStackLaw σ2 s (∑ k ∈ Finset.range s, x k j)
+        (Set.Ioi ((μ - ε : ℝ) : EReal)))⁻¹ - 1 ∂(streamMeasure ν) ≤
+      ENNReal.ofReal (σ2 / ε ^ 2 * (8 + 2 * Real.log (1 + 2 * σ2 / ε ^ 2))) := by
+  set I : ℕ → ℝ≥0∞ := fun s ↦ ∫⁻ x, (gaussianTSStackLaw σ2 s (∑ k ∈ Finset.range s, x k j)
+    (Set.Ioi ((μ - ε : ℝ) : EReal)))⁻¹ - 1 ∂(streamMeasure ν) with hI
+  -- before the first pull, the perturbation is `⊤` and `G_{j 0} = 1`
+  have hI0 : I 0 = 0 := by
+    have h_top : (⊤ : EReal) ∈ Set.Ioi ((μ - ε : ℝ) : EReal) := EReal.coe_lt_top _
+    simp only [hI, Finset.range_zero, Finset.sum_empty, gaussianTSStackLaw_zero,
+      Measure.dirac_apply_of_mem h_top]
+    simp
+  have hκ : 0 < ε ^ 2 / σ2 := by positivity
+  have hsucc (s : ℕ) : I (s + 1) ≤ ENNReal.ofReal (Real.exp (-((s + 1) * (ε ^ 2 / σ2)) / 4) / √2 +
+      Real.exp (-((s + 1) * (ε ^ 2 / σ2)) / 2) *
+        (1 / √((s + 1) * (ε ^ 2 / σ2)) + 1 / ((s + 1) * (ε ^ 2 / σ2)))) := by
+    have h := lintegral_inv_gaussianTSStackLaw_Ioi_sub_one_le hν hσ hε s.succ_ne_zero
+    rw [Nat.cast_succ, mul_div_assoc] at h
+    exact h
+  calc ∑ s ∈ Finset.range n, I s ≤ ∑ s ∈ Finset.range (n + 1), I s :=
+        Finset.sum_le_sum_of_subset (Finset.range_subset_range.2 n.le_succ)
+    _ = ∑ s ∈ Finset.range n, I (s + 1) := by rw [Finset.sum_range_succ', hI0, add_zero]
+    _ ≤ ∑ s ∈ Finset.range n, ENNReal.ofReal (Real.exp (-((s + 1) * (ε ^ 2 / σ2)) / 4) / √2 +
+          Real.exp (-((s + 1) * (ε ^ 2 / σ2)) / 2) *
+            (1 / √((s + 1) * (ε ^ 2 / σ2)) + 1 / ((s + 1) * (ε ^ 2 / σ2)))) :=
+        Finset.sum_le_sum fun s _ ↦ hsucc s
+    _ = ENNReal.ofReal (∑ s ∈ Finset.range n, (Real.exp (-((s + 1) * (ε ^ 2 / σ2)) / 4) / √2 +
+          Real.exp (-((s + 1) * (ε ^ 2 / σ2)) / 2) *
+            (1 / √((s + 1) * (ε ^ 2 / σ2)) + 1 / ((s + 1) * (ε ^ 2 / σ2))))) :=
+        (ENNReal.ofReal_sum_of_nonneg fun _ _ ↦ by positivity).symm
+    _ ≤ ENNReal.ofReal (σ2 / ε ^ 2 * (8 + 2 * Real.log (1 + 2 * σ2 / ε ^ 2))) := by
+        refine ENNReal.ofReal_le_ofReal ((sum_range_exp_div_sqrt_two_add_le hκ n).trans_eq ?_)
+        rw [div_div_eq_mul_div, div_div_eq_mul_div]
+        ring
+
 end Concentration
 
 section Algorithm
@@ -360,6 +537,35 @@ theorem lintegral_pullCount_le_add_log [IsProbabilityMeasure P] {ν : Kernel α 
           (Real.log n + √(Real.pi * Real.log n) + 1)) :=
   (lintegral_pullCount_le h hij c n).trans
     (add_le_add le_rfl (sum_streamMeasure_inv_lt_gaussianTSStackLaw_Ioi_le hν hc n))
+
+omit [IsFiniteMeasure P] in
+/-- **[LS, Theorem 36.2] with [LS, Exercise 36.6] for Gaussian Thompson sampling on a Gaussian
+bandit.** In a run of Gaussian Thompson sampling with variance proxy `σ² ≠ 0` against the Gaussian
+bandit `gaussianBandit μ σ2`, let `ε > 0` and let `i`, `j` be arms with `μ_i < μ_j - ε`. Then for
+every horizon `n`,
+`E[T_i(n)] ≤ 1 + σ² / ε² (8 + 2 log (1 + 2 σ² / ε²))
+  + 1 + 2 σ² / (μ_j - ε - μ_i)² (log n + √(π log n) + 1)`.
+
+For an optimal arm `j` the gap `μ_j - μ_i` is `Δ_i`, so `E[T_i(n)]` is at most
+`2 σ² log n / (Δ_i - ε)² + o(log n)`, the bound that [LS, Theorem 36.3] sums over the
+suboptimal arms. -/
+theorem lintegral_pullCount_le_of_gaussianBandit [IsProbabilityMeasure P] {μ : α → ℝ}
+    (hσ : σ2 ≠ 0)
+    (h : IsAlgEnvSeq O A R (gaussianTS σ2) (Environment.bandit (gaussianBandit μ σ2)) P)
+    {i j : α} {ε : ℝ} (hε : 0 < ε) (hij : μ i < μ j - ε) (n : ℕ) :
+    ∫⁻ ω, (pullCount A i n ω : ℝ≥0∞) ∂P ≤
+      1 + ENNReal.ofReal (σ2 / ε ^ 2 * (8 + 2 * Real.log (1 + 2 * σ2 / ε ^ 2))) +
+        ENNReal.ofReal (1 + 2 * σ2 / (μ j - ε - μ i) ^ 2 *
+          (Real.log n + √(Real.pi * Real.log n) + 1)) := by
+  have hne : i ≠ j := by
+    rintro rfl
+    linarith
+  have h_le := lintegral_pullCount_le_add_log h hne (hasSubgaussianMGF_gaussianBandit μ σ2 i)
+    (c := μ j - ε) (by rwa [integral_id_gaussianBandit]) n
+  rw [integral_id_gaussianBandit] at h_le
+  refine h_le.trans ?_
+  gcongr
+  exact sum_lintegral_inv_gaussianTSStackLaw_Ioi_sub_one_le (gaussianBandit_apply μ σ2 j) hσ hε n
 
 end GaussianTS
 

@@ -7,6 +7,7 @@ module
 
 public import Mathlib.Analysis.PSeries
 public import Mathlib.Analysis.SpecialFunctions.Exp
+public import Mathlib.Analysis.SpecialFunctions.Log.Deriv
 public import Mathlib.Analysis.SpecialFunctions.Trigonometric.DerivHyp
 
 /-!
@@ -14,7 +15,10 @@ public import Mathlib.Analysis.SpecialFunctions.Trigonometric.DerivHyp
 
 The geometric sum `∑_{s ≥ 1} exp (-c s) = 1 / (exp c - 1)` is at most `1 / c` for `c > 0`. This is
 the form in which the sums over the sample sizes of sub-Gaussian tail bounds `exp (-s ε² / (2 σ²))`
-are bounded, for example in the proof of [LS, Theorem 8.1].
+are bounded, for example in the proof of [LS, Theorem 8.1]. Weighting the terms by `1 / s` gives
+the logarithmic series `∑_{s ≥ 1} exp (-c s) / s = -log (1 - exp (-c))`, at most
+`log (1 + 1 / c)`; it bounds the sums over the sample sizes of terms of order
+`exp (-s ε² / (2 σ²)) / (s ε² / σ²)` in the analysis of Thompson sampling [LS, Exercise 36.6].
 
 Along a geometric grid of sample sizes `2 ^ j`, the sum `∑_j 2 ^ j exp (-2 ^ j c)` is at most
 `3 / (2 c)` for `c > 0`. This bounds the sums produced by the peeling device, which splits the
@@ -39,6 +43,8 @@ implicit-exploration estimates of Exp3-IX.
 ## Main statements
 
 * `Real.sum_range_exp_neg_mul_le`: `∑_{s < m} exp (-c (s + 1)) ≤ 1 / c` for `c > 0`.
+* `Real.sum_range_exp_neg_mul_div_le`: `∑_{s < m} exp (-c (s + 1)) / (s + 1) ≤ log (1 + 1 / c)`
+  for `c > 0`.
 * `Real.sum_range_two_pow_mul_exp_neg_le`: `∑_{j < m} 2 ^ j exp (-2 ^ j c) ≤ 3 / (2 c)` for
   `c > 0`.
 * `Real.sum_range_ite_add_one_mul_le_le`: `#{s < k | (s + 1) D ≤ L} ≤ L / D` for `D > 0` and
@@ -83,6 +89,28 @@ theorem sum_range_exp_neg_mul_le {c : ℝ} (hc : 0 < c) (m : ℕ) :
     have : 0 ≤ v m := by positivity
     simp only [hv, CharP.cast_eq_zero, mul_zero, neg_zero, exp_zero, one_div] at this ⊢
     linarith
+
+/-- For `c > 0`, `∑_{s < m} exp (-c (s + 1)) / (s + 1) ≤ log (1 + 1 / c)`, uniformly in `m`: the
+series is the logarithmic series `-log (1 - exp (-c))`, and `1 - exp (-c) ≥ c / (1 + c)`. -/
+theorem sum_range_exp_neg_mul_div_le {c : ℝ} (hc : 0 < c) (m : ℕ) :
+    ∑ s ∈ range m, exp (-(c * (s + 1))) / (s + 1) ≤ log (1 + 1 / c) := by
+  have hr1 : exp (-c) < 1 := exp_lt_one_iff.2 (by linarith)
+  have h := hasSum_pow_div_log_of_abs_lt_one (abs_lt.2 ⟨by linarith [exp_pos (-c)], hr1⟩)
+  have hterm (s : ℕ) : exp (-(c * (s + 1))) = exp (-c) ^ (s + 1) := by
+    rw [← exp_nat_mul]
+    push_cast
+    ring_nf
+  simp_rw [hterm]
+  refine (sum_le_hasSum _ (fun _ _ ↦ by positivity) h).trans ?_
+  rw [← log_inv]
+  refine log_le_log (inv_pos.2 (by linarith)) ?_
+  rw [inv_le_iff_one_le_mul₀ (by linarith)]
+  -- `exp (-c) (1 + c) ≤ 1` since `1 + c ≤ exp c`
+  have h1 : exp (-c) * (1 + c) ≤ 1 := by
+    rw [exp_neg, inv_mul_le_iff₀ (exp_pos c), mul_one, add_comm]
+    exact add_one_le_exp c
+  field_simp
+  nlinarith
 
 /-- For `c > 0`, `∑_{j < m} 2 ^ j exp (-2 ^ j c) ≤ 3 / (2 c)`, uniformly in `m`. -/
 theorem sum_range_two_pow_mul_exp_neg_le {c : ℝ} (hc : 0 < c) (m : ℕ) :

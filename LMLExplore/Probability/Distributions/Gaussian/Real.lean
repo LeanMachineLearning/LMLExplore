@@ -32,15 +32,21 @@ Complements to Mathlib's `ProbabilityTheory.gaussianReal`:
   these `t` is `(-∞, (2 v)⁻¹)`.
 * `LMLExplore.tilted_mul_sub_sq_gaussianReal`: for `2 v t < 1`, tilting `𝒩(μ, v)` by
   `x ↦ t (x - μ) ^ 2` gives `𝒩(μ, v / (1 - 2 v t))`.
+* `LMLExplore.integral_exp_neg_sq_div_two_gaussianReal`: for `X ∼ 𝒩(a, 1)`,
+  `𝔼[exp (-X ^ 2 / 2)] = exp (-a ^ 2 / 4) / √2`.
 * `LMLExplore.gaussianReal_absolutelyContinuous_gaussianReal`: two real Gaussian laws with nonzero
   variances are mutually absolutely continuous.
 * `LMLExplore.rnDeriv_gaussianReal_gaussianReal`: the Radon-Nikodym derivative of `𝒩(μ₁, v₁)` with
   respect to `𝒩(μ₂, v₂)`, for `v₂ ≠ 0`, is the ratio of their densities.
 * `LMLExplore.hasSubgaussianMGF_sub_of_hasLaw_gaussianReal`: a random variable with law `𝒩(μ, v)`
   is `v`-sub-Gaussian around its mean, in the sense of `ProbabilityTheory.HasSubgaussianMGF`.
+* `ProbabilityTheory.iIndepFun.hasLaw_sum_gaussianReal`: a finite sum of independent random
+  variables of laws `𝒩(μ i, v i)` has law `𝒩(∑ μ i, ∑ v i)`.
 
 The derivative, boundedness, limit and integrability facts about the density are the ingredients
 of the Gaussian tail bounds in `LMLExplore.Probability.Distributions.Gaussian.Tail`.
+There, `integral_exp_neg_sq_div_two_gaussianReal` enters the bound on the expected inverse of the
+Gaussian tail at a Gaussian point.
 `log_gaussianPDFReal`, `integral_sub_sq_gaussianReal`,
 `gaussianReal_absolutelyContinuous_gaussianReal` and `rnDeriv_gaussianReal_gaussianReal` are the
 ingredients of the closed form of the relative entropy between Gaussian laws.
@@ -49,6 +55,9 @@ exponential family with sufficient statistic `x ↦ (x - μ) ^ 2`, parametrized 
 (`LMLExplore.Probability.Distributions.ExponentialFamily.Gaussian`).
 `hasSubgaussianMGF_sub_of_hasLaw_gaussianReal` shows that Gaussian rewards satisfy the
 sub-Gaussian noise assumption of Mathlib's concentration inequalities.
+`iIndepFun.hasLaw_sum_gaussianReal` extends Mathlib's `gaussianReal_add_gaussianReal_of_indepFun`
+from two to finitely many summands; it gives the law of the sum of the first `s` rewards of an arm
+with Gaussian rewards.
 
 ## Implementation notes
 
@@ -287,6 +296,22 @@ lemma tilted_mul_sub_sq_gaussianReal (μ : ℝ) (v : ℝ≥0) {t : ℝ} (ht : 2 
   · congr 1
     field_simp
 
+/-- `𝔼[exp (-X² / 2)] = exp (-a² / 4) / √2` for `X ∼ N(a, 1)`. -/
+lemma integral_exp_neg_sq_div_two_gaussianReal (a : ℝ) :
+    ∫ u, exp (-u ^ 2 / 2) ∂(gaussianReal a 1) = exp (-a ^ 2 / 4) / √2 := by
+  -- complete the square: `-(u - a)² / 2 - u² / 2 = -a² / 4 - (u - a / 2)²`
+  rw [integral_gaussianReal_eq_integral_smul one_ne_zero]
+  have h (u : ℝ) : gaussianPDFReal a 1 u • exp (-u ^ 2 / 2) =
+      (√(2 * π))⁻¹ * exp (-a ^ 2 / 4) * exp (-1 * (u - a / 2) ^ 2) := by
+    rw [smul_eq_mul, gaussianPDFReal_def, NNReal.coe_one, mul_one, mul_one, mul_assoc,
+      ← exp_add, mul_assoc, ← exp_add]
+    congr 2
+    ring
+  simp_rw [h]
+  rw [integral_const_mul, integral_sub_right_eq_self (fun u ↦ exp (-1 * u ^ 2)) (a / 2),
+    integral_gaussian, div_one, sqrt_mul zero_le_two]
+  field_simp
+
 section TwoGaussians
 
 variable {μ₁ μ₂ : ℝ} {v₁ v₂ : ℝ≥0}
@@ -324,3 +349,25 @@ lemma hasSubgaussianMGF_sub_of_hasLaw_gaussianReal {Ω : Type*} {mΩ : Measurabl
   · rw [mgf_gaussianReal hY, zero_mul, zero_add]
 
 end LMLExplore
+
+namespace ProbabilityTheory.iIndepFun
+
+/-- A finite sum of independent real random variables of laws `𝒩(m i, v i)` has the Gaussian law
+`𝒩(∑ m i, ∑ v i)`. This extends `gaussianReal_add_gaussianReal_of_indepFun` to finitely many
+summands. -/
+theorem hasLaw_sum_gaussianReal {ι Ω : Type*} {mΩ : MeasurableSpace Ω} {P : Measure Ω}
+    [IsProbabilityMeasure P] {X : ι → Ω → ℝ} (hX : iIndepFun X P) {m : ι → ℝ} {v : ι → ℝ≥0}
+    (hlaw : ∀ i, HasLaw (X i) (gaussianReal (m i) (v i)) P) (s : Finset ι) :
+    HasLaw (fun ω ↦ ∑ i ∈ s, X i ω) (gaussianReal (∑ i ∈ s, m i) (∑ i ∈ s, v i)) P := by
+  classical
+  induction s using Finset.induction_on with
+  | empty => simpa [gaussianReal_zero_var] using hasLaw_dirac_of_ae_eq (P := P) (ae_eq_refl _)
+  | insert i s hi ih =>
+    simp_rw [Finset.sum_insert hi]
+    have h_indep : IndepFun (X i) (fun ω ↦ ∑ j ∈ s, X j ω) P := by
+      rw [← Finset.sum_fn]
+      exact (hX.indepFun_finsetSum_of_notMem₀ (fun j ↦ (hlaw j).aemeasurable) hi).symm
+    exact ⟨(hlaw i).aemeasurable.add ih.aemeasurable,
+      gaussianReal_add_gaussianReal_of_indepFun h_indep (hlaw i) ih⟩
+
+end ProbabilityTheory.iIndepFun
