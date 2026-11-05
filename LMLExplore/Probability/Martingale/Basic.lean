@@ -6,6 +6,8 @@ Authors: Rémy Degenne
 module
 
 public import Mathlib.MeasureTheory.Function.SpecialFunctions.Basic
+public import Mathlib.MeasureTheory.Function.ConditionalExpectation.PullOut
+public import Mathlib.Probability.Moments.Basic
 public import Mathlib.Probability.Martingale.Basic
 
 /-!
@@ -18,6 +20,8 @@ made in `ℝ≥0∞`, where it needs no integrability, and integrability then pr
 For an exponential of partial sums `exp (∑ k < n, Z k)`, the comparison reduces to a one-round
 bound: the conditional expectation of `exp (Z n)` given `ℱ n` is at most `1`, which is expressed
 without conditional expectations as `∫⁻ g * exp (Z n) ≤ ∫⁻ g` for every `ℱ n`-measurable `g ≥ 0`.
+When the rounds `Z n` are bounded above, every `exp (∑ k < n, Z k)` is integrable, and the
+one-round bound can be stated with the conditional expectation itself.
 
 ## Main statements
 
@@ -27,6 +31,8 @@ without conditional expectations as `∫⁻ g * exp (Z n) ≤ ∫⁻ g` for ever
 * `LMLExplore.supermartingale_exp_sum_of_lintegral_mul_exp_le`: `n ↦ exp (∑ k < n, Z k)` is a
   supermartingale if each `Z n` is `ℱ (n + 1)`-measurable and
   `∫⁻ g * exp (Z n) ≤ ∫⁻ g` for every `ℱ n`-measurable `g ≥ 0`.
+* `LMLExplore.supermartingale_exp_sum_of_condExp_exp_le_one`: the same conclusion if each `Z n` is
+  `ℱ (n + 1)`-measurable, almost surely bounded above, and `E[exp (Z n) | ℱ n] ≤ 1`.
 
 ## References
 
@@ -92,5 +98,35 @@ theorem supermartingale_exp_sum_of_lintegral_mul_exp_le [IsFiniteMeasure μ]
     · simp [hωs]
   simp_rw [h_succ]
   exact hle n _ ((hS n).exp.ennreal_ofReal.indicator hs)
+
+/-- **Exponential supermartingale from a conditional one-round bound.** If each `Z n` is
+`ℱ (n + 1)`-measurable and almost surely bounded above, and `E[exp (Z n) | ℱ n] ≤ 1`, then
+`n ↦ exp (∑ k < n, Z k)` is a supermartingale. The upper bounds make every `exp (∑ k < n, Z k)`
+integrable. -/
+theorem supermartingale_exp_sum_of_condExp_exp_le_one [IsFiniteMeasure μ]
+    {ℱ : Filtration ℕ mΩ} {Z : ℕ → Ω → ℝ} {C : ℕ → ℝ} (hZ : ∀ n, Measurable[ℱ (n + 1)] (Z n))
+    (hZC : ∀ n, ∀ᵐ ω ∂μ, Z n ω ≤ C n)
+    (hle : ∀ n, μ[fun ω ↦ exp (Z n ω) | ℱ n] ≤ᵐ[μ] 1) :
+    Supermartingale (fun n ω ↦ exp (∑ k ∈ range n, Z k ω)) ℱ μ := by
+  have hS : ∀ n, Measurable[ℱ n] fun ω ↦ ∑ k ∈ range n, Z k ω := fun n ↦
+    Finset.measurable_fun_sum _ fun k hk ↦ (hZ k).mono (ℱ.mono (mem_range.1 hk)) le_rfl
+  -- `exp (∑ k < n, Z k)` is bounded by `exp (∑ k < n, C k)`, hence integrable
+  have hint : ∀ n, Integrable (fun ω ↦ exp (∑ k ∈ range n, Z k ω)) μ := fun n ↦ by
+    simpa using ProbabilityTheory.integrable_exp_mul_of_le 1 (∑ k ∈ range n, C k) zero_le_one
+      ((hS n).mono (ℱ.le n) le_rfl).aemeasurable
+      ((ae_all_iff.2 hZC).mono fun ω hω ↦ sum_le_sum fun k _ ↦ hω k)
+  have hintZ : ∀ n, Integrable (fun ω ↦ exp (Z n ω)) μ := fun n ↦ by
+    simpa using ProbabilityTheory.integrable_exp_mul_of_le 1 (C n) zero_le_one
+      ((hZ n).mono (ℱ.le _) le_rfl).aemeasurable (hZC n)
+  refine supermartingale_nat (fun n ↦ (hS n).exp.stronglyMeasurable) hint fun n ↦ ?_
+  have h_succ : (fun ω ↦ exp (∑ k ∈ range (n + 1), Z k ω)) =
+      (fun ω ↦ exp (∑ k ∈ range n, Z k ω)) * fun ω ↦ exp (Z n ω) := by
+    ext ω
+    simp [sum_range_succ, exp_add]
+  rw [h_succ]
+  filter_upwards [condExp_mul_of_stronglyMeasurable_left (hS n).exp.stronglyMeasurable
+    (h_succ ▸ hint (n + 1)) (hintZ n), hle n] with ω h_eq h_le
+  rw [h_eq, Pi.mul_apply]
+  exact mul_le_of_le_one_right (exp_pos _).le h_le
 
 end LMLExplore

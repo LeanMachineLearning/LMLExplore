@@ -7,11 +7,12 @@ module
 
 public import Mathlib.Analysis.PSeries
 public import Mathlib.Analysis.SpecialFunctions.Exp
+public import Mathlib.Analysis.SpecialFunctions.Exponential
 public import Mathlib.Analysis.SpecialFunctions.Log.Deriv
 public import Mathlib.Analysis.SpecialFunctions.Trigonometric.DerivHyp
 
 /-!
-# Sums of exponentials and a quadratic bound on `exp (-x)`
+# Sums of exponentials and quadratic bounds on the exponential
 
 The geometric sum `∑_{s ≥ 1} exp (-c s) = 1 / (exp c - 1)` is at most `1 / c` for `c > 0`. This is
 the form in which the sums over the sample sizes of sub-Gaussian tail bounds `exp (-s ε² / (2 σ²))`
@@ -40,6 +41,15 @@ argument of the exponential turns `1 + x` into an upper bound near `0`: `exp (x 
 for `0 ≤ x ≤ 2 l` [LS, Lemma 12.5], which controls the exponential moments of the
 implicit-exploration estimates of Exp3-IX.
 
+Above its affine part, the exponential grows like its second-order term up to a factor that
+increases with the argument: `x ↦ (exp x - 1 - x) / x ^ 2` is monotone on `[0, ∞)`, as the series
+`∑_j x ^ j / (j + 2)!` with nonnegative coefficients. Hence, for `b > 0`, `l ≥ 0` and `x ≤ b`,
+`exp (l x) ≤ 1 + l x + ψ x ^ 2` with `ψ = (exp (l b) - 1 - l b) / b ^ 2`
+[BLM13, proof of Theorem 2.9], the one-step bound behind the inequalities of Bennett, Bernstein
+and Freedman. Comparing the series
+with a geometric one gives `exp x - 1 - x ≤ x ^ 2 / (2 (1 - x / 3))` for `0 ≤ x < 3`, which turns
+these into Bernstein's form.
+
 ## Main statements
 
 * `Real.sum_range_exp_neg_mul_le`: `∑_{s < m} exp (-c (s + 1)) ≤ 1 / c` for `c > 0`.
@@ -56,10 +66,18 @@ implicit-exploration estimates of Exp3-IX.
 * `Real.summable_exp_neg_of_tendsto_div_log`: `∑ n, exp (-f n) < ∞` if `f n / log n → ∞`.
 * `Real.exp_neg_le_one_sub_add_sq_div_two`: `exp (-x) ≤ 1 - x + x ^ 2 / 2` for `x ≥ 0`.
 * `Real.exp_div_one_add_le_one_add`: `exp (x / (1 + l)) ≤ 1 + x` for `0 ≤ x ≤ 2 l`.
+* `Real.hasSum_pow_add_two_div_factorial`: `∑_j x ^ (j + 2) / (j + 2)! = exp x - 1 - x`.
+* `Real.monotoneOn_exp_sub_one_sub_id_div_sq`: `x ↦ (exp x - 1 - x) / x ^ 2` is monotone on
+  `[0, ∞)`.
+* `Real.exp_mul_le_one_add_mul_add_mul_sq`: Bennett's bound
+  `exp (l x) ≤ 1 + l x + (exp (l b) - 1 - l b) / b ^ 2 * x ^ 2` for `b > 0`, `l ≥ 0`, `x ≤ b`.
+* `Real.exp_sub_one_sub_id_le_sq_div`: `exp x - 1 - x ≤ x ^ 2 / (2 (1 - x / 3))` for `0 ≤ x < 3`.
 
 ## References
 
 * [LS] T. Lattimore and Cs. Szepesvári, *Bandit Algorithms*, Cambridge University Press, 2020.
+* [BLM13] S. Boucheron, G. Lugosi and P. Massart, *Concentration Inequalities*, Oxford University
+  Press, 2013.
 -/
 
 public section
@@ -214,5 +232,79 @@ theorem exp_div_one_add_le_one_add {x l : ℝ} (hx : 0 ≤ x) (hxl : x ≤ 2 * l
   refine le_trans ?_ (le_log_one_add_of_nonneg hx)
   rw [div_le_div_iff₀ (by linarith) (by linarith)]
   nlinarith [mul_nonneg hx (sub_nonneg.2 hxl)]
+
+/-- The tail of the exponential series after its affine part: `exp x - 1 - x` is the sum of
+`x ^ (j + 2) / (j + 2)!`. -/
+theorem hasSum_pow_add_two_div_factorial (x : ℝ) :
+    HasSum (fun j : ℕ ↦ x ^ (j + 2) / (j + 2).factorial) (exp x - 1 - x) := by
+  have h := NormedSpace.expSeries_div_hasSum_exp (𝔸 := ℝ) x
+  rw [← exp_eq_exp_ℝ] at h
+  rw [← hasSum_nat_add_iff' 2] at h
+  simpa [sum_range_succ, sub_sub] using h
+
+/-- The function `x ↦ (exp x - 1 - x) / x ^ 2` is monotone on `[0, ∞)`. -/
+theorem monotoneOn_exp_sub_one_sub_id_div_sq :
+    MonotoneOn (fun x ↦ (exp x - 1 - x) / x ^ 2) (Set.Ici 0) := by
+  intro u hu v hv huv
+  simp only [Set.mem_Ici] at hu hv
+  have hseries (x : ℝ) (hx : 0 < x) :
+      HasSum (fun j : ℕ ↦ x ^ j / (j + 2).factorial) ((exp x - 1 - x) / x ^ 2) := by
+    convert (hasSum_pow_add_two_div_factorial x).div_const (x ^ 2) using 1
+    ext j
+    rw [pow_add, mul_div_right_comm, mul_div_assoc, div_self (by positivity), mul_one]
+  rcases hu.eq_or_lt with rfl | hu'
+  · simp only [zero_pow two_ne_zero, div_zero]
+    exact div_nonneg (by linarith [add_one_le_exp v]) (sq_nonneg v)
+  · refine hasSum_le (fun j ↦ ?_) (hseries u hu') (hseries v (hu'.trans_le huv))
+    gcongr
+
+/-- For `0 ≤ x < 3`, `exp x - 1 - x ≤ x ^ 2 / (2 * (1 - x / 3))`, the bound on the exponential
+behind Bernstein's inequality. -/
+theorem exp_sub_one_sub_id_le_sq_div {x : ℝ} (hx : 0 ≤ x) (hx3 : x < 3) :
+    exp x - 1 - x ≤ x ^ 2 / (2 * (1 - x / 3)) := by
+  have hgeom : HasSum (fun j : ℕ ↦ x ^ 2 / 2 * (x / 3) ^ j) (x ^ 2 / 2 * (1 - x / 3)⁻¹) :=
+    (hasSum_geometric_of_lt_one (by positivity) (by linarith)).mul_left _
+  have hfact (j : ℕ) : (2 * 3 ^ j : ℝ) ≤ (j + 2).factorial := by
+    induction j with
+    | zero => norm_num
+    | succ j ih =>
+      rw [Nat.factorial_succ, Nat.cast_mul, pow_succ]
+      push_cast
+      nlinarith
+  calc exp x - 1 - x ≤ x ^ 2 / 2 * (1 - x / 3)⁻¹ := by
+        refine hasSum_le (fun j ↦ ?_) (hasSum_pow_add_two_div_factorial x) hgeom
+        rw [show x ^ 2 / 2 * (x / 3) ^ j = x ^ (j + 2) / (2 * 3 ^ j) by rw [div_pow, pow_add]; ring]
+        exact div_le_div_of_nonneg_left (by positivity) (by positivity) (hfact j)
+    _ = x ^ 2 / (2 * (1 - x / 3)) := by
+        have : 1 - x / 3 ≠ 0 := by linarith
+        field_simp
+
+/-- **Bennett's bound on the exponential.** For `b > 0`, `l ≥ 0` and `x ≤ b`,
+`exp (l x) ≤ 1 + l x + ψ x ^ 2` with `ψ = (exp (l b) - 1 - l b) / b ^ 2`. -/
+theorem exp_mul_le_one_add_mul_add_mul_sq {b l x : ℝ} (hb : 0 < b) (hl : 0 ≤ l) (hx : x ≤ b) :
+    exp (l * x) ≤ 1 + l * x + (exp (l * b) - 1 - l * b) / b ^ 2 * x ^ 2 := by
+  rcases hl.eq_or_lt with rfl | hl
+  · simp
+  -- in the variables `u = l x ≤ v = l b`, the last term is `φ v * u ^ 2`, with
+  -- `φ y = (exp y - 1 - y) / y ^ 2`
+  have hv : 0 < l * b := mul_pos hl hb
+  have hcoef : (exp (l * b) - 1 - l * b) / b ^ 2 * x ^ 2 =
+      (exp (l * b) - 1 - l * b) / (l * b) ^ 2 * (l * x) ^ 2 := by
+    field_simp
+  rw [hcoef]
+  rcases le_or_gt (l * x) 0 with hu | hu
+  · -- `exp u ≤ 1 + u + u ^ 2 / 2` for `u ≤ 0`, and `φ v ≥ 1 / 2`
+    have h₁ := exp_neg_le_one_sub_add_sq_div_two (neg_nonneg.2 hu)
+    rw [neg_neg, neg_sq, sub_neg_eq_add] at h₁
+    have h₂ : 1 / 2 ≤ (exp (l * b) - 1 - l * b) / (l * b) ^ 2 := by
+      rw [le_div_iff₀ (by positivity)]
+      linarith [quadratic_le_exp_of_nonneg hv.le]
+    nlinarith [sq_nonneg (l * x)]
+  · have h := monotoneOn_exp_sub_one_sub_id_div_sq (Set.mem_Ici.2 hu.le) (Set.mem_Ici.2 hv.le)
+      (mul_le_mul_of_nonneg_left hx hl.le)
+    simp only at h
+    have h' : exp (l * x) - 1 - l * x = (exp (l * x) - 1 - l * x) / (l * x) ^ 2 * (l * x) ^ 2 :=
+      (div_mul_cancel₀ _ (pow_ne_zero 2 hu.ne')).symm
+    nlinarith [sq_nonneg (l * x)]
 
 end Real
