@@ -7,7 +7,7 @@ module
 
 public import LMLExplore.Bandits.WeightAlgorithm
 public import LMLExplore.Probability.CondVar
-public import LeanMachineLearning.SequentialLearning.Means
+public import LMLExplore.SequentialLearning.Means
 
 /-!
 # Importance-weighted estimators
@@ -487,13 +487,11 @@ theorem condExp_lossIwEstimator_of_condExp_eq
     ((integrable_const 1).sub hint).congr (ae_of_all _ fun ω ↦ by simp)
   have hZm' : P[fun ω ↦ 1 - Z ω | h.filtrationAction n] =ᵐ[P]
       fun ω ↦ 1 - m (history O A Y n ω, O n ω) (A n ω) := by
-    filter_upwards [condExp_sub (integrable_const 1) hZ (h.filtrationAction n), hZm] with ω h1 h2
-    simp only [Pi.sub_def, condExp_const (h.filtrationAction.le n)] at h1
+    filter_upwards [condExp_const_sub (h.filtrationAction.le n) hZ 1, hZm] with ω h1 h2
     rw [h1, h2]
-  filter_upwards [condExp_sub (integrable_const 1) hint' (h.filtrationObs n),
+  filter_upwards [condExp_const_sub (h.filtrationObs.le n) hint' 1,
     condExp_iwEstimator_of_condExp_eq h (Z := fun ω ↦ 1 - Z ω) ((integrable_const 1).sub hZ)
       (m := fun x b ↦ 1 - m x b) (fun b ↦ measurable_const.sub (hm b)) hZm' hint' ha] with ω h1 h2
-  simp only [Pi.sub_def, condExp_const (h.filtrationObs.le n)] at h1
   simp only [lossIwEstimator_apply]
   rw [h1, h2]
   ring
@@ -513,8 +511,7 @@ theorem condExp_iwEstimator (h : IsAlgEnvSeq O A Y (weightAlgorithm w hw hp) env
     (m := fun x b ↦ ∫ y, y ∂env.feedback n (x, b))
     (measurable_integral_feedback stronglyMeasurable_id)
     (h.condExp_feedback_comp n stronglyMeasurable_id hY) hint ha] with ω hω
-  rw [hω]
-  simp [Environment.means, Environment.feedbackKernel]
+  rw [hω, Environment.means_eq_integral]
 
 /-- **Conditional unbiasedness of the loss-based importance-weighted estimator** [LS, Section 11.2]
 in any environment: along a run of a weight-based algorithm with integrable feedback at round `n`,
@@ -532,8 +529,7 @@ theorem condExp_lossIwEstimator (h : IsAlgEnvSeq O A Y (weightAlgorithm w hw hp)
     (m := fun x b ↦ ∫ y, y ∂env.feedback n (x, b))
     (measurable_integral_feedback stronglyMeasurable_id)
     (h.condExp_feedback_comp n stronglyMeasurable_id hY) hint ha] with ω hω
-  rw [hω]
-  simp [Environment.means, Environment.feedbackKernel]
+  rw [hω, Environment.means_eq_integral]
 
 /-- Along a run of a weight-based algorithm whose feedback at round `n` is the reward `x (A n)` of
 the action, the importance-weighted estimate of the reward of an arm `a` that has almost surely
@@ -624,8 +620,7 @@ theorem condVar_iwEstimator (h : IsAlgEnvSeq O A Y (weightAlgorithm w hw hp) env
     (measurable_integral_feedback hsq)
     (h.condExp_feedback_comp n stronglyMeasurable_id (hY.integrable one_le_two))
     (h.condExp_feedback_comp n hsq hY.integrable_sq) hint ha] with ω hω
-  rw [hω]
-  simp [Environment.means, Environment.feedbackKernel]
+  rw [hω, Environment.means_eq_integral, Environment.feedbackKernel_apply]
 
 /-- **Conditional variance of the loss-based importance-weighted estimator** [LS, Section 11.2] in
 any environment: along a run of a weight-based algorithm with square-integrable feedback at round
@@ -664,10 +659,9 @@ theorem condVar_lossIwEstimator (h : IsAlgEnvSeq O A Y (weightAlgorithm w hw hp)
   have hmean : P[fun ω ↦ iwEstimator (w n (history O A Y n ω, O n ω)) (A n ω) (1 - Y n ω) a
       | h.filtrationObs n] =ᵐ[P] fun ω ↦ 1 - env.means O A Y a n ω := by
     rw [hiw]
-    filter_upwards [condExp_sub (integrable_const 1) (hint.integrable one_le_two)
-      (h.filtrationObs n), condExp_lossIwEstimator h (hY.integrable one_le_two)
-      (hint.integrable one_le_two) ha] with ω h1 h2
-    simp only [Pi.sub_def, condExp_const (h.filtrationObs.le n)] at h1
+    filter_upwards [condExp_const_sub (h.filtrationObs.le n) (hint.integrable one_le_two) 1,
+      condExp_lossIwEstimator h (hY.integrable one_le_two) (hint.integrable one_le_two) ha]
+      with ω h1 h2
     rw [h1, h2]
   rw [hloss]
   filter_upwards [condVar_const_sub (h.filtrationObs.le n) (hint'.integrable one_le_two) 1,
@@ -681,8 +675,7 @@ theorem condVar_lossIwEstimator (h : IsAlgEnvSeq O A Y (weightAlgorithm w hw hp)
       (m := fun x b ↦ ∫ y, 1 - y ∂env.feedback n (x, b)) (measurable_integral_feedback hg)
       (h.condExp_feedback_comp n hg hY1) (hint'.integrable one_le_two) ha, hmean]
     with ω h1 h2 h3 h4
-  rw [h1, h2, ← h3, h4]
-  simp [Environment.feedbackKernel]
+  rw [h1, h2, ← h3, h4, Environment.feedbackKernel_apply]
 
 omit [DecidableEq α] in
 /-- Along a run of a weight-based algorithm whose feedback at every round `t < n` is almost surely
