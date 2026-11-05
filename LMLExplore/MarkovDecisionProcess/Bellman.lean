@@ -78,8 +78,8 @@ actions give both, and so do bounded rewards and a bounded measurable value func
   optimality operator is the maximum of the evaluation operators of measurable deterministic
   stationary policies; `Learning.MDP.isApproxGreedy_iff_bellman_sub_le_bellmanEval`,
   `Learning.MDP.isApproxGreedy_zero_iff_bellmanEval_eq`: a measurable deterministic policy is
-  `ε`-greedy for `v` exactly when its evaluation operator at `v` is within `ε` of the optimality
-  operator, and greedy exactly when it attains it.
+  `ε`-greedy for `v` exactly when its evaluation operator at `v` is at least the optimality
+  operator minus `ε`, and, for a lookahead bounded above, greedy exactly when it attains it.
 * `Learning.MDP.isBlackwell_bellman`, `Learning.MDP.contractingWith_bellman`,
   `Learning.MDP.isBlackwell_bellmanEval`, `Learning.MDP.contractingWith_bellmanEval`: on a finite
   state space, the operators satisfy Blackwell's conditions and are `γ`-contractions of `𝓢 → ℝ`
