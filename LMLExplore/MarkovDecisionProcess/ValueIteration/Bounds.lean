@@ -39,8 +39,8 @@ condition reads `γ * sp (T v - v) < (1 - γ) * ε`, where `sp` is the span semi
 
 Puterman states these results on a finite state space. Here they hold on a general measurable
 state space, with explicit bounds `a ≤ T v - v ≤ b` in place of the infimum and the supremum. The
-lower bounds hold for every stationary policy `π` with `a ≤ T_π v - v`, and only the bounds
-involving `v*` assume finitely many actions.
+lower bounds hold for every stationary policy `π` with `a ≤ T_π v - v`, and the bounds involving
+`v*` assume countably many actions, finitely many for the bound through the greedy policy.
 
 ## Main statements
 
@@ -132,10 +132,10 @@ end Evaluation
 
 section Optimality
 
-variable [Finite 𝓐] [Nonempty 𝓐] [Nonempty 𝓢]
+variable [Countable 𝓐] [Nonempty 𝓐] [Nonempty 𝓢]
 
 /-- **Upper bound on the optimal value**, the corrected upper bound of [P, Theorem 6.6.3]: with
-finitely many actions, bounded rewards and `γ < 1`, if a bounded measurable `v` satisfies
+countably many actions, bounded rewards and `γ < 1`, if a bounded measurable `v` satisfies
 `T v - v ≤ b`, where `T` is the Bellman optimality operator, then
 `v* ≤ T^[n] v + γ ^ n * b / (1 - γ)` for every `n`. -/
 theorem optValue_le_bellman_iterate_add (hγ : γ < 1) (hR : ∀ p, ∀ᵐ x ∂(M.R p), |x| ≤ C)
@@ -151,8 +151,8 @@ theorem optValue_le_bellman_iterate_add (hγ : γ < 1) (hR : ∀ p, ∀ᵐ x ∂
   have hle : M.bellman γ (u + fun _ ↦ c) ≤ u + fun _ ↦ c := fun s ↦ by
     have h := bellman_iterate_succ_le hR hv hvB hb n s
     rw [iterate_succ_apply'] at h
-    rw [bellman_add_const (fun _ ↦ integrable_of_abs_le hm hB' _)
-      (fun _ ↦ Finite.bddAbove_range _), Pi.add_apply, Pi.add_apply,
+    rw [bellman_add_const (fun _ ↦ integrable_of_abs_le hm hB' _) (bddAbove_range_lookahead hR hB'),
+      Pi.add_apply, Pi.add_apply,
       add_div_one_sub_eq hγ (u s) n]
     linarith
   exact optValue_le_of_bellman_le hγ hR (hm.add measurable_const)
@@ -184,9 +184,10 @@ private lemma sub_lt_of_mul_sub_lt (hγ : γ < 1) (hε : γ * (b - a) < (1 - γ)
 finitely many actions, bounded rewards and `γ < 1`, if a bounded measurable `v` satisfies
 `a ≤ T v - v ≤ b` with `γ * (b - a) < (1 - γ) * ε`, then `T v + γ * a / (1 - γ)` is within `ε` of
 the optimal value. -/
-theorem abs_bellman_add_sub_optValue_lt (hγ : γ < 1) (hR : ∀ p, ∀ᵐ x ∂(M.R p), |x| ≤ C)
-    (hv : Measurable v) (hvB : ∀ s, |v s| ≤ B) (ha : ∀ s, a ≤ M.bellman γ v s - v s)
-    (hb : ∀ s, M.bellman γ v s - v s ≤ b) (hε : γ * (b - a) < (1 - γ) * ε) (s : 𝓢) :
+theorem abs_bellman_add_sub_optValue_lt [Finite 𝓐] (hγ : γ < 1)
+    (hR : ∀ p, ∀ᵐ x ∂(M.R p), |x| ≤ C) (hv : Measurable v) (hvB : ∀ s, |v s| ≤ B)
+    (ha : ∀ s, a ≤ M.bellman γ v s - v s) (hb : ∀ s, M.bellman γ v s - v s ≤ b)
+    (hε : γ * (b - a) < (1 - γ) * ε) (s : 𝓢) :
     |M.bellman γ v s + γ * a / (1 - γ) - M.optValue γ s| < ε := by
   have := Fintype.ofFinite 𝓐
   obtain ⟨h₁, h₂⟩ := bellman_add_le_value_and_optValue_le_bellman_add hγ hR hv hvB
@@ -197,7 +198,7 @@ theorem abs_bellman_add_sub_optValue_lt (hγ : γ < 1) (hR : ∀ p, ∀ᵐ x ∂
   rw [abs_sub_lt_iff]
   constructor <;> linarith
 
-/-- **The span stopping rule**, its policy [P, Proposition 6.6.5]: with finitely many actions,
+/-- **The span stopping rule**, its policy [P, Proposition 6.6.5]: with countably many actions,
 bounded rewards and `γ < 1`, if a bounded measurable `v` satisfies `a ≤ T v - v ≤ b` with
 `γ * (b - a) < (1 - γ) * ε`, then every stationary policy `π` greedy for `v`, `T_π v = T v`, is
 `ε`-optimal: its value is within `ε` of the optimal value. -/
@@ -212,7 +213,7 @@ theorem abs_value_sub_optValue_lt_of_bellmanEval_eq {π : Kernel 𝓢 𝓐} [IsM
   rw [abs_sub_lt_iff]
   constructor <;> linarith
 
-/-- **The span stopping rule** [P, Proposition 6.6.5], with the span: with finitely many actions,
+/-- **The span stopping rule** [P, Proposition 6.6.5], with the span: with countably many actions,
 bounded rewards and `γ < 1`, if a bounded measurable `v` satisfies
 `γ * sp (T v - v) < (1 - γ) * ε`, where the span `sp` is the oscillation
 `LMLExplore.orderUnitOsc 1`, then every stationary policy `π` greedy for `v`, `T_π v = T v`, is

@@ -201,16 +201,15 @@ theorem eq_value_of_bellmanEval_eq (hγ : γ < 1) (hR : ∀ p, ∀ᵐ x ∂(M.R 
     (abs_policyReward_le hR) hv hvB fun s ↦ ?_
   rw [← bellmanEval_eq_policyReward_add hR hv hvB, h]
 
-/-- With finitely many actions, bounded rewards and `γ < 1`, the value of a measurable
-deterministic stationary policy `d` is below its image by the optimality operator:
-`v^d ≤ T v^d`. -/
-theorem value_le_bellman [Finite 𝓐] (hγ : γ < 1) (hR : ∀ p, ∀ᵐ x ∂(M.R p), |x| ≤ C)
+/-- With bounded rewards and `γ < 1`, the value of a measurable deterministic stationary policy `d`
+is below its image by the optimality operator: `v^d ≤ T v^d`. -/
+theorem value_le_bellman (hγ : γ < 1) (hR : ∀ p, ∀ᵐ x ∂(M.R p), |x| ≤ C)
     {d : 𝓢 → 𝓐} (hd : Measurable d) :
     M.value γ (Kernel.deterministic d hd) ≤
       M.bellman γ (M.value γ (Kernel.deterministic d hd)) := fun s ↦ by
   conv_lhs => rw [← bellmanEval_value hγ hR]
   rw [bellmanEval_deterministic (measurable_value hγ hR)]
-  exact lookahead_le_bellman _ s _
+  exact lookahead_le_bellman (bddAbove_range_lookahead hR (abs_value_le hγ hR) s) _
 
 end Value
 
