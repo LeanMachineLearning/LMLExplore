@@ -7,6 +7,7 @@ module
 
 public import Mathlib.Probability.IdentDistrib
 public import Mathlib.Probability.Moments.Basic
+import LMLExplore.Probability.Moments.Basic
 
 /-!
 # Domination of moment generating functions and Chernoff bounds
@@ -169,20 +170,15 @@ private lemma iIndepFun.integrable_exp_mul_sum_and_mgf_sum_le_pow_of_above
     · simp
     · exact one_le_pow₀ ((mgf_zero (X := X i) (μ := P)).symm.trans_le ((hX i hi).mgf_le le_rfl hY))
   -- for `t > 0`, the exponential moments make the `X i` almost everywhere measurable
-  have h_meas (i : s) : AEMeasurable (X i) P :=
-    aemeasurable_of_aemeasurable_exp_mul ht.ne'
-      ((hX i i.2).integrable_exp_mul ht.le hY).aemeasurable
-  have h_indep' : iIndepFun (fun i : s ↦ X i) P := h_indep.precomp Subtype.val_injective
-  have h_sum : mgf (fun ω ↦ ∑ i ∈ s, X i ω) P t = ∏ i : s, mgf (X i) P t := by
-    rw [← h_indep'.mgf_sum₀ h_meas univ]
-    congr with ω
-    rw [Finset.sum_apply, Finset.sum_coe_sort s fun i ↦ X i ω]
+  have h_sum : mgf (fun ω ↦ ∑ i ∈ s, X i ω) P t = ∏ i ∈ s, mgf (X i) P t :=
+    h_indep.mgf_sum_eq_prod_of_mem fun i hi ↦ aemeasurable_of_aemeasurable_exp_mul ht.ne'
+      ((hX i hi).integrable_exp_mul ht.le hY).aemeasurable
   refine ⟨mgf_pos_iff.1 ?_, ?_⟩
   · rw [h_sum]
-    exact Finset.prod_pos fun i _ ↦ mgf_pos ((hX i i.2).integrable_exp_mul ht.le hY)
+    exact Finset.prod_pos fun i hi ↦ mgf_pos ((hX i hi).integrable_exp_mul ht.le hY)
   · rw [h_sum]
-    calc ∏ i : s, mgf (X i) P t ≤ ∏ _i : s, mgf Y Q t :=
-          prod_le_prod₀ (fun _ _ ↦ mgf_nonneg) fun i _ ↦ (hX i i.2).mgf_le ht.le hY
+    calc ∏ i ∈ s, mgf (X i) P t ≤ ∏ _i ∈ s, mgf Y Q t :=
+          prod_le_prod₀ (fun _ _ ↦ mgf_nonneg) fun i hi ↦ (hX i hi).mgf_le ht.le hY
       _ = mgf Y Q t ^ #s := by simp
 
 /-- For independent random variables `X i`, `i ∈ s`, dominated above by `Y` under `Q`, and

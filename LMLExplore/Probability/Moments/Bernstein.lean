@@ -9,6 +9,7 @@ public import Mathlib.MeasureTheory.Function.L2Space
 public import Mathlib.Probability.Independence.Basic
 public import Mathlib.Probability.Moments.Basic
 import LMLExplore.Analysis.SpecialFunctions.Exp
+import LMLExplore.Probability.Moments.Basic
 import TauCeti.Probability.Moments.Basic
 
 /-!
@@ -58,8 +59,8 @@ Bernstein's tail bound `P(ε ≤ S) ≤ exp (-ε ^ 2 / (2 (v + b ε / 3)))` for 
 Ceti's `ProbabilityTheory.iIndepFun.measureReal_sum_ge_le_of_ae_le`, and the statements here follow
 its conventions: independent summands indexed by a `Finset`, almost-sure bounds, and the second
 moments `E (X i) ^ 2` rather than variances. The one-sided bounds only need the means to be
-nonpositive, and all bounds take an upper bound `v` on the sum of the second moments, which is how
-they are applied to bounded or estimated variances.
+nonpositive, and all bounds take any deterministic upper bound `v` on the sum of the second
+moments.
 
 ## References
 
@@ -116,17 +117,7 @@ theorem mgf_sum_le_exp_mul_exp_sub_one_sub_of_ae_le (h_indep : iIndepFun X μ) {
     (hXb : ∀ i ∈ s, ∀ᵐ ω ∂μ, X i ω ≤ b) (hv : ∑ i ∈ s, ∫ ω, X i ω ^ 2 ∂μ ≤ v) (ht : 0 ≤ t) :
     mgf (fun ω ↦ ∑ i ∈ s, X i ω) μ t ≤ exp (v * ((exp (t * b) - 1 - t * b) / b ^ 2)) := by
   have : IsProbabilityMeasure μ := h_indep.isProbabilityMeasure
-  -- Restrict the family to `s`, where the measurability hypotheses hold.
-  have hprod : mgf (fun ω ↦ ∑ i ∈ s, X i ω) μ t = ∏ i ∈ s, mgf (X i) μ t := by
-    have h := (h_indep.precomp Subtype.val_injective).mgf_sum₀ (t := t)
-      (fun i : s ↦ (hX i i.2).aestronglyMeasurable.aemeasurable) univ
-    rw [prod_coe_sort s (fun i ↦ mgf (X i) μ t)] at h
-    rw [← h]
-    congr 1
-    ext ω
-    simp only [Finset.sum_apply]
-    exact (sum_coe_sort s (fun i ↦ X i ω)).symm
-  rw [hprod]
+  rw [h_indep.mgf_sum_eq_prod_of_mem fun i hi ↦ (hX i hi).aestronglyMeasurable.aemeasurable]
   calc ∏ i ∈ s, mgf (X i) μ t
       ≤ ∏ i ∈ s, exp ((∫ ω, X i ω ^ 2 ∂μ) * ((exp (t * b) - 1 - t * b) / b ^ 2)) :=
         prod_le_prod₀ (fun i _ ↦ mgf_nonneg)
@@ -145,24 +136,34 @@ private lemma measureReal_sum_ge_le_exp_of_mgf_le [IsFiniteMeasure μ] {b t ε K
     (hX : ∀ i ∈ s, AEMeasurable (X i) μ) (hXb : ∀ i ∈ s, ∀ᵐ ω ∂μ, X i ω ≤ b) (ht : 0 ≤ t)
     (hK : mgf (fun ω ↦ ∑ i ∈ s, X i ω) μ t ≤ exp K) :
     μ.real {ω | ε ≤ ∑ i ∈ s, X i ω} ≤ exp (-t * ε + K) := by
-  have hS_le : ∀ᵐ ω ∂μ, ∑ i ∈ s, X i ω ≤ #s * b := by
-    filter_upwards [(Filter.eventually_all_finset s).2 hXb] with ω hω
-    simpa using sum_le_card_nsmul s (fun i ↦ X i ω) b hω
-  refine (measure_ge_le_exp_mul_mgf ε ht
-    (integrable_exp_mul_of_le t _ ht (Finset.aemeasurable_fun_sum s hX) hS_le)).trans ?_
-  rw [exp_add]
-  gcongr
+  refine measureReal_ge_le_exp_of_mgf_le (b := #s * b) (Finset.aemeasurable_fun_sum s hX) ?_
+    ht hK
+  filter_upwards [(Filter.eventually_all_finset s).2 hXb] with ω hω
+  simpa using sum_le_card_nsmul s (fun i ↦ X i ω) b hω
 
-/-- The two tails of a sum: `P(ε ≤ |∑ i ∈ s, X i|)` is at most `P(ε ≤ ∑ i ∈ s, X i)` plus
-`P(ε ≤ ∑ i ∈ s, -X i)`. -/
-private lemma measureReal_abs_sum_ge_le_add [IsFiniteMeasure μ] (ε : ℝ) :
-    μ.real {ω | ε ≤ |∑ i ∈ s, X i ω|} ≤
-      μ.real {ω | ε ≤ ∑ i ∈ s, X i ω} + μ.real {ω | ε ≤ ∑ i ∈ s, -X i ω} := by
-  refine (measureReal_mono (fun ω hω ↦ ?_)).trans (measureReal_union_le _ _)
-  simp only [Set.mem_ofPred_eq, Set.mem_union, sum_neg_distrib] at hω ⊢
-  rcases le_abs'.1 hω with h | h
-  · exact Or.inr (by linarith)
-  · exact Or.inl h
+/-- Two-sided form of a one-sided tail bound: if every independent family `Y` satisfying the
+one-sided hypotheses (finite second moments, nonpositive means, `Y i ≤ b`, second moments summing
+to at most `v`) has `P(ε ≤ ∑ i ∈ s, Y i) ≤ c`, then a centred family with `|X i| ≤ b` has
+`P(ε ≤ |∑ i ∈ s, X i|) ≤ 2 c`, applying the bound to `X` and to `-X`. -/
+private lemma measureReal_abs_sum_ge_le_two_mul (h_indep : iIndepFun X μ) {b v ε c : ℝ}
+    (hX : ∀ i ∈ s, AEMeasurable (X i) μ) (hmean : ∀ i ∈ s, μ[X i] = 0)
+    (hXb : ∀ i ∈ s, ∀ᵐ ω ∂μ, |X i ω| ≤ b) (hv : ∑ i ∈ s, ∫ ω, X i ω ^ 2 ∂μ ≤ v)
+    (hbound : ∀ Y : ι → Ω → ℝ, iIndepFun Y μ → (∀ i ∈ s, MemLp (Y i) 2 μ) →
+      (∀ i ∈ s, μ[Y i] ≤ 0) → (∀ i ∈ s, ∀ᵐ ω ∂μ, Y i ω ≤ b) →
+      ∑ i ∈ s, ∫ ω, Y i ω ^ 2 ∂μ ≤ v → μ.real {ω | ε ≤ ∑ i ∈ s, Y i ω} ≤ c) :
+    μ.real {ω | ε ≤ |∑ i ∈ s, X i ω|} ≤ 2 * c := by
+  have : IsProbabilityMeasure μ := h_indep.isProbabilityMeasure
+  have hL2 : ∀ i ∈ s, MemLp (X i) 2 μ := fun i hi ↦
+    MemLp.of_bound (hX i hi).aestronglyMeasurable b (by simpa using hXb i hi)
+  have hup := hbound X h_indep hL2 (fun i hi ↦ (hmean i hi).le)
+    (fun i hi ↦ by filter_upwards [hXb i hi] with ω hω using (le_abs_self _).trans hω) hv
+  -- The lower tail is the upper tail of the negated family.
+  have hlow := hbound (fun i ω ↦ -X i ω) (h_indep.comp (fun _ ↦ Neg.neg) fun _ ↦ measurable_neg)
+    (fun i hi ↦ (hL2 i hi).neg) (fun i hi ↦ by simp [integral_neg, hmean i hi])
+    (fun i hi ↦ by filter_upwards [hXb i hi] with ω hω using (neg_le_abs _).trans hω)
+    (by simpa using hv)
+  simp only [sum_neg_distrib] at hlow
+  exact (measureReal_abs_ge_le_add _ ε).trans (by linarith)
 
 /-- **Bennett's inequality** [Ben62], [BLM13, Theorem 2.9]. Let the `X i`, `i ∈ s`, be
 independent with finite second moments, nonpositive means and `X i ≤ b` almost surely with
@@ -202,22 +203,9 @@ theorem measureReal_abs_sum_ge_le_two_mul_exp_neg_mul_log_of_abs_le (h_indep : i
     (hb : 0 < b) (hXb : ∀ i ∈ s, ∀ᵐ ω ∂μ, |X i ω| ≤ b)
     (hv : ∑ i ∈ s, ∫ ω, X i ω ^ 2 ∂μ ≤ v) (hε : 0 ≤ ε) :
     μ.real {ω | ε ≤ |∑ i ∈ s, X i ω|} ≤
-      2 * exp (-(v / b ^ 2 * ((1 + b * ε / v) * log (1 + b * ε / v) - b * ε / v))) := by
-  have : IsProbabilityMeasure μ := h_indep.isProbabilityMeasure
-  have hL2 : ∀ i ∈ s, MemLp (X i) 2 μ := fun i hi ↦
-    MemLp.of_bound (hX i hi).aestronglyMeasurable b (by simpa using hXb i hi)
-  have hup := h_indep.measureReal_sum_ge_le_exp_neg_mul_log_of_ae_le hL2
-    (fun i hi ↦ (hmean i hi).le) hb
-    (fun i hi ↦ by filter_upwards [hXb i hi] with ω hω using (le_abs_self _).trans hω) hv hε
-  -- The lower tail is the upper tail of the negated family.
-  have hneg : iIndepFun (fun i ω ↦ -X i ω) μ :=
-    h_indep.comp (fun _ ↦ Neg.neg) fun _ ↦ measurable_neg
-  have hlow := hneg.measureReal_sum_ge_le_exp_neg_mul_log_of_ae_le (s := s)
-    (fun i hi ↦ (hL2 i hi).neg)
-    (fun i hi ↦ by simp [integral_neg, hmean i hi]) hb
-    (fun i hi ↦ by filter_upwards [hXb i hi] with ω hω using (neg_le_abs _).trans hω)
-    (by simpa using hv) hε
-  exact (measureReal_abs_sum_ge_le_add ε).trans (by linarith)
+      2 * exp (-(v / b ^ 2 * ((1 + b * ε / v) * log (1 + b * ε / v) - b * ε / v))) :=
+  measureReal_abs_sum_ge_le_two_mul h_indep hX hmean hXb hv fun _ hY hL2 hm hYb hYv ↦
+    hY.measureReal_sum_ge_le_exp_neg_mul_log_of_ae_le hL2 hm hb hYb hYv hε
 
 /-- **Bernstein's inequality, high-probability form** [BLM13, Theorem 2.10]. Let the `X i`,
 `i ∈ s`, be independent with finite second moments, nonpositive means and `X i ≤ b` almost surely
@@ -293,22 +281,9 @@ almost surely with `b > 0`, and let `∑ i ∈ s, E (X i) ^ 2 ≤ v`. Then for e
 theorem measureReal_sqrt_add_le_abs_sum_le_of_abs_le (h_indep : iIndepFun X μ) {b v L : ℝ}
     (hX : ∀ i ∈ s, AEMeasurable (X i) μ) (hmean : ∀ i ∈ s, μ[X i] = 0) (hb : 0 < b)
     (hXb : ∀ i ∈ s, ∀ᵐ ω ∂μ, |X i ω| ≤ b) (hv : ∑ i ∈ s, ∫ ω, X i ω ^ 2 ∂μ ≤ v) :
-    μ.real {ω | √(2 * v * L) + b * L / 3 ≤ |∑ i ∈ s, X i ω|} ≤ 2 * exp (-L) := by
-  have : IsProbabilityMeasure μ := h_indep.isProbabilityMeasure
-  have hL2 : ∀ i ∈ s, MemLp (X i) 2 μ := fun i hi ↦
-    MemLp.of_bound (hX i hi).aestronglyMeasurable b (by simpa using hXb i hi)
-  have hup := h_indep.measureReal_sqrt_add_le_sum_le_of_ae_le (L := L) hL2
-    (fun i hi ↦ (hmean i hi).le) hb
-    (fun i hi ↦ by filter_upwards [hXb i hi] with ω hω using (le_abs_self _).trans hω) hv
-  -- The lower tail is the upper tail of the negated family.
-  have hneg : iIndepFun (fun i ω ↦ -X i ω) μ :=
-    h_indep.comp (fun _ ↦ Neg.neg) fun _ ↦ measurable_neg
-  have hlow := hneg.measureReal_sqrt_add_le_sum_le_of_ae_le (s := s) (L := L)
-    (fun i hi ↦ (hL2 i hi).neg)
-    (fun i hi ↦ by simp [integral_neg, hmean i hi]) hb
-    (fun i hi ↦ by filter_upwards [hXb i hi] with ω hω using (neg_le_abs _).trans hω)
-    (by simpa using hv)
-  exact (measureReal_abs_sum_ge_le_add _).trans (by linarith)
+    μ.real {ω | √(2 * v * L) + b * L / 3 ≤ |∑ i ∈ s, X i ω|} ≤ 2 * exp (-L) :=
+  measureReal_abs_sum_ge_le_two_mul h_indep hX hmean hXb hv fun _ hY hL2 hm hYb hYv ↦
+    hY.measureReal_sqrt_add_le_sum_le_of_ae_le hL2 hm hb hYb hYv
 
 /-- **Bernstein's inequality, two-sided, at confidence level `δ`** [BLM13, Theorem 2.10]. Under
 the hypotheses of `measureReal_sqrt_add_le_abs_sum_le_of_abs_le`, for `δ > 0`, with probability
