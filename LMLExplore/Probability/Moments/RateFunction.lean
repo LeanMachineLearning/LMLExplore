@@ -43,6 +43,8 @@ infinite beyond the essential supremum of `X`, and symmetrically below its essen
 
 * `LMLExplore.coe_rateFunction_eq_fenchelConjugate`: the rate function is the Fenchel conjugate,
   for the pairing `(t, x) ↦ t x`, of the cumulant generating function extended by `⊤`.
+* `LMLExplore.rateFunction_zero_measure`: under the zero measure, the rate function is `0` at `0`
+  and infinite elsewhere.
 * `LMLExplore.rateFunction_neg`, `LMLExplore.rateFunction_congr_ae`,
   `ProbabilityTheory.IdentDistrib.rateFunction_eq`: the rate function of `-X` at `x` is that of
   `X` at `-x`, and the rate function only depends on the law of `X`.
@@ -101,6 +103,19 @@ lemma ofReal_le_rateFunction (ht : t ∈ integrableExpSet X P) (x : ℝ) :
 lemma rateFunction_le_iff :
     rateFunction X P x ≤ r ↔ ∀ t ∈ integrableExpSet X P, ENNReal.ofReal (t * x - cgf X P t) ≤ r :=
   iSup₂_le_iff
+
+/-- Under the zero measure the cumulant generating function vanishes, so the rate function is
+`sup_t (t x)⁺`: it is `0` at `0` and infinite elsewhere. -/
+@[simp]
+lemma rateFunction_zero_measure (X : Ω → ℝ) (x : ℝ) :
+    rateFunction X (0 : Measure Ω) x = if x = 0 then 0 else ⊤ := by
+  split_ifs with hx
+  · simp [rateFunction_def, hx]
+  · refine ENNReal.eq_top_of_forall_nnreal_le fun r ↦ ?_
+    calc (r : ℝ≥0∞) = ENNReal.ofReal (r / x * x - cgf X 0 (r / x)) := by
+          rw [div_mul_cancel₀ _ hx, cgf_zero_measure, Pi.zero_apply, sub_zero,
+            ENNReal.ofReal_coe_nnreal]
+    _ ≤ rateFunction X 0 x := ofReal_le_rateFunction (by simp [integrableExpSet]) x
 
 open Classical in
 /-- The rate function is the Legendre–Fenchel conjugate (Tau Ceti's `fenchelConjugate`), for the

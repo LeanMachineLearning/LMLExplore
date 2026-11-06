@@ -256,18 +256,14 @@ theorem antitoneOn_expFamilyRate_right (x : ℝ) :
 theorem monotoneOn_expFamilyRate_left (hμ : μ ∈ ρ.expFamilyMeans T) :
     MonotoneOn (ρ.expFamilyRate T · μ) (Ici μ) := by
   rcases eq_zero_or_neZero ρ with rfl | hρ
-  · -- For the zero measure, the only mean is `0` and `dbar(x, 0) = sup_t (t x)⁺`.
+  · -- For the zero measure, the only mean is `0`, and `dbar(x, 0)` is `0` at `0` and `∞` elsewhere.
     obtain ⟨η, -, rfl⟩ := mem_expFamilyMeans_iff.1 hμ
     intro a ha b hb hab
     simp only [mem_Ici, cgf_zero_measure, Pi.zero_def, deriv_const] at ha
-    simp_rw [expFamilyRate_def, expFamily_zero_measure]
-    refine rateFunction_le_iff.2 fun t ht ↦ ?_
-    rcases le_or_gt 0 t with h | h
-    · refine le_trans (ENNReal.ofReal_le_ofReal ?_) (ofReal_le_rateFunction ht b)
-      linarith [mul_le_mul_of_nonneg_left hab h]
-    · rw [ENNReal.ofReal_of_nonpos
-        (by simp [cgf_zero_measure, mul_nonpos_of_nonpos_of_nonneg h.le ha])]
-      exact zero_le
+    simp_rw [expFamilyRate_def, expFamily_zero_measure, rateFunction_zero_measure]
+    rcases eq_or_lt_of_le ha with rfl | ha₀
+    · simp
+    · simp [ha₀.ne', (ha₀.trans_le hab).ne']
   · have hη := natParam_mem_interior_integrableExpSet hμ
     have := isProbabilityMeasure_expFamily (interior_subset hη)
     simpa only [expFamilyRate_def, integral_expFamily_natParam hμ] using
@@ -277,18 +273,14 @@ theorem monotoneOn_expFamilyRate_left (hμ : μ ∈ ρ.expFamilyMeans T) :
 theorem antitoneOn_expFamilyRate_left (hμ : μ ∈ ρ.expFamilyMeans T) :
     AntitoneOn (ρ.expFamilyRate T · μ) (Iic μ) := by
   rcases eq_zero_or_neZero ρ with rfl | hρ
-  · -- For the zero measure, the only mean is `0` and `dbar(x, 0) = sup_t (t x)⁺`.
+  · -- For the zero measure, the only mean is `0`, and `dbar(x, 0)` is `0` at `0` and `∞` elsewhere.
     obtain ⟨η, -, rfl⟩ := mem_expFamilyMeans_iff.1 hμ
     intro a ha b hb hab
     simp only [mem_Iic, cgf_zero_measure, Pi.zero_def, deriv_const] at hb
-    simp_rw [expFamilyRate_def, expFamily_zero_measure]
-    refine rateFunction_le_iff.2 fun t ht ↦ ?_
-    rcases le_or_gt t 0 with h | h
-    · refine le_trans (ENNReal.ofReal_le_ofReal ?_) (ofReal_le_rateFunction ht a)
-      linarith [mul_le_mul_of_nonpos_left hab h]
-    · rw [ENNReal.ofReal_of_nonpos
-        (by simp [cgf_zero_measure, mul_nonpos_of_nonneg_of_nonpos h.le hb])]
-      exact zero_le
+    simp_rw [expFamilyRate_def, expFamily_zero_measure, rateFunction_zero_measure]
+    rcases eq_or_lt_of_le hb with rfl | hb₀
+    · simp
+    · simp [hb₀.ne, (hab.trans_lt hb₀).ne]
   · have hη := natParam_mem_interior_integrableExpSet hμ
     have := isProbabilityMeasure_expFamily (interior_subset hη)
     simpa only [expFamilyRate_def, integral_expFamily_natParam hμ] using
