@@ -62,6 +62,196 @@
    }
   }
  },
+ "AKLM21": {
+  "uri": "https://arxiv.org/abs/1908.00261",
+  "identifiers": {
+   "arxiv": "1908.00261"
+  },
+  "citation": {
+   "id": "AKLM21",
+   "type": "article",
+   "title": "On the Theory of Policy Gradient Methods: Optimality, Approximation, and Distribution Shift",
+   "author": [
+    {
+     "family": "Agarwal",
+     "given": "A."
+    },
+    {
+     "family": "Kakade",
+     "given": "S. M."
+    },
+    {
+     "family": "Lee",
+     "given": "J. D."
+    },
+    {
+     "family": "Mahajan",
+     "given": "G."
+    }
+   ],
+   "issued": {
+    "date-parts": [
+     [
+      2021
+     ]
+    ]
+   }
+  }
+ },
+ "AKY20": {
+  "uri": "https://arxiv.org/abs/1906.03804",
+  "identifiers": {
+   "arxiv": "1906.03804"
+  },
+  "citation": {
+   "id": "AKY20",
+   "type": "paper-conference",
+   "title": "Model-Based Reinforcement Learning with a Generative Model is Minimax Optimal",
+   "author": [
+    {
+     "family": "Agarwal",
+     "given": "A."
+    },
+    {
+     "family": "Kakade",
+     "given": "S."
+    },
+    {
+     "family": "Yang",
+     "given": "L. F."
+    }
+   ],
+   "container-title": "Proceedings of the Conference on Learning Theory (COLT)",
+   "issued": {
+    "date-parts": [
+     [
+      2020
+     ]
+    ]
+   }
+  }
+ },
+ "AMK13": {
+  "uri": "https://doi.org/10.1007/s10994-013-5368-1",
+  "citation": {
+   "id": "AMK13",
+   "type": "article-journal",
+   "title": "Minimax PAC bounds on the sample complexity of reinforcement learning with a generative model",
+   "author": [
+    {
+     "family": "Azar",
+     "given": "M. G."
+    },
+    {
+     "family": "Munos",
+     "given": "R."
+    },
+    {
+     "family": "Kappen",
+     "given": "H. J."
+    }
+   ],
+   "container-title": "Machine Learning",
+   "DOI": "10.1007/s10994-013-5368-1",
+   "issued": {
+    "date-parts": [
+     [
+      2013
+     ]
+    ]
+   }
+  }
+ },
+ "AMS09": {
+  "uri": "https://doi.org/10.1016/j.tcs.2009.01.016",
+  "citation": {
+   "id": "AMS09",
+   "type": "article-journal",
+   "title": "Exploration–exploitation tradeoff using variance estimates in multi-armed bandits",
+   "author": [
+    {
+     "family": "Audibert",
+     "given": "Jean-Yves"
+    },
+    {
+     "family": "Munos",
+     "given": "Rémi"
+    },
+    {
+     "family": "Szepesvári",
+     "given": "Csaba"
+    }
+   ],
+   "container-title": "Theoretical Computer Science",
+   "volume": "410",
+   "DOI": "10.1016/j.tcs.2009.01.016",
+   "issued": {
+    "date-parts": [
+     [
+      2009
+     ]
+    ]
+   }
+  }
+ },
+ "AYPS11": {
+  "uri": "https://papers.nips.cc/paper_files/paper/2011/hash/e1d5be1c7f2f456670de3d53c7b54f4a-Abstract.html",
+  "citation": {
+   "id": "AYPS11",
+   "type": "paper-conference",
+   "title": "Improved Algorithms for Linear Stochastic Bandits",
+   "author": [
+    {
+     "family": "Abbasi-Yadkori",
+     "given": "Y."
+    },
+    {
+     "family": "Pál",
+     "given": "D."
+    },
+    {
+     "family": "Szepesvári",
+     "given": "Cs."
+    }
+   ],
+   "container-title": "Advances in Neural Information Processing Systems (NeurIPS)",
+   "issued": {
+    "date-parts": [
+     [
+      2011
+     ]
+    ]
+   }
+  }
+ },
+ "BCB12": {
+  "uri": "https://doi.org/10.1561/2200000024",
+  "citation": {
+   "id": "BCB12",
+   "type": "article-journal",
+   "title": "Regret Analysis of Stochastic and Nonstochastic Multi-armed Bandit Problems",
+   "author": [
+    {
+     "family": "Bubeck",
+     "given": "Sébastien"
+    },
+    {
+     "family": "Cesa-Bianchi",
+     "given": "Nicolò"
+    }
+   ],
+   "container-title": "Foundations and Trends® in Machine Learning",
+   "volume": "5",
+   "DOI": "10.1561/2200000024",
+   "issued": {
+    "date-parts": [
+     [
+      2012
+     ]
+    ]
+   }
+  }
+ },
  "BLM13": {
   "uri": "https://doi.org/10.1093/acprof:oso/9780199535255.001.0001",
   "citation": {
@@ -93,6 +283,82 @@
    }
   }
  },
+ "BRS18": {
+  "uri": "https://arxiv.org/abs/1806.02450",
+  "identifiers": {
+   "arxiv": "1806.02450"
+  },
+  "citation": {
+   "id": "BRS18",
+   "type": "paper-conference",
+   "title": "A Finite Time Analysis of Temporal Difference Learning With Linear Function Approximation",
+   "author": [
+    {
+     "family": "Bhandari",
+     "given": "J."
+    },
+    {
+     "family": "Russo",
+     "given": "D."
+    },
+    {
+     "family": "Singal",
+     "given": "R."
+    }
+   ],
+   "container-title": "Proceedings of the Conference on Learning Theory (COLT)",
+   "issued": {
+    "date-parts": [
+     [
+      2018
+     ]
+    ]
+   }
+  }
+ },
+ "CCCWC22": {
+  "uri": "https://doi.org/10.1287/opre.2021.2151",
+  "identifiers": {
+   "arxiv": "2007.06558"
+  },
+  "citation": {
+   "id": "CCCWC22",
+   "type": "article-journal",
+   "title": "Fast Global Convergence of Natural Policy Gradient Methods with Entropy Regularization",
+   "author": [
+    {
+     "family": "Cen",
+     "given": "Shicong"
+    },
+    {
+     "family": "Cheng",
+     "given": "Chen"
+    },
+    {
+     "family": "Chen",
+     "given": "Yuxin"
+    },
+    {
+     "family": "Wei",
+     "given": "Yuting"
+    },
+    {
+     "family": "Chi",
+     "given": "Yuejie"
+    }
+   ],
+   "container-title": "Operations Research",
+   "volume": "70",
+   "DOI": "10.1287/opre.2021.2151",
+   "issued": {
+    "date-parts": [
+     [
+      2022
+     ]
+    ]
+   }
+  }
+ },
  "CT": {
   "uri": "https://doi.org/10.1002/047174882X",
   "citation": {
@@ -116,6 +382,34 @@
     "date-parts": [
      [
       2006
+     ]
+    ]
+   }
+  }
+ },
+ "CT06": {
+  "same": "CT"
+ },
+ "D23": {
+  "uri": "https://arxiv.org/abs/2303.09468",
+  "identifiers": {
+   "arxiv": "2303.09468"
+  },
+  "citation": {
+   "id": "D23",
+   "type": "paper-conference",
+   "title": "On the Existence of a Complexity in Fixed Budget Bandit Identification",
+   "author": [
+    {
+     "family": "Degenne",
+     "given": "R."
+    }
+   ],
+   "container-title": "Proceedings of the Conference on Learning Theory (COLT)",
+   "issued": {
+    "date-parts": [
+     [
+      2023
      ]
     ]
    }
@@ -183,6 +477,71 @@
    }
   }
  },
+ "DMKV21": {
+  "uri": "https://arxiv.org/abs/2010.03531",
+  "identifiers": {
+   "arxiv": "2010.03531"
+  },
+  "citation": {
+   "id": "DMKV21",
+   "type": "paper-conference",
+   "title": "Episodic Reinforcement Learning in Finite MDPs: Minimax Lower Bounds Revisited",
+   "author": [
+    {
+     "family": "Domingues",
+     "given": "O. D."
+    },
+    {
+     "family": "Ménard",
+     "given": "P."
+    },
+    {
+     "family": "Kaufmann",
+     "given": "E."
+    },
+    {
+     "family": "Valko",
+     "given": "M."
+    }
+   ],
+   "container-title": "Proceedings of the International Conference on Algorithmic Learning Theory (ALT)",
+   "issued": {
+    "date-parts": [
+     [
+      2021
+     ]
+    ]
+   }
+  }
+ },
+ "DZ98": {
+  "uri": "https://doi.org/10.1007/978-1-4612-5320-4",
+  "citation": {
+   "id": "DZ98",
+   "type": "book",
+   "title": "Large Deviations Techniques and Applications",
+   "author": [
+    {
+     "family": "Dembo",
+     "given": "Amir"
+    },
+    {
+     "family": "Zeitouni",
+     "given": "Ofer"
+    }
+   ],
+   "edition": "2",
+   "publisher": "Springer New York",
+   "DOI": "10.1007/978-1-4612-5320-4",
+   "issued": {
+    "date-parts": [
+     [
+      1998
+     ]
+    ]
+   }
+  }
+ },
  "EMM02": {
   "uri": "https://doi.org/10.1007/3-540-45435-7_18",
   "citation": {
@@ -215,6 +574,72 @@
    }
   }
  },
+ "FJJR19": {
+  "uri": "https://arxiv.org/abs/1906.08399",
+  "identifiers": {
+   "arxiv": "1906.08399"
+  },
+  "citation": {
+   "id": "FJJR19",
+   "type": "paper-conference",
+   "title": "Sequential Experimental Design for Transductive Linear Bandits",
+   "author": [
+    {
+     "family": "Fiez",
+     "given": "T."
+    },
+    {
+     "family": "Jain",
+     "given": "L."
+    },
+    {
+     "family": "Jamieson",
+     "given": "K."
+    },
+    {
+     "family": "Ratliff",
+     "given": "L."
+    }
+   ],
+   "container-title": "Advances in Neural Information Processing Systems (NeurIPS)",
+   "issued": {
+    "date-parts": [
+     [
+      2019
+     ]
+    ]
+   }
+  }
+ },
+ "GC11": {
+  "uri": "https://arxiv.org/abs/1102.2490",
+  "identifiers": {
+   "arxiv": "1102.2490"
+  },
+  "citation": {
+   "id": "GC11",
+   "type": "paper-conference",
+   "title": "The KL-UCB Algorithm for Bounded Stochastic Bandits and Beyond",
+   "author": [
+    {
+     "family": "Garivier",
+     "given": "A."
+    },
+    {
+     "family": "Cappé",
+     "given": "O."
+    }
+   ],
+   "container-title": "Proceedings of the Conference on Learning Theory (COLT)",
+   "issued": {
+    "date-parts": [
+     [
+      2011
+     ]
+    ]
+   }
+  }
+ },
  "GK16": {
   "uri": "https://arxiv.org/abs/1602.04589",
   "identifiers": {
@@ -239,6 +664,41 @@
     "date-parts": [
      [
       2016
+     ]
+    ]
+   }
+  }
+ },
+ "GMS19": {
+  "uri": "https://doi.org/10.1287/moor.2017.0928",
+  "identifiers": {
+   "arxiv": "1602.07182"
+  },
+  "citation": {
+   "id": "GMS19",
+   "type": "article-journal",
+   "title": "Explore First, Exploit Next: The True Shape of Regret in Bandit Problems",
+   "author": [
+    {
+     "family": "Garivier",
+     "given": "Aurélien"
+    },
+    {
+     "family": "Ménard",
+     "given": "Pierre"
+    },
+    {
+     "family": "Stoltz",
+     "given": "Gilles"
+    }
+   ],
+   "container-title": "Mathematics of Operations Research",
+   "volume": "44",
+   "DOI": "10.1287/moor.2017.0928",
+   "issued": {
+    "date-parts": [
+     [
+      2019
      ]
     ]
    }
@@ -281,6 +741,33 @@
    }
   }
  },
+ "JD23": {
+  "uri": "https://doi.org/10.52202/075280-3019",
+  "citation": {
+   "id": "JD23",
+   "type": "paper-conference",
+   "title": "Non-Asymptotic Analysis of a UCB-based Top Two Algorithm",
+   "author": [
+    {
+     "family": "Jourdan",
+     "given": "Marc"
+    },
+    {
+     "family": "Degenne",
+     "given": "Rémy"
+    }
+   ],
+   "container-title": "Advances in Neural Information Processing Systems 36",
+   "DOI": "10.52202/075280-3019",
+   "issued": {
+    "date-parts": [
+     [
+      2023
+     ]
+    ]
+   }
+  }
+ },
  "JDK23": {
   "uri": "https://arxiv.org/abs/2210.00974",
   "identifiers": {
@@ -309,6 +796,120 @@
     "date-parts": [
      [
       2023
+     ]
+    ]
+   }
+  }
+ },
+ "JDK23a": {
+  "same": "JDK23"
+ },
+ "JDK23b": {
+  "uri": "https://arxiv.org/abs/2305.16041",
+  "identifiers": {
+   "arxiv": "2305.16041"
+  },
+  "citation": {
+   "id": "JDK23b",
+   "type": "paper-conference",
+   "title": "An ε-Best-Arm Identification Algorithm for Fixed-Confidence and Beyond",
+   "author": [
+    {
+     "family": "Jourdan",
+     "given": "M."
+    },
+    {
+     "family": "Degenne",
+     "given": "R."
+    },
+    {
+     "family": "Kaufmann",
+     "given": "E."
+    }
+   ],
+   "container-title": "Advances in Neural Information Processing Systems (NeurIPS)",
+   "issued": {
+    "date-parts": [
+     [
+      2023
+     ]
+    ]
+   }
+  }
+ },
+ "JJLSY20": {
+  "uri": "https://arxiv.org/abs/1912.01192",
+  "identifiers": {
+   "arxiv": "1912.01192"
+  },
+  "citation": {
+   "id": "JJLSY20",
+   "type": "paper-conference",
+   "title": "Learning Adversarial Markov Decision Processes with Bandit Feedback and Unknown Transition",
+   "author": [
+    {
+     "family": "Jin",
+     "given": "C."
+    },
+    {
+     "family": "Jin",
+     "given": "T."
+    },
+    {
+     "family": "Luo",
+     "given": "H."
+    },
+    {
+     "family": "Sra",
+     "given": "S."
+    },
+    {
+     "family": "Yu",
+     "given": "T."
+    }
+   ],
+   "container-title": "Proceedings of the International Conference on Machine Learning (ICML)",
+   "issued": {
+    "date-parts": [
+     [
+      2020
+     ]
+    ]
+   }
+  }
+ },
+ "JKSY20": {
+  "uri": "https://arxiv.org/abs/2002.02794",
+  "identifiers": {
+   "arxiv": "2002.02794"
+  },
+  "citation": {
+   "id": "JKSY20",
+   "type": "paper-conference",
+   "title": "Reward-Free Exploration for Reinforcement Learning",
+   "author": [
+    {
+     "family": "Jin",
+     "given": "C."
+    },
+    {
+     "family": "Krishnamurthy",
+     "given": "A."
+    },
+    {
+     "family": "Simchowitz",
+     "given": "M."
+    },
+    {
+     "family": "Yu",
+     "given": "T."
+    }
+   ],
+   "container-title": "Proceedings of the International Conference on Machine Learning (ICML)",
+   "issued": {
+    "date-parts": [
+     [
+      2020
      ]
     ]
    }
@@ -345,6 +946,69 @@
    }
   }
  },
+ "JPR23": {
+  "uri": "https://doi.org/10.52202/075280-3343",
+  "identifiers": {
+   "arxiv": "2302.11381"
+  },
+  "citation": {
+   "id": "JPR23",
+   "type": "paper-conference",
+   "title": "Optimal Convergence Rate for Exact Policy Mirror Descent in Discounted Markov Decision Processes",
+   "author": [
+    {
+     "family": "Johnson",
+     "given": "Emmeran"
+    },
+    {
+     "family": "Pike-Burke",
+     "given": "Ciara"
+    },
+    {
+     "family": "Rebeschini",
+     "given": "Patrick"
+    }
+   ],
+   "container-title": "Advances in Neural Information Processing Systems 36",
+   "DOI": "10.52202/075280-3343",
+   "issued": {
+    "date-parts": [
+     [
+      2023
+     ]
+    ]
+   }
+  }
+ },
+ "JS21": {
+  "uri": "https://arxiv.org/abs/2106.07046",
+  "identifiers": {
+   "arxiv": "2106.07046"
+  },
+  "citation": {
+   "id": "JS21",
+   "type": "paper-conference",
+   "title": "Towards Tight Bounds on the Sample Complexity of Average-reward MDPs",
+   "author": [
+    {
+     "family": "Jin",
+     "given": "Y."
+    },
+    {
+     "family": "Sidford",
+     "given": "A."
+    }
+   ],
+   "container-title": "Proceedings of the International Conference on Machine Learning (ICML)",
+   "issued": {
+    "date-parts": [
+     [
+      2021
+     ]
+    ]
+   }
+  }
+ },
  "JYW21": {
   "uri": "https://arxiv.org/abs/2012.15085",
   "identifiers": {
@@ -373,6 +1037,43 @@
     "date-parts": [
      [
       2021
+     ]
+    ]
+   }
+  }
+ },
+ "JYWJ20": {
+  "uri": "https://arxiv.org/abs/1907.05388",
+  "identifiers": {
+   "arxiv": "1907.05388"
+  },
+  "citation": {
+   "id": "JYWJ20",
+   "type": "paper-conference",
+   "title": "Provably Efficient Reinforcement Learning with Linear Function Approximation",
+   "author": [
+    {
+     "family": "Jin",
+     "given": "C."
+    },
+    {
+     "family": "Yang",
+     "given": "Z."
+    },
+    {
+     "family": "Wang",
+     "given": "Z."
+    },
+    {
+     "family": "Jordan",
+     "given": "M. I."
+    }
+   ],
+   "container-title": "Proceedings of the Conference on Learning Theory (COLT)",
+   "issued": {
+    "date-parts": [
+     [
+      2020
      ]
     ]
    }
@@ -438,6 +1139,69 @@
    }
   }
  },
+ "KK21": {
+  "uri": "https://arxiv.org/abs/1811.11419",
+  "identifiers": {
+   "arxiv": "1811.11419"
+  },
+  "citation": {
+   "id": "KK21",
+   "type": "article-journal",
+   "title": "Mixture Martingales Revisited with Applications to Sequential Tests and Confidence Intervals",
+   "author": [
+    {
+     "family": "Kaufmann",
+     "given": "E."
+    },
+    {
+     "family": "Koolen",
+     "given": "W. M."
+    }
+   ],
+   "container-title": "Journal of Machine Learning Research",
+   "volume": "22",
+   "issued": {
+    "date-parts": [
+     [
+      2021
+     ]
+    ]
+   }
+  }
+ },
+ "KKM13": {
+  "uri": "https://arxiv.org/abs/1307.3400",
+  "identifiers": {
+   "arxiv": "1307.3400"
+  },
+  "citation": {
+   "id": "KKM13",
+   "type": "paper-conference",
+   "title": "Thompson Sampling for 1-Dimensional Exponential Family Bandits",
+   "author": [
+    {
+     "family": "Korda",
+     "given": "N."
+    },
+    {
+     "family": "Kaufmann",
+     "given": "E."
+    },
+    {
+     "family": "Munos",
+     "given": "R."
+    }
+   ],
+   "container-title": "Advances in Neural Information Processing Systems (NeurIPS)",
+   "issued": {
+    "date-parts": [
+     [
+      2013
+     ]
+    ]
+   }
+  }
+ },
  "KKS13": {
   "uri": "https://proceedings.mlr.press/v28/karnin13.html",
   "citation": {
@@ -463,6 +1227,41 @@
     "date-parts": [
      [
       2013
+     ]
+    ]
+   }
+  }
+ },
+ "KNS16": {
+  "uri": "https://doi.org/10.1007/978-3-319-46128-1_50",
+  "identifiers": {
+   "arxiv": "1608.04636"
+  },
+  "citation": {
+   "id": "KNS16",
+   "type": "chapter",
+   "title": "Linear Convergence of Gradient and Proximal-Gradient Methods Under the Polyak-Łojasiewicz Condition",
+   "author": [
+    {
+     "family": "Karimi",
+     "given": "Hamed"
+    },
+    {
+     "family": "Nutini",
+     "given": "Julie"
+    },
+    {
+     "family": "Schmidt",
+     "given": "Mark"
+    }
+   ],
+   "container-title": "Machine Learning and Knowledge Discovery in Databases",
+   "publisher": "Springer International Publishing",
+   "DOI": "10.1007/978-3-319-46128-1_50",
+   "issued": {
+    "date-parts": [
+     [
+      2016
      ]
     ]
    }
@@ -502,6 +1301,62 @@
    }
   }
  },
+ "Kal21": {
+  "uri": "https://doi.org/10.1007/978-3-030-61871-1",
+  "citation": {
+   "id": "Kal21",
+   "type": "book",
+   "title": "Foundations of Modern Probability",
+   "author": [
+    {
+     "family": "Kallenberg",
+     "given": "Olav"
+    }
+   ],
+   "edition": "3",
+   "publisher": "Springer International Publishing",
+   "DOI": "10.1007/978-3-030-61871-1",
+   "issued": {
+    "date-parts": [
+     [
+      2021
+     ]
+    ]
+   }
+  }
+ },
+ "LPW17": {
+  "uri": "https://doi.org/10.1090/mbk/107",
+  "citation": {
+   "id": "LPW17",
+   "type": "book",
+   "title": "Markov Chains and Mixing Times",
+   "author": [
+    {
+     "family": "Levin",
+     "given": "D. A."
+    },
+    {
+     "family": "Peres",
+     "given": "Y."
+    },
+    {
+     "family": "Wilmer",
+     "given": "E. L."
+    }
+   ],
+   "edition": "2",
+   "publisher": "American Mathematical Society",
+   "DOI": "10.1090/mbk/107",
+   "issued": {
+    "date-parts": [
+     [
+      2017
+     ]
+    ]
+   }
+  }
+ },
  "LS": {
   "uri": "https://doi.org/10.1017/9781108571401",
   "citation": {
@@ -524,6 +1379,160 @@
     "date-parts": [
      [
       2020
+     ]
+    ]
+   }
+  }
+ },
+ "LSCCW24": {
+  "uri": "https://doi.org/10.1214/23-aos2342",
+  "identifiers": {
+   "arxiv": "2204.05275"
+  },
+  "citation": {
+   "id": "LSCCW24",
+   "type": "article-journal",
+   "title": "Settling the sample complexity of model-based offline reinforcement learning",
+   "author": [
+    {
+     "family": "Li",
+     "given": "Gen"
+    },
+    {
+     "family": "Shi",
+     "given": "Laixi"
+    },
+    {
+     "family": "Chen",
+     "given": "Yuxin"
+    },
+    {
+     "family": "Chi",
+     "given": "Yuejie"
+    },
+    {
+     "family": "Wei",
+     "given": "Yuting"
+    }
+   ],
+   "container-title": "The Annals of Statistics",
+   "volume": "52",
+   "DOI": "10.1214/23-aos2342",
+   "issued": {
+    "date-parts": [
+     [
+      2024
+     ]
+    ]
+   }
+  }
+ },
+ "LWCGC24": {
+  "uri": "https://doi.org/10.1287/opre.2023.2451",
+  "identifiers": {
+   "arxiv": "2005.12900"
+  },
+  "citation": {
+   "id": "LWCGC24",
+   "type": "article-journal",
+   "title": "Breaking the Sample Size Barrier in Model-Based Reinforcement Learning with a Generative Model",
+   "author": [
+    {
+     "family": "Li",
+     "given": "Gen"
+    },
+    {
+     "family": "Wei",
+     "given": "Yuting"
+    },
+    {
+     "family": "Chi",
+     "given": "Yuejie"
+    },
+    {
+     "family": "Chen",
+     "given": "Yuxin"
+    }
+   ],
+   "container-title": "Operations Research",
+   "volume": "72",
+   "DOI": "10.1287/opre.2023.2451",
+   "issued": {
+    "date-parts": [
+     [
+      2024
+     ]
+    ]
+   }
+  }
+ },
+ "Lan23": {
+  "uri": "https://doi.org/10.1007/s10107-022-01816-5",
+  "identifiers": {
+   "arxiv": "2102.00135"
+  },
+  "citation": {
+   "id": "Lan23",
+   "type": "article-journal",
+   "title": "Policy mirror descent for reinforcement learning: linear convergence, new sampling complexity, and generalized problem classes",
+   "author": [
+    {
+     "family": "Lan",
+     "given": "Guanghui"
+    }
+   ],
+   "container-title": "Mathematical Programming",
+   "volume": "198",
+   "DOI": "10.1007/s10107-022-01816-5",
+   "issued": {
+    "date-parts": [
+     [
+      2023
+     ]
+    ]
+   }
+  }
+ },
+ "MDJKLV21": {
+  "uri": "https://arxiv.org/abs/2007.13442",
+  "identifiers": {
+   "arxiv": "2007.13442"
+  },
+  "citation": {
+   "id": "MDJKLV21",
+   "type": "paper-conference",
+   "title": "Fast active learning for pure exploration in reinforcement learning",
+   "author": [
+    {
+     "family": "Ménard",
+     "given": "P."
+    },
+    {
+     "family": "Domingues",
+     "given": "O. D."
+    },
+    {
+     "family": "Jonsson",
+     "given": "A."
+    },
+    {
+     "family": "Kaufmann",
+     "given": "E."
+    },
+    {
+     "family": "Leurent",
+     "given": "E."
+    },
+    {
+     "family": "Valko",
+     "given": "M."
+    }
+   ],
+   "container-title": "Proceedings of the International Conference on Machine Learning (ICML)",
+   "issued": {
+    "date-parts": [
+     [
+      2021
      ]
     ]
    }
@@ -556,6 +1565,115 @@
    }
   }
  },
+ "MXSS20": {
+  "uri": "https://arxiv.org/abs/2005.06392",
+  "identifiers": {
+   "arxiv": "2005.06392"
+  },
+  "citation": {
+   "id": "MXSS20",
+   "type": "paper-conference",
+   "title": "On the Global Convergence Rates of Softmax Policy Gradient Methods",
+   "author": [
+    {
+     "family": "Mei",
+     "given": "J."
+    },
+    {
+     "family": "Xiao",
+     "given": "C."
+    },
+    {
+     "family": "Szepesvári",
+     "given": "Cs."
+    },
+    {
+     "family": "Schuurmans",
+     "given": "D."
+    }
+   ],
+   "container-title": "Proceedings of the International Conference on Machine Learning (ICML)",
+   "issued": {
+    "date-parts": [
+     [
+      2020
+     ]
+    ]
+   }
+  }
+ },
+ "Nes18": {
+  "uri": "https://doi.org/10.1007/978-3-319-91578-4",
+  "citation": {
+   "id": "Nes18",
+   "type": "book",
+   "title": "Lectures on Convex Optimization",
+   "author": [
+    {
+     "family": "Nesterov",
+     "given": "Yurii"
+    }
+   ],
+   "edition": "2",
+   "publisher": "Springer International Publishing",
+   "DOI": "10.1007/978-3-319-91578-4",
+   "issued": {
+    "date-parts": [
+     [
+      2018
+     ]
+    ]
+   }
+  }
+ },
+ "Neu15": {
+  "uri": "https://arxiv.org/abs/1506.03271",
+  "identifiers": {
+   "arxiv": "1506.03271"
+  },
+  "citation": {
+   "id": "Neu15",
+   "type": "paper-conference",
+   "title": "Explore no more: Improved high-probability regret bounds for non-stochastic bandits",
+   "author": [
+    {
+     "family": "Neu",
+     "given": "G."
+    }
+   ],
+   "container-title": "Advances in Neural Information Processing Systems (NeurIPS)",
+   "issued": {
+    "date-parts": [
+     [
+      2015
+     ]
+    ]
+   }
+  }
+ },
+ "Nor97": {
+  "uri": "https://doi.org/10.1017/cbo9780511810633",
+  "citation": {
+   "id": "Nor97",
+   "type": "book",
+   "title": "Markov Chains",
+   "author": [
+    {
+     "family": "Norris",
+     "given": "J. R."
+    }
+   ],
+   "publisher": "Cambridge University Press",
+   "DOI": "10.1017/cbo9780511810633",
+   "issued": {
+    "date-parts": [
+     [
+      1997
+     ]
+    ]
+   }
+  }
+ },
  "Ora": {
   "uri": "https://arxiv.org/abs/1912.13213",
   "identifiers": {
@@ -581,6 +1699,9 @@
    }
   }
  },
+ "Ora23": {
+  "same": "Ora"
+ },
  "P": {
   "uri": "https://doi.org/10.1002/9780470316887",
   "citation": {
@@ -599,6 +1720,39 @@
     "date-parts": [
      [
       1994
+     ]
+    ]
+   }
+  }
+ },
+ "QKR17": {
+  "uri": "https://arxiv.org/abs/1705.10033",
+  "identifiers": {
+   "arxiv": "1705.10033"
+  },
+  "citation": {
+   "id": "QKR17",
+   "type": "paper-conference",
+   "title": "Improving the Expected Improvement Algorithm",
+   "author": [
+    {
+     "family": "Qin",
+     "given": "C."
+    },
+    {
+     "family": "Klabjan",
+     "given": "D."
+    },
+    {
+     "family": "Russo",
+     "given": "D."
+    }
+   ],
+   "container-title": "Advances in Neural Information Processing Systems (NeurIPS)",
+   "issued": {
+    "date-parts": [
+     [
+      2017
      ]
     ]
    }
@@ -624,6 +1778,238 @@
     "date-parts": [
      [
       2016
+     ]
+    ]
+   }
+  }
+ },
+ "RM19": {
+  "uri": "https://arxiv.org/abs/1905.07773",
+  "identifiers": {
+   "arxiv": "1905.07773"
+  },
+  "citation": {
+   "id": "RM19",
+   "type": "paper-conference",
+   "title": "Online Convex Optimization in Adversarial Markov Decision Processes",
+   "author": [
+    {
+     "family": "Rosenberg",
+     "given": "A."
+    },
+    {
+     "family": "Mansour",
+     "given": "Y."
+    }
+   ],
+   "container-title": "Proceedings of the International Conference on Machine Learning (ICML)",
+   "issued": {
+    "date-parts": [
+     [
+      2019
+     ]
+    ]
+   }
+  }
+ },
+ "RS71": {
+  "uri": "https://doi.org/10.1016/B978-0-12-604550-5.50015-8",
+  "citation": {
+   "id": "RS71",
+   "type": "chapter",
+   "title": "A Convergence Theorem for Non Negative Almost Supermartingales and Some Applications",
+   "author": [
+    {
+     "family": "Robbins",
+     "given": "H."
+    },
+    {
+     "family": "Siegmund",
+     "given": "D."
+    }
+   ],
+   "container-title": "Optimizing Methods in Statistics",
+   "publisher": "Academic Press",
+   "DOI": "10.1016/B978-0-12-604550-5.50015-8",
+   "issued": {
+    "date-parts": [
+     [
+      1971
+     ]
+    ]
+   }
+  }
+ },
+ "RZMJR21": {
+  "uri": "https://arxiv.org/abs/2103.12021",
+  "identifiers": {
+   "arxiv": "2103.12021"
+  },
+  "citation": {
+   "id": "RZMJR21",
+   "type": "paper-conference",
+   "title": "Bridging Offline Reinforcement Learning and Imitation Learning: A Tale of Pessimism",
+   "author": [
+    {
+     "family": "Rashidinejad",
+     "given": "P."
+    },
+    {
+     "family": "Zhu",
+     "given": "B."
+    },
+    {
+     "family": "Ma",
+     "given": "C."
+    },
+    {
+     "family": "Jiao",
+     "given": "J."
+    },
+    {
+     "family": "Russell",
+     "given": "S."
+    }
+   ],
+   "container-title": "Advances in Neural Information Processing Systems (NeurIPS)",
+   "issued": {
+    "date-parts": [
+     [
+      2021
+     ]
+    ]
+   }
+  }
+ },
+ "SdHMKV20": {
+  "uri": "https://arxiv.org/abs/1910.10945",
+  "identifiers": {
+   "arxiv": "1910.10945"
+  },
+  "citation": {
+   "id": "SdHMKV20",
+   "type": "paper-conference",
+   "title": "Fixed-Confidence Guarantees for Bayesian Best-Arm Identification",
+   "author": [
+    {
+     "family": "Shang",
+     "given": "X."
+    },
+    {
+     "family": "de Heide",
+     "given": "R."
+    },
+    {
+     "family": "Ménard",
+     "given": "P."
+    },
+    {
+     "family": "Kaufmann",
+     "given": "E."
+    },
+    {
+     "family": "Valko",
+     "given": "M."
+    }
+   ],
+   "container-title": "Proceedings of the International Conference on Artificial Intelligence and Statistics (AISTATS)",
+   "issued": {
+    "date-parts": [
+     [
+      2020
+     ]
+    ]
+   }
+  }
+ },
+ "TVR97": {
+  "uri": "https://doi.org/10.1109/9.580874",
+  "citation": {
+   "id": "TVR97",
+   "type": "article-journal",
+   "title": "An analysis of temporal-difference learning with function approximation",
+   "author": [
+    {
+     "family": "Tsitsiklis",
+     "given": "J.N."
+    },
+    {
+     "family": "Van Roy",
+     "given": "B."
+    }
+   ],
+   "container-title": "IEEE Transactions on Automatic Control",
+   "volume": "42",
+   "DOI": "10.1109/9.580874",
+   "issued": {
+    "date-parts": [
+     [
+      1997
+     ]
+    ]
+   }
+  }
+ },
+ "Tsi94": {
+  "uri": "https://doi.org/10.1023/a:1022689125041",
+  "citation": {
+   "id": "Tsi94",
+   "type": "article-journal",
+   "title": "Asynchronous Stochastic Approximation and Q-Learning",
+   "author": [
+    {
+     "family": "Tsitsiklis",
+     "given": "John N."
+    }
+   ],
+   "container-title": "Machine Learning",
+   "volume": "16",
+   "DOI": "10.1023/a:1022689125041",
+   "issued": {
+    "date-parts": [
+     [
+      1994
+     ]
+    ]
+   }
+  }
+ },
+ "WJLSJ20": {
+  "uri": "https://arxiv.org/abs/1910.07072",
+  "identifiers": {
+   "arxiv": "1910.07072"
+  },
+  "citation": {
+   "id": "WJLSJ20",
+   "type": "paper-conference",
+   "title": "Model-free Reinforcement Learning in Infinite-horizon Average-reward Markov Decision Processes",
+   "author": [
+    {
+     "family": "Wei",
+     "given": "C.-Y."
+    },
+    {
+     "family": "Jafarnia-Jahromi",
+     "given": "M."
+    },
+    {
+     "family": "Luo",
+     "given": "H."
+    },
+    {
+     "family": "Sharma",
+     "given": "H."
+    },
+    {
+     "family": "Jain",
+     "given": "R."
+    }
+   ],
+   "container-title": "Proceedings of the International Conference on Machine Learning (ICML)",
+   "issued": {
+    "date-parts": [
+     [
+      2020
      ]
     ]
    }
@@ -662,6 +2048,162 @@
     "date-parts": [
      [
       2003
+     ]
+    ]
+   }
+  }
+ },
+ "WTP21": {
+  "uri": "https://papers.nips.cc/paper_files/paper/2021/hash/2dffbc474aa176b6dc957938c15d0c8b-Abstract.html",
+  "citation": {
+   "id": "WTP21",
+   "type": "paper-conference",
+   "title": "Fast Pure Exploration via Frank-Wolfe",
+   "author": [
+    {
+     "family": "Wang",
+     "given": "P.-A."
+    },
+    {
+     "family": "Tzeng",
+     "given": "R.-C."
+    },
+    {
+     "family": "Proutière",
+     "given": "A."
+    }
+   ],
+   "container-title": "Advances in Neural Information Processing Systems (NeurIPS)",
+   "issued": {
+    "date-parts": [
+     [
+      2021
+     ]
+    ]
+   }
+  }
+ },
+ "Xiao22": {
+  "uri": "https://arxiv.org/abs/2201.07443",
+  "identifiers": {
+   "arxiv": "2201.07443"
+  },
+  "citation": {
+   "id": "Xiao22",
+   "type": "article-journal",
+   "title": "On the Convergence Rates of Policy Gradient Methods",
+   "author": [
+    {
+     "family": "Xiao",
+     "given": "L."
+    }
+   ],
+   "container-title": "Journal of Machine Learning Research",
+   "volume": "23",
+   "issued": {
+    "date-parts": [
+     [
+      2022
+     ]
+    ]
+   }
+  }
+ },
+ "ZC24": {
+  "uri": "https://doi.org/10.52202/079017-1055",
+  "identifiers": {
+   "arxiv": "2403.11477"
+  },
+  "citation": {
+   "id": "ZC24",
+   "type": "paper-conference",
+   "title": "Span-Based Optimal Sample Complexity for Weakly Communicating and General Average Reward MDPs",
+   "author": [
+    {
+     "family": "Zurek",
+     "given": "Matthew"
+    },
+    {
+     "family": "Chen",
+     "given": "Yudong"
+    }
+   ],
+   "container-title": "Advances in Neural Information Processing Systems 37",
+   "DOI": "10.52202/079017-1055",
+   "issued": {
+    "date-parts": [
+     [
+      2024
+     ]
+    ]
+   }
+  }
+ },
+ "ZCLD24": {
+  "uri": "https://arxiv.org/abs/2307.13586",
+  "identifiers": {
+   "arxiv": "2307.13586"
+  },
+  "citation": {
+   "id": "ZCLD24",
+   "type": "paper-conference",
+   "title": "Settling the Sample Complexity of Online Reinforcement Learning",
+   "author": [
+    {
+     "family": "Zhang",
+     "given": "Z."
+    },
+    {
+     "family": "Chen",
+     "given": "Y."
+    },
+    {
+     "family": "Lee",
+     "given": "J. D."
+    },
+    {
+     "family": "Du",
+     "given": "S. S."
+    }
+   ],
+   "container-title": "Proceedings of the Conference on Learning Theory (COLT)",
+   "issued": {
+    "date-parts": [
+     [
+      2024
+     ]
+    ]
+   }
+  }
+ },
+ "ZJD21": {
+  "uri": "https://arxiv.org/abs/2009.13503",
+  "identifiers": {
+   "arxiv": "2009.13503"
+  },
+  "citation": {
+   "id": "ZJD21",
+   "type": "paper-conference",
+   "title": "Is Reinforcement Learning More Difficult Than Bandits? A Near-optimal Algorithm Escaping the Curse of Horizon",
+   "author": [
+    {
+     "family": "Zhang",
+     "given": "Z."
+    },
+    {
+     "family": "Ji",
+     "given": "X."
+    },
+    {
+     "family": "Du",
+     "given": "S. S."
+    }
+   ],
+   "container-title": "Proceedings of the Conference on Learning Theory (COLT)",
+   "issued": {
+    "date-parts": [
+     [
+      2021
      ]
     ]
    }

@@ -21,8 +21,10 @@ It writes to the output folder:
 * `index.html`: a page listing, for each work, its results, the declarations and the roadmap items
   that cite them, and how many of the results that the roadmaps cite have a declaration.
 
-A citation key that `bibliography.json` does not describe falls back to the text that the modules'
-`## References` sections, then the roadmaps' References, give for it. A citation whose key appears
+A key that `bibliography.json` maps to another one with `{"same": KEY}` is that work: two roadmaps or
+modules may cite one work under two keys. A citation key that `bibliography.json` does not describe
+falls back to the text that the modules' `## References` sections, then the roadmaps' References,
+give for it. A citation whose key appears
 in none of them is reported and left out.
 
 usage: annotations.py --dataset DIR --bibliography FILE --out DIR [--roadmaps DIR]
@@ -286,6 +288,9 @@ def build(dataset: Path, bibliography: dict, out: Path, roadmap_root: Path | Non
     roadmap_citations, roadmap_texts, item_links = (
         roadmaps(roadmap_root, roadmap_commit) if roadmap_root else ([], {}, {}))
 
+    def canonical(key: str) -> str:
+        return bibliography.get(key, {}).get("same", key)
+
     def known(key: str) -> bool:
         return key in bibliography or key in module_texts or key in roadmap_texts
 
@@ -310,6 +315,7 @@ def build(dataset: Path, bibliography: dict, out: Path, roadmap_root: Path | Non
     unparsed: Counter = Counter()
 
     def results(key: str, locator: str):
+        key = canonical(key)
         if not known(key):
             unknown[key] += 1
             return []
