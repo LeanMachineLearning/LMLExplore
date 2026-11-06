@@ -28,7 +28,10 @@ the local-norm bound
 with `k` the cardinality of `α` and `⟨p, y⟩ = ∑ b, p b * y b`. The second-order terms are
 averages under the played weights, rather than squared sup norms of the losses: this is what
 makes the bound useful for the unbounded but nonnegative importance-weighted loss estimates of
-Exp3 [LS, Section 11.3].
+Exp3 [LS, Section 11.3]. This bound and its form for nonincreasing learning rates
+(`softmax_regret_le`, `softmax_regret_le_of_antitone`) are proved in
+`LMLExplore.OnlineLearning.Simplex`, through follow the regularized leader with the negative
+entropy.
 
 ## Main definitions
 
@@ -42,12 +45,14 @@ Exp3 [LS, Section 11.3].
 * `measurable_softmax`: `v ↦ softmax v` is measurable.
 * `log_sum_exp_sub_mul_le`: the one-step bound on the log-partition function
   `log ∑ b, exp (v b)` under a nonnegative loss `y` and learning rate `η ≥ 0`.
-* `softmax_regret_le`: the local-norm regret bound of exponential weights for nonnegative
-  losses.
+* `sum_mul_exp_neg_sub_one_add_le`: for nonnegative weights `p`, a nonnegative loss `y` and
+  `η ≥ 0`, `∑ b, p b * (exp (-(η * y b)) - 1 + η * y b) ≤ η ^ 2 / 2 * ∑ b, p b * y b ^ 2`.
 
 ## References
 
 * [LS] T. Lattimore and Cs. Szepesvári, *Bandit Algorithms*, Cambridge University Press, 2020.
+* [Ora] F. Orabona, *Online learning: a modern introduction using convex optimization*,
+  arXiv:1912.13213v10, 2026.
 -/
 
 public section
@@ -100,6 +105,21 @@ lemma measurable_softmax : Measurable (softmax (α := α)) := by
   exact (Real.measurable_exp.comp (measurable_pi_apply a)).div
     (Finset.measurable_sum _ fun b _ ↦ Real.measurable_exp.comp (measurable_pi_apply b))
 
+/-- **Second-order bound under exponential weights.** For nonnegative weights `p`, a nonnegative
+loss `y` and a learning rate `η ≥ 0`,
+`∑ b, p b * (exp (-(η * y b)) - 1 + η * y b) ≤ η ^ 2 / 2 * ∑ b, p b * y b ^ 2`, from
+`exp (-x) ≤ 1 - x + x ^ 2 / 2` for `x ≥ 0`. This bounds the stability terms of exponential weights
+by local norms [Ora, Section 7.5]. -/
+theorem sum_mul_exp_neg_sub_one_add_le {p y : α → ℝ} (hp : ∀ b, 0 ≤ p b) (hy : ∀ b, 0 ≤ y b)
+    {η : ℝ} (hη : 0 ≤ η) :
+    ∑ b, p b * (exp (-(η * y b)) - 1 + η * y b) ≤ η ^ 2 / 2 * ∑ b, p b * y b ^ 2 := by
+  rw [mul_sum]
+  refine sum_le_sum fun b _ ↦ ?_
+  have h := exp_neg_le_one_sub_add_sq_div_two (mul_nonneg hη (hy b))
+  calc p b * (exp (-(η * y b)) - 1 + η * y b)
+  _ ≤ p b * (η ^ 2 / 2 * y b ^ 2) := mul_le_mul_of_nonneg_left (by linarith) (hp b)
+  _ = η ^ 2 / 2 * (p b * y b ^ 2) := by ring
+
 /-- **One step of exponential weights.** For a nonnegative loss `y` and a learning rate `η ≥ 0`,
 the log-partition function `log ∑ b, exp (v b)` decreases by at least
 `η ⟨p, y⟩ - η ^ 2 / 2 ⟨p, y ^ 2⟩` when the loss `η y` is subtracted from `v`, where
@@ -120,56 +140,15 @@ theorem log_sum_exp_sub_mul_le [Nonempty α] (v : α → ℝ) {y : α → ℝ} (
     Finset.sum_pos (fun b _ ↦ mul_pos (softmax_pos v b) (exp_pos _)) univ_nonempty
   have hle : ∑ b, p b * exp (-(η * y b)) ≤
       1 - η * ∑ b, p b * y b + η ^ 2 / 2 * ∑ b, p b * y b ^ 2 := by
-    calc ∑ b, p b * exp (-(η * y b))
-    _ ≤ ∑ b, p b * (1 - η * y b + (η * y b) ^ 2 / 2) :=
-        Finset.sum_le_sum fun b _ ↦ mul_le_mul_of_nonneg_left
-          (exp_neg_le_one_sub_add_sq_div_two (mul_nonneg hη (hy b))) (softmax_nonneg v b)
-    _ = 1 - η * ∑ b, p b * y b + η ^ 2 / 2 * ∑ b, p b * y b ^ 2 := by
-        simp_rw [mul_add, mul_sub, Finset.sum_add_distrib, Finset.sum_sub_distrib, Finset.mul_sum]
-        simp only [mul_one, hp, sum_softmax]
-        congr 1
-        · congr 1
-          exact Finset.sum_congr rfl fun b _ ↦ by ring
-        · exact Finset.sum_congr rfl fun b _ ↦ by ring
+    have h := sum_mul_exp_neg_sub_one_add_le (softmax_nonneg v) hy hη
+    have h_expand : ∑ b, p b * (exp (-(η * y b)) - 1 + η * y b) =
+        ∑ b, p b * exp (-(η * y b)) - 1 + η * ∑ b, p b * y b := by
+      simp_rw [mul_add, mul_sub, mul_one, Finset.sum_add_distrib, Finset.sum_sub_distrib, hp,
+        sum_softmax, Finset.mul_sum]
+      congr 1
+      exact Finset.sum_congr rfl fun b _ ↦ by ring
+    linarith
   rw [hsplit, log_mul hZ.ne' hS.ne']
   linarith [log_le_sub_one_of_pos hS]
-
-/-- **Regret of exponential weights** with local norms. For losses `y t` that are nonnegative at
-the rounds `t < n` and a learning rate `η > 0`, the weights `p t = softmax (-(η • ∑ s < t, y s))`
-satisfy, against every coordinate `a`,
-`∑ t < n, (⟨p t, y t⟩ - y t a) ≤ log k / η + η / 2 * ∑ t < n, ⟨p t, (y t) ^ 2⟩`,
-with `k` the cardinality of `α`. -/
-theorem softmax_regret_le [Nonempty α] {η : ℝ} (hη : 0 < η) {y : ℕ → α → ℝ} {n : ℕ}
-    (hy : ∀ t < n, ∀ b, 0 ≤ y t b) (a : α) :
-    ∑ t ∈ range n, (∑ b, softmax (-(η • ∑ s ∈ range t, y s)) b * y t b - y t a) ≤
-      log (Fintype.card α) / η +
-        η / 2 * ∑ t ∈ range n, ∑ b, softmax (-(η • ∑ s ∈ range t, y s)) b * y t b ^ 2 := by
-  -- the potential `Φ t = log ∑ b, exp (-η L t b)` of the cumulative losses `L t`
-  set L : ℕ → α → ℝ := fun t ↦ ∑ s ∈ range t, y s with hL
-  set Φ : ℕ → ℝ := fun t ↦ log (∑ b, exp ((-(η • L t)) b)) with hΦ
-  have hstep : ∀ t < n, Φ (t + 1) - Φ t ≤ -(η * ∑ b, softmax (-(η • L t)) b * y t b) +
-      η ^ 2 / 2 * ∑ b, softmax (-(η • L t)) b * y t b ^ 2 := by
-    intro t ht
-    have h := log_sum_exp_sub_mul_le (-(η • L t)) (hy t ht) hη.le
-    have hL1 : (fun b ↦ (-(η • L (t + 1))) b) = fun b ↦ (-(η • L t)) b - η * y t b := by
-      funext b
-      simp only [hL, sum_range_succ, smul_add, Pi.neg_apply, Pi.add_apply, Pi.smul_apply,
-        Finset.sum_apply, smul_eq_mul]
-      ring
-    simp only [hΦ, hL1]
-    linarith
-  have h0 : Φ 0 = log (Fintype.card α) := by simp [hΦ, hL]
-  have hn : -(η * L n a) ≤ Φ n := by
-    rw [hΦ, ← log_exp (-(η * L n a))]
-    exact log_le_log (exp_pos _) (Finset.single_le_sum (f := fun b ↦ exp ((-(η • L n)) b))
-      (fun b _ ↦ (exp_pos _).le) (mem_univ a))
-  have htel : Φ n - Φ 0 ≤ ∑ t ∈ range n, (-(η * ∑ b, softmax (-(η • L t)) b * y t b) +
-      η ^ 2 / 2 * ∑ b, softmax (-(η • L t)) b * y t b ^ 2) := by
-    rw [← Finset.sum_range_sub Φ n]
-    exact Finset.sum_le_sum fun t ht ↦ hstep t (mem_range.1 ht)
-  have hLa : L n a = ∑ t ∈ range n, y t a := by simp [hL]
-  rw [Finset.sum_add_distrib, Finset.sum_neg_distrib, ← Finset.mul_sum, ← Finset.mul_sum] at htel
-  rw [Finset.sum_sub_distrib, ← hLa, div_add' _ _ _ hη.ne', le_div_iff₀ hη]
-  nlinarith
 
 end LMLExplore.OnlineLearning

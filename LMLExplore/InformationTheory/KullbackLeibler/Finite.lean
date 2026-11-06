@@ -22,6 +22,14 @@ from the log-sum inequality. **Pinsker's inequality** for probability vectors re
 `LMLExplore.two_mul_sq_le_klBerReal` by the log-sum inequality on two blocks [CT, Lemma 11.6.1].
 In particular, the relative entropy of two probability vectors vanishes only when they are equal.
 
+The **Gibbs variational principle** describes the log-partition function of a vector `v` under a
+probability vector `p` as a maximum over probability vectors `q`:
+`log (∑ a, p a * exp (v a)) = max_q (∑ a, q a * v a - ∑ a, q a * log (q a / p a))`, attained at the
+Gibbs vector `q a = p a * exp (v a) / ∑ b, p b * exp (v b)`. The inequality is Gibbs' inequality
+for `q` with respect to the Gibbs vector. This is the finite case of the duality between the
+log-partition function and the relative entropy, and the computation of the stability term of
+exponential weights in online learning.
+
 ## Main statements
 
 * `LMLExplore.sum_mul_log_div_nonneg`: Gibbs' inequality.
@@ -29,6 +37,8 @@ In particular, the relative entropy of two probability vectors vanishes only whe
   vectors.
 * `LMLExplore.sum_mul_log_div_eq_zero_iff`: the relative entropy of two probability vectors
   vanishes if and only if they are equal.
+* `LMLExplore.sum_mul_sub_sum_mul_log_div_le_log_sum_mul_exp`,
+  `LMLExplore.isGreatest_sum_mul_sub_sum_mul_log_div`: the Gibbs variational principle.
 
 ## References
 
@@ -120,5 +130,70 @@ theorem sum_mul_log_div_eq_zero_iff {x z : α → ℝ} (hx : x ∈ simplex α) (
   funext a
   exact sub_eq_zero.1 (abs_eq_zero.1
     ((sum_eq_zero_iff_of_nonneg fun a _ ↦ abs_nonneg _).1 h_sum a (mem_univ a)))
+
+/-- **Gibbs variational principle**, upper bound. For probability vectors `p` and `q` with
+`q a = 0` whenever `p a = 0` and every vector `v`,
+`∑ a, q a * v a - ∑ a, q a * log (q a / p a) ≤ log (∑ a, p a * exp (v a))`. This is Gibbs'
+inequality for `q` with respect to the Gibbs vector `a ↦ p a * exp (v a) / ∑ b, p b * exp (v b)`.
+-/
+theorem sum_mul_sub_sum_mul_log_div_le_log_sum_mul_exp {p q : α → ℝ} (hp : p ∈ simplex α)
+    (hq : q ∈ simplex α) (hqp : ∀ a, p a = 0 → q a = 0) (v : α → ℝ) :
+    ∑ a, q a * v a - ∑ a, q a * log (q a / p a) ≤ log (∑ a, p a * exp (v a)) := by
+  obtain ⟨hp0, hp1⟩ := mem_simplex_iff.1 hp
+  obtain ⟨hq0, hq1⟩ := mem_simplex_iff.1 hq
+  have hZ : 0 < ∑ a, p a * exp (v a) := by
+    obtain ⟨a, -, ha⟩ := exists_ne_zero_of_sum_ne_zero (hp1.trans_ne one_ne_zero)
+    exact sum_pos' (fun b _ ↦ mul_nonneg (hp0 b) (exp_pos _).le)
+      ⟨a, mem_univ a, mul_pos ((hp0 a).lt_of_ne' ha) (exp_pos _)⟩
+  set Z := ∑ a, p a * exp (v a)
+  -- Gibbs' inequality for `q` with respect to the Gibbs vector `r`
+  set r : α → ℝ := fun a ↦ p a * exp (v a) / Z with hr
+  have hr0 (a : α) : 0 ≤ r a := div_nonneg (mul_nonneg (hp0 a) (exp_pos _).le) hZ.le
+  have hr1 : ∑ a, r a = 1 := by rw [hr, ← sum_div, div_self hZ.ne']
+  have hrq (a : α) (ha : r a = 0) : q a = 0 := by
+    refine hqp a ?_
+    simpa [hr, hZ.ne', (exp_pos _).ne'] using ha
+  have h_gibbs := sum_mul_log_div_nonneg hq0 hr0 hrq (hr1.trans hq1.symm).le
+  have h_pt (a : α) :
+      q a * log (q a / r a) = q a * log (q a / p a) - q a * v a + q a * log Z := by
+    rcases eq_or_ne (q a) 0 with h0 | h0
+    · simp [h0]
+    have hpa : p a ≠ 0 := fun h ↦ h0 (hqp a h)
+    rw [hr, log_div h0 (div_ne_zero (mul_ne_zero hpa (exp_pos _).ne') hZ.ne'),
+      log_div (mul_ne_zero hpa (exp_pos _).ne') hZ.ne', log_mul hpa (exp_pos _).ne', log_exp,
+      log_div h0 hpa]
+    ring
+  simp_rw [h_pt, sum_add_distrib, sum_sub_distrib, ← sum_mul, hq1, one_mul] at h_gibbs
+  linarith
+
+/-- **Gibbs variational principle**. For a probability vector `p` with positive coordinates and
+every vector `v`, the maximum over probability vectors `q` of
+`∑ a, q a * v a - ∑ a, q a * log (q a / p a)` is the log-partition function
+`log (∑ a, p a * exp (v a))`. It is attained at the Gibbs vector
+`a ↦ p a * exp (v a) / ∑ b, p b * exp (v b)`. -/
+theorem isGreatest_sum_mul_sub_sum_mul_log_div {p : α → ℝ} (hp : p ∈ simplex α)
+    (hp0 : ∀ a, 0 < p a) (v : α → ℝ) :
+    IsGreatest ((fun q ↦ ∑ a, q a * v a - ∑ a, q a * log (q a / p a)) '' simplex α)
+      (log (∑ a, p a * exp (v a))) := by
+  have := nonempty_of_mem_simplex hp
+  refine ⟨?_, ?_⟩
+  · have hZ : 0 < ∑ a, p a * exp (v a) :=
+      sum_pos (fun a _ ↦ mul_pos (hp0 a) (exp_pos _)) univ_nonempty
+    set Z := ∑ a, p a * exp (v a) with hZ_def
+    have h_one : ∑ a, p a * exp (v a) / Z = 1 := by rw [← sum_div, ← hZ_def, div_self hZ.ne']
+    -- the Gibbs vector attains the bound
+    refine ⟨fun a ↦ p a * exp (v a) / Z, mem_simplex_iff.2
+      ⟨fun a ↦ div_nonneg (mul_nonneg (hp0 a).le (exp_pos _).le) hZ.le, h_one⟩, ?_⟩
+    have h_pt (a : α) : p a * exp (v a) / Z * log (p a * exp (v a) / Z / p a) =
+        p a * exp (v a) / Z * v a - p a * exp (v a) / Z * log Z := by
+      have h_div : p a * exp (v a) / Z / p a = exp (v a) / Z := by
+        field_simp [(hp0 a).ne']
+      rw [h_div, log_div (exp_pos _).ne' hZ.ne', log_exp]
+      ring
+    dsimp only
+    simp_rw [h_pt, sum_sub_distrib, ← sum_mul, h_one, one_mul]
+    ring
+  · rintro _ ⟨q, hq, rfl⟩
+    exact sum_mul_sub_sum_mul_log_div_le_log_sum_mul_exp hp hq (fun a h ↦ absurd h (hp0 a).ne') v
 
 end LMLExplore

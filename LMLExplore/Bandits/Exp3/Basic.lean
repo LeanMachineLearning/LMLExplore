@@ -9,7 +9,7 @@ public import LMLExplore.Analysis.Real.Sqrt
 public import LMLExplore.Bandits.AdversarialRegret
 public import LMLExplore.Bandits.ImportanceWeighted
 public import LMLExplore.MeasureTheory.Integral.Bochner.Basic
-public import LMLExplore.OnlineLearning.ExponentialWeights
+public import LMLExplore.OnlineLearning.Simplex
 
 /-!
 # Exp3

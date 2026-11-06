@@ -7,6 +7,7 @@ module
 
 public import LMLExplore.Analysis.Convex.Simplex
 public import LMLExplore.InformationTheory.KullbackLeibler.Finite
+public import LeanMachineLearning.ForMathlib.Analysis.Convex.Bregman.Basic
 public import Mathlib.Analysis.Calculus.FDeriv.Add
 public import Mathlib.Analysis.Calculus.FDeriv.Comp
 public import Mathlib.Analysis.Convex.Strong
@@ -42,6 +43,8 @@ dual norm of the `ℓ¹` norm being the sup norm.
   simplex for the `ℓ¹` norm.
 * `LMLExplore.hasFDerivAt_negEntropy`: at a vector with nonzero coordinates, the derivative of the
   negative entropy on `PiLp p (fun _ : α ↦ ℝ)` is `h ↦ ∑ a, log (x a) * h a`.
+* `LMLExplore.bregDiv_negEntropy`: on the simplex, the Bregman divergence of the negative entropy
+  for that derivative is the relative entropy `∑ a, x a * log (x a / y a)`.
 
 ## References
 
@@ -183,5 +186,26 @@ theorem hasFDerivAt_negEntropy {p : ℝ≥0∞} [Fact (1 ≤ p)] {x : PiLp p fun
   have h : HasDerivAt (fun t ↦ t * log t - t) (log (x a)) (x a) := by
     simpa using (hasDerivAt_mul_log (hx a)).fun_sub (hasDerivAt_id' (x a))
   exact h.comp_hasFDerivAt x (PiLp.proj (𝕜 := ℝ) p (fun _ : α ↦ ℝ) a).hasFDerivAt
+
+/-- On the simplex, the **Bregman divergence of the negative entropy**, for the derivative
+`h ↦ ∑ a, log (y a) * h a` of `hasFDerivAt_negEntropy`, is the relative entropy
+`D(x, y) = ∑ a, x a * log (x a / y a)` of `x` with respect to `y`, when `x a = 0` whenever
+`y a = 0`. -/
+theorem bregDiv_negEntropy {p : ℝ≥0∞} {x y : PiLp p fun _ : α ↦ ℝ}
+    (hx : ofLp x ∈ simplex α) (hy : ofLp y ∈ simplex α) (hxy : ∀ a, y a = 0 → x a = 0) :
+    bregDiv (fun x : PiLp p (fun _ : α ↦ ℝ) ↦ negEntropy (ofLp x)) x y
+        (∑ a, log (y a) • PiLp.proj (𝕜 := ℝ) p (fun _ : α ↦ ℝ) a) =
+      ∑ a, x a * log (x a / y a) := by
+  have h_pt (a : α) : x a * log (x a / y a) =
+      x a * log (x a) - x a - (y a * log (y a) - y a) - log (y a) * (x a - y a) + (x a - y a) := by
+    rcases eq_or_ne (x a) 0 with h0 | h0
+    · simp only [h0, zero_div, log_zero, mul_zero, zero_sub, sub_zero]
+      ring
+    rw [log_div h0 fun h ↦ h0 (hxy a h)]
+    ring
+  have h_mass : ∑ a, (x a - y a) = 0 := by
+    rw [sum_sub_distrib, (mem_simplex_iff.1 hx).2, (mem_simplex_iff.1 hy).2, sub_self]
+  simp_rw [h_pt, sum_add_distrib, h_mass, add_zero, sum_sub_distrib, bregDiv, negEntropy_def]
+  simp
 
 end LMLExplore
