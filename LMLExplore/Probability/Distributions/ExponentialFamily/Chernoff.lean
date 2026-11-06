@@ -7,6 +7,8 @@ module
 
 public import LMLExplore.Probability.Distributions.ExponentialFamily.Mean
 public import LMLExplore.Probability.Moments.MGF.Dominated
+import LMLExplore.Probability.Distributions.ExponentialFamily.RateFunction
+import LMLExplore.Probability.LargeDeviations.Chernoff
 
 /-!
 # Cramér–Chernoff bounds under domination by an exponential family
@@ -28,12 +30,12 @@ independent observations `Y i` with law `ρ_η(μ)` are dominated on every set, 
 bounds for the sums `∑ i ∈ s, T (Y i)`; for a natural exponential family on `ℝ` (`T = id`), these
 are bounds on the sums `∑ i ∈ s, Y i` themselves.
 
-The bound is the Chernoff bound `P(a ≤ S) ≤ exp (-t a) E[exp (t S)]` applied with the optimal
-parameter `t = η(x) - η(μ)`. Under the domination, `E[exp (t S)]` for a sum `S` of `n` of the `X i`
-is at most the `n`-th power of the moment generating function of `T` under `ρ_η(μ)`, which is
-`exp (ψ(η(μ) + t) - ψ(η(μ)))`, and at the optimal parameter the exponent is `-n d(x, μ)`. No
-assumption on `ρ` or `T` is needed: when `T` is `ρ`-almost everywhere constant, its only mean is
-`μ = x` and the bounds are trivial.
+These bounds are the Cramér–Chernoff bounds with the rate function
+(`ProbabilityTheory.iIndepFun.measureReal_sum_ge_le_exp_of_le_rateFunction` and
+`ProbabilityTheory.iIndepFun.measureReal_sum_le_le_exp_of_le_rateFunction`) at the means of the
+family, where the rate function of `T` under `ρ_η(μ)` is `d(·, μ)`
+(`LMLExplore.rateFunction_expFamily_natParam`). No assumption on `ρ` or `T` is needed: when `T` is
+`ρ`-almost everywhere constant, its only mean is `μ = x` and the bounds are trivial.
 
 These bounds control the deviations of the empirical means of the arms of a bandit whose reward
 distributions are dominated by members of an exponential family. For Bernoulli laws, `d` is the
@@ -73,37 +75,11 @@ variable {Ω ι 𝓧 : Type*} {mΩ : MeasurableSpace Ω} {m𝓧 : MeasurableSpac
 
 /-! ### Cramér–Chernoff bounds -/
 
-/-- At the parameter `t = η(x) - η(μ)`, the statistic `T` has an exponential moment of order `t`
-under the member `ρ_η(μ)` of mean `μ`, and the exponent of the Chernoff bound for `n` variables
-dominated by `ρ_η(μ)`, `exp (-t (n x)) (mgf T ρ_η(μ) t) ^ n`, is at most `exp (-(n d(x, μ)))`. -/
-private lemma integrable_and_exp_mul_mgf_pow_natParam_le (hμ : μ ∈ ρ.expFamilyMeans T)
-    (hx : x ∈ ρ.expFamilyMeans T) (n : ℕ) :
-    Integrable (fun y ↦ exp ((ρ.natParam T x - ρ.natParam T μ) * T y))
-        (ρ.expFamily T (ρ.natParam T μ)) ∧
-      exp (-(ρ.natParam T x - ρ.natParam T μ) * (n * x)) *
-          mgf T (ρ.expFamily T (ρ.natParam T μ)) (ρ.natParam T x - ρ.natParam T μ) ^ n ≤
-        exp (-(n * ρ.expFamilyDiv T x μ)) := by
-  have hη := interior_subset (Measure.natParam_mem_interior_integrableExpSet hμ)
-  have hηt : ρ.natParam T μ + (ρ.natParam T x - ρ.natParam T μ) ∈ integrableExpSet T ρ := by
-    rw [add_sub_cancel]
-    exact interior_subset (Measure.natParam_mem_interior_integrableExpSet hx)
-  have h_int : ρ.natParam T x - ρ.natParam T μ ∈
-      integrableExpSet T (ρ.expFamily T (ρ.natParam T μ)) := by
-    rwa [Measure.integrableExpSet_expFamily hη]
-  refine ⟨h_int, ?_⟩
-  -- `mgf ≤ exp cgf`, and the cumulant generating function of `T` under `ρ_η(μ)` is
-  -- `t ↦ ψ(η(μ) + t) - ψ(η(μ))`
-  calc exp (-(ρ.natParam T x - ρ.natParam T μ) * (n * x)) *
-        mgf T (ρ.expFamily T (ρ.natParam T μ)) (ρ.natParam T x - ρ.natParam T μ) ^ n
-  _ ≤ exp (-(ρ.natParam T x - ρ.natParam T μ) * (n * x)) *
-        exp (cgf T (ρ.expFamily T (ρ.natParam T μ)) (ρ.natParam T x - ρ.natParam T μ)) ^ n := by
-    gcongr
-    · exact mgf_nonneg
-    · exact le_exp_log _
-  _ = exp (-(n * ρ.expFamilyDiv T x μ)) := by
-    rw [Measure.cgf_expFamily hη hηt, add_sub_cancel, ← exp_nat_mul, ← exp_add,
-      Measure.expFamilyDiv_def]
-    ring_nf
+/-- The family of the zero measure has the single mean `0`. -/
+private lemma eq_zero_of_mem_expFamilyMeans_zero_measure
+    (hx : x ∈ (0 : Measure 𝓧).expFamilyMeans T) : x = 0 := by
+  obtain ⟨η, -, rfl⟩ := Measure.mem_expFamilyMeans_iff.1 hx
+  simp [cgf_zero_measure]
 
 /-- **Cramér–Chernoff bound under domination by an exponential family, upper tail.** For
 independent random variables `X i`, `i ∈ s`, dominated on `Set.Ici 0` by the member `ρ_η(μ)` of
@@ -113,9 +89,17 @@ theorem iIndepFun.measureReal_sum_ge_le_exp_expFamilyDiv (h_indep : iIndepFun X 
     (hX : ∀ i ∈ s, MGFDominatedOn (X i) P T (ρ.expFamily T (ρ.natParam T μ)) (Set.Ici 0))
     (hμ : μ ∈ ρ.expFamilyMeans T) (hx : x ∈ ρ.expFamilyMeans T) (hμx : μ ≤ x) :
     P.real {ω | #s * x ≤ ∑ i ∈ s, X i ω} ≤ exp (-(#s * ρ.expFamilyDiv T x μ)) := by
-  obtain ⟨h_int, h_le⟩ := integrable_and_exp_mul_mgf_pow_natParam_le hμ hx #s
-  have ht := sub_nonneg.2 (Measure.monotoneOn_natParam hμ hx hμx)
-  exact (h_indep.measureReal_sum_ge_le_exp_mul_mgf_pow hX _ ht ht h_int).trans h_le
+  rcases eq_zero_or_neZero ρ with rfl | _
+  · -- the family of the zero measure has the single mean `0`, at which `d` vanishes
+    have := h_indep.isProbabilityMeasure
+    rw [eq_zero_of_mem_expFamilyMeans_zero_measure hx,
+      ← eq_zero_of_mem_expFamilyMeans_zero_measure hμ, Measure.expFamilyDiv_self, mul_zero,
+      neg_zero, exp_zero]
+    exact measureReal_le_one
+  have hη := Measure.natParam_mem_interior_integrableExpSet hμ
+  have := Measure.isProbabilityMeasure_expFamily (interior_subset hη)
+  exact h_indep.measureReal_sum_ge_le_exp_of_le_rateFunction hX (Measure.integrable_expFamily hη)
+    (by rwa [Measure.integral_expFamily_natParam hμ]) (rateFunction_expFamily_natParam hx hμ).ge
 
 /-- **Cramér–Chernoff bound under domination by an exponential family, lower tail.** For
 independent random variables `X i`, `i ∈ s`, dominated on `Set.Iic 0` by the member `ρ_η(μ)` of
@@ -125,9 +109,17 @@ theorem iIndepFun.measureReal_sum_le_le_exp_expFamilyDiv (h_indep : iIndepFun X 
     (hX : ∀ i ∈ s, MGFDominatedOn (X i) P T (ρ.expFamily T (ρ.natParam T μ)) (Set.Iic 0))
     (hμ : μ ∈ ρ.expFamilyMeans T) (hx : x ∈ ρ.expFamilyMeans T) (hxμ : x ≤ μ) :
     P.real {ω | ∑ i ∈ s, X i ω ≤ #s * x} ≤ exp (-(#s * ρ.expFamilyDiv T x μ)) := by
-  obtain ⟨h_int, h_le⟩ := integrable_and_exp_mul_mgf_pow_natParam_le hμ hx #s
-  have ht := sub_nonpos.2 (Measure.monotoneOn_natParam hx hμ hxμ)
-  exact (h_indep.measureReal_sum_le_le_exp_mul_mgf_pow hX _ ht ht h_int).trans h_le
+  rcases eq_zero_or_neZero ρ with rfl | _
+  · -- the family of the zero measure has the single mean `0`, at which `d` vanishes
+    have := h_indep.isProbabilityMeasure
+    rw [eq_zero_of_mem_expFamilyMeans_zero_measure hx,
+      ← eq_zero_of_mem_expFamilyMeans_zero_measure hμ, Measure.expFamilyDiv_self, mul_zero,
+      neg_zero, exp_zero]
+    exact measureReal_le_one
+  have hη := Measure.natParam_mem_interior_integrableExpSet hμ
+  have := Measure.isProbabilityMeasure_expFamily (interior_subset hη)
+  exact h_indep.measureReal_sum_le_le_exp_of_le_rateFunction hX (Measure.integrable_expFamily hη)
+    (by rwa [Measure.integral_expFamily_natParam hμ]) (rateFunction_expFamily_natParam hx hμ).ge
 
 /-! ### Observations with law a member of the family -/
 
