@@ -159,6 +159,11 @@ lemma deriv_cgf_mem_expFamilyMeans (hη : η ∈ interior (integrableExpSet T ρ
     deriv (cgf T ρ) η ∈ ρ.expFamilyMeans T :=
   mem_image_of_mem _ hη
 
+/-- The exponential family of the zero measure has the single mean `0`. -/
+@[simp]
+lemma expFamilyMeans_zero_measure (T : 𝓧 → ℝ) : (0 : Measure 𝓧).expFamilyMeans T = {0} := by
+  simp [expFamilyMeans_def, cgf_zero_measure, integrableExpSet]
+
 lemma natParam_mem_interior_integrableExpSet (hμ : μ ∈ ρ.expFamilyMeans T) :
     ρ.natParam T μ ∈ interior (integrableExpSet T ρ) :=
   Function.invFunOn_mem hμ
