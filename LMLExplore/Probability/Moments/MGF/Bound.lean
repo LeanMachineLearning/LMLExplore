@@ -23,7 +23,7 @@ exponential supermartingales, and the time-uniform deviation bounds built from t
 once for all these classes (see `LMLExplore.Probability.Martingale.MGFBound`).
 
 As for Mathlib's sub-Gaussian variables, the bound comes in three versions:
-* the kernel version `LMLExplore.Kernel.HasMGFBound X ψ Λ κ ν`: `exp (t X)` is
+* the kernel version `ProbabilityTheory.Kernel.HasMGFBound X ψ Λ κ ν`: `exp (t X)` is
   `κ ∘ₘ ν`-integrable for every `t ∈ Λ`, and for `ν`-almost every `ω'`, for every `t ∈ Λ`,
   `exp (t X)` is `κ ω'`-integrable and `mgf X (κ ω') t ≤ exp (ψ t)`;
 * the conditional version `LMLExplore.HasCondMGFBound m hm X ψ Λ μ` given a σ-algebra `m`, the
@@ -40,7 +40,7 @@ weights of an exponential supermartingale.
 
 ## Main definitions
 
-* `LMLExplore.Kernel.HasMGFBound X ψ Λ κ ν`: the kernel version.
+* `ProbabilityTheory.Kernel.HasMGFBound X ψ Λ κ ν`: the kernel version.
 * `LMLExplore.HasCondMGFBound m hm X ψ Λ μ`: the conditional version.
 * `LMLExplore.HasMGFBound X ψ Λ μ`: the unconditional version.
 
@@ -81,9 +81,7 @@ public section
 open MeasureTheory ProbabilityTheory Real
 open scoped ENNReal NNReal
 
-namespace LMLExplore
-
-section Kernel
+namespace ProbabilityTheory.Kernel
 
 variable {Ω Ω' : Type*} {mΩ : MeasurableSpace Ω} {mΩ' : MeasurableSpace Ω'}
   {ν : Measure Ω'} {κ : Kernel Ω' Ω} {X : Ω → ℝ} {ψ ψ' : ℝ → ℝ} {Λ Λ' : Set ℝ} {t : ℝ}
@@ -92,14 +90,14 @@ variable {Ω Ω' : Type*} {mΩ : MeasurableSpace Ω} {mΩ' : MeasurableSpace Ω'
 of parameters `Λ`, with respect to a kernel `κ` and a measure `ν`, if `exp (t * X)` is
 `κ ∘ₘ ν`-integrable for every `t ∈ Λ`, and for `ν`-almost every `ω'`, simultaneously for every
 `t ∈ Λ`, `exp (t * X)` is `κ ω'`-integrable and `mgf X (κ ω') t ≤ exp (ψ t)`. -/
-structure Kernel.HasMGFBound (X : Ω → ℝ) (ψ : ℝ → ℝ) (Λ : Set ℝ) (κ : Kernel Ω' Ω)
+structure HasMGFBound (X : Ω → ℝ) (ψ : ℝ → ℝ) (Λ : Set ℝ) (κ : Kernel Ω' Ω)
     (ν : Measure Ω' := by volume_tac) : Prop where
   integrable_exp_mul ⦃t : ℝ⦄ (ht : t ∈ Λ) : Integrable (fun ω ↦ exp (t * X ω)) (κ ∘ₘ ν)
   ae_forall_integrable_exp_mul :
     ∀ᵐ ω' ∂ν, ∀ t ∈ Λ, Integrable (fun ω ↦ exp (t * X ω)) (κ ω')
   mgf_le : ∀ᵐ ω' ∂ν, ∀ t ∈ Λ, mgf X (κ ω') t ≤ exp (ψ t)
 
-namespace Kernel.HasMGFBound
+namespace HasMGFBound
 
 /-- A variable whose moment generating function is bounded at a nonzero parameter is almost
 everywhere strongly measurable. -/
@@ -153,15 +151,14 @@ lemma add_const (h : HasMGFBound X ψ Λ κ ν) (a : ℝ) :
     rw [mgf_add_const, exp_add]
     exact mul_le_mul_of_nonneg_right (hω t ht) (exp_pos _).le
 
-end Kernel.HasMGFBound
+end HasMGFBound
 
 variable {c : ℝ≥0} {V b : ℝ}
 
 /-- `X` is sub-Gaussian with parameter `c` with respect to `κ` and `ν` iff its moment
 generating function is bounded by `exp (c t ^ 2 / 2)` on `ℝ`. -/
-lemma Kernel.hasMGFBound_iff_hasSubgaussianMGF :
-    HasMGFBound X (fun t ↦ c * t ^ 2 / 2) Set.univ κ ν ↔
-      ProbabilityTheory.Kernel.HasSubgaussianMGF X c κ ν :=
+lemma hasMGFBound_iff_hasSubgaussianMGF :
+    HasMGFBound X (fun t ↦ c * t ^ 2 / 2) Set.univ κ ν ↔ HasSubgaussianMGF X c κ ν :=
   ⟨fun h ↦ ⟨fun t ↦ h.integrable_exp_mul (Set.mem_univ t), by
       filter_upwards [h.mgf_le] with ω' hω t using hω t (Set.mem_univ t)⟩,
     fun h ↦ ⟨fun t _ ↦ h.integrable_exp_mul t, by
@@ -170,13 +167,15 @@ lemma Kernel.hasMGFBound_iff_hasSubgaussianMGF :
 
 /-- `X` is sub-exponential with parameters `(V, b)` with respect to `κ` and `ν` iff its moment
 generating function is bounded by `exp (V t ^ 2 / 2)` on `{t | b |t| ≤ 1}`. -/
-lemma Kernel.hasMGFBound_iff_hasSubexponentialMGF :
+lemma hasMGFBound_iff_hasSubexponentialMGF :
     HasMGFBound X (fun t ↦ V * t ^ 2 / 2) {t | b * |t| ≤ 1} κ ν ↔
-      ProbabilityTheory.Kernel.HasSubexponentialMGF X V b κ ν :=
+      HasSubexponentialMGF X V b κ ν :=
   ⟨fun h ↦ ⟨fun _ ht ↦ h.integrable_exp_mul ht, h.mgf_le⟩,
     fun h ↦ ⟨fun t ht ↦ h.integrable_exp_mul t ht, h.ae_forall_integrable_exp_mul, h.mgf_le⟩⟩
 
-end Kernel
+end ProbabilityTheory.Kernel
+
+namespace LMLExplore
 
 section Conditional
 
