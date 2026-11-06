@@ -129,11 +129,7 @@ lemma le_mixLoss {w : α → ℝ} (hw : w ∈ simplex α) {η : ℝ} (hη : 0 < 
           Finset.sum_le_sum fun a _ ↦ mul_le_mul_of_nonneg_left
             (exp_le_exp.2 (by nlinarith [hℓ a])) (hw'.1 a)
       _ = exp (-η * lo) := by rw [← Finset.sum_mul, hw'.2, one_mul]
-  obtain ⟨a, -, ha⟩ := Finset.exists_lt_of_sum_lt (s := univ) (f := fun _ ↦ (0 : ℝ)) (g := w)
-    (by simp [hw'.2])
-  have hpos : 0 < ∑ a, w a * exp (-η * ℓ a) :=
-    Finset.sum_pos' (fun b _ ↦ mul_nonneg (hw'.1 b) (exp_pos _).le)
-      ⟨a, mem_univ a, mul_pos ha (exp_pos _)⟩
+  have hpos := sum_mul_pos_of_mem_simplex hw fun a ↦ exp_pos (-η * ℓ a)
   rw [mixLoss_def, le_neg_inv_mul_iff hη, ← log_exp (-η * lo)]
   exact log_le_log hpos hle
 

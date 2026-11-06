@@ -286,6 +286,14 @@ lemma eq_one_of_mem_simplex [Subsingleton α] (hw : w ∈ simplex α) : w = fun 
   funext a
   rw [← hw.2, Fintype.sum_subsingleton _ a]
 
+/-- An average `∑ a, w a * c a` of positive values `c` with weights `w` of the simplex is
+positive. -/
+lemma sum_mul_pos_of_mem_simplex (hw : w ∈ simplex α) (hc : ∀ a, 0 < c a) :
+    0 < ∑ a, w a * c a := by
+  obtain ⟨a, -, ha⟩ := Finset.exists_ne_zero_of_sum_ne_zero (hw.2.trans_ne one_ne_zero)
+  exact Finset.sum_pos' (fun b _ ↦ mul_nonneg (hw.1 b) (hc b).le)
+    ⟨a, Finset.mem_univ a, mul_pos ((hw.1 a).lt_of_ne' ha) (hc a)⟩
+
 /-- For positive weights `c` on a nonempty type, the sum of the inverses `∑ b, (c b)⁻¹` is
 positive. -/
 lemma sum_inv_pos [Nonempty α] (hc : ∀ a, 0 < c a) : 0 < ∑ b, (c b)⁻¹ :=
