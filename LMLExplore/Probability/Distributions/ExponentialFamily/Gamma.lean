@@ -85,8 +85,9 @@ exponential family of `gammaMeasure a r`. -/
 lemma not_ae_eq_const_gammaMeasure (ha : 0 < a) (hr : 0 < r) (c : ℝ) :
     ¬ id =ᵐ[gammaMeasure a r] fun _ ↦ c := by
   have := isProbabilityMeasure_gammaMeasure ha hr
-  have h_ne : ∀ᵐ x ∂gammaMeasure a r, x ≠ c :=
-    (withDensity_absolutelyContinuous _ _).ae_le (Measure.ae_ne volume c)
+  have h_ne : ∀ᵐ x ∂gammaMeasure a r, x ≠ c := by
+    rw [gammaMeasure]
+    exact (withDensity_absolutelyContinuous _ _).ae_le (Measure.ae_ne volume c)
   intro h
   obtain ⟨x, hx, hxc⟩ := (h.and h_ne).exists
   exact hxc hx
@@ -142,9 +143,9 @@ private lemma cgf_gammaMeasure_sub_div (ha : 0 < a) (hr : 0 < r) (hμ : 0 < μ) 
 theorem expFamilyDiv_gammaMeasure (ha : 0 < a) (hr : 0 < r) (hμ : 0 < μ) (hμ' : 0 < μ') :
     (gammaMeasure a r).expFamilyDiv id μ μ' = a * (μ / μ' - 1 - log (μ / μ')) := by
   rw [Measure.expFamilyDiv_def, natParam_gammaMeasure ha hr hμ, natParam_gammaMeasure ha hr hμ',
-    cgf_gammaMeasure_sub_div ha hr hμ', cgf_gammaMeasure_sub_div ha hr hμ,
-    log_div (by positivity) ha.ne', log_div (by positivity) ha.ne', log_mul hμ.ne' hr.ne',
-    log_mul hμ'.ne' hr.ne', log_div hμ.ne' hμ'.ne']
+    cgf_gammaMeasure_sub_div ha hr hμ', cgf_gammaMeasure_sub_div ha hr hμ]
+  simp only [log_div, log_mul, hμ.ne', hμ'.ne', hr.ne', ha.ne', mul_ne_zero, ne_eq,
+    not_false_eq_true]
   field_simp
   ring
 
