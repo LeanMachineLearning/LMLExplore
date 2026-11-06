@@ -279,6 +279,16 @@ theorem klDiv_expFamily_natParam (hμ : μ ∈ ρ.expFamilyMeans T)
     (interior_subset (natParam_mem_interior_integrableExpSet hμ')),
     deriv_cgf_natParam hμ, expFamilyDiv_def]
 
+/-- The log-partition function lies above its tangent line at the natural parameter of a mean
+`μ`: `ψ(η(μ)) + μ (η - η(μ)) ≤ ψ(η)` for every natural parameter `η`, since the divergence from
+`ρ_η(μ)` to `ρ_η` is nonnegative. -/
+lemma cgf_natParam_add_mul_sub_le_cgf (hμ : μ ∈ ρ.expFamilyMeans T)
+    (hη : η ∈ integrableExpSet T ρ) :
+    cgf T ρ (ρ.natParam T μ) + μ * (η - ρ.natParam T μ) ≤ cgf T ρ η := by
+  have h := toReal_klDiv_expFamily (natParam_mem_interior_integrableExpSet hμ) hη
+  rw [deriv_cgf_natParam hμ] at h
+  linarith [ENNReal.toReal_nonneg.trans_eq h]
+
 lemma expFamilyDiv_nonneg (hμ : μ ∈ ρ.expFamilyMeans T) (hμ' : μ' ∈ ρ.expFamilyMeans T) :
     0 ≤ ρ.expFamilyDiv T μ μ' := by
   rw [← toReal_klDiv_expFamily_natParam hμ hμ']
