@@ -20,7 +20,7 @@
   code { font: 0.86em ui-monospace, SFMono-Regular, Menlo, monospace; }
   .crumbs { margin: 0; font-size: 0.9rem; color: var(--muted); }
   .lede { font-size: 1.05rem; }
-  #filter { width: 100%; box-sizing: border-box; margin: 0.8rem 0 1.2rem; padding: 0.55rem 0.75rem;
+  #filter { flex: 1; box-sizing: border-box; padding: 0.55rem 0.75rem;
             font: inherit; color: inherit; background: transparent; border: 1px solid var(--line);
             border-radius: 6px; }
   .work { border-top: 1px solid var(--line); padding: 1rem 0 0.4rem; }
@@ -32,8 +32,19 @@
                   padding: 0.3rem 0; border-top: 1px dashed var(--line); }
   .results > li:first-child { border-top: none; }
   .label { font-weight: 600; }
-  .part { font-size: 0.8rem; padding: 0.05rem 0.4rem; border-radius: 4px; background: var(--chip);
-          color: var(--muted); }
+  .tag, .chip { font-size: 0.8rem; padding: 0.05rem 0.4rem; border-radius: 4px; background: var(--chip);
+                color: var(--muted); }
+  .chip { margin-left: 0.25rem; white-space: nowrap; }
+  .items { font-size: 0.8rem; color: var(--muted); margin-top: 0.15rem; }
+  .unlinked .label, .none { color: var(--muted); }
+  .none { font-style: italic; font-size: 0.92rem; }
+  .meter { display: inline-block; width: 6rem; height: 0.5rem; border-radius: 3px; background: var(--chip);
+           vertical-align: middle; overflow: hidden; }
+  .meter > span { display: block; height: 100%; background: var(--accent); }
+  table { border-collapse: collapse; margin: 0.4rem 0 1rem; }
+  td { padding: 0.15rem 1.2rem 0.15rem 0; }
+  .controls { display: flex; gap: 1rem; align-items: center; margin: 0.8rem 0 1.2rem; }
+  .controls label { white-space: nowrap; font-size: 0.92rem; }
   .src { font-size: 0.8rem; margin-left: 0.4rem; color: var(--muted); }
   .hidden { display: none; }
   footer { border-top: 1px solid var(--line); margin-top: 1.5rem; padding-bottom: 3rem;
@@ -46,16 +57,23 @@
 <header>
   <p class="crumbs"><a href="../">LMLExplore</a> / literature</p>
   <h1>Literature</h1>
-  <p class="lede">The results of the literature that LMLExplore's declarations cite, and the declarations
-  that cite them, at commit <a href="https://github.com/{{repo}}/tree/{{commit}}"><code>{{commit12}}</code></a>:
-  {{summary}}.</p>
-  <p>Each link comes from a citation such as <code>[GK16, Theorem 14]</code> in a declaration's docstring,
-  or in the list of main statements of its module. It says that the declaration and the result
-  correspond, not how: the declaration may state the result exactly, more generally, or one part of
-  it, or be a step of its proof. The links are also published as
-  <a href="annotations.jsonl"><code>annotations.jsonl</code></a>, in the
-  <a href="https://github.com/mathlib-initiative/literature-links">Literature Links</a> format.</p>
-  <input type="search" id="filter" placeholder="Filter by work, result or declaration" aria-label="Filter">
+  <p class="lede">The results of the literature that LMLExplore's declarations and its roadmaps cite, at
+  commit <a href="https://github.com/{{repo}}/tree/{{commit}}"><code>{{commit12}}</code></a> of LMLExplore
+  and <a href="https://github.com/LeanMachineLearning/LMLRoadmaps/tree/{{roadmaps-commit}}"><code>{{roadmaps-commit12}}</code></a>
+  of LMLRoadmaps. {{summary}}.</p>
+  <p>A declaration is linked to a result when it cites it, as <code>[GK16, Theorem 14]</code>, in its
+  docstring or in the list of main statements of its module. A link says that the declaration and the
+  result correspond, not how: the declaration may state the result exactly, more generally, or one
+  part of it, or be a step of its proof. A result that the roadmaps cite and no declaration does is
+  <em>not linked yet</em>: it may be formalized without the citation, or not at all. The links are also
+  published as <a href="annotations.jsonl"><code>annotations.jsonl</code></a> ({{annotations}} annotations),
+  in the <a href="https://github.com/mathlib-initiative/literature-links">Literature Links</a> format.</p>
+  <h2>The results the roadmaps cite, by roadmap</h2>
+  <table>{{roadmaps}}</table>
+  <div class="controls">
+    <input type="search" id="filter" placeholder="Filter by work, result, declaration or roadmap item" aria-label="Filter">
+    <label><input type="checkbox" id="unlinked"> only results not linked yet</label>
+  </div>
 </header>
 <main>
 {{works}}
@@ -69,22 +87,30 @@
   of the revision that the end's <code>version</code> names, or of the published work when it names
   none. <code>part</code> narrows it, such as <code>(a)</code>. An annotation whose <code>kind</code> is
   <code>proof</code> is about the proof of the result.</p>
+  <p>The extension <code>{{extension}}</code> of an annotation names the LMLRoadmaps items that cite its
+  result, as <code>Identification 5.2</code>, the second target of the layer 5 of the Identification
+  roadmap, with the commit of LMLRoadmaps they were read at. An annotation whose <code>object</code> is
+  empty records a result that the roadmaps cite and no declaration does.</p>
 </footer>
 <script>
   const filter = document.getElementById('filter');
-  filter.addEventListener('input', () => {
+  const unlinked = document.getElementById('unlinked');
+  function apply() {
     const q = filter.value.trim().toLowerCase();
     for (const work of document.querySelectorAll('.work')) {
       const head = work.querySelector('h2').textContent.toLowerCase();
       let shown = 0;
       for (const r of work.querySelectorAll('.result')) {
-        const ok = !q || head.includes(q) || r.dataset.text.includes(q);
+        const ok = (!q || head.includes(q) || r.dataset.text.includes(q))
+          && (!unlinked.checked || r.classList.contains('unlinked'));
         r.classList.toggle('hidden', !ok);
         shown += ok;
       }
       work.classList.toggle('hidden', shown === 0);
     }
-  });
+  }
+  filter.addEventListener('input', apply);
+  unlinked.addEventListener('change', apply);
 </script>
 </body>
 </html>
