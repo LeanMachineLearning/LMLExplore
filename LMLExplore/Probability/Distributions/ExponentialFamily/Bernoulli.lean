@@ -7,7 +7,7 @@ module
 
 public import LMLExplore.Analysis.SpecialFunctions.Sigmoid
 public import LMLExplore.InformationTheory.KullbackLeibler.Bernoulli
-public import LMLExplore.Probability.Distributions.ExponentialFamily.Mean
+public import LMLExplore.Probability.Distributions.ExponentialFamily.UpperConfidence
 
 /-!
 # The Bernoulli laws as an exponential family
@@ -19,6 +19,12 @@ The real Bernoulli laws `Ber((1 : ℝ), 0, m)` with `m ∈ (0, 1)` form the natu
 `exp η`. The mean map `ψ'(η) = sigmoid (η₀ + η)` takes every value in `(0, 1)`, so the means of the
 family are the interval `(0, 1)`, the member of mean `m` is `Ber((1 : ℝ), 0, m)`, and the divergence
 of the family in the mean parametrization is the binary relative entropy `klBerReal`.
+
+The Cramér rate function of a Bernoulli law `Ber((1 : ℝ), 0, q)` at a level `x ∈ [0, 1]` is the
+binary relative entropy `klBer x q`, the boundary levels `0` and `1` and the boundary parameters
+`q ∈ {0, 1}` included. So the extended divergence of the family is `klBer` at every level in
+`[0, 1]`, and the upper confidence level of the family is the KL-UCB level `klUpper` of rewards in
+`[0, 1]`, at the empirical means `0` and `1` as well.
 
 This identifies the Chernoff bounds for exponential families with the Chernoff bounds for
 Bernoulli laws in relative-entropy form.
@@ -34,17 +40,23 @@ Bernoulli laws in relative-entropy form.
   `Ber((1 : ℝ), 0, m)`.
 * `LMLExplore.expFamilyDiv_bernoulliMeasure_sigmoid`: the divergence of the family is
   `klBerReal p m` for `p, m ∈ (0, 1)`.
+* `LMLExplore.rateFunction_id_bernoulliMeasure`: the rate function of `Ber((1 : ℝ), 0, q)` at a
+  level `x ∈ [0, 1]` is `klBer x q`.
+* `LMLExplore.expFamilyRate_bernoulliMeasure_sigmoid`: the extended divergence of the family is
+  `klBer x m` for `x ∈ [0, 1]` and `m ∈ (0, 1)`.
+* `LMLExplore.expFamilyUpper_bernoulliMeasure_sigmoid`: the upper confidence level of the family is
+  `klUpper x c` for `x ∈ [0, 1]`.
 -/
 
 public section
 
 open MeasureTheory ProbabilityTheory Real Set
 
-open scoped unitInterval
+open scoped unitInterval ENNReal
 
 namespace LMLExplore
 
-variable {η₀ m p : ℝ}
+variable {η₀ m p x : ℝ}
 
 /-- For `q ∈ (0, 1)`, the identity is not almost everywhere constant under `Ber((1 : ℝ), 0, q)`:
 both values `0` and `1` have positive probability. This is the nondegeneracy assumption of the mean
@@ -118,5 +130,97 @@ theorem expFamilyDiv_bernoulliMeasure_sigmoid (η₀ : ℝ) (hp : p ∈ Ioo 0 1)
     expFamily_natParam_bernoulliMeasure_sigmoid η₀ hp,
     expFamily_natParam_bernoulliMeasure_sigmoid η₀ hm, klDiv_bernoulliMeasure]
   exact toReal_klBer (Ioo_subset_Icc_self hp) (Ioo_subset_Icc_self hm) (klBer_ne_top hm)
+
+/-- **Rate function of a Bernoulli law**: the Cramér rate function of `Ber((1 : ℝ), 0, q)` at a
+level `x ∈ [0, 1]` is the binary relative entropy `d(x, q)`. At the boundary levels `0` and `1`, it
+is `-log P(X = x)`; for `q ∈ {0, 1}`, the law is a Dirac mass and the rate function is infinite
+away from `q`. -/
+theorem rateFunction_id_bernoulliMeasure (q : I) (hx : x ∈ Icc 0 1) :
+    rateFunction id Ber((1 : ℝ), 0, q) x = klBer x q := by
+  have hae : ∀ᵐ z ∂Ber((1 : ℝ), 0, q), z ∈ Icc 0 1 := by
+    simpa [uIcc_of_ge zero_le_one] using ae_mem_uIcc_bernoulliMeasure (1 : ℝ) 0 q
+  rcases hx.1.eq_or_lt with rfl | hx0
+  · -- The level `0` is the essential infimum, of probability `1 - q`.
+    have hs : {z : ℝ | id z = 0} = {0} := by ext; simp
+    have hP : Ber((1 : ℝ), 0, q).real {z : ℝ | id z = 0} = 1 - q := by
+      rw [hs, bernoulliMeasure_real_apply_of_notMem_of_mem _ (measurableSet_singleton 0)
+        (by norm_num) rfl]
+    by_cases hq : (q : ℝ) = 1
+    · rw [rateFunction_eq_top_of_ae_ge aemeasurable_id (hae.mono fun z hz ↦ hz.1)
+        ((measureReal_eq_zero_iff).1 (by rw [hP, hq, sub_self])), eq_comm,
+        klBer_eq_top_iff hx q.2]
+      exact Or.inr ⟨hq, zero_ne_one⟩
+    · rw [rateFunction_eq_ofReal_neg_log_measureReal_of_ae_ge aemeasurable_id
+        (hae.mono fun z hz ↦ hz.1)
+        (fun h ↦ sub_ne_zero.2 (Ne.symm hq) (by rw [← hP]; exact (measureReal_eq_zero_iff).2 h)),
+        hP, klBer_eq_ofReal_klBerReal hx q.2 ((klBer_ne_top_iff hx q.2).2
+          ⟨fun _ ↦ rfl, fun h ↦ absurd h hq⟩)]
+      simp [klBerReal_def]
+  rcases hx.2.eq_or_lt with rfl | hx1
+  · -- The level `1` is the essential supremum, of probability `q`.
+    have hs : {z : ℝ | id z = 1} = {1} := by ext; simp
+    have hP : Ber((1 : ℝ), 0, q).real {z : ℝ | id z = 1} = q := by
+      rw [hs, bernoulliMeasure_real_apply_of_mem_of_notMem _ (measurableSet_singleton 1) rfl
+        (by norm_num)]
+    by_cases hq : (q : ℝ) = 0
+    · rw [rateFunction_eq_top_of_ae_le aemeasurable_id (hae.mono fun z hz ↦ hz.2)
+        ((measureReal_eq_zero_iff).1 (by rw [hP, hq])), eq_comm, klBer_eq_top_iff hx q.2]
+      exact Or.inl ⟨hq, one_ne_zero⟩
+    · rw [rateFunction_eq_ofReal_neg_log_measureReal_of_ae_le aemeasurable_id
+        (hae.mono fun z hz ↦ hz.2)
+        (fun h ↦ hq (by rw [← hP]; exact (measureReal_eq_zero_iff).2 h)),
+        hP, klBer_eq_ofReal_klBerReal hx q.2 ((klBer_ne_top_iff hx q.2).2
+          ⟨fun h ↦ absurd h hq, fun _ ↦ rfl⟩), klBerReal_one_left]
+  -- At an interior level, the law is a Dirac mass at `0` or `1`, or a member of the family.
+  rcases q.2.1.eq_or_lt with hq0 | hq0
+  · obtain rfl : q = 0 := Subtype.ext hq0.symm
+    rw [bernoulliMeasure_zero, rateFunction_eq_top_of_ae_lt aemeasurable_id
+      (by rw [ae_dirac_eq]; exact hx0), eq_comm, klBer_eq_top_iff hx (by simp)]
+    exact Or.inl ⟨rfl, hx0.ne'⟩
+  rcases q.2.2.eq_or_lt with hq1 | hq1
+  · obtain rfl : q = 1 := Subtype.ext hq1
+    rw [bernoulliMeasure_one, rateFunction_eq_top_of_ae_gt aemeasurable_id
+      (by rw [ae_dirac_eq]; exact hx1), eq_comm, klBer_eq_top_iff hx (by simp)]
+    exact Or.inr ⟨rfl, hx1.ne⟩
+  have h := expFamily_natParam_bernoulliMeasure_sigmoid 0 ⟨hq0, hq1⟩
+  rw [Subtype.coe_eta] at h
+  rw [← h, ← Measure.expFamilyRate_def, Measure.expFamilyRate_eq_ofReal_expFamilyDiv
+      (by rw [expFamilyMeans_bernoulliMeasure_sigmoid]; exact ⟨hx0, hx1⟩)
+      (by rw [expFamilyMeans_bernoulliMeasure_sigmoid]; exact ⟨hq0, hq1⟩),
+    expFamilyDiv_bernoulliMeasure_sigmoid 0 ⟨hx0, hx1⟩ ⟨hq0, hq1⟩,
+    klBer_eq_ofReal_klBerReal hx q.2 (klBer_ne_top ⟨hq0, hq1⟩)]
+
+/-- The extended divergence of the exponential family of `Ber((1 : ℝ), 0, sigmoid η₀)` is the
+binary relative entropy: `dbar(x, m) = klBer x m` for every level `x ∈ [0, 1]`, the boundary levels
+included, and every mean `m ∈ (0, 1)`. -/
+theorem expFamilyRate_bernoulliMeasure_sigmoid (η₀ : ℝ) (hx : x ∈ Icc 0 1) (hm : m ∈ Ioo 0 1) :
+    Ber((1 : ℝ), 0, unitInterval.sigmoid η₀).expFamilyRate id x m = klBer x m := by
+  rw [Measure.expFamilyRate_def, expFamily_natParam_bernoulliMeasure_sigmoid η₀ hm,
+    rateFunction_id_bernoulliMeasure _ hx]
+
+/-- The upper confidence level of the exponential family of `Ber((1 : ℝ), 0, sigmoid η₀)` is the
+KL-UCB level of rewards in `[0, 1]`: `U(x, c) = klUpper x c` for every level `x ∈ [0, 1]`, the
+boundary levels included, and every budget `c`. -/
+theorem expFamilyUpper_bernoulliMeasure_sigmoid (η₀ : ℝ) (hx : x ∈ Icc 0 1) (c : ℝ≥0∞) :
+    Ber((1 : ℝ), 0, unitInterval.sigmoid η₀).expFamilyUpper id x c = (klUpper x c : EReal) := by
+  have hU := klUpper_mem_Icc hx.2 c
+  refine le_antisymm (Measure.expFamilyUpper_le_iff.2 ⟨EReal.coe_le_coe_iff.2 hU.1,
+    fun q hq hxq hqc ↦ EReal.coe_le_coe_iff.2 ?_⟩) ?_
+  · rw [expFamilyMeans_bernoulliMeasure_sigmoid] at hq
+    rw [expFamilyRate_bernoulliMeasure_sigmoid η₀ hx hq] at hqc
+    exact (le_klUpper_iff ⟨hxq, hq.2.le⟩).2 hqc
+  rcases hU.1.eq_or_lt with h | h
+  · rw [← h]
+    exact Measure.le_expFamilyUpper _ _ _ _
+  -- Every `r ∈ (x, klUpper x c)` is a mean with `d(x, r) ≤ c`, so it lies below `U(x, c)`.
+  by_contra! hlt
+  obtain ⟨r, hr, hru⟩ := EReal.lt_iff_exists_real_btwn.1 (max_lt hlt (EReal.coe_lt_coe_iff.2 h))
+  rw [max_lt_iff, EReal.coe_lt_coe_iff] at hr
+  have hru' := EReal.coe_lt_coe_iff.1 hru
+  have hr01 : r ∈ Ioo 0 1 := ⟨hx.1.trans_lt hr.2, hru'.trans_le hU.2⟩
+  refine hr.1.not_ge (Measure.le_expFamilyUpper_of_expFamilyRate_le
+    (by rw [expFamilyMeans_bernoulliMeasure_sigmoid]; exact hr01) hr.2.le ?_)
+  rw [expFamilyRate_bernoulliMeasure_sigmoid η₀ hx hr01]
+  exact (le_klUpper_iff ⟨hr.2.le, hr01.2.le⟩).1 hru'.le
 
 end LMLExplore
