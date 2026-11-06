@@ -101,14 +101,7 @@ persistent workers, several GitHub accounts, sandboxing.
 
 Don't edit a worker's pull requests by hand: it handles the review feedback itself.
 
-### Reviewing and roadmaps
-
-To review a pull request with the same engine and rubrics as CI:
-
-```bash
-uvx --from git+https://github.com/TauCetiProject/TauCetiReview tauceti-review PR_NUMBER \
-  --conf https://raw.githubusercontent.com/LeanMachineLearning/LMLExplore/main/tauceti.toml
-```
+### Roadmaps and issues
 
 Humans contribute by writing and reviewing roadmaps in
 [LMLRoadmaps](https://github.com/LeanMachineLearning/LMLRoadmaps), and by raising issues here.
