@@ -56,8 +56,6 @@ infinite beyond the essential supremum of `X`, and symmetrically below its essen
   `ProbabilityTheory.HasSubgaussianMGF.ofReal_mul_sq_div_le_mul_rateFunction`: if `X - E[X]` is
   `c`-sub-Gaussian, then `(x - E[X])² / (2 c) ≤ I(x)`, and `N (x - E[X])² / (2 c) ≤ N I(x)` for
   every natural number `N`.
-* `ProbabilityTheory.HasSubgaussianMGF.integrable_of_sub_const`: if `X - m` is sub-Gaussian under
-  a finite measure, then `X` is integrable.
 * `LMLExplore.convexOn_rateFunction`, `LMLExplore.lowerSemicontinuous_rateFunction`: it is convex
   and lower semicontinuous.
 * `LMLExplore.mul_integral_le_cgf`: Jensen's inequality `t E[X] ≤ cgf X P t`.
@@ -230,13 +228,6 @@ theorem _root_.ProbabilityTheory.HasSubgaussianMGF.ofReal_sq_div_le_rateFunction
   _ ≤ t * x - cgf X P t := by
     rw [h_cgf]
     linarith
-
-/-- If `X - m` is `c`-sub-Gaussian under a finite measure `P` for a constant `m`, then `X` is
-`P`-integrable. -/
-theorem _root_.ProbabilityTheory.HasSubgaussianMGF.integrable_of_sub_const [IsFiniteMeasure P]
-    {m : ℝ} {c : ℝ≥0} (h : HasSubgaussianMGF (fun ω ↦ X ω - m) c P) : Integrable X P :=
-  (h.integrable.add (integrable_const m)).congr
-    (ae_of_all _ fun ω ↦ by simp only [Pi.add_apply, sub_add_cancel])
 
 /-- **The rate function of a sub-Gaussian variable is at least quadratic, scaled.** If `X - E[X]`
 is `c`-sub-Gaussian under a probability measure `P`, then `N (x - E[X])² / (2 c) ≤ N I(x)` for

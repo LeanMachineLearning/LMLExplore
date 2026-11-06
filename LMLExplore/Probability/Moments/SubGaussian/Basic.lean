@@ -26,6 +26,8 @@ martingale bounds.
 
 ## Main statements
 
+* `ProbabilityTheory.HasSubgaussianMGF.integrable_of_sub_const`: if `X - a` is sub-Gaussian under
+  a finite measure for a constant `a`, then `X` is integrable.
 * `ProbabilityTheory.HasCondSubgaussianMGF.of_ae_trim_condExp_le`: if `exp (t * X)` is integrable
   for every `t` and `E[exp (q * X) | m] ≤ exp (c * q ^ 2 / 2)` for every rational `q`, then `X` is
   conditionally `c`-sub-Gaussian given `m`.
@@ -50,6 +52,13 @@ open scoped ENNReal NNReal
 namespace ProbabilityTheory
 
 variable {Ω : Type*} {m mΩ : MeasurableSpace Ω} {μ : Measure Ω} {X : Ω → ℝ} {c : ℝ≥0}
+
+/-- If `X - a` is `c`-sub-Gaussian under a finite measure `μ` for a constant `a`, then `X` is
+`μ`-integrable. -/
+theorem HasSubgaussianMGF.integrable_of_sub_const [IsFiniteMeasure μ] {a : ℝ}
+    (h : HasSubgaussianMGF (fun ω ↦ X ω - a) c μ) : Integrable X μ :=
+  (h.integrable.add (integrable_const a)).congr
+    (ae_of_all _ fun ω ↦ by simp only [Pi.add_apply, sub_add_cancel])
 
 /-- **Conditional sub-Gaussianity from a conditional expectation bound.** If `exp (t * X)` is
 integrable for every `t` and, for every rational `q`, `E[exp (q * X) | m] ≤ exp (c * q ^ 2 / 2)`

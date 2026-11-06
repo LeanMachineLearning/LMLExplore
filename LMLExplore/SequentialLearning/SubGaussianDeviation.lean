@@ -9,6 +9,7 @@ public import LeanMachineLearning.Online.Bandit.Concentration
 public import LeanMachineLearning.SequentialLearning.SumRewards
 public import LMLExplore.Analysis.SpecialFunctions.Log.Basic
 public import LMLExplore.Probability.Moments.ExponentialTail
+public import LMLExplore.Probability.Moments.SubGaussian.Basic
 public import LMLExplore.SequentialLearning.RateFunctionDeviation
 public import LMLExplore.SequentialLearning.SumRewards
 
