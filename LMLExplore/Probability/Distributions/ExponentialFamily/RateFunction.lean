@@ -21,18 +21,18 @@ of mean `x` to `ρ_η`. In the mean parametrization, the rate function of `T` un
 mean `μ` is `d(x, μ)` at every mean `x`. This is the exponent of the Chernoff bounds for the
 empirical means of the statistic, and it extends `d(·, μ)` to every real level.
 
-We call this extension `d̄(x, μ)`, defined for every real level `x` and every mean `μ`. It is the
+We call this extension `dbar(x, μ)`, defined for every real level `x` and every mean `μ`. It is the
 generalized likelihood ratio extension of `d` to empirical means outside the open interval of
 means, for example the empirical means `0` and `1` of Bernoulli observations. Through the natural
-parameters of `ρ`, `d̄(x, μ) = ψ*(x) - x η(μ) + ψ(η(μ))` with `ψ*` the convex conjugate of `ψ`, so
-changing the mean `μ` shifts `d̄(x, ·)` by a real term: this is the three-point identity
-`d̄(x, μ) = d̄(x, q) + d(q, μ) + (q - x) (η(μ) - η(q))` for means `q` and `μ`. With the
-continuity of `d̄(·, μ)` on the closure of the means, where the convex function `d̄(·, μ)` is
-monotone on each side of `μ`, it makes `d̄` continuous on (closure of the means) × (means).
+parameters of `ρ`, `dbar(x, μ) = ψ*(x) - x η(μ) + ψ(η(μ))` with `ψ*` the convex conjugate of `ψ`, so
+changing the mean `μ` shifts `dbar(x, ·)` by a real term: this is the three-point identity
+`dbar(x, μ) = dbar(x, q) + d(q, μ) + (q - x) (η(μ) - η(q))` for means `q` and `μ`. With the
+continuity of `dbar(·, μ)` on the closure of the means, where the convex function `dbar(·, μ)` is
+monotone on each side of `μ`, it makes `dbar` continuous on (closure of the means) × (means).
 
 ## Main definitions
 
-* `MeasureTheory.Measure.expFamilyRate ρ T x μ`: the extended divergence `d̄(x, μ)`, the rate
+* `MeasureTheory.Measure.expFamilyRate ρ T x μ`: the extended divergence `dbar(x, μ)`, the rate
   function of `T` under the member of mean `μ` at the level `x`.
 
 ## Main statements
@@ -41,18 +41,18 @@ monotone on each side of `μ`, it makes `d̄` continuous on (closure of the mean
   family is `KL(ρ_η(x), ρ_η)`.
 * `LMLExplore.rateFunction_expFamily_natParam`: the rate function of `T` under the member of mean
   `μ` at a mean `x` is `d(x, μ)`.
-* `MeasureTheory.Measure.expFamilyRate_eq_ofReal_expFamilyDiv`: `d̄ = d` on the means.
-* `MeasureTheory.Measure.expFamilyRate_eq_iSup`: `d̄(x, μ)` as a supremum over the natural
+* `MeasureTheory.Measure.expFamilyRate_eq_ofReal_expFamilyDiv`: `dbar = d` on the means.
+* `MeasureTheory.Measure.expFamilyRate_eq_iSup`: `dbar(x, μ)` as a supremum over the natural
   parameters of `ρ`.
 * `MeasureTheory.Measure.expFamilyRate_three_point`: the three-point identity, and
   `MeasureTheory.Measure.expFamilyRate_eq_add_of_mul_nonneg` its form when the shift is
   nonnegative.
 * `MeasureTheory.Measure.monotoneOn_expFamilyRate_right`,
-  `MeasureTheory.Measure.antitoneOn_expFamilyRate_right`: `d̄(x, ·)` is monotone on the means
+  `MeasureTheory.Measure.antitoneOn_expFamilyRate_right`: `dbar(x, ·)` is monotone on the means
   above `x` and antitone on the means below `x`.
-* `MeasureTheory.Measure.continuousOn_expFamilyRate_left`: `d̄(·, μ)` is continuous on the closure
+* `MeasureTheory.Measure.continuousOn_expFamilyRate_left`: `dbar(·, μ)` is continuous on the closure
   of the means.
-* `MeasureTheory.Measure.continuousOn_expFamilyRate`: `d̄` is continuous on
+* `MeasureTheory.Measure.continuousOn_expFamilyRate`: `dbar` is continuous on
   (closure of the means) × (means), as an `ℝ≥0∞`-valued function.
 -/
 
@@ -109,7 +109,7 @@ variable {𝓧 : Type*} {m𝓧 : MeasurableSpace 𝓧} {ρ : Measure 𝓧} {T : 
 
 /-! ### The divergence extended to every level -/
 
-/-- The divergence `d̄(x, μ)` of the exponential family of `ρ` and `T`, extended to every real
+/-- The divergence `dbar(x, μ)` of the exponential family of `ρ` and `T`, extended to every real
 level `x`: the Cramér rate function at `x` of the statistic `T` under the member
 `ρ.expFamily T (ρ.natParam T μ)` of mean `μ`, valued in `ℝ≥0∞`. At a mean `x` of the family it is
 the divergence `d(x, μ)` (`expFamilyRate_eq_ofReal_expFamilyDiv`); at the other levels it is the
@@ -122,7 +122,7 @@ lemma expFamilyRate_def (ρ : Measure 𝓧) (T : 𝓧 → ℝ) (x μ : ℝ) :
     ρ.expFamilyRate T x μ = rateFunction T (ρ.expFamily T (ρ.natParam T μ)) x :=
   (rfl)
 
-/-- At the means of the family, the extended divergence `d̄(x, μ)` is the divergence `d(x, μ)`. -/
+/-- At the means of the family, the extended divergence `dbar(x, μ)` is the divergence `d(x, μ)`. -/
 theorem expFamilyRate_eq_ofReal_expFamilyDiv (hx : x ∈ ρ.expFamilyMeans T)
     (hμ : μ ∈ ρ.expFamilyMeans T) :
     ρ.expFamilyRate T x μ = ENNReal.ofReal (ρ.expFamilyDiv T x μ) := by
@@ -134,7 +134,7 @@ lemma expFamilyRate_self (hμ : μ ∈ ρ.expFamilyMeans T) : ρ.expFamilyRate T
   rw [expFamilyRate_eq_ofReal_expFamilyDiv hμ hμ, expFamilyDiv_self, ENNReal.ofReal_zero]
 
 /-- The extended divergence through the natural parameters of `ρ`: with `ψ = cgf T ρ` and
-`η = η(μ)`, `d̄(x, μ) = sup_θ ((θ - η) x - ψ(θ) + ψ(η))` over `θ ∈ integrableExpSet T ρ`. -/
+`η = η(μ)`, `dbar(x, μ) = sup_θ ((θ - η) x - ψ(θ) + ψ(η))` over `θ ∈ integrableExpSet T ρ`. -/
 theorem expFamilyRate_eq_iSup (hμ : μ ∈ ρ.expFamilyMeans T) (x : ℝ) :
     ρ.expFamilyRate T x μ = ⨆ θ ∈ integrableExpSet T ρ,
       ENNReal.ofReal ((θ - ρ.natParam T μ) * x - cgf T ρ θ + cgf T ρ (ρ.natParam T μ)) := by
@@ -164,7 +164,7 @@ private lemma expFamilyRate_add_ofReal_neg_le (hq : q ∈ ρ.expFamilyMeans T)
         cgf T ρ (ρ.natParam T q) - x * (ρ.natParam T μ - ρ.natParam T q))) ≤
       ρ.expFamilyRate T x q + ENNReal.ofReal (cgf T ρ (ρ.natParam T μ) -
         cgf T ρ (ρ.natParam T q) - x * (ρ.natParam T μ - ρ.natParam T q)) := by
-  -- Each term of `d̄(x, q)` is bounded by `d̄(x, q)`, and so is `-c`, the term at `θ = η(μ)`.
+  -- Each term of `dbar(x, q)` is bounded by `dbar(x, q)`, and so is `-c`, the term at `θ = η(μ)`.
   have hle (θ : ℝ) (hθ : θ ∈ integrableExpSet T ρ) :
       ENNReal.ofReal ((θ - ρ.natParam T q) * x - cgf T ρ θ + cgf T ρ (ρ.natParam T q)) ≤
         ρ.expFamilyRate T x q := by
@@ -177,7 +177,7 @@ private lemma expFamilyRate_add_ofReal_neg_le (hq : q ∈ ρ.expFamilyMeans T)
       (hle _ (interior_subset (natParam_mem_interior_integrableExpSet hμ)))
     congr 1
     ring
-  -- The terms of `d̄(x, μ)` are those of `d̄(x, q)` shifted by `c`.
+  -- The terms of `dbar(x, μ)` are those of `dbar(x, q)` shifted by `c`.
   have hsplit (θ : ℝ) : (θ - ρ.natParam T μ) * x - cgf T ρ θ + cgf T ρ (ρ.natParam T μ) =
       ((θ - ρ.natParam T q) * x - cgf T ρ θ + cgf T ρ (ρ.natParam T q)) +
         (cgf T ρ (ρ.natParam T μ) - cgf T ρ (ρ.natParam T q) -
@@ -205,9 +205,9 @@ private lemma expFamilyRate_add_ofReal_neg_le (hq : q ∈ ρ.expFamilyMeans T)
       exact hwit
 
 /-- **Three-point identity** for the extended divergence: for every level `x` and means `q, μ`,
-`d̄(x, μ) = d̄(x, q) + c` with `c = d(q, μ) + (q - x) (η(μ) - η(q))`, written in `ℝ≥0∞` as
-`d̄(x, μ) + (-c)⁺ = d̄(x, q) + c⁺` since `c` may be negative. The term `c` is nonnegative when `x`
-lies beyond `q` on the other side of `μ` (`expFamilyRate_eq_add_of_mul_nonneg`). -/
+`dbar(x, μ) = dbar(x, q) + c` with `c = d(q, μ) + (q - x) (η(μ) - η(q))`, written in `ℝ≥0∞` as
+`dbar(x, μ) + (-c)⁺ = dbar(x, q) + c⁺` since `c` may be negative. The term `c` is nonnegative
+when `x` lies beyond `q` on the other side of `μ` (`expFamilyRate_eq_add_of_mul_nonneg`). -/
 theorem expFamilyRate_three_point (hq : q ∈ ρ.expFamilyMeans T) (hμ : μ ∈ ρ.expFamilyMeans T)
     (x : ℝ) :
     ρ.expFamilyRate T x μ +
@@ -223,8 +223,8 @@ theorem expFamilyRate_three_point (hq : q ∈ ρ.expFamilyMeans T) (hμ : μ ∈
   refine le_antisymm (expFamilyRate_add_ofReal_neg_le hq hμ x) ?_
   convert expFamilyRate_add_ofReal_neg_le hμ hq x using 3 <;> ring
 
-/-- The three-point identity `d̄(x, μ) = d̄(x, q) + d(q, μ) + (q - x) (η(μ) - η(q))` when its last
-term is nonnegative, for example when `x ≤ q ≤ μ` or `μ ≤ q ≤ x`. -/
+/-- The three-point identity `dbar(x, μ) = dbar(x, q) + d(q, μ) + (q - x) (η(μ) - η(q))` when its
+last term is nonnegative, for example when `x ≤ q ≤ μ` or `μ ≤ q ≤ x`. -/
 theorem expFamilyRate_eq_add_of_mul_nonneg (hq : q ∈ ρ.expFamilyMeans T)
     (hμ : μ ∈ ρ.expFamilyMeans T) (h : 0 ≤ (q - x) * (ρ.natParam T μ - ρ.natParam T q)) :
     ρ.expFamilyRate T x μ = ρ.expFamilyRate T x q +
@@ -233,7 +233,7 @@ theorem expFamilyRate_eq_add_of_mul_nonneg (hq : q ∈ ρ.expFamilyMeans T)
   rwa [ENNReal.ofReal_of_nonpos (neg_nonpos.2 (add_nonneg (expFamilyDiv_nonneg hq hμ) h)),
     add_zero] at h3
 
-/-- The extended divergence `d̄(x, ·)` is monotone on the means above `x`. -/
+/-- The extended divergence `dbar(x, ·)` is monotone on the means above `x`. -/
 theorem monotoneOn_expFamilyRate_right (x : ℝ) :
     MonotoneOn (ρ.expFamilyRate T x) (ρ.expFamilyMeans T ∩ Ici x) := by
   intro q hq μ hμ hqμ
@@ -241,7 +241,7 @@ theorem monotoneOn_expFamilyRate_right (x : ℝ) :
     (sub_nonneg.2 (monotoneOn_natParam hq.1 hμ.1 hqμ)))]
   exact le_self_add
 
-/-- The extended divergence `d̄(x, ·)` is antitone on the means below `x`. -/
+/-- The extended divergence `dbar(x, ·)` is antitone on the means below `x`. -/
 theorem antitoneOn_expFamilyRate_right (x : ℝ) :
     AntitoneOn (ρ.expFamilyRate T x) (ρ.expFamilyMeans T ∩ Iic x) := by
   intro μ hμ q hq hμq
@@ -251,13 +251,13 @@ theorem antitoneOn_expFamilyRate_right (x : ℝ) :
 
 /-! ### Continuity -/
 
-/-- For a mean `μ`, the extended divergence `d̄(·, μ)` is continuous on the closure of the means,
+/-- For a mean `μ`, the extended divergence `dbar(·, μ)` is continuous on the closure of the means,
 as an `ℝ≥0∞`-valued function, including at the endpoints where it may be infinite. -/
 theorem continuousOn_expFamilyRate_left (hT : ∀ c, ¬ T =ᵐ[ρ] fun _ ↦ c)
     (hμ : μ ∈ ρ.expFamilyMeans T) :
     ContinuousOn (fun x ↦ ρ.expFamilyRate T x μ) (closure (ρ.expFamilyMeans T)) := by
   intro x₀ hx₀
-  -- On the open interval of means, `d̄(·, μ)` is `d(·, μ)`.
+  -- On the open interval of means, `dbar(·, μ)` is `d(·, μ)`.
   by_cases hx₀M : x₀ ∈ ρ.expFamilyMeans T
   · have hM := expFamilyMeans_mem_nhds hT hx₀M
     have hd : ContinuousAt (fun x ↦ ENNReal.ofReal (ρ.expFamilyDiv T x μ)) x₀ :=
@@ -294,12 +294,12 @@ theorem continuousOn_expFamilyRate_left (hT : ∀ c, ¬ T =ᵐ[ρ] fun _ ↦ c)
     exact antitoneOn_rateFunction hint (by rw [mem_Iic, hmean]; exact hlt.le)
       (by rw [mem_Iic, hmean]; exact (mem_Iio.1 hx').le) (hsub hx)
 
-/-- **Continuity of the extended divergence**: `(x, μ) ↦ d̄(x, μ)` is continuous on the pairs of a
+/-- **Continuity of the extended divergence**: `(x, μ) ↦ dbar(x, μ)` is continuous on the pairs of a
 level in the closure of the means and a mean, as an `ℝ≥0∞`-valued function. -/
 theorem continuousOn_expFamilyRate (hT : ∀ c, ¬ T =ᵐ[ρ] fun _ ↦ c) :
     ContinuousOn (fun p : ℝ × ℝ ↦ ρ.expFamilyRate T p.1 p.2)
       (closure (ρ.expFamilyMeans T) ×ˢ ρ.expFamilyMeans T) := by
-  -- By the three-point identity, `d̄(x, μ)` is `d̄(x, μ₀)` shifted by a real term `c (x, μ)`,
+  -- By the three-point identity, `dbar(x, μ)` is `dbar(x, μ₀)` shifted by a real term `c (x, μ)`,
   -- continuous in `(x, μ)` and zero at `(x₀, μ₀)`.
   rintro ⟨x₀, μ₀⟩ ⟨hx₀, hμ₀⟩
   set s := closure (ρ.expFamilyMeans T) ×ˢ ρ.expFamilyMeans T
