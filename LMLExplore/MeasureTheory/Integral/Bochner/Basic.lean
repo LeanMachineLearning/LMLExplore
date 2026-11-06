@@ -8,10 +8,16 @@ module
 public import Mathlib.MeasureTheory.Integral.Bochner.Basic
 
 /-!
-# Expectation of an almost sure bound on a finite sum
+# Expectations of finite suprema and of finite sums
 
 ## Main statements
 
+* `MeasureTheory.Integrable.iSup`, `MeasureTheory.iSup_integral_le`: the pointwise supremum of
+  finitely many integrable real functions is integrable, and its integral is at least the
+  supremum of their integrals. Regrets against the best of finitely many comparators, whose
+  expectation is compared with the best expected regret, use them.
+* `MeasureTheory.integral_const_sub_sum`: under a probability measure, the expectation of
+  `c - ∑ i ∈ s, g i` is `c - ∑ i ∈ s, ∫ g i ∂P`.
 * `MeasureTheory.integral_sum_le_add_mul_of_ae_le`: under a probability measure, an almost sure
   bound `∑ i ∈ s, Z i ≤ B + c ∑ i ∈ s, V i` with `c ≥ 0` gives `∫ ∑ i ∈ s, Z i ∂P ≤ B + c C` when
   the expectations of the `V i` sum to at most `C`.
@@ -23,8 +29,41 @@ open Finset
 
 namespace MeasureTheory
 
+section Supremum
+
+variable {Ω ι : Type*} {mΩ : MeasurableSpace Ω} {μ : Measure Ω} [Finite ι] {f : ι → Ω → ℝ}
+
+/-- The pointwise supremum of finitely many integrable real functions is integrable. -/
+lemma Integrable.iSup (hf : ∀ i, Integrable (f i) μ) : Integrable (fun ω ↦ ⨆ i, f i ω) μ := by
+  have := Fintype.ofFinite ι
+  refine Integrable.mono' (integrable_finsetSum univ fun i _ ↦ (hf i).abs)
+    (AEMeasurable.iSup fun i ↦ (hf i).aemeasurable).aestronglyMeasurable (ae_of_all _ fun ω ↦ ?_)
+  rcases isEmpty_or_nonempty ι with hι | hι
+  · simp
+  obtain ⟨j, hj⟩ := exists_eq_ciSup_of_finite (f := fun i ↦ f i ω)
+  rw [← hj, Real.norm_eq_abs]
+  exact single_le_sum (f := fun i ↦ |f i ω|) (fun i _ ↦ abs_nonneg _) (mem_univ j)
+
+/-- The supremum of the integrals of finitely many integrable real functions is at most the
+integral of their pointwise supremum. -/
+lemma iSup_integral_le (hf : ∀ i, Integrable (f i) μ) :
+    ⨆ i, ∫ ω, f i ω ∂μ ≤ ∫ ω, ⨆ i, f i ω ∂μ := by
+  rcases isEmpty_or_nonempty ι with hι | hι
+  · simp
+  exact ciSup_le fun i ↦ integral_mono (hf i) (Integrable.iSup hf) fun ω ↦
+    le_ciSup (Set.finite_range fun i ↦ f i ω).bddAbove i
+
+end Supremum
+
 variable {Ω ι : Type*} {mΩ : MeasurableSpace Ω} {P : Measure Ω} [IsProbabilityMeasure P]
   {s : Finset ι}
+
+/-- Under a probability measure, the expectation of a constant minus a finite sum of integrable
+real functions is the constant minus the sum of their expectations. -/
+lemma integral_const_sub_sum (c : ℝ) {g : ι → Ω → ℝ} (hg : ∀ i ∈ s, Integrable (g i) P) :
+    ∫ ω, (c - ∑ i ∈ s, g i ω) ∂P = c - ∑ i ∈ s, ∫ ω, g i ω ∂P := by
+  rw [integral_sub (integrable_const _) (integrable_finsetSum _ hg), integral_finsetSum _ hg,
+    integral_const, probReal_univ, one_smul]
 
 /-- If almost surely `∑ i ∈ s, Z i ≤ B + c ∑ i ∈ s, V i` with `c ≥ 0`, where the `Z i` and `V i`
 are integrable and the expectations of the `V i` sum to at most `C`, then the expectation of

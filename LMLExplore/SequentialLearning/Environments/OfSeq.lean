@@ -5,7 +5,7 @@ Authors: Rémy Degenne
 -/
 module
 
-public import LeanMachineLearning.SequentialLearning.EvaluationEnv
+public import LMLExplore.SequentialLearning.Environments.Deterministic
 
 /-!
 # The environment given by fixed sequences of observations and feedback functions
@@ -16,7 +16,9 @@ environment is an oblivious adversary that reveals the side information `o n` be
 
 In a bandit with expert advice [LS, Chapter 18], the observation `o n` is the advice of the experts
 at round `n` and `g n a` is the reward of arm `a` at round `n`. Without observations
-(`o = fun _ ↦ ()`), `Environment.ofSeq` is LML's `Environment.evalSeq g hg`.
+(`o = fun _ ↦ ()`), `Environment.ofSeq` is LML's `Environment.evalSeq g hg`. It is the deterministic
+adaptive adversary `Environment.deterministic` whose observations and feedback functions do not
+depend on the history.
 
 ## Main definitions
 
@@ -27,6 +29,8 @@ at round `n` and `g n a` is the reward of arm `a` at round `n`. Without observat
 
 * `Learning.Environment.ofSeq_unit`: without observations, `Environment.ofSeq` is
   `Environment.evalSeq`.
+* `Learning.Environment.ofSeq_eq_deterministic`: `Environment.ofSeq o g hg` is the deterministic
+  adaptive adversary with observations `o n` and feedback `g n a` whatever the history.
 * `Learning.Environment.feedbackCondObsAction_ofSeq`: `Environment.ofSeq o g hg` is oblivious, and
   the conditional law of its feedback given the observation and the action `a` of round `n` is the
   Dirac mass at `g n a`.
@@ -72,6 +76,20 @@ lemma Environment.feedback_ofSeq (o : ℕ → 𝓞) (g : ℕ → 𝓐 → 𝓨) 
 lemma Environment.ofSeq_unit (g : ℕ → 𝓐 → 𝓨) (hg : ∀ n, Measurable (g n)) :
     Environment.ofSeq (fun _ ↦ ()) g hg = Environment.evalSeq g hg := by
   ext n : 2 <;> simp [Kernel.prodMkLeft_deterministic]
+
+/-- `Environment.ofSeq o g hg` is the deterministic adaptive adversary whose observations `o n` and
+feedback functions `g n` do not depend on the history. -/
+lemma Environment.ofSeq_eq_deterministic (o : ℕ → 𝓞) (g : ℕ → 𝓐 → 𝓨)
+    (hg : ∀ n, Measurable (g n)) :
+    Environment.ofSeq o g hg =
+      Environment.deterministic (fun n _ ↦ o n) (fun _ ↦ measurable_const) (fun n p ↦ g n p.2)
+        (fun n ↦ (hg n).comp measurable_snd) := by
+  ext n : 2
+  · ext h : 1
+    rw [Environment.obs_ofSeq, Environment.obs_deterministic, Kernel.const_apply,
+      Kernel.deterministic_apply]
+  · rw [Environment.feedback_ofSeq, Environment.feedback_deterministic,
+      Kernel.prodMkLeft_deterministic]
 
 instance (o : ℕ → 𝓞) (g : ℕ → 𝓐 → 𝓨) (hg : ∀ n, Measurable (g n)) :
     (Environment.ofSeq o g hg).IsOblivious where
