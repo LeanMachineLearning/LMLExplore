@@ -28,7 +28,7 @@ MDPs, and the performance difference lemma is an integral against them.
 
 The occupancy measure depends on the run only through the laws of the pairs `(S n, A n)`, so it
 can be computed along every run `IsAlgEnvSeq S A Y alg (M.env μ) P`, and for a Markov policy `π`
-from its marginals `M.stateMarginal π μ n ⊗ₘ π n`.
+from its marginals `stateMarginal (fun _ ↦ M.P) π μ n ⊗ₘ π n`.
 
 Occupancy measures depend continuously on stationary policies: if `tvDist (π' s) (π s) ≤ ε` at
 every state, then the state marginals of the occupancy measures of `π'` and `π` are within
@@ -244,11 +244,11 @@ section Markov
 variable {μ : Measure 𝓢} [IsProbabilityMeasure μ]
 
 /-- The occupancy measure of the Markov policy `π` from the probability measure `μ` is
-`(1 - γ) • ∑ n, γ ^ n • (μₙ ⊗ₘ π n)`, where `μₙ = M.stateMarginal π μ n` is the law of the
-state of round `n`. -/
+`(1 - γ) • ∑ n, γ ^ n • (μₙ ⊗ₘ π n)`, where `μₙ = stateMarginal (fun _ ↦ M.P) π μ n` is the law
+of the state of round `n`. -/
 theorem occupancy_markov {π : ℕ → Kernel 𝓢 𝓐} [∀ n, IsMarkovKernel (π n)] :
     M.occupancy γ (Algorithm.markov π) μ = (1 - γ : ℝ≥0∞) • Measure.sum fun n ↦
-      (γ : ℝ≥0∞) ^ n • (M.stateMarginal π μ n ⊗ₘ π n) := by
+      (γ : ℝ≥0∞) ^ n • (stateMarginal (fun _ ↦ M.P) π μ n ⊗ₘ π n) := by
   have h := IT.isAlgEnvSeq_trajMeasure (Algorithm.markov π) (M.env μ)
   simp_rw [occupancy_eq_sum h, (hasLaw_obs_action_markov h _).map_eq]
 
@@ -268,7 +268,7 @@ instance isCondKernel_occupancy_markov_const {π : Kernel 𝓢 𝓐} [IsMarkovKe
     (M.occupancy γ (Algorithm.markov fun _ ↦ π) μ).IsCondKernel π := by
   -- the occupancy measure is `ν ⊗ₘ π` for the discounted sum `ν` of the state marginals
   have h : M.occupancy γ (Algorithm.markov fun _ ↦ π) μ = ((1 - γ : ℝ≥0∞) • Measure.sum fun n ↦
-      (γ : ℝ≥0∞) ^ n • M.stateMarginal (fun _ ↦ π) μ n) ⊗ₘ π := by
+      (γ : ℝ≥0∞) ^ n • stateMarginal (fun _ ↦ M.P) (fun _ ↦ π) μ n) ⊗ₘ π := by
     simp_rw [occupancy_markov, Measure.compProd_smul_left, Measure.compProd_sum_left,
       Measure.compProd_smul_left]
   constructor

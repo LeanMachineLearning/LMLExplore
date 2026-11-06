@@ -17,8 +17,11 @@ where `s` is the current state; it is run as `Algorithm.markov π`. A stationary
 kernel `π : Kernel 𝓢 𝓐`, run as the constant Markov policy.
 
 Under a Markov policy, the laws of the state-action pairs `(S n, A n)` of every run are determined
-by the initial law `μ`: the law of `S n` is the measure `M.stateMarginal π μ n` defined by
-`μ₀ = μ` and `μₙ₊₁ = M.P ∘ₘ (μₙ ⊗ₘ π n)`, and the law of `(S n, A n)` is `μₙ ⊗ₘ π n`. In
+by the initial law `μ`: the law of `S n` is the measure `stateMarginal (fun _ ↦ M.P) π μ n`
+defined by `μ₀ = μ` and `μₙ₊₁ = M.P ∘ₘ (μₙ ⊗ₘ π n)`, and the law of `(S n, A n)` is
+`μₙ ⊗ₘ π n`. The state marginals `stateMarginal P π μ` are defined once, for a sequence of
+transition kernels `P : ℕ → Kernel (𝓢 × 𝓐) 𝓢`: those of an MDP are the case of the constant
+sequence `fun _ ↦ M.P`, and those of an episodic MDP the case of its transition kernels. In
 particular the expected mean reward of every round depends only on `π` and `μ`. Under a stationary
 policy `π`, these marginals are given by powers of two kernels:
 * the state kernel `M.stateKernel π = M.P ∘ₖ (Kernel.id ×ₖ π)`, which draws an action from `π s`
@@ -41,15 +44,16 @@ The deterministic stationary policies `policyAlg π hπ` are Markov policies
   `π`.
 * `Learning.MDP.saKernel M π`: the transition kernel of the state-action pairs under the
   stationary policy `π`.
-* `Learning.MDP.stateMarginal M π μ n`: the law of the state of round `n` under the Markov policy
-  `π` from the initial law `μ`.
+* `Learning.MDP.stateMarginal P π μ n`: the state marginal of round `n` of the Markov policy `π`
+  for the transition kernels `P`, from the initial law `μ`.
 
 ## Main statements
 
 For every run `IsAlgEnvSeq O A Y (Algorithm.markov π) (M.env μ) P` from a probability measure `μ`:
-* `Learning.MDP.hasLaw_obs_markov`: the state `O n` has law `M.stateMarginal π μ n`;
+* `Learning.MDP.hasLaw_obs_markov`: the state `O n` has law
+  `stateMarginal (fun _ ↦ M.P) π μ n`;
 * `Learning.MDP.hasLaw_obs_action_markov`: the pair `(O n, A n)` has law
-  `M.stateMarginal π μ n ⊗ₘ π n`;
+  `stateMarginal (fun _ ↦ M.P) π μ n ⊗ₘ π n`;
 * `Learning.MDP.hasLaw_obs_markov_const`, `Learning.MDP.hasLaw_obs_action_markov_const`: for a
   stationary policy, these laws are `(M.stateKernel π ^ n) ∘ₘ μ` and
   `(M.saKernel π ^ n) ∘ₘ (μ ⊗ₘ π)`.
@@ -153,29 +157,31 @@ end Kernels
 
 section StateMarginal
 
-variable (M : MDP 𝓢 𝓐 𝓡) (π : ℕ → Kernel 𝓢 𝓐) (μ : Measure 𝓢)
+variable (M : MDP 𝓢 𝓐 𝓡) (P : ℕ → Kernel (𝓢 × 𝓐) 𝓢) (π : ℕ → Kernel 𝓢 𝓐) (μ : Measure 𝓢)
 
-/-- The law of the state of round `n` under the Markov policy `π`, from the initial law `μ`:
-`μ₀ = μ` and `μₙ₊₁ = M.P ∘ₘ (μₙ ⊗ₘ π n)`. -/
+/-- The state marginals of the Markov policy `π` for the sequence of transition kernels `P`, from
+the initial law `μ`: `μ₀ = μ` and `μₙ₊₁ = P n ∘ₘ (μₙ ⊗ₘ π n)`. The laws of the states of the
+runs of `π` in an MDP `M` are the case `fun _ ↦ M.P` (`hasLaw_obs_markov`), and the state
+marginals of an episodic MDP `M` are the case `M.trans`. -/
 noncomputable def stateMarginal : ℕ → Measure 𝓢
   | 0 => μ
-  | n + 1 => M.P ∘ₘ (stateMarginal n ⊗ₘ π n)
+  | n + 1 => P n ∘ₘ (stateMarginal n ⊗ₘ π n)
 
 @[simp]
-lemma stateMarginal_zero : M.stateMarginal π μ 0 = μ :=
+lemma stateMarginal_zero : stateMarginal P π μ 0 = μ :=
   (rfl)
 
 lemma stateMarginal_add_one (n : ℕ) :
-    M.stateMarginal π μ (n + 1) = M.P ∘ₘ (M.stateMarginal π μ n ⊗ₘ π n) :=
+    stateMarginal P π μ (n + 1) = P n ∘ₘ (stateMarginal P π μ n ⊗ₘ π n) :=
   (rfl)
 
-instance [SFinite μ] (n : ℕ) : SFinite (M.stateMarginal π μ n) := by
+instance [SFinite μ] [∀ n, IsSFiniteKernel (P n)] (n : ℕ) : SFinite (stateMarginal P π μ n) := by
   induction n with
   | zero => rwa [stateMarginal_zero]
   | succ n ih => rw [stateMarginal_add_one]; infer_instance
 
-instance [IsProbabilityMeasure μ] [∀ n, IsMarkovKernel (π n)] (n : ℕ) :
-    IsProbabilityMeasure (M.stateMarginal π μ n) := by
+instance [IsProbabilityMeasure μ] [∀ n, IsMarkovKernel (P n)] [∀ n, IsMarkovKernel (π n)]
+    (n : ℕ) : IsProbabilityMeasure (stateMarginal P π μ n) := by
   induction n with
   | zero => rwa [stateMarginal_zero]
   | succ n ih => rw [stateMarginal_add_one]; infer_instance
@@ -183,7 +189,7 @@ instance [IsProbabilityMeasure μ] [∀ n, IsMarkovKernel (π n)] (n : ℕ) :
 /-- Under a stationary policy `π`, the law of the state of round `n` is
 `(M.stateKernel π ^ n) ∘ₘ μ`. -/
 lemma stateMarginal_const (π : Kernel 𝓢 𝓐) [IsSFiniteKernel π] [SFinite μ] (n : ℕ) :
-    M.stateMarginal (fun _ ↦ π) μ n = (M.stateKernel π ^ n) ∘ₘ μ := by
+    stateMarginal (fun _ ↦ M.P) (fun _ ↦ π) μ n = (M.stateKernel π ^ n) ∘ₘ μ := by
   induction n with
   | zero => rw [stateMarginal_zero, pow_zero, Kernel.one_eq_id, Measure.id_comp]
   | succ n ih =>
@@ -193,7 +199,7 @@ lemma stateMarginal_const (π : Kernel 𝓢 𝓐) [IsSFiniteKernel π] [SFinite 
 /-- Under a stationary policy `π`, the law of the state-action pair of round `n` is
 `(M.saKernel π ^ n) ∘ₘ (μ ⊗ₘ π)`. -/
 lemma stateMarginal_const_compProd (π : Kernel 𝓢 𝓐) [IsSFiniteKernel π] (n : ℕ) :
-    M.stateMarginal (fun _ ↦ π) μ n ⊗ₘ π = (M.saKernel π ^ n) ∘ₘ (μ ⊗ₘ π) := by
+    stateMarginal (fun _ ↦ M.P) (fun _ ↦ π) μ n ⊗ₘ π = (M.saKernel π ^ n) ∘ₘ (μ ⊗ₘ π) := by
   induction n with
   | zero => rw [stateMarginal_zero, pow_zero, Kernel.one_eq_id, Measure.id_comp]
   | succ n ih =>
@@ -215,9 +221,9 @@ section Markov
 variable {π : ℕ → Kernel 𝓢 𝓐} [∀ n, IsMarkovKernel (π n)]
 
 /-- In a run of the Markov policy `π` in the environment of an MDP started from the probability
-measure `μ`, the state of round `n` has law `M.stateMarginal π μ n`. -/
+measure `μ`, the state of round `n` has law `stateMarginal (fun _ ↦ M.P) π μ n`. -/
 theorem hasLaw_obs_markov (h : IsAlgEnvSeq O A Y (Algorithm.markov π) (M.env μ) P) (n : ℕ) :
-    HasLaw (O n) (M.stateMarginal π μ n) P := by
+    HasLaw (O n) (stateMarginal (fun _ ↦ M.P) π μ n) P := by
   induction n with
   | zero => rw [stateMarginal_zero]; exact hasLaw_obs_zero h
   | succ n ih =>
@@ -226,10 +232,11 @@ theorem hasLaw_obs_markov (h : IsAlgEnvSeq O A Y (Algorithm.markov π) (M.env μ
     exact hasLaw_obs_add_one h n
 
 /-- In a run of the Markov policy `π` in the environment of an MDP started from the probability
-measure `μ`, the state-action pair of round `n` has law `M.stateMarginal π μ n ⊗ₘ π n`. -/
+measure `μ`, the state-action pair of round `n` has law
+`stateMarginal (fun _ ↦ M.P) π μ n ⊗ₘ π n`. -/
 theorem hasLaw_obs_action_markov (h : IsAlgEnvSeq O A Y (Algorithm.markov π) (M.env μ) P)
     (n : ℕ) :
-    HasLaw (fun ω ↦ (O n ω, A n ω)) (M.stateMarginal π μ n ⊗ₘ π n) P :=
+    HasLaw (fun ω ↦ (O n ω, A n ω)) (stateMarginal (fun _ ↦ M.P) π μ n ⊗ₘ π n) P :=
   (hasLaw_obs_markov h n).prodMk_of_hasCondDistrib (h.hasCondDistrib_action_markov n)
 
 end Markov
