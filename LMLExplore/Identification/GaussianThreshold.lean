@@ -91,27 +91,16 @@ open scoped ENNReal NNReal
 
 namespace LMLExplore.Identification.IdentTask
 
-/-- For Gaussian arms with a common variance `σ2 ≠ 0`, the arm `a` of the model `θ` is dominated
-above, in moment generating function, by the member of mean `θ a` of the exponential family of
-`𝒩(0, σ2)` with the identity statistic: both have the law `𝒩(θ a, σ2)`. -/
-private lemma mgfDominatedAbove_gaussianBandit {α ℐ : Type*} {mα : MeasurableSpace α} [Countable α]
+/-- For Gaussian arms with a common variance `σ2 ≠ 0`, the arm `a` of the model `θ` is dominated,
+in moment generating function and on every parameter, by the member of mean `θ a` of the
+exponential family of `𝒩(0, σ2)` with the identity statistic: both have the law `𝒩(θ a, σ2)`. -/
+private lemma mgfDominatedOn_gaussianBandit {α ℐ : Type*} {mα : MeasurableSpace α} [Countable α]
     [MeasurableSingletonClass α] {task : IdentTask α (α → ℝ) ℐ ℝ} {σ2 : ℝ≥0}
     (hνt : task.ν = (Bandits.gaussianBandit · σ2)) (hσ2 : σ2 ≠ 0) (θ : α → ℝ) (a : α) :
-    MGFDominatedAbove id (task.ν θ a) id
-      ((gaussianReal 0 σ2).expFamily id ((gaussianReal 0 σ2).natParam id (θ a))) := by
+    MGFDominatedOn id (task.ν θ a) id
+      ((gaussianReal 0 σ2).expFamily id ((gaussianReal 0 σ2).natParam id (θ a))) Set.univ := by
   rw [hνt, expFamily_natParam_gaussianReal 0 hσ2, Bandits.gaussianBandit_apply]
-  exact (IdentDistrib.refl aemeasurable_id).mgfDominatedAbove
-
-/-- For Gaussian arms with a common variance `σ2 ≠ 0`, the arm `a` of the model `θ` is dominated
-below, in moment generating function, by the member of mean `θ a` of the exponential family of
-`𝒩(0, σ2)` with the identity statistic: both have the law `𝒩(θ a, σ2)`. -/
-private lemma mgfDominatedBelow_gaussianBandit {α ℐ : Type*} {mα : MeasurableSpace α} [Countable α]
-    [MeasurableSingletonClass α] {task : IdentTask α (α → ℝ) ℐ ℝ} {σ2 : ℝ≥0}
-    (hνt : task.ν = (Bandits.gaussianBandit · σ2)) (hσ2 : σ2 ≠ 0) (θ : α → ℝ) (a : α) :
-    MGFDominatedBelow id (task.ν θ a) id
-      ((gaussianReal 0 σ2).expFamily id ((gaussianReal 0 σ2).natParam id (θ a))) := by
-  rw [hνt, expFamily_natParam_gaussianReal 0 hσ2, Bandits.gaussianBandit_apply]
-  exact (IdentDistrib.refl aemeasurable_id).mgfDominatedBelow
+  exact (IdentDistrib.refl aemeasurable_id).mgfDominatedOn
 
 variable {α ℐ : Type*} [Fintype α] [DecidableEq α] {mα : MeasurableSpace α}
   [MeasurableSingletonClass α] {task : IdentTask α (α → ℝ) ℐ ℝ} {σ2 : ℝ≥0}
@@ -268,7 +257,7 @@ theorem isDeltaPAC_trackAndStop_unionBoundThreshold_of_mem_optAlloc [MeasurableS
     (fun θ hθ ↦ hcorrect θ hθ ▸ measurableSet_singleton _) fun θ hθ ↦
     stopsAS_trackAndStop_unionBoundThreshold (fun _ ↦ not_ae_eq_const_gaussianReal 0 hσ2)
       (fun _ ↦ mem_expFamilyMeans_gaussianReal 0 hσ2 _)
-      (mgfDominatedAbove_gaussianBandit hνt hσ2 θ) (mgfDominatedBelow_gaussianBandit hνt hσ2 θ)
+      (mgfDominatedOn_gaussianBandit hνt hσ2 θ)
       (hcorrect θ hθ) (hw_opt θ hθ) (hw_cont θ hθ) (hrec_eq θ hθ) (h_lsc θ hθ) (h_charTime θ hθ)
       hδ hδ1
 
@@ -298,7 +287,7 @@ theorem tendsto_expectedStoppingTime_trackAndStop_unionBoundThreshold_div_log
       hw_cont hrec_eq h_lsc h_charTime hδ.1 hδ.2).isDeltaCorrect
   · exact eventually_expectedStoppingTime_trackAndStop_unionBoundThreshold_le
       (fun _ ↦ not_ae_eq_const_gaussianReal 0 hσ2) (fun _ ↦ mem_expFamilyMeans_gaussianReal 0 hσ2 _)
-      (mgfDominatedAbove_gaussianBandit hνt hσ2 μ) (mgfDominatedBelow_gaussianBandit hνt hσ2 μ)
+      (mgfDominatedOn_gaussianBandit hνt hσ2 μ)
       (hcorrect μ hμ) (hw_opt μ hμ) (hw_cont μ hμ) (hrec_eq μ hμ) (h_lsc μ hμ) hc
 
 end LMLExplore.Identification.IdentTask
@@ -338,9 +327,8 @@ theorem isDeltaPAC_cTrackAndStop_unionBoundThreshold_of_mem_optAlloc [Measurable
       hrec (hstop δ)) δ := by
   have h_stops (θ : α → ℝ) (hθ : θ ∈ task.M) := stopsAS_cTrackAndStop_unionBoundThreshold
     (hw := hw) (hrec := hrec) (hstop := hstop) (fun _ ↦ not_ae_eq_const_gaussianReal 0 hσ2)
-    (fun _ ↦ mem_expFamilyMeans_gaussianReal 0 hσ2 _) (mgfDominatedAbove_gaussianBandit hνt hσ2 θ)
-    (mgfDominatedBelow_gaussianBandit hνt hσ2 θ) (hcorrect θ hθ) hw_mem (hw_opt θ hθ)
-    (hrec_eq θ hθ) (h_cont θ hθ) (h_charTime θ hθ) hδ hδ1
+    (fun _ ↦ mem_expFamilyMeans_gaussianReal 0 hσ2 _) (mgfDominatedOn_gaussianBandit hνt hσ2 θ)
+    (hcorrect θ hθ) hw_mem (hw_opt θ hθ) (hrec_eq θ hθ) (h_cont θ hθ) (h_charTime θ hθ) hδ hδ1
   simp only [cTrackAndStop_def] at h_stops ⊢
   exact isDeltaPAC_glrt_unionBoundThreshold _ _ hνt hσ2 hδ hδ1 (hstop δ)
     (fun θ hθ ↦ hcorrect θ hθ ▸ measurableSet_singleton _) h_stops
@@ -372,7 +360,7 @@ theorem tendsto_expectedStoppingTime_cTrackAndStop_unionBoundThreshold_div_log
       hw_opt hrec_eq h_cont h_charTime hδ.1 hδ.2).isDeltaCorrect
   · exact eventually_expectedStoppingTime_cTrackAndStop_unionBoundThreshold_le
       (fun _ ↦ not_ae_eq_const_gaussianReal 0 hσ2) (fun _ ↦ mem_expFamilyMeans_gaussianReal 0 hσ2 _)
-      (mgfDominatedAbove_gaussianBandit hνt hσ2 μ) (mgfDominatedBelow_gaussianBandit hνt hσ2 μ)
+      (mgfDominatedOn_gaussianBandit hνt hσ2 μ)
       (hcorrect μ hμ) hw_mem (hw_opt μ hμ) (hrec_eq μ hμ) (h_cont μ hμ) hc
 
 end LMLExplore.Identification.IdentTask

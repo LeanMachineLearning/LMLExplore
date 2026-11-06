@@ -23,11 +23,11 @@ their sum over a finite set `s` exceeds `#s * p`, for `p ∈ [m, 1]`, is at most
 `exp (-#s * d(p, m))`, where `d = klBerReal` is the binary relative entropy. Symmetrically, if the
 means are at least `m`, the probability that the sum is at most `#s * p`, for `p ∈ [0, m]`, is at
 most `exp (-#s * d(p, m))`. This is the Chernoff bound of the Bernoulli law, which dominates the
-`[0, 1]`-valued case: by convexity of `exp`, `E[exp (t X)] ≤ 1 - m + m exp t` for `t ≥ 0`, so that
-`X` is dominated above by `Ber((1 : ℝ), 0, m)` (`LMLExplore.MGFDominatedAbove`), and symmetrically
-dominated below when its mean is at least `m`. The Bernoulli laws form an exponential family whose
-divergence is `d`, and for `p, m ∈ (0, 1)` both bounds are the Cramér–Chernoff bounds under
-domination by an exponential family
+`[0, 1]`-valued case: by convexity of `exp`, `E[exp (t X)] ≤ 1 - m + m exp t` for `t ≥ 0`, so
+that `X` is dominated by `Ber((1 : ℝ), 0, m)` on `Set.Ici 0` (`LMLExplore.MGFDominatedOn`), and
+symmetrically on `Set.Iic 0` when its mean is at least `m`. The Bernoulli laws form an exponential
+family whose divergence is `d`, and for `p, m ∈ (0, 1)` both bounds are the Cramér–Chernoff bounds
+under domination by an exponential family
 (`ProbabilityTheory.iIndepFun.measureReal_sum_ge_le_exp_expFamilyDiv`). At the boundary levels
 `p = 1` (upper tail) and `p = 0` (lower tail), the bounds `m ^ #s` and `(1 - m) ^ #s` follow from
 Markov's inequality, since the sum reaches `#s` (resp. `0`) only if every `X i` is `1`
@@ -50,9 +50,10 @@ expected number of sample sizes `s` at which `s = 0`, `c ≤ μ̂_s` or `d(μ̂_
   `t`, `mgf X μ t ≤ 1 - E[X] + E[X] exp t`.
 * `LMLExplore.mgf_le_one_sub_add_mul_exp`: for `X ∈ [0, 1]` a.s. with `E[X] ≤ m` and `t ≥ 0`,
   `mgf X μ t ≤ 1 - m + m exp t`.
-* `LMLExplore.mgfDominatedAbove_bernoulliMeasure`, `LMLExplore.mgfDominatedBelow_bernoulliMeasure`:
-  a random variable with values in `[0, 1]` and mean at most (resp. at least) `q` is dominated
-  above (resp. below) by `Ber((1 : ℝ), 0, q)`.
+* `LMLExplore.mgfDominatedOn_Ici_bernoulliMeasure`,
+  `LMLExplore.mgfDominatedOn_Iic_bernoulliMeasure`: a random variable with values in `[0, 1]` and
+  mean at most (resp. at least) `q` is dominated by `Ber((1 : ℝ), 0, q)` on `Set.Ici 0` (resp.
+  `Set.Iic 0`).
 * `LMLExplore.measureReal_sum_ge_le_exp_klBerReal`: the upper tail
   `P(#s * p ≤ ∑ i ∈ s, X i) ≤ exp (-(#s * d(p, m)))` for `0 < m ≤ p ≤ 1`.
 * `LMLExplore.measureReal_card_mul_add_le_sum_le`: Hoeffding's inequality
@@ -121,21 +122,21 @@ theorem mgf_le_one_sub_add_mul_exp [IsProbabilityMeasure μ] {X : Ω → ℝ} (h
   have := mul_le_mul_of_nonneg_right hmean (sub_nonneg.2 (one_le_exp ht))
   linarith [mgf_le_one_sub_integral_add_integral_mul_exp hXm hX t]
 
-/-- A random variable with values in `[0, 1]` and mean at most `q` is dominated above by the
-Bernoulli law of mean `q`: `mgf X μ t ≤ mgf id Ber((1 : ℝ), 0, q) t` for `t ≥ 0`. -/
-theorem mgfDominatedAbove_bernoulliMeasure [IsProbabilityMeasure μ] {X : Ω → ℝ}
+/-- A random variable with values in `[0, 1]` and mean at most `q` is dominated by the Bernoulli
+law of mean `q` on `Set.Ici 0`: `mgf X μ t ≤ mgf id Ber((1 : ℝ), 0, q) t` for `t ≥ 0`. -/
+theorem mgfDominatedOn_Ici_bernoulliMeasure [IsProbabilityMeasure μ] {X : Ω → ℝ}
     (hXm : AEMeasurable X μ) (hX : ∀ᵐ ω ∂μ, X ω ∈ Set.Icc 0 1) {q : I} (hmean : μ[X] ≤ (q : ℝ)) :
-    MGFDominatedAbove X μ id Ber((1 : ℝ), 0, q) where
+    MGFDominatedOn X μ id Ber((1 : ℝ), 0, q) (Set.Ici 0) where
   integrable_exp_mul _ _ _ := integrable_exp_mul_of_mem_Icc hXm hX
   mgf_le _ ht _ := by
     rw [TauCeti.Probability.mgf_id_bernoulliMeasure]
     exact mgf_le_one_sub_add_mul_exp hXm hX hmean ht
 
-/-- A random variable with values in `[0, 1]` and mean at least `q` is dominated below by the
-Bernoulli law of mean `q`: `mgf X μ t ≤ mgf id Ber((1 : ℝ), 0, q) t` for `t ≤ 0`. -/
-theorem mgfDominatedBelow_bernoulliMeasure [IsProbabilityMeasure μ] {X : Ω → ℝ}
+/-- A random variable with values in `[0, 1]` and mean at least `q` is dominated by the Bernoulli
+law of mean `q` on `Set.Iic 0`: `mgf X μ t ≤ mgf id Ber((1 : ℝ), 0, q) t` for `t ≤ 0`. -/
+theorem mgfDominatedOn_Iic_bernoulliMeasure [IsProbabilityMeasure μ] {X : Ω → ℝ}
     (hXm : AEMeasurable X μ) (hX : ∀ᵐ ω ∂μ, X ω ∈ Set.Icc 0 1) {q : I} (hmean : (q : ℝ) ≤ μ[X]) :
-    MGFDominatedBelow X μ id Ber((1 : ℝ), 0, q) where
+    MGFDominatedOn X μ id Ber((1 : ℝ), 0, q) (Set.Iic 0) where
   integrable_exp_mul _ _ _ := integrable_exp_mul_of_mem_Icc hXm hX
   mgf_le t ht _ := by
     rw [TauCeti.Probability.mgf_id_bernoulliMeasure]
@@ -192,8 +193,8 @@ theorem measureReal_sum_ge_le_exp_klBerReal {X : ι → Ω → ℝ} (h_indep : i
   · -- `p = 1`: the sum reaches `#s` with probability at most `m ^ #s = exp (-(#s * d(1, m)))`
     rw [mul_one, klBerReal_one_left, mul_neg, neg_neg, exp_nat_mul, exp_log hm]
     exact measureReal_card_le_sum_le_pow h_indep hXm hX hmean
-  · -- `m < p < 1`: the `X i` are dominated above by `Ber(1, 0, m)`, the member of mean `m` of the
-    -- exponential family of `Ber(1, 0, 1/2)`, whose divergence is `d`
+  · -- `m < p < 1`: the `X i` are dominated on `Set.Ici 0` by `Ber(1, 0, m)`, the member of mean
+    -- `m` of the exponential family of `Ber(1, 0, 1/2)`, whose divergence is `d`
     have hm' : m ∈ Set.Ioo 0 1 := ⟨hm, hm1⟩
     have hp' : p ∈ Set.Ioo 0 1 := ⟨hm.trans hmp, hp1⟩
     rw [← expFamilyDiv_bernoulliMeasure_sigmoid 0 hp' hm']
@@ -201,7 +202,7 @@ theorem measureReal_sum_ge_le_exp_klBerReal {X : ι → Ω → ℝ} (h_indep : i
       (by rwa [expFamilyMeans_bernoulliMeasure_sigmoid])
       (by rwa [expFamilyMeans_bernoulliMeasure_sigmoid]) hmp.le
     rw [expFamily_natParam_bernoulliMeasure_sigmoid 0 hm']
-    exact mgfDominatedAbove_bernoulliMeasure (hXm i hi) (hX i hi) (hmean i hi)
+    exact mgfDominatedOn_Ici_bernoulliMeasure (hXm i hi) (hX i hi) (hmean i hi)
 
 /-- **Hoeffding's inequality** for independent random variables `X i ∈ [0, 1]` with means at
 most `m`: for `ε ≥ 0`, `P(#s * (m + ε) ≤ ∑ i ∈ s, X i) ≤ exp (-2 ε² #s)`. -/
@@ -261,8 +262,8 @@ theorem measureReal_sum_le_le_exp_klBerReal {X : ι → Ω → ℝ} (h_indep : i
     ext ω
     simp only [Set.mem_ofPred_eq, mul_zero, sum_sub_distrib, sum_const, nsmul_eq_mul, mul_one]
     constructor <;> intro h <;> linarith
-  · -- `0 < p < m`: the `X i` are dominated below by `Ber(1, 0, m)`, the member of mean `m` of the
-    -- exponential family of `Ber(1, 0, 1/2)`, whose divergence is `d`
+  · -- `0 < p < m`: the `X i` are dominated on `Set.Iic 0` by `Ber(1, 0, m)`, the member of mean
+    -- `m` of the exponential family of `Ber(1, 0, 1/2)`, whose divergence is `d`
     have hm' : m ∈ Set.Ioo 0 1 := ⟨hm0, hm⟩
     have hp' : p ∈ Set.Ioo 0 1 := ⟨hp0, hpm.trans hm⟩
     rw [← expFamilyDiv_bernoulliMeasure_sigmoid 0 hp' hm']
@@ -270,7 +271,7 @@ theorem measureReal_sum_le_le_exp_klBerReal {X : ι → Ω → ℝ} (h_indep : i
       (by rwa [expFamilyMeans_bernoulliMeasure_sigmoid])
       (by rwa [expFamilyMeans_bernoulliMeasure_sigmoid]) hpm.le
     rw [expFamily_natParam_bernoulliMeasure_sigmoid 0 hm']
-    exact mgfDominatedBelow_bernoulliMeasure (hXm i hi) (hX i hi) (hmean i hi)
+    exact mgfDominatedOn_Iic_bernoulliMeasure (hXm i hi) (hX i hi) (hmean i hi)
 
 /-- **Chernoff bound in relative-entropy form, lower tail, for a set of levels**
 ([LS, (10.3) of Corollary 10.4]): for independent random variables `X i ∈ [0, 1]` with means at

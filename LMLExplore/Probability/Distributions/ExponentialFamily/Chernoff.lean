@@ -13,16 +13,18 @@ public import LMLExplore.Probability.Moments.MGF.Dominated
 
 Let `ρ` be a measure on a measurable space `𝓧` and `T : 𝓧 → ℝ` a statistic, with log-partition
 function `ψ = cgf T ρ`, and let `ρ_η(μ)` be the member of mean `μ` of their exponential family. A
-real random variable `X` is dominated above by `ρ_η(μ)` if `E[exp (t X)] ≤ E_{ρ_η(μ)}[exp (t T)]`
-for every `t ≥ 0` (`LMLExplore.MGFDominatedAbove X P T ρ_η(μ)`), and dominated below if the same
-holds for every `t ≤ 0`.
+real random variable `X` is dominated by `ρ_η(μ)` on `Set.Ici 0` if
+`E[exp (t X)] ≤ E_{ρ_η(μ)}[exp (t T)]` for every `t ≥ 0`
+(`LMLExplore.MGFDominatedOn X P T ρ_η(μ) (Set.Ici 0)`), and on `Set.Iic 0` if the same holds for
+every `t ≤ 0`.
 
-For independent random variables `X i`, `i ∈ s`, dominated above by `ρ_η(μ)` and a mean `x ≥ μ` of
+For independent random variables `X i`, `i ∈ s`, dominated by `ρ_η(μ)` on `Set.Ici 0` and a mean
+`x ≥ μ` of
 the family, the probability that the empirical mean of the `X i` is at least `x` decays
 exponentially in the number `#s` of variables, at the rate given by the Kullback–Leibler divergence
 `d(x, μ) = KL(ρ_η(x), ρ_η(μ))`: `P(#s * x ≤ ∑ i ∈ s, X i) ≤ exp (-(#s * d(x, μ)))`, and
-symmetrically for the lower tail of variables dominated below. The statistics `T (Y i)` of
-independent observations `Y i` with law `ρ_η(μ)` are dominated above and below, which gives these
+symmetrically for the lower tail of variables dominated on `Set.Iic 0`. The statistics `T (Y i)` of
+independent observations `Y i` with law `ρ_η(μ)` are dominated on every set, which gives these
 bounds for the sums `∑ i ∈ s, T (Y i)`; for a natural exponential family on `ℝ` (`T = id`), these
 are bounds on the sums `∑ i ∈ s, Y i` themselves.
 
@@ -43,11 +45,11 @@ with values in `[0, 1]` are dominated by Bernoulli laws, which gives the bounds
 ## Main statements
 
 * `ProbabilityTheory.iIndepFun.measureReal_sum_ge_le_exp_expFamilyDiv`: the upper tail
-  `P(#s * x ≤ ∑ i ∈ s, X i) ≤ exp (-(#s * d(x, μ)))` for variables dominated above by the member
-  of mean `μ` and means `μ ≤ x` of the family.
+  `P(#s * x ≤ ∑ i ∈ s, X i) ≤ exp (-(#s * d(x, μ)))` for variables dominated by the member of
+  mean `μ` on `Set.Ici 0` and means `μ ≤ x` of the family.
 * `ProbabilityTheory.iIndepFun.measureReal_sum_le_le_exp_expFamilyDiv`: the lower tail
-  `P(∑ i ∈ s, X i ≤ #s * x) ≤ exp (-(#s * d(x, μ)))` for variables dominated below by the member
-  of mean `μ` and means `x ≤ μ` of the family.
+  `P(∑ i ∈ s, X i ≤ #s * x) ≤ exp (-(#s * d(x, μ)))` for variables dominated by the member of
+  mean `μ` on `Set.Iic 0` and means `x ≤ μ` of the family.
 * `ProbabilityTheory.iIndepFun.measureReal_sum_ge_le_exp_expFamilyDiv_of_hasLaw`,
   `ProbabilityTheory.iIndepFun.measureReal_sum_le_le_exp_expFamilyDiv_of_hasLaw`: the same bounds
   for the statistics `T (Y i)` of independent observations `Y i` with law the member of mean `μ`.
@@ -104,28 +106,28 @@ private lemma integrable_and_exp_mul_mgf_pow_natParam_le (hμ : μ ∈ ρ.expFam
     ring_nf
 
 /-- **Cramér–Chernoff bound under domination by an exponential family, upper tail.** For
-independent random variables `X i`, `i ∈ s`, dominated above by the member `ρ_η(μ)` of mean `μ`
-of the exponential family of `ρ` and `T`, and a mean `x ≥ μ` of the family,
+independent random variables `X i`, `i ∈ s`, dominated on `Set.Ici 0` by the member `ρ_η(μ)` of
+mean `μ` of the exponential family of `ρ` and `T`, and a mean `x ≥ μ` of the family,
 `P(#s * x ≤ ∑ i ∈ s, X i) ≤ exp (-(#s * d(x, μ)))`, where `d(x, μ) = KL(ρ_η(x), ρ_η(μ))`. -/
 theorem iIndepFun.measureReal_sum_ge_le_exp_expFamilyDiv (h_indep : iIndepFun X P)
-    (hX : ∀ i ∈ s, MGFDominatedAbove (X i) P T (ρ.expFamily T (ρ.natParam T μ)))
+    (hX : ∀ i ∈ s, MGFDominatedOn (X i) P T (ρ.expFamily T (ρ.natParam T μ)) (Set.Ici 0))
     (hμ : μ ∈ ρ.expFamilyMeans T) (hx : x ∈ ρ.expFamilyMeans T) (hμx : μ ≤ x) :
     P.real {ω | #s * x ≤ ∑ i ∈ s, X i ω} ≤ exp (-(#s * ρ.expFamilyDiv T x μ)) := by
   obtain ⟨h_int, h_le⟩ := integrable_and_exp_mul_mgf_pow_natParam_le hμ hx #s
-  exact (h_indep.measureReal_sum_ge_le_exp_mul_mgf_pow hX _
-    (sub_nonneg.2 (Measure.monotoneOn_natParam hμ hx hμx)) h_int).trans h_le
+  have ht := sub_nonneg.2 (Measure.monotoneOn_natParam hμ hx hμx)
+  exact (h_indep.measureReal_sum_ge_le_exp_mul_mgf_pow hX _ ht ht h_int).trans h_le
 
 /-- **Cramér–Chernoff bound under domination by an exponential family, lower tail.** For
-independent random variables `X i`, `i ∈ s`, dominated below by the member `ρ_η(μ)` of mean `μ`
-of the exponential family of `ρ` and `T`, and a mean `x ≤ μ` of the family,
+independent random variables `X i`, `i ∈ s`, dominated on `Set.Iic 0` by the member `ρ_η(μ)` of
+mean `μ` of the exponential family of `ρ` and `T`, and a mean `x ≤ μ` of the family,
 `P(∑ i ∈ s, X i ≤ #s * x) ≤ exp (-(#s * d(x, μ)))`, where `d(x, μ) = KL(ρ_η(x), ρ_η(μ))`. -/
 theorem iIndepFun.measureReal_sum_le_le_exp_expFamilyDiv (h_indep : iIndepFun X P)
-    (hX : ∀ i ∈ s, MGFDominatedBelow (X i) P T (ρ.expFamily T (ρ.natParam T μ)))
+    (hX : ∀ i ∈ s, MGFDominatedOn (X i) P T (ρ.expFamily T (ρ.natParam T μ)) (Set.Iic 0))
     (hμ : μ ∈ ρ.expFamilyMeans T) (hx : x ∈ ρ.expFamilyMeans T) (hxμ : x ≤ μ) :
     P.real {ω | ∑ i ∈ s, X i ω ≤ #s * x} ≤ exp (-(#s * ρ.expFamilyDiv T x μ)) := by
   obtain ⟨h_int, h_le⟩ := integrable_and_exp_mul_mgf_pow_natParam_le hμ hx #s
-  exact (h_indep.measureReal_sum_le_le_exp_mul_mgf_pow hX _
-    (sub_nonpos.2 (Measure.monotoneOn_natParam hx hμ hxμ)) h_int).trans h_le
+  have ht := sub_nonpos.2 (Measure.monotoneOn_natParam hx hμ hxμ)
+  exact (h_indep.measureReal_sum_le_le_exp_mul_mgf_pow hX _ ht ht h_int).trans h_le
 
 /-! ### Observations with law a member of the family -/
 
@@ -156,7 +158,7 @@ theorem iIndepFun.measureReal_sum_ge_le_exp_expFamilyDiv_of_hasLaw (h_indep : iI
     Finset.sum_coe_sort s fun i ↦ T (Y i ω)
   simpa only [card_univ, Fintype.card_coe, h_sum] using
     h_indep'.measureReal_sum_ge_le_exp_expFamilyDiv (s := univ)
-      (fun i _ ↦ (h_ident i).mgfDominatedAbove) hμ hx hμx
+      (fun i _ ↦ (h_ident i).mgfDominatedOn) hμ hx hμx
 
 /-- **Cramér–Chernoff bound for an exponential family, lower tail.** For independent random
 variables `Y i`, `i ∈ s`, with law the member `ρ_η(μ)` of mean `μ` of the exponential family of `ρ`
@@ -172,6 +174,6 @@ theorem iIndepFun.measureReal_sum_le_le_exp_expFamilyDiv_of_hasLaw (h_indep : iI
     Finset.sum_coe_sort s fun i ↦ T (Y i ω)
   simpa only [card_univ, Fintype.card_coe, h_sum] using
     h_indep'.measureReal_sum_le_le_exp_expFamilyDiv (s := univ)
-      (fun i _ ↦ (h_ident i).mgfDominatedBelow) hμ hx hxμ
+      (fun i _ ↦ (h_ident i).mgfDominatedOn) hμ hx hxμ
 
 end ProbabilityTheory

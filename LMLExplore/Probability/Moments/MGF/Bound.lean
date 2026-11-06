@@ -16,9 +16,9 @@ public import Mathlib.Probability.Distributions.Gaussian.Real
 For a real random variable `X`, a function `ψ : ℝ → ℝ` and a set `Λ ⊆ ℝ` of parameters, `X` has
 its moment generating function bounded by `exp ψ` on `Λ` if `E[exp (t X)] ≤ exp (ψ t)` for every
 `t ∈ Λ`. Sub-Gaussian variables are the case `ψ t = c t ^ 2 / 2` on `ℝ`, sub-exponential variables
-the case `ψ t = V t ^ 2 / 2` on `{t | b |t| ≤ 1}`, and a variable dominated above by a variable `Y`
-in the sense of `LMLExplore.MGFDominatedAbove` is the case of the cumulant generating function of
-`Y` on the nonnegative parameters where it is finite. One definition with a free `ψ` lets the
+the case `ψ t = V t ^ 2 / 2` on `{t | b |t| ≤ 1}`, and a variable dominated by a variable `Y` on a
+set `Λ` in the sense of `LMLExplore.MGFDominatedOn` is the case of the cumulant generating function
+of `Y` on the parameters of `Λ` where it is finite. One definition with a free `ψ` lets the
 exponential supermartingales, and the time-uniform deviation bounds built from them, be proved
 once for all these classes (see `LMLExplore.Probability.Martingale.MGFBound`).
 
@@ -63,8 +63,8 @@ weights of an exponential supermartingale.
   versions (`ProbabilityTheory.Kernel.hasMGFBound_iff_hasSubgaussianMGF`, …) and the
   unconditional ones (`LMLExplore.hasMGFBound_iff_hasSubgaussianMGF`,
   `LMLExplore.hasMGFBound_iff_hasSubexponentialMGF`).
-* `LMLExplore.mgfDominatedAbove_iff_hasMGFBound`, `LMLExplore.mgfDominatedBelow_iff_hasMGFBound`:
-  domination by `Y` is the bound by the cumulant generating function of `Y`.
+* `LMLExplore.mgfDominatedOn_iff_hasMGFBound`: domination by `Y` on `Λ` is the bound by the
+  cumulant generating function of `Y` on `Λ`.
 * `ProbabilityTheory.HasCondSubgaussianMGF.hasCondMGFBound_cgf_gaussianReal`: if `X - a` is
   conditionally `c`-sub-Gaussian, the moment generating function of `X` is conditionally bounded
   by that of the Gaussian law of mean `a` and variance `c`.
@@ -392,21 +392,10 @@ end SubgaussianSubexponential
 
 variable {P : Measure Ω} {Q : Measure Ω'} [NeZero Q] {Y : Ω' → ℝ}
 
-/-- `X` under `P` is dominated above by `Y` under `Q` iff its moment generating function is
-bounded by `exp (cgf Y Q)` on the nonnegative parameters at which `exp (t * Y)` is
-`Q`-integrable. -/
-lemma mgfDominatedAbove_iff_hasMGFBound :
-    MGFDominatedAbove X P Y Q ↔ HasMGFBound X (cgf Y Q) (Set.Ici 0 ∩ integrableExpSet Y Q) P :=
-  ⟨fun h ↦ ⟨fun _ ht ↦ h.integrable_exp_mul ht.1 ht.2,
-      fun _ ht ↦ (exp_cgf ht.2).symm ▸ h.mgf_le ht.1 ht.2⟩,
-    fun h ↦ ⟨fun _ ht hY ↦ h.integrable_exp_mul ⟨ht, hY⟩,
-      fun _ ht hY ↦ exp_cgf hY ▸ h.mgf_le ⟨ht, hY⟩⟩⟩
-
-/-- `X` under `P` is dominated below by `Y` under `Q` iff its moment generating function is
-bounded by `exp (cgf Y Q)` on the nonpositive parameters at which `exp (t * Y)` is
-`Q`-integrable. -/
-lemma mgfDominatedBelow_iff_hasMGFBound :
-    MGFDominatedBelow X P Y Q ↔ HasMGFBound X (cgf Y Q) (Set.Iic 0 ∩ integrableExpSet Y Q) P :=
+/-- `X` under `P` is dominated by `Y` under `Q` on `Λ` iff its moment generating function is
+bounded by `exp (cgf Y Q)` on the parameters of `Λ` at which `exp (t * Y)` is `Q`-integrable. -/
+lemma mgfDominatedOn_iff_hasMGFBound :
+    MGFDominatedOn X P Y Q Λ ↔ HasMGFBound X (cgf Y Q) (Λ ∩ integrableExpSet Y Q) P :=
   ⟨fun h ↦ ⟨fun _ ht ↦ h.integrable_exp_mul ht.1 ht.2,
       fun _ ht ↦ (exp_cgf ht.2).symm ▸ h.mgf_le ht.1 ht.2⟩,
     fun h ↦ ⟨fun _ ht hY ↦ h.integrable_exp_mul ⟨ht, hY⟩,
