@@ -7,7 +7,6 @@ module
 
 public import LeanMachineLearning.Online.Bandit.Concentration
 public import LeanMachineLearning.SequentialLearning.SumRewards
-public import LMLExplore.Algebra.BigOperators.Intervals
 public import LMLExplore.Analysis.SpecialFunctions.Log.Basic
 public import LMLExplore.Probability.Moments.ExponentialTail
 public import LMLExplore.SequentialLearning.SumRewards
@@ -143,46 +142,12 @@ theorem streamMeasure_exists_log_add_le_sq_div_le {a : α} {σ2 : ℝ≥0}
     (hν : HasSubgaussianMGF (fun x ↦ x - (ν a)[id]) σ2 (ν a)) {y : ℝ} (hy : 0 ≤ y) :
     streamMeasure ν {ω | ∃ s : ℕ, log (2 * s * (s + 1)) + y ≤
       (∑ i ∈ range s, (ω i a - (ν a)[id])) ^ 2 / (2 * σ2 * s)} ≤ ENNReal.ofReal (exp (-y)) := by
-  rcases hy.eq_or_lt with rfl | hy
-  · simpa using prob_le_one
-  set E : ℕ → Set (ℕ → α → ℝ) := fun s ↦ {ω | log (2 * s * (s + 1)) + y ≤
-    (∑ i ∈ range s, (ω i a - (ν a)[id])) ^ 2 / (2 * σ2 * s)}
-  -- no deviation with `0` rewards, and the two-sided bound with `s + 1 ≥ 1` rewards
-  have hE0 : E 0 = ∅ := by
-    ext ω
-    simp [E, hy.not_ge]
-  have hE (s : ℕ) : streamMeasure ν (E (s + 1)) ≤
-      ENNReal.ofReal (exp (-y) * ((s + 1 : ℝ) * (s + 2))⁻¹) := by
-    have hlog : 0 ≤ log (2 * (s + 1 : ℕ) * ((s + 1 : ℕ) + 1)) :=
-      log_nonneg (by push_cast; nlinarith)
-    refine (streamMeasure_le_sq_div_le hν s.succ_ne_zero (by positivity)).trans_eq ?_
-    congr 1
-    rw [neg_add, exp_add, exp_neg, exp_log (by positivity)]
-    push_cast
-    field_simp
-    ring
-  -- a union bound over the number of rewards
-  calc streamMeasure ν {ω | ∃ s : ℕ, log (2 * s * (s + 1)) + y ≤
-      (∑ i ∈ range s, (ω i a - (ν a)[id])) ^ 2 / (2 * σ2 * s)}
-  _ = streamMeasure ν (⋃ s, E s) := by
-    congr 1
-    ext ω
-    simp [E]
-  _ ≤ ∑' s, streamMeasure ν (E s) := measure_iUnion_le _
-  _ ≤ ENNReal.ofReal (exp (-y)) := by
-    refine ENNReal.tsum_le_of_sum_range_le fun n ↦ ?_
-    cases n with
-    | zero => simp
-    | succ n =>
-      rw [sum_range_succ', hE0, measure_empty, add_zero]
-      calc ∑ s ∈ range n, streamMeasure ν (E (s + 1))
-      _ ≤ ∑ s ∈ range n, ENNReal.ofReal (exp (-y) * ((s + 1 : ℝ) * (s + 2))⁻¹) :=
-        sum_le_sum fun s _ ↦ hE s
-      _ = ENNReal.ofReal (exp (-y) * ∑ s ∈ range n, ((s + 1 : ℝ) * (s + 2))⁻¹) := by
-        rw [← ENNReal.ofReal_sum_of_nonneg fun s _ ↦ by positivity, mul_sum]
-      _ ≤ ENNReal.ofReal (exp (-y)) :=
-        ENNReal.ofReal_le_ofReal (mul_le_of_le_one_right (exp_pos _).le
-          (sum_range_inv_add_one_mul_add_two_le_one n))
+  -- a union bound over the number of rewards, with no deviation for `0` rewards
+  rw [Set.ofPred_exists]
+  refine measure_iUnion_log_two_mul_mul_add_one_add_le (fun z hz ↦ ?_)
+    (fun s z hs hz ↦ streamMeasure_le_sq_div_le hν hs hz) hy
+  ext ω
+  simp [hz.not_ge]
 
 /-- **Joint time-uniform deviations of the empirical means of sub-Gaussian arms**, in the reward
 stream model. If each arm `a` is `σ²_a`-sub-Gaussian with mean `μ_a`, then for `x ≥ K`, with `K`

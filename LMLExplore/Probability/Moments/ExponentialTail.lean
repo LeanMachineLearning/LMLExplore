@@ -5,6 +5,7 @@ Authors: Rémy Degenne
 -/
 module
 
+public import LMLExplore.Algebra.BigOperators.Intervals
 public import LMLExplore.MeasureTheory.Integral.Layercake
 public import Mathlib.MeasureTheory.Order.Lattice
 public import Mathlib.Probability.Moments.Basic
@@ -18,6 +19,11 @@ has the moment generating function of a standard exponential law at most:
 `E[exp (t X)] ≤ 1 / (1 - t)` for `0 ≤ t < 1`. For `k` independent such variables and `x ≥ k`,
 the Chernoff bound at `t = 1 - k / x` then gives the tail bound of a sum of `k` standard
 exponential variables, `P(x ≤ X₁ + ⋯ + X_k) ≤ (x / k) ^ k exp (k - x)` [LS, Exercise 5.16].
+
+A union bound over the number `n` of samples turns two-sided exponential tails at each `n` into a
+time-uniform tail: if `P(E n z) ≤ 2 exp (-z)` for each `n ≥ 1`, then the events `E n z` happen at
+the levels `z = log (2 n (n + 1)) + y` for some `n` with probability at most `exp (-y)`
+[LS, Lemma 33.8].
 
 This bound is the source of the union-bound thresholds of generalized likelihood ratio stopping
 rules [LS, Proposition 33.9]. Let `S i n` be independent processes indexed by `i ∈ ι`, with
@@ -36,13 +42,15 @@ is that round.
 * `LMLExplore.measure_le_sum_le_div_pow_mul_exp`: for independent random variables `X i`,
   `i ∈ s`, with exponential tails and `x ≥ #s`,
   `P(x ≤ ∑ i ∈ s, X i) ≤ (x / #s) ^ #s exp (#s - x)` [LS, Exercise 5.16].
+* `LMLExplore.measure_iUnion_log_two_mul_mul_add_one_add_le`: the union bound over the number of
+  samples of [LS, Lemma 33.8].
 * `LMLExplore.measure_exists_card_mul_add_le_sum_le`: [LS, Proposition 33.9], the maximal form
   over all indices `n : ι → ℕ`.
 
 ## References
 
 * [LS] T. Lattimore and Cs. Szepesvári, *Bandit Algorithms*, Cambridge University Press (2020),
-  Exercise 5.16 and Proposition 33.9.
+  Exercise 5.16, Lemma 33.8 and Proposition 33.9.
 -/
 
 public section
@@ -110,6 +118,49 @@ theorem mgf_le_inv_one_sub (hXm : AEMeasurable X P)
     (hXm.const_mul t).exp.aestronglyMeasurable]
   exact ENNReal.toReal_le_of_le_ofReal (inv_nonneg.2 (sub_pos.2 ht1).le)
     (lintegral_exp_mul_le_inv_one_sub hXm hX ht0 ht1)
+
+/-! ### A union bound over the number of samples -/
+
+/-- **Union bound over the number of samples** [LS, Lemma 33.8]. Let `E n z`, for `n : ℕ` and
+`z : ℝ`, be events with `P(E n z) ≤ 2 exp (-z)` for `n ≠ 0` and `z ≥ 0`, and `E 0 z = ∅` for
+`z > 0`; typically `E n z` is the event that a statistic of `n` samples with two exponential tails
+is at least `z`. Then for `y ≥ 0`, the probability that `E n (log (2 n (n + 1)) + y)` happens for
+some `n` is at most `exp (-y)`. -/
+theorem measure_iUnion_log_two_mul_mul_add_one_add_le {E : ℕ → ℝ → Set Ω}
+    (hE0 : ∀ z, 0 < z → E 0 z = ∅)
+    (hE : ∀ n z, n ≠ 0 → 0 ≤ z → P (E n z) ≤ ENNReal.ofReal (2 * exp (-z))) {y : ℝ}
+    (hy : 0 ≤ y) :
+    P (⋃ n : ℕ, E n (log (2 * n * (n + 1)) + y)) ≤ ENNReal.ofReal (exp (-y)) := by
+  rcases hy.eq_or_lt with rfl | hy
+  · simpa using prob_le_one
+  -- with `n + 1` samples, the level is `log (2 (n + 1) (n + 2)) + y`, at which the event has
+  -- probability at most `exp (-y) / ((n + 1) (n + 2))`
+  have hE' (n : ℕ) : P (E (n + 1) (log (2 * (n + 1 : ℕ) * ((n + 1 : ℕ) + 1)) + y)) ≤
+      ENNReal.ofReal (exp (-y) * ((n + 1 : ℝ) * (n + 2))⁻¹) := by
+    have hlog : 0 ≤ log (2 * (n + 1 : ℕ) * ((n + 1 : ℕ) + 1)) :=
+      log_nonneg (by push_cast; nlinarith)
+    refine (hE _ _ n.succ_ne_zero (by positivity)).trans_eq ?_
+    congr 1
+    rw [neg_add, exp_add, exp_neg, exp_log (by positivity)]
+    push_cast
+    field_simp
+    ring
+  refine (measure_iUnion_le _).trans (ENNReal.tsum_le_of_sum_range_le fun n ↦ ?_)
+  cases n with
+  | zero => simp
+  | succ n =>
+    -- no sample: the level is `y > 0` and the event is empty
+    have h0 : E 0 (log (2 * ((0 : ℕ) : ℝ) * ((0 : ℕ) + 1)) + y) = ∅ := by
+      simpa using hE0 y hy
+    rw [sum_range_succ', h0, measure_empty, add_zero]
+    calc ∑ n ∈ range n, P (E (n + 1) (log (2 * (n + 1 : ℕ) * ((n + 1 : ℕ) + 1)) + y))
+    _ ≤ ∑ n ∈ range n, ENNReal.ofReal (exp (-y) * ((n + 1 : ℝ) * (n + 2))⁻¹) :=
+      sum_le_sum fun n _ ↦ hE' n
+    _ = ENNReal.ofReal (exp (-y) * ∑ n ∈ range n, ((n + 1 : ℝ) * (n + 2))⁻¹) := by
+      rw [← ENNReal.ofReal_sum_of_nonneg fun n _ ↦ by positivity, mul_sum]
+    _ ≤ ENNReal.ofReal (exp (-y)) :=
+      ENNReal.ofReal_le_ofReal (mul_le_of_le_one_right (exp_pos _).le
+        (sum_range_inv_add_one_mul_add_two_le_one n))
 
 /-! ### Sums of independent random variables with exponential tails -/
 

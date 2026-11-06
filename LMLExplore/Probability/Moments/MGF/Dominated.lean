@@ -7,6 +7,7 @@ module
 
 public import Mathlib.Probability.IdentDistrib
 public import Mathlib.Probability.Moments.Basic
+public import Mathlib.Probability.Moments.IntegrableExpMul
 import LMLExplore.Probability.Moments.Basic
 
 /-!
@@ -40,6 +41,8 @@ by a member of the family without following its law.
   `LMLExplore.MGFDominatedOn.trans`: domination on `Λ` implies domination on every subset of `Λ`;
   if `X` is dominated by `Y` on `Λ`, then `-X` is dominated by `-Y` on `-Λ`; domination on `Λ` is
   transitive.
+* `LMLExplore.MGFDominatedOn.integrable`: a random variable dominated on a neighbourhood of `0` by
+  a random variable with exponential moments near `0` is integrable.
 * `LMLExplore.mgfDominatedOn_union`, `LMLExplore.MGFDominatedOn.union`,
   `LMLExplore.MGFDominatedOn.univ_of_Iic_of_Ici`: domination on `Λ ∪ Λ'` is domination on both
   `Λ` and `Λ'`; in particular domination on `Set.Iic 0` and on `Set.Ici 0` gives domination on
@@ -86,6 +89,14 @@ lemma MGFDominatedOn.mono (h : MGFDominatedOn X P Y Q Λ) (hΛ : Λ' ⊆ Λ) :
     MGFDominatedOn X P Y Q Λ' where
   integrable_exp_mul _ ht hY := h.integrable_exp_mul (hΛ ht) hY
   mgf_le _ ht hY := h.mgf_le (hΛ ht) hY
+
+/-- If `X` is dominated by `Y` on `Λ` and the parameters of `Λ` at which `exp (t Y)` is
+`Q`-integrable form a neighbourhood of `0`, then `X` has exponential moments near `0`, hence is
+`P`-integrable. -/
+lemma MGFDominatedOn.integrable (h : MGFDominatedOn X P Y Q Λ)
+    (h0 : 0 ∈ interior (Λ ∩ integrableExpSet Y Q)) : Integrable X P :=
+  integrable_of_mem_interior_integrableExpSet
+    (interior_mono (fun _ (ht : _ ∈ Λ ∩ _) ↦ h.integrable_exp_mul ht.1 ht.2) h0)
 
 /-- Domination on `Λ ∪ Λ'` is domination on both `Λ` and `Λ'`. -/
 lemma mgfDominatedOn_union :

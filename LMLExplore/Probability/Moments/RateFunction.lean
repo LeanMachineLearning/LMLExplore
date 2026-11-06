@@ -11,6 +11,7 @@ public import Mathlib.Probability.IdentDistrib
 public import Mathlib.Probability.Moments.Basic
 public import Mathlib.Probability.Moments.IntegrableExpMul
 public import LMLExplore.Probability.Moments.IntegrableExpMul
+public import LMLExplore.Probability.Moments.MGF.Dominated
 public import TauCeti.Analysis.Convex.Conjugate
 
 /-!
@@ -48,6 +49,8 @@ infinite beyond the essential supremum of `X`, and symmetrically below its essen
 * `LMLExplore.rateFunction_neg`, `LMLExplore.rateFunction_congr_ae`,
   `ProbabilityTheory.IdentDistrib.rateFunction_eq`: the rate function of `-X` at `x` is that of
   `X` at `-x`, and the rate function only depends on the law of `X`.
+* `LMLExplore.MGFDominatedOn.rateFunction_le`: if `X` is dominated by `Y` in moment generating
+  function, the rate function of `Y` is at most that of `X`.
 * `LMLExplore.convexOn_rateFunction`, `LMLExplore.lowerSemicontinuous_rateFunction`: it is convex
   and lower semicontinuous.
 * `LMLExplore.mul_integral_le_cgf`: Jensen's inequality `t E[X] ≤ cgf X P t`.
@@ -176,6 +179,17 @@ lemma _root_.ProbabilityTheory.IdentDistrib.rateFunction_eq {P' : Measure Ω'} {
   have h_cgf (t : ℝ) : cgf X P t = cgf Y P' t := by rw [cgf, cgf, mgf_congr_identDistrib h]
   ext x
   simp_rw [rateFunction_def, h_set, h_cgf]
+
+/-- **Domination orders the rate functions.** If `X` under `P ≠ 0` is dominated by `Y` under `Q`
+on the parameters `t` at which `exp (t Y)` is `Q`-integrable, then the rate function of `Y` is at
+most that of `X`: at each such parameter, `cgf X P t ≤ cgf Y Q t`. -/
+theorem MGFDominatedOn.rateFunction_le [NeZero P] {Q : Measure Ω'} {Y : Ω' → ℝ}
+    (h : MGFDominatedOn X P Y Q (integrableExpSet Y Q)) (x : ℝ) :
+    rateFunction Y Q x ≤ rateFunction X P x := by
+  refine rateFunction_le_iff.2 fun t ht ↦ ?_
+  have htX : t ∈ integrableExpSet X P := h.integrable_exp_mul ht ht
+  have h_cgf : cgf X P t ≤ cgf Y Q t := log_le_log (mgf_pos' (NeZero.ne P) htX) (h.mgf_le ht ht)
+  exact (ENNReal.ofReal_le_ofReal (by linarith)).trans (ofReal_le_rateFunction htX x)
 
 /-! ### Convexity and lower semicontinuity -/
 
