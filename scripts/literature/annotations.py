@@ -27,8 +27,12 @@ falls back to the text that the modules' `## References` sections, then the road
 give for it. A citation whose key appears
 in none of them is reported and left out.
 
+With `--summary FILE`, it appends to FILE (the run summary, in the workflow) what `bibliography.json`
+lacks: the works the page shows from their reference text, and the possible duplicates, a work cited
+under two keys. `lookup.py` proposes the entries and aliases to add.
+
 usage: annotations.py --dataset DIR --bibliography FILE --out DIR [--roadmaps DIR]
-       [--roadmaps-commit SHA]
+       [--roadmaps-commit SHA] [--summary FILE]
 """
 from __future__ import annotations
 
@@ -37,6 +41,7 @@ import html
 import json
 import re
 import sys
+import unicodedata
 import urllib.parse
 from collections import Counter, defaultdict
 from pathlib import Path
@@ -170,6 +175,44 @@ def references(text: str) -> dict[str, str]:
     for m in REFERENCE.finditer(section):
         key, value = (m.group(1), m.group(2)) if m.group(1) else (m.group(4), m.group(3))
         out[key] = " ".join(value.split()).rstrip(".")
+    return out
+
+
+def normalize(text: str) -> str:
+    """Text for comparing titles: without markup, accents, case and punctuation."""
+    text = unicodedata.normalize("NFKD", re.sub(r"<[^>]+>|[*_]", "", text))
+    return re.sub(r"[^a-z0-9]+", "", "".join(c for c in text if not unicodedata.combining(c)).lower())
+
+
+def same_work(text: str, entry: dict) -> bool:
+    """Whether a reference text names the work of a bibliography entry: it names the entry's first
+    author, and its title in italics is the entry's, or the whole text contains the entry's title
+    (when that title is long enough not to occur by chance)."""
+    c = entry["citation"]
+    title = normalize(c["title"])
+    family = normalize(c["author"][0]["family"]) if c.get("author") else ""
+    if not title or not family or family not in normalize(text):
+        return False
+    italic = re.search(r"\*([^*]+)\*", text)
+    if italic and normalize(italic.group(1)) == title:
+        return True
+    return len(title) >= 25 and title in normalize(text)
+
+
+def bibliography_gaps(bibliography: dict, fallback: dict[str, str]) -> list[tuple[str, str, str]]:
+    """The possible duplicates, as (key, key of the same work, why): a work the page shows from its
+    reference text whose text names a work of the bibliography, and two entries with one title and
+    one first author."""
+    entries = {k: e for k, e in bibliography.items() if "same" not in e}
+    out = [(key, other, "its reference text names this work")
+           for key, text in sorted(fallback.items()) for other, e in sorted(entries.items()) if same_work(text, e)]
+    seen: dict[tuple[str, str], str] = {}
+    for key, e in sorted(entries.items()):
+        c = e["citation"]
+        sig = (normalize(c["title"]), normalize(c["author"][0]["family"]) if c.get("author") else "")
+        if sig in seen:
+            out.append((key, seen[sig], "same title and first author"))
+        seen.setdefault(sig, key)
     return out
 
 
@@ -396,7 +439,11 @@ def build(dataset: Path, bibliography: dict, out: Path, roadmap_root: Path | Non
                   {r for r in cited if kinds[r] not in PLACES})
     (out / "index.html").write_text(page, encoding="utf-8")
     goals = {r for r in cited if kinds[r] not in PLACES}
+    fallback = {k: work(k)["citation"]["title"] for k in keys if k not in bibliography}
+    counts = Counter(a["id"].split(":")[0] for a in annotations)
     return {"annotations": len(annotations), "linked": sum(a["object"] != [] for a in annotations),
+            "fallback": {k: (text, counts[k]) for k, text in fallback.items()},
+            "duplicates": bibliography_gaps(bibliography, fallback),
             "declarations": len({d for _, d in records if d}), "results": len(links), "works": len(keys),
             "goals": len(goals), "covered": len(goals & set(links)), "unknown": unknown, "unparsed": unparsed}
 
@@ -504,6 +551,29 @@ def render(records: list[tuple[dict, str | None]], sources: dict, repo: str, com
             .replace("{{extension}}", ROADMAPS))
 
 
+def summary(stats: dict) -> str:
+    """The run summary: the counts, and what `bibliography.json` lacks."""
+    lines = ["### Literature page", "",
+             f"{stats['annotations']} annotations: {stats['linked']} links from {stats['declarations']} declarations "
+             f"to {stats['results']} results of {stats['works']} works. The roadmaps cite {stats['goals']} results, "
+             f"of which {stats['covered']} have a declaration.", ""]
+    if stats["fallback"]:
+        lines += [f"**{len(stats['fallback'])} works shown from their reference text.** Give them an entry in "
+                  "`scripts/literature/bibliography.json`: `python3 scripts/literature/lookup.py propose` "
+                  "proposes them.", ""]
+        lines += [f"- `{k}` ({n} result{'s' * (n != 1)}): {text}"
+                  for k, (text, n) in sorted(stats["fallback"].items(), key=lambda kv: (-kv[1][1], kv[0]))]
+        lines.append("")
+    if stats["duplicates"]:
+        lines += ["**Possible duplicates**: one work under two keys. If they are the same work, make the first "
+                  'key an alias of the second, `"KEY": {"same": "OTHER"}`.', ""]
+        lines += [f"- `{a}` and `{b}`: {why}" for a, b, why in stats["duplicates"]]
+        lines.append("")
+    if not stats["fallback"] and not stats["duplicates"]:
+        lines += ["Every work on the page has a bibliography entry, under one key.", ""]
+    return "\n".join(lines) + "\n"
+
+
 def main() -> int:
     p = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     p.add_argument("--dataset", type=Path, required=True, help="the S2 dataset extracted by trust-extract")
@@ -511,6 +581,7 @@ def main() -> int:
     p.add_argument("--out", type=Path, required=True, help="the folder to write to")
     p.add_argument("--roadmaps", type=Path, help="a checkout of LMLRoadmaps")
     p.add_argument("--roadmaps-commit", default="main", help="the commit of that checkout, for links")
+    p.add_argument("--summary", type=Path, help="a Markdown file to append the report to (the run summary)")
     args = p.parse_args()
     bibliography = json.loads(args.bibliography.read_text(encoding="utf-8"))
     stats = build(args.dataset, bibliography, args.out, args.roadmaps, args.roadmaps_commit)
@@ -523,6 +594,12 @@ def main() -> int:
     if stats["unparsed"]:
         print(f"{sum(stats['unparsed'].values())} citations name no numbered result, e.g. "
               + "; ".join(k for k, _ in stats["unparsed"].most_common(5)), file=sys.stderr)
+    if args.summary:
+        with args.summary.open("a", encoding="utf-8") as f:
+            f.write(summary(stats))
+        if stats["fallback"] or stats["duplicates"]:
+            print(f"::notice::bibliography.json lacks {len(stats['fallback'])} works and has "
+                  f"{len(stats['duplicates'])} possible duplicates: see the run summary")
     return 0
 
 

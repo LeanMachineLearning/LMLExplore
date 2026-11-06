@@ -50,3 +50,23 @@ not describe falls back to the text that the modules' `## References` sections, 
 References, give for it, with the arXiv ID that the text names if any. Add a work here when
 LMLExplore or a roadmap starts citing it, to give it a full citation and a link. A work cited under
 two keys has one entry, and the other key maps to it: `"CT06": {"same": "CT"}`.
+
+## Keeping the bibliography up to date
+
+The page is rewritten at every build, so new citations in the docstrings and the roadmaps appear by
+themselves. The bibliography does not: a work cited for the first time is shown from its reference
+text, and a work cited under a new key gets a second section. The summary of each run of the referee
+site workflow lists both, under "Literature page". To fix them:
+
+```bash
+python3 scripts/literature/lookup.py propose --out proposals.json
+python3 scripts/literature/lookup.py merge proposals.json
+```
+
+`propose` reads the annotations of the live site (or `--annotations FILE`), and proposes an alias for
+each work whose reference text names a work of the bibliography, and otherwise an entry found in
+Crossref and arXiv, under the rules its docstring gives: an exact title and the first author, and
+the version the text cites. Review `proposals.json` before merging: the work, its version (the
+edition, the conference or journal version) and its authors. Delete or correct what is wrong, and
+add by hand what it could not find. `merge` adds the proposals to `bibliography.json` without
+replacing any entry, and checks the result; then open a pull request.

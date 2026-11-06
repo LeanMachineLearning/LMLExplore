@@ -219,7 +219,7 @@ jobs:
       # the literature that the docstrings and the roadmaps cite, the declarations citing them, and
       # the results not linked yet. The roadmaps are read at the commit the extract job checked, or
       # at the newest one when it was skipped. Skipped when the extract job found the annotations
-      # invalid.
+      # invalid. The run summary lists what scripts/literature/bibliography.json lacks.
       - name: Add the literature page
         if: needs.extract.outputs.literature != 'failure'
         env:
@@ -235,7 +235,8 @@ jobs:
           python3 scripts/literature/annotations.py --dataset "$DATASET" \
             --bibliography scripts/literature/bibliography.json --out "$SITE/literature" \
             --roadmaps "$RUNNER_TEMP/LMLRoadmaps" \
-            --roadmaps-commit "$(git -C "$RUNNER_TEMP/LMLRoadmaps" rev-parse HEAD)"
+            --roadmaps-commit "$(git -C "$RUNNER_TEMP/LMLRoadmaps" rev-parse HEAD)" \
+            --summary "$GITHUB_STEP_SUMMARY"
 
       - uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5.0.0
         with:
