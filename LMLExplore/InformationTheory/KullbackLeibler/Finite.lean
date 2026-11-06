@@ -23,7 +23,7 @@ from the log-sum inequality. **Pinsker's inequality** for probability vectors re
 In particular, the relative entropy of two probability vectors vanishes only when they are equal.
 
 The **Gibbs variational principle** describes the log-partition function of a vector `v` under a
-probability vector `p` as a maximum over probability vectors `q`:
+probability vector `p` with positive coordinates as a maximum over probability vectors `q`:
 `log (∑ a, p a * exp (v a)) = max_q (∑ a, q a * v a - ∑ a, q a * log (q a / p a))`, attained at the
 Gibbs vector `q a = p a * exp (v a) / ∑ b, p b * exp (v b)`. The inequality is Gibbs' inequality
 for `q` with respect to the Gibbs vector. This is the finite case of the duality between the
@@ -139,12 +139,9 @@ inequality for `q` with respect to the Gibbs vector `a ↦ p a * exp (v a) / ∑
 theorem sum_mul_sub_sum_mul_log_div_le_log_sum_mul_exp {p q : α → ℝ} (hp : p ∈ simplex α)
     (hq : q ∈ simplex α) (hqp : ∀ a, p a = 0 → q a = 0) (v : α → ℝ) :
     ∑ a, q a * v a - ∑ a, q a * log (q a / p a) ≤ log (∑ a, p a * exp (v a)) := by
-  obtain ⟨hp0, hp1⟩ := mem_simplex_iff.1 hp
+  obtain ⟨hp0, -⟩ := mem_simplex_iff.1 hp
   obtain ⟨hq0, hq1⟩ := mem_simplex_iff.1 hq
-  have hZ : 0 < ∑ a, p a * exp (v a) := by
-    obtain ⟨a, -, ha⟩ := exists_ne_zero_of_sum_ne_zero (hp1.trans_ne one_ne_zero)
-    exact sum_pos' (fun b _ ↦ mul_nonneg (hp0 b) (exp_pos _).le)
-      ⟨a, mem_univ a, mul_pos ((hp0 a).lt_of_ne' ha) (exp_pos _)⟩
+  have hZ : 0 < ∑ a, p a * exp (v a) := sum_mul_pos_of_mem_simplex hp fun a ↦ exp_pos (v a)
   set Z := ∑ a, p a * exp (v a)
   -- Gibbs' inequality for `q` with respect to the Gibbs vector `r`
   set r : α → ℝ := fun a ↦ p a * exp (v a) / Z with hr

@@ -53,6 +53,8 @@ Exp3, Exp3-IX and Exp4.
   term of exponential weights at `p`.
 * `sum_sub_mul_sub_sum_mul_log_div_div_le`: the stability term is at most
   `(∑ a, p a * (exp (-(η * y a)) - 1 + η * y a)) / η`.
+* `sum_sub_mul_sub_sum_mul_log_div_div_le_mul_sum_mul_sq`: for a nonnegative loss `y`, the
+  stability term is at most `η / 2 * ∑ a, p a * y a ^ 2`.
 * `softmax_regret_le_of_antitone`: the local-norm regret bound of exponential weights with
   nonincreasing learning rates, for nonnegative losses.
 * `softmax_regret_le`: its case of a constant learning rate, against every coordinate.
@@ -283,16 +285,14 @@ whenever `p a = 0`, a loss `y` and a learning rate `η > 0`, the stability term
 `∑ a, (p a - q a) * y a - D(q, p) / η`, with `D(q, p) = ∑ a, q a * log (q a / p a)`, is at most
 `(∑ a, p a * (exp (-(η * y a)) - 1 + η * y a)) / η` [Ora, Section 7.5; BCB12, proof of
 Theorem 3.1]. For a nonnegative loss, this is at most `η / 2 * ∑ a, p a * y a ^ 2`
-(`sum_mul_exp_neg_sub_one_add_le`). -/
+(`sum_sub_mul_sub_sum_mul_log_div_div_le_mul_sum_mul_sq`). -/
 theorem sum_sub_mul_sub_sum_mul_log_div_div_le {p q : α → ℝ} (hp : p ∈ simplex α)
     (hq : q ∈ simplex α) (hqp : ∀ a, p a = 0 → q a = 0) (y : α → ℝ) {η : ℝ} (hη : 0 < η) :
     ∑ a, (p a - q a) * y a - (∑ a, q a * log (q a / p a)) / η ≤
       (∑ a, p a * (exp (-(η * y a)) - 1 + η * y a)) / η := by
-  obtain ⟨hp0, hp1⟩ := mem_simplex_iff.1 hp
-  have hZ : 0 < ∑ a, p a * exp (-(η * y a)) := by
-    obtain ⟨a, -, ha⟩ := exists_ne_zero_of_sum_ne_zero (hp1.trans_ne one_ne_zero)
-    exact sum_pos' (fun b _ ↦ mul_nonneg (hp0 b) (exp_pos _).le)
-      ⟨a, mem_univ a, mul_pos ((hp0 a).lt_of_ne' ha) (exp_pos _)⟩
+  have hp1 := (mem_simplex_iff.1 hp).2
+  have hZ : 0 < ∑ a, p a * exp (-(η * y a)) :=
+    sum_mul_pos_of_mem_simplex hp fun a ↦ exp_pos (-(η * y a))
   -- the Gibbs variational principle and `log Z ≤ Z - 1`
   have h_gibbs := sum_mul_sub_sum_mul_log_div_le_log_sum_mul_exp hp hq hqp fun a ↦ -(η * y a)
   have h_log := log_le_sub_one_of_pos hZ
@@ -305,14 +305,30 @@ theorem sum_sub_mul_sub_sum_mul_log_div_div_le {p q : α → ℝ} (hp : p ∈ si
     mul_div_cancel_left₀ _ hη.ne', add_comm (∑ a, p a * y a)]
   exact add_le_add (div_le_div_of_nonneg_right (h_gibbs.trans h_log) hη.le) le_rfl
 
+/-- **Local-norm stability of exponential weights** [Ora, Section 7.5; BCB12, proof of
+Theorem 3.1]. For probability vectors `p` and `q` with `q a = 0` whenever `p a = 0`, a nonnegative
+loss `y` and a learning rate `η > 0`, the stability term
+`∑ a, (p a - q a) * y a - D(q, p) / η`, with `D(q, p) = ∑ a, q a * log (q a / p a)`, is at most
+`η / 2 * ∑ a, p a * y a ^ 2`. -/
+theorem sum_sub_mul_sub_sum_mul_log_div_div_le_mul_sum_mul_sq {p q : α → ℝ} (hp : p ∈ simplex α)
+    (hq : q ∈ simplex α) (hqp : ∀ a, p a = 0 → q a = 0) {y : α → ℝ} (hy : ∀ a, 0 ≤ y a) {η : ℝ}
+    (hη : 0 < η) :
+    ∑ a, (p a - q a) * y a - (∑ a, q a * log (q a / p a)) / η ≤
+      η / 2 * ∑ a, p a * y a ^ 2 := by
+  have h_sq := sum_mul_exp_neg_sub_one_add_le (mem_simplex_iff.1 hp).1 hy hη.le
+  have h_div : (η ^ 2 / 2 * ∑ a, p a * y a ^ 2) / η = η / 2 * ∑ a, p a * y a ^ 2 := by
+    field_simp [hη.ne']
+  calc _ ≤ _ := sum_sub_mul_sub_sum_mul_log_div_div_le hp hq hqp y hη
+  _ ≤ (η ^ 2 / 2 * ∑ a, p a * y a ^ 2) / η := div_le_div_of_nonneg_right h_sq hη.le
+  _ = _ := h_div
+
 /-- **Regret of exponential weights with nonincreasing learning rates** [Ora, Section 7.5;
 BCB12, proof of Theorem 3.1]. For losses `y t` that are nonnegative at the rounds `t < n` and
 nonincreasing learning rates `η t > 0`, the weights `p t = softmax (-(η t • ∑ s < t, y s))`
 satisfy, against every point `u` of the simplex,
 `∑ t < n, (⟨p t, y t⟩ - ⟨u, y t⟩) ≤ log k / η (n - 1) + ∑ t < n, η t / 2 * ⟨p t, (y t) ^ 2⟩`,
 with `k` the cardinality of `α` and `⟨p, y⟩ = ∑ b, p b * y b`. The weights are the plays of FTRL
-on the simplex with the negative entropy and the rates `η t`, and each stability term is bounded
-by `sum_sub_mul_sub_sum_mul_log_div_div_le` and `sum_mul_exp_neg_sub_one_add_le`. -/
+on the simplex with the negative entropy and the rates `η t`. -/
 theorem softmax_regret_le_of_antitone {η : ℕ → ℝ} (hη : ∀ t, 0 < η t) (hη_anti : Antitone η)
     {y : ℕ → α → ℝ} {n : ℕ} (hy : ∀ t < n, ∀ b, 0 ≤ y t b) {u : α → ℝ} (hu : u ∈ simplex α) :
     ∑ t ∈ range n, (∑ b, softmax (-(η t • ∑ s ∈ range t, y s)) b * y t b - ∑ b, u b * y t b) ≤
@@ -338,8 +354,7 @@ theorem softmax_regret_le_of_antitone {η : ℕ → ℝ} (hη : ∀ t, 0 < η t)
   have ha (t : ℕ) :
       IsFTRLPlay (ofLp ⁻¹' simplex α) (fun x ↦ negEntropy (ofLp x)) (η t) Y t (a t) := by
     rw [isFTRLPlay_negEntropy_iff, ofLp_toLp]
-    simp_rw [hY_single]
-    rfl
+    simp_rw [hY_single, hp_def]
   have hF' (t : ℕ) : HasFDerivWithinAt (fun x : PiLp 1 (fun _ : α ↦ ℝ) ↦ negEntropy (ofLp x))
       (∑ c, log (a t c) • PiLp.proj (𝕜 := ℝ) 1 (fun _ : α ↦ ℝ) c) (ofLp ⁻¹' simplex α) (a t) :=
     (hasFDerivAt_negEntropy fun c ↦ (hp_pos t c).ne').hasFDerivWithinAt
@@ -352,20 +367,12 @@ theorem softmax_regret_le_of_antitone {η : ℕ → ℝ} (hη : ∀ t, 0 < η t)
         η t / 2 * ∑ b, p t b * y t b ^ 2 := by
     rw [bregDiv_negEntropy hq (by simpa [a] using hp_mem t)
       fun c hc ↦ absurd hc (hp_pos t c).ne', hY_apply]
-    have h_le := sum_sub_mul_sub_sum_mul_log_div_div_le (hp_mem t) hq
-      (fun c hc ↦ absurd hc (hp_pos t c).ne') (y t) (hη t)
-    have h_sq := sum_mul_exp_neg_sub_one_add_le (fun c ↦ (hp_pos t c).le)
-      (hy t (Nat.lt_succ_of_le ht)) (hη t).le
     have h_eq : ∑ b, y t b * (a t - q) b = ∑ b, (p t b - ofLp q b) * y t b :=
       sum_congr rfl fun b _ ↦ by simp [a, mul_comm]
-    have h_div : (η t ^ 2 / 2 * ∑ b, p t b * y t b ^ 2) / η t =
-        η t / 2 * ∑ b, p t b * y t b ^ 2 := by
-      field_simp [(hη t).ne']
     simp only [a] at h_eq ⊢
     rw [h_eq]
-    calc _ ≤ _ := h_le
-    _ ≤ (η t ^ 2 / 2 * ∑ b, p t b * y t b ^ 2) / η t := div_le_div_of_nonneg_right h_sq (hη t).le
-    _ = _ := h_div
+    exact sum_sub_mul_sub_sum_mul_log_div_div_le_mul_sum_mul_sq (hp_mem t) hq
+      (fun c hc ↦ absurd hc (hp_pos t c).ne') (hy t (Nat.lt_succ_of_le ht)) (hη t)
   -- the range of the negative entropy on the simplex is at most `log k`
   have h_range : (negEntropy (ofLp (toLp 1 u)) - negEntropy (ofLp (a 0))) / η m ≤
       log (Fintype.card α) / η m := by
@@ -383,10 +390,12 @@ theorem softmax_regret_le_of_antitone {η : ℕ → ℝ} (hη : ∀ t, 0 < η t)
     sum_congr rfl fun t _ ↦ by
       rw [hY_apply, ← sum_sub_distrib]
       exact sum_congr rfl fun b _ ↦ by simp [a]; ring
-  change ∑ t ∈ range (m + 1), (∑ b, p t b * y t b - ∑ b, u b * y t b) ≤
-    log (Fintype.card α) / η (m + 1 - 1) + ∑ t ∈ range (m + 1), η t / 2 * ∑ b, p t b * y t b ^ 2
-  rw [Nat.add_sub_cancel, ← h_lhs, sum_range_succ (fun t ↦ η t / 2 * ∑ b, p t b * y t b ^ 2) m]
-  linarith
+  have h_goal : ∑ t ∈ range (m + 1), (∑ b, p t b * y t b - ∑ b, u b * y t b) ≤
+      log (Fintype.card α) / η m + ∑ t ∈ range (m + 1), η t / 2 * ∑ b, p t b * y t b ^ 2 := by
+    rw [← h_lhs, sum_range_succ (fun t ↦ η t / 2 * ∑ b, p t b * y t b ^ 2) m]
+    linarith
+  rw [Nat.add_sub_cancel]
+  simpa only [hp_def] using h_goal
 
 /-- **Regret of exponential weights** with local norms. For losses `y t` that are nonnegative at
 the rounds `t < n` and a learning rate `η > 0`, the weights `p t = softmax (-(η • ∑ s < t, y s))`

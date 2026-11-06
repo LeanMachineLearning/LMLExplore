@@ -43,8 +43,6 @@ entropy.
   vector with positive entries.
 * `softmax_add_const`: adding a constant to every coordinate does not change the softmax.
 * `measurable_softmax`: `v ↦ softmax v` is measurable.
-* `log_sum_exp_sub_mul_le`: the one-step bound on the log-partition function
-  `log ∑ b, exp (v b)` under a nonnegative loss `y` and learning rate `η ≥ 0`.
 * `sum_mul_exp_neg_sub_one_add_le`: for nonnegative weights `p`, a nonnegative loss `y` and
   `η ≥ 0`, `∑ b, p b * (exp (-(η * y b)) - 1 + η * y b) ≤ η ^ 2 / 2 * ∑ b, p b * y b ^ 2`.
 
@@ -119,36 +117,5 @@ theorem sum_mul_exp_neg_sub_one_add_le {p y : α → ℝ} (hp : ∀ b, 0 ≤ p b
   calc p b * (exp (-(η * y b)) - 1 + η * y b)
   _ ≤ p b * (η ^ 2 / 2 * y b ^ 2) := mul_le_mul_of_nonneg_left (by linarith) (hp b)
   _ = η ^ 2 / 2 * (p b * y b ^ 2) := by ring
-
-/-- **One step of exponential weights.** For a nonnegative loss `y` and a learning rate `η ≥ 0`,
-the log-partition function `log ∑ b, exp (v b)` decreases by at least
-`η ⟨p, y⟩ - η ^ 2 / 2 ⟨p, y ^ 2⟩` when the loss `η y` is subtracted from `v`, where
-`p = softmax v`. -/
-theorem log_sum_exp_sub_mul_le [Nonempty α] (v : α → ℝ) {y : α → ℝ} (hy : ∀ b, 0 ≤ y b)
-    {η : ℝ} (hη : 0 ≤ η) :
-    log (∑ b, exp (v b - η * y b)) ≤ log (∑ b, exp (v b)) - η * ∑ b, softmax v b * y b +
-      η ^ 2 / 2 * ∑ b, softmax v b * y b ^ 2 := by
-  set p := softmax v with hp
-  have hZ : 0 < ∑ b, exp (v b) := Finset.sum_pos (fun b _ ↦ exp_pos (v b)) univ_nonempty
-  -- the new partition function is `Z * ∑ b, p b * exp (-(η * y b))`, with `Z` the old one
-  have hsplit : ∑ b, exp (v b - η * y b) = (∑ b, exp (v b)) * ∑ b, p b * exp (-(η * y b)) := by
-    rw [Finset.mul_sum]
-    refine Finset.sum_congr rfl fun b _ ↦ ?_
-    rw [hp, softmax_apply, sub_eq_add_neg, exp_add]
-    field_simp
-  have hS : 0 < ∑ b, p b * exp (-(η * y b)) :=
-    Finset.sum_pos (fun b _ ↦ mul_pos (softmax_pos v b) (exp_pos _)) univ_nonempty
-  have hle : ∑ b, p b * exp (-(η * y b)) ≤
-      1 - η * ∑ b, p b * y b + η ^ 2 / 2 * ∑ b, p b * y b ^ 2 := by
-    have h := sum_mul_exp_neg_sub_one_add_le (softmax_nonneg v) hy hη
-    have h_expand : ∑ b, p b * (exp (-(η * y b)) - 1 + η * y b) =
-        ∑ b, p b * exp (-(η * y b)) - 1 + η * ∑ b, p b * y b := by
-      simp_rw [mul_add, mul_sub, mul_one, Finset.sum_add_distrib, Finset.sum_sub_distrib, hp,
-        sum_softmax, Finset.mul_sum]
-      congr 1
-      exact Finset.sum_congr rfl fun b _ ↦ by ring
-    linarith
-  rw [hsplit, log_mul hZ.ne' hS.ne']
-  linarith [log_le_sub_one_of_pos hS]
 
 end LMLExplore.OnlineLearning
