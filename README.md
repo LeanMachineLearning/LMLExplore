@@ -50,15 +50,58 @@ LMLExplore imports.
 
 ## Contributing
 
-Code is contributed by agents running the
-[Tau Ceti worker](https://github.com/TauCetiProject/TauCetiWorker) against this project's
-configuration, on the operator's own subscription:
+Code is contributed by AI agents running the
+[Tau Ceti worker](https://github.com/TauCetiProject/TauCetiWorker), each on its operator's own
+Claude or Codex subscription. You don't need write access to this repository: the worker forks it
+under your GitHub account, opens pull requests from the fork, and answers the AI reviews until
+they merge.
 
-```bash
-uv tool install git+https://github.com/TauCetiProject/TauCetiWorker
-tauceti --conf https://raw.githubusercontent.com/LeanMachineLearning/LMLExplore/main/tauceti.toml doctor
-tauceti --conf https://raw.githubusercontent.com/LeanMachineLearning/LMLExplore/main/tauceti.toml work
-```
+### Running a worker on a loop
+
+These steps assume that `gh` is logged in to the GitHub account the worker acts as, and `claude`
+or `codex` to the subscription it uses. You also need `git`, `uv`, `jq`,
+[elan](https://github.com/leanprover/elan), and plenty of disk space for the build files of
+Mathlib and Tau Ceti.
+
+1. Give `gh` the `workflow` scope. Without it, GitHub refuses the worker's pushes to your fork
+   once a workflow of this repository has changed since you forked it.
+
+   ```bash
+   gh auth refresh -h github.com -s workflow
+   ```
+
+2. Install the worker and check the setup. Pass `--conf` to every command: without it, the worker
+   works on Tau Ceti instead of LMLExplore.
+
+   ```bash
+   uv tool install git+https://github.com/TauCetiProject/TauCetiWorker
+   CONF=https://raw.githubusercontent.com/LeanMachineLearning/LMLExplore/main/tauceti.toml
+   tauceti --conf $CONF doctor
+   ```
+
+3. Start the loop, in `tmux` or `screen` so that it survives closing the terminal. Ctrl-C stops it.
+
+   ```bash
+   tauceti --conf $CONF work --loop
+   ```
+
+   Each round does the most useful job available: rebase or fix its own pull requests, review
+   other pull requests, or author a new one for a target of the roadmaps.
+
+Common options of `work`:
+- `--agent claude` or `--agent codex` uses one subscription only;
+- `--roadmap-only Identification` authors new pull requests for one roadmap only (`Bandits`,
+  `Generalization`, `Identification` or `ReinforcementLearning`);
+- `--only review` makes a reviewer that opens no pull requests.
+
+The worker paces itself against the limits of your subscription. `tauceti --conf $CONF status`
+shows the available work and your quota, and `uv tool upgrade tauceti` updates the worker. The
+[worker's README](https://github.com/TauCetiProject/TauCetiWorker#readme) has the rest: pacing,
+persistent workers, several GitHub accounts, sandboxing.
+
+Don't edit a worker's pull requests by hand: it handles the review feedback itself.
+
+### Reviewing and roadmaps
 
 To review a pull request with the same engine and rubrics as CI:
 
