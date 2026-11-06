@@ -4,12 +4,14 @@ name: Referee site
 # built with the LeanTrustBuilders suite as LML builds its own:
 #   check    decides whether main's commit needs its dataset extracted: not when an earlier run
 #            published it already;
-#   extract  builds main and extracts its dataset (S2) with trust-extract;
+#   extract  builds main, extracts its dataset (S2) with trust-extract, and checks the Literature
+#            Links annotations of the citations in its docstrings (scripts/literature/);
 #   site     publishes the new dataset as the release dataset-<commit12> (or takes the one
 #            published already), records the build in the provenance ledger (the branch
 #            trust-ledger), and builds the site with referee-site, against the previous recorded
 #            build and with the evidence store LeanMachineLearning/LMLExplore-evidence and the
-#            stores it imports (LML's, Mathlib probability's);
+#            stores it imports (LML's, Mathlib probability's), with the literature page beside it
+#            (https://leanmachinelearning.org/LMLExplore/literature/);
 #   deploy   deploys the site to GitHub Pages;
 #   prune    deletes the dataset releases nobody needs any more.
 #
@@ -69,6 +71,7 @@ jobs:
       contents: read
     outputs:
       version: ${{ steps.extract.outputs.version }}
+      literature: ${{ steps.literature.outcome }}
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
         with:
@@ -109,6 +112,24 @@ jobs:
           repo: ${{ github.repository }}
           args: --upstream-closure term
           check: meaning term
+
+      # The Literature Links annotations (https://github.com/mathlib-initiative/literature-links) of
+      # the citations of numbered results in the docstrings, checked with the format's own checker,
+      # pinned to v1.0.2. The site job writes them again from the dataset, with only the script of
+      # this repository; a failed check leaves the literature page out without stopping the site.
+      - name: Check the literature annotations
+        id: literature
+        continue-on-error: true
+        env:
+          DATASET: ${{ steps.extract.outputs.dataset }}
+        run: |
+          set -euo pipefail
+          python3 scripts/literature/annotations.py --dataset "$DATASET" \
+            --bibliography scripts/literature/bibliography.json --out "$RUNNER_TEMP/literature"
+          python3 -m venv "$RUNNER_TEMP/literature-links"
+          "$RUNNER_TEMP/literature-links/bin/pip" install --quiet \
+            "git+https://github.com/mathlib-initiative/literature-links@e7eeafb823eb3bc64a8ab2077cd3569f572d459f"
+          "$RUNNER_TEMP/literature-links/bin/literature-links" validate "$RUNNER_TEMP/literature/annotations.jsonl"
 
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
@@ -186,6 +207,18 @@ jobs:
           # count as unaudited, unless reviews in the imported stores say otherwise.
           trust: mathlib
           evidence: LeanMachineLearning/LMLExplore-evidence
+
+      # The literature page and its annotations, from the dataset: the results of the literature
+      # that the docstrings cite, and the declarations citing them. Skipped when the extract job
+      # found the annotations invalid; a run that reuses a published dataset checked them then.
+      - name: Add the literature page
+        if: needs.extract.outputs.literature != 'failure'
+        env:
+          DATASET: ${{ runner.temp }}/dataset
+          SITE: ${{ steps.referee.outputs.site }}
+        run: |
+          python3 scripts/literature/annotations.py --dataset "$DATASET" \
+            --bibliography scripts/literature/bibliography.json --out "$SITE/literature"
 
       - uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5.0.0
         with:
