@@ -269,17 +269,6 @@ section Boundary
 
 variable [IsProbabilityMeasure P]
 
-/-- The term `t x - cgf X P t` of the rate function is `-log E[exp (t (X - x))]`. -/
-private lemma mul_sub_cgf_eq_neg_log (ht : t ∈ integrableExpSet X P) (x : ℝ) :
-    t * x - cgf X P t = -log (∫ ω, exp (t * (X ω - x)) ∂P) := by
-  have h_eq : ∫ ω, exp (t * (X ω - x)) ∂P = mgf X P t * exp (-(t * x)) := by
-    rw [mgf, ← integral_mul_const]
-    congr with ω
-    rw [← exp_add]
-    ring_nf
-  rw [h_eq, log_mul (mgf_pos ht).ne' (exp_pos _).ne', log_exp, cgf]
-  ring
-
 /-- The rate function at `x` is at least the limit of `-log E[exp (t (X - x))]` as `t → ∞`. -/
 private lemma tendsto_ofReal_neg_log_integral_le (hX : Measurable X) (h : ∀ᵐ ω ∂P, X ω ≤ x)
     {l : ℝ≥0∞}
@@ -287,8 +276,9 @@ private lemma tendsto_ofReal_neg_log_integral_le (hX : Measurable X) (h : ∀ᵐ
     l ≤ rateFunction X P x := by
   refine le_of_tendsto hl ?_
   filter_upwards [eventually_ge_atTop 0] with t ht
-  rw [← mul_sub_cgf_eq_neg_log (integrable_exp_mul_of_le t x ht hX.aemeasurable h)]
-  exact ofReal_le_rateFunction (integrable_exp_mul_of_le t x ht hX.aemeasurable h) x
+  have h_int := integrable_exp_mul_of_le t x ht hX.aemeasurable h
+  have h_le := ofReal_le_rateFunction h_int x
+  rwa [cgf_eq_mul_add_log_integral_exp_mul_sub h_int x, sub_add_cancel_left] at h_le
 
 private lemma rateFunction_eq_ofReal_neg_log_measureReal_of_ae_le_of_measurable
     (hX : Measurable X) (h : ∀ᵐ ω ∂P, X ω ≤ x) (hx : P {ω | X ω = x} ≠ 0) :
@@ -299,7 +289,7 @@ private lemma rateFunction_eq_ofReal_neg_log_measureReal_of_ae_le_of_measurable
   refine le_antisymm ((rateFunction_le_iff).2 fun t ht ↦ ?_)
     (tendsto_ofReal_neg_log_integral_le hX h ?_)
   · -- `E[exp (t (X - x))] ≥ P(X = x)` at every parameter.
-    rw [mul_sub_cgf_eq_neg_log ht]
+    rw [cgf_eq_mul_add_log_integral_exp_mul_sub ht x, sub_add_cancel_left]
     refine ENNReal.ofReal_le_ofReal (neg_le_neg (log_le_log hp ?_))
     have hmeas : MeasurableSet {ω | X ω = x} := hX (measurableSet_singleton x)
     rw [← integral_indicator_one hmeas]

@@ -6,13 +6,15 @@ Authors: Rémy Degenne
 module
 
 public import Mathlib.MeasureTheory.Integral.DominatedConvergence
+public import Mathlib.Probability.Moments.Basic
 public import Mathlib.Probability.Moments.IntegrableExpMul
 
 /-!
 # Exponential moments of a shifted random variable
 
 For a real random variable `X` under a measure `P`, a level `x` and a parameter
-`t ∈ integrableExpSet X P`, the function `exp (t (X - x))` is integrable. If `X ≤ x` almost surely,
+`t ∈ integrableExpSet X P`, the function `exp (t (X - x))` is integrable, and the cumulant
+generating function at `t` is `t x + log E[exp (t (X - x))]`. If `X ≤ x` almost surely,
 then `E[exp (t (X - x))]` tends to `P(X = x)` as `t → ∞`: the integrand tends to `0` where
 `X < x` and is `1` where `X = x`. This limit gives the value of the Cramér rate function at the
 essential supremum of `X`.
@@ -21,6 +23,8 @@ essential supremum of `X`.
 
 * `LMLExplore.integrable_exp_mul_sub`: `exp (t (X - x))` is integrable for
   `t ∈ integrableExpSet X P`.
+* `LMLExplore.cgf_eq_mul_add_log_integral_exp_mul_sub`: for `t ∈ integrableExpSet X P`,
+  `cgf X P t = t x + log E[exp (t (X - x))]`.
 * `LMLExplore.tendsto_integral_exp_mul_sub`: if `X ≤ x` almost surely, then
   `E[exp (t (X - x))]` tends to `P(X = x)` as `t → ∞`.
 -/
@@ -41,6 +45,18 @@ lemma integrable_exp_mul_sub (ht : t ∈ integrableExpSet X P) (x : ℝ) :
   refine (ht.mul_const (exp (-(t * x)))).congr (Eventually.of_forall fun ω ↦ ?_)
   simp only [← exp_add]
   ring_nf
+
+/-- For `t ∈ integrableExpSet X P`, the cumulant generating function is a shifted logarithmic
+exponential moment: `cgf X P t = t x + log E[exp (t (X - x))]`. -/
+lemma cgf_eq_mul_add_log_integral_exp_mul_sub [NeZero P] (ht : t ∈ integrableExpSet X P)
+    (x : ℝ) : cgf X P t = t * x + log (∫ ω, exp (t * (X ω - x)) ∂P) := by
+  have h_eq : ∫ ω, exp (t * (X ω - x)) ∂P = mgf X P t * exp (-(t * x)) := by
+    rw [mgf, ← integral_mul_const]
+    congr with ω
+    rw [← exp_add]
+    ring_nf
+  rw [h_eq, log_mul (mgf_pos' (NeZero.ne P) ht).ne' (exp_pos _).ne', log_exp, cgf]
+  ring
 
 /-- If `X ≤ x` almost surely, then `E[exp (t (X - x))]` tends to `P(X = x)` as `t → ∞`. -/
 theorem tendsto_integral_exp_mul_sub [IsFiniteMeasure P] (hX : AEMeasurable X P)
