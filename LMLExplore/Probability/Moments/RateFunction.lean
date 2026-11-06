@@ -275,15 +275,6 @@ private lemma measure_eq_mk (hX : AEMeasurable X P) :
   filter_upwards [hX.ae_eq_mk] with ω hω
   simp [hω]
 
-/-- If `X ≤ x` almost surely, then `exp (t X)` is integrable for every `t ≥ 0`. -/
-lemma mem_integrableExpSet_of_ae_le [IsFiniteMeasure P] (hX : AEMeasurable X P)
-    (h : ∀ᵐ ω ∂P, X ω ≤ x) (ht : 0 ≤ t) : t ∈ integrableExpSet X P := by
-  refine Integrable.of_bound (C := exp (t * x))
-    (measurable_exp.comp_aemeasurable (hX.const_mul t)).aestronglyMeasurable ?_
-  filter_upwards [h] with ω hω
-  rw [norm_of_nonneg (exp_pos _).le]
-  exact exp_le_exp.2 (mul_le_mul_of_nonneg_left hω ht)
-
 /-! ### The rate function at the essential supremum and beyond -/
 
 section Boundary
@@ -331,8 +322,8 @@ private lemma tendsto_ofReal_neg_log_integral_le (hX : Measurable X) (h : ∀ᵐ
     l ≤ rateFunction X P x := by
   refine le_of_tendsto hl ?_
   filter_upwards [eventually_ge_atTop 0] with t ht
-  rw [← mul_sub_cgf_eq_neg_log (mem_integrableExpSet_of_ae_le hX.aemeasurable h ht)]
-  exact ofReal_le_rateFunction (mem_integrableExpSet_of_ae_le hX.aemeasurable h ht) x
+  rw [← mul_sub_cgf_eq_neg_log (integrable_exp_mul_of_le t x ht hX.aemeasurable h)]
+  exact ofReal_le_rateFunction (integrable_exp_mul_of_le t x ht hX.aemeasurable h) x
 
 private lemma rateFunction_of_ae_le_of_measurable (hX : Measurable X) (h : ∀ᵐ ω ∂P, X ω ≤ x)
     (hx : P {ω | X ω = x} ≠ 0) :
@@ -365,7 +356,7 @@ private lemma rateFunction_eq_top_of_ae_le_of_measurable (hX : Measurable X)
     rwa [measureReal_def, hx, ENNReal.toReal_zero] at h_lim
   · filter_upwards [eventually_ge_atTop 0] with t ht
     exact integral_exp_pos
-      (integrable_exp_mul_sub (mem_integrableExpSet_of_ae_le hX.aemeasurable h ht) x)
+      (integrable_exp_mul_sub (integrable_exp_mul_of_le t x ht hX.aemeasurable h) x)
 
 /-- If `X ≤ x` almost surely and `P(X = x) > 0`, then the rate function at `x` is
 `-log P(X = x)`. -/
@@ -396,12 +387,6 @@ theorem rateFunction_eq_top_of_ae_lt (hX : AEMeasurable X P) (h : ∀ᵐ ω ∂P
   filter_upwards [h] with ω hω
   exact hω.ne
 
-/-- The rate function of `X` at `x` is the rate function of `-X` at `-x`, which reduces the
-statements below the essential infimum to those above the essential supremum. -/
-private lemma rateFunction_eq_neg (X : Ω → ℝ) (P : Measure Ω) (x : ℝ) :
-    rateFunction X P x = rateFunction (-X) P (-x) := by
-  rw [rateFunction_neg, neg_neg]
-
 private lemma setOf_neg_eq (X : Ω → ℝ) (x : ℝ) : {ω | (-X) ω = -x} = {ω | X ω = x} := by
   ext ω
   simp
@@ -411,19 +396,20 @@ private lemma setOf_neg_eq (X : Ω → ℝ) (x : ℝ) : {ω | (-X) ω = -x} = {�
 theorem rateFunction_of_ae_ge (hX : AEMeasurable X P) (h : ∀ᵐ ω ∂P, x ≤ X ω)
     (hx : P {ω | X ω = x} ≠ 0) :
     rateFunction X P x = ENNReal.ofReal (-log (P.real {ω | X ω = x})) := by
-  rw [rateFunction_eq_neg, rateFunction_of_ae_le hX.neg (h.mono fun _ ↦ neg_le_neg)
-    (by rwa [setOf_neg_eq]), setOf_neg_eq]
+  rw [← neg_neg x, ← rateFunction_neg,
+    rateFunction_of_ae_le hX.neg (h.mono fun _ ↦ neg_le_neg) (by rwa [setOf_neg_eq]),
+    setOf_neg_eq, neg_neg]
 
 /-- If `x ≤ X` almost surely and `P(X = x) = 0`, then the rate function at `x` is infinite. -/
 theorem rateFunction_eq_top_of_ae_ge (hX : AEMeasurable X P) (h : ∀ᵐ ω ∂P, x ≤ X ω)
     (hx : P {ω | X ω = x} = 0) : rateFunction X P x = ⊤ := by
-  rw [rateFunction_eq_neg]
+  rw [← neg_neg x, ← rateFunction_neg]
   exact rateFunction_eq_top_of_ae_le hX.neg (h.mono fun _ ↦ neg_le_neg) (by rwa [setOf_neg_eq])
 
 /-- Below the essential infimum of `X`, the rate function is infinite. -/
 theorem rateFunction_eq_top_of_ae_gt (hX : AEMeasurable X P) (h : ∀ᵐ ω ∂P, x < X ω) :
     rateFunction X P x = ⊤ := by
-  rw [rateFunction_eq_neg]
+  rw [← neg_neg x, ← rateFunction_neg]
   exact rateFunction_eq_top_of_ae_lt hX.neg (h.mono fun _ ↦ neg_lt_neg)
 
 end Boundary
