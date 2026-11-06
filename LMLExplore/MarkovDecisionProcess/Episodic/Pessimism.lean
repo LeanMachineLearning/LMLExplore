@@ -93,7 +93,7 @@ theorem integral_value_sub_integral_value_eq_sum_add_sum_sub_sum
     (hQB : ∀ h < H, ∀ s a, |Q h s a| ≤ B) (hVH : ∀ s, V H s = 0)
     (hVQ : ∀ h < H, ∀ s, V h s = ∫ a, Q h s a ∂(π' h s)) :
     ∫ s, M.value H π 0 s ∂μ - ∫ s, M.value H π' 0 s ∂μ =
-      ∑ h ∈ range H, ∫ s, (∫ a, Q h s a ∂(π h s) - V h s) ∂(M.stateMarginal π μ h) +
+      ∑ h ∈ range H, ∫ s, (∫ a, Q h s a ∂(π h s) - V h s) ∂(stateMarginal M.trans π μ h) +
         ∑ h ∈ range H, ∫ p, (M.meanReward h p.1 p.2 + ∫ s', V (h + 1) s' ∂(M.trans h p) -
           Q h p.1 p.2) ∂(M.occupancy π μ h) -
         ∑ h ∈ range H, ∫ p, (M.meanReward h p.1 p.2 + ∫ s', V (h + 1) s' ∂(M.trans h p) -
@@ -104,13 +104,14 @@ theorem integral_value_sub_integral_value_eq_sum_add_sum_sub_sum
   have h₁ := integral_sub_integral_value (π := π) (μ := μ) hM hV hVB hQ hQB
   have h₂ := integral_sub_integral_value (π := π') (μ := μ) hM hV hVB hQ hQB
   -- along `π'`, the mismatch terms vanish
-  have h₀ : ∑ h ∈ range H, ∫ s, (V h s - ∫ a, Q h s a ∂(π' h s)) ∂(M.stateMarginal π' μ h) = 0 :=
+  have h₀ :
+      ∑ h ∈ range H, ∫ s, (V h s - ∫ a, Q h s a ∂(π' h s)) ∂(stateMarginal M.trans π' μ h) = 0 :=
     sum_eq_zero fun h hh ↦ by simp [hVQ h (mem_range.1 hh)]
   rw [h₀, zero_add] at h₂
   simp only [hVH, integral_zero, add_zero] at h₁ h₂
   -- the terms of the statement are the opposites of those of the value difference
-  have e₁ : ∑ h ∈ range H, ∫ s, (∫ a, Q h s a ∂(π h s) - V h s) ∂(M.stateMarginal π μ h) =
-      -∑ h ∈ range H, ∫ s, (V h s - ∫ a, Q h s a ∂(π h s)) ∂(M.stateMarginal π μ h) := by
+  have e₁ : ∑ h ∈ range H, ∫ s, (∫ a, Q h s a ∂(π h s) - V h s) ∂(stateMarginal M.trans π μ h) =
+      -∑ h ∈ range H, ∫ s, (V h s - ∫ a, Q h s a ∂(π h s)) ∂(stateMarginal M.trans π μ h) := by
     rw [← sum_neg_distrib]
     refine sum_congr rfl fun h _ ↦ ?_
     rw [← integral_neg]
@@ -149,7 +150,8 @@ theorem integral_value_sub_integral_value_le_sum (hM : M.RewardsIn (Set.Icc (-C)
         Q h p.1 p.2) ∂(M.occupancy π μ h) := by
   rw [integral_value_sub_integral_value_eq_sum_add_sum_sub_sum hM hQ hQB hVH hVQ]
   -- the optimization errors are nonpositive, since `π'` is greedy
-  have h₁ : ∑ h ∈ range H, ∫ s, (∫ a, Q h s a ∂(π h s) - V h s) ∂(M.stateMarginal π μ h) ≤ 0 := by
+  have h₁ :
+      ∑ h ∈ range H, ∫ s, (∫ a, Q h s a ∂(π h s) - V h s) ∂(stateMarginal M.trans π μ h) ≤ 0 := by
     refine sum_nonpos fun h hh ↦ integral_nonpos fun s ↦ sub_nonpos.2 ?_
     have hh : h < H := mem_range.1 hh
     have hint : Integrable (fun a ↦ Q h s a) (π h s) :=

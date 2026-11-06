@@ -18,8 +18,9 @@ environment `M.env μ` from the initial law `μ`, it collects the mean rewards
 `r (S n, A n) = meanReward M.R (S n, A n)` along its state-action trajectory. This file defines
 * its discounted value `M.runValue γ alg μ`, the expectation of `∑' n, γ ^ n * r (S n, A n)`
   under the trajectory measure `trajMeasure alg (M.env μ)`;
-* its `N`-step return with terminal reward `u`, `M.runReturn N u alg μ`, the expectation of
-  `∑ n < N, r (S n, A n) + u (S N)`;
+* its `N`-step return with discount `γ` and terminal reward `u`, `M.runReturn γ N u alg μ`, the
+  expectation of `∑ n < N, γ ^ n * r (S n, A n) + γ ^ N * u (S N)`; the undiscounted return is
+  the case `γ = 1`;
 * the optimal value `M.optValue γ s`, the supremum of `M.runValue γ alg (dirac s)` over all
   algorithms, and the optimal action value `M.optQValue γ (s, a) = r (s, a) + γ * ∫ v* dP (s, a)`.
 
@@ -28,8 +29,8 @@ These quantities do not depend on the probability space that carries a run: alon
 the same sums, and also of the sums with the realized rewards `Y n` in place of their means. They
 depend on the run only through the laws of the state-action pairs `(S n, A n)`; for instance the
 value is `∑' n, γ ^ n * ∫ r d law (S n, A n)`. For a Markov policy `π`, these laws are the
-marginals `M.stateMarginal π μ n ⊗ₘ π n`, which gives the value and the return of `π` in closed
-form.
+marginals `stateMarginal (fun _ ↦ M.P) π μ n ⊗ₘ π n`, which gives the value and the return of
+`π` in closed form.
 
 With rewards bounded by `C` and `γ < 1`, the value of every algorithm, and the optimal value, are
 bounded by `C / (1 - γ)` in absolute value.
@@ -37,8 +38,8 @@ bounded by `C / (1 - γ)` in absolute value.
 ## Main definitions
 
 * `Learning.MDP.runValue M γ alg μ`: the discounted value of the algorithm `alg` from `μ`.
-* `Learning.MDP.runReturn M N u alg μ`: the `N`-step return of `alg` from `μ`, with terminal
-  reward `u`.
+* `Learning.MDP.runReturn M γ N u alg μ`: the `N`-step return of `alg` from `μ`, with discount
+  `γ` and terminal reward `u`.
 * `Learning.MDP.optValue M γ s`: the optimal discounted value at the state `s`.
 * `Learning.MDP.optQValue M γ p`: the optimal action value at the state-action pair `p`.
 
@@ -53,8 +54,10 @@ For every run `IsAlgEnvSeq S A Y alg (M.env μ) P` with rewards bounded by `C`, 
 
 Moreover:
 * `Learning.MDP.runValue_markov`, `Learning.MDP.runReturn_markov`: the value and the return of a
-  Markov policy `π`, in terms of its state marginals `M.stateMarginal π μ n`;
+  Markov policy `π`, in terms of its state marginals `stateMarginal (fun _ ↦ M.P) π μ n`;
 * `Learning.MDP.abs_runValue_le`, `Learning.MDP.abs_optValue_le`: the bound `C / (1 - γ)`;
+* `Learning.MDP.abs_runReturn_le`: the bound `(∑ n < N, γ ^ n) * C + γ ^ N * B` on the `N`-step
+  return;
 * `Learning.MDP.runValue_le_optValue`, `Learning.MDP.optValue_le_iff`: the optimal value at `s`
   is the least upper bound of the values of the algorithms started at `s`.
 
@@ -90,20 +93,21 @@ lemma runValue_def (alg : Algorithm 𝓢 𝓐 ℝ) (μ : Measure 𝓢) :
       ∂(trajMeasure alg (M.env μ)) :=
   (rfl)
 
-variable (M) in
+variable (M γ) in
 /-- The `N`-step return of the algorithm `alg` in the MDP `M` from the initial law `μ`, with
-terminal reward `u`: the expectation of `∑ n < N, r (S n, A n) + u (S N)` under the law of the
-runs of `alg` in `M.env μ`, where `r` is the mean reward and `S n`, `A n` are the state and the
-action of round `n`. -/
+discount `γ` and terminal reward `u`: the expectation of
+`∑ n < N, γ ^ n * r (S n, A n) + γ ^ N * u (S N)` under the law of the runs of `alg` in
+`M.env μ`, where `r` is the mean reward and `S n`, `A n` are the state and the action of round
+`n`. The undiscounted return is the case `γ = 1`. -/
 noncomputable def runReturn (N : ℕ) (u : 𝓢 → ℝ) (alg : Algorithm 𝓢 𝓐 ℝ) (μ : Measure 𝓢) : ℝ :=
-  ∫ ω, (∑ n ∈ range N, meanReward M.R (IT.obs n ω, IT.action n ω) + u (IT.obs N ω))
-    ∂(trajMeasure alg (M.env μ))
+  ∫ ω, (∑ n ∈ range N, (γ : ℝ) ^ n * meanReward M.R (IT.obs n ω, IT.action n ω) +
+    (γ : ℝ) ^ N * u (IT.obs N ω)) ∂(trajMeasure alg (M.env μ))
 
-variable (M) in
+variable (M γ) in
 lemma runReturn_def (N : ℕ) (u : 𝓢 → ℝ) (alg : Algorithm 𝓢 𝓐 ℝ) (μ : Measure 𝓢) :
-    M.runReturn N u alg μ =
-      ∫ ω, (∑ n ∈ range N, meanReward M.R (IT.obs n ω, IT.action n ω) + u (IT.obs N ω))
-        ∂(trajMeasure alg (M.env μ)) :=
+    M.runReturn γ N u alg μ =
+      ∫ ω, (∑ n ∈ range N, (γ : ℝ) ^ n * meanReward M.R (IT.obs n ω, IT.action n ω) +
+        (γ : ℝ) ^ N * u (IT.obs N ω)) ∂(trajMeasure alg (M.env μ)) :=
   (rfl)
 
 variable (M γ) in
@@ -159,16 +163,22 @@ theorem abs_runValue_le (hγ : γ < 1) (hR : ∀ p, ∀ᵐ x ∂(M.R p), |x| ≤
   exact abs_integral_le_of_abs_le fun ω ↦
     abs_tsum_meanReward_le hγ hR fun n ↦ (IT.obs n ω, IT.action n ω)
 
-/-- With rewards bounded by `C` and a terminal reward bounded by `B`, the `N`-step return of every
-algorithm is bounded by `N * C + B` in absolute value. -/
+/-- With rewards bounded by `C` and a terminal reward bounded by `B`, the `N`-step return with
+discount `γ` of every algorithm is bounded by `(∑ n < N, γ ^ n) * C + γ ^ N * B` in absolute
+value. -/
 theorem abs_runReturn_le (hR : ∀ p, ∀ᵐ x ∂(M.R p), |x| ≤ C) (hu : ∀ s, |u s| ≤ B)
     (alg : Algorithm 𝓢 𝓐 ℝ) (μ : Measure 𝓢) :
-    |M.runReturn N u alg μ| ≤ N * C + B := by
+    |M.runReturn γ N u alg μ| ≤ (∑ n ∈ range N, (γ : ℝ) ^ n) * C + (γ : ℝ) ^ N * B := by
   rw [runReturn_def]
-  refine abs_integral_le_of_abs_le fun ω ↦ (abs_add_le _ _).trans (add_le_add ?_ (hu _))
-  refine (abs_sum_le_sum_abs _ _).trans ?_
-  refine (sum_le_card_nsmul _ _ C fun n _ ↦ ?_).trans_eq (by simp)
-  exact norm_meanReward_le M.R (hR (IT.obs n ω, IT.action n ω))
+  refine abs_integral_le_of_abs_le fun ω ↦ (abs_add_le _ _).trans (add_le_add ?_ ?_)
+  · rw [sum_mul]
+    refine (abs_sum_le_sum_abs _ _).trans (sum_le_sum fun n _ ↦ ?_)
+    rw [abs_mul, abs_of_nonneg (by positivity)]
+    gcongr
+    exact norm_meanReward_le M.R (hR (IT.obs n ω, IT.action n ω))
+  · rw [abs_mul, abs_of_nonneg (by positivity)]
+    gcongr
+    exact hu _
 
 /-! ### Values along a run -/
 
@@ -194,25 +204,29 @@ private lemma integral_tsum_meanReward (h : IsAlgEnvSeq S A Y alg (M.env μ) P) 
   refine tsum_congr fun n ↦ ?_
   rw [integral_map (hm n).aemeasurable (measurable_meanReward M.R).aestronglyMeasurable]
 
-/-- Along a run in an MDP, the expectation of the `N`-step sum of the mean rewards plus the
-terminal reward is the sum of their expectations. -/
+/-- Along a run in an MDP, the expectation of the discounted `N`-step sum of the mean rewards
+plus the discounted terminal reward is the discounted sum of their expectations. -/
 private lemma integral_sum_meanReward_add (h : IsAlgEnvSeq S A Y alg (M.env μ) P)
     (hR : ∀ p, ∀ᵐ x ∂(M.R p), |x| ≤ C) (hu_meas : Measurable u) (hu : ∀ s, |u s| ≤ B) :
-    ∫ ω, (∑ n ∈ range N, meanReward M.R (S n ω, A n ω) + u (S N ω)) ∂P =
-      ∑ n ∈ range N, ∫ p, meanReward M.R p ∂(P.map fun ω ↦ (S n ω, A n ω)) +
-        ∫ s, u s ∂(P.map (S N)) := by
+    ∫ ω, (∑ n ∈ range N, (γ : ℝ) ^ n * meanReward M.R (S n ω, A n ω) +
+        (γ : ℝ) ^ N * u (S N ω)) ∂P =
+      ∑ n ∈ range N, (γ : ℝ) ^ n * ∫ p, meanReward M.R p ∂(P.map fun ω ↦ (S n ω, A n ω)) +
+        (γ : ℝ) ^ N * ∫ s, u s ∂(P.map (S N)) := by
   have hm (n : ℕ) : Measurable fun ω ↦ (S n ω, A n ω) := h.measurable_obs_action n
   have hr (p : 𝓢 × 𝓐) : |meanReward M.R p| ≤ C := norm_meanReward_le M.R (hR p)
   have h_int (n : ℕ) : Integrable (fun ω ↦ meanReward M.R (S n ω, A n ω)) P :=
     integrable_of_abs_le ((measurable_meanReward M.R).comp (hm n)) (fun ω ↦ hr _) P
-  rw [integral_add (integrable_finsetSum _ fun n _ ↦ h_int n)
-      (integrable_of_abs_le (f := fun ω ↦ u (S N ω)) (hu_meas.comp (h.measurable_obs N))
-        (fun ω ↦ hu _) P),
-    integral_finsetSum _ fun n _ ↦ h_int n,
+  have hu_int : Integrable (fun ω ↦ u (S N ω)) P :=
+    integrable_of_abs_le (f := fun ω ↦ u (S N ω)) (hu_meas.comp (h.measurable_obs N))
+      (fun ω ↦ hu _) P
+  rw [integral_add (integrable_finsetSum _ fun n _ ↦ (h_int n).const_mul _)
+      (hu_int.const_mul _),
+    integral_finsetSum _ fun n _ ↦ (h_int n).const_mul _, integral_const_mul,
     integral_map (h.measurable_obs N).aemeasurable hu_meas.aestronglyMeasurable]
   congr 1
   refine sum_congr rfl fun n _ ↦ ?_
-  rw [integral_map (hm n).aemeasurable (measurable_meanReward M.R).aestronglyMeasurable]
+  rw [integral_const_mul,
+    integral_map (hm n).aemeasurable (measurable_meanReward M.R).aestronglyMeasurable]
 
 /-- **Marginal formula of the discounted value**: along every run of `alg` in `M.env μ`, with
 bounded rewards and `γ < 1`, the discounted value of `alg` is
@@ -245,41 +259,46 @@ theorem runValue_eq_integral_feedback (h : IsAlgEnvSeq S A Y alg (M.env μ) P) (
   simp_rw [integral_feedback h hR]
 
 /-- **Marginal formula of the `N`-step return**: along every run of `alg` in `M.env μ`, with
-bounded rewards and a bounded measurable terminal reward `u`, the `N`-step return of `alg` is
-`∑ n < N, ∫ r d law (S n, A n) + ∫ u d law (S N)`. -/
+bounded rewards and a bounded measurable terminal reward `u`, the `N`-step return of `alg` with
+discount `γ` is `∑ n < N, γ ^ n * ∫ r d law (S n, A n) + γ ^ N * ∫ u d law (S N)`. -/
 theorem runReturn_eq_sum (h : IsAlgEnvSeq S A Y alg (M.env μ) P)
     (hR : ∀ p, ∀ᵐ x ∂(M.R p), |x| ≤ C) (hu_meas : Measurable u) (hu : ∀ s, |u s| ≤ B) :
-    M.runReturn N u alg μ =
-      ∑ n ∈ range N, ∫ p, meanReward M.R p ∂(P.map fun ω ↦ (S n ω, A n ω)) +
-        ∫ s, u s ∂(P.map (S N)) := by
+    M.runReturn γ N u alg μ =
+      ∑ n ∈ range N, (γ : ℝ) ^ n * ∫ p, meanReward M.R p ∂(P.map fun ω ↦ (S n ω, A n ω)) +
+        (γ : ℝ) ^ N * ∫ s, u s ∂(P.map (S N)) := by
   rw [runReturn_def, integral_sum_meanReward_add (IT.isAlgEnvSeq_trajMeasure alg (M.env μ)) hR
     hu_meas hu, h.map_obs]
   simp_rw [h.map_obs_action]
 
 /-- Along every run of `alg` in `M.env μ`, with bounded rewards and a bounded measurable terminal
-reward `u`, the `N`-step return of `alg` is the expectation of `∑ n < N, r (S n, A n) + u (S N)`.
--/
+reward `u`, the `N`-step return of `alg` with discount `γ` is the expectation of
+`∑ n < N, γ ^ n * r (S n, A n) + γ ^ N * u (S N)`. -/
 theorem runReturn_eq_integral (h : IsAlgEnvSeq S A Y alg (M.env μ) P)
     (hR : ∀ p, ∀ᵐ x ∂(M.R p), |x| ≤ C) (hu_meas : Measurable u) (hu : ∀ s, |u s| ≤ B) :
-    M.runReturn N u alg μ =
-      ∫ ω, (∑ n ∈ range N, meanReward M.R (S n ω, A n ω) + u (S N ω)) ∂P := by
+    M.runReturn γ N u alg μ =
+      ∫ ω, (∑ n ∈ range N, (γ : ℝ) ^ n * meanReward M.R (S n ω, A n ω) +
+        (γ : ℝ) ^ N * u (S N ω)) ∂P := by
   rw [runReturn_eq_sum h hR hu_meas hu, integral_sum_meanReward_add h hR hu_meas hu]
 
 /-- Along every run of `alg` in `M.env μ`, with bounded rewards and a bounded measurable terminal
-reward `u`, the `N`-step return of `alg` is the expectation of `∑ n < N, Y n + u (S N)`, with the
-realized rewards `Y n`. -/
+reward `u`, the `N`-step return of `alg` with discount `γ` is the expectation of
+`∑ n < N, γ ^ n * Y n + γ ^ N * u (S N)`, with the realized rewards `Y n`. -/
 theorem runReturn_eq_integral_feedback (h : IsAlgEnvSeq S A Y alg (M.env μ) P)
     (hR : ∀ p, ∀ᵐ x ∂(M.R p), |x| ≤ C) (hu_meas : Measurable u) (hu : ∀ s, |u s| ≤ B) :
-    M.runReturn N u alg μ = ∫ ω, (∑ n ∈ range N, Y n ω + u (S N ω)) ∂P := by
+    M.runReturn γ N u alg μ =
+      ∫ ω, (∑ n ∈ range N, (γ : ℝ) ^ n * Y n ω + (γ : ℝ) ^ N * u (S N ω)) ∂P := by
   have h_int (n : ℕ) : Integrable (Y n) P :=
     .of_bound (h.measurable_feedback n).aestronglyMeasurable C
       (ae_abs_feedback_le h hR n)
-  rw [integral_add (integrable_finsetSum _ fun n _ ↦ h_int n)
-      (integrable_of_abs_le (f := fun ω ↦ u (S N ω)) (hu_meas.comp (h.measurable_obs N))
-        (fun ω ↦ hu _) P),
-    integral_finsetSum _ fun n _ ↦ h_int n, runReturn_eq_sum h hR hu_meas hu,
+  have hu_int : Integrable (fun ω ↦ u (S N ω)) P :=
+    integrable_of_abs_le (f := fun ω ↦ u (S N ω)) (hu_meas.comp (h.measurable_obs N))
+      (fun ω ↦ hu _) P
+  rw [integral_add (integrable_finsetSum _ fun n _ ↦ (h_int n).const_mul _)
+      (hu_int.const_mul _),
+    integral_finsetSum _ fun n _ ↦ (h_int n).const_mul _, integral_const_mul,
+    runReturn_eq_sum h hR hu_meas hu,
     integral_map (h.measurable_obs N).aemeasurable hu_meas.aestronglyMeasurable]
-  simp_rw [integral_feedback h hR]
+  simp_rw [integral_const_mul, integral_feedback h hR]
 
 end Runs
 
@@ -291,24 +310,26 @@ variable {π : ℕ → Kernel 𝓢 𝓐} [∀ n, IsMarkovKernel (π n)] {μ : Me
   [IsProbabilityMeasure μ]
 
 /-- With bounded rewards and `γ < 1`, the discounted value of the Markov policy `π` from the
-probability measure `μ` is `∑' n, γ ^ n * ∫ r d(μₙ ⊗ₘ π n)`, where `μₙ = M.stateMarginal π μ n`
-is the law of the state of round `n`. -/
+probability measure `μ` is `∑' n, γ ^ n * ∫ r d(μₙ ⊗ₘ π n)`, where
+`μₙ = stateMarginal (fun _ ↦ M.P) π μ n` is the law of the state of round `n`. -/
 theorem runValue_markov (hγ : γ < 1) (hR : ∀ p, ∀ᵐ x ∂(M.R p), |x| ≤ C) :
     M.runValue γ (Algorithm.markov π) μ =
-      ∑' n, (γ : ℝ) ^ n * ∫ p, meanReward M.R p ∂(M.stateMarginal π μ n ⊗ₘ π n) := by
+      ∑' n, (γ : ℝ) ^ n *
+        ∫ p, meanReward M.R p ∂(stateMarginal (fun _ ↦ M.P) π μ n ⊗ₘ π n) := by
   have h := IT.isAlgEnvSeq_trajMeasure (Algorithm.markov π) (M.env μ)
   rw [runValue_eq_tsum h hγ hR]
   simp_rw [(hasLaw_obs_action_markov h _).map_eq]
 
-/-- With bounded rewards and a bounded measurable terminal reward `u`, the `N`-step return of the
-Markov policy `π` from the probability measure `μ` is
-`∑ n < N, ∫ r d(μₙ ⊗ₘ π n) + ∫ u dμ_N`, where `μₙ = M.stateMarginal π μ n` is the law of the
-state of round `n`. -/
+/-- With bounded rewards and a bounded measurable terminal reward `u`, the `N`-step return with
+discount `γ` of the Markov policy `π` from the probability measure `μ` is
+`∑ n < N, γ ^ n * ∫ r d(μₙ ⊗ₘ π n) + γ ^ N * ∫ u dμ_N`, where
+`μₙ = stateMarginal (fun _ ↦ M.P) π μ n` is the law of the state of round `n`. -/
 theorem runReturn_markov (hR : ∀ p, ∀ᵐ x ∂(M.R p), |x| ≤ C) (hu_meas : Measurable u)
     (hu : ∀ s, |u s| ≤ B) :
-    M.runReturn N u (Algorithm.markov π) μ =
-      ∑ n ∈ range N, ∫ p, meanReward M.R p ∂(M.stateMarginal π μ n ⊗ₘ π n) +
-        ∫ s, u s ∂(M.stateMarginal π μ N) := by
+    M.runReturn γ N u (Algorithm.markov π) μ =
+      ∑ n ∈ range N, (γ : ℝ) ^ n *
+          ∫ p, meanReward M.R p ∂(stateMarginal (fun _ ↦ M.P) π μ n ⊗ₘ π n) +
+        (γ : ℝ) ^ N * ∫ s, u s ∂(stateMarginal (fun _ ↦ M.P) π μ N) := by
   have h := IT.isAlgEnvSeq_trajMeasure (Algorithm.markov π) (M.env μ)
   rw [runReturn_eq_sum h hR hu_meas hu, (hasLaw_obs_markov h N).map_eq]
   simp_rw [(hasLaw_obs_action_markov h _).map_eq]

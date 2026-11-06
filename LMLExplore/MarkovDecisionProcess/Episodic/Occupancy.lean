@@ -17,6 +17,9 @@ law `μ` of the state at the step `0`, the state marginals `μ_h` and the occupa
 * `μ_0 = μ` and `μ_{h+1} = P_h ∘ₘ d^π_h`;
 * `d^π_h = μ_h ⊗ₘ π_h`.
 
+The state marginals are those of the sequence of transition kernels `M.trans`,
+`Learning.MDP.stateMarginal M.trans π μ`, the definition shared with stationary MDPs.
+
 Along every run of `π` in the time-augmented MDP `M.augmented` started at the step `0`, `μ_h` is
 the law of the state of round `h` and `d^π_h` is the law of the state-action pair of round `h`
 (`hasLaw_obs_fst_markov`, `hasLaw_obs_fst_action_markov`). The occupancy measures satisfy the flow
@@ -33,13 +36,13 @@ episodic counterparts of those of the discounted occupancy measure `Learning.MDP
 
 ## Main definitions
 
-* `Learning.MDP.Episodic.EpisodicMDP.stateMarginal M π μ h`: the law `μ_h` of the state at the
-  step `h`.
 * `Learning.MDP.Episodic.EpisodicMDP.occupancy M π μ h`: the occupancy measure `d^π_h`, the law of
   the state-action pair at the step `h`.
 
 ## Main statements
 
+* `Learning.MDP.Episodic.EpisodicMDP.stateMarginal_trans_add_one`: the recursion
+  `μ_{h+1} = P_h ∘ₘ d^π_h` of the state marginals.
 * `Learning.MDP.Episodic.EpisodicMDP.occupancy_fst`,
   `Learning.MDP.Episodic.EpisodicMDP.occupancy_add_one_fst`: the state marginal of `d^π_h` is
   `μ_h`, and the flow equation `(d^π_{h+1}).fst = P_h ∘ₘ d^π_h`.
@@ -80,48 +83,26 @@ section Defs
 
 variable (M : EpisodicMDP 𝓢 𝓐) (π : ℕ → Kernel 𝓢 𝓐) (μ : Measure 𝓢)
 
-/-- The law `μ_h` of the state at the step `h` under the Markov policy `π`, from the initial law
-`μ` at the step `0`: `μ_0 = μ` and `μ_{h+1} = P_h ∘ₘ (μ_h ⊗ₘ π_h)`. -/
-noncomputable def stateMarginal : ℕ → Measure 𝓢
-  | 0 => μ
-  | h + 1 => M.trans h ∘ₘ (stateMarginal h ⊗ₘ π h)
-
 /-- The occupancy measure `d^π_h = μ_h ⊗ₘ π_h` of the Markov policy `π` at the step `h`, from the
 initial law `μ` at the step `0`: the law of the state-action pair at the step `h`. -/
 noncomputable def occupancy (h : ℕ) : Measure (𝓢 × 𝓐) :=
-  M.stateMarginal π μ h ⊗ₘ π h
+  stateMarginal M.trans π μ h ⊗ₘ π h
 
-lemma occupancy_def (h : ℕ) : M.occupancy π μ h = M.stateMarginal π μ h ⊗ₘ π h :=
+lemma occupancy_def (h : ℕ) : M.occupancy π μ h = stateMarginal M.trans π μ h ⊗ₘ π h :=
   (rfl)
+
+/-- The law `μ_{h+1}` of the state at the step `h + 1` is `P_h ∘ₘ d^π_h`. -/
+lemma stateMarginal_trans_add_one (h : ℕ) :
+    stateMarginal M.trans π μ (h + 1) = M.trans h ∘ₘ M.occupancy π μ h := by
+  rw [stateMarginal_add_one, occupancy_def]
 
 @[simp]
-lemma stateMarginal_zero : M.stateMarginal π μ 0 = μ :=
-  (rfl)
-
-/-- The state marginal at the step `h + 1` is the occupancy measure at the step `h` composed with
-the transition kernel `P_h`. -/
-lemma stateMarginal_add_one (h : ℕ) :
-    M.stateMarginal π μ (h + 1) = M.trans h ∘ₘ M.occupancy π μ h :=
-  (rfl)
-
-@[simp]
-lemma occupancy_zero : M.occupancy π μ 0 = μ ⊗ₘ π 0 :=
-  (rfl)
-
-instance [SFinite μ] (h : ℕ) : SFinite (M.stateMarginal π μ h) := by
-  induction h with
-  | zero => rwa [stateMarginal_zero]
-  | succ h ih => rw [stateMarginal_add_one, occupancy_def]; infer_instance
+lemma occupancy_zero : M.occupancy π μ 0 = μ ⊗ₘ π 0 := by
+  rw [occupancy_def, stateMarginal_zero]
 
 instance (h : ℕ) : SFinite (M.occupancy π μ h) := by
   rw [occupancy_def]
   infer_instance
-
-instance [IsProbabilityMeasure μ] [∀ h, IsMarkovKernel (π h)] (h : ℕ) :
-    IsProbabilityMeasure (M.stateMarginal π μ h) := by
-  induction h with
-  | zero => rwa [stateMarginal_zero]
-  | succ h ih => rw [stateMarginal_add_one, occupancy_def]; infer_instance
 
 instance [IsProbabilityMeasure μ] [∀ h, IsMarkovKernel (π h)] (h : ℕ) :
     IsProbabilityMeasure (M.occupancy π μ h) := by
@@ -132,14 +113,14 @@ variable [SFinite μ] [∀ h, IsMarkovKernel (π h)]
 
 /-- The state marginal of the occupancy measure at the step `h` is the law `μ_h` of the state. -/
 @[simp]
-lemma occupancy_fst (h : ℕ) : (M.occupancy π μ h).fst = M.stateMarginal π μ h :=
+lemma occupancy_fst (h : ℕ) : (M.occupancy π μ h).fst = stateMarginal M.trans π μ h :=
   Measure.fst_compProd _ _
 
 /-- **The flow equation** of the occupancy measures: the state marginal of `d^π_{h+1}` is
 `P_h ∘ₘ d^π_h`. -/
 theorem occupancy_add_one_fst (h : ℕ) :
     (M.occupancy π μ (h + 1)).fst = M.trans h ∘ₘ M.occupancy π μ h := by
-  rw [occupancy_fst, stateMarginal_add_one]
+  rw [occupancy_fst, stateMarginal_trans_add_one]
 
 end Defs
 
@@ -153,8 +134,8 @@ variable {M : EpisodicMDP 𝓢 𝓐} {π : ℕ → Kernel 𝓢 𝓐} {μ : Measu
 integral against the law `μ_h` of the state. -/
 lemma integral_occupancy_fst [SFinite μ] [∀ h, IsMarkovKernel (π h)] {E : Type*}
     [NormedAddCommGroup E] [NormedSpace ℝ E] {h : ℕ}
-    {f : 𝓢 → E} (hf : AEStronglyMeasurable f (M.stateMarginal π μ h)) :
-    ∫ p, f p.1 ∂(M.occupancy π μ h) = ∫ s, f s ∂(M.stateMarginal π μ h) := by
+    {f : 𝓢 → E} (hf : AEStronglyMeasurable f (stateMarginal M.trans π μ h)) :
+    ∫ p, f p.1 ∂(M.occupancy π μ h) = ∫ s, f s ∂(stateMarginal M.trans π μ h) := by
   rw [← occupancy_fst M π μ h] at hf ⊢
   exact (integral_map measurable_fst.aemeasurable hf).symm
 
@@ -162,10 +143,10 @@ lemma integral_occupancy_fst [SFinite μ] [∀ h, IsMarkovKernel (π h)] {E : Ty
 the integral against the occupancy measure at the step `h` of the integral of `f` against the
 transition kernel `P_h`. -/
 lemma integral_stateMarginal_add_one {E : Type*} [NormedAddCommGroup E] [NormedSpace ℝ E]
-    {h : ℕ} {f : 𝓢 → E} (hf : Integrable f (M.stateMarginal π μ (h + 1))) :
-    ∫ s, f s ∂(M.stateMarginal π μ (h + 1)) =
+    {h : ℕ} {f : 𝓢 → E} (hf : Integrable f (stateMarginal M.trans π μ (h + 1))) :
+    ∫ s, f s ∂(stateMarginal M.trans π μ (h + 1)) =
       ∫ p, ∫ s, f s ∂(M.trans h p) ∂(M.occupancy π μ h) := by
-  rw [stateMarginal_add_one, Measure.comp_eq_comp_const_apply] at hf ⊢
+  rw [stateMarginal_trans_add_one, Measure.comp_eq_comp_const_apply] at hf ⊢
   rw [Kernel.integral_comp hf, Kernel.const_apply]
 
 /-- The integral of a function `f` of the state-action pair against the occupancy measure `d^π_h`
@@ -174,7 +155,7 @@ is the integral against the law `μ_h` of the state of the integral of `f` again
 lemma integral_occupancy [SFinite μ] [∀ h, IsMarkovKernel (π h)] {E : Type*}
     [NormedAddCommGroup E] [NormedSpace ℝ E] {h : ℕ} {f : 𝓢 × 𝓐 → E}
     (hf : Integrable f (M.occupancy π μ h)) :
-    ∫ p, f p ∂(M.occupancy π μ h) = ∫ s, ∫ a, f (s, a) ∂(π h s) ∂(M.stateMarginal π μ h) := by
+    ∫ p, f p ∂(M.occupancy π μ h) = ∫ s, ∫ a, f (s, a) ∂(π h s) ∂(stateMarginal M.trans π μ h) := by
   rw [occupancy_def] at hf ⊢
   exact Measure.integral_compProd hf
 
@@ -182,9 +163,9 @@ lemma integral_occupancy [SFinite μ] [∀ h, IsMarkovKernel (π h)] {E : Type*}
 integral of `V s - Q (s, a)` against the occupancy measure `d^π_h`. -/
 lemma integral_sub_integral_stateMarginal [SFinite μ] [∀ h, IsMarkovKernel (π h)] {E : Type*}
     [NormedAddCommGroup E] [NormedSpace ℝ E] [CompleteSpace E] {h : ℕ} {V : 𝓢 → E}
-    {Q : 𝓢 → 𝓐 → E} (hV : Integrable V (M.stateMarginal π μ h))
+    {Q : 𝓢 → 𝓐 → E} (hV : Integrable V (stateMarginal M.trans π μ h))
     (hQ : Integrable (fun p : 𝓢 × 𝓐 ↦ Q p.1 p.2) (M.occupancy π μ h)) :
-    ∫ s, (V s - ∫ a, Q s a ∂(π h s)) ∂(M.stateMarginal π μ h) =
+    ∫ s, (V s - ∫ a, Q s a ∂(π h s)) ∂(stateMarginal M.trans π μ h) =
       ∫ p, (V p.1 - Q p.1 p.2) ∂(M.occupancy π μ h) := by
   rw [occupancy_def] at hQ ⊢
   exact Measure.integral_sub_integral_eq_integral_compProd hV hQ
@@ -199,7 +180,7 @@ theorem integral_eq_sum_integral_occupancy_add {V : ℕ → 𝓢 → ℝ} (hV : 
     {B : ℝ} (hVB : ∀ h s, |V h s| ≤ B) (H : ℕ) :
     ∫ s, V 0 s ∂μ =
       ∑ h ∈ range H, ∫ p, (V h p.1 - ∫ s', V (h + 1) s' ∂(M.trans h p)) ∂(M.occupancy π μ h) +
-        ∫ s, V H s ∂(M.stateMarginal π μ H) := by
+        ∫ s, V H s ∂(stateMarginal M.trans π μ H) := by
   induction H with
   | zero => simp
   | succ H ih =>
@@ -216,7 +197,7 @@ theorem integral_eq_sum_integral_occupancy_add {V : ℕ → 𝓢 → ℝ} (hV : 
 theorem integral_qValue_occupancy {a b : ℝ} (hM : M.RewardsIn (Set.Icc a b)) {H h : ℕ}
     (hh : h < H) :
     ∫ p, M.qValue H π h p.1 p.2 ∂(M.occupancy π μ h) =
-      ∫ s, M.value H π h s ∂(M.stateMarginal π μ h) := by
+      ∫ s, M.value H π h s ∂(stateMarginal M.trans π μ h) := by
   rw [integral_occupancy (.of_mem_Icc _ _ (measurable_qValue h).aemeasurable
     (.of_forall fun p ↦ qValue_mem_Icc hM hh p.1 p.2))]
   exact integral_congr_ae (.of_forall fun s ↦ (value_of_lt hh s).symm)
@@ -272,13 +253,15 @@ from the law `μ.map Prod.fst` of the initial state. -/
 theorem hasLaw_obs_fst_markov (hμ : ∀ᵐ p ∂μ, p.2 = 0)
     (h : IsAlgEnvSeq O A Y (Algorithm.markov fun _ ↦ augMarkovPolicy π) (M.augmented.env μ) P)
     (n : ℕ) :
-    HasLaw (fun ω ↦ (O n ω).1) (M.stateMarginal π (μ.map Prod.fst) n) P := by
+    HasLaw (fun ω ↦ (O n ω).1) (stateMarginal M.trans π (μ.map Prod.fst) n) P := by
   induction n with
-  | zero => exact (hasLaw_map measurable_fst.aemeasurable).fun_comp (MDP.hasLaw_obs_zero h)
+  | zero =>
+    rw [stateMarginal_zero]
+    exact (hasLaw_map measurable_fst.aemeasurable).fun_comp (MDP.hasLaw_obs_zero h)
   | succ n ih =>
     have h_pair := ih.prodMk_of_hasCondDistrib (hasCondDistrib_action_obs_fst_markov hμ h n)
     have h_next := (hasCondDistrib_obs_fst_add_one hμ h n).hasLaw_comp
-    rwa [h_pair.map_eq, zero_add] at h_next
+    rwa [h_pair.map_eq, zero_add, ← occupancy_def, ← stateMarginal_trans_add_one] at h_next
 
 /-- Along a run of the Markov policy `π` in the augmented MDP from an initial law `μ`
 concentrated on the step `0`, the state-action pair of round `h` has law `d^π_h`, the occupancy

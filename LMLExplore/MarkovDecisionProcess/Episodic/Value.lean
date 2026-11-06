@@ -62,9 +62,10 @@ Apache 2.0), from deterministic to stochastic Markov policies.
 * `Learning.MDP.Episodic.EpisodicMDP.hasCondDistrib_action_obs_fst_markov`: along a run of
   `augMarkovPolicy π` started at the step `h₀`, the action of round `n` has conditional law
   `π (h₀ + n)` given the state of round `n`.
-* `Learning.MDP.Episodic.EpisodicMDP.runReturn_augmented_markov`: the `(H - h)`-step return in
-  the augmented MDP of `augMarkovPolicy π`, from an initial law `μ` concentrated on the step `h`,
-  is `∫ V^π_h dμ`; `runReturn_augmented_markov_dirac` is the case of a Dirac mass at `(s, h)`.
+* `Learning.MDP.Episodic.EpisodicMDP.runReturn_augmented_markov`: the undiscounted `(H - h)`-step
+  return `M.augmented.runReturn 1 (H - h) 0` in the augmented MDP of `augMarkovPolicy π`, from an
+  initial law `μ` concentrated on the step `h`, is `∫ V^π_h dμ`;
+  `runReturn_augmented_markov_dirac` is the case of a Dirac mass at `(s, h)`.
 * `Learning.MDP.Episodic.EpisodicMDP.integral_sum_feedback_eq_integral_value`: the same identity
   along every run, for the expected sum of the realized rewards.
 
@@ -318,24 +319,26 @@ private lemma integral_value_obs (hM : M.RewardsIn (Set.Icc (-C) C)) (hμ : ∀�
   have hR := hM.ae_abs_augmented_R_le
   have hlaw := MDP.hasLaw_obs_markov h n
   -- the state of round `n` is almost surely at the step `h₀ + n`
-  have h_step : ∀ᵐ q ∂(M.augmented.stateMarginal (fun _ ↦ augMarkovPolicy π) μ n),
+  have h_step : ∀ᵐ q ∂(stateMarginal (fun _ ↦ M.augmented.P) (fun _ ↦ augMarkovPolicy π) μ n),
       q.2 = h₀ + n := by
     rw [← hlaw.map_eq]
     exact (ae_map_iff (h.measurable_obs n).aemeasurable
       (measurable_snd (measurableSet_singleton _))).2 (ae_obs_snd_eq hμ h n)
   calc ∫ ω, M.value H π (O n ω).2 (O n ω).1 ∂P
-      = ∫ q, M.value H π q.2 q.1 ∂(M.augmented.stateMarginal (fun _ ↦ augMarkovPolicy π) μ n) :=
+      = ∫ q, M.value H π q.2 q.1
+          ∂(stateMarginal (fun _ ↦ M.augmented.P) (fun _ ↦ augMarkovPolicy π) μ n) :=
         hlaw.integral_comp hW.aestronglyMeasurable
     _ = ∫ q, ∫ a', M.augmented.lookahead 1 (fun q ↦ M.value H π q.2 q.1) (q, a')
           ∂(augMarkovPolicy π q)
-          ∂(M.augmented.stateMarginal (fun _ ↦ augMarkovPolicy π) μ n) := by
+          ∂(stateMarginal (fun _ ↦ M.augmented.P) (fun _ ↦ augMarkovPolicy π) μ n) := by
         refine integral_congr_ae (h_step.mono fun q hq ↦ ?_)
         obtain ⟨s, k⟩ := q
         simp only at hq
         simp_rw [lookahead_augmented_value, augMarkovPolicy_apply]
         exact value_of_lt (hq ▸ hn) s
     _ = ∫ p, M.augmented.lookahead 1 (fun q ↦ M.value H π q.2 q.1) p
-          ∂(M.augmented.stateMarginal (fun _ ↦ augMarkovPolicy π) μ n ⊗ₘ augMarkovPolicy π) :=
+          ∂(stateMarginal (fun _ ↦ M.augmented.P) (fun _ ↦ augMarkovPolicy π) μ n ⊗ₘ
+            augMarkovPolicy π) :=
         (Measure.integral_compProd (integrable_of_abs_le (MDP.measurable_lookahead hW)
           (MDP.abs_lookahead_le hR hWB) _)).symm
     _ = ∫ ω, M.augmented.lookahead 1 (fun q ↦ M.value H π q.2 q.1) (O n ω, A n ω) ∂P :=
@@ -360,19 +363,19 @@ private lemma integral_value_obs_zero (hM : M.RewardsIn (Set.Icc (-C) C))
     rw [ih (by omega), integral_value_obs hM hμ h (by omega), sum_range_succ, add_assoc]
 
 /-- **The values are the returns of the augmented MDP.** For rewards in `[-C, C]` and an initial
-law `μ` concentrated on the step `h`, the `(H - h)`-step return, in the augmented MDP and without
-terminal reward, of the stationary policy `augMarkovPolicy π` is the integral of the value
-`V^π_h` against `μ`. -/
+law `μ` concentrated on the step `h`, the undiscounted `(H - h)`-step return, in the augmented MDP
+and without terminal reward, of the stationary policy `augMarkovPolicy π` is the integral of the
+value `V^π_h` against `μ`. -/
 theorem runReturn_augmented_markov (hM : M.RewardsIn (Set.Icc (-C) C)) {h : ℕ}
     (hμ : ∀ᵐ p ∂μ, p.2 = h) :
-    M.augmented.runReturn (H - h) 0 (Algorithm.markov fun _ ↦ augMarkovPolicy π) μ =
+    M.augmented.runReturn 1 (H - h) 0 (Algorithm.markov fun _ ↦ augMarkovPolicy π) μ =
       ∫ p, M.value H π h p.1 ∂μ := by
   have hrun := IT.isAlgEnvSeq_trajMeasure (Algorithm.markov fun _ ↦ augMarkovPolicy π)
     (M.augmented.env μ)
   have hW := measurable_value_augmented (M := M) (H := H) (π := π)
   rw [MDP.runReturn_eq_sum hrun hM.ae_abs_augmented_R_le (u := 0) measurable_zero (B := 0)
     (by simp)]
-  simp only [Pi.zero_apply, integral_zero, add_zero]
+  simp only [NNReal.coe_one, one_pow, one_mul, Pi.zero_apply, integral_zero, mul_zero, add_zero]
   -- the value of the initial state is `V^π_h` since the initial step is `h`
   have h_init : ∫ p, M.value H π h p.1 ∂μ =
       ∫ ω, M.value H π (IT.obs 0 ω).2 (IT.obs 0 ω).1
@@ -389,11 +392,11 @@ theorem runReturn_augmented_markov (hM : M.RewardsIn (Set.Icc (-C) C)) {h : ℕ}
   rw [integral_map (hrun.measurable_obs_action n).aemeasurable
     (MDP.measurable_meanReward _).aestronglyMeasurable]
 
-/-- For rewards in `[-C, C]`, the `(H - h)`-step return, in the augmented MDP and without
-terminal reward, of the stationary policy `augMarkovPolicy π` started at the state `s` and the
-step `h` is the value `V^π_h s`. -/
+/-- For rewards in `[-C, C]`, the undiscounted `(H - h)`-step return, in the augmented MDP and
+without terminal reward, of the stationary policy `augMarkovPolicy π` started at the state `s` and
+the step `h` is the value `V^π_h s`. -/
 theorem runReturn_augmented_markov_dirac (hM : M.RewardsIn (Set.Icc (-C) C)) (h : ℕ) (s : 𝓢) :
-    M.augmented.runReturn (H - h) 0 (Algorithm.markov fun _ ↦ augMarkovPolicy π)
+    M.augmented.runReturn 1 (H - h) 0 (Algorithm.markov fun _ ↦ augMarkovPolicy π)
       (Measure.dirac (s, h)) = M.value H π h s := by
   rw [runReturn_augmented_markov hM
       ((ae_dirac_iff (p := fun q : 𝓢 × ℕ ↦ q.2 = h)

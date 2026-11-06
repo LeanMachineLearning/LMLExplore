@@ -84,10 +84,10 @@ theorem integral_sub_integral_value (hM : M.RewardsIn (Set.Icc (-C) C))
     (hQ : ∀ h < H, Measurable fun p : 𝓢 × 𝓐 ↦ Q h p.1 p.2)
     (hQB : ∀ h < H, ∀ s a, |Q h s a| ≤ B') :
     ∫ s, V 0 s ∂μ - ∫ s, M.value H π 0 s ∂μ =
-      ∑ h ∈ range H, ∫ s, (V h s - ∫ a, Q h s a ∂(π h s)) ∂(M.stateMarginal π μ h) +
+      ∑ h ∈ range H, ∫ s, (V h s - ∫ a, Q h s a ∂(π h s)) ∂(stateMarginal M.trans π μ h) +
         ∑ h ∈ range H, ∫ p, (Q h p.1 p.2 - M.meanReward h p.1 p.2 -
           ∫ s', V (h + 1) s' ∂(M.trans h p)) ∂(M.occupancy π μ h) +
-        ∫ s, V H s ∂(M.stateMarginal π μ H) := by
+        ∫ s, V H s ∂(stateMarginal M.trans π μ H) := by
   -- extend `V` by zero beyond the horizon, to apply the telescoping identity
   set W : ℕ → 𝓢 → ℝ := fun h ↦ if h ≤ H then V h else 0
   have hWV {h : ℕ} (hh : h ≤ H) : W h = V h := by simp [W, hh]
@@ -162,7 +162,7 @@ theorem integral_integral_sub_integral_value (hM : M.RewardsIn (Set.Icc (-C) C))
     (hQB : ∀ h < H, ∀ s a, |Q h s a| ≤ B) (hQH : ∀ s a, Q H s a = 0) :
     ∫ s, ∫ a, Q 0 s a ∂(π' 0 s) ∂μ - ∫ s, M.value H π 0 s ∂μ =
       ∑ h ∈ range H, ∫ s, (∫ a, Q h s a ∂(π' h s) - ∫ a, Q h s a ∂(π h s))
-          ∂(M.stateMarginal π μ h) +
+          ∂(stateMarginal M.trans π μ h) +
         ∑ h ∈ range H, ∫ p, (Q h p.1 p.2 - M.meanReward h p.1 p.2 -
           ∫ s', ∫ a, Q (h + 1) s' a ∂(π' (h + 1) s') ∂(M.trans h p)) ∂(M.occupancy π μ h) := by
   have hVH (s : 𝓢) : ∫ a, Q H s a ∂(π' H s) = 0 := by simp [hQH]
@@ -222,8 +222,8 @@ theorem integral_sub_integral_value_le (hM : M.RewardsIn (Set.Icc (-C) C))
   rw [integral_sub_integral_value hM hV hVB hQ hQB]
   simp only [hVH, integral_zero, add_zero]
   -- the mismatch terms are nonpositive
-  have h_mismatch : ∑ h ∈ range H, ∫ s, (V h s - ∫ a, Q h s a ∂(π h s)) ∂(M.stateMarginal π μ h) ≤
-      0 :=
+  have h_mismatch :
+      ∑ h ∈ range H, ∫ s, (V h s - ∫ a, Q h s a ∂(π h s)) ∂(stateMarginal M.trans π μ h) ≤ 0 :=
     sum_nonpos fun h hh ↦ integral_nonpos fun s ↦ sub_nonpos.2 (hVQ h (mem_range.1 hh) s)
   -- the Bellman errors are bounded by the bonuses and the errors of the estimated kernels
   have h_bellman : ∑ h ∈ range H, ∫ p, (Q h p.1 p.2 - M.meanReward h p.1 p.2 -
