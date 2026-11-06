@@ -47,6 +47,11 @@ monotone on each side of `μ`, it makes `dbar` continuous on (closure of the mea
 * `MeasureTheory.Measure.expFamilyRate_three_point`: the three-point identity, and
   `MeasureTheory.Measure.expFamilyRate_eq_add_of_mul_nonneg` its form when the shift is
   nonnegative.
+* `MeasureTheory.Measure.expFamilyRate_ne_top_iff`,
+  `MeasureTheory.Measure.expFamilyRate_eq_ofReal_toReal_add`: `dbar(x, ·)` is finite at every mean
+  or at none, and where finite it is a real shift of its value at any one mean.
+* `MeasureTheory.Measure.continuousOn_expFamilyRate_right`: for every level `x`, `dbar(x, ·)` is
+  continuous on the means.
 * `MeasureTheory.Measure.monotoneOn_expFamilyRate_right`,
   `MeasureTheory.Measure.antitoneOn_expFamilyRate_right`: `dbar(x, ·)` is monotone on the means
   above `x` and antitone on the means below `x`.
@@ -235,6 +240,60 @@ theorem expFamilyRate_eq_add_of_mul_nonneg (hq : q ∈ ρ.expFamilyMeans T)
   have h3 := expFamilyRate_three_point hq hμ x
   rwa [ENNReal.ofReal_of_nonpos (neg_nonpos.2 (add_nonneg (expFamilyDiv_nonneg hq hμ) h)),
     add_zero] at h3
+
+/-- For a level `x`, the extended divergence `dbar(x, ·)` is finite at one mean exactly when it is
+finite at every mean. -/
+theorem expFamilyRate_ne_top_iff (hq : q ∈ ρ.expFamilyMeans T) (hμ : μ ∈ ρ.expFamilyMeans T)
+    (x : ℝ) : ρ.expFamilyRate T x μ ≠ ∞ ↔ ρ.expFamilyRate T x q ≠ ∞ := by
+  have h3 := expFamilyRate_three_point hq hμ x
+  refine ⟨fun h ↦ ?_, fun h ↦ ?_⟩
+  · have h' : ρ.expFamilyRate T x q + ENNReal.ofReal (ρ.expFamilyDiv T q μ +
+        (q - x) * (ρ.natParam T μ - ρ.natParam T q)) ≠ ∞ := by
+      rw [← h3]
+      exact ENNReal.add_ne_top.2 ⟨h, ENNReal.ofReal_ne_top⟩
+    exact (ENNReal.add_ne_top.1 h').1
+  · have h' : ρ.expFamilyRate T x μ + ENNReal.ofReal (-(ρ.expFamilyDiv T q μ +
+        (q - x) * (ρ.natParam T μ - ρ.natParam T q))) ≠ ∞ := by
+      rw [h3]
+      exact ENNReal.add_ne_top.2 ⟨h, ENNReal.ofReal_ne_top⟩
+    exact (ENNReal.add_ne_top.1 h').1
+
+/-- The three-point identity in real form: where `dbar(x, q)` is finite, for every mean `μ`,
+`dbar(x, μ) = dbar(x, q) + d(q, μ) + (q - x) (η(μ) - η(q))`. Changing the mean shifts the finite
+extended divergence by a real term that is continuous in `μ`. -/
+theorem expFamilyRate_eq_ofReal_toReal_add (hq : q ∈ ρ.expFamilyMeans T)
+    (hμ : μ ∈ ρ.expFamilyMeans T) (h : ρ.expFamilyRate T x q ≠ ∞) :
+    ρ.expFamilyRate T x μ = ENNReal.ofReal ((ρ.expFamilyRate T x q).toReal +
+      (ρ.expFamilyDiv T q μ + (q - x) * (ρ.natParam T μ - ρ.natParam T q))) := by
+  have hμ' := (expFamilyRate_ne_top_iff hq hμ x).2 h
+  have h3 := congrArg ENNReal.toReal (expFamilyRate_three_point hq hμ x)
+  rw [ENNReal.toReal_add hμ' ENNReal.ofReal_ne_top, ENNReal.toReal_add h ENNReal.ofReal_ne_top,
+    ENNReal.toReal_ofReal', ENNReal.toReal_ofReal'] at h3
+  rw [← ENNReal.ofReal_toReal hμ']
+  congr 1
+  linarith [max_zero_sub_max_neg_zero_eq_self
+    (ρ.expFamilyDiv T q μ + (q - x) * (ρ.natParam T μ - ρ.natParam T q))]
+
+/-- For every level `x`, the extended divergence `dbar(x, ·)` is continuous on the means, as an
+`ℝ≥0∞`-valued function: it is infinite on all of them, or a real shift of its finite value at one
+of them. Unlike `continuousOn_expFamilyRate`, the level `x` need not lie in the closure of the
+means. -/
+theorem continuousOn_expFamilyRate_right (hT : ∀ c, ¬ T =ᵐ[ρ] fun _ ↦ c) (x : ℝ) :
+    ContinuousOn (ρ.expFamilyRate T x) (ρ.expFamilyMeans T) := by
+  intro q hq
+  by_cases h : ρ.expFamilyRate T x q = ∞
+  · refine continuousWithinAt_const.congr (fun μ hμ ↦ ?_) h
+    by_contra hμ'
+    exact (expFamilyRate_ne_top_iff hq hμ x).1 hμ' h
+  · have hc : ContinuousOn (fun μ ↦ ENNReal.ofReal ((ρ.expFamilyRate T x q).toReal +
+        (ρ.expFamilyDiv T q μ + (q - x) * (ρ.natParam T μ - ρ.natParam T q))))
+        (ρ.expFamilyMeans T) :=
+      ENNReal.continuous_ofReal.comp_continuousOn (continuousOn_const.add
+        (((continuousOn_expFamilyDiv hT).comp (continuousOn_const.prodMk continuousOn_id)
+          fun μ hμ ↦ ⟨hq, hμ⟩).add
+        (continuousOn_const.mul ((continuousOn_natParam hT).sub continuousOn_const))))
+    exact (hc q hq).congr (fun μ hμ ↦ expFamilyRate_eq_ofReal_toReal_add hq hμ h)
+      (expFamilyRate_eq_ofReal_toReal_add hq hq h)
 
 /-- The extended divergence `dbar(x, ·)` is monotone on the means above `x`. -/
 theorem monotoneOn_expFamilyRate_right (x : ℝ) :

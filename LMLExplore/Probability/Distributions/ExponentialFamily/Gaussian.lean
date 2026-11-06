@@ -5,7 +5,7 @@ Authors: Rémy Degenne
 -/
 module
 
-public import LMLExplore.Probability.Distributions.ExponentialFamily.Mean
+public import LMLExplore.Probability.Distributions.ExponentialFamily.UpperConfidence
 public import LMLExplore.Probability.Distributions.Gaussian.Real
 
 /-!
@@ -21,7 +21,10 @@ mean by `v η`: the member of natural parameter `η` of the exponential family o
 `ψ(η) = m η + v η² / 2` of `𝒩(m, v)`, so the mean map is `ψ'(η) = m + v η`. For `v ≠ 0` it takes
 every real value: the means of the family are all of `ℝ`, the natural parameter of the mean `μ` is
 `(μ - m) / v`, the member of mean `μ` is `𝒩(μ, v)`, and the divergence of the family in the mean
-parametrization is `d(μ, μ') = (μ - μ')² / (2 v)`.
+parametrization is `d(μ, μ') = (μ - μ')² / (2 v)`. Its extension `dbar` to every level is the same
+expression, and the upper confidence level of KL-UCB is the Hoeffding-type level
+`U(x, c) = x + √(2 v c)` of asymptotically optimal UCB (T. Lattimore and Cs. Szepesvári,
+*Bandit Algorithms*, Cambridge University Press, 2020, Algorithm 6).
 
 Gaussian arms with a known variance are the reference model of bandit identification: with
 `d(μ, μ') = (μ - μ')² / (2 v)`, the transportation costs, the characteristic time and the
@@ -60,6 +63,11 @@ Fixed variance, statistic `id`:
 * `LMLExplore.expFamily_natParam_gaussianReal`: for `v ≠ 0`, the member of mean `μ` is `𝒩(μ, v)`.
 * `LMLExplore.expFamilyDiv_gaussianReal`: for `v ≠ 0`, the divergence of the family is
   `d(μ, μ') = (μ - μ')² / (2 v)`.
+* `LMLExplore.expFamilyRate_gaussianReal`: for `v ≠ 0`, the extended divergence is
+  `dbar(x, μ) = (x - μ)² / (2 v)`.
+* `LMLExplore.expFamilyUpper_gaussianReal`, `LMLExplore.expFamilyUpper_top_gaussianReal`: for
+  `v ≠ 0`, the upper confidence level is `U(x, c) = x + √(2 v c)` for finite `c`, and
+  `U(x, ∞) = ∞`.
 
 Fixed mean, statistic `x ↦ (x - m) ^ 2`:
 
@@ -172,6 +180,45 @@ theorem expFamilyDiv_gaussianReal (m : ℝ) (hv : v ≠ 0) (μ μ' : ℝ) :
     cgf_gaussianReal HasLaw.id, cgf_gaussianReal HasLaw.id]
   field_simp
   ring
+
+/-- For `v ≠ 0`, the extended divergence of the exponential family of `𝒩(m, v)` is
+`dbar(x, μ) = (x - μ)² / (2 v)` at every level `x`, since every level is a mean. -/
+@[simp]
+theorem expFamilyRate_gaussianReal (m : ℝ) (hv : v ≠ 0) (x μ : ℝ) :
+    (gaussianReal m v).expFamilyRate id x μ = ENNReal.ofReal ((x - μ) ^ 2 / (2 * v)) := by
+  rw [Measure.expFamilyRate_eq_ofReal_expFamilyDiv (mem_expFamilyMeans_gaussianReal m hv x)
+    (mem_expFamilyMeans_gaussianReal m hv μ), expFamilyDiv_gaussianReal m hv]
+
+/-- For `v ≠ 0` and a finite budget `c`, the upper confidence level of the exponential family of
+`𝒩(m, v)` is `U(x, c) = x + √(2 v c)`, the index of asymptotically optimal UCB. -/
+@[simp]
+theorem expFamilyUpper_gaussianReal (m : ℝ) (hv : v ≠ 0) (x : ℝ) (c : ℝ≥0) :
+    (gaussianReal m v).expFamilyUpper id x c = ((x + √(2 * v * c) : ℝ) : EReal) := by
+  have hv' : (0 : ℝ) < v := NNReal.coe_pos.2 (pos_iff_ne_zero.2 hv)
+  have hx : x ≤ x + √(2 * v * c) := le_add_of_nonneg_right (sqrt_nonneg _)
+  refine le_antisymm (Measure.expFamilyUpper_le_iff.2
+    ⟨EReal.coe_le_coe_iff.2 hx, fun q _ hxq hqc ↦ EReal.coe_le_coe_iff.2 ?_⟩)
+    (Measure.le_expFamilyUpper_of_expFamilyRate_le (mem_expFamilyMeans_gaussianReal m hv _) hx ?_)
+  · -- `(x - q)² / (2 v) ≤ c` gives `q - x ≤ √(2 v c)`.
+    rw [expFamilyRate_gaussianReal m hv, ← ENNReal.ofReal_coe_nnreal,
+      ENNReal.ofReal_le_ofReal_iff c.coe_nonneg, div_le_iff₀ (by positivity)] at hqc
+    have := le_sqrt_of_sq_le (show (q - x) ^ 2 ≤ 2 * v * c by nlinarith)
+    linarith
+  · rw [expFamilyRate_gaussianReal m hv, ← ENNReal.ofReal_coe_nnreal]
+    refine ENNReal.ofReal_le_ofReal (le_of_eq ?_)
+    rw [show (x - (x + √(2 * v * c))) ^ 2 = 2 * v * c by
+      rw [sub_add_cancel_left, neg_sq, sq_sqrt (by positivity)]]
+    field_simp
+
+/-- For `v ≠ 0`, the upper confidence level of the exponential family of `𝒩(m, v)` with an
+infinite budget is `U(x, ∞) = ∞`: every mean `q ≥ x` is at finite extended divergence from `x`. -/
+@[simp]
+theorem expFamilyUpper_top_gaussianReal (m : ℝ) (hv : v ≠ 0) (x : ℝ) :
+    (gaussianReal m v).expFamilyUpper id x ⊤ = ⊤ := by
+  refine (EReal.eq_top_iff_forall_lt _).2 fun y ↦
+    (EReal.coe_lt_coe_iff.2 ((le_max_right x y).trans_lt (lt_add_one _))).trans_le ?_
+  exact Measure.le_expFamilyUpper_of_expFamilyRate_le (mem_expFamilyMeans_gaussianReal m hv _)
+    ((le_max_left x y).trans (le_add_of_nonneg_right zero_le_one)) le_top
 
 /-! ### Fixed mean: the statistic `x ↦ (x - m) ^ 2` -/
 
