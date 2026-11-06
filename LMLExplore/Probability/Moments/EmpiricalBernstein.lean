@@ -13,22 +13,22 @@ import LMLExplore.Probability.Moments.Bernstein
 /-!
 # The empirical Bernstein inequality
 
-Let `X i`, `i ∈ s`, be `n = #s ≥ 1` independent random variables with values in `[0, b]` and
+Let `X i`, `i ∈ s`, be `n = #s ≥ 1` independent random variables with values in `[a, b]` and
 common mean `m`, with empirical mean `X̂ = (∑ i ∈ s, X i) / n` and biased sample variance
 `V = (∑ i ∈ s, (X i - X̂) ^ 2) / n`. The **empirical Bernstein inequality** [AMS09, Theorem 1]
 states that for every `x`, with probability at least `1 - 3 exp (-x)`,
-`|X̂ - m| < √(2 V x / n) + 3 b x / n`.
+`|X̂ - m| < √(2 V x / n) + 3 (b - a) x / n`.
 
-Bernstein's inequality bounds `|X̂ - m|` by `√(2 σ ^ 2 x / n) + b x / (3 n)`, where `σ ^ 2` is the
-average variance of the `X i`, which is unknown to a statistician. The empirical form replaces it
-by the observed `V`, at the price of a third deviation event and of a larger linear term. Confidence
-intervals of this form adapt to the variance of the data, and variance-aware exploration
-algorithms in bandits and reinforcement learning use them.
+Bernstein's inequality bounds `|X̂ - m|` by `√(2 σ ^ 2 x / n) + (b - a) x / (3 n)`, where `σ ^ 2`
+is the average variance of the `X i`, which is unknown to a statistician. The empirical form
+replaces it by the observed `V`, at the price of a third deviation event and of a larger linear
+term. Confidence intervals of this form adapt to the variance of the data, and variance-aware
+exploration algorithms in bandits and reinforcement learning use them.
 
 ## Main statements
 
 * `ProbabilityTheory.iIndepFun.measureReal_sqrt_add_le_abs_sum_div_card_sub_le`: the empirical
-  Bernstein inequality, `P(√(2 V x / n) + 3 b x / n ≤ |X̂ - m|) ≤ 3 exp (-x)`.
+  Bernstein inequality, `P(√(2 V x / n) + 3 (b - a) x / n ≤ |X̂ - m|) ≤ 3 exp (-x)`.
 * `ProbabilityTheory.iIndepFun.measureReal_sqrt_log_add_le_abs_sum_div_card_sub_le`: its form at
   confidence level `δ`, with `x = log (3 / δ)`.
 
@@ -39,15 +39,15 @@ applied to the centred variables `X i - m` in both directions
 (`ProbabilityTheory.iIndepFun.measureReal_sqrt_add_le_abs_sum_le_of_abs_le`), which controls
 `|X̂ - m|` by the average variance `σ ^ 2`, and to `Var (X i) - (X i - m) ^ 2`
 (`ProbabilityTheory.iIndepFun.measureReal_sqrt_add_le_sum_le_of_ae_le`), which bounds `σ ^ 2` from
-above by the empirical second moment `V + (X̂ - m) ^ 2` around `m` up to a deviation term. In the
-second application, Popoviciu's inequality `Var (X i) ≤ b ^ 2 / 4` bounds the summands, and
-`|X i - m| ≤ b` bounds their second moments by `E (X i - m) ^ 4 ≤ b ^ 2 Var (X i)`. Solving the
-resulting quadratic inequality in `σ` (the "square-root trick") gives
-`σ ≤ √V + (15 / 8) b √(x / n)`, and the first bound then gives the result, since
-`(15 / 8) √2 + 1 / 3 ≤ 3`.
+above by the empirical second moment `V + (X̂ - m) ^ 2` around `m` up to a deviation term. Write
+`w = b - a` for the width of the range. In the second application, Popoviciu's inequality
+`Var (X i) ≤ w ^ 2 / 4` bounds the summands, and `|X i - m| ≤ w` bounds their second moments by
+`E (X i - m) ^ 4 ≤ w ^ 2 Var (X i)`. Solving the resulting quadratic inequality in `σ` (the
+"square-root trick") gives `σ ≤ √V + (15 / 8) w √(x / n)`, and the first bound then gives the
+result, since `(15 / 8) √2 + 1 / 3 ≤ 3`.
 
 [AMS09] uses a version of Bernstein's inequality without a linear term for the nonpositive
-variables `-(X i - m) ^ 2`; the bounded summands used here instead add the term `b ^ 2 x / (12 n)`,
+variables `-(X i - m) ^ 2`; the bounded summands used here instead add the term `w ^ 2 x / (12 n)`,
 which the constant `3` still absorbs. The variables need not be identically distributed: they only
 share their mean.
 
@@ -81,8 +81,7 @@ private lemma measureReal_sqrt_add_le_sum_integral_sub_sum_sq_le (h_indep : iInd
   have hZ : ∀ i ∈ s, ∀ᵐ ω ∂μ, 0 ≤ (X i ω - m) ^ 2 ∧ (X i ω - m) ^ 2 ≤ b ^ 2 := fun i hi ↦
     (hXm i hi).mono fun ω h ↦ ⟨sq_nonneg _, sq_le_sq' (abs_le.1 h).1 (abs_le.1 h).2⟩
   have hZL2 : ∀ i ∈ s, MemLp (fun ω ↦ (X i ω - m) ^ 2) 2 μ := fun i hi ↦
-    MemLp.of_bound (((hX i hi).sub_const m).pow_const 2).aestronglyMeasurable (b ^ 2) <|
-      (hZ i hi).mono fun ω h ↦ by rw [Real.norm_eq_abs, abs_of_nonneg h.1]; exact h.2
+    memLp_of_bounded (hZ i hi) (((hX i hi).sub_const m).pow_const 2).aestronglyMeasurable 2
   have hZint : ∀ i ∈ s, Integrable (fun ω ↦ (X i ω - m) ^ 2) μ := fun i hi ↦
     (hZL2 i hi).integrable one_le_two
   have hW2 : ∀ i ∈ s, ∫ ω, (q i - (X i ω - m) ^ 2) ^ 2 ∂μ ≤ b ^ 2 * q i := fun i hi ↦ by
@@ -211,75 +210,86 @@ private lemma abs_sum_div_card_sub_lt {f : ι → ℝ} {b m x v : ℝ} (hs : s.N
     hsq (by positivity) (by rw [div_pow, mul_pow, mul_pow, hk2, hA2, hr2]; field_simp)
   rw [e₁] at h₁
   rw [e₃] at h₃
-  rw [e₀, show S / #s - m = D / #s by rw [hD]; field_simp, abs_div, abs_of_pos hn, ← hr2,
-    ← add_div, div_lt_div_iff_of_pos_right hn]
-  exact lt_of_sq_sub_lt hb hn (sqrt_nonneg v) (sqrt_nonneg A) (sqrt_nonneg x)
-    (abs_nonneg D) (sqrt_nonneg 2) hk2 (by rwa [hr2])
-    (by rw [hv2, sq_abs, hr2]; linarith) (by rw [hv2]; exact hpop)
+  have hSD : S / #s - m = D / #s := by rw [hD]; field_simp
+  -- The square-root trick bounds `|D|`, in terms of `x = r ^ 2`.
+  have hmain : |D| < k * √A * r + 3 * b * x := by
+    have := lt_of_sq_sub_lt hb hn (sqrt_nonneg v) (sqrt_nonneg A) (sqrt_nonneg x)
+      (abs_nonneg D) (sqrt_nonneg 2) hk2 (by rwa [hr2])
+      (by rw [hv2, sq_abs, hr2]; linarith) (by rw [hv2]; exact hpop)
+    rwa [hr2] at this
+  rw [e₀, hSD, abs_div, abs_of_pos hn]
+  calc |D| / #s < (k * √A * r + 3 * b * x) / #s := div_lt_div_of_pos_right hmain hn
+    _ = k * √A * r / #s + 3 * b * x / #s := by ring
 
 /-- **The empirical Bernstein inequality** [AMS09, Theorem 1]. Let the `X i`, `i ∈ s`, be
-`n = #s ≥ 1` independent random variables with values in `[0, b]` almost surely, `b > 0`, and with
-common mean `m`. Let `X̂ = (∑ i ∈ s, X i) / n` be their empirical mean and
+`n = #s ≥ 1` independent random variables with values in `[a, b]` almost surely, `a < b`, and
+with common mean `m`. Let `X̂ = (∑ i ∈ s, X i) / n` be their empirical mean and
 `V = (∑ i ∈ s, (X i - X̂) ^ 2) / n` their biased sample variance. Then for every `x`,
-`P(√(2 V x / n) + 3 b x / n ≤ |X̂ - m|) ≤ 3 exp (-x)`. -/
-theorem measureReal_sqrt_add_le_abs_sum_div_card_sub_le (h_indep : iIndepFun X μ) {b m x : ℝ}
-    (hs : s.Nonempty) (hX : ∀ i ∈ s, AEMeasurable (X i) μ) (hb : 0 < b)
-    (hXb : ∀ i ∈ s, ∀ᵐ ω ∂μ, X i ω ∈ Set.Icc 0 b) (hmean : ∀ i ∈ s, μ[X i] = m) :
+`P(√(2 V x / n) + 3 (b - a) x / n ≤ |X̂ - m|) ≤ 3 exp (-x)`. -/
+theorem measureReal_sqrt_add_le_abs_sum_div_card_sub_le (h_indep : iIndepFun X μ) {a b m x : ℝ}
+    (hs : s.Nonempty) (hX : ∀ i ∈ s, AEMeasurable (X i) μ) (hab : a < b)
+    (hXb : ∀ i ∈ s, ∀ᵐ ω ∂μ, X i ω ∈ Set.Icc a b) (hmean : ∀ i ∈ s, μ[X i] = m) :
     μ.real {ω | √(2 * ((∑ i ∈ s, (X i ω - (∑ j ∈ s, X j ω) / #s) ^ 2) / #s) * x / #s) +
-      3 * b * x / #s ≤ |(∑ i ∈ s, X i ω) / #s - m|} ≤ 3 * exp (-x) := by
+      3 * (b - a) * x / #s ≤ |(∑ i ∈ s, X i ω) / #s - m|} ≤ 3 * exp (-x) := by
   have : IsProbabilityMeasure μ := h_indep.isProbabilityMeasure
   rcases le_or_gt x 0 with hx | hx
   · exact measureReal_le_one.trans (by linarith [one_le_exp (neg_nonneg.2 hx)])
+  have hw : 0 < b - a := sub_pos.2 hab
   have hL2 : ∀ i ∈ s, MemLp (X i) 2 μ := fun i hi ↦
-    MemLp.of_bound (hX i hi).aestronglyMeasurable b <| (hXb i hi).mono fun ω hω ↦ by
-      rw [Real.norm_eq_abs, abs_le]; constructor <;> linarith [hω.1, hω.2]
-  -- The common mean lies in `[0, b]`.
+    memLp_of_bounded (hXb i hi) (hX i hi).aestronglyMeasurable 2
+  -- The common mean lies in `[a, b]`.
   obtain ⟨i₀, hi₀⟩ := hs
-  have hm0 : 0 ≤ m := hmean i₀ hi₀ ▸ integral_nonneg_of_ae ((hXb i₀ hi₀).mono fun ω h ↦ h.1)
+  have hma : a ≤ m := by
+    rw [← hmean i₀ hi₀]
+    calc a = ∫ _, a ∂μ := by simp
+      _ ≤ μ[X i₀] := integral_mono_ae (integrable_const a)
+          ((hL2 i₀ hi₀).integrable one_le_two) ((hXb i₀ hi₀).mono fun ω h ↦ h.1)
   have hmb : m ≤ b := by
     rw [← hmean i₀ hi₀]
     calc μ[X i₀] ≤ ∫ _, b ∂μ :=
           integral_mono_ae ((hL2 i₀ hi₀).integrable one_le_two) (integrable_const b)
             ((hXb i₀ hi₀).mono fun ω h ↦ h.2)
       _ = b := by simp
-  have hXm : ∀ i ∈ s, ∀ᵐ ω ∂μ, |X i ω - m| ≤ b := fun i hi ↦ (hXb i hi).mono fun ω hω ↦ by
+  have hXm : ∀ i ∈ s, ∀ᵐ ω ∂μ, |X i ω - m| ≤ b - a := fun i hi ↦ (hXb i hi).mono fun ω hω ↦ by
     rw [abs_le]; constructor <;> linarith [hω.1, hω.2]
   -- Popoviciu's inequality for the variances, and their sum `v`.
-  have hqb : ∀ i ∈ s, ∫ ω, (X i ω - m) ^ 2 ∂μ ≤ b ^ 2 / 4 := fun i hi ↦ by
+  have hqb : ∀ i ∈ s, ∫ ω, (X i ω - m) ^ 2 ∂μ ≤ (b - a) ^ 2 / 4 := fun i hi ↦ by
     have := variance_le_sq_of_bounded (hXb i hi) (hX i hi)
     rw [variance_eq_integral (hX i hi), hmean i hi] at this
     exact this.trans_eq (by ring)
   set v := ∑ i ∈ s, ∫ ω, (X i ω - m) ^ 2 ∂μ with hv_def
   have hv0 : 0 ≤ v := sum_nonneg fun i _ ↦ integral_nonneg fun ω ↦ sq_nonneg _
-  have hpop : v ≤ #s * b ^ 2 / 4 := by
-    calc v ≤ #s • (b ^ 2 / 4) := sum_le_card_nsmul _ _ _ hqb
-      _ = #s * b ^ 2 / 4 := by rw [nsmul_eq_mul]; ring
+  have hpop : v ≤ #s * (b - a) ^ 2 / 4 := by
+    calc v ≤ #s • ((b - a) ^ 2 / 4) := sum_le_card_nsmul _ _ _ hqb
+      _ = #s * (b - a) ^ 2 / 4 := by rw [nsmul_eq_mul]; ring
   -- Bernstein's inequality for the centred variables `X i - m`, in both directions.
   have hE₁ := (h_indep.comp (fun _ y ↦ y - m) fun _ ↦ measurable_id.sub_const m
     ).measureReal_sqrt_add_le_abs_sum_le_of_abs_le (X := fun i ω ↦ X i ω - m) (v := v) (L := x)
     (fun i hi ↦ (hX i hi).sub_const m)
     (fun i hi ↦ by rw [integral_sub ((hL2 i hi).integrable one_le_two) (integrable_const m)];
                     simp [hmean i hi])
-    hb hXm le_rfl
-  have hE₂ := h_indep.measureReal_sqrt_add_le_sum_integral_sub_sum_sq_le (x := x) hb hX hXm hqb
+    hw hXm le_rfl
+  have hE₂ := h_indep.measureReal_sqrt_add_le_sum_integral_sub_sum_sq_le (x := x) hw hX hXm hqb
   -- On the complement of the two deviation events, the square-root trick concludes.
   refine (measureReal_mono (fun ω hω ↦ ?_) (measure_ne_top _ _)).trans <|
     ((measureReal_union_le _ _).trans (add_le_add hE₁ hE₂)).trans_eq (by ring)
   simp only [Set.mem_union, Set.mem_ofPred_eq] at hω ⊢
   by_contra! h
-  exact (abs_sum_div_card_sub_lt ⟨i₀, hi₀⟩ hb hx hv0 hpop h.1 h.2).not_ge hω
+  exact (abs_sum_div_card_sub_lt ⟨i₀, hi₀⟩ hw hx hv0 hpop h.1 h.2).not_ge hω
 
 /-- **The empirical Bernstein inequality at confidence level `δ`** [AMS09, Theorem 1]. Under the
 hypotheses of `measureReal_sqrt_add_le_abs_sum_div_card_sub_le`, for `δ > 0`, with probability at
-least `1 - δ`, `|X̂ - m| < √(2 V log (3 / δ) / n) + 3 b log (3 / δ) / n`. -/
+least `1 - δ`, `|X̂ - m| < √(2 V log (3 / δ) / n) + 3 (b - a) log (3 / δ) / n`. -/
 theorem measureReal_sqrt_log_add_le_abs_sum_div_card_sub_le (h_indep : iIndepFun X μ)
-    {b m δ : ℝ} (hs : s.Nonempty) (hX : ∀ i ∈ s, AEMeasurable (X i) μ) (hb : 0 < b)
-    (hXb : ∀ i ∈ s, ∀ᵐ ω ∂μ, X i ω ∈ Set.Icc 0 b) (hmean : ∀ i ∈ s, μ[X i] = m) (hδ : 0 < δ) :
+    {a b m δ : ℝ} (hs : s.Nonempty) (hX : ∀ i ∈ s, AEMeasurable (X i) μ) (hab : a < b)
+    (hXb : ∀ i ∈ s, ∀ᵐ ω ∂μ, X i ω ∈ Set.Icc a b) (hmean : ∀ i ∈ s, μ[X i] = m) (hδ : 0 < δ) :
     μ.real {ω | √(2 * ((∑ i ∈ s, (X i ω - (∑ j ∈ s, X j ω) / #s) ^ 2) / #s) * log (3 / δ) / #s) +
-      3 * b * log (3 / δ) / #s ≤ |(∑ i ∈ s, X i ω) / #s - m|} ≤ δ := by
+      3 * (b - a) * log (3 / δ) / #s ≤ |(∑ i ∈ s, X i ω) / #s - m|} ≤ δ := by
   have hexp : 3 * exp (-log (3 / δ)) = δ := by
-    rw [← log_inv, inv_div, exp_log (by positivity), mul_div_cancel₀ _ three_ne_zero]
+    rw [exp_neg, exp_log (by positivity)]
+    field_simp
   simpa only [hexp] using
-    h_indep.measureReal_sqrt_add_le_abs_sum_div_card_sub_le (x := log (3 / δ)) hs hX hb hXb hmean
+    h_indep.measureReal_sqrt_add_le_abs_sum_div_card_sub_le (x := log (3 / δ)) hs hX hab hXb
+      hmean
 
 end ProbabilityTheory.iIndepFun
