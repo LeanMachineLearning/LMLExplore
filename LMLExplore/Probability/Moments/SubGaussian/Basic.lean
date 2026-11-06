@@ -8,6 +8,7 @@ module
 public import Mathlib.Probability.ConditionalExpectation
 public import Mathlib.Probability.Moments.SubGaussian
 public import LeanMachineLearning.ForMathlib.Probability.HasCondDistrib
+public import LMLExplore.Probability.Moments.MGF.Bound
 
 /-!
 # Conditionally sub-Gaussian variables
@@ -29,7 +30,8 @@ martingale bounds.
   for every `t` and `E[exp (q * X) | m] ≤ exp (c * q ^ 2 / 2)` for every rational `q`, then `X` is
   conditionally `c`-sub-Gaussian given `m`.
 * `ProbabilityTheory.HasSubgaussianMGF.hasCondSubgaussianMGF_of_indep`: a `c`-sub-Gaussian
-  variable independent of `m` is conditionally `c`-sub-Gaussian given `m`.
+  variable independent of `m` is conditionally `c`-sub-Gaussian given `m`, the sub-Gaussian case
+  of `LMLExplore.HasMGFBound.hasCondMGFBound_of_indep`.
 * `ProbabilityTheory.HasCondDistrib.hasCondSubgaussianMGF_sub`: if `Y` has conditional
   distribution `κ` given `X` and almost every `κ x` is `c`-sub-Gaussian around `g x`, then
   `Y - g ∘ X` is conditionally `c`-sub-Gaussian given `X`.
@@ -69,21 +71,11 @@ theorem HasCondSubgaussianMGF.of_ae_trim_condExp_le [StandardBorelSpace Ω] [IsF
 /-- **Independence gives conditional sub-Gaussianity.** If `X` is measurable, `c`-sub-Gaussian and
 independent of the sub-σ-algebra `m`, then `X` is conditionally `c`-sub-Gaussian given `m`. -/
 theorem HasSubgaussianMGF.hasCondSubgaussianMGF_of_indep [StandardBorelSpace Ω]
-    [IsFiniteMeasure μ] {hm : m ≤ mΩ} (h : HasSubgaussianMGF X c μ) (hX : Measurable X)
+    [IsProbabilityMeasure μ] {hm : m ≤ mΩ} (h : HasSubgaussianMGF X c μ) (hX : Measurable X)
     (h_indep : Indep (MeasurableSpace.comap X inferInstance) m μ) :
-    HasCondSubgaussianMGF m hm X c μ := by
-  refine HasCondSubgaussianMGF.of_ae_trim_condExp_le h.integrable_exp_mul fun q ↦ ?_
-  -- the conditional expectation of `exp (q X)` is constant by independence
-  have h_meas : StronglyMeasurable[MeasurableSpace.comap X inferInstance]
-      (fun ω ↦ Real.exp (q * X ω)) :=
-    (measurable_const.mul (comap_measurable X)).exp.stronglyMeasurable
-  have h_const : μ[fun ω ↦ Real.exp (q * X ω) | m]
-      =ᵐ[μ.trim hm] fun _ ↦ μ[fun ω ↦ Real.exp (q * X ω)] :=
-    StronglyMeasurable.ae_eq_trim_of_stronglyMeasurable hm stronglyMeasurable_condExp
-      stronglyMeasurable_const (condExp_indep_eq hX.comap_le hm h_meas h_indep)
-  filter_upwards [h_const] with ω h_const
-  rw [h_const]
-  exact h.mgf_le q
+    HasCondSubgaussianMGF m hm X c μ :=
+  LMLExplore.hasCondMGFBound_iff_hasCondSubgaussianMGF.1
+    ((LMLExplore.hasMGFBound_iff_hasSubgaussianMGF.2 h).hasCondMGFBound_of_indep hX h_indep)
 
 /-- **Conditional sub-Gaussianity from a conditional distribution.** If `Y` has conditional
 distribution `κ` given `X` and, for almost every value `x` of `X`, `y ↦ y - g x` is

@@ -52,12 +52,17 @@ weights of an exponential supermartingale.
   values in `Λ` and an `m`-measurable weight `g ≥ 0`,
   `∫⁻ g * exp (s * X) ≤ ∫⁻ g * exp (ψ ∘ s)`.
 * `LMLExplore.HasCondMGFBound.mono`, `LMLExplore.HasCondMGFBound.neg`,
-  `LMLExplore.HasCondMGFBound.add_const`: monotonicity in `Λ` and `ψ`, negation, and translation.
+  `LMLExplore.HasCondMGFBound.add_const`: monotonicity in `Λ` and `ψ`, negation, and translation;
+  likewise for the kernel and unconditional versions, together with measurability
+  (`aestronglyMeasurable`) and the bound on the cumulant generating function (`cgf_le`).
 * `LMLExplore.HasMGFBound.hasCondMGFBound_of_indep`: for a variable independent of `m`, the
   unconditional bound gives the conditional one.
 * `LMLExplore.hasCondMGFBound_iff_hasCondSubgaussianMGF`,
   `LMLExplore.hasCondMGFBound_iff_hasCondSubexponentialMGF`: Mathlib's conditionally sub-Gaussian
-  and LML's conditionally sub-exponential variables are instances.
+  and LML's conditionally sub-exponential variables are instances; similarly for the kernel
+  versions (`ProbabilityTheory.Kernel.hasMGFBound_iff_hasSubgaussianMGF`, …) and the
+  unconditional ones (`LMLExplore.hasMGFBound_iff_hasSubgaussianMGF`,
+  `LMLExplore.hasMGFBound_iff_hasSubexponentialMGF`).
 * `LMLExplore.mgfDominatedAbove_iff_hasMGFBound`, `LMLExplore.mgfDominatedBelow_iff_hasMGFBound`:
   domination by `Y` is the bound by the cumulant generating function of `Y`.
 * `ProbabilityTheory.HasCondSubgaussianMGF.hasCondMGFBound_cgf_gaussianReal`: if `X - a` is
@@ -185,8 +190,9 @@ variable {Ω : Type*} {m mΩ : MeasurableSpace Ω} {hm : m ≤ mΩ} [StandardBor
 variable (m hm) in
 /-- A real random variable `X` has its moment generating function conditionally bounded by
 `exp ψ` on the set of parameters `Λ` given the σ-algebra `m` if `exp (t * X)` is `μ`-integrable
-for every `t ∈ Λ`, and almost surely, simultaneously for every `t ∈ Λ`, the moment generating
-function of `X` conditioned on `m` is at most `exp (ψ t)`.
+for every `t ∈ Λ`, and almost surely, simultaneously for every `t ∈ Λ`, `exp (t * X)` is
+integrable under the conditional expectation kernel and the moment generating function of `X`
+conditioned on `m` is at most `exp (ψ t)`.
 
 It is defined as `Kernel.HasMGFBound` for the conditional expectation kernel `condExpKernel μ m`
 and the restriction `μ.trim hm` of `μ` to `m`. -/
@@ -221,6 +227,19 @@ surely, for `t ∈ Λ`. -/
 lemma ae_condExp_le (h : HasCondMGFBound m hm X ψ Λ μ) (ht : t ∈ Λ) :
     ∀ᵐ ω' ∂μ, (μ[fun ω ↦ exp (t * X ω) | m]) ω' ≤ exp (ψ t) :=
   ae_of_ae_trim hm (h.ae_trim_condExp_le ht)
+
+/-- A variable whose conditional moment generating function is bounded at a nonzero parameter is
+almost everywhere strongly measurable. -/
+lemma aestronglyMeasurable (h : HasCondMGFBound m hm X ψ Λ μ) (ht : t ∈ Λ) (ht0 : t ≠ 0) :
+    AEStronglyMeasurable X μ :=
+  (aemeasurable_of_aemeasurable_exp_mul ht0
+    (h.integrable_exp_mul ht).1.aemeasurable).aestronglyMeasurable
+
+/-- The bound on the conditional cumulant generating function: on the restriction of `μ` to `m`,
+almost surely `cgf X (condExpKernel μ m ω') t ≤ ψ t` for every `t ∈ Λ`. -/
+lemma cgf_le (h : HasCondMGFBound m hm X ψ Λ μ) :
+    ∀ᵐ ω' ∂(μ.trim hm), ∀ t ∈ Λ, cgf X (condExpKernel μ m ω') t ≤ ψ t :=
+  (hasCondMGFBound_iff_kernel.1 h).cgf_le
 
 /-- The conditional bound is monotone: it holds on a smaller set of parameters, for a larger
 `ψ`. -/
@@ -284,9 +303,7 @@ lemma hasCondMGFBound_iff_hasCondSubexponentialMGF :
 end Conditional
 
 /-- If `X - a` is conditionally `c`-sub-Gaussian given `m`, then the conditional moment generating
-function of `X` is bounded by that of the Gaussian law of mean `a` and variance `c`: `X` is
-conditionally dominated, above and below, by the member of mean `a` of the Gaussian family of
-variance `c`. -/
+function of `X` is bounded by that of the Gaussian law of mean `a` and variance `c`. -/
 lemma _root_.ProbabilityTheory.HasCondSubgaussianMGF.hasCondMGFBound_cgf_gaussianReal
     {Ω : Type*} {m mΩ : MeasurableSpace Ω} {hm : m ≤ mΩ} [StandardBorelSpace Ω] {μ : Measure Ω}
     [IsFiniteMeasure μ] {X : Ω → ℝ} {a : ℝ} {c : ℝ≥0}
@@ -301,7 +318,7 @@ lemma _root_.ProbabilityTheory.HasCondSubgaussianMGF.hasCondMGFBound_cgf_gaussia
 section Unconditional
 
 variable {Ω Ω' : Type*} {mΩ : MeasurableSpace Ω} {mΩ' : MeasurableSpace Ω'}
-  {μ : Measure Ω} {X : Ω → ℝ} {ψ : ℝ → ℝ} {Λ : Set ℝ}
+  {μ : Measure Ω} {X : Ω → ℝ} {ψ ψ' : ℝ → ℝ} {Λ Λ' : Set ℝ} {t : ℝ}
 
 /-- A real random variable `X` has its moment generating function bounded by `exp ψ` on the set
 of parameters `Λ` under `μ` if for every `t ∈ Λ`, `exp (t * X)` is `μ`-integrable and
@@ -320,6 +337,58 @@ lemma hasMGFBound_iff_kernel :
   ⟨fun h ↦ ⟨by simpa using h.integrable_exp_mul, by simpa using h.integrable_exp_mul,
       by simpa using h.mgf_le⟩,
     fun h ↦ ⟨by simpa using h.integrable_exp_mul, by simpa using h.mgf_le⟩⟩
+
+namespace HasMGFBound
+
+/-- A variable whose moment generating function is bounded at a nonzero parameter is almost
+everywhere strongly measurable. -/
+lemma aestronglyMeasurable (h : HasMGFBound X ψ Λ μ) (ht : t ∈ Λ) (ht0 : t ≠ 0) :
+    AEStronglyMeasurable X μ :=
+  (aemeasurable_of_aemeasurable_exp_mul ht0
+    (h.integrable_exp_mul ht).1.aemeasurable).aestronglyMeasurable
+
+/-- The bound on the cumulant generating function: `cgf X μ t ≤ ψ t` for every `t ∈ Λ`. -/
+lemma cgf_le [NeZero μ] (h : HasMGFBound X ψ Λ μ) (ht : t ∈ Λ) : cgf X μ t ≤ ψ t := by
+  rw [cgf, log_le_iff_le_exp (mgf_pos' (NeZero.ne μ) (h.integrable_exp_mul ht))]
+  exact h.mgf_le ht
+
+/-- The bound is monotone: it holds on a smaller set of parameters, for a larger `ψ`. -/
+lemma mono (h : HasMGFBound X ψ Λ μ) (hΛ : Λ' ⊆ Λ) (hψ : ∀ t ∈ Λ', ψ t ≤ ψ' t) :
+    HasMGFBound X ψ' Λ' μ :=
+  hasMGFBound_iff_kernel.2 ((hasMGFBound_iff_kernel.1 h).mono hΛ hψ)
+
+/-- If the moment generating function of `X` is bounded by `exp ψ` on `Λ`, that of `-X` is
+bounded by `exp (ψ ∘ Neg.neg)` on `-Λ`. -/
+lemma neg (h : HasMGFBound X ψ Λ μ) : HasMGFBound (-X) (fun t ↦ ψ (-t)) (-Λ) μ :=
+  hasMGFBound_iff_kernel.2 (hasMGFBound_iff_kernel.1 h).neg
+
+/-- If the moment generating function of `X` is bounded by `exp ψ` on `Λ`, that of `X + a` is
+bounded by `exp (ψ t + t a)`. -/
+lemma add_const (h : HasMGFBound X ψ Λ μ) (a : ℝ) :
+    HasMGFBound (fun ω ↦ X ω + a) (fun t ↦ ψ t + t * a) Λ μ :=
+  hasMGFBound_iff_kernel.2 ((hasMGFBound_iff_kernel.1 h).add_const a)
+
+end HasMGFBound
+
+section SubgaussianSubexponential
+
+variable {c : ℝ≥0} {V b : ℝ}
+
+/-- `X` is sub-Gaussian with parameter `c` under `μ` iff its moment generating function is
+bounded by `exp (c t ^ 2 / 2)` on `ℝ`. -/
+lemma hasMGFBound_iff_hasSubgaussianMGF :
+    HasMGFBound X (fun t ↦ c * t ^ 2 / 2) Set.univ μ ↔ HasSubgaussianMGF X c μ :=
+  ⟨fun h ↦ ⟨fun t ↦ h.integrable_exp_mul (Set.mem_univ t), fun t ↦ h.mgf_le (Set.mem_univ t)⟩,
+    fun h ↦ ⟨fun t _ ↦ h.integrable_exp_mul t, fun t _ ↦ h.mgf_le t⟩⟩
+
+/-- `X` is sub-exponential with parameters `(V, b)` under `μ` iff its moment generating function
+is bounded by `exp (V t ^ 2 / 2)` on `{t | b |t| ≤ 1}`. -/
+lemma hasMGFBound_iff_hasSubexponentialMGF :
+    HasMGFBound X (fun t ↦ V * t ^ 2 / 2) {t | b * |t| ≤ 1} μ ↔ HasSubexponentialMGF X V b μ :=
+  ⟨fun h ↦ ⟨fun _ ht ↦ h.integrable_exp_mul ht, fun _ ht ↦ h.mgf_le ht⟩,
+    fun h ↦ ⟨fun t ht ↦ h.integrable_exp_mul t ht, fun t ht ↦ h.mgf_le t ht⟩⟩
+
+end SubgaussianSubexponential
 
 variable {P : Measure Ω} {Q : Measure Ω'} [NeZero Q] {Y : Ω' → ℝ}
 
