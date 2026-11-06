@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Literature · LMLExplore</title>
+<style>
+  :root { color-scheme: light dark; --fg: #1f2328; --muted: #59636e; --line: #d1d9e0; --bg: #ffffff;
+          --accent: #0b5cad; --chip: #f0f3f6; }
+  @media (prefers-color-scheme: dark) {
+    :root { --fg: #e6edf3; --muted: #9198a1; --line: #3d444d; --bg: #0d1117; --accent: #6cb6ff; --chip: #212830; }
+  }
+  body { margin: 0; background: var(--bg); color: var(--fg);
+         font: 16px/1.55 system-ui, -apple-system, "Segoe UI", sans-serif; }
+  header, main, footer { max-width: 62rem; margin: 0 auto; padding: 0 1.25rem; }
+  header { padding-top: 2rem; }
+  h1 { font-size: 1.9rem; margin: 0.2rem 0 0.6rem; }
+  a { color: var(--accent); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+  code { font: 0.86em ui-monospace, SFMono-Regular, Menlo, monospace; }
+  .crumbs { margin: 0; font-size: 0.9rem; color: var(--muted); }
+  .lede { font-size: 1.05rem; }
+  #filter { width: 100%; box-sizing: border-box; margin: 0.8rem 0 1.2rem; padding: 0.55rem 0.75rem;
+            font: inherit; color: inherit; background: transparent; border: 1px solid var(--line);
+            border-radius: 6px; }
+  .work { border-top: 1px solid var(--line); padding: 1rem 0 0.4rem; }
+  .work h2 { font-size: 1.02rem; font-weight: 500; margin: 0; }
+  .key { font-weight: 700; }
+  .count { margin: 0.2rem 0 0.4rem; font-size: 0.85rem; color: var(--muted); }
+  ul { list-style: none; padding: 0; margin: 0; }
+  .results > li { display: grid; grid-template-columns: 11rem 1fr; gap: 0.75rem;
+                  padding: 0.3rem 0; border-top: 1px dashed var(--line); }
+  .results > li:first-child { border-top: none; }
+  .label { font-weight: 600; }
+  .part { font-size: 0.8rem; padding: 0.05rem 0.4rem; border-radius: 4px; background: var(--chip);
+          color: var(--muted); }
+  .src { font-size: 0.8rem; margin-left: 0.4rem; color: var(--muted); }
+  .hidden { display: none; }
+  footer { border-top: 1px solid var(--line); margin-top: 1.5rem; padding-bottom: 3rem;
+           color: var(--muted); font-size: 0.92rem; }
+  footer h2 { font-size: 1rem; color: var(--fg); }
+  @media (max-width: 40rem) { .results > li { grid-template-columns: 1fr; gap: 0.1rem; } }
+</style>
+</head>
+<body>
+<header>
+  <p class="crumbs"><a href="../">LMLExplore</a> / literature</p>
+  <h1>Literature</h1>
+  <p class="lede">The results of the literature that LMLExplore's declarations cite, and the declarations
+  that cite them, at commit <a href="https://github.com/{{repo}}/tree/{{commit}}"><code>{{commit12}}</code></a>:
+  {{summary}}.</p>
+  <p>Each link comes from a citation such as <code>[GK16, Theorem 14]</code> in a declaration's docstring,
+  or in the list of main statements of its module. It says that the declaration and the result
+  correspond, not how: the declaration may state the result exactly, more generally, or one part of
+  it, or be a step of its proof. The links are also published as
+  <a href="annotations.jsonl"><code>annotations.jsonl</code></a>, in the
+  <a href="https://github.com/mathlib-initiative/literature-links">Literature Links</a> format.</p>
+  <input type="search" id="filter" placeholder="Filter by work, result or declaration" aria-label="Filter">
+</header>
+<main>
+{{works}}
+</main>
+<footer>
+  <h2 id="numbered-item">The location of a numbered result</h2>
+  <p>The subject of each annotation is a numbered result of a work. Its location has
+  <code>"profile": "{{profile}}"</code>, a <code>label</code> and optionally a <code>part</code>.
+  <code>label</code> is the result as the work prints it, such as <code>Theorem 14</code>,
+  <code>Lemma A.1</code>, <code>Section 4.3</code>, or <code>(8.2)</code> for an equation, in the numbering
+  of the revision that the end's <code>version</code> names, or of the published work when it names
+  none. <code>part</code> narrows it, such as <code>(a)</code>. An annotation whose <code>kind</code> is
+  <code>proof</code> is about the proof of the result.</p>
+</footer>
+<script>
+  const filter = document.getElementById('filter');
+  filter.addEventListener('input', () => {
+    const q = filter.value.trim().toLowerCase();
+    for (const work of document.querySelectorAll('.work')) {
+      const head = work.querySelector('h2').textContent.toLowerCase();
+      let shown = 0;
+      for (const r of work.querySelectorAll('.result')) {
+        const ok = !q || head.includes(q) || r.dataset.text.includes(q);
+        r.classList.toggle('hidden', !ok);
+        shown += ok;
+      }
+      work.classList.toggle('hidden', shown === 0);
+    }
+  });
+</script>
+</body>
+</html>

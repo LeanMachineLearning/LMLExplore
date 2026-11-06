@@ -1,0 +1,670 @@
+{
+ "ABM10": {
+  "uri": "https://hal.science/hal-00654404",
+  "citation": {
+   "id": "ABM10",
+   "type": "paper-conference",
+   "title": "Best Arm Identification in Multi-Armed Bandits",
+   "author": [
+    {
+     "family": "Audibert",
+     "given": "Jean-Yves"
+    },
+    {
+     "family": "Bubeck",
+     "given": "Sébastien"
+    },
+    {
+     "family": "Munos",
+     "given": "Rémi"
+    }
+   ],
+   "container-title": "Proceedings of the 23rd Conference on Learning Theory (COLT)",
+   "issued": {
+    "date-parts": [
+     [
+      2010
+     ]
+    ]
+   }
+  }
+ },
+ "AJKS": {
+  "uri": "https://rltheorybook.github.io/",
+  "citation": {
+   "id": "AJKS",
+   "type": "book",
+   "title": "Reinforcement Learning: Theory and Algorithms",
+   "author": [
+    {
+     "family": "Agarwal",
+     "given": "Alekh"
+    },
+    {
+     "family": "Jiang",
+     "given": "Nan"
+    },
+    {
+     "family": "Kakade",
+     "given": "Sham M."
+    },
+    {
+     "family": "Sun",
+     "given": "Wen"
+    }
+   ],
+   "issued": {
+    "date-parts": [
+     [
+      2022
+     ]
+    ]
+   }
+  }
+ },
+ "BLM13": {
+  "uri": "https://doi.org/10.1093/acprof:oso/9780199535255.001.0001",
+  "citation": {
+   "id": "BLM13",
+   "type": "book",
+   "title": "Concentration Inequalities: A Nonasymptotic Theory of Independence",
+   "author": [
+    {
+     "family": "Boucheron",
+     "given": "Stéphane"
+    },
+    {
+     "family": "Lugosi",
+     "given": "Gábor"
+    },
+    {
+     "family": "Massart",
+     "given": "Pascal"
+    }
+   ],
+   "publisher": "Oxford University Press",
+   "DOI": "10.1093/acprof:oso/9780199535255.001.0001",
+   "issued": {
+    "date-parts": [
+     [
+      2013
+     ]
+    ]
+   }
+  }
+ },
+ "CT": {
+  "uri": "https://doi.org/10.1002/047174882X",
+  "citation": {
+   "id": "CT",
+   "type": "book",
+   "title": "Elements of Information Theory",
+   "edition": "2",
+   "author": [
+    {
+     "family": "Cover",
+     "given": "Thomas M."
+    },
+    {
+     "family": "Thomas",
+     "given": "Joy A."
+    }
+   ],
+   "publisher": "Wiley",
+   "DOI": "10.1002/047174882X",
+   "issued": {
+    "date-parts": [
+     [
+      2006
+     ]
+    ]
+   }
+  }
+ },
+ "DK19": {
+  "uri": "https://arxiv.org/abs/1902.03475",
+  "identifiers": {
+   "arxiv": "1902.03475"
+  },
+  "citation": {
+   "id": "DK19",
+   "type": "paper-conference",
+   "title": "Pure Exploration with Multiple Correct Answers",
+   "author": [
+    {
+     "family": "Degenne",
+     "given": "Rémy"
+    },
+    {
+     "family": "Koolen",
+     "given": "Wouter M."
+    }
+   ],
+   "container-title": "Advances in Neural Information Processing Systems 32 (NeurIPS)",
+   "issued": {
+    "date-parts": [
+     [
+      2019
+     ]
+    ]
+   }
+  }
+ },
+ "DKM19": {
+  "uri": "https://arxiv.org/abs/1906.10431",
+  "identifiers": {
+   "arxiv": "1906.10431"
+  },
+  "citation": {
+   "id": "DKM19",
+   "type": "paper-conference",
+   "title": "Non-Asymptotic Pure Exploration by Solving Games",
+   "author": [
+    {
+     "family": "Degenne",
+     "given": "Rémy"
+    },
+    {
+     "family": "Koolen",
+     "given": "Wouter M."
+    },
+    {
+     "family": "Ménard",
+     "given": "Pierre"
+    }
+   ],
+   "container-title": "Advances in Neural Information Processing Systems 32 (NeurIPS)",
+   "issued": {
+    "date-parts": [
+     [
+      2019
+     ]
+    ]
+   }
+  }
+ },
+ "EMM02": {
+  "uri": "https://doi.org/10.1007/3-540-45435-7_18",
+  "citation": {
+   "id": "EMM02",
+   "type": "paper-conference",
+   "title": "PAC Bounds for Multi-armed Bandit and Markov Decision Processes",
+   "author": [
+    {
+     "family": "Even-Dar",
+     "given": "Eyal"
+    },
+    {
+     "family": "Mannor",
+     "given": "Shie"
+    },
+    {
+     "family": "Mansour",
+     "given": "Yishay"
+    }
+   ],
+   "container-title": "Computational Learning Theory (COLT 2002)",
+   "publisher": "Springer",
+   "DOI": "10.1007/3-540-45435-7_18",
+   "issued": {
+    "date-parts": [
+     [
+      2002
+     ]
+    ]
+   }
+  }
+ },
+ "GK16": {
+  "uri": "https://arxiv.org/abs/1602.04589",
+  "identifiers": {
+   "arxiv": "1602.04589"
+  },
+  "citation": {
+   "id": "GK16",
+   "type": "paper-conference",
+   "title": "Optimal Best Arm Identification with Fixed Confidence",
+   "author": [
+    {
+     "family": "Garivier",
+     "given": "Aurélien"
+    },
+    {
+     "family": "Kaufmann",
+     "given": "Emilie"
+    }
+   ],
+   "container-title": "Proceedings of the 29th Conference on Learning Theory (COLT)",
+   "issued": {
+    "date-parts": [
+     [
+      2016
+     ]
+    ]
+   }
+  }
+ },
+ "JABJ18": {
+  "uri": "https://arxiv.org/abs/1807.03765",
+  "identifiers": {
+   "arxiv": "1807.03765"
+  },
+  "citation": {
+   "id": "JABJ18",
+   "type": "paper-conference",
+   "title": "Is Q-learning Provably Efficient?",
+   "author": [
+    {
+     "family": "Jin",
+     "given": "Chi"
+    },
+    {
+     "family": "Allen-Zhu",
+     "given": "Zeyuan"
+    },
+    {
+     "family": "Bubeck",
+     "given": "Sébastien"
+    },
+    {
+     "family": "Jordan",
+     "given": "Michael I."
+    }
+   ],
+   "container-title": "Advances in Neural Information Processing Systems 31 (NeurIPS)",
+   "issued": {
+    "date-parts": [
+     [
+      2018
+     ]
+    ]
+   }
+  }
+ },
+ "JDK23": {
+  "uri": "https://arxiv.org/abs/2210.00974",
+  "identifiers": {
+   "arxiv": "2210.00974"
+  },
+  "citation": {
+   "id": "JDK23",
+   "type": "paper-conference",
+   "title": "Dealing with Unknown Variances in Best-Arm Identification",
+   "author": [
+    {
+     "family": "Jourdan",
+     "given": "Marc"
+    },
+    {
+     "family": "Degenne",
+     "given": "Rémy"
+    },
+    {
+     "family": "Kaufmann",
+     "given": "Emilie"
+    }
+   ],
+   "container-title": "Proceedings of the 34th International Conference on Algorithmic Learning Theory (ALT)",
+   "issued": {
+    "date-parts": [
+     [
+      2023
+     ]
+    ]
+   }
+  }
+ },
+ "JOA10": {
+  "uri": "https://jmlr.org/papers/v11/jaksch10a.html",
+  "citation": {
+   "id": "JOA10",
+   "type": "article-journal",
+   "title": "Near-optimal Regret Bounds for Reinforcement Learning",
+   "author": [
+    {
+     "family": "Jaksch",
+     "given": "Thomas"
+    },
+    {
+     "family": "Ortner",
+     "given": "Ronald"
+    },
+    {
+     "family": "Auer",
+     "given": "Peter"
+    }
+   ],
+   "container-title": "Journal of Machine Learning Research",
+   "volume": "11",
+   "issued": {
+    "date-parts": [
+     [
+      2010
+     ]
+    ]
+   }
+  }
+ },
+ "JYW21": {
+  "uri": "https://arxiv.org/abs/2012.15085",
+  "identifiers": {
+   "arxiv": "2012.15085"
+  },
+  "citation": {
+   "id": "JYW21",
+   "type": "paper-conference",
+   "title": "Is Pessimism Provably Efficient for Offline RL?",
+   "author": [
+    {
+     "family": "Jin",
+     "given": "Ying"
+    },
+    {
+     "family": "Yang",
+     "given": "Zhuoran"
+    },
+    {
+     "family": "Wang",
+     "given": "Zhaoran"
+    }
+   ],
+   "container-title": "Proceedings of the 38th International Conference on Machine Learning (ICML)",
+   "issued": {
+    "date-parts": [
+     [
+      2021
+     ]
+    ]
+   }
+  }
+ },
+ "KCG16": {
+  "uri": "https://arxiv.org/abs/1407.4443",
+  "identifiers": {
+   "arxiv": "1407.4443"
+  },
+  "citation": {
+   "id": "KCG16",
+   "type": "article-journal",
+   "title": "On the Complexity of Best-Arm Identification in Multi-Armed Bandit Models",
+   "author": [
+    {
+     "family": "Kaufmann",
+     "given": "Emilie"
+    },
+    {
+     "family": "Cappé",
+     "given": "Olivier"
+    },
+    {
+     "family": "Garivier",
+     "given": "Aurélien"
+    }
+   ],
+   "container-title": "Journal of Machine Learning Research",
+   "volume": "17",
+   "issued": {
+    "date-parts": [
+     [
+      2016
+     ]
+    ]
+   }
+  }
+ },
+ "KK13": {
+  "uri": "https://proceedings.mlr.press/v30/Kaufmann13.html",
+  "citation": {
+   "id": "KK13",
+   "type": "paper-conference",
+   "title": "Information Complexity in Bandit Subset Selection",
+   "author": [
+    {
+     "family": "Kaufmann",
+     "given": "Emilie"
+    },
+    {
+     "family": "Kalyanakrishnan",
+     "given": "Shivaram"
+    }
+   ],
+   "container-title": "Proceedings of the 26th Conference on Learning Theory (COLT)",
+   "issued": {
+    "date-parts": [
+     [
+      2013
+     ]
+    ]
+   }
+  }
+ },
+ "KKS13": {
+  "uri": "https://proceedings.mlr.press/v28/karnin13.html",
+  "citation": {
+   "id": "KKS13",
+   "type": "paper-conference",
+   "title": "Almost Optimal Exploration in Multi-Armed Bandits",
+   "author": [
+    {
+     "family": "Karnin",
+     "given": "Zohar"
+    },
+    {
+     "family": "Koren",
+     "given": "Tomer"
+    },
+    {
+     "family": "Somekh",
+     "given": "Oren"
+    }
+   ],
+   "container-title": "Proceedings of the 30th International Conference on Machine Learning (ICML)",
+   "issued": {
+    "date-parts": [
+     [
+      2013
+     ]
+    ]
+   }
+  }
+ },
+ "KTAS12": {
+  "uri": "https://icml.cc/2012/papers/359.pdf",
+  "citation": {
+   "id": "KTAS12",
+   "type": "paper-conference",
+   "title": "PAC Subset Selection in Stochastic Multi-armed Bandits",
+   "author": [
+    {
+     "family": "Kalyanakrishnan",
+     "given": "Shivaram"
+    },
+    {
+     "family": "Tewari",
+     "given": "Ambuj"
+    },
+    {
+     "family": "Auer",
+     "given": "Peter"
+    },
+    {
+     "family": "Stone",
+     "given": "Peter"
+    }
+   ],
+   "container-title": "Proceedings of the 29th International Conference on Machine Learning (ICML)",
+   "issued": {
+    "date-parts": [
+     [
+      2012
+     ]
+    ]
+   }
+  }
+ },
+ "LS": {
+  "uri": "https://doi.org/10.1017/9781108571401",
+  "citation": {
+   "id": "LS",
+   "type": "book",
+   "title": "Bandit Algorithms",
+   "author": [
+    {
+     "family": "Lattimore",
+     "given": "Tor"
+    },
+    {
+     "family": "Szepesvári",
+     "given": "Csaba"
+    }
+   ],
+   "publisher": "Cambridge University Press",
+   "DOI": "10.1017/9781108571401",
+   "issued": {
+    "date-parts": [
+     [
+      2020
+     ]
+    ]
+   }
+  }
+ },
+ "MT04": {
+  "uri": "https://jmlr.org/papers/v5/mannor04b.html",
+  "citation": {
+   "id": "MT04",
+   "type": "article-journal",
+   "title": "The Sample Complexity of Exploration in the Multi-Armed Bandit Problem",
+   "author": [
+    {
+     "family": "Mannor",
+     "given": "Shie"
+    },
+    {
+     "family": "Tsitsiklis",
+     "given": "John N."
+    }
+   ],
+   "container-title": "Journal of Machine Learning Research",
+   "volume": "5",
+   "issued": {
+    "date-parts": [
+     [
+      2004
+     ]
+    ]
+   }
+  }
+ },
+ "Ora": {
+  "uri": "https://arxiv.org/abs/1912.13213",
+  "identifiers": {
+   "arxiv": "1912.13213"
+  },
+  "version": "v10",
+  "citation": {
+   "id": "Ora",
+   "type": "article",
+   "title": "Online Learning: A Modern Introduction Using Convex Optimization",
+   "author": [
+    {
+     "family": "Orabona",
+     "given": "Francesco"
+    }
+   ],
+   "issued": {
+    "date-parts": [
+     [
+      2026
+     ]
+    ]
+   }
+  }
+ },
+ "P": {
+  "uri": "https://doi.org/10.1002/9780470316887",
+  "citation": {
+   "id": "P",
+   "type": "book",
+   "title": "Markov Decision Processes: Discrete Stochastic Dynamic Programming",
+   "author": [
+    {
+     "family": "Puterman",
+     "given": "Martin L."
+    }
+   ],
+   "publisher": "Wiley",
+   "DOI": "10.1002/9780470316887",
+   "issued": {
+    "date-parts": [
+     [
+      1994
+     ]
+    ]
+   }
+  }
+ },
+ "R16": {
+  "uri": "https://arxiv.org/abs/1602.08448",
+  "identifiers": {
+   "arxiv": "1602.08448"
+  },
+  "version": "v4",
+  "citation": {
+   "id": "R16",
+   "type": "article",
+   "title": "Simple Bayesian Algorithms for Best-Arm Identification",
+   "author": [
+    {
+     "family": "Russo",
+     "given": "Daniel"
+    }
+   ],
+   "issued": {
+    "date-parts": [
+     [
+      2016
+     ]
+    ]
+   }
+  }
+ },
+ "WOSVW03": {
+  "uri": "urn:lmlexplore:reference:WOSVW03",
+  "citation": {
+   "id": "WOSVW03",
+   "type": "report",
+   "title": "Inequalities for the L1 Deviation of the Empirical Distribution",
+   "author": [
+    {
+     "family": "Weissman",
+     "given": "Tsachy"
+    },
+    {
+     "family": "Ordentlich",
+     "given": "Erik"
+    },
+    {
+     "family": "Seroussi",
+     "given": "Gadiel"
+    },
+    {
+     "family": "Verdú",
+     "given": "Sergio"
+    },
+    {
+     "family": "Weinberger",
+     "given": "Marcelo J."
+    }
+   ],
+   "publisher": "HP Laboratories",
+   "issued": {
+    "date-parts": [
+     [
+      2003
+     ]
+    ]
+   }
+  }
+ }
+}
