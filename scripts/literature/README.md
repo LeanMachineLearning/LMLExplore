@@ -29,6 +29,11 @@ python3 scripts/literature/annotations.py --dataset DATASET \
 
 and checks the annotations with the format's checker, `literature-links validate`.
 
+The page shares the visual identity of https://leanmachinelearning.org: it loads the site's
+stylesheet (`/static/style.css`, on the same domain), uses its classes (`library-page`, `stat-tiles`,
+`stats-table`) and colours, and copies its navigation bar and footer into `page.html`. When the
+site's navigation or footer change, update them here.
+
 ## Where the links come from
 
 A citation of a numbered result, `[KEY, Theorem 14]`, in a declaration's docstring, or in an entry of

@@ -474,10 +474,14 @@ def reference(w: dict) -> str:
     return ", ".join(p for p in parts if p) + (" · " + " · ".join(links) if links else "")
 
 
-def meter(covered: int, total: int) -> str:
+def bar(covered: int, total: int) -> str:
+    """A bar showing the share `covered / total`."""
     pct = round(100 * covered / total) if total else 0
-    return (f'<span class="meter" role="img" aria-label="{covered} of {total}"><span style="width:{pct}%"></span></span>'
-            f' {covered} of {total}')
+    return f'<span class="meter" role="img" aria-label="{covered} of {total}"><span style="width:{pct}%"></span></span>'
+
+
+def meter(covered: int, total: int) -> str:
+    return f"{bar(covered, total)} {covered} of {total}"
 
 
 def render(records: list[tuple[dict, str | None]], sources: dict, repo: str, commit: str, works: dict,
@@ -522,9 +526,9 @@ def render(records: list[tuple[dict, str | None]], sources: dict, repo: str, com
         n_linked = sum((key, lab) in linked for lab in results)
         coverage = (f' · the roadmaps cite {len(work_goals)}: {meter(len(work_goals & {lab for (k, lab) in linked if k == key}), len(work_goals))} have a declaration'
                     if work_goals else "")
-        rows.append(f'<section class="work" id="{html.escape(key)}"><h2><span class="key">[{html.escape(key)}]</span> '
-                    f'{reference(works[key])}</h2><p class="count">{n_linked} result{"s" * (n_linked != 1)} with a declaration'
-                    f'{coverage}</p><ul class="results">{"".join(items_html)}</ul></section>')
+        rows.append(f'<section class="work" id="{html.escape(key)}"><h3 class="work-title"><span class="key">[{html.escape(key)}]</span> '
+                    f'{reference(works[key])}</h3><div class="count">{n_linked} result{"s" * (n_linked != 1)} with a declaration'
+                    f'{coverage}</div><ul class="results">{"".join(items_html)}</ul></section>')
 
     # coverage by roadmap: the results each roadmap cites, and those that have a declaration
     by_area: dict[str, set] = defaultdict(set)
@@ -533,16 +537,21 @@ def render(records: list[tuple[dict, str | None]], sources: dict, repo: str, com
         if result in goals:
             for ref in a.get("extensions", {}).get(ROADMAPS, {}).get("items", []):
                 by_area[ref.split(" ")[0]].add(result)
-    table = "".join(f'<tr><td>{html.escape(area)}</td><td>{meter(len(rs & linked), len(rs))}</td></tr>'
-                    for area, rs in sorted(by_area.items()))
-    n_decls = len({decl for _, decl in records if decl})
     covered = len(goals & linked)
+    table = "".join(f'<tr><th scope="row">{html.escape(area)}</th><td class="num">{len(rs):,}</td>'
+                    f'<td class="num">{len(rs & linked):,}</td><td>{bar(len(rs & linked), len(rs))}</td></tr>'
+                    for area, rs in sorted(by_area.items()))
+    total = (f'<tr><th scope="row">All roadmaps</th><td class="num">{len(goals):,}</td>'
+             f'<td class="num">{covered:,}</td><td>{bar(covered, len(goals))}</td></tr>')
+    n_decls = len({decl for _, decl in records if decl})
     template = (Path(__file__).with_name("page.html")).read_text(encoding="utf-8")
-    summary = (f"{len(linked)} results of {len({k for k, _ in linked})} works are cited by {n_decls} declarations. "
-               + (f"The roadmaps cite {len(goals)} results, of which {covered} ({round(100 * covered / len(goals))}%) "
-                  f"have a declaration" if goals else "No roadmap was read"))
-    return (template.replace("{{works}}", "\n".join(rows)).replace("{{summary}}", summary)
-            .replace("{{roadmaps}}", table)
+    return (template.replace("{{works}}", "\n".join(rows))
+            .replace("{{stat-results}}", f"{len(linked):,}")
+            .replace("{{stat-works}}", f"{len({k for k, _ in linked}):,}")
+            .replace("{{stat-declarations}}", f"{n_decls:,}")
+            .replace("{{stat-coverage}}", f"{round(100 * covered / len(goals))}%" if goals else "–")
+            .replace("{{goals}}", f"{len(goals):,}")
+            .replace("{{roadmaps}}", table).replace("{{roadmaps-total}}", total)
             .replace("{{roadmaps-commit}}", html.escape(roadmap_commit))
             .replace("{{roadmaps-commit12}}", html.escape(roadmap_commit[:12]))
             .replace("{{annotations}}", str(len(records)))
