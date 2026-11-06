@@ -46,27 +46,19 @@ theorem rateFunction_expFamily (hη : η ∈ integrableExpSet T ρ) (hx : x ∈ 
     rateFunction T (ρ.expFamily T η) x =
       klDiv (ρ.expFamily T (ρ.natParam T x)) (ρ.expFamily T η) := by
   have hηx := natParam_mem_interior_integrableExpSet hx
-  have h_kl := toReal_klDiv_expFamily hηx hη
-  rw [deriv_cgf_natParam hx] at h_kl
-  rw [← ENNReal.ofReal_toReal (klDiv_ne_top (expFamily_absolutelyContinuous_expFamily _ hη)
-    (integrable_llr_expFamily hηx hη)), h_kl]
+  have hηx' := interior_subset hηx
+  rw [klDiv_expFamily hηx hη, deriv_cgf_natParam hx]
   refine le_antisymm ((rateFunction_le_iff).2 fun t ht ↦ ?_) ?_
-  · -- `ψ(η + t) ≥ ψ(η(x)) + x (η + t - η(x))`: the divergence from `ρ_η(x)` to `ρ_(η + t)` is
-    -- nonnegative.
+  · -- `ψ(η + t) ≥ ψ(η(x)) + x (η + t - η(x))`: the log-partition function lies above its tangent
+    -- line at `η(x)`.
     rw [integrableExpSet_expFamily hη, mem_preimage] at ht
-    have h_nonneg :
-        0 ≤ cgf T ρ (η + t) - cgf T ρ (ρ.natParam T x) - x * (η + t - ρ.natParam T x) := by
-      have h := toReal_klDiv_expFamily hηx ht
-      rw [deriv_cgf_natParam hx] at h
-      exact h ▸ ENNReal.toReal_nonneg
     rw [cgf_expFamily hη ht]
-    exact ENNReal.ofReal_le_ofReal (by linarith)
+    exact ENNReal.ofReal_le_ofReal (by linarith [cgf_natParam_add_mul_sub_le_cgf hx ht])
   · -- The supremum is attained at the natural parameter `η(x)`.
     have ht : ρ.natParam T x - η ∈ integrableExpSet T (ρ.expFamily T η) := by
-      rw [integrableExpSet_expFamily hη, mem_preimage, add_sub_cancel]
-      exact interior_subset hηx
+      rwa [integrableExpSet_expFamily hη, mem_preimage, add_sub_cancel]
     refine (le_of_eq ?_).trans (ofReal_le_rateFunction ht x)
-    rw [cgf_expFamily hη (by rw [add_sub_cancel]; exact interior_subset hηx), add_sub_cancel]
+    rw [cgf_expFamily hη (by rwa [add_sub_cancel]), add_sub_cancel]
     congr 1
     ring
 
