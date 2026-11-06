@@ -50,11 +50,8 @@ lemma integrable_exp_mul_sub (ht : t ∈ integrableExpSet X P) (x : ℝ) :
 exponential moment: `cgf X P t = t x + log E[exp (t (X - x))]`. -/
 lemma cgf_eq_mul_add_log_integral_exp_mul_sub [NeZero P] (ht : t ∈ integrableExpSet X P)
     (x : ℝ) : cgf X P t = t * x + log (∫ ω, exp (t * (X ω - x)) ∂P) := by
-  have h_eq : ∫ ω, exp (t * (X ω - x)) ∂P = mgf X P t * exp (-(t * x)) := by
-    rw [mgf, ← integral_mul_const]
-    congr with ω
-    rw [← exp_add]
-    ring_nf
+  have h_eq : ∫ ω, exp (t * (X ω - x)) ∂P = mgf X P t * exp (t * -x) := by
+    simp_rw [← mgf_add_const, mgf, sub_eq_add_neg]
   rw [h_eq, log_mul (mgf_pos' (NeZero.ne P) ht).ne' (exp_pos _).ne', log_exp, cgf]
   ring
 
