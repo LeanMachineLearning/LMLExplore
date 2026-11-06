@@ -48,4 +48,5 @@ item; `identifiers`, such as `{"arxiv": "1602.04589"}`; and `version`, the revis
 the docstrings use, when it is not the published one (`v4` of an arXiv preprint). A key that it does
 not describe falls back to the text that the modules' `## References` sections, then the roadmaps'
 References, give for it, with the arXiv ID that the text names if any. Add a work here when
-LMLExplore or a roadmap starts citing it, to give it a full citation and a link.
+LMLExplore or a roadmap starts citing it, to give it a full citation and a link. A work cited under
+two keys has one entry, and the other key maps to it: `"CT06": {"same": "CT"}`.
