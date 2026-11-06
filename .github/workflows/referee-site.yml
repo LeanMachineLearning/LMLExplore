@@ -23,7 +23,8 @@ name: Referee site
 # Twice a day (05:17 and 17:17 UTC) rather than on every push: main moves many times a day, and the
 # site needs to be recent, not one build per commit. The site is rebuilt at every run, so that the
 # reviews filed since the last one show even when main has not moved; only the expensive part,
-# building and extracting, is skipped then.
+# building and extracting, is skipped then. Forks run nothing: they have no Pages site, and a
+# scheduled run there would publish a release and a ledger branch in the fork, then fail to deploy.
 on:
   schedule:
     - cron: '17 5,17 * * *'
@@ -43,7 +44,7 @@ concurrency:
 
 jobs:
   check:
-    if: github.ref == 'refs/heads/main'
+    if: github.repository == 'LeanMachineLearning/LMLExplore' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     permissions:
       contents: read
