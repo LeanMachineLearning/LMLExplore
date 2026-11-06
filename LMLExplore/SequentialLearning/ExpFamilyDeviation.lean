@@ -12,8 +12,8 @@ public import LMLExplore.SequentialLearning.SumRewards
 /-!
 # Deviations of empirical means for rewards dominated by an exponential family
 
-Let the rewards of arm `a` of a stochastic environment `Environment.bandit ν` be dominated above and
-below by the member of mean `μ` of the exponential family of a measure `ρ` and a statistic `T`,
+Let the rewards of arm `a` of a stochastic environment `Environment.bandit ν` be dominated on
+`Set.univ` by the member of mean `μ` of the exponential family of a measure `ρ` and a statistic `T`,
 with divergence `d` in the mean parametrization. This file bounds the deviations of the empirical
 mean of `a`: first for the first `s` rewards in the reward stream model `streamMeasure ν`, by the
 Cramér–Chernoff bounds of `ExponentialFamily/Chernoff.lean`, then in a run of any algorithm, at all
@@ -45,33 +45,33 @@ variable {α 𝓧 : Type*} [MeasurableSpace α] {m𝓧 : MeasurableSpace 𝓧} {
   [IsMarkovKernel ν] {ρ : Measure 𝓧} {T : 𝓧 → ℝ} {a : α} {μ x : ℝ}
 
 /-- **Cramér–Chernoff bound in the reward stream, upper tail.** If the rewards of arm `a` are
-dominated above by the member of mean `μ` of the exponential family of `ρ` and `T`, then for a mean
-`x ≥ μ` of the family, the sum of the first `s` rewards of `a` in the reward stream model is at
-least `s x` with probability at most `exp (-(s d(x, μ)))`. -/
+dominated on `Set.Ici 0` by the member of mean `μ` of the exponential family of `ρ` and `T`, then
+for a mean `x ≥ μ` of the family, the sum of the first `s` rewards of `a` in the reward stream
+model is at least `s x` with probability at most `exp (-(s d(x, μ)))`. -/
 theorem streamMeasure_sum_ge_le_exp_expFamilyDiv
-    (hν : MGFDominatedAbove id (ν a) T (ρ.expFamily T (ρ.natParam T μ)))
+    (hν : MGFDominatedOn id (ν a) T (ρ.expFamily T (ρ.natParam T μ)) (Set.Ici 0))
     (hμ : μ ∈ ρ.expFamilyMeans T) (hx : x ∈ ρ.expFamilyMeans T) (hμx : μ ≤ x) (s : ℕ) :
     streamMeasure ν {ω | s * x ≤ ∑ i ∈ range s, ω i a} ≤
       ENNReal.ofReal (exp (-(s * ρ.expFamilyDiv T x μ))) := by
   have h := (iIndepFun_eval_streamMeasure'' ν a).measureReal_sum_ge_le_exp_expFamilyDiv
     (s := range s)
-    (fun i _ ↦ (identDistrib_eval_eval_id_streamMeasure ν i a).mgfDominatedAbove.trans hν) hμ hx hμx
+    (fun i _ ↦ (identDistrib_eval_eval_id_streamMeasure ν i a).mgfDominatedOn.trans hν) hμ hx hμx
   rw [card_range] at h
   rw [← ofReal_measureReal]
   exact ENNReal.ofReal_le_ofReal h
 
 /-- **Cramér–Chernoff bound in the reward stream, lower tail.** If the rewards of arm `a` are
-dominated below by the member of mean `μ` of the exponential family of `ρ` and `T`, then for a mean
-`x ≤ μ` of the family, the sum of the first `s` rewards of `a` in the reward stream model is at
-most `s x` with probability at most `exp (-(s d(x, μ)))`. -/
+dominated on `Set.Iic 0` by the member of mean `μ` of the exponential family of `ρ` and `T`, then
+for a mean `x ≤ μ` of the family, the sum of the first `s` rewards of `a` in the reward stream
+model is at most `s x` with probability at most `exp (-(s d(x, μ)))`. -/
 theorem streamMeasure_sum_le_le_exp_expFamilyDiv
-    (hν : MGFDominatedBelow id (ν a) T (ρ.expFamily T (ρ.natParam T μ)))
+    (hν : MGFDominatedOn id (ν a) T (ρ.expFamily T (ρ.natParam T μ)) (Set.Iic 0))
     (hμ : μ ∈ ρ.expFamilyMeans T) (hx : x ∈ ρ.expFamilyMeans T) (hxμ : x ≤ μ) (s : ℕ) :
     streamMeasure ν {ω | ∑ i ∈ range s, ω i a ≤ s * x} ≤
       ENNReal.ofReal (exp (-(s * ρ.expFamilyDiv T x μ))) := by
   have h := (iIndepFun_eval_streamMeasure'' ν a).measureReal_sum_le_le_exp_expFamilyDiv
     (s := range s)
-    (fun i _ ↦ (identDistrib_eval_eval_id_streamMeasure ν i a).mgfDominatedBelow.trans hν) hμ hx hxμ
+    (fun i _ ↦ (identDistrib_eval_eval_id_streamMeasure ν i a).mgfDominatedOn.trans hν) hμ hx hxμ
   rw [card_range] at h
   rw [← ofReal_measureReal]
   exact ENNReal.ofReal_le_ofReal h
@@ -87,14 +87,13 @@ variable {α 𝓧 : Type*} [DecidableEq α] [MeasurableSpace α] [Countable α]
 
 /-- **Deviations of the empirical mean of an arm with at least `m` pulls.** In a run of any
 algorithm against the stochastic bandit `Environment.bandit ν`, let the rewards of arm `a` be
-dominated above and below by the member of mean `μ` of the exponential family of `ρ` and `T`, with
+dominated on `Set.univ` by the member of mean `μ` of the exponential family of `ρ` and `T`, with
 divergence `d`, and let `l < μ < u` be means of the family. The probability that, at some round, `a`
 has at least `m` pulls and an empirical mean outside `(l, u)` is at most
 `exp (-m d(u, μ)) / (1 - exp (-d(u, μ))) + exp (-m d(l, μ)) / (1 - exp (-d(l, μ)))`. -/
 theorem measure_exists_le_pullCount_and_empMean_notMem_Ioo_le
     (h : IsAlgEnvSeq O A R alg (Environment.bandit ν) P)
-    (hν_above : MGFDominatedAbove id (ν a) T (ρ.expFamily T (ρ.natParam T μ)))
-    (hν_below : MGFDominatedBelow id (ν a) T (ρ.expFamily T (ρ.natParam T μ)))
+    (hν : MGFDominatedOn id (ν a) T (ρ.expFamily T (ρ.natParam T μ)) Set.univ)
     (hμ : μ ∈ ρ.expFamilyMeans T) (hl : l ∈ ρ.expFamilyMeans T) (hu : u ∈ ρ.expFamilyMeans T)
     (hlμ : l < μ) (hμu : μ < u) (m : ℕ) :
     P {ω | ∃ t, m ≤ pullCount A a t ω ∧ empMean A R a t ω ∉ Set.Ioo l u} ≤
@@ -120,8 +119,11 @@ theorem measure_exists_le_pullCount_and_empMean_notMem_Ioo_le
   _ ≤ ∑' k : ℕ, (ENNReal.ofReal (exp (-((k + m : ℕ) * ρ.expFamilyDiv T u μ))) +
       ENNReal.ofReal (exp (-((k + m : ℕ) * ρ.expFamilyDiv T l μ)))) := by
     refine tsum_le_tsum fun k ↦ (measure_union_le _ _).trans ?_
-    exact (add_le_add (streamMeasure_sum_le_le_exp_expFamilyDiv hν_below hμ hl hlμ.le _)
-      (streamMeasure_sum_ge_le_exp_expFamilyDiv hν_above hμ hu hμu.le _)).trans_eq (add_comm _ _)
+    have h_lower := streamMeasure_sum_le_le_exp_expFamilyDiv (hν.mono (Set.subset_univ _)) hμ hl
+      hlμ.le (k + m)
+    have h_upper := streamMeasure_sum_ge_le_exp_expFamilyDiv (hν.mono (Set.subset_univ _)) hμ hu
+      hμu.le (k + m)
+    exact (add_le_add h_lower h_upper).trans_eq (add_comm _ _)
   _ = _ := by
     have h_tsum {d : ℝ} (hd : 0 < d) : ∑' k : ℕ, ENNReal.ofReal (exp (-((k + m : ℕ) * d))) =
         ENNReal.ofReal (exp (-(m * d)) / (1 - exp (-d))) := by

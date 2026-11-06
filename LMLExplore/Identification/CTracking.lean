@@ -239,17 +239,15 @@ variable {Ω 𝓧 : Type*} {mΩ : MeasurableSpace Ω} {m𝓧 : MeasurableSpace �
 /-- **Concentration of the empirical means under C-tracking** [GK16, Lemma 19], in the form used
 in the proof of [GK16, Theorem 14]. In a run of C-tracking against the stochastic bandit
 `Environment.bandit ν`, with targets that are allocations, let the rewards of each arm `a` be
-dominated above and below by the member of mean `μ a` of the exponential family of `ρ a` and `T a`,
+dominated on `Set.univ` by the member of mean `μ a` of the exponential family of `ρ a` and `T a`,
 and let `l a < μ a < u a` be means of the family. If the rounds `t₀ T` satisfy
 `√(t₀ T) / log T → ∞`, then the probabilities that the empirical mean of some arm `a` is outside
 `(l a, u a)` at some round `t ≥ t₀ T` have a finite sum over `T`. -/
 theorem tsum_measure_exists_ge_empMean_notMem_Ioo_ne_top (hw0 : ∀ n h a, 0 ≤ w n h a)
     (hw1 : ∀ n h, ∑ a, w n h a = 1)
     (h : IsAlgEnvSeq O A R (cTracking w hw) (Environment.bandit ν) P)
-    (hν_above : ∀ a, MGFDominatedAbove id (ν a) (T a)
-      ((ρ a).expFamily (T a) ((ρ a).natParam (T a) (μ a))))
-    (hν_below : ∀ a, MGFDominatedBelow id (ν a) (T a)
-      ((ρ a).expFamily (T a) ((ρ a).natParam (T a) (μ a))))
+    (hν : ∀ a, MGFDominatedOn id (ν a) (T a)
+      ((ρ a).expFamily (T a) ((ρ a).natParam (T a) (μ a))) Set.univ)
     (hμ : ∀ a, μ a ∈ (ρ a).expFamilyMeans (T a)) (hl : ∀ a, l a ∈ (ρ a).expFamilyMeans (T a))
     (hu : ∀ a, u a ∈ (ρ a).expFamilyMeans (T a)) (hlμ : ∀ a, l a < μ a) (hμu : ∀ a, μ a < u a)
     {t₀ : ℕ → ℕ} (ht₀ : Tendsto (fun T : ℕ ↦ √(t₀ T : ℝ) / Real.log T) atTop atTop) :
@@ -263,7 +261,7 @@ theorem tsum_measure_exists_ge_empMean_notMem_Ioo_ne_top (hw0 : ∀ n h a, 0 ≤
     linarith [hω (t₀ T) a]
   -- Forced exploration is sufficient exploration on the sure event.
   simpa only [Set.univ_inter] using Identification.tsum_measure_exists_ge_empMean_notMem_Ioo_ne_top
-    h hν_above hν_below hμ hl hu hlμ hμu (G := fun _ ↦ Set.univ)
+    h hν hμ hl hu hlμ hμu (G := fun _ ↦ Set.univ)
     (fun T ↦ (h_forced T).mono fun _ hω _ ↦ hω) (Real.tendsto_natCeil_sub_div_log _ ht₀)
 
 end CTracking

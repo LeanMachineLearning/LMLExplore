@@ -373,7 +373,7 @@ private lemma mul_le_glr_plugInCost {Ω : Type*} {O : ℕ → Ω → Unit} {A : 
   exact mul_le_mul_right (hU _ hU' q hq hq_dist).le _
 
 /-- **Sample complexity of Track-and-Stop** [GK16, Theorem 14]. Let the rewards of each arm `a` of
-the model `μ` be dominated above and below by the member of mean `μ a` of a nondegenerate
+the model `μ` be dominated on `Set.univ` by the member of mean `μ a` of a nondegenerate
 exponential family `(ρ a, T a)`. Let the target map `w` be continuous at `μ` with `w(μ)` a
 probability vector, let the recommendation be `i` near `μ`, and let `(μ', w') ↦ D(μ', w', ¬i)` be
 lower semicontinuous at `(μ, w(μ))` on the allocations of the simplex. Then for thresholds
@@ -383,10 +383,8 @@ means as estimator satisfies `𝔼[τ_δ] ≤ c log (1 / δ)` for all small enou
 bound for `r(t) = O(t ^ α)` has a factor `α ∈ [1, e / 2]`. -/
 theorem eventually_expectedStoppingTime_trackAndStop_le (hT : ∀ a c, ¬ T a =ᵐ[ρ a] fun _ ↦ c)
     (hμ : ∀ a, μ a ∈ (ρ a).expFamilyMeans (T a))
-    (hν_above : ∀ a, MGFDominatedAbove id (task.ν μ a) (T a)
-      ((ρ a).expFamily (T a) ((ρ a).natParam (T a) (μ a))))
-    (hν_below : ∀ a, MGFDominatedBelow id (task.ν μ a) (T a)
-      ((ρ a).expFamily (T a) ((ρ a).natParam (T a) (μ a))))
+    (hν : ∀ a, MGFDominatedOn id (task.ν μ a) (T a)
+      ((ρ a).expFamily (T a) ((ρ a).natParam (T a) (μ a))) Set.univ)
     (hw_mem : w μ ∈ simplex α) (hw_cont : ContinuousAt w μ) (hrec_eq : ∀ᶠ μ' in 𝓝 μ, rec μ' = i)
     (h_lsc : LowerSemicontinuousWithinAt (fun q : (α → ℝ) × (α → ℝ) ↦ task.altCost q.1 q.2 i)
       (Set.univ ×ˢ simplex α) (μ, w μ))
@@ -436,7 +434,7 @@ theorem eventually_expectedStoppingTime_trackAndStop_le (hT : ∀ a c, ¬ T a =�
           pullCount IT.action (IT.action k ω) k ω)}
   have hE_sum : ∑' T, P (E T)ᶜ ≠ ∞ := by
     refine ne_top_of_le_ne_top (DTracking.tsum_measure_exists_ge_empMean_notMem_Ioo_ne_top hseq
-      hν_above hν_below hμ (fun a ↦ hlW.2.2.2 a) (fun a ↦ huW.2.2.2 a) hlμ hμu
+      hν hμ (fun a ↦ hlW.2.2.2 a) (fun a ↦ huW.2.2.2 a) hlμ hμu
       tendsto_sqrt_roundsAfter_div_log)
       (tsum_le_tsum fun T ↦ measure_mono_ae ?_)
     filter_upwards [DTracking.pullCount_action_le_of_lt hseq,
@@ -475,7 +473,7 @@ theorem eventually_expectedStoppingTime_trackAndStop_le (hT : ∀ a c, ¬ T a =�
 
 /-- **Sample complexity of Track-and-Stop at the characteristic time** [GK16, Theorem 14], the
 upper bound `𝔼[τ_δ] ≤ c log (1 / δ)` with `c > T*(μ)`. Let the rewards of each arm `a`
-of the model `μ` be dominated above and below by the member of mean `μ a` of a nondegenerate
+of the model `μ` be dominated on `Set.univ` by the member of mean `μ a` of a nondegenerate
 exponential family `(ρ a, T a)`, let `i` be the single correct answer of `μ`, let the target map
 `w` be continuous at `μ` with `w(μ)` an optimal allocation `w*(μ, ¬i)`, let the recommendation be
 `i` near `μ`, and let `(μ', w') ↦ D(μ', w', ¬i)` be lower semicontinuous at `(μ, w(μ))` on the
@@ -489,10 +487,8 @@ union-bound thresholds `K log (2 n (n + 1)) + x_δ` are `δ`-correct, and asympt
 `Identification/GaussianThreshold.lean`. -/
 theorem eventually_expectedStoppingTime_trackAndStop_le_of_charTime_lt
     (hT : ∀ a c, ¬ T a =ᵐ[ρ a] fun _ ↦ c) (hμ : ∀ a, μ a ∈ (ρ a).expFamilyMeans (T a))
-    (hν_above : ∀ a, MGFDominatedAbove id (task.ν μ a) (T a)
-      ((ρ a).expFamily (T a) ((ρ a).natParam (T a) (μ a))))
-    (hν_below : ∀ a, MGFDominatedBelow id (task.ν μ a) (T a)
-      ((ρ a).expFamily (T a) ((ρ a).natParam (T a) (μ a))))
+    (hν : ∀ a, MGFDominatedOn id (task.ν μ a) (T a)
+      ((ρ a).expFamily (T a) ((ρ a).natParam (T a) (μ a))) Set.univ)
     (hcorrect : task.correct μ = {i}) (hw_opt : w μ ∈ task.optAlloc μ i)
     (hw_cont : ContinuousAt w μ) (hrec_eq : ∀ᶠ μ' in 𝓝 μ, rec μ' = i)
     (h_lsc : LowerSemicontinuousWithinAt (fun q : (α → ℝ) × (α → ℝ) ↦ task.altCost q.1 q.2 i)
@@ -503,7 +499,7 @@ theorem eventually_expectedStoppingTime_trackAndStop_le_of_charTime_lt
       (Environment.bandit (task.ν μ)) ≤ c * ENNReal.ofReal (log (1 / δ)) := by
   -- At an optimal allocation, `D(μ, w(μ), ¬i)⁻¹ = D(μ, ¬i)⁻¹ = T*(μ)`.
   rw [task.charTime_eq_inv_answerValue hcorrect, ← (task.mem_optAlloc_iff.1 hw_opt).2] at hc
-  exact task.eventually_expectedStoppingTime_trackAndStop_le hT hμ hν_above hν_below
+  exact task.eventually_expectedStoppingTime_trackAndStop_le hT hμ hν
     (task.mem_optAlloc_iff.1 hw_opt).1 hw_cont hrec_eq h_lsc hc hr hβ
 
 end LMLExplore.Identification.IdentTask
@@ -533,10 +529,8 @@ on the model `μ`, Track-and-Stop with the thresholds `K log (2 n (n + 1)) + x_�
 `δ`-correct (`IdentTask.isDeltaPAC_trackAndStop_unionBoundThreshold`). -/
 theorem eventually_expectedStoppingTime_trackAndStop_unionBoundThreshold_le
     (hT : ∀ a c, ¬ T a =ᵐ[ρ a] fun _ ↦ c) (hμ : ∀ a, μ a ∈ (ρ a).expFamilyMeans (T a))
-    (hν_above : ∀ a, MGFDominatedAbove id (task.ν μ a) (T a)
-      ((ρ a).expFamily (T a) ((ρ a).natParam (T a) (μ a))))
-    (hν_below : ∀ a, MGFDominatedBelow id (task.ν μ a) (T a)
-      ((ρ a).expFamily (T a) ((ρ a).natParam (T a) (μ a))))
+    (hν : ∀ a, MGFDominatedOn id (task.ν μ a) (T a)
+      ((ρ a).expFamily (T a) ((ρ a).natParam (T a) (μ a))) Set.univ)
     (hcorrect : task.correct μ = {i}) (hw_opt : w μ ∈ task.optAlloc μ i)
     (hw_cont : ContinuousAt w μ) (hrec_eq : ∀ᶠ μ' in 𝓝 μ, rec μ' = i)
     (h_lsc : LowerSemicontinuousWithinAt (fun q : (α → ℝ) × (α → ℝ) ↦ task.altCost q.1 q.2 i)
@@ -549,7 +543,7 @@ theorem eventually_expectedStoppingTime_trackAndStop_unionBoundThreshold_le
   -- At the confidence level `δ ^ (1 / s)`, the thresholds are at most `log (r n / δ)` with
   -- `r n = (2 n (n + 1)) ^ K`.
   exact task.eventually_expectedStoppingTime_trackAndStop_le_of_charTime_lt (hw := hw)
-    (hrec := hrec) (hstop := fun δ' ↦ hstop (δ' ^ s⁻¹)) hT hμ hν_above hν_below hcorrect hw_opt
+    (hrec := hrec) (hstop := fun δ' ↦ hstop (δ' ^ s⁻¹)) hT hμ hν hcorrect hw_opt
     hw_cont hrec_eq h_lsc hc' (isBigO_two_mul_mul_add_one_pow _)
     ((eventually_unionBoundThreshold_rpow_inv_le _ hs).mono fun _ h n hn _ ↦ h n hn)
 
@@ -559,10 +553,8 @@ theorem eventually_expectedStoppingTime_trackAndStop_unionBoundThreshold_le
 `IdentTask.eventually_expectedStoppingTime_trackAndStop_unionBoundThreshold_le`. -/
 theorem stopsAS_trackAndStop_unionBoundThreshold
     (hT : ∀ a c, ¬ T a =ᵐ[ρ a] fun _ ↦ c) (hμ : ∀ a, μ a ∈ (ρ a).expFamilyMeans (T a))
-    (hν_above : ∀ a, MGFDominatedAbove id (task.ν μ a) (T a)
-      ((ρ a).expFamily (T a) ((ρ a).natParam (T a) (μ a))))
-    (hν_below : ∀ a, MGFDominatedBelow id (task.ν μ a) (T a)
-      ((ρ a).expFamily (T a) ((ρ a).natParam (T a) (μ a))))
+    (hν : ∀ a, MGFDominatedOn id (task.ν μ a) (T a)
+      ((ρ a).expFamily (T a) ((ρ a).natParam (T a) (μ a))) Set.univ)
     (hcorrect : task.correct μ = {i}) (hw_opt : w μ ∈ task.optAlloc μ i)
     (hw_cont : ContinuousAt w μ) (hrec_eq : ∀ᶠ μ' in 𝓝 μ, rec μ' = i)
     (h_lsc : LowerSemicontinuousWithinAt (fun q : (α → ℝ) × (α → ℝ) ↦ task.altCost q.1 q.2 i)
@@ -575,7 +567,7 @@ theorem stopsAS_trackAndStop_unionBoundThreshold
     rw [ENNReal.coe_toNNReal h_charTime]
     exact ENNReal.lt_add_right h_charTime one_ne_zero
   have h := eventually_expectedStoppingTime_trackAndStop_unionBoundThreshold_le (hw := hw)
-    (hrec := hrec) (hstop := hstop) hT hμ hν_above hν_below hcorrect hw_opt hw_cont hrec_eq h_lsc hc
+    (hrec := hrec) (hstop := hstop) hT hμ hν hcorrect hw_opt hw_cont hrec_eq h_lsc hc
   simp only [trackAndStop_def] at h ⊢
   exact stopsAS_glrt_unionBoundThreshold (h.mono fun _ hδ' ↦ ne_top_of_le_ne_top
     (ENNReal.mul_ne_top ENNReal.coe_ne_top ENNReal.ofReal_ne_top) hδ').frequently hδ hδ1
@@ -665,7 +657,7 @@ variable {𝓧 : Type*} {m𝓧 : MeasurableSpace 𝓧} {ρ : α → Measure 𝓧
   {r : ℕ → ℝ} {p : ℝ} {n₀ : ℕ}
 
 /-- **Sample complexity of Track-and-Stop with C-tracking** [DK19, Lemma 6 and Theorem 7]. Let the
-rewards of each arm `a` of the model `μ` be dominated above and below by the member of mean `μ a`
+rewards of each arm `a` of the model `μ` be dominated on `Set.univ` by the member of mean `μ a`
 of a nondegenerate exponential family `(ρ a, T a)`. Let the targets `w` be allocations that
 converge at `μ` to a convex compact set `C` (they eventually lie in every neighbourhood of `C`),
 let the recommendation be `i` near `μ`, and let `(μ', w') ↦ D(μ', w', ¬i)` be lower
@@ -675,10 +667,8 @@ the empirical means as estimator satisfies `𝔼[τ_δ] ≤ c log (1 / δ)` for 
 every `c > (inf_{v ∈ C} D(μ, v, ¬i))⁻¹`. -/
 theorem eventually_expectedStoppingTime_cTrackAndStop_le (hT : ∀ a c, ¬ T a =ᵐ[ρ a] fun _ ↦ c)
     (hμ : ∀ a, μ a ∈ (ρ a).expFamilyMeans (T a))
-    (hν_above : ∀ a, MGFDominatedAbove id (task.ν μ a) (T a)
-      ((ρ a).expFamily (T a) ((ρ a).natParam (T a) (μ a))))
-    (hν_below : ∀ a, MGFDominatedBelow id (task.ν μ a) (T a)
-      ((ρ a).expFamily (T a) ((ρ a).natParam (T a) (μ a))))
+    (hν : ∀ a, MGFDominatedOn id (task.ν μ a) (T a)
+      ((ρ a).expFamily (T a) ((ρ a).natParam (T a) (μ a))) Set.univ)
     (hw_mem : ∀ μ', w μ' ∈ simplex α) {C : Set (α → ℝ)} (hC_conv : Convex ℝ C)
     (hC_compact : IsCompact C) (hw_tendsto : Tendsto w (𝓝 μ) (𝓝ˢ C))
     (hrec_eq : ∀ᶠ μ' in 𝓝 μ, rec μ' = i)
@@ -731,7 +721,7 @@ theorem eventually_expectedStoppingTime_cTrackAndStop_le (hT : ∀ a c, ¬ T a =
         (K - 1) * (1 + √(n : ℝ))}
   have hE_sum : ∑' T, P (E T)ᶜ ≠ ∞ := by
     refine ne_top_of_le_ne_top (CTracking.tsum_measure_exists_ge_empMean_notMem_Ioo_ne_top hw0 hw1
-      hseq hν_above hν_below hμ (fun a ↦ hlW.2.2.2 a) (fun a ↦ huW.2.2.2 a) hlμ hμu
+      hseq hν hμ (fun a ↦ hlW.2.2.2 a) (fun a ↦ huW.2.2.2 a) hlμ hμu
       tendsto_sqrt_roundsAfter_div_log)
       (tsum_le_tsum fun T ↦ measure_mono_ae ?_)
     filter_upwards [CTracking.abs_pullCount_sub_sum_le_mul_one_add_sqrt hw0 hw1 hseq]
@@ -785,7 +775,7 @@ theorem eventually_expectedStoppingTime_cTrackAndStop_le (hT : ∀ a c, ¬ T a =
 /-- **Sample complexity of Track-and-Stop with C-tracking at the characteristic time**
 [DK19, Theorem 7], the upper bound `𝔼[τ_δ] ≤ c log (1 / δ)` with `c > T*(μ)`, even when the
 optimal allocations are not unique. Let the rewards of each arm `a` of the model `μ` be dominated
-above and below by the member of mean `μ a` of a nondegenerate exponential family `(ρ a, T a)`,
+on `Set.univ` by the member of mean `μ a` of a nondegenerate exponential family `(ρ a, T a)`,
 let `i` be the single correct answer of `μ`, let `(μ', w') ↦ D(μ', w', ¬i)` be continuous at
 every point `(μ, v)` with `v` in the simplex, on the allocations of the simplex, let the targets
 `w` be allocations, and optimal allocations `w(μ') ∈ w*(μ', ¬i)` near `μ`, and let the
@@ -796,10 +786,8 @@ recommendation be `i` near `μ`. Then for thresholds `β δ n h ≤ log (r n / �
 `w` to be continuous at `μ`. -/
 theorem eventually_expectedStoppingTime_cTrackAndStop_le_of_charTime_lt
     (hT : ∀ a c, ¬ T a =ᵐ[ρ a] fun _ ↦ c) (hμ : ∀ a, μ a ∈ (ρ a).expFamilyMeans (T a))
-    (hν_above : ∀ a, MGFDominatedAbove id (task.ν μ a) (T a)
-      ((ρ a).expFamily (T a) ((ρ a).natParam (T a) (μ a))))
-    (hν_below : ∀ a, MGFDominatedBelow id (task.ν μ a) (T a)
-      ((ρ a).expFamily (T a) ((ρ a).natParam (T a) (μ a))))
+    (hν : ∀ a, MGFDominatedOn id (task.ν μ a) (T a)
+      ((ρ a).expFamily (T a) ((ρ a).natParam (T a) (μ a))) Set.univ)
     (hcorrect : task.correct μ = {i}) (hw_mem : ∀ μ', w μ' ∈ simplex α)
     (hw_opt : ∀ᶠ μ' in 𝓝 μ, w μ' ∈ task.optAlloc μ' i) (hrec_eq : ∀ᶠ μ' in 𝓝 μ, rec μ' = i)
     (h_cont : ∀ v ∈ simplex α, ContinuousWithinAt
@@ -821,7 +809,7 @@ theorem eventually_expectedStoppingTime_cTrackAndStop_le_of_charTime_lt
   have hw_tendsto : Tendsto w (𝓝 μ) (𝓝ˢ (task.optAlloc μ i)) := fun t ht ↦ by
     rw [Filter.mem_map]
     filter_upwards [h_uhc t ht, hw_opt] with μ' h1 h2 using subset_of_mem_nhdsSet h1 h2
-  exact task.eventually_expectedStoppingTime_cTrackAndStop_le hT hμ hν_above hν_below hw_mem
+  exact task.eventually_expectedStoppingTime_cTrackAndStop_le hT hμ hν hw_mem
     (task.convex_optAlloc μ i) (task.isCompact_optAlloc h_usc) hw_tendsto hrec_eq
     (fun v hv ↦ (h_cont v (task.mem_optAlloc_iff.1 hv).1).lowerSemicontinuousWithinAt)
     hc' hr hβ
@@ -853,10 +841,8 @@ Track-and-Stop with C-tracking and the thresholds `K log (2 n (n + 1)) + x_δ` s
 `limsup_{δ → 0} 𝔼[τ_δ] / log (1 / δ) ≤ T*(μ)`. -/
 theorem eventually_expectedStoppingTime_cTrackAndStop_unionBoundThreshold_le
     (hT : ∀ a c, ¬ T a =ᵐ[ρ a] fun _ ↦ c) (hμ : ∀ a, μ a ∈ (ρ a).expFamilyMeans (T a))
-    (hν_above : ∀ a, MGFDominatedAbove id (task.ν μ a) (T a)
-      ((ρ a).expFamily (T a) ((ρ a).natParam (T a) (μ a))))
-    (hν_below : ∀ a, MGFDominatedBelow id (task.ν μ a) (T a)
-      ((ρ a).expFamily (T a) ((ρ a).natParam (T a) (μ a))))
+    (hν : ∀ a, MGFDominatedOn id (task.ν μ a) (T a)
+      ((ρ a).expFamily (T a) ((ρ a).natParam (T a) (μ a))) Set.univ)
     (hcorrect : task.correct μ = {i}) (hw_mem : ∀ μ', w μ' ∈ simplex α)
     (hw_opt : ∀ᶠ μ' in 𝓝 μ, w μ' ∈ task.optAlloc μ' i) (hrec_eq : ∀ᶠ μ' in 𝓝 μ, rec μ' = i)
     (h_cont : ∀ v ∈ simplex α, ContinuousWithinAt
@@ -869,7 +855,7 @@ theorem eventually_expectedStoppingTime_cTrackAndStop_unionBoundThreshold_le
   -- At the confidence level `δ ^ (1 / s)`, the thresholds are at most `log (r n / δ)` with
   -- `r n = (2 n (n + 1)) ^ K`.
   exact task.eventually_expectedStoppingTime_cTrackAndStop_le_of_charTime_lt (hw := hw)
-    (hrec := hrec) (hstop := fun δ' ↦ hstop (δ' ^ s⁻¹)) hT hμ hν_above hν_below hcorrect hw_mem
+    (hrec := hrec) (hstop := fun δ' ↦ hstop (δ' ^ s⁻¹)) hT hμ hν hcorrect hw_mem
     hw_opt hrec_eq h_cont hc' (isBigO_two_mul_mul_add_one_pow _)
     ((eventually_unionBoundThreshold_rpow_inv_le _ hs).mono fun _ h n hn _ ↦ h n hn)
 
@@ -879,10 +865,8 @@ with `T*(μ) < ∞` that satisfies the assumptions of
 `IdentTask.eventually_expectedStoppingTime_cTrackAndStop_unionBoundThreshold_le`. -/
 theorem stopsAS_cTrackAndStop_unionBoundThreshold
     (hT : ∀ a c, ¬ T a =ᵐ[ρ a] fun _ ↦ c) (hμ : ∀ a, μ a ∈ (ρ a).expFamilyMeans (T a))
-    (hν_above : ∀ a, MGFDominatedAbove id (task.ν μ a) (T a)
-      ((ρ a).expFamily (T a) ((ρ a).natParam (T a) (μ a))))
-    (hν_below : ∀ a, MGFDominatedBelow id (task.ν μ a) (T a)
-      ((ρ a).expFamily (T a) ((ρ a).natParam (T a) (μ a))))
+    (hν : ∀ a, MGFDominatedOn id (task.ν μ a) (T a)
+      ((ρ a).expFamily (T a) ((ρ a).natParam (T a) (μ a))) Set.univ)
     (hcorrect : task.correct μ = {i}) (hw_mem : ∀ μ', w μ' ∈ simplex α)
     (hw_opt : ∀ᶠ μ' in 𝓝 μ, w μ' ∈ task.optAlloc μ' i) (hrec_eq : ∀ᶠ μ' in 𝓝 μ, rec μ' = i)
     (h_cont : ∀ v ∈ simplex α, ContinuousWithinAt
@@ -895,7 +879,7 @@ theorem stopsAS_cTrackAndStop_unionBoundThreshold
     rw [ENNReal.coe_toNNReal h_charTime]
     exact ENNReal.lt_add_right h_charTime one_ne_zero
   have h := eventually_expectedStoppingTime_cTrackAndStop_unionBoundThreshold_le (hw := hw)
-    (hrec := hrec) (hstop := hstop) hT hμ hν_above hν_below hcorrect hw_mem hw_opt hrec_eq h_cont hc
+    (hrec := hrec) (hstop := hstop) hT hμ hν hcorrect hw_mem hw_opt hrec_eq h_cont hc
   simp only [cTrackAndStop_def] at h ⊢
   exact stopsAS_glrt_unionBoundThreshold (h.mono fun _ hδ' ↦ ne_top_of_le_ne_top
     (ENNReal.mul_ne_top ENNReal.coe_ne_top ENNReal.ofReal_ne_top) hδ').frequently hδ hδ1
