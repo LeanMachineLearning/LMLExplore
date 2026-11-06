@@ -32,11 +32,15 @@ history. Tables and advice fixed in advance are the cases of LML's `Environment.
 
 * `Learning.means_detFeedback`: the conditional mean of the feedback of `Environment.detFeedback`
   at an action `a` is the value of its feedback function at `a`.
-* `Learning.IsAlgEnvSeq.feedback_ae_eq_detFeedback`: along a run against
+* `Learning.IsAlgEnvSeq.feedback_detFeedback_ae_eq`: along a run against
   `Environment.detFeedback obs f hf`, the feedback is almost surely the value of `f` at the
   history, the observation and the action.
-* `Learning.IsAlgEnvSeq.obs_ae_eq_deterministic`: along a run against
-  `Environment.deterministic o ho f hf`, the observation is almost surely `o` of the history.
+* `Learning.means_deterministic`: the conditional mean of the feedback of
+  `Environment.deterministic o ho f hf` at an action `a` is the value of `f` at `a`.
+* `Learning.IsAlgEnvSeq.obs_deterministic_ae_eq`,
+  `Learning.IsAlgEnvSeq.feedback_deterministic_ae_eq`: along a run against
+  `Environment.deterministic o ho f hf`, the observation is almost surely `o` of the history and
+  the feedback is almost surely the value of `f` at the history, the observation and the action.
 * `Learning.Environment.evalSeq_eq_deterministic`: LML's `Environment.evalSeq g hg` is the
   deterministic environment with the tables `g n` that do not depend on the history.
 
@@ -96,7 +100,7 @@ lemma Environment.evalSeq_eq_deterministic (g : ℕ → 𝓐 → 𝓨) (hg : ∀
   ext n : 2
   · ext h : 1
     rw [obs_evalSeq, Environment.obs_deterministic, Kernel.const_apply, Kernel.deterministic_apply]
-  · rfl
+  · rw [feedback_evalSeq, Environment.feedback_deterministic]
 
 variable {Ω : Type*} {mΩ : MeasurableSpace Ω} {alg : Algorithm 𝓞 𝓐 𝓨} {P : Measure Ω} [SFinite P]
   {O : ℕ → Ω → 𝓞} {A : ℕ → Ω → 𝓐} {Y : ℕ → Ω → 𝓨}
@@ -111,16 +115,34 @@ lemma means_detFeedback [NormedAddCommGroup 𝓨] [NormedSpace ℝ 𝓨] [Comple
       f n ((history O A Y n ω, O n ω), a) := by
   simp [Environment.means, Environment.feedbackKernel, Kernel.deterministic_apply]
 
+/-- The conditional mean of the feedback of `Environment.deterministic o ho f hf` at the action `a`
+of round `n` is `f n ((h, o), a)`, for the history `h` and the observation `o` of the run. -/
+@[simp]
+lemma means_deterministic [NormedAddCommGroup 𝓨] [NormedSpace ℝ 𝓨] [CompleteSpace 𝓨]
+    [MeasurableSingletonClass 𝓨]
+    (a : 𝓐) (n : ℕ) (ω : Ω) :
+    (Environment.deterministic o ho f hf).means O A Y a n ω =
+      f n ((history O A Y n ω, O n ω), a) := by
+  rw [Environment.deterministic_def, means_detFeedback]
+
 /-- Along a run against `Environment.detFeedback obs f hf`, the feedback of round `n` is almost
 surely `f n` of the history, the observation and the action of round `n`. -/
-lemma IsAlgEnvSeq.feedback_ae_eq_detFeedback [MeasurableEq 𝓨]
+lemma IsAlgEnvSeq.feedback_detFeedback_ae_eq [MeasurableEq 𝓨]
     (h : IsAlgEnvSeq O A Y alg (Environment.detFeedback obs f hf) P) (n : ℕ) :
     Y n =ᵐ[P] fun ω ↦ f n ((history O A Y n ω, O n ω), A n ω) :=
   (h.hasCondDistrib_feedback n).ae_eq_of_deterministic (hf := hf n)
 
+/-- Along a run against `Environment.deterministic o ho f hf`, the feedback of round `n` is almost
+surely `f n` of the history, the observation and the action of round `n`. -/
+lemma IsAlgEnvSeq.feedback_deterministic_ae_eq [MeasurableEq 𝓨]
+    (h : IsAlgEnvSeq O A Y alg (Environment.deterministic o ho f hf) P) (n : ℕ) :
+    Y n =ᵐ[P] fun ω ↦ f n ((history O A Y n ω, O n ω), A n ω) := by
+  rw [Environment.deterministic_def] at h
+  exact h.feedback_detFeedback_ae_eq n
+
 /-- Along a run against `Environment.deterministic o ho f hf`, the observation of round `n` is
 almost surely `o n` of the history of the first `n` rounds. -/
-lemma IsAlgEnvSeq.obs_ae_eq_deterministic [MeasurableEq 𝓞]
+lemma IsAlgEnvSeq.obs_deterministic_ae_eq [MeasurableEq 𝓞]
     (h : IsAlgEnvSeq O A Y alg (Environment.deterministic o ho f hf) P) (n : ℕ) :
     O n =ᵐ[P] fun ω ↦ o n (history O A Y n ω) :=
   (h.hasCondDistrib_obs n).ae_eq_of_deterministic (hf := ho n)

@@ -78,8 +78,8 @@ against `Environment.evalSeq x _` and `Environment.ofSeq o x _`, and against a s
 * `Learning.IsAlgEnvSeq.expertPseudoRegret_ofSeq`, `Learning.IsAlgEnvSeq.pseudoRegret_evalSeq`: the
   regret against expert advice and the adversarial regret are the pseudo-regrets against
   `Environment.ofSeq o x _` and `Environment.evalSeq x _`.
-* `Learning.IsAlgEnvSeq.randomRegret_ae_eq_detFeedback`,
-  `Learning.IsAlgEnvSeq.randomRegret_ae_eq_evalSeq`: against an adaptive adversary with reward
+* `Learning.IsAlgEnvSeq.randomRegret_detFeedback_ae_eq`,
+  `Learning.IsAlgEnvSeq.randomRegret_evalSeq_ae_eq`: against an adaptive adversary with reward
   tables `f t ((h, o), ·)`, the random regret is almost surely
   `max_a ∑_{t < n} (f t ((H t, O t), a) - f t ((H t, O t), A t))`, and against
   `Environment.evalSeq x _` it is `max_a ∑_{t < n} (x t a - x t (A t))`.
@@ -384,8 +384,7 @@ lemma _root_.Learning.IsAlgEnvSeq.expertPseudoRegret_ofSeq [Finite β] [Nonempty
       simp [hO, hY, Kernel.deterministic_apply]
     _ = ∑ t ∈ range n, ∑ a, adv (o t) m a * x t a - P[fun ω ↦ ∑ t ∈ range n, x t (A t ω)] := by
       simp_rw [sum_sub_distrib]
-      rw [integral_sub (integrable_const _) (integrable_finsetSum _ fun t _ ↦ hint t),
-        integral_const, probReal_univ, one_smul]
+      rw [integral_const_sub_sum _ fun t _ ↦ hint t, integral_finsetSum _ fun t _ ↦ hint t]
 
 end Expert
 
@@ -405,7 +404,7 @@ lemma _root_.Learning.IsAlgEnvSeq.pseudoRegret_evalSeq [Finite α] [Nonempty α]
 reward table at round `t` is `f t ((h, o), ·)` for the history `h` and the observation `o` of
 round `t`, the random regret is almost surely the regret
 `max_a ∑_{t < n} (f t ((H t, O t), a) - f t ((H t, O t), A t))` against the best fixed arm. -/
-lemma _root_.Learning.IsAlgEnvSeq.randomRegret_ae_eq_detFeedback [SFinite P]
+lemma _root_.Learning.IsAlgEnvSeq.randomRegret_detFeedback_ae_eq [SFinite P]
     {obs : (n : ℕ) → Kernel (Hist 𝓞 α ℝ n) 𝓞} [∀ n, IsMarkovKernel (obs n)]
     {f : (n : ℕ) → (Hist 𝓞 α ℝ n × 𝓞) × α → ℝ} {hf : ∀ n, Measurable (f n)}
     {alg : Algorithm 𝓞 α ℝ} (h : IsAlgEnvSeq O A Y alg (Environment.detFeedback obs f hf) P)
@@ -413,18 +412,18 @@ lemma _root_.Learning.IsAlgEnvSeq.randomRegret_ae_eq_detFeedback [SFinite P]
     randomRegret (Environment.detFeedback obs f hf) O A Y n =ᵐ[P] fun ω ↦
       ⨆ a, ∑ t ∈ range n, (f t ((history O A Y t ω, O t ω), a) -
         f t ((history O A Y t ω, O t ω), A t ω)) := by
-  filter_upwards [ae_all_iff.2 h.feedback_ae_eq_detFeedback] with ω hω
+  filter_upwards [ae_all_iff.2 h.feedback_detFeedback_ae_eq] with ω hω
   simp [randomRegret_def, hω]
 
 /-- Along a run against LML's evaluation environment `Environment.evalSeq x _`, the random regret
 is almost surely `max_a ∑_{t < n} (x t a - x t (A t))`. -/
-lemma _root_.Learning.IsAlgEnvSeq.randomRegret_ae_eq_evalSeq [SFinite P]
+lemma _root_.Learning.IsAlgEnvSeq.randomRegret_evalSeq_ae_eq [SFinite P]
     {hx : ∀ t, Measurable (x t)} {alg : Algorithm Unit α ℝ} {O : ℕ → Ω → Unit}
     (h : IsAlgEnvSeq O A Y alg (Environment.evalSeq x hx) P) (n : ℕ) :
     randomRegret (Environment.evalSeq x hx) O A Y n =ᵐ[P] fun ω ↦
       ⨆ a, ∑ t ∈ range n, (x t a - x t (A t ω)) := by
   rw [Environment.evalSeq_eq_deterministic, Environment.deterministic_def] at h ⊢
-  exact h.randomRegret_ae_eq_detFeedback n
+  exact h.randomRegret_detFeedback_ae_eq n
 
 /-- Along a run against a stationary bandit `Environment.bandit ν` with finitely many arms and
 integrable reward distributions, the pseudo-regret is LML's expected stochastic regret. -/
@@ -439,14 +438,12 @@ lemma _root_.Learning.IsAlgEnvSeq.pseudoRegret_bandit [Finite α] [Nonempty α]
   -- the expected reward of round `t` is the expected mean of the arm played at round `t`
   have hE (t : ℕ) : P[Y t] = P[fun ω ↦ (ν (A t ω))[id]] := by
     simpa [means_bandit] using h.setIntegral_feedback (hY t) MeasurableSet.univ
-  simp_rw [pseudoRegret_def, means_bandit, sum_sub_distrib, Bandits.regret]
-  rw [integral_sub (integrable_const _) (integrable_finsetSum _ fun t _ ↦ hmA t),
-    integral_finsetSum _ fun t _ ↦ hmA t, integral_const, probReal_univ, one_smul,
-    Real.mul_iSup_of_nonneg (Nat.cast_nonneg n), ciSup_sub (Finite.bddAbove_range _)]
-  refine iSup_congr fun a ↦ ?_
-  rw [integral_sub (integrable_const _) (integrable_finsetSum _ fun t _ ↦ hY t),
-    integral_finsetSum _ fun t _ ↦ hY t, integral_const, probReal_univ, one_smul]
-  simp [hE]
+  -- both sides are `n * μ a - ∑ t, E[μ (A t)]` maximized over the arm `a`: pull the expectation
+  -- through the sums, then the supremum out of `n * ⨆ a, μ a` and of the subtraction
+  simp_rw [pseudoRegret_def, means_bandit, sum_sub_distrib, Bandits.regret, sum_const, card_range,
+    nsmul_eq_mul, integral_const_sub_sum _ fun t _ ↦ hY t,
+    integral_const_sub_sum _ fun t _ ↦ hmA t, hE, Real.mul_iSup_of_nonneg (Nat.cast_nonneg n),
+    ciSup_sub (Finite.bddAbove_range _)]
 
 end PseudoRegret
 
