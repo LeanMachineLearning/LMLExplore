@@ -10,6 +10,7 @@ public import LMLExplore.Identification.DTracking
 public import LMLExplore.Identification.GLR
 public import LMLExplore.Identification.Task.Continuity
 public import LMLExplore.Analysis.Convex.Normed
+public import LMLExplore.Basic.ENNReal.Inv
 public import LMLExplore.Topology.Order.Basic
 public import LMLExplore.Topology.Semicontinuity.Compact
 
@@ -315,19 +316,6 @@ variable {𝓧 : Type*} {m𝓧 : MeasurableSpace 𝓧} {ρ : α → Measure 𝓧
     {h | β δ n h < task.glr (task.plugInCost empMean') n h (rec (empMean' n h))}}
   {r : ℕ → ℝ} {p : ℝ} {n₀ : ℕ}
 
-/-- If `D⁻¹ < c`, then some rate `κ` satisfies `κ < D` and `1 < κ c`: the rate at which the proofs
-of the sample complexity bounds of Track-and-Stop make the GLR statistic grow. -/
-private lemma exists_lt_one_lt_mul_of_inv_lt {D : ℝ≥0∞} {c : ℝ≥0} (hc : D⁻¹ < c) :
-    ∃ κ : ℝ≥0, (κ : ℝ≥0∞) < D ∧ 1 < κ * c := by
-  have hc0 : c ≠ 0 := by
-    rintro rfl
-    exact not_lt_zero (ENNReal.coe_zero ▸ hc)
-  rw [ENNReal.inv_lt_iff_inv_lt, ← ENNReal.coe_inv hc0] at hc
-  obtain ⟨κ, hcκ, hκ⟩ := ENNReal.lt_iff_exists_nnreal_btwn.1 hc
-  refine ⟨κ, hκ, ?_⟩
-  rw [← inv_mul_cancel₀ hc0]
-  exact mul_lt_mul_of_pos_right (ENNReal.coe_lt_coe.1 hcκ) (pos_iff_ne_zero.2 hc0)
-
 omit [MeasurableSingletonClass α] in
 /-- The deterministic step of the analysis of Track-and-Stop [GK16, proof of Theorem 14]. Along a
 sequence of arms following the D-tracking rule with targets `w(μ̂(k))`, suppose that from round `t₀`
@@ -408,7 +396,7 @@ theorem eventually_expectedStoppingTime_trackAndStop_le (hT : ∀ a c, ¬ T a =�
     ∀ᶠ δ in 𝓝[>] 0, expectedStoppingTime (task.trackAndStop empMean' w hw (β δ) rec hrec (hstop δ))
       (Environment.bandit (task.ν μ)) ≤ c * ENNReal.ofReal (log (1 / δ)) := by
   -- A rate `κ` with `c⁻¹ < κ < D(μ, w(μ), ¬i)`, at which the GLR statistic grows.
-  obtain ⟨κ, hκ, hκc⟩ := exists_lt_one_lt_mul_of_inv_lt hc
+  obtain ⟨κ, hκ, hκc⟩ := ENNReal.exists_nnreal_lt_one_lt_mul_of_inv_lt hc
   set alg := dTracking (fun n h ↦ w (empMean' n h)) hw
   set P := trajMeasure alg (Environment.bandit (task.ν μ))
   have hseq : IsAlgEnvSeq IT.obs IT.action IT.feedback alg (Environment.bandit (task.ν μ)) P :=
@@ -702,7 +690,7 @@ theorem eventually_expectedStoppingTime_cTrackAndStop_le (hT : ∀ a c, ¬ T a =
     ∀ᶠ δ in 𝓝[>] 0, expectedStoppingTime (task.cTrackAndStop empMean' w hw (β δ) rec hrec (hstop δ))
       (Environment.bandit (task.ν μ)) ≤ c * ENNReal.ofReal (log (1 / δ)) := by
   -- A rate `κ` with `c⁻¹ < κ < D(μ, v, ¬i)` for all `v ∈ C`, at which the GLR statistic grows.
-  obtain ⟨κ, hκ', hκc⟩ := exists_lt_one_lt_mul_of_inv_lt hc
+  obtain ⟨κ, hκ', hκc⟩ := ENNReal.exists_nnreal_lt_one_lt_mul_of_inv_lt hc
   have hκ : ∀ v ∈ C, (κ : ℝ≥0∞) < task.altCost μ v i := fun v hv ↦ hκ'.trans_le (iInf₂_le v hv)
   set alg := cTracking (fun n h ↦ w (empMean' n h)) hw
   set P := trajMeasure alg (Environment.bandit (task.ν μ))
