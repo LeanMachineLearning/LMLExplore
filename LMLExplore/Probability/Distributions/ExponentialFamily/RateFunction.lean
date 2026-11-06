@@ -50,6 +50,10 @@ monotone on each side of `μ`, it makes `dbar` continuous on (closure of the mea
 * `MeasureTheory.Measure.monotoneOn_expFamilyRate_right`,
   `MeasureTheory.Measure.antitoneOn_expFamilyRate_right`: `dbar(x, ·)` is monotone on the means
   above `x` and antitone on the means below `x`.
+* `MeasureTheory.Measure.monotoneOn_expFamilyRate_left`,
+  `MeasureTheory.Measure.antitoneOn_expFamilyRate_left`,
+  `MeasureTheory.Measure.lowerSemicontinuous_expFamilyRate_left`: `dbar(·, μ)` is monotone above
+  the mean `μ`, antitone below it, and lower semicontinuous.
 * `MeasureTheory.Measure.continuousOn_expFamilyRate_left`: `dbar(·, μ)` is continuous on the closure
   of the means.
 * `MeasureTheory.Measure.continuousOn_expFamilyRate`: `dbar` is continuous on
@@ -139,20 +143,19 @@ theorem expFamilyRate_eq_iSup (hμ : μ ∈ ρ.expFamilyMeans T) (x : ℝ) :
     ρ.expFamilyRate T x μ = ⨆ θ ∈ integrableExpSet T ρ,
       ENNReal.ofReal ((θ - ρ.natParam T μ) * x - cgf T ρ θ + cgf T ρ (ρ.natParam T μ)) := by
   have hη := interior_subset (natParam_mem_interior_integrableExpSet hμ)
-  rw [expFamilyRate_def, rateFunction_def, integrableExpSet_expFamily hη]
-  refine le_antisymm (iSup₂_le fun t ht ↦ ?_) (iSup₂_le fun θ hθ ↦ ?_)
-  · refine le_trans (le_of_eq ?_) (le_iSup₂ (f := fun θ (_ : θ ∈ integrableExpSet T ρ) ↦
+  rw [expFamilyRate_def]
+  refine le_antisymm (rateFunction_le_iff.2 fun t ht ↦ ?_) (iSup₂_le fun θ hθ ↦ ?_)
+  · rw [integrableExpSet_expFamily hη, mem_preimage] at ht
+    refine le_trans (le_of_eq ?_) (le_iSup₂ (f := fun θ (_ : θ ∈ integrableExpSet T ρ) ↦
       ENNReal.ofReal ((θ - ρ.natParam T μ) * x - cgf T ρ θ + cgf T ρ (ρ.natParam T μ)))
       (ρ.natParam T μ + t) ht)
     rw [cgf_expFamily hη ht]
     congr 1
     ring
-  · have ht : θ - ρ.natParam T μ ∈ (ρ.natParam T μ + ·) ⁻¹' integrableExpSet T ρ := by
-      rwa [mem_preimage, add_sub_cancel]
-    refine le_trans (le_of_eq ?_) (le_iSup₂ (f := fun t (_ : t ∈ (ρ.natParam T μ + ·) ⁻¹'
-      integrableExpSet T ρ) ↦ ENNReal.ofReal (t * x - cgf T (ρ.expFamily T (ρ.natParam T μ)) t))
-      (θ - ρ.natParam T μ) ht)
-    rw [cgf_expFamily hη ht, add_sub_cancel]
+  · have ht : θ - ρ.natParam T μ ∈ integrableExpSet T (ρ.expFamily T (ρ.natParam T μ)) := by
+      rwa [integrableExpSet_expFamily hη, mem_preimage, add_sub_cancel]
+    refine le_trans (le_of_eq ?_) (ofReal_le_rateFunction ht x)
+    rw [cgf_expFamily hη (by rwa [add_sub_cancel]), add_sub_cancel]
     congr 1
     ring
 
@@ -249,6 +252,53 @@ theorem antitoneOn_expFamilyRate_right (x : ℝ) :
     (sub_nonpos.2 hq.2) (sub_nonpos.2 (monotoneOn_natParam hμ.1 hq.1 hμq)))]
   exact le_self_add
 
+/-- For a mean `μ`, the extended divergence `dbar(·, μ)` is monotone on the levels above `μ`. -/
+theorem monotoneOn_expFamilyRate_left (hμ : μ ∈ ρ.expFamilyMeans T) :
+    MonotoneOn (ρ.expFamilyRate T · μ) (Ici μ) := by
+  rcases eq_zero_or_neZero ρ with rfl | hρ
+  · -- For the zero measure, the only mean is `0` and `dbar(x, 0) = sup_t (t x)⁺`.
+    obtain ⟨η, -, rfl⟩ := mem_expFamilyMeans_iff.1 hμ
+    intro a ha b hb hab
+    simp only [mem_Ici, cgf_zero_measure, Pi.zero_def, deriv_const] at ha
+    simp_rw [expFamilyRate_def, expFamily_zero_measure]
+    refine rateFunction_le_iff.2 fun t ht ↦ ?_
+    rcases le_or_gt 0 t with h | h
+    · refine le_trans (ENNReal.ofReal_le_ofReal ?_) (ofReal_le_rateFunction ht b)
+      linarith [mul_le_mul_of_nonneg_left hab h]
+    · rw [ENNReal.ofReal_of_nonpos
+        (by simp [cgf_zero_measure, mul_nonpos_of_nonpos_of_nonneg h.le ha])]
+      exact zero_le
+  · have hη := natParam_mem_interior_integrableExpSet hμ
+    have := isProbabilityMeasure_expFamily (interior_subset hη)
+    simpa only [expFamilyRate_def, integral_expFamily_natParam hμ] using
+      monotoneOn_rateFunction (integrable_expFamily hη)
+
+/-- For a mean `μ`, the extended divergence `dbar(·, μ)` is antitone on the levels below `μ`. -/
+theorem antitoneOn_expFamilyRate_left (hμ : μ ∈ ρ.expFamilyMeans T) :
+    AntitoneOn (ρ.expFamilyRate T · μ) (Iic μ) := by
+  rcases eq_zero_or_neZero ρ with rfl | hρ
+  · -- For the zero measure, the only mean is `0` and `dbar(x, 0) = sup_t (t x)⁺`.
+    obtain ⟨η, -, rfl⟩ := mem_expFamilyMeans_iff.1 hμ
+    intro a ha b hb hab
+    simp only [mem_Iic, cgf_zero_measure, Pi.zero_def, deriv_const] at hb
+    simp_rw [expFamilyRate_def, expFamily_zero_measure]
+    refine rateFunction_le_iff.2 fun t ht ↦ ?_
+    rcases le_or_gt t 0 with h | h
+    · refine le_trans (ENNReal.ofReal_le_ofReal ?_) (ofReal_le_rateFunction ht a)
+      linarith [mul_le_mul_of_nonpos_left hab h]
+    · rw [ENNReal.ofReal_of_nonpos
+        (by simp [cgf_zero_measure, mul_nonpos_of_nonneg_of_nonpos h.le hb])]
+      exact zero_le
+  · have hη := natParam_mem_interior_integrableExpSet hμ
+    have := isProbabilityMeasure_expFamily (interior_subset hη)
+    simpa only [expFamilyRate_def, integral_expFamily_natParam hμ] using
+      antitoneOn_rateFunction (integrable_expFamily hη)
+
+/-- The extended divergence `dbar(·, μ)` is lower semicontinuous, as a rate function. -/
+theorem lowerSemicontinuous_expFamilyRate_left (μ : ℝ) :
+    LowerSemicontinuous (ρ.expFamilyRate T · μ) := by
+  simpa only [expFamilyRate_def] using lowerSemicontinuous_rateFunction T _
+
 /-! ### Continuity -/
 
 /-- For a mean `μ`, the extended divergence `dbar(·, μ)` is continuous on the closure of the means,
@@ -265,34 +315,24 @@ theorem continuousOn_expFamilyRate_left (hT : ∀ c, ¬ T =ᵐ[ρ] fun _ ↦ c)
         (continuousOn_id.prodMk continuousOn_const) fun x hx ↦ ⟨hx, hμ⟩).continuousAt hM)
     refine (hd.congr ?_).continuousWithinAt
     filter_upwards [hM] with x hx using (expFamilyRate_eq_ofReal_expFamilyDiv hx hμ).symm
-  have : NeZero ρ := ⟨fun h ↦ hT 0 (by simp [h, EventuallyEq])⟩
-  have hη := natParam_mem_interior_integrableExpSet hμ
-  have : IsProbabilityMeasure (ρ.expFamily T (ρ.natParam T μ)) :=
-    isProbabilityMeasure_expFamily (interior_subset hη)
-  have hint := integrable_expFamily hη
-  have hmean := integral_expFamily_natParam hμ
-  -- At an endpoint `x₀`, the rate function is lower semicontinuous, and bounded by its value at
-  -- `x₀` between the mean `μ` and `x₀`, where it is monotone.
-  simp_rw [expFamilyRate_def]
+  -- At an endpoint `x₀`, `dbar(·, μ)` is lower semicontinuous, and bounded by its value at `x₀`
+  -- between the mean `μ` and `x₀`, where it is monotone.
   rw [continuousWithinAt_iff_lower_upperSemicontinuousWithinAt]
-  refine ⟨((lowerSemicontinuous_rateFunction _ _).lowerSemicontinuousAt x₀)
+  refine ⟨((lowerSemicontinuous_expFamilyRate_left μ).lowerSemicontinuousAt x₀)
     |>.lowerSemicontinuousWithinAt _, fun y hy ↦ ?_⟩
   -- Near the endpoint `x₀`, the closure of the means lies between `μ` and `x₀`.
   suffices h : ∀ᶠ x in 𝓝[closure (ρ.expFamilyMeans T)] x₀,
-      rateFunction T (ρ.expFamily T (ρ.natParam T μ)) x ≤
-        rateFunction T (ρ.expFamily T (ρ.natParam T μ)) x₀ from
+      ρ.expFamilyRate T x μ ≤ ρ.expFamilyRate T x₀ μ from
     h.mono fun x hx ↦ hx.trans_lt hy
   rcases lt_or_gt_of_ne (show μ ≠ x₀ from fun h ↦ hx₀M (h ▸ hμ)) with hlt | hlt
   · have hsub : closure (ρ.expFamilyMeans T) ⊆ Iic x₀ := closure_minimal (fun a ha ↦ not_lt.1
       fun hxa ↦ hx₀M (Icc_subset_expFamilyMeans hμ ha ⟨hlt.le, hxa.le⟩)) isClosed_Iic
     filter_upwards [self_mem_nhdsWithin, nhdsWithin_le_nhds (Ioi_mem_nhds hlt)] with x hx hx'
-    exact monotoneOn_rateFunction hint (by rw [mem_Ici, hmean]; exact (mem_Ioi.1 hx').le)
-      (by rw [mem_Ici, hmean]; exact hlt.le) (hsub hx)
+    exact monotoneOn_expFamilyRate_left hμ (mem_Ioi.1 hx').le hlt.le (hsub hx)
   · have hsub : closure (ρ.expFamilyMeans T) ⊆ Ici x₀ := closure_minimal (fun a ha ↦ not_lt.1
       fun hax ↦ hx₀M (Icc_subset_expFamilyMeans ha hμ ⟨hax.le, hlt.le⟩)) isClosed_Ici
     filter_upwards [self_mem_nhdsWithin, nhdsWithin_le_nhds (Iio_mem_nhds hlt)] with x hx hx'
-    exact antitoneOn_rateFunction hint (by rw [mem_Iic, hmean]; exact hlt.le)
-      (by rw [mem_Iic, hmean]; exact (mem_Iio.1 hx').le) (hsub hx)
+    exact antitoneOn_expFamilyRate_left hμ hlt.le (mem_Iio.1 hx').le (hsub hx)
 
 /-- **Continuity of the extended divergence**: `(x, μ) ↦ dbar(x, μ)` is continuous on the pairs of a
 level in the closure of the means and a mean, as an `ℝ≥0∞`-valued function. -/
