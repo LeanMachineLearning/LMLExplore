@@ -41,6 +41,8 @@ episodic counterparts of those of the discounted occupancy measure `Learning.MDP
 
 ## Main statements
 
+* `Learning.MDP.Episodic.EpisodicMDP.stateMarginal_trans_add_one`: the recursion
+  `μ_{h+1} = P_h ∘ₘ d^π_h` of the state marginals.
 * `Learning.MDP.Episodic.EpisodicMDP.occupancy_fst`,
   `Learning.MDP.Episodic.EpisodicMDP.occupancy_add_one_fst`: the state marginal of `d^π_h` is
   `μ_h`, and the flow equation `(d^π_{h+1}).fst = P_h ∘ₘ d^π_h`.
@@ -89,6 +91,11 @@ noncomputable def occupancy (h : ℕ) : Measure (𝓢 × 𝓐) :=
 lemma occupancy_def (h : ℕ) : M.occupancy π μ h = stateMarginal M.trans π μ h ⊗ₘ π h :=
   (rfl)
 
+/-- The law `μ_{h+1}` of the state at the step `h + 1` is `P_h ∘ₘ d^π_h`. -/
+lemma stateMarginal_trans_add_one (h : ℕ) :
+    stateMarginal M.trans π μ (h + 1) = M.trans h ∘ₘ M.occupancy π μ h := by
+  rw [stateMarginal_add_one, occupancy_def]
+
 @[simp]
 lemma occupancy_zero : M.occupancy π μ 0 = μ ⊗ₘ π 0 := by
   rw [occupancy_def, stateMarginal_zero]
@@ -113,7 +120,7 @@ lemma occupancy_fst (h : ℕ) : (M.occupancy π μ h).fst = stateMarginal M.tran
 `P_h ∘ₘ d^π_h`. -/
 theorem occupancy_add_one_fst (h : ℕ) :
     (M.occupancy π μ (h + 1)).fst = M.trans h ∘ₘ M.occupancy π μ h := by
-  rw [occupancy_fst, stateMarginal_add_one, occupancy_def]
+  rw [occupancy_fst, stateMarginal_trans_add_one]
 
 end Defs
 
@@ -139,7 +146,7 @@ lemma integral_stateMarginal_add_one {E : Type*} [NormedAddCommGroup E] [NormedS
     {h : ℕ} {f : 𝓢 → E} (hf : Integrable f (stateMarginal M.trans π μ (h + 1))) :
     ∫ s, f s ∂(stateMarginal M.trans π μ (h + 1)) =
       ∫ p, ∫ s, f s ∂(M.trans h p) ∂(M.occupancy π μ h) := by
-  rw [stateMarginal_add_one, ← occupancy_def, Measure.comp_eq_comp_const_apply] at hf ⊢
+  rw [stateMarginal_trans_add_one, Measure.comp_eq_comp_const_apply] at hf ⊢
   rw [Kernel.integral_comp hf, Kernel.const_apply]
 
 /-- The integral of a function `f` of the state-action pair against the occupancy measure `d^π_h`
@@ -254,7 +261,7 @@ theorem hasLaw_obs_fst_markov (hμ : ∀ᵐ p ∂μ, p.2 = 0)
   | succ n ih =>
     have h_pair := ih.prodMk_of_hasCondDistrib (hasCondDistrib_action_obs_fst_markov hμ h n)
     have h_next := (hasCondDistrib_obs_fst_add_one hμ h n).hasLaw_comp
-    rwa [h_pair.map_eq, zero_add, ← stateMarginal_add_one] at h_next
+    rwa [h_pair.map_eq, zero_add, ← occupancy_def, ← stateMarginal_trans_add_one] at h_next
 
 /-- Along a run of the Markov policy `π` in the augmented MDP from an initial law `μ`
 concentrated on the step `0`, the state-action pair of round `h` has law `d^π_h`, the occupancy
