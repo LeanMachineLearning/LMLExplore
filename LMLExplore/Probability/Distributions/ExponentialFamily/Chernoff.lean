@@ -6,7 +6,7 @@ Authors: Rémy Degenne
 module
 
 public import LMLExplore.Probability.Distributions.ExponentialFamily.Mean
-public import LMLExplore.Probability.Moments.MGFDominated
+public import LMLExplore.Probability.Moments.MGF.Dominated
 
 /-!
 # Cramér–Chernoff bounds under domination by an exponential family

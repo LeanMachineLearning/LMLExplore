@@ -6,7 +6,7 @@ Authors: Rémy Degenne
 module
 
 public import LMLExplore.Analysis.SpecialFunctions.Exp
-public import LMLExplore.Probability.Martingale.Basic
+public import LMLExplore.Probability.Martingale.MGFBound
 public import LMLExplore.Probability.Martingale.Ville
 public import LMLExplore.Probability.Moments.SubGaussian.Basic
 public import Mathlib.Analysis.SpecialFunctions.Log.PosLog
@@ -33,7 +33,8 @@ under the MOSS algorithm drops below its mean. It holds in particular for indepe
 ## Main statements
 
 * `LMLExplore.supermartingale_exp_sum_mul_of_hasCondSubgaussianMGF`: the exponential
-  supermartingale.
+  supermartingale, the case `ψ t = c t ^ 2 / 2` of
+  `LMLExplore.supermartingale_exp_mul_sum_sub_sum_of_hasCondMGFBound`.
 * `LMLExplore.measure_exists_le_mul_sum_sub_of_hasCondSubgaussianMGF`: with probability at least
   `1 - exp (-x)`, `t * T n - c * t ^ 2 * A n / 2 < x` for all `n` simultaneously.
 * `LMLExplore.measure_exists_le_sum_le_of_hasCondSubgaussianMGF`: the maximal inequality
@@ -61,10 +62,10 @@ underlying space is needed.
 
 * T. Lattimore and Cs. Szepesvári, *Bandit Algorithms*, Cambridge University Press, 2020,
   Theorem 9.2 and Lemma 9.3.
-* `supermartingale_exp_sum_mul_of_hasCondSubgaussianMGF` is adapted from the formalization in the
-  LMLPapers project
-  (`LMLPapers/LeanMachineLearning/ForMathlib/Probability/Martingale/SubgaussianSum.lean`); the
-  consequences of Ville's inequality are new here.
+* The exponential supermartingale is adapted from the formalization in the LMLPapers project
+  (`LMLPapers/LeanMachineLearning/ForMathlib/Probability/Martingale/SubgaussianSum.lean`), through
+  its generalization `supermartingale_exp_mul_sum_sub_sum_of_hasCondMGFBound`; the consequences of
+  Ville's inequality are new here.
 -/
 
 public section
@@ -86,30 +87,12 @@ theorem supermartingale_exp_sum_mul_of_hasCondSubgaussianMGF [IsFiniteMeasure μ
     (hsubG : ∀ n, HasCondSubgaussianMGF (ℱ n) (ℱ.le n) (Y n) c μ) (hw : Adapted ℱ w) (t : ℝ) :
     Supermartingale (fun n ω ↦ exp (t * ∑ k ∈ range n, w k ω * Y k ω
       - c * t ^ 2 * (∑ k ∈ range n, w k ω ^ 2) / 2)) ℱ μ := by
-  -- the sum of the rounds `Z k = t * w k * Y k - c * (t * w k) ^ 2 / 2`
-  have h_eq : (fun n ω ↦ exp (t * ∑ k ∈ range n, w k ω * Y k ω
-      - c * t ^ 2 * (∑ k ∈ range n, w k ω ^ 2) / 2)) = fun n ω ↦
-      exp (∑ k ∈ range n, (t * w k ω * Y k ω - c * (t * w k ω) ^ 2 / 2)) := by
-    ext n ω
-    simp only [sum_sub_distrib, mul_sum, ← sum_div, mul_pow, mul_assoc]
-  rw [h_eq]
-  refine supermartingale_exp_sum_of_lintegral_mul_exp_le (fun n ↦ ?_) fun n g hg ↦ ?_
-  · have hw' : Measurable[ℱ (n + 1)] (w n) := hw.measurable_le (by omega)
-    exact ((hw'.const_mul t).mul (hY n)).sub ((((hw'.const_mul t).pow_const 2).const_mul
-      (c : ℝ)).div_const 2)
-  -- `g * exp (Z n) = g * exp (-c * (t * w n) ^ 2 / 2) * exp (t * w n * Y n)`
-  have hs : Measurable[ℱ n] (fun ω ↦ t * w n ω) := (hw n).const_mul t
-  set G : Ω → ℝ≥0∞ := fun ω ↦ g ω * ENNReal.ofReal (exp (-(c * (t * w n ω) ^ 2 / 2))) with hG_def
-  have hG : Measurable[ℱ n] G :=
-    hg.mul ((((hs.pow_const 2).const_mul (c : ℝ)).div_const 2).neg.exp.ennreal_ofReal)
-  calc ∫⁻ ω, g ω * ENNReal.ofReal (exp (t * w n ω * Y n ω - c * (t * w n ω) ^ 2 / 2)) ∂μ
-      = ∫⁻ ω, G ω * ENNReal.ofReal (exp (t * w n ω * Y n ω)) ∂μ := by
-        simp only [hG_def, mul_assoc, ← ENNReal.ofReal_mul (exp_pos _).le, ← exp_add,
-          neg_add_eq_sub]
-    _ ≤ ∫⁻ ω, G ω * ENNReal.ofReal (exp (c * (t * w n ω) ^ 2 / 2)) ∂μ :=
-        (hsubG n).lintegral_mul_exp_le ((hY n).mono (ℱ.le _) le_rfl) hs hG
-    _ = ∫⁻ ω, g ω ∂μ := by
-        simp [hG_def, mul_assoc, ← ENNReal.ofReal_mul (exp_pos _).le, ← exp_add]
+  have h := supermartingale_exp_mul_sum_sub_sum_of_hasCondMGFBound hY
+    (fun n ↦ hasCondMGFBound_iff_hasCondSubgaussianMGF.2 (hsubG n)) hw (t := t)
+    (fun _ ↦ ae_of_all _ fun _ ↦ Set.mem_univ _)
+    fun n ↦ ((((hw n).const_mul t).pow_const 2).const_mul (c : ℝ)).div_const 2
+  convert h using 4 with n ω
+  simp only [mul_sum, sum_div, mul_pow, mul_assoc]
 
 /-- **Time-uniform bound for sub-Gaussian sums.** If `Y n` is `ℱ (n + 1)`-measurable and
 conditionally `c`-sub-Gaussian given `ℱ n`, and the weights `w` are adapted, then for all
