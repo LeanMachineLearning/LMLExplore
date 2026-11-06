@@ -5,8 +5,10 @@ Authors: Rémy Degenne
 -/
 module
 
-public import LMLExplore.Probability.Distributions.ExponentialFamily.Mean
+public import LMLExplore.Probability.Distributions.ExponentialFamily.Gamma
+public import LMLExplore.Probability.Distributions.ExponentialFamily.Invariance
 public import LMLExplore.Probability.Distributions.Gaussian.Real
+public import TauCeti.Probability.Distributions.Gaussian.ChiSquared
 
 /-!
 # Gaussian laws as exponential families
@@ -40,7 +42,10 @@ variances `(0, ∞)`, the natural parameter of the variance `μ` is `(v⁻¹ - �
 mean `μ` is `𝒩(m, μ)`, and the divergence of the family in the mean parametrization is
 `d(μ, μ') = (μ / μ' - 1 - log (μ / μ')) / 2`, the relative entropy between `𝒩(m, μ)` and
 `𝒩(m, μ')` (`LMLExplore.klDiv_gaussianReal_gaussianReal`). For `v = 1` the natural parameter of
-the variance `μ` is `(1 - μ⁻¹) / 2`. This is the model of Gaussian arms with a known mean and an
+the variance `μ` is `(1 - μ⁻¹) / 2`. The law of the statistic `(X - m) ^ 2` under `𝒩(m, 1)` is the
+gamma law of shape and rate `1 / 2`, so by the invariance of the mean parametrization under a change
+of base member and under passing to the law of the statistic, `d` is the divergence of the gamma
+laws of shape `1 / 2`. This is the model of Gaussian arms with a known mean and an
 unknown variance, in which identification tasks ask questions about the variances of the arms.
 
 ## Main statements
@@ -75,8 +80,11 @@ Fixed mean, statistic `x ↦ (x - m) ^ 2`:
   `μ > 0` is `(v⁻¹ - μ⁻¹) / 2`.
 * `LMLExplore.expFamily_natParam_sub_sq_gaussianReal`: for `v ≠ 0`, the member of mean `μ > 0` is
   `𝒩(m, μ)`.
+* `LMLExplore.gaussianReal_map_sub_sq`: the law of `(X - m) ^ 2` for `X ∼ 𝒩(m, 1)` is
+  `gammaMeasure (1 / 2) (1 / 2)`.
 * `LMLExplore.expFamilyDiv_sub_sq_gaussianReal`: for `v ≠ 0`, the divergence of the family is
-  `d(μ, μ') = (μ / μ' - 1 - log (μ / μ')) / 2` for `μ, μ' > 0`.
+  `d(μ, μ') = (μ / μ' - 1 - log (μ / μ')) / 2` for `μ, μ' > 0`, the shape-`1 / 2` case of the
+  divergence of the gamma laws.
 -/
 public section
 
@@ -294,21 +302,50 @@ theorem expFamily_natParam_sub_sq_gaussianReal (m : ℝ) (hv : v ≠ 0) (hμ : 0
     expFamily_sub_sq_gaussianReal m v (two_mul_mul_inv_sub_inv_lt_one hv hμ),
     div_one_sub_two_mul_mul_inv_sub_inv (NNReal.coe_ne_zero.2 hv) hμ.ne']
 
+/-- The law of the squared deviation `(X - m) ^ 2` of `X ∼ 𝒩(m, 1)` is the gamma law of shape and
+rate `1 / 2`, the chi-squared law with one degree of freedom: the law of the statistic of the
+exponential family of `𝒩(m, 1)` with statistic `x ↦ (x - m) ^ 2`. -/
+theorem gaussianReal_map_sub_sq (m : ℝ) :
+    (gaussianReal m 1).map (fun x ↦ (x - m) ^ 2) = gammaMeasure (1 / 2) (1 / 2) := by
+  have h : gaussianReal m 1 = (gaussianReal 0 1).map (· + m) := by
+    rw [gaussianReal_map_add_const, zero_add]
+  rw [h, Measure.map_map (by fun_prop) (by fun_prop), Function.comp_def]
+  simp_rw [add_sub_cancel_right]
+  rw [TauCeti.Probability.gaussianReal_map_sq,
+    TauCeti.Probability.chiSquaredMeasure_eq_gammaMeasure one_pos]
+
 /-- For `v ≠ 0`, the divergence of the exponential family of `𝒩(m, v)` with statistic
 `x ↦ (x - m) ^ 2` in the mean parametrization is `d(μ, μ') = (μ / μ' - 1 - log (μ / μ')) / 2` for
-variances `μ, μ' > 0`, the relative entropy between `𝒩(m, μ)` and `𝒩(m, μ')`. -/
+variances `μ, μ' > 0`, the relative entropy between `𝒩(m, μ)` and `𝒩(m, μ')`. It is the divergence
+of the gamma laws of shape `1 / 2` (`expFamilyDiv_gammaMeasure`): `𝒩(m, v)` is a member of the
+family of `𝒩(m, 1)`, which has the divergence of the natural exponential family of the law of
+`(X - m) ^ 2` (`gaussianReal_map_sub_sq`). -/
 @[simp]
 theorem expFamilyDiv_sub_sq_gaussianReal (m : ℝ) (hv : v ≠ 0) (hμ : 0 < μ) (hμ' : 0 < μ') :
     (gaussianReal m v).expFamilyDiv (fun x ↦ (x - m) ^ 2) μ μ' =
       (μ / μ' - 1 - log (μ / μ')) / 2 := by
-  have hv' : (v : ℝ) ≠ 0 := NNReal.coe_ne_zero.2 hv
-  rw [Measure.expFamilyDiv_def, natParam_sub_sq_gaussianReal m hv hμ,
-    natParam_sub_sq_gaussianReal m hv hμ',
-    cgf_sub_sq_gaussianReal m v (two_mul_mul_inv_sub_inv_lt_one hv hμ'),
-    cgf_sub_sq_gaussianReal m v (two_mul_mul_inv_sub_inv_lt_one hv hμ),
-    one_sub_two_mul_mul_inv_sub_inv hv' hμ.ne', one_sub_two_mul_mul_inv_sub_inv hv' hμ'.ne',
-    log_div hv' hμ.ne', log_div hv' hμ'.ne', log_div hμ.ne' hμ'.ne']
-  field_simp
+  have hv' : 0 < (v : ℝ) := NNReal.coe_pos.2 (pos_iff_ne_zero.2 hv)
+  -- `𝒩(m, v)` is the member of natural parameter `η₀ = (1 - v⁻¹) / 2` of the family of `𝒩(m, 1)`.
+  have hη₀ : 2 * ((1 : ℝ≥0) : ℝ) * ((1 - (v : ℝ)⁻¹) / 2) < 1 := by
+    have := inv_pos.2 hv'
+    push_cast
+    linarith
+  have h_eq : gaussianReal m v =
+      (gaussianReal m 1).expFamily (fun x ↦ (x - m) ^ 2) ((1 - (v : ℝ)⁻¹) / 2) := by
+    rw [expFamily_sub_sq_gaussianReal m 1 hη₀]
+    congr
+    rw [show ((1 : ℝ≥0) : ℝ) / (1 - 2 * ((1 : ℝ≥0) : ℝ) * ((1 - (v : ℝ)⁻¹) / 2)) = v by
+      push_cast
+      field_simp
+      ring, Real.toNNReal_coe]
+  have h_means {x : ℝ} (hx : 0 < x) :
+      x ∈ (gaussianReal m 1).expFamilyMeans (fun x ↦ (x - m) ^ 2) := by
+    rwa [expFamilyMeans_sub_sq_gaussianReal m one_ne_zero]
+  rw [h_eq, Measure.expFamilyDiv_expFamily (not_ae_eq_const_sub_sq_gaussianReal m one_ne_zero)
+      (interior_subset ((mem_interior_integrableExpSet_sub_sq_gaussianReal m one_ne_zero).2 hη₀))
+      (h_means hμ) (h_means hμ'),
+    ← Measure.expFamilyDiv_id_map (by fun_prop), gaussianReal_map_sub_sq,
+    expFamilyDiv_gammaMeasure (by norm_num) (by norm_num) hμ hμ']
   ring
 
 end SubSq
