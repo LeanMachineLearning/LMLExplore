@@ -64,21 +64,16 @@ variable {Ω Ω' ι : Type*} {mΩ : MeasurableSpace Ω} {mΩ' : MeasurableSpace 
 
 /-! ### Tails of the sum -/
 
-/-- The Chernoff bound at a nonnegative parameter `t` with `exp (t Y)` integrable, for the sum of
-independent variables dominated by `Y` on `Set.Ici 0`, has the exponent `#s (t x - cgf Y Q t)`. -/
-private lemma iIndepFun.measureReal_sum_ge_le_exp_mul_sub_cgf (h_indep : iIndepFun X P)
-    (hX : ∀ i ∈ s, MGFDominatedOn (X i) P Y Q (Set.Ici 0)) (x : ℝ) {t : ℝ}
-    (ht : t ∈ integrableExpSet Y Q) (ht0 : 0 ≤ t) :
-    P.real {ω | #s * x ≤ ∑ i ∈ s, X i ω} ≤ exp (-(#s * (t * x - cgf Y Q t))) := by
-  refine (h_indep.measureReal_sum_ge_le_exp_mul_mgf_pow hX _ ht0 ht0 ht).trans ?_
-  calc exp (-t * (#s * x)) * mgf Y Q t ^ #s
-      ≤ exp (-t * (#s * x)) * exp (cgf Y Q t) ^ #s := by
-        gcongr
-        · exact mgf_nonneg
-        · exact le_exp_log _
-    _ = exp (-(#s * (t * x - cgf Y Q t))) := by
-        rw [← exp_nat_mul, ← exp_add]
-        ring_nf
+/-- Negating independent random variables dominated on `Set.Iic 0` by an integrable random
+variable `Y` gives independent random variables dominated on `Set.Ici 0` by the integrable `-Y`. -/
+private lemma iIndepFun.neg_of_mgfDominatedOn_Iic (h_indep : iIndepFun X P)
+    (hX : ∀ i ∈ s, MGFDominatedOn (X i) P Y Q (Set.Iic 0)) (hY : Integrable Y Q) :
+    iIndepFun (fun i ω ↦ -X i ω) P ∧
+      (∀ i ∈ s, MGFDominatedOn (fun ω ↦ -X i ω) P (fun ω ↦ -Y ω) Q (Set.Ici 0)) ∧
+      Integrable (fun ω ↦ -Y ω) Q :=
+  ⟨h_indep.comp (fun _ y ↦ -y) fun _ ↦ measurable_neg,
+    fun i hi ↦ by simpa only [Set.neg_Iic, neg_zero] using (hX i hi).neg,
+    by simpa only [Pi.neg_def] using hY.neg⟩
 
 /-- **Cramér–Chernoff bound with the rate function, upper tail.** For independent random
 variables `X i`, `i ∈ s`, dominated on `Set.Ici 0` by an integrable random variable `Y` under a
@@ -100,7 +95,7 @@ theorem iIndepFun.measureReal_sum_ge_le_exp_of_le_rateFunction [IsProbabilityMea
   filter_upwards [Ioo_mem_nhdsLT hr0] with r' hr'
   obtain ⟨t, ⟨ht, ht0⟩, hlt⟩ :=
     lt_biSup_iff.1 (((ENNReal.ofReal_lt_ofReal_iff hr0).2 hr'.2).trans_le hr)
-  refine (h_indep.measureReal_sum_ge_le_exp_mul_sub_cgf hX x ht ht0).trans
+  refine (h_indep.measureReal_sum_ge_le_exp_mul_sub_cgf hX x ht0 ht0 ht).trans
     (exp_le_exp.2 (neg_le_neg (mul_le_mul_of_nonneg_left ?_ (Nat.cast_nonneg _))))
   exact ((ENNReal.ofReal_lt_ofReal_iff_of_nonneg hr'.1.le).1 hlt).le
 
@@ -112,12 +107,9 @@ theorem iIndepFun.measureReal_sum_le_le_exp_of_le_rateFunction [IsProbabilityMea
     (h_indep : iIndepFun X P) (hX : ∀ i ∈ s, MGFDominatedOn (X i) P Y Q (Set.Iic 0))
     (hY : Integrable Y Q) (hx : x ≤ Q[Y]) (hr : ENNReal.ofReal r ≤ rateFunction Y Q x) :
     P.real {ω | ∑ i ∈ s, X i ω ≤ #s * x} ≤ exp (-(#s * r)) := by
-  have h_indep' : iIndepFun (fun i ω ↦ -X i ω) P :=
-    h_indep.comp (fun _ y ↦ -y) fun _ ↦ measurable_neg
-  have hX' : ∀ i ∈ s, MGFDominatedOn (fun ω ↦ -X i ω) P (fun ω ↦ -Y ω) Q (Set.Ici 0) :=
-    fun i hi ↦ by simpa only [Set.neg_Iic, neg_zero] using (hX i hi).neg
-  have h := h_indep'.measureReal_sum_ge_le_exp_of_le_rateFunction hX'
-    (by simpa only [Pi.neg_def] using hY.neg) (x := -x) (by rw [integral_neg]; linarith)
+  obtain ⟨h_indep', hX', hY'⟩ := h_indep.neg_of_mgfDominatedOn_Iic hX hY
+  have h := h_indep'.measureReal_sum_ge_le_exp_of_le_rateFunction hX' hY' (x := -x)
+    (by rw [integral_neg]; linarith)
     (by rwa [← Pi.neg_def, rateFunction_neg, neg_neg])
   simpa only [sum_neg_distrib, mul_neg, neg_le_neg_iff] using h
 
@@ -204,12 +196,8 @@ theorem iIndepFun.measureReal_le_integral_and_le_card_mul_rateFunction_le_exp
     (hX : ∀ i ∈ s, MGFDominatedOn (X i) P Y Q (Set.Iic 0)) (hY : Integrable Y Q) (z : ℝ) :
     P.real {ω | (∑ i ∈ s, X i ω) / #s ≤ Q[Y] ∧
         ENNReal.ofReal z ≤ #s * rateFunction Y Q ((∑ i ∈ s, X i ω) / #s)} ≤ exp (-z) := by
-  have h_indep' : iIndepFun (fun i ω ↦ -X i ω) P :=
-    h_indep.comp (fun _ y ↦ -y) fun _ ↦ measurable_neg
-  have hX' : ∀ i ∈ s, MGFDominatedOn (fun ω ↦ -X i ω) P (fun ω ↦ -Y ω) Q (Set.Ici 0) :=
-    fun i hi ↦ by simpa only [Set.neg_Iic, neg_zero] using (hX i hi).neg
-  have h := h_indep'.measureReal_integral_le_and_le_card_mul_rateFunction_le_exp hX'
-    (by simpa only [Pi.neg_def] using hY.neg) z
+  obtain ⟨h_indep', hX', hY'⟩ := h_indep.neg_of_mgfDominatedOn_Iic hX hY
+  have h := h_indep'.measureReal_integral_le_and_le_card_mul_rateFunction_le_exp hX' hY' z
   have h_rate (y : ℝ) : rateFunction (fun ω ↦ -Y ω) Q y = rateFunction Y Q (-y) := by
     rw [← Pi.neg_def, rateFunction_neg]
   simpa only [sum_neg_distrib, neg_div, integral_neg, neg_le_neg_iff, h_rate, neg_neg] using h

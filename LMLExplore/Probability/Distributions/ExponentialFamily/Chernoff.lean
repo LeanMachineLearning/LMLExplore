@@ -75,11 +75,13 @@ variable {Ω ι 𝓧 : Type*} {mΩ : MeasurableSpace Ω} {m𝓧 : MeasurableSpac
 
 /-! ### Cramér–Chernoff bounds -/
 
-/-- The family of the zero measure has the single mean `0`. -/
-private lemma eq_zero_of_mem_expFamilyMeans_zero_measure
-    (hx : x ∈ (0 : Measure 𝓧).expFamilyMeans T) : x = 0 := by
-  obtain ⟨η, -, rfl⟩ := Measure.mem_expFamilyMeans_iff.1 hx
-  simp [cgf_zero_measure]
+/-- For the zero measure, whose family has the single mean `0`, the Cramér–Chernoff bounds at
+means of the family are trivial: the divergence vanishes and the bound is `1`. -/
+private lemma measureReal_le_exp_expFamilyDiv_zero_measure [IsProbabilityMeasure P] {E : Set Ω}
+    (hμ : μ ∈ (0 : Measure 𝓧).expFamilyMeans T) (hx : x ∈ (0 : Measure 𝓧).expFamilyMeans T)
+    (n : ℝ) : P.real E ≤ exp (-(n * (0 : Measure 𝓧).expFamilyDiv T x μ)) := by
+  simp only [Measure.expFamilyMeans_zero_measure, Set.mem_singleton_iff] at hμ hx
+  simp [hμ, hx]
 
 /-- **Cramér–Chernoff bound under domination by an exponential family, upper tail.** For
 independent random variables `X i`, `i ∈ s`, dominated on `Set.Ici 0` by the member `ρ_η(μ)` of
@@ -90,12 +92,8 @@ theorem iIndepFun.measureReal_sum_ge_le_exp_expFamilyDiv (h_indep : iIndepFun X 
     (hμ : μ ∈ ρ.expFamilyMeans T) (hx : x ∈ ρ.expFamilyMeans T) (hμx : μ ≤ x) :
     P.real {ω | #s * x ≤ ∑ i ∈ s, X i ω} ≤ exp (-(#s * ρ.expFamilyDiv T x μ)) := by
   rcases eq_zero_or_neZero ρ with rfl | _
-  · -- the family of the zero measure has the single mean `0`, at which `d` vanishes
-    have := h_indep.isProbabilityMeasure
-    rw [eq_zero_of_mem_expFamilyMeans_zero_measure hx,
-      ← eq_zero_of_mem_expFamilyMeans_zero_measure hμ, Measure.expFamilyDiv_self, mul_zero,
-      neg_zero, exp_zero]
-    exact measureReal_le_one
+  · have := h_indep.isProbabilityMeasure
+    exact measureReal_le_exp_expFamilyDiv_zero_measure hμ hx _
   have hη := Measure.natParam_mem_interior_integrableExpSet hμ
   have := Measure.isProbabilityMeasure_expFamily (interior_subset hη)
   exact h_indep.measureReal_sum_ge_le_exp_of_le_rateFunction hX (Measure.integrable_expFamily hη)
@@ -110,12 +108,8 @@ theorem iIndepFun.measureReal_sum_le_le_exp_expFamilyDiv (h_indep : iIndepFun X 
     (hμ : μ ∈ ρ.expFamilyMeans T) (hx : x ∈ ρ.expFamilyMeans T) (hxμ : x ≤ μ) :
     P.real {ω | ∑ i ∈ s, X i ω ≤ #s * x} ≤ exp (-(#s * ρ.expFamilyDiv T x μ)) := by
   rcases eq_zero_or_neZero ρ with rfl | _
-  · -- the family of the zero measure has the single mean `0`, at which `d` vanishes
-    have := h_indep.isProbabilityMeasure
-    rw [eq_zero_of_mem_expFamilyMeans_zero_measure hx,
-      ← eq_zero_of_mem_expFamilyMeans_zero_measure hμ, Measure.expFamilyDiv_self, mul_zero,
-      neg_zero, exp_zero]
-    exact measureReal_le_one
+  · have := h_indep.isProbabilityMeasure
+    exact measureReal_le_exp_expFamilyDiv_zero_measure hμ hx _
   have hη := Measure.natParam_mem_interior_integrableExpSet hμ
   have := Measure.isProbabilityMeasure_expFamily (interior_subset hη)
   exact h_indep.measureReal_sum_le_le_exp_of_le_rateFunction hX (Measure.integrable_expFamily hη)

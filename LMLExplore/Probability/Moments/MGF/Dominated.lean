@@ -51,6 +51,10 @@ by a member of the family without following its law.
   `ProbabilityTheory.iIndepFun.measureReal_sum_le_le_exp_mul_mgf_pow`: the Chernoff bounds
   `P(a ≤ ∑ i ∈ s, X i) ≤ exp (-t a) (mgf Y Q t) ^ #s` for `t ∈ Λ` with `t ≥ 0`, and
   `P(∑ i ∈ s, X i ≤ a) ≤ exp (-t a) (mgf Y Q t) ^ #s` for `t ∈ Λ` with `t ≤ 0`.
+* `ProbabilityTheory.iIndepFun.measureReal_sum_ge_le_exp_mul_sub_cgf`,
+  `ProbabilityTheory.iIndepFun.measureReal_sum_le_le_exp_mul_sub_cgf`: the same bounds in cgf
+  form, `P(#s x ≤ ∑ i ∈ s, X i) ≤ exp (-(#s (t x - cgf Y Q t)))` for `t ∈ Λ` with `t ≥ 0`, and
+  `P(∑ i ∈ s, X i ≤ #s x) ≤ exp (-(#s (t x - cgf Y Q t)))` for `t ∈ Λ` with `t ≤ 0`.
 
 ## References
 
@@ -209,5 +213,38 @@ theorem iIndepFun.measureReal_sum_le_le_exp_mul_mgf_pow (h_indep : iIndepFun X P
     (h_indep.integrable_exp_mul_sum_of_mgfDominatedOn hX htΛ hY)).trans
     (mul_le_mul_of_nonneg_left (h_indep.mgf_sum_le_pow_of_mgfDominatedOn hX htΛ hY)
       (exp_pos _).le)
+
+/-- The bound `exp (-t (#s x)) (mgf Y Q t) ^ #s` of the Chernoff bounds is at most
+`exp (-(#s (t x - cgf Y Q t)))`. -/
+private lemma exp_mul_mgf_pow_le_exp_cgf (s : Finset ι) (x t : ℝ) :
+    exp (-t * (#s * x)) * mgf Y Q t ^ #s ≤ exp (-(#s * (t * x - cgf Y Q t))) := by
+  calc exp (-t * (#s * x)) * mgf Y Q t ^ #s
+      ≤ exp (-t * (#s * x)) * exp (cgf Y Q t) ^ #s := by
+        gcongr
+        · exact mgf_nonneg
+        · exact le_exp_log _
+    _ = exp (-(#s * (t * x - cgf Y Q t))) := by
+        rw [← exp_nat_mul, ← exp_add]
+        ring_nf
+
+/-- **Chernoff bound under domination in cgf form, upper tail.** For independent random variables
+`X i`, `i ∈ s`, dominated by `Y` under `Q` on `Λ`, every level `x` and every `t ∈ Λ` with `t ≥ 0`
+and `exp (t Y)` integrable, `P(#s x ≤ ∑ i ∈ s, X i) ≤ exp (-(#s (t x - cgf Y Q t)))`. -/
+theorem iIndepFun.measureReal_sum_ge_le_exp_mul_sub_cgf (h_indep : iIndepFun X P)
+    (hX : ∀ i ∈ s, MGFDominatedOn (X i) P Y Q Λ) (x : ℝ) (htΛ : t ∈ Λ) (ht : 0 ≤ t)
+    (hY : Integrable (fun ω ↦ exp (t * Y ω)) Q) :
+    P.real {ω | #s * x ≤ ∑ i ∈ s, X i ω} ≤ exp (-(#s * (t * x - cgf Y Q t))) :=
+  (h_indep.measureReal_sum_ge_le_exp_mul_mgf_pow hX _ htΛ ht hY).trans
+    (exp_mul_mgf_pow_le_exp_cgf s x t)
+
+/-- **Chernoff bound under domination in cgf form, lower tail.** For independent random variables
+`X i`, `i ∈ s`, dominated by `Y` under `Q` on `Λ`, every level `x` and every `t ∈ Λ` with `t ≤ 0`
+and `exp (t Y)` integrable, `P(∑ i ∈ s, X i ≤ #s x) ≤ exp (-(#s (t x - cgf Y Q t)))`. -/
+theorem iIndepFun.measureReal_sum_le_le_exp_mul_sub_cgf (h_indep : iIndepFun X P)
+    (hX : ∀ i ∈ s, MGFDominatedOn (X i) P Y Q Λ) (x : ℝ) (htΛ : t ∈ Λ) (ht : t ≤ 0)
+    (hY : Integrable (fun ω ↦ exp (t * Y ω)) Q) :
+    P.real {ω | ∑ i ∈ s, X i ω ≤ #s * x} ≤ exp (-(#s * (t * x - cgf Y Q t))) :=
+  (h_indep.measureReal_sum_le_le_exp_mul_mgf_pow hX _ htΛ ht hY).trans
+    (exp_mul_mgf_pow_le_exp_cgf s x t)
 
 end ProbabilityTheory
