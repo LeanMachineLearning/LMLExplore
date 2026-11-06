@@ -136,8 +136,8 @@ private lemma measureReal_sum_ge_le_exp_of_mgf_le [IsFiniteMeasure μ] {b t ε K
     (hX : ∀ i ∈ s, AEMeasurable (X i) μ) (hXb : ∀ i ∈ s, ∀ᵐ ω ∂μ, X i ω ≤ b) (ht : 0 ≤ t)
     (hK : mgf (fun ω ↦ ∑ i ∈ s, X i ω) μ t ≤ exp K) :
     μ.real {ω | ε ≤ ∑ i ∈ s, X i ω} ≤ exp (-t * ε + K) := by
-  refine measureReal_ge_le_exp_of_mgf_le (b := #s * b) (Finset.aemeasurable_fun_sum s hX) ?_
-    ht hK
+  refine measureReal_ge_le_exp_of_mgf_le ht
+    (integrable_exp_mul_of_le t (#s * b) ht (Finset.aemeasurable_fun_sum s hX) ?_) hK
   filter_upwards [(Filter.eventually_all_finset s).2 hXb] with ω hω
   simpa using sum_le_card_nsmul s (fun i ↦ X i ω) b hω
 

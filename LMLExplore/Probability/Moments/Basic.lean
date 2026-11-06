@@ -18,8 +18,8 @@ variables, shared by the concentration inequalities of the library.
 * `ProbabilityTheory.iIndepFun.mgf_sum_eq_prod_of_mem`: the moment-generating function of a sum
   of independent random variables over a `Finset` is the product of their moment-generating
   functions, assuming measurability only on the `Finset`.
-* `ProbabilityTheory.measureReal_ge_le_exp_of_mgf_le`: Chernoff's bound for a random variable
-  bounded above, `P(ε ≤ Y) ≤ exp (-t ε + K)` when `mgf Y μ t ≤ exp K` and `t ≥ 0`.
+* `ProbabilityTheory.measureReal_ge_le_exp_of_mgf_le`: Chernoff's bound
+  `P(ε ≤ Y) ≤ exp (-t ε + K)` when `exp (t Y)` is integrable, `mgf Y μ t ≤ exp K` and `t ≥ 0`.
 * `MeasureTheory.measureReal_abs_ge_le_add`: the union bound over both tails,
   `P(ε ≤ |f|) ≤ P(ε ≤ f) + P(ε ≤ -f)`.
 -/
@@ -33,13 +33,13 @@ namespace MeasureTheory
 variable {Ω : Type*} {mΩ : MeasurableSpace Ω} {μ : Measure Ω}
 
 /-- The union bound over both tails: `P(ε ≤ |f|) ≤ P(ε ≤ f) + P(ε ≤ -f)`. -/
-theorem measureReal_abs_ge_le_add [IsFiniteMeasure μ] (f : Ω → ℝ) (ε : ℝ) :
+theorem measureReal_abs_ge_le_add (f : Ω → ℝ) (ε : ℝ) :
     μ.real {ω | ε ≤ |f ω|} ≤ μ.real {ω | ε ≤ f ω} + μ.real {ω | ε ≤ -f ω} := by
-  refine (measureReal_mono (fun ω hω ↦ ?_)).trans (measureReal_union_le _ _)
-  simp only [Set.mem_ofPred_eq, Set.mem_union] at hω ⊢
-  rcases le_abs'.1 hω with h | h
-  · exact Or.inr (by linarith)
-  · exact Or.inl h
+  have : {ω | ε ≤ |f ω|} = {ω | ε ≤ f ω} ∪ {ω | ε ≤ -f ω} := by
+    ext ω
+    simp only [Set.mem_ofPred_eq, Set.mem_union, le_abs', le_neg, or_comm]
+  rw [this]
+  exact measureReal_union_le _ _
 
 end MeasureTheory
 
@@ -58,13 +58,12 @@ theorem iIndepFun.mgf_sum_eq_prod_of_mem {X : ι → Ω → ℝ} {s : Finset ι}
   congr with ω
   rw [Finset.sum_apply, Finset.sum_coe_sort s fun i ↦ X i ω]
 
-/-- **Chernoff's bound** for a random variable bounded above: if `Y ≤ b` almost surely and the
-moment-generating function of `Y` at `t ≥ 0` is at most `exp K`, then
-`P(ε ≤ Y) ≤ exp (-t ε + K)`. -/
-theorem measureReal_ge_le_exp_of_mgf_le [IsFiniteMeasure μ] {Y : Ω → ℝ} {b t ε K : ℝ}
-    (hY : AEMeasurable Y μ) (hYb : ∀ᵐ ω ∂μ, Y ω ≤ b) (ht : 0 ≤ t) (hK : mgf Y μ t ≤ exp K) :
+/-- **Chernoff's bound**: if `exp (t Y)` is integrable and the moment-generating function of `Y`
+at `t ≥ 0` is at most `exp K`, then `P(ε ≤ Y) ≤ exp (-t ε + K)`. -/
+theorem measureReal_ge_le_exp_of_mgf_le [IsFiniteMeasure μ] {Y : Ω → ℝ} {t ε K : ℝ}
+    (ht : 0 ≤ t) (h_int : Integrable (fun ω ↦ exp (t * Y ω)) μ) (hK : mgf Y μ t ≤ exp K) :
     μ.real {ω | ε ≤ Y ω} ≤ exp (-t * ε + K) := by
-  refine (measure_ge_le_exp_mul_mgf ε ht (integrable_exp_mul_of_le t b ht hY hYb)).trans ?_
+  refine (measure_ge_le_exp_mul_mgf ε ht h_int).trans ?_
   rw [exp_add]
   gcongr
 
