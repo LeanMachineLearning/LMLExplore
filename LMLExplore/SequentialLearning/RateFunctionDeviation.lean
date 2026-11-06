@@ -41,8 +41,9 @@ bound holds for the generalized likelihood ratio statistic `∑ a, N_a dbar_a(μ
 empirical means, including at empirical means on the boundary of the means of the families, such
 as the empirical means `0` and `1` of Bernoulli rewards. This is the deviation inequality behind the
 `δ`-correctness of generalized likelihood ratio stopping rules for exponential families
-[GK16, Proposition 12; LS, Lemma 33.7]. For Gaussian rewards of variance `σ²`, the rate function is
-`(x - μ_a)² / (2 σ²)` and the statistic is that of `SequentialLearning/SubGaussianDeviation.lean`.
+[GK16, Proposition 12; LS, Lemma 33.7]. For σ²-sub-Gaussian rewards, the rate function is at
+least `(x - μ_a)² / (2 σ²)`, with equality for Gaussian rewards of variance `σ²`, and
+`SequentialLearning/SubGaussianDeviation.lean` deduces the same bounds for that statistic.
 
 ## Main statements
 

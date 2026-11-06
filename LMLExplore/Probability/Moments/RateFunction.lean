@@ -10,6 +10,7 @@ public import Mathlib.Analysis.SpecialFunctions.Log.Basic
 public import Mathlib.Probability.IdentDistrib
 public import Mathlib.Probability.Moments.Basic
 public import Mathlib.Probability.Moments.IntegrableExpMul
+public import Mathlib.Probability.Moments.SubGaussian
 public import LMLExplore.Probability.Moments.IntegrableExpMul
 public import LMLExplore.Probability.Moments.MGF.Dominated
 public import TauCeti.Analysis.Convex.Conjugate
@@ -51,6 +52,8 @@ infinite beyond the essential supremum of `X`, and symmetrically below its essen
   `X` at `-x`, and the rate function only depends on the law of `X`.
 * `LMLExplore.MGFDominatedOn.rateFunction_le`: if `X` is dominated by `Y` in moment generating
   function, the rate function of `Y` is at most that of `X`.
+* `ProbabilityTheory.HasSubgaussianMGF.ofReal_sq_div_le_rateFunction`: if `X - E[X]` is
+  `c`-sub-Gaussian, then `(x - E[X])² / (2 c) ≤ I(x)`.
 * `LMLExplore.convexOn_rateFunction`, `LMLExplore.lowerSemicontinuous_rateFunction`: it is convex
   and lower semicontinuous.
 * `LMLExplore.mul_integral_le_cgf`: Jensen's inequality `t E[X] ≤ cgf X P t`.
@@ -190,6 +193,39 @@ theorem MGFDominatedOn.rateFunction_le [NeZero P] {Q : Measure Ω'} {Y : Ω' →
   have htX : t ∈ integrableExpSet X P := h.integrable_exp_mul ht ht
   have h_cgf : cgf X P t ≤ cgf Y Q t := log_le_log (mgf_pos' (NeZero.ne P) htX) (h.mgf_le ht ht)
   exact (ENNReal.ofReal_le_ofReal (by linarith)).trans (ofReal_le_rateFunction htX x)
+
+/-- **The rate function of a sub-Gaussian variable is at least quadratic.** If `X - E[X]` is
+`c`-sub-Gaussian under a probability measure `P`, then `(x - E[X])² / (2 c) ≤ I(x)` for every `x`:
+the parameter `t = (x - E[X]) / c` gives `t x - cgf X P t ≥ (x - E[X])² / (2 c)`. -/
+theorem _root_.ProbabilityTheory.HasSubgaussianMGF.ofReal_sq_div_le_rateFunction
+    [IsProbabilityMeasure P] {c : ℝ≥0} (h : HasSubgaussianMGF (fun ω ↦ X ω - P[X]) c P) (x : ℝ) :
+    ENNReal.ofReal ((x - P[X]) ^ 2 / (2 * c)) ≤ rateFunction X P x := by
+  rcases eq_or_ne c 0 with rfl | hc
+  · simp
+  have hc' : (c : ℝ) ≠ 0 := NNReal.coe_ne_zero.2 hc
+  set t := (x - P[X]) / c
+  -- `X` is the centered variable shifted by its mean
+  have hX : X = fun ω ↦ (X ω - P[X]) + P[X] := by
+    ext ω
+    ring
+  have ht : t ∈ integrableExpSet X P := by
+    rw [integrableExpSet, mem_ofPred_eq, hX]
+    simp_rw [mul_add, exp_add]
+    exact (h.integrable_exp_mul t).mul_const _
+  have h_cgf : cgf X P t = cgf (fun ω ↦ X ω - P[X]) P t + t * P[X] := by
+    rw [cgf, cgf, hX, mgf_add_const, log_mul (mgf_pos (h.integrable_exp_mul t)).ne' (exp_pos _).ne',
+      log_exp]
+    simp
+  refine le_trans (ENNReal.ofReal_le_ofReal ?_) (ofReal_le_rateFunction ht x)
+  have h_le := h.cgf_le t
+  calc (x - P[X]) ^ 2 / (2 * c)
+  _ = t * (x - P[X]) - c * t ^ 2 / 2 := by
+    simp only [t]
+    field_simp
+    ring
+  _ ≤ t * x - cgf X P t := by
+    rw [h_cgf]
+    linarith
 
 /-! ### Convexity and lower semicontinuity -/
 

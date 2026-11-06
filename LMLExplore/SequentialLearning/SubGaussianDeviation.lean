@@ -9,6 +9,7 @@ public import LeanMachineLearning.Online.Bandit.Concentration
 public import LeanMachineLearning.SequentialLearning.SumRewards
 public import LMLExplore.Analysis.SpecialFunctions.Log.Basic
 public import LMLExplore.Probability.Moments.ExponentialTail
+public import LMLExplore.SequentialLearning.RateFunctionDeviation
 public import LMLExplore.SequentialLearning.SumRewards
 
 /-!
@@ -26,15 +27,14 @@ For one arm, in LML's i.i.d. reward stream model, Hoeffding's inequality (LML's
 `Bandits.StreamMeasure.prob_sum_range_sub_ge_le_of_hasSubgaussianMGF` and
 `Bandits.StreamMeasure.prob_sum_range_sub_le_le_of_hasSubgaussianMGF`) and a union bound over
 the number `s` of rewards give
-`P(∃ s, log (2 s (s + 1)) + y ≤ s (μ̂_s - μ)² / (2 σ²)) ≤ exp (-y)` [LS, Lemma 33.8]. The arms
-are independent in the stream model (`LMLExplore.iIndepFun_arm_streamMeasure`), so
-[LS, Proposition 33.9]
-(`LMLExplore.measure_exists_card_mul_add_le_sum_le`) bounds the joint deviation over all the
-vectors of numbers of rewards, and the joint transfer of `SequentialLearning/SumRewards.lean` turns
-it into a bound along the run, at all rounds simultaneously. This is the deviation inequality of
-the proof of [LS, Lemma 33.7]; Lattimore and Szepesvári state it for Gaussian arms with unit
-variance and `log (t (t + 1))` in place of `log (2 t (t + 1))`, which accounts for the two tails
-of a sub-Gaussian variable.
+`P(∃ s, log (2 s (s + 1)) + y ≤ s (μ̂_s - μ)² / (2 σ²)) ≤ exp (-y)` [LS, Lemma 33.8]. The
+rate function of a σ²-sub-Gaussian arm is at least `(x - μ)² / (2 σ²)`
+(`ProbabilityTheory.HasSubgaussianMGF.ofReal_sq_div_le_rateFunction`), so the joint deviation
+over all the arms, in the stream model and along the run, at all rounds simultaneously, follows
+from the bounds for the rate functions of `SequentialLearning/RateFunctionDeviation.lean`
+([LS, Proposition 33.9]). This is the deviation inequality of the proof of [LS, Lemma 33.7];
+Lattimore and Szepesvári state it for Gaussian arms with unit variance and `log (t (t + 1))` in
+place of `log (2 t (t + 1))`, which accounts for the two tails of a sub-Gaussian variable.
 
 For a single arm and confidence intervals `μ̂_a ∓ β(N_a, n)` whose width depends on the number of
 pulls `N_a` and on the round `n`, as in the stopping rule of LUCB [KTAS12], a union bound over the
@@ -93,6 +93,22 @@ namespace LMLExplore
 variable {α : Type*} [MeasurableSpace α]
 
 variable {ν : Kernel α ℝ} [IsMarkovKernel ν]
+
+/-- The rewards of a σ²-sub-Gaussian arm are integrable. -/
+private lemma _root_.ProbabilityTheory.HasSubgaussianMGF.integrable_id {a : α} {σ2 : ℝ≥0}
+    (hν : HasSubgaussianMGF (fun x ↦ x - (ν a)[id]) σ2 (ν a)) : Integrable id (ν a) :=
+  (hν.integrable.add (integrable_const ((ν a)[id]))).congr
+    (ae_of_all _ fun x ↦ by simp only [Pi.add_apply, sub_add_cancel, id])
+
+/-- For a σ²-sub-Gaussian arm `a` with rate function `I_a`, the sub-Gaussian statistic
+`N (m - μ_a)² / (2 σ²)` is at most the rate-function statistic `N I_a(m)`. -/
+private lemma _root_.ProbabilityTheory.HasSubgaussianMGF.ofReal_mul_sq_div_le_mul_rateFunction
+    {a : α} {σ2 : ℝ≥0} (hν : HasSubgaussianMGF (fun x ↦ x - (ν a)[id]) σ2 (ν a)) (N : ℕ)
+    (m : ℝ) :
+    ENNReal.ofReal (N * (m - (ν a)[id]) ^ 2 / (2 * σ2)) ≤ N * rateFunction id (ν a) m := by
+  rw [mul_div_assoc, ENNReal.ofReal_mul (Nat.cast_nonneg _), ENNReal.ofReal_natCast]
+  gcongr
+  exact hν.ofReal_sq_div_le_rateFunction (X := id) m
 
 /-- **Two-sided Hoeffding bound for the statistic of a sub-Gaussian arm.** In the reward stream
 model, if the arm `a` is σ²-sub-Gaussian with mean `μ_a`, then for `s ≠ 0` rewards and `z ≥ 0`,
@@ -161,17 +177,24 @@ theorem streamMeasure_exists_card_mul_log_add_le_sum_sq_div_le [Fintype α] {σ2
       Fintype.card α * log (2 * ((∑ a, s a : ℕ) : ℝ) * (((∑ a, s a : ℕ) : ℝ) + 1)) + x ≤
         ∑ a, (∑ i ∈ range (s a), (ω i a - (ν a)[id])) ^ 2 / (2 * σ2 a * s a)} ≤
       ENNReal.ofReal ((x / Fintype.card α) ^ Fintype.card α * exp (Fintype.card α - x)) := by
-  -- the statistics of the arms are functions of their independent reward sequences
-  have h_indep : iIndepFun (fun a (ω : ℕ → α → ℝ) (s : ℕ) ↦
-      (∑ i ∈ range s, (ω i a - (ν a)[id])) ^ 2 / (2 * σ2 a * s)) (streamMeasure ν) :=
-    (iIndepFun_arm_streamMeasure ν).comp
-      (fun a (f : ℕ → ℝ) (s : ℕ) ↦ (∑ i ∈ range s, (f i - (ν a)[id])) ^ 2 / (2 * σ2 a * s))
-      fun a ↦ Measurable.of_eval fun s ↦ by fun_prop
-  exact measure_exists_card_mul_add_le_sum_le (P := streamMeasure ν)
-    (S := fun a s ω ↦ (∑ i ∈ range s, (ω i a - (ν a)[id])) ^ 2 / (2 * σ2 a * s))
-    (g := fun n : ℕ ↦ log (2 * n * (n + 1))) h_indep (fun a s ↦ by fun_prop)
-    Real.monotone_log_two_mul_mul_add_one
-    (fun a y hy ↦ streamMeasure_exists_log_add_le_sq_div_le (hν a) hy) hx
+  -- the sub-Gaussian statistic of each arm is at most its rate-function statistic
+  refine le_trans (measure_mono fun ω hω ↦ ?_)
+    (streamMeasure_exists_card_mul_log_add_le_sum_mul_rateFunction_le
+      (fun a ↦ (hν a).integrable_id) hx)
+  obtain ⟨s, hs⟩ := hω
+  refine ⟨s, ?_⟩
+  refine (ENNReal.ofReal_le_ofReal hs).trans ?_
+  rw [ENNReal.ofReal_sum_of_nonneg fun a _ ↦ by positivity]
+  refine sum_le_sum fun a _ ↦ ?_
+  rcases eq_or_ne (s a) 0 with h0 | h0
+  · simp [h0]
+  have h_sum : (∑ i ∈ range (s a), (ω i a - (ν a)[id])) ^ 2 / (2 * σ2 a * s a) =
+      s a * ((∑ i ∈ range (s a), ω i a) / s a - (ν a)[id]) ^ 2 / (2 * σ2 a) := by
+    have hs' : ((s a : ℕ) : ℝ) ≠ 0 := Nat.cast_ne_zero.2 h0
+    rw [sum_sub_distrib, sum_const, card_range, nsmul_eq_mul]
+    field_simp
+  rw [h_sum]
+  exact (hν a).ofReal_mul_sq_div_le_mul_rateFunction _ _
 
 /-! ### Confidence bounds of one arm with an exploration rate -/
 
@@ -395,26 +418,15 @@ theorem measure_exists_card_mul_log_add_le_sum_pullCount_mul_sq_div_le
     P {ω | ∃ t : ℕ, Fintype.card α * log (2 * t * (t + 1)) + x ≤
         ∑ a, pullCount A a t ω * (empMean A R a t ω - (ν a)[id]) ^ 2 / (2 * σ2 a)} ≤
       ENNReal.ofReal ((x / Fintype.card α) ^ Fintype.card α * exp (Fintype.card α - x)) := by
-  -- the statistic of an arm with `N` pulls, sum of rewards `S` and empirical mean `M`
-  have h_stat (N : ℕ) (S M m : ℝ) (σ2 : ℝ≥0) (hS : N ≠ 0 → S = N * M) :
-      N * (M - m) ^ 2 / (2 * σ2) = (S - N * m) ^ 2 / (2 * σ2 * N) := by
-    rcases eq_or_ne N 0 with rfl | hN
-    · simp
-    · have hN' : (N : ℝ) ≠ 0 := Nat.cast_ne_zero.2 hN
-      rw [hS hN]
-      field_simp
-  refine le_trans (measure_mono fun ω ⟨t, ht⟩ ↦ ?_)
-    ((measure_exists_pullCount_sumRewards_pi_le h fun s y ↦
-      Fintype.card α * log (2 * ((∑ a, s a : ℕ) : ℝ) * (((∑ a, s a : ℕ) : ℝ) + 1)) + x ≤
-        ∑ a, (y a - s a * (ν a)[id]) ^ 2 / (2 * σ2 a * s a)).trans
-      (le_of_eq_of_le ?_ (streamMeasure_exists_card_mul_log_add_le_sum_sq_div_le hν hx)))
-  · refine ⟨t, ?_⟩
-    simp only [sum_pullCount]
-    refine ht.trans_eq (sum_congr rfl fun a _ ↦ ?_)
-    exact h_stat _ _ _ _ _ sumRewards_eq_pullCount_mul_empMean
-  · congr 1
-    ext ω
-    simp only [Set.mem_ofPred_eq, sum_sub_distrib, sum_const, card_range, nsmul_eq_mul]
+  -- the sub-Gaussian statistic of each arm is at most its rate-function statistic
+  refine le_trans (measure_mono fun ω hω ↦ ?_)
+    (measure_exists_card_mul_log_add_le_sum_pullCount_mul_rateFunction_le h
+      (fun a ↦ (hν a).integrable_id) hx)
+  obtain ⟨t, ht⟩ := hω
+  refine ⟨t, ?_⟩
+  refine (ENNReal.ofReal_le_ofReal ht).trans ?_
+  rw [ENNReal.ofReal_sum_of_nonneg fun a _ ↦ by positivity]
+  exact sum_le_sum fun a _ ↦ (hν a).ofReal_mul_sq_div_le_mul_rateFunction _ _
 
 /-- **Time-uniform deviations of the empirical means of all the sub-Gaussian arms along a run**
 ([LS, Lemma 33.8] and a union bound over the arms). In a run of any algorithm against
