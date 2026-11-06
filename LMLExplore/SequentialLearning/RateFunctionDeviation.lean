@@ -7,7 +7,6 @@ module
 
 public import LeanMachineLearning.SequentialLearning.SumRewards
 public import LMLExplore.Analysis.SpecialFunctions.Log.Basic
-public import LMLExplore.Probability.Distributions.ExponentialFamily.RateFunction
 public import LMLExplore.Probability.LargeDeviations.Chernoff
 public import LMLExplore.Probability.Moments.ExponentialTail
 public import LMLExplore.SequentialLearning.SumRewards
@@ -34,16 +33,12 @@ it into a bound along the run, at all rounds simultaneously. The statistics are 
 `I_a(μ̂_s)` is infinite for instance at empirical means beyond the essential supremum of the
 rewards, and by the same Chernoff bound this happens with probability zero.
 
-If the rewards of the arm `a` are dominated, in moment generating function, by the member of mean
-`μ_a` of an exponential family `(ρ_a, T_a)`, the rate function of the arm is at least the extended
-divergence `dbar_a(·, μ_a)` of the family (`MeasureTheory.Measure.expFamilyRate`), so the same
-bound holds for the generalized likelihood ratio statistic `∑ a, N_a dbar_a(μ̂_a, μ_a)` of the
-empirical means, including at empirical means on the boundary of the means of the families, such
-as the empirical means `0` and `1` of Bernoulli rewards. This is the deviation inequality behind the
-`δ`-correctness of generalized likelihood ratio stopping rules for exponential families
-[GK16, Proposition 12; LS, Lemma 33.7]. For σ²-sub-Gaussian rewards, the rate function is at
-least `(x - μ_a)² / (2 σ²)`, with equality for Gaussian rewards of variance `σ²`, and
-`SequentialLearning/SubGaussianDeviation.lean` deduces the same bounds for that statistic.
+For rewards dominated by exponential families, the rate function of each arm is at least the
+extended divergence of its family, and `SequentialLearning/ExpFamilyDeviation.lean` deduces the
+same bound for the generalized likelihood ratio statistic of the empirical means. For
+σ²-sub-Gaussian rewards, the rate function is at least `(x - μ_a)² / (2 σ²)`, with equality for
+Gaussian rewards of variance `σ²`, and `SequentialLearning/SubGaussianDeviation.lean` deduces the
+same bounds for that statistic.
 
 ## Main statements
 
@@ -56,13 +51,9 @@ least `(x - μ_a)² / (2 σ²)`, with equality for Gaussian rewards of variance 
 * `LMLExplore.measure_exists_card_mul_log_add_le_sum_pullCount_mul_rateFunction_le`: along a run of
   any algorithm, `P(∃ t, K log (2 t (t + 1)) + x ≤ ∑ a, N_a(t) I_a(μ̂_a(t)))` is at most
   `(x / K) ^ K exp (K - x)` for `x ≥ K`.
-* `LMLExplore.measure_exists_card_mul_log_add_le_sum_pullCount_mul_expFamilyRate_le`: the same for
-  `∑ a, N_a(t) dbar_a(μ̂_a(t), μ_a)`, for rewards dominated by members of exponential families.
 
 ## References
 
-* [GK16] A. Garivier and E. Kaufmann, *Optimal best arm identification with fixed confidence*,
-  COLT 2016, Proposition 12.
 * [LS] T. Lattimore and Cs. Szepesvári, *Bandit Algorithms*, Cambridge University Press (2020),
   Lemmas 33.7 and 33.8 and Proposition 33.9.
 -/
@@ -196,35 +187,5 @@ theorem measure_exists_card_mul_log_add_le_sum_pullCount_mul_rateFunction_le
       (streamMeasure_exists_card_mul_log_add_le_sum_mul_rateFunction_le hν hx))
   obtain ⟨t, ht⟩ := hω
   exact ⟨t, by simpa only [sum_pullCount, empMean] using ht⟩
-
-/-- **Time-uniform deviations of the empirical means along a run, for rewards dominated by
-exponential families** ([GK16, Proposition 12], [LS, Lemma 33.7]). In a run of any algorithm
-against `Environment.bandit ν`, let the rewards of each arm `a` be dominated on `Set.univ`, in
-moment generating function, by the member of mean `μ a` of the exponential family `(ρ a, T a)`,
-with extended divergence `dbar_a` (`MeasureTheory.Measure.expFamilyRate`). Then for `x ≥ K`, with
-`K` the number of arms, the probability that at some round `t`, the pull counts `N_a(t)` and the
-empirical means `μ̂_a(t)` satisfy `K log (2 t (t + 1)) + x ≤ ∑ a, N_a(t) dbar_a(μ̂_a(t), μ a)`, is
-at most `(x / K) ^ K exp (K - x)`. -/
-theorem measure_exists_card_mul_log_add_le_sum_pullCount_mul_expFamilyRate_le
-    (h : IsAlgEnvSeq O A R alg (Environment.bandit ν) P) {𝓧 : Type*} {m𝓧 : MeasurableSpace 𝓧}
-    {ρ : α → Measure 𝓧} {T : α → 𝓧 → ℝ} {μ : α → ℝ}
-    (hμ : ∀ a, μ a ∈ (ρ a).expFamilyMeans (T a))
-    (hν : ∀ a, MGFDominatedOn id (ν a) (T a)
-      ((ρ a).expFamily (T a) ((ρ a).natParam (T a) (μ a))) Set.univ)
-    (hx : Fintype.card α ≤ x) :
-    P {ω | ∃ t : ℕ, ENNReal.ofReal (Fintype.card α * log (2 * t * (t + 1)) + x) ≤
-        ∑ a, pullCount A a t ω * (ρ a).expFamilyRate (T a) (empMean A R a t ω) (μ a)} ≤
-      ENNReal.ofReal ((x / Fintype.card α) ^ Fintype.card α * exp (Fintype.card α - x)) := by
-  -- the rewards are integrable, and the rate function of each arm is at least `dbar_a(·, μ a)`
-  have h_int (a : α) : Integrable id (ν a) := (hν a).integrable (by
-    simpa only [Set.univ_inter] using Measure.zero_mem_interior_integrableExpSet_expFamily
-      (Measure.natParam_mem_interior_integrableExpSet (hμ a)))
-  refine le_trans (measure_mono fun ω hω ↦ ?_)
-    (measure_exists_card_mul_log_add_le_sum_pullCount_mul_rateFunction_le h h_int hx)
-  obtain ⟨t, ht⟩ := hω
-  refine ⟨t, ht.trans (sum_le_sum fun a _ ↦ ?_)⟩
-  rw [Measure.expFamilyRate_def]
-  gcongr
-  exact ((hν a).mono (Set.subset_univ _)).rateFunction_le _
 
 end LMLExplore

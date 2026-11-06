@@ -6,7 +6,7 @@ Authors: Rémy Degenne
 module
 
 public import LMLExplore.Identification.TrackAndStop
-public import LMLExplore.SequentialLearning.RateFunctionDeviation
+public import LMLExplore.SequentialLearning.ExpFamilyDeviation
 
 /-!
 # `δ`-correct GLR thresholds for arms dominated by exponential families

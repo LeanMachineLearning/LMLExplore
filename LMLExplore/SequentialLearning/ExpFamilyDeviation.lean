@@ -7,6 +7,8 @@ module
 
 public import LMLExplore.Analysis.SpecialFunctions.Exp
 public import LMLExplore.Probability.Distributions.ExponentialFamily.Chernoff
+public import LMLExplore.Probability.Distributions.ExponentialFamily.RateFunction
+public import LMLExplore.SequentialLearning.RateFunctionDeviation
 public import LMLExplore.SequentialLearning.SumRewards
 
 /-!
@@ -21,6 +23,16 @@ rounds simultaneously, through the transfer of `SequentialLearning/SumRewards.le
 depends on how the algorithm chooses its actions, so the bounds apply to the sampling rules of
 identification algorithms as well as to the policies of regret minimization.
 
+For all the arms at once, if the rewards of each arm `a` are dominated by the member of mean `μ_a`
+of an exponential family `(ρ_a, T_a)`, the rate function of the arm is at least the extended
+divergence `dbar_a(·, μ_a)` of the family (`MeasureTheory.Measure.expFamilyRate`), so the bound of
+`SequentialLearning/RateFunctionDeviation.lean` for the rate functions holds for the generalized
+likelihood ratio statistic `∑ a, N_a dbar_a(μ̂_a, μ_a)` of the empirical means, including at
+empirical means on the boundary of the means of the families, such as the empirical means `0` and
+`1` of Bernoulli rewards. This is the deviation inequality behind the `δ`-correctness of
+generalized likelihood ratio stopping rules for exponential families
+[GK16, Proposition 12; LS, Lemma 33.7].
+
 ## Main statements
 
 * `streamMeasure_sum_ge_le_exp_expFamilyDiv`, `streamMeasure_sum_le_le_exp_expFamilyDiv`: the
@@ -29,6 +41,16 @@ identification algorithms as well as to the policies of regret minimization.
   probability that, at some round, arm `a` has at least `m` pulls and an empirical mean outside
   `(l, u)` is at most
   `exp (-m d(u, μ)) / (1 - exp (-d(u, μ))) + exp (-m d(l, μ)) / (1 - exp (-d(l, μ)))`.
+* `LMLExplore.measure_exists_card_mul_log_add_le_sum_pullCount_mul_expFamilyRate_le`: in a run of
+  any algorithm, `P(∃ t, K log (2 t (t + 1)) + x ≤ ∑ a, N_a(t) dbar_a(μ̂_a(t), μ_a))` is at most
+  `(x / K) ^ K exp (K - x)` for `x ≥ K`, for rewards dominated by members of exponential families.
+
+## References
+
+* [GK16] A. Garivier and E. Kaufmann, *Optimal best arm identification with fixed confidence*,
+  COLT 2016, Proposition 12.
+* [LS] T. Lattimore and Cs. Szepesvári, *Bandit Algorithms*, Cambridge University Press (2020),
+  Lemma 33.7.
 -/
 
 public section
@@ -135,5 +157,44 @@ theorem measure_exists_le_pullCount_and_empMean_notMem_Ioo_le
         (exp_neg_mul_div_one_sub_exp_neg_nonneg hdl.le m)]
 
 end ExpFamilyRuns
+
+section ExpFamilyRate
+
+variable {α : Type*} [Fintype α] [DecidableEq α] [MeasurableSpace α]
+  [MeasurableSingletonClass α] {ν : Kernel α ℝ} [IsMarkovKernel ν]
+  {alg : Algorithm Unit α ℝ} [IsProbabilityMeasure P] {O : ℕ → Ω → Unit} {A : ℕ → Ω → α}
+  {R : ℕ → Ω → ℝ} {x : ℝ}
+
+/-- **Time-uniform deviations of the empirical means along a run, for rewards dominated by
+exponential families** ([GK16, Proposition 12], [LS, Lemma 33.7]). In a run of any algorithm
+against `Environment.bandit ν`, let the rewards of each arm `a` be dominated on `Set.univ`, in
+moment generating function, by the member of mean `μ a` of the exponential family `(ρ a, T a)`,
+with extended divergence `dbar_a` (`MeasureTheory.Measure.expFamilyRate`). Then for `x ≥ K`, with
+`K` the number of arms, the probability that at some round `t`, the pull counts `N_a(t)` and the
+empirical means `μ̂_a(t)` satisfy `K log (2 t (t + 1)) + x ≤ ∑ a, N_a(t) dbar_a(μ̂_a(t), μ a)`, is
+at most `(x / K) ^ K exp (K - x)`. -/
+theorem measure_exists_card_mul_log_add_le_sum_pullCount_mul_expFamilyRate_le
+    (h : IsAlgEnvSeq O A R alg (Environment.bandit ν) P) {𝓧 : Type*} {m𝓧 : MeasurableSpace 𝓧}
+    {ρ : α → Measure 𝓧} {T : α → 𝓧 → ℝ} {μ : α → ℝ}
+    (hμ : ∀ a, μ a ∈ (ρ a).expFamilyMeans (T a))
+    (hν : ∀ a, MGFDominatedOn id (ν a) (T a)
+      ((ρ a).expFamily (T a) ((ρ a).natParam (T a) (μ a))) Set.univ)
+    (hx : Fintype.card α ≤ x) :
+    P {ω | ∃ t : ℕ, ENNReal.ofReal (Fintype.card α * log (2 * t * (t + 1)) + x) ≤
+        ∑ a, pullCount A a t ω * (ρ a).expFamilyRate (T a) (empMean A R a t ω) (μ a)} ≤
+      ENNReal.ofReal ((x / Fintype.card α) ^ Fintype.card α * exp (Fintype.card α - x)) := by
+  -- the rewards are integrable, and the rate function of each arm is at least `dbar_a(·, μ a)`
+  have h_int (a : α) : Integrable id (ν a) := (hν a).integrable (by
+    simpa only [Set.univ_inter] using Measure.zero_mem_interior_integrableExpSet_expFamily
+      (Measure.natParam_mem_interior_integrableExpSet (hμ a)))
+  refine le_trans (measure_mono fun ω hω ↦ ?_)
+    (measure_exists_card_mul_log_add_le_sum_pullCount_mul_rateFunction_le h h_int hx)
+  obtain ⟨t, ht⟩ := hω
+  refine ⟨t, ht.trans (sum_le_sum fun a _ ↦ ?_)⟩
+  rw [Measure.expFamilyRate_def]
+  gcongr
+  exact ((hν a).mono (Set.subset_univ _)).rateFunction_le _
+
+end ExpFamilyRate
 
 end LMLExplore

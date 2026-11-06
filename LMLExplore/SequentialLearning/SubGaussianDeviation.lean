@@ -94,22 +94,6 @@ variable {α : Type*} [MeasurableSpace α]
 
 variable {ν : Kernel α ℝ} [IsMarkovKernel ν]
 
-/-- The rewards of a σ²-sub-Gaussian arm are integrable. -/
-private lemma _root_.ProbabilityTheory.HasSubgaussianMGF.integrable_id {a : α} {σ2 : ℝ≥0}
-    (hν : HasSubgaussianMGF (fun x ↦ x - (ν a)[id]) σ2 (ν a)) : Integrable id (ν a) :=
-  (hν.integrable.add (integrable_const ((ν a)[id]))).congr
-    (ae_of_all _ fun x ↦ by simp only [Pi.add_apply, sub_add_cancel, id])
-
-/-- For a σ²-sub-Gaussian arm `a` with rate function `I_a`, the sub-Gaussian statistic
-`N (m - μ_a)² / (2 σ²)` is at most the rate-function statistic `N I_a(m)`. -/
-private lemma _root_.ProbabilityTheory.HasSubgaussianMGF.ofReal_mul_sq_div_le_mul_rateFunction
-    {a : α} {σ2 : ℝ≥0} (hν : HasSubgaussianMGF (fun x ↦ x - (ν a)[id]) σ2 (ν a)) (N : ℕ)
-    (m : ℝ) :
-    ENNReal.ofReal (N * (m - (ν a)[id]) ^ 2 / (2 * σ2)) ≤ N * rateFunction id (ν a) m := by
-  rw [mul_div_assoc, ENNReal.ofReal_mul (Nat.cast_nonneg _), ENNReal.ofReal_natCast]
-  gcongr
-  exact hν.ofReal_sq_div_le_rateFunction (X := id) m
-
 /-- **Two-sided Hoeffding bound for the statistic of a sub-Gaussian arm.** In the reward stream
 model, if the arm `a` is σ²-sub-Gaussian with mean `μ_a`, then for `s ≠ 0` rewards and `z ≥ 0`,
 the probability that `z ≤ (∑ i < s, (X_i - μ_a))² / (2 σ² s)`, that is
@@ -180,7 +164,7 @@ theorem streamMeasure_exists_card_mul_log_add_le_sum_sq_div_le [Fintype α] {σ2
   -- the sub-Gaussian statistic of each arm is at most its rate-function statistic
   refine le_trans (measure_mono fun ω hω ↦ ?_)
     (streamMeasure_exists_card_mul_log_add_le_sum_mul_rateFunction_le
-      (fun a ↦ (hν a).integrable_id) hx)
+      (fun a ↦ (hν a).integrable_of_sub_const) hx)
   obtain ⟨s, hs⟩ := hω
   refine ⟨s, ?_⟩
   refine (ENNReal.ofReal_le_ofReal hs).trans ?_
@@ -421,7 +405,7 @@ theorem measure_exists_card_mul_log_add_le_sum_pullCount_mul_sq_div_le
   -- the sub-Gaussian statistic of each arm is at most its rate-function statistic
   refine le_trans (measure_mono fun ω hω ↦ ?_)
     (measure_exists_card_mul_log_add_le_sum_pullCount_mul_rateFunction_le h
-      (fun a ↦ (hν a).integrable_id) hx)
+      (fun a ↦ (hν a).integrable_of_sub_const) hx)
   obtain ⟨t, ht⟩ := hω
   refine ⟨t, ?_⟩
   refine (ENNReal.ofReal_le_ofReal ht).trans ?_

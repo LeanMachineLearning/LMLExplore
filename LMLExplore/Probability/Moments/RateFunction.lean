@@ -52,8 +52,12 @@ infinite beyond the essential supremum of `X`, and symmetrically below its essen
   `X` at `-x`, and the rate function only depends on the law of `X`.
 * `LMLExplore.MGFDominatedOn.rateFunction_le`: if `X` is dominated by `Y` in moment generating
   function, the rate function of `Y` is at most that of `X`.
-* `ProbabilityTheory.HasSubgaussianMGF.ofReal_sq_div_le_rateFunction`: if `X - E[X]` is
-  `c`-sub-Gaussian, then `(x - E[X])² / (2 c) ≤ I(x)`.
+* `ProbabilityTheory.HasSubgaussianMGF.ofReal_sq_div_le_rateFunction`,
+  `ProbabilityTheory.HasSubgaussianMGF.ofReal_mul_sq_div_le_mul_rateFunction`: if `X - E[X]` is
+  `c`-sub-Gaussian, then `(x - E[X])² / (2 c) ≤ I(x)`, and `N (x - E[X])² / (2 c) ≤ N I(x)` for
+  every natural number `N`.
+* `ProbabilityTheory.HasSubgaussianMGF.integrable_of_sub_const`: if `X - m` is sub-Gaussian under
+  a finite measure, then `X` is integrable.
 * `LMLExplore.convexOn_rateFunction`, `LMLExplore.lowerSemicontinuous_rateFunction`: it is convex
   and lower semicontinuous.
 * `LMLExplore.mul_integral_le_cgf`: Jensen's inequality `t E[X] ≤ cgf X P t`.
@@ -226,6 +230,24 @@ theorem _root_.ProbabilityTheory.HasSubgaussianMGF.ofReal_sq_div_le_rateFunction
   _ ≤ t * x - cgf X P t := by
     rw [h_cgf]
     linarith
+
+/-- If `X - m` is `c`-sub-Gaussian under a finite measure `P` for a constant `m`, then `X` is
+`P`-integrable. -/
+theorem _root_.ProbabilityTheory.HasSubgaussianMGF.integrable_of_sub_const [IsFiniteMeasure P]
+    {m : ℝ} {c : ℝ≥0} (h : HasSubgaussianMGF (fun ω ↦ X ω - m) c P) : Integrable X P :=
+  (h.integrable.add (integrable_const m)).congr
+    (ae_of_all _ fun ω ↦ by simp only [Pi.add_apply, sub_add_cancel])
+
+/-- **The rate function of a sub-Gaussian variable is at least quadratic, scaled.** If `X - E[X]`
+is `c`-sub-Gaussian under a probability measure `P`, then `N (x - E[X])² / (2 c) ≤ N I(x)` for
+every natural number `N` and every `x`. -/
+theorem _root_.ProbabilityTheory.HasSubgaussianMGF.ofReal_mul_sq_div_le_mul_rateFunction
+    [IsProbabilityMeasure P] {c : ℝ≥0} (h : HasSubgaussianMGF (fun ω ↦ X ω - P[X]) c P) (N : ℕ)
+    (x : ℝ) :
+    ENNReal.ofReal (N * (x - P[X]) ^ 2 / (2 * c)) ≤ N * rateFunction X P x := by
+  rw [mul_div_assoc, ENNReal.ofReal_mul (Nat.cast_nonneg _), ENNReal.ofReal_natCast]
+  gcongr
+  exact h.ofReal_sq_div_le_rateFunction x
 
 /-! ### Convexity and lower semicontinuity -/
 
