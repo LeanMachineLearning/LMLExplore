@@ -21,9 +21,9 @@ the Chernoff bound at `t = 1 - k / x` then gives the tail bound of a sum of `k` 
 exponential variables, `P(x ≤ X₁ + ⋯ + X_k) ≤ (x / k) ^ k exp (k - x)` [LS, Exercise 5.16].
 
 A union bound over the number `n` of samples turns two-sided exponential tails at each `n` into a
-time-uniform tail: if `P(E n z) ≤ 2 exp (-z)` for each `n ≥ 1`, then the events `E n z` happen at
-the levels `z = log (2 n (n + 1)) + y` for some `n` with probability at most `exp (-y)`
-[LS, Lemma 33.8].
+time-uniform tail: if `E 0 z = ∅` for `z > 0` and `P(E n z) ≤ 2 exp (-z)` for each `n ≥ 1` and
+`z ≥ 0`, then for `y ≥ 0` the events `E n z` happen at the levels `z = log (2 n (n + 1)) + y` for
+some `n` with probability at most `exp (-y)` [LS, Lemma 33.8].
 
 This bound is the source of the union-bound thresholds of generalized likelihood ratio stopping
 rules [LS, Proposition 33.9]. Let `S i n` be independent processes indexed by `i ∈ ι`, with
