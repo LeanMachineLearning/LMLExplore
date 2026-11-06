@@ -8,7 +8,6 @@ module
 public import LMLExplore.Analysis.Convex.Simplex
 public import LMLExplore.Analysis.SpecialFunctions.Exp
 public import Mathlib.Algebra.BigOperators.Field
-public import Mathlib.Analysis.SpecialFunctions.Log.Basic
 public import Mathlib.MeasureTheory.Function.SpecialFunctions.Basic
 
 /-!
