@@ -83,15 +83,12 @@ theorem negEntropy_sub_sum_mul_eq (v : α → ℝ) {b : α → ℝ} (hb : b ∈ 
     negEntropy b - ∑ c, b c * v c =
       ∑ c, b c * log (b c / softmax v c) - log (∑ c, exp (v c)) - 1 := by
   have := nonempty_of_mem_simplex hb
-  have hZ : 0 < ∑ c, exp (v c) := sum_pos (fun c _ ↦ exp_pos (v c)) univ_nonempty
-  have h_pt (c : α) : b c * log (b c / softmax v c) =
-      b c * log (b c) - b c * v c + b c * log (∑ c, exp (v c)) := by
-    rcases eq_or_ne (b c) 0 with h0 | h0
-    · simp [h0]
-    rw [log_div h0 (softmax_pos v c).ne', softmax_apply, log_div (exp_pos _).ne' hZ.ne', log_exp]
-    ring
-  simp_rw [h_pt, sum_add_distrib, sum_sub_distrib, ← sum_mul, (mem_simplex_iff.1 hb).2, one_mul,
-    negEntropy_of_mem_simplex hb]
+  -- the relative entropy with respect to the Gibbs vector of `v` under the constant `1`
+  have h := sum_mul_log_div_mul_exp_div_eq (p := fun _ ↦ 1) (v := v) (mem_simplex_iff.1 hb).2
+    (fun _ h ↦ absurd h one_ne_zero)
+    (by simpa using (sum_pos (fun c _ ↦ exp_pos (v c)) univ_nonempty).ne')
+  simp only [one_mul, div_one] at h
+  simp_rw [softmax_apply, h, negEntropy_of_mem_simplex hb]
   ring
 
 /-- **FTRL with the negative entropy is exponential weights** [LS, Example 28.3, (28.5)]. On the
