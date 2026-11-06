@@ -39,6 +39,10 @@ by a member of the family without following its law.
   `LMLExplore.MGFDominatedOn.trans`: domination on `Λ` implies domination on every subset of `Λ`;
   if `X` is dominated by `Y` on `Λ`, then `-X` is dominated by `-Y` on `-Λ`; domination on `Λ` is
   transitive.
+* `LMLExplore.mgfDominatedOn_union`, `LMLExplore.MGFDominatedOn.union`,
+  `LMLExplore.MGFDominatedOn.univ_of_Iic_of_Ici`: domination on `Λ ∪ Λ'` is domination on both
+  `Λ` and `Λ'`; in particular domination on `Set.Iic 0` and on `Set.Ici 0` gives domination on
+  `Set.univ`.
 * `ProbabilityTheory.iIndepFun.mgf_sum_le_pow_of_mgfDominatedOn`: for independent `X i` dominated
   by `Y` on `Λ` and `t ∈ Λ` with `exp (t Y)` integrable,
   `mgf (∑ i ∈ s, X i) P t ≤ (mgf Y Q t) ^ #s`.
@@ -77,6 +81,25 @@ lemma MGFDominatedOn.mono (h : MGFDominatedOn X P Y Q Λ) (hΛ : Λ' ⊆ Λ) :
     MGFDominatedOn X P Y Q Λ' where
   integrable_exp_mul _ ht hY := h.integrable_exp_mul (hΛ ht) hY
   mgf_le _ ht hY := h.mgf_le (hΛ ht) hY
+
+/-- Domination on `Λ ∪ Λ'` is domination on both `Λ` and `Λ'`. -/
+lemma mgfDominatedOn_union :
+    MGFDominatedOn X P Y Q (Λ ∪ Λ') ↔ MGFDominatedOn X P Y Q Λ ∧ MGFDominatedOn X P Y Q Λ' where
+  mp h := ⟨h.mono Set.subset_union_left, h.mono Set.subset_union_right⟩
+  mpr h :=
+    { integrable_exp_mul _ ht hY :=
+        ht.elim (h.1.integrable_exp_mul · hY) (h.2.integrable_exp_mul · hY)
+      mgf_le _ ht hY := ht.elim (h.1.mgf_le · hY) (h.2.mgf_le · hY) }
+
+/-- Domination on `Λ` and on `Λ'` gives domination on `Λ ∪ Λ'`. -/
+lemma MGFDominatedOn.union (h : MGFDominatedOn X P Y Q Λ) (h' : MGFDominatedOn X P Y Q Λ') :
+    MGFDominatedOn X P Y Q (Λ ∪ Λ') :=
+  mgfDominatedOn_union.2 ⟨h, h'⟩
+
+/-- Domination on `Set.Iic 0` and on `Set.Ici 0` gives domination on `Set.univ`. -/
+lemma MGFDominatedOn.univ_of_Iic_of_Ici (h : MGFDominatedOn X P Y Q (Set.Iic 0))
+    (h' : MGFDominatedOn X P Y Q (Set.Ici 0)) : MGFDominatedOn X P Y Q Set.univ :=
+  (h.union h').mono Set.Iic_union_Ici.ge
 
 /-- If `X` is dominated by `Y` on `Λ`, then `-X` is dominated by `-Y` on `-Λ`. -/
 lemma MGFDominatedOn.neg (h : MGFDominatedOn X P Y Q Λ) :
