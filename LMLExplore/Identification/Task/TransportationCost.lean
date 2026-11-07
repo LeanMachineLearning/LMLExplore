@@ -71,6 +71,12 @@ treatment, and a negative entry of `w` counts as `0`.
   characteristic time.
 * `IdentTask.answerValue_restrict_setOf_klDiv_ne_top`: removing the models at infinite divergence
   from `θ` on some arm does not change `D(θ, ¬i)`.
+* `IdentTask.cost_comap`, `IdentTask.altCost_le_altCost_comap`,
+  `IdentTask.charTime_comap_le`: the costs of a pullback `task.comap f` are the costs of the images
+  under `f`, so its cost of the alternatives is at least that of the task at the image and its
+  characteristic time at most that of the task at the image.
+* `IdentTask.altCost_comap_of_alt_subset_range`, `IdentTask.charTime_comap_of_alt_subset_range`:
+  these are equalities when the range of `f` contains the alternatives.
 
 ## References
 
@@ -441,6 +447,82 @@ lemma answerValue_restrict_setOf_klDiv_ne_top (θ : Θ) (i : ℐ) :
     _ ≤ (task.restrict S).altCost θ w' i := (task.restrict S).monotone_altCost θ i hle
     _ = task.altCost θ w' i := task.altCost_restrict_setOf_klDiv_ne_top hpos θ i
     _ ≤ task.answerValue θ i := task.altCost_le_answerValue hw'
+
+/-! #### Pullback along a map of models -/
+
+variable {Θ' : Type*} {f : Θ' → Θ}
+
+/-- The transportation cost between two models of a pullback is the cost between their images. -/
+@[simp]
+lemma cost_comap (w : α → ℝ) (θ θ' : Θ') :
+    (task.comap f).cost w θ θ' = task.cost w (f θ) (f θ') := by
+  simp [cost_def]
+
+/-- The cost of the alternatives to `i` in a pullback is the infimum of the costs to the images
+of the preimages of the alternatives to `i`. -/
+lemma altCost_comap (θ : Θ') (w : α → ℝ) (i : ℐ) :
+    (task.comap f).altCost θ w i = ⨅ θ' ∈ f ⁻¹' task.alt i, task.cost w (f θ) (f θ') := by
+  simp only [altCost_def, alt_comap, cost_comap]
+
+/-- The alternatives of a pullback are mapped into the alternatives of the task, so the cost of
+the alternatives at `θ` is at least the cost of the alternatives of the task at `f θ`. -/
+lemma altCost_le_altCost_comap (θ : Θ') (w : α → ℝ) (i : ℐ) :
+    task.altCost (f θ) w i ≤ (task.comap f).altCost θ w i := by
+  rw [altCost_comap, ← iInf_image (g := task.cost w (f θ))]
+  exact biInf_mono (Set.image_preimage_subset f _)
+
+/-- If every alternative to `i` is the image of a model under `f`, the cost of the alternatives
+to `i` in the pullback is that of the task at the image. -/
+lemma altCost_comap_of_alt_subset_range (h : task.alt i ⊆ Set.range f) (θ : Θ') (w : α → ℝ) :
+    (task.comap f).altCost θ w i = task.altCost (f θ) w i := by
+  rw [altCost_comap, ← iInf_image (g := task.cost w (f θ)), Set.image_preimage_eq_of_subset h,
+    altCost_def]
+
+/-- The value of the game of an answer in a pullback is at least that of the task at the image. -/
+lemma answerValue_le_answerValue_comap (θ : Θ') (i : ℐ) :
+    task.answerValue (f θ) i ≤ (task.comap f).answerValue θ i :=
+  iSup₂_mono fun w _ ↦ task.altCost_le_altCost_comap θ w i
+
+/-- If every alternative to `i` is the image of a model under `f`, the value of the game of `i`
+in the pullback is that of the task at the image. -/
+lemma answerValue_comap_of_alt_subset_range (h : task.alt i ⊆ Set.range f) (θ : Θ') :
+    (task.comap f).answerValue θ i = task.answerValue (f θ) i := by
+  simp only [answerValue_def, task.altCost_comap_of_alt_subset_range h]
+
+/-- The value of the game of a pullback is at least that of the task at the image: the correct
+answers are the same, and each has fewer alternatives. -/
+lemma gameValue_le_gameValue_comap (θ : Θ') :
+    task.gameValue (f θ) ≤ (task.comap f).gameValue θ := by
+  rw [gameValue_def, gameValue_def, correct_comap]
+  exact iSup₂_mono fun i _ ↦ task.answerValue_le_answerValue_comap θ i
+
+/-- If, for every correct answer of `f θ`, every alternative is the image of a model under `f`,
+the value of the game of the pullback at `θ` is that of the task at `f θ`. -/
+lemma gameValue_comap_of_alt_subset_range {θ : Θ'}
+    (h : ∀ i ∈ task.correct (f θ), task.alt i ⊆ Set.range f) :
+    (task.comap f).gameValue θ = task.gameValue (f θ) := by
+  rw [gameValue_def, gameValue_def, correct_comap]
+  exact iSup_congr fun i ↦ iSup_congr fun hi ↦ task.answerValue_comap_of_alt_subset_range (h i hi) θ
+
+/-- The characteristic time of a pullback is at most that of the task at the image: the
+pullback has fewer alternatives. -/
+lemma charTime_comap_le (θ : Θ') : (task.comap f).charTime θ ≤ task.charTime (f θ) :=
+  ENNReal.inv_le_inv.2 (task.gameValue_le_gameValue_comap θ)
+
+/-- If, for every correct answer of `f θ`, every alternative is the image of a model under `f`,
+the characteristic time of the pullback at `θ` is that of the task at `f θ`. -/
+lemma charTime_comap_of_alt_subset_range {θ : Θ'}
+    (h : ∀ i ∈ task.correct (f θ), task.alt i ⊆ Set.range f) :
+    (task.comap f).charTime θ = task.charTime (f θ) := by
+  rw [charTime_def, charTime_def, task.gameValue_comap_of_alt_subset_range h]
+
+/-- If every alternative to `i` is the image of a model under `f`, the optimal allocations of `i`
+in the pullback at `θ` are those of the task at `f θ`. -/
+lemma optAlloc_comap_of_alt_subset_range (h : task.alt i ⊆ Set.range f) (θ : Θ') :
+    (task.comap f).optAlloc θ i = task.optAlloc (f θ) i := by
+  ext w
+  simp only [mem_optAlloc_iff, task.altCost_comap_of_alt_subset_range h,
+    task.answerValue_comap_of_alt_subset_range h]
 
 end IdentTask
 

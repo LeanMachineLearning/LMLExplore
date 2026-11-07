@@ -49,6 +49,12 @@ of mean `μ a`, for example `ν μ = gaussianBandit μ σ2`.
   model.
 * `isSingleAnswer_thresholdingTask`: on finitely many arms, thresholding has a single correct
   answer on every admissible model.
+* `comap_baiTask`, `comap_epsBaiTask`, `comap_topMTask`, `comap_thresholdingTask`,
+  `comap_minThresholdTask`, `comap_anyLowArmTask`, `comap_halfSpaceTask`, `comap_epsTopMTask`:
+  the pullback of a classical task along a map `f` of models is the same task for the bandits and
+  the mean functional composed with `f`. In particular a task on models `Θ` whose bandits depend on
+  the means only, `ν θ = ν' (mean θ)`, is the pullback along `mean` of the task on vectors of
+  means for `ν'`.
 * `correct_baiTask_eq_singleton_iff`: `a` is the only best arm of `θ` iff
   `mean θ b < mean θ a` for every arm `b ≠ a`.
 * `nonempty_correct_epsBaiTask`: for `ε ≥ 0` and finitely many (at least one) arms, every model
@@ -82,7 +88,7 @@ open MeasureTheory ProbabilityTheory
 
 namespace LMLExplore.Identification
 
-variable {α Θ 𝓨 : Type*} {mα : MeasurableSpace α} {m𝓨 : MeasurableSpace 𝓨}
+variable {α Θ Θ' 𝓨 : Type*} {mα : MeasurableSpace α} {m𝓨 : MeasurableSpace 𝓨}
 
 section MeanFunctional
 
@@ -109,6 +115,16 @@ lemma ν_baiTask : (baiTask ν mean).ν = ν := (rfl)
 @[simp]
 lemma correct_baiTask (θ : Θ) :
     (baiTask ν mean).correct θ = {a | ∀ b ≠ a, mean θ b < mean θ a} := (rfl)
+
+/-- The pullback of best arm identification along a map `f` of models is best arm identification
+for the bandits and the mean functional composed with `f`. With `mean = id`, this says that for
+bandits `ν' : (α → ℝ) → Kernel α 𝓨` indexed by vectors of means and a mean functional
+`mean : Θ' → α → ℝ`, the task `baiTask (fun θ ↦ ν' (mean θ)) mean` is the pullback of
+`baiTask ν' id` along `mean`, and similarly for the other classical tasks. -/
+@[simp]
+lemma comap_baiTask (f : Θ' → Θ) :
+    (baiTask ν mean).comap f = baiTask (fun θ ↦ ν (f θ)) (fun θ ↦ mean (f θ)) := by
+  ext <;> simp
 
 /-- A model has at most one best arm. -/
 lemma subsingleton_correct_baiTask (θ : Θ) : ((baiTask ν mean).correct θ).Subsingleton := by
@@ -153,6 +169,13 @@ lemma ν_epsBaiTask : (epsBaiTask ν mean ε).ν = ν := (rfl)
 @[simp]
 lemma correct_epsBaiTask (θ : Θ) :
     (epsBaiTask ν mean ε).correct θ = {a | ∀ b, mean θ b ≤ mean θ a + ε} := (rfl)
+
+/-- The pullback of `ε`-best arm identification along a map `f` of models is `ε`-best arm
+identification for the bandits and the mean functional composed with `f`. -/
+@[simp]
+lemma comap_epsBaiTask (f : Θ' → Θ) :
+    (epsBaiTask ν mean ε).comap f = epsBaiTask (fun θ ↦ ν (f θ)) (fun θ ↦ mean (f θ)) ε := by
+  ext <;> simp
 
 /-- For `ε ≥ 0`, every model on finitely many arms has an `ε`-good arm: an arm with the largest
 mean. -/
@@ -230,6 +253,13 @@ lemma correct_topMTask (θ : Θ) :
     (topMTask ν mean m).correct θ =
       {s | s.card = m ∧ ∀ a ∈ s, ∀ b ∉ s, mean θ b < mean θ a} := (rfl)
 
+/-- The pullback of top-`m` identification along a map `f` of models is top-`m` identification for
+the bandits and the mean functional composed with `f`. -/
+@[simp]
+lemma comap_topMTask (f : Θ' → Θ) :
+    (topMTask ν mean m).comap f = topMTask (fun θ ↦ ν (f θ)) (fun θ ↦ mean (f θ)) m := by
+  ext <;> simp
+
 /-- A model has at most one set of `m` arms whose means are larger than those of the other
 arms. -/
 lemma subsingleton_correct_topMTask (m : ℕ) (θ : Θ) :
@@ -278,6 +308,14 @@ lemma ν_thresholdingTask : (thresholdingTask ν mean γ).ν = ν := (rfl)
 lemma correct_thresholdingTask (θ : Θ) :
     (thresholdingTask ν mean γ).correct θ = {s | ∀ a, a ∈ s ↔ γ < mean θ a} := (rfl)
 
+/-- The pullback of thresholding along a map `f` of models is thresholding for the bandits and the
+mean functional composed with `f`. -/
+@[simp]
+lemma comap_thresholdingTask (f : Θ' → Θ) :
+    (thresholdingTask ν mean γ).comap f =
+      thresholdingTask (fun θ ↦ ν (f θ)) (fun θ ↦ mean (f θ)) γ := by
+  ext <;> simp
+
 /-- On finitely many arms, the arms with mean above `γ` form the unique correct answer of every
 model. -/
 lemma correct_thresholdingTask_eq_singleton [Fintype α] [DecidablePred fun a ↦ γ < mean θ a] :
@@ -321,6 +359,14 @@ lemma ν_minThresholdTask : (minThresholdTask ν mean γ).ν = ν := (rfl)
 lemma correct_minThresholdTask (θ : Θ) :
     (minThresholdTask ν mean γ).correct θ = {i | i = true ↔ ∃ a, mean θ a < γ} := (rfl)
 
+/-- The pullback of minimum threshold along a map `f` of models is minimum threshold for the bandits
+and the mean functional composed with `f`. -/
+@[simp]
+lemma comap_minThresholdTask (f : Θ' → Θ) :
+    (minThresholdTask ν mean γ).comap f =
+      minThresholdTask (fun θ ↦ ν (f θ)) (fun θ ↦ mean (f θ)) γ := by
+  ext <;> simp
+
 /-- The unique correct answer of every model is `true` iff some mean is below `γ`. -/
 lemma correct_minThresholdTask_eq_singleton [Decidable (∃ a, mean θ a < γ)] :
     (minThresholdTask ν mean γ).correct θ = {decide (∃ a, mean θ a < γ)} := by
@@ -359,6 +405,13 @@ lemma ν_anyLowArmTask : (anyLowArmTask ν mean γ).ν = ν := (rfl)
 lemma correct_anyLowArmTask (θ : Θ) :
     (anyLowArmTask ν mean γ).correct θ =
       {i | i.elim (∀ a, γ < mean θ a) fun a ↦ mean θ a < γ} := (rfl)
+
+/-- The pullback of Any Low Arm along a map `f` of models is Any Low Arm for the bandits and the
+mean functional composed with `f`. -/
+@[simp]
+lemma comap_anyLowArmTask (f : Θ' → Θ) :
+    (anyLowArmTask ν mean γ).comap f = anyLowArmTask (fun θ ↦ ν (f θ)) (fun θ ↦ mean (f θ)) γ := by
+  ext <;> simp
 
 /-- `some a` is a correct answer of Any Low Arm iff the mean of `a` is below `γ`. -/
 lemma some_mem_correct_anyLowArmTask {a : α} :
@@ -403,6 +456,13 @@ lemma ν_halfSpaceTask : (halfSpaceTask ν mean u).ν = ν := (rfl)
 lemma correct_halfSpaceTask (θ : Θ) :
     (halfSpaceTask ν mean u).correct θ = {i | i = true ↔ 0 < u ⬝ᵥ mean θ} := (rfl)
 
+/-- The pullback of half-space identification along a map `f` of models is half-space identification
+for the bandits and the mean functional composed with `f`. -/
+@[simp]
+lemma comap_halfSpaceTask (f : Θ' → Θ) :
+    (halfSpaceTask ν mean u).comap f = halfSpaceTask (fun θ ↦ ν (f θ)) (fun θ ↦ mean (f θ)) u := by
+  ext <;> simp
+
 /-- The unique correct answer of every model `θ` is `true` iff `0 < u ⬝ᵥ mean θ`. -/
 lemma correct_halfSpaceTask_eq_singleton :
     (halfSpaceTask ν mean u).correct θ = {decide (0 < u ⬝ᵥ mean θ)} := by
@@ -441,6 +501,13 @@ lemma correct_epsTopMTask (θ : Θ) :
     (epsTopMTask ν mean m ε).correct θ =
       {s | s.card = m ∧
         ∀ a ∈ s, (Finset.univ.filter fun b ↦ mean θ a + ε < mean θ b).card < m} := (rfl)
+
+/-- The pullback of top-`m` identification with tolerance `ε` along a map `f` of models is top-`m`
+identification with tolerance `ε` for the bandits and the mean functional composed with `f`. -/
+@[simp]
+lemma comap_epsTopMTask (f : Θ' → Θ) :
+    (epsTopMTask ν mean m ε).comap f = epsTopMTask (fun θ ↦ ν (f θ)) (fun θ ↦ mean (f θ)) m ε := by
+  ext <;> simp
 
 /-- If every value of `μ` on the set `t` of `m` arms is at least every value outside `t` and some
 arm `i ∈ t` has `μ i ≤ μ x + ε`, then fewer than `m` arms have a value larger than `μ x + ε`: they
