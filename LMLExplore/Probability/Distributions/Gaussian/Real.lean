@@ -8,6 +8,7 @@ module
 public import Mathlib.Analysis.SpecialFunctions.Gaussian.GaussianIntegral
 public import Mathlib.Probability.Distributions.Gaussian.Real
 public import Mathlib.Probability.Moments.SubGaussian
+public import TauCeti.Probability.Distributions.Gaussian.ChiSquared
 
 /-!
 # Real Gaussian distributions: density, moments, tilts and sub-Gaussianity
@@ -24,7 +25,6 @@ Complements to Mathlib's `ProbabilityTheory.gaussianReal`:
 * `LMLExplore.integral_sub_sq_gaussianReal`: for `X ∼ 𝒩(μ, v)` and every `c`,
   `𝔼[(X - c) ^ 2] = v + (μ - c) ^ 2`, with the integrability statement
   `LMLExplore.integrable_sub_sq_gaussianReal`.
-* `LMLExplore.tilted_mul_gaussianReal`: tilting `𝒩(μ, v)` by `x ↦ η x` gives `𝒩(μ + v η, v)`.
 * `LMLExplore.integrable_exp_mul_sub_sq_gaussianReal_iff`,
   `LMLExplore.integrableExpSet_sub_sq_gaussianReal`, `LMLExplore.mgf_sub_sq_gaussianReal`,
   `LMLExplore.cgf_sub_sq_gaussianReal`: for `X ∼ 𝒩(μ, v)`, `exp (t (X - μ) ^ 2)` is integrable
@@ -40,6 +40,8 @@ Complements to Mathlib's `ProbabilityTheory.gaussianReal`:
   respect to `𝒩(μ₂, v₂)`, for `v₂ ≠ 0`, is the ratio of their densities.
 * `LMLExplore.hasSubgaussianMGF_sub_of_hasLaw_gaussianReal`: a random variable with law `𝒩(μ, v)`
   is `v`-sub-Gaussian around its mean, in the sense of `ProbabilityTheory.HasSubgaussianMGF`.
+* `LMLExplore.gaussianReal_map_sub_sq`: the law of `(X - m) ^ 2` for `X ∼ 𝒩(m, 1)` is the gamma
+  law `gammaMeasure (1 / 2) (1 / 2)`, the chi-squared law with one degree of freedom.
 * `ProbabilityTheory.iIndepFun.hasLaw_sum_gaussianReal`: a finite sum of independent random
   variables of laws `𝒩(μ i, v i)` has law `𝒩(∑ μ i, ∑ v i)`.
 
@@ -154,41 +156,6 @@ lemma integral_sub_sq_gaussianReal (c : ℝ) :
   rw [← gaussianReal_map_sub_const c] at hvar
   rw [integral_map (by fun_prop) (by fun_prop)] at hvar
   linarith
-
-/-- The pointwise identity behind the tilting of a Gaussian law: multiplying the density of
-`𝒩(μ, v)` by `exp (η x)` and normalizing by the moment generating function gives the density of
-`𝒩(μ + v η, v)`. -/
-private lemma gaussianPDFReal_mul_exp_div (μ η : ℝ) (hv : v ≠ 0) (x : ℝ) :
-    gaussianPDFReal μ v x * (exp (η * x) / exp (μ * η + v * η ^ 2 / 2)) =
-      gaussianPDFReal (μ + v * η) v x := by
-  have hv' : (v : ℝ) ≠ 0 := NNReal.coe_ne_zero.2 hv
-  rw [gaussianPDFReal_def, gaussianPDFReal_def, mul_assoc, ← exp_sub, ← exp_add]
-  congr 2
-  field_simp
-  ring
-
-/-- Tilting a Gaussian law by `x ↦ η x` shifts its mean by `v η`: `𝒩(μ, v)` tilted by
-`x ↦ η x` is `𝒩(μ + v η, v)`. For `v = 0`, both sides are the Dirac mass at `μ`. -/
-@[simp]
-lemma tilted_mul_gaussianReal (μ : ℝ) (v : ℝ≥0) (η : ℝ) :
-    (gaussianReal μ v).tilted (fun x ↦ η * x) = gaussianReal (μ + v * η) v := by
-  rcases eq_or_ne v 0 with rfl | hv
-  · -- The Dirac mass at `μ` is unchanged by tilting.
-    simp only [gaussianReal_zero_var, NNReal.coe_zero, zero_mul, add_zero]
-    rw [tilted_congr (ae_eq_dirac fun x ↦ η * x)]
-    -- `Function.const ℝ (η * μ)` is `fun _ ↦ η * μ` by definition.
-    exact tilted_const _ _
-  rw [Measure.tilted, gaussianReal_of_var_ne_zero _ hv, gaussianReal_of_var_ne_zero _ hv,
-    ← withDensity_mul _ (measurable_gaussianPDF _ _) (by fun_prop)]
-  congr 1
-  funext x
-  have h_mgf : ∫ y, exp (η * y) ∂(volume.withDensity (gaussianPDF μ v)) =
-      exp (μ * η + v * η ^ 2 / 2) := by
-    rw [← gaussianReal_of_var_ne_zero _ hv]
-    exact congrFun mgf_id_gaussianReal η
-  simp only [Pi.mul_apply, gaussianPDF_def] at h_mgf ⊢
-  rw [h_mgf, ← ENNReal.ofReal_mul (gaussianPDFReal_nonneg _ _ _),
-    gaussianPDFReal_mul_exp_div μ η hv x]
 
 /-! ### Exponential moments of the squared deviation -/
 
@@ -347,6 +314,18 @@ lemma hasSubgaussianMGF_sub_of_hasLaw_gaussianReal {Ω : Type*} {mΩ : Measurabl
   · rw [← mgf_pos_iff, mgf_gaussianReal hY]
     exact exp_pos _
   · rw [mgf_gaussianReal hY, zero_mul, zero_add]
+
+/-- The law of the squared deviation `(X - m) ^ 2` of `X ∼ 𝒩(m, 1)` is the gamma law of shape and
+rate `1 / 2`, the chi-squared law with one degree of freedom: the law of the statistic of the
+exponential family of `𝒩(m, 1)` with statistic `x ↦ (x - m) ^ 2`. -/
+theorem gaussianReal_map_sub_sq (m : ℝ) :
+    (gaussianReal m 1).map (fun x ↦ (x - m) ^ 2) = gammaMeasure (1 / 2) (1 / 2) := by
+  have h : gaussianReal m 1 = (gaussianReal 0 1).map (· + m) := by
+    rw [gaussianReal_map_add_const, zero_add]
+  rw [h, Measure.map_map (by fun_prop) (by fun_prop), Function.comp_def]
+  simp_rw [add_sub_cancel_right]
+  rw [TauCeti.Probability.gaussianReal_map_sq,
+    TauCeti.Probability.chiSquaredMeasure_eq_gammaMeasure one_pos]
 
 end LMLExplore
 
