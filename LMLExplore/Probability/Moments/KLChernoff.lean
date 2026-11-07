@@ -496,22 +496,7 @@ theorem sum_measureReal_eq_zero_or_le_div_or_klBer_div_le_le {X : ℕ → Ω →
   _ ≤ ∑ s ∈ range n, (if s * D ≤ L then 1 else exp (-(2 * ε ^ 2 * s))) :=
     sum_le_sum fun s _ ↦ h_term s
   _ ≤ 1 + L / D + 1 / (2 * ε ^ 2) := by
-    rcases n with _ | k
-    · simp only [range_zero, sum_empty]
-      positivity
-    -- the term of `s = 0` is `1`; the others are at most `1_{(s + 1) D ≤ L} + exp (-2 ε² (s + 1))`
-    rw [sum_range_succ']
-    simp only [Nat.cast_zero, zero_mul, hL, ite_true, Nat.cast_add_one]
-    calc ∑ s ∈ range k, (if (s + 1) * D ≤ L then 1 else exp (-(2 * ε ^ 2 * (s + 1)))) + 1
-    _ ≤ ∑ s ∈ range k, ((if (s + 1) * D ≤ L then (1 : ℝ) else 0) +
-        exp (-(2 * ε ^ 2 * (s + 1)))) + 1 := by
-      gcongr with s
-      split_ifs <;> simp [exp_nonneg]
-    _ ≤ L / D + (2 * ε ^ 2)⁻¹ + 1 := by
-      rw [sum_add_distrib]
-      gcongr
-      · exact sum_range_ite_add_one_mul_le_le hD hL k
-      · exact sum_range_exp_neg_mul_le (by positivity) k
-    _ = 1 + L / D + 1 / (2 * ε ^ 2) := by ring
+    rw [one_div]
+    exact sum_range_ite_mul_le_exp_neg_mul_le hD hL (by positivity) n
 
 end LMLExplore
