@@ -221,6 +221,13 @@ theorem measurable_optQValue (hγ : γ < 1) (hR : ∀ p, ∀ᵐ x ∂(M.R p), |x
   rw [optQValue_eq_lookahead]
   exact measurable_lookahead (measurable_optValue hγ hR)
 
+/-- With finitely many actions, bounded rewards and `γ < 1`, the section `a ↦ Q* (s, a)` of the
+optimal action value is integrable for every finite measure on actions. -/
+theorem integrable_optQValue_prodMk_left (hγ : γ < 1) (hR : ∀ p, ∀ᵐ x ∂(M.R p), |x| ≤ C) (s : 𝓢)
+    (μ : Measure 𝓐) [IsFiniteMeasure μ] : Integrable (fun a ↦ M.optQValue γ (s, a)) μ :=
+  integrable_of_abs_le ((measurable_optQValue hγ hR).comp measurable_prodMk_left)
+    (fun a ↦ abs_optQValue_le hγ hR (s, a)) μ
+
 /-- With finitely many actions, bounded rewards and `γ < 1`, the optimal action value is at most
 the optimal value: `Q* (s, a) ≤ v* s`. -/
 theorem optQValue_le_optValue (hγ : γ < 1) (hR : ∀ p, ∀ᵐ x ∂(M.R p), |x| ≤ C) (s : 𝓢) (a : 𝓐) :

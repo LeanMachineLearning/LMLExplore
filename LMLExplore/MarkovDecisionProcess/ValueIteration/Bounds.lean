@@ -48,6 +48,10 @@ lower bounds hold for every stationary policy `π` with `a ≤ T_π v - v`, and 
   bound `T_π^[n] v + γ ^ n * a / (1 - γ) ≤ v^π` when `a ≤ T_π v - v` [P, Theorem 6.6.3].
 * `Learning.MDP.optValue_le_bellman_iterate_add`: the upper bound
   `v* ≤ T^[n] v + γ ^ n * b / (1 - γ)` when `T v - v ≤ b`, corrected from [P, Theorem 6.6.3].
+* `Learning.MDP.bellman_add_le_value`, `Learning.MDP.bellman_add_le_optValue`,
+  `Learning.MDP.optValue_le_bellman_add`: the bounds
+  `T v + γ * a / (1 - γ) ≤ v^π ≤ v* ≤ T v + γ * b / (1 - γ)` after one step of value iteration
+  [P, Corollary 6.6.4].
 * `Learning.MDP.abs_bellman_add_sub_optValue_lt`,
   `Learning.MDP.abs_value_sub_optValue_lt_of_bellmanEval_eq`,
   `Learning.MDP.abs_value_sub_optValue_lt_of_orderUnitOsc_lt`: the span stopping rule
@@ -126,6 +130,17 @@ theorem add_sum_add_le_value (hγ : γ < 1) (hR : ∀ p, ∀ᵐ x ∂(M.R p), |x
   rw [← bellmanEval_iterate_eq_add_sum hR hv hvB]
   exact bellmanEval_iterate_add_le_value hγ hR hv hvB ha n s
 
+/-- **Lower bound on the value after one step of value iteration**
+([P, Corollary 6.6.4], the case `m = 0`): with bounded rewards and `γ < 1`, if a bounded measurable
+`v` satisfies `a ≤ T v - v` and the stationary policy `π` is greedy for `v`, `T_π v = T v`, then
+`T v + γ * a / (1 - γ) ≤ v^π`. -/
+theorem bellman_add_le_value (hγ : γ < 1) (hR : ∀ p, ∀ᵐ x ∂(M.R p), |x| ≤ C)
+    (hv : Measurable v) (hvB : ∀ s, |v s| ≤ B)
+    (hπ : M.bellmanEval γ π v = M.bellman γ v) (ha : ∀ s, a ≤ M.bellman γ v s - v s) (s : 𝓢) :
+    M.bellman γ v s + γ * a / (1 - γ) ≤ M.value γ π s := by
+  have h := bellmanEval_iterate_add_le_value hγ hR hv hvB (fun s ↦ hπ ▸ ha s) 1 s
+  rwa [iterate_one, hπ, pow_one] at h
+
 end Evaluation
 
 /-! ### Upper bound on the optimal value -/
@@ -158,21 +173,30 @@ theorem optValue_le_bellman_iterate_add (hγ : γ < 1) (hR : ∀ p, ∀ᵐ x ∂
   exact optValue_le_of_bellman_le hγ hR (hm.add measurable_const)
     (fun s ↦ (abs_add_le _ _).trans (add_le_add (hB' s) le_rfl)) hle s
 
-/-! ### The span stopping rule -/
+/-! ### One step of value iteration -/
 
-/-- The two-sided bound `T v + γ * a / (1 - γ) ≤ v^π ≤ v* ≤ T v + γ * b / (1 - γ)` for a stationary
-policy `π` greedy for `v` and `a ≤ T v - v ≤ b` ([P, Corollary 6.6.4], the case `m = 0`). -/
-private lemma bellman_add_le_value_and_optValue_le_bellman_add {π : Kernel 𝓢 𝓐}
-    [IsMarkovKernel π] (hγ : γ < 1) (hR : ∀ p, ∀ᵐ x ∂(M.R p), |x| ≤ C) (hv : Measurable v)
-    (hvB : ∀ s, |v s| ≤ B) (hπ : M.bellmanEval γ π v = M.bellman γ v)
-    (ha : ∀ s, a ≤ M.bellman γ v s - v s) (hb : ∀ s, M.bellman γ v s - v s ≤ b) (s : 𝓢) :
-    M.bellman γ v s + γ * a / (1 - γ) ≤ M.value γ π s ∧
-      M.optValue γ s ≤ M.bellman γ v s + γ * b / (1 - γ) := by
-  have h₁ := bellmanEval_iterate_add_le_value hγ hR hv hvB (fun s ↦ hπ ▸ ha s) 1 s
-  have h₂ := optValue_le_bellman_iterate_add hγ hR hv hvB hb 1 s
-  rw [iterate_one, hπ, pow_one] at h₁
-  rw [iterate_one, pow_one] at h₂
-  exact ⟨h₁, h₂⟩
+/-- **Upper bound on the optimal value after one step of value iteration**
+([P, Corollary 6.6.4], the case `m = 0`): with countably many actions, bounded rewards and
+`γ < 1`, if a bounded measurable `v` satisfies `T v - v ≤ b`, then `v* ≤ T v + γ * b / (1 - γ)`. -/
+theorem optValue_le_bellman_add (hγ : γ < 1) (hR : ∀ p, ∀ᵐ x ∂(M.R p), |x| ≤ C)
+    (hv : Measurable v) (hvB : ∀ s, |v s| ≤ B) (hb : ∀ s, M.bellman γ v s - v s ≤ b) (s : 𝓢) :
+    M.optValue γ s ≤ M.bellman γ v s + γ * b / (1 - γ) := by
+  simpa only [iterate_one, pow_one] using optValue_le_bellman_iterate_add hγ hR hv hvB hb 1 s
+
+omit [Countable 𝓐] in
+/-- **Lower bound on the optimal value after one step of value iteration**
+([P, Corollary 6.6.4], the case `m = 0`): with finitely many actions, bounded rewards and `γ < 1`,
+if a bounded measurable `v` satisfies `a ≤ T v - v`, then `T v + γ * a / (1 - γ) ≤ v*`, through
+the value of the greedy policy for `v`. -/
+theorem bellman_add_le_optValue [Finite 𝓐] (hγ : γ < 1) (hR : ∀ p, ∀ᵐ x ∂(M.R p), |x| ≤ C)
+    (hv : Measurable v) (hvB : ∀ s, |v s| ≤ B) (ha : ∀ s, a ≤ M.bellman γ v s - v s) (s : 𝓢) :
+    M.bellman γ v s + γ * a / (1 - γ) ≤ M.optValue γ s := by
+  have := Fintype.ofFinite 𝓐
+  exact (bellman_add_le_value hγ hR hv hvB (bellmanEval_greedy hv) ha s).trans
+    (value_le_optValue (π := Kernel.deterministic _ (measurable_greedy (M := M) (γ := γ) hv))
+      hγ hR s)
+
+/-! ### The span stopping rule -/
 
 /-- `γ * b / (1 - γ) - γ * a / (1 - γ) < ε` when `γ * (b - a) < (1 - γ) * ε`. -/
 private lemma sub_lt_of_mul_sub_lt (hγ : γ < 1) (hε : γ * (b - a) < (1 - γ) * ε) :
@@ -189,11 +213,8 @@ theorem abs_bellman_add_sub_optValue_lt [Finite 𝓐] (hγ : γ < 1)
     (ha : ∀ s, a ≤ M.bellman γ v s - v s) (hb : ∀ s, M.bellman γ v s - v s ≤ b)
     (hε : γ * (b - a) < (1 - γ) * ε) (s : 𝓢) :
     |M.bellman γ v s + γ * a / (1 - γ) - M.optValue γ s| < ε := by
-  have := Fintype.ofFinite 𝓐
-  obtain ⟨h₁, h₂⟩ := bellman_add_le_value_and_optValue_le_bellman_add hγ hR hv hvB
-    (bellmanEval_greedy hv) ha hb s
-  have h₃ := value_le_optValue
-    (π := Kernel.deterministic _ (measurable_greedy (M := M) (γ := γ) hv)) hγ hR s
+  have h₁ := bellman_add_le_optValue hγ hR hv hvB ha s
+  have h₂ := optValue_le_bellman_add hγ hR hv hvB hb s
   have h₄ := sub_lt_of_mul_sub_lt hγ hε
   rw [abs_sub_lt_iff]
   constructor <;> linarith
@@ -207,7 +228,8 @@ theorem abs_value_sub_optValue_lt_of_bellmanEval_eq {π : Kernel 𝓢 𝓐} [IsM
     (hπ : M.bellmanEval γ π v = M.bellman γ v) (ha : ∀ s, a ≤ M.bellman γ v s - v s)
     (hb : ∀ s, M.bellman γ v s - v s ≤ b) (hε : γ * (b - a) < (1 - γ) * ε) (s : 𝓢) :
     |M.value γ π s - M.optValue γ s| < ε := by
-  obtain ⟨h₁, h₂⟩ := bellman_add_le_value_and_optValue_le_bellman_add hγ hR hv hvB hπ ha hb s
+  have h₁ := bellman_add_le_value hγ hR hv hvB hπ ha s
+  have h₂ := optValue_le_bellman_add hγ hR hv hvB hb s
   have h₃ := value_le_optValue (π := π) hγ hR s
   have h₄ := sub_lt_of_mul_sub_lt hγ hε
   rw [abs_sub_lt_iff]
