@@ -103,9 +103,7 @@ lemma tvDist_pow_apply_le_two_mul_distToStationary (t : ℕ) (x : α) :
   have hbdd : BddAbove (range fun x ↦ tvDist ((κ ^ t) x) π / 2) := by
     refine ⟨1, ?_⟩
     rintro _ ⟨y, rfl⟩
-    have := tvDist_le_add (μ := (κ ^ t) y) (ν := π)
-    simp only [probReal_univ] at this
-    linarith
+    linarith [tvDist_le_two (μ := (κ ^ t) y) (ν := π)]
   have := le_ciSup hbdd x
   rw [← distToStationary_def] at this
   linarith
@@ -119,8 +117,7 @@ lemma distToStationary_le_iff {c : ℝ} {t : ℕ} (hc : 0 ≤ c) :
 
 /-- The distance to stationarity is at most one. -/
 lemma distToStationary_le_one (t : ℕ) : distToStationary κ π t ≤ 1 :=
-  distToStationary_le zero_le_one fun x ↦ by
-    simpa [one_add_one_eq_two] using tvDist_le_add (μ := (κ ^ t) x) (ν := π)
+  distToStationary_le zero_le_one fun x ↦ by simpa using tvDist_le_two (μ := (κ ^ t) x) (ν := π)
 
 /-- `δ(κ ^ t) ≤ 2 * d(t)`: two `t`-step laws are close when both are close to `π`. -/
 theorem dobrushinCoeff_le_two_mul_distToStationary (t : ℕ) :
@@ -231,14 +228,9 @@ lemma mixingTime_anti {ε ε' : ℝ} (h : ε ≤ ε') : mixingTime κ π ε' ≤
 infimum defining the mixing time is attained. -/
 lemma distToStationary_le_of_mixingTime_eq {ε : ℝ} {s : ℕ} (hs : mixingTime κ π ε = s) :
     distToStationary κ π s ≤ ε := by
-  by_contra h
-  -- every time `t` with `d(t) ≤ ε` is at least `s` and differs from `s`
-  have hle : ((s + 1 : ℕ) : ℕ∞) ≤ mixingTime κ π ε := le_iInf₂ fun t ht ↦ by
-    have hst : (s : ℕ∞) ≤ t := hs ▸ mixingTime_le_of_distToStationary_le ht
-    have hne : s ≠ t := by rintro rfl; exact h ht
-    exact_mod_cast (lt_of_le_of_ne (by exact_mod_cast hst) hne : s < t)
-  rw [hs] at hle
-  exact Nat.not_succ_le_self s (by exact_mod_cast hle)
+  rw [mixingTime_def, iInf_subtype'] at hs
+  obtain ⟨⟨⟨t, ht⟩, h⟩, -⟩ := ENat.iInf_eq_natCast_iff.1 hs
+  exact Nat.cast_injective h ▸ ht
 
 variable [IsMarkovKernel κ] [IsProbabilityMeasure π]
 
