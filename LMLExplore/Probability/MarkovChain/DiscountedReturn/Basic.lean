@@ -11,8 +11,7 @@ public import LMLExplore.Probability.MarkovChain.DiscountedReturn.Defs
 public import LMLExplore.Probability.Moments.Variance
 public import TauCeti.Probability.MarkovChain.MarkovProperty
 public import TauCeti.Probability.Moments.Mixture
-import Mathlib.Analysis.Convex.Integral
-import Mathlib.Analysis.Convex.SpecificFunctions.Pow
+import LMLExplore.Analysis.Convex.Integral
 
 /-!
 # The discounted return of a Markov chain: its mean and its variance
@@ -329,38 +328,19 @@ theorem integral_sqrt_variance_integral_discountedReturn_resolvent_le (hγ : γ 
   have := isFiniteKernel_resolvent (κ := κ) hγ
   have hγ' : 0 < 1 - (γ : ℝ) := sub_pos.2 hγ
   have hC : 0 ≤ C := (abs_nonneg _).trans (hfC x)
-  have : NeZero (resolvent γ κ x) := ⟨fun h ↦ hγ'.ne' <| by
-    simpa [h] using (measureReal_resolvent_univ (κ := κ) hγ x).symm⟩
   have hσ := (measurable_integral_discountedReturn_markovChainKernel (κ := κ) hγ hf
     hfC).variance_kernel (η := κ)
-  have hσB (y : α) : |Var[fun z ↦ ∫ ω, discountedReturn γ f ω ∂(κ.markovChainKernel z); κ y]| ≤
-      (C / (1 - γ)) ^ 2 := by
-    rw [abs_of_nonneg (variance_nonneg _ _)]
+  -- Jensen's inequality for the square root, for the resolvent of mass `(1 - γ)⁻¹`.
+  refine (integral_sqrt_le_sqrt_measureReal_mul_integral (.of_forall fun y ↦ variance_nonneg _ _)
+    (integrable_of_abs_le (B := (C / (1 - γ)) ^ 2) hσ (fun y ↦ ?_) (resolvent γ κ x))).trans ?_
+  · rw [abs_of_nonneg (variance_nonneg _ _)]
     exact variance_integral_discountedReturn_markovChainKernel_le hγ hf hfC y
-  have hσB' (y : α) :
-      |√(Var[fun z ↦ ∫ ω, discountedReturn γ f ω ∂(κ.markovChainKernel z); κ y])| ≤
-        C / (1 - γ) := by
-    rw [abs_of_nonneg (Real.sqrt_nonneg _), ← Real.sqrt_sq (by positivity : 0 ≤ C / (1 - γ))]
-    exact Real.sqrt_le_sqrt ((le_abs_self _).trans (hσB y))
-  -- Jensen's inequality for the square root, for the normalized resolvent `(1 - γ) R_γ(κ)(x)`.
-  have h_jensen := Real.strictConcaveOn_sqrt.concaveOn.le_map_average
-    Real.continuous_sqrt.continuousOn isClosed_Ici (.of_forall fun y ↦ variance_nonneg _ _)
-    (integrable_of_abs_le hσ hσB (resolvent γ κ x))
-    (integrable_of_abs_le hσ.sqrt hσB' (resolvent γ κ x))
-  simp only [average_eq, measureReal_resolvent_univ hγ, inv_inv,
-    smul_eq_mul] at h_jensen
-  refine le_of_mul_le_mul_left (h_jensen.trans ?_) hγ'
-  rw [show (1 - (γ : ℝ)) * (C * √((1 + γ) / (1 - γ) ^ 3)) =
-      √(((1 - γ) * C) ^ 2 * ((1 + γ) / (1 - γ) ^ 3)) by
-    rw [Real.sqrt_mul (sq_nonneg _), Real.sqrt_sq (by positivity), mul_assoc]]
-  refine Real.sqrt_le_sqrt ?_
-  calc (1 - (γ : ℝ)) * ∫ y, Var[fun z ↦ ∫ ω, discountedReturn γ f ω ∂(κ.markovChainKernel z); κ y]
-        ∂(resolvent γ κ x)
-      ≤ (1 - γ) * ((1 + γ) * (C / (1 - γ)) ^ 2) := by
-        gcongr
-        exact integral_variance_integral_discountedReturn_resolvent_le hγ hf hfC x
-    _ = ((1 - γ) * C) ^ 2 * ((1 + γ) / (1 - γ) ^ 3) := by
-        field_simp
+  rw [measureReal_resolvent_univ hγ, show C * √((1 + γ) / (1 - γ) ^ 3) =
+      √((1 - (γ : ℝ))⁻¹ * ((1 + γ) * (C / (1 - γ)) ^ 2)) by
+    rw [show (1 - (γ : ℝ))⁻¹ * ((1 + γ) * (C / (1 - γ)) ^ 2) =
+      C ^ 2 * ((1 + γ) / (1 - γ) ^ 3) by field_simp, Real.sqrt_mul (sq_nonneg _), Real.sqrt_sq hC]]
+  gcongr
+  exact integral_variance_integral_discountedReturn_resolvent_le hγ hf hfC x
 
 end ProbabilityTheory.Kernel
 

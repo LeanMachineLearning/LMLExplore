@@ -197,8 +197,8 @@ theorem integral_sqrt_variance_value_resolvent_le (hγ : γ < 1)
   have h_int {g : 𝓢 × 𝓐 → ℝ} (hg : Measurable g) (hgB : ∀ q, g q ≤ (C / (1 - γ)) ^ 2) :
       Integrable (fun q ↦ √(g q)) (Kernel.resolvent γ (M.saKernel π) p) := by
     refine integrable_of_abs_le (B := C / (1 - γ)) hg.sqrt (fun q ↦ ?_) _
-    rw [abs_of_nonneg (Real.sqrt_nonneg _), ← Real.sqrt_sq (by positivity : 0 ≤ C / (1 - γ))]
-    exact Real.sqrt_le_sqrt (hgB q)
+    rw [abs_of_nonneg (Real.sqrt_nonneg _)]
+    exact Real.sqrt_le_iff.2 ⟨by positivity, hgB q⟩
   calc ∫ q, √(Var[M.value γ π; M.P q]) ∂(Kernel.resolvent γ (M.saKernel π) p)
       ≤ ∫ q, √(Var[M.qValue γ π; M.saKernel π q]) ∂(Kernel.resolvent γ (M.saKernel π) p) := by
         refine integral_mono (h_int ((measurable_value hγ hR).variance_kernel (η := M.P))
