@@ -55,7 +55,7 @@ Models with the true mean reward, such as the empirical MDP of a generative mode
 ## Main statements
 
 * `Learning.MDP.qValue_sub_qValue`: **the simulation lemma** [AJKS, Lemma 2.2] with a reward
-  error, `Q^π_M - Q^π_M' = R_γ(P'^π_SA) ((r - r') + γ (P - P') v^π_M)`.
+  error [KS02], `Q^π_M - Q^π_M' = R_γ(P'^π_SA) ((r - r') + γ (P - P') v^π_M)`.
 * `Learning.MDP.abs_qValue_sub_qValue_le`, `Learning.MDP.abs_value_sub_value_le`: if
   `|r - r'| ≤ δ` and `|(P - P') v^π_M| ≤ ε`, the action values and the values of `π` in the two
   models differ by at most `δ / (1 - γ) + γ ε / (1 - γ)`.
@@ -75,6 +75,8 @@ Models with the true mean reward, such as the empirical MDP of a generative mode
 
 * [A. Agarwal, N. Jiang, S. M. Kakade and W. Sun, *Reinforcement Learning: Theory and
   Algorithms*, 2022][AJKS], Lemmas 2.2 and 2.5
+* [M. Kearns and S. Singh, *Near-optimal reinforcement learning in polynomial time*, Machine
+  Learning 49, 2002][KS02]
 -/
 
 public section
@@ -87,11 +89,11 @@ namespace Learning.MDP
 variable {𝓢 𝓐 : Type*} {m𝓢 : MeasurableSpace 𝓢} {m𝓐 : MeasurableSpace 𝓐}
   {M M' : MDP 𝓢 𝓐 ℝ} {γ : ℝ≥0} {π : Kernel 𝓢 𝓐} [IsMarkovKernel π] {C C' δ ε : ℝ}
 
-/-- **The simulation lemma** [AJKS, Lemma 2.2], with a reward error: for two MDPs `M` and `M'`
-with bounded rewards, `γ < 1` and a stationary policy `π`, the action values of `π` differ by the
-resolvent of the state-action kernel of `π` in `M'` applied to the difference of the mean rewards
-plus the discounted one-step difference of the transition kernels acting on the value of `π` in
-`M`: `Q^π_M - Q^π_M' = R_γ(P'^π_SA) ((r - r') + γ (P - P') v^π_M)`. -/
+/-- **The simulation lemma** [AJKS, Lemma 2.2], with a reward error [KS02]: for two MDPs `M` and
+`M'` with bounded rewards, `γ < 1` and a stationary policy `π`, the action values of `π` differ by
+the resolvent of the state-action kernel of `π` in `M'` applied to the difference of the mean
+rewards plus the discounted one-step difference of the transition kernels acting on the value of
+`π` in `M`: `Q^π_M - Q^π_M' = R_γ(P'^π_SA) ((r - r') + γ (P - P') v^π_M)`. -/
 theorem qValue_sub_qValue (hγ : γ < 1) (hR : ∀ p, ∀ᵐ x ∂(M.R p), |x| ≤ C)
     (hR' : ∀ p, ∀ᵐ x ∂(M'.R p), |x| ≤ C') (p : 𝓢 × 𝓐) :
     M.qValue γ π p - M'.qValue γ π p =
