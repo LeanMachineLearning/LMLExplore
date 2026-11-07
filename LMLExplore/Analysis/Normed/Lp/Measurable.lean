@@ -106,10 +106,11 @@ theorem isClosed_boundedMeasurable : IsClosed (boundedMeasurable α : Set ℓ^�
 
 namespace boundedMeasurable
 
-/-! The three instances below are found by instance search, but only through a search that also
+/-! The four instances below are found by instance search, but only through a search that also
 tries to view `ℓ^∞(α, ℝ)` as a subring of the type `PreLp`, which carries no norm, and exceeds the
 default budget. Declaring them directly keeps the normed structure of `boundedMeasurable α` cheap
-to find. -/
+to find, also inside the searches for the structure of the continuous linear maps of
+`boundedMeasurable α`, such as their scalar multiplication. -/
 
 noncomputable instance instSeminormedRing : SeminormedRing (boundedMeasurable α) :=
   Subalgebra.seminormedRing _
@@ -119,6 +120,9 @@ noncomputable instance instNormedCommRing : NormedCommRing (boundedMeasurable α
 
 noncomputable instance instNormedAlgebra : NormedAlgebra ℝ (boundedMeasurable α) :=
   Subalgebra.toNormedAlgebra _
+
+noncomputable instance instNormedSpace : NormedSpace ℝ (boundedMeasurable α) :=
+  NormedAlgebra.toNormedSpace _
 
 /-- The bounded measurable real functions on `α` form a Banach space. -/
 instance instCompleteSpace : CompleteSpace (boundedMeasurable α) :=
