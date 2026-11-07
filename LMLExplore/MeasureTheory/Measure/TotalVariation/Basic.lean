@@ -84,6 +84,10 @@ theorem tvDist_eq_measureReal_variation_sub_toSignedMeasure [IsFiniteMeasure μ]
     tvDist μ ν = (μ.toSignedMeasure - ν.toSignedMeasure).variation.real univ := by
   rw [tvDist, etvDist_eq_etvDist_toSignedMeasure, VectorMeasure.etvDist, measureReal_def]
 
+/-- The total variation distance between two probability measures is at most two. -/
+lemma tvDist_le_two [IsProbabilityMeasure μ] [IsProbabilityMeasure ν] : tvDist μ ν ≤ 2 := by
+  simpa [one_add_one_eq_two] using tvDist_le_add (μ := μ) (ν := ν)
+
 /-- **Integrals against measures close in total variation**: for finite measures `μ` and `ν` and
 a function `f` with values in a normed space, bounded in norm by `C` almost everywhere for both,
 `‖∫ f dμ - ∫ f dν‖ ≤ C * tvDist μ ν`. -/
@@ -246,6 +250,6 @@ theorem tvDist_one_sub_smul_add_smul_le [IsProbabilityMeasure μ] [IsProbability
     tvDist ((1 - α) • μ + α • ν) μ ≤ 2 * α := by
   rw [tvDist_one_sub_smul_add_smul hα, mul_comm]
   gcongr
-  simpa [one_add_one_eq_two] using tvDist_le_add (μ := ν) (ν := μ)
+  exact tvDist_le_two
 
 end MeasureTheory

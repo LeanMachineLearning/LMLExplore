@@ -109,9 +109,7 @@ lemma tvDist_le_two_mul_dobrushinCoeff [IsMarkovKernel κ] (x y : α) :
   have hbdd : BddAbove (range fun p : α × α ↦ tvDist (κ p.1) (κ p.2) / 2) := by
     refine ⟨1, ?_⟩
     rintro _ ⟨p, rfl⟩
-    have := tvDist_le_add (μ := κ p.1) (ν := κ p.2)
-    simp only [probReal_univ] at this
-    linarith
+    linarith [tvDist_le_two (μ := κ p.1) (ν := κ p.2)]
   have := le_ciSup hbdd (x, y)
   rw [← dobrushinCoeff_def] at this
   linarith
@@ -125,8 +123,7 @@ lemma dobrushinCoeff_le_iff [IsMarkovKernel κ] {c : ℝ} (hc : 0 ≤ c) :
 
 /-- The Dobrushin coefficient of a Markov kernel is at most one. -/
 lemma dobrushinCoeff_le_one [IsMarkovKernel κ] : dobrushinCoeff κ ≤ 1 :=
-  dobrushinCoeff_le zero_le_one fun x y ↦ by
-    simpa [one_add_one_eq_two] using tvDist_le_add (μ := κ x) (ν := κ y)
+  dobrushinCoeff_le zero_le_one fun x y ↦ by simpa using tvDist_le_two (μ := κ x) (ν := κ y)
 
 /-- The masses that a Markov kernel gives to an event from two starting points differ by at most
 its Dobrushin coefficient. -/
@@ -194,8 +191,7 @@ theorem tvDist_comp_right_le_dobrushinCoeff_mul [IsFiniteMeasure μ] [IsFiniteMe
 theorem tvDist_comp_right_le_two_mul_dobrushinCoeff [IsProbabilityMeasure μ]
     [IsProbabilityMeasure ν] (κ : Kernel α β) [IsMarkovKernel κ] :
     tvDist (κ ∘ₘ μ) (κ ∘ₘ ν) ≤ 2 * dobrushinCoeff κ := by
-  have h := tvDist_le_add (μ := μ) (ν := ν)
-  simp only [probReal_univ] at h
+  have h := tvDist_le_two (μ := μ) (ν := ν)
   have := tvDist_comp_right_le_dobrushinCoeff_mul (by simp) κ (μ := μ) (ν := ν)
   nlinarith [dobrushinCoeff_nonneg κ]
 
