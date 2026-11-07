@@ -5,9 +5,9 @@ Authors: Rémy Degenne
 -/
 module
 
-public import LMLExplore.Analysis.FixedPoint.OrderUnit
 public import LMLExplore.MeasureTheory.Integral.BoundedMeasurable
 public import LMLExplore.Probability.Kernel.Composition.Comp
+public import LMLExplore.Probability.Kernel.Operator
 public import Mathlib.Analysis.SpecificLimits.Basic
 public import Mathlib.MeasureTheory.Integral.Bochner.SumMeasure
 public import Mathlib.Probability.Kernel.Composition.IntegralCompProd
@@ -27,9 +27,10 @@ Markov kernel and `γ < 1`, it is a finite kernel of mass `(1 - γ)⁻¹`.
 
 For every kernel and every `γ`, the resolvent satisfies, as measures,
 `resolvent γ κ x = δ_x + γ • (resolvent γ κ ∘ₖ κ) x = δ_x + γ • (κ ∘ₖ resolvent γ κ) x`, which
-are the operator identities `R_γ = 1 + γ κ R_γ = 1 + γ R_γ κ`. For a Markov kernel and `γ < 1`,
-the resolvent is therefore the inverse of `1 - γ κ`, read as an operator on bounded measurable
-functions. Consequently:
+are the operator identities `R_γ = 1 + γ κ R_γ = 1 + γ R_γ κ`. Whenever the resolvent is a finite
+kernel, as it is for a Markov kernel and `γ < 1`, its action on bounded measurable functions
+(`Kernel.integralCLM`) is therefore the inverse of `1 - γ κ` in the Banach algebra of continuous
+linear maps of `boundedMeasurable α`. Consequently:
 * for a Markov kernel, `γ < 1` and a bounded measurable `f`, the function `u = R_γ f` is the
   unique bounded measurable solution of the equation `u = f + γ κ u`;
 * for a measure `μ`, the measure `ν = μ.bind R_γ` (written `resolvent γ κ ∘ₘ μ`) satisfies the
@@ -64,6 +65,13 @@ equation of these objects.
 * `ProbabilityTheory.Kernel.dirac_add_resolvent_comp_apply`,
   `ProbabilityTheory.Kernel.dirac_add_comp_resolvent_apply`: the resolvent identities
   `R_γ = 1 + γ κ R_γ = 1 + γ R_γ κ`.
+* `ProbabilityTheory.Kernel.one_sub_smul_integralCLM_mul_integralCLM_resolvent`,
+  `ProbabilityTheory.Kernel.integralCLM_resolvent_mul_one_sub_smul_integralCLM`: the resolvent
+  identities as operators, `(1 - γ κ) R_γ = R_γ (1 - γ κ) = 1`, when the resolvent is finite.
+* `ProbabilityTheory.Kernel.isUnit_one_sub_smul_integralCLM`,
+  `ProbabilityTheory.Kernel.ringInverse_one_sub_smul_integralCLM`: `1 - γ κ` is invertible, with
+  inverse `R_γ = (1 - γ κ)⁻¹`; `ProbabilityTheory.Kernel.eq_integralCLM_resolvent_iff`: `R_γ f` is
+  the only bounded measurable solution of `u = f + γ κ u`.
 * `ProbabilityTheory.Kernel.integral_resolvent_eq_add`,
   `ProbabilityTheory.Kernel.eq_integral_resolvent_of_eq_add`: for a Markov kernel and `γ < 1`,
   `R_γ f` is the unique bounded measurable solution of `u = f + γ κ u`.
@@ -97,7 +105,7 @@ equation of these objects.
 public section
 
 open MeasureTheory Set Filter Topology LMLExplore
-open scoped ENNReal NNReal
+open scoped ENNReal NNReal lp
 
 namespace ProbabilityTheory.Kernel
 
@@ -202,6 +210,80 @@ theorem dirac_add_comp_resolvent_apply (γ : ℝ≥0) (κ : Kernel α α) (x : �
     rw [pow_succ_apply_eq_lintegral _ _ _ hs, pow_succ]
     ring
 
+/-! ### The resolvent as the inverse of `1 - γ κ` -/
+
+section Operator
+
+variable [IsFiniteKernel κ] [IsFiniteKernel (resolvent γ κ)]
+
+omit [IsFiniteKernel κ] in
+/-- A measure identity `δ_x + γ • η x = resolvent γ κ x` as an identity of operators on bounded
+measurable functions, `R_γ = 1 + γ η`. -/
+private lemma integralCLM_resolvent_eq_add (η : Kernel α α) [IsFiniteKernel η]
+    (h : ∀ x, Measure.dirac x + (γ : ℝ≥0∞) • η x = resolvent γ κ x) (f : boundedMeasurable α) :
+    (resolvent γ κ).integralCLM f = f + (γ : ℝ) • η.integralCLM f := by
+  ext x
+  simp only [boundedMeasurable.coeFn_add, boundedMeasurable.coeFn_smul, Pi.add_apply,
+    Pi.smul_apply, smul_eq_mul, integralCLM_apply]
+  rw [← h x, integral_add_measure (boundedMeasurable.integrable f _)
+    ((boundedMeasurable.integrable f _).smul_measure ENNReal.coe_ne_top),
+    integral_dirac' _ _ (boundedMeasurable.measurable f).stronglyMeasurable, integral_smul_measure]
+  simp
+
+/-- The resolvent identity `R_γ = 1 + γ κ R_γ` as operators on bounded measurable functions:
+`(1 - γ κ) R_γ = 1`. -/
+theorem one_sub_smul_integralCLM_mul_integralCLM_resolvent :
+    (1 - (γ : ℝ) • κ.integralCLM) * (resolvent γ κ).integralCLM = 1 := by
+  ext1 f
+  have h := integralCLM_resolvent_eq_add _ (dirac_add_resolvent_comp_apply γ κ) f
+  rw [integralCLM_comp, ContinuousLinearMap.comp_apply] at h
+  rw [mul_apply_eq_comp, sub_apply, one_apply_eq_self, smul_apply]
+  exact sub_eq_iff_eq_add.2 h
+
+/-- The resolvent identity `R_γ = 1 + γ R_γ κ` as operators on bounded measurable functions:
+`R_γ (1 - γ κ) = 1`. -/
+theorem integralCLM_resolvent_mul_one_sub_smul_integralCLM :
+    (resolvent γ κ).integralCLM * (1 - (γ : ℝ) • κ.integralCLM) = 1 := by
+  ext1 f
+  have h := integralCLM_resolvent_eq_add _ (dirac_add_comp_resolvent_apply γ κ) f
+  rw [integralCLM_comp, ContinuousLinearMap.comp_apply] at h
+  rw [mul_apply_eq_comp, sub_apply, one_apply_eq_self, smul_apply,
+    ContinuousLinearMap.map_sub, ContinuousLinearMap.map_smul]
+  exact sub_eq_iff_eq_add.2 h
+
+/-- When the resolvent of `κ` is a finite kernel (for instance for a Markov kernel and `γ < 1`,
+`isFiniteKernel_resolvent`), the operator `1 - γ κ` on bounded measurable functions is
+invertible. -/
+theorem isUnit_one_sub_smul_integralCLM : IsUnit (1 - (γ : ℝ) • κ.integralCLM) :=
+  isUnit_iff_exists.2 ⟨_, one_sub_smul_integralCLM_mul_integralCLM_resolvent,
+    integralCLM_resolvent_mul_one_sub_smul_integralCLM⟩
+
+/-- **The resolvent is the inverse of `1 - γ κ`**: when the resolvent of `κ` is a finite kernel
+(for instance for a Markov kernel and `γ < 1`, `isFiniteKernel_resolvent`), its action on bounded
+measurable functions is the inverse of `1 - γ κ`, `R_γ = (1 - γ κ)⁻¹`. -/
+theorem ringInverse_one_sub_smul_integralCLM :
+    Ring.inverse (1 - (γ : ℝ) • κ.integralCLM) = (resolvent γ κ).integralCLM := by
+  simpa using Ring.inverse_unit (M₀ := boundedMeasurable α →L[ℝ] boundedMeasurable α)
+    ⟨_, _, one_sub_smul_integralCLM_mul_integralCLM_resolvent,
+      integralCLM_resolvent_mul_one_sub_smul_integralCLM⟩
+
+/-- **The resolvent equation**: when the resolvent of `κ` is a finite kernel, a bounded measurable
+`u` is `R_γ f` if and only if it solves `u = f + γ κ u`. -/
+theorem eq_integralCLM_resolvent_iff {f u : boundedMeasurable α} :
+    u = (resolvent γ κ).integralCLM f ↔ u = f + (γ : ℝ) • κ.integralCLM u := by
+  have h : u - (γ : ℝ) • κ.integralCLM u = (1 - (γ : ℝ) • κ.integralCLM) u := by
+    simp
+  rw [← sub_eq_iff_eq_add, h]
+  constructor
+  · rintro rfl
+    rw [← mul_apply_eq_comp, one_sub_smul_integralCLM_mul_integralCLM_resolvent,
+      one_apply_eq_self]
+  · intro h
+    rw [← h, ← mul_apply_eq_comp, integralCLM_resolvent_mul_one_sub_smul_integralCLM,
+      one_apply_eq_self]
+
+end Operator
+
 /-! ### Mass and finiteness -/
 
 section Markov
@@ -264,15 +346,18 @@ theorem eq_integral_resolvent_of_eq_add (hγ : γ < 1) {f u : α → ℝ} {B B' 
     (hfB : ∀ y, |f y| ≤ B) (hu : Measurable u) (huB : ∀ y, |u y| ≤ B')
     (h : ∀ x, u x = f x + γ * ∫ y, u y ∂(κ x)) :
     u = fun x ↦ ∫ y, f y ∂(resolvent γ κ x) := by
-  have hR := measurable_integral_resolvent (γ := γ) (κ := κ) hf
-  have hRB := abs_integral_resolvent_le (κ := κ) hγ hfB
-  refine eq_of_forall_abs_sub_le_mul (NNReal.coe_lt_one.2 hγ)
-    (fun x ↦ (abs_sub _ _).trans (add_le_add (huB x) (hRB x))) fun E hE x ↦ ?_
-  rw [h x, integral_resolvent_eq_add hγ hf hfB x, add_sub_add_left_eq_sub, ← mul_sub,
-    ← integral_sub (integrable_of_abs_le hu huB _) (integrable_of_abs_le hR hRB _), abs_mul,
-    NNReal.abs_eq]
-  gcongr
-  exact abs_integral_le_of_abs_le hE
+  have := isFiniteKernel_resolvent (κ := κ) hγ
+  set F := boundedMeasurable.mk f hf ⟨B, forall_mem_range.2 hfB⟩
+  set U := boundedMeasurable.mk u hu ⟨B', forall_mem_range.2 huB⟩
+  have hF : ⇑(F : ℓ^∞(α, ℝ)) = f := boundedMeasurable.coeFn_mk ..
+  have hU : ⇑(U : ℓ^∞(α, ℝ)) = u := boundedMeasurable.coeFn_mk ..
+  have hUF : U = (resolvent γ κ).integralCLM F := eq_integralCLM_resolvent_iff.2 <| by
+    ext x
+    simp only [boundedMeasurable.coeFn_add, boundedMeasurable.coeFn_smul, Pi.add_apply,
+      Pi.smul_apply, smul_eq_mul, integralCLM_apply, hF, hU]
+    exact h x
+  ext x
+  rw [← hU, hUF, integralCLM_apply, hF]
 
 /-- The resolvent of a Markov kernel dominates the identity on nonnegative functions: for `γ < 1`
 and a nonnegative bounded measurable `f`, `f ≤ R_γ f`. -/
