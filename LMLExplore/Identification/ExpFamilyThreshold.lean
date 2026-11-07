@@ -92,10 +92,11 @@ lemma expFamilyEvidence_def (ρ : α → Measure 𝓧) (T : α → 𝓧 → ℝ)
 /-- The evidence against a vector of means is a measurable function of the history. -/
 lemma measurable_expFamilyEvidence {mα : MeasurableSpace α} [MeasurableSingletonClass α] (n : ℕ)
     (l : α → ℝ) : Measurable fun h : Hist Unit α ℝ n ↦ expFamilyEvidence ρ T n h l := by
-  simp_rw [expFamilyEvidence_def, Measure.expFamilyRate_def]
+  simp_rw [expFamilyEvidence_def]
   refine Finset.measurable_sum _ fun a _ ↦ Measurable.mul ?_ ?_
   · exact measurable_from_nat.comp (measurable_pullCount' n a)
-  · exact (lowerSemicontinuous_rateFunction _ _).measurable.comp (measurable_empMean' n a)
+  · exact (Measure.lowerSemicontinuous_expFamilyRate_left (l a)).measurable.comp
+      (measurable_empMean' n a)
 
 namespace IdentTask
 
