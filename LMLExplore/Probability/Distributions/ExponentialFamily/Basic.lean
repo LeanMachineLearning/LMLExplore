@@ -150,6 +150,13 @@ lemma interior_integrableExpSet_expFamily (hη : η ∈ integrableExpSet T ρ) :
   rw [integrableExpSet_expFamily hη]
   exact ((Homeomorph.addLeft η).preimage_interior _).symm
 
+/-- For `η` in the interior of `integrableExpSet T ρ`, the statistic `T` has exponential moments
+near `0` under `ρ_η`. -/
+lemma zero_mem_interior_integrableExpSet_expFamily (hη : η ∈ interior (integrableExpSet T ρ)) :
+    0 ∈ interior (integrableExpSet T (ρ.expFamily T η)) := by
+  rw [interior_integrableExpSet_expFamily (interior_subset hη)]
+  simpa using hη
+
 lemma memLp_expFamily (hη : η ∈ interior (integrableExpSet T ρ)) (p : ℝ≥0) :
     MemLp T p (ρ.expFamily T η) :=
   memLp_tilted_mul hη p
