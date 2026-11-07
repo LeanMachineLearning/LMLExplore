@@ -8,44 +8,68 @@ module
 public import LeanMachineLearning.Online.Bandit.Regret
 public import LeanMachineLearning.SequentialLearning.SumRewards
 public import LMLExplore.Analysis.SpecialFunctions.Log.Basic
+public import LMLExplore.Bandits.AsymptoticallyOptimalUCB
 public import LMLExplore.Bandits.Concentration
 public import LMLExplore.Bandits.IndexAlgorithm
 public import LMLExplore.Bandits.Regret
 public import LMLExplore.InformationTheory.KullbackLeibler.Bernoulli
+public import LMLExplore.Probability.Distributions.ExponentialFamily.Bernoulli
+public import LMLExplore.Probability.Distributions.ExponentialFamily.Gaussian
+public import LMLExplore.SequentialLearning.Algorithm
 
 /-!
 # KL-UCB
 
-The KL-UCB algorithm [LS, Algorithm 8] for rewards in `[0, 1]` is the index policy whose index at
-book round `t`, for an arm `a` pulled `T_a > 0` times with empirical mean `μ̂_a`, is the upper
-confidence level `U(μ̂_a, log f(t) / T_a)` of the binary relative entropy, the largest
-`q ∈ [μ̂_a, 1]` with `d(μ̂_a, q) ≤ log f(t) / T_a`, where `f(t) = 1 + t log² t`. An arm that has
-not been pulled yet has index `⊤`, so that the policy pulls every arm once before comparing finite
-indices. It is stated for any finite type of arms and does not depend on an enumeration of the
-arms.
+The KL-UCB algorithm [LS, Algorithm 8; GC11, Section 4; CGMMS13] for exponential families of real
+rewards is the index policy whose index at book round `t`, for an arm `a` pulled `T_a > 0` times
+with empirical mean `μ̂_a`, is the upper confidence level `U_{ρ_a}(μ̂_a, log f(t) / T_a)` of the
+exponential family `ρ_a` of arm `a` with the identity statistic (`Measure.expFamilyUpper`): the
+supremum in `EReal` of `μ̂_a` and of the means `q ≥ μ̂_a` of the family with extended divergence
+`dbar(μ̂_a, q) ≤ log f(t) / T_a`, where `f(t) = 1 + t log² t`. Each arm has its own family. An
+arm that has not been pulled yet has index `⊤`, so that the policy pulls every arm once before
+comparing finite indices. It is stated for any finite type of arms and does not depend on an
+enumeration of the arms.
+
+Two instances are classical. With the Bernoulli family on every arm, the index at an empirical
+mean in `[0, 1]` is the upper confidence level `U(μ̂_a, log f(t) / T_a)` of the binary relative
+entropy, the largest `q ∈ [μ̂_a, 1]` with `d(μ̂_a, q) ≤ log f(t) / T_a`: this is KL-UCB for
+rewards in `[0, 1]` of [LS, Algorithm 8], defined here as that instance. With the Gaussian family
+of variance `σ²` on every arm, the index is `μ̂_a + √(2 σ² log f(t) / T_a)`: this is the
+asymptotically optimal UCB algorithm `ucbF σ2` of [LS, Algorithm 6].
 
 Book round `t` is Lean round `n = t - 1`, at which the history has length `n`: the index of
 Lean round `n` uses `log f(n + 1)`.
 
 ## Main definitions
 
-* `LMLExplore.Bandits.klucbIndex n h a`: the index of arm `a` after the history `h` of length `n`.
-* `LMLExplore.Bandits.klucb`: the KL-UCB algorithm, the index policy `indexAlgorithm` with index
-  `klucbIndex`.
+* `LMLExplore.Bandits.klucbFamIndex ρ n h a`: the index of arm `a` after the history `h` of length
+  `n`, for the families `ρ`.
+* `LMLExplore.Bandits.klucbFam ρ`: the KL-UCB algorithm for the families `ρ`, the index policy
+  `indexAlgorithm` with index `klucbFamIndex ρ`.
+* `LMLExplore.Bandits.klucbIndex n h a`: the index of [LS, Algorithm 8] for rewards in `[0, 1]`.
+* `LMLExplore.Bandits.klucb`: the KL-UCB algorithm for rewards in `[0, 1]`, the KL-UCB algorithm
+  for the Bernoulli family on every arm.
 
 ## Main statements
 
-* `klucbIndex_eq_top_iff`: the index is `⊤` exactly on the arms not pulled yet.
-* `klucbIndex_history`: along a sequence of rounds, the index in terms of LML's `pullCount` and
+* `klucbFamIndex_eq_top_iff`: when the confidence levels of the families are finite at finite
+  budgets, the index is `⊤` exactly on the arms not pulled yet.
+* `klucbFamIndex_history`: along a sequence of rounds, the index in terms of LML's `pullCount` and
   `empMean`.
-* `KLUCB.pullCount_card_eq_one`: `klucb` pulls every arm exactly once during the first
-  `Fintype.card α` rounds.
-* `KLUCB.integral_pullCount_le_sum_add_sum`: the decomposition of the expected number of pulls of
-  an arm `a` in the proof of [LS, Theorem 10.6]: for every arm `b` and threshold `c`, `E[T_a(n)]`
-  is at most the sum over the rounds `t < n` of the probabilities that the index of `b` is at
-  most `c`, plus the sum over `t < n` of the probabilities that `a` is played at round `t` while
-  either it has not been pulled yet (`T_a = 0`), or its empirical mean `μ̂_a` is at least `c`, or
-  `c ≤ 1` and `d(μ̂_a, c) ≤ log f(n) / T_a` for the exploration level `log f(n)` of the horizon.
+* `klucbFamIndex_bernoulliMeasure_sigmoid`: at empirical means in `[0, 1]`, the index for the
+  Bernoulli family is `klucbIndex`.
+* `klucbFam_gaussianReal`: the KL-UCB algorithm for the Gaussian family of variance `σ2` is
+  `ucbF σ2`.
+* `KLUCBFam.pullCount_card_eq_one`, `KLUCB.pullCount_card_eq_one`: KL-UCB pulls every arm exactly
+  once during the first `Fintype.card α` rounds.
+* `KLUCBFam.integral_pullCount_le_sum_add_sum`: the decomposition of the expected number of pulls
+  of an arm `a`: for every arm `b` and every mean `c` of the family of `a`, `E[T_a(n)]` is at most
+  the sum over the rounds `t < n` of the probabilities that the index of `b` is at most `c`, plus
+  the sum over `t < n` of the probabilities that `a` is played at round `t` while either it has
+  not been pulled yet (`T_a = 0`), or its empirical mean `μ̂_a` is at least `c`, or
+  `dbar(μ̂_a, c) ≤ log f(n) / T_a` for the exploration level `log f(n)` of the horizon.
+* `KLUCB.integral_pullCount_le_sum_add_sum`: the same decomposition for rewards in `[0, 1]` in the
+  proof of [LS, Theorem 10.6], with `klUpper` and `d = klBer` and a threshold `c ∈ (0, 1)`.
 * `KLUCB.integral_pullCount_le`: for rewards in `[0, 1]`, the bound
   `log f(n) / d(μ_a + ε₁, μ* - ε₂) + 1 / (2 ε₁²) + 2 / ε₂²` on the expected number of pulls of an
   arm `a` with gap `Δ_a`, for all `ε₁, ε₂ > 0` with `ε₁ + ε₂ < Δ_a`.
@@ -67,6 +91,13 @@ arm is pulled `o(log n)` times in expectation.
 
 ## Implementation notes
 
+The decomposition for rewards in `[0, 1]` is that of the Bernoulli family: almost surely, every
+empirical mean lies in `[0, 1]`, where the confidence level and the extended divergence of the
+Bernoulli family are `klUpper` and `klBer` (`expFamilyUpper_bernoulliMeasure_sigmoid`,
+`expFamilyRate_bernoulliMeasure_sigmoid`). The empirical means `0` and `1` lie outside the open
+interval of means of the family, and [LS, Lemmas 10.7 and 10.8] for rewards in `[0, 1]` cover
+them, so the regret bounds below are proved through `klUpper` and `klBer`.
+
 The proof of [LS, Theorem 10.6] bounds the two sums of `KLUCB.integral_pullCount_le_sum_add_sum`,
 for an optimal arm `b` and the threshold `μ* - ε₂`. The first sum, the underestimation of `b`, is
 at most `3 / (4 ε₂²)` by `sum_measureReal_pullCount_ne_zero_and_klUpper_le_le` ([LS, Lemma 10.7]).
@@ -86,17 +117,84 @@ this limit to its Exercise 10.2.
 
 * [LS] T. Lattimore and Cs. Szepesvári, *Bandit Algorithms*, Cambridge University Press, 2020,
   Chapter 10.
-* A. Garivier and O. Cappé, *The KL-UCB algorithm for bounded stochastic bandits and beyond*,
-  COLT 2011.
+* [GC11] A. Garivier and O. Cappé, *The KL-UCB algorithm for bounded stochastic bandits and
+  beyond*, COLT 2011.
+* [CGMMS13] O. Cappé, A. Garivier, O.-A. Maillard, R. Munos and G. Stoltz, *Kullback–Leibler
+  upper confidence bounds for optimal sequential allocation*, Ann. Statist. 41(3), 2013.
 -/
 
 public section
 
 open MeasureTheory ProbabilityTheory Finset Filter Topology Real Learning Bandits
 
-open scoped ENNReal
+open scoped ENNReal NNReal
 
 namespace LMLExplore.Bandits
+
+section FamilyIndex
+
+variable {α : Type*} [DecidableEq α] {ρ : α → Measure ℝ} {n : ℕ} {h : Hist Unit α ℝ n} {a : α}
+
+/-- The index of the KL-UCB algorithm for the exponential families `ρ a` of real rewards (with the
+identity statistic) [GC11, Section 4; CGMMS13], at Lean round `n` (book round `n + 1`), for the
+history `h` of the first `n` rounds: `⊤` if the arm `a` has not been pulled, and otherwise the
+upper confidence level `U_{ρ a}(μ̂_a, log f(n + 1) / T_a)` of the family of `a`
+(`Measure.expFamilyUpper`) with `f(t) = 1 + t log² t`, where `T_a` is the number of pulls of `a`
+and `μ̂_a` its empirical mean. -/
+noncomputable def klucbFamIndex (ρ : α → Measure ℝ) (n : ℕ) (h : Hist Unit α ℝ n) (a : α) :
+    EReal :=
+  if pullCount' n h a = 0 then ⊤ else
+    (ρ a).expFamilyUpper id (empMean' n h a)
+      (ENNReal.ofReal (log (1 + (n + 1) * log (n + 1) ^ 2) / pullCount' n h a))
+
+/-- The defining equation of `klucbFamIndex`. -/
+lemma klucbFamIndex_def (ρ : α → Measure ℝ) (n : ℕ) (h : Hist Unit α ℝ n) (a : α) :
+    klucbFamIndex ρ n h a = if pullCount' n h a = 0 then ⊤ else
+      (ρ a).expFamilyUpper id (empMean' n h a)
+        (ENNReal.ofReal (log (1 + (n + 1) * log (n + 1) ^ 2) / pullCount' n h a)) :=
+  (rfl)
+
+/-- An arm that has not been pulled has index `⊤`. -/
+@[simp]
+lemma klucbFamIndex_of_pullCount'_eq_zero (h0 : pullCount' n h a = 0) :
+    klucbFamIndex ρ n h a = ⊤ := by
+  simp [klucbFamIndex_def, h0]
+
+/-- The index of an arm that has been pulled is `U_{ρ a}(μ̂_a, log f(n + 1) / T_a)`. -/
+lemma klucbFamIndex_of_pullCount'_ne_zero (h0 : pullCount' n h a ≠ 0) :
+    klucbFamIndex ρ n h a =
+      (ρ a).expFamilyUpper id (empMean' n h a)
+        (ENNReal.ofReal (log (1 + (n + 1) * log (n + 1) ^ 2) / pullCount' n h a)) := by
+  simp [klucbFamIndex_def, h0]
+
+/-- If the upper confidence levels of the families are finite at finite budgets, then the index of
+an arm is `⊤` if and only if the arm has not been pulled yet. -/
+lemma klucbFamIndex_eq_top_iff
+    (hρ : ∀ a x c, c ≠ ⊤ → (ρ a).expFamilyUpper id x c ≠ ⊤) :
+    klucbFamIndex ρ n h a = ⊤ ↔ pullCount' n h a = 0 := by
+  by_cases h0 : pullCount' n h a = 0
+  · simp [h0]
+  · simpa [klucbFamIndex_of_pullCount'_ne_zero h0, h0] using hρ _ _ _ ENNReal.ofReal_ne_top
+
+@[fun_prop]
+lemma measurable_klucbFamIndex [MeasurableSpace α] [MeasurableSingletonClass α]
+    (ρ : α → Measure ℝ) (n : ℕ) : Measurable (klucbFamIndex ρ n) := by
+  refine Measurable.of_eval fun a ↦ ?_
+  simp_rw [klucbFamIndex_def]
+  refine Measurable.ite ?_ measurable_const (by fun_prop)
+  exact (measurableSet_singleton 0).preimage (measurable_pullCount' n a)
+
+/-- Along a sequence of rounds `(O, A, R)`, the index of an arm at round `n` is `⊤` if the arm has
+not been pulled before `n`, and otherwise `U_{ρ a}(μ̂_a, log f(n + 1) / T_a)` for the number of
+pulls `T_a = pullCount A a n ω` and the empirical mean `μ̂_a = empMean A R a n ω`. -/
+lemma klucbFamIndex_history {Ω : Type*} (O : ℕ → Ω → Unit) (A : ℕ → Ω → α) (R : ℕ → Ω → ℝ)
+    (ρ : α → Measure ℝ) (n : ℕ) (ω : Ω) (a : α) :
+    klucbFamIndex ρ n (history O A R n ω) a = if pullCount A a n ω = 0 then ⊤ else
+      (ρ a).expFamilyUpper id (empMean A R a n ω)
+        (ENNReal.ofReal (log (1 + (n + 1) * log (n + 1) ^ 2) / pullCount A a n ω)) := by
+  rw [klucbFamIndex_def, ← pullCount_eq_pullCount', ← empMean_eq_empMean']
+
+end FamilyIndex
 
 section Index
 
@@ -131,30 +229,15 @@ lemma klucbIndex_of_pullCount'_ne_zero (h0 : pullCount' n h a ≠ 0) :
           EReal) := by
   simp [klucbIndex_def, h0]
 
-/-- The index of an arm is `⊤` if and only if the arm has not been pulled yet. -/
-lemma klucbIndex_eq_top_iff : klucbIndex n h a = ⊤ ↔ pullCount' n h a = 0 := by
+/-- At an empirical mean in `[0, 1]`, the KL-UCB index of the Bernoulli family on every arm is the
+index `U(μ̂_a, log f(n + 1) / T_a)` of [LS, Algorithm 8]. The Bernoulli family is generated by any
+of its members `Ber((1 : ℝ), 0, sigmoid η₀)`. -/
+theorem klucbFamIndex_bernoulliMeasure_sigmoid (η₀ : ℝ) (hμ : empMean' n h a ∈ Set.Icc 0 1) :
+    klucbFamIndex (fun _ ↦ Ber((1 : ℝ), 0, unitInterval.sigmoid η₀)) n h a = klucbIndex n h a := by
   by_cases h0 : pullCount' n h a = 0
   · simp [h0]
-  · simp [klucbIndex_of_pullCount'_ne_zero h0, h0]
-
-@[fun_prop]
-lemma measurable_klucbIndex [MeasurableSpace α] [MeasurableSingletonClass α] (n : ℕ) :
-    Measurable (klucbIndex (α := α) n) := by
-  refine Measurable.of_eval fun a ↦ ?_
-  simp_rw [klucbIndex_def]
-  refine Measurable.ite ?_ measurable_const (by fun_prop)
-  exact (measurableSet_singleton 0).preimage (measurable_pullCount' n a)
-
-/-- Along a sequence of rounds `(O, A, R)`, the index of an arm at round `n` is `⊤` if the arm has
-not been pulled before `n`, and otherwise `U(μ̂_a, log f(n + 1) / T_a)` for the number of pulls
-`T_a = pullCount A a n ω` and the empirical mean `μ̂_a = empMean A R a n ω`. -/
-lemma klucbIndex_history {Ω : Type*} (O : ℕ → Ω → Unit) (A : ℕ → Ω → α) (R : ℕ → Ω → ℝ)
-    (n : ℕ) (ω : Ω) (a : α) :
-    klucbIndex n (history O A R n ω) a = if pullCount A a n ω = 0 then ⊤ else
-      ((klUpper (empMean A R a n ω)
-        (ENNReal.ofReal (log (1 + (n + 1) * log (n + 1) ^ 2) / pullCount A a n ω)) : ℝ) :
-          EReal) := by
-  rw [klucbIndex_def, ← pullCount_eq_pullCount', ← empMean_eq_empMean']
+  · rw [klucbFamIndex_of_pullCount'_ne_zero h0, klucbIndex_of_pullCount'_ne_zero h0,
+      expFamilyUpper_bernoulliMeasure_sigmoid η₀ hμ]
 
 end Index
 
@@ -163,18 +246,100 @@ section Algorithm
 variable {α : Type*} [Fintype α] [Nonempty α] [DecidableEq α] [MeasurableSpace α]
   [MeasurableSingletonClass α]
 
-/-- The KL-UCB algorithm [LS, Algorithm 8] for rewards in `[0, 1]`: the index policy with index
-`klucbIndex`, which plays at round `n` an arm of maximal index, ties being broken by LML's
-`argmax`. -/
-noncomputable def klucb : Algorithm Unit α ℝ :=
-  indexAlgorithm (fun n x ↦ klucbIndex n x.1) fun n ↦ (measurable_klucbIndex n).comp measurable_fst
+/-- The KL-UCB algorithm for the exponential families `ρ a` of real rewards [LS, Algorithm 8;
+GC11, Section 4; CGMMS13]: the index policy with index `klucbFamIndex ρ`, which plays at round `n`
+an arm of maximal index, ties being broken by LML's `argmax`. Each arm `a` has its own family, the
+exponential family of `ρ a` with the identity statistic. -/
+noncomputable def klucbFam (ρ : α → Measure ℝ) : Algorithm Unit α ℝ :=
+  indexAlgorithm (fun n x ↦ klucbFamIndex ρ n x.1)
+    fun n ↦ (measurable_klucbFamIndex ρ n).comp measurable_fst
 
-/-- The KL-UCB algorithm is the index policy with index `klucbIndex`. -/
-lemma klucb_def :
-    klucb (α := α) =
-      indexAlgorithm (fun n x ↦ klucbIndex n x.1)
-        fun n ↦ (measurable_klucbIndex n).comp measurable_fst :=
+/-- The KL-UCB algorithm for the families `ρ` is the index policy with index `klucbFamIndex ρ`. -/
+lemma klucbFam_def (ρ : α → Measure ℝ) :
+    klucbFam ρ =
+      indexAlgorithm (fun n x ↦ klucbFamIndex ρ n x.1)
+        fun n ↦ (measurable_klucbFamIndex ρ n).comp measurable_fst :=
   (rfl)
+
+/-- The asymptotically optimal UCB algorithm `ucbF σ2` [LS, Algorithm 6] is the KL-UCB algorithm
+for the Gaussian family of variance `σ2 ≠ 0` on every arm, generated by any of its members
+`𝒩(m, σ2)`. -/
+theorem klucbFam_gaussianReal (m : ℝ) {σ2 : ℝ≥0} (hσ2 : σ2 ≠ 0) :
+    klucbFam (fun _ : α ↦ gaussianReal m σ2) = ucbF σ2 := by
+  have h_index (n : ℕ) (h : Hist Unit α ℝ n) (a : α) :
+      klucbFamIndex (fun _ ↦ gaussianReal m σ2) n h a = ucbFIndex σ2 n h a := by
+    by_cases h0 : pullCount' n h a = 0
+    · simp [h0]
+    have hL : 0 ≤ log (1 + (n + 1) * log (n + 1) ^ 2) / pullCount' n h a :=
+      div_nonneg (log_nonneg (by nlinarith [sq_nonneg (log (n + 1))])) (Nat.cast_nonneg _)
+    rw [klucbFamIndex_of_pullCount'_ne_zero h0, ucbFIndex_of_pullCount'_ne_zero h0,
+      expFamilyUpper_ofReal_gaussianReal m hσ2 _ hL, mul_div_assoc]
+  rw [klucbFam_def, ucbF_def]
+  congr 1
+  exact funext fun n ↦ funext fun x ↦ funext (h_index n x.1)
+
+/-- The KL-UCB algorithm [LS, Algorithm 8] for rewards in `[0, 1]`: the KL-UCB algorithm for the
+Bernoulli family on every arm, generated by the fair coin `Ber((1 : ℝ), 0, sigmoid 0)`. At
+empirical means in `[0, 1]`, its index is the index `klucbIndex` of [LS, Algorithm 8]
+(`klucbFamIndex_bernoulliMeasure_sigmoid`). -/
+noncomputable def klucb : Algorithm Unit α ℝ :=
+  klucbFam fun _ ↦ Ber((1 : ℝ), 0, unitInterval.sigmoid 0)
+
+/-- The KL-UCB algorithm for rewards in `[0, 1]` is the KL-UCB algorithm for the Bernoulli
+family. -/
+lemma klucb_def : klucb (α := α) = klucbFam fun _ ↦ Ber((1 : ℝ), 0, unitInterval.sigmoid 0) :=
+  (rfl)
+
+namespace KLUCBFam
+
+variable {Ω : Type*} {mΩ : MeasurableSpace Ω} {env : Environment Unit α ℝ} {ρ : α → Measure ℝ}
+  {P : Measure Ω} [IsFiniteMeasure P] {O : ℕ → Ω → Unit} {A : ℕ → Ω → α} {R : ℕ → Ω → ℝ}
+
+/-- If the upper confidence levels of the families are finite at finite budgets, the KL-UCB
+algorithm pulls every arm exactly once during the first `Fintype.card α` rounds. -/
+lemma pullCount_card_eq_one (h : IsAlgEnvSeq O A R (klucbFam ρ) env P)
+    (hρ : ∀ a x c, c ≠ ⊤ → (ρ a).expFamilyUpper id x c ≠ ⊤) :
+    ∀ᵐ ω ∂P, ∀ a, pullCount A a (Fintype.card α) ω = 1 := by
+  rw [klucbFam_def] at h
+  exact IndexAlgorithm.pullCount_card_eq_one h fun _ _ _ ↦ klucbFamIndex_eq_top_iff hρ
+
+/-- The decomposition of the expected number of pulls of an arm `a` by the KL-UCB algorithm for
+the families `ρ`, as in the proofs of [LS, Theorem 10.6; GC11; CGMMS13]. For every arm `b`
+(typically an optimal arm) and every mean `c` of the family of `a` (typically `μ* - ε`),
+`E[T_a(n)]` is at most the sum over the rounds `t < n` of the probabilities that `b` has been
+pulled with index `U_{ρ b}(μ̂_b, log f(t + 1) / T_b)` at most `c`, plus the sum over `t < n` of the
+probabilities that `a` is played at round `t` while either it has not been pulled yet, or
+`c ≤ μ̂_a`, or `dbar_{ρ a}(μ̂_a, c) ≤ log f(n) / T_a`. The exploration level `log f(t + 1)` of
+round `t` is bounded by that of the horizon `n` in the second sum, so that the event only depends
+on `T_a` and `μ̂_a`. -/
+theorem integral_pullCount_le_sum_add_sum (h : IsAlgEnvSeq O A R (klucbFam ρ) env P) (a b : α)
+    {c : ℝ} (hc : c ∈ (ρ a).expFamilyMeans id) (n : ℕ) :
+    ∫ ω, (pullCount A a n ω : ℝ) ∂P ≤
+      ∑ t ∈ range n, P.real {ω | pullCount A b t ω ≠ 0 ∧
+        (ρ b).expFamilyUpper id (empMean A R b t ω)
+          (ENNReal.ofReal (log (1 + (t + 1) * log (t + 1) ^ 2) / pullCount A b t ω)) ≤ c} +
+      ∑ t ∈ range n, P.real {ω | A t ω = a ∧ (pullCount A a t ω = 0 ∨ c ≤ empMean A R a t ω ∨
+        (ρ a).expFamilyRate id (empMean A R a t ω) c ≤
+          ENNReal.ofReal (log (1 + n * log n ^ 2) / pullCount A a t ω))} := by
+  rw [klucbFam_def] at h
+  refine (IndexAlgorithm.integral_pullCount_le_sum_add_sum h a b c n).trans
+    (add_le_add (sum_le_sum fun t _ ↦ le_of_eq ?_) (sum_le_sum fun t ht ↦ measureReal_mono ?_))
+  · simp only [klucbFamIndex_history, apply_ite (· ≤ (c : EReal)), top_le_iff, EReal.coe_ne_top,
+      ite_false_left, ne_eq]
+  · -- The exploration level `log f(t + 1)` of round `t < n` is at most `log f(n)`.
+    have htn : t + 1 ≤ n := mem_range.mp ht
+    have hlog : log (1 + (t + 1) * log (t + 1) ^ 2) ≤ log (1 + n * log n ^ 2) :=
+      monotoneOn_log_one_add_mul_log_sq (by simp) (Nat.one_le_cast.2 (by omega))
+        (by exact_mod_cast htn)
+    intro ω hω
+    simp only [Set.mem_ofPred_eq, klucbFamIndex_history] at hω ⊢
+    refine ⟨hω.1, ?_⟩
+    split_ifs at hω with h0
+    · exact Or.inl h0
+    · refine Or.inr (Measure.le_or_expFamilyRate_le_of_lt_expFamilyUpper hc (hω.2.trans_le ?_))
+      exact Measure.monotone_expFamilyUpper _ _ _ (ENNReal.ofReal_le_ofReal (by gcongr))
+
+end KLUCBFam
 
 namespace KLUCB
 
@@ -186,42 +351,46 @@ rounds. -/
 lemma pullCount_card_eq_one (h : IsAlgEnvSeq O A R klucb env P) :
     ∀ᵐ ω ∂P, ∀ a, pullCount A a (Fintype.card α) ω = 1 := by
   rw [klucb_def] at h
-  exact IndexAlgorithm.pullCount_card_eq_one h fun _ _ _ ↦ klucbIndex_eq_top_iff
+  refine KLUCBFam.pullCount_card_eq_one h fun _ _ _ _ ↦
+    Measure.expFamilyUpper_ne_top_of_bddAbove ?_
+  rw [expFamilyMeans_bernoulliMeasure_sigmoid]
+  exact bddAbove_Ioo
 
-/-- The decomposition of the expected number of pulls of an arm `a` by the KL-UCB algorithm, in
-the proof of [LS, Theorem 10.6]. For every arm `b` (typically an optimal arm) and every threshold
-`c` (typically `μ* - ε`), `E[T_a(n)]` is at most the sum over the rounds `t < n` of the
-probabilities that `b` has been pulled with index `U(μ̂_b, log f(t + 1) / T_b)` at most `c`, plus
-the sum over `t < n` of the probabilities that `a` is played at round `t` while either it has not
-been pulled yet, or `c ≤ μ̂_a`, or `c ≤ 1` and `d(μ̂_a, c) ≤ log f(n) / T_a`. The exploration level
-`log f(t + 1)` of round `t` is bounded by that of the horizon `n` in the second sum, so that the
-event only depends on `T_a` and `μ̂_a`. -/
-theorem integral_pullCount_le_sum_add_sum (h : IsAlgEnvSeq O A R klucb env P) (a b : α)
-    (c : ℝ) (n : ℕ) :
+/-- The decomposition of the expected number of pulls of an arm `a` by the KL-UCB algorithm for
+rewards in `[0, 1]`, in the proof of [LS, Theorem 10.6]. For every arm `b` (typically an optimal
+arm) and every threshold `c ∈ (0, 1)` (typically `μ* - ε`), `E[T_a(n)]` is at most the sum over
+the rounds `t < n` of the probabilities that `b` has been pulled with index
+`U(μ̂_b, log f(t + 1) / T_b)` at most `c`, plus the sum over `t < n` of the probabilities that `a`
+is played at round `t` while either it has not been pulled yet, or `c ≤ μ̂_a`, or
+`d(μ̂_a, c) ≤ log f(n) / T_a`. This is `KLUCBFam.integral_pullCount_le_sum_add_sum` for the
+Bernoulli family, whose confidence levels and divergences are `klUpper` and `klBer` at the
+empirical means, which lie in `[0, 1]`. -/
+theorem integral_pullCount_le_sum_add_sum (h : IsAlgEnvSeq O A R klucb env P)
+    (hR : ∀ᵐ ω ∂P, ∀ t, R t ω ∈ Set.Icc 0 1) (a b : α) {c : ℝ} (hc : c ∈ Set.Ioo 0 1)
+    (n : ℕ) :
     ∫ ω, (pullCount A a n ω : ℝ) ∂P ≤
       ∑ t ∈ range n, P.real {ω | pullCount A b t ω ≠ 0 ∧
         klUpper (empMean A R b t ω)
           (ENNReal.ofReal (log (1 + (t + 1) * log (t + 1) ^ 2) / pullCount A b t ω)) ≤ c} +
       ∑ t ∈ range n, P.real {ω | A t ω = a ∧ (pullCount A a t ω = 0 ∨ c ≤ empMean A R a t ω ∨
-        c ≤ 1 ∧ klBer (empMean A R a t ω) c ≤
+        klBer (empMean A R a t ω) c ≤
           ENNReal.ofReal (log (1 + n * log n ^ 2) / pullCount A a t ω))} := by
   rw [klucb_def] at h
-  refine (IndexAlgorithm.integral_pullCount_le_sum_add_sum h a b c n).trans
-    (add_le_add (sum_le_sum fun t _ ↦ le_of_eq ?_) (sum_le_sum fun t ht ↦ measureReal_mono ?_))
-  · simp only [klucbIndex_history, apply_ite (· ≤ (c : EReal)), top_le_iff, EReal.coe_ne_top,
-      ite_false_left, EReal.coe_le_coe_iff, ne_eq]
-  · -- The exploration level `log f(t + 1)` of round `t < n` is at most `log f(n)`.
-    have htn : t + 1 ≤ n := mem_range.mp ht
-    have hlog : log (1 + (t + 1) * log (t + 1) ^ 2) ≤ log (1 + n * log n ^ 2) :=
-      monotoneOn_log_one_add_mul_log_sq (by simp) (Nat.one_le_cast.2 (by omega))
-        (by exact_mod_cast htn)
-    intro ω hω
-    simp only [Set.mem_ofPred_eq, klucbIndex_history] at hω ⊢
-    refine ⟨hω.1, ?_⟩
-    split_ifs at hω with h0
-    · exact Or.inl h0
-    · refine Or.inr (le_or_klBer_le_of_le_klUpper ((EReal.coe_lt_coe_iff.mp hω.2).le.trans ?_))
-      exact monotone_klUpper _ (ENNReal.ofReal_le_ofReal (by gcongr))
+  have hc' : c ∈ Ber((1 : ℝ), 0, unitInterval.sigmoid 0).expFamilyMeans id := by
+    rwa [expFamilyMeans_bernoulliMeasure_sigmoid]
+  -- Almost surely, every empirical mean lies in `[0, 1]`.
+  have hμ : ∀ᵐ ω ∂P, ∀ b t, empMean A R b t ω ∈ Set.Icc 0 1 := by
+    filter_upwards [hR] with ω hω b t
+    by_cases h0 : pullCount A b t ω = 0
+    · simp [empMean, h0]
+    · exact empMean_mem_Icc (fun s _ ↦ hω s) h0
+  refine (KLUCBFam.integral_pullCount_le_sum_add_sum h a b hc' n).trans_eq
+    (congrArg₂ (· + ·) (sum_congr rfl fun t _ ↦ measureReal_congr ?_)
+      (sum_congr rfl fun t _ ↦ measureReal_congr ?_))
+  · filter_upwards [hμ] with ω hω
+    simp only [expFamilyUpper_bernoulliMeasure_sigmoid 0 (hω b t), EReal.coe_le_coe_iff]
+  · filter_upwards [hμ] with ω hω
+    simp only [expFamilyRate_bernoulliMeasure_sigmoid 0 (hω a t) hc]
 
 end KLUCB
 
@@ -259,9 +428,10 @@ theorem KLUCB.integral_pullCount_le (h : IsAlgEnvSeq O A R klucb (Environment.ba
           (ENNReal.ofReal (log (1 + (t + 1) * log (t + 1) ^ 2) / pullCount A (bestArm ν) t ω)) ≤
             μs - ε₂} +
       ∑ t ∈ range n, P.real {ω | A t ω = a ∧ (pullCount A a t ω = 0 ∨
-        μs - ε₂ ≤ empMean A R a t ω ∨ μs - ε₂ ≤ 1 ∧
+        μs - ε₂ ≤ empMean A R a t ω ∨
           klBer (empMean A R a t ω) (μs - ε₂) ≤ ENNReal.ofReal (L / pullCount A a t ω))} :=
-    KLUCB.integral_pullCount_le_sum_add_sum h a (bestArm ν) (μs - ε₂) n
+    KLUCB.integral_pullCount_le_sum_add_sum h (h.ae_forall_feedback_mem_bandit measurableSet_Icc hν)
+      a (bestArm ν) ⟨by linarith [(hμ a).1], by linarith⟩ n
   _ ≤ 3 / (4 * ε₂ ^ 2) + (1 + L / klBerReal ((ν a)[id] + ε₁) (μs - ε₂) + 1 / (2 * ε₁ ^ 2)) :=
     add_le_add (sum_measureReal_pullCount_ne_zero_and_klUpper_le_le h (bestArm ν) (hν _) hε₂ n)
       (sum_measureReal_action_eq_and_pullCount_eq_zero_or_le_empMean_or_klBer_le_le h a (hν a)

@@ -75,6 +75,7 @@ this way.
 * `measure_exists_pullCount_sumRewards_pi_le`, `measure_exists_lt_pullCount_sumRewards_pi_le`,
   `measure_exists_pullCount_sumRewards_le` and `measure_exists_lt_pullCount_sumRewards_le`: the
   event transfers for properties of the numbers of pulls and the sums of rewards.
+* `empMean_mem_Icc`: rewards in `[l, u]` give empirical means in `[l, u]`.
 * `sumRewards_le_mul_or_mul_le_sumRewards_of_empMean_notMem_Ioo`: an empirical mean outside
   `(l, u)` is an event `y ≤ s l ∨ s u ≤ y` about the number of pulls `s` and the sum of rewards
   `y`, the form to which the event transfers apply.
@@ -139,6 +140,18 @@ lemma sumRewards_le_mul_or_mul_le_sumRewards_of_empMean_notMem_Ioo {a : α} {t :
   rcases h with h | h
   · exact Or.inl (h.trans_eq (mul_comm _ _))
   · exact Or.inr ((mul_comm _ _).trans_le h)
+
+/-- If the rewards before round `t` lie in `[l, u]`, then the empirical mean before round `t` of an
+arm pulled before round `t` lies in `[l, u]`. -/
+lemma empMean_mem_Icc {a : α} {t : ℕ} {ω : Ω} {l u : ℝ} (hR : ∀ s < t, R s ω ∈ Set.Icc l u)
+    (h0 : pullCount A a t ω ≠ 0) : empMean A R a t ω ∈ Set.Icc l u := by
+  have hpos : (0 : ℝ) < pullCount A a t ω := Nat.cast_pos.2 (Nat.pos_of_ne_zero h0)
+  have hR' (s : ℕ) (hs : s ∈ (range t).filter (fun s ↦ A s ω = a)) : R s ω ∈ Set.Icc l u :=
+    hR s (mem_range.1 (mem_filter.1 hs).1)
+  rw [empMean, sumRewards, ← sum_filter, Set.mem_Icc, le_div_iff₀ hpos, div_le_iff₀ hpos]
+  constructor
+  · simpa [pullCount, mul_comm] using card_nsmul_le_sum _ (fun s ↦ R s ω) l fun s hs ↦ (hR' s hs).1
+  · simpa [pullCount, mul_comm] using sum_le_card_nsmul _ (fun s ↦ R s ω) u fun s hs ↦ (hR' s hs).2
 
 /-- The observations of arm `a` before round `t`, in the order of the pulls: the entry `i` is the
 feedback `Y` at the round `stepsUntil A a (i + 1) ω < t` of the `(i + 1)`-th pull of `a`. -/
