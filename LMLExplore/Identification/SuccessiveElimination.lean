@@ -7,7 +7,7 @@ module
 
 public import LMLExplore.Bandits.IndexAlgorithm
 public import LMLExplore.Identification.ConfidenceBound
-public import LMLExplore.Identification.Task.Classical
+public import LMLExplore.Identification.Task.RealLaws
 public import LMLExplore.SequentialLearning.SubGaussianDeviation
 
 /-!
@@ -68,8 +68,12 @@ In the namespace `LMLExplore.Identification`:
   in closed form: if `μ_a - μ_b ≥ Δ > 0` for every arm `b ≠ a`, successive elimination stops
   after more than `N(Δ) + ∑_{b ≠ a} N(μ_a - μ_b)` rounds with probability at most `δ`, for
   `N = pullBound σ2 (log (K / δ))` [EMM02, Theorem 3].
-* `isDeltaCorrect_successiveEliminationOfRate`: for σ²-sub-Gaussian arms, successive elimination
-  with that rate is `δ`-correct for best arm identification [EMM02, Theorem 3].
+* `measureReal_histOutputMeasure_successiveEliminationOfRate_notMem_or_le`: for σ²-sub-Gaussian
+  arms with a unique best arm `a⋆`, successive elimination with that rate does not stop, or stops
+  with an arm other than `a⋆`, with probability at most `δ`.
+* `isDeltaCorrect_successiveEliminationOfRate`: successive elimination with that rate is
+  `δ`-correct for best arm identification on every bandit with σ²-sub-Gaussian arms, the
+  restriction of `baiTask lawBandit lawMean` to the σ²-sub-Gaussian laws [EMM02, Theorem 3].
 
 ## Implementation notes
 
@@ -650,56 +654,52 @@ theorem measureReal_pullBound_add_sum_lt_stoppingTime_successiveEliminationOfRat
   linarith [h_lt hu, h_lt (hu.trans huv)]
 
 omit [IsProbabilityMeasure P] in
-/-- **Successive elimination is `δ`-correct** for best arm identification with σ²-sub-Gaussian
-arms [EMM02, Theorem 3; EMM06, Theorem 8]. Let the arms of every model `μ` be σ²-sub-Gaussian with
-means `μ`, with `σ² ≠ 0`, and let `0 < δ ≤ K`. On every vector of means with a unique best arm,
-successive elimination with exploration rate `subgaussianRate σ2 (log (K / δ))` stops and outputs
-the best arm with probability at least `1 - δ`. -/
-theorem isDeltaCorrect_successiveEliminationOfRate {ν : (α → ℝ) → Kernel α ℝ}
-    [∀ μ, IsMarkovKernel (ν μ)] (hmean : ∀ μ a, (ν μ a)[id] = μ a) (hσ2 : σ2 ≠ 0)
-    (hν : ∀ μ a, HasSubgaussianMGF (fun x ↦ x - (ν μ a)[id]) σ2 (ν μ a)) (hδ : 0 < δ)
-    (hδK : δ ≤ Fintype.card α) :
-    (baiTask ν id).IsDeltaCorrect (successiveEliminationOfRate
-      (subgaussianRate σ2 (log (Fintype.card α / δ)))) δ := by
+/-- **Error probability of successive elimination for sub-Gaussian arms** [EMM02, Theorem 3;
+EMM06, Theorem 8]. Let the arms of `ν₀` be σ²-sub-Gaussian with `σ² ≠ 0`, let `a` be its unique
+best arm and let `0 < δ ≤ K`. Successive elimination with exploration rate
+`subgaussianRate σ2 (log (K / δ))` does not stop, or stops with an arm other than `a`, with
+probability at most `δ`. -/
+theorem measureReal_histOutputMeasure_successiveEliminationOfRate_notMem_or_le (hσ2 : σ2 ≠ 0)
+    (hν : ∀ a, HasSubgaussianMGF (fun x ↦ x - (ν₀ a)[id]) σ2 (ν₀ a)) (hδ : 0 < δ)
+    (hδK : δ ≤ Fintype.card α) {a : α} (ha : ∀ b ≠ a, (ν₀ b)[id] < (ν₀ a)[id]) :
+    (histOutputMeasure (successiveEliminationOfRate
+        (subgaussianRate σ2 (log (Fintype.card α / δ)))) (Environment.bandit ν₀)).real
+      {p | p.1 ∉ (successiveEliminationOfRate
+        (subgaussianRate σ2 (log (Fintype.card α / δ)))).stopSet ∨ p.2 ∉ ({a} : Set α)} ≤ δ := by
   set β := subgaussianRate σ2 (log (Fintype.card α / δ))
-  refine IdentTask.isDeltaCorrect_iff.2 fun μ hμ ↦ ?_
-  simp only [M_baiTask, id_eq, Set.mem_ofPred_eq] at hμ
-  obtain ⟨a, ha⟩ := hμ
-  have ha' (b : α) : μ b ≤ μ a := by
+  have ha' (b : α) : (ν₀ b)[id] ≤ (ν₀ a)[id] := by
     rcases eq_or_ne b a with rfl | hba
     exacts [le_rfl, (ha b hba).le]
-  have h_correct : (baiTask ν id).correct μ = {a} := (correct_baiTask_eq_singleton_iff ν id).2 ha
   -- A number of pulls `T₀` beyond which `4 β(u) < μ_a - μ_b` for every arm `b ≠ a`.
-  obtain ⟨T₀, hT₀⟩ : ∃ T₀, ∀ u ≥ T₀, ∀ b, b ≠ a → 4 * β u < μ a - μ b := by
+  obtain ⟨T₀, hT₀⟩ : ∃ T₀, ∀ u ≥ T₀, ∀ b, b ≠ a → 4 * β u < (ν₀ a)[id] - (ν₀ b)[id] := by
     refine eventually_atTop.1 (eventually_all.2 fun b ↦ ?_)
     by_cases hba : b = a
     · exact .of_forall fun _ h ↦ absurd hba h
-    · have hpos : 0 < (μ a - μ b) / 4 := by linarith [ha b hba]
+    · have hpos : 0 < ((ν₀ a)[id] - (ν₀ b)[id]) / 4 := by linarith [ha b hba]
       have h_lim : Tendsto β atTop (𝓝 0) := tendsto_subgaussianRate_atTop σ2 _
       filter_upwards [(tendsto_order.1 h_lim).2 _ hpos] with u hu _
       linarith
   have hT : ∀ b ≠ a, ∀ u v, min (max T₀ 1) (max T₀ 1) ≤ u → u ≤ v →
-      2 * β u + 2 * β v < μ a - μ b :=
+      2 * β u + 2 * β v < (ν₀ a)[id] - (ν₀ b)[id] :=
     fun b hb u v hu huv ↦ by
       rw [min_self] at hu
       have h1 := hT₀ u (le_of_max_le_left hu) b hb
       have h2 := hT₀ v ((le_of_max_le_left hu).trans huv) b hb
       linarith
   -- The bound in the canonical model of the sampling rule.
-  simp only [ν_baiTask, h_correct]
   have hseq := IT.isAlgEnvSeq_trajMeasure (successiveEliminationOfRate β).alg
-    (Environment.bandit (ν μ))
+    (Environment.bandit ν₀)
   have hP : IsProbabilityMeasure
-      (trajMeasure (successiveEliminationOfRate β).alg (Environment.bandit (ν μ))) :=
+      (trajMeasure (successiveEliminationOfRate β).alg (Environment.bandit ν₀)) :=
     inferInstanceAs (IsProbabilityMeasure (trajMeasure _ _))
   refine (measureReal_histOutputMeasure_successiveElimination_notMem_or_le hseq
     (measurableSet_singleton a)).trans (le_trans ?_
-    (measureReal_exists_exists_subgaussianRate_lt_abs_empMean_sub_le hseq hσ2 (hν μ) hδ hδK))
+    (measureReal_exists_exists_subgaussianRate_lt_abs_empMean_sub_le hseq hσ2 hν hδ hδK))
   refine ENNReal.toReal_mono (measure_ne_top _ _) (measure_mono_ae ?_)
   filter_upwards [ae_action_eq_argmax_index hseq] with ω hX hω
   -- On the event where all the confidence intervals hold, the algorithm stops with the answer `a`.
   by_contra h_good
-  simp only [not_exists, not_and, not_lt, hmean] at h_good
+  simp only [not_exists, not_and, not_lt] at h_good
   rcases hω with h_never | ⟨n, h_stop, h_wrong⟩
   · obtain ⟨n, -, hτ, -⟩ := exists_stoppingTime_successiveEliminationOfRate_eq
       (T := fun _ ↦ max T₀ 1) ha' hT
@@ -709,6 +709,25 @@ theorem isDeltaCorrect_successiveEliminationOfRate {ν : (α → ℝ) → Kernel
   · exact SuccessiveElimination.not_isEliminated_history ha'
       (fun _ _ hb ↦ (SuccessiveElimination.mem_and_le_of_abs_empMean_sub_le h_good hb).1) n
       (SuccessiveElimination.isEliminated_of_stopRule h_stop h_wrong)
+
+/-- **Successive elimination is `δ`-correct** for best arm identification with σ²-sub-Gaussian
+arms [EMM02, Theorem 3; EMM06, Theorem 8]. For `σ² ≠ 0` and `0 < δ ≤ K`, on every bandit whose
+arms are σ²-sub-Gaussian and which has a unique best arm, successive elimination with exploration
+rate `subgaussianRate σ2 (log (K / δ))` stops and outputs the best arm with probability at least
+`1 - δ`. -/
+theorem isDeltaCorrect_successiveEliminationOfRate (hσ2 : σ2 ≠ 0) (hδ : 0 < δ)
+    (hδK : δ ≤ Fintype.card α) :
+    ((baiTask (lawBandit (α := α)) lawMean).restrict
+      (Set.univ.pi fun _ ↦ subgaussianLaws σ2)).IsDeltaCorrect (successiveEliminationOfRate
+        (subgaussianRate σ2 (log (Fintype.card α / δ)))) δ := by
+  refine IdentTask.isDeltaCorrect_iff.2 fun θ hθ ↦ ?_
+  rw [IdentTask.M_restrict, M_baiTask] at hθ
+  obtain ⟨⟨a, ha⟩, hθ⟩ := hθ
+  simp only [IdentTask.ν_restrict, ν_baiTask, IdentTask.correct_restrict,
+    (correct_baiTask_eq_singleton_iff _ _).2 ha]
+  simp only [lawMean_eq_integral_lawBandit] at ha
+  exact measureReal_histOutputMeasure_successiveEliminationOfRate_notMem_or_le hσ2
+    (fun b ↦ by simpa using hθ b (Set.mem_univ b)) hδ hδK ha
 
 end Rate
 
