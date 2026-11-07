@@ -63,8 +63,8 @@ inequality on the mean.
 * `LMLExplore.Identification.iInf_cost_baiTask_productBandit`,
   `LMLExplore.Identification.iInf_cost_topMTask_productBandit`,
   `LMLExplore.Identification.iInf_cost_thresholdingTask_productBandit`: the infimum of the cost over
-  the closed sets of models that contain the alternatives of best arm identification, top-`m`
-  identification and thresholding, as minima of `K⁻`/`K⁺` costs.
+  the sets of models, defined by non-strict mean inequalities, that contain the alternatives of best
+  arm identification, top-`m` identification and thresholding, as minima of `K⁻`/`K⁺` costs.
 * `LMLExplore.Identification.le_altCost_baiTask_productBandit_restrict`,
   `LMLExplore.Identification.le_altCost_topMTask_productBandit_restrict`,
   `LMLExplore.Identification.le_altCost_thresholdingTask_productBandit_restrict`: these minima are
@@ -116,7 +116,7 @@ lemma productBandit_apply (κ : α → Θ₀ → Measure 𝓨) (θ : α → Θ�
 
 instance isMarkovKernel_productBandit (κ : α → Θ₀ → Measure 𝓨)
     [∀ a x, IsProbabilityMeasure (κ a x)] (θ : α → Θ₀) : IsMarkovKernel (productBandit κ θ) :=
-  ⟨fun a ↦ by rw [productBandit_apply]; infer_instance⟩
+  inferInstanceAs (IsMarkovKernel (Kernel.ofFunOfCountable _))
 
 /-- The Gaussian bandit with common variance `σ2` is the product model of the Gaussian laws of
 variance `σ2`, parametrized by their means. -/
@@ -377,8 +377,9 @@ variable [Fintype α] [MeasurableSingletonClass α] {κ : α → Θ₀ → Measu
 /-- **The cost of the alternatives of best arm identification on a product model**
 [AJG20; JDK23a, (1)]. For an admissible model `θ` and an allocation with positive entries, the
 infimum of the transportation cost over the admissible models in which some arm `b ≠ a` is at least
-as good as `a` is `min_{b ≠ a} inf_u (w a K⁻_a(θ a, u) + w b K⁺_b(θ b, u))`. This closed set of
-models contains the alternatives to `a` (`le_altCost_baiTask_productBandit_restrict`). -/
+as good as `a` is `min_{b ≠ a} inf_u (w a K⁻_a(θ a, u) + w b K⁺_b(θ b, u))`. This set of models
+(defined by non-strict inequalities) contains the alternatives to `a`
+(`le_altCost_baiTask_productBandit_restrict`). -/
 theorem iInf_cost_baiTask_productBandit (hθ : θ ∈ univ.pi S) (hw : ∀ c, 0 < w c) (a : α) :
     ⨅ θ' ∈ {θ' | θ' ∈ univ.pi S ∧ ∃ b ≠ a, m a (θ' a) ≤ m b (θ' b)},
         (baiTask (productBandit κ) fun θ c ↦ m c (θ c)).cost w θ θ' =
@@ -395,8 +396,9 @@ theorem iInf_cost_baiTask_productBandit (hθ : θ ∈ univ.pi S) (hw : ∀ c, 0 
 /-- **The cost of the alternatives of top-`m` identification on a product model.** For an
 admissible model `θ`, a set `s` of arms and an allocation with positive entries, the infimum of the
 transportation cost over the admissible models in which some arm `b ∉ s` is at least as good as
-some arm `a ∈ s` is `min_{a ∈ s, b ∉ s} inf_u (w a K⁻_a(θ a, u) + w b K⁺_b(θ b, u))`. This closed
-set of models contains the alternatives to `s` (`le_altCost_topMTask_productBandit_restrict`). -/
+some arm `a ∈ s` is `min_{a ∈ s, b ∉ s} inf_u (w a K⁻_a(θ a, u) + w b K⁺_b(θ b, u))`. This set
+of models (defined by non-strict inequalities) contains the alternatives to `s`
+(`le_altCost_topMTask_productBandit_restrict`). -/
 theorem iInf_cost_topMTask_productBandit (hθ : θ ∈ univ.pi S) (hw : ∀ c, 0 < w c) (k : ℕ)
     (s : Finset α) :
     ⨅ θ' ∈ {θ' | θ' ∈ univ.pi S ∧ ∃ a ∈ s, ∃ b ∉ s, m a (θ' a) ≤ m b (θ' b)},
@@ -418,7 +420,7 @@ theorem iInf_cost_topMTask_productBandit (hθ : θ ∈ univ.pi S) (hw : ∀ c, 0
 `θ`, a set `s` of arms and an allocation with positive entries, the infimum of the transportation
 cost over the admissible models in which some arm of `s` has mean at most `γ` or some arm outside
 `s` has mean at least `γ` is `min (min_{a ∈ s} w a K⁻_a(θ a, γ)) (min_{a ∉ s} w a K⁺_a(θ a, γ))`.
-This closed set of models contains the alternatives to `s`
+This set of models (defined by non-strict inequalities) contains the alternatives to `s`
 (`le_altCost_thresholdingTask_productBandit_restrict`). -/
 theorem iInf_cost_thresholdingTask_productBandit (hθ : θ ∈ univ.pi S) (hw : ∀ c, 0 < w c)
     (γ : ℝ) (s : Finset α) :
