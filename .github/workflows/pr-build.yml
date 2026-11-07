@@ -27,9 +27,11 @@ permissions:
   actions: read
 jobs:
   validate:
-    # Temporary: the pinned workflow plus TauCetiProject/TauCetiTools#114, so that PRs from forks
-    # can be checked out. Return to TauCetiProject/TauCetiTools once the pin includes that fix.
-    uses: RemyDegenne/TauCetiTools/.github/workflows/pr-build.yml@a48245cc90a0cb8bdca3c59eb170e350161e4d1a
+    # Temporary: the pinned workflow plus two fixes on RemyDegenne/TauCetiTools (tag
+    # `lmlexplore-repair-bot-login`): TauCetiProject/TauCetiTools#114, so that PRs from forks can
+    # be checked out, and the `repair_bot_login` input, so that the lint repair PRs of our own app
+    # are built. Return to TauCetiProject/TauCetiTools once the pin includes both.
+    uses: RemyDegenne/TauCetiTools/.github/workflows/pr-build.yml@a7f0dd779c91e31c677f3695980ea8bc5d957206
     with:
       pr: ${{ inputs.pr || '' }}
       tools_repository: TauCetiProject/TauCetiTools
@@ -37,6 +39,8 @@ jobs:
       project_ref: ${{ github.workflow_sha }}
       lean_root: LMLExplore
       roadmap_dir: LMLRoadmaps
+      # The app of `APP_ID`, which opens the lint repair PRs (lint-full.yml).
+      repair_bot_login: lmlexplore-automation[bot]
     secrets:
       APP_ID: ${{ secrets.APP_ID }}
       APP_PRIVATE_KEY: ${{ secrets.APP_PRIVATE_KEY }}
