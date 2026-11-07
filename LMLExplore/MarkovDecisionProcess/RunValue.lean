@@ -8,6 +8,7 @@ module
 public import LMLExplore.MarkovDecisionProcess.Bellman
 public import LMLExplore.MarkovDecisionProcess.MarkovPolicy
 public import LMLExplore.MeasureTheory.Integral.DominatedConvergence
+public import LMLExplore.Probability.MarkovChain.DiscountedReturn
 public import LMLExplore.SequentialLearning.Algorithm
 
 /-!
@@ -140,28 +141,15 @@ lemma optQValue_eq_lookahead : M.optQValue γ = M.lookahead γ (M.optValue γ) :
 
 /-! ### Bounds -/
 
-omit [Nonempty 𝓢] in
-/-- With rewards bounded by `C`, the discounted sums of the mean rewards along a trajectory are
-bounded by `C / (1 - γ)`. -/
-private lemma abs_tsum_meanReward_le (hγ : γ < 1) (hR : ∀ p, ∀ᵐ x ∂(M.R p), |x| ≤ C)
-    (x : ℕ → 𝓢 × 𝓐) :
-    |∑' n, (γ : ℝ) ^ n * meanReward M.R (x n)| ≤ C / (1 - γ) := by
-  have h_le (n : ℕ) : ‖(γ : ℝ) ^ n * meanReward M.R (x n)‖ ≤ (γ : ℝ) ^ n * C := by
-    rw [norm_mul, norm_pow, NNReal.norm_eq]
-    gcongr
-    exact norm_meanReward_le M.R (hR (x n))
-  have h_geom := (hasSum_geometric_of_lt_one γ.coe_nonneg hγ).mul_right C
-  rw [← Real.norm_eq_abs, div_eq_inv_mul]
-  exact (Summable.of_norm_bounded h_geom.summable h_le).hasSum.norm_le_of_bounded h_geom h_le
-
 /-- With rewards bounded by `C` and `γ < 1`, the discounted value of every algorithm is bounded by
 `C / (1 - γ)` in absolute value. -/
 theorem abs_runValue_le (hγ : γ < 1) (hR : ∀ p, ∀ᵐ x ∂(M.R p), |x| ≤ C)
     (alg : Algorithm 𝓢 𝓐 ℝ) (μ : Measure 𝓢) :
     |M.runValue γ alg μ| ≤ C / (1 - γ) := by
   rw [runValue_def]
-  exact abs_integral_le_of_abs_le fun ω ↦
-    abs_tsum_meanReward_le hγ hR fun n ↦ (IT.obs n ω, IT.action n ω)
+  refine abs_integral_le_of_abs_le fun ω ↦ ?_
+  rw [← discountedReturn_def γ (meanReward M.R) fun n ↦ (IT.obs n ω, IT.action n ω)]
+  exact abs_discountedReturn_le hγ (abs_meanReward_le hR) _
 
 /-- With rewards bounded by `C` and a terminal reward bounded by `B`, the `N`-step return with
 discount `γ` of every algorithm is bounded by `(∑ n < N, γ ^ n) * C + γ ^ N * B` in absolute
