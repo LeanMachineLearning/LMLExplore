@@ -215,24 +215,12 @@ theorem measureReal_pullCount_ne_zero_and_empMean_add_sqrt_le_le
     P.real {ω | pullCount A a t ω ≠ 0 ∧
         empMean A R a t ω + √(2 * σ2 * L / pullCount A a t ω) ≤ (ν a)[id] - ε} ≤
       exp (-L) * ∑ s ∈ range t, exp (-(ε ^ 2 / (2 * σ2) * (s + 1))) := by
-  set p : ℕ → ℝ → Prop := fun s x ↦ s ≠ 0 ∧ x / s + √(2 * σ2 * L / s) ≤ (ν a)[id] - ε with hp_def
-  -- the event of round `t` is the event `p` for the number of pulls and the sum of rewards, which
-  -- is transferred to the reward stream with a union bound over the number of pulls
-  calc P.real {ω | pullCount A a t ω ≠ 0 ∧
-      empMean A R a t ω + √(2 * σ2 * L / pullCount A a t ω) ≤ (ν a)[id] - ε}
-  _ ≤ ∑ s ∈ range t, (streamMeasure ν).real {ω | p (s + 1) (∑ i ∈ range (s + 1), ω i a)} := by
-    refine le_trans (measureReal_mono fun ω hω ↦ ?_)
-      (measureReal_pullCount_sumRewards_le_sum h a p (fun _ h0 ↦ h0.1 rfl) t)
-    simp only [Set.mem_ofPred_eq, empMean] at hω
-    exact hω
-  _ ≤ ∑ s ∈ range t, exp (-L) * exp (-(ε ^ 2 / (2 * σ2) * (s + 1))) := by
-    refine sum_le_sum fun s _ ↦ ?_
-    have h := measureReal_streamMeasure_div_add_sqrt_le_sub_le hν hσ2 hL hε (Nat.succ_ne_zero s)
-    push_cast at h
-    refine le_trans (measureReal_mono (fun ω hω ↦ ?_) (measure_ne_top _ _)) h
-    simp only [hp_def, Set.mem_ofPred_eq, Nat.cast_add_one] at hω
-    exact hω.2
-  _ = exp (-L) * ∑ s ∈ range t, exp (-(ε ^ 2 / (2 * σ2) * (s + 1))) := (mul_sum _ _ _).symm
+  -- the event of round `t` is transferred to the reward stream with a union bound over the
+  -- number of pulls
+  refine (measureReal_pullCount_ne_zero_and_empMean_le_sum h a
+    (fun s x ↦ x + √(2 * σ2 * L / s) ≤ (ν a)[id] - ε)
+    (fun s hs ↦ measureReal_streamMeasure_div_add_sqrt_le_sub_le hν hσ2 hL hε hs) t).trans_eq ?_
+  simp only [mul_sum, Nat.cast_add_one]
 
 /-- **Underestimation of an arm by the index of [LS, Algorithm 6].** In a run of any algorithm
 against the stochastic bandit `Environment.bandit ν`, if arm `a` is σ²-sub-Gaussian with mean `μ_a`
