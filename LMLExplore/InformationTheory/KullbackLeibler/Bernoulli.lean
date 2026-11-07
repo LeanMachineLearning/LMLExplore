@@ -50,6 +50,8 @@ smallest `q ∈ [0, p]` with `d(p, q) ≤ c`; together they are the confidence b
 * `LMLExplore.klDiv_bernoulliMeasure`: `D(Ber(1, 0, p), Ber(1, 0, q)) = klBer p q`.
 * `LMLExplore.klBer_measureReal_le_klDiv`: the data processing inequality
   `d(μ s, ν s) ≤ KL(μ ‖ ν)` for probability measures `μ`, `ν` and a measurable set `s`.
+* `LMLExplore.klBer_integral_le_klDiv`: the data processing inequality
+  `d(∫ x ∂μ, ∫ x ∂ν) ≤ KL(μ ‖ ν)` for probability measures `μ`, `ν` on `[0, 1]`.
 * `LMLExplore.klBer_ne_top_iff`: for `p, q ∈ [0, 1]`, `klBer p q` is finite if and only if
   `q = 0 → p = 0` and `q = 1 → p = 1`.
 * `LMLExplore.klBer_eq_ofReal_klBerReal`, `LMLExplore.toReal_klBer`: for `p, q ∈ [0, 1]`, where it
@@ -171,6 +173,21 @@ theorem klBer_measureReal_le_klDiv {α : Type*} {mα : MeasurableSpace α} {μ �
       = klDiv (μ.map (s.indicator 1)) (ν.map (s.indicator 1)) := by
         rw [hμ.map_eq, hν.map_eq, klDiv_bernoulliMeasure]
     _ ≤ klDiv μ ν := klDiv_map_le μ ν (measurable_const.indicator hs)
+
+/-- **Data processing inequality** for laws on `[0, 1]`: for probability measures `μ` and `ν` on
+`ℝ` supported on `[0, 1]`, the binary relative entropy of their means is at most their relative
+entropy, `d(∫ x ∂μ, ∫ x ∂ν) ≤ KL(μ ‖ ν)`. The Markov kernel sending `x` to the Bernoulli law of
+mean `x` maps `μ` and `ν` to the Bernoulli laws of their means. -/
+theorem klBer_integral_le_klDiv {μ ν : Measure ℝ} [IsProbabilityMeasure μ]
+    [IsProbabilityMeasure ν] (hμ : ∀ᵐ x ∂μ, x ∈ Set.Icc 0 1) (hν : ∀ᵐ x ∂ν, x ∈ Set.Icc 0 1) :
+    klBer μ[id] ν[id] ≤ klDiv μ ν := by
+  let κ : Kernel ℝ ℝ := ⟨fun x ↦ Ber((1 : ℝ), 0, Set.projIcc 0 1 zero_le_one x),
+    (TauCeti.Probability.measurable_bernoulliMeasure _ _).comp continuous_projIcc.measurable⟩
+  have : IsMarkovKernel κ := ⟨fun _ ↦ inferInstanceAs (IsProbabilityMeasure Ber(_, _, _))⟩
+  calc klBer μ[id] ν[id] = klDiv (κ ∘ₘ μ) (κ ∘ₘ ν) := by
+        rw [klBer_def, ← bind_bernoulliMeasure_projIcc hμ, ← bind_bernoulliMeasure_projIcc hν,
+          Kernel.coe_mk]
+    _ ≤ klDiv μ ν := klDiv_comp_right_le μ ν κ
 
 @[simp]
 theorem klBer_self (p : ℝ) : klBer p p = 0 := by

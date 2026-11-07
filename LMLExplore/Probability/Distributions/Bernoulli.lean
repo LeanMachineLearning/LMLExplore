@@ -5,9 +5,11 @@ Authors: Rémy Degenne
 -/
 module
 
+public import Mathlib.Analysis.Convex.Integral
 public import Mathlib.Probability.Moments.SubGaussian
 public import Mathlib.Probability.Distributions.Bernoulli
 public import LMLExplore.Topology.UnitInterval
+public import TauCeti.Probability.Distributions.Bernoulli.Measurability
 
 /-!
 # Bernoulli laws: symmetry, absolute continuity, boundedness and sub-Gaussianity
@@ -24,6 +26,11 @@ Hoeffding's lemma (`ProbabilityTheory.hasSubgaussianMGF_of_mem_Icc`), it is
 are the two noise assumptions (rewards in `[0, 1]` and `1 / 4`-sub-Gaussian rewards) under which
 stochastic bandit algorithms are analysed.
 
+Drawing a point `x` from a law `ρ` on `[0, 1]` and then an observation from the Bernoulli law
+`Ber(1, 0, x)` of mean `x` gives an observation with the Bernoulli law of mean `∫ x ∂ρ`: this
+mixture is the Markov kernel through which the data processing inequality compares laws on `[0, 1]`
+with Bernoulli laws of the same means.
+
 ## Main statements
 
 * `ProbabilityTheory.bernoulliMeasure_symm`: `Ber(x, y, 1 - p) = Ber(y, x, p)`.
@@ -37,13 +44,15 @@ stochastic bandit algorithms are analysed.
   `Set.uIcc x y`.
 * `LMLExplore.hasSubgaussianMGF_bernoulliMeasure`: `Ber(x, y, p)` is
   `(|x - y| / 2) ^ 2`-sub-Gaussian around `p x + (1 - p) y`.
+* `LMLExplore.bind_bernoulliMeasure_projIcc`: for a law `ρ` on `[0, 1]`, the mixture of the
+  Bernoulli laws `Ber(1, 0, x)` over `x ∼ ρ` is the Bernoulli law of mean `∫ x ∂ρ`.
 -/
 
 public section
 
 open MeasureTheory ProbabilityTheory
 
-open scoped NNReal ProbabilityTheory unitInterval
+open scoped ENNReal NNReal ProbabilityTheory unitInterval
 
 namespace ProbabilityTheory
 
@@ -130,5 +139,44 @@ lemma hasSubgaussianMGF_bernoulliMeasure (x y : ℝ) (p : I) :
     ext
     simp [max_sub_min_eq_abs']
   simpa only [id_eq, integral_bernoulliMeasure, smul_eq_mul, hc] using h
+
+/-- For a probability measure `ρ` on `ℝ` supported on `[0, 1]`, the mixture of the Bernoulli laws
+`Ber(1, 0, x)` over `x ∼ ρ` is the Bernoulli law of mean `∫ x ∂ρ`. The parameters are clamped to
+`[0, 1]` by `Set.projIcc`, so that `x ↦ Ber(1, 0, x)` is defined on all of `ℝ`. -/
+theorem bind_bernoulliMeasure_projIcc {ρ : Measure ℝ} [IsProbabilityMeasure ρ]
+    (hρ : ∀ᵐ x ∂ρ, x ∈ Set.Icc 0 1) :
+    ρ.bind (fun x ↦ Ber((1 : ℝ), 0, Set.projIcc 0 1 zero_le_one x)) =
+      Ber((1 : ℝ), 0, Set.projIcc 0 1 zero_le_one ρ[id]) := by
+  set p : ℝ → I := Set.projIcc 0 1 zero_le_one
+  have hp : Measurable p := continuous_projIcc.measurable
+  have hmeas : Measurable fun x ↦ Ber((1 : ℝ), 0, p x) :=
+    (TauCeti.Probability.measurable_bernoulliMeasure _ _).comp hp
+  have hpi : Integrable (fun x ↦ (p x : ℝ)) ρ :=
+    Integrable.of_mem_Icc 0 1 (by fun_prop) (.of_forall fun x ↦ (p x).2)
+  have hint : ∫ x, (p x : ℝ) ∂ρ = ρ[id] := by
+    refine integral_congr_ae ?_
+    filter_upwards [hρ] with x hx
+    simp [p, Set.projIcc_of_mem _ hx]
+  have hmem : ρ[id] ∈ Set.Icc (0 : ℝ) 1 :=
+    (convex_Icc (0 : ℝ) 1).integral_mem isClosed_Icc hρ
+      (Integrable.of_mem_Icc 0 1 aemeasurable_id hρ)
+  have hpm : p ρ[id] = ⟨ρ[id], hmem⟩ := Set.projIcc_of_mem _ hmem
+  -- The masses that the mixture puts on `1` and on `0` are the means of `x` and of `1 - x`.
+  have h₁ : ∫⁻ x, (unitInterval.toNNReal (p x) : ℝ≥0∞) ∂ρ =
+      unitInterval.toNNReal (p ρ[id]) := by
+    simp_rw [← ENNReal.ofReal_coe_nnreal, unitInterval.coe_toNNReal]
+    rw [← ofReal_integral_eq_lintegral_ofReal hpi (.of_forall fun x ↦ (p x).2.1), hint, hpm]
+  have h₂ : ∫⁻ x, (unitInterval.toNNReal (σ (p x)) : ℝ≥0∞) ∂ρ =
+      unitInterval.toNNReal (σ (p ρ[id])) := by
+    simp_rw [← ENNReal.ofReal_coe_nnreal, unitInterval.coe_toNNReal, unitInterval.coe_symm_eq]
+    rw [← ofReal_integral_eq_lintegral_ofReal (Integrable.of_mem_Icc 0 1 (by fun_prop)
+      (.of_forall fun x ↦ ⟨by simp [(p x).2.2], by simp [(p x).2.1]⟩))
+      (.of_forall fun x ↦ by simp [(p x).2.2]), integral_sub (integrable_const 1) hpi, hint, hpm]
+    simp
+  ext s hs
+  rw [Measure.bind_apply hs hmeas.aemeasurable]
+  simp only [bernoulliMeasure_def, add_apply, smul_apply, ENNReal.smul_def, smul_eq_mul]
+  rw [lintegral_add_left (by fun_prop), lintegral_mul_const _ (by fun_prop),
+    lintegral_mul_const _ (by fun_prop), h₁, h₂]
 
 end LMLExplore
