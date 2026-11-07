@@ -258,7 +258,7 @@ theorem SequentialHalving.measureReal_outputMeasure_compl_correct_le {σ2 : ℝ�
   rw [IdentTask.M_restrict, M_baiTask] at hθ
   obtain ⟨⟨a, ha⟩, hθ⟩ := hθ
   have hν (b : α) : HasSubgaussianMGF (fun x ↦ x - (lawBandit θ b)[id]) σ2 (lawBandit θ b) := by
-    simpa using hθ b (Set.mem_univ b)
+    simpa only [lawMean_eq_integral_lawBandit] using mem_pi_subgaussianLaws_iff.1 hθ b
   have hrun := isRun_runMeasure (sequentialHalving (α := α) T) (Environment.bandit (lawBandit θ))
   rw [(correct_baiTask_eq_singleton_iff _ _).2 ha, Set.compl_def,
     ← hrun.hasLaw_output.measureReal_eq MeasurableSet.of_discrete]

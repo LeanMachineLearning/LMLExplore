@@ -727,7 +727,8 @@ theorem isDeltaCorrect_successiveEliminationOfRate (hσ2 : σ2 ≠ 0) (hδ : 0 <
     (correct_baiTask_eq_singleton_iff _ _).2 ha]
   simp only [lawMean_eq_integral_lawBandit] at ha
   exact measureReal_histOutputMeasure_successiveEliminationOfRate_notMem_or_le hσ2
-    (fun b ↦ by simpa using hθ b (Set.mem_univ b)) hδ hδK ha
+    (fun b ↦ by simpa only [lawMean_eq_integral_lawBandit] using mem_pi_subgaussianLaws_iff.1 hθ b)
+    hδ hδK ha
 
 end Rate
 

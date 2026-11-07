@@ -747,7 +747,7 @@ theorem SuccessiveRejects.measureReal_outputMeasure_compl_correct_le (hKT : Fint
   rw [IdentTask.M_restrict, M_baiTask] at hθ
   obtain ⟨⟨a, ha⟩, hθ⟩ := hθ
   have hν (b : α) : HasSubgaussianMGF (fun x ↦ x - (lawBandit θ b)[id]) σ2 (lawBandit θ b) := by
-    simpa using hθ b (Set.mem_univ b)
+    simpa only [lawMean_eq_integral_lawBandit] using mem_pi_subgaussianLaws_iff.1 hθ b
   have hrun := isRun_runMeasure (successiveRejects (α := α) (pullSchedule (Fintype.card α) T) T)
     (Environment.bandit (lawBandit θ))
   rw [(correct_baiTask_eq_singleton_iff _ _).2 ha, Set.compl_def,

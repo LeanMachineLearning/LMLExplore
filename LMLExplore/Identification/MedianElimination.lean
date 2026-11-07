@@ -1274,7 +1274,7 @@ theorem isDeltaPAC_medianElimination {σ2 : ℝ≥0} (hσ2 : 0 < σ2) {ε δ : �
     isFixedBudget_medianElimination.stopsAS _⟩
   have hν (a : α) : HasSubgaussianMGF (fun x ↦ x - (lawBandit θ a)[id]) σ2 (lawBandit θ a) := by
     rw [IdentTask.M_restrict, M_epsBaiTask, Set.univ_inter] at hθ
-    simpa using hθ a (Set.mem_univ a)
+    simpa only [lawMean_eq_integral_lawBandit] using mem_pi_subgaussianLaws_iff.1 hθ a
   have hrun := isRun_runMeasure (medianElimination (α := α) (pullSchedule σ2 ε δ))
     (Environment.bandit (lawBandit θ))
   simp only [IdentTask.ν_restrict, ν_epsBaiTask]
