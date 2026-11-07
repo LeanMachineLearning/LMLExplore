@@ -54,6 +54,8 @@ confidence*, COLT 2016.
 * `MeasureTheory.Measure.isOpen_expFamilyMeans`,
   `MeasureTheory.Measure.convex_expFamilyMeans`: the means form an open interval.
 * `MeasureTheory.Measure.integral_expFamily_natParam`: the member `ρ_η(μ)` has mean `μ`.
+* `MeasureTheory.Measure.not_ae_eq_const_of_mem_expFamilyMeans`: a family with two distinct means
+  has a statistic that is not almost everywhere constant.
 * `MeasureTheory.Measure.monotoneOn_natParam`: the natural parameter is monotone in the mean.
 * `MeasureTheory.Measure.strictMonoOn_natParam`, `MeasureTheory.Measure.hasDerivAt_natParam`: the
   natural parameter is strictly increasing and differentiable in the mean, with derivative
@@ -187,6 +189,22 @@ lemma convex_expFamilyMeans : Convex ℝ (ρ.expFamilyMeans T) :=
 lemma Icc_subset_expFamilyMeans (hμ' : μ' ∈ ρ.expFamilyMeans T) (hμ : μ ∈ ρ.expFamilyMeans T) :
     Icc μ' μ ⊆ ρ.expFamilyMeans T :=
   convex_expFamilyMeans.ordConnected.out hμ' hμ
+
+/-- An exponential family with two distinct means has a statistic `T` that is not `ρ`-almost
+everywhere constant: if `T = c` almost everywhere, then every member gives `T` the mean `c`. -/
+theorem not_ae_eq_const_of_mem_expFamilyMeans (hμ : μ ∈ ρ.expFamilyMeans T)
+    (hμ' : μ' ∈ ρ.expFamilyMeans T) (h : μ ≠ μ') : ∀ c, ¬ T =ᵐ[ρ] fun _ ↦ c := by
+  intro c hc
+  rcases eq_zero_or_neZero ρ with rfl | _
+  · rw [expFamilyMeans_zero_measure, mem_singleton_iff] at hμ hμ'
+    exact h (hμ.trans hμ'.symm)
+  have h_eq {m : ℝ} (hm : m ∈ ρ.expFamilyMeans T) : m = c := by
+    have := isProbabilityMeasure_expFamily
+      (interior_subset (natParam_mem_interior_integrableExpSet hm))
+    rw [← integral_expFamily_natParam hm,
+      integral_congr_ae ((expFamily_absolutelyContinuous ρ T _).ae_le hc)]
+    simp
+  exact h ((h_eq hμ).trans (h_eq hμ').symm)
 
 /-- The natural parameter is monotone in the mean. It is strictly increasing when `T` is not
 `ρ`-almost everywhere constant (`strictMonoOn_natParam`). -/

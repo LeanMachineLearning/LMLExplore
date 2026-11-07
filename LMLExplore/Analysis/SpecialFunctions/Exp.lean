@@ -59,6 +59,8 @@ these into Bernstein's form.
   `c > 0`.
 * `Real.sum_range_ite_add_one_mul_le_le`: `#{s < k | (s + 1) D ≤ L} ≤ L / D` for `D > 0` and
   `L ≥ 0`.
+* `Real.sum_range_ite_mul_le_exp_neg_mul_le`: `∑_{s < n} (1 if s D ≤ L, else exp (-c s))` is at
+  most `1 + L / D + 1 / c` for `D, c > 0` and `L ≥ 0`.
 * `Real.hasSum_exp_neg_add_mul`: `∑_{k ≥ 0} exp (-(k + m) d) = exp (-m d) / (1 - exp (-d))` for
   `d > 0`.
 * `Real.exp_neg_mul_div_one_sub_exp_neg_nonneg`: the terms `exp (-x d) / (1 - exp (-d))` of these
@@ -184,6 +186,29 @@ theorem sum_range_ite_add_one_mul_le_le {D L : ℝ} (hD : 0 < D) (hL : 0 ≤ L) 
   refine Nat.le_floor ?_
   rw [le_div_iff₀ hD]
   exact_mod_cast hs.2
+
+/-- For `D, c > 0` and `L ≥ 0`, `∑_{s < n} (1 if s D ≤ L, else exp (-c s)) ≤ 1 + L / D + 1 / c`,
+uniformly in `n`. -/
+theorem sum_range_ite_mul_le_exp_neg_mul_le {D L c : ℝ} (hD : 0 < D) (hL : 0 ≤ L) (hc : 0 < c)
+    (n : ℕ) :
+    ∑ s ∈ range n, (if s * D ≤ L then 1 else exp (-(c * s))) ≤ 1 + L / D + c⁻¹ := by
+  rcases n with _ | k
+  · simp only [range_zero, sum_empty]
+    positivity
+  -- the term of `s = 0` is `1`, at most `L / D` other terms are `1`, and the others are bounded by
+  -- the geometric series `∑_{s ≥ 1} exp (-c s) ≤ 1 / c`
+  rw [sum_range_succ']
+  simp only [Nat.cast_zero, zero_mul, hL, ite_true, Nat.cast_add_one]
+  calc ∑ s ∈ range k, (if (s + 1) * D ≤ L then 1 else exp (-(c * (s + 1)))) + 1
+  _ ≤ ∑ s ∈ range k, ((if (s + 1) * D ≤ L then (1 : ℝ) else 0) + exp (-(c * (s + 1)))) + 1 := by
+    gcongr with s
+    split_ifs <;> simp [exp_nonneg]
+  _ ≤ L / D + c⁻¹ + 1 := by
+    rw [sum_add_distrib]
+    gcongr
+    · exact sum_range_ite_add_one_mul_le_le hD hL k
+    · exact sum_range_exp_neg_mul_le hc k
+  _ = 1 + L / D + c⁻¹ := by ring
 
 /-- The tail `∑_{s ≥ m} exp (-s d)` of a geometric series: for `d > 0`,
 `∑_{k ≥ 0} exp (-(k + m) d) = exp (-m d) / (1 - exp (-d))`. -/

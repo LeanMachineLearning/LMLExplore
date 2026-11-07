@@ -31,6 +31,8 @@ value of the sum `∑_{t ≥ 1} 1 / f(t)` is about `2.4919`.
 * `Real.sum_range_inv_mul_sum_range_exp_neg_le`: [LS, Exercise 8.1], the bound
   `∑_{t ≤ n} 1 / f(t) ∑_{s ≤ m} exp (-c s) ≤ 5 / (2 c)` for `c > 0`, which is `5 σ² / ε²` for the
   sub-Gaussian rate `c = ε² / (2 σ²)`.
+* `Real.sum_range_inv_mul_sum_range_self_exp_neg_le`: the bound
+  `∑_{t < n} 1 / f(t + 1) ∑_{s < t} exp (-c (s + 1)) ≤ 3 / (2 c)` for `c > 0`.
 
 ## Implementation notes
 
@@ -191,5 +193,33 @@ theorem sum_range_inv_mul_sum_range_exp_neg_le {c : ℝ} (hc : 0 < c) (n m : ℕ
   gcongr
   · exact sum_range_inv_one_add_mul_log_sq_le n
   · exact sum_range_exp_neg_mul_le hc m
+
+/-- For `c > 0`, `∑_{t < n} 1 / f(t + 1) ∑_{s < t} exp (-c (s + 1)) ≤ 3 / (2 c)`, uniformly in
+`n`, where `f(t) = 1 + t log² t`. With the inner sum over the `t` sample sizes before round `t`,
+this is the form taken by a union bound over the number of pulls at each round `t`. -/
+theorem sum_range_inv_mul_sum_range_self_exp_neg_le {c : ℝ} (hc : 0 < c) (n : ℕ) :
+    ∑ t ∈ range n, (1 + (t + 1) * log (t + 1) ^ 2)⁻¹ * ∑ s ∈ range t, exp (-(c * (s + 1))) ≤
+      3 / 2 * c⁻¹ := by
+  rcases n with _ | k
+  · simp only [range_zero, sum_empty]
+    positivity
+  -- the term of `t = 0` vanishes, and `∑_{t ≥ 1} 1 / f(t + 1) ≤ 5 / 2 - 1 / f(1) = 3 / 2`
+  rw [sum_range_succ']
+  simp only [range_zero, sum_empty, mul_zero, add_zero]
+  have h_sum := sum_range_inv_one_add_mul_log_sq_le (k + 1)
+  rw [sum_range_succ'] at h_sum
+  simp only [Nat.cast_zero, zero_add, log_one, ne_eq, OfNat.ofNat_ne_zero, not_false_eq_true,
+    zero_pow, mul_zero, add_zero, inv_one] at h_sum
+  calc ∑ t ∈ range k, (1 + ((t + 1 : ℕ) + 1) * log ((t + 1 : ℕ) + 1) ^ 2)⁻¹ *
+      ∑ s ∈ range (t + 1), exp (-(c * (s + 1)))
+  _ ≤ ∑ t ∈ range k, (1 + ((t + 1 : ℕ) + 1) * log ((t + 1 : ℕ) + 1) ^ 2)⁻¹ * c⁻¹ := by
+    gcongr with t
+    exact sum_range_exp_neg_mul_le hc _
+  _ = (∑ t ∈ range k, (1 + ((t + 1 : ℕ) + 1) * log ((t + 1 : ℕ) + 1) ^ 2)⁻¹) * c⁻¹ :=
+    (sum_mul _ _ _).symm
+  _ ≤ 3 / 2 * c⁻¹ := by
+    gcongr
+    push_cast at h_sum ⊢
+    linarith
 
 end Real

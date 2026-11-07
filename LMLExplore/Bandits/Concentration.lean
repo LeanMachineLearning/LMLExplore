@@ -11,6 +11,7 @@ public import LMLExplore.Analysis.Convex.Integral
 public import LMLExplore.Analysis.Real.Sqrt
 public import LMLExplore.Analysis.SpecialFunctions.Exp
 public import LMLExplore.Analysis.SpecialFunctions.Log.InvMulLogSq
+public import LMLExplore.Probability.Distributions.ExponentialFamily.Chernoff
 public import LMLExplore.SequentialLearning.SumRewards
 public import LMLExplore.Probability.Moments.KLChernoff
 public import LMLExplore.Probability.Moments.SubGaussian.Sum
@@ -47,6 +48,14 @@ this is [LS, Lemma 10.8], proved for independent `[0, 1]`-valued variables as
 at most its mean minus `ε` at round `t` with probability at most
 `(1 / f(t)) ∑_{s ≥ 1} exp (-2 s ε²)`, by the three-point inequality for `d` and the Chernoff bound
 in relative-entropy form [LS, Lemma 10.7].
+
+Both facts hold for an arm whose rewards are dominated by the member of mean `μ` of an exponential
+family, with the index `U(μ̂, L / s)` of the upper confidence level of the family
+(`MeasureTheory.Measure.expFamilyUpper`) and its divergence `d`: the expected number of rounds at
+which the index of a pulled arm is at most `μ - ε` is at most `3 / (2 d(μ - ε, μ))`, and the
+expected number of rounds at which the arm is played with `μ̂ ≥ c` or `dbar(μ̂, c) ≤ L / s` is at
+most `1 + L / d(μ + ε, c) + 1 / d(μ + ε, μ)`. These are the generalizations of [LS, Lemmas 10.7
+and 10.8] used in the regret analysis of KL-UCB for exponential families [GC11; CGMMS13].
 
 ## Main statements
 
@@ -88,6 +97,20 @@ in relative-entropy form [LS, Lemma 10.7].
 * `sum_measureReal_action_eq_and_pullCount_eq_zero_or_le_empMean_or_klBer_le_le`: in a run of any
   algorithm, the expected number of rounds at which an arm is played before its first pull, or with
   `c ≤ μ̂_a`, or with `d(μ̂_a, c) ≤ L / T_a`, is at most `1 + L / d(μ_a + ε, c) + 1 / (2 ε²)`.
+* `measureReal_streamMeasure_expFamilyUpper_le_sub_le`: in the reward stream model, for rewards
+  dominated by the member of mean `μ` of an exponential family, the index `U(μ̂_s, L / s)` of the
+  first `s ≥ 1` rewards is at most `μ - ε` with probability at most
+  `exp (-L) exp (-(s d(μ - ε, μ)))`.
+* `measureReal_pullCount_ne_zero_and_expFamilyUpper_le_le`: in a run of any algorithm, the
+  probability that at round `t` a pulled arm has index `U(μ̂_a, L / T_a)` at most `μ - ε` is at
+  most `exp (-L) ∑_{s < t} exp (-(d(μ - ε, μ) (s + 1)))`.
+* `sum_measureReal_pullCount_ne_zero_and_expFamilyUpper_le_le`: the generalization of
+  [LS, Lemma 10.7]: with the exploration level `log f(t + 1)` at Lean round `t`, the expected
+  number of rounds of underestimation by `ε` is at most `3 / (2 d(μ - ε, μ))`.
+* `sum_measureReal_action_eq_and_pullCount_eq_zero_or_le_empMean_or_expFamilyRate_le_le`: the
+  generalization of [LS, Lemma 10.8]: the expected number of rounds at which the arm is played
+  before its first pull, or with `c ≤ μ̂_a`, or with `dbar(μ̂_a, c) ≤ L / T_a`, is at most
+  `1 + L / d(μ + ε, c) + 1 / d(μ + ε, μ)`.
 
 ## References
 
@@ -95,6 +118,10 @@ in relative-entropy form [LS, Lemma 10.7].
   Lemmas 8.2, 10.7 and 10.8, and Theorems 8.1 and 10.6.
 * [KK13] E. Kaufmann and S. Kalyanakrishnan, *Information complexity in bandit subset selection*,
   COLT 2013, Section 3 and Appendix A.
+* [GC11] A. Garivier and O. Cappé, *The KL-UCB algorithm for bounded stochastic bandits and
+  beyond*, COLT 2011.
+* [CGMMS13] O. Cappé, A. Garivier, O.-A. Maillard, R. Munos and G. Stoltz, *Kullback–Leibler
+  upper confidence bounds for optimal sequential allocation*, Ann. Statist. 41(3), 2013.
 -/
 
 public section
@@ -188,24 +215,12 @@ theorem measureReal_pullCount_ne_zero_and_empMean_add_sqrt_le_le
     P.real {ω | pullCount A a t ω ≠ 0 ∧
         empMean A R a t ω + √(2 * σ2 * L / pullCount A a t ω) ≤ (ν a)[id] - ε} ≤
       exp (-L) * ∑ s ∈ range t, exp (-(ε ^ 2 / (2 * σ2) * (s + 1))) := by
-  set p : ℕ → ℝ → Prop := fun s x ↦ s ≠ 0 ∧ x / s + √(2 * σ2 * L / s) ≤ (ν a)[id] - ε with hp_def
-  -- the event of round `t` is the event `p` for the number of pulls and the sum of rewards, which
-  -- is transferred to the reward stream with a union bound over the number of pulls
-  calc P.real {ω | pullCount A a t ω ≠ 0 ∧
-      empMean A R a t ω + √(2 * σ2 * L / pullCount A a t ω) ≤ (ν a)[id] - ε}
-  _ ≤ ∑ s ∈ range t, (streamMeasure ν).real {ω | p (s + 1) (∑ i ∈ range (s + 1), ω i a)} := by
-    refine le_trans (measureReal_mono fun ω hω ↦ ?_)
-      (measureReal_pullCount_sumRewards_le_sum h a p (fun _ h0 ↦ h0.1 rfl) t)
-    simp only [Set.mem_ofPred_eq, empMean] at hω
-    exact hω
-  _ ≤ ∑ s ∈ range t, exp (-L) * exp (-(ε ^ 2 / (2 * σ2) * (s + 1))) := by
-    refine sum_le_sum fun s _ ↦ ?_
-    have h := measureReal_streamMeasure_div_add_sqrt_le_sub_le hν hσ2 hL hε (Nat.succ_ne_zero s)
-    push_cast at h
-    refine le_trans (measureReal_mono (fun ω hω ↦ ?_) (measure_ne_top _ _)) h
-    simp only [hp_def, Set.mem_ofPred_eq, Nat.cast_add_one] at hω
-    exact hω.2
-  _ = exp (-L) * ∑ s ∈ range t, exp (-(ε ^ 2 / (2 * σ2) * (s + 1))) := (mul_sum _ _ _).symm
+  -- the event of round `t` is transferred to the reward stream with a union bound over the
+  -- number of pulls
+  refine (measureReal_pullCount_ne_zero_and_empMean_le_sum h a
+    (fun s x ↦ x + √(2 * σ2 * L / s) ≤ (ν a)[id] - ε)
+    (fun s hs ↦ measureReal_streamMeasure_div_add_sqrt_le_sub_le hν hσ2 hL hε hs) t).trans_eq ?_
+  simp only [mul_sum, Nat.cast_add_one]
 
 /-- **Underestimation of an arm by the index of [LS, Algorithm 6].** In a run of any algorithm
 against the stochastic bandit `Environment.bandit ν`, if arm `a` is σ²-sub-Gaussian with mean `μ_a`
@@ -327,25 +342,12 @@ theorem measureReal_pullCount_ne_zero_and_klUpper_le_le
     P.real {ω | pullCount A a t ω ≠ 0 ∧
         klUpper (empMean A R a t ω) (ENNReal.ofReal (L / pullCount A a t ω)) ≤ (ν a)[id] - ε} ≤
       exp (-L) * ∑ s ∈ range t, exp (-(2 * ε ^ 2 * (s + 1))) := by
-  set p : ℕ → ℝ → Prop :=
-    fun s x ↦ s ≠ 0 ∧ klUpper (x / s) (ENNReal.ofReal (L / s)) ≤ (ν a)[id] - ε with hp_def
   -- the event of round `t` is transferred to the reward stream with a union bound over the
   -- number of pulls
-  calc P.real {ω | pullCount A a t ω ≠ 0 ∧
-      klUpper (empMean A R a t ω) (ENNReal.ofReal (L / pullCount A a t ω)) ≤ (ν a)[id] - ε}
-  _ ≤ ∑ s ∈ range t, (streamMeasure ν).real {ω | p (s + 1) (∑ i ∈ range (s + 1), ω i a)} := by
-    refine le_trans (measureReal_mono fun ω hω ↦ ?_)
-      (measureReal_pullCount_sumRewards_le_sum h a p (fun _ h0 ↦ h0.1 rfl) t)
-    simp only [Set.mem_ofPred_eq, empMean] at hω
-    exact hω
-  _ ≤ ∑ s ∈ range t, exp (-L) * exp (-(2 * ε ^ 2 * (s + 1))) := by
-    refine sum_le_sum fun s _ ↦ ?_
-    have h := measureReal_streamMeasure_klUpper_le_sub_le hν hε L (Nat.succ_ne_zero s)
-    push_cast at h
-    refine le_trans (measureReal_mono (fun ω hω ↦ ?_) (measure_ne_top _ _)) h
-    simp only [hp_def, Set.mem_ofPred_eq, Nat.cast_add_one] at hω
-    exact hω.2
-  _ = exp (-L) * ∑ s ∈ range t, exp (-(2 * ε ^ 2 * (s + 1))) := (mul_sum _ _ _).symm
+  refine (measureReal_pullCount_ne_zero_and_empMean_le_sum h a
+    (fun s x ↦ klUpper x (ENNReal.ofReal (L / s)) ≤ (ν a)[id] - ε)
+    (fun s hs ↦ measureReal_streamMeasure_klUpper_le_sub_le hν hε L hs) t).trans_eq ?_
+  simp only [mul_sum, Nat.cast_add_one]
 
 /-- **Underestimation of an arm by the KL-UCB index** ([LS, Lemma 10.7] for rewards in
 `[0, 1]`). In a run of any algorithm against the stochastic bandit `Environment.bandit ν`, if the
@@ -372,32 +374,10 @@ theorem sum_measureReal_pullCount_ne_zero_and_klUpper_le_le
     refine sum_le_sum fun t _ ↦
       (measureReal_pullCount_ne_zero_and_klUpper_le_le h a hν hε _ t).trans_eq ?_
     rw [exp_neg, exp_log (by positivity)]
-  _ ≤ 3 / (4 * ε ^ 2) := by
-    -- the term of round `0` vanishes, and `∑_{t ≥ 1} 1 / f(t + 1) ≤ 5 / 2 - 1 / f(1) = 3 / 2`
-    rcases n with _ | k
-    · simp only [range_zero, sum_empty]
-      positivity
-    rw [sum_range_succ']
-    simp only [range_zero, sum_empty, mul_zero, add_zero]
-    have h_sum := sum_range_inv_one_add_mul_log_sq_le (k + 1)
-    rw [sum_range_succ'] at h_sum
-    simp only [Nat.cast_zero, zero_add, log_one, ne_eq, OfNat.ofNat_ne_zero, not_false_eq_true,
-      zero_pow, mul_zero, add_zero, inv_one] at h_sum
-    calc ∑ t ∈ range k, (1 + ((t + 1 : ℕ) + 1) * log ((t + 1 : ℕ) + 1) ^ 2)⁻¹ *
-        ∑ s ∈ range (t + 1), exp (-(2 * ε ^ 2 * (s + 1)))
-    _ ≤ ∑ t ∈ range k, (1 + ((t + 1 : ℕ) + 1) * log ((t + 1 : ℕ) + 1) ^ 2)⁻¹ *
-        (2 * ε ^ 2)⁻¹ := by
-      gcongr with t
-      exact sum_range_exp_neg_mul_le (by positivity) _
-    _ = (∑ t ∈ range k, (1 + ((t + 1 : ℕ) + 1) * log ((t + 1 : ℕ) + 1) ^ 2)⁻¹) *
-        (2 * ε ^ 2)⁻¹ := (sum_mul _ _ _).symm
-    _ ≤ 3 / 2 * (2 * ε ^ 2)⁻¹ := by
-      gcongr
-      push_cast at h_sum ⊢
-      linarith
-    _ = 3 / (4 * ε ^ 2) := by
-      field_simp
-      ring
+  _ ≤ 3 / 2 * (2 * ε ^ 2)⁻¹ := sum_range_inv_mul_sum_range_self_exp_neg_le (by positivity) n
+  _ = 3 / (4 * ε ^ 2) := by
+    field_simp
+    ring
 
 /-- **Overestimation of an arm by the KL-UCB index** ([LS, Lemma 10.8] for rewards in `[0, 1]`).
 In a run of any algorithm against the stochastic bandit `Environment.bandit ν`, if the rewards of
@@ -486,5 +466,133 @@ theorem measureReal_exists_lt_klLower_le_tsum
   exact le_trans (measureReal_mono fun ω hω ↦ hω.2) h_cov
 
 end BoundedRuns
+
+/-! ### Arms dominated by an exponential family and the KL-UCB index -/
+
+section ExpFamilyStream
+
+variable {α 𝓧 : Type*} [MeasurableSpace α] {m𝓧 : MeasurableSpace 𝓧} {ν : Kernel α ℝ}
+  [IsMarkovKernel ν] {ρ : Measure 𝓧} {T : 𝓧 → ℝ} {a : α} {μ : ℝ}
+
+/-- **Underestimation of the KL-UCB index of an exponential family in the stream model.** If the
+rewards of arm `a` are dominated on `Set.Iic 0` by the member of mean `μ` of the exponential family
+of `ρ` and `T`, then for `ε > 0` with `μ - ε` a mean of the family, a real `L` and `s ≠ 0`, the
+probability that the upper confidence level `U(μ̂_s, L / s)` of the empirical mean `μ̂_s` of the
+first `s` rewards of `a` in the i.i.d. reward stream model is at most `μ - ε` is at most
+`exp (-L) exp (-(s d(μ - ε, μ)))`. -/
+theorem measureReal_streamMeasure_expFamilyUpper_le_sub_le
+    (hν : MGFDominatedOn id (ν a) T (ρ.expFamily T (ρ.natParam T μ)) (Set.Iic 0))
+    (hμ : μ ∈ ρ.expFamilyMeans T) (hε : 0 < ε) (hμε : μ - ε ∈ ρ.expFamilyMeans T) (L : ℝ)
+    {s : ℕ} (hs : s ≠ 0) :
+    (streamMeasure ν).real {ω | ρ.expFamilyUpper T ((∑ i ∈ range s, ω i a) / s)
+        (ENNReal.ofReal (L / s)) ≤ ((μ - ε : ℝ) : EReal)} ≤
+      exp (-L) * exp (-(s * ρ.expFamilyDiv T (μ - ε) μ)) := by
+  have h := (iIndepFun_eval_streamMeasure'' ν a).measureReal_expFamilyUpper_le_le
+    (s := range s) (nonempty_range_iff.2 hs)
+    (fun i _ ↦ (identDistrib_eval_eval_id_streamMeasure ν i a).mgfDominatedOn.trans hν) hμ hμε
+    (by linarith) L
+  simpa only [card_range] using h
+
+end ExpFamilyStream
+
+section ExpFamilyRuns
+
+variable {α 𝓧 : Type*} [DecidableEq α] [MeasurableSpace α] [Countable α]
+  [MeasurableSingletonClass α] {m𝓧 : MeasurableSpace 𝓧} {ν : Kernel α ℝ} [IsMarkovKernel ν]
+  {alg : Algorithm Unit α ℝ} [IsProbabilityMeasure P] {O : ℕ → Ω → Unit} {A : ℕ → Ω → α}
+  {R : ℕ → Ω → ℝ} {ρ : Measure 𝓧} {T : 𝓧 → ℝ} {μ : ℝ}
+
+/-- **Underestimation of an arm by the KL-UCB index of an exponential family, at one round.** In a
+run of any algorithm against the stochastic bandit `Environment.bandit ν`, if the rewards of arm
+`a` are dominated on `Set.Iic 0` by the member of mean `μ` of the exponential family of `ρ` and
+`T`, then for `ε > 0` with `μ - ε` a mean of the family, a real `L` and every round `t`, the
+probability that `a` has been pulled and its upper confidence level `U(μ̂_a, L / T_a)` is at most
+`μ - ε` is at most `exp (-L) ∑_{s < t} exp (-(d(μ - ε, μ) (s + 1)))`. -/
+theorem measureReal_pullCount_ne_zero_and_expFamilyUpper_le_le
+    (h : IsAlgEnvSeq O A R alg (Environment.bandit ν) P) (a : α)
+    (hν : MGFDominatedOn id (ν a) T (ρ.expFamily T (ρ.natParam T μ)) (Set.Iic 0))
+    (hμ : μ ∈ ρ.expFamilyMeans T) (hε : 0 < ε) (hμε : μ - ε ∈ ρ.expFamilyMeans T) (L : ℝ)
+    (t : ℕ) :
+    P.real {ω | pullCount A a t ω ≠ 0 ∧ ρ.expFamilyUpper T (empMean A R a t ω)
+        (ENNReal.ofReal (L / pullCount A a t ω)) ≤ ((μ - ε : ℝ) : EReal)} ≤
+      exp (-L) * ∑ s ∈ range t, exp (-(ρ.expFamilyDiv T (μ - ε) μ * (s + 1))) := by
+  -- the event of round `t` is transferred to the reward stream with a union bound over the
+  -- number of pulls
+  refine (measureReal_pullCount_ne_zero_and_empMean_le_sum h a
+    (fun s x ↦ ρ.expFamilyUpper T x (ENNReal.ofReal (L / s)) ≤ ((μ - ε : ℝ) : EReal))
+    (fun s hs ↦ measureReal_streamMeasure_expFamilyUpper_le_sub_le hν hμ hε hμε L hs) t).trans_eq ?_
+  simp only [mul_sum, Nat.cast_add_one, mul_comm _ (ρ.expFamilyDiv T (μ - ε) μ)]
+
+/-- **Underestimation of an arm by the KL-UCB index of an exponential family** (the
+generalization of [LS, Lemma 10.7] to exponential families). In a run of any algorithm against
+the stochastic bandit `Environment.bandit ν`, if the rewards of arm `a` are dominated on
+`Set.Iic 0` by the member of mean `μ` of the exponential family of `ρ` and `T`, then for `ε > 0`
+with `μ - ε` a mean of the family, the expected number of rounds `t < n` at which `a` has been
+pulled and its KL-UCB index `U(μ̂_a, log f(t + 1) / T_a)` is at most `μ - ε` is at most
+`3 / (2 d(μ - ε, μ))`, uniformly in `n`, where `f(t) = 1 + t log² t`. This bounds the contribution
+of an optimal arm in the regret analysis of KL-UCB. -/
+theorem sum_measureReal_pullCount_ne_zero_and_expFamilyUpper_le_le
+    (h : IsAlgEnvSeq O A R alg (Environment.bandit ν) P) (a : α)
+    (hν : MGFDominatedOn id (ν a) T (ρ.expFamily T (ρ.natParam T μ)) (Set.Iic 0))
+    (hμ : μ ∈ ρ.expFamilyMeans T) (hε : 0 < ε) (hμε : μ - ε ∈ ρ.expFamilyMeans T) (n : ℕ) :
+    ∑ t ∈ range n, P.real {ω | pullCount A a t ω ≠ 0 ∧ ρ.expFamilyUpper T (empMean A R a t ω)
+        (ENNReal.ofReal (log (1 + (t + 1) * log (t + 1) ^ 2) / pullCount A a t ω)) ≤
+          ((μ - ε : ℝ) : EReal)} ≤ 3 / (2 * ρ.expFamilyDiv T (μ - ε) μ) := by
+  have hd : 0 < ρ.expFamilyDiv T (μ - ε) μ := Measure.expFamilyDiv_pos hμε hμ (by linarith)
+  -- at round `t`, the exploration level is `log f(t + 1)`, and `exp (-log f(t + 1))` is
+  -- `1 / f(t + 1)`
+  calc ∑ t ∈ range n, P.real {ω | pullCount A a t ω ≠ 0 ∧ ρ.expFamilyUpper T (empMean A R a t ω)
+        (ENNReal.ofReal (log (1 + (t + 1) * log (t + 1) ^ 2) / pullCount A a t ω)) ≤
+          ((μ - ε : ℝ) : EReal)}
+  _ ≤ ∑ t ∈ range n, (1 + (t + 1) * log (t + 1) ^ 2)⁻¹ *
+      ∑ s ∈ range t, exp (-(ρ.expFamilyDiv T (μ - ε) μ * (s + 1))) := by
+    refine sum_le_sum fun t _ ↦
+      (measureReal_pullCount_ne_zero_and_expFamilyUpper_le_le h a hν hμ hε hμε _ t).trans_eq ?_
+    rw [exp_neg, exp_log (by positivity)]
+  _ ≤ 3 / 2 * (ρ.expFamilyDiv T (μ - ε) μ)⁻¹ := sum_range_inv_mul_sum_range_self_exp_neg_le hd n
+  _ = 3 / (2 * ρ.expFamilyDiv T (μ - ε) μ) := by
+    field_simp
+
+/-- **Overestimation of an arm by the KL-UCB index of an exponential family** (the
+generalization of [LS, Lemma 10.8] to exponential families). In a run of any algorithm against
+the stochastic bandit `Environment.bandit ν`, if the rewards of arm `a` are dominated on
+`Set.Ici 0` by the member of mean `μ` of the exponential family of `ρ` and `T`, then for `ε > 0`
+and `c > μ + ε` with `μ + ε` and `c` means of the family, and `L ≥ 0`, the expected number of
+rounds `t < n` at which `a` is played while it has not been pulled yet, or `c ≤ μ̂_a`, or
+`dbar(μ̂_a, c) ≤ L / T_a`, is at most `1 + L / d(μ + ε, c) + 1 / d(μ + ε, μ)`, uniformly in `n`.
+This bounds the contribution of a suboptimal arm in the regret analysis of KL-UCB. -/
+theorem sum_measureReal_action_eq_and_pullCount_eq_zero_or_le_empMean_or_expFamilyRate_le_le
+    (h : IsAlgEnvSeq O A R alg (Environment.bandit ν) P) (a : α)
+    (hν : MGFDominatedOn id (ν a) T (ρ.expFamily T (ρ.natParam T μ)) (Set.Ici 0))
+    (hμ : μ ∈ ρ.expFamilyMeans T) (hε : 0 < ε) (hc : μ + ε < c)
+    (hμε : μ + ε ∈ ρ.expFamilyMeans T) (hcM : c ∈ ρ.expFamilyMeans T) {L : ℝ} (hL : 0 ≤ L)
+    (n : ℕ) :
+    ∑ t ∈ range n, P.real {ω | A t ω = a ∧ (pullCount A a t ω = 0 ∨ c ≤ empMean A R a t ω ∨
+        ρ.expFamilyRate T (empMean A R a t ω) c ≤ ENNReal.ofReal (L / pullCount A a t ω))} ≤
+      1 + L / ρ.expFamilyDiv T (μ + ε) c + 1 / ρ.expFamilyDiv T (μ + ε) μ := by
+  set p : ℕ → ℝ → Prop := fun s x ↦ s = 0 ∨ c ≤ x / s ∨
+    ρ.expFamilyRate T (x / s) c ≤ ENNReal.ofReal (L / s) with hp_def
+  have hp : Measurable fun q : ℕ × ℝ ↦ p q.1 q.2 :=
+    (measurableSet_setOfPred.mp ((measurableSet_singleton 0).preimage measurable_fst)).or
+      ((measurableSet_setOfPred.mp (measurableSet_le measurable_const (by fun_prop))).or
+        (measurableSet_setOfPred.mp (measurableSet_le
+          ((Measure.lowerSemicontinuous_expFamilyRate_left c).measurable.comp (by fun_prop))
+          (by fun_prop))))
+  -- the events are transferred to the reward stream, where the bound for independent rewards
+  -- applies
+  calc ∑ t ∈ range n, P.real {ω | A t ω = a ∧ (pullCount A a t ω = 0 ∨ c ≤ empMean A R a t ω ∨
+      ρ.expFamilyRate T (empMean A R a t ω) c ≤ ENNReal.ofReal (L / pullCount A a t ω))}
+  _ = ∑ t ∈ range n, P.real
+      {ω | A t ω = a ∧ p (pullCount A a t ω) (sumRewards A R a t ω)} := by
+    simp only [hp_def, empMean]
+  _ ≤ ∑ s ∈ range n, (streamMeasure ν).real {ω | p s (∑ i ∈ range s, ω i a)} :=
+    sum_measureReal_action_eq_and_pullCount_sumRewards_le h a n hp
+  _ ≤ 1 + L / ρ.expFamilyDiv T (μ + ε) c + 1 / ρ.expFamilyDiv T (μ + ε) μ :=
+    iIndepFun.sum_measureReal_eq_zero_or_le_div_or_expFamilyRate_div_le_le
+      (iIndepFun_eval_streamMeasure'' ν a)
+      (fun i ↦ (identDistrib_eval_eval_id_streamMeasure ν i a).mgfDominatedOn.trans hν)
+      hμ hε hc hμε hcM hL n
+
+end ExpFamilyRuns
 
 end LMLExplore.Bandits

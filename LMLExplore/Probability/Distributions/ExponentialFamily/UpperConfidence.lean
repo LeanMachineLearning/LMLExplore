@@ -36,6 +36,8 @@ concentration bounds of KL-UCB.
 * `MeasureTheory.Measure.expFamilyUpper_le_iff`: the bounds on `U(x, c)`.
 * `MeasureTheory.Measure.le_expFamilyUpper_iff`: for a mean `q ≥ x`, `q ≤ U(x, c)` if and only if
   `dbar(x, q) ≤ c`.
+* `MeasureTheory.Measure.le_expFamilyRate_of_expFamilyUpper_le`: if `U(x, c) ≤ q` for a mean `q`,
+  then `c ≤ dbar(x, q)`.
 * `MeasureTheory.Measure.le_or_expFamilyRate_le_of_lt_expFamilyUpper`: a mean `q < U(x, c)` is at
   most `x` or satisfies `dbar(x, q) ≤ c`.
 * `MeasureTheory.Measure.expFamilyUpper_ne_top_of_bddAbove`: `U(x, c)` is finite when the means are
@@ -141,6 +143,25 @@ theorem le_expFamilyUpper_iff (hT : ∀ c, ¬ T =ᵐ[ρ] fun _ ↦ c) (hq : q �
     · exact (hlt.trans_le (monotoneOn_expFamilyRate_right x ⟨hq, hxq⟩ ⟨hq', hxq''⟩
         hqq'.le)).not_ge hq'c
   exact (max_lt hxq' hlq).not_ge (EReal.coe_le_coe_iff.1 (h.trans hU))
+
+/-- **The budget is below the divergence to a mean above the upper confidence level**: for a
+nondegenerate statistic, if `U(x, c) ≤ q` for a mean `q` of the family, then `c ≤ dbar(x, q)`.
+This is a converse of `le_expFamilyUpper_of_expFamilyRate_le` at the means above `U(x, c)`. -/
+theorem le_expFamilyRate_of_expFamilyUpper_le (hT : ∀ c, ¬ T =ᵐ[ρ] fun _ ↦ c)
+    (hq : q ∈ ρ.expFamilyMeans T) (h : ρ.expFamilyUpper T x c ≤ q) :
+    c ≤ ρ.expFamilyRate T x q := by
+  by_contra! hlt
+  have hxq : x ≤ q := EReal.coe_le_coe_iff.1 ((le_expFamilyUpper ρ T x c).trans h)
+  -- by continuity of `dbar(x, ·)` at `q`, a mean `q' > q` has `dbar(x, q') < c`, so it lies below
+  -- `U(x, c) ≤ q`
+  have hev : ∀ᶠ q' in 𝓝 q, q' ∈ ρ.expFamilyMeans T ∧ ρ.expFamilyRate T x q' < c :=
+    Filter.Eventually.and (expFamilyMeans_mem_nhds hT hq)
+      (((continuousOn_expFamilyRate_right hT x).continuousAt (expFamilyMeans_mem_nhds hT hq))
+        |>.eventually (gt_mem_nhds hlt))
+  obtain ⟨q', ⟨hq', hq'c⟩, hqq'⟩ :=
+    ((hev.filter_mono nhdsWithin_le_nhds).and (eventually_mem_nhdsWithin (s := Ioi q))).exists
+  exact (not_le.2 hqq') (EReal.coe_le_coe_iff.1
+    ((le_expFamilyUpper_of_expFamilyRate_le hq' (hxq.trans (le_of_lt hqq')) hq'c.le).trans h))
 
 /-- The upper confidence level is monotone in both arguments: a larger level and a larger budget
 give a larger level `U(x, c)`. -/

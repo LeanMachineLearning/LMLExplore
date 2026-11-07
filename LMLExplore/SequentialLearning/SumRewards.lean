@@ -84,6 +84,10 @@ this way.
   rewards of an arm, which fails for zero pulls, holds at round `t` is at most the sum over `s < t`
   of the probabilities that `p (s + 1)` holds for the first `s + 1` rewards of the arm in the stream
   model.
+* `measureReal_pullCount_ne_zero_and_empMean_le_sum`: its form for a property `q` of the number
+  of pulls and the empirical mean of an arm that has been pulled: if `q s` holds for the empirical
+  mean of the first `s ≠ 0` rewards in the stream model with probability at most `g s`, then the
+  probability at round `t` is at most `∑_{s < t} g (s + 1)`.
 
 ## Implementation notes
 
@@ -541,5 +545,31 @@ theorem measureReal_pullCount_sumRewards_le_sum (h : IsAlgEnvSeq O A R alg (Envi
   _ = ∑ s ∈ range t, (streamMeasure ν).real {ω | p (s + 1) (∑ i ∈ range (s + 1), ω i a)} := by
     rw [sum_range_succ']
     simp [hp0]
+
+/-- **Union bound over the number of pulls, for the empirical mean.** In a run of any algorithm
+against the stochastic bandit `Environment.bandit ν`, let `q s x` be a property of a number of pulls
+`s` and an empirical mean `x`, and let `g s` bound, for every `s ≠ 0`, the probability that `q s`
+holds for the empirical mean of the first `s` rewards of arm `a` in the i.i.d. reward stream model.
+Then the probability that at round `t` the arm `a` has been pulled and `q` holds for its number of
+pulls and its empirical mean is at most `∑_{s < t} g (s + 1)`. -/
+theorem measureReal_pullCount_ne_zero_and_empMean_le_sum
+    (h : IsAlgEnvSeq O A R alg (Environment.bandit ν) P) (a : α) (q : ℕ → ℝ → Prop) {g : ℕ → ℝ}
+    (hg : ∀ s ≠ 0, (streamMeasure ν).real {ω | q s ((∑ i ∈ range s, ω i a) / s)} ≤ g s)
+    (t : ℕ) :
+    P.real {ω | pullCount A a t ω ≠ 0 ∧ q (pullCount A a t ω) (empMean A R a t ω)} ≤
+      ∑ s ∈ range t, g (s + 1) := by
+  -- the empirical mean is the sum of rewards divided by the number of pulls, and the event of
+  -- round `t` is transferred to the reward stream with a union bound over the number of pulls
+  calc P.real {ω | pullCount A a t ω ≠ 0 ∧ q (pullCount A a t ω) (empMean A R a t ω)}
+  _ ≤ ∑ s ∈ range t, (streamMeasure ν).real
+      {ω | s + 1 ≠ 0 ∧ q (s + 1) ((∑ i ∈ range (s + 1), ω i a) / (s + 1 : ℕ))} := by
+    refine le_trans (measureReal_mono fun ω hω ↦ ?_) (measureReal_pullCount_sumRewards_le_sum h a
+      (fun s x ↦ s ≠ 0 ∧ q s (x / s)) (fun _ h0 ↦ h0.1 rfl) t)
+    simp only [Set.mem_ofPred_eq, empMean] at hω
+    exact hω
+  _ ≤ ∑ s ∈ range t, g (s + 1) := by
+    refine sum_le_sum fun s _ ↦ le_trans (measureReal_mono fun ω hω ↦ ?_) (hg _ s.succ_ne_zero)
+    simp only [Set.mem_ofPred_eq] at hω ⊢
+    exact hω.2
 
 end LMLExplore
