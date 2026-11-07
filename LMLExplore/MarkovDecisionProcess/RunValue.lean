@@ -8,7 +8,7 @@ module
 public import LMLExplore.MarkovDecisionProcess.Bellman
 public import LMLExplore.MarkovDecisionProcess.MarkovPolicy
 public import LMLExplore.MeasureTheory.Integral.DominatedConvergence
-public import LMLExplore.Probability.MarkovChain.DiscountedReturn
+public import LMLExplore.Probability.MarkovChain.DiscountedReturn.Defs
 public import LMLExplore.SequentialLearning.Algorithm
 
 /-!
