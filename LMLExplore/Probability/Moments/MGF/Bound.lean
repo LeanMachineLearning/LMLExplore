@@ -314,7 +314,7 @@ lemma _root_.ProbabilityTheory.HasCondSubgaussianMGF.hasCondMGFBound_cgf_gaussia
   have h' := (hasCondMGFBound_iff_hasCondSubgaussianMGF.2 h).add_const a
   simp only [sub_add_cancel] at h'
   refine h'.mono subset_rfl fun t _ ↦ le_of_eq ?_
-  rw [cgf, mgf_id_gaussianReal, log_exp]
+  rw [cgf_gaussianReal HasLaw.id]
   ring
 
 section Unconditional
@@ -412,7 +412,7 @@ lemma _root_.ProbabilityTheory.HasSubgaussianMGF.mgfDominatedOn_gaussianReal {a 
   have h' := (hasMGFBound_iff_hasSubgaussianMGF.2 h).add_const a
   simp only [sub_add_cancel] at h'
   refine h'.mono Set.inter_subset_left fun t _ ↦ le_of_eq ?_
-  rw [cgf, mgf_id_gaussianReal, log_exp]
+  rw [cgf_gaussianReal HasLaw.id]
   ring
 
 end Unconditional

@@ -96,7 +96,8 @@ Lean round `n` uses `log f(n + 1)`.
 * `klucb_regret_eventually_le_of_integral_bestArm_eq_one`: when the largest mean is `1`, the
   expected regret is `o(log n)`.
 
-In the asymptotic statements, `1 / d(μ_a, μ*)` and `Δ_a / d(μ_a, μ*)` are computed from the real
+In the asymptotic statements for rewards in `[0, 1]` (`KLUCB.integral_pullCount_eventually_le`,
+`klucb_regret_eventually_le`), `1 / d(μ_a, μ*)` and `Δ_a / d(μ_a, μ*)` are computed from the real
 number `(klBer μ_a μ*).toReal`, which is `0` when `d(μ_a, μ*) = ∞`, so that both quantities are
 then `0`. For an arm with positive gap, `d(μ_a, μ*) = ∞` happens exactly when `μ* = 1`: such an
 arm is pulled `o(log n)` times in expectation.
@@ -618,9 +619,10 @@ theorem KLUCBFam.integral_pullCount_le
   ring
 
 /-- **Regret of KL-UCB for exponential families** [GC11, Section 4; CGMMS13]. Let the
-mean `μ_a` of every arm `a` lie in the interval of means of its family `ρ a`, the law of every arm
-be dominated on `Set.Ici 0` by the member of mean `μ_a` of `ρ a`, and the law of the optimal arm
-`a*` be dominated on `Set.Iic 0` by the member of mean `μ*` of `ρ a*`. For every arm `a` with
+mean `μ_a` of every arm `a` with positive gap lie in the interval of means of its family `ρ a`
+and its law be dominated on `Set.Ici 0` by the member of mean `μ_a` of `ρ a`, and let the mean `μ*`
+of the optimal arm `a*` be a mean of `ρ a*` and its law be dominated on `Set.Iic 0` by the member
+of mean `μ*` of `ρ a*`. For every arm `a` with
 positive gap `Δ_a`, let `ε₁ a, ε₂ a > 0` with `ε₁ a + ε₂ a < Δ_a`, `μ_a + ε₁ a` and `μ* - ε₂ a`
 means of `ρ a` and `μ* - ε₂ a` a mean of `ρ a*`. Then the expected regret of the KL-UCB algorithm
 for the families `ρ` at horizon `n` is at most the sum over the arms `a` with positive gap of
@@ -628,9 +630,10 @@ for the families `ρ` at horizon `n` is at most the sum over the arms `a` with p
 3 / (2 d_{ρ a*}(μ* - ε₂ a, μ*)))`, where `f(n) = 1 + n log² n`. -/
 theorem klucbFam_regret_le
     (h : IsAlgEnvSeq O A R (klucbFam ρ) (Environment.bandit ν) P)
-    (hμ : ∀ a, (ν a)[id] ∈ (ρ a).expFamilyMeans id)
-    (hν : ∀ a, MGFDominatedOn id (ν a) id ((ρ a).expFamily id ((ρ a).natParam id (ν a)[id]))
-      (Set.Ici 0))
+    (hμ : ∀ a, 0 < gap ν a → (ν a)[id] ∈ (ρ a).expFamilyMeans id)
+    (hs : (ν (bestArm ν))[id] ∈ (ρ (bestArm ν)).expFamilyMeans id)
+    (hν : ∀ a, 0 < gap ν a →
+      MGFDominatedOn id (ν a) id ((ρ a).expFamily id ((ρ a).natParam id (ν a)[id])) (Set.Ici 0))
     (hνs : MGFDominatedOn id (ν (bestArm ν)) id ((ρ (bestArm ν)).expFamily id
       ((ρ (bestArm ν)).natParam id (ν (bestArm ν))[id])) (Set.Iic 0))
     {ε₁ ε₂ : α → ℝ} (hε₁ : ∀ a, 0 < gap ν a → 0 < ε₁ a) (hε₂ : ∀ a, 0 < gap ν a → 0 < ε₂ a)
@@ -650,7 +653,7 @@ theorem klucbFam_regret_le
   refine sum_le_sum fun a ha ↦ mul_le_mul_of_nonneg_left ?_ gap_nonneg
   have hga := (mem_filter.mp ha).2
   have hgap : gap ν a = (ν (bestArm ν))[id] - (ν a)[id] := gap_eq_bestArm_sub
-  exact KLUCBFam.integral_pullCount_le h (hμ a) (hν a) (hμ _) hνs (hε₁ a hga) (hε₂ a hga)
+  exact KLUCBFam.integral_pullCount_le h (hμ a hga) (hν a hga) hs hνs (hε₁ a hga) (hε₂ a hga)
     (by linarith [hε a hga]) (ha₁ a hga) (ha₂ a hga) (hs₂ a hga) n
 
 /-- **Asymptotic number of pulls of KL-UCB for exponential families** [GC11, Section 4;
@@ -710,18 +713,20 @@ theorem KLUCBFam.integral_pullCount_eventually_le
   linarith
 
 /-- **Asymptotic regret of KL-UCB for exponential families** [GC11, Section 4;
-CGMMS13]. Let the mean `μ_a` of every arm `a` lie in the interval of means of its family `ρ a`,
-the law of every arm be dominated on `Set.Ici 0` by the member of mean `μ_a` of `ρ a`, and the law
-of the optimal arm `a*` be dominated on `Set.Iic 0` by the member of mean `μ*` of `ρ a*`, whose
-statistic is not almost everywhere constant. If the largest mean `μ*` is a mean of the family of
+CGMMS13]. Let the mean `μ_a` of every arm `a` with positive gap lie in the interval of means of
+its family `ρ a` and its law be dominated on `Set.Ici 0` by the member of mean `μ_a` of `ρ a`, and
+let the mean `μ*` of the optimal arm `a*` be a mean of `ρ a*` and its law be dominated on
+`Set.Iic 0` by the member of mean `μ*` of `ρ a*`, whose statistic is not almost everywhere
+constant. If the largest mean `μ*` is a mean of the family of
 every arm with positive gap, then for every `c > ∑_{a : Δ_a > 0} Δ_a / d_{ρ a}(μ_a, μ*)`, the
 expected regret of the KL-UCB algorithm for the families `ρ` at horizon `n` is eventually at most
 `c log n`; that is, `limsup_n E[R_n] / log n ≤ ∑_{a : Δ_a > 0} Δ_a / d_{ρ a}(μ_a, μ*)`. -/
 theorem klucbFam_regret_eventually_le [StandardBorelSpace α]
     (h : IsAlgEnvSeq O A R (klucbFam ρ) (Environment.bandit ν) P)
-    (hμ : ∀ a, (ν a)[id] ∈ (ρ a).expFamilyMeans id)
-    (hν : ∀ a, MGFDominatedOn id (ν a) id ((ρ a).expFamily id ((ρ a).natParam id (ν a)[id]))
-      (Set.Ici 0))
+    (hμ : ∀ a, 0 < gap ν a → (ν a)[id] ∈ (ρ a).expFamilyMeans id)
+    (hs : (ν (bestArm ν))[id] ∈ (ρ (bestArm ν)).expFamilyMeans id)
+    (hν : ∀ a, 0 < gap ν a →
+      MGFDominatedOn id (ν a) id ((ρ a).expFamily id ((ρ a).natParam id (ν a)[id])) (Set.Ici 0))
     (hνs : MGFDominatedOn id (ν (bestArm ν)) id ((ρ (bestArm ν)).expFamily id
       ((ρ (bestArm ν)).natParam id (ν (bestArm ν))[id])) (Set.Iic 0))
     (hρs : ∀ c, ¬ id =ᵐ[ρ (bestArm ν)] fun _ ↦ c)
@@ -732,7 +737,7 @@ theorem klucbFam_regret_eventually_le [StandardBorelSpace α]
   integral_regret_eventually_le_of_forall_integral_pullCount_eventually_le
     h.measurable_action (.of_forall fun n ↦ log_natCast_nonneg n)
     (fun a ↦ ((ρ a).expFamilyDiv id (ν a)[id] (ν (bestArm ν))[id])⁻¹)
-    (fun a ha _ hc ↦ KLUCBFam.integral_pullCount_eventually_le h (hμ a) (hν a) (hμ _) hνs hρs
+    (fun a ha _ hc ↦ KLUCBFam.integral_pullCount_eventually_le h (hμ a ha) (hν a ha) hs hνs hρs
       (by linarith [gap_eq_bestArm_sub (ν := ν) (a := a)]) (hμs a ha) hc)
     (by simpa only [div_eq_mul_inv] using hc)
 
@@ -753,8 +758,9 @@ theorem klucbFam_gaussianReal_regret_eventually_le [StandardBorelSpace α] (m : 
       ((gaussianReal (m a) (σ2 a)).natParam id (ν a)[id])) Set.univ := by
     rw [expFamily_natParam_gaussianReal (m a) (hσ2 a)]
     exact (hν a).mgfDominatedOn_gaussianReal
-  refine klucbFam_regret_eventually_le h (fun a ↦ mem_expFamilyMeans_gaussianReal _ (hσ2 a) _)
-    (fun a ↦ (hdom a).mono (Set.subset_univ _)) ((hdom _).mono (Set.subset_univ _))
+  refine klucbFam_regret_eventually_le h (fun a _ ↦ mem_expFamilyMeans_gaussianReal _ (hσ2 a) _)
+    (mem_expFamilyMeans_gaussianReal _ (hσ2 _) _) (fun a _ ↦ (hdom a).mono (Set.subset_univ _))
+    ((hdom _).mono (Set.subset_univ _))
     (not_ae_eq_const_gaussianReal _ (hσ2 _))
     (fun a _ ↦ mem_expFamilyMeans_gaussianReal _ (hσ2 a) _) ?_
   -- `Δ_a / d(μ_a, μ*) = Δ_a / (Δ_a² / (2 σ2_a)) = 2 σ2_a / Δ_a`
