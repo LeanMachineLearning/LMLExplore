@@ -68,6 +68,8 @@ weights of an exponential supermartingale.
 * `ProbabilityTheory.HasCondSubgaussianMGF.hasCondMGFBound_cgf_gaussianReal`: if `X - a` is
   conditionally `c`-sub-Gaussian, the moment generating function of `X` is conditionally bounded
   by that of the Gaussian law of mean `a` and variance `c`.
+* `ProbabilityTheory.HasSubgaussianMGF.mgfDominatedOn_gaussianReal`: if `X - a` is
+  `c`-sub-Gaussian, then `X` is dominated on `ℝ` by the Gaussian law of mean `a` and variance `c`.
 
 ## References
 
@@ -312,7 +314,7 @@ lemma _root_.ProbabilityTheory.HasCondSubgaussianMGF.hasCondMGFBound_cgf_gaussia
   have h' := (hasCondMGFBound_iff_hasCondSubgaussianMGF.2 h).add_const a
   simp only [sub_add_cancel] at h'
   refine h'.mono subset_rfl fun t _ ↦ le_of_eq ?_
-  rw [cgf, mgf_id_gaussianReal, log_exp]
+  rw [cgf_gaussianReal HasLaw.id]
   ring
 
 section Unconditional
@@ -400,6 +402,18 @@ lemma mgfDominatedOn_iff_hasMGFBound :
       fun _ ht ↦ (exp_cgf ht.2).symm ▸ h.mgf_le ht.1 ht.2⟩,
     fun h ↦ ⟨fun _ ht hY ↦ h.integrable_exp_mul ⟨ht, hY⟩,
       fun _ ht hY ↦ exp_cgf hY ▸ h.mgf_le ⟨ht, hY⟩⟩⟩
+
+/-- If `X - a` is `c`-sub-Gaussian under `P`, then `X` is dominated on `ℝ` by the Gaussian law of
+mean `a` and variance `c`. -/
+lemma _root_.ProbabilityTheory.HasSubgaussianMGF.mgfDominatedOn_gaussianReal {a : ℝ} {c : ℝ≥0}
+    (h : HasSubgaussianMGF (fun ω ↦ X ω - a) c P) :
+    MGFDominatedOn X P id (gaussianReal a c) Set.univ := by
+  rw [mgfDominatedOn_iff_hasMGFBound]
+  have h' := (hasMGFBound_iff_hasSubgaussianMGF.2 h).add_const a
+  simp only [sub_add_cancel] at h'
+  refine h'.mono Set.inter_subset_left fun t _ ↦ le_of_eq ?_
+  rw [cgf_gaussianReal HasLaw.id]
+  ring
 
 end Unconditional
 

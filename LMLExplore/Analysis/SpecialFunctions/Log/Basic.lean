@@ -20,6 +20,7 @@ public import Mathlib.Analysis.SpecialFunctions.Log.Basic
   `x → ∞`.
 * `Real.eventually_lt_mul_log_of_tendsto_div_log`: if `g n / log n → D` and `D < c`, then
   eventually `g n < c log n`.
+* `Real.tendsto_div_add_div_log`: if `L n / log n → 1`, then `(L n / D + K) / log n → 1 / D`.
 * `Real.tendsto_add_mul_add_sqrt_add_one_div_log`: if `L n / log n → 1`, then
   `(K + D (L n + √(b L n) + 1)) / log n → D`.
 * `Real.eventually_le_mul_log_of_forall_le_add_mul_add_sqrt_add_one`: if for every `ε ∈ (0, Δ)`,
@@ -122,6 +123,19 @@ theorem eventually_lt_mul_log_of_tendsto_div_log {g : ℕ → ℝ} {D c : ℝ}
   filter_upwards [hg.eventually_lt_const hc,
     (tendsto_log_atTop.comp tendsto_natCast_atTop_atTop).eventually_gt_atTop 0] with n hn hlog
   exact (div_lt_iff₀ hlog).mp hn
+
+/-- If `L n / log n → 1` as `n → ∞`, then `(L n / D + K) / log n → 1 / D`. Bounds of this shape
+on the expected number of pulls of an arm come from the analysis of KL-UCB [LS, Theorem 10.6] at
+an exploration level `L n`, for example `log (1 + n log² n)`. -/
+theorem tendsto_div_add_div_log {L : ℕ → ℝ} (hL : Tendsto (fun n : ℕ ↦ L n / log n) atTop (𝓝 1))
+    (D K : ℝ) : Tendsto (fun n : ℕ ↦ (L n / D + K) / log n) atTop (𝓝 D⁻¹) := by
+  have h_log : Tendsto (fun n : ℕ ↦ log n) atTop atTop :=
+    tendsto_log_atTop.comp tendsto_natCast_atTop_atTop
+  have := (hL.mul_const D⁻¹).add ((tendsto_inv_atTop_zero.comp h_log).const_mul K)
+  simp only [one_mul, mul_zero, add_zero] at this
+  refine this.congr fun n ↦ ?_
+  simp only [Function.comp_apply]
+  ring
 
 /-- If `L n / log n → 1` as `n → ∞`, then `(K + D (L n + √(b L n) + 1)) / log n → D` for every
 `b ≥ 0`. Bounds of this shape on the expected number of pulls of an arm come from [LS, Lemma 8.2]
