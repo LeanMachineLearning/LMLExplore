@@ -58,6 +58,8 @@ the whole trajectory.
   is the integral of `f (past, ·)` against the policy of round `n`.
 * `Learning.IsAlgEnvSeq.setLIntegral_comp_feedback`: on an event of `h.filtrationAction n`, the
   expectation of `g(Y_n)` is that of `∫ g` against the conditional law of `Y_n`, for `g ≥ 0`.
+* `Learning.IsAlgEnvSeq.ae_forall_feedback_mem_bandit`: along a run against a stochastic bandit
+  whose arm laws are concentrated on a set, almost surely every feedback lies in that set.
 * `Learning.IsAlgEnvSeq.integrable_feedback`: the feedback of a round is integrable when its
   conditional absolute mean has finite expectation.
 * `Learning.IsAlgEnvSeq.setIntegral_feedback`: on an event of `h.filtrationAction n`, the
@@ -156,6 +158,15 @@ lemma IsAlgEnvSeq.setLIntegral_comp_feedback [SFinite P] (h : IsAlgEnvSeq O A Y 
   obtain ⟨t, ht, rfl⟩ := hs
   simpa [Environment.feedbackKernel] using
     (h.hasCondDistrib_feedback n).setLIntegral_comp_eq_setLIntegral_lintegral ht hg
+
+/-- Along a run against the stochastic bandit `Environment.bandit ν` whose arm laws are all
+concentrated on a measurable set `s`, almost surely every feedback lies in `s`. -/
+lemma IsAlgEnvSeq.ae_forall_feedback_mem_bandit [SFinite P] {alg : Algorithm Unit 𝓐 𝓨}
+    {O : ℕ → Ω → Unit} {ν : Kernel 𝓐 𝓨} [IsMarkovKernel ν]
+    (h : IsAlgEnvSeq O A Y alg (Environment.bandit ν) P) {s : Set 𝓨} (hs : MeasurableSet s)
+    (hν : ∀ a, ∀ᵐ y ∂(ν a), y ∈ s) :
+    ∀ᵐ ω ∂P, ∀ n, Y n ω ∈ s :=
+  ae_all_iff.2 fun n ↦ (h.hasCondDistrib_feedback_bandit n).ae_mem hs hν
 
 variable [NormedAddCommGroup 𝓨]
 

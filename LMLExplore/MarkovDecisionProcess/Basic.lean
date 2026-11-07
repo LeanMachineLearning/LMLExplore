@@ -8,6 +8,7 @@ module
 public import LeanMachineLearning.ForMathlib.Probability.HasCondDistrib
 public import LeanMachineLearning.SequentialLearning.Deterministic
 public import LeanMachineLearning.SequentialLearning.IonescuTulceaSpace
+public import LMLExplore.Probability.HasCondDistrib
 public import LMLExplore.Probability.Kernel.Composition.KernelLemmas
 public import Mathlib.Probability.Independence.Conditional
 import Mathlib.MeasureTheory.Measure.ProbabilityMeasure
@@ -304,13 +305,9 @@ bounded by `C`. -/
 lemma ae_abs_feedback_le [SFinite P] {M : MDP 𝓢 𝓐 ℝ} {Y : ℕ → Ω → ℝ} {alg : Algorithm 𝓢 𝓐 ℝ} {C : ℝ}
     (h : IsAlgEnvSeq O A Y alg (M.env μ) P)
     (hR : ∀ p, ∀ᵐ x ∂(M.R p), |x| ≤ C) (n : ℕ) :
-    ∀ᵐ ω ∂P, |Y n ω| ≤ C := by
-  have h_law := hasCondDistrib_feedback h n
-  have h_ae : ∀ᵐ q ∂(P.map (fun ω ↦ (O n ω, A n ω)) ⊗ₘ M.R), |q.2| ≤ C :=
-    Measure.ae_compProd_of_ae_ae (measurableSet_le (by fun_prop) measurable_const)
-      (.of_forall fun p ↦ hR p)
-  rw [← h_law.map_eq] at h_ae
-  exact ae_of_ae_map h_law.aemeasurable h_ae
+    ∀ᵐ ω ∂P, |Y n ω| ≤ C :=
+  HasCondDistrib.ae_mem (hasCondDistrib_feedback h n) (t := {x | |x| ≤ C})
+    (measurableSet_le (by fun_prop) measurable_const) hR
 
 /-- Along a run in an MDP with bounded rewards, the expected reward of round `n` is the integral
 of the mean reward against the law of the state-action pair of round `n`. -/

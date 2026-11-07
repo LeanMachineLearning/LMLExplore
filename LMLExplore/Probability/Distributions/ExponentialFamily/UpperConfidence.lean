@@ -36,6 +36,10 @@ concentration bounds of KL-UCB.
 * `MeasureTheory.Measure.expFamilyUpper_le_iff`: the bounds on `U(x, c)`.
 * `MeasureTheory.Measure.le_expFamilyUpper_iff`: for a mean `q ≥ x`, `q ≤ U(x, c)` if and only if
   `dbar(x, q) ≤ c`.
+* `MeasureTheory.Measure.le_or_expFamilyRate_le_of_lt_expFamilyUpper`: a mean `q < U(x, c)` is at
+  most `x` or satisfies `dbar(x, q) ≤ c`.
+* `MeasureTheory.Measure.expFamilyUpper_ne_top_of_bddAbove`: `U(x, c)` is finite when the means are
+  bounded above.
 * `MeasureTheory.Measure.expFamilyUpper_mono`: `U` is monotone in both arguments.
 * `MeasureTheory.Measure.measurable_expFamilyUpper`: `U` is jointly measurable in `(x, c)`.
 
@@ -91,6 +95,26 @@ theorem expFamilyUpper_le_iff {r : EReal} :
       ∀ q ∈ ρ.expFamilyMeans T, x ≤ q → ρ.expFamilyRate T x q ≤ c → (q : EReal) ≤ r := by
   simp only [expFamilyUpper_def, sSup_le_iff, forall_mem_insert, forall_mem_image,
     mem_ofPred_eq, and_imp]
+
+/-- The upper confidence level of a family whose means are bounded above is finite. -/
+theorem expFamilyUpper_ne_top_of_bddAbove (h : BddAbove (ρ.expFamilyMeans T)) :
+    ρ.expFamilyUpper T x c ≠ ⊤ := by
+  obtain ⟨r, hr⟩ := h
+  refine ne_top_of_le_ne_top (EReal.coe_ne_top (max x r)) (expFamilyUpper_le_iff.2
+    ⟨EReal.coe_le_coe_iff.2 (le_max_left x r), fun q hq _ _ ↦ ?_⟩)
+  exact EReal.coe_le_coe_iff.2 ((hr hq).trans (le_max_right x r))
+
+/-- A mean `q` strictly below the upper confidence level `U(x, c)` is at most `x` or satisfies
+`dbar(x, q) ≤ c`. This is how an index of KL-UCB above a mean `q` is turned into an event about
+the empirical mean `x`. -/
+theorem le_or_expFamilyRate_le_of_lt_expFamilyUpper (hq : q ∈ ρ.expFamilyMeans T)
+    (h : (q : EReal) < ρ.expFamilyUpper T x c) : q ≤ x ∨ ρ.expFamilyRate T x q ≤ c := by
+  by_contra! H
+  refine h.not_ge (expFamilyUpper_le_iff.2 ⟨EReal.coe_le_coe_iff.2 H.1.le,
+    fun q' hq' hxq' hq'c ↦ EReal.coe_le_coe_iff.2 (not_lt.1 fun hlt ↦ ?_)⟩)
+  -- `dbar(x, ·)` is nondecreasing on the means above `x`, so `c < dbar(x, q) ≤ dbar(x, q')`.
+  exact (H.2.trans_le (monotoneOn_expFamilyRate_right x ⟨hq, H.1.le⟩ ⟨hq', hxq'⟩ hlt.le)).not_ge
+    hq'c
 
 /-- **Characterization of the upper confidence level**: for a nondegenerate statistic and a mean
 `q ≥ x`, `q ≤ U(x, c)` if and only if `dbar(x, q) ≤ c`. This uses that `dbar(x, ·)` is continuous
