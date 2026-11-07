@@ -7,6 +7,7 @@ module
 
 public import LMLExplore.Probability.Distributions.ExponentialFamily.Mean
 public import LMLExplore.Probability.Distributions.Poisson
+import TauCeti.Probability.Distributions.Tilted
 
 /-!
 # The Poisson laws as an exponential family
@@ -28,7 +29,7 @@ where the closed form of the divergence makes the transportation costs explicit.
 ## Main statements
 
 * `LMLExplore.expFamily_poissonMeasure`: the member of natural parameter `η` of the exponential
-  family of `Po(r)` is `Po(r exp η)`, by `LMLExplore.tilted_mul_natCast_poissonMeasure`. The
+  family of `Po(r)` is `Po(r exp η)`, by `TauCeti.Probability.poissonMeasure_tilted_mul`. The
   log-partition function of the family is `LMLExplore.cgf_natCast_poissonMeasure`,
   `η ↦ r (exp η - 1)`, finite for every `η` (`LMLExplore.integrableExpSet_natCast_poissonMeasure`).
 * `LMLExplore.deriv_cgf_natCast_poissonMeasure`: the mean map of the family is `η ↦ r exp η`.
@@ -60,8 +61,8 @@ variable {r : ℝ≥0} {μ μ' : ℝ}
 @[simp]
 theorem expFamily_poissonMeasure (r : ℝ≥0) (η : ℝ) :
     (poissonMeasure r).expFamily Nat.cast η = poissonMeasure (r * exp η).toNNReal := by
-  rw [Measure.expFamily_def]
-  exact tilted_mul_natCast_poissonMeasure r η
+  rw [Measure.expFamily_def, TauCeti.Probability.poissonMeasure_tilted_mul,
+    toNNReal_mul r.coe_nonneg, toNNReal_coe]
 
 /-- The mean map of the exponential family of `Po(r)` is `η ↦ r exp η`. -/
 @[simp]
