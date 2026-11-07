@@ -5,9 +5,9 @@ Authors: Rémy Degenne
 -/
 module
 
-public import Mathlib.Analysis.Convex.Integral
 public import Mathlib.Probability.Moments.SubGaussian
 public import Mathlib.Probability.Distributions.Bernoulli
+public import LMLExplore.Analysis.Convex.Integral
 public import LMLExplore.Topology.UnitInterval
 public import TauCeti.Probability.Distributions.Bernoulli.Measurability
 
@@ -157,9 +157,7 @@ theorem bind_bernoulliMeasure_projIcc {ρ : Measure ℝ} [IsProbabilityMeasure �
     refine integral_congr_ae ?_
     filter_upwards [hρ] with x hx
     simp [p, Set.projIcc_of_mem _ hx]
-  have hmem : ρ[id] ∈ Set.Icc (0 : ℝ) 1 :=
-    (convex_Icc (0 : ℝ) 1).integral_mem isClosed_Icc hρ
-      (Integrable.of_mem_Icc 0 1 aemeasurable_id hρ)
+  have hmem : ρ[id] ∈ Set.Icc (0 : ℝ) 1 := integral_id_mem_Icc_of_ae_mem_Icc hρ
   have hpm : p ρ[id] = ⟨ρ[id], hmem⟩ := Set.projIcc_of_mem _ hmem
   -- The masses that the mixture puts on `1` and on `0` are the means of `x` and of `1 - x`.
   have h₁ : ∫⁻ x, (unitInterval.toNNReal (p x) : ℝ≥0∞) ∂ρ =

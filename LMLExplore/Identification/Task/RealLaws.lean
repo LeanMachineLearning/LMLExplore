@@ -7,6 +7,7 @@ module
 
 public import LMLExplore.Identification.Task.ProductModel
 public import LMLExplore.InformationTheory.KullbackLeibler.Bernoulli
+public import LMLExplore.Probability.Moments.SubGaussian.Bounded
 public import LeanMachineLearning.ForMathlib.Probability.Moments.SubGaussian
 
 /-!
@@ -151,21 +152,9 @@ lemma mem_unitIntervalLaws_iff : P ∈ unitIntervalLaws ↔ ∀ᵐ x ∂(P : Mea
 lemma subgaussianLaws_mono : Monotone subgaussianLaws := fun _ _ h _ hP ↦
   mem_subgaussianLaws_iff.2 ((mem_subgaussianLaws_iff.1 hP).mono h)
 
-/-- The mean of a law on `[0, 1]` lies in `[0, 1]`. -/
-lemma integral_mem_Icc_of_mem_unitIntervalLaws (hP : P ∈ unitIntervalLaws) :
-    (P : Measure ℝ)[id] ∈ Icc 0 1 :=
-  (convex_Icc (0 : ℝ) 1).integral_mem isClosed_Icc hP
-    (Integrable.of_mem_Icc 0 1 aemeasurable_id hP)
-
 /-- **Hoeffding's lemma**: a law on `[0, 1]` is `1 / 4`-sub-Gaussian around its mean. -/
-lemma unitIntervalLaws_subset_subgaussianLaws : unitIntervalLaws ⊆ subgaussianLaws (1 / 4) := by
-  intro P hP
-  have h := hasSubgaussianMGF_of_mem_Icc aemeasurable_id (mem_unitIntervalLaws_iff.1 hP)
-  have hc : ((‖(1 : ℝ) - 0‖₊ / 2) ^ 2 : ℝ≥0) = 1 / 4 := by
-    ext
-    norm_num
-  rw [hc] at h
-  exact mem_subgaussianLaws_iff.2 h
+lemma unitIntervalLaws_subset_subgaussianLaws : unitIntervalLaws ⊆ subgaussianLaws (1 / 4) :=
+  fun _ hP ↦ hasSubgaussianMGF_of_mem_Icc_zero_one aemeasurable_id hP
 
 /-- The Bernoulli laws `Ber(1, 0, p)` are laws on `[0, 1]`. -/
 lemma bernoulliMeasure_mem_unitIntervalLaws (p : I) :
@@ -213,8 +202,8 @@ theorem klBer_le_kInfLower_of_subset_unitIntervalLaws (hS : S ⊆ unitIntervalLa
     klBer (P : Measure ℝ)[id] u ≤
       kInfLower ProbabilityMeasure.toMeasure S (fun Q ↦ (Q : Measure ℝ)[id]) P u := by
   refine le_kInfLower_iff.2 fun Q hQ hQu ↦ ?_
-  have hQ01 := integral_mem_Icc_of_mem_unitIntervalLaws (hS hQ)
-  exact ((strictAntiOn_klBer (integral_mem_Icc_of_mem_unitIntervalLaws hP)).antitoneOn
+  have hQ01 := integral_id_mem_Icc_of_ae_mem_Icc (hS hQ)
+  exact ((strictAntiOn_klBer (integral_id_mem_Icc_of_ae_mem_Icc hP)).antitoneOn
     ⟨hQ01.1, hQu.trans hu⟩ ⟨hQ01.1.trans hQu, hu⟩ hQu).trans
     (klBer_integral_le_klDiv (mem_unitIntervalLaws_iff.1 hP)
       (mem_unitIntervalLaws_iff.1 (hS hQ)))
