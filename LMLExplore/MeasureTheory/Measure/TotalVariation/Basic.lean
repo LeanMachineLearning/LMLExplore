@@ -25,7 +25,9 @@ bound depends only on the oscillation of `f`: if `f` takes values in `[a, b]`, t
 variation distance is also controlled by events: `|μ s - ν s| ≤ tvDist μ ν / 2` for every
 measurable `s`, and conversely `tvDist μ ν ≤ 2 * c` as soon as `μ s ≤ ν s + c` for every
 measurable `s`. On a finite type, the total variation distance of two
-finite measures is the `ℓ¹` distance `∑ x, |μ {x} - ν {x}|` of their mass functions.
+finite measures is the `ℓ¹` distance `∑ x, |μ {x} - ν {x}|` of their mass functions, and for
+probability measures half of it is the mass `1 - ∑ x, min (μ {x}) (ν {x})` that they do not
+share.
 Adding a common finite measure and scaling both measures by `t` multiplies the
 distance by `t`, so the distance from a mixture `(1 - α) • μ + α • ν` to `μ` is
 `α * tvDist ν μ`, at most `2 * α` for probability measures.
@@ -51,7 +53,10 @@ contraction of the oscillation of functions by a Markov kernel (Dobrushin's coef
   the total variation distance bounds the difference of the masses of every event, and eventwise
   bounds bound the total variation distance.
 * `MeasureTheory.tvDist_eq_sum_abs_measureReal_singleton_sub`: on a finite type,
-  `tvDist μ ν = ∑ x, |μ {x} - ν {x}|`.
+  `tvDist μ ν = ∑ x, |μ {x} - ν {x}|`, and
+  `MeasureTheory.tvDist_eq_measureReal_univ_add_sub_two_mul_sum_min`,
+  `MeasureTheory.tvDist_div_two_eq_one_sub_sum_min` its overlap form
+  `tvDist μ ν = μ univ + ν univ - 2 * ∑ x, min (μ {x}) (ν {x})`.
 * `MeasureTheory.tvDist_add_smul_add_smul`: `tvDist (ξ + t • μ) (ξ + t • ν) = t * tvDist μ ν`.
 * `MeasureTheory.tvDist_one_sub_smul_add_smul`, `MeasureTheory.tvDist_one_sub_smul_add_smul_le`:
   the mixture `(1 - α) • μ + α • ν` is at distance `α * tvDist ν μ` from `μ`, at most `2 * α`
@@ -217,6 +222,28 @@ theorem tvDist_eq_sum_abs_measureReal_singleton_sub [Fintype 𝓧] [MeasurableSi
       simp only [Measure.restrict_restrict, measurableSet_singleton,
         (measurableSet_singleton a).compl, h1, h2, h_single, ih, Finset.sum_insert ha]
   simpa using h_fin Finset.univ
+
+/-- **Total variation and overlap on a finite type**: for finite measures `μ` and `ν` on a finite
+type with measurable singletons,
+`tvDist μ ν = μ univ + ν univ - 2 * ∑ x, min (μ {x}) (ν {x})`. -/
+theorem tvDist_eq_measureReal_univ_add_sub_two_mul_sum_min [Fintype 𝓧]
+    [MeasurableSingletonClass 𝓧] [IsFiniteMeasure μ] [IsFiniteMeasure ν] :
+    tvDist μ ν = μ.real univ + ν.real univ - 2 * ∑ x, min (μ.real {x}) (ν.real {x}) := by
+  have h (a b : ℝ) : |a - b| = a + b - 2 * min a b := by
+    rcases le_total a b with hab | hab
+    · rw [abs_of_nonpos (sub_nonpos.2 hab), min_eq_left hab]; ring
+    · rw [abs_of_nonneg (sub_nonneg.2 hab), min_eq_right hab]; ring
+  simp only [tvDist_eq_sum_abs_measureReal_singleton_sub, h, Finset.sum_sub_distrib,
+    Finset.sum_add_distrib, ← Finset.mul_sum, sum_measureReal_singleton, Finset.coe_univ]
+
+/-- **Total variation and overlap on a finite type**: for probability measures `μ` and `ν` on a
+finite type with measurable singletons, `tvDist μ ν / 2 = 1 - ∑ x, min (μ {x}) (ν {x})`: half
+the total variation distance is the mass that `μ` and `ν` do not have in common. -/
+theorem tvDist_div_two_eq_one_sub_sum_min [Fintype 𝓧] [MeasurableSingletonClass 𝓧]
+    [IsProbabilityMeasure μ] [IsProbabilityMeasure ν] :
+    tvDist μ ν / 2 = 1 - ∑ x, min (μ.real {x}) (ν.real {x}) := by
+  rw [tvDist_eq_measureReal_univ_add_sub_two_mul_sum_min, probReal_univ, probReal_univ]
+  ring
 
 /-! ### Sums and mixtures -/
 

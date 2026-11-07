@@ -9,7 +9,9 @@ public import LMLExplore.Probability.Kernel.Composition.Comp
 public import LMLExplore.Probability.Kernel.Operator
 public import LMLExplore.MeasureTheory.Measure.TotalVariation.Cauchy
 public import LMLExplore.Probability.Kernel.TotalVariation
+public import Mathlib.LinearAlgebra.Matrix.Irreducible.Defs
 public import Mathlib.Topology.UniformSpace.UniformConvergence
+public import TauCeti.Probability.Kernel.Matrix
 
 import Mathlib.Analysis.SpecificLimits.Basic
 
@@ -23,13 +25,16 @@ contraction rate of `κ` in total variation and for the oscillation of functions
 * `osc (κ f) ≤ δ(κ) * osc f` for bounded measurable functions, where `osc f = sup f - inf f`.
 
 It is submultiplicative, `δ(η ∘ₖ κ) ≤ δ(η) * δ(κ)`, and the Doeblin minorization `φ ≤ κ x` for
-every `x` gives `δ(κ) ≤ 1 - φ univ`.
+every `x` gives `δ(κ) ≤ 1 - φ univ`. When the target space is finite, `δ(κ)` is one minus the
+least overlap `∑ z, min (κ x {z}) (κ y {z})` of two rows of the transition matrix, so that, for a
+finite source space too, `δ(κ) < 1` exactly when any two states reach a common state in one step.
 
 A Markov kernel `κ : Kernel α α` on a nonempty space with `δ(κ ^ m) < 1` for some `m` has a
 unique invariant probability measure `π`, and `tvDist ((κ ^ n) x) π ≤ 2 * δ(κ ^ m) ^ (n / m)`
 for every `x` and `n`. Conversely, a uniformly ergodic kernel, one whose `n`-step laws converge
 to an invariant probability measure in total variation uniformly in the starting point, has
-`δ(κ ^ m) ≤ 1 / 2` for some `m`. These are the tools through which the mixing of Markov chains
+`δ(κ ^ m) ≤ 1 / 2` for some `m`. On a finite space, a chain with a primitive transition matrix
+has `δ(κ ^ m) < 1` for some `m`. These are the tools through which the mixing of Markov chains
 and the span contraction of the Bellman operators of Markov decision processes are quantified.
 
 ## Main definitions
@@ -49,11 +54,19 @@ and the span contraction of the Bellman operators of Markov decision processes a
   `ProbabilityTheory.Kernel.dobrushinCoeff_pow_le_pow_div`: submultiplicativity.
 * `ProbabilityTheory.Kernel.dobrushinCoeff_le_one_sub_of_forall_le`,
   `ProbabilityTheory.Kernel.dobrushinCoeff_le_one_sub_of_forall_smul_le`: the Doeblin condition.
+* `ProbabilityTheory.Kernel.dobrushinCoeff_eq_one_sub_iInf_sum_min`: on a finite target space,
+  `δ(κ) = 1 - ⨅ x y, ∑ z, min (κ x {z}) (κ y {z})`, and
+  `ProbabilityTheory.Kernel.dobrushinCoeff_lt_one_iff` the resulting characterization of
+  `δ(κ) < 1` on finite spaces.
 * `ProbabilityTheory.Kernel.existsUnique_invariant_of_dobrushinCoeff_pow_lt_one`,
   `ProbabilityTheory.Kernel.tvDist_pow_apply_le_two_mul_pow_div`: existence and uniqueness of the
   invariant probability measure, and the geometric convergence to it.
 * `ProbabilityTheory.Kernel.isUniformlyErgodic_iff_exists_dobrushinCoeff_pow_lt_one`: on a
   nonempty space, a Markov kernel is uniformly ergodic if and only if `δ(κ ^ m) < 1` for some `m`.
+* `ProbabilityTheory.Kernel.exists_dobrushinCoeff_pow_lt_one_of_isPrimitive`,
+  `ProbabilityTheory.Kernel.isUniformlyErgodic_of_isPrimitive`: a Markov kernel on a finite space
+  whose transition matrix is primitive (Mathlib's `Matrix.IsPrimitive`) has `δ(κ ^ m) < 1` for
+  some `m > 0`, hence is uniformly ergodic.
 
 ## Implementation notes
 
@@ -66,7 +79,8 @@ Cauchy sequence in total variation at rate `2 * δ(κ ^ n)`. The limit is built 
 * [R. L. Dobrushin, *Central limit theorem for nonstationary Markov chains. I, II*, 1956][Dob56]
 * [D. A. Levin, Y. Peres and E. L. Wilmer, *Markov chains and mixing times*, 2nd edition,
   2017][LPW17], §4.5 and Theorem 4.9
-* [M. L. Puterman, *Markov decision processes*, 1994][P], Proposition 6.6.1
+* [M. L. Puterman, *Markov decision processes*, 1994][P], Proposition 6.6.1, where `δ(κ)` is
+  defined on finite spaces by the overlap formula
 -/
 
 public section
@@ -283,6 +297,54 @@ theorem dobrushinCoeff_le_one_sub_of_forall_smul_le [Nonempty α] [IsMarkovKerne
     dobrushinCoeff κ ≤ 1 - ε := by
   simpa using dobrushinCoeff_le_one_sub_of_forall_le hφ
 
+/-! ### Finite target spaces -/
+
+section Finite
+
+variable [Fintype β] [MeasurableSingletonClass β]
+
+/-- **The Dobrushin coefficient on a finite space**: for a Markov kernel from a nonempty space to
+a finite one, `δ(κ) = 1 - ⨅ x y, ∑ z, min (κ x {z}) (κ y {z})`, one minus the least overlap of
+two rows of the transition matrix. -/
+theorem dobrushinCoeff_eq_one_sub_iInf_sum_min [Nonempty α] [IsMarkovKernel κ] :
+    dobrushinCoeff κ =
+      1 - ⨅ p : α × α, ∑ z, min ((κ p.1).real {z}) ((κ p.2).real {z}) := by
+  set s : α × α → ℝ := fun p ↦ ∑ z, min ((κ p.1).real {z}) ((κ p.2).real {z})
+  have hs (p : α × α) : 0 ≤ s p :=
+    Finset.sum_nonneg fun _ _ ↦ le_min measureReal_nonneg measureReal_nonneg
+  have hδ : dobrushinCoeff κ = ⨆ p, (1 - s p) := by
+    simp only [dobrushinCoeff_def, tvDist_div_two_eq_one_sub_sum_min, s]
+  have hbdd : BddAbove (range fun p ↦ 1 - s p) :=
+    ⟨1, forall_mem_range.2 fun p ↦ by linarith [hs p]⟩
+  rw [hδ]
+  refine le_antisymm (ciSup_le fun p ↦ ?_) (sub_le_comm.1 (le_ciInf fun p ↦ ?_))
+  · linarith [ciInf_le ⟨0, forall_mem_range.2 hs⟩ p]
+  · linarith [le_ciSup hbdd p]
+
+omit [Fintype β] in
+/-- **Scrambling kernels**: a Markov kernel from a finite space to a finite one has Dobrushin
+coefficient `δ(κ) < 1` if and only if any two starting points can reach a common state in one
+step. -/
+theorem dobrushinCoeff_lt_one_iff [Finite α] [Finite β] [IsMarkovKernel κ] :
+    dobrushinCoeff κ < 1 ↔ ∀ x y, ∃ z, 0 < κ x {z} ∧ 0 < κ y {z} := by
+  have := Fintype.ofFinite β
+  rcases isEmpty_or_nonempty α with hα | hα
+  · simp [dobrushinCoeff_def]
+  set s : α × α → ℝ := fun p ↦ ∑ z, min ((κ p.1).real {z}) ((κ p.2).real {z})
+  have hs (q : α × α) : 0 < s q ↔ ∃ z, 0 < κ q.1 {z} ∧ 0 < κ q.2 {z} := by
+    rw [Finset.sum_pos_iff_of_nonneg fun _ _ ↦ le_min measureReal_nonneg measureReal_nonneg]
+    simp [lt_min_iff, measureReal_def, ENNReal.toReal_pos_iff, measure_lt_top]
+  -- the least overlap is attained at some pair `p`
+  obtain ⟨p, hp⟩ := exists_eq_ciInf_of_finite (f := s)
+  have hbdd : BddBelow (range s) :=
+    ⟨0, forall_mem_range.2 fun _ ↦
+      Finset.sum_nonneg fun _ _ ↦ le_min measureReal_nonneg measureReal_nonneg⟩
+  rw [dobrushinCoeff_eq_one_sub_iInf_sum_min, ← hp, sub_lt_self_iff]
+  exact ⟨fun h x y ↦ (hs (x, y)).1 (h.trans_le (hp ▸ ciInf_le hbdd (x, y))),
+    fun h ↦ (hs p).2 (h p.1 p.2)⟩
+
+end Finite
+
 /-! ### Uniform ergodicity -/
 
 /-- A kernel `κ` is *uniformly ergodic* if it has an invariant probability measure `π` such that
@@ -402,5 +464,38 @@ theorem isUniformlyErgodic_iff_exists_dobrushinCoeff_pow_lt_one [Nonempty α] :
     IsUniformlyErgodic κ ↔ ∃ m, dobrushinCoeff (κ ^ m) < 1 :=
   ⟨fun h ↦ (h.exists_dobrushinCoeff_pow_le).imp fun _ hm ↦ hm.trans_lt (by norm_num),
     fun ⟨_, hm⟩ ↦ isUniformlyErgodic_of_dobrushinCoeff_pow_lt_one hm⟩
+
+/-! ### Primitive chains on finite spaces -/
+
+section Primitive
+
+variable [Fintype α] [DecidableEq α] [MeasurableSingletonClass α]
+
+/-- **Primitive chains**: a Markov kernel on a finite space whose transition matrix is primitive
+(some power has only positive entries) has `δ(κ ^ m) < 1` for some `m > 0`. -/
+theorem exists_dobrushinCoeff_pow_lt_one_of_isPrimitive
+    (h : (κ.toMatrix.map ((↑) : ℝ≥0 → ℝ)).IsPrimitive) :
+    ∃ m > 0, dobrushinCoeff (κ ^ m) < 1 := by
+  obtain ⟨m, hm, hpos⟩ := h.exists_pos_pow
+  -- the entries of the `m`-th power of the matrix are the masses of `κ ^ m`
+  have hmat : κ.toMatrix.map ((↑) : ℝ≥0 → ℝ) ^ m = (κ ^ m).toMatrix.map (↑) := by
+    simpa [toMatrix_pow] using (map_pow (NNReal.toRealHom.mapMatrix (m := α)) κ.toMatrix m).symm
+  have hpow (x y : α) : 0 < (κ ^ m) x {y} := by
+    have hxy := hpos x y
+    rw [hmat, Matrix.map_apply, NNReal.coe_pos, toMatrix_apply, ENNReal.toNNReal_pos_iff] at hxy
+    exact hxy.1
+  exact ⟨m, hm, dobrushinCoeff_lt_one_iff.2 fun x y ↦ ⟨x, hpow x x, hpow y x⟩⟩
+
+/-- **Primitive chains are uniformly ergodic**: a Markov kernel on a nonempty finite space whose
+transition matrix is primitive is uniformly ergodic. Its invariant probability measure is unique
+and the convergence is geometric, by `exists_dobrushinCoeff_pow_lt_one_of_isPrimitive` with
+`existsUnique_invariant_of_dobrushinCoeff_pow_lt_one` and `tvDist_pow_apply_le_two_mul_pow_div`. -/
+theorem isUniformlyErgodic_of_isPrimitive [Nonempty α]
+    (h : (κ.toMatrix.map ((↑) : ℝ≥0 → ℝ)).IsPrimitive) :
+    IsUniformlyErgodic κ :=
+  let ⟨_, _, hm⟩ := exists_dobrushinCoeff_pow_lt_one_of_isPrimitive h
+  isUniformlyErgodic_of_dobrushinCoeff_pow_lt_one hm
+
+end Primitive
 
 end ProbabilityTheory.Kernel
