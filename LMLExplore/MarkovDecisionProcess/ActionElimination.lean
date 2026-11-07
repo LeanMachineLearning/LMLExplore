@@ -28,7 +28,7 @@ if `vL s ≤ v* s` and `v* ≤ vU`, then `Q* (s, a) ≤ r (s, a) + γ ∫ vU dP 
 suboptimal in `s` as soon as `r (s, a) + γ ∫ vU dP (s, a) < vL s`. One step of value iteration
 from a bounded measurable `v` with `α ≤ T v - v ≤ β` provides the bounds
 `T v + γ α / (1 - γ) ≤ v* ≤ T v + γ β / (1 - γ)` ([P, Corollary 6.6.4],
-`Learning.MDP.optValue_le_bellman_iterate_add`, `Learning.MDP.bellmanEval_iterate_add_le_value`).
+`Learning.MDP.bellman_add_le_optValue`, `Learning.MDP.optValue_le_bellman_add`).
 
 Puterman states these results on a finite state space. Here the state space is a general
 measurable space, and the policies are stationary, possibly randomized.
@@ -180,22 +180,12 @@ theorem optQValue_lt_optValue_of_lookahead_bellman_add_lt (hγ : γ < 1)
     (h : M.lookahead γ (M.bellman γ v) (s, a) + γ * (γ * β / (1 - γ)) <
       M.bellman γ v s + γ * α / (1 - γ)) :
     M.optQValue γ (s, a) < M.optValue γ s := by
-  have := Fintype.ofFinite 𝓐
   have hTv : Integrable (M.bellman γ v) (M.P (s, a)) :=
     integrable_of_abs_le (measurable_bellman hv) (abs_bellman_le hR hvB) _
-  -- the upper bound `v* ≤ T v + γ β / (1 - γ)`
-  have hU : M.optValue γ ≤ M.bellman γ v + fun _ ↦ γ * β / (1 - γ) := fun s' ↦ by
-    simpa only [iterate_one, pow_one, Pi.add_apply] using
-      optValue_le_bellman_iterate_add hγ hR hv hvB hβ 1 s'
-  -- the lower bound `T v + γ α / (1 - γ) ≤ v^d ≤ v*` through the greedy policy `d` for `v`
-  have hL : M.bellman γ v s + γ * α / (1 - γ) ≤ M.optValue γ s := by
-    have hg := measurable_greedy (M := M) (γ := γ) hv
-    have h₁ := bellmanEval_iterate_add_le_value (π := Kernel.deterministic _ hg) hγ hR hv hvB
-      (fun s' ↦ by rw [bellmanEval_greedy hv]; exact hα s') 1 s
-    rw [iterate_one, bellmanEval_greedy hv, pow_one] at h₁
-    exact h₁.trans (value_le_optValue (π := Kernel.deterministic _ hg) hγ hR s)
   refine optQValue_lt_optValue_of_lookahead_lt (vL := fun s ↦ M.bellman γ v s + γ * α / (1 - γ))
-    hγ hR hU (hTv.add (integrable_const _)) hL ?_
+    (vU := M.bellman γ v + fun _ ↦ γ * β / (1 - γ)) hγ hR
+    (fun s' ↦ optValue_le_bellman_add hγ hR hv hvB hβ s') (hTv.add (integrable_const _))
+    (bellman_add_le_optValue hγ hR hv hvB hα s) ?_
   rwa [lookahead_add_const hTv]
 
 end Learning.MDP
