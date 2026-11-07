@@ -73,7 +73,8 @@ Fixed variance, statistic `id`:
   `dbar(x, μ) = (x - μ)² / (2 v)`.
 * `LMLExplore.expFamilyUpper_gaussianReal`, `LMLExplore.expFamilyUpper_top_gaussianReal`: for
   `v ≠ 0`, the upper confidence level is `U(x, c) = x + √(2 v c)` for finite `c`, and
-  `U(x, ∞) = ∞`.
+  `U(x, ∞) = ∞`. `LMLExplore.expFamilyUpper_ofReal_gaussianReal` is the finite case for a real
+  budget `c ≥ 0`.
 
 Fixed mean, statistic `x ↦ (x - m) ^ 2`:
 
@@ -216,6 +217,13 @@ theorem expFamilyUpper_gaussianReal (m : ℝ) (hv : v ≠ 0) (x : ℝ) (c : ℝ�
     rw [show (x - (x + √(2 * v * c))) ^ 2 = 2 * v * c by
       rw [sub_add_cancel_left, neg_sq, sq_sqrt (by positivity)]]
     field_simp
+
+/-- For `v ≠ 0` and a real budget `c ≥ 0`, the upper confidence level of the exponential family of
+`𝒩(m, v)` is `U(x, c) = x + √(2 v c)`. -/
+theorem expFamilyUpper_ofReal_gaussianReal (m : ℝ) (hv : v ≠ 0) (x : ℝ) {c : ℝ} (hc : 0 ≤ c) :
+    (gaussianReal m v).expFamilyUpper id x (ENNReal.ofReal c) =
+      ((x + √(2 * v * c) : ℝ) : EReal) := by
+  rw [← Real.coe_toNNReal c hc, ENNReal.ofReal_coe_nnreal, expFamilyUpper_gaussianReal m hv]
 
 /-- For `v ≠ 0`, the upper confidence level of the exponential family of `𝒩(m, v)` with an
 infinite budget is `U(x, ∞) = ∞`: every mean `q ≥ x` is at finite extended divergence from `x`. -/
