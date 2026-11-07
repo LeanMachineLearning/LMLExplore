@@ -23,7 +23,10 @@ contraction rate of `κ` in total variation and for the oscillation of functions
 * `osc (κ f) ≤ δ(κ) * osc f` for bounded measurable functions, where `osc f = sup f - inf f`.
 
 It is submultiplicative, `δ(η ∘ₖ κ) ≤ δ(η) * δ(κ)`, and the Doeblin minorization `φ ≤ κ x` for
-every `x` gives `δ(κ) ≤ 1 - φ univ`.
+every `x` gives `δ(κ) ≤ 1 - φ univ`. When the target space is finite, `δ(κ)` is one minus the
+infimum of the overlaps `∑ z, min (κ x {z}) (κ y {z})` of two rows of the transition matrix, so
+that, for a finite source space too, `δ(κ) < 1` exactly when any two states reach a common state
+in one step.
 
 A Markov kernel `κ : Kernel α α` on a nonempty space with `δ(κ ^ m) < 1` for some `m` has a
 unique invariant probability measure `π`, and `tvDist ((κ ^ n) x) π ≤ 2 * δ(κ ^ m) ^ (n / m)`
@@ -49,6 +52,10 @@ and the span contraction of the Bellman operators of Markov decision processes a
   `ProbabilityTheory.Kernel.dobrushinCoeff_pow_le_pow_div`: submultiplicativity.
 * `ProbabilityTheory.Kernel.dobrushinCoeff_le_one_sub_of_forall_le`,
   `ProbabilityTheory.Kernel.dobrushinCoeff_le_one_sub_of_forall_smul_le`: the Doeblin condition.
+* `ProbabilityTheory.Kernel.dobrushinCoeff_eq_one_sub_iInf_sum_min`: on a finite target space,
+  `δ(κ) = 1 - ⨅ p : α × α, ∑ z, min ((κ p.1).real {z}) ((κ p.2).real {z})`, and
+  `ProbabilityTheory.Kernel.dobrushinCoeff_lt_one_iff` the resulting characterization of
+  `δ(κ) < 1` on finite spaces.
 * `ProbabilityTheory.Kernel.existsUnique_invariant_of_dobrushinCoeff_pow_lt_one`,
   `ProbabilityTheory.Kernel.tvDist_pow_apply_le_two_mul_pow_div`: existence and uniqueness of the
   invariant probability measure, and the geometric convergence to it.
@@ -66,7 +73,8 @@ Cauchy sequence in total variation at rate `2 * δ(κ ^ n)`. The limit is built 
 * [R. L. Dobrushin, *Central limit theorem for nonstationary Markov chains. I, II*, 1956][Dob56]
 * [D. A. Levin, Y. Peres and E. L. Wilmer, *Markov chains and mixing times*, 2nd edition,
   2017][LPW17], §4.5 and Theorem 4.9
-* [M. L. Puterman, *Markov decision processes*, 1994][P], Proposition 6.6.1
+* [M. L. Puterman, *Markov decision processes*, 1994][P], Proposition 6.6.1, where `δ(κ)` is
+  defined on finite spaces by the overlap formula
 -/
 
 public section
@@ -282,6 +290,47 @@ theorem dobrushinCoeff_le_one_sub_of_forall_smul_le [Nonempty α] [IsMarkovKerne
     {φ : Measure β} [IsProbabilityMeasure φ] {ε : ℝ≥0} (hφ : ∀ x, ε • φ ≤ κ x) :
     dobrushinCoeff κ ≤ 1 - ε := by
   simpa using dobrushinCoeff_le_one_sub_of_forall_le hφ
+
+/-! ### Finite target spaces -/
+
+section Finite
+
+variable [Fintype β] [MeasurableSingletonClass β]
+
+/-- **The Dobrushin coefficient on a finite space**: for a Markov kernel from a nonempty space to
+a finite one, `δ(κ) = 1 - ⨅ p : α × α, ∑ z, min ((κ p.1).real {z}) ((κ p.2).real {z})`, one minus
+the infimum of the overlaps of two rows of the transition matrix. -/
+theorem dobrushinCoeff_eq_one_sub_iInf_sum_min [Nonempty α] [IsMarkovKernel κ] :
+    dobrushinCoeff κ =
+      1 - ⨅ p : α × α, ∑ z, min ((κ p.1).real {z}) ((κ p.2).real {z}) := by
+  set s : α × α → ℝ := fun p ↦ ∑ z, min ((κ p.1).real {z}) ((κ p.2).real {z})
+  have hs (p : α × α) : 0 ≤ s p :=
+    Finset.sum_nonneg fun _ _ ↦ le_min measureReal_nonneg measureReal_nonneg
+  have hδ : dobrushinCoeff κ = ⨆ p, (1 - s p) := by
+    simp only [dobrushinCoeff_def, tvDist_div_two_eq_one_sub_sum_min, s]
+  have hbdd : BddAbove (range fun p ↦ 1 - s p) :=
+    ⟨1, forall_mem_range.2 fun p ↦ by linarith [hs p]⟩
+  rw [hδ]
+  refine le_antisymm (ciSup_le fun p ↦ ?_) (sub_le_comm.1 (le_ciInf fun p ↦ ?_))
+  · linarith [ciInf_le ⟨0, forall_mem_range.2 hs⟩ p]
+  · linarith [le_ciSup hbdd p]
+
+omit [Fintype β] in
+/-- **Scrambling kernels**: a Markov kernel from a finite space to a finite one has Dobrushin
+coefficient `δ(κ) < 1` if and only if any two starting points can reach a common state in one
+step. -/
+theorem dobrushinCoeff_lt_one_iff [Finite α] [Finite β] [IsMarkovKernel κ] :
+    dobrushinCoeff κ < 1 ↔ ∀ x y, ∃ z, 0 < κ x {z} ∧ 0 < κ y {z} := by
+  have := Fintype.ofFinite β
+  rcases isEmpty_or_nonempty α with hα | hα
+  · simp [dobrushinCoeff_def]
+  -- the infimum over the finite set of pairs is positive exactly when every overlap is
+  rw [dobrushinCoeff_eq_one_sub_iInf_sum_min, sub_lt_self_iff, Finite.lt_ciInf_iff, Prod.forall]
+  refine forall₂_congr fun x y ↦ ?_
+  rw [Finset.sum_pos_iff_of_nonneg fun _ _ ↦ le_min measureReal_nonneg measureReal_nonneg]
+  simp [lt_min_iff, measureReal_def, ENNReal.toReal_pos_iff, measure_lt_top]
+
+end Finite
 
 /-! ### Uniform ergodicity -/
 
