@@ -105,8 +105,8 @@ smallest `q ∈ [0, p]` with `d(p, q) ≤ c`; together they are the confidence b
 * A. Garivier and O. Cappé, *The KL-UCB algorithm for bounded stochastic bandits and beyond*,
   COLT 2011, for the upper confidence level `U(p, c)`.
 * A. Garivier, P. Ménard and G. Stoltz, *Explore first, exploit next: the true shape of regret in
-  bandit problems*, Math. Oper. Res. 44 (2019), for the data processing inequality
-  `d(μ s, ν s) ≤ KL(μ ‖ ν)`.
+  bandit problems*, Math. Oper. Res. 44 (2019), for the data processing inequalities
+  `d(μ s, ν s) ≤ KL(μ ‖ ν)` and `d(∫ x ∂μ, ∫ x ∂ν) ≤ KL(μ ‖ ν)` (their fundamental inequality).
 * E. Kaufmann, O. Cappé and A. Garivier, *On the complexity of best-arm identification in
   multi-armed bandit models*, JMLR 17 (2016), for the bound `d(δ, 1 - δ) ≥ log (1 / (2.4 δ))`.
 * The derivative, monotonicity and quasi-convexity proofs are adapted from the formalization in
@@ -176,18 +176,15 @@ theorem klBer_measureReal_le_klDiv {α : Type*} {mα : MeasurableSpace α} {μ �
 
 /-- **Data processing inequality** for laws on `[0, 1]`: for probability measures `μ` and `ν` on
 `ℝ` supported on `[0, 1]`, the binary relative entropy of their means is at most their relative
-entropy, `d(∫ x ∂μ, ∫ x ∂ν) ≤ KL(μ ‖ ν)`. The Markov kernel sending `x` to the Bernoulli law of
-mean `x` maps `μ` and `ν` to the Bernoulli laws of their means. -/
+entropy, `d(∫ x ∂μ, ∫ x ∂ν) ≤ KL(μ ‖ ν)`. This is the fundamental inequality of Garivier, Ménard
+and Stoltz (2019). -/
 theorem klBer_integral_le_klDiv {μ ν : Measure ℝ} [IsProbabilityMeasure μ]
     [IsProbabilityMeasure ν] (hμ : ∀ᵐ x ∂μ, x ∈ Set.Icc 0 1) (hν : ∀ᵐ x ∂ν, x ∈ Set.Icc 0 1) :
     klBer μ[id] ν[id] ≤ klDiv μ ν := by
-  let κ : Kernel ℝ ℝ := ⟨fun x ↦ Ber((1 : ℝ), 0, Set.projIcc 0 1 zero_le_one x),
-    (TauCeti.Probability.measurable_bernoulliMeasure _ _).comp continuous_projIcc.measurable⟩
-  have : IsMarkovKernel κ := ⟨fun _ ↦ inferInstanceAs (IsProbabilityMeasure Ber(_, _, _))⟩
-  calc klBer μ[id] ν[id] = klDiv (κ ∘ₘ μ) (κ ∘ₘ ν) := by
-        rw [klBer_def, ← bind_bernoulliMeasure_projIcc hμ, ← bind_bernoulliMeasure_projIcc hν,
-          Kernel.coe_mk]
-    _ ≤ klDiv μ ν := klDiv_comp_right_le μ ν κ
+  -- `bernoulliKernel` maps `μ` and `ν` to the Bernoulli laws of their means.
+  calc klBer μ[id] ν[id] = klDiv (bernoulliKernel ∘ₘ μ) (bernoulliKernel ∘ₘ ν) := by
+        rw [klBer_def, bernoulliKernel_comp hμ, bernoulliKernel_comp hν]
+    _ ≤ klDiv μ ν := klDiv_comp_right_le μ ν bernoulliKernel
 
 @[simp]
 theorem klBer_self (p : ℝ) : klBer p p = 0 := by

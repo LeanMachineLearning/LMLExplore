@@ -12,7 +12,7 @@ public import LMLExplore.Topology.UnitInterval
 public import TauCeti.Probability.Distributions.Bernoulli.Measurability
 
 /-!
-# Bernoulli laws: symmetry, absolute continuity, boundedness and sub-Gaussianity
+# Bernoulli laws: symmetry, absolute continuity, boundedness, sub-Gaussianity and mixtures
 
 Exchanging the two points of a Bernoulli law `Ber(x, y, p)` replaces `p` by `1 - p`, and for
 `x ≠ y`, `Ber(x, y, p) ≪ Ber(x, y, q)` exactly when `p` puts no mass on a point that `q` ignores.
@@ -27,9 +27,15 @@ are the two noise assumptions (rewards in `[0, 1]` and `1 / 4`-sub-Gaussian rewa
 stochastic bandit algorithms are analysed.
 
 Drawing a point `x` from a law `ρ` on `[0, 1]` and then an observation from the Bernoulli law
-`Ber(1, 0, x)` of mean `x` gives an observation with the Bernoulli law of mean `∫ x ∂ρ`: this
-mixture is the Markov kernel through which the data processing inequality compares laws on `[0, 1]`
-with Bernoulli laws of the same means.
+`Ber(1, 0, x)` of mean `x` gives an observation with the Bernoulli law of mean `∫ x ∂ρ`: the Markov
+kernel `x ↦ Ber(1, 0, x)` thus sends each law on `[0, 1]` to the Bernoulli law of its mean, and the
+data processing inequality uses it to compare laws on `[0, 1]` with Bernoulli laws of the same
+means.
+
+## Main definitions
+
+* `LMLExplore.bernoulliKernel`: the Markov kernel `x ↦ Ber(1, 0, x)` on `ℝ`, the parameter being
+  clamped to `[0, 1]`.
 
 ## Main statements
 
@@ -44,8 +50,9 @@ with Bernoulli laws of the same means.
   `Set.uIcc x y`.
 * `LMLExplore.hasSubgaussianMGF_bernoulliMeasure`: `Ber(x, y, p)` is
   `(|x - y| / 2) ^ 2`-sub-Gaussian around `p x + (1 - p) y`.
-* `LMLExplore.bind_bernoulliMeasure_projIcc`: for a law `ρ` on `[0, 1]`, the mixture of the
-  Bernoulli laws `Ber(1, 0, x)` over `x ∼ ρ` is the Bernoulli law of mean `∫ x ∂ρ`.
+* `LMLExplore.bernoulliKernel_comp`: for a law `ρ` on `[0, 1]`, the mixture
+  `bernoulliKernel ∘ₘ ρ` of the Bernoulli laws `Ber(1, 0, x)` over `x ∼ ρ` is the Bernoulli law of
+  mean `∫ x ∂ρ`.
 -/
 
 public section
@@ -140,17 +147,29 @@ lemma hasSubgaussianMGF_bernoulliMeasure (x y : ℝ) (p : I) :
     simp [max_sub_min_eq_abs']
   simpa only [id_eq, integral_bernoulliMeasure, smul_eq_mul, hc] using h
 
-/-- For a probability measure `ρ` on `ℝ` supported on `[0, 1]`, the mixture of the Bernoulli laws
-`Ber(1, 0, x)` over `x ∼ ρ` is the Bernoulli law of mean `∫ x ∂ρ`. The parameters are clamped to
-`[0, 1]` by `Set.projIcc`, so that `x ↦ Ber(1, 0, x)` is defined on all of `ℝ`. -/
-theorem bind_bernoulliMeasure_projIcc {ρ : Measure ℝ} [IsProbabilityMeasure ρ]
+/-- The Markov kernel `x ↦ Ber(1, 0, x)` on `ℝ`, sending `x` to the Bernoulli law of mean `x`. The
+parameter is clamped to `[0, 1]` by `Set.projIcc`, so that the kernel is defined on all of `ℝ`. -/
+noncomputable def bernoulliKernel : Kernel ℝ ℝ where
+  toFun x := Ber((1 : ℝ), 0, Set.projIcc 0 1 zero_le_one x)
+  measurable' :=
+    (TauCeti.Probability.measurable_bernoulliMeasure _ _).comp continuous_projIcc.measurable
+
+@[simp]
+lemma bernoulliKernel_apply (x : ℝ) :
+    bernoulliKernel x = Ber((1 : ℝ), 0, Set.projIcc 0 1 zero_le_one x) :=
+  (rfl)
+
+instance : IsMarkovKernel bernoulliKernel :=
+  ⟨fun x ↦ by rw [bernoulliKernel_apply]; infer_instance⟩
+
+/-- For a probability measure `ρ` on `ℝ` supported on `[0, 1]`, the mixture
+`bernoulliKernel ∘ₘ ρ` of the Bernoulli laws `Ber(1, 0, x)` over `x ∼ ρ` is the Bernoulli law of
+mean `∫ x ∂ρ`. -/
+theorem bernoulliKernel_comp {ρ : Measure ℝ} [IsProbabilityMeasure ρ]
     (hρ : ∀ᵐ x ∂ρ, x ∈ Set.Icc 0 1) :
-    ρ.bind (fun x ↦ Ber((1 : ℝ), 0, Set.projIcc 0 1 zero_le_one x)) =
-      Ber((1 : ℝ), 0, Set.projIcc 0 1 zero_le_one ρ[id]) := by
+    bernoulliKernel ∘ₘ ρ = Ber((1 : ℝ), 0, Set.projIcc 0 1 zero_le_one ρ[id]) := by
   set p : ℝ → I := Set.projIcc 0 1 zero_le_one
   have hp : Measurable p := continuous_projIcc.measurable
-  have hmeas : Measurable fun x ↦ Ber((1 : ℝ), 0, p x) :=
-    (TauCeti.Probability.measurable_bernoulliMeasure _ _).comp hp
   have hpi : Integrable (fun x ↦ (p x : ℝ)) ρ :=
     Integrable.of_mem_Icc 0 1 (by fun_prop) (.of_forall fun x ↦ (p x).2)
   have hint : ∫ x, (p x : ℝ) ∂ρ = ρ[id] := by
@@ -172,8 +191,9 @@ theorem bind_bernoulliMeasure_projIcc {ρ : Measure ℝ} [IsProbabilityMeasure �
       (.of_forall fun x ↦ by simp [(p x).2.2]), integral_sub (integrable_const 1) hpi, hint, hpm]
     simp
   ext s hs
-  rw [Measure.bind_apply hs hmeas.aemeasurable]
-  simp only [bernoulliMeasure_def, add_apply, smul_apply, ENNReal.smul_def, smul_eq_mul]
+  rw [Measure.bind_apply hs bernoulliKernel.aemeasurable]
+  simp only [bernoulliKernel_apply, bernoulliMeasure_def, add_apply, smul_apply, ENNReal.smul_def,
+    smul_eq_mul]
   rw [lintegral_add_left (by fun_prop), lintegral_mul_const _ (by fun_prop),
     lintegral_mul_const _ (by fun_prop), h₁, h₂]
 

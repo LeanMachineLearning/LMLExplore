@@ -28,7 +28,8 @@ laws `ProbabilityMeasure ℝ` and per-arm admissible sets the laws of a class. I
 costs `K⁻` and `K⁺` for the laws on `[0, 1]` are bounded below by the binary relative entropy of
 the means: a law of mean `μ` on `[0, 1]` is at relative entropy at least `d(μ, u)` from every law
 on `[0, 1]` of mean at least `u ≥ μ`, by the data processing inequality through the kernel
-`x ↦ Ber(x)` (`LMLExplore.klBer_integral_le_klDiv`), with equality at the Bernoulli laws [AJG20].
+`x ↦ Ber(x)` (`LMLExplore.klBer_integral_le_klDiv`, the fundamental inequality of [GMS19]), with
+equality at the Bernoulli laws [AJG20].
 
 ## Main definitions
 
@@ -59,6 +60,9 @@ on `[0, 1]` of mean at least `u ≥ μ`, by the data processing inequality throu
 * [AJG20] S. Agrawal, S. Juneja and P. Glynn, *Optimal δ-correct best-arm selection for
   heavy-tailed distributions*, ALT 2020, for the transportation costs `K⁻`, `K⁺` of classes of
   laws.
+* [GMS19] A. Garivier, P. Ménard and G. Stoltz, *Explore first, exploit next: the true shape of
+  regret in bandit problems*, Math. Oper. Res. 44 (2019), for the fundamental inequality
+  `d(∫ x ∂μ, ∫ x ∂ν) ≤ KL(μ ‖ ν)` behind the bounds on `K⁻` and `K⁺`.
 -/
 
 public section
