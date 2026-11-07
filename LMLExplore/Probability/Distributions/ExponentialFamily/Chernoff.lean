@@ -268,32 +268,12 @@ theorem iIndepFun.sum_measureReal_eq_zero_or_le_div_or_expFamilyRate_div_le_le {
   have h_term (s : ℕ) : P.real {ω | s = 0 ∨ c ≤ (∑ i ∈ range s, X i ω) / s ∨
       ρ.expFamilyRate T ((∑ i ∈ range s, X i ω) / s) c ≤ ENNReal.ofReal (L / s)} ≤
         if s * D ≤ L then 1 else exp (-(D' * s)) := by
-    split_ifs with hsD
-    · exact measureReal_le_one
     have h_chernoff := h_indep.measureReal_sum_ge_le_exp_expFamilyDiv (s := range s)
       (fun i _ ↦ hX i) hμ hμε (by linarith)
-    rw [card_range] at h_chernoff
-    refine le_trans (measureReal_mono (fun ω hω ↦ ?_) (measure_ne_top _ _))
-      (h_chernoff.trans_eq (by rw [mul_comm]))
-    have hs : s ≠ 0 := by
-      rintro rfl
-      simp only [CharP.cast_eq_zero, zero_mul] at hsD
-      exact hsD hL
-    have hs' : (0 : ℝ) < s := Nat.cast_pos.mpr (Nat.pos_of_ne_zero hs)
-    simp only [Set.mem_ofPred_eq] at hω ⊢
-    by_contra! hlt
-    have hx : (∑ i ∈ range s, X i ω) / s < μ + ε := by rwa [div_lt_iff₀ hs', mul_comm]
-    rcases hω with h0 | hcx | hkl
-    · exact hs h0
-    · linarith
-    · refine hsD ?_
-      have h1 : ρ.expFamilyRate T (μ + ε) c ≤ ρ.expFamilyRate T ((∑ i ∈ range s, X i ω) / s) c :=
-        Measure.antitoneOn_expFamilyRate_left hcM (Set.mem_Iic.2 (by linarith))
-          (Set.mem_Iic.2 hc.le) hx.le
-      rw [Measure.expFamilyRate_eq_ofReal_expFamilyDiv hμε hcM] at h1
-      have h2 := (ENNReal.ofReal_le_ofReal_iff (by positivity)).1 (h1.trans hkl)
-      rw [le_div_iff₀ hs'] at h2
-      linarith
+    rw [card_range, mul_comm (s : ℝ) (ρ.expFamilyDiv T (μ + ε) μ)] at h_chernoff
+    exact measureReal_eq_zero_or_le_div_or_apply_div_le_le_ite
+      (Measure.antitoneOn_expFamilyRate_left hcM) hc.le
+      (Measure.expFamilyRate_eq_ofReal_expFamilyDiv hμε hcM) hL h_chernoff
   calc ∑ s ∈ range n, P.real {ω | s = 0 ∨ c ≤ (∑ i ∈ range s, X i ω) / s ∨
       ρ.expFamilyRate T ((∑ i ∈ range s, X i ω) / s) c ≤ ENNReal.ofReal (L / s)}
   _ ≤ ∑ s ∈ range n, (if s * D ≤ L then 1 else exp (-(D' * s))) :=

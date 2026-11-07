@@ -354,25 +354,12 @@ theorem measureReal_pullCount_ne_zero_and_klUpper_le_le
     P.real {ω | pullCount A a t ω ≠ 0 ∧
         klUpper (empMean A R a t ω) (ENNReal.ofReal (L / pullCount A a t ω)) ≤ (ν a)[id] - ε} ≤
       exp (-L) * ∑ s ∈ range t, exp (-(2 * ε ^ 2 * (s + 1))) := by
-  set p : ℕ → ℝ → Prop :=
-    fun s x ↦ s ≠ 0 ∧ klUpper (x / s) (ENNReal.ofReal (L / s)) ≤ (ν a)[id] - ε with hp_def
   -- the event of round `t` is transferred to the reward stream with a union bound over the
   -- number of pulls
-  calc P.real {ω | pullCount A a t ω ≠ 0 ∧
-      klUpper (empMean A R a t ω) (ENNReal.ofReal (L / pullCount A a t ω)) ≤ (ν a)[id] - ε}
-  _ ≤ ∑ s ∈ range t, (streamMeasure ν).real {ω | p (s + 1) (∑ i ∈ range (s + 1), ω i a)} := by
-    refine le_trans (measureReal_mono fun ω hω ↦ ?_)
-      (measureReal_pullCount_sumRewards_le_sum h a p (fun _ h0 ↦ h0.1 rfl) t)
-    simp only [Set.mem_ofPred_eq, empMean] at hω
-    exact hω
-  _ ≤ ∑ s ∈ range t, exp (-L) * exp (-(2 * ε ^ 2 * (s + 1))) := by
-    refine sum_le_sum fun s _ ↦ ?_
-    have h := measureReal_streamMeasure_klUpper_le_sub_le hν hε L (Nat.succ_ne_zero s)
-    push_cast at h
-    refine le_trans (measureReal_mono (fun ω hω ↦ ?_) (measure_ne_top _ _)) h
-    simp only [hp_def, Set.mem_ofPred_eq, Nat.cast_add_one] at hω
-    exact hω.2
-  _ = exp (-L) * ∑ s ∈ range t, exp (-(2 * ε ^ 2 * (s + 1))) := (mul_sum _ _ _).symm
+  refine (measureReal_pullCount_ne_zero_and_empMean_le_sum h a
+    (fun s x ↦ klUpper x (ENNReal.ofReal (L / s)) ≤ (ν a)[id] - ε)
+    (fun s hs ↦ measureReal_streamMeasure_klUpper_le_sub_le hν hε L hs) t).trans_eq ?_
+  simp only [mul_sum, Nat.cast_add_one]
 
 /-- **Underestimation of an arm by the KL-UCB index** ([LS, Lemma 10.7] for rewards in
 `[0, 1]`). In a run of any algorithm against the stochastic bandit `Environment.bandit ν`, if the
@@ -547,28 +534,12 @@ theorem measureReal_pullCount_ne_zero_and_expFamilyUpper_le_le
     P.real {ω | pullCount A a t ω ≠ 0 ∧ ρ.expFamilyUpper T (empMean A R a t ω)
         (ENNReal.ofReal (L / pullCount A a t ω)) ≤ ((μ - ε : ℝ) : EReal)} ≤
       exp (-L) * ∑ s ∈ range t, exp (-(ρ.expFamilyDiv T (μ - ε) μ * (s + 1))) := by
-  set p : ℕ → ℝ → Prop := fun s x ↦ s ≠ 0 ∧
-    ρ.expFamilyUpper T (x / s) (ENNReal.ofReal (L / s)) ≤ ((μ - ε : ℝ) : EReal) with hp_def
   -- the event of round `t` is transferred to the reward stream with a union bound over the
   -- number of pulls
-  calc P.real {ω | pullCount A a t ω ≠ 0 ∧ ρ.expFamilyUpper T (empMean A R a t ω)
-        (ENNReal.ofReal (L / pullCount A a t ω)) ≤ ((μ - ε : ℝ) : EReal)}
-  _ ≤ ∑ s ∈ range t, (streamMeasure ν).real {ω | p (s + 1) (∑ i ∈ range (s + 1), ω i a)} := by
-    refine le_trans (measureReal_mono fun ω hω ↦ ?_)
-      (measureReal_pullCount_sumRewards_le_sum h a p (fun _ h0 ↦ h0.1 rfl) t)
-    simp only [Set.mem_ofPred_eq, empMean] at hω
-    exact hω
-  _ ≤ ∑ s ∈ range t, exp (-L) * exp (-(ρ.expFamilyDiv T (μ - ε) μ * (s + 1))) := by
-    refine sum_le_sum fun s _ ↦ ?_
-    have h := measureReal_streamMeasure_expFamilyUpper_le_sub_le hν hμ hε hμε L
-      (Nat.succ_ne_zero s)
-    push_cast at h
-    refine le_trans (measureReal_mono (fun ω hω ↦ ?_) (measure_ne_top _ _))
-      (h.trans_eq (by rw [mul_comm ((s : ℝ) + 1)]))
-    simp only [hp_def, Set.mem_ofPred_eq, Nat.cast_add_one] at hω
-    exact hω.2
-  _ = exp (-L) * ∑ s ∈ range t, exp (-(ρ.expFamilyDiv T (μ - ε) μ * (s + 1))) :=
-    (mul_sum _ _ _).symm
+  refine (measureReal_pullCount_ne_zero_and_empMean_le_sum h a
+    (fun s x ↦ ρ.expFamilyUpper T x (ENNReal.ofReal (L / s)) ≤ ((μ - ε : ℝ) : EReal))
+    (fun s hs ↦ measureReal_streamMeasure_expFamilyUpper_le_sub_le hν hμ hε hμε L hs) t).trans_eq ?_
+  simp only [mul_sum, Nat.cast_add_one, mul_comm _ (ρ.expFamilyDiv T (μ - ε) μ)]
 
 /-- **Underestimation of an arm by the KL-UCB index of an exponential family** (the
 generalization of [LS, Lemma 10.7] to exponential families). In a run of any algorithm against

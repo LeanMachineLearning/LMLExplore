@@ -42,9 +42,14 @@ from the rate function.
   `P(E[Y] ≤ μ̂, z ≤ #s I(μ̂)) ≤ exp (-z)` and `P(μ̂ ≤ E[Y], z ≤ #s I(μ̂)) ≤ exp (-z)`.
 * `ProbabilityTheory.iIndepFun.measureReal_le_card_mul_rateFunction_le_two_mul_exp`: the
   two-sided bound `P(z ≤ #s I(μ̂)) ≤ 2 exp (-z)` for variables dominated by `Y` on `Set.univ`.
+* `ProbabilityTheory.measureReal_eq_zero_or_le_div_or_apply_div_le_le_ite`: an upper tail bound
+  `P(s a ≤ S) ≤ B` bounds the probability of the events `s = 0`, `c ≤ S / s` or
+  `f(S / s) ≤ L / s` of [LS, Lemma 10.8], for `f` antitone on `Set.Iic c` and `a ≤ c`.
 
 ## References
 
+* [LS] T. Lattimore and Cs. Szepesvári, *Bandit Algorithms*, Cambridge University Press, 2020,
+  Lemma 10.8.
 * S. Boucheron, G. Lugosi and P. Massart, *Concentration Inequalities*, Oxford University Press
   (2013), Section 2.2 (the Cramér–Chernoff method).
 * A. Dembo and O. Zeitouni, *Large Deviations Techniques and Applications*, 2nd ed., Springer
@@ -221,5 +226,43 @@ theorem iIndepFun.measureReal_le_card_mul_rateFunction_le_two_mul_exp [IsProbabi
   rcases le_total Q[Y] ((∑ i ∈ s, X i ω) / #s) with h | h
   · exact Or.inl ⟨h, hω⟩
   · exact Or.inr ⟨h, hω⟩
+
+/-! ### From an upper tail bound to the events of the KL-UCB analysis -/
+
+/-- **The events of the analysis of a suboptimal arm, for one sample size.** Let `S` be a real
+random variable under a probability measure `P` (the sum of `s` rewards), let `f` be antitone on
+`Set.Iic c` (a divergence `f(·) = d(·, c)` to a level `c`), and let `a ≤ c` with
+`f(a) = ENNReal.ofReal D` and `L ≥ 0`. If `P(s a ≤ S) ≤ B`, then the probability that `s = 0`, or
+`c ≤ S / s`, or `f(S / s) ≤ L / s` is at most `1` if `s D ≤ L`, and at most `B` otherwise: off the
+upper tail, `S / s < a ≤ c`, so `f(S / s) ≥ D > L / s`. This is the per-term bound of
+[LS, Lemma 10.8]. -/
+theorem measureReal_eq_zero_or_le_div_or_apply_div_le_le_ite [IsZeroOrProbabilityMeasure P]
+    {S : Ω → ℝ} {f : ℝ → ℝ≥0∞} {a c D L B : ℝ} {s : ℕ} (hf : AntitoneOn f (Set.Iic c))
+    (hac : a ≤ c) (hfa : f a = ENNReal.ofReal D) (hL : 0 ≤ L)
+    (h_tail : P.real {ω | s * a ≤ S ω} ≤ B) :
+    P.real {ω | s = 0 ∨ c ≤ S ω / s ∨ f (S ω / s) ≤ ENNReal.ofReal (L / s)} ≤
+      if s * D ≤ L then 1 else B := by
+  split_ifs with hsD
+  · exact measureReal_le_one
+  have hs : s ≠ 0 := by
+    rintro rfl
+    simp only [CharP.cast_eq_zero, zero_mul] at hsD
+    exact hsD hL
+  have hs' : (0 : ℝ) < s := Nat.cast_pos.mpr (Nat.pos_of_ne_zero hs)
+  -- off the upper tail, `S / s < a ≤ c`, so that `D ≤ f(S / s)` and `L / s < D`
+  refine le_trans (measureReal_mono fun ω hω ↦ ?_) h_tail
+  simp only [Set.mem_ofPred_eq] at hω ⊢
+  by_contra! hlt
+  have hx : S ω / s < a := by rwa [div_lt_iff₀ hs', mul_comm]
+  rcases hω with h0 | hcx | hf_le
+  · exact hs h0
+  · linarith
+  · refine hsD ?_
+    have h1 : f a ≤ f (S ω / s) :=
+      hf (Set.mem_Iic.2 (by linarith)) (Set.mem_Iic.2 hac) hx.le
+    rw [hfa] at h1
+    have h2 := (ENNReal.ofReal_le_ofReal_iff (by positivity)).1 (h1.trans hf_le)
+    rw [le_div_iff₀ hs'] at h2
+    linarith
 
 end ProbabilityTheory

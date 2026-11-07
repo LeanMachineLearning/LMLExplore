@@ -14,6 +14,7 @@ public import LMLExplore.Probability.Distributions.ExponentialFamily.Bernoulli
 public import LMLExplore.Probability.Distributions.ExponentialFamily.Chernoff
 public import LMLExplore.Probability.Moments.SubGaussian.Bounded
 public import TauCeti.Probability.Distributions.Bernoulli.Basic
+import LMLExplore.Probability.LargeDeviations.Chernoff
 
 /-!
 # Chernoff bounds in relative-entropy form
@@ -467,30 +468,12 @@ theorem sum_measureReal_eq_zero_or_le_div_or_klBer_div_le_le {X : ℕ → Ω →
   have h_term (s : ℕ) : μ.real {ω | s = 0 ∨ c ≤ (∑ i ∈ range s, X i ω) / s ∨
       klBer ((∑ i ∈ range s, X i ω) / s) c ≤ ENNReal.ofReal (L / s)} ≤
         if s * D ≤ L then 1 else exp (-(2 * ε ^ 2 * s)) := by
-    split_ifs with hsD
-    · exact measureReal_le_one
     have h_hoeffding := measureReal_card_mul_add_le_sum_le h_indep (s := range s)
       (fun i _ ↦ hXm i) (fun i _ ↦ hX i) (fun i _ ↦ hmean i) hε.le
     rw [card_range] at h_hoeffding
-    refine le_trans (measureReal_mono fun ω hω ↦ ?_) h_hoeffding
-    have hs : s ≠ 0 := by
-      rintro rfl
-      simp only [CharP.cast_eq_zero, zero_mul] at hsD
-      exact hsD hL
-    have hs' : (0 : ℝ) < s := Nat.cast_pos.mpr (Nat.pos_of_ne_zero hs)
-    simp only [Set.mem_ofPred_eq] at hω ⊢
-    by_contra! hlt
-    have hx : (∑ i ∈ range s, X i ω) / s < m + ε := by rwa [div_lt_iff₀ hs', mul_comm]
-    rcases hω with h0 | hcx | hkl
-    · exact hs h0
-    · linarith
-    · refine hsD ?_
-      have h1 : klBer (m + ε) c ≤ klBer ((∑ i ∈ range s, X i ω) / s) c :=
-        antitoneOn_klBer_left c (Set.mem_Iic.2 (by linarith)) (Set.mem_Iic.2 hc.le) hx.le
-      rw [klBer_eq_ofReal_klBerReal hme (Set.Ioo_subset_Icc_self hc') (klBer_ne_top hc')] at h1
-      have h2 := (ENNReal.ofReal_le_ofReal_iff (by positivity)).1 (h1.trans hkl)
-      rw [le_div_iff₀ hs'] at h2
-      linarith
+    exact measureReal_eq_zero_or_le_div_or_apply_div_le_le_ite (antitoneOn_klBer_left c) hc.le
+      (klBer_eq_ofReal_klBerReal hme (Set.Ioo_subset_Icc_self hc') (klBer_ne_top hc')) hL
+      h_hoeffding
   calc ∑ s ∈ range n, μ.real {ω | s = 0 ∨ c ≤ (∑ i ∈ range s, X i ω) / s ∨
       klBer ((∑ i ∈ range s, X i ω) / s) c ≤ ENNReal.ofReal (L / s)}
   _ ≤ ∑ s ∈ range n, (if s * D ≤ L then 1 else exp (-(2 * ε ^ 2 * s))) :=
