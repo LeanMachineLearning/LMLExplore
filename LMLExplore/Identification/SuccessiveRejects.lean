@@ -12,6 +12,7 @@ public import LMLExplore.Data.Finset.Card
 public import LMLExplore.Data.Finset.RoundRobin
 public import LMLExplore.Identification.Complexity
 public import LMLExplore.Identification.FixedBudget
+public import LMLExplore.Identification.Task.RealLaws
 public import LMLExplore.Probability.Moments.SubGaussian.Bounded
 
 /-!
@@ -60,6 +61,10 @@ In the namespace `LMLExplore.Identification.SuccessiveRejects`:
   that bound is at most `exp(-(T - K) / (4 σ2 log‾ K H₂))`.
 * `measureReal_output_ne_le`: [ABM10, Theorem 2] for `σ2`-sub-Gaussian arms, and
   `measureReal_output_ne_le_of_mem_Icc`, its form for rewards in `[0, 1]`.
+* `measureReal_outputMeasure_compl_correct_le`,
+  `measureReal_outputMeasure_compl_correct_le_of_unitIntervalLaws`: the same bounds on the
+  probability of error of best arm identification (`baiTask lawBandit lawMean`), on every bandit
+  with `σ2`-sub-Gaussian arms, respectively with laws on `[0, 1]`.
 
 ## Implementation notes
 
@@ -725,5 +730,48 @@ theorem SuccessiveRejects.measureReal_output_ne_le_of_mem_Icc (hKT : Fintype.car
     hasSubgaussianMGF_of_mem_Icc_zero_one aemeasurable_id (hν a)
   refine (measureReal_output_ne_le hKT h_sub ha' h).trans_eq ?_
   norm_num
+
+/-- **Successive rejects on the bandits with σ²-sub-Gaussian arms** [ABM10, Theorem 2]. For a
+budget `T ≥ K`, on every bandit `θ` whose arms are `σ2`-sub-Gaussian and which has a unique best
+arm, the probability that successive rejects with the numbers of pulls
+`n k = ⌈(T - K) / (log‾ K (K + 1 - k))⌉` does not output the best arm is at most
+`K (K - 1) / 2 · exp(-(T - K) / (4 σ2 log‾ K H₂))`. -/
+theorem SuccessiveRejects.measureReal_outputMeasure_compl_correct_le (hKT : Fintype.card α ≤ T)
+    {σ2 : ℝ≥0} {θ : α → ProbabilityMeasure ℝ}
+    (hθ : θ ∈ ((baiTask (lawBandit (α := α)) lawMean).restrict
+      (Set.univ.pi fun _ ↦ subgaussianLaws σ2)).M) :
+    ((successiveRejects (pullSchedule (Fintype.card α) T) T).outputMeasure
+        (Environment.bandit (lawBandit θ))).real ((baiTask lawBandit lawMean).correct θ)ᶜ ≤
+      Fintype.card α * (Fintype.card α - 1) / 2 * Real.exp (-((T : ℝ) - Fintype.card α) /
+        (4 * σ2 * logBar (Fintype.card α) * complexityTwo (lawBandit θ))) := by
+  rw [IdentTask.M_restrict, M_baiTask] at hθ
+  obtain ⟨⟨a, ha⟩, hθ⟩ := hθ
+  have hν (b : α) : HasSubgaussianMGF (fun x ↦ x - (lawBandit θ b)[id]) σ2 (lawBandit θ b) := by
+    simpa only [lawMean_eq_integral_lawBandit] using mem_pi_subgaussianLaws_iff.1 hθ b
+  have hrun := isRun_runMeasure (successiveRejects (α := α) (pullSchedule (Fintype.card α) T) T)
+    (Environment.bandit (lawBandit θ))
+  rw [(correct_baiTask_eq_singleton_iff _ _).2 ha, Set.compl_def,
+    ← hrun.hasLaw_output.measureReal_eq MeasurableSet.of_discrete]
+  simp only [lawMean_eq_integral_lawBandit] at ha
+  simpa only [Set.mem_singleton_iff] using measureReal_output_ne_le hKT hν ha hrun
+
+/-- **Successive rejects on the bandits with laws on `[0, 1]`** [ABM10, Theorem 2]. For a budget
+`T ≥ K`, on every bandit `θ` whose arms have laws on `[0, 1]` and which has a unique best arm, the
+probability that successive rejects with the numbers of pulls
+`n k = ⌈(T - K) / (log‾ K (K + 1 - k))⌉` does not output the best arm is at most
+`K (K - 1) / 2 · exp(-(T - K) / (log‾ K H₂))`. -/
+theorem SuccessiveRejects.measureReal_outputMeasure_compl_correct_le_of_unitIntervalLaws
+    (hKT : Fintype.card α ≤ T) {θ : α → ProbabilityMeasure ℝ}
+    (hθ : θ ∈ ((baiTask (lawBandit (α := α)) lawMean).restrict
+      (Set.univ.pi fun _ ↦ unitIntervalLaws)).M) :
+    ((successiveRejects (pullSchedule (Fintype.card α) T) T).outputMeasure
+        (Environment.bandit (lawBandit θ))).real ((baiTask lawBandit lawMean).correct θ)ᶜ ≤
+      Fintype.card α * (Fintype.card α - 1) / 2 * Real.exp (-((T : ℝ) - Fintype.card α) /
+        (logBar (Fintype.card α) * complexityTwo (lawBandit θ))) := by
+  rw [IdentTask.M_restrict] at hθ
+  refine (measureReal_outputMeasure_compl_correct_le hKT (σ2 := 1 / 4) ?_).trans_eq
+    (by norm_num)
+  rw [IdentTask.M_restrict]
+  exact ⟨hθ.1, Set.pi_mono (fun _ _ ↦ unitIntervalLaws_subset_subgaussianLaws) hθ.2⟩
 
 end LMLExplore.Identification

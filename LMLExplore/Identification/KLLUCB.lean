@@ -51,8 +51,9 @@ In the namespace `LMLExplore.Identification`:
   answer of top-`m` identification with tolerance `ε` with probability at most `δ`.
 * `measureReal_stoppingTime_ne_top_and_notMem_le_of_isRun_kllucb`: the same bound along every
   run.
-* `isDeltaPAC_kllucb`: KL-LUCB is `δ`-PAC on top-`m` identification with tolerance `ε`, on every
-  set of models with rewards in `[0, 1]` on which it stops almost surely.
+* `isDeltaPAC_kllucb`: KL-LUCB is `δ`-PAC on top-`m` identification with tolerance `ε`
+  (`epsTopMTask lawBandit lawMean m ε`) restricted to every set of bandits with laws on `[0, 1]` on
+  which it stops almost surely.
 
 ## Implementation notes
 
@@ -212,27 +213,28 @@ theorem measureReal_stoppingTime_ne_top_and_notMem_le_of_isRun_kllucb {out : Ω 
 
 /-- **KL-LUCB is `δ`-PAC** for top-`m` identification with tolerance `ε`, for every sampling rule
 [KTAS12, Theorem 1] for the confidence bounds of [KK13, (4), (5)]; this is the union-bound proof
-mentioned in [KK13, Appendix A]. Let `S` be a set of models whose arms have rewards in `[0, 1]`
-and means given by the model, let `ε ≥ 0` and `m ≤ K`, and let the exploration rate `β` satisfy
-`∑_n ∑_{u = 1}^n exp (-β(u, n)) ≤ δ / K`. If KL-LUCB stops almost surely on every model of `S`,
-then it is `δ`-PAC on the task restricted to `S`. For Bernoulli arms, `S` is the set of mean
-vectors in `[0, 1]`. -/
-theorem isDeltaPAC_kllucb {S : Set (α → ℝ)} (hmean : ∀ μ ∈ S, ∀ a, (ν μ a)[id] = μ a)
-    (hν : ∀ μ ∈ S, ∀ a, ∀ᵐ x ∂(ν μ a), x ∈ Set.Icc (0 : ℝ) 1)
+mentioned in [KK13, Appendix A]. Let `S` be a set of bandits whose arms have laws on `[0, 1]`, let
+`ε ≥ 0` and `m ≤ K`, and let the exploration rate `β` satisfy
+`∑_n ∑_{u = 1}^n exp (-β(u, n)) ≤ δ / K`. If KL-LUCB stops almost surely on every bandit of `S`,
+then it is `δ`-PAC on the task restricted to `S`. -/
+theorem isDeltaPAC_kllucb {S : Set (α → ProbabilityMeasure ℝ)}
+    (hS : S ⊆ Set.univ.pi fun _ ↦ unitIntervalLaws)
     (hsum : Summable fun n ↦ ∑ u ∈ Icc 1 n, exp (-β u n))
     (hδ : ∑' n, ∑ u ∈ Icc 1 n, exp (-β u n) ≤ δ / Fintype.card α)
     (hε : 0 ≤ ε) (hm : m ≤ Fintype.card α)
-    (h_stops : ∀ μ ∈ S, StopsAS (kllucb alg β ε m) (Environment.bandit (ν μ))) :
-    ((epsTopMTask ν id m ε).restrict S).IsDeltaPAC (kllucb alg β ε m) δ := by
-  have hS (μ : α → ℝ) (hμ : μ ∈ ((epsTopMTask ν id m ε).restrict S).M) : μ ∈ S := by
-    rw [IdentTask.M_restrict] at hμ
-    exact hμ.2
+    (h_stops : ∀ θ ∈ S, StopsAS (kllucb alg β ε m) (Environment.bandit (lawBandit θ))) :
+    ((epsTopMTask (lawBandit (α := α)) lawMean m ε).restrict S).IsDeltaPAC
+      (kllucb alg β ε m) δ := by
+  have hS' (θ : α → ProbabilityMeasure ℝ)
+      (hθ : θ ∈ ((epsTopMTask (lawBandit (α := α)) lawMean m ε).restrict S).M) : θ ∈ S := by
+    rw [IdentTask.M_restrict] at hθ
+    exact hθ.2
   refine IdentTask.isDeltaPAC_of_measureReal_mem_stopSet_and_notMem_le
-    (fun μ _ ↦ (Set.to_countable _).measurableSet) (fun μ hμ ↦ ?_)
-    fun μ hμ ↦ by simpa only [IdentTask.ν_restrict, ν_epsTopMTask] using h_stops μ (hS μ hμ)
-  simp only [IdentTask.ν_restrict, IdentTask.correct_restrict, ν_epsTopMTask]
-  have h := measureReal_histOutputMeasure_kllucb_le (alg := alg) (ν := ν) (hν μ (hS μ hμ)) hsum
-    hδ hε hm
-  rwa [funext (hmean μ (hS μ hμ))] at h
+    (fun θ _ ↦ (Set.to_countable _).measurableSet) (fun θ hθ ↦ ?_)
+    fun θ hθ ↦ by simpa only [IdentTask.ν_restrict, ν_epsTopMTask] using h_stops θ (hS' θ hθ)
+  have h := measureReal_histOutputMeasure_kllucb_le (alg := alg) (ν := fun _ ↦ lawBandit θ)
+    (mem_pi_unitIntervalLaws_iff.1 (hS (hS' θ hθ))) hsum hδ hε hm
+  simpa only [IdentTask.ν_restrict, IdentTask.correct_restrict, ν_epsTopMTask, correct_epsTopMTask,
+    id, lawMean_eq_integral_lawBandit] using h
 
 end LMLExplore.Identification

@@ -7,7 +7,7 @@ module
 
 public import LMLExplore.Analysis.SpecificLimits.Normed
 public import LMLExplore.Identification.SuccessiveRejects
-public import LMLExplore.Identification.Task.Classical
+public import LMLExplore.Identification.Task.RealLaws
 public import LMLExplore.MeasureTheory.Integral.Lebesgue.Markov
 public import Mathlib.Algebra.Order.Field.GeomSum
 public import Mathlib.Analysis.SpecificLimits.Basic
@@ -80,7 +80,9 @@ In the namespace `LMLExplore.Identification`:
 * `MedianElimination.measureReal_output_ne_le_sum`: for `σ2`-sub-Gaussian arms with a unique best
   arm, along every run, the output is not the best arm with probability at most
   `∑ j, 3 exp(-t j (⌊n_j / 4⌋ + 2) / (4 σ2 H₂))`, for any numbers of pulls [KKS13, Theorem 4.1].
-* `isDeltaPAC_medianElimination`: median elimination is `δ`-PAC for `ε`-best arm identification.
+* `isDeltaPAC_medianElimination`: median elimination is `δ`-PAC for `ε`-best arm identification
+  on every bandit with `σ2`-sub-Gaussian arms, the restriction of `epsBaiTask lawBandit lawMean ε`
+  to the `σ2`-sub-Gaussian laws.
 * `MedianElimination.phaseEnd_pullSchedule_le`, `expectedStoppingTime_medianElimination_le`: with
   the numbers of pulls `pullSchedule σ2 ε δ`, median elimination stops after at most
   `2304 K σ2 ε⁻² log (1536 / δ) + 4 K` rounds [EMM02, Theorem 4].
@@ -1258,28 +1260,33 @@ theorem MedianElimination.measureReal_exists_output_add_lt_le_of_pullSchedule {�
   _ ≤ δ / 2 * 2 := by gcongr; exact sum_geometric_two_le L
   _ = δ := by ring
 
-/-- **Median elimination is `(ε, δ)`-PAC** [EMM02, Theorem 4; EMM06, Theorem 10]. Let the arm `a`
-of the model `μ` have mean `μ a` and be `σ2`-sub-Gaussian, with `σ2 > 0`. For a tolerance `ε > 0`
-and a confidence `δ > 0`, median elimination with the numbers of pulls `pullSchedule σ2 ε δ` is
-`δ`-PAC for `ε`-best arm identification: on every model, it stops after a fixed number of rounds
-and outputs an `ε`-good arm with probability at least `1 - δ`. -/
-theorem isDeltaPAC_medianElimination {ν : (α → ℝ) → Kernel α ℝ} [∀ μ, IsMarkovKernel (ν μ)]
-    {σ2 : ℝ≥0} (hmean : ∀ (μ : α → ℝ) a, (ν μ a)[id] = μ a)
-    (hν : ∀ (μ : α → ℝ) a, HasSubgaussianMGF (fun x ↦ x - (ν μ a)[id]) σ2 (ν μ a))
-    (hσ2 : 0 < σ2) {ε δ : ℝ} (hε : 0 < ε) (hδ : 0 < δ) :
-    (epsBaiTask ν id ε).IsDeltaPAC (medianElimination (pullSchedule σ2 ε δ)) δ := by
-  refine IdentTask.isDeltaPAC_iff.2 ⟨fun μ _ ↦ ?_, fun μ _ ↦
+/-- **Median elimination is `(ε, δ)`-PAC** [EMM02, Theorem 4; EMM06, Theorem 10]. For `σ2 > 0`, a
+tolerance `ε > 0` and a confidence `δ > 0`, median elimination with the numbers of pulls
+`pullSchedule σ2 ε δ` is `δ`-PAC for `ε`-best arm identification on every bandit whose arms are
+`σ2`-sub-Gaussian: it stops after a fixed number of rounds and outputs an `ε`-good arm with
+probability at least `1 - δ`. -/
+theorem isDeltaPAC_medianElimination {σ2 : ℝ≥0} (hσ2 : 0 < σ2) {ε δ : ℝ} (hε : 0 < ε)
+    (hδ : 0 < δ) :
+    ((epsBaiTask (lawBandit (α := α)) lawMean ε).restrict
+      (Set.univ.pi fun _ ↦ subgaussianLaws σ2)).IsDeltaPAC
+        (medianElimination (pullSchedule σ2 ε δ)) δ := by
+  refine IdentTask.isDeltaPAC_iff.2 ⟨fun θ hθ ↦ ?_, fun θ _ ↦
     isFixedBudget_medianElimination.stopsAS _⟩
+  have hν (a : α) : HasSubgaussianMGF (fun x ↦ x - (lawBandit θ a)[id]) σ2 (lawBandit θ a) := by
+    rw [IdentTask.M_restrict, M_epsBaiTask, Set.univ_inter] at hθ
+    simpa only [lawMean_eq_integral_lawBandit] using mem_pi_subgaussianLaws_iff.1 hθ a
   have hrun := isRun_runMeasure (medianElimination (α := α) (pullSchedule σ2 ε δ))
-    (Environment.bandit (ν μ))
-  simp only [ν_epsBaiTask]
-  rw [← hrun.hasLaw_output.measureReal_eq (p := fun i ↦ i ∉ (epsBaiTask ν id ε).correct μ)
-    MeasurableSet.of_discrete]
+    (Environment.bandit (lawBandit θ))
+  simp only [IdentTask.ν_restrict, ν_epsBaiTask]
+  rw [← hrun.hasLaw_output.measureReal_eq
+    (p := fun i ↦ i ∉ ((epsBaiTask lawBandit lawMean ε).restrict
+      (Set.univ.pi fun _ ↦ subgaussianLaws σ2)).correct θ) MeasurableSet.of_discrete]
   refine (measureReal_mono fun ω hω ↦ ?_).trans
-    (MedianElimination.measureReal_exists_output_add_lt_le_of_pullSchedule (hν μ) hσ2 hε hδ hrun)
-  simp only [correct_epsBaiTask, Set.mem_ofPred_eq, not_forall, not_le] at hω
+    (MedianElimination.measureReal_exists_output_add_lt_le_of_pullSchedule hν hσ2 hε hδ hrun)
+  simp only [IdentTask.correct_restrict, correct_epsBaiTask, Set.mem_ofPred_eq, not_forall,
+    not_le] at hω
   obtain ⟨b, hb⟩ := hω
-  exact ⟨b, by rwa [hmean, hmean]⟩
+  exact ⟨b, by rwa [← lawMean_eq_integral_lawBandit, ← lawMean_eq_integral_lawBandit]⟩
 
 /-- **Sample complexity of median elimination** [EMM02, Theorem 4; EMM06, Theorem 10]. With `K`
 arms, for `σ2 ≥ 0` and a confidence `0 < δ ≤ 6`, median elimination with the numbers of pulls

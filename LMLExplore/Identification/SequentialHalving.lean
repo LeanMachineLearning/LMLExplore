@@ -52,6 +52,10 @@ In the namespace `LMLExplore.Identification`:
   `P(error) ≤ 3 ⌈log₂ K⌉ exp(-(T - K ⌈log₂ K⌉) / (16 σ2 ⌈log₂ K⌉ H₂))`, and
   `SequentialHalving.measureReal_output_ne_le_of_mem_Icc`, its form
   `P(error) ≤ 3 ⌈log₂ K⌉ exp(-(T - K ⌈log₂ K⌉) / (4 ⌈log₂ K⌉ H₂))` for rewards in `[0, 1]`.
+* `SequentialHalving.measureReal_outputMeasure_compl_correct_le`,
+  `SequentialHalving.measureReal_outputMeasure_compl_correct_le_of_unitIntervalLaws`: the same
+  bounds on the probability of error of best arm identification (`baiTask lawBandit lawMean`), on
+  every bandit with `σ2`-sub-Gaussian arms, respectively with laws on `[0, 1]`.
 
 ## Implementation notes
 
@@ -239,5 +243,42 @@ theorem SequentialHalving.measureReal_output_ne_le_of_mem_Icc
     hasSubgaussianMGF_of_mem_Icc_zero_one aemeasurable_id (hν a)
   refine (measureReal_output_ne_le h_sub ha' h).trans_eq ?_
   norm_num
+
+/-- **Sequential halving on the bandits with σ²-sub-Gaussian arms** [KKS13, Theorem 4.1;
+LS, Theorem 33.10]. On every bandit `θ` whose arms are `σ2`-sub-Gaussian and which has a unique
+best arm, the probability that sequential halving with budget `T` does not output the best arm is
+at most `3 ⌈log₂ K⌉ exp(-(T - K ⌈log₂ K⌉) / (16 σ2 ⌈log₂ K⌉ H₂))`. -/
+theorem SequentialHalving.measureReal_outputMeasure_compl_correct_le {σ2 : ℝ≥0}
+    {θ : α → ProbabilityMeasure ℝ} (hθ : θ ∈ ((baiTask (lawBandit (α := α)) lawMean).restrict
+      (Set.univ.pi fun _ ↦ subgaussianLaws σ2)).M) :
+    ((sequentialHalving T).outputMeasure (Environment.bandit (lawBandit θ))).real
+        ((baiTask lawBandit lawMean).correct θ)ᶜ ≤ 3 * numPhases (Fintype.card α) *
+      exp (-((T : ℝ) - Fintype.card α * numPhases (Fintype.card α)) /
+        (16 * σ2 * numPhases (Fintype.card α) * complexityTwo (lawBandit θ))) := by
+  rw [IdentTask.M_restrict, M_baiTask] at hθ
+  obtain ⟨⟨a, ha⟩, hθ⟩ := hθ
+  have hν (b : α) : HasSubgaussianMGF (fun x ↦ x - (lawBandit θ b)[id]) σ2 (lawBandit θ b) := by
+    simpa only [lawMean_eq_integral_lawBandit] using mem_pi_subgaussianLaws_iff.1 hθ b
+  have hrun := isRun_runMeasure (sequentialHalving (α := α) T) (Environment.bandit (lawBandit θ))
+  rw [(correct_baiTask_eq_singleton_iff _ _).2 ha, Set.compl_def,
+    ← hrun.hasLaw_output.measureReal_eq MeasurableSet.of_discrete]
+  simp only [lawMean_eq_integral_lawBandit] at ha
+  simpa only [Set.mem_singleton_iff] using measureReal_output_ne_le hν ha hrun
+
+/-- **Sequential halving on the bandits with laws on `[0, 1]`** [KKS13, Theorem 4.1]. On every
+bandit `θ` whose arms have laws on `[0, 1]` and which has a unique best arm, the probability that
+sequential halving with budget `T` does not output the best arm is at most
+`3 ⌈log₂ K⌉ exp(-(T - K ⌈log₂ K⌉) / (4 ⌈log₂ K⌉ H₂))`. -/
+theorem SequentialHalving.measureReal_outputMeasure_compl_correct_le_of_unitIntervalLaws
+    {θ : α → ProbabilityMeasure ℝ} (hθ : θ ∈ ((baiTask (lawBandit (α := α)) lawMean).restrict
+      (Set.univ.pi fun _ ↦ unitIntervalLaws)).M) :
+    ((sequentialHalving T).outputMeasure (Environment.bandit (lawBandit θ))).real
+        ((baiTask lawBandit lawMean).correct θ)ᶜ ≤ 3 * numPhases (Fintype.card α) *
+      exp (-((T : ℝ) - Fintype.card α * numPhases (Fintype.card α)) /
+        (4 * numPhases (Fintype.card α) * complexityTwo (lawBandit θ))) := by
+  rw [IdentTask.M_restrict] at hθ
+  refine (measureReal_outputMeasure_compl_correct_le (σ2 := 1 / 4) ?_).trans_eq (by norm_num)
+  rw [IdentTask.M_restrict]
+  exact ⟨hθ.1, Set.pi_mono (fun _ _ ↦ unitIntervalLaws_subset_subgaussianLaws) hθ.2⟩
 
 end LMLExplore.Identification

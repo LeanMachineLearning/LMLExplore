@@ -6,7 +6,7 @@ Authors: Rémy Degenne
 module
 
 public import LMLExplore.Identification.ConfidenceBound
-public import LMLExplore.Identification.Task.Classical
+public import LMLExplore.Identification.Task.RealLaws
 public import LMLExplore.MeasureTheory.Order.MeasurableArg
 public import LMLExplore.Probability.Moments.SubGaussian.Bounded
 public import LMLExplore.SequentialLearning.SubGaussianDeviation
@@ -61,8 +61,9 @@ In the namespace `LMLExplore.Identification`:
   rewards in `[0, 1]`.
 * `measureReal_stoppingTime_ne_top_and_notMem_le_of_isRun_lucbOfRate`: the same bound along
   every run.
-* `isDeltaPAC_lucbOfRate`: LUCB is `δ`-PAC on top-`m` identification with tolerance `ε` for
-  σ²-sub-Gaussian arms if it stops almost surely.
+* `isDeltaPAC_lucbOfRate`: LUCB is `δ`-PAC on top-`m` identification with tolerance `ε`
+  (`epsTopMTask lawBandit lawMean m ε`) restricted to every set of bandits with σ²-sub-Gaussian
+  arms on which it stops almost surely.
 
 ## Implementation notes
 
@@ -374,24 +375,31 @@ theorem measureReal_stoppingTime_ne_top_and_notMem_le_of_isRun_lucbOfRate {out :
   exact measureReal_histOutputMeasure_lucbOfRate_le_of_hasSubgaussianMGF hν hβ hsum hδ hε hm
 
 /-- **LUCB is `δ`-PAC** for top-`m` identification with tolerance `ε` [KTAS12, Theorem 1], for
-every sampling rule. Let the arms of every model `μ` be σ²-sub-Gaussian with means `μ`, let `ε ≥ 0`
-and `m ≤ K`, and let the exploration rate `β ≥ 0` satisfy
+every sampling rule. Let `S` be a set of bandits whose arms are σ²-sub-Gaussian, let `ε ≥ 0` and
+`m ≤ K`, and let the exploration rate `β ≥ 0` satisfy
 `∑_n ∑_{u = 1}^n exp (-u β(u, n)² / (2 σ²)) ≤ δ / K`. If LUCB with the confidence bounds
-`μ̂_a ∓ β(N_a, n)` stops almost surely on every model, then it is `δ`-PAC. -/
-theorem isDeltaPAC_lucbOfRate (hmean : ∀ (μ : α → ℝ) a, (ν μ a)[id] = μ a)
-    (hν : ∀ (μ : α → ℝ) a, HasSubgaussianMGF (fun x ↦ x - (ν μ a)[id]) σ2 (ν μ a))
-    (hβ : ∀ u n, 0 ≤ β u n)
+`μ̂_a ∓ β(N_a, n)` stops almost surely on every bandit of `S`, then it is `δ`-PAC on the task
+restricted to `S`. -/
+theorem isDeltaPAC_lucbOfRate {S : Set (α → ProbabilityMeasure ℝ)}
+    (hS : S ⊆ Set.univ.pi fun _ ↦ subgaussianLaws σ2) (hβ : ∀ u n, 0 ≤ β u n)
     (hsum : Summable fun n ↦ ∑ u ∈ Icc 1 n, exp (-(u * β u n ^ 2 / (2 * σ2))))
     (hδ : ∑' n, ∑ u ∈ Icc 1 n, exp (-(u * β u n ^ 2 / (2 * σ2))) ≤ δ / Fintype.card α)
     (hε : 0 ≤ ε) (hm : m ≤ Fintype.card α)
-    (h_stops : ∀ μ : α → ℝ, StopsAS (lucbOfRate alg β ε m) (Environment.bandit (ν μ))) :
-    (epsTopMTask ν id m ε).IsDeltaPAC (lucbOfRate alg β ε m) δ := by
+    (h_stops : ∀ θ ∈ S, StopsAS (lucbOfRate alg β ε m) (Environment.bandit (lawBandit θ))) :
+    ((epsTopMTask (lawBandit (α := α)) lawMean m ε).restrict S).IsDeltaPAC
+      (lucbOfRate alg β ε m) δ := by
+  have hS' (θ : α → ProbabilityMeasure ℝ)
+      (hθ : θ ∈ ((epsTopMTask (lawBandit (α := α)) lawMean m ε).restrict S).M) : θ ∈ S := by
+    rw [IdentTask.M_restrict] at hθ
+    exact hθ.2
   refine IdentTask.isDeltaPAC_of_measureReal_mem_stopSet_and_notMem_le
-    (fun μ _ ↦ (Set.to_countable _).measurableSet) (fun μ _ ↦ ?_)
-    fun μ _ ↦ by simpa only [ν_epsTopMTask] using h_stops μ
-  simp only [ν_epsTopMTask]
+    (fun θ _ ↦ (Set.to_countable _).measurableSet) (fun θ hθ ↦ ?_)
+    fun θ hθ ↦ by simpa only [IdentTask.ν_restrict, ν_epsTopMTask] using h_stops θ (hS' θ hθ)
+  have hν (a : α) : HasSubgaussianMGF (fun x ↦ x - (lawBandit θ a)[id]) σ2 (lawBandit θ a) := by
+    simpa only [lawMean_eq_integral_lawBandit] using mem_pi_subgaussianLaws_iff.1 (hS (hS' θ hθ)) a
   have h := measureReal_histOutputMeasure_lucbOfRate_le_of_hasSubgaussianMGF (alg := alg)
-    (ν := ν) (hν μ) hβ hsum hδ hε hm
-  rwa [funext (hmean μ)] at h
+    (ν := fun _ ↦ lawBandit θ) hν hβ hsum hδ hε hm
+  simpa only [IdentTask.ν_restrict, IdentTask.correct_restrict, ν_epsTopMTask, correct_epsTopMTask,
+    id, lawMean_eq_integral_lawBandit] using h
 
 end LMLExplore.Identification
