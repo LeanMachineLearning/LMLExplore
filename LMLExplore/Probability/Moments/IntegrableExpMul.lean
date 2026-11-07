@@ -10,7 +10,7 @@ public import Mathlib.Probability.Moments.Basic
 public import Mathlib.Probability.Moments.IntegrableExpMul
 
 /-!
-# Exponential moments of a shifted random variable
+# Exponential moments of a shifted or pushed-forward random variable
 
 For a real random variable `X` under a measure `P`, a level `x` and a parameter
 `t ∈ integrableExpSet X P`, the function `exp (t (X - x))` is integrable, and the cumulant
@@ -18,6 +18,11 @@ generating function at `t` is `t x + log E[exp (t (X - x))]`. If `X ≤ x` almos
 then `E[exp (t (X - x))]` tends to `P(X = x)` as `t → ∞`: the integrand tends to `0` where
 `X < x` and is `1` where `X = x`. This limit gives the value of the Cramér rate function at the
 essential supremum of `X`.
+
+The exponential moments of `X` only depend on its law: the identity under the law `P.map X` has
+the same exponential moments and the same cumulant generating function as `X` under `P`. This
+turns statements about a statistic `T` of an exponential family into statements about the
+natural exponential family of the law of `T`.
 
 ## Main statements
 
@@ -27,6 +32,8 @@ essential supremum of `X`.
   `cgf X P t = t x + log E[exp (t (X - x))]`.
 * `LMLExplore.tendsto_integral_exp_mul_sub`: if `X ≤ x` almost surely, then
   `E[exp (t (X - x))]` tends to `P(X = x)` as `t → ∞`.
+* `LMLExplore.integrableExpSet_id_map`, `LMLExplore.cgf_id_map`: the identity under the law of `X`
+  has the exponential moments and the cumulant generating function of `X`.
 -/
 
 public section
@@ -81,5 +88,17 @@ theorem tendsto_integral_exp_mul_sub [IsFiniteMeasure P] (hX : AEMeasurable X P)
     · have h_mem : ω ∈ {ω | X ω = x} := heq
       simp only [indicator_of_mem h_mem, Pi.one_apply, heq, sub_self, mul_zero, exp_zero]
       exact tendsto_const_nhds
+
+/-- The identity under the law `P.map X` has the exponential moments of `X` under `P`. -/
+lemma integrableExpSet_id_map (hX : AEMeasurable X P) :
+    integrableExpSet id (P.map X) = integrableExpSet X P := by
+  ext t
+  exact integrable_map_measure (by fun_prop) hX
+
+/-- The identity under the law `P.map X` has the cumulant generating function of `X` under `P`:
+the analogue of `ProbabilityTheory.mgf_id_map`. -/
+lemma cgf_id_map (hX : AEMeasurable X P) : cgf id (P.map X) = cgf X P := by
+  ext t
+  rw [cgf, cgf, mgf_id_map hX]
 
 end LMLExplore
