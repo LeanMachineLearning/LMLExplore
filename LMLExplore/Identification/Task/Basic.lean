@@ -41,6 +41,8 @@ answer is not correct".
 * `IdentTask.answerSet task i`: the admissible models for which `i` is correct.
 * `IdentTask.IsSingleAnswer task`: every admissible model has exactly one correct answer.
 * `IdentTask.restrict task S`: the task with admissible models `task.M ∩ S`.
+* `IdentTask.comap task f`: the pullback of `task` along a map `f : Θ' → Θ` of models, with
+  bandits `task.ν ∘ f`, admissible models `f ⁻¹' task.M` and correct answers `task.correct ∘ f`.
 * `IdentTask.IsDeltaCorrect task A δ`, `IdentTask.IsDeltaPAC task A δ`: `δ`-correct and `δ`-PAC
   algorithms for the task.
 
@@ -65,6 +67,12 @@ answer is not correct".
   at most `δ` on every alternative to `i`.
 * `IdentTask.IsDeltaCorrect.one_sub_le_measureReal_of_isRun`: along every run on an admissible
   model, a `δ`-correct algorithm stops with a correct answer with probability at least `1 - δ`.
+* `IdentTask.alt_comap`, `IdentTask.answerSet_comap`: the alternatives and the answer sets of a
+  pullback are the preimages of those of the task.
+* `IdentTask.IsDeltaCorrect.comap`, `IdentTask.IsDeltaPAC.comap`: a `δ`-correct (`δ`-PAC)
+  algorithm on a task is `δ`-correct (`δ`-PAC) on each of its pullbacks, and
+  `IdentTask.isDeltaCorrect_comap_iff`, `IdentTask.isDeltaPAC_comap_iff` give the converse when
+  the map reaches every admissible model.
 
 ## References
 
@@ -212,6 +220,58 @@ lemma IsSingleAnswer.restrict (h : task.IsSingleAnswer) (S : Set Θ) :
     (task.restrict S).IsSingleAnswer :=
   fun θ hθ ↦ h θ hθ.1
 
+/-! ### Pullback along a map of models -/
+
+variable {Θ' Θ'' : Type*}
+
+variable (task) in
+/-- The pullback of a task on the models `Θ` along a map `f : Θ' → Θ`: the model `θ` has the
+bandit and the correct answers of `f θ`, and is admissible iff `f θ` is. A task asking about the
+means of the models `Θ'` through `mean : Θ' → α → ℝ`, with bandits depending on the means only,
+is the pullback along `mean` of the task on vectors of means. -/
+def comap (f : Θ' → Θ) : IdentTask α Θ' ℐ 𝓨 where
+  M := f ⁻¹' task.M
+  ν θ := task.ν (f θ)
+  isMarkovKernel_ν θ := task.isMarkovKernel_ν (f θ)
+  correct θ := task.correct (f θ)
+
+variable {f : Θ' → Θ}
+
+@[simp]
+lemma M_comap : (task.comap f).M = f ⁻¹' task.M := (rfl)
+
+@[simp]
+lemma ν_comap (θ : Θ') : (task.comap f).ν θ = task.ν (f θ) := (rfl)
+
+@[simp]
+lemma correct_comap (θ : Θ') : (task.comap f).correct θ = task.correct (f θ) := (rfl)
+
+/-- The alternatives to `i` in the pullback are the preimages of the alternatives to `i`. -/
+@[simp]
+lemma alt_comap (i : ℐ) : (task.comap f).alt i = f ⁻¹' task.alt i := (rfl)
+
+/-- The models of the pullback for which `i` is correct are the preimages of those of `task`. -/
+@[simp]
+lemma answerSet_comap (i : ℐ) : (task.comap f).answerSet i = f ⁻¹' task.answerSet i := (rfl)
+
+variable (task) in
+@[simp]
+lemma comap_id : task.comap id = task := (rfl)
+
+variable (task) in
+@[simp]
+lemma comap_comap (f : Θ' → Θ) (g : Θ'' → Θ') : (task.comap f).comap g = task.comap (f ∘ g) :=
+  (rfl)
+
+/-- Pulling back a restriction to `S` is restricting the pullback to the preimage of `S`. -/
+@[simp]
+lemma comap_restrict (S : Set Θ) (f : Θ' → Θ) :
+    (task.restrict S).comap f = (task.comap f).restrict (f ⁻¹' S) := (rfl)
+
+lemma IsSingleAnswer.comap (h : task.IsSingleAnswer) (f : Θ' → Θ) :
+    (task.comap f).IsSingleAnswer :=
+  fun θ hθ ↦ h (f θ) hθ
+
 /-! ### `δ`-correct and `δ`-PAC algorithms for a task -/
 
 variable [MeasurableSpace ℐ] {A : IdentAlg Unit α 𝓨 ℐ} {δ δ' : ℝ}
@@ -340,6 +400,33 @@ lemma IsDeltaCorrect.restrict (h : task.IsDeltaCorrect A δ) (S : Set Θ) :
 lemma IsDeltaPAC.restrict (h : task.IsDeltaPAC A δ) (S : Set Θ) :
     (task.restrict S).IsDeltaPAC A δ :=
   Identification.IsDeltaPAC.comp h (Set.inclusion Set.inter_subset_left)
+
+/-- A `δ`-correct algorithm on a task is `δ`-correct on its pullback along every map of models. -/
+lemma IsDeltaCorrect.comap (h : task.IsDeltaCorrect A δ) (f : Θ' → Θ) :
+    (task.comap f).IsDeltaCorrect A δ :=
+  Identification.IsDeltaCorrect.comp h fun θ : (task.comap f).M ↦ ⟨f θ, θ.2⟩
+
+/-- A `δ`-PAC algorithm on a task is `δ`-PAC on its pullback along every map of models. -/
+lemma IsDeltaPAC.comap (h : task.IsDeltaPAC A δ) (f : Θ' → Θ) :
+    (task.comap f).IsDeltaPAC A δ :=
+  Identification.IsDeltaPAC.comp h fun θ : (task.comap f).M ↦ ⟨f θ, θ.2⟩
+
+/-- If every admissible model of `task` is the image of a model under `f`, an algorithm is
+`δ`-correct on the pullback along `f` iff it is `δ`-correct on `task`. -/
+lemma isDeltaCorrect_comap_iff (hf : task.M ⊆ Set.range f) :
+    (task.comap f).IsDeltaCorrect A δ ↔ task.IsDeltaCorrect A δ := by
+  refine ⟨fun h ↦ isDeltaCorrect_iff.2 fun θ hθ ↦ ?_, fun h ↦ h.comap f⟩
+  obtain ⟨θ', rfl⟩ := hf hθ
+  exact isDeltaCorrect_iff.1 h θ' hθ
+
+/-- If every admissible model of `task` is the image of a model under `f`, an algorithm is
+`δ`-PAC on the pullback along `f` iff it is `δ`-PAC on `task`. -/
+lemma isDeltaPAC_comap_iff (hf : task.M ⊆ Set.range f) :
+    (task.comap f).IsDeltaPAC A δ ↔ task.IsDeltaPAC A δ := by
+  refine ⟨fun h ↦ isDeltaPAC_iff.2 ⟨fun θ hθ ↦ ?_, fun θ hθ ↦ ?_⟩, fun h ↦ h.comap f⟩ <;>
+    obtain ⟨θ', rfl⟩ := hf hθ
+  · exact (isDeltaPAC_iff.1 h).1 θ' hθ
+  · exact h.stopsAS (θ := θ') hθ
 
 section Run
 
