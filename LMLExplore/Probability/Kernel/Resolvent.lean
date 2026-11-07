@@ -38,8 +38,9 @@ functions. Consequently:
 
 Uniqueness also compares resolvents: for every bounded measurable `y`, `R_γ f - y` is the resolvent
 `R_γ (f + γ κ y - y)` of the residual of `y` in the equation `u = f + γ κ u` (the
-performance-difference identity), and for a second Markov kernel `κ'`, taking `y = R_γ(κ') f` gives
-the simulation identity `R_γ(κ) f - R_γ(κ') f = γ R_γ(κ) ((κ - κ') R_γ(κ') f)`. Since the
+performance-difference identity). For a second Markov kernel `κ'` and a second bounded measurable
+`f'`, applying it to `κ'`, `f'` and `y = R_γ(κ) f` gives the simulation identity with two rewards
+`R_γ(κ) f - R_γ(κ') f' = R_γ(κ') ((f - f') + γ (κ - κ') R_γ(κ) f)`. Since the
 resolvent is a positive operator, the performance-difference identity also compares `R_γ f` with
 sub- and supersolutions of `u = f + γ κ u`.
 
@@ -69,15 +70,17 @@ equation of these objects.
   `R_γ f` is the unique bounded measurable solution of `u = f + γ κ u`.
 * `ProbabilityTheory.Kernel.abs_integral_resolvent_le`,
   `ProbabilityTheory.Kernel.abs_mul_integral_resolvent_le`,
+  `ProbabilityTheory.Kernel.abs_integral_resolvent_add_mul_le`,
   `ProbabilityTheory.Kernel.le_integral_resolvent`: for a Markov kernel and `γ < 1`,
-  `|R_γ f| ≤ sup |f| / (1 - γ)`, `|γ R_γ f| ≤ γ sup |f| / (1 - γ)`, and `f ≤ R_γ f` for `f ≥ 0`.
+  `|R_γ f| ≤ sup |f| / (1 - γ)`, `|γ R_γ f| ≤ γ sup |f| / (1 - γ)`,
+  `|R_γ (f + γ g)| ≤ sup |f| / (1 - γ) + γ sup |g| / (1 - γ)`, and `f ≤ R_γ f` for `f ≥ 0`.
 * `ProbabilityTheory.Kernel.integral_resolvent_sub_eq_integral_resolvent`: the
   performance-difference identity `R_γ f - y = R_γ (f + γ κ y - y)`.
 * `ProbabilityTheory.Kernel.integral_resolvent_le_of_add_le`,
   `ProbabilityTheory.Kernel.le_integral_resolvent_of_le_add`: comparison with sub- and
   supersolutions, `f + γ κ u ≤ u → R_γ f ≤ u` and `u ≤ f + γ κ u → u ≤ R_γ f`.
 * `ProbabilityTheory.Kernel.integral_resolvent_sub_integral_resolvent`: the simulation identity
-  `R_γ(κ) f - R_γ(κ') f = γ R_γ(κ) ((κ - κ') R_γ(κ') f)`.
+  with two rewards `R_γ(κ) f - R_γ(κ') f' = R_γ(κ') ((f - f') + γ (κ - κ') R_γ(κ) f)`.
 * `MeasureTheory.Measure.resolvent_comp_eq_add`: for every kernel and every `γ`,
   `resolvent γ κ ∘ₘ μ` solves the flow equation `ν = μ + γ • (κ ∘ₘ ν)`;
   `MeasureTheory.Measure.eq_resolvent_comp_of_eq_add`: for a Markov kernel and `γ < 1`, it is the
@@ -243,6 +246,17 @@ theorem abs_mul_integral_resolvent_le (hγ : γ < 1) {f : α → ℝ} {B : ℝ} 
   rw [abs_mul, NNReal.abs_eq, mul_div_assoc]
   exact mul_le_mul_of_nonneg_left (abs_integral_resolvent_le hγ hfB x) γ.coe_nonneg
 
+/-- For `γ < 1`, if `f` is bounded by `B` and `g` by `B'`, the integral of `f + γ g` against the
+resolvent of a Markov kernel is bounded by `B / (1 - γ) + γ B' / (1 - γ)`:
+`|R_γ (f + γ g)| ≤ sup |f| / (1 - γ) + γ sup |g| / (1 - γ)`. -/
+theorem abs_integral_resolvent_add_mul_le (hγ : γ < 1) {f g : α → ℝ} {B B' : ℝ}
+    (hfB : ∀ y, |f y| ≤ B) (hgB : ∀ y, |g y| ≤ B') (x : α) :
+    |∫ y, (f y + γ * g y) ∂(resolvent γ κ x)| ≤ B / (1 - γ) + γ * B' / (1 - γ) := by
+  rw [← add_div]
+  refine abs_integral_resolvent_le hγ (fun y ↦ (abs_add_le _ _).trans (add_le_add (hfB y) ?_)) x
+  rw [abs_mul, NNReal.abs_eq]
+  exact mul_le_mul_of_nonneg_left (hgB y) γ.coe_nonneg
+
 /-- The resolvent equation `R_γ f = f + γ κ R_γ f`: for `γ < 1` and a bounded measurable `f`, the
 function `u = R_γ f` solves `u = f + γ κ u`. -/
 theorem integral_resolvent_eq_add (hγ : γ < 1) {f : α → ℝ} {B : ℝ} (hf : Measurable f)
@@ -328,20 +342,25 @@ theorem le_integral_resolvent_of_le_add (hγ : γ < 1) {f u : α → ℝ} {B B' 
   rw [← sub_nonneg, integral_resolvent_sub_eq_integral_resolvent hγ hf hfB hu huB]
   exact integral_nonneg fun z ↦ sub_nonneg.2 (h z)
 
-/-- **The simulation identity** `R_γ(κ) f - R_γ(κ') f = γ R_γ(κ) ((κ - κ') R_γ(κ') f)`: for Markov
-kernels `κ` and `κ'`, `γ < 1` and a bounded measurable `f`, the discounted sums of `f` along the
-chains with kernels `κ` and `κ'` differ by the resolvent of `κ` applied to the one-step difference
-of the kernels, acting on the discounted sum of `f` along the chain with kernel `κ'`. -/
+/-- **The simulation identity with two rewards**
+`R_γ(κ) f - R_γ(κ') f' = R_γ(κ') ((f - f') + γ (κ - κ') R_γ(κ) f)`: for Markov kernels `κ` and
+`κ'`, `γ < 1` and bounded measurable `f` and `f'`, the discounted sums of `f` along the chain with
+kernel `κ` and of `f'` along the chain with kernel `κ'` differ by the resolvent of `κ'` applied to
+the difference of the rewards plus the discounted one-step difference of the kernels, acting on the
+discounted sum of `f` along the chain with kernel `κ`. -/
 theorem integral_resolvent_sub_integral_resolvent (κ' : Kernel α α) [IsMarkovKernel κ']
-    (hγ : γ < 1) {f : α → ℝ} {B : ℝ} (hf : Measurable f) (hfB : ∀ z, |f z| ≤ B) (x : α) :
-    ∫ z, f z ∂(resolvent γ κ x) - ∫ z, f z ∂(resolvent γ κ' x) =
-      γ * ∫ z, (∫ w, (∫ y, f y ∂(resolvent γ κ' w)) ∂(κ z) -
-        ∫ w, (∫ y, f y ∂(resolvent γ κ' w)) ∂(κ' z)) ∂(resolvent γ κ x) := by
-  rw [integral_resolvent_sub_eq_integral_resolvent hγ hf hfB
-    (measurable_integral_resolvent (κ := κ') hf) (abs_integral_resolvent_le (κ := κ') hγ hfB),
-    ← integral_const_mul]
+    (hγ : γ < 1) {f f' : α → ℝ} {B B' : ℝ} (hf : Measurable f) (hfB : ∀ z, |f z| ≤ B)
+    (hf' : Measurable f') (hfB' : ∀ z, |f' z| ≤ B') (x : α) :
+    ∫ z, f z ∂(resolvent γ κ x) - ∫ z, f' z ∂(resolvent γ κ' x) =
+      ∫ z, (f z - f' z + γ * (∫ w, (∫ y, f y ∂(resolvent γ κ w)) ∂(κ z) -
+        ∫ w, (∫ y, f y ∂(resolvent γ κ w)) ∂(κ' z))) ∂(resolvent γ κ' x) := by
+  have hR := measurable_integral_resolvent (γ := γ) (κ := κ) hf
+  have hRB := abs_integral_resolvent_le (κ := κ) hγ hfB
+  -- the performance-difference identity for `κ'`, `f'` and `y = R_γ(κ) f`
+  rw [← neg_sub, integral_resolvent_sub_eq_integral_resolvent hγ hf' hfB' hR hRB,
+    ← integral_neg]
   congr with z
-  rw [integral_resolvent_eq_add (κ := κ') hγ hf hfB z]
+  rw [integral_resolvent_eq_add (κ := κ) hγ hf hfB z]
   ring
 
 end Markov
