@@ -27,6 +27,8 @@ conditional distribution `η` given `f` of the first coordinate.
   `∫⁻ ω in X ⁻¹' s, g (Y ω) ∂P = ∫⁻ ω in X ⁻¹' s, ∫⁻ y, g y ∂(κ (X ω)) ∂P`.
 * `ProbabilityTheory.HasCondDistrib.lintegral_comp_prodMk_eq_lintegral_lintegral`:
   `∫⁻ ω, g (X ω, Y ω) ∂P = ∫⁻ ω, ∫⁻ y, g (X ω, y) ∂(κ (X ω)) ∂P`.
+* `ProbabilityTheory.HasCondDistrib.ae_mem`: if every conditional law is concentrated on a set,
+  then `Y` lies in that set almost surely.
 * `ProbabilityTheory.hasCondDistrib_snd_compProd_comap`: under `μ ⊗ₘ η.comap f`, the second
   coordinate has conditional distribution `η` given `f` of the first coordinate.
 
@@ -92,6 +94,17 @@ lemma HasCondDistrib.lintegral_comp_prodMk_eq_lintegral_lintegral (h : HasCondDi
     _ = ∫⁻ x, ∫⁻ y, g (x, y) ∂(κ x) ∂(P.map X) := Measure.lintegral_compProd hg
     _ = ∫⁻ ω, ∫⁻ y, g (X ω, y) ∂(κ (X ω)) ∂P :=
         lintegral_map' hg.lintegral_kernel_prod_right'.aemeasurable h.aemeasurable_fst
+
+omit [SFinite P] [IsSFiniteKernel κ] in
+/-- If `κ` is the conditional distribution of `Y` given `X` and every measure `κ x` is concentrated
+on a measurable set `t`, then `Y` lies in `t` almost surely. -/
+lemma HasCondDistrib.ae_mem (h : HasCondDistrib Y X κ P) {t : Set 𝓨} (ht : MeasurableSet t)
+    (hκ : ∀ x, ∀ᵐ y ∂(κ x), y ∈ t) :
+    ∀ᵐ ω ∂P, Y ω ∈ t := by
+  have h_ae : ∀ᵐ q ∂(P.map X ⊗ₘ κ), q.2 ∈ t :=
+    Measure.ae_compProd_of_ae_ae (ht.preimage measurable_snd) (.of_forall hκ)
+  rw [← h.map_eq] at h_ae
+  exact ae_of_ae_map h.aemeasurable h_ae
 
 end JointMass
 

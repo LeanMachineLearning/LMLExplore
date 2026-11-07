@@ -128,8 +128,8 @@ theorem le_streamMeasure_forall_abs_qValue_sub_qValue_empirical_le {M : MDP 𝓢
           (1 - γ) ^ 2} := by
   refine (le_streamMeasure_forall_tvDist_empirical_lt M N hδ).trans
     (measureReal_mono (fun ω hω π _ p ↦ ?_) (measure_ne_top _ _))
-  exact abs_qValue_sub_qValue_le_of_tvDist_le (M' := M.empirical N ω) (by simp) hγ hR
-    (by simpa using hR) (fun q ↦ (hω q).le) p
+  exact (abs_qValue_sub_qValue_le_of_tvDist_le (M' := M.empirical N ω) hγ hR (by simpa using hR)
+    (δ := 0) (fun q ↦ by simp) (fun q ↦ (hω q).le) p).trans_eq (by rw [zero_div, zero_add])
 
 variable [Nonempty 𝓢] [Nonempty 𝓐]
 
@@ -147,8 +147,9 @@ theorem le_streamMeasure_forall_abs_optQValue_sub_optQValue_empirical_le {M : MD
           (1 - γ) ^ 2} := by
   refine (le_streamMeasure_forall_tvDist_empirical_lt M N hδ).trans
     (measureReal_mono (fun ω hω p ↦ ?_) (measure_ne_top _ _))
-  exact abs_optQValue_sub_optQValue_le_of_tvDist_le (M' := M.empirical N ω) (by simp) hγ hR
-    (by simpa using hR) (fun q ↦ (hω q).le) p
+  exact (abs_optQValue_sub_optQValue_le_of_tvDist_le (M' := M.empirical N ω) hγ hR
+    (by simpa using hR) (δ := 0) (fun q ↦ by simp) (fun q ↦ (hω q).le) p).trans_eq
+    (by rw [zero_div, zero_add])
 
 /-- **Near-optimal planning in the empirical MDP** [AJKS, Proposition 2.1]. Under the generative
 model of an MDP `M` with `S` states, `A` actions and rewards bounded by `C`, for `γ < 1`, `N ≠ 0`
@@ -166,10 +167,11 @@ theorem le_streamMeasure_forall_abs_qValue_sub_optQValue_le_of_value_empirical_e
   refine (le_streamMeasure_forall_tvDist_empirical_lt M N hδ).trans
     (measureReal_mono (fun ω hω π _ hπ p ↦ ?_) (measure_ne_top _ _))
   -- `Q^π̂ - Q* = (Q^π̂ - Q̂^π̂) + (Q̂* - Q*)`, since `Q̂^π̂ = Q̂*`
-  have h₁ := abs_qValue_sub_qValue_le_of_tvDist_le (M' := M.empirical N ω) (π := π) (by simp) hγ
-    hR (by simpa using hR) (fun q ↦ (hω q).le) p
-  have h₂ := abs_optQValue_sub_optQValue_le_of_tvDist_le (M' := M.empirical N ω) (by simp) hγ hR
-    (by simpa using hR) (fun q ↦ (hω q).le) p
+  have h₁ := abs_qValue_sub_qValue_le_of_tvDist_le (M' := M.empirical N ω) (π := π) hγ hR
+    (by simpa using hR) (δ := 0) (fun q ↦ by simp) (fun q ↦ (hω q).le) p
+  have h₂ := abs_optQValue_sub_optQValue_le_of_tvDist_le (M' := M.empirical N ω) hγ hR
+    (by simpa using hR) (δ := 0) (fun q ↦ by simp) (fun q ↦ (hω q).le) p
+  rw [zero_div, zero_add] at h₁ h₂
   rw [← qValue_eq_optQValue hπ, abs_sub_comm] at h₂
   exact (abs_sub_le _ _ _).trans ((add_le_add h₁ h₂).trans_eq (by ring))
 
@@ -217,8 +219,8 @@ theorem le_streamMeasure_forall_abs_optQValue_sub_optQValue_empirical_le' {M : M
         √(2 * log (2 * Fintype.card 𝓢 * Fintype.card 𝓐 / δ) / N) / (1 - γ) ^ 2} := by
   refine (le_streamMeasure_forall_abs_integral_optValue_sub_integral_optValue_empirical_le hγ hR
     N hδ).trans (measureReal_mono (fun ω hω p ↦ ?_) (measure_ne_top _ _))
-  exact (abs_optQValue_sub_optQValue_le (M' := M.empirical N ω) (by simp) hγ hR
-    (by simpa using hR) hω p).trans_eq (by rw [sq, ← div_div]; ring)
+  exact (abs_optQValue_sub_optQValue_le (M' := M.empirical N ω) hγ hR (by simpa using hR)
+    (δ := 0) (fun q ↦ by simp) hω p).trans_eq (by rw [sq, ← div_div]; ring)
 
 /-- **Crude value bounds**, for the optimal policies of `M` [AJKS, Proposition 2.4]. Under the
 generative model of an MDP `M` with `S` states, `A` actions and rewards bounded by `C`, for
@@ -236,7 +238,7 @@ theorem le_streamMeasure_forall_abs_optQValue_sub_qValue_empirical_le_of_value_e
     N hδ).trans (measureReal_mono (fun ω hω π _ hπ p ↦ ?_) (measure_ne_top _ _))
   -- `Q* = Q^π*`, and the simulation bound for `π*` only involves `v^π* = v*`
   rw [← qValue_eq_optQValue hπ]
-  exact (abs_qValue_sub_qValue_le (M' := M.empirical N ω) (by simp) hγ hR (by simpa using hR)
-    (fun q ↦ hπ ▸ hω q) p).trans_eq (by rw [sq, ← div_div]; ring)
+  exact (abs_qValue_sub_qValue_le (M' := M.empirical N ω) hγ hR (by simpa using hR) (δ := 0)
+    (fun q ↦ by simp) (fun q ↦ hπ ▸ hω q) p).trans_eq (by rw [sq, ← div_div]; ring)
 
 end Learning.MDP

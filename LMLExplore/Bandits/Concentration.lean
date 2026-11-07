@@ -383,35 +383,29 @@ theorem sum_measureReal_pullCount_ne_zero_and_klUpper_le_le
 In a run of any algorithm against the stochastic bandit `Environment.bandit ν`, if the rewards of
 arm `a` lie in `[0, 1]` almost surely and have mean `μ_a`, then for `ε > 0`, `c < 1` with
 `μ_a + ε < c`, and `L ≥ 0`, the expected number of rounds `t < n` at which `a` is played while it
-has not been pulled yet, or `c ≤ μ̂_a`, or `c ≤ 1` and `d(μ̂_a, c) ≤ L / T_a`, is at most
+has not been pulled yet, or `c ≤ μ̂_a`, or `d(μ̂_a, c) ≤ L / T_a`, is at most
 `1 + L / d(μ_a + ε, c) + 1 / (2 ε²)`, uniformly in `n`. This bounds the contribution of a
 suboptimal arm in the proof of [LS, Theorem 10.6]. -/
 theorem sum_measureReal_action_eq_and_pullCount_eq_zero_or_le_empMean_or_klBer_le_le
     (h : IsAlgEnvSeq O A R alg (Environment.bandit ν) P) (a : α) (hν : ∀ᵐ x ∂(ν a), x ∈ Set.Icc 0 1)
     (hε : 0 < ε) (hc : (ν a)[id] + ε < c) (hc1 : c < 1) {L : ℝ} (hL : 0 ≤ L) (n : ℕ) :
     ∑ t ∈ range n, P.real {ω | A t ω = a ∧ (pullCount A a t ω = 0 ∨ c ≤ empMean A R a t ω ∨
-        c ≤ 1 ∧ klBer (empMean A R a t ω) c ≤ ENNReal.ofReal (L / pullCount A a t ω))} ≤
+        klBer (empMean A R a t ω) c ≤ ENNReal.ofReal (L / pullCount A a t ω))} ≤
       1 + L / klBerReal ((ν a)[id] + ε) c + 1 / (2 * ε ^ 2) := by
   set p : ℕ → ℝ → Prop := fun s x ↦ s = 0 ∨ c ≤ x / s ∨
-    c ≤ 1 ∧ klBer (x / s) c ≤ ENNReal.ofReal (L / s) with hp_def
+    klBer (x / s) c ≤ ENNReal.ofReal (L / s) with hp_def
   have hp : Measurable fun q : ℕ × ℝ ↦ p q.1 q.2 :=
     (measurableSet_setOfPred.mp ((measurableSet_singleton 0).preimage measurable_fst)).or
       ((measurableSet_setOfPred.mp (measurableSet_le measurable_const (by fun_prop))).or
-        (measurable_const.and
-          (measurableSet_setOfPred.mp (measurableSet_le (by fun_prop) (by fun_prop)))))
+        (measurableSet_setOfPred.mp (measurableSet_le (by fun_prop) (by fun_prop))))
   -- the events are transferred to the reward stream, where the bound for i.i.d. rewards applies
   calc ∑ t ∈ range n, P.real {ω | A t ω = a ∧ (pullCount A a t ω = 0 ∨ c ≤ empMean A R a t ω ∨
-      c ≤ 1 ∧ klBer (empMean A R a t ω) c ≤ ENNReal.ofReal (L / pullCount A a t ω))}
+      klBer (empMean A R a t ω) c ≤ ENNReal.ofReal (L / pullCount A a t ω))}
   _ = ∑ t ∈ range n, P.real
       {ω | A t ω = a ∧ p (pullCount A a t ω) (sumRewards A R a t ω)} := by
     simp only [hp_def, empMean]
   _ ≤ ∑ s ∈ range n, (streamMeasure ν).real {ω | p s (∑ i ∈ range s, ω i a)} :=
     sum_measureReal_action_eq_and_pullCount_sumRewards_le h a n hp
-  _ ≤ ∑ s ∈ range n, (streamMeasure ν).real {ω | s = 0 ∨ c ≤ (∑ i ∈ range s, ω i a) / s ∨
-      klBer ((∑ i ∈ range s, ω i a) / s) c ≤ ENNReal.ofReal (L / s)} := by
-    refine sum_le_sum fun s _ ↦ measureReal_mono (fun ω hω ↦ ?_) (measure_ne_top _ _)
-    simp only [hp_def, Set.mem_ofPred_eq] at hω ⊢
-    tauto
   _ ≤ 1 + L / klBerReal ((ν a)[id] + ε) c + 1 / (2 * ε ^ 2) :=
     sum_measureReal_eq_zero_or_le_div_or_klBer_div_le_le (iIndepFun_eval_streamMeasure'' ν a)
       (fun i ↦ (by fun_prop : Measurable fun ω : ℕ → α → ℝ ↦ ω i a).aemeasurable)
