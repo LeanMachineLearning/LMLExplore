@@ -59,6 +59,13 @@ integrability assumption.
   for `m ≥ 1`.
 * `eventually_mul_log_le_integral_regret_bernoulliBandit`: the Lai–Robbins lower bound for
   Bernoulli bandits, `liminf_n E[R_n] / log n ≥ ∑_{a : Δ_a > 0} Δ_a / d(p_a, μ*)`.
+* `dInf_image_expFamily`: for the members of an exponential family, `d_inf` from the member of
+  mean `μ` at a mean `m ≥ μ` of the family is the divergence `d(μ, m)` of the family [BK96];
+  `dInf_image_expFamily_of_mem_upperBounds`: it is `∞` when `m` is at least every mean of the
+  family.
+* `eventually_mul_log_le_integral_regret_expFamily`: the Lai–Robbins lower bound for the bandits
+  whose arms are members of exponential families,
+  `liminf_n E[R_n] / log n ≥ ∑_{a : Δ_a > 0} Δ_a / d_{ρ a}(μ_a, μ*)`.
 
 ## References
 
@@ -66,6 +73,8 @@ integrability assumption.
   Chapter 16.
 * T. L. Lai and H. Robbins, *Asymptotically efficient adaptive allocation rules*, Advances in
   Applied Mathematics, 1985.
+* [BK96] A. N. Burnetas and M. N. Katehakis, *Optimal adaptive policies for sequential allocation
+  problems*, Advances in Applied Mathematics, 1996.
 -/
 
 public section
@@ -419,5 +428,110 @@ theorem eventually_mul_log_le_integral_regret_bernoulliBandit [Fintype α]
   exact hc
 
 end Bernoulli
+
+section ExpFamily
+
+variable {ρ : Measure ℝ} {μ m : ℝ}
+
+/-- **`d_inf` for an exponential family** [BK96; LS, Table 16.1]. Let `ρ` be a measure on `ℝ`
+under which `id` is not almost everywhere constant, with members `ρ_η`, `η` in the interior of
+`integrableExpSet id ρ`. For
+means `μ ≤ m` of the family, the infimum of the relative entropies from the member `ρ_η(μ)` of
+mean `μ` to the members with a mean above `m` is the divergence `d(μ, m)` of the family in the
+mean parametrization. -/
+theorem dInf_image_expFamily (hρ : ∀ c, ¬ id =ᵐ[ρ] fun _ ↦ c)
+    (hμ : μ ∈ ρ.expFamilyMeans id) (hm : m ∈ ρ.expFamilyMeans id) (hμm : μ ≤ m) :
+    dInf (ρ.expFamily id '' interior (integrableExpSet id ρ))
+        (ρ.expFamily id (ρ.natParam id μ)) m =
+      ENNReal.ofReal (ρ.expFamilyDiv id μ m) := by
+  have hmem (q : ℝ) (hq : q ∈ ρ.expFamilyMeans id) :
+      ρ.expFamily id (ρ.natParam id q) ∈ ρ.expFamily id '' interior (integrableExpSet id ρ) :=
+    ⟨_, Measure.natParam_mem_interior_integrableExpSet hq, rfl⟩
+  refine le_antisymm ?_ (le_dInf_iff.mpr ?_)
+  · -- `d(μ, q) → d(μ, m)` as `q → m` from above, and `d_inf ≤ d(μ, q)` for the means `q > m`.
+    have h_tendsto : Tendsto (fun q ↦ ENNReal.ofReal (ρ.expFamilyDiv id μ q)) (𝓝[>] m)
+        (𝓝 (ENNReal.ofReal (ρ.expFamilyDiv id μ m))) :=
+      (ENNReal.tendsto_ofReal
+        (Measure.hasDerivAt_expFamilyDiv_right hρ μ hm).continuousAt.tendsto).mono_left
+        nhdsWithin_le_nhds
+    refine ge_of_tendsto h_tendsto ?_
+    filter_upwards [self_mem_nhdsWithin,
+      mem_nhdsWithin_of_mem_nhds (Measure.expFamilyMeans_mem_nhds hρ hm)] with q hq hqM
+    rw [← Measure.klDiv_expFamily_natParam hμ hqM]
+    exact dInf_le (hmem q hqM) (by rwa [Measure.integral_expFamily_natParam hqM])
+  · -- A member with a mean `q > m` is the member of mean `q`, and `d(μ, ·)` is monotone on
+    -- the means above `μ`.
+    intro Q hQM hQ
+    have hq := Measure.integral_mem_expFamilyMeans_of_mem_image hQM
+    rw [← Measure.expFamily_natParam_integral_of_mem_image hρ hQM,
+      Measure.klDiv_expFamily_natParam hμ hq]
+    exact ENNReal.ofReal_le_ofReal <| (Measure.strictMonoOn_expFamilyDiv_right hρ μ).monotoneOn
+      ⟨hm, hμm⟩ ⟨hq, hμm.trans hQ.le⟩ hQ.le
+
+/-- **`d_inf` for an exponential family** [BK96]: if `m` is at least every mean of the family of
+`ρ`, then no member has a mean above `m`, so that `d_inf(P, m)` is `∞` for every law `P`. -/
+lemma dInf_image_expFamily_of_mem_upperBounds (P : Measure ℝ)
+    (hm : m ∈ upperBounds (ρ.expFamilyMeans id)) :
+    dInf (ρ.expFamily id '' interior (integrableExpSet id ρ)) P m = ∞ := by
+  refine top_le_iff.mp (le_dInf_iff.mpr ?_)
+  intro Q hQM hQ
+  exact absurd (hm (Measure.integral_mem_expFamilyMeans_of_mem_image hQM)) (not_le.mpr hQ)
+
+variable [Fintype α] [Nonempty α] {ρ : α → Measure ℝ}
+
+omit [Finite α] in
+/-- **Lai–Robbins lower bound for exponential families** [LS, Theorem 16.2; BK96]. Let `ρ a` be
+a measure on `ℝ` for every arm `a`, and let `alg` be consistent over the bandits whose arm `a` has
+a law in the exponential family of `ρ a`, a member `(ρ a)_η` with `η` in the interior of
+`integrableExpSet id (ρ a)`. For a bandit `ν` of that class whose largest mean `μ*` is a mean of
+the family of every arm with positive gap,
+`liminf_n E[R_n] / log n ≥ ∑_{a : Δ_a > 0} Δ_a / d_{ρ a}(μ_a, μ*)`: for every `c` below that sum,
+eventually `c log n ≤ E[R_n]`. -/
+theorem eventually_mul_log_le_integral_regret_expFamily
+    (halg : IsConsistent alg
+      {ν | ∀ a, ν a ∈ (ρ a).expFamily id '' interior (integrableExpSet id (ρ a))})
+    (hν : ∀ a, ν a ∈ (ρ a).expFamily id '' interior (integrableExpSet id (ρ a)))
+    (hμs : ∀ a, 0 < gap ν a → (ν (bestArm ν))[id] ∈ (ρ a).expFamilyMeans id) {c : ℝ}
+    (hc : c < ∑ a ∈ univ.filter (fun a ↦ 0 < gap ν a),
+      gap ν a / (ρ a).expFamilyDiv id (ν a)[id] (ν (bestArm ν))[id]) :
+    ∀ᶠ n : ℕ in atTop, c * log n ≤
+      ∫ ω, regret ν IT.action n ω ∂(trajMeasure alg (Environment.bandit ν)) := by
+  set S := univ.filter (fun a ↦ 0 < gap ν a)
+  set M : α → Set (Measure ℝ) := fun a ↦ (ρ a).expFamily id '' interior (integrableExpSet id (ρ a))
+  rcases le_or_gt c 0 with hc0 | hc0
+  · exact .of_forall fun n ↦ (mul_nonpos_of_nonpos_of_nonneg hc0 (log_natCast_nonneg n)).trans
+      (integral_nonneg fun _ ↦ regret_nonneg)
+  -- The members of the families are probability measures, since `ν a` is one of them.
+  have hM (a : α) : ∀ Q ∈ M a, IsProbabilityMeasure Q := by
+    rintro _ ⟨η, hη, rfl⟩
+    have : NeZero (ρ a) := ⟨fun h0 ↦ by
+      obtain ⟨η', -, hη'⟩ := hν a
+      rw [h0, Measure.expFamily_zero_measure] at hη'
+      exact IsProbabilityMeasure.ne_zero (ν a) hη'.symm⟩
+    exact Measure.isProbabilityMeasure_expFamily (interior_subset hη)
+  refine eventually_mul_log_le_integral_regret_of_isConsistent (M := M) hM halg hν ?_
+  -- The Lai–Robbins constant is `∑_{a : Δ_a > 0} Δ_a / d_{ρ a}(μ_a, μ*)`.
+  have hsup : (⨆ b, (ν b)[id]) = (ν (bestArm ν))[id] := by
+    have h := gap_eq_bestArm_sub (ν := ν) (a := Classical.arbitrary α)
+    rw [gap] at h
+    linarith
+  have hterm : ∀ a ∈ S, ENNReal.ofReal (gap ν a) / dInf (M a) (ν a) (⨆ b, (ν b)[id]) =
+      ENNReal.ofReal (gap ν a / (ρ a).expFamilyDiv id (ν a)[id] (ν (bestArm ν))[id]) :=
+    fun a ha ↦ by
+    have hgap : 0 < gap ν a := (mem_filter.mp ha).2
+    have hμa := Measure.integral_mem_expFamilyMeans_of_mem_image (hν a)
+    have hlt : (ν a)[id] < (ν (bestArm ν))[id] := by linarith [gap_eq_bestArm_sub (ν := ν) (a := a)]
+    have hρa := Measure.not_ae_eq_const_of_mem_expFamilyMeans hμa (hμs a hgap) hlt.ne
+    -- `ν a` is the member of its mean `μ_a`, so that `d_inf(ν a, μ*) = d_{ρ a}(μ_a, μ*)`.
+    have hdInf := dInf_image_expFamily hρa hμa (hμs a hgap) hlt.le
+    rw [Measure.expFamily_natParam_integral_of_mem_image hρa (hν a)] at hdInf
+    rw [hsup, hdInf, ENNReal.ofReal_div_of_pos (Measure.expFamilyDiv_pos hμa (hμs a hgap) hlt.ne)]
+  rw [sum_congr rfl hterm, ← ENNReal.ofReal_sum_of_nonneg fun a ha ↦ ?_,
+    ENNReal.ofReal_lt_ofReal_iff (hc0.trans hc)]
+  · exact hc
+  · exact div_nonneg gap_nonneg (Measure.expFamilyDiv_nonneg
+      (Measure.integral_mem_expFamilyMeans_of_mem_image (hν a)) (hμs a (mem_filter.mp ha).2))
+
+end ExpFamily
 
 end LMLExplore.Bandits

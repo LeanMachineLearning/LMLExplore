@@ -53,7 +53,9 @@ confidence*, COLT 2016.
 
 * `MeasureTheory.Measure.isOpen_expFamilyMeans`,
   `MeasureTheory.Measure.convex_expFamilyMeans`: the means form an open interval.
-* `MeasureTheory.Measure.integral_expFamily_natParam`: the member `ρ_η(μ)` has mean `μ`.
+* `MeasureTheory.Measure.integral_expFamily_natParam`: the member `ρ_η(μ)` has mean `μ`;
+  `MeasureTheory.Measure.expFamily_natParam_integral_of_mem_image`: conversely, a member `ρ_η` is
+  the member of its mean.
 * `MeasureTheory.Measure.not_ae_eq_const_of_mem_expFamilyMeans`: a family with two distinct means
   has a statistic that is not almost everywhere constant.
 * `MeasureTheory.Measure.monotoneOn_natParam`: the natural parameter is monotone in the mean.
@@ -180,6 +182,15 @@ lemma integral_expFamily_natParam (hμ : μ ∈ ρ.expFamilyMeans T) :
     ∫ x, T x ∂(ρ.expFamily T (ρ.natParam T μ)) = μ := by
   rw [integral_expFamily (natParam_mem_interior_integrableExpSet hμ), deriv_cgf_natParam hμ]
 
+/-- The mean of `T` under a member `ρ_η` of the family, with `η` in the interior of
+`integrableExpSet T ρ`, is a mean of the family. -/
+lemma integral_mem_expFamilyMeans_of_mem_image {Q : Measure 𝓧}
+    (hQ : Q ∈ ρ.expFamily T '' interior (integrableExpSet T ρ)) :
+    ∫ x, T x ∂Q ∈ ρ.expFamilyMeans T := by
+  obtain ⟨η, hη, rfl⟩ := hQ
+  rw [integral_expFamily hη]
+  exact deriv_cgf_mem_expFamilyMeans hη
+
 /-- The means of an exponential family form a convex set. -/
 lemma convex_expFamilyMeans : Convex ℝ (ρ.expFamilyMeans T) :=
   ((convex_integrableExpSet.interior.isPreconnected).image _
@@ -222,6 +233,14 @@ lemma natParam_deriv_cgf (hT : ∀ c, ¬ T =ᵐ[ρ] fun _ ↦ c)
     (hη : η ∈ interior (integrableExpSet T ρ)) :
     ρ.natParam T (deriv (cgf T ρ) η) = η :=
   (strictMonoOn_deriv_cgf hT).injOn.leftInvOn_invFunOn hη
+
+/-- A member `Q = ρ_η` of the family, with `η` in the interior of `integrableExpSet T ρ`, is the
+member `ρ_η(μ)` of its mean `μ = ∫ T ∂Q`. -/
+lemma expFamily_natParam_integral_of_mem_image (hT : ∀ c, ¬ T =ᵐ[ρ] fun _ ↦ c) {Q : Measure 𝓧}
+    (hQ : Q ∈ ρ.expFamily T '' interior (integrableExpSet T ρ)) :
+    ρ.expFamily T (ρ.natParam T (∫ x, T x ∂Q)) = Q := by
+  obtain ⟨η, hη, rfl⟩ := hQ
+  rw [integral_expFamily hη, natParam_deriv_cgf hT hη]
 
 lemma image_natParam (hT : ∀ c, ¬ T =ᵐ[ρ] fun _ ↦ c) :
     ρ.natParam T '' ρ.expFamilyMeans T = interior (integrableExpSet T ρ) := by
