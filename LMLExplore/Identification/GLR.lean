@@ -248,67 +248,6 @@ lemma stoppingTime_glrt_le {ω : Ω}
     (task.glrt Z alg β rec hrec hstop).stoppingTime O X Y ω ≤ n :=
   IdentAlg.stoppingTime_le_of_mem_stopSet ((task.mem_stopSet_glrt Z alg β rec hrec hstop).2 hn)
 
-/-! ### Error probability of the GLRT -/
-
-/-- **Error probability of the GLRT**, for every sampling rule (the reduction in the proof of
-[GK16, Proposition 12]). For every model `θ`, the probability that the GLRT stops with an answer
-that is not correct for `θ` is at most the probability of the deviation event
-`∃ n, β n hₙ < Z n hₙ θ` of `θ`, along any algorithm-environment sequence of the sampling rule. Only
-the probabilities in `env = Environment.bandit (task.ν θ)` matter for correctness; the inclusion of
-the events holds in every environment. -/
-theorem measureReal_histOutputMeasure_glrt_le {env : Environment Unit α 𝓨}
-    (hseq : IsAlgEnvSeq O X Y alg env P) (hθ : θ ∈ task.M)
-    (hc : MeasurableSet (task.correct θ)) :
-    (histOutputMeasure (task.glrt Z alg β rec hrec hstop) env).real
-        {p | p.1 ∈ (task.glrt Z alg β rec hrec hstop).stopSet ∧ p.2 ∉ task.correct θ} ≤
-      P.real {ω | ∃ n, β n (history O X Y n ω) < Z n (history O X Y n ω) θ} := by
-  rw [glrt_def]
-  refine (measureReal_histOutputMeasure_ofStop_deterministic_le hseq hc).trans
-    (measureReal_mono fun ω ⟨n, hn_stop, hn_wrong⟩ ↦ ?_)
-  exact ⟨n, hn_stop.trans_le (task.glr_le_of_notMem_correct hθ hn_wrong)⟩
-
-/-- **Error probability of the GLRT along a run**, for every sampling rule. Along every run of the
-GLRT, the probability that it stops with an answer that is not correct for the model `θ` is at
-most the probability of the deviation event `∃ n, β n hₙ < Z n hₙ θ` of `θ`. -/
-theorem measureReal_stoppingTime_ne_top_and_notMem_le_of_isRun_glrt {env : Environment Unit α 𝓨}
-    {out : Ω → ℐ} (hrun : (task.glrt Z alg β rec hrec hstop).IsRun env O X Y out P)
-    (hθ : θ ∈ task.M) (hc : MeasurableSet (task.correct θ)) :
-    P.real {ω | (task.glrt Z alg β rec hrec hstop).stoppingTime O X Y ω ≠ ⊤ ∧
-        out ω ∉ task.correct θ} ≤
-      P.real {ω | ∃ n, β n (history O X Y n ω) < Z n (history O X Y n ω) θ} := by
-  rw [hrun.measureReal_stoppingTime_ne_top_and_notMem_eq hc]
-  exact task.measureReal_histOutputMeasure_glrt_le Z alg β rec hrec hstop
-    (task.alg_glrt Z alg β rec hrec hstop ▸ hrun.isAlgEnvSeq) hθ hc
-
-/-- **The GLRT is `δ`-PAC**, for every sampling rule and every task ([GK16, Proposition 12],
-[DKM19, Theorem 1], [DK19, Theorem 10]): if on every admissible model `θ` the deviation event
-`∃ n, β n hₙ < Z n hₙ θ` has probability at most `δ` and the GLRT stops almost surely, then it is
-`δ`-PAC on the task. -/
-theorem isDeltaPAC_glrt {δ : ℝ} (hc : ∀ θ ∈ task.M, MeasurableSet (task.correct θ))
-    (hdev : ∀ θ ∈ task.M, (trajMeasure alg (Environment.bandit (task.ν θ))).real
-      {ω | ∃ n, β n (history IT.obs IT.action IT.feedback n ω) <
-        Z n (history IT.obs IT.action IT.feedback n ω) θ} ≤ δ)
-    (h_stops : ∀ θ ∈ task.M,
-      StopsAS (task.glrt Z alg β rec hrec hstop) (Environment.bandit (task.ν θ))) :
-    task.IsDeltaPAC (task.glrt Z alg β rec hrec hstop) δ :=
-  isDeltaPAC_of_measureReal_mem_stopSet_and_notMem_le hc
-    (fun θ hθ ↦ (task.measureReal_histOutputMeasure_glrt_le Z alg β rec hrec hstop
-      (IT.isAlgEnvSeq_trajMeasure alg _) hθ (hc θ hθ)).trans (hdev θ hθ)) h_stops
-
-/-! ### Sample complexity of the GLRT -/
-
-/-- **Sample complexity of the GLRT from good events** [DKM19, Lemma 1], for every sampling rule.
-If, along an algorithm-environment sequence of the sampling rule in `env`, the stopping condition
-of the GLRT holds after `T` rounds on an event `E T` for every `T ≥ T₀`, then
-`𝔼[τ] ≤ T₀ + ∑_{T ≥ T₀} P((E T)ᶜ)`. -/
-theorem expectedStoppingTime_glrt_le_add_tsum {env : Environment Unit α 𝓨}
-    (hseq : IsAlgEnvSeq O X Y alg env P) {E : ℕ → Set Ω} {T₀ : ℕ}
-    (hE : ∀ T ≥ T₀, ∀ ω ∈ E T,
-      β T (history O X Y T ω) < task.glr Z T (history O X Y T ω) (rec T (history O X Y T ω))) :
-    expectedStoppingTime (task.glrt Z alg β rec hrec hstop) env ≤ T₀ + ∑' T, P (E (T + T₀))ᶜ :=
-  expectedStoppingTime_le_add_tsum_measure_compl (by rwa [alg_glrt])
-    fun T hT ω hω ↦ task.stoppingTime_glrt_le Z alg β rec hrec hstop (hE T hT ω hω)
-
 end LMLExplore.Identification.IdentTask
 
 /-! ### GLRT with covers of the alternatives -/
@@ -427,20 +366,91 @@ theorem isDeltaPAC_coverGlrt {δ : ℝ} (hc : ∀ θ ∈ task.M, MeasurableSet (
     (fun θ hθ ↦ (measureReal_histOutputMeasure_coverGlrt_le alg A Z β rec hrec hstop
       (IT.isAlgEnvSeq_trajMeasure alg _) θ (hc θ hθ)).trans (hdev θ hθ)) h_stops
 
+end IdentTask
+
+end LMLExplore.Identification
+
+namespace LMLExplore.Identification.IdentTask
+
+variable {α Θ ℐ 𝓨 : Type*} {mα : MeasurableSpace α} {m𝓨 : MeasurableSpace 𝓨}
+  {mℐ : MeasurableSpace ℐ} (task : IdentTask α Θ ℐ 𝓨) (Z : (n : ℕ) → Hist Unit α 𝓨 n → Θ → ℝ≥0∞)
+  (alg : Algorithm Unit α 𝓨) (β : (n : ℕ) → Hist Unit α 𝓨 n → ℝ≥0∞)
+  (rec : (n : ℕ) → Hist Unit α 𝓨 n → ℐ) (hrec : ∀ n, Measurable (rec n))
+  (hstop : ∀ n, MeasurableSet {h | β n h < task.glr Z n h (rec n h)})
+  {Ω : Type*} {mΩ : MeasurableSpace Ω} {P : Measure Ω} [IsProbabilityMeasure P]
+  {O : ℕ → Ω → Unit} {X : ℕ → Ω → α} {Y : ℕ → Ω → 𝓨} {θ : Θ}
+
 /-- The GLRT is the GLRT with the single piece `task.alt i` for each answer `i`, with the same
 statistic and thresholds for all the answers. -/
-lemma glrt_eq_coverGlrt (Z : (n : ℕ) → Hist Unit α 𝓨 n → Θ → ℝ≥0∞)
-    (β : (n : ℕ) → Hist Unit α 𝓨 n → ℝ≥0∞)
-    (hstop : ∀ n, MeasurableSet {h | β n h < task.glr Z n h (rec n h)}) :
+lemma glrt_eq_coverGlrt :
     task.glrt Z alg β rec hrec hstop = coverGlrt alg (fun i (_ : Unit) ↦ task.alt i)
       (fun _ _ ↦ Z) (fun _ _ ↦ β) rec hrec (by simpa only [forall_const, glr_def] using hstop) := by
   rw [glrt_def, coverGlrt_def]
   congr 1
   simp only [forall_const, glr_def]
 
-end IdentTask
+/-! ### Error probability of the GLRT -/
 
-end LMLExplore.Identification
+/-- **Error probability of the GLRT**, for every sampling rule (the reduction in the proof of
+[GK16, Proposition 12]). For every model `θ`, the probability that the GLRT stops with an answer
+that is not correct for `θ` is at most the probability of the deviation event
+`∃ n, β n hₙ < Z n hₙ θ` of `θ`, along any algorithm-environment sequence of the sampling rule. Only
+the probabilities in `env = Environment.bandit (task.ν θ)` matter for correctness; the inclusion of
+the events holds in every environment. -/
+theorem measureReal_histOutputMeasure_glrt_le {env : Environment Unit α 𝓨}
+    (hseq : IsAlgEnvSeq O X Y alg env P) (hθ : θ ∈ task.M)
+    (hc : MeasurableSet (task.correct θ)) :
+    (histOutputMeasure (task.glrt Z alg β rec hrec hstop) env).real
+        {p | p.1 ∈ (task.glrt Z alg β rec hrec hstop).stopSet ∧ p.2 ∉ task.correct θ} ≤
+      P.real {ω | ∃ n, β n (history O X Y n ω) < Z n (history O X Y n ω) θ} := by
+  rw [task.glrt_eq_coverGlrt Z alg β rec hrec hstop]
+  exact (measureReal_histOutputMeasure_coverGlrt_le_of_mem alg _ _ _ rec hrec _ hseq hc
+    (fun _ ↦ ()) fun _ hi ↦ task.mem_alt_iff.2 ⟨hθ, hi⟩).trans
+    (measureReal_mono fun _ ⟨n, _, _, hn⟩ ↦ ⟨n, hn⟩)
+
+/-- **Error probability of the GLRT along a run**, for every sampling rule. Along every run of the
+GLRT, the probability that it stops with an answer that is not correct for the model `θ` is at
+most the probability of the deviation event `∃ n, β n hₙ < Z n hₙ θ` of `θ`. -/
+theorem measureReal_stoppingTime_ne_top_and_notMem_le_of_isRun_glrt {env : Environment Unit α 𝓨}
+    {out : Ω → ℐ} (hrun : (task.glrt Z alg β rec hrec hstop).IsRun env O X Y out P)
+    (hθ : θ ∈ task.M) (hc : MeasurableSet (task.correct θ)) :
+    P.real {ω | (task.glrt Z alg β rec hrec hstop).stoppingTime O X Y ω ≠ ⊤ ∧
+        out ω ∉ task.correct θ} ≤
+      P.real {ω | ∃ n, β n (history O X Y n ω) < Z n (history O X Y n ω) θ} := by
+  rw [hrun.measureReal_stoppingTime_ne_top_and_notMem_eq hc]
+  exact task.measureReal_histOutputMeasure_glrt_le Z alg β rec hrec hstop
+    (task.alg_glrt Z alg β rec hrec hstop ▸ hrun.isAlgEnvSeq) hθ hc
+
+/-- **The GLRT is `δ`-PAC**, for every sampling rule and every task ([GK16, Proposition 12],
+[DKM19, Theorem 1], [DK19, Theorem 10]): if on every admissible model `θ` the deviation event
+`∃ n, β n hₙ < Z n hₙ θ` has probability at most `δ` and the GLRT stops almost surely, then it is
+`δ`-PAC on the task. -/
+theorem isDeltaPAC_glrt {δ : ℝ} (hc : ∀ θ ∈ task.M, MeasurableSet (task.correct θ))
+    (hdev : ∀ θ ∈ task.M, (trajMeasure alg (Environment.bandit (task.ν θ))).real
+      {ω | ∃ n, β n (history IT.obs IT.action IT.feedback n ω) <
+        Z n (history IT.obs IT.action IT.feedback n ω) θ} ≤ δ)
+    (h_stops : ∀ θ ∈ task.M,
+      StopsAS (task.glrt Z alg β rec hrec hstop) (Environment.bandit (task.ν θ))) :
+    task.IsDeltaPAC (task.glrt Z alg β rec hrec hstop) δ :=
+  isDeltaPAC_of_measureReal_mem_stopSet_and_notMem_le hc
+    (fun θ hθ ↦ (task.measureReal_histOutputMeasure_glrt_le Z alg β rec hrec hstop
+      (IT.isAlgEnvSeq_trajMeasure alg _) hθ (hc θ hθ)).trans (hdev θ hθ)) h_stops
+
+/-! ### Sample complexity of the GLRT -/
+
+/-- **Sample complexity of the GLRT from good events** [DKM19, Lemma 1], for every sampling rule.
+If, along an algorithm-environment sequence of the sampling rule in `env`, the stopping condition
+of the GLRT holds after `T` rounds on an event `E T` for every `T ≥ T₀`, then
+`𝔼[τ] ≤ T₀ + ∑_{T ≥ T₀} P((E T)ᶜ)`. -/
+theorem expectedStoppingTime_glrt_le_add_tsum {env : Environment Unit α 𝓨}
+    (hseq : IsAlgEnvSeq O X Y alg env P) {E : ℕ → Set Ω} {T₀ : ℕ}
+    (hE : ∀ T ≥ T₀, ∀ ω ∈ E T,
+      β T (history O X Y T ω) < task.glr Z T (history O X Y T ω) (rec T (history O X Y T ω))) :
+    expectedStoppingTime (task.glrt Z alg β rec hrec hstop) env ≤ T₀ + ∑' T, P (E (T + T₀))ᶜ :=
+  expectedStoppingTime_le_add_tsum_measure_compl (by rwa [alg_glrt])
+    fun T hT ω hω ↦ task.stoppingTime_glrt_le Z alg β rec hrec hstop (hE T hT ω hω)
+
+end LMLExplore.Identification.IdentTask
 
 /-! ### Asymptotic sample complexity of the GLRT -/
 
@@ -651,8 +661,7 @@ theorem div_pow_mul_exp_sub_unionBoundLevel_le (hδ : 0 < δ) (hδ1 : δ ≤ 1) 
 lemma card_le_unionBoundLevel_div (k : ℕ) (hδ : 0 < δ) (hδ1 : δ ≤ 1) :
     (K : ℝ) ≤ unionBoundLevel K (δ / k) := by
   rcases eq_or_ne k 0 with rfl | hk
-  · simp only [Nat.cast_zero, div_zero, unionBoundLevel_def, log_zero, add_zero, log_one,
-      zero_add, mul_one]
+  · simp [unionBoundLevel_def]
     linarith [K.cast_nonneg (α := ℝ)]
   have hk1 : (1 : ℝ) ≤ k := Nat.one_le_cast.2 (Nat.pos_of_ne_zero hk)
   exact card_le_unionBoundLevel (div_pos hδ (zero_lt_one.trans_le hk1))

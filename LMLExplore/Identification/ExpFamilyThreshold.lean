@@ -17,13 +17,15 @@ observations, and let the arm `a` be described by the exponential family `(ρ a,
 measurable space `𝓧`, with extended divergence `dbar_a(x, μ_a)`
 (`MeasureTheory.Measure.expFamilyRate`): the Cramér rate function at `x` of the statistic `T a`
 under the member of mean `μ_a`. After `n` rounds with history `h`, pull counts `N_a` and empirical
-means `μ̂_a`, the *generalized likelihood ratio evidence* against a vector of means `λ` is
-`Z_n(h, λ) = ∑ a, N_a dbar_a(μ̂_a, λ_a)` (`LMLExplore.Identification.expFamilyEvidence`). When the
-divergences between the arm laws are those of the families, its value at a vector of means of the
-families is the plug-in statistic of the empirical means (`IdentTask.plugInCost`) as long as the
-empirical means are means of the families, and it extends that statistic to empirical means on
-the boundary of the means, such as the empirical means `0` and `1` of Bernoulli arms, where the
-plug-in statistic of the empirical means is not meaningful.
+means `μ̂_a`, the *generalized likelihood ratio evidence* of the arms of a set `S` against a vector
+of means `λ` is `Z_n(h, λ) = ∑ a ∈ S, N_a dbar_a(μ̂_a, λ_a)`
+(`LMLExplore.Identification.expFamilyEvidence`); the evidence of all the arms is the case
+`S = univ`. When the divergences between the arm laws are those of the families, the value of the
+evidence of all the arms at a vector of means of the families is the plug-in statistic of the
+empirical means (`IdentTask.plugInCost`) as long as the empirical means are means of the families,
+and it extends that statistic to empirical means on the boundary of the means, such as the
+empirical means `0` and `1` of Bernoulli arms, where the plug-in statistic of the empirical means
+is not meaningful.
 
 If the rewards of each arm `a` of the model `μ` are dominated, in moment generating function, by
 the member of mean `μ a` of `(ρ a, T a)`, then along a run of any sampling rule the evidence
@@ -45,7 +47,7 @@ ruled out by the evidence of the pair `i, b` on the half-space `{λ | λ i ≤ �
 `b ≠ i`, and the GLRT with these pieces (`LMLExplore.Identification.coverGlrt`) only errs when the
 evidence of a pair of the best arm `a` with another arm against the true model exceeds its
 threshold `2 log (2 n (n + 1)) + x`. A union bound over the `K - 1` such pairs makes it `δ`-correct
-with the level `x_{δ / (K - 1)}`, a threshold of order `2 log n + log (K / δ)` [GK16,
+with the level `x_{δ / (K - 1)}`, a threshold of order `4 log n + log (K / δ)` [GK16,
 Proposition 12]. Top-`m` identification is the same, with the pairs of an arm outside the `m`
 best arms and an arm among them.
 
@@ -65,7 +67,9 @@ best arms and an arm among them.
   `(x / #S) ^ #S exp (#S - x)`.
 * `LMLExplore.Identification.measure_exists_mem_exists_unionBoundThreshold_lt_expFamilyEvidence_le`:
   for a set `Q` of pairs of distinct arms, the evidence of some pair of `Q` exceeds the threshold
-  `2 log (2 n (n + 1)) + x` at some round with probability at most `#Q (x / 2) ^ 2 exp (2 - x)`.
+  `2 log (2 n (n + 1)) + x` at some round with probability at most `#Q (x / 2) ^ 2 exp (2 - x)`;
+  its real-measure form is
+  `measureReal_exists_mem_exists_unionBoundThreshold_lt_expFamilyEvidence_le`.
 * `LMLExplore.Identification.IdentTask.measureReal_histOutputMeasure_glrt_expFamilyEvidence_le`:
   for every task and every sampling rule, the GLRT with the evidence and these thresholds stops with
   an answer that is not correct for `μ` with probability at most `f(x)`.
@@ -279,6 +283,25 @@ theorem measure_exists_mem_exists_unionBoundThreshold_lt_expFamilyEvidence_le [C
     (fun a _ ↦ hμ a) (fun a _ ↦ hν a) hseq (x := x) (by rw [hcard]; exact_mod_cast hx)
   rwa [hcard, Nat.cast_ofNat] at h
 
+/-- **Deviation of the evidence of pairs of arms**, in real measure: the probability that for some
+pair `(a, b) ∈ Q` of distinct arms the evidence of the arms `a, b` against `μ` exceeds the threshold
+`2 log (2 n (n + 1)) + x` at some round `n` is at most `#Q (x / 2) ^ 2 exp (2 - x)`. -/
+theorem measureReal_exists_mem_exists_unionBoundThreshold_lt_expFamilyEvidence_le [Countable α]
+    {ν₀ : Kernel α ℝ} [IsMarkovKernel ν₀] (Q : Finset (α × α)) (hQ : ∀ p ∈ Q, p.1 ≠ p.2)
+    (hμ : ∀ a, μ a ∈ (ρ a).expFamilyMeans (T a))
+    (hν : ∀ a, MGFDominatedOn id (ν₀ a) (T a)
+      ((ρ a).expFamily (T a) ((ρ a).natParam (T a) (μ a))) Set.univ)
+    (hseq : IsAlgEnvSeq O A R alg (Environment.bandit ν₀) P) (hx : 2 ≤ x) :
+    P.real {ω | ∃ p ∈ Q, ∃ n, unionBoundThreshold 2 x n <
+        expFamilyEvidence ρ T {p.1, p.2} n (history O A R n ω) μ} ≤
+      #Q * ((x / 2) ^ 2 * exp (2 - x)) := by
+  have hx0 : 0 ≤ x := zero_le_two.trans hx
+  rw [measureReal_def]
+  refine ENNReal.toReal_le_of_le_ofReal (by positivity)
+    ((measure_exists_mem_exists_unionBoundThreshold_lt_expFamilyEvidence_le Q hQ hμ hν hseq
+      hx).trans_eq ?_)
+  rw [ENNReal.ofReal_mul (Nat.cast_nonneg _), ENNReal.ofReal_natCast]
+
 variable [Fintype α]
 
 /-- **Error probability of the pairwise GLRT for best arm identification**
@@ -311,31 +334,20 @@ theorem measureReal_histOutputMeasure_coverGlrt_baiTask_le
   have hseq := IT.isAlgEnvSeq_trajMeasure alg (Environment.bandit (ν θ))
   have ha' : ∀ b ≠ a, mean θ b < mean θ a := by simpa using ha
   refine (measureReal_histOutputMeasure_coverGlrt_le alg _ _ _ rec hrec hstop hseq θ
-    (Set.toFinite _).measurableSet).trans ?_
+    (Set.toFinite _).measurableSet).trans ((measureReal_mono fun ω hω ↦ ?sub).trans
+    ((measureReal_exists_mem_exists_unionBoundThreshold_lt_expFamilyEvidence_le
+      ((univ.erase a) ×ˢ {a}) (fun p hp ↦ ?hQ) hμ hν hseq hx).trans_eq ?card))
   -- a wrong recommendation `b` is not `a`, and the piece of the pair `b, a` contains `θ`
-  have h_sub : {ω | ∃ n, rec n (history IT.obs IT.action IT.feedback n ω) ∉
-        (baiTask ν mean).correct θ ∧
-      ∀ j : {b // b ≠ rec n (history IT.obs IT.action IT.feedback n ω)},
-        θ ∈ {θ' | mean θ' (rec n (history IT.obs IT.action IT.feedback n ω)) ≤ mean θ' j} →
-        unionBoundThreshold 2 x n < expFamilyEvidence ρ T
-          {rec n (history IT.obs IT.action IT.feedback n ω), j.1} n
-          (history IT.obs IT.action IT.feedback n ω) (mean θ)} ⊆
-      {ω | ∃ p ∈ (univ.erase a) ×ˢ {a}, ∃ n, unionBoundThreshold 2 x n <
-        expFamilyEvidence ρ T {p.1, p.2} n (history IT.obs IT.action IT.feedback n ω)
-          (mean θ)} := by
-    rintro ω ⟨n, hn, hdev⟩
-    have hb : rec n (history IT.obs IT.action IT.feedback n ω) ≠ a := fun h ↦ hn (h ▸ ha)
-    exact ⟨(rec n (history IT.obs IT.action IT.feedback n ω), a), by simp [hb], n,
-      hdev ⟨a, hb.symm⟩ (ha' _ hb).le⟩
-  have h_dev := measure_exists_mem_exists_unionBoundThreshold_lt_expFamilyEvidence_le
-    ((univ.erase a) ×ˢ {a}) (fun p hp ↦ by
-      simp only [mem_product, mem_erase, mem_singleton] at hp
-      exact hp.2 ▸ hp.1.1) hμ hν hseq hx
-  rw [card_product, card_erase_of_mem (mem_univ a), card_singleton, mul_one, card_univ,
-    ← ENNReal.ofReal_natCast, ← ENNReal.ofReal_mul (Nat.cast_nonneg _)] at h_dev
-  rw [measureReal_def]
-  have hx0 : 0 ≤ x := zero_le_two.trans hx
-  exact ENNReal.toReal_le_of_le_ofReal (by positivity) ((measure_mono h_sub).trans h_dev)
+  case sub =>
+    obtain ⟨n, hn, hdev⟩ := hω
+    set b := rec n (history IT.obs IT.action IT.feedback n ω)
+    have hb : b ≠ a := fun h ↦ hn (h ▸ ha)
+    exact ⟨(b, a), by simp [hb], n, hdev ⟨a, hb.symm⟩ (ha' _ hb).le⟩
+  case hQ =>
+    simp only [mem_product, mem_erase, mem_singleton] at hp
+    exact hp.2 ▸ hp.1.1
+  case card =>
+    rw [card_product, card_erase_of_mem (mem_univ a), card_singleton, mul_one, card_univ]
 
 /-- **The pairwise GLRT for best arm identification is `δ`-PAC** [GK16, Proposition 12], for every
 sampling rule. Let every bandit of a set `S` of models have a best arm, and let the rewards of each
@@ -344,7 +356,7 @@ of its arms `b` be dominated on `Set.univ`, in moment generating function, by th
 arm `i` are the half-spaces `{θ' | mean θ' i ≤ mean θ' b}`, `b ≠ i`, with the evidence of the arms
 `i, b` and the thresholds `2 log (2 n (n + 1)) + x_{δ / (K - 1)}`, is `δ`-PAC for best arm
 identification on `S`, provided it stops almost surely on every model of `S` with a best arm. The
-thresholds grow as `2 log n + log (K / δ)`, against `K log n + log (1 / δ)` for the evidence of
+thresholds grow as `4 log n + log (K / δ)`, against `2 K log n + log (1 / δ)` for the evidence of
 all the arms. -/
 theorem isDeltaPAC_coverGlrt_baiTask {S : Set Θ} (hδ : 0 < δ) (hδ1 : δ ≤ 1)
     (rec : (n : ℕ) → Hist Unit α ℝ n → α) (hrec : ∀ n, Measurable (rec n))
@@ -413,35 +425,23 @@ theorem measureReal_histOutputMeasure_coverGlrt_topMTask_le {m : ℕ}
   have hseq := IT.isAlgEnvSeq_trajMeasure alg (Environment.bandit (ν θ))
   have ht' : #t = m ∧ ∀ a ∈ t, ∀ b ∉ t, mean θ b < mean θ a := by simpa using ht
   refine (measureReal_histOutputMeasure_coverGlrt_le alg _ _ _ rec hrec hstop hseq θ
-    (Set.to_countable _).measurableSet).trans ?_
+    (Set.to_countable _).measurableSet).trans ((measureReal_mono fun ω hω ↦ ?sub).trans
+    ((measureReal_exists_mem_exists_unionBoundThreshold_lt_expFamilyEvidence_le
+      (tᶜ ×ˢ t) (fun p hp ↦ ?hQ) hμ hν hseq hx).trans_eq ?card))
   -- a wrong recommendation `s` of `m` arms has an arm `b ∉ t` and misses an arm `c ∈ t`, and the
   -- piece of the pair `(b, c)` contains `θ`
-  have h_sub : {ω | ∃ n, rec n (history IT.obs IT.action IT.feedback n ω) ∉
-        (topMTask ν mean m).correct θ ∧
-      ∀ j : {p : α × α // p.1 ∈ rec n (history IT.obs IT.action IT.feedback n ω) ∧
-          p.2 ∉ rec n (history IT.obs IT.action IT.feedback n ω)},
-        θ ∈ {θ' | mean θ' j.1.1 ≤ mean θ' j.1.2} →
-        unionBoundThreshold 2 x n < expFamilyEvidence ρ T {j.1.1, j.1.2} n
-          (history IT.obs IT.action IT.feedback n ω) (mean θ)} ⊆
-      {ω | ∃ p ∈ tᶜ ×ˢ t, ∃ n, unionBoundThreshold 2 x n <
-        expFamilyEvidence ρ T {p.1, p.2} n (history IT.obs IT.action IT.feedback n ω)
-          (mean θ)} := by
-    rintro ω ⟨n, hn, hdev⟩
-    set s := rec n (history IT.obs IT.action IT.feedback n ω) with hs
+  case sub =>
+    obtain ⟨n, hn, hdev⟩ := hω
+    set s := rec n (history IT.obs IT.action IT.feedback n ω)
     have hst : s ≠ t := fun h ↦ hn (h ▸ ht)
     have hcard : #s = #t := (hrec_card _ _).trans ht'.1.symm
     obtain ⟨b, hbs, hbt⟩ := not_subset.1 fun h ↦ hst (eq_of_subset_of_card_le h hcard.ge)
     obtain ⟨c, hct, hcs⟩ := not_subset.1 fun h ↦ hst (eq_of_subset_of_card_le h hcard.le).symm
     exact ⟨(b, c), by simp [hbt, hct], n, hdev ⟨(b, c), hbs, hcs⟩ (ht'.2 c hct b hbt).le⟩
-  have h_dev := measure_exists_mem_exists_unionBoundThreshold_lt_expFamilyEvidence_le
-    (tᶜ ×ˢ t) (fun p hp ↦ by
-      simp only [mem_product, mem_compl] at hp
-      exact fun h ↦ hp.1 (h ▸ hp.2)) hμ hν hseq hx
-  rw [card_product, card_compl, ht'.1, ← ENNReal.ofReal_natCast,
-    ← ENNReal.ofReal_mul (Nat.cast_nonneg _)] at h_dev
-  rw [measureReal_def]
-  have hx0 : 0 ≤ x := zero_le_two.trans hx
-  exact ENNReal.toReal_le_of_le_ofReal (by positivity) ((measure_mono h_sub).trans h_dev)
+  case hQ =>
+    simp only [mem_product, mem_compl] at hp
+    exact fun h ↦ hp.1 (h ▸ hp.2)
+  case card => rw [card_product, card_compl, ht'.1]
 
 /-- **The pairwise GLRT for top-`m` identification is `δ`-PAC**, for every sampling rule. Let every
 bandit of a set `S` of models have a set of `m` arms with the largest means, and let the rewards of
