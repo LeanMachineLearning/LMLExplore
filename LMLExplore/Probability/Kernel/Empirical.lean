@@ -9,6 +9,7 @@ public import LeanMachineLearning.Online.Bandit.ArrayProbSpace
 public import LMLExplore.MeasureTheory.Measure.Real
 public import LMLExplore.MeasureTheory.Measure.TotalVariation.Basic
 public import LMLExplore.Probability.Kernel.Basic
+public import LMLExplore.Probability.Moments.EmpiricalBernstein
 public import LMLExplore.Probability.Moments.SubGaussian.Bounded
 public import LMLExplore.Probability.Moments.SubGaussian.EmpiricalLaw
 public import TauCeti.Probability.Process.EmpiricalMeasure
@@ -35,6 +36,14 @@ deviation of its empirical means, which does not depend on the size of `β`: for
 `1 - δ`, every key `a` satisfies
 `|∫ f d(ν a) - ∫ f d(empiricalKernel N ω a)| ≤ (u - l) √(log (2 card α / δ) / (2 N))`.
 
+The empirical Bernstein inequality [AMS09, Theorem 1] replaces the range `u - l` of `f` in the
+leading term by its observed standard deviation: the variance `Var[f; empiricalKernel N ω a]` is
+the biased sample variance of the values of `f` at the samples. For finitely many keys and
+`δ > 0`, with probability at least `1 - δ`, every key `a` satisfies
+`|∫ f d(ν a) - ∫ f d(empiricalKernel N ω a)| < √(2 V L / N) + 3 (u - l) L / N`, with
+`V = Var[f; empiricalKernel N ω a]` and `L = log (3 card α / δ)`. When the variance of `f` is
+small, this is much sharper than Hoeffding's bound.
+
 ## Main definitions
 
 * `LMLExplore.empiricalKernel N ω`: the empirical kernel of the first `N` samples of `ω`.
@@ -54,9 +63,17 @@ deviation of its empirical means, which does not depend on the size of `β`: for
   `LMLExplore.le_streamMeasure_forall_abs_integral_sub_integral_empiricalKernel_le`: Hoeffding's
   inequality for the empirical means of a bounded function, for one key and uniformly over finitely
   many keys.
+* `LMLExplore.variance_empiricalKernel`: the variance under the empirical kernel is the biased
+  sample variance.
+* `LMLExplore.measureReal_sqrt_add_le_abs_integral_sub_integral_empiricalKernel_le`,
+  `LMLExplore.le_streamMeasure_forall_abs_integral_sub_integral_empiricalKernel_lt_sqrt_add`: the
+  empirical Bernstein inequality for the empirical means of a bounded function, for one key and
+  uniformly over finitely many keys.
 
 ## References
 
+* [J.-Y. Audibert, R. Munos and Cs. Szepesvári, *Exploration–exploitation tradeoff using variance
+  estimates in multi-armed bandits*, Theoretical Computer Science 410 (2009)][AMS09], Theorem 1
 * [T. Weissman, E. Ordentlich, G. Seroussi, S. Verdú and M. J. Weinberger, *Inequalities for the
   L1 deviation of the empirical distribution*][WOSVW03]
 -/
@@ -209,6 +226,42 @@ private lemma measureReal_lt_abs_integral_sub_integral_empiricalKernel_le (ν : 
     rw [measureReal_def, h_null, ENNReal.toReal_zero]
     positivity
 
+/-- The variance of a measurable function `f` under the empirical kernel is the biased sample
+variance `N⁻¹ ∑_{i < N} (f (ω i a) - f̂) ^ 2` of its values at the first `N` samples of the key
+`a`, with `f̂ = N⁻¹ ∑_{j < N} f (ω j a)` their mean. -/
+lemma variance_empiricalKernel (N : ℕ) (ω : ℕ → α → β) (a : α) {f : β → ℝ} (hf : Measurable f) :
+    Var[f; empiricalKernel N ω a] =
+      (∑ i ∈ range N, (f (ω i a) - (∑ j ∈ range N, f (ω j a)) / N) ^ 2) / N := by
+  rw [variance_eq_integral hf.aemeasurable,
+    integral_empiricalKernel N ω a ((hf.sub_const _).pow_const 2).stronglyMeasurable,
+    integral_empiricalKernel N ω a hf.stronglyMeasurable]
+  simp [div_eq_inv_mul]
+
+/-- **The empirical Bernstein inequality for the empirical kernel** [AMS09, Theorem 1]. Under the
+stream model `streamMeasure ν` of a Markov kernel `ν`, let `f` be a measurable function with
+values in `[l, u]`, `l < u`, `ν a`-almost everywhere. For `N ≠ 0` and every `x`, the mean of `f`
+over the first `N` samples of the key `a` deviates from its mean under `ν a` by at least
+`√(2 V x / N) + 3 (u - l) x / N` with probability at most `3 exp (-x)`, where
+`V = Var[f; empiricalKernel N ω a]` is the sample variance of `f`. -/
+theorem measureReal_sqrt_add_le_abs_integral_sub_integral_empiricalKernel_le (ν : Kernel α β)
+    [IsMarkovKernel ν] {f : β → ℝ} (hf : Measurable f) {l u : ℝ} (hlu : l < u) {a : α}
+    (hfb : ∀ᵐ y ∂(ν a), f y ∈ Set.Icc l u) (N : ℕ) [NeZero N] (x : ℝ) :
+    (streamMeasure ν).real {ω | √(2 * Var[f; empiricalKernel N ω a] * x / N) +
+      3 * (u - l) * x / N ≤ |∫ y, f y ∂(ν a) - ∫ y, f y ∂(empiricalKernel N ω a)|} ≤
+      3 * exp (-x) := by
+  -- the samples `f (ω i a)` are independent, with values in `[l, u]` and mean `∫ f d(ν a)`
+  have h_law (i : ℕ) := hasLaw_eval_eval_streamMeasure ν i a
+  have h_indep : iIndepFun (fun i (ω : ℕ → α → β) ↦ f (ω i a)) (streamMeasure ν) :=
+    (iIndepFun_eval_streamMeasure'' ν a).comp (fun _ ↦ f) fun _ ↦ hf
+  have h := h_indep.measureReal_sqrt_add_le_abs_sum_div_card_sub_le (s := range N) (x := x)
+    (by simp [NeZero.ne N]) (fun i _ ↦ hf.comp_aemeasurable (h_law i).aemeasurable) hlu
+    (fun i _ ↦ ae_of_ae_map (h_law i).aemeasurable ((h_law i).map_eq ▸ hfb))
+    (fun i _ ↦ (h_law i).integral_comp hf.aestronglyMeasurable)
+  refine le_of_eq_of_le (congrArg _ (Set.ext fun ω ↦ ?_)) h
+  simp only [Set.mem_ofPred_eq, card_range, variance_empiricalKernel N ω a hf,
+    integral_empiricalKernel N ω a hf.stronglyMeasurable, smul_eq_mul, inv_mul_eq_div]
+  rw [abs_sub_comm]
+
 end Countable
 
 /-- **Uniform deviation of the empirical kernel in total variation.** Under the stream model
@@ -279,6 +332,40 @@ theorem le_streamMeasure_forall_abs_integral_sub_integral_empiricalKernel_le [Fi
   -- a union bound over the keys
   have h_eq : {ω | ∀ a, |∫ y, f y ∂(ν a) - ∫ y, f y ∂(empiricalKernel N ω a)| ≤ r} =
       (⋃ a, bad a)ᶜ := by
+    ext ω
+    simp [bad]
+  exact h_eq ▸ one_sub_le_measureReal_compl_iUnion hδ.le h_bad
+
+/-- **Uniform empirical Bernstein bound for the empirical kernel** [AMS09, Theorem 1]. Under the
+stream model `streamMeasure ν` of a Markov kernel `ν` with finitely many keys, let `f` be a
+measurable function with values in `[l, u]`, `l < u`, `ν a`-almost everywhere for every key `a`.
+For `N ≠ 0` and `δ > 0`, with probability at least `1 - δ`, the mean of `f` over the first `N`
+samples of every key `a` is within `√(2 V L / N) + 3 (u - l) L / N` of its mean under `ν a`,
+where `V = Var[f; empiricalKernel N ω a]` is the sample variance of `f` and
+`L = log (3 card α / δ)`. It is the empirical Bernstein inequality for each key, with confidence
+`δ / card α`, and a union bound over the keys. -/
+theorem le_streamMeasure_forall_abs_integral_sub_integral_empiricalKernel_lt_sqrt_add
+    [Fintype α] (ν : Kernel α β) [IsMarkovKernel ν] {f : β → ℝ} (hf : Measurable f) {l u : ℝ}
+    (hlu : l < u) (hfb : ∀ a, ∀ᵐ y ∂(ν a), f y ∈ Set.Icc l u) (N : ℕ) [NeZero N] {δ : ℝ}
+    (hδ : 0 < δ) :
+    1 - δ ≤ (streamMeasure ν).real {ω | ∀ a,
+      |∫ y, f y ∂(ν a) - ∫ y, f y ∂(empiricalKernel N ω a)| <
+        √(2 * Var[f; empiricalKernel N ω a] * log (3 * Fintype.card α / δ) / N) +
+          3 * (u - l) * log (3 * Fintype.card α / δ) / N} := by
+  set L := log (3 * Fintype.card α / δ)
+  -- the bad event of a key has probability at most `δ / card α`
+  set bad : α → Set (ℕ → α → β) := fun a ↦ {ω |
+    √(2 * Var[f; empiricalKernel N ω a] * L / N) + 3 * (u - l) * L / N ≤
+      |∫ y, f y ∂(ν a) - ∫ y, f y ∂(empiricalKernel N ω a)|}
+  have h_bad (a : α) : (streamMeasure ν).real (bad a) ≤ δ / Fintype.card α := by
+    have hα : (0 : ℝ) < Fintype.card α := by exact_mod_cast Fintype.card_pos_iff.2 ⟨a⟩
+    refine (measureReal_sqrt_add_le_abs_integral_sub_integral_empiricalKernel_le ν hf hlu (hfb a)
+      N L).trans_eq ?_
+    rw [exp_neg, exp_log (by positivity)]
+    field_simp
+  -- a union bound over the keys
+  have h_eq : {ω | ∀ a, |∫ y, f y ∂(ν a) - ∫ y, f y ∂(empiricalKernel N ω a)| <
+      √(2 * Var[f; empiricalKernel N ω a] * L / N) + 3 * (u - l) * L / N} = (⋃ a, bad a)ᶜ := by
     ext ω
     simp [bad]
   exact h_eq ▸ one_sub_le_measureReal_compl_iUnion hδ.le h_bad
