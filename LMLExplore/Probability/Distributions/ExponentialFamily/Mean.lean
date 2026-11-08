@@ -96,6 +96,13 @@ confidence*, COLT 2016.
   `μ₂ ≤ μ₁` and nonnegative weights, `w₁ d(μ₁, x) + w₂ d(μ₂, y)` at means `x ≤ y` is at least its
   value `expFamilyPairCost` at `x = y = m`, the weighted mean of `μ₁` and `μ₂`; when
   `w₁ + w₂ > 0`, this is the minimum over these pairs.
+* `MeasureTheory.Measure.expFamilyPairCost_le_of_mem_expFamilyMeans`: for nonnegative weights,
+  `expFamilyPairCost` is at most `w₁ d(μ₁, z) + w₂ d(μ₂, z)` at every mean `z`, whatever the order
+  of `μ₁` and `μ₂`.
+* `MeasureTheory.Measure.continuousAt_expFamilyDiv_div`: the divergence `d(μ, m)` to the weighted
+  mean `m` of two means is continuous in the weights where they do not both vanish.
+* `MeasureTheory.Measure.expFamilyDiv_div_pos`: for distinct means and `w₁ > 0`, the weighted mean
+  `m` differs from `μ₂`, so that `d(μ₂, m) > 0`.
 * `MeasureTheory.Measure.mul_expFamilyDiv_add_mul_expFamilyDiv_eq`: the two-point compensation
   identity `w₁ d(μ₁, z) + w₂ d(μ₂, z) = w₁ d(μ₁, m) + w₂ d(μ₂, m) + (w₁ + w₂) d(m, z)`.
 * `MeasureTheory.Measure.strictMonoOn_expFamilyPairCost`: for distinct means and `w₁ > 0`, the
@@ -673,6 +680,52 @@ theorem expFamilyPairCost_le_mul_expFamilyDiv_add_mul_expFamilyDiv
     (mul_le_mul_of_nonneg_left (h_anti ⟨hx, hxm.trans hm₁⟩ ⟨hm_mem, hm₁⟩ hxm) hw₁)
     (mul_le_mul_of_nonneg_left (h_mono ⟨hm_mem, hm₂⟩ ⟨hy, hm₂.trans hmy⟩ hmy) hw₂)
 
+/-- For nonnegative weights `w₁, w₂` and means `μ₁, μ₂` of the family, in either order, the cost of
+moving `μ₁` and `μ₂` to their weighted mean is at most `w₁ d(μ₁, z) + w₂ d(μ₂, z)` for every mean
+`z` of the family: it is the minimum of these weighted divergences, hence a minimum of functions
+linear in the weights. -/
+lemma expFamilyPairCost_le_of_mem_expFamilyMeans {μ₁ μ₂ w₁ w₂ z : ℝ}
+    (hμ₁ : μ₁ ∈ ρ.expFamilyMeans T) (hμ₂ : μ₂ ∈ ρ.expFamilyMeans T) (hw₁ : 0 ≤ w₁) (hw₂ : 0 ≤ w₂)
+    (hz : z ∈ ρ.expFamilyMeans T) :
+    ρ.expFamilyPairCost T μ₁ μ₂ w₁ w₂ ≤
+      w₁ * ρ.expFamilyDiv T μ₁ z + w₂ * ρ.expFamilyDiv T μ₂ z := by
+  rcases (add_nonneg hw₁ hw₂).eq_or_lt with hW | hW
+  · obtain ⟨rfl, rfl⟩ : w₁ = 0 ∧ w₂ = 0 := ⟨by linarith, by linarith⟩
+    simp [expFamilyPairCost_def]
+  rw [expFamilyPairCost_def]
+  exact mul_expFamilyDiv_add_mul_expFamilyDiv_le_of_mul_eq hw₁ hw₂ (by field_simp)
+    (div_mem_expFamilyMeans hμ₁ hμ₂ hw₁ hw₂ hW) hz
+
+/-- For means `μ, μ₁, μ₂` of the family, the divergence `d(μ, m)` from `μ` to the weighted mean
+`m = (w₁ μ₁ + w₂ μ₂) / (w₁ + w₂)` is continuous in the weights `(w₁, w₂)` at every pair of
+nonnegative weights with `w₁ + w₂ > 0`. -/
+lemma continuousAt_expFamilyDiv_div (hT : ∀ c, ¬ T =ᵐ[ρ] fun _ ↦ c) {μ μ₁ μ₂ w₁ w₂ : ℝ}
+    (hμ : μ ∈ ρ.expFamilyMeans T) (hμ₁ : μ₁ ∈ ρ.expFamilyMeans T) (hμ₂ : μ₂ ∈ ρ.expFamilyMeans T)
+    (hw₁ : 0 ≤ w₁) (hw₂ : 0 ≤ w₂) (hW : 0 < w₁ + w₂) :
+    ContinuousAt (fun p : ℝ × ℝ ↦ ρ.expFamilyDiv T μ ((p.1 * μ₁ + p.2 * μ₂) / (p.1 + p.2)))
+      (w₁, w₂) := by
+  have hm := div_mem_expFamilyMeans hμ₁ hμ₂ hw₁ hw₂ hW
+  have hd : ContinuousAt (fun q : ℝ × ℝ ↦ ρ.expFamilyDiv T q.1 q.2)
+      (μ, (w₁ * μ₁ + w₂ * μ₂) / (w₁ + w₂)) :=
+    (continuousOn_expFamilyDiv hT).continuousAt
+      (prod_mem_nhds (expFamilyMeans_mem_nhds hT hμ) (expFamilyMeans_mem_nhds hT hm))
+  have hf : ContinuousAt (fun p : ℝ × ℝ ↦ (μ, (p.1 * μ₁ + p.2 * μ₂) / (p.1 + p.2))) (w₁, w₂) := by
+    fun_prop (disch := exact hW.ne')
+  exact hd.comp_of_eq hf rfl
+
+/-- For two distinct means `μ₁ ≠ μ₂` of the family, a positive weight `w₁` and a nonnegative
+weight `w₂`, the weighted mean `m = (w₁ μ₁ + w₂ μ₂) / (w₁ + w₂)` differs from `μ₂`, so that
+`d(μ₂, m) > 0`. -/
+lemma expFamilyDiv_div_pos {μ₁ μ₂ w₁ w₂ : ℝ} (hμ₁ : μ₁ ∈ ρ.expFamilyMeans T)
+    (hμ₂ : μ₂ ∈ ρ.expFamilyMeans T) (hμ : μ₁ ≠ μ₂) (hw₁ : 0 < w₁) (hw₂ : 0 ≤ w₂) :
+    0 < ρ.expFamilyDiv T μ₂ ((w₁ * μ₁ + w₂ * μ₂) / (w₁ + w₂)) := by
+  have hW : 0 < w₁ + w₂ := add_pos_of_pos_of_nonneg hw₁ hw₂
+  refine expFamilyDiv_pos hμ₂ (div_mem_expFamilyMeans hμ₁ hμ₂ hw₁.le hw₂ hW) ?_
+  -- `w₁ μ₁ + w₂ μ₂ - (w₁ + w₂) μ₂ = w₁ (μ₁ - μ₂) ≠ 0`.
+  rw [Ne, eq_div_iff hW.ne']
+  intro h
+  exact mul_ne_zero hw₁.ne' (sub_ne_zero.2 hμ) (by linear_combination -h)
+
 lemma expFamilyPairCost_nonneg {μ₁ μ₂ w₁ w₂ : ℝ} (hμ₁ : μ₁ ∈ ρ.expFamilyMeans T)
     (hμ₂ : μ₂ ∈ ρ.expFamilyMeans T) (hw₁ : 0 ≤ w₁) (hw₂ : 0 ≤ w₂) :
     0 ≤ ρ.expFamilyPairCost T μ₁ μ₂ w₁ w₂ := by
@@ -736,20 +789,15 @@ theorem strictMonoOn_expFamilyPairCost {μ₁ μ₂ w₁ : ℝ} (hμ₁ : μ₁ 
   rw [mem_Ici] at hy hy'
   have hW : 0 < w₁ + y := by linarith
   have hW' : 0 < w₁ + y' := by linarith
-  set m' := (w₁ * μ₁ + y' * μ₂) / (w₁ + y') with hm'_def
+  set m' := (w₁ * μ₁ + y' * μ₂) / (w₁ + y')
   have hm' : m' ∈ ρ.expFamilyMeans T := div_mem_expFamilyMeans hμ₁ hμ₂ hw₁.le hy' hW'
-  -- The weighted mean `m'` differs from `μ₂`, since `w₁ μ₁ + y' μ₂ - (w₁ + y') μ₂ = w₁ (μ₁ - μ₂)`.
-  have hne : μ₂ ≠ m' := by
-    rw [hm'_def, Ne, eq_div_iff hW'.ne']
-    intro h
-    exact mul_ne_zero hw₁.ne' (sub_ne_zero.2 hμ) (by linear_combination -h)
   -- By the compensation identity, the cost at `y` is at most `w₁ d(μ₁, m') + y d(μ₂, m')`, which
   -- is smaller than the cost `w₁ d(μ₁, m') + y' d(μ₂, m')` at `y'`.
   have h := mul_expFamilyDiv_add_mul_expFamilyDiv_eq (ρ := ρ) (T := T) (μ₁ := μ₁) (μ₂ := μ₂)
     hW.ne' m'
   have h_nonneg := mul_nonneg hW.le
     (expFamilyDiv_nonneg (div_mem_expFamilyMeans hμ₁ hμ₂ hw₁.le hy hW) hm')
-  have h_lt := mul_lt_mul_of_pos_right hyy' (expFamilyDiv_pos hμ₂ hm' hne)
+  have h_lt := mul_lt_mul_of_pos_right hyy' (expFamilyDiv_div_pos hμ₁ hμ₂ hμ hw₁ hy')
   rw [expFamilyPairCost_def ρ T μ₁ μ₂ w₁ y']
   linarith
 
