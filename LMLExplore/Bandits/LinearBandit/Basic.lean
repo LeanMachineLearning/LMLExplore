@@ -64,6 +64,8 @@ features.
   `0 ≤ G`, the expected rewards are bounded above and `sup_a ⟪θ, f a⟫ - ⟪θ, f b⟫ ≤ G`.
 * `linearRegret_nonneg`, `linearRegret_le_mul`: the random regret is nonnegative, and at most
   `n G` after `n` rounds when the gaps between the expected rewards of the actions are at most `G`.
+* `integral_linearRegret_nonneg`, `integrable_linearRegret`: the expected regret is nonnegative,
+  and the random regret is integrable when the expected rewards of the actions are bounded.
 * `isSubgaussianLinearEnv_gaussianLinearEnv`: the Gaussian linear environment is linear with
   σ²-sub-Gaussian noise.
 * `isSubgaussianLinearEnv_bandit`, `linearRegret_single_eq_regret`: a stochastic bandit with
@@ -315,6 +317,33 @@ lemma linearRegret_le_mul {G : ℝ} (hgap : ∀ o a b, ⟪θ, φ o a⟫_ℝ - �
     linearRegret φ θ O A n ω ≤ n * G := by
   simpa [linearRegret_def] using
     sum_le_sum fun t (_ : t ∈ range n) ↦ iSup_inner_sub_inner_le_of_gap (hgap (O t ω) · (A t ω))
+
+/-- The expected regret is nonnegative when the expected rewards at every context are bounded
+above, for example for finitely many actions. -/
+lemma integral_linearRegret_nonneg {P : Measure Ω}
+    (hbdd : ∀ o, BddAbove (Set.range fun a ↦ ⟪θ, φ o a⟫_ℝ)) :
+    0 ≤ ∫ ω, linearRegret φ θ O A n ω ∂P :=
+  integral_nonneg fun _ ↦ linearRegret_nonneg hbdd
+
+/-- The random regret is integrable under a finite measure when the contexts, the actions, the
+expected rewards and their suprema over the actions are measurable, and the expected rewards are
+bounded. -/
+lemma integrable_linearRegret [MeasurableSpace 𝓞] [MeasurableSpace 𝓐] {P : Measure Ω}
+    [IsFiniteMeasure P] (hO : ∀ t, Measurable (O t)) (hA : ∀ t, Measurable (A t))
+    (hθ : Measurable fun p : 𝓞 × 𝓐 ↦ ⟪θ, φ p.1 p.2⟫_ℝ)
+    (hsup : Measurable fun o ↦ ⨆ a, ⟪θ, φ o a⟫_ℝ) {B : ℝ} (hB : ∀ o a, |⟪θ, φ o a⟫_ℝ| ≤ B) :
+    Integrable (fun ω ↦ linearRegret φ θ O A n ω) P := by
+  simp_rw [linearRegret_def]
+  refine integrable_finsetSum _ fun t _ ↦ Integrable.of_bound
+    ((hsup.comp (hO t)).sub (hθ.comp ((hO t).prodMk (hA t)))).aestronglyMeasurable (2 * B)
+    (ae_of_all _ fun ω ↦ ?_)
+  have : Nonempty 𝓐 := ⟨A t ω⟩
+  have hbdd : BddAbove (Set.range fun a ↦ ⟪θ, φ (O t ω) a⟫_ℝ) :=
+    ⟨B, by rintro _ ⟨a, rfl⟩; exact (le_abs_self _).trans (hB _ _)⟩
+  have hsup_le : (⨆ a, ⟪θ, φ (O t ω) a⟫_ℝ) ≤ B :=
+    ciSup_le fun a ↦ (le_abs_self _).trans (hB _ a)
+  rw [Real.norm_eq_abs, abs_of_nonneg (sub_nonneg.2 (le_ciSup hbdd (A t ω)))]
+  linarith [neg_abs_le ⟪θ, φ (O t ω) (A t ω)⟫_ℝ, hB (O t ω) (A t ω)]
 
 end Regret
 
