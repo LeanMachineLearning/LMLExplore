@@ -22,13 +22,13 @@ rewards in `[0, 1]` it is at most `12 √((k - 1) n)`, with `k` the number of ar
 `√(k n)` of [ZS21, Theorem 1], here with an explicit constant [Ora, Section 9.3].
 
 The proof follows the regularized leader on the importance-weighted loss estimates
-`Ŷ t a = 𝟙{A t = a} (1 - Y t) / P t a`, shifted by the observed loss `1 - Y t` of the played arm.
+`Ŷ t a = 𝟙{A t = a} (1 - Y t) / P t a`, shifted by the observed loss `1 - Y t` of the played arm.
 The shift does not change the weights `P t` of Tsallis-INF
 (`tsallisINFWeights_history_eq_add_const`) nor the regret against an arm, and the shifted
 estimates are at least `-1`. The local-norm bound of FTRL with the ½-Tsallis potential
 (`OnlineLearning.tsallisWeights_regret_le_of_monotone`) then gives the pathwise bound
-`∑ t < n, ((1 - Y t) - Ŷ t a)
-  ≤ 4 √n (√k - 1) + ∑ t < n, 4 / √(t + 1) * ∑ b, P t b √(P t b) (Ŷ t b - (1 - Y t)) ^ 2`.
+`∑ t < n, ((1 - Y t) - Ŷ t a)
+  ≤ 4 √n (√k - 1) + ∑ t < n, 4 / √(t + 1) * ∑ b, P t b √(P t b) (Ŷ t b - (1 - Y t)) ^ 2`.
 Given the past, the shifted estimate of an arm `b` is `(1 - Y t) (𝟙{A t = b} / P t b - 1)`, so the
 expected local norm of round `t` is at most `∑ b, √(P t b) (1 - P t b) ≤ √(k - 1)`, by the
 Cauchy–Schwarz inequality. The shift is what replaces `k` by `k - 1`. The estimates are
@@ -71,11 +71,11 @@ section Path
 omit [MeasurableSpace α] [MeasurableSingletonClass α] [MeasurableSpace 𝓞] in
 /-- **Pathwise regret of Tsallis-INF on the estimated losses** [ZS21], [Ora, Section 9.3]. Along
 every sequence of observations `O`, actions `A` and feedbacks `Y` with `Y t ω ∈ [0, 1]` for
-`t < n`, with `P t` the weights of Tsallis-INF and `Ŷ t = iwEstimator (P t) (A t) (1 - Y t)` the
+`t < n`, with `P t` the weights of Tsallis-INF and `Ŷ t = iwEstimator (P t) (A t) (1 - Y t)` the
 importance-weighted estimates of the losses `1 - Y t`, the estimated regret against every arm `a`
 satisfies
-`∑ t < n, ((1 - Y t) - Ŷ t a)
-  ≤ 4 √n (√k - 1) + ∑ t < n, 4 / √(t + 1) * ∑ b, P t b √(P t b) (Ŷ t b - (1 - Y t)) ^ 2`,
+`∑ t < n, ((1 - Y t) - Ŷ t a)
+  ≤ 4 √n (√k - 1) + ∑ t < n, 4 / √(t + 1) * ∑ b, P t b √(P t b) (Ŷ t b - (1 - Y t)) ^ 2`,
 with `k` the number of arms. -/
 theorem sum_one_sub_sub_iwEstimator_le (O : ℕ → Ω → 𝓞) (A : ℕ → Ω → α) (Y : ℕ → Ω → ℝ)
     (ω : Ω) (hY : ∀ t < n, Y t ω ∈ Set.Icc 0 1) (a : α) :
@@ -243,8 +243,8 @@ private lemma sum_mul_sqrt_mul_sq_run_mem_Icc (O : ℕ → Ω → 𝓞) (A : ℕ
       ⟨sub_nonneg.2 hω.2, by linarith [hω.1]⟩ _⟩
 
 /-- Along a run of Tsallis-INF whose feedback at round `t` is almost surely in `[0, 1]`, with `P t`
-the weights and `Ŷ t` the importance-weighted estimates of the losses `1 - Y t`, the local norm
-`∑ b, P t b √(P t b) (Ŷ t b - (1 - Y t)) ^ 2` of the estimates shifted by the observed loss is
+the weights and `Ŷ t` the importance-weighted estimates of the losses `1 - Y t`, the local norm
+`∑ b, P t b √(P t b) (Ŷ t b - (1 - Y t)) ^ 2` of the estimates shifted by the observed loss is
 integrable. -/
 theorem integrable_sum_mul_sqrt_mul_sq (h : IsAlgEnvSeq O A Y tsallisINF env P)
     (hY : ∀ᵐ ω ∂P, Y t ω ∈ Set.Icc 0 1) :
@@ -267,9 +267,9 @@ theorem integrable_sum_mul_sqrt_mul_sq (h : IsAlgEnvSeq O A Y tsallisINF env P)
   exact h_mem.2
 
 /-- **The expected local norm of a round of Tsallis-INF.** Along a run of Tsallis-INF whose
-feedback at round `t` is almost surely in `[0, 1]`, with `P t` the weights and `Ŷ t` the
+feedback at round `t` is almost surely in `[0, 1]`, with `P t` the weights and `Ŷ t` the
 importance-weighted estimates of the losses `1 - Y t`, the local norm
-`∑ b, P t b √(P t b) (Ŷ t b - (1 - Y t)) ^ 2` of the estimates shifted by the observed loss has
+`∑ b, P t b √(P t b) (Ŷ t b - (1 - Y t)) ^ 2` of the estimates shifted by the observed loss has
 expectation at most `√(k - 1)`, with `k` the number of arms. -/
 theorem integral_sum_mul_sqrt_mul_sq_le (h : IsAlgEnvSeq O A Y tsallisINF env P)
     (hY : ∀ᵐ ω ∂P, Y t ω ∈ Set.Icc 0 1) :
@@ -296,7 +296,7 @@ theorem integral_sum_mul_sqrt_mul_sq_le (h : IsAlgEnvSeq O A Y tsallisINF env P)
     (sub_nonneg.2 ((simplex_subset_Icc (tsallisINFWeights_mem_simplex _ _)).2 b))
 
 /-- Along a run of Tsallis-INF whose feedback at round `t` is almost surely in `[0, 1]`, the
-importance-weighted estimate `Ŷ t a` of the loss of an arm `a` is integrable. -/
+importance-weighted estimate `Ŷ t a` of the loss of an arm `a` is integrable. -/
 private lemma integrable_iwEstimator_run (h : IsAlgEnvSeq O A Y tsallisINF env P)
     (hY : ∀ᵐ ω ∂P, Y t ω ∈ Set.Icc 0 1) (a : α) :
     Integrable (fun ω ↦
@@ -309,7 +309,7 @@ private lemma integrable_iwEstimator_run (h : IsAlgEnvSeq O A Y tsallisINF env P
     (by linarith [hω.1])
 
 /-- Along a run of Tsallis-INF whose feedback at round `t` is almost surely in `[0, 1]`, the
-importance-weighted estimate `Ŷ t a` of the loss of an arm `a` has conditional expectation
+importance-weighted estimate `Ŷ t a` of the loss of an arm `a` has conditional expectation
 `1 - m_t(a)` given the past, with `m_t(a) = env.means O A Y a t`. -/
 private lemma condExp_iwEstimator_run (h : IsAlgEnvSeq O A Y tsallisINF env P)
     (hY : ∀ᵐ ω ∂P, Y t ω ∈ Set.Icc 0 1) (a : α) :
@@ -324,7 +324,7 @@ private lemma condExp_iwEstimator_run (h : IsAlgEnvSeq O A Y tsallisINF env P)
   simp [(tsallisINFWeights_pos t (history O A Y t ω) a).ne']
 
 /-- **Unbiasedness of the estimated losses in expectation.** Along a run of Tsallis-INF whose
-feedback at round `t` is almost surely in `[0, 1]`, the importance-weighted estimate `Ŷ t a` of the
+feedback at round `t` is almost surely in `[0, 1]`, the importance-weighted estimate `Ŷ t a` of the
 loss of an arm `a` has the expectation `E[1 - m_t(a)]` of the loss of `a`, with
 `m_t(a) = env.means O A Y a t` the mean reward of `a` at round `t` given the past. -/
 theorem integral_iwEstimator (h : IsAlgEnvSeq O A Y tsallisINF env P)
