@@ -91,6 +91,9 @@ cumulative tracking compare with the pull counts, are defined here as well.
   tracking, the proportions of pulls get close to the averages of the proportions `p k`, and
   converge to their limit whenever they converge.
 
+* `LMLExplore.Identification.pullCount'_div_mem_simplex`: the proportions of pulls of a history
+  are an allocation.
+
 ## References
 
 * [GK16] A. Garivier and E. Kaufmann, *Optimal best arm identification with fixed confidence*,
@@ -917,5 +920,14 @@ lemma measurable_cumulatedTargets [MeasurableSpace 𝓞] [MeasurableSpace α] [M
     ((hv s).comp (Measurable.of_eval fun _ ↦ measurable_pi_apply _))
 
 end CumulatedTargets
+
+/-! ### Proportions of pulls -/
+
+/-- After `n ≠ 0` rounds with history `h`, the proportions of pulls `N_a(h) / n` are an
+allocation. -/
+lemma pullCount'_div_mem_simplex {𝓞 𝓨 : Type*} {n : ℕ} (h : Hist 𝓞 α 𝓨 n) (hn : n ≠ 0) :
+    (fun a ↦ (pullCount' n h a : ℝ) / n) ∈ simplex α := by
+  refine mem_simplex_iff.2 ⟨fun a ↦ by positivity, ?_⟩
+  rw [← Finset.sum_div, ← Nat.cast_sum, sum_pullCount', div_self (Nat.cast_ne_zero.2 hn)]
 
 end LMLExplore.Identification
