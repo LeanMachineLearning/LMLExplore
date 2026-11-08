@@ -193,9 +193,10 @@ theorem sum_inner_moorePenroseInverse_designOp_sq (x : ℕ → E) (t : ℕ) (v :
 nonzero `v` in the span of the covariates. -/
 theorem inner_moorePenroseInverse_designOp_pos {v : E}
     (hv : v ∈ Submodule.span ℝ (x '' Set.Iio t)) (hv0 : v ≠ 0) :
-    0 < ⟪v, (designOp 0 x t : E →ₗ[ℝ] E).moorePenroseInverse v⟫_ℝ :=
-  (isPositive_designOp isPositive_zero x t).toLinearMap.re_inner_moorePenroseInverse_apply_pos
-    (range_designOp_zero x t ▸ hv) hv0
+    0 < ⟪v, (designOp 0 x t : E →ₗ[ℝ] E).moorePenroseInverse v⟫_ℝ := by
+  simpa only [RCLike.re_to_real] using
+    (isPositive_designOp isPositive_zero x t).toLinearMap.re_inner_moorePenroseInverse_apply_pos
+      (range_designOp_zero x t ▸ hv) hv0
 
 /-- **Error of the unregularized least-squares estimate** in the linear model
 `y s = ⟪θ, x s⟫ + η s`: for `v` in the span of the covariates,
