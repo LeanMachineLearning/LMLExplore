@@ -7,6 +7,7 @@ module
 
 public import LMLExplore.Bandits.WeightAlgorithm
 public import LMLExplore.Probability.CondVar
+public import LMLExplore.Probability.Martingale.ImplicitExploration
 public import LMLExplore.SequentialLearning.Means
 
 /-!
@@ -94,10 +95,20 @@ feedback `Y n` is almost surely the reward `x (A n)` of the action, the conditio
 * `WeightAlgorithm.sum_integral_one_sub_sq_div_weights_le`: in any environment with feedback in
   `[0, 1]`, the expected second-order terms `(1 - Y t) ^ 2 / w t (past) (A t)` of Exp3 and Exp4
   sum to at most `n k` over `n` rounds with `k` arms.
+* `WeightAlgorithm.ae_means_nonneg_of_weights_pos`: in any environment with nonnegative feedback,
+  the means of the arms of positive weight are almost surely nonnegative.
+* `WeightAlgorithm.condExp_iwEstimator_one_sub`: in any environment, the estimate of the loss
+  `1 - Y n` of an arm has conditional mean `1 - env.means O A Y a n` given the past if the arm has
+  positive weight, and `0` otherwise.
+* `WeightAlgorithm.measure_log_one_div_le_sum_sum_mul_iwEstimator_add_sub_le`: the concentration of
+  the implicit-exploration estimates of the losses in any environment [Neu15, Lemma 1;
+  LS, Lemma 12.2].
 
 ## References
 
 * [LS] T. Lattimore and Cs. Szepesvári, *Bandit Algorithms*, Cambridge University Press, 2020.
+* [Neu15] G. Neu, *Explore no more: improved high-probability regret bounds for non-stochastic
+  bandits*, NeurIPS 2015.
 -/
 
 public section
@@ -697,6 +708,235 @@ lemma sum_integral_one_sub_sq_div_weights_le [IsProbabilityMeasure P]
       obtain ⟨h0, h1⟩ := hω t (mem_range.1 ht)
       exact div_le_div_of_nonneg_right (by nlinarith) ((mem_simplex_iff.1 (hp t _)).1 _)
   _ = n * Fintype.card α := by simp
+
+omit [DecidableEq α] in
+/-- Along a run of a weight-based algorithm whose feedback at round `n` is integrable and almost
+surely nonnegative, in any environment, almost surely the mean `env.means O A Y a n` of the
+feedback of every arm `a` of positive weight is nonnegative. -/
+lemma ae_means_nonneg_of_weights_pos (h : IsAlgEnvSeq O A Y (weightAlgorithm w hw hp) env P)
+    (hYint : Integrable (Y n) P) (hY : 0 ≤ᵐ[P] Y n) :
+    ∀ᵐ ω ∂P, ∀ a, 0 < w n (history O A Y n ω, O n ω) a → 0 ≤ env.means O A Y a n ω := by
+  classical
+  refine ae_all_iff.2 fun a ↦ ?_
+  have hind : Measurable fun ω ↦ if A n ω = a then (1 : ℝ) else 0 :=
+    (measurable_of_finite fun b : α ↦ if b = a then (1 : ℝ) else 0).comp (h.measurable_action n)
+  have hint : Integrable (fun ω ↦ (if A n ω = a then (1 : ℝ) else 0) * Y n ω) P :=
+    hYint.mono (hind.aestronglyMeasurable.mul hYint.aestronglyMeasurable)
+      (ae_of_all _ fun ω ↦ by split_ifs <;> simp)
+  have hnn : 0 ≤ᵐ[P] fun ω ↦ (if A n ω = a then (1 : ℝ) else 0) * Y n ω := hY.mono fun ω hω ↦
+    mul_nonneg (by split_ifs <;> norm_num) hω
+  -- the conditional expectation of `𝟙{A n = a} Y n` given the past is `w a * env.means a`
+  filter_upwards [condExp_comp_action_mul h n (f := fun _ b ↦ if b = a then 1 else 0)
+      (m := fun x b ↦ ∫ y, y ∂env.feedback n (x, b)) (fun _ ↦ measurable_const)
+      (measurable_integral_feedback stronglyMeasurable_id) hYint
+      (h.condExp_feedback_comp n stronglyMeasurable_id hYint) hint,
+    condExp_nonneg (m := h.filtrationObs n) hnn] with ω h1 h2 hwa
+  rw [h1] at h2
+  simp only [ite_mul, one_mul, zero_mul, mul_ite, mul_zero, Finset.sum_ite_eq', Finset.mem_univ,
+    ite_true] at h2
+  rw [Environment.means_eq_integral]
+  exact nonneg_of_mul_nonneg_right h2 hwa
+
+omit [DecidableEq α] in
+/-- Along a run of a weight-based algorithm whose feedback at every round `t < n` is almost surely
+in `[0, 1]`, in any environment, almost surely the means `env.means O A Y a t` of the feedbacks
+of the arms `a` of positive weight at the rounds `t < n` are nonnegative. -/
+lemma ae_forall_means_nonneg_of_weights_pos
+    (h : IsAlgEnvSeq O A Y (weightAlgorithm w hw hp) env P)
+    (hY : ∀ᵐ ω ∂P, ∀ t < n, Y t ω ∈ Set.Icc 0 1) :
+    ∀ᵐ ω ∂P, ∀ t < n, ∀ a, 0 < w t (history O A Y t ω, O t ω) a →
+      0 ≤ env.means O A Y a t ω := by
+  refine ae_all_iff.2 fun t ↦ ?_
+  by_cases ht : t < n
+  · filter_upwards [ae_means_nonneg_of_weights_pos h
+      (Integrable.of_mem_Icc 0 1 (h.measurable_feedback t).aemeasurable
+        (hY.mono fun ω hω ↦ hω t ht))
+      (hY.mono fun ω hω ↦ (hω t ht).1)] with ω hω _ using hω
+  · exact ae_of_all _ fun _ ht' ↦ absurd ht' ht
+
+/-- Along a run of a weight-based algorithm whose feedback at round `n` is integrable, in any
+environment, the conditional expectation given the past of the importance-weighted estimate of the
+loss `1 - Y n` at an arm `a` is `1 - env.means O A Y a n` if `a` has positive weight, and `0`
+otherwise. -/
+theorem condExp_iwEstimator_one_sub (h : IsAlgEnvSeq O A Y (weightAlgorithm w hw hp) env P)
+    (hYint : Integrable (Y n) P)
+    (hint : Integrable
+      (fun ω ↦ iwEstimator (w n (history O A Y n ω, O n ω)) (A n ω) (1 - Y n ω) a) P) :
+    P[fun ω ↦ iwEstimator (w n (history O A Y n ω, O n ω)) (A n ω) (1 - Y n ω) a
+      | h.filtrationObs n] =ᵐ[P] fun ω ↦
+        if w n (history O A Y n ω, O n ω) a = 0 then 0 else 1 - env.means O A Y a n ω := by
+  have hZm : P[fun ω ↦ 1 - Y n ω | h.filtrationAction n] =ᵐ[P]
+      fun ω ↦ 1 - ∫ y, y ∂env.feedback n ((history O A Y n ω, O n ω), A n ω) := by
+    filter_upwards [condExp_const_sub (h.filtrationAction.le n) hYint 1,
+      h.condExp_feedback_comp n stronglyMeasurable_id hYint] with ω h1 h2
+    rw [h1]
+    exact congrArg (fun z ↦ 1 - z) h2
+  simp_rw [iwEstimator_apply_eq_ite_mul] at hint ⊢
+  filter_upwards [condExp_comp_action_mul h n (f := fun x b ↦ if b = a then (w n x a)⁻¹ else 0)
+    (m := fun x b ↦ 1 - ∫ y, y ∂env.feedback n (x, b)) (Z := fun ω ↦ 1 - Y n ω)
+    (fun b ↦ by split_ifs; exacts [(hw n a).inv, measurable_const])
+    (fun b ↦ measurable_const.sub (measurable_integral_feedback stronglyMeasurable_id b))
+    ((integrable_const 1).sub hYint) hZm hint] with ω hω
+  rw [hω, Finset.sum_eq_single a (fun b _ hb ↦ by simp [hb]) (by simp),
+    Environment.means_eq_integral]
+  simp only [↓reduceIte]
+  split_ifs with ha
+  · rw [ha, zero_mul]
+  · rw [← mul_assoc, mul_inv_cancel₀ ha, one_mul]
+
+/-- **Concentration of implicit-exploration estimates** [Neu15, Lemma 1; LS, Lemma 12.2], in any
+environment. Along a run of a weight-based algorithm with weights `P t = w t (past)` whose
+feedback at every round `t < n` is almost surely in `[0, 1]`, let
+`Ŷ t a = 𝟙{A t = a} (1 - Y t) / (P t a + γ t)` be the implicit-exploration estimates of the losses
+`1 - Y t`, with conditional means `m t a = env.means O A Y a t`. For coefficients `c t a` that are
+measurable for the past of round `t`, satisfy `0 ≤ c t a ≤ 2 γ t` and vanish on the arms of
+weight zero, at the rounds `t < n`, and for `δ > 0`, the probability that
+`log (1 / δ) ≤ ∑ t < n, ∑ a, c t a * (Ŷ t a - (1 - m t a))` is at most `δ`.
+
+The coefficients must vanish on the arms of weight zero: such an arm is almost surely not played,
+so the hypothesis on the feedback says nothing about its mean `m t a`, which may exceed `1`. -/
+theorem measure_log_one_div_le_sum_sum_mul_iwEstimator_add_sub_le [IsProbabilityMeasure P]
+    (h : IsAlgEnvSeq O A Y (weightAlgorithm w hw hp) env P)
+    (hY : ∀ᵐ ω ∂P, ∀ t < n, Y t ω ∈ Set.Icc 0 1) {γ : ℕ → ℝ} {c : ℕ → α → Ω → ℝ}
+    (hc : ∀ t < n, ∀ a, Measurable[h.filtrationObs t] (c t a))
+    (hc0 : ∀ t < n, ∀ a ω, 0 ≤ c t a ω) (hcγ : ∀ t < n, ∀ a ω, c t a ω ≤ 2 * γ t)
+    (hcw : ∀ t < n, ∀ a ω, w t (history O A Y t ω, O t ω) a = 0 → c t a ω = 0) {δ : ℝ}
+    (hδ : 0 < δ) :
+    P {ω | Real.log (1 / δ) ≤ ∑ t ∈ range n, ∑ a, c t a ω *
+      (iwEstimator (fun b ↦ w t (history O A Y t ω, O t ω) b + γ t) (A t ω) (1 - Y t ω) a -
+        (1 - env.means O A Y a t ω))} ≤ ENNReal.ofReal δ := by
+  -- the variables of the concentration inequality of implicit-exploration estimates, truncated
+  -- at the horizon `n`
+  set p : ℕ → Ω → α → ℝ := fun t ω ↦ w t (history O A Y t ω, O t ω) with hp_def
+  set X : ℕ → α → Ω → ℝ := fun t a ω ↦
+    if t < n then iwEstimator (p t ω) (A t ω) (1 - Y t ω) a else 0 with hX
+  set y : ℕ → α → Ω → ℝ := fun t a ω ↦
+    if t < n then (if p t ω a = 0 then 0 else 1 - env.means O A Y a t ω) else 0 with hy
+  set c' : ℕ → α → Ω → ℝ := fun t a ω ↦ if t < n then c t a ω else 0 with hc'
+  set l : ℕ → α → Ω → ℝ := fun t a ω ↦ if t < n then γ t / p t ω a else 0 with hl
+  have hpast : ∀ t, Measurable[h.filtrationObs t] fun ω ↦ (history O A Y t ω, O t ω) :=
+    fun t ↦ measurable_iff_comap_le.2 le_rfl
+  have hle : ∀ t, h.filtrationObs t ≤ h.filtrationObs (t + 1) :=
+    fun t ↦ h.filtrationObs.mono (Nat.le_succ t)
+  have hpm : ∀ t a, Measurable[h.filtrationObs t] fun ω ↦ p t ω a := fun t a ↦
+    Measurable.comp (mα := h.filtrationObs t) (hw t a) (hpast t)
+  have hpv : ∀ t, Measurable[h.filtration t] (p t) := fun t ↦
+    (Measurable.comp (mα := h.filtrationObs t) (measurable_pi_iff.2 (hw t)) (hpast t)).mono
+      (h.filtrationObs_le_filtration t) le_rfl
+  have hYint : ∀ t < n, Integrable (Y t) P := fun t ht ↦
+    Integrable.of_mem_Icc 0 1 (h.measurable_feedback t).aemeasurable (hY.mono fun ω hω ↦ hω t ht)
+  have hXm : ∀ t a, Measurable[h.filtrationObs (t + 1)] (X t a) := fun t a ↦ by
+    refine Measurable.mono ?_ (h.filtration_le_filtrationObs_succ t) le_rfl
+    simp only [hX]
+    split_ifs
+    · exact Measurable.comp (mα := h.filtration t) (measurable_pi_apply a)
+        (Measurable.comp (mα := h.filtration t) measurable_iwEstimator
+          ((hpv t).prodMk ((h.adapted_action t).prodMk
+            (measurable_const.sub (h.adapted_feedback t)))))
+    · exact measurable_const
+  -- the estimate of an arm is at most `1 / P t (A t)` on the event that it is drawn
+  have hXbound : ∀ t < n, ∀ a, ∀ᵐ ω ∂P,
+      ‖X t a ω‖ ≤ (Pi.single a 1 : α → ℝ) (A t ω) / w t (history O A Y t ω, O t ω) (A t ω) :=
+    fun t ht a ↦ by
+      filter_upwards [hY] with ω hω
+      have hp0 := (mem_simplex_iff.1 (hp t (history O A Y t ω, O t ω))).1
+      simp only [hX, ht, ite_true, iwEstimator_apply, hp_def]
+      split_ifs with hab
+      · subst hab
+        rw [Pi.single_eq_same, Real.norm_of_nonneg (div_nonneg (sub_nonneg.2 (hω t ht).2)
+          (hp0 _))]
+        exact div_le_div_of_nonneg_right (sub_le_self _ (hω t ht).1) (hp0 _)
+      · rw [Pi.single_eq_of_ne (Ne.symm hab), zero_div, norm_zero]
+  have hXint : ∀ t a, Integrable (X t a) P := fun t a ↦ by
+    by_cases ht : t < n
+    · exact Integrable.mono' (integrable_div_weights h t (Pi.single a 1))
+        ((hXm t a).mono (h.filtrationObs.le (t + 1)) le_rfl).aestronglyMeasurable
+        (hXbound t ht a)
+    · simp [hX, ht]
+  have hX0 : ∀ t a, 0 ≤ᵐ[P] X t a := fun t a ↦ by
+    filter_upwards [hY] with ω hω
+    simp only [hX, Pi.zero_apply]
+    split_ifs with ht
+    · exact iwEstimator_nonneg ((mem_simplex_iff.1 (hp t _)).1 _) (sub_nonneg.2 (hω t ht).2)
+    · exact le_rfl
+  have hXy : ∀ t a, P[X t a | h.filtrationObs t] ≤ᵐ[P] y t a := fun t a ↦ by
+    by_cases ht : t < n
+    · have hXt : X t a = fun ω ↦ iwEstimator (w t (history O A Y t ω, O t ω)) (A t ω)
+          (1 - Y t ω) a := by
+        funext ω
+        simp [hX, ht, hp_def]
+      rw [hXt]
+      refine (condExp_iwEstimator_one_sub h (hYint t ht) (hXt ▸ hXint t a)).le.trans ?_
+      exact ae_of_all _ fun ω ↦ by simp [hy, ht, hp_def]
+    · have : X t a = 0 := by
+        funext ω
+        simp [hX, ht]
+      rw [this, condExp_zero]
+      exact ae_of_all _ fun ω ↦ by simp [hy, ht]
+  have hym : ∀ t a, Measurable[h.filtrationObs t] (y t a) := fun t a ↦ by
+    simp only [hy]
+    split_ifs
+    · have hg : Measurable fun x : Hist 𝓞 α ℝ t × 𝓞 ↦
+          if w t x a = 0 then (0 : ℝ) else 1 - ∫ y, y ∂env.feedback t (x, a) :=
+        Measurable.ite (measurableSet_eq_fun (hw t a) measurable_const) measurable_const
+          (measurable_const.sub (measurable_integral_feedback stronglyMeasurable_id a))
+      have hyt : (fun ω ↦ if p t ω a = 0 then (0 : ℝ) else 1 - env.means O A Y a t ω) =
+          (fun x : Hist 𝓞 α ℝ t × 𝓞 ↦
+            if w t x a = 0 then (0 : ℝ) else 1 - ∫ y, y ∂env.feedback t (x, a)) ∘
+          fun ω ↦ (history O A Y t ω, O t ω) := by
+        funext ω
+        simp [hp_def, Environment.means_eq_integral]
+      rw [hyt]
+      exact Measurable.comp (mα := h.filtrationObs t) hg (hpast t)
+    · exact measurable_const
+  have hc'm : ∀ t a, Measurable[h.filtrationObs t] (c' t a) := fun t a ↦ by
+    simp only [hc']
+    split_ifs with ht
+    · exact hc t ht a
+    · exact measurable_const
+  have hlm : ∀ t a, Measurable[h.filtrationObs (t + 1)] (l t a) := fun t a ↦ by
+    simp only [hl]
+    split_ifs
+    · exact measurable_const.div ((hpm t a).mono (hle t) le_rfl)
+    · exact measurable_const
+  have hwl : ∀ t a, ∀ᵐ ω ∂P, c' t a ω * X t a ω ≤ 2 * l t a ω := fun t a ↦ by
+    filter_upwards [hY] with ω hω
+    simp only [hc', hX, hl]
+    split_ifs with ht
+    · have hpa := (mem_simplex_iff.1 (hp t (history O A Y t ω, O t ω))).1 a
+      rcases hpa.eq_or_lt with hpa0 | hpa0
+      · rw [hcw t ht a ω hpa0.symm]
+        simp [hp_def, ← hpa0]
+      have hX1 : iwEstimator (p t ω) (A t ω) (1 - Y t ω) a ≤ 1 / p t ω a :=
+        iwEstimator_le_one_div hpa (sub_le_self _ (hω t ht).1)
+      have hX0' : 0 ≤ iwEstimator (p t ω) (A t ω) (1 - Y t ω) a :=
+        iwEstimator_nonneg ((mem_simplex_iff.1 (hp t _)).1 _) (sub_nonneg.2 (hω t ht).2)
+      calc c t a ω * iwEstimator (p t ω) (A t ω) (1 - Y t ω) a
+          ≤ 2 * γ t * (1 / p t ω a) :=
+            mul_le_mul (hcγ t ht a ω) hX1 hX0' ((hc0 t ht a ω).trans (hcγ t ht a ω))
+        _ = 2 * (γ t / p t ω a) := by ring
+    · simp
+  have hmul : ∀ t i j, i ≠ j → ∀ᵐ ω ∂P, c' t i ω * X t i ω * (c' t j ω * X t j ω) = 0 :=
+    fun t i j hij ↦ ae_of_all _ fun ω ↦ by
+      simp only [hX]
+      split_ifs
+      · rw [mul_mul_mul_comm, iwEstimator_mul_iwEstimator_of_ne hij, mul_zero]
+      · simp
+  have key := measure_log_one_div_le_sum_sum_mul_div_one_add_sub_le (ℱ := h.filtrationObs)
+    hXm hXint hX0 hXy hc'm hlm hym
+    (fun t a ↦ ae_of_all _ fun ω ↦ by
+      simp only [hc']
+      split_ifs with ht
+      exacts [hc0 t ht a ω, le_rfl]) hwl hmul hδ n
+  -- the sum of the concentration inequality is the sum of the statement
+  refine le_trans (measure_mono fun ω hω ↦ ?_) key
+  simp only [Set.mem_ofPred_eq] at hω ⊢
+  refine hω.trans_eq (Finset.sum_congr rfl fun t ht ↦ Finset.sum_congr rfl fun a _ ↦ ?_)
+  have ht' := mem_range.1 ht
+  rcases ((mem_simplex_iff.1 (hp t (history O A Y t ω, O t ω))).1 a).eq_or_lt with hpa | hpa
+  · simp [hc', hcw t ht' a ω hpa.symm]
+  · simp only [hc', hX, hy, hl, ht', ite_true, hp_def, hpa.ne', ite_false]
+    rw [iwEstimator_div_one_add_div hpa]
 
 end WeightAlgorithm
 
