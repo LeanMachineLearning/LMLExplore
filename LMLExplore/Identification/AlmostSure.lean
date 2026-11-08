@@ -43,6 +43,11 @@ pulled infinitely often.
 * `IdentTask.ae_eventually_stoppingTime_glrt_le_of_isBigO`: the same bound for thresholds at most
   `log (r T / δ)`, with `r T = O(T ^ p)`.
 
+## Implementation notes
+
+The statements and proofs are adapted from the formalization in the paper project
+RemyDegenne/Garivier2016Optimal (same author).
+
 ## References
 
 * [GK16] A. Garivier and E. Kaufmann, *Optimal best arm identification with fixed confidence*,
@@ -86,7 +91,7 @@ lemma stoppingTime_glrt_ne_top_of_eventually_mul_le_glr
   have hLT' : L < κ / 2 * T := by
     rw [div_lt_iff₀ hκ'] at hLT
     linarith
-  refine ne_top_of_le_ne_top (WithTop.coe_ne_top (a := T)) (task.stoppingTime_glrt_le Z alg β rec
+  refine ne_top_of_le_ne_top (ENat.natCast_ne_top T) (task.stoppingTime_glrt_le Z alg β rec
     hrec hstop ?_)
   calc β T (history O X Y T ω)
   _ ≤ ENNReal.ofReal (L + f T) := hβT _
@@ -114,7 +119,7 @@ lemma eventually_stoppingTime_glrt_le_of_eventually_mul_le_glr
         ((task.glrt Z alg (β δ) rec hrec (hstop δ)).stoppingTime O X Y ω) ≤
       c * ENNReal.ofReal (log (1 / δ)) := by
   obtain ⟨T₁, hT₁⟩ := eventually_atTop.1 hE
-  filter_upwards [hβ, eventually_exists_add_le_mul_and_forall_ofReal_add_lt_mul hκc hf
+  filter_upwards [hβ, Real.eventually_exists_add_le_mul_and_forall_ofReal_add_lt_mul hκc hf
     (max T₀ T₁) ENNReal.zero_ne_top] with δ hβδ ⟨N, hN, hNc, hNlt⟩
   -- The stopping condition holds after `N ≤ c log (1 / δ)` rounds.
   have h_stop : (task.glrt Z alg (β δ) rec hrec (hstop δ)).stoppingTime O X Y ω ≤ N :=

@@ -108,6 +108,8 @@ of the run by that of the event in the stream model, through `Measure.le_map_app
 The strong law for the empirical means applies Mathlib's `strong_law_ae_real` to the i.i.d.
 rewards by count of an arm on the same product space, and the almost sure event depends on the run
 only, by `Measure.ae_ae_of_ae_prod`.
+The statement and proof of the strong law for the empirical means are adapted from the
+formalization in the paper project RemyDegenne/Garivier2016Optimal (same author).
 
 ## References
 
@@ -590,6 +592,8 @@ theorem ae_tendsto_empMean_of_tendsto_pullCount
   rw [ae_all_iff]
   intro a
   -- The rewards by count of `a` are i.i.d. with law `ν a` under `P.prod (streamMeasure ν)`.
+  -- The index is written `0 + 1`, which is `1` by `rfl`, so that `h_id.integral_eq` rewrites
+  -- the mean of `(fun m ↦ rewardByCount A R a (m + 1)) 0` in the statement of the strong law.
   have h_id : IdentDistrib (rewardByCount A R a (0 + 1)) id (P.prod (streamMeasure ν)) (ν a) :=
     identDistrib_rewardByCount_id h a 1 one_ne_zero
   have h_slln := strong_law_ae_real (fun m ↦ rewardByCount A R a (m + 1))

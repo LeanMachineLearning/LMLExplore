@@ -99,9 +99,6 @@ time.
   answer `i`.
 * `IdentTask.expectedStoppingTime_glrt_le_add_tsum`: if the stopping condition holds after `T`
   rounds on an event `E T` for every `T ≥ T₀`, then `𝔼[τ] ≤ T₀ + ∑_{T ≥ T₀} P((E T)ᶜ)`.
-* `eventually_exists_add_le_mul_and_forall_ofReal_add_lt_mul`: for `1 < κ c` and `f T = o(T)`
-  from above, for all small enough `δ` the thresholds `log (1 / δ) + f T` are below `κ T` from a
-  round `N ≤ c log (1 / δ)` on.
 * `IdentTask.eventually_expectedStoppingTime_glrt_le`: if the GLR statistic of the recommended
   answer is at least `κ T` after `T` rounds on events `E T` with `∑ T, P((E T)ᶜ) < ∞`, and the
   thresholds are at most `log (1 / δ) + f T` on every history, with `f T = o(T)` from above,
@@ -464,59 +461,6 @@ open Filter Topology Real
 
 open scoped NNReal
 
-/-- **The crossing time of the thresholds `log (1 / δ) + f T` by a statistic growing like `κ T`**
-(the counting step of the asymptotic sample complexity of the GLRT, [GK16, proof of Theorem 14]).
-Let `1 < κ c`, and let `f T ≤ ε T` eventually for every `ε > 0`. For every round `T₀` and every
-finite `S`, for all small enough `δ`, there is a round `N ≥ T₀` with `N + S ≤ c log (1 / δ)`
-such that `log (1 / δ) + f T < κ T` for every `T ≥ N`. -/
-lemma eventually_exists_add_le_mul_and_forall_ofReal_add_lt_mul {κ c : ℝ≥0} (hκc : 1 < κ * c)
-    {f : ℕ → ℝ} (hf : ∀ ε > 0, ∀ᶠ T in atTop, f T ≤ ε * T) (T₀ : ℕ) {S : ℝ≥0∞} (hS : S ≠ ∞) :
-    ∀ᶠ δ in 𝓝[>] 0, ∃ N ≥ T₀, N + S ≤ c * ENNReal.ofReal (log (1 / δ)) ∧
-      ∀ T ≥ N, ENNReal.ofReal (log (1 / δ) + f T) < κ * T := by
-  have hκc' : 1 < (κ : ℝ) * c := mod_cast hκc
-  have hc : 0 < (c : ℝ) := pos_of_mul_pos_right (one_pos.trans hκc') κ.coe_nonneg
-  -- Choose `η` with `1 / c < η < κ`: if `log (1 / δ) ≤ η T`, the threshold is below `κ T`.
-  obtain ⟨η, hcη, hηκ⟩ : ∃ η, (c : ℝ)⁻¹ < η ∧ η < κ :=
-    exists_between ((inv_lt_iff_one_lt_mul₀' hc).2 (by linarith))
-  have hη : 0 < η := (inv_pos.2 hc).trans hcη
-  have hκ : 0 < (κ : ℝ) := hη.trans hηκ
-  have hηc : 0 < (c : ℝ) - η⁻¹ := sub_pos.2 (inv_lt_of_inv_lt₀ hc hcη)
-  obtain ⟨T₁, hT₁⟩ := eventually_atTop.1 (hf ((κ - η) / 2) (by linarith))
-  set M := max (max T₀ T₁) 1
-  have hL : Tendsto (fun δ : ℝ ↦ log (1 / δ)) (𝓝[>] 0) atTop := by
-    simpa only [one_div, Function.comp_def] using tendsto_log_atTop.comp tendsto_inv_nhdsGT_zero
-  filter_upwards [hL.eventually_ge_atTop ((M + 1 + S.toReal) / (c - η⁻¹)),
-    hL.eventually_ge_atTop 0] with δ hLδ hL0
-  set L := log (1 / δ)
-  -- From `N = max M ⌈L / η⌉` rounds on, `L ≤ η T`, so that `L + f T < κ T`.
-  set N := max M ⌈L / η⌉₊
-  refine ⟨N, by omega, ?_, fun T hT ↦ ?_⟩
-  · -- `N + S ≤ M + L / η + 1 + S ≤ c L`.
-    have hceil : (⌈L / η⌉₊ : ℝ) ≤ L / η + 1 := (Nat.ceil_lt_add_one (by positivity)).le
-    have hN : (N : ℝ) ≤ M + (L / η + 1) := by
-      rw [Nat.cast_max]
-      have hM : (0 : ℝ) ≤ M := M.cast_nonneg
-      exact max_le (by linarith [div_nonneg hL0 hη.le]) (by linarith)
-    rw [div_le_iff₀ hηc] at hLδ
-    have h_div : L / η = η⁻¹ * L := by ring
-    calc (N : ℝ≥0∞) + S
-    _ = ENNReal.ofReal (N + S.toReal) := by
-      rw [ENNReal.ofReal_add N.cast_nonneg ENNReal.toReal_nonneg, ENNReal.ofReal_natCast,
-        ENNReal.ofReal_toReal hS]
-    _ ≤ ENNReal.ofReal (c * L) := ENNReal.ofReal_le_ofReal (by nlinarith)
-    _ = c * ENNReal.ofReal L := by rw [ENNReal.ofReal_mul c.coe_nonneg, ENNReal.ofReal_coe_nnreal]
-  · have hT1 : (1 : ℝ) ≤ T := mod_cast (show 1 ≤ T by omega)
-    have hLT : L ≤ η * T := by
-      rw [← div_le_iff₀' hη]
-      exact (Nat.le_ceil _).trans (mod_cast (le_max_right _ _).trans hT)
-    have hfT := hT₁ T (by omega)
-    calc ENNReal.ofReal (L + f T)
-    _ < ENNReal.ofReal (κ * T) := by
-      refine (ENNReal.ofReal_lt_ofReal_iff (mul_pos hκ (by linarith))).2 ?_
-      nlinarith
-    _ = κ * T := by
-      rw [ENNReal.ofReal_mul κ.coe_nonneg, ENNReal.ofReal_coe_nnreal, ENNReal.ofReal_natCast]
-
 namespace IdentTask
 
 variable {α Θ ℐ 𝓨 : Type*} {mα : MeasurableSpace α} {m𝓨 : MeasurableSpace 𝓨}
@@ -547,7 +491,8 @@ theorem eventually_expectedStoppingTime_glrt_le (hseq : IsAlgEnvSeq O X Y alg en
     (hβ : ∀ᶠ δ in 𝓝[>] 0, ∀ T ≥ T₀, ∀ h, β δ T h ≤ ENNReal.ofReal (log (1 / δ) + f T)) :
     ∀ᶠ δ in 𝓝[>] 0, expectedStoppingTime (task.glrt Z alg (β δ) rec hrec (hstop δ)) env ≤
       c * ENNReal.ofReal (log (1 / δ)) := by
-  filter_upwards [hβ, eventually_exists_add_le_mul_and_forall_ofReal_add_lt_mul hκc hf T₀ hE_sum]
+  filter_upwards [hβ,
+    Real.eventually_exists_add_le_mul_and_forall_ofReal_add_lt_mul hκc hf T₀ hE_sum]
     with δ hβδ ⟨N, hN₀, hNc, hN⟩
   -- From `N` rounds on, the stopping condition holds on `E T`, so `𝔼[τ_δ] ≤ N + ∑ T, P((E T)ᶜ)`.
   have h_stop : ∀ T ≥ N, ∀ ω ∈ E T,
