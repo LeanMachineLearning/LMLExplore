@@ -122,7 +122,8 @@ is the generalized likelihood ratio evidence of the exponential family of `𝒩(
 identity statistic, whose means are all the reals. -/
 private lemma plugInCost_empMean'_eq_expFamilyEvidence_gaussianBandit
     (hνt : task.ν = (Bandits.gaussianBandit · σ2)) (hσ2 : σ2 ≠ 0) :
-    task.plugInCost empMean' = expFamilyEvidence (fun _ : α ↦ gaussianReal 0 σ2) (fun _ ↦ id) := by
+    task.plugInCost empMean' =
+      expFamilyEvidence (fun _ : α ↦ gaussianReal 0 σ2) (fun _ ↦ id) Finset.univ := by
   funext n h l
   exact plugInCost_empMean'_eq_expFamilyEvidence
     (fun μ μ' _ _ ↦ hνt ▸ Bandits.klDiv_gaussianBandit_eq_ofReal_expFamilyDiv hσ2 μ μ')
@@ -146,9 +147,9 @@ theorem measure_exists_unionBoundThreshold_lt_plugInCost_le
         task.plugInCost empMean' n (history O A R n ω) μ} ≤
       ENNReal.ofReal ((x / Fintype.card α) ^ Fintype.card α * exp (Fintype.card α - x)) := by
   rw [plugInCost_empMean'_eq_expFamilyEvidence_gaussianBandit hνt hσ2]
-  exact measure_exists_unionBoundThreshold_lt_expFamilyEvidence_le
-    (fun _ ↦ mem_expFamilyMeans_gaussianReal 0 hσ2 _) (mgfDominatedOn_gaussianBandit hνt hσ2 μ) hseq
-    hx
+  exact measure_exists_unionBoundThreshold_lt_expFamilyEvidence_le_univ
+    (fun _ ↦ mem_expFamilyMeans_gaussianReal 0 hσ2 _)
+    (fun a ↦ mgfDominatedOn_gaussianBandit hνt hσ2 μ a) hseq hx
 
 variable {mℐ : MeasurableSpace ℐ} (rec : (n : ℕ) → Hist Unit α ℝ n → ℐ)
   (hrec : ∀ n, Measurable (rec n))
