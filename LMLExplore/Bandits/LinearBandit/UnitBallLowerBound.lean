@@ -7,7 +7,7 @@ module
 
 public import LMLExplore.Algebra.Order.BigOperators.SignFlip
 public import LMLExplore.Bandits.LinearBandit.DivergenceDecomposition
-public import LMLExplore.MeasureTheory.Function.SpecialFunctions.Inner
+public import LMLExplore.Bandits.LinearBandit.SignedParameter
 public import LeanMachineLearning.SequentialLearning.IonescuTulceaSpace
 
 /-!
@@ -18,9 +18,11 @@ action with feature `x ∈ E` has law `𝒩(⟪θ, x⟫, σ²)` for an unknown p
 features lie in the unit ball of `E`, of dimension `d`, and contain the points `s / √d` for the
 sign patterns `s ∈ {±1}^d` of an orthonormal basis, every algorithm has, for some parameter `θ`
 with `‖θ‖² = σ² d² / (4 n)`, an expected regret at least `e^{-1/2} d √(σ² n) / 16` after `n`
-rounds. This is [LS, Theorem 24.2], whose bound is `d √n / (16 √3)` for variance `1`, a parameter
-with `‖θ‖² = d² / (48 n)` and `d ≤ 2 n`; the constant here is larger (`e^{-1/2} > 1 / √3`) and no
-relation between `d` and `n` is needed.
+rounds. This is a variant of [LS, Theorem 24.2], whose bound is `d √n / (16 √3)` for variance
+`1`, a parameter with `‖θ‖² = d² / (48 n)` and `d ≤ 2 n`. The hard parameter here is a different
+one, with a squared norm `12` times larger, so the two constants are not comparable, and the
+statement of [LS] does not follow from this one: at `‖θ‖² = σ² d² / (48 n)` the general bound
+below gives only `e^{-1/24} d √(σ² n) / (32 √3)`. No relation between `d` and `n` is needed.
 
 The parameters are the `θ` with coordinates `±Δ` in the basis, and the regret of a round is at
 least `Δ / (2 √d)` times the number of coordinates `i` at which the feature played does not have
@@ -42,7 +44,7 @@ cap the information gathered on each coordinate.
   contain the points `s / √d`.
 * `LMLExplore.Bandits.exists_le_integral_linearRegret_gaussianLinearEnv_closedBall`: the lower
   bound `e^{-1/2} d √(σ² n) / 16` with the unit ball of a finite-dimensional inner product space as
-  the action set [LS, Theorem 24.2].
+  the action set, a variant of [LS, Theorem 24.2] with a different hard parameter.
 
 ## References
 
@@ -63,6 +65,33 @@ variable {ι 𝓐 E : Type*} [MeasurableSpace 𝓐] [NormedAddCommGroup E] [Inne
 section UnitBall
 
 variable [Fintype ι] {b : OrthonormalBasis ι ℝ E} {θ : E} {Δ : ℝ} {s : ι → ℝ}
+
+omit [MeasurableSpace 𝓐] in
+/-- The expected reward `⟪θ, φ a⟫` of an action with a feature in the unit ball is at most `‖θ‖` in
+absolute value. -/
+private lemma abs_inner_le_norm_of_norm_le_one (hball : ∀ a, ‖φ a‖ ≤ 1) (θ : E) (a : 𝓐) :
+    |⟪θ, φ a⟫_ℝ| ≤ ‖θ‖ :=
+  (abs_real_inner_le_norm _ _).trans (mul_le_of_le_one_right (norm_nonneg _) (hball a))
+
+omit [MeasurableSpace 𝓐] in
+/-- The expected rewards of actions with features in the unit ball are bounded above. -/
+private lemma bddAbove_range_inner_of_norm_le_one (hball : ∀ a, ‖φ a‖ ≤ 1) (θ : E) :
+    BddAbove (Set.range fun a ↦ ⟪θ, φ a⟫_ℝ) :=
+  ⟨‖θ‖, by
+    rintro _ ⟨a, rfl⟩
+    exact (le_abs_self _).trans (abs_inner_le_norm_of_norm_le_one hball θ a)⟩
+
+/-- For signs `s i` and an orthonormal basis `b` indexed by a nonempty finite type of size `d`, the
+point `∑ i, (s i / √d) • b i` has norm `1`. -/
+private lemma norm_sum_div_sqrt_card_smul [Nonempty ι] (b : OrthonormalBasis ι ℝ E)
+    (hs : ∀ i, |s i| = 1) : ‖∑ i, (s i / √(Fintype.card ι)) • b i‖ = 1 := by
+  have hd : (0 : ℝ) < Fintype.card ι := Nat.cast_pos.2 Fintype.card_pos
+  have hs2 (i : ι) : s i ^ 2 = 1 := by rw [← sq_abs, hs, one_pow]
+  refine (pow_eq_one_iff_of_nonneg (norm_nonneg _) two_ne_zero).1 ?_
+  rw [← b.sum_sq_inner_right]
+  simp_rw [b.orthonormal.inner_right_fintype, div_pow, hs2, Real.sq_sqrt hd.le, sum_const,
+    card_univ, nsmul_eq_mul]
+  field_simp
 
 omit [MeasurableSpace 𝓐] in
 /-- For signs `s i` and a feature in the unit ball, the number of coordinates `i` at which the
@@ -108,12 +137,7 @@ private lemma mul_sum_indicator_le_mul_iSup_inner_sub_inner (hΔ : 0 ≤ Δ) (hs
   set d : ℝ := (Fintype.card ι : ℝ)
   have hd : √d ^ 2 = d := Real.sq_sqrt (Nat.cast_nonneg _)
   have hinner (y : E) : ⟪θ, y⟫_ℝ = Δ * ∑ i, s i * ⟪b i, y⟫_ℝ := by
-    rw [← b.sum_inner_mul_inner θ y, mul_sum]
-    exact sum_congr rfl fun i _ ↦ by rw [real_inner_comm, hθ, mul_assoc]
-  have hbdd : BddAbove (Set.range fun x ↦ ⟪θ, φ x⟫_ℝ) :=
-    ⟨‖θ‖, by
-      rintro _ ⟨x, rfl⟩
-      exact (real_inner_le_norm _ _).trans (mul_le_of_le_one_right (norm_nonneg _) (hball x))⟩
+    simp_rw [inner_eq_sum_of_inner_basis hθ, mul_sum, mul_assoc]
   -- the point `s / √d` has mean reward `Δ √d`
   have hvert : ∑ i, s i * ⟪b i, φ a₀⟫_ℝ = √d := by
     have h1 (i : ι) : s i * ⟪b i, φ a₀⟫_ℝ = 1 / √d := by
@@ -121,7 +145,7 @@ private lemma mul_sum_indicator_le_mul_iSup_inner_sub_inner (hΔ : 0 ≤ Δ) (hs
     rw [sum_congr rfl fun i _ ↦ h1 i, sum_const, card_univ, nsmul_eq_mul, mul_one_div,
       Real.div_sqrt]
   have hsup : Δ * √d ≤ ⨆ x, ⟪θ, φ x⟫_ℝ := by
-    refine le_of_eq_of_le ?_ (le_ciSup hbdd a₀)
+    refine le_of_eq_of_le ?_ (le_ciSup (bddAbove_range_inner_of_norm_le_one hball θ) a₀)
     rw [hinner, hvert]
   calc Δ * ∑ i, {x : 𝓐 | s i * ⟪b i, φ x⟫_ℝ ≤ 0}.indicator 1 a
       ≤ Δ * (2 * d - 2 * √d * ∑ i, s i * ⟪b i, φ a⟫_ℝ) :=
@@ -130,15 +154,6 @@ private lemma mul_sum_indicator_le_mul_iSup_inner_sub_inner (hΔ : 0 ≤ Δ) (hs
         rw [hinner]
         linear_combination (-2 * Δ) * hd
     _ ≤ 2 * √d * ((⨆ x, ⟪θ, φ x⟫_ℝ) - ⟪θ, φ a⟫_ℝ) := by gcongr
-
-omit [MeasurableSpace 𝓐] in
-/-- The expected regret of a run with features in the unit ball is nonnegative. -/
-private lemma integral_linearRegret_nonneg {Ω : Type*} {mΩ : MeasurableSpace Ω} {P : Measure Ω}
-    (hball : ∀ a, ‖φ a‖ ≤ 1) (θ : E) (O : ℕ → Ω → Unit) (A : ℕ → Ω → 𝓐) (n : ℕ) :
-    0 ≤ ∫ ω, linearRegret (fun _ ↦ φ) θ O A n ω ∂P :=
-  integral_nonneg fun _ ↦ linearRegret_nonneg fun _ ↦ ⟨‖θ‖, by
-    rintro _ ⟨x, rfl⟩
-    exact (real_inner_le_norm _ _).trans (mul_le_of_le_one_right (norm_nonneg _) (hball x))⟩
 
 variable [MeasurableSpace E] [OpensMeasurableSpace E]
 
@@ -153,47 +168,6 @@ private lemma integrable_inner_sq {Ω : Type*} {mΩ : MeasurableSpace Ω} {P : M
   rw [Real.norm_eq_abs, abs_pow, sq_le_one_iff_abs_le_one, abs_abs]
   calc |⟪b i, φ (A t ω)⟫_ℝ| ≤ ‖b i‖ * ‖φ (A t ω)‖ := abs_real_inner_le_norm _ _
     _ ≤ 1 := by rw [b.norm_eq_one, one_mul]; exact hball _
-
-/-- The expected regret of a run against a parameter with coordinates `Δ * s i`, for signs `s i`
-and features in the unit ball that contain the point `s / √d`, is at least `Δ / (2 √d)` times the
-expected number of pairs of a round and a coordinate `i` at which the feature of the action played
-does not have the sign `s i`. -/
-private lemma mul_sum_sum_measureReal_le_mul_integral_linearRegret {Ω : Type*}
-    {mΩ : MeasurableSpace Ω} {P : Measure Ω} [IsProbabilityMeasure P] {A : ℕ → Ω → 𝓐}
-    (hA : ∀ t, Measurable (A t)) (hφ : Measurable φ) (hΔ : 0 ≤ Δ) (hs : ∀ i, |s i| = 1)
-    (hθ : ∀ i, ⟪b i, θ⟫_ℝ = Δ * s i) (hball : ∀ a, ‖φ a‖ ≤ 1)
-    (hvert : ∃ a, ∀ i, ⟪b i, φ a⟫_ℝ = s i / √(Fintype.card ι)) (O : ℕ → Ω → Unit) (n : ℕ) :
-    Δ * ∑ i, ∑ t ∈ range n, P.real (A t ⁻¹' {x | s i * ⟪b i, φ x⟫_ℝ ≤ 0}) ≤
-      2 * √(Fintype.card ι) * ∫ ω, linearRegret (fun _ ↦ φ) θ O A n ω ∂P := by
-  obtain ⟨a₀, ha₀⟩ := hvert
-  have hS (i : ι) : MeasurableSet {x : 𝓐 | s i * ⟪b i, φ x⟫_ℝ ≤ 0} :=
-    measurableSet_le ((hφ.const_inner' (b i)).const_mul (s i)) measurable_const
-  have hind (i : ι) (t : ℕ) :
-      Integrable ((A t ⁻¹' {x | s i * ⟪b i, φ x⟫_ℝ ≤ 0}).indicator (1 : Ω → ℝ)) P :=
-    (integrable_const (1 : ℝ)).indicator (hA t (hS i))
-  have hreg : Integrable (fun ω ↦ linearRegret (fun _ ↦ φ) θ O A n ω) P := by
-    simp_rw [linearRegret_def]
-    refine integrable_finsetSum _ fun t _ ↦ (integrable_const _).sub ?_
-    refine Integrable.of_bound ((hφ.const_inner' θ).comp (hA t)).aestronglyMeasurable ‖θ‖
-      (ae_of_all _ fun ω ↦ ?_)
-    rw [Real.norm_eq_abs]
-    exact (abs_real_inner_le_norm _ _).trans (mul_le_of_le_one_right (norm_nonneg _) (hball _))
-  calc Δ * ∑ i, ∑ t ∈ range n, P.real (A t ⁻¹' {x | s i * ⟪b i, φ x⟫_ℝ ≤ 0})
-      = ∫ ω, Δ * ∑ i, ∑ t ∈ range n,
-          (A t ⁻¹' {x | s i * ⟪b i, φ x⟫_ℝ ≤ 0}).indicator 1 ω ∂P := by
-        rw [integral_const_mul, integral_finsetSum _ fun i _ ↦ integrable_finsetSum _ fun t _ ↦
-          hind i t]
-        simp_rw [integral_finsetSum _ fun t _ ↦ hind _ t, integral_indicator_one (hA _ (hS _))]
-    _ ≤ ∫ ω, 2 * √(Fintype.card ι) * linearRegret (fun _ ↦ φ) θ O A n ω ∂P := by
-        refine integral_mono (((integrable_finsetSum _ fun i _ ↦
-          integrable_finsetSum _ fun t _ ↦ hind i t)).const_mul Δ) (hreg.const_mul _)
-          fun ω ↦ ?_
-        rw [linearRegret_def, sum_comm, mul_sum, mul_sum]
-        refine sum_le_sum fun t _ ↦ ?_
-        simpa [Set.indicator_apply] using
-          mul_sum_indicator_le_mul_iSup_inner_sub_inner hΔ hs hθ hball ha₀ (A t ω)
-    _ = 2 * √(Fintype.card ι) * ∫ ω, linearRegret (fun _ ↦ φ) θ O A n ω ∂P :=
-        integral_const_mul _ _
 
 /-- **Flipping one sign.** Let `θ` and `θ'` have coordinates `Δ * s j` and `Δ * s' j` in the basis
 `b`, for signs that agree except at `i`, where `s' i = -s i`. For features in the unit ball, the
@@ -218,11 +192,7 @@ private lemma mul_exp_div_two_le_sum_add_sum {Ω Ω' : Type*} {mΩ : MeasurableS
         ∑ t ∈ range n, P'.real (A' t ⁻¹' {x | s' i * ⟪b i, φ x⟫_ℝ ≤ 0}) := by
   -- `θ - θ'` is `2 Δ s i b i`, so `⟪θ - θ', x⟫² = 4 Δ² ⟪b i, x⟫²`
   have hdiff (y : E) : ⟪θ - θ', y⟫_ℝ ^ 2 = 4 * Δ ^ 2 * ⟪b i, y⟫_ℝ ^ 2 := by
-    have heq : ⟪θ - θ', y⟫_ℝ = 2 * Δ * s i * ⟪b i, y⟫_ℝ := by
-      rw [← b.sum_inner_mul_inner, Fintype.sum_eq_single i fun j hj ↦ by
-        rw [real_inner_comm, inner_sub_right, hθ, hθ', hs' j hj, sub_self, zero_mul],
-        real_inner_comm, inner_sub_right, hθ, hθ', hs'i]
-      ring
+    have heq := inner_sub_eq_of_inner_basis hθ hθ' hs'i hs' y
     have hsq : s i ^ 2 = 1 := by rw [← sq_abs, hs, one_pow]
     rw [heq, mul_pow, mul_pow, mul_pow, hsq]
     ring
@@ -236,14 +206,10 @@ private lemma mul_exp_div_two_le_sum_add_sum {Ω Ω' : Type*} {mΩ : MeasurableS
     field_simp
     ring
   have hbh := h.mul_exp_neg_sum_integral_div_two_le_sum_gaussianLinearEnv h' hσ2 hint n
-    (S := {x | s i * ⟪b i, φ x⟫_ℝ ≤ 0})
-    (measurableSet_le ((hφ.const_inner' (b i)).const_mul (s i)) measurable_const)
+    (measurableSet_mul_inner_nonpos hφ b s i)
   rw [hsum] at hbh
   -- an action on the wrong side for `θ'` is one on the right side for `θ`
-  have hsub : {x : 𝓐 | s i * ⟪b i, φ x⟫_ℝ ≤ 0}ᶜ ⊆ {x | s' i * ⟪b i, φ x⟫_ℝ ≤ 0} := fun x hx ↦ by
-    simp only [Set.mem_compl_iff, Set.mem_ofPred_eq, not_le] at hx ⊢
-    rw [hs'i, neg_mul]
-    exact neg_nonpos.2 hx.le
+  have hsub := compl_setOf_mul_nonpos_subset (fun x ↦ ⟪b i, φ x⟫_ℝ) hs'i
   refine hbh.trans (add_le_add le_rfl (sum_le_sum fun t _ ↦ ?_))
   exact measureReal_mono (Set.preimage_mono hsub)
 
@@ -264,14 +230,14 @@ private lemma card_mul_le_sum_mul_exp_neg (q : ι → ℝ) {c : ℝ} (hc : 0 ≤
   rw [← sum_div, ← mul_sum]
   linarith
 
-/-- **Minimax lower bound for linear bandits with features in the unit ball** [LS, Theorem 24.2].
-Let `b` be an orthonormal basis of `E` indexed by a finite type of size `d`, and let the features
-`φ a` of the actions lie in the unit ball and contain the points `s / √d` (with coordinates
-`⟪b i, φ a⟫ = s i / √d`) for the sign patterns `s ∈ {±1}^d`. For Gaussian noise of variance
-`σ2 ≠ 0`, a horizon `n` and `Δ ≥ 0`, every algorithm has, for some parameter `θ` whose
-coordinates `⟪b i, θ⟫` are `±Δ`, an expected regret against the Gaussian linear environment of
-parameter `θ` at least `Δ √d n exp(-2 Δ² n / (σ² d)) / 8`. The bound holds for every proof `hθ`
-of the measurability that `gaussianLinearEnv` takes, one of which is given by `hφ`. -/
+/-- **Minimax lower bound for linear bandits with features in the unit ball**, after
+[LS, Theorem 24.2]. Let `b` be an orthonormal basis of `E` indexed by a finite type of size `d`,
+and let the features `φ a` of the actions lie in the unit ball and contain the points `s / √d`
+(with coordinates `⟪b i, φ a⟫ = s i / √d`) for the sign patterns `s ∈ {±1}^d`. For Gaussian
+noise of variance `σ2 ≠ 0`, a horizon `n` and `Δ ≥ 0`, every algorithm has, for some parameter `θ`
+whose coordinates `⟪b i, θ⟫` are `±Δ`, an expected regret against the Gaussian linear environment
+of parameter `θ` at least `Δ √d n exp(-2 Δ² n / (σ² d)) / 8`. The bound holds for every proof
+`hθ` of the measurability that `gaussianLinearEnv` takes, one of which is given by `hφ`. -/
 theorem exists_le_integral_linearRegret_gaussianLinearEnv_of_norm_le_one
     (alg : Algorithm Unit 𝓐 ℝ) (b : OrthonormalBasis ι ℝ E) (hφ : Measurable φ)
     (hball : ∀ a, ‖φ a‖ ≤ 1)
@@ -306,8 +272,11 @@ theorem exists_le_integral_linearRegret_gaussianLinearEnv_of_norm_le_one
     ∫ ω, ⟪b i, φ (IT.action t ω)⟫_ℝ ^ 2 ∂(P ε)
   have hR (ε : ι → Bool) : Δ * ∑ i, f ε i ≤ 2 * √d * ∫ ω, linearRegret (fun _ ↦ φ) (θ ε) IT.obs
       IT.action n ω ∂(P ε) :=
-    mul_sum_sum_measureReal_le_mul_integral_linearRegret (hrun ε).measurable_action hφ hΔ
-      (hsg ε) (hθ ε) hball (hvert _ (hsg ε)) _ n
+    have ⟨a₀, ha₀⟩ := hvert _ (hsg ε)
+    mul_sum_sum_measureReal_le_mul_integral_linearRegret (hrun ε).measurable_action
+      (hφ.const_inner' (θ ε)) (abs_inner_le_norm_of_norm_le_one hball (θ ε))
+      (measurableSet_mul_inner_nonpos hφ b (sg ε))
+      (mul_sum_indicator_le_mul_iSup_inner_sub_inner hΔ (hsg ε) (hθ ε) hball ha₀) _ n
   -- the features played lie in the unit ball, so the information adds up to at most `n`
   have hq (ε : ι → Bool) : ∑ i, q ε i ≤ n := by
     have hint := integrable_inner_sq (P := P ε) (hrun ε).measurable_action hφ hball b
@@ -341,7 +310,7 @@ theorem exists_le_integral_linearRegret_gaussianLinearEnv_of_norm_le_one
     ring
   rcases (Real.sqrt_nonneg d).eq_or_lt with hd0 | hd0
   · rw [← hd0, mul_zero, zero_mul, zero_mul, zero_div]
-    exact integral_linearRegret_nonneg hball _ _ _ n
+    exact integral_linearRegret_nonneg fun _ ↦ bddAbove_range_inner_of_norm_le_one hball _
   refine le_of_mul_le_mul_left ?_ (by positivity : (0 : ℝ) < 2 * √d)
   calc 2 * √d * (Δ * √d * n * exp (-(2 * Δ ^ 2 * n / (σ2 * d))) / 8)
       = Δ * (d * (n * exp (-(2 * Δ ^ 2 / σ2 * n / d)) / 2) / 2) := by
@@ -350,10 +319,12 @@ theorem exists_le_integral_linearRegret_gaussianLinearEnv_of_norm_le_one
     _ ≤ Δ * ∑ i, f ε i := by gcongr
     _ ≤ _ := hR ε
 
-/-- **Minimax lower bound for linear bandits on the unit ball** [LS, Theorem 24.2], with the unit
-ball of a finite-dimensional inner product space `E` of dimension `d` as the action set: for
-Gaussian noise of variance `σ2` and a horizon `n`, every algorithm has, for some parameter `θ` with
-`‖θ‖² = σ² d² / (4 n)`, an expected regret at least `e^{-1/2} d √(σ² n) / 16`. -/
+/-- **Minimax lower bound for linear bandits on the unit ball**, a variant of [LS, Theorem 24.2],
+with the unit ball of a finite-dimensional inner product space `E` of dimension `d` as the action
+set: for Gaussian noise of variance `σ2` and a horizon `n`, every algorithm has, for some parameter
+`θ` with `‖θ‖² = σ² d² / (4 n)`, an expected regret at least `e^{-1/2} d √(σ² n) / 16`. The hard
+parameter of [LS] has `‖θ‖² = d² / (48 n)` instead, for variance `1`, so this bound does not imply
+the statement of [LS], whose constant is `1 / (16 √3)`. -/
 theorem exists_le_integral_linearRegret_gaussianLinearEnv_closedBall [FiniteDimensional ℝ E]
     (alg : Algorithm Unit (Metric.closedBall (0 : E) 1) ℝ) (σ2 : ℝ≥0) (n : ℕ) :
     ∃ θ : E, ‖θ‖ ^ 2 = σ2 * finrank ℝ E ^ 2 / (4 * n) ∧
@@ -370,7 +341,8 @@ theorem exists_le_integral_linearRegret_gaussianLinearEnv_closedBall [FiniteDime
   by_cases h0 : σ2 = 0 ∨ n = 0 ∨ finrank ℝ E = 0
   · refine ⟨0, ?_, fun _ ↦ ?_⟩
     · rcases h0 with h0 | h0 | h0 <;> simp [h0, hd_def]
-    · refine le_of_eq_of_le ?_ (integral_linearRegret_nonneg hball _ _ _ n)
+    · refine le_of_eq_of_le ?_
+        (integral_linearRegret_nonneg fun _ ↦ bddAbove_range_inner_of_norm_le_one hball _)
       rcases h0 with h0 | h0 | h0 <;> simp [h0, hd_def]
   simp only [not_or] at h0
   obtain ⟨hσ2, hn, hd⟩ := h0
@@ -380,23 +352,12 @@ theorem exists_le_integral_linearRegret_gaussianLinearEnv_closedBall [FiniteDime
   let b := stdOrthonormalBasis ℝ E
   have hcard : (Fintype.card (Fin (finrank ℝ E)) : ℝ) = d := by simp [hd_def]
   -- the points `s / √d` of the unit ball
+  have : Nonempty (Fin (finrank ℝ E)) := ⟨⟨0, Nat.pos_of_ne_zero hd⟩⟩
   have hvert (s : Fin (finrank ℝ E) → ℝ) (hs : ∀ i, |s i| = 1) :
       ∃ x : Metric.closedBall (0 : E) 1,
-        ∀ i, ⟪b i, (x : E)⟫_ℝ = s i / √(Fintype.card (Fin (finrank ℝ E))) := by
-    let v : E := ∑ i, (s i / √(Fintype.card (Fin (finrank ℝ E)))) • b i
-    have hv (i : Fin (finrank ℝ E)) :
-        ⟪b i, v⟫_ℝ = s i / √(Fintype.card (Fin (finrank ℝ E))) :=
-      b.orthonormal.inner_right_fintype _ i
-    have hnorm : ‖v‖ ^ 2 = 1 := by
-      rw [← b.sum_sq_inner_right]
-      have hs2 (i : Fin (finrank ℝ E)) : s i ^ 2 = 1 := by rw [← sq_abs, hs, one_pow]
-      simp_rw [hv, div_pow, hs2, Real.sq_sqrt (Nat.cast_nonneg _),
-        sum_const, card_univ, nsmul_eq_mul]
-      rw [hcard]
-      field_simp
-    refine ⟨⟨v, ?_⟩, hv⟩
-    rw [Metric.mem_closedBall, dist_zero_right]
-    nlinarith [norm_nonneg v]
+        ∀ i, ⟪b i, (x : E)⟫_ℝ = s i / √(Fintype.card (Fin (finrank ℝ E))) :=
+    ⟨⟨_, mem_closedBall_zero_iff.2 (norm_sum_div_sqrt_card_smul b hs).le⟩,
+      b.orthonormal.inner_right_fintype _⟩
   set Δ : ℝ := √(σ2 / n) * √d / 2 with hΔ
   have hΔsq : Δ ^ 2 = σ2 * d / (4 * n) := by
     rw [hΔ, div_pow, mul_pow, Real.sq_sqrt (by positivity), Real.sq_sqrt hd'.le]
