@@ -25,8 +25,8 @@ a compact set of vectors is the convex hull of the compact set of their rank-one
 
 ## Main statements
 
-* `exists_stdSimplex_fin_of_mem_convexHull`: in a finite-dimensional space, every point of the
-  convex hull of `s` is a convex combination of `finrank + 1` points of `s`.
+* `LMLExplore.exists_stdSimplex_fin_of_mem_convexHull`: in a finite-dimensional space, every
+  point of the convex hull of `s` is a convex combination of `finrank + 1` points of `s`.
 * `IsCompact.convexHull`: the convex hull of a compact set in a finite-dimensional real
   topological vector space is compact.
 
@@ -37,6 +37,8 @@ The proof follows `isCompact_convexHull` of the `colt-2026-83` project (Rémy De
 public section
 
 open Convexity
+
+namespace LMLExplore
 
 /-- **Carathéodory's theorem with `finrank + 1` points**: in a finite-dimensional space, every point
 of the convex hull of `s` is a convex combination of `finrank + 1` points of `s`. -/
@@ -73,6 +75,8 @@ theorem exists_stdSimplex_fin_of_mem_convexHull {𝕜 E : Type*} [Field 𝕜] [L
     simpa [e.injective.extend_apply] using hz (Set.mem_range_self i)
   · simpa [Function.extend_apply' _ _ _ hj] using hx₀
 
+end LMLExplore
+
 /-- **The convex hull of a compact set is compact** in a finite-dimensional real topological vector
 space. -/
 theorem IsCompact.convexHull {E : Type*} [AddCommGroup E] [Module ℝ E] [TopologicalSpace E]
@@ -86,7 +90,7 @@ theorem IsCompact.convexHull {E : Type*} [AddCommGroup E] [Module ℝ E] [Topolo
   suffices _root_.convexHull ℝ s = f '' (Set.univ ×ˢ Set.univ.pi fun _ ↦ s) from
     this ▸ (isCompact_univ.prod (isCompact_univ_pi fun _ ↦ hs)).image hf
   refine Set.Subset.antisymm (fun x hx ↦ ?_) ?_
-  · obtain ⟨ω, z, hz, rfl⟩ := exists_stdSimplex_fin_of_mem_convexHull hx
+  · obtain ⟨ω, z, hz, rfl⟩ := LMLExplore.exists_stdSimplex_fin_of_mem_convexHull hx
     exact ⟨(ω, z), ⟨Set.mem_univ _, fun i _ ↦ hz i⟩, rfl⟩
   · rintro _ ⟨⟨w, z⟩, ⟨-, hz⟩, rfl⟩
     exact (convex_convexHull ℝ s).sum_mem (fun i _ ↦ w.weights_nonneg i) w.total_of_fintype

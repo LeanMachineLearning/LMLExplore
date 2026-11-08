@@ -5,6 +5,7 @@ Authors: Rémy Degenne
 -/
 module
 
+public import LMLExplore.Analysis.Convex.Simplex
 public import Mathlib.Geometry.Convex.ConvexSpace.Defs
 
 /-!
@@ -55,10 +56,9 @@ theorem support_weights_convexCombPair_subset (s t : R) (hs : 0 ≤ s) (ht : 0 �
     (hst : s + t = 1) (w w' : StdSimplex R X) :
     ((convexCombPair s t hs ht hst w w').weights.support : Set X) ⊆
       ↑w.weights.support ∪ ↑w'.weights.support := by
-  classical
-  intro a ha
-  rw [weights_convexCombPair, Finset.mem_coe] at ha
-  rcases Finset.mem_union.1 (Finsupp.support_add ha) with h | h
-  exacts [Or.inl (Finsupp.support_smul h), Or.inr (Finsupp.support_smul h)]
+  rw [weights_convexCombPair]
+  exact (LMLExplore.convex_setOf_nonneg_support_subset_sum_eq_one _
+    ⟨w.nonneg, Set.subset_union_left, w.total⟩ ⟨w'.nonneg, Set.subset_union_right, w'.total⟩
+    hs ht hst).2.1
 
 end Convexity.StdSimplex
