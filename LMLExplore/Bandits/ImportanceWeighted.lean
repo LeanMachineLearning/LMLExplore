@@ -73,8 +73,6 @@ feedback `Y n` is almost surely the reward `x (A n)` of the action, the conditio
   `p`-average of its squares is at most this sum.
 * `comp_feedback_ae_eq`: when the feedback `Y n` is almost surely `x (A n)`, it can be replaced
   by `x (A n)` in any function of the past, the action and the feedback of round `n`.
-* `Learning.IsAlgEnvSeq.measurable_means_filtrationObs`: the means of the feedbacks of round `n`
-  are measurable with respect to the past of round `n`.
 * `Learning.IsAlgEnvSeq.integrable_feedback_of_ae_eq`,
   `Learning.IsAlgEnvSeq.condExp_feedback_ae_eq_of_ae_eq`: such a feedback is integrable when there
   are finitely many actions, and its conditional expectation given the past and the action of
@@ -431,18 +429,6 @@ lemma ae_feedback_mem_Icc {x : ℕ → α → ℝ} (hY : ∀ t < n, Y t =ᵐ[P] 
   filter_upwards [ae_forall_feedback_eq hY] with ω hω t ht
   rw [hω t ht]
   exact hx t ht _
-
-omit [DecidableEq α] in
-/-- Along a run of an algorithm, the mean `env.means O A Y a n` of the feedback of an action `a`
-at round `n` is measurable with respect to the past of round `n`. -/
-lemma _root_.Learning.IsAlgEnvSeq.measurable_means_filtrationObs [MeasurableSpace α]
-    [MeasurableSpace 𝓞] {alg : Algorithm 𝓞 α ℝ} {env : Environment 𝓞 α ℝ}
-    (h : IsAlgEnvSeq O A Y alg env P) (a : α) :
-    Measurable[h.filtrationObs n] (env.means O A Y a n) := by
-  rw [funext (Environment.means_eq_integral env O A Y a n)]
-  exact Measurable.comp (mα := h.filtrationObs n)
-    ((stronglyMeasurable_id.integral_kernel (κ := env.feedback n)).measurable.comp
-      measurable_prodMk_right) (measurable_iff_comap_le.2 le_rfl)
 
 omit [DecidableEq α] in
 /-- Along a run of an algorithm with finitely many actions whose feedback at round `n` is almost
