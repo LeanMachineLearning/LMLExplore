@@ -84,7 +84,7 @@ This is the decoupling device of [AKY20, Lemma 6].
 * `LMLExplore.measureReal_sqrt_variance_add_le_abs_integral_sub_integral_empiricalKernel_le`:
   Bernstein's inequality for the empirical means of a bounded function, with its variance under
   `ν a`.
-* `LMLExplore.measureReal_sqrt_add_le_abs_integral_sub_integral_empiricalKernel_le_of_indepFun`:
+* `measureReal_sqrt_variance_add_le_abs_integral_sub_integral_empiricalKernel_le_of_indepFun`:
   Bernstein's inequality for the empirical means of a random function independent of the samples
   of the key.
 
@@ -359,7 +359,7 @@ samples of `a` deviates from its mean under `ν a` by at least
 By independence, the law of the pair (random function, samples) is a product, and the bound is
 Bernstein's inequality for each fixed function. It applies to a function `W ω` computed from the
 samples of the other keys: this is the decoupling of [AKY20, Lemma 6]. -/
-theorem measureReal_sqrt_add_le_abs_integral_sub_integral_empiricalKernel_le_of_indepFun
+theorem measureReal_sqrt_variance_add_le_abs_integral_sub_integral_empiricalKernel_le_of_indepFun
     [Countable β] [MeasurableSingletonClass β] (ν : Kernel α β) [IsMarkovKernel ν]
     {W : (ℕ → α → β) → β → ℝ} (hW : Measurable W) {a : α}
     (h_indep : IndepFun W (fun ω i ↦ ω i a) (streamMeasure ν)) {l u : ℝ} (hlu : l < u)

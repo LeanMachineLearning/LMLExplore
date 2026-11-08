@@ -18,10 +18,10 @@ of the points of `[a, b]` within `Δ` of `c`, now with all its points in `[a, b]
 ## Main statements
 
 * `unitInterval.toNNReal_eq_zero`: `toNNReal p = 0 ↔ p = 0`.
-* `exists_abs_sub_grid_le`: a uniform grid of `K + 1` points on `[c - Δ, c + Δ]` is a
+* `LMLExplore.exists_abs_sub_grid_le`: a uniform grid of `K + 1` points on `[c - Δ, c + Δ]` is a
   `2 Δ / K`-net of this interval.
-* `exists_abs_sub_projIcc_grid_le`: the same grid, clipped to `[a, b]`, is a `2 Δ / K`-net of the
-  points of `[a, b]` within `Δ` of `c`.
+* `LMLExplore.exists_abs_sub_projIcc_grid_le`: the same grid, clipped to `[a, b]`, is a
+  `2 Δ / K`-net of the points of `[a, b]` within `Δ` of `c`.
 -/
 
 public section
@@ -35,7 +35,7 @@ lemma toNNReal_eq_zero {p : I} : toNNReal p = 0 ↔ p = 0 := by
 
 end unitInterval
 
-section Grid
+namespace LMLExplore
 
 variable {𝕜 : Type*} [Field 𝕜] [LinearOrder 𝕜] [IsStrictOrderedRing 𝕜] [FloorSemiring 𝕜]
   {x c Δ : 𝕜} {K : ℕ}
@@ -79,4 +79,4 @@ theorem exists_abs_sub_projIcc_grid_le {a b : 𝕜} (hab : a ≤ b) (hx : x ∈ 
   rw [Set.projIcc_of_mem hab hx] at h_clip
   exact h_clip.trans hk
 
-end Grid
+end LMLExplore

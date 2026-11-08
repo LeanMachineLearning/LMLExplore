@@ -51,7 +51,7 @@ difference, where [AKY20] uses its sup norm; this only changes the absolute cons
 
 * `Learning.MDP.indepFun_comp_absorbing_empirical`: every function of the `s`-absorbing
   modification of the empirical MDP is independent of the samples of `(s, a)`.
-* `Learning.MDP.measureReal_sqrt_add_le_abs_integral_sub_integral_empirical_absorbing_le`:
+* `Learning.MDP.measureReal_sqrt_variance_add_le_abs_integral_sub_integral_empirical_absorbing_le`:
   Bernstein's inequality for the values of the absorbing modifications of the empirical MDP
   [AKY20, Lemma 6].
 * `le_streamMeasure_forall_abs_integral_optValue_empirical_sub_integral_optValue_empirical_le` and
@@ -120,7 +120,7 @@ an MDP `M'` (for instance its optimal value), with values in `[l, u]`, `l < u`, 
 and every `x`, the one-step prediction error `|∫ v dP (s, a) - ∫ v dP̂ (s, a)|` of
 `v = G ((M.empirical N ω).absorbing s c)` is at least
 `√(2 Var_{P (s, a)}(v) x / N) + (u - l) x / (3 N)` with probability at most `2 exp (-x)`. -/
-theorem measureReal_sqrt_add_le_abs_integral_sub_integral_empirical_absorbing_le
+theorem measureReal_sqrt_variance_add_le_abs_integral_sub_integral_empirical_absorbing_le
     (M : MDP 𝓢 𝓐 𝓡) (N : ℕ) [NeZero N] (G : MDP 𝓢 𝓐 𝓡 → 𝓢 → ℝ) {l u : ℝ} (hlu : l < u) (s : 𝓢)
     (c : 𝓡) (hG : ∀ ω s', G ((M.empirical N ω).absorbing s c) s' ∈ Set.Icc l u) (a : 𝓐)
     (x : ℝ) :
@@ -131,7 +131,7 @@ theorem measureReal_sqrt_add_le_abs_integral_sub_integral_empirical_absorbing_le
         ∫ s', G ((M.empirical N ω).absorbing s c) s' ∂((M.empirical N ω).P (s, a))|} ≤
       2 * exp (-x) := by
   simpa only [empirical_P] using
-    measureReal_sqrt_add_le_abs_integral_sub_integral_empiricalKernel_le_of_indepFun M.P
+    measureReal_sqrt_variance_add_le_abs_integral_sub_integral_empiricalKernel_le_of_indepFun M.P
       (measurable_comp_empirical M N fun M' ↦ G (M'.absorbing s c))
       (indepFun_comp_absorbing_empirical M N G s c a) hlu hG N x
 
@@ -280,7 +280,7 @@ private theorem le_streamMeasure_forall_abs_integral_sub_le_of_absorbing {M : MD
         ∫ s', W ω i.1 i.2.2 s' ∂((M.empirical N ω).P (i.1, i.2.1))|}
   have h_bad (i : 𝓢 × 𝓐 × Fin (K + 1)) :
       μ.real (bad i) ≤ δ / 2 / Fintype.card (𝓢 × 𝓐 × Fin (K + 1)) := by
-    refine (measureReal_sqrt_add_le_abs_integral_sub_integral_empirical_absorbing_le M N G
+    refine (measureReal_sqrt_variance_add_le_abs_integral_sub_integral_empirical_absorbing_le M N G
       (neg_lt_self hB) i.1 _ (fun ω ↦ hWb ω i.1 i.2.2) i.2.1 L).trans ?_
     simp only [Fintype.card_prod, Fintype.card_fin, Nat.cast_mul, Nat.cast_add, Nat.cast_one]
     exact two_mul_exp_neg_log_le (by positivity) (by positivity) (Nat.cast_nonneg K) hθ₀ hδ hK₂
