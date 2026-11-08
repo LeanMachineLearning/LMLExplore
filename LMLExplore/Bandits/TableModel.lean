@@ -248,20 +248,20 @@ lemma hasCondDistrib_action (alg : Algorithm Unit 𝓐 𝓡) (n : ℕ) :
   refine hasCondDistrib_prodMk_right_unique_iff.mpr ?_
   simpa only [hist_eq_history] using hasCondDistrib_action_hist ξ alg n
 
-/-- The table with row `n` removed: the rows before `n` are kept and the later ones are shifted
-down by one. The history and the action of round `n` only read the uniform variables and this
-table. -/
-private def dropRow (n : ℕ) (ω : ArrayModel.ProbSpace 𝓐 𝓡) : ArrayModel.ProbSpace 𝓐 𝓡 :=
-  (ω.1, fun i ↦ if i < n then ω.2 i else ω.2 (i + 1))
+/-- The table `x` with row `n` removed: the rows before `n` are kept and the later ones are
+shifted down by one. The history and the action of round `n` only read the uniform variables and
+this table. -/
+private def dropRow (n : ℕ) (x : ℕ → 𝓐 → 𝓡) : ℕ → 𝓐 → 𝓡 :=
+  fun i ↦ if i < n then x i else x (i + 1)
 
 omit [Countable 𝓐] in
 private lemma hist_action_dropRow (alg : Algorithm Unit 𝓐 𝓡) (n : ℕ)
     (ω : ArrayModel.ProbSpace 𝓐 𝓡) :
-    (hist alg (dropRow n ω) n, action alg n (dropRow n ω)) = (hist alg ω n, action alg n ω) := by
-  have h : hist alg (dropRow n ω) n = hist alg ω n :=
+    (hist alg (ω.1, dropRow n ω.2) n, action alg n (ω.1, dropRow n ω.2)) =
+      (hist alg ω n, action alg n ω) := by
+  have h : hist alg (ω.1, dropRow n ω.2) n = hist alg ω n :=
     hist_congr alg (fun _ _ ↦ rfl) fun i hi ↦ by simp [dropRow, hi]
-  simp only [action, h]
-  simp only [dropRow]
+  rw [action_def, action_def, h]
 
 /-- Under `ArrayModel.arrayMeasure ν`, row `n` of the table is independent of the history and the
 action of round `n`. -/
@@ -269,23 +269,23 @@ private lemma indepFun_row_hist_action (alg : Algorithm Unit 𝓐 𝓡) (ν : Ke
     [IsMarkovKernel ν] (n : ℕ) :
     IndepFun (fun ω : ArrayModel.ProbSpace 𝓐 𝓡 ↦ ω.2 n)
       (fun ω ↦ (hist alg ω n, action alg n ω)) (ArrayModel.arrayMeasure ν) := by
-  let T : (ℕ → 𝓐 → 𝓡) → (ℕ → 𝓐 → 𝓡) := fun x i ↦ if i < n then x i else x (i + 1)
   have hT : Measurable[⨆ j ∈ {j : ℕ | j ≠ n},
-      MeasurableSpace.comap (fun x : ℕ → 𝓐 → 𝓡 ↦ x j) inferInstance] T := by
+      MeasurableSpace.comap (fun x : ℕ → 𝓐 → 𝓡 ↦ x j) inferInstance]
+      (dropRow (𝓐 := 𝓐) (𝓡 := 𝓡) n) := by
     rw [measurable_iff_comap_le, MeasurableSpace.comap_pi]
     refine iSup_le fun i ↦ ?_
     by_cases hi : i < n
-    · simp only [T, hi, ↓reduceIte]
+    · simp only [dropRow, hi, ↓reduceIte]
       exact le_iSup₂_of_le i (by simp; omega) le_rfl
-    · simp only [T, hi, ↓reduceIte]
+    · simp only [dropRow, hi, ↓reduceIte]
       exact le_iSup₂_of_le (i + 1) (by simp; omega) le_rfl
-  have hTm : Measurable T :=
+  have hTm : Measurable (dropRow (𝓐 := 𝓐) (𝓡 := 𝓡) n) :=
     hT.mono (iSup₂_le fun j _ ↦ Measurable.comap_le (by fun_prop)) le_rfl
   have h := ((iIndepFun_eval_streamMeasure' ν).indepFun_of_measurable_iSup_comap
     (fun _ ↦ by fun_prop) (i := n) (by simp) hT).snd_prod
     (μ := Measure.infinitePi fun _ : ℕ ↦ (volume : Measure I)) (by fun_prop) hTm
   have h_eq : (fun ω ↦ (hist alg ω n, action alg n ω)) =
-      (fun ω ↦ (hist alg ω n, action alg n ω)) ∘ (fun ω ↦ (ω.1, T ω.2)) := by
+      (fun ω ↦ (hist alg ω n, action alg n ω)) ∘ (fun ω ↦ (ω.1, dropRow n ω.2)) := by
     ext ω : 1
     exact (hist_action_dropRow alg n ω).symm
   rw [h_eq]
