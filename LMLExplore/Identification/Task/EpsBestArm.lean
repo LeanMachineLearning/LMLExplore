@@ -30,6 +30,15 @@ the expected number of pulls of every arm, whose sum is a lower bound on the sam
 `ε`-best arm identification, of the order of `K / ε²` for Bernoulli arms [MT04, Theorem 1]
 (`LMLExplore/Identification/EpsBestArmLowerBound.lean`).
 
+In multiplicative `ε`-best arm identification (`mulEpsBaiTask ν id ε`, on the vectors of positive
+means), the arm `a` is multiplicatively `ε`-good for `μ` when `(1 - ε) μ b ≤ μ a` for every arm `b`.
+For `ε < 1` it stops being so once one of the following happens:
+
+* the mean of another arm `b` is moved above `μ a / (1 - ε)`; this costs
+  `D(μ, w, ¬a) ≤ w b d_b(μ b, μ a / (1 - ε))`;
+* the mean of `a` is moved below `(1 - ε) μ b` for another arm `b`, staying positive; this costs
+  `D(μ, w, ¬a) ≤ w a d_a(μ a, (1 - ε) μ b)`.
+
 ## Main statements
 
 * `LMLExplore.Identification.mem_alt_epsBaiTask_iff`: a model `θ` is an alternative to `a` iff
@@ -38,11 +47,20 @@ the expected number of pulls of every arm, whose sum is a lower bound on the sam
   arm `b ≠ a`, `D(μ, w, ¬a) ≤ w b d_b(μ b, μ a + ε)`.
 * `LMLExplore.Identification.altCost_epsBaiTask_restrict_le_ofReal_mul_expFamilyDiv_sub`: for an
   arm `b ≠ a`, `D(μ, w, ¬a) ≤ w a d_a(μ a, μ b - ε)`.
+* `LMLExplore.Identification.mem_alt_mulEpsBaiTask_iff`: in multiplicative `ε`-best arm
+  identification, a model `θ` is an alternative to `a` iff its means are positive and some arm `b`
+  has `mean θ a < (1 - ε) * mean θ b`.
+* `LMLExplore.Identification.altCost_mulEpsBaiTask_restrict_le_ofReal_mul_expFamilyDiv_div`,
+  `LMLExplore.Identification.altCost_mulEpsBaiTask_restrict_le_ofReal_mul_expFamilyDiv_mul`: for
+  `ε < 1`, positive means and an arm `b ≠ a`, `D(μ, w, ¬a) ≤ w b d_b(μ b, μ a / (1 - ε))` and
+  `D(μ, w, ¬a) ≤ w a d_a(μ a, (1 - ε) * μ b)`.
 
 ## References
 
 * [MT04] S. Mannor and J. N. Tsitsiklis, *The sample complexity of exploration in the multi-armed
   bandit problem*, JMLR 5 (2004), Theorem 1.
+* [JDK23b] M. Jourdan, R. Degenne and E. Kaufmann, *An ε-best-arm identification algorithm for
+  fixed-confidence and beyond*, NeurIPS 2023.
 -/
 
 public section
@@ -61,6 +79,15 @@ for `θ`: some arm `b` has `mean θ a + ε < mean θ b`. -/
 lemma mem_alt_epsBaiTask_iff (ν : Θ → Kernel α 𝓨) [∀ θ, IsMarkovKernel (ν θ)]
     (mean : Θ → α → ℝ) {θ : Θ} :
     θ ∈ (epsBaiTask ν mean ε).alt a ↔ ∃ b, mean θ a + ε < mean θ b := by
+  simp [IdentTask.mem_alt_iff]
+
+/-- In multiplicative `ε`-best arm identification, `θ` is an alternative to the arm `a` iff `θ` has
+positive means and `a` is not multiplicatively `ε`-good for `θ`: some arm `b` has
+`mean θ a < (1 - ε) * mean θ b`. -/
+lemma mem_alt_mulEpsBaiTask_iff (ν : Θ → Kernel α 𝓨) [∀ θ, IsMarkovKernel (ν θ)]
+    (mean : Θ → α → ℝ) {θ : Θ} :
+    θ ∈ (mulEpsBaiTask ν mean ε).alt a ↔
+      (∀ c, 0 < mean θ c) ∧ ∃ b, mean θ a < (1 - ε) * mean θ b := by
   simp [IdentTask.mem_alt_iff]
 
 variable (ν : (α → ℝ) → Kernel α 𝓨) [∀ μ, IsMarkovKernel (ν μ)]
@@ -106,5 +133,64 @@ theorem altCost_epsBaiTask_restrict_le_ofReal_mul_expFamilyDiv_sub
     (((continuous_const.update a continuous_id).tendsto _).mono_left nhdsWithin_le_nhds)
     (eventually_nhdsWithin_of_forall fun x hx ↦ (mem_alt_epsBaiTask_iff ν id).2
       ⟨b, by simpa [Function.update_of_ne hba] using (lt_sub_iff_add_lt.1 hx)⟩)
+
+omit [DecidableEq α] in
+/-- **The cost of raising another arm above `μ a / (1 - ε)`.** Let the arm `c` belong to an
+exponential family `(ρ c, T c)` with divergence `d_c` and let `μ` be a vector of positive means of
+the families. For `ε < 1`, arms `b ≠ a` such that `μ a / (1 - ε)` is a mean of the family of `b`
+and every nonnegative allocation `w`, `D(μ, w, ¬a) ≤ w b d_b(μ b, μ a / (1 - ε))` in multiplicative
+`ε`-best arm identification, within the vectors of means of the families: moving the mean of `b`
+above `μ a / (1 - ε)` makes `a` not multiplicatively `ε`-good. -/
+theorem altCost_mulEpsBaiTask_restrict_le_ofReal_mul_expFamilyDiv_div
+    (hT : ∀ c x, ¬ T c =ᵐ[ρ c] fun _ ↦ x) (hμ : ∀ c, μ c ∈ (ρ c).expFamilyMeans (T c))
+    (hν : ∀ μ' : α → ℝ, (∀ c, μ' c ∈ (ρ c).expFamilyMeans (T c)) →
+      ∀ c, klDiv (ν μ c) (ν μ' c) = ENNReal.ofReal ((ρ c).expFamilyDiv (T c) (μ c) (μ' c)))
+    (hμ_pos : ∀ c, 0 < μ c) (hε : ε < 1) (hba : b ≠ a)
+    (hb : μ a / (1 - ε) ∈ (ρ b).expFamilyMeans (T b)) (hw : 0 ≤ w) :
+    ((mulEpsBaiTask ν id ε).restrict {μ' | ∀ c, μ' c ∈ (ρ c).expFamilyMeans (T c)}).altCost μ w a ≤
+      ENNReal.ofReal (w b * (ρ b).expFamilyDiv (T b) (μ b) (μ a / (1 - ε))) := by
+  classical
+  have h1ε : 0 < 1 - ε := sub_pos.2 hε
+  refine IdentTask.altCost_restrict_le_ofReal_mul_expFamilyDiv_of_tendsto (by simp) hν hw hT
+    hμ b hb (l := 𝓝[>] (μ a / (1 - ε)))
+    (((continuous_const.update b continuous_id).tendsto _).mono_left nhdsWithin_le_nhds)
+    (eventually_nhdsWithin_of_forall fun x hx ↦ (mem_alt_mulEpsBaiTask_iff ν id).2 ⟨?_, b, ?_⟩)
+  · -- The new mean `x` of `b` is larger than `μ a / (1 - ε) > 0`.
+    have hx : 0 < x := (div_pos (hμ_pos a) h1ε).trans hx
+    intro c
+    rcases eq_or_ne c b with rfl | hcb
+    · simpa using hx
+    · simpa [Function.update_of_ne hcb] using hμ_pos c
+  · simpa [Function.update_of_ne hba.symm, mul_comm] using (div_lt_iff₀ h1ε).1 hx
+
+omit [DecidableEq α] in
+/-- **The cost of lowering `a` below `(1 - ε) * μ b`.** Let the arm `c` belong to an exponential
+family `(ρ c, T c)` with divergence `d_c` and let `μ` be a vector of positive means of the
+families. For `ε < 1`, arms `b ≠ a` such that `(1 - ε) * μ b` is a mean of the family of `a` and
+every nonnegative allocation `w`, `D(μ, w, ¬a) ≤ w a d_a(μ a, (1 - ε) * μ b)` in multiplicative
+`ε`-best arm identification, within the vectors of means of the families: moving the mean of `a`
+below `(1 - ε) * μ b`, and above `0`, makes `a` not multiplicatively `ε`-good. -/
+theorem altCost_mulEpsBaiTask_restrict_le_ofReal_mul_expFamilyDiv_mul
+    (hT : ∀ c x, ¬ T c =ᵐ[ρ c] fun _ ↦ x) (hμ : ∀ c, μ c ∈ (ρ c).expFamilyMeans (T c))
+    (hν : ∀ μ' : α → ℝ, (∀ c, μ' c ∈ (ρ c).expFamilyMeans (T c)) →
+      ∀ c, klDiv (ν μ c) (ν μ' c) = ENNReal.ofReal ((ρ c).expFamilyDiv (T c) (μ c) (μ' c)))
+    (hμ_pos : ∀ c, 0 < μ c) (hε : ε < 1) (hba : b ≠ a)
+    (ha : (1 - ε) * μ b ∈ (ρ a).expFamilyMeans (T a)) (hw : 0 ≤ w) :
+    ((mulEpsBaiTask ν id ε).restrict {μ' | ∀ c, μ' c ∈ (ρ c).expFamilyMeans (T c)}).altCost μ w a ≤
+      ENNReal.ofReal (w a * (ρ a).expFamilyDiv (T a) (μ a) ((1 - ε) * μ b)) := by
+  classical
+  have hpos : 0 < (1 - ε) * μ b := mul_pos (sub_pos.2 hε) (hμ_pos b)
+  -- Near `(1 - ε) * μ b > 0` and below it, the new mean `x` of `a` is positive.
+  have h_ev : ∀ᶠ x in 𝓝[<] ((1 - ε) * μ b), 0 < x ∧ x < (1 - ε) * μ b :=
+    (eventually_nhdsWithin_of_eventually_nhds (eventually_gt_nhds hpos)).and
+      self_mem_nhdsWithin
+  refine IdentTask.altCost_restrict_le_ofReal_mul_expFamilyDiv_of_tendsto (by simp) hν hw hT
+    hμ a ha (l := 𝓝[<] ((1 - ε) * μ b))
+    (((continuous_const.update a continuous_id).tendsto _).mono_left nhdsWithin_le_nhds)
+    (h_ev.mono fun x hx ↦ (mem_alt_mulEpsBaiTask_iff ν id).2 ⟨fun c ↦ ?_, b, ?_⟩)
+  · rcases eq_or_ne c a with rfl | hca
+    · simpa using hx.1
+    · simpa [Function.update_of_ne hca] using hμ_pos c
+  · simpa [Function.update_of_ne hba] using hx.2
 
 end LMLExplore.Identification

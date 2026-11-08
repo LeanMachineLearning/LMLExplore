@@ -27,6 +27,9 @@ of mean `μ a`, for example `ν μ = gaussianBandit μ σ2`.
   models with a unique best arm.
 * `epsBaiTask ν mean ε`: `ε`-best arm identification. The correct answers are the arms whose mean
   is within `ε` of the largest mean, on every model. Several answers may be correct.
+* `mulEpsBaiTask ν mean ε`: multiplicative `ε`-best arm identification [JDK23b]. The correct
+  answers are the arms whose mean is at least `(1 - ε)` times the largest mean, on the models with
+  positive means. Several answers may be correct.
 * `topMTask ν mean m`: top-`m` identification. The answer is the set of the `m` arms with the
   largest means, on the models where it is unique.
 * `thresholdingTask ν mean γ`: the answer is the set of arms with mean above `γ`, on the models
@@ -49,8 +52,9 @@ of mean `μ a`, for example `ν μ = gaussianBandit μ σ2`.
   model.
 * `isSingleAnswer_thresholdingTask`: on finitely many arms, thresholding has a single correct
   answer on every admissible model.
-* `comap_baiTask`, `comap_epsBaiTask`, `comap_topMTask`, `comap_thresholdingTask`,
-  `comap_minThresholdTask`, `comap_anyLowArmTask`, `comap_halfSpaceTask`, `comap_epsTopMTask`:
+* `comap_baiTask`, `comap_epsBaiTask`, `comap_mulEpsBaiTask`, `comap_topMTask`,
+  `comap_thresholdingTask`, `comap_minThresholdTask`, `comap_anyLowArmTask`, `comap_halfSpaceTask`,
+  `comap_epsTopMTask`:
   the pullback of a classical task along a map `f` of models is the same task for the bandits and
   the mean functional composed with `f`. In particular a task on models `Θ` whose bandits depend on
   the means only, `ν θ = ν' (mean θ)`, is the pullback along `mean` of the task on vectors of
@@ -64,6 +68,12 @@ of mean `μ a`, for example `ν μ = gaussianBandit μ σ2`.
 * `nonempty_correct_anyLowArmTask_iff`: the admissible models of Any Low Arm are exactly the
   models with a correct answer.
 * `correct_baiTask_subset_correct_epsBaiTask`: the best arm is `ε`-good for every `ε ≥ 0`.
+* `correct_mulEpsBaiTask_eq_correct_epsBaiTask`: for `ε ≤ 1`, the multiplicatively `ε`-good arms
+  are the additively `ε * max_b mean θ b`-good arms.
+* `nonempty_correct_mulEpsBaiTask`, `correct_mulEpsBaiTask_eq_singleton_iff`,
+  `correct_baiTask_subset_correct_mulEpsBaiTask`: for `ε ≥ 0` and nonnegative means, every model
+  has a multiplicatively `ε`-good arm, `a` is the only one iff `mean θ b < (1 - ε) * mean θ a` for
+  every arm `b ≠ a`, and the best arm is one.
 * `mem_correct_epsTopMTask_of_forall_le`, `nonempty_correct_epsTopMTask`: for `ε ≥ 0`, a set of `m`
   arms with the largest means is a correct answer of `(ε, m)`-top identification, so every model
   has one when `m ≤ K`.
@@ -80,6 +90,8 @@ of mean `μ a`, for example `ν μ = gaussianBandit μ σ2`.
   stochastic multi-armed bandits*, ICML 2012.
 * [DK19] R. Degenne and W. M. Koolen, *Pure exploration with multiple correct answers*,
   NeurIPS 2019.
+* [JDK23b] M. Jourdan, R. Degenne and E. Kaufmann, *An ε-best-arm identification algorithm for
+  fixed-confidence and beyond*, NeurIPS 2023.
 -/
 
 public section
@@ -225,6 +237,103 @@ lemma correct_baiTask_subset_correct_epsBaiTask (hε : 0 ≤ ε) (θ : Θ) :
   rcases eq_or_ne b a with rfl | hb
   · exact le_add_of_nonneg_right hε
   · exact (ha b hb).le.trans (le_add_of_nonneg_right hε)
+
+/-! ### Multiplicative `ε`-best arm identification -/
+
+/-- *Multiplicative `ε`-best arm identification* [JDK23b] on a type `Θ` of models with the mean
+functional `mean : Θ → α → ℝ`: the correct answers of a model `θ` are its multiplicatively
+`ε`-good arms, the arms `a` with `(1 - ε) * mean θ b ≤ mean θ a` for every arm `b`, that is, whose
+mean is at least `(1 - ε)` times the largest mean, and the admissible models are those with
+positive means. The task on vectors of means is `mulEpsBaiTask ν id ε`. -/
+noncomputable def mulEpsBaiTask (ε : ℝ) : IdentTask α Θ α 𝓨 where
+  M := {θ | ∀ a, 0 < mean θ a}
+  ν := ν
+  isMarkovKernel_ν _ := inferInstance
+  correct θ := {a | ∀ b, (1 - ε) * mean θ b ≤ mean θ a}
+
+@[simp]
+lemma M_mulEpsBaiTask : (mulEpsBaiTask ν mean ε).M = {θ | ∀ a, 0 < mean θ a} := (rfl)
+
+@[simp]
+lemma ν_mulEpsBaiTask : (mulEpsBaiTask ν mean ε).ν = ν := (rfl)
+
+@[simp]
+lemma correct_mulEpsBaiTask (θ : Θ) :
+    (mulEpsBaiTask ν mean ε).correct θ = {a | ∀ b, (1 - ε) * mean θ b ≤ mean θ a} := (rfl)
+
+/-- The pullback of multiplicative `ε`-best arm identification along a map `f` of models is
+multiplicative `ε`-best arm identification for the bandits and the mean functional composed with
+`f`. -/
+@[simp]
+lemma comap_mulEpsBaiTask (f : Θ' → Θ) :
+    (mulEpsBaiTask ν mean ε).comap f = mulEpsBaiTask (fun θ ↦ ν (f θ)) (fun θ ↦ mean (f θ)) ε := by
+  ext <;> simp
+
+/-- For `ε ≤ 1` and an arm `b` with the largest mean, the multiplicatively `ε`-good arms are the
+additively `ε * mean θ b`-good arms: `(1 - ε) * mean θ b ≤ mean θ a` iff `a` is within
+`ε * mean θ b` of the largest mean. -/
+lemma correct_mulEpsBaiTask_eq_correct_epsBaiTask (hε : ε ≤ 1) {b : α}
+    (hb : ∀ c, mean θ c ≤ mean θ b) :
+    (mulEpsBaiTask ν mean ε).correct θ = (epsBaiTask ν mean (ε * mean θ b)).correct θ := by
+  ext a
+  simp only [correct_mulEpsBaiTask, correct_epsBaiTask, Set.mem_ofPred_eq]
+  refine ⟨fun ha c ↦ by linarith [ha b, hb c], fun ha c ↦ ?_⟩
+  nlinarith [ha b, mul_nonneg (sub_nonneg.2 hε) (sub_nonneg.2 (hb c))]
+
+/-- For `ε ≥ 0`, every model with nonnegative means on finitely many (at least one) arms has a
+multiplicatively `ε`-good arm: an arm with the largest mean. -/
+lemma nonempty_correct_mulEpsBaiTask [Finite α] [Nonempty α] (hε : 0 ≤ ε)
+    (hθ : ∀ b, 0 ≤ mean θ b) : ((mulEpsBaiTask ν mean ε).correct θ).Nonempty := by
+  obtain ⟨a, ha⟩ := Finite.exists_max (mean θ)
+  exact ⟨a, fun b ↦ by nlinarith [ha b, mul_nonneg hε (hθ b)]⟩
+
+/-- For `ε ≥ 0` and a model with nonnegative means, the best arm is multiplicatively `ε`-good. -/
+lemma correct_baiTask_subset_correct_mulEpsBaiTask (hε : 0 ≤ ε) (hθ : ∀ b, 0 ≤ mean θ b) :
+    (baiTask ν mean).correct θ ⊆ (mulEpsBaiTask ν mean ε).correct θ := by
+  intro a ha b
+  simp only [correct_baiTask, Set.mem_ofPred_eq] at ha
+  have hba : mean θ b ≤ mean θ a := by
+    rcases eq_or_ne b a with rfl | hb
+    · exact le_rfl
+    · exact (ha b hb).le
+  nlinarith [mul_nonneg hε (hθ b)]
+
+/-- For `ε ≥ 0` and a model with nonnegative means, the arm `a` is the only multiplicatively
+`ε`-good arm of `θ` iff every other arm `b` has `mean θ b < (1 - ε) * mean θ a`. -/
+lemma correct_mulEpsBaiTask_eq_singleton_iff {a : α} (hε : 0 ≤ ε) (hθ : ∀ b, 0 ≤ mean θ b) :
+    (mulEpsBaiTask ν mean ε).correct θ = {a} ↔ ∀ b ≠ a, mean θ b < (1 - ε) * mean θ a := by
+  set μ := mean θ
+  simp only [correct_mulEpsBaiTask]
+  constructor
+  · intro h b hba
+    have ha : ∀ c, (1 - ε) * μ c ≤ μ a := by
+      have : a ∈ {a' | ∀ c, (1 - ε) * μ c ≤ μ a'} := h ▸ Set.mem_singleton a
+      exact this
+    -- An arm with a larger mean than `a` would be `ε`-good, so `a` has the largest mean.
+    have ha_max : ∀ c, μ c ≤ μ a := fun c ↦ by
+      by_contra! hc
+      have : c ∈ {a' | ∀ c, (1 - ε) * μ c ≤ μ a'} := fun d ↦ (ha d).trans hc.le
+      rw [h, Set.mem_singleton_iff] at this
+      exact hc.ne' (this ▸ rfl)
+    -- If `(1 - ε) * μ a ≤ μ b`, then `b` would be `ε`-good: for `ε ≤ 1` since `μ a` is the
+    -- largest mean, and for `ε > 1` since the means are nonnegative.
+    by_contra! hb
+    have : b ∈ {a' | ∀ c, (1 - ε) * μ c ≤ μ a'} := fun c ↦ by
+      rcases le_or_gt ε 1 with hε1 | hε1
+      · nlinarith [mul_nonneg (sub_nonneg.2 hε1) (sub_nonneg.2 (ha_max c))]
+      · nlinarith [mul_nonneg (sub_nonneg.2 hε1.le) (hθ c), hθ b]
+    rw [h, Set.mem_singleton_iff] at this
+    exact hba this
+  · intro h
+    ext c
+    simp only [Set.mem_ofPred_eq, Set.mem_singleton_iff]
+    refine ⟨fun hc ↦ ?_, ?_⟩
+    · by_contra hca
+      linarith [h c hca, hc a]
+    · rintro rfl b
+      rcases eq_or_ne b c with rfl | hbc
+      · nlinarith [mul_nonneg hε (hθ b)]
+      · nlinarith [h b hbc, mul_nonneg hε (hθ b), mul_nonneg hε (hθ c)]
 
 /-! ### Top-`m` identification -/
 
