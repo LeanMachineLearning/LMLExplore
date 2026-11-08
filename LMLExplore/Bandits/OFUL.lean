@@ -8,7 +8,7 @@ module
 public import LeanMachineLearning.SequentialLearning.Deterministic
 public import Mathlib.Algebra.Order.Chebyshev
 public import LMLExplore.Analysis.InnerProductSpace.EllipticalPotential
-public import LMLExplore.Bandits.LinearBandit
+public import LMLExplore.Bandits.LinearBandit.Basic
 
 /-!
 # The optimistic algorithm OFUL for stochastic linear bandits
