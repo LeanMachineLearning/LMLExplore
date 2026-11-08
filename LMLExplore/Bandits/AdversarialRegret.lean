@@ -64,6 +64,9 @@ against `Environment.evalSeq x _` and `Environment.ofSeq o x _`, and against a s
 * `Learning.IsAlgEnvSeq.advRegret_eq_sub_integral_sum_feedback`: for a run against
   `Environment.evalSeq x _`, the expected reward of the learner in the adversarial regret is the
   expected total observed feedback.
+* `Learning.IsAlgEnvSeq.advRegret_eq_advRegret_trajMeasure`: the adversarial regret of a run
+  against `Environment.evalSeq x _` is the adversarial regret under the law `trajMeasure` of the
+  sequence of rounds.
 * `advRegret_of_subsingleton`: with a single arm, the adversarial regret of every learner is `0`.
 * `expertRegret_le_iff`, `sum_sub_integral_le_expertRegret`,
   `Learning.IsAlgEnvSeq.expertRegret_eq_sub_integral_sum_feedback`: the same statements for the
@@ -148,6 +151,20 @@ lemma _root_.Learning.IsAlgEnvSeq.advRegret_eq_sub_integral_sum_feedback [Measur
   refine integral_congr_ae ?_
   filter_upwards [h.feedback_ae_all_eq_evalSeq] with ω hω
   simp [hω]
+
+/-- The adversarial regret of a run of an algorithm against LML's evaluation environment
+`Environment.evalSeq x _` depends only on the algorithm and the table `x`: it is the adversarial
+regret under the law `trajMeasure alg (Environment.evalSeq x _)` of the sequence of rounds. -/
+lemma _root_.Learning.IsAlgEnvSeq.advRegret_eq_advRegret_trajMeasure [MeasurableSpace α]
+    [IsProbabilityMeasure P] {hx : ∀ t, Measurable (x t)} {alg : Algorithm Unit α ℝ}
+    {O : ℕ → Ω → Unit} {Y : ℕ → Ω → ℝ} (h : IsAlgEnvSeq O A Y alg (Environment.evalSeq x hx) P)
+    (n : ℕ) :
+    advRegret x A P n = advRegret x IT.action (trajMeasure alg (Environment.evalSeq x hx)) n := by
+  rw [h.advRegret_eq_sub_integral_sum_feedback,
+    (IT.isAlgEnvSeq_trajMeasure alg _).advRegret_eq_sub_integral_sum_feedback]
+  congr 1
+  exact h.hasLaw_trajectory.integral_comp (f := fun τ ↦ ∑ t ∈ range n, IT.feedback t τ)
+    (Finset.measurable_sum _ fun t _ ↦ IT.measurable_feedback t).aestronglyMeasurable
 
 end AdvRegret
 
