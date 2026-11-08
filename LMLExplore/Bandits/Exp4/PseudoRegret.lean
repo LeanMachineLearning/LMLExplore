@@ -78,6 +78,14 @@ namespace Exp4IX
 
 section Round
 
+omit [Nonempty α] [IsProbabilityMeasure P] in
+/-- A run of Exp4-IX is a run of the weight-based algorithm with the weights of Exp4-IX. -/
+private lemma isAlgEnvSeq_weightAlgorithm (h : IsAlgEnvSeq O A Y (exp4IX adv hadv η γ) env P) :
+    IsAlgEnvSeq O A Y (weightAlgorithm (fun n x ↦ exp4IXWeights adv η γ n x.1 x.2)
+      (fun n a ↦ (measurable_pi_apply a).comp (measurable_exp4IXWeights hadv η γ n))
+      (fun n x ↦ exp4IXWeights_mem_simplex n x.1 x.2)) env P :=
+  exp4IX_def adv hadv η γ ▸ h
+
 omit [Nonempty α] in
 /-- Along a run of Exp4-IX, a random variable bounded by the inverse weight `1 / P t (A t)` of the
 action of round `t` is integrable. -/
@@ -87,8 +95,8 @@ private lemma integrable_of_abs_le_inv_weights
     (hle : ∀ᵐ ω ∂P, |X ω| ≤ 1 / exp4IXWeights adv η γ t (history O A Y t ω) (O t ω) (A t ω)) :
     Integrable X P := by
   have : IsFiniteMeasure P := inferInstance
-  rw [exp4IX_def] at h
-  exact (WeightAlgorithm.integrable_div_weights h t fun _ ↦ 1).mono' hX
+  exact (WeightAlgorithm.integrable_div_weights (isAlgEnvSeq_weightAlgorithm h) t
+    fun _ ↦ 1).mono' hX
     (by simpa only [Real.norm_eq_abs] using hle)
 
 omit [Nonempty α] [IsProbabilityMeasure P] in
@@ -123,9 +131,8 @@ private lemma ae_mul_one_sub_div_mem_Icc (h : IsAlgEnvSeq O A Y (exp4IX adv hadv
         e * (1 - Y t ω) / (exp4IXWeights adv η γ t (history O A Y t ω) (O t ω) (A t ω) + g) ∈
           Set.Icc 0 (1 / exp4IXWeights adv η γ t (history O A Y t ω) (O t ω) (A t ω)) := by
   have : IsFiniteMeasure P := inferInstance
-  have h' := h
-  rw [exp4IX_def] at h'
-  filter_upwards [hY, WeightAlgorithm.ae_weights_action_pos h' t] with ω hω hw
+  filter_upwards [hY, WeightAlgorithm.ae_weights_action_pos (isAlgEnvSeq_weightAlgorithm h) t]
+    with ω hω hw
   refine ⟨hw, fun e he g hg ↦ ⟨div_nonneg (mul_nonneg he.1 (sub_nonneg.2 hω.2)) (by linarith),
     div_le_div₀ zero_le_one ?_ hw (by linarith)⟩⟩
   exact (mul_le_mul he.2 (sub_le_self _ hω.1) (sub_nonneg.2 hω.2) zero_le_one).trans_eq (one_mul 1)
@@ -284,8 +291,7 @@ theorem integral_sum_iwEstimator_le (h : IsAlgEnvSeq O A Y (exp4IX adv hadv η �
     P[fun ω ↦ ∑ a, iwEstimator
         (fun a ↦ exp4IXWeights adv η γ t (history O A Y t ω) (O t ω) a + γ t) (A t ω)
           (1 - Y t ω) a] ≤ (Fintype.card α : ℝ) := by
-  have h' := h
-  rw [exp4IX_def] at h'
+  have h' := isAlgEnvSeq_weightAlgorithm h
   -- each sum is at most the inverse weight of the action, of expectation at most `k`
   refine (integral_mono_ae (integrable_sum_iwEstimator h hγ hY)
     (WeightAlgorithm.integrable_div_weights h' t fun _ ↦ 1) ?_).trans
@@ -296,6 +302,22 @@ theorem integral_sum_iwEstimator_le (h : IsAlgEnvSeq O A Y (exp4IX adv hadv η �
   simpa only [sum_iwEstimator] using this.2
 
 end Round
+
+omit [IsProbabilityMeasure P] in
+/-- If the feedbacks of the rounds `t < n` are almost surely in `[0, 1]`, so is the feedback of
+each round `t ∈ range n`. -/
+private lemma ae_mem_Icc_of_mem_range (hY : ∀ᵐ ω ∂P, ∀ t < n, Y t ω ∈ Set.Icc 0 1)
+    (ht : t ∈ range n) : ∀ᵐ ω ∂P, Y t ω ∈ Set.Icc 0 1 :=
+  hY.mono fun _ hω ↦ hω t (mem_range.1 ht)
+
+omit [Nonempty α] in
+/-- Along a run of Exp4-IX whose feedbacks of the rounds `t < n` are almost surely in `[0, 1]`, the
+loss `1 - Y t` of each round `t ∈ range n` is integrable. -/
+private lemma integrable_one_sub_of_mem_range (h : IsAlgEnvSeq O A Y (exp4IX adv hadv η γ) env P)
+    (hY : ∀ᵐ ω ∂P, ∀ t < n, Y t ω ∈ Set.Icc 0 1) (ht : t ∈ range n) :
+    Integrable (fun ω ↦ 1 - Y t ω) P :=
+  (integrable_const 1).sub (Integrable.of_mem_Icc 0 1 (h.measurable_feedback t).aemeasurable
+    (ae_mem_Icc_of_mem_range hY ht))
 
 /-- **The expected regret against an expert is at most the expected estimated regret**
 [LS, (18.10) and Lemma 12.4]: along a run of Exp4-IX against any environment whose feedbacks of
@@ -310,11 +332,9 @@ theorem integral_sum_sub_le_integral_sum_sub_dotProduct
         Y t ω)] ≤ P[fun ω ↦ ∑ t ∈ range n, ((1 - Y t ω) - (adv (O t ω) m : α → ℝ) ⬝ᵥ iwEstimator
         (fun a ↦ exp4IXWeights adv η γ t (history O A Y t ω) (O t ω) a + γ t) (A t ω)
           (1 - Y t ω))] := by
-  have hYt : ∀ t ∈ range n, ∀ᵐ ω ∂P, Y t ω ∈ Set.Icc 0 1 := fun t ht ↦
-    hY.mono fun ω hω ↦ hω t (mem_range.1 ht)
-  have hYint : ∀ t ∈ range n, Integrable (fun ω ↦ 1 - Y t ω) P := fun t ht ↦
-    (integrable_const 1).sub (Integrable.of_mem_Icc 0 1 (h.measurable_feedback t).aemeasurable
-      (hYt t ht))
+  have hYt : ∀ t ∈ range n, ∀ᵐ ω ∂P, Y t ω ∈ Set.Icc 0 1 := fun _ ↦ ae_mem_Icc_of_mem_range hY
+  have hYint : ∀ t ∈ range n, Integrable (fun ω ↦ 1 - Y t ω) P := fun _ ↦
+    integrable_one_sub_of_mem_range h hY
   have hLint := fun t (ht : t ∈ range n) ↦
     integrable_dotProduct_iwEstimator h (hγ t (mem_range.1 ht)) (hYt t ht) m
   calc P[fun ω ↦ ∑ t ∈ range n, (∑ a, (adv (O t ω) m : α → ℝ) a * env.means O A Y a t ω -
@@ -357,11 +377,9 @@ theorem expertPseudoRegret_le (h : IsAlgEnvSeq O A Y (exp4IX adv hadv η γ) env
     expertPseudoRegret env (fun o m ↦ (adv o m : α → ℝ)) O A Y P n ≤
       log (Fintype.card β) / η (n - 1) + Fintype.card α * ∑ t ∈ range n, (γ t + η t / 2) := by
   refine expertPseudoRegret_le_iff.2 fun m ↦ ?_
-  have hYt : ∀ t ∈ range n, ∀ᵐ ω ∂P, Y t ω ∈ Set.Icc 0 1 := fun t ht ↦
-    hY.mono fun ω hω ↦ hω t (mem_range.1 ht)
-  have hYint : ∀ t ∈ range n, Integrable (fun ω ↦ 1 - Y t ω) P := fun t ht ↦
-    (integrable_const 1).sub (Integrable.of_mem_Icc 0 1 (h.measurable_feedback t).aemeasurable
-      (hYt t ht))
+  have hYt : ∀ t ∈ range n, ∀ᵐ ω ∂P, Y t ω ∈ Set.Icc 0 1 := fun _ ↦ ae_mem_Icc_of_mem_range hY
+  have hYint : ∀ t ∈ range n, Integrable (fun ω ↦ 1 - Y t ω) P := fun _ ↦
+    integrable_one_sub_of_mem_range h hY
   have hLint := fun t (ht : t ∈ range n) ↦
     integrable_dotProduct_iwEstimator h (hγ t) (hYt t ht) m
   have hSint := fun t (ht : t ∈ range n) ↦ integrable_sum_iwEstimator h (hγ t) (hYt t ht)
@@ -372,10 +390,8 @@ theorem expertPseudoRegret_le (h : IsAlgEnvSeq O A Y (exp4IX adv hadv η γ) env
       log (Fintype.card β) / η (n - 1) + ∑ t ∈ range n, (γ t + η t / 2) * ∑ a, iwEstimator
         (fun a ↦ exp4IXWeights adv η γ t (history O A Y t ω) (O t ω) a + γ t) (A t ω)
           (1 - Y t ω) a := by
-    have h' := h
-    rw [exp4IX_def] at h'
-    filter_upwards [hY, ae_all_iff.2 fun t ↦ WeightAlgorithm.ae_weights_action_pos h' t]
-      with ω hω hpos
+    filter_upwards [hY, ae_all_iff.2 fun t ↦
+      WeightAlgorithm.ae_weights_action_pos (isAlgEnvSeq_weightAlgorithm h) t] with ω hω hpos
     exact sum_one_sub_sub_dotProduct_le O A Y ω hη hη_anti hγ hω
       (fun t _ ↦ (add_pos_of_pos_of_nonneg (hpos t) (hγ t)).ne') m
   refine (integral_sum_sub_le_integral_sum_sub_dotProduct h (fun t _ ↦ hγ t) hY m).trans ?_
@@ -432,6 +448,23 @@ theorem expertPseudoRegret_nonpos_of_subsingleton [Subsingleton β]
     nlinarith [(by positivity : 0 ≤ (n : ℝ) * k)]
   nlinarith [(by positivity : 0 ≤ ε / (n * k + 1) * (n * k))]
 
+/-- A bound `B ≥ 0` on the expert pseudo-regret of Exp4-IX, against an environment whose feedbacks
+of the rounds `t < n` are almost surely in `[0, 1]`, holds as soon as it holds with at least two
+experts and at least one round. -/
+private lemma expertPseudoRegret_le_of_one_lt_card {B : ℝ}
+    (h : IsAlgEnvSeq O A Y (exp4IX adv hadv η γ) env P)
+    (hY : ∀ᵐ ω ∂P, ∀ t < n, Y t ω ∈ Set.Icc 0 1) (hB : 0 ≤ B)
+    (hlt : 1 < (Fintype.card β : ℝ) → 0 < n →
+      expertPseudoRegret env (fun o m ↦ (adv o m : α → ℝ)) O A Y P n ≤ B) :
+    expertPseudoRegret env (fun o m ↦ (adv o m : α → ℝ)) O A Y P n ≤ B := by
+  -- with one expert, the expert pseudo-regret is nonpositive
+  rcases (Nat.one_le_cast.2 Fintype.card_pos : (1 : ℝ) ≤ Fintype.card β).eq_or_lt with hM1 | hM1
+  · have : Subsingleton β := Fintype.card_le_one_iff_subsingleton.1 (by exact_mod_cast hM1.ge)
+    exact (expertPseudoRegret_nonpos_of_subsingleton h hY).trans hB
+  rcases Nat.eq_zero_or_pos n with rfl | hn
+  · simpa [expertPseudoRegret_def] using hB
+  exact hlt hM1 hn
+
 /-- **Pseudo-regret of Exp4** [LS, Theorem 18.1] against an adaptive adversary: along a run of
 Exp4-IX with `γ = 0` (Exp4) and the learning rate `η = √(2 log M / (n k))` tuned for the horizon
 `n`, against any environment whose feedbacks of the rounds `t < n` are almost surely in `[0, 1]`,
@@ -443,22 +476,10 @@ theorem expertPseudoRegret_le_sqrt
     (hY : ∀ᵐ ω ∂P, ∀ t < n, Y t ω ∈ Set.Icc 0 1) :
     expertPseudoRegret env (fun o m ↦ (adv o m : α → ℝ)) O A Y P n ≤
       √(2 * n * Fintype.card α * log (Fintype.card β)) := by
-  set k : ℝ := (Fintype.card α : ℝ) with hk
-  set M : ℝ := (Fintype.card β : ℝ) with hM
-  have hk0 : 0 < k := by
-    rw [hk, Nat.cast_pos]
-    exact Fintype.card_pos
-  have hM1 : (1 : ℝ) ≤ M := by
-    rw [hM, Nat.one_le_cast]
-    exact Fintype.card_pos
-  -- with one expert, the expert pseudo-regret is nonpositive
-  rcases hM1.eq_or_lt with hM1 | hM1
-  · have : Subsingleton β := Fintype.card_le_one_iff_subsingleton.1 (by
-      rw [hM] at hM1
-      exact_mod_cast hM1.ge)
-    exact (expertPseudoRegret_nonpos_of_subsingleton h hY).trans (sqrt_nonneg _)
-  rcases Nat.eq_zero_or_pos n with rfl | hn
-  · simp [expertPseudoRegret_def]
+  refine expertPseudoRegret_le_of_one_lt_card h hY (sqrt_nonneg _) fun hM1 hn ↦ ?_
+  set k : ℝ := (Fintype.card α : ℝ)
+  set M : ℝ := (Fintype.card β : ℝ)
+  have hk0 : 0 < k := Nat.cast_pos.2 Fintype.card_pos
   have hnk : 0 < n * k := mul_pos (by exact_mod_cast hn) hk0
   have hη : 0 < √(2 * log M / (n * k)) := sqrt_pos.2 (by have := log_pos hM1; positivity)
   refine (expertPseudoRegret_le h (fun _ ↦ hη) antitone_const (fun _ ↦ le_rfl) hY).trans
@@ -478,22 +499,10 @@ theorem expertPseudoRegret_le_two_mul_sqrt
     (hY : ∀ᵐ ω ∂P, ∀ t < n, Y t ω ∈ Set.Icc 0 1) :
     expertPseudoRegret env (fun o m ↦ (adv o m : α → ℝ)) O A Y P n ≤
       2 * √(n * Fintype.card α * log (Fintype.card β)) := by
-  set k : ℝ := (Fintype.card α : ℝ) with hk
-  set M : ℝ := (Fintype.card β : ℝ) with hM
-  have hk0 : 0 < k := by
-    rw [hk, Nat.cast_pos]
-    exact Fintype.card_pos
-  have hM1 : (1 : ℝ) ≤ M := by
-    rw [hM, Nat.one_le_cast]
-    exact Fintype.card_pos
-  -- with one expert, the expert pseudo-regret is nonpositive
-  rcases hM1.eq_or_lt with hM1 | hM1
-  · have : Subsingleton β := Fintype.card_le_one_iff_subsingleton.1 (by
-      rw [hM] at hM1
-      exact_mod_cast hM1.ge)
-    exact (expertPseudoRegret_nonpos_of_subsingleton h hY).trans (by positivity)
-  rcases Nat.eq_zero_or_pos n with rfl | hn
-  · simp [expertPseudoRegret_def]
+  refine expertPseudoRegret_le_of_one_lt_card h hY (by positivity) fun hM1 hn ↦ ?_
+  set k : ℝ := (Fintype.card α : ℝ)
+  set M : ℝ := (Fintype.card β : ℝ)
+  have hk0 : 0 < k := Nat.cast_pos.2 Fintype.card_pos
   set L := log M with hL
   have hL0 : 0 < L := log_pos hM1
   -- the rates are `η t = √(L / k) / √(t + 1)`, positive and nonincreasing
@@ -509,10 +518,7 @@ theorem expertPseudoRegret_le_two_mul_sqrt
   have hn1 : ((n - 1 : ℕ) : ℝ) + 1 = n := by
     rw [← Nat.cast_add_one, Nat.sub_add_cancel hn]
   have h1 : L / √(L / (k * ((n - 1 : ℕ) + 1))) = √L * √(k * n) := by
-    rw [hn1, sqrt_div hL0.le, div_div_eq_mul_div, mul_div_assoc,
-      div_eq_mul_inv, ← mul_assoc]
-    nth_rewrite 1 [← mul_self_sqrt hL0.le]
-    field_simp
+    rw [hn1, sqrt_div hL0.le, div_div_eq_mul_div, mul_div_right_comm, div_sqrt]
   -- the second term: `k ∑ t < n, η t / 2 ≤ √(L k) √n`
   have h2 : k * ∑ t ∈ range n, √(L / (k * (t + 1))) / 2 ≤ √(L * k) * √n := by
     simp_rw [hηt, ← Finset.sum_div, ← Finset.mul_sum]
