@@ -5,6 +5,8 @@ Authors: Rémy Degenne
 -/
 module
 
+public import Mathlib.Analysis.Convex.Jensen
+public import Mathlib.Analysis.Convex.SpecificFunctions.Basic
 public import Mathlib.Analysis.PSeries
 public import Mathlib.Analysis.SpecialFunctions.Exp
 public import Mathlib.Analysis.SpecialFunctions.Exponential
@@ -50,6 +52,11 @@ and Freedman. Comparing the series
 with a geometric one gives `exp x - 1 - x ≤ x ^ 2 / (2 (1 - x / 3))` for `0 ≤ x < 3`, which turns
 these into Bernstein's form.
 
+By the convexity of the exponential, a sum of exponentials is at least its number of terms times
+the exponential of the mean of the exponents. This spreads a bound on a sum of divergences
+`∑ i D i` across the terms of a sum of Bretagnolle–Huber bounds `∑ i exp (-D i)`, in the minimax
+lower bound for linear bandits on the unit ball [LS, Theorem 24.2].
+
 ## Main statements
 
 * `Real.sum_range_exp_neg_mul_le`: `∑_{s < m} exp (-c (s + 1)) ≤ 1 / c` for `c > 0`.
@@ -75,6 +82,7 @@ these into Bernstein's form.
 * `Real.exp_mul_le_one_add_mul_add_mul_sq`: Bennett's bound
   `exp (l x) ≤ 1 + l x + (exp (l b) - 1 - l b) / b ^ 2 * x ^ 2` for `b > 0`, `l ≥ 0`, `x ≤ b`.
 * `Real.exp_sub_one_sub_id_le_sq_div`: `exp x - 1 - x ≤ x ^ 2 / (2 (1 - x / 3))` for `0 ≤ x < 3`.
+* `Real.card_mul_exp_sum_div_card_le_sum_exp`: `#s exp ((∑ i ∈ s, x i) / #s) ≤ ∑ i ∈ s, exp (x i)`.
 
 ## References
 
@@ -338,5 +346,20 @@ theorem exp_mul_le_one_add_mul_add_mul_sq {b l x : ℝ} (hb : 0 < b) (hl : 0 ≤
     have h' : exp (l * x) - 1 - l * x = (exp (l * x) - 1 - l * x) / (l * x) ^ 2 * (l * x) ^ 2 :=
       (div_mul_cancel₀ _ (pow_ne_zero 2 hu.ne')).symm
     nlinarith [sq_nonneg (l * x)]
+
+/-- **Jensen's inequality for the exponential** with uniform weights: a sum of exponentials is at
+least its number of terms times the exponential of the mean of the exponents. -/
+theorem card_mul_exp_sum_div_card_le_sum_exp {ι : Type*} (s : Finset ι) (x : ι → ℝ) :
+    #s * exp ((∑ i ∈ s, x i) / #s) ≤ ∑ i ∈ s, exp (x i) := by
+  rcases s.eq_empty_or_nonempty with rfl | hs
+  · simp
+  have hcard : (0 : ℝ) < #s := Nat.cast_pos.2 hs.card_pos
+  have h := convexOn_exp.map_sum_le (t := s) (w := fun _ ↦ 1 / (#s : ℝ)) (p := x)
+    (fun _ _ ↦ by positivity) (by rw [sum_const, nsmul_eq_mul]; field_simp)
+    (fun _ _ ↦ Set.mem_univ _)
+  simp only [smul_eq_mul] at h
+  rw [← mul_sum, ← mul_sum, one_div_mul_eq_div, one_div_mul_eq_div] at h
+  calc (#s : ℝ) * exp ((∑ i ∈ s, x i) / #s) ≤ #s * ((∑ i ∈ s, exp (x i)) / #s) := by gcongr
+    _ = ∑ i ∈ s, exp (x i) := by field_simp
 
 end Real
