@@ -5,6 +5,7 @@ Authors: Rémy Degenne
 -/
 module
 
+public import Mathlib.Analysis.Complex.ExponentialBounds
 public import Mathlib.Analysis.PSeries
 public import Mathlib.Analysis.SpecialFunctions.Exp
 public import Mathlib.Analysis.SpecialFunctions.Exponential
@@ -75,6 +76,7 @@ these into Bernstein's form.
 * `Real.exp_mul_le_one_add_mul_add_mul_sq`: Bennett's bound
   `exp (l x) ≤ 1 + l x + (exp (l b) - 1 - l b) / b ^ 2 * x ^ 2` for `b > 0`, `l ≥ 0`, `x ≤ b`.
 * `Real.exp_sub_one_sub_id_le_sq_div`: `exp x - 1 - x ≤ x ^ 2 / (2 (1 - x / 3))` for `0 ≤ x < 3`.
+* `Real.exp_neg_le_one_sub_add_sq`: `exp (-x) ≤ 1 - x + x ^ 2` for `x ≥ -1`.
 
 ## References
 
@@ -338,5 +340,13 @@ theorem exp_mul_le_one_add_mul_add_mul_sq {b l x : ℝ} (hb : 0 < b) (hl : 0 ≤
     have h' : exp (l * x) - 1 - l * x = (exp (l * x) - 1 - l * x) / (l * x) ^ 2 * (l * x) ^ 2 :=
       (div_mul_cancel₀ _ (pow_ne_zero 2 hu.ne')).symm
     nlinarith [sq_nonneg (l * x)]
+
+/-- For `x ≥ -1`, `exp (-x) ≤ 1 - x + x ^ 2`: Bennett's bound `exp u ≤ 1 + u + (e - 2) u ^ 2` for
+`u ≤ 1`, with `e - 2 ≤ 1`. -/
+theorem exp_neg_le_one_sub_add_sq {x : ℝ} (hx : -1 ≤ x) : exp (-x) ≤ 1 - x + x ^ 2 := by
+  have h := exp_mul_le_one_add_mul_add_mul_sq one_pos zero_le_one (show -x ≤ 1 by linarith)
+  simp only [one_mul, one_pow, div_one] at h
+  have he : exp 1 - 1 - 1 ≤ 1 := by linarith [exp_one_lt_three]
+  nlinarith [sq_nonneg x]
 
 end Real
