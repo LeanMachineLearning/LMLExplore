@@ -81,8 +81,7 @@ theorem ucb_regret_le_sqrt (h : IsAlgEnvSeq O A R (ucbAlgorithm K c) (Environmen
   have h_bound := integral_regret_le_two_mul_sqrt_add_of_forall_integral_pullCount_le
     h.measurable_action (by positivity) (add_nonneg (by norm_num) (by positivity))
     fun a h_gap ↦ UCB.expectation_pullCount_le_of_gt_two h hν hσ2 hc a
-      (gap_nonneg.lt_of_ne' <| sq_pos_iff.mp <|
-        pos_of_mul_pos_right ((by positivity : (0 : ℝ) ≤ _).trans_lt h_gap) n.cast_nonneg) n
+      (gap_pos_of_lt_mul_gap_sq (by positivity) h_gap) n
   rwa [Fintype.card_fin, show 8 * c * log (n + 1) * K * n = 8 * c * K * n * log (n + 1) by ring]
     at h_bound
 

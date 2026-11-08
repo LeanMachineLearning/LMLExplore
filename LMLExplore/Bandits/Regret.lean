@@ -47,6 +47,8 @@ for `trajMeasure`, such as lower bounds, apply to every run.
 * `LMLExplore.Bandits.bestArm_eq_of_forall_lt`: an arm whose mean is larger than the means of all
   the other arms is the best arm, and `LMLExplore.Bandits.gap_pos_of_forall_lt`: the other arms
   then have positive gaps.
+* `LMLExplore.Bandits.gap_pos_of_lt_mul_gap_sq`: an arm with `x < y Δ_a²` for some `x ≥ 0` has
+  positive gap.
 * `LMLExplore.Bandits.mul_sub_integral_pullCount_le_integral_regret`: if every arm other than `a₁`
   has gap at least `Δ`, the expected regret is at least `Δ (n - E[T_{a₁}(n)])`.
 * `LMLExplore.Bandits.mul_integral_pullCount_le_integral_regret`: if the arm `a₁` has gap at least
@@ -94,6 +96,15 @@ positive gap. -/
 theorem gap_pos_of_forall_lt [Finite α] {ν : Kernel α ℝ} {a : α}
     (ha : ∀ b ≠ a, (ν b)[id] < (ν a)[id]) {b : α} (hb : b ≠ a) : 0 < gap ν b :=
   (sub_pos.2 (ha b hb)).trans_le (sub_le_gap ν b a)
+
+/-- An arm whose gap `Δ_a` satisfies `x < y Δ_a²` for some `x ≥ 0` has positive gap. This applies
+to the arms with `C k < n Δ_a²` of
+`integral_regret_le_two_mul_sqrt_add_of_forall_integral_pullCount_le`. -/
+theorem gap_pos_of_lt_mul_gap_sq [Finite α] {ν : Kernel α ℝ} {a : α} {x y : ℝ} (hx : 0 ≤ x)
+    (h : x < y * gap ν a ^ 2) : 0 < gap ν a := by
+  refine gap_nonneg.lt_of_ne fun h0 ↦ ?_
+  rw [← h0, zero_pow two_ne_zero, mul_zero] at h
+  linarith
 
 /-- An arm whose mean is larger than the means of all the other arms is the best arm. -/
 theorem bestArm_eq_of_forall_lt [Fintype α] [Nonempty α] {ν : Kernel α ℝ} {a : α}
@@ -191,7 +202,7 @@ theorem integral_regret_le_mul_add_div_add_of_forall_integral_pullCount_le
 `C k < n Δ_a²` is pulled at most `C / Δ_a ^ 2 + B` times in expectation during the first `n`
 rounds, then the expected regret at horizon `n` is at most `2 √(C k n) + B ∑ a, Δ_a`, where `k` is
 the number of arms. The arms with `C k < n Δ_a²` are those with gap above the optimal threshold
-`√(C k / n)`; they all have positive gap. -/
+`√(C k / n)`; they all have positive gap, by `gap_pos_of_lt_mul_gap_sq`. -/
 theorem integral_regret_le_two_mul_sqrt_add_of_forall_integral_pullCount_le
     (hA : ∀ t, Measurable (A t)) (hC : 0 ≤ C) (hB : 0 ≤ B)
     (h_le : ∀ a, C * Fintype.card α < n * gap ν a ^ 2 →
