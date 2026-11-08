@@ -5,7 +5,6 @@ Authors: Rémy Degenne
 -/
 module
 
-public import LMLExplore.MarkovDecisionProcess.ReturnVariance
 public import LMLExplore.ReinforcementLearning.Generative.Basic
 
 /-!
@@ -26,15 +25,13 @@ order `γ C √(L / ((1 - γ) ^ 3 N))`: up to constants, a factor `√(1 - γ)` 
 minimax rate of [AMK13].
 
 The bound has a deterministic part and a probabilistic part.
-* The **deterministic part** holds for any two MDPs `M` and `M'` with the same mean rewards. If
-  the one-step predictions of the optimal value `v*` of `M` satisfy the Bernstein-type bound
-  `|∫ v* dP q - ∫ v* dP' q| ≤ a √(Var_{P' q}(v*)) + b` at every pair `q`, then the componentwise
-  bounds of `MarkovDecisionProcess/Simulation.lean` express `Q* - Q'*` through the resolvents
-  `R_γ(P'^π_SA)` of an optimal policy `π` of `M` and of an optimal policy of `M'`, applied to these
-  one-step errors. The standard deviation of `v*` is within `‖v* - v'^π‖` of the standard
-  deviation of the value `v'^π` of `π` in `M'`, and the total-variance lemma
-  (`Learning.MDP.integral_sqrt_variance_value_resolvent_le`) in `M'` bounds the resolvent of the
-  latter by `C √(2 / (1 - γ) ^ 3)`.
+* The **deterministic part**,
+  `Learning.MDP.abs_optQValue_sub_optQValue_le_of_le_sqrt_variance` in
+  `MarkovDecisionProcess/Simulation.lean`, holds for any two MDPs `M` and `M'` with the same mean
+  rewards: if the one-step predictions of the optimal value `v*` of `M` satisfy the Bernstein-type
+  bound `|∫ v* dP q - ∫ v* dP' q| ≤ a √(Var_{P' q}(v*)) + b` at every pair `q`, then
+  `|Q* - Q'*|` is at most `γ (a C √(2 / (1 - γ) ^ 3) + (a D + b) / (1 - γ))`, with
+  `D = γ (a C / (1 - γ) + b) / (1 - γ)`.
 * The **probabilistic part** is the empirical Bernstein inequality for the fixed function `v*`
   under the empirical kernel, with a union bound over the pairs
   (`LMLExplore.le_streamMeasure_forall_abs_integral_sub_integral_empiricalKernel_lt_sqrt_add`).
@@ -47,8 +44,6 @@ inequality does this comparison at once.
 
 ## Main statements
 
-* `Learning.MDP.abs_optQValue_sub_optQValue_le_of_le_sqrt_variance`: the deterministic part, for
-  two MDPs with the same mean rewards.
 * `Learning.MDP.le_streamMeasure_forall_abs_optQValue_sub_optQValue_empirical_le_sqrt_add`: value
   estimation with a generative model [AJKS, Theorem 2.6 (first claim)].
 
@@ -71,121 +66,6 @@ open scoped NNReal
 namespace Learning.MDP
 
 variable {𝓢 𝓐 : Type*} {m𝓢 : MeasurableSpace 𝓢} {m𝓐 : MeasurableSpace 𝓐}
-
-section Deterministic
-
-variable [Nonempty 𝓢] [Nonempty 𝓐] [Finite 𝓐] {M M' : MDP 𝓢 𝓐 ℝ} {γ : ℝ≥0} {C a b : ℝ}
-
-/-- For two MDPs with the same mean rewards and a one-step error of the optimal value `v*` of `M`
-bounded by `a √(Var_{P' q}(v*)) + b`, the resolvent of the state-action kernel in `M'` of a
-stationary policy `π` whose value in `M'` is within `D` of `v*` maps the right-hand side of the
-componentwise bounds to at most `γ (a C √(2 / (1 - γ) ^ 3) + (a D + b) / (1 - γ))`. -/
-private lemma abs_integral_resolvent_le_of_le_sqrt_variance (hγ : γ < 1)
-    (hR : ∀ p, ∀ᵐ x ∂(M.R p), |x| ≤ C) (hR' : ∀ p, ∀ᵐ x ∂(M'.R p), |x| ≤ C)
-    (hr : meanReward M'.R = meanReward M.R) (ha : 0 ≤ a)
-    (hε : ∀ q, |∫ s, M.optValue γ s ∂(M.P q) - ∫ s, M.optValue γ s ∂(M'.P q)| ≤
-      a * √(Var[M.optValue γ; M'.P q]) + b)
-    (π : Kernel 𝓢 𝓐) [IsMarkovKernel π] {D : ℝ}
-    (hD : ∀ s, |M.optValue γ s - M'.value γ π s| ≤ D) (p : 𝓢 × 𝓐) :
-    |∫ q, (meanReward M.R q - meanReward M'.R q +
-        γ * (∫ s, M.optValue γ s ∂(M.P q) - ∫ s, M.optValue γ s ∂(M'.P q)))
-        ∂(Kernel.resolvent γ (M'.saKernel π) p)| ≤
-      γ * (a * C * √(2 / (1 - γ) ^ 3) + (a * D + b) / (1 - γ)) := by
-  have := Kernel.isFiniteKernel_resolvent (κ := M'.saKernel π) hγ
-  have hγ' : 0 < 1 - (γ : ℝ) := sub_pos.2 hγ
-  have hB : 0 ≤ C / (1 - γ) := (abs_nonneg _).trans (abs_value_le (π := π) hγ hR' p.1)
-  have hv := measurable_optValue hγ hR
-  have hvB := abs_optValue_le hγ hR
-  have hv' := measurable_value (π := π) hγ hR'
-  have hvB' := abs_value_le (π := π) hγ hR'
-  set ρ := Kernel.resolvent γ (M'.saKernel π) p
-  -- the one-step error `g = (P - P') v*` and the standard deviation `σ` of `v^π_M'` under `P'`
-  set g : 𝓢 × 𝓐 → ℝ := fun q ↦ ∫ s, M.optValue γ s ∂(M.P q) - ∫ s, M.optValue γ s ∂(M'.P q)
-  set σ : 𝓢 × 𝓐 → ℝ := fun q ↦ √(Var[M'.value γ π; M'.P q])
-  have hg : Measurable g := (hv.stronglyMeasurable.integral_kernel (κ := M.P)).measurable.fun_sub
-    (hv.stronglyMeasurable.integral_kernel (κ := M'.P)).measurable
-  have hgB (q : 𝓢 × 𝓐) : |g q| ≤ C / (1 - γ) + C / (1 - γ) := (abs_sub _ _).trans
-    (add_le_add (abs_integral_le_of_abs_le hvB) (abs_integral_le_of_abs_le hvB))
-  have hσ : Measurable σ := (hv'.variance_kernel (η := M'.P)).sqrt
-  have hσB (q : 𝓢 × 𝓐) : |σ q| ≤ C / (1 - γ) := by
-    rw [abs_of_nonneg (Real.sqrt_nonneg _), Real.sqrt_le_left hB]
-    exact variance_le_sq_of_abs_le hv'.aemeasurable (.of_forall hvB')
-  -- pointwise, `|g| ≤ a (σ + D) + b`: the standard deviations of `v*` and `v^π_M'` are within `D`
-  have h_pt (q : 𝓢 × 𝓐) : |g q| ≤ a * σ q + (a * D + b) := by
-    have hmem {f : 𝓢 → ℝ} (hf : Measurable f) (hfB : ∀ s, |f s| ≤ C / (1 - γ)) :
-        MemLp f 2 (M'.P q) :=
-      MemLp.of_bound hf.aestronglyMeasurable _
-        (.of_forall fun s ↦ (Real.norm_eq_abs _).trans_le (hfB s))
-    have h_sd := sqrt_variance_le_sqrt_variance_add_of_abs_sub_le (hmem hv hvB) (hmem hv' hvB')
-      (.of_forall hD)
-    calc |g q| ≤ a * √(Var[M.optValue γ; M'.P q]) + b := hε q
-      _ ≤ a * (σ q + D) + b := by gcongr
-      _ = a * σ q + (a * D + b) := by ring
-  have h_int : ∫ q, σ q ∂ρ ≤ C * √(2 / (1 - γ) ^ 3) :=
-    integral_sqrt_variance_value_resolvent_le hγ hR' p
-  simp only [hr, sub_self, zero_add]
-  rw [integral_const_mul, abs_mul, NNReal.abs_eq]
-  gcongr
-  calc |∫ q, g q ∂ρ| ≤ ∫ q, |g q| ∂ρ := abs_integral_le_integral_abs
-    _ ≤ ∫ q, (a * σ q + (a * D + b)) ∂ρ :=
-        integral_mono (integrable_of_abs_le hg hgB ρ).abs
-          ((integrable_of_abs_le hσ hσB ρ).const_mul a |>.add (integrable_const _)) h_pt
-    _ = a * ∫ q, σ q ∂ρ + (a * D + b) / (1 - γ) := by
-        rw [integral_add ((integrable_of_abs_le hσ hσB ρ).const_mul a) (integrable_const _),
-          integral_const_mul, integral_const, smul_eq_mul, Kernel.measureReal_resolvent_univ hγ,
-          inv_mul_eq_div]
-    _ ≤ a * (C * √(2 / (1 - γ) ^ 3)) + (a * D + b) / (1 - γ) := by gcongr
-    _ = a * C * √(2 / (1 - γ) ^ 3) + (a * D + b) / (1 - γ) := by ring
-
-/-- **Variance-aware accuracy of the optimal action values** [AJKS, §2.4]: for two MDPs `M` and
-`M'` with finitely many actions, the same mean rewards, rewards bounded by `C` and `γ < 1`, if the
-one-step predictions of the optimal value `v*` of `M` satisfy, for some `a ≥ 0` and `b`, the
-Bernstein-type bound `|∫ v* dP q - ∫ v* dP' q| ≤ a √(Var_{P' q}(v*)) + b` at every pair `q`, then
-the optimal action values satisfy
-`|Q*_M - Q*_M'| ≤ γ (a C √(2 / (1 - γ) ^ 3) + (a D + b) / (1 - γ))`, with
-`D = γ (a C / (1 - γ) + b) / (1 - γ)`. For a small `a`, the leading term `γ a C √(2 / (1 - γ) ^ 3)`
-is smaller by the factor `√(1 - γ)` than the bound `γ a C / (1 - γ) ^ 2` obtained from the
-uniform bound `√(Var_{P' q}(v*)) ≤ C / (1 - γ)`. -/
-theorem abs_optQValue_sub_optQValue_le_of_le_sqrt_variance (hγ : γ < 1)
-    (hR : ∀ p, ∀ᵐ x ∂(M.R p), |x| ≤ C) (hR' : ∀ p, ∀ᵐ x ∂(M'.R p), |x| ≤ C)
-    (hr : meanReward M'.R = meanReward M.R) (ha : 0 ≤ a)
-    (hε : ∀ q, |∫ s, M.optValue γ s ∂(M.P q) - ∫ s, M.optValue γ s ∂(M'.P q)| ≤
-      a * √(Var[M.optValue γ; M'.P q]) + b) (p : 𝓢 × 𝓐) :
-    |M.optQValue γ p - M'.optQValue γ p| ≤ γ * (a * C * √(2 / (1 - γ) ^ 3) +
-      (a * (γ * (a * (C / (1 - γ)) + b) / (1 - γ)) + b) / (1 - γ)) := by
-  have := Fintype.ofFinite 𝓐
-  have hv := measurable_optValue hγ hR
-  have hvB := abs_optValue_le hγ hR
-  have hB : 0 ≤ C / (1 - γ) := (abs_nonneg _).trans (hvB (Classical.arbitrary 𝓢))
-  have hδ (q : 𝓢 × 𝓐) : |meanReward M.R q - meanReward M'.R q| ≤ 0 := by simp [hr]
-  -- the uniform bound on the one-step error, from `√(Var_{P' q}(v*)) ≤ C / (1 - γ)`
-  have hε' (q : 𝓢 × 𝓐) : |∫ s, M.optValue γ s ∂(M.P q) - ∫ s, M.optValue γ s ∂(M'.P q)| ≤
-      a * (C / (1 - γ)) + b := by
-    refine (hε q).trans ?_
-    gcongr
-    rw [Real.sqrt_le_left hB]
-    exact variance_le_sq_of_abs_le hv.aemeasurable (.of_forall hvB)
-  -- the greedy policies for the optimal values are optimal stationary policies
-  have hg := measurable_greedy (M := M) (γ := γ) hv
-  have hg' := measurable_greedy (M := M') (γ := γ) (measurable_optValue hγ hR')
-  have hπ := value_greedy_optValue hγ hR hg
-  have hπ' := value_greedy_optValue hγ hR' hg'
-  -- their values in `M'` are within `D` of `v*`, by the simulation bounds
-  have hD (s : 𝓢) : |M.optValue γ s - M'.value γ (Kernel.deterministic _ hg) s| ≤
-      γ * (a * (C / (1 - γ)) + b) / (1 - γ) := by
-    have h := abs_value_sub_value_le (π := Kernel.deterministic _ hg) hγ hR hR' hδ
-      (fun q ↦ by rw [hπ]; exact hε' q) s
-    rwa [hπ, zero_div, zero_add] at h
-  have hD' (s : 𝓢) : |M.optValue γ s - M'.value γ (Kernel.deterministic _ hg') s| ≤
-      γ * (a * (C / (1 - γ)) + b) / (1 - γ) := by
-    have h := abs_optValue_sub_optValue_le hγ hR hR' hδ hε' s
-    rwa [← hπ', zero_div, zero_add] at h
-  have h₁ := abs_integral_resolvent_le_of_le_sqrt_variance hγ hR hR' hr ha hε _ hD p
-  have h₂ := abs_integral_resolvent_le_of_le_sqrt_variance hγ hR hR' hr ha hε _ hD' p
-  exact abs_le.2 ⟨(neg_le_of_abs_le h₂).trans (le_optQValue_sub_optQValue hγ hR hR' hπ' p),
-    (optQValue_sub_optQValue_le hγ hR hR' hπ p).trans (le_of_abs_le h₁)⟩
-
-end Deterministic
 
 /-- The numerical step of value estimation: for `L ≤ N`, the bound of
 `Learning.MDP.abs_optQValue_sub_optQValue_le_of_le_sqrt_variance` with
