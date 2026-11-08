@@ -444,9 +444,6 @@ theorem dInf_image_expFamily (hρ : ∀ c, ¬ id =ᵐ[ρ] fun _ ↦ c)
     dInf (ρ.expFamily id '' interior (integrableExpSet id ρ))
         (ρ.expFamily id (ρ.natParam id μ)) m =
       ENNReal.ofReal (ρ.expFamilyDiv id μ m) := by
-  have hmem (q : ℝ) (hq : q ∈ ρ.expFamilyMeans id) :
-      ρ.expFamily id (ρ.natParam id q) ∈ ρ.expFamily id '' interior (integrableExpSet id ρ) :=
-    ⟨_, Measure.natParam_mem_interior_integrableExpSet hq, rfl⟩
   refine le_antisymm ?_ (le_dInf_iff.mpr ?_)
   · -- `d(μ, q) → d(μ, m)` as `q → m` from above, and `d_inf ≤ d(μ, q)` for the means `q > m`.
     have h_tendsto : Tendsto (fun q ↦ ENNReal.ofReal (ρ.expFamilyDiv id μ q)) (𝓝[>] m)
@@ -458,7 +455,8 @@ theorem dInf_image_expFamily (hρ : ∀ c, ¬ id =ᵐ[ρ] fun _ ↦ c)
     filter_upwards [self_mem_nhdsWithin,
       mem_nhdsWithin_of_mem_nhds (Measure.expFamilyMeans_mem_nhds hρ hm)] with q hq hqM
     rw [← Measure.klDiv_expFamily_natParam hμ hqM]
-    exact dInf_le (hmem q hqM) (by rwa [Measure.integral_expFamily_natParam hqM])
+    exact dInf_le (Measure.expFamily_natParam_mem_image hqM)
+      (by rwa [Measure.integral_expFamily_natParam hqM])
   · -- A member with a mean `q > m` is the member of mean `q`, and `d(μ, ·)` is monotone on
     -- the means above `μ`.
     intro Q hQM hQ
@@ -476,6 +474,15 @@ lemma dInf_image_expFamily_of_mem_upperBounds (P : Measure ℝ)
   refine top_le_iff.mp (le_dInf_iff.mpr ?_)
   intro Q hQM hQ
   exact absurd (hm (Measure.integral_mem_expFamilyMeans_of_mem_image hQM)) (not_le.mpr hQ)
+
+omit [Finite α] [StandardBorelSpace α] [IsMarkovKernel ν] in
+/-- An arm `a` with a positive gap has a mean below the largest mean `μ*`; if both are means of the
+family of `ρ`, then `id` is not almost everywhere constant under `ρ`. -/
+lemma not_ae_eq_const_of_gap_pos [Fintype α] [Nonempty α] {a : α}
+    (hμ : (ν a)[id] ∈ ρ.expFamilyMeans id) (hμs : (ν (bestArm ν))[id] ∈ ρ.expFamilyMeans id)
+    (hgap : 0 < gap ν a) : ∀ c, ¬ id =ᵐ[ρ] fun _ ↦ c :=
+  Measure.not_ae_eq_const_of_mem_expFamilyMeans hμ hμs
+    (integral_lt_integral_bestArm_of_gap_pos hgap).ne
 
 variable [Fintype α] [Nonempty α] {ρ : α → Measure ℝ}
 
@@ -511,21 +518,17 @@ theorem eventually_mul_log_le_integral_regret_expFamily
     exact Measure.isProbabilityMeasure_expFamily (interior_subset hη)
   refine eventually_mul_log_le_integral_regret_of_isConsistent (M := M) hM halg hν ?_
   -- The Lai–Robbins constant is `∑_{a : Δ_a > 0} Δ_a / d_{ρ a}(μ_a, μ*)`.
-  have hsup : (⨆ b, (ν b)[id]) = (ν (bestArm ν))[id] := by
-    have h := gap_eq_bestArm_sub (ν := ν) (a := Classical.arbitrary α)
-    rw [gap] at h
-    linarith
   have hterm : ∀ a ∈ S, ENNReal.ofReal (gap ν a) / dInf (M a) (ν a) (⨆ b, (ν b)[id]) =
       ENNReal.ofReal (gap ν a / (ρ a).expFamilyDiv id (ν a)[id] (ν (bestArm ν))[id]) :=
     fun a ha ↦ by
     have hgap : 0 < gap ν a := (mem_filter.mp ha).2
     have hμa := Measure.integral_mem_expFamilyMeans_of_mem_image (hν a)
-    have hlt : (ν a)[id] < (ν (bestArm ν))[id] := by linarith [gap_eq_bestArm_sub (ν := ν) (a := a)]
-    have hρa := Measure.not_ae_eq_const_of_mem_expFamilyMeans hμa (hμs a hgap) hlt.ne
+    have hρa := not_ae_eq_const_of_gap_pos hμa (hμs a hgap) hgap
     -- `ν a` is the member of its mean `μ_a`, so that `d_inf(ν a, μ*) = d_{ρ a}(μ_a, μ*)`.
-    have hdInf := dInf_image_expFamily hρa hμa (hμs a hgap) hlt.le
+    have hdInf := dInf_image_expFamily hρa hμa (hμs a hgap) (le_bestArm a)
     rw [Measure.expFamily_natParam_integral_of_mem_image hρa (hν a)] at hdInf
-    rw [hsup, hdInf, ENNReal.ofReal_div_of_pos (Measure.expFamilyDiv_pos hμa (hμs a hgap) hlt.ne)]
+    rw [iSup_integral_eq_integral_bestArm, hdInf, ENNReal.ofReal_div_of_pos
+      (Measure.expFamilyDiv_pos hμa (hμs a hgap) (integral_lt_integral_bestArm_of_gap_pos hgap).ne)]
   rw [sum_congr rfl hterm, ← ENNReal.ofReal_sum_of_nonneg fun a ha ↦ ?_,
     ENNReal.ofReal_lt_ofReal_iff (hc0.trans hc)]
   · exact hc

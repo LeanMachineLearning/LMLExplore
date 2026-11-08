@@ -99,6 +99,17 @@ theorem bestArm_eq_of_forall_lt [Fintype α] [Nonempty α] {ν : Kernel α ℝ} 
   by_contra hne
   exact (ha _ hne).not_ge (le_bestArm a)
 
+/-- The largest mean of a bandit is the mean of its best arm. -/
+theorem iSup_integral_eq_integral_bestArm [Fintype α] [Nonempty α] (ν : Kernel α ℝ) :
+    (⨆ b, (ν b)[id]) = (ν (bestArm ν))[id] :=
+  le_antisymm (ciSup_le le_bestArm)
+    (le_ciSup (f := fun b ↦ (ν b)[id]) (Set.finite_range _).bddAbove _)
+
+/-- An arm with a positive gap has a mean below the mean of the best arm. -/
+theorem integral_lt_integral_bestArm_of_gap_pos [Fintype α] [Nonempty α] {ν : Kernel α ℝ} {a : α}
+    (ha : 0 < gap ν a) : (ν a)[id] < (ν (bestArm ν))[id] := by
+  linarith [gap_eq_bestArm_sub (ν := ν) (a := a)]
+
 variable [StandardBorelSpace α] {Ω : Type*} {mΩ : MeasurableSpace Ω} {P : Measure Ω}
   [IsProbabilityMeasure P] {A : ℕ → Ω → α} {ν : Kernel α ℝ}
 

@@ -56,6 +56,8 @@ confidence*, COLT 2016.
 * `MeasureTheory.Measure.integral_expFamily_natParam`: the member `ρ_η(μ)` has mean `μ`;
   `MeasureTheory.Measure.expFamily_natParam_integral_of_mem_image`: conversely, a member `ρ_η` is
   the member of its mean.
+* `MeasureTheory.Measure.mem_image_expFamily_iff`: the members `ρ_η` are the members `ρ_η(μ)` of
+  the means `μ` of the family.
 * `MeasureTheory.Measure.not_ae_eq_const_of_mem_expFamilyMeans`: a family with two distinct means
   has a statistic that is not almost everywhere constant.
 * `MeasureTheory.Measure.monotoneOn_natParam`: the natural parameter is monotone in the mean.
@@ -191,6 +193,12 @@ lemma integral_mem_expFamilyMeans_of_mem_image {Q : Measure 𝓧}
   rw [integral_expFamily hη]
   exact deriv_cgf_mem_expFamilyMeans hη
 
+/-- The member `ρ_η(μ)` of mean `μ` is a member `ρ_η` of the family, with `η` in the interior of
+`integrableExpSet T ρ`. -/
+lemma expFamily_natParam_mem_image (hμ : μ ∈ ρ.expFamilyMeans T) :
+    ρ.expFamily T (ρ.natParam T μ) ∈ ρ.expFamily T '' interior (integrableExpSet T ρ) :=
+  mem_image_of_mem _ (natParam_mem_interior_integrableExpSet hμ)
+
 /-- The means of an exponential family form a convex set. -/
 lemma convex_expFamilyMeans : Convex ℝ (ρ.expFamilyMeans T) :=
   ((convex_integrableExpSet.interior.isPreconnected).image _
@@ -241,6 +249,15 @@ lemma expFamily_natParam_integral_of_mem_image (hT : ∀ c, ¬ T =ᵐ[ρ] fun _ 
     ρ.expFamily T (ρ.natParam T (∫ x, T x ∂Q)) = Q := by
   obtain ⟨η, hη, rfl⟩ := hQ
   rw [integral_expFamily hη, natParam_deriv_cgf hT hη]
+
+/-- The members `ρ_η` of the family, with `η` in the interior of `integrableExpSet T ρ`, are the
+members `ρ_η(μ)` of the means `μ` of the family. -/
+lemma mem_image_expFamily_iff (hT : ∀ c, ¬ T =ᵐ[ρ] fun _ ↦ c) {Q : Measure 𝓧} :
+    Q ∈ ρ.expFamily T '' interior (integrableExpSet T ρ) ↔
+      ∃ μ ∈ ρ.expFamilyMeans T, ρ.expFamily T (ρ.natParam T μ) = Q :=
+  ⟨fun hQ ↦ ⟨_, integral_mem_expFamilyMeans_of_mem_image hQ,
+    expFamily_natParam_integral_of_mem_image hT hQ⟩,
+    fun ⟨_, hμ, hQ⟩ ↦ hQ ▸ expFamily_natParam_mem_image hμ⟩
 
 lemma image_natParam (hT : ∀ c, ¬ T =ᵐ[ρ] fun _ ↦ c) :
     ρ.natParam T '' ρ.expFamilyMeans T = interior (integrableExpSet T ρ) := by
