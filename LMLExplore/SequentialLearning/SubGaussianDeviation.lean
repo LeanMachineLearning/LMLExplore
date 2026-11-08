@@ -163,9 +163,10 @@ theorem streamMeasure_exists_card_mul_log_add_le_sum_sq_div_le [Fintype α] {σ2
         ∑ a, (∑ i ∈ range (s a), (ω i a - (ν a)[id])) ^ 2 / (2 * σ2 a * s a)} ≤
       ENNReal.ofReal ((x / Fintype.card α) ^ Fintype.card α * exp (Fintype.card α - x)) := by
   -- the sub-Gaussian statistic of each arm is at most its rate-function statistic
-  refine le_trans (measure_mono fun ω hω ↦ ?_)
-    (streamMeasure_exists_card_mul_log_add_le_sum_mul_rateFunction_le
-      (fun a ↦ (hν a).integrable_of_sub_const) hx)
+  have h_rate := streamMeasure_exists_card_mul_log_add_le_sum_mul_rateFunction_le univ
+    (fun a _ ↦ (hν a).integrable_of_sub_const) (x := x) (by rwa [card_univ])
+  rw [card_univ] at h_rate
+  refine le_trans (measure_mono fun ω hω ↦ ?_) h_rate
   obtain ⟨s, hs⟩ := hω
   refine ⟨s, ?_⟩
   refine (ENNReal.ofReal_le_ofReal hs).trans ?_
@@ -404,9 +405,10 @@ theorem measure_exists_card_mul_log_add_le_sum_pullCount_mul_sq_div_le
         ∑ a, pullCount A a t ω * (empMean A R a t ω - (ν a)[id]) ^ 2 / (2 * σ2 a)} ≤
       ENNReal.ofReal ((x / Fintype.card α) ^ Fintype.card α * exp (Fintype.card α - x)) := by
   -- the sub-Gaussian statistic of each arm is at most its rate-function statistic
-  refine le_trans (measure_mono fun ω hω ↦ ?_)
-    (measure_exists_card_mul_log_add_le_sum_pullCount_mul_rateFunction_le h
-      (fun a ↦ (hν a).integrable_of_sub_const) hx)
+  have h_rate := measure_exists_card_mul_log_add_le_sum_pullCount_mul_rateFunction_le h univ
+    (fun a _ ↦ (hν a).integrable_of_sub_const) (x := x) (by rwa [card_univ])
+  rw [card_univ] at h_rate
+  refine le_trans (measure_mono fun ω hω ↦ ?_) h_rate
   obtain ⟨t, ht⟩ := hω
   refine ⟨t, ?_⟩
   refine (ENNReal.ofReal_le_ofReal ht).trans ?_
