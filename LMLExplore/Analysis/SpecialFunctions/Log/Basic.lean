@@ -6,6 +6,7 @@ Authors: Rémy Degenne
 module
 
 public import Mathlib.Analysis.SpecialFunctions.Log.Basic
+public import Mathlib.Analysis.SpecialFunctions.Pow.Real
 
 /-!
 # Elementary bounds on the real logarithm
@@ -28,15 +29,25 @@ public import Mathlib.Analysis.SpecialFunctions.Log.Basic
   `x n ≤ c log n` for every `c > C / Δ²`.
 * `Real.tendsto_natCeil_sub_div_log`: if `f n / log n → ∞`, then `⌈f n - c⌉₊ / log n → ∞`.
 * `Real.mul_log_add_lt`: `a log x + b < x` as soon as `x ≥ 2 a log (2 a) + 2 b`, for `a, x > 0`.
+* `Real.log_div_le_log_one_div_add_log`: `log (x / δ) ≤ log (1 / δ) + log x` for `δ ∈ (0, 1]`.
+* `Real.eventually_log_le_mul_of_isBigO`: if `r n = O(n ^ p)`, then `log (r n) ≤ ε n` for all
+  large `n`, for every `ε > 0`.
+* `Real.eventually_exists_add_le_mul_and_forall_ofReal_add_lt_mul`: for `1 < κ c` and
+  `f T = o(T)` from above, for all small enough `δ` the thresholds `log (1 / δ) + f T` are below
+  `κ T` from a round `N ≤ c log (1 / δ)` on.
 
 ## References
 
+* [GK16] A. Garivier and E. Kaufmann, *Optimal best arm identification with fixed confidence*,
+  COLT 2016, proof of Theorem 14.
 * [LS] T. Lattimore and Cs. Szepesvári, *Bandit Algorithms*, Cambridge University Press, 2020.
 -/
 
 public section
 
 open Filter Topology
+
+open scoped NNReal ENNReal
 
 namespace Real
 
@@ -210,5 +221,91 @@ theorem mul_log_add_lt {a b x : ℝ} (ha : 0 < a) (hx : 0 < x)
       field_simp] at this
     exact this
   linarith
+
+/-- For `δ ∈ (0, 1]`, `log (x / δ) ≤ log (1 / δ) + log x`, with equality for `x ≠ 0`. The
+thresholds `log (r n / δ)` of fixed-confidence identification are thus at most
+`log (1 / δ) + log (r n)`. -/
+theorem log_div_le_log_one_div_add_log (x : ℝ) {δ : ℝ} (hδ : 0 < δ) (hδ1 : δ ≤ 1) :
+    log (x / δ) ≤ log (1 / δ) + log x := by
+  rcases eq_or_ne x 0 with rfl | hx
+  · simp only [zero_div, log_zero, add_zero]
+    exact log_nonneg (one_le_one_div hδ hδ1)
+  · rw [log_div hx hδ.ne', one_div, log_inv]
+    linarith
+
+/-- If `r n = O(n ^ p)`, then `log (r n) ≤ ε n` for all large `n`, for every `ε > 0`. -/
+theorem eventually_log_le_mul_of_isBigO {r : ℕ → ℝ} {p : ℝ}
+    (hr : r =O[atTop] fun n ↦ (n : ℝ) ^ p) {ε : ℝ} (hε : 0 < ε) :
+    ∀ᶠ n in atTop, log (r n) ≤ ε * n := by
+  -- `log (r n) ≤ log C + p log n = o(n)`.
+  obtain ⟨C, hC, hrC⟩ := hr.exists_pos
+  have hg : (fun n : ℕ ↦ log C + p * log n) =o[atTop] fun n : ℕ ↦ (n : ℝ) :=
+    ((Asymptotics.isLittleO_const_id_atTop (log C)).add
+      (isLittleO_log_id_atTop.const_mul_left p)).comp_tendsto tendsto_natCast_atTop_atTop
+  filter_upwards [hrC.bound, hg.bound hε, eventually_gt_atTop 0] with n hrn hgn hn
+  rcases eq_or_ne (r n) 0 with h | h
+  · simp only [h, log_zero]
+    positivity
+  have hn' : (0 : ℝ) < n := Nat.cast_pos.2 hn
+  rw [Real.norm_eq_abs, Real.norm_of_nonneg (rpow_nonneg hn'.le p)] at hrn
+  rw [Real.norm_of_nonneg hn'.le] at hgn
+  calc log (r n)
+  _ = log |r n| := (log_abs _).symm
+  _ ≤ log (C * n ^ p) := log_le_log (abs_pos.2 h) hrn
+  _ = log C + p * log n := by rw [log_mul hC.ne' (rpow_pos_of_pos hn' p).ne', log_rpow hn']
+  _ ≤ ε * n := (le_abs_self _).trans hgn
+
+/-- **The crossing time of the thresholds `log (1 / δ) + f T` by a statistic growing like `κ T`**
+(the counting step of the asymptotic sample complexity of the GLRT, [GK16, proof of Theorem 14]).
+Let `1 < κ c`, and let `f T ≤ ε T` eventually for every `ε > 0`. For every round `T₀` and every
+finite `S`, for all small enough `δ`, there is a round `N ≥ T₀` with `N + S ≤ c log (1 / δ)`
+such that `log (1 / δ) + f T < κ T` for every `T ≥ N`. -/
+lemma eventually_exists_add_le_mul_and_forall_ofReal_add_lt_mul {κ c : ℝ≥0} (hκc : 1 < κ * c)
+    {f : ℕ → ℝ} (hf : ∀ ε > 0, ∀ᶠ T in atTop, f T ≤ ε * T) (T₀ : ℕ) {S : ℝ≥0∞} (hS : S ≠ ∞) :
+    ∀ᶠ δ in 𝓝[>] 0, ∃ N ≥ T₀, N + S ≤ c * ENNReal.ofReal (log (1 / δ)) ∧
+      ∀ T ≥ N, ENNReal.ofReal (log (1 / δ) + f T) < κ * T := by
+  have hκc' : 1 < (κ : ℝ) * c := mod_cast hκc
+  have hc : 0 < (c : ℝ) := pos_of_mul_pos_right (one_pos.trans hκc') κ.coe_nonneg
+  -- Choose `η` with `1 / c < η < κ`: if `log (1 / δ) ≤ η T`, the threshold is below `κ T`.
+  obtain ⟨η, hcη, hηκ⟩ : ∃ η, (c : ℝ)⁻¹ < η ∧ η < κ :=
+    exists_between ((inv_lt_iff_one_lt_mul₀' hc).2 (by linarith))
+  have hη : 0 < η := (inv_pos.2 hc).trans hcη
+  have hκ : 0 < (κ : ℝ) := hη.trans hηκ
+  have hηc : 0 < (c : ℝ) - η⁻¹ := sub_pos.2 (inv_lt_of_inv_lt₀ hc hcη)
+  obtain ⟨T₁, hT₁⟩ := eventually_atTop.1 (hf ((κ - η) / 2) (by linarith))
+  set M := max (max T₀ T₁) 1
+  have hL : Tendsto (fun δ : ℝ ↦ log (1 / δ)) (𝓝[>] 0) atTop := by
+    simpa only [one_div, Function.comp_def] using tendsto_log_atTop.comp tendsto_inv_nhdsGT_zero
+  filter_upwards [hL.eventually_ge_atTop ((M + 1 + S.toReal) / (c - η⁻¹)),
+    hL.eventually_ge_atTop 0] with δ hLδ hL0
+  set L := log (1 / δ)
+  -- From `N = max M ⌈L / η⌉` rounds on, `L ≤ η T`, so that `L + f T < κ T`.
+  set N := max M ⌈L / η⌉₊
+  refine ⟨N, by omega, ?_, fun T hT ↦ ?_⟩
+  · -- `N + S ≤ M + L / η + 1 + S ≤ c L`.
+    have hceil : (⌈L / η⌉₊ : ℝ) ≤ L / η + 1 := (Nat.ceil_lt_add_one (by positivity)).le
+    have hN : (N : ℝ) ≤ M + (L / η + 1) := by
+      rw [Nat.cast_max]
+      have hM : (0 : ℝ) ≤ M := M.cast_nonneg
+      exact max_le (by linarith [div_nonneg hL0 hη.le]) (by linarith)
+    rw [div_le_iff₀ hηc] at hLδ
+    have h_div : L / η = η⁻¹ * L := by ring
+    calc (N : ℝ≥0∞) + S
+    _ = ENNReal.ofReal (N + S.toReal) := by
+      rw [ENNReal.ofReal_add N.cast_nonneg ENNReal.toReal_nonneg, ENNReal.ofReal_natCast,
+        ENNReal.ofReal_toReal hS]
+    _ ≤ ENNReal.ofReal (c * L) := ENNReal.ofReal_le_ofReal (by nlinarith)
+    _ = c * ENNReal.ofReal L := by rw [ENNReal.ofReal_mul c.coe_nonneg, ENNReal.ofReal_coe_nnreal]
+  · have hT1 : (1 : ℝ) ≤ T := mod_cast (show 1 ≤ T by omega)
+    have hLT : L ≤ η * T := by
+      rw [← div_le_iff₀' hη]
+      exact (Nat.le_ceil _).trans (mod_cast (le_max_right _ _).trans hT)
+    have hfT := hT₁ T (by omega)
+    calc ENNReal.ofReal (L + f T)
+    _ < ENNReal.ofReal (κ * T) := by
+      refine (ENNReal.ofReal_lt_ofReal_iff (mul_pos hκ (by linarith))).2 ?_
+      nlinarith
+    _ = κ * T := by
+      rw [ENNReal.ofReal_mul κ.coe_nonneg, ENNReal.ofReal_coe_nnreal, ENNReal.ofReal_natCast]
 
 end Real
