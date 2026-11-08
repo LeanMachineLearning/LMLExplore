@@ -36,8 +36,8 @@ convex hull of the compact set `{a ⊗ a | a ∈ 𝒜}`, which is compact, and m
 towards the Dirac mass at `a ∈ 𝒜` cannot increase the determinant. By the matrix determinant lemma
 this gives `1 + s ⟪a, V(w)⁻¹ a⟫ ≤ (1 + s) ^ d` for `s > 0`, and the derivative at `s = 0` gives
 `⟪a, V(w)⁻¹ a⟫ ≤ d`. When `𝒜` spans only a subspace `K` of dimension `m`, the theorem applied in
-`K` gives a design whose G-value, computed with the Moore–Penrose inverse `V(w)⁺` on `E`, is `m`
-[LS, Exercise 21.6].
+`K` gives a design whose G-value, computed with the Moore–Penrose inverse `V(w)⁺` on `E`, is at
+most `m` [LS, Exercise 21.6].
 
 ## Main definitions
 
@@ -126,6 +126,7 @@ theorem designOperator_single (a : E) :
 
 /-- The design operator is affine: the design operator of the convex combination of two designs is
 the convex combination of their design operators. -/
+@[simp]
 theorem designOperator_convexCombPair (s t : ℝ) (hs : 0 ≤ s) (ht : 0 ≤ t) (hst : s + t = 1)
     (w w' : StdSimplex ℝ E) :
     designOperator (convexCombPair s t hs ht hst w w') =
@@ -134,6 +135,7 @@ theorem designOperator_convexCombPair (s t : ℝ) (hs : 0 ≤ s) (ht : 0 ≤ t) 
 
 /-- The design operator of the image of a design on a finite type of arms by a feature map `φ`
 is `∑ i, w i • φ i ⊗ φ i`: allocations on finitely many arms are designs on their features. -/
+@[simp]
 theorem designOperator_map {ι : Type*} [Fintype ι] (φ : ι → E) (w : StdSimplex ℝ ι) :
     designOperator (w.map φ) = ∑ i, w.weights i • rankOne ℝ (φ i) (φ i) := by
   rw [designOperator, StdSimplex.weights_map, Finsupp.linearCombination_mapDomain,
@@ -188,10 +190,9 @@ theorem ker_designOperator (w : StdSimplex ℝ E) :
   · have h := inner_designOperator_apply_self w v
     rw [hv, inner_zero_right, Finsupp.sum, eq_comm, Finset.sum_eq_zero_iff_of_nonneg
       fun b _ ↦ mul_nonneg (w.nonneg b) (sq_nonneg _)] at h
-    have hpos : 0 < w.weights a :=
-      (w.nonneg a).lt_of_ne (Finsupp.mem_support_iff.1 ha).symm
     rw [real_inner_comm]
-    exact pow_eq_zero_iff two_ne_zero |>.1 <| (mul_eq_zero.1 (h a ha)).resolve_left hpos.ne'
+    exact pow_eq_zero_iff two_ne_zero |>.1 <|
+      (mul_eq_zero.1 (h a ha)).resolve_left (StdSimplex.weights_pos_of_mem_support ha).ne'
   · rw [designOperator_apply, Finsupp.sum]
     exact Finset.sum_eq_zero fun a ha ↦ by rw [real_inner_comm, hv ha, zero_smul, smul_zero]
 
@@ -233,8 +234,8 @@ theorem exists_mem_support_finrank_le_inner_ringInverse_designOperator {w : StdS
     ∃ a ∈ w.weights.support, (finrank ℝ E : ℝ) ≤ ⟪a, Ring.inverse (designOperator w) a⟫_ℝ := by
   by_contra! h
   have hlt := Finset.sum_lt_sum_of_nonempty w.support_weights_nonempty fun a ha ↦
-    mul_lt_mul_of_pos_left (h a ha) ((w.nonneg a).lt_of_ne (Finsupp.mem_support_iff.1 ha).symm)
-  have htotal : ∑ a ∈ w.weights.support, w.weights a = 1 := w.total
+    mul_lt_mul_of_pos_left (h a ha) (StdSimplex.weights_pos_of_mem_support ha)
+  have htotal : ∑ a ∈ w.weights.support, w.weights a = 1 := by simpa [Finsupp.sum] using w.total
   rw [← Finset.sum_mul, htotal, one_mul] at hlt
   have hsum := sum_mul_inner_ringInverse_designOperator hu
   rw [Finsupp.sum] at hsum
@@ -247,7 +248,7 @@ theorem inner_ringInverse_designOperator_eq_finrank {w : StdSimplex ℝ E}
     (h : ∀ a ∈ w.weights.support, ⟪a, Ring.inverse (designOperator w) a⟫_ℝ ≤ finrank ℝ E)
     {a : E} (ha : a ∈ w.weights.support) :
     ⟪a, Ring.inverse (designOperator w) a⟫_ℝ = finrank ℝ E := by
-  have htotal : ∑ b ∈ w.weights.support, w.weights b = 1 := w.total
+  have htotal : ∑ b ∈ w.weights.support, w.weights b = 1 := by simpa [Finsupp.sum] using w.total
   have hsum : ∑ b ∈ w.weights.support, w.weights b *
       (finrank ℝ E - ⟪b, Ring.inverse (designOperator w) b⟫_ℝ) = 0 := by
     have := sum_mul_inner_ringInverse_designOperator hu
@@ -255,8 +256,23 @@ theorem inner_ringInverse_designOperator_eq_finrank {w : StdSimplex ℝ E}
     simp_rw [mul_sub, Finset.sum_sub_distrib, ← Finset.sum_mul, htotal, this, one_mul, sub_self]
   rw [Finset.sum_eq_zero_iff_of_nonneg fun b hb ↦
     mul_nonneg (w.nonneg b) (sub_nonneg.2 (h b hb))] at hsum
-  have hpos : 0 < w.weights a := (w.nonneg a).lt_of_ne (Finsupp.mem_support_iff.1 ha).symm
-  linarith [(mul_eq_zero.1 (hsum a ha)).resolve_left hpos.ne']
+  linarith [(mul_eq_zero.1 (hsum a ha)).resolve_left (StdSimplex.weights_pos_of_mem_support ha).ne']
+
+/-- Moving a design `w` with invertible design operator towards the Dirac mass at `a`, with weights
+`(1 + s)⁻¹` and `(1 + s)⁻¹ s`, multiplies `det V(w)` by `(1 + s ⟪a, V(w)⁻¹ a⟫) / (1 + s) ^ d`, by
+the matrix determinant lemma. -/
+private theorem det_designOperator_convexCombPair_single {w : StdSimplex ℝ E}
+    (hu : IsUnit (designOperator w)) (a : E) {s : ℝ} (h₁ : 0 ≤ (1 + s)⁻¹)
+    (h₂ : 0 ≤ (1 + s)⁻¹ * s) (hst : (1 + s)⁻¹ + (1 + s)⁻¹ * s = 1) :
+    (designOperator (convexCombPair _ _ h₁ h₂ hst w (.single a))).det =
+      ((1 + s) ^ finrank ℝ E)⁻¹ * (designOperator w).det *
+        (1 + s * ⟪a, Ring.inverse (designOperator w) a⟫_ℝ) := by
+  have hV : designOperator (convexCombPair _ _ h₁ h₂ hst w (.single a)) =
+      (1 + s)⁻¹ • (designOperator w + rankOne ℝ (s • a) a) := by
+    simp [smul_add, smul_smul]
+  simp only [det, hV, toLinearMap_smul, LinearMap.det_smul]
+  rw [det_add_rankOne hu, map_smul, real_inner_smul_right, inv_pow]
+  ring
 
 /-- **D-optimal designs are G-optimal** [LS, Theorem 21.1]. Let `w` be a design on `𝒜` with
 invertible design operator `V(w)` that maximizes `det V(w)` among the designs on `𝒜`. Then
@@ -279,15 +295,10 @@ theorem inner_ringInverse_designOperator_le_finrank_of_isMaxOn {𝒜 : Set E} {w
     have hw' : ↑w'.weights.support ⊆ 𝒜 :=
       (StdSimplex.support_weights_convexCombPair_subset _ _ _ _ hst w _).trans
         (Set.union_subset hw (by simpa using ha))
-    have hV : designOperator w' = (1 + s)⁻¹ • (designOperator w + rankOne ℝ (s • a) a) := by
-      rw [designOperator_convexCombPair, designOperator_single, map_smul, smul_apply, smul_add,
-        smul_smul]
-    have h := hmax hw'
-    simp only [Set.mem_ofPred_eq, det, hV, toLinearMap_smul, LinearMap.det_smul] at h
-    rw [det_add_rankOne hu, map_smul, real_inner_smul_right, ← mul_assoc,
-      mul_comm _ (LinearMap.det _), mul_assoc] at h
-    rwa [inv_pow, ← div_eq_inv_mul, mul_le_iff_le_one_right hdet,
-      div_le_one (by positivity)] at h
+    have h : ((1 + s) ^ d)⁻¹ * (designOperator w).det * (1 + s * g) ≤ (designOperator w).det :=
+      det_designOperator_convexCombPair_single hu a _ _ hst ▸ hmax hw'
+    rw [mul_assoc, inv_mul_le_iff₀ (by positivity)] at h
+    exact le_of_mul_le_mul_left (by linarith) hdet
   -- the derivative of `s ↦ (1 + s) ^ d` at `0` is `d`
   have hlim := HasDerivAt.tendsto_slope_zero_right (hasDerivAt_pow d (1 : ℝ))
   simp only [one_pow, mul_one] at hlim
@@ -311,8 +322,9 @@ theorem exists_design_isUnit_designOperator {𝒜 : Set E} (hne : 𝒜.Nonempty)
     { weights := Finsupp.equivFunOnFinite.symm fun _ ↦ (t.card : ℝ)⁻¹
       nonneg := fun _ ↦ by simp
       total := by simp [Finsupp.sum_fintype, htpos.ne'] }
-  refine ⟨u.map (↑), fun x hx ↦ ?_, (isUnit_designOperator_iff _).2 ?_⟩
-  · obtain ⟨y, -, rfl⟩ := Finset.mem_image.1 (Finsupp.mapDomain_support hx)
+  refine ⟨u.map (↑), (StdSimplex.support_weights_map_subset _ u).trans ?_,
+    (isUnit_designOperator_iff _).2 ?_⟩
+  · rintro _ ⟨y, -, rfl⟩
     exact ht𝒜 y.2
   · refine eq_top_iff.2 ((hspan.symm.trans hbspan.symm).le.trans (Submodule.span_mono ?_))
     intro x hx
@@ -385,11 +397,10 @@ theorem exists_design_inner_moorePenroseInverse_le_finrank {𝒜 : Set E} (h𝒜
   obtain ⟨a₀, ha₀⟩ := hne
   obtain ⟨w, hw, hu, hle⟩ := exists_design_inner_ringInverse_le_finrank h𝒜K
     ⟨⟨a₀, Submodule.subset_span ha₀⟩, ha₀⟩ Submodule.span_span_coe_preimage
-  refine ⟨w.map (↑), fun x hx ↦ ?_, fun a ha ↦ ?_⟩
-  · obtain ⟨y, hy, rfl⟩ := Finset.mem_image.1 (Finsupp.mapDomain_support hx)
-    exact hw hy
-  · exact (inner_moorePenroseInverse_designOperator_map_subtype hu
-      ⟨a, Submodule.subset_span ha⟩).trans_le (hle _ ha)
+  refine ⟨w.map (↑), (StdSimplex.support_weights_map_subset _ w).trans
+    (Set.image_subset_iff.2 hw), fun a ha ↦ ?_⟩
+  exact (inner_moorePenroseInverse_designOperator_map_subtype hu
+    ⟨a, Submodule.subset_span ha⟩).trans_le (hle _ ha)
 
 end FiniteDimensional
 

@@ -19,6 +19,10 @@ a convex set.
 
 ## Main statements
 
+* `Convexity.StdSimplex.weights_pos_of_mem_support`: the points of the support have positive
+  weight.
+* `Convexity.StdSimplex.support_weights_map_subset`: the support of the image of a finitely
+  supported probability measure by a map is contained in the image of its support.
 * `Convexity.StdSimplex.support_weights_convexCombPair_subset`: the support of a convex combination
   of two finitely supported probability measures is contained in the union of their supports.
 -/
@@ -27,7 +31,23 @@ public section
 
 namespace Convexity.StdSimplex
 
-variable {R X : Type*} [PartialOrder R] [Semiring R] [IsStrictOrderedRing R]
+variable {R X Y : Type*} [PartialOrder R] [Semiring R]
+
+/-- The points of the support of a finitely supported probability measure have positive weight. -/
+theorem weights_pos_of_mem_support {w : StdSimplex R X} {x : X} (hx : x ∈ w.weights.support) :
+    0 < w.weights x :=
+  (w.nonneg x).lt_of_ne (Finsupp.mem_support_iff.1 hx).symm
+
+variable [IsStrictOrderedRing R]
+
+/-- The support of the image of a finitely supported probability measure by `f` is contained in
+the image by `f` of its support. -/
+theorem support_weights_map_subset (f : X → Y) (w : StdSimplex R X) :
+    ((w.map f).weights.support : Set Y) ⊆ f '' ↑w.weights.support := by
+  classical
+  intro y hy
+  obtain ⟨x, hx, rfl⟩ := Finset.mem_image.1 (Finsupp.mapDomain_support hy)
+  exact Set.mem_image_of_mem f hx
 
 /-- The support of a convex combination of two finitely supported probability measures is
 contained in the union of their supports. -/
