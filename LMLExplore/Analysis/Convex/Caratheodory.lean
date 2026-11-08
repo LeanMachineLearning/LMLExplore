@@ -8,15 +8,15 @@ module
 public import Mathlib.Analysis.Convex.Caratheodory
 public import Mathlib.Geometry.Convex.ConvexSpace.CompactSpaceStdSimplex
 public import Mathlib.LinearAlgebra.AffineSpace.FiniteDimensional
-public import Mathlib.Topology.Algebra.Ring.Real
 
 /-!
 # Compactness of the convex hull of a compact set
 
-In a finite-dimensional real topological vector space, the convex hull of a compact set is
-compact. By Carathéodory's theorem, every point of the convex hull of `s` is a convex combination
-of `finrank + 1` points of `s`, so the convex hull is the image of the compact set
-`StdSimplex ℝ (Fin (finrank + 1)) × s ^ (finrank + 1)` by the continuous map
+In a finite-dimensional topological vector space over an ordered field `𝕜` with compact closed
+intervals (such as `ℝ`), the convex hull of a compact set is compact. By Carathéodory's theorem,
+every point of the convex hull of `s` is a convex combination of `finrank + 1` points of `s`, so
+the convex hull is the image of the compact set
+`StdSimplex 𝕜 (Fin (finrank + 1)) × s ^ (finrank + 1)` by the continuous map
 `(w, z) ↦ ∑ i, w i • z i`. Mathlib proves the case of a finite set,
 `Set.Finite.isCompact_convexHull`.
 
@@ -27,8 +27,8 @@ a compact set of vectors is the convex hull of the compact set of their rank-one
 
 * `LMLExplore.exists_stdSimplex_fin_of_mem_convexHull`: in a finite-dimensional space, every
   point of the convex hull of `s` is a convex combination of `finrank + 1` points of `s`.
-* `IsCompact.convexHull`: the convex hull of a compact set in a finite-dimensional real
-  topological vector space is compact.
+* `IsCompact.convexHull`: the convex hull of a compact set in a finite-dimensional
+  topological vector space over such a field is compact.
 
 The proof follows `isCompact_convexHull` of the `colt-2026-83` project (Rémy Degenne,
 <https://github.com/RemyDegenne/colt-2026-83>).
@@ -77,21 +77,23 @@ theorem exists_stdSimplex_fin_of_mem_convexHull {𝕜 E : Type*} [Field 𝕜] [L
 
 end LMLExplore
 
-/-- **The convex hull of a compact set is compact** in a finite-dimensional real topological vector
-space. -/
-theorem IsCompact.convexHull {E : Type*} [AddCommGroup E] [Module ℝ E] [TopologicalSpace E]
-    [IsTopologicalAddGroup E] [ContinuousSMul ℝ E] [FiniteDimensional ℝ E] {s : Set E}
-    (hs : IsCompact s) : IsCompact (convexHull ℝ s) := by
-  set n := Module.finrank ℝ E + 1
-  let f : StdSimplex ℝ (Fin n) × (Fin n → E) → E := fun p ↦ ∑ i, p.1.weights i • p.2 i
+/-- **The convex hull of a compact set is compact** in a finite-dimensional topological vector
+space over a compact-interval ordered field such as `ℝ`. -/
+theorem IsCompact.convexHull (𝕜 : Type*) {E : Type*} [Field 𝕜] [LinearOrder 𝕜]
+    [IsStrictOrderedRing 𝕜] [TopologicalSpace 𝕜] [OrderClosedTopology 𝕜] [CompactIccSpace 𝕜]
+    [IsTopologicalRing 𝕜] [AddCommGroup E] [Module 𝕜 E] [TopologicalSpace E]
+    [IsTopologicalAddGroup E] [ContinuousSMul 𝕜 E] [FiniteDimensional 𝕜 E] {s : Set E}
+    (hs : IsCompact s) : IsCompact (convexHull 𝕜 s) := by
+  set n := Module.finrank 𝕜 E + 1
+  let f : StdSimplex 𝕜 (Fin n) × (Fin n → E) → E := fun p ↦ ∑ i, p.1.weights i • p.2 i
   have hf : Continuous f := continuous_finsetSum _ fun i _ ↦
-    ((StdSimplex.continuous_weights_apply ℝ i).comp continuous_fst).smul
+    ((StdSimplex.continuous_weights_apply 𝕜 i).comp continuous_fst).smul
       ((continuous_apply i).comp continuous_snd)
-  suffices _root_.convexHull ℝ s = f '' (Set.univ ×ˢ Set.univ.pi fun _ ↦ s) from
+  suffices _root_.convexHull 𝕜 s = f '' (Set.univ ×ˢ Set.univ.pi fun _ ↦ s) from
     this ▸ (isCompact_univ.prod (isCompact_univ_pi fun _ ↦ hs)).image hf
   refine Set.Subset.antisymm (fun x hx ↦ ?_) ?_
   · obtain ⟨ω, z, hz, rfl⟩ := LMLExplore.exists_stdSimplex_fin_of_mem_convexHull hx
     exact ⟨(ω, z), ⟨Set.mem_univ _, fun i _ ↦ hz i⟩, rfl⟩
   · rintro _ ⟨⟨w, z⟩, ⟨-, hz⟩, rfl⟩
-    exact (convex_convexHull ℝ s).sum_mem (fun i _ ↦ w.weights_nonneg i) w.total_of_fintype
-      fun i _ ↦ subset_convexHull ℝ s (hz i (Set.mem_univ _))
+    exact (convex_convexHull 𝕜 s).sum_mem (fun i _ ↦ w.weights_nonneg i) w.total_of_fintype
+      fun i _ ↦ subset_convexHull 𝕜 s (hz i (Set.mem_univ _))
