@@ -633,12 +633,6 @@ theorem integral_pullCount_eventually_le [IsProbabilityMeasure P] {μ : α → �
     (by linarith [hε.2]) n
   rwa [show μ (bestArm ν) - ε - μ a = gap ν a - ε by rw [hgap]; ring] at h_le
 
-/-- For a horizon `n ≥ 3`, `1 ≤ log n`. -/
-private lemma one_le_log_of_three_le {n : ℕ} (hn : 3 ≤ n) : 1 ≤ Real.log n := by
-  have hn' : (3 : ℝ) ≤ n := by exact_mod_cast hn
-  rw [Real.le_log_iff_exp_le (by positivity)]
-  linarith [Real.exp_one_lt_three]
-
 omit [IsFiniteMeasure P] in
 /-- **Logarithmic number of pulls of Gaussian Thompson sampling.** In a run of Gaussian Thompson
 sampling with variance proxy `σ² ≠ 0` against the Gaussian bandit `gaussianBandit μ σ2`, let `n ≥ 3`
@@ -655,13 +649,11 @@ theorem integral_pullCount_le_mul_log_div_gap_sq_add [IsProbabilityMeasure P] {�
   have hgap : gap ν a = μ (bestArm ν) - μ a := by
     rw [gap_eq_bestArm_sub, integral_id_gaussianBandit, integral_id_gaussianBandit]
   have hσ' : (0 : ℝ) < σ2 := NNReal.coe_pos.mpr (pos_iff_ne_zero.mpr hσ)
-  have ha : 0 < gap ν a := by
-    refine gap_nonneg.lt_of_ne fun h0 ↦ ?_
-    rw [← h0] at h_gap
-    linarith
+  have ha : 0 < gap ν a :=
+    gap_pos_of_lt_mul_gap_sq le_rfl ((mul_pos (by norm_num) hσ').trans_le h_gap)
   set Δ := gap ν a
   set ℓ := Real.log n with hℓ_def
-  have hℓ : 1 ≤ ℓ := one_le_log_of_three_le hn
+  have hℓ : 1 ≤ ℓ := Real.one_le_log_natCast_of_three_le hn
   have h_le := integral_pullCount_le_of_gaussianBandit hσ h (half_pos ha) (i := a)
     (j := bestArm ν) (by linarith) n
   -- With `ε = Δ / 2` and `c = σ² / Δ²`, the bound reads
@@ -737,7 +729,7 @@ theorem gaussianTS_regret_le_sqrt [StandardBorelSpace α] {σ2 : ℝ≥0} {Ω : 
   -- the arms with `80 σ² log n k < n Δ_a²`, for which `n Δ_a² ≥ 80 σ² k log n ≥ 8 σ²`.
   set ℓ := Real.log n
   set k : ℝ := (Fintype.card α : ℝ)
-  have hℓ : 1 ≤ ℓ := GaussianTS.one_le_log_of_three_le hn
+  have hℓ : 1 ≤ ℓ := Real.one_le_log_natCast_of_three_le hn
   have hk : 1 ≤ k := Nat.one_le_cast.mpr Fintype.card_pos
   have h_kℓ : 8 * (σ2 : ℝ) ≤ 80 * σ2 * ℓ * k := by
     nlinarith [one_le_mul_of_one_le_of_one_le hℓ hk, σ2.coe_nonneg]
