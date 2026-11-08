@@ -7,6 +7,7 @@ module
 
 public import Mathlib.Analysis.SpecialFunctions.Log.Basic
 public import Mathlib.Analysis.SpecialFunctions.Pow.Real
+import Mathlib.Analysis.Complex.ExponentialBounds
 
 /-!
 # Elementary bounds on the real logarithm
@@ -16,6 +17,7 @@ public import Mathlib.Analysis.SpecialFunctions.Pow.Real
 * `Real.min_one_le_two_mul_log_one_add`: `min 1 u ≤ 2 log (1 + u)` for `u ≥ 0`.
 * `Real.monotoneOn_log_one_add_mul_log_sq`: `x ↦ log (1 + x log² x)` is monotone on `[1, ∞)`.
 * `Real.log_natCast_le_log_natCast`: `log` is monotone on natural numbers.
+* `Real.one_le_log_natCast_of_three_le`: `1 ≤ log n` for a natural number `n ≥ 3`.
 * `Real.monotone_log_two_mul_mul_add_one`: `n ↦ log (2 n (n + 1))` is monotone on `ℕ`.
 * `Real.tendsto_log_one_add_mul_log_sq_div_log_atTop`: `log (1 + x log² x) / log x → 1` as
   `x → ∞`.
@@ -80,6 +82,12 @@ theorem log_natCast_le_log_natCast {m n : ℕ} (h : m ≤ n) : log m ≤ log n :
   rcases Nat.eq_zero_or_pos m with rfl | hm
   · simpa using log_natCast_nonneg n
   · exact log_le_log (by positivity) (by exact_mod_cast h)
+
+/-- The logarithm of a natural number `n ≥ 3` is at least `1`, since `exp 1 < 3`. -/
+theorem one_le_log_natCast_of_three_le {n : ℕ} (hn : 3 ≤ n) : 1 ≤ log n := by
+  have hn' : (3 : ℝ) ≤ n := by exact_mod_cast hn
+  rw [le_log_iff_exp_le (by positivity)]
+  linarith [exp_one_lt_three]
 
 /-- The function `n ↦ log (2 n (n + 1))` on `ℕ` is monotone. It is the boundary of the
 sub-Gaussian, two-tailed form of the time-uniform deviation bound of [LS, Lemma 33.8]: Lattimore
