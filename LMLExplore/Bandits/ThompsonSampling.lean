@@ -74,12 +74,17 @@ is `1 / s`, here `σ² / s`.
   [LS, Exercise 36.6] together: `E[T_i(n)] ≤ 2 + σ² / ε² (8 + 2 log (1 + 2 σ² / ε²))
   + 2 σ² / (μ_j - ε - μ_i)² (log n + √(π log n) + 1)` for arms with `μ_i < μ_j - ε`, and
   `GaussianTS.integral_pullCount_le_of_gaussianBandit`, the same bound as a Bochner integral.
+* `GaussianTS.integral_pullCount_le_mul_log_div_gap_sq_add`: on a Gaussian bandit, for a horizon
+  `n ≥ 3` and an arm `a` whose gap `Δ_a` satisfies `8 σ² ≤ n Δ_a²`,
+  `E[T_a(n)] ≤ 80 σ² log n / Δ_a² + 2`.
 * `GaussianTS.integral_pullCount_eventually_le`: on a Gaussian bandit, for an arm `a` with positive
   gap `Δ_a` and every `c > 2 σ² / Δ_a²`, eventually `E[T_a(n)] ≤ c log n`.
 * `gaussianTS_regret_eventually_le`: [LS, Theorem 36.3], upper bound of the asymptotic part: on a
   Gaussian bandit, for every `c > ∑_{a : Δ_a > 0} 2 σ² / Δ_a`, eventually `E[R_n] ≤ c log n`. The
   matching limit, through the Lai–Robbins lower bound, is
   `tendsto_gaussianTS_regret_div_log_gaussianBandit` in `LMLExplore.Bandits.AsymptoticOptimality`.
+* `gaussianTS_regret_le_sqrt`: [LS, Theorem 36.3], minimax part: on a Gaussian bandit with `k`
+  arms, `E[R_n] ≤ 18 √(σ² k n log n) + 2 ∑ a, Δ_a` at every horizon `n`.
 
 ## References
 
@@ -628,6 +633,54 @@ theorem integral_pullCount_eventually_le [IsProbabilityMeasure P] {μ : α → �
     (by linarith [hε.2]) n
   rwa [show μ (bestArm ν) - ε - μ a = gap ν a - ε by rw [hgap]; ring] at h_le
 
+omit [IsFiniteMeasure P] in
+/-- **Logarithmic number of pulls of Gaussian Thompson sampling.** In a run of Gaussian Thompson
+sampling with variance proxy `σ² ≠ 0` against the Gaussian bandit `gaussianBandit μ σ2`, let `n ≥ 3`
+be a horizon and `a` an arm whose gap `Δ_a` satisfies `8 σ² ≤ n Δ_a²`. Then
+`E[T_a(n)] ≤ 80 σ² log n / Δ_a² + 2`. This is the bound of
+`integral_pullCount_le_of_gaussianBandit` for an optimal arm and the margin `ε = Δ_a / 2`. -/
+theorem integral_pullCount_le_mul_log_div_gap_sq_add [IsProbabilityMeasure P] {μ : α → ℝ}
+    (hσ : σ2 ≠ 0)
+    (h : IsAlgEnvSeq O A R (gaussianTS σ2) (Environment.bandit (gaussianBandit μ σ2)) P) {a : α}
+    {n : ℕ} (hn : 3 ≤ n) (h_gap : 8 * σ2 ≤ n * gap (gaussianBandit μ σ2) a ^ 2) :
+    P[fun ω ↦ (pullCount A a n ω : ℝ)] ≤
+      80 * σ2 * Real.log n / gap (gaussianBandit μ σ2) a ^ 2 + 2 := by
+  set ν := gaussianBandit μ σ2
+  have hgap : gap ν a = μ (bestArm ν) - μ a := by
+    rw [gap_eq_bestArm_sub, integral_id_gaussianBandit, integral_id_gaussianBandit]
+  have hσ' : (0 : ℝ) < σ2 := NNReal.coe_pos.mpr (pos_iff_ne_zero.mpr hσ)
+  have ha : 0 < gap ν a := by
+    refine gap_nonneg.lt_of_ne fun h0 ↦ ?_
+    rw [← h0] at h_gap
+    linarith
+  set Δ := gap ν a
+  set ℓ := Real.log n with hℓ_def
+  have hn' : (3 : ℝ) ≤ n := by exact_mod_cast hn
+  have hℓ : 1 ≤ ℓ := by
+    rw [hℓ_def, Real.le_log_iff_exp_le (by positivity)]
+    linarith [Real.exp_one_lt_three]
+  have h_le := integral_pullCount_le_of_gaussianBandit hσ h (half_pos ha) (i := a)
+    (j := bestArm ν) (by linarith) n
+  -- With `ε = Δ / 2` and `c = σ² / Δ²`, the bound reads
+  -- `2 + 4 c (8 + 2 log (1 + 8 c)) + 8 c (ℓ + √(π ℓ) + 1)`.
+  set c := (σ2 : ℝ) / Δ ^ 2 with hc_def
+  have hc : 0 ≤ c := by positivity
+  have h_c4 : (σ2 : ℝ) / (Δ / 2) ^ 2 = 4 * c := by rw [hc_def]; field_simp; ring
+  have h_c8 : 2 * (σ2 : ℝ) / (Δ / 2) ^ 2 = 8 * c := by rw [hc_def]; field_simp; ring
+  rw [show μ (bestArm ν) - Δ / 2 - μ a = Δ / 2 by rw [hgap]; ring, h_c4, h_c8] at h_le
+  rw [show 80 * (σ2 : ℝ) * ℓ / Δ ^ 2 = 80 * ℓ * c by rw [hc_def]; ring]
+  -- `8 c ≤ n`, so `log (1 + 8 c) ≤ log (n ^ 2) = 2 ℓ`, and `√(π ℓ) ≤ 2 ℓ`.
+  have h_8c : 8 * c ≤ n := by
+    rw [hc_def, ← mul_div_assoc, div_le_iff₀ (by positivity)]
+    exact h_gap
+  have h_log : Real.log (1 + 8 * c) ≤ 2 * ℓ := by
+    rw [hℓ_def, show 2 * Real.log n = Real.log ((n : ℝ) ^ 2) by rw [Real.log_pow]; norm_num]
+    exact Real.log_le_log (by positivity) (by nlinarith)
+  have h_sqrt : √(Real.pi * ℓ) ≤ 2 * ℓ := by
+    rw [Real.sqrt_le_left (by positivity)]
+    nlinarith [Real.pi_le_four]
+  nlinarith
+
 end GaussianTS
 
 /-- **[LS, Theorem 36.3], upper bound of the asymptotic part.** In a run of Gaussian Thompson
@@ -647,6 +700,71 @@ theorem gaussianTS_regret_eventually_le [StandardBorelSpace α] {σ2 : ℝ≥0} 
     (fun a ha _ hc ↦ GaussianTS.integral_pullCount_eventually_le hσ h a ha hc) ?_
   refine (Finset.sum_congr rfl fun a ha ↦ ?_).trans_lt hc
   field_simp [(Finset.mem_filter.mp ha).2.ne']
+
+/-- **[LS, Theorem 36.3], minimax part.** In a run of Gaussian Thompson sampling with variance proxy
+`σ² ≠ 0` against the Gaussian bandit `gaussianBandit μ σ2` with `k` arms, the expected regret at
+horizon `n` is at most `18 √(σ² k n log n) + 2 ∑ a, Δ_a`.
+
+[LS] states the additive term `∑ a, Δ_a`. The factor `2` here is the additive constant of the
+bound `E[T_a(n)] ≤ 2 + ⋯` of `GaussianTS.integral_pullCount_le_of_gaussianBandit` on the expected
+numbers of pulls, the sum of the constant `1` of [LS, Theorem 36.2] and of the term of the sample
+size `0` in [LS, Exercise 36.6(b)]. -/
+theorem gaussianTS_regret_le_sqrt [StandardBorelSpace α] {σ2 : ℝ≥0} {Ω : Type*}
+    {mΩ : MeasurableSpace Ω} {P : Measure Ω} [IsProbabilityMeasure P] {O : ℕ → Ω → Unit}
+    {A : ℕ → Ω → α} {R : ℕ → Ω → ℝ} {μ : α → ℝ} (hσ : σ2 ≠ 0)
+    (h : IsAlgEnvSeq O A R (gaussianTS σ2) (Environment.bandit (gaussianBandit μ σ2)) P) (n : ℕ) :
+    P[regret (gaussianBandit μ σ2) A n] ≤
+      18 * √(σ2 * Fintype.card α * n * Real.log n) + 2 * ∑ a, gap (gaussianBandit μ σ2) a := by
+  set ν := gaussianBandit μ σ2
+  have h_sqrt : 0 ≤ 18 * √(σ2 * Fintype.card α * n * Real.log n) := by positivity
+  rcases le_or_gt n 2 with hn | hn
+  · -- For `n ≤ 2`, every arm is pulled at most twice.
+    have h_le : P[regret ν A n] ≤ ∑ a, gap ν a * 2 :=
+      integral_regret_le_of_forall_integral_pullCount_le h.measurable_action fun a _ ↦
+        calc ∫ ω, (pullCount A a n ω : ℝ) ∂P ≤ ∫ _, (2 : ℝ) ∂P :=
+              integral_mono_of_nonneg (.of_forall fun _ ↦ by positivity) (integrable_const _)
+                (.of_forall fun ω ↦ by dsimp only; exact_mod_cast (pullCount_le a n ω).trans hn)
+          _ = 2 := by simp
+    rw [← Finset.sum_mul, mul_comm] at h_le
+    linarith
+  -- For `n ≥ 3`, apply the gap-free bound with the threshold `δ = s / n`, where
+  -- `s = √(80 σ² k n log n)`, to the bound `80 σ² log n / Δ_a² + 2` on the pulls of the arms with
+  -- `Δ_a > δ`, for which `n Δ_a² ≥ n δ² = 80 σ² k log n ≥ 8 σ²`.
+  set ℓ := Real.log n with hℓ_def
+  set k : ℝ := (Fintype.card α : ℝ)
+  have hn' : (0 : ℝ) < n := by positivity
+  have hℓ : 1 ≤ ℓ := by
+    rw [hℓ_def, Real.le_log_iff_exp_le hn']
+    have : (3 : ℝ) ≤ n := by exact_mod_cast hn
+    linarith [Real.exp_one_lt_three]
+  have hσ' : (0 : ℝ) < σ2 := NNReal.coe_pos.mpr (pos_iff_ne_zero.mpr hσ)
+  have hk : 1 ≤ k := Nat.one_le_cast.mpr Fintype.card_pos
+  set X := (σ2 : ℝ) * k * n * ℓ with hX_def
+  have hX : 0 < X := by positivity
+  set s := √(80 * X) with hs_def
+  have hs : 0 < s := Real.sqrt_pos.mpr (by positivity)
+  have hs_sq : s ^ 2 = 80 * X := Real.sq_sqrt (by positivity)
+  have hδ : 0 < s / n := div_pos hs hn'
+  have h_nδ : n * (s / n) ^ 2 = 80 * σ2 * k * ℓ := by
+    rw [div_pow, hs_sq, hX_def]
+    field_simp
+  have h_kℓ : 8 * (σ2 : ℝ) ≤ 80 * σ2 * k * ℓ := by
+    nlinarith [one_le_mul_of_one_le_of_one_le hk hℓ]
+  have h_bound := integral_regret_le_mul_add_div_add_of_forall_integral_pullCount_le
+    h.measurable_action (C := 80 * σ2 * ℓ) (B := 2) (by positivity) zero_le_two hδ fun a ha ↦
+      GaussianTS.integral_pullCount_le_mul_log_div_gap_sq_add hσ h hn <| by
+        nlinarith [mul_le_mul_of_nonneg_left (pow_lt_pow_left₀ ha hδ.le two_ne_zero).le hn'.le]
+  -- `δ n + k (80 σ² log n) / δ = 2 s ≤ 18 √(σ² k n log n)`.
+  have h_eq : s / n * n + k * (80 * σ2 * ℓ) / (s / n) = 2 * s := by
+    field_simp
+    linear_combination -hs_sq
+  have h_s : 2 * s ≤ 18 * √X := by
+    rw [hs_def, Real.sqrt_mul (show (0 : ℝ) ≤ 80 by norm_num) X, ← mul_assoc]
+    gcongr
+    calc 2 * √80 ≤ 2 * √(9 ^ 2) := by gcongr; norm_num
+      _ = 18 := by rw [Real.sqrt_sq (by norm_num)]; norm_num
+  rw [h_eq] at h_bound
+  linarith
 
 end Algorithm
 

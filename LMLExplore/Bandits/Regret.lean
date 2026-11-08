@@ -52,7 +52,8 @@ for `trajMeasure`, such as lower bounds, apply to every run.
 * `LMLExplore.Bandits.mul_integral_pullCount_le_integral_regret`: if the arm `a₁` has gap at least
   `Δ`, the expected regret is at least `Δ E[T_{a₁}(n)]`.
 * `integral_regret_le_mul_add_div_add_of_forall_integral_pullCount_le`: the bound
-  `δ n + k C / δ + B ∑ a, Δ_a` for every threshold `δ > 0`.
+  `δ n + k C / δ + B ∑ a, Δ_a` for every threshold `δ > 0`, from bounds on the expected numbers of
+  pulls of the arms with gap above `δ` only.
 * `integral_regret_le_two_mul_sqrt_add_of_forall_integral_pullCount_le`: the bound
   `2 √(C k n) + B ∑ a, Δ_a`, for the optimal threshold `δ = √(C k / n)`.
 * `integral_regret_eventually_le_of_forall_integral_pullCount_eventually_le`: eventual bounds
@@ -154,12 +155,13 @@ variable {α Ω : Type*} [DecidableEq α] [Fintype α] [MeasurableSpace α] [Sta
   {mΩ : MeasurableSpace Ω} {P : Measure Ω} [IsProbabilityMeasure P]
   {ν : Kernel α ℝ} {A : ℕ → Ω → α} {n : ℕ} {B C : ℝ}
 
-/-- If every arm `a` with positive gap `Δ_a` is pulled at most `C / Δ_a ^ 2 + B` times in
-expectation during the first `n` rounds, then for every threshold `δ > 0` the expected regret at
-horizon `n` is at most `δ n + k C / δ + B ∑ a, Δ_a`, where `k` is the number of arms. -/
+/-- Let `δ > 0`. If every arm `a` with gap `Δ_a > δ` is pulled at most `C / Δ_a ^ 2 + B` times in
+expectation during the first `n` rounds, then the expected regret at horizon `n` is at most
+`δ n + k C / δ + B ∑ a, Δ_a`, where `k` is the number of arms. The constants `C` and `B` may
+depend on `δ`. -/
 theorem integral_regret_le_mul_add_div_add_of_forall_integral_pullCount_le
     (hA : ∀ t, Measurable (A t)) (hC : 0 ≤ C) (hB : 0 ≤ B) {δ : ℝ} (hδ : 0 < δ)
-    (h_le : ∀ a, 0 < gap ν a → P[fun ω ↦ (pullCount A a n ω : ℝ)] ≤ C / gap ν a ^ 2 + B) :
+    (h_le : ∀ a, δ < gap ν a → P[fun ω ↦ (pullCount A a n ω : ℝ)] ≤ C / gap ν a ^ 2 + B) :
     P[regret ν A n] ≤ δ * n + Fintype.card α * C / δ + B * ∑ a, gap ν a := by
   -- Each arm contributes at most `δ` per pull if its gap is at most `δ`, and at most
   -- `C / Δ_a + B Δ_a ≤ C / δ + B Δ_a` otherwise.
@@ -172,7 +174,7 @@ theorem integral_regret_le_mul_add_div_add_of_forall_integral_pullCount_le
       nlinarith
     · have h_gap_pos : 0 < gap ν a := hδ.trans h_lt
       calc gap ν a * P[fun ω ↦ (pullCount A a n ω : ℝ)]
-      _ ≤ gap ν a * (C / gap ν a ^ 2 + B) := by gcongr; exact h_le a h_gap_pos
+      _ ≤ gap ν a * (C / gap ν a ^ 2 + B) := by gcongr; exact h_le a h_lt
       _ = C / gap ν a + B * gap ν a := by field_simp
       _ ≤ C / δ + B * gap ν a := by gcongr
       _ ≤ δ * P[fun ω ↦ (pullCount A a n ω : ℝ)] + C / δ + B * gap ν a := by
@@ -193,7 +195,8 @@ theorem integral_regret_le_two_mul_sqrt_add_of_forall_integral_pullCount_le
     (h_le : ∀ a, 0 < gap ν a → P[fun ω ↦ (pullCount A a n ω : ℝ)] ≤ C / gap ν a ^ 2 + B) :
     P[regret ν A n] ≤ 2 * √(C * Fintype.card α * n) + B * ∑ a, gap ν a := by
   have h_bound {δ : ℝ} (hδ : 0 < δ) :=
-    integral_regret_le_mul_add_div_add_of_forall_integral_pullCount_le hA hC hB hδ h_le
+    integral_regret_le_mul_add_div_add_of_forall_integral_pullCount_le hA hC hB hδ
+      fun a ha ↦ h_le a (hδ.trans ha)
   have h_gap_sum : 0 ≤ B * ∑ a, gap ν a := mul_nonneg hB (sum_nonneg fun _ _ ↦ gap_nonneg)
   rcases Nat.eq_zero_or_pos n with rfl | hn
   · simp [regret_eq_sum_gap, h_gap_sum]
