@@ -65,7 +65,9 @@ within a factor `2` of the complexity `H(μ) = ∑ c, 2 σ2 / Δ_c²`, where `Δ
   unique best arm `b ≠ a`.
 * `LMLExplore.Identification.mem_answerSet_baiTask_iff`,
   `LMLExplore.Identification.isOpen_answerSet_baiTask`: the vectors of means for which `a` is
-  correct, those with unique best arm `a`, form an open set.
+  correct, those with unique best arm `a`, form an open set;
+  `LMLExplore.Identification.isOpen_answerSet_baiTask_restrict` is the same within an open set `S`
+  of vectors of means.
 * `LMLExplore.Identification.closure_alt_baiTask_restrict_inter`: for `S` open, the closure of the
   alternatives to `a` within `S` is `{λ | ∃ b ≠ a, λ a ≤ λ b} ∩ S`;
   `LMLExplore.Identification.closure_alt_baiTask` is the case `S = univ`.
@@ -85,7 +87,9 @@ within a factor `2` of the complexity `H(μ) = ∑ c, 2 σ2 / Δ_c²`, where `Δ
   family, `(μ, w) ↦ D(μ, w, ¬a)` is continuous on the vectors of means of the family with best arm
   `a` and the nonnegative allocations;
   `LMLExplore.Identification.continuousOn_altCost_baiTask_restrict_left` is the continuity in the
-  allocation alone at a fixed vector of means.
+  allocation alone at a fixed vector of means, and
+  `LMLExplore.Identification.continuousWithinAt_altCost_baiTask_restrict` the continuity within
+  `univ ×ˢ simplex α` at a vector of means with unique best arm `a`.
 * `LMLExplore.Identification.continuousAt_answerValue_baiTask_restrict`,
   `LMLExplore.Identification.upperHemicontinuousAt_optAlloc_baiTask_restrict`,
   `LMLExplore.Identification.continuousAt_charTime_baiTask_restrict`: for arms in an exponential
@@ -207,6 +211,13 @@ lemma isOpen_answerSet_baiTask [Finite α] (a : α) : IsOpen ((baiTask ν id).an
   rw [h]
   exact (Set.toFinite _).isOpen_biInter fun b _ ↦
     isOpen_lt (continuous_apply b) (continuous_apply a)
+
+/-- For an open set `S` of vectors of means, the models of best arm identification restricted to
+`S` with unique best arm `a` form an open set. -/
+lemma isOpen_answerSet_baiTask_restrict [Finite α] (hS : IsOpen S) (a : α) :
+    IsOpen (((baiTask ν id).restrict S).answerSet a) := by
+  rw [IdentTask.answerSet_restrict]
+  exact (isOpen_answerSet_baiTask ν a).inter hS
 
 section Closure
 
@@ -531,10 +542,16 @@ theorem continuousOn_altCost_baiTask_restrict_left (hT : ∀ c, ¬ T =ᵐ[ρ] fu
   exact ((continuousOn_inf_expFamilyPairCost hT a).comp (f := fun w ↦ (μ, w)) (by fun_prop)
     fun _ hw ↦ ⟨hμ, hw⟩).congr fun w hw ↦ altCost_baiTask_restrict_eq_inf ν hT hμ hν ha hw
 
-/-- Under the hypotheses of `continuousOn_altCost_baiTask_restrict`, at a vector of means `μ` of
+/-- **Continuity of the cost of the alternatives near a model**, for arms in an exponential family
+with divergence `d` (as in `continuousOn_altCost_baiTask_restrict`): at a vector of means `μ` of
 the family with unique best arm `a`, `(μ', w) ↦ D(μ', w, ¬a)` is continuous within
-`univ ×ˢ simplex α` at `(μ, w)` for every allocation `w` of the simplex. -/
-private lemma continuousWithinAt_altCost_baiTask_restrict (hT : ∀ c, ¬ T =ᵐ[ρ] fun _ ↦ c)
+`univ ×ˢ simplex α` at `(μ, w)` for every allocation `w` of the simplex. This is the continuity
+hypothesis of the continuity of the value and of the upper hemicontinuity of the optimal
+allocations (`IdentTask.continuousWithinAt_answerValue`,
+`IdentTask.upperHemicontinuousWithinAt_optAlloc`), and of the sample complexity bounds of
+Track-and-Stop (`IdentTask.eventually_expectedStoppingTime_trackAndStop_le_of_charTime_lt`,
+`IdentTask.eventually_expectedStoppingTime_cTrackAndStop_le_of_charTime_lt`). -/
+theorem continuousWithinAt_altCost_baiTask_restrict (hT : ∀ c, ¬ T =ᵐ[ρ] fun _ ↦ c)
     (hν : ∀ μ μ' : α → ℝ, (∀ c, μ c ∈ ρ.expFamilyMeans T) → (∀ c, μ' c ∈ ρ.expFamilyMeans T) →
       ∀ c, klDiv (ν μ c) (ν μ' c) = ENNReal.ofReal (ρ.expFamilyDiv T (μ c) (μ' c)))
     (hμ : ∀ c, μ c ∈ ρ.expFamilyMeans T) (ha : ∀ b ≠ a, μ b < μ a) (hw : w ∈ simplex α) :
