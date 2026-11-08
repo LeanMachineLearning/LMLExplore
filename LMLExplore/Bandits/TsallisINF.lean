@@ -143,13 +143,10 @@ lemma measurable_tsallisINFSum (n : ℕ) : Measurable (tsallisINFSum (𝓞 := �
     exact measurable_const
   | succ n ih =>
     have hS := ih.comp (measurable_finInit (β := fun _ ↦ _))
-    have hlast : Measurable fun h : Hist 𝓞 α ℝ (n + 1) ↦ h (Fin.last n) := measurable_pi_apply _
+    have hP := measurable_tsallisWeights (α := α) (four_mul_sqrt_add_one_pos n).ne'
     rw [funext (tsallisINFSum_succ n)]
     simp_rw [tsallisINFWeights_def]
-    exact hS.add (measurable_iwEstimator.comp
-      (((measurable_tsallisWeights (four_mul_sqrt_add_one_pos n).ne').comp hS).prodMk
-        ((Round.measurable_action.comp hlast).prodMk
-          (measurable_const.sub (Round.measurable_feedback.comp hlast)))))
+    fun_prop
 
 @[fun_prop]
 lemma measurable_tsallisINFWeights (n : ℕ) :

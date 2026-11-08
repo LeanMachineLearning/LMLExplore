@@ -301,6 +301,15 @@ theorem tsallisWeights_add_const (hc : c ≠ 0) [Nonempty α] (L : α → ℝ) (
   rw [tsallisWeights_apply, tsallisWeights_apply, tsallisNormalizer_add_const hc,
     add_sub_add_right_eq_sub]
 
+/-- For `c ≠ 0`, at the level `r - |c| √k / 2` each term `(c / (2 (r - λ))) ^ 2` of a constant
+vector `r` equals `k⁻¹`, with `k` the cardinality of `α`. -/
+private lemma sq_div_two_mul_sub_sub_eq_inv_card (hc : c ≠ 0) [Nonempty α] (r : ℝ) :
+    (c / (2 * (r - (r - |c| * √(Fintype.card α) / 2)))) ^ 2 = (Fintype.card α : ℝ)⁻¹ := by
+  have hk : (0 : ℝ) < Fintype.card α := by exact_mod_cast Fintype.card_pos
+  rw [show 2 * (r - (r - |c| * √(Fintype.card α) / 2)) = |c| * √(Fintype.card α) by ring,
+    div_pow, mul_pow, sq_abs, Real.sq_sqrt hk.le]
+  field_simp
+
 /-- For `c ≠ 0`, the normalizer of a constant vector `r` is `r - |c| √k / 2`, with `k` the
 cardinality of `α`. -/
 theorem tsallisNormalizer_const (hc : c ≠ 0) [Nonempty α] (r : ℝ) :
@@ -309,19 +318,15 @@ theorem tsallisNormalizer_const (hc : c ≠ 0) [Nonempty α] (r : ℝ) :
   have hc' : 0 < |c| := abs_pos.2 hc
   refine (tsallisNormalizer_eq_iff hc).2
     ⟨fun _ ↦ by have := mul_pos hc' (Real.sqrt_pos.2 hk); linarith, ?_⟩
-  rw [sum_const, card_univ, nsmul_eq_mul, show 2 * (r - (r - |c| * √(Fintype.card α) / 2)) =
-    |c| * √(Fintype.card α) by ring, div_pow, mul_pow, sq_abs, Real.sq_sqrt hk.le]
-  field_simp
+  rw [sum_const, card_univ, nsmul_eq_mul, sq_div_two_mul_sub_sub_eq_inv_card hc r,
+    mul_inv_cancel₀ hk.ne']
 
 /-- For `c ≠ 0`, the Tsallis weights of a constant vector are uniform. -/
 theorem tsallisWeights_const (hc : c ≠ 0) [Nonempty α] (r : ℝ) :
     tsallisWeights c (fun _ : α ↦ r) = fun _ ↦ (Fintype.card α : ℝ)⁻¹ := by
-  have hk : (0 : ℝ) < Fintype.card α := by exact_mod_cast Fintype.card_pos
   funext a
-  rw [tsallisWeights_apply, tsallisNormalizer_const hc, show 2 * (r - (r - |c| *
-    √(Fintype.card α) / 2)) = |c| * √(Fintype.card α) by ring, div_pow, mul_pow, sq_abs,
-    Real.sq_sqrt hk.le]
-  field_simp
+  rw [tsallisWeights_apply, tsallisNormalizer_const hc]
+  exact sq_div_two_mul_sub_sub_eq_inv_card hc r
 
 /-- For `c ≠ 0`, the normalizer is a measurable function of `L`: it exceeds `r` exactly when `r`
 lies below every `L a` with `∑ a, (c / (2 (L a - r))) ^ 2 < 1`. -/
@@ -345,16 +350,15 @@ theorem measurable_tsallisNormalizer (hc : c ≠ 0) [Nonempty α] :
   rw [h_pre, ofPred_forall]
   refine (MeasurableSet.iInter fun a ↦ measurableSet_lt measurable_const
     (measurable_pi_apply a)).inter (measurableSet_lt ?_ measurable_const)
-  exact Finset.measurable_sum _ fun a _ ↦ (measurable_const.div (measurable_const.mul
-    ((measurable_pi_apply a).sub measurable_const))).pow_const 2
+  fun_prop
 
 /-- For `c ≠ 0`, the Tsallis weights are a measurable function of `L`. -/
 @[fun_prop]
 theorem measurable_tsallisWeights (hc : c ≠ 0) [Nonempty α] :
     Measurable (tsallisWeights (α := α) c) := by
   refine measurable_pi_iff.2 fun a ↦ ?_
+  have := measurable_tsallisNormalizer (α := α) hc
   simp_rw [tsallisWeights_apply]
-  exact (measurable_const.div (measurable_const.mul ((measurable_pi_apply a).sub
-    (measurable_tsallisNormalizer hc)))).pow_const 2
+  fun_prop
 
 end LMLExplore
