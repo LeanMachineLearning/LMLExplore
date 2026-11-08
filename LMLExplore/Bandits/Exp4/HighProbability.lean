@@ -6,7 +6,7 @@ Authors: Rémy Degenne
 module
 
 public import LMLExplore.Analysis.Real.Sqrt
-public import LMLExplore.Bandits.AdversarialRegret
+public import LMLExplore.Bandits.Adversarial.Regret
 public import LMLExplore.Bandits.Exp4.IX
 
 /-!

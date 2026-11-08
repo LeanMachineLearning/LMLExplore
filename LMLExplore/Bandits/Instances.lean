@@ -5,6 +5,7 @@ Authors: Rémy Degenne
 -/
 module
 
+public import LeanMachineLearning.Online.Bandit.ArrayProbSpace
 public import LMLExplore.InformationTheory.KullbackLeibler.Gaussian
 public import LMLExplore.Probability.Distributions.ExponentialFamily.Bernoulli
 public import LMLExplore.Probability.Distributions.ExponentialFamily.Gaussian
@@ -25,19 +26,19 @@ instances [LS, Chapter 4]:
   and a variance for each arm, the model of Gaussian arms with unknown variances;
 * `LMLExplore.Bandits.bernoulliBandit p`: arm `a` has law `Ber((1 : ℝ), 0, p a)` on `{0, 1}`.
 
-We compute their means and show that they satisfy the noise assumptions of the regret analyses:
-the arms of `gaussianBandit μ σ2` are `σ2`-sub-Gaussian, Bernoulli arms are bounded in `[0, 1]`
-and `1 / 4`-sub-Gaussian. We also compute the relative entropy between the arms of two Gaussian
-bandits with the same variance [LS, Theorem 14.1], the quantity that enters the lower bounds, and
-identify it with the divergence of the exponential family of `𝒩(0, σ2)`
-(`LMLExplore.Bandits.klDiv_gaussianBandit_eq_ofReal_expFamilyDiv`), and the relative entropy
-between the arms of two Bernoulli bandits with means in `(0, 1)` with the divergence of the
+We compute their means and show that they satisfy the noise assumptions of the regret analyses: the
+arms of `gaussianBandit μ σ2` are `σ2`-sub-Gaussian, and Bernoulli arms are integrable, bounded in
+`[0, 1]` and `1 / 4`-sub-Gaussian. They take values in `{0, 1}` almost surely, as do the entries of
+the Bernoulli reward tables `x ∼ streamMeasure (bernoulliBandit p)`. We also compute the relative
+entropy between the arms of two Gaussian bandits with the same variance [LS, Theorem 14.1], the
+quantity that enters the lower bounds, and identify it with the divergence of the exponential family
+of `𝒩(0, σ2)` (`LMLExplore.Bandits.klDiv_gaussianBandit_eq_ofReal_expFamilyDiv`), and the relative
+entropy between the arms of two Bernoulli bandits with means in `(0, 1)` with the divergence of the
 exponential family of a Bernoulli law
 (`LMLExplore.Bandits.klDiv_bernoulliBandit_eq_ofReal_expFamilyDiv`, and
 `LMLExplore.Bandits.klDiv_bernoulliBandit_projIcc_eq_ofReal_expFamilyDiv` for bandits indexed by
-real means). For the Gaussian bandit with
-unknown variances we compute the mean and the variance of each arm, and identify
-`gaussianBandit μ σ2` with `gaussianMeanVarBandit fun a ↦ (μ a, σ2)`
+real means). For the Gaussian bandit with unknown variances we compute the mean and the variance of
+each arm, and identify `gaussianBandit μ σ2` with `gaussianMeanVarBandit fun a ↦ (μ a, σ2)`
 (`LMLExplore.Bandits.gaussianBandit_eq_gaussianMeanVarBandit`).
 
 The arm type only needs to be countable with measurable singletons, so that every function on it
@@ -50,7 +51,7 @@ is measurable.
 
 public section
 
-open MeasureTheory ProbabilityTheory InformationTheory
+open MeasureTheory ProbabilityTheory InformationTheory Bandits
 
 open scoped ENNReal NNReal ProbabilityTheory unitInterval
 
@@ -160,6 +161,26 @@ lemma integral_id_bernoulliBandit (p : α → I) (a : α) : (bernoulliBandit p a
 lemma ae_mem_Icc_bernoulliBandit (p : α → I) (a : α) :
     ∀ᵐ x ∂(bernoulliBandit p a), x ∈ Set.Icc 0 1 := by
   simpa using ae_mem_uIcc_bernoulliMeasure 1 0 (p a)
+
+/-- The rewards of the Bernoulli bandit lie in `{0, 1}` almost surely. -/
+lemma ae_mem_zero_one_bernoulliBandit (p : α → I) (a : α) :
+    ∀ᵐ x ∂(bernoulliBandit p a), x ∈ ({0, 1} : Set ℝ) := by
+  rw [bernoulliBandit_apply, ae_iff]
+  exact bernoulliMeasure_apply_of_notMem_of_notMem (p a) (Set.toFinite _).measurableSet.compl
+    (by simp) (by simp)
+
+/-- The arms of the Bernoulli bandit are integrable. -/
+lemma integrable_id_bernoulliBandit (p : α → I) (a : α) : Integrable id (bernoulliBandit p a) :=
+  Integrable.of_mem_Icc 0 1 aemeasurable_id (ae_mem_Icc_bernoulliBandit p a)
+
+/-- The reward tables `x ∼ streamMeasure (bernoulliBandit p)` of the Bernoulli bandit take values
+in `{0, 1}` almost surely. -/
+lemma ae_mem_streamMeasure_bernoulliBandit (p : α → I) :
+    ∀ᵐ x ∂(streamMeasure (bernoulliBandit p)), ∀ t a, x t a ∈ ({0, 1} : Set ℝ) := by
+  refine ae_all_iff.2 fun t ↦ ae_all_iff.2 fun a ↦ ?_
+  have h01 := ae_mem_zero_one_bernoulliBandit p a
+  rw [← (hasLaw_eval_eval_streamMeasure (bernoulliBandit p) t a).map_eq] at h01
+  exact ae_of_ae_map ((measurable_pi_apply a).comp (measurable_pi_apply t)).aemeasurable h01
 
 /-- The arms of the Bernoulli bandit are `1 / 4`-sub-Gaussian. -/
 lemma hasSubgaussianMGF_bernoulliBandit (p : α → I) (a : α) :

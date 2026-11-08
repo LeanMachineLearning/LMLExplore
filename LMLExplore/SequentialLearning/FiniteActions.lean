@@ -23,6 +23,8 @@ Facts about LML's `pullCount` that hold for any sequence of actions `A : ℕ →
   before round `t`.
 * `cast_pullCount_add_one`, `cast_pullCount_action_add_one`: the recursion for `pullCount`, cast
   to an additive monoid with one.
+* `sum_pullCount_le`: the arms of a finite set have been pulled at most `n` times in total before
+  round `n`.
 * `sum_natCast_pullCount`: the pull counts of all arms before `K` add up to `K`, cast to an
   additive commutative monoid with one.
 * `exists_pullCount_eq_zero_of_lt_card`: before round `Fintype.card α`, some arm has not been
@@ -89,6 +91,15 @@ lemma cast_pullCount_add_one {R : Type*} [AddMonoidWithOne R] :
 lemma cast_pullCount_action_add_one {R : Type*} [AddMonoidWithOne R] :
     (pullCount A (A n ω) (n + 1) ω : R) = pullCount A (A n ω) n ω + 1 := by
   rw [pullCount_action_eq_pullCount_add_one, Nat.cast_add_one]
+
+/-- The arms of a finite set `S` have been pulled at most `n` times in total before round `n`:
+every round plays at most one of them. -/
+lemma sum_pullCount_le (S : Finset α) (n : ℕ) (ω : Ω) : ∑ a ∈ S, pullCount A a n ω ≤ n := by
+  simp_rw [pullCount_eq_sum]
+  rw [sum_comm]
+  refine (sum_le_card_nsmul _ _ 1 fun s _ ↦ ?_).trans_eq (by simp)
+  rw [sum_ite_eq]
+  split_ifs <;> simp
 
 variable [Fintype α]
 

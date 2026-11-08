@@ -5,6 +5,7 @@ Authors: Rémy Degenne
 -/
 module
 
+public import LMLExplore.Analysis.SpecialFunctions.Log.Basic
 public import LMLExplore.Analysis.SpecialFunctions.Pow.Asymptotics
 public import LMLExplore.Identification.SampleComplexity
 public import LMLExplore.Identification.Task.TransportationCost
@@ -35,6 +36,16 @@ deviation event `∃ n, β n hₙ < Z n hₙ θ` of the true model, which time-u
 inequalities bound by `δ` for suitable thresholds. Together with almost sure stopping, this makes
 the GLRT `δ`-PAC on every task.
 
+The alternatives to an answer `i` may also be covered by pieces `A i j`, each with its own
+statistic `Z i j` and threshold `β i j`: the *GLRT with pieces* stops with `i` when
+`inf_{λ ∈ A i j} Z i j n h λ` exceeds `β i j n h` for every piece `j`. If it stops with an answer
+`i` that is not correct for `θ` and `θ ∈ A i j`, then the evidence `Z i j n h θ` against `θ`
+exceeds `β i j n h`, so only the deviations of the statistics of pieces containing the true model
+matter. In best arm identification, the pieces of the arm `i` are the half-spaces
+`{λ | λ i ≤ λ b}`, `b ≠ i`, on which the evidence of the two arms `i, b` suffices, and the error
+probability is a union bound over the `K - 1` pairs of the best arm with another arm
+[GK16, Proposition 12].
+
 The sample complexity of the GLRT reduces to the growth of the GLR statistic along the run. If on
 an event `E T` the statistic after `T` rounds exceeds the threshold, then `τ ≤ T` on `E T`, and
 `𝔼[τ] ≤ T₀ + ∑_{T ≥ T₀} P((E T)ᶜ)`. If the statistic grows linearly, at least `κ T` on `E T`, and
@@ -52,6 +63,9 @@ time.
 * `IdentTask.glrt task Z alg β rec hrec hstop`: the identification algorithm with sampling rule
   `alg` that stops after `n` rounds with history `h` if `β n h < task.glr Z n h (rec n h)` and then
   answers `rec n h`.
+* `coverGlrt alg A Z β rec hrec hstop`: the GLRT with pieces `A i j`, statistics `Z i j` and
+  thresholds `β i j`, which stops after `n` rounds with history `h` if for every piece `j` of the
+  recommended answer `i = rec n h`, `β i j n h < inf_{λ ∈ A i j} Z i j n h λ`, and then answers `i`.
 * `unionBoundThreshold K x n`: the threshold `K log (2 n (n + 1)) + x` after `n` rounds, for `K`
   arms and the level `x` [LS, Lemma 33.7], which does not read the history; the GLRT uses it as
   `fun n _ ↦ unionBoundThreshold K x n`.
@@ -72,6 +86,17 @@ time.
   every run of the GLRT.
 * `IdentTask.isDeltaPAC_glrt`: if the deviation event has probability at most `δ` on every
   admissible model and the GLRT stops almost surely, then it is `δ`-PAC on the task.
+* `measureReal_histOutputMeasure_coverGlrt_le`: for every sampling rule, the probability that the
+  GLRT with pieces stops with an answer outside a set `s` is at most the probability that at some
+  round the recommended answer is not in `s` and the evidence against `θ` exceeds the threshold on
+  every piece of that answer containing `θ`.
+* `measureReal_histOutputMeasure_coverGlrt_le_of_mem`: for a choice of a piece `j i ∋ θ` of each
+  answer `i ∉ s`, the same probability is at most that of `∃ n, ∃ i ∉ s, β i (j i) n hₙ <
+  Z i (j i) n hₙ θ`.
+* `IdentTask.isDeltaPAC_coverGlrt`: the GLRT with pieces is `δ`-PAC on a task when these deviation
+  events have probability at most `δ` on every admissible model and it stops almost surely.
+* `IdentTask.glrt_eq_coverGlrt`: the GLRT is the GLRT with the single piece `task.alt i` for each
+  answer `i`.
 * `IdentTask.expectedStoppingTime_glrt_le_add_tsum`: if the stopping condition holds after `T`
   rounds on an event `E T` for every `T ≥ T₀`, then `𝔼[τ] ≤ T₀ + ∑_{T ≥ T₀} P((E T)ᶜ)`.
 * `IdentTask.eventually_expectedStoppingTime_glrt_le`: if the GLR statistic of the recommended
@@ -87,6 +112,8 @@ time.
 * `isLittleO_unionBoundLevel_sub_log`, `eventually_unionBoundLevel_le`:
   `x_δ - log (1 / δ) = o(log (1 / δ))` as `δ → 0`, so that `x_δ ≤ (1 + ε) log (1 / δ)` for all
   small enough `δ`, for every `ε > 0`.
+* `natCast_mul_div_pow_mul_exp_sub_unionBoundLevel_div_le`: `k f(x_{δ / k}) ≤ δ`, the level of a
+  union bound over `k` events.
 * `antitoneOn_unionBoundLevel`: the level `x_δ` decreases with `δ ∈ (0, 1]`.
 * `eventually_unionBoundThreshold_rpow_inv_le`: for `s > 1` and small `δ`, the thresholds
   `β_{x_{δ ^ (1 / s)}}` are at most `log ((2 n (n + 1)) ^ K / δ)`, a polynomial-rate threshold of
@@ -222,6 +249,147 @@ lemma stoppingTime_glrt_le {ω : Ω}
     (task.glrt Z alg β rec hrec hstop).stoppingTime O X Y ω ≤ n :=
   IdentAlg.stoppingTime_le_of_mem_stopSet ((task.mem_stopSet_glrt Z alg β rec hrec hstop).2 hn)
 
+end LMLExplore.Identification.IdentTask
+
+/-! ### GLRT with covers of the alternatives -/
+
+namespace LMLExplore.Identification
+
+variable {α Θ ℐ 𝓨 : Type*} {mα : MeasurableSpace α} {m𝓨 : MeasurableSpace 𝓨}
+  {mℐ : MeasurableSpace ℐ} {ι : ℐ → Type*} (alg : Algorithm Unit α 𝓨)
+  (A : (i : ℐ) → ι i → Set Θ) (Z : (i : ℐ) → ι i → (n : ℕ) → Hist Unit α 𝓨 n → Θ → ℝ≥0∞)
+  (β : (i : ℐ) → ι i → (n : ℕ) → Hist Unit α 𝓨 n → ℝ≥0∞)
+  (rec : (n : ℕ) → Hist Unit α 𝓨 n → ℐ) (hrec : ∀ n, Measurable (rec n))
+  (hstop : ∀ n, MeasurableSet
+    {h | ∀ j, β (rec n h) j n h < ⨅ θ ∈ A (rec n h) j, Z (rec n h) j n h θ})
+
+/-- The *GLRT with pieces* `A i j` (the alternatives to the answer `i` are typically covered by
+the pieces `A i j`, `j : ι i`), with sampling rule `alg`, statistics `Z i j`, thresholds `β i j`
+and recommendation rule `rec`: after `n` rounds with history `h`, it stops if for every piece
+`A (rec n h) j` of the recommended answer, the smallest evidence `inf_{λ ∈ A (rec n h) j} Z λ`
+against a model of the piece, measured by the statistic of the piece, exceeds the threshold of the
+piece, and then answers `rec n h`.
+
+The GLRT `IdentTask.glrt` is the case of a single piece `task.alt i` for each answer
+(`IdentTask.glrt_eq_coverGlrt`). Several pieces let each piece use its own statistic and
+threshold: in best arm identification, the alternatives to `a` are covered by the half-spaces
+`{λ | λ a ≤ λ b}`, `b ≠ a`, on which the evidence of the pair of arms `a, b` suffices, with a
+threshold for two arms instead of `K`. -/
+noncomputable def coverGlrt : IdentAlg Unit α 𝓨 ℐ :=
+  ofStop alg (fun n h ↦ ∀ j, β (rec n h) j n h < ⨅ θ ∈ A (rec n h) j, Z (rec n h) j n h θ) hstop
+    fun n ↦ Kernel.deterministic (rec n) (hrec n)
+
+lemma coverGlrt_def : coverGlrt alg A Z β rec hrec hstop = ofStop alg
+    (fun n h ↦ ∀ j, β (rec n h) j n h < ⨅ θ ∈ A (rec n h) j, Z (rec n h) j n h θ) hstop
+    (fun n ↦ Kernel.deterministic (rec n) (hrec n)) := (rfl)
+
+@[simp]
+lemma alg_coverGlrt : (coverGlrt alg A Z β rec hrec hstop).alg = alg := by
+  rw [coverGlrt_def, alg_ofStop]
+
+@[simp]
+lemma mem_stopSet_coverGlrt {h : Σ n, Hist Unit α 𝓨 n} :
+    h ∈ (coverGlrt alg A Z β rec hrec hstop).stopSet ↔ ∀ j, β (rec h.1 h.2) j h.1 h.2 <
+      ⨅ θ ∈ A (rec h.1 h.2) j, Z (rec h.1 h.2) j h.1 h.2 θ := by
+  rw [coverGlrt_def, mem_stopSet_ofStop]
+
+@[simp]
+lemma output_coverGlrt (h : Σ n, Hist Unit α 𝓨 n) :
+    (coverGlrt alg A Z β rec hrec hstop).output h = Measure.dirac (rec h.1 h.2) := by
+  rw [coverGlrt_def, output_ofStop, Kernel.sigma_apply, Kernel.deterministic_apply]
+
+variable {Ω : Type*} {mΩ : MeasurableSpace Ω} {P : Measure Ω} [IsProbabilityMeasure P]
+  {O : ℕ → Ω → Unit} {X : ℕ → Ω → α} {Y : ℕ → Ω → 𝓨} {n : ℕ} {θ : Θ} {s : Set ℐ}
+
+/-- The GLRT with pieces has stopped after `n` rounds if its stopping condition holds after `n`
+rounds. -/
+lemma stoppingTime_coverGlrt_le {ω : Ω} (hn : ∀ j, β (rec n (history O X Y n ω)) j n
+      (history O X Y n ω) < ⨅ θ ∈ A (rec n (history O X Y n ω)) j,
+        Z (rec n (history O X Y n ω)) j n (history O X Y n ω) θ) :
+    (coverGlrt alg A Z β rec hrec hstop).stoppingTime O X Y ω ≤ n :=
+  IdentAlg.stoppingTime_le_of_mem_stopSet
+    ((mem_stopSet_coverGlrt alg A Z β rec hrec hstop).2 hn)
+
+/-- **Error probability of the GLRT with pieces**, for every sampling rule. Let `s` be a
+measurable set of answers, the correct answers of a model `θ`. The probability that the GLRT with
+pieces stops with an answer `i ∉ s` is at most the probability that at some round `n`, the
+recommended answer `i` is not in `s` and the evidence against `θ` exceeds the threshold for every
+piece of `i` that contains `θ`. -/
+theorem measureReal_histOutputMeasure_coverGlrt_le {env : Environment Unit α 𝓨}
+    (hseq : IsAlgEnvSeq O X Y alg env P) (θ : Θ) (hs : MeasurableSet s) :
+    (histOutputMeasure (coverGlrt alg A Z β rec hrec hstop) env).real
+        {p | p.1 ∈ (coverGlrt alg A Z β rec hrec hstop).stopSet ∧ p.2 ∉ s} ≤
+      P.real {ω | ∃ n, rec n (history O X Y n ω) ∉ s ∧ ∀ j, θ ∈ A (rec n (history O X Y n ω)) j →
+        β (rec n (history O X Y n ω)) j n (history O X Y n ω) <
+          Z (rec n (history O X Y n ω)) j n (history O X Y n ω) θ} := by
+  rw [coverGlrt_def]
+  refine (measureReal_histOutputMeasure_ofStop_deterministic_le hseq hs).trans
+    (measureReal_mono fun ω ⟨n, hn_stop, hn_wrong⟩ ↦ ?_)
+  exact ⟨n, hn_wrong, fun j hj ↦ (hn_stop j).trans_le (iInf₂_le θ hj)⟩
+
+/-- **Error probability of the GLRT with pieces, for a choice of pieces containing the model**
+([GK16, Proposition 12], for best arm identification), for every sampling rule. Let `s` be a
+measurable set of answers, the correct answers of a model `θ`, and let `j i` be a piece of each
+answer `i ∉ s` that contains `θ`. Then the probability that the GLRT with pieces stops with an
+answer not in `s` is at most the probability that at some round `n`, for some answer `i ∉ s`, the
+evidence `Z i (j i) n hₙ θ` against `θ` exceeds the threshold `β i (j i) n hₙ`. -/
+theorem measureReal_histOutputMeasure_coverGlrt_le_of_mem {env : Environment Unit α 𝓨}
+    (hseq : IsAlgEnvSeq O X Y alg env P) (hs : MeasurableSet s) (j : (i : ℐ) → ι i)
+    (hj : ∀ i ∉ s, θ ∈ A i (j i)) :
+    (histOutputMeasure (coverGlrt alg A Z β rec hrec hstop) env).real
+        {p | p.1 ∈ (coverGlrt alg A Z β rec hrec hstop).stopSet ∧ p.2 ∉ s} ≤
+      P.real {ω | ∃ n, ∃ i ∉ s,
+        β i (j i) n (history O X Y n ω) < Z i (j i) n (history O X Y n ω) θ} :=
+  (measureReal_histOutputMeasure_coverGlrt_le alg A Z β rec hrec hstop hseq θ hs).trans
+    (measureReal_mono fun _ ⟨n, hn, hn_dev⟩ ↦ ⟨n, _, hn, hn_dev _ (hj _ hn)⟩)
+
+namespace IdentTask
+
+variable (task : IdentTask α Θ ℐ 𝓨)
+
+/-- **The GLRT with pieces is `δ`-PAC**, for every sampling rule and every task
+([GK16, Proposition 12], [DK19, Theorem 10]): if on every admissible model `θ`, the probability
+that at some round the recommended answer is not correct for `θ` and the evidence against `θ`
+exceeds the threshold for every piece of that answer containing `θ` is at most `δ`, and the GLRT
+with pieces stops almost surely, then it is `δ`-PAC on the task. -/
+theorem isDeltaPAC_coverGlrt {δ : ℝ} (hc : ∀ θ ∈ task.M, MeasurableSet (task.correct θ))
+    (hdev : ∀ θ ∈ task.M, (trajMeasure alg (Environment.bandit (task.ν θ))).real
+      {ω | ∃ n, rec n (history IT.obs IT.action IT.feedback n ω) ∉ task.correct θ ∧
+        ∀ j, θ ∈ A (rec n (history IT.obs IT.action IT.feedback n ω)) j →
+          β (rec n (history IT.obs IT.action IT.feedback n ω)) j n
+              (history IT.obs IT.action IT.feedback n ω) <
+            Z (rec n (history IT.obs IT.action IT.feedback n ω)) j n
+              (history IT.obs IT.action IT.feedback n ω) θ} ≤ δ)
+    (h_stops : ∀ θ ∈ task.M,
+      StopsAS (coverGlrt alg A Z β rec hrec hstop) (Environment.bandit (task.ν θ))) :
+    task.IsDeltaPAC (coverGlrt alg A Z β rec hrec hstop) δ :=
+  isDeltaPAC_of_measureReal_mem_stopSet_and_notMem_le hc
+    (fun θ hθ ↦ (measureReal_histOutputMeasure_coverGlrt_le alg A Z β rec hrec hstop
+      (IT.isAlgEnvSeq_trajMeasure alg _) θ (hc θ hθ)).trans (hdev θ hθ)) h_stops
+
+end IdentTask
+
+end LMLExplore.Identification
+
+namespace LMLExplore.Identification.IdentTask
+
+variable {α Θ ℐ 𝓨 : Type*} {mα : MeasurableSpace α} {m𝓨 : MeasurableSpace 𝓨}
+  {mℐ : MeasurableSpace ℐ} (task : IdentTask α Θ ℐ 𝓨) (Z : (n : ℕ) → Hist Unit α 𝓨 n → Θ → ℝ≥0∞)
+  (alg : Algorithm Unit α 𝓨) (β : (n : ℕ) → Hist Unit α 𝓨 n → ℝ≥0∞)
+  (rec : (n : ℕ) → Hist Unit α 𝓨 n → ℐ) (hrec : ∀ n, Measurable (rec n))
+  (hstop : ∀ n, MeasurableSet {h | β n h < task.glr Z n h (rec n h)})
+  {Ω : Type*} {mΩ : MeasurableSpace Ω} {P : Measure Ω} [IsProbabilityMeasure P]
+  {O : ℕ → Ω → Unit} {X : ℕ → Ω → α} {Y : ℕ → Ω → 𝓨} {θ : Θ}
+
+/-- The GLRT is the GLRT with the single piece `task.alt i` for each answer `i`, with the same
+statistic and thresholds for all the answers. -/
+lemma glrt_eq_coverGlrt :
+    task.glrt Z alg β rec hrec hstop = coverGlrt alg (fun i (_ : Unit) ↦ task.alt i)
+      (fun _ _ ↦ Z) (fun _ _ ↦ β) rec hrec (by simpa only [forall_const, glr_def] using hstop) := by
+  rw [glrt_def, coverGlrt_def]
+  congr 1
+  simp only [forall_const, glr_def]
+
 /-! ### Error probability of the GLRT -/
 
 /-- **Error probability of the GLRT**, for every sampling rule (the reduction in the proof of
@@ -236,10 +404,10 @@ theorem measureReal_histOutputMeasure_glrt_le {env : Environment Unit α 𝓨}
     (histOutputMeasure (task.glrt Z alg β rec hrec hstop) env).real
         {p | p.1 ∈ (task.glrt Z alg β rec hrec hstop).stopSet ∧ p.2 ∉ task.correct θ} ≤
       P.real {ω | ∃ n, β n (history O X Y n ω) < Z n (history O X Y n ω) θ} := by
-  rw [glrt_def]
-  refine (measureReal_histOutputMeasure_ofStop_deterministic_le hseq hc).trans
-    (measureReal_mono fun ω ⟨n, hn_stop, hn_wrong⟩ ↦ ?_)
-  exact ⟨n, hn_stop.trans_le (task.glr_le_of_notMem_correct hθ hn_wrong)⟩
+  rw [task.glrt_eq_coverGlrt Z alg β rec hrec hstop]
+  exact (measureReal_histOutputMeasure_coverGlrt_le_of_mem alg _ _ _ rec hrec _ hseq hc
+    (fun _ ↦ ()) fun _ hi ↦ task.mem_alt_iff.2 ⟨hθ, hi⟩).trans
+    (measureReal_mono fun _ ⟨n, _, _, hn⟩ ↦ ⟨n, hn⟩)
 
 /-- **Error probability of the GLRT along a run**, for every sampling rule. Along every run of the
 GLRT, the probability that it stops with an answer that is not correct for the model `θ` is at
@@ -287,11 +455,13 @@ end LMLExplore.Identification.IdentTask
 
 /-! ### Asymptotic sample complexity of the GLRT -/
 
-namespace LMLExplore.Identification.IdentTask
+namespace LMLExplore.Identification
 
 open Filter Topology Real
 
 open scoped NNReal
+
+namespace IdentTask
 
 variable {α Θ ℐ 𝓨 : Type*} {mα : MeasurableSpace α} {m𝓨 : MeasurableSpace 𝓨}
   {mℐ : MeasurableSpace ℐ} (task : IdentTask α Θ ℐ 𝓨) (Z : (n : ℕ) → Hist Unit α 𝓨 n → Θ → ℝ≥0∞)
@@ -321,62 +491,20 @@ theorem eventually_expectedStoppingTime_glrt_le (hseq : IsAlgEnvSeq O X Y alg en
     (hβ : ∀ᶠ δ in 𝓝[>] 0, ∀ T ≥ T₀, ∀ h, β δ T h ≤ ENNReal.ofReal (log (1 / δ) + f T)) :
     ∀ᶠ δ in 𝓝[>] 0, expectedStoppingTime (task.glrt Z alg (β δ) rec hrec (hstop δ)) env ≤
       c * ENNReal.ofReal (log (1 / δ)) := by
-  have hκc' : 1 < (κ : ℝ) * c := mod_cast hκc
-  have hc : 0 < (c : ℝ) := pos_of_mul_pos_right (one_pos.trans hκc') κ.coe_nonneg
-  -- Choose `η` with `1 / c < η < κ`: if `log (1 / δ) ≤ η T`, the threshold is below `κ T`.
-  obtain ⟨η, hcη, hηκ⟩ : ∃ η, (c : ℝ)⁻¹ < η ∧ η < κ :=
-    exists_between ((inv_lt_iff_one_lt_mul₀' hc).2 (by linarith))
-  have hη : 0 < η := (inv_pos.2 hc).trans hcη
-  have hκ : 0 < (κ : ℝ) := hη.trans hηκ
-  have hηc : 0 < (c : ℝ) - η⁻¹ := sub_pos.2 (inv_lt_of_inv_lt₀ hc hcη)
-  obtain ⟨T₁, hT₁⟩ := eventually_atTop.1 (hf ((κ - η) / 2) (by linarith))
-  set S := (∑' T, P (E T)ᶜ).toReal
-  set M := max (max T₀ T₁) 1
-  have hL : Tendsto (fun δ : ℝ ↦ log (1 / δ)) (𝓝[>] 0) atTop := by
-    simpa only [one_div, Function.comp_def] using tendsto_log_atTop.comp tendsto_inv_nhdsGT_zero
-  filter_upwards [hβ, hL.eventually_ge_atTop ((M + 1 + S) / (c - η⁻¹))] with δ hβδ hLδ
-  set L := log (1 / δ)
-  have hL0 : 0 ≤ L := (by positivity : 0 ≤ (M + 1 + S) / (c - η⁻¹)).trans hLδ
-  -- From `N = max M ⌈L / η⌉` rounds on, the stopping condition holds on `E T`.
-  set N := max M ⌈L / η⌉₊
+  filter_upwards [hβ,
+    Real.eventually_exists_add_le_mul_and_forall_ofReal_add_lt_mul hκc hf T₀ hE_sum]
+    with δ hβδ ⟨N, hN₀, hNc, hN⟩
+  -- From `N` rounds on, the stopping condition holds on `E T`, so `𝔼[τ_δ] ≤ N + ∑ T, P((E T)ᶜ)`.
   have h_stop : ∀ T ≥ N, ∀ ω ∈ E T,
       β δ T (history O X Y T ω) <
-        task.glr Z T (history O X Y T ω) (rec T (history O X Y T ω)) := by
-    intro T hT ω hω
-    have hT₀ : T₀ ≤ T := by omega
-    have hT1 : (1 : ℝ) ≤ T := mod_cast (show 1 ≤ T by omega)
-    have hLT : L ≤ η * T := by
-      rw [← div_le_iff₀' hη]
-      exact (Nat.le_ceil _).trans (mod_cast (le_max_right _ _).trans hT)
-    have hfT := hT₁ T (by omega)
-    calc β δ T (history O X Y T ω)
-    _ ≤ ENNReal.ofReal (L + f T) := hβδ T hT₀ _
-    _ < ENNReal.ofReal (κ * T) := by
-      refine (ENNReal.ofReal_lt_ofReal_iff (mul_pos hκ (by linarith))).2 ?_
-      nlinarith
-    _ = κ * T := by
-      rw [ENNReal.ofReal_mul κ.coe_nonneg, ENNReal.ofReal_coe_nnreal, ENNReal.ofReal_natCast]
-    _ ≤ _ := hE T hT₀ ω hω
-  -- Hence `𝔼[τ_δ] ≤ N + ∑ T, P((E T)ᶜ) ≤ M + L / η + 1 + S ≤ c L`.
+        task.glr Z T (history O X Y T ω) (rec T (history O X Y T ω)) := fun T hT ω hω ↦
+    ((hβδ T (hN₀.trans hT) _).trans_lt (hN T hT)).trans_le (hE T (hN₀.trans hT) ω hω)
   calc expectedStoppingTime (task.glrt Z alg (β δ) rec hrec (hstop δ)) env
   _ ≤ N + ∑' T, P (E (T + N))ᶜ :=
     task.expectedStoppingTime_glrt_le_add_tsum Z alg (β δ) rec hrec (hstop δ) hseq h_stop
   _ ≤ N + ∑' T, P (E T)ᶜ := add_le_add_right
     (tsum_comp_le_tsum_of_injective (add_left_injective N) fun T ↦ P (E T)ᶜ) _
-  _ = ENNReal.ofReal (N + S) := by
-    rw [ENNReal.ofReal_add (by positivity) ENNReal.toReal_nonneg, ENNReal.ofReal_natCast,
-      ENNReal.ofReal_toReal hE_sum]
-  _ ≤ ENNReal.ofReal (c * L) := by
-    refine ENNReal.ofReal_le_ofReal ?_
-    have hceil : (⌈L / η⌉₊ : ℝ) ≤ L / η + 1 := (Nat.ceil_lt_add_one (by positivity)).le
-    have hN : (N : ℝ) ≤ M + (L / η + 1) := by
-      rw [Nat.cast_max]
-      have hM : (0 : ℝ) ≤ M := M.cast_nonneg
-      exact max_le (by linarith [div_nonneg hL0 hη.le]) (by linarith)
-    rw [div_le_iff₀ hηc] at hLδ
-    have : L / η = η⁻¹ * L := by ring
-    nlinarith
-  _ = c * ENNReal.ofReal L := by rw [ENNReal.ofReal_mul c.coe_nonneg, ENNReal.ofReal_coe_nnreal]
+  _ ≤ c * ENNReal.ofReal (log (1 / δ)) := hNc
 
 /-- **Asymptotic sample complexity of the GLRT with thresholds `log (r T / δ)`**, for every
 sampling rule and the thresholds of [GK16, Theorem 14], `r T = O(T ^ p)`. Suppose that, along an
@@ -394,34 +522,14 @@ theorem eventually_expectedStoppingTime_glrt_le_of_isBigO (hseq : IsAlgEnvSeq O 
     ∀ᶠ δ in 𝓝[>] 0, expectedStoppingTime (task.glrt Z alg (β δ) rec hrec (hstop δ)) env ≤
       c * ENNReal.ofReal (log (1 / δ)) := by
   refine task.eventually_expectedStoppingTime_glrt_le Z alg rec hrec hstop hseq hE_sum hκc hE
-    (f := fun T ↦ log (r T)) (fun ε hε ↦ ?_) ?_
-  · -- `log (r T) ≤ log C + p log T = o(T)`.
-    obtain ⟨C, hC, hrC⟩ := hr.exists_pos
-    have hg : (fun T : ℕ ↦ log C + p * log T) =o[atTop] fun T : ℕ ↦ (T : ℝ) :=
-      ((Asymptotics.isLittleO_const_id_atTop (log C)).add
-        (isLittleO_log_id_atTop.const_mul_left p)).comp_tendsto tendsto_natCast_atTop_atTop
-    filter_upwards [hrC.bound, hg.bound hε, eventually_gt_atTop 0] with T hrT hgT hT
-    rcases eq_or_ne (r T) 0 with h | h
-    · simp only [h, log_zero]
-      positivity
-    have hT' : (0 : ℝ) < T := Nat.cast_pos.2 hT
-    rw [Real.norm_eq_abs, Real.norm_of_nonneg (rpow_nonneg hT'.le p)] at hrT
-    rw [Real.norm_of_nonneg hT'.le] at hgT
-    calc log (r T)
-    _ = log |r T| := (log_abs _).symm
-    _ ≤ log (C * T ^ p) := log_le_log (abs_pos.2 h) hrT
-    _ = log C + p * log T := by rw [log_mul hC.ne' (rpow_pos_of_pos hT' p).ne', log_rpow hT']
-    _ ≤ ε * T := (le_abs_self _).trans hgT
-  · -- `log (r T / δ) ≤ log (1 / δ) + log (r T)` for `δ ∈ (0, 1)`.
-    filter_upwards [hβ, Ioo_mem_nhdsGT one_pos] with δ hβδ hδ T hT h
-    refine (hβδ T hT h).trans (ENNReal.ofReal_le_ofReal ?_)
-    rcases eq_or_ne (r T) 0 with h | h
-    · simp only [h, zero_div, log_zero, add_zero]
-      exact log_nonneg (one_le_one_div hδ.1 hδ.2.le)
-    · rw [log_div h hδ.1.ne', one_div, log_inv]
-      linarith
+    (f := fun T ↦ log (r T)) (fun ε hε ↦ eventually_log_le_mul_of_isBigO hr hε) ?_
+  filter_upwards [hβ, Ioo_mem_nhdsGT one_pos] with δ hβδ hδ T hT h
+  exact (hβδ T hT h).trans
+    (ENNReal.ofReal_le_ofReal (log_div_le_log_one_div_add_log _ hδ.1 hδ.2.le))
 
-end LMLExplore.Identification.IdentTask
+end IdentTask
+
+end LMLExplore.Identification
 
 /-! ### Union-bound thresholds and levels -/
 
@@ -489,6 +597,29 @@ theorem div_pow_mul_exp_sub_unionBoundLevel_le (hδ : 0 < δ) (hδ1 : δ ≤ 1) 
     rw [← hexp, ← exp_nat_mul, ← exp_add, unionBoundLevel_def, ← hL_def]
     ring_nf
   _ = δ := by rw [hL_def, one_div, log_inv, neg_neg, exp_log hδ]
+
+/-- For `δ ∈ (0, 1]` and `k` events, the level `x_{δ / k}` is at least `K`. -/
+lemma card_le_unionBoundLevel_div (k : ℕ) (hδ : 0 < δ) (hδ1 : δ ≤ 1) :
+    (K : ℝ) ≤ unionBoundLevel K (δ / k) := by
+  rcases eq_or_ne k 0 with rfl | hk
+  · simp [unionBoundLevel_def]
+    linarith [K.cast_nonneg (α := ℝ)]
+  have hk1 : (1 : ℝ) ≤ k := Nat.one_le_cast.2 (Nat.pos_of_ne_zero hk)
+  exact card_le_unionBoundLevel (div_pos hδ (zero_lt_one.trans_le hk1))
+    ((div_le_one₀ (zero_lt_one.trans_le hk1)).2 (hδ1.trans hk1))
+
+/-- **The level `x_{δ / k}` has confidence `δ` for a union bound over `k` events**: for `K` arms,
+`δ ∈ (0, 1]` and `k` events, `k (x / K) ^ K exp (K - x) ≤ δ` for `x = x_{δ / k}`. -/
+theorem natCast_mul_div_pow_mul_exp_sub_unionBoundLevel_div_le (k : ℕ) (hδ : 0 < δ)
+    (hδ1 : δ ≤ 1) :
+    k * ((unionBoundLevel K (δ / k) / K) ^ K * exp (K - unionBoundLevel K (δ / k))) ≤ δ := by
+  rcases eq_or_ne k 0 with rfl | hk
+  · simpa using hδ.le
+  have hk0 : (0 : ℝ) < k := Nat.cast_pos.2 (Nat.pos_of_ne_zero hk)
+  have hk1 : (1 : ℝ) ≤ k := Nat.one_le_cast.2 (Nat.pos_of_ne_zero hk)
+  rw [← le_div_iff₀' hk0]
+  exact div_pow_mul_exp_sub_unionBoundLevel_le (div_pos hδ hk0)
+    ((div_le_one₀ hk0).2 (hδ1.trans hk1))
 
 /-- **The level `x_δ` is `(1 + o(1)) log (1 / δ)`** as `δ → 0`: `x_δ - log (1 / δ)` is
 negligible compared to `log (1 / δ)`. -/
