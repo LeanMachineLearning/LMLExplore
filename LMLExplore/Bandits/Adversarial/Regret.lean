@@ -7,6 +7,8 @@ module
 
 public import LeanMachineLearning.Online.Bandit.Regret
 public import Mathlib.Algebra.Order.Group.CompleteLattice
+public import LMLExplore.Bandits.Regret
+public import LMLExplore.Bandits.TableModel
 public import LMLExplore.MeasureTheory.Integral.Bochner.Basic
 public import LMLExplore.SequentialLearning.Environments.OfSeq
 public import LMLExplore.SequentialLearning.Wald
@@ -43,6 +45,16 @@ versions compare the learner with the expected rewards `∑_a adv (O t) m a * m_
 experts `m`. The adversarial regret and the regret against expert advice are the pseudo-regrets
 against `Environment.evalSeq x _` and `Environment.ofSeq o x _`, and against a stationary bandit
 `Environment.bandit ν` the pseudo-regret is the expected stochastic regret.
+
+A stochastic bandit `Environment.bandit ν` is a mixture of oblivious adversaries: the law of a run
+against it is the mixture, over the reward tables `x ∼ streamMeasure ν` whose rows are independent
+with law `⨂ a, ν a`, of the laws of the runs against `Environment.evalSeq x _`
+(`LMLExplore.Bandits.trajMeasure_bandit_eq_bind`, [LS, Section 4.6]). Averaging the adversarial
+regret `R_n(x)` over these tables, the expected reward of the learner averages to its expected
+reward against the stochastic bandit, while the average of the reward `max_a ∑_{t < n} x t a` of
+the best arm in hindsight is at least the reward `n max_a μ_a` of the best arm in expectation. So
+the expected adversarial regret over i.i.d. tables dominates the expected stochastic regret, which
+transfers lower bounds on the stochastic regret to the adversarial regret.
 
 ## Main definitions
 
@@ -88,6 +100,11 @@ against `Environment.evalSeq x _` and `Environment.ofSeq o x _`, and against a s
   `Environment.evalSeq x _` it is `max_a ∑_{t < n} (x t a - x t (A t))`.
 * `Learning.IsAlgEnvSeq.pseudoRegret_bandit`: against `Environment.bandit ν` with integrable arms,
   the pseudo-regret is LML's expected stochastic regret.
+* `integral_regret_le_integral_advRegret`: the expected stochastic regret against
+  `Environment.bandit ν` is at most the expected adversarial regret over the tables
+  `x ∼ streamMeasure ν`, which is integrable (`integrable_advRegret_evalSeq`).
+* `measurable_sum_feedback`: the total feedback of the first `n` rounds is a measurable function
+  of the sequence of rounds.
 
 ## References
 
@@ -152,6 +169,12 @@ lemma _root_.Learning.IsAlgEnvSeq.advRegret_eq_sub_integral_sum_feedback [Measur
   filter_upwards [h.feedback_ae_all_eq_evalSeq] with ω hω
   simp [hω]
 
+/-- The total feedback `∑_{t < n} Y_t` of the first `n` rounds is a measurable function of the
+sequence of rounds. -/
+lemma measurable_sum_feedback {𝓞 𝓐 : Type*} [MeasurableSpace 𝓞] [MeasurableSpace 𝓐] (n : ℕ) :
+    Measurable fun τ : ℕ → Round 𝓞 𝓐 ℝ ↦ ∑ t ∈ range n, IT.feedback t τ :=
+  Finset.measurable_sum _ fun t _ ↦ IT.measurable_feedback t
+
 /-- The adversarial regret of a run of an algorithm against LML's evaluation environment
 `Environment.evalSeq x _` depends only on the algorithm and the table `x`: it is the adversarial
 regret under the law `trajMeasure alg (Environment.evalSeq x _)` of the sequence of rounds. -/
@@ -164,7 +187,7 @@ lemma _root_.Learning.IsAlgEnvSeq.advRegret_eq_advRegret_trajMeasure [Measurable
     (IT.isAlgEnvSeq_trajMeasure alg _).advRegret_eq_sub_integral_sum_feedback]
   congr 1
   exact h.hasLaw_trajectory.integral_comp (f := fun τ ↦ ∑ t ∈ range n, IT.feedback t τ)
-    (Finset.measurable_sum _ fun t _ ↦ IT.measurable_feedback t).aestronglyMeasurable
+    (measurable_sum_feedback n).aestronglyMeasurable
 
 end AdvRegret
 
@@ -463,5 +486,70 @@ lemma _root_.Learning.IsAlgEnvSeq.pseudoRegret_bandit [Finite α] [Nonempty α]
     ciSup_sub (Finite.bddAbove_range _)]
 
 end PseudoRegret
+
+section StochasticRegret
+
+open _root_.Bandits
+
+variable [MeasurableSpace α] {ν : Kernel α ℝ} [IsMarkovKernel ν] (alg : Algorithm Unit α ℝ)
+
+/-- The total feedback of the first `n` rounds of the run against the stochastic bandit
+`Environment.bandit ν` is integrable when the arms are. -/
+private lemma integrable_sum_feedback_bandit [Finite α] (hν : ∀ a, Integrable id (ν a)) (n : ℕ) :
+    Integrable (fun τ : ℕ → Round Unit α ℝ ↦ ∑ t ∈ range n, IT.feedback t τ)
+      (trajMeasure alg (Environment.bandit ν)) :=
+  integrable_finsetSum _ fun t _ ↦
+    (IT.isAlgEnvSeq_trajMeasure alg (Environment.bandit ν)).integrable_feedback_bandit hν t
+
+/-- The expected total feedback of the first `n` rounds of the run against
+`Environment.evalSeq x _` is an integrable function of the table `x ∼ streamMeasure ν` when the
+arms are integrable. -/
+private lemma integrable_integral_sum_feedback_evalSeq [Finite α] [Nonempty α]
+    [MeasurableSingletonClass α] (hν : ∀ a, Integrable id (ν a)) (n : ℕ) :
+    Integrable (fun x : ℕ → α → ℝ ↦ ∫ τ, ∑ t ∈ range n, IT.feedback t τ
+      ∂(trajMeasure alg (Environment.evalSeq x fun _ ↦ .of_discrete))) (streamMeasure ν) :=
+  integrable_integral_trajMeasure_evalSeq alg ν (measurable_sum_feedback n).stronglyMeasurable
+    (integrable_sum_feedback_bandit alg hν n)
+
+/-- The adversarial regret of the run against `Environment.evalSeq x _` is an integrable function
+of the table `x ∼ streamMeasure ν` when the arms are integrable. -/
+lemma integrable_advRegret_evalSeq [Finite α] [Nonempty α] [MeasurableSingletonClass α]
+    (hν : ∀ a, Integrable id (ν a)) (n : ℕ) :
+    Integrable (fun x : ℕ → α → ℝ ↦
+      advRegret x IT.action (trajMeasure alg (Environment.evalSeq x fun _ ↦ .of_discrete)) n)
+      (streamMeasure ν) := by
+  simp_rw [(IT.isAlgEnvSeq_trajMeasure alg _).advRegret_eq_sub_integral_sum_feedback]
+  exact (Integrable.iSup fun a ↦ integrable_sum_eval_streamMeasure (hν a) n).sub
+    (integrable_integral_sum_feedback_evalSeq alg hν n)
+
+/-- **The adversarial regret dominates the stochastic regret.** The expected regret of a run of an
+algorithm against the stochastic bandit `Environment.bandit ν` with integrable arms is at most the
+expectation, over the tables `x ∼ streamMeasure ν` whose rows are independent with law
+`⨂ a, ν a`, of the adversarial regret `R_n(x)` of the algorithm against
+`Environment.evalSeq x _`. -/
+theorem integral_regret_le_integral_advRegret [Finite α] [Nonempty α] [MeasurableSingletonClass α]
+    [IsProbabilityMeasure P] {O : ℕ → Ω → Unit} {Y : ℕ → Ω → ℝ}
+    (h : IsAlgEnvSeq O A Y alg (Environment.bandit ν) P)
+    (hν : ∀ a, Integrable id (ν a)) (n : ℕ) :
+    P[regret ν A n] ≤ ∫ x, advRegret x IT.action
+      (trajMeasure alg (Environment.evalSeq x fun _ ↦ .of_discrete)) n ∂(streamMeasure ν) := by
+  have h' := IT.isAlgEnvSeq_trajMeasure alg (Environment.bandit ν)
+  have hY (t : ℕ) := h'.integrable_feedback_bandit hν t
+  -- the expected regret is `max_a (n μ_a - L)`, with `L` the expected total reward of the learner
+  rw [h.integral_regret_eq_integral_trajMeasure, ← h'.pseudoRegret_bandit hν n, pseudoRegret_def]
+  simp_rw [means_bandit, sum_sub_distrib, sum_const, card_range, nsmul_eq_mul]
+  -- the expected adversarial regret is `E[max_a ∑_{t < n} x t a] - L`
+  simp_rw [(IT.isAlgEnvSeq_trajMeasure alg _).advRegret_eq_sub_integral_sum_feedback]
+  rw [integral_sub (Integrable.iSup fun a ↦ integrable_sum_eval_streamMeasure (hν a) n)
+      (integrable_integral_sum_feedback_evalSeq alg hν n),
+    ← integral_trajMeasure_bandit alg ν (measurable_sum_feedback n).stronglyMeasurable
+      (integrable_sum_feedback_bandit alg hν n), integral_finsetSum _ fun t _ ↦ hY t]
+  -- and `n μ_a = E[∑_{t < n} x t a] ≤ E[max_a ∑_{t < n} x t a]`
+  refine ciSup_le fun a ↦ ?_
+  rw [integral_const_sub_sum _ fun t _ ↦ hY t, ← integral_sum_eval_streamMeasure (hν a) n]
+  exact sub_le_sub_right ((le_ciSup (Finite.bddAbove_range _) a).trans
+    (iSup_integral_le fun a ↦ integrable_sum_eval_streamMeasure (hν a) n)) _
+
+end StochasticRegret
 
 end LMLExplore.Bandits

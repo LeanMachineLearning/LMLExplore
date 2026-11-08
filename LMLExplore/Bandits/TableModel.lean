@@ -8,6 +8,7 @@ module
 public import LeanMachineLearning.Online.Bandit.ArrayProbSpace
 public import LeanMachineLearning.SequentialLearning.EvaluationEnv
 public import LeanMachineLearning.SequentialLearning.IonescuTulceaSpace
+public import LMLExplore.MeasureTheory.MeasurableSpace.Constructions
 
 /-!
 # A stochastic bandit is a mixture of reward tables
@@ -50,6 +51,12 @@ table model adapt those of LML's array model (`ArrayModel.isAlgEnvSeq_arrayMeasu
   `Environment.bandit ν` is the mixture over `x ∼ streamMeasure ν` of the laws of the runs against
   `Environment.evalSeq x _`.
 * `LMLExplore.Bandits.integral_trajMeasure_bandit`: the corresponding identity for integrals.
+* `LMLExplore.Bandits.measurable_trajMeasure_evalSeq`: the law of the run against
+  `Environment.evalSeq x _` is a measurable function of the table `x`.
+* `LMLExplore.Bandits.integrable_sum_eval_streamMeasure`,
+  `LMLExplore.Bandits.integral_sum_eval_streamMeasure`: the total reward of an arm over the first
+  `n` rows of a table `x ∼ streamMeasure ν` is integrable, with expectation `n` times the mean of
+  the arm.
 
 ## References
 
@@ -131,11 +138,6 @@ section Measurability
 
 variable [Countable 𝓐]
 
-omit [Nonempty 𝓐] in
-private lemma measurable_eval_apply (n : ℕ) :
-    Measurable fun p : (ℕ → 𝓐 → 𝓡) × 𝓐 ↦ p.1 n p.2 :=
-  measurable_from_prod_countable_left fun a ↦ (measurable_pi_apply a).comp (measurable_pi_apply n)
-
 @[fun_prop]
 lemma measurable_hist (alg : Algorithm Unit 𝓐 𝓡) (n : ℕ) :
     Measurable (fun ω ↦ hist alg ω n) := by
@@ -150,7 +152,7 @@ lemma measurable_hist (alg : Algorithm Unit 𝓐 𝓡) (n : ℕ) :
             ω.2 n (ArrayModel.algFunction alg n (hist alg ω n) (ω.1 n))))) := by
       ext ω : 1
       rw [Function.comp_apply, MeasurableEquiv.finSuccProd_symm_apply]
-      rfl
+      simp only [hist_succ, action_def, reward_def]
     rw [h_eq]
     exact (MeasurableEquiv.measurable _).comp (hn.prodMk (measurable_const.prodMk
       (ha.prodMk ((measurable_eval_apply n).comp (measurable_snd.prodMk ha)))))
@@ -228,8 +230,8 @@ lemma hasCondDistrib_action_hist (alg : Algorithm Unit 𝓐 𝓡) (n : ℕ) :
     simp only [Kernel.const_apply]
     rw [lintegral_dirac' _ (measurable_measure_prodMk_left
         (ArrayModel.measurable_algFunction alg n hs)),
-      ← ArrayModel.algFunction_map alg n h, Measure.map_apply (by fun_prop) hs]
-    rfl
+      ← ArrayModel.algFunction_map alg n h, Measure.map_apply (by fun_prop) hs, ← Set.preimage_comp]
+    simp only [Function.comp_def, Function.uncurry_apply_pair]
   rw [h_ker]
   exact h
 
@@ -255,7 +257,7 @@ private lemma hist_action_dropRow (alg : Algorithm Unit 𝓐 𝓡) (n : ℕ)
   have h : hist alg (dropRow n ω) n = hist alg ω n :=
     hist_congr alg (fun _ _ ↦ rfl) fun i hi ↦ by simp [dropRow, hi]
   simp only [action, h]
-  rfl
+  simp only [dropRow]
 
 /-- Under `ArrayModel.arrayMeasure ν`, row `n` of the table is independent of the history and the
 action of round `n`. -/
@@ -309,8 +311,9 @@ private lemma hasCondDistrib_reward_hist_action (alg : Algorithm Unit 𝓐 𝓡)
     rw [Kernel.map_apply' _ hg _ hs, Kernel.compProd_apply (hg hs), Kernel.id_apply]
     simp only [Kernel.const_apply]
     rw [lintegral_dirac' _ (measurable_measure_prodMk_left (hg hs)), Kernel.prodMkLeft_apply,
-      ← Measure.infinitePi_map_eval ν p.2, Measure.map_apply (measurable_pi_apply _) hs]
-    rfl
+      ← Measure.infinitePi_map_eval ν p.2, Measure.map_apply (measurable_pi_apply _) hs,
+      ← Set.preimage_comp]
+    simp only [Function.comp_def]
   rw [h_ker] at h
   exact h
 
@@ -334,7 +337,17 @@ theorem isAlgEnvSeq_bandit (alg : Algorithm Unit 𝓐 𝓡) (ν : Kernel 𝓐 �
     rw [feedback_bandit]
     have h := (hasCondDistrib_reward_hist_action alg ν n).measurableEquiv_comp_right e
     simp only [hist_eq_history] at h
+    -- `h` is the goal up to unfolding `e`: `⇑e ∘ (H, A)` is `((H, noObs _ n), A)` since
+    -- `noObs _ n ω = ()`, and `(ν.prodMkLeft _).comap e.symm` is `ν.prodMkLeft _`.
     exact h
+
+/-- For a fixed table `x`, the history of the table model `u ↦ (u, x)` is measurable. -/
+private lemma measurable_history_evalSeq (alg : Algorithm Unit 𝓐 𝓡) (x : ℕ → 𝓐 → 𝓡) (n : ℕ) :
+    Measurable (history (noObs (ℕ → I)) (fun n u ↦ action alg n (u, x))
+      (fun n u ↦ reward alg n (u, x)) n) :=
+  measurable_history (fun _ ↦ measurable_const)
+    (fun n ↦ (measurable_action alg n).comp measurable_prodMk_right)
+    (fun n ↦ (measurable_reward alg n).comp measurable_prodMk_right) n
 
 /-- For a fixed table `x`, under the uniform law of the variables `u`, the table model
 `u ↦ (u, x)` is a run of the algorithm against the oblivious adversary
@@ -343,30 +356,41 @@ theorem isAlgEnvSeq_evalSeq (alg : Algorithm Unit 𝓐 𝓡) (x : ℕ → 𝓐 �
     (hx : ∀ n, Measurable (x n)) :
     IsAlgEnvSeq (noObs _) (fun n u ↦ action alg n (u, x)) (fun n u ↦ reward alg n (u, x)) alg
       (Environment.evalSeq x hx) (Measure.infinitePi fun _ : ℕ ↦ (volume : Measure I)) where
-  hasCondDistrib_obs n :=
-    hasCondDistrib_unit (measurable_history (fun _ ↦ measurable_const)
-      (fun n ↦ (measurable_action alg n).comp measurable_prodMk_right)
-      (fun n ↦ (measurable_reward alg n).comp measurable_prodMk_right) n).aemeasurable _ _
+  hasCondDistrib_obs n := hasCondDistrib_unit (measurable_history_evalSeq alg x n).aemeasurable _ _
   hasCondDistrib_action n :=
     (hasCondDistrib_action (Measure.dirac x) alg n).comp_hasLaw
       ⟨measurable_prodMk_right.aemeasurable, (Measure.prod_dirac x).symm⟩
   hasCondDistrib_feedback n := by
     rw [feedback_evalSeq]
-    have hH : Measurable (history (noObs (ℕ → I)) (fun n u ↦ action alg n (u, x))
-        (fun n u ↦ reward alg n (u, x)) n) :=
-      measurable_history (fun _ ↦ measurable_const)
-        (fun n ↦ (measurable_action alg n).comp measurable_prodMk_right)
-        (fun n ↦ (measurable_reward alg n).comp measurable_prodMk_right) n
     exact hasCondDistrib_comp_self (X := fun u ↦ ((history (noObs (ℕ → I))
         (fun n u ↦ action alg n (u, x)) (fun n u ↦ reward alg n (u, x)) n u, noObs (ℕ → I) n u),
         action alg n (u, x))) (μ := Measure.infinitePi fun _ : ℕ ↦ (volume : Measure I))
       (f := fun p : (Hist Unit 𝓐 𝓡 n × Unit) × 𝓐 ↦ x n p.2) ((hx n).comp measurable_snd)
-      ((hH.prodMk measurable_const).prodMk
+      (((measurable_history_evalSeq alg x n).prodMk measurable_const).prodMk
         ((measurable_action alg n).comp measurable_prodMk_right)).aemeasurable
 
 end Laws
 
 end TableModel
+
+section StreamMeasure
+
+variable {α : Type*} [MeasurableSpace α] {ν : Kernel α ℝ} [IsMarkovKernel ν] {a : α}
+
+/-- The total reward `∑_{t < n} x t a` of arm `a` over the first `n` rows of a table
+`x ∼ streamMeasure ν` is integrable when the arm is. -/
+lemma integrable_sum_eval_streamMeasure (hν : Integrable id (ν a)) (n : ℕ) :
+    Integrable (fun x : ℕ → α → ℝ ↦ ∑ t ∈ range n, x t a) (streamMeasure ν) :=
+  integrable_finsetSum _ fun t _ ↦ integrable_eval_streamMeasure ν t a hν
+
+/-- The expected total reward `∑_{t < n} x t a` of arm `a` over the first `n` rows of a table
+`x ∼ streamMeasure ν` is `n` times its mean. -/
+lemma integral_sum_eval_streamMeasure (hν : Integrable id (ν a)) (n : ℕ) :
+    ∫ x, ∑ t ∈ range n, x t a ∂(streamMeasure ν) = n * (ν a)[id] := by
+  rw [integral_finsetSum _ fun t _ ↦ integrable_eval_streamMeasure ν t a hν]
+  simp [integral_eval_streamMeasure]
+
+end StreamMeasure
 
 section Mixture
 
@@ -386,22 +410,45 @@ private lemma trajMeasure_evalSeq_eq_map (x : ℕ → 𝓐 → 𝓡) (hx : ∀ n
           fun u ↦ (u, x)) :=
   ((TableModel.isAlgEnvSeq_evalSeq alg x hx).map_trajectory).symm
 
+/-- For a fixed table `x`, the probability of a measurable set `S` of trajectories under the run
+against `Environment.evalSeq x _` is the uniform probability of the variables `u` for which the
+table model `(u, x)` has its trajectory in `S`. -/
+private lemma trajMeasure_evalSeq_apply_eq (x : ℕ → 𝓐 → 𝓡) (hx : ∀ n, Measurable (x n))
+    {S : Set (ℕ → Round Unit 𝓐 𝓡)} (hS : MeasurableSet S) :
+    trajMeasure alg (Environment.evalSeq x hx) S =
+      (Measure.infinitePi fun _ : ℕ ↦ (volume : Measure I)) ((fun u ↦ (u, x)) ⁻¹'
+        (trajectory (noObs _) (TableModel.action alg) (TableModel.reward alg) ⁻¹' S)) := by
+  rw [trajMeasure_evalSeq_eq_map, Measure.map_apply
+    ((measurable_trajectory_table alg).comp measurable_prodMk_right) hS, Set.preimage_comp]
+
+/-- For a fixed table `x`, the expectation of `f` under the run against `Environment.evalSeq x _`
+is the expectation over the uniform variables `u` of `f` at the trajectory of the table model
+`(u, x)`. -/
+private lemma integral_trajMeasure_evalSeq_eq {E : Type*} [NormedAddCommGroup E] [NormedSpace ℝ E]
+    {f : (ℕ → Round Unit 𝓐 𝓡) → E} (hf : StronglyMeasurable f) (x : ℕ → 𝓐 → 𝓡)
+    (hx : ∀ n, Measurable (x n)) :
+    ∫ τ, f τ ∂(trajMeasure alg (Environment.evalSeq x hx)) =
+      ∫ u, (f ∘ trajectory (noObs _) (TableModel.action alg) (TableModel.reward alg)) (u, x)
+        ∂(Measure.infinitePi fun _ : ℕ ↦ (volume : Measure I)) := by
+  rw [trajMeasure_evalSeq_eq_map, integral_map
+    ((measurable_trajectory_table alg).comp measurable_prodMk_right).aemeasurable
+    hf.aestronglyMeasurable]
+  simp only [Function.comp_apply]
+
 /-- The probability of a measurable set of trajectories under the run against
 `Environment.evalSeq x _` is a measurable function of the table `x`. -/
 lemma measurable_trajMeasure_evalSeq_apply
     {S : Set (ℕ → Round Unit 𝓐 𝓡)} (hS : MeasurableSet S) :
     Measurable fun x : ℕ → 𝓐 → 𝓡 ↦
       trajMeasure alg (Environment.evalSeq x fun _ ↦ .of_discrete) S := by
-  have h_eq : (fun x : ℕ → 𝓐 → 𝓡 ↦
-      trajMeasure alg (Environment.evalSeq x fun _ ↦ .of_discrete) S) = fun x ↦
-        (Measure.infinitePi fun _ : ℕ ↦ (volume : Measure I)) ((fun u ↦ (u, x)) ⁻¹'
-          (trajectory (noObs _) (TableModel.action alg) (TableModel.reward alg) ⁻¹' S)) := by
-    ext x
-    rw [trajMeasure_evalSeq_eq_map, Measure.map_apply
-      ((measurable_trajectory_table alg).comp measurable_prodMk_right) hS]
-    rfl
-  rw [h_eq]
+  simp_rw [trajMeasure_evalSeq_apply_eq alg _ _ hS]
   exact measurable_measure_prodMk_right (hS.preimage (measurable_trajectory_table alg))
+
+/-- The law of the run against `Environment.evalSeq x _` is a measurable function of the table
+`x`, as a measure-valued map. -/
+lemma measurable_trajMeasure_evalSeq :
+    Measurable fun x : ℕ → 𝓐 → 𝓡 ↦ trajMeasure alg (Environment.evalSeq x fun _ ↦ .of_discrete) :=
+  Measure.measurable_of_measurable_coe _ fun _ hS ↦ measurable_trajMeasure_evalSeq_apply alg hS
 
 /-- **A stochastic bandit is a mixture of reward tables.** The law of the run of an algorithm
 against the stochastic bandit `Environment.bandit ν` is the mixture, over the tables `x` whose
@@ -411,29 +458,12 @@ theorem trajMeasure_bandit_eq_bind :
     trajMeasure alg (Environment.bandit ν) =
       (streamMeasure ν).bind fun x ↦
         trajMeasure alg (Environment.evalSeq x fun _ ↦ .of_discrete) := by
-  have hm : Measurable fun x : ℕ → 𝓐 → 𝓡 ↦
-      trajMeasure alg (Environment.evalSeq x fun _ ↦ .of_discrete) :=
-    Measure.measurable_of_measurable_coe _ fun _ hS ↦ measurable_trajMeasure_evalSeq_apply alg hS
   ext S hS
-  rw [Measure.bind_apply hS hm.aemeasurable,
+  rw [Measure.bind_apply hS (measurable_trajMeasure_evalSeq alg).aemeasurable,
     ← (TableModel.isAlgEnvSeq_bandit alg ν).map_trajectory,
     Measure.map_apply (measurable_trajectory_table alg) hS, ArrayModel.arrayMeasure,
     Measure.prod_apply_symm (hS.preimage (measurable_trajectory_table alg))]
-  refine lintegral_congr fun x ↦ ?_
-  rw [trajMeasure_evalSeq_eq_map, Measure.map_apply
-    ((measurable_trajectory_table alg).comp measurable_prodMk_right) hS]
-  rfl
-
-/-- The probability of a measurable set of trajectories under the run against the stochastic bandit
-`Environment.bandit ν` is the average over the tables `x ∼ streamMeasure ν` of its probabilities
-under the runs against `Environment.evalSeq x _`. -/
-lemma trajMeasure_bandit_apply {S : Set (ℕ → Round Unit 𝓐 𝓡)}
-    (hS : MeasurableSet S) :
-    trajMeasure alg (Environment.bandit ν) S =
-      ∫⁻ x, trajMeasure alg (Environment.evalSeq x fun _ ↦ .of_discrete) S ∂(streamMeasure ν) := by
-  rw [trajMeasure_bandit_eq_bind, Measure.bind_apply hS
-    (Measure.measurable_of_measurable_coe _
-      fun _ hS ↦ measurable_trajMeasure_evalSeq_apply alg hS).aemeasurable]
+  exact lintegral_congr fun x ↦ (trajMeasure_evalSeq_apply_eq alg x _ hS).symm
 
 variable {E : Type*} [NormedAddCommGroup E] {f : (ℕ → Round Unit 𝓐 𝓡) → E}
 
@@ -453,16 +483,7 @@ lemma integrable_integral_trajMeasure_evalSeq [NormedSpace ℝ E]
     (hf_meas : StronglyMeasurable f) (hf : Integrable f (trajMeasure alg (Environment.bandit ν))) :
     Integrable (fun x ↦ ∫ τ, f τ ∂(trajMeasure alg (Environment.evalSeq x fun _ ↦ .of_discrete)))
       (streamMeasure ν) := by
-  have h_eq : (fun x : ℕ → 𝓐 → 𝓡 ↦
-      ∫ τ, f τ ∂(trajMeasure alg (Environment.evalSeq x fun _ ↦ .of_discrete))) = fun x ↦
-        ∫ u, (f ∘ trajectory (noObs _) (TableModel.action alg) (TableModel.reward alg)) (u, x)
-          ∂(Measure.infinitePi fun _ : ℕ ↦ (volume : Measure I)) := by
-    ext x
-    rw [trajMeasure_evalSeq_eq_map, integral_map
-      ((measurable_trajectory_table alg).comp measurable_prodMk_right).aemeasurable
-      hf_meas.aestronglyMeasurable]
-    rfl
-  rw [h_eq]
+  simp_rw [integral_trajMeasure_evalSeq_eq alg hf_meas]
   exact (integrable_comp_trajectory_table alg ν hf).integral_prod_right
 
 /-- **A stochastic bandit is a mixture of reward tables**, for integrals: the expectation of `f`
@@ -480,17 +501,11 @@ theorem integral_trajMeasure_bandit [NormedSpace ℝ E]
         (measurable_trajectory_table alg).aemeasurable (by
           rw [(TableModel.isAlgEnvSeq_bandit alg ν).map_trajectory]
           exact hf_meas.aestronglyMeasurable)]
-      rfl
+      simp only [F, Function.comp_apply]
     _ = ∫ x, ∫ u, F (u, x) ∂(Measure.infinitePi fun _ : ℕ ↦ (volume : Measure I))
         ∂(streamMeasure ν) :=
       integral_prod_symm _ (integrable_comp_trajectory_table alg ν hf)
-    _ = _ := by
-      refine integral_congr_ae (ae_of_all _ fun x ↦ ?_)
-      dsimp only
-      rw [trajMeasure_evalSeq_eq_map, integral_map
-        ((measurable_trajectory_table alg).comp measurable_prodMk_right).aemeasurable
-        hf_meas.aestronglyMeasurable]
-      rfl
+    _ = _ := by simp_rw [integral_trajMeasure_evalSeq_eq alg hf_meas, F]
 
 end Mixture
 
