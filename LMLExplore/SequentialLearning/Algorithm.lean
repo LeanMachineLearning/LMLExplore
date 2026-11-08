@@ -12,6 +12,7 @@ public import LMLExplore.Probability.HasCondDistrib
 public import Mathlib.Probability.Kernel.CondDistrib
 
 import LMLExplore.Probability.Kernel.Composition.MeasureCompProd
+import LMLExplore.SequentialLearning.Means
 
 /-!
 # Algorithm-environment sequences: transport, prior history, piecewise algorithms and environments
@@ -64,6 +65,8 @@ the whole trajectory.
   conditional absolute mean has finite expectation.
 * `Learning.IsAlgEnvSeq.setIntegral_feedback`: on an event of `h.filtrationAction n`, the
   expectation of `Y_n` is that of its conditional mean `env.means O A Y (A n) n`.
+* `Learning.IsAlgEnvSeq.measurable_means_filtrationObs`: the means `env.means O A Y a n` of the
+  feedbacks of round `n` are measurable with respect to the past `h.filtrationObs n` of round `n`.
 * `Learning.IsAlgEnvSeq.map_obs`, `Learning.IsAlgEnvSeq.map_obs_action`: along every run, the
   observation of round `n`, and the pair of the observation and the action of round `n`, have the
   same laws as under the trajectory measure `trajMeasure alg env`.
@@ -195,6 +198,15 @@ lemma IsAlgEnvSeq.setIntegral_feedback [IsFiniteMeasure P] [BorelSpace 𝓨]
   rw [← setIntegral_condExp (h.filtrationAction.le n) hY hs]
   exact setIntegral_congr_ae (h.filtrationAction.le n _ hs) <| by
     filter_upwards [h.condExp_feedback n hY] with ω hω _ using hω
+
+/-- Along a run of an algorithm, the mean `env.means O A Y a n` of the feedback of an action `a`
+at round `n` is measurable with respect to the past of round `n`. -/
+lemma IsAlgEnvSeq.measurable_means_filtrationObs [BorelSpace 𝓨] [SecondCountableTopology 𝓨]
+    (h : IsAlgEnvSeq O A Y alg env P) {n : ℕ} (a : 𝓐) :
+    Measurable[h.filtrationObs n] (env.means O A Y a n) := by
+  rw [funext (Environment.means_eq_integral env O A Y a n), h.filtrationObs_eq_comap]
+  exact ((stronglyMeasurable_id.integral_kernel (κ := env.feedback n)).measurable.comp
+    measurable_prodMk_right).comp (measurable_iff_comap_le.2 le_rfl)
 
 end Feedback
 
