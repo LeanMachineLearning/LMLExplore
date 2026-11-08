@@ -31,6 +31,14 @@ asymptotically optimal on these bandits. Gaussian Thompson sampling `gaussianTS 
 prior has the same asymptotic upper bound on Gaussian bandits with variance `σ²`
 [LS, Theorem 36.3], so it is asymptotically optimal on these bandits too.
 
+More generally, let `ρ a` be a measure on `ℝ` for every arm `a`, all with the same set of means
+(one family for every arm, or Gaussian families with different known variances). On the bandits
+whose arm `a` has a law in the exponential family of `ρ a`, the KL-UCB algorithm `klucbFam ρ` for
+these families [GC11; CGMMS13] is consistent, and its expected regret is `c* log n + o(log n)`
+with `c* = ∑_{a : Δ_a > 0} Δ_a / d_{ρ a}(μ_a, μ*)`, the Lai–Robbins constant of these bandits
+[BK96]. The common set of means makes the largest mean `μ*` a mean of the family of every arm, so
+that `c*` is finite.
+
 ## Main statements
 
 * `UCBF.isConsistent`: `ucbF σ2` is consistent over the σ²-sub-Gaussian bandits, for `σ² ≠ 0`.
@@ -53,6 +61,17 @@ prior has the same asymptotic upper bound on Gaussian bandits with variance `σ�
   expected regret of `klucb` satisfies `E[R_n] / log n → ∑_{a : Δ_a > 0} Δ_a / d(p_a, μ*)`.
 * `isLittleO_klucb_regret_sub_mul_log_bernoulliBandit`: the same statement in the form
   `E[R_n] = c* log n + o(log n)`.
+* `klucbFam_regret_eventually_le_of_mem_image_expFamily`: on a bandit whose arms are members of
+  exponential families, where `μ*` is a mean of the family of every arm `a` with positive gap and
+  `μ_a` a mean of the family of the best arm, the expected regret of `klucbFam ρ` satisfies
+  `limsup_n E[R_n] / log n ≤ ∑_{a : Δ_a > 0} Δ_a / d_{ρ a}(μ_a, μ*)`.
+* `KLUCBFam.isConsistent`: `klucbFam ρ` is consistent over these bandits.
+* `tendsto_klucbFam_regret_div_log`, `isLittleO_klucbFam_regret_sub_mul_log`: on each of them, the
+  expected regret of `klucbFam ρ` is `c* log n + o(log n)`, with
+  `c* = ∑_{a : Δ_a > 0} Δ_a / d_{ρ a}(μ_a, μ*)`.
+* `tendsto_klucbFam_gaussianReal_regret_div_log`,
+  `isLittleO_klucbFam_gaussianReal_regret_sub_mul_log`: the Gaussian instance with known variances
+  `σ2 a`, with `c* = ∑_{a : Δ_a > 0} 2 σ2_a / Δ_a`.
 
 In the Bernoulli statements, `Δ_a / d(p_a, μ*)` is computed from the real number
 `d(p_a, μ*).toReal`, as in `klucb_regret_eventually_le`. For an arm with positive gap it is `0`
@@ -62,6 +81,12 @@ exactly when `μ* = 1`, where `d(p_a, 1) = ∞`.
 
 * T. Lattimore and Cs. Szepesvári, *Bandit Algorithms*, Cambridge University Press, 2020,
   Chapters 8, 10, 16 and 36.
+* [GC11] A. Garivier and O. Cappé, *The KL-UCB algorithm for bounded stochastic bandits and
+  beyond*, COLT 2011.
+* [CGMMS13] O. Cappé, A. Garivier, O.-A. Maillard, R. Munos and G. Stoltz, *Kullback–Leibler upper
+  confidence bounds for optimal sequential allocation*, Annals of Statistics, 2013.
+* [BK96] A. N. Burnetas and M. N. Katehakis, *Optimal adaptive policies for sequential allocation
+  problems*, Advances in Applied Mathematics, 1996.
 -/
 
 public section
@@ -215,5 +240,144 @@ theorem isLittleO_klucb_regret_sub_mul_log_bernoulliBandit
   isLittleO_sub_mul_of_tendsto_div
     ((eventually_gt_atTop 1).mono fun n hn ↦ (log_pos (by exact_mod_cast hn)).ne')
     (tendsto_klucb_regret_div_log_bernoulliBandit h)
+
+section ExpFamily
+
+variable {ρ : α → Measure ℝ} {ν : Kernel α ℝ} [IsMarkovKernel ν]
+
+/-- **Asymptotic regret of KL-UCB on exponential families.** Let `ρ a` be a measure on `ℝ` for
+every arm `a`, and let the law of every arm `a` be a member `(ρ a)_η` of the exponential family of
+`ρ a`, with `η` in the interior of `integrableExpSet id (ρ a)`. Assume that for every arm `a` with
+positive gap, the largest mean `μ*` is a mean of the family of `ρ a` and `μ_a` is a mean of the
+family of the best arm. For every `c > ∑_{a : Δ_a > 0} Δ_a / d_{ρ a}(μ_a, μ*)`, the expected
+regret at horizon `n` of the KL-UCB algorithm for the families `ρ` is eventually at most
+`c log n`; that is, `limsup_n E[R_n] / log n ≤ ∑_{a : Δ_a > 0} Δ_a / d_{ρ a}(μ_a, μ*)`. -/
+theorem klucbFam_regret_eventually_le_of_mem_image_expFamily
+    (hν : ∀ a, ν a ∈ (ρ a).expFamily id '' interior (integrableExpSet id (ρ a)))
+    (hμs : ∀ a, 0 < gap ν a → (ν (bestArm ν))[id] ∈ (ρ a).expFamilyMeans id)
+    (hμb : ∀ a, 0 < gap ν a → (ν a)[id] ∈ (ρ (bestArm ν)).expFamilyMeans id)
+    (h : IsAlgEnvSeq O A R (klucbFam ρ) (Environment.bandit ν) P) {c : ℝ}
+    (hc : ∑ a ∈ univ.filter (fun a ↦ 0 < gap ν a),
+      gap ν a / (ρ a).expFamilyDiv id (ν a)[id] (ν (bestArm ν))[id] < c) :
+    ∀ᶠ n : ℕ in atTop, P[regret ν A n] ≤ c * log n := by
+  have hμ (a : α) := Measure.integral_mem_expFamilyMeans_of_mem_image (hν a)
+  rcases (univ.filter (fun a ↦ 0 < gap ν a)).eq_empty_or_nonempty with hS | ⟨a₀, ha₀⟩
+  · -- If every gap vanishes, the regret is `0`.
+    have hc0 : 0 < c := by simpa [hS] using hc
+    have hgap (a : α) : gap ν a = 0 :=
+      le_antisymm (not_lt.mp (filter_eq_empty_iff.mp hS (mem_univ a))) gap_nonneg
+    refine .of_forall fun n ↦ ?_
+    rw [integral_regret_eq_sum_gap_mul_integral_pullCount h.measurable_action]
+    simpa [hgap] using mul_nonneg hc0.le (log_natCast_nonneg n)
+  -- The families of the arms with positive gap and of the best arm have the two distinct means
+  -- `μ_a < μ*`, so that none of them is a Dirac mass.
+  have hga₀ := (mem_filter.mp ha₀).2
+  have hρ (a : α) (ha : 0 < gap ν a) : ∀ c, ¬ id =ᵐ[ρ a] fun _ ↦ c :=
+    not_ae_eq_const_of_gap_pos (hμ a) (hμs a ha) ha
+  have hρs : ∀ c, ¬ id =ᵐ[ρ (bestArm ν)] fun _ ↦ c :=
+    not_ae_eq_const_of_gap_pos (hμb a₀ hga₀) (hμ _) hga₀
+  -- These arms are dominated by the members of their means, which are their own laws.
+  have hdom (a : α) (ha : ∀ c, ¬ id =ᵐ[ρ a] fun _ ↦ c) (Λ : Set ℝ) :
+      MGFDominatedOn id (ν a) id ((ρ a).expFamily id ((ρ a).natParam id (ν a)[id])) Λ := by
+    rw [Measure.expFamily_natParam_integral_of_mem_image ha (hν a)]
+    exact (IdentDistrib.refl aemeasurable_id).mgfDominatedOn
+  exact klucbFam_regret_eventually_le h (fun a _ ↦ hμ a) (hμ _)
+    (fun a ha ↦ hdom a (hρ a ha) _) (hdom _ hρs _) hρs hμs hc
+
+/-- **KL-UCB is consistent over exponential families.** Let `ρ a` be a measure on `ℝ` for every
+arm `a`, all with the same set of means. The KL-UCB algorithm for the families `ρ` is consistent
+over the bandits whose arm `a` has a law in the exponential family of `ρ a`, a member `(ρ a)_η`
+with `η` in the interior of `integrableExpSet id (ρ a)`. -/
+theorem KLUCBFam.isConsistent (hM : ∀ a b, (ρ a).expFamilyMeans id = (ρ b).expFamilyMeans id) :
+    IsConsistent (klucbFam ρ)
+      {ν : Kernel α ℝ | ∀ a, ν a ∈ (ρ a).expFamily id '' interior (integrableExpSet id (ρ a))} :=
+  isConsistent_of_eventually_le_mul_log fun _ hν _ ↦
+    ⟨_, klucbFam_regret_eventually_le_of_mem_image_expFamily hν
+      (fun a _ ↦ hM (bestArm _) a ▸ Measure.integral_mem_expFamilyMeans_of_mem_image (hν _))
+      (fun a _ ↦ hM a (bestArm _) ▸ Measure.integral_mem_expFamilyMeans_of_mem_image (hν a))
+      (IT.isAlgEnvSeq_trajMeasure _ _) (lt_add_one _)⟩
+
+/-- **Asymptotic optimality of KL-UCB for exponential families** [GC11; CGMMS13; LS, §16.2].
+Let `ρ a` be a measure on `ℝ` for every arm `a`, all with the same set of means, and let the law
+of every arm `a` be a member of the exponential family of `ρ a`. The expected regret of the KL-UCB
+algorithm for the families `ρ` satisfies
+`E[R_n] / log n → ∑_{a : Δ_a > 0} Δ_a / d_{ρ a}(μ_a, μ*)`, the Lai–Robbins constant of the
+bandits whose arms are members of these families. -/
+theorem tendsto_klucbFam_regret_div_log
+    (hM : ∀ a b, (ρ a).expFamilyMeans id = (ρ b).expFamilyMeans id)
+    (hν : ∀ a, ν a ∈ (ρ a).expFamily id '' interior (integrableExpSet id (ρ a)))
+    (h : IsAlgEnvSeq O A R (klucbFam ρ) (Environment.bandit ν) P) :
+    Tendsto (fun n : ℕ ↦ P[regret ν A n] / log n) atTop
+      (𝓝 (∑ a ∈ univ.filter (fun a ↦ 0 < gap ν a),
+        gap ν a / (ρ a).expFamilyDiv id (ν a)[id] (ν (bestArm ν))[id])) := by
+  -- The upper bound is `klucbFam_regret_eventually_le_of_mem_image_expFamily`; the lower bound is
+  -- the Lai–Robbins lower bound.
+  have hμs (a : α) (_ : 0 < gap ν a) : (ν (bestArm ν))[id] ∈ (ρ a).expFamilyMeans id :=
+    hM (bestArm ν) a ▸ Measure.integral_mem_expFamilyMeans_of_mem_image (hν _)
+  refine tendsto_div_of_eventually_mul_le
+    ((eventually_gt_atTop 1).mono fun n hn ↦ log_pos (by exact_mod_cast hn)) (fun c hc ↦ ?_)
+    fun c hc ↦ klucbFam_regret_eventually_le_of_mem_image_expFamily hν hμs
+      (fun a _ ↦ hM a (bestArm ν) ▸ Measure.integral_mem_expFamilyMeans_of_mem_image (hν a)) h hc
+  filter_upwards [eventually_mul_log_le_integral_regret_expFamily (KLUCBFam.isConsistent hM) hν
+    hμs hc] with n hn
+  rwa [← h.integral_regret_eq_integral_trajMeasure] at hn
+
+/-- **Asymptotic optimality of KL-UCB for exponential families** [GC11; CGMMS13; LS, §16.2].
+Let `ρ a` be a measure on `ℝ` for every arm `a`, all with the same set of means, and let the law
+of every arm `a` be a member of the exponential family of `ρ a`. The expected regret of the KL-UCB
+algorithm for the families `ρ` is `c* log n + o(log n)`, where
+`c* = ∑_{a : Δ_a > 0} Δ_a / d_{ρ a}(μ_a, μ*)` is the Lai–Robbins constant of the bandits whose
+arms are members of these families. -/
+theorem isLittleO_klucbFam_regret_sub_mul_log
+    (hM : ∀ a b, (ρ a).expFamilyMeans id = (ρ b).expFamilyMeans id)
+    (hν : ∀ a, ν a ∈ (ρ a).expFamily id '' interior (integrableExpSet id (ρ a)))
+    (h : IsAlgEnvSeq O A R (klucbFam ρ) (Environment.bandit ν) P) :
+    (fun n : ℕ ↦ P[regret ν A n] - (∑ a ∈ univ.filter (fun a ↦ 0 < gap ν a),
+        gap ν a / (ρ a).expFamilyDiv id (ν a)[id] (ν (bestArm ν))[id]) * log n)
+      =o[atTop] fun n : ℕ ↦ log n :=
+  isLittleO_sub_mul_of_tendsto_div
+    ((eventually_gt_atTop 1).mono fun n hn ↦ (log_pos (by exact_mod_cast hn)).ne')
+    (tendsto_klucbFam_regret_div_log hM hν h)
+
+/-- **Asymptotic optimality of KL-UCB for Gaussian arms with known variances.** Let the law of
+every arm `a` be `𝒩(μ_a, σ2_a)` with `σ2_a ≠ 0`. The expected regret of the KL-UCB algorithm for
+the Gaussian families of variances `σ2 a`, generated by any members `𝒩(m a, σ2 a)`, satisfies
+`E[R_n] / log n → ∑_{a : Δ_a > 0} 2 σ2_a / Δ_a`, the Lai–Robbins constant of the Gaussian bandits
+with these variances. For a common variance `σ2`, that algorithm is `ucbF σ2`
+(`klucbFam_gaussianReal`). -/
+theorem tendsto_klucbFam_gaussianReal_regret_div_log (m : α → ℝ) {σ2 : α → ℝ≥0}
+    (hσ2 : ∀ a, σ2 a ≠ 0) (hν : ∀ a, ν a = gaussianReal (μ a) (σ2 a))
+    (h : IsAlgEnvSeq O A R (klucbFam fun a ↦ gaussianReal (m a) (σ2 a)) (Environment.bandit ν)
+      P) :
+    Tendsto (fun n : ℕ ↦ P[regret ν A n] / log n) atTop
+      (𝓝 (∑ a ∈ univ.filter (fun a ↦ 0 < gap ν a), 2 * σ2 a / gap ν a)) := by
+  -- Every Gaussian family of variance `σ2 a` has all real numbers as means, and `ν a` is its
+  -- member of mean `μ a`.
+  have hmeans (a : α) : (gaussianReal (m a) (σ2 a)).expFamilyMeans id = Set.univ :=
+    Set.eq_univ_of_forall (mem_expFamilyMeans_gaussianReal _ (hσ2 a))
+  have hmem (a : α) : ν a ∈ (gaussianReal (m a) (σ2 a)).expFamily id ''
+      interior (integrableExpSet id (gaussianReal (m a) (σ2 a))) := by
+    rw [hν a, ← expFamily_natParam_gaussianReal (m a) (hσ2 a) (μ a)]
+    exact Measure.expFamily_natParam_mem_image (mem_expFamilyMeans_gaussianReal _ (hσ2 a) _)
+  rw [← sum_gap_div_expFamilyDiv_gaussianReal m hσ2]
+  exact tendsto_klucbFam_regret_div_log (fun a b ↦ (hmeans a).trans (hmeans b).symm) hmem h
+
+/-- **Asymptotic optimality of KL-UCB for Gaussian arms with known variances.** Let the law of
+every arm `a` be `𝒩(μ_a, σ2_a)` with `σ2_a ≠ 0`. The expected regret of the KL-UCB algorithm for
+the Gaussian families of variances `σ2 a`, generated by any members `𝒩(m a, σ2 a)`, is
+`c* log n + o(log n)`, where `c* = ∑_{a : Δ_a > 0} 2 σ2_a / Δ_a` is the Lai–Robbins constant of the
+Gaussian bandits with these variances. -/
+theorem isLittleO_klucbFam_gaussianReal_regret_sub_mul_log (m : α → ℝ) {σ2 : α → ℝ≥0}
+    (hσ2 : ∀ a, σ2 a ≠ 0) (hν : ∀ a, ν a = gaussianReal (μ a) (σ2 a))
+    (h : IsAlgEnvSeq O A R (klucbFam fun a ↦ gaussianReal (m a) (σ2 a)) (Environment.bandit ν)
+      P) :
+    (fun n : ℕ ↦ P[regret ν A n] -
+      (∑ a ∈ univ.filter (fun a ↦ 0 < gap ν a), 2 * σ2 a / gap ν a) * log n)
+      =o[atTop] fun n : ℕ ↦ log n :=
+  isLittleO_sub_mul_of_tendsto_div
+    ((eventually_gt_atTop 1).mono fun n hn ↦ (log_pos (by exact_mod_cast hn)).ne')
+    (tendsto_klucbFam_gaussianReal_regret_div_log m hσ2 hν h)
+
+end ExpFamily
 
 end LMLExplore.Bandits

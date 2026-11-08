@@ -741,6 +741,20 @@ theorem klucbFam_regret_eventually_le [StandardBorelSpace α]
       (by linarith [gap_eq_bestArm_sub (ν := ν) (a := a)]) (hμs a ha) hc)
     (by simpa only [div_eq_mul_inv] using hc)
 
+omit [DecidableEq α] [MeasurableSingletonClass α] [IsMarkovKernel ν] in
+/-- For the Gaussian families of variances `σ2 a ≠ 0`, the constant
+`∑_{a : Δ_a > 0} Δ_a / d_{ρ a}(μ_a, μ*)` is `∑_{a : Δ_a > 0} 2 σ2_a / Δ_a`, since
+`d(μ_a, μ*) = Δ_a² / (2 σ2_a)`. -/
+lemma sum_gap_div_expFamilyDiv_gaussianReal (m : α → ℝ) {σ2 : α → ℝ≥0} (hσ2 : ∀ a, σ2 a ≠ 0) :
+    ∑ a ∈ univ.filter (fun a ↦ 0 < gap ν a),
+      gap ν a / (gaussianReal (m a) (σ2 a)).expFamilyDiv id (ν a)[id] (ν (bestArm ν))[id] =
+    ∑ a ∈ univ.filter (fun a ↦ 0 < gap ν a), 2 * σ2 a / gap ν a := by
+  refine sum_congr rfl fun a ha ↦ ?_
+  have hga := (mem_filter.mp ha).2
+  have hσ2a : (σ2 a : ℝ) ≠ 0 := NNReal.coe_ne_zero.2 (hσ2 a)
+  rw [expFamilyDiv_gaussianReal _ (hσ2 a), ← neg_sub, neg_sq, ← gap_eq_bestArm_sub]
+  field_simp
+
 /-- **Asymptotic regret of KL-UCB for Gaussian families with known variances.** Let the rewards
 of every arm `a` be `σ2 a`-sub-Gaussian with `σ2 a ≠ 0`. For every
 `c > ∑_{a : Δ_a > 0} 2 σ2_a / Δ_a`, the expected regret at horizon `n` of the KL-UCB algorithm for
@@ -763,12 +777,7 @@ theorem klucbFam_gaussianReal_regret_eventually_le [StandardBorelSpace α] (m : 
     ((hdom _).mono (Set.subset_univ _))
     (not_ae_eq_const_gaussianReal _ (hσ2 _))
     (fun a _ ↦ mem_expFamilyMeans_gaussianReal _ (hσ2 a) _) ?_
-  -- `Δ_a / d(μ_a, μ*) = Δ_a / (Δ_a² / (2 σ2_a)) = 2 σ2_a / Δ_a`
-  refine (sum_congr rfl fun a ha ↦ ?_).trans_lt hc
-  have hga := (mem_filter.mp ha).2
-  have hσ2a : (σ2 a : ℝ) ≠ 0 := NNReal.coe_ne_zero.2 (hσ2 a)
-  rw [expFamilyDiv_gaussianReal _ (hσ2 a), ← neg_sub, neg_sq, ← gap_eq_bestArm_sub]
-  field_simp
+  exact (sum_gap_div_expFamilyDiv_gaussianReal m hσ2).trans_lt hc
 
 end FamilyRegret
 
