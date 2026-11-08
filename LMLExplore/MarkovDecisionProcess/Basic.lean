@@ -72,6 +72,7 @@ open MeasureTheory ProbabilityTheory Learning
 /-- A Markov decision process with state space `𝓢`, action space `𝓐` and reward space `𝓡`,
 described by a transition kernel `P : Kernel (𝓢 × 𝓐) 𝓢` and a reward kernel
 `R : Kernel (𝓢 × 𝓐) 𝓡`, both Markov. See `Learning.MDP.env` for its environment. -/
+@[ext]
 structure MDP (𝓢 𝓐 𝓡 : Type*) [MeasurableSpace 𝓢] [MeasurableSpace 𝓐] [MeasurableSpace 𝓡] where
   /-- The transition kernel: the law of the next state given the current state and action. -/
   P : Kernel (𝓢 × 𝓐) 𝓢
