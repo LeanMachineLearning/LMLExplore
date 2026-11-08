@@ -27,8 +27,9 @@ precisely, `L_t(θ) = L_t(θ̂_t) + ⟪θ - θ̂_t, V_t (θ - θ̂_t)⟫`. In th
 
 * `LMLExplore.ridgeEstimate_congr`: `θ̂_t` only depends on the first `t` observations.
 * `LMLExplore.designOp_ridgeEstimate`: the normal equations `V_t θ̂_t = ∑_{s < t} y s • x s`.
-* `LMLExplore.ridgeLoss_eq_ridgeLoss_ridgeEstimate_add`:
-  `L_t(θ) = L_t(θ̂_t) + ⟪θ - θ̂_t, V_t (θ - θ̂_t)⟫`.
+* `LMLExplore.ridgeLoss_eq_ridgeLoss_add_of_designOp_apply_eq`: for every solution `θ₀` of the
+  normal equations, `L_t(θ) = L_t(θ₀) + ⟪θ - θ₀, V_t (θ - θ₀)⟫`; for the ridge estimate this is
+  `LMLExplore.ridgeLoss_eq_ridgeLoss_ridgeEstimate_add`.
 * `LMLExplore.isMinOn_ridgeLoss`, `LMLExplore.eq_ridgeEstimate_of_ridgeLoss_le`: `θ̂_t` is the
   unique minimizer of `L_t` [LS, (19.4)–(19.6)].
 * `LMLExplore.ridgeEstimate_sub_eq`: the error `θ̂_t - θ = V_t⁻¹ (∑_{s < t} η s • x s - λ • θ)`
@@ -106,18 +107,29 @@ theorem designOp_ridgeEstimate (hlam : 0 < lam) (x : ℕ → E) (y : ℕ → ℝ
     designOp (lam • 1) x t (ridgeEstimate lam x y t) = ∑ s ∈ range t, y s • x s :=
   ContinuousLinearMap.apply_ringInverse_apply (isUnit_designOp_smul_one hlam x t) _
 
+/-- The regularized squared loss around a solution `θ₀` of the normal equations
+`V_t θ₀ = ∑_{s < t} y s • x s`: `L_t(θ) = L_t(θ₀) + ⟪θ - θ₀, V_t (θ - θ₀)⟫`. -/
+theorem ridgeLoss_eq_ridgeLoss_add_of_designOp_apply_eq {x : ℕ → E} {y : ℕ → ℝ} {t : ℕ} {θ₀ : E}
+    (h₀ : designOp (lam • 1) x t θ₀ = ∑ s ∈ range t, y s • x s) (θ : E) :
+    ridgeLoss lam x y t θ = ridgeLoss lam x y t θ₀ +
+      ⟪θ - θ₀, designOp (lam • 1) x t (θ - θ₀)⟫_ℝ := by
+  have hsymm : ⟪θ₀, designOp (lam • 1) x t θ⟫_ℝ = ⟪θ, designOp (lam • 1) x t θ₀⟫_ℝ := by
+    simp only [designOp_smul_one_apply, inner_add_right, inner_sum, real_inner_smul_right]
+    congr 1
+    · rw [real_inner_comm]
+    · exact sum_congr rfl fun s _ ↦ by rw [real_inner_comm θ₀ (x s), real_inner_comm θ (x s),
+        mul_comm]
+  rw [ridgeLoss_eq, ridgeLoss_eq, ← h₀, map_sub, inner_sub_left, inner_sub_right,
+    inner_sub_right]
+  linarith
+
 /-- For `λ > 0`, the regularized squared loss is
 `L_t(θ) = L_t(θ̂_t) + ⟪θ - θ̂_t, V_t (θ - θ̂_t)⟫`. -/
 theorem ridgeLoss_eq_ridgeLoss_ridgeEstimate_add (hlam : 0 < lam) (x : ℕ → E) (y : ℕ → ℝ)
     (t : ℕ) (θ : E) :
     ridgeLoss lam x y t θ = ridgeLoss lam x y t (ridgeEstimate lam x y t) +
-      ⟪θ - ridgeEstimate lam x y t, designOp (lam • 1) x t (θ - ridgeEstimate lam x y t)⟫_ℝ := by
-  have hsymm : ⟪ridgeEstimate lam x y t, designOp (lam • 1) x t θ⟫_ℝ
-      = ⟪θ, designOp (lam • 1) x t (ridgeEstimate lam x y t)⟫_ℝ := by
-    rw [← (isPositive_designOp_smul_one hlam.le x t).inner_left_eq_inner_right, real_inner_comm]
-  rw [ridgeLoss_eq, ridgeLoss_eq, ← designOp_ridgeEstimate hlam x y t, map_sub, inner_sub_left,
-    inner_sub_right, inner_sub_right]
-  linarith
+      ⟪θ - ridgeEstimate lam x y t, designOp (lam • 1) x t (θ - ridgeEstimate lam x y t)⟫_ℝ :=
+  ridgeLoss_eq_ridgeLoss_add_of_designOp_apply_eq (designOp_ridgeEstimate hlam x y t) θ
 
 /-- For `λ > 0`, the ridge estimate minimizes the regularized squared loss. -/
 theorem ridgeLoss_ridgeEstimate_le (hlam : 0 < lam) (x : ℕ → E) (y : ℕ → ℝ) (t : ℕ) (θ : E) :
