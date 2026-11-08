@@ -107,7 +107,8 @@ theorem mul_sum_sum_measureReal_le_mul_integral_linearRegret {mΩ : MeasurableSp
         refine integral_mono (((integrable_finsetSum _ fun i _ ↦
           integrable_finsetSum _ fun t _ ↦ hind i t)).const_mul Δ) (hreg.const_mul C) fun ω ↦ ?_
         rw [linearRegret_def, sum_comm, mul_sum, mul_sum]
-        exact sum_le_sum fun t _ ↦ hgap (A t ω)
+        refine sum_le_sum fun t _ ↦ ?_
+        simpa only [← Set.indicator_comp_right (A t), Pi.one_comp] using hgap (A t ω)
     _ = C * ∫ ω, linearRegret (fun _ ↦ φ) θ O A n ω ∂P := integral_const_mul _ _
 
 end LMLExplore.Bandits
