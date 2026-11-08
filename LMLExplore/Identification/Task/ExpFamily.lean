@@ -45,6 +45,8 @@ it.
   `μ a` and `μ' a`, then `w a d_a(μ a, γ) ≤ cost_μ(w, μ')`.
 * `LMLExplore.Identification.IdentTask.cost_gaussianBandit`: for Gaussian arms with a common
   variance `σ2`, `cost_μ(w, μ') = ∑ c, w c (μ c - μ' c)² / (2 σ2)`.
+* `LMLExplore.Identification.IdentTask.cost_bernoulliBandit`: for Bernoulli arms,
+  `cost_μ(w, μ') = ∑ c, w c d(μ c, μ' c)` with the binary relative entropy `d`.
 -/
 
 public section
@@ -204,5 +206,15 @@ lemma cost_gaussianBandit [MeasurableSingletonClass α] {σ2 : ℝ≥0}
     div_nonneg (mul_nonneg (hw c) (sq_nonneg _)) (by positivity)]
   refine Finset.sum_congr rfl fun c _ ↦ ?_
   rw [Bandits.klDiv_gaussianBandit _ _ hσ2, ← ENNReal.ofReal_mul (hw c), mul_div_assoc]
+
+/-- For Bernoulli arms, the arm `c` of the vector of means `μ` having law `Ber(μ c)` (with `μ c`
+clamped to `[0, 1]`), the transportation cost is a weighted sum of binary relative entropies:
+`cost_μ(w, μ') = ∑ c, w c d(μ c, μ' c)`. -/
+lemma cost_bernoulliBandit [MeasurableSingletonClass α] {task : IdentTask α (α → ℝ) ℐ ℝ}
+    (hνt : task.ν = fun μ ↦ Bandits.bernoulliBandit fun c ↦ projIcc 0 1 zero_le_one (μ c))
+    (μ' : α → ℝ) :
+    task.cost w μ μ' = ∑ c, ENNReal.ofReal (w c) * klBer (μ c) (μ' c) := by
+  rw [cost_def, hνt]
+  simp only [Bandits.bernoulliBandit_apply, klDiv_bernoulliMeasure, klBer_projIcc]
 
 end LMLExplore.Identification.IdentTask
