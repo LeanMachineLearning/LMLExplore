@@ -152,8 +152,9 @@ omit [MeasurableSingletonClass α] [IsFiniteMeasure P] in
 /-- Along a run of a weight-based algorithm, the weight `w n (past) a` of an arm `a` at round `n`
 is measurable with respect to the past of round `n`. -/
 lemma measurable_weights_filtrationObs (h : IsAlgEnvSeq O A Y (weightAlgorithm w hw hp) env P)
-    (n : ℕ) (a : α) : Measurable[h.filtrationObs n] fun ω ↦ w n (history O A Y n ω, O n ω) a :=
-  Measurable.comp (mα := h.filtrationObs n) (hw n a) (measurable_iff_comap_le.2 le_rfl)
+    (n : ℕ) (a : α) : Measurable[h.filtrationObs n] fun ω ↦ w n (history O A Y n ω, O n ω) a := by
+  rw [h.filtrationObs_eq_comap]
+  exact (hw n a).comp (measurable_iff_comap_le.2 le_rfl)
 
 variable {E : Type*} [NormedAddCommGroup E]
 

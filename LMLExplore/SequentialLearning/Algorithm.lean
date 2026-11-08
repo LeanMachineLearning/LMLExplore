@@ -204,10 +204,9 @@ at round `n` is measurable with respect to the past of round `n`. -/
 lemma IsAlgEnvSeq.measurable_means_filtrationObs [BorelSpace 𝓨] [SecondCountableTopology 𝓨]
     (h : IsAlgEnvSeq O A Y alg env P) {n : ℕ} (a : 𝓐) :
     Measurable[h.filtrationObs n] (env.means O A Y a n) := by
-  rw [funext (Environment.means_eq_integral env O A Y a n)]
-  exact Measurable.comp (mα := h.filtrationObs n)
-    ((stronglyMeasurable_id.integral_kernel (κ := env.feedback n)).measurable.comp
-      measurable_prodMk_right) (measurable_iff_comap_le.2 le_rfl)
+  rw [funext (Environment.means_eq_integral env O A Y a n), h.filtrationObs_eq_comap]
+  exact ((stronglyMeasurable_id.integral_kernel (κ := env.feedback n)).measurable.comp
+    measurable_prodMk_right).comp (measurable_iff_comap_le.2 le_rfl)
 
 end Feedback
 

@@ -81,7 +81,7 @@ feedback `Y n` is almost surely the reward `x (A n)` of the action, the conditio
   rounds `t < n` are almost surely rewards, they are almost surely these rewards at all these
   rounds simultaneously, and almost surely at most `1`, respectively in `[0, 1]`, when the rewards
   are.
-* `WeightAlgorithm.condExp_iwEstimator_of_condExp_eq_ite`: along a run of a weight-based
+* `WeightAlgorithm.condExp_iwEstimator_eq_ite_of_condExp_eq`: along a run of a weight-based
   algorithm, the importance-weighted estimate at an arm of a random variable whose conditional mean
   given the past and the action is known has this conditional mean at the arm given the past if
   the arm has positive weight, and `0` otherwise.
@@ -501,7 +501,7 @@ given the past and the action of round `n` is `m (past) (A n)`, such as the feed
 with `m` its conditional means. Then the importance-weighted estimate of `Z` at an arm `a` has
 conditional expectation given the past `m (past) a` if `a` has positive weight, and `0` if `a` has
 weight zero, provided it is integrable. -/
-theorem condExp_iwEstimator_of_condExp_eq_ite
+theorem condExp_iwEstimator_eq_ite_of_condExp_eq
     (h : IsAlgEnvSeq O A Y (weightAlgorithm w hw hp) env P) {Z : Ω → ℝ} (hZ : Integrable Z P)
     {m : Hist 𝓞 α ℝ n × 𝓞 → α → ℝ} (hm : ∀ b, Measurable fun x ↦ m x b)
     (hZm : P[Z | h.filtrationAction n] =ᵐ[P] fun ω ↦ m (history O A Y n ω, O n ω) (A n ω))
@@ -533,7 +533,7 @@ theorem condExp_iwEstimator_of_condExp_eq
     (ha : ∀ᵐ ω ∂P, 0 < w n (history O A Y n ω, O n ω) a) :
     P[fun ω ↦ iwEstimator (w n (history O A Y n ω, O n ω)) (A n ω) (Z ω) a
       | h.filtrationObs n] =ᵐ[P] fun ω ↦ m (history O A Y n ω, O n ω) a := by
-  filter_upwards [condExp_iwEstimator_of_condExp_eq_ite h hZ hm hZm hint, ha] with ω hω hωa
+  filter_upwards [condExp_iwEstimator_eq_ite_of_condExp_eq h hZ hm hZm hint, ha] with ω hω hωa
   rw [hω]
   simp [hωa.ne']
 
@@ -830,7 +830,7 @@ theorem condExp_iwEstimator_one_sub (h : IsAlgEnvSeq O A Y (weightAlgorithm w hw
       h.condExp_feedback_comp n stronglyMeasurable_id hYint] with ω h1 h2
     rw [h1]
     exact congrArg (fun z ↦ 1 - z) h2
-  filter_upwards [condExp_iwEstimator_of_condExp_eq_ite h (Z := fun ω ↦ 1 - Y n ω)
+  filter_upwards [condExp_iwEstimator_eq_ite_of_condExp_eq h (Z := fun ω ↦ 1 - Y n ω)
     ((integrable_const 1).sub hYint) (m := fun x b ↦ 1 - ∫ y, y ∂env.feedback n (x, b))
     (fun b ↦ measurable_const.sub (measurable_integral_feedback stronglyMeasurable_id b)) hZm
     hint] with ω hω
@@ -875,9 +875,10 @@ theorem measure_log_one_div_le_sum_sum_mul_iwEstimator_add_sub_le [IsProbability
   have hp0 : ∀ t ω b, 0 ≤ p t ω b := fun t ω ↦ (mem_simplex_iff.1 (hp t _)).1
   have hpm : ∀ t a, Measurable[h.filtrationObs t] fun ω ↦ p t ω a :=
     measurable_weights_filtrationObs h
-  have hpv : ∀ t, Measurable[h.filtration t] (p t) := fun t ↦
-    (Measurable.comp (mα := h.filtrationObs t) (measurable_pi_iff.2 (hw t))
-      (measurable_iff_comap_le.2 le_rfl)).mono (h.filtrationObs_le_filtration t) le_rfl
+  have hpv : ∀ t, Measurable[h.filtration t] (p t) := fun t ↦ by
+    refine Measurable.mono ?_ (h.filtrationObs_le_filtration t) le_rfl
+    rw [h.filtrationObs_eq_comap]
+    exact (measurable_pi_iff.2 (hw t)).comp (measurable_iff_comap_le.2 le_rfl)
   have hYint : ∀ t < n, Integrable (Y t) P := fun t ht ↦
     Integrable.of_mem_Icc 0 1 (h.measurable_feedback t).aemeasurable (hY.mono fun ω hω ↦ hω t ht)
   have hXm : ∀ t a, Measurable[h.filtrationObs (t + 1)] (X t a) := fun t a ↦ by
@@ -1033,11 +1034,11 @@ lemma ae_means_eq_of_weights_pos (h : IsAlgEnvSeq O A Y (weightAlgorithm w hw hp
   have hYint := h.integrable_feedback_of_ae_eq hY
   refine ae_all_iff.2 fun a ↦ ?_
   -- both `env.means O A Y a n` and `x a` are the conditional mean of the estimate of `Y n` at `a`
-  filter_upwards [condExp_iwEstimator_of_condExp_eq_ite h hYint
+  filter_upwards [condExp_iwEstimator_eq_ite_of_condExp_eq h hYint
       (m := fun z b ↦ ∫ y, y ∂env.feedback n (z, b))
       (measurable_integral_feedback stronglyMeasurable_id)
       (h.condExp_feedback_comp n stronglyMeasurable_id hYint) (integrable_iwEstimator h hY a),
-    condExp_iwEstimator_of_condExp_eq_ite h hYint (m := fun _ b ↦ x b) (fun _ ↦ measurable_const)
+    condExp_iwEstimator_eq_ite_of_condExp_eq h hYint (m := fun _ b ↦ x b) (fun _ ↦ measurable_const)
       (h.condExp_feedback_ae_eq_of_ae_eq hY) (integrable_iwEstimator h hY a)] with ω h1 h2 ha
   rw [h1] at h2
   simp only [ha.ne', ↓reduceIte] at h2
