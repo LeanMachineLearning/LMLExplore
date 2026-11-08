@@ -189,13 +189,13 @@ end Deterministic
 
 /-- The numerical step of value estimation: for `L ≤ N`, the bound of
 `Learning.MDP.abs_optQValue_sub_optQValue_le_of_le_sqrt_variance` with
-`a = √(2 L / N)` and `b = 3 (2 C / (1 - γ)) L / N` is at most
+`a = √(2 L / N)` and `b = 6 C L / ((1 - γ) N)` is at most
 `2 γ C √(L / ((1 - γ) ^ 3 N)) + 17 γ C L / ((1 - γ) ^ 3 N)`. -/
 private lemma value_estimation_bound_le {γ C L N : ℝ} (hγ₀ : 0 ≤ γ) (hγ : γ < 1) (hC : 0 ≤ C)
     (hL : 0 ≤ L) (hN : 0 < N) (hLN : L ≤ N) :
     γ * (√(2 * L / N) * C * √(2 / (1 - γ) ^ 3) + (√(2 * L / N) * (γ * (√(2 * L / N) *
-      (C / (1 - γ)) + 3 * (C / (1 - γ) - -(C / (1 - γ))) * L / N) / (1 - γ)) +
-        3 * (C / (1 - γ) - -(C / (1 - γ))) * L / N) / (1 - γ)) ≤
+      (C / (1 - γ)) + 6 * C * L / ((1 - γ) * N)) / (1 - γ)) +
+        6 * C * L / ((1 - γ) * N)) / (1 - γ)) ≤
       2 * γ * C * √(L / ((1 - γ) ^ 3 * N)) + 17 * γ * C * L / ((1 - γ) ^ 3 * N) := by
   set u := 1 - γ with hu_def
   have hu : 0 < u := sub_pos.2 hγ
@@ -218,13 +218,13 @@ private lemma value_estimation_bound_le {γ C L N : ℝ} (hγ₀ : 0 ≤ γ) (h�
       field_simp
     linear_combination C * h
   -- the second-order term, with `a ^ 2 = 2 L / N` and `a ≤ 3 / 2`
-  have e₂ : (a * (γ * (a * (C / u) + 3 * (C / u - -(C / u)) * L / N) / u) +
-      3 * (C / u - -(C / u)) * L / N) / u =
+  have e₂ : (a * (γ * (a * (C / u) + 6 * C * L / (u * N)) / u) +
+      6 * C * L / (u * N)) / u =
         C * (L / N) * (γ * (2 + 6 * a) + 6 * u) / u ^ 3 := by
-    rw [show a * (γ * (a * (C / u) + 3 * (C / u - -(C / u)) * L / N) / u) =
-      γ * ((a * a) * (C / u) + 6 * a * (C / u) * (L / N)) / u by ring, ha2]
+    rw [show a * (γ * (a * (C / u) + 6 * C * L / (u * N)) / u) =
+      γ * ((a * a) * (C / u) + 6 * a * (C / u) * (L / N)) / u by
+        rw [div_mul_eq_div_div]; ring, ha2]
     field_simp
-    ring
   have h₂ : γ * (2 + 6 * a) + 6 * u ≤ 17 := by
     have : γ * (2 + 6 * a) ≤ 2 + 6 * a := mul_le_of_le_one_left (by positivity) (by linarith)
     linarith
@@ -233,6 +233,23 @@ private lemma value_estimation_bound_le {γ C L N : ℝ} (hγ₀ : 0 ≤ γ) (h�
       ≤ γ * (2 * C * √(L / (u ^ 3 * N)) + C * (L / N) * 17 / u ^ 3) := by gcongr
     _ = 2 * γ * C * √(L / (u ^ 3 * N)) + 17 * γ * C * L / (u ^ 3 * N) := by
         field_simp
+
+/-- The numerical step of value estimation when `N < L`: the crude bound
+`γ (2 C / (1 - γ)) / (1 - γ)` is at most
+`2 γ C √(L / ((1 - γ) ^ 3 N)) + 17 γ C L / ((1 - γ) ^ 3 N)`. -/
+private lemma value_estimation_crude_bound_le {γ C L N : ℝ} (hγ₀ : 0 ≤ γ) (hγ : γ < 1)
+    (hC : 0 ≤ C) (hN : 0 < N) (hNL : N < L) :
+    γ * (C / (1 - γ) + C / (1 - γ)) / (1 - γ) ≤
+      2 * γ * C * √(L / ((1 - γ) ^ 3 * N)) + 17 * γ * C * L / ((1 - γ) ^ 3 * N) := by
+  have hu : 0 < 1 - γ := sub_pos.2 hγ
+  refine le_add_of_nonneg_of_le (by positivity) ?_
+  have h₁ : 2 * (1 - γ) * N ≤ 17 * L := by nlinarith
+  calc γ * (C / (1 - γ) + C / (1 - γ)) / (1 - γ) =
+        γ * C * (2 * (1 - γ) * N) / ((1 - γ) ^ 3 * N) := by
+        field_simp
+        ring
+    _ ≤ γ * C * (17 * L) / ((1 - γ) ^ 3 * N) := by gcongr
+    _ = 17 * γ * C * L / ((1 - γ) ^ 3 * N) := by ring
 
 section Generative
 
@@ -277,14 +294,7 @@ theorem le_streamMeasure_forall_abs_optQValue_sub_optQValue_empirical_le_sqrt_ad
     refine h.trans ?_
     rcases hCN with hC₀ | hNL
     · simp [hC₀]
-    refine le_add_of_nonneg_of_le (by positivity) ?_
-    have h₁ : 2 * (1 - γ) * N ≤ 17 * L := by nlinarith [γ.coe_nonneg]
-    calc (γ : ℝ) * (C / (1 - γ) + C / (1 - γ)) / (1 - γ) =
-          γ * C * (2 * (1 - γ) * N) / ((1 - γ) ^ 3 * N) := by
-          field_simp
-          ring
-      _ ≤ γ * C * (17 * L) / ((1 - γ) ^ 3 * N) := by gcongr
-      _ = 17 * γ * C * L / ((1 - γ) ^ 3 * N) := by ring
+    exact value_estimation_crude_bound_le γ.coe_nonneg hγ hC hN hNL
   rcases hC.eq_or_lt with hC₀ | hC₀
   · have h_univ : {ω : ℕ → 𝓢 × 𝓐 → 𝓢 | ∀ p,
         |M.optQValue γ p - (M.empirical N ω).optQValue γ p| ≤
@@ -304,12 +314,13 @@ theorem le_streamMeasure_forall_abs_optQValue_sub_optQValue_empirical_le_sqrt_ad
   have hε (q : 𝓢 × 𝓐) :
       |∫ s, M.optValue γ s ∂(M.P q) - ∫ s, M.optValue γ s ∂((M.empirical N ω).P q)| ≤
         √(2 * L / N) * √(Var[M.optValue γ; (M.empirical N ω).P q]) +
-          3 * (C / (1 - γ) - -(C / (1 - γ))) * L / N := by
+          6 * C * L / ((1 - γ) * N) := by
     rw [empirical_P]
     refine (hω q).le.trans_eq ?_
     rw [show 2 * Var[M.optValue γ; empiricalKernel N ω q] * L / N =
       2 * L / N * Var[M.optValue γ; empiricalKernel N ω q] by ring,
-      Real.sqrt_mul (by positivity)]
+      Real.sqrt_mul (by positivity), div_mul_eq_div_div]
+    ring
   exact (abs_optQValue_sub_optQValue_le_of_le_sqrt_variance hγ hR (hR' ω) (by simp)
     (Real.sqrt_nonneg _) hε p).trans (value_estimation_bound_le γ.coe_nonneg hγ hC hL hN hLN)
 
