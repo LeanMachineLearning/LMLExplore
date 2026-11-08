@@ -9,6 +9,7 @@ public import LeanMachineLearning.Online.Bandit.RewardByCountMeasure
 public import LMLExplore.MeasureTheory.Integral.Lebesgue.Add
 public import LMLExplore.MeasureTheory.Measure.Prod
 public import LMLExplore.SequentialLearning.FiniteActions
+public import Mathlib.Probability.StrongLaw
 
 /-!
 # From a run of a sequential learning algorithm to the reward stream
@@ -88,6 +89,9 @@ this way.
   of pulls and the empirical mean of an arm that has been pulled: if `q s` holds for the empirical
   mean of the first `s ≠ 0` rewards in the stream model with probability at most `g s`, then the
   probability at round `t` is at most `∑_{s < t} g (s + 1)`.
+* `ae_tendsto_empMean_of_tendsto_pullCount`: the strong law of large numbers for the empirical
+  means of a run: almost surely, the empirical mean of every arm whose number of pulls tends to
+  infinity converges to the mean of its law.
 
 ## Implementation notes
 
@@ -101,6 +105,9 @@ observations of `a` before round `t` are the first `pullCount A a t` of them
 observations applied to properties of their sums (`sum_armObs`).
 The event transfers need no measurability of the event: they bound the outer measure of the event
 of the run by that of the event in the stream model, through `Measure.le_map_apply`.
+The strong law for the empirical means applies Mathlib's `strong_law_ae_real` to the i.i.d.
+rewards by count of an arm on the same product space, and the almost sure event depends on the run
+only, by `Measure.ae_ae_of_ae_prod`.
 
 ## References
 
@@ -109,9 +116,9 @@ of the run by that of the event in the stream model, through `Measure.le_map_app
 
 public section
 
-open MeasureTheory ProbabilityTheory Finset Learning Bandits
+open MeasureTheory ProbabilityTheory Finset Learning Bandits Filter
 
-open scoped ENNReal
+open scoped ENNReal Topology
 
 namespace LMLExplore
 
@@ -571,5 +578,29 @@ theorem measureReal_pullCount_ne_zero_and_empMean_le_sum
     refine sum_le_sum fun s _ ↦ le_trans (measureReal_mono fun ω hω ↦ ?_) (hg _ s.succ_ne_zero)
     simp only [Set.mem_ofPred_eq] at hω ⊢
     exact hω.2
+
+/-- **The strong law of large numbers for the empirical means** of a run of any algorithm against
+the stochastic bandit `Environment.bandit ν` with integrable rewards: almost surely, for every arm
+`a` whose number of pulls tends to infinity, the empirical mean of `a` converges to the mean of
+`ν a`. -/
+theorem ae_tendsto_empMean_of_tendsto_pullCount
+    (h : IsAlgEnvSeq O A R alg (Environment.bandit ν) P) (hν : ∀ a, Integrable id (ν a)) :
+    ∀ᵐ ω ∂P, ∀ a, Tendsto (fun t ↦ pullCount A a t ω) atTop atTop →
+      Tendsto (fun t ↦ empMean A R a t ω) atTop (𝓝 (∫ x, x ∂(ν a))) := by
+  rw [ae_all_iff]
+  intro a
+  -- The rewards by count of `a` are i.i.d. with law `ν a` under `P.prod (streamMeasure ν)`.
+  have h_id : IdentDistrib (rewardByCount A R a (0 + 1)) id (P.prod (streamMeasure ν)) (ν a) :=
+    identDistrib_rewardByCount_id h a 1 one_ne_zero
+  have h_slln := strong_law_ae_real (fun m ↦ rewardByCount A R a (m + 1))
+    (h_id.integrable_iff.2 (hν a))
+    (fun _ _ hij ↦ (iIndepFun_rewardByCount_add_one_action h a).indepFun hij)
+    (fun m ↦ (hasLaw_rewardByCount_add_one h a m).identDistrib (hasLaw_rewardByCount_add_one h a 0))
+  rw [h_id.integral_eq] at h_slln
+  -- The event depends only on the run, the first coordinate.
+  filter_upwards [Measure.ae_ae_of_ae_prod h_slln] with ω hω hN
+  obtain ⟨y, hy⟩ := hω.exists
+  refine (hy.comp hN).congr fun t ↦ ?_
+  rw [Function.comp_apply, empMean, sumRewards_eq_sum_range_rewardByCount a t (ω, y)]
 
 end LMLExplore

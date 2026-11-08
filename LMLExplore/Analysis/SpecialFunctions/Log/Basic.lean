@@ -6,6 +6,7 @@ Authors: Rémy Degenne
 module
 
 public import Mathlib.Analysis.SpecialFunctions.Log.Basic
+public import Mathlib.Analysis.SpecialFunctions.Pow.Real
 
 /-!
 # Elementary bounds on the real logarithm
@@ -28,6 +29,9 @@ public import Mathlib.Analysis.SpecialFunctions.Log.Basic
   `x n ≤ c log n` for every `c > C / Δ²`.
 * `Real.tendsto_natCeil_sub_div_log`: if `f n / log n → ∞`, then `⌈f n - c⌉₊ / log n → ∞`.
 * `Real.mul_log_add_lt`: `a log x + b < x` as soon as `x ≥ 2 a log (2 a) + 2 b`, for `a, x > 0`.
+* `Real.log_div_le_log_one_div_add_log`: `log (x / δ) ≤ log (1 / δ) + log x` for `δ ∈ (0, 1]`.
+* `Real.eventually_log_le_mul_of_isBigO`: if `r n = O(n ^ p)`, then `log (r n) ≤ ε n` for all
+  large `n`, for every `ε > 0`.
 
 ## References
 
@@ -210,5 +214,38 @@ theorem mul_log_add_lt {a b x : ℝ} (ha : 0 < a) (hx : 0 < x)
       field_simp] at this
     exact this
   linarith
+
+/-- For `δ ∈ (0, 1]`, `log (x / δ) ≤ log (1 / δ) + log x`, with equality for `x ≠ 0`. The
+thresholds `log (r n / δ)` of fixed-confidence identification are thus at most
+`log (1 / δ) + log (r n)`. -/
+theorem log_div_le_log_one_div_add_log (x : ℝ) {δ : ℝ} (hδ : 0 < δ) (hδ1 : δ ≤ 1) :
+    log (x / δ) ≤ log (1 / δ) + log x := by
+  rcases eq_or_ne x 0 with rfl | hx
+  · simp only [zero_div, log_zero, add_zero]
+    exact log_nonneg (one_le_one_div hδ hδ1)
+  · rw [log_div hx hδ.ne', one_div, log_inv]
+    linarith
+
+/-- If `r n = O(n ^ p)`, then `log (r n) ≤ ε n` for all large `n`, for every `ε > 0`. -/
+theorem eventually_log_le_mul_of_isBigO {r : ℕ → ℝ} {p : ℝ}
+    (hr : r =O[atTop] fun n ↦ (n : ℝ) ^ p) {ε : ℝ} (hε : 0 < ε) :
+    ∀ᶠ n in atTop, log (r n) ≤ ε * n := by
+  -- `log (r n) ≤ log C + p log n = o(n)`.
+  obtain ⟨C, hC, hrC⟩ := hr.exists_pos
+  have hg : (fun n : ℕ ↦ log C + p * log n) =o[atTop] fun n : ℕ ↦ (n : ℝ) :=
+    ((Asymptotics.isLittleO_const_id_atTop (log C)).add
+      (isLittleO_log_id_atTop.const_mul_left p)).comp_tendsto tendsto_natCast_atTop_atTop
+  filter_upwards [hrC.bound, hg.bound hε, eventually_gt_atTop 0] with n hrn hgn hn
+  rcases eq_or_ne (r n) 0 with h | h
+  · simp only [h, log_zero]
+    positivity
+  have hn' : (0 : ℝ) < n := Nat.cast_pos.2 hn
+  rw [Real.norm_eq_abs, Real.norm_of_nonneg (rpow_nonneg hn'.le p)] at hrn
+  rw [Real.norm_of_nonneg hn'.le] at hgn
+  calc log (r n)
+  _ = log |r n| := (log_abs _).symm
+  _ ≤ log (C * n ^ p) := log_le_log (abs_pos.2 h) hrn
+  _ = log C + p * log n := by rw [log_mul hC.ne' (rpow_pos_of_pos hn' p).ne', log_rpow hn']
+  _ ≤ ε * n := (le_abs_self _).trans hgn
 
 end Real
