@@ -40,6 +40,8 @@ bounded harmonic functions of `κ`, those with `κ h = h`, are constant.
 * `ProbabilityTheory.Kernel.poissonSolution_sub_integralCLM`: `g - κ g = f - π f`.
 * `ProbabilityTheory.Kernel.exists_eq_smul_one_of_integralCLM_eq`: bounded harmonic functions are
   constant.
+* `ProbabilityTheory.Kernel.Invariant.eq_integral_of_sub_integralCLM_eq`: the constant of every
+  bounded solution is the invariant mean, for any invariant probability measure.
 * `ProbabilityTheory.Kernel.eq_integral_and_exists_eq_poissonSolution_add`: uniqueness of the
   bounded solutions up to constants.
 
@@ -105,9 +107,7 @@ theorem norm_integralCLM_pow_sub_smul_one_le (hπ : κ.Invariant π) (f : bounde
     rw [Real.norm_eq_abs]
     simpa only [F, integralCLM_apply] using abs_integral_sub_integral_le_dobrushinCoeff_mul
       (boundedMeasurable.measurable f) (boundedMeasurable.sub_apply_le_orderUnitOsc_one f) x y
-  simp only [boundedMeasurable.coeFn_sub, boundedMeasurable.coeFn_smul,
-    boundedMeasurable.coeFn_one, Pi.sub_apply, Pi.smul_apply, Pi.one_apply, smul_eq_mul, mul_one,
-    ← hF]
+  rw [boundedMeasurable.sub_smul_one_apply, ← hF]
   exact hdiff ▸ hle
 
 /-- If `δ(κ ^ 0) < 1`, every bounded measurable function has oscillation zero: `κ ^ 0` is the
@@ -203,6 +203,20 @@ theorem poissonSolution_sub_integralCLM (hπ : κ.Invariant π) (hm : dobrushinC
     hsum.summable.tsum_eq_zero_add,
     integralCLM_pow_zero, add_sub_cancel_right]
 
+/-- **The constant of the Poisson equation.** If `π` is an invariant probability measure of `κ`,
+every bounded solution `(u, c)` of `u - κ u = f - c • 1` has `c = ∫ f dπ`: integrating the equation
+against `π` gives `0 = ∫ f dπ - c`. -/
+theorem Invariant.eq_integral_of_sub_integralCLM_eq (hπ : κ.Invariant π)
+    {f u : boundedMeasurable α} {c : ℝ} (hu : u - κ.integralCLM u = f - c • 1) :
+    c = ∫ x, (f : ℓ^∞(α, ℝ)) x ∂π := by
+  have h := congrArg (fun v : boundedMeasurable α ↦ ∫ x, (v : ℓ^∞(α, ℝ)) x ∂π) hu
+  simp only [boundedMeasurable.coeFn_sub, Pi.sub_apply, boundedMeasurable.sub_smul_one_apply] at h
+  rw [integral_sub (boundedMeasurable.integrable _ _) (boundedMeasurable.integrable _ _),
+    hπ.integral_integralCLM, sub_self,
+    integral_sub (boundedMeasurable.integrable _ _) (integrable_const c), integral_const,
+    probReal_univ, one_smul] at h
+  linarith
+
 /-- **Uniqueness for the Poisson equation.** If `δ(κ ^ m) < 1` and `π` is an invariant probability
 measure of `κ`, every bounded solution `(u, c)` of `u - κ u = f - c • 1` has `c = ∫ f dπ`, and `u`
 differs from `poissonSolution κ π f` by a constant. -/
@@ -210,17 +224,7 @@ theorem eq_integral_and_exists_eq_poissonSolution_add (hπ : κ.Invariant π)
     (hm : dobrushinCoeff (κ ^ m) < 1) {f u : boundedMeasurable α} {c : ℝ}
     (hu : u - κ.integralCLM u = f - c • 1) :
     c = ∫ x, (f : ℓ^∞(α, ℝ)) x ∂π ∧ ∃ b : ℝ, u = poissonSolution κ π f + b • 1 := by
-  -- integrating the equation against `π` gives `0 = ∫ f dπ - c`
-  have hc : c = ∫ x, (f : ℓ^∞(α, ℝ)) x ∂π := by
-    have h := congrArg (fun v : boundedMeasurable α ↦ ∫ x, (v : ℓ^∞(α, ℝ)) x ∂π) hu
-    simp only [boundedMeasurable.coeFn_sub, boundedMeasurable.coeFn_smul,
-      boundedMeasurable.coeFn_one, Pi.sub_apply, Pi.smul_apply, Pi.one_apply, smul_eq_mul,
-      mul_one] at h
-    rw [integral_sub (boundedMeasurable.integrable _ _) (boundedMeasurable.integrable _ _),
-      hπ.integral_integralCLM, sub_self,
-      integral_sub (boundedMeasurable.integrable _ _) (integrable_const c), integral_const,
-      probReal_univ, one_smul] at h
-    linarith
+  have hc := hπ.eq_integral_of_sub_integralCLM_eq hu
   refine ⟨hc, ?_⟩
   -- the difference of two solutions is harmonic, hence constant
   obtain ⟨b, hb⟩ := exists_eq_smul_one_of_integralCLM_eq hm

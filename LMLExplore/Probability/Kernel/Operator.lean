@@ -191,17 +191,12 @@ variable {κ : Kernel α α} [IsMarkovKernel κ]
 
 /-- The `0`-step kernel acts as the identity. -/
 theorem integralCLM_pow_zero (f : boundedMeasurable α) : (κ ^ 0).integralCLM f = f := by
-  refine boundedMeasurable.ext fun x ↦ ?_
-  rw [integralCLM_apply, pow_zero, one_eq_id, id_apply,
-    integral_dirac' _ _ (boundedMeasurable.measurable f).stronglyMeasurable]
+  simp only [pow_zero, one_eq_id, integralCLM_id, ContinuousLinearMap.id_apply]
 
 /-- The `(n + 1)`-step kernel acts as the `n`-step kernel followed by `κ`. -/
 theorem integralCLM_pow_succ (n : ℕ) (f : boundedMeasurable α) :
     (κ ^ (n + 1)).integralCLM f = κ.integralCLM ((κ ^ n).integralCLM f) := by
-  refine boundedMeasurable.ext fun x ↦ ?_
-  rw [integralCLM_apply, integralCLM_apply, pow_succ, mul_eq_comp,
-    integral_comp (boundedMeasurable.integrable f _)]
-  simp only [integralCLM_apply]
+  simp only [pow_succ, mul_eq_comp, integralCLM_comp, ContinuousLinearMap.comp_apply]
 
 /-- Integrating `κ u` against an invariant measure `π` of `κ` gives the integral of `u`. -/
 theorem Invariant.integral_integralCLM {π : Measure α} [IsFiniteMeasure π] (hπ : κ.Invariant π)

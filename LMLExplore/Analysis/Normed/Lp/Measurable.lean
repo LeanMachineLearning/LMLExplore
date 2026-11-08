@@ -171,6 +171,13 @@ theorem coeFn_smul (c : ℝ) (f : boundedMeasurable α) :
     ⇑((c • f : boundedMeasurable α) : ℓ^∞(α, ℝ)) = c • ⇑(f : ℓ^∞(α, ℝ)) :=
   rfl
 
+/-- The value of `f - c • 1` at `x` is `f x - c`. Not `@[simp]`: its left-hand side is not in
+simp normal form, since `coeFn_sub` rewrites it. -/
+theorem sub_smul_one_apply (f : boundedMeasurable α) (c : ℝ) (x : α) :
+    ((f - c • 1 : boundedMeasurable α) : ℓ^∞(α, ℝ)) x = (f : ℓ^∞(α, ℝ)) x - c := by
+  simp only [coeFn_sub, coeFn_smul, coeFn_one, Pi.sub_apply, Pi.smul_apply, Pi.one_apply,
+    smul_eq_mul, mul_one]
+
 theorem le_def {f g : boundedMeasurable α} :
     f ≤ g ↔ ∀ x, (f : ℓ^∞(α, ℝ)) x ≤ (g : ℓ^∞(α, ℝ)) x :=
   Iff.rfl
