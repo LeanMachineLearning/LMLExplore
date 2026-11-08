@@ -22,7 +22,7 @@ parameters `γ t ≥ 0`, with `k` arms and `M` experts:
 `max_m E[∑_{t < n} (⟨E t m, m_t⟩ - Y t)] ≤ log M / η (n - 1) + k ∑_{t < n} (γ t + η t / 2)`.
 
 The proof takes expectations in the pathwise bound `Exp4IX.sum_one_sub_sub_dotProduct_le`. Given
-the past, the importance-weighted estimate `E t m ⬝ᵥ Ŷ t` of the loss of expert `m`, computed with
+the past, the importance-weighted estimate `E t m ⬝ᵥ Ŷ t` of the loss of expert `m`, computed with
 the weights `P t` of Exp4-IX on the arms, has conditional mean `⟨E t m, 1 - m_t⟩` [LS, (18.10)]:
 the advice of `m` vanishes on the arms of weight zero, since every expert has positive weight. The
 implicit exploration `γ t` only lowers the estimates, and the expected sum of the estimates of
@@ -149,8 +149,8 @@ private lemma integrable_adv_action_mul_div (h : IsAlgEnvSeq O A Y (exp4IX adv h
 
 /-- **Conditional unbiasedness of the estimated losses of the experts** [LS, (18.10)] against any
 environment: along a run of Exp4-IX whose feedback at round `t` is almost surely in `[0, 1]`, the
-importance-weighted estimate `adv (O t) m ⬝ᵥ Ŷ t` of the loss of expert `m`, with the estimates
-`Ŷ t = iwEstimator (P t) (A t) (1 - Y t)` for the weights `P t` of Exp4-IX on the arms, has
+importance-weighted estimate `adv (O t) m ⬝ᵥ Ŷ t` of the loss of expert `m`, with the estimates
+`Ŷ t = iwEstimator (P t) (A t) (1 - Y t)` for the weights `P t` of Exp4-IX on the arms, has
 conditional expectation `∑ a, adv (O t) m a * (1 - m_t(a))` given the history and the observation
 of round `t`, with `m_t(a) = env.means O A Y a t` the mean reward of arm `a` at round `t`. -/
 theorem condExp_dotProduct_iwEstimator (h : IsAlgEnvSeq O A Y (exp4IX adv hadv η γ) env P)
@@ -221,7 +221,7 @@ lemma integrable_sum_mul_means (h : IsAlgEnvSeq O A Y (exp4IX adv hadv η γ) en
 
 omit [Nonempty α] in
 /-- Along a run of Exp4-IX whose feedback at round `t` is almost surely in `[0, 1]`, the
-implicit-exploration estimate `adv (O t) m ⬝ᵥ Ŷ t` of the loss of an expert `m` is integrable. -/
+implicit-exploration estimate `adv (O t) m ⬝ᵥ Ŷ t` of the loss of an expert `m` is integrable. -/
 lemma integrable_dotProduct_iwEstimator (h : IsAlgEnvSeq O A Y (exp4IX adv hadv η γ) env P)
     (hγ : 0 ≤ γ t) (hY : ∀ᵐ ω ∂P, Y t ω ∈ Set.Icc 0 1) (m : β) :
     Integrable (fun ω ↦ (adv (O t ω) m : α → ℝ) ⬝ᵥ iwEstimator
@@ -231,7 +231,7 @@ lemma integrable_dotProduct_iwEstimator (h : IsAlgEnvSeq O A Y (exp4IX adv hadv 
 
 omit [Nonempty α] in
 /-- Along a run of Exp4-IX whose feedback at round `t` is almost surely in `[0, 1]`, the sum
-`∑ a, Ŷ t a` of the implicit-exploration estimates of the losses of the arms is integrable. -/
+`∑ a, Ŷ t a` of the implicit-exploration estimates of the losses of the arms is integrable. -/
 lemma integrable_sum_iwEstimator (h : IsAlgEnvSeq O A Y (exp4IX adv hadv η γ) env P)
     (hγ : 0 ≤ γ t) (hY : ∀ᵐ ω ∂P, Y t ω ∈ Set.Icc 0 1) :
     Integrable (fun ω ↦ ∑ a, iwEstimator
@@ -249,7 +249,7 @@ lemma integrable_sum_iwEstimator (h : IsAlgEnvSeq O A Y (exp4IX adv hadv η γ) 
 
 /-- **The estimated loss of an expert is at most its loss in expectation** [LS, (18.10) and
 Lemma 12.4]: along a run of Exp4-IX whose feedback at round `t` is almost surely in `[0, 1]`, with
-`γ t ≥ 0`, the implicit-exploration estimate `adv (O t) m ⬝ᵥ Ŷ t` of the loss of an expert `m` has
+`γ t ≥ 0`, the implicit-exploration estimate `adv (O t) m ⬝ᵥ Ŷ t` of the loss of an expert `m` has
 expectation at most the expected loss `E[∑ a, adv (O t) m a * (1 - m_t(a))]` of `m`, with
 `m_t(a) = env.means O A Y a t` the mean reward of arm `a` at round `t`. -/
 theorem integral_dotProduct_iwEstimator_le (h : IsAlgEnvSeq O A Y (exp4IX adv hadv η γ) env P)
@@ -277,7 +277,7 @@ theorem integral_dotProduct_iwEstimator_le (h : IsAlgEnvSeq O A Y (exp4IX adv ha
       simp only [add_zero, dotProduct_iwEstimator]
 
 /-- Along a run of Exp4-IX whose feedback at round `t` is almost surely in `[0, 1]`, with
-`γ t ≥ 0`, the sum `∑ a, Ŷ t a` of the implicit-exploration estimates of the losses of the arms has
+`γ t ≥ 0`, the sum `∑ a, Ŷ t a` of the implicit-exploration estimates of the losses of the arms has
 expectation at most the number `k` of arms. -/
 theorem integral_sum_iwEstimator_le (h : IsAlgEnvSeq O A Y (exp4IX adv hadv η γ) env P)
     (hγ : 0 ≤ γ t) (hY : ∀ᵐ ω ∂P, Y t ω ∈ Set.Icc 0 1) :
@@ -301,8 +301,8 @@ end Round
 [LS, (18.10) and Lemma 12.4]: along a run of Exp4-IX against any environment whose feedbacks of
 the rounds `t < n` are almost surely in `[0, 1]`, with `γ t ≥ 0`, the expected regret
 `E[∑_{t < n} (⟨adv (O t) m, m_t⟩ - Y t)]` against an expert `m` is at most the expected estimated
-regret `E[∑_{t < n} ((1 - Y t) - adv (O t) m ⬝ᵥ Ŷ t)]`, with `m_t(a) = env.means O A Y a t` the
-mean reward of arm `a` at round `t` and `Ŷ t` the implicit-exploration estimates of the losses. -/
+regret `E[∑_{t < n} ((1 - Y t) - adv (O t) m ⬝ᵥ Ŷ t)]`, with `m_t(a) = env.means O A Y a t` the
+mean reward of arm `a` at round `t` and `Ŷ t` the implicit-exploration estimates of the losses. -/
 theorem integral_sum_sub_le_integral_sum_sub_dotProduct
     (h : IsAlgEnvSeq O A Y (exp4IX adv hadv η γ) env P) (hγ : ∀ t < n, 0 ≤ γ t)
     (hY : ∀ᵐ ω ∂P, ∀ t < n, Y t ω ∈ Set.Icc 0 1) (m : β) :
