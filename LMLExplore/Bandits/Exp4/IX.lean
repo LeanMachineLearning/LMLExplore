@@ -36,7 +36,8 @@ so the local-norm bound of exponential weights with nonincreasing learning rates
 against every expert `m`, with `M` the number of experts,
 `∑ t < n, (⟨Q t, E t Ŷ t⟩ - E t m ⬝ᵥ Ŷ t) ≤
   log M / η (n - 1) + ∑ t < n, η t / 2 * ⟨Q t, (E t Ŷ t) ^ 2⟩`,
-which is [LS, Lemma 18.2] for a constant rate. Adding the bias `γ t ∑ a, Ŷ t a` of the
+which is [LS, Lemma 18.2] for a constant rate, and follows [Ora, Section 7.5; BCB12, proof of
+Theorem 3.1] for nonincreasing rates. Adding the bias `γ t ∑ a, Ŷ t a` of the
 implicit-exploration estimates [LS, Lemma 12.4] bounds the estimated regret against expert `m` by
 `log M / η (n - 1) + ∑ t < n, (γ t + η t / 2) * ∑ a, Ŷ t a` for rewards in `[0, 1]`.
 
@@ -56,10 +57,13 @@ implicit-exploration estimates [LS, Lemma 12.4] bounds the estimated regret agai
 * `exp4IXExpertWeights_history_eq`: along every sequence of observations, actions and feedbacks,
   the weights of Exp4-IX on the experts are the exponential weights of `-η n` times the cumulative
   estimated losses of the experts.
+* `exp4Sum_eq_sub_exp4IXSum`, `exp3IXSum_eq_exp4IXSum`: the cumulative estimates of Exp4 and
+  Exp3-IX are those of Exp4-IX, up to the sign and the shift by `n` for Exp4.
 * `exp4_eq_exp4IX`, `exp3IX_eq_exp4IX`, `exp3_eq_exp4IX`: Exp4, Exp3-IX and Exp3 are instances of
   Exp4-IX with constant rates.
 * `Exp4IX.sum_sum_mul_sub_le`: the local-norm bound of the weights of Exp4-IX on the experts,
-  [LS, Lemma 18.2] for nonincreasing learning rates.
+  [LS, Lemma 18.2] for a constant rate, with nonincreasing learning rates as in
+  [Ora, Section 7.5; BCB12, proof of Theorem 3.1].
 * `Exp4IX.sum_sum_mul_sub_dotProduct_le`: the same bound with the second-order term
   `⟨P t, (Ŷ t) ^ 2⟩` on the arms.
 * `Exp4IX.sum_one_sub_sub_dotProduct_le`: the pathwise bound on the estimated regret against an
@@ -67,9 +71,13 @@ implicit-exploration estimates [LS, Lemma 12.4] bounds the estimated regret agai
 
 ## References
 
+* [BCB12] S. Bubeck and N. Cesa-Bianchi, *Regret analysis of stochastic and nonstochastic
+  multi-armed bandit problems*, Foundations and Trends in Machine Learning 5(1), 2012.
 * [LS] T. Lattimore and Cs. Szepesvári, *Bandit Algorithms*, Cambridge University Press, 2020.
 * [Neu15] G. Neu, *Explore no more: improved high-probability regret bounds for non-stochastic
   bandits*, NeurIPS 2015.
+* [Ora] F. Orabona, *Online learning: a modern introduction using convex optimization*,
+  arXiv:1912.13213v10, 2026.
 -/
 
 public section
@@ -183,9 +191,7 @@ lemma measurable_exp4IXSum (hadv : Measurable adv) (η γ : ℕ → ℝ) (n : �
     rw [funext exp4IXSum_zero]
     exact measurable_const
   | succ n ih =>
-    have hinit : Measurable fun h : Hist 𝓞 α ℝ (n + 1) ↦ Fin.init h :=
-      Measurable.of_eval fun i ↦ measurable_pi_apply _
-    have hS := ih.comp hinit
+    have hS := ih.comp (measurable_finInit (β := fun _ ↦ _))
     have hlast : Measurable fun h : Hist 𝓞 α ℝ (n + 1) ↦ h (Fin.last n) :=
       measurable_pi_apply _
     have hE := hadv.comp (Round.measurable_obs.comp hlast)
@@ -303,7 +309,7 @@ private lemma exp4ExpertWeights_eq_of_exp4Sum_eq {n : ℕ} {h : Hist (β → sim
 /-- The cumulative reward estimates of the experts in Exp4 are `n` minus their cumulative
 estimated losses in Exp4-IX with the advice observed directly, constant learning rate and `γ = 0`,
 since the advice of each expert sums to `1`. -/
-private lemma exp4Sum_eq_sub_exp4IXSum (n : ℕ) (h : Hist (β → simplex α) α ℝ n) :
+lemma exp4Sum_eq_sub_exp4IXSum (n : ℕ) (h : Hist (β → simplex α) α ℝ n) :
     exp4Sum η₀ n h = fun m ↦ (n : ℝ) - exp4IXSum id (fun _ ↦ η₀) 0 n h m := by
   induction n with
   | zero => funext m; simp
@@ -335,7 +341,7 @@ lemma exp4Weights_eq_exp4IXWeights (n : ℕ) (h : Hist (β → simplex α) α �
 /-- The cumulative loss estimates of Exp3-IX are the cumulative estimated losses of the experts in
 Exp4-IX with the experts `α` that each recommend one arm (expert `b` advises the Dirac mass at `b`),
 constant learning rate and constant implicit exploration. -/
-private lemma exp3IXSum_eq_exp4IXSum (n : ℕ) (h : Hist 𝓞 α ℝ n) :
+lemma exp3IXSum_eq_exp4IXSum (n : ℕ) (h : Hist 𝓞 α ℝ n) :
     exp3IXSum η₀ γ₀ n h = exp4IXSum (fun _ b ↦ ⟨Pi.single b 1, single_mem_simplex b⟩)
       (fun _ ↦ η₀) (fun _ ↦ γ₀) n h := by
   induction n with
@@ -407,19 +413,15 @@ lemma sum_exp4IXExpertWeights_mul_dotProduct_sq_le (n : ℕ) (h : Hist 𝓞 α �
     (v : α → ℝ) :
     ∑ m, exp4IXExpertWeights adv η γ n h m * ((adv o m : α → ℝ) ⬝ᵥ v) ^ 2 ≤
       ∑ a, exp4IXWeights adv η γ n h o a * v a ^ 2 := by
-  have hjensen : ∀ m, ((adv o m : α → ℝ) ⬝ᵥ v) ^ 2 ≤ (adv o m : α → ℝ) ⬝ᵥ (v ^ 2) := fun m ↦ by
-    have he := mem_simplex_iff.1 (adv o m).2
-    have := Finset.sum_sq_le_sum_mul_sum_of_sq_le_mul univ (r := fun a ↦ (adv o m : α → ℝ) a * v a)
-      (fun a _ ↦ he.1 a) (fun a _ ↦ mul_nonneg (he.1 a) (sq_nonneg (v a)))
-      (fun a _ ↦ by rw [mul_pow, sq, mul_assoc])
-    simpa [dotProduct, he.2] using this
   calc ∑ m, exp4IXExpertWeights adv η γ n h m * ((adv o m : α → ℝ) ⬝ᵥ v) ^ 2
   _ ≤ ∑ m, exp4IXExpertWeights adv η γ n h m * (adv o m : α → ℝ) ⬝ᵥ (v ^ 2) :=
-      Finset.sum_le_sum fun m _ ↦ mul_le_mul_of_nonneg_left (hjensen m) (softmax_nonneg _ m)
+      Finset.sum_le_sum fun m _ ↦ mul_le_mul_of_nonneg_left
+        (sq_dotProduct_le_dotProduct_sq_of_mem_simplex (adv o m).2 v) (softmax_nonneg _ m)
   _ = ∑ a, exp4IXWeights adv η γ n h o a * v a ^ 2 := by
       simp only [sum_exp4IXExpertWeights_mul_dotProduct, Pi.pow_apply]
 
-/-- **Pathwise regret of the weights of Exp4-IX on the experts** [LS, Lemma 18.2]. Along every
+/-- **Pathwise regret of the weights of Exp4-IX on the experts** [LS, Lemma 18.2] for a constant
+rate; [Ora, Section 7.5; BCB12, proof of Theorem 3.1] for nonincreasing rates. Along every
 sequence of observations `O`, actions `A` and feedbacks `Y ≤ 1` of the rounds `t < n`, with `Q t`
 the weights of Exp4-IX on the experts at round `t` and `L t m = adv (O t) m ⬝ᵥ Ŷ t` the estimated
 loss of expert `m`, for nonincreasing learning rates `η t > 0`, `γ ≥ 0` and every expert `m`,
@@ -483,10 +485,11 @@ theorem sum_sum_mul_sub_dotProduct_le (hη : ∀ t, 0 < η t) (hη_anti : Antito
   exact sum_exp4IXExpertWeights_mul_dotProduct_sq_le _ _ _ _
 
 /-- **Pathwise bound on the estimated regret of Exp4-IX** [LS, Lemmas 12.4 and 18.2;
-Neu15, proof of Theorem 2]. Along every sequence of observations `O`, actions `A` and feedbacks
-`Y t ∈ [0, 1]` of the rounds `t < n` with `P t (A t) + γ t ≠ 0`, with `P t` the weights of Exp4-IX
-on the arms at round `t` and `Ŷ t` its implicit-exploration estimates of the losses `1 - Y t`, for
-nonincreasing learning rates `η t > 0`, `γ ≥ 0` and every expert `m`,
+Neu15, proof of Theorem 2; Ora, Section 7.5]. Along every sequence of observations `O`,
+actions `A` and feedbacks `Y t ∈ [0, 1]` of the rounds `t < n` with `P t (A t) + γ t ≠ 0`, with
+`P t` the weights of Exp4-IX on the arms at round `t` and `Ŷ t` its implicit-exploration
+estimates of the losses `1 - Y t`, for nonincreasing learning rates `η t > 0`,
+`γ ≥ 0` and every expert `m`,
 `∑ t < n, ((1 - Y t) - adv (O t) m ⬝ᵥ Ŷ t) ≤
   log M / η (n - 1) + ∑ t < n, (γ t + η t / 2) * ∑ a, Ŷ t a`,
 with `M` the number of experts. -/
