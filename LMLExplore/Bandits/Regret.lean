@@ -55,7 +55,8 @@ for `trajMeasure`, such as lower bounds, apply to every run.
   `δ n + k C / δ + B ∑ a, Δ_a` for every threshold `δ > 0`, from bounds on the expected numbers of
   pulls of the arms with gap above `δ` only.
 * `integral_regret_le_two_mul_sqrt_add_of_forall_integral_pullCount_le`: the bound
-  `2 √(C k n) + B ∑ a, Δ_a`, for the optimal threshold `δ = √(C k / n)`.
+  `2 √(C k n) + B ∑ a, Δ_a`, for the optimal threshold `δ = √(C k / n)`, from bounds on the
+  expected numbers of pulls of the arms with `C k < n Δ_a²` only.
 * `integral_regret_eventually_le_of_forall_integral_pullCount_eventually_le`: eventual bounds
   `E[T_a(n)] ≤ c f(n)` for every `c > C_a` give the eventual bound `E[R_n] ≤ c f(n)` for every
   `c > ∑_{a : Δ_a > 0} Δ_a C_a`.
@@ -186,26 +187,30 @@ theorem integral_regret_le_mul_add_div_add_of_forall_integral_pullCount_le
     nsmul_eq_mul]
   ring
 
-/-- **Gap-free regret bound** [LS, Theorem 7.2]. If every arm `a` with positive gap `Δ_a` is
-pulled at most `C / Δ_a ^ 2 + B` times in expectation during the first `n` rounds, then the
-expected regret at horizon `n` is at most `2 √(C k n) + B ∑ a, Δ_a`, where `k` is the number of
-arms. -/
+/-- **Gap-free regret bound** [LS, Theorem 7.2]. If every arm `a` whose gap `Δ_a` satisfies
+`C k < n Δ_a²` is pulled at most `C / Δ_a ^ 2 + B` times in expectation during the first `n`
+rounds, then the expected regret at horizon `n` is at most `2 √(C k n) + B ∑ a, Δ_a`, where `k` is
+the number of arms. The arms with `C k < n Δ_a²` are those with gap above the optimal threshold
+`√(C k / n)`; they all have positive gap. -/
 theorem integral_regret_le_two_mul_sqrt_add_of_forall_integral_pullCount_le
     (hA : ∀ t, Measurable (A t)) (hC : 0 ≤ C) (hB : 0 ≤ B)
-    (h_le : ∀ a, 0 < gap ν a → P[fun ω ↦ (pullCount A a n ω : ℝ)] ≤ C / gap ν a ^ 2 + B) :
+    (h_le : ∀ a, C * Fintype.card α < n * gap ν a ^ 2 →
+      P[fun ω ↦ (pullCount A a n ω : ℝ)] ≤ C / gap ν a ^ 2 + B) :
     P[regret ν A n] ≤ 2 * √(C * Fintype.card α * n) + B * ∑ a, gap ν a := by
-  have h_bound {δ : ℝ} (hδ : 0 < δ) :=
-    integral_regret_le_mul_add_div_add_of_forall_integral_pullCount_le hA hC hB hδ
-      fun a ha ↦ h_le a (hδ.trans ha)
   have h_gap_sum : 0 ≤ B * ∑ a, gap ν a := mul_nonneg hB (sum_nonneg fun _ _ ↦ gap_nonneg)
   rcases Nat.eq_zero_or_pos n with rfl | hn
   · simp [regret_eq_sum_gap, h_gap_sum]
   have hn' : (0 : ℝ) < n := by exact_mod_cast hn
+  -- Every threshold `δ > 0` with `C k ≤ n δ²` can be used.
+  have h_bound {δ : ℝ} (hδ : 0 < δ) (hδC : C * Fintype.card α ≤ n * δ ^ 2) :=
+    integral_regret_le_mul_add_div_add_of_forall_integral_pullCount_le hA hC hB hδ
+      fun a ha ↦ h_le a <| hδC.trans_lt <|
+        mul_lt_mul_of_pos_left (pow_lt_pow_left₀ ha hδ.le two_ne_zero) hn'
   rcases (mul_nonneg hC (Nat.cast_nonneg (Fintype.card α))).eq_or_lt' with hCk | hCk
   · -- If `C k = 0`, the bound `δ n + B ∑ a, Δ_a` holds for every `δ > 0`.
     rw [hCk, zero_mul, Real.sqrt_zero, mul_zero, zero_add]
     refine le_of_forall_pos_le_add fun ε hε ↦ ?_
-    refine (h_bound (div_pos hε hn')).trans_eq ?_
+    refine (h_bound (div_pos hε hn') (by rw [hCk]; positivity)).trans_eq ?_
     rw [mul_comm (Fintype.card α : ℝ), hCk]
     field_simp
     ring
@@ -213,7 +218,11 @@ theorem integral_regret_le_two_mul_sqrt_add_of_forall_integral_pullCount_le
     set s := √(C * Fintype.card α * n) with hs_def
     have hs : 0 < s := Real.sqrt_pos.mpr (mul_pos hCk hn')
     have hs_sq : s ^ 2 = C * Fintype.card α * n := Real.sq_sqrt (mul_pos hCk hn').le
-    refine (h_bound (div_pos hs hn')).trans_eq ?_
+    have hδC : C * Fintype.card α ≤ n * (s / n) ^ 2 := by
+      rw [div_pow, hs_sq]
+      field_simp
+      rfl
+    refine (h_bound (div_pos hs hn') hδC).trans_eq ?_
     field_simp
     linear_combination -hs_sq
 

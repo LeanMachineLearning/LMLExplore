@@ -633,6 +633,12 @@ theorem integral_pullCount_eventually_le [IsProbabilityMeasure P] {μ : α → �
     (by linarith [hε.2]) n
   rwa [show μ (bestArm ν) - ε - μ a = gap ν a - ε by rw [hgap]; ring] at h_le
 
+/-- For a horizon `n ≥ 3`, `1 ≤ log n`. -/
+private lemma one_le_log_of_three_le {n : ℕ} (hn : 3 ≤ n) : 1 ≤ Real.log n := by
+  have hn' : (3 : ℝ) ≤ n := by exact_mod_cast hn
+  rw [Real.le_log_iff_exp_le (by positivity)]
+  linarith [Real.exp_one_lt_three]
+
 omit [IsFiniteMeasure P] in
 /-- **Logarithmic number of pulls of Gaussian Thompson sampling.** In a run of Gaussian Thompson
 sampling with variance proxy `σ² ≠ 0` against the Gaussian bandit `gaussianBandit μ σ2`, let `n ≥ 3`
@@ -655,10 +661,7 @@ theorem integral_pullCount_le_mul_log_div_gap_sq_add [IsProbabilityMeasure P] {�
     linarith
   set Δ := gap ν a
   set ℓ := Real.log n with hℓ_def
-  have hn' : (3 : ℝ) ≤ n := by exact_mod_cast hn
-  have hℓ : 1 ≤ ℓ := by
-    rw [hℓ_def, Real.le_log_iff_exp_le (by positivity)]
-    linarith [Real.exp_one_lt_three]
+  have hℓ : 1 ≤ ℓ := one_le_log_of_three_le hn
   have h_le := integral_pullCount_le_of_gaussianBandit hσ h (half_pos ha) (i := a)
     (j := bestArm ν) (by linarith) n
   -- With `ε = Δ / 2` and `c = σ² / Δ²`, the bound reads
@@ -675,11 +678,14 @@ theorem integral_pullCount_le_mul_log_div_gap_sq_add [IsProbabilityMeasure P] {�
     exact h_gap
   have h_log : Real.log (1 + 8 * c) ≤ 2 * ℓ := by
     rw [hℓ_def, show 2 * Real.log n = Real.log ((n : ℝ) ^ 2) by rw [Real.log_pow]; norm_num]
+    have hn' : (3 : ℝ) ≤ n := by exact_mod_cast hn
     exact Real.log_le_log (by positivity) (by nlinarith)
   have h_sqrt : √(Real.pi * ℓ) ≤ 2 * ℓ := by
     rw [Real.sqrt_le_left (by positivity)]
     nlinarith [Real.pi_le_four]
-  nlinarith
+  -- `4 c (8 + 2 log (1 + 8 c)) + 8 c (ℓ + √(π ℓ) + 1) ≤ 40 c + 40 c ℓ ≤ 80 c ℓ`.
+  linarith [mul_le_mul_of_nonneg_left h_log hc, mul_le_mul_of_nonneg_left h_sqrt hc,
+    mul_le_mul_of_nonneg_left hℓ hc]
 
 end GaussianTS
 
@@ -727,43 +733,24 @@ theorem gaussianTS_regret_le_sqrt [StandardBorelSpace α] {σ2 : ℝ≥0} {Ω : 
           _ = 2 := by simp
     rw [← Finset.sum_mul, mul_comm] at h_le
     linarith
-  -- For `n ≥ 3`, apply the gap-free bound with the threshold `δ = s / n`, where
-  -- `s = √(80 σ² k n log n)`, to the bound `80 σ² log n / Δ_a² + 2` on the pulls of the arms with
-  -- `Δ_a > δ`, for which `n Δ_a² ≥ n δ² = 80 σ² k log n ≥ 8 σ²`.
-  set ℓ := Real.log n with hℓ_def
+  -- For `n ≥ 3`, apply the gap-free bound to the bound `80 σ² log n / Δ_a² + 2` on the pulls of
+  -- the arms with `80 σ² log n k < n Δ_a²`, for which `n Δ_a² ≥ 80 σ² k log n ≥ 8 σ²`.
+  set ℓ := Real.log n
   set k : ℝ := (Fintype.card α : ℝ)
-  have hn' : (0 : ℝ) < n := by positivity
-  have hℓ : 1 ≤ ℓ := by
-    rw [hℓ_def, Real.le_log_iff_exp_le hn']
-    have : (3 : ℝ) ≤ n := by exact_mod_cast hn
-    linarith [Real.exp_one_lt_three]
-  have hσ' : (0 : ℝ) < σ2 := NNReal.coe_pos.mpr (pos_iff_ne_zero.mpr hσ)
+  have hℓ : 1 ≤ ℓ := GaussianTS.one_le_log_of_three_le hn
   have hk : 1 ≤ k := Nat.one_le_cast.mpr Fintype.card_pos
-  set X := (σ2 : ℝ) * k * n * ℓ with hX_def
-  have hX : 0 < X := by positivity
-  set s := √(80 * X) with hs_def
-  have hs : 0 < s := Real.sqrt_pos.mpr (by positivity)
-  have hs_sq : s ^ 2 = 80 * X := Real.sq_sqrt (by positivity)
-  have hδ : 0 < s / n := div_pos hs hn'
-  have h_nδ : n * (s / n) ^ 2 = 80 * σ2 * k * ℓ := by
-    rw [div_pow, hs_sq, hX_def]
-    field_simp
-  have h_kℓ : 8 * (σ2 : ℝ) ≤ 80 * σ2 * k * ℓ := by
-    nlinarith [one_le_mul_of_one_le_of_one_le hk hℓ]
-  have h_bound := integral_regret_le_mul_add_div_add_of_forall_integral_pullCount_le
-    h.measurable_action (C := 80 * σ2 * ℓ) (B := 2) (by positivity) zero_le_two hδ fun a ha ↦
-      GaussianTS.integral_pullCount_le_mul_log_div_gap_sq_add hσ h hn <| by
-        nlinarith [mul_le_mul_of_nonneg_left (pow_lt_pow_left₀ ha hδ.le two_ne_zero).le hn'.le]
-  -- `δ n + k (80 σ² log n) / δ = 2 s ≤ 18 √(σ² k n log n)`.
-  have h_eq : s / n * n + k * (80 * σ2 * ℓ) / (s / n) = 2 * s := by
-    field_simp
-    linear_combination -hs_sq
-  have h_s : 2 * s ≤ 18 * √X := by
-    rw [hs_def, Real.sqrt_mul (show (0 : ℝ) ≤ 80 by norm_num) X, ← mul_assoc]
+  have h_kℓ : 8 * (σ2 : ℝ) ≤ 80 * σ2 * ℓ * k := by
+    nlinarith [one_le_mul_of_one_le_of_one_le hℓ hk, σ2.coe_nonneg]
+  have h_bound := integral_regret_le_two_mul_sqrt_add_of_forall_integral_pullCount_le
+    h.measurable_action (C := 80 * σ2 * ℓ) (B := 2) (by positivity) zero_le_two fun a ha ↦
+      GaussianTS.integral_pullCount_le_mul_log_div_gap_sq_add hσ h hn (h_kℓ.trans ha.le)
+  -- `2 √(80 σ² log n k n) ≤ 18 √(σ² k n log n)`.
+  have h_s : 2 * √(80 * σ2 * ℓ * k * n) ≤ 18 * √(σ2 * k * n * ℓ) := by
+    rw [show 80 * (σ2 : ℝ) * ℓ * k * n = 80 * (σ2 * k * n * ℓ) by ring,
+      Real.sqrt_mul (show (0 : ℝ) ≤ 80 by norm_num), ← mul_assoc]
     gcongr
     calc 2 * √80 ≤ 2 * √(9 ^ 2) := by gcongr; norm_num
       _ = 18 := by rw [Real.sqrt_sq (by norm_num)]; norm_num
-  rw [h_eq] at h_bound
   linarith
 
 end Algorithm
