@@ -45,12 +45,14 @@ the biased sample variance of the values of `f` at the samples. For finitely man
 `V = Var[f; empiricalKernel N ω a]` and `L = log (3 card α / δ)`. When the variance of `f` is
 small, this is much sharper than Hoeffding's bound.
 
-Bernstein's inequality, with the variance of `f` under `ν a`, also holds for a random function
-`W ω` with values in `[l, u]` that is independent of the samples `(ω i a)_i` of the key `a`, as
-for a function computed from the samples of the other keys: for countably many values, `N ≠ 0`
-and every `x`, `|∫ W ω d(ν a) - ∫ W ω d(empiricalKernel N ω a)|` is at least
-`√(2 Var[W ω; ν a] x / N) + (u - l) x / (3 N)` with probability at most `2 exp (-x)`. This is the
-decoupling device of [AKY20, Lemma 6].
+Bernstein's inequality uses the variance of `f` under `ν a` instead: for `N ≠ 0` and every `x`,
+`|∫ f d(ν a) - ∫ f d(empiricalKernel N ω a)|` is at least
+`√(2 Var[f; ν a] x / N) + (u - l) x / (3 N)` with probability at most `2 exp (-x)`. This also
+holds for a random function `W ω` with values in `[l, u]` that is independent of the samples
+`(ω i a)_i` of the key `a`, as for a function computed from the samples of the other keys: for
+countably many values, `N ≠ 0` and every `x`, `|∫ W ω d(ν a) - ∫ W ω d(empiricalKernel N ω a)|` is
+at least `√(2 Var[W ω; ν a] x / N) + (u - l) x / (3 N)` with probability at most `2 exp (-x)`.
+This is the decoupling device of [AKY20, Lemma 6].
 
 ## Main definitions
 
@@ -58,7 +60,8 @@ decoupling device of [AKY20, Lemma 6].
 
 ## Main statements
 
-* `LMLExplore.empiricalKernel_congr`: the empirical kernel only depends on the first `N` samples.
+* `LMLExplore.empiricalKernel_apply_congr`, `LMLExplore.empiricalKernel_congr`: the empirical
+  kernel only depends on the first `N` samples.
 * `LMLExplore.empiricalKernel_apply_of_measurableSet`,
   `LMLExplore.measureReal_empiricalKernel_apply_singleton`: the empirical kernel gives a
   measurable set the proportion of the first `N` samples that fall in it.
@@ -78,6 +81,9 @@ decoupling device of [AKY20, Lemma 6].
   `LMLExplore.le_streamMeasure_forall_abs_integral_sub_integral_empiricalKernel_lt_sqrt_add`: the
   empirical Bernstein inequality for the empirical means of a bounded function, for one key and
   uniformly over finitely many keys.
+* `LMLExplore.measureReal_sqrt_variance_add_le_abs_integral_sub_integral_empiricalKernel_le`:
+  Bernstein's inequality for the empirical means of a bounded function, with its variance under
+  `ν a`.
 * `LMLExplore.measureReal_sqrt_add_le_abs_integral_sub_integral_empiricalKernel_le_of_indepFun`:
   Bernstein's inequality for the empirical means of a random function independent of the samples
   of the key.
@@ -117,13 +123,18 @@ lemma empiricalKernel_apply (N : ℕ) (ω : ℕ → α → β) (a : α) :
       (TauCeti.Probability.empiricalFiniteMeasure fun i : Fin N ↦ ω i a : Measure β) :=
   (rfl)
 
+/-- The empirical law of a key `a` only depends on the first `N` samples of `a`. -/
+lemma empiricalKernel_apply_congr {N : ℕ} {ω ω' : ℕ → α → β} {a : α}
+    (h : ∀ i < N, ω i a = ω' i a) :
+    empiricalKernel N ω a = empiricalKernel N ω' a := by
+  simp_rw [empiricalKernel_apply]
+  congr 3 with i
+  rw [h i i.isLt]
+
 /-- The empirical kernel of the first `N` samples only depends on these samples. -/
 lemma empiricalKernel_congr {N : ℕ} {ω ω' : ℕ → α → β} (h : ∀ i < N, ω i = ω' i) :
     empiricalKernel N ω = empiricalKernel N ω' :=
-  Kernel.ext fun a ↦ by
-    simp_rw [empiricalKernel_apply]
-    congr 3 with i
-    rw [h i i.isLt]
+  Kernel.ext fun _ ↦ empiricalKernel_apply_congr fun i hi ↦ by rw [h i hi]
 
 /-- The empirical kernel gives a measurable set `s` the proportion of the first `N` samples that
 fall in `s`. -/
@@ -284,16 +295,16 @@ theorem measureReal_sqrt_add_le_abs_integral_sub_integral_empiricalKernel_le (ν
     integral_empiricalKernel N ω a hf.stronglyMeasurable, smul_eq_mul, inv_mul_eq_div]
   rw [abs_sub_comm]
 
-omit [MeasurableSingletonClass α] [Countable α] in
-/-- **Bernstein's inequality for the empirical means of a fixed function.** Under the stream model
-`streamMeasure ν`, for a measurable `f` with values in `[l, u]`, `l < u`, `ν a`-almost everywhere,
-the mean of `f` over the first `N` samples of the key `a` deviates from its mean under `ν a` by at
-least `√(2 Var[f; ν a] x / N) + (u - l) x / (3 N)` with probability at most `2 exp (-x)`. -/
-private lemma measureReal_sqrt_add_le_abs_integral_sub_sum_le (ν : Kernel α β) [IsMarkovKernel ν]
-    {f : β → ℝ} (hf : Measurable f) {l u : ℝ} (hlu : l < u) {a : α}
-    (hfb : ∀ᵐ y ∂(ν a), f y ∈ Set.Icc l u) (N : ℕ) [NeZero N] (x : ℝ) :
+/-- **Bernstein's inequality for the empirical kernel.** Under the stream model `streamMeasure ν`
+of a Markov kernel `ν`, let `f` be a measurable function with values in `[l, u]`, `l < u`,
+`ν a`-almost everywhere. For `N ≠ 0` and every `x`, the mean of `f` over the first `N` samples of
+the key `a` deviates from its mean under `ν a` by at least
+`√(2 Var[f; ν a] x / N) + (u - l) x / (3 N)` with probability at most `2 exp (-x)`. -/
+theorem measureReal_sqrt_variance_add_le_abs_integral_sub_integral_empiricalKernel_le
+    (ν : Kernel α β) [IsMarkovKernel ν] {f : β → ℝ} (hf : Measurable f) {l u : ℝ} (hlu : l < u)
+    {a : α} (hfb : ∀ᵐ y ∂(ν a), f y ∈ Set.Icc l u) (N : ℕ) [NeZero N] (x : ℝ) :
     (streamMeasure ν).real {ω | √(2 * Var[f; ν a] * x / N) + (u - l) * x / (3 * N) ≤
-      |∫ y, f y ∂(ν a) - (N : ℝ)⁻¹ * ∑ i ∈ range N, f (ω i a)|} ≤ 2 * exp (-x) := by
+      |∫ y, f y ∂(ν a) - ∫ y, f y ∂(empiricalKernel N ω a)|} ≤ 2 * exp (-x) := by
   have hN : (0 : ℝ) < N := by exact_mod_cast Nat.pos_of_ne_zero (NeZero.ne N)
   set m := ∫ y, f y ∂(ν a)
   have hf_int : Integrable f (ν a) := Integrable.of_mem_Icc l u hf.aemeasurable hfb
@@ -324,9 +335,10 @@ private lemma measureReal_sqrt_add_le_abs_integral_sub_sum_le (ν : Kernel α β
   refine le_trans (measureReal_mono fun ω (hω : _ ≤ _) ↦ ?_) h
   -- the centred sum is `-N` times the deviation of the empirical mean
   have h_sum : ∑ i ∈ range N, (f (ω i a) - m) =
-      -(N * (m - (N : ℝ)⁻¹ * ∑ i ∈ range N, f (ω i a))) := by
-    rw [sum_sub_distrib, sum_const, card_range, nsmul_eq_mul, mul_sub,
-      mul_inv_cancel_left₀ hN.ne']
+      -(N * (m - ∫ y, f y ∂(empiricalKernel N ω a))) := by
+    rw [integral_empiricalKernel N ω a hf.stronglyMeasurable]
+    simp [sum_sub_distrib]
+    field_simp
     ring
   have h_sqrt : √(2 * (N * Var[f; ν a]) * x) = N * √(2 * Var[f; ν a] * x / N) := by
     rw [show 2 * (N * Var[f; ν a]) * x = N ^ 2 * (2 * Var[f; ν a] * x / N) by field_simp,
@@ -335,7 +347,7 @@ private lemma measureReal_sqrt_add_le_abs_integral_sub_sum_le (ν : Kernel α β
   calc N * √(2 * Var[f; ν a] * x / N) + (u - l) * x / 3 =
         N * (√(2 * Var[f; ν a] * x / N) + (u - l) * x / (3 * N)) := by
         field_simp
-    _ ≤ N * |m - (N : ℝ)⁻¹ * ∑ i ∈ range N, f (ω i a)| := by gcongr
+    _ ≤ N * |m - ∫ y, f y ∂(empiricalKernel N ω a)| := by gcongr
 
 /-- **Bernstein's inequality for the empirical means of a random function independent of the
 samples.** Under the stream model `streamMeasure ν` with countably many values, let `W ω` be a
@@ -402,9 +414,12 @@ theorem measureReal_sqrt_add_le_abs_integral_sub_integral_empiricalKernel_le_of_
         _ = ENNReal.ofReal (μ.real {ω | √(2 * Var[w; ν a] * x / N) + (u - l) * x / (3 * N) ≤
             |∫ y, w y ∂(ν a) - (N : ℝ)⁻¹ * ∑ i ∈ range N, w (ω i a)|}) :=
             (ofReal_measureReal (measure_ne_top _ _)).symm
-        _ ≤ ENNReal.ofReal (2 * exp (-x)) := ENNReal.ofReal_le_ofReal
-            (measureReal_sqrt_add_le_abs_integral_sub_sum_le ν (measurable_of_countable w) hlu
-              (ae_of_all _ hw) N x)
+        _ ≤ ENNReal.ofReal (2 * exp (-x)) := by
+            have h := measureReal_sqrt_variance_add_le_abs_integral_sub_integral_empiricalKernel_le
+              ν (measurable_of_countable w) hlu (a := a) (ae_of_all _ hw) N x
+            simp only [smul_eq_mul,
+              integral_empiricalKernel N _ a (measurable_of_countable w).stronglyMeasurable] at h
+            exact ENNReal.ofReal_le_ofReal h
     · have h_empty : Z ⁻¹' (Prod.mk w ⁻¹' bad) = ∅ :=
         Set.eq_empty_of_forall_notMem fun ω hω ↦ hw hω.1
       simp [h_empty]
