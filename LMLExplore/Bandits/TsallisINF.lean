@@ -15,10 +15,10 @@ public import LMLExplore.Bandits.WeightAlgorithm
 Tsallis-INF [ZS21], [Ora, Algorithm 9.6] is the weight-based algorithm for
 adversarial bandits with finitely many arms `α` that plays at round `t` the weights
 `P t = argmin_{p ∈ simplex α} (⟨L̂ t, p⟩ - 4 √(t + 1) ∑ a, √(p a))`: follow the regularized leader
-on the cumulative loss estimates `L̂ t = ∑ s < t, Ŷ s` with the ½-Tsallis potential
+on the cumulative loss estimates `L̂ t = ∑ s < t, Ŷ s` with the ½-Tsallis potential
 `-∑ a, √(p a)`, whose coefficient `4 √(t + 1)` grows with the rounds and does not depend on a
 horizon. The estimates
-`Ŷ s a = 𝟙{A s = a} (1 - X s) / P s a` are the importance-weighted estimates of the losses
+`Ŷ s a = 𝟙{A s = a} (1 - X s) / P s a` are the importance-weighted estimates of the losses
 `1 - X s`, computed from the arm `A s` drawn from `P s` and its observed reward `X s`. Tsallis-INF
 ignores the observations of the environment.
 
@@ -69,9 +69,9 @@ variable {α 𝓞 : Type*} [Fintype α] [DecidableEq α]
 section Weights
 
 /-- The cumulative loss estimates of Tsallis-INF, computed from the history `h` of the first `n`
-rounds: `∑ s < n, Ŷ s` with `Ŷ s = iwEstimator (P s) (A s) (1 - X s)` the importance-weighted
+rounds: `∑ s < n, Ŷ s` with `Ŷ s = iwEstimator (P s) (A s) (1 - X s)` the importance-weighted
 estimate of the losses of round `s`, for the action `A s` and the reward `X s` of round `s` of `h`
-and the weights `P s = tsallisWeights (4 √(s + 1)) (∑ r < s, Ŷ r)` of round `s`. -/
+and the weights `P s = tsallisWeights (4 √(s + 1)) (∑ r < s, Ŷ r)` of round `s`. -/
 noncomputable def tsallisINFSum : (n : ℕ) → Hist 𝓞 α ℝ n → α → ℝ
   | 0, _ => 0
   | n + 1, h => tsallisINFSum n (Fin.init h) +
