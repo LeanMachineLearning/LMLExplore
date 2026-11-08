@@ -460,9 +460,9 @@ theorem dInf_image_expFamily (hρ : ∀ c, ¬ id =ᵐ[ρ] fun _ ↦ c)
   · -- A member with a mean `q > m` is the member of mean `q`, and `d(μ, ·)` is monotone on
     -- the means above `μ`.
     intro Q hQM hQ
-    have hq := Measure.integral_mem_expFamilyMeans_of_mem_image hQM
-    rw [← Measure.expFamily_natParam_integral_of_mem_image hρ hQM,
-      Measure.klDiv_expFamily_natParam hμ hq]
+    obtain ⟨q, hq, rfl⟩ := (Measure.mem_image_expFamily_iff hρ).mp hQM
+    rw [Measure.integral_expFamily_natParam hq] at hQ
+    rw [Measure.klDiv_expFamily_natParam hμ hq]
     exact ENNReal.ofReal_le_ofReal <| (Measure.strictMonoOn_expFamilyDiv_right hρ μ).monotoneOn
       ⟨hm, hμm⟩ ⟨hq, hμm.trans hQ.le⟩ hQ.le
 
