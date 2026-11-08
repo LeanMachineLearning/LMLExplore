@@ -787,11 +787,11 @@ theorem condExp_iwEstimator_one_sub (h : IsAlgEnvSeq O A Y (weightAlgorithm w hw
 /-- **Concentration of implicit-exploration estimates** [Neu15, Lemma 1; LS, Lemma 12.2], in any
 environment. Along a run of a weight-based algorithm with weights `P t = w t (past)` whose
 feedback at every round `t < n` is almost surely in `[0, 1]`, let
-`Ŷ t a = 𝟙{A t = a} (1 - Y t) / (P t a + γ t)` be the implicit-exploration estimates of the losses
+`Ŷ t a = 𝟙{A t = a} (1 - Y t) / (P t a + γ t)` be the implicit-exploration estimates of the losses
 `1 - Y t`, with conditional means `m t a = env.means O A Y a t`. For coefficients `c t a` that are
 measurable for the past of round `t`, satisfy `0 ≤ c t a ≤ 2 γ t` and vanish on the arms of
 weight zero, at the rounds `t < n`, and for `δ > 0`, the probability that
-`log (1 / δ) ≤ ∑ t < n, ∑ a, c t a * (Ŷ t a - (1 - m t a))` is at most `δ`.
+`log (1 / δ) ≤ ∑ t < n, ∑ a, c t a * (Ŷ t a - (1 - m t a))` is at most `δ`.
 
 The coefficients must vanish on the arms of weight zero: such an arm is almost surely not played,
 so the hypothesis on the feedback says nothing about its mean `m t a`, which may exceed `1`. -/

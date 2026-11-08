@@ -13,10 +13,10 @@ public import LMLExplore.Bandits.Exp4.IX
 # High-probability regret bounds of Exp4-IX and Exp3-IX against an adaptive adversary
 
 Exp4-IX (`LMLExplore.Bandits.exp4IX`) runs exponential weights over a finite set `β` of `M`
-experts on the implicit-exploration estimates `Ŷ t a = 𝟙{A t = a} (1 - Y t) / (P t a + γ t)` of
+experts on the implicit-exploration estimates `Ŷ t a = 𝟙{A t = a} (1 - Y t) / (P t a + γ t)` of
 the losses `1 - Y t`. The implicit exploration `γ t > 0` biases the estimates downwards, and this
 bias makes them concentrate without any variance term [Neu15, Lemma 1]: the weighted deviations
-`∑ t < n, ∑ a, c t a * (Ŷ t a - (1 - m t a))` from the conditional means `m t a` of the rewards,
+`∑ t < n, ∑ a, c t a * (Ŷ t a - (1 - m t a))` from the conditional means `m t a` of the rewards,
 for coefficients `0 ≤ c t a ≤ 2 γ t` known before round `t`, exceed `log (1 / δ)` with probability
 at most `δ` (`WeightAlgorithm.measure_log_one_div_le_sum_sum_mul_iwEstimator_add_sub_le`).
 
@@ -91,10 +91,10 @@ variable [MeasurableSpace α] [MeasurableSingletonClass α] [MeasurableSpace �
 
 /-- **Concentration of the estimated losses of an expert** [Neu15, Lemma 1]. Along a run of
 Exp4-IX against any environment whose feedback at every round `t < n` is almost surely in
-`[0, 1]`, with `Ŷ t` the implicit-exploration estimates of the losses `1 - Y t` and
+`[0, 1]`, with `Ŷ t` the implicit-exploration estimates of the losses `1 - Y t` and
 `m t a = env.means O A Y a t` the conditional means of the rewards, for `0 ≤ c ≤ γ t` at the
 rounds `t < n`, `δ > 0` and every expert `m`, the probability that
-`log (1 / δ) ≤ 2 c ∑ t < n, (adv (O t) m ⬝ᵥ Ŷ t - ∑ a, adv (O t) m a * (1 - m t a))` is at most
+`log (1 / δ) ≤ 2 c ∑ t < n, (adv (O t) m ⬝ᵥ Ŷ t - ∑ a, adv (O t) m a * (1 - m t a))` is at most
 `δ`. -/
 theorem measure_le_mul_sum_dotProduct_sub_le (h : IsAlgEnvSeq O A Y (exp4IX adv hadv η γ) env P)
     (hY : ∀ᵐ ω ∂P, ∀ t < n, Y t ω ∈ Set.Icc 0 1) {c : ℝ} (hc : 0 ≤ c) (hcγ : ∀ t < n, c ≤ γ t)
@@ -129,10 +129,10 @@ theorem measure_le_mul_sum_dotProduct_sub_le (h : IsAlgEnvSeq O A Y (exp4IX adv 
   exact Finset.sum_congr rfl fun a _ ↦ by ring
 
 /-- **Concentration of the sums of the estimates** [Neu15, Lemma 1]. Along a run of Exp4-IX against
-any environment whose feedback at every round `t < n` is almost surely in `[0, 1]`, with `Ŷ t` the
+any environment whose feedback at every round `t < n` is almost surely in `[0, 1]`, with `Ŷ t` the
 implicit-exploration estimates of the losses `1 - Y t`, for weights `0 ≤ b t ≤ 2 γ t` at the
 rounds `t < n` and `δ > 0`, the probability that
-`k ∑ t < n, b t + log (1 / δ) ≤ ∑ t < n, b t * ∑ a, Ŷ t a` is at most `δ`, with `k` the number of
+`k ∑ t < n, b t + log (1 / δ) ≤ ∑ t < n, b t * ∑ a, Ŷ t a` is at most `δ`, with `k` the number of
 arms. -/
 theorem measure_add_le_sum_mul_sum_iwEstimator_le
     (h : IsAlgEnvSeq O A Y (exp4IX adv hadv η γ) env P)
