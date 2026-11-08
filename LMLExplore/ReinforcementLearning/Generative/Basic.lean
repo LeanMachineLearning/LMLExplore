@@ -7,6 +7,7 @@ module
 
 public import LMLExplore.MarkovDecisionProcess.Simulation
 public import LMLExplore.Probability.Kernel.Empirical
+import LMLExplore.MeasureTheory.MeasurableSpace.Constructions
 
 /-!
 # Planning with a generative model: the empirical MDP and crude bounds
@@ -47,6 +48,8 @@ gives the crude value bounds of [AJKS, Proposition 2.4]: with probability at lea
 
 ## Main statements
 
+* `Learning.MDP.measurable_comp_empirical`: for finite state and action spaces, every function of
+  the empirical MDP is a measurable function of the samples.
 * `Learning.MDP.le_streamMeasure_forall_tvDist_empirical_lt`: with probability at least `1 - δ`,
   the transition kernels of `M` and `M.empirical N ω` are within `η` in total variation.
 * `Learning.MDP.le_streamMeasure_forall_abs_qValue_sub_qValue_empirical_le`,
@@ -99,6 +102,21 @@ lemma empirical_P (M : MDP 𝓢 𝓐 𝓡) (N : ℕ) [NeZero N] (ω : ℕ → �
 lemma empirical_R (M : MDP 𝓢 𝓐 𝓡) (N : ℕ) [NeZero N] (ω : ℕ → 𝓢 × 𝓐 → 𝓢) :
     (M.empirical N ω).R = M.R :=
   (rfl)
+
+/-- The empirical MDP of the first `N` samples per pair only depends on these samples. -/
+lemma empirical_congr (M : MDP 𝓢 𝓐 𝓡) (N : ℕ) [NeZero N] {ω ω' : ℕ → 𝓢 × 𝓐 → 𝓢}
+    (h : ∀ i < N, ω i = ω' i) : M.empirical N ω = M.empirical N ω' :=
+  MDP.ext (by rw [empirical_P, empirical_P, empiricalKernel_congr h])
+    (by rw [empirical_R, empirical_R])
+
+/-- For finite state and action spaces, every function of the empirical MDP is a measurable
+function of the array of samples: the empirical MDP only depends on the finitely many samples
+`ω i p`, `i < N`, which take finitely many values. -/
+lemma measurable_comp_empirical [Finite 𝓢] [Finite 𝓐] (M : MDP 𝓢 𝓐 𝓡) (N : ℕ) [NeZero N]
+    {β : Type*} [MeasurableSpace β] (F : MDP 𝓢 𝓐 𝓡 → β) :
+    Measurable fun ω ↦ F (M.empirical N ω) :=
+  DependsOn.measurable_of_countable (Set.finite_Iio N) fun _ _ h ↦ by
+    rw [M.empirical_congr N fun i hi ↦ h i hi]
 
 end Countable
 
