@@ -41,6 +41,9 @@ eigenvalues. The ridge regularizer `λ • 1` is one for `λ > 0`
 * `LMLExplore.isPositive_designOp`: `V_t(V₀)` is positive for a positive `V₀`;
   `LMLExplore.mul_norm_sq_le_inner_designOp_apply`: `λ ‖v‖² ≤ ⟪v, V_t(λ) v⟫`.
 * `LMLExplore.isUnit_designOp`: `V_t(V₀)` is invertible for a positive definite `V₀`.
+* `LMLExplore.span_le_range_designOp`: for a positive `V₀`, the vectors `x s` with `s < t` lie in
+  the range of `V_t(V₀)`; `LMLExplore.range_designOp_zero`: the range of the unregularized design
+  operator `V_t(0)` is the span of `x 0, …, x (t - 1)`.
 * `LMLExplore.mul_inner_ringInverse_designOp_apply_le`: `λ ‖v‖²_{V_t(λ)⁻¹} ≤ ‖v‖²` for `λ > 0`.
 * `LMLExplore.ringInverse_designOp_succ`: the rank-one update of the inverse
   (Sherman–Morrison formula).
@@ -315,6 +318,35 @@ theorem log_det_designOp_div_pow_le (hlam : 0 < lam) (x : ℕ → E) {t : ℕ} {
   rwa [Real.pow_rpow_inv_natCast hlam.le hd.ne', show lam * finrank ℝ E + t * L ^ 2 =
     (finrank ℝ E * lam) * (1 + t * L ^ 2 / (lam * finrank ℝ E)) by field_simp,
     mul_div_cancel_left₀ _ (by positivity)] at h
+
+/-- For a positive regularizer `V₀`, the vectors `x s` with `s < t` lie in the range of the
+design operator `V_t(V₀)`: a vector `v` of its kernel satisfies
+`0 = ⟪v, V_t(V₀) v⟫ = ⟪v, V₀ v⟫ + ∑_{s < t} ⟪x s, v⟫²`, so it is orthogonal to each `x s`. -/
+theorem span_le_range_designOp (hV₀ : V₀.IsPositive) (x : ℕ → E) (t : ℕ) :
+    Submodule.span ℝ (x '' Set.Iio t) ≤ LinearMap.range (designOp V₀ x t : E →ₗ[ℝ] E) := by
+  have hV := (isPositive_designOp hV₀ x t).isSymmetric
+  rw [← Submodule.orthogonal_orthogonal (LinearMap.range _), hV.orthogonal_range,
+    Submodule.span_le]
+  rintro _ ⟨s, hs, rfl⟩
+  rw [SetLike.mem_coe, Submodule.mem_orthogonal]
+  intro v hv
+  have h := inner_designOp_apply_self V₀ x t v
+  rw [show designOp V₀ x t v = 0 from hv, inner_zero_right] at h
+  have hsum : ∑ s ∈ range t, ⟪x s, v⟫_ℝ ^ 2 = 0 :=
+    le_antisymm (by linarith [hV₀.inner_nonneg_right v]) (sum_nonneg fun _ _ ↦ sq_nonneg _)
+  rw [real_inner_comm]
+  exact pow_eq_zero_iff two_ne_zero |>.1 <|
+    (sum_eq_zero_iff_of_nonneg fun _ _ ↦ sq_nonneg _).1 hsum s (mem_range.2 hs)
+
+/-- The range of the unregularized design operator `V_t(0) = ∑_{s < t} x s ⊗ x s` is the span of
+`x 0, …, x (t - 1)`. -/
+theorem range_designOp_zero (x : ℕ → E) (t : ℕ) :
+    LinearMap.range (designOp 0 x t : E →ₗ[ℝ] E) = Submodule.span ℝ (x '' Set.Iio t) := by
+  refine le_antisymm ?_ (span_le_range_designOp isPositive_zero x t)
+  rintro _ ⟨v, rfl⟩
+  simp only [ContinuousLinearMap.coe_coe, designOp_apply, zero_apply, zero_add]
+  exact Submodule.sum_smul_mem _ _ fun s hs ↦
+    Submodule.subset_span ⟨s, Set.mem_Iio.2 (mem_range.1 hs), rfl⟩
 
 end FiniteDimensional
 
