@@ -548,9 +548,11 @@ the family with unique best arm `a`, `(μ', w) ↦ D(μ', w, ¬a)` is continuous
 `univ ×ˢ simplex α` at `(μ, w)` for every allocation `w` of the simplex. This is the continuity
 hypothesis of the continuity of the value and of the upper hemicontinuity of the optimal
 allocations (`IdentTask.continuousWithinAt_answerValue`,
-`IdentTask.upperHemicontinuousWithinAt_optAlloc`), and of the sample complexity bounds of
-Track-and-Stop (`IdentTask.eventually_expectedStoppingTime_trackAndStop_le_of_charTime_lt`,
-`IdentTask.eventually_expectedStoppingTime_cTrackAndStop_le_of_charTime_lt`). -/
+`IdentTask.upperHemicontinuousWithinAt_optAlloc`) and the hypothesis `h_cont` of the sample
+complexity bound of C-Track-and-Stop
+(`IdentTask.eventually_expectedStoppingTime_cTrackAndStop_le_of_charTime_lt`). At `w = w μ`, its
+`.lowerSemicontinuousWithinAt` gives the hypothesis `h_lsc` of the bound of Track-and-Stop
+(`IdentTask.eventually_expectedStoppingTime_trackAndStop_le_of_charTime_lt`). -/
 theorem continuousWithinAt_altCost_baiTask_restrict (hT : ∀ c, ¬ T =ᵐ[ρ] fun _ ↦ c)
     (hν : ∀ μ μ' : α → ℝ, (∀ c, μ c ∈ ρ.expFamilyMeans T) → (∀ c, μ' c ∈ ρ.expFamilyMeans T) →
       ∀ c, klDiv (ν μ c) (ν μ' c) = ENNReal.ofReal (ρ.expFamilyDiv T (μ c) (μ' c)))
