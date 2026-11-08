@@ -44,6 +44,8 @@ convergence and a pointwise limit of measurable functions is measurable.
 * `LMLExplore.boundedMeasurable.sub_apply_le_orderUnitOsc_one`,
   `LMLExplore.boundedMeasurable.orderUnitOsc_one_le_of_forall_sub_le`: the oscillation of `f` for
   `1` is the least bound on the differences `f x - f y`.
+* `LMLExplore.boundedMeasurable.orderUnitOsc_one_eq_zero_iff`: the functions of oscillation zero
+  are the constants.
 -/
 
 public section
@@ -258,6 +260,22 @@ theorem orderUnitOsc_one_le_of_forall_sub_le {f : boundedMeasurable α} {c : ℝ
     simp only [coeFn_smul, coeFn_one, Pi.smul_apply, Pi.one_apply, smul_eq_mul, mul_one]
   · exact (mem_Icc_ciInf_of_forall_sub_le h x).1
   · exact (mem_Icc_ciInf_of_forall_sub_le h x).2
+
+/-- A bounded measurable function has oscillation zero for the constant function `1` if and only
+if it is constant. -/
+theorem orderUnitOsc_one_eq_zero_iff {f : boundedMeasurable α} :
+    orderUnitOsc 1 f = 0 ↔ ∃ c : ℝ, f = c • 1 := by
+  refine ⟨fun hf ↦ ?_, ?_⟩
+  · rcases isEmpty_or_nonempty α with hα | ⟨⟨x₀⟩⟩
+    · exact ⟨0, ext fun x ↦ isEmptyElim x⟩
+    refine ⟨(f : ℓ^∞(α, ℝ)) x₀, ext fun x ↦ ?_⟩
+    have h₁ := sub_apply_le_orderUnitOsc_one f x x₀
+    have h₂ := sub_apply_le_orderUnitOsc_one f x₀ x
+    simp only [coeFn_smul, coeFn_one, Pi.smul_apply, Pi.one_apply, smul_eq_mul, mul_one]
+    linarith
+  · rintro ⟨c, rfl⟩
+    exact (orderUnitOsc_one_le_of_forall_sub_le le_rfl fun x y ↦ by simp).antisymm
+      (orderUnitOsc_nonneg _ _)
 
 end boundedMeasurable
 
