@@ -8,6 +8,7 @@ module
 public import Mathlib.Algebra.BigOperators.Field
 public import Mathlib.Algebra.BigOperators.Group.Finset.Indicator
 public import Mathlib.Algebra.Order.BigOperators.Group.Finset
+public import Mathlib.Algebra.Order.BigOperators.Ring.Finset
 public import Mathlib.Algebra.Order.Group.Indicator
 public import Mathlib.Analysis.Convex.Basic
 public import Mathlib.Basic.ENNReal.BigOperators
@@ -61,6 +62,8 @@ supported distributions, not a subset of `α → ℝ`.
   `w a c a ≤ (∑ b, (c b)⁻¹)⁻¹`, and the vector proportional to `c⁻¹`
   (`LMLExplore.inv_div_sum_inv_mem_simplex`) is the only one with `w a c a` at least this value
   for all `a`: it is the unique maximizer of `w ↦ min_a w a c a` on the simplex.
+* `LMLExplore.sq_dotProduct_le_dotProduct_sq_of_mem_simplex`: Jensen's inequality for the square,
+  `(w ⬝ᵥ v) ^ 2 ≤ w ⬝ᵥ v ^ 2` for every vector `w` of the simplex.
 * `LMLExplore.sum_inv_pos`: for positive weights `c` on a nonempty type, `0 < ∑ b, (c b)⁻¹`.
 * `LMLExplore.iInf_ofReal_inv_div_sum_inv_mul`: at the vector proportional to `c⁻¹`, the smallest
   weighted entry `min_a w a c a` is `(∑ b, (c b)⁻¹)⁻¹`.
@@ -293,6 +296,15 @@ lemma sum_mul_pos_of_mem_simplex (hw : w ∈ simplex α) (hc : ∀ a, 0 < c a) :
   obtain ⟨a, -, ha⟩ := Finset.exists_ne_zero_of_sum_ne_zero (hw.2.trans_ne one_ne_zero)
   exact Finset.sum_pos' (fun b _ ↦ mul_nonneg (hw.1 b) (hc b).le)
     ⟨a, Finset.mem_univ a, mul_pos ((hw.1 a).lt_of_ne' ha) (hc a)⟩
+
+/-- **Jensen's inequality for the square on the simplex**: the square of an average `w ⬝ᵥ v` with
+weights `w` of the simplex is at most the average `w ⬝ᵥ v ^ 2` of the squares. -/
+lemma sq_dotProduct_le_dotProduct_sq_of_mem_simplex (hw : w ∈ simplex α) (v : α → ℝ) :
+    (w ⬝ᵥ v) ^ 2 ≤ w ⬝ᵥ v ^ 2 := by
+  have h := Finset.sum_sq_le_sum_mul_sum_of_sq_le_mul Finset.univ (r := fun a ↦ w a * v a)
+    (fun a _ ↦ hw.1 a) (fun a _ ↦ mul_nonneg (hw.1 a) (sq_nonneg (v a)))
+    (fun a _ ↦ by rw [mul_pow, sq, mul_assoc])
+  rwa [hw.2, one_mul] at h
 
 /-- For positive weights `c` on a nonempty type, the sum of the inverses `∑ b, (c b)⁻¹` is
 positive. -/

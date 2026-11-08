@@ -170,9 +170,7 @@ lemma measurable_exp4Sum (η : ℝ) (n : ℕ) :
     rw [funext exp4Sum_zero]
     exact measurable_const
   | succ n ih =>
-    have hinit : Measurable fun h : Hist (β → simplex α) α ℝ (n + 1) ↦ Fin.init h :=
-      Measurable.of_eval fun i ↦ measurable_pi_apply _
-    have hS := ih.comp hinit
+    have hS := ih.comp (measurable_finInit (β := fun _ ↦ _))
     have hlast : Measurable fun h : Hist (β → simplex α) α ℝ (n + 1) ↦ h (Fin.last n) :=
       measurable_pi_apply _
     have hobs := Round.measurable_obs.comp hlast

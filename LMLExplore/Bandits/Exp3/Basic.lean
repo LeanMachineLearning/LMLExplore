@@ -122,9 +122,7 @@ lemma measurable_exp3Sum (η : ℝ) (n : ℕ) : Measurable (exp3Sum (𝓞 := �
     rw [funext exp3Sum_zero]
     exact measurable_const
   | succ n ih =>
-    have hinit : Measurable fun h : Hist 𝓞 α ℝ (n + 1) ↦ Fin.init h :=
-      Measurable.of_eval fun i ↦ measurable_pi_apply _
-    have hS := ih.comp hinit
+    have hS := ih.comp (measurable_finInit (β := fun _ ↦ _))
     have hlast : Measurable fun h : Hist 𝓞 α ℝ (n + 1) ↦ h (Fin.last n) := measurable_pi_apply _
     rw [funext (exp3Sum_succ n)]
     simp_rw [exp3Weights_def]
