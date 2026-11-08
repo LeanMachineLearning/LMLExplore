@@ -218,10 +218,8 @@ theorem integral_regret_le_two_mul_sqrt_add_of_forall_integral_pullCount_le
     set s := √(C * Fintype.card α * n) with hs_def
     have hs : 0 < s := Real.sqrt_pos.mpr (mul_pos hCk hn')
     have hs_sq : s ^ 2 = C * Fintype.card α * n := Real.sq_sqrt (mul_pos hCk hn').le
-    have hδC : C * Fintype.card α ≤ n * (s / n) ^ 2 := by
-      rw [div_pow, hs_sq]
-      field_simp
-      rfl
+    have hδC : C * Fintype.card α ≤ n * (s / n) ^ 2 :=
+      le_of_eq (by rw [div_pow, hs_sq]; field_simp)
     refine (h_bound (div_pos hs hn') hδC).trans_eq ?_
     field_simp
     linear_combination -hs_sq
