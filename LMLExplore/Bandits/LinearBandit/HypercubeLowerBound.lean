@@ -7,6 +7,7 @@ module
 
 public import LMLExplore.Algebra.Order.BigOperators.SignFlip
 public import LMLExplore.Bandits.LinearBandit.DivergenceDecomposition
+public import LMLExplore.MeasureTheory.Function.SpecialFunctions.Inner
 public import LeanMachineLearning.SequentialLearning.IonescuTulceaSpace
 
 /-!
@@ -116,18 +117,11 @@ private lemma mul_sum_indicator_le_iSup_inner_sub_inner (hΔ : 0 ≤ Δ) (hs : �
 
 variable [MeasurableSpace E] [OpensMeasurableSpace E]
 
-/-- The inner product of a fixed vector with a measurable feature map is measurable. Unlike
-`Measurable.const_inner`, this needs no second countability of `E`, since the inner product with a
-fixed vector is continuous. -/
-private lemma measurable_inner_comp (hφ : Measurable φ) (v : E) :
-    Measurable fun a ↦ ⟪v, φ a⟫_ℝ :=
-  (continuous_const.inner continuous_id).measurable.comp hφ
-
 /-- The set of actions whose feature has a nonpositive `i`-th coordinate times `s i` in the basis
 `b` is measurable. -/
 private lemma measurableSet_mul_inner_nonpos (hφ : Measurable φ) (b : OrthonormalBasis ι ℝ E)
     (s : ι → ℝ) (i : ι) : MeasurableSet {x | s i * ⟪b i, φ x⟫_ℝ ≤ 0} :=
-  measurableSet_le ((measurable_inner_comp hφ (b i)).const_mul (s i)) measurable_const
+  measurableSet_le ((hφ.const_inner' (b i)).const_mul (s i)) measurable_const
 
 /-- The expected regret of a run against a parameter with coordinates `Δ * s i`, for signs `s i`
 and features in the hypercube that contains the vertex `s`, is at least `Δ` times the expected
@@ -148,7 +142,7 @@ private lemma mul_sum_sum_measureReal_le_integral_linearRegret {Ω : Type*} {mΩ
   have hreg : Integrable (fun ω ↦ linearRegret (fun _ ↦ φ) θ O A n ω) P := by
     simp_rw [linearRegret_def]
     refine integrable_finsetSum _ fun t _ ↦ (integrable_const _).sub ?_
-    refine Integrable.of_bound ((measurable_inner_comp hφ θ).comp (hA t)).aestronglyMeasurable
+    refine Integrable.of_bound ((hφ.const_inner' θ).comp (hA t)).aestronglyMeasurable
       (Δ * Fintype.card ι) (ae_of_all _ fun ω ↦ ?_)
     rw [Real.norm_eq_abs]
     exact abs_inner_le_of_inner_basis hΔ hs hθ (hcube _)
@@ -239,7 +233,7 @@ theorem exists_le_integral_linearRegret_gaussianLinearEnv (alg : Algorithm Unit 
   have habs (ε : ι → Bool) (i : ι) : |⟪b i, θ ε⟫_ℝ| = Δ := by
     rw [hθ, abs_mul, abs_of_nonneg hΔ0, hsg, mul_one]
   have hθm (ε : ι → Bool) : Measurable fun p : Unit × 𝓐 ↦ ⟪θ ε, φ p.2⟫_ℝ :=
-    (measurable_inner_comp hφ (θ ε)).comp measurable_snd
+    (hφ.const_inner' (θ ε)).comp measurable_snd
   have hrun (ε : ι → Bool) := IT.isAlgEnvSeq_trajMeasure alg
     (gaussianLinearEnv (Measure.dirac ()) (fun _ ↦ φ) (θ ε) σ2 (hθm ε))
   -- `f ε i`: the expected number of rounds at which the `i`-th coordinate has the wrong sign
