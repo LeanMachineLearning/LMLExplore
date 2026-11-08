@@ -41,6 +41,8 @@ eigenvalues. The ridge regularizer `λ • 1` is one for `λ > 0`
 * `LMLExplore.isPositive_designOp`: `V_t(V₀)` is positive for a positive `V₀`;
   `LMLExplore.mul_norm_sq_le_inner_designOp_apply`: `λ ‖v‖² ≤ ⟪v, V_t(λ) v⟫`.
 * `LMLExplore.isUnit_designOp`: `V_t(V₀)` is invertible for a positive definite `V₀`.
+* `LMLExplore.span_le_orthogonal_singleton_of_sum_inner_sq_eq_zero`: a vector `w` with
+  `∑_{s < t} ⟪x s, w⟫² = 0` is orthogonal to the span of `x 0, …, x (t - 1)`.
 * `LMLExplore.span_le_range_designOp`: for a positive `V₀`, the vectors `x s` with `s < t` lie in
   the range of `V_t(V₀)`; `LMLExplore.range_designOp_zero`: the range of the unregularized design
   operator `V_t(0)` is the span of `x 0, …, x (t - 1)`.
@@ -201,6 +203,16 @@ theorem ringInverse_designOp_succ (hV₀ : V₀.IsPositive) (hV₀u : IsUnit V�
     (isPositive_designOp hV₀ x t).isSymmetric (x t) (x t)
     ((isPositive_designOp hV₀ x t).one_add_inner_ringInverse_pos _).ne'
 
+/-- If `∑_{s < t} ⟪x s, w⟫² = 0`, then `w` is orthogonal to the span of `x 0, …, x (t - 1)`. -/
+theorem span_le_orthogonal_singleton_of_sum_inner_sq_eq_zero {x : ℕ → E} {t : ℕ} {w : E}
+    (h : ∑ s ∈ range t, ⟪x s, w⟫_ℝ ^ 2 = 0) :
+    Submodule.span ℝ (x '' Set.Iio t) ≤ (ℝ ∙ w)ᗮ := by
+  rw [Submodule.span_le]
+  rintro _ ⟨s, hs, rfl⟩
+  rw [SetLike.mem_coe, Submodule.mem_orthogonal_singleton_iff_inner_right, real_inner_comm]
+  exact pow_eq_zero_iff two_ne_zero |>.1 <|
+    (sum_eq_zero_iff_of_nonneg fun _ _ ↦ sq_nonneg _).1 h s (mem_range.2 hs)
+
 section FiniteDimensional
 
 variable [FiniteDimensional ℝ E]
@@ -320,23 +332,23 @@ theorem log_det_designOp_div_pow_le (hlam : 0 < lam) (x : ℕ → E) {t : ℕ} {
     mul_div_cancel_left₀ _ (by positivity)] at h
 
 /-- For a positive regularizer `V₀`, the vectors `x s` with `s < t` lie in the range of the
-design operator `V_t(V₀)`: a vector `v` of its kernel satisfies
-`0 = ⟪v, V_t(V₀) v⟫ = ⟪v, V₀ v⟫ + ∑_{s < t} ⟪x s, v⟫²`, so it is orthogonal to each `x s`. -/
+design operator `V_t(V₀)`. -/
 theorem span_le_range_designOp (hV₀ : V₀.IsPositive) (x : ℕ → E) (t : ℕ) :
     Submodule.span ℝ (x '' Set.Iio t) ≤ LinearMap.range (designOp V₀ x t : E →ₗ[ℝ] E) := by
   have hV := (isPositive_designOp hV₀ x t).isSymmetric
-  rw [← Submodule.orthogonal_orthogonal (LinearMap.range _), hV.orthogonal_range,
-    Submodule.span_le]
-  rintro _ ⟨s, hs, rfl⟩
-  rw [SetLike.mem_coe, Submodule.mem_orthogonal]
+  rw [← Submodule.orthogonal_orthogonal (LinearMap.range _), hV.orthogonal_range]
+  intro u hu
+  rw [Submodule.mem_orthogonal]
   intro v hv
+  rw [LinearMap.mem_ker, ContinuousLinearMap.coe_coe] at hv
+  -- a vector `v` of the kernel satisfies `0 = ⟪v, V_t(V₀) v⟫ = ⟪v, V₀ v⟫ + ∑_{s < t} ⟪x s, v⟫²`,
+  -- so it is orthogonal to each `x s`
   have h := inner_designOp_apply_self V₀ x t v
-  rw [show designOp V₀ x t v = 0 from hv, inner_zero_right] at h
+  rw [hv, inner_zero_right] at h
   have hsum : ∑ s ∈ range t, ⟪x s, v⟫_ℝ ^ 2 = 0 :=
     le_antisymm (by linarith [hV₀.inner_nonneg_right v]) (sum_nonneg fun _ _ ↦ sq_nonneg _)
-  rw [real_inner_comm]
-  exact pow_eq_zero_iff two_ne_zero |>.1 <|
-    (sum_eq_zero_iff_of_nonneg fun _ _ ↦ sq_nonneg _).1 hsum s (mem_range.2 hs)
+  exact Submodule.mem_orthogonal_singleton_iff_inner_right.1
+    (span_le_orthogonal_singleton_of_sum_inner_sq_eq_zero hsum hu)
 
 /-- The range of the unregularized design operator `V_t(0) = ∑_{s < t} x s ⊗ x s` is the span of
 `x 0, …, x (t - 1)`. -/

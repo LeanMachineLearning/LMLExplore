@@ -8,7 +8,7 @@ module
 public import TauCeti.Analysis.InnerProductSpace.Symmetric.Range
 
 /-!
-# The Moore–Penrose inverse of positive operators
+# Moore–Penrose inverses: range projections, and symmetric and positive operators
 
 Tau Ceti's `LinearMap.moorePenroseInverse A`, written `A⁺`, is the Moore–Penrose inverse of a
 linear map between finite-dimensional inner product spaces. This file adds the facts that let it
@@ -30,10 +30,10 @@ singular, as for the Gram operator of unregularized least squares or of a design
 * `LinearMap.IsSymmetric.moorePenroseInverse`, `LinearMap.IsPositive.moorePenroseInverse`: the
   Moore–Penrose inverse of a symmetric (positive) operator is symmetric (positive).
 * `LinearMap.IsSymmetric.range_moorePenroseInverse`: `V⁺` and a symmetric `V` have the same
-  range, and `LinearMap.IsSymmetric.moorePenroseInverse_apply_apply`: `V⁺ (V v) = v` for `v` in
-  that range.
-* `LinearMap.IsPositive.inner_moorePenroseInverse_apply_pos`: for a positive `V`,
-  `0 < ⟪v, V⁺ v⟫` for every nonzero `v` in the range of `V`.
+  range, and `LinearMap.IsSymmetric.moorePenroseInverse_apply_apply_of_mem_range`:
+  `V⁺ (V v) = v` for `v` in that range.
+* `LinearMap.IsPositive.re_inner_moorePenroseInverse_apply_pos`: for a positive `V`,
+  `0 < re ⟪v, V⁺ v⟫` for every nonzero `v` in the range of `V`.
 
 ## References
 
@@ -100,8 +100,8 @@ theorem IsSymmetric.moorePenroseInverse (hV : V.IsSymmetric) :
 
 /-- The Moore–Penrose inverse of a symmetric operator `V` inverts `V` on its range:
 `V⁺ (V v) = v` for `v` in the range of `V`. -/
-theorem IsSymmetric.moorePenroseInverse_apply_apply (hV : V.IsSymmetric) {v : E}
-    (hv : v ∈ range V) : V.moorePenroseInverse (V v) = v := by
+theorem IsSymmetric.moorePenroseInverse_apply_apply_of_mem_range (hV : V.IsSymmetric)
+    {v : E} (hv : v ∈ range V) : V.moorePenroseInverse (V v) = v := by
   have hVv : (range V).orthogonalProjectionOnto (V v) = hV.rangeEquiv ⟨v, hv⟩ :=
     Subtype.ext (by simp [Submodule.starProjection_eq_self_iff.2 (mem_range_self V v)])
   rw [hV.moorePenroseInverse_eq_rangeEquiv_symm_comp]
@@ -110,7 +110,8 @@ theorem IsSymmetric.moorePenroseInverse_apply_apply (hV : V.IsSymmetric) {v : E}
 /-- The Moore–Penrose inverse of a symmetric operator has the same range as the operator. -/
 theorem IsSymmetric.range_moorePenroseInverse (hV : V.IsSymmetric) :
     range V.moorePenroseInverse = range V := by
-  refine le_antisymm ?_ fun v hv ↦ ⟨V v, hV.moorePenroseInverse_apply_apply hv⟩
+  refine le_antisymm ?_ fun v hv ↦
+    ⟨V v, hV.moorePenroseInverse_apply_apply_of_mem_range hv⟩
   rintro _ ⟨y, rfl⟩
   rw [hV.moorePenroseInverse_eq_rangeEquiv_symm_comp]
   exact Submodule.coe_mem _
@@ -124,9 +125,9 @@ theorem IsPositive.moorePenroseInverse (hV : V.IsPositive) :
   rw [← V.isMoorePenroseInverse_moorePenroseInverse.apply_apply_apply' y, hsymm]
   exact hV.inner_nonneg_left _
 
-/-- For a positive operator `V`, the weighted norm `‖v‖²_{V⁺} = ⟪v, V⁺ v⟫` is positive on the
-nonzero vectors of the range of `V`. -/
-theorem IsPositive.inner_moorePenroseInverse_apply_pos (hV : V.IsPositive) {v : E}
+/-- For a positive operator `V`, the weighted norm `‖v‖²_{V⁺} = re ⟪v, V⁺ v⟫` is positive on
+the nonzero vectors of the range of `V`. -/
+theorem IsPositive.re_inner_moorePenroseInverse_apply_pos (hV : V.IsPositive) {v : E}
     (hv : v ∈ range V) (hv0 : v ≠ 0) : 0 < RCLike.re ⟪v, V.moorePenroseInverse v⟫_𝕜 := by
   rw [← hV.isSymmetric.moorePenroseInverse]
   exact hV.moorePenroseInverse.re_inner_pos_of_mem_range

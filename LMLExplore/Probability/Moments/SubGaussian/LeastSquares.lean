@@ -69,10 +69,9 @@ theorem hasSubgaussianMGF_inner_leastSquaresEstimate_sub (h_indep : iIndepFun η
   refine NNReal.eq ?_
   rw [NNReal.coe_mul, Real.coe_toNNReal _ hw, NNReal.coe_sum,
     ← sum_inner_moorePenroseInverse_designOp_sq, sum_mul]
-  -- `HasSubgaussianMGF.const_mul` writes its constant `r ^ 2` as an element of the subtype
-  -- `{r // 0 ≤ r}`, on which `NNReal.coe_mul` does not fire; its coercion is `r ^ 2 * σ2` by
-  -- definition
-  rfl
+  -- `HasSubgaussianMGF.const_mul` writes its constant `r ^ 2` as the literal `⟨r ^ 2, _⟩`, on
+  -- which `rw [NNReal.coe_mul]` does not fire, so the lemma is applied to it explicitly
+  exact sum_congr rfl fun s _ ↦ (NNReal.coe_mul ⟨c s ^ 2, sq_nonneg _⟩ σ2).symm
 
 /-- **Fixed-design confidence bound of least squares** [LS, (20.2)]: in the linear model
 `Y s = ⟪θ, x s⟫ + η s` with a fixed design `x` and independent σ²-sub-Gaussian noise, `σ² ≠ 0`,

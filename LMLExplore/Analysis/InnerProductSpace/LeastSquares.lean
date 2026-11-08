@@ -143,14 +143,9 @@ theorem norm_sq_eq_norm_sq_leastSquaresEstimate_add_of_ridgeLoss_le {θ : E}
     inner_designOp_smul_one_apply_self, zero_mul, zero_add] at h
   have hsum : ∑ s ∈ range t, ⟪x s, θ - u⟫_ℝ ^ 2 = 0 :=
     le_antisymm (by linarith) (sum_nonneg fun _ _ ↦ sq_nonneg _)
-  have horth : Submodule.span ℝ (x '' Set.Iio t) ≤ (ℝ ∙ (θ - u))ᗮ := by
-    rw [Submodule.span_le]
-    rintro _ ⟨s, hs, rfl⟩
-    rw [SetLike.mem_coe, Submodule.mem_orthogonal_singleton_iff_inner_right, real_inner_comm]
-    exact pow_eq_zero_iff two_ne_zero |>.1 <|
-      (sum_eq_zero_iff_of_nonneg fun _ _ ↦ sq_nonneg _).1 hsum s (mem_range.2 hs)
   have h0 := Submodule.mem_orthogonal_singleton_iff_inner_right.1
-    (horth (leastSquaresEstimate_zero_mem_span x y t))
+    (span_le_orthogonal_singleton_of_sum_inner_sq_eq_zero hsum
+      (leastSquaresEstimate_zero_mem_span x y t))
   have := norm_add_sq_real u (θ - u)
   rw [add_sub_cancel, real_inner_comm, h0] at this
   linarith
@@ -178,7 +173,8 @@ theorem eq_leastSquaresEstimate_of_ridgeLoss_le_of_norm_le {θ : E}
 /-! ### The linear model with a fixed design -/
 
 /-- The weighted norm `‖v‖²_{V_t⁺}` of the unregularized design operator `V_t = V_t(0)` is the
-squared norm of the coefficients of `v` on the covariates:
+squared norm of the coefficients `⟪V_t⁺ v, x s⟫` of the orthogonal projection of `v` onto the
+span of the covariates, `V_t V_t⁺ v = ∑_{s < t} ⟪V_t⁺ v, x s⟫ • x s`:
 `∑_{s < t} ⟪V_t⁺ v, x s⟫² = ⟪v, V_t⁺ v⟫`. -/
 theorem sum_inner_moorePenroseInverse_designOp_sq (x : ℕ → E) (t : ℕ) (v : E) :
     ∑ s ∈ range t, ⟪(designOp 0 x t : E →ₗ[ℝ] E).moorePenroseInverse v, x s⟫_ℝ ^ 2 =
@@ -198,7 +194,7 @@ nonzero `v` in the span of the covariates. -/
 theorem inner_moorePenroseInverse_designOp_pos {v : E}
     (hv : v ∈ Submodule.span ℝ (x '' Set.Iio t)) (hv0 : v ≠ 0) :
     0 < ⟪v, (designOp 0 x t : E →ₗ[ℝ] E).moorePenroseInverse v⟫_ℝ :=
-  (isPositive_designOp isPositive_zero x t).toLinearMap.inner_moorePenroseInverse_apply_pos
+  (isPositive_designOp isPositive_zero x t).toLinearMap.re_inner_moorePenroseInverse_apply_pos
     (range_designOp_zero x t ▸ hv) hv0
 
 /-- **Error of the unregularized least-squares estimate** in the linear model
