@@ -5,11 +5,8 @@ Authors: Rémy Degenne
 -/
 module
 
-public import LMLExplore.Bandits.LinearBandit
-public import LMLExplore.InformationTheory.KullbackLeibler.Gaussian
-public import LMLExplore.SequentialLearning.BretagnolleHuber
-public import LMLExplore.SequentialLearning.Environments.Stationary
-public import LeanMachineLearning.SequentialLearning.DivergenceDecomposition
+public import LMLExplore.Algebra.Order.BigOperators.SignFlip
+public import LMLExplore.Bandits.LinearBandit.DivergenceDecomposition
 public import LeanMachineLearning.SequentialLearning.IonescuTulceaSpace
 
 /-!
@@ -28,23 +25,17 @@ sign of their `i`-th coordinate. In a round in which the `i`-th coordinate of th
 does not have the sign of `⟪b i, θ⟫`, the algorithm loses at least `√(σ² / n)` against `θ`; and
 an action loses in this way against `θ` or against `θ'`. The relative entropy between the laws of
 the histories of the first `n` rounds against `θ` and `θ'` is
-`∑_{t < n} E[⟪θ - θ', X_t⟫²] / (2σ²) ≤ 2`, so by the Bretagnolle–Huber inequality, summed over
-the rounds, the expected numbers of such rounds against `θ` and against `θ'` add up to at least
-`n e^{-2} / 2`. Averaging over the `2^d` sign patterns gives a parameter for which the expected
-numbers of such rounds, summed over the coordinates, are at least `d n e^{-2} / 4`. Applying the
+`∑_{t < n} E[⟪θ - θ', X_t⟫²] / (2σ²) ≤ 2` by the divergence decomposition of
+`LMLExplore.Bandits.LinearBandit.DivergenceDecomposition`, so by the Bretagnolle–Huber
+inequality, summed over the rounds, the expected numbers of such rounds against `θ` and against
+`θ'` add up to at least `n e^{-2} / 2`. Averaging over the `2^d` sign patterns
+(`Fintype.exists_card_mul_div_two_le_sum`) gives a parameter for which the expected numbers of
+such rounds, summed over the coordinates, are at least `d n e^{-2} / 4`. Applying the
 Bretagnolle–Huber inequality round by round, instead of to the event that a coordinate has the
 wrong sign in at least half of the rounds, gives twice the constant of [LS].
 
 ## Main statements
 
-* `Learning.IsAlgEnvSeq.klDiv_map_history_gaussianLinearEnv`: the divergence decomposition for a
-  linear bandit with a fixed action set and Gaussian noise: the relative entropy between the laws
-  of the histories of the first `n` rounds against the parameters `θ` and `θ'` is
-  `∑_{t < n} E[⟪θ - θ', X_t⟫² / (2σ²)]`, for the features `X_t` of the actions played.
-* `Learning.IsAlgEnvSeq.klDiv_map_history_gaussianLinearEnv_le`: it is at most `n δ / (2σ²)` when
-  `⟪θ - θ', x⟫² ≤ δ` for every feature `x`.
-* `Learning.IsAlgEnvSeq.mul_exp_neg_div_two_le_sum_gaussianLinearEnv`: the Bretagnolle–Huber
-  inequality, summed over the rounds, for two such parameters.
 * `LMLExplore.Bandits.exists_le_integral_linearRegret_gaussianLinearEnv`: the lower bound for
   features between the vertices and the hypercube of an orthonormal basis.
 * `LMLExplore.Bandits.exists_le_integral_linearRegret_gaussianLinearEnv_cube`: the lower bound
@@ -65,78 +56,6 @@ namespace LMLExplore.Bandits
 
 variable {ι 𝓐 E : Type*} [MeasurableSpace 𝓐] [NormedAddCommGroup E] [InnerProductSpace ℝ E]
   {φ : 𝓐 → E} {σ2 : ℝ≥0}
-
-section Divergence
-
-variable {Ω Ω' : Type*} {mΩ : MeasurableSpace Ω} {mΩ' : MeasurableSpace Ω'}
-  {P : Measure Ω} {P' : Measure Ω'} [IsProbabilityMeasure P] [IsProbabilityMeasure P']
-  {O : ℕ → Ω → Unit} {A : ℕ → Ω → 𝓐} {Y : ℕ → Ω → ℝ}
-  {O' : ℕ → Ω' → Unit} {A' : ℕ → Ω' → 𝓐} {Y' : ℕ → Ω' → ℝ} {alg : Algorithm Unit 𝓐 ℝ}
-  {θ θ' : E} {hθ : Measurable fun p : Unit × 𝓐 ↦ ⟪θ, φ p.2⟫_ℝ}
-  {hθ' : Measurable fun p : Unit × 𝓐 ↦ ⟪θ', φ p.2⟫_ℝ}
-
-/-- **Divergence decomposition for linear bandits with Gaussian noise.** Run an algorithm against
-the Gaussian linear environments with a fixed action set, features `φ`, variance `σ2 ≠ 0` and
-parameters `θ` and `θ'`. The relative entropy between the laws of the histories of the first `n`
-rounds is `∑_{t < n} E[⟪θ - θ', φ (A t)⟫² / (2σ²)]`, the expectation being under the run against
-`θ`. -/
-theorem _root_.Learning.IsAlgEnvSeq.klDiv_map_history_gaussianLinearEnv
-    (h : IsAlgEnvSeq O A Y alg (gaussianLinearEnv (Measure.dirac ()) (fun _ ↦ φ) θ σ2 hθ) P)
-    (h' : IsAlgEnvSeq O' A' Y' alg (gaussianLinearEnv (Measure.dirac ()) (fun _ ↦ φ) θ' σ2 hθ')
-      P')
-    (hσ2 : σ2 ≠ 0) (n : ℕ) :
-    klDiv (P.map (history O A Y n)) (P'.map (history O' A' Y' n)) =
-      ∑ t ∈ range n, ∫⁻ ω, ENNReal.ofReal (⟪θ - θ', φ (A t ω)⟫_ℝ ^ 2 / (2 * σ2)) ∂P := by
-  rw [gaussianLinearEnv_def, Environment.stationary_dirac_unit_eq_bandit] at h h'
-  rw [h.klDiv_map_history_bandit h']
-  refine sum_congr rfl fun t _ ↦ lintegral_congr fun ω ↦ ?_
-  rw [Kernel.comap_apply, Kernel.comap_apply, gaussianLinearKernel_apply,
-    gaussianLinearKernel_apply, klDiv_gaussianReal_gaussianReal_same_var hσ2, inner_sub_left]
-
-/-- If `⟪θ - θ', x⟫² ≤ δ` for every feature `x`, the relative entropy between the laws of the
-histories of the first `n` rounds of an algorithm against the Gaussian linear environments with
-parameters `θ` and `θ'` and variance `σ2 ≠ 0` is at most `n δ / (2σ²)`. -/
-theorem _root_.Learning.IsAlgEnvSeq.klDiv_map_history_gaussianLinearEnv_le
-    (h : IsAlgEnvSeq O A Y alg (gaussianLinearEnv (Measure.dirac ()) (fun _ ↦ φ) θ σ2 hθ) P)
-    (h' : IsAlgEnvSeq O' A' Y' alg (gaussianLinearEnv (Measure.dirac ()) (fun _ ↦ φ) θ' σ2 hθ')
-      P')
-    (hσ2 : σ2 ≠ 0) {δ : ℝ} (hδ : ∀ a, ⟪θ - θ', φ a⟫_ℝ ^ 2 ≤ δ) (n : ℕ) :
-    klDiv (P.map (history O A Y n)) (P'.map (history O' A' Y' n)) ≤
-      ENNReal.ofReal (n * δ / (2 * σ2)) := by
-  rw [h.klDiv_map_history_gaussianLinearEnv h' hσ2]
-  calc ∑ t ∈ range n, ∫⁻ ω, ENNReal.ofReal (⟪θ - θ', φ (A t ω)⟫_ℝ ^ 2 / (2 * σ2)) ∂P
-      ≤ ∑ t ∈ range n, ENNReal.ofReal (δ / (2 * σ2)) := by
-        refine sum_le_sum fun t _ ↦ ?_
-        calc ∫⁻ ω, ENNReal.ofReal (⟪θ - θ', φ (A t ω)⟫_ℝ ^ 2 / (2 * σ2)) ∂P
-            ≤ ∫⁻ _, ENNReal.ofReal (δ / (2 * σ2)) ∂P :=
-              lintegral_mono fun ω ↦ ENNReal.ofReal_le_ofReal (by gcongr; exact hδ _)
-          _ = ENNReal.ofReal (δ / (2 * σ2)) := by simp
-    _ = ENNReal.ofReal (n * δ / (2 * σ2)) := by
-        rw [sum_const, card_range, nsmul_eq_mul, ← ENNReal.ofReal_natCast,
-          ← ENNReal.ofReal_mul (Nat.cast_nonneg n), mul_div_assoc]
-
-/-- **Bretagnolle–Huber inequality for linear bandits with Gaussian noise.** If `⟪θ - θ', x⟫² ≤ δ`
-for every feature `x`, then for a measurable set `S` of actions, the expected number of rounds
-`t < n` with `A t ∈ S` in the run against `θ` plus the expected number of rounds `t < n` with
-`A' t ∉ S` in the run against `θ'` is at least `n exp (-n δ / (2σ²)) / 2`. -/
-theorem _root_.Learning.IsAlgEnvSeq.mul_exp_neg_div_two_le_sum_gaussianLinearEnv
-    (h : IsAlgEnvSeq O A Y alg (gaussianLinearEnv (Measure.dirac ()) (fun _ ↦ φ) θ σ2 hθ) P)
-    (h' : IsAlgEnvSeq O' A' Y' alg (gaussianLinearEnv (Measure.dirac ()) (fun _ ↦ φ) θ' σ2 hθ')
-      P')
-    (hσ2 : σ2 ≠ 0) {δ : ℝ} (hδ : ∀ a, ⟪θ - θ', φ a⟫_ℝ ^ 2 ≤ δ) (n : ℕ) {S : Set 𝓐}
-    (hS : MeasurableSet S) :
-    n * exp (-(n * δ / (2 * σ2))) / 2 ≤
-      ∑ t ∈ range n, P.real (A t ⁻¹' S) + ∑ t ∈ range n, P'.real (A' t ⁻¹' Sᶜ) := by
-  have hkl := h.klDiv_map_history_gaussianLinearEnv_le h' hσ2 hδ n
-  have hbh := mul_exp_neg_klDiv_map_history_div_two_le_sum (h.measurable_history n)
-    (h'.measurable_history n) hS (ne_top_of_le_ne_top ENNReal.ofReal_ne_top hkl)
-  obtain ⟨ω⟩ := nonempty_of_isProbabilityMeasure P
-  have hδ0 : 0 ≤ δ := (sq_nonneg _).trans (hδ (A 0 ω))
-  refine le_trans (le_of_eq_of_le (mul_div_assoc _ _ _) ?_) hbh
-  gcongr
-  exact ENNReal.toReal_le_of_le_ofReal (by positivity) hkl
-
-end Divergence
 
 section Hypercube
 
@@ -197,6 +116,19 @@ private lemma mul_sum_indicator_le_iSup_inner_sub_inner (hΔ : 0 ≤ Δ) (hs : �
 
 variable [MeasurableSpace E] [OpensMeasurableSpace E]
 
+/-- The inner product of a fixed vector with a measurable feature map is measurable. Unlike
+`Measurable.const_inner`, this needs no second countability of `E`, since the inner product with a
+fixed vector is continuous. -/
+private lemma measurable_inner_comp (hφ : Measurable φ) (v : E) :
+    Measurable fun a ↦ ⟪v, φ a⟫_ℝ :=
+  (continuous_const.inner continuous_id).measurable.comp hφ
+
+/-- The set of actions whose feature has a nonpositive `i`-th coordinate times `s i` in the basis
+`b` is measurable. -/
+private lemma measurableSet_mul_inner_nonpos (hφ : Measurable φ) (b : OrthonormalBasis ι ℝ E)
+    (s : ι → ℝ) (i : ι) : MeasurableSet {x | s i * ⟪b i, φ x⟫_ℝ ≤ 0} :=
+  measurableSet_le ((measurable_inner_comp hφ (b i)).const_mul (s i)) measurable_const
+
 /-- The expected regret of a run against a parameter with coordinates `Δ * s i`, for signs `s i`
 and features in the hypercube that contains the vertex `s`, is at least `Δ` times the expected
 number of pairs of a round and a coordinate `i` at which the feature of the action played does not
@@ -209,18 +141,15 @@ private lemma mul_sum_sum_measureReal_le_integral_linearRegret {Ω : Type*} {mΩ
     Δ * ∑ i, ∑ t ∈ range n, P.real (A t ⁻¹' {x | s i * ⟪b i, φ x⟫_ℝ ≤ 0}) ≤
       ∫ ω, linearRegret (fun _ ↦ φ) θ O A n ω ∂P := by
   obtain ⟨a₀, ha₀⟩ := hvert
-  have hinner (v : E) : Measurable fun a ↦ ⟪v, φ a⟫_ℝ :=
-    (continuous_const.inner continuous_id).measurable.comp hφ
-  have hS (i : ι) : MeasurableSet {x | s i * ⟪b i, φ x⟫_ℝ ≤ 0} :=
-    measurableSet_le ((hinner (b i)).const_mul (s i)) measurable_const
+  have hS := measurableSet_mul_inner_nonpos hφ b s
   have hind (i : ι) (t : ℕ) :
       Integrable ((A t ⁻¹' {x | s i * ⟪b i, φ x⟫_ℝ ≤ 0}).indicator (1 : Ω → ℝ)) P :=
     (integrable_const (1 : ℝ)).indicator (hA t (hS i))
   have hreg : Integrable (fun ω ↦ linearRegret (fun _ ↦ φ) θ O A n ω) P := by
     simp_rw [linearRegret_def]
     refine integrable_finsetSum _ fun t _ ↦ (integrable_const _).sub ?_
-    refine Integrable.of_bound ((hinner θ).comp (hA t)).aestronglyMeasurable (Δ * Fintype.card ι)
-      (ae_of_all _ fun ω ↦ ?_)
+    refine Integrable.of_bound ((measurable_inner_comp hφ θ).comp (hA t)).aestronglyMeasurable
+      (Δ * Fintype.card ι) (ae_of_all _ fun ω ↦ ?_)
     rw [Real.norm_eq_abs]
     exact abs_inner_le_of_inner_basis hΔ hs hθ (hcube _)
   calc Δ * ∑ i, ∑ t ∈ range n, P.real (A t ⁻¹' {x | s i * ⟪b i, φ x⟫_ℝ ≤ 0})
@@ -236,31 +165,6 @@ private lemma mul_sum_sum_measureReal_le_integral_linearRegret {Ω : Type*} {mΩ
         refine sum_le_sum fun t _ ↦ ?_
         simpa [Set.indicator_apply] using
           mul_sum_indicator_le_iSup_inner_sub_inner hΔ hs hθ hcube ha₀ (A t ω)
-
-/-- **Averaging over the sign patterns.** If `c ≤ g ε i + g ε' i` whenever `ε'` is `ε` with the
-`i`-th sign flipped, then some sign pattern `ε` has `d c / 2 ≤ ∑ i, g ε i`. -/
-private lemma exists_card_mul_div_two_le_sum [DecidableEq ι]
-    (g : (ι → Bool) → ι → ℝ) {c : ℝ}
-    (hg : ∀ ε i, c ≤ g ε i + g (Function.update ε i (!ε i)) i) :
-    ∃ ε, Fintype.card ι * c / 2 ≤ ∑ i, g ε i := by
-  have hinv (i : ι) : Function.Involutive fun ε : ι → Bool ↦ Function.update ε i (!ε i) :=
-    fun ε ↦ by
-      simp only [Function.update_self, Bool.not_not, Function.update_idem, Function.update_eq_self]
-  have hflip (i : ι) : ∑ ε, g (Function.update ε i (!ε i)) i = ∑ ε, g ε i :=
-    Fintype.sum_bijective _ (hinv i).bijective _ _ fun _ ↦ rfl
-  have hi (i : ι) : (Fintype.card (ι → Bool) : ℝ) * c / 2 ≤ ∑ ε, g ε i := by
-    have := sum_le_sum fun ε (_ : ε ∈ univ) ↦ hg ε i
-    rw [sum_add_distrib, hflip, sum_const, card_univ, nsmul_eq_mul] at this
-    linarith
-  have hsum : ∑ _ : ι → Bool, (Fintype.card ι : ℝ) * c / 2 ≤ ∑ ε, ∑ i, g ε i := by
-    rw [sum_comm]
-    calc ∑ _ : ι → Bool, (Fintype.card ι : ℝ) * c / 2
-        = ∑ _ : ι, (Fintype.card (ι → Bool) : ℝ) * c / 2 := by
-          simp only [sum_const, card_univ, nsmul_eq_mul]
-          ring
-      _ ≤ ∑ i, ∑ ε, g ε i := sum_le_sum fun i _ ↦ hi i
-  obtain ⟨ε, -, hε⟩ := exists_le_of_sum_le univ_nonempty hsum
-  exact ⟨ε, hε⟩
 
 /-- **Flipping one sign.** Let `θ` and `θ'` have coordinates `Δ * s j` and `Δ * s' j` in the basis
 `b`, for signs that agree except at `i`, where `s' i = -s i`, and let `n Δ² ≤ σ²`. For features in
@@ -294,10 +198,8 @@ private lemma mul_exp_neg_two_div_two_le_sum_add_sum {Ω Ω' : Type*} {mΩ : Mea
   have hnΔ : n * (4 * Δ ^ 2) / (2 * σ2) ≤ 2 := by
     rw [div_le_iff₀ (by positivity)]
     linarith
-  have hS : MeasurableSet {x | s i * ⟪b i, φ x⟫_ℝ ≤ 0} :=
-    measurableSet_le (((continuous_const.inner continuous_id).measurable.comp hφ).const_mul (s i))
-      measurable_const
-  have hbh := h.mul_exp_neg_div_two_le_sum_gaussianLinearEnv h' hσ2 hdiff n hS
+  have hbh := h.mul_exp_neg_div_two_le_sum_gaussianLinearEnv h' hσ2 hdiff n
+    (measurableSet_mul_inner_nonpos hφ b s i)
   -- an action on the wrong side for `θ'` is one on the right side for `θ`
   have hsub : {x | s i * ⟪b i, φ x⟫_ℝ ≤ 0}ᶜ ⊆ {x | s' i * ⟪b i, φ x⟫_ℝ ≤ 0} := fun x hx ↦ by
     simp only [Set.mem_compl_iff, Set.mem_ofPred_eq, not_le] at hx ⊢
@@ -337,7 +239,7 @@ theorem exists_le_integral_linearRegret_gaussianLinearEnv (alg : Algorithm Unit 
   have habs (ε : ι → Bool) (i : ι) : |⟪b i, θ ε⟫_ℝ| = Δ := by
     rw [hθ, abs_mul, abs_of_nonneg hΔ0, hsg, mul_one]
   have hθm (ε : ι → Bool) : Measurable fun p : Unit × 𝓐 ↦ ⟪θ ε, φ p.2⟫_ℝ :=
-    (continuous_const.inner continuous_id).measurable.comp (hφ.comp measurable_snd)
+    (measurable_inner_comp hφ (θ ε)).comp measurable_snd
   have hrun (ε : ι → Bool) := IT.isAlgEnvSeq_trajMeasure alg
     (gaussianLinearEnv (Measure.dirac ()) (fun _ ↦ φ) (θ ε) σ2 (hθm ε))
   -- `f ε i`: the expected number of rounds at which the `i`-th coordinate has the wrong sign
@@ -367,7 +269,7 @@ theorem exists_le_integral_linearRegret_gaussianLinearEnv (alg : Algorithm Unit 
     · by_cases h : ε i <;> simp [sg, h]
     · simp [sg, Function.update_of_ne hj]
   -- averaging over the sign patterns
-  obtain ⟨ε, hε⟩ := exists_card_mul_div_two_le_sum f hpair
+  obtain ⟨ε, hε⟩ := Fintype.exists_card_mul_div_two_le_sum f hpair
   refine ⟨θ ε, habs ε, fun _ ↦ ?_⟩
   have hΔn : Δ * n = √(σ2 * n) := by
     rcases Nat.eq_zero_or_pos n with rfl | hn

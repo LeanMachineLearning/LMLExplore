@@ -37,8 +37,12 @@ the bandit with the reward kernel `a ↦ ν ((), a)`. -/
 lemma Environment.stationary_dirac_unit_eq_bandit (ν : Kernel (Unit × 𝓐) 𝓨) [IsMarkovKernel ν] :
     Environment.stationary (Measure.dirac ()) ν =
       Environment.bandit (ν.comap (fun a ↦ ((), a)) measurable_prodMk_left) := by
-  rw [Environment.bandit_def]
   -- The two feedback kernels agree at every `p : Unit × 𝓐`, since `p = ((), p.2)`.
-  congr 1
+  have hν : (ν.comap (fun a ↦ ((), a)) measurable_prodMk_left).prodMkLeft Unit = ν := by
+    ext ⟨⟨⟩, a⟩ : 1
+    rw [Kernel.prodMkLeft_apply, Kernel.comap_apply]
+  -- `simp only` rather than `rw`: the `IsMarkovKernel` instance of `stationary` depends on the
+  -- kernel being rewritten.
+  simp only [Environment.bandit_def, hν]
 
 end Learning
