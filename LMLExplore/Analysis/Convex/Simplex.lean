@@ -11,6 +11,7 @@ public import Mathlib.Algebra.Order.BigOperators.Group.Finset
 public import Mathlib.Algebra.Order.BigOperators.Ring.Finset
 public import Mathlib.Algebra.Order.Group.Indicator
 public import Mathlib.Analysis.Convex.Basic
+public import Mathlib.Analysis.Real.Sqrt
 public import Mathlib.Basic.ENNReal.BigOperators
 public import Mathlib.Basic.Real.Basic
 public import Mathlib.Data.Finsupp.Order
@@ -64,6 +65,8 @@ supported distributions, not a subset of `α → ℝ`.
   for all `a`: it is the unique maximizer of `w ↦ min_a w a c a` on the simplex.
 * `LMLExplore.sq_dotProduct_le_dotProduct_sq_of_mem_simplex`: Jensen's inequality for the square,
   `(w ⬝ᵥ v) ^ 2 ≤ w ⬝ᵥ v ^ 2` for every vector `w` of the simplex.
+* `LMLExplore.sum_sqrt_mul_one_sub_le_sqrt`: `∑ a, √(w a) * (1 - w a) ≤ √(k - 1)` for every
+  vector `w` of the simplex, with `k` the cardinality of `α`.
 * `LMLExplore.sum_inv_pos`: for positive weights `c` on a nonempty type, `0 < ∑ b, (c b)⁻¹`.
 * `LMLExplore.iInf_ofReal_inv_div_sum_inv_mul`: at the vector proportional to `c⁻¹`, the smallest
   weighted entry `min_a w a c a` is `(∑ b, (c b)⁻¹)⁻¹`.
@@ -305,6 +308,24 @@ lemma sq_dotProduct_le_dotProduct_sq_of_mem_simplex (hw : w ∈ simplex α) (v :
     (fun a _ ↦ hw.1 a) (fun a _ ↦ mul_nonneg (hw.1 a) (sq_nonneg (v a)))
     (fun a _ ↦ by rw [mul_pow, sq, mul_assoc])
   rwa [hw.2, one_mul] at h
+
+/-- For every vector `w` of the simplex, `∑ a, √(w a) * (1 - w a) ≤ √(k - 1)`, with `k` the
+cardinality of `α`: by the Cauchy–Schwarz inequality, the square of the sum is at most
+`(∑ a, w a) * ∑ a, (1 - w a) ^ 2 ≤ k - 1`. -/
+lemma sum_sqrt_mul_one_sub_le_sqrt (hw : w ∈ simplex α) :
+    ∑ a, √(w a) * (1 - w a) ≤ √((Fintype.card α : ℝ) - 1) := by
+  have hw1 := simplex_subset_Icc hw
+  have h := Finset.sum_sq_le_sum_mul_sum_of_sq_le_mul Finset.univ
+    (r := fun a ↦ √(w a) * (1 - w a)) (g := fun a ↦ (1 - w a) ^ 2) (fun a _ ↦ hw.1 a)
+    (fun a _ ↦ sq_nonneg _) (fun a _ ↦ by rw [mul_pow, Real.sq_sqrt (hw.1 a)])
+  rw [hw.2, one_mul] at h
+  have h2 : ∑ a, (1 - w a) ^ 2 ≤ (Fintype.card α : ℝ) - 1 := by
+    calc ∑ a, (1 - w a) ^ 2 ≤ ∑ a, (1 - w a) := Finset.sum_le_sum fun a _ ↦ by
+          have h0 : 0 ≤ w a := hw.1 a
+          have h1 : w a ≤ 1 := hw1.2 a
+          nlinarith [mul_nonneg h0 (sub_nonneg.2 h1)]
+    _ = (Fintype.card α : ℝ) - 1 := by simp [Finset.sum_sub_distrib, hw.2]
+  exact (le_abs_self _).trans (Real.abs_le_sqrt (h.trans h2))
 
 /-- For positive weights `c` on a nonempty type, the sum of the inverses `∑ b, (c b)⁻¹` is
 positive. -/
