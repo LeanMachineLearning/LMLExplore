@@ -53,7 +53,7 @@ same bounds for that statistic.
   model.
 * `LMLExplore.measure_exists_card_mul_log_add_le_sum_pullCount_mul_rateFunction_le`: along a run of
   any algorithm, `P(∃ t, #S log (2 t (t + 1)) + x ≤ ∑ a ∈ S, N_a(t) I_a(μ̂_a(t)))` is at most
-  `(x / #S) ^ #S exp (#S - x)` for `x ≥ #S`.
+  `(x / #S) ^ #S exp (#S - x)` for `x ≥ #S`; the `_univ` forms state the case of all the arms.
 
 ## References
 
@@ -166,10 +166,25 @@ theorem streamMeasure_exists_card_mul_log_add_le_sum_mul_rateFunction_le (S : Fi
   refine Or.inl ⟨fun a ↦ s a, ?_⟩
   have h_sum : ∑ a ∈ S, F a (fun i ↦ ω i a) (s a) ≠ ∞ :=
     ENNReal.sum_ne_top.2 fun a ha ↦ hω a ha (s a)
-  rw [Finset.sum_coe_sort S fun a ↦ (F a (fun i ↦ ω i a) (s a)).toReal]
-  simp only [Finset.sum_coe_sort]
-  rw [← ENNReal.toReal_sum fun a ha ↦ hω a ha (s a)]
+  rw [Finset.sum_coe_sort S s, Finset.sum_coe_sort S fun a ↦ (F a (fun i ↦ ω i a) (s a)).toReal,
+    ← ENNReal.toReal_sum fun a ha ↦ hω a ha (s a)]
   exact (ENNReal.ofReal_le_iff_le_toReal h_sum).1 hs
+
+/-- **Joint time-uniform deviations of the empirical means, measured by the rate functions**, in
+the reward stream model, for all the `K` arms: the case `S = univ` of
+`streamMeasure_exists_card_mul_log_add_le_sum_mul_rateFunction_le`. If the rewards of each arm
+`a` are integrable, with rate function `I_a`, then for `x ≥ K`, the probability that
+`K log (2 n (n + 1)) + x ≤ ∑ a, s a I_a((∑ i < s a, X_i a) / s a)` for some numbers of rewards
+`s : α → ℕ`, with `n = ∑ a, s a`, is at most `(x / K) ^ K exp (K - x)`. -/
+theorem streamMeasure_exists_card_mul_log_add_le_sum_mul_rateFunction_le_univ [Fintype α]
+    (hν : ∀ a, Integrable id (ν a)) {x : ℝ} (hx : Fintype.card α ≤ x) :
+    streamMeasure ν {ω | ∃ s : α → ℕ, ENNReal.ofReal (Fintype.card α *
+        log (2 * ((∑ a, s a : ℕ) : ℝ) * (((∑ a, s a : ℕ) : ℝ) + 1)) + x) ≤
+        ∑ a, s a * rateFunction id (ν a) ((∑ i ∈ range (s a), ω i a) / s a)} ≤
+      ENNReal.ofReal ((x / Fintype.card α) ^ Fintype.card α * exp (Fintype.card α - x)) := by
+  have h := streamMeasure_exists_card_mul_log_add_le_sum_mul_rateFunction_le univ
+    (fun a _ ↦ hν a) (x := x) (by rwa [card_univ])
+  rwa [card_univ] at h
 
 /-! ### Runs of an algorithm -/
 
@@ -202,5 +217,22 @@ theorem measure_exists_card_mul_log_add_le_sum_pullCount_mul_rateFunction_le
   have h_log := monotone_log_two_mul_mul_add_one (sum_pullCount_le (A := A) S t ω)
   refine ⟨t, le_trans (ENNReal.ofReal_le_ofReal ?_) (by simpa only [empMean] using ht)⟩
   exact add_le_add_left (mul_le_mul_of_nonneg_left h_log (Nat.cast_nonneg _)) x
+
+/-- **Time-uniform deviations of the empirical means along a run, measured by the rate
+functions** (the deviation inequality of [LS, Lemma 33.7], for any integrable rewards), for all the
+`K` arms: the case `S = univ` of
+`measure_exists_card_mul_log_add_le_sum_pullCount_mul_rateFunction_le`. In a run of any algorithm
+against `Environment.bandit ν`, if the rewards of each arm `a` are integrable, with rate function
+`I_a`, then for `x ≥ K`, the probability that at some round `t`,
+`K log (2 t (t + 1)) + x ≤ ∑ a, N_a(t) I_a(μ̂_a(t))`, is at most `(x / K) ^ K exp (K - x)`. -/
+theorem measure_exists_card_mul_log_add_le_sum_pullCount_mul_rateFunction_le_univ [Fintype α]
+    (h : IsAlgEnvSeq O A R alg (Environment.bandit ν) P) (hν : ∀ a, Integrable id (ν a))
+    (hx : Fintype.card α ≤ x) :
+    P {ω | ∃ t : ℕ, ENNReal.ofReal (Fintype.card α * log (2 * t * (t + 1)) + x) ≤
+        ∑ a, pullCount A a t ω * rateFunction id (ν a) (empMean A R a t ω)} ≤
+      ENNReal.ofReal ((x / Fintype.card α) ^ Fintype.card α * exp (Fintype.card α - x)) := by
+  have h_dev := measure_exists_card_mul_log_add_le_sum_pullCount_mul_rateFunction_le h univ
+    (fun a _ ↦ hν a) (x := x) (by rwa [card_univ])
+  rwa [card_univ] at h_dev
 
 end LMLExplore

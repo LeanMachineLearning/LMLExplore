@@ -147,11 +147,9 @@ theorem measure_exists_unionBoundThreshold_lt_plugInCost_le
         task.plugInCost empMean' n (history O A R n ω) μ} ≤
       ENNReal.ofReal ((x / Fintype.card α) ^ Fintype.card α * exp (Fintype.card α - x)) := by
   rw [plugInCost_empMean'_eq_expFamilyEvidence_gaussianBandit hνt hσ2]
-  have h_dev := measure_exists_unionBoundThreshold_lt_expFamilyEvidence_le Finset.univ
-    (fun _ _ ↦ mem_expFamilyMeans_gaussianReal 0 hσ2 _)
-    (fun a _ ↦ mgfDominatedOn_gaussianBandit hνt hσ2 μ a) hseq (x := x)
-    (by rwa [Finset.card_univ])
-  rwa [Finset.card_univ] at h_dev
+  exact measure_exists_unionBoundThreshold_lt_expFamilyEvidence_le_univ
+    (fun _ ↦ mem_expFamilyMeans_gaussianReal 0 hσ2 _)
+    (fun a ↦ mgfDominatedOn_gaussianBandit hνt hσ2 μ a) hseq hx
 
 variable {mℐ : MeasurableSpace ℐ} (rec : (n : ℕ) → Hist Unit α ℝ n → ℐ)
   (hrec : ∀ n, Measurable (rec n))

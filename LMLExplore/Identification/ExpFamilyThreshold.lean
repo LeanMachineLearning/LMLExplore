@@ -64,7 +64,7 @@ best arms and an arm among them.
 * `LMLExplore.Identification.measure_exists_unionBoundThreshold_lt_expFamilyEvidence_le`:
   along a run of any sampling rule on the model `μ`, the evidence of the arms of `S` against `μ`
   exceeds the threshold `#S log (2 n (n + 1)) + x` at some round with probability at most
-  `(x / #S) ^ #S exp (#S - x)`.
+  `(x / #S) ^ #S exp (#S - x)`; the `_univ` form states the case `S = univ` of all the arms.
 * `LMLExplore.Identification.measure_exists_mem_exists_unionBoundThreshold_lt_expFamilyEvidence_le`:
   for a set `Q` of pairs of distinct arms, the evidence of some pair of `Q` exceeds the threshold
   `2 log (2 n (n + 1)) + x` at some round with probability at most `#Q (x / 2) ^ 2 exp (2 - x)`;
@@ -178,6 +178,25 @@ theorem measure_exists_unionBoundThreshold_lt_expFamilyEvidence_le [Countable α
   simp only [expFamilyEvidence_def, pullCount_eq_pullCount' (O := O) (R' := R),
     empMean_eq_empMean' (O := O)]
 
+/-- **Deviation of the generalized likelihood ratio evidence for arms dominated by exponential
+families**, along a run of any sampling rule, for all the `K` arms: the case `S = univ` of
+`measure_exists_unionBoundThreshold_lt_expFamilyEvidence_le`. If the rewards of each arm `a` of the
+bandit `ν` are dominated on `Set.univ`, in moment generating function, by the member of mean `μ a`
+of the exponential family `(ρ a, T a)`, then for a level `x ≥ K`, the probability that at some
+round `n` the evidence against `μ` exceeds the threshold `K log (2 n (n + 1)) + x` is at most
+`(x / K) ^ K exp (K - x)`. -/
+theorem measure_exists_unionBoundThreshold_lt_expFamilyEvidence_le_univ [Countable α] [Fintype α]
+    {ν : Kernel α ℝ} [IsMarkovKernel ν] (hμ : ∀ a, μ a ∈ (ρ a).expFamilyMeans (T a))
+    (hν : ∀ a, MGFDominatedOn id (ν a) (T a)
+      ((ρ a).expFamily (T a) ((ρ a).natParam (T a) (μ a))) Set.univ)
+    (hseq : IsAlgEnvSeq O A R alg (Environment.bandit ν) P) (hx : Fintype.card α ≤ x) :
+    P {ω | ∃ n, unionBoundThreshold (Fintype.card α) x n <
+        expFamilyEvidence ρ T Finset.univ n (history O A R n ω) μ} ≤
+      ENNReal.ofReal ((x / Fintype.card α) ^ Fintype.card α * exp (Fintype.card α - x)) := by
+  have h_dev := measure_exists_unionBoundThreshold_lt_expFamilyEvidence_le Finset.univ
+    (fun a _ ↦ hμ a) (fun a _ ↦ hν a) hseq (x := x) (by rwa [Finset.card_univ])
+  rwa [Finset.card_univ] at h_dev
+
 namespace IdentTask
 
 variable [Fintype α] {ℐ : Type*} {task : IdentTask α (α → ℝ) ℐ ℝ} {mℐ : MeasurableSpace ℐ}
@@ -210,10 +229,8 @@ theorem measureReal_histOutputMeasure_glrt_expFamilyEvidence_le
     hrec hstop hseq hμM hc).trans ?_
   rw [measureReal_def]
   have hx0 : 0 ≤ x := (Nat.cast_nonneg _).trans hx
-  have h_dev := measure_exists_unionBoundThreshold_lt_expFamilyEvidence_le Finset.univ
-    (fun a _ ↦ hμ a) (fun a _ ↦ hν a) hseq (x := x) (by rwa [Finset.card_univ])
-  rw [Finset.card_univ] at h_dev
-  exact ENNReal.toReal_le_of_le_ofReal (by positivity) h_dev
+  exact ENNReal.toReal_le_of_le_ofReal (by positivity)
+    (measure_exists_unionBoundThreshold_lt_expFamilyEvidence_le_univ hμ hν hseq hx)
 
 /-- **The GLRT for arms dominated by exponential families is `δ`-PAC**
 ([GK16, Proposition 12], [LS, Lemma 33.7]), for every task and every sampling rule. If on every
@@ -239,11 +256,8 @@ theorem isDeltaPAC_glrt_expFamilyEvidence (hδ : 0 < δ) (hδ1 : δ ≤ 1)
   refine task.isDeltaPAC_glrt (expFamilyEvidence ρ T Finset.univ) alg _ rec hrec hstop hc
     (fun θ hθ ↦ ?_) h_stops
   rw [measureReal_def]
-  have h_dev := measure_exists_unionBoundThreshold_lt_expFamilyEvidence_le Finset.univ
-    (fun a _ ↦ hμ θ hθ a) (fun a _ ↦ hν θ hθ a) (IT.isAlgEnvSeq_trajMeasure alg _)
-    (x := unionBoundLevel (Fintype.card α) δ)
-    (by rw [Finset.card_univ]; exact card_le_unionBoundLevel hδ hδ1)
-  rw [Finset.card_univ] at h_dev
+  have h_dev := measure_exists_unionBoundThreshold_lt_expFamilyEvidence_le_univ (hμ θ hθ)
+    (hν θ hθ) (IT.isAlgEnvSeq_trajMeasure alg _) (card_le_unionBoundLevel hδ hδ1)
   exact ENNReal.toReal_le_of_le_ofReal hδ.le
     (h_dev.trans (ENNReal.ofReal_le_ofReal (div_pow_mul_exp_sub_unionBoundLevel_le hδ hδ1)))
 
