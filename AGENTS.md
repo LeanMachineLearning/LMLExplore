@@ -24,6 +24,14 @@ Every pull request description contains one standalone attribution line, `Roadma
 (the LMLRoadmaps directory name), or `Roadmap: none` for cross-cutting, infrastructure or
 dependency work.
 
+A pull request that ports material from a paper project (a repository made from
+[lml-paper-template](https://github.com/LeanMachineLearning/lml-paper-template), whose
+`PAPER_ROADMAP.md` maps the paper's prerequisites to LMLRoadmaps targets) also contains the
+standalone lines `Paper: <owner>/<repo>`, naming that repository, and `Item: <Id>`, naming the
+item of its `PAPER_ROADMAP.md`. The paper project's workers find their pull requests by these
+lines. The paper roadmap is motivation only: the `Roadmap:` line, and a real path to a target of
+LMLRoadmaps, are what put new material in scope.
+
 ## The dependencies
 
 LMLExplore depends on Mathlib, Tau Ceti and LML, at the exact versions recorded in
@@ -63,7 +71,9 @@ LMLExplore depends on Mathlib, Tau Ceti and LML, at the exact versions recorded 
   `main`, then rebase onto `main` and include only the new work.
 - No backwards compatibility. When a declaration or module is moved, renamed, replaced or deleted
   (including because a dependency now provides it), update every use and remove the old name in
-  the same pull request. No aliases, wrappers, forwarding modules or `deprecated` shims.
+  the same pull request. No aliases, wrappers, forwarding modules or `deprecated` shims. The
+  pull request description lists each public declaration it removes or renames, with what
+  replaces it, so that projects that depend on LMLExplore can follow.
 - `LMLExplore/` is the only place code goes. Do not edit the root `LMLExplore.lean`: the
   lakefile's glob builds every module under `LMLExplore/` without it.
 - Human-owned: `scripts/`, `.github/`, `lakefile.toml`, `tauceti.toml`, `README.md`, this file,
