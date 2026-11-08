@@ -232,7 +232,11 @@ lemma hasCondDistrib_action_hist (alg : Algorithm Unit 𝓐 𝓡) (n : ℕ) :
         (ArrayModel.measurable_algFunction alg n hs)),
       ← ArrayModel.algFunction_map alg n h, Measure.map_apply (by fun_prop) hs, ← Set.preimage_comp]
     simp only [Function.comp_def, Function.uncurry_apply_pair]
-  rw [h_ker]
+  have h_eq : action alg n =
+      Function.uncurry (ArrayModel.algFunction alg n) ∘ fun ω ↦ (hist alg ω n, ω.1 n) := by
+    funext ω
+    rw [action_def, Function.comp_apply, Function.uncurry_apply_pair]
+  rw [h_ker, h_eq]
   exact h
 
 /-- The action of round `n` has conditional law the policy of the algorithm given the history and
@@ -314,7 +318,12 @@ private lemma hasCondDistrib_reward_hist_action (alg : Algorithm Unit 𝓐 𝓡)
       ← Measure.infinitePi_map_eval ν p.2, Measure.map_apply (measurable_pi_apply _) hs,
       ← Set.preimage_comp]
     simp only [Function.comp_def]
+  have h_eq : reward alg n = (fun p : (Hist Unit 𝓐 𝓡 n × 𝓐) × (𝓐 → 𝓡) ↦ p.2 p.1.2) ∘
+      fun ω ↦ ((hist alg ω n, action alg n ω), ω.2 n) := by
+    funext ω
+    rw [reward_def, Function.comp_apply]
   rw [h_ker] at h
+  rw [h_eq]
   exact h
 
 /-- Under `ArrayModel.arrayMeasure ν`, the table model is a run of the algorithm against the
@@ -357,17 +366,33 @@ theorem isAlgEnvSeq_evalSeq (alg : Algorithm Unit 𝓐 𝓡) (x : ℕ → 𝓐 �
     IsAlgEnvSeq (noObs _) (fun n u ↦ action alg n (u, x)) (fun n u ↦ reward alg n (u, x)) alg
       (Environment.evalSeq x hx) (Measure.infinitePi fun _ : ℕ ↦ (volume : Measure I)) where
   hasCondDistrib_obs n := hasCondDistrib_unit (measurable_history_evalSeq alg x n).aemeasurable _ _
-  hasCondDistrib_action n :=
-    (hasCondDistrib_action (Measure.dirac x) alg n).comp_hasLaw
+  hasCondDistrib_action n := by
+    have h := (hasCondDistrib_action (Measure.dirac x) alg n).comp_hasLaw
       ⟨measurable_prodMk_right.aemeasurable, (Measure.prod_dirac x).symm⟩
+    -- The history commutes with precomposition by `u ↦ (u, x)`.
+    have h_hist : (fun ω ↦ (history (noObs _) (action alg) (reward alg) n ω,
+          noObs (ArrayModel.ProbSpace 𝓐 𝓡) n ω)) ∘ (fun u : ℕ → I ↦ (u, x)) =
+        fun u ↦ (history (noObs (ℕ → I)) (fun n u ↦ action alg n (u, x))
+          (fun n u ↦ reward alg n (u, x)) n u, noObs (ℕ → I) n u) := by
+      funext u
+      simp only [Function.comp_apply, noObs_apply, Prod.mk.injEq, and_true]
+      funext i
+      simp only [history_apply, noObs_apply]
+    rwa [h_hist, Function.comp_def] at h
   hasCondDistrib_feedback n := by
     rw [feedback_evalSeq]
-    exact hasCondDistrib_comp_self (X := fun u ↦ ((history (noObs (ℕ → I))
+    have h := hasCondDistrib_comp_self (X := fun u ↦ ((history (noObs (ℕ → I))
         (fun n u ↦ action alg n (u, x)) (fun n u ↦ reward alg n (u, x)) n u, noObs (ℕ → I) n u),
         action alg n (u, x))) (μ := Measure.infinitePi fun _ : ℕ ↦ (volume : Measure I))
       (f := fun p : (Hist Unit 𝓐 𝓡 n × Unit) × 𝓐 ↦ x n p.2) ((hx n).comp measurable_snd)
       (((measurable_history_evalSeq alg x n).prodMk measurable_const).prodMk
         ((measurable_action alg n).comp measurable_prodMk_right)).aemeasurable
+    have h_eq : (fun u ↦ reward alg n (u, x)) = fun u ↦ x n (action alg n (u, x)) := by
+      funext u
+      rw [reward_def]
+    simp only [Function.comp_def] at h
+    rw [h_eq]
+    exact h
 
 end Laws
 
