@@ -61,6 +61,7 @@ implicit-exploration estimates [LS, Lemma 12.4] bounds the estimated regret agai
   Exp3-IX are those of Exp4-IX, up to the sign and the shift by `n` for Exp4.
 * `exp4_eq_exp4IX`, `exp3IX_eq_exp4IX`, `exp3_eq_exp4IX`: Exp4, Exp3-IX and Exp3 are instances of
   Exp4-IX with constant rates.
+* `exp4IX_eq_of_subsingleton`: with a single expert, Exp4-IX does not depend on its parameters.
 * `Exp4IX.sum_sum_mul_sub_le`: the local-norm bound of the weights of Exp4-IX on the experts,
   [LS, Lemma 18.2] for a constant rate, with nonincreasing learning rates as in
   [Ora, Section 7.5; BCB12, proof of Theorem 3.1].
@@ -181,6 +182,15 @@ lemma exp4IXExpertWeights_mul_le_exp4IXWeights (n : ℕ) (h : Hist 𝓞 α ℝ n
     (fun m' _ ↦ mul_nonneg (softmax_nonneg _ m') ((mem_simplex_iff.1 (adv o m').2).1 a))
     (mem_univ m)
 
+/-- The advice of every expert vanishes on the arms of weight zero in Exp4-IX, as every expert has
+positive weight. -/
+lemma adv_apply_eq_zero_of_exp4IXWeights_eq_zero [Nonempty β] {n : ℕ} {h : Hist 𝓞 α ℝ n} {o : 𝓞}
+    {a : α} (ha : exp4IXWeights adv η γ n h o a = 0) (m : β) : (adv o m : α → ℝ) a = 0 := by
+  have hle := exp4IXExpertWeights_mul_le_exp4IXWeights (adv := adv) (η := η) (γ := γ) n h o m a
+  rw [ha] at hle
+  exact le_antisymm (nonpos_of_mul_nonpos_right hle (exp4IXExpertWeights_pos n h m))
+    ((mem_simplex_iff.1 (adv o m).2).1 a)
+
 variable [MeasurableSpace α] [MeasurableSingletonClass α] [MeasurableSpace 𝓞]
 
 @[fun_prop]
@@ -258,6 +268,17 @@ lemma exp4IX_def (adv : 𝓞 → β → simplex α) (hadv : Measurable adv) (η 
 lemma exp4IX_policy_apply {hadv : Measurable adv} (n : ℕ) (x : Hist 𝓞 α ℝ n × 𝓞) :
     (exp4IX adv hadv η γ).policy n x = weightedMeasure (exp4IXWeights adv η γ n x.1 x.2) := by
   rw [exp4IX_def, weightAlgorithm_policy, weightKernel_apply]
+
+/-- With a single expert, Exp4-IX does not depend on its learning rates and implicit-exploration
+parameters: it follows the advice. -/
+lemma exp4IX_eq_of_subsingleton [Subsingleton β] (hadv : Measurable adv) (η γ η' γ' : ℕ → ℝ) :
+    exp4IX adv hadv η γ = exp4IX adv hadv η' γ' := by
+  have hQ : ∀ (η₀ γ₀ : ℕ → ℝ) n (h : Hist 𝓞 α ℝ n), exp4IXExpertWeights adv η₀ γ₀ n h = 1 := by
+    intro η₀ γ₀ n h
+    funext m
+    have := sum_softmax (-(η₀ n • exp4IXSum adv η₀ γ₀ n h))
+    rwa [Fintype.sum_subsingleton _ m] at this
+  simp_rw [exp4IX_def, exp4IXWeights_def, hQ]
 
 end Algorithm
 
