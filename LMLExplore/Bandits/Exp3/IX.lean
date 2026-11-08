@@ -6,7 +6,6 @@ Authors: Rémy Degenne
 module
 
 public import LMLExplore.Bandits.Exp3.Basic
-public import LMLExplore.Probability.Martingale.ImplicitExploration
 
 /-!
 # Exp3-IX
@@ -335,106 +334,33 @@ variable [MeasurableSpace α] [MeasurableSingletonClass α] [MeasurableSpace �
 Exp3-IX with `γ ≥ 0` whose feedback at every round `t < n` is the reward `x t (A t) ∈ [0, 1]` of
 its action, for weights `v a ∈ [0, 1]` on the arms and `δ > 0`, the probability that
 `log (1 / δ) ≤ 2 γ ∑ a, v a * (L̂ n a - L n a)` is at most `δ`, with `L̂ n` the cumulative loss
-estimates and `L n a = ∑ t < n, (1 - x t a)` the cumulative losses. -/
+estimates and `L n a = ∑ t < n, (1 - x t a)` the cumulative losses. This is the instance of
+`WeightAlgorithm.measure_log_one_div_le_sum_sum_mul_iwEstimator_add_sub_le` with the coefficients
+`2 γ v a`. -/
 theorem measure_le_sum_mul_exp3IXSum_sub_le {v : α → ℝ} (hv : ∀ a, v a ∈ Set.Icc 0 1)
     (hγ : 0 ≤ γ) (hY : ∀ t < n, Y t =ᵐ[P] x t ∘ A t) (hx : ∀ t < n, ∀ a, x t a ∈ Set.Icc 0 1)
     (h : IsAlgEnvSeq O A Y (exp3IX η γ) env P) (hδ : 0 < δ) :
     P {ω | log (1 / δ) ≤ 2 * γ * ∑ a, v a *
       (exp3IXSum η γ n (history O A Y n ω) a - ∑ t ∈ range n, (1 - x t a))} ≤
       ENNReal.ofReal δ := by
-  -- the variables of the concentration inequality of implicit-exploration estimates
-  set p : ℕ → Ω → α → ℝ := fun t ω ↦ exp3IXWeights η γ t (history O A Y t ω) with hp
-  set X : ℕ → α → Ω → ℝ := fun t a ω ↦
-    if t < n then iwEstimator (p t ω) (A t ω) (1 - Y t ω) a else 0 with hX
-  set y : ℕ → α → Ω → ℝ := fun t a _ ↦ if t < n then 1 - x t a else 0 with hy
-  set w : ℕ → α → Ω → ℝ := fun _ a _ ↦ 2 * γ * v a with hw
-  set l : ℕ → α → Ω → ℝ := fun t a ω ↦ γ / p t ω a with hl
-  have hY01 := ae_feedback_mem_Icc hY hx
-  have hW : ∀ t, Measurable[h.filtration t] fun ω ↦ exp3IXWeights η γ t (history O A Y t ω) :=
-    fun t ↦ Measurable.comp (mα := h.filtration t) (g := exp3IXWeights η γ t)
-      (f := history O A Y t) (measurable_exp3IXWeights η γ t) (h.adapted_history t)
-  have hpm : ∀ t a, Measurable[h.filtration t] fun ω ↦ p t ω a := fun t a ↦
-    Measurable.comp (mα := h.filtration t) (g := fun q : α → ℝ ↦ q a)
-      (f := fun ω ↦ exp3IXWeights η γ t (history O A Y t ω)) (measurable_pi_apply a) (hW t)
-  have hpm' : ∀ t a, Measurable[h.filtrationObs (t + 1)] fun ω ↦ p t ω a := fun t a ↦
-    (hpm t a).mono (h.filtration_le_filtrationObs_succ t) le_rfl
-  -- the estimate of round `t < n` as a function of the weights and the action
-  have hcongr : ∀ t < n, ∀ a, X t a =ᵐ[P] fun ω ↦
-      iwEstimator (exp3IXWeights η γ t (history O A Y t ω)) (A t ω) (1 - x t (A t ω)) a :=
-    fun t ht a ↦ by
-      filter_upwards [comp_feedback_ae_eq (O := O) (hY t ht)
-        fun z b y ↦ iwEstimator (exp3IXWeights η γ t z.1) b (1 - y) a] with ω hω
-      simpa [hX, ht] using hω
-  have hint : ∀ t a, Integrable (fun ω ↦ iwEstimator (exp3IXWeights η γ t (history O A Y t ω))
-      (A t ω) (1 - x t (A t ω)) a) P := fun t a ↦
-    WeightAlgorithm.integrable_comp_weights h t (g := fun p b ↦ iwEstimator p b (1 - x t b) a)
-      (by fun_prop) (C := |1 - x t a|) fun p hp ↦
-        sum_mul_abs_iwEstimator_apply_le (x := fun b ↦ 1 - x t b) ((mem_simplex_iff.1 hp).1 a)
-  have hXm : ∀ t a, Measurable[h.filtrationObs (t + 1)] (X t a) := fun t a ↦ by
-    refine Measurable.mono ?_ (h.filtration_le_filtrationObs_succ t) le_rfl
-    simp only [hX]
-    split_ifs
-    · exact Measurable.comp (mα := h.filtration t) (measurable_pi_apply a)
-        (Measurable.comp (mα := h.filtration t) measurable_iwEstimator
-          ((hW t).prodMk ((h.adapted_action t).prodMk
-            (measurable_const.sub (h.adapted_feedback t)))))
-    · exact measurable_const
-  have hXint : ∀ t a, Integrable (X t a) P := fun t a ↦ by
+  -- this is the concentration of implicit-exploration estimates in any environment, for the
+  -- coefficients `2 γ v a`, since the means of the arms are almost surely their rewards
+  have hmeans : ∀ᵐ ω ∂P, ∀ t < n, ∀ a, env.means O A Y a t ω = x t a := by
+    refine ae_all_iff.2 fun t ↦ ?_
     by_cases ht : t < n
-    · exact (hint t a).congr (hcongr t ht a).symm
-    · simp [hX, ht]
-  have hX0 : ∀ t a, 0 ≤ᵐ[P] X t a := fun t a ↦ by
-    filter_upwards [hY01] with ω hω
-    simp only [hX, Pi.zero_apply]
-    split_ifs with ht
-    · exact iwEstimator_nonneg (exp3IXWeights_pos _ _ _).le (sub_nonneg.2 (hω t ht).2)
-    · exact le_rfl
-  have hXy : ∀ t a, P[X t a | h.filtrationObs t] ≤ᵐ[P] y t a := fun t a ↦ by
-    by_cases ht : t < n
-    · refine ((condExp_congr_ae (hcongr t ht a)).trans ?_).le
-      filter_upwards [WeightAlgorithm.condExp_comp_weights h t
-        (g := fun p b ↦ iwEstimator p b (1 - x t b) a) (by fun_prop) (hint t a)] with ω hω
-      refine hω.trans ?_
-      simpa [hy, ht] using sum_mul_iwEstimator_apply (x := fun b ↦ 1 - x t b)
-        (exp3IXWeights_pos (η := η) (γ := γ) t (history O A Y t ω) a).ne'
-    · have : X t a = 0 := by
-        funext ω
-        simp [hX, ht]
-      rw [this, condExp_zero]
-      exact ae_of_all _ fun ω ↦ by simp [hy, ht]
-  have hwl : ∀ t a, ∀ᵐ ω ∂P, w t a ω * X t a ω ≤ 2 * l t a ω := fun t a ↦ by
-    filter_upwards [hY01] with ω hω
-    have hpa := exp3IXWeights_pos (η := η) (γ := γ) t (history O A Y t ω) a
-    have hl0 : 0 ≤ 2 * l t a ω := by positivity
-    simp only [hw, hX, hl]
-    split_ifs with ht
-    · have hX1 : iwEstimator (p t ω) (A t ω) (1 - Y t ω) a ≤ 1 / p t ω a :=
-        iwEstimator_le_one_div hpa.le (sub_le_self _ (hω t ht).1)
-      have hX0 : 0 ≤ iwEstimator (p t ω) (A t ω) (1 - Y t ω) a :=
-        iwEstimator_nonneg (exp3IXWeights_pos _ _ _).le (sub_nonneg.2 (hω t ht).2)
-      have hvX : v a * iwEstimator (p t ω) (A t ω) (1 - Y t ω) a ≤ 1 / p t ω a :=
-        (mul_le_of_le_one_left hX0 (hv a).2).trans hX1
-      calc 2 * γ * v a * iwEstimator (p t ω) (A t ω) (1 - Y t ω) a
-          = 2 * γ * (v a * iwEstimator (p t ω) (A t ω) (1 - Y t ω) a) := by ring
-        _ ≤ 2 * γ * (1 / p t ω a) := mul_le_mul_of_nonneg_left hvX (by positivity)
-        _ = 2 * (γ / p t ω a) := by ring
-    · simpa using hl0
-  have hmul : ∀ t i j, i ≠ j → ∀ᵐ ω ∂P, w t i ω * X t i ω * (w t j ω * X t j ω) = 0 :=
-    fun t i j hij ↦ ae_of_all _ fun ω ↦ by
-      simp only [hX]
-      split_ifs
-      · rw [mul_mul_mul_comm, iwEstimator_mul_iwEstimator_of_ne hij, mul_zero]
-      · simp
-  have key := measure_log_one_div_le_sum_sum_mul_div_one_add_sub_le (ℱ := h.filtrationObs)
-    hXm hXint hX0 hXy (fun _ _ ↦ measurable_const) (fun t a ↦ measurable_const.div (hpm' t a))
-    (fun _ _ ↦ measurable_const) (fun _ _ ↦ ae_of_all _ fun _ ↦
-      mul_nonneg (by positivity) (hv _).1) hwl hmul hδ n
-  -- the sum of the concentration inequality is `2 γ ∑ a, v a * (L̂ n a - L n a)`
-  refine le_trans (measure_mono fun ω hω ↦ ?_) key
-  simp only [Set.mem_ofPred_eq] at hω ⊢
+    · filter_upwards [WeightAlgorithm.ae_means_eq_of_weights_pos h (hY t ht)] with ω hω _ a
+        using hω a (exp3IXWeights_pos _ _ a)
+    · exact ae_of_all _ fun _ ht' ↦ absurd ht' ht
+  refine le_trans (measure_mono_ae ?_)
+    (WeightAlgorithm.measure_log_one_div_le_sum_sum_mul_iwEstimator_add_sub_le h
+      (ae_feedback_mem_Icc hY hx) (γ := fun _ ↦ γ) (c := fun _ a _ ↦ 2 * γ * v a)
+      (fun _ _ _ ↦ measurable_const) (fun _ _ a _ ↦ mul_nonneg (by positivity) (hv a).1)
+      (fun _ _ a _ ↦ mul_le_of_le_one_right (by positivity) (hv a).2)
+      (fun t _ a _ ha ↦ absurd ha (exp3IXWeights_pos t _ a).ne') hδ)
+  filter_upwards [hmeans] with ω hm hω
   rw [mul_sum_mul_exp3IXSum_sub_eq O A Y ω] at hω
   refine hω.trans_eq (Finset.sum_congr rfl fun t ht ↦ Finset.sum_congr rfl fun a _ ↦ ?_)
-  simp only [hX, hy, hp, mem_range.1 ht, ite_true, Pi.div_apply]
+  rw [hm t (mem_range.1 ht) a, iwEstimator_div_one_add_div (exp3IXWeights_pos _ _ a)]
 
 /-- **Concentration of the loss estimates of one arm** [LS, (12.9)]. Along a run of Exp3-IX with
 `γ > 0` whose feedback at every round `t < n` is the reward `x t (A t) ∈ [0, 1]` of its action, for

@@ -33,6 +33,8 @@ In the namespace `LMLExplore.Bandits.WeightAlgorithm`, for a run of `weightAlgor
   pasts and an arm `a`, `P(past ∈ s, A n = a) = ∫_{past ∈ s} w n (past) a dP`;
 * `measure_action_eq`: `P(A n = a) = E[w n (past) a]`;
 * `ae_weights_action_pos`: the action of round `n` almost surely has positive weight;
+* `measurable_weights_filtrationObs`: the weights of round `n` are measurable with respect to the
+  past of round `n`;
 * `integrable_comp_action_iff`: a function `f (past, A n)` of the past and the action is integrable
   iff the weighted sum `∑ a, w n (past) a * ‖f (past, a)‖` is;
 * `condExp_comp_action`: the conditional expectation of `f (past, A n)` given the past is the
@@ -145,6 +147,13 @@ lemma ae_weights_action_pos (h : IsAlgEnvSeq O A Y (weightAlgorithm w hw hp) env
     (measure_iUnion_null hnull)
   rw [Set.mem_ofPred_eq, not_lt] at hω
   exact le_antisymm hω ((mem_simplex_iff.1 (hp n _)).1 _)
+
+omit [MeasurableSingletonClass α] [IsFiniteMeasure P] in
+/-- Along a run of a weight-based algorithm, the weight `w n (past) a` of an arm `a` at round `n`
+is measurable with respect to the past of round `n`. -/
+lemma measurable_weights_filtrationObs (h : IsAlgEnvSeq O A Y (weightAlgorithm w hw hp) env P)
+    (n : ℕ) (a : α) : Measurable[h.filtrationObs n] fun ω ↦ w n (history O A Y n ω, O n ω) a :=
+  Measurable.comp (mα := h.filtrationObs n) (hw n a) (measurable_iff_comap_le.2 le_rfl)
 
 variable {E : Type*} [NormedAddCommGroup E]
 

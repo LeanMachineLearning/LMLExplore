@@ -16,16 +16,18 @@ Exp4-IX (`LMLExplore.Bandits.exp4IX`) runs exponential weights over a finite set
 experts on the implicit-exploration estimates `Ŷ t a = 𝟙{A t = a} (1 - Y t) / (P t a + γ t)` of
 the losses `1 - Y t`. The implicit exploration `γ t > 0` biases the estimates downwards, and this
 bias makes them concentrate without any variance term [Neu15, Lemma 1]: the weighted deviations
-`∑ t < n, ∑ a, c t a * (Ŷ t a - (1 - m t a))` from the conditional means `m t a` of the rewards,
-for coefficients `0 ≤ c t a ≤ 2 γ t` known before round `t`, exceed `log (1 / δ)` with probability
-at most `δ` (`WeightAlgorithm.measure_log_one_div_le_sum_sum_mul_iwEstimator_add_sub_le`).
+`∑ t < n, ∑ a, c t a * (Ŷ t a - (1 - μ t a))` from the conditional means `μ t a` of the rewards,
+for coefficients `0 ≤ c t a ≤ 2 γ t` known before round `t` and vanishing on the arms of weight
+zero, exceed `log (1 / δ)` with probability at most `δ`
+(`WeightAlgorithm.measure_log_one_div_le_sum_sum_mul_iwEstimator_add_sub_le`).
 
 Against any environment whose feedback at the rounds `t < n` is almost surely in `[0, 1]` (an
 adaptive adversary, which includes oblivious reward tables and stochastic bandits), this file
 combines this concentration with the pathwise bound `Exp4IX.sum_one_sub_sub_dotProduct_le` on the
 estimated regret. For nonincreasing learning rates `η t > 0` and implicit-exploration parameters
 `γ t ≥ 0` with `η t ≤ 2 γ t` and `γ (n - 1) > 0`, with probability at least `1 - δ` the expert
-random regret `R̂ᴱ_n = max_m ∑ t < n, (⟨E t m, m t⟩ - Y t)` (`expertRandomRegret`) satisfies
+random regret `R̂ᴱ_n = max_m ∑ t < n, (⟨adv (O t) m, μ t⟩ - Y t)` (`expertRandomRegret`), with
+`μ t a = env.means O A Y a t`, satisfies
 `R̂ᴱ_n < log M / η (n - 1) + k ∑ t < n, (γ t + η t / 2) + log (2 M / δ) / (2 γ (n - 1)) +
   log (2 / δ)`, with `k` the number of arms.
 
@@ -37,15 +39,13 @@ The two tunings of [Neu15] follow, with sharper constants in front of `log (2 / 
 * for Exp3-IX, the instance of Exp4-IX with the experts `α` that each recommend one arm, the
   anytime rates `η t = 2 γ t = √(log k / (k (t + 1)))` give
   `R̂_n < 4 √(n k log k) + (√(n k / log k) + 1) log (2 / δ)` for the random regret
-  `R̂_n = max_a ∑ t < n, (m t a - Y t)` [Neu15, Theorem 1], where [Neu15] has `2 √(n k / log k)` in
+  `R̂_n = max_a ∑ t < n, (μ t a - Y t)` [Neu15, Theorem 1], where [Neu15] has `2 √(n k / log k)` in
   place of `√(n k / log k)`.
 
 ## Main statements
 
 * `Exp4IX.measure_le_mul_sum_dotProduct_sub_le`: the estimated losses of an expert concentrate
   around its expected losses.
-* `Exp4IX.measure_add_le_sum_mul_sum_iwEstimator_le`: the weighted sums of the estimates of all
-  the arms are at most `k` times the weights, up to `log (1 / δ)`.
 * `Exp4IX.measure_le_expertRandomRegret_le`: the high-probability bound on the expert random
   regret of Exp4-IX for nonincreasing rates.
 * `Exp4IX.measure_two_mul_sqrt_add_le_expertRandomRegret_le`: [Neu15, Theorem 2].
@@ -75,15 +75,6 @@ private lemma nonempty_arms {Ω : Type*} {mΩ : MeasurableSpace Ω} (P : Measure
   have := nonempty_of_isProbabilityMeasure P
   nonempty_of_mem_simplex (adv (O 0 (Classical.arbitrary Ω)) (Classical.arbitrary β)).2
 
-/-- The advice of an expert vanishes on the arms of weight zero of Exp4-IX, since the weight of
-every expert is positive. -/
-private lemma adv_eq_zero_of_exp4IXWeights_eq_zero {t : ℕ} {h : Hist 𝓞 α ℝ t} {o : 𝓞} {m : β}
-    {a : α} (ha : exp4IXWeights adv η γ t h o a = 0) : (adv o m : α → ℝ) a = 0 := by
-  have hle := exp4IXExpertWeights_mul_le_exp4IXWeights (adv := adv) (η := η) (γ := γ) t h o m a
-  rw [ha] at hle
-  exact le_antisymm (nonpos_of_mul_nonpos_right hle (exp4IXExpertWeights_pos t h m))
-    ((mem_simplex_iff.1 (adv o m).2).1 a)
-
 variable [MeasurableSpace α] [MeasurableSingletonClass α] [MeasurableSpace 𝓞]
   {hadv : Measurable adv}
   {Ω : Type*} {mΩ : MeasurableSpace Ω} {P : Measure Ω} [IsProbabilityMeasure P]
@@ -92,9 +83,9 @@ variable [MeasurableSpace α] [MeasurableSingletonClass α] [MeasurableSpace �
 /-- **Concentration of the estimated losses of an expert** [Neu15, Lemma 1]. Along a run of
 Exp4-IX against any environment whose feedback at every round `t < n` is almost surely in
 `[0, 1]`, with `Ŷ t` the implicit-exploration estimates of the losses `1 - Y t` and
-`m t a = env.means O A Y a t` the conditional means of the rewards, for `0 ≤ c ≤ γ t` at the
+`μ t a = env.means O A Y a t` the conditional means of the rewards, for `0 ≤ c ≤ γ t` at the
 rounds `t < n`, `δ > 0` and every expert `m`, the probability that
-`log (1 / δ) ≤ 2 c ∑ t < n, (adv (O t) m ⬝ᵥ Ŷ t - ∑ a, adv (O t) m a * (1 - m t a))` is at most
+`log (1 / δ) ≤ 2 c ∑ t < n, (adv (O t) m ⬝ᵥ Ŷ t - ∑ a, adv (O t) m a * (1 - μ t a))` is at most
 `δ`. -/
 theorem measure_le_mul_sum_dotProduct_sub_le (h : IsAlgEnvSeq O A Y (exp4IX adv hadv η γ) env P)
     (hY : ∀ᵐ ω ∂P, ∀ t < n, Y t ω ∈ Set.Icc 0 1) {c : ℝ} (hc : 0 ≤ c) (hcγ : ∀ t < n, c ≤ γ t)
@@ -120,7 +111,7 @@ theorem measure_le_mul_sum_dotProduct_sub_le (h : IsAlgEnvSeq O A Y (exp4IX adv 
         calc 2 * c * (adv (O t ω) m : α → ℝ) a ≤ 2 * c * 1 :=
               mul_le_mul_of_nonneg_left h1 (by positivity)
           _ ≤ 2 * γ t := by linarith [hcγ t ht])
-      (fun t _ a ω ha ↦ by rw [adv_eq_zero_of_exp4IXWeights_eq_zero ha, mul_zero]) hδ)
+      (fun t _ a ω ha ↦ by rw [adv_apply_eq_zero_of_exp4IXWeights_eq_zero ha m, mul_zero]) hδ)
   simp only [Set.mem_ofPred_eq] at hω ⊢
   refine hω.trans_eq ?_
   rw [Finset.mul_sum]
@@ -128,78 +119,14 @@ theorem measure_le_mul_sum_dotProduct_sub_le (h : IsAlgEnvSeq O A Y (exp4IX adv 
   rw [dotProduct, ← Finset.sum_sub_distrib, Finset.mul_sum]
   exact Finset.sum_congr rfl fun a _ ↦ by ring
 
-/-- **Concentration of the sums of the estimates** [Neu15, Lemma 1]. Along a run of Exp4-IX against
-any environment whose feedback at every round `t < n` is almost surely in `[0, 1]`, with `Ŷ t` the
-implicit-exploration estimates of the losses `1 - Y t`, for weights `0 ≤ b t ≤ 2 γ t` at the
-rounds `t < n` and `δ > 0`, the probability that
-`k ∑ t < n, b t + log (1 / δ) ≤ ∑ t < n, b t * ∑ a, Ŷ t a` is at most `δ`, with `k` the number of
-arms. -/
-theorem measure_add_le_sum_mul_sum_iwEstimator_le
-    (h : IsAlgEnvSeq O A Y (exp4IX adv hadv η γ) env P)
-    (hY : ∀ᵐ ω ∂P, ∀ t < n, Y t ω ∈ Set.Icc 0 1) {b : ℕ → ℝ} (hb : ∀ t < n, 0 ≤ b t)
-    (hbγ : ∀ t < n, b t ≤ 2 * γ t) (hδ : 0 < δ) :
-    P {ω | Fintype.card α * ∑ t ∈ range n, b t + log (1 / δ) ≤ ∑ t ∈ range n, b t *
-        ∑ a, iwEstimator (fun a ↦ exp4IXWeights adv η γ t (history O A Y t ω) (O t ω) a + γ t)
-          (A t ω) (1 - Y t ω) a} ≤ ENNReal.ofReal δ := by
-  have := nonempty_arms P adv O
-  rw [exp4IX_def] at h
-  set p : ℕ → Ω → α → ℝ := fun t ω ↦ exp4IXWeights adv η γ t (history O A Y t ω) (O t ω)
-    with hp
-  set Yh : ℕ → Ω → α → ℝ := fun t ω ↦
-    iwEstimator (fun a ↦ p t ω a + γ t) (A t ω) (1 - Y t ω) with hYh
-  -- the coefficients `b t` on the arms of positive weight
-  have hpm : ∀ t a, Measurable[h.filtrationObs t] fun ω ↦ p t ω a := fun t a ↦
-    Measurable.comp (mα := h.filtrationObs t) (g := fun x : Hist 𝓞 α ℝ t × 𝓞 ↦
-      exp4IXWeights adv η γ t x.1 x.2 a)
-      ((measurable_pi_apply a).comp (measurable_exp4IXWeights hadv η γ t))
-      (measurable_iff_comap_le.2 le_rfl)
-  have key := WeightAlgorithm.measure_log_one_div_le_sum_sum_mul_iwEstimator_add_sub_le h hY
-    (c := fun t a ω ↦ if p t ω a = 0 then 0 else b t)
-    (fun t _ a ↦ Measurable.ite (measurableSet_eq_fun (hpm t a) measurable_const)
-      measurable_const measurable_const)
-    (fun t ht a ω ↦ by split_ifs; exacts [le_rfl, hb t ht])
-    (fun t ht a ω ↦ by split_ifs; exacts [(hb t ht).trans (hbγ t ht), hbγ t ht])
-    (fun t _ a ω ha ↦ by simp [hp, ha]) hδ
-  refine le_trans (measure_mono_ae ?_) key
-  filter_upwards [WeightAlgorithm.ae_forall_means_nonneg_of_weights_pos h hY,
-    ae_all_iff.2 fun t ↦ WeightAlgorithm.ae_weights_action_pos h t] with ω hm hA hω
-  -- the means are at most `1` on the arms of positive weight
-  have h1 : ∑ t ∈ range n, ∑ a, (if p t ω a = 0 then 0 else b t) *
-      (1 - env.means O A Y a t ω) ≤ Fintype.card α * ∑ t ∈ range n, b t := by
-    rw [Finset.mul_sum]
-    refine Finset.sum_le_sum fun t ht ↦ ?_
-    refine le_trans (Finset.sum_le_sum fun a _ ↦ ?_) (le_of_eq (by simp) :
-      ∑ _a : α, b t ≤ Fintype.card α * b t)
-    split_ifs with ha
-    · simpa using hb t (mem_range.1 ht)
-    · have hma := hm t (mem_range.1 ht) a
-        (lt_of_le_of_ne (exp4IXWeights_nonneg _ _ _ _) (Ne.symm ha))
-      nlinarith [hb t (mem_range.1 ht)]
-  -- the estimates vanish outside the drawn arm, which has positive weight
-  have h2 : ∑ t ∈ range n, ∑ a, (if p t ω a = 0 then 0 else b t) * Yh t ω a =
-      ∑ t ∈ range n, b t * ∑ a, Yh t ω a := by
-    refine Finset.sum_congr rfl fun t _ ↦ ?_
-    rw [Finset.mul_sum]
-    refine Finset.sum_congr rfl fun a _ ↦ ?_
-    rcases eq_or_ne a (A t ω) with rfl | ha
-    · simp [hp, (hA t).ne']
-    · simp [hYh, iwEstimator_apply_of_ne ha]
-  have h3 : ∑ t ∈ range n, ∑ a, (if p t ω a = 0 then 0 else b t) *
-      (Yh t ω a - (1 - env.means O A Y a t ω)) =
-      ∑ t ∈ range n, ∑ a, (if p t ω a = 0 then 0 else b t) * Yh t ω a -
-        ∑ t ∈ range n, ∑ a, (if p t ω a = 0 then 0 else b t) * (1 - env.means O A Y a t ω) := by
-    simp only [mul_sub, Finset.sum_sub_distrib]
-  simp only [hYh, hp] at h1 h2 h3 ⊢
-  linarith
-
 /-- **High-probability regret bound of Exp4-IX** [Neu15, proofs of Theorems 1 and 2]. Along a run
 of Exp4-IX against any environment whose feedback at every round `t < n` is almost surely in
 `[0, 1]`, for nonincreasing learning rates `η t > 0` and implicit-exploration parameters
 `γ t ≥ 0` with `η t ≤ 2 γ t` at the rounds `t < n` and `γ (n - 1) > 0`, and for `δ > 0`, the
-probability that the expert random regret `max_m ∑ t < n, (∑ a, adv (O t) m a * m t a - Y t)` is
+probability that the expert random regret `max_m ∑ t < n, (∑ a, adv (O t) m a * μ t a - Y t)` is
 at least
 `log M / η (n - 1) + k ∑ t < n, (γ t + η t / 2) + log (2 M / δ) / (2 γ (n - 1)) + log (2 / δ)`
-is at most `δ`, with `m t a = env.means O A Y a t` the conditional means of the rewards, `M` the
+is at most `δ`, with `μ t a = env.means O A Y a t` the conditional means of the rewards, `M` the
 number of experts and `k` the number of arms. -/
 theorem measure_le_expertRandomRegret_le (h : IsAlgEnvSeq O A Y (exp4IX adv hadv η γ) env P)
     (hY : ∀ᵐ ω ∂P, ∀ t < n, Y t ω ∈ Set.Icc 0 1) (hη : ∀ t, 0 < η t) (hη_anti : Antitone η)
@@ -232,7 +159,8 @@ theorem measure_le_expertRandomRegret_le (h : IsAlgEnvSeq O A Y (exp4IX adv hadv
     measure_le_mul_sum_dotProduct_sub_le h hY hγn.le
       (fun t ht ↦ hγ_anti (Nat.le_sub_one_of_lt ht)) hδ₁ m
   have hE2 : P E2 ≤ ENNReal.ofReal (δ / 2) :=
-    measure_add_le_sum_mul_sum_iwEstimator_le h hY (b := fun t ↦ γ t + η t / 2)
+    WeightAlgorithm.measure_add_le_sum_mul_sum_iwEstimator_le h' hY (γ := γ)
+      (b := fun t ↦ γ t + η t / 2)
       (fun t _ ↦ by linarith [hγ t, hη t]) (fun t ht ↦ by linarith [hηγ t ht]) (half_pos hδ)
   calc _ ≤ P ((⋃ m, E1 m) ∪ E2) := measure_mono_ae ?_
     _ ≤ ∑ m, P (E1 m) + P E2 :=
@@ -328,8 +256,8 @@ of Exp3-IX, the instance of Exp4-IX with the experts `α` that each recommend on
 `k ≥ 2` arms, the anytime learning rates `η t = √(log k / (k (t + 1)))` and the implicit
 exploration `γ t = η t / 2`, against any environment whose feedback at every round `t < n` is
 almost surely in `[0, 1]`, for `n > 0` and `δ > 0`, the probability that the random regret
-`max_a ∑ t < n, (m t a - Y t)` is at least `4 √(n k log k) + (√(n k / log k) + 1) log (2 / δ)` is
-at most `δ`, with `m t a = env.means O A Y a t` the conditional means of the rewards. The rates do
+`max_a ∑ t < n, (μ t a - Y t)` is at least `4 √(n k log k) + (√(n k / log k) + 1) log (2 / δ)` is
+at most `δ`, with `μ t a = env.means O A Y a t` the conditional means of the rewards. The rates do
 not depend on the horizon `n` nor on `δ`. [Neu15] states this bound with `2 √(n k / log k)` in
 place of `√(n k / log k)`. -/
 theorem measure_four_mul_sqrt_add_le_randomRegret_le [Nonempty α]

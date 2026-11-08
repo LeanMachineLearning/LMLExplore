@@ -181,6 +181,15 @@ lemma exp4IXExpertWeights_mul_le_exp4IXWeights (n : ℕ) (h : Hist 𝓞 α ℝ n
     (fun m' _ ↦ mul_nonneg (softmax_nonneg _ m') ((mem_simplex_iff.1 (adv o m').2).1 a))
     (mem_univ m)
 
+/-- The advice of every expert vanishes on the arms of weight zero in Exp4-IX, as every expert has
+positive weight. -/
+lemma adv_apply_eq_zero_of_exp4IXWeights_eq_zero [Nonempty β] {n : ℕ} {h : Hist 𝓞 α ℝ n} {o : 𝓞}
+    {a : α} (ha : exp4IXWeights adv η γ n h o a = 0) (m : β) : (adv o m : α → ℝ) a = 0 := by
+  have hle := exp4IXExpertWeights_mul_le_exp4IXWeights (adv := adv) (η := η) (γ := γ) n h o m a
+  rw [ha] at hle
+  exact le_antisymm (nonpos_of_mul_nonpos_right hle (exp4IXExpertWeights_pos n h m))
+    ((mem_simplex_iff.1 (adv o m).2).1 a)
+
 variable [MeasurableSpace α] [MeasurableSingletonClass α] [MeasurableSpace 𝓞]
 
 @[fun_prop]
