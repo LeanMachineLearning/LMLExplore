@@ -40,10 +40,10 @@ gives [GC11, Theorem 10].
 For independent variables `Z 0, Z 1, …` dominated by `Y`, for instance with the law of `Y`, the
 filtration of the past variables makes `Z n` independent of the past, so its conditional moment
 generating function is bounded by that of `Y` (`LMLExplore.HasMGFBound.hasCondMGFBound_of_indep`),
-and the bound on one slice, with every variable selected, holds for the means
-`μ̂_n = (Z 0 + ⋯ + Z (n - 1)) / n` of the first `n` variables. On a slice `a ≤ n < b` of sample
-sizes, the deviation `z ≤ n I(μ̂_n)` forces `I(μ̂_n) > z / b`, on either side of the mean, so it
-happens on the slice with probability at most `2 exp (-(a z / b))`. On the dyadic slices
+and the bound on one slice and [GC11, Theorem 10], with every variable selected, hold for the
+means `μ̂_n = (Z 0 + ⋯ + Z (n - 1)) / n` of the first `n` variables. On a slice `a ≤ n < b` of
+sample sizes, the deviation `z ≤ n I(μ̂_n)` forces `I(μ̂_n) > z / b`, on either side of the mean,
+so it happens on the slice with probability at most `2 exp (-(a z / b))`. On the dyadic slices
 `2 ^ k ≤ n < 2 ^ (k + 1)` this is `2 exp (-z / 2)`, the
 step of the peeled deviation bounds of `SequentialLearning/RateFunctionDeviation.lean`. The
 bounds for independent variables are adapted from the formalization in the Garivier2016Optimal
@@ -65,6 +65,10 @@ project (Rémy Degenne, <https://github.com/RemyDegenne/Garivier2016Optimal>, fi
 * `ProbabilityTheory.iIndepFun.measure_exists_le_and_lt_and_le_mul_rateFunction_le`: for
   independent variables dominated by `Y`, the two-sided bound
   `P(∃ n, a ≤ n < b, z ≤ n I(μ̂_n)) ≤ 2 exp (-(a z / b))`.
+* `ProbabilityTheory.iIndepFun.measure_exists_gt_and_le_mul_rateFunction_le`,
+  `ProbabilityTheory.iIndepFun.measure_exists_lt_and_le_mul_rateFunction_le`: [GC11, Theorem 10]
+  for the means of independent variables dominated by `Y`,
+  `P(∃ t ∈ [1, n], m < μ̂_t, x ≤ t I(μ̂_t)) ≤ e ⌈x log n⌉ exp (-x)`, and below the mean.
 
 ## References
 
@@ -336,6 +340,28 @@ section Indep
 
 variable {Z : ℕ → Ω → ℝ}
 
+/-- For independent variables `Z 0, Z 1, …`, each dominated on `Λ`, in moment generating function,
+by `Y`, the filtration of the past variables makes `Z n` measurable at time `n + 1`, and `Z n`,
+independent of the past, has its conditional moment generating function bounded by that of `Y`
+on `Λ`, where it is finite. -/
+private lemma exists_filtration_hasCondMGFBound (h_indep : iIndepFun Z P)
+    (hZm : ∀ i, Measurable (Z i)) {Λ : Set ℝ} (hZ : ∀ i, MGFDominatedOn (Z i) P Y Q Λ) :
+    ∃ ℱ : Filtration ℕ mΩ, (∀ n, Measurable[ℱ (n + 1)] (Z n)) ∧
+      ∀ n, HasCondMGFBound (ℱ n) (ℱ.le n) (Z n) (cgf Y Q) (Λ ∩ integrableExpSet Y Q) P := by
+  -- the filtration of the past variables, of which `Z n` is independent
+  let ℱ : Filtration ℕ mΩ :=
+    { seq n := ⨆ i ∈ Set.Iio n, MeasurableSpace.comap (Z i) inferInstance
+      mono' _ _ hnm := biSup_mono fun i hi ↦ lt_of_lt_of_le hi hnm
+      le' _ := iSup₂_le fun i _ ↦ (hZm i).comap_le }
+  refine ⟨ℱ, fun n ↦ ?_, fun n ↦ ?_⟩
+  · exact Measurable.of_comap_le (le_iSup₂ (f := fun i (_ : i ∈ Set.Iio (n + 1)) ↦
+      MeasurableSpace.comap (Z i) inferInstance) n (Nat.lt_succ_self n))
+  · refine HasMGFBound.hasCondMGFBound_of_indep
+      (mgfDominatedOn_iff_hasMGFBound.1 (hZ n)) (hZm n) ?_
+    have h := indep_iSup_of_disjoint (fun i ↦ (hZm i).comap_le) h_indep
+      (S := {n}) (T := Set.Iio n) (by simp)
+    simpa only [Set.mem_singleton_iff, iSup_iSup_eq_left] using h
+
 /-- **Time-uniform Chernoff bound for sums of independent variables, with the rate function.** Let
 `Z 0, Z 1, …` be independent, each dominated on `Set.Ici 0`, in moment generating function, by the
 integrable `Y` (for instance, each with the law of `Y`), with rate function `I`, and let `μ̂_n` be
@@ -348,21 +374,7 @@ theorem _root_.ProbabilityTheory.iIndepFun.measure_exists_le_and_gt_and_lt_rateF
     P {ω | ∃ n : ℕ, a ≤ n ∧ Q[Y] < (∑ i ∈ range n, Z i ω) / n ∧
       ENNReal.ofReal r < rateFunction Y Q ((∑ i ∈ range n, Z i ω) / n)} ≤
       ENNReal.ofReal (exp (-(a * r))) := by
-  -- the filtration of the past variables, of which `Z n` is independent
-  let ℱ : Filtration ℕ mΩ :=
-    { seq n := ⨆ i ∈ Set.Iio n, MeasurableSpace.comap (Z i) inferInstance
-      mono' _ _ hnm := biSup_mono fun i hi ↦ lt_of_lt_of_le hi hnm
-      le' _ := iSup₂_le fun i _ ↦ (hZm i).comap_le }
-  have hX (n : ℕ) : Measurable[ℱ (n + 1)] (Z n) :=
-    Measurable.of_comap_le (le_iSup₂ (f := fun i (_ : i ∈ Set.Iio (n + 1)) ↦
-      MeasurableSpace.comap (Z i) inferInstance) n (Nat.lt_succ_self n))
-  have hψ (n : ℕ) : HasCondMGFBound (ℱ n) (ℱ.le n) (Z n) (cgf Y Q)
-      (Ici 0 ∩ integrableExpSet Y Q) P := by
-    refine HasMGFBound.hasCondMGFBound_of_indep
-      (mgfDominatedOn_iff_hasMGFBound.1 (hZ n)) (hZm n) ?_
-    have h := indep_iSup_of_disjoint (fun i ↦ (hZm i).comap_le) h_indep
-      (S := {n}) (T := Set.Iio n) (by simp)
-    simpa only [Set.mem_singleton_iff, iSup_iSup_eq_left] using h
+  obtain ⟨ℱ, hX, hψ⟩ := exists_filtration_hasCondMGFBound h_indep hZm hZ
   -- every variable is selected
   have h := measure_exists_le_sum_and_gt_and_lt_rateFunction_le (ℱ := ℱ) (w := fun _ _ ↦ 1) hX hψ
     (fun _ ↦ measurable_const) (fun _ _ ↦ Or.inr rfl) hY ha hr
@@ -425,6 +437,44 @@ theorem _root_.ProbabilityTheory.iIndepFun.measure_exists_le_and_lt_and_le_mul_r
       · simpa [neg_div] using h_rate
   · rw [← ENNReal.ofReal_add (by positivity) (by positivity)]
     ring_nf
+
+/-- **Self-normalized deviations of the means of independent variables above the mean**
+[GC11, Theorem 10]. Let `Z 0, Z 1, …` be independent, each dominated on `Set.Ici 0`, in moment
+generating function, by the integrable `Y` (for instance, each with the law of `Y`), with rate
+function `I`, and let `μ̂_t` be the mean of the first `t` of them. For `x > 0` and `n ≥ 2`, the
+probability that `μ̂_t` is above the mean of `Y` and `x ≤ t I(μ̂_t)` for some `t ∈ [1, n]` is at
+most `e ⌈x log n⌉ exp (-x)`. -/
+theorem _root_.ProbabilityTheory.iIndepFun.measure_exists_gt_and_le_mul_rateFunction_le
+    (h_indep : iIndepFun Z P) (hZm : ∀ i, Measurable (Z i))
+    (hZ : ∀ i, MGFDominatedOn (Z i) P Y Q (Ici 0)) (hY : Integrable Y Q) {x : ℝ} (hx : 0 < x)
+    {n : ℕ} (hn : 1 < n) :
+    P {ω | ∃ t : ℕ, 1 ≤ t ∧ t ≤ n ∧ Q[Y] < (∑ i ∈ range t, Z i ω) / t ∧
+      ENNReal.ofReal x ≤ t * rateFunction Y Q ((∑ i ∈ range t, Z i ω) / t)} ≤
+      ENNReal.ofReal (exp 1 * ⌈x * log n⌉₊ * exp (-x)) := by
+  obtain ⟨ℱ, hX, hψ⟩ := exists_filtration_hasCondMGFBound h_indep hZm hZ
+  -- every variable is selected
+  have h := LMLExplore.measure_exists_gt_and_le_mul_rateFunction_le (ℱ := ℱ) (w := fun _ _ ↦ 1)
+    hX hψ (fun _ ↦ measurable_const) (fun _ _ ↦ Or.inr rfl) hY hx hn
+  simpa using h
+
+/-- **Self-normalized deviations of the means of independent variables below the mean**
+[GC11, Theorem 10]. Let `Z 0, Z 1, …` be independent, each dominated on `Set.Iic 0`, in moment
+generating function, by the integrable `Y` (for instance, each with the law of `Y`), with rate
+function `I`, and let `μ̂_t` be the mean of the first `t` of them. For `x > 0` and `n ≥ 2`, the
+probability that `μ̂_t` is below the mean of `Y` and `x ≤ t I(μ̂_t)` for some `t ∈ [1, n]` is at
+most `e ⌈x log n⌉ exp (-x)`. -/
+theorem _root_.ProbabilityTheory.iIndepFun.measure_exists_lt_and_le_mul_rateFunction_le
+    (h_indep : iIndepFun Z P) (hZm : ∀ i, Measurable (Z i))
+    (hZ : ∀ i, MGFDominatedOn (Z i) P Y Q (Iic 0)) (hY : Integrable Y Q) {x : ℝ} (hx : 0 < x)
+    {n : ℕ} (hn : 1 < n) :
+    P {ω | ∃ t : ℕ, 1 ≤ t ∧ t ≤ n ∧ (∑ i ∈ range t, Z i ω) / t < Q[Y] ∧
+      ENNReal.ofReal x ≤ t * rateFunction Y Q ((∑ i ∈ range t, Z i ω) / t)} ≤
+      ENNReal.ofReal (exp 1 * ⌈x * log n⌉₊ * exp (-x)) := by
+  obtain ⟨ℱ, hX, hψ⟩ := exists_filtration_hasCondMGFBound h_indep hZm hZ
+  -- every variable is selected
+  have h := LMLExplore.measure_exists_lt_and_le_mul_rateFunction_le (ℱ := ℱ) (w := fun _ _ ↦ 1)
+    hX hψ (fun _ ↦ measurable_const) (fun _ _ ↦ Or.inr rfl) hY hx hn
+  simpa using h
 
 end Indep
 

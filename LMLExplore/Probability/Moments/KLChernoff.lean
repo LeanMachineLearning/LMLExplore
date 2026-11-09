@@ -15,6 +15,7 @@ public import LMLExplore.Probability.Distributions.ExponentialFamily.Chernoff
 public import LMLExplore.Probability.Moments.SubGaussian.Bounded
 public import TauCeti.Probability.Distributions.Bernoulli.Basic
 import LMLExplore.Probability.LargeDeviations.Chernoff
+import LMLExplore.Probability.Martingale.RateFunction
 
 /-!
 # Chernoff bounds in relative-entropy form
@@ -39,6 +40,14 @@ The lower tail controls the upper confidence level `U(μ̂, c)` of the KL-UCB al
 empirical mean `μ̂ = (∑ i ∈ s, X i) / #s`: for a level `q < 1` with `q ≤ m`, `U(μ̂, L / #s) ≤ q`
 has probability at most `exp (-L) exp (-2 #s (m - q)²)`. This is the confidence bound that controls
 the underestimation of an optimal arm in the analysis of KL-UCB.
+
+Uniformly over the sample sizes `s ∈ [1, n]`, the self-normalized deviations of [GC11, Theorem 10]
+(`ProbabilityTheory.iIndepFun.measure_exists_lt_and_le_mul_rateFunction_le`), for the Bernoulli
+law of mean `m`, whose rate function is `d(·, m)` on `[0, 1]`, give
+`P(∃ s ∈ [1, n], μ̂_s < m, x ≤ s d(μ̂_s, m)) ≤ e ⌈x log n⌉ exp (-x)` for `x > 0` and `n ≥ 2`: this
+is [GC11, Theorem 10] itself, for independent variables in `[0, 1]`, and it bounds the probability
+that some `U(μ̂_s, x / s)` with `s ∈ [1, n]` is below `m` by `e ⌈x log n⌉ exp (-x)`, without a
+union bound over `s`.
 
 Hoeffding's inequality also controls the overestimation of the KL-UCB index [LS, Lemma 10.8]: for
 independent `X₀, X₁, …` in `[0, 1]` with means at most `m` and a level `c ∈ (m + ε, 1)`, the
@@ -69,6 +78,15 @@ expected number of sample sizes `s` at which `s = 0`, `c ≤ μ̂_s` or `d(μ̂_
 * `LMLExplore.measureReal_klUpper_lt_le`, `LMLExplore.measureReal_lt_klLower_le`: the coverage
   bounds `P(U(μ̂, L / #s) < m) ≤ exp (-L)` if the means are at least `m`, and
   `P(m < L(μ̂, L / #s)) ≤ exp (-L)` if they are at most `m`, for the lower confidence level `L`.
+* `LMLExplore.measure_exists_lt_and_le_mul_klBer_le`,
+  `LMLExplore.measure_exists_gt_and_le_mul_klBer_le`: [GC11, Theorem 10], for `x > 0` and `n ≥ 2`,
+  `P(∃ s ∈ [1, n], μ̂_s < m ∧ x ≤ s d(μ̂_s, m)) ≤ e ⌈x log n⌉ exp (-x)` if the means are at least
+  `m`, for the empirical means `μ̂_s` of the first `s` variables, and the same above `m` if the
+  means are at most `m`.
+* `LMLExplore.measure_exists_klUpper_lt_le`, `LMLExplore.measure_exists_lt_klLower_le`: the
+  time-uniform coverage bounds `P(∃ s ∈ [1, n], U(μ̂_s, x / s) < m) ≤ e ⌈x log n⌉ exp (-x)` if the
+  means are at least `m`, and `P(∃ s ∈ [1, n], m < L(μ̂_s, x / s)) ≤ e ⌈x log n⌉ exp (-x)` if they
+  are at most `m`.
 * `LMLExplore.sum_measureReal_eq_zero_or_le_div_or_klBer_div_le_le`: [LS, Lemma 10.8], for
   `m + ε < c < 1` and `L ≥ 0`, `∑_{s < n} P(s = 0 ∨ c ≤ μ̂_s ∨ d(μ̂_s, c) ≤ L / s)
   ≤ 1 + L / d(m + ε, c) + 1 / (2 ε²)` for the empirical means `μ̂_s` of the first `s` variables.
@@ -77,6 +95,8 @@ expected number of sample sizes `s` at which `s = 0`, `c ≤ μ̂_s` or `d(μ̂_
 
 * T. Lattimore and Cs. Szepesvári, *Bandit Algorithms*, Cambridge University Press, 2020,
   Lemma 10.3, Note 10.3.1, Corollary 10.4 and Lemma 10.8.
+* [GC11] A. Garivier and O. Cappé, *The KL-UCB algorithm for bounded stochastic bandits and
+  beyond*, COLT 2011, Theorem 10.
 -/
 
 public section
@@ -481,5 +501,152 @@ theorem sum_measureReal_eq_zero_or_le_div_or_klBer_div_le_le {X : ℕ → Ω →
   _ ≤ 1 + L / D + 1 / (2 * ε ^ 2) := by
     rw [one_div]
     exact sum_range_ite_mul_le_exp_neg_mul_le hD hL (by positivity) n
+
+
+/-! ### Self-normalized deviations in relative-entropy form -/
+
+section SelfNormalized
+
+variable {X : ℕ → Ω → ℝ}
+
+/-- The mean of `s ≥ 1` numbers in `[0, 1]` lies in `[0, 1]`. -/
+private lemma sum_range_div_mem_Icc {ω : Ω} (hω : ∀ i, X i ω ∈ Set.Icc 0 1) {s : ℕ}
+    (hs : 1 ≤ s) : (∑ i ∈ range s, X i ω) / s ∈ Set.Icc 0 1 := by
+  have hs0 : (0 : ℝ) < s := by exact_mod_cast hs
+  refine ⟨div_nonneg (sum_nonneg fun i _ ↦ (hω i).1) hs0.le, (div_le_one hs0).2 ?_⟩
+  calc ∑ i ∈ range s, X i ω
+  _ ≤ ∑ i ∈ range s, (1 : ℝ) := sum_le_sum fun i _ ↦ (hω i).2
+  _ = s := by simp
+
+/-- A number below the mean of a random variable with values in `[0, 1]` is at most `1`. -/
+private lemma le_one_of_le_integral [IsProbabilityMeasure μ] {Y : Ω → ℝ} (hYm : AEMeasurable Y μ)
+    (hY : ∀ᵐ ω ∂μ, Y ω ∈ Set.Icc 0 1) (h : m ≤ μ[Y]) : m ≤ 1 :=
+  h.trans <| (integral_mono_ae (.of_mem_Icc 0 1 hYm hY) (integrable_const 1)
+    (hY.mono fun ω hω ↦ hω.2)).trans_eq (by simp)
+
+variable [StandardBorelSpace Ω]
+
+/-- **Self-normalized deviations below the mean in relative-entropy form** [GC11, Theorem 10].
+For independent random variables `X i ∈ [0, 1]` with means at least `m`, `x > 0` and `n ≥ 2`, the
+probability that for some `s ∈ [1, n]` the empirical mean `μ̂_s = (X 0 + ⋯ + X (s - 1)) / s` is
+below `m` with `x ≤ s d(μ̂_s, m)` is at most `e ⌈x log n⌉ exp (-x)`, where `d` is the binary
+relative entropy. -/
+theorem measure_exists_lt_and_le_mul_klBer_le (h_indep : iIndepFun X μ)
+    (hXm : ∀ i, Measurable (X i)) (hX : ∀ i, ∀ᵐ ω ∂μ, X i ω ∈ Set.Icc 0 1)
+    (hmean : ∀ i, m ≤ μ[X i]) {x : ℝ} (hx : 0 < x) {n : ℕ} (hn : 1 < n) :
+    μ {ω | ∃ s : ℕ, 1 ≤ s ∧ s ≤ n ∧ (∑ i ∈ range s, X i ω) / s < m ∧
+      ENNReal.ofReal x ≤ s * klBer ((∑ i ∈ range s, X i ω) / s) m} ≤
+      ENNReal.ofReal (exp 1 * ⌈x * log n⌉₊ * exp (-x)) := by
+  have := h_indep.isProbabilityMeasure
+  have hX' : ∀ᵐ ω ∂μ, ∀ i, X i ω ∈ Set.Icc 0 1 := ae_all_iff.2 hX
+  have hm1 : m ≤ 1 := le_one_of_le_integral (hXm 0).aemeasurable (hX 0) (hmean 0)
+  rcases le_or_gt m 0 with hm0 | hm0
+  · -- for `m ≤ 0`, no empirical mean is below `m`
+    refine le_of_eq_of_le (measure_eq_zero_iff_ae_notMem.2 ?_) zero_le
+    filter_upwards [hX'] with ω hω ⟨s, hs, _, hlt, _⟩
+    linarith [(sum_range_div_mem_Icc hω hs).1]
+  -- the variables are dominated below by the Bernoulli law of mean `m`, whose rate function is
+  -- `d(·, m)` on `[0, 1]`
+  set q : I := ⟨m, hm0.le, hm1⟩
+  have h := h_indep.measure_exists_lt_and_le_mul_rateFunction_le hXm
+    (fun i ↦ mgfDominatedOn_Iic_bernoulliMeasure (q := q) (hXm i).aemeasurable (hX i) (hmean i))
+    (integrable_bernoulliMeasure (1 : ℝ) 0 q id) hx hn
+  refine (measure_mono_ae ?_).trans h
+  filter_upwards [hX'] with ω hω ⟨s, hs, hsn, hlt, hle⟩
+  have h_mean : ∫ y, id y ∂Ber((1 : ℝ), 0, q) = m :=
+    TauCeti.Probability.integral_id_bernoulliMeasure q
+  refine ⟨s, hs, hsn, h_mean ▸ hlt, ?_⟩
+  rwa [rateFunction_id_bernoulliMeasure q (sum_range_div_mem_Icc hω hs)]
+
+/-- **Self-normalized deviations above the mean in relative-entropy form** [GC11, Theorem 10].
+For independent random variables `X i ∈ [0, 1]` with means at most `m`, `x > 0` and `n ≥ 2`, the
+probability that for some `s ∈ [1, n]` the empirical mean `μ̂_s = (X 0 + ⋯ + X (s - 1)) / s` is
+above `m` with `x ≤ s d(μ̂_s, m)` is at most `e ⌈x log n⌉ exp (-x)`, where `d` is the binary
+relative entropy. -/
+theorem measure_exists_gt_and_le_mul_klBer_le (h_indep : iIndepFun X μ)
+    (hXm : ∀ i, Measurable (X i)) (hX : ∀ i, ∀ᵐ ω ∂μ, X i ω ∈ Set.Icc 0 1)
+    (hmean : ∀ i, μ[X i] ≤ m) {x : ℝ} (hx : 0 < x) {n : ℕ} (hn : 1 < n) :
+    μ {ω | ∃ s : ℕ, 1 ≤ s ∧ s ≤ n ∧ m < (∑ i ∈ range s, X i ω) / s ∧
+      ENNReal.ofReal x ≤ s * klBer ((∑ i ∈ range s, X i ω) / s) m} ≤
+      ENNReal.ofReal (exp 1 * ⌈x * log n⌉₊ * exp (-x)) := by
+  have := h_indep.isProbabilityMeasure
+  -- the variables `1 - X i` lie in `[0, 1]` and have means at least `1 - m`, their empirical means
+  -- are `1 - μ̂_s`, and `d(1 - μ̂_s, 1 - m) = d(μ̂_s, m)`
+  have h := measure_exists_lt_and_le_mul_klBer_le (X := fun i ω ↦ 1 - X i ω) (m := 1 - m)
+    (h_indep.comp (fun _ x ↦ 1 - x) fun _ ↦ by fun_prop) (fun i ↦ (hXm i).const_sub 1)
+    (fun i ↦ (hX i).mono fun ω hω ↦ ⟨by linarith [hω.2], by linarith [hω.1]⟩)
+    (fun i ↦ ?_) hx hn
+  · refine le_trans (measure_mono fun ω hω ↦ ?_) h
+    obtain ⟨s, hs, hsn, hlt, hle⟩ := hω
+    have hs0 : (s : ℝ) ≠ 0 := by exact_mod_cast (show s ≠ 0 by omega)
+    have h_mean : (∑ i ∈ range s, (1 - X i ω)) / s = 1 - (∑ i ∈ range s, X i ω) / s := by
+      simp only [sum_sub_distrib, sum_const, card_range, nsmul_eq_mul, mul_one, sub_div,
+        div_self hs0]
+    refine ⟨s, hs, hsn, ?_, ?_⟩
+    · rw [h_mean]
+      linarith
+    · rwa [h_mean, klBer_one_sub_one_sub]
+  · rw [integral_sub (integrable_const 1) (.of_mem_Icc 0 1 (hXm i).aemeasurable (hX i))]
+    simp only [integral_const, probReal_univ, smul_eq_mul, one_mul]
+    linarith [hmean i]
+
+/-- **Time-uniform coverage of the upper confidence level** [GC11, Theorem 10]: for independent
+random variables `X i ∈ [0, 1]` with means at least `m`, `x > 0` and `n ≥ 2`, the probability that
+for some `s ∈ [1, n]` the upper confidence level `U(μ̂_s, x / s)` of the empirical mean
+`μ̂_s = (X 0 + ⋯ + X (s - 1)) / s` is less than `m` is at most `e ⌈x log n⌉ exp (-x)`. -/
+theorem measure_exists_klUpper_lt_le (h_indep : iIndepFun X μ) (hXm : ∀ i, Measurable (X i))
+    (hX : ∀ i, ∀ᵐ ω ∂μ, X i ω ∈ Set.Icc 0 1) (hmean : ∀ i, m ≤ μ[X i]) {x : ℝ} (hx : 0 < x)
+    {n : ℕ} (hn : 1 < n) :
+    μ {ω | ∃ s : ℕ, 1 ≤ s ∧ s ≤ n ∧
+      klUpper ((∑ i ∈ range s, X i ω) / s) (ENNReal.ofReal (x / s)) < m} ≤
+      ENNReal.ofReal (exp 1 * ⌈x * log n⌉₊ * exp (-x)) := by
+  have := h_indep.isProbabilityMeasure
+  have hm1 : m ≤ 1 := le_one_of_le_integral (hXm 0).aemeasurable (hX 0) (hmean 0)
+  refine (measure_mono_ae ?_).trans
+    (measure_exists_lt_and_le_mul_klBer_le h_indep hXm hX hmean hx hn)
+  filter_upwards [ae_all_iff.2 hX] with ω hω ⟨s, hs, hsn, hU⟩
+  -- `μ̂_s ≤ U(μ̂_s, x / s) < m`, and `m ≤ U(μ̂_s, x / s)` unless `x / s < d(μ̂_s, m)`
+  have hp := sum_range_div_mem_Icc hω hs
+  have hpU := (klUpper_mem_Icc hp.2 (ENNReal.ofReal (x / s))).1
+  have hd : ENNReal.ofReal (x / s) < klBer ((∑ i ∈ range s, X i ω) / s) m := by
+    by_contra! h
+    exact hU.not_ge ((le_klUpper_iff ⟨(hpU.trans hU.le), hm1⟩).2 h)
+  refine ⟨s, hs, hsn, hpU.trans_lt hU, ?_⟩
+  have hs0 : (0 : ℝ) < s := by exact_mod_cast hs
+  calc ENNReal.ofReal x
+  _ = s * ENNReal.ofReal (x / s) := by
+    rw [← ENNReal.ofReal_natCast, ← ENNReal.ofReal_mul hs0.le, mul_div_cancel₀ x hs0.ne']
+  _ ≤ s * klBer ((∑ i ∈ range s, X i ω) / s) m := by gcongr
+
+/-- **Time-uniform coverage of the lower confidence level** [GC11, Theorem 10]: for independent
+random variables `X i ∈ [0, 1]` with means at most `m`, `x > 0` and `n ≥ 2`, the probability that
+for some `s ∈ [1, n]` the lower confidence level `L(μ̂_s, x / s)` of the empirical mean
+`μ̂_s = (X 0 + ⋯ + X (s - 1)) / s` is more than `m` is at most `e ⌈x log n⌉ exp (-x)`. -/
+theorem measure_exists_lt_klLower_le (h_indep : iIndepFun X μ) (hXm : ∀ i, Measurable (X i))
+    (hX : ∀ i, ∀ᵐ ω ∂μ, X i ω ∈ Set.Icc 0 1) (hmean : ∀ i, μ[X i] ≤ m) {x : ℝ} (hx : 0 < x)
+    {n : ℕ} (hn : 1 < n) :
+    μ {ω | ∃ s : ℕ, 1 ≤ s ∧ s ≤ n ∧
+      m < klLower ((∑ i ∈ range s, X i ω) / s) (ENNReal.ofReal (x / s))} ≤
+      ENNReal.ofReal (exp 1 * ⌈x * log n⌉₊ * exp (-x)) := by
+  have := h_indep.isProbabilityMeasure
+  -- the variables `1 - X i` lie in `[0, 1]` and have means at least `1 - m`, and
+  -- `m < L(μ̂, c)` if and only if `U(1 - μ̂, c) < 1 - m`
+  have h := measure_exists_klUpper_lt_le (X := fun i ω ↦ 1 - X i ω) (m := 1 - m)
+    (h_indep.comp (fun _ x ↦ 1 - x) fun _ ↦ by fun_prop) (fun i ↦ (hXm i).const_sub 1)
+    (fun i ↦ (hX i).mono fun ω hω ↦ ⟨by linarith [hω.2], by linarith [hω.1]⟩)
+    (fun i ↦ ?_) hx hn
+  · refine le_trans (measure_mono fun ω hω ↦ ?_) h
+    obtain ⟨s, hs, hsn, hL⟩ := hω
+    refine ⟨s, hs, hsn, ?_⟩
+    have hs0 : (s : ℝ) ≠ 0 := by exact_mod_cast (show s ≠ 0 by omega)
+    simp only [sum_sub_distrib, sum_const, card_range, nsmul_eq_mul, mul_one, sub_div,
+      div_self hs0]
+    rw [klLower_def] at hL
+    linarith
+  · rw [integral_sub (integrable_const 1) (.of_mem_Icc 0 1 (hXm i).aemeasurable (hX i))]
+    simp only [integral_const, probReal_univ, smul_eq_mul, one_mul]
+    linarith [hmean i]
+
+end SelfNormalized
 
 end LMLExplore
