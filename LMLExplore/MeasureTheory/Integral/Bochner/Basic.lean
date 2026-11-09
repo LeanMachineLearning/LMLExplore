@@ -8,7 +8,7 @@ module
 public import Mathlib.MeasureTheory.Integral.Bochner.Basic
 
 /-!
-# Expectations of finite suprema and of finite sums
+# Expectations of finite suprema, of finite sums and of shifts by constants
 
 ## Main statements
 
@@ -18,6 +18,8 @@ public import Mathlib.MeasureTheory.Integral.Bochner.Basic
   expectation is compared with the best expected regret, use them.
 * `MeasureTheory.integral_le_const`: under a probability measure, an integrable real function that
   is almost surely at most `c` has expectation at most `c`.
+* `MeasureTheory.integral_sub_const`, `MeasureTheory.integral_const_sub`: under a probability
+  measure, the integral of `f - c` is `∫ f - c`, and that of `c - f` is `c - ∫ f`.
 * `MeasureTheory.integral_const_sub_sum`: under a probability measure, the expectation of
   `c - ∑ i ∈ s, g i` is `c - ∑ i ∈ s, ∫ g i ∂P`.
 * `MeasureTheory.integral_sum_le_add_mul_of_ae_le`: under a probability measure, an almost sure
@@ -66,12 +68,29 @@ lemma integral_le_const {f : Ω → ℝ} {c : ℝ} (hf : Integrable f P) (h : �
     ∫ ω, f ω ∂P ≤ c :=
   (integral_mono_ae hf (integrable_const c) h).trans_eq (by simp)
 
+section Const
+
+variable {E : Type*} [NormedAddCommGroup E] [NormedSpace ℝ E] [CompleteSpace E] {f : Ω → E}
+
+/-- Under a probability measure, the integral of an integrable function minus a constant is the
+integral of the function minus the constant. -/
+lemma integral_sub_const (hf : Integrable f P) (c : E) :
+    ∫ ω, (f ω - c) ∂P = ∫ ω, f ω ∂P - c := by
+  rw [integral_sub hf (integrable_const c), integral_const, probReal_univ, one_smul]
+
+/-- Under a probability measure, the integral of a constant minus an integrable function is the
+constant minus the integral of the function. -/
+lemma integral_const_sub (c : E) (hf : Integrable f P) :
+    ∫ ω, (c - f ω) ∂P = c - ∫ ω, f ω ∂P := by
+  rw [integral_sub (integrable_const c) hf, integral_const, probReal_univ, one_smul]
+
+end Const
+
 /-- Under a probability measure, the expectation of a constant minus a finite sum of integrable
 real functions is the constant minus the sum of their expectations. -/
 lemma integral_const_sub_sum (c : ℝ) {g : ι → Ω → ℝ} (hg : ∀ i ∈ s, Integrable (g i) P) :
     ∫ ω, (c - ∑ i ∈ s, g i ω) ∂P = c - ∑ i ∈ s, ∫ ω, g i ω ∂P := by
-  rw [integral_sub (integrable_const _) (integrable_finsetSum _ hg), integral_finsetSum _ hg,
-    integral_const, probReal_univ, one_smul]
+  rw [integral_const_sub c (integrable_finsetSum _ hg), integral_finsetSum _ hg]
 
 /-- If almost surely `∑ i ∈ s, Z i ≤ B + c ∑ i ∈ s, V i` with `c ≥ 0`, where the `Z i` and `V i`
 are integrable and the expectations of the `V i` sum to at most `C`, then the expectation of

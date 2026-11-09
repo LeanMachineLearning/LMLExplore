@@ -7,6 +7,8 @@ module
 
 public import Mathlib.Probability.Kernel.Composition.IntegralCompProd
 
+import LMLExplore.MeasureTheory.Integral.Bochner.Basic
+
 /-!
 # Integrals of differences against a composition-product
 
@@ -40,6 +42,6 @@ lemma integral_sub_integral_eq_integral_compProd [CompleteSpace E] [SFinite μ] 
   rw [integral_compProd (f := fun p ↦ f p.1 - g p) (hf'.sub hg)]
   refine integral_congr_ae ?_
   filter_upwards [((integrable_compProd_iff hg.1).1 hg).1] with a ha
-  rw [integral_sub (integrable_const _) ha, integral_const, probReal_univ, one_smul]
+  rw [integral_const_sub _ ha]
 
 end MeasureTheory.Measure

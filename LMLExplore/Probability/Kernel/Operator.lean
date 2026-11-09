@@ -6,8 +6,11 @@ Authors: Rémy Degenne
 module
 
 public import LMLExplore.MeasureTheory.Integral.BoundedMeasurable
+public import LMLExplore.Probability.Kernel.Composition.Comp
 public import Mathlib.Probability.Kernel.Composition.IntegralCompProd
 public import Mathlib.Probability.Kernel.MeasurableIntegral
+
+import TauCeti.MeasureTheory.Integral.Bind
 
 /-!
 # Kernels as operators on bounded measurable functions
@@ -36,7 +39,11 @@ Kernels act on functions contravariantly: `η ∘ₖ κ` acts as the action of `
   the action of a kernel is positive.
 * `ProbabilityTheory.Kernel.integralCLM_comp`, `ProbabilityTheory.Kernel.integralCLM_id`: the
   action is contravariant for the composition of kernels.
+* `ProbabilityTheory.Kernel.integralCLM_pow_zero`, `ProbabilityTheory.Kernel.integralCLM_pow_succ`:
+  the powers of a kernel act by the iterates of its action.
 * `ProbabilityTheory.Kernel.integralCLM_one`: a Markov kernel preserves constants.
+* `ProbabilityTheory.Kernel.Invariant.integral_integralCLM`: integrating `κ u` against an invariant
+  measure of `κ` gives the integral of `u`.
 * `ProbabilityTheory.Kernel.norm_integralCLM_apply_le`,
   `ProbabilityTheory.Kernel.opNorm_integralCLM_le`: a Markov kernel does not increase the sup
   norm.
@@ -145,6 +152,20 @@ theorem integralCLM_id : (Kernel.id : Kernel α α).integralCLM = ContinuousLine
 
 end IntegralCLM
 
+section Invariant
+
+variable {κ : Kernel α α} [IsFiniteKernel κ]
+
+/-- Integrating `κ u` against an invariant measure `π` of `κ` gives the integral of `u`. -/
+theorem Invariant.integral_integralCLM {π : Measure α} [IsFiniteMeasure π] (hπ : κ.Invariant π)
+    (u : boundedMeasurable α) :
+    ∫ x, (κ.integralCLM u : ℓ^∞(α, ℝ)) x ∂π = ∫ x, (u : ℓ^∞(α, ℝ)) x ∂π := by
+  conv_rhs => rw [← hπ.def]
+  rw [Measure.integral_bind κ.aemeasurable (boundedMeasurable.integrable u _)]
+  simp only [integralCLM_apply]
+
+end Invariant
+
 section Markov
 
 variable [IsMarkovKernel κ]
@@ -177,5 +198,20 @@ theorem opNorm_integralCLM_le : ‖κ.integralCLM‖ ≤ 1 :=
     exact norm_integralCLM_apply_le f
 
 end Markov
+
+section Powers
+
+variable {κ : Kernel α α} [IsMarkovKernel κ]
+
+/-- The `0`-step kernel acts as the identity. -/
+theorem integralCLM_pow_zero (f : boundedMeasurable α) : (κ ^ 0).integralCLM f = f := by
+  simp only [pow_zero, one_eq_id, integralCLM_id, ContinuousLinearMap.id_apply]
+
+/-- The `(n + 1)`-step kernel acts as the `n`-step kernel followed by `κ`. -/
+theorem integralCLM_pow_succ (n : ℕ) (f : boundedMeasurable α) :
+    (κ ^ (n + 1)).integralCLM f = κ.integralCLM ((κ ^ n).integralCLM f) := by
+  simp only [pow_succ, mul_eq_comp, integralCLM_comp, ContinuousLinearMap.comp_apply]
+
+end Powers
 
 end ProbabilityTheory.Kernel
