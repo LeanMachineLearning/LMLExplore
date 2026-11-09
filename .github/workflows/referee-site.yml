@@ -12,7 +12,8 @@ name: Referee site
 #            trust-ledger), and builds the site with referee-site, against the previous recorded
 #            build and with the evidence store LeanMachineLearning/LMLExplore-evidence and the
 #            stores it imports (LML's, Mathlib probability's), with the literature page beside it
-#            (https://leanmachinelearning.org/LMLExplore/literature/);
+#            (https://leanmachinelearning.org/LMLExplore/literature/) and the pages of the papers built
+#            on LMLExplore (https://leanmachinelearning.org/LMLExplore/papers/, scripts/papers/);
 #   deploy   deploys the site to GitHub Pages;
 #   prune    deletes the dataset releases nobody needs any more.
 #
@@ -237,6 +238,22 @@ jobs:
             --bibliography scripts/literature/bibliography.json --out "$SITE/literature" \
             --roadmaps "$RUNNER_TEMP/LMLRoadmaps" \
             --roadmaps-commit "$(git -C "$RUNNER_TEMP/LMLRoadmaps" rev-parse HEAD)" \
+            --summary "$GITHUB_STEP_SUMMARY"
+
+      # The papers built on LMLExplore, and what they bring to it: read through the GitHub API from
+      # the public repositories with the topic lmlexplore-paper, and from the pull requests here that
+      # name them. Their content is shown as escaped text. A failure leaves the pages out without
+      # stopping the site.
+      - name: Add the papers pages
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SITE: ${{ steps.referee.outputs.site }}
+        run: |
+          set -euo pipefail
+          python3 -m venv "$RUNNER_TEMP/papers"
+          "$RUNNER_TEMP/papers/bin/pip" install --quiet pyyaml==6.0.2
+          "$RUNNER_TEMP/papers/bin/python" scripts/papers/papers.py --out "$SITE/papers" \
             --summary "$GITHUB_STEP_SUMMARY"
 
       - uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5.0.0
