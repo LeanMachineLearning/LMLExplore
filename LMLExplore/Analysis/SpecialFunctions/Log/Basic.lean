@@ -32,6 +32,9 @@ import Mathlib.Analysis.Complex.ExponentialBounds
 * `Real.tendsto_natCeil_sub_div_log`: if `f n / log n → ∞`, then `⌈f n - c⌉₊ / log n → ∞`.
 * `Real.mul_log_add_lt`: `a log x + b < x` as soon as `x ≥ 2 a log (2 a) + 2 b`, for `a, x > 0`.
 * `Real.one_le_add_half_mul_log_one_add_inv`: `1 ≤ (x + 1 / 2) log (1 + 1 / x)` for `x > 0`.
+* `Real.one_add_mul_log_sub_le`: `(1 + t) log (1 + t) - t - t log (1 + t / 2) ≤ 0` for `t ≥ 0`.
+* `Real.add_one_mul_log_sub_le_one`: `(m + 1) log (m + 1) - m log m - log (m + 1 / 2) ≤ 1` for
+  `m : ℕ`.
 * `Real.log_div_le_log_one_div_add_log`: `log (x / δ) ≤ log (1 / δ) + log x` for `δ ∈ (0, 1]`.
 * `Real.eventually_log_le_mul_of_isBigO`: if `r n = O(n ^ p)`, then `log (r n) ≤ ε n` for all
   large `n`, for every `ε > 0`.
@@ -326,5 +329,70 @@ theorem one_le_add_half_mul_log_one_add_inv {x : ℝ} (hx : 0 < x) :
   have hpos : 0 < 2 * x + 1 := by linarith
   calc (1 : ℝ) = (x + 1 / 2) * (2 * (1 / (2 * x + 1))) := by field_simp
     _ ≤ _ := by gcongr
+
+/-- `(1 + t) log (1 + t) - t - t log (1 + t / 2) ≤ 0` for `t ≥ 0`: the function vanishes at `0`
+and its derivative `log ((1 + t) / (1 + t / 2)) - t / (2 + t)` is nonpositive. -/
+theorem one_add_mul_log_sub_le {t : ℝ} (ht : 0 ≤ t) :
+    (1 + t) * log (1 + t) - t - t * log (1 + t / 2) ≤ 0 := by
+  set f : ℝ → ℝ := fun t ↦ (1 + t) * log (1 + t) - t - t * log (1 + t / 2) with hf
+  have hderiv : ∀ x, 0 ≤ x →
+      HasDerivAt f (log (1 + x) - log (1 + x / 2) - x / (2 + x)) x := by
+    intro x hx
+    have h1 : (1 + x) ≠ 0 := by linarith
+    have h2 : (1 + x / 2) ≠ 0 := by linarith
+    have := ((((hasDerivAt_id' x).const_add 1).mul
+      (((hasDerivAt_id' x).const_add 1).log h1)).sub (hasDerivAt_id' x)).sub
+      ((hasDerivAt_id' x).mul ((((hasDerivAt_id' x).div_const 2).const_add 1).log h2))
+    convert this using 1
+    field_simp
+    ring
+  have hanti : AntitoneOn f (Set.Ici 0) := by
+    refine antitoneOn_of_deriv_nonpos (convex_Ici 0)
+      (fun x hx ↦ (hderiv x hx).continuousAt.continuousWithinAt) ?_ ?_
+    · intro x hx
+      rw [interior_Ici] at hx
+      exact (hderiv x (le_of_lt hx)).differentiableAt.differentiableWithinAt
+    · intro x hx
+      rw [interior_Ici] at hx
+      have hx' : 0 < x := hx
+      rw [(hderiv x hx'.le).deriv]
+      have hx0 : 0 < 1 + x / 2 := by linarith
+      have : log (1 + x) - log (1 + x / 2) ≤ x / (2 + x) := by
+        rw [← log_div (by linarith) hx0.ne']
+        refine (log_le_sub_one_of_pos (by positivity)).trans (le_of_eq ?_)
+        field_simp
+        ring
+      linarith
+  have := hanti (Set.mem_Ici.2 le_rfl) (Set.mem_Ici.2 ht) ht
+  simpa [hf] using this
+
+/-- `(m + 1) log (m + 1) - m log m - log (m + 1 / 2) ≤ 1` for every `m : ℕ`. -/
+theorem add_one_mul_log_sub_le_one (m : ℕ) :
+    ((m : ℝ) + 1) * log ((m : ℝ) + 1) - m * log m - log ((m : ℝ) + 1 / 2) ≤ 1 := by
+  rcases Nat.eq_zero_or_pos m with rfl | hm
+  · have : log (1 / 2 : ℝ) = - log 2 := by rw [one_div, log_inv]
+    simp only [CharP.cast_eq_zero, zero_add, one_mul, log_one, zero_mul, sub_zero, this]
+    have h2 : log 2 < 1 := (log_lt_iff_lt_exp (by norm_num)).2 (by
+      linarith [add_one_lt_exp (one_ne_zero (α := ℝ))])
+    linarith
+  have hm' : (0 : ℝ) < m := by exact_mod_cast hm
+  have h := one_add_mul_log_sub_le (t := (m : ℝ)⁻¹) (by positivity)
+  have e1 : log (1 + (m : ℝ)⁻¹) = log ((m : ℝ) + 1) - log m := by
+    rw [← log_div (by positivity) hm'.ne']
+    congr 1
+    field_simp
+  have e2 : log (1 + (m : ℝ)⁻¹ / 2) = log ((m : ℝ) + 1 / 2) - log m := by
+    rw [← log_div (by positivity) hm'.ne']
+    congr 1
+    field_simp
+  rw [e1, e2] at h
+  have h' := mul_le_mul_of_nonneg_left h hm'.le
+  have : (m : ℝ) * ((1 + (m : ℝ)⁻¹) * (log (↑m + 1) - log ↑m) - (m : ℝ)⁻¹ -
+      (m : ℝ)⁻¹ * (log (↑m + 1 / 2) - log ↑m)) =
+      ((m : ℝ) + 1) * log ((m : ℝ) + 1) - m * log m - log ((m : ℝ) + 1 / 2) - 1 := by
+    field_simp
+    ring
+  rw [this] at h'
+  linarith
 
 end Real

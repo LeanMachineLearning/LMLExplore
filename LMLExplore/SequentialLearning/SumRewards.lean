@@ -189,16 +189,17 @@ lemma sum_ite_mul_add_one_sub_mul (a : α) (n : ℕ) (ω : Ω) (x y : ℝ) :
 
 /-- With rewards in `{0, 1}`, the sum of the rewards of an arm is a natural number, at most its
 number of pulls. -/
-lemma exists_sumRewards_eq_natCast {ω : Ω} (hω : ∀ k, R k ω ∈ ({0, 1} : Set ℝ)) (a : α)
-    (n : ℕ) : ∃ j ≤ pullCount A a n ω, sumRewards A R a n ω = j := by
+lemma exists_sumRewards_eq_natCast {ω : Ω} (a : α) (n : ℕ)
+    (hω : ∀ k < n, R k ω ∈ ({0, 1} : Set ℝ)) :
+    ∃ j ≤ pullCount A a n ω, sumRewards A R a n ω = j := by
   classical
   refine ⟨#(filter (fun k ↦ A k ω = a ∧ R k ω = 1) (range n)), ?_, ?_⟩
   · exact card_le_card fun k hk ↦ by
       simp only [mem_filter] at hk ⊢
       exact ⟨hk.1, hk.2.1⟩
   · rw [sumRewards, natCast_card_filter]
-    refine sum_congr rfl fun k _ ↦ ?_
-    have hk01 := hω k
+    refine sum_congr rfl fun k hkn ↦ ?_
+    have hk01 := hω k (mem_range.1 hkn)
     simp only [Set.mem_insert_iff, Set.mem_singleton_iff] at hk01
     rcases hk01 with h | h <;> by_cases hk : A k ω = a <;> simp [hk, h]
 

@@ -263,8 +263,8 @@ theorem measure_exists_log_two_mul_mul_lt_klBer_le
   obtain ⟨n, hn⟩ := hmem
   refine ⟨n, ?_⟩
   -- the numbers of ones
-  obtain ⟨ja, hja, hSa⟩ := exists_sumRewards_eq_natCast (A := A) hω a n
-  obtain ⟨jb, hjb, hSb⟩ := exists_sumRewards_eq_natCast (A := A) hω b n
+  obtain ⟨ja, hja, hSa⟩ := exists_sumRewards_eq_natCast (A := A) a n fun k _ ↦ hω k
+  obtain ⟨jb, hjb, hSb⟩ := exists_sumRewards_eq_natCast (A := A) b n fun k _ ↦ hω k
   -- the mixture is the product of the Krichevsky–Trofimov likelihood ratios
   simp_rw [pairLLR, sum_add_distrib, sum_ite_berLLR hja hSa, sum_ite_berLLR hjb hSb, exp_add]
   rw [integral_prod_mul (fun u ↦ exp (if u ∈ Set.Ioo 0 1 then (ja : ℝ) * log (u / p a) +
