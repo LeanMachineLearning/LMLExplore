@@ -7,6 +7,7 @@ module
 
 public import Mathlib.Analysis.Calculus.Deriv.MeanValue
 public import Mathlib.Analysis.SpecialFunctions.BinaryEntropy
+public import Mathlib.Analysis.SpecialFunctions.Log.ENNRealLog
 public import LMLExplore.Probability.Distributions.Bernoulli
 public import TauCeti.InformationTheory.KullbackLeibler.Basic
 public import TauCeti.InformationTheory.KullbackLeibler.Pinsker
@@ -83,6 +84,10 @@ smallest `q ∈ [0, p]` with `d(p, q) ≤ c`; together they are the confidence b
   identification stated with `d(δ, 1 - δ)` into bounds in `log (1 / δ)`.
 * `LMLExplore.mul_ofReal_log_le_of_mul_klBer_le`: a bound `X d(δ, 1 - δ) ≤ E` for `δ ≤ 1 / 2`
   gives `X log (1 / (c δ)) ≤ E` for every `δ` and `c ≥ 2.4`.
+* `LMLExplore.mul_neg_log_le_klBerReal_add_log_two`,
+  `LMLExplore.ofReal_mul_neg_log_le_klBer_add_log_two`: the bound
+  `p log (1 / q) ≤ d(p, q) + log 2`, by which the change of measure bounds the probability of an
+  event that is likely under one law and unlikely under the other.
 * `LMLExplore.le_klUpper_iff`: for `q ∈ [p, 1]`, `q ≤ U(p, c)` if and only if `d(p, q) ≤ c`;
   `LMLExplore.klUpper_mem_Icc` and `LMLExplore.klBer_klUpper_le` say that the maximum is attained.
 * `LMLExplore.le_klUpper_iff_of_le_one`: for `p ≤ 1` and every real `r`, `r ≤ U(p, c)` if and only
@@ -741,6 +746,34 @@ theorem mul_ofReal_log_le_of_mul_klBer_le {c δ : ℝ} {X E : ℝ≥0∞} (hc : 
     log_nonpos (by positivity) ((div_le_one (by positivity)).2 (by nlinarith))
   rw [ENNReal.ofReal_of_nonpos h_neg, mul_zero]
   exact zero_le
+
+/-- **Lower bound on the binary relative entropy by the cross-entropy**: for `p ∈ [0, 1]` and
+`q ∈ (0, 1)`, `p log (1 / q) ≤ d(p, q) + log 2`. The binary relative entropy is the binary
+cross-entropy minus the binary entropy of `p`, which is at most `log 2`. -/
+theorem mul_neg_log_le_klBerReal_add_log_two (hp : p ∈ Set.Icc 0 1) (hq : q ∈ Set.Ioo 0 1) :
+    p * -log q ≤ klBerReal p q + log 2 := by
+  rw [klBerReal_eq_neg_binEntropy_sub hq.1.ne' hq.2.ne]
+  have h : 0 ≤ (1 - p) * -log (1 - q) := mul_nonneg (by linarith [hp.2])
+    (neg_nonneg.2 (log_nonpos (by linarith [hq.2]) (by linarith [hq.1])))
+  linarith [binEntropy_le_log_two (p := p)]
+
+/-- **Lower bound on the binary relative entropy by the cross-entropy**: for `p, q ∈ [0, 1]`,
+`p log (1 / q) ≤ d(p, q) + log 2`, in `ℝ≥0∞`, where `log (1 / q) = -log q` is `∞` at `q = 0`. -/
+theorem ofReal_mul_neg_log_le_klBer_add_log_two (hp : p ∈ Set.Icc 0 1) (hq : q ∈ Set.Icc 0 1) :
+    ENNReal.ofReal p * (-ENNReal.log (ENNReal.ofReal q)).toENNReal ≤
+      klBer p q + ENNReal.ofReal (log 2) := by
+  rcases hq.1.eq_or_lt with rfl | hq0
+  · -- For `q = 0`, both sides are `∞` unless `p = 0`.
+    rcases hp.1.eq_or_lt with rfl | hp0
+    · simp
+    have : klBer p 0 = ∞ := (klBer_eq_top_iff hp ⟨le_rfl, zero_le_one⟩).2 (by simp [hp0.ne'])
+    simp [this]
+  rcases hq.2.eq_or_lt with rfl | hq1
+  · simp
+  rw [ENNReal.log_ofReal_of_pos hq0, ← EReal.coe_neg, EReal.real_coe_toENNReal,
+    ← ENNReal.ofReal_mul hp.1, klBer_eq_ofReal_klBerReal hp hq (klBer_ne_top ⟨hq0, hq1⟩)]
+  exact (ENNReal.ofReal_le_ofReal (mul_neg_log_le_klBerReal_add_log_two hp ⟨hq0, hq1⟩)).trans
+    ENNReal.ofReal_add_le
 
 /-! ### The upper confidence level -/
 
