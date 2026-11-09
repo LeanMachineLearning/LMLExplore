@@ -145,10 +145,7 @@ private lemma add_one_pow_mul_sqrt_mul_pow_le (m n : ℕ) (hn : 1 ≤ n) :
   have hR : 0 < √((n : ℝ) + 1) * ((m : ℝ) + 1 / 2) * (m : ℝ) ^ m * ((n : ℝ) + 1) ^ n := by
     positivity
   rw [← log_le_log_iff hL hR]
-  rw [log_mul (by positivity) (by positivity), log_mul (by positivity) (by positivity),
-    log_mul (by positivity) (by positivity), log_mul (by positivity) (by positivity),
-    log_mul (by positivity) (by positivity), log_pow, log_pow, log_pow, log_pow,
-    log_sqrt hn'.le, log_sqrt (by positivity)]
+  simp (disch := positivity) only [log_mul, log_pow, log_sqrt]
   have hG := add_one_mul_log_sub_le_one m
   have hH := Real.one_le_add_half_mul_log_one_add_inv hn'
   have e : log (1 + (n : ℝ)⁻¹) = log ((n : ℝ) + 1) - log n := by

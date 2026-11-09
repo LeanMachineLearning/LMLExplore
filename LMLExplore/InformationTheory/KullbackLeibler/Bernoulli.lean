@@ -386,8 +386,9 @@ theorem mul_klBerReal_div_eq_log {k m n : ℕ} (hkm : k + m = n) (hn : 0 < n)
   have hm : ((m : ℝ) / n / (1 - p)) ^ m ≠ 0 := by
     rw [div_pow]
     exact (div_pos (div_pow_self_pos m hn) (pow_pos (sub_pos.2 hp.2) _)).ne'
-  rw [mul_div_mul_comm, ← div_pow, ← div_pow, log_mul hk hm, log_pow, log_pow, klBerReal_def, h1,
-    mul_add, ← mul_assoc, ← mul_assoc, mul_div_cancel₀ _ hn'.ne', mul_div_cancel₀ _ hn'.ne']
+  rw [mul_div_mul_comm, ← div_pow, ← div_pow, log_mul hk hm]
+  simp only [log_pow, klBerReal_def, h1]
+  field_simp
 
 /-- The maximum likelihood of a Bernoulli sample: `u ^ k (1 - u) ^ m ≤ (k / n) ^ k (m / n) ^ m`
 for every `u ∈ [0, 1]` and `n = k + m`. -/

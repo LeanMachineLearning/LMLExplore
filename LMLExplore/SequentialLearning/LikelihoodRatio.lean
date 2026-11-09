@@ -81,7 +81,7 @@ lemma supermartingale_exp_sum_of_lintegral_exp_le_one [IsFiniteMeasure P]
     have hm : Measurable fun y ↦ ENNReal.ofReal (exp (z (A n ω) y)) :=
       (hz.comp (measurable_const.prodMk measurable_id)).exp.ennreal_ofReal
     rw [lintegral_const_mul _ hm]
-    simpa [Environment.bandit_def, Environment.stationary_def] using
+    simpa only [feedback_bandit, Kernel.prodMkLeft_apply] using
       mul_le_of_le_one_right' (hle (A n ω))
 
 /-- **Ville's inequality for mixtures of likelihood ratios along a bandit run.** Along a run
