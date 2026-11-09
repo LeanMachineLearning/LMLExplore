@@ -257,9 +257,8 @@ theorem measure_exists_log_two_mul_mul_lt_klBer_le
     (ρ := (betaMeasure (1 / 2) (1 / 2)).prod (betaMeasure (1 / 2) (1 / 2))) h
     (measurable_pairLLR a b (p a) (p b)) (lintegral_ofReal_exp_pairLLR_le hab hpa hpb) hx)
   have hgood : ∀ᵐ ω ∂P, ∀ k, Y k ω ∈ ({0, 1} : Set ℝ) := by
-    refine h.ae_forall_feedback_mem_bandit (by measurability) fun c ↦ ?_
-    rw [Bandits.bernoulliBandit_apply]
-    simpa [Set.pair_comm] using ae_mem_bernoulliMeasure (1 : ℝ) 0 (p c)
+    exact h.ae_forall_feedback_mem_bandit (by measurability)
+      (Bandits.ae_mem_zero_one_bernoulliBandit p)
   filter_upwards [hgood] with ω hω hmem
   obtain ⟨n, hn⟩ := hmem
   refine ⟨n, ?_⟩
