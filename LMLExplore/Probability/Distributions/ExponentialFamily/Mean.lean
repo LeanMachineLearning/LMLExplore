@@ -332,6 +332,11 @@ theorem strictMonoOn_natParam (hT : ∀ c, ¬ T =ᵐ[ρ] fun _ ↦ c) :
   rwa [← (strictMonoOn_deriv_cgf hT).lt_iff_lt (natParam_mem_interior_integrableExpSet hx)
     (natParam_mem_interior_integrableExpSet hy), deriv_cgf_natParam hx, deriv_cgf_natParam hy]
 
+/-- Distinct means of the family have distinct natural parameters. -/
+lemma natParam_ne_natParam (hT : ∀ c, ¬ T =ᵐ[ρ] fun _ ↦ c) (hμ : μ ∈ ρ.expFamilyMeans T)
+    (hμ' : μ' ∈ ρ.expFamilyMeans T) (h : μ ≠ μ') : ρ.natParam T μ ≠ ρ.natParam T μ' :=
+  (strictMonoOn_natParam hT).injOn.ne hμ hμ' h
+
 lemma continuousOn_natParam (hT : ∀ c, ¬ T =ᵐ[ρ] fun _ ↦ c) :
     ContinuousOn (ρ.natParam T) (ρ.expFamilyMeans T) := fun μ hμ ↦ by
   refine ((strictMonoOn_natParam hT).continuousAt_of_image_mem_nhds
@@ -1063,7 +1068,7 @@ theorem exists_mem_uIoo_deriv_cgf_eq_slope (hT : ∀ c, ¬ T =ᵐ[ρ] fun _ ↦ 
     ∃ η ∈ uIoo (ρ.natParam T μ₀) (ρ.natParam T μ₁), η ∈ interior (integrableExpSet T ρ) ∧
       deriv (cgf T ρ) η = (cgf T ρ (ρ.natParam T μ₀) - cgf T ρ (ρ.natParam T μ₁)) /
         (ρ.natParam T μ₀ - ρ.natParam T μ₁) := by
-  have hη : ρ.natParam T μ₀ ≠ ρ.natParam T μ₁ := (strictMonoOn_natParam hT).injOn.ne hμ₀ hμ₁ h
+  have hη : ρ.natParam T μ₀ ≠ ρ.natParam T μ₁ := natParam_ne_natParam hT hμ₀ hμ₁ h
   have h_Icc : Icc (ρ.natParam T μ₀ ⊓ ρ.natParam T μ₁) (ρ.natParam T μ₀ ⊔ ρ.natParam T μ₁) ⊆
       interior (integrableExpSet T ρ) :=
     convex_integrableExpSet.interior.ordConnected.uIcc_subset
@@ -1095,7 +1100,7 @@ lemma natParam_slope_sub_div_mem_Ioo (hT : ∀ c, ¬ T =ᵐ[ρ] fun _ ↦ c)
       (ρ.natParam T μ₀ - ρ.natParam T μ₁) ∈ Ioo 0 1 := by
   obtain ⟨η, hη_mem, hη, hη_eq⟩ := exists_mem_uIoo_deriv_cgf_eq_slope hT hμ₀ hμ₁ h
   rw [← hη_eq, natParam_deriv_cgf hT hη]
-  rcases lt_or_gt_of_ne ((strictMonoOn_natParam hT).injOn.ne hμ₀ hμ₁ h) with h01 | h10
+  rcases lt_or_gt_of_ne (natParam_ne_natParam hT hμ₀ hμ₁ h) with h01 | h10
   · rw [uIoo_of_le h01.le] at hη_mem
     exact ⟨div_pos_of_neg_of_neg (by linarith [hη_mem.2]) (by linarith),
       (div_lt_one_of_neg (by linarith)).2 (by linarith [hη_mem.1])⟩

@@ -44,7 +44,8 @@ Bernoulli arms, `H^{sp}(μ)⁻¹ = kl(z, μ 0) = kl(z, μ 1)` at the explicit Ch
 
 * `LMLExplore.Identification.mem_alternatives_baiTask_two_iff`: the alternatives of two-armed best
   arm identification, for any mean functional.
-* `LMLExplore.Identification.iInf_cost_baiTask_two`: [D23, Lemma 19], the minimizers.
+* `LMLExplore.Identification.iInf_cost_baiTask_two`: [D23, Lemma 19], the infimum, attained in the
+  limit on the diagonal.
 * `LMLExplore.Identification.isMaxOn_iInf_cost_baiTask_two`: [D23, Lemma 19], the maximizer.
 * `LMLExplore.Identification.inv_staticDifficulty_baiTask_two`: [D23, Lemma 19].
 * `LMLExplore.Identification.ofReal_div_le_inv_staticDifficulty_baiTask_two`: [D23, Lemma 20].
@@ -104,11 +105,12 @@ private lemma cost_baiTask_two
       (mul_nonneg (hw 1) (expFamilyDiv_nonneg (hμ' 1) (hμ 1)))]
   rw [hν _ _ (hμ' c), hν _ _ (hμ'' c), klDiv_expFamily_natParam (hμ' c) (hμ'' c)]
 
-/-- **The minimizers of the cost of the alternatives** [D23, Lemma 19]. For two-armed best arm
+/-- **The infimum of the cost of the alternatives** [D23, Lemma 19]. For two-armed best arm
 identification with arms in the exponential family of `ρ` and `T`, on the vectors of means of the
 family, a vector of means `μ` with `μ 0 ≠ μ 1` and an allocation `w` of the simplex, the infimum
-over the alternatives `λ` to `μ` of `w 0 d(λ 0, μ 0) + w 1 d(λ 1, μ 1)` is its value at
-`λ 0 = λ 1 = x(w) = ψ'(w 0 η(μ 0) + w 1 η(μ 1))`. -/
+over the alternatives `λ` to `μ` of `w 0 d(λ 0, μ 0) + w 1 d(λ 1, μ 1)` is its value at the
+diagonal point `λ 0 = λ 1 = x(w) = ψ'(w 0 η(μ 0) + w 1 η(μ 1))`, which is not an alternative: the
+infimum is approached, but not attained, by alternatives. -/
 theorem iInf_cost_baiTask_two (hT : ∀ c, ¬ T =ᵐ[ρ] fun _ ↦ c)
     (hν : ∀ μ a, μ a ∈ ρ.expFamilyMeans T → ν μ a = ρ.expFamily T (ρ.natParam T (μ a)))
     (hμ : ∀ a, μ a ∈ ρ.expFamilyMeans T) (hμ01 : μ 0 ≠ μ 1) (hw : w ∈ simplex (Fin 2)) :
@@ -183,8 +185,7 @@ theorem iInf_cost_baiTask_two_le (hT : ∀ c, ¬ T =ᵐ[ρ] fun _ ↦ c)
         cgf T ρ (ρ.natParam T (μ 1))) / (ρ.natParam T (μ 0) - ρ.natParam T (μ 1))) (μ 0)) := by
   obtain ⟨hw_nonneg, hw_sum⟩ := mem_simplex_iff.1 hw
   rw [Fin.sum_univ_two] at hw_sum
-  have hη : ρ.natParam T (μ 0) ≠ ρ.natParam T (μ 1) :=
-    (strictMonoOn_natParam hT).injOn.ne (hμ 0) (hμ 1) hμ01
+  have hη : ρ.natParam T (μ 0) ≠ ρ.natParam T (μ 1) := natParam_ne_natParam hT (hμ 0) (hμ 1) hμ01
   rw [iInf_cost_baiTask_two ν hT hν hμ hμ01 hw]
   refine ENNReal.ofReal_le_ofReal ?_
   refine (mul_expFamilyDiv_add_mul_expFamilyDiv_left_le hT (hμ 0) (hμ 1) (hw_nonneg 0)
@@ -205,8 +206,7 @@ theorem iInf_cost_baiTask_two_of_eq (hT : ∀ c, ¬ T =ᵐ[ρ] fun _ ↦ c)
           ((baiTask ν id).restrict {μ | ∀ a, μ a ∈ ρ.expFamilyMeans T}).cost ![w₀, 1 - w₀] μ' μ =
         ENNReal.ofReal (ρ.expFamilyDiv T ((cgf T ρ (ρ.natParam T (μ 0)) -
           cgf T ρ (ρ.natParam T (μ 1))) / (ρ.natParam T (μ 0) - ρ.natParam T (μ 1))) (μ 0)) := by
-  have hη : ρ.natParam T (μ 0) ≠ ρ.natParam T (μ 1) :=
-    (strictMonoOn_natParam hT).injOn.ne (hμ 0) (hμ 1) hμ01
+  have hη : ρ.natParam T (μ 0) ≠ ρ.natParam T (μ 1) := natParam_ne_natParam hT (hμ 0) (hμ 1) hμ01
   have hx := slope_cgf_natParam_mem_expFamilyMeans hT (hμ 0) (hμ 1) hμ01
   have hw₀_mem := natParam_slope_sub_div_mem_Ioo hT (hμ 0) (hμ 1) hμ01
   rw [← hw₀] at hw₀_mem
@@ -270,8 +270,7 @@ theorem ofReal_div_le_inv_staticDifficulty_baiTask_two (hT : ∀ c, ¬ T =ᵐ[ρ
     ENNReal.ofReal (max (ρ.expFamilyDiv T (μ 0) (μ 1) ^ 2) (ρ.expFamilyDiv T (μ 1) (μ 0) ^ 2) /
         (2 * c * (ρ.natParam T (μ 0) - ρ.natParam T (μ 1)) ^ 2)) ≤
       (((baiTask ν id).restrict {μ | ∀ a, μ a ∈ ρ.expFamilyMeans T}).staticDifficulty μ)⁻¹ := by
-  have hη : ρ.natParam T (μ 0) ≠ ρ.natParam T (μ 1) :=
-    (strictMonoOn_natParam hT).injOn.ne (hμ 0) (hμ 1) hμ01
+  have hη : ρ.natParam T (μ 0) ≠ ρ.natParam T (μ 1) := natParam_ne_natParam hT (hμ 0) (hμ 1) hμ01
   have hx := slope_cgf_natParam_mem_expFamilyMeans hT (hμ 0) (hμ 1) hμ01
   rw [inv_staticDifficulty_baiTask_two ν hT hν hμ hμ01]
   refine ENNReal.ofReal_le_ofReal ?_
@@ -304,18 +303,20 @@ theorem staticDifficulty_baiTask_gaussianBandit_two {σ2 : ℝ≥0} (hσ2 : σ2 
   have hT := not_ae_eq_const_gaussianReal 0 hσ2
   have hμ (a : Fin 2) := mem_expFamilyMeans_gaussianReal 0 hσ2 (μ a)
   have hη : (gaussianReal 0 σ2).natParam id (μ 0) ≠ (gaussianReal 0 σ2).natParam id (μ 1) :=
-    (strictMonoOn_natParam hT).injOn.ne (hμ 0) (hμ 1) hμ01
+    natParam_ne_natParam hT (hμ 0) (hμ 1) hμ01
   have h := inv_staticDifficulty_baiTask_two (Bandits.gaussianBandit · σ2) hT
     (fun μ a _ ↦ by rw [Bandits.gaussianBandit_apply, expFamily_natParam_gaussianReal 0 hσ2]) hμ
     hμ01
   -- the Chernoff point is the midpoint `(μ 0 + μ 1) / 2`, at divergence `(μ 0 - μ 1)² / (8 σ2)`
-  have h_val : ((μ 0 - (μ 0 - μ 1) ^ 2 / (2 * σ2) / ((μ 0 - 0) / σ2 - (μ 1 - 0) / σ2)) - μ 0) ^ 2 /
-      (2 * σ2) = (μ 0 - μ 1) ^ 2 / (8 * σ2) := by
+  have h_val : (gaussianReal 0 σ2).expFamilyDiv id ((cgf id (gaussianReal 0 σ2)
+      ((gaussianReal 0 σ2).natParam id (μ 0)) - cgf id (gaussianReal 0 σ2)
+        ((gaussianReal 0 σ2).natParam id (μ 1))) / ((gaussianReal 0 σ2).natParam id (μ 0) -
+          (gaussianReal 0 σ2).natParam id (μ 1))) (μ 0) = (μ 0 - μ 1) ^ 2 / (8 * σ2) := by
+    rw [slope_cgf_natParam_eq_sub hη]
+    simp only [expFamilyDiv_gaussianReal 0 hσ2, natParam_gaussianReal 0 hσ2]
     field_simp [sub_ne_zero.2 hμ01]
     ring
-  rw [setOf_forall_mem_expFamilyMeans_gaussianReal 0 hσ2, IdentTask.restrict_univ,
-    slope_cgf_natParam_eq_sub hη, expFamilyDiv_gaussianReal 0 hσ2, expFamilyDiv_gaussianReal 0 hσ2,
-    natParam_gaussianReal 0 hσ2, natParam_gaussianReal 0 hσ2, h_val] at h
+  rw [setOf_forall_mem_expFamilyMeans_gaussianReal 0 hσ2, IdentTask.restrict_univ, h_val] at h
   rw [← inv_inv ((baiTask (Bandits.gaussianBandit · σ2) id).staticDifficulty μ), h,
     ← ENNReal.ofReal_inv_of_pos (by positivity), inv_div]
 
@@ -339,7 +340,7 @@ theorem inv_staticDifficulty_baiTask_bernoulliBandit_two (hμ : ∀ a, μ a ∈ 
     (by simp only [unitInterval.coe_sigmoid, Real.sigmoid_zero]; norm_num)
   have hμ' : ∀ a, μ a ∈ ρ.expFamilyMeans id := by rwa [hmeans]
   have hη : ρ.natParam id (μ 0) ≠ ρ.natParam id (μ 1) :=
-    (strictMonoOn_natParam hT).injOn.ne (hμ' 0) (hμ' 1) hμ01
+    natParam_ne_natParam hT (hμ' 0) (hμ' 1) hμ01
   have h := inv_staticDifficulty_baiTask_two
     (fun μ : Fin 2 → ℝ ↦ Bandits.bernoulliBandit fun c ↦ projIcc 0 1 zero_le_one (μ c)) hT
     (fun μ a ha ↦ by
