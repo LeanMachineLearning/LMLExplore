@@ -133,14 +133,15 @@ private lemma lintegral_ofReal_exp_berLLR_bernoulliMeasure {p : I} (hp : (p : �
   by_cases hq : q ∈ Set.Ioo 0 1
   · have h1 : 0 < 1 - (p : ℝ) := sub_pos.2 hp.2
     have h2 : 0 < 1 - q := sub_pos.2 hq.2
-    have h0 : (p : ℝ) ≠ 0 := hp.1.ne'
-    simp only [berLLR, hq, ↓reduceIte, bernoulliMeasure_def, lintegral_add_measure,
-      lintegral_smul_measure, lintegral_dirac, ENNReal.smul_def, smul_eq_mul, one_mul, sub_self,
-      zero_mul, add_zero, sub_zero, zero_add, exp_log (div_pos hq.1 hp.1), exp_log (div_pos h2 h1),
-      unitInterval.coe_toNNReal, coe_symm_eq, ← ENNReal.ofReal_coe_nnreal,
-      ← ENNReal.ofReal_mul hp.1.le, ← ENNReal.ofReal_mul h1.le, ← mul_div_assoc,
-      mul_div_cancel_left₀ _ h0, mul_div_cancel_left₀ _ h1.ne', ← ENNReal.ofReal_add hq.1.le h2.le,
-      add_sub_cancel, ENNReal.ofReal_one]
+    have hpq := div_pos hq.1 hp.1
+    have hpq' := div_pos h2 h1
+    rw [lintegral_bernoulliMeasure]
+    norm_num [berLLR, hq, exp_log hpq, exp_log hpq']
+    rw [← ENNReal.ofReal_mul hp.1.le, ← ENNReal.ofReal_mul h1.le,
+      ← ENNReal.ofReal_add (mul_pos hp.1 hpq).le (mul_pos h1 hpq').le, ← ENNReal.ofReal_one]
+    congr 1
+    field_simp [hp.1.ne', h1.ne']
+    ring
   · simp [berLLR, hq]
 
 /-- The log-likelihood ratio of the bandit whose means on the arms `a` and `b` are `l.1` and `l.2`
@@ -257,9 +258,8 @@ theorem measure_exists_log_two_mul_mul_lt_klBer_le
     (measurable_pairLLR a b (p a) (p b)) (lintegral_ofReal_exp_pairLLR_le hab hpa hpb) hx)
   have hgood : ∀ᵐ ω ∂P, ∀ k, Y k ω ∈ ({0, 1} : Set ℝ) := by
     refine h.ae_forall_feedback_mem_bandit (by measurability) fun c ↦ ?_
-    rw [Bandits.bernoulliBandit_apply, bernoulliMeasure_def, ae_add_measure_iff]
-    exact ⟨Measure.ae_smul_measure ((ae_dirac_iff (by measurability)).2 (by simp)) _,
-      Measure.ae_smul_measure ((ae_dirac_iff (by measurability)).2 (by simp)) _⟩
+    rw [Bandits.bernoulliBandit_apply]
+    simpa [Set.pair_comm] using ae_mem_bernoulliMeasure (1 : ℝ) 0 (p c)
   filter_upwards [hgood] with ω hω hmem
   obtain ⟨n, hn⟩ := hmem
   refine ⟨n, ?_⟩
