@@ -12,6 +12,7 @@ public import LMLExplore.Probability.Moments.SubGaussian.Basic
 public import Mathlib.Probability.Martingale.Basic
 
 import LMLExplore.Order.ConditionallyCompleteLattice.Group
+import LMLExplore.Probability.Process.Filtration
 import Mathlib.MeasureTheory.OuterMeasure.BorelCantelli
 
 /-!
@@ -93,18 +94,13 @@ variable {α : Type*} {mα : MeasurableSpace α} {κ : Kernel α α} [IsMarkovKe
 
 /-! ### The martingale -/
 
-/-- The evaluations at the times `k ≤ n` are measurable for the natural filtration at time `n`. -/
-private lemma measurable_eval_piLE {k n : ℕ} (hkn : k ≤ n) :
-    Measurable[Filtration.piLE (X := fun _ : ℕ ↦ α) n] fun ω : ℕ → α ↦ ω k :=
-  (Filtration.adapted_piLE (X := fun _ : ℕ ↦ α) k).mono
-    (Filtration.piLE.mono hkn) le_rfl
-
 /-- The increment `g (X (k + 1)) - κ g (X k)` of the martingale of the Poisson decomposition. -/
 private lemma measurable_increment (g : boundedMeasurable α) {k n : ℕ} (hkn : k + 1 ≤ n) :
     Measurable[Filtration.piLE (X := fun _ : ℕ ↦ α) n] fun ω : ℕ → α ↦
       (g : ℓ^∞(α, ℝ)) (ω (k + 1)) - (κ.integralCLM g : ℓ^∞(α, ℝ)) (ω k) :=
-  ((boundedMeasurable.measurable g).comp (measurable_eval_piLE hkn)).sub
-    ((boundedMeasurable.measurable _).comp (measurable_eval_piLE (by omega)))
+  ((boundedMeasurable.measurable g).comp (Filtration.measurable_eval_piLE hkn)).sub
+    ((boundedMeasurable.measurable _).comp
+    (Filtration.measurable_eval_piLE (by omega)))
 
 private lemma integrable_increment (g : boundedMeasurable α) (k : ℕ) :
     Integrable (fun ω : ℕ → α ↦
@@ -135,7 +131,8 @@ theorem martingale_sum_sub_integralCLM (g : boundedMeasurable α) :
   rw [hD]
   have hκg : StronglyMeasurable[Filtration.piLE n]
       fun ω : ℕ → α ↦ (κ.integralCLM g : ℓ^∞(α, ℝ)) (ω n) :=
-    ((boundedMeasurable.measurable _).comp (measurable_eval_piLE le_rfl)).stronglyMeasurable
+    ((boundedMeasurable.measurable _).comp
+      (Filtration.measurable_eval_piLE le_rfl)).stronglyMeasurable
   have hgint : Integrable (fun ω : ℕ → α ↦ (g : ℓ^∞(α, ℝ)) (ω (n + 1))) (markovChainLaw ν κ) :=
     (boundedMeasurable.integrable g _).comp_measurable (measurable_pi_apply _)
   have hκint : Integrable (fun ω : ℕ → α ↦ (κ.integralCLM g : ℓ^∞(α, ℝ)) (ω n))

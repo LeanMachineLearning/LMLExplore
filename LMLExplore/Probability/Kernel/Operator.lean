@@ -152,6 +152,20 @@ theorem integralCLM_id : (Kernel.id : Kernel α α).integralCLM = ContinuousLine
 
 end IntegralCLM
 
+section Invariant
+
+variable {κ : Kernel α α} [IsFiniteKernel κ]
+
+/-- Integrating `κ u` against an invariant measure `π` of `κ` gives the integral of `u`. -/
+theorem Invariant.integral_integralCLM {π : Measure α} [IsFiniteMeasure π] (hπ : κ.Invariant π)
+    (u : boundedMeasurable α) :
+    ∫ x, (κ.integralCLM u : ℓ^∞(α, ℝ)) x ∂π = ∫ x, (u : ℓ^∞(α, ℝ)) x ∂π := by
+  conv_rhs => rw [← hπ.def]
+  rw [Measure.integral_bind κ.aemeasurable (boundedMeasurable.integrable u _)]
+  simp only [integralCLM_apply]
+
+end Invariant
+
 section Markov
 
 variable [IsMarkovKernel κ]
@@ -197,14 +211,6 @@ theorem integralCLM_pow_zero (f : boundedMeasurable α) : (κ ^ 0).integralCLM f
 theorem integralCLM_pow_succ (n : ℕ) (f : boundedMeasurable α) :
     (κ ^ (n + 1)).integralCLM f = κ.integralCLM ((κ ^ n).integralCLM f) := by
   simp only [pow_succ, mul_eq_comp, integralCLM_comp, ContinuousLinearMap.comp_apply]
-
-/-- Integrating `κ u` against an invariant measure `π` of `κ` gives the integral of `u`. -/
-theorem Invariant.integral_integralCLM {π : Measure α} [IsFiniteMeasure π] (hπ : κ.Invariant π)
-    (u : boundedMeasurable α) :
-    ∫ x, (κ.integralCLM u : ℓ^∞(α, ℝ)) x ∂π = ∫ x, (u : ℓ^∞(α, ℝ)) x ∂π := by
-  conv_rhs => rw [← hπ.def]
-  rw [Measure.integral_bind κ.aemeasurable (boundedMeasurable.integrable u _)]
-  simp only [integralCLM_apply]
 
 end Powers
 
