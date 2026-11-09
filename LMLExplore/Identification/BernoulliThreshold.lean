@@ -30,6 +30,11 @@ inequality of the Krichevsky–Trofimov mixture
 (`LMLExplore.measure_exists_log_two_mul_mul_lt_klBer_le`) bounds the probability of that event by
 `δ / (K - 1)`, and a union bound over the `K - 1` wrong arms concludes.
 
+## Main definitions
+
+* `LMLExplore.Identification.bernoulliBaiTask`: best arm identification with Bernoulli arms on the
+  vectors of means in `(0, 1)`.
+
 ## Main statements
 
 * `LMLExplore.Identification.glr_plugInCost_baiTask_bernoulliBandit_le`: the GLR statistic of the
@@ -56,8 +61,46 @@ open scoped ENNReal
 
 namespace LMLExplore.Identification
 
-variable {α : Type*} [Fintype α] [DecidableEq α] {mα : MeasurableSpace α}
-  [MeasurableSingletonClass α]
+variable {α : Type*} {mα : MeasurableSpace α}
+
+section Task
+
+variable [Countable α] [MeasurableSingletonClass α]
+
+variable (α) in
+/-- *Best arm identification with Bernoulli arms* on the vectors of means in `(0, 1)`: best arm
+identification on vectors of means (`baiTask ν id`), with the Bernoulli arms
+`ν μ a = Ber(μ a)` (a mean outside `[0, 1]` is first projected onto `[0, 1]`), restricted to the
+vectors of means in `(0, 1)`. -/
+noncomputable def bernoulliBaiTask : IdentTask α (α → ℝ) α ℝ :=
+  (baiTask (fun μ ↦ Bandits.bernoulliBandit fun a ↦ Set.projIcc 0 1 zero_le_one (μ a)) id).restrict
+    {μ' | ∀ a, μ' a ∈ Set.Ioo 0 1}
+
+/-- The definition of `bernoulliBaiTask` as a restriction of `baiTask`. -/
+lemma bernoulliBaiTask_def : bernoulliBaiTask α =
+    (baiTask (fun μ ↦ Bandits.bernoulliBandit fun a ↦ Set.projIcc 0 1 zero_le_one (μ a))
+      id).restrict {μ' | ∀ a, μ' a ∈ Set.Ioo 0 1} := by
+  rw [bernoulliBaiTask]
+
+@[simp]
+lemma ν_bernoulliBaiTask :
+    (bernoulliBaiTask α).ν = fun μ ↦ Bandits.bernoulliBandit fun a ↦
+      Set.projIcc 0 1 zero_le_one (μ a) := by
+  rw [bernoulliBaiTask_def, IdentTask.ν_restrict, ν_baiTask]
+
+@[simp]
+lemma M_bernoulliBaiTask :
+    (bernoulliBaiTask α).M = {μ | (∃ a, ∀ b ≠ a, μ b < μ a) ∧ ∀ a, μ a ∈ Set.Ioo 0 1} := by
+  simp only [bernoulliBaiTask_def, IdentTask.M_restrict, M_baiTask, id_eq, Set.ofPred_and]
+
+@[simp]
+lemma correct_bernoulliBaiTask (μ : α → ℝ) :
+    (bernoulliBaiTask α).correct μ = {a | ∀ b ≠ a, μ b < μ a} := by
+  simp only [bernoulliBaiTask_def, IdentTask.correct_restrict, correct_baiTask, id_eq]
+
+end Task
+
+variable [Fintype α] [DecidableEq α] [MeasurableSingletonClass α]
 
 /-- After `n` rounds, `∑ c, N_c t ≤ ε` for `t = min 1 (ε / (n + 1))`. -/
 private lemma sum_pullCount'_mul_ofReal_min_le (n : ℕ) (h : Hist Unit α ℝ n) (ε : NNReal) :
@@ -80,12 +123,10 @@ moved as close as wanted to their empirical means. -/
 lemma glr_plugInCost_baiTask_bernoulliBandit_le {i j : α} (hij : i ≠ j) {qi qj : ℝ}
     (hqi : qi ∈ Set.Ioo 0 1) (hqj : qj ∈ Set.Ioo 0 1) (hq : qi ≤ qj) (n : ℕ)
     (h : Hist Unit α ℝ n) :
-    ((baiTask (fun μ ↦ Bandits.bernoulliBandit fun a ↦ Set.projIcc 0 1 zero_le_one (μ a)) id
-        ).restrict {μ' | ∀ a, μ' a ∈ Set.Ioo 0 1}).glr
-        (((baiTask (fun μ ↦ Bandits.bernoulliBandit fun a ↦ Set.projIcc 0 1 zero_le_one (μ a))
-          id).restrict {μ' | ∀ a, μ' a ∈ Set.Ioo 0 1}).plugInCost empMean') n h i ≤
+    (bernoulliBaiTask α).glr ((bernoulliBaiTask α).plugInCost empMean') n h i ≤
       (pullCount' n h i : ℝ≥0∞) * klBer (empMean' n h i) qi +
         (pullCount' n h j : ℝ≥0∞) * klBer (empMean' n h j) qj := by
+  rw [bernoulliBaiTask_def]
   set S : Set (α → ℝ) := {μ' | ∀ a, μ' a ∈ Set.Ioo 0 1} with hS_def
   set ν : (α → ℝ) → Kernel α ℝ :=
     fun μ ↦ Bandits.bernoulliBandit fun a ↦ Set.projIcc 0 1 zero_le_one (μ a)
@@ -162,10 +203,7 @@ private lemma setOf_exists_lt_glr_subset_biUnion {Ω : Type*} {O : ℕ → Ω �
     (rec : (n : ℕ) → Hist Unit α ℝ n → α) {μ : α → ℝ} (hμ : ∀ c, μ c ∈ Set.Ioo 0 1) {a : α}
     (ha : ∀ i, i ≠ a → μ i < μ a) :
     {ω | ∃ n, β n (history O A Y n ω) <
-        ((baiTask (fun μ ↦ Bandits.bernoulliBandit fun a ↦ Set.projIcc 0 1 zero_le_one (μ a)) id
-          ).restrict {μ' | ∀ a, μ' a ∈ Set.Ioo 0 1}).glr
-          (((baiTask (fun μ ↦ Bandits.bernoulliBandit fun a ↦ Set.projIcc 0 1 zero_le_one (μ a))
-            id).restrict {μ' | ∀ a, μ' a ∈ Set.Ioo 0 1}).plugInCost empMean') n
+        (bernoulliBaiTask α).glr ((bernoulliBaiTask α).plugInCost empMean') n
           (history O A Y n ω) (rec n (history O A Y n ω)) ∧
         rec n (history O A Y n ω) ∉ ({a} : Set α)} ⊆
       ⋃ i ∈ univ.erase a, {ω | ∃ n : ℕ,
@@ -191,44 +229,26 @@ theorem measureReal_histOutputMeasure_glrt_baiTask_bernoulliBandit_le
     {δ : ℝ} (hδ : 0 < δ) (alg : Algorithm Unit α ℝ) (β : (n : ℕ) → Hist Unit α ℝ n → ℝ≥0∞)
     (hβ : ∀ (n : ℕ) h, ENNReal.ofReal (log (2 * n * (Fintype.card α - 1) / δ)) ≤ β n h)
     (rec : (n : ℕ) → Hist Unit α ℝ n → α) (hrec : ∀ n, Measurable (rec n))
-    (hstop : ∀ n, MeasurableSet {h : Hist Unit α ℝ n | β n h <
-      ((baiTask (fun μ ↦ Bandits.bernoulliBandit fun a ↦ Set.projIcc 0 1 zero_le_one (μ a)) id
-        ).restrict {μ' | ∀ a, μ' a ∈ Set.Ioo 0 1}).glr
-        (((baiTask (fun μ ↦ Bandits.bernoulliBandit fun a ↦ Set.projIcc 0 1 zero_le_one (μ a))
-          id).restrict {μ' | ∀ a, μ' a ∈ Set.Ioo 0 1}).plugInCost empMean') n h (rec n h)})
-    {μ : α → ℝ}
-    (hμ : μ ∈ ((baiTask (fun μ ↦ Bandits.bernoulliBandit fun a ↦ Set.projIcc 0 1 zero_le_one (μ a))
-      id).restrict {μ' | ∀ a, μ' a ∈ Set.Ioo 0 1}).M) :
+    (hstop : ∀ n, MeasurableSet {h : Hist Unit α ℝ n |
+      β n h < (bernoulliBaiTask α).glr ((bernoulliBaiTask α).plugInCost empMean') n h (rec n h)})
+    {μ : α → ℝ} (hμ : μ ∈ (bernoulliBaiTask α).M) :
     (histOutputMeasure
-        (((baiTask (fun μ ↦ Bandits.bernoulliBandit fun a ↦ Set.projIcc 0 1 zero_le_one (μ a)) id
-          ).restrict {μ' | ∀ a, μ' a ∈ Set.Ioo 0 1}).glrt
-          (((baiTask (fun μ ↦ Bandits.bernoulliBandit fun a ↦ Set.projIcc 0 1 zero_le_one (μ a))
-            id).restrict {μ' | ∀ a, μ' a ∈ Set.Ioo 0 1}).plugInCost empMean') alg β rec hrec
-          hstop)
-        (Environment.bandit
-          (Bandits.bernoulliBandit fun a ↦ Set.projIcc 0 1 zero_le_one (μ a)))).real
-      {q | q.1 ∈ (((baiTask
-            (fun μ ↦ Bandits.bernoulliBandit fun a ↦ Set.projIcc 0 1 zero_le_one (μ a)) id
-          ).restrict {μ' | ∀ a, μ' a ∈ Set.Ioo 0 1}).glrt
-          (((baiTask (fun μ ↦ Bandits.bernoulliBandit fun a ↦ Set.projIcc 0 1 zero_le_one (μ a))
-            id).restrict {μ' | ∀ a, μ' a ∈ Set.Ioo 0 1}).plugInCost empMean') alg β rec hrec
-          hstop).stopSet ∧
-        q.2 ∉ ((baiTask (fun μ ↦ Bandits.bernoulliBandit fun a ↦ Set.projIcc 0 1 zero_le_one (μ a))
-          id).restrict {μ' | ∀ a, μ' a ∈ Set.Ioo 0 1}).correct μ} ≤ δ := by
-  simp only [IdentTask.M_restrict, M_baiTask, id_eq, Set.mem_inter_iff, Set.mem_ofPred_eq] at hμ
+        ((bernoulliBaiTask α).glrt ((bernoulliBaiTask α).plugInCost empMean') alg β rec hrec hstop)
+        (Environment.bandit ((bernoulliBaiTask α).ν μ))).real
+      {q | q.1 ∈ ((bernoulliBaiTask α).glrt ((bernoulliBaiTask α).plugInCost empMean') alg β rec
+          hrec hstop).stopSet ∧
+        q.2 ∉ (bernoulliBaiTask α).correct μ} ≤ δ := by
+  simp only [M_bernoulliBaiTask, Set.mem_ofPred_eq] at hμ
   obtain ⟨⟨a, ha⟩, hμS⟩ := hμ
-  set task : IdentTask α (α → ℝ) α ℝ :=
-    (baiTask (fun μ : α → ℝ ↦ Bandits.bernoulliBandit fun a ↦ Set.projIcc 0 1 zero_le_one (μ a))
-      id).restrict {μ' | ∀ a, μ' a ∈ Set.Ioo 0 1} with htask
   set p : α → unitInterval := fun a ↦ Set.projIcc 0 1 zero_le_one (μ a) with hp_def
   have hpμ : ∀ c, (p c : ℝ) = μ c := fun c ↦ by
     simp [hp_def, Set.projIcc_of_mem _ (Set.Ioo_subset_Icc_self (hμS c))]
   have hp : ∀ c, (p c : ℝ) ∈ Set.Ioo 0 1 := fun c ↦ (hpμ c) ▸ hμS c
-  have hcorr : task.correct μ = {a} := by
-    rw [htask, IdentTask.correct_restrict]
+  have hcorr : (bernoulliBaiTask α).correct μ = {a} := by
+    rw [bernoulliBaiTask_def, IdentTask.correct_restrict]
     exact (correct_baiTask_eq_singleton_iff _ id).2 ha
   have hseq := IT.isAlgEnvSeq_trajMeasure alg (Environment.bandit (Bandits.bernoulliBandit p))
-  rw [IdentTask.glrt_def, hcorr]
+  simp only [IdentTask.glrt_def, hcorr, ν_bernoulliBaiTask]
   refine (measureReal_histOutputMeasure_ofStop_deterministic_le hseq
     (measurableSet_singleton a)).trans ?_
   set x : ℝ := (Fintype.card α - 1) / δ with hx_def
@@ -269,31 +289,18 @@ theorem isDeltaPAC_glrt_baiTask_bernoulliBandit
     {δ : ℝ} (hδ : 0 < δ) (alg : Algorithm Unit α ℝ) (β : (n : ℕ) → Hist Unit α ℝ n → ℝ≥0∞)
     (hβ : ∀ (n : ℕ) h, ENNReal.ofReal (log (2 * n * (Fintype.card α - 1) / δ)) ≤ β n h)
     (rec : (n : ℕ) → Hist Unit α ℝ n → α) (hrec : ∀ n, Measurable (rec n))
-    (hstop : ∀ n, MeasurableSet {h : Hist Unit α ℝ n | β n h <
-      ((baiTask (fun μ ↦ Bandits.bernoulliBandit fun a ↦ Set.projIcc 0 1 zero_le_one (μ a)) id
-        ).restrict {μ' | ∀ a, μ' a ∈ Set.Ioo 0 1}).glr
-        (((baiTask (fun μ ↦ Bandits.bernoulliBandit fun a ↦ Set.projIcc 0 1 zero_le_one (μ a))
-          id).restrict {μ' | ∀ a, μ' a ∈ Set.Ioo 0 1}).plugInCost empMean') n h (rec n h)})
-    (h_stops : ∀ μ ∈ ((baiTask (fun μ ↦ Bandits.bernoulliBandit fun a ↦
-        Set.projIcc 0 1 zero_le_one (μ a)) id).restrict {μ' | ∀ a, μ' a ∈ Set.Ioo 0 1}).M,
-      StopsAS (((baiTask (fun μ ↦ Bandits.bernoulliBandit fun a ↦ Set.projIcc 0 1 zero_le_one (μ a))
-          id).restrict {μ' | ∀ a, μ' a ∈ Set.Ioo 0 1}).glrt
-          (((baiTask (fun μ ↦ Bandits.bernoulliBandit fun a ↦ Set.projIcc 0 1 zero_le_one (μ a))
-            id).restrict {μ' | ∀ a, μ' a ∈ Set.Ioo 0 1}).plugInCost empMean') alg β rec hrec
-          hstop)
-        (Environment.bandit (Bandits.bernoulliBandit fun a ↦ Set.projIcc 0 1 zero_le_one (μ a)))) :
-    ((baiTask (fun μ ↦ Bandits.bernoulliBandit fun a ↦ Set.projIcc 0 1 zero_le_one (μ a)) id
-        ).restrict {μ' | ∀ a, μ' a ∈ Set.Ioo 0 1}).IsDeltaPAC
-      (((baiTask (fun μ ↦ Bandits.bernoulliBandit fun a ↦ Set.projIcc 0 1 zero_le_one (μ a)) id
-          ).restrict {μ' | ∀ a, μ' a ∈ Set.Ioo 0 1}).glrt
-        (((baiTask (fun μ ↦ Bandits.bernoulliBandit fun a ↦ Set.projIcc 0 1 zero_le_one (μ a))
-          id).restrict {μ' | ∀ a, μ' a ∈ Set.Ioo 0 1}).plugInCost empMean') alg β rec hrec
-        hstop) δ :=
+    (hstop : ∀ n, MeasurableSet {h : Hist Unit α ℝ n |
+      β n h < (bernoulliBaiTask α).glr ((bernoulliBaiTask α).plugInCost empMean') n h (rec n h)})
+    (h_stops : ∀ μ ∈ (bernoulliBaiTask α).M,
+      StopsAS ((bernoulliBaiTask α).glrt ((bernoulliBaiTask α).plugInCost empMean') alg β rec hrec
+        hstop) (Environment.bandit ((bernoulliBaiTask α).ν μ))) :
+    (bernoulliBaiTask α).IsDeltaPAC
+      ((bernoulliBaiTask α).glrt ((bernoulliBaiTask α).plugInCost empMean') alg β rec hrec hstop)
+      δ :=
   IdentTask.isDeltaPAC_of_measureReal_mem_stopSet_and_notMem_le
     (fun _ _ ↦ (Set.toFinite _).measurableSet)
-    (fun _ hμ ↦ by
-      simpa only [IdentTask.ν_restrict, ν_baiTask] using
-        measureReal_histOutputMeasure_glrt_baiTask_bernoulliBandit_le hδ alg β hβ rec hrec hstop hμ)
-    fun _ hμ ↦ by simpa only [IdentTask.ν_restrict, ν_baiTask] using h_stops _ hμ
+    (fun _ hμ ↦
+      measureReal_histOutputMeasure_glrt_baiTask_bernoulliBandit_le hδ alg β hβ rec hrec hstop hμ)
+    h_stops
 
 end LMLExplore.Identification
