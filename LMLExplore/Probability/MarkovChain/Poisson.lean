@@ -11,6 +11,7 @@ public import LMLExplore.Probability.Martingale.SubGaussian
 public import LMLExplore.Probability.Moments.SubGaussian.Basic
 public import Mathlib.Probability.Martingale.Basic
 
+import LMLExplore.MeasureTheory.Integral.Bochner.Basic
 import LMLExplore.Order.ConditionallyCompleteLattice.Group
 import LMLExplore.Probability.Process.Filtration
 import Mathlib.MeasureTheory.OuterMeasure.BorelCantelli
@@ -182,8 +183,7 @@ theorem hasCondSubgaussianMGF_sub_integralCLM [StandardBorelSpace α] (g : bound
     simp only [Set.mem_Icc, id_eq]
     exact ⟨by linarith [(hmem z).1], by linarith [(hmem z).2]⟩
   · rw [integral_map (boundedMeasurable.measurable g).aemeasurable (by fun_prop),
-      integral_sub (boundedMeasurable.integrable g _) (integrable_const _), integral_const,
-      probReal_univ, one_smul, integralCLM_apply, sub_self]
+      integral_sub_const (boundedMeasurable.integrable g _), integralCLM_apply, sub_self]
 
 /-- **Hoeffding's inequality for an additive functional of a Markov chain.** If `g - κ g = f - c`
 for bounded measurable `f` and `g`, then for `osc g ≤ b ≤ ε`,

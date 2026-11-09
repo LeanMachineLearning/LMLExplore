@@ -8,6 +8,8 @@ module
 public import LMLExplore.Analysis.SpecificLimits.Normed
 public import LMLExplore.Probability.Kernel.Dobrushin
 
+import LMLExplore.MeasureTheory.Integral.Bochner.Basic
+
 /-!
 # The Poisson equation of a uniformly ergodic kernel
 
@@ -97,9 +99,8 @@ theorem norm_integralCLM_pow_sub_smul_one_le (hπ : κ.Invariant π) (f : bounde
   -- `δ(κ ^ n) osc f`
   set F := ((κ ^ n).integralCLM f : ℓ^∞(α, ℝ))
   have hF : ∫ y, F y ∂π = ∫ y, (f : ℓ^∞(α, ℝ)) y ∂π := (hπ.pow n).integral_integralCLM f
-  have hdiff : F x - ∫ y, F y ∂π = ∫ y, (F x - F y) ∂π := by
-    rw [integral_sub (integrable_const _) (boundedMeasurable.integrable _ _), integral_const,
-      probReal_univ, one_smul]
+  have hdiff : F x - ∫ y, F y ∂π = ∫ y, (F x - F y) ∂π :=
+    (integral_const_sub _ (boundedMeasurable.integrable _ _)).symm
   have hle : |∫ y, (F x - F y) ∂π| ≤ dobrushinCoeff (κ ^ n) * orderUnitOsc 1 f := by
     rw [← Real.norm_eq_abs]
     refine (norm_integral_le_of_norm_le_const (.of_forall fun y ↦ ?_)).trans_eq
@@ -212,9 +213,7 @@ theorem Invariant.eq_integral_of_sub_integralCLM_eq (hπ : κ.Invariant π)
   have h := congrArg (fun v : boundedMeasurable α ↦ ∫ x, (v : ℓ^∞(α, ℝ)) x ∂π) hu
   simp only [boundedMeasurable.coeFn_sub, Pi.sub_apply, boundedMeasurable.sub_smul_one_apply] at h
   rw [integral_sub (boundedMeasurable.integrable _ _) (boundedMeasurable.integrable _ _),
-    hπ.integral_integralCLM, sub_self,
-    integral_sub (boundedMeasurable.integrable _ _) (integrable_const c), integral_const,
-    probReal_univ, one_smul] at h
+    hπ.integral_integralCLM, sub_self, integral_sub_const (boundedMeasurable.integrable _ _)] at h
   linarith
 
 /-- **Uniqueness for the Poisson equation.** If `δ(κ ^ m) < 1` and `π` is an invariant probability
