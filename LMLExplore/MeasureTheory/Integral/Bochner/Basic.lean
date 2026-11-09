@@ -16,6 +16,8 @@ public import Mathlib.MeasureTheory.Integral.Bochner.Basic
   finitely many integrable real functions is integrable, and its integral is at least the
   supremum of their integrals. Regrets against the best of finitely many comparators, whose
   expectation is compared with the best expected regret, use them.
+* `MeasureTheory.integral_le_const`: under a probability measure, an integrable real function that
+  is almost surely at most `c` has expectation at most `c`.
 * `MeasureTheory.integral_const_sub_sum`: under a probability measure, the expectation of
   `c - ∑ i ∈ s, g i` is `c - ∑ i ∈ s, ∫ g i ∂P`.
 * `MeasureTheory.integral_sum_le_add_mul_of_ae_le`: under a probability measure, an almost sure
@@ -57,6 +59,12 @@ end Supremum
 
 variable {Ω ι : Type*} {mΩ : MeasurableSpace Ω} {P : Measure Ω} [IsProbabilityMeasure P]
   {s : Finset ι}
+
+/-- Under a probability measure, the expectation of an integrable real function that is almost
+surely at most `c` is at most `c`. -/
+lemma integral_le_const {f : Ω → ℝ} {c : ℝ} (hf : Integrable f P) (h : ∀ᵐ ω ∂P, f ω ≤ c) :
+    ∫ ω, f ω ∂P ≤ c :=
+  (integral_mono_ae hf (integrable_const c) h).trans_eq (by simp)
 
 /-- Under a probability measure, the expectation of a constant minus a finite sum of integrable
 real functions is the constant minus the sum of their expectations. -/

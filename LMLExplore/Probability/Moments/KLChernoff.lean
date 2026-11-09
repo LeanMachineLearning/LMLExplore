@@ -14,6 +14,8 @@ public import LMLExplore.Probability.Distributions.ExponentialFamily.Bernoulli
 public import LMLExplore.Probability.Distributions.ExponentialFamily.Chernoff
 public import LMLExplore.Probability.Moments.SubGaussian.Bounded
 public import TauCeti.Probability.Distributions.Bernoulli.Basic
+import LMLExplore.Algebra.Order.BigOperators.Expect
+import LMLExplore.MeasureTheory.Integral.Bochner.Basic
 import LMLExplore.Probability.LargeDeviations.Chernoff
 import LMLExplore.Probability.Martingale.RateFunction
 
@@ -331,6 +333,14 @@ theorem measureReal_exists_sum_le_and_le_klBerReal_le {X : ι → Ω → ℝ} (h
     gcongr
     exact hp₀.2
 
+/-- If `Y ∈ [0, 1]` almost surely has mean at most `m`, then `1 - Y` has mean at least `1 - m`. -/
+private lemma one_sub_le_integral_one_sub [IsProbabilityMeasure μ] {Y : Ω → ℝ}
+    (hYm : AEMeasurable Y μ) (hY : ∀ᵐ ω ∂μ, Y ω ∈ Set.Icc 0 1) (h : μ[Y] ≤ m) :
+    1 - m ≤ ∫ ω, 1 - Y ω ∂μ := by
+  rw [integral_sub (integrable_const 1) (.of_mem_Icc 0 1 hYm hY)]
+  simp only [integral_const, probReal_univ, smul_eq_mul, one_mul]
+  linarith
+
 /-- **Confidence bound for the upper confidence level** (the upper confidence level part of
 [LS, Corollary 10.4], with an additional margin): for independent random variables `X i ∈ [0, 1]`
 with means at least `m`, a nonempty finite set `s` with empirical mean
@@ -372,9 +382,7 @@ theorem measureReal_klUpper_le_le {X : ι → Ω → ℝ} (h_indep : iIndepFun X
     filter_upwards [hX'] with ω hω hU
     -- the empirical mean `x` lies in `[0, 1]` and satisfies `x ≤ U(x, L / #s) ≤ q`
     set x := (∑ i ∈ s, X i ω) / #s with hx_def
-    have hx : x ∈ Set.Icc 0 1 :=
-      ⟨div_nonneg (sum_nonneg fun i hi ↦ (hω i hi).1) hs0.le, (div_le_one hs0).2
-        ((sum_le_sum fun i hi ↦ (hω i hi).2).trans_eq (by simp))⟩
+    have hx : x ∈ Set.Icc 0 1 := sum_div_card_mem_Icc hs hω
     have hxq : x ≤ q := (klUpper_mem_Icc hx.2 _).1.trans hU
     have hq' : q ∈ Set.Icc 0 1 := ⟨hx.1.trans hxq, hq.le⟩
     have hm' : m ∈ Set.Icc 0 1 := ⟨hq'.1.trans hqm, hm.le⟩
@@ -408,9 +416,8 @@ theorem measureReal_klUpper_lt_le {X : ι → Ω → ℝ} (h_indep : iIndepFun X
   have := h_indep.isProbabilityMeasure
   -- `m ≤ 1`, since the means are at most `1`
   obtain ⟨j, hj⟩ := hs
-  have hm1 : m ≤ 1 := (hmean j hj).trans <| (integral_mono_ae
-    (.of_mem_Icc 0 1 (hXm j hj) (hX j hj)) (integrable_const 1)
-    ((hX j hj).mono fun ω hω ↦ hω.2)).trans_eq (by simp)
+  have hm1 : m ≤ 1 := (hmean j hj).trans
+    (integral_le_const (.of_mem_Icc 0 1 (hXm j hj) (hX j hj)) ((hX j hj).mono fun ω hω ↦ hω.2))
   -- the event is the increasing union of the events `U(μ̂, L / #s) ≤ m - 1 / (k + 1)`, each of
   -- probability at most `exp (-L)`
   set E : ℕ → Set Ω := fun k ↦
@@ -457,9 +464,7 @@ theorem measureReal_lt_klLower_le {X : ι → Ω → ℝ} (h_indep : iIndepFun X
     simp only [Set.mem_ofPred_eq, klLower_def, sum_sub_distrib, sum_const, nsmul_eq_mul, mul_one,
       sub_div, div_self hs0]
     exact lt_sub_comm
-  · rw [integral_sub (integrable_const 1) (.of_mem_Icc 0 1 (hXm i hi) (hX i hi))]
-    simp only [integral_const, probReal_univ, smul_eq_mul, one_mul]
-    linarith [hmean i hi]
+  · exact one_sub_le_integral_one_sub (hXm i hi) (hX i hi) (hmean i hi)
 
 /-- **Overestimation of the KL-UCB index** ([LS, Lemma 10.8] for rewards in `[0, 1]`). Let
 `X₀, X₁, …` be independent, in `[0, 1]`, with means at most `m`, let `ε > 0` and `c < 1` with
@@ -509,20 +514,17 @@ section SelfNormalized
 
 variable {X : ℕ → Ω → ℝ}
 
-/-- The mean of `s ≥ 1` numbers in `[0, 1]` lies in `[0, 1]`. -/
+/-- The mean of the first `s ≥ 1` numbers of a sequence in `[0, 1]` lies in `[0, 1]`. -/
 private lemma sum_range_div_mem_Icc {ω : Ω} (hω : ∀ i, X i ω ∈ Set.Icc 0 1) {s : ℕ}
     (hs : 1 ≤ s) : (∑ i ∈ range s, X i ω) / s ∈ Set.Icc 0 1 := by
-  have hs0 : (0 : ℝ) < s := by exact_mod_cast hs
-  refine ⟨div_nonneg (sum_nonneg fun i _ ↦ (hω i).1) hs0.le, (div_le_one hs0).2 ?_⟩
-  calc ∑ i ∈ range s, X i ω
-  _ ≤ ∑ i ∈ range s, (1 : ℝ) := sum_le_sum fun i _ ↦ (hω i).2
-  _ = s := by simp
+  simpa only [card_range] using
+    sum_div_card_mem_Icc (nonempty_range_iff.2 (show s ≠ 0 by omega)) fun i _ ↦ hω i
 
-/-- A number below the mean of a random variable with values in `[0, 1]` is at most `1`. -/
-private lemma le_one_of_le_integral [IsProbabilityMeasure μ] {Y : Ω → ℝ} (hYm : AEMeasurable Y μ)
-    (hY : ∀ᵐ ω ∂μ, Y ω ∈ Set.Icc 0 1) (h : m ≤ μ[Y]) : m ≤ 1 :=
-  h.trans <| (integral_mono_ae (.of_mem_Icc 0 1 hYm hY) (integrable_const 1)
-    (hY.mono fun ω hω ↦ hω.2)).trans_eq (by simp)
+/-- The mean of the first `s ≠ 0` numbers `1 - x i` is `1` minus the mean of the `x i`. -/
+private lemma sum_range_one_sub_div {x : ℕ → ℝ} {s : ℕ} (hs : s ≠ 0) :
+    (∑ i ∈ range s, (1 - x i)) / s = 1 - (∑ i ∈ range s, x i) / s := by
+  have hs0 : (s : ℝ) ≠ 0 := Nat.cast_ne_zero.2 hs
+  simp only [sum_sub_distrib, sum_const, card_range, nsmul_eq_mul, mul_one, sub_div, div_self hs0]
 
 variable [StandardBorelSpace Ω]
 
@@ -539,7 +541,8 @@ theorem measure_exists_lt_and_le_mul_klBer_le (h_indep : iIndepFun X μ)
       ENNReal.ofReal (exp 1 * ⌈x * log n⌉₊ * exp (-x)) := by
   have := h_indep.isProbabilityMeasure
   have hX' : ∀ᵐ ω ∂μ, ∀ i, X i ω ∈ Set.Icc 0 1 := ae_all_iff.2 hX
-  have hm1 : m ≤ 1 := le_one_of_le_integral (hXm 0).aemeasurable (hX 0) (hmean 0)
+  have hm1 : m ≤ 1 := (hmean 0).trans (integral_le_const
+    (.of_mem_Icc 0 1 (hXm 0).aemeasurable (hX 0)) ((hX 0).mono fun ω hω ↦ hω.2))
   rcases le_or_gt m 0 with hm0 | hm0
   · -- for `m ≤ 0`, no empirical mean is below `m`
     refine le_of_eq_of_le (measure_eq_zero_iff_ae_notMem.2 ?_) zero_le
@@ -578,17 +581,10 @@ theorem measure_exists_gt_and_le_mul_klBer_le (h_indep : iIndepFun X μ)
     (fun i ↦ ?_) hx hn
   · refine le_trans (measure_mono fun ω hω ↦ ?_) h
     obtain ⟨s, hs, hsn, hlt, hle⟩ := hω
-    have hs0 : (s : ℝ) ≠ 0 := by exact_mod_cast (show s ≠ 0 by omega)
-    have h_mean : (∑ i ∈ range s, (1 - X i ω)) / s = 1 - (∑ i ∈ range s, X i ω) / s := by
-      simp only [sum_sub_distrib, sum_const, card_range, nsmul_eq_mul, mul_one, sub_div,
-        div_self hs0]
-    refine ⟨s, hs, hsn, ?_, ?_⟩
-    · rw [h_mean]
-      linarith
-    · rwa [h_mean, klBer_one_sub_one_sub]
-  · rw [integral_sub (integrable_const 1) (.of_mem_Icc 0 1 (hXm i).aemeasurable (hX i))]
-    simp only [integral_const, probReal_univ, smul_eq_mul, one_mul]
-    linarith [hmean i]
+    refine ⟨s, hs, hsn, ?_, ?_⟩ <;> rw [sum_range_one_sub_div (by omega)]
+    · linarith
+    · rwa [klBer_one_sub_one_sub]
+  · exact one_sub_le_integral_one_sub (hXm i).aemeasurable (hX i) (hmean i)
 
 /-- **Time-uniform coverage of the upper confidence level** [GC11, Theorem 10]: for independent
 random variables `X i ∈ [0, 1]` with means at least `m`, `x > 0` and `n ≥ 2`, the probability that
@@ -601,7 +597,8 @@ theorem measure_exists_klUpper_lt_le (h_indep : iIndepFun X μ) (hXm : ∀ i, Me
       klUpper ((∑ i ∈ range s, X i ω) / s) (ENNReal.ofReal (x / s)) < m} ≤
       ENNReal.ofReal (exp 1 * ⌈x * log n⌉₊ * exp (-x)) := by
   have := h_indep.isProbabilityMeasure
-  have hm1 : m ≤ 1 := le_one_of_le_integral (hXm 0).aemeasurable (hX 0) (hmean 0)
+  have hm1 : m ≤ 1 := (hmean 0).trans (integral_le_const
+    (.of_mem_Icc 0 1 (hXm 0).aemeasurable (hX 0)) ((hX 0).mono fun ω hω ↦ hω.2))
   refine (measure_mono_ae ?_).trans
     (measure_exists_lt_and_le_mul_klBer_le h_indep hXm hX hmean hx hn)
   filter_upwards [ae_all_iff.2 hX] with ω hω ⟨s, hs, hsn, hU⟩
@@ -638,14 +635,10 @@ theorem measure_exists_lt_klLower_le (h_indep : iIndepFun X μ) (hXm : ∀ i, Me
   · refine le_trans (measure_mono fun ω hω ↦ ?_) h
     obtain ⟨s, hs, hsn, hL⟩ := hω
     refine ⟨s, hs, hsn, ?_⟩
-    have hs0 : (s : ℝ) ≠ 0 := by exact_mod_cast (show s ≠ 0 by omega)
-    simp only [sum_sub_distrib, sum_const, card_range, nsmul_eq_mul, mul_one, sub_div,
-      div_self hs0]
+    rw [sum_range_one_sub_div (by omega)]
     rw [klLower_def] at hL
     linarith
-  · rw [integral_sub (integrable_const 1) (.of_mem_Icc 0 1 (hXm i).aemeasurable (hX i))]
-    simp only [integral_const, probReal_univ, smul_eq_mul, one_mul]
-    linarith [hmean i]
+  · exact one_sub_le_integral_one_sub (hXm i).aemeasurable (hX i) (hmean i)
 
 end SelfNormalized
 

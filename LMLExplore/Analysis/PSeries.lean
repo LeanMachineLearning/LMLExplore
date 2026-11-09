@@ -27,6 +27,14 @@ The terms of index `0` vanish, since `log 0 = 0` and `1 / 0 ^ p = 0`, so the sum
 
 ## Main statements
 
+* `Real.hasDerivAt_neg_rpow_div`, `Real.hasDerivAt_neg_log_mul_rpow_div`: the antiderivatives
+  `-x ^ (-(p - 1)) / (p - 1)` of `1 / x ^ p` and
+  `-(log x x ^ (-(p - 1))) / (p - 1) - x ^ (-(p - 1)) / (p - 1) ^ 2` of `log x / x ^ p` on
+  `(0, ∞)`, for `p ≠ 1`.
+* `Real.log_div_rpow_le_exp_neg_one`: `log x / x ^ p ≤ 1 / e` for `x ≥ 1` and `p ≥ 1`.
+* `Real.sum_range_one_div_nat_rpow_le`, `Real.sum_range_log_div_nat_rpow_le`: the partial sums
+  `∑_{n < N} 1 / n ^ p ≤ 1 + 1 / (p - 1)` and `∑_{n < N} log n / n ^ p ≤ 1 + 1 / (p - 1) ^ 2`
+  for `p > 1`, the form that a union bound over a fixed horizon needs.
 * `Real.tsum_one_div_nat_rpow_le`: `∑ 1 / n ^ p ≤ 1 + 1 / (p - 1)` for `p > 1`.
 * `Real.summable_log_div_nat_rpow`: `∑ log n / n ^ p` converges for `p > 1`.
 * `Real.tsum_log_div_nat_rpow_le`: `∑ log n / n ^ p ≤ 1 + 1 / (p - 1) ^ 2` for `p > 1`.
@@ -46,7 +54,7 @@ namespace Real
 variable {p : ℝ}
 
 /-- An antiderivative of `1 / x ^ p` on `(0, ∞)`, for `p ≠ 1`. -/
-private lemma hasDerivAt_neg_rpow_div {x : ℝ} (hx : 0 < x) (hp : p ≠ 1) :
+theorem hasDerivAt_neg_rpow_div {x : ℝ} (hx : 0 < x) (hp : p ≠ 1) :
     HasDerivAt (fun y : ℝ ↦ -(y ^ (-(p - 1)) / (p - 1))) (1 / x ^ p) x := by
   have hp1 : p - 1 ≠ 0 := sub_ne_zero.2 hp
   have h := ((hasDerivAt_rpow_const (p := -(p - 1)) (Or.inl hx.ne')).div_const (p - 1)).neg
@@ -55,7 +63,7 @@ private lemma hasDerivAt_neg_rpow_div {x : ℝ} (hx : 0 < x) (hp : p ≠ 1) :
   field_simp
 
 /-- An antiderivative of `log x / x ^ p` on `(0, ∞)`, for `p ≠ 1`. -/
-private lemma hasDerivAt_neg_log_mul_rpow_div {x : ℝ} (hx : 0 < x) (hp : p ≠ 1) :
+theorem hasDerivAt_neg_log_mul_rpow_div {x : ℝ} (hx : 0 < x) (hp : p ≠ 1) :
     HasDerivAt (fun y : ℝ ↦ -(log y * y ^ (-(p - 1))) / (p - 1) - y ^ (-(p - 1)) / (p - 1) ^ 2)
       (log x / x ^ p) x := by
   have hp1 : p - 1 ≠ 0 := sub_ne_zero.2 hp
@@ -72,7 +80,7 @@ private lemma hasDerivAt_neg_log_mul_rpow_div {x : ℝ} (hx : 0 < x) (hp : p ≠
   ring
 
 /-- For `p > 1`, the partial sums of `∑ 1 / n ^ p` are at most `1 + 1 / (p - 1)`. -/
-private lemma sum_range_one_div_nat_rpow_le (hp : 1 < p) (N : ℕ) :
+theorem sum_range_one_div_nat_rpow_le (hp : 1 < p) (N : ℕ) :
     ∑ n ∈ range N, 1 / (n : ℝ) ^ p ≤ 1 + 1 / (p - 1) := by
   have hp0 : 0 < p := by linarith
   have hp1 : 0 < p - 1 := by linarith
@@ -106,9 +114,8 @@ theorem tsum_one_div_nat_rpow_le (hp : 1 < p) :
     ∑' n : ℕ, 1 / (n : ℝ) ^ p ≤ 1 + 1 / (p - 1) :=
   tsum_le_of_sum_range_le (fun _ ↦ by positivity) (sum_range_one_div_nat_rpow_le hp)
 
-/-- For `p ≥ 1` and `x > 0`, `log x / x ^ p ≤ 1 / e`, since `log x ≤ x / e` and `x ≤ x ^ p` for
-`x ≥ 1`. -/
-private lemma log_div_rpow_le_exp_neg_one {x : ℝ} (hx : 1 ≤ x) (hp : 1 ≤ p) :
+/-- For `p ≥ 1` and `x ≥ 1`, `log x / x ^ p ≤ 1 / e`, since `log x ≤ x / e` and `x ≤ x ^ p`. -/
+theorem log_div_rpow_le_exp_neg_one {x : ℝ} (hx : 1 ≤ x) (hp : 1 ≤ p) :
     log x / x ^ p ≤ exp (-1) := by
   have hx0 : 0 < x := by linarith
   have h_log : log x ≤ x * exp (-1) := by
@@ -121,7 +128,7 @@ private lemma log_div_rpow_le_exp_neg_one {x : ℝ} (hx : 1 ≤ x) (hp : 1 ≤ p
   _ ≤ exp (-1) := by rwa [div_le_iff₀ hx0, mul_comm]
 
 /-- For `p > 1`, the partial sums of `∑ log n / n ^ p` are at most `1 + 1 / (p - 1) ^ 2`. -/
-private lemma sum_range_log_div_nat_rpow_le (hp : 1 < p) (N : ℕ) :
+theorem sum_range_log_div_nat_rpow_le (hp : 1 < p) (N : ℕ) :
     ∑ n ∈ range N, log n / (n : ℝ) ^ p ≤ 1 + 1 / (p - 1) ^ 2 := by
   have hp0 : 0 < p := by linarith
   have hp1 : 0 < p - 1 := by linarith

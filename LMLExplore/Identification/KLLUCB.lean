@@ -70,6 +70,9 @@ In the namespace `LMLExplore.Identification`:
 * `measureReal_histOutputMeasure_kllucb_le_of_tsum_mul_log_le`: for an exploration rate `b n > 0`
   depending on the round `n` only, with `∑_{n ≥ 1} e (b n log n + 1) exp (-b n) ≤ δ / K`, KL-LUCB
   stops with a wrong answer with probability at most `δ`, for every sampling rule.
+* `measureReal_stoppingTime_ne_top_and_notMem_le_of_isRun_kllucb_of_tsum_mul_log_le`,
+  `isDeltaPAC_kllucb_of_tsum_mul_log_le`: the same bound along every run, and KL-LUCB with such an
+  exploration rate is `δ`-PAC.
 * `measureReal_histOutputMeasure_kllucb_log_add_log_log_le`,
   `measureReal_stoppingTime_ne_top_and_notMem_le_of_isRun_kllucb_log_add_log_log`,
   `isDeltaPAC_kllucb_log_add_log_log`: [KK13, Theorem 1] for KL-LUCB, the same three statements as
@@ -234,6 +237,31 @@ theorem measureReal_stoppingTime_ne_top_and_notMem_le_of_isRun_kllucb {out : Ω 
   rw [hrun.measureReal_stoppingTime_ne_top_and_notMem_eq (Set.to_countable _).measurableSet]
   exact measureReal_histOutputMeasure_kllucb_le hν hsum hδ hε hm
 
+/-- **KL-LUCB is `δ`-PAC as soon as its error probability is at most `δ`**. Let `S` be a set of
+bandits whose arms have laws on `[0, 1]`. If, for every bandit with rewards in `[0, 1]`, KL-LUCB
+stops with an answer that is not a correct answer of top-`m` identification with tolerance `ε`
+with probability at most `δ`, and if it stops almost surely on every bandit of `S`, then it is
+`δ`-PAC on the task restricted to `S`. -/
+private lemma isDeltaPAC_kllucb_of_measureReal_le {S : Set (α → ProbabilityMeasure ℝ)}
+    (hS : S ⊆ Set.univ.pi fun _ ↦ unitIntervalLaws)
+    (h_err : ∀ (ν₀ : Kernel α ℝ) [IsMarkovKernel ν₀],
+      (∀ a, ∀ᵐ x ∂(ν₀ a), x ∈ Set.Icc (0 : ℝ) 1) →
+      (histOutputMeasure (kllucb alg β ε m) (Environment.bandit ν₀)).real
+        {p | p.1 ∈ (kllucb alg β ε m).stopSet ∧
+          p.2 ∉ (epsTopMTask (fun _ ↦ ν₀) id m ε).correct fun a ↦ (ν₀ a)[id]} ≤ δ)
+    (h_stops : ∀ θ ∈ S, StopsAS (kllucb alg β ε m) (Environment.bandit (lawBandit θ))) :
+    ((epsTopMTask (lawBandit (α := α)) lawMean m ε).restrict S).IsDeltaPAC
+      (kllucb alg β ε m) δ := by
+  have hS' (θ : α → ProbabilityMeasure ℝ)
+      (hθ : θ ∈ ((epsTopMTask (lawBandit (α := α)) lawMean m ε).restrict S).M) : θ ∈ S := by
+    rw [IdentTask.M_restrict] at hθ
+    exact hθ.2
+  refine IdentTask.isDeltaPAC_of_measureReal_mem_stopSet_and_notMem_le
+    (fun θ _ ↦ (Set.to_countable _).measurableSet) (fun θ hθ ↦ ?_)
+    fun θ hθ ↦ by simpa only [IdentTask.ν_restrict, ν_epsTopMTask] using h_stops θ (hS' θ hθ)
+  simpa only [IdentTask.ν_restrict, IdentTask.correct_restrict, ν_epsTopMTask, correct_epsTopMTask,
+    id, lawMean_eq_integral_lawBandit] using h_err _ (mem_pi_unitIntervalLaws_iff.1 (hS (hS' θ hθ)))
+
 /-- **KL-LUCB is `δ`-PAC** for top-`m` identification with tolerance `ε`, for every sampling rule
 [KTAS12, Theorem 1] for the confidence bounds of [KK13, (4), (5)]; this is the union-bound proof
 mentioned in [KK13, Appendix A]. Let `S` be a set of bandits whose arms have laws on `[0, 1]`, let
@@ -247,18 +275,9 @@ theorem isDeltaPAC_kllucb {S : Set (α → ProbabilityMeasure ℝ)}
     (hε : 0 ≤ ε) (hm : m ≤ Fintype.card α)
     (h_stops : ∀ θ ∈ S, StopsAS (kllucb alg β ε m) (Environment.bandit (lawBandit θ))) :
     ((epsTopMTask (lawBandit (α := α)) lawMean m ε).restrict S).IsDeltaPAC
-      (kllucb alg β ε m) δ := by
-  have hS' (θ : α → ProbabilityMeasure ℝ)
-      (hθ : θ ∈ ((epsTopMTask (lawBandit (α := α)) lawMean m ε).restrict S).M) : θ ∈ S := by
-    rw [IdentTask.M_restrict] at hθ
-    exact hθ.2
-  refine IdentTask.isDeltaPAC_of_measureReal_mem_stopSet_and_notMem_le
-    (fun θ _ ↦ (Set.to_countable _).measurableSet) (fun θ hθ ↦ ?_)
-    fun θ hθ ↦ by simpa only [IdentTask.ν_restrict, ν_epsTopMTask] using h_stops θ (hS' θ hθ)
-  have h := measureReal_histOutputMeasure_kllucb_le (alg := alg) (ν := fun _ ↦ lawBandit θ)
-    (mem_pi_unitIntervalLaws_iff.1 (hS (hS' θ hθ))) hsum hδ hε hm
-  simpa only [IdentTask.ν_restrict, IdentTask.correct_restrict, ν_epsTopMTask, correct_epsTopMTask,
-    id, lawMean_eq_integral_lawBandit] using h
+      (kllucb alg β ε m) δ :=
+  isDeltaPAC_kllucb_of_measureReal_le hS
+    (fun _ _ hν ↦ measureReal_histOutputMeasure_kllucb_le hν hsum hδ hε hm) h_stops
 
 /-! ### The exploration rate of [KK13, Theorem 1] -/
 
@@ -286,42 +305,80 @@ theorem measureReal_histOutputMeasure_kllucb_le_of_tsum_mul_log_le {b : ℕ → 
     have := log_natCast_nonneg (n + 1)
     have := hb n
     positivity
-  -- a union bound over the rounds `n ≥ 1`, at which the arm may have been pulled
-  have h_union (E : ℕ → Set (ℕ → Unit × α × ℝ)) (hE0 : ∀ ω, ω ∉ E 0)
-      (hE : ∀ n, (trajMeasure alg (Environment.bandit ν₀)).real (E (n + 1)) ≤ g n) :
-      (trajMeasure alg (Environment.bandit ν₀)).real (⋃ n, E n) ≤ ∑' n, g n := by
-    have h_sub : (⋃ n, E n) ⊆ ⋃ n, E (n + 1) := by
-      refine Set.iUnion_subset fun n ω hω ↦ ?_
+  -- a union bound over the rounds `n ≥ 1`, at which the arm may have been pulled, of the events
+  -- `Q n N_a μ̂_a` on the number of pulls `N_a` and the empirical mean `μ̂_a` of the arm `a`
+  have h_union (a : α) (Q : ℕ → ℕ → ℝ → Prop)
+      (hQ : ∀ n, (trajMeasure alg (Environment.bandit ν₀)).real
+        {ω | pullCount IT.action a (n + 1) ω ≠ 0 ∧ Q (n + 1) (pullCount IT.action a (n + 1) ω)
+          (empMean IT.action IT.feedback a (n + 1) ω)} ≤ g n) :
+      (trajMeasure alg (Environment.bandit ν₀)).real
+        {ω | ∃ n, pullCount IT.action a n ω ≠ 0 ∧
+          Q n (pullCount' n (history IT.obs IT.action IT.feedback n ω) a)
+            (empMean' n (history IT.obs IT.action IT.feedback n ω) a)} ≤ ∑' n, g n := by
+    have h_sub : {ω : ℕ → Unit × α × ℝ | ∃ n, pullCount IT.action a n ω ≠ 0 ∧
+          Q n (pullCount' n (history IT.obs IT.action IT.feedback n ω) a)
+            (empMean' n (history IT.obs IT.action IT.feedback n ω) a)} ⊆
+        ⋃ n, {ω | pullCount IT.action a (n + 1) ω ≠ 0 ∧ Q (n + 1)
+          (pullCount IT.action a (n + 1) ω) (empMean IT.action IT.feedback a (n + 1) ω)} := by
+      rintro ω ⟨n, hn, h⟩
       rcases n with _ | n
-      · exact absurd hω (hE0 ω)
-      · exact Set.mem_iUnion.2 ⟨n, hω⟩
+      · simp only [pullCount_zero] at hn
+        exact absurd rfl hn
+      · rw [← empMean_eq_empMean', ← pullCount_eq_pullCount'] at h
+        exact Set.mem_iUnion.2 ⟨n, hn, h⟩
     refine ENNReal.toReal_le_of_le_ofReal (tsum_nonneg hg0) ?_
     rw [ENNReal.ofReal_tsum_of_nonneg hg0 hsum]
     refine (measure_mono h_sub).trans ((measure_iUnion_le _).trans (tsum_le_tsum fun n ↦ ?_))
     rw [← ofReal_measureReal]
-    exact ENNReal.ofReal_le_ofReal (hE n)
+    exact ENNReal.ofReal_le_ofReal (hQ n)
   refine (measureReal_histOutputMeasure_lucb_le_card_mul hseq hε hm (S := ∑' n, g n)
     (fun a ↦ ?_) (fun a ↦ ?_)).trans ?_
-  · rw [Set.ofPred_exists]
-    refine h_union _ (fun ω hω ↦ ?_) fun n ↦ ?_
-    · simp only [Set.mem_ofPred_eq, pullCount_zero] at hω
-      exact hω.1 rfl
-    refine le_trans (measureReal_mono fun ω hω ↦ ?_)
-      (Bandits.measureReal_pullCount_ne_zero_and_klUpper_lt_le hseq a (hν a) (hb n) (n + 1))
-    simp only [Set.mem_ofPred_eq] at hω ⊢
-    rw [LUCB.klUpperBound_def, ← empMean_eq_empMean', ← pullCount_eq_pullCount'] at hω
-    exact hω
-  · rw [Set.ofPred_exists]
-    refine h_union _ (fun ω hω ↦ ?_) fun n ↦ ?_
-    · simp only [Set.mem_ofPred_eq, pullCount_zero] at hω
-      exact hω.1 rfl
-    refine le_trans (measureReal_mono fun ω hω ↦ ?_)
-      (Bandits.measureReal_pullCount_ne_zero_and_lt_klLower_le hseq a (hν a) (hb n) (n + 1))
-    simp only [Set.mem_ofPred_eq] at hω ⊢
-    rw [LUCB.klLowerBound_def, ← empMean_eq_empMean', ← pullCount_eq_pullCount'] at hω
-    exact hω
+  · simp only [LUCB.klUpperBound_def]
+    exact h_union a (fun n N y ↦ klUpper y (ENNReal.ofReal (b n / N)) < (ν₀ a)[id]) fun n ↦
+      Bandits.measureReal_pullCount_ne_zero_and_klUpper_lt_le hseq a (hν a) (hb n) (n + 1)
+  · simp only [LUCB.klLowerBound_def]
+    exact h_union a (fun n N y ↦ (ν₀ a)[id] < klLower y (ENNReal.ofReal (b n / N))) fun n ↦
+      Bandits.measureReal_pullCount_ne_zero_and_lt_klLower_le hseq a (hν a) (hb n) (n + 1)
   · have hK : (0 : ℝ) < Fintype.card α := Nat.cast_pos.2 Fintype.card_pos
     rwa [← le_div_iff₀' hK]
+
+/-- **Error probability of KL-LUCB with an exploration rate depending on the round along a run**,
+for rewards in `[0, 1]` and every sampling rule. Under the assumptions of
+`measureReal_histOutputMeasure_kllucb_le_of_tsum_mul_log_le`, along every run of KL-LUCB with the
+exploration rate `b n` after `n` rounds, the probability that it stops with an answer that is not
+a correct answer of top-`m` identification with tolerance `ε` for the means `μ` is at most `δ`. -/
+theorem measureReal_stoppingTime_ne_top_and_notMem_le_of_isRun_kllucb_of_tsum_mul_log_le
+    {b : ℕ → ℝ} {out : Ω → Finset α}
+    (hrun : (kllucb alg (fun _ n ↦ b n) ε m).IsRun (Environment.bandit ν₀) O X Y out P)
+    (hν : ∀ a, ∀ᵐ x ∂(ν₀ a), x ∈ Set.Icc (0 : ℝ) 1) (hb : ∀ n, 0 < b (n + 1))
+    (hsum : Summable fun n : ℕ ↦ exp 1 * (b (n + 1) * log (n + 1 : ℕ) + 1) * exp (-b (n + 1)))
+    (hδ : ∑' n : ℕ, exp 1 * (b (n + 1) * log (n + 1 : ℕ) + 1) * exp (-b (n + 1)) ≤
+      δ / Fintype.card α)
+    (hε : 0 ≤ ε) (hm : m ≤ Fintype.card α) :
+    P.real {ω | (kllucb alg (fun _ n ↦ b n) ε m).stoppingTime O X Y ω ≠ ⊤ ∧
+        out ω ∉ (epsTopMTask ν id m ε).correct fun a ↦ (ν₀ a)[id]} ≤ δ := by
+  rw [hrun.measureReal_stoppingTime_ne_top_and_notMem_eq (Set.to_countable _).measurableSet]
+  exact measureReal_histOutputMeasure_kllucb_le_of_tsum_mul_log_le hν hb hsum hδ hε hm
+
+/-- **KL-LUCB with an exploration rate depending on the round is `δ`-PAC** for top-`m`
+identification with tolerance `ε`, for every sampling rule [KK13, Lemmas 3 and 4]. Let `S` be a
+set of bandits whose arms have laws on `[0, 1]`, let `ε ≥ 0` and `m ≤ K`, and let the exploration
+rate `b n > 0` after `n ≥ 1` rounds satisfy `∑_{n ≥ 1} e (b n log n + 1) exp (-b n) ≤ δ / K`. If
+KL-LUCB with the exploration rate `b` stops almost surely on every bandit of `S`, then it is
+`δ`-PAC on the task restricted to `S`. -/
+theorem isDeltaPAC_kllucb_of_tsum_mul_log_le {b : ℕ → ℝ} {S : Set (α → ProbabilityMeasure ℝ)}
+    (hS : S ⊆ Set.univ.pi fun _ ↦ unitIntervalLaws) (hb : ∀ n, 0 < b (n + 1))
+    (hsum : Summable fun n : ℕ ↦ exp 1 * (b (n + 1) * log (n + 1 : ℕ) + 1) * exp (-b (n + 1)))
+    (hδ : ∑' n : ℕ, exp 1 * (b (n + 1) * log (n + 1 : ℕ) + 1) * exp (-b (n + 1)) ≤
+      δ / Fintype.card α)
+    (hε : 0 ≤ ε) (hm : m ≤ Fintype.card α)
+    (h_stops : ∀ θ ∈ S,
+      StopsAS (kllucb alg (fun _ n ↦ b n) ε m) (Environment.bandit (lawBandit θ))) :
+    ((epsTopMTask (lawBandit (α := α)) lawMean m ε).restrict S).IsDeltaPAC
+      (kllucb alg (fun _ n ↦ b n) ε m) δ :=
+  isDeltaPAC_kllucb_of_measureReal_le hS
+    (fun _ _ hν ↦ measureReal_histOutputMeasure_kllucb_le_of_tsum_mul_log_le hν hb hsum hδ hε hm)
+    h_stops
 
 /-- For `p ≥ 0`, `k₁ ≥ e`, `K ≥ 1`, `δ ∈ (0, 1]` and `n ≥ 1`, `log (k₁ K n ^ p / δ) ≥ 1`. -/
 private lemma one_le_log_mul_rpow_div {k₁ p δ : ℝ} {K : ℕ} (hp : 0 ≤ p) (hk : exp 1 ≤ k₁)
@@ -477,8 +534,12 @@ theorem measureReal_stoppingTime_ne_top_and_notMem_le_of_isRun_kllucb_log_add_lo
     P.real {ω | (kllucb alg (fun _ n ↦ log (k₁ * Fintype.card α * n ^ p / δ) +
           log (log (k₁ * Fintype.card α * n ^ p / δ))) ε m).stoppingTime O X Y ω ≠ ⊤ ∧
         out ω ∉ (epsTopMTask ν id m ε).correct fun a ↦ (ν₀ a)[id]} ≤ δ := by
-  rw [hrun.measureReal_stoppingTime_ne_top_and_notMem_eq (Set.to_countable _).measurableSet]
-  exact measureReal_histOutputMeasure_kllucb_log_add_log_log_le hν hp hk hδ hδ1 hε hm
+  obtain ⟨hb, hsum, htsum⟩ := summable_and_tsum_exp_one_mul_log_add_log_log_le hp hk
+    Fintype.card_pos hδ hδ1 (K := Fintype.card α) (b := fun n ↦
+      log (k₁ * Fintype.card α * n ^ p / δ) + log (log (k₁ * Fintype.card α * n ^ p / δ)))
+    fun n ↦ rfl
+  exact measureReal_stoppingTime_ne_top_and_notMem_le_of_isRun_kllucb_of_tsum_mul_log_le hrun hν
+    hb hsum htsum hε hm
 
 /-- **KL-LUCB with the exploration rate of [KK13, Theorem 1] is `δ`-PAC** for top-`m`
 identification with tolerance `ε`, for every sampling rule. Let `S` be a set of bandits whose arms
@@ -495,16 +556,10 @@ theorem isDeltaPAC_kllucb_log_add_log_log {k₁ p : ℝ} {S : Set (α → Probab
     ((epsTopMTask (lawBandit (α := α)) lawMean m ε).restrict S).IsDeltaPAC
       (kllucb alg (fun _ n ↦ log (k₁ * Fintype.card α * n ^ p / δ) +
         log (log (k₁ * Fintype.card α * n ^ p / δ))) ε m) δ := by
-  have hS' (θ : α → ProbabilityMeasure ℝ)
-      (hθ : θ ∈ ((epsTopMTask (lawBandit (α := α)) lawMean m ε).restrict S).M) : θ ∈ S := by
-    rw [IdentTask.M_restrict] at hθ
-    exact hθ.2
-  refine IdentTask.isDeltaPAC_of_measureReal_mem_stopSet_and_notMem_le
-    (fun θ _ ↦ (Set.to_countable _).measurableSet) (fun θ hθ ↦ ?_)
-    fun θ hθ ↦ by simpa only [IdentTask.ν_restrict, ν_epsTopMTask] using h_stops θ (hS' θ hθ)
-  have h := measureReal_histOutputMeasure_kllucb_log_add_log_log_le (alg := alg)
-    (ν := fun _ ↦ lawBandit θ) (mem_pi_unitIntervalLaws_iff.1 (hS (hS' θ hθ))) hp hk hδ hδ1 hε hm
-  simpa only [IdentTask.ν_restrict, IdentTask.correct_restrict, ν_epsTopMTask, correct_epsTopMTask,
-    id, lawMean_eq_integral_lawBandit] using h
+  obtain ⟨hb, hsum, htsum⟩ := summable_and_tsum_exp_one_mul_log_add_log_log_le hp hk
+    Fintype.card_pos hδ hδ1 (K := Fintype.card α) (b := fun n ↦
+      log (k₁ * Fintype.card α * n ^ p / δ) + log (log (k₁ * Fintype.card α * n ^ p / δ)))
+    fun n ↦ rfl
+  exact isDeltaPAC_kllucb_of_tsum_mul_log_le hS hb hsum htsum hε hm h_stops
 
 end LMLExplore.Identification
