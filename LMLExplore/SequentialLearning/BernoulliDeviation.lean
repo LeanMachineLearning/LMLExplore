@@ -131,22 +131,16 @@ so has the constant `1` used for `q ∉ (0, 1)`. -/
 private lemma lintegral_ofReal_exp_berLLR_bernoulliMeasure {p : I} (hp : (p : ℝ) ∈ Set.Ioo 0 1)
     (q : ℝ) : ∫⁻ y, ENNReal.ofReal (exp (berLLR q p y)) ∂Ber((1 : ℝ), 0, p) = 1 := by
   by_cases hq : q ∈ Set.Ioo 0 1
-  · simp only [berLLR, hq, ↓reduceIte]
-    rw [bernoulliMeasure_def, lintegral_add_measure, lintegral_smul_measure,
-      lintegral_smul_measure, lintegral_dirac, lintegral_dirac]
-    have h1 : 0 < 1 - (p : ℝ) := sub_pos.2 hp.2
+  · have h1 : 0 < 1 - (p : ℝ) := sub_pos.2 hp.2
     have h2 : 0 < 1 - q := sub_pos.2 hq.2
-    simp only [one_mul, sub_self, zero_mul, add_zero, sub_zero, zero_add]
-    rw [exp_log (div_pos hq.1 hp.1), exp_log (div_pos h2 h1)]
-    simp only [ENNReal.smul_def, smul_eq_mul]
-    rw [← ENNReal.ofReal_coe_nnreal, ← ENNReal.ofReal_coe_nnreal,
-      ← ENNReal.ofReal_mul (NNReal.coe_nonneg _), ← ENNReal.ofReal_mul (NNReal.coe_nonneg _),
-      ← ENNReal.ofReal_add (mul_nonneg (NNReal.coe_nonneg _) (div_pos hq.1 hp.1).le)
-        (mul_nonneg (NNReal.coe_nonneg _) (div_pos h2 h1).le)]
     have h0 : (p : ℝ) ≠ 0 := hp.1.ne'
-    simp only [unitInterval.coe_toNNReal, coe_symm_eq, ENNReal.ofReal_eq_one]
-    field_simp
-    ring
+    simp only [berLLR, hq, ↓reduceIte, bernoulliMeasure_def, lintegral_add_measure,
+      lintegral_smul_measure, lintegral_dirac, ENNReal.smul_def, smul_eq_mul, one_mul, sub_self,
+      zero_mul, add_zero, sub_zero, zero_add, exp_log (div_pos hq.1 hp.1), exp_log (div_pos h2 h1),
+      unitInterval.coe_toNNReal, coe_symm_eq, ← ENNReal.ofReal_coe_nnreal,
+      ← ENNReal.ofReal_mul hp.1.le, ← ENNReal.ofReal_mul h1.le, ← mul_div_assoc,
+      mul_div_cancel_left₀ _ h0, mul_div_cancel_left₀ _ h1.ne', ← ENNReal.ofReal_add hq.1.le h2.le,
+      add_sub_cancel, ENNReal.ofReal_one]
   · simp [berLLR, hq]
 
 /-- The log-likelihood ratio of the bandit whose means on the arms `a` and `b` are `l.1` and `l.2`

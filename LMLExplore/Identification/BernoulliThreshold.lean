@@ -88,7 +88,7 @@ lemma glr_plugInCost_baiTask_bernoulliBandit_le {i j : α} (hij : i ≠ j) {qi q
         (pullCount' n h j : ℝ≥0∞) * klBer (empMean' n h j) qj := by
   set S : Set (α → ℝ) := {μ' | ∀ a, μ' a ∈ Set.Ioo 0 1} with hS_def
   set ν : (α → ℝ) → Kernel α ℝ :=
-    fun μ ↦ Bandits.bernoulliBandit fun a ↦ Set.projIcc 0 1 zero_le_one (μ a) with hν
+    fun μ ↦ Bandits.bernoulliBandit fun a ↦ Set.projIcc 0 1 zero_le_one (μ a)
   set w : α → ℝ := fun a ↦ (pullCount' n h a : ℝ) with hw
   set emp := empMean' n h with hemp
   -- the cost from the empirical means, in terms of the binary relative entropy
@@ -99,19 +99,8 @@ lemma glr_plugInCost_baiTask_bernoulliBandit_le {i j : α} (hij : i ≠ j) {qi q
   have hS : IsOpen S := by
     simp only [hS_def, Set.ofPred_forall]
     exact isOpen_iInter_of_finite fun a ↦ isOpen_Ioo.preimage (continuous_apply a)
-  -- the cost is continuous on `S`, where the binary relative entropy is continuous in its second
-  -- argument
-  have hc : ContinuousOn ((baiTask ν id).cost w emp) S := by
-    refine (baiTask ν id).continuousOn_cost (fun c ↦ ?_) w
-    refine (continuousOn_klBer.comp (s := S)
-      (continuousOn_const.prodMk (continuous_apply c).continuousOn)
-      fun μ' hμ' ↦ ⟨Subtype.prop (Set.projIcc 0 1 zero_le_one (emp c)), hμ' c⟩).congr
-      fun μ' hμ' ↦ ?_
-    rw [ν_baiTask, hν, Bandits.bernoulliBandit_apply, Bandits.bernoulliBandit_apply,
-      klDiv_bernoulliMeasure, Set.projIcc_of_mem _ (Set.Ioo_subset_Icc_self (hμ' c)),
-      Function.comp_apply, Function.uncurry_apply_pair]
   rw [IdentTask.glr_plugInCost, altCost_baiTask_restrict_eq_iInf _ hS
-    (hc.mono Set.inter_subset_right)]
+    ((IdentTask.continuousOn_cost_bernoulliBandit (ν_baiTask ν id)).mono Set.inter_subset_right)]
   refine ENNReal.le_of_forall_pos_le_add fun ε hε _ ↦ ?_
   -- the alternative: `λ_i`, `λ_j`, and the other arms moved to `(1 - t) μ̂ + t / 2`
   set t : ℝ := min 1 (ε / (n + 1)) with ht_def
@@ -164,6 +153,35 @@ lemma glr_plugInCost_baiTask_bernoulliBandit_le {i j : α} (hij : i ≠ j) {qi q
         gcongr
         exact sum_pullCount'_mul_ofReal_min_le n h ε
 
+/-- The GLRT for Bernoulli arms with thresholds `β` at least `log (2 n (K - 1) / δ)` stops with an
+arm other than the best arm `a` of the means `μ ∈ (0, 1)^α` only if, at some round `n`, a wrong arm
+`i` and `a` have evidence `N_i d(μ̂_i, μ_i) + N_a d(μ̂_a, μ_a)` above `log (2 n (K - 1) / δ)`. -/
+private lemma setOf_exists_lt_glr_subset_biUnion {Ω : Type*} {O : ℕ → Ω → Unit} {A : ℕ → Ω → α}
+    {Y : ℕ → Ω → ℝ} {δ : ℝ} (β : (n : ℕ) → Hist Unit α ℝ n → ℝ≥0∞)
+    (hβ : ∀ (n : ℕ) h, ENNReal.ofReal (log (2 * n * (Fintype.card α - 1) / δ)) ≤ β n h)
+    (rec : (n : ℕ) → Hist Unit α ℝ n → α) {μ : α → ℝ} (hμ : ∀ c, μ c ∈ Set.Ioo 0 1) {a : α}
+    (ha : ∀ i, i ≠ a → μ i < μ a) :
+    {ω | ∃ n, β n (history O A Y n ω) <
+        ((baiTask (fun μ ↦ Bandits.bernoulliBandit fun a ↦ Set.projIcc 0 1 zero_le_one (μ a)) id
+          ).restrict {μ' | ∀ a, μ' a ∈ Set.Ioo 0 1}).glr
+          (((baiTask (fun μ ↦ Bandits.bernoulliBandit fun a ↦ Set.projIcc 0 1 zero_le_one (μ a))
+            id).restrict {μ' | ∀ a, μ' a ∈ Set.Ioo 0 1}).plugInCost empMean') n
+          (history O A Y n ω) (rec n (history O A Y n ω)) ∧
+        rec n (history O A Y n ω) ∉ ({a} : Set α)} ⊆
+      ⋃ i ∈ univ.erase a, {ω | ∃ n : ℕ,
+        ENNReal.ofReal (log (2 * n * ((Fintype.card α - 1) / δ))) <
+          (pullCount A i n ω : ℝ≥0∞) * klBer (empMean A Y i n ω) (μ i) +
+            (pullCount A a n ω : ℝ≥0∞) * klBer (empMean A Y a n ω) (μ a)} := by
+  rintro ω ⟨n, hn_stop, hn_wrong⟩
+  have hia : rec n (history O A Y n ω) ≠ a := hn_wrong
+  refine Set.mem_biUnion (mem_erase.2 ⟨hia, mem_univ _⟩) ⟨n, ?_⟩
+  have hglr := glr_plugInCost_baiTask_bernoulliBandit_le hia (hμ _) (hμ a) (ha _ hia).le n
+    (history O A Y n ω)
+  rw [← pullCount_eq_pullCount', ← pullCount_eq_pullCount', ← empMean_eq_empMean',
+    ← empMean_eq_empMean'] at hglr
+  rw [← mul_div_assoc]
+  exact ((hβ n _).trans_lt hn_stop).trans_le hglr
+
 /-- **The informational threshold for Bernoulli arms** [GK16, Theorem 10]. For best arm
 identification with Bernoulli arms on the vectors of means in `(0, 1)` and every `δ > 0`, whatever
 the sampling rule `alg` and the recommendation rule `rec`, the GLRT with the plug-in statistic of
@@ -215,26 +233,10 @@ theorem measureReal_histOutputMeasure_glrt_baiTask_bernoulliBandit_le
     (measurableSet_singleton a)).trans ?_
   set x : ℝ := (Fintype.card α - 1) / δ with hx_def
   set E : α → Set _ := fun i ↦ {ω | ∃ n : ℕ, ENNReal.ofReal (log (2 * n * x)) <
-      (pullCount IT.action i n ω : ℝ≥0∞) * klBer (empMean IT.action IT.feedback i n ω) (p i) +
-        (pullCount IT.action a n ω : ℝ≥0∞) * klBer (empMean IT.action IT.feedback a n ω) (p a)}
-    with hE
-  have hsub : {ω | ∃ n, β n (history IT.obs IT.action IT.feedback n ω) <
-        task.glr (task.plugInCost empMean') n (history IT.obs IT.action IT.feedback n ω)
-          (rec n (history IT.obs IT.action IT.feedback n ω)) ∧
-        rec n (history IT.obs IT.action IT.feedback n ω) ∉ ({a} : Set α)} ⊆
-      ⋃ i ∈ univ.erase a, E i := by
-    rintro ω ⟨n, hn_stop, hn_wrong⟩
-    set i := rec n (history IT.obs IT.action IT.feedback n ω)
-    have hia : i ≠ a := hn_wrong
-    refine Set.mem_biUnion (mem_erase.2 ⟨hia, mem_univ i⟩) ⟨n, ?_⟩
-    have hglr := glr_plugInCost_baiTask_bernoulliBandit_le hia (hμS i) (hμS a) (ha i hia).le n
-      (history IT.obs IT.action IT.feedback n ω)
-    rw [← pullCount_eq_pullCount', ← pullCount_eq_pullCount', ← empMean_eq_empMean',
-      ← empMean_eq_empMean'] at hglr
-    rw [hpμ, hpμ]
-    refine lt_of_le_of_lt ?_ (hn_stop.trans_le hglr)
-    refine le_trans (le_of_eq ?_) (hβ n _)
-    rw [hx_def, mul_div_assoc]
+      (pullCount IT.action i n ω : ℝ≥0∞) * klBer (empMean IT.action IT.feedback i n ω) (μ i) +
+        (pullCount IT.action a n ω : ℝ≥0∞) * klBer (empMean IT.action IT.feedback a n ω) (μ a)}
+  have hsub := setOf_exists_lt_glr_subset_biUnion (O := IT.obs) (A := IT.action)
+    (Y := IT.feedback) β hβ rec hμS ha
   refine (measureReal_mono hsub (measure_ne_top _ _)).trans
     ((measureReal_biUnion_finset_le _ _).trans ?_)
   rcases (univ.erase a).eq_empty_or_nonempty with he | ⟨i₀, hi₀⟩
@@ -250,8 +252,9 @@ theorem measureReal_histOutputMeasure_glrt_baiTask_bernoulliBandit_le
       ≤ ∑ i ∈ univ.erase a, 1 / x := by
         refine sum_le_sum fun i hi ↦ ?_
         rw [measureReal_def]
-        exact ENNReal.toReal_le_of_le_ofReal (by positivity)
-          (measure_exists_log_two_mul_mul_lt_klBer_le hseq (mem_erase.1 hi).1 (hp i) (hp a) hx)
+        refine ENNReal.toReal_le_of_le_ofReal (by positivity) ?_
+        simpa only [hpμ] using
+          measure_exists_log_two_mul_mul_lt_klBer_le hseq (mem_erase.1 hi).1 (hp i) (hp a) hx
     _ = δ := by
         rw [sum_const, card_erase_of_mem (mem_univ a), card_univ, nsmul_eq_mul,
           Nat.cast_sub hK.le, Nat.cast_one, hx_def]
