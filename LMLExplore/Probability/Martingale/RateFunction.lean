@@ -45,7 +45,10 @@ and the bound on one slice, with every variable selected, holds for the means
 sizes, the deviation `z ≤ n I(μ̂_n)` forces `I(μ̂_n) > z / b`, on either side of the mean, so it
 happens on the slice with probability at most `2 exp (-(a z / b))`. On the dyadic slices
 `2 ^ k ≤ n < 2 ^ (k + 1)` this is `2 exp (-z / 2)`, the
-step of the peeled deviation bounds of `SequentialLearning/RateFunctionDeviation.lean`.
+step of the peeled deviation bounds of `SequentialLearning/RateFunctionDeviation.lean`. The
+bounds for independent variables are adapted from the formalization in the Garivier2016Optimal
+project (Rémy Degenne, <https://github.com/RemyDegenne/Garivier2016Optimal>, file
+`Garivier2016Optimal/ForLMLExplore/Probability/Martingale/RateFunction.lean`).
 
 ## Main statements
 
@@ -359,8 +362,7 @@ theorem _root_.ProbabilityTheory.iIndepFun.measure_exists_le_and_gt_and_lt_rateF
       (mgfDominatedOn_iff_hasMGFBound.1 (hZ n)) (hZm n) ?_
     have h := indep_iSup_of_disjoint (fun i ↦ (hZm i).comap_le) h_indep
       (S := {n}) (T := Set.Iio n) (by simp)
-    exact (by simpa using h : Indep (MeasurableSpace.comap (Z n) inferInstance)
-      (⨆ i ∈ Set.Iio n, MeasurableSpace.comap (Z i) inferInstance) P)
+    simpa only [Set.mem_singleton_iff, iSup_iSup_eq_left] using h
   -- every variable is selected
   have h := measure_exists_le_sum_and_gt_and_lt_rateFunction_le (ℱ := ℱ) (w := fun _ _ ↦ 1) hX hψ
     (fun _ ↦ measurable_const) (fun _ _ ↦ Or.inr rfl) hY ha hr

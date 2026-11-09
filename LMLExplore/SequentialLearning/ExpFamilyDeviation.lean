@@ -34,6 +34,9 @@ the `δ`-correctness of generalized likelihood ratio stopping rules for exponent
 [GK16, Proposition 12; LS, Lemma 33.7]. The same holds for the peeled bound of
 `SequentialLearning/RateFunctionDeviation.lean`, whose thresholds grow like `η log₂ t` per arm
 for any `η > 0`.
+The peeled bound is adapted from the formalization in the Garivier2016Optimal project
+(Rémy Degenne, <https://github.com/RemyDegenne/Garivier2016Optimal>, file
+`Garivier2016Optimal/ForLMLExplore/SequentialLearning/ExpFamilyDeviation.lean`).
 
 ## Main statements
 
@@ -172,6 +175,32 @@ variable {α : Type*} [DecidableEq α] [Countable α] [MeasurableSpace α]
   {alg : Algorithm Unit α ℝ} [IsProbabilityMeasure P] {O : ℕ → Ω → Unit} {A : ℕ → Ω → α}
   {R : ℕ → Ω → ℝ} {x : ℝ}
 
+omit [Countable α] [MeasurableSingletonClass α] [IsProbabilityMeasure P] in
+/-- **From the rate functions to the extended divergences of exponential families.** Let the
+rewards of each arm `a ∈ S` be dominated on `Set.univ`, in moment generating function, by the
+member of mean `μ a` of the exponential family `(ρ a, T a)`. Any bound, valid for integrable
+rewards, on the probability that `θ t ≤ ∑ a ∈ S, N_a(t) I_a(μ̂_a(t))` at some round `t` also
+bounds the probability that `θ t ≤ ∑ a ∈ S, N_a(t) dbar_a(μ̂_a(t), μ a)` at some round `t`. -/
+private lemma measure_exists_le_sum_pullCount_mul_expFamilyRate_le_of {𝓧 : Type*}
+    {m𝓧 : MeasurableSpace 𝓧} {ρ : α → Measure 𝓧} {T : α → 𝓧 → ℝ} {μ : α → ℝ} (S : Finset α)
+    (hμ : ∀ a ∈ S, μ a ∈ (ρ a).expFamilyMeans (T a))
+    (hν : ∀ a ∈ S, MGFDominatedOn id (ν a) (T a)
+      ((ρ a).expFamily (T a) ((ρ a).natParam (T a) (μ a))) Set.univ)
+    (θ : ℕ → ℝ) {B : ENNReal}
+    (hB : (∀ a ∈ S, Integrable id (ν a)) → P {ω | ∃ t : ℕ, ENNReal.ofReal (θ t) ≤
+      ∑ a ∈ S, pullCount A a t ω * rateFunction id (ν a) (empMean A R a t ω)} ≤ B) :
+    P {ω | ∃ t : ℕ, ENNReal.ofReal (θ t) ≤
+      ∑ a ∈ S, pullCount A a t ω * (ρ a).expFamilyRate (T a) (empMean A R a t ω) (μ a)} ≤ B := by
+  -- the rewards are integrable, and the rate function of each arm is at least `dbar_a(·, μ a)`
+  refine le_trans (measure_mono fun ω hω ↦ ?_) (hB fun a ha ↦ (hν a ha).integrable (by
+    simpa only [Set.univ_inter] using Measure.zero_mem_interior_integrableExpSet_expFamily
+      (Measure.natParam_mem_interior_integrableExpSet (hμ a ha))))
+  obtain ⟨t, ht⟩ := hω
+  refine ⟨t, ht.trans (sum_le_sum fun a ha ↦ ?_)⟩
+  rw [Measure.expFamilyRate_def]
+  gcongr
+  exact ((hν a ha).mono (Set.subset_univ _)).rateFunction_le _
+
 /-- **Time-uniform deviations of the empirical means along a run, for rewards dominated by
 exponential families** ([GK16, Proposition 12], [LS, Lemma 33.7]), for the arms of a set `S`. In a
 run of any algorithm against `Environment.bandit ν`, let the rewards of each arm `a ∈ S` be
@@ -190,18 +219,10 @@ theorem measure_exists_card_mul_log_add_le_sum_pullCount_mul_expFamilyRate_le
     (hx : #S ≤ x) :
     P {ω | ∃ t : ℕ, ENNReal.ofReal (#S * log (2 * t * (t + 1)) + x) ≤
         ∑ a ∈ S, pullCount A a t ω * (ρ a).expFamilyRate (T a) (empMean A R a t ω) (μ a)} ≤
-      ENNReal.ofReal ((x / #S) ^ #S * exp (#S - x)) := by
-  -- the rewards are integrable, and the rate function of each arm is at least `dbar_a(·, μ a)`
-  have h_int (a : α) (ha : a ∈ S) : Integrable id (ν a) := (hν a ha).integrable (by
-    simpa only [Set.univ_inter] using Measure.zero_mem_interior_integrableExpSet_expFamily
-      (Measure.natParam_mem_interior_integrableExpSet (hμ a ha)))
-  refine le_trans (measure_mono fun ω hω ↦ ?_)
-    (measure_exists_card_mul_log_add_le_sum_pullCount_mul_rateFunction_le h S h_int hx)
-  obtain ⟨t, ht⟩ := hω
-  refine ⟨t, ht.trans (sum_le_sum fun a ha ↦ ?_)⟩
-  rw [Measure.expFamilyRate_def]
-  gcongr
-  exact ((hν a ha).mono (Set.subset_univ _)).rateFunction_le _
+      ENNReal.ofReal ((x / #S) ^ #S * exp (#S - x)) :=
+  measure_exists_le_sum_pullCount_mul_expFamilyRate_le_of S hμ hν
+    (fun t : ℕ ↦ #S * log (2 * t * (t + 1)) + x) fun h_int ↦
+      measure_exists_card_mul_log_add_le_sum_pullCount_mul_rateFunction_le h S h_int hx
 
 /-- **Peeled time-uniform deviations of the empirical means along a run, for rewards dominated by
 exponential families** (the deviation inequality of [GK16, Proposition 12] for the thresholds
@@ -223,18 +244,10 @@ theorem measure_exists_two_mul_card_mul_add_le_sum_pullCount_mul_expFamilyRate_l
     P {ω | ∃ t : ℕ, ENNReal.ofReal (2 * (#S *
         (η * Nat.log 2 t + log (2 / (1 - exp (-η)))) + x)) ≤
         ∑ a ∈ S, pullCount A a t ω * (ρ a).expFamilyRate (T a) (empMean A R a t ω) (μ a)} ≤
-      ENNReal.ofReal ((x / #S) ^ #S * exp (#S - x)) := by
-  -- the rewards are integrable, and the rate function of each arm is at least `dbar_a(·, μ a)`
-  have h_int (a : α) (ha : a ∈ S) : Integrable id (ν a) := (hν a ha).integrable (by
-    simpa only [Set.univ_inter] using Measure.zero_mem_interior_integrableExpSet_expFamily
-      (Measure.natParam_mem_interior_integrableExpSet (hμ a ha)))
-  refine le_trans (measure_mono fun ω hω ↦ ?_)
-    (measure_exists_two_mul_card_mul_add_le_sum_pullCount_mul_rateFunction_le h S h_int hη hx)
-  obtain ⟨t, ht⟩ := hω
-  refine ⟨t, ht.trans (sum_le_sum fun a ha ↦ ?_)⟩
-  rw [Measure.expFamilyRate_def]
-  gcongr
-  exact ((hν a ha).mono (Set.subset_univ _)).rateFunction_le _
+      ENNReal.ofReal ((x / #S) ^ #S * exp (#S - x)) :=
+  measure_exists_le_sum_pullCount_mul_expFamilyRate_le_of S hμ hν
+    (fun t : ℕ ↦ 2 * (#S * (η * Nat.log 2 t + log (2 / (1 - exp (-η)))) + x)) fun h_int ↦
+      measure_exists_two_mul_card_mul_add_le_sum_pullCount_mul_rateFunction_le h S h_int hη hx
 
 end ExpFamilyRate
 

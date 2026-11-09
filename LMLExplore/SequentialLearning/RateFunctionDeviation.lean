@@ -48,6 +48,9 @@ to `exp (-y)`. The same joint bound and transfer to runs give
 `P(∃ t, 2 (#S (η log₂ t + κ_η) + x) ≤ ∑ a ∈ S, N_a(t) I_a(μ̂_a(t))) ≤ (x / #S) ^ #S exp (#S - x)`
 for `x ≥ #S`, with the integer logarithm `log₂ t = Nat.log 2 t`. This is the deviation inequality
 behind the thresholds `log (C t ^ p / δ)` of [GK16, Proposition 12], for every exponent `p > 0`.
+The peeled bounds are adapted from the formalization in the Garivier2016Optimal project
+(Rémy Degenne, <https://github.com/RemyDegenne/Garivier2016Optimal>, file
+`Garivier2016Optimal/ForLMLExplore/SequentialLearning/RateFunctionDeviation.lean`).
 
 For rewards dominated by exponential families, the rate function of each arm is at least the
 extended divergence of its family, and `SequentialLearning/ExpFamilyDeviation.lean` deduces the
@@ -202,15 +205,19 @@ private lemma streamMeasure_exists_mul_rateFunction_eq_top {a : α} (hν : Integ
   rw [hω]
   exact le_top
 
-/-- **Joint time-uniform deviations of the empirical means, measured by the rate functions**, in
-the reward stream model, for the arms of a finite set `S`. If the rewards of each arm `a ∈ S` are
-integrable, with rate function `I_a`, then for `x ≥ #S`, the probability that
-`#S log (2 n (n + 1)) + x ≤ ∑ a ∈ S, s a I_a((∑ i < s a, X_i a) / s a)` for some numbers of
-rewards `s : α → ℕ`, with `n = ∑ a ∈ S, s a`, is at most `(x / #S) ^ #S exp (#S - x)`. -/
-theorem streamMeasure_exists_card_mul_log_add_le_sum_mul_rateFunction_le (S : Finset α)
-    (hν : ∀ a ∈ S, Integrable id (ν a)) {x : ℝ} (hx : #S ≤ x) :
-    streamMeasure ν {ω | ∃ s : α → ℕ, ENNReal.ofReal (#S *
-        log (2 * ((∑ a ∈ S, s a : ℕ) : ℝ) * (((∑ a ∈ S, s a : ℕ) : ℝ) + 1)) + x) ≤
+/-- **Joint time-uniform deviations of the empirical means above a monotone threshold**, in the
+reward stream model, for the arms of a finite set `S`. Let the rewards of each arm `a ∈ S` be
+integrable, with rate function `I_a`, let `g` be monotone and `c > 0`, and suppose that for each
+arm `a ∈ S` and `y ≥ 0`, the probability that `c (g s + y) ≤ s I_a(μ̂_s)` for some number `s` of
+rewards is at most `exp (-y)`. Then for `x ≥ #S`, the probability that
+`c (#S g n + x) ≤ ∑ a ∈ S, s a I_a((∑ i < s a, X_i a) / s a)` for some numbers of rewards
+`s : α → ℕ`, with `n = ∑ a ∈ S, s a`, is at most `(x / #S) ^ #S exp (#S - x)`. -/
+private lemma streamMeasure_exists_mul_card_mul_add_le_sum_mul_rateFunction_le_of (S : Finset α)
+    (hν : ∀ a ∈ S, Integrable id (ν a)) {g : ℕ → ℝ} (hg : Monotone g) {c : ℝ} (hc : 0 < c)
+    (h_one : ∀ a ∈ S, ∀ y, 0 ≤ y → streamMeasure ν {ω | ∃ s : ℕ, ENNReal.ofReal (c * (g s + y)) ≤
+      s * rateFunction id (ν a) ((∑ i ∈ range s, ω i a) / s)} ≤ ENNReal.ofReal (exp (-y)))
+    {x : ℝ} (hx : #S ≤ x) :
+    streamMeasure ν {ω | ∃ s : α → ℕ, ENNReal.ofReal (c * (#S * g (∑ a ∈ S, s a) + x)) ≤
         ∑ a ∈ S, s a * rateFunction id (ν a) ((∑ i ∈ range (s a), ω i a) / s a)} ≤
       ENNReal.ofReal ((x / #S) ^ #S * exp (#S - x)) := by
   -- the statistic `s I_a(μ̂_s)` of the first `s` rewards `f` of the arm `a`
@@ -218,86 +225,23 @@ theorem streamMeasure_exists_card_mul_log_add_le_sum_mul_rateFunction_le (S : Fi
     fun a f s ↦ s * rateFunction id (ν a) ((∑ i ∈ range s, f i) / s) with hF
   have hFm (a : α) (s : ℕ) : Measurable fun f : ℕ → ℝ ↦ F a f s :=
     measurable_const.mul ((lowerSemicontinuous_rateFunction _ _).measurable.comp (by fun_prop))
-  -- the real statistics of the arms of `S` are functions of their independent reward sequences
-  have h_indep : iIndepFun (fun (a : S) (ω : ℕ → α → ℝ) (s : ℕ) ↦ (F a (fun i ↦ ω i a) s).toReal)
-      (streamMeasure ν) :=
-    ((iIndepFun_arm_streamMeasure ν).comp (fun a f s ↦ (F a f s).toReal)
-      fun a ↦ Measurable.of_eval fun s ↦ (hFm a s).ennreal_toReal).precomp
-      Subtype.val_injective
-  have hS (a : S) (y : ℝ) (hy : 0 ≤ y) : streamMeasure ν
-      {ω | ∃ s : ℕ, log (2 * s * (s + 1)) + y ≤ (F a (fun i ↦ ω i a) s).toReal} ≤
-        ENNReal.ofReal (exp (-y)) := by
-    refine le_trans (measure_mono fun ω hω ↦ ?_)
-      (streamMeasure_exists_log_add_le_mul_rateFunction_le (hν a a.2) hy)
-    obtain ⟨s, hs⟩ := hω
-    exact ⟨s, ENNReal.ofReal_le_of_le_toReal hs⟩
-  have h_real := measure_exists_card_mul_add_le_sum_le (P := streamMeasure ν)
-    (S := fun (a : S) s ω ↦ (F a (fun i ↦ ω i a) s).toReal)
-    (g := fun n : ℕ ↦ log (2 * n * (n + 1))) h_indep
-    (fun a s ↦ ((hFm a s).comp (by fun_prop)).ennreal_toReal) monotone_log_two_mul_mul_add_one hS
-    (x := x) (by rwa [Fintype.card_coe])
-  rw [Fintype.card_coe] at h_real
-  -- outside a null set the statistics are finite, and the event is that of the real statistics
-  have h_top : streamMeasure ν {ω | ∃ a ∈ S, ∃ s : ℕ, F a (fun i ↦ ω i a) s = ∞} = 0 := by
-    refine measure_mono_null (t := ⋃ a : S, {ω | ∃ s : ℕ, F a (fun i ↦ ω i a) s = ∞})
-      (fun ω ⟨a, ha, hω⟩ ↦ Set.mem_iUnion.2 ⟨⟨a, ha⟩, hω⟩) ?_
-    exact measure_iUnion_null fun a ↦ streamMeasure_exists_mul_rateFunction_eq_top (hν a a.2)
-  refine le_trans (measure_mono fun ω hω ↦ ?_) ((measure_union_le _ _).trans
-    ((add_le_add h_real h_top.le).trans_eq (add_zero _)))
-  obtain ⟨s, hs⟩ := hω
-  by_cases hω : ∃ a ∈ S, ∃ s : ℕ, F a (fun i ↦ ω i a) s = ∞
-  · exact Or.inr hω
-  push Not at hω
-  refine Or.inl ⟨fun a ↦ s a, ?_⟩
-  have h_sum : ∑ a ∈ S, F a (fun i ↦ ω i a) (s a) ≠ ∞ :=
-    ENNReal.sum_ne_top.2 fun a ha ↦ hω a ha (s a)
-  rw [Finset.sum_coe_sort S s, Finset.sum_coe_sort S fun a ↦ (F a (fun i ↦ ω i a) (s a)).toReal,
-    ← ENNReal.toReal_sum fun a ha ↦ hω a ha (s a)]
-  exact (ENNReal.ofReal_le_iff_le_toReal h_sum).1 hs
-
-/-- **Peeled joint time-uniform deviations of the empirical means, measured by the rate
-functions**, in the reward stream model, for the arms of a finite set `S`. If the rewards of each
-arm `a ∈ S` are integrable, with rate function `I_a`, then for `η > 0` and `x ≥ #S`, the
-probability that
-`2 (#S (η log₂ n + log (2 / (1 - exp (-η)))) + x) ≤ ∑ a ∈ S, s a I_a((∑ i < s a, X_i a) / s a)`
-for some numbers of rewards `s : α → ℕ`, with `n = ∑ a ∈ S, s a` and `log₂ n = Nat.log 2 n`, is
-at most `(x / #S) ^ #S exp (#S - x)`. -/
-theorem streamMeasure_exists_two_mul_card_mul_add_le_sum_mul_rateFunction_le [Countable α]
-    (S : Finset α) (hν : ∀ a ∈ S, Integrable id (ν a)) {η : ℝ} (hη : 0 < η) {x : ℝ}
-    (hx : #S ≤ x) :
-    streamMeasure ν {ω | ∃ s : α → ℕ, ENNReal.ofReal (2 * (#S *
-        (η * Nat.log 2 (∑ a ∈ S, s a) + log (2 / (1 - exp (-η)))) + x)) ≤
-        ∑ a ∈ S, s a * rateFunction id (ν a) ((∑ i ∈ range (s a), ω i a) / s a)} ≤
-      ENNReal.ofReal ((x / #S) ^ #S * exp (#S - x)) := by
-  -- the statistic `s I_a(μ̂_s)` of the first `s` rewards `f` of the arm `a`
-  set F : α → (ℕ → ℝ) → ℕ → ℝ≥0∞ :=
-    fun a f s ↦ s * rateFunction id (ν a) ((∑ i ∈ range s, f i) / s) with hF
-  have hFm (a : α) (s : ℕ) : Measurable fun f : ℕ → ℝ ↦ F a f s :=
-    measurable_const.mul ((lowerSemicontinuous_rateFunction _ _).measurable.comp (by fun_prop))
-  -- the halves of the real statistics of the arms of `S` are functions of their independent
+  -- the real statistics of the arms of `S`, divided by `c`, are functions of their independent
   -- reward sequences
   have h_indep : iIndepFun
-      (fun (a : S) (ω : ℕ → α → ℝ) (s : ℕ) ↦ (F a (fun i ↦ ω i a) s).toReal / 2)
+      (fun (a : S) (ω : ℕ → α → ℝ) (s : ℕ) ↦ (F a (fun i ↦ ω i a) s).toReal / c)
       (streamMeasure ν) :=
-    ((iIndepFun_arm_streamMeasure ν).comp (fun a f s ↦ (F a f s).toReal / 2)
-      fun a ↦ Measurable.of_eval fun s ↦ (hFm a s).ennreal_toReal.div_const 2).precomp
+    ((iIndepFun_arm_streamMeasure ν).comp (fun a f s ↦ (F a f s).toReal / c)
+      fun a ↦ Measurable.of_eval fun s ↦ (hFm a s).ennreal_toReal.div_const c).precomp
       Subtype.val_injective
-  set g : ℕ → ℝ := fun n ↦ η * Nat.log 2 n + log (2 / (1 - exp (-η))) with hg_def
-  have hg : Monotone g := fun m n hmn ↦ by
-    simp only [hg_def]
-    gcongr
   have hS (a : S) (y : ℝ) (hy : 0 ≤ y) : streamMeasure ν
-      {ω | ∃ s : ℕ, g s + y ≤ (F a (fun i ↦ ω i a) s).toReal / 2} ≤
+      {ω | ∃ s : ℕ, g s + y ≤ (F a (fun i ↦ ω i a) s).toReal / c} ≤
         ENNReal.ofReal (exp (-y)) := by
-    refine le_trans (measure_mono fun ω hω ↦ ?_)
-      (streamMeasure_exists_two_mul_add_le_mul_rateFunction_le (hν a a.2) hη hy)
+    refine le_trans (measure_mono fun ω hω ↦ ?_) (h_one a a.2 y hy)
     obtain ⟨s, hs⟩ := hω
-    refine ⟨s, ENNReal.ofReal_le_of_le_toReal ?_⟩
-    simp only [hg_def] at hs
-    linarith
+    exact ⟨s, ENNReal.ofReal_le_of_le_toReal ((le_div_iff₀' hc).1 hs)⟩
   have h_real := measure_exists_card_mul_add_le_sum_le (P := streamMeasure ν)
-    (S := fun (a : S) s ω ↦ (F a (fun i ↦ ω i a) s).toReal / 2) (g := g) h_indep
-    (fun a s ↦ ((hFm a s).comp (by fun_prop)).ennreal_toReal.div_const 2) hg hS
+    (S := fun (a : S) s ω ↦ (F a (fun i ↦ ω i a) s).toReal / c) (g := g) h_indep
+    (fun a s ↦ ((hFm a s).comp (by fun_prop)).ennreal_toReal.div_const c) hg hS
     (x := x) (by rwa [Fintype.card_coe])
   rw [Fintype.card_coe] at h_real
   -- outside a null set the statistics are finite, and the event is that of the real statistics
@@ -317,9 +261,43 @@ theorem streamMeasure_exists_two_mul_card_mul_add_le_sum_mul_rateFunction_le [Co
   have h := (ENNReal.ofReal_le_iff_le_toReal h_sum).1 hs
   rw [ENNReal.toReal_sum fun a ha ↦ hω a ha (s a)] at h
   rw [Finset.sum_coe_sort S s,
-    Finset.sum_coe_sort S fun a ↦ (F a (fun i ↦ ω i a) (s a)).toReal / 2, ← Finset.sum_div]
-  simp only [hg_def]
-  linarith
+    Finset.sum_coe_sort S fun a ↦ (F a (fun i ↦ ω i a) (s a)).toReal / c, ← Finset.sum_div]
+  exact (le_div_iff₀' hc).2 h
+
+/-- **Joint time-uniform deviations of the empirical means, measured by the rate functions**, in
+the reward stream model, for the arms of a finite set `S`. If the rewards of each arm `a ∈ S` are
+integrable, with rate function `I_a`, then for `x ≥ #S`, the probability that
+`#S log (2 n (n + 1)) + x ≤ ∑ a ∈ S, s a I_a((∑ i < s a, X_i a) / s a)` for some numbers of
+rewards `s : α → ℕ`, with `n = ∑ a ∈ S, s a`, is at most `(x / #S) ^ #S exp (#S - x)`. -/
+theorem streamMeasure_exists_card_mul_log_add_le_sum_mul_rateFunction_le (S : Finset α)
+    (hν : ∀ a ∈ S, Integrable id (ν a)) {x : ℝ} (hx : #S ≤ x) :
+    streamMeasure ν {ω | ∃ s : α → ℕ, ENNReal.ofReal (#S *
+        log (2 * ((∑ a ∈ S, s a : ℕ) : ℝ) * (((∑ a ∈ S, s a : ℕ) : ℝ) + 1)) + x) ≤
+        ∑ a ∈ S, s a * rateFunction id (ν a) ((∑ i ∈ range (s a), ω i a) / s a)} ≤
+      ENNReal.ofReal ((x / #S) ^ #S * exp (#S - x)) := by
+  simpa only [one_mul] using streamMeasure_exists_mul_card_mul_add_le_sum_mul_rateFunction_le_of S
+    hν monotone_log_two_mul_mul_add_one one_pos (fun a ha y hy ↦ by
+      simpa only [one_mul] using streamMeasure_exists_log_add_le_mul_rateFunction_le (hν a ha) hy)
+    hx
+
+/-- **Peeled joint time-uniform deviations of the empirical means, measured by the rate
+functions**, in the reward stream model, for the arms of a finite set `S`. If the rewards of each
+arm `a ∈ S` are integrable, with rate function `I_a`, then for `η > 0` and `x ≥ #S`, the
+probability that
+`2 (#S (η log₂ n + log (2 / (1 - exp (-η)))) + x) ≤ ∑ a ∈ S, s a I_a((∑ i < s a, X_i a) / s a)`
+for some numbers of rewards `s : α → ℕ`, with `n = ∑ a ∈ S, s a` and `log₂ n = Nat.log 2 n`, is
+at most `(x / #S) ^ #S exp (#S - x)`. -/
+theorem streamMeasure_exists_two_mul_card_mul_add_le_sum_mul_rateFunction_le [Countable α]
+    (S : Finset α) (hν : ∀ a ∈ S, Integrable id (ν a)) {η : ℝ} (hη : 0 < η) {x : ℝ}
+    (hx : #S ≤ x) :
+    streamMeasure ν {ω | ∃ s : α → ℕ, ENNReal.ofReal (2 * (#S *
+        (η * Nat.log 2 (∑ a ∈ S, s a) + log (2 / (1 - exp (-η)))) + x)) ≤
+        ∑ a ∈ S, s a * rateFunction id (ν a) ((∑ i ∈ range (s a), ω i a) / s a)} ≤
+      ENNReal.ofReal ((x / #S) ^ #S * exp (#S - x)) :=
+  streamMeasure_exists_mul_card_mul_add_le_sum_mul_rateFunction_le_of S hν
+    (g := fun n ↦ η * Nat.log 2 n + log (2 / (1 - exp (-η)))) (fun _ _ h ↦ by dsimp only; gcongr)
+    two_pos (fun a ha _ hy ↦
+      streamMeasure_exists_two_mul_add_le_mul_rateFunction_le (hν a ha) hη hy) hx
 
 /-- **Joint time-uniform deviations of the empirical means, measured by the rate functions**, in
 the reward stream model, for all the `K` arms: the case `S = univ` of
@@ -343,6 +321,34 @@ variable [DecidableEq α] [Countable α] [MeasurableSingletonClass α] {Ω : Typ
   {mΩ : MeasurableSpace Ω} {P : Measure Ω} [IsProbabilityMeasure P] {alg : Algorithm Unit α ℝ}
   {O : ℕ → Ω → Unit} {A : ℕ → Ω → α} {R : ℕ → Ω → ℝ} {x : ℝ}
 
+/-- **Time-uniform deviations of the empirical means along a run above a monotone threshold**,
+for the arms of a set `S`. In a run of any algorithm against `Environment.bandit ν`, let the
+rewards of each arm `a ∈ S` be integrable, with rate function `I_a`, let `g` be monotone and
+`c > 0`, and suppose that for each arm `a ∈ S` and `y ≥ 0`, the probability that
+`c (g s + y) ≤ s I_a(μ̂_s)` for some number `s` of rewards is at most `exp (-y)` in the reward
+stream model. Then for `x ≥ #S`, the probability that at some round `t`,
+`c (#S g t + x) ≤ ∑ a ∈ S, N_a(t) I_a(μ̂_a(t))`, is at most `(x / #S) ^ #S exp (#S - x)`. -/
+private lemma measure_exists_mul_card_mul_add_le_sum_pullCount_mul_rateFunction_le_of
+    (h : IsAlgEnvSeq O A R alg (Environment.bandit ν) P) (S : Finset α)
+    (hν : ∀ a ∈ S, Integrable id (ν a)) {g : ℕ → ℝ} (hg : Monotone g) {c : ℝ} (hc : 0 < c)
+    (h_one : ∀ a ∈ S, ∀ y, 0 ≤ y → streamMeasure ν {ω | ∃ s : ℕ, ENNReal.ofReal (c * (g s + y)) ≤
+      s * rateFunction id (ν a) ((∑ i ∈ range s, ω i a) / s)} ≤ ENNReal.ofReal (exp (-y)))
+    (hx : #S ≤ x) :
+    P {ω | ∃ t : ℕ, ENNReal.ofReal (c * (#S * g t + x)) ≤
+        ∑ a ∈ S, pullCount A a t ω * rateFunction id (ν a) (empMean A R a t ω)} ≤
+      ENNReal.ofReal ((x / #S) ^ #S * exp (#S - x)) := by
+  refine le_trans (measure_mono fun ω hω ↦ ?_)
+    ((measure_exists_pullCount_sumRewards_pi_le h fun s y ↦
+      ENNReal.ofReal (c * (#S * g (∑ a ∈ S, s a) + x)) ≤
+        ∑ a ∈ S, s a * rateFunction id (ν a) (y a / s a)).trans
+      (streamMeasure_exists_mul_card_mul_add_le_sum_mul_rateFunction_le_of S hν hg hc h_one hx))
+  obtain ⟨t, ht⟩ := hω
+  -- the arms of `S` have been pulled at most `t` times in total after `t` rounds
+  have h_g := hg (sum_pullCount_le (A := A) S t ω)
+  refine ⟨t, le_trans (ENNReal.ofReal_le_ofReal ?_) (by simpa only [empMean] using ht)⟩
+  have hc0 := hc.le
+  gcongr
+
 /-- **Time-uniform deviations of the empirical means along a run, measured by the rate
 functions** (the deviation inequality of [LS, Lemma 33.7], for any integrable rewards), for the
 arms of a set `S`. In a run of any algorithm against `Environment.bandit ν`, if the rewards of each
@@ -357,17 +363,10 @@ theorem measure_exists_card_mul_log_add_le_sum_pullCount_mul_rateFunction_le
     P {ω | ∃ t : ℕ, ENNReal.ofReal (#S * log (2 * t * (t + 1)) + x) ≤
         ∑ a ∈ S, pullCount A a t ω * rateFunction id (ν a) (empMean A R a t ω)} ≤
       ENNReal.ofReal ((x / #S) ^ #S * exp (#S - x)) := by
-  refine le_trans (measure_mono fun ω hω ↦ ?_)
-    ((measure_exists_pullCount_sumRewards_pi_le h fun s y ↦
-      ENNReal.ofReal (#S *
-        log (2 * ((∑ a ∈ S, s a : ℕ) : ℝ) * (((∑ a ∈ S, s a : ℕ) : ℝ) + 1)) + x) ≤
-        ∑ a ∈ S, s a * rateFunction id (ν a) (y a / s a)).trans
-      (streamMeasure_exists_card_mul_log_add_le_sum_mul_rateFunction_le S hν hx))
-  obtain ⟨t, ht⟩ := hω
-  -- the arms of `S` have been pulled at most `t` times in total after `t` rounds
-  have h_log := monotone_log_two_mul_mul_add_one (sum_pullCount_le (A := A) S t ω)
-  refine ⟨t, le_trans (ENNReal.ofReal_le_ofReal ?_) (by simpa only [empMean] using ht)⟩
-  exact add_le_add_left (mul_le_mul_of_nonneg_left h_log (Nat.cast_nonneg _)) x
+  simpa only [one_mul] using measure_exists_mul_card_mul_add_le_sum_pullCount_mul_rateFunction_le_of
+    h S hν monotone_log_two_mul_mul_add_one one_pos (fun a ha y hy ↦ by
+      simpa only [one_mul] using streamMeasure_exists_log_add_le_mul_rateFunction_le (hν a ha) hy)
+    hx
 
 /-- **Peeled time-uniform deviations of the empirical means along a run, measured by the rate
 functions**, for the arms of a set `S`. In a run of any algorithm against `Environment.bandit ν`,
@@ -382,18 +381,11 @@ theorem measure_exists_two_mul_card_mul_add_le_sum_pullCount_mul_rateFunction_le
     P {ω | ∃ t : ℕ, ENNReal.ofReal (2 * (#S *
         (η * Nat.log 2 t + log (2 / (1 - exp (-η)))) + x)) ≤
         ∑ a ∈ S, pullCount A a t ω * rateFunction id (ν a) (empMean A R a t ω)} ≤
-      ENNReal.ofReal ((x / #S) ^ #S * exp (#S - x)) := by
-  refine le_trans (measure_mono fun ω hω ↦ ?_)
-    ((measure_exists_pullCount_sumRewards_pi_le h fun s y ↦
-      ENNReal.ofReal (2 * (#S *
-        (η * Nat.log 2 (∑ a ∈ S, s a) + log (2 / (1 - exp (-η)))) + x)) ≤
-        ∑ a ∈ S, s a * rateFunction id (ν a) (y a / s a)).trans
-      (streamMeasure_exists_two_mul_card_mul_add_le_sum_mul_rateFunction_le S hν hη hx))
-  obtain ⟨t, ht⟩ := hω
-  -- the arms of `S` have been pulled at most `t` times in total after `t` rounds
-  have h_log := Nat.log_mono_right (b := 2) (sum_pullCount_le (A := A) S t ω)
-  refine ⟨t, le_trans (ENNReal.ofReal_le_ofReal ?_) (by simpa only [empMean] using ht)⟩
-  gcongr
+      ENNReal.ofReal ((x / #S) ^ #S * exp (#S - x)) :=
+  measure_exists_mul_card_mul_add_le_sum_pullCount_mul_rateFunction_le_of h S hν
+    (g := fun n ↦ η * Nat.log 2 n + log (2 / (1 - exp (-η)))) (fun _ _ h ↦ by dsimp only; gcongr)
+    two_pos (fun a ha _ hy ↦
+      streamMeasure_exists_two_mul_add_le_mul_rateFunction_le (hν a ha) hη hy) hx
 
 /-- **Time-uniform deviations of the empirical means along a run, measured by the rate
 functions** (the deviation inequality of [LS, Lemma 33.7], for any integrable rewards), for all the

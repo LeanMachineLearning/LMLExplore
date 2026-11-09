@@ -63,6 +63,9 @@ thresholds `log (C n ^ p / δ)` of [GK16, Proposition 12] are `δ`-correct, for 
 `x_δ = log (1 / δ) + O(log log (1 / δ))`: [GK16] states the result with a constant `C(α, K)`
 independent of `δ`, which its proof does not give, since the last step of the proof drops the `δ`
 inside the logarithm of the condition on `C`.
+The deviational thresholds are adapted from the formalization in the Garivier2016Optimal project
+(Rémy Degenne, <https://github.com/RemyDegenne/Garivier2016Optimal>, file
+`Garivier2016Optimal/ForLMLExplore/Identification/DeviationalThreshold.lean`).
 
 ## Main definitions
 
@@ -472,19 +475,10 @@ theorem isDeltaPAC_glrt_expFamilyEvidence_log_mul_rpow_div [Nonempty α] {C : �
       (fun n _ ↦ ENNReal.ofReal (log (C * (n : ℝ) ^ p / δ))) rec hrec hstop)
       (Environment.bandit (task.ν θ))) :
     task.IsDeltaPAC (task.glrt (expFamilyEvidence ρ T Finset.univ) alg
-      (fun n _ ↦ ENNReal.ofReal (log (C * (n : ℝ) ^ p / δ))) rec hrec hstop) δ := by
-  refine task.isDeltaPAC_glrt (expFamilyEvidence ρ T Finset.univ) alg _ rec hrec hstop hc
-    (fun θ hθ ↦ ?_) h_stops
-  have hseq := IT.isAlgEnvSeq_trajMeasure alg (Environment.bandit (task.ν θ))
-  have h_dev := measure_exists_lt_expFamilyEvidence_le_of_mul_log_le Finset.univ_nonempty hp
-    (by simpa only [Finset.card_univ] using fun n (hn : n ≠ 0) (_ : Hist Unit α ℝ n) ↦
-      ENNReal.ofReal_le_ofReal (mul_log_add_le_log_mul_rpow_div hδ hC hn))
-    (fun a _ ↦ hμ θ hθ a) (fun a _ ↦ hν θ hθ a) hseq
-    (by rw [Finset.card_univ]; exact card_le_unionBoundLevel hδ hδ1)
-  rw [Finset.card_univ] at h_dev
-  rw [measureReal_def]
-  exact ENNReal.toReal_le_of_le_ofReal hδ.le
-    (h_dev.trans (ENNReal.ofReal_le_ofReal (div_pow_mul_exp_sub_unionBoundLevel_le hδ hδ1)))
+      (fun n _ ↦ ENNReal.ofReal (log (C * (n : ℝ) ^ p / δ))) rec hrec hstop) δ :=
+  isDeltaPAC_of_measureReal_mem_stopSet_and_notMem_le hc (fun θ hθ ↦
+    measureReal_histOutputMeasure_glrt_expFamilyEvidence_log_mul_rpow_div_le rec hrec hp hδ hδ1 hC
+      hstop hθ (hμ θ hθ) (hν θ hθ) (hc θ hθ)) h_stops
 
 end IdentTask
 
