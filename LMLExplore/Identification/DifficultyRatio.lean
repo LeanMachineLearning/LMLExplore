@@ -13,8 +13,9 @@ public import LMLExplore.InformationTheory.KullbackLeibler.Bernoulli
 
 A fixed-budget algorithm family `𝒜` (`IsFixedBudgetFamily`) has, for every budget `T`, an
 algorithm `𝒜 T` that stops after `T` rounds. Its probability of error `p_{θ,T}(𝒜)` on the model
-`θ` of an identification task decreases exponentially in `T` for good families, and its rate is
-measured by `h_{θ,T}(𝒜) = T / log (1 / p_{θ,T}(𝒜))`, so that `p_{θ,T}(𝒜) = exp (-T / h_{θ,T}(𝒜))`.
+`θ` of an identification task decreases exponentially in `T` for good families, and the speed of
+this decrease is measured by the complexity `h_{θ,T}(𝒜) = T / log (1 / p_{θ,T}(𝒜))`, so that
+`p_{θ,T}(𝒜) = exp (-T / h_{θ,T}(𝒜))`.
 Against a *difficulty function* `H : Θ → ℝ≥0∞`, the *difficulty ratio*
 `R_{H,T}(𝒜, θ) = h_{θ,T}(𝒜) / H(θ)` compares the family to the baseline `H`: it is at most `1`
 when the probability of error is at most `exp (-T / H(θ))`. Its `limsup` in `T` is the asymptotic
@@ -40,9 +41,8 @@ identification.
 
 In the namespace `LMLExplore.Identification.IdentTask`:
 
-* `alternatives task θ`: the admissible models without a common correct answer with `θ`.
 * `errorProb task 𝒜 θ T`: the probability of error `p_{θ,T}(𝒜)`.
-* `errorRate task 𝒜 θ T`: the rate `h_{θ,T}(𝒜) = T / log (1 / p_{θ,T}(𝒜))`.
+* `errorComplexity task 𝒜 θ T`: the complexity `h_{θ,T}(𝒜) = T / log (1 / p_{θ,T}(𝒜))`.
 * `difficultyRatio task H 𝒜 θ T`, `asymptoticRatio task H 𝒜 θ`, `maxRatio task H 𝒜`: the
   difficulty ratios `R_{H,T}(𝒜, θ)`, `R_{H,∞}(𝒜, θ)` and the maximal difficulty ratio
   `sup_{θ ∈ M} R_{H,∞}(𝒜, θ)`.
@@ -88,21 +88,15 @@ section Definitions
 
 variable (task : IdentTask α Θ ℐ 𝓨)
 
-/-- The alternatives to the model `θ`: the admissible models that have no correct answer in common
-with `θ`. For a model with the single correct answer `i`, they are the alternatives `task.alt i`
-to `i` (`alternatives_eq_alt`). -/
-def alternatives (θ : Θ) : Set Θ :=
-  {θ' | θ' ∈ task.M ∧ Disjoint (task.correct θ) (task.correct θ')}
-
 /-- The probability of error `p_{θ,T}(𝒜)` of the family `𝒜` with budget `T` on the model `θ`: the
 probability that the output of `𝒜 T` in the bandit of `θ` is not a correct answer of `θ`. -/
 noncomputable def errorProb (𝒜 : ℕ → IdentAlg Unit α 𝓨 ℐ) (θ : Θ) (T : ℕ) : ℝ≥0∞ :=
   (𝒜 T).outputMeasure (Environment.bandit (task.ν θ)) (task.correct θ)ᶜ
 
-/-- The rate `h_{θ,T}(𝒜) = T / log (1 / p_{θ,T}(𝒜))` of the family `𝒜` with budget `T` on the
-model `θ`, so that `p_{θ,T}(𝒜) = exp (-T / h_{θ,T}(𝒜))`. It is `0` if `p_{θ,T}(𝒜) = 0` and `∞` if
-`p_{θ,T}(𝒜) = 1` and `T > 0`. -/
-noncomputable def errorRate (𝒜 : ℕ → IdentAlg Unit α 𝓨 ℐ) (θ : Θ) (T : ℕ) : ℝ≥0∞ :=
+/-- The error complexity `h_{θ,T}(𝒜) = T / log (1 / p_{θ,T}(𝒜))` of the family `𝒜` with budget
+`T` on the model `θ`, so that `p_{θ,T}(𝒜) = exp (-T / h_{θ,T}(𝒜))`. It is `0` if
+`p_{θ,T}(𝒜) = 0` and `∞` if `p_{θ,T}(𝒜) = 1` and `T > 0`. -/
+noncomputable def errorComplexity (𝒜 : ℕ → IdentAlg Unit α 𝓨 ℐ) (θ : Θ) (T : ℕ) : ℝ≥0∞ :=
   T / (-ENNReal.log (task.errorProb 𝒜 θ T)).toENNReal
 
 /-- The difficulty ratio `R_{H,T}(𝒜, θ) = h_{θ,T}(𝒜) / H(θ)` of the family `𝒜` with budget `T` to
@@ -110,7 +104,7 @@ the difficulty function `H` at the model `θ`. It is larger than `1` if the prob
 larger than `exp (-T / H(θ))`. -/
 noncomputable def difficultyRatio (H : Θ → ℝ≥0∞) (𝒜 : ℕ → IdentAlg Unit α 𝓨 ℐ) (θ : Θ) (T : ℕ) :
     ℝ≥0∞ :=
-  task.errorRate 𝒜 θ T / H θ
+  task.errorComplexity 𝒜 θ T / H θ
 
 /-- The asymptotic difficulty ratio `R_{H,∞}(𝒜, θ) = limsup_{T → ∞} R_{H,T}(𝒜, θ)`. -/
 noncomputable def asymptoticRatio (H : Θ → ℝ≥0∞) (𝒜 : ℕ → IdentAlg Unit α 𝓨 ℐ) (θ : Θ) :
@@ -127,28 +121,17 @@ model. -/
 def IsConsistent (𝒜 : ℕ → IdentAlg Unit α 𝓨 ℐ) : Prop :=
   ∀ θ ∈ task.M, Tendsto (task.errorProb 𝒜 θ) atTop (𝓝 0)
 
-variable {task} {𝒜 : ℕ → IdentAlg Unit α 𝓨 ℐ} {H : Θ → ℝ≥0∞} {θ θ' : Θ} {T : ℕ} {i : ℐ}
-
-lemma mem_alternatives_iff :
-    θ' ∈ task.alternatives θ ↔ θ' ∈ task.M ∧ Disjoint (task.correct θ) (task.correct θ') :=
-  Iff.rfl
-
-lemma alternatives_subset_M (θ : Θ) : task.alternatives θ ⊆ task.M := fun _ h ↦ h.1
-
-/-- The alternatives to a model with the single correct answer `i` are the alternatives to `i`. -/
-lemma alternatives_eq_alt (h : task.correct θ = {i}) : task.alternatives θ = task.alt i := by
-  ext θ'
-  rw [mem_alternatives_iff, mem_alt_iff, h, Set.disjoint_singleton_left]
+variable {task} {𝒜 : ℕ → IdentAlg Unit α 𝓨 ℐ} {H : Θ → ℝ≥0∞} {θ : Θ} {T : ℕ}
 
 lemma errorProb_def (𝒜 : ℕ → IdentAlg Unit α 𝓨 ℐ) (θ : Θ) (T : ℕ) :
     task.errorProb 𝒜 θ T =
       (𝒜 T).outputMeasure (Environment.bandit (task.ν θ)) (task.correct θ)ᶜ := (rfl)
 
-lemma errorRate_def (𝒜 : ℕ → IdentAlg Unit α 𝓨 ℐ) (θ : Θ) (T : ℕ) :
-    task.errorRate 𝒜 θ T = T / (-ENNReal.log (task.errorProb 𝒜 θ T)).toENNReal := (rfl)
+lemma errorComplexity_def (𝒜 : ℕ → IdentAlg Unit α 𝓨 ℐ) (θ : Θ) (T : ℕ) :
+    task.errorComplexity 𝒜 θ T = T / (-ENNReal.log (task.errorProb 𝒜 θ T)).toENNReal := (rfl)
 
 lemma difficultyRatio_def (H : Θ → ℝ≥0∞) (𝒜 : ℕ → IdentAlg Unit α 𝓨 ℐ) (θ : Θ) (T : ℕ) :
-    task.difficultyRatio H 𝒜 θ T = task.errorRate 𝒜 θ T / H θ := (rfl)
+    task.difficultyRatio H 𝒜 θ T = task.errorComplexity 𝒜 θ T / H θ := (rfl)
 
 lemma asymptoticRatio_def (H : Θ → ℝ≥0∞) (𝒜 : ℕ → IdentAlg Unit α 𝓨 ℐ) (θ : Θ) :
     task.asymptoticRatio H 𝒜 θ = limsup (task.difficultyRatio H 𝒜 θ) atTop := (rfl)
@@ -164,7 +147,7 @@ ratio is `R_{H,T}(𝒜, θ)⁻¹ = H(θ) log (1 / p_{θ,T}(𝒜)) / T`. -/
 lemma inv_difficultyRatio (hH₀ : H θ ≠ 0) (hH : H θ ≠ ∞) (hT : T ≠ 0) :
     (task.difficultyRatio H 𝒜 θ T)⁻¹ =
       H θ * ((-ENNReal.log (task.errorProb 𝒜 θ T)).toENNReal / T) := by
-  rw [difficultyRatio_def, errorRate_def, ENNReal.inv_div (Or.inl hH) (Or.inl hH₀),
+  rw [difficultyRatio_def, errorComplexity_def, ENNReal.inv_div (Or.inl hH) (Or.inl hH₀),
     ENNReal.div_eq_inv_mul, ENNReal.inv_div (Or.inr (ENNReal.natCast_ne_top T))
       (Or.inr (by exact_mod_cast hT)), mul_comm]
 
@@ -438,9 +421,11 @@ theorem inv_maxRatio_le (task : IdentTask α Θ ℐ 𝓨) (H : Θ → ℝ≥0∞
     (task.maxRatio H 𝒜)⁻¹ ≤
       ⨅ μ ∈ task.M, ⨆ w ∈ simplex α, ⨅ μ' ∈ task.alternatives μ, H μ' * task.cost w μ μ' := by
   refine le_iInf₂ fun μ hμ ↦ le_trans ?_ (inv_iSup_asymptoticRatio_le task H h𝒜 (hcons μ hμ)
-    (fun μ' h ↦ h.2) (fun μ' h ↦ hH₀ μ' h.1) (fun μ' h ↦ hH μ' h.1))
+    (fun μ' h ↦ (task.mem_alternatives_iff.1 h).2)
+    (fun μ' h ↦ hH₀ μ' (task.alternatives_subset_M μ h))
+    (fun μ' h ↦ hH μ' (task.alternatives_subset_M μ h)))
   rw [ENNReal.inv_le_inv]
-  exact iSup_asymptoticRatio_le_maxRatio (alternatives_subset_M μ)
+  exact iSup_asymptoticRatio_le_maxRatio (task.alternatives_subset_M μ)
 
 omit [Fintype α] [DecidableEq α] in
 /-- **The lower bound from alternatives along the coordinates** [D23, Corollary 4]. Let `𝒜` be a
@@ -545,10 +530,12 @@ theorem inv_liminf_iSup_difficultyRatio_le_liminf (task : IdentTask α Θ ℐ �
   refine le_liminf_of_le (by isBoundedDefault) (Eventually.of_forall fun x ↦ ?_)
   refine le_iInf₂ fun μ hμ ↦ le_trans ?_ (inv_liminf_iSup_difficultyRatio_le task H h𝒜
     (hcons μ hμ) (D := {μ' | μ' ∈ task.alternatives μ ∧ H μ' ≤ ENNReal.ofReal x})
-    (fun μ' h ↦ h.1.2) (fun μ' h ↦ hH₀ μ' h.1.1)
+    (fun μ' h ↦ (task.mem_alternatives_iff.1 h.1).2)
+    (fun μ' h ↦ hH₀ μ' (task.alternatives_subset_M μ h.1))
     (ne_top_of_le_ne_top ENNReal.ofReal_ne_top (iSup₂_le fun μ' h ↦ h.2)))
   -- `sup_{λ ∈ Alt_x(μ)} R_{H,T} ≤ sup_{λ ∈ 𝒟} R_{H,T}`.
   rw [ENNReal.inv_le_inv]
-  exact liminf_le_liminf (Eventually.of_forall fun T ↦ iSup₂_mono' fun μ' h ↦ ⟨μ', h.1.1, le_rfl⟩)
+  exact liminf_le_liminf (Eventually.of_forall fun T ↦ iSup₂_mono' fun μ' h ↦
+    ⟨μ', task.alternatives_subset_M μ h.1, le_rfl⟩)
 
 end LMLExplore.Identification.IdentTask
