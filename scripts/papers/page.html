@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{{title}} · LMLExplore · Lean Machine Learning</title>
+<!-- The visual identity of leanmachinelearning.org: its stylesheet, on the same site. The pages
+     reuse its classes (navbar, library-page, stat-tiles, stats-table, footer) and colours, as the
+     literature page does (scripts/literature/page.html). -->
+<link rel="icon" type="image/svg+xml" href="/static/favicon.svg">
+<link rel="stylesheet" href="/static/style.css">
+<style>
+  /* What these pages add, in the site's colours (with the site's values as fallbacks). */
+  .papers { --p-primary: var(--color-primary, #d65d5d); --p-text: var(--color-text, #2a2a2a);
+            --p-muted: var(--color-text-muted, #64748b); --p-border: var(--color-border, #f3e4e4);
+            --p-white: var(--color-white, #ffffff); --p-code-bg: var(--color-code-bg, #f8f4f4);
+            --p-mono: var(--font-mono, "Fira Code", monospace); }
+  /* The site centres the last paragraph of a page's part, as a closing note: in the header, not in
+     the sections. */
+  .papers .library-section p:last-child { text-align: left; margin-top: 0; padding-top: 0; border-top: none; }
+  .papers .library-section > p:not(:first-child) { color: var(--p-muted); line-height: 1.7; }
+  .papers .library-section > p + p, .papers .library-section > p + p:last-child { margin-top: 0.75rem; }
+  .papers code { font-family: var(--p-mono); font-size: 0.86em; overflow-wrap: anywhere; }
+  .papers .stats-table td { vertical-align: top; }
+  .card { background: var(--p-white); border: 1px solid var(--p-border);
+          border-top: 3px solid var(--p-primary); border-radius: 0.5rem; padding: 1.1rem 1.4rem 0.8rem;
+          margin: 1.25rem 0; }
+  .card-title { font-size: 1.1rem; font-weight: 600; line-height: 1.5; color: var(--p-text); }
+  .card-title .key { font-weight: 700; color: var(--p-primary); margin-right: 0.4rem; }
+  .card-sub { margin: 0.25rem 0 0.6rem; font-size: 0.9rem; color: var(--p-muted); }
+  .card .text p { margin: 0.5rem 0 !important; color: var(--p-text) !important; line-height: 1.65;
+                  text-align: left !important; padding: 0 !important; border: none !important; }
+  /* The site's section lists set their margins, paddings and borders with !important. */
+  .papers ul.rows { list-style: none; margin: 0 !important; padding: 0 !important; }
+  .papers .rows > li { display: grid; grid-template-columns: 11rem 1fr; gap: 0.9rem;
+                       margin: 0 !important; padding: 0.45rem 0 !important;
+                       border-top: 1px solid var(--p-border) !important; }
+  .papers .rows > li:first-child { border-top: none !important; }
+  .label { font-weight: 600; color: var(--p-text); }
+  .muted { color: var(--p-muted); }
+  .files { font-size: 0.82rem; color: var(--p-muted); margin-top: 0.2rem; }
+  .status { font-size: 0.78rem; padding: 0.05rem 0.45rem; border-radius: 0.35rem; white-space: nowrap;
+            background: var(--p-code-bg); color: var(--p-muted); border: 1px solid var(--p-border); }
+  .status.done { color: var(--p-white); background: var(--p-primary); border-color: var(--p-primary); }
+  .status.done a { color: var(--p-white); }
+  @media (max-width: 768px) {
+    .papers .rows > li { grid-template-columns: 1fr; gap: 0.1rem; }
+  }
+</style>
+</head>
+<body>
+<header>
+  <nav class="navbar">
+    <div class="nav-inner">
+      <a class="logo" href="/">Lean Machine Learning</a>
+      <div class="nav-links">
+        <a href="/#goals">LML Core</a><span class="divider"> | </span><a href="/LML/tutorial">Tutorials</a><a href="/library">Library</a><a href="/roadmap">Roadmap</a><a href="https://leanprover.zulipchat.com/#narrow/channel/600045-Lean-Machine-Learning">Zulip</a><a href="/LML/docs">API Docs</a><a href="/LML/exposition">Documentation</a><a href="https://github.com/{{repo}}" aria-label="GitHub" target="_blank"><img src="/static/github.svg" alt="GitHub" width="22" height="22"></a>
+      </div>
+    </div>
+  </nav>
+</header>
+<main>
+<article>
+<h1>{{title}}</h1>
+<div class="library-page explore-page papers">
+{{content}}
+</div>
+</article>
+</main>
+<footer>
+  <div class="footer-inner">
+    <div class="footer-columns">
+      <div class="footer-col"><h4>Get Started</h4><a href="/LML/tutorial">Tutorials</a><a href="https://leanprover.zulipchat.com/#narrow/channel/600045-Lean-Machine-Learning">Community</a></div>
+      <div class="footer-col"><h4>Documentation</h4><a href="/LML/exposition">Documentation</a><a href="/LML/docs">API Docs</a><a href="/library">Library Overview</a><a href="/explore">LMLExplore</a><a href="/roadmap">Roadmap</a><a href="https://github.com/LeanMachineLearning/LML">Source Code</a></div>
+      <div class="footer-col"><h4>Resources</h4><a href="https://lean-lang.org/">Lean</a><a href="https://leanprover-community.github.io/">Mathlib</a><a href="https://verso.lean-lang.org/">Verso</a></div>
+      <div class="footer-col"><h4>About</h4><a href="https://github.com/LeanMachineLearning/LML/blob/main/CONTRIBUTING.md">Contributing</a><a href="https://github.com/LeanMachineLearning/LML/blob/main/GOVERNANCE.md">Governance</a><a href="https://github.com/LeanMachineLearning/LML/blob/main/CODE_OF_CONDUCT.md">Code of Conduct</a><a href="https://github.com/LeanMachineLearning/LML/blob/main/LICENSE">License</a></div>
+    </div>
+    <p class="footer-copy">© 2026 Lean Machine Learning Contributors</p>
+  </div>
+</footer>
+</body>
+</html>
