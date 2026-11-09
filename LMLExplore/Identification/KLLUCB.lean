@@ -414,11 +414,11 @@ private lemma exp_one_mul_log_add_log_log_mul_log_add_one_mul_exp_le {k₁ p δ 
   set L := log y with hL_def
   have hL : 1 ≤ L := one_le_log_mul_rpow_div hp hk hK hδ hδ1 hn
   have hL0 : 0 < L := by linarith
-  -- `e log L ≤ L`, since `log (L / e) ≤ L / e - 1`
+  -- `e log L ≤ L`, since `log L / L = log L * exp (-log L) ≤ exp (-1)`
   have hlogL : exp 1 * log L ≤ L := by
-    have h := log_le_sub_one_of_pos (div_pos hL0 (exp_pos 1))
-    rw [log_div hL0.ne' (exp_pos 1).ne', log_exp] at h
-    have h' := (le_div_iff₀ (exp_pos 1)).1 (by linarith : log L ≤ L / exp 1)
+    have h := mul_exp_neg_le_exp_neg_one (log L)
+    rw [exp_neg, exp_log hL0, exp_neg, ← div_eq_mul_inv, div_le_iff₀ hL0, inv_mul_eq_div,
+      le_div_iff₀ (exp_pos 1)] at h
     linarith
   have hlogL0 : 0 ≤ log L := log_nonneg hL
   have hlogn : 0 ≤ log n := log_natCast_nonneg n

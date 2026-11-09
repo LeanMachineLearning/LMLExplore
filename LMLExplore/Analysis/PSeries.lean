@@ -11,6 +11,7 @@ public import Mathlib.Analysis.SpecialFunctions.Pow.Deriv
 public import Mathlib.Analysis.SumIntegralComparisons
 public import Mathlib.MeasureTheory.Integral.IntervalIntegral.FundThmCalculus
 import Mathlib.Analysis.Complex.ExponentialBounds
+import Mathlib.Analysis.SpecialFunctions.Integrals.Basic
 
 /-!
 # Explicit bounds on the sums of `1 / n ^ p` and `log n / n ^ p`
@@ -27,8 +28,7 @@ The terms of index `0` vanish, since `log 0 = 0` and `1 / 0 ^ p = 0`, so the sum
 
 ## Main statements
 
-* `Real.hasDerivAt_neg_rpow_div`, `Real.hasDerivAt_neg_log_mul_rpow_div`: the antiderivatives
-  `-x ^ (-(p - 1)) / (p - 1)` of `1 / x ^ p` and
+* `Real.hasDerivAt_neg_log_mul_rpow_div`: the antiderivative
   `-(log x x ^ (-(p - 1))) / (p - 1) - x ^ (-(p - 1)) / (p - 1) ^ 2` of `log x / x ^ p` on
   `(0, ∞)`, for `p ≠ 1`.
 * `Real.log_div_rpow_le_exp_neg_one`: `log x / x ^ p ≤ 1 / e` for `x ≥ 1` and `p ≥ 1`.
@@ -52,15 +52,6 @@ open Finset Set
 namespace Real
 
 variable {p : ℝ}
-
-/-- An antiderivative of `1 / x ^ p` on `(0, ∞)`, for `p ≠ 1`. -/
-theorem hasDerivAt_neg_rpow_div {x : ℝ} (hx : 0 < x) (hp : p ≠ 1) :
-    HasDerivAt (fun y : ℝ ↦ -(y ^ (-(p - 1)) / (p - 1))) (1 / x ^ p) x := by
-  have hp1 : p - 1 ≠ 0 := sub_ne_zero.2 hp
-  have h := ((hasDerivAt_rpow_const (p := -(p - 1)) (Or.inl hx.ne')).div_const (p - 1)).neg
-  convert h using 1
-  rw [show -(p - 1) - 1 = -p by ring, rpow_neg hx.le]
-  field_simp
 
 /-- An antiderivative of `log x / x ^ p` on `(0, ∞)`, for `p ≠ 1`. -/
 theorem hasDerivAt_neg_log_mul_rpow_div {x : ℝ} (hx : 0 < x) (hp : p ≠ 1) :
@@ -88,16 +79,21 @@ theorem sum_range_one_div_nat_rpow_le (hp : 1 < p) (N : ℕ) :
     one_div_le_one_div_of_le (rpow_pos_of_pos (by linarith [hx.1]) p)
       (rpow_le_rpow (by linarith [hx.1]) hxy hp0.le)
   -- the terms of index `n ≥ 2` are at most the integral of `1 / x ^ p` over `[n - 1, n]`
-  have h_int : ∫ x in (1 : ℝ)..1 + N, 1 / x ^ p =
-      -((1 + N : ℝ) ^ (-(p - 1)) / (p - 1)) - -((1 : ℝ) ^ (-(p - 1)) / (p - 1)) := by
-    refine intervalIntegral.integral_eq_sub_of_hasDerivAt
-      (f := fun y : ℝ ↦ -(y ^ (-(p - 1)) / (p - 1))) (fun x hx ↦ ?_)
-      (h_anti.mono (Set.uIcc_of_le (by simp)).subset).intervalIntegrable
+  have h_int : ∫ x in (1 : ℝ)..1 + N, 1 / x ^ p = ((1 + N : ℝ) ^ (1 - p) - 1) / (1 - p) := by
+    have h0 : (0 : ℝ) ∉ Set.uIcc 1 (1 + (N : ℝ)) := by
+      rw [Set.uIcc_of_le (by simp)]
+      exact fun h ↦ by linarith [h.1]
+    rw [intervalIntegral.integral_congr (g := fun x : ℝ ↦ x ^ (-p)) fun x hx ↦ ?_,
+      integral_rpow (Or.inr ⟨by linarith, h0⟩), show -p + 1 = 1 - p by ring, one_rpow]
     rw [Set.uIcc_of_le (by simp)] at hx
-    exact hasDerivAt_neg_rpow_div (by linarith [hx.1]) hp.ne'
+    simp only [one_div, rpow_neg (by linarith [hx.1] : (0 : ℝ) ≤ x)]
   have h_sum := h_anti.sum_le_integral
-  rw [h_int, one_rpow] at h_sum
-  have h_pos : 0 ≤ (1 + N : ℝ) ^ (-(p - 1)) / (p - 1) := by positivity
+  rw [h_int] at h_sum
+  have h_pos : 0 ≤ (1 + N : ℝ) ^ (1 - p) / (p - 1) := by positivity
+  have h_eq : ((1 + N : ℝ) ^ (1 - p) - 1) / (1 - p) =
+      1 / (p - 1) - (1 + N : ℝ) ^ (1 - p) / (p - 1) := by
+    rw [← neg_sub p 1, div_neg, ← neg_div, neg_sub, sub_div]
+  rw [h_eq] at h_sum
   calc ∑ n ∈ range N, 1 / (n : ℝ) ^ p
   _ ≤ ∑ n ∈ range (2 + N), 1 / (n : ℝ) ^ p :=
     sum_le_sum_of_subset_of_nonneg (range_mono (by omega)) fun _ _ _ ↦ by positivity
@@ -118,14 +114,12 @@ theorem tsum_one_div_nat_rpow_le (hp : 1 < p) :
 theorem log_div_rpow_le_exp_neg_one {x : ℝ} (hx : 1 ≤ x) (hp : 1 ≤ p) :
     log x / x ^ p ≤ exp (-1) := by
   have hx0 : 0 < x := by linarith
-  have h_log : log x ≤ x * exp (-1) := by
-    have h := log_le_sub_one_of_pos (mul_pos hx0 (exp_pos (-1)))
-    rw [log_mul hx0.ne' (exp_pos _).ne', log_exp] at h
-    linarith
+  have h_log : log x / x ≤ exp (-1) := by
+    simpa [exp_neg, exp_log hx0, div_eq_mul_inv] using mul_exp_neg_le_exp_neg_one (log x)
   calc log x / x ^ p
   _ ≤ log x / x := div_le_div_of_nonneg_left (log_nonneg hx) hx0
     (by simpa using rpow_le_rpow_of_exponent_le hx hp)
-  _ ≤ exp (-1) := by rwa [div_le_iff₀ hx0, mul_comm]
+  _ ≤ exp (-1) := h_log
 
 /-- For `p > 1`, the partial sums of `∑ log n / n ^ p` are at most `1 + 1 / (p - 1) ^ 2`. -/
 theorem sum_range_log_div_nat_rpow_le (hp : 1 < p) (N : ℕ) :
