@@ -43,8 +43,11 @@ it.
   families.
 * `LMLExplore.Identification.IdentTask.ofReal_mul_expFamilyDiv_le_cost`: if `γ` lies between
   `μ a` and `μ' a`, then `w a d_a(μ a, γ) ≤ cost_μ(w, μ')`.
-* `LMLExplore.Identification.IdentTask.cost_gaussianBandit`: for Gaussian arms with a common
-  variance `σ2`, `cost_μ(w, μ') = ∑ c, w c (μ c - μ' c)² / (2 σ2)`.
+* `LMLExplore.Identification.IdentTask.cost_gaussianReal`: for Gaussian arms with variances
+  `v c ≠ 0`, `cost_μ(w, μ') = ∑ c, w c (μ c - μ' c)² / (2 v c)`, and
+  `LMLExplore.Identification.IdentTask.cost_comm_gaussianReal`: this cost is symmetric in `μ` and
+  `μ'`.
+* `LMLExplore.Identification.IdentTask.cost_gaussianBandit`: its case of a common variance `σ2`.
 -/
 
 public section
@@ -194,15 +197,30 @@ lemma ofReal_mul_expFamilyDiv_le_cost
   exact ENNReal.ofReal_le_ofReal (mul_le_mul_of_nonneg_left
     (expFamilyDiv_le_expFamilyDiv_of_mem_uIcc hT hγ (hμ' a) h) (hw a))
 
+/-- For Gaussian arms with variances `v c ≠ 0`, the transportation cost is a weighted squared
+distance between the vectors of means: `cost_μ(w, μ') = ∑ c, w c (μ c - μ' c)² / (2 v c)`. -/
+lemma cost_gaussianReal {v : α → ℝ≥0} {task : IdentTask α (α → ℝ) ℐ ℝ} (hv : ∀ c, v c ≠ 0)
+    (hν : ∀ μ c, task.ν μ c = gaussianReal (μ c) (v c)) (hw : 0 ≤ w) (μ' : α → ℝ) :
+    task.cost w μ μ' = ENNReal.ofReal (∑ c, w c * (μ c - μ' c) ^ 2 / (2 * v c)) := by
+  rw [cost_def, ENNReal.ofReal_sum_of_nonneg fun c _ ↦
+    div_nonneg (mul_nonneg (hw c) (sq_nonneg _)) (by positivity)]
+  refine Finset.sum_congr rfl fun c _ ↦ ?_
+  rw [hν, hν, klDiv_gaussianReal_gaussianReal_same_var (hv c), ← ENNReal.ofReal_mul (hw c),
+    mul_div_assoc]
+
+/-- For Gaussian arms with variances `v c ≠ 0`, the transportation cost is symmetric in the two
+vectors of means: `cost_μ(w, μ') = cost_{μ'}(w, μ)`. -/
+lemma cost_comm_gaussianReal {v : α → ℝ≥0} {task : IdentTask α (α → ℝ) ℐ ℝ} (hv : ∀ c, v c ≠ 0)
+    (hν : ∀ μ c, task.ν μ c = gaussianReal (μ c) (v c)) (w μ' : α → ℝ) :
+    task.cost w μ μ' = task.cost w μ' μ := by
+  simp_rw [cost_def, hν, klDiv_gaussianReal_gaussianReal_same_var (hv _), sub_sq_comm]
+
 /-- For Gaussian arms with a common variance `σ2 ≠ 0`, the transportation cost is a weighted
 squared distance between the vectors of means: `cost_μ(w, μ') = ∑ c, w c (μ c - μ' c)² / (2 σ2)`. -/
 lemma cost_gaussianBandit [MeasurableSingletonClass α] {σ2 : ℝ≥0}
     {task : IdentTask α (α → ℝ) ℐ ℝ} (hνt : task.ν = (Bandits.gaussianBandit · σ2))
     (hσ2 : σ2 ≠ 0) (hw : 0 ≤ w) (μ' : α → ℝ) :
-    task.cost w μ μ' = ENNReal.ofReal (∑ c, w c * (μ c - μ' c) ^ 2 / (2 * σ2)) := by
-  rw [cost_def, hνt, ENNReal.ofReal_sum_of_nonneg fun c _ ↦
-    div_nonneg (mul_nonneg (hw c) (sq_nonneg _)) (by positivity)]
-  refine Finset.sum_congr rfl fun c _ ↦ ?_
-  rw [Bandits.klDiv_gaussianBandit _ _ hσ2, ← ENNReal.ofReal_mul (hw c), mul_div_assoc]
+    task.cost w μ μ' = ENNReal.ofReal (∑ c, w c * (μ c - μ' c) ^ 2 / (2 * σ2)) :=
+  cost_gaussianReal (v := fun _ ↦ σ2) (fun _ ↦ hσ2) (by simp [hνt]) hw μ'
 
 end LMLExplore.Identification.IdentTask
