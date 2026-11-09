@@ -37,6 +37,12 @@ generalized likelihood ratio statistics of identification in bandits with arms i
 family, for example in A. Garivier and E. Kaufmann, *Optimal best arm identification with fixed
 confidence*, COLT 2016.
 
+The lemmas `expFamilyPairCost_le_of_mem_expFamilyMeans`, `continuousAt_expFamilyDiv_div` and
+`expFamilyDiv_div_pos` are adapted from the formalization Garivier2016Optimal
+(`github.com/RemyDegenne/Garivier2016Optimal`, file
+`Garivier2016Optimal/ForLMLExplore/Identification/Task/BestArmScalar.lean`, commit
+`25fa4a8c0924ffe015f41f22aff90acc9a270076`, by Rémy Degenne, Apache 2.0) of the paper above.
+
 ## Main definitions
 
 * `MeasureTheory.Measure.expFamilyMeans ρ T`: the set of means `ψ'(η)` of `T` under the members
@@ -100,7 +106,8 @@ confidence*, COLT 2016.
   `expFamilyPairCost` is at most `w₁ d(μ₁, z) + w₂ d(μ₂, z)` at every mean `z`, whatever the order
   of `μ₁` and `μ₂`.
 * `MeasureTheory.Measure.continuousAt_expFamilyDiv_div`: the divergence `d(μ, m)` to the weighted
-  mean `m` of two means is continuous in the weights where they do not both vanish.
+  mean `m` of two means is continuous in the weights at nonnegative weights that do not both
+  vanish.
 * `MeasureTheory.Measure.expFamilyDiv_div_pos`: for distinct means and `w₁ > 0`, the weighted mean
   `m` differs from `μ₂`, so that `d(μ₂, m) > 0`.
 * `MeasureTheory.Measure.mul_expFamilyDiv_add_mul_expFamilyDiv_eq`: the two-point compensation
@@ -750,12 +757,9 @@ lemma expFamilyPairCost_pos {μ₁ μ₂ w₁ w₂ : ℝ} (hμ₁ : μ₁ ∈ ρ
     0 < ρ.expFamilyPairCost T μ₁ μ₂ w₁ w₂ := by
   have hW := add_pos hw₁ hw₂
   have hm := div_mem_expFamilyMeans hμ₁ hμ₂ hw₁.le hw₂.le hW
-  -- The weighted mean differs from `μ₁`, since `w₁ μ₁ + w₂ μ₂ - (w₁ + w₂) μ₁ = w₂ (μ₂ - μ₁)`.
-  have hne : μ₁ ≠ (w₁ * μ₁ + w₂ * μ₂) / (w₁ + w₂) := by
-    rw [Ne, eq_div_iff hW.ne']
-    intro h
-    exact mul_ne_zero hw₂.ne' (sub_ne_zero.2 hμ.symm) (by linear_combination -h)
-  exact add_pos_of_pos_of_nonneg (mul_pos hw₁ (expFamilyDiv_pos hμ₁ hm hne))
+  have h := expFamilyDiv_div_pos hμ₂ hμ₁ hμ.symm hw₂ hw₁.le
+  rw [add_comm (w₂ * μ₂), add_comm w₂] at h
+  exact add_pos_of_pos_of_nonneg (mul_pos hw₁ h)
     (mul_nonneg hw₂.le (expFamilyDiv_nonneg hμ₂ hm))
 
 /-- The cost of moving two means to their weighted mean is homogeneous in the weights. -/
@@ -874,9 +878,8 @@ theorem continuousOn_expFamilyPairCost (hT : ∀ c, ¬ T =ᵐ[ρ] fun _ ↦ c) :
     have hm := div_mem_expFamilyMeans hx₁ hx₂ hv₁ hv₂ hV
     refine ⟨add_nonneg (mul_nonneg hv₁ (expFamilyDiv_nonneg hx₁ hm))
       (mul_nonneg hv₂ (expFamilyDiv_nonneg hx₂ hm)), ?_⟩
-    have h := mul_expFamilyDiv_add_mul_expFamilyDiv_le_of_mul_eq (μ₁ := p.1.1) (μ₂ := p.1.2)
-      hv₁ hv₂ (by field_simp) hm hx₂
-    rwa [expFamilyDiv_self, mul_zero, add_zero] at h
+    have h := expFamilyPairCost_le_of_mem_expFamilyMeans hx₁ hx₂ hv₁ hv₂ hx₂
+    rwa [expFamilyPairCost_def, expFamilyDiv_self, mul_zero, add_zero] at h
   rintro ⟨⟨μ₁, μ₂⟩, ⟨w₁, w₂⟩⟩ ⟨⟨hμ₁, hμ₂⟩, hw₁, hw₂⟩
   rw [mem_Ici] at hw₁ hw₂
   rcases (add_nonneg hw₁ hw₂).eq_or_lt with hW | hW

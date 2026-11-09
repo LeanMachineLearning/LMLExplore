@@ -53,11 +53,10 @@ allocations, this makes every selection of the optimal allocations continuous at
 [GK16, Proposition 6], as the analysis of Track-and-Stop requires. With at least two arms, the
 optimal allocation is characterized by these equal costs and the scalar equation
 `∑_{b ≠ a} d(μ a, m_b) / d(μ b, m_b) = 1` for the weighted means
-`m_b = (w a μ a + w b μ b) / (w a + w b)` [GK16, Theorem 5]. The cost of a pair is the minimum over
-the means `z` of `w a d(μ a, z) + w b d(μ b, z)`, a minimum of functions linear in the allocation,
-so that the equation makes a combination of these linear bounds certify optimality, while at the
-optimum a perturbation of the allocation increasing every pair cost to first order exists unless
-the equation holds.
+`m_b = (w a μ a + w b μ b) / (w a + w b)` [GK16, Theorem 5]. This characterization is adapted from
+the formalization Garivier2016Optimal (`github.com/RemyDegenne/Garivier2016Optimal`, file
+`Garivier2016Optimal/ForLMLExplore/Identification/Task/BestArmScalar.lean`, commit
+`25fa4a8c0924ffe015f41f22aff90acc9a270076`, by Rémy Degenne, Apache 2.0) of [GK16].
 
 For Gaussian arms with a common variance `σ2`, the divergence is `d(x, y) = (x - y)² / (2 σ2)`, so
 that `D(μ, w, ¬a) = min_{b ≠ a} (w a w b / (w a + w b)) (μ a - μ b)² / (2 σ2)`, and two arms with
@@ -902,6 +901,12 @@ theorem continuousAt_of_mem_optAlloc_baiTask_restrict (hT : ∀ c, ¬ T =ᵐ[ρ]
 /-! #### The scalar equation of the optimal allocation -/
 
 section ScalarEquation
+
+/-! The cost of a pair `(a, b)` is the minimum over the means `z` of
+`w a d(μ a, z) + w b d(μ b, z)`, a minimum of functions linear in the allocation. When the scalar
+equation holds, a combination of these linear bounds certifies optimality; at the optimum, a
+perturbation of the allocation increasing every pair cost to first order exists unless the equation
+holds. -/
 
 open Finset
 
