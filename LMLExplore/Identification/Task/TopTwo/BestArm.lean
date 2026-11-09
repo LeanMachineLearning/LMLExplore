@@ -5,7 +5,7 @@ Authors: Rémy Degenne
 -/
 module
 
-public import LMLExplore.Identification.Task.BestArm
+public import LMLExplore.Identification.Task.BestArm.Basic
 public import LMLExplore.Identification.Task.TopTwo.Basic
 
 /-!
@@ -20,7 +20,7 @@ for `β > 0`, there is at most one `β`-optimal allocation, and exactly one for 
 as there are two arms, and that it is characterized by the equality of the costs of the pairs
 `(a, b)`, `b ≠ a` [R16, Proposition 7]. That a `β`-optimal allocation equalizes these costs,
 `LMLExplore.Identification.betaAnswerValue_baiTask_restrict_eq_of_mem_betaOptAlloc`, is proved in
-`LMLExplore/Identification/Task/BestArm.lean`, where it gives the equalization property of the
+`LMLExplore/Identification/Task/BestArm/Basic.lean`, where it gives the equalization property of the
 optimal allocation [GK16, Lemma 4] as the case `β = w a`.
 
 By the closed form [GK16, Lemma 3] of the cost of the alternatives, on the allocations with

@@ -38,8 +38,8 @@ from a vector of means `μ` to a vector of means `λ` of the families is
 
 The admissible models are the vectors of means of the families, `task.restrict S` with
 `S = {λ | ∀ c, λ c ∈ (ρ c).expFamilyMeans (T c)}`, as for best arm identification in
-`LMLExplore/Identification/Task/BestArm.lean`. Each arm has its own family: the arms do not interact
-in these tasks. The transportation costs between such vectors of means are computed in
+`LMLExplore/Identification/Task/BestArm/Basic.lean`. Each arm has its own family: the arms do not
+interact in these tasks. The transportation costs between such vectors of means are computed in
 `LMLExplore/Identification/Task/ExpFamily.lean`, and the game of a weighted minimum
 `min_a w a c a` is solved by `IdentTask.answerValue_eq_of_altCost_eq_iInf` and
 `IdentTask.optAlloc_eq_of_altCost_eq_iInf`.
