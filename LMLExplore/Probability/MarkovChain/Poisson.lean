@@ -215,6 +215,8 @@ theorem hasCondSubgaussianMGF_sub_integralCLM [StandardBorelSpace α] (g : bound
   set a := ⨅ z, (g : ℓ^∞(α, ℝ)) z
   have hsub : b = a + b - (κ.integralCLM g : ℓ^∞(α, ℝ)) (w (Fin.last n)) -
       (a - (κ.integralCLM g : ℓ^∞(α, ℝ)) (w (Fin.last n))) := by ring
+  -- write the parameter `(‖b‖₊ / 2) ^ 2` in the `(‖b' - a'‖₊ / 2) ^ 2` form of Hoeffding's
+  -- lemma, for the interval `[a', b'] = [a - κ g x, a + b - κ g x]`
   rw [hsub]
   refine hasSubgaussianMGF_of_mem_Icc_of_integral_eq_zero (by fun_prop) ?_ ?_
   · refine (ae_map_iff (boundedMeasurable.measurable g).aemeasurable
@@ -240,8 +242,7 @@ theorem measureReal_le_sum_sub_le [StandardBorelSpace α]
     (fun k ↦ hasCondSubgaussianMGF_sub_integralCLM g hb k) (sub_nonneg.2 hbε) n
   have hexp : -(ε - b) ^ 2 / (2 * n * ((‖b‖₊ / 2) ^ 2 : ℝ≥0)) =
       -2 * (ε - b) ^ 2 / (n * b ^ 2) := by
-    rw [NNReal.coe_pow, NNReal.coe_div, coe_nnnorm, Real.norm_of_nonneg hb₀, NNReal.coe_two,
-      show 2 * (n : ℝ) * (b / 2) ^ 2 = n * b ^ 2 / 2 by ring, div_div_eq_mul_div]
+    push_cast [Real.norm_of_nonneg hb₀]
     ring
   rw [measureReal_def]
   refine ENNReal.toReal_le_of_le_ofReal (Real.exp_pos _).le
@@ -284,15 +285,13 @@ theorem measureReal_le_abs_average_sub_le [StandardBorelSpace α]
   simp only [Set.mem_ofPred_eq, boundedMeasurable.coeFn_neg, Pi.neg_apply, sum_sub_distrib,
     Finset.sum_const, card_range, nsmul_eq_mul, Set.mem_union] at hω ⊢
   -- `ε ≤ |S / n - c|` gives `n ε ≤ S - n c` or `n ε ≤ n c - S`
+  field_simp at hω
+  rw [abs_div, abs_of_pos hn, le_div_iff₀ hn] at hω
   rcases le_abs'.1 hω with h | h
   · right
     rw [sum_neg_distrib]
-    have := mul_le_mul_of_nonneg_left h hn.le
-    rw [mul_sub, ← mul_assoc, mul_inv_cancel₀ hn.ne', one_mul] at this
     linarith
   · left
-    have := mul_le_mul_of_nonneg_left h hn.le
-    rw [mul_sub, ← mul_assoc, mul_inv_cancel₀ hn.ne', one_mul] at this
     linarith
 
 /-! ### The law of large numbers -/
