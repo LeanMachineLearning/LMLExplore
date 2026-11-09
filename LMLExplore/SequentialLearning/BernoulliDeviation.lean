@@ -57,10 +57,6 @@ namespace LMLExplore
 variable {α Ω : Type*} [DecidableEq α] {mα : MeasurableSpace α} {mΩ : MeasurableSpace Ω}
   {A : ℕ → Ω → α} {Y : ℕ → Ω → ℝ}
 
-/-- A frequency `j / N` with `j ≤ N` lies in `[0, 1]`. -/
-private lemma natCast_div_natCast_mem_Icc {j N : ℕ} (hj : j ≤ N) : (j : ℝ) / N ∈ Set.Icc 0 1 :=
-  ⟨by positivity, div_le_one_of_le₀ (by exact_mod_cast hj) (Nat.cast_nonneg N)⟩
-
 /-- The integral against `Beta(1/2, 1/2)` of the likelihood ratio `(u / p) ^ j ((1 - u) / (1 - p))
 ^ m`, written as the exponential of the log-likelihood ratio on `(0, 1)`, is the
 Krichevsky–Trofimov likelihood ratio `kt(j, m) / (p ^ j (1 - p) ^ m)`. -/
@@ -280,11 +276,14 @@ theorem measure_exists_log_two_mul_mul_lt_klBer_le
       (N : ℝ≥0∞) * klBer (empMean A Y c n ω) (p c) =
         ENNReal.ofReal ((N : ℝ) * klBerReal (j / N) (p c)) := by
     intro c j N hpc hj he
-    rw [he, klBer_eq_ofReal_klBerReal (natCast_div_natCast_mem_Icc hj) ⟨hpc.1.le, hpc.2.le⟩
-      (klBer_ne_top hpc), ENNReal.ofReal_mul (Nat.cast_nonneg N), ENNReal.ofReal_natCast]
+    rw [he, klBer_eq_ofReal_klBerReal
+      (div_mem (Nat.cast_nonneg _) (Nat.cast_nonneg _) (by exact_mod_cast hj))
+      ⟨hpc.1.le, hpc.2.le⟩ (klBer_ne_top hpc), ENNReal.ofReal_mul (Nat.cast_nonneg N),
+      ENNReal.ofReal_natCast]
   have hT_nonneg : ∀ {q : ℝ} {j N : ℕ}, q ∈ Set.Ioo 0 1 → j ≤ N →
       0 ≤ (N : ℝ) * klBerReal (j / N) q := fun {q j N} hq hj ↦
-    mul_nonneg (Nat.cast_nonneg _) (klBerReal_nonneg (natCast_div_natCast_mem_Icc hj)
+    mul_nonneg (Nat.cast_nonneg _) (klBerReal_nonneg
+      (div_mem (Nat.cast_nonneg _) (Nat.cast_nonneg _) (by exact_mod_cast hj))
       ⟨hq.1.le, hq.2.le⟩ (klBer_ne_top hq))
   rw [hmean hpa hja (by rw [empMean, hSa]), hmean hpb hjb (by rw [empMean, hSb]),
     ← ENNReal.ofReal_add (hT_nonneg hpa hja) (hT_nonneg hpb hjb),

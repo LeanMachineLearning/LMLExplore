@@ -413,9 +413,8 @@ theorem pow_mul_one_sub_pow_le_div_pow_mul_div_pow {k m n : ℕ} (hkm : k + m = 
       simp [div_self hn'.ne']
     · simp [zero_pow hm.ne', hR.le]
   -- for `u ∈ (0, 1)`, the ratio of the two likelihoods is `exp (n d(k / n, u)) ≥ 1`
-  have hkn : (k : ℝ) / n ∈ Set.Icc 0 1 := ⟨by positivity, by
-    rw [div_le_one hn']
-    linarith [(m.cast_nonneg : (0 : ℝ) ≤ m)]⟩
+  have hkn : (k : ℝ) / n ∈ Set.Icc 0 1 :=
+    unitInterval.div_mem (Nat.cast_nonneg _) hn'.le (by exact_mod_cast (by omega : k ≤ n))
   have hq : 0 < u ^ k * (1 - u) ^ m := mul_pos (pow_pos hu0 _) (pow_pos (sub_pos.2 hu1) _)
   have hlog : 0 ≤ log (((k : ℝ) / n) ^ k * ((m : ℝ) / n) ^ m / (u ^ k * (1 - u) ^ m)) := by
     rw [← mul_klBerReal_div_eq_log hkm hn ⟨hu0, hu1⟩]

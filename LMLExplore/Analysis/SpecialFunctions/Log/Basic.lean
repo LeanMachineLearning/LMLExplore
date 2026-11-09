@@ -32,7 +32,8 @@ import Mathlib.Analysis.Complex.ExponentialBounds
 * `Real.tendsto_natCeil_sub_div_log`: if `f n / log n → ∞`, then `⌈f n - c⌉₊ / log n → ∞`.
 * `Real.mul_log_add_lt`: `a log x + b < x` as soon as `x ≥ 2 a log (2 a) + 2 b`, for `a, x > 0`.
 * `Real.one_le_add_half_mul_log_one_add_inv`: `1 ≤ (x + 1 / 2) log (1 + 1 / x)` for `x > 0`.
-* `Real.one_add_mul_log_sub_le`: `(1 + t) log (1 + t) - t - t log (1 + t / 2) ≤ 0` for `t ≥ 0`.
+* `Real.one_add_mul_log_one_add_sub_sub_mul_log_nonpos`:
+  `(1 + t) log (1 + t) - t - t log (1 + t / 2) ≤ 0` for `t ≥ 0`.
 * `Real.add_one_mul_log_sub_le_one`: `(m + 1) log (m + 1) - m log m - log (m + 1 / 2) ≤ 1` for
   `m : ℕ`.
 * `Real.log_div_le_log_one_div_add_log`: `log (x / δ) ≤ log (1 / δ) + log x` for `δ ∈ (0, 1]`.
@@ -332,7 +333,7 @@ theorem one_le_add_half_mul_log_one_add_inv {x : ℝ} (hx : 0 < x) :
 
 /-- `(1 + t) log (1 + t) - t - t log (1 + t / 2) ≤ 0` for `t ≥ 0`: the function vanishes at `0`
 and its derivative `log ((1 + t) / (1 + t / 2)) - t / (2 + t)` is nonpositive. -/
-theorem one_add_mul_log_sub_le {t : ℝ} (ht : 0 ≤ t) :
+theorem one_add_mul_log_one_add_sub_sub_mul_log_nonpos {t : ℝ} (ht : 0 ≤ t) :
     (1 + t) * log (1 + t) - t - t * log (1 + t / 2) ≤ 0 := by
   set f : ℝ → ℝ := fun t ↦ (1 + t) * log (1 + t) - t - t * log (1 + t / 2) with hf
   have hderiv : ∀ x, 0 ≤ x →
@@ -376,7 +377,7 @@ theorem add_one_mul_log_sub_le_one (m : ℕ) :
       linarith [add_one_lt_exp (one_ne_zero (α := ℝ))])
     linarith
   have hm' : (0 : ℝ) < m := by exact_mod_cast hm
-  have h := one_add_mul_log_sub_le (t := (m : ℝ)⁻¹) (by positivity)
+  have h := one_add_mul_log_one_add_sub_sub_mul_log_nonpos (t := (m : ℝ)⁻¹) (by positivity)
   have e1 : log (1 + (m : ℝ)⁻¹) = log ((m : ℝ) + 1) - log m := by
     rw [← log_div (by positivity) hm'.ne']
     congr 1

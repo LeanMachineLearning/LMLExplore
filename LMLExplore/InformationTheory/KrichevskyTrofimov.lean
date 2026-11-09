@@ -7,7 +7,7 @@ module
 
 public import LMLExplore.InformationTheory.KullbackLeibler.Bernoulli
 public import TauCeti.Analysis.SpecialFunctions.Beta
-public import TauCeti.Probability.Distributions.Beta.Basic
+public import LMLExplore.Probability.Distributions.Beta
 public import LMLExplore.Analysis.SpecialFunctions.Log.Basic
 
 /-!
@@ -26,9 +26,6 @@ Bernoulli observations, and the informational threshold of the GLRT for Bernoull
 
 ## Main statements
 
-* `LMLExplore.integral_pow_mul_one_sub_pow_betaMeasure`: the moments
-  `∫ u ^ k (1 - u) ^ m d Beta(a, b) = B(a + k, b + m) / B(a, b)` of the beta laws, and
-  `LMLExplore.integral_pow_mul_one_sub_pow_betaMeasure_pos`: they are positive.
 * `LMLExplore.div_pow_mul_div_pow_le_two_mul_sqrt_mul_integral_betaMeasure`: the maximum
   likelihood `(k / n) ^ k (m / n) ^ m` is at most `2 √n kt(k, m)` [GK16, Lemma 11].
 * `LMLExplore.pow_mul_one_sub_pow_le_two_mul_sqrt_mul_integral_betaMeasure`: for every
@@ -90,20 +87,6 @@ private lemma add_one_pow_mul_sqrt_mul_pow_le (m n : ℕ) (hn : 1 ≤ n) :
   nlinarith
 
 /-! ### The Krichevsky–Trofimov bound -/
-
-/-- The moments of the beta laws: for `a, b > 0` and `k, m : ℕ`,
-`∫ u ^ k (1 - u) ^ m d Beta(a, b) = B(a + k, b + m) / B(a, b)`. -/
-lemma integral_pow_mul_one_sub_pow_betaMeasure {a b : ℝ} (ha : 0 < a) (hb : 0 < b) (k m : ℕ) :
-    ∫ u, u ^ k * (1 - u) ^ m ∂betaMeasure a b = beta (a + k) (b + m) / beta a b := by
-  have h := TauCeti.Probability.integral_rpow_mul_one_sub_rpow_betaMeasure (q := k) (s := m)
-    ha hb (by positivity) (by positivity)
-  simpa only [Real.rpow_natCast] using h
-
-/-- The moments `∫ u ^ k (1 - u) ^ m d Beta(a, b)` of the beta laws are positive, for `a, b > 0`. -/
-lemma integral_pow_mul_one_sub_pow_betaMeasure_pos {a b : ℝ} (ha : 0 < a) (hb : 0 < b)
-    (k m : ℕ) : 0 < ∫ u, u ^ k * (1 - u) ^ m ∂betaMeasure a b := by
-  rw [integral_pow_mul_one_sub_pow_betaMeasure ha hb]
-  exact div_pos (beta_pos (by positivity) (by positivity)) (beta_pos ha hb)
 
 /-- One more zero in the sequence: `B(1/2 + k, 1/2 + (m + 1)) = (m + 1/2) / (k + m + 1) B(1/2 + k,
 1/2 + m)`. -/
