@@ -16,9 +16,11 @@ public import LMLExplore.Identification.Task.BestArm
 For best arm identification with Bernoulli arms, on the vectors of means in `(0, 1)`, the GLRT
 with the plug-in statistic of the empirical means and thresholds at least
 `log (2 n (K - 1) / δ)` stops with an arm that is not the best with probability at most `δ`,
-whatever the sampling rule and the recommendation rule [GK16, Theorem 10]. Unlike the thresholds of
-`Identification/ExpFamilyThreshold.lean`, of order `K log n + log (1 / δ)`, these grow like
-`log n + log (K / δ)`.
+whatever the sampling rule and the recommendation rule [GK16, Theorem 10]. These grow like
+`log n + log (K / δ)`. For arms dominated by exponential families,
+`Identification/ExpFamilyThreshold.lean` gives the pairwise threshold
+`2 log (2 n (n + 1)) + x_{δ / (K - 1)}`, of order `4 log n + log (K / δ)`, and the all-arm
+threshold `K log (2 n (n + 1)) + x`, of order `2 K log n + log (1 / δ)`.
 
 The GLRT errs only if, at some round `n`, the GLR statistic of a wrong arm `i` exceeds the
 threshold. That statistic is at most the evidence `N_i d(μ̂_i, μ_i) + N_a d(μ̂_a, μ_a)` of the pair
@@ -42,6 +44,8 @@ inequality of the Krichevsky–Trofimov mixture
 
 * [GK16] A. Garivier and E. Kaufmann, *Optimal best arm identification with fixed confidence*,
   COLT 2016, arXiv:1602.04589v2.
+* This file is adapted from `Identification/KTThreshold.lean` of the formalization in
+  RemyDegenne/Garivier2016Optimal (commit 53ac67e4, directory `ForLMLExplore/`).
 -/
 
 public section
@@ -54,39 +58,6 @@ namespace LMLExplore.Identification
 
 variable {α : Type*} [Fintype α] [DecidableEq α] {mα : MeasurableSpace α}
   [MeasurableSingletonClass α]
-
-/-- Moving `p ∈ [0, 1]` a fraction `t ∈ (0, 1]` of the way to `1 / 2` costs at most `t` in binary
-relative entropy: `d(p, (1 - t) p + t / 2) ≤ t`, by the `χ²` bound. -/
-private lemma klBer_one_sub_mul_add_div_two_le {p t : ℝ} (hp : p ∈ Set.Icc 0 1)
-    (ht : t ∈ Set.Ioc 0 1) :
-    klBer p ((1 - t) * p + t / 2) ≤ ENNReal.ofReal t := by
-  have hq0 : t / 2 ≤ (1 - t) * p + t / 2 := by nlinarith [hp.1, ht.2]
-  have hq1 : t / 2 ≤ 1 - ((1 - t) * p + t / 2) := by nlinarith [hp.2, ht.2]
-  have hq : (1 - t) * p + t / 2 ∈ Set.Ioo 0 1 := ⟨by linarith [ht.1], by linarith [ht.1]⟩
-  refine (klBer_le_ofReal_sq_sub_div hp hq).trans (ENNReal.ofReal_le_ofReal ?_)
-  have hpos : 0 < ((1 - t) * p + t / 2) * (1 - ((1 - t) * p + t / 2)) :=
-    mul_pos hq.1 (sub_pos.2 hq.2)
-  rw [div_le_iff₀ hpos]
-  have h1 := mul_nonneg (sub_nonneg.2 hq0) (sub_nonneg.2 hq1)
-  have h2 : (p - 1 / 2) ^ 2 ≤ 1 / 4 := by nlinarith [hp.1, hp.2]
-  nlinarith [ht.1, ht.2]
-
-omit [DecidableEq α] in
-/-- For Bernoulli arms, the cost of best arm identification from any vector `μ` is continuous on
-the vectors of means in `(0, 1)`, where the binary relative entropy is continuous in its second
-argument. -/
-private lemma continuousOn_cost_baiTask_bernoulliBandit (w μ : α → ℝ) :
-    ContinuousOn ((baiTask (fun μ ↦ Bandits.bernoulliBandit fun a ↦
-        Set.projIcc 0 1 zero_le_one (μ a)) id).cost w μ) {μ' | ∀ a, μ' a ∈ Set.Ioo 0 1} := by
-  rw [funext (IdentTask.cost_bernoulliBandit (ν_baiTask _ id))]
-  refine continuousOn_finsetSum _ fun c _ ↦ ?_
-  refine (ENNReal.continuous_const_mul ENNReal.ofReal_ne_top).comp_continuousOn ?_
-  have hk : ContinuousOn (fun μ' : α → ℝ ↦ klBer (Set.projIcc 0 1 zero_le_one (μ c)) (μ' c))
-      {μ' | ∀ a, μ' a ∈ Set.Ioo 0 1} :=
-    continuousOn_klBer.comp (continuousOn_const.prodMk (continuous_apply c).continuousOn)
-      fun μ' hμ' ↦ ⟨Subtype.prop _, hμ' c⟩
-  refine hk.congr fun μ' hμ' ↦ ?_
-  rw [← klBer_projIcc (μ c) (μ' c), Set.projIcc_of_mem _ (Set.Ioo_subset_Icc_self (hμ' c))]
 
 /-- After `n` rounds, `∑ c, N_c t ≤ ε` for `t = min 1 (ε / (n + 1))`. -/
 private lemma sum_pullCount'_mul_ofReal_min_le (n : ℕ) (h : Hist Unit α ℝ n) (ε : NNReal) :
@@ -128,8 +99,19 @@ lemma glr_plugInCost_baiTask_bernoulliBandit_le {i j : α} (hij : i ≠ j) {qi q
   have hS : IsOpen S := by
     simp only [hS_def, Set.ofPred_forall]
     exact isOpen_iInter_of_finite fun a ↦ isOpen_Ioo.preimage (continuous_apply a)
+  -- the cost is continuous on `S`, where the binary relative entropy is continuous in its second
+  -- argument
+  have hc : ContinuousOn ((baiTask ν id).cost w emp) S := by
+    refine (baiTask ν id).continuousOn_cost (fun c ↦ ?_) w
+    refine (continuousOn_klBer.comp (s := S)
+      (continuousOn_const.prodMk (continuous_apply c).continuousOn)
+      fun μ' hμ' ↦ ⟨Subtype.prop (Set.projIcc 0 1 zero_le_one (emp c)), hμ' c⟩).congr
+      fun μ' hμ' ↦ ?_
+    rw [ν_baiTask, hν, Bandits.bernoulliBandit_apply, Bandits.bernoulliBandit_apply,
+      klDiv_bernoulliMeasure, Set.projIcc_of_mem _ (Set.Ioo_subset_Icc_self (hμ' c)),
+      Function.comp_apply, Function.uncurry_apply_pair]
   rw [IdentTask.glr_plugInCost, altCost_baiTask_restrict_eq_iInf _ hS
-    ((continuousOn_cost_baiTask_bernoulliBandit w emp).mono Set.inter_subset_right)]
+    (hc.mono Set.inter_subset_right)]
   refine ENNReal.le_of_forall_pos_le_add fun ε hε _ ↦ ?_
   -- the alternative: `λ_i`, `λ_j`, and the other arms moved to `(1 - t) μ̂ + t / 2`
   set t : ℝ := min 1 (ε / (n + 1)) with ht_def
@@ -152,8 +134,7 @@ lemma glr_plugInCost_baiTask_bernoulliBandit_le {i j : α} (hij : i ≠ j) {qi q
     · rw [hci, hlam_i]
       exact hqi
     rw [hlam_c c hci hcj]
-    have := hp c
-    constructor <;> nlinarith [ht.1, ht.2, this.1, this.2]
+    exact one_sub_mul_add_div_two_mem_Ioo (hp c) ht
   calc ⨅ (b) (_ : b ≠ i) (μ' ∈ S) (_ : μ' i ≤ μ' b), (baiTask ν id).cost w emp μ'
       ≤ (baiTask ν id).cost w emp lam :=
         iInf_le_of_le j (iInf_le_of_le hij.symm (iInf_le_of_le lam (iInf_le_of_le hlamS
@@ -173,11 +154,9 @@ lemma glr_plugInCost_baiTask_bernoulliBandit_le {i j : α} (hij : i ≠ j) {qi q
         obtain ⟨hcj, hc'⟩ := mem_erase.1 hc
         obtain ⟨hci, -⟩ := mem_erase.1 hc'
         gcongr
-        have hmem : (1 - t) * p c + t / 2 ∈ Set.Icc (0 : ℝ) 1 :=
-          ⟨by nlinarith [ht.1, ht.2, (hp c).1, (hp c).2],
-            by nlinarith [ht.1, ht.2, (hp c).1, (hp c).2]⟩
-        rw [hlam_c c hci hcj, ← klBer_projIcc (emp c),
-          Set.projIcc_of_mem zero_le_one (x := (1 - t) * p c + t / 2) hmem]
+        rw [hlam_c c hci hcj, ← klBer_projIcc (emp c), Set.projIcc_of_mem zero_le_one
+          (x := (1 - t) * p c + t / 2) (Set.Ioo_subset_Icc_self (one_sub_mul_add_div_two_mem_Ioo
+            (hp c) ht))]
         exact klBer_one_sub_mul_add_div_two_le (hp c) ht
     _ ≤ (pullCount' n h i : ℝ≥0∞) * klBer (emp i) qi +
         (pullCount' n h j : ℝ≥0∞) * klBer (emp j) qj + ε := by

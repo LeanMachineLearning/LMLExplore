@@ -5,7 +5,7 @@ Authors: Rémy Degenne
 -/
 module
 
-public import Mathlib.Analysis.SpecialFunctions.Log.Basic
+public import Mathlib.Analysis.SpecialFunctions.Log.Deriv
 
 /-!
 # Elementary bounds on the real logarithm
@@ -28,6 +28,7 @@ public import Mathlib.Analysis.SpecialFunctions.Log.Basic
   `x n ≤ c log n` for every `c > C / Δ²`.
 * `Real.tendsto_natCeil_sub_div_log`: if `f n / log n → ∞`, then `⌈f n - c⌉₊ / log n → ∞`.
 * `Real.mul_log_add_lt`: `a log x + b < x` as soon as `x ≥ 2 a log (2 a) + 2 b`, for `a, x > 0`.
+* `Real.one_le_add_half_mul_log_one_add_inv`: `1 ≤ (x + 1 / 2) log (1 + 1 / x)` for `x > 0`.
 
 ## References
 
@@ -210,5 +211,15 @@ theorem mul_log_add_lt {a b x : ℝ} (ha : 0 < a) (hx : 0 < x)
       field_simp] at this
     exact this
   linarith
+
+/-- `1 ≤ (x + 1 / 2) log (1 + x⁻¹)` for `x > 0`: the first term of the series of
+`log (1 + 1 / x)` in powers of `1 / (2 x + 1)` (`Real.hasSum_log_one_add_inv`). -/
+theorem one_le_add_half_mul_log_one_add_inv {x : ℝ} (hx : 0 < x) :
+    1 ≤ (x + 1 / 2) * log (1 + x⁻¹) := by
+  have h0 := le_hasSum (hasSum_log_one_add_inv hx) 0 (fun j _ ↦ by positivity)
+  simp only [CharP.cast_eq_zero, mul_zero, zero_add, div_one, mul_one, pow_one] at h0
+  have hpos : 0 < 2 * x + 1 := by linarith
+  calc (1 : ℝ) = (x + 1 / 2) * (2 * (1 / (2 * x + 1))) := by field_simp
+    _ ≤ _ := by gcongr
 
 end Real

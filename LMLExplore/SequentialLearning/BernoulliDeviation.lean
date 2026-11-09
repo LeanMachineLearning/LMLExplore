@@ -8,7 +8,7 @@ module
 public import LMLExplore.InformationTheory.KrichevskyTrofimov
 public import LMLExplore.SequentialLearning.LikelihoodRatio
 public import LMLExplore.Bandits.Instances
-public import LeanMachineLearning.SequentialLearning.SumRewards
+public import LMLExplore.SequentialLearning.SumRewards
 
 /-!
 # Pairwise deviations of Bernoulli arms through the Krichevsky–Trofimov mixture
@@ -37,6 +37,9 @@ ever reaches `x` by `1 / x`. The Krichevsky–Trofimov bound [GK16, Lemma 11] bo
 `N_c d(μ̂_c, p_c)` by the logarithm of `2 √N_c` times the likelihood ratio of the arm `c`, and
 `2 √N_a ⋅ 2 √N_b ≤ 2 (N_a + N_b) ≤ 2 n`.
 
+This file is adapted from `SequentialLearning/KTDeviation.lean` of the formalization in
+RemyDegenne/Garivier2016Optimal (commit 53ac67e4, directory `ForLMLExplore/`).
+
 ## References
 
 * [GK16] A. Garivier and E. Kaufmann, *Optimal best arm identification with fixed confidence*,
@@ -54,37 +57,9 @@ namespace LMLExplore
 variable {α Ω : Type*} [DecidableEq α] {mα : MeasurableSpace α} {mΩ : MeasurableSpace Ω}
   {A : ℕ → Ω → α} {Y : ℕ → Ω → ℝ}
 
-/-- The sum over the pulls of an arm `a` of a function `Y α + (1 - Y) β` of the observation `Y`,
-which is affine in the observation, is `S_a(n) α + (N_a(n) - S_a(n)) β`, where `S_a(n)` is the sum
-of the observations of `a` and `N_a(n)` its number of pulls. For Bernoulli observations and
-`α = log (q / p)`, `β = log ((1 - q) / (1 - p))`, it is the log-likelihood ratio of the
-observations of `a` under the mean `q` against the mean `p`. -/
-private lemma sum_ite_mul_add_one_sub_mul (a : α) (n : ℕ) (ω : Ω) (x y : ℝ) :
-    ∑ k ∈ range n, (if A k ω = a then Y k ω * x + (1 - Y k ω) * y else 0) =
-      sumRewards A Y a n ω * x + (pullCount A a n ω - sumRewards A Y a n ω) * y := by
-  classical
-  have h : ∀ k ∈ range n, (if A k ω = a then Y k ω * x + (1 - Y k ω) * y else 0) =
-      (if A k ω = a then Y k ω else 0) * x +
-        ((if A k ω = a then (1 : ℝ) else 0) - (if A k ω = a then Y k ω else 0)) * y := by
-    intro k _
-    split_ifs <;> ring
-  rw [sum_congr rfl h, sum_add_distrib, ← sum_mul, ← sum_mul, sum_sub_distrib, sumRewards,
-    pullCount, natCast_card_filter]
-
-/-- With observations in `{0, 1}`, the sum of the observations of an arm is a natural number, at
-most its number of pulls. -/
-private lemma exists_sumRewards_eq_natCast {ω : Ω} (hω : ∀ k, Y k ω ∈ ({0, 1} : Set ℝ)) (a : α)
-    (n : ℕ) : ∃ j ≤ pullCount A a n ω, sumRewards A Y a n ω = j := by
-  classical
-  refine ⟨#(filter (fun k ↦ A k ω = a ∧ Y k ω = 1) (range n)), ?_, ?_⟩
-  · exact card_le_card fun k hk ↦ by
-      simp only [mem_filter] at hk ⊢
-      exact ⟨hk.1, hk.2.1⟩
-  · rw [sumRewards, natCast_card_filter]
-    refine sum_congr rfl fun k _ ↦ ?_
-    have hk01 := hω k
-    simp only [Set.mem_insert_iff, Set.mem_singleton_iff] at hk01
-    rcases hk01 with h | h <;> by_cases hk : A k ω = a <;> simp [hk, h]
+/-- A frequency `j / N` with `j ≤ N` lies in `[0, 1]`. -/
+private lemma natCast_div_natCast_mem_Icc {j N : ℕ} (hj : j ≤ N) : (j : ℝ) / N ∈ Set.Icc 0 1 :=
+  ⟨by positivity, div_le_one_of_le₀ (by exact_mod_cast hj) (Nat.cast_nonneg N)⟩
 
 /-- The integral against `Beta(1/2, 1/2)` of the likelihood ratio `(u / p) ^ j ((1 - u) / (1 - p))
 ^ m`, written as the exponential of the log-likelihood ratio on `(0, 1)`, is the
@@ -141,15 +116,22 @@ private lemma ite_mul_ite_le {Na Nb n : ℕ} (h1 : 1 ≤ Na + Nb) (hn : Na + Nb 
     nlinarith
   · nlinarith [sq_nonneg (√(Na : ℝ) - √(Nb : ℝ))]
 
+/-- The log-likelihood ratio `y log (q / r) + (1 - y) log ((1 - q) / (1 - r))` of a Bernoulli
+observation `y` under the mean `q` against the mean `r`, set to `0` for `q ∉ (0, 1)`. -/
+private noncomputable def berLLR (q r y : ℝ) : ℝ :=
+  if q ∈ Set.Ioo 0 1 then y * log (q / r) + (1 - y) * log ((1 - q) / (1 - r)) else 0
+
+/-- `berLLR q r y` is measurable in `(q, y)`. -/
+private lemma measurable_berLLR (r : ℝ) : Measurable fun q : ℝ × ℝ ↦ berLLR q.1 r q.2 :=
+  Measurable.ite (measurableSet_Ioo.preimage measurable_fst) (by fun_prop) measurable_const
+
 /-- The likelihood ratio of a Bernoulli observation under the mean `q ∈ (0, 1)` against the mean
 `p ∈ (0, 1)`, written as the exponential of its logarithm, has expectation `1` under the mean `p`;
 so has the constant `1` used for `q ∉ (0, 1)`. -/
-private lemma lintegral_ofReal_exp_ite_bernoulliMeasure {p : I} (hp : (p : ℝ) ∈ Set.Ioo 0 1)
-    (q : ℝ) :
-    ∫⁻ y, ENNReal.ofReal (exp (if q ∈ Set.Ioo 0 1 then
-        y * log (q / p) + (1 - y) * log ((1 - q) / (1 - p)) else 0)) ∂Ber((1 : ℝ), 0, p) = 1 := by
+private lemma lintegral_ofReal_exp_berLLR_bernoulliMeasure {p : I} (hp : (p : ℝ) ∈ Set.Ioo 0 1)
+    (q : ℝ) : ∫⁻ y, ENNReal.ofReal (exp (berLLR q p y)) ∂Ber((1 : ℝ), 0, p) = 1 := by
   by_cases hq : q ∈ Set.Ioo 0 1
-  · simp only [ite_eq_left hq]
+  · simp only [berLLR, hq, ↓reduceIte]
     rw [bernoulliMeasure_def, lintegral_add_measure, lintegral_smul_measure,
       lintegral_smul_measure, lintegral_dirac, lintegral_dirac]
     have h1 : 0 < 1 - (p : ℝ) := sub_pos.2 hp.2
@@ -162,10 +144,56 @@ private lemma lintegral_ofReal_exp_ite_bernoulliMeasure {p : I} (hp : (p : ℝ) 
       ← ENNReal.ofReal_add (mul_nonneg (NNReal.coe_nonneg _) (div_pos hq.1 hp.1).le)
         (mul_nonneg (NNReal.coe_nonneg _) (div_pos h2 h1).le)]
     have h0 : (p : ℝ) ≠ 0 := hp.1.ne'
-    simp
+    simp only [unitInterval.coe_toNNReal, coe_symm_eq, ENNReal.ofReal_eq_one]
     field_simp
     ring
-  · simp [hq]
+  · simp [berLLR, hq]
+
+/-- The log-likelihood ratio of the bandit whose means on the arms `a` and `b` are `l.1` and `l.2`
+against the bandit whose means on them are `pa` and `pb`, for the observation `y` of the arm `c`. -/
+private noncomputable def pairLLR (a b : α) (pa pb : ℝ) (l : ℝ × ℝ) (c : α) (y : ℝ) : ℝ :=
+  (if c = a then berLLR l.1 pa y else 0) + (if c = b then berLLR l.2 pb y else 0)
+
+/-- `pairLLR a b pa pb l c y` is measurable in `(l, c, y)`. -/
+private lemma measurable_pairLLR [MeasurableSingletonClass α] (a b : α) (pa pb : ℝ) :
+    Measurable fun q : (ℝ × ℝ) × α × ℝ ↦ pairLLR a b pa pb q.1 q.2.1 q.2.2 := by
+  refine Measurable.add ?_ ?_
+  · refine Measurable.ite ((measurableSet_singleton a).preimage
+      (measurable_fst.comp measurable_snd)) ?_ measurable_const
+    exact (measurable_berLLR pa).comp ((measurable_fst.comp measurable_fst).prodMk
+      (measurable_snd.comp measurable_snd))
+  · refine Measurable.ite ((measurableSet_singleton b).preimage
+      (measurable_fst.comp measurable_snd)) ?_ measurable_const
+    exact (measurable_berLLR pb).comp ((measurable_snd.comp measurable_fst).prodMk
+      (measurable_snd.comp measurable_snd))
+
+/-- Under the Bernoulli bandit with means `p`, with `p a, p b ∈ (0, 1)`, the exponential of
+`pairLLR` has expectation at most `1` for every arm: it is a likelihood ratio. -/
+private lemma lintegral_ofReal_exp_pairLLR_le [Countable α] [MeasurableSingletonClass α]
+    {p : α → I} {a b : α} (hab : a ≠ b) (hpa : (p a : ℝ) ∈ Set.Ioo 0 1)
+    (hpb : (p b : ℝ) ∈ Set.Ioo 0 1) (l : ℝ × ℝ) (c : α) :
+    ∫⁻ y, ENNReal.ofReal (exp (pairLLR a b (p a) (p b) l c y)) ∂(Bandits.bernoulliBandit p) c ≤
+      1 := by
+  rw [Bandits.bernoulliBandit_apply]
+  by_cases hca : c = a
+  · subst hca
+    simpa [pairLLR, hab] using (lintegral_ofReal_exp_berLLR_bernoulliMeasure hpa l.1).le
+  · by_cases hcb : c = b
+    · subst hcb
+      simpa [pairLLR, hca] using (lintegral_ofReal_exp_berLLR_bernoulliMeasure hpb l.2).le
+    · simp [pairLLR, hca, hcb]
+
+/-- The sum of the log-likelihood ratios `berLLR q r` of the observations of the arm `c`, with
+`j` ones among its `N` observations, is `j log (q / r) + (N - j) log ((1 - q) / (1 - r))` for
+`q ∈ (0, 1)`, and `0` otherwise. -/
+private lemma sum_ite_berLLR {c : α} {n : ℕ} {ω : Ω} {j : ℕ} (hj : j ≤ pullCount A c n ω)
+    (hS : sumRewards A Y c n ω = j) (q r : ℝ) :
+    ∑ k ∈ range n, (if A k ω = c then berLLR q r (Y k ω) else 0) =
+      if q ∈ Set.Ioo 0 1 then (j : ℝ) * log (q / r) +
+        ((pullCount A c n ω - j : ℕ) : ℝ) * log ((1 - q) / (1 - r)) else 0 := by
+  by_cases hq : q ∈ Set.Ioo 0 1
+  · simp only [berLLR, hq, ↓reduceIte, sum_ite_mul_add_one_sub_mul, hS, Nat.cast_sub hj]
+  · simp only [berLLR, hq, ↓reduceIte, ite_self, sum_const_zero]
 
 /-- The last step of `measure_exists_log_two_mul_mul_lt_klBer_le`: if
 `log (2 n x) < N_a d(j_a / N_a, p_a) + N_b d(j_b / N_b, p_b)` with `1 ≤ N_a + N_b ≤ n`, then the
@@ -228,36 +256,11 @@ theorem measure_exists_log_two_mul_mul_lt_klBer_le
       ENNReal.ofReal (1 / x) := by
   have := Fintype.ofFinite α
   have := isProbabilityMeasureBeta (α := 1 / 2) (β := 1 / 2) (by norm_num) (by norm_num)
-  -- the log-likelihood ratio of the bandit with means `u` and `v` on the arms `a` and `b`
-  set G : ℝ → ℝ → ℝ → ℝ := fun q r y ↦
-    if q ∈ Set.Ioo 0 1 then y * log (q / r) + (1 - y) * log ((1 - q) / (1 - r)) else 0 with hG
-  set z : ℝ × ℝ → α → ℝ → ℝ := fun l c y ↦
-    (if c = a then G l.1 (p a) y else 0) + (if c = b then G l.2 (p b) y else 0) with hz_def
-  have hGm : ∀ r : ℝ, Measurable fun q : ℝ × ℝ ↦ G q.1 r q.2 := fun r ↦
-    Measurable.ite (measurableSet_Ioo.preimage measurable_fst) (by fun_prop) measurable_const
-  have hz : Measurable fun q : (ℝ × ℝ) × α × ℝ ↦ z q.1 q.2.1 q.2.2 := by
-    refine Measurable.add ?_ ?_
-    · refine Measurable.ite ((measurableSet_singleton a).preimage
-        (measurable_fst.comp measurable_snd)) ?_ measurable_const
-      exact (hGm (p a)).comp ((measurable_fst.comp measurable_fst).prodMk
-        (measurable_snd.comp measurable_snd))
-    · refine Measurable.ite ((measurableSet_singleton b).preimage
-        (measurable_fst.comp measurable_snd)) ?_ measurable_const
-      exact (hGm (p b)).comp ((measurable_snd.comp measurable_fst).prodMk
-        (measurable_snd.comp measurable_snd))
-  have hle : ∀ l c, ∫⁻ y, ENNReal.ofReal (exp (z l c y)) ∂(Bandits.bernoulliBandit p) c ≤ 1 := by
-    intro l c
-    rw [Bandits.bernoulliBandit_apply]
-    by_cases hca : c = a
-    · subst hca
-      simpa [hz_def, hab, hG] using (lintegral_ofReal_exp_ite_bernoulliMeasure hpa l.1).le
-    · by_cases hcb : c = b
-      · subst hcb
-        simpa [hz_def, hca, hG] using (lintegral_ofReal_exp_ite_bernoulliMeasure hpb l.2).le
-      · simp [hz_def, hca, hcb]
-  -- Ville's inequality for the mixture over the prior `Beta(1/2, 1/2) ⊗ Beta(1/2, 1/2)`
+  -- Ville's inequality for the mixture over the prior `Beta(1/2, 1/2) ⊗ Beta(1/2, 1/2)` of the
+  -- likelihood ratios of the bandits with means `u` and `v` on the arms `a` and `b`
   refine le_trans (measure_mono_ae ?_) (measure_exists_le_integral_exp_sum_le
-    (ρ := (betaMeasure (1 / 2) (1 / 2)).prod (betaMeasure (1 / 2) (1 / 2))) h hz hle hx)
+    (ρ := (betaMeasure (1 / 2) (1 / 2)).prod (betaMeasure (1 / 2) (1 / 2))) h
+    (measurable_pairLLR a b (p a) (p b)) (lintegral_ofReal_exp_pairLLR_le hab hpa hpb) hx)
   have hgood : ∀ᵐ ω ∂P, ∀ k, Y k ω ∈ ({0, 1} : Set ℝ) := by
     refine h.ae_forall_feedback_mem_bandit (by measurability) fun c ↦ ?_
     rw [Bandits.bernoulliBandit_apply, bernoulliMeasure_def, ae_add_measure_iff]
@@ -267,47 +270,29 @@ theorem measure_exists_log_two_mul_mul_lt_klBer_le
   obtain ⟨n, hn⟩ := hmem
   refine ⟨n, ?_⟩
   -- the numbers of ones
-  obtain ⟨ja, hja, hSa⟩ := exists_sumRewards_eq_natCast hω a n
-  obtain ⟨jb, hjb, hSb⟩ := exists_sumRewards_eq_natCast hω b n
-  set Na := pullCount A a n ω with hNa
-  set Nb := pullCount A b n ω with hNb
+  obtain ⟨ja, hja, hSa⟩ := exists_sumRewards_eq_natCast (A := A) hω a n
+  obtain ⟨jb, hjb, hSb⟩ := exists_sumRewards_eq_natCast (A := A) hω b n
   -- the mixture is the product of the Krichevsky–Trofimov likelihood ratios
-  have hsum : ∀ l : ℝ × ℝ, ∑ k ∈ range n, z l (A k ω) (Y k ω) =
-      (if l.1 ∈ Set.Ioo 0 1 then (ja : ℝ) * log (l.1 / p a) +
-          ((Na - ja : ℕ) : ℝ) * log ((1 - l.1) / (1 - p a)) else 0) +
-        (if l.2 ∈ Set.Ioo 0 1 then (jb : ℝ) * log (l.2 / p b) +
-          ((Nb - jb : ℕ) : ℝ) * log ((1 - l.2) / (1 - p b)) else 0) := by
-    intro l
-    simp only [hz_def, sum_add_distrib]
-    congr 1
-    · by_cases hl : l.1 ∈ Set.Ioo 0 1
-      · simp only [hG, hl, ↓reduceIte, sum_ite_mul_add_one_sub_mul, hSa, Nat.cast_sub hja]
-        rfl
-      · simp only [hG, hl, ↓reduceIte, ite_self, sum_const_zero]
-    · by_cases hl : l.2 ∈ Set.Ioo 0 1
-      · simp only [hG, hl, ↓reduceIte, sum_ite_mul_add_one_sub_mul, hSb, Nat.cast_sub hjb]
-        rfl
-      · simp only [hG, hl, ↓reduceIte, ite_self, sum_const_zero]
-  simp_rw [hsum, exp_add]
+  simp_rw [pairLLR, sum_add_distrib, sum_ite_berLLR hja hSa, sum_ite_berLLR hjb hSb, exp_add]
   rw [integral_prod_mul (fun u ↦ exp (if u ∈ Set.Ioo 0 1 then (ja : ℝ) * log (u / p a) +
-        ((Na - ja : ℕ) : ℝ) * log ((1 - u) / (1 - p a)) else 0))
+        ((pullCount A a n ω - ja : ℕ) : ℝ) * log ((1 - u) / (1 - p a)) else 0))
     (fun v ↦ exp (if v ∈ Set.Ioo 0 1 then (jb : ℝ) * log (v / p b) +
-        ((Nb - jb : ℕ) : ℝ) * log ((1 - v) / (1 - p b)) else 0)),
+        ((pullCount A b n ω - jb : ℕ) : ℝ) * log ((1 - v) / (1 - p b)) else 0)),
     integral_exp_ite_betaMeasure hpa, integral_exp_ite_betaMeasure hpb]
+  set Na := pullCount A a n ω
+  set Nb := pullCount A b n ω
   -- the statistic in real form
   have hmean : ∀ {c : α} {j N : ℕ}, (p c : ℝ) ∈ Set.Ioo 0 1 → j ≤ N →
       empMean A Y c n ω = j / N →
       (N : ℝ≥0∞) * klBer (empMean A Y c n ω) (p c) =
         ENNReal.ofReal ((N : ℝ) * klBerReal (j / N) (p c)) := by
     intro c j N hpc hj he
-    have hjN : (j : ℝ) / N ∈ Set.Icc 0 1 := ⟨by positivity, div_le_one_of_le₀
-      (by exact_mod_cast hj) (Nat.cast_nonneg N)⟩
-    rw [he, klBer_eq_ofReal_klBerReal hjN ⟨hpc.1.le, hpc.2.le⟩ (klBer_ne_top hpc),
-      ENNReal.ofReal_mul (Nat.cast_nonneg N), ENNReal.ofReal_natCast]
+    rw [he, klBer_eq_ofReal_klBerReal (natCast_div_natCast_mem_Icc hj) ⟨hpc.1.le, hpc.2.le⟩
+      (klBer_ne_top hpc), ENNReal.ofReal_mul (Nat.cast_nonneg N), ENNReal.ofReal_natCast]
   have hT_nonneg : ∀ {q : ℝ} {j N : ℕ}, q ∈ Set.Ioo 0 1 → j ≤ N →
       0 ≤ (N : ℝ) * klBerReal (j / N) q := fun {q j N} hq hj ↦
-    mul_nonneg (Nat.cast_nonneg _) (klBerReal_nonneg ⟨by positivity, div_le_one_of_le₀
-      (by exact_mod_cast hj) (Nat.cast_nonneg _)⟩ ⟨hq.1.le, hq.2.le⟩ (klBer_ne_top hq))
+    mul_nonneg (Nat.cast_nonneg _) (klBerReal_nonneg (natCast_div_natCast_mem_Icc hj)
+      ⟨hq.1.le, hq.2.le⟩ (klBer_ne_top hq))
   rw [hmean hpa hja (by rw [empMean, hSa]), hmean hpb hjb (by rw [empMean, hSb]),
     ← ENNReal.ofReal_add (hT_nonneg hpa hja) (hT_nonneg hpb hjb),
     ENNReal.ofReal_lt_ofReal_iff'] at hn

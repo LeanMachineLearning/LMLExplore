@@ -76,6 +76,11 @@ this way.
   `measure_exists_pullCount_sumRewards_le` and `measure_exists_lt_pullCount_sumRewards_le`: the
   event transfers for properties of the numbers of pulls and the sums of rewards.
 * `empMean_mem_Icc`: rewards in `[l, u]` give empirical means in `[l, u]`.
+* `sum_ite_mul_add_one_sub_mul`: the sum over the pulls of an arm of an affine function
+  `R x + (1 - R) y` of the reward is `S x + (N - S) y`, with `S` the sum of the rewards and `N` the
+  number of pulls.
+* `exists_sumRewards_eq_natCast`: with rewards in `{0, 1}`, the sum of the rewards is a natural
+  number at most the number of pulls.
 * `sumRewards_le_mul_or_mul_le_sumRewards_of_empMean_notMem_Ioo`: an empirical mean outside
   `(l, u)` is an event `y ≤ s l ∨ s u ≤ y` about the number of pulls `s` and the sum of rewards
   `y`, the form to which the event transfers apply.
@@ -156,6 +161,37 @@ lemma empMean_mem_Icc {a : α} {t : ℕ} {ω : Ω} {l u : ℝ} (hR : ∀ s < t, 
   constructor
   · simpa [pullCount, mul_comm] using card_nsmul_le_sum _ (fun s ↦ R s ω) l fun s hs ↦ (hR' s hs).1
   · simpa [pullCount, mul_comm] using sum_le_card_nsmul _ (fun s ↦ R s ω) u fun s hs ↦ (hR' s hs).2
+
+/-- The sum over the pulls of an arm `a` of a function `R x + (1 - R) y` of the reward `R`, which is
+affine in the reward, is `S_a(n) x + (N_a(n) - S_a(n)) y`, where `S_a(n)` is the sum of the rewards
+of `a` and `N_a(n)` its number of pulls. For Bernoulli rewards and `x = log (q / p)`,
+`y = log ((1 - q) / (1 - p))`, it is the log-likelihood ratio of the rewards of `a` under the mean
+`q` against the mean `p`. -/
+lemma sum_ite_mul_add_one_sub_mul (a : α) (n : ℕ) (ω : Ω) (x y : ℝ) :
+    ∑ k ∈ range n, (if A k ω = a then R k ω * x + (1 - R k ω) * y else 0) =
+      sumRewards A R a n ω * x + (pullCount A a n ω - sumRewards A R a n ω) * y := by
+  have h : ∀ k ∈ range n, (if A k ω = a then R k ω * x + (1 - R k ω) * y else 0) =
+      (if A k ω = a then R k ω else 0) * x +
+        ((if A k ω = a then (1 : ℝ) else 0) - (if A k ω = a then R k ω else 0)) * y := by
+    intro k _
+    split_ifs <;> ring
+  rw [sum_congr rfl h, sum_add_distrib, ← sum_mul, ← sum_mul, sum_sub_distrib, sumRewards,
+    pullCount, natCast_card_filter]
+
+/-- With rewards in `{0, 1}`, the sum of the rewards of an arm is a natural number, at most its
+number of pulls. -/
+lemma exists_sumRewards_eq_natCast {ω : Ω} (hω : ∀ k, R k ω ∈ ({0, 1} : Set ℝ)) (a : α)
+    (n : ℕ) : ∃ j ≤ pullCount A a n ω, sumRewards A R a n ω = j := by
+  classical
+  refine ⟨#(filter (fun k ↦ A k ω = a ∧ R k ω = 1) (range n)), ?_, ?_⟩
+  · exact card_le_card fun k hk ↦ by
+      simp only [mem_filter] at hk ⊢
+      exact ⟨hk.1, hk.2.1⟩
+  · rw [sumRewards, natCast_card_filter]
+    refine sum_congr rfl fun k _ ↦ ?_
+    have hk01 := hω k
+    simp only [Set.mem_insert_iff, Set.mem_singleton_iff] at hk01
+    rcases hk01 with h | h <;> by_cases hk : A k ω = a <;> simp [hk, h]
 
 /-- The observations of arm `a` before round `t`, in the order of the pulls: the entry `i` is the
 feedback `Y` at the round `stepsUntil A a (i + 1) ω < t` of the `(i + 1)`-th pull of `a`. -/

@@ -37,6 +37,8 @@ the Krichevsky–Trofimov prior on Bernoulli means, it gives the deviation inequ
 
 * [GK16] A. Garivier and E. Kaufmann, *Optimal best arm identification with fixed confidence*,
   COLT 2016, arXiv:1602.04589v2.
+* This file is adapted from `SequentialLearning/LikelihoodRatio.lean` of the formalization in
+  RemyDegenne/Garivier2016Optimal (commit 53ac67e4, directory `ForLMLExplore/`).
 -/
 
 public section

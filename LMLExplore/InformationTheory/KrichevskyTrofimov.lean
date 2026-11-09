@@ -8,6 +8,7 @@ module
 public import LMLExplore.InformationTheory.KullbackLeibler.Bernoulli
 public import TauCeti.Analysis.SpecialFunctions.Beta
 public import TauCeti.Probability.Distributions.Beta.Basic
+public import LMLExplore.Analysis.SpecialFunctions.Log.Basic
 
 /-!
 # The Krichevsky–Trofimov mixture
@@ -28,14 +29,10 @@ Bernoulli observations, and the informational threshold of the GLRT for Bernoull
 * `LMLExplore.integral_pow_mul_one_sub_pow_betaMeasure`: the moments
   `∫ u ^ k (1 - u) ^ m d Beta(a, b) = B(a + k, b + m) / B(a, b)` of the beta laws, and
   `LMLExplore.integral_pow_mul_one_sub_pow_betaMeasure_pos`: they are positive.
-* `LMLExplore.pow_mul_one_sub_pow_le_div_pow_mul_div_pow`: the maximum likelihood of `k` ones and
-  `m` zeros among the Bernoulli laws is `(k / n) ^ k (m / n) ^ m`.
 * `LMLExplore.div_pow_mul_div_pow_le_two_mul_sqrt_mul_integral_betaMeasure`: the maximum
   likelihood `(k / n) ^ k (m / n) ^ m` is at most `2 √n kt(k, m)` [GK16, Lemma 11].
 * `LMLExplore.pow_mul_one_sub_pow_le_two_mul_sqrt_mul_integral_betaMeasure`: for every
   `u ∈ [0, 1]`, `u ^ k (1 - u) ^ m ≤ 2 √n kt(k, m)` [GK16, Lemma 11].
-* `LMLExplore.mul_klBerReal_div_eq_log`: `n d(k / n, p)` is the log-likelihood ratio of the
-  maximum likelihood against the Bernoulli law of mean `p`.
 * `LMLExplore.mul_klBerReal_div_le_log_two_mul_sqrt_mul_integral_betaMeasure_div`: the bound in the
   form `n d(k / n, p) ≤ log (2 √n kt(k, m) / (p ^ k (1 - p) ^ m))` of a log-likelihood ratio, for
   `p ∈ (0, 1)`.
@@ -47,6 +44,9 @@ function, `kt(k, m + 1) = kt(k, m) (m + 1 / 2) / (k + m + 1)`, and the ratio bet
 likelihood `(k / n) ^ k (m / n) ^ m` and `kt(k, m)` grows by a factor at most `√((n + 1) / n)` at
 each step, which reduces to the two inequalities
 `(m + 1) log (m + 1) - m log m - log (m + 1 / 2) ≤ 1` and `1 ≤ (n + 1 / 2) log (1 + 1 / n)`.
+
+This file is adapted from `InformationTheory/KrichevskyTrofimov.lean` of the formalization in
+RemyDegenne/Garivier2016Optimal (commit 53ac67e4, directory `ForLMLExplore/`).
 
 ## References
 
@@ -65,16 +65,6 @@ open MeasureTheory ProbabilityTheory Real Set
 namespace LMLExplore
 
 /-! ### Two inequalities on logarithms -/
-
-/-- `1 ≤ (x + 1 / 2) log (1 + 1 / x)` for `x > 0`: the first term of the series of
-`log (1 + 1 / x)` in powers of `1 / (2 x + 1)`. -/
-private lemma one_le_add_half_mul_log_one_add_inv {x : ℝ} (hx : 0 < x) :
-    1 ≤ (x + 1 / 2) * log (1 + x⁻¹) := by
-  have h0 := le_hasSum (Real.hasSum_log_one_add_inv hx) 0 (fun j _ ↦ by positivity)
-  simp only [CharP.cast_eq_zero, mul_zero, zero_add, div_one, mul_one, pow_one] at h0
-  have hpos : 0 < 2 * x + 1 := by linarith
-  calc (1 : ℝ) = (x + 1 / 2) * (2 * (1 / (2 * x + 1))) := by field_simp
-    _ ≤ _ := by gcongr
 
 /-- `(1 + t) log (1 + t) - t - t log (1 + t / 2) ≤ 0` for `t ≥ 0`: the function vanishes at `0`
 and its derivative `log ((1 + t) / (1 + t / 2)) - t / (2 + t)` is nonpositive. -/
@@ -160,7 +150,7 @@ private lemma add_one_pow_mul_sqrt_mul_pow_le (m n : ℕ) (hn : 1 ≤ n) :
     log_mul (by positivity) (by positivity), log_pow, log_pow, log_pow, log_pow,
     log_sqrt hn'.le, log_sqrt (by positivity)]
   have hG := add_one_mul_log_sub_le_one m
-  have hH := one_le_add_half_mul_log_one_add_inv hn'
+  have hH := Real.one_le_add_half_mul_log_one_add_inv hn'
   have e : log (1 + (n : ℝ)⁻¹) = log ((n : ℝ) + 1) - log n := by
     rw [← log_div (by positivity) hn'.ne']
     congr 1
@@ -226,7 +216,7 @@ private lemma pow_mul_pow_mul_beta_le_succ {k m : ℕ} (hn : 1 ≤ k + m)
         (2 * √((k : ℝ) + (m + 1)) * ((k : ℝ) + (m + 1)) ^ (k + (m + 1)) *
           (((m : ℝ) + 1 / 2) / ((k : ℝ) + m + 1) * beta (1 / 2 + k) (1 / 2 + m))) := by
       have : (k : ℝ) + m + 1 ≠ 0 := by positivity
-      rw [← add_assoc, show k + (m + 1) = k + m + 1 from rfl, pow_succ]
+      rw [← add_assoc, ← Nat.add_assoc, pow_succ]
       field_simp
 
 /-- The Krichevsky–Trofimov bound in the form of [WST95]:
@@ -246,7 +236,8 @@ private lemma pow_mul_pow_mul_beta_le (k m : ℕ) (hn : 1 ≤ k + m) :
   have base : P 0 1 := by
     simp only [hP]
     have := beta_one_half_add_add_one 0 0
-    norm_num at this ⊢
+    simp only [Nat.cast_zero, Nat.cast_one, add_zero, zero_add, pow_zero, pow_one, one_mul,
+      mul_one, sqrt_one] at this ⊢
     rw [this]
     linarith
   have h0 : ∀ m, 1 ≤ m → P 0 m := fun m hm ↦
@@ -276,34 +267,6 @@ theorem div_pow_mul_div_pow_le_two_mul_sqrt_mul_integral_betaMeasure {k m n : �
     ← mul_div_assoc, le_div_iff₀ hB]
   linarith
 
-/-- The frequency factor `(k / n) ^ k` of the maximum likelihood is positive for `n > 0`, including
-for `k = 0`. -/
-private lemma div_pow_self_pos (k : ℕ) {n : ℕ} (hn : 0 < n) : 0 < ((k : ℝ) / n) ^ k := by
-  rcases Nat.eq_zero_or_pos k with rfl | hk
-  · simp
-  · positivity
-
-/-- The log-likelihood ratio of the maximum likelihood against the Bernoulli law of mean
-`p ∈ (0, 1)`, for a sequence of `n = k + m ≥ 1` observations with `k` ones and `m` zeros:
-`n d(k / n, p) = log ((k / n) ^ k (m / n) ^ m / (p ^ k (1 - p) ^ m))`. -/
-lemma mul_klBerReal_div_eq_log {k m n : ℕ} (hkm : k + m = n) (hn : 0 < n) {p : ℝ}
-    (hp : p ∈ Ioo 0 1) :
-    (n : ℝ) * klBerReal (k / n) p =
-      log (((k : ℝ) / n) ^ k * ((m : ℝ) / n) ^ m / (p ^ k * (1 - p) ^ m)) := by
-  have hn' : (0 : ℝ) < n := by exact_mod_cast hn
-  have hkm' : (k : ℝ) + m = n := by exact_mod_cast hkm
-  have h1 : 1 - (k : ℝ) / n = m / n := by
-    field_simp
-    linarith
-  have hk : ((k : ℝ) / n / p) ^ k ≠ 0 := by
-    rw [div_pow]
-    exact (div_pos (div_pow_self_pos k hn) (pow_pos hp.1 _)).ne'
-  have hm : ((m : ℝ) / n / (1 - p)) ^ m ≠ 0 := by
-    rw [div_pow]
-    exact (div_pos (div_pow_self_pos m hn) (pow_pos (sub_pos.2 hp.2) _)).ne'
-  rw [mul_div_mul_comm, ← div_pow, ← div_pow, log_mul hk hm, log_pow, log_pow, klBerReal_def, h1,
-    mul_add, ← mul_assoc, ← mul_assoc, mul_div_cancel₀ _ hn'.ne', mul_div_cancel₀ _ hn'.ne']
-
 /-- **The Krichevsky–Trofimov bound for the log-likelihood ratio** [GK16, Lemma 11]: for a
 sequence of `n = k + m ≥ 1` observations with `k` ones and `m` zeros and `p ∈ (0, 1)`,
 `n d(k / n, p) ≤ log (2 √n kt(k, m) / (p ^ k (1 - p) ^ m))`, where
@@ -316,42 +279,9 @@ theorem mul_klBerReal_div_le_log_two_mul_sqrt_mul_integral_betaMeasure_div {k m 
         (p ^ k * (1 - p) ^ m))) := by
   rw [mul_klBerReal_div_eq_log hkm hn hp, ← mul_div_assoc]
   have hq : 0 < p ^ k * (1 - p) ^ m := mul_pos (pow_pos hp.1 _) (pow_pos (sub_pos.2 hp.2) _)
-  exact log_le_log (div_pos (mul_pos (div_pow_self_pos k hn) (div_pow_self_pos m hn)) hq)
+  exact log_le_log (div_pos (div_pow_mul_div_pow_pos k m hn) hq)
     (div_le_div_of_nonneg_right (div_pow_mul_div_pow_le_two_mul_sqrt_mul_integral_betaMeasure
       hkm hn) hq.le)
-
-/-- The maximum likelihood of a Bernoulli sample: `u ^ k (1 - u) ^ m ≤ (k / n) ^ k (m / n) ^ m`
-for every `u ∈ [0, 1]` and `n = k + m`. -/
-lemma pow_mul_one_sub_pow_le_div_pow_mul_div_pow {k m n : ℕ} (hkm : k + m = n) {u : ℝ}
-    (hu : u ∈ Icc 0 1) :
-    u ^ k * (1 - u) ^ m ≤ ((k : ℝ) / n) ^ k * ((m : ℝ) / n) ^ m := by
-  rcases Nat.eq_zero_or_pos n with rfl | hn
-  · obtain ⟨rfl, rfl⟩ : k = 0 ∧ m = 0 := by omega
-    simp
-  have hn' : (0 : ℝ) < n := by exact_mod_cast hn
-  have hkm' : (k : ℝ) + m = n := by exact_mod_cast hkm
-  have hR : 0 < ((k : ℝ) / n) ^ k * ((m : ℝ) / n) ^ m :=
-    mul_pos (div_pow_self_pos k hn) (div_pow_self_pos m hn)
-  -- at `u = 0` or `u = 1` the likelihood is `0` unless the sample is constant, where both are `1`
-  rcases hu.1.eq_or_lt with rfl | hu0
-  · rcases Nat.eq_zero_or_pos k with rfl | hk
-    · obtain rfl : m = n := by omega
-      simp [div_self hn'.ne']
-    · simp [zero_pow hk.ne', hR.le]
-  rcases hu.2.eq_or_lt with rfl | hu1
-  · rcases Nat.eq_zero_or_pos m with rfl | hm
-    · obtain rfl : k = n := by omega
-      simp [div_self hn'.ne']
-    · simp [zero_pow hm.ne', hR.le]
-  -- for `u ∈ (0, 1)`, the ratio of the two likelihoods is `exp (n d(k / n, u)) ≥ 1`
-  have hkn : (k : ℝ) / n ∈ Icc 0 1 := ⟨by positivity, by
-    rw [div_le_one hn']
-    linarith [(m.cast_nonneg : (0 : ℝ) ≤ m)]⟩
-  have hq : 0 < u ^ k * (1 - u) ^ m := mul_pos (pow_pos hu0 _) (pow_pos (sub_pos.2 hu1) _)
-  have hlog : 0 ≤ log (((k : ℝ) / n) ^ k * ((m : ℝ) / n) ^ m / (u ^ k * (1 - u) ^ m)) := by
-    rw [← mul_klBerReal_div_eq_log hkm hn ⟨hu0, hu1⟩]
-    exact mul_nonneg hn'.le (klBerReal_nonneg hkn hu (klBer_ne_top ⟨hu0, hu1⟩))
-  rwa [log_nonneg_iff (div_pos hR hq), one_le_div hq] at hlog
 
 /-- **The Krichevsky–Trofimov bound** [GK16, Lemma 11]: for every `u ∈ [0, 1]`, the likelihood
 `u ^ k (1 - u) ^ m` of a sequence of `n = k + m ≥ 1` observations with `k` ones and `m` zeros under
