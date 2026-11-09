@@ -7,7 +7,7 @@ module
 
 public import LMLExplore.Algebra.Order.BigOperators.SignFlip
 public import LMLExplore.Bandits.LinearBandit.DivergenceDecomposition
-public import LMLExplore.MeasureTheory.Function.SpecialFunctions.Inner
+public import LMLExplore.Bandits.LinearBandit.SignedParameter
 public import LeanMachineLearning.SequentialLearning.IonescuTulceaSpace
 
 /-!
@@ -62,12 +62,6 @@ section Hypercube
 
 variable [Fintype ι] {b : OrthonormalBasis ι ℝ E} {θ : E} {Δ : ℝ} {s : ι → ℝ}
 
-/-- The inner product with a parameter whose coordinates in the basis `b` are `Δ * s i`. -/
-private lemma inner_eq_sum_of_inner_basis (hθ : ∀ i, ⟪b i, θ⟫_ℝ = Δ * s i) (x : E) :
-    ⟪θ, x⟫_ℝ = ∑ i, Δ * s i * ⟪b i, x⟫_ℝ := by
-  rw [← b.sum_inner_mul_inner θ x]
-  exact sum_congr rfl fun i _ ↦ by rw [real_inner_comm (b i) θ, hθ]
-
 private lemma abs_inner_le_of_inner_basis (hΔ : 0 ≤ Δ) (hs : ∀ i, |s i| = 1)
     (hθ : ∀ i, ⟪b i, θ⟫_ℝ = Δ * s i) {x : E} (hx : ∀ i, |⟪b i, x⟫_ℝ| ≤ 1) :
     |⟪θ, x⟫_ℝ| ≤ Δ * Fintype.card ι := by
@@ -117,49 +111,6 @@ private lemma mul_sum_indicator_le_iSup_inner_sub_inner (hΔ : 0 ≤ Δ) (hs : �
 
 variable [MeasurableSpace E] [OpensMeasurableSpace E]
 
-/-- The set of actions whose feature has a nonpositive `i`-th coordinate times `s i` in the basis
-`b` is measurable. -/
-private lemma measurableSet_mul_inner_nonpos (hφ : Measurable φ) (b : OrthonormalBasis ι ℝ E)
-    (s : ι → ℝ) (i : ι) : MeasurableSet {x | s i * ⟪b i, φ x⟫_ℝ ≤ 0} :=
-  measurableSet_le ((hφ.const_inner' (b i)).const_mul (s i)) measurable_const
-
-/-- The expected regret of a run against a parameter with coordinates `Δ * s i`, for signs `s i`
-and features in the hypercube that contains the vertex `s`, is at least `Δ` times the expected
-number of pairs of a round and a coordinate `i` at which the feature of the action played does not
-have the sign `s i`. -/
-private lemma mul_sum_sum_measureReal_le_integral_linearRegret {Ω : Type*} {mΩ : MeasurableSpace Ω}
-    {P : Measure Ω} [IsProbabilityMeasure P] {A : ℕ → Ω → 𝓐} (hA : ∀ t, Measurable (A t))
-    (hφ : Measurable φ) (hΔ : 0 ≤ Δ) (hs : ∀ i, |s i| = 1) (hθ : ∀ i, ⟪b i, θ⟫_ℝ = Δ * s i)
-    (hcube : ∀ a i, |⟪b i, φ a⟫_ℝ| ≤ 1) (hvert : ∃ a, ∀ i, ⟪b i, φ a⟫_ℝ = s i)
-    (O : ℕ → Ω → Unit) (n : ℕ) :
-    Δ * ∑ i, ∑ t ∈ range n, P.real (A t ⁻¹' {x | s i * ⟪b i, φ x⟫_ℝ ≤ 0}) ≤
-      ∫ ω, linearRegret (fun _ ↦ φ) θ O A n ω ∂P := by
-  obtain ⟨a₀, ha₀⟩ := hvert
-  have hS := measurableSet_mul_inner_nonpos hφ b s
-  have hind (i : ι) (t : ℕ) :
-      Integrable ((A t ⁻¹' {x | s i * ⟪b i, φ x⟫_ℝ ≤ 0}).indicator (1 : Ω → ℝ)) P :=
-    (integrable_const (1 : ℝ)).indicator (hA t (hS i))
-  have hreg : Integrable (fun ω ↦ linearRegret (fun _ ↦ φ) θ O A n ω) P := by
-    simp_rw [linearRegret_def]
-    refine integrable_finsetSum _ fun t _ ↦ (integrable_const _).sub ?_
-    refine Integrable.of_bound ((hφ.const_inner' θ).comp (hA t)).aestronglyMeasurable
-      (Δ * Fintype.card ι) (ae_of_all _ fun ω ↦ ?_)
-    rw [Real.norm_eq_abs]
-    exact abs_inner_le_of_inner_basis hΔ hs hθ (hcube _)
-  calc Δ * ∑ i, ∑ t ∈ range n, P.real (A t ⁻¹' {x | s i * ⟪b i, φ x⟫_ℝ ≤ 0})
-      = ∫ ω, Δ * ∑ i, ∑ t ∈ range n,
-          (A t ⁻¹' {x | s i * ⟪b i, φ x⟫_ℝ ≤ 0}).indicator 1 ω ∂P := by
-        rw [integral_const_mul, integral_finsetSum _ fun i _ ↦ integrable_finsetSum _ fun t _ ↦
-          hind i t]
-        simp_rw [integral_finsetSum _ fun t _ ↦ hind _ t, integral_indicator_one (hA _ (hS _))]
-    _ ≤ ∫ ω, linearRegret (fun _ ↦ φ) θ O A n ω ∂P := by
-        refine integral_mono (((integrable_finsetSum _ fun i _ ↦
-          integrable_finsetSum _ fun t _ ↦ hind i t)).const_mul Δ) hreg fun ω ↦ ?_
-        rw [linearRegret_def, sum_comm, mul_sum]
-        refine sum_le_sum fun t _ ↦ ?_
-        simpa [Set.indicator_apply] using
-          mul_sum_indicator_le_iSup_inner_sub_inner hΔ hs hθ hcube ha₀ (A t ω)
-
 /-- **Flipping one sign.** Let `θ` and `θ'` have coordinates `Δ * s j` and `Δ * s' j` in the basis
 `b`, for signs that agree except at `i`, where `s' i = -s i`, and let `n Δ² ≤ σ²`. For features in
 the hypercube, the expected numbers of rounds `t < n` at which the `i`-th coordinate of the feature
@@ -181,10 +132,7 @@ private lemma mul_exp_neg_two_div_two_le_sum_add_sum {Ω Ω' : Type*} {mΩ : Mea
       ∑ t ∈ range n, P'.real (A' t ⁻¹' {x | s' i * ⟪b i, φ x⟫_ℝ ≤ 0}) := by
   -- `θ - θ'` is `2 Δ s i b i`, so `⟪θ - θ', x⟫² ≤ 4 Δ²` on the hypercube
   have hdiff (a : 𝓐) : ⟪θ - θ', φ a⟫_ℝ ^ 2 ≤ 4 * Δ ^ 2 := by
-    have heq : ⟪θ - θ', φ a⟫_ℝ = 2 * Δ * s i * ⟪b i, φ a⟫_ℝ := by
-      rw [inner_sub_left, inner_eq_sum_of_inner_basis hθ, inner_eq_sum_of_inner_basis hθ',
-        ← sum_sub_distrib, Fintype.sum_eq_single i fun j hj ↦ by rw [hs' j hj, sub_self], hs'i]
-      ring
+    have heq := inner_sub_eq_of_inner_basis hθ hθ' hs'i hs' (φ a)
     have hsq : s i ^ 2 = 1 := by rw [← sq_abs, hs, one_pow]
     have hc : ⟪b i, φ a⟫_ℝ ^ 2 ≤ 1 := (sq_le_one_iff_abs_le_one _).2 (hcube a i)
     rw [heq, mul_pow, mul_pow, mul_pow, hsq, mul_one]
@@ -195,10 +143,7 @@ private lemma mul_exp_neg_two_div_two_le_sum_add_sum {Ω Ω' : Type*} {mΩ : Mea
   have hbh := h.mul_exp_neg_div_two_le_sum_gaussianLinearEnv h' hσ2 hdiff n
     (measurableSet_mul_inner_nonpos hφ b s i)
   -- an action on the wrong side for `θ'` is one on the right side for `θ`
-  have hsub : {x | s i * ⟪b i, φ x⟫_ℝ ≤ 0}ᶜ ⊆ {x | s' i * ⟪b i, φ x⟫_ℝ ≤ 0} := fun x hx ↦ by
-    simp only [Set.mem_compl_iff, Set.mem_ofPred_eq, not_le] at hx ⊢
-    rw [hs'i, neg_mul]
-    exact neg_nonpos.2 hx.le
+  have hsub := compl_setOf_mul_nonpos_subset (fun x ↦ ⟪b i, φ x⟫_ℝ) hs'i
   calc (n : ℝ) * exp (-2) / 2 ≤ n * exp (-(n * (4 * Δ ^ 2) / (2 * σ2))) / 2 := by gcongr
     _ ≤ _ := hbh
     _ ≤ _ := by
@@ -243,8 +188,12 @@ theorem exists_le_integral_linearRegret_gaussianLinearEnv (alg : Algorithm Unit 
   have hR (ε : ι → Bool) : Δ * ∑ i, f ε i ≤ ∫ ω, linearRegret (fun _ ↦ φ) (θ ε) IT.obs
       IT.action n ω
         ∂(trajMeasure alg (gaussianLinearEnv (Measure.dirac ()) (fun _ ↦ φ) (θ ε) σ2 (hθm ε))) :=
-    mul_sum_sum_measureReal_le_integral_linearRegret (hrun ε).measurable_action hφ hΔ0 (hsg ε)
-      (hθ ε) hcube (hvert _ (hsg ε)) _ n
+    have ⟨a₀, ha₀⟩ := hvert _ (hsg ε)
+    (mul_sum_sum_measureReal_le_mul_integral_linearRegret (hrun ε).measurable_action
+      (hφ.const_inner' (θ ε)) (fun a ↦ abs_inner_le_of_inner_basis hΔ0 (hsg ε) (hθ ε) (hcube a))
+      (measurableSet_mul_inner_nonpos hφ b (sg ε)) (fun a ↦
+        (mul_sum_indicator_le_iSup_inner_sub_inner hΔ0 (hsg ε) (hθ ε) hcube ha₀ a).trans_eq
+          (one_mul _).symm) _ n).trans_eq (one_mul _)
   -- the degenerate case `σ² = 0`, where the bound is `0`
   rcases eq_or_ne σ2 0 with rfl | hσ2
   · refine ⟨θ fun _ ↦ true, habs _, fun _ ↦ ?_⟩

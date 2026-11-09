@@ -355,9 +355,7 @@ private lemma mul_le_glr_plugInCost {Ω : Type*} {O : ℕ → Ω → Unit} {A : 
     linarith [show (0 : ℝ) ≤ Fintype.card α / 2 by positivity]
   -- The proportions of pulls `q = N(T) / T` are an allocation `η`-close to `w(μ)`.
   set q : α → ℝ := fun a ↦ (pullCount' T (history O A Y T ω) a : ℝ) / T
-  have hq : q ∈ simplex α := by
-    refine mem_simplex_iff.2 ⟨fun a ↦ by positivity, ?_⟩
-    rw [← Finset.sum_div, ← Nat.cast_sum, sum_pullCount', div_self (Nat.cast_ne_zero.2 hT0)]
+  have hq : q ∈ simplex α := pullCount'_div_mem_simplex _ hT0
   have hq_dist : dist q (w μ) < η := by
     refine (dist_pi_lt_iff (hε.trans_le (le_mul_of_one_le_left hε.le ?_) |>.trans_le hεη)).2
       fun a ↦ ?_
@@ -632,9 +630,7 @@ private lemma mul_le_glr_plugInCost_of_mem_thickening {Ω : Type*} {O : ℕ → 
       using h
   -- The proportions of pulls `q = N(T) / T` are an allocation `η`-close to `cbar`.
   set q : α → ℝ := fun a ↦ (pullCount' T (history O A Y T ω) a : ℝ) / T
-  have hq : q ∈ simplex α := by
-    refine mem_simplex_iff.2 ⟨fun a ↦ by positivity, ?_⟩
-    rw [← Finset.sum_div, ← Nat.cast_sum, sum_pullCount', div_self hT'.ne']
+  have hq : q ∈ simplex α := pullCount'_div_mem_simplex _ hT0
   have hq_dist (a : α) : |q a - cbar a| < η := by
     have h_eq : q a - cbar a = ((pullCount A a T ω - ∑ s ∈ range T, v s a) +
         (∑ s ∈ range T, v s a - T * cbar a)) / T := by
