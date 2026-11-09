@@ -37,6 +37,19 @@ probability the supremum of theirs. With `⌊log n / log c⌋₊ + 1` slices thi
 `(⌊log n / log c⌋₊ + 1) exp (-x / c)` for every ratio `c > 1`, and the ratio `c = x / (x - 1)`
 gives [GC11, Theorem 10].
 
+For independent variables `Z 0, Z 1, …` dominated by `Y`, for instance with the law of `Y`, the
+filtration of the past variables makes `Z n` independent of the past, so its conditional moment
+generating function is bounded by that of `Y` (`LMLExplore.HasMGFBound.hasCondMGFBound_of_indep`),
+and the bound on one slice, with every variable selected, holds for the means
+`μ̂_n = (Z 0 + ⋯ + Z (n - 1)) / n` of the first `n` variables. On a slice `a ≤ n < b` of sample
+sizes, the deviation `z ≤ n I(μ̂_n)` forces `I(μ̂_n) > z / b`, on either side of the mean, so it
+happens on the slice with probability at most `2 exp (-(a z / b))`. On the dyadic slices
+`2 ^ k ≤ n < 2 ^ (k + 1)` this is `2 exp (-z / 2)`, the
+step of the peeled deviation bounds of `SequentialLearning/RateFunctionDeviation.lean`. The
+bounds for independent variables are adapted from the formalization in the Garivier2016Optimal
+project (Rémy Degenne, <https://github.com/RemyDegenne/Garivier2016Optimal>, file
+`Garivier2016Optimal/ForLMLExplore/Probability/Martingale/RateFunction.lean`).
+
 ## Main statements
 
 * `LMLExplore.measure_exists_le_sum_and_gt_and_lt_rateFunction_le`: the bound
@@ -47,6 +60,11 @@ gives [GC11, Theorem 10].
 * `LMLExplore.measure_exists_gt_and_le_mul_rateFunction_le`,
   `LMLExplore.measure_exists_lt_and_le_mul_rateFunction_le`: [GC11, Theorem 10], the bound
   `e ⌈x log n⌉ exp (-x)`, above and below the mean.
+* `ProbabilityTheory.iIndepFun.measure_exists_le_and_gt_and_lt_rateFunction_le`: for independent
+  variables dominated by `Y`, `P(∃ n ≥ a, m < μ̂_n, r < I(μ̂_n)) ≤ exp (-(a r))`.
+* `ProbabilityTheory.iIndepFun.measure_exists_le_and_lt_and_le_mul_rateFunction_le`: for
+  independent variables dominated by `Y`, the two-sided bound
+  `P(∃ n, a ≤ n < b, z ≤ n I(μ̂_n)) ≤ 2 exp (-(a z / b))`.
 
 ## References
 
@@ -311,5 +329,103 @@ theorem measure_exists_lt_and_le_mul_rateFunction_le
       ENNReal.ofReal (exp 1 * ⌈x * log n⌉₊ * exp (-x)) :=
   measure_le_exp_one_mul_ceil_mul_exp hx hn fun _ hc ↦
     measure_exists_lt_and_le_mul_rateFunction_le_mul hX hψ hw hw01 hY hc hx n
+
+/-! ### Independent variables -/
+
+section Indep
+
+variable {Z : ℕ → Ω → ℝ}
+
+/-- **Time-uniform Chernoff bound for sums of independent variables, with the rate function.** Let
+`Z 0, Z 1, …` be independent, each dominated on `Set.Ici 0`, in moment generating function, by the
+integrable `Y` (for instance, each with the law of `Y`), with rate function `I`, and let `μ̂_n` be
+the mean of the first `n` of them. For `a > 0` and `r ≥ 0`, the probability that `μ̂_n` is above
+the mean of `Y` with `r < I(μ̂_n)` for some `n ≥ a` is at most `exp (-(a r))`. -/
+theorem _root_.ProbabilityTheory.iIndepFun.measure_exists_le_and_gt_and_lt_rateFunction_le
+    (h_indep : iIndepFun Z P) (hZm : ∀ i, Measurable (Z i))
+    (hZ : ∀ i, MGFDominatedOn (Z i) P Y Q (Ici 0)) (hY : Integrable Y Q) {a r : ℝ} (ha : 0 < a)
+    (hr : 0 ≤ r) :
+    P {ω | ∃ n : ℕ, a ≤ n ∧ Q[Y] < (∑ i ∈ range n, Z i ω) / n ∧
+      ENNReal.ofReal r < rateFunction Y Q ((∑ i ∈ range n, Z i ω) / n)} ≤
+      ENNReal.ofReal (exp (-(a * r))) := by
+  -- the filtration of the past variables, of which `Z n` is independent
+  let ℱ : Filtration ℕ mΩ :=
+    { seq n := ⨆ i ∈ Set.Iio n, MeasurableSpace.comap (Z i) inferInstance
+      mono' _ _ hnm := biSup_mono fun i hi ↦ lt_of_lt_of_le hi hnm
+      le' _ := iSup₂_le fun i _ ↦ (hZm i).comap_le }
+  have hX (n : ℕ) : Measurable[ℱ (n + 1)] (Z n) :=
+    Measurable.of_comap_le (le_iSup₂ (f := fun i (_ : i ∈ Set.Iio (n + 1)) ↦
+      MeasurableSpace.comap (Z i) inferInstance) n (Nat.lt_succ_self n))
+  have hψ (n : ℕ) : HasCondMGFBound (ℱ n) (ℱ.le n) (Z n) (cgf Y Q)
+      (Ici 0 ∩ integrableExpSet Y Q) P := by
+    refine HasMGFBound.hasCondMGFBound_of_indep
+      (mgfDominatedOn_iff_hasMGFBound.1 (hZ n)) (hZm n) ?_
+    have h := indep_iSup_of_disjoint (fun i ↦ (hZm i).comap_le) h_indep
+      (S := {n}) (T := Set.Iio n) (by simp)
+    simpa only [Set.mem_singleton_iff, iSup_iSup_eq_left] using h
+  -- every variable is selected
+  have h := measure_exists_le_sum_and_gt_and_lt_rateFunction_le (ℱ := ℱ) (w := fun _ _ ↦ 1) hX hψ
+    (fun _ ↦ measurable_const) (fun _ _ ↦ Or.inr rfl) hY ha hr
+  simpa using h
+
+/-- **Two-sided deviations of sums of independent variables on a slice of sample sizes.** Let
+`Z 0, Z 1, …` be independent, each dominated on `Set.univ`, in moment generating function, by the
+integrable `Y` (for instance, each with the law of `Y`), with rate function `I`, and let `μ̂_n` be
+the mean of the first `n` of them. For `a > 0` and `z > 0`, the probability that `z ≤ n I(μ̂_n)`
+for some `n` with `a ≤ n < b` is at most `2 exp (-(a z / b))`. -/
+theorem _root_.ProbabilityTheory.iIndepFun.measure_exists_le_and_lt_and_le_mul_rateFunction_le
+    (h_indep : iIndepFun Z P) (hZm : ∀ i, Measurable (Z i))
+    (hZ : ∀ i, MGFDominatedOn (Z i) P Y Q Set.univ) (hY : Integrable Y Q) {a b z : ℝ}
+    (ha : 0 < a) (hz : 0 < z) :
+    P {ω | ∃ n : ℕ, a ≤ n ∧ (n : ℝ) < b ∧
+      ENNReal.ofReal z ≤ n * rateFunction Y Q ((∑ i ∈ range n, Z i ω) / n)} ≤
+      ENNReal.ofReal (2 * exp (-(a * (z / b)))) := by
+  rcases le_or_gt b 0 with hb | hb
+  · refine le_of_eq_of_le (b := 0) (measure_eq_zero_iff_ae_notMem.2 ?_) zero_le
+    refine ae_of_all _ fun ω ⟨n, han, hnb, _⟩ ↦ ?_
+    linarith
+  have hr : 0 ≤ z / b := (div_pos hz hb).le
+  have h_pos := h_indep.measure_exists_le_and_gt_and_lt_rateFunction_le hZm
+    (fun i ↦ (hZ i).mono (subset_univ _)) hY ha hr
+  -- the deviations below the mean are those of `-Z` above the mean of `-Y`
+  have h_indep_neg : iIndepFun (fun i ↦ -Z i) P :=
+    h_indep.comp (fun _ x ↦ -x) fun _ ↦ measurable_neg
+  have h_neg := h_indep_neg.measure_exists_le_and_gt_and_lt_rateFunction_le (Y := -Y)
+    (fun i ↦ (hZm i).neg) (fun i ↦ ((hZ i).neg.mono (by simp)).mono (subset_univ _)) hY.neg ha
+    hr
+  refine (measure_mono fun ω hω ↦ ?_).trans ((measure_union_le _ _).trans
+    ((add_le_add h_pos h_neg).trans_eq ?_))
+  · obtain ⟨n, han, hnb, hz_le⟩ := hω
+    have hn : (0 : ℝ) < n := ha.trans_le han
+    -- the rate function exceeds `z / b`
+    have h_rate : ENNReal.ofReal (z / b) <
+        rateFunction Y Q ((∑ i ∈ range n, Z i ω) / n) := by
+      set I := rateFunction Y Q ((∑ i ∈ range n, Z i ω) / n)
+      rcases eq_or_ne I ⊤ with hI | hI
+      · rw [hI]
+        exact ENNReal.ofReal_lt_top
+      rw [← ENNReal.ofReal_toReal hI] at hz_le ⊢
+      rw [← ENNReal.ofReal_natCast, ← ENNReal.ofReal_mul hn.le,
+        ENNReal.ofReal_le_ofReal_iff (by positivity)] at hz_le
+      refine (ENNReal.ofReal_lt_ofReal_iff_of_nonneg hr).2 ?_
+      rw [div_lt_iff₀ hb]
+      have hI0 : 0 < I.toReal := by
+        by_contra! h
+        nlinarith [ENNReal.toReal_nonneg (a := I)]
+      nlinarith
+    rcases lt_trichotomy Q[Y] ((∑ i ∈ range n, Z i ω) / n) with h | h | h
+    · exact Or.inl ⟨n, han, h, h_rate⟩
+    · -- the rate function vanishes at the mean
+      rw [← h, rateFunction_integral hY] at hz_le
+      simp only [mul_zero, nonpos_iff_eq_zero, ENNReal.ofReal_eq_zero] at hz_le
+      linarith
+    · refine Or.inr ⟨n, han, ?_, ?_⟩
+      · simp only [Pi.neg_apply, sum_neg_distrib, neg_div, integral_neg]
+        linarith
+      · simpa [neg_div] using h_rate
+  · rw [← ENNReal.ofReal_add (by positivity) (by positivity)]
+    ring_nf
+
+end Indep
 
 end LMLExplore
