@@ -37,6 +37,11 @@ budget `T` and a single alternative `θ'`, this gives
   stops almost surely on `θ`.
 * `IdentTask.exists_exp_neg_mul_div_four_le_max`: the bound for a finite family of models, with
   the exponent `E_θ[τ] sup_{w ∈ Δ_K} min_{θ' ∈ Λ} cost_θ(w, θ')`.
+* `LMLExplore.Identification.IsFixedBudget.klDiv_outputMeasure_le`: the divergence decomposition
+  `KL(P_θ^out, P_θ'^out) ≤ ∑ a, E_θ[N_a(T)] KL(ν_a(θ), ν_a(θ'))` for the laws of the output of a
+  fixed-budget algorithm with budget `T`.
+* `LMLExplore.Identification.IsFixedBudget.expectedPullProportion_mem_simplex`: for a fixed-budget
+  algorithm with budget `T ≠ 0`, the expected proportions of pulls lie in the simplex.
 * `LMLExplore.Identification.IsFixedBudget.exp_neg_sum_lintegral_pullCount_mul_klDiv_div_two_le`:
   the bound `P_θ(error) + P_θ'(error) ≥ exp(-∑ a, E_θ[N_a(T)] KL(ν_a(θ), ν_a(θ'))) / 2` for a
   fixed-budget algorithm with budget `T`.
@@ -162,6 +167,26 @@ namespace IsFixedBudget
 
 variable {T : ℕ}
 
+omit [MeasurableSpace.CountablyGenerated 𝓨] in
+/-- For a fixed-budget algorithm with budget `T ≠ 0`, the expected proportions of pulls lie in the
+simplex. -/
+lemma expectedPullProportion_mem_simplex (hA : IsFixedBudget A T) (hT : T ≠ 0)
+    (env : Environment Unit α 𝓨) : expectedPullProportion A env ∈ simplex α :=
+  Identification.expectedPullProportion_mem_simplex (by simp [hA.expectedStoppingTime_eq env, hT])
+    (by simp [hA.expectedStoppingTime_eq env])
+
+/-- **Divergence decomposition for the output of a fixed-budget algorithm.** If `A` has budget
+`T`, the relative entropy between the laws of its output on the bandits `κ` and `κ'` is at most
+`∑ a, E_κ[N_a(T)] KL(κ a ‖ κ' a)`, where `N_a(T)` is the number of pulls of the arm `a` in the
+first `T` rounds. -/
+lemma klDiv_outputMeasure_le (hA : IsFixedBudget A T) (κ κ' : Kernel α 𝓨) [IsMarkovKernel κ]
+    [IsMarkovKernel κ'] :
+    klDiv (A.outputMeasure (Environment.bandit κ)) (A.outputMeasure (Environment.bandit κ')) ≤
+      ∑ a, (∫⁻ ω, (pullCount IT.action a T ω : ℝ≥0∞)
+        ∂(trajMeasure A.alg (Environment.bandit κ))) * klDiv (κ a) (κ' a) := by
+  simpa only [hA.toNat_stoppingTime] using
+    Identification.klDiv_outputMeasure_le A κ κ' (hA.stopsAS _)
+
 /-- **Bretagnolle–Huber lower bound on the probability of error of a fixed-budget algorithm.** Let
 `A` be a fixed-budget algorithm with budget `T`, and let `θ` and `θ'` be two models without a
 common correct answer. If `∑ a, E_θ[N_a(T)] KL(ν_a(θ), ν_a(θ'))` is finite, where `N_a(T)` is the
@@ -177,11 +202,9 @@ theorem exp_neg_sum_lintegral_pullCount_mul_klDiv_div_two_le (hA : IsFixedBudget
           klDiv (task.ν θ a) (task.ν θ' a)).toReal) / 2 ≤
       (A.outputMeasure (Environment.bandit (task.ν θ))).real (task.correct θ)ᶜ +
         (A.outputMeasure (Environment.bandit (task.ν θ'))).real (task.correct θ')ᶜ := by
-  have hτ : ∀ ω, ENat.toNat (A.stoppingTime IT.obs IT.action IT.feedback ω) = T := fun ω ↦ by
-    rw [hA.stoppingTime_eq]
-    exact ENat.toNat_natCast T
-  simpa only [hτ] using IdentTask.exp_neg_sum_lintegral_pullCount_mul_klDiv_div_two_le
-    (hA.stopsAS _) hdisj hc (by simpa only [hτ] using h)
+  simpa only [hA.toNat_stoppingTime] using
+    IdentTask.exp_neg_sum_lintegral_pullCount_mul_klDiv_div_two_le (hA.stopsAS _) hdisj hc
+      (by simpa only [hA.toNat_stoppingTime] using h)
 
 omit [Fintype α] [DecidableEq α] in
 /-- **Fixed-budget lower bound for two models.** Let `A` be a fixed-budget algorithm with budget

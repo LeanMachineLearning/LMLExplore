@@ -19,6 +19,8 @@ rule plays a fixed sequence of actions, whatever the observations and feedbacks.
 
 * `LMLExplore.Identification.IsFixedBudget A T`: the stopping rule of `A` is "stop after exactly
   `T` rounds".
+* `LMLExplore.Identification.IsFixedBudgetFamily 𝒜`: the sequence of algorithms `𝒜` has, for
+  every `T`, an algorithm `𝒜 T` with budget `T`.
 * `LMLExplore.Identification.fixedBudget alg T ρ`: the fixed-budget identification algorithm with
   sampling rule `alg`, budget `T` and output kernel `ρ` on the histories of `T` rounds.
 * `LMLExplore.Identification.IsFixedDesign alg`: the sampling rule `alg` plays a fixed sequence of
@@ -36,6 +38,8 @@ rule plays a fixed sequence of actions, whatever the observations and feedbacks.
 * `LMLExplore.Identification.IsFixedBudget.stopsAS`,
   `LMLExplore.Identification.IsFixedBudget.expectedStoppingTime_eq`: a fixed-budget algorithm with
   budget `T` stops almost surely, and its expected stopping time is `T`.
+* `LMLExplore.Identification.IsFixedBudget.lintegral_pullCount_div`: for a fixed-budget algorithm
+  with budget `T ≠ 0`, `E[N_a(T)] / T` is the expected proportion of pulls of `a`.
 * `Learning.IdentAlg.IsRun.hasCondDistrib_output_history`: in a run of a fixed-budget algorithm,
   the output has conditional law `outputAt A T` given the history of the first `T` rounds.
 * `LMLExplore.Identification.IsFixedBudget.hasLaw_output_of_isAlgEnvSeqUntil`,
@@ -49,6 +53,8 @@ Adapted from the LMLPapers project (same author).
 public section
 
 open MeasureTheory ProbabilityTheory Learning
+
+open scoped ENNReal
 
 variable {𝓞 𝓐 𝓨 𝓓 Ω : Type*} {m𝓞 : MeasurableSpace 𝓞} {m𝓐 : MeasurableSpace 𝓐}
   {m𝓨 : MeasurableSpace 𝓨} {m𝓓 : MeasurableSpace 𝓓} {mΩ : MeasurableSpace Ω}
@@ -84,6 +90,12 @@ lemma IsFixedBudget.stoppingTime_ne_top (hA : IsFixedBudget A T) (ω : Ω) :
     A.stoppingTime O X Y ω ≠ ⊤ := by
   rw [hA.stoppingTime_eq]
   exact ENat.natCast_ne_top T
+
+/-- The stopping time of a fixed-budget algorithm with budget `T`, as a natural number, is `T`. -/
+lemma IsFixedBudget.toNat_stoppingTime (hA : IsFixedBudget A T) (ω : Ω) :
+    ENat.toNat (A.stoppingTime O X Y ω) = T := by
+  rw [hA.stoppingTime_eq]
+  exact ENat.toNat_natCast T
 
 /-- The history at the stopping time of a fixed-budget algorithm with budget `T` is the history
 of the first `T` rounds. -/
@@ -138,6 +150,19 @@ lemma IsFixedBudget.expectedStoppingTime_eq (hA : IsFixedBudget A T)
   simp only [expectedStoppingTime_def, hA.stoppingTime_eq, lintegral_const, measure_univ, mul_one]
   exact ENat.toENNReal_coe T
 
+/-- For a fixed-budget algorithm with budget `T ≠ 0`, the expected number of pulls `E[N_a(T)]` of
+the action `a` in the first `T` rounds, divided by `T`, is the expected proportion of pulls of `a`.
+-/
+lemma IsFixedBudget.lintegral_pullCount_div [DecidableEq 𝓐] (hA : IsFixedBudget A T) (hT : T ≠ 0)
+    (env : Environment 𝓞 𝓐 𝓨) (a : 𝓐) :
+    (∫⁻ ω, (pullCount IT.action a T ω : ℝ≥0∞) ∂(trajMeasure A.alg env)) / T =
+      ENNReal.ofReal (expectedPullProportion A env a) := by
+  have h := expectedStoppingTime_mul_ofReal_expectedPullProportion
+    (hA.expectedStoppingTime_eq env ▸ ENNReal.natCast_ne_top T) a
+  simp only [hA.toNat_stoppingTime, hA.expectedStoppingTime_eq env] at h
+  rw [← h, mul_comm,
+    ENNReal.mul_div_cancel_right (by exact_mod_cast hT) (ENNReal.natCast_ne_top T)]
+
 /-- If `A` has budget `T`, `(O, X, Y)` is an algorithm-environment sequence for the sampling rule
 of `A` until time `T` (the interaction may go on after time `T` with another algorithm) and `out`
 has conditional law `outputAt A T` given the history of the first `T` rounds, then `out` has the
@@ -150,6 +175,19 @@ lemma IsFixedBudget.hasLaw_output_of_isAlgEnvSeqUntil [IsProbabilityMeasure P] {
   rwa [h.map_history, ← hA.outputMeasure_eq] at h_comp
 
 end IsFixedBudget
+
+/-- The sequence of identification algorithms `𝒜` is a *fixed-budget family*: for every budget
+`T`, the algorithm `𝒜 T` stops after exactly `T` rounds. -/
+def IsFixedBudgetFamily (𝒜 : ℕ → IdentAlg 𝓞 𝓐 𝓨 𝓓) : Prop := ∀ T, IsFixedBudget (𝒜 T) T
+
+/-- The defining property of `IsFixedBudgetFamily`. -/
+lemma isFixedBudgetFamily_iff {𝒜 : ℕ → IdentAlg 𝓞 𝓐 𝓨 𝓓} :
+    IsFixedBudgetFamily 𝒜 ↔ ∀ T, IsFixedBudget (𝒜 T) T := Iff.rfl
+
+/-- The algorithm with budget `T` of a fixed-budget family stops after exactly `T` rounds. -/
+lemma IsFixedBudgetFamily.isFixedBudget {𝒜 : ℕ → IdentAlg 𝓞 𝓐 𝓨 𝓓} (h𝒜 : IsFixedBudgetFamily 𝒜)
+    (T : ℕ) : IsFixedBudget (𝒜 T) T :=
+  h𝒜 T
 
 end LMLExplore.Identification
 

@@ -67,6 +67,8 @@ supported distributions, not a subset of `α → ℝ`.
 * `LMLExplore.sum_inv_pos`: for positive weights `c` on a nonempty type, `0 < ∑ b, (c b)⁻¹`.
 * `LMLExplore.iInf_ofReal_inv_div_sum_inv_mul`: at the vector proportional to `c⁻¹`, the smallest
   weighted entry `min_a w a c a` is `(∑ b, (c b)⁻¹)⁻¹`.
+* `LMLExplore.iSup_iInf_mul_ofReal_le_inv_sum_inv`: for weights `c ∈ [0, ∞]` on a finite set `s`
+  of coordinates, `sup_{w ∈ Δ} min_{j ∈ s} c j w j ≤ (∑_{j ∈ s} (c j)⁻¹)⁻¹`, in `ℝ≥0∞`.
 * `LMLExplore.abs_div_sum_abs_mem_simplex`, `LMLExplore.sq_sum_abs_lt_sum_sq_div`: for a nonzero
   vector `u`, the vector `|u| / ‖u‖₁` lies in the simplex, and it is the unique minimizer of
   `w ↦ ∑ a, u a² / w a` on the vectors of the simplex that are positive where `u` does not
@@ -357,6 +359,24 @@ lemma iInf_ofReal_inv_div_sum_inv_mul [Nonempty α] (hc : ∀ a, 0 < c a) :
     field_simp [(hc a).ne']
   simp_rw [h]
   exact iInf_const
+
+/-- **Maximin of weighted entries over the simplex**: for weights `c j ∈ [0, ∞]` on a finite set
+`s` of coordinates, every vector `w` of the simplex has
+`min_{j ∈ s} c j w j ≤ (∑_{j ∈ s} (c j)⁻¹)⁻¹`, in `ℝ≥0∞`. For positive finite weights on all the
+coordinates, the bound is attained at the vector proportional to `c⁻¹`
+(`iInf_ofReal_inv_div_sum_inv_mul`). -/
+lemma iSup_iInf_mul_ofReal_le_inv_sum_inv (s : Finset α) (c : α → ENNReal) :
+    ⨆ w ∈ simplex α, ⨅ j ∈ s, c j * ENNReal.ofReal (w j) ≤ (∑ j ∈ s, (c j)⁻¹)⁻¹ := by
+  refine iSup₂_le fun w hw ↦ ENNReal.le_inv_iff_mul_le.2 ?_
+  rw [Finset.mul_sum]
+  calc ∑ j ∈ s, (⨅ j ∈ s, c j * ENNReal.ofReal (w j)) * (c j)⁻¹
+      ≤ ∑ j ∈ s, ENNReal.ofReal (w j) := Finset.sum_le_sum fun j hj ↦
+        calc (⨅ j ∈ s, c j * ENNReal.ofReal (w j)) * (c j)⁻¹
+            ≤ c j * ENNReal.ofReal (w j) * (c j)⁻¹ := by gcongr; exact iInf₂_le j hj
+          _ = ENNReal.ofReal (w j) * (c j * (c j)⁻¹) := by ring
+          _ ≤ ENNReal.ofReal (w j) := mul_le_of_le_one_right' (ENNReal.mul_inv_le_one _)
+    _ ≤ ∑ j, ENNReal.ofReal (w j) := Finset.sum_le_sum_of_subset (Finset.subset_univ s)
+    _ = 1 := by rw [← ENNReal.ofReal_sum_of_nonneg fun j _ ↦ hw.1 j, hw.2, ENNReal.ofReal_one]
 
 /-! ### The vector proportional to `|u|` -/
 
