@@ -236,6 +236,13 @@ lemma answerSet_restrict (i : ℐ) : (task.restrict S).answerSet i = task.answer
   simp only [mem_answerSet_iff, M_restrict, correct_restrict, Set.mem_inter_iff]
   tauto
 
+@[simp]
+lemma alternatives_restrict (θ : Θ) :
+    (task.restrict S).alternatives θ = task.alternatives θ ∩ S := by
+  ext θ'
+  simp only [mem_alternatives_iff, M_restrict, correct_restrict, Set.mem_inter_iff]
+  tauto
+
 lemma IsSingleAnswer.restrict (h : task.IsSingleAnswer) (S : Set Θ) :
     (task.restrict S).IsSingleAnswer :=
   fun θ hθ ↦ h θ hθ.1

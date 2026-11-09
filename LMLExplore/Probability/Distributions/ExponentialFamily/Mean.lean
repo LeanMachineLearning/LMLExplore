@@ -31,17 +31,29 @@ counterexample). If `T` has variance at most `v` under the members with mean bet
 then `d(μ, μ') ≥ (μ - μ')² / (2 v)`, the divergence between Gaussian laws of variance `v`. For
 weights `w i ≥ 0`, the weighted divergence `z ↦ ∑ i, w i d(μ i, z)` is minimal at the weighted mean
 `m` of the `μ i`, by the compensation identity
-`∑ i, w i d(μ i, z) = ∑ i, w i d(μ i, m) + (∑ i, w i) d(m, z)`. The
-function `d` is the divergence of the transportation costs and of the
-generalized likelihood ratio statistics of identification in bandits with arms in an exponential
-family, for example in A. Garivier and E. Kaufmann, *Optimal best arm identification with fixed
-confidence*, COLT 2016.
+`∑ i, w i d(μ i, z) = ∑ i, w i d(μ i, m) + (∑ i, w i) d(m, z)`. With the free mean first,
+`z ↦ ∑ i, w i d(z, μ i)` is minimal at the mean `x` whose natural parameter is the weighted mean
+of the `η(μ i)`, by the identity
+`∑ i, w i d(z, μ i) = ∑ i, w i d(x, μ i) + (∑ i, w i) d(z, x)`; these sums are the error exponents
+of static allocations in fixed-budget identification, where the alternative comes first. For two
+distinct means `μ₀` and `μ₁`, the slope `x* = (ψ(η(μ₀)) - ψ(η(μ₁))) / (η(μ₀) - η(μ₁))` of `ψ` is a
+mean of the family with natural parameter strictly between `η(μ₀)` and `η(μ₁)`, at the same
+divergence `d(x*, μ₀) = d(x*, μ₁)` from both: the Chernoff information of the two members
+[Che52; CT06, Section 11.9]. The function `d` is the divergence of the transportation costs and
+of the generalized likelihood ratio statistics of identification in bandits with arms in an
+exponential family, for example in A. Garivier and E. Kaufmann, *Optimal best arm identification
+with fixed confidence*, COLT 2016.
 
 The lemmas `expFamilyPairCost_le_of_mem_expFamilyMeans`, `continuousAt_expFamilyDiv_div` and
 `expFamilyDiv_div_pos` are adapted from the formalization Garivier2016Optimal
 (`github.com/RemyDegenne/Garivier2016Optimal`, file
 `Garivier2016Optimal/ForLMLExplore/Identification/Task/BestArmScalar.lean`, commit
 `25fa4a8c0924ffe015f41f22aff90acc9a270076`, by Rémy Degenne, Apache 2.0) of the paper above.
+The lemmas on the divergence with the free mean first and on the Chernoff point are adapted from
+the formalization Degenne2023Existence (`github.com/RemyDegenne/Degenne2023Existence`, file
+`Degenne2023Existence/ForLMLExplore/Probability/Distributions/ExponentialFamily/Mean.lean`,
+commit `a4244176eae7d9dd79c5c082f361c3b3b2541c0f`, by Rémy Degenne, Apache 2.0) of R. Degenne,
+*On the existence of a complexity in fixed budget bandit identification*, COLT 2023.
 
 ## Main definitions
 
@@ -86,6 +98,10 @@ The lemmas `expFamilyPairCost_le_of_mem_expFamilyMeans`, `continuousAt_expFamily
   `γ` between `μ` and a mean `x`.
 * `MeasureTheory.Measure.exists_mem_Icc_expFamilyDiv_eq`: between two means `μ' ≤ μ` there is a
   mean `z` with `d(μ, z) = d(μ', z)`.
+* `MeasureTheory.Measure.expFamilyDiv_le_expFamilyDiv_left_of_mem_uIcc`: `d(γ, μ) ≤ d(x, μ)` for
+  a mean `γ` between `μ` and a mean `x`.
+* `MeasureTheory.Measure.exists_expFamilyDiv_le_and_expFamilyDiv_le`: for means with
+  `(y₀ - y₁) (μ₀ - μ₁) ≤ 0`, some mean `z` has `d(z, μ₀) ≤ d(y₀, μ₀)` and `d(z, μ₁) ≤ d(y₁, μ₁)`.
 * `MeasureTheory.Measure.sq_div_le_expFamilyDiv`,
   `MeasureTheory.Measure.ofReal_sq_div_le_klDiv_expFamily_natParam`: the sub-Gaussian
   comparison `d(μ, μ') ≥ (μ - μ')² / (2 v)` when `T` has variance at most `v` under the members
@@ -123,6 +139,25 @@ The lemmas `expFamilyPairCost_le_of_mem_expFamilyMeans`, `continuousAt_expFamily
   same value at two pairs of weights and at their midpoint, then the two pairs are proportional.
 * `MeasureTheory.Measure.continuousOn_expFamilyPairCost`: that cost is continuous in the means and
   the nonnegative weights.
+* `MeasureTheory.Measure.sum_mul_expFamilyDiv_left_eq`: the compensation identity with the free
+  mean first, `∑ i, w i d(z, μ i) = ∑ i, w i d(x, μ i) + (∑ i, w i) d(z, x)` for
+  `(∑ i, w i) η(x) = ∑ i, w i η(μ i)`.
+* `MeasureTheory.Measure.sum_mul_expFamilyDiv_left_le`: such an `x` minimizes
+  `z ↦ ∑ i, w i d(z, μ i)` over the means of the family, for nonnegative weights.
+* `MeasureTheory.Measure.mul_expFamilyDiv_add_mul_expFamilyDiv_left_le`: the two-point case, at
+  the mean `ψ'(w₀ η(μ₀) + w₁ η(μ₁))`.
+* `MeasureTheory.Measure.exists_mem_uIoo_deriv_cgf_eq_slope`: the slope `x*` of two distinct means
+  is the mean of a natural parameter strictly between `η(μ₀)` and `η(μ₁)`.
+* `MeasureTheory.Measure.expFamilyDiv_slope_eq`: `d(x*, μ₀) = d(x*, μ₁)`.
+* `MeasureTheory.Measure.slope_cgf_natParam_eq_sub`,
+  `MeasureTheory.Measure.slope_cgf_natParam_eq_add`:
+  `x* = μ₀ - d(μ₀, μ₁) / (η(μ₀) - η(μ₁)) = μ₁ + d(μ₁, μ₀) / (η(μ₀) - η(μ₁))`.
+
+## References
+
+* [Che52] H. Chernoff, *A measure of asymptotic efficiency for tests of a hypothesis based on the
+  sum of observations*, Annals of Mathematical Statistics 23, 1952.
+* [CT06] T. M. Cover and J. A. Thomas, *Elements of Information Theory*, Wiley, 2006.
 -/
 
 public section
@@ -296,6 +331,11 @@ theorem strictMonoOn_natParam (hT : ∀ c, ¬ T =ᵐ[ρ] fun _ ↦ c) :
     StrictMonoOn (ρ.natParam T) (ρ.expFamilyMeans T) := fun x hx y hy hxy ↦ by
   rwa [← (strictMonoOn_deriv_cgf hT).lt_iff_lt (natParam_mem_interior_integrableExpSet hx)
     (natParam_mem_interior_integrableExpSet hy), deriv_cgf_natParam hx, deriv_cgf_natParam hy]
+
+/-- Distinct means of the family have distinct natural parameters. -/
+lemma natParam_ne_natParam (hT : ∀ c, ¬ T =ᵐ[ρ] fun _ ↦ c) (hμ : μ ∈ ρ.expFamilyMeans T)
+    (hμ' : μ' ∈ ρ.expFamilyMeans T) (h : μ ≠ μ') : ρ.natParam T μ ≠ ρ.natParam T μ' :=
+  (strictMonoOn_natParam hT).injOn.ne hμ hμ' h
 
 lemma continuousOn_natParam (hT : ∀ c, ¬ T =ᵐ[ρ] fun _ ↦ c) :
     ContinuousOn (ρ.natParam T) (ρ.expFamilyMeans T) := fun μ hμ ↦ by
@@ -485,6 +525,45 @@ theorem expFamilyDiv_le_expFamilyDiv_of_mem_uIcc (hT : ∀ c, ¬ T =ᵐ[ρ] fun 
     exact (strictMonoOn_expFamilyDiv_right hT μ).monotoneOn ⟨hγ, h.1⟩ ⟨hx, hμx⟩ h.2
   · rw [uIcc_of_ge hxμ] at h
     exact (strictAntiOn_expFamilyDiv_right hT μ).antitoneOn ⟨hx, hxμ⟩ ⟨hγ, h.2⟩ h.1
+
+/-- The divergence to `μ` grows as the first argument moves away from `μ`: for means `γ` and `x` of
+the family with `γ` between `μ` and `x`, `d(γ, μ) ≤ d(x, μ)`. -/
+theorem expFamilyDiv_le_expFamilyDiv_left_of_mem_uIcc (hT : ∀ c, ¬ T =ᵐ[ρ] fun _ ↦ c) {γ x : ℝ}
+    (hμ : μ ∈ ρ.expFamilyMeans T) (hγ : γ ∈ ρ.expFamilyMeans T) (hx : x ∈ ρ.expFamilyMeans T)
+    (h : γ ∈ uIcc μ x) :
+    ρ.expFamilyDiv T γ μ ≤ ρ.expFamilyDiv T x μ := by
+  rcases le_total μ x with hμx | hxμ
+  · rw [uIcc_of_le hμx] at h
+    exact (strictMonoOn_expFamilyDiv_left hT hμ).monotoneOn ⟨hγ, h.1⟩ ⟨hx, hμx⟩ h.2
+  · rw [uIcc_of_ge hxμ] at h
+    exact (strictAntiOn_expFamilyDiv_left hT hμ).antitoneOn ⟨hx, hxμ⟩ ⟨hγ, h.2⟩ h.1
+
+/-- For means `y₀, y₁, μ₀, μ₁` of the family ordered in opposite ways, `(y₀ - y₁) (μ₀ - μ₁) ≤ 0`,
+some mean `z` is at most as far from `μ₀` as `y₀` and from `μ₁` as `y₁`:
+`d(z, μ₀) ≤ d(y₀, μ₀)` and `d(z, μ₁) ≤ d(y₁, μ₁)`. The intervals between `y₀` and `μ₀` and between
+`y₁` and `μ₁` meet, at `z = max (min y₀ μ₀) (min y₁ μ₁)`. -/
+theorem exists_expFamilyDiv_le_and_expFamilyDiv_le (hT : ∀ c, ¬ T =ᵐ[ρ] fun _ ↦ c)
+    {y₀ y₁ μ₀ μ₁ : ℝ} (hy₀ : y₀ ∈ ρ.expFamilyMeans T) (hy₁ : y₁ ∈ ρ.expFamilyMeans T)
+    (hμ₀ : μ₀ ∈ ρ.expFamilyMeans T) (hμ₁ : μ₁ ∈ ρ.expFamilyMeans T)
+    (h : (y₀ - y₁) * (μ₀ - μ₁) ≤ 0) :
+    ∃ z ∈ ρ.expFamilyMeans T, ρ.expFamilyDiv T z μ₀ ≤ ρ.expFamilyDiv T y₀ μ₀ ∧
+      ρ.expFamilyDiv T z μ₁ ≤ ρ.expFamilyDiv T y₁ μ₁ := by
+  set z := max (min y₀ μ₀) (min y₁ μ₁)
+  have h_cross : min y₁ μ₁ ≤ max y₀ μ₀ ∧ min y₀ μ₀ ≤ max y₁ μ₁ := by
+    rcases mul_nonpos_iff.1 h with ⟨h1, h2⟩ | ⟨h1, h2⟩
+    · exact ⟨(min_le_left _ _).trans (le_max_of_le_left (by linarith)),
+        (min_le_right _ _).trans (le_max_of_le_right (by linarith))⟩
+    · exact ⟨(min_le_right _ _).trans (le_max_of_le_right (by linarith)),
+        (min_le_left _ _).trans (le_max_of_le_left (by linarith))⟩
+  have hz₀ : z ∈ uIcc μ₀ y₀ := by
+    rw [uIcc_comm]
+    exact ⟨le_max_left _ _, max_le min_le_max h_cross.1⟩
+  have hz₁ : z ∈ uIcc μ₁ y₁ := by
+    rw [uIcc_comm]
+    exact ⟨le_max_right _ _, max_le h_cross.2 min_le_max⟩
+  have hz : z ∈ ρ.expFamilyMeans T := convex_expFamilyMeans.ordConnected.uIcc_subset hμ₀ hy₀ hz₀
+  exact ⟨z, hz, expFamilyDiv_le_expFamilyDiv_left_of_mem_uIcc hT hμ₀ hz hy₀ hz₀,
+    expFamilyDiv_le_expFamilyDiv_left_of_mem_uIcc hT hμ₁ hz hy₁ hz₁⟩
 
 /-- Between two means `μ' ≤ μ` of the family there is a mean `z` at the same divergence from both,
 `d(μ, z) = d(μ', z)`: the divergence `d(μ, ·) - d(μ', ·)` is continuous, nonnegative at `μ'` and
@@ -908,5 +987,155 @@ theorem continuousOn_expFamilyPairCost (hT : ∀ c, ¬ T =ᵐ[ρ] fun _ ↦ c) :
       (f := fun p ↦ (p.1.1, m p)) (continuousWithinAt_fst.fst.prodMk hm))).add
       (continuousWithinAt_snd.snd.mul ((hd_at μ₂ hμ₂).comp_continuousWithinAt
         (f := fun p ↦ (p.1.2, m p)) (continuousWithinAt_fst.snd.prodMk hm)))
+
+/-! ### Weighted divergences with the free mean first -/
+
+/-- **Compensation identity**, with the free mean first. If the natural parameter of `x` is the
+mean of the natural parameters of the `μ i`, `i ∈ s`, weighted by `w`, that is
+`(∑ i ∈ s, w i) η(x) = ∑ i ∈ s, w i η(μ i)`, then for every `z`,
+`∑ i ∈ s, w i d(z, μ i) = ∑ i ∈ s, w i d(x, μ i) + (∑ i ∈ s, w i) d(z, x)`. -/
+lemma sum_mul_expFamilyDiv_left_eq {ι : Type*} (s : Finset ι) (w μ : ι → ℝ) {x : ℝ}
+    (hx : (∑ i ∈ s, w i) * ρ.natParam T x = ∑ i ∈ s, w i * ρ.natParam T (μ i)) (z : ℝ) :
+    ∑ i ∈ s, w i * ρ.expFamilyDiv T z (μ i) =
+      ∑ i ∈ s, w i * ρ.expFamilyDiv T x (μ i) + (∑ i ∈ s, w i) * ρ.expFamilyDiv T z x := by
+  have h (i : ι) : w i * ρ.expFamilyDiv T z (μ i) = w i * ρ.expFamilyDiv T x (μ i) +
+      w i * (cgf T ρ (ρ.natParam T x) - cgf T ρ (ρ.natParam T z) + z * ρ.natParam T z -
+        x * ρ.natParam T x) + (x - z) * (w i * ρ.natParam T (μ i)) := by
+    simp only [expFamilyDiv_def]
+    ring
+  rw [Finset.sum_congr rfl fun i _ ↦ h i, Finset.sum_add_distrib, Finset.sum_add_distrib,
+    ← Finset.sum_mul, ← Finset.mul_sum, ← hx, expFamilyDiv_def]
+  ring
+
+/-- The mean `x` whose natural parameter is the mean of the natural parameters of the `μ i`,
+`i ∈ s`, weighted by nonnegative weights `w`, minimizes `z ↦ ∑ i ∈ s, w i d(z, μ i)` over the
+means of the family. -/
+theorem sum_mul_expFamilyDiv_left_le {ι : Type*} (s : Finset ι) {w μ : ι → ℝ}
+    (hw : ∀ i ∈ s, 0 ≤ w i) {x z : ℝ}
+    (hx : (∑ i ∈ s, w i) * ρ.natParam T x = ∑ i ∈ s, w i * ρ.natParam T (μ i))
+    (hx_mem : x ∈ ρ.expFamilyMeans T) (hz : z ∈ ρ.expFamilyMeans T) :
+    ∑ i ∈ s, w i * ρ.expFamilyDiv T x (μ i) ≤ ∑ i ∈ s, w i * ρ.expFamilyDiv T z (μ i) := by
+  rw [sum_mul_expFamilyDiv_left_eq s w μ hx z]
+  exact le_add_of_nonneg_right (mul_nonneg (Finset.sum_nonneg hw) (expFamilyDiv_nonneg hz hx_mem))
+
+/-- For weights `w₀, w₁ ≥ 0` with `w₀ + w₁ = 1`, the combination `w₀ η(μ₀) + w₁ η(μ₁)` of the
+natural parameters of two means of the family is in the interior of the natural parameters. -/
+lemma mul_natParam_add_mul_natParam_mem_interior {μ₀ μ₁ w₀ w₁ : ℝ}
+    (hμ₀ : μ₀ ∈ ρ.expFamilyMeans T) (hμ₁ : μ₁ ∈ ρ.expFamilyMeans T) (hw₀ : 0 ≤ w₀) (hw₁ : 0 ≤ w₁)
+    (hw : w₀ + w₁ = 1) :
+    w₀ * ρ.natParam T μ₀ + w₁ * ρ.natParam T μ₁ ∈ interior (integrableExpSet T ρ) :=
+  convex_integrableExpSet.interior (natParam_mem_interior_integrableExpSet hμ₀)
+    (natParam_mem_interior_integrableExpSet hμ₁) hw₀ hw₁ hw
+
+/-- For weights `w₀, w₁ ≥ 0` with `w₀ + w₁ = 1`, the mean `ψ'(w₀ η(μ₀) + w₁ η(μ₁))` of the member
+with the interpolated natural parameter minimizes `z ↦ w₀ d(z, μ₀) + w₁ d(z, μ₁)` over the means
+of the family. -/
+theorem mul_expFamilyDiv_add_mul_expFamilyDiv_left_le (hT : ∀ c, ¬ T =ᵐ[ρ] fun _ ↦ c)
+    {μ₀ μ₁ w₀ w₁ z : ℝ} (hμ₀ : μ₀ ∈ ρ.expFamilyMeans T) (hμ₁ : μ₁ ∈ ρ.expFamilyMeans T)
+    (hw₀ : 0 ≤ w₀) (hw₁ : 0 ≤ w₁) (hw : w₀ + w₁ = 1) (hz : z ∈ ρ.expFamilyMeans T) :
+    w₀ * ρ.expFamilyDiv T (deriv (cgf T ρ) (w₀ * ρ.natParam T μ₀ + w₁ * ρ.natParam T μ₁)) μ₀ +
+        w₁ * ρ.expFamilyDiv T
+          (deriv (cgf T ρ) (w₀ * ρ.natParam T μ₀ + w₁ * ρ.natParam T μ₁)) μ₁ ≤
+      w₀ * ρ.expFamilyDiv T z μ₀ + w₁ * ρ.expFamilyDiv T z μ₁ := by
+  have hη := mul_natParam_add_mul_natParam_mem_interior hμ₀ hμ₁ hw₀ hw₁ hw
+  have h := sum_mul_expFamilyDiv_left_le (ρ := ρ) (T := T) Finset.univ (w := ![w₀, w₁])
+    (μ := ![μ₀, μ₁]) (Fin.forall_fin_two.mpr ⟨fun _ ↦ hw₀, fun _ ↦ hw₁⟩)
+    (x := deriv (cgf T ρ) (w₀ * ρ.natParam T μ₀ + w₁ * ρ.natParam T μ₁))
+    (by simp [Fin.sum_univ_two, hw, natParam_deriv_cgf hT hη]) (deriv_cgf_mem_expFamilyMeans hη)
+    hz
+  simpa [Fin.sum_univ_two] using h
+
+/-! ### The Chernoff point of two means -/
+
+section Chernoff
+
+variable {μ₀ μ₁ : ℝ}
+
+/-- The difference `d(x, μ₀) - d(x, μ₁)` is affine in `x`:
+`d(x, μ₀) - d(x, μ₁) = ψ(η(μ₀)) - ψ(η(μ₁)) - x (η(μ₀) - η(μ₁))`. -/
+lemma expFamilyDiv_sub_expFamilyDiv (ρ : Measure 𝓧) (T : 𝓧 → ℝ) (x μ₀ μ₁ : ℝ) :
+    ρ.expFamilyDiv T x μ₀ - ρ.expFamilyDiv T x μ₁ =
+      cgf T ρ (ρ.natParam T μ₀) - cgf T ρ (ρ.natParam T μ₁) -
+        x * (ρ.natParam T μ₀ - ρ.natParam T μ₁) := by
+  simp only [expFamilyDiv_def]
+  ring
+
+/-- **The Chernoff point.** For two distinct means `μ₀` and `μ₁` of the family, the slope
+`x* = (ψ(η(μ₀)) - ψ(η(μ₁))) / (η(μ₀) - η(μ₁))` of the log-partition function `ψ` is the mean
+`ψ'(η)` of a natural parameter `η` strictly between `η(μ₀)` and `η(μ₁)`. -/
+theorem exists_mem_uIoo_deriv_cgf_eq_slope (hT : ∀ c, ¬ T =ᵐ[ρ] fun _ ↦ c)
+    (hμ₀ : μ₀ ∈ ρ.expFamilyMeans T) (hμ₁ : μ₁ ∈ ρ.expFamilyMeans T) (h : μ₀ ≠ μ₁) :
+    ∃ η ∈ uIoo (ρ.natParam T μ₀) (ρ.natParam T μ₁), η ∈ interior (integrableExpSet T ρ) ∧
+      deriv (cgf T ρ) η = (cgf T ρ (ρ.natParam T μ₀) - cgf T ρ (ρ.natParam T μ₁)) /
+        (ρ.natParam T μ₀ - ρ.natParam T μ₁) := by
+  have hη : ρ.natParam T μ₀ ≠ ρ.natParam T μ₁ := natParam_ne_natParam hT hμ₀ hμ₁ h
+  have h_Icc : Icc (ρ.natParam T μ₀ ⊓ ρ.natParam T μ₁) (ρ.natParam T μ₀ ⊔ ρ.natParam T μ₁) ⊆
+      interior (integrableExpSet T ρ) :=
+    convex_integrableExpSet.interior.ordConnected.uIcc_subset
+      (natParam_mem_interior_integrableExpSet hμ₀) (natParam_mem_interior_integrableExpSet hμ₁)
+  obtain ⟨η, hη_mem, hη_eq⟩ := exists_deriv_eq_slope (cgf T ρ)
+    (inf_lt_sup.2 hη) (analyticOnNhd_cgf.continuousOn.mono h_Icc)
+    (analyticOnNhd_cgf.differentiableOn.mono (Ioo_subset_Icc_self.trans h_Icc))
+  refine ⟨η, hη_mem, h_Icc (Ioo_subset_Icc_self hη_mem), hη_eq.trans ?_⟩
+  rcases le_total (ρ.natParam T μ₀) (ρ.natParam T μ₁) with h01 | h10
+  · rw [inf_eq_left.2 h01, sup_eq_right.2 h01, ← neg_div_neg_eq, neg_sub, neg_sub]
+  · rw [inf_eq_right.2 h10, sup_eq_left.2 h10]
+
+/-- The slope `x* = (ψ(η(μ₀)) - ψ(η(μ₁))) / (η(μ₀) - η(μ₁))` of two distinct means of the
+family is a mean of the family. -/
+lemma slope_cgf_natParam_mem_expFamilyMeans (hT : ∀ c, ¬ T =ᵐ[ρ] fun _ ↦ c)
+    (hμ₀ : μ₀ ∈ ρ.expFamilyMeans T) (hμ₁ : μ₁ ∈ ρ.expFamilyMeans T) (h : μ₀ ≠ μ₁) :
+    (cgf T ρ (ρ.natParam T μ₀) - cgf T ρ (ρ.natParam T μ₁)) /
+      (ρ.natParam T μ₀ - ρ.natParam T μ₁) ∈ ρ.expFamilyMeans T := by
+  obtain ⟨η, -, hη, hη_eq⟩ := exists_mem_uIoo_deriv_cgf_eq_slope hT hμ₀ hμ₁ h
+  exact hη_eq ▸ deriv_cgf_mem_expFamilyMeans hη
+
+/-- The natural parameter of the slope `x* = (ψ(η(μ₀)) - ψ(η(μ₁))) / (η(μ₀) - η(μ₁))` of two
+distinct means of the family is `w η(μ₀) + (1 - w) η(μ₁)` for a weight
+`w = (η(x*) - η(μ₁)) / (η(μ₀) - η(μ₁))` in `(0, 1)`. -/
+lemma natParam_slope_sub_div_mem_Ioo (hT : ∀ c, ¬ T =ᵐ[ρ] fun _ ↦ c)
+    (hμ₀ : μ₀ ∈ ρ.expFamilyMeans T) (hμ₁ : μ₁ ∈ ρ.expFamilyMeans T) (h : μ₀ ≠ μ₁) :
+    (ρ.natParam T ((cgf T ρ (ρ.natParam T μ₀) - cgf T ρ (ρ.natParam T μ₁)) /
+        (ρ.natParam T μ₀ - ρ.natParam T μ₁)) - ρ.natParam T μ₁) /
+      (ρ.natParam T μ₀ - ρ.natParam T μ₁) ∈ Ioo 0 1 := by
+  obtain ⟨η, hη_mem, hη, hη_eq⟩ := exists_mem_uIoo_deriv_cgf_eq_slope hT hμ₀ hμ₁ h
+  rw [← hη_eq, natParam_deriv_cgf hT hη]
+  rcases lt_or_gt_of_ne (natParam_ne_natParam hT hμ₀ hμ₁ h) with h01 | h10
+  · rw [uIoo_of_le h01.le] at hη_mem
+    exact ⟨div_pos_of_neg_of_neg (by linarith [hη_mem.2]) (by linarith),
+      (div_lt_one_of_neg (by linarith)).2 (by linarith [hη_mem.1])⟩
+  · rw [uIoo_of_ge h10.le] at hη_mem
+    exact ⟨div_pos (by linarith [hη_mem.1]) (by linarith),
+      (div_lt_one (by linarith)).2 (by linarith [hη_mem.2])⟩
+
+/-- The slope `x* = (ψ(η(μ₀)) - ψ(η(μ₁))) / (η(μ₀) - η(μ₁))` is at the same divergence from `μ₀`
+and `μ₁`: `d(x*, μ₀) = d(x*, μ₁)`, the Chernoff information of the two members. -/
+lemma expFamilyDiv_slope_eq (h : ρ.natParam T μ₀ ≠ ρ.natParam T μ₁) :
+    ρ.expFamilyDiv T ((cgf T ρ (ρ.natParam T μ₀) - cgf T ρ (ρ.natParam T μ₁)) /
+      (ρ.natParam T μ₀ - ρ.natParam T μ₁)) μ₀ =
+    ρ.expFamilyDiv T ((cgf T ρ (ρ.natParam T μ₀) - cgf T ρ (ρ.natParam T μ₁)) /
+      (ρ.natParam T μ₀ - ρ.natParam T μ₁)) μ₁ := by
+  rw [← sub_eq_zero, expFamilyDiv_sub_expFamilyDiv, div_mul_cancel₀ _ (sub_ne_zero.2 h), sub_self]
+
+/-- The slope `x* = (ψ(η(μ₀)) - ψ(η(μ₁))) / (η(μ₀) - η(μ₁))` is
+`μ₀ - d(μ₀, μ₁) / (η(μ₀) - η(μ₁))`. -/
+lemma slope_cgf_natParam_eq_sub (h : ρ.natParam T μ₀ ≠ ρ.natParam T μ₁) :
+    (cgf T ρ (ρ.natParam T μ₀) - cgf T ρ (ρ.natParam T μ₁)) /
+        (ρ.natParam T μ₀ - ρ.natParam T μ₁) =
+      μ₀ - ρ.expFamilyDiv T μ₀ μ₁ / (ρ.natParam T μ₀ - ρ.natParam T μ₁) := by
+  have h' : ρ.natParam T μ₀ - ρ.natParam T μ₁ ≠ 0 := sub_ne_zero.2 h
+  rw [eq_sub_iff_add_eq, ← add_div, div_eq_iff h', expFamilyDiv_def]
+  ring
+
+/-- The slope `x* = (ψ(η(μ₀)) - ψ(η(μ₁))) / (η(μ₀) - η(μ₁))` is
+`μ₁ + d(μ₁, μ₀) / (η(μ₀) - η(μ₁))`. -/
+lemma slope_cgf_natParam_eq_add (h : ρ.natParam T μ₀ ≠ ρ.natParam T μ₁) :
+    (cgf T ρ (ρ.natParam T μ₀) - cgf T ρ (ρ.natParam T μ₁)) /
+        (ρ.natParam T μ₀ - ρ.natParam T μ₁) =
+      μ₁ + ρ.expFamilyDiv T μ₁ μ₀ / (ρ.natParam T μ₀ - ρ.natParam T μ₁) := by
+  have h' : ρ.natParam T μ₀ - ρ.natParam T μ₁ ≠ 0 := sub_ne_zero.2 h
+  rw [← sub_eq_iff_eq_add', eq_div_iff h', sub_mul, div_mul_cancel₀ _ h', expFamilyDiv_def]
+
+end Chernoff
 
 end MeasureTheory.Measure
