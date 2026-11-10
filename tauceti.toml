@@ -31,7 +31,7 @@ repo = "TauCetiProject/TauCetiTools"
 ref = "68ca7893e90b82454ab58ba64dca753a05cd2720"
 [tools.review]
 repo = "TauCetiProject/TauCetiReview"
-ref = "32ce2069308080df4e08df14c2160012a51c8152"
+ref = "ec743f1d0395cf594d81d6ae92ce538a59ce10d4"
 [tools.progress]
 repo = "TauCetiProject/TauCetiProgress"
 ref = "5b0fb84dbeb36e9575b2205f9d2a5177671d3f33"
