@@ -48,6 +48,11 @@ it.
   `LMLExplore.Identification.IdentTask.cost_comm_gaussianReal`: this cost is symmetric in `μ` and
   `μ'`.
 * `LMLExplore.Identification.IdentTask.cost_gaussianBandit`: its case of a common variance `σ2`.
+
+The lemmas `cost_gaussianReal` and `cost_comm_gaussianReal` are adapted from the formalization
+Degenne2023Existence (`github.com/RemyDegenne/Degenne2023Existence`, file
+`ForLMLExplore/Identification/Task/ExpFamily.lean`, commit
+`76f5b36f9219535e1049ef12f781fb5426a2b835`, by Rémy Degenne, Apache 2.0).
 -/
 
 public section

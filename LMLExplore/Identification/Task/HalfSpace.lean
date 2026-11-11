@@ -18,9 +18,10 @@ transportation cost `∑ a, w a (μ a - λ a)² / (2 v a)` is a weighted squared
 has a closed form [DK19, Lemma 36]. Write `L = ∑ a, |u a| √(v a)`.
 
 * For a nonnegative allocation `w` that is positive on the arms with `u a ≠ 0`, the cost of the
-  alternatives is the squared distance from `μ` to the hyperplane `u ⬝ᵥ λ = 0` in the norm of `w`,
-  `D(μ, w, ¬i) = (u ⬝ᵥ μ)² / (2 ∑ a, u a² v a / w a)`: by the Cauchy–Schwarz inequality, moving
-  `μ` across the hyperplane costs at least this much, and moving it along the direction
+  alternatives is the squared distance from `μ` to the hyperplane `u ⬝ᵥ λ = 0` in the norm
+  weighted by `w a / v a`, `D(μ, w, ¬i) = (u ⬝ᵥ μ)² / (2 ∑ a, u a² v a / w a)`: by the
+  Cauchy–Schwarz inequality, moving `μ` across the hyperplane costs at least this much, and
+  moving it along the direction
   `u a v a / w a` costs arbitrarily little more. If instead `w a = 0` for some arm with `u a ≠ 0`,
   the mean of that arm can be moved for free and `D(μ, w, ¬i) = 0`.
 * Applied to the vector `(u a √(v a))_a`, the inequality `‖x‖₁² ≤ ∑ a, x a² / w a` on the
@@ -31,21 +32,33 @@ has a closed form [DK19, Lemma 36]. Write `L = ∑ a, |u a| √(v a)`.
   the only optimal allocation is `|u a| √(v a) / L`, and `T*(μ) = 2 L² / (u ⬝ᵥ μ)²`.
 
 These values are the divergences of [DK19, Lemma 36], stated there for the hyperplane, which is
-the boundary of the set of alternatives. [D23, Lemma 15] finds the same value `2 L² / (u ⬝ᵥ μ)²`
-for the static-proportions difficulty, whose cost has the alternative first: the Gaussian cost is
-symmetric (`LMLExplore.Identification.IdentTask.cost_comm_gaussianReal`).
+the boundary of the set of alternatives. Under the normalization `L = 1`, [D23, Lemma 15] finds
+the value `2 / (u ⬝ᵥ μ)²` for the static-proportions difficulty, which this file does not define;
+this matches `T*(μ)` here. The cost in that difficulty has the alternative first, which does not
+matter since the Gaussian cost is symmetric
+(`LMLExplore.Identification.IdentTask.cost_comm_gaussianReal`).
+
+The Cauchy–Schwarz lower bound `le_cost_halfSpaceTask_gaussianReal` and the bound
+`altCost_halfSpaceTask_gaussianReal_le` obtained by moving along a direction are adapted from the
+formalization Degenne2023Existence (`github.com/RemyDegenne/Degenne2023Existence`, file
+`ForLMLExplore/Identification/Task/HalfSpace.lean`, commit
+`76f5b36f9219535e1049ef12f781fb5426a2b835`, by Rémy Degenne, Apache 2.0) of [D23].
 
 ## Main statements
 
 * `LMLExplore.Identification.mem_alt_halfSpaceTask_iff`: the alternatives of half-space
   identification.
+* `LMLExplore.Identification.le_cost_halfSpaceTask_gaussianReal`: crossing the hyperplane costs at
+  least `(u ⬝ᵥ μ)² / (2 ∑ a, u a² v a / w a)`.
+* `LMLExplore.Identification.altCost_halfSpaceTask_gaussianReal_le`: moving `μ` across the
+  hyperplane along a direction `d` with `u ⬝ᵥ d = 1` bounds the cost of the alternatives.
 * `LMLExplore.Identification.altCost_halfSpaceTask_gaussianReal`,
   `LMLExplore.Identification.altCost_halfSpaceTask_gaussianReal_eq_zero`: the cost of the
   alternatives for every nonnegative allocation.
 * `LMLExplore.Identification.answerValue_halfSpaceTask_gaussianReal`,
   `LMLExplore.Identification.optAlloc_halfSpaceTask_gaussianReal`,
   `LMLExplore.Identification.charTime_halfSpaceTask_gaussianReal`: the value of the game, the
-  unique optimal allocation and the characteristic time [DK19, Lemma 36; D23, Lemma 15].
+  unique optimal allocation and the characteristic time [DK19, Lemma 36]; cf. [D23, Lemma 15].
 
 ## References
 
@@ -83,10 +96,15 @@ private lemma ν_halfSpaceTask_apply (hν : ∀ μ a, ν μ a = gaussianReal (μ
     (a : α) : (halfSpaceTask ν id u).ν μ a = gaussianReal (μ a) (v a) := by
   rw [ν_halfSpaceTask, hν]
 
+omit [Fintype α] in
+/-- Variances `v a ≠ 0` are positive. -/
+private lemma coe_variance_pos (hv : ∀ a, v a ≠ 0) (a : α) : (0 : ℝ) < v a :=
+  NNReal.coe_pos.2 (pos_iff_ne_zero.2 (hv a))
+
 /-- **Moving across the hyperplane along a direction.** For a direction `d` with `u ⬝ᵥ d = 1`, the
 vectors `μ - t (u ⬝ᵥ μ) d` with `t > 1` are alternatives, which bounds the cost of the alternatives
 by `(u ⬝ᵥ μ)² ∑ a, w a d a² / (2 v a)` in the limit `t → 1`. -/
-private lemma altCost_halfSpaceTask_gaussianReal_le (hv : ∀ a, v a ≠ 0)
+lemma altCost_halfSpaceTask_gaussianReal_le (hv : ∀ a, v a ≠ 0)
     (hν : ∀ μ a, ν μ a = gaussianReal (μ a) (v a)) (hμ : u ⬝ᵥ μ ≠ 0)
     (hi : i = true ↔ 0 < u ⬝ᵥ μ) (hw : 0 ≤ w) {d : α → ℝ} (hd : u ⬝ᵥ d = 1) :
     (halfSpaceTask ν id u).altCost μ w i ≤
@@ -121,7 +139,7 @@ private lemma altCost_halfSpaceTask_gaussianReal_le (hv : ∀ a, v a ≠ 0)
 allocation `w` that is positive where `u` does not vanish, the transportation cost from `μ` to an
 alternative is at least `(u ⬝ᵥ μ)² / (2 ∑ a, u a² v a / w a)`, by the Cauchy–Schwarz inequality
 `(u ⬝ᵥ (μ - μ'))² ≤ (∑ a, u a² v a / w a) ∑ a, w a (μ a - μ' a)² / v a`. -/
-private lemma le_cost_halfSpaceTask_gaussianReal (hv : ∀ a, v a ≠ 0)
+lemma le_cost_halfSpaceTask_gaussianReal (hv : ∀ a, v a ≠ 0)
     (hν : ∀ μ a, ν μ a = gaussianReal (μ a) (v a)) (hi : i = true ↔ 0 < u ⬝ᵥ μ) (hw : 0 ≤ w)
     (hwu : ∀ a, w a = 0 → u a = 0) {μ' : α → ℝ} (hμ' : μ' ∈ (halfSpaceTask ν id u).alt i) :
     ENNReal.ofReal ((u ⬝ᵥ μ) ^ 2 / (2 * ∑ a, u a ^ 2 * v a / w a)) ≤
@@ -155,7 +173,7 @@ private lemma le_cost_halfSpaceTask_gaussianReal (hv : ∀ a, v a ≠ 0)
       fun a _ ↦ ?_
     rcases eq_or_ne (w a) 0 with h | h
     · simp [h, hwu a h]
-    · have hva : (v a : ℝ) ≠ 0 := NNReal.coe_ne_zero.2 (hv a)
+    · have hva : (v a : ℝ) ≠ 0 := (coe_variance_pos hv a).ne'
       refine le_of_eq ?_
       simp only [Pi.sub_apply]
       field_simp
@@ -171,7 +189,7 @@ private lemma le_cost_halfSpaceTask_gaussianReal (hv : ∀ a, v a ≠ 0)
 variances `v a ≠ 0`, a vector of means `μ` with `u ⬝ᵥ μ ≠ 0`, its correct answer `i` and a
 nonnegative allocation `w` that is positive on the arms with `u a ≠ 0`,
 `D(μ, w, ¬i) = (u ⬝ᵥ μ)² / (2 ∑ a, u a² v a / w a)`: the squared distance from `μ` to the
-hyperplane `u ⬝ᵥ λ = 0` in the norm of `w`. -/
+hyperplane `u ⬝ᵥ λ = 0` in the norm weighted by `w a / v a`. -/
 theorem altCost_halfSpaceTask_gaussianReal (hv : ∀ a, v a ≠ 0)
     (hν : ∀ μ a, ν μ a = gaussianReal (μ a) (v a)) (hμ : u ⬝ᵥ μ ≠ 0)
     (hi : i = true ↔ 0 < u ⬝ᵥ μ) (hw : 0 ≤ w) (hwu : ∀ a, w a = 0 → u a = 0) :
@@ -181,7 +199,7 @@ theorem altCost_halfSpaceTask_gaussianReal (hv : ∀ a, v a ≠ 0)
   swap
   · rw [IdentTask.altCost_def]
     exact le_iInf₂ fun μ' hμ' ↦ le_cost_halfSpaceTask_gaussianReal hv hν hi hw hwu hμ'
-  have hva (a : α) : (v a : ℝ) ≠ 0 := NNReal.coe_ne_zero.2 (hv a)
+  have hva (a : α) : (v a : ℝ) ≠ 0 := (coe_variance_pos hv a).ne'
   set V := ∑ a, u a ^ 2 * v a / w a with hV
   have hV0 : V ≠ 0 := by
     intro h
@@ -234,14 +252,18 @@ private lemma abs_mul_sqrt (a : α) : |u a * √(v a : ℝ)| = |u a| * √(v a :
 omit [Fintype α] in
 /-- For variances `v a ≠ 0`, the vector `(u a √(v a))_a` vanishes exactly where `u` does. -/
 private lemma mul_sqrt_eq_zero (hv : ∀ a, v a ≠ 0) {a : α} : u a * √(v a : ℝ) = 0 ↔ u a = 0 := by
-  have : (0 : ℝ) < v a := by have := hv a; positivity
-  simp [(Real.sqrt_pos.2 this).ne']
+  simp [(Real.sqrt_pos.2 (coe_variance_pos hv a)).ne']
 
 omit [Fintype α] in
 /-- For variances `v a ≠ 0` and `u ≠ 0`, the vector `(u a √(v a))_a` is nonzero. -/
 private lemma mul_sqrt_ne_zero (hv : ∀ a, v a ≠ 0) (hu : u ≠ 0) :
     (fun a ↦ u a * √(v a : ℝ)) ≠ 0 := fun h ↦
   hu (funext fun a ↦ (mul_sqrt_eq_zero hv).1 (congrFun h a))
+
+/-- For variances `v a ≠ 0` and `u ≠ 0`, `L = ∑ a, |u a| √(v a)` is nonzero. -/
+private lemma sum_abs_mul_sqrt_ne_zero (hv : ∀ a, v a ≠ 0) (hu : u ≠ 0) :
+    ∑ a, |u a| * √(v a : ℝ) ≠ 0 := by
+  simpa only [abs_mul_sqrt] using sum_abs_ne_zero (mul_sqrt_ne_zero hv hu)
 
 /-- The allocation `|u a| √(v a) / L` is the normalized absolute value of `(u a √(v a))_a`. -/
 private lemma abs_mul_sqrt_div_eq :
@@ -265,8 +287,7 @@ private lemma altCost_halfSpaceTask_gaussianReal_abs_mul_sqrt_div (hv : ∀ a, v
         (fun a ↦ |u a| * √(v a : ℝ) / ∑ b, |u b| * √(v b : ℝ)) i =
       ENNReal.ofReal ((u ⬝ᵥ μ) ^ 2 / (2 * (∑ a, |u a| * √(v a : ℝ)) ^ 2)) := by
   have hu : u ≠ 0 := fun h ↦ hμ (by simp [h])
-  have hL := sum_abs_ne_zero (mul_sqrt_ne_zero hv hu)
-  simp_rw [abs_mul_sqrt] at hL
+  have hL := sum_abs_mul_sqrt_ne_zero hv hu
   have hw := abs_mul_sqrt_div_mem_simplex hv hu
   rw [altCost_halfSpaceTask_gaussianReal hv hν hμ hi (mem_simplex_iff.1 hw).1 fun a ha ↦
     (mul_sqrt_eq_zero hv).1 (abs_eq_zero.1 (by
@@ -276,7 +297,7 @@ private lemma altCost_halfSpaceTask_gaussianReal_abs_mul_sqrt_div (hv : ∀ a, v
   refine Finset.sum_congr rfl fun a _ ↦ ?_
   rcases eq_or_ne (u a) 0 with h | h
   · simp [h]
-  · have hva : (0 : ℝ) < v a := by have := hv a; positivity
+  · have hva := coe_variance_pos hv a
     have hs : √(v a : ℝ) ≠ 0 := (Real.sqrt_pos.2 hva).ne'
     have : |u a| ≠ 0 := abs_ne_zero.2 h
     rw [← sq_abs (u a)]
@@ -292,8 +313,7 @@ private lemma altCost_halfSpaceTask_gaussianReal_lt (hv : ∀ a, v a ≠ 0)
     (halfSpaceTask ν id u).altCost μ w i <
       ENNReal.ofReal ((u ⬝ᵥ μ) ^ 2 / (2 * (∑ a, |u a| * √(v a : ℝ)) ^ 2)) := by
   have hu : u ≠ 0 := fun h ↦ hμ (by simp [h])
-  have hL := sum_abs_ne_zero (mul_sqrt_ne_zero hv hu)
-  simp_rw [abs_mul_sqrt] at hL
+  have hL := sum_abs_mul_sqrt_ne_zero hv hu
   have hpos : 0 < (u ⬝ᵥ μ) ^ 2 / (2 * (∑ a, |u a| * √(v a : ℝ)) ^ 2) := by positivity
   by_cases h0 : ∃ a, u a ≠ 0 ∧ w a = 0
   · -- Some arm with `u a ≠ 0` is not sampled: the alternatives are free.
@@ -349,16 +369,16 @@ theorem optAlloc_halfSpaceTask_gaussianReal (hv : ∀ a, v a ≠ 0)
     exact ⟨abs_mul_sqrt_div_mem_simplex hv fun h ↦ hμ (by simp [h]),
       altCost_halfSpaceTask_gaussianReal_abs_mul_sqrt_div hv hν hμ hi⟩
 
-/-- **The characteristic time of Gaussian half-space identification** [DK19, Lemma 36;
-D23, Lemma 15]. For Gaussian arms with variances `v a ≠ 0` and a vector of means `μ` with
-`u ⬝ᵥ μ ≠ 0`, `T*(μ) = 2 (∑ a, |u a| √(v a))² / (u ⬝ᵥ μ)²`. -/
+/-- **The characteristic time of Gaussian half-space identification** [DK19, Lemma 36]. For
+Gaussian arms with variances `v a ≠ 0` and a vector of means `μ` with `u ⬝ᵥ μ ≠ 0`,
+`T*(μ) = 2 (∑ a, |u a| √(v a))² / (u ⬝ᵥ μ)²`; cf. [D23, Lemma 15], which finds `2 / (u ⬝ᵥ μ)²` for
+the static-proportions difficulty under the normalization `∑ a, |u a| √(v a) = 1`. -/
 theorem charTime_halfSpaceTask_gaussianReal (hv : ∀ a, v a ≠ 0)
     (hν : ∀ μ a, ν μ a = gaussianReal (μ a) (v a)) (hμ : u ⬝ᵥ μ ≠ 0) :
     (halfSpaceTask ν id u).charTime μ =
       ENNReal.ofReal (2 * (∑ a, |u a| * √(v a : ℝ)) ^ 2 / (u ⬝ᵥ μ) ^ 2) := by
   have hu : u ≠ 0 := fun h ↦ hμ (by simp [h])
-  have hL := sum_abs_ne_zero (mul_sqrt_ne_zero hv hu)
-  simp_rw [abs_mul_sqrt] at hL
+  have hL := sum_abs_mul_sqrt_ne_zero hv hu
   rw [IdentTask.charTime_eq_inv_answerValue _ (correct_halfSpaceTask_eq_singleton _ _),
     answerValue_halfSpaceTask_gaussianReal hv hν hμ (by simp),
     ← ENNReal.ofReal_inv_of_pos (by positivity), inv_div]
