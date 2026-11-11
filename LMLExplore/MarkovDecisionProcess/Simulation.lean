@@ -81,6 +81,9 @@ plug-in policy of a generative model.
 
 * `Learning.MDP.qValue_sub_qValue`: **the simulation lemma** [AJKS, Lemma 2.2] with a reward
   error [KS02], `Q^π_M - Q^π_M' = R_γ(P'^π_SA) ((r - r') + γ (P - P') v^π_M)`.
+* `Learning.MDP.abs_value_sub_value_le_of_abs_qValue_sub_qValue_le`: a bound on the differences
+  of the action values of `π` at `s`, uniform in the action, bounds the difference of its values
+  at `s`.
 * `Learning.MDP.abs_qValue_sub_qValue_le`, `Learning.MDP.abs_value_sub_value_le`: if
   `|r - r'| ≤ δ` and `|(P - P') v^π_M| ≤ ε`, the action values and the values of `π` in the two
   models differ by at most `δ / (1 - γ) + γ ε / (1 - γ)`.
@@ -144,7 +147,7 @@ theorem qValue_sub_qValue (hγ : γ < 1) (hR : ∀ p, ∀ᵐ x ∂(M.R p), |x| �
 /-- For two MDPs `M` and `M'` with bounded rewards, `γ < 1` and a stationary policy `π`, if the
 action values of `π` at a state `s` differ by at most `B` for every action, then so do its values
 at `s`. -/
-private lemma abs_value_sub_value_le_of_abs_qValue_sub_qValue_le (hγ : γ < 1)
+theorem abs_value_sub_value_le_of_abs_qValue_sub_qValue_le (hγ : γ < 1)
     (hR : ∀ p, ∀ᵐ x ∂(M.R p), |x| ≤ C) (hR' : ∀ p, ∀ᵐ x ∂(M'.R p), |x| ≤ C') {s : 𝓢} {B : ℝ}
     (h : ∀ a, |M.qValue γ π (s, a) - M'.qValue γ π (s, a)| ≤ B) :
     |M.value γ π s - M'.value γ π s| ≤ B := by
