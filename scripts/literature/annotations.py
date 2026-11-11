@@ -3,7 +3,7 @@
 
 Reads the dataset (S2) that the referee site workflow extracts, and a checkout of LMLRoadmaps. It
 finds the citations of numbered results of the literature, such as `[GK16, Theorem 14]`,
-`[LS, Lemmas 12.2–12.4]` or `[P, proof of Theorem 6.2.2]`:
+`[LS, Lemmas 12.2–12.4]`, `[P, proof of Theorem 6.2.2]` or `[GK16, Theorem 1; LS, Theorem 33.5]`:
 
 * in each declaration's docstring, and in the `## Main ...` lists of the module docstrings: the
   declarations that cite each result;
@@ -75,7 +75,13 @@ PLACES = {"section", "chapter", "appendix", "figure", "table"}
 #: The most results a range such as `Lemmas 24–27` expands to.
 MAX_RANGE = 30
 
-CITATION = re.compile(r"\[([A-Z][A-Za-z]*\d*[a-z]?), ([^\[\]]+)\]")
+#: A bracket citing works, not right after a letter or a digit: `[GK16]`, `[GK16, Theorem 14]`,
+#: `[GK16, Theorem 1; LS, Theorem 33.5]`.
+CITATION = re.compile(r"(?<!\w)\[([A-Z][A-Za-z]*\d*[a-z]?(?:\s*[,;][^\[\]]*)?)\]")
+#: A part of a bracket, between semicolons, that names a work: its key, then a locator if any.
+CITED = re.compile(r"\s*([A-Z][A-Za-z]*\d*[a-z]?)\s*(?:,\s*(.*))?", re.S)
+#: An inline code span: the brackets in it are Lean notation (`Var[X; μ]`), not citations.
+CODE = re.compile(r"`[^`]*`")
 TOKEN = re.compile(
     r"(?P<proof>(?i:proofs? of))"
     r"|(?P<number>[A-Z]?\d+(?:\.\d+)*[a-z]?|[A-Z](?:\.\d+)+|[A-Z](?![A-Za-z]))"
@@ -141,6 +147,27 @@ def items(locator: str) -> list[tuple[str, str, str | None]]:
         elif group == "other":
             expecting, proof = False, False
         in_range = group == "dash" and after_number or (in_range and text.isspace())
+    return out
+
+
+def citations_of(text: str) -> list[tuple[int, str, str]]:
+    """The citations in a text, as (position of the bracket, key, locator): one for each work that a
+    bracket cites with a locator. `[GK16, Theorem 1; LS, Theorem 33.5]` cites two works, and
+    `[KCG16; LS, Theorem 33.5]` cites a result of `LS` (and the whole of `KCG16`, which gives no
+    link). A part without a key continues the work before it: `[Ora, Lemma 6.32; Lemma 7.15]`.
+    The brackets in code spans, and right after a letter or a digit (`\\mathbb E[X]`), are notation."""
+    masked = CODE.sub(lambda m: " " * len(m.group()), text)
+    out = []
+    for m in CITATION.finditer(masked):
+        key = None
+        for part in m.group(1).split(";"):
+            c = CITED.fullmatch(part)
+            if c and kind_of(c.group(1)) is None:  # `Lemma 7.15` continues the work before it
+                key, locator = c.group(1), c.group(2) or ""
+            else:
+                locator = part
+            if key is not None and locator.strip():
+                out.append((m.start(), key, " ".join(locator.split())))
     return out
 
 
@@ -288,10 +315,10 @@ def roadmaps(root: Path, commit: str) -> tuple[list[tuple[str, str, str]], dict[
         marks = [(m.start(), "h", m.group(1)) for m in re.finditer(r"^## (.+)$", body, re.M)]
         marks += [(m.start(), "i", m.group(1)) for m in re.finditer(r"^(\d+)\. ", body, re.M)]
         marks.sort()
-        for m in CITATION.finditer(body):
+        for start, key, locator in citations_of(body):
             heading, item = None, None
             for pos, what, value in marks:
-                if pos > m.start():
+                if pos > start:
                     break
                 if what == "h":
                     heading, item = value, None
@@ -301,7 +328,7 @@ def roadmaps(root: Path, commit: str) -> tuple[list[tuple[str, str, str]], dict[
             ref = f"{area} {layer.group(1)}.{item}" if layer and item else area
             links.setdefault(ref, f"https://github.com/{ROADMAPS_REPO}/blob/{commit}/{rel}"
                              + (f"#{slug(heading)}" if layer else ""))
-            citations.append((m.group(1), m.group(2), ref))
+            citations.append((key, locator, ref))
     return citations, texts, links
 
 
@@ -583,7 +610,7 @@ def build(dataset: Path, bibliography: dict, out: Path, roadmap_root: Path | Non
         return [((key, label(kind, number)), part) for kind, number, part in parsed]
 
     def cite(decl: str, text: str) -> None:
-        for key, locator in CITATION.findall(text):
+        for _, key, locator in citations_of(text):
             for result, part in results(key, locator):
                 parts = links[result][decl]
                 if part:
