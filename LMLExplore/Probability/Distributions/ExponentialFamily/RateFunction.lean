@@ -41,6 +41,8 @@ monotone on each side of `μ`, it makes `dbar` continuous on (closure of the mea
   family is `KL(ρ_η(x), ρ_η)`.
 * `LMLExplore.rateFunction_expFamily_natParam`: the rate function of `T` under the member of mean
   `μ` at a mean `x` is `d(x, μ)`.
+* `LMLExplore.rateFunction_eq_ofReal_expFamilyDiv`: the rate function of `T` under a probability
+  measure `ρ` itself, at a mean `x`, is the divergence `d(x, ψ'(0))` to the mean of `ρ`.
 * `MeasureTheory.Measure.expFamilyRate_eq_ofReal_expFamilyDiv`: `dbar = d` on the means.
 * `MeasureTheory.Measure.expFamilyRate_eq_iSup`: `dbar(x, μ)` as a supremum over the natural
   parameters of `ρ`.
@@ -115,6 +117,17 @@ theorem rateFunction_expFamily_natParam (hx : x ∈ ρ.expFamilyMeans T)
     rateFunction T (ρ.expFamily T (ρ.natParam T μ)) x = ENNReal.ofReal (ρ.expFamilyDiv T x μ) := by
   rw [rateFunction_expFamily (interior_subset (natParam_mem_interior_integrableExpSet hμ)) hx,
     klDiv_expFamily_natParam hx hμ]
+
+/-- The rate function of the statistic `T` under a probability measure `ρ` whose cumulant
+generating function is finite near `0`, with `T` not `ρ`-almost everywhere constant, is the
+divergence `d(x, ψ'(0))` to the mean `ψ'(0)` of `T` under `ρ` at every mean `x` of the family,
+since `ρ` is the member `ρ_0` of the family. -/
+theorem rateFunction_eq_ofReal_expFamilyDiv [IsProbabilityMeasure ρ]
+    (hT : ∀ c, ¬ T =ᵐ[ρ] fun _ ↦ c) (h0 : 0 ∈ interior (integrableExpSet T ρ))
+    (hx : x ∈ ρ.expFamilyMeans T) :
+    rateFunction T ρ x = ENNReal.ofReal (ρ.expFamilyDiv T x (deriv (cgf T ρ) 0)) := by
+  have h := rateFunction_expFamily_natParam hx (deriv_cgf_mem_expFamilyMeans h0)
+  rwa [natParam_deriv_cgf hT h0, expFamily_zero] at h
 
 end LMLExplore
 
