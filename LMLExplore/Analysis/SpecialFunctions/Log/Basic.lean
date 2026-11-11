@@ -32,7 +32,7 @@ import Mathlib.Analysis.SpecialFunctions.Log.Deriv
   `x n ≤ c log n` for every `c > C / Δ²`.
 * `Real.tendsto_natCeil_sub_div_log`: if `f n / log n → ∞`, then `⌈f n - c⌉₊ / log n → ∞`.
 * `Real.mul_log_add_lt`: `a log x + b < x` as soon as `x ≥ 2 a log (2 a) + 2 b`, for `a, x > 0`.
-* `Real.log_one_add_div`: `log (1 + y / x) = log (x + y) - log x` for `x > 0` and `x + y > 0`.
+* `Real.log_one_add_div`: `log (1 + y / x) = log (x + y) - log x` for `x ≠ 0` and `x + y ≠ 0`.
 * `Real.one_le_add_half_mul_log_one_add_inv`: `1 ≤ (x + 1 / 2) log (1 + 1 / x)` for `x > 0`.
 * `Real.one_add_mul_log_one_add_sub_sub_mul_log_nonpos`:
   `(1 + t) log (1 + t) - t - t log (1 + t / 2) ≤ 0` for `t ≥ 0`.
@@ -323,10 +323,10 @@ lemma eventually_exists_add_le_mul_and_forall_ofReal_add_lt_mul {κ c : ℝ≥0}
     _ = κ * T := by
       rw [ENNReal.ofReal_mul κ.coe_nonneg, ENNReal.ofReal_coe_nnreal, ENNReal.ofReal_natCast]
 
-/-- `log (1 + y / x) = log (x + y) - log x` for `x > 0` and `x + y > 0`. -/
-theorem log_one_add_div {x y : ℝ} (hx : 0 < x) (hxy : 0 < x + y) :
+/-- `log (1 + y / x) = log (x + y) - log x` for `x ≠ 0` and `x + y ≠ 0`. -/
+theorem log_one_add_div {x y : ℝ} (hx : x ≠ 0) (hxy : x + y ≠ 0) :
     log (1 + y / x) = log (x + y) - log x := by
-  rw [← log_div hxy.ne' hx.ne', one_add_div hx.ne']
+  rw [← log_div hxy hx, one_add_div hx]
 
 /-- `1 ≤ (x + 1 / 2) log (1 + x⁻¹)` for `x > 0`: the first term of the series of
 `log (1 + 1 / x)` in powers of `1 / (2 x + 1)` (`Real.hasSum_log_one_add_inv`). -/
@@ -384,9 +384,9 @@ theorem add_one_mul_log_sub_le_one (m : ℕ) :
   have hm' : (0 : ℝ) < m := by exact_mod_cast hm
   have h := one_add_mul_log_one_add_sub_sub_mul_log_nonpos (t := (m : ℝ)⁻¹) (by positivity)
   have e1 : log (1 + (m : ℝ)⁻¹) = log ((m : ℝ) + 1) - log m := by
-    rw [inv_eq_one_div, log_one_add_div hm' (by positivity)]
+    rw [inv_eq_one_div, log_one_add_div hm'.ne' (by positivity)]
   have e2 : log (1 + (m : ℝ)⁻¹ / 2) = log ((m : ℝ) + 1 / 2) - log m := by
-    rw [← log_one_add_div hm' (by positivity), div_div, mul_comm, ← div_div, one_div]
+    rw [← log_one_add_div hm'.ne' (by positivity), div_div, mul_comm, ← div_div, one_div]
   rw [e1, e2] at h
   have h' := mul_le_mul_of_nonneg_left h hm'.le
   have : (m : ℝ) * ((1 + (m : ℝ)⁻¹) * (log (↑m + 1) - log ↑m) - (m : ℝ)⁻¹ -
