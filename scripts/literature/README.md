@@ -24,7 +24,7 @@ the build and a checkout of LMLRoadmaps, with `annotations.py`:
 ```bash
 python3 scripts/literature/annotations.py --dataset DATASET \
   --bibliography scripts/literature/bibliography.json --out OUT \
-  --roadmaps LMLROADMAPS --roadmaps-commit SHA
+  --roadmaps LMLROADMAPS --roadmaps-commit SHA [--papers PAPERS_JSON]
 ```
 
 and checks the annotations with the format's checker, `literature-links validate`.
@@ -44,6 +44,28 @@ layers. The locator may name several results (`[LS, Lemmas 8.2, 8.3]`, `[LS, Lem
 `[DK19, Lemma 6 and Theorem 7]`), a part (`[P, Theorem 6.2.2 (a)]`), a proof
 (`[GK16, proof of Theorem 14]`) or an equation (`[LS, (20.9)]`). A citation of a whole work, `[GK16]`,
 gives no link.
+
+## The papers
+
+With *include the papers*, the page also shows the literature links of the papers built on
+LMLExplore (https://leanmachinelearning.org/LMLExplore/papers/, `scripts/papers/`): each paper's
+declarations that cite a result, with the paper, and the relation that the paper gives for its main
+results; the counts and the coverage of the roadmaps then include them. `?papers` in the address
+checks the box. Without it, the page is the same as without papers.
+
+The workflow passes the papers pages' `papers.json` with `--papers`, so the papers step runs first.
+For each paper with a website, `annotations.py` reads the `literature/annotations.jsonl` that the
+paper publishes there, written by this script at the commit that the paper pins, and keeps the
+annotations that link a declaration of the paper's own repository. A paper's work is the page's work
+with the same arXiv ID or URI, else a work of `bibliography.json`, else a new work under the paper's
+key; its results are matched by label. A declaration that LMLExplore has under the same name is the
+paper's copy of it, from before it was ported, and is left out. The run summary lists, under
+"Literature page", the papers it could not read, those copies, and the works that a paper numbers
+after another revision than LMLExplore does. `annotations.jsonl` keeps LMLExplore's links only.
+
+The papers' files are written in other people's repositories: as on the papers pages, their text is
+escaped, and the links are built by the script, from the repository and website that `papers.json`
+names and from arXiv IDs and DOIs that match a pattern, never taken from the files.
 
 ## The works
 
