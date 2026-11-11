@@ -50,6 +50,9 @@ feedback `Y n` is almost surely the reward `x (A n)` of the action, the conditio
   `b ∼ p`, the estimates of the reward `x a` are equal to `x a` when `p a ≠ 0`.
 * `sum_mul_iwEstimator_apply_sub_sq`, `sum_mul_lossIwEstimator_apply_sub_sq`: the corresponding
   variances.
+* `sum_mul_sum_mul_iwEstimator_apply_sub_sq`: the `p`-average of a weighted sum over the arms of
+  the squared deviations of the importance-weighted estimates, as in the local norms of
+  Tsallis-INF.
 * `dotProduct_iwEstimator`, `dotProduct_lossIwEstimator`: the averages of the estimates against
   a vector `e` summing to `1`, such as the advice of an expert in Exp4, are `e b y / p b` and
   `1 - e b (1 - y) / p b`.
@@ -107,6 +110,10 @@ feedback `Y n` is almost surely the reward `x (A n)` of the action, the conditio
 * `WeightAlgorithm.condExp_iwEstimator_one_sub`: in any environment, the estimate of the loss
   `1 - Y n` of an arm has conditional mean `1 - env.means O A Y a n` given the past if the arm has
   positive weight, and `0` otherwise.
+* `WeightAlgorithm.integrable_iwEstimator_one_sub`, `WeightAlgorithm.integral_iwEstimator_one_sub`:
+  in any environment with feedback in `[0, 1]`, the estimate of the loss `1 - Y n` of an arm is
+  integrable, and its expectation is `E[1 - env.means O A Y a n]` if the arm has almost surely
+  positive weight.
 * `WeightAlgorithm.measure_log_one_div_le_sum_sum_mul_iwEstimator_add_sub_le`: the concentration of
   the implicit-exploration estimates of the losses in any environment [Neu15, Lemma 1;
   LS, Lemma 12.2].
@@ -360,6 +367,22 @@ lemma sum_mul_iwEstimator_apply_sub_sq (hp : ∑ b, p b = 1) (ha : p a ≠ 0) :
   field_simp
   ring
 
+/-- The `p`-average, over the drawn arm `b ∼ p`, of the `f`-weighted sum
+`∑ a, f a * (iwEstimator p b (x b) a - x a) ^ 2` of the squared deviations of the
+importance-weighted estimates is `∑ a, f a * (x a ^ 2 * (1 - p a) / p a)`, for coefficients `f`
+that vanish on the arms of weight zero. -/
+lemma sum_mul_sum_mul_iwEstimator_apply_sub_sq (hp : ∑ b, p b = 1) {f : α → ℝ}
+    (hf : ∀ a, p a = 0 → f a = 0) :
+    ∑ b, p b * ∑ a, f a * (iwEstimator p b (x b) a - x a) ^ 2 =
+      ∑ a, f a * (x a ^ 2 * (1 - p a) / p a) := by
+  simp only [Finset.mul_sum]
+  rw [Finset.sum_comm]
+  refine Finset.sum_congr rfl fun a _ ↦ ?_
+  by_cases ha : p a = 0
+  · simp [hf a ha]
+  rw [← sum_mul_iwEstimator_apply_sub_sq hp ha, Finset.mul_sum]
+  exact Finset.sum_congr rfl fun b _ ↦ by ring
+
 /-- The variance of the loss-based importance-weighted estimate of the reward of an arm `a` with
 `p a ≠ 0`, over the drawn arm `b ∼ p`, is `(1 - x a) ^ 2 * (1 - p a) / p a`. -/
 lemma sum_mul_lossIwEstimator_apply_sub_sq (hp : ∑ b, p b = 1) (ha : p a ≠ 0) :
@@ -485,6 +508,24 @@ lemma integrable_lossIwEstimator (h : IsAlgEnvSeq O A Y (weightAlgorithm w hw hp
     _ ≤ 1 + |1 - x a| := by
         simp only [mul_add, mul_one, Finset.sum_add_distrib, hp.2, add_le_add_iff_left]
         exact sum_mul_abs_iwEstimator_apply_le (x := fun b ↦ 1 - x b) (hp.1 a)
+
+/-- Along a run of a weight-based algorithm whose feedback at round `n` is almost surely in
+`[0, 1]`, in any environment, the importance-weighted estimate of the loss `1 - Y n` at an arm `a`
+is integrable. -/
+lemma integrable_iwEstimator_one_sub (h : IsAlgEnvSeq O A Y (weightAlgorithm w hw hp) env P)
+    (hY : ∀ᵐ ω ∂P, Y n ω ∈ Set.Icc 0 1) (a : α) :
+    Integrable
+      (fun ω ↦ iwEstimator (w n (history O A Y n ω, O n ω)) (A n ω) (1 - Y n ω) a) P := by
+  have hwm : Measurable fun ω ↦ w n (history O A Y n ω, O n ω) :=
+    (measurable_pi_iff.2 (hw n)).comp ((h.measurable_history n).prodMk (h.measurable_obs n))
+  have hm : Measurable
+      fun ω ↦ iwEstimator (w n (history O A Y n ω, O n ω)) (A n ω) (1 - Y n ω) a :=
+    (measurable_pi_apply a).comp (measurable_iwEstimator.comp (hwm.prodMk
+      ((h.measurable_action n).prodMk (measurable_const.sub (h.measurable_feedback n)))))
+  refine (integrable_div_weights h n (Pi.single a 1)).mono' hm.aestronglyMeasurable ?_
+  filter_upwards [hY] with ω hω
+  exact norm_iwEstimator_le_single_div ((mem_simplex_iff.1 (hp n _)).1 _) (sub_nonneg.2 hω.2)
+    (by linarith [hω.1])
 
 variable [Nonempty α]
 
@@ -835,6 +876,22 @@ theorem condExp_iwEstimator_one_sub (h : IsAlgEnvSeq O A Y (weightAlgorithm w hw
     (fun b ↦ measurable_const.sub (measurable_integral_feedback stronglyMeasurable_id b)) hZm
     hint] with ω hω
   rw [hω, Environment.means_eq_integral]
+
+/-- **Unbiasedness of the estimated losses in expectation**, in any environment. Along a run of a
+weight-based algorithm whose feedback at round `n` is almost surely in `[0, 1]`, the
+importance-weighted estimate of the loss `1 - Y n` at an arm `a` that has almost surely positive
+weight has the expectation `E[1 - m_n(a)]` of the loss of `a`, with `m_n(a) = env.means O A Y a n`
+the mean feedback of `a` at round `n` given the past. -/
+theorem integral_iwEstimator_one_sub (h : IsAlgEnvSeq O A Y (weightAlgorithm w hw hp) env P)
+    (hY : ∀ᵐ ω ∂P, Y n ω ∈ Set.Icc 0 1) (ha : ∀ᵐ ω ∂P, 0 < w n (history O A Y n ω, O n ω) a) :
+    P[fun ω ↦ iwEstimator (w n (history O A Y n ω, O n ω)) (A n ω) (1 - Y n ω) a] =
+      P[fun ω ↦ 1 - env.means O A Y a n ω] := by
+  rw [← integral_condExp (h.filtrationObs.le n)]
+  refine integral_congr_ae ?_
+  filter_upwards [condExp_iwEstimator_one_sub h
+    (Integrable.of_mem_Icc 0 1 (h.measurable_feedback n).aemeasurable hY)
+    (integrable_iwEstimator_one_sub h hY a), ha] with ω hω hωa
+  simp [hω, hωa.ne']
 
 /-- **Concentration of implicit-exploration estimates** [Neu15, Lemma 1; LS, Lemma 12.2], in any
 environment. Along a run of a weight-based algorithm with weights `P t = w t (past)` whose

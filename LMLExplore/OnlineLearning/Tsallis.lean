@@ -7,9 +7,6 @@ module
 
 public import LMLExplore.Analysis.Convex.Tsallis
 public import LMLExplore.OnlineLearning.LocalNorm
-public import Mathlib.Analysis.Calculus.Deriv.Inv
-public import Mathlib.Analysis.Convex.SpecificFunctions.Pow
-public import Mathlib.Analysis.SpecialFunctions.Sqrt
 
 /-!
 # Follow the regularized leader with the ½-Tsallis potential
@@ -55,7 +52,7 @@ namespace LMLExplore.OnlineLearning
 
 variable {α : Type*} [Fintype α]
 
-section Potential
+section Loss
 
 /-- The linear functional `v ↦ ∑ a, ℓ a * v a` of a loss vector `ℓ`. -/
 private noncomputable def lossCLM (ℓ : α → ℝ) : (α → ℝ) →L[ℝ] ℝ :=
@@ -64,70 +61,7 @@ private noncomputable def lossCLM (ℓ : α → ℝ) : (α → ℝ) →L[ℝ] �
 private lemma lossCLM_apply (ℓ v : α → ℝ) : lossCLM ℓ v = ∑ a, ℓ a * v a := by
   simp [lossCLM]
 
-/-- The derivative `v ↦ -∑ a, v a / (2 √(z a))` of the ½-Tsallis potential at `z`. -/
-private noncomputable def tsallisDeriv (z : α → ℝ) : (α → ℝ) →L[ℝ] ℝ :=
-  ∑ a, (-(2 * √(z a))⁻¹) • ContinuousLinearMap.proj a
-
-/-- The second derivative `(v, w) ↦ ∑ a, v a * w a / (4 z a √(z a))` of the ½-Tsallis potential
-at `z`. -/
-private noncomputable def tsallisDeriv2 (z : α → ℝ) : (α → ℝ) →L[ℝ] (α → ℝ) →L[ℝ] ℝ :=
-  ∑ a, ((4 * z a * √(z a))⁻¹ • ContinuousLinearMap.proj a).smulRight
-    (ContinuousLinearMap.proj (R := ℝ) (φ := fun _ : α ↦ ℝ) a)
-
-private lemma tsallisDeriv_apply (z v : α → ℝ) :
-    tsallisDeriv z v = ∑ a, -(2 * √(z a))⁻¹ * v a := by
-  simp [tsallisDeriv]
-
-private lemma tsallisDeriv2_apply (z v w : α → ℝ) :
-    tsallisDeriv2 z v w = ∑ a, (4 * z a * √(z a))⁻¹ * v a * w a := by
-  simp [tsallisDeriv2, mul_assoc]
-
-/-- The ½-Tsallis potential `p ↦ -∑ a, √(p a)` is convex on the nonnegative orthant. -/
-private lemma convexOn_neg_sum_sqrt :
-    ConvexOn ℝ (Set.Ici (0 : α → ℝ)) fun p ↦ -∑ a, √(p a) := by
-  refine ⟨convex_Ici 0, fun p hp q hq s t hs ht hst ↦ ?_⟩
-  simp only [smul_eq_mul, mul_neg, ← neg_add, neg_le_neg_iff, mul_sum, ← sum_add_distrib]
-  refine sum_le_sum fun a _ ↦ ?_
-  simpa using Real.strictConcaveOn_sqrt.concaveOn.2 (Set.mem_Ici.2 (hp a))
-    (Set.mem_Ici.2 (hq a)) hs ht hst
-
-/-- `x ↦ -(2 √x)⁻¹` has derivative `(4 x √x)⁻¹` at `x > 0`. -/
-private lemma hasDerivAt_neg_inv_two_mul_sqrt {x : ℝ} (hx : 0 < x) :
-    HasDerivAt (fun y ↦ -(2 * √y)⁻¹) (4 * x * √x)⁻¹ x := by
-  have hs : 0 < √x := sqrt_pos.2 hx
-  have h1 : HasDerivAt (fun y ↦ 2 * √y) (2 * (1 / (2 * √x))) x :=
-    (hasDerivAt_sqrt hx.ne').const_mul 2
-  have h := (HasDerivAt.inv h1 (by positivity)).neg
-  convert h using 1
-  rw [mul_pow, sq_sqrt hx.le]
-  field_simp
-  ring
-
-/-- On the positive orthant, the ½-Tsallis potential has derivative `tsallisDeriv z` at `z`. -/
-private lemma hasFDerivAt_neg_sum_sqrt {z : α → ℝ} (hz : ∀ a, 0 < z a) :
-    HasFDerivAt (fun p : α → ℝ ↦ -∑ a, √(p a)) (tsallisDeriv z) z := by
-  have ha (a : α) : HasFDerivAt (fun p : α → ℝ ↦ √(p a))
-      ((1 / (2 * √(z a))) • ContinuousLinearMap.proj a) z :=
-    HasDerivAt.comp_hasFDerivAt (h₂ := fun y ↦ √y) (f := fun p : α → ℝ ↦ p a) z
-      (hasDerivAt_sqrt (hz a).ne') (hasFDerivAt_apply (𝕜 := ℝ) a z)
-  refine (HasFDerivAt.fun_sum (u := univ) fun a _ ↦ ha a).neg.congr_fderiv
-    (ContinuousLinearMap.ext fun v ↦ ?_)
-  simp [tsallisDeriv]
-
-/-- On the positive orthant, the derivative of the ½-Tsallis potential has derivative
-`tsallisDeriv2 z` at `z`. -/
-private lemma hasFDerivAt_tsallisDeriv {z : α → ℝ} (hz : ∀ a, 0 < z a) :
-    HasFDerivAt (tsallisDeriv (α := α)) (tsallisDeriv2 z) z := by
-  have ha (a : α) : HasFDerivAt (fun p : α → ℝ ↦ (-(2 * √(p a))⁻¹) •
-      ContinuousLinearMap.proj (R := ℝ) (φ := fun _ : α ↦ ℝ) a)
-      (((4 * z a * √(z a))⁻¹ • ContinuousLinearMap.proj a).smulRight
-        (ContinuousLinearMap.proj (R := ℝ) (φ := fun _ : α ↦ ℝ) a)) z :=
-    (HasDerivAt.comp_hasFDerivAt (h₂ := fun y ↦ -(2 * √y)⁻¹) (f := fun p : α → ℝ ↦ p a) z
-      (hasDerivAt_neg_inv_two_mul_sqrt (hz a)) (hasFDerivAt_apply (𝕜 := ℝ) a z)).smul_const _
-  unfold tsallisDeriv tsallisDeriv2
-  exact HasFDerivAt.fun_sum (u := univ) fun a _ ↦ ha a
-
-end Potential
+end Loss
 
 section Step
 
@@ -224,10 +158,8 @@ private lemma sq_lossCLM_le (hp : ∀ a, 0 < p a) {x : α → ℝ} (hx : ∀ a, 
   rw [mul_sum]
   refine sum_le_sum fun a _ ↦ ?_
   -- `4 z a √(z a) ≤ 32 p a √(p a)`
-  have h1 : √(z a) ≤ 2 * √(p a) := by
-    rw [show (2 : ℝ) = √4 by rw [show (4 : ℝ) = 2 ^ 2 by norm_num, sqrt_sq (by norm_num)],
-      ← sqrt_mul (by norm_num)]
-    exact sqrt_le_sqrt (hz4 a)
+  have h1 : √(z a) ≤ 2 * √(p a) :=
+    (sqrt_le_left (by positivity)).2 (by nlinarith [sq_sqrt (hp a).le, hz4 a])
   have h2 : 4 * z a * √(z a) ≤ 32 * (p a * √(p a)) := by
     have := sqrt_nonneg (z a)
     nlinarith [hz_pos a, hz4 a, hp a]

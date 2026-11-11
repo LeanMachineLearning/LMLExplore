@@ -39,8 +39,9 @@ conditionally unbiased, so the expected regret against `a` is the expected estim
 
 * `TsallisINF.sum_one_sub_sub_iwEstimator_le`: the pathwise regret bound on the estimated losses,
   along every sequence of actions and feedbacks in `[0, 1]`.
-* `TsallisINF.integral_sum_mul_sqrt_mul_sq_le`: the expected local norm of each round is at most
-  `√(k - 1)`.
+* `TsallisINF.integral_sum_mul_sqrt_mul_sq_le_integral_sum_sqrt_mul_one_sub`,
+  `TsallisINF.integral_sum_mul_sqrt_mul_sq_le`: the expected local norm of each round is at most
+  `E[∑ b, √(P t b) (1 - P t b)]`, hence at most `√(k - 1)`.
 * `TsallisINF.pseudoRegret_le`: the pseudo-regret of Tsallis-INF against an adaptive adversary is
   at most `4 √n (√k - 1) + 4 √(k - 1) ∑ t < n, 1 / √(t + 1)`.
 * `TsallisINF.pseudoRegret_le_sqrt`: the pseudo-regret is at most `12 √((k - 1) n)`.
@@ -174,21 +175,16 @@ omit [Nonempty α] [MeasurableSpace α] [MeasurableSingletonClass α] [Measurabl
 `∑ b, √(p b) (1 - p b)`. -/
 private lemma sum_mul_localNorm {p : α → ℝ} (hp : p ∈ simplex α) :
     ∑ a, p a * localNorm p a = ∑ b, √(p b) * (1 - p b) := by
-  simp only [localNorm, mul_sum]
-  rw [sum_comm]
-  refine sum_congr rfl fun b _ ↦ ?_
   have hp' := mem_simplex_iff.1 hp
+  have h := sum_mul_sum_mul_iwEstimator_apply_sub_sq (x := fun _ ↦ 1) hp'.2
+    (f := fun b ↦ p b * √(p b)) fun b hb ↦ by simp [hb]
+  simp only [one_pow, one_mul] at h
+  rw [show ∑ a, p a * localNorm p a = _ from h]
+  refine sum_congr rfl fun b _ ↦ ?_
   rcases (hp'.1 b).eq_or_lt with hb | hb
   · simp [← hb]
-  have hvar := sum_mul_iwEstimator_apply_sub_sq (x := fun _ ↦ 1) hp'.2 hb.ne'
   have hs : 0 < √(p b) := sqrt_pos.2 hb
-  calc ∑ a, p a * (p b * √(p b) * (iwEstimator p a 1 b - 1) ^ 2)
-  _ = p b * √(p b) * ∑ a, p a * (iwEstimator p a 1 b - 1) ^ 2 := by
-      rw [mul_sum]
-      exact sum_congr rfl fun a _ ↦ by ring
-  _ = √(p b) * (1 - p b) := by
-      rw [hvar]
-      field_simp
+  field_simp
 
 omit [Nonempty α] [MeasurableSpace α] [MeasurableSingletonClass α] [MeasurableSpace 𝓞] in
 /-- For a loss `y ∈ [0, 1]`, the local norm of the shifted importance-weighted estimate of `y` is
@@ -270,13 +266,15 @@ theorem integrable_sum_mul_sqrt_mul_sq (h : IsAlgEnvSeq O A Y tsallisINF env P)
 feedback at round `t` is almost surely in `[0, 1]`, with `P t` the weights and `Ŷ t` the
 importance-weighted estimates of the losses `1 - Y t`, the local norm
 `∑ b, P t b √(P t b) (Ŷ t b - (1 - Y t)) ^ 2` of the estimates shifted by the observed loss has
-expectation at most `√(k - 1)`, with `k` the number of arms. -/
-theorem integral_sum_mul_sqrt_mul_sq_le (h : IsAlgEnvSeq O A Y tsallisINF env P)
-    (hY : ∀ᵐ ω ∂P, Y t ω ∈ Set.Icc 0 1) :
+expectation at most `E[∑ b, √(P t b) (1 - P t b)]`. -/
+theorem integral_sum_mul_sqrt_mul_sq_le_integral_sum_sqrt_mul_one_sub
+    (h : IsAlgEnvSeq O A Y tsallisINF env P) (hY : ∀ᵐ ω ∂P, Y t ω ∈ Set.Icc 0 1) :
     P[fun ω ↦ ∑ b, tsallisINFWeights t (history O A Y t ω) b *
       √(tsallisINFWeights t (history O A Y t ω) b) *
       (iwEstimator (tsallisINFWeights t (history O A Y t ω)) (A t ω) (1 - Y t ω) b -
-        (1 - Y t ω)) ^ 2] ≤ √((Fintype.card α : ℝ) - 1) := by
+        (1 - Y t ω)) ^ 2] ≤
+      P[fun ω ↦ ∑ b, √(tsallisINFWeights t (history O A Y t ω) b) *
+        (1 - tsallisINFWeights t (history O A Y t ω) b)] := by
   -- the local norm is dominated by its value `localNorm (P t) (A t)` for a unit loss
   have h1 := integral_mono_of_nonneg (μ := P)
     (g := fun ω ↦ localNorm (tsallisINFWeights t (history O A Y t ω)) (A t ω))
@@ -286,53 +284,26 @@ theorem integral_sum_mul_sqrt_mul_sq_le (h : IsAlgEnvSeq O A Y tsallisINF env P)
   -- whose expectation is that of `∑ b, √(P t b) (1 - P t b) ≤ √(k - 1)`
   rw [WeightAlgorithm.integral_comp_weights (isAlgEnvSeq_weightAlgorithm h) t measurable_localNorm
     (integrable_localNorm h t)] at h1
-  refine h1.trans ?_
-  simp_rw [sum_mul_localNorm (tsallisINFWeights_mem_simplex _ _)]
+  simpa only [sum_mul_localNorm (tsallisINFWeights_mem_simplex _ _)] using h1
+
+/-- **The expected local norm of a round of Tsallis-INF.** Along a run of Tsallis-INF whose
+feedback at round `t` is almost surely in `[0, 1]`, with `P t` the weights and `Ŷ t` the
+importance-weighted estimates of the losses `1 - Y t`, the local norm
+`∑ b, P t b √(P t b) (Ŷ t b - (1 - Y t)) ^ 2` of the estimates shifted by the observed loss has
+expectation at most `√(k - 1)`, with `k` the number of arms. -/
+theorem integral_sum_mul_sqrt_mul_sq_le (h : IsAlgEnvSeq O A Y tsallisINF env P)
+    (hY : ∀ᵐ ω ∂P, Y t ω ∈ Set.Icc 0 1) :
+    P[fun ω ↦ ∑ b, tsallisINFWeights t (history O A Y t ω) b *
+      √(tsallisINFWeights t (history O A Y t ω) b) *
+      (iwEstimator (tsallisINFWeights t (history O A Y t ω)) (A t ω) (1 - Y t ω) b -
+        (1 - Y t ω)) ^ 2] ≤ √((Fintype.card α : ℝ) - 1) := by
+  refine (integral_sum_mul_sqrt_mul_sq_le_integral_sum_sqrt_mul_one_sub h hY).trans ?_
   refine (integral_mono_of_nonneg (ae_of_all _ fun ω ↦ ?_)
     (integrable_const (√((Fintype.card α : ℝ) - 1)))
     (ae_of_all _ fun ω ↦ sum_sqrt_mul_one_sub_le_sqrt (tsallisINFWeights_mem_simplex _ _))).trans
     (by simp)
   exact sum_nonneg fun b _ ↦ mul_nonneg (sqrt_nonneg _)
     (sub_nonneg.2 ((simplex_subset_Icc (tsallisINFWeights_mem_simplex _ _)).2 b))
-
-/-- Along a run of Tsallis-INF whose feedback at round `t` is almost surely in `[0, 1]`, the
-importance-weighted estimate `Ŷ t a` of the loss of an arm `a` is integrable. -/
-private lemma integrable_iwEstimator_run (h : IsAlgEnvSeq O A Y tsallisINF env P)
-    (hY : ∀ᵐ ω ∂P, Y t ω ∈ Set.Icc 0 1) (a : α) :
-    Integrable (fun ω ↦
-      iwEstimator (tsallisINFWeights t (history O A Y t ω)) (A t ω) (1 - Y t ω) a) P := by
-  refine (WeightAlgorithm.integrable_div_weights (isAlgEnvSeq_weightAlgorithm h) t
-    (Pi.single a 1)).mono' ((measurable_pi_apply a).comp
-      (measurable_iwEstimator_run h t)).aestronglyMeasurable ?_
-  filter_upwards [hY] with ω hω
-  exact norm_iwEstimator_le_single_div (tsallisINFWeights_pos _ _ _).le (sub_nonneg.2 hω.2)
-    (by linarith [hω.1])
-
-/-- Along a run of Tsallis-INF whose feedback at round `t` is almost surely in `[0, 1]`, the
-importance-weighted estimate `Ŷ t a` of the loss of an arm `a` has conditional expectation
-`1 - m_t(a)` given the past, with `m_t(a) = env.means O A Y a t`. -/
-private lemma condExp_iwEstimator_run (h : IsAlgEnvSeq O A Y tsallisINF env P)
-    (hY : ∀ᵐ ω ∂P, Y t ω ∈ Set.Icc 0 1) (a : α) :
-    P[fun ω ↦ iwEstimator (tsallisINFWeights t (history O A Y t ω)) (A t ω) (1 - Y t ω) a
-      | (isAlgEnvSeq_weightAlgorithm h).filtrationObs t] =ᵐ[P]
-      fun ω ↦ 1 - env.means O A Y a t ω := by
-  have hYint : Integrable (Y t) P :=
-    Integrable.of_mem_Icc 0 1 (h.measurable_feedback t).aemeasurable hY
-  filter_upwards [WeightAlgorithm.condExp_iwEstimator_one_sub (isAlgEnvSeq_weightAlgorithm h)
-    hYint (integrable_iwEstimator_run h hY a)] with ω hω
-  rw [hω]
-  simp [(tsallisINFWeights_pos t (history O A Y t ω) a).ne']
-
-/-- **Unbiasedness of the estimated losses in expectation.** Along a run of Tsallis-INF whose
-feedback at round `t` is almost surely in `[0, 1]`, the importance-weighted estimate `Ŷ t a` of the
-loss of an arm `a` has the expectation `E[1 - m_t(a)]` of the loss of `a`, with
-`m_t(a) = env.means O A Y a t` the mean reward of `a` at round `t` given the past. -/
-theorem integral_iwEstimator (h : IsAlgEnvSeq O A Y tsallisINF env P)
-    (hY : ∀ᵐ ω ∂P, Y t ω ∈ Set.Icc 0 1) (a : α) :
-    P[fun ω ↦ iwEstimator (tsallisINFWeights t (history O A Y t ω)) (A t ω) (1 - Y t ω) a] =
-      P[fun ω ↦ 1 - env.means O A Y a t ω] := by
-  rw [← integral_condExp ((isAlgEnvSeq_weightAlgorithm h).filtrationObs.le t)]
-  exact integral_congr_ae (condExp_iwEstimator_run h hY a)
 
 /-- **Pseudo-regret of Tsallis-INF against an adaptive adversary** [ZS21], [Ora, Section 9.3].
 Along a run of Tsallis-INF against any environment whose feedbacks of the rounds `t < n` are
@@ -348,9 +319,14 @@ theorem pseudoRegret_le (h : IsAlgEnvSeq O A Y tsallisINF env P)
   have hYint (t : ℕ) (ht : t ∈ range n) : Integrable (fun ω ↦ 1 - Y t ω) P :=
     (integrable_const 1).sub
       (Integrable.of_mem_Icc 0 1 (h.measurable_feedback t).aemeasurable (hYt t ht))
-  have hLint (t : ℕ) (ht : t ∈ range n) := integrable_iwEstimator_run h (hYt t ht) a
-  have hMint (t : ℕ) (ht : t ∈ range n) : Integrable (fun ω ↦ 1 - env.means O A Y a t ω) P :=
-    integrable_condExp.congr (condExp_iwEstimator_run h (hYt t ht) a)
+  have hLint (t : ℕ) (ht : t ∈ range n) :=
+    WeightAlgorithm.integrable_iwEstimator_one_sub (isAlgEnvSeq_weightAlgorithm h) (hYt t ht) a
+  have hMint (t : ℕ) (ht : t ∈ range n) : Integrable (fun ω ↦ 1 - env.means O A Y a t ω) P := by
+    refine integrable_condExp.congr ((WeightAlgorithm.condExp_iwEstimator_one_sub
+      (isAlgEnvSeq_weightAlgorithm h)
+      (Integrable.of_mem_Icc 0 1 (h.measurable_feedback t).aemeasurable (hYt t ht))
+      (hLint t ht)).trans (ae_of_all _ fun ω ↦ ?_))
+    simp [(tsallisINFWeights_pos t (history O A Y t ω) a).ne']
   have hVint (t : ℕ) (ht : t ∈ range n) := integrable_sum_mul_sqrt_mul_sq (t := t) h (hYt t ht)
   calc P[fun ω ↦ ∑ t ∈ range n, (env.means O A Y a t ω - Y t ω)]
   -- the expected regret against `a` is the expected estimated regret
@@ -362,7 +338,9 @@ theorem pseudoRegret_le (h : IsAlgEnvSeq O A Y tsallisINF env P)
       exact integral_congr_ae (ae_of_all _ fun ω ↦ by simp only; ring)
   _ = ∑ t ∈ range n, (P[fun ω ↦ 1 - Y t ω] - P[fun ω ↦
         iwEstimator (tsallisINFWeights t (history O A Y t ω)) (A t ω) (1 - Y t ω) a]) :=
-      sum_congr rfl fun t ht ↦ by rw [integral_iwEstimator h (hYt t ht) a]
+      sum_congr rfl fun t ht ↦ by
+        rw [WeightAlgorithm.integral_iwEstimator_one_sub (isAlgEnvSeq_weightAlgorithm h)
+          (hYt t ht) (ae_of_all _ fun ω ↦ tsallisINFWeights_pos _ _ a)]
   _ = P[fun ω ↦ ∑ t ∈ range n, ((1 - Y t ω) -
         iwEstimator (tsallisINFWeights t (history O A Y t ω)) (A t ω) (1 - Y t ω) a)] := by
       rw [integral_finsetSum (f := fun t ω ↦ (1 - Y t ω) -
@@ -411,9 +389,9 @@ theorem pseudoRegret_le_sqrt (h : IsAlgEnvSeq O A Y tsallisINF env P)
   have hk1 : 0 ≤ (Fintype.card α : ℝ) - 1 := by linarith
   -- `√k - 1 ≤ √(k - 1)`
   have h_sqrt : √(Fintype.card α) - 1 ≤ √((Fintype.card α : ℝ) - 1) := by
-    have h := sqrt_le_sqrt (x := (Fintype.card α : ℝ)) (y := (√((Fintype.card α : ℝ) - 1) + 1) ^ 2)
-      (by nlinarith [sq_sqrt hk1, sqrt_nonneg ((Fintype.card α : ℝ) - 1)])
-    rw [sqrt_sq (by positivity)] at h
+    have h : √(Fintype.card α) ≤ √((Fintype.card α : ℝ) - 1) + 1 :=
+      (sqrt_le_left (by positivity)).2
+        (by nlinarith [sq_sqrt hk1, sqrt_nonneg ((Fintype.card α : ℝ) - 1)])
     linarith
   refine (pseudoRegret_le h hY).trans ?_
   calc 4 * √n * (√(Fintype.card α) - 1) +
