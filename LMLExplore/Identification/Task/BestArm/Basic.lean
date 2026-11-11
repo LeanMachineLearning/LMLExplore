@@ -34,8 +34,8 @@ alternatives to `a` is the closed set above, and when the transportation cost is
 the cost of the alternatives is the infimum of the cost over it. Dually, the closure within `S` of
 the answer set of `a`, the vectors with unique best arm `a`, is the set of the vectors of `S` whose
 largest mean is attained at `a`, so that the closures of the answer sets cover `S`. The openness of
-the answer sets and this covering are the conditions of [D23, Assumption 1] on the answer sets
-under which the static proportions algorithms of fixed-budget identification have an explicit
+the answer sets and this covering are two of the conditions of [D23, Assumption 1] on the answer
+sets under which the static proportions algorithms of fixed-budget identification have an explicit
 error exponent.
 These answer-set lemmas are adapted from the formalization Degenne2023Existence
 (`github.com/RemyDegenne/Degenne2023Existence`, file
@@ -251,12 +251,30 @@ section Closure
 
 variable [Finite α]
 
+omit [Finite α] in
+/-- For a neighbourhood `S` of a vector of means `μ'` whose largest mean is attained at the arm
+`a`, the vector `μ'` lies in the closure of the answer set of `a` of `(baiTask ν id).restrict S`,
+the vectors of `S` with unique best arm `a`. -/
+lemma mem_closure_answerSet_baiTask_restrict (hS : S ∈ 𝓝 μ') (hμ' : ∀ b, μ' b ≤ μ' a) :
+    μ' ∈ closure (((baiTask ν id).restrict S).answerSet a) := by
+  classical
+  -- The path `t ↦ μ' + t • Pi.single a 1` tends to `μ'` and lies in the answer set of `a` for
+  -- small `t > 0`: raising the largest mean makes `a` the unique best arm.
+  set f : ℝ → α → ℝ := fun t ↦ μ' + t • Pi.single a 1 with hf
+  have hf_tendsto : Tendsto f (𝓝[>] 0) (𝓝 μ') := by
+    have hf_cont : Continuous f := by fun_prop
+    simpa [hf] using hf_cont.continuousWithinAt.tendsto (x := 0) (s := Set.Ioi 0)
+  refine mem_closure_of_tendsto hf_tendsto ?_
+  filter_upwards [hf_tendsto.eventually hS, self_mem_nhdsWithin] with t htS ht
+  rw [IdentTask.answerSet_restrict]
+  refine ⟨(mem_answerSet_baiTask_iff ν id).2 fun b hb ↦ ?_, htS⟩
+  simpa [hf, Pi.single_apply, hb] using (hμ' b).trans_lt (lt_add_of_pos_right _ ht)
+
 /-- For a neighbourhood `S` of a vector of means `μ'` in which some arm `b ≠ a` has mean at least
 that of `a`, the vector `μ'` lies in the closure of the alternatives to `a` of
 `(baiTask ν id).restrict S`. -/
 lemma mem_closure_alt_baiTask_restrict (hS : S ∈ 𝓝 μ')
     (hμ' : ∃ b ≠ a, μ' a ≤ μ' b) : μ' ∈ closure (((baiTask ν id).restrict S).alt a) := by
-  classical
   -- An arm `b ≠ a` with the largest mean.
   obtain ⟨b, hba, hb⟩ : ∃ b ≠ a, ∀ c, μ' c ≤ μ' b := by
     obtain ⟨b, hba, hab⟩ := hμ'
@@ -265,17 +283,11 @@ lemma mem_closure_alt_baiTask_restrict (hS : S ∈ 𝓝 μ')
     by_cases hda : d = a
     · exact ⟨b, hba, fun c ↦ (hda ▸ hd c).trans hab⟩
     · exact ⟨d, hda, hd⟩
-  -- The path `t ↦ μ' + t • Pi.single b 1` tends to `μ'` and lies in the alternatives for small
-  -- `t > 0`: raising the largest mean makes `b` the unique best arm.
-  set f : ℝ → α → ℝ := fun t ↦ μ' + t • Pi.single b 1 with hf
-  have hf_tendsto : Tendsto f (𝓝[>] 0) (𝓝 μ') := by
-    have hf_cont : Continuous f := by fun_prop
-    simpa [hf] using hf_cont.continuousWithinAt.tendsto (x := 0) (s := Set.Ioi 0)
-  refine mem_closure_of_tendsto hf_tendsto ?_
-  filter_upwards [hf_tendsto.eventually hS, self_mem_nhdsWithin] with t htS ht
+  -- The closure of the answer set of `b` is contained in that of the alternatives to `a`.
+  refine closure_mono (fun θ hθ ↦ ?_) (mem_closure_answerSet_baiTask_restrict ν hS hb)
+  rw [IdentTask.answerSet_restrict] at hθ
   rw [IdentTask.alt_restrict]
-  refine ⟨(mem_alt_baiTask_iff ν id).2 ⟨b, hba, fun c hcb ↦ ?_⟩, htS⟩
-  simpa [hf, Pi.single_apply, hcb] using (hb c).trans_lt (lt_add_of_pos_right _ ht)
+  exact ⟨(mem_alt_baiTask_iff ν id).2 ⟨b, hba, (mem_answerSet_baiTask_iff ν id).1 hθ.1⟩, hθ.2⟩
 
 /-- For an open set `S` of vectors of means, the closure within `S` of the alternatives to the arm
 `a` in best arm identification restricted to `S` is the set of the vectors of `S` in which some
@@ -304,25 +316,6 @@ mean is attained at an arm `b ≠ a`. -/
 theorem closure_alt_baiTask (a : α) :
     closure ((baiTask ν id).alt a) = {μ' | ∃ b ≠ a, μ' a ≤ μ' b} := by
   simpa using closure_alt_baiTask_restrict_inter ν isOpen_univ a
-
-omit [Finite α] in
-/-- For a neighbourhood `S` of a vector of means `μ'` whose largest mean is attained at the arm
-`a`, the vector `μ'` lies in the closure of the answer set of `a` of `(baiTask ν id).restrict S`,
-the vectors of `S` with unique best arm `a`. -/
-lemma mem_closure_answerSet_baiTask_restrict (hS : S ∈ 𝓝 μ') (hμ' : ∀ b, μ' b ≤ μ' a) :
-    μ' ∈ closure (((baiTask ν id).restrict S).answerSet a) := by
-  classical
-  -- The path `t ↦ μ' + t • Pi.single a 1` tends to `μ'` and lies in the answer set of `a` for
-  -- small `t > 0`: raising the largest mean makes `a` the unique best arm.
-  set f : ℝ → α → ℝ := fun t ↦ μ' + t • Pi.single a 1 with hf
-  have hf_tendsto : Tendsto f (𝓝[>] 0) (𝓝 μ') := by
-    have hf_cont : Continuous f := by fun_prop
-    simpa [hf] using hf_cont.continuousWithinAt.tendsto (x := 0) (s := Set.Ioi 0)
-  refine mem_closure_of_tendsto hf_tendsto ?_
-  filter_upwards [hf_tendsto.eventually hS, self_mem_nhdsWithin] with t htS ht
-  rw [IdentTask.answerSet_restrict]
-  refine ⟨(mem_answerSet_baiTask_iff ν id).2 fun b hb ↦ ?_, htS⟩
-  simpa [hf, Pi.single_apply, hb] using (hμ' b).trans_lt (lt_add_of_pos_right _ ht)
 
 omit [Finite α] in
 /-- For an open set `S` of vectors of means, the closure within `S` of the answer set of the arm
