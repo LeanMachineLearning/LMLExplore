@@ -18,6 +18,7 @@ import Mathlib.Analysis.Complex.ExponentialBounds
 * `Real.monotoneOn_log_one_add_mul_log_sq`: `x ↦ log (1 + x log² x)` is monotone on `[1, ∞)`.
 * `Real.log_natCast_le_log_natCast`: `log` is monotone on natural numbers.
 * `Real.one_le_log_natCast_of_three_le`: `1 ≤ log n` for a natural number `n ≥ 3`.
+* `Real.log_div_rpow_le_exp_neg_one`: `log x / x ^ p ≤ 1 / e` for `x ≥ 1` and `p ≥ 1`.
 * `Real.monotone_log_two_mul_mul_add_one`: `n ↦ log (2 n (n + 1))` is monotone on `ℕ`.
 * `Real.tendsto_log_one_add_mul_log_sq_div_log_atTop`: `log (1 + x log² x) / log x → 1` as
   `x → ∞`.
@@ -134,6 +135,17 @@ theorem tendsto_log_one_add_mul_log_sq_div_log_atTop :
         ring
     rw [div_le_iff₀ (by linarith), add_mul, div_mul_cancel₀ _ (by linarith)]
     linarith
+
+/-- For `p ≥ 1` and `x ≥ 1`, `log x / x ^ p ≤ 1 / e`, since `log x ≤ x / e` and `x ≤ x ^ p`. -/
+theorem log_div_rpow_le_exp_neg_one {x p : ℝ} (hx : 1 ≤ x) (hp : 1 ≤ p) :
+    log x / x ^ p ≤ exp (-1) := by
+  have hx0 : 0 < x := by linarith
+  have h_log : log x / x ≤ exp (-1) := by
+    simpa [exp_neg, exp_log hx0, div_eq_mul_inv] using mul_exp_neg_le_exp_neg_one (log x)
+  calc log x / x ^ p
+  _ ≤ log x / x := div_le_div_of_nonneg_left (log_nonneg hx) hx0
+    (by simpa using rpow_le_rpow_of_exponent_le hx hp)
+  _ ≤ exp (-1) := h_log
 
 /-- If `g n / log n → D` as `n → ∞` and `D < c`, then eventually `g n < c log n`. -/
 theorem eventually_lt_mul_log_of_tendsto_div_log {g : ℕ → ℝ} {D c : ℝ}

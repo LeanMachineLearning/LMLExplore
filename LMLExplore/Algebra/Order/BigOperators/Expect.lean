@@ -19,6 +19,7 @@ samples are written.
 
 * `Finset.sum_div_card_mem_Icc`: if `f i ∈ [a, b]` for every `i ∈ s`, with `s` nonempty, then
   `(∑ i ∈ s, f i) / #s ∈ [a, b]`.
+* `Finset.sum_one_sub_div_card`: the mean of the `1 - f i` is `1` minus the mean of the `f i`.
 -/
 
 public section
@@ -33,5 +34,12 @@ theorem sum_div_card_mem_Icc {s : Finset ι} (hs : s.Nonempty) {f : ι → K} {a
     (hf : ∀ i ∈ s, f i ∈ Set.Icc a b) : (∑ i ∈ s, f i) / #s ∈ Set.Icc a b := by
   rw [← expect_eq_sum_div_card]
   exact ⟨le_expect hs fun i hi ↦ (hf i hi).1, expect_le hs fun i hi ↦ (hf i hi).2⟩
+
+/-- The mean of the `1 - f i` over a nonempty finite set is `1` minus the mean of the `f i`. -/
+theorem sum_one_sub_div_card {R : Type*} [DivisionRing R] [CharZero R] {s : Finset ι}
+    (hs : s.Nonempty) (f : ι → R) :
+    (∑ i ∈ s, (1 - f i)) / #s = 1 - (∑ i ∈ s, f i) / #s := by
+  have hs0 : (#s : R) ≠ 0 := Nat.cast_ne_zero.2 hs.card_pos.ne'
+  simp only [sum_sub_distrib, sum_const, nsmul_eq_mul, mul_one, sub_div, div_self hs0]
 
 end Finset

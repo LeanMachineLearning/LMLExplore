@@ -333,14 +333,6 @@ theorem measureReal_exists_sum_le_and_le_klBerReal_le {X : ι → Ω → ℝ} (h
     gcongr
     exact hp₀.2
 
-/-- If `Y ∈ [0, 1]` almost surely has mean at most `m`, then `1 - Y` has mean at least `1 - m`. -/
-private lemma one_sub_le_integral_one_sub [IsProbabilityMeasure μ] {Y : Ω → ℝ}
-    (hYm : AEMeasurable Y μ) (hY : ∀ᵐ ω ∂μ, Y ω ∈ Set.Icc 0 1) (h : μ[Y] ≤ m) :
-    1 - m ≤ ∫ ω, 1 - Y ω ∂μ := by
-  rw [integral_sub (integrable_const 1) (.of_mem_Icc 0 1 hYm hY)]
-  simp only [integral_const, probReal_univ, smul_eq_mul, one_mul]
-  linarith
-
 /-- **Confidence bound for the upper confidence level** (the upper confidence level part of
 [LS, Corollary 10.4], with an additional margin): for independent random variables `X i ∈ [0, 1]`
 with means at least `m`, a nonempty finite set `s` with empirical mean
@@ -452,7 +444,6 @@ theorem measureReal_lt_klLower_le {X : ι → Ω → ℝ} (h_indep : iIndepFun X
     (hX : ∀ i ∈ s, ∀ᵐ ω ∂μ, X i ω ∈ Set.Icc 0 1) (hmean : ∀ i ∈ s, μ[X i] ≤ m) (L : ℝ) :
     μ.real {ω | m < klLower ((∑ i ∈ s, X i ω) / #s) (ENNReal.ofReal (L / #s))} ≤ exp (-L) := by
   have := h_indep.isProbabilityMeasure
-  have hs0 : (#s : ℝ) ≠ 0 := Nat.cast_ne_zero.2 hs.card_pos.ne'
   -- the variables `1 - X i` lie in `[0, 1]` and have means at least `1 - m`, and
   -- `m < L(μ̂, c)` if and only if `U(1 - μ̂, c) < 1 - m`
   have h := measureReal_klUpper_lt_le (X := fun i ω ↦ 1 - X i ω) (m := 1 - m)
@@ -461,8 +452,7 @@ theorem measureReal_lt_klLower_le {X : ι → Ω → ℝ} (h_indep : iIndepFun X
     (fun i hi ↦ (hX i hi).mono fun ω hω ↦ ⟨by linarith [hω.2], by linarith [hω.1]⟩)
     (fun i hi ↦ ?_) L
   · refine le_of_eq_of_le (congrArg μ.real (Set.ext fun ω ↦ ?_)) h
-    simp only [Set.mem_ofPred_eq, klLower_def, sum_sub_distrib, sum_const, nsmul_eq_mul, mul_one,
-      sub_div, div_self hs0]
+    simp only [Set.mem_ofPred_eq, klLower_def, sum_one_sub_div_card hs]
     exact lt_sub_comm
   · exact one_sub_le_integral_one_sub (hXm i hi) (hX i hi) (hmean i hi)
 
@@ -520,12 +510,6 @@ private lemma sum_range_div_mem_Icc {ω : Ω} (hω : ∀ i, X i ω ∈ Set.Icc 0
   simpa only [card_range] using
     sum_div_card_mem_Icc (nonempty_range_iff.2 (show s ≠ 0 by omega)) fun i _ ↦ hω i
 
-/-- The mean of the first `s ≠ 0` numbers `1 - x i` is `1` minus the mean of the `x i`. -/
-private lemma sum_range_one_sub_div {x : ℕ → ℝ} {s : ℕ} (hs : s ≠ 0) :
-    (∑ i ∈ range s, (1 - x i)) / s = 1 - (∑ i ∈ range s, x i) / s := by
-  have hs0 : (s : ℝ) ≠ 0 := Nat.cast_ne_zero.2 hs
-  simp only [sum_sub_distrib, sum_const, card_range, nsmul_eq_mul, mul_one, sub_div, div_self hs0]
-
 variable [StandardBorelSpace Ω]
 
 /-- **Self-normalized deviations below the mean in relative-entropy form** [GC11, Theorem 10].
@@ -581,7 +565,9 @@ theorem measure_exists_gt_and_le_mul_klBer_le (h_indep : iIndepFun X μ)
     (fun i ↦ ?_) hx hn
   · refine le_trans (measure_mono fun ω hω ↦ ?_) h
     obtain ⟨s, hs, hsn, hlt, hle⟩ := hω
-    refine ⟨s, hs, hsn, ?_, ?_⟩ <;> rw [sum_range_one_sub_div (by omega)]
+    have h_sub := sum_one_sub_div_card (nonempty_range_iff.2 (show s ≠ 0 by omega)) fun i ↦ X i ω
+    rw [card_range] at h_sub
+    refine ⟨s, hs, hsn, ?_, ?_⟩ <;> rw [h_sub]
     · linarith
     · rwa [klBer_one_sub_one_sub]
   · exact one_sub_le_integral_one_sub (hXm i).aemeasurable (hX i) (hmean i)
@@ -634,8 +620,10 @@ theorem measure_exists_lt_klLower_le (h_indep : iIndepFun X μ) (hXm : ∀ i, Me
     (fun i ↦ ?_) hx hn
   · refine le_trans (measure_mono fun ω hω ↦ ?_) h
     obtain ⟨s, hs, hsn, hL⟩ := hω
+    have h_sub := sum_one_sub_div_card (nonempty_range_iff.2 (show s ≠ 0 by omega)) fun i ↦ X i ω
+    rw [card_range] at h_sub
     refine ⟨s, hs, hsn, ?_⟩
-    rw [sum_range_one_sub_div (by omega)]
+    rw [h_sub]
     rw [klLower_def] at hL
     linarith
   · exact one_sub_le_integral_one_sub (hXm i).aemeasurable (hX i) (hmean i)

@@ -12,6 +12,7 @@ public import Mathlib.Analysis.SumIntegralComparisons
 public import Mathlib.MeasureTheory.Integral.IntervalIntegral.FundThmCalculus
 import Mathlib.Analysis.Complex.ExponentialBounds
 import Mathlib.Analysis.SpecialFunctions.Integrals.Basic
+import LMLExplore.Analysis.SpecialFunctions.Log.Basic
 
 /-!
 # Explicit bounds on the sums of `1 / n ^ p` and `log n / n ^ p`
@@ -31,7 +32,6 @@ The terms of index `0` vanish, since `log 0 = 0` and `1 / 0 ^ p = 0`, so the sum
 * `Real.hasDerivAt_neg_log_mul_rpow_div`: the antiderivative
   `-(log x x ^ (-(p - 1))) / (p - 1) - x ^ (-(p - 1)) / (p - 1) ^ 2` of `log x / x ^ p` on
   `(0, ∞)`, for `p ≠ 1`.
-* `Real.log_div_rpow_le_exp_neg_one`: `log x / x ^ p ≤ 1 / e` for `x ≥ 1` and `p ≥ 1`.
 * `Real.sum_range_one_div_nat_rpow_le`, `Real.sum_range_log_div_nat_rpow_le`: the partial sums
   `∑_{n < N} 1 / n ^ p ≤ 1 + 1 / (p - 1)` and `∑_{n < N} log n / n ^ p ≤ 1 + 1 / (p - 1) ^ 2`
   for `p > 1`, the form that a union bound over a fixed horizon needs.
@@ -109,17 +109,6 @@ theorem sum_range_one_div_nat_rpow_le (hp : 1 < p) (N : ℕ) :
 theorem tsum_one_div_nat_rpow_le (hp : 1 < p) :
     ∑' n : ℕ, 1 / (n : ℝ) ^ p ≤ 1 + 1 / (p - 1) :=
   tsum_le_of_sum_range_le (fun _ ↦ by positivity) (sum_range_one_div_nat_rpow_le hp)
-
-/-- For `p ≥ 1` and `x ≥ 1`, `log x / x ^ p ≤ 1 / e`, since `log x ≤ x / e` and `x ≤ x ^ p`. -/
-theorem log_div_rpow_le_exp_neg_one {x : ℝ} (hx : 1 ≤ x) (hp : 1 ≤ p) :
-    log x / x ^ p ≤ exp (-1) := by
-  have hx0 : 0 < x := by linarith
-  have h_log : log x / x ≤ exp (-1) := by
-    simpa [exp_neg, exp_log hx0, div_eq_mul_inv] using mul_exp_neg_le_exp_neg_one (log x)
-  calc log x / x ^ p
-  _ ≤ log x / x := div_le_div_of_nonneg_left (log_nonneg hx) hx0
-    (by simpa using rpow_le_rpow_of_exponent_le hx hp)
-  _ ≤ exp (-1) := h_log
 
 /-- For `p > 1`, the partial sums of `∑ log n / n ^ p` are at most `1 + 1 / (p - 1) ^ 2`. -/
 theorem sum_range_log_div_nat_rpow_le (hp : 1 < p) (N : ℕ) :
