@@ -100,24 +100,13 @@ theorem iInf_cost_minThresholdTask_restrict_false (hT : ∀ a c, ¬ T a =ᵐ[ρ 
     simp
   refine le_antisymm (le_iInf fun a ↦ ?_) (le_iInf₂ fun μ' hμ' ↦ ?_)
   · -- Upper bound: move the mean of `a` below `γ`, close to `γ`.
-    have h_tendsto : Tendsto (fun x ↦ ENNReal.ofReal (w a * (ρ a).expFamilyDiv (T a) x (μ a)))
-        (𝓝[<] γ) (𝓝 (ENNReal.ofReal (w a * (ρ a).expFamilyDiv (T a) γ (μ a)))) :=
-      (ENNReal.continuous_ofReal.continuousAt.comp (continuousAt_const.mul
-        (hasDerivAt_expFamilyDiv_left (hT a) (hγ a) (μ a)).continuousAt)).tendsto.mono_left
-        nhdsWithin_le_nhds
-    refine ge_of_tendsto h_tendsto ?_
+    refine IdentTask.iInf_cost_le_ofReal_mul_expFamilyDiv_left_of_eventually hνt hν hw hμ a (hT a)
+      (hγ a) (l := 𝓝[<] γ) nhdsWithin_le_nhds ?_
     filter_upwards [self_mem_nhdsWithin,
       nhdsWithin_le_nhds (expFamilyMeans_mem_nhds (hT a) (hγ a))] with x (hx : x < γ) hxm
-    have hμx : ∀ c, Function.update μ a x c ∈ (ρ c).expFamilyMeans (T c) :=
-      (Function.forall_update_iff μ fun c y ↦ y ∈ (ρ c).expFamilyMeans (T c)).2
-        ⟨hxm, fun c _ ↦ hμ c⟩
-    refine (iInf₂_le (Function.update μ a x) ?_).trans_eq ?_
-    · rw [IdentTask.alt_restrict, Set.mem_inter_iff, mem_alt_minThresholdTask_false_iff]
-      exact ⟨⟨a, by simpa using hx⟩, hμx⟩
-    · rw [IdentTask.cost_eq_sum_ofReal_mul_expFamilyDiv_left hνt hν hw hμx,
-        Finset.sum_eq_single a (fun c _ hc ↦ ?_) (by simp)]
-      · simp
-      · simp [Function.update_of_ne hc, expFamilyDiv_self]
+    rw [IdentTask.alt_restrict, Set.mem_inter_iff, mem_alt_minThresholdTask_false_iff]
+    exact ⟨⟨a, by simpa using hx⟩, (Function.forall_update_iff μ
+      fun c y ↦ y ∈ (ρ c).expFamilyMeans (T c)).2 ⟨hxm, fun c _ ↦ hμ c⟩⟩
   · -- Lower bound: some arm `a` of an alternative has its mean below `γ`.
     rw [IdentTask.alt_restrict, Set.mem_inter_iff, mem_alt_minThresholdTask_false_iff, id_eq] at hμ'
     obtain ⟨⟨a, ha⟩, hμ'⟩ := hμ'
@@ -170,31 +159,19 @@ theorem iInf_cost_minThresholdTask_restrict_true (hT : ∀ a c, ¬ T a =ᵐ[ρ a
         {μ' | ∀ c, μ' c ∈ (ρ c).expFamilyMeans (T c)}).cost w μ' μ =
       ∑ a, ENNReal.ofReal (w a * (ρ a).expFamilyDiv (T a) (max (μ a) γ) (μ a)) := by
   have hmax (c : α) {x : ℝ} (hx : x ∈ (ρ c).expFamilyMeans (T c)) :
-      max (μ c) x ∈ (ρ c).expFamilyMeans (T c) := by
-    rcases max_choice (μ c) x with h | h <;> rw [h]
-    exacts [hμ c, hx]
+      max (μ c) x ∈ (ρ c).expFamilyMeans (T c) :=
+    max_rec' (· ∈ (ρ c).expFamilyMeans (T c)) (hμ c) hx
   have hνt : ((minThresholdTask ν id γ).restrict
       {μ' | ∀ c, μ' c ∈ (ρ c).expFamilyMeans (T c)}).ν = ν := by
     simp
   refine le_antisymm ?_ (le_iInf₂ fun μ' hμ' ↦ ?_)
   · -- Upper bound: raise every mean below `x > γ` to `x`, and let `x` decrease to `γ`.
-    have h_tendsto : Tendsto
-        (fun x ↦ ∑ c, ENNReal.ofReal (w c * (ρ c).expFamilyDiv (T c) (max (μ c) x) (μ c)))
-        (𝓝[>] γ)
-        (𝓝 (∑ c, ENNReal.ofReal (w c * (ρ c).expFamilyDiv (T c) (max (μ c) γ) (μ c)))) := by
-      refine (tendsto_finsetSum _ fun c _ ↦ ?_).mono_left nhdsWithin_le_nhds
-      exact (ENNReal.continuous_ofReal.continuousAt.comp (continuousAt_const.mul
-        ((hasDerivAt_expFamilyDiv_left (hT c) (hmax c (hγ c)) (μ c)).continuousAt.comp
-          (continuous_const.max continuous_id).continuousAt))).tendsto
-    refine ge_of_tendsto h_tendsto ?_
-    have h_mem : ∀ᶠ x in 𝓝[>] γ, ∀ c, x ∈ (ρ c).expFamilyMeans (T c) :=
-      nhdsWithin_le_nhds (eventually_all.2 fun c ↦ expFamilyMeans_mem_nhds (hT c) (hγ c))
-    filter_upwards [self_mem_nhdsWithin, h_mem] with x (hx : γ < x) hxm
-    have hμx : ∀ c, max (μ c) x ∈ (ρ c).expFamilyMeans (T c) := fun c ↦ hmax c (hxm c)
-    refine (iInf₂_le (fun c ↦ max (μ c) x) ?_).trans_eq
-      (IdentTask.cost_eq_sum_ofReal_mul_expFamilyDiv_left hνt hν hw hμx)
+    refine IdentTask.iInf_cost_le_sum_ofReal_mul_expFamilyDiv_left_of_eventually hνt hν hw hT
+      (μx := fun x c ↦ max (μ c) x) (l := 𝓝[>] γ) nhdsWithin_le_nhds
+      (fun _ ↦ (continuous_const.max continuous_id).continuousAt) (fun c ↦ hmax c (hγ c)) ?_
+    filter_upwards [self_mem_nhdsWithin] with x (hx : γ < x) hS
     rw [IdentTask.alt_restrict, Set.mem_inter_iff, mem_alt_minThresholdTask_true_iff]
-    exact ⟨fun c ↦ hx.trans_le (le_max_right _ _), hμx⟩
+    exact ⟨fun c ↦ hx.trans_le (le_max_right _ _), hS⟩
   · -- Lower bound: an alternative has all its means above `γ`.
     rw [IdentTask.alt_restrict, Set.mem_inter_iff, mem_alt_minThresholdTask_true_iff, id_eq] at hμ'
     obtain ⟨hgt, hμ'⟩ := hμ'
@@ -220,9 +197,8 @@ theorem staticDifficulty_minThresholdTask_restrict_true (hT : ∀ a c, ¬ T a =�
         {μ' | ∀ c, μ' c ∈ (ρ c).expFamilyMeans (T c)}).staticDifficulty μ =
       (⨆ a, ENNReal.ofReal ((ρ a).expFamilyDiv (T a) (max (μ a) γ) (μ a)))⁻¹ := by
   classical
-  have hmax (a : α) : max (μ a) γ ∈ (ρ a).expFamilyMeans (T a) := by
-    rcases max_choice (μ a) γ with h | h <;> rw [h]
-    exacts [hμ a, hγ a]
+  have hmax (a : α) : max (μ a) γ ∈ (ρ a).expFamilyMeans (T a) :=
+    max_rec' (· ∈ (ρ a).expFamilyMeans (T a)) (hμ a) (hγ a)
   have h_corr : ((minThresholdTask ν id γ).restrict
       {μ' | ∀ c, μ' c ∈ (ρ c).expFamilyMeans (T c)}).correct μ = {true} := by
     rw [IdentTask.correct_restrict, correct_minThresholdTask_eq_singleton, id_eq, decide_eq_true h]
@@ -281,7 +257,8 @@ theorem staticDifficulty_minThresholdTask_gaussianBandit_true (hσ2 : σ2 ≠ 0)
     (ha₀ : ∀ a, μ a₀ ≤ μ a) (hγ : μ a₀ < γ) :
     (minThresholdTask (Bandits.gaussianBandit · σ2) id γ).staticDifficulty μ =
       ENNReal.ofReal (2 * σ2 / (μ a₀ - γ) ^ 2) := by
-  rw [← (minThresholdTask (Bandits.gaussianBandit · σ2) id γ).restrict_univ,
+  rw [← charTime_minThresholdTask_gaussianBandit_true hσ2 ha₀ hγ,
+    ← (minThresholdTask (Bandits.gaussianBandit · σ2) id γ).restrict_univ,
     ← setOf_forall_mem_expFamilyMeans_gaussianReal 0 hσ2,
     staticDifficulty_minThresholdTask_restrict_true (ρ := fun _ ↦ gaussianReal 0 σ2)
       (T := fun _ ↦ id) _
@@ -289,23 +266,13 @@ theorem staticDifficulty_minThresholdTask_gaussianBandit_true (hσ2 : σ2 ≠ 0)
       (fun _ ↦ mem_expFamilyMeans_gaussianReal 0 hσ2 _)
       (fun _ ↦ mem_expFamilyMeans_gaussianReal 0 hσ2 _)
       (fun μ' _ ↦ Bandits.klDiv_gaussianBandit_eq_ofReal_expFamilyDiv hσ2 μ' μ)
+      ⟨a₀, hγ⟩,
+    charTime_minThresholdTask_restrict_true (ρ := fun _ ↦ gaussianReal 0 σ2) (T := fun _ ↦ id) _
+      (fun _ ↦ not_ae_eq_const_gaussianReal 0 hσ2)
+      (fun _ ↦ mem_expFamilyMeans_gaussianReal 0 hσ2 _)
+      (fun _ ↦ mem_expFamilyMeans_gaussianReal 0 hσ2 _)
+      (fun μ' _ ↦ Bandits.klDiv_gaussianBandit_eq_ofReal_expFamilyDiv hσ2 μ μ')
       ⟨a₀, hγ⟩]
-  simp only [expFamilyDiv_gaussianReal 0 hσ2]
-  -- The largest divergence from the alternatives is that of the arm with the smallest mean.
-  have h_sup : ⨆ a, ENNReal.ofReal ((max (μ a) γ - μ a) ^ 2 / (2 * σ2)) =
-      ENNReal.ofReal ((μ a₀ - γ) ^ 2 / (2 * σ2)) := by
-    refine le_antisymm (iSup_le fun a ↦ ENNReal.ofReal_le_ofReal ?_)
-      (le_iSup_of_le a₀ (by rw [max_eq_right hγ.le, sub_sq_comm]))
-    refine div_le_div_of_nonneg_right ?_ (by positivity)
-    rcases le_total (μ a) γ with h | h
-    · rw [max_eq_right h]
-      nlinarith [ha₀ a]
-    · rw [max_eq_left h, sub_self]
-      simpa using sq_nonneg (μ a₀ - γ)
-  have hpos : 0 < (μ a₀ - γ) ^ 2 / (2 * σ2) := by
-    have : 0 < (μ a₀ - γ) ^ 2 := by nlinarith [mul_pos (sub_pos.2 hγ) (sub_pos.2 hγ)]
-    have hσ2' : 0 < (σ2 : ℝ) := NNReal.coe_pos.2 (pos_iff_ne_zero.2 hσ2)
-    positivity
-  rw [h_sup, ← ENNReal.ofReal_inv_of_pos hpos, inv_div]
+  simp only [expFamilyDiv_gaussianReal 0 hσ2, sub_sq_comm]
 
 end LMLExplore.Identification
