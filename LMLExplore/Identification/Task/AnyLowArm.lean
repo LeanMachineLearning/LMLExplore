@@ -6,7 +6,7 @@ Authors: Rémy Degenne
 module
 
 public import LMLExplore.Identification.Task.Oracle
-public import LMLExplore.Identification.Task.Threshold
+public import LMLExplore.Identification.Task.Threshold.Basic
 
 /-!
 # The pure exploration game of Any Low Arm
@@ -24,7 +24,7 @@ mean parametrization, and let `γ` be a mean of every family.
   is to sample only that arm.
 * The alternatives to `none` are those of the answer `false` of minimum threshold, the vectors with
   some mean below `γ`, so that the game of `none` is the game of thresholding
-  (`LMLExplore/Identification/Task/Threshold.lean`): if all the means are above `γ`,
+  (`LMLExplore/Identification/Task/Threshold/Basic.lean`): if all the means are above `γ`,
   `D(μ, ¬none) = (∑ a, d_a(μ a, γ)⁻¹)⁻¹` and `T*(μ) = ∑ a, d_a(μ a, γ)⁻¹`.
 * If some mean is below `γ`, the oracle answers are the arms `a` maximizing
   `d_a(μ a, max (μ a) γ)` and the oracle allocations are the corresponding vertices of the
@@ -251,7 +251,7 @@ theorem altCost_anyLowArmTask_restrict_none (hT : ∀ a c, ¬ T a =ᵐ[ρ a] fun
 /-- **The game value of `none` in Any Low Arm** [DK19, Example 1]. Under the assumptions of
 `altCost_anyLowArmTask_restrict_some` on the arm laws, if all the means of `μ` are above `γ`, then
 `D(μ, ¬none) = (∑ a, d_a(μ a, γ)⁻¹)⁻¹`. -/
-theorem answerValue_anyLowArmTask_restrict_none [Nonempty α]
+theorem answerValue_anyLowArmTask_restrict_none
     (hT : ∀ a c, ¬ T a =ᵐ[ρ a] fun _ ↦ c)
     (hγ : ∀ a, γ ∈ (ρ a).expFamilyMeans (T a)) (hμ : ∀ a, μ a ∈ (ρ a).expFamilyMeans (T a))
     (hν : ∀ μ' : α → ℝ, (∀ c, μ' c ∈ (ρ c).expFamilyMeans (T c)) →

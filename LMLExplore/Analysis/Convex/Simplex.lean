@@ -67,6 +67,8 @@ supported distributions, not a subset of `α → ℝ`.
 * `LMLExplore.sum_inv_pos`: for positive weights `c` on a nonempty type, `0 < ∑ b, (c b)⁻¹`.
 * `LMLExplore.iInf_ofReal_inv_div_sum_inv_mul`: at the vector proportional to `c⁻¹`, the smallest
   weighted entry `min_a w a c a` is `(∑ b, (c b)⁻¹)⁻¹`.
+* `LMLExplore.iSup_simplex_iInf_ofReal_mul`: for positive weights `c`,
+  `sup_{w ∈ Δ} min_a w a c a = (∑ a, (c a)⁻¹)⁻¹`, in `ℝ≥0∞`.
 * `LMLExplore.iSup_iInf_mul_ofReal_le_inv_sum_inv`: for weights `c ∈ [0, ∞]` on a finite set `s`
   of coordinates, `sup_{w ∈ Δ} min_{j ∈ s} c j w j ≤ (∑_{j ∈ s} (c j)⁻¹)⁻¹`, in `ℝ≥0∞`.
 * `LMLExplore.abs_div_sum_abs_mem_simplex`, `LMLExplore.sq_sum_abs_lt_sum_sq_div`: for a nonzero
@@ -359,6 +361,23 @@ lemma iInf_ofReal_inv_div_sum_inv_mul [Nonempty α] (hc : ∀ a, 0 < c a) :
     field_simp [(hc a).ne']
   simp_rw [h]
   exact iInf_const
+
+/-- **Maximin of a weighted minimum over the simplex**: for positive weights `c`,
+`max_{w ∈ Δ} min_a w a c a = (∑ a, (c a)⁻¹)⁻¹`, in `ℝ≥0∞`. On a nonempty type the maximum is
+attained at the vector proportional to `c⁻¹` (`iInf_ofReal_inv_div_sum_inv_mul`), and only there
+(`eq_inv_div_sum_inv_of_le_mul`). -/
+lemma iSup_simplex_iInf_ofReal_mul (hc : ∀ a, 0 < c a) :
+    ⨆ w ∈ simplex α, ⨅ a, ENNReal.ofReal (w a * c a) = ENNReal.ofReal (∑ a, (c a)⁻¹)⁻¹ := by
+  rcases isEmpty_or_nonempty α with hα | hα
+  · have h : simplex α = ∅ :=
+      Set.eq_empty_of_forall_notMem fun w hw ↦ by simpa using (mem_simplex_iff.1 hw).2
+    simp [h]
+  refine le_antisymm (iSup₂_le fun w hw ↦ ?_) ?_
+  · obtain ⟨a, ha⟩ := exists_mul_le_inv_sum_inv hw hc
+    exact (iInf_le _ a).trans (ENNReal.ofReal_le_ofReal ha)
+  · exact (iInf_ofReal_inv_div_sum_inv_mul hc).symm.le.trans
+      (le_iSup₂ (f := fun w _ ↦ ⨅ a, ENNReal.ofReal (w a * c a)) _
+        (inv_div_sum_inv_mem_simplex hc))
 
 /-- **Maximin of weighted entries over the simplex**: for weights `c j ∈ [0, ∞]` on a finite set
 `s` of coordinates, every vector `w` of the simplex has

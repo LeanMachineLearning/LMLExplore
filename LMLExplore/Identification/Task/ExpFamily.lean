@@ -26,6 +26,8 @@ it.
 
 * `LMLExplore.Identification.IdentTask.cost_eq_sum_ofReal_mul_expFamilyDiv`: on the vectors of
   means of the families, `cost_μ(w, μ') = ∑ c, w c d_c(μ c, μ' c)`.
+* `LMLExplore.Identification.IdentTask.cost_eq_sum_ofReal_mul_expFamilyDiv_left`: the cost with
+  the free vector first, `cost_{μ'}(w, μ) = ∑ c, w c d_c(μ' c, μ c)`.
 * `LMLExplore.Identification.IdentTask.cost_update_eq_ofReal_mul_expFamilyDiv`: moving the mean of
   the arm `a` of `μ` to a mean `x` of its family costs `w a d_a(μ a, x)`.
 * `LMLExplore.Identification.IdentTask.altCost_le_ofReal_mul_expFamilyDiv_of_eventually`: if
@@ -66,6 +68,18 @@ lemma cost_eq_sum_ofReal_mul_expFamilyDiv
       ∀ c, klDiv (ν μ c) (ν μ' c) = ENNReal.ofReal ((ρ c).expFamilyDiv (T c) (μ c) (μ' c)))
     (hw : 0 ≤ w) {μ' : α → ℝ} (hμ' : ∀ c, μ' c ∈ (ρ c).expFamilyMeans (T c)) :
     task.cost w μ μ' = ∑ c, ENNReal.ofReal (w c * (ρ c).expFamilyDiv (T c) (μ c) (μ' c)) := by
+  rw [cost_def, hνt]
+  exact Finset.sum_congr rfl fun c _ ↦ by rw [hν μ' hμ' c, ENNReal.ofReal_mul (hw c)]
+
+/-- On the vectors of means of the families, the transportation cost from such a `μ'` to `μ` is
+`∑ c, w c d_c(μ' c, μ c)` when the divergences from the arm laws of the vectors of means of the
+families to those of `μ` are those of the families. This is the cost with the free vector first,
+as in the static-proportions difficulty `IdentTask.staticDifficulty`. -/
+lemma cost_eq_sum_ofReal_mul_expFamilyDiv_left
+    (hνt : task.ν = ν) (hν : ∀ μ' : α → ℝ, (∀ c, μ' c ∈ (ρ c).expFamilyMeans (T c)) →
+      ∀ c, klDiv (ν μ' c) (ν μ c) = ENNReal.ofReal ((ρ c).expFamilyDiv (T c) (μ' c) (μ c)))
+    (hw : 0 ≤ w) {μ' : α → ℝ} (hμ' : ∀ c, μ' c ∈ (ρ c).expFamilyMeans (T c)) :
+    task.cost w μ' μ = ∑ c, ENNReal.ofReal (w c * (ρ c).expFamilyDiv (T c) (μ' c) (μ c)) := by
   rw [cost_def, hνt]
   exact Finset.sum_congr rfl fun c _ ↦ by rw [hν μ' hμ' c, ENNReal.ofReal_mul (hw c)]
 
