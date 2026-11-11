@@ -79,9 +79,7 @@ private lemma add_one_pow_mul_sqrt_mul_pow_le (m n : ℕ) (hn : 1 ≤ n) :
   have hG := add_one_mul_log_sub_le_one m
   have hH := Real.one_le_add_half_mul_log_one_add_inv hn'
   have e : log (1 + (n : ℝ)⁻¹) = log ((n : ℝ) + 1) - log n := by
-    rw [← log_div (by positivity) hn'.ne']
-    congr 1
-    field_simp
+    rw [inv_eq_one_div, log_one_add_div hn' (by positivity)]
   rw [e] at hH
   push_cast
   nlinarith

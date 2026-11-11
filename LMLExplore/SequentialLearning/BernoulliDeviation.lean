@@ -228,7 +228,7 @@ private lemma le_mul_of_log_two_mul_mul_lt {pa pb : ℝ} (hpa : pa ∈ Set.Ioo 0
   have h2n : 0 < 2 * (n : ℝ) := by positivity
   nlinarith
 
-variable [Finite α] [MeasurableSingletonClass α] {P : Measure Ω}
+variable [Countable α] [MeasurableSingletonClass α] {P : Measure Ω}
   [IsProbabilityMeasure P] {alg : Algorithm Unit α ℝ} {O : ℕ → Ω → Unit} {p : α → I}
 
 /-- **Pairwise deviations of Bernoulli arms** [GK16, proof of Theorem 10]. Along a run of any
@@ -245,7 +245,6 @@ theorem measure_exists_log_two_mul_mul_lt_klBer_le
       (pullCount A a n ω : ℝ≥0∞) * klBer (empMean A Y a n ω) (p a) +
         (pullCount A b n ω : ℝ≥0∞) * klBer (empMean A Y b n ω) (p b)} ≤
       ENNReal.ofReal (1 / x) := by
-  have := Fintype.ofFinite α
   have := isProbabilityMeasureBeta (α := 1 / 2) (β := 1 / 2) (by norm_num) (by norm_num)
   -- Ville's inequality for the mixture over the prior `Beta(1/2, 1/2) ⊗ Beta(1/2, 1/2)` of the
   -- likelihood ratios of the bandits with means `u` and `v` on the arms `a` and `b`
@@ -296,9 +295,8 @@ theorem measure_exists_log_two_mul_mul_lt_klBer_le
     rw [ha0, hb0] at hpos
     simp at hpos
   have hnab : Na + Nb ≤ n := by
-    have h2 : ∑ c ∈ ({a, b} : Finset α), pullCount A c n ω ≤ ∑ c, pullCount A c n ω :=
-      sum_le_sum_of_subset (subset_univ _)
-    rwa [sum_pair hab, sum_pullCount] at h2
+    classical
+    simpa [sum_pair hab] using sum_pullCount_le (A := A) {a, b} n ω
   exact le_mul_of_log_two_mul_mul_lt hpa hpb hja hjb h1 hnab hx hlt
 
 end LMLExplore
