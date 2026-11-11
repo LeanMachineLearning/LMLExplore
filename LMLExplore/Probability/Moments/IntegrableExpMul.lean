@@ -26,6 +26,8 @@ natural exponential family of the law of `T`.
 
 ## Main statements
 
+* `LMLExplore.interior_integrableExpSet_eq_univ`: if every exponential moment of `X` is finite,
+  then `interior (integrableExpSet X P)` is the whole line.
 * `LMLExplore.integrable_exp_mul_sub`: `exp (t (X - x))` is integrable for
   `t ∈ integrableExpSet X P`.
 * `LMLExplore.cgf_eq_mul_add_log_integral_exp_mul_sub`: for `t ∈ integrableExpSet X P`,
@@ -45,6 +47,12 @@ open scoped Topology
 namespace LMLExplore
 
 variable {Ω : Type*} {mΩ : MeasurableSpace Ω} {X : Ω → ℝ} {P : Measure Ω} {t x : ℝ}
+
+/-- If every exponential moment of `X` is finite, then the interior of `integrableExpSet X P` is
+the whole line. -/
+lemma interior_integrableExpSet_eq_univ (h : ∀ t, Integrable (fun ω ↦ exp (t * X ω)) P) :
+    interior (integrableExpSet X P) = univ := by
+  rw [show integrableExpSet X P = univ from eq_univ_of_forall h, interior_univ]
 
 /-- For `t ∈ integrableExpSet X P`, the function `exp (t (X - x))` is integrable. -/
 lemma integrable_exp_mul_sub (ht : t ∈ integrableExpSet X P) (x : ℝ) :

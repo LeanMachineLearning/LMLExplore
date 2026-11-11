@@ -138,14 +138,21 @@ private lemma pow_le_measure_mean_eq [IsProbabilityMeasure ν] {n : ℕ} (hn : 1
     have hy' : ∀ i, y i = x := fun i ↦ hy i (Set.mem_univ i)
     simp [hy', Finset.sum_const, Finset.card_univ, hn']
 
-/-- If `ν{x} > 0` and `I(x) = -log ν{x}`, then for every `r > I(x)` and every set `U ∋ x`, the
-empirical mean of `n` samples lies in `U` with probability at least `exp (-(n r))`, eventually. -/
-private lemma eventually_ofReal_exp_le_of_atom [IsProbabilityMeasure ν] (hx0 : ν {x} ≠ 0)
-    (hI : rateFunction id ν x = ENNReal.ofReal (-log (ν.real {ω | id ω = x}))) {U : Set ℝ}
+/-- If `ν` lies almost surely on one side of `x` and `I(x)` is finite, then `ν{x} > 0` and
+`I(x) = -log ν{x}`, so for every `r > I(x)` and every set `U ∋ x`, the empirical mean of `n`
+samples lies in `U` with probability at least `exp (-(n r))`, eventually. -/
+private lemma eventually_ofReal_exp_le_of_ae_le_or_ae_ge [IsProbabilityMeasure ν]
+    (h : (∀ᵐ y ∂ν, y ≤ x) ∨ ∀ᵐ y ∂ν, x ≤ y) (hI_top : rateFunction id ν x ≠ ⊤) {U : Set ℝ}
     (hU : x ∈ U) {r : ℝ} (hr : (rateFunction id ν x : EReal) < r) :
     ∀ᶠ n : ℕ in atTop, ENNReal.ofReal (exp (-(n * r))) ≤
       ((Measure.pi fun _ : Fin n ↦ ν).map fun y : Fin n → ℝ ↦ (∑ i, y i) / (n : ℝ)) U := by
   have h_set : {ω : ℝ | id ω = x} = {x} := by ext; simp
+  have hx0 : ν {x} ≠ 0 := fun h0 ↦ hI_top <| h.elim
+    (rateFunction_eq_top_of_ae_le aemeasurable_id · (h_set ▸ h0))
+    (rateFunction_eq_top_of_ae_ge aemeasurable_id · (h_set ▸ h0))
+  have hI : rateFunction id ν x = ENNReal.ofReal (-log (ν.real {ω | id ω = x})) := h.elim
+    (rateFunction_eq_ofReal_neg_log_measureReal_of_ae_le aemeasurable_id · (h_set ▸ hx0))
+    (rateFunction_eq_ofReal_neg_log_measureReal_of_ae_ge aemeasurable_id · (h_set ▸ hx0))
   rw [h_set] at hI
   set p := ν.real {x}
   have hp : 0 < p := ENNReal.toReal_pos hx0 (measure_ne_top _ _)
@@ -180,14 +187,9 @@ private lemma eventually_exp_le_measure_abs_sum_sub_le [IsProbabilityMeasure ν]
         (Measure.pi fun _ : Fin n ↦ ν) {y | |∑ i, y i - n * x| ≤ n * δ} := by
   -- `x` is a mean of the exponential family of `ν`, whose member of mean `m = ψ'(0)` is `ν`, and
   -- `I(x) = d(x, m)`.
-  have hS : interior (integrableExpSet id ν) = Set.univ := by
-    rw [show integrableExpSet id ν = Set.univ from Set.eq_univ_of_forall h_int, interior_univ]
-  have hT : ∀ c, ¬ (id =ᵐ[ν] fun _ ↦ c) := by
-    intro c hc
-    rcases le_or_gt x c with hxc | hcx
-    · exact hlt (measure_mono_null (fun y (hy : y < x) ↦ (hy.trans_le hxc).ne) (ae_iff.1 hc))
-    · exact hgt (measure_mono_null (fun y (hy : x < y) ↦ (hcx.trans hy).ne') (ae_iff.1 hc))
-  have h0 : (0 : ℝ) ∈ interior (integrableExpSet id ν) := hS ▸ mem_univ 0
+  have hT := Measure.not_ae_eq_const_of_measure_Iio_ne_zero_of_measure_Ioi_ne_zero hlt hgt
+  have h0 : (0 : ℝ) ∈ interior (integrableExpSet id ν) :=
+    interior_integrableExpSet_eq_univ h_int ▸ mem_univ 0
   have hx := Measure.mem_expFamilyMeans_id_of_measure_Iio_ne_zero_of_measure_Ioi_ne_zero h_int
     hlt hgt
   have hμ₀ : deriv (cgf id ν) 0 ∈ ν.expFamilyMeans id := Measure.deriv_cgf_mem_expFamilyMeans h0
@@ -277,8 +279,7 @@ private lemma exp_mul_sub (t x y : ℝ) : exp (t * (y - x)) = exp (-(t * x)) * e
 /-- `∫ exp (t (y - x)) dμ(y) = exp (-(t x)) mgf id μ t`. -/
 private lemma integral_exp_mul_sub (μ : Measure ℝ) (t : ℝ) :
     ∫ y, exp (t * (y - x)) ∂μ = exp (-(t * x)) * mgf id μ t := by
-  simp_rw [exp_mul_sub t x, integral_const_mul]
-  rfl
+  simp_rw [exp_mul_sub t x, integral_const_mul, mgf, id_eq]
 
 /-- `∫ exp (t (y - x)) dμ(y) = exp (cgf id μ t - t x)` when `exp (t y)` is integrable. -/
 private lemma integral_exp_mul_sub_eq_exp {μ : Measure ℝ} [NeZero μ] {t : ℝ}
@@ -506,28 +507,12 @@ lemma neg_rateFunction_le_liminf_log_measure [IsProbabilityMeasure ν] {U : Set 
   simp only [one_mul]
   by_cases hgt : ν (Ioi x) = 0
   · -- `ν` gives no mass above `x`.
-    have h : ∀ᵐ y ∂ν, id y ≤ x := by
-      rw [ae_iff]
-      convert hgt using 2
-      ext
-      simp
-    have hx0 : ν {x} ≠ 0 := fun h0 ↦
-      hI (rateFunction_eq_top_of_ae_le aemeasurable_id h (by simpa using h0))
-    exact eventually_ofReal_exp_le_of_atom hx0
-      (rateFunction_eq_ofReal_neg_log_measureReal_of_ae_le aemeasurable_id h (by simpa using hx0))
-      (mem_of_mem_nhds hU) hr
+    exact eventually_ofReal_exp_le_of_ae_le_or_ae_ge
+      (.inl (ae_iff.2 (by simpa [Ioi_def] using hgt))) hI (mem_of_mem_nhds hU) hr
   by_cases hlt : ν (Iio x) = 0
   · -- `ν` gives no mass below `x`.
-    have h : ∀ᵐ y ∂ν, x ≤ id y := by
-      rw [ae_iff]
-      convert hlt using 2
-      ext
-      simp
-    have hx0 : ν {x} ≠ 0 := fun h0 ↦
-      hI (rateFunction_eq_top_of_ae_ge aemeasurable_id h (by simpa using h0))
-    exact eventually_ofReal_exp_le_of_atom hx0
-      (rateFunction_eq_ofReal_neg_log_measureReal_of_ae_ge aemeasurable_id h (by simpa using hx0))
-      (mem_of_mem_nhds hU) hr
+    exact eventually_ofReal_exp_le_of_ae_le_or_ae_ge
+      (.inr (ae_iff.2 (by simpa [Iio_def] using hlt))) hI (mem_of_mem_nhds hU) hr
   -- `ν` charges both sides of `x`: truncation and tilting.
   obtain ⟨δ, hδ, hδU⟩ := Metric.nhds_basis_closedBall.mem_iff.1 hU
   have hr' : (rateFunction id ν x).toReal < r := by

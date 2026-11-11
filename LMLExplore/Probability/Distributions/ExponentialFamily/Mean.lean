@@ -6,6 +6,7 @@ Authors: Rémy Degenne
 module
 
 public import LMLExplore.Probability.Distributions.ExponentialFamily.Basic
+public import LMLExplore.Probability.Moments.IntegrableExpMul
 public import Mathlib.Analysis.Calculus.Deriv.Inverse
 public import Mathlib.Analysis.Calculus.InverseFunctionTheorem.Deriv
 public import Mathlib.Analysis.Convex.Deriv
@@ -85,6 +86,8 @@ commit `a4244176eae7d9dd79c5c082f361c3b3b2541c0f`, by Rémy Degenne, Apache 2.0)
   mean of the exponential family of the identity, the minimizer of the coercive function
   `t ↦ cgf id ν t - t x` (`MeasureTheory.Measure.tendsto_cgf_id_sub_mul_cocompact`) being its
   natural parameter.
+* `MeasureTheory.Measure.not_ae_eq_const_of_measure_Iio_ne_zero_of_measure_Ioi_ne_zero`: a
+  measure on `ℝ` charging both sides of a level is not a Dirac mass.
 * `MeasureTheory.Measure.not_ae_eq_const_of_mem_expFamilyMeans`: a family with two distinct means
   has a statistic that is not almost everywhere constant.
 * `MeasureTheory.Measure.monotoneOn_natParam`: the natural parameter is monotone in the mean.
@@ -285,6 +288,15 @@ lemma tendsto_cgf_id_sub_mul_cocompact [IsFiniteMeasure ν]
   refine tendsto_atTop_mono h_bound (tendsto_atTop_add_const_left _ _ ?_)
   simpa only [Real.norm_eq_abs] using (tendsto_norm_cocompact_atTop (E := ℝ)).const_mul_atTop ha
 
+/-- A measure on `ℝ` charging both sides of `x` is not a Dirac mass: the identity is not almost
+everywhere equal to a constant. -/
+lemma not_ae_eq_const_of_measure_Iio_ne_zero_of_measure_Ioi_ne_zero (hlt : ν (Iio x) ≠ 0)
+    (hgt : ν (Ioi x) ≠ 0) (c : ℝ) : ¬ (id =ᵐ[ν] fun _ ↦ c) := by
+  intro hc
+  rcases le_or_gt x c with hxc | hcx
+  · exact hlt (measure_mono_null (fun y (hy : y < x) ↦ (hy.trans_le hxc).ne) (ae_iff.1 hc))
+  · exact hgt (measure_mono_null (fun y (hy : x < y) ↦ (hcx.trans hy).ne') (ae_iff.1 hc))
+
 /-- **A level charged on both sides is a mean.** For a finite measure `ν` on `ℝ` with every
 exponential moment that charges both sides of `x`, the level `x` is a mean `ψ'(η)` of the
 exponential family of `ν` and the identity, with `ψ = cgf id ν`: the natural parameter `η` is a
@@ -294,8 +306,8 @@ lemma mem_expFamilyMeans_id_of_measure_Iio_ne_zero_of_measure_Ioi_ne_zero [IsFin
     (hgt : ν (Ioi x) ≠ 0) :
     x ∈ ν.expFamilyMeans id := by
   have hν : ν ≠ 0 := fun h ↦ hlt (by simp [h])
-  have hS : interior (integrableExpSet id ν) = univ := by
-    rw [show integrableExpSet id ν = univ from eq_univ_of_forall h_int, interior_univ]
+  have hS : interior (integrableExpSet id ν) = univ :=
+    LMLExplore.interior_integrableExpSet_eq_univ h_int
   have h_cont : Continuous fun t ↦ cgf id ν t - t * x :=
     ((continuous_mgf h_int).log fun t ↦ (mgf_pos' hν (h_int t)).ne').sub (by fun_prop)
   obtain ⟨t, ht⟩ := h_cont.exists_forall_le (tendsto_cgf_id_sub_mul_cocompact h_int hlt hgt)
