@@ -36,8 +36,8 @@ one side of `x`, then `I(x) = -log ν{x}` and the empirical mean is `x` with pro
 normalized truncation `ν_M` has every exponential moment and charges both sides of `x`, so `x` is
 a mean of its exponential family, and the exponential tilting of
 `LMLExplore.Probability.Distributions.ExponentialFamily.Cramer` bounds the probability that the
-empirical mean of `ν_M` is near `x` by `exp (-(n (I_M(x) + ε)))`. The rates of the truncations
-converge to `I(x)`: the functions `t ↦ ∫_{[-M, M]} exp (t (y - x)) dν(y)` increase to
+empirical mean of `ν_M` is near `x` from below by `exp (-(n (I_M(x) + ε)))`. The rates of the
+truncations converge to `I(x)`: the functions `t ↦ ∫_{[-M, M]} exp (t (y - x)) dν(y)` increase to
 `t ↦ ∫ exp (t (y - x)) dν(y)`, whose infimum is `exp (-I(x))`, and they are continuous and
 coercive, so a nested compact sets argument shows that their infima converge.
 
@@ -259,17 +259,6 @@ private lemma exists_measure_Icc_inter_ne_zero {s : Set ℝ} (hs : ν s ≠ 0) :
   obtain ⟨k, hk⟩ := exists_nat_ge |y|
   exact mem_iUnion.2 ⟨k, abs_le.1 hk, hy⟩
 
-/-- A bound on the integrals of `f` over the intervals `[-k, k]` bounds the integral of `f`, by
-monotone convergence. -/
-private lemma lintegral_le_of_forall_setLIntegral_Icc_le {f : ℝ → ℝ≥0∞} {c : ℝ≥0∞}
-    (h : ∀ k : ℕ, ∫⁻ y in Icc (-(k : ℝ)) k, f y ∂ν ≤ c) : ∫⁻ y, f y ∂ν ≤ c := by
-  have h_union : ⋃ k : ℕ, Icc (-(k : ℝ)) k = Set.univ :=
-    eq_univ_of_forall fun y ↦ mem_iUnion.2 ((exists_nat_ge |y|).imp fun _ ↦ abs_le.1)
-  have h_tend := tendsto_measure_iUnion_atTop (μ := ν.withDensity f)
-    fun _ _ hk ↦ Icc_neg_natCast_subset hk
-  rw [h_union, withDensity_apply _ MeasurableSet.univ, Measure.restrict_univ] at h_tend
-  exact le_of_tendsto' h_tend fun k ↦ (withDensity_apply _ measurableSet_Icc).trans_le (h k)
-
 /-- `exp (t (y - x)) = exp (-(t x)) exp (t y)`. -/
 private lemma exp_mul_sub (t x y : ℝ) : exp (t * (y - x)) = exp (-(t * x)) * exp (t * y) := by
   rw [← exp_add]
@@ -280,18 +269,6 @@ private lemma exp_mul_sub (t x y : ℝ) : exp (t * (y - x)) = exp (-(t * x)) * e
 private lemma integral_exp_mul_sub (μ : Measure ℝ) (t : ℝ) :
     ∫ y, exp (t * (y - x)) ∂μ = exp (-(t * x)) * mgf id μ t := by
   simp_rw [exp_mul_sub t x, integral_const_mul, mgf, id_eq]
-
-/-- `∫ exp (t (y - x)) dμ(y) = exp (cgf id μ t - t x)` when `exp (t y)` is integrable. -/
-private lemma integral_exp_mul_sub_eq_exp {μ : Measure ℝ} [NeZero μ] {t : ℝ}
-    (ht : Integrable (fun y ↦ exp (t * y)) μ) :
-    ∫ y, exp (t * (y - x)) ∂μ = exp (cgf id μ t - t * x) := by
-  rw [integral_exp_mul_sub, ← exp_cgf (X := id) ht, ← exp_add, neg_add_eq_sub]
-
-/-- `y ↦ exp (t (y - x))` is integrable exactly when `y ↦ exp (t y)` is. -/
-private lemma integrable_exp_mul_sub_iff {μ : Measure ℝ} {t : ℝ} :
-    Integrable (fun y ↦ exp (t * (y - x))) μ ↔ Integrable (fun y ↦ exp (t * y)) μ := by
-  simp_rw [exp_mul_sub t x]
-  exact integrable_const_mul_iff (isUnit_iff_ne_zero.2 (exp_pos _).ne') _
 
 /-- The function `y ↦ exp (t y)` is integrable on every interval `[a, b]`. -/
 private lemma integrableOn_exp_mul_Icc [IsFiniteMeasure ν] (t a b : ℝ) :
@@ -320,7 +297,7 @@ private lemma exists_isCompact_forall_le_setIntegral_exp [IsFiniteMeasure ν] {M
   have h_int (t : ℝ) := integrableOn_exp_mul_Icc (ν := ν) t (-M₀) M₀
   have h_tend : Tendsto (fun t ↦ ∫ y in Icc (-M₀) M₀, exp (t * (y - x)) ∂ν) (cocompact ℝ) atTop :=
     (tendsto_exp_atTop.comp (Measure.tendsto_cgf_id_sub_mul_cocompact h_int hlt' hgt')).congr
-      fun t ↦ (integral_exp_mul_sub_eq_exp (h_int t)).symm
+      fun t ↦ (integral_exp_mul_sub_eq_exp (X := id) (h_int t) x).symm
   obtain ⟨K, hK, hKc⟩ := mem_cocompact.1 (h_tend.eventually_ge_atTop c)
   refine ⟨K, hK, fun M hM t ht ↦ le_trans (hKc ht) ?_⟩
   exact setIntegral_mono_set (integrable_exp_mul_sub_iff.2 (integrableOn_exp_mul_Icc t _ _))
@@ -334,9 +311,9 @@ private lemma ofReal_exp_le_lintegral_exp [IsProbabilityMeasure ν]
       ∫⁻ y, ENNReal.ofReal (exp (t * (y - x))) ∂ν := by
   have h_nonneg : 0 ≤ᵐ[ν] fun y ↦ exp (t * (y - x)) := ae_of_all _ fun _ ↦ (exp_pos _).le
   by_cases ht : Integrable (fun y ↦ exp (t * y)) ν
-  · rw [← ofReal_integral_eq_lintegral_ofReal (integrable_exp_mul_sub_iff.2 ht) h_nonneg,
-      integral_exp_mul_sub_eq_exp ht]
-    refine ENNReal.ofReal_le_ofReal (exp_le_exp.2 ?_)
+  · rw [← ofReal_integral_eq_lintegral_ofReal (integrable_exp_mul_sub_iff.2 ht) h_nonneg]
+    refine ENNReal.ofReal_le_ofReal ((exp_le_exp.2 ?_).trans_eq
+      (integral_exp_mul_sub_eq_exp (X := id) ht x).symm)
     have h := (ENNReal.ofReal_le_iff_le_toReal hI).1 (ofReal_le_rateFunction (X := id) ht x)
     linarith
   · -- Otherwise the integral is infinite.
@@ -385,7 +362,11 @@ private lemma exists_le_setIntegral_exp [IsProbabilityMeasure ν] (hI : rateFunc
     hS_ne (hK.of_isClosed_subset (hS_closed 0) inter_subset_left) hS_closed
   -- By monotone convergence, `∫ exp (t₀ (y - x)) dν(y) ≤ c < exp (-I(x))`, a contradiction.
   have h_le : ∫⁻ y, ENNReal.ofReal (exp (t₀ * (y - x))) ∂ν ≤ ENNReal.ofReal c := by
-    refine lintegral_le_of_forall_setLIntegral_Icc_le fun k ↦
+    have h_union : ⋃ k : ℕ, Icc (-(k : ℝ)) k = Set.univ :=
+      eq_univ_of_forall fun y ↦ mem_iUnion.2 ((exists_nat_ge |y|).imp fun _ ↦ abs_le.1)
+    rw [← Measure.restrict_univ (μ := ν), ← h_union, setLIntegral_iUnion_of_directed _
+      (Monotone.directed_le fun _ _ hk ↦ Icc_neg_natCast_subset hk)]
+    refine iSup_le fun k ↦
       (lintegral_mono_set (Icc_neg_natCast_subset (Nat.le_add_left k M₀))).trans ?_
     rw [← ofReal_integral_eq_lintegral_ofReal
       (integrable_exp_mul_sub_iff.2 (integrableOn_exp_mul_Icc t₀ _ _))
@@ -414,8 +395,7 @@ private lemma toReal_rateFunction_cond_le [IsFiniteMeasure ν] {B : Set ℝ} (hB
     rw [cgf, cgf, ProbabilityTheory.cond, mgf_smul_measure, ENNReal.toReal_inv, ← measureReal_def,
       log_mul (inv_pos.2 hp).ne' (mgf_pos' (X := id) (NeZero.ne _) (h_int t)).ne', log_inv]
     ring
-  have h := (le_log_iff_exp_le ((exp_pos _).trans_le (hB t))).2 (hB t)
-  rw [integral_exp_mul_sub_eq_exp (h_int t), log_exp] at h
+  have h := exp_le_exp.1 ((hB t).trans_eq (integral_exp_mul_sub_eq_exp (X := id) (h_int t) x))
   rw [h_cgf]
   linarith
 
@@ -423,18 +403,10 @@ private lemma toReal_rateFunction_cond_le [IsFiniteMeasure ν] {B : Set ℝ} (hB
 private lemma pow_mul_pi_cond_le [IsFiniteMeasure ν] {B : Set ℝ} (hB0 : ν B ≠ 0) (n : ℕ)
     (A : Set (Fin n → ℝ)) :
     ν B ^ n * (Measure.pi fun _ : Fin n ↦ ν[|B]) A ≤ (Measure.pi fun _ : Fin n ↦ ν) A := by
-  have h_restrict : Measure.pi (fun _ : Fin n ↦ ν.restrict B) =
-      ν B ^ n • Measure.pi (fun _ : Fin n ↦ ν[|B]) := by
-    refine Measure.pi_eq fun s hs ↦ ?_
-    have hpow : ν B ^ n = ∏ _i : Fin n, ν B := by
-      rw [Finset.prod_const, Finset.card_univ, Fintype.card_fin]
-    rw [smul_apply, Measure.pi_pi, smul_eq_mul, hpow, ← Finset.prod_mul_distrib]
-    refine Finset.prod_congr rfl fun i _ ↦ ?_
-    rw [cond_apply' (hs i), Measure.restrict_apply (hs i), ← mul_assoc,
-      ENNReal.mul_inv_cancel hB0 (measure_ne_top _ _), one_mul, inter_comm]
   calc ν B ^ n * (Measure.pi fun _ : Fin n ↦ ν[|B]) A
   _ = ((Measure.pi fun _ : Fin n ↦ ν).restrict (Set.univ.pi fun _ ↦ B)) A := by
-    rw [Measure.restrict_pi_pi, h_restrict, smul_apply, smul_eq_mul]
+    rw [Measure.restrict_pi_pi, Measure.pi_restrict_eq_pow_smul_pi_cond hB0 (measure_ne_top _ _),
+      Fintype.card_fin, smul_apply, smul_eq_mul]
   _ ≤ (Measure.pi fun _ : Fin n ↦ ν) A := Measure.restrict_apply_le _ _
 
 /-- **The lower bound by truncation**, at a level `x` of finite rate with `ν` charging both sides

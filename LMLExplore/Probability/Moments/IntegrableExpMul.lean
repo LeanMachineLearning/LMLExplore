@@ -14,7 +14,8 @@ public import Mathlib.Probability.Moments.IntegrableExpMul
 
 For a real random variable `X` under a measure `P`, a level `x` and a parameter
 `t ∈ integrableExpSet X P`, the function `exp (t (X - x))` is integrable, and the cumulant
-generating function at `t` is `t x + log E[exp (t (X - x))]`. If `X ≤ x` almost surely,
+generating function at `t` is `t x + log E[exp (t (X - x))]`, that is,
+`E[exp (t (X - x))] = exp (cgf X P t - t x)`. If `X ≤ x` almost surely,
 then `E[exp (t (X - x))]` tends to `P(X = x)` as `t → ∞`: the integrand tends to `0` where
 `X < x` and is `1` where `X = x`. This limit gives the value of the Cramér rate function at the
 essential supremum of `X`.
@@ -28,8 +29,10 @@ natural exponential family of the law of `T`.
 
 * `LMLExplore.interior_integrableExpSet_eq_univ`: if every exponential moment of `X` is finite,
   then `interior (integrableExpSet X P)` is the whole line.
-* `LMLExplore.integrable_exp_mul_sub`: `exp (t (X - x))` is integrable for
-  `t ∈ integrableExpSet X P`.
+* `LMLExplore.integrable_exp_mul_sub_iff`: `exp (t (X - x))` is integrable exactly when
+  `exp (t X)` is, and `LMLExplore.integrable_exp_mul_sub`: it is for `t ∈ integrableExpSet X P`.
+* `LMLExplore.integral_exp_mul_sub_eq_exp`: for `t ∈ integrableExpSet X P`,
+  `E[exp (t (X - x))] = exp (cgf X P t - t x)`.
 * `LMLExplore.cgf_eq_mul_add_log_integral_exp_mul_sub`: for `t ∈ integrableExpSet X P`,
   `cgf X P t = t x + log E[exp (t (X - x))]`.
 * `LMLExplore.tendsto_integral_exp_mul_sub`: if `X ≤ x` almost surely, then
@@ -54,20 +57,34 @@ lemma interior_integrableExpSet_eq_univ (h : ∀ t, Integrable (fun ω ↦ exp (
     interior (integrableExpSet X P) = univ := by
   rw [show integrableExpSet X P = univ from eq_univ_of_forall h, interior_univ]
 
+/-- The function `exp (t (X - x))` is integrable exactly when `exp (t X)` is. -/
+lemma integrable_exp_mul_sub_iff :
+    Integrable (fun ω ↦ exp (t * (X ω - x))) P ↔ Integrable (fun ω ↦ exp (t * X ω)) P := by
+  have h (ω : Ω) : exp (t * (X ω - x)) = exp (-(t * x)) * exp (t * X ω) := by
+    rw [← exp_add]
+    ring_nf
+  simp_rw [h]
+  exact integrable_const_mul_iff (isUnit_iff_ne_zero.2 (exp_pos _).ne') _
+
 /-- For `t ∈ integrableExpSet X P`, the function `exp (t (X - x))` is integrable. -/
 lemma integrable_exp_mul_sub (ht : t ∈ integrableExpSet X P) (x : ℝ) :
-    Integrable (fun ω ↦ exp (t * (X ω - x))) P := by
-  refine (ht.mul_const (exp (-(t * x)))).congr (Eventually.of_forall fun ω ↦ ?_)
-  simp only [← exp_add]
+    Integrable (fun ω ↦ exp (t * (X ω - x))) P :=
+  integrable_exp_mul_sub_iff.2 ht
+
+/-- For `t ∈ integrableExpSet X P`, the shifted exponential moment is
+`E[exp (t (X - x))] = exp (cgf X P t - t x)`. -/
+lemma integral_exp_mul_sub_eq_exp [NeZero P] (ht : t ∈ integrableExpSet X P) (x : ℝ) :
+    ∫ ω, exp (t * (X ω - x)) ∂P = exp (cgf X P t - t * x) := by
+  have h_eq : ∫ ω, exp (t * (X ω - x)) ∂P = mgf X P t * exp (t * -x) := by
+    simp_rw [← mgf_add_const, mgf, sub_eq_add_neg]
+  rw [h_eq, ← exp_cgf ht, ← exp_add]
   ring_nf
 
 /-- For `t ∈ integrableExpSet X P`, the cumulant generating function is a shifted logarithmic
 exponential moment: `cgf X P t = t x + log E[exp (t (X - x))]`. -/
 lemma cgf_eq_mul_add_log_integral_exp_mul_sub [NeZero P] (ht : t ∈ integrableExpSet X P)
     (x : ℝ) : cgf X P t = t * x + log (∫ ω, exp (t * (X ω - x)) ∂P) := by
-  have h_eq : ∫ ω, exp (t * (X ω - x)) ∂P = mgf X P t * exp (t * -x) := by
-    simp_rw [← mgf_add_const, mgf, sub_eq_add_neg]
-  rw [h_eq, log_mul (mgf_pos' (NeZero.ne P) ht).ne' (exp_pos _).ne', log_exp, cgf]
+  rw [integral_exp_mul_sub_eq_exp ht x, log_exp]
   ring
 
 /-- If `X ≤ x` almost surely, then `E[exp (t (X - x))]` tends to `P(X = x)` as `t → ∞`. -/

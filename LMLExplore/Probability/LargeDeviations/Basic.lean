@@ -25,7 +25,8 @@ The rate function is *good* if its sublevel sets `{x | I x ≤ c}` are compact. 
 `EReal`-valued, `log 0 = ⊥`.
 
 This is the definition of A. Dembo and O. Zeitouni, with the bounds stated for every set: the
-measure of a set that is not measurable is its outer measure, and the bounds for every set follow
+measure of a set that is not measurable is its outer measure. When open sets are measurable
+(`OpensMeasurableSpace X`, for example for the Borel σ-algebra), the bounds for every set follow
 from the bounds for the measurable ones by monotonicity, since interiors are open and closures are
 closed.
 
