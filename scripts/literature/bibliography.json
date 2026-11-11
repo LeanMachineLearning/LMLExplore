@@ -574,6 +574,38 @@
    }
   }
  },
+ "EMM06": {
+  "uri": "https://jmlr.org/papers/v7/evendar06a.html",
+  "citation": {
+   "id": "EMM06",
+   "type": "article-journal",
+   "title": "Action Elimination and Stopping Conditions for the Multi-Armed Bandit and Reinforcement Learning Problems",
+   "author": [
+    {
+     "family": "Even-Dar",
+     "given": "Eyal"
+    },
+    {
+     "family": "Mannor",
+     "given": "Shie"
+    },
+    {
+     "family": "Mansour",
+     "given": "Yishay"
+    }
+   ],
+   "container-title": "Journal of Machine Learning Research",
+   "volume": "7",
+   "page": "1079–1105",
+   "issued": {
+    "date-parts": [
+     [
+      2006
+     ]
+    ]
+   }
+  }
+ },
  "FJJR19": {
   "uri": "https://arxiv.org/abs/1906.08399",
   "identifiers": {
@@ -878,6 +910,51 @@
    }
   }
  },
+ "JKMDLV20": {
+  "uri": "https://arxiv.org/abs/2006.05879",
+  "identifiers": {
+   "arxiv": "2006.05879"
+  },
+  "citation": {
+   "id": "JKMDLV20",
+   "type": "paper-conference",
+   "title": "Planning in Markov Decision Processes with Gap-Dependent Sample Complexity",
+   "author": [
+    {
+     "family": "Jonsson",
+     "given": "A."
+    },
+    {
+     "family": "Kaufmann",
+     "given": "E."
+    },
+    {
+     "family": "Ménard",
+     "given": "P."
+    },
+    {
+     "family": "Domingues",
+     "given": "O. D."
+    },
+    {
+     "family": "Leurent",
+     "given": "E."
+    },
+    {
+     "family": "Valko",
+     "given": "M."
+    }
+   ],
+   "container-title": "Advances in Neural Information Processing Systems (NeurIPS)",
+   "issued": {
+    "date-parts": [
+     [
+      2020
+     ]
+    ]
+   }
+  }
+ },
  "JKSY20": {
   "uri": "https://arxiv.org/abs/2002.02794",
   "identifiers": {
@@ -1164,6 +1241,39 @@
     "date-parts": [
      [
       2021
+     ]
+    ]
+   }
+  }
+ },
+ "KKG18": {
+  "uri": "https://arxiv.org/abs/1806.00973",
+  "identifiers": {
+   "arxiv": "1806.00973"
+  },
+  "citation": {
+   "id": "KKG18",
+   "type": "paper-conference",
+   "title": "Sequential Test for the Lowest Mean: From Thompson to Murphy Sampling",
+   "author": [
+    {
+     "family": "Kaufmann",
+     "given": "E."
+    },
+    {
+     "family": "Koolen",
+     "given": "W. M."
+    },
+    {
+     "family": "Garivier",
+     "given": "A."
+    }
+   ],
+   "container-title": "Advances in Neural Information Processing Systems (NeurIPS)",
+   "issued": {
+    "date-parts": [
+     [
+      2018
      ]
     ]
    }

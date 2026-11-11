@@ -40,7 +40,8 @@ GH_TOKEN=... python3 scripts/papers/papers.py --out OUT --summary SUMMARY
 ```
 
 It needs PyYAML. The token only reads public data. A failure leaves the pages out of the site
-without stopping it.
+without stopping it. The literature page (`scripts/literature/`) reads `papers.json` next, to offer
+the papers' literature links.
 
 ## Safety
 

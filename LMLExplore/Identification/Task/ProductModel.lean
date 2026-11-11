@@ -5,7 +5,7 @@ Authors: Rémy Degenne
 -/
 module
 
-public import LMLExplore.Identification.Task.BestArm
+public import LMLExplore.Identification.Task.BestArm.Basic
 
 /-!
 # Product models and the transportation costs `K⁻` and `K⁺`
