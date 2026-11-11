@@ -16,12 +16,13 @@ recommending the answer `rec x` at the vector `x` of the empirical means, for a 
 `mean θ`, and the natural rule recommends the answer `i` at every point `x` that is a limit of means
 of models with correct answer `i` but not a limit of means of alternatives to `i`:
 `x ∈ closure (mean '' 𝒟_i)` and `x ∉ closure (mean '' ¬i)`. For a single-answer task, at most one
-answer `i` has this property at each `x`, and some measurable rule has it everywhere. Such a rule
-extends the correct answer function `i*` beyond the means of the admissible models, and it is the
-recommendation rule with which [D23, proof of Theorem 1] builds static proportions algorithms
-attaining the static error exponent. The rule is prescribed also at limits of means of admissible
-models that are not themselves such means, as the empirical means `(1, 0, …, 0)` of Bernoulli arms
-for best arm identification on the means `(0, 1)^K`, where it must recommend the first arm.
+answer `i` has this property at each `x`, and, when there are countably many answers, some
+measurable rule has it everywhere. Such a rule extends the correct answer function `i*` beyond the
+means of the admissible models, and it is the recommendation rule with which
+[D23, proof of Theorem 1] builds static proportions algorithms attaining the static error exponent.
+The rule is prescribed also at limits of means of admissible models that are not themselves such
+means, as the empirical means `(1, 0, …, 0)` of Bernoulli arms for best arm identification on the
+means `(0, 1)^K`, where it must recommend the first arm.
 
 The means take values in any topological space `X` whose σ-algebra contains the open sets (in
 [D23], the vectors of means `α → ℝ`, with `mean = id` on the models `α → ℝ`).
@@ -95,33 +96,15 @@ theorem IsSingleAnswer.exists_measurable_rec [MeasurableSpace ℐ] [Countable �
     [MeasurableSpace X] [OpensMeasurableSpace X] (h : task.IsSingleAnswer) :
     ∃ rec : X → ℐ, Measurable rec ∧ ∀ i, ∀ x ∈ closure (mean '' task.answerSet i),
       x ∉ closure (mean '' task.alt i) → rec x = i := by
-  classical
   -- `P i` is the set of the points at which the rule must recommend `i`.
   set P : ℐ → Set X := fun i ↦ closure (mean '' task.answerSet i) \ closure (mean '' task.alt i)
   have hP (i : ℐ) : MeasurableSet (P i) :=
     isClosed_closure.measurableSet.diff isClosed_closure.measurableSet
   have huniq {i j : ℐ} {x : X} (hi : x ∈ P i) (hj : x ∈ P j) : i = j :=
     h.eq_of_mem_closure_image_answerSet_of_notMem_closure_image_alt hi.1 hj.2
-  set i₀ : ℐ := Classical.arbitrary ℐ
-  set rec : X → ℐ := fun x ↦ if hx : ∃ i, x ∈ P i then hx.choose else i₀
-  have hrec {i : ℐ} {x : X} (hx : x ∈ P i) : rec x = i := by
-    have hex : ∃ i, x ∈ P i := ⟨i, hx⟩
-    simp only [rec, dite_eq_left hex]
-    exact huniq hex.choose_spec hx
-  refine ⟨rec, measurable_to_countable' fun i ↦ ?_, fun i x hx hxi ↦ hrec ⟨hx, hxi⟩⟩
-  -- The rule recommends `i` on `P i`, and on the complement of all the `P j` if `i₀ = i`.
-  have hpre : rec ⁻¹' {i} = P i ∪ ((⋃ j, P j)ᶜ ∩ {_x | i₀ = i}) := by
-    ext x
-    by_cases hx : ∃ j, x ∈ P j
-    · obtain ⟨j, hj⟩ := hx
-      simp only [Set.mem_preimage, Set.mem_singleton_iff, hrec hj]
-      refine ⟨fun hji ↦ .inl (hji ▸ hj), ?_⟩
-      rintro (hi | ⟨hU, -⟩)
-      exacts [huniq hj hi, absurd (Set.mem_iUnion.2 ⟨j, hj⟩) hU]
-    · have hx₀ : rec x = i₀ := by simp only [rec, dite_eq_right hx]
-      simp [hx₀, not_exists.1 hx]
-  rw [hpre]
-  exact (hP i).union ((MeasurableSet.iUnion hP).compl.inter (MeasurableSet.const _))
+  obtain ⟨rec, hm, hrec⟩ := exists_measurable_piecewise P hP (fun i _ ↦ i)
+    (fun _ ↦ measurable_const) fun i j hij x hx ↦ absurd (huniq hx.1 hx.2) hij
+  exact ⟨rec, hm, fun i x hx hxi ↦ hrec i ⟨hx, hxi⟩⟩
 
 /-- Let the rule `rec` recommend the answer `i` at every limit of means of models with correct
 answer `i` that is not a limit of means of alternatives to `i`, as the rule of
