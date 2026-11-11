@@ -8,7 +8,7 @@ module
 public import LMLExplore.SequentialLearning.BernoulliDeviation
 public import LMLExplore.Identification.Correctness
 public import LMLExplore.Identification.TrackAndStop
-public import LMLExplore.Identification.Task.BestArm
+public import LMLExplore.Identification.Task.BestArm.Basic
 
 /-!
 # The informational threshold of the GLRT for Bernoulli arms
