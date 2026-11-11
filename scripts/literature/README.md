@@ -45,6 +45,12 @@ layers. The locator may name several results (`[LS, Lemmas 8.2, 8.3]`, `[LS, Lem
 (`[GK16, proof of Theorem 14]`) or an equation (`[LS, (20.9)]`). A citation of a whole work, `[GK16]`,
 gives no link.
 
+One bracket may cite several works, separated by semicolons: `[GK16, Theorem 1; LS, Theorem 33.5]`
+cites a result of each, and `[KCG16; LS, Theorem 33.5]` a result of `LS` only. A part without a key
+continues the work before it (`[Ora, Lemma 6.32; Lemma 7.15]`), and the locator may start on the next
+line. A bracket in a code span, or right after a letter or a digit, is notation, not a citation:
+`` `Var[X; μ]` ``, `$\mathbb E[X]$`.
+
 ## The papers
 
 With *include the papers*, the page also shows the literature links of the papers built on
