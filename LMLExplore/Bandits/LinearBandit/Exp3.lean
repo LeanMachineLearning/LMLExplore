@@ -19,20 +19,20 @@ an adaptive adversary chooses a loss vector `y t ∈ E`, the learner plays an ar
 observes the loss `⟪φ (A t), y t⟫` of its arm. Exp3 for linear bandits [LS, Algorithm 15] plays
 exponential weights mixed with an exploration distribution `π` on the arms. With learning rate
 `η > 0` and exploration rate `γ ∈ (0, 1]`, it draws the arm of round `t` from
-`P t = (1 - γ) softmax (-(η • S t)) + γ π`, where `S t = ∑ s < t, Ŷ s` is the sum of the past loss
-estimates and `Ŷ s` is the least-squares estimate
-`Ŷ s a = ⟪φ a, V(P s)⁻¹ φ (A s)⟫ ⟪φ (A s), y s⟫`, with `V(p) = ∑ b, p b • φ b ⊗ φ b` the design
+`P t = (1 - γ) softmax (-(η • S t)) + γ π`, where `S t = ∑ s < t, Ŷ s` is the sum of the past loss
+estimates and `Ŷ s` is the least-squares estimate
+`Ŷ s a = ⟪φ a, V(P s)⁻¹ φ (A s)⟫ ⟪φ (A s), y s⟫`, with `V(p) = ∑ b, p b • φ b ⊗ φ b` the design
 operator of the weights `p` (the design operator `designOperator (w.map φ)` of the image design,
 by `designOperator_map`). The estimate only uses the observed loss.
 
-Given the past, the estimate is unbiased, `∑ c, P c * Ŷ(c) a = ⟪φ a, y⟫`
+Given the past, the estimate is unbiased, `∑ c, P c * Ŷ(c) a = ⟪φ a, y⟫`
 (`sum_mul_linearExp3Estimate`), and its second moment under the weights is at most
 `∑ a, P a ⟪φ a, V(P)⁻¹ φ a⟫ = d` (`sum_mul_linearExp3Estimate_sq_le`,
 `sum_mul_inner_ringInverse_sum_smul_rankOne`). The exploration makes `V(P) ≥ γ V(π)` in the
 Loewner order, so that for an exploration distribution with invertible `V(π)` and
 `⟪φ b, V(π)⁻¹ φ b⟫ ≤ g` for every arm, the estimates are bounded by `g / γ`
 (`abs_linearExp3Estimate_le`). For `η g ≤ γ`, the local-norm bound of exponential weights for
-losses with `η Ŷ ≥ -1` (`softmax_regret_le_of_neg_one_le`) applies pathwise, and taking
+losses with `η Ŷ ≥ -1` (`softmax_regret_le_of_neg_one_le`) applies pathwise, and taking
 expectations gives [LS, Theorem 27.1]: against every arm `b`,
 `E[∑ t < n, (⟪φ (A t), y t⟫ - ⟪φ b, y t⟫)] ≤ log k / η + η d n + 2 γ n`,
 with `k` the number of arms. With `γ = η g` and `η = √(log k / ((2 g + d) n))` the regret is at
@@ -172,7 +172,7 @@ section Estimate
 variable {φ : α → E} {p π : α → ℝ} {g γ : ℝ}
 
 /-- **The loss estimate is unbiased** [LS, Chapter 27]: if `V(p)` is invertible, then for every
-loss vector `y`, `∑ c, p c * Ŷ(c) a = ⟪φ a, y⟫`, where `Ŷ(c)` is the estimate for the played
+loss vector `y`, `∑ c, p c * Ŷ(c) a = ⟪φ a, y⟫`, where `Ŷ(c)` is the estimate for the played
 arm `c` and its observed loss `⟪φ c, y⟫`. -/
 theorem sum_mul_linearExp3Estimate (hu : IsUnit (∑ b, p b • rankOne ℝ (φ b) (φ b))) (y : E)
     (a : α) : ∑ c, p c * linearExp3Estimate φ p c ⟪φ c, y⟫_ℝ a = ⟪φ a, y⟫_ℝ := by
@@ -187,7 +187,7 @@ theorem sum_mul_linearExp3Estimate (hu : IsUnit (∑ b, p b • rankOne ℝ (φ 
 
 /-- **The second moment of the loss estimate** [LS, Chapter 27]: for nonnegative weights `p` and
 a loss vector `y` with `|⟪φ c, y⟫| ≤ 1` for every arm `c`,
-`∑ c, p c * Ŷ(c) a ^ 2 ≤ ⟪φ a, V(p)⁻¹ φ a⟫`. -/
+`∑ c, p c * Ŷ(c) a ^ 2 ≤ ⟪φ a, V(p)⁻¹ φ a⟫`. -/
 theorem sum_mul_linearExp3Estimate_sq_le (hp : ∀ b, 0 ≤ p b) {y : E}
     (hy : ∀ c, |⟪φ c, y⟫_ℝ| ≤ 1) (a : α) :
     ∑ c, p c * linearExp3Estimate φ p c ⟪φ c, y⟫_ℝ a ^ 2 ≤
@@ -216,7 +216,7 @@ theorem sum_mul_linearExp3Estimate_sq_le (hp : ∀ b, 0 ≤ p b) {y : E}
 
 /-- **The loss estimates are bounded** [LS, proof of Theorem 27.1]. If `V(π)` is invertible with
 `⟪φ b, V(π)⁻¹ φ b⟫ ≤ g` for every arm, `γ > 0` and `γ * π b ≤ p b` for every arm, then for an
-observed loss `|ℓ| ≤ 1` the estimates satisfy `|Ŷ(c) a| ≤ g / γ`. -/
+observed loss `|ℓ| ≤ 1` the estimates satisfy `|Ŷ(c) a| ≤ g / γ`. -/
 theorem abs_linearExp3Estimate_le (hπ0 : ∀ b, 0 ≤ π b)
     (hπu : IsUnit (∑ b, π b • rankOne ℝ (φ b) (φ b)))
     (hg : ∀ b, ⟪φ b, Ring.inverse (∑ b, π b • rankOne ℝ (φ b) (φ b)) (φ b)⟫_ℝ ≤ g)
@@ -252,9 +252,9 @@ variable {φ : α → E} {π : α → ℝ} {g η γ : ℝ}
 [LS, proof of Theorem 27.1]. Let `V(π)` be invertible with `⟪φ b, V(π)⁻¹ φ b⟫ ≤ g` for every
 arm, and let `η > 0`, `0 < γ ≤ 1` and `η g ≤ γ`. For arms `A s` and observed losses `ℓ s` with
 `|ℓ s| ≤ 1` at the rounds `s < n`, with `S t` the cumulative estimate, `Q t = softmax (-(η • S t))`
-the exponential weights and `Ŷ t` the estimates of round `t`, against every arm `c`,
-`∑ t < n, (⟨Q t, Ŷ t⟩ - Ŷ t c) ≤ log k / η + η ∑ t < n, ⟨Q t, (Ŷ t) ^ 2⟩`. The estimates may be
-negative; the condition `η g ≤ γ` makes `η Ŷ t ≥ -1`. -/
+the exponential weights and `Ŷ t` the estimates of round `t`, against every arm `c`,
+`∑ t < n, (⟨Q t, Ŷ t⟩ - Ŷ t c) ≤ log k / η + η ∑ t < n, ⟨Q t, (Ŷ t) ^ 2⟩`. The estimates may be
+negative; the condition `η g ≤ γ` makes `η Ŷ t ≥ -1`. -/
 theorem linearExp3_sum_sub_le (hπ0 : ∀ b, 0 ≤ π b)
     (hπu : IsUnit (∑ b, π b • rankOne ℝ (φ b) (φ b)))
     (hg : ∀ b, ⟪φ b, Ring.inverse (∑ b, π b • rankOne ℝ (φ b) (φ b)) (φ b)⟫_ℝ ≤ g)
@@ -274,7 +274,7 @@ theorem linearExp3_sum_sub_le (hπ0 : ∀ b, 0 ≤ π b)
     linearExp3Estimate φ (linearExp3Weights π η γ (linearExp3Sum φ π η γ A ℓ t)) (A t) (ℓ t)
   have hS (t : ℕ) : linearExp3Sum φ π η γ A ℓ t = ∑ s ∈ range t, Y s :=
     linearExp3Sum_eq_sum φ π η γ A ℓ t
-  -- `η Ŷ ≥ -η g / γ ≥ -1`
+  -- `η Ŷ ≥ -η g / γ ≥ -1`
   have hY (t : ℕ) (ht : t < n) (b : α) : -1 ≤ η * Y t b := by
     have h : |Y t b| ≤ g / γ := abs_linearExp3Estimate_le hπ0 hπu hg hγ
       (mul_le_linearExp3Weights (η := η) hγ1 _) (hℓ t ht) (A t) b
@@ -344,7 +344,7 @@ private lemma ae_abs_linearExp3Estimate_le : ∀ᵐ ω ∂P, ∀ c b,
 
 include hπ hπu hg hγ hγ1 hm hXW hy hy1 in
 omit [IsProbabilityMeasure P] in
-/-- For an `m`-measurable weight `r` bounded by `C`, the weighted power `r * Ŷ(c) b ^ k` of the
+/-- For an `m`-measurable weight `r` bounded by `C`, the weighted power `r * Ŷ(c) b ^ k` of the
 estimate of the loss of arm `b`, for the played arm `c`, is `m`-measurable and integrable. -/
 private lemma integrable_mul_linearExp3Estimate_pow [IsFiniteMeasure P] {r : Ω → ℝ}
     (hr : AEStronglyMeasurable[m] r P) {C : ℝ} (hrC : ∀ ω, |r ω| ≤ C) (k : ℕ) (c b : α) :
@@ -362,7 +362,7 @@ private lemma integrable_mul_linearExp3Estimate_pow [IsFiniteMeasure P] {r : Ω 
 
 include hπ hπu hg hγ hγ1 hm hX hXW hy hy1 in
 omit [IsProbabilityMeasure P] in
-/-- For an `m`-measurable weight `r` bounded by `C`, the weighted power `r * Ŷ b ^ k` of the
+/-- For an `m`-measurable weight `r` bounded by `C`, the weighted power `r * Ŷ b ^ k` of the
 estimate for the arm `X` played in the round is integrable. -/
 private lemma integrable_mul_linearExp3Estimate_apply_pow [IsFiniteMeasure P] {r : Ω → ℝ}
     (hr : AEStronglyMeasurable[m] r P) {C : ℝ} (hrC : ∀ ω, |r ω| ≤ C) (k : ℕ) (b : α) :
@@ -393,7 +393,7 @@ include hπ hπu hg hγ hγ1 hm hX hXW hy hy1 in
 /-- **Unbiasedness of the estimates in expectation** [LS, Chapter 27]. In a round in which the
 arm `X` has conditional law `P = linearExp3Weights π η γ S` given `m` and the loss vector `y` is
 `m`-measurable, for `m`-measurable bounded weights `r`,
-`E[∑ b, r b * Ŷ b] = E[∑ b, r b * ⟪φ b, y⟫]`, where `Ŷ` is the estimate for the played arm `X`
+`E[∑ b, r b * Ŷ b] = E[∑ b, r b * ⟪φ b, y⟫]`, where `Ŷ` is the estimate for the played arm `X`
 and its observed loss `⟪φ X, y⟫`. -/
 theorem integral_sum_mul_linearExp3Estimate {r : Ω → α → ℝ}
     (hr : ∀ b, AEStronglyMeasurable[m] (fun ω ↦ r ω b) P) {C : ℝ} (hrC : ∀ ω b, |r ω b| ≤ C) :
@@ -412,7 +412,7 @@ theorem integral_sum_mul_linearExp3Estimate {r : Ω → α → ℝ}
     filter_upwards [hy1] with ω hω
     rw [Real.norm_eq_abs, abs_mul]
     exact mul_le_mul (hrC ω b) (hω b) (abs_nonneg _) ((abs_nonneg _).trans (hrC ω b))
-  -- each term `r b * Ŷ b` has the mean of its average over the played arm, `r b * ⟪φ b, y⟫`
+  -- each term `r b * Ŷ b` has the mean of its average over the played arm, `r b * ⟪φ b, y⟫`
   have h_term (b : α) : ∫ ω, r ω b *
       linearExp3Estimate φ (linearExp3Weights π η γ (S ω)) (X ω) ⟪φ (X ω), y ω⟫_ℝ b ∂P =
       ∫ ω, r ω b * ⟪φ b, y ω⟫_ℝ ∂P := by
@@ -431,7 +431,7 @@ theorem integral_sum_mul_linearExp3Estimate {r : Ω → α → ℝ}
 include hπ hπu hg hγ hγ1 hm hX hXW hy hy1 in
 /-- **The expected second moment of the estimates** [LS, proof of Theorem 27.1]. In a round as
 in `integral_sum_mul_linearExp3Estimate`, on a space of dimension `d`,
-`E[∑ b, P b * Ŷ b ^ 2] ≤ d`, where `P = linearExp3Weights π η γ S` are the weights of the round. -/
+`E[∑ b, P b * Ŷ b ^ 2] ≤ d`, where `P = linearExp3Weights π η γ S` are the weights of the round. -/
 theorem integral_sum_mul_linearExp3Estimate_sq_le :
     ∫ ω, ∑ b, linearExp3Weights π η γ (S ω) b *
         linearExp3Estimate φ (linearExp3Weights π η γ (S ω)) (X ω) ⟪φ (X ω), y ω⟫_ℝ b ^ 2 ∂P ≤
@@ -484,7 +484,7 @@ include hπ hπu hg hγ hγ1 hm hX hXW hy hy1 in
 `integral_sum_mul_linearExp3Estimate`, against every arm `b`, the expected regret
 `E[⟪φ X, y⟫ - ⟪φ b, y⟫]` is at most the expected regret of the exponential weights
 `Q = softmax (-(η • S))` on the estimated losses, scaled by `1 - γ`, plus the cost `2 γ` of the
-exploration: `E[(1 - γ) (⟨Q, Ŷ⟩ - Ŷ b)] + 2 γ`. Both sides are integrable. -/
+exploration: `E[(1 - γ) (⟨Q, Ŷ⟩ - Ŷ b)] + 2 γ`. Both sides are integrable. -/
 theorem linearExp3_integral_inner_sub_le (b : α) :
     Integrable (fun ω ↦ (1 - γ) * (∑ c, softmax (-(η • S ω)) c *
       linearExp3Estimate φ (linearExp3Weights π η γ (S ω)) (X ω) ⟪φ (X ω), y ω⟫_ℝ c -
