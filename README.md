@@ -56,6 +56,11 @@ Claude or Codex subscription. You don't need write access to this repository: th
 under your GitHub account, opens pull requests from the fork, and answers the AI reviews until
 they merge.
 
+A pull request whose author has not acted for a day on a red build, a merge conflict or review
+findings may be finished by a maintainer's worker, which pushes its changes to the pull request's
+branch. Keep "Allow edits by maintainers" on, as the worker does. A `hold` label keeps a pull
+request to its author.
+
 ### Running a worker on a loop
 
 These steps assume that `gh` is logged in to the GitHub account the worker acts as, and `claude`
