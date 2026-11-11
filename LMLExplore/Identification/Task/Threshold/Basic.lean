@@ -165,7 +165,7 @@ theorem altCost_thresholdingTask_restrict (hT : ∀ a c, ¬ T a =ᵐ[ρ a] fun _
 /-- **The game value of thresholding.** Under the assumptions of
 `altCost_thresholdingTask_restrict`, the value of the correct answer `s` is
 `D(μ, ¬s) = (∑ a, d_a(μ a, γ)⁻¹)⁻¹`. -/
-theorem answerValue_thresholdingTask_restrict [Nonempty α]
+theorem answerValue_thresholdingTask_restrict
     (hT : ∀ a c, ¬ T a =ᵐ[ρ a] fun _ ↦ c)
     (hγ : ∀ a, γ ∈ (ρ a).expFamilyMeans (T a)) (hμ : ∀ a, μ a ∈ (ρ a).expFamilyMeans (T a))
     (hν : ∀ μ' : α → ℝ, (∀ c, μ' c ∈ (ρ c).expFamilyMeans (T c)) →
@@ -315,7 +315,7 @@ theorem altCost_minThresholdTask_restrict_false (hT : ∀ a c, ¬ T a =ᵐ[ρ a]
 /-- **The game value of the answer `false` in minimum threshold** [DK19, Lemma 37;
 KKG18, Lemma 1]. Under the assumptions of `altCost_minThresholdTask_restrict_false`, if all the
 means of `μ` are above `γ`, then `D(μ, ¬false) = (∑ a, d_a(μ a, γ)⁻¹)⁻¹`. -/
-theorem answerValue_minThresholdTask_restrict_false [Nonempty α]
+theorem answerValue_minThresholdTask_restrict_false
     (hT : ∀ a c, ¬ T a =ᵐ[ρ a] fun _ ↦ c)
     (hγ : ∀ a, γ ∈ (ρ a).expFamilyMeans (T a)) (hμ : ∀ a, μ a ∈ (ρ a).expFamilyMeans (T a))
     (hν : ∀ μ' : α → ℝ, (∀ c, μ' c ∈ (ρ c).expFamilyMeans (T c)) →

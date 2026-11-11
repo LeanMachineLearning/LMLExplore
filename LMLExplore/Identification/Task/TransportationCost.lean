@@ -308,17 +308,11 @@ lemma mem_optAlloc_iff_isMaxOn :
 
 /-- **The game value of a weighted minimum.** If `D(θ, w, ¬i) = min_a w a c a` on the simplex, for
 positive weights `c`, then `D(θ, ¬i) = (∑ a, (c a)⁻¹)⁻¹`. -/
-lemma answerValue_eq_of_altCost_eq_iInf [Nonempty α] {c : α → ℝ} (hc : ∀ a, 0 < c a)
+lemma answerValue_eq_of_altCost_eq_iInf {c : α → ℝ} (hc : ∀ a, 0 < c a)
     (h : ∀ w ∈ simplex α, task.altCost θ w i = ⨅ a, ENNReal.ofReal (w a * c a)) :
     task.answerValue θ i = ENNReal.ofReal (∑ a, (c a)⁻¹)⁻¹ := by
-  have hv := inv_div_sum_inv_mem_simplex hc
-  rw [answerValue_def]
-  refine le_antisymm (iSup₂_le fun w hw ↦ ?_) ?_
-  · obtain ⟨a, ha⟩ := exists_mul_le_inv_sum_inv hw hc
-    rw [h w hw]
-    exact (iInf_le _ a).trans (ENNReal.ofReal_le_ofReal ha)
-  · refine le_of_eq_of_le ?_ (le_iSup₂ (f := fun w _ ↦ task.altCost θ w i) _ hv)
-    rw [h _ hv, iInf_ofReal_inv_div_sum_inv_mul hc]
+  rw [answerValue_def, ← iSup_simplex_iInf_ofReal_mul hc]
+  exact biSup_congr h
 
 /-- **The optimal allocation of a weighted minimum.** If `D(θ, w, ¬i) = min_a w a c a` on the
 simplex, for positive weights `c`, then the only optimal allocation is proportional to `c⁻¹`. -/

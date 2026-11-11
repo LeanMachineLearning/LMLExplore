@@ -26,6 +26,8 @@ it.
 
 * `LMLExplore.Identification.IdentTask.cost_eq_sum_ofReal_mul_expFamilyDiv`: on the vectors of
   means of the families, `cost_μ(w, μ') = ∑ c, w c d_c(μ c, μ' c)`.
+* `LMLExplore.Identification.IdentTask.cost_eq_sum_ofReal_mul_expFamilyDiv_left`: the cost with
+  the free vector first, `cost_{μ'}(w, μ) = ∑ c, w c d_c(μ' c, μ c)`.
 * `LMLExplore.Identification.IdentTask.cost_update_eq_ofReal_mul_expFamilyDiv`: moving the mean of
   the arm `a` of `μ` to a mean `x` of its family costs `w a d_a(μ a, x)`.
 * `LMLExplore.Identification.IdentTask.altCost_le_ofReal_mul_expFamilyDiv_of_eventually`: if
@@ -37,6 +39,10 @@ it.
 * `LMLExplore.Identification.IdentTask.altCost_le_sum_ofReal_mul_expFamilyDiv_of_eventually`: if
   moving the arms along a continuous path `μx` gives alternatives to `i` near `γ` (along a
   filter), then `D(μ, w, ¬i) ≤ ∑ c, w c d_c(μ c, μx γ c)`.
+* `LMLExplore.Identification.IdentTask.iInf_cost_le_ofReal_mul_expFamilyDiv_left_of_eventually`,
+  `LMLExplore.Identification.IdentTask.iInf_cost_le_sum_ofReal_mul_expFamilyDiv_left_of_eventually`:
+  the counterparts of the two `_of_eventually` bounds for the cost with the alternative first,
+  `inf_{λ ∈ ¬i} cost_λ(w, μ) ≤ w a d_a(γ, μ a)` and `≤ ∑ c, w c d_c(μx γ c, μ c)`.
 * `LMLExplore.Identification.IdentTask.altCost_restrict_le_ofReal_mul_expFamilyDiv_of_tendsto`:
   if alternatives to `i` converge to the vector obtained from `μ` by moving the arm `a` to a mean
   `γ` of its family, then `D(μ, w, ¬i) ≤ w a d_a(μ a, γ)` within the vectors of means of the
@@ -78,6 +84,18 @@ lemma cost_eq_sum_ofReal_mul_expFamilyDiv
       ∀ c, klDiv (ν μ c) (ν μ' c) = ENNReal.ofReal ((ρ c).expFamilyDiv (T c) (μ c) (μ' c)))
     (hw : 0 ≤ w) {μ' : α → ℝ} (hμ' : ∀ c, μ' c ∈ (ρ c).expFamilyMeans (T c)) :
     task.cost w μ μ' = ∑ c, ENNReal.ofReal (w c * (ρ c).expFamilyDiv (T c) (μ c) (μ' c)) := by
+  rw [cost_def, hνt]
+  exact Finset.sum_congr rfl fun c _ ↦ by rw [hν μ' hμ' c, ENNReal.ofReal_mul (hw c)]
+
+/-- On the vectors of means of the families, the transportation cost from such a `μ'` to `μ` is
+`∑ c, w c d_c(μ' c, μ c)` when the divergences from the arm laws of the vectors of means of the
+families to those of `μ` are those of the families. This is the cost with the free vector first,
+as in the static-proportions difficulty `IdentTask.staticDifficulty`. -/
+lemma cost_eq_sum_ofReal_mul_expFamilyDiv_left
+    (hνt : task.ν = ν) (hν : ∀ μ' : α → ℝ, (∀ c, μ' c ∈ (ρ c).expFamilyMeans (T c)) →
+      ∀ c, klDiv (ν μ' c) (ν μ c) = ENNReal.ofReal ((ρ c).expFamilyDiv (T c) (μ' c) (μ c)))
+    (hw : 0 ≤ w) {μ' : α → ℝ} (hμ' : ∀ c, μ' c ∈ (ρ c).expFamilyMeans (T c)) :
+    task.cost w μ' μ = ∑ c, ENNReal.ofReal (w c * (ρ c).expFamilyDiv (T c) (μ' c) (μ c)) := by
   rw [cost_def, hνt]
   exact Finset.sum_congr rfl fun c _ ↦ by rw [hν μ' hμ' c, ENNReal.ofReal_mul (hw c)]
 
@@ -161,6 +179,64 @@ lemma altCost_le_sum_ofReal_mul_expFamilyDiv_of_eventually
       (hcont c).eventually_mem (expFamilyMeans_mem_nhds (hT c) (hmem c)))
   exact altCost_le_sum_ofReal_mul_expFamilyDiv_of_tendsto hνt hν hw hT hmem
     ((tendsto_pi_nhds.2 hcont).mono_left hl) ((h_alt.and h_mem).mono fun _ hx ↦ hx.1 hx.2)
+
+/-- **Moving one arm close to a mean, alternative first.** The counterpart of
+`altCost_le_ofReal_mul_expFamilyDiv_of_eventually` for the cost with the alternative first, as in
+the static-proportions difficulty `IdentTask.staticDifficulty`: if the vectors obtained from `μ` by
+moving the mean of the arm `a` to `x` are alternatives to `i` for all `x` near `γ` along a filter
+`l ≤ 𝓝 γ`, then `inf_{λ ∈ ¬i} cost_λ(w, μ) ≤ w a d_a(γ, μ a)`. -/
+lemma iInf_cost_le_ofReal_mul_expFamilyDiv_left_of_eventually [DecidableEq α]
+    (hνt : task.ν = ν) (hν : ∀ μ' : α → ℝ, (∀ c, μ' c ∈ (ρ c).expFamilyMeans (T c)) →
+      ∀ c, klDiv (ν μ' c) (ν μ c) = ENNReal.ofReal ((ρ c).expFamilyDiv (T c) (μ' c) (μ c)))
+    (hw : 0 ≤ w) (hμ : ∀ c, μ c ∈ (ρ c).expFamilyMeans (T c)) (a : α)
+    (hT : ∀ c, ¬ T a =ᵐ[ρ a] fun _ ↦ c)
+    (hγ : γ ∈ (ρ a).expFamilyMeans (T a)) {l : Filter ℝ} [l.NeBot] (hl : l ≤ 𝓝 γ)
+    (h_alt : ∀ᶠ x in l, Function.update μ a x ∈ task.alt i) :
+    ⨅ μ' ∈ task.alt i, task.cost w μ' μ ≤
+      ENNReal.ofReal (w a * (ρ a).expFamilyDiv (T a) γ (μ a)) := by
+  have h_tendsto : Tendsto (fun x ↦ ENNReal.ofReal (w a * (ρ a).expFamilyDiv (T a) x (μ a))) l
+      (𝓝 (ENNReal.ofReal (w a * (ρ a).expFamilyDiv (T a) γ (μ a)))) :=
+    (ENNReal.continuous_ofReal.continuousAt.comp (continuousAt_const.mul
+      (hasDerivAt_expFamilyDiv_left hT hγ (μ a)).continuousAt)).tendsto.mono_left hl
+  refine ge_of_tendsto h_tendsto ?_
+  filter_upwards [h_alt, hl (expFamilyMeans_mem_nhds hT hγ)] with x hx hxm
+  have hμx : ∀ c, Function.update μ a x c ∈ (ρ c).expFamilyMeans (T c) :=
+    (Function.forall_update_iff μ fun c y ↦ y ∈ (ρ c).expFamilyMeans (T c)).2
+      ⟨hxm, fun c _ ↦ hμ c⟩
+  refine (iInf₂_le _ hx).trans_eq ?_
+  rw [cost_eq_sum_ofReal_mul_expFamilyDiv_left hνt hν hw hμx,
+    Finset.sum_eq_single a (fun c _ hc ↦ ?_) (by simp)]
+  · simp
+  · simp [Function.update_of_ne hc, expFamilyDiv_self]
+
+/-- **Moving the arms along a path to a vector of means, alternative first.** The counterpart of
+`altCost_le_sum_ofReal_mul_expFamilyDiv_of_eventually` for the cost with the alternative first, as
+in the static-proportions difficulty `IdentTask.staticDifficulty`: let `μx : ℝ → α → ℝ` be a path
+of vectors with coordinates continuous at `γ`, such that `μx γ` is a vector of means of the
+families. If the vectors `μx x` of means of the families are alternatives to `i` for all `x` near
+`γ` along a filter `l ≤ 𝓝 γ`, then `inf_{λ ∈ ¬i} cost_λ(w, μ) ≤ ∑ c, w c d_c(μx γ c, μ c)`. -/
+lemma iInf_cost_le_sum_ofReal_mul_expFamilyDiv_left_of_eventually
+    (hνt : task.ν = ν) (hν : ∀ μ' : α → ℝ, (∀ c, μ' c ∈ (ρ c).expFamilyMeans (T c)) →
+      ∀ c, klDiv (ν μ' c) (ν μ c) = ENNReal.ofReal ((ρ c).expFamilyDiv (T c) (μ' c) (μ c)))
+    (hw : 0 ≤ w) (hT : ∀ a c, ¬ T a =ᵐ[ρ a] fun _ ↦ c) {μx : ℝ → α → ℝ} {l : Filter ℝ}
+    [l.NeBot] (hl : l ≤ 𝓝 γ) (hcont : ∀ c, ContinuousAt (fun x ↦ μx x c) γ)
+    (hmem : ∀ c, μx γ c ∈ (ρ c).expFamilyMeans (T c))
+    (h_alt : ∀ᶠ x in l, (∀ c, μx x c ∈ (ρ c).expFamilyMeans (T c)) → μx x ∈ task.alt i) :
+    ⨅ μ' ∈ task.alt i, task.cost w μ' μ ≤
+      ∑ c, ENNReal.ofReal (w c * (ρ c).expFamilyDiv (T c) (μx γ c) (μ c)) := by
+  have h_tendsto : Tendsto
+      (fun x ↦ ∑ c, ENNReal.ofReal (w c * (ρ c).expFamilyDiv (T c) (μx x c) (μ c))) l
+      (𝓝 (∑ c, ENNReal.ofReal (w c * (ρ c).expFamilyDiv (T c) (μx γ c) (μ c)))) :=
+    (tendsto_finsetSum _ fun c _ ↦ (ENNReal.continuous_ofReal.continuousAt.comp
+      (continuousAt_const.mul (ContinuousAt.comp (f := fun x ↦ μx x c)
+        (hasDerivAt_expFamilyDiv_left (hT c) (hmem c) (μ c)).continuousAt
+        (hcont c)))).tendsto).mono_left hl
+  refine ge_of_tendsto h_tendsto ?_
+  have h_mem : ∀ᶠ x in l, ∀ c, μx x c ∈ (ρ c).expFamilyMeans (T c) :=
+    hl (eventually_all.2 fun c ↦
+      (hcont c).eventually_mem (expFamilyMeans_mem_nhds (hT c) (hmem c)))
+  filter_upwards [h_alt, h_mem] with x hx hxm
+  exact (iInf₂_le _ (hx hxm)).trans_eq (cost_eq_sum_ofReal_mul_expFamilyDiv_left hνt hν hw hxm)
 
 /-- **Alternatives converging to a vector with one arm moved.** If the vectors `f x` are
 alternatives to `i` eventually along a filter `l` and converge to the vector `update μ a γ` obtained
