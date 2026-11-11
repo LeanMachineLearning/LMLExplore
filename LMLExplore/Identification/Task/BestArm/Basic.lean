@@ -31,7 +31,16 @@ The admissible models of an identification problem are the vectors whose means l
 sets of the arm families (the means of an exponential family form an open interval), that is
 `(baiTask ν id).restrict S` for an open set `S` of vectors of means. Within `S`, the closure of the
 alternatives to `a` is the closed set above, and when the transportation cost is continuous there,
-the cost of the alternatives is the infimum of the cost over it.
+the cost of the alternatives is the infimum of the cost over it. Dually, the closure within `S` of
+the answer set of `a`, the vectors with unique best arm `a`, is the set of the vectors of `S` whose
+largest mean is attained at `a`, so that the closures of the answer sets cover `S`. The openness of
+the answer sets and this covering are two of the conditions of [D23, Assumption 1] on the answer
+sets under which the static proportions algorithms of fixed-budget identification have an explicit
+error exponent.
+These answer-set lemmas are adapted from the formalization Degenne2023Existence
+(`github.com/RemyDegenne/Degenne2023Existence`, file
+`Degenne2023Existence/ForLMLExplore/Identification/Task/BestArm.lean`, commit
+`b34f7d32c926876cb38dfd51eba1474d44940bb1`, by Rémy Degenne, Apache 2.0) of [D23].
 
 When the arms belong to an exponential family with divergence `d` and `a` is a best arm of `μ`,
 the infimum for the arm `b` is the cost of moving the means of `a` and `b` to their mean weighted
@@ -77,6 +86,11 @@ within a factor `2` of the complexity `H(μ) = ∑ c, 2 σ2 / Δ_c²`, where `Δ
 * `LMLExplore.Identification.closure_alt_baiTask_restrict_inter`: for `S` open, the closure of the
   alternatives to `a` within `S` is `{λ | ∃ b ≠ a, λ a ≤ λ b} ∩ S`;
   `LMLExplore.Identification.closure_alt_baiTask` is the case `S = univ`.
+* `LMLExplore.Identification.closure_answerSet_baiTask_restrict_inter`: for `S` open, the closure
+  of the answer set of `a` within `S` is `{λ | ∀ b, λ b ≤ λ a} ∩ S`;
+  `LMLExplore.Identification.closure_answerSet_baiTask` is the case `S = univ`, and
+  `LMLExplore.Identification.subset_iUnion_closure_answerSet_baiTask_restrict` states that the
+  closures of the answer sets cover `S`.
 * `LMLExplore.Identification.charTime_baiTask_eq_inv_answerValue`,
   `LMLExplore.Identification.charTime_baiTask_restrict_eq_inv_answerValue`: if `a` is the unique
   best arm of `θ`, then `T*(θ) = D(θ, ¬a)⁻¹`.
@@ -152,6 +166,8 @@ within a factor `2` of the complexity `H(μ) = ∑ c, 2 σ2 / Δ_c²`, where `Δ
   multi-armed bandit models*, JMLR 17 (2016), Section 3.
 * [DK19] R. Degenne and W. M. Koolen, *Pure exploration with multiple correct answers*,
   NeurIPS 2019, supplementary material, Appendix F, Lemmas 28 and 29.
+* [D23] R. Degenne, *On the existence of a complexity in fixed budget bandit identification*,
+  COLT 2023, arXiv:2303.09468v2, Assumption 1.
 * [R16] D. Russo, *Simple Bayesian algorithms for best arm identification*, COLT 2016;
   Operations Research 68 (2020). Proposition 7 in the numbering of arXiv:1602.08448v4.
 -/
@@ -235,12 +251,30 @@ section Closure
 
 variable [Finite α]
 
+omit [Finite α] in
+/-- For a neighbourhood `S` of a vector of means `μ'` whose largest mean is attained at the arm
+`a`, the vector `μ'` lies in the closure of the answer set of `a` of `(baiTask ν id).restrict S`,
+the vectors of `S` with unique best arm `a`. -/
+lemma mem_closure_answerSet_baiTask_restrict (hS : S ∈ 𝓝 μ') (hμ' : ∀ b, μ' b ≤ μ' a) :
+    μ' ∈ closure (((baiTask ν id).restrict S).answerSet a) := by
+  classical
+  -- The path `t ↦ μ' + t • Pi.single a 1` tends to `μ'` and lies in the answer set of `a` for
+  -- small `t > 0`: raising the largest mean makes `a` the unique best arm.
+  set f : ℝ → α → ℝ := fun t ↦ μ' + t • Pi.single a 1 with hf
+  have hf_tendsto : Tendsto f (𝓝[>] 0) (𝓝 μ') := by
+    have hf_cont : Continuous f := by fun_prop
+    simpa [hf] using hf_cont.continuousWithinAt.tendsto (x := 0) (s := Set.Ioi 0)
+  refine mem_closure_of_tendsto hf_tendsto ?_
+  filter_upwards [hf_tendsto.eventually hS, self_mem_nhdsWithin] with t htS ht
+  rw [IdentTask.answerSet_restrict]
+  refine ⟨(mem_answerSet_baiTask_iff ν id).2 fun b hb ↦ ?_, htS⟩
+  simpa [hf, Pi.single_apply, hb] using (hμ' b).trans_lt (lt_add_of_pos_right _ ht)
+
 /-- For a neighbourhood `S` of a vector of means `μ'` in which some arm `b ≠ a` has mean at least
 that of `a`, the vector `μ'` lies in the closure of the alternatives to `a` of
 `(baiTask ν id).restrict S`. -/
 lemma mem_closure_alt_baiTask_restrict (hS : S ∈ 𝓝 μ')
     (hμ' : ∃ b ≠ a, μ' a ≤ μ' b) : μ' ∈ closure (((baiTask ν id).restrict S).alt a) := by
-  classical
   -- An arm `b ≠ a` with the largest mean.
   obtain ⟨b, hba, hb⟩ : ∃ b ≠ a, ∀ c, μ' c ≤ μ' b := by
     obtain ⟨b, hba, hab⟩ := hμ'
@@ -249,17 +283,11 @@ lemma mem_closure_alt_baiTask_restrict (hS : S ∈ 𝓝 μ')
     by_cases hda : d = a
     · exact ⟨b, hba, fun c ↦ (hda ▸ hd c).trans hab⟩
     · exact ⟨d, hda, hd⟩
-  -- The path `t ↦ μ' + t • Pi.single b 1` tends to `μ'` and lies in the alternatives for small
-  -- `t > 0`: raising the largest mean makes `b` the unique best arm.
-  set f : ℝ → α → ℝ := fun t ↦ μ' + t • Pi.single b 1 with hf
-  have hf_tendsto : Tendsto f (𝓝[>] 0) (𝓝 μ') := by
-    have hf_cont : Continuous f := by fun_prop
-    simpa [hf] using hf_cont.continuousWithinAt.tendsto (x := 0) (s := Set.Ioi 0)
-  refine mem_closure_of_tendsto hf_tendsto ?_
-  filter_upwards [hf_tendsto.eventually hS, self_mem_nhdsWithin] with t htS ht
+  -- The closure of the answer set of `b` is contained in that of the alternatives to `a`.
+  refine closure_mono (fun θ hθ ↦ ?_) (mem_closure_answerSet_baiTask_restrict ν hS hb)
+  rw [IdentTask.answerSet_restrict] at hθ
   rw [IdentTask.alt_restrict]
-  refine ⟨(mem_alt_baiTask_iff ν id).2 ⟨b, hba, fun c hcb ↦ ?_⟩, htS⟩
-  simpa [hf, Pi.single_apply, hcb] using (hb c).trans_lt (lt_add_of_pos_right _ ht)
+  exact ⟨(mem_alt_baiTask_iff ν id).2 ⟨b, hba, (mem_answerSet_baiTask_iff ν id).1 hθ.1⟩, hθ.2⟩
 
 /-- For an open set `S` of vectors of means, the closure within `S` of the alternatives to the arm
 `a` in best arm identification restricted to `S` is the set of the vectors of `S` in which some
@@ -288,6 +316,41 @@ mean is attained at an arm `b ≠ a`. -/
 theorem closure_alt_baiTask (a : α) :
     closure ((baiTask ν id).alt a) = {μ' | ∃ b ≠ a, μ' a ≤ μ' b} := by
   simpa using closure_alt_baiTask_restrict_inter ν isOpen_univ a
+
+omit [Finite α] in
+/-- For an open set `S` of vectors of means, the closure within `S` of the answer set of the arm
+`a` in best arm identification restricted to `S` is the set of the vectors of `S` whose largest
+mean is attained at `a`. -/
+theorem closure_answerSet_baiTask_restrict_inter (hS : IsOpen S) (a : α) :
+    closure (((baiTask ν id).restrict S).answerSet a) ∩ S = {μ' | ∀ b, μ' b ≤ μ' a} ∩ S := by
+  refine Set.Subset.antisymm (fun μ' ⟨hμ', hμ'S⟩ ↦ ⟨?_, hμ'S⟩)
+    (fun μ' ⟨hμ', hμ'S⟩ ↦ ⟨mem_closure_answerSet_baiTask_restrict ν (hS.mem_nhds hμ'S) hμ', hμ'S⟩)
+  -- The set is closed, as an intersection of the closed sets `{μ' | μ' b ≤ μ' a}`, and it
+  -- contains the answer set.
+  have h_closed : IsClosed {μ' : α → ℝ | ∀ b, μ' b ≤ μ' a} := by
+    simp only [Set.ofPred_forall]
+    exact isClosed_iInter fun b ↦ isClosed_le (continuous_apply b) (continuous_apply a)
+  refine closure_minimal (fun μ'' hμ'' ↦ ?_) h_closed hμ'
+  rw [IdentTask.answerSet_restrict] at hμ''
+  intro b
+  rcases eq_or_ne b a with rfl | hba
+  · exact le_rfl
+  · exact ((mem_answerSet_baiTask_iff ν id).1 hμ''.1 b hba).le
+
+omit [Finite α] in
+/-- The closure of the answer set of the arm `a` in best arm identification is the set of the
+vectors of means whose largest mean is attained at `a`. -/
+theorem closure_answerSet_baiTask (a : α) :
+    closure ((baiTask ν id).answerSet a) = {μ' | ∀ b, μ' b ≤ μ' a} := by
+  simpa using closure_answerSet_baiTask_restrict_inter ν isOpen_univ a
+
+/-- For an open set `S` of vectors of means, the closures of the answer sets of best arm
+identification restricted to `S` cover `S`: every vector of `S` is a limit of vectors of `S` whose
+unique best arm is one of its arms of largest mean. -/
+theorem subset_iUnion_closure_answerSet_baiTask_restrict [Nonempty α] (hS : IsOpen S) :
+    S ⊆ ⋃ a, closure (((baiTask ν id).restrict S).answerSet a) := fun μ' hμ' ↦ by
+  obtain ⟨a, ha⟩ := Finite.exists_max μ'
+  exact Set.mem_iUnion.2 ⟨a, mem_closure_answerSet_baiTask_restrict ν (hS.mem_nhds hμ') ha⟩
 
 end Closure
 

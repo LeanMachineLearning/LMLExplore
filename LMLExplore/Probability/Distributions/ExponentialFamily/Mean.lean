@@ -6,6 +6,7 @@ Authors: Rémy Degenne
 module
 
 public import LMLExplore.Probability.Distributions.ExponentialFamily.Basic
+public import LMLExplore.Probability.Moments.IntegrableExpMul
 public import Mathlib.Analysis.Calculus.Deriv.Inverse
 public import Mathlib.Analysis.Calculus.InverseFunctionTheorem.Deriv
 public import Mathlib.Analysis.Convex.Deriv
@@ -53,7 +54,11 @@ The lemmas on the divergence with the free mean first and on the Chernoff point 
 the formalization Degenne2023Existence (`github.com/RemyDegenne/Degenne2023Existence`, file
 `Degenne2023Existence/ForLMLExplore/Probability/Distributions/ExponentialFamily/Mean.lean`,
 commit `a4244176eae7d9dd79c5c082f361c3b3b2541c0f`, by Rémy Degenne, Apache 2.0) of R. Degenne,
-*On the existence of a complexity in fixed budget bandit identification*, COLT 2023.
+*On the existence of a complexity in fixed budget bandit identification*, COLT 2023. The lemmas
+`tendsto_cgf_id_sub_mul_cocompact` and
+`mem_expFamilyMeans_id_of_measure_Iio_ne_zero_of_measure_Ioi_ne_zero` are adapted from the file
+`Degenne2023Existence/ForLMLExplore/Probability/LargeDeviations/Cramer.lean`, commit
+`5afa57772d415c17cfd89de287fb004ca51d8fb3`, of the same formalization.
 
 ## Main definitions
 
@@ -76,6 +81,13 @@ commit `a4244176eae7d9dd79c5c082f361c3b3b2541c0f`, by Rémy Degenne, Apache 2.0)
   the member of its mean.
 * `MeasureTheory.Measure.mem_image_expFamily_iff`: the members `ρ_η` are the members `ρ_η(μ)` of
   the means `μ` of the family.
+* `MeasureTheory.Measure.mem_expFamilyMeans_id_of_measure_Iio_ne_zero_of_measure_Ioi_ne_zero`: for
+  a finite measure on `ℝ` with every exponential moment, every level charged on both sides is a
+  mean of the exponential family of the identity, the minimizer of the coercive function
+  `t ↦ cgf id ν t - t x` (`MeasureTheory.Measure.tendsto_cgf_id_sub_mul_cocompact`) being its
+  natural parameter.
+* `MeasureTheory.Measure.not_ae_eq_const_of_measure_Iio_ne_zero_of_measure_Ioi_ne_zero`: a
+  measure on `ℝ` charging both sides of a level is not a Dirac mass.
 * `MeasureTheory.Measure.not_ae_eq_const_of_mem_expFamilyMeans`: a family with two distinct means
   has a statistic that is not almost everywhere constant.
 * `MeasureTheory.Measure.monotoneOn_natParam`: the natural parameter is monotone in the mean.
@@ -218,6 +230,94 @@ lemma deriv_cgf_mem_expFamilyMeans (hη : η ∈ interior (integrableExpSet T ρ
 @[simp]
 lemma expFamilyMeans_zero_measure (T : 𝓧 → ℝ) : (0 : Measure 𝓧).expFamilyMeans T = {0} := by
   simp [expFamilyMeans_def, cgf_zero_measure, integrableExpSet]
+
+section BothSides
+
+variable {ν : Measure ℝ} {x : ℝ}
+
+/-- A measure charging a set `s` that avoids `x` charges the points of `s` at distance at least
+`1 / (k + 1)` from `x`, for some `k`. -/
+private lemma exists_measure_diff_ball_ne_zero {s : Set ℝ} (hs : ν s ≠ 0) (hx : x ∉ s) :
+    ∃ k : ℕ, ν (s \ Metric.ball x (1 / (k + 1))) ≠ 0 := by
+  by_contra! h
+  refine hs (measure_mono_null (fun y hy ↦ ?_) (measure_iUnion_null h))
+  obtain ⟨k, hk⟩ := exists_nat_one_div_lt (dist_pos.2 (ne_of_mem_of_not_mem hy hx))
+  exact mem_iUnion.2 ⟨k, hy, fun h' ↦ (Metric.mem_ball.1 h').not_ge hk.le⟩
+
+/-- **Coercivity of `t ↦ cgf id ν t - t x`.** For a finite measure `ν` on `ℝ` with every
+exponential moment that charges both sides of `x`, the function `t ↦ cgf id ν t - t x` tends to
+`∞` at `±∞`: if `ν` gives mass `q > 0` to both `(-∞, x - a]` and `[x + a, ∞)`, then
+`cgf id ν t - t x ≥ log q + a |t|`. -/
+lemma tendsto_cgf_id_sub_mul_cocompact [IsFiniteMeasure ν]
+    (h_int : ∀ t, Integrable (fun y ↦ Real.exp (t * y)) ν) (hlt : ν (Iio x) ≠ 0)
+    (hgt : ν (Ioi x) ≠ 0) :
+    Tendsto (fun t ↦ cgf id ν t - t * x) (cocompact ℝ) atTop := by
+  obtain ⟨k₁, hk₁⟩ := exists_measure_diff_ball_ne_zero hlt (lt_irrefl x)
+  obtain ⟨k₂, hk₂⟩ := exists_measure_diff_ball_ne_zero hgt (lt_irrefl x)
+  set a : ℝ := 1 / (max k₁ k₂ + 1)
+  have ha : 0 < a := by positivity
+  have h_sub (s : Set ℝ) {k : ℕ} (hk : k ≤ max k₁ k₂) :
+      s \ Metric.ball x (1 / (k + 1)) ⊆ s \ Metric.ball x a :=
+    sdiff_subset_sdiff_right (Metric.ball_subset_ball (by simp only [a]; gcongr))
+  set q := min (ν.real (Iio x \ Metric.ball x a)) (ν.real (Ioi x \ Metric.ball x a))
+  have hq : 0 < q := lt_min
+    (ENNReal.toReal_pos (fun h ↦ hk₁ (measure_mono_null (h_sub _ (le_max_left _ _)) h))
+      (measure_ne_top _ _))
+    (ENNReal.toReal_pos (fun h ↦ hk₂ (measure_mono_null (h_sub _ (le_max_right _ _)) h))
+      (measure_ne_top _ _))
+  -- Markov's inequality on the side of `x` towards which `t` points.
+  have h_bound (t : ℝ) : Real.log q + a * |t| ≤ cgf id ν t - t * x := by
+    obtain ⟨s, hqs, hs⟩ : ∃ s, q ≤ ν.real s ∧ ∀ y ∈ s, t * x + a * |t| ≤ t * y := by
+      rcases le_total 0 t with ht | ht
+      · refine ⟨Ioi x \ Metric.ball x a, min_le_right _ _, fun y ⟨hxy, hy⟩ ↦ ?_⟩
+        rw [Metric.mem_ball, Real.dist_eq, abs_of_pos (sub_pos.2 hxy), not_lt] at hy
+        rw [abs_of_nonneg ht]
+        nlinarith
+      · refine ⟨Iio x \ Metric.ball x a, min_le_left _ _, fun y ⟨hxy, hy⟩ ↦ ?_⟩
+        rw [Metric.mem_ball, Real.dist_eq, abs_of_neg (sub_neg.2 hxy), not_lt] at hy
+        rw [abs_of_nonpos ht]
+        nlinarith
+    have h_mgf : Real.exp (t * x + a * |t|) * q ≤ mgf id ν t :=
+      (mul_le_mul_of_nonneg_left (hqs.trans (measureReal_mono fun y hy ↦
+        Real.exp_le_exp.2 (hs y hy))) (Real.exp_pos _).le).trans
+        (mul_meas_ge_le_integral_of_nonneg (ae_of_all _ fun y ↦ (Real.exp_pos _).le) (h_int t) _)
+    have h_log := Real.log_le_log (by positivity) h_mgf
+    rw [Real.log_mul (Real.exp_pos _).ne' hq.ne', Real.log_exp] at h_log
+    rw [cgf]
+    linarith
+  refine tendsto_atTop_mono h_bound (tendsto_atTop_add_const_left _ _ ?_)
+  simpa only [Real.norm_eq_abs] using (tendsto_norm_cocompact_atTop (E := ℝ)).const_mul_atTop ha
+
+/-- A measure on `ℝ` charging both sides of `x` is not a Dirac mass: the identity is not almost
+everywhere equal to a constant. -/
+lemma not_ae_eq_const_of_measure_Iio_ne_zero_of_measure_Ioi_ne_zero (hlt : ν (Iio x) ≠ 0)
+    (hgt : ν (Ioi x) ≠ 0) (c : ℝ) : ¬ (id =ᵐ[ν] fun _ ↦ c) := by
+  intro hc
+  rcases le_or_gt x c with hxc | hcx
+  · exact hlt (measure_mono_null (fun y (hy : y < x) ↦ (hy.trans_le hxc).ne) (ae_iff.1 hc))
+  · exact hgt (measure_mono_null (fun y (hy : x < y) ↦ (hcx.trans hy).ne') (ae_iff.1 hc))
+
+/-- **A level charged on both sides is a mean.** For a finite measure `ν` on `ℝ` with every
+exponential moment that charges both sides of `x`, the level `x` is a mean `ψ'(η)` of the
+exponential family of `ν` and the identity, with `ψ = cgf id ν`: the natural parameter `η` is a
+minimizer of the coercive function `t ↦ ψ(t) - t x`. -/
+lemma mem_expFamilyMeans_id_of_measure_Iio_ne_zero_of_measure_Ioi_ne_zero [IsFiniteMeasure ν]
+    (h_int : ∀ t, Integrable (fun y ↦ Real.exp (t * y)) ν) (hlt : ν (Iio x) ≠ 0)
+    (hgt : ν (Ioi x) ≠ 0) :
+    x ∈ ν.expFamilyMeans id := by
+  have hν : ν ≠ 0 := fun h ↦ hlt (by simp [h])
+  have hS : interior (integrableExpSet id ν) = univ :=
+    LMLExplore.interior_integrableExpSet_eq_univ h_int
+  have h_cont : Continuous fun t ↦ cgf id ν t - t * x :=
+    ((continuous_mgf h_int).log fun t ↦ (mgf_pos' hν (h_int t)).ne').sub (by fun_prop)
+  obtain ⟨t, ht⟩ := h_cont.exists_forall_le (tendsto_cgf_id_sub_mul_cocompact h_int hlt hgt)
+  refine mem_expFamilyMeans_iff.2 ⟨t, hS ▸ mem_univ t, ?_⟩
+  have hd := (analyticAt_cgf (hS ▸ mem_univ t)).differentiableAt.hasDerivAt.sub
+    (hasDerivAt_mul_const x)
+  have := IsLocalMin.hasDerivAt_eq_zero (Eventually.of_forall ht) hd
+  linarith
+
+end BothSides
 
 lemma natParam_mem_interior_integrableExpSet (hμ : μ ∈ ρ.expFamilyMeans T) :
     ρ.natParam T μ ∈ interior (integrableExpSet T ρ) :=
