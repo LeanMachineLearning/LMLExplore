@@ -91,6 +91,11 @@ documentation, proof quality) and post `approve` / `request_changes` / `block` v
 the findings and push. If two findings contradict each other, contest one of the threads, link
 the other and quote its wording, rather than silently satisfying one.
 
+If nothing changes on a pull request for a day while it has a red build, a merge conflict or
+review findings, a maintainer's worker may finish it: it adds its commits on top of the author's,
+on the pull request's own branch, and never closes it. A `keep`, `hold`, `wip`, `human`, `on-hold`
+or `do-not-close` label keeps the pull request to its author.
+
 When every rubric approves the current commit, the pull request changes only `LMLExplore/` and
 CI is green, it merges through the merge queue. A pull request touching any human-owned path
 needs a human.
