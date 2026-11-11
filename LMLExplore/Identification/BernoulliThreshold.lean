@@ -37,12 +37,12 @@ inequality of the Krichevsky–Trofimov mixture
 
 ## Main statements
 
-* `LMLExplore.Identification.glr_plugInCost_baiTask_bernoulliBandit_le`: the GLR statistic of the
+* `LMLExplore.Identification.glr_plugInCost_bernoulliBaiTask_le`: the GLR statistic of the
   arm `i` is at most the evidence of the pair `(i, j)` against every `(λ_i, λ_j)` with
   `λ_i ≤ λ_j`.
-* `LMLExplore.Identification.measureReal_histOutputMeasure_glrt_baiTask_bernoulliBandit_le`: the
+* `LMLExplore.Identification.measureReal_histOutputMeasure_glrt_bernoulliBaiTask_le`: the
   informational threshold [GK16, Theorem 10]: the GLRT errs with probability at most `δ`.
-* `LMLExplore.Identification.isDeltaPAC_glrt_baiTask_bernoulliBandit`: the GLRT is `δ`-PAC as soon
+* `LMLExplore.Identification.isDeltaPAC_glrt_bernoulliBaiTask`: the GLRT is `δ`-PAC as soon
   as it stops almost surely.
 
 ## References
@@ -120,7 +120,7 @@ plug-in statistic of the empirical means for the arm `i`, after `n` rounds with 
 most `N_i d(μ̂_i, λ_i) + N_j d(μ̂_j, λ_j)` for every arm `j ≠ i` and all `λ_i ≤ λ_j` in `(0, 1)`:
 `i` is not the best arm of the models with these means on `i` and `j`, and the other arms can be
 moved as close as wanted to their empirical means. -/
-lemma glr_plugInCost_baiTask_bernoulliBandit_le {i j : α} (hij : i ≠ j) {qi qj : ℝ}
+lemma glr_plugInCost_bernoulliBaiTask_le {i j : α} (hij : i ≠ j) {qi qj : ℝ}
     (hqi : qi ∈ Set.Ioo 0 1) (hqj : qj ∈ Set.Ioo 0 1) (hq : qi ≤ qj) (n : ℕ)
     (h : Hist Unit α ℝ n) :
     (bernoulliBaiTask α).glr ((bernoulliBaiTask α).plugInCost empMean') n h i ≤
@@ -213,7 +213,7 @@ private lemma setOf_exists_lt_glr_subset_biUnion {Ω : Type*} {O : ℕ → Ω �
   rintro ω ⟨n, hn_stop, hn_wrong⟩
   have hia : rec n (history O A Y n ω) ≠ a := hn_wrong
   refine Set.mem_biUnion (mem_erase.2 ⟨hia, mem_univ _⟩) ⟨n, ?_⟩
-  have hglr := glr_plugInCost_baiTask_bernoulliBandit_le hia (hμ _) (hμ a) (ha _ hia).le n
+  have hglr := glr_plugInCost_bernoulliBaiTask_le hia (hμ _) (hμ a) (ha _ hia).le n
     (history O A Y n ω)
   rw [← pullCount_eq_pullCount', ← pullCount_eq_pullCount', ← empMean_eq_empMean',
     ← empMean_eq_empMean'] at hglr
@@ -225,7 +225,7 @@ identification with Bernoulli arms on the vectors of means in `(0, 1)` and every
 the sampling rule `alg` and the recommendation rule `rec`, the GLRT with the plug-in statistic of
 the empirical means and thresholds `β` at least `log (2 n (K - 1) / δ)` stops with an arm that is
 not the best with probability at most `δ`, on every vector of means of the task. -/
-theorem measureReal_histOutputMeasure_glrt_baiTask_bernoulliBandit_le
+theorem measureReal_histOutputMeasure_glrt_bernoulliBaiTask_le
     {δ : ℝ} (hδ : 0 < δ) (alg : Algorithm Unit α ℝ) (β : (n : ℕ) → Hist Unit α ℝ n → ℝ≥0∞)
     (hβ : ∀ (n : ℕ) h, ENNReal.ofReal (log (2 * n * (Fintype.card α - 1) / δ)) ≤ β n h)
     (rec : (n : ℕ) → Hist Unit α ℝ n → α) (hrec : ∀ n, Measurable (rec n))
@@ -285,7 +285,7 @@ with Bernoulli arms on the vectors of means in `(0, 1)` and every `δ > 0`, what
 rule `alg` and the recommendation rule `rec`, the GLRT with the plug-in statistic of the empirical
 means and thresholds `β` at least `log (2 n (K - 1) / δ)` is `δ`-PAC, provided it stops almost
 surely on every vector of means of the task. -/
-theorem isDeltaPAC_glrt_baiTask_bernoulliBandit
+theorem isDeltaPAC_glrt_bernoulliBaiTask
     {δ : ℝ} (hδ : 0 < δ) (alg : Algorithm Unit α ℝ) (β : (n : ℕ) → Hist Unit α ℝ n → ℝ≥0∞)
     (hβ : ∀ (n : ℕ) h, ENNReal.ofReal (log (2 * n * (Fintype.card α - 1) / δ)) ≤ β n h)
     (rec : (n : ℕ) → Hist Unit α ℝ n → α) (hrec : ∀ n, Measurable (rec n))
@@ -300,7 +300,7 @@ theorem isDeltaPAC_glrt_baiTask_bernoulliBandit
   IdentTask.isDeltaPAC_of_measureReal_mem_stopSet_and_notMem_le
     (fun _ _ ↦ (Set.toFinite _).measurableSet)
     (fun _ hμ ↦
-      measureReal_histOutputMeasure_glrt_baiTask_bernoulliBandit_le hδ alg β hβ rec hrec hstop hμ)
+      measureReal_histOutputMeasure_glrt_bernoulliBaiTask_le hδ alg β hβ rec hrec hstop hμ)
     h_stops
 
 end LMLExplore.Identification
