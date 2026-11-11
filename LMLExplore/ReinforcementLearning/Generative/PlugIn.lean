@@ -37,11 +37,14 @@ The proof has a deterministic part and a probabilistic part.
   The policy `π*` is the greedy policy of the optimal value of `M`, which does not depend on the
   samples.
 
-[AKY20] states the hypothesis on `π` as `‖Q̂^π - Q̂*‖ ≤ ε₀`, but its proof of Lemma 10 uses
-`‖v̂^π - v̂*‖ ≤ ε₀`, which this hypothesis does not imply: for `γ = 0`, every policy has
-`Q̂^π = Q̂* = r`. We state the hypothesis that the proof uses, `|v̂^π - v̂*| ≤ ε₀`; it implies
-`|Q̂^π - Q̂*| ≤ γ ε₀`. For `ε₀ = 0`, it holds for every optimal policy of `M̂`, such as its greedy
-policy.
+[AKY20] states the hypothesis on `π` as `‖Q̂^π - Q̂*‖ ≤ ε₀`, but its proof of Lemma 10, steps (c)
+and (e), uses `‖v̂^π - v̂*‖ ≤ ε₀`. We state the hypothesis that the proof uses,
+`|v̂^π - v̂*| ≤ ε₀`. It implies `Q̂* - Q̂^π ≤ γ ε₀`
+(`Learning.MDP.optQValue_sub_qValue_le_of_optValue_sub_value_le`), but it is not implied by the
+`Q`-form hypothesis: at a state that no transition of `M̂` reaches, `π` may play a suboptimal action
+without changing `Q̂^π`. The theorems below are therefore weaker than the `Q`-form statement of
+[AKY20, Theorem 1], which is left open. For `ε₀ = 0`, the hypothesis holds for every optimal policy
+of `M̂`, such as its greedy policy.
 
 ## Main statements
 
@@ -288,7 +291,8 @@ generative model of an MDP `M` with `S` states, `A` actions and rewards bounded 
 within `ε₀` of the optimal value of `M̂` has action values `Q^π ≥ Q* - C ε - 9 ε₀ / (1 - γ)` in `M`.
 
 [AKY20] states the hypothesis on `π` as `‖Q̂^π - Q̂*‖ ≤ ε₀`; its proof uses `‖v̂^π - v̂*‖ ≤ ε₀`,
-which is the hypothesis stated here. -/
+which is the hypothesis stated here. This hypothesis implies `Q̂* - Q̂^π ≤ γ ε₀` but is not implied
+by the `Q`-form one, so this theorem is weaker than the `Q`-form statement, which is left open. -/
 theorem le_streamMeasure_forall_optQValue_sub_le_qValue {M : MDP 𝓢 𝓐 ℝ} {γ : ℝ≥0}
     (hγ₀ : 1 / 2 ≤ γ) (hγ : γ < 1) {C : ℝ} (hR : ∀ p, ∀ᵐ x ∂(M.R p), |x| ≤ C) {ε : ℝ}
     (hε : 0 < ε) (hεγ : ε ≤ 1 / √(1 - γ)) {δ : ℝ} (hδ : 0 < δ) (N : ℕ) [NeZero N]

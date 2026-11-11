@@ -141,6 +141,18 @@ theorem qValue_sub_qValue (hγ : γ < 1) (hR : ∀ p, ∀ᵐ x ∂(M.R p), |x| �
   simpa only [← qValue_eq_integral_resolvent hγ hR, ← qValue_eq_integral_resolvent hγ hR',
     integral_qValue_saKernel _ hγ hR] using h
 
+/-- For two MDPs `M` and `M'` with bounded rewards, `γ < 1` and a stationary policy `π`, if the
+action values of `π` at a state `s` differ by at most `B` for every action, then so do its values
+at `s`. -/
+private lemma abs_value_sub_value_le_of_abs_qValue_sub_qValue_le (hγ : γ < 1)
+    (hR : ∀ p, ∀ᵐ x ∂(M.R p), |x| ≤ C) (hR' : ∀ p, ∀ᵐ x ∂(M'.R p), |x| ≤ C') {s : 𝓢} {B : ℝ}
+    (h : ∀ a, |M.qValue γ π (s, a) - M'.qValue γ π (s, a)| ≤ B) :
+    |M.value γ π s - M'.value γ π s| ≤ B := by
+  rw [← integral_qValue hγ hR, ← integral_qValue hγ hR',
+    ← integral_sub (integrable_qValue_prodMk_left hγ hR s _)
+      (integrable_qValue_prodMk_left hγ hR' s _)]
+  exact abs_integral_le_of_abs_le h
+
 /-- **The simulation bound**, with a reward error: for two MDPs `M` and `M'` with bounded
 rewards, `γ < 1` and a stationary policy `π`, if the mean rewards differ by at most `δ` and the
 one-step predictions of the value of `π` in `M` differ by at most `ε`,
@@ -161,11 +173,9 @@ most `δ / (1 - γ) + γ ε / (1 - γ)`. -/
 theorem abs_value_sub_value_le (hγ : γ < 1) (hR : ∀ p, ∀ᵐ x ∂(M.R p), |x| ≤ C)
     (hR' : ∀ p, ∀ᵐ x ∂(M'.R p), |x| ≤ C') (hδ : ∀ q, |meanReward M.R q - meanReward M'.R q| ≤ δ)
     (hε : ∀ q, |∫ s, M.value γ π s ∂(M.P q) - ∫ s, M.value γ π s ∂(M'.P q)| ≤ ε) (s : 𝓢) :
-    |M.value γ π s - M'.value γ π s| ≤ δ / (1 - γ) + γ * ε / (1 - γ) := by
-  rw [← integral_qValue hγ hR, ← integral_qValue hγ hR',
-    ← integral_sub (integrable_qValue_prodMk_left hγ hR s _)
-      (integrable_qValue_prodMk_left hγ hR' s _)]
-  exact abs_integral_le_of_abs_le fun a ↦ abs_qValue_sub_qValue_le hγ hR hR' hδ hε (s, a)
+    |M.value γ π s - M'.value γ π s| ≤ δ / (1 - γ) + γ * ε / (1 - γ) :=
+  abs_value_sub_value_le_of_abs_qValue_sub_qValue_le hγ hR hR' fun a ↦
+    abs_qValue_sub_qValue_le hγ hR hR' hδ hε (s, a)
 
 /-! ### Bounds in total variation -/
 
@@ -334,6 +344,39 @@ section PolicyVarianceAware
 
 variable {a b : ℝ}
 
+/-- The resolvent step of the variance-aware bounds: for an MDP `M` with rewards bounded by `C`,
+`γ < 1` and a stationary policy `π`, if a function `g` satisfies
+`|g q| ≤ a √(Var_{P q}(v^π)) + c` at every pair `q`, with `a ≥ 0`, then the resolvent of the
+state-action kernel of `π` maps `g` to at most `a C √(2 / (1 - γ) ^ 3) + c / (1 - γ)`, by the
+total-variance lemma. -/
+private lemma abs_integral_resolvent_le_of_abs_le_sqrt_variance (hγ : γ < 1)
+    (hR : ∀ p, ∀ᵐ x ∂(M.R p), |x| ≤ C) (ha : 0 ≤ a) {g : 𝓢 × 𝓐 → ℝ} {c : ℝ}
+    (hg : ∀ q, |g q| ≤ a * √(Var[M.value γ π; M.P q]) + c) (p : 𝓢 × 𝓐) :
+    |∫ q, g q ∂(Kernel.resolvent γ (M.saKernel π) p)| ≤
+      a * C * √(2 / (1 - γ) ^ 3) + c / (1 - γ) := by
+  have := Kernel.isFiniteKernel_resolvent (κ := M.saKernel π) hγ
+  have hB : 0 ≤ C / (1 - γ) := (abs_nonneg _).trans (abs_value_le (π := π) hγ hR p.1)
+  have hv := measurable_value (π := π) hγ hR
+  have hvB := abs_value_le (π := π) hγ hR
+  set ρ := Kernel.resolvent γ (M.saKernel π) p
+  -- the standard deviation `σ` of `v^π` under `P` is bounded by `C / (1 - γ)`
+  set σ : 𝓢 × 𝓐 → ℝ := fun q ↦ √(Var[M.value γ π; M.P q])
+  have hσ : Measurable σ := (hv.variance_kernel (η := M.P)).sqrt
+  have hσB (q : 𝓢 × 𝓐) : |σ q| ≤ C / (1 - γ) := by
+    rw [abs_of_nonneg (Real.sqrt_nonneg _), Real.sqrt_le_left hB]
+    exact variance_le_sq_of_abs_le hv.aemeasurable (.of_forall hvB)
+  have hσi := (integrable_of_abs_le hσ hσB ρ).const_mul a
+  have h_int : ∫ q, σ q ∂ρ ≤ C * √(2 / (1 - γ) ^ 3) :=
+    integral_sqrt_variance_value_resolvent_le hγ hR p
+  calc |∫ q, g q ∂ρ| ≤ ∫ q, |g q| ∂ρ := abs_integral_le_integral_abs
+    _ ≤ ∫ q, (a * σ q + c) ∂ρ := integral_mono_of_nonneg (.of_forall fun _ ↦ abs_nonneg _)
+        (hσi.add (integrable_const _)) (.of_forall hg)
+    _ = a * ∫ q, σ q ∂ρ + c / (1 - γ) := by
+        rw [integral_add hσi (integrable_const _), integral_const_mul, integral_const, smul_eq_mul,
+          Kernel.measureReal_resolvent_univ hγ, inv_mul_eq_div]
+    _ ≤ a * (C * √(2 / (1 - γ) ^ 3)) + c / (1 - γ) := by gcongr
+    _ = a * C * √(2 / (1 - γ) ^ 3) + c / (1 - γ) := by ring
+
 /-- **Variance-aware accuracy of the action values of a policy** [AKY20, Lemma 10]: for two MDPs
 `M` and `M'` with the same mean rewards, bounded rewards, rewards of `M` bounded by `C`, `γ < 1`
 and a stationary policy `π`, let `u` be a measurable function within `ε` of the value `v'^π` of `π`
@@ -353,10 +396,7 @@ theorem abs_qValue_sub_qValue_le_of_le_sqrt_variance (hγ : γ < 1)
     |M.qValue γ π p - M'.qValue γ π p| ≤
       γ * (a * C * √(2 / (1 - γ) ^ 3) + ((2 + a) * ε + b) / (1 - γ)) /
         (1 - γ * a / (1 - γ)) := by
-  have := Kernel.isFiniteKernel_resolvent (κ := M.saKernel π) hγ
   have : Nonempty (𝓢 × 𝓐) := ⟨p⟩
-  have hγ' : 0 < 1 - (γ : ℝ) := sub_pos.2 hγ
-  have hB : 0 ≤ C / (1 - γ) := (abs_nonneg _).trans (abs_value_le (π := π) hγ hR p.1)
   have hv := measurable_value (π := π) hγ hR
   have hvB := abs_value_le (π := π) hγ hR
   have hv' := measurable_value (π := π) hγ hR'
@@ -375,53 +415,32 @@ theorem abs_qValue_sub_qValue_le_of_le_sqrt_variance (hγ : γ < 1)
     fun q ↦ (abs_sub _ _).trans (add_le_add (abs_qValue_le hγ hR q) (abs_qValue_le hγ hR' q))⟩
   set Δ := ⨆ q, x q
   have hxΔ (q : 𝓢 × 𝓐) : x q ≤ Δ := le_ciSup hxB q
-  have hvΔ (s : 𝓢) : |M'.value γ π s - M.value γ π s| ≤ Δ := by
-    rw [← integral_qValue hγ hR, ← integral_qValue hγ hR', ← integral_sub
-      (integrable_qValue_prodMk_left hγ hR' s _) (integrable_qValue_prodMk_left hγ hR s _)]
-    exact abs_integral_le_of_abs_le fun a ↦ (abs_sub_comm _ _).trans_le (hxΔ (s, a))
-  -- the one-step error `g = (P' - P) v'^π` and the standard deviation `σ` of `v^π` under `P`
-  set g : 𝓢 × 𝓐 → ℝ := fun q ↦ ∫ s, M'.value γ π s ∂(M'.P q) - ∫ s, M'.value γ π s ∂(M.P q)
-  set σ : 𝓢 × 𝓐 → ℝ := fun q ↦ √(Var[M.value γ π; M.P q])
-  have hg : Measurable g := (hv'.stronglyMeasurable.integral_kernel (κ := M'.P)).measurable.fun_sub
-    (hv'.stronglyMeasurable.integral_kernel (κ := M.P)).measurable
-  have hgB (q : 𝓢 × 𝓐) : |g q| ≤ C' / (1 - γ) + C' / (1 - γ) := (abs_sub _ _).trans
-    (add_le_add (abs_integral_le_of_abs_le hvB') (abs_integral_le_of_abs_le hvB'))
-  have hσ : Measurable σ := (hv.variance_kernel (η := M.P)).sqrt
-  have hσB (q : 𝓢 × 𝓐) : |σ q| ≤ C / (1 - γ) := by
-    rw [abs_of_nonneg (Real.sqrt_nonneg _), Real.sqrt_le_left hB]
-    exact variance_le_sq_of_abs_le hv.aemeasurable (.of_forall hvB)
-  -- pointwise, `|g| ≤ a σ + (a Δ + (2 + a) ε + b)`
-  have h_pt (q : 𝓢 × 𝓐) : |g q| ≤ a * σ q + (a * Δ + ((2 + a) * ε + b)) := by
+  have hvΔ (s : 𝓢) : |M'.value γ π s - M.value γ π s| ≤ Δ :=
+    abs_value_sub_value_le_of_abs_qValue_sub_qValue_le hγ hR' hR fun a ↦
+      (abs_sub_comm _ _).trans_le (hxΔ (s, a))
+  -- pointwise, the one-step error `(P' - P) v'^π` is at most `a σ + (a Δ + (2 + a) ε + b)`, with
+  -- `σ` the standard deviation of `v^π` under `P`
+  have h_pt (q : 𝓢 × 𝓐) :
+      |∫ s, M'.value γ π s ∂(M'.P q) - ∫ s, M'.value γ π s ∂(M.P q)| ≤
+        a * √(Var[M.value γ π; M.P q]) + (a * Δ + ((2 + a) * ε + b)) := by
     have h := abs_integral_sub_integral_le_of_abs_sub_le (hmem hv' hvB' q) (hmem hu huB q)
       (integrable_of_abs_le hv' hvB' _) (integrable_of_abs_le hu huB _) ha hπu (hε q)
     have h_sd := sqrt_variance_le_sqrt_variance_add_of_abs_sub_le (hmem hv' hvB' q)
       (hmem hv hvB q) (.of_forall hvΔ)
-    calc |g q| ≤ a * √Var[M'.value γ π; M.P q] + (2 + a) * ε + b := (abs_sub_comm _ _).trans_le h
-      _ ≤ a * (σ q + Δ) + (2 + a) * ε + b := by gcongr
-      _ = a * σ q + (a * Δ + ((2 + a) * ε + b)) := by ring
+    calc _ ≤ a * √Var[M'.value γ π; M.P q] + (2 + a) * ε + b := (abs_sub_comm _ _).trans_le h
+      _ ≤ a * (√(Var[M.value γ π; M.P q]) + Δ) + (2 + a) * ε + b := by gcongr
+      _ = a * √(Var[M.value γ π; M.P q]) + (a * Δ + ((2 + a) * ε + b)) := by ring
   -- every action value error is at most `K + α Δ`, by the simulation lemma and the
   -- total-variance lemma
   have h_step (q : 𝓢 × 𝓐) : x q ≤ γ * (a * C * √(2 / (1 - γ) ^ 3) + ((2 + a) * ε + b) /
       (1 - γ)) + γ * a / (1 - γ) * Δ := by
-    set ρ := Kernel.resolvent γ (M.saKernel π) q
-    have h_int : ∫ q, σ q ∂ρ ≤ C * √(2 / (1 - γ) ^ 3) :=
-      integral_sqrt_variance_value_resolvent_le hγ hR q
     simp only [x]
     rw [abs_sub_comm, qValue_sub_qValue hγ hR' hR q]
     simp only [hr, sub_self, zero_add]
     rw [integral_const_mul, abs_mul, NNReal.abs_eq]
-    calc (γ : ℝ) * |∫ q, g q ∂ρ| ≤ γ * ∫ q, |g q| ∂ρ :=
-          mul_le_mul_of_nonneg_left abs_integral_le_integral_abs γ.coe_nonneg
-      _ ≤ γ * ∫ q, (a * σ q + (a * Δ + ((2 + a) * ε + b))) ∂ρ :=
-          mul_le_mul_of_nonneg_left (integral_mono (integrable_of_abs_le hg hgB ρ).abs
-            ((integrable_of_abs_le hσ hσB ρ).const_mul a |>.add (integrable_const _)) h_pt)
-            γ.coe_nonneg
-      _ = γ * (a * ∫ q, σ q ∂ρ + (a * Δ + ((2 + a) * ε + b)) / (1 - γ)) := by
-          rw [integral_add ((integrable_of_abs_le hσ hσB ρ).const_mul a) (integrable_const _),
-            integral_const_mul, integral_const, smul_eq_mul, Kernel.measureReal_resolvent_univ hγ,
-            inv_mul_eq_div]
-      _ ≤ γ * (a * (C * √(2 / (1 - γ) ^ 3)) + (a * Δ + ((2 + a) * ε + b)) / (1 - γ)) := by
+    calc _ ≤ (γ : ℝ) * (a * C * √(2 / (1 - γ) ^ 3) + (a * Δ + ((2 + a) * ε + b)) / (1 - γ)) := by
           gcongr
+          exact abs_integral_resolvent_le_of_abs_le_sqrt_variance hγ hR ha h_pt q
       _ = γ * (a * C * √(2 / (1 - γ) ^ 3) + ((2 + a) * ε + b) / (1 - γ)) +
           γ * a / (1 - γ) * Δ := by ring
   -- hence `Δ ≤ K + α Δ`, that is `Δ ≤ K / (1 - α)`
@@ -440,11 +459,8 @@ theorem abs_value_sub_value_le_of_le_sqrt_variance (hγ : γ < 1)
     (hε : ∀ q, |∫ s, u s ∂(M.P q) - ∫ s, u s ∂(M'.P q)| ≤ a * √(Var[u; M.P q]) + b) (s : 𝓢) :
     |M.value γ π s - M'.value γ π s| ≤
       γ * (a * C * √(2 / (1 - γ) ^ 3) + ((2 + a) * ε + b) / (1 - γ)) /
-        (1 - γ * a / (1 - γ)) := by
-  rw [← integral_qValue hγ hR, ← integral_qValue hγ hR',
-    ← integral_sub (integrable_qValue_prodMk_left hγ hR s _)
-      (integrable_qValue_prodMk_left hγ hR' s _)]
-  exact abs_integral_le_of_abs_le fun a ↦
+        (1 - γ * a / (1 - γ)) :=
+  abs_value_sub_value_le_of_abs_qValue_sub_qValue_le hγ hR hR' fun a ↦
     abs_qValue_sub_qValue_le_of_le_sqrt_variance hγ hR hR' hr ha hα hu hπu hε (s, a)
 
 end PolicyVarianceAware
@@ -468,51 +484,29 @@ private lemma abs_integral_resolvent_le_of_le_sqrt_variance (hγ : γ < 1)
         γ * (∫ s, M.optValue γ s ∂(M.P q) - ∫ s, M.optValue γ s ∂(M'.P q)))
         ∂(Kernel.resolvent γ (M'.saKernel π) p)| ≤
       γ * (a * C * √(2 / (1 - γ) ^ 3) + (a * D + b) / (1 - γ)) := by
-  have := Kernel.isFiniteKernel_resolvent (κ := M'.saKernel π) hγ
-  have hγ' : 0 < 1 - (γ : ℝ) := sub_pos.2 hγ
-  have hB : 0 ≤ C / (1 - γ) := (abs_nonneg _).trans (abs_value_le (π := π) hγ hR' p.1)
   have hv := measurable_optValue hγ hR
   have hvB := abs_optValue_le hγ hR
   have hv' := measurable_value (π := π) hγ hR'
   have hvB' := abs_value_le (π := π) hγ hR'
-  set ρ := Kernel.resolvent γ (M'.saKernel π) p
-  -- the one-step error `g = (P - P') v*` and the standard deviation `σ` of `v^π_M'` under `P'`
-  set g : 𝓢 × 𝓐 → ℝ := fun q ↦ ∫ s, M.optValue γ s ∂(M.P q) - ∫ s, M.optValue γ s ∂(M'.P q)
-  set σ : 𝓢 × 𝓐 → ℝ := fun q ↦ √(Var[M'.value γ π; M'.P q])
-  have hg : Measurable g := (hv.stronglyMeasurable.integral_kernel (κ := M.P)).measurable.fun_sub
-    (hv.stronglyMeasurable.integral_kernel (κ := M'.P)).measurable
-  have hgB (q : 𝓢 × 𝓐) : |g q| ≤ C / (1 - γ) + C / (1 - γ) := (abs_sub _ _).trans
-    (add_le_add (abs_integral_le_of_abs_le hvB) (abs_integral_le_of_abs_le hvB))
-  have hσ : Measurable σ := (hv'.variance_kernel (η := M'.P)).sqrt
-  have hσB (q : 𝓢 × 𝓐) : |σ q| ≤ C / (1 - γ) := by
-    rw [abs_of_nonneg (Real.sqrt_nonneg _), Real.sqrt_le_left hB]
-    exact variance_le_sq_of_abs_le hv'.aemeasurable (.of_forall hvB')
-  -- pointwise, `|g| ≤ a (σ + D) + b`: the standard deviations of `v*` and `v^π_M'` are within `D`
-  have h_pt (q : 𝓢 × 𝓐) : |g q| ≤ a * σ q + (a * D + b) := by
+  -- pointwise, the one-step error `(P - P') v*` is at most `a σ + (a D + b)`, with `σ` the
+  -- standard deviation of `v^π_M'` under `P'`: the standard deviations of `v*` and `v^π_M'` are
+  -- within `D`
+  have h_pt (q : 𝓢 × 𝓐) :
+      |∫ s, M.optValue γ s ∂(M.P q) - ∫ s, M.optValue γ s ∂(M'.P q)| ≤
+        a * √(Var[M'.value γ π; M'.P q]) + (a * D + b) := by
     have hmem {f : 𝓢 → ℝ} (hf : Measurable f) (hfB : ∀ s, |f s| ≤ C / (1 - γ)) :
         MemLp f 2 (M'.P q) :=
       MemLp.of_bound hf.aestronglyMeasurable _
         (.of_forall fun s ↦ (Real.norm_eq_abs _).trans_le (hfB s))
     have h_sd := sqrt_variance_le_sqrt_variance_add_of_abs_sub_le (hmem hv hvB) (hmem hv' hvB')
       (.of_forall hD)
-    calc |g q| ≤ a * √(Var[M.optValue γ; M'.P q]) + b := hε q
-      _ ≤ a * (σ q + D) + b := by gcongr
-      _ = a * σ q + (a * D + b) := by ring
-  have h_int : ∫ q, σ q ∂ρ ≤ C * √(2 / (1 - γ) ^ 3) :=
-    integral_sqrt_variance_value_resolvent_le hγ hR' p
+    calc _ ≤ a * √(Var[M.optValue γ; M'.P q]) + b := hε q
+      _ ≤ a * (√(Var[M'.value γ π; M'.P q]) + D) + b := by gcongr
+      _ = a * √(Var[M'.value γ π; M'.P q]) + (a * D + b) := by ring
   simp only [hr, sub_self, zero_add]
   rw [integral_const_mul, abs_mul, NNReal.abs_eq]
   gcongr
-  calc |∫ q, g q ∂ρ| ≤ ∫ q, |g q| ∂ρ := abs_integral_le_integral_abs
-    _ ≤ ∫ q, (a * σ q + (a * D + b)) ∂ρ :=
-        integral_mono (integrable_of_abs_le hg hgB ρ).abs
-          ((integrable_of_abs_le hσ hσB ρ).const_mul a |>.add (integrable_const _)) h_pt
-    _ = a * ∫ q, σ q ∂ρ + (a * D + b) / (1 - γ) := by
-        rw [integral_add ((integrable_of_abs_le hσ hσB ρ).const_mul a) (integrable_const _),
-          integral_const_mul, integral_const, smul_eq_mul, Kernel.measureReal_resolvent_univ hγ,
-          inv_mul_eq_div]
-    _ ≤ a * (C * √(2 / (1 - γ) ^ 3)) + (a * D + b) / (1 - γ) := by gcongr
-    _ = a * C * √(2 / (1 - γ) ^ 3) + (a * D + b) / (1 - γ) := by ring
+  exact abs_integral_resolvent_le_of_abs_le_sqrt_variance hγ hR' ha h_pt p
 
 /-- **Variance-aware accuracy of the optimal action values** [AJKS, §2.4]: for two MDPs `M` and
 `M'` with finitely many actions, the same mean rewards, rewards bounded by `C` and `γ < 1`, if the
@@ -623,17 +617,8 @@ theorem optQValue_sub_qValue_le_of_le_sqrt_variance (hγ : γ < 1)
   -- `π'` is suboptimal in `M'`
   have h₁ := qValue_le_optQValue (π := π') hγ hR' p
   -- the action values of `π` in `M'` are `γ ε`-optimal
-  have h₂ : M'.optQValue γ p - M'.qValue γ π p ≤ γ * ε := by
-    have hv := integrable_of_abs_le (measurable_optValue hγ hR') (abs_optValue_le hγ hR')
-      (M'.P p)
-    have hv' := integrable_of_abs_le (measurable_value (π := π) hγ hR') (abs_value_le hγ hR')
-      (M'.P p)
-    rw [optQValue_def, qValue_eq_lookahead, lookahead_def, add_sub_add_left_eq_sub, ← mul_sub,
-      ← integral_sub hv hv']
-    refine mul_le_mul_of_nonneg_left (le_of_abs_le (abs_integral_le_of_abs_le fun s ↦ ?_))
-      γ.coe_nonneg
-    rw [abs_sub_comm]
-    exact hπ s
+  have h₂ := optQValue_sub_qValue_le_of_optValue_sub_value_le hγ hR'
+    (fun s ↦ (le_abs_self _).trans ((abs_sub_comm _ _).trans_le (hπ s))) p
   rw [← qValue_eq_optQValue hπ']
   linarith [le_abs_self (M.qValue γ π' p - M'.qValue γ π' p),
     le_abs_self (M'.qValue γ π p - M.qValue γ π p)]
