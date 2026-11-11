@@ -42,6 +42,7 @@ means.
 * `ProbabilityTheory.bernoulliMeasure_symm`: `Ber(x, y, 1 - p) = Ber(y, x, p)`.
 * `ProbabilityTheory.bernoulliMeasure_absolutelyContinuous_iff`: for `x ≠ y`,
   `Ber(x, y, p) ≪ Ber(x, y, q)` if and only if `q = 0 → p = 0` and `q = 1 → p = 1`.
+* `ProbabilityTheory.lintegral_bernoulliMeasure`: `∫⁻ f ∂Ber(x, y, p) = p f(x) + (1 - p) f(y)`.
 * `ProbabilityTheory.integrableExpSet_bernoulliMeasure`: every real function has exponential
   moments of all orders under `Ber(x, y, p)`.
 * `ProbabilityTheory.tilted_bernoulliMeasure`: tilting `Ber(x, y, p)` by `exp ∘ f` gives
@@ -94,6 +95,11 @@ theorem bernoulliMeasure_absolutelyContinuous_iff [MeasurableSingletonClass X] (
     fun h ↦ bernoulliMeasure_absolutelyContinuous h.1 h.2⟩
   · simpa [hxy.symm] using h (s := {x}) (by simp [hq, hxy.symm])
   · simpa [hxy, unitInterval.symm_eq_zero] using h (s := {y}) (by simp [hq, hxy])
+
+/-- The lower Lebesgue integral of `f` against `Ber(x, y, p)` is `p f(x) + (1 - p) f(y)`. -/
+lemma lintegral_bernoulliMeasure [MeasurableSingletonClass X] (x y : X) (p : I) (f : X → ℝ≥0∞) :
+    ∫⁻ z, f z ∂Ber(x, y, p) = ENNReal.ofReal p * f x + ENNReal.ofReal (1 - p) * f y := by
+  simp [bernoulliMeasure_def, ENNReal.smul_def, ENNReal.coe_nnreal_eq]
 
 /-- Every real function has exponential moments of all orders under a Bernoulli law. -/
 @[simp]

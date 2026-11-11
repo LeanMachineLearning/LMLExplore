@@ -48,6 +48,10 @@ it.
   `LMLExplore.Identification.IdentTask.cost_comm_gaussianReal`: this cost is symmetric in `μ` and
   `μ'`.
 * `LMLExplore.Identification.IdentTask.cost_gaussianBandit`: its case of a common variance `σ2`.
+* `LMLExplore.Identification.IdentTask.cost_bernoulliBandit`: for Bernoulli arms,
+  `cost_μ(w, μ') = ∑ c, w c d(μ c, μ' c)` with the binary relative entropy `d`.
+* `LMLExplore.Identification.IdentTask.continuousOn_cost_bernoulliBandit`: for Bernoulli arms,
+  the cost is continuous on the vectors of means in `(0, 1)`.
 
 The lemmas `cost_gaussianReal` and `cost_comm_gaussianReal` are adapted from the formalization
 Degenne2023Existence (`github.com/RemyDegenne/Degenne2023Existence`, file
@@ -227,5 +231,28 @@ lemma cost_gaussianBandit [MeasurableSingletonClass α] {σ2 : ℝ≥0}
     (hσ2 : σ2 ≠ 0) (hw : 0 ≤ w) (μ' : α → ℝ) :
     task.cost w μ μ' = ENNReal.ofReal (∑ c, w c * (μ c - μ' c) ^ 2 / (2 * σ2)) :=
   cost_gaussianReal (v := fun _ ↦ σ2) (fun _ ↦ hσ2) (by simp [hνt]) hw μ'
+
+/-- For Bernoulli arms, the arm `c` of the vector of means `μ` having law `Ber(μ c)` (with `μ c`
+clamped to `[0, 1]`), the transportation cost is a weighted sum of binary relative entropies:
+`cost_μ(w, μ') = ∑ c, w c d(μ c, μ' c)`. -/
+lemma cost_bernoulliBandit [MeasurableSingletonClass α] {task : IdentTask α (α → ℝ) ℐ ℝ}
+    (hνt : task.ν = fun μ ↦ Bandits.bernoulliBandit fun c ↦ projIcc 0 1 zero_le_one (μ c))
+    (μ' : α → ℝ) :
+    task.cost w μ μ' = ∑ c, ENNReal.ofReal (w c) * klBer (μ c) (μ' c) := by
+  rw [cost_def, hνt]
+  simp only [Bandits.bernoulliBandit_apply, klDiv_bernoulliMeasure, klBer_projIcc]
+
+/-- For Bernoulli arms, the transportation cost is continuous in the alternative vector of means on
+the vectors of means in `(0, 1)`, where the binary relative entropy is continuous in its second
+argument. -/
+lemma continuousOn_cost_bernoulliBandit [MeasurableSingletonClass α]
+    {task : IdentTask α (α → ℝ) ℐ ℝ}
+    (hνt : task.ν = fun μ ↦ Bandits.bernoulliBandit fun c ↦ projIcc 0 1 zero_le_one (μ c)) :
+    ContinuousOn (task.cost w μ) {μ' | ∀ c, μ' c ∈ Ioo 0 1} := by
+  refine task.continuousOn_cost (fun c ↦ ?_) w
+  refine (continuousOn_klBer.comp (s := {μ' : α → ℝ | ∀ c, μ' c ∈ Ioo 0 1})
+    (continuousOn_const.prodMk (continuous_apply c).continuousOn)
+    fun μ' hμ' ↦ ⟨Subtype.prop (projIcc 0 1 zero_le_one (μ c)), hμ' c⟩).congr fun μ' hμ' ↦ ?_
+  simp [hνt, klDiv_bernoulliMeasure, projIcc_of_mem _ (Ioo_subset_Icc_self (hμ' c))]
 
 end LMLExplore.Identification.IdentTask
