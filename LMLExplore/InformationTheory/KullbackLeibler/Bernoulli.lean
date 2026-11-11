@@ -88,7 +88,7 @@ smallest `q ∈ [0, p]` with `d(p, q) ≤ c`; together they are the confidence b
   `LMLExplore.ofReal_mul_neg_log_le_klBer_add_log_two`: the bound
   `p log (1 / q) ≤ d(p, q) + log 2`, by which the change of measure bounds the probability of an
   event that is likely under one law and unlikely under the other.
-* `LMLExplore.mul_klFun_div_le_klBerReal`: the bound `q klFun (p / q) ≤ d(p, q)` for `p < 1`,
+* `LMLExplore.mul_klFun_div_le_klBerReal`: the bound `q klFun (p / q) ≤ d(p, q)` for `p ≤ 1`,
   `q ≠ 0` and `q < 1`, of the order of `q` when `p / q` stays away from `1`
   [D23, proof of Theorem 10].
 * `LMLExplore.klBer_ne_zero_of_klBer_eq`: if `d(z, a) = d(z, b)` for distinct `a, b ∈ [0, 1]`,
@@ -796,19 +796,23 @@ theorem ofReal_mul_neg_log_le_klBer_add_log_two (hp : p ∈ Set.Icc 0 1) (hq : q
   exact (ENNReal.ofReal_le_ofReal (mul_neg_log_le_klBerReal_add_log_two hp ⟨hq0, hq1⟩)).trans
     ENNReal.ofReal_add_le
 
-/-- **Lower bound on the binary relative entropy by `klFun`**: for `p < 1`, `q ≠ 0` and `q < 1`,
-`q klFun (p / q) ≤ d(p, q)`, with `klFun x = x log x + 1 - x`. The first term of `d(p, q)` is
-`q (p / q) log (p / q)`, and the second, `(1 - p) log ((1 - p) / (1 - q))`, is at least `q - p`
-since `log x ≥ 1 - 1 / x`. For `p, q ∈ (0, 1)` with `p / q` bounded away from `1`, the bound is
-of the order of `q`, where Pinsker's inequality only gives the order `q²`. -/
-theorem mul_klFun_div_le_klBerReal (hp : p < 1) (hq0 : q ≠ 0) (hq1 : q < 1) :
+/-- **Lower bound on the binary relative entropy by `klFun`**: for `p ≤ 1`, `q ≠ 0` and `q < 1`,
+`q klFun (p / q) ≤ d(p, q)`, with `klFun x = x log x + 1 - x`. For `p, q ∈ (0, 1)` with `p / q`
+bounded away from `1`, the bound is of the order of `q`, where Pinsker's inequality only gives the
+order `q²`. -/
+theorem mul_klFun_div_le_klBerReal (hp : p ≤ 1) (hq0 : q ≠ 0) (hq1 : q < 1) :
     q * klFun (p / q) ≤ klBerReal p q := by
-  have h1 : 0 < 1 - p := sub_pos.2 hp
-  have h2 : 0 < 1 - q := sub_pos.2 hq1
-  have h3 : (1 - p) * (1 - ((1 - p) / (1 - q))⁻¹) = q - p := by
-    field_simp
-    ring
+  -- The first term of `d(p, q)` is `q (p / q) log (p / q)`, and the second,
+  -- `(1 - p) log ((1 - p) / (1 - q))`, is at least `q - p` since `log x ≥ 1 - 1 / x`.
   have h4 : q - p ≤ (1 - p) * log ((1 - p) / (1 - q)) := by
+    rcases hp.eq_or_lt with rfl | hp
+    · simp only [sub_self, zero_mul]
+      linarith
+    have h1 : 0 < 1 - p := sub_pos.2 hp
+    have h2 : 0 < 1 - q := sub_pos.2 hq1
+    have h3 : (1 - p) * (1 - ((1 - p) / (1 - q))⁻¹) = q - p := by
+      field_simp
+      ring
     rw [← h3]
     exact mul_le_mul_of_nonneg_left (one_sub_inv_le_log_of_pos (div_pos h1 h2)) h1.le
   have h5 : q * (p / q * log (p / q) + 1 - p / q) = p * log (p / q) + (q - p) := by

@@ -13,8 +13,8 @@ public import Mathlib.InformationTheory.KullbackLeibler.KLFun
 
 The function `klFun x = x log x + 1 - x`, whose integral against a measure `ν` of the density
 `dμ/dν` is the relative entropy `KL(μ ‖ ν)`, has derivative `log x` at every `x ≠ 0`. It is hence
-strictly decreasing on `[0, 1]`, from `klFun 0 = 1` to its minimum `klFun 1 = 0`. A lower bound
-on a ratio in `[0, 1]` that is away from `1` thus gives a positive lower bound on `klFun` of that
+strictly decreasing on `[0, 1]`, from `klFun 0 = 1` to its minimum `klFun 1 = 0`. An upper bound
+`c < 1` on a ratio in `[0, 1]` thus gives the positive lower bound `klFun c` on `klFun` of that
 ratio, as in the lower bound `q klFun (p / q) ≤ d(p, q)` on the binary relative entropy
 (`LMLExplore.mul_klFun_div_le_klBerReal`).
 
@@ -29,8 +29,7 @@ open Real Set
 
 namespace InformationTheory
 
-/-- `klFun x = x log x + 1 - x` is strictly decreasing on `[0, 1]`: its derivative `log x` is
-negative on `(0, 1)`. -/
+/-- `klFun x = x log x + 1 - x` is strictly decreasing on `[0, 1]`. -/
 lemma strictAntiOn_klFun : StrictAntiOn klFun (Icc 0 1) := by
   refine strictAntiOn_of_deriv_neg (convex_Icc 0 1) continuous_klFun.continuousOn fun x hx ↦ ?_
   rw [interior_Icc] at hx
