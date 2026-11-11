@@ -60,6 +60,12 @@ to the closed sets.
 
 * [DZ98] A. Dembo and O. Zeitouni, *Large Deviations Techniques and Applications*, 2nd ed.,
   Springer, 1998, Section 1.2.
+
+The definitions and the exponential-bound criteria are adapted from the formalization
+Degenne2023Existence (`github.com/RemyDegenne/Degenne2023Existence`, file
+`Degenne2023Existence/ForLMLExplore/Probability/LargeDeviations/Basic.lean`, commit
+`5afa57772d415c17cfd89de287fb004ca51d8fb3`, by Rémy Degenne, Apache 2.0) of R. Degenne, *On the
+existence of a complexity in fixed budget bandit identification*, COLT 2023.
 -/
 
 public section
@@ -98,6 +104,19 @@ structure IsLDP (P : ℕ → Measure X) (I : X → ℝ≥0∞) : Prop where
 
 /-! ### Exponential bounds -/
 
+/-- The logarithm of `exp (-(n r))` is `-r n`, as an extended real. -/
+private lemma log_ofReal_exp (n : ℕ) (r : ℝ) :
+    ENNReal.log (ENNReal.ofReal (Real.exp (-(n * r)))) = ((-r : ℝ) : EReal) * n := by
+  rw [ENNReal.log_ofReal_of_pos (Real.exp_pos _), Real.log_exp, ← EReal.coe_natCast,
+    ← EReal.coe_mul, neg_mul, mul_comm]
+
+/-- `log C / n - r` tends to `-r`, as an extended real. -/
+private lemma tendsto_coe_div_sub (C r : ℝ) :
+    Tendsto (fun n : ℕ ↦ ((C / n - r : ℝ) : EReal)) atTop (𝓝 (-(r : EReal))) := by
+  rw [← EReal.coe_neg]
+  refine EReal.tendsto_coe.2 ?_
+  simpa using (tendsto_const_div_atTop_nhds_zero_nat C).sub_const r
+
 /-- The logarithm of `C exp (-(n r))`, divided by `n`, is `log C / n - r`, for a finite `C > 0`. -/
 private lemma log_mul_exp_div {C : ℝ≥0∞} (hC0 : C ≠ 0) (hC : C ≠ ⊤) {n : ℕ} (hn : 1 ≤ n)
     (r : ℝ) :
@@ -105,11 +124,10 @@ private lemma log_mul_exp_div {C : ℝ≥0∞} (hC0 : C ≠ 0) (hC : C ≠ ⊤) 
       ((Real.log C.toReal / n - r : ℝ) : EReal) := by
   have hn' : (n : ℝ) ≠ 0 := by positivity
   rw [ENNReal.log_mul_add, ← ENNReal.ofReal_toReal hC,
-    ENNReal.log_ofReal_of_pos (ENNReal.toReal_pos hC0 hC),
-    ENNReal.log_ofReal_of_pos (Real.exp_pos _), Real.log_exp, ← EReal.coe_add,
-    ← EReal.coe_natCast, ← EReal.coe_div]
+    ENNReal.log_ofReal_of_pos (ENNReal.toReal_pos hC0 hC), log_ofReal_exp, ENNReal.toReal_ofReal
+    ENNReal.toReal_nonneg, ← EReal.coe_natCast, ← EReal.coe_mul, ← EReal.coe_add,
+    ← EReal.coe_div]
   congr 1
-  rw [ENNReal.toReal_ofReal ENNReal.toReal_nonneg]
   field_simp
   ring
 
@@ -126,12 +144,7 @@ lemma limsup_log_div_le_neg_of_le_mul_exp {u : ℕ → ℝ≥0∞} {c : ℝ≥0�
   obtain ⟨C, hC, hu⟩ := h r hr
   have hC0 : max C 1 ≠ 0 := (zero_lt_one.trans_le (le_max_right C 1)).ne'
   have hCtop : max C 1 ≠ ⊤ := max_ne_top hC ENNReal.one_ne_top
-  have h_tendsto : Tendsto (fun n : ℕ ↦ ((Real.log (max C 1).toReal / n - r : ℝ) : EReal)) atTop
-      (𝓝 (-(r : EReal))) := by
-    rw [← EReal.coe_neg]
-    refine EReal.tendsto_coe.2 ?_
-    simpa using (tendsto_const_div_atTop_nhds_zero_nat (Real.log (max C 1).toReal)).sub_const r
-  rw [← h_tendsto.limsup_eq]
+  rw [← (tendsto_coe_div_sub (Real.log (max C 1).toReal) r).limsup_eq]
   refine limsup_le_limsup ?_
   filter_upwards [hu, eventually_ge_atTop 1] with n hn hn1
   rw [← log_mul_exp_div hC0 hCtop hn1]
@@ -151,12 +164,7 @@ lemma neg_le_liminf_log_div_of_mul_exp_le {u : ℕ → ℝ≥0∞} {c : ℝ≥0�
   obtain ⟨C, hC, hu⟩ := h r hr
   have hC0 : min C 1 ≠ 0 := by simp [hC]
   have hCtop : min C 1 ≠ ⊤ := ((min_le_right C 1).trans_lt ENNReal.one_lt_top).ne
-  have h_tendsto : Tendsto (fun n : ℕ ↦ ((Real.log (min C 1).toReal / n - r : ℝ) : EReal)) atTop
-      (𝓝 (-(r : EReal))) := by
-    rw [← EReal.coe_neg]
-    refine EReal.tendsto_coe.2 ?_
-    simpa using (tendsto_const_div_atTop_nhds_zero_nat (Real.log (min C 1).toReal)).sub_const r
-  rw [← h_tendsto.liminf_eq]
+  rw [← (tendsto_coe_div_sub (Real.log (min C 1).toReal) r).liminf_eq]
   refine liminf_le_liminf ?_
   filter_upwards [hu, eventually_ge_atTop 1] with n hn hn1
   rw [← log_mul_exp_div hC0 hCtop hn1]
@@ -213,9 +221,8 @@ lemma eventually_le_exp_of_limsup_log_div_le {u : ℕ → ℝ≥0∞} {c : ℝ�
     exact h.trans_lt (EReal.neg_lt_neg_iff.2 hr)
   filter_upwards [eventually_lt_of_limsup_lt h', eventually_ge_atTop 1] with n hn hn1
   have hn0 : (0 : EReal) < n := by exact_mod_cast hn1
-  rw [EReal.div_lt_iff hn0 (EReal.natCast_ne_top n), ← EReal.coe_natCast, ← EReal.coe_mul,
-    show -r * n = Real.log (Real.exp (-(n * r))) by rw [Real.log_exp]; ring,
-    ← ENNReal.log_ofReal_of_pos (Real.exp_pos _), ENNReal.log_strictMono.lt_iff_lt] at hn
+  rw [EReal.div_lt_iff hn0 (EReal.natCast_ne_top n), ← log_ofReal_exp,
+    ENNReal.log_strictMono.lt_iff_lt] at hn
   exact hn.le
 
 /-- **Exponential lower bounds from the lower bound of a large deviation principle.** If
@@ -229,9 +236,8 @@ lemma eventually_exp_le_of_neg_le_liminf_log_div {u : ℕ → ℝ≥0∞} {c : �
     exact (EReal.neg_lt_neg_iff.2 hr).trans_le h
   filter_upwards [eventually_lt_of_lt_liminf h', eventually_ge_atTop 1] with n hn hn1
   have hn0 : (0 : EReal) < n := by exact_mod_cast hn1
-  rw [EReal.lt_div_iff hn0 (EReal.natCast_ne_top n), ← EReal.coe_natCast, ← EReal.coe_mul,
-    show -r * n = Real.log (Real.exp (-(n * r))) by rw [Real.log_exp]; ring,
-    ← ENNReal.log_ofReal_of_pos (Real.exp_pos _), ENNReal.log_strictMono.lt_iff_lt] at hn
+  rw [EReal.lt_div_iff hn0 (EReal.natCast_ne_top n), ← log_ofReal_exp,
+    ENNReal.log_strictMono.lt_iff_lt] at hn
   exact hn.le
 
 /-- Under a large deviation principle, the measure of a closed set `s` is eventually at most
