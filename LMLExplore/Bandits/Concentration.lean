@@ -94,6 +94,12 @@ and 10.8] used in the regret analysis of KL-UCB for exponential families [GC11; 
   `U(μ̂_a, β(N_a, n) / N_a)` below its mean, or its KL lower confidence level
   `L(μ̂_a, β(N_a, n) / N_a)` above its mean, is at most `∑_n ∑_{u = 1}^n exp (-β(u, n))`. These are
   the confidence bounds of KL-LUCB [KK13].
+* `measureReal_pullCount_ne_zero_and_klUpper_lt_le`,
+  `measureReal_pullCount_ne_zero_and_lt_klLower_le`: [KK13, Lemma 4, (13)] in a run of any
+  algorithm: for `x > 0`, the probability that at round `n` a pulled arm has `U(μ̂_a, x / N_a)`
+  below its mean, or `L(μ̂_a, x / N_a)` above it, is at most `e (x log n + 1) exp (-x)`, from the
+  self-normalized deviations of [GC11, Theorem 10] in the stream model, with no union bound over
+  the number of pulls.
 * `sum_measureReal_action_eq_and_pullCount_eq_zero_or_le_empMean_or_klBer_le_le`: in a run of any
   algorithm, the expected number of rounds at which an arm is played before its first pull, or with
   `c ≤ μ̂_a`, or with `d(μ̂_a, c) ≤ L / T_a`, is at most `1 + L / d(μ_a + ε, c) + 1 / (2 ε²)`.
@@ -117,9 +123,9 @@ and 10.8] used in the regret analysis of KL-UCB for exponential families [GC11; 
 * [LS] T. Lattimore and Cs. Szepesvári, *Bandit Algorithms*, Cambridge University Press, 2020,
   Lemmas 8.2, 10.7 and 10.8, and Theorems 8.1 and 10.6.
 * [KK13] E. Kaufmann and S. Kalyanakrishnan, *Information complexity in bandit subset selection*,
-  COLT 2013, Section 3 and Appendix A.
+  COLT 2013, Section 3 and Appendix A (Lemma 4).
 * [GC11] A. Garivier and O. Cappé, *The KL-UCB algorithm for bounded stochastic bandits and
-  beyond*, COLT 2011.
+  beyond*, COLT 2011, Theorem 10.
 * [CGMMS13] O. Cappé, A. Garivier, O.-A. Maillard, R. Munos and G. Stoltz, *Kullback–Leibler
   upper confidence bounds for optimal sequential allocation*, Ann. Statist. 41(3), 2013.
 -/
@@ -464,6 +470,106 @@ theorem measureReal_exists_lt_klLower_le_tsum
     (fun i _ ↦ (identDistrib_eval_eval_id_streamMeasure ν i a).integral_eq.le) (β u n)
   rw [card_range] at h_cov
   exact le_trans (measureReal_mono fun ω hω ↦ hω.2) h_cov
+
+/-- **Deviations of an arm at one round, from bounds in the stream model.** In a run of any
+algorithm against the stochastic bandit `Environment.bandit ν`, let `q s y` be a property of a
+number of pulls `s` and an empirical mean `y` of arm `a`, and `x > 0`. If, in the i.i.d. reward
+stream model, `q 1` holds for the first reward with probability at most `exp (-x)`, and for every
+`n ≥ 2` the probability that `q s` holds for the empirical mean of the first `s` rewards for some
+`s ∈ [1, n]` is at most `e ⌈x log n⌉ exp (-x)`, then at every round `n`, the probability that `a`
+has been pulled and `q` holds for its number of pulls and its empirical mean is at most
+`e (x log n + 1) exp (-x)`. -/
+private lemma measureReal_pullCount_ne_zero_and_le_exp_one_mul_log_add_one_mul_exp
+    (h : IsAlgEnvSeq O A R alg (Environment.bandit ν) P) (a : α) (q : ℕ → ℝ → Prop) {x : ℝ}
+    (hx : 0 < x)
+    (h1 : (streamMeasure ν).real {ω | q 1 ((∑ i ∈ range 1, ω i a) / (1 : ℕ))} ≤ exp (-x))
+    (h2 : ∀ n : ℕ, 1 < n → streamMeasure ν
+      {ω | ∃ s : ℕ, 1 ≤ s ∧ s ≤ n ∧ q s ((∑ i ∈ range s, ω i a) / s)} ≤
+        ENNReal.ofReal (exp 1 * ⌈x * log n⌉₊ * exp (-x)))
+    (n : ℕ) :
+    P.real {ω | pullCount A a n ω ≠ 0 ∧ q (pullCount A a n ω) (empMean A R a n ω)} ≤
+      exp 1 * (x * log n + 1) * exp (-x) := by
+  have h_log : 0 ≤ log n := log_natCast_nonneg n
+  -- the event of round `n` is transferred to the reward stream, with `N_a(n) ≤ n` pulls
+  have h_tr : P.real {ω | pullCount A a n ω ≠ 0 ∧ q (pullCount A a n ω) (empMean A R a n ω)} ≤
+      (streamMeasure ν).real
+        {ω | ∃ s < n + 1, s ≠ 0 ∧ q s ((∑ i ∈ range s, ω i a) / s)} := by
+    have h_le := measure_exists_lt_pullCount_sumRewards_le h a (n + 1)
+      fun s y ↦ s ≠ 0 ∧ q s (y / s)
+    refine le_trans (measureReal_mono fun ω hω ↦ ?_) (ENNReal.toReal_mono (measure_ne_top _ _) h_le)
+    simp only [Set.mem_ofPred_eq, empMean] at hω ⊢
+    exact ⟨n, lt_add_one n, hω⟩
+  refine h_tr.trans ?_
+  rcases n with _ | _ | n
+  · -- no arm has been pulled before the first round
+    have h_empty : {ω : ℕ → α → ℝ | ∃ s < 0 + 1, s ≠ 0 ∧ q s ((∑ i ∈ range s, ω i a) / s)} = ∅ :=
+      Set.eq_empty_of_forall_notMem fun ω ⟨s, hs, hs0, _⟩ ↦ hs0 (by omega)
+    rw [h_empty, measureReal_empty]
+    positivity
+  · -- after one round, the arm has been pulled once
+    refine le_trans (measureReal_mono (s₂ := {ω | q 1 ((∑ i ∈ range 1, ω i a) / (1 : ℕ))})
+      fun ω hω ↦ ?_) (h1.trans ?_)
+    · obtain ⟨s, hs, hs0, hq⟩ := hω
+      obtain rfl : s = 1 := by omega
+      exact hq
+    · simpa using le_mul_of_one_le_left (exp_pos (-x)).le (one_le_exp zero_le_one)
+  · -- after `n + 2 ≥ 2` rounds, the self-normalized bound applies
+    refine le_trans (measureReal_mono (s₂ := {ω | ∃ s : ℕ, 1 ≤ s ∧ s ≤ n + 2 ∧
+      q s ((∑ i ∈ range s, ω i a) / s)}) fun ω hω ↦ ?_) ?_
+    · obtain ⟨s, hs, hs0, hq⟩ := hω
+      exact ⟨s, Nat.one_le_iff_ne_zero.2 hs0, Nat.lt_add_one_iff.1 hs, hq⟩
+    refine ENNReal.toReal_le_of_le_ofReal (by positivity) ((h2 (n + 2) (by omega)).trans ?_)
+    refine ENNReal.ofReal_le_ofReal ?_
+    have h_ceil := Nat.ceil_lt_add_one (mul_nonneg hx.le (log_natCast_nonneg (n + 2)))
+    gcongr
+
+/-- **Underestimation of an arm by its KL upper confidence level, at one round**
+[KK13, Lemma 4, (13)], from the self-normalized deviations of [GC11, Theorem 10]. In a run of any
+algorithm against the stochastic bandit `Environment.bandit ν`, if the rewards of arm `a` lie in
+`[0, 1]` almost surely and have mean `μ_a`, then for `x > 0` and every round `n`, the probability
+that `a` has been pulled and its upper confidence level `U(μ̂_a, x / N_a)` is less than `μ_a` is
+at most `e (x log n + 1) exp (-x)`, whatever the number of pulls `N_a`. -/
+theorem measureReal_pullCount_ne_zero_and_klUpper_lt_le
+    (h : IsAlgEnvSeq O A R alg (Environment.bandit ν) P) (a : α) (hν : ∀ᵐ x ∂(ν a), x ∈ Set.Icc 0 1)
+    {x : ℝ} (hx : 0 < x) (n : ℕ) :
+    P.real {ω | pullCount A a n ω ≠ 0 ∧
+        klUpper (empMean A R a n ω) (ENNReal.ofReal (x / pullCount A a n ω)) < (ν a)[id]} ≤
+      exp 1 * (x * log n + 1) * exp (-x) := by
+  refine measureReal_pullCount_ne_zero_and_le_exp_one_mul_log_add_one_mul_exp h a
+    (fun s y ↦ klUpper y (ENNReal.ofReal (x / s)) < (ν a)[id]) hx ?_
+    (fun n hn ↦ measure_exists_klUpper_lt_le (iIndepFun_eval_streamMeasure'' ν a)
+      (fun i ↦ by fun_prop) (ae_mem_Icc_streamMeasure hν)
+      (fun i ↦ (identDistrib_eval_eval_id_streamMeasure ν i a).integral_eq.ge) hx hn) n
+  have h_cov := measureReal_klUpper_lt_le (iIndepFun_eval_streamMeasure'' ν a) (s := range 1)
+    (nonempty_range_iff.2 one_ne_zero)
+    (fun i _ ↦ (by fun_prop : Measurable fun ω : ℕ → α → ℝ ↦ ω i a).aemeasurable)
+    (fun i _ ↦ ae_mem_Icc_streamMeasure hν i)
+    (fun i _ ↦ (identDistrib_eval_eval_id_streamMeasure ν i a).integral_eq.ge) x
+  rwa [card_range] at h_cov
+
+/-- **Overestimation of an arm by its KL lower confidence level, at one round**
+[KK13, Lemma 4, (13)], from the self-normalized deviations of [GC11, Theorem 10]. In a run of any
+algorithm against the stochastic bandit `Environment.bandit ν`, if the rewards of arm `a` lie in
+`[0, 1]` almost surely and have mean `μ_a`, then for `x > 0` and every round `n`, the probability
+that `a` has been pulled and its lower confidence level `L(μ̂_a, x / N_a)` is more than `μ_a` is
+at most `e (x log n + 1) exp (-x)`, whatever the number of pulls `N_a`. -/
+theorem measureReal_pullCount_ne_zero_and_lt_klLower_le
+    (h : IsAlgEnvSeq O A R alg (Environment.bandit ν) P) (a : α) (hν : ∀ᵐ x ∂(ν a), x ∈ Set.Icc 0 1)
+    {x : ℝ} (hx : 0 < x) (n : ℕ) :
+    P.real {ω | pullCount A a n ω ≠ 0 ∧
+        (ν a)[id] < klLower (empMean A R a n ω) (ENNReal.ofReal (x / pullCount A a n ω))} ≤
+      exp 1 * (x * log n + 1) * exp (-x) := by
+  refine measureReal_pullCount_ne_zero_and_le_exp_one_mul_log_add_one_mul_exp h a
+    (fun s y ↦ (ν a)[id] < klLower y (ENNReal.ofReal (x / s))) hx ?_
+    (fun n hn ↦ measure_exists_lt_klLower_le (iIndepFun_eval_streamMeasure'' ν a)
+      (fun i ↦ by fun_prop) (ae_mem_Icc_streamMeasure hν)
+      (fun i ↦ (identDistrib_eval_eval_id_streamMeasure ν i a).integral_eq.le) hx hn) n
+  have h_cov := measureReal_lt_klLower_le (iIndepFun_eval_streamMeasure'' ν a) (s := range 1)
+    (nonempty_range_iff.2 one_ne_zero)
+    (fun i _ ↦ (by fun_prop : Measurable fun ω : ℕ → α → ℝ ↦ ω i a).aemeasurable)
+    (fun i _ ↦ ae_mem_Icc_streamMeasure hν i)
+    (fun i _ ↦ (identDistrib_eval_eval_id_streamMeasure ν i a).integral_eq.le) x
+  rwa [card_range] at h_cov
 
 end BoundedRuns
 

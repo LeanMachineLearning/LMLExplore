@@ -16,8 +16,12 @@ public import Mathlib.MeasureTheory.Integral.Bochner.Basic
   finitely many integrable real functions is integrable, and its integral is at least the
   supremum of their integrals. Regrets against the best of finitely many comparators, whose
   expectation is compared with the best expected regret, use them.
+* `MeasureTheory.integral_le_const`: under a probability measure, an integrable real function that
+  is almost surely at most `c` has expectation at most `c`.
 * `MeasureTheory.integral_sub_const`, `MeasureTheory.integral_const_sub`: under a probability
   measure, the integral of `f - c` is `∫ f - c`, and that of `c - f` is `c - ∫ f`.
+* `MeasureTheory.one_sub_le_integral_one_sub`: under a probability measure, if `Y ∈ [0, 1]`
+  almost surely has mean at most `m`, then `1 - Y` has mean at least `1 - m`.
 * `MeasureTheory.integral_const_sub_sum`: under a probability measure, the expectation of
   `c - ∑ i ∈ s, g i` is `c - ∑ i ∈ s, ∫ g i ∂P`.
 * `MeasureTheory.integral_sum_le_add_mul_of_ae_le`: under a probability measure, an almost sure
@@ -60,6 +64,12 @@ end Supremum
 variable {Ω ι : Type*} {mΩ : MeasurableSpace Ω} {P : Measure Ω} [IsProbabilityMeasure P]
   {s : Finset ι}
 
+/-- Under a probability measure, the expectation of an integrable real function that is almost
+surely at most `c` is at most `c`. -/
+lemma integral_le_const {f : Ω → ℝ} {c : ℝ} (hf : Integrable f P) (h : ∀ᵐ ω ∂P, f ω ≤ c) :
+    ∫ ω, f ω ∂P ≤ c :=
+  (integral_mono_ae hf (integrable_const c) h).trans_eq (by simp)
+
 section Const
 
 variable {E : Type*} [NormedAddCommGroup E] [NormedSpace ℝ E] [CompleteSpace E] {f : Ω → E}
@@ -77,6 +87,14 @@ lemma integral_const_sub (c : E) (hf : Integrable f P) :
   rw [integral_sub (integrable_const c) hf, integral_const, probReal_univ, one_smul]
 
 end Const
+
+/-- Under a probability measure, if `Y ∈ [0, 1]` almost surely has mean at most `m`, then `1 - Y`
+has mean at least `1 - m`. -/
+lemma one_sub_le_integral_one_sub {Y : Ω → ℝ} {m : ℝ} (hYm : AEMeasurable Y P)
+    (hY : ∀ᵐ ω ∂P, Y ω ∈ Set.Icc 0 1) (h : ∫ ω, Y ω ∂P ≤ m) :
+    1 - m ≤ ∫ ω, 1 - Y ω ∂P := by
+  rw [integral_const_sub 1 (.of_mem_Icc 0 1 hYm hY)]
+  linarith
 
 /-- Under a probability measure, the expectation of a constant minus a finite sum of integrable
 real functions is the constant minus the sum of their expectations. -/
