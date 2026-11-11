@@ -56,6 +56,12 @@
            background: var(--lit-border); vertical-align: middle; overflow: hidden; }
   .meter > span { display: block; height: 100%; background: var(--lit-primary); }
   .hidden { display: none !important; }
+  /* The papers' links, and the counts with them, shown when "include the papers" is checked. */
+  .literature:not(.with-papers) .paper, .literature:not(.with-papers) .v-all,
+  .literature.with-papers .v-lml, .literature.with-papers .none.p { display: none !important; }
+  .literature.with-papers .p-linked .label { color: var(--lit-text); }
+  .literature .results .paper a code { color: var(--lit-muted); }
+  .literature .results .paper a:hover code { color: var(--lit-primary); }
   @media (max-width: 768px) {
     .results > li { grid-template-columns: 1fr; gap: 0.1rem; }
     .controls { flex-wrap: wrap; }
@@ -99,6 +105,7 @@
     <p>The roadmaps of <a href="https://github.com/LeanMachineLearning/LMLRoadmaps">LMLRoadmaps</a> cite
     the results that LMLExplore aims at. A result that they cite and no declaration does is
     <em>not linked yet</em>: it may be formalized without the citation, or not at all.</p>
+    {{papers-note}}
   </div>
 
   <div class="library-section">
@@ -124,6 +131,7 @@
     <div class="controls">
       <input type="search" id="filter" placeholder="Filter by work, result, declaration or roadmap item" aria-label="Filter">
       <label><input type="checkbox" id="unlinked"> only results not linked yet</label>
+      {{papers-toggle}}
     </div>
 {{works}}
   </div>
@@ -133,6 +141,7 @@
     <p>The links are published as <a href="annotations.jsonl"><code>annotations.jsonl</code></a>
     ({{annotations}} annotations), in the <a href="https://github.com/mathlib-initiative/literature-links">Literature Links</a>
     format. They have no <code>relation</code>.</p>
+    {{papers-data}}
     <p>The subject of each annotation is a numbered result of a work. Its location has
     <code>"profile": "{{profile}}"</code>, a <code>label</code> and optionally a <code>part</code>.
     <code>label</code> is the result as the work prints it, such as <code>Theorem 14</code>,
@@ -163,14 +172,22 @@
 <script>
   const filter = document.getElementById('filter');
   const unlinked = document.getElementById('unlinked');
+  // "include the papers": absent when no paper publishes links; `?papers` in the address checks it.
+  const papers = document.getElementById('papers');
+  const page = document.querySelector('.literature');
   function apply() {
+    const withPapers = papers !== null && papers.checked;
+    page.classList.toggle('with-papers', withPapers);
     const q = filter.value.trim().toLowerCase();
     for (const work of document.querySelectorAll('.work')) {
       const head = work.querySelector('.work-title').textContent.toLowerCase();
       let shown = 0;
       for (const r of work.querySelectorAll('.result')) {
-        const ok = (!q || head.includes(q) || r.dataset.text.includes(q))
-          && (!unlinked.checked || r.classList.contains('unlinked'));
+        const text = withPapers ? r.dataset.text + ' ' + (r.dataset.papers || '') : r.dataset.text;
+        const linked = !r.classList.contains('unlinked') || (withPapers && r.classList.contains('p-linked'));
+        const ok = (withPapers || !r.classList.contains('paper'))
+          && (!q || head.includes(q) || text.includes(q))
+          && (!unlinked.checked || !linked);
         r.classList.toggle('hidden', !ok);
         shown += ok;
       }
@@ -179,6 +196,16 @@
   }
   filter.addEventListener('input', apply);
   unlinked.addEventListener('change', apply);
+  if (papers !== null) {
+    if (new URLSearchParams(location.search).has('papers')) papers.checked = true;
+    papers.addEventListener('change', () => {
+      const url = new URL(location.href);
+      if (papers.checked) url.searchParams.set('papers', ''); else url.searchParams.delete('papers');
+      history.replaceState(null, '', url);
+      apply();
+    });
+  }
+  apply();
 </script>
 </body>
 </html>
