@@ -11,6 +11,7 @@ public import Mathlib.MeasureTheory.Constructions.BorelSpace.Metrizable
 public import Mathlib.Topology.Algebra.Algebra
 
 import LMLExplore.Order.ConditionallyCompleteLattice.Group
+import Mathlib.Algebra.Order.Monoid.Submonoid
 
 /-!
 # Bounded measurable functions
@@ -41,9 +42,15 @@ convergence and a pointwise limit of measurable functions is measurable.
 * `LMLExplore.boundedMeasurable.orderUnitNorm_one_eq_norm`: for the pointwise order, the
   order-unit norm of the constant `1` is the sup norm, so that maps satisfying Blackwell's
   conditions for `1` are contractions of `boundedMeasurable α` (`LMLExplore.IsBlackwell`).
+* `LMLExplore.boundedMeasurable.abs_sub_apply_le_of_isBlackwell`: Blackwell's argument, pointwise:
+  such maps turn a pointwise bound `|f - g| ≤ D` into `|T f - T g| ≤ γ * D`;
+  `LMLExplore.boundedMeasurable.abs_sub_apply_le_of_isBlackwell_of_coeFn_eq` states it for the
+  plain functions on which `T` acts pointwise.
 * `LMLExplore.boundedMeasurable.sub_apply_le_orderUnitOsc_one`,
   `LMLExplore.boundedMeasurable.orderUnitOsc_one_le_of_forall_sub_le`: the oscillation of `f` for
   `1` is the least bound on the differences `f x - f y`.
+* `LMLExplore.boundedMeasurable.orderUnitOsc_one_eq_zero_iff`: the functions of oscillation zero
+  are the constants.
 -/
 
 public section
@@ -169,6 +176,13 @@ theorem coeFn_smul (c : ℝ) (f : boundedMeasurable α) :
     ⇑((c • f : boundedMeasurable α) : ℓ^∞(α, ℝ)) = c • ⇑(f : ℓ^∞(α, ℝ)) :=
   rfl
 
+/-- The value of `f - c • 1` at `x` is `f x - c`. Not `@[simp]`: its left-hand side is not in
+simp normal form, since `coeFn_sub` rewrites it. -/
+theorem sub_smul_one_apply (f : boundedMeasurable α) (c : ℝ) (x : α) :
+    ((f - c • 1 : boundedMeasurable α) : ℓ^∞(α, ℝ)) x = (f : ℓ^∞(α, ℝ)) x - c := by
+  simp only [coeFn_sub, coeFn_smul, coeFn_one, Pi.sub_apply, Pi.smul_apply, Pi.one_apply,
+    smul_eq_mul, mul_one]
+
 theorem le_def {f g : boundedMeasurable α} :
     f ≤ g ↔ ∀ x, (f : ℓ^∞(α, ℝ)) x ≤ (g : ℓ^∞(α, ℝ)) x :=
   Iff.rfl
@@ -238,6 +252,33 @@ theorem orderUnitNorm_one_eq_norm (f : boundedMeasurable α) : orderUnitNorm 1 f
 theorem isOrderUnit_one : IsOrderUnit (1 : boundedMeasurable α) :=
   isOrderUnit_of_forall_orderUnitNorm_eq_norm orderUnitNorm_one_eq_norm
 
+/-- **Blackwell's argument, pointwise**: if `T` satisfies Blackwell's conditions for the constant
+function `1` with modulus `γ`, then `|f x - g x| ≤ D` at every point `x` gives
+`|T f x - T g x| ≤ γ * D` at every point `x`. -/
+theorem abs_sub_apply_le_of_isBlackwell {T : boundedMeasurable α → boundedMeasurable α}
+    {γ : NNReal} (hT : IsBlackwell 1 γ T) {f g : boundedMeasurable α} {D : ℝ}
+    (h : ∀ x, |(f : ℓ^∞(α, ℝ)) x - (g : ℓ^∞(α, ℝ)) x| ≤ D) (x : α) :
+    |(T f : ℓ^∞(α, ℝ)) x - (T g : ℓ^∞(α, ℝ)) x| ≤ γ * D :=
+  (abs_sub_apply_le_dist _ _ x).trans <|
+    ((hT.lipschitzWith orderUnitNorm_one_eq_norm).dist_le_mul f g).trans <|
+      mul_le_mul_of_nonneg_left (dist_le_of_forall_abs_sub_le ((abs_nonneg _).trans (h x)) h)
+        γ.coe_nonneg
+
+/-- **Blackwell's argument, for plain functions**: if `T` satisfies Blackwell's conditions for the
+constant function `1` with modulus `γ` and acts on bounded measurable functions as `t : (α → ℝ) →
+α → ℝ`, then for measurable bounded `u` and `v`, `|u x - v x| ≤ D` at every point `x` gives
+`|t u x - t v x| ≤ γ * D` at every point `x`. -/
+theorem abs_sub_apply_le_of_isBlackwell_of_coeFn_eq {T : boundedMeasurable α → boundedMeasurable α}
+    {t : (α → ℝ) → α → ℝ} {γ : NNReal} (hT : IsBlackwell 1 γ T)
+    (ht : ∀ f, ⇑(T f : ℓ^∞(α, ℝ)) = t ⇑(f : ℓ^∞(α, ℝ))) {u v : α → ℝ} {B B' D : ℝ}
+    (hu : Measurable u) (huB : ∀ x, |u x| ≤ B) (hv : Measurable v) (hvB : ∀ x, |v x| ≤ B')
+    (h : ∀ x, |u x - v x| ≤ D) (x : α) :
+    |t u x - t v x| ≤ γ * D := by
+  simpa only [ht, coeFn_mk] using abs_sub_apply_le_of_isBlackwell hT
+    (f := mk u hu (bddAbove_def.2 ⟨B, forall_mem_range.2 huB⟩))
+    (g := mk v hv (bddAbove_def.2 ⟨B', forall_mem_range.2 hvB⟩))
+    (by simpa only [coeFn_mk] using h) x
+
 /-- The values of a bounded measurable function differ by at most its oscillation for the
 constant function `1`. -/
 theorem sub_apply_le_orderUnitOsc_one (f : boundedMeasurable α) (x y : α) :
@@ -258,6 +299,22 @@ theorem orderUnitOsc_one_le_of_forall_sub_le {f : boundedMeasurable α} {c : ℝ
     simp only [coeFn_smul, coeFn_one, Pi.smul_apply, Pi.one_apply, smul_eq_mul, mul_one]
   · exact (mem_Icc_ciInf_of_forall_sub_le h x).1
   · exact (mem_Icc_ciInf_of_forall_sub_le h x).2
+
+/-- A bounded measurable function has oscillation zero for the constant function `1` if and only
+if it is constant. -/
+theorem orderUnitOsc_one_eq_zero_iff {f : boundedMeasurable α} :
+    orderUnitOsc 1 f = 0 ↔ ∃ c : ℝ, f = c • 1 := by
+  refine ⟨fun hf ↦ ?_, ?_⟩
+  · rcases isEmpty_or_nonempty α with hα | ⟨⟨x₀⟩⟩
+    · exact ⟨0, ext fun x ↦ isEmptyElim x⟩
+    refine ⟨(f : ℓ^∞(α, ℝ)) x₀, ext fun x ↦ ?_⟩
+    have h₁ := sub_apply_le_orderUnitOsc_one f x x₀
+    have h₂ := sub_apply_le_orderUnitOsc_one f x₀ x
+    simp only [coeFn_smul, coeFn_one, Pi.smul_apply, Pi.one_apply, smul_eq_mul, mul_one]
+    linarith
+  · rintro ⟨c, rfl⟩
+    exact (orderUnitOsc_one_le_of_forall_sub_le le_rfl fun x y ↦ by simp).antisymm
+      (orderUnitOsc_nonneg _ _)
 
 end boundedMeasurable
 

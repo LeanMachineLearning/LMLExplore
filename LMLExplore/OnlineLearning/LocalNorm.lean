@@ -12,7 +12,7 @@ public import LMLExplore.OnlineLearning.MirrorDescent
 # Local-norm regret bounds through the unconstrained step
 
 The regret bounds of follow the regularized leader and of mirror descent with a potential `F`
-(`LMLExplore.OnlineLearning.FTRL`, `LMLExplore.OnlineLearning.MirrorDescent`) are sums of
+(`LMLExplore.OnlineLearning.FTRL.Basic`, `LMLExplore.OnlineLearning.MirrorDescent`) are sums of
 stability terms `y (a - b) - D_F(b, a) / η`, where `a` is the play of a round, `y` its loss, `η`
 its learning rate and `b` the next play (or the comparator). Strong convexity bounds such a term
 by `η / (2 m) * ‖y‖ ^ 2`, which is useless for losses with a large dual norm, such as the
@@ -24,9 +24,11 @@ Lemma 7.15, second forms]. Let `F` be convex on a set `D`, and at every point `z
 `U ⊆ D` let `F` have derivative `F' z` within `D` and `F'` have derivative `F'' z` within `U`. Let
 `x ∈ U` be the unconstrained step from `a ∈ U`: the point with `F' x = F' a - η y`. Then `x`
 minimizes `b ↦ η y b + D_F(b, a)` over `D`, so the stability term at every `b ∈ D` is at most its
-value at `x`. Taylor's theorem along the segment `[a, x]` bounds the latter by `η / 2 * c` for
-every `c ≥ 0` with `y (x - a) ^ 2 ≤ c * F'' z (x - a) (x - a)`, at some `z ∈ [a, x]`. Any `c`
-bounding the squared dual local norm of `y` for the quadratic form `F'' z` qualifies.
+value at `x` (`apply_sub_sub_bregDiv_div_le_of_hasFDerivWithinAt`, in
+`LMLExplore.OnlineLearning.MirrorDescent`). Taylor's theorem along the segment `[a, x]` bounds
+the latter by `η / 2 * c` for every `c ≥ 0` with `y (x - a) ^ 2 ≤ c * F'' z (x - a) (x - a)`, at
+some `z ∈ [a, x]`. Any `c` bounding the squared dual local norm of `y` for the quadratic form
+`F'' z` qualifies.
 
 Unlike a bound along the segment from the play to the next play, the segment `[a, x]` is
 determined by the play, the loss and the learning rate of the round alone, not by the feasible
@@ -38,9 +40,6 @@ coordinate, so the second derivative on `[a, x]` dominates its value at `a`.
 
 ## Main statements
 
-* `apply_sub_sub_bregDiv_div_le_of_hasFDerivWithinAt`: for `F` convex on `D`, the stability term
-  `y (a - b) - D_F(b, a) / η` at every `b ∈ D`, with the divergence from `a` for a linear map
-  `J`, is at most its value at a point `x ∈ D` where `F` has derivative `J - η y` within `D`.
 * `exists_mem_segment_apply_sub_sub_bregDiv_div_le_of_hasFDerivWithinAt`: the local-norm bound of
   one round through the unconstrained step [Ora, Lemma 6.32 and Lemma 7.15, second forms].
 * `ftrl_regret_le_of_localNorm_of_antitone`: for FTRL with nonincreasing learning rates `η t`, the
@@ -65,25 +64,6 @@ namespace LMLExplore.OnlineLearning
 
 variable {E : Type*} [NormedAddCommGroup E] [NormedSpace ℝ E] {K D U : Set E} {F : E → ℝ}
   {F' : E → E →L[ℝ] ℝ} {F'' : E → E →L[ℝ] E →L[ℝ] ℝ} {n : ℕ} {u : E}
-
-/-- **The stability term is largest at the unconstrained step.** Let `F` be convex on `D`, let
-`η > 0`, and let `x ∈ D` be a point where `F` has derivative `J - η y` within `D`. Then for every
-`b ∈ D`, `y (a - b) - D_F(b, a) / η ≤ y (a - x) - D_F(x, a) / η`, where the Bregman divergences
-from `a` use the linear map `J`. The point `a` need not lie in `D`. -/
-theorem apply_sub_sub_bregDiv_div_le_of_hasFDerivWithinAt (hF : ConvexOn ℝ D F) {η : ℝ}
-    (hη : 0 < η) (y J : E →L[ℝ] ℝ) (a : E) {b x : E} (hb : b ∈ D) (hx : x ∈ D)
-    (hJx : HasFDerivWithinAt F (J - η • y) D x) :
-    y (a - b) - bregDiv F b a J / η ≤ y (a - x) - bregDiv F x a J / η := by
-  -- `x` minimizes the objective `c ↦ η y c + D_F(c, a)` of a mirror descent step over `D`
-  have h_min := isMinOn_iff.mp
-    (isMinOn_mul_apply_add_bregDiv_of_hasFDerivWithinAt rfl hF hx hJx a) b hb
-  have h_eq (c : E) :
-      y (a - c) - bregDiv F c a J / η = y a - (η * y c + bregDiv F c a J) / η := by
-    rw [map_sub]
-    field_simp
-    ring
-  rw [h_eq, h_eq]
-  exact sub_le_sub_left (div_le_div_of_nonneg_right h_min hη.le) _
 
 /-- **Local-norm bound of one round through the unconstrained step** [Ora, Lemma 6.32 and
 Lemma 7.15, second forms]. Let `F` be convex on `D`, and at every point `z` of a convex set

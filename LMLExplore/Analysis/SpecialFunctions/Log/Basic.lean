@@ -8,6 +8,7 @@ module
 public import Mathlib.Analysis.SpecialFunctions.Log.Basic
 public import Mathlib.Analysis.SpecialFunctions.Pow.Real
 import Mathlib.Analysis.Complex.ExponentialBounds
+import Mathlib.Analysis.SpecialFunctions.Log.Deriv
 
 /-!
 # Elementary bounds on the real logarithm
@@ -18,6 +19,7 @@ import Mathlib.Analysis.Complex.ExponentialBounds
 * `Real.monotoneOn_log_one_add_mul_log_sq`: `x ↦ log (1 + x log² x)` is monotone on `[1, ∞)`.
 * `Real.log_natCast_le_log_natCast`: `log` is monotone on natural numbers.
 * `Real.one_le_log_natCast_of_three_le`: `1 ≤ log n` for a natural number `n ≥ 3`.
+* `Real.log_div_rpow_le_exp_neg_one`: `log x / x ^ p ≤ 1 / e` for `x ≥ 1` and `p ≥ 1`.
 * `Real.monotone_log_two_mul_mul_add_one`: `n ↦ log (2 n (n + 1))` is monotone on `ℕ`.
 * `Real.tendsto_log_one_add_mul_log_sq_div_log_atTop`: `log (1 + x log² x) / log x → 1` as
   `x → ∞`.
@@ -31,6 +33,12 @@ import Mathlib.Analysis.Complex.ExponentialBounds
   `x n ≤ c log n` for every `c > C / Δ²`.
 * `Real.tendsto_natCeil_sub_div_log`: if `f n / log n → ∞`, then `⌈f n - c⌉₊ / log n → ∞`.
 * `Real.mul_log_add_lt`: `a log x + b < x` as soon as `x ≥ 2 a log (2 a) + 2 b`, for `a, x > 0`.
+* `Real.log_one_add_div`: `log (1 + y / x) = log (x + y) - log x` for `x ≠ 0` and `x + y ≠ 0`.
+* `Real.one_le_add_half_mul_log_one_add_inv`: `1 ≤ (x + 1 / 2) log (1 + 1 / x)` for `x > 0`.
+* `Real.one_add_mul_log_one_add_sub_sub_mul_log_nonpos`:
+  `(1 + t) log (1 + t) - t - t log (1 + t / 2) ≤ 0` for `t ≥ 0`.
+* `Real.add_one_mul_log_sub_le_one`: `(m + 1) log (m + 1) - m log m - log (m + 1 / 2) ≤ 1` for
+  `m : ℕ`.
 * `Real.log_div_le_log_one_div_add_log`: `log (x / δ) ≤ log (1 / δ) + log x` for `δ ∈ (0, 1]`.
 * `Real.eventually_log_le_mul_of_isBigO`: if `r n = O(n ^ p)`, then `log (r n) ≤ ε n` for all
   large `n`, for every `ε > 0`.
@@ -134,6 +142,17 @@ theorem tendsto_log_one_add_mul_log_sq_div_log_atTop :
         ring
     rw [div_le_iff₀ (by linarith), add_mul, div_mul_cancel₀ _ (by linarith)]
     linarith
+
+/-- For `p ≥ 1` and `x ≥ 1`, `log x / x ^ p ≤ 1 / e`, since `log x ≤ x / e` and `x ≤ x ^ p`. -/
+theorem log_div_rpow_le_exp_neg_one {x p : ℝ} (hx : 1 ≤ x) (hp : 1 ≤ p) :
+    log x / x ^ p ≤ exp (-1) := by
+  have hx0 : 0 < x := by linarith
+  have h_log : log x / x ≤ exp (-1) := by
+    simpa [exp_neg, exp_log hx0, div_eq_mul_inv] using mul_exp_neg_le_exp_neg_one (log x)
+  calc log x / x ^ p
+  _ ≤ log x / x := div_le_div_of_nonneg_left (log_nonneg hx) hx0
+    (by simpa using rpow_le_rpow_of_exponent_le hx hp)
+  _ ≤ exp (-1) := h_log
 
 /-- If `g n / log n → D` as `n → ∞` and `D < c`, then eventually `g n < c log n`. -/
 theorem eventually_lt_mul_log_of_tendsto_div_log {g : ℕ → ℝ} {D c : ℝ}
@@ -315,5 +334,79 @@ lemma eventually_exists_add_le_mul_and_forall_ofReal_add_lt_mul {κ c : ℝ≥0}
       nlinarith
     _ = κ * T := by
       rw [ENNReal.ofReal_mul κ.coe_nonneg, ENNReal.ofReal_coe_nnreal, ENNReal.ofReal_natCast]
+
+/-- `log (1 + y / x) = log (x + y) - log x` for `x ≠ 0` and `x + y ≠ 0`. -/
+theorem log_one_add_div {x y : ℝ} (hx : x ≠ 0) (hxy : x + y ≠ 0) :
+    log (1 + y / x) = log (x + y) - log x := by
+  rw [← log_div hxy hx, one_add_div hx]
+
+/-- `1 ≤ (x + 1 / 2) log (1 + x⁻¹)` for `x > 0`: the first term of the series of
+`log (1 + 1 / x)` in powers of `1 / (2 x + 1)` (`Real.hasSum_log_one_add_inv`). -/
+theorem one_le_add_half_mul_log_one_add_inv {x : ℝ} (hx : 0 < x) :
+    1 ≤ (x + 1 / 2) * log (1 + x⁻¹) := by
+  have h0 := le_hasSum (hasSum_log_one_add_inv hx) 0 (fun j _ ↦ by positivity)
+  simp only [CharP.cast_eq_zero, mul_zero, zero_add, div_one, mul_one, pow_one] at h0
+  have hpos : 0 < 2 * x + 1 := by linarith
+  calc (1 : ℝ) = (x + 1 / 2) * (2 * (1 / (2 * x + 1))) := by field_simp
+    _ ≤ _ := by gcongr
+
+/-- `(1 + t) log (1 + t) - t - t log (1 + t / 2) ≤ 0` for `t ≥ 0`: the function vanishes at `0`
+and its derivative `log ((1 + t) / (1 + t / 2)) - t / (2 + t)` is nonpositive. -/
+theorem one_add_mul_log_one_add_sub_sub_mul_log_nonpos {t : ℝ} (ht : 0 ≤ t) :
+    (1 + t) * log (1 + t) - t - t * log (1 + t / 2) ≤ 0 := by
+  set f : ℝ → ℝ := fun t ↦ (1 + t) * log (1 + t) - t - t * log (1 + t / 2) with hf
+  have hderiv : ∀ x, 0 ≤ x →
+      HasDerivAt f (log (1 + x) - log (1 + x / 2) - x / (2 + x)) x := by
+    intro x hx
+    have h1 : (1 + x) ≠ 0 := by linarith
+    have h2 : (1 + x / 2) ≠ 0 := by linarith
+    have := ((((hasDerivAt_id' x).const_add 1).mul
+      (((hasDerivAt_id' x).const_add 1).log h1)).sub (hasDerivAt_id' x)).sub
+      ((hasDerivAt_id' x).mul ((((hasDerivAt_id' x).div_const 2).const_add 1).log h2))
+    convert this using 1
+    field_simp
+    ring
+  have hanti : AntitoneOn f (Set.Ici 0) := by
+    refine antitoneOn_of_deriv_nonpos (convex_Ici 0)
+      (fun x hx ↦ (hderiv x hx).continuousAt.continuousWithinAt) ?_ ?_
+    · intro x hx
+      rw [interior_Ici] at hx
+      exact (hderiv x (le_of_lt hx)).differentiableAt.differentiableWithinAt
+    · intro x hx
+      rw [interior_Ici] at hx
+      have hx' : 0 < x := hx
+      rw [(hderiv x hx'.le).deriv]
+      have hx0 : 0 < 1 + x / 2 := by linarith
+      have : log (1 + x) - log (1 + x / 2) ≤ x / (2 + x) := by
+        rw [← log_div (by linarith) hx0.ne']
+        refine (log_le_sub_one_of_pos (by positivity)).trans (le_of_eq ?_)
+        field_simp
+        ring
+      linarith
+  have := hanti (Set.mem_Ici.2 le_rfl) (Set.mem_Ici.2 ht) ht
+  simpa [hf] using this
+
+/-- `(m + 1) log (m + 1) - m log m - log (m + 1 / 2) ≤ 1` for every `m : ℕ`. -/
+theorem add_one_mul_log_sub_le_one (m : ℕ) :
+    ((m : ℝ) + 1) * log ((m : ℝ) + 1) - m * log m - log ((m : ℝ) + 1 / 2) ≤ 1 := by
+  rcases Nat.eq_zero_or_pos m with rfl | hm
+  · have : log (1 / 2 : ℝ) = - log 2 := by rw [one_div, log_inv]
+    simp only [CharP.cast_eq_zero, zero_add, one_mul, log_one, zero_mul, sub_zero, this]
+    linarith [log_two_lt_d9]
+  have hm' : (0 : ℝ) < m := by exact_mod_cast hm
+  have h := one_add_mul_log_one_add_sub_sub_mul_log_nonpos (t := (m : ℝ)⁻¹) (by positivity)
+  have e1 : log (1 + (m : ℝ)⁻¹) = log ((m : ℝ) + 1) - log m := by
+    rw [inv_eq_one_div, log_one_add_div hm'.ne' (by positivity)]
+  have e2 : log (1 + (m : ℝ)⁻¹ / 2) = log ((m : ℝ) + 1 / 2) - log m := by
+    rw [← log_one_add_div hm'.ne' (by positivity), div_div, mul_comm, ← div_div, one_div]
+  rw [e1, e2] at h
+  have h' := mul_le_mul_of_nonneg_left h hm'.le
+  have : (m : ℝ) * ((1 + (m : ℝ)⁻¹) * (log (↑m + 1) - log ↑m) - (m : ℝ)⁻¹ -
+      (m : ℝ)⁻¹ * (log (↑m + 1 / 2) - log ↑m)) =
+      ((m : ℝ) + 1) * log ((m : ℝ) + 1) - m * log m - log ((m : ℝ) + 1 / 2) - 1 := by
+    field_simp
+    ring
+  rw [this] at h'
+  linarith
 
 end Real

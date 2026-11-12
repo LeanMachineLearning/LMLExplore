@@ -7,6 +7,7 @@ module
 
 public import Mathlib.Analysis.Calculus.Deriv.MeanValue
 public import Mathlib.Analysis.SpecialFunctions.BinaryEntropy
+public import Mathlib.Analysis.SpecialFunctions.Log.ENNRealLog
 public import LMLExplore.Probability.Distributions.Bernoulli
 public import TauCeti.InformationTheory.KullbackLeibler.Basic
 public import TauCeti.InformationTheory.KullbackLeibler.Pinsker
@@ -63,6 +64,12 @@ smallest `q ∈ [0, p]` with `d(p, q) ≤ c`; together they are the confidence b
   inequality `2 (p - q)² ≤ d(p, q)` for `p, q ∈ [0, 1]`.
 * `LMLExplore.klBer_le_ofReal_sq_sub_div`, `LMLExplore.klBerReal_le_sq_sub_div`: the reverse
   bound `d(p, q) ≤ (p - q)² / (q (1 - q))` for `p ∈ [0, 1]` and `q ∈ (0, 1)`.
+* `LMLExplore.klBer_one_sub_mul_add_div_two_le`: `d(p, (1 - t) p + t / 2) ≤ t` for `p ∈ [0, 1]`
+  and `t ∈ (0, 1]`.
+* `LMLExplore.pow_mul_one_sub_pow_le_div_pow_mul_div_pow`: the maximum likelihood of `k` ones and
+  `m` zeros among the Bernoulli laws is `(k / n) ^ k (m / n) ^ m`, and
+  `LMLExplore.mul_klBerReal_div_eq_log`: `n d(k / n, p)` is the log-likelihood ratio of the
+  maximum likelihood against the Bernoulli law of mean `p`.
 * `LMLExplore.continuousOn_klBer`: `d` is continuous on `[0, 1] × (0, 1)`.
 * `LMLExplore.tendsto_klBer_nhdsGT`: for `p ∈ [0, 1]`, `q ↦ d(p, q)` is right-continuous on
   `[p, 1)`.
@@ -83,6 +90,10 @@ smallest `q ∈ [0, p]` with `d(p, q) ≤ c`; together they are the confidence b
   identification stated with `d(δ, 1 - δ)` into bounds in `log (1 / δ)`.
 * `LMLExplore.mul_ofReal_log_le_of_mul_klBer_le`: a bound `X d(δ, 1 - δ) ≤ E` for `δ ≤ 1 / 2`
   gives `X log (1 / (c δ)) ≤ E` for every `δ` and `c ≥ 2.4`.
+* `LMLExplore.mul_neg_log_le_klBerReal_add_log_two`,
+  `LMLExplore.ofReal_mul_neg_log_le_klBer_add_log_two`: the bound
+  `p log (1 / q) ≤ d(p, q) + log 2`, by which the change of measure bounds the probability of an
+  event that is likely under one law and unlikely under the other.
 * `LMLExplore.le_klUpper_iff`: for `q ∈ [p, 1]`, `q ≤ U(p, c)` if and only if `d(p, q) ≤ c`;
   `LMLExplore.klUpper_mem_Icc` and `LMLExplore.klBer_klUpper_le` say that the maximum is attained.
 * `LMLExplore.le_klUpper_iff_of_le_one`: for `p ≤ 1` and every real `r`, `r ≤ U(p, c)` if and only
@@ -305,6 +316,26 @@ theorem klBer_le_ofReal_sq_sub_div (hp : p ∈ Set.Icc 0 1) (hq : q ∈ Set.Ioo 
   rw [klBer_eq_ofReal_klBerReal hp (Set.Ioo_subset_Icc_self hq) (klBer_ne_top hq)]
   exact ENNReal.ofReal_le_ofReal (klBerReal_le_sq_sub_div hp hq)
 
+/-- Moving `p ∈ [0, 1]` a fraction `t ∈ (0, 1]` of the way to `1 / 2` lands in `(0, 1)`. -/
+theorem one_sub_mul_add_div_two_mem_Ioo {t : ℝ} (hp : p ∈ Set.Icc 0 1) (ht : t ∈ Set.Ioc 0 1) :
+    (1 - t) * p + t / 2 ∈ Set.Ioo 0 1 :=
+  ⟨by nlinarith [hp.1, ht.1, ht.2], by nlinarith [hp.2, ht.1, ht.2]⟩
+
+/-- Moving `p ∈ [0, 1]` a fraction `t ∈ (0, 1]` of the way to `1 / 2` costs at most `t` in binary
+relative entropy: `d(p, (1 - t) p + t / 2) ≤ t`, by the `χ²` bound `klBer_le_ofReal_sq_sub_div`. -/
+theorem klBer_one_sub_mul_add_div_two_le {t : ℝ} (hp : p ∈ Set.Icc 0 1) (ht : t ∈ Set.Ioc 0 1) :
+    klBer p ((1 - t) * p + t / 2) ≤ ENNReal.ofReal t := by
+  have hq := one_sub_mul_add_div_two_mem_Ioo hp ht
+  have hq0 : t / 2 ≤ (1 - t) * p + t / 2 := by nlinarith [hp.1, ht.2]
+  have hq1 : t / 2 ≤ 1 - ((1 - t) * p + t / 2) := by nlinarith [hp.2, ht.2]
+  refine (klBer_le_ofReal_sq_sub_div hp hq).trans (ENNReal.ofReal_le_ofReal ?_)
+  have hpos : 0 < ((1 - t) * p + t / 2) * (1 - ((1 - t) * p + t / 2)) :=
+    mul_pos hq.1 (sub_pos.2 hq.2)
+  rw [div_le_iff₀ hpos]
+  have h1 := mul_nonneg (sub_nonneg.2 hq0) (sub_nonneg.2 hq1)
+  have h2 : (p - 1 / 2) ^ 2 ≤ 1 / 4 := by nlinarith [hp.1, hp.2]
+  nlinarith [ht.1, ht.2]
+
 /-- Clamping the arguments to `[0, 1]` does not change the binary relative entropy. -/
 @[simp]
 theorem klBer_projIcc (p q : ℝ) :
@@ -326,6 +357,74 @@ outcomes. -/
 @[simp]
 theorem klBerReal_one_sub_one_sub (p q : ℝ) : klBerReal (1 - p) (1 - q) = klBerReal p q := by
   rw [klBerReal_def, klBerReal_def, sub_sub_cancel, sub_sub_cancel, add_comm]
+
+/-! ### The maximum likelihood of a Bernoulli sample -/
+
+/-- The frequency factor `(k / n) ^ k` of the maximum likelihood is positive for `n > 0`, including
+for `k = 0`. -/
+private lemma div_pow_self_pos (k : ℕ) {n : ℕ} (hn : 0 < n) : 0 < ((k : ℝ) / n) ^ k := by
+  rcases Nat.eq_zero_or_pos k with rfl | hk
+  · simp
+  · positivity
+
+/-- The maximum likelihood `(k / n) ^ k (m / n) ^ m` of a Bernoulli sample of `n > 0` observations
+is positive. -/
+theorem div_pow_mul_div_pow_pos (k m : ℕ) {n : ℕ} (hn : 0 < n) :
+    0 < ((k : ℝ) / n) ^ k * ((m : ℝ) / n) ^ m :=
+  mul_pos (div_pow_self_pos k hn) (div_pow_self_pos m hn)
+
+/-- The log-likelihood ratio of the maximum likelihood against the Bernoulli law of mean
+`p ∈ (0, 1)`, for a sequence of `n = k + m ≥ 1` observations with `k` ones and `m` zeros:
+`n d(k / n, p) = log ((k / n) ^ k (m / n) ^ m / (p ^ k (1 - p) ^ m))`. -/
+theorem mul_klBerReal_div_eq_log {k m n : ℕ} (hkm : k + m = n) (hn : 0 < n)
+    (hp : p ∈ Set.Ioo 0 1) :
+    (n : ℝ) * klBerReal (k / n) p =
+      log (((k : ℝ) / n) ^ k * ((m : ℝ) / n) ^ m / (p ^ k * (1 - p) ^ m)) := by
+  have hn' : (0 : ℝ) < n := by exact_mod_cast hn
+  have hkm' : (k : ℝ) + m = n := by exact_mod_cast hkm
+  have h1 : 1 - (k : ℝ) / n = m / n := by
+    field_simp
+    linarith
+  have hk : ((k : ℝ) / n / p) ^ k ≠ 0 := by
+    rw [div_pow]
+    exact (div_pos (div_pow_self_pos k hn) (pow_pos hp.1 _)).ne'
+  have hm : ((m : ℝ) / n / (1 - p)) ^ m ≠ 0 := by
+    rw [div_pow]
+    exact (div_pos (div_pow_self_pos m hn) (pow_pos (sub_pos.2 hp.2) _)).ne'
+  rw [mul_div_mul_comm, ← div_pow, ← div_pow, log_mul hk hm]
+  simp only [log_pow, klBerReal_def, h1]
+  field_simp
+
+/-- The maximum likelihood of a Bernoulli sample: `u ^ k (1 - u) ^ m ≤ (k / n) ^ k (m / n) ^ m`
+for every `u ∈ [0, 1]` and `n = k + m`. -/
+theorem pow_mul_one_sub_pow_le_div_pow_mul_div_pow {k m n : ℕ} (hkm : k + m = n) {u : ℝ}
+    (hu : u ∈ Set.Icc 0 1) :
+    u ^ k * (1 - u) ^ m ≤ ((k : ℝ) / n) ^ k * ((m : ℝ) / n) ^ m := by
+  rcases Nat.eq_zero_or_pos n with rfl | hn
+  · obtain ⟨rfl, rfl⟩ : k = 0 ∧ m = 0 := by omega
+    simp
+  have hn' : (0 : ℝ) < n := by exact_mod_cast hn
+  have hkm' : (k : ℝ) + m = n := by exact_mod_cast hkm
+  have hR := div_pow_mul_div_pow_pos k m hn
+  -- at `u = 0` or `u = 1` the likelihood is `0` unless the sample is constant, where both are `1`
+  rcases hu.1.eq_or_lt with rfl | hu0
+  · rcases Nat.eq_zero_or_pos k with rfl | hk
+    · obtain rfl : m = n := by omega
+      simp [div_self hn'.ne']
+    · simp [zero_pow hk.ne', hR.le]
+  rcases hu.2.eq_or_lt with rfl | hu1
+  · rcases Nat.eq_zero_or_pos m with rfl | hm
+    · obtain rfl : k = n := by omega
+      simp [div_self hn'.ne']
+    · simp [zero_pow hm.ne', hR.le]
+  -- for `u ∈ (0, 1)`, the ratio of the two likelihoods is `exp (n d(k / n, u)) ≥ 1`
+  have hkn : (k : ℝ) / n ∈ Set.Icc 0 1 :=
+    unitInterval.div_mem (Nat.cast_nonneg _) hn'.le (by exact_mod_cast (by omega : k ≤ n))
+  have hq : 0 < u ^ k * (1 - u) ^ m := mul_pos (pow_pos hu0 _) (pow_pos (sub_pos.2 hu1) _)
+  have hlog : 0 ≤ log (((k : ℝ) / n) ^ k * ((m : ℝ) / n) ^ m / (u ^ k * (1 - u) ^ m)) := by
+    rw [← mul_klBerReal_div_eq_log hkm hn ⟨hu0, hu1⟩]
+    exact mul_nonneg hn'.le (klBerReal_nonneg hkn hu (klBer_ne_top ⟨hu0, hu1⟩))
+  rwa [log_nonneg_iff (div_pos hR hq), one_le_div hq] at hlog
 
 /-! ### Continuity and monotonicity -/
 
@@ -741,6 +840,34 @@ theorem mul_ofReal_log_le_of_mul_klBer_le {c δ : ℝ} {X E : ℝ≥0∞} (hc : 
     log_nonpos (by positivity) ((div_le_one (by positivity)).2 (by nlinarith))
   rw [ENNReal.ofReal_of_nonpos h_neg, mul_zero]
   exact zero_le
+
+/-- **Lower bound on the binary relative entropy by the cross-entropy**: for `p ∈ [0, 1]` and
+`q ∈ (0, 1)`, `p log (1 / q) ≤ d(p, q) + log 2`. The binary relative entropy is the binary
+cross-entropy minus the binary entropy of `p`, which is at most `log 2`. -/
+theorem mul_neg_log_le_klBerReal_add_log_two (hp : p ∈ Set.Icc 0 1) (hq : q ∈ Set.Ioo 0 1) :
+    p * -log q ≤ klBerReal p q + log 2 := by
+  rw [klBerReal_eq_neg_binEntropy_sub hq.1.ne' hq.2.ne]
+  have h : 0 ≤ (1 - p) * -log (1 - q) := mul_nonneg (by linarith [hp.2])
+    (neg_nonneg.2 (log_nonpos (by linarith [hq.2]) (by linarith [hq.1])))
+  linarith [binEntropy_le_log_two (p := p)]
+
+/-- **Lower bound on the binary relative entropy by the cross-entropy**: for `p, q ∈ [0, 1]`,
+`p log (1 / q) ≤ d(p, q) + log 2`, in `ℝ≥0∞`, where `log (1 / q) = -log q` is `∞` at `q = 0`. -/
+theorem ofReal_mul_neg_log_le_klBer_add_log_two (hp : p ∈ Set.Icc 0 1) (hq : q ∈ Set.Icc 0 1) :
+    ENNReal.ofReal p * (-ENNReal.log (ENNReal.ofReal q)).toENNReal ≤
+      klBer p q + ENNReal.ofReal (log 2) := by
+  rcases hq.1.eq_or_lt with rfl | hq0
+  · -- For `q = 0`, both sides are `∞` unless `p = 0`.
+    rcases hp.1.eq_or_lt with rfl | hp0
+    · simp
+    have : klBer p 0 = ∞ := (klBer_eq_top_iff hp ⟨le_rfl, zero_le_one⟩).2 (by simp [hp0.ne'])
+    simp [this]
+  rcases hq.2.eq_or_lt with rfl | hq1
+  · simp
+  rw [ENNReal.log_ofReal_of_pos hq0, ← EReal.coe_neg, EReal.real_coe_toENNReal,
+    ← ENNReal.ofReal_mul hp.1, klBer_eq_ofReal_klBerReal hp hq (klBer_ne_top ⟨hq0, hq1⟩)]
+  exact (ENNReal.ofReal_le_ofReal (mul_neg_log_le_klBerReal_add_log_two hp ⟨hq0, hq1⟩)).trans
+    ENNReal.ofReal_add_le
 
 /-! ### The upper confidence level -/
 

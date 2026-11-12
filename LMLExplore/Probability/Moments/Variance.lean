@@ -25,7 +25,8 @@ Cauchy–Schwarz inequality `cov[X, Y] ^ 2 ≤ Var[X] Var[Y]` gives the triangle
 `√Var[X + Y] ≤ √Var[X] + √Var[Y]`. In particular, two random variables within `D` of each other
 almost surely have standard deviations within `D`. This compares the variance of an unknown
 function, such as the optimal value of a Markov decision process, with the variance of a nearby
-computable one.
+computable one, and transfers a Bernstein-type bound on the deviation `∫ Y dμ - ∫ Y dν` of the
+nearby function `Y` to `X`.
 
 ## Main statements
 
@@ -36,6 +37,9 @@ computable one.
 * `ProbabilityTheory.sqrt_variance_add_le`: `√Var[X + Y; μ] ≤ √Var[X; μ] + √Var[Y; μ]`.
 * `ProbabilityTheory.sqrt_variance_le_sqrt_variance_add_of_abs_sub_le`: if `|X - Y| ≤ D` almost
   surely, then `√Var[X; μ] ≤ √Var[Y; μ] + D`.
+* `ProbabilityTheory.abs_integral_sub_integral_le_of_abs_sub_le`: a Bernstein-type bound
+  `|∫ Y dμ - ∫ Y dν| ≤ a √Var[Y; μ] + b` transfers to every `X` uniformly within `d` of `Y`, at
+  the cost of `(2 + a) d`.
 -/
 
 public section
@@ -111,5 +115,32 @@ theorem sqrt_variance_le_sqrt_variance_add_of_abs_sub_le (hX : MemLp X 2 μ) (hY
   gcongr
   rw [Real.sqrt_le_left hD₀]
   exact variance_le_sq_of_abs_le (hX.sub hY).aemeasurable hD
+
+/-- **Perturbation of a Bernstein-type bound.** If `Y` satisfies the Bernstein-type bound
+`|∫ Y dμ - ∫ Y dν| ≤ a √Var[Y; μ] + b`, with `a ≥ 0`, between two probability measures, and `X` is
+uniformly within `d` of `Y`, then `|∫ X dμ - ∫ X dν| ≤ a √Var[X; μ] + (2 + a) d + b`. -/
+theorem abs_integral_sub_integral_le_of_abs_sub_le {ν : Measure β} [IsProbabilityMeasure ν]
+    (hXμ : MemLp X 2 μ) (hYμ : MemLp Y 2 μ) (hXν : Integrable X ν) (hYν : Integrable Y ν)
+    {a b d : ℝ} (ha : 0 ≤ a) (hXY : ∀ x, |X x - Y x| ≤ d)
+    (hY : |∫ x, Y x ∂μ - ∫ x, Y x ∂ν| ≤ a * √Var[Y; μ] + b) :
+    |∫ x, X x ∂μ - ∫ x, X x ∂ν| ≤ a * √Var[X; μ] + (2 + a) * d + b := by
+  -- the integrals of `X` and `Y` against a probability measure are within `d`
+  have h_int {ρ : Measure β} [IsProbabilityMeasure ρ] (hX : Integrable X ρ)
+      (hY : Integrable Y ρ) : |∫ x, X x ∂ρ - ∫ x, Y x ∂ρ| ≤ d := by
+    rw [← integral_sub hX hY]
+    simpa only [Real.norm_eq_abs, probReal_univ, mul_one] using
+      norm_integral_le_of_norm_le_const (μ := ρ) (f := fun x ↦ X x - Y x)
+        (.of_forall fun x ↦ (Real.norm_eq_abs _).trans_le (hXY x))
+  have hμ := h_int (hXμ.integrable one_le_two) (hYμ.integrable one_le_two)
+  have hν := h_int hXν hYν
+  have hσ : a * √Var[Y; μ] ≤ a * (√Var[X; μ] + d) :=
+    mul_le_mul_of_nonneg_left (sqrt_variance_le_sqrt_variance_add_of_abs_sub_le hYμ hXμ
+      (ae_of_all _ fun x ↦ by rw [abs_sub_comm]; exact hXY x)) ha
+  calc |∫ x, X x ∂μ - ∫ x, X x ∂ν|
+      = |(∫ x, X x ∂μ - ∫ x, Y x ∂μ) - (∫ x, X x ∂ν - ∫ x, Y x ∂ν) +
+          (∫ x, Y x ∂μ - ∫ x, Y x ∂ν)| := by ring_nf
+    _ ≤ |∫ x, X x ∂μ - ∫ x, Y x ∂μ| + |∫ x, X x ∂ν - ∫ x, Y x ∂ν| +
+          |∫ x, Y x ∂μ - ∫ x, Y x ∂ν| := (abs_add_le _ _).trans (by gcongr; exact abs_sub _ _)
+    _ ≤ a * √Var[X; μ] + (2 + a) * d + b := by linarith
 
 end ProbabilityTheory

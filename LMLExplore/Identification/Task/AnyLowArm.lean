@@ -6,7 +6,7 @@ Authors: Rémy Degenne
 module
 
 public import LMLExplore.Identification.Task.Oracle
-public import LMLExplore.Identification.Task.Threshold
+public import LMLExplore.Identification.Task.Threshold.Basic
 
 /-!
 # The pure exploration game of Any Low Arm
@@ -14,8 +14,9 @@ public import LMLExplore.Identification.Task.Threshold
 In *Any Low Arm* (`anyLowArmTask ν id γ`) [DK19, Example 1], the correct answers of a vector of
 means `μ` are the arms `a` with mean below a threshold `γ` (answer `some a`), and "none" (answer
 `none`) if all the means are above `γ`. It is the running example of a task with multiple correct
-answers. Let the arm `a` belong to an exponential family `(ρ a, T a)` with divergence `d_a` in the
-mean parametrization, and let `γ` be a mean of every family.
+answers. Let the arm `a` have a real divergence `d_a` on an open set `S_a` of means
+(`IsDivergenceOn`), as for thresholding, for instance the divergence of an exponential family in
+the mean parametrization on its set of means, and let `γ` be in every `S_a`.
 
 * The alternatives to an arm `a` are the vectors in which the mean of `a` is at least `γ`. If
   `μ a ≤ γ`, the infimum of their costs is approached by moving the mean of `a` above `γ`, ever
@@ -24,7 +25,7 @@ mean parametrization, and let `γ` be a mean of every family.
   is to sample only that arm.
 * The alternatives to `none` are those of the answer `false` of minimum threshold, the vectors with
   some mean below `γ`, so that the game of `none` is the game of thresholding
-  (`LMLExplore/Identification/Task/Threshold.lean`): if all the means are above `γ`,
+  (`LMLExplore/Identification/Task/Threshold/Basic.lean`): if all the means are above `γ`,
   `D(μ, ¬none) = (∑ a, d_a(μ a, γ)⁻¹)⁻¹` and `T*(μ) = ∑ a, d_a(μ a, γ)⁻¹`.
 * If some mean is below `γ`, the oracle answers are the arms `a` maximizing
   `d_a(μ a, max (μ a) γ)` and the oracle allocations are the corresponding vertices of the
@@ -33,12 +34,13 @@ mean parametrization, and let `γ` be a mean of every family.
   [DK19, Proposition 5]: the convexity of each `w*(μ, ¬i)` does not extend to `w*(μ)`. This is why
   the guarantee of Track-and-Stop for tasks with multiple correct answers involves the convex hull
   of `w*(μ)`, and why the sticky variant of Degenne and Koolen commits to one oracle answer. For
-  Gaussian arms with a common variance, the oracle allocations are the vertices of the arms of
-  smallest mean, and two arms with the same smallest mean below `γ` give this non-convex set.
+  Gaussian arms with known variances `v a`, the oracle allocations are the vertices of the arms
+  below `γ` maximizing `(μ a - γ)² / v a`. With a common variance, these are the arms of smallest
+  mean, and two arms with the same smallest mean below `γ` give this non-convex set.
 
-The costs are computed on the vectors of means of the families,
-`S = {λ | ∀ c, λ c ∈ (ρ c).expFamilyMeans (T c)}`, as for thresholding and minimum threshold. The
-statements follow those of the formalization of [DK19, Example 1] in the LMLPapers project.
+The costs are computed on the vectors of means in `S`, `{λ | ∀ c, λ c ∈ S c}`, as for
+thresholding and minimum threshold. The statements follow those of the formalization of
+[DK19, Example 1] in the LMLPapers project.
 
 ## Main statements
 
@@ -64,6 +66,9 @@ statements follow those of the formalization of [DK19, Example 1] in the LMLPape
   allocations are their vertices `Pi.single a 1`.
 * `LMLExplore.Identification.not_convex_oracleAlloc_anyLowArmTask_restrict`: if two distinct arms
   maximize `d_a(μ a, max (μ a) γ)`, the oracle allocations are not convex [DK19, Proposition 5].
+* `LMLExplore.Identification.oracleAlloc_anyLowArmTask_gaussianReal`: for Gaussian arms with
+  variances `v a` and some mean below `γ`, the oracle allocations are the vertices of the arms
+  below `γ` maximizing `(μ a - γ)² / v a`.
 * `LMLExplore.Identification.oracleAlloc_anyLowArmTask_gaussianBandit`,
   `LMLExplore.Identification.not_convex_oracleAlloc_anyLowArmTask_gaussianBandit`: for Gaussian
   arms with a common variance and a smallest mean below `γ`, the oracle allocations are the vertices
@@ -85,7 +90,7 @@ open scoped ENNReal NNReal
 namespace LMLExplore.Identification
 
 variable {α Θ 𝓨 : Type*} {mα : MeasurableSpace α} {m𝓨 : MeasurableSpace 𝓨} [Fintype α]
-  {ρ : α → Measure 𝓨} {T : α → 𝓨 → ℝ} {γ : ℝ} {μ w : α → ℝ}
+  {S : α → Set ℝ} {d : α → ℝ → ℝ → ℝ} {γ : ℝ} {μ w : α → ℝ}
 
 section MeanFunctional
 
@@ -116,24 +121,23 @@ variable (ν : (α → ℝ) → Kernel α 𝓨) [∀ μ, IsMarkovKernel (ν μ)]
 
 /-! ### The answers `some a` -/
 
-/-- **The cost of the alternatives to an arm in Any Low Arm** [DK19, Example 1]. Let the arm laws
-belong to exponential families `(ρ a, T a)` with divergences `d_a`, in the sense that
-`KL(ν_c(μ), ν_c(μ')) = d_c(μ c, μ' c)` for all vectors of means `μ'` of the families, let `γ` be a
-mean of every family and let `μ` be a vector of means of the families with `μ a ≤ γ`. Then on the
-vectors of means of the families, for every nonnegative allocation `w`,
+/-- **The cost of the alternatives to an arm in Any Low Arm** [DK19, Example 1]. Let each arm `c`
+have a divergence `d_c` on an open set `S_c` of means, in the sense that
+`KL(ν_c(μ), ν_c(μ')) = d_c(μ c, μ' c)` for all vectors of means `μ'` in `S`, let `γ` be in every
+`S_c` and let `μ` be a vector of means in `S` with `μ a ≤ γ`. Then on the vectors of means in `S`,
+for every nonnegative allocation `w`,
 `D(μ, w, ¬a) = w a d_a(μ a, γ)`: this infimum is approached by moving the mean of `a` above `γ`,
 ever closer to `γ`. -/
-theorem altCost_anyLowArmTask_restrict_some (hT : ∀ a c, ¬ T a =ᵐ[ρ a] fun _ ↦ c)
-    (hγ : ∀ a, γ ∈ (ρ a).expFamilyMeans (T a)) (hμ : ∀ a, μ a ∈ (ρ a).expFamilyMeans (T a))
-    (hν : ∀ μ' : α → ℝ, (∀ c, μ' c ∈ (ρ c).expFamilyMeans (T c)) →
-      ∀ c, klDiv (ν μ c) (ν μ' c) = ENNReal.ofReal ((ρ c).expFamilyDiv (T c) (μ c) (μ' c)))
+theorem altCost_anyLowArmTask_restrict_some (hd : ∀ a, IsDivergenceOn (d a) (S a))
+    (hγ : ∀ a, γ ∈ S a) (hμ : ∀ a, μ a ∈ S a)
+    (hν : ∀ μ' : α → ℝ, (∀ c, μ' c ∈ S c) →
+      ∀ c, klDiv (ν μ c) (ν μ' c) = ENNReal.ofReal (d c (μ c) (μ' c)))
     {a : α} (ha : μ a ≤ γ) (hw : 0 ≤ w) :
-    ((anyLowArmTask ν id γ).restrict {μ' | ∀ c, μ' c ∈ (ρ c).expFamilyMeans (T c)}).altCost
-        μ w (some a) =
-      ENNReal.ofReal (w a * (ρ a).expFamilyDiv (T a) (μ a) γ) := by
+    ((anyLowArmTask ν id γ).restrict {μ' | ∀ c, μ' c ∈ S c}).altCost μ w (some a) =
+      ENNReal.ofReal (w a * d a (μ a) γ) := by
   classical
   have hνt : ((anyLowArmTask ν id γ).restrict
-      {μ' | ∀ c, μ' c ∈ (ρ c).expFamilyMeans (T c)}).ν = ν := by
+      {μ' | ∀ c, μ' c ∈ S c}).ν = ν := by
     simp
   refine le_antisymm ?_ ?_
   · -- Upper bound: move the mean of `a` to `x > γ`, as well as the means equal to `γ` so that the
@@ -142,20 +146,21 @@ theorem altCost_anyLowArmTask_restrict_some (hT : ∀ a c, ¬ T a =ᵐ[ρ a] fun
     have hcont (c : α) : ContinuousAt (fun x ↦ μx x c) γ := by
       by_cases hc : c = a ∨ μ c = γ <;> simp only [μx, hc, ite_true, ite_false]
       exacts [continuousAt_id, continuousAt_const]
-    have hmem (c : α) : μx γ c ∈ (ρ c).expFamilyMeans (T c) := by
+    have hmem (c : α) : μx γ c ∈ S c := by
       by_cases hc : c = a ∨ μ c = γ <;> simp only [μx, hc, ite_true, ite_false]
       exacts [hγ c, hμ c]
     -- In the limit, only the move of `a` costs something.
-    have h_lim : ∑ c, ENNReal.ofReal (w c * (ρ c).expFamilyDiv (T c) (μ c) (μx γ c)) =
-        ENNReal.ofReal (w a * (ρ a).expFamilyDiv (T a) (μ a) γ) := by
+    have h_lim : ∑ c, ENNReal.ofReal (w c * d c (μ c) (μx γ c)) =
+        ENNReal.ofReal (w a * d a (μ a) γ) := by
       rw [Finset.sum_eq_single a (fun c _ hc ↦ ?_) (by simp)]
       · simp [μx]
       · by_cases hcγ : μ c = γ
-        · simp [μx, hcγ, expFamilyDiv_self]
-        · simp [μx, hc, hcγ, expFamilyDiv_self]
+        · simp [μx, hcγ, (hd c).apply_self (hγ c)]
+        · simp [μx, hc, hcγ, (hd c).apply_self (hμ c)]
     rw [← h_lim]
-    refine IdentTask.altCost_le_sum_ofReal_mul_expFamilyDiv_of_eventually hνt hν hw hT
-      (l := 𝓝[>] γ) nhdsWithin_le_nhds hcont hmem ?_
+    refine IdentTask.altCost_le_sum_ofReal_mul_of_eventually hνt
+      hd hν hw hμ (l := 𝓝[>] γ) nhdsWithin_le_nhds
+      hcont hmem ?_
     filter_upwards [self_mem_nhdsWithin] with x (hx : γ < x) hS
     have hne (c : α) : μx x c ≠ γ := by
       by_cases hc : c = a ∨ μ c = γ
@@ -170,53 +175,52 @@ theorem altCost_anyLowArmTask_restrict_some (hT : ∀ a c, ¬ T a =ᵐ[ρ a] fun
     rw [IdentTask.altCost_def]
     refine le_iInf₂ fun μ' hμ' ↦ ?_
     rw [IdentTask.alt_restrict, Set.mem_inter_iff, mem_alt_anyLowArmTask_some_iff] at hμ'
-    exact IdentTask.ofReal_mul_expFamilyDiv_le_cost hνt hν hw hμ'.2 a (hT a) (hγ a)
-      (Set.mem_uIcc.2 (Or.inl ⟨ha, hμ'.1.1⟩))
+    exact IdentTask.ofReal_mul_le_cost hνt hν hw hμ'.2 a (hd a)
+      (hμ a) (hγ a) (Set.mem_uIcc.2 (Or.inl ⟨ha, hμ'.1.1⟩))
 
 /-- **The game value of an arm in Any Low Arm** [DK19, Example 1]. Under the assumptions of
 `altCost_anyLowArmTask_restrict_some`, if `μ a ≤ γ`, then `D(μ, ¬a) = d_a(μ a, γ)`. -/
-theorem answerValue_anyLowArmTask_restrict_some (hT : ∀ a c, ¬ T a =ᵐ[ρ a] fun _ ↦ c)
-    (hγ : ∀ a, γ ∈ (ρ a).expFamilyMeans (T a)) (hμ : ∀ a, μ a ∈ (ρ a).expFamilyMeans (T a))
-    (hν : ∀ μ' : α → ℝ, (∀ c, μ' c ∈ (ρ c).expFamilyMeans (T c)) →
-      ∀ c, klDiv (ν μ c) (ν μ' c) = ENNReal.ofReal ((ρ c).expFamilyDiv (T c) (μ c) (μ' c)))
+theorem answerValue_anyLowArmTask_restrict_some (hd : ∀ a, IsDivergenceOn (d a) (S a))
+    (hγ : ∀ a, γ ∈ S a) (hμ : ∀ a, μ a ∈ S a)
+    (hν : ∀ μ' : α → ℝ, (∀ c, μ' c ∈ S c) →
+      ∀ c, klDiv (ν μ c) (ν μ' c) = ENNReal.ofReal (d c (μ c) (μ' c)))
     {a : α} (ha : μ a ≤ γ) :
-    ((anyLowArmTask ν id γ).restrict {μ' | ∀ c, μ' c ∈ (ρ c).expFamilyMeans (T c)}).answerValue
-        μ (some a) =
-      ENNReal.ofReal ((ρ a).expFamilyDiv (T a) (μ a) γ) := by
+    ((anyLowArmTask ν id γ).restrict {μ' | ∀ c, μ' c ∈ S c}).answerValue μ (some a) =
+      ENNReal.ofReal (d a (μ a) γ) := by
   classical
   rw [IdentTask.answerValue_def]
   refine le_antisymm (iSup₂_le fun v hv ↦ ?_) (le_iSup₂_of_le (Pi.single a 1) (single_mem_simplex a)
     ?_)
-  · rw [altCost_anyLowArmTask_restrict_some ν hT hγ hμ hν ha (mem_simplex_iff.1 hv).1]
-    exact ENNReal.ofReal_le_ofReal (mul_le_of_le_one_left (expFamilyDiv_nonneg (hμ a) (hγ a))
+  · rw [altCost_anyLowArmTask_restrict_some ν hd hγ hμ hν ha (mem_simplex_iff.1 hv).1]
+    exact ENNReal.ofReal_le_ofReal (mul_le_of_le_one_left ((hd a).nonneg (hμ a) (hγ a))
       ((simplex_subset_Icc hv).2 a))
-  · rw [altCost_anyLowArmTask_restrict_some ν hT hγ hμ hν ha
+  · rw [altCost_anyLowArmTask_restrict_some ν hd hγ hμ hν ha
       (mem_simplex_iff.1 (single_mem_simplex a)).1]
     simp
 
 /-- **The optimal allocation of an arm in Any Low Arm** [DK19, Example 1]. Under the assumptions of
 `altCost_anyLowArmTask_restrict_some`, if `μ a < γ`, then the only optimal allocation of the answer
 `a` is the vertex `Pi.single a 1`: sample only the arm `a`. -/
-theorem optAlloc_anyLowArmTask_restrict_some [DecidableEq α] (hT : ∀ a c, ¬ T a =ᵐ[ρ a] fun _ ↦ c)
-    (hγ : ∀ a, γ ∈ (ρ a).expFamilyMeans (T a)) (hμ : ∀ a, μ a ∈ (ρ a).expFamilyMeans (T a))
-    (hν : ∀ μ' : α → ℝ, (∀ c, μ' c ∈ (ρ c).expFamilyMeans (T c)) →
-      ∀ c, klDiv (ν μ c) (ν μ' c) = ENNReal.ofReal ((ρ c).expFamilyDiv (T c) (μ c) (μ' c)))
+theorem optAlloc_anyLowArmTask_restrict_some [DecidableEq α] (hd : ∀ a, IsDivergenceOn (d a) (S a))
+    (hγ : ∀ a, γ ∈ S a) (hμ : ∀ a, μ a ∈ S a)
+    (hν : ∀ μ' : α → ℝ, (∀ c, μ' c ∈ S c) →
+      ∀ c, klDiv (ν μ c) (ν μ' c) = ENNReal.ofReal (d c (μ c) (μ' c)))
     {a : α} (ha : μ a < γ) :
-    ((anyLowArmTask ν id γ).restrict {μ' | ∀ c, μ' c ∈ (ρ c).expFamilyMeans (T c)}).optAlloc
+    ((anyLowArmTask ν id γ).restrict {μ' | ∀ c, μ' c ∈ S c}).optAlloc
         μ (some a) = {Pi.single a 1} := by
-  have hd := expFamilyDiv_pos (hμ a) (hγ a) ha.ne
+  have hpos := (hd a).pos (hμ a) (hγ a) ha.ne
   ext v
-  rw [IdentTask.mem_optAlloc_iff, answerValue_anyLowArmTask_restrict_some ν hT hγ hμ hν ha.le,
+  rw [IdentTask.mem_optAlloc_iff, answerValue_anyLowArmTask_restrict_some ν hd hγ hμ hν ha.le,
     Set.mem_singleton_iff]
   constructor
   · rintro ⟨hv, hva⟩
-    rw [altCost_anyLowArmTask_restrict_some ν hT hγ hμ hν ha.le (mem_simplex_iff.1 hv).1,
-      ENNReal.ofReal_eq_ofReal_iff (mul_nonneg ((mem_simplex_iff.1 hv).1 a) hd.le) hd.le,
-      mul_eq_right₀ hd.ne'] at hva
+    rw [altCost_anyLowArmTask_restrict_some ν hd hγ hμ hν ha.le (mem_simplex_iff.1 hv).1,
+      ENNReal.ofReal_eq_ofReal_iff (mul_nonneg ((mem_simplex_iff.1 hv).1 a) hpos.le) hpos.le,
+      mul_eq_right₀ hpos.ne'] at hva
     exact eq_single_of_mem_simplex hv hva
   · rintro rfl
     refine ⟨single_mem_simplex a, ?_⟩
-    rw [altCost_anyLowArmTask_restrict_some ν hT hγ hμ hν ha.le
+    rw [altCost_anyLowArmTask_restrict_some ν hd hγ hμ hν ha.le
       (mem_simplex_iff.1 (single_mem_simplex a)).1]
     simp
 
@@ -235,48 +239,45 @@ private lemma altCost_anyLowArmTask_restrict_none_eq (S : Set (α → ℝ)) (μ 
 
 /-- **The cost of the alternatives to `none` in Any Low Arm** [DK19, Example 1]. Under the
 assumptions of `altCost_anyLowArmTask_restrict_some` on the arm laws, if all the means of `μ` are
-at least `γ`, then on the vectors of means of the families, for every nonnegative allocation `w`,
+at least `γ`, then on the vectors of means in `S`, for every nonnegative allocation `w`,
 `D(μ, w, ¬none) = min_a w a d_a(μ a, γ)`. -/
-theorem altCost_anyLowArmTask_restrict_none (hT : ∀ a c, ¬ T a =ᵐ[ρ a] fun _ ↦ c)
-    (hγ : ∀ a, γ ∈ (ρ a).expFamilyMeans (T a)) (hμ : ∀ a, μ a ∈ (ρ a).expFamilyMeans (T a))
-    (hν : ∀ μ' : α → ℝ, (∀ c, μ' c ∈ (ρ c).expFamilyMeans (T c)) →
-      ∀ c, klDiv (ν μ c) (ν μ' c) = ENNReal.ofReal ((ρ c).expFamilyDiv (T c) (μ c) (μ' c)))
+theorem altCost_anyLowArmTask_restrict_none (hd : ∀ a, IsDivergenceOn (d a) (S a))
+    (hγ : ∀ a, γ ∈ S a) (hμ : ∀ a, μ a ∈ S a)
+    (hν : ∀ μ' : α → ℝ, (∀ c, μ' c ∈ S c) →
+      ∀ c, klDiv (ν μ c) (ν μ' c) = ENNReal.ofReal (d c (μ c) (μ' c)))
     (hμγ : ∀ a, γ ≤ μ a) (hw : 0 ≤ w) :
-    ((anyLowArmTask ν id γ).restrict {μ' | ∀ c, μ' c ∈ (ρ c).expFamilyMeans (T c)}).altCost
-        μ w none =
-      ⨅ a, ENNReal.ofReal (w a * (ρ a).expFamilyDiv (T a) (μ a) γ) := by
+    ((anyLowArmTask ν id γ).restrict {μ' | ∀ c, μ' c ∈ S c}).altCost μ w none =
+      ⨅ a, ENNReal.ofReal (w a * d a (μ a) γ) := by
   rw [altCost_anyLowArmTask_restrict_none_eq,
-    altCost_minThresholdTask_restrict_false ν hT hγ hμ hν hμγ hw]
+    altCost_minThresholdTask_restrict_false ν hd hγ hμ hν hμγ hw]
 
 /-- **The game value of `none` in Any Low Arm** [DK19, Example 1]. Under the assumptions of
 `altCost_anyLowArmTask_restrict_some` on the arm laws, if all the means of `μ` are above `γ`, then
 `D(μ, ¬none) = (∑ a, d_a(μ a, γ)⁻¹)⁻¹`. -/
-theorem answerValue_anyLowArmTask_restrict_none [Nonempty α]
-    (hT : ∀ a c, ¬ T a =ᵐ[ρ a] fun _ ↦ c)
-    (hγ : ∀ a, γ ∈ (ρ a).expFamilyMeans (T a)) (hμ : ∀ a, μ a ∈ (ρ a).expFamilyMeans (T a))
-    (hν : ∀ μ' : α → ℝ, (∀ c, μ' c ∈ (ρ c).expFamilyMeans (T c)) →
-      ∀ c, klDiv (ν μ c) (ν μ' c) = ENNReal.ofReal ((ρ c).expFamilyDiv (T c) (μ c) (μ' c)))
+theorem answerValue_anyLowArmTask_restrict_none
+    (hd : ∀ a, IsDivergenceOn (d a) (S a))
+    (hγ : ∀ a, γ ∈ S a) (hμ : ∀ a, μ a ∈ S a)
+    (hν : ∀ μ' : α → ℝ, (∀ c, μ' c ∈ S c) →
+      ∀ c, klDiv (ν μ c) (ν μ' c) = ENNReal.ofReal (d c (μ c) (μ' c)))
     (hμγ : ∀ a, γ < μ a) :
-    ((anyLowArmTask ν id γ).restrict {μ' | ∀ c, μ' c ∈ (ρ c).expFamilyMeans (T c)}).answerValue
-        μ none =
-      ENNReal.ofReal (∑ a, ((ρ a).expFamilyDiv (T a) (μ a) γ)⁻¹)⁻¹ := by
-  rw [← answerValue_minThresholdTask_restrict_false ν hT hγ hμ hν hμγ]
+    ((anyLowArmTask ν id γ).restrict {μ' | ∀ c, μ' c ∈ S c}).answerValue μ none =
+      ENNReal.ofReal (∑ a, (d a (μ a) γ)⁻¹)⁻¹ := by
+  rw [← answerValue_minThresholdTask_restrict_false ν hd hγ hμ hν hμγ]
   simp only [IdentTask.answerValue_def, altCost_anyLowArmTask_restrict_none_eq]
 
 /-- **The optimal allocation of `none` in Any Low Arm** [DK19, Example 1]. Under the assumptions of
 `altCost_anyLowArmTask_restrict_some` on the arm laws, if all the means of `μ` are above `γ`, then
 the only optimal allocation of `none` is proportional to `d_a(μ a, γ)⁻¹`. -/
 theorem optAlloc_anyLowArmTask_restrict_none [Nonempty α]
-    (hT : ∀ a c, ¬ T a =ᵐ[ρ a] fun _ ↦ c)
-    (hγ : ∀ a, γ ∈ (ρ a).expFamilyMeans (T a)) (hμ : ∀ a, μ a ∈ (ρ a).expFamilyMeans (T a))
-    (hν : ∀ μ' : α → ℝ, (∀ c, μ' c ∈ (ρ c).expFamilyMeans (T c)) →
-      ∀ c, klDiv (ν μ c) (ν μ' c) = ENNReal.ofReal ((ρ c).expFamilyDiv (T c) (μ c) (μ' c)))
+    (hd : ∀ a, IsDivergenceOn (d a) (S a))
+    (hγ : ∀ a, γ ∈ S a) (hμ : ∀ a, μ a ∈ S a)
+    (hν : ∀ μ' : α → ℝ, (∀ c, μ' c ∈ S c) →
+      ∀ c, klDiv (ν μ c) (ν μ' c) = ENNReal.ofReal (d c (μ c) (μ' c)))
     (hμγ : ∀ a, γ < μ a) :
-    ((anyLowArmTask ν id γ).restrict {μ' | ∀ c, μ' c ∈ (ρ c).expFamilyMeans (T c)}).optAlloc
-        μ none =
-      {fun a ↦ ((ρ a).expFamilyDiv (T a) (μ a) γ)⁻¹ /
-        ∑ b, ((ρ b).expFamilyDiv (T b) (μ b) γ)⁻¹} := by
-  rw [← optAlloc_minThresholdTask_restrict_false ν hT hγ hμ hν hμγ]
+    ((anyLowArmTask ν id γ).restrict {μ' | ∀ c, μ' c ∈ S c}).optAlloc μ none =
+      {fun a ↦ (d a (μ a) γ)⁻¹ /
+        ∑ b, (d b (μ b) γ)⁻¹} := by
+  rw [← optAlloc_minThresholdTask_restrict_false ν hd hγ hμ hν hμγ]
   ext v
   simp only [IdentTask.mem_optAlloc_iff, IdentTask.answerValue_def,
     altCost_anyLowArmTask_restrict_none_eq]
@@ -285,22 +286,22 @@ theorem optAlloc_anyLowArmTask_restrict_none [Nonempty α]
 [DK19, Example 1]. Under the assumptions of `altCost_anyLowArmTask_restrict_some` on the arm laws,
 if all the means of `μ` are above `γ`, then `T*(μ) = ∑ a, d_a(μ a, γ)⁻¹`. -/
 theorem charTime_anyLowArmTask_restrict_of_forall_lt [Nonempty α]
-    (hT : ∀ a c, ¬ T a =ᵐ[ρ a] fun _ ↦ c)
-    (hγ : ∀ a, γ ∈ (ρ a).expFamilyMeans (T a)) (hμ : ∀ a, μ a ∈ (ρ a).expFamilyMeans (T a))
-    (hν : ∀ μ' : α → ℝ, (∀ c, μ' c ∈ (ρ c).expFamilyMeans (T c)) →
-      ∀ c, klDiv (ν μ c) (ν μ' c) = ENNReal.ofReal ((ρ c).expFamilyDiv (T c) (μ c) (μ' c)))
+    (hd : ∀ a, IsDivergenceOn (d a) (S a))
+    (hγ : ∀ a, γ ∈ S a) (hμ : ∀ a, μ a ∈ S a)
+    (hν : ∀ μ' : α → ℝ, (∀ c, μ' c ∈ S c) →
+      ∀ c, klDiv (ν μ c) (ν μ' c) = ENNReal.ofReal (d c (μ c) (μ' c)))
     (hμγ : ∀ a, γ < μ a) :
-    ((anyLowArmTask ν id γ).restrict {μ' | ∀ c, μ' c ∈ (ρ c).expFamilyMeans (T c)}).charTime μ =
-      ENNReal.ofReal (∑ a, ((ρ a).expFamilyDiv (T a) (μ a) γ)⁻¹) := by
-  have hpos := sum_inv_pos fun a ↦ expFamilyDiv_pos (hμ a) (hγ a) (hμγ a).ne'
+    ((anyLowArmTask ν id γ).restrict {μ' | ∀ c, μ' c ∈ S c}).charTime μ =
+      ENNReal.ofReal (∑ a, (d a (μ a) γ)⁻¹) := by
+  have hpos := sum_inv_pos fun a ↦ (hd a).pos (hμ a) (hγ a) (hμγ a).ne'
   have h_corr : ((anyLowArmTask ν id γ).restrict
-      {μ' | ∀ c, μ' c ∈ (ρ c).expFamilyMeans (T c)}).correct μ = {none} := by
+      {μ' | ∀ c, μ' c ∈ S c}).correct μ = {none} := by
     ext i
     cases i with
     | none => simpa using hμγ
     | some a => simpa using (hμγ a).le
   rw [IdentTask.charTime_eq_inv_answerValue _ h_corr,
-    answerValue_anyLowArmTask_restrict_none ν hT hγ hμ hν hμγ, ENNReal.ofReal_inv_of_pos hpos,
+    answerValue_anyLowArmTask_restrict_none ν hd hγ hμ hν hμγ, ENNReal.ofReal_inv_of_pos hpos,
     inv_inv]
 
 /-! ### Oracle answers and oracle allocations -/
@@ -308,26 +309,24 @@ theorem charTime_anyLowArmTask_restrict_of_forall_lt [Nonempty α]
 /-- If some mean is below `γ`, the value of every arm `a` is `D(μ, ¬a) = d_a(μ a, max (μ a) γ)`:
 `d_a(μ a, γ)` for the arms below `γ`, and `0` for the arms above `γ`, which are incorrect. -/
 private lemma answerValue_anyLowArmTask_restrict_some_of_exists_lt
-    (hT : ∀ a c, ¬ T a =ᵐ[ρ a] fun _ ↦ c)
-    (hγ : ∀ a, γ ∈ (ρ a).expFamilyMeans (T a)) (hμ : ∀ a, μ a ∈ (ρ a).expFamilyMeans (T a))
-    (hν : ∀ μ' : α → ℝ, (∀ c, μ' c ∈ (ρ c).expFamilyMeans (T c)) →
-      ∀ c, klDiv (ν μ c) (ν μ' c) = ENNReal.ofReal ((ρ c).expFamilyDiv (T c) (μ c) (μ' c)))
+    (hd : ∀ a, IsDivergenceOn (d a) (S a))
+    (hγ : ∀ a, γ ∈ S a) (hμ : ∀ a, μ a ∈ S a)
+    (hν : ∀ μ' : α → ℝ, (∀ c, μ' c ∈ S c) →
+      ∀ c, klDiv (ν μ c) (ν μ' c) = ENNReal.ofReal (d c (μ c) (μ' c)))
     (h : ∃ b, μ b < γ) (a : α) :
-    ((anyLowArmTask ν id γ).restrict {μ' | ∀ c, μ' c ∈ (ρ c).expFamilyMeans (T c)}).answerValue
-        μ (some a) =
-      ENNReal.ofReal ((ρ a).expFamilyDiv (T a) (μ a) (max (μ a) γ)) := by
+    ((anyLowArmTask ν id γ).restrict {μ' | ∀ c, μ' c ∈ S c}).answerValue μ (some a) =
+      ENNReal.ofReal (d a (μ a) (max (μ a) γ)) := by
   rcases le_or_gt (μ a) γ with ha | ha
-  · rw [max_eq_right ha, answerValue_anyLowArmTask_restrict_some ν hT hγ hμ hν ha]
-  · rw [max_eq_left ha.le, expFamilyDiv_self, ENNReal.ofReal_zero]
+  · rw [max_eq_right ha, answerValue_anyLowArmTask_restrict_some ν hd hγ hμ hν ha]
+  · rw [max_eq_left ha.le, (hd a).apply_self (hμ a), ENNReal.ofReal_zero]
     refine IdentTask.answerValue_eq_zero_of_mem_alt _ ?_
     rw [IdentTask.alt_restrict, Set.mem_inter_iff, mem_alt_anyLowArmTask_some_iff]
     exact ⟨⟨ha.le, Or.inl h⟩, hμ⟩
 
 /-- If some mean is below `γ`, the answer `none` is incorrect and has value `0`. -/
 private lemma answerValue_anyLowArmTask_restrict_none_of_exists_lt
-    (hμ : ∀ a, μ a ∈ (ρ a).expFamilyMeans (T a)) (h : ∃ b, μ b < γ) :
-    ((anyLowArmTask ν id γ).restrict {μ' | ∀ c, μ' c ∈ (ρ c).expFamilyMeans (T c)}).answerValue
-        μ none = 0 := by
+    (hμ : ∀ a, μ a ∈ S a) (h : ∃ b, μ b < γ) :
+    ((anyLowArmTask ν id γ).restrict {μ' | ∀ c, μ' c ∈ S c}).answerValue μ none = 0 := by
   refine IdentTask.answerValue_eq_zero_of_mem_alt _ ?_
   rw [IdentTask.alt_restrict, Set.mem_inter_iff, mem_alt_anyLowArmTask_none_iff]
   exact ⟨h, hμ⟩
@@ -336,53 +335,52 @@ private lemma answerValue_anyLowArmTask_restrict_none_of_exists_lt
 [DK19, Example 1]. Under the assumptions of `altCost_anyLowArmTask_restrict_some` on the arm laws,
 if some mean of `μ` is below `γ`, then `D(μ) = max_a d_a(μ a, max (μ a) γ)`, the largest value of
 the arms below `γ`. -/
-theorem gameValue_anyLowArmTask_restrict_of_exists_lt (hT : ∀ a c, ¬ T a =ᵐ[ρ a] fun _ ↦ c)
-    (hγ : ∀ a, γ ∈ (ρ a).expFamilyMeans (T a)) (hμ : ∀ a, μ a ∈ (ρ a).expFamilyMeans (T a))
-    (hν : ∀ μ' : α → ℝ, (∀ c, μ' c ∈ (ρ c).expFamilyMeans (T c)) →
-      ∀ c, klDiv (ν μ c) (ν μ' c) = ENNReal.ofReal ((ρ c).expFamilyDiv (T c) (μ c) (μ' c)))
+theorem gameValue_anyLowArmTask_restrict_of_exists_lt (hd : ∀ a, IsDivergenceOn (d a) (S a))
+    (hγ : ∀ a, γ ∈ S a) (hμ : ∀ a, μ a ∈ S a)
+    (hν : ∀ μ' : α → ℝ, (∀ c, μ' c ∈ S c) →
+      ∀ c, klDiv (ν μ c) (ν μ' c) = ENNReal.ofReal (d c (μ c) (μ' c)))
     (h : ∃ b, μ b < γ) :
-    ((anyLowArmTask ν id γ).restrict {μ' | ∀ c, μ' c ∈ (ρ c).expFamilyMeans (T c)}).gameValue μ =
-      ⨆ a, ENNReal.ofReal ((ρ a).expFamilyDiv (T a) (μ a) (max (μ a) γ)) := by
+    ((anyLowArmTask ν id γ).restrict {μ' | ∀ c, μ' c ∈ S c}).gameValue μ =
+      ⨆ a, ENNReal.ofReal (d a (μ a) (max (μ a) γ)) := by
   rw [IdentTask.gameValue_eq_iSup_answerValue _ (by
     rw [IdentTask.M_restrict, M_anyLowArmTask]; exact ⟨Or.inl h, hμ⟩),
     iSup_option,
     answerValue_anyLowArmTask_restrict_none_of_exists_lt ν hμ h, zero_max]
-  exact iSup_congr (answerValue_anyLowArmTask_restrict_some_of_exists_lt ν hT hγ hμ hν h)
+  exact iSup_congr (answerValue_anyLowArmTask_restrict_some_of_exists_lt ν hd hγ hμ hν h)
 
 /-- **The characteristic time of Any Low Arm when some mean is below the threshold**
 [DK19, Example 1]. Under the assumptions of `altCost_anyLowArmTask_restrict_some` on the arm laws,
 if some mean of `μ` is below `γ`, then `T*(μ) = (max_a d_a(μ a, max (μ a) γ))⁻¹`. -/
-theorem charTime_anyLowArmTask_restrict_of_exists_lt (hT : ∀ a c, ¬ T a =ᵐ[ρ a] fun _ ↦ c)
-    (hγ : ∀ a, γ ∈ (ρ a).expFamilyMeans (T a)) (hμ : ∀ a, μ a ∈ (ρ a).expFamilyMeans (T a))
-    (hν : ∀ μ' : α → ℝ, (∀ c, μ' c ∈ (ρ c).expFamilyMeans (T c)) →
-      ∀ c, klDiv (ν μ c) (ν μ' c) = ENNReal.ofReal ((ρ c).expFamilyDiv (T c) (μ c) (μ' c)))
+theorem charTime_anyLowArmTask_restrict_of_exists_lt (hd : ∀ a, IsDivergenceOn (d a) (S a))
+    (hγ : ∀ a, γ ∈ S a) (hμ : ∀ a, μ a ∈ S a)
+    (hν : ∀ μ' : α → ℝ, (∀ c, μ' c ∈ S c) →
+      ∀ c, klDiv (ν μ c) (ν μ' c) = ENNReal.ofReal (d c (μ c) (μ' c)))
     (h : ∃ b, μ b < γ) :
-    ((anyLowArmTask ν id γ).restrict {μ' | ∀ c, μ' c ∈ (ρ c).expFamilyMeans (T c)}).charTime μ =
-      (⨆ a, ENNReal.ofReal ((ρ a).expFamilyDiv (T a) (μ a) (max (μ a) γ)))⁻¹ := by
-  rw [IdentTask.charTime_def, gameValue_anyLowArmTask_restrict_of_exists_lt ν hT hγ hμ hν h]
+    ((anyLowArmTask ν id γ).restrict {μ' | ∀ c, μ' c ∈ S c}).charTime μ =
+      (⨆ a, ENNReal.ofReal (d a (μ a) (max (μ a) γ)))⁻¹ := by
+  rw [IdentTask.charTime_def, gameValue_anyLowArmTask_restrict_of_exists_lt ν hd hγ hμ hν h]
 
 /-- **The oracle answers of Any Low Arm** [DK19, Example 1]. Under the assumptions of
 `altCost_anyLowArmTask_restrict_some` on the arm laws, if some mean of `μ` is below `γ`, then the
 oracle answers are the arms `a` maximizing `d_a(μ a, max (μ a) γ)`. -/
 theorem oracleAnswers_anyLowArmTask_restrict_of_exists_lt
-    (hT : ∀ a c, ¬ T a =ᵐ[ρ a] fun _ ↦ c)
-    (hγ : ∀ a, γ ∈ (ρ a).expFamilyMeans (T a)) (hμ : ∀ a, μ a ∈ (ρ a).expFamilyMeans (T a))
-    (hν : ∀ μ' : α → ℝ, (∀ c, μ' c ∈ (ρ c).expFamilyMeans (T c)) →
-      ∀ c, klDiv (ν μ c) (ν μ' c) = ENNReal.ofReal ((ρ c).expFamilyDiv (T c) (μ c) (μ' c)))
+    (hd : ∀ a, IsDivergenceOn (d a) (S a))
+    (hγ : ∀ a, γ ∈ S a) (hμ : ∀ a, μ a ∈ S a)
+    (hν : ∀ μ' : α → ℝ, (∀ c, μ' c ∈ S c) →
+      ∀ c, klDiv (ν μ c) (ν μ' c) = ENNReal.ofReal (d c (μ c) (μ' c)))
     (h : ∃ b, μ b < γ) :
-    ((anyLowArmTask ν id γ).restrict
-        {μ' | ∀ c, μ' c ∈ (ρ c).expFamilyMeans (T c)}).oracleAnswers μ =
-      some '' {a | ∀ b, (ρ b).expFamilyDiv (T b) (μ b) (max (μ b) γ) ≤
-        (ρ a).expFamilyDiv (T a) (μ a) (max (μ a) γ)} := by
-  have hnn (a : α) : 0 ≤ (ρ a).expFamilyDiv (T a) (μ a) (max (μ a) γ) := by
+    ((anyLowArmTask ν id γ).restrict {μ' | ∀ c, μ' c ∈ S c}).oracleAnswers μ =
+      some '' {a | ∀ b, d b (μ b) (max (μ b) γ) ≤
+        d a (μ a) (max (μ a) γ)} := by
+  have hnn (a : α) : 0 ≤ d a (μ a) (max (μ a) γ) := by
     rcases max_choice (μ a) γ with h' | h' <;> rw [h']
-    exacts [expFamilyDiv_nonneg (hμ a) (hμ a), expFamilyDiv_nonneg (hμ a) (hγ a)]
-  have hsome := answerValue_anyLowArmTask_restrict_some_of_exists_lt ν hT hγ hμ hν h
+    exacts [(hd a).nonneg (hμ a) (hμ a), (hd a).nonneg (hμ a) (hγ a)]
+  have hsome := answerValue_anyLowArmTask_restrict_some_of_exists_lt ν hd hγ hμ hν h
   have hnone := answerValue_anyLowArmTask_restrict_none_of_exists_lt ν hμ h
   obtain ⟨b, hb⟩ := h
-  have hbpos : 0 < (ρ b).expFamilyDiv (T b) (μ b) (max (μ b) γ) := by
+  have hbpos : 0 < d b (μ b) (max (μ b) γ) := by
     rw [max_eq_right hb.le]
-    exact expFamilyDiv_pos (hμ b) (hγ b) hb.ne
+    exact (hd b).pos (hμ b) (hγ b) hb.ne
   ext i
   cases i with
   | none =>
@@ -399,102 +397,127 @@ theorem oracleAnswers_anyLowArmTask_restrict_of_exists_lt
 oracle allocations are the vertices `Pi.single a 1` of the arms `a` maximizing
 `d_a(μ a, max (μ a) γ)`. -/
 theorem oracleAlloc_anyLowArmTask_restrict_of_exists_lt [DecidableEq α]
-    (hT : ∀ a c, ¬ T a =ᵐ[ρ a] fun _ ↦ c)
-    (hγ : ∀ a, γ ∈ (ρ a).expFamilyMeans (T a)) (hμ : ∀ a, μ a ∈ (ρ a).expFamilyMeans (T a))
-    (hν : ∀ μ' : α → ℝ, (∀ c, μ' c ∈ (ρ c).expFamilyMeans (T c)) →
-      ∀ c, klDiv (ν μ c) (ν μ' c) = ENNReal.ofReal ((ρ c).expFamilyDiv (T c) (μ c) (μ' c)))
+    (hd : ∀ a, IsDivergenceOn (d a) (S a))
+    (hγ : ∀ a, γ ∈ S a) (hμ : ∀ a, μ a ∈ S a)
+    (hν : ∀ μ' : α → ℝ, (∀ c, μ' c ∈ S c) →
+      ∀ c, klDiv (ν μ c) (ν μ' c) = ENNReal.ofReal (d c (μ c) (μ' c)))
     (h : ∃ b, μ b < γ) :
-    ((anyLowArmTask ν id γ).restrict
-        {μ' | ∀ c, μ' c ∈ (ρ c).expFamilyMeans (T c)}).oracleAlloc μ =
-      (fun a ↦ Pi.single a 1) '' {a | ∀ b, (ρ b).expFamilyDiv (T b) (μ b) (max (μ b) γ) ≤
-        (ρ a).expFamilyDiv (T a) (μ a) (max (μ a) γ)} := by
+    ((anyLowArmTask ν id γ).restrict {μ' | ∀ c, μ' c ∈ S c}).oracleAlloc μ =
+      (fun a ↦ Pi.single a 1) '' {a | ∀ b, d b (μ b) (max (μ b) γ) ≤
+        d a (μ a) (max (μ a) γ)} := by
   -- A maximizing arm is below `γ`, since the arms above `γ` have value `0`.
-  have hlt {a : α} (ha : ∀ b, (ρ b).expFamilyDiv (T b) (μ b) (max (μ b) γ) ≤
-      (ρ a).expFamilyDiv (T a) (μ a) (max (μ a) γ)) : μ a < γ := by
+  have hlt {a : α} (ha : ∀ b, d b (μ b) (max (μ b) γ) ≤
+      d a (μ a) (max (μ a) γ)) : μ a < γ := by
     obtain ⟨b, hb⟩ := h
     by_contra hge
     have h_le := ha b
-    rw [max_eq_left (not_lt.1 hge), expFamilyDiv_self, max_eq_right hb.le] at h_le
-    exact (expFamilyDiv_pos (hμ b) (hγ b) hb.ne).not_ge h_le
+    rw [max_eq_left (not_lt.1 hge), (hd a).apply_self (hμ a), max_eq_right hb.le] at h_le
+    exact ((hd b).pos (hμ b) (hγ b) hb.ne).not_ge h_le
   ext v
   rw [IdentTask.oracleAlloc_def,
-    oracleAnswers_anyLowArmTask_restrict_of_exists_lt ν hT hγ hμ hν h, Set.biUnion_image]
+    oracleAnswers_anyLowArmTask_restrict_of_exists_lt ν hd hγ hμ hν h, Set.biUnion_image]
   simp only [Set.mem_iUnion, exists_prop, Set.mem_image]
   refine exists_congr fun a ↦ and_congr_right fun ha ↦ ?_
-  rw [optAlloc_anyLowArmTask_restrict_some ν hT hγ hμ hν (hlt ha), Set.mem_singleton_iff, eq_comm]
+  rw [optAlloc_anyLowArmTask_restrict_some ν hd hγ hμ hν (hlt ha), Set.mem_singleton_iff, eq_comm]
 
 /-- **The oracle allocations of Any Low Arm need not be convex** [DK19, Proposition 5]. Under the
 assumptions of `altCost_anyLowArmTask_restrict_some` on the arm laws, if some mean of `μ` is below
 `γ` and two distinct arms `a` and `b` both maximize `d_c(μ c, max (μ c) γ)`, then the oracle
 allocations `w*(μ)` are not convex, while each `w*(μ, ¬i)` is (`IdentTask.convex_optAlloc`). -/
-theorem not_convex_oracleAlloc_anyLowArmTask_restrict (hT : ∀ a c, ¬ T a =ᵐ[ρ a] fun _ ↦ c)
-    (hγ : ∀ a, γ ∈ (ρ a).expFamilyMeans (T a)) (hμ : ∀ a, μ a ∈ (ρ a).expFamilyMeans (T a))
-    (hν : ∀ μ' : α → ℝ, (∀ c, μ' c ∈ (ρ c).expFamilyMeans (T c)) →
-      ∀ c, klDiv (ν μ c) (ν μ' c) = ENNReal.ofReal ((ρ c).expFamilyDiv (T c) (μ c) (μ' c)))
+theorem not_convex_oracleAlloc_anyLowArmTask_restrict (hd : ∀ a, IsDivergenceOn (d a) (S a))
+    (hγ : ∀ a, γ ∈ S a) (hμ : ∀ a, μ a ∈ S a)
+    (hν : ∀ μ' : α → ℝ, (∀ c, μ' c ∈ S c) →
+      ∀ c, klDiv (ν μ c) (ν μ' c) = ENNReal.ofReal (d c (μ c) (μ' c)))
     (h : ∃ b, μ b < γ) {a b : α} (hab : a ≠ b)
-    (ha : ∀ c, (ρ c).expFamilyDiv (T c) (μ c) (max (μ c) γ) ≤
-      (ρ a).expFamilyDiv (T a) (μ a) (max (μ a) γ))
-    (hb : ∀ c, (ρ c).expFamilyDiv (T c) (μ c) (max (μ c) γ) ≤
-      (ρ b).expFamilyDiv (T b) (μ b) (max (μ b) γ)) :
-    ¬ Convex ℝ (((anyLowArmTask ν id γ).restrict
-        {μ' | ∀ c, μ' c ∈ (ρ c).expFamilyMeans (T c)}).oracleAlloc μ) := by
+    (ha : ∀ c, d c (μ c) (max (μ c) γ) ≤
+      d a (μ a) (max (μ a) γ))
+    (hb : ∀ c, d c (μ c) (max (μ c) γ) ≤
+      d b (μ b) (max (μ b) γ)) :
+    ¬ Convex ℝ (((anyLowArmTask ν id γ).restrict {μ' | ∀ c, μ' c ∈ S c}).oracleAlloc μ) := by
   classical
-  rw [oracleAlloc_anyLowArmTask_restrict_of_exists_lt ν hT hγ hμ hν h]
+  rw [oracleAlloc_anyLowArmTask_restrict_of_exists_lt ν hd hγ hμ hν h]
   exact not_convex_image_single ha hb hab
 
 /-! ### Gaussian arms -/
 
-variable [MeasurableSingletonClass α] {σ2 : ℝ≥0}
+section Gaussian
 
-/-- **The oracle allocations of Gaussian Any Low Arm** [DK19, Example 1]. For Gaussian arms with a
-common variance `σ2 ≠ 0` and a vector of means `μ` whose smallest mean `μ a₀` is below `γ`, the
-oracle allocations are the vertices `Pi.single a 1` of the arms `a` of smallest mean. -/
-theorem oracleAlloc_anyLowArmTask_gaussianBandit [DecidableEq α] (hσ2 : σ2 ≠ 0) {a₀ : α}
-    (ha₀ : ∀ a, μ a₀ ≤ μ a) (hγ : μ a₀ < γ) :
+variable {ν : (α → ℝ) → Kernel α ℝ} [∀ μ, IsMarkovKernel (ν μ)] {v : α → ℝ≥0}
+
+/-- **The oracle allocations of Gaussian Any Low Arm** [DK19, Example 1]. For Gaussian arms with
+variances `v a ≠ 0` and a vector of means `μ` with some mean below `γ`, the oracle allocations are
+the vertices `Pi.single a 1` of the arms `a` below `γ` that maximize `(μ a - γ)² / v a` among the
+arms below `γ`. -/
+theorem oracleAlloc_anyLowArmTask_gaussianReal [DecidableEq α] (hv : ∀ a, v a ≠ 0)
+    (hν : ∀ μ a, ν μ a = gaussianReal (μ a) (v a)) (h : ∃ b, μ b < γ) :
+    (anyLowArmTask ν id γ).oracleAlloc μ = (fun a ↦ Pi.single a 1) ''
+      {a | μ a < γ ∧ ∀ b, μ b < γ → (μ b - γ) ^ 2 / v b ≤ (μ a - γ) ^ 2 / v a} := by
+  rw [← (anyLowArmTask ν id γ).restrict_univ,
+    ← setOf_forall_mem_expFamilyMeans_gaussianReal 0 hv,
+    oracleAlloc_anyLowArmTask_restrict_of_exists_lt
+      (S := fun a ↦ (gaussianReal 0 (v a)).expFamilyMeans id) _
+      (fun a ↦ isDivergenceOn_expFamilyDiv (not_ae_eq_const_gaussianReal 0 (hv a)))
+      (fun a ↦ mem_expFamilyMeans_gaussianReal 0 (hv a) _)
+      (fun a ↦ mem_expFamilyMeans_gaussianReal 0 (hv a) _)
+      (fun μ' _ ↦ Bandits.klDiv_eq_ofReal_expFamilyDiv_gaussianReal hv hν μ μ') h]
+  congr 1
+  obtain ⟨b₀, hb₀⟩ := h
+  ext a
+  simp only [Set.mem_ofPred_eq]
+  constructor
+  · intro ha
+    -- A maximizing arm is below `γ`, since the arms above `γ` have divergence `0`.
+    have hlt : μ a < γ := by
+      by_contra hge
+      have h_le := ha b₀
+      rw [max_eq_left (not_lt.1 hge), Measure.expFamilyDiv_self] at h_le
+      linarith [expFamilyDiv_gaussianReal_max_pos (hv b₀) hb₀]
+    refine ⟨hlt, fun b hb ↦ ?_⟩
+    have h_le := ha b
+    rw [expFamilyDiv_gaussianReal_max_of_lt (hv b) hb,
+      expFamilyDiv_gaussianReal_max_of_lt (hv a) hlt] at h_le
+    linarith
+  · rintro ⟨hlt, ha⟩ b
+    rw [expFamilyDiv_gaussianReal_max_of_lt (hv a) hlt]
+    rcases lt_or_ge (μ b) γ with hb | hb
+    · rw [expFamilyDiv_gaussianReal_max_of_lt (hv b) hb]
+      linarith [ha b hb]
+    · rw [max_eq_left hb, Measure.expFamilyDiv_self]
+      positivity
+
+/-- **The oracle allocations of Gaussian Any Low Arm with a common variance** [DK19, Example 1].
+For Gaussian arms with a common variance `σ2 ≠ 0` and a vector of means `μ` whose smallest mean
+`μ a₀` is below `γ`, the oracle allocations are the vertices `Pi.single a 1` of the arms `a` of
+smallest mean. -/
+theorem oracleAlloc_anyLowArmTask_gaussianBandit [MeasurableSingletonClass α] [DecidableEq α]
+    {σ2 : ℝ≥0} (hσ2 : σ2 ≠ 0) {a₀ : α} (ha₀ : ∀ a, μ a₀ ≤ μ a) (hγ : μ a₀ < γ) :
     (anyLowArmTask (Bandits.gaussianBandit · σ2) id γ).oracleAlloc μ =
       (fun a ↦ Pi.single a 1) '' {a | μ a = μ a₀} := by
-  rw [← (anyLowArmTask (Bandits.gaussianBandit · σ2) id γ).restrict_univ,
-    ← setOf_forall_mem_expFamilyMeans_gaussianReal 0 hσ2,
-    oracleAlloc_anyLowArmTask_restrict_of_exists_lt (ρ := fun _ ↦ gaussianReal 0 σ2)
-      (T := fun _ ↦ id) _
-      (fun _ ↦ not_ae_eq_const_gaussianReal 0 hσ2)
-      (fun _ ↦ mem_expFamilyMeans_gaussianReal 0 hσ2 _)
-      (fun _ ↦ mem_expFamilyMeans_gaussianReal 0 hσ2 _)
-      (fun μ' _ ↦ Bandits.klDiv_gaussianBandit_eq_ofReal_expFamilyDiv hσ2 μ μ') ⟨a₀, hγ⟩]
-  simp only [expFamilyDiv_gaussianReal 0 hσ2]
+  rw [oracleAlloc_anyLowArmTask_gaussianReal (v := fun _ ↦ σ2) (fun _ ↦ hσ2)
+    (Bandits.gaussianBandit_apply · σ2) ⟨a₀, hγ⟩]
   congr 1
-  -- The arms maximizing `(μ a - max (μ a) γ)² / (2 σ2)` are those of smallest mean.
-  have hσ2' : 0 < 2 * (σ2 : ℝ) := by
-    have := NNReal.coe_pos.2 (pos_iff_ne_zero.2 hσ2)
-    positivity
+  -- The arms below `γ` farthest from `γ` are those of smallest mean.
+  have hσ2' : 0 < (σ2 : ℝ) := NNReal.coe_pos.2 (pos_iff_ne_zero.2 hσ2)
   ext a
   simp only [Set.mem_ofPred_eq, div_le_div_iff_of_pos_right hσ2']
   constructor
+  · rintro ⟨hlt, ha⟩
+    nlinarith [ha a₀ hγ, ha₀ a]
   · intro ha
-    have h_le := ha a₀
-    rw [max_eq_right hγ.le] at h_le
-    rcases le_or_gt γ (μ a) with h | h
-    · rw [max_eq_left h, sub_self] at h_le
-      nlinarith [mul_pos (sub_pos.2 hγ) (sub_pos.2 hγ)]
-    · rw [max_eq_right h.le] at h_le
-      nlinarith [ha₀ a]
-  · intro ha b
-    rw [ha, max_eq_right hγ.le]
-    rcases le_total (μ b) γ with h | h
-    · rw [max_eq_right h]
-      nlinarith [ha₀ b]
-    · rw [max_eq_left h, sub_self]
-      simpa using sq_nonneg (μ a₀ - γ)
+    exact ⟨ha ▸ hγ, fun b _ ↦ by nlinarith [ha₀ b]⟩
 
 /-- **A model of Gaussian Any Low Arm with non-convex oracle allocations** [DK19, Proposition 5].
 For Gaussian arms with a common variance `σ2 ≠ 0`, if two distinct arms `a` and `b` share the
 smallest mean `μ a = μ b < γ`, then the oracle allocations `w*(μ)`, which contain the vertices
 `Pi.single a 1` and `Pi.single b 1` but not their midpoint, are not convex. -/
-theorem not_convex_oracleAlloc_anyLowArmTask_gaussianBandit (hσ2 : σ2 ≠ 0) {a b : α}
+theorem not_convex_oracleAlloc_anyLowArmTask_gaussianBandit [MeasurableSingletonClass α]
+    {σ2 : ℝ≥0} (hσ2 : σ2 ≠ 0) {a b : α}
     (hab : a ≠ b) (hμab : μ a = μ b) (ha : ∀ c, μ a ≤ μ c) (hγ : μ a < γ) :
     ¬ Convex ℝ ((anyLowArmTask (Bandits.gaussianBandit · σ2) id γ).oracleAlloc μ) := by
   classical
   rw [oracleAlloc_anyLowArmTask_gaussianBandit hσ2 ha hγ]
   exact not_convex_image_single (s := {c | μ c = μ a}) rfl hμab.symm hab
+
+end Gaussian
 
 end LMLExplore.Identification

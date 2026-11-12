@@ -22,7 +22,7 @@ problem to online linear optimization with full information: they run mirror des
 estimates `Y t` of the losses, producing plays `a t`, and at round `t` sample the action `A t`
 from a distribution with mean `a t`. If the estimates are unbiased, the expected regret is the
 expected regret of the full-information algorithm on the estimated losses, so that the bounds of
-`LMLExplore.OnlineLearning.MirrorDescent` and `LMLExplore.OnlineLearning.FTRL` transfer in
+`LMLExplore.OnlineLearning.MirrorDescent` and `LMLExplore.OnlineLearning.FTRL.Basic` transfer in
 expectation [LS, Theorem 28.10].
 
 The probabilistic conditions are stated round by round, relative to a σ-algebra `m t` describing

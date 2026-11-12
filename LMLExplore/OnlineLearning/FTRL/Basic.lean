@@ -7,6 +7,7 @@ module
 
 public import LMLExplore.Analysis.Convex.Bregman.Euclidean
 public import LMLExplore.Analysis.Convex.Bregman.StrongConvex
+public import LMLExplore.OnlineLearning.FTRL.Equality
 public import Mathlib.Analysis.Calculus.LocalExtr.Basic
 public import Mathlib.Topology.Order.Compact
 
@@ -33,6 +34,10 @@ potential measures the losses in the operator norm, the dual norm of the norm of
 norm of `E` chooses the pair of dual norms; for example `PiLp 1 (fun _ : α ↦ ℝ)` carries the `ℓ¹`
 norm, whose dual norm is the sup norm.
 
+The regret analysis of FTRL rests on the FTRL equality of
+`LMLExplore.OnlineLearning.FTRL.Equality`, which needs no structure at all
+[Ora, Lemma 7.1]. The bounds for linear losses on a normed space below are derived from it.
+
 ## Main definitions
 
 * `IsFTRLPlay K F η y t x`: `x` is a play of FTRL on `K` at round `t`, with potential `F`,
@@ -40,10 +45,10 @@ norm, whose dual norm is the sup norm.
 
 ## Main statements
 
-* `sum_apply_sub_le_ftrl`: the **FTRL lemma** [Ora, Lemma 7.1], for regularizers that may change
-  over the rounds: the regret is at most `ψ n u - ψ 0 (a 0)` plus the sum of the stability terms
-  `y t (a t) - (m (t + 1) - m t)`, where `m t` is the value of the objective of round `t` at its
-  play.
+* `sum_apply_sub_le_ftrl`: the **FTRL lemma** for linear losses on a normed space, for
+  regularizers that may change over the rounds: the regret is at most `ψ n u - ψ 0 (a 0)` plus
+  the sum of the stability terms `y t (a t) - (m (t + 1) - m t)`, where `m t` is the value of the
+  objective of round `t` at its play.
 * `ftrl_regret_le_of_monotone`: for a convex `K` and regularizers `ψ t` nondecreasing in `t` on
   `K`, with derivatives `ψ' t` within `K` at the plays, the regret is at most
   `ψ n u - ψ 0 (a 0) + ∑ t < n, (y t (a t - a (t + 1)) - D_{ψ t}(a (t + 1), a t))`, with `D_ψ`
@@ -79,8 +84,10 @@ norm, whose dual norm is the sup norm.
 
 ## Implementation notes
 
-The FTRL lemma and its telescoping proof are adapted from the LMLPapers project (same author),
-where they are stated for gains on the probability simplex; here they hold for losses on any set.
+The FTRL lemma is adapted from the LMLPapers project (same author), where it is stated for gains
+on the probability simplex. Its telescoping proof, also adapted from there, now proves the FTRL
+equality for losses on any type, in `LMLExplore.OnlineLearning.FTRL.Equality`; this file states
+the case of linear losses on a subset `K` of a real normed space `E`.
 
 ## References
 
@@ -109,7 +116,8 @@ structure IsFTRLPlay (K : Set E) (F : E → ℝ) (η : ℝ) (y : ℕ → E →L[
   /-- The play minimizes the FTRL objective of round `t` over `K`. -/
   isMinOn : IsMinOn (fun b ↦ η * ∑ s ∈ range t, y s b + F b) K x
 
-/-- **FTRL lemma** [Ora, Lemma 7.1]. Let the point `a n` of round `n` do at least as well as `u`
+/-- **FTRL lemma for linear losses** [Ora, Lemma 7.1], the case of `regret_le_ftrl` for linear
+losses on a normed space. Let the point `a n` of round `n` do at least as well as `u`
 on the objective `b ↦ ∑ s < n, y s b + ψ n b`, for instance a minimizer of it over a set containing
 `u`. Then the regret against `u` after `n` rounds is at most `ψ n u - ψ 0 (a 0)` plus the sum over
 the rounds of the stability terms `y t (a t) - (m (t + 1) - m t)`, where
@@ -119,12 +127,10 @@ theorem sum_apply_sub_le_ftrl (ψ : ℕ → E → ℝ) (y : ℕ → E →L[ℝ] 
     ∑ t ∈ range n, y t (a t - u) ≤ ψ n u - ψ 0 (a 0) + ∑ t ∈ range n, (y t (a t) -
       ((∑ s ∈ range (t + 1), y s (a (t + 1)) + ψ (t + 1) (a (t + 1))) -
         (∑ s ∈ range t, y s (a t) + ψ t (a t)))) := by
-  -- the values of the objectives at the plays telescope, and `a n` beats `u` at round `n`
-  have h_tele := sum_range_sub (fun t ↦ ∑ s ∈ range t, y s (a t) + ψ t (a t)) n
-  simp only [range_zero, sum_empty, zero_add] at h_tele
-  rw [sum_sub_distrib, h_tele]
-  simp only [map_sub, sum_sub_distrib]
-  linarith
+  have h := regret_le_ftrl ψ (fun t ↦ y t) a a (u := u) (by linarith)
+  rw [regret_eq_sum_apply_sub] at h
+  refine h.trans_eq (congrArg (_ + ·) (sum_congr rfl fun t _ ↦ ?_))
+  ring
 
 /-- Let `a` minimize over `K` the function `c ↦ L c + F c`, where `L` is a continuous linear
 functional and `F` has derivative `F'` within `K` at `a`. If the segment from `a` to `b` lies in

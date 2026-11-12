@@ -55,8 +55,14 @@ this way.
 
 * `hasLaw_rewardByCount_streamMeasure`: the rewards by count of all arms, arranged as a reward
   stream, have the law `streamMeasure ν` of the stream model.
-* `iIndepFun_arm_streamMeasure`: in the stream model, the reward sequences of the arms are
-  independent.
+* `hasLaw_arm_streamMeasure`: in the stream model, the array of the reward sequences of the arms
+  has law `⨂ a, ⨂ i, ν a`, and `iIndepFun_arm_streamMeasure`: these sequences are independent.
+* `hasLaw_arm_fin_streamMeasure`: in the stream model, the first `n` rewards of an arm `a` are `n`
+  independent samples of `ν a`, and `hasLaw_pi_arm_fin_streamMeasure`: for finitely many arms,
+  the first `n a` rewards of the arms `a` are independent across the arms.
+* `streamMeasure_forall_mean_mem`: in the stream model, the empirical means of the first `n a`
+  rewards of the arms `a` are independent, with the laws of the empirical means of `n a`
+  independent samples of `ν a`.
 * `armObs`: the observations of an arm before a round, in the order of the pulls;
   `armObs_eq_rewardByCount` relates them to LML's rewards by count, and `sum_armObs` to the sum of
   rewards.
@@ -77,6 +83,11 @@ this way.
   `measure_exists_pullCount_sumRewards_le` and `measure_exists_lt_pullCount_sumRewards_le`: the
   event transfers for properties of the numbers of pulls and the sums of rewards.
 * `empMean_mem_Icc`: rewards in `[l, u]` give empirical means in `[l, u]`.
+* `sum_ite_mul_add_one_sub_mul`: the sum over the pulls of an arm of an affine function
+  `R x + (1 - R) y` of the reward is `S x + (N - S) y`, with `S` the sum of the rewards and `N` the
+  number of pulls.
+* `exists_sumRewards_eq_natCast`: with rewards in `{0, 1}`, the sum of the rewards is a natural
+  number at most the number of pulls.
 * `sumRewards_le_mul_or_mul_le_sumRewards_of_empMean_notMem_Ioo`: an empirical mean outside
   `(l, u)` is an event `y ≤ s l ∨ s u ≤ y` about the number of pulls `s` and the sum of rewards
   `y`, the form to which the event transfers apply.
@@ -92,6 +103,15 @@ this way.
 * `ae_tendsto_empMean_of_tendsto_pullCount`: the strong law of large numbers for the empirical
   means of a run: almost surely, the empirical mean of every arm whose number of pulls tends to
   infinity converges to the mean of its law.
+* `ae_empMean_mem`: almost surely, the empirical mean of every arm that has been pulled lies in any
+  convex set on which the law of the arm is concentrated.
+
+The laws of the stream model and the independence of the empirical means across the arms are what
+the large deviations of the vector of empirical means under static allocations [D23, Theorem 12]
+rest on: an event about the empirical means of a run is an event about the means of the first
+`N_{T,a}` rewards of the arms in the stream model. Convex sets carrying the laws of the arms, such
+as the closures of the intervals of means of exponential families, confine the empirical means of
+a run in the error exponent of static allocations [D23, Theorem 1].
 
 ## Implementation notes
 
@@ -109,10 +129,17 @@ The strong law for the empirical means applies Mathlib's `strong_law_ae_real` to
 rewards by count of an arm on the same product space, and the almost sure event depends on the run
 only, by `Measure.ae_ae_of_ae_prod`.
 The statement and proof of the strong law for the empirical means are adapted from the
-formalization in the paper project RemyDegenne/Garivier2016Optimal (same author).
+formalization in the paper project RemyDegenne/Garivier2016Optimal (same author). The law of the
+reward sequences of the arms in the stream model and the product formula for the means of their
+first rewards are adapted from the stream-model lemmas of the formalization in the paper project
+RemyDegenne/Degenne2023Existence (same author); the laws of the first rewards of the arms are new
+here. The source states `ae_empMean_mem` in LML's array model, for `trajMeasure` and with
+measurable `C a`; here it holds for every `IsAlgEnvSeq` against the bandit.
 
 ## References
 
+* [D23] R. Degenne, *On the existence of a complexity in fixed budget bandit identification*,
+  COLT 2023, arXiv:2303.09468v2.
 * [LS] T. Lattimore and Cs. Szepesvári, *Bandit Algorithms*, Cambridge University Press, 2020.
 -/
 
@@ -165,6 +192,38 @@ lemma empMean_mem_Icc {a : α} {t : ℕ} {ω : Ω} {l u : ℝ} (hR : ∀ s < t, 
   constructor
   · simpa [pullCount, mul_comm] using card_nsmul_le_sum _ (fun s ↦ R s ω) l fun s hs ↦ (hR' s hs).1
   · simpa [pullCount, mul_comm] using sum_le_card_nsmul _ (fun s ↦ R s ω) u fun s hs ↦ (hR' s hs).2
+
+/-- The sum over the pulls of an arm `a` of a function `R x + (1 - R) y` of the reward `R`, which is
+affine in the reward, is `S_a(n) x + (N_a(n) - S_a(n)) y`, where `S_a(n)` is the sum of the rewards
+of `a` and `N_a(n)` its number of pulls. For Bernoulli rewards and `x = log (q / p)`,
+`y = log ((1 - q) / (1 - p))`, it is the log-likelihood ratio of the rewards of `a` under the mean
+`q` against the mean `p`. -/
+lemma sum_ite_mul_add_one_sub_mul (a : α) (n : ℕ) (ω : Ω) (x y : ℝ) :
+    ∑ k ∈ range n, (if A k ω = a then R k ω * x + (1 - R k ω) * y else 0) =
+      sumRewards A R a n ω * x + (pullCount A a n ω - sumRewards A R a n ω) * y := by
+  have h : ∀ k ∈ range n, (if A k ω = a then R k ω * x + (1 - R k ω) * y else 0) =
+      (if A k ω = a then R k ω else 0) * x +
+        ((if A k ω = a then (1 : ℝ) else 0) - (if A k ω = a then R k ω else 0)) * y := by
+    intro k _
+    split_ifs <;> ring
+  rw [sum_congr rfl h, sum_add_distrib, ← sum_mul, ← sum_mul, sum_sub_distrib, sumRewards,
+    pullCount, natCast_card_filter]
+
+/-- With rewards in `{0, 1}`, the sum of the rewards of an arm is a natural number, at most its
+number of pulls. -/
+lemma exists_sumRewards_eq_natCast {ω : Ω} (a : α) (n : ℕ)
+    (hω : ∀ k < n, R k ω ∈ ({0, 1} : Set ℝ)) :
+    ∃ j ≤ pullCount A a n ω, sumRewards A R a n ω = j := by
+  classical
+  refine ⟨#(filter (fun k ↦ A k ω = a ∧ R k ω = 1) (range n)), ?_, ?_⟩
+  · exact card_le_card fun k hk ↦ by
+      simp only [mem_filter] at hk ⊢
+      exact ⟨hk.1, hk.2.1⟩
+  · rw [sumRewards, natCast_card_filter]
+    refine sum_congr rfl fun k hkn ↦ ?_
+    have hk01 := hω k (mem_range.1 hkn)
+    simp only [Set.mem_insert_iff, Set.mem_singleton_iff] at hk01
+    rcases hk01 with h | h <;> by_cases hk : A k ω = a <;> simp [hk, h]
 
 /-- The observations of arm `a` before round `t`, in the order of the pulls: the entry `i` is the
 feedback `Y` at the round `stepsUntil A a (i + 1) ω < t` of the `(i + 1)`-th pull of `a`. -/
@@ -231,11 +290,13 @@ lemma hasLaw_rewardByCount_streamMeasure (h : IsAlgEnvSeq O A R alg (Environment
   exact h_eq ▸ (hasLaw_map h_toStream.aemeasurable).comp (hasLaw_rewardByCount_infinitePi h)
 
 omit [DecidableEq α] [Countable α] [MeasurableSingletonClass α] in
-/-- In LML's reward stream model, the reward sequences `(ω i a)_i` of the arms `a` are
-independent. -/
-theorem iIndepFun_arm_streamMeasure {𝓡 : Type*} [MeasurableSpace 𝓡] (ν : Kernel α 𝓡)
+/-- In LML's reward stream model, the array `a ↦ (ω i a)_i` of the reward sequences of the arms has
+the law `⨂ a, ⨂ i, ν a`: the reward sequences of the arms are independent, and the one of arm `a`
+is an i.i.d. sequence with law `ν a`. -/
+theorem hasLaw_arm_streamMeasure {𝓡 : Type*} [MeasurableSpace 𝓡] (ν : Kernel α 𝓡)
     [IsMarkovKernel ν] :
-    iIndepFun (fun a (ω : ℕ → α → 𝓡) i ↦ ω i a) (streamMeasure ν) := by
+    HasLaw (fun (ω : ℕ → α → 𝓡) a i ↦ ω i a)
+      (Measure.infinitePi fun a : α ↦ Measure.infinitePi fun _ : ℕ ↦ ν a) (streamMeasure ν) := by
   -- the entries `ω i a`, indexed by `(a, i) : Σ _ : α, ℕ`, are independent with laws `ν a`
   have he : Function.Injective fun p : (_ : α) × ℕ ↦ (p.2, p.1) := by
     rintro ⟨a, i⟩ ⟨b, j⟩ ⟨⟩
@@ -246,18 +307,70 @@ theorem iIndepFun_arm_streamMeasure {𝓡 : Type*} [MeasurableSpace 𝓡] (ν : 
       (fun p ↦ hasLaw_eval_eval_streamMeasure ν p.2 p.1)
       (Measurable.of_eval fun p ↦
         (measurable_pi_apply p.1).comp (measurable_pi_apply p.2)).aemeasurable
-  -- so the array of the reward sequences of the arms has law `⨂ a, ⨂ i, ν a`
-  have h_arms : HasLaw (fun (ω : ℕ → α → 𝓡) a i ↦ ω i a)
-      (Measure.infinitePi fun a : α ↦ Measure.infinitePi fun _ : ℕ ↦ ν a) (streamMeasure ν) := by
-    have h := (hasLaw_map (P := Measure.infinitePi fun p : (_ : α) × ℕ ↦ ν p.1)
-      (MeasurableEquiv.piCurry fun (_ : α) (_ : ℕ) ↦ 𝓡).measurable.aemeasurable).comp h_entries
-    -- `Sigma.curry` arranges the entries indexed by `Σ _ : α, ℕ` as the array of the arms
-    rwa [Measure.infinitePi_map_piCurry (μ := fun a (_ : ℕ) ↦ ν a), MeasurableEquiv.coe_piCurry,
-      Function.comp_def] at h
+  have h := (hasLaw_map (P := Measure.infinitePi fun p : (_ : α) × ℕ ↦ ν p.1)
+    (MeasurableEquiv.piCurry fun (_ : α) (_ : ℕ) ↦ 𝓡).measurable.aemeasurable).comp h_entries
+  -- `Sigma.curry` arranges the entries indexed by `Σ _ : α, ℕ` as the array of the arms
+  rwa [Measure.infinitePi_map_piCurry (μ := fun a (_ : ℕ) ↦ ν a), MeasurableEquiv.coe_piCurry,
+    Function.comp_def] at h
+
+omit [DecidableEq α] [Countable α] [MeasurableSingletonClass α] in
+/-- In LML's reward stream model, the reward sequences `(ω i a)_i` of the arms `a` are
+independent. -/
+theorem iIndepFun_arm_streamMeasure {𝓡 : Type*} [MeasurableSpace 𝓡] (ν : Kernel α 𝓡)
+    [IsMarkovKernel ν] :
+    iIndepFun (fun a (ω : ℕ → α → 𝓡) i ↦ ω i a) (streamMeasure ν) := by
+  have h_arms := hasLaw_arm_streamMeasure ν
   rw [iIndepFun_iff_map_fun_eq_infinitePi_map fun a ↦ by fun_prop, h_arms.map_eq]
   congr 1
   ext a : 1
   rw [← (hasLaw_eval_infinitePi _ a).comp h_arms |>.map_eq, Function.comp_def]
+
+omit [DecidableEq α] [Countable α] [MeasurableSingletonClass α] in
+/-- In LML's reward stream model, the first `n` rewards `(ω i a)_{i < n}` of arm `a` are `n`
+independent samples of `ν a`. -/
+theorem hasLaw_arm_fin_streamMeasure {𝓡 : Type*} [MeasurableSpace 𝓡] (ν : Kernel α 𝓡)
+    [IsMarkovKernel ν] (a : α) (n : ℕ) :
+    HasLaw (fun (ω : ℕ → α → 𝓡) (i : Fin n) ↦ ω i a) (Measure.pi fun _ : Fin n ↦ ν a)
+      (streamMeasure ν) := by
+  -- the first `n` terms of an i.i.d. sequence are `n` independent samples
+  have h_fin : HasLaw (fun (z : ℕ → 𝓡) (i : Fin n) ↦ z i) (Measure.pi fun _ : Fin n ↦ ν a)
+      (Measure.infinitePi fun _ : ℕ ↦ ν a) :=
+    ⟨(Measurable.of_eval fun i : Fin n ↦ measurable_pi_apply (i : ℕ)).aemeasurable, by
+      rw [Measure.map_infinitePi_infinitePi_of_inj Fin.val_injective, Measure.infinitePi_eq_pi]⟩
+  exact h_fin.comp ((hasLaw_eval_infinitePi _ a).comp (hasLaw_arm_streamMeasure ν))
+
+omit [DecidableEq α] [Countable α] [MeasurableSingletonClass α] in
+/-- In LML's reward stream model, for finitely many arms, the first `n a` rewards of the arms `a`
+are independent families of `n a` independent samples of `ν a`. -/
+theorem hasLaw_pi_arm_fin_streamMeasure [Fintype α] {𝓡 : Type*} [MeasurableSpace 𝓡]
+    (ν : Kernel α 𝓡) [IsMarkovKernel ν] (n : α → ℕ) :
+    HasLaw (fun (ω : ℕ → α → 𝓡) a (i : Fin (n a)) ↦ ω i a)
+      (Measure.pi fun a ↦ Measure.pi fun _ : Fin (n a) ↦ ν a) (streamMeasure ν) :=
+  ((iIndepFun_arm_streamMeasure ν).comp (fun a (z : ℕ → 𝓡) (i : Fin (n a)) ↦ z i)
+    fun _ ↦ by fun_prop).hasLaw_pi fun a ↦ hasLaw_arm_fin_streamMeasure ν a (n a)
+
+omit [DecidableEq α] [Countable α] [MeasurableSingletonClass α] in
+/-- **Independence of the empirical means across the arms in the stream model.** For finitely many
+arms and numbers of samples `n a`, the empirical means of the first `n a` rewards of the arms `a`
+in LML's reward stream model are independent, and the one of arm `a` has the law of the empirical
+mean of `n a` independent samples of `ν a`. -/
+theorem streamMeasure_forall_mean_mem [Fintype α] (n : α → ℕ) {B : α → Set ℝ}
+    (hB : ∀ a, MeasurableSet (B a)) :
+    streamMeasure ν {ω | ∀ a, (∑ i ∈ range (n a), ω i a) / n a ∈ B a} =
+      ∏ a, (Measure.pi fun _ : Fin (n a) ↦ ν a).map
+        (fun z : Fin (n a) → ℝ ↦ (∑ i, z i) / n a) (B a) := by
+  have hmean (a : α) : Measurable fun z : Fin (n a) → ℝ ↦ (∑ i, z i) / n a := by fun_prop
+  have hX := hasLaw_pi_arm_fin_streamMeasure ν n
+  -- the event is a box for the first `n a` rewards of the arms
+  have h_set : {ω : ℕ → α → ℝ | ∀ a, (∑ i ∈ range (n a), ω i a) / n a ∈ B a} =
+      (fun ω a (i : Fin (n a)) ↦ ω i a) ⁻¹'
+        Set.univ.pi fun a ↦ (fun z : Fin (n a) → ℝ ↦ (∑ i, z i) / n a) ⁻¹' B a := by
+    ext ω
+    simp only [Set.mem_ofPred_eq, Set.mem_preimage, Set.mem_univ_pi]
+    exact forall_congr' fun a ↦ by rw [Fin.sum_univ_eq_sum_range (fun i ↦ ω i a)]
+  rw [h_set, ← Measure.map_apply (by fun_prop) (.univ_pi fun a ↦ hmean a (hB a)), hX.map_eq,
+    Measure.pi_pi]
+  exact prod_congr rfl fun a _ ↦ (Measure.map_apply (hmean a) (hB a)).symm
 
 /-- **Counting transfer of the observations to the reward stream, weighted form.** In a run of any
 algorithm against the stochastic bandit `Environment.bandit ν`, for measurable functions
@@ -606,5 +719,27 @@ theorem ae_tendsto_empMean_of_tendsto_pullCount
   obtain ⟨y, hy⟩ := hω.exists
   refine (hy.comp hN).congr fun t ↦ ?_
   rw [Function.comp_apply, empMean, sumRewards_eq_sum_range_rewardByCount a t (ω, y)]
+
+/-- **The empirical means stay in convex sets carrying the laws of the arms.** In a run of any
+algorithm against the stochastic bandit `Environment.bandit ν`, if the law `ν a` of each arm is
+concentrated on a convex set `C a`, then almost surely, at every round, the empirical mean of every
+arm that has been pulled lies in `C a`. -/
+theorem ae_empMean_mem (h : IsAlgEnvSeq O A R alg (Environment.bandit ν) P) {C : α → Set ℝ}
+    (hC : ∀ a, Convex ℝ (C a)) (hν : ∀ a, ∀ᵐ x ∂(ν a), x ∈ C a) :
+    ∀ᵐ ω ∂P, ∀ a t, pullCount A a t ω ≠ 0 → empMean A R a t ω ∈ C a := by
+  -- under `P.prod (streamMeasure ν)`, all the rewards by count of an arm lie in its convex set
+  have h_rbc : ∀ᵐ ω ∂(P.prod (streamMeasure ν)), ∀ a m, rewardByCount A R a (m + 1) ω ∈ C a := by
+    refine ae_all_iff.2 fun a ↦ ae_all_iff.2 fun m ↦ ?_
+    have hX := hasLaw_rewardByCount_add_one h a m
+    exact ae_of_ae_map hX.aemeasurable (hX.map_eq ▸ hν a)
+  -- the empirical mean is an average of rewards by count, and the event depends only on the run
+  filter_upwards [Measure.ae_ae_of_ae_prod h_rbc] with ω hω a t ht
+  obtain ⟨y, hy⟩ := hω.exists
+  have hN : (pullCount A a t ω : ℝ) ≠ 0 := Nat.cast_ne_zero.2 ht
+  have h_avg := (hC a).sum_mem (t := range (pullCount A a t ω))
+    (w := fun _ ↦ (pullCount A a t ω : ℝ)⁻¹) (z := fun i ↦ rewardByCount A R a (i + 1) (ω, y))
+    (fun _ _ ↦ by positivity) (by simp [hN]) fun i _ ↦ hy a i
+  rw [empMean, sumRewards_eq_sum_range_rewardByCount a t (ω, y), div_eq_inv_mul, mul_sum]
+  simpa using h_avg
 
 end LMLExplore

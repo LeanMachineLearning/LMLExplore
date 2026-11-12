@@ -39,6 +39,8 @@ answer is not correct".
 * `IdentTask.alt task i`: the alternatives `¬i` to the answer `i`, the admissible models for which
   `i` is not correct.
 * `IdentTask.answerSet task i`: the admissible models for which `i` is correct.
+* `IdentTask.alternatives task θ`: the admissible models without a common correct answer with
+  `θ`.
 * `IdentTask.IsSingleAnswer task`: every admissible model has exactly one correct answer.
 * `IdentTask.restrict task S`: the task with admissible models `task.M ∩ S`.
 * `IdentTask.comap task f`: the pullback of `task` along a map `f : Θ' → Θ` of models, with
@@ -143,6 +145,24 @@ lemma disjoint_alt_answerSet (i : ℐ) : Disjoint (task.alt i) (task.answerSet i
 lemma alt_union_answerSet (i : ℐ) : task.alt i ∪ task.answerSet i = task.M := by
   rw [← M_diff_answerSet, Set.sdiff_union_of_subset (task.answerSet_subset_M i)]
 
+/-- The alternatives to the model `θ`: the admissible models that have no correct answer in common
+with `θ`. For a model with the single correct answer `i`, they are the alternatives `task.alt i`
+to `i` (`alternatives_eq_alt`). -/
+def alternatives (θ : Θ) : Set Θ :=
+  {θ' | θ' ∈ task.M ∧ Disjoint (task.correct θ) (task.correct θ')}
+
+@[simp]
+lemma mem_alternatives_iff {θ' : Θ} :
+    θ' ∈ task.alternatives θ ↔ θ' ∈ task.M ∧ Disjoint (task.correct θ) (task.correct θ') :=
+  Iff.rfl
+
+lemma alternatives_subset_M (θ : Θ) : task.alternatives θ ⊆ task.M := fun _ h ↦ h.1
+
+/-- The alternatives to a model with the single correct answer `i` are the alternatives to `i`. -/
+lemma alternatives_eq_alt (h : task.correct θ = {i}) : task.alternatives θ = task.alt i := by
+  ext θ'
+  rw [mem_alternatives_iff, mem_alt_iff, h, Set.disjoint_singleton_left]
+
 /-! ### Single-answer tasks -/
 
 /-- A *single-answer* task: every admissible model has exactly one correct answer. -/
@@ -214,6 +234,13 @@ lemma alt_restrict (i : ℐ) : (task.restrict S).alt i = task.alt i ∩ S := by
 lemma answerSet_restrict (i : ℐ) : (task.restrict S).answerSet i = task.answerSet i ∩ S := by
   ext θ
   simp only [mem_answerSet_iff, M_restrict, correct_restrict, Set.mem_inter_iff]
+  tauto
+
+@[simp]
+lemma alternatives_restrict (θ : Θ) :
+    (task.restrict S).alternatives θ = task.alternatives θ ∩ S := by
+  ext θ'
+  simp only [mem_alternatives_iff, M_restrict, correct_restrict, Set.mem_inter_iff]
   tauto
 
 lemma IsSingleAnswer.restrict (h : task.IsSingleAnswer) (S : Set Θ) :

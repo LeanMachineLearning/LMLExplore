@@ -15,8 +15,11 @@ In `ε`-best arm identification (`epsBaiTask ν id ε`), the correct answers of 
 are its `ε`-good arms, the arms `a` with `μ b ≤ μ a + ε` for every arm `b`. An arm `a` is thus not
 `ε`-good for `μ'` exactly when some arm `b` has `μ' a + ε < μ' b`.
 
-Let the arm `c` belong to an exponential family `(ρ c, T c)` with divergence `d_c` in the mean
-parametrization. The arm `a` stops being `ε`-good once one of the following happens:
+Let the arm `c` have a real divergence `d_c` on an open set `S_c` of means (`IsDivergenceOn`), in
+the sense that `KL(ν_c(μ), ν_c(μ')) = d_c(μ c, μ' c)` for the vectors of means `μ'` in `S`; the arms
+of per-arm exponential families, with the divergences of the families in the mean parametrization
+on their sets of means, are an instance (`isDivergenceOn_expFamilyDiv`). The admissible models are
+the vectors of means in `S`. The arm `a` stops being `ε`-good once one of the following happens:
 
 * the mean of another arm `b` is moved above `μ a + ε`; as the new mean decreases to `μ a + ε`,
   this costs `D(μ, w, ¬a) ≤ w b d_b(μ b, μ a + ε)`;
@@ -43,15 +46,15 @@ For `ε < 1` it stops being so once one of the following happens:
 
 * `LMLExplore.Identification.mem_alt_epsBaiTask_iff`: a model `θ` is an alternative to `a` iff
   some arm `b` has `mean θ a + ε < mean θ b`, for any mean functional `mean`.
-* `LMLExplore.Identification.altCost_epsBaiTask_restrict_le_ofReal_mul_expFamilyDiv_add`: for an
-  arm `b ≠ a`, `D(μ, w, ¬a) ≤ w b d_b(μ b, μ a + ε)`.
-* `LMLExplore.Identification.altCost_epsBaiTask_restrict_le_ofReal_mul_expFamilyDiv_sub`: for an
-  arm `b ≠ a`, `D(μ, w, ¬a) ≤ w a d_a(μ a, μ b - ε)`.
+* `LMLExplore.Identification.altCost_epsBaiTask_restrict_le_ofReal_mul_add`: for an arm `b ≠ a`,
+  `D(μ, w, ¬a) ≤ w b d_b(μ b, μ a + ε)`.
+* `LMLExplore.Identification.altCost_epsBaiTask_restrict_le_ofReal_mul_sub`: for an arm `b ≠ a`,
+  `D(μ, w, ¬a) ≤ w a d_a(μ a, μ b - ε)`.
 * `LMLExplore.Identification.mem_alt_mulEpsBaiTask_iff`: in multiplicative `ε`-best arm
   identification, a model `θ` is an alternative to `a` iff its means are positive and some arm `b`
   has `mean θ a < (1 - ε) * mean θ b`.
-* `LMLExplore.Identification.altCost_mulEpsBaiTask_restrict_le_ofReal_mul_expFamilyDiv_div`,
-  `LMLExplore.Identification.altCost_mulEpsBaiTask_restrict_le_ofReal_mul_expFamilyDiv_mul`: for
+* `LMLExplore.Identification.altCost_mulEpsBaiTask_restrict_le_ofReal_mul_div`,
+  `LMLExplore.Identification.altCost_mulEpsBaiTask_restrict_le_ofReal_mul_mul`: for
   `ε < 1`, positive means and an arm `b ≠ a`, `D(μ, w, ¬a) ≤ w b d_b(μ b, μ a / (1 - ε))` and
   `D(μ, w, ¬a) ≤ w a d_a(μ a, (1 - ε) * μ b)`.
 
@@ -72,7 +75,7 @@ open scoped ENNReal
 namespace LMLExplore.Identification
 
 variable {α Θ 𝓨 : Type*} {mα : MeasurableSpace α} {m𝓨 : MeasurableSpace 𝓨}
-  {ρ : α → Measure 𝓨} {T : α → 𝓨 → ℝ} {μ μ' w : α → ℝ} {ε : ℝ} {a b : α}
+  {S : α → Set ℝ} {d : α → ℝ → ℝ → ℝ} {μ μ' w : α → ℝ} {ε : ℝ} {a b : α}
 
 /-- In `ε`-best arm identification, `θ` is an alternative to the arm `a` iff `a` is not `ε`-good
 for `θ`: some arm `b` has `mean θ a + ε < mean θ b`. -/
@@ -95,64 +98,67 @@ variable (ν : (α → ℝ) → Kernel α 𝓨) [∀ μ, IsMarkovKernel (ν μ)]
 variable [Fintype α] [DecidableEq α]
 
 omit [DecidableEq α] in
-/-- **The cost of raising another arm above `μ a + ε`.** Let the arm `c` belong to an exponential
-family `(ρ c, T c)` with divergence `d_c` and let `μ` be a vector of means of the families. For
-arms `b ≠ a` such that `μ a + ε` is a mean of the family of `b` and every nonnegative allocation
-`w`, `D(μ, w, ¬a) ≤ w b d_b(μ b, μ a + ε)` in `ε`-best arm identification, within the vectors of
-means of the families: moving the mean of `b` above `μ a + ε` makes `a` not `ε`-good. -/
-theorem altCost_epsBaiTask_restrict_le_ofReal_mul_expFamilyDiv_add
-    (hT : ∀ c x, ¬ T c =ᵐ[ρ c] fun _ ↦ x) (hμ : ∀ c, μ c ∈ (ρ c).expFamilyMeans (T c))
-    (hν : ∀ μ' : α → ℝ, (∀ c, μ' c ∈ (ρ c).expFamilyMeans (T c)) →
-      ∀ c, klDiv (ν μ c) (ν μ' c) = ENNReal.ofReal ((ρ c).expFamilyDiv (T c) (μ c) (μ' c)))
-    (hba : b ≠ a) (hb : μ a + ε ∈ (ρ b).expFamilyMeans (T b)) (hw : 0 ≤ w) :
-    ((epsBaiTask ν id ε).restrict {μ' | ∀ c, μ' c ∈ (ρ c).expFamilyMeans (T c)}).altCost μ w a ≤
-      ENNReal.ofReal (w b * (ρ b).expFamilyDiv (T b) (μ b) (μ a + ε)) := by
+/-- **The cost of raising another arm above `μ a + ε`.** Let each arm `c` have a divergence `d_c`
+on an open set `S_c` of means, in the sense that `KL(ν_c(μ), ν_c(μ')) = d_c(μ c, μ' c)` for all
+vectors of means `μ'` in `S`, and let `μ` be a vector of means in `S`. For arms `b ≠ a` such that
+`μ a + ε ∈ S_b` and every nonnegative allocation `w`, `D(μ, w, ¬a) ≤ w b d_b(μ b, μ a + ε)` in
+`ε`-best arm identification, within the vectors of means in `S`: moving the mean of `b` above
+`μ a + ε` makes `a` not `ε`-good. -/
+theorem altCost_epsBaiTask_restrict_le_ofReal_mul_add
+    (hd : ∀ c, IsDivergenceOn (d c) (S c)) (hμ : ∀ c, μ c ∈ S c)
+    (hν : ∀ μ' : α → ℝ, (∀ c, μ' c ∈ S c) →
+      ∀ c, klDiv (ν μ c) (ν μ' c) = ENNReal.ofReal (d c (μ c) (μ' c)))
+    (hba : b ≠ a) (hb : μ a + ε ∈ S b) (hw : 0 ≤ w) :
+    ((epsBaiTask ν id ε).restrict {μ' | ∀ c, μ' c ∈ S c}).altCost μ w a ≤
+      ENNReal.ofReal (w b * d b (μ b) (μ a + ε)) := by
   classical
-  exact IdentTask.altCost_restrict_le_ofReal_mul_expFamilyDiv_of_tendsto (by simp) hν hw hT
-    hμ b hb (l := 𝓝[>] (μ a + ε))
+  exact IdentTask.altCost_restrict_le_ofReal_mul_of_tendsto (by simp) hd hν hw hμ
+    b hb (l := 𝓝[>] (μ a + ε))
     (((continuous_const.update b continuous_id).tendsto _).mono_left nhdsWithin_le_nhds)
     (eventually_nhdsWithin_of_forall fun x hx ↦ (mem_alt_epsBaiTask_iff ν id).2
       ⟨b, by simpa [Function.update_of_ne hba.symm] using hx⟩)
 
 omit [DecidableEq α] in
-/-- **The cost of lowering `a` below `μ b - ε`.** Let the arm `c` belong to an exponential family
-`(ρ c, T c)` with divergence `d_c` and let `μ` be a vector of means of the families. For arms
-`b ≠ a` such that `μ b - ε` is a mean of the family of `a` and every nonnegative allocation `w`,
-`D(μ, w, ¬a) ≤ w a d_a(μ a, μ b - ε)` in `ε`-best arm identification, within the vectors of means
-of the families: moving the mean of `a` below `μ b - ε` makes `a` not `ε`-good. -/
-theorem altCost_epsBaiTask_restrict_le_ofReal_mul_expFamilyDiv_sub
-    (hT : ∀ c x, ¬ T c =ᵐ[ρ c] fun _ ↦ x) (hμ : ∀ c, μ c ∈ (ρ c).expFamilyMeans (T c))
-    (hν : ∀ μ' : α → ℝ, (∀ c, μ' c ∈ (ρ c).expFamilyMeans (T c)) →
-      ∀ c, klDiv (ν μ c) (ν μ' c) = ENNReal.ofReal ((ρ c).expFamilyDiv (T c) (μ c) (μ' c)))
-    (hba : b ≠ a) (ha : μ b - ε ∈ (ρ a).expFamilyMeans (T a)) (hw : 0 ≤ w) :
-    ((epsBaiTask ν id ε).restrict {μ' | ∀ c, μ' c ∈ (ρ c).expFamilyMeans (T c)}).altCost μ w a ≤
-      ENNReal.ofReal (w a * (ρ a).expFamilyDiv (T a) (μ a) (μ b - ε)) := by
+/-- **The cost of lowering `a` below `μ b - ε`.** Let each arm `c` have a divergence `d_c` on an
+open set `S_c` of means, in the sense that `KL(ν_c(μ), ν_c(μ')) = d_c(μ c, μ' c)` for all vectors
+of means `μ'` in `S`, and let `μ` be a vector of means in `S`. For arms `b ≠ a` such that
+`μ b - ε ∈ S_a` and every nonnegative allocation `w`, `D(μ, w, ¬a) ≤ w a d_a(μ a, μ b - ε)` in
+`ε`-best arm identification, within the vectors of means in `S`: moving the mean of `a` below
+`μ b - ε` makes `a` not `ε`-good. -/
+theorem altCost_epsBaiTask_restrict_le_ofReal_mul_sub
+    (hd : ∀ c, IsDivergenceOn (d c) (S c)) (hμ : ∀ c, μ c ∈ S c)
+    (hν : ∀ μ' : α → ℝ, (∀ c, μ' c ∈ S c) →
+      ∀ c, klDiv (ν μ c) (ν μ' c) = ENNReal.ofReal (d c (μ c) (μ' c)))
+    (hba : b ≠ a) (ha : μ b - ε ∈ S a) (hw : 0 ≤ w) :
+    ((epsBaiTask ν id ε).restrict {μ' | ∀ c, μ' c ∈ S c}).altCost μ w a ≤
+      ENNReal.ofReal (w a * d a (μ a) (μ b - ε)) := by
   classical
-  exact IdentTask.altCost_restrict_le_ofReal_mul_expFamilyDiv_of_tendsto (by simp) hν hw hT
-    hμ a ha (l := 𝓝[<] (μ b - ε))
+  exact IdentTask.altCost_restrict_le_ofReal_mul_of_tendsto (by simp) hd hν hw hμ
+    a ha (l := 𝓝[<] (μ b - ε))
     (((continuous_const.update a continuous_id).tendsto _).mono_left nhdsWithin_le_nhds)
     (eventually_nhdsWithin_of_forall fun x hx ↦ (mem_alt_epsBaiTask_iff ν id).2
       ⟨b, by simpa [Function.update_of_ne hba] using (lt_sub_iff_add_lt.1 hx)⟩)
 
 omit [DecidableEq α] in
-/-- **The cost of raising another arm above `μ a / (1 - ε)`.** Let the arm `c` belong to an
-exponential family `(ρ c, T c)` with divergence `d_c` and let `μ` be a vector of positive means of
-the families. For `ε < 1`, arms `b ≠ a` such that `μ a / (1 - ε)` is a mean of the family of `b`
-and every nonnegative allocation `w`, `D(μ, w, ¬a) ≤ w b d_b(μ b, μ a / (1 - ε))` in multiplicative
-`ε`-best arm identification, within the vectors of means of the families: moving the mean of `b`
-above `μ a / (1 - ε)` makes `a` not multiplicatively `ε`-good. -/
-theorem altCost_mulEpsBaiTask_restrict_le_ofReal_mul_expFamilyDiv_div
-    (hT : ∀ c x, ¬ T c =ᵐ[ρ c] fun _ ↦ x) (hμ : ∀ c, μ c ∈ (ρ c).expFamilyMeans (T c))
-    (hν : ∀ μ' : α → ℝ, (∀ c, μ' c ∈ (ρ c).expFamilyMeans (T c)) →
-      ∀ c, klDiv (ν μ c) (ν μ' c) = ENNReal.ofReal ((ρ c).expFamilyDiv (T c) (μ c) (μ' c)))
+/-- **The cost of raising another arm above `μ a / (1 - ε)`.** Let each arm `c` have a divergence
+`d_c` on an open set `S_c` of means, in the sense that `KL(ν_c(μ), ν_c(μ')) = d_c(μ c, μ' c)` for
+all vectors of means `μ'` in `S`, and let `μ` be a vector of positive means in `S`. For `ε < 1`,
+arms `b ≠ a` such that `μ a / (1 - ε) ∈ S_b` and every nonnegative allocation `w`,
+`D(μ, w, ¬a) ≤ w b d_b(μ b, μ a / (1 - ε))` in multiplicative `ε`-best arm identification, within
+the vectors of means in `S`: moving the mean of `b` above `μ a / (1 - ε)` makes `a` not
+multiplicatively `ε`-good. -/
+theorem altCost_mulEpsBaiTask_restrict_le_ofReal_mul_div
+    (hd : ∀ c, IsDivergenceOn (d c) (S c)) (hμ : ∀ c, μ c ∈ S c)
+    (hν : ∀ μ' : α → ℝ, (∀ c, μ' c ∈ S c) →
+      ∀ c, klDiv (ν μ c) (ν μ' c) = ENNReal.ofReal (d c (μ c) (μ' c)))
     (hμ_pos : ∀ c, 0 < μ c) (hε : ε < 1) (hba : b ≠ a)
-    (hb : μ a / (1 - ε) ∈ (ρ b).expFamilyMeans (T b)) (hw : 0 ≤ w) :
-    ((mulEpsBaiTask ν id ε).restrict {μ' | ∀ c, μ' c ∈ (ρ c).expFamilyMeans (T c)}).altCost μ w a ≤
-      ENNReal.ofReal (w b * (ρ b).expFamilyDiv (T b) (μ b) (μ a / (1 - ε))) := by
+    (hb : μ a / (1 - ε) ∈ S b) (hw : 0 ≤ w) :
+    ((mulEpsBaiTask ν id ε).restrict {μ' | ∀ c, μ' c ∈ S c}).altCost μ w a ≤
+      ENNReal.ofReal (w b * d b (μ b) (μ a / (1 - ε))) := by
   classical
   have h1ε : 0 < 1 - ε := sub_pos.2 hε
-  refine IdentTask.altCost_restrict_le_ofReal_mul_expFamilyDiv_of_tendsto (by simp) hν hw hT
-    hμ b hb (l := 𝓝[>] (μ a / (1 - ε)))
+  refine IdentTask.altCost_restrict_le_ofReal_mul_of_tendsto (by simp) hd hν hw hμ
+    b hb (l := 𝓝[>] (μ a / (1 - ε)))
     (((continuous_const.update b continuous_id).tendsto _).mono_left nhdsWithin_le_nhds)
     (eventually_nhdsWithin_of_forall fun x hx ↦ (mem_alt_mulEpsBaiTask_iff ν id).2 ⟨?_, b, ?_⟩)
   · -- The new mean `x` of `b` is larger than `μ a / (1 - ε) > 0`.
@@ -164,28 +170,29 @@ theorem altCost_mulEpsBaiTask_restrict_le_ofReal_mul_expFamilyDiv_div
   · simpa [Function.update_of_ne hba.symm, mul_comm] using (div_lt_iff₀ h1ε).1 hx
 
 omit [DecidableEq α] in
-/-- **The cost of lowering `a` below `(1 - ε) * μ b`.** Let the arm `c` belong to an exponential
-family `(ρ c, T c)` with divergence `d_c` and let `μ` be a vector of positive means of the
-families. For `ε < 1`, arms `b ≠ a` such that `(1 - ε) * μ b` is a mean of the family of `a` and
-every nonnegative allocation `w`, `D(μ, w, ¬a) ≤ w a d_a(μ a, (1 - ε) * μ b)` in multiplicative
-`ε`-best arm identification, within the vectors of means of the families: moving the mean of `a`
-below `(1 - ε) * μ b`, and above `0`, makes `a` not multiplicatively `ε`-good. -/
-theorem altCost_mulEpsBaiTask_restrict_le_ofReal_mul_expFamilyDiv_mul
-    (hT : ∀ c x, ¬ T c =ᵐ[ρ c] fun _ ↦ x) (hμ : ∀ c, μ c ∈ (ρ c).expFamilyMeans (T c))
-    (hν : ∀ μ' : α → ℝ, (∀ c, μ' c ∈ (ρ c).expFamilyMeans (T c)) →
-      ∀ c, klDiv (ν μ c) (ν μ' c) = ENNReal.ofReal ((ρ c).expFamilyDiv (T c) (μ c) (μ' c)))
+/-- **The cost of lowering `a` below `(1 - ε) * μ b`.** Let each arm `c` have a divergence `d_c`
+on an open set `S_c` of means, in the sense that `KL(ν_c(μ), ν_c(μ')) = d_c(μ c, μ' c)` for all
+vectors of means `μ'` in `S`, and let `μ` be a vector of positive means in `S`. For `ε < 1`, arms
+`b ≠ a` such that `(1 - ε) * μ b ∈ S_a` and every nonnegative allocation `w`,
+`D(μ, w, ¬a) ≤ w a d_a(μ a, (1 - ε) * μ b)` in multiplicative `ε`-best arm identification, within
+the vectors of means in `S`: moving the mean of `a` below `(1 - ε) * μ b`, and above `0`, makes `a`
+not multiplicatively `ε`-good. -/
+theorem altCost_mulEpsBaiTask_restrict_le_ofReal_mul_mul
+    (hd : ∀ c, IsDivergenceOn (d c) (S c)) (hμ : ∀ c, μ c ∈ S c)
+    (hν : ∀ μ' : α → ℝ, (∀ c, μ' c ∈ S c) →
+      ∀ c, klDiv (ν μ c) (ν μ' c) = ENNReal.ofReal (d c (μ c) (μ' c)))
     (hμ_pos : ∀ c, 0 < μ c) (hε : ε < 1) (hba : b ≠ a)
-    (ha : (1 - ε) * μ b ∈ (ρ a).expFamilyMeans (T a)) (hw : 0 ≤ w) :
-    ((mulEpsBaiTask ν id ε).restrict {μ' | ∀ c, μ' c ∈ (ρ c).expFamilyMeans (T c)}).altCost μ w a ≤
-      ENNReal.ofReal (w a * (ρ a).expFamilyDiv (T a) (μ a) ((1 - ε) * μ b)) := by
+    (ha : (1 - ε) * μ b ∈ S a) (hw : 0 ≤ w) :
+    ((mulEpsBaiTask ν id ε).restrict {μ' | ∀ c, μ' c ∈ S c}).altCost μ w a ≤
+      ENNReal.ofReal (w a * d a (μ a) ((1 - ε) * μ b)) := by
   classical
   have hpos : 0 < (1 - ε) * μ b := mul_pos (sub_pos.2 hε) (hμ_pos b)
   -- Near `(1 - ε) * μ b > 0` and below it, the new mean `x` of `a` is positive.
   have h_ev : ∀ᶠ x in 𝓝[<] ((1 - ε) * μ b), 0 < x ∧ x < (1 - ε) * μ b :=
     (eventually_nhdsWithin_of_eventually_nhds (eventually_gt_nhds hpos)).and
       self_mem_nhdsWithin
-  refine IdentTask.altCost_restrict_le_ofReal_mul_expFamilyDiv_of_tendsto (by simp) hν hw hT
-    hμ a ha (l := 𝓝[<] ((1 - ε) * μ b))
+  refine IdentTask.altCost_restrict_le_ofReal_mul_of_tendsto (by simp) hd hν hw hμ
+    a ha (l := 𝓝[<] ((1 - ε) * μ b))
     (((continuous_const.update a continuous_id).tendsto _).mono_left nhdsWithin_le_nhds)
     (h_ev.mono fun x hx ↦ (mem_alt_mulEpsBaiTask_iff ν id).2 ⟨fun c ↦ ?_, b, ?_⟩)
   · rcases eq_or_ne c a with rfl | hca

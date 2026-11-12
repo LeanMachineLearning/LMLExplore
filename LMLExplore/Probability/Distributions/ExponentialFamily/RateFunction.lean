@@ -41,6 +41,8 @@ monotone on each side of `μ`, it makes `dbar` continuous on (closure of the mea
   family is `KL(ρ_η(x), ρ_η)`.
 * `LMLExplore.rateFunction_expFamily_natParam`: the rate function of `T` under the member of mean
   `μ` at a mean `x` is `d(x, μ)`.
+* `LMLExplore.rateFunction_eq_ofReal_expFamilyDiv`: the rate function of `T` under a probability
+  measure `ρ` itself, at a mean `x`, is the divergence `d(x, ψ'(0))` to the mean of `ρ`.
 * `MeasureTheory.Measure.expFamilyRate_eq_ofReal_expFamilyDiv`: `dbar = d` on the means.
 * `MeasureTheory.Measure.expFamilyRate_eq_iSup`: `dbar(x, μ)` as a supremum over the natural
   parameters of `ρ`.
@@ -63,6 +65,16 @@ monotone on each side of `μ`, it makes `dbar` continuous on (closure of the mea
   of the means.
 * `MeasureTheory.Measure.continuousOn_expFamilyRate`: `dbar` is continuous on
   (closure of the means) × (means), as an `ℝ≥0∞`-valued function.
+* `MeasureTheory.Measure.sq_div_le_expFamilyDiv_of_hasSubgaussianMGF`: if `T - μ` is
+  `c`-sub-Gaussian under the member of mean `μ`, then `(x - μ)² / (2 c) ≤ d(x, μ)` at every mean
+  `x`, since `d(·, μ)` is the rate function of `T` under that member. This complements
+  `MeasureTheory.Measure.sq_div_le_expFamilyDiv`, which bounds the variances of the members between
+  `x` and `μ` instead.
+
+The last statement is adapted from the formalization Degenne2023Existence
+(`github.com/RemyDegenne/Degenne2023Existence`, file
+`Degenne2023Existence/ForLMLExplore/Probability/Distributions/ExponentialFamily/RateFunction.lean`,
+commit `a4244176eae7d9dd79c5c082f361c3b3b2541c0f`, by Rémy Degenne, Apache 2.0).
 -/
 
 public section
@@ -105,6 +117,17 @@ theorem rateFunction_expFamily_natParam (hx : x ∈ ρ.expFamilyMeans T)
     rateFunction T (ρ.expFamily T (ρ.natParam T μ)) x = ENNReal.ofReal (ρ.expFamilyDiv T x μ) := by
   rw [rateFunction_expFamily (interior_subset (natParam_mem_interior_integrableExpSet hμ)) hx,
     klDiv_expFamily_natParam hx hμ]
+
+/-- The rate function of the statistic `T` under a probability measure `ρ` whose cumulant
+generating function is finite near `0`, with `T` not `ρ`-almost everywhere constant, is the
+divergence `d(x, ψ'(0))` to the mean `ψ'(0)` of `T` under `ρ` at every mean `x` of the family,
+since `ρ` is the member `ρ_0` of the family. -/
+theorem rateFunction_eq_ofReal_expFamilyDiv [IsProbabilityMeasure ρ]
+    (hT : ∀ c, ¬ T =ᵐ[ρ] fun _ ↦ c) (h0 : 0 ∈ interior (integrableExpSet T ρ))
+    (hx : x ∈ ρ.expFamilyMeans T) :
+    rateFunction T ρ x = ENNReal.ofReal (ρ.expFamilyDiv T x (deriv (cgf T ρ) 0)) := by
+  have h := rateFunction_expFamily_natParam hx (deriv_cgf_mem_expFamilyMeans h0)
+  rwa [natParam_deriv_cgf hT h0, expFamily_zero] at h
 
 end LMLExplore
 
@@ -426,5 +449,27 @@ theorem continuousOn_expFamilyRate (hT : ∀ c, ¬ T =ᵐ[ρ] fun _ ↦ c) :
   · filter_upwards [self_mem_nhdsWithin] with p hp
     rw [← h3 p hp]
     exact le_self_add
+
+/-! ### Sub-Gaussian members -/
+
+/-- **Sub-Gaussian comparison.** If the statistic `T` is `c`-sub-Gaussian around its mean `μ` under
+the member of mean `μ` of the exponential family, then `(x - μ)² / (2 c) ≤ d(x, μ)` for every mean
+`x` of the family. -/
+theorem sq_div_le_expFamilyDiv_of_hasSubgaussianMGF (hx : x ∈ ρ.expFamilyMeans T)
+    (hμ : μ ∈ ρ.expFamilyMeans T) {c : NNReal}
+    (h : HasSubgaussianMGF (fun ω ↦ T ω - μ) c (ρ.expFamily T (ρ.natParam T μ))) :
+    (x - μ) ^ 2 / (2 * c) ≤ ρ.expFamilyDiv T x μ := by
+  rcases eq_zero_or_neZero ρ with rfl | _
+  · rw [expFamilyMeans_zero_measure, mem_singleton_iff] at hx hμ
+    simp [hx, hμ, expFamilyDiv_self]
+  have hη := natParam_mem_interior_integrableExpSet hμ
+  have := isProbabilityMeasure_expFamily (ρ := ρ) (T := T) (interior_subset hη)
+  have h_mean := integral_expFamily_natParam hμ
+  have h' : HasSubgaussianMGF (fun ω ↦ T ω - ∫ y, T y ∂(ρ.expFamily T (ρ.natParam T μ))) c
+      (ρ.expFamily T (ρ.natParam T μ)) := by
+    rwa [h_mean]
+  have h_le := h'.ofReal_sq_div_le_rateFunction x
+  rw [h_mean, rateFunction_expFamily_natParam hx hμ] at h_le
+  exact (ENNReal.ofReal_le_ofReal_iff (expFamilyDiv_nonneg hx hμ)).1 h_le
 
 end MeasureTheory.Measure

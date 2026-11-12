@@ -5,6 +5,7 @@ Authors: Rémy Degenne
 -/
 module
 
+public import Mathlib.MeasureTheory.Integral.Prod
 public import Mathlib.Probability.Moments.Basic
 
 /-!
@@ -18,6 +19,9 @@ variables, shared by the concentration inequalities of the library.
 * `ProbabilityTheory.iIndepFun.mgf_sum_eq_prod_of_mem`: the moment-generating function of a sum
   of independent random variables over a `Finset` is the product of their moment-generating
   functions, assuming measurability only on the `Finset`.
+* `ProbabilityTheory.measurable_mgf`, `ProbabilityTheory.measurable_cgf`: for an s-finite measure,
+  the moment-generating and cumulant generating functions are measurable functions of their
+  argument.
 * `ProbabilityTheory.measureReal_ge_le_exp_of_mgf_le`: Chernoff's bound
   `P(ε ≤ Y) ≤ exp (-t ε + K)` when `exp (t Y)` is integrable, `mgf Y μ t ≤ exp K` and `t ≥ 0`.
 * `MeasureTheory.measureReal_abs_ge_le_add`: the union bound over both tails,
@@ -57,6 +61,23 @@ theorem iIndepFun.mgf_sum_eq_prod_of_mem {X : ι → Ω → ℝ} {s : Finset ι}
     ← (h_indep.precomp Subtype.val_injective).mgf_sum₀ (fun i : s ↦ hX i i.2) Finset.univ]
   congr with ω
   rw [Finset.sum_apply, Finset.sum_coe_sort s fun i ↦ X i ω]
+
+/-- The moment-generating function of an almost-everywhere measurable random variable under an
+s-finite measure is a measurable function of its argument. -/
+@[fun_prop]
+theorem measurable_mgf [SFinite μ] {X : Ω → ℝ} (hX : AEMeasurable X μ) : Measurable (mgf X μ) := by
+  have h_eq : mgf X μ = mgf (hX.mk X) μ := funext fun _ ↦ mgf_congr hX.ae_eq_mk
+  rw [h_eq]
+  have h : Measurable fun p : ℝ × Ω ↦ exp (p.1 * hX.mk X p.2) :=
+    measurable_exp.comp (measurable_fst.mul (hX.measurable_mk.comp measurable_snd))
+  exact (h.stronglyMeasurable.integral_prod_right' (ν := μ)).measurable
+
+/-- The cumulant generating function of an almost-everywhere measurable random variable under an
+s-finite measure is a measurable function of its argument. -/
+@[fun_prop]
+theorem measurable_cgf [SFinite μ] {X : Ω → ℝ} (hX : AEMeasurable X μ) : Measurable (cgf X μ) := by
+  unfold cgf
+  exact (measurable_mgf hX).log
 
 /-- **Chernoff's bound**: if `exp (t Y)` is integrable and the moment-generating function of `Y`
 at `t ≥ 0` is at most `exp K`, then `P(ε ≤ Y) ≤ exp (-t ε + K)`. -/
