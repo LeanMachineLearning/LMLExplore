@@ -75,13 +75,13 @@ open scoped ENNReal NNReal InnerProductSpace
 
 namespace LMLExplore.Bandits.PhasedElimination
 
-variable {α E : Type*} [Fintype α] [NormedAddCommGroup E] [InnerProductSpace ℝ E]
+variable {α E : Type*} [Fintype α] [Nonempty α] [NormedAddCommGroup E] [InnerProductSpace ℝ E]
   [FiniteDimensional ℝ E] {φ : α → E} {D : DesignSelection φ} {σ2 : ℝ≥0} {δ : ℝ} {θ : E}
   {y : ℕ → ℝ}
 
 /-! ### The elimination argument -/
 
-omit [Fintype α] [FiniteDimensional ℝ E] in
+omit [Fintype α] [Nonempty α] [FiniteDimensional ℝ E] in
 /-- The error of the estimate of phase `ℓ` in the direction of the difference of two arms:
 `⟪θ̂, φ b - φ a⟫ = ⟪φ b, θ̂ - θ⟫ - ⟪φ a, θ̂ - θ⟫ + (⟪θ, φ b⟫ - ⟪θ, φ a⟫)`. -/
 private lemma inner_sub_eq (θ' : E) (a b : α) :
@@ -108,8 +108,8 @@ theorem mem_survivors_of_forall_le {a' : α} (hopt : ∀ a, ⟪θ, φ a⟫_ℝ �
     linarith [hopt b]
 
 /-- **The survivors have small gaps**: if the estimates of the expected rewards of the survivors of
-phase `ℓ` are within its width, every arm `a` surviving phase `ℓ` is within `4 ε_ℓ` of every
-survivor `a'` of phase `ℓ`. -/
+phase `ℓ` are within its width, the expected reward of every arm `a` surviving phase `ℓ` is at
+least that of every survivor `a'` of phase `ℓ` minus `4 ε_ℓ`. -/
 theorem inner_sub_inner_le_of_mem_survivors_succ {a' a : α} {ℓ : ℕ}
     (ha' : a' ∈ survivors D σ2 δ y ℓ) (ha : a ∈ survivors D σ2 δ y (ℓ + 1))
     (hgood : ∀ b ∈ survivors D σ2 δ y ℓ, |⟪φ b, estimate D σ2 δ y ℓ - θ⟫_ℝ| < width ℓ) :
@@ -128,7 +128,6 @@ theorem iSup_inner_sub_inner_nextArm_le (hgap : ∀ a b, ⟪θ, φ a⟫_ℝ - �
     (hgood : ∀ ℓ ≤ phaseIndex D σ2 δ y t, ∀ b ∈ survivors D σ2 δ y ℓ,
       |⟪φ b, estimate D σ2 δ y ℓ - θ⟫_ℝ| < width ℓ) :
     (⨆ a, ⟪θ, φ a⟫_ℝ) - ⟪θ, φ (nextArm D σ2 δ y t)⟫_ℝ ≤ 8 * width (phaseIndex D σ2 δ y t) := by
-  have : Nonempty α := ⟨nextArm D σ2 δ y t⟩
   obtain ⟨a', ha'⟩ := Finite.exists_max fun a ↦ ⟪θ, φ a⟫_ℝ
   have hsup : (⨆ a, ⟪θ, φ a⟫_ℝ) ≤ ⟪θ, φ a'⟫_ℝ := ciSup_le ha'
   have hmem := nextArm_mem_survivors (D := D) (σ2 := σ2) (δ := δ) y t
@@ -158,7 +157,7 @@ lemma card_filter_phaseIndex_eq_le (y : ℕ → ℝ) (n ℓ : ℕ) :
 
 omit [FiniteDimensional ℝ E] in
 /-- For `0 < δ ≤ 1`, the sample scales are nonnegative. -/
-lemma scale_nonneg [Nonempty α] (hδ : 0 < δ) (hδ1 : δ ≤ 1) (d : ℕ) (ℓ : ℕ) :
+lemma scale_nonneg (hδ : 0 < δ) (hδ1 : δ ≤ 1) (d : ℕ) (ℓ : ℕ) :
     0 ≤ scale d (Fintype.card α) σ2 δ ℓ := by
   rw [scale_def]
   have hk : (1 : ℝ) ≤ Fintype.card α := Nat.one_le_cast.2 Fintype.card_pos
@@ -172,7 +171,7 @@ lemma scale_nonneg [Nonempty α] (hδ : 0 < δ) (hδ1 : δ ≤ 1) (d : ℕ) (ℓ
 omit [FiniteDimensional ℝ E] in
 /-- For `0 < δ` and `ℓ < n`, the sample scale of phase `ℓ` is at most
 `2 σ² d log (k n (n + 1) / δ) / ε_ℓ²`. -/
-lemma scale_le [Nonempty α] (hδ : 0 < δ) (d : ℕ) {ℓ n : ℕ} (hℓ : ℓ < n) :
+lemma scale_le (hδ : 0 < δ) (d : ℕ) {ℓ n : ℕ} (hℓ : ℓ < n) :
     scale d (Fintype.card α) σ2 δ ℓ ≤
       2 * σ2 * d * log (Fintype.card α * (n * (n + 1)) / δ) / width ℓ ^ 2 := by
   rw [scale_def]
@@ -184,13 +183,12 @@ lemma scale_le [Nonempty α] (hδ : 0 < δ) (d : ℕ) {ℓ n : ℕ} (hℓ : ℓ 
     (Real.log_le_log (by positivity) ?_) (by positivity)) (by positivity)
   exact div_le_div_of_nonneg_right (mul_le_mul_of_nonneg_left hmul hk.le) hδ.le
 
-/-- For `0 < δ ≤ 1`, the length of a phase with survivors `S` is at most `c_ℓ + s` when the design
-of `S` has at most `s` support points. -/
-lemma phaseLength_le (hδ : 0 < δ) (hδ1 : δ ≤ 1) (ℓ : ℕ) (S : Finset α) {s : ℕ}
-    (hs : #(D.design S).weights.support ≤ s) :
+/-- For `0 < δ ≤ 1`, the length of a phase with nonempty survivors `S` is at most `c_ℓ + s` when
+the design of `S` has at most `s` support points. -/
+lemma phaseLength_le (hδ : 0 < δ) (hδ1 : δ ≤ 1) (ℓ : ℕ) {S : Finset α} (hS : S.Nonempty)
+    {s : ℕ} (hs : #(D.design S hS).weights.support ≤ s) :
     (phaseLength D σ2 δ ℓ S : ℝ) ≤ scale (finrank ℝ E) (Fintype.card α) σ2 δ ℓ + s := by
-  have : Nonempty α := (D.design S).nonempty
-  rw [phaseLength_eq_sum, phaseAllocation_def, Nat.cast_sum]
+  rw [phaseLength_eq_sum, phaseAllocation_def, phaseDesign_of_nonempty hS, Nat.cast_sum]
   exact (sum_allocation_le (scale_nonneg hδ hδ1 _ ℓ)).trans (by gcongr)
 
 /-- The widths sum to at most `1`. -/
@@ -201,7 +199,7 @@ lemma sum_range_width_le_one (N : ℕ) : ∑ ℓ ∈ range N, width ℓ ≤ 1 :=
   rw [h]
   linarith [sum_geometric_two_le N]
 
-/-- The inverse widths larger than `1 / x` sum to at most `2 / x`. -/
+/-- The inverse widths `ε_ℓ⁻¹` smaller than `1 / x` (i.e. `x < ε_ℓ`) sum to at most `2 / x`. -/
 lemma sum_range_ite_lt_width_inv_le {x : ℝ} (hx : 0 < x) (N : ℕ) :
     ∑ ℓ ∈ range N, (if x < width ℓ then (width ℓ)⁻¹ else 0) ≤ 2 / x := by
   have hinv (ℓ : ℕ) : (width ℓ)⁻¹ = 2 ^ (ℓ + 1) := by rw [width_def, inv_pow, inv_inv]
@@ -227,14 +225,14 @@ lemma sum_range_ite_lt_width_inv_le {x : ℝ} (hx : 0 < x) (N : ℕ) :
       nlinarith [pow_pos (two_pos : (0 : ℝ) < 2) (N + 1)]
 
 /-- **Summing over the phases**: if `R ℓ ≥ 0` rounds of phase `ℓ` are played, with
-`R ℓ ≤ a / ε_ℓ² + s` and `∑_{ℓ < N} R ℓ ≤ n`, then `∑_{ℓ < N} ε_ℓ R ℓ ≤ 2 √(2 a n) + s`. The phases
-with `ε_ℓ ≤ √(2 a / n)` contribute at most `√(2 a / n) n = √(2 a n)`, and the others, whose
-inverse widths are geometric, at most `2 a / √(2 a / n) + s = √(2 a n) + s`. -/
+`R ℓ ≤ a / ε_ℓ² + s` and `∑_{ℓ < N} R ℓ ≤ n`, then `∑_{ℓ < N} ε_ℓ R ℓ ≤ 2 √(2 a n) + s`. -/
 theorem sum_width_mul_le {N : ℕ} {R : ℕ → ℝ} {a s n : ℝ} (ha : 0 ≤ a) (hs : 0 ≤ s)
     (hR0 : ∀ ℓ, 0 ≤ R ℓ) (hR : ∀ ℓ < N, R ℓ ≤ a / width ℓ ^ 2 + s)
     (hn : ∑ ℓ ∈ range N, R ℓ ≤ n) :
     ∑ ℓ ∈ range N, width ℓ * R ℓ ≤ 2 * √(2 * a * n) + s := by
   have hw1 := sum_range_width_le_one N
+  -- the phases with `ε_ℓ ≤ √(2 a / n)` contribute at most `√(2 a / n) n = √(2 a n)`, and the
+  -- others, whose inverse widths are geometric, at most `2 a / √(2 a / n) + s = √(2 a n) + s`
   rcases ha.eq_or_lt with rfl | ha
   · -- without the scale term, each phase contributes at most `ε_ℓ s`
     calc ∑ ℓ ∈ range N, width ℓ * R ℓ ≤ ∑ ℓ ∈ range N, width ℓ * s :=
@@ -292,12 +290,11 @@ the expected rewards of the survivors of the phases `ℓ < n` are within the wid
 arms played in the first `n` rounds have total gap at most
 `32 √(σ² d n log (k n (n + 1) / δ)) + 8 s`. -/
 theorem sum_iSup_inner_sub_inner_nextArm_le (hgap : ∀ a b, ⟪θ, φ a⟫_ℝ - ⟪θ, φ b⟫_ℝ ≤ 1)
-    (hδ : 0 < δ) (hδ1 : δ ≤ 1) {s : ℕ} (hs : ∀ S, #(D.design S).weights.support ≤ s) {n : ℕ}
+    (hδ : 0 < δ) (hδ1 : δ ≤ 1) {s : ℕ} (hs : ∀ S hS, #(D.design S hS).weights.support ≤ s) {n : ℕ}
     (hgood : ∀ ℓ < n, ∀ b ∈ survivors D σ2 δ y ℓ,
       |⟪φ b, estimate D σ2 δ y ℓ - θ⟫_ℝ| < width ℓ) :
     ∑ t ∈ range n, ((⨆ a, ⟪θ, φ a⟫_ℝ) - ⟪θ, φ (nextArm D σ2 δ y t)⟫_ℝ) ≤
       32 * √(σ2 * finrank ℝ E * n * log (Fintype.card α * (n * (n + 1)) / δ)) + 8 * s := by
-  have : Nonempty α := (D.design ∅).nonempty
   set Λ := log (Fintype.card α * (n * (n + 1)) / δ)
   set a : ℝ := 2 * σ2 * finrank ℝ E * Λ
   set R : ℕ → ℝ := fun ℓ ↦ #{t ∈ range n | phaseIndex D σ2 δ y t = ℓ}
@@ -332,7 +329,8 @@ theorem sum_iSup_inner_sub_inner_nextArm_le (hgap : ∀ a b, ⟪θ, φ a⟫_ℝ 
   -- the rounds of phase `ℓ` are at most `c_ℓ + s ≤ a / ε_ℓ² + s`, and there are `n` rounds
   have hR : ∀ ℓ < n, R ℓ ≤ a / width ℓ ^ 2 + s := fun ℓ hℓ ↦
     (Nat.cast_le.2 (card_filter_phaseIndex_eq_le y n ℓ)).trans <|
-      (phaseLength_le hδ hδ1 ℓ _ (hs _)).trans (by gcongr; exact scale_le hδ _ hℓ)
+      (phaseLength_le hδ hδ1 ℓ (survivors_nonempty y ℓ) (hs _ _)).trans
+        (by gcongr; exact scale_le hδ _ hℓ)
   have hRn : ∑ ℓ ∈ range n, R ℓ ≤ n := by
     simp only [R]
     rw [← Nat.cast_sum, ← card_eq_sum_card_fiberwise
@@ -349,13 +347,6 @@ theorem sum_iSup_inner_sub_inner_nextArm_le (hgap : ∀ a b, ⟪θ, φ a⟫_ℝ 
         ring
 
 /-! ### Concentration of the estimates along a run -/
-
-/-- A sum over the rounds `k < m + L` restricted to the rounds `m ≤ k < m + L` is a sum over the
-positions `j < L`. -/
-private lemma sum_range_add_ite (m L : ℕ) (F : ℕ → ℝ) :
-    ∑ k ∈ range (m + L), (if m ≤ k ∧ k < m + L then F k else 0) = ∑ j ∈ range L, F (m + j) := by
-  rw [sum_range_add, sum_eq_zero fun k hk ↦ ite_eq_right fun h ↦ by simp at hk; lia, zero_add]
-  exact sum_congr rfl fun j hj ↦ ite_eq_left ⟨by lia, by simp at hj; lia⟩
 
 section Run
 
@@ -439,9 +430,7 @@ private lemma sum_coefficient_eq {y : ℕ → ℝ} {a : ℕ → α} (ha : ∀ n,
 /-- **Concentration of the estimate of a phase in one direction.** Along a run of phased
 elimination in a linear bandit environment with σ²-sub-Gaussian noise, `σ² ≠ 0` and `δ > 0`, for
 every phase `ℓ`, arm `b` and sign `r = ±1`, the probability that `b` survives up to phase `ℓ` and
-`ε_ℓ ≤ r ⟪φ b, θ̂_ℓ - θ⟫` is at most `δ / (k (ℓ + 1) (ℓ + 2))`. The error is a sum of the noises of
-the rounds of the phase with predictable coefficients whose squares sum to `⟪φ b, V_ℓ⁺ φ b⟫`, at
-most `d / c_ℓ`, so the exponential supermartingale of sub-Gaussian sums bounds it. -/
+`ε_ℓ ≤ r ⟪φ b, θ̂_ℓ - θ⟫` is at most `δ / (k (ℓ + 1) (ℓ + 2))`. -/
 theorem measure_mem_survivors_width_le_mul_inner_estimate_sub_le [StandardBorelSpace Ω]
     [IsProbabilityMeasure P] (h : IsAlgEnvSeq O A Y (phasedElimination D σ2 δ) env P)
     (henv : IsSubgaussianLinearEnv (fun _ : 𝓞 ↦ φ) θ σ2 env) (hσ : σ2 ≠ 0) (hδ : 0 < δ)
@@ -449,7 +438,9 @@ theorem measure_mem_survivors_width_le_mul_inner_estimate_sub_le [StandardBorelS
     P {ω | b ∈ survivors D σ2 δ (fun s ↦ Y s ω) ℓ ∧
       width ℓ ≤ r * ⟪φ b, estimate D σ2 δ (fun s ↦ Y s ω) ℓ - θ⟫_ℝ} ≤
       ENNReal.ofReal (δ / (Fintype.card α * ((ℓ + 1) * (ℓ + 2)))) := by
-  have : Nonempty α := (D.design ∅).nonempty
+  -- the error is a sum of the noises of the rounds of the phase with predictable coefficients
+  -- whose squares sum to `⟪φ b, V_ℓ⁺ φ b⟫ ≤ d / c_ℓ`, so the exponential supermartingale of
+  -- sub-Gaussian sums bounds it
   set X : ℝ := Fintype.card α * ((ℓ + 1) * (ℓ + 2))
   set Λ := log (X / δ)
   set ε := width ℓ
@@ -535,7 +526,6 @@ theorem measure_exists_width_le_abs_inner_estimate_sub_le [StandardBorelSpace Ω
     (n : ℕ) :
     P {ω | ∃ ℓ < n, ∃ b ∈ survivors D σ2 δ (fun s ↦ Y s ω) ℓ,
       width ℓ ≤ |⟪φ b, estimate D σ2 δ (fun s ↦ Y s ω) ℓ - θ⟫_ℝ|} ≤ ENNReal.ofReal (2 * δ) := by
-  have : Nonempty α := (D.design ∅).nonempty
   set q : ℕ → ℝ := fun ℓ ↦ δ / (Fintype.card α * ((ℓ + 1) * (ℓ + 2)))
   have hq (ℓ : ℕ) : 0 ≤ q ℓ := by positivity
   set F : ℕ → α → ℝ → Set Ω := fun ℓ b r ↦ {ω | b ∈ survivors D σ2 δ (fun s ↦ Y s ω) ℓ ∧
@@ -587,7 +577,7 @@ widths, the random regret of a run of phased elimination is at most
 `32 √(σ² d n log (k n (n + 1) / δ)) + 8 s`. -/
 private lemma linearRegret_le_of_forall {ω : Ω} (hA : ∀ n, A n ω = nextArm D σ2 δ (fun s ↦ Y s ω) n)
     (hgap : ∀ a b, ⟪θ, φ a⟫_ℝ - ⟪θ, φ b⟫_ℝ ≤ 1) (hδ : 0 < δ) (hδ1 : δ ≤ 1) {s : ℕ}
-    (hs : ∀ S, #(D.design S).weights.support ≤ s) {n : ℕ}
+    (hs : ∀ S hS, #(D.design S hS).weights.support ≤ s) {n : ℕ}
     (hgood : ∀ ℓ < n, ∀ b ∈ survivors D σ2 δ (fun s ↦ Y s ω) ℓ,
       |⟪φ b, estimate D σ2 δ (fun s ↦ Y s ω) ℓ - θ⟫_ℝ| < width ℓ) :
     linearRegret (fun _ ↦ φ) θ O A n ω ≤
@@ -606,7 +596,7 @@ theorem le_measureReal_linearRegret_le [StandardBorelSpace Ω] [IsProbabilityMea
     (h : IsAlgEnvSeq O A Y (phasedElimination D σ2 δ) env P)
     (henv : IsSubgaussianLinearEnv (fun _ : 𝓞 ↦ φ) θ σ2 env) (hσ : σ2 ≠ 0)
     (hgap : ∀ a b, ⟪θ, φ a⟫_ℝ - ⟪θ, φ b⟫_ℝ ≤ 1) (hδ : 0 < δ) (hδ1 : δ ≤ 1) {s : ℕ}
-    (hs : ∀ S, #(D.design S).weights.support ≤ s) (n : ℕ) :
+    (hs : ∀ S hS, #(D.design S hS).weights.support ≤ s) (n : ℕ) :
     1 - 2 * δ ≤ P.real {ω | linearRegret (fun _ ↦ φ) θ O A n ω ≤
       32 * √(σ2 * finrank ℝ E * n * log (Fintype.card α * (n * (n + 1)) / δ)) + 8 * s} := by
   set G := {ω | linearRegret (fun _ ↦ φ) θ O A n ω ≤
@@ -619,13 +609,7 @@ theorem le_measureReal_linearRegret_le [StandardBorelSpace Ω] [IsProbabilityMea
     simp only [not_exists, not_and, not_le] at hnot
     exact hω (linearRegret_le_of_forall hA hgap hδ hδ1 hs hnot)
   have h1 : 1 ≤ P.real G + P.real Gᶜ := by
-    have hU : (1 : ℝ≥0∞) ≤ P G + P Gᶜ := by
-      rw [← measure_univ (μ := P), ← Set.union_compl_self G]
-      exact measure_union_le _ _
-    rw [measureReal_def, measureReal_def, ← ENNReal.toReal_add (measure_ne_top _ _)
-      (measure_ne_top _ _)]
-    calc (1 : ℝ) = (1 : ℝ≥0∞).toReal := by simp
-      _ ≤ _ := ENNReal.toReal_mono (by finiteness) hU
+    simpa [Set.union_compl_self, probReal_univ] using measureReal_union_le (μ := P) G Gᶜ
   have h2 : P.real Gᶜ ≤ 2 * δ := ENNReal.toReal_le_of_le_ofReal (by positivity) hGc
   linarith
 
@@ -636,7 +620,7 @@ theorem integral_linearRegret_le [StandardBorelSpace Ω] [IsProbabilityMeasure P
     (h : IsAlgEnvSeq O A Y (phasedElimination D σ2 δ) env P)
     (henv : IsSubgaussianLinearEnv (fun _ : 𝓞 ↦ φ) θ σ2 env) (hσ : σ2 ≠ 0)
     (hgap : ∀ a b, ⟪θ, φ a⟫_ℝ - ⟪θ, φ b⟫_ℝ ≤ 1) (hδ : 0 < δ) (hδ1 : δ ≤ 1) {s : ℕ}
-    (hs : ∀ S, #(D.design S).weights.support ≤ s) (n : ℕ) :
+    (hs : ∀ S hS, #(D.design S hS).weights.support ≤ s) (n : ℕ) :
     P[linearRegret (fun _ ↦ φ) θ O A n] ≤ 2 * n * δ +
       (32 * √(σ2 * finrank ℝ E * n * log (Fintype.card α * (n * (n + 1)) / δ)) + 8 * s) := by
   set B := 32 * √(σ2 * finrank ℝ E * n * log (Fintype.card α * (n * (n + 1)) / δ)) + 8 * s
@@ -686,7 +670,7 @@ theorem integral_linearRegret_le_add_sqrt [StandardBorelSpace Ω] [IsProbability
     {n : ℕ} (h : IsAlgEnvSeq O A Y (phasedElimination D σ2 (1 / n)) env P)
     (henv : IsSubgaussianLinearEnv (fun _ : 𝓞 ↦ φ) θ σ2 env) (hσ : σ2 ≠ 0)
     (hgap : ∀ a b, ⟪θ, φ a⟫_ℝ - ⟪θ, φ b⟫_ℝ ≤ 1) {s : ℕ}
-    (hs : ∀ S, #(D.design S).weights.support ≤ s) :
+    (hs : ∀ S hS, #(D.design S hS).weights.support ≤ s) :
     P[linearRegret (fun _ ↦ φ) θ O A n] ≤
       2 + 32 * √(σ2 * finrank ℝ E * n * log (Fintype.card α * (n * (n + 1)) * n)) + 8 * s := by
   rcases n.eq_zero_or_pos with rfl | hn

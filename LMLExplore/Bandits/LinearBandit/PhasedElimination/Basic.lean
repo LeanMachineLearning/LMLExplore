@@ -35,6 +35,8 @@ on the rewards of the rounds `s < n`.
 * `LMLExplore.Bandits.DesignSelection φ`: a choice, for every nonempty set `S` of arms, of a
   design on `S` whose image design has the features of `S` in the range of its design operator
   and G-value at most `d`; `Nonempty (DesignSelection φ)` holds by the Kiefer–Wolfowitz theorem.
+* `LMLExplore.Bandits.PhasedElimination.phaseDesign D S`: the design `D.design S` of a nonempty
+  set of survivors `S`.
 * `LMLExplore.Bandits.PhasedElimination.allocation c w`, `PhasedElimination.schedule T`: the
   numbers of pulls `⌈c w(a)⌉` (at least `1` on the support of `w`) and a list of arms in which
   each arm `a` appears `T a` times.
@@ -72,6 +74,15 @@ phase has at least one round for all values of the parameters. The design is a p
 algorithm (a `DesignSelection`), so that a design with few support points can be chosen; the
 number of support points enters the regret only through an additive term.
 
+Phases are indexed from `0`: phase `ℓ` here is phase `ℓ + 1` of [LS, Algorithm 12], so its width
+is `ε_ℓ = 2^{-(ℓ+1)}` and its logarithmic term is `log (k (ℓ + 1) (ℓ + 2) / δ)` instead of the
+book's `2^{-ℓ}` and `log (k ℓ (ℓ + 1) / δ)`. The book assumes 1-sub-Gaussian noise; the sample
+scale `c_ℓ` here carries the additional factor `σ²` for σ²-sub-Gaussian noise.
+
+A design selection only gives designs on nonempty sets of arms; `PhasedElimination.phaseDesign`
+extends it to all sets (with `[Nonempty α]`), which only matters for the definitions, since the
+survivors are always nonempty.
+
 ## References
 
 * T. Lattimore and Cs. Szepesvári, *Bandit Algorithms*, Cambridge University Press, 2020,
@@ -89,37 +100,33 @@ variable {α E : Type*} [NormedAddCommGroup E] [InnerProductSpace ℝ E] [Finite
   {φ : α → E}
 
 /-- A **design selection** for the features `φ : α → E`: for every nonempty set `S` of arms, a
-design `design S` on the arms, supported in `S`, whose image design `(design S).map φ` has a
+design `design S hS` on the arms, supported in `S`, whose image design `(design S hS).map φ` has a
 design operator `V` with the features of `S` in its range and `⟪φ b, V⁺ φ b⟫ ≤ d` for every
 `b ∈ S`, where `d` is the dimension of `E`: its G-value is at most `d`. By the Kiefer–Wolfowitz
 theorem, such designs exist (`DesignSelection.instNonempty`). -/
 @[ext]
 structure DesignSelection (φ : α → E) where
-  /-- The design chosen on the set of arms `S`. -/
-  design : Finset α → StdSimplex ℝ α
+  /-- The design chosen on the nonempty set of arms `S`. -/
+  design : (S : Finset α) → S.Nonempty → StdSimplex ℝ α
   /-- The design of a nonempty set of arms is supported in it. -/
-  support_subset : ∀ S : Finset α, S.Nonempty → (design S).weights.support ⊆ S
+  support_subset : ∀ S hS, (design S hS).weights.support ⊆ S
   /-- The features of the arms of `S` lie in the range of the design operator. -/
-  mem_range : ∀ S : Finset α, S.Nonempty → ∀ b ∈ S,
-    φ b ∈ LinearMap.range (designOperator ((design S).map φ) : E →ₗ[ℝ] E)
+  mem_range : ∀ S hS, ∀ b ∈ S,
+    φ b ∈ LinearMap.range (designOperator ((design S hS).map φ) : E →ₗ[ℝ] E)
   /-- The G-value of the design of `S` is at most the dimension of `E`. -/
-  inner_moorePenroseInverse_le : ∀ S : Finset α, S.Nonempty → ∀ b ∈ S,
-    ⟪φ b, (designOperator ((design S).map φ) : E →ₗ[ℝ] E).moorePenroseInverse (φ b)⟫_ℝ ≤
+  inner_moorePenroseInverse_le : ∀ S hS, ∀ b ∈ S,
+    ⟪φ b, (designOperator ((design S hS).map φ) : E →ₗ[ℝ] E).moorePenroseInverse (φ b)⟫_ℝ ≤
       finrank ℝ E
 
 /-- Design selections exist, by the Kiefer–Wolfowitz theorem for finitely many arms
 (`exists_design_map_inner_moorePenroseInverse_le_finrank`). -/
-instance DesignSelection.instNonempty [Nonempty α] : Nonempty (DesignSelection φ) := by
-  classical
-  have h (S : Finset α) : ∃ w : StdSimplex ℝ α, S.Nonempty → w.weights.support ⊆ S ∧
+instance DesignSelection.instNonempty : Nonempty (DesignSelection φ) := by
+  have h (S : Finset α) (hS : S.Nonempty) : ∃ w : StdSimplex ℝ α, w.weights.support ⊆ S ∧
       (∀ b ∈ S, φ b ∈ LinearMap.range (designOperator (w.map φ) : E →ₗ[ℝ] E)) ∧
       ∀ b ∈ S, ⟪φ b, (designOperator (w.map φ) : E →ₗ[ℝ] E).moorePenroseInverse (φ b)⟫_ℝ ≤
         finrank ℝ E := by
-    by_cases hS : S.Nonempty
-    · obtain ⟨w, hw, hr, hle⟩ := exists_design_map_inner_moorePenroseInverse_le_finrank φ hS
-      exact ⟨w, fun _ ↦ ⟨hw, hr, fun b hb ↦ (hle b hb).trans
-        (Nat.cast_le.2 (Submodule.finrank_le _))⟩⟩
-    · exact ⟨.single (Classical.arbitrary α), fun h ↦ absurd h hS⟩
+    obtain ⟨w, hw, hr, hle⟩ := exists_design_map_inner_moorePenroseInverse_le_finrank φ hS
+    exact ⟨w, hw, hr, fun b hb ↦ (hle b hb).trans (Nat.cast_le.2 (Submodule.finrank_le _))⟩
   choose w hw using h
   exact ⟨⟨w, fun S hS ↦ (hw S hS).1, fun S hS ↦ (hw S hS).2.1, fun S hS ↦ (hw S hS).2.2⟩⟩
 
@@ -311,15 +318,28 @@ lemma scale_def (d k : ℕ) (σ2 : ℝ≥0) (δ : ℝ) (ℓ : ℕ) :
     scale d k σ2 δ ℓ = 2 * σ2 * d * log (k * ((ℓ + 1) * (ℓ + 2)) / δ) / width ℓ ^ 2 :=
   (rfl)
 
+variable [Nonempty α]
+
+/-- The **design of a phase** with survivors `S`: the design `D.design S` of `S` if `S` is
+nonempty, and the design of all arms otherwise. The survivors of every phase are nonempty
+(`survivors_nonempty`), so along the algorithm only the first case occurs. -/
+noncomputable def phaseDesign (S : Finset α) : StdSimplex ℝ α :=
+  if hS : S.Nonempty then D.design S hS else D.design univ univ_nonempty
+
+variable {D} in
+lemma phaseDesign_of_nonempty {S : Finset α} (hS : S.Nonempty) :
+    phaseDesign D S = D.design S hS :=
+  dite_eq_left hS
+
 /-- The **allocation of phase `ℓ`** with survivors `S`: the allocation of the design
-`D.design S` with the sample scale of phase `ℓ`. -/
+`phaseDesign D S` with the sample scale of phase `ℓ`. -/
 noncomputable def phaseAllocation (ℓ : ℕ) (S : Finset α) : α → ℕ :=
-  allocation (scale (finrank ℝ E) (Fintype.card α) σ2 δ ℓ) (D.design S)
+  allocation (scale (finrank ℝ E) (Fintype.card α) σ2 δ ℓ) (phaseDesign D S)
 
 /-- The arm played at position `j` of phase `ℓ` with survivors `S`, following the schedule of the
 allocation of the phase. -/
 noncomputable def phaseArm (ℓ : ℕ) (S : Finset α) (j : ℕ) : α :=
-  (schedule (phaseAllocation D σ2 δ ℓ S)).getD j (D.design S).nonempty.some
+  (schedule (phaseAllocation D σ2 δ ℓ S)).getD j (phaseDesign D S).nonempty.some
 
 /-- The number of rounds of phase `ℓ` with survivors `S`. -/
 noncomputable def phaseLength (ℓ : ℕ) (S : Finset α) : ℕ :=
@@ -334,12 +354,12 @@ variable {D σ2 δ}
 
 lemma phaseAllocation_def (ℓ : ℕ) (S : Finset α) :
     phaseAllocation D σ2 δ ℓ S =
-      allocation (scale (finrank ℝ E) (Fintype.card α) σ2 δ ℓ) (D.design S) :=
+      allocation (scale (finrank ℝ E) (Fintype.card α) σ2 δ ℓ) (phaseDesign D S) :=
   (rfl)
 
 lemma phaseArm_def (ℓ : ℕ) (S : Finset α) (j : ℕ) :
     phaseArm D σ2 δ ℓ S j =
-      (schedule (phaseAllocation D σ2 δ ℓ S)).getD j (D.design S).nonempty.some :=
+      (schedule (phaseAllocation D σ2 δ ℓ S)).getD j (phaseDesign D S).nonempty.some :=
   (rfl)
 
 lemma phaseLength_def (ℓ : ℕ) (S : Finset α) :
@@ -357,7 +377,7 @@ lemma phaseLength_eq_sum (ℓ : ℕ) (S : Finset α) :
 
 /-- Every phase has at least one round. -/
 lemma phaseLength_pos (ℓ : ℕ) (S : Finset α) : 0 < phaseLength D σ2 δ ℓ S := by
-  obtain ⟨a, ha⟩ := (D.design S).support_weights_nonempty
+  obtain ⟨a, ha⟩ := (phaseDesign D S).support_weights_nonempty
   rw [phaseLength_eq_sum]
   refine lt_of_lt_of_le ?_ (single_le_sum (fun _ _ ↦ Nat.zero_le _) (mem_univ a))
   rw [Nat.pos_iff_ne_zero, phaseAllocation_def, Ne, allocation_eq_zero_iff]
@@ -365,7 +385,7 @@ lemma phaseLength_pos (ℓ : ℕ) (S : Finset α) : 0 < phaseLength D σ2 δ ℓ
 
 /-- The arms of a phase lie in the support of its design. -/
 lemma phaseArm_mem_support {ℓ : ℕ} {S : Finset α} {j : ℕ} (hj : j < phaseLength D σ2 δ ℓ S) :
-    phaseArm D σ2 δ ℓ S j ∈ (D.design S).weights.support := by
+    phaseArm D σ2 δ ℓ S j ∈ (phaseDesign D S).weights.support := by
   rw [phaseLength_def] at hj
   have hmem := mem_schedule.1 (List.getElem_mem hj)
   rw [phaseArm_def, List.getD_eq_getElem _ _ hj]
@@ -375,8 +395,10 @@ lemma phaseArm_mem_support {ℓ : ℕ} {S : Finset α} {j : ℕ} (hj : j < phase
 
 /-- The arms of a phase with nonempty survivors are survivors. -/
 lemma phaseArm_mem {ℓ : ℕ} {S : Finset α} (hS : S.Nonempty) {j : ℕ}
-    (hj : j < phaseLength D σ2 δ ℓ S) : phaseArm D σ2 δ ℓ S j ∈ S :=
-  D.support_subset S hS (phaseArm_mem_support hj)
+    (hj : j < phaseLength D σ2 δ ℓ S) : phaseArm D σ2 δ ℓ S j ∈ S := by
+  have h := phaseArm_mem_support hj
+  rw [phaseDesign_of_nonempty hS] at h
+  exact D.support_subset S hS h
 
 /-- The features of the survivors of a phase lie in the span of the features of its rounds. -/
 lemma mem_span_phaseArm {ℓ : ℕ} {S : Finset α} (hS : S.Nonempty) {b : α} (hb : b ∈ S) :
@@ -384,7 +406,7 @@ lemma mem_span_phaseArm {ℓ : ℕ} {S : Finset α} (hS : S.Nonempty) {b : α} (
       ((fun j ↦ φ (phaseArm D σ2 δ ℓ S j)) '' Set.Iio (phaseLength D σ2 δ ℓ S)) := by
   classical
   have hb' := D.mem_range S hS b hb
-  rw [range_designOperator] at hb'
+  rw [← phaseDesign_of_nonempty hS, range_designOperator] at hb'
   refine Submodule.span_mono ?_ hb'
   intro v hv
   obtain ⟨a, ha, rfl⟩ := Finset.mem_image.1 (Finsupp.mapDomain_support hv)
@@ -413,7 +435,7 @@ theorem inner_moorePenroseInverse_designOp_phaseArm_le {ℓ : ℕ} {S : Finset �
     ⟪φ b, (designOp 0 (fun j ↦ φ (phaseArm D σ2 δ ℓ S j)) (phaseLength D σ2 δ ℓ S) :
         E →ₗ[ℝ] E).moorePenroseInverse (φ b)⟫_ℝ ≤
       finrank ℝ E / scale (finrank ℝ E) (Fintype.card α) σ2 δ ℓ := by
-  simp only [phaseArm_def, phaseLength_def, phaseAllocation_def]
+  simp only [phaseArm_def, phaseLength_def, phaseAllocation_def, phaseDesign_of_nonempty hS]
   refine (inner_moorePenroseInverse_designOp_schedule_le hc _ _ (D.mem_range S hS b hb)).trans ?_
   gcongr
   exact D.inner_moorePenroseInverse_le S hS b hb
@@ -426,12 +448,12 @@ with `⟪θ, φ b - φ a⟫ ≤ 2 ε_ℓ` for every `b ∈ S` survive. -/
 noncomputable def eliminate (ℓ : ℕ) (S : Finset α) (θ : E) : Finset α :=
   {a ∈ S | ∀ b ∈ S, ⟪θ, φ b - φ a⟫_ℝ ≤ 2 * width ℓ}
 
-omit [Fintype α] [FiniteDimensional ℝ E] in
+omit [Fintype α] [FiniteDimensional ℝ E] [Nonempty α] in
 lemma mem_eliminate {ℓ : ℕ} {S : Finset α} {θ : E} {a : α} :
     a ∈ eliminate φ ℓ S θ ↔ a ∈ S ∧ ∀ b ∈ S, ⟪θ, φ b - φ a⟫_ℝ ≤ 2 * width ℓ := by
   rw [eliminate, mem_filter]
 
-omit [Fintype α] [FiniteDimensional ℝ E] in
+omit [Fintype α] [FiniteDimensional ℝ E] [Nonempty α] in
 /-- An arm of `S` maximizing `⟪θ, φ a⟫` survives the elimination, so the survivors of a nonempty
 set are nonempty. -/
 lemma eliminate_nonempty {ℓ : ℕ} {S : Finset α} (hS : S.Nonempty) (θ : E) :
@@ -501,7 +523,7 @@ lemma phase_succ (y : ℕ → ℝ) (ℓ : ℕ) :
 /-- The survivors of every phase are nonempty. -/
 lemma survivors_nonempty (y : ℕ → ℝ) (ℓ : ℕ) : (survivors D σ2 δ y ℓ).Nonempty := by
   induction ℓ with
-  | zero => exact univ_nonempty_iff.2 (D.design ∅).nonempty
+  | zero => exact univ_nonempty
   | succ ℓ ih =>
     rw [survivors_succ]
     exact eliminate_nonempty ih _
@@ -689,7 +711,7 @@ end PhasedElimination
 
 section Algorithm
 
-variable [Fintype α] [MeasurableSpace α] {𝓞 : Type*} [MeasurableSpace 𝓞]
+variable [Fintype α] [Nonempty α] [MeasurableSpace α] {𝓞 : Type*} [MeasurableSpace 𝓞]
   {D : DesignSelection φ} {σ2 : ℝ≥0} {δ : ℝ}
 
 variable (D σ2 δ) in
