@@ -151,7 +151,7 @@ theorem ftrl_regret_le_of_negEntropy {n : ℕ} {η : ℝ} (hη : 0 < η)
     rw [isFTRLPlay_negEntropy_iff.1 (ha t ht)]
     exact (softmax_pos _ c).ne'
   have h := ftrl_regret_le_of_strongConvexOn strongConvexOn_negEntropy one_pos hη y a ha _
-    (fun t ht ↦ (hasFDerivAt_negEntropy (h_ne t ht.le)).hasFDerivWithinAt) hu
+    (fun t ht ↦ (hasFDerivAt_negEntropy_ofLp (h_ne t ht.le)).hasFDerivWithinAt) hu
   -- the range of the negative entropy on the simplex is at most `log k`
   have h_range : (negEntropy (ofLp u) - negEntropy (ofLp (a 0))) / η ≤
       log (Fintype.card α) / η := by
@@ -354,7 +354,7 @@ theorem softmax_regret_le_of_antitone {η : ℕ → ℝ} (hη : ∀ t, 0 < η t)
     simp_rw [hY_single, hp_def]
   have hF' (t : ℕ) : HasFDerivWithinAt (fun x : PiLp 1 (fun _ : α ↦ ℝ) ↦ negEntropy (ofLp x))
       (∑ c, log (a t c) • PiLp.proj (𝕜 := ℝ) 1 (fun _ : α ↦ ℝ) c) (ofLp ⁻¹' simplex α) (a t) :=
-    (hasFDerivAt_negEntropy fun c ↦ (hp_pos t c).ne').hasFDerivWithinAt
+    (hasFDerivAt_negEntropy_ofLp fun c ↦ (hp_pos t c).ne').hasFDerivWithinAt
   have h := ftrl_regret_succ_le_of_antitone (n := m) strongConvexOn_negEntropy.1 hη hη_anti Y a
     (fun t _ ↦ ha t) _ (fun t _ ↦ hF' t) (u := toLp 1 u) (by simpa using hu)
   -- each stability term is at most `η t / 2 * ⟨p t, (y t) ^ 2⟩`
@@ -362,8 +362,9 @@ theorem softmax_regret_le_of_antitone {η : ℕ → ℝ} (hη : ∀ t, 0 < η t)
       Y t (a t - q) - bregDiv (fun x : PiLp 1 (fun _ : α ↦ ℝ) ↦ negEntropy (ofLp x)) q (a t)
           (∑ c, log (a t c) • PiLp.proj (𝕜 := ℝ) 1 (fun _ : α ↦ ℝ) c) / η t ≤
         η t / 2 * ∑ b, p t b * y t b ^ 2 := by
-    rw [bregDiv_negEntropy hq (by simpa [a] using hp_mem t)
-      fun c hc ↦ absurd hc (hp_pos t c).ne', hY_apply]
+    rw [bregDiv_negEntropy_ofLp,
+      bregDiv_negEntropy_of_mem_simplex hq (by simpa [a] using hp_mem t)
+        fun c hc ↦ absurd hc (hp_pos t c).ne', hY_apply]
     have h_eq : ∑ b, y t b * (a t - q) b = ∑ b, (p t b - ofLp q b) * y t b :=
       sum_congr rfl fun b _ ↦ by simp [a, mul_comm]
     simp only [a] at h_eq ⊢
