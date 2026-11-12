@@ -8,6 +8,7 @@ module
 public import Mathlib.Probability.Kernel.MeasurableIntegral
 public import Mathlib.Probability.Moments.Variance
 import Mathlib.Algebra.QuadraticDiscriminant
+import Mathlib.Analysis.Convex.Integral
 
 /-!
 # Variances under a kernel, and of bounded random variables
@@ -28,6 +29,10 @@ function, such as the optimal value of a Markov decision process, with the varia
 computable one, and transfers a Bernstein-type bound on the deviation `∫ Y dμ - ∫ Y dν` of the
 nearby function `Y` to `X`.
 
+The variance is also the least centred second moment, `Var[X; μ] ≤ ∫ (X - c) ^ 2 ∂μ`, which
+transports variances: between two functions within `D` of each other, and between two laws on a
+finite space at a cost proportional to their `ℓ¹` distance [MDJKLV21, Lemma 12].
+
 ## Main statements
 
 * `Measurable.variance_kernel`: `b ↦ Var[X; η b]` is measurable.
@@ -40,6 +45,18 @@ nearby function `Y` to `X`.
 * `ProbabilityTheory.abs_integral_sub_integral_le_of_abs_sub_le`: a Bernstein-type bound
   `|∫ Y dμ - ∫ Y dν| ≤ a √Var[Y; μ] + b` transfers to every `X` uniformly within `d` of `Y`, at
   the cost of `(2 + a) d`.
+* `ProbabilityTheory.variance_le_integral_sub_sq`: `Var[X; μ] ≤ ∫ (X - c) ^ 2 ∂μ`.
+* `ProbabilityTheory.variance_le_mul_integral_sub`: `X ∈ [c, d]` gives
+  `Var[X; μ] ≤ (d - c) (𝔼 X - c)`.
+* `ProbabilityTheory.variance_le_two_mul_variance_add_mul_integral_abs_sub`: if `|X - Y| ≤ D`, then
+  `Var[X; μ] ≤ 2 Var[Y; μ] + 2 D 𝔼 |X - Y|`.
+* `ProbabilityTheory.variance_le_variance_add_mul_sum_abs_sub`: on a finite space, for `f` with
+  values in `[c, d]`, `Var[f; ν] ≤ Var[f; μ] + (d - c) ^ 2 / 2 * ∑ x, |μ {x} - ν {x}|`.
+
+## References
+
+* [MDJKLV21] P. Ménard, O. D. Domingues, A. Jonsson, E. Kaufmann, E. Leurent and M. Valko,
+  *Fast active learning for pure exploration in reinforcement learning*, ICML 2021.
 -/
 
 public section
@@ -142,5 +159,91 @@ theorem abs_integral_sub_integral_le_of_abs_sub_le {ν : Measure β} [IsProbabil
     _ ≤ |∫ x, X x ∂μ - ∫ x, Y x ∂μ| + |∫ x, X x ∂ν - ∫ x, Y x ∂ν| +
           |∫ x, Y x ∂μ - ∫ x, Y x ∂ν| := (abs_add_le _ _).trans (by gcongr; exact abs_sub _ _)
     _ ≤ a * √Var[X; μ] + (2 + a) * d + b := by linarith
+
+/-- The variance is the least centred second moment: `Var[X; μ] ≤ ∫ (X - c) ^ 2 ∂μ` for every
+`c`. -/
+theorem variance_le_integral_sub_sq (hX : AEStronglyMeasurable X μ) (c : ℝ) :
+    Var[X; μ] ≤ ∫ b, (X b - c) ^ 2 ∂μ := by
+  have h := variance_le_expectation_sq (μ := μ) (X := fun b ↦ X b - c)
+    (hX.sub aestronglyMeasurable_const)
+  rwa [variance_sub_const hX c] at h
+
+/-- A real random variable with values in `[c, d]` almost surely has variance at most
+`(d - c) (𝔼 X - c)`; for `X ∈ [0, B]`, `Var[X; μ] ≤ B 𝔼 X`. This weakens the Bhatia–Davis
+inequality `ProbabilityTheory.variance_le_sub_mul_sub`. -/
+theorem variance_le_mul_integral_sub {c d : ℝ} (hX : AEMeasurable X μ)
+    (h : ∀ᵐ b ∂μ, X b ∈ Set.Icc c d) : Var[X; μ] ≤ (d - c) * (μ[X] - c) := by
+  have hm : μ[X] ∈ Set.Icc c d :=
+    (convex_Icc c d).integral_mem isClosed_Icc h (.of_mem_Icc c d hX h)
+  refine (variance_le_sub_mul_sub h hX).trans ?_
+  nlinarith [hm.1, hm.2]
+
+/-- **Transport of the variance between two functions** [MDJKLV21, Lemma 12]: if `|X - Y| ≤ D`
+almost surely, then `Var[X; μ] ≤ 2 Var[Y; μ] + 2 D 𝔼 |X - Y|`. The source states it for
+functions with values in `[0, D]`. -/
+theorem variance_le_two_mul_variance_add_mul_integral_abs_sub (hX : AEStronglyMeasurable X μ)
+    (hY : MemLp Y 2 μ) {D : ℝ} (hD : ∀ᵐ b ∂μ, |X b - Y b| ≤ D) :
+    Var[X; μ] ≤ 2 * Var[Y; μ] + 2 * D * ∫ b, |X b - Y b| ∂μ := by
+  have hYc : Integrable (fun b ↦ (Y b - μ[Y]) ^ 2) μ := (hY.sub (memLp_const _)).integrable_sq
+  have habs : Integrable (fun b ↦ |X b - Y b|) μ :=
+    .of_bound (hX.sub hY.aestronglyMeasurable).norm D
+      (hD.mono fun b hb ↦ by rwa [Real.norm_eq_abs, abs_abs])
+  calc Var[X; μ] ≤ ∫ b, (X b - μ[Y]) ^ 2 ∂μ := variance_le_integral_sub_sq hX _
+    _ ≤ ∫ b, (2 * D * |X b - Y b| + 2 * (Y b - μ[Y]) ^ 2) ∂μ := by
+        refine integral_mono_of_nonneg (.of_forall fun _ ↦ sq_nonneg _)
+          ((habs.const_mul _).add (hYc.const_mul _)) ?_
+        filter_upwards [hD] with b hb
+        have hsq : (X b - Y b) ^ 2 ≤ D * |X b - Y b| := by
+          rw [← sq_abs]
+          nlinarith [abs_nonneg (X b - Y b)]
+        nlinarith [sq_nonneg (X b - Y b - (Y b - μ[Y]))]
+    _ = 2 * Var[Y; μ] + 2 * D * ∫ b, |X b - Y b| ∂μ := by
+        rw [integral_add (habs.const_mul _) (hYc.const_mul _), integral_const_mul,
+          integral_const_mul, variance_eq_integral hY.aestronglyMeasurable.aemeasurable]
+        ring
+
+/-- **Transport of the variance between two laws on a finite space** [MDJKLV21, Lemma 12]: for
+probability measures `μ` and `ν` on a finite type and `f` with values in `[c, d]`,
+`Var[f; ν] ≤ Var[f; μ] + (d - c) ^ 2 / 2 * ∑ x, |μ {x} - ν {x}|`. This sharpens the factor `3` of
+the source to `1 / 2`. -/
+theorem variance_le_variance_add_mul_sum_abs_sub {ι : Type*} [Fintype ι] [MeasurableSpace ι]
+    [MeasurableSingletonClass ι] {μ ν : Measure ι} [IsProbabilityMeasure μ]
+    [IsProbabilityMeasure ν] {f : ι → ℝ} {c d : ℝ} (hf : ∀ x, f x ∈ Set.Icc c d) :
+    Var[f; ν] ≤ Var[f; μ] + (d - c) ^ 2 / 2 * ∑ x, |μ.real {x} - ν.real {x}| := by
+  have hfm : Measurable f := measurable_of_finite f
+  set m := μ[f]
+  have hm : m ∈ Set.Icc c d :=
+    (convex_Icc c d).integral_mem isClosed_Icc (.of_forall hf) .of_finite
+  -- the centred square `(f - m) ^ 2` has values in `[0, (d - c) ^ 2]`
+  have hg x : (f x - m) ^ 2 ∈ Set.Icc 0 ((d - c) ^ 2) := by
+    refine ⟨sq_nonneg _, ?_⟩
+    have := (hf x).1; have := (hf x).2
+    nlinarith [hm.1, hm.2]
+  have hsum (ρ : Measure ι) [IsProbabilityMeasure ρ] :
+      ∫ x, (f x - m) ^ 2 ∂ρ = ∑ x, ρ.real {x} * (f x - m) ^ 2 := by
+    simp [integral_fintype Integrable.of_finite]
+  have hμ : Var[f; μ] = ∑ x, μ.real {x} * (f x - m) ^ 2 := by
+    rw [variance_eq_integral hfm.aemeasurable, hsum]
+  -- subtracting the constant `(d - c) ^ 2 / 2` does not change the difference of the sums
+  have hshift : ∑ x, ν.real {x} * (f x - m) ^ 2 - ∑ x, μ.real {x} * (f x - m) ^ 2
+      = ∑ x, (ν.real {x} - μ.real {x}) * ((f x - m) ^ 2 - (d - c) ^ 2 / 2) := by
+    have h1 : ∑ x, ν.real {x} = ∑ x, μ.real {x} := by simp
+    simp only [sub_mul, mul_sub, Finset.sum_sub_distrib, ← Finset.sum_mul, h1]
+    ring
+  have hterm x : (ν.real {x} - μ.real {x}) * ((f x - m) ^ 2 - (d - c) ^ 2 / 2)
+      ≤ (d - c) ^ 2 / 2 * |μ.real {x} - ν.real {x}| := by
+    rw [abs_sub_comm]
+    refine (le_abs_self _).trans ?_
+    rw [abs_mul, mul_comm]
+    gcongr
+    rw [abs_le]
+    constructor <;> linarith [(hg x).1, (hg x).2]
+  calc Var[f; ν] ≤ ∑ x, ν.real {x} * (f x - m) ^ 2 := by
+        rw [← hsum]; exact variance_le_integral_sub_sq hfm.aestronglyMeasurable m
+    _ = Var[f; μ] + ∑ x, (ν.real {x} - μ.real {x}) * ((f x - m) ^ 2 - (d - c) ^ 2 / 2) := by
+        rw [← hshift, hμ]; ring
+    _ ≤ Var[f; μ] + (d - c) ^ 2 / 2 * ∑ x, |μ.real {x} - ν.real {x}| := by
+        rw [Finset.mul_sum]
+        exact add_le_add_right (Finset.sum_le_sum fun x _ ↦ hterm x) _
 
 end ProbabilityTheory
