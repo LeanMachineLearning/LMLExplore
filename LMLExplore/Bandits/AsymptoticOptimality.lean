@@ -9,7 +9,7 @@ public import LMLExplore.Analysis.Asymptotics.Lemmas
 public import LMLExplore.Bandits.AsymptoticallyOptimalUCB
 public import LMLExplore.Bandits.KLUCB
 public import LMLExplore.Bandits.LaiRobbins
-public import LMLExplore.Bandits.ThompsonSampling
+public import LMLExplore.Bandits.ThompsonSampling.Gaussian
 
 /-!
 # Consistency and asymptotic optimality of UCB-type algorithms and Thompson sampling

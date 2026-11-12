@@ -7,6 +7,7 @@ module
 
 public import LMLExplore.Probability.Distributions.ExponentialFamily.Gamma
 public import LMLExplore.Probability.Distributions.ExponentialFamily.Invariance
+public import LMLExplore.Probability.Distributions.ExponentialFamily.Posterior
 public import LMLExplore.Probability.Distributions.ExponentialFamily.UpperConfidence
 public import LMLExplore.Probability.Distributions.Gaussian.Real
 public import TauCeti.Probability.Distributions.Tilted
@@ -28,6 +29,10 @@ parametrization is `d(μ, μ') = (μ - μ')² / (2 v)`. Its extension `dbar` to 
 expression, and the upper confidence level of KL-UCB is the Hoeffding-type level
 `U(x, c) = x + √(2 v c)` of asymptotically optimal UCB (T. Lattimore and Cs. Szepesvári,
 *Bandit Algorithms*, Cambridge University Press, 2020, Algorithm 6).
+The variance function `ψ'' = v` is constant, so the Jeffreys prior is `√v` times Lebesgue
+measure, and the posterior of the natural parameter after `s ≠ 0` observations of sum `S` is the
+Gaussian law `𝒩((S - s m) / (s v), 1 / (s v))`, whose image by the mean map is `𝒩(S / s, v / s)`:
+Thompson sampling with the Jeffreys prior samples the mean of an arm from `𝒩(μ̂, v / s)`.
 
 Gaussian arms with a known variance are the reference model of bandit identification: with
 `d(μ, μ') = (μ - μ')² / (2 v)`, the transportation costs, the characteristic time and the
@@ -75,6 +80,15 @@ Fixed variance, statistic `id`:
   `v ≠ 0`, the upper confidence level is `U(x, c) = x + √(2 v c)` for finite `c`, and
   `U(x, ∞) = ∞`. `LMLExplore.expFamilyUpper_ofReal_gaussianReal` is the finite case for a real
   budget `c ≥ 0`.
+* `LMLExplore.iteratedDeriv_two_cgf_gaussianReal`, `LMLExplore.jeffreysPrior_gaussianReal`: the
+  variance function of the family is the constant `v`, and its Jeffreys prior is `√v` times
+  Lebesgue measure.
+* `LMLExplore.expFamilyPosterior_gaussianReal_volume`,
+  `LMLExplore.expFamilyPosterior_gaussianReal_jeffreysPrior`: for `v ≠ 0` and `s ≠ 0`
+  observations of sum `S`, the posterior of the natural parameter for the flat prior and for the
+  Jeffreys prior is `𝒩((S - s m) / (s v), 1 / (s v))`.
+* `LMLExplore.map_deriv_cgf_expFamilyPosterior_gaussianReal_jeffreysPrior`: the image of that
+  posterior by the mean map `ψ'` is `𝒩(S / s, v / s)`.
 
 Fixed mean, statistic `x ↦ (x - m) ^ 2`:
 
@@ -98,7 +112,7 @@ public section
 
 open MeasureTheory ProbabilityTheory Real Set
 
-open scoped NNReal
+open scoped ENNReal NNReal
 
 namespace LMLExplore
 
@@ -234,6 +248,89 @@ theorem expFamilyUpper_top_gaussianReal (m : ℝ) (hv : v ≠ 0) (x : ℝ) :
     (EReal.coe_lt_coe_iff.2 ((le_max_right x y).trans_lt (lt_add_one _))).trans_le ?_
   exact Measure.le_expFamilyUpper_of_expFamilyRate_le (mem_expFamilyMeans_gaussianReal m hv _)
     ((le_max_left x y).trans (le_add_of_nonneg_right zero_le_one)) le_top
+
+/-- The variance function of the exponential family of `𝒩(m, v)` is constant: the second
+derivative of its log-partition function is `v` at every natural parameter. -/
+@[simp]
+theorem iteratedDeriv_two_cgf_gaussianReal (m : ℝ) (v : ℝ≥0) (η : ℝ) :
+    iteratedDeriv 2 (cgf id (gaussianReal m v)) η = v := by
+  rw [iteratedDeriv_succ, iteratedDeriv_one,
+    show deriv (cgf id (gaussianReal m v)) = fun η ↦ m + v * η from
+      funext (deriv_cgf_gaussianReal m v)]
+  simp
+
+/-- The Jeffreys prior of the exponential family of `𝒩(m, v)` is `√v` times Lebesgue measure. -/
+theorem jeffreysPrior_gaussianReal (m : ℝ) (v : ℝ≥0) :
+    (gaussianReal m v).jeffreysPrior id = ENNReal.ofReal √v • volume := by
+  simp [Measure.jeffreysPrior_def, integrableExpSet_id_gaussianReal, withDensity_const]
+
+/-- For `v ≠ 0` and `s ≠ 0` observations whose sum is `S`, the posterior of the natural parameter
+of the exponential family of `𝒩(m, v)` for the flat prior (Lebesgue measure) is the Gaussian law
+`𝒩((S - s m) / (s v), 1 / (s v))`. -/
+theorem expFamilyPosterior_gaussianReal_volume (m : ℝ) (hv : v ≠ 0) {s : ℕ} (hs : s ≠ 0)
+    (S : ℝ) :
+    (gaussianReal m v).expFamilyPosterior id volume s S =
+      gaussianReal ((S - s * m) / (s * v)) (s * v)⁻¹ := by
+  have hsv : (s : ℝ≥0) * v ≠ 0 := mul_ne_zero (Nat.cast_ne_zero.2 hs) hv
+  have ha : (0 : ℝ) < s * v := by positivity
+  set μ₀ : ℝ := (S - s * m) / (s * v)
+  -- the unnormalized posterior is a constant multiple `C` of `𝒩(μ₀, 1 / (s v))`, by completing the
+  -- square `θ S - s (m θ + v θ² / 2) = s v μ₀² / 2 - s v (θ - μ₀)² / 2`
+  set C : ℝ≥0∞ := ENNReal.ofReal (√(2 * π * (s * v : ℝ)⁻¹) * exp (s * v * μ₀ ^ 2 / 2))
+  have hC0 : C ≠ 0 := by
+    simp only [C, ne_eq, ENNReal.ofReal_eq_zero, not_le]
+    positivity
+  have hdens : (fun θ ↦ ENNReal.ofReal (exp (θ * S - s * cgf id (gaussianReal m v) θ))) =
+      C • gaussianPDF μ₀ ((s : ℝ≥0) * v)⁻¹ := by
+    ext θ
+    have h2 : 0 < 2 * π * (s * v : ℝ)⁻¹ := by positivity
+    rw [cgf_gaussianReal HasLaw.id, Pi.smul_apply, smul_eq_mul, gaussianPDF, gaussianPDFReal,
+      ← ENNReal.ofReal_mul (by positivity)]
+    congr 1
+    push_cast
+    rw [mul_mul_mul_comm, mul_inv_cancel₀ (Real.sqrt_pos.2 h2).ne', one_mul, ← exp_add]
+    congr 1
+    simp only [μ₀]
+    field_simp
+    ring
+  rw [Measure.expFamilyPosterior_def, integrableExpSet_id_gaussianReal, interior_univ, hdens,
+    withDensity_smul' C _ ENNReal.ofReal_ne_top, ← gaussianReal_of_var_ne_zero _ (inv_ne_zero hsv),
+    ProbabilityTheory.cond, Measure.restrict_univ, smul_apply, measure_univ, smul_eq_mul,
+    mul_one, smul_smul, ENNReal.inv_mul_cancel hC0 ENNReal.ofReal_ne_top, one_smul]
+
+/-- For `v ≠ 0` and `s ≠ 0` observations whose sum is `S`, the posterior of the natural parameter
+of the exponential family of `𝒩(m, v)` for its Jeffreys prior is the Gaussian law
+`𝒩((S - s m) / (s v), 1 / (s v))`: the Jeffreys prior is a constant multiple of the flat prior. -/
+theorem expFamilyPosterior_gaussianReal_jeffreysPrior (m : ℝ) (hv : v ≠ 0) {s : ℕ} (hs : s ≠ 0)
+    (S : ℝ) :
+    (gaussianReal m v).expFamilyPosterior id ((gaussianReal m v).jeffreysPrior id) s S =
+      gaussianReal ((S - s * m) / (s * v)) (s * v)⁻¹ := by
+  have hv' : (0 : ℝ) < v := by positivity
+  rw [jeffreysPrior_gaussianReal, Measure.expFamilyPosterior_smul
+    (by simpa using Real.sqrt_pos.2 hv') ENNReal.ofReal_ne_top,
+    expFamilyPosterior_gaussianReal_volume m hv hs]
+
+/-- For `v ≠ 0` and `s ≠ 0` observations whose sum is `S`, the image of the posterior of the
+natural parameter of the exponential family of `𝒩(m, v)` for its Jeffreys prior by the mean map
+`ψ'` is the Gaussian law `𝒩(S / s, v / s)`: the mean of a natural parameter drawn from the
+posterior is distributed as `𝒩(μ̂, v / s)`, with `μ̂ = S / s` the empirical mean. -/
+theorem map_deriv_cgf_expFamilyPosterior_gaussianReal_jeffreysPrior (m : ℝ) (hv : v ≠ 0) {s : ℕ}
+    (hs : s ≠ 0) (S : ℝ) :
+    ((gaussianReal m v).expFamilyPosterior id ((gaussianReal m v).jeffreysPrior id) s S).map
+        (deriv (cgf id (gaussianReal m v))) = gaussianReal (S / s) (v / s) := by
+  have hv' : (v : ℝ) ≠ 0 := NNReal.coe_ne_zero.2 hv
+  have hs' : (s : ℝ) ≠ 0 := Nat.cast_ne_zero.2 hs
+  rw [expFamilyPosterior_gaussianReal_jeffreysPrior m hv hs,
+    show deriv (cgf id (gaussianReal m v)) = (fun x ↦ x + m) ∘ (fun x ↦ (v : ℝ) * x) from
+      funext fun η ↦ by rw [deriv_cgf_gaussianReal, Function.comp_apply, add_comm],
+    ← Measure.map_map (by fun_prop) (by fun_prop), gaussianReal_map_const_mul,
+    gaussianReal_map_add_const]
+  congr 1
+  · field_simp
+    ring
+  · ext
+    push_cast
+    field_simp
 
 /-! ### Fixed mean: the statistic `x ↦ (x - m) ^ 2` -/
 
