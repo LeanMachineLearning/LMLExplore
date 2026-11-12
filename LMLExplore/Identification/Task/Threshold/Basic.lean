@@ -25,8 +25,8 @@ parametrization on their sets of means, are an instance (`isDivergenceOn_expFami
   with mean above `γ` are the vectors in which some arm `a` crossed `γ`. The infimum of their costs
   is approached by moving a single arm to the other side of `γ`, ever closer to `γ`, so that
   `D(μ, w, ¬S*) = min_a w a d_a(μ a, γ)`. The allocation maximizing it is proportional to
-  `d_a(μ a, γ)⁻¹`, and `T*(μ) = ∑ a, d_a(μ a, γ)⁻¹`. For Gaussian arms with variance `σ2`,
-  `T*(μ) = ∑ a, 2 σ2 / (μ a - γ)²`.
+  `d_a(μ a, γ)⁻¹`, and `T*(μ) = ∑ a, d_a(μ a, γ)⁻¹`. For Gaussian arms with known variances
+  `v a`, `T*(μ) = ∑ a, 2 v a / (μ a - γ)²`.
 * *Minimum threshold* (`minThresholdTask ν id γ`): if all the means are above `γ` (answer `false`),
   the alternatives are the vectors with some mean below `γ`, and the game is that of thresholding:
   `D(μ, w, ¬false) = min_a w a d_a(μ a, γ)` and `T*(μ) = ∑ a, d_a(μ a, γ)⁻¹`
@@ -35,8 +35,13 @@ parametrization on their sets of means, are an instance (`isDivergenceOn_expFami
   `γ`, and the infimum of the costs is reached in the limit where these arms are moved to `γ`:
   `D(μ, w, ¬true) = ∑ a, w a d_a(μ a, max (μ a) γ)`, whose supremum over the simplex is
   `D(μ, ¬true) = max_a d_a(μ a, max (μ a) γ)`, and `T*(μ) = (max_a d_a(μ a, max (μ a) γ))⁻¹`. For
-  Gaussian arms with a common variance `σ2`, this is `2 σ2 / (μ a₀ - γ)²` for an arm `a₀` of
-  smallest mean [DK19, Lemma 38; KKG18, Lemma 1].
+  Gaussian arms with known variances `v a`, this is `2 v a₀ / (μ a₀ - γ)²` for an arm `a₀` below
+  `γ` maximizing `(μ a - γ)² / v a` among the arms below `γ`; with a common variance, `a₀` is an
+  arm of smallest mean [DK19, Lemma 38; KKG18, Lemma 1].
+
+The Gaussian arms with known variances `v a ≠ 0` are the arm laws `ν μ a = 𝒩(μ a, v a)`, for
+instance the bandits `Bandits.gaussianMeanVarBandit fun a ↦ (μ a, v a)`; the Gaussian bandits
+`Bandits.gaussianBandit μ σ2` with a common variance are the case of a constant `v`.
 
 The admissible models are the vectors of means in `S`, `task.restrict {λ | ∀ c, λ c ∈ S c}`. Each
 arm has its own divergence: the arms do not interact in these tasks. The transportation costs
@@ -58,9 +63,13 @@ which also uses only the hypotheses `IsDivergenceOn`, and the game of a weighted
   `D(μ, w, ¬S*) = min_a w a d_a(μ a, γ)`, `D(μ, ¬S*) = (∑ a, d_a(μ a, γ)⁻¹)⁻¹`,
   `T*(μ) = ∑ a, d_a(μ a, γ)⁻¹`, and the only optimal allocation is proportional to
   `d_a(μ a, γ)⁻¹`.
+* `LMLExplore.Identification.altCost_thresholdingTask_gaussianReal`,
+  `LMLExplore.Identification.charTime_thresholdingTask_gaussianReal`: for Gaussian arms with
+  variances `v a`, `D(μ, w, ¬S*) = min_a w a (μ a - γ)² / (2 v a)` and
+  `T*(μ) = ∑ a, 2 v a / (μ a - γ)²`.
 * `LMLExplore.Identification.altCost_thresholdingTask_gaussianBandit`,
-  `LMLExplore.Identification.charTime_thresholdingTask_gaussianBandit`: for Gaussian arms,
-  `D(μ, w, ¬S*) = min_a w a (μ a - γ)² / (2 σ2)` and `T*(μ) = ∑ a, 2 σ2 / (μ a - γ)²`.
+  `LMLExplore.Identification.charTime_thresholdingTask_gaussianBandit`: their cases of a common
+  variance `σ2`.
 * `LMLExplore.Identification.altCost_minThresholdTask_restrict_false`,
   `LMLExplore.Identification.answerValue_minThresholdTask_restrict_false`,
   `LMLExplore.Identification.charTime_minThresholdTask_restrict_false`,
@@ -71,10 +80,14 @@ which also uses only the hypotheses `IsDivergenceOn`, and the game of a weighted
   `LMLExplore.Identification.charTime_minThresholdTask_restrict_true`: for minimum threshold,
   `D(μ, w, ¬true) = ∑ a, w a d_a(μ a, max (μ a) γ)`, `D(μ, ¬true) = max_a d_a(μ a, max (μ a) γ)`
   and, when some mean is below `γ`, `T*(μ) = (max_a d_a(μ a, max (μ a) γ))⁻¹` [DK19, Lemma 38].
+* `LMLExplore.Identification.charTime_minThresholdTask_gaussianReal_false`,
+  `LMLExplore.Identification.charTime_minThresholdTask_gaussianReal_true`: for Gaussian arms with
+  variances `v a`, `T*(μ) = ∑ a, 2 v a / (μ a - γ)²` if all the means are above `γ`, and
+  `T*(μ) = 2 v a₀ / (μ a₀ - γ)²` if the arm `a₀` below `γ` maximizes `(μ a - γ)² / v a` among the
+  arms below `γ`.
 * `LMLExplore.Identification.charTime_minThresholdTask_gaussianBandit_false`,
-  `LMLExplore.Identification.charTime_minThresholdTask_gaussianBandit_true`: for Gaussian arms,
-  `T*(μ) = ∑ a, 2 σ2 / (μ a - γ)²` if all the means are above `γ`, and
-  `T*(μ) = 2 σ2 / (μ a₀ - γ)²` if the smallest mean `μ a₀` is below `γ`.
+  `LMLExplore.Identification.charTime_minThresholdTask_gaussianBandit_true`: their cases of a
+  common variance `σ2`, where `a₀` is an arm of smallest mean.
 
 ## References
 
@@ -209,44 +222,6 @@ theorem charTime_thresholdingTask_restrict [Nonempty α]
       (by rw [IdentTask.correct_restrict, correct_thresholdingTask_eq_singleton ν id, id_eq]),
     answerValue_thresholdingTask_restrict ν hd hγ hμ hν hμγ hs, ENNReal.ofReal_inv_of_pos hpos,
     inv_inv]
-
-/-! #### Gaussian arms -/
-
-variable [MeasurableSingletonClass α] {σ2 : ℝ≥0}
-
-/-- **The cost of the alternatives in Gaussian thresholding.** For Gaussian arms with a common
-variance `σ2 ≠ 0`, a vector of means `μ` with no mean equal to `γ`, whose correct answer is the set
-`s` of the arms with mean above `γ`, and a nonnegative allocation `w`,
-`D(μ, w, ¬s) = min_a w a (μ a - γ)² / (2 σ2)`. -/
-theorem altCost_thresholdingTask_gaussianBandit (hσ2 : σ2 ≠ 0) (hμγ : ∀ a, μ a ≠ γ)
-    {s : Finset α} (hs : ∀ a, a ∈ s ↔ γ < μ a) (hw : 0 ≤ w) :
-    (thresholdingTask (Bandits.gaussianBandit · σ2) id γ).altCost μ w s =
-      ⨅ a, ENNReal.ofReal (w a * (μ a - γ) ^ 2 / (2 * σ2)) := by
-  rw [← (thresholdingTask (Bandits.gaussianBandit · σ2) id γ).restrict_univ,
-    ← setOf_forall_mem_expFamilyMeans_gaussianReal 0 hσ2,
-    altCost_thresholdingTask_restrict (S := fun _ ↦ (gaussianReal 0 σ2).expFamilyMeans id) _
-      (fun _ ↦ isDivergenceOn_expFamilyDiv (not_ae_eq_const_gaussianReal 0 hσ2))
-      (fun _ ↦ mem_expFamilyMeans_gaussianReal 0 hσ2 _)
-      (fun _ ↦ mem_expFamilyMeans_gaussianReal 0 hσ2 _)
-      (fun μ' _ ↦ Bandits.klDiv_gaussianBandit_eq_ofReal_expFamilyDiv hσ2 μ μ')
-      hμγ hs hw]
-  simp only [expFamilyDiv_gaussianReal 0 hσ2, mul_div_assoc]
-
-/-- **The characteristic time of Gaussian thresholding.** For Gaussian arms with a common variance
-`σ2 ≠ 0` and a vector of means `μ` with no mean equal to `γ`, `T*(μ) = ∑ a, 2 σ2 / (μ a - γ)²`. -/
-theorem charTime_thresholdingTask_gaussianBandit [Nonempty α] (hσ2 : σ2 ≠ 0)
-    (hμγ : ∀ a, μ a ≠ γ) :
-    (thresholdingTask (Bandits.gaussianBandit · σ2) id γ).charTime μ =
-      ENNReal.ofReal (∑ a, 2 * σ2 / (μ a - γ) ^ 2) := by
-  rw [← (thresholdingTask (Bandits.gaussianBandit · σ2) id γ).restrict_univ,
-    ← setOf_forall_mem_expFamilyMeans_gaussianReal 0 hσ2,
-    charTime_thresholdingTask_restrict (S := fun _ ↦ (gaussianReal 0 σ2).expFamilyMeans id) _
-      (fun _ ↦ isDivergenceOn_expFamilyDiv (not_ae_eq_const_gaussianReal 0 hσ2))
-      (fun _ ↦ mem_expFamilyMeans_gaussianReal 0 hσ2 _)
-      (fun _ ↦ mem_expFamilyMeans_gaussianReal 0 hσ2 _)
-      (fun μ' _ ↦ Bandits.klDiv_gaussianBandit_eq_ofReal_expFamilyDiv hσ2 μ μ')
-      hμγ]
-  simp only [expFamilyDiv_gaussianReal 0 hσ2, inv_div]
 
 end Thresholding
 
@@ -445,60 +420,140 @@ theorem charTime_minThresholdTask_restrict_true (hd : ∀ a, IsDivergenceOn (d a
   rw [IdentTask.charTime_eq_inv_answerValue _ h_corr,
     answerValue_minThresholdTask_restrict_true ν hd hγ hμ hν]
 
-/-! #### Gaussian arms -/
+end MinThreshold
 
-variable [MeasurableSingletonClass α] {σ2 : ℝ≥0}
+/-! ### Gaussian arms -/
+
+section Gaussian
+
+variable {ν : (α → ℝ) → Kernel α ℝ} [∀ μ, IsMarkovKernel (ν μ)] {v : α → ℝ≥0}
+
+/-- **The cost of the alternatives in Gaussian thresholding.** For Gaussian arms with variances
+`v a ≠ 0`, a vector of means `μ` with no mean equal to `γ`, whose correct answer is the set `s` of
+the arms with mean above `γ`, and a nonnegative allocation `w`,
+`D(μ, w, ¬s) = min_a w a (μ a - γ)² / (2 v a)`. -/
+theorem altCost_thresholdingTask_gaussianReal (hv : ∀ a, v a ≠ 0)
+    (hν : ∀ μ a, ν μ a = gaussianReal (μ a) (v a)) (hμγ : ∀ a, μ a ≠ γ) {s : Finset α}
+    (hs : ∀ a, a ∈ s ↔ γ < μ a) (hw : 0 ≤ w) :
+    (thresholdingTask ν id γ).altCost μ w s =
+      ⨅ a, ENNReal.ofReal (w a * (μ a - γ) ^ 2 / (2 * v a)) := by
+  rw [← (thresholdingTask ν id γ).restrict_univ,
+    ← setOf_forall_mem_expFamilyMeans_gaussianReal 0 hv,
+    altCost_thresholdingTask_restrict (S := fun a ↦ (gaussianReal 0 (v a)).expFamilyMeans id) _
+      (fun a ↦ isDivergenceOn_expFamilyDiv (not_ae_eq_const_gaussianReal 0 (hv a)))
+      (fun a ↦ mem_expFamilyMeans_gaussianReal 0 (hv a) _)
+      (fun a ↦ mem_expFamilyMeans_gaussianReal 0 (hv a) _)
+      (fun μ' _ ↦ klDiv_eq_ofReal_expFamilyDiv_gaussianReal hv hν μ μ') hμγ hs hw]
+  exact iInf_congr fun a ↦ by rw [expFamilyDiv_gaussianReal 0 (hv a), mul_div_assoc]
+
+/-- **The characteristic time of Gaussian thresholding.** For Gaussian arms with variances
+`v a ≠ 0` and a vector of means `μ` with no mean equal to `γ`, `T*(μ) = ∑ a, 2 v a / (μ a - γ)²`. -/
+theorem charTime_thresholdingTask_gaussianReal [Nonempty α] (hv : ∀ a, v a ≠ 0)
+    (hν : ∀ μ a, ν μ a = gaussianReal (μ a) (v a)) (hμγ : ∀ a, μ a ≠ γ) :
+    (thresholdingTask ν id γ).charTime μ = ENNReal.ofReal (∑ a, 2 * v a / (μ a - γ) ^ 2) := by
+  rw [← (thresholdingTask ν id γ).restrict_univ,
+    ← setOf_forall_mem_expFamilyMeans_gaussianReal 0 hv,
+    charTime_thresholdingTask_restrict (S := fun a ↦ (gaussianReal 0 (v a)).expFamilyMeans id) _
+      (fun a ↦ isDivergenceOn_expFamilyDiv (not_ae_eq_const_gaussianReal 0 (hv a)))
+      (fun a ↦ mem_expFamilyMeans_gaussianReal 0 (hv a) _)
+      (fun a ↦ mem_expFamilyMeans_gaussianReal 0 (hv a) _)
+      (fun μ' _ ↦ klDiv_eq_ofReal_expFamilyDiv_gaussianReal hv hν μ μ') hμγ]
+  exact congrArg ENNReal.ofReal (Finset.sum_congr rfl fun a _ ↦ by
+    rw [expFamilyDiv_gaussianReal 0 (hv a), inv_div])
 
 /-- **The characteristic time of Gaussian minimum threshold when all the means are above the
-threshold** [DK19, Lemma 37]. For Gaussian arms with a common variance `σ2 ≠ 0` and a vector of
-means `μ` with all its means above `γ`, `T*(μ) = ∑ a, 2 σ2 / (μ a - γ)²`. -/
-theorem charTime_minThresholdTask_gaussianBandit_false [Nonempty α] (hσ2 : σ2 ≠ 0)
-    (hμγ : ∀ a, γ < μ a) :
-    (minThresholdTask (Bandits.gaussianBandit · σ2) id γ).charTime μ =
-      ENNReal.ofReal (∑ a, 2 * σ2 / (μ a - γ) ^ 2) := by
-  rw [← (minThresholdTask (Bandits.gaussianBandit · σ2) id γ).restrict_univ,
-    ← setOf_forall_mem_expFamilyMeans_gaussianReal 0 hσ2,
-    charTime_minThresholdTask_restrict_false (S := fun _ ↦ (gaussianReal 0 σ2).expFamilyMeans id) _
-      (fun _ ↦ isDivergenceOn_expFamilyDiv (not_ae_eq_const_gaussianReal 0 hσ2))
-      (fun _ ↦ mem_expFamilyMeans_gaussianReal 0 hσ2 _)
-      (fun _ ↦ mem_expFamilyMeans_gaussianReal 0 hσ2 _)
-      (fun μ' _ ↦ Bandits.klDiv_gaussianBandit_eq_ofReal_expFamilyDiv hσ2 μ μ')
-      hμγ]
-  simp only [expFamilyDiv_gaussianReal 0 hσ2, inv_div]
+threshold** [DK19, Lemma 37]. For Gaussian arms with variances `v a ≠ 0` and a vector of means `μ`
+with all its means above `γ`, `T*(μ) = ∑ a, 2 v a / (μ a - γ)²`. -/
+theorem charTime_minThresholdTask_gaussianReal_false [Nonempty α] (hv : ∀ a, v a ≠ 0)
+    (hν : ∀ μ a, ν μ a = gaussianReal (μ a) (v a)) (hμγ : ∀ a, γ < μ a) :
+    (minThresholdTask ν id γ).charTime μ = ENNReal.ofReal (∑ a, 2 * v a / (μ a - γ) ^ 2) := by
+  rw [← (minThresholdTask ν id γ).restrict_univ,
+    ← setOf_forall_mem_expFamilyMeans_gaussianReal 0 hv,
+    charTime_minThresholdTask_restrict_false
+      (S := fun a ↦ (gaussianReal 0 (v a)).expFamilyMeans id) _
+      (fun a ↦ isDivergenceOn_expFamilyDiv (not_ae_eq_const_gaussianReal 0 (hv a)))
+      (fun a ↦ mem_expFamilyMeans_gaussianReal 0 (hv a) _)
+      (fun a ↦ mem_expFamilyMeans_gaussianReal 0 (hv a) _)
+      (fun μ' _ ↦ klDiv_eq_ofReal_expFamilyDiv_gaussianReal hv hν μ μ') hμγ]
+  exact congrArg ENNReal.ofReal (Finset.sum_congr rfl fun a _ ↦ by
+    rw [expFamilyDiv_gaussianReal 0 (hv a), inv_div])
 
 /-- **The characteristic time of Gaussian minimum threshold when some mean is below the
-threshold** [DK19, Lemma 38]. For Gaussian arms with a common variance `σ2 ≠ 0` and a vector of
-means `μ` whose smallest mean `μ a₀` is below `γ`, `T*(μ) = 2 σ2 / (μ a₀ - γ)²`. -/
-theorem charTime_minThresholdTask_gaussianBandit_true (hσ2 : σ2 ≠ 0) {a₀ : α}
-    (ha₀ : ∀ a, μ a₀ ≤ μ a) (hγ : μ a₀ < γ) :
-    (minThresholdTask (Bandits.gaussianBandit · σ2) id γ).charTime μ =
-      ENNReal.ofReal (2 * σ2 / (μ a₀ - γ) ^ 2) := by
-  have hσ2' : 0 < (σ2 : ℝ) := NNReal.coe_pos.2 (pos_iff_ne_zero.2 hσ2)
-  rw [← (minThresholdTask (Bandits.gaussianBandit · σ2) id γ).restrict_univ,
-    ← setOf_forall_mem_expFamilyMeans_gaussianReal 0 hσ2,
-    charTime_minThresholdTask_restrict_true (S := fun _ ↦ (gaussianReal 0 σ2).expFamilyMeans id) _
-      (fun _ ↦ isDivergenceOn_expFamilyDiv (not_ae_eq_const_gaussianReal 0 hσ2))
-      (fun _ ↦ mem_expFamilyMeans_gaussianReal 0 hσ2 _)
-      (fun _ ↦ mem_expFamilyMeans_gaussianReal 0 hσ2 _)
-      (fun μ' _ ↦ Bandits.klDiv_gaussianBandit_eq_ofReal_expFamilyDiv hσ2 μ μ')
-      ⟨a₀, hγ⟩]
-  simp only [expFamilyDiv_gaussianReal 0 hσ2]
-  -- The largest divergence to the alternatives is that of the arm with the smallest mean.
-  have h_sup : ⨆ a, ENNReal.ofReal ((μ a - max (μ a) γ) ^ 2 / (2 * σ2)) =
-      ENNReal.ofReal ((μ a₀ - γ) ^ 2 / (2 * σ2)) := by
+threshold** [DK19, Lemma 38]. For Gaussian arms with variances `v a ≠ 0` and a vector of means `μ`
+with an arm `a₀` below `γ` that maximizes `(μ a - γ)² / v a` among the arms below `γ`,
+`T*(μ) = 2 v a₀ / (μ a₀ - γ)²`. -/
+theorem charTime_minThresholdTask_gaussianReal_true (hv : ∀ a, v a ≠ 0)
+    (hν : ∀ μ a, ν μ a = gaussianReal (μ a) (v a)) {a₀ : α} (hγ : μ a₀ < γ)
+    (ha₀ : ∀ a, μ a < γ → (μ a - γ) ^ 2 / v a ≤ (μ a₀ - γ) ^ 2 / v a₀) :
+    (minThresholdTask ν id γ).charTime μ = ENNReal.ofReal (2 * v a₀ / (μ a₀ - γ) ^ 2) := by
+  rw [← (minThresholdTask ν id γ).restrict_univ,
+    ← setOf_forall_mem_expFamilyMeans_gaussianReal 0 hv,
+    charTime_minThresholdTask_restrict_true
+      (S := fun a ↦ (gaussianReal 0 (v a)).expFamilyMeans id) _
+      (fun a ↦ isDivergenceOn_expFamilyDiv (not_ae_eq_const_gaussianReal 0 (hv a)))
+      (fun a ↦ mem_expFamilyMeans_gaussianReal 0 (hv a) _)
+      (fun a ↦ mem_expFamilyMeans_gaussianReal 0 (hv a) _)
+      (fun μ' _ ↦ klDiv_eq_ofReal_expFamilyDiv_gaussianReal hv hν μ μ') ⟨a₀, hγ⟩]
+  -- The largest divergence to the alternatives is that of the arm `a₀`.
+  have h_sup : ⨆ a, ENNReal.ofReal ((gaussianReal 0 (v a)).expFamilyDiv id (μ a)
+      (max (μ a) γ)) = ENNReal.ofReal ((μ a₀ - γ) ^ 2 / (2 * v a₀)) := by
     refine le_antisymm (iSup_le fun a ↦ ENNReal.ofReal_le_ofReal ?_)
-      (le_iSup_of_le a₀ (by rw [max_eq_right hγ.le]))
-    refine div_le_div_of_nonneg_right ?_ (by positivity)
-    rcases le_total (μ a) γ with h | h
-    · rw [max_eq_right h]
-      nlinarith [ha₀ a]
-    · rw [max_eq_left h, sub_self]
-      simpa using sq_nonneg (μ a₀ - γ)
-  have hpos : 0 < (μ a₀ - γ) ^ 2 / (2 * σ2) := by
+      (le_iSup_of_le a₀ (by rw [max_eq_right hγ.le, expFamilyDiv_gaussianReal 0 (hv a₀)]))
+    rw [expFamilyDiv_gaussianReal 0 (hv a)]
+    rcases lt_or_ge (μ a) γ with h | h
+    · rw [max_eq_right h.le, div_mul_eq_div_div_swap, div_mul_eq_div_div_swap]
+      exact div_le_div_of_nonneg_right (ha₀ a h) zero_le_two
+    · rw [max_eq_left h, sub_self, zero_pow two_ne_zero, zero_div]
+      positivity
+  have hpos : 0 < (μ a₀ - γ) ^ 2 / (2 * v a₀) := by
     have : 0 < (μ a₀ - γ) ^ 2 := by nlinarith [mul_pos (sub_pos.2 hγ) (sub_pos.2 hγ)]
+    have : 0 < (v a₀ : ℝ) := NNReal.coe_pos.2 (pos_iff_ne_zero.2 (hv a₀))
     positivity
   rw [h_sup, ← ENNReal.ofReal_inv_of_pos hpos, inv_div]
 
-end MinThreshold
+/-- **The cost of the alternatives in Gaussian thresholding with a common variance.** For Gaussian
+arms with a common variance `σ2 ≠ 0`, a vector of means `μ` with no mean equal to `γ`, whose
+correct answer is the set `s` of the arms with mean above `γ`, and a nonnegative allocation `w`,
+`D(μ, w, ¬s) = min_a w a (μ a - γ)² / (2 σ2)`. -/
+theorem altCost_thresholdingTask_gaussianBandit [MeasurableSingletonClass α] {σ2 : ℝ≥0}
+    (hσ2 : σ2 ≠ 0) (hμγ : ∀ a, μ a ≠ γ) {s : Finset α} (hs : ∀ a, a ∈ s ↔ γ < μ a) (hw : 0 ≤ w) :
+    (thresholdingTask (Bandits.gaussianBandit · σ2) id γ).altCost μ w s =
+      ⨅ a, ENNReal.ofReal (w a * (μ a - γ) ^ 2 / (2 * σ2)) :=
+  altCost_thresholdingTask_gaussianReal (v := fun _ ↦ σ2) (fun _ ↦ hσ2)
+    (Bandits.gaussianBandit_apply · σ2) hμγ hs hw
+
+/-- **The characteristic time of Gaussian thresholding with a common variance.** For Gaussian arms
+with a common variance `σ2 ≠ 0` and a vector of means `μ` with no mean equal to `γ`,
+`T*(μ) = ∑ a, 2 σ2 / (μ a - γ)²`. -/
+theorem charTime_thresholdingTask_gaussianBandit [MeasurableSingletonClass α] [Nonempty α]
+    {σ2 : ℝ≥0} (hσ2 : σ2 ≠ 0) (hμγ : ∀ a, μ a ≠ γ) :
+    (thresholdingTask (Bandits.gaussianBandit · σ2) id γ).charTime μ =
+      ENNReal.ofReal (∑ a, 2 * σ2 / (μ a - γ) ^ 2) :=
+  charTime_thresholdingTask_gaussianReal (v := fun _ ↦ σ2) (fun _ ↦ hσ2)
+    (Bandits.gaussianBandit_apply · σ2) hμγ
+
+/-- **The characteristic time of Gaussian minimum threshold with a common variance when all the
+means are above the threshold** [DK19, Lemma 37]. For Gaussian arms with a common variance
+`σ2 ≠ 0` and a vector of means `μ` with all its means above `γ`, `T*(μ) = ∑ a, 2 σ2 / (μ a - γ)²`.
+-/
+theorem charTime_minThresholdTask_gaussianBandit_false [MeasurableSingletonClass α] [Nonempty α]
+    {σ2 : ℝ≥0} (hσ2 : σ2 ≠ 0) (hμγ : ∀ a, γ < μ a) :
+    (minThresholdTask (Bandits.gaussianBandit · σ2) id γ).charTime μ =
+      ENNReal.ofReal (∑ a, 2 * σ2 / (μ a - γ) ^ 2) :=
+  charTime_minThresholdTask_gaussianReal_false (v := fun _ ↦ σ2) (fun _ ↦ hσ2)
+    (Bandits.gaussianBandit_apply · σ2) hμγ
+
+/-- **The characteristic time of Gaussian minimum threshold with a common variance when some mean
+is below the threshold** [DK19, Lemma 38]. For Gaussian arms with a common variance `σ2 ≠ 0` and a
+vector of means `μ` whose smallest mean `μ a₀` is below `γ`, `T*(μ) = 2 σ2 / (μ a₀ - γ)²`. -/
+theorem charTime_minThresholdTask_gaussianBandit_true [MeasurableSingletonClass α] {σ2 : ℝ≥0}
+    (hσ2 : σ2 ≠ 0) {a₀ : α} (ha₀ : ∀ a, μ a₀ ≤ μ a) (hγ : μ a₀ < γ) :
+    (minThresholdTask (Bandits.gaussianBandit · σ2) id γ).charTime μ =
+      ENNReal.ofReal (2 * σ2 / (μ a₀ - γ) ^ 2) :=
+  charTime_minThresholdTask_gaussianReal_true (v := fun _ ↦ σ2) (fun _ ↦ hσ2)
+    (Bandits.gaussianBandit_apply · σ2) hγ fun a ha ↦
+      div_le_div_of_nonneg_right (by nlinarith [ha₀ a]) σ2.2
+
+end Gaussian
 
 end LMLExplore.Identification

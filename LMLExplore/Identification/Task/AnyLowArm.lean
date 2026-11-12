@@ -34,8 +34,9 @@ the mean parametrization on its set of means, and let `γ` be in every `S_a`.
   [DK19, Proposition 5]: the convexity of each `w*(μ, ¬i)` does not extend to `w*(μ)`. This is why
   the guarantee of Track-and-Stop for tasks with multiple correct answers involves the convex hull
   of `w*(μ)`, and why the sticky variant of Degenne and Koolen commits to one oracle answer. For
-  Gaussian arms with a common variance, the oracle allocations are the vertices of the arms of
-  smallest mean, and two arms with the same smallest mean below `γ` give this non-convex set.
+  Gaussian arms with known variances `v a`, the oracle allocations are the vertices of the arms
+  below `γ` maximizing `(μ a - γ)² / v a`. With a common variance, these are the arms of smallest
+  mean, and two arms with the same smallest mean below `γ` give this non-convex set.
 
 The costs are computed on the vectors of means in `S`, `{λ | ∀ c, λ c ∈ S c}`, as for
 thresholding and minimum threshold. The statements follow those of the formalization of
@@ -65,6 +66,9 @@ thresholding and minimum threshold. The statements follow those of the formaliza
   allocations are their vertices `Pi.single a 1`.
 * `LMLExplore.Identification.not_convex_oracleAlloc_anyLowArmTask_restrict`: if two distinct arms
   maximize `d_a(μ a, max (μ a) γ)`, the oracle allocations are not convex [DK19, Proposition 5].
+* `LMLExplore.Identification.oracleAlloc_anyLowArmTask_gaussianReal`: for Gaussian arms with
+  variances `v a` and some mean below `γ`, the oracle allocations are the vertices of the arms
+  below `γ` maximizing `(μ a - γ)² / v a`.
 * `LMLExplore.Identification.oracleAlloc_anyLowArmTask_gaussianBandit`,
   `LMLExplore.Identification.not_convex_oracleAlloc_anyLowArmTask_gaussianBandit`: for Gaussian
   arms with a common variance and a smallest mean below `γ`, the oracle allocations are the vertices
@@ -436,57 +440,95 @@ theorem not_convex_oracleAlloc_anyLowArmTask_restrict (hd : ∀ a, IsDivergenceO
 
 /-! ### Gaussian arms -/
 
-variable [MeasurableSingletonClass α] {σ2 : ℝ≥0}
+section Gaussian
 
-/-- **The oracle allocations of Gaussian Any Low Arm** [DK19, Example 1]. For Gaussian arms with a
-common variance `σ2 ≠ 0` and a vector of means `μ` whose smallest mean `μ a₀` is below `γ`, the
-oracle allocations are the vertices `Pi.single a 1` of the arms `a` of smallest mean. -/
-theorem oracleAlloc_anyLowArmTask_gaussianBandit [DecidableEq α] (hσ2 : σ2 ≠ 0) {a₀ : α}
-    (ha₀ : ∀ a, μ a₀ ≤ μ a) (hγ : μ a₀ < γ) :
+variable {ν : (α → ℝ) → Kernel α ℝ} [∀ μ, IsMarkovKernel (ν μ)] {v : α → ℝ≥0}
+
+/-- **The oracle allocations of Gaussian Any Low Arm** [DK19, Example 1]. For Gaussian arms with
+variances `v a ≠ 0` and a vector of means `μ` with some mean below `γ`, the oracle allocations are
+the vertices `Pi.single a 1` of the arms `a` below `γ` that maximize `(μ a - γ)² / v a` among the
+arms below `γ`. -/
+theorem oracleAlloc_anyLowArmTask_gaussianReal [DecidableEq α] (hv : ∀ a, v a ≠ 0)
+    (hν : ∀ μ a, ν μ a = gaussianReal (μ a) (v a)) (h : ∃ b, μ b < γ) :
+    (anyLowArmTask ν id γ).oracleAlloc μ = (fun a ↦ Pi.single a 1) ''
+      {a | μ a < γ ∧ ∀ b, μ b < γ → (μ b - γ) ^ 2 / v b ≤ (μ a - γ) ^ 2 / v a} := by
+  rw [← (anyLowArmTask ν id γ).restrict_univ,
+    ← setOf_forall_mem_expFamilyMeans_gaussianReal 0 hv,
+    oracleAlloc_anyLowArmTask_restrict_of_exists_lt
+      (S := fun a ↦ (gaussianReal 0 (v a)).expFamilyMeans id) _
+      (fun a ↦ isDivergenceOn_expFamilyDiv (not_ae_eq_const_gaussianReal 0 (hv a)))
+      (fun a ↦ mem_expFamilyMeans_gaussianReal 0 (hv a) _)
+      (fun a ↦ mem_expFamilyMeans_gaussianReal 0 (hv a) _)
+      (fun μ' _ ↦ klDiv_eq_ofReal_expFamilyDiv_gaussianReal hv hν μ μ') h]
+  simp only [expFamilyDiv_gaussianReal 0 (hv _)]
+  congr 1
+  -- The divergence `(μ a - max (μ a) γ)² / (2 v a)` of an arm is `(μ a - γ)² / (2 v a) > 0` if
+  -- the arm is below `γ`, and `0` otherwise.
+  have h_lt (a : α) (ha : μ a < γ) :
+      (μ a - max (μ a) γ) ^ 2 / (2 * v a) = (μ a - γ) ^ 2 / v a / 2 := by
+    rw [max_eq_right ha.le, div_mul_eq_div_div_swap]
+  have h_ge (a : α) (ha : γ ≤ μ a) : (μ a - max (μ a) γ) ^ 2 / (2 * v a) = 0 := by
+    rw [max_eq_left ha, sub_self, zero_pow two_ne_zero, zero_div]
+  have h_pos (a : α) (ha : μ a < γ) : 0 < (μ a - γ) ^ 2 / v a := by
+    have : 0 < (v a : ℝ) := NNReal.coe_pos.2 (pos_iff_ne_zero.2 (hv a))
+    have : 0 < (μ a - γ) ^ 2 := by nlinarith [mul_pos (sub_pos.2 ha) (sub_pos.2 ha)]
+    positivity
+  obtain ⟨b₀, hb₀⟩ := h
+  ext a
+  simp only [Set.mem_ofPred_eq]
+  constructor
+  · intro ha
+    -- A maximizing arm is below `γ`, since the arms above `γ` have divergence `0`.
+    have hlt : μ a < γ := by
+      by_contra hge
+      have h_le := ha b₀
+      rw [h_lt b₀ hb₀, h_ge a (not_lt.1 hge)] at h_le
+      linarith [h_pos b₀ hb₀]
+    refine ⟨hlt, fun b hb ↦ ?_⟩
+    have h_le := ha b
+    rw [h_lt b hb, h_lt a hlt] at h_le
+    linarith
+  · rintro ⟨hlt, ha⟩ b
+    rw [h_lt a hlt]
+    rcases lt_or_ge (μ b) γ with hb | hb
+    · rw [h_lt b hb]
+      linarith [ha b hb]
+    · rw [h_ge b hb]
+      linarith [h_pos a hlt]
+
+/-- **The oracle allocations of Gaussian Any Low Arm with a common variance** [DK19, Example 1].
+For Gaussian arms with a common variance `σ2 ≠ 0` and a vector of means `μ` whose smallest mean
+`μ a₀` is below `γ`, the oracle allocations are the vertices `Pi.single a 1` of the arms `a` of
+smallest mean. -/
+theorem oracleAlloc_anyLowArmTask_gaussianBandit [MeasurableSingletonClass α] [DecidableEq α]
+    {σ2 : ℝ≥0} (hσ2 : σ2 ≠ 0) {a₀ : α} (ha₀ : ∀ a, μ a₀ ≤ μ a) (hγ : μ a₀ < γ) :
     (anyLowArmTask (Bandits.gaussianBandit · σ2) id γ).oracleAlloc μ =
       (fun a ↦ Pi.single a 1) '' {a | μ a = μ a₀} := by
-  rw [← (anyLowArmTask (Bandits.gaussianBandit · σ2) id γ).restrict_univ,
-    ← setOf_forall_mem_expFamilyMeans_gaussianReal 0 hσ2,
-    oracleAlloc_anyLowArmTask_restrict_of_exists_lt
-      (S := fun _ ↦ (gaussianReal 0 σ2).expFamilyMeans id) _
-      (fun _ ↦ isDivergenceOn_expFamilyDiv (not_ae_eq_const_gaussianReal 0 hσ2))
-      (fun _ ↦ mem_expFamilyMeans_gaussianReal 0 hσ2 _)
-      (fun _ ↦ mem_expFamilyMeans_gaussianReal 0 hσ2 _)
-      (fun μ' _ ↦ Bandits.klDiv_gaussianBandit_eq_ofReal_expFamilyDiv hσ2 μ μ') ⟨a₀, hγ⟩]
-  simp only [expFamilyDiv_gaussianReal 0 hσ2]
+  rw [oracleAlloc_anyLowArmTask_gaussianReal (v := fun _ ↦ σ2) (fun _ ↦ hσ2)
+    (Bandits.gaussianBandit_apply · σ2) ⟨a₀, hγ⟩]
   congr 1
-  -- The arms maximizing `(μ a - max (μ a) γ)² / (2 σ2)` are those of smallest mean.
-  have hσ2' : 0 < 2 * (σ2 : ℝ) := by
-    have := NNReal.coe_pos.2 (pos_iff_ne_zero.2 hσ2)
-    positivity
+  -- The arms below `γ` farthest from `γ` are those of smallest mean.
+  have hσ2' : 0 < (σ2 : ℝ) := NNReal.coe_pos.2 (pos_iff_ne_zero.2 hσ2)
   ext a
   simp only [Set.mem_ofPred_eq, div_le_div_iff_of_pos_right hσ2']
   constructor
+  · rintro ⟨hlt, ha⟩
+    nlinarith [ha a₀ hγ, ha₀ a]
   · intro ha
-    have h_le := ha a₀
-    rw [max_eq_right hγ.le] at h_le
-    rcases le_or_gt γ (μ a) with h | h
-    · rw [max_eq_left h, sub_self] at h_le
-      nlinarith [mul_pos (sub_pos.2 hγ) (sub_pos.2 hγ)]
-    · rw [max_eq_right h.le] at h_le
-      nlinarith [ha₀ a]
-  · intro ha b
-    rw [ha, max_eq_right hγ.le]
-    rcases le_total (μ b) γ with h | h
-    · rw [max_eq_right h]
-      nlinarith [ha₀ b]
-    · rw [max_eq_left h, sub_self]
-      simpa using sq_nonneg (μ a₀ - γ)
+    exact ⟨ha ▸ hγ, fun b _ ↦ by nlinarith [ha₀ b]⟩
 
 /-- **A model of Gaussian Any Low Arm with non-convex oracle allocations** [DK19, Proposition 5].
 For Gaussian arms with a common variance `σ2 ≠ 0`, if two distinct arms `a` and `b` share the
 smallest mean `μ a = μ b < γ`, then the oracle allocations `w*(μ)`, which contain the vertices
 `Pi.single a 1` and `Pi.single b 1` but not their midpoint, are not convex. -/
-theorem not_convex_oracleAlloc_anyLowArmTask_gaussianBandit (hσ2 : σ2 ≠ 0) {a b : α}
+theorem not_convex_oracleAlloc_anyLowArmTask_gaussianBandit [MeasurableSingletonClass α]
+    {σ2 : ℝ≥0} (hσ2 : σ2 ≠ 0) {a b : α}
     (hab : a ≠ b) (hμab : μ a = μ b) (ha : ∀ c, μ a ≤ μ c) (hγ : μ a < γ) :
     ¬ Convex ℝ ((anyLowArmTask (Bandits.gaussianBandit · σ2) id γ).oracleAlloc μ) := by
   classical
   rw [oracleAlloc_anyLowArmTask_gaussianBandit hσ2 ha hγ]
   exact not_convex_image_single (s := {c | μ c = μ a}) rfl hμab.symm hab
+
+end Gaussian
 
 end LMLExplore.Identification

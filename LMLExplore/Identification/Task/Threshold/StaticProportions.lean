@@ -235,7 +235,7 @@ theorem staticDifficulty_minThresholdTask_gaussianBandit_false [Nonempty α] (h�
     (minThresholdTask (Bandits.gaussianBandit · σ2) id γ).staticDifficulty μ =
       ENNReal.ofReal (∑ a, 2 * σ2 / (μ a - γ) ^ 2) := by
   rw [← (minThresholdTask (Bandits.gaussianBandit · σ2) id γ).restrict_univ,
-    ← setOf_forall_mem_expFamilyMeans_gaussianReal 0 hσ2,
+    ← setOf_forall_mem_expFamilyMeans_gaussianReal 0 (fun _ ↦ hσ2),
     staticDifficulty_minThresholdTask_restrict_false
       (S := fun _ ↦ (gaussianReal 0 σ2).expFamilyMeans id) _
       (fun _ ↦ isDivergenceOn_expFamilyDiv (not_ae_eq_const_gaussianReal 0 hσ2))
@@ -255,7 +255,7 @@ theorem staticDifficulty_minThresholdTask_gaussianBandit_true (hσ2 : σ2 ≠ 0)
       ENNReal.ofReal (2 * σ2 / (μ a₀ - γ) ^ 2) := by
   rw [← charTime_minThresholdTask_gaussianBandit_true hσ2 ha₀ hγ,
     ← (minThresholdTask (Bandits.gaussianBandit · σ2) id γ).restrict_univ,
-    ← setOf_forall_mem_expFamilyMeans_gaussianReal 0 hσ2,
+    ← setOf_forall_mem_expFamilyMeans_gaussianReal 0 (fun _ ↦ hσ2),
     staticDifficulty_minThresholdTask_restrict_true
       (S := fun _ ↦ (gaussianReal 0 σ2).expFamilyMeans id) _
       (fun _ ↦ isDivergenceOn_expFamilyDiv (not_ae_eq_const_gaussianReal 0 hσ2))

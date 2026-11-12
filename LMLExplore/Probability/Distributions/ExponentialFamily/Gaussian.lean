@@ -70,7 +70,7 @@ Fixed variance, statistic `id`:
   constant under `𝒩(m, v)`, the nondegeneracy assumption of the mean parametrization.
 * `LMLExplore.expFamilyMeans_gaussianReal`, `LMLExplore.mem_expFamilyMeans_gaussianReal`,
   `LMLExplore.setOf_forall_mem_expFamilyMeans_gaussianReal`: for `v ≠ 0`, the means of the family
-  are all of `ℝ`, and every vector is a vector of means of the family.
+  are all of `ℝ`, and every vector is a vector of means of the families of variances `v i ≠ 0`.
 * `LMLExplore.natParam_gaussianReal`: for `v ≠ 0`, the natural parameter of the mean `μ` is
   `(μ - m) / v`.
 * `LMLExplore.expFamily_natParam_gaussianReal`: for `v ≠ 0`, the member of mean `μ` is `𝒩(μ, v)`.
@@ -172,9 +172,11 @@ lemma mem_expFamilyMeans_gaussianReal (m : ℝ) (hv : v ≠ 0) (μ : ℝ) :
     μ ∈ (gaussianReal m v).expFamilyMeans id := by
   simp [hv]
 
-/-- For `v ≠ 0`, every vector is a vector of means of the exponential family of `𝒩(m, v)`. -/
-lemma setOf_forall_mem_expFamilyMeans_gaussianReal {ι : Type*} (m : ℝ) (hv : v ≠ 0) :
-    {μ : ι → ℝ | ∀ i, μ i ∈ (gaussianReal m v).expFamilyMeans id} = univ := by
+/-- For variances `v i ≠ 0`, every vector is a vector of means of the exponential families of
+the `𝒩(m, v i)`: `μ i` is a mean of the family of `𝒩(m, v i)` for every `i`. -/
+lemma setOf_forall_mem_expFamilyMeans_gaussianReal {ι : Type*} (m : ℝ) {v : ι → ℝ≥0}
+    (hv : ∀ i, v i ≠ 0) :
+    {μ : ι → ℝ | ∀ i, μ i ∈ (gaussianReal m (v i)).expFamilyMeans id} = univ := by
   simp [hv]
 
 /-- For `v ≠ 0`, the natural parameter of the member of mean `μ` of the exponential family of

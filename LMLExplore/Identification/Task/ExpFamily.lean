@@ -36,6 +36,8 @@ parametrization have them (`isDivergenceOn_expFamilyDiv`).
 
 * `LMLExplore.Identification.isDivergenceOn_expFamilyDiv`: the divergence `d(μ, μ')` of an
   exponential family in the mean parametrization is a divergence on its means.
+* `LMLExplore.Identification.klDiv_eq_ofReal_expFamilyDiv_gaussianReal`: Gaussian arms with
+  variances `v c ≠ 0` have the divergences of the exponential families of the `𝒩(0, v c)`.
 * `LMLExplore.Identification.IdentTask.cost_eq_sum_ofReal_mul`: on the vectors of means in `S`,
   `cost_μ(w, μ') = ∑ c, w c d_c(μ c, μ' c)`.
 * `LMLExplore.Identification.IdentTask.cost_eq_sum_ofReal_mul_left`: the cost with the free vector
@@ -171,6 +173,18 @@ theorem isDivergenceOn_expFamilyDiv {𝓧 : Type*} {m𝓧 : MeasurableSpace 𝓧
   antitoneOn_right x _ := (strictAntiOn_expFamilyDiv_right hT x).antitoneOn
   monotoneOn_left _ hy := (strictMonoOn_expFamilyDiv_left hT hy).monotoneOn
   antitoneOn_left _ hy := (strictAntiOn_expFamilyDiv_left hT hy).antitoneOn
+
+/-- For Gaussian arms with variances `v c ≠ 0`, the arm `c` has the divergence of the exponential
+family of `𝒩(0, v c)`: `KL(ν_c(μ), ν_c(μ')) = d_c(μ c, μ' c)` with
+`d_c = (gaussianReal 0 (v c)).expFamilyDiv id`, the divergence on the means of
+`isDivergenceOn_expFamilyDiv`. The Gaussian bandits with arm-dependent known variances
+`fun μ ↦ Bandits.gaussianMeanVarBandit fun a ↦ (μ a, v a)` are such arms. -/
+lemma klDiv_eq_ofReal_expFamilyDiv_gaussianReal {α : Type*} {mα : MeasurableSpace α}
+    {ν : (α → ℝ) → Kernel α ℝ} {v : α → ℝ≥0} (hv : ∀ c, v c ≠ 0)
+    (hν : ∀ μ c, ν μ c = gaussianReal (μ c) (v c)) (μ μ' : α → ℝ) (c : α) :
+    klDiv (ν μ c) (ν μ' c) =
+      ENNReal.ofReal ((gaussianReal 0 (v c)).expFamilyDiv id (μ c) (μ' c)) := by
+  rw [hν, hν, klDiv_gaussianReal_gaussianReal_same_var (hv c), expFamilyDiv_gaussianReal 0 (hv c)]
 
 namespace IdentTask
 
