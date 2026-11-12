@@ -33,10 +33,13 @@ model.
 
 For a nonnegative reward `r_π`, the bound can be stated in terms of the value rather than of the
 rewards [LWCGC24, Lemma 11]: if `v^π ≤ B`, the resolvent of the state kernel `P_π` applied to the
-standard deviations `√(Var_{P_π}(v^π))` is at most `B / (γ √(1 - γ))`. Applied to the values
-`V^(l) = R_γ(P_π) √(Var_{P_π}(V^(l-1)))` of the successive standard deviations, it bounds each
-by `(γ √(1 - γ))⁻¹` times the previous one; this recursion is how [LWCGC24] evaluates a fixed
-policy with a generative model from sample sizes of order `(1 - γ)⁻¹`.
+standard deviations `√(Var_{P_π}(v^π))` is at most `B / (γ √(1 - γ))`. The theorems of this
+file apply only to the value `v^π`. The values `V^(l) = R_γ(P_π) √(Var_{P_π}(V^(l-1)))` of the
+successive standard deviations are not policy values; the generic form for a Markov kernel,
+`ProbabilityTheory.Kernel.integral_sqrt_variance_integral_resolvent_le`, applied with
+`f = √(Var_{P_π}(V^(l-1)))`, bounds each by `(γ √(1 - γ))⁻¹` times a bound on the previous one.
+This recursion is how [LWCGC24] evaluates a fixed policy with a generative model from sample
+sizes of order `(1 - γ)⁻¹`.
 
 ## Main definitions
 
