@@ -100,8 +100,9 @@ theorem iInf_cost_minThresholdTask_restrict_false (hT : ∀ a c, ¬ T a =ᵐ[ρ 
     simp
   refine le_antisymm (le_iInf fun a ↦ ?_) (le_iInf₂ fun μ' hμ' ↦ ?_)
   · -- Upper bound: move the mean of `a` below `γ`, close to `γ`.
-    refine IdentTask.iInf_cost_le_ofReal_mul_expFamilyDiv_left_of_eventually hνt hν hw hμ a (hT a)
-      (hγ a) (l := 𝓝[<] γ) nhdsWithin_le_nhds ?_
+    refine IdentTask.iInf_cost_le_ofReal_mul_left_of_eventually hνt
+      (fun c ↦ isDivergenceOn_expFamilyDiv (hT c)) hν hw hμ a (hγ a) (l := 𝓝[<] γ)
+      nhdsWithin_le_nhds ?_
     filter_upwards [self_mem_nhdsWithin,
       nhdsWithin_le_nhds (expFamilyMeans_mem_nhds (hT a) (hγ a))] with x (hx : x < γ) hxm
     rw [IdentTask.alt_restrict, Set.mem_inter_iff, mem_alt_minThresholdTask_false_iff]
@@ -110,7 +111,7 @@ theorem iInf_cost_minThresholdTask_restrict_false (hT : ∀ a c, ¬ T a =ᵐ[ρ 
   · -- Lower bound: some arm `a` of an alternative has its mean below `γ`.
     rw [IdentTask.alt_restrict, Set.mem_inter_iff, mem_alt_minThresholdTask_false_iff, id_eq] at hμ'
     obtain ⟨⟨a, ha⟩, hμ'⟩ := hμ'
-    rw [IdentTask.cost_eq_sum_ofReal_mul_expFamilyDiv_left hνt hν hw hμ']
+    rw [IdentTask.cost_eq_sum_ofReal_mul_left hνt hν hw hμ']
     refine (iInf_le _ a).trans (le_trans ?_ (Finset.single_le_sum (f := fun c ↦
       ENNReal.ofReal (w c * (ρ c).expFamilyDiv (T c) (μ' c) (μ c))) (fun _ _ ↦ zero_le)
       (Finset.mem_univ a)))
@@ -166,8 +167,9 @@ theorem iInf_cost_minThresholdTask_restrict_true (hT : ∀ a c, ¬ T a =ᵐ[ρ a
     simp
   refine le_antisymm ?_ (le_iInf₂ fun μ' hμ' ↦ ?_)
   · -- Upper bound: raise every mean below `x > γ` to `x`, and let `x` decrease to `γ`.
-    refine IdentTask.iInf_cost_le_sum_ofReal_mul_expFamilyDiv_left_of_eventually hνt hν hw hT
-      (μx := fun x c ↦ max (μ c) x) (l := 𝓝[>] γ) nhdsWithin_le_nhds
+    refine IdentTask.iInf_cost_le_sum_ofReal_mul_left_of_eventually hνt
+      (fun c ↦ isDivergenceOn_expFamilyDiv (hT c)) hν hw hμ (μx := fun x c ↦ max (μ c) x)
+      (l := 𝓝[>] γ) nhdsWithin_le_nhds
       (fun _ ↦ (continuous_const.max continuous_id).continuousAt) (fun c ↦ hmax c (hγ c)) ?_
     filter_upwards [self_mem_nhdsWithin] with x (hx : γ < x) hS
     rw [IdentTask.alt_restrict, Set.mem_inter_iff, mem_alt_minThresholdTask_true_iff]
@@ -175,7 +177,7 @@ theorem iInf_cost_minThresholdTask_restrict_true (hT : ∀ a c, ¬ T a =ᵐ[ρ a
   · -- Lower bound: an alternative has all its means above `γ`.
     rw [IdentTask.alt_restrict, Set.mem_inter_iff, mem_alt_minThresholdTask_true_iff, id_eq] at hμ'
     obtain ⟨hgt, hμ'⟩ := hμ'
-    rw [IdentTask.cost_eq_sum_ofReal_mul_expFamilyDiv_left hνt hν hw hμ']
+    rw [IdentTask.cost_eq_sum_ofReal_mul_left hνt hν hw hμ']
     refine Finset.sum_le_sum fun c _ ↦ ENNReal.ofReal_le_ofReal (mul_le_mul_of_nonneg_left
       (expFamilyDiv_le_expFamilyDiv_left_of_mem_uIcc (hT c) (hμ c) (hmax c (hγ c)) (hμ' c) ?_)
       (hw c))

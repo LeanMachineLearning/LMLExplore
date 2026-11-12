@@ -108,8 +108,8 @@ theorem altCost_epsBaiTask_restrict_le_ofReal_mul_expFamilyDiv_add
     ((epsBaiTask ν id ε).restrict {μ' | ∀ c, μ' c ∈ (ρ c).expFamilyMeans (T c)}).altCost μ w a ≤
       ENNReal.ofReal (w b * (ρ b).expFamilyDiv (T b) (μ b) (μ a + ε)) := by
   classical
-  exact IdentTask.altCost_restrict_le_ofReal_mul_expFamilyDiv_of_tendsto (by simp) hν hw hT
-    hμ b hb (l := 𝓝[>] (μ a + ε))
+  exact IdentTask.altCost_restrict_le_ofReal_mul_of_tendsto (by simp)
+    (fun c ↦ isDivergenceOn_expFamilyDiv (hT c)) hν hw hμ b hb (l := 𝓝[>] (μ a + ε))
     (((continuous_const.update b continuous_id).tendsto _).mono_left nhdsWithin_le_nhds)
     (eventually_nhdsWithin_of_forall fun x hx ↦ (mem_alt_epsBaiTask_iff ν id).2
       ⟨b, by simpa [Function.update_of_ne hba.symm] using hx⟩)
@@ -128,8 +128,8 @@ theorem altCost_epsBaiTask_restrict_le_ofReal_mul_expFamilyDiv_sub
     ((epsBaiTask ν id ε).restrict {μ' | ∀ c, μ' c ∈ (ρ c).expFamilyMeans (T c)}).altCost μ w a ≤
       ENNReal.ofReal (w a * (ρ a).expFamilyDiv (T a) (μ a) (μ b - ε)) := by
   classical
-  exact IdentTask.altCost_restrict_le_ofReal_mul_expFamilyDiv_of_tendsto (by simp) hν hw hT
-    hμ a ha (l := 𝓝[<] (μ b - ε))
+  exact IdentTask.altCost_restrict_le_ofReal_mul_of_tendsto (by simp)
+    (fun c ↦ isDivergenceOn_expFamilyDiv (hT c)) hν hw hμ a ha (l := 𝓝[<] (μ b - ε))
     (((continuous_const.update a continuous_id).tendsto _).mono_left nhdsWithin_le_nhds)
     (eventually_nhdsWithin_of_forall fun x hx ↦ (mem_alt_epsBaiTask_iff ν id).2
       ⟨b, by simpa [Function.update_of_ne hba] using (lt_sub_iff_add_lt.1 hx)⟩)
@@ -151,8 +151,8 @@ theorem altCost_mulEpsBaiTask_restrict_le_ofReal_mul_expFamilyDiv_div
       ENNReal.ofReal (w b * (ρ b).expFamilyDiv (T b) (μ b) (μ a / (1 - ε))) := by
   classical
   have h1ε : 0 < 1 - ε := sub_pos.2 hε
-  refine IdentTask.altCost_restrict_le_ofReal_mul_expFamilyDiv_of_tendsto (by simp) hν hw hT
-    hμ b hb (l := 𝓝[>] (μ a / (1 - ε)))
+  refine IdentTask.altCost_restrict_le_ofReal_mul_of_tendsto (by simp)
+    (fun c ↦ isDivergenceOn_expFamilyDiv (hT c)) hν hw hμ b hb (l := 𝓝[>] (μ a / (1 - ε)))
     (((continuous_const.update b continuous_id).tendsto _).mono_left nhdsWithin_le_nhds)
     (eventually_nhdsWithin_of_forall fun x hx ↦ (mem_alt_mulEpsBaiTask_iff ν id).2 ⟨?_, b, ?_⟩)
   · -- The new mean `x` of `b` is larger than `μ a / (1 - ε) > 0`.
@@ -184,8 +184,8 @@ theorem altCost_mulEpsBaiTask_restrict_le_ofReal_mul_expFamilyDiv_mul
   have h_ev : ∀ᶠ x in 𝓝[<] ((1 - ε) * μ b), 0 < x ∧ x < (1 - ε) * μ b :=
     (eventually_nhdsWithin_of_eventually_nhds (eventually_gt_nhds hpos)).and
       self_mem_nhdsWithin
-  refine IdentTask.altCost_restrict_le_ofReal_mul_expFamilyDiv_of_tendsto (by simp) hν hw hT
-    hμ a ha (l := 𝓝[<] ((1 - ε) * μ b))
+  refine IdentTask.altCost_restrict_le_ofReal_mul_of_tendsto (by simp)
+    (fun c ↦ isDivergenceOn_expFamilyDiv (hT c)) hν hw hμ a ha (l := 𝓝[<] ((1 - ε) * μ b))
     (((continuous_const.update a continuous_id).tendsto _).mono_left nhdsWithin_le_nhds)
     (h_ev.mono fun x hx ↦ (mem_alt_mulEpsBaiTask_iff ν id).2 ⟨fun c ↦ ?_, b, ?_⟩)
   · rcases eq_or_ne c a with rfl | hca

@@ -402,7 +402,7 @@ private lemma iInf_cost_baiTask_le (hμ : ∀ c, μ c ∈ ρ.expFamilyMeans T)
     split_ifs
     exacts [hz, hz, hμ c]
   refine (iInf₂_le μ' hμ').trans (iInf_le_of_le (by simp [μ', hba.symm]) ?_)
-  rw [IdentTask.cost_eq_sum_ofReal_mul_expFamilyDiv (ρ := fun _ ↦ ρ) (T := fun _ ↦ T)
+  rw [IdentTask.cost_eq_sum_ofReal_mul (S := fun _ ↦ ρ.expFamilyMeans T)
       (ν_baiTask ν id) hν hw hμ',
     ← Finset.sum_subset (Finset.subset_univ {a, b}) fun c _ hc ↦ ?_, Finset.sum_pair hba.symm,
     ← ENNReal.ofReal_add (mul_nonneg (hw a) (expFamilyDiv_nonneg (hμ a) (hμ' a)))
@@ -436,7 +436,7 @@ theorem altCost_baiTask_restrict_eq_iInf_expFamilyPairCost
     exact isOpen_iInter_of_finite fun c ↦ (isOpen_expFamilyMeans hT).preimage (continuous_apply c)
   have h_cost {μ' : α → ℝ} (hμ' : μ' ∈ S) :
       (baiTask ν id).cost w μ μ' = ENNReal.ofReal (∑ c, w c * ρ.expFamilyDiv T (μ c) (μ' c)) := by
-    rw [IdentTask.cost_eq_sum_ofReal_mul_expFamilyDiv (ρ := fun _ ↦ ρ) (T := fun _ ↦ T)
+    rw [IdentTask.cost_eq_sum_ofReal_mul (S := fun _ ↦ ρ.expFamilyMeans T)
       (ν_baiTask ν id) hν hw hμ', ENNReal.ofReal_sum_of_nonneg fun c _ ↦
         mul_nonneg (hw c) (expFamilyDiv_nonneg (hμ c) (hμ' c))]
   -- The cost is continuous on the vectors of means of the family, so that the alternatives can
