@@ -42,9 +42,9 @@ mean `-l`, so that `T*(λ⁽ʲ⁾) ≤ 12 σ2 / m` by the bound `T* ≤ 2 H` of 
 
 ## Implementation notes
 
-[D23] takes the means `0, -2, …, -K`, bounds the ratio to `H_Δ = T* / 2` below by `(3 / 40) log K`
-and states the bound `(3 / 80) log K`; its last inequality fails for `K = 2`. The means
-`0, -1, …, -(K - 1)` give the larger constant `1 / 24` for every `K`.
+[D23] takes the means `0, -2, …, -K`, bounds the ratio to `H_Δ` (with `H_Δ ≤ T* ≤ 2 H_Δ` [GK16])
+below by `(3 / 40) log K` and states the bound `(3 / 80) log K`; its last inequality fails for
+`K = 2`. The means `0, -1, …, -(K - 1)` give the larger constant `1 / 24` for every `K`.
 
 ## References
 
@@ -79,8 +79,7 @@ private lemma sum_inv_sq_add_le (e : α ≃ Fin (Fintype.card α)) {m : ℕ} (hm
     _ = ∑ i ∈ Finset.Ioo k (k + 1 + Fintype.card α), ((i : ℝ) ^ 2)⁻¹ := by
         rw [← Finset.Ico_add_one_left_eq_Ioo, Finset.sum_Ico_eq_sum_range,
           Nat.add_sub_cancel_left]
-        push_cast
-        ring_nf
+        exact Finset.sum_congr rfl fun i _ ↦ by push_cast; ring
     _ ≤ 2 / (k + 1) := sum_Ioo_inv_sq_le k _
     _ = 2 / ((k + 1 : ℕ) : ℝ) := by push_cast; ring
 
@@ -215,7 +214,6 @@ theorem ofReal_log_card_div_le_maxRatio_charTime_baiTask_gaussianBandit (hσ2 : 
     simp only [μ, ha₀, Nat.cast_zero, neg_zero]
     linarith
   have hlam_lt (j : α) (hj : j ≠ a₀) := (update_rank_lt_and_le e (fun _ ↦ rfl) ha₀ hj).1
-  have hlam_le (j : α) (hj : j ≠ a₀) := (update_rank_lt_and_le e (fun _ ↦ rfl) ha₀ hj).2
   have hcorrect_lam (j : α) (hj : j ≠ a₀) : task.correct (lam j) = {j} :=
     (correct_baiTask_eq_singleton_iff _ id).2 (hlam_lt j hj)
   have hlamM (j : α) (hj : j ≠ a₀) : lam j ∈ task.M := by
@@ -230,16 +228,10 @@ theorem ofReal_log_card_div_le_maxRatio_charTime_baiTask_gaussianBandit (hσ2 : 
         hcorrect_lam j (Finset.ne_of_mem_erase hj)]
       exact Set.disjoint_singleton.2 (Finset.ne_of_mem_erase hj).symm)
     (fun j _ b hb ↦ by simp [task, lam, hb, μ])
-    (fun j hj ↦ by
-      have hj' : j ≠ a₀ := Finset.ne_of_mem_erase hj
-      refine (lt_of_lt_of_le ?_ (le_charTime_baiTask_gaussianBandit hσ2 hj'.symm
-        (hlam_lt j hj'))).ne'
-      have : 0 < lam j j - lam j a₀ := sub_pos.2 (hlam_lt j hj' a₀ hj'.symm)
-      exact ENNReal.ofReal_pos.2 (add_pos_of_pos_of_nonneg (by positivity)
-        (Finset.sum_nonneg fun _ _ ↦ by positivity)))
-    (fun j hj ↦ ne_top_of_le_ne_top ENNReal.ofReal_ne_top
-      (charTime_baiTask_gaussianBandit_le hσ2 (Finset.ne_of_mem_erase hj).symm
-        (hlam_lt j (Finset.ne_of_mem_erase hj)) (hlam_le j (Finset.ne_of_mem_erase hj))))
+    (fun j hj ↦ charTime_baiTask_gaussianBandit_ne_zero hσ2 (Finset.ne_of_mem_erase hj).symm
+      (hlam_lt j (Finset.ne_of_mem_erase hj)))
+    (fun j hj ↦ charTime_baiTask_gaussianBandit_ne_top hσ2 (Finset.ne_of_mem_erase hj).symm
+      (hlam_lt j (Finset.ne_of_mem_erase hj)))
   calc ENNReal.ofReal (Real.log (Fintype.card α) / 24)
       ≤ ENNReal.ofReal (∑ j ∈ s, (24 * ((e j : ℕ) : ℝ))⁻¹) := by
         refine ENNReal.ofReal_le_ofReal ?_
