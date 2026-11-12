@@ -7,9 +7,10 @@ module
 
 public import LMLExplore.Identification.ErrorLowerBound
 public import LMLExplore.InformationTheory.KullbackLeibler.Bernoulli
+import LMLExplore.Data.EReal.Inv
 
 /-!
-# Difficulty ratios of fixed-budget identification and their lower bounds
+# Difficulty ratios and complexity of fixed-budget identification, and their lower bounds
 
 A fixed-budget algorithm family `𝒜` (`IsFixedBudgetFamily`) has, for every budget `T`, an
 algorithm `𝒜 T` that stops after `T` rounds. Its probability of error `p_{θ,T}(𝒜)` on the model
@@ -21,6 +22,11 @@ Against a *difficulty function* `H : Θ → ℝ≥0∞`, the *difficulty ratio*
 when the probability of error is at most `exp (-T / H(θ))`. Its `limsup` in `T` is the asymptotic
 ratio `R_{H,∞}(𝒜, θ)`, and its supremum over the admissible models the maximal ratio of `𝒜`.
 These quantities are `ℝ≥0∞`-valued: `h = 0` when `p = 0` and `h = ∞` when `p = 1` and `T > 0`.
+For a class `𝒞` of families (a set of families), the *oracle difficulty*
+`H_𝒞(θ) = inf_{𝒜 ∈ 𝒞} limsup_T h_{θ,T}(𝒜)` is the best asymptotic complexity at `θ` of a family
+of the class, and the class *admits a complexity* if a single family of the class attains it at
+every admissible model. When `H_𝒞` is positive at the admissible models, this holds if and only if
+some family of the class has maximal ratio at most `1` against `H_𝒞`.
 
 The lower bounds of [D23] say that no family has a small difficulty ratio everywhere. If `μ` and
 `λ` have no common correct answer, an algorithm that is correct on `μ` with high probability and
@@ -47,10 +53,22 @@ In the namespace `LMLExplore.Identification.IdentTask`:
   difficulty ratios `R_{H,T}(𝒜, θ)`, `R_{H,∞}(𝒜, θ)` and the maximal difficulty ratio
   `sup_{θ ∈ M} R_{H,∞}(𝒜, θ)`.
 * `IsConsistent task 𝒜`: `p_{θ,T}(𝒜) → 0` at every admissible model `θ`.
+* `oracleDifficulty task 𝒞 θ`: the oracle difficulty `H_𝒞(θ)` of the class `𝒞`.
+* `AdmitsComplexity task 𝒞`: the class `𝒞` admits a complexity.
 
 ## Main statements
 
 * `IdentTask.inv_difficultyRatio`: `R_{H,T}(𝒜, θ)⁻¹ = H(θ) log (1 / p_{θ,T}(𝒜)) / T`.
+* `IdentTask.asymptoticRatio_eq_top`: a family whose probability of error at `θ` does not tend to
+  `0` has an infinite asymptotic difficulty ratio at `θ`, for `H(θ) < ∞`.
+* `IdentTask.tendsto_errorComplexity_of_tendsto_log_div`: `(1 / T) log p_{θ,T}(𝒜) → -c` gives
+  `h_{θ,T}(𝒜) → c⁻¹`, and `IdentTask.inv_le_liminf_errorComplexity_of_neg_le_liminf` its
+  one-sided form for the `liminf`.
+* `IdentTask.oracleDifficulty_anti`, `IdentTask.maxRatio_anti`: the oracle difficulty is antitone
+  in the class, and the maximal difficulty ratio in the difficulty function.
+* `IdentTask.admitsComplexity_iff_exists_maxRatio_le_one`: a class whose oracle difficulty is
+  positive admits a complexity if and only if one of its families has maximal difficulty ratio at
+  most `1` against it [D23, Section 1].
 * `IdentTask.one_sub_errorProb_mul_neg_log_errorProb_le`: the change of measure
   `(1 - p_{μ,T}(𝒜)) log (1 / p_{λ,T}(𝒜)) ≤ ∑ a, E_μ[N_{T,a}] KL(ν_a(μ), ν_a(λ)) + log 2` for two
   models without a common correct answer.
@@ -157,7 +175,186 @@ lemma iSup_asymptoticRatio_le_maxRatio {D : Set Θ} (hD : D ⊆ task.M) :
     ⨆ θ ∈ D, task.asymptoticRatio H 𝒜 θ ≤ task.maxRatio H 𝒜 :=
   iSup₂_mono' fun θ hθ ↦ ⟨θ, hD hθ, le_rfl⟩
 
+
+/-- If the probability of error at `θ` does not tend to `0` and the difficulty `H θ` is finite,
+the asymptotic difficulty ratio at `θ` is infinite. -/
+lemma asymptoticRatio_eq_top (hH : H θ ≠ ∞) (hp : ¬ Tendsto (task.errorProb 𝒜 θ) atTop (𝓝 0)) :
+    task.asymptoticRatio H 𝒜 θ = ∞ := by
+  -- Along the budgets `T` with `p_{θ,T}(𝒜) > ε`, the complexity `h_{θ,T}(𝒜)` is at least
+  -- `T / log (1 / ε)`.
+  obtain ⟨ε, hε, hfreq⟩ : ∃ ε > 0, ∃ᶠ T in atTop, ε < task.errorProb 𝒜 θ T := by
+    simpa [ENNReal.tendsto_nhds_zero, Filter.not_eventually, Filter.frequently_atTop] using hp
+  set L := (-ENNReal.log ε).toENNReal
+  have hL : L ≠ ∞ := by
+    simp only [L, ne_eq, EReal.toENNReal_eq_top_iff, EReal.neg_eq_top_iff]
+    simpa using hε.ne'
+  refine ENNReal.eq_top_of_forall_nnreal_le fun r ↦ ?_
+  have hev : ∀ᶠ T : ℕ in atTop, (r : ℝ≥0∞) * H θ * L < T :=
+    ENNReal.tendsto_nat_nhds_top.eventually (eventually_gt_nhds
+      (ENNReal.mul_lt_top (ENNReal.mul_lt_top ENNReal.coe_lt_top hH.lt_top) hL.lt_top))
+  refine le_limsup_of_frequently_le ((hfreq.and_eventually hev).mono fun T ⟨hT, hrT⟩ ↦ ?_)
+    (by isBoundedDefault)
+  rw [difficultyRatio_def, errorComplexity_def]
+  have h1 : (T : ℝ≥0∞) / L ≤ T / (-ENNReal.log (task.errorProb 𝒜 θ T)).toENNReal := by
+    gcongr
+    exact EReal.toENNReal_le_toENNReal (EReal.neg_le_neg_iff.2 (ENNReal.log_le_log hT.le))
+  refine le_trans ?_ (ENNReal.div_le_div_right h1 _)
+  have hT0 : (T : ℝ≥0∞) ≠ 0 := (zero_le.trans_lt hrT).ne'
+  rw [ENNReal.le_div_iff_mul_le (Or.inr (by simp [ENNReal.div_eq_zero_iff, hT0, hL]))
+      (Or.inl hH), ENNReal.le_div_iff_mul_le (Or.inr hT0) (Or.inl hL)]
+  exact hrT.le
+
+/-- For a positive difficulty `H θ`, the asymptotic difficulty ratio at `θ` is the asymptotic
+error complexity divided by the difficulty: `R_{H,∞}(𝒜, θ) = limsup_T h_{θ,T}(𝒜) / H(θ)`. -/
+lemma asymptoticRatio_eq_limsup_div (hH : H θ ≠ 0) :
+    task.asymptoticRatio H 𝒜 θ = limsup (task.errorComplexity 𝒜 θ) atTop / H θ := by
+  rw [asymptoticRatio_def, ENNReal.div_eq_inv_mul,
+    ← ENNReal.limsup_const_mul_of_ne_top (ENNReal.inv_ne_top.2 hH)]
+  exact congrArg (limsup · atTop) (funext fun T ↦ by
+    rw [difficultyRatio_def, ENNReal.div_eq_inv_mul])
+
+/-- For a budget `T ≠ 0`, the error complexity `h_{θ,T}(𝒜)` is the inverse of the positive part of
+`-(1 / T) log p_{θ,T}(𝒜)`. -/
+lemma errorComplexity_eq_inv (hT : T ≠ 0) :
+    task.errorComplexity 𝒜 θ T =
+      (-(ENNReal.log (task.errorProb 𝒜 θ T) / T)).toENNReal⁻¹ := by
+  -- In `EReal`, `-(x / T) = (-x) * T⁻¹` with `T⁻¹ ≥ 0`.
+  rw [errorComplexity_def, div_eq_mul_inv (ENNReal.log _), ← EReal.neg_mul,
+    EReal.toENNReal_mul' (EReal.inv_nonneg_of_nonneg (by positivity)),
+    EReal.toENNReal_inv (by positivity), ← ENNReal.toEReal_natCast, EReal.toENNReal_coe]
+  simp [ENNReal.mul_inv, hT, ENNReal.div_eq_inv_mul]
+
+/-- **The error complexity from the exponent of the probability of error.** If
+`(1 / T) log p_{θ,T}(𝒜) → -c` for some `c ∈ [0, ∞]`, then `h_{θ,T}(𝒜) → c⁻¹`. -/
+lemma tendsto_errorComplexity_of_tendsto_log_div {c : ℝ≥0∞}
+    (h : Tendsto (fun T : ℕ ↦ ENNReal.log (task.errorProb 𝒜 θ T) / T) atTop
+      (𝓝 (-(c : EReal)))) :
+    Tendsto (task.errorComplexity 𝒜 θ) atTop (𝓝 c⁻¹) := by
+  have h1 : Tendsto (fun T : ℕ ↦ (-(ENNReal.log (task.errorProb 𝒜 θ T) / T)).toENNReal) atTop
+      (𝓝 c) := by
+    have := ((EReal.continuous_toENNReal.comp continuous_neg).tendsto _).comp h
+    simpa [Function.comp_def, EReal.toENNReal_coe] using this
+  refine (tendsto_inv_iff.2 h1).congr' ?_
+  filter_upwards [eventually_ne_atTop 0] with T hT
+  exact (errorComplexity_eq_inv hT).symm
+
+/-- **A lower bound on the error complexity from a lower bound on the probability of error.** If
+`-c ≤ liminf_T (1 / T) log p_{θ,T}(𝒜)` for some `c ∈ [0, ∞]`, then
+`c⁻¹ ≤ liminf_T h_{θ,T}(𝒜)`. -/
+lemma inv_le_liminf_errorComplexity_of_neg_le_liminf {c : ℝ≥0∞}
+    (h : -(c : EReal) ≤ liminf (fun T : ℕ ↦ ENNReal.log (task.errorProb 𝒜 θ T) / T) atTop) :
+    c⁻¹ ≤ liminf (task.errorComplexity 𝒜 θ) atTop := by
+  -- The error complexity is `g ((1 / T) log p_{θ,T}(𝒜))` for the nondecreasing continuous
+  -- `g x = ((-x)⁺)⁻¹`, which commutes with the `liminf`.
+  set g : EReal → ℝ≥0∞ := fun x ↦ (-x).toENNReal⁻¹
+  have hg : Monotone g := fun x y hxy ↦
+    ENNReal.inv_le_inv.2 (EReal.toENNReal_le_toENNReal (EReal.neg_le_neg_iff.2 hxy))
+  have hgc : Continuous g := continuous_inv.comp (EReal.continuous_toENNReal.comp continuous_neg)
+  calc c⁻¹ = g (-(c : EReal)) := by simp [g, EReal.toENNReal_coe]
+    _ ≤ g (liminf (fun T : ℕ ↦ ENNReal.log (task.errorProb 𝒜 θ T) / T) atTop) := hg h
+    _ = liminf (g ∘ fun T : ℕ ↦ ENNReal.log (task.errorProb 𝒜 θ T) / T) atTop :=
+      hg.map_liminf_of_continuousAt _ hgc.continuousAt
+    _ = liminf (task.errorComplexity 𝒜 θ) atTop :=
+      liminf_congr ((eventually_ne_atTop 0).mono fun T hT ↦ (errorComplexity_eq_inv hT).symm)
+
+variable (task)
+
+/-- The difficulty ratio is antitone in the difficulty function. -/
+lemma difficultyRatio_anti (𝒜 : ℕ → IdentAlg Unit α 𝓨 ℐ) (θ : Θ) (T : ℕ) :
+    Antitone fun H ↦ task.difficultyRatio H 𝒜 θ T :=
+  fun _ _ h ↦ ENNReal.div_le_div_left (h θ) _
+
+/-- The asymptotic difficulty ratio is antitone in the difficulty function. -/
+lemma asymptoticRatio_anti (𝒜 : ℕ → IdentAlg Unit α 𝓨 ℐ) (θ : Θ) :
+    Antitone fun H ↦ task.asymptoticRatio H 𝒜 θ :=
+  fun _ _ h ↦ limsup_le_limsup (.of_forall fun T ↦ task.difficultyRatio_anti 𝒜 θ T h)
+
+/-- The maximal difficulty ratio is antitone in the difficulty function: against the oracle
+difficulty of a larger class, it is larger (`oracleDifficulty_anti`). -/
+lemma maxRatio_anti (𝒜 : ℕ → IdentAlg Unit α 𝓨 ℐ) : Antitone fun H ↦ task.maxRatio H 𝒜 :=
+  fun _ _ h ↦ iSup₂_mono fun θ _ ↦ task.asymptoticRatio_anti 𝒜 θ h
+
 end Definitions
+
+/-! ### The oracle difficulty of a class and the existence of a complexity -/
+
+section OracleDifficulty
+
+variable (task : IdentTask α Θ ℐ 𝓨)
+
+/-- The oracle difficulty `H_𝒞(θ) = inf_{𝒜 ∈ 𝒞} limsup_{T → ∞} h_{θ,T}(𝒜)` of the class `𝒞` of
+algorithm families at the model `θ`: the infimum over the families of the class of their
+asymptotic error complexity at `θ`. -/
+noncomputable def oracleDifficulty (𝒞 : Set (ℕ → IdentAlg Unit α 𝓨 ℐ)) (θ : Θ) : ℝ≥0∞ :=
+  ⨅ 𝒜 ∈ 𝒞, limsup (task.errorComplexity 𝒜 θ) atTop
+
+/-- The class `𝒞` of algorithm families *admits a complexity*: a single family of the class
+attains the oracle difficulty of the class at every admissible model. -/
+def AdmitsComplexity (𝒞 : Set (ℕ → IdentAlg Unit α 𝓨 ℐ)) : Prop :=
+  ∃ 𝒜 ∈ 𝒞, ∀ θ ∈ task.M, limsup (task.errorComplexity 𝒜 θ) atTop ≤ task.oracleDifficulty 𝒞 θ
+
+variable {task} {𝒞 𝒞' : Set (ℕ → IdentAlg Unit α 𝓨 ℐ)} {𝒜 : ℕ → IdentAlg Unit α 𝓨 ℐ} {θ : Θ}
+
+lemma oracleDifficulty_def (𝒞 : Set (ℕ → IdentAlg Unit α 𝓨 ℐ)) (θ : Θ) :
+    task.oracleDifficulty 𝒞 θ = ⨅ 𝒜 ∈ 𝒞, limsup (task.errorComplexity 𝒜 θ) atTop := (rfl)
+
+lemma admitsComplexity_iff : task.AdmitsComplexity 𝒞 ↔
+    ∃ 𝒜 ∈ 𝒞, ∀ θ ∈ task.M, limsup (task.errorComplexity 𝒜 θ) atTop ≤
+      task.oracleDifficulty 𝒞 θ := Iff.rfl
+
+/-- The oracle difficulty of a class is at most the asymptotic error complexity of each of its
+families. -/
+lemma oracleDifficulty_le_limsup (h𝒜 : 𝒜 ∈ 𝒞) :
+    task.oracleDifficulty 𝒞 θ ≤ limsup (task.errorComplexity 𝒜 θ) atTop :=
+  iInf₂_le 𝒜 h𝒜
+
+/-- A lower bound on the oracle difficulty of a class is a lower bound on the asymptotic error
+complexity of each of its families. -/
+lemma le_oracleDifficulty_iff {c : ℝ≥0∞} :
+    c ≤ task.oracleDifficulty 𝒞 θ ↔ ∀ 𝒜 ∈ 𝒞, c ≤ limsup (task.errorComplexity 𝒜 θ) atTop :=
+  le_iInf₂_iff
+
+/-- The oracle difficulty of a single family is its asymptotic error complexity. -/
+@[simp]
+lemma oracleDifficulty_singleton (𝒜 : ℕ → IdentAlg Unit α 𝓨 ℐ) (θ : Θ) :
+    task.oracleDifficulty {𝒜} θ = limsup (task.errorComplexity 𝒜 θ) atTop :=
+  iInf_singleton
+
+variable (task) in
+/-- The oracle difficulty is antitone in the class: a larger class has a smaller oracle
+difficulty. -/
+lemma oracleDifficulty_anti :
+    Antitone fun 𝒞 : Set (ℕ → IdentAlg Unit α 𝓨 ℐ) ↦ task.oracleDifficulty 𝒞 :=
+  fun _ _ h _ ↦ biInf_mono fun _ h' ↦ h h'
+
+/-- A family attaining the complexity of a class has the oracle difficulty of the class as its
+asymptotic error complexity at every admissible model. -/
+lemma AdmitsComplexity.exists_forall_limsup_eq (h : task.AdmitsComplexity 𝒞) :
+    ∃ 𝒜 ∈ 𝒞, ∀ θ ∈ task.M,
+      limsup (task.errorComplexity 𝒜 θ) atTop = task.oracleDifficulty 𝒞 θ := by
+  obtain ⟨𝒜, h𝒜, hle⟩ := h
+  exact ⟨𝒜, h𝒜, fun θ hθ ↦ (hle θ hθ).antisymm (oracleDifficulty_le_limsup h𝒜)⟩
+
+variable (task) in
+/-- A class with a single family admits a complexity. -/
+lemma admitsComplexity_singleton (𝒜 : ℕ → IdentAlg Unit α 𝓨 ℐ) :
+    task.AdmitsComplexity {𝒜} :=
+  ⟨𝒜, Set.mem_singleton 𝒜, fun θ _ ↦ (oracleDifficulty_singleton 𝒜 θ).ge⟩
+
+/-- **Complexity and the maximal difficulty ratio** [D23, Section 1]. If the oracle difficulty of
+the class `𝒞` is positive at the admissible models, then `𝒞` admits a complexity if and only if
+some family of `𝒞` has maximal difficulty ratio at most `1` against the oracle difficulty of
+`𝒞`. -/
+theorem admitsComplexity_iff_exists_maxRatio_le_one
+    (h𝒞 : ∀ θ ∈ task.M, task.oracleDifficulty 𝒞 θ ≠ 0) :
+    task.AdmitsComplexity 𝒞 ↔ ∃ 𝒜 ∈ 𝒞, task.maxRatio (task.oracleDifficulty 𝒞) 𝒜 ≤ 1 := by
+  refine exists_congr fun 𝒜 ↦ and_congr_right fun _ ↦ ?_
+  simp_rw [maxRatio_def, iSup₂_le_iff]
+  refine forall₂_congr fun θ hθ ↦ ?_
+  rw [asymptoticRatio_eq_limsup_div (h𝒞 θ hθ),
+    ENNReal.div_le_iff_le_mul (Or.inr ENNReal.one_ne_top) (Or.inr one_ne_zero), one_mul]
+
+end OracleDifficulty
 
 /-! ### The non-asymptotic lower bound -/
 
