@@ -9,7 +9,7 @@ public import LMLExplore.Analysis.Convex.NegEntropy
 public import LMLExplore.Analysis.Normed.Lp.PiLp
 public import LMLExplore.Analysis.Real.Sqrt
 public import LMLExplore.OnlineLearning.ExponentialWeights
-public import LMLExplore.OnlineLearning.FTRL
+public import LMLExplore.OnlineLearning.FTRL.Basic
 
 /-!
 # Online linear optimization on the probability simplex
