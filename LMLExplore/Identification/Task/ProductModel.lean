@@ -60,6 +60,11 @@ inequality on the mean.
 * `LMLExplore.Identification.IdentTask.iInf_cost_eq_iInf_kInfLower_add_kInfUpper`: the smallest
   cost of a model of `∏ c, S c` in which arm `b ≠ a` has mean at least that of `a` is
   `inf_u (w a K⁻_a(θ a, u) + w b K⁺_b(θ b, u))` [AJG20; JDK23a, (1)].
+* `LMLExplore.Identification.IdentTask.continuousOn_biInf_cost_productBandit`,
+  `LMLExplore.Identification.IdentTask.continuousOn_altCost_productBandit`: if the per-arm
+  divergences are finite and continuous on `S a ×ˢ S a` with locally relatively compact sublevel
+  sets, the cost of any set of alternatives in `∏ a, S a` is jointly continuous in the model and
+  the allocation [DK19, Lemmas 25–27].
 * `LMLExplore.Identification.iInf_cost_baiTask_productBandit`,
   `LMLExplore.Identification.iInf_cost_topMTask_productBandit`,
   `LMLExplore.Identification.iInf_cost_thresholdingTask_productBandit`: the infimum of the cost over
@@ -82,6 +87,10 @@ inequality on the mean.
 
 ## References
 
+* [DK19] R. Degenne and W. M. Koolen, *Pure exploration with multiple correct answers*,
+  NeurIPS 2019, supplementary material, Appendix F, Lemmas 25–27.
+* [FKV14] E. A. Feinberg, P. O. Kasyanov and M. Voorneveld, *Berge's maximum theorem for
+  noncompact image sets*, J. Math. Anal. Appl. 413 (2014).
 * [AJG20] S. Agrawal, S. Juneja and P. Glynn, *Optimal δ-correct best-arm selection for
   heavy-tailed distributions*, ALT 2020.
 * [JDK23a] M. Jourdan, R. Degenne and E. Kaufmann, *Dealing with unknown variances in best-arm
@@ -363,6 +372,57 @@ theorem iInf_cost_eq_iInf_kInfLower_add_kInfUpper (hν : task.ν = productBandit
     hθ'a, hθ'b]
   simp only [Finset.mem_insert, Finset.mem_singleton, not_or] at hc
   simp [θ', hc.1, hc.2]
+
+/-! ### Continuity of the cost of the alternatives on product models -/
+
+section Continuity
+
+open Filter Topology
+
+/-- **Continuity of the cost of a set of alternatives on a product model** [DK19, Lemmas 25–27;
+FKV14], `continuousOn_biInf_cost_pi` for `productBandit κ`. If the per-arm divergences
+`KL(κ_a(x), κ_a(y))` are finite and continuous on `S a ×ˢ S a`, and every `x ∈ S a` has a
+neighbourhood `U` in `S a` such that for every finite `r`, the parameters `y ∈ S a` with
+`KL(κ_a(x'), κ_a(y)) ≤ r` for some `x' ∈ U` lie in a compact subset of `S a`, then for every set
+`A ⊆ ∏ a, S a` of models, the cost `(θ, w) ↦ inf_{θ' ∈ A} cost_θ(w, θ')` is continuous on
+`(∏ a, S a) ×ˢ univ`. -/
+theorem continuousOn_biInf_cost_productBandit [TopologicalSpace Θ₀]
+    (hν : task.ν = productBandit κ)
+    (hfin : ∀ a, ∀ x ∈ S a, ∀ y ∈ S a, klDiv (κ a x) (κ a y) ≠ ∞)
+    (hcont : ∀ a, ContinuousOn (fun p : Θ₀ × Θ₀ ↦ klDiv (κ a p.1) (κ a p.2)) (S a ×ˢ S a))
+    (hcomp : ∀ a, ∀ x ∈ S a, ∃ U ∈ 𝓝[S a] x, ∀ r : ℝ≥0∞, r ≠ ∞ →
+      ∃ K ⊆ S a, IsCompact K ∧ ∀ x' ∈ U, ∀ y ∈ S a, klDiv (κ a x') (κ a y) ≤ r → y ∈ K)
+    {A : Set (α → Θ₀)} (hA : A ⊆ univ.pi S) :
+    ContinuousOn (fun p : (α → Θ₀) × (α → ℝ) ↦ ⨅ θ' ∈ A, task.cost p.2 p.1 θ')
+      (univ.pi S ×ˢ univ) := by
+  refine task.continuousOn_biInf_cost_pi (k := fun a x y ↦ (klDiv (κ a x) (κ a y)).toReal)
+    (fun θ hθ θ' hθ' a ↦ ?_) (fun a ↦ ?_) (fun a x hx ↦ ?_) hA
+  · simp only [hν, productBandit_apply]
+    exact (ENNReal.ofReal_toReal (hfin a _ (hθ a (mem_univ a)) _ (hθ' a (mem_univ a)))).symm
+  · exact ENNReal.continuousOn_toReal.comp (hcont a) fun p hp ↦ hfin a _ hp.1 _ hp.2
+  · -- Shrink `U` into `S a`, where the divergences are finite.
+    obtain ⟨U, hU, hUK⟩ := hcomp a x hx
+    refine ⟨U ∩ S a, inter_mem hU self_mem_nhdsWithin, fun r ↦ ?_⟩
+    obtain ⟨K, hKS, hK, hK_mem⟩ := hUK (ENNReal.ofReal r) ENNReal.ofReal_ne_top
+    refine ⟨K, hKS, hK, fun x' hx' y hy hxy ↦ hK_mem x' hx'.1 y hy ?_⟩
+    rw [← ENNReal.ofReal_toReal (hfin a x' hx'.2 y hy)]
+    exact ENNReal.ofReal_le_ofReal hxy
+
+/-- **Continuity of the cost of the alternatives on a product model** [DK19, Lemma 27]: under
+the hypotheses of `continuousOn_biInf_cost_productBandit`, if the alternatives to `i` are models
+of `∏ a, S a`, then `(θ, w) ↦ D(θ, w, ¬i)` is continuous on `(∏ a, S a) ×ˢ univ`. -/
+theorem continuousOn_altCost_productBandit [TopologicalSpace Θ₀] {i : ℐ}
+    (hν : task.ν = productBandit κ)
+    (hfin : ∀ a, ∀ x ∈ S a, ∀ y ∈ S a, klDiv (κ a x) (κ a y) ≠ ∞)
+    (hcont : ∀ a, ContinuousOn (fun p : Θ₀ × Θ₀ ↦ klDiv (κ a p.1) (κ a p.2)) (S a ×ˢ S a))
+    (hcomp : ∀ a, ∀ x ∈ S a, ∃ U ∈ 𝓝[S a] x, ∀ r : ℝ≥0∞, r ≠ ∞ →
+      ∃ K ⊆ S a, IsCompact K ∧ ∀ x' ∈ U, ∀ y ∈ S a, klDiv (κ a x') (κ a y) ≤ r → y ∈ K)
+    (h_alt : task.alt i ⊆ univ.pi S) :
+    ContinuousOn (fun p : (α → Θ₀) × (α → ℝ) ↦ task.altCost p.1 p.2 i) (univ.pi S ×ˢ univ) := by
+  simp_rw [altCost_def]
+  exact continuousOn_biInf_cost_productBandit hν hfin hcont hcomp h_alt
+
+end Continuity
 
 end IdentTask
 
