@@ -151,6 +151,17 @@ lemma histReward_history {O : ℕ → Ω → 𝓞} {A : ℕ → Ω → 𝓐} {Y 
     histReward (history O A Y n ω) s = Y s ω := by
   simp [histReward_def, hs, history_apply]
 
+/-- The rewards of a history are a measurable function of the history. -/
+lemma measurable_histReward [MeasurableSpace 𝓞] [MeasurableSpace 𝓐] (n : ℕ) :
+    Measurable fun h : Hist 𝓞 𝓐 ℝ n ↦ histReward h := by
+  refine Measurable.of_eval fun s ↦ ?_
+  simp_rw [histReward_def]
+  by_cases hs : s < n
+  · simp only [hs, dite_true]
+    exact Round.measurable_feedback.comp (measurable_pi_apply _)
+  · simp only [hs, dite_false]
+    exact measurable_const
+
 end History
 
 section Run
