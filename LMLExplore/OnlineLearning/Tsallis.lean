@@ -88,6 +88,14 @@ private lemma inv_two_mul_sqrt_le (hc : 0 < c) {a : α} (hp : 0 < p a) (hp1 : p 
   linarith
 
 omit [Fintype α] in
+/-- For `0 < p a ≤ 1` and `ℓ a ≥ -c / 4`, `1 / √(p a) + 2 ℓ a / c` is positive. -/
+private lemma inv_sqrt_add_two_mul_div_pos (hc : 0 < c) {a : α} (hp : 0 < p a) (hp1 : p a ≤ 1)
+    (hℓ : -(c / 4) ≤ ℓ a) : 0 < (√(p a))⁻¹ + 2 * ℓ a / c := by
+  have hs : 0 < √(p a) := sqrt_pos.2 hp
+  have h0 : 0 < (2 * √(p a))⁻¹ := by positivity
+  exact h0.trans_le (inv_two_mul_sqrt_le hc hp hp1 hℓ)
+
+omit [Fintype α] in
 /-- For weights in `(0, 1]` and a loss with `ℓ a ≥ -c / 4`, the unconstrained step has positive
 coordinates, with `x a ≤ 4 p a`. -/
 private lemma tsallisStep_pos_le (hc : 0 < c) (hp : ∀ a, 0 < p a) (hp1 : ∀ a, p a ≤ 1)
@@ -95,8 +103,7 @@ private lemma tsallisStep_pos_le (hc : 0 < c) (hp : ∀ a, 0 < p a) (hp1 : ∀ a
     0 < tsallisStep c ℓ p a ∧ tsallisStep c ℓ p a ≤ 4 * p a := by
   have h := inv_two_mul_sqrt_le hc (hp a) (hp1 a) (hℓ a)
   have hs : 0 < √(p a) := sqrt_pos.2 (hp a)
-  have h0 : 0 < (2 * √(p a))⁻¹ := by positivity
-  have hpos := h0.trans_le h
+  have hpos := inv_sqrt_add_two_mul_div_pos hc (hp a) (hp1 a) (hℓ a)
   refine ⟨pow_pos (inv_pos.2 hpos) 2, ?_⟩
   calc tsallisStep c ℓ p a = ((√(p a))⁻¹ + 2 * ℓ a / c)⁻¹ ^ 2 := rfl
   _ ≤ ((2 * √(p a))⁻¹)⁻¹ ^ 2 := by
@@ -111,10 +118,7 @@ private lemma tsallisDeriv_tsallisStep (hc : 0 < c) (hp : ∀ a, 0 < p a) (hp1 :
   simp only [sub_apply, smul_apply, tsallisDeriv_apply,
     lossCLM_apply, smul_eq_mul, mul_sum, ← sum_sub_distrib]
   refine sum_congr rfl fun a _ ↦ ?_
-  have hpos : 0 < (√(p a))⁻¹ + 2 * ℓ a / c := by
-    have := inv_two_mul_sqrt_le hc (hp a) (hp1 a) (hℓ a)
-    have : 0 < (2 * √(p a))⁻¹ := by have := sqrt_pos.2 (hp a); positivity
-    linarith
+  have hpos := inv_sqrt_add_two_mul_div_pos hc (hp a) (hp1 a) (hℓ a)
   have hs : 0 < √(p a) := sqrt_pos.2 (hp a)
   rw [tsallisStep, sqrt_sq (inv_pos.2 hpos).le, mul_inv, inv_inv]
   field_simp

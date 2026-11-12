@@ -322,12 +322,9 @@ theorem pseudoRegret_le (h : IsAlgEnvSeq O A Y tsallisINF env P)
       (Integrable.of_mem_Icc 0 1 (h.measurable_feedback t).aemeasurable (hYt t ht))
   have hLint (t : ℕ) (ht : t ∈ range n) :=
     WeightAlgorithm.integrable_iwEstimator_one_sub (isAlgEnvSeq_weightAlgorithm h) (hYt t ht) a
-  have hMint (t : ℕ) (ht : t ∈ range n) : Integrable (fun ω ↦ 1 - env.means O A Y a t ω) P := by
-    refine integrable_condExp.congr ((WeightAlgorithm.condExp_iwEstimator_one_sub
-      (isAlgEnvSeq_weightAlgorithm h)
-      (Integrable.of_mem_Icc 0 1 (h.measurable_feedback t).aemeasurable (hYt t ht))
-      (hLint t ht)).trans (ae_of_all _ fun ω ↦ ?_))
-    simp [(tsallisINFWeights_pos t (history O A Y t ω) a).ne']
+  have hMint (t : ℕ) (ht : t ∈ range n) : Integrable (fun ω ↦ 1 - env.means O A Y a t ω) P :=
+    WeightAlgorithm.integrable_one_sub_means (isAlgEnvSeq_weightAlgorithm h) (hYt t ht)
+      (ae_of_all _ fun ω ↦ tsallisINFWeights_pos _ _ a)
   have hVint (t : ℕ) (ht : t ∈ range n) := integrable_sum_mul_sqrt_mul_sq (t := t) h (hYt t ht)
   calc P[fun ω ↦ ∑ t ∈ range n, (env.means O A Y a t ω - Y t ω)]
   -- the expected regret against `a` is the expected estimated regret

@@ -114,6 +114,9 @@ feedback `Y n` is almost surely the reward `x (A n)` of the action, the conditio
   in any environment with feedback in `[0, 1]`, the estimate of the loss `1 - Y n` of an arm is
   integrable, and its expectation is `E[1 - env.means O A Y a n]` if the arm has almost surely
   positive weight.
+* `WeightAlgorithm.integrable_one_sub_means`: in any environment with feedback in `[0, 1]`, the
+  loss `1 - env.means O A Y a n` of the mean feedback of an arm of almost surely positive weight is
+  integrable.
 * `WeightAlgorithm.measure_log_one_div_le_sum_sum_mul_iwEstimator_add_sub_le`: the concentration of
   the implicit-exploration estimates of the losses in any environment [Neu15, Lemma 1;
   LS, Lemma 12.2].
@@ -892,6 +895,20 @@ theorem integral_iwEstimator_one_sub (h : IsAlgEnvSeq O A Y (weightAlgorithm w h
     (Integrable.of_mem_Icc 0 1 (h.measurable_feedback n).aemeasurable hY)
     (integrable_iwEstimator_one_sub h hY a), ha] with ω hω hωa
   simp [hω, hωa.ne']
+
+omit [DecidableEq α] in
+/-- Along a run of a weight-based algorithm whose feedback at round `n` is almost surely in
+`[0, 1]`, in any environment, the loss `1 - env.means O A Y a n` of the mean feedback of an arm `a`
+that has almost surely positive weight is integrable. -/
+theorem integrable_one_sub_means (h : IsAlgEnvSeq O A Y (weightAlgorithm w hw hp) env P)
+    (hY : ∀ᵐ ω ∂P, Y n ω ∈ Set.Icc 0 1) (ha : ∀ᵐ ω ∂P, 0 < w n (history O A Y n ω, O n ω) a) :
+    Integrable (fun ω ↦ 1 - env.means O A Y a n ω) P := by
+  classical
+  refine integrable_condExp.congr ((condExp_iwEstimator_one_sub h
+    (Integrable.of_mem_Icc 0 1 (h.measurable_feedback n).aemeasurable hY)
+    (integrable_iwEstimator_one_sub h hY a)).trans ?_)
+  filter_upwards [ha] with ω hωa
+  simp [hωa.ne']
 
 /-- **Concentration of implicit-exploration estimates** [Neu15, Lemma 1; LS, Lemma 12.2], in any
 environment. Along a run of a weight-based algorithm with weights `P t = w t (past)` whose
