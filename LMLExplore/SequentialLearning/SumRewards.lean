@@ -124,10 +124,12 @@ The strong law for the empirical means applies Mathlib's `strong_law_ae_real` to
 rewards by count of an arm on the same product space, and the almost sure event depends on the run
 only, by `Measure.ae_ae_of_ae_prod`.
 The statement and proof of the strong law for the empirical means are adapted from the
-formalization in the paper project RemyDegenne/Garivier2016Optimal (same author). The laws of the
-first rewards of the arms in the stream model, the independence of their empirical means and the
-convex sets confining the empirical means are adapted from the formalization in the paper project
-RemyDegenne/Degenne2023Existence (same author), which proves them in LML's array model.
+formalization in the paper project RemyDegenne/Garivier2016Optimal (same author). The law of the
+reward sequences of the arms in the stream model and the product formula for the means of their
+first rewards are adapted from the stream-model lemmas of the formalization in the paper project
+RemyDegenne/Degenne2023Existence (same author); the laws of the first rewards of the arms are new
+here. The source states `ae_empMean_mem` in LML's array model, for `trajMeasure` and with
+measurable `C a`; here it holds for every `IsAlgEnvSeq` against the bandit.
 
 ## References
 
