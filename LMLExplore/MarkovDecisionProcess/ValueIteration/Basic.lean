@@ -155,13 +155,9 @@ for the sup norm, stated pointwise: if bounded measurable `v` and `w` satisfy `|
 theorem abs_bellman_sub_le (hR : ∀ p, ∀ᵐ x ∂(M.R p), |x| ≤ C) (hv : Measurable v)
     (hvB : ∀ s, |v s| ≤ B) (hw : Measurable w) (hwB : ∀ s, |w s| ≤ B')
     (hD : ∀ s, |v s - w s| ≤ D) (s : 𝓢) :
-    |M.bellman γ v s - M.bellman γ w s| ≤ γ * D := by
-  have h := boundedMeasurable.abs_sub_apply_le_of_isBlackwell
-    (isBlackwell_bellmanOp (γ := γ) hR)
-    (f := boundedMeasurable.mk v hv (bddAbove_def.2 ⟨B, forall_mem_range.2 hvB⟩))
-    (g := boundedMeasurable.mk w hw (bddAbove_def.2 ⟨B', forall_mem_range.2 hwB⟩))
-    (by simpa only [boundedMeasurable.coeFn_mk] using hD) s
-  simpa only [coeFn_bellmanOp, boundedMeasurable.coeFn_mk] using h
+    |M.bellman γ v s - M.bellman γ w s| ≤ γ * D :=
+  boundedMeasurable.abs_sub_apply_le_of_isBlackwell_of_coeFn_eq (isBlackwell_bellmanOp hR)
+    (coeFn_bellmanOp hR) hv hvB hw hwB hD s
 
 /-- **The optimality equation has a solution** (the fixed-point part of [P, Theorem 6.2.5 (a)]):
 with rewards bounded by `C`, countably many actions and `γ < 1`, there is a measurable `u` bounded
@@ -352,10 +348,10 @@ variable (hR : ∀ p, ∀ᵐ x ∂(M.R p), |x| ≤ C)
 lemma coeFn_bellmanEvalOp (v : boundedMeasurable 𝓢) :
     ⇑(M.bellmanEvalOp γ π hR v : ℓ^∞(𝓢, ℝ)) = M.bellmanEval γ π ⇑(v : ℓ^∞(𝓢, ℝ)) := by
   ext s
-  simp only [bellmanEvalOp_def, boundedMeasurable.coeFn_add, boundedMeasurable.coeFn_smul,
-    coeFn_policyRewardBM, Pi.add_apply, Pi.smul_apply, Kernel.integralCLM_apply, smul_eq_mul,
+  rw [bellmanEvalOp_def, boundedMeasurable.coeFn_add, Pi.add_apply,
     bellmanEval_eq_policyReward_add hR (boundedMeasurable.measurable v)
       (boundedMeasurable.abs_apply_le_norm v)]
+  simp
 
 /-- The iterates of `M.bellmanEvalOp γ π hR` are those of `M.bellmanEval γ π`. -/
 @[simp]
@@ -383,8 +379,8 @@ theorem isBlackwell_bellmanEvalOp : IsBlackwell 1 γ (M.bellmanEvalOp γ π hR) 
     gcongr
     exact Kernel.monotone_integralCLM hvw
   map_add_smul_le v c _ := le_of_eq <| by
-    simp only [bellmanEvalOp_def, map_add, map_smul, Kernel.integralCLM_one, smul_add, smul_smul,
-      add_assoc]
+    simp only [bellmanEvalOp_def, map_add, map_smul, Kernel.integralCLM_one]
+    module
 
 /-- With bounded rewards and `γ < 1`, the evaluation operator of a stationary policy is a
 `γ`-contraction of the bounded measurable functions with the sup norm [P, Proposition 6.2.4]. -/
@@ -397,13 +393,9 @@ the sup norm, stated pointwise: if bounded measurable `v` and `w` satisfy `|v - 
 theorem abs_bellmanEval_sub_le (hR : ∀ p, ∀ᵐ x ∂(M.R p), |x| ≤ C) (hv : Measurable v)
     (hvB : ∀ s, |v s| ≤ B) (hw : Measurable w) (hwB : ∀ s, |w s| ≤ B')
     (hD : ∀ s, |v s - w s| ≤ D) (s : 𝓢) :
-    |M.bellmanEval γ π v s - M.bellmanEval γ π w s| ≤ γ * D := by
-  have h := boundedMeasurable.abs_sub_apply_le_of_isBlackwell
-    (isBlackwell_bellmanEvalOp (γ := γ) (π := π) hR)
-    (f := boundedMeasurable.mk v hv (bddAbove_def.2 ⟨B, forall_mem_range.2 hvB⟩))
-    (g := boundedMeasurable.mk w hw (bddAbove_def.2 ⟨B', forall_mem_range.2 hwB⟩))
-    (by simpa only [boundedMeasurable.coeFn_mk] using hD) s
-  simpa only [coeFn_bellmanEvalOp, boundedMeasurable.coeFn_mk] using h
+    |M.bellmanEval γ π v s - M.bellmanEval γ π w s| ≤ γ * D :=
+  boundedMeasurable.abs_sub_apply_le_of_isBlackwell_of_coeFn_eq (isBlackwell_bellmanEvalOp hR)
+    (coeFn_bellmanEvalOp hR) hv hvB hw hwB hD s
 
 end Evaluation
 

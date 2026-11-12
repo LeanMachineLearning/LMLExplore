@@ -43,7 +43,9 @@ convergence and a pointwise limit of measurable functions is measurable.
   order-unit norm of the constant `1` is the sup norm, so that maps satisfying Blackwell's
   conditions for `1` are contractions of `boundedMeasurable α` (`LMLExplore.IsBlackwell`).
 * `LMLExplore.boundedMeasurable.abs_sub_apply_le_of_isBlackwell`: Blackwell's argument, pointwise:
-  such maps turn a pointwise bound `|f - g| ≤ D` into `|T f - T g| ≤ γ * D`.
+  such maps turn a pointwise bound `|f - g| ≤ D` into `|T f - T g| ≤ γ * D`;
+  `LMLExplore.boundedMeasurable.abs_sub_apply_le_of_isBlackwell_of_coeFn_eq` states it for the
+  plain functions on which `T` acts pointwise.
 * `LMLExplore.boundedMeasurable.sub_apply_le_orderUnitOsc_one`,
   `LMLExplore.boundedMeasurable.orderUnitOsc_one_le_of_forall_sub_le`: the oscillation of `f` for
   `1` is the least bound on the differences `f x - f y`.
@@ -261,6 +263,21 @@ theorem abs_sub_apply_le_of_isBlackwell {T : boundedMeasurable α → boundedMea
     ((hT.lipschitzWith orderUnitNorm_one_eq_norm).dist_le_mul f g).trans <|
       mul_le_mul_of_nonneg_left (dist_le_of_forall_abs_sub_le ((abs_nonneg _).trans (h x)) h)
         γ.coe_nonneg
+
+/-- **Blackwell's argument, for plain functions**: if `T` satisfies Blackwell's conditions for the
+constant function `1` with modulus `γ` and acts on bounded measurable functions as `t : (α → ℝ) →
+α → ℝ`, then for measurable bounded `u` and `v`, `|u x - v x| ≤ D` at every point `x` gives
+`|t u x - t v x| ≤ γ * D` at every point `x`. -/
+theorem abs_sub_apply_le_of_isBlackwell_of_coeFn_eq {T : boundedMeasurable α → boundedMeasurable α}
+    {t : (α → ℝ) → α → ℝ} {γ : NNReal} (hT : IsBlackwell 1 γ T)
+    (ht : ∀ f, ⇑(T f : ℓ^∞(α, ℝ)) = t ⇑(f : ℓ^∞(α, ℝ))) {u v : α → ℝ} {B B' D : ℝ}
+    (hu : Measurable u) (huB : ∀ x, |u x| ≤ B) (hv : Measurable v) (hvB : ∀ x, |v x| ≤ B')
+    (h : ∀ x, |u x - v x| ≤ D) (x : α) :
+    |t u x - t v x| ≤ γ * D := by
+  simpa only [ht, coeFn_mk] using abs_sub_apply_le_of_isBlackwell hT
+    (f := mk u hu (bddAbove_def.2 ⟨B, forall_mem_range.2 huB⟩))
+    (g := mk v hv (bddAbove_def.2 ⟨B', forall_mem_range.2 hvB⟩))
+    (by simpa only [coeFn_mk] using h) x
 
 /-- The values of a bounded measurable function differ by at most its oscillation for the
 constant function `1`. -/
