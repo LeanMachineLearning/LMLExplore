@@ -7,6 +7,7 @@ module
 
 public import LMLExplore.Analysis.Convex.Bregman.Euclidean
 public import LMLExplore.Analysis.Convex.Bregman.StrongConvex
+public import LMLExplore.OnlineLearning.Regret
 public import Mathlib.Analysis.Calculus.LocalExtr.Basic
 public import Mathlib.Topology.Order.Compact
 
@@ -33,6 +34,14 @@ potential measures the losses in the operator norm, the dual norm of the norm of
 norm of `E` chooses the pair of dual norms; for example `PiLp 1 (fun _ : α ↦ ℝ)` carries the `ℓ¹`
 norm, whose dual norm is the sup norm.
 
+The regret analysis of FTRL rests on an equality that needs no structure at all: for regularizers
+and losses `ψ ℓ : ℕ → α → ℝ` on an arbitrary type `α`, with objectives
+`F t = ψ t + ∑ s < t, ℓ s`, and any points `x`, the regret of `x` is `ψ n u - ψ 0 (x 0)` plus the
+stability terms `F t (x t) - F (t + 1) (x (t + 1)) + ℓ t (x t)` plus `F n (x n) - F n u`
+[Ora, Lemma 7.1]. It holds for nonconvex losses, and the last term is nonpositive when `x n`
+minimizes `F n` over a set containing `u`. The bounds for linear losses on a normed space below
+are derived from it.
+
 ## Main definitions
 
 * `IsFTRLPlay K F η y t x`: `x` is a play of FTRL on `K` at round `t`, with potential `F`,
@@ -40,10 +49,21 @@ norm, whose dual norm is the sup norm.
 
 ## Main statements
 
-* `sum_apply_sub_le_ftrl`: the **FTRL lemma** [Ora, Lemma 7.1], for regularizers that may change
-  over the rounds: the regret is at most `ψ n u - ψ 0 (a 0)` plus the sum of the stability terms
-  `y t (a t) - (m (t + 1) - m t)`, where `m t` is the value of the objective of round `t` at its
-  play.
+* `regret_eq_ftrl`: the **FTRL equality** [Ora, Lemma 7.1], on an arbitrary type and for arbitrary
+  losses, regularizers and points. The regret on the left may be that of other points than the
+  points of the stability terms [Ora, Remark 7.4].
+* `regret_le_ftrl`: the FTRL inequality, when the last point does at least as well as the
+  comparator on the last objective.
+* `isMinOn_add_const_add_sum_iff`: adding a constant to a regularizer changes no play of FTRL
+  [Ora, Remark 7.3].
+* `sum_le_of_isMinOn_sum`: the **be-the-leader lemma** [Ora, Lemma 1.2]: the minimizers of the
+  cumulative losses including the current round have nonpositive regret.
+* `regret_le_sum_sub_of_isMinOn_sum`: the regret of follow-the-leader is at most
+  `∑ t < n, (ℓ t (x t) - ℓ t (x (t + 1)))`.
+* `sum_apply_sub_le_ftrl`: the **FTRL lemma** for linear losses on a normed space, for
+  regularizers that may change over the rounds: the regret is at most `ψ n u - ψ 0 (a 0)` plus
+  the sum of the stability terms `y t (a t) - (m (t + 1) - m t)`, where `m t` is the value of the
+  objective of round `t` at its play.
 * `ftrl_regret_le_of_monotone`: for a convex `K` and regularizers `ψ t` nondecreasing in `t` on
   `K`, with derivatives `ψ' t` within `K` at the plays, the regret is at most
   `ψ n u - ψ 0 (a 0) + ∑ t < n, (y t (a t - a (t + 1)) - D_{ψ t}(a (t + 1), a t))`, with `D_ψ`
@@ -80,7 +100,8 @@ norm, whose dual norm is the sup norm.
 ## Implementation notes
 
 The FTRL lemma and its telescoping proof are adapted from the LMLPapers project (same author),
-where they are stated for gains on the probability simplex; here they hold for losses on any set.
+where they are stated for gains on the probability simplex; here they hold for losses on any set
+of any type.
 
 ## References
 
@@ -94,6 +115,93 @@ open Finset Metric
 open scoped RealInnerProductSpace
 
 namespace LMLExplore.OnlineLearning
+
+section Equality
+
+variable {α : Type*}
+
+/-- **The FTRL equality** [Ora, Lemma 7.1 and Remark 7.4]. Let `ψ ℓ : ℕ → α → ℝ` be regularizers
+and losses on an arbitrary type `α`, let `F t = ψ t + ∑ s < t, ℓ s` be the objective of round `t`,
+and let `x z : ℕ → α` be any points. Then the regret of `z` against `u` after `n` rounds is
+`ψ n u - ψ 0 (x 0) + ∑ t < n, (F t (x t) - F (t + 1) (x (t + 1)) + ℓ t (z t))
+  + (F n (x n) - F n u)`.
+For `z = x` this is the regret of `x` [Ora, Lemma 7.1]. With `x t` the plays of FTRL, a minimizer
+of `F t`, and `z t` the plays of another algorithm, it expresses the regret of that algorithm
+through the FTRL plays [Ora, Remark 7.4]. No convexity and no minimality is needed. -/
+theorem regret_eq_ftrl (ψ ℓ : ℕ → α → ℝ) (x z : ℕ → α) (u : α) (n : ℕ) :
+    regret ℓ z u n = ψ n u - ψ 0 (x 0) +
+      ∑ t ∈ range n, ((ψ t (x t) + ∑ s ∈ range t, ℓ s (x t)) -
+        (ψ (t + 1) (x (t + 1)) + ∑ s ∈ range (t + 1), ℓ s (x (t + 1))) + ℓ t (z t)) +
+      ((ψ n (x n) + ∑ s ∈ range n, ℓ s (x n)) - (ψ n u + ∑ s ∈ range n, ℓ s u)) := by
+  -- the values of the objectives at the points telescope
+  have h_tele := sum_range_sub' (fun t ↦ ψ t (x t) + ∑ s ∈ range t, ℓ s (x t)) n
+  simp only [range_zero, sum_empty, add_zero] at h_tele
+  rw [regret_eq_sum_sub_sum, sum_add_distrib, h_tele]
+  ring
+
+/-- **The FTRL inequality** [Ora, Lemma 7.1]. Let `F t = ψ t + ∑ s < t, ℓ s` be the objective of
+round `t` and let `x n` do at least as well as `u` on `F n`, for instance a minimizer of `F n` over
+a set containing `u`. Then for any points `z`, the regret of `z` against `u` after `n` rounds is at
+most `ψ n u - ψ 0 (x 0) + ∑ t < n, (F t (x t) - F (t + 1) (x (t + 1)) + ℓ t (z t))`. -/
+theorem regret_le_ftrl (ψ ℓ : ℕ → α → ℝ) (x z : ℕ → α) {u : α} {n : ℕ}
+    (hx : ψ n (x n) + ∑ s ∈ range n, ℓ s (x n) ≤ ψ n u + ∑ s ∈ range n, ℓ s u) :
+    regret ℓ z u n ≤ ψ n u - ψ 0 (x 0) +
+      ∑ t ∈ range n, ((ψ t (x t) + ∑ s ∈ range t, ℓ s (x t)) -
+        (ψ (t + 1) (x (t + 1)) + ∑ s ∈ range (t + 1), ℓ s (x (t + 1))) + ℓ t (z t)) := by
+  rw [regret_eq_ftrl ψ ℓ x z u n]
+  linarith
+
+/-- **FTRL is invariant under constant shifts of the regularizers** [Ora, Remark 7.3]: a point
+minimizes the objective `ψ t + c + ∑ s < t, ℓ s` over `V` iff it minimizes `ψ t + ∑ s < t, ℓ s`
+over `V`. Hence the regret bounds may use `ψ t - c t` in place of `ψ t`, for instance with
+`c t` the minimum of `ψ t` over `V`. -/
+lemma isMinOn_add_const_add_sum_iff (ψ ℓ : ℕ → α → ℝ) (c : ℝ) (V : Set α) (t : ℕ) (a : α) :
+    IsMinOn (fun b ↦ ψ t b + c + ∑ s ∈ range t, ℓ s b) V a ↔
+      IsMinOn (fun b ↦ ψ t b + ∑ s ∈ range t, ℓ s b) V a := by
+  simp only [isMinOn_iff, add_right_comm _ c, add_le_add_iff_right]
+
+/-- **Be-the-leader** [Ora, Lemma 1.2, Remark 15.32]. If each `w t`, for `t < n`, lies in `V` and
+minimizes over `V` the cumulative loss `∑ s ≤ t, ℓ s` of the rounds up to and including `t`, then
+`∑ t < n, ℓ t (w t) ≤ ∑ t < n, ℓ t u` for every `u ∈ V`: the regret of the leaders that know the
+current loss is nonpositive. -/
+theorem sum_le_of_isMinOn_sum {V : Set α} (ℓ : ℕ → α → ℝ) (w : ℕ → α) {u : α} {n : ℕ}
+    (hw : ∀ t < n, w t ∈ V) (hmin : ∀ t < n, IsMinOn (fun a ↦ ∑ s ∈ range (t + 1), ℓ s a) V (w t))
+    (hu : u ∈ V) :
+    ∑ t ∈ range n, ℓ t (w t) ≤ ∑ t ∈ range n, ℓ t u := by
+  have hx : (0 : ℝ) + ∑ s ∈ range n, ℓ s (w (n - 1)) ≤ 0 + ∑ s ∈ range n, ℓ s u := by
+    rcases n with _ | n
+    · simp
+    simpa using isMinOn_iff.mp (hmin n n.lt_succ_self) u hu
+  -- the FTRL inequality with no regularizer, the follow-the-leader points `w (t - 1)` in the
+  -- stability terms and the be-the-leader points `w t` in the regret
+  have h := regret_le_ftrl (fun _ _ ↦ 0) ℓ (fun t ↦ w (t - 1)) w hx
+  -- each round compares the leader `w (t - 1)` of the first `t` rounds with `w t` on these rounds
+  have h_round : ∀ t ∈ range n, (0 + ∑ s ∈ range t, ℓ s (w (t - 1))) -
+      (0 + ∑ s ∈ range (t + 1), ℓ s (w (t + 1 - 1))) + ℓ t (w t) ≤ 0 := by
+    intro t ht
+    have ht := mem_range.mp ht
+    rw [Nat.add_sub_cancel, sum_range_succ]
+    rcases t with _ | t
+    · simp
+    have h_le := isMinOn_iff.mp (hmin t (by omega)) (w (t + 1)) (hw (t + 1) ht)
+    simp only [Nat.add_sub_cancel] at h_le ⊢
+    linarith
+  rw [regret_eq_sum_sub_sum] at h
+  linarith [sum_nonpos h_round]
+
+/-- **The regret of follow-the-leader** [Ora, Lemma 1.2 and the proof of Theorem 1.3]. If each
+`x (t + 1)`, for `t < n`, lies in `V` and minimizes over `V` the cumulative loss
+`∑ s ≤ t, ℓ s`, then the regret of `x` against every `u ∈ V` after `n` rounds is at most
+`∑ t < n, (ℓ t (x t) - ℓ t (x (t + 1)))`. The first point `x 0` is arbitrary. -/
+theorem regret_le_sum_sub_of_isMinOn_sum {V : Set α} (ℓ : ℕ → α → ℝ) (x : ℕ → α) {u : α}
+    {n : ℕ} (hx : ∀ t < n, x (t + 1) ∈ V)
+    (hmin : ∀ t < n, IsMinOn (fun a ↦ ∑ s ∈ range (t + 1), ℓ s a) V (x (t + 1))) (hu : u ∈ V) :
+    regret ℓ x u n ≤ ∑ t ∈ range n, (ℓ t (x t) - ℓ t (x (t + 1))) := by
+  have h := sum_le_of_isMinOn_sum ℓ (fun t ↦ x (t + 1)) hx hmin hu
+  rw [regret_eq_sum_sub_sum, sum_sub_distrib]
+  linarith
+
+end Equality
 
 section NormedSpace
 
@@ -109,7 +217,8 @@ structure IsFTRLPlay (K : Set E) (F : E → ℝ) (η : ℝ) (y : ℕ → E →L[
   /-- The play minimizes the FTRL objective of round `t` over `K`. -/
   isMinOn : IsMinOn (fun b ↦ η * ∑ s ∈ range t, y s b + F b) K x
 
-/-- **FTRL lemma** [Ora, Lemma 7.1]. Let the point `a n` of round `n` do at least as well as `u`
+/-- **FTRL lemma for linear losses** [Ora, Lemma 7.1], the case of `regret_le_ftrl` for linear
+losses on a normed space. Let the point `a n` of round `n` do at least as well as `u`
 on the objective `b ↦ ∑ s < n, y s b + ψ n b`, for instance a minimizer of it over a set containing
 `u`. Then the regret against `u` after `n` rounds is at most `ψ n u - ψ 0 (a 0)` plus the sum over
 the rounds of the stability terms `y t (a t) - (m (t + 1) - m t)`, where
@@ -119,12 +228,10 @@ theorem sum_apply_sub_le_ftrl (ψ : ℕ → E → ℝ) (y : ℕ → E →L[ℝ] 
     ∑ t ∈ range n, y t (a t - u) ≤ ψ n u - ψ 0 (a 0) + ∑ t ∈ range n, (y t (a t) -
       ((∑ s ∈ range (t + 1), y s (a (t + 1)) + ψ (t + 1) (a (t + 1))) -
         (∑ s ∈ range t, y s (a t) + ψ t (a t)))) := by
-  -- the values of the objectives at the plays telescope, and `a n` beats `u` at round `n`
-  have h_tele := sum_range_sub (fun t ↦ ∑ s ∈ range t, y s (a t) + ψ t (a t)) n
-  simp only [range_zero, sum_empty, zero_add] at h_tele
-  rw [sum_sub_distrib, h_tele]
-  simp only [map_sub, sum_sub_distrib]
-  linarith
+  have h := regret_le_ftrl ψ (fun t ↦ y t) a a (u := u) (by linarith)
+  rw [regret_eq_sum_apply_sub] at h
+  refine h.trans_eq (congrArg (_ + ·) (sum_congr rfl fun t _ ↦ ?_))
+  ring
 
 /-- Let `a` minimize over `K` the function `c ↦ L c + F c`, where `L` is a continuous linear
 functional and `F` has derivative `F'` within `K` at `a`. If the segment from `a` to `b` lies in
