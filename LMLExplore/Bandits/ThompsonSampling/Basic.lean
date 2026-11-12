@@ -27,7 +27,7 @@ This is a follow-the-perturbed-leader policy (`perturbedLeaderAlgorithm`) whose 
 laws, in `EReal`, depend on the history only through the number of pulls and the sum of rewards
 of each arm, so [LS, Theorem 36.2] applies to it in the reward-stack form of
 `PerturbedLeader.lintegral_pullCount_le`. With the Jeffreys prior `(ρ a).jeffreysPrior id` it is
-the algorithm of [KKM13]; for the Gaussian family of variance `σ²` the Jeffreys prior is a
+the algorithm of [KKM13]; for the Gaussian family of variance `σ² ≠ 0` the Jeffreys prior is a
 constant multiple of Lebesgue measure, and Thompson sampling is Gaussian Thompson sampling
 `gaussianTS σ2` (`gaussianTS_eq_expFamilyTS`).
 

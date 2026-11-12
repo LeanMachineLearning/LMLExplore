@@ -30,9 +30,10 @@ expression, and the upper confidence level of KL-UCB is the Hoeffding-type level
 `U(x, c) = x + √(2 v c)` of asymptotically optimal UCB (T. Lattimore and Cs. Szepesvári,
 *Bandit Algorithms*, Cambridge University Press, 2020, Algorithm 6).
 The variance function `ψ'' = v` is constant, so the Jeffreys prior is `√v` times Lebesgue
-measure, and the posterior of the natural parameter after `s ≠ 0` observations of sum `S` is the
-Gaussian law `𝒩((S - s m) / (s v), 1 / (s v))`, whose image by the mean map is `𝒩(S / s, v / s)`:
-Thompson sampling with the Jeffreys prior samples the mean of an arm from `𝒩(μ̂, v / s)`.
+measure. For `v ≠ 0`, the posterior of the natural parameter after `s ≠ 0` observations of sum
+`S` is the Gaussian law `𝒩((S - s m) / (s v), 1 / (s v))`, whose image by the mean map is
+`𝒩(S / s, v / s)`: Thompson sampling with the Jeffreys prior samples the mean of an arm from
+`𝒩(μ̂, v / s)`.
 
 Gaussian arms with a known variance are the reference model of bandit identification: with
 `d(μ, μ') = (μ - μ')² / (2 v)`, the transportation costs, the characteristic time and the
