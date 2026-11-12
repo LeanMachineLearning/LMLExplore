@@ -117,7 +117,10 @@ theorem tendsto_one_add_sqrt_div_atTop : Tendsto (fun x : ℝ ↦ (1 + √x) / x
   filter_upwards with x
   rw [add_div, sqrt_div_self', one_div, Function.comp_apply, one_div]
 
-/-- The root of a quadratic inequality: `x² ≤ b x + c` with `b, c ≥ 0` forces `x ≤ b + √c`. -/
+/-- The root of a quadratic inequality: `x² ≤ b x + c` with `b, c ≥ 0` forces `x ≤ b + √c`.
+
+Adapted from the formalization in the paper project RemyDegenne/Essakine2026Tight (same author),
+file `ForLMLExplore/Analysis/Real/Sqrt.lean`. -/
 theorem le_add_sqrt_of_sq_le {x b c : ℝ} (hb : 0 ≤ b) (hc : 0 ≤ c) (h : x ^ 2 ≤ b * x + c) :
     x ≤ b + √c := by
   by_contra! hlt

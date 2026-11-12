@@ -22,7 +22,7 @@ import Mathlib.Analysis.SpecialFunctions.Log.Deriv
 * `Real.log_div_rpow_le_exp_neg_one`: `log x / x ^ p ≤ 1 / e` for `x ≥ 1` and `p ≥ 1`.
 * `Real.log_le_rpow_div_exp_one_mul`: `log y ≤ y ^ γ / (e γ)` for `y ≥ 0` and `γ > 0`, Mathlib's
   `Real.log_le_rpow_div` sharpened by the factor `e`.
-* `Real.log_le_of_le_mul_sq_log`: if `1 ≤ y ≤ M log² y` with `M > 0`, then
+* `Real.log_le_of_le_mul_sq_log`: if `1 ≤ y ≤ M log² y`, then
   `log y ≤ (8 / 5) log (4 M)`. It bounds the logarithm in the self-bounding inequality
   `Real.le_of_le_sqrt_mul_add`.
 * `Real.monotone_log_two_mul_mul_add_one`: `n ↦ log (2 n (n + 1))` is monotone on `ℕ`.
@@ -160,7 +160,10 @@ theorem log_div_rpow_le_exp_neg_one {x p : ℝ} (hx : 1 ≤ x) (hp : 1 ≤ p) :
   _ ≤ exp (-1) := h_log
 
 /-- `log y ≤ y ^ γ / (e γ)` for `y ≥ 0` and `γ > 0`: Mathlib's `Real.log_le_rpow_div` sharpened by
-the factor `e`. -/
+the factor `e`.
+
+Adapted from the formalization in the paper project RemyDegenne/Essakine2026Tight (same author),
+file `ForLMLExplore/Analysis/SpecialFunctions/Pow/Real.lean`. -/
 theorem log_le_rpow_div_exp_one_mul {y γ : ℝ} (hy : 0 ≤ y) (hγ : 0 < γ) :
     log y ≤ y ^ γ / (exp 1 * γ) := by
   rcases hy.eq_or_lt with rfl | hy
@@ -173,11 +176,17 @@ theorem log_le_rpow_div_exp_one_mul {y γ : ℝ} (hy : 0 ≤ y) (hγ : 0 < γ) :
   rw [le_div_iff₀ (by positivity)]
   linarith
 
-/-- If `1 ≤ y ≤ M (log y)²` with `M > 0`, then `log y ≤ (8 / 5) log (4 M)`. -/
-theorem log_le_of_le_mul_sq_log {y M : ℝ} (hy : 1 ≤ y) (hM : 0 < M) (h : y ≤ M * log y ^ 2) :
+/-- If `1 ≤ y ≤ M (log y)²`, then `log y ≤ (8 / 5) log (4 M)`.
+
+Adapted from the formalization in the paper project RemyDegenne/Essakine2026Tight (same author),
+file `ForLMLExplore/Analysis/SpecialFunctions/Pow/Real.lean`, where `M > 0` is assumed. -/
+theorem log_le_of_le_mul_sq_log {y M : ℝ} (hy : 1 ≤ y) (h : y ≤ M * log y ^ 2) :
     log y ≤ 8 / 5 * log (4 * M) := by
   have hy0 : 0 < y := by linarith
   have hlog : 0 ≤ log y := log_nonneg hy
+  have hM : 0 < M := by
+    by_contra! hM
+    nlinarith [mul_nonneg (neg_nonneg.2 hM) (sq_nonneg (log y))]
   have he : 2.7 < exp 1 := lt_trans (by norm_num) exp_one_gt_d9
   -- `log y ≤ 16 / (3 e) y ^ (3 / 16)`, hence `log² y ≤ 4 y ^ (3 / 8)`
   have h1 : log y ≤ 16 / (3 * exp 1) * y ^ (3 / 16 : ℝ) := by

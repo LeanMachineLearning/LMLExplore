@@ -23,7 +23,7 @@ This file solves it for `τ`, for `α ≥ e`, `A, B, C, D ≥ 0` and `B ≤ E`. 
 
 * `Real.le_mul_sq_of_le_sqrt_mul_add`: the same hypothesis with any `L ≥ 1` in place of
   `log (α τ)` gives `τ ≤ K L²`.
-* `Real.log_le_of_le_sqrt_mul_add`: if `τ > 1`, then `L ≤ (8 / 5) log (4 α K)`.
+* `Real.log_le_of_le_sqrt_mul_add`: if `τ ≥ 1`, then `L ≤ (8 / 5) log (4 α K)`.
 * `Real.le_mul_sq_log_add_one_of_le_sqrt_mul_add`: `τ ≤ K ((8 / 5) log M)² + 1` for every
   `M ≥ 4 α K`.
 * `Real.le_of_le_sqrt_mul_add`: **the self-bounding inequality** [MDJKLV21, Lemma 13],
@@ -37,6 +37,14 @@ This file solves it for `τ`, for `α ≥ e`, `A, B, C, D ≥ 0` and `B ≤ E`. 
 is too small: `α = e`, `B = E = 1`, `C = 1000`, `A = D = 10⁻⁶` and `τ = 4 · 10⁸` satisfy the
 hypothesis but not the conclusion. The factor `C + D` must be squared, which is
 `Real.le_of_le_sqrt_mul_add'`; the positivity assumptions and `B ≥ 1` are not needed.
+
+## Implementation notes
+
+The statements and proofs are adapted from the formalization in the paper project
+RemyDegenne/Essakine2026Tight (same author), file
+`ForLMLExplore/Analysis/SpecialFunctions/Log/SelfBounding.lean`. Here the quadratic part
+`Real.le_mul_sq_of_le_sqrt_mul_add` holds for any `L ≥ 1` rather than only `L = log (α τ)`, and
+the final bounds do not assume `τ ≥ 0`.
 
 ## References
 
@@ -94,27 +102,29 @@ theorem le_mul_sq_of_le_sqrt_mul_add {L : ℝ} (hA : 0 ≤ A) (hB : 0 ≤ B) (hC
     _ ≤ L ^ 2 * (C ^ 2 * (A + B) + D * (A + E)) + 2 * C * √D * L ^ 2 * (A + E) := by gcongr
     _ = (C ^ 2 * (A + B) + (D + 2 * √D * C) * (A + E)) * L ^ 2 := by ring
 
+/-- `1 ≤ log (α τ)` for `α ≥ e` and `τ ≥ 1`. -/
+private lemma one_le_log_mul (hα : exp 1 ≤ α) (hτ : 1 ≤ τ) : 1 ≤ log (α * τ) := by
+  have hα0 : 0 < α := (exp_pos 1).trans_le hα
+  exact (le_log_iff_exp_le (mul_pos hα0 (by linarith))).2
+    (hα.trans (le_mul_of_one_le_right hα0.le hτ))
+
 /-- The logarithm in the self-bounding inequality: `log (α τ) ≤ (8 / 5) log (4 α K)` with
-`K = C² (A + B) + (D + 2 √D C) (A + E)`, for `α ≥ e` and `τ > 1`. -/
+`K = C² (A + B) + (D + 2 √D C) (A + E)`, for `α ≥ e` and `τ ≥ 1`. -/
 theorem log_le_of_le_sqrt_mul_add (hA : 0 ≤ A) (hB : 0 ≤ B) (hC : 0 ≤ C) (hD : 0 ≤ D)
-    (hE : B ≤ E) (hα : exp 1 ≤ α) (hτ : 1 < τ)
+    (hE : B ≤ E) (hα : exp 1 ≤ α) (hτ : 1 ≤ τ)
     (h : τ ≤ C * √(τ * (A * log (α * τ) + B * log (α * τ) ^ 2))
       + D * (A * log (α * τ) + E * log (α * τ) ^ 2)) :
     log (α * τ) ≤ 8 / 5 * log (4 * α * (C ^ 2 * (A + B) + (D + 2 * √D * C) * (A + E))) := by
   set K := C ^ 2 * (A + B) + (D + 2 * √D * C) * (A + E)
   have hα0 : 0 < α := (exp_pos 1).trans_le hα
-  have hατ : exp 1 ≤ α * τ := hα.trans (le_mul_of_one_le_right hα0.le hτ.le)
-  have hτK := le_mul_sq_of_le_sqrt_mul_add hA hB hC hD hE
-    ((le_log_iff_exp_le (mul_pos hα0 (by linarith))).2 hατ) h
-  have hK0 : 0 < K := by
-    by_contra! hK
-    nlinarith [sq_nonneg (log (α * τ))]
+  have hτK := le_mul_sq_of_le_sqrt_mul_add hA hB hC hD hE (one_le_log_mul hα hτ) h
   rw [mul_assoc]
-  refine log_le_of_le_mul_sq_log ((one_le_exp zero_le_one).trans hατ) (by positivity) ?_
+  refine log_le_of_le_mul_sq_log (one_le_mul_of_one_le_of_one_le
+    ((one_le_exp zero_le_one).trans hα) hτ) ?_
   calc α * τ ≤ α * (K * log (α * τ) ^ 2) := by gcongr
     _ = α * K * log (α * τ) ^ 2 := by ring
 
-/-- The self-bounding inequality, sharp form: if `τ` satisfies
+/-- The self-bounding inequality, general form: if `τ` satisfies
 `τ ≤ C √(τ (A L + B L²)) + D (A L + E L²)` with `L = log (α τ)`, `α ≥ e`, `A, B, C, D ≥ 0` and
 `B ≤ E`, then `τ ≤ K ((8 / 5) log M)² + 1` for every `M ≥ 4 α K`, where
 `K = C² (A + B) + (D + 2 √D C) (A + E)`. -/
@@ -129,15 +139,13 @@ theorem le_mul_sq_log_add_one_of_le_sqrt_mul_add (hA : 0 ≤ A) (hB : 0 ≤ B) (
   rcases le_or_gt τ 1 with h1 | h1
   · nlinarith [sq_nonneg (8 / 5 * log M)]
   have hα0 : 0 < α := (exp_pos 1).trans_le hα
-  have hL1 : 1 ≤ log (α * τ) :=
-    (le_log_iff_exp_le (mul_pos hα0 (by linarith))).2
-      (hα.trans (le_mul_of_one_le_right hα0.le h1.le))
+  have hL1 := one_le_log_mul hα h1.le
   have hτK := le_mul_sq_of_le_sqrt_mul_add hA hB hC hD hE hL1 h
   have hK0 : 0 < K := by
     by_contra! hK
     nlinarith [sq_nonneg (log (α * τ))]
   have hL : log (α * τ) ≤ 8 / 5 * log M :=
-    (log_le_of_le_sqrt_mul_add hA hB hC hD hE hα h1 h).trans (by gcongr)
+    (log_le_of_le_sqrt_mul_add hA hB hC hD hE hα h1.le h).trans (by gcongr)
   calc τ ≤ K * log (α * τ) ^ 2 := hτK
     _ ≤ K * (8 / 5 * log M) ^ 2 := by gcongr
     _ ≤ K * (8 / 5 * log M) ^ 2 + 1 := by linarith
