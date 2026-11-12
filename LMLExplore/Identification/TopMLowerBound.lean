@@ -110,8 +110,8 @@ theorem IsDeltaCorrect.klBer_le_lintegral_pullCount_mul_topMTask_of_mem [Finite 
         ENNReal.ofReal ((ρ a).expFamilyDiv (T a) (μ a) (μ b)) := by
   have := Fintype.ofFinite α
   exact hA.klBer_le_lintegral_pullCount_mul_of_altCost_le_topMTask hδ hμ hs h fun _ hw ↦
-    altCost_topMTask_restrict_le_ofReal_mul_expFamilyDiv_of_mem ν hT hμ hν
-      hs ha hb hb_max hba hw
+    altCost_topMTask_restrict_le_ofReal_mul_of_mem ν (fun c ↦ isDivergenceOn_expFamilyDiv (hT c))
+      hμ hν hs ha hb hb_max hba hw
 
 omit [Fintype α] in
 /-- **Lower bound on the number of pulls of an arm outside the top-`m` set** [KCG16, proof of
@@ -135,8 +135,8 @@ theorem IsDeltaCorrect.klBer_le_lintegral_pullCount_mul_topMTask_of_notMem [Fini
         ENNReal.ofReal ((ρ a).expFamilyDiv (T a) (μ a) (μ b)) := by
   have := Fintype.ofFinite α
   exact hA.klBer_le_lintegral_pullCount_mul_of_altCost_le_topMTask hδ hμ hs h fun _ hw ↦
-    altCost_topMTask_restrict_le_ofReal_mul_expFamilyDiv_of_notMem ν hT hμ hν
-      hs ha hb hb_min hba hw
+    altCost_topMTask_restrict_le_ofReal_mul_of_notMem ν (fun c ↦ isDivergenceOn_expFamilyDiv (hT c))
+      hμ hν hs ha hb hb_min hba hw
 
 /-- **Lower bound on the sample complexity of top-`m` identification** [KCG16, Theorem 4]. Let the
 arm `c` belong to an exponential family `(ρ c, T c)` with divergence `d_c`, let `μ` be a vector of

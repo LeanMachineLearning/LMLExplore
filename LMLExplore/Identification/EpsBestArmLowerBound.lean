@@ -115,7 +115,8 @@ theorem IsDeltaCorrect.klBer_le_lintegral_pullCount_mul_epsBaiTask_add [Finite �
         ENNReal.ofReal ((ρ b).expFamilyDiv (T b) (μ b) (μ a + ε)) := by
   have := Fintype.ofFinite α
   exact hA.klBer_le_lintegral_pullCount_mul_of_altCost_le_epsBaiTask hδ hε hμ ha h fun _ hw ↦
-    altCost_epsBaiTask_restrict_le_ofReal_mul_expFamilyDiv_add ν hT hμ hν hba hb hw
+    altCost_epsBaiTask_restrict_le_ofReal_mul_add ν
+      (fun c ↦ isDivergenceOn_expFamilyDiv (hT c)) hμ hν hba hb hw
 
 omit [Fintype α] in
 /-- **Lower bound on the number of pulls of the `ε`-good arm** [MT04; KCG16, Lemma 1]. Let the arm
@@ -139,7 +140,8 @@ theorem IsDeltaCorrect.klBer_le_lintegral_pullCount_mul_epsBaiTask_sub [Finite �
         ENNReal.ofReal ((ρ a).expFamilyDiv (T a) (μ a) (μ b - ε)) := by
   have := Fintype.ofFinite α
   exact hA.klBer_le_lintegral_pullCount_mul_of_altCost_le_epsBaiTask hδ hε hμ ha h fun _ hw ↦
-    altCost_epsBaiTask_restrict_le_ofReal_mul_expFamilyDiv_sub ν hT hμ hν hba hb hw
+    altCost_epsBaiTask_restrict_le_ofReal_mul_sub ν
+      (fun c ↦ isDivergenceOn_expFamilyDiv (hT c)) hμ hν hba hb hw
 
 /-- **Lower bound on the sample complexity of `ε`-best arm identification** [MT04, Theorem 1;
 KCG16, Lemma 1]. Let the arm `c` belong to an exponential family `(ρ c, T c)` with divergence
