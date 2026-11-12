@@ -1215,7 +1215,7 @@ theorem altCost_baiTask_gaussianBandit (hσ2 : σ2 ≠ 0) (ha : ∀ b, μ b ≤ 
       ⨅ (b) (_ : b ≠ a),
         ENNReal.ofReal (w a * w b / (w a + w b) * (μ a - μ b) ^ 2 / (2 * σ2)) := by
   rw [← (baiTask (Bandits.gaussianBandit · σ2) id).restrict_univ,
-    ← setOf_forall_mem_expFamilyMeans_gaussianReal 0 hσ2,
+    ← setOf_forall_mem_expFamilyMeans_gaussianReal 0 (fun _ ↦ hσ2),
     altCost_baiTask_restrict_eq_iInf_expFamilyPairCost _ (not_ae_eq_const_gaussianReal 0 hσ2)
       (fun c ↦ mem_expFamilyMeans_gaussianReal 0 hσ2 (μ c))
       (fun μ' _ ↦ Bandits.klDiv_gaussianBandit_eq_ofReal_expFamilyDiv hσ2 μ μ') ha hw]
@@ -1243,7 +1243,7 @@ theorem answerValue_baiTask_gaussianBandit_of_forall_eq_or_eq (hσ2 : σ2 ≠ 0)
       ENNReal.ofReal ((μ a - μ b) ^ 2 / (8 * σ2)) := by
   have hσ2' : (σ2 : ℝ) ≠ 0 := NNReal.coe_ne_zero.2 hσ2
   rw [← (baiTask (Bandits.gaussianBandit · σ2) id).restrict_univ,
-    ← setOf_forall_mem_expFamilyMeans_gaussianReal 0 hσ2,
+    ← setOf_forall_mem_expFamilyMeans_gaussianReal 0 (fun _ ↦ hσ2),
     answerValue_baiTask_restrict_eq_expFamilyDiv_of_forall_eq_or_eq _
       (not_ae_eq_const_gaussianReal 0 hσ2) (fun c ↦ mem_expFamilyMeans_gaussianReal 0 hσ2 (μ c))
       (fun μ' _ ↦ Bandits.klDiv_gaussianBandit_eq_ofReal_expFamilyDiv hσ2 μ μ') hba hα hμ

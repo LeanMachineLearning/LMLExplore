@@ -32,9 +32,10 @@ arms of `gaussianBandit μ σ2` are `σ2`-sub-Gaussian, and Bernoulli arms are i
 the Bernoulli reward tables `x ∼ streamMeasure (bernoulliBandit p)`. We also compute the relative
 entropy between the arms of two Gaussian bandits with the same variance [LS, Theorem 14.1], the
 quantity that enters the lower bounds, and identify it with the divergence of the exponential family
-of `𝒩(0, σ2)` (`LMLExplore.Bandits.klDiv_gaussianBandit_eq_ofReal_expFamilyDiv`), and the relative
-entropy between the arms of two Bernoulli bandits with means in `(0, 1)` with the divergence of the
-exponential family of a Bernoulli law
+of `𝒩(0, σ2)` (`LMLExplore.Bandits.klDiv_gaussianBandit_eq_ofReal_expFamilyDiv`, and
+`LMLExplore.Bandits.klDiv_eq_ofReal_expFamilyDiv_gaussianReal` for Gaussian arms `𝒩(μ c, v c)` with
+arm-dependent variances), and the relative entropy between the arms of two Bernoulli bandits with
+means in `(0, 1)` with the divergence of the exponential family of a Bernoulli law
 (`LMLExplore.Bandits.klDiv_bernoulliBandit_eq_ofReal_expFamilyDiv`, and
 `LMLExplore.Bandits.klDiv_bernoulliBandit_projIcc_eq_ofReal_expFamilyDiv` for bandits indexed by
 real means). For the Gaussian bandit with unknown variances we compute the mean and the variance of
@@ -100,6 +101,18 @@ lemma klDiv_gaussianBandit_eq_ofReal_expFamilyDiv (hσ2 : σ2 ≠ 0) (μ μ' : �
     klDiv (gaussianBandit μ σ2 a) (gaussianBandit μ' σ2 a) =
       ENNReal.ofReal ((gaussianReal 0 σ2).expFamilyDiv id (μ a) (μ' a)) := by
   rw [klDiv_gaussianBandit _ _ hσ2, expFamilyDiv_gaussianReal 0 hσ2]
+
+/-- For Gaussian arms with variances `v c ≠ 0`, the arm `c` has the divergence of the exponential
+family of `𝒩(0, v c)`: `KL(ν_c(μ), ν_c(μ')) = d_c(μ c, μ' c)` with
+`d_c = (gaussianReal 0 (v c)).expFamilyDiv id`. The Gaussian bandits with arm-dependent known
+variances `fun μ ↦ gaussianMeanVarBandit fun a ↦ (μ a, v a)` are such arms; this generalizes
+`klDiv_gaussianBandit_eq_ofReal_expFamilyDiv`. -/
+lemma klDiv_eq_ofReal_expFamilyDiv_gaussianReal {α : Type*} {mα : MeasurableSpace α}
+    {ν : (α → ℝ) → Kernel α ℝ} {v : α → ℝ≥0} (hv : ∀ c, v c ≠ 0)
+    (hν : ∀ μ c, ν μ c = gaussianReal (μ c) (v c)) (μ μ' : α → ℝ) (c : α) :
+    klDiv (ν μ c) (ν μ' c) =
+      ENNReal.ofReal ((gaussianReal 0 (v c)).expFamilyDiv id (μ c) (μ' c)) := by
+  rw [hν, hν, klDiv_gaussianReal_gaussianReal_same_var (hv c), expFamilyDiv_gaussianReal 0 (hv c)]
 
 end Gaussian
 

@@ -316,7 +316,8 @@ theorem staticDifficulty_baiTask_gaussianBandit_two {σ2 : ℝ≥0} (hσ2 : σ2 
     simp only [expFamilyDiv_gaussianReal 0 hσ2, natParam_gaussianReal 0 hσ2]
     field_simp [sub_ne_zero.2 hμ01]
     ring
-  rw [setOf_forall_mem_expFamilyMeans_gaussianReal 0 hσ2, IdentTask.restrict_univ, h_val] at h
+  rw [setOf_forall_mem_expFamilyMeans_gaussianReal 0 (fun _ ↦ hσ2), IdentTask.restrict_univ,
+    h_val] at h
   rw [← inv_inv ((baiTask (Bandits.gaussianBandit · σ2) id).staticDifficulty μ), h,
     ← ENNReal.ofReal_inv_of_pos (by positivity), inv_div]
 
