@@ -7,6 +7,7 @@ module
 
 public import LMLExplore.Identification.ErrorLowerBound
 public import LMLExplore.InformationTheory.KullbackLeibler.Bernoulli
+import LMLExplore.Basic.EReal.Inv
 
 /-!
 # Difficulty ratios and complexity of fixed-budget identification, and their lower bounds
@@ -24,8 +25,8 @@ These quantities are `ℝ≥0∞`-valued: `h = 0` when `p = 0` and `h = ∞` whe
 For a class `𝒞` of families (a set of families), the *oracle difficulty*
 `H_𝒞(θ) = inf_{𝒜 ∈ 𝒞} limsup_T h_{θ,T}(𝒜)` is the best asymptotic complexity at `θ` of a family
 of the class, and the class *admits a complexity* if a single family of the class attains it at
-every admissible model, that is, if some family of the class has maximal ratio at most `1` against
-`H_𝒞`.
+every admissible model. When `H_𝒞` is positive at the admissible models, this holds if and only if
+some family of the class has maximal ratio at most `1` against `H_𝒞`.
 
 The lower bounds of [D23] say that no family has a small difficulty ratio everywhere. If `μ` and
 `λ` have no common correct answer, an algorithm that is correct on `μ` with high probability and
@@ -176,10 +177,11 @@ lemma iSup_asymptoticRatio_le_maxRatio {D : Set Θ} (hD : D ⊆ task.M) :
 
 
 /-- If the probability of error at `θ` does not tend to `0` and the difficulty `H θ` is finite,
-the asymptotic difficulty ratio at `θ` is infinite: along the budgets `T` with
-`p_{θ,T}(𝒜) > ε`, the complexity `h_{θ,T}(𝒜)` is at least `T / log (1 / ε)`. -/
+the asymptotic difficulty ratio at `θ` is infinite. -/
 lemma asymptoticRatio_eq_top (hH : H θ ≠ ∞) (hp : ¬ Tendsto (task.errorProb 𝒜 θ) atTop (𝓝 0)) :
     task.asymptoticRatio H 𝒜 θ = ∞ := by
+  -- Along the budgets `T` with `p_{θ,T}(𝒜) > ε`, the complexity `h_{θ,T}(𝒜)` is at least
+  -- `T / log (1 / ε)`.
   obtain ⟨ε, hε, hfreq⟩ : ∃ ε > 0, ∃ᶠ T in atTop, ε < task.errorProb 𝒜 θ T := by
     simpa [ENNReal.tendsto_nhds_zero, Filter.not_eventually, Filter.frequently_atTop] using hp
   set L := (-ENNReal.log ε).toENNReal
@@ -216,17 +218,11 @@ lemma asymptoticRatio_eq_limsup_div (hH : H θ ≠ 0) :
 lemma errorComplexity_eq_inv (hT : T ≠ 0) :
     task.errorComplexity 𝒜 θ T =
       (-(ENNReal.log (task.errorProb 𝒜 θ T) / T)).toENNReal⁻¹ := by
-  have hT' : (T : ℝ≥0∞) ≠ 0 := by exact_mod_cast hT
-  -- In `EReal`, `-(x / T) = (-x) * T⁻¹` with `T⁻¹ = (T : ℝ)⁻¹ ≥ 0`.
-  have hinv : ((T : EReal)⁻¹).toENNReal = (T : ℝ≥0∞)⁻¹ := by
-    rw [← EReal.coe_natCast, ← EReal.coe_inv, EReal.toENNReal_of_ne_top (EReal.coe_ne_top _),
-      EReal.toReal_coe, ENNReal.ofReal_inv_of_pos
-      (by exact_mod_cast Nat.pos_of_ne_zero hT), ENNReal.ofReal_natCast]
+  -- In `EReal`, `-(x / T) = (-x) * T⁻¹` with `T⁻¹ ≥ 0`.
   rw [errorComplexity_def, div_eq_mul_inv (ENNReal.log _), ← EReal.neg_mul,
-    EReal.toENNReal_mul' (EReal.inv_nonneg_of_nonneg (by positivity)), hinv,
-    ENNReal.mul_inv (Or.inr (ENNReal.inv_ne_top.2 hT'))
-      (Or.inr (ENNReal.inv_ne_zero.2 (ENNReal.natCast_ne_top T))), inv_inv,
-    ENNReal.div_eq_inv_mul]
+    EReal.toENNReal_mul' (EReal.inv_nonneg_of_nonneg (by positivity)),
+    EReal.toENNReal_inv_natCast hT]
+  simp [ENNReal.mul_inv, hT, ENNReal.div_eq_inv_mul]
 
 /-- **The error complexity from the exponent of the probability of error.** If
 `(1 / T) log p_{θ,T}(𝒜) → -c` for some `c ∈ [0, ∞]`, then `h_{θ,T}(𝒜) → c⁻¹`. -/
@@ -287,8 +283,8 @@ section OracleDifficulty
 variable (task : IdentTask α Θ ℐ 𝓨)
 
 /-- The oracle difficulty `H_𝒞(θ) = inf_{𝒜 ∈ 𝒞} limsup_{T → ∞} h_{θ,T}(𝒜)` of the class `𝒞` of
-algorithm families at the model `θ`: the asymptotic error complexity at `θ` of the family of the
-class that is best at `θ`. -/
+algorithm families at the model `θ`: the infimum over the families of the class of their
+asymptotic error complexity at `θ`. -/
 noncomputable def oracleDifficulty (𝒞 : Set (ℕ → IdentAlg Unit α 𝓨 ℐ)) (θ : Θ) : ℝ≥0∞ :=
   ⨅ 𝒜 ∈ 𝒞, limsup (task.errorComplexity 𝒜 θ) atTop
 
