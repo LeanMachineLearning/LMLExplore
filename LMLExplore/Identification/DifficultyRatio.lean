@@ -7,7 +7,7 @@ module
 
 public import LMLExplore.Identification.ErrorLowerBound
 public import LMLExplore.InformationTheory.KullbackLeibler.Bernoulli
-import LMLExplore.Basic.EReal.Inv
+import LMLExplore.Data.EReal.Inv
 
 /-!
 # Difficulty ratios and complexity of fixed-budget identification, and their lower bounds
@@ -221,7 +221,7 @@ lemma errorComplexity_eq_inv (hT : T ≠ 0) :
   -- In `EReal`, `-(x / T) = (-x) * T⁻¹` with `T⁻¹ ≥ 0`.
   rw [errorComplexity_def, div_eq_mul_inv (ENNReal.log _), ← EReal.neg_mul,
     EReal.toENNReal_mul' (EReal.inv_nonneg_of_nonneg (by positivity)),
-    EReal.toENNReal_inv_natCast hT]
+    EReal.toENNReal_inv (by positivity), ← ENNReal.toEReal_natCast, EReal.toENNReal_coe]
   simp [ENNReal.mul_inv, hT, ENNReal.div_eq_inv_mul]
 
 /-- **The error complexity from the exponent of the probability of error.** If
