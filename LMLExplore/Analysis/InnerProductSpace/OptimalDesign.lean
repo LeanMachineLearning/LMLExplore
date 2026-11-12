@@ -8,6 +8,8 @@ module
 public import LMLExplore.Analysis.Convex.Caratheodory
 public import LMLExplore.Analysis.InnerProductSpace.MoorePenrose
 public import LMLExplore.Analysis.InnerProductSpace.RankOne
+public import LMLExplore.Analysis.InnerProductSpace.Symmetric.Finrank
+public import LMLExplore.LinearAlgebra.AffineSpace.Independent
 public import LMLExplore.Geometry.Convex.ConvexSpace.Defs
 public import Mathlib.Analysis.Calculus.Deriv.Pow
 public import Mathlib.Analysis.Calculus.Deriv.Slope
@@ -39,6 +41,15 @@ this gives `1 + s ⟪a, V(w)⁻¹ a⟫ ≤ (1 + s) ^ d` for `s > 0`, and the der
 `K` gives a design whose G-value, computed with the Moore–Penrose inverse `V(w)⁺` on `E`, is at
 most `m` [LS, Exercise 21.6].
 
+The optimal design can be chosen with at most `d (d + 1) / 2` support points [LS, Theorem 21.1],
+which bounds the number of distinct actions that phased elimination plays in a phase. If
+`⟪a, V(w)⁻¹ a⟫ ≤ d` on the support of `w`, then `⟪a, V(w)⁻¹ a⟫ = d` there, so the rank-one
+operators `a ⊗ a` of the support lie on the hyperplane `{X | trace (V(w)⁻¹ X) = d}`, which does not
+pass through `0`. By Carathéodory's theorem `V(w)` is a convex combination of affinely independent
+such operators; on that hyperplane they are linearly independent, and they are symmetric, so there
+are at most `d (d + 1) / 2` of them, the dimension of the space of symmetric operators. Choosing one
+point `a` for each of them gives a design with the same design operator, hence the same G-value.
+
 ## Main definitions
 
 * `LMLExplore.designOperator w`: the design operator `V(w) = ∑_a w a • a ⊗ a` of `w`.
@@ -68,6 +79,18 @@ most `m` [LS, Exercise 21.6].
   design operator and `⟪a, V(w)⁻¹ a⟫ ≤ d` for every `a ∈ 𝒜`.
 * `LMLExplore.inner_moorePenroseInverse_designOperator_map_subtype`: for a design on a subspace
   `K` with invertible design operator `V_K(w)` on `K`, `⟪a, V(w)⁺ a⟫ = ⟪a, V_K(w)⁻¹ a⟫` on `K`.
+* `LMLExplore.exists_designOperator_eq_card_support_le`: a design with invertible design operator
+  and `⟪a, V(w)⁻¹ a⟫ ≤ d` on its support has the design operator of a design supported in its
+  support with at most `d (d + 1) / 2` points [LS, Theorem 21.1].
+* `LMLExplore.exists_design_inner_ringInverse_le_finrank_and_card_support_le`: **Kiefer–Wolfowitz
+  with the support bound** [LS, Theorem 21.1]: the design of
+  `exists_design_inner_ringInverse_le_finrank` can be chosen with at most `d (d + 1) / 2` support
+  points.
+* `LMLExplore.exists_design_inner_moorePenroseInverse_le_finrank_and_card_support_le`:
+  **Kiefer–Wolfowitz on the span with the support bound** [LS, Exercise 21.6]: if the span of a
+  compact set `𝒜` has dimension `m ≥ 1`, then `𝒜` carries a design whose support spans the span of
+  `𝒜` and has at most `m (m + 1) / 2` points, with `⟪a, V(w)⁺ a⟫ ≤ m` on `𝒜` and equality on the
+  support.
 * `LMLExplore.exists_design_inner_moorePenroseInverse_le_finrank`: **Kiefer–Wolfowitz on the
   span** [LS, Exercise 21.6]: a nonempty compact set `𝒜` carries a design `w` with
   `⟪a, V(w)⁺ a⟫ ≤ dim (span 𝒜)` for every `a ∈ 𝒜`.
@@ -88,7 +111,7 @@ probability measures.
 public section
 
 open ContinuousLinearMap InnerProductSpace Module Filter Convexity
-open scoped InnerProductSpace Topology
+open scoped InnerProductSpace Topology Finset
 
 namespace LMLExplore
 
@@ -379,6 +402,111 @@ theorem inner_moorePenroseInverse_designOperator_map_subtype {K : Submodule ℝ 
       rw [(isPositive_designOperator _).toLinearMap.isSymmetric
         |>.moorePenroseInverse_apply_apply_of_mem_range (hmem _), Submodule.coe_inner]
 
+/-- **Support reduction of G-optimal designs** [LS, Theorem 21.1]. Let `w` be a design with
+invertible design operator `V(w)` on a nontrivial real inner product space of dimension `d`, with
+`⟪a, V(w)⁻¹ a⟫ ≤ d` on its support. Then some design `w'`, supported in the support of `w`, has the
+same design operator and at most `d (d + 1) / 2` support points. In particular `w'` has the same
+G-value as `w` on every set. -/
+theorem exists_designOperator_eq_card_support_le [Nontrivial E] {w : StdSimplex ℝ E}
+    (hu : IsUnit (designOperator w))
+    (h : ∀ a ∈ w.weights.support, ⟪a, Ring.inverse (designOperator w) a⟫_ℝ ≤ finrank ℝ E) :
+    ∃ w' : StdSimplex ℝ E, w'.weights.support ⊆ w.weights.support ∧
+      designOperator w' = designOperator w ∧
+      #w'.weights.support ≤ finrank ℝ E * (finrank ℝ E + 1) / 2 := by
+  classical
+  set S := w.weights.support
+  -- the linear form `X ↦ trace (V(w)⁻¹ X)` takes the value `d` at `a ⊗ a` for `a` in the support
+  let ℓ : (E →L[ℝ] E) →ₗ[ℝ] ℝ :=
+    LinearMap.trace ℝ E ∘ₗ coeLM ℝ ∘ₗ LinearMap.mulLeft ℝ (Ring.inverse (designOperator w))
+  have hℓ : ∀ a ∈ S, ℓ (rankOne ℝ a a) = finrank ℝ E := fun a ha ↦ by
+    rw [← inner_ringInverse_designOperator_eq_finrank hu h ha]
+    simp [ℓ, mul_def, comp_rankOne, trace_rankOne]
+  -- by Carathéodory's theorem, `V(w)` is a convex combination of affinely independent `a ⊗ a`
+  have hV : designOperator w ∈ convexHull ℝ ((fun a ↦ rankOne ℝ a a) '' ↑S) :=
+    mem_convexHull_image_rankOne_iff.2 ⟨w, subset_rfl, rfl⟩
+  rw [convexHull_eq_union] at hV
+  simp only [Set.mem_iUnion] at hV
+  obtain ⟨t, htS, hai, hVt⟩ := hV
+  -- they lie on the hyperplane `{X | ℓ X = d}`, so they are linearly independent symmetric
+  -- operators, of which there are at most `d (d + 1) / 2`
+  have hlin : LinearIndependent ℝ ((↑) : t → E →L[ℝ] E) :=
+    hai.linearIndependent_of_forall_apply_eq ℓ (Nat.cast_ne_zero.2 finrank_pos.ne') fun X ↦ by
+      obtain ⟨a, ha, hX⟩ := htS X.2
+      rw [← hX, hℓ a ha]
+  have hcard : #t ≤ finrank ℝ E * (finrank ℝ E + 1) / 2 := by
+    have hlin' := hlin.map' (coeLM ℝ) (LinearMap.ker_eq_bot.2 coe_injective)
+    rw [← Fintype.card_coe]
+    refine hlin'.fintype_card_le_of_isSymmetric fun X ↦ ?_
+    obtain ⟨a, -, hX⟩ := htS X.2
+    simp [← hX]
+  -- one point `a` of the support for each operator `a ⊗ a` of `t` carries the design `w'`
+  obtain ⟨S', hS'S, hinj, himg⟩ := Finset.exists_subset_injOn_image_eq_of_surjOn _ t htS
+  have hVS' : designOperator w ∈ convexHull ℝ ((fun a ↦ rankOne ℝ a a) '' ↑S') := by
+    rwa [← Finset.coe_image, himg]
+  obtain ⟨w', hw', hVw'⟩ := mem_convexHull_image_rankOne_iff.1 hVS'
+  refine ⟨w', fun a ha ↦ hS'S (hw' ha), hVw', ?_⟩
+  calc #w'.weights.support ≤ #S' := Finset.card_le_card fun a ha ↦ hw' ha
+    _ = #t := by rw [← himg, Finset.card_image_of_injOn hinj]
+    _ ≤ _ := hcard
+
+/-- **The Kiefer–Wolfowitz theorem with the support bound** [LS, Theorem 21.1, Exercise 21.3]. A
+compact set `𝒜` spanning a nontrivial real inner product space `E` of dimension `d` carries a
+design `w` with invertible design operator `V(w)`, with `⟪a, V(w)⁻¹ a⟫ ≤ d` for every `a ∈ 𝒜`, and
+with at most `d (d + 1) / 2` support points. -/
+theorem exists_design_inner_ringInverse_le_finrank_and_card_support_le [Nontrivial E] {𝒜 : Set E}
+    (h𝒜 : IsCompact 𝒜) (hspan : Submodule.span ℝ 𝒜 = ⊤) :
+    ∃ w : StdSimplex ℝ E, ↑w.weights.support ⊆ 𝒜 ∧ IsUnit (designOperator w) ∧
+      (∀ a ∈ 𝒜, ⟪a, Ring.inverse (designOperator w) a⟫_ℝ ≤ finrank ℝ E) ∧
+      #w.weights.support ≤ finrank ℝ E * (finrank ℝ E + 1) / 2 := by
+  have hne : 𝒜.Nonempty := Set.nonempty_iff_ne_empty.2 fun h ↦ by
+    simp [h] at hspan
+  obtain ⟨w, hw, hu, hle⟩ := exists_design_inner_ringInverse_le_finrank h𝒜 hne hspan
+  obtain ⟨w', hw'w, hV, hcard⟩ :=
+    exists_designOperator_eq_card_support_le hu fun a ha ↦ hle a (hw ha)
+  exact ⟨w', (Finset.coe_subset.2 hw'w).trans hw, hV ▸ hu, hV ▸ hle, hcard⟩
+
+/-- **The Kiefer–Wolfowitz theorem on the span of a compact set, with the support bound**
+[LS, Theorem 21.1, Exercises 21.3 and 21.6]. Let `𝒜` be a compact set of a finite-dimensional real
+inner product space whose span has dimension `m ≥ 1`. Then `𝒜` carries a design `w` whose support
+spans the span of `𝒜` and has at most `m (m + 1) / 2` points, such that, with the Moore–Penrose
+inverse `V(w)⁺` of its design operator, `⟪a, V(w)⁺ a⟫ ≤ m` for every `a ∈ 𝒜`, with equality on the
+support of `w`: its G-value is `m`. -/
+theorem exists_design_inner_moorePenroseInverse_le_finrank_and_card_support_le {𝒜 : Set E}
+    (h𝒜 : IsCompact 𝒜) (h0 : Submodule.span ℝ 𝒜 ≠ ⊥) :
+    ∃ w : StdSimplex ℝ E, ↑w.weights.support ⊆ 𝒜 ∧
+      Submodule.span ℝ (w.weights.support : Set E) = Submodule.span ℝ 𝒜 ∧
+      (∀ a ∈ 𝒜, ⟪a, (designOperator w : E →ₗ[ℝ] E).moorePenroseInverse a⟫_ℝ ≤
+        finrank ℝ (Submodule.span ℝ 𝒜)) ∧
+      (∀ a ∈ w.weights.support, ⟪a, (designOperator w : E →ₗ[ℝ] E).moorePenroseInverse a⟫_ℝ =
+        finrank ℝ (Submodule.span ℝ 𝒜)) ∧
+      #w.weights.support ≤
+        finrank ℝ (Submodule.span ℝ 𝒜) * (finrank ℝ (Submodule.span ℝ 𝒜) + 1) / 2 := by
+  classical
+  set K := Submodule.span ℝ 𝒜
+  have : Nontrivial K := Submodule.nontrivial_iff_ne_bot.2 h0
+  -- the Kiefer–Wolfowitz theorem in `K` for the preimage of `𝒜`, which is compact and spans `K`
+  have h𝒜K : IsCompact (((↑) : K → E) ⁻¹' 𝒜) :=
+    K.closed_of_finiteDimensional.isClosedEmbedding_subtypeVal.isCompact_preimage h𝒜
+  obtain ⟨w, hw, hu, hle, hcard⟩ :=
+    exists_design_inner_ringInverse_le_finrank_and_card_support_le h𝒜K
+      Submodule.span_span_coe_preimage
+  -- its image in `E` has the image of its support as support
+  have hsupp : (w.map ((↑) : K → E)).weights.support = w.weights.support.image (↑) := by
+    rw [StdSimplex.weights_map, Finsupp.mapDomain_support_of_injective Subtype.val_injective]
+  refine ⟨w.map (↑), ?_, ?_, fun a ha ↦ ?_, fun a ha ↦ ?_, ?_⟩
+  · rw [hsupp, Finset.coe_image]
+    exact Set.image_subset_iff.2 hw
+  · rw [hsupp, Finset.coe_image, ← K.coe_subtype, Submodule.span_image,
+      (isUnit_designOperator_iff w).1 hu, Submodule.map_subtype_top]
+  · exact (inner_moorePenroseInverse_designOperator_map_subtype hu
+      ⟨a, Submodule.subset_span ha⟩).trans_le (hle _ ha)
+  · rw [hsupp, Finset.mem_image] at ha
+    obtain ⟨b, hb, rfl⟩ := ha
+    exact (inner_moorePenroseInverse_designOperator_map_subtype hu b).trans
+      (inner_ringInverse_designOperator_eq_finrank hu (fun c hc ↦ hle c (hw hc)) hb)
+  · rw [hsupp]
+    exact Finset.card_image_le.trans hcard
+
 /-- **The Kiefer–Wolfowitz theorem on the span of a compact set** [LS, Theorem 21.1, Exercises 21.3
 and 21.6]. A nonempty compact set `𝒜` of a finite-dimensional real inner product space carries a
 design `w` such that, with the Moore–Penrose inverse `V(w)⁺` of its design operator,
@@ -389,18 +517,14 @@ theorem exists_design_inner_moorePenroseInverse_le_finrank {𝒜 : Set E} (h𝒜
     ∃ w : StdSimplex ℝ E, ↑w.weights.support ⊆ 𝒜 ∧ ∀ a ∈ 𝒜,
       ⟪a, (designOperator w : E →ₗ[ℝ] E).moorePenroseInverse a⟫_ℝ ≤
         finrank ℝ (Submodule.span ℝ 𝒜) := by
-  classical
-  set K := Submodule.span ℝ 𝒜
-  -- the Kiefer–Wolfowitz theorem in `K` for the preimage of `𝒜`, which is compact and spans `K`
-  have h𝒜K : IsCompact (((↑) : K → E) ⁻¹' 𝒜) :=
-    K.closed_of_finiteDimensional.isClosedEmbedding_subtypeVal.isCompact_preimage h𝒜
-  obtain ⟨a₀, ha₀⟩ := hne
-  obtain ⟨w, hw, hu, hle⟩ := exists_design_inner_ringInverse_le_finrank h𝒜K
-    ⟨⟨a₀, Submodule.subset_span ha₀⟩, ha₀⟩ Submodule.span_span_coe_preimage
-  refine ⟨w.map (↑), (StdSimplex.support_weights_map_subset _ w).trans
-    (Set.image_subset_iff.2 hw), fun a ha ↦ ?_⟩
-  exact (inner_moorePenroseInverse_designOperator_map_subtype hu
-    ⟨a, Submodule.subset_span ha⟩).trans_le (hle _ ha)
+  by_cases h0 : Submodule.span ℝ 𝒜 = ⊥
+  · -- then `𝒜 ⊆ {0}`, so the Dirac mass at a point of `𝒜` has G-value `0`
+    obtain ⟨a₀, ha₀⟩ := hne
+    refine ⟨.single a₀, by simp [StdSimplex.single, ha₀], fun a ha ↦ ?_⟩
+    simp [Submodule.span_eq_bot.1 h0 a ha]
+  · obtain ⟨w, hw, -, hle, -⟩ :=
+      exists_design_inner_moorePenroseInverse_le_finrank_and_card_support_le h𝒜 h0
+    exact ⟨w, hw, hle⟩
 
 end FiniteDimensional
 
