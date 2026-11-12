@@ -84,9 +84,10 @@ The regret analysis of FTRL rests on the FTRL equality of
 
 ## Implementation notes
 
-The FTRL lemma and its telescoping proof are adapted from the LMLPapers project (same author),
-where they are stated for gains on the probability simplex; here they hold for losses on any set
-of any type.
+The FTRL lemma is adapted from the LMLPapers project (same author), where it is stated for gains
+on the probability simplex. Its telescoping proof, also adapted from there, now proves the FTRL
+equality for losses on any type, in `LMLExplore.OnlineLearning.FTRL.Equality`; this file states
+the case of linear losses on a subset `K` of a real normed space `E`.
 
 ## References
 
