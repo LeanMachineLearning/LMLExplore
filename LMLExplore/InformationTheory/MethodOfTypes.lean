@@ -44,6 +44,11 @@ Let `X : Fin n → Ω → α` be independent with law `ν`, and `p̂ₙ` be the 
 * [CT] T. M. Cover and J. A. Thomas, *Elements of Information Theory*, 2nd ed., Wiley, 2006.
 * [EV26] A. Essakine and C. Vernade, *Tight sample complexity bounds for entropic best policy
   identification*, COLT 2026, arXiv:2605.13717.
+
+The method-of-types bounds are adapted from the formalization Essakine2026Tight
+(`github.com/RemyDegenne/Essakine2026Tight`, file
+`ForLMLExplore/InformationTheory/MethodOfTypes.lean`, commit
+`520dd39a55fa4e9a62a4a2d51f48163926176a5d`, by Rémy Degenne, Apache 2.0) of [EV26].
 -/
 
 public section
@@ -62,6 +67,15 @@ of each letter `a`. -/
 def typeCount (x : Fin n → α) (a : α) : ℕ := #{k | x k = a}
 
 lemma typeCount_def (x : Fin n → α) (a : α) : typeCount x a = #{k | x k = a} := (rfl)
+
+/-- A letter has a positive count if and only if it occurs in the sequence. -/
+lemma typeCount_pos_iff {x : Fin n → α} {a : α} : 0 < typeCount x a ↔ ∃ k, x k = a := by
+  simp [typeCount_def, card_pos, Finset.Nonempty]
+
+/-- A letter has count zero if and only if it does not occur in the sequence. -/
+@[simp]
+lemma typeCount_eq_zero_iff {x : Fin n → α} {a : α} : typeCount x a = 0 ↔ ∀ k, x k ≠ a := by
+  simp [typeCount_def, filter_eq_empty_iff]
 
 /-- The counts of a sequence of length `n` sum to `n`. -/
 @[simp]
@@ -123,6 +137,35 @@ lemma pi_setOf_typeCount_eq [Fintype α] {ν : Measure α} [SigmaFinite ν] (N :
   rw [Measure.pi_singleton, prod_comp_eq_prod_pow_typeCount (fun a ↦ ν {a}) y,
     (mem_filter.1 hy).2]
 
+/-- **The ratio of the probabilities of a sequence under `ν` and under its type**: if every term
+of `x` is an atom of `ν`, then `∏ a, ν{a} ^ N a = (∏ a, Q{a} ^ N a) exp (-n KL(Q ‖ ν))`, where
+`N = typeCount x` and `Q` is the empirical distribution of `x`, and the relative entropy is that of
+the vectors of masses [CT, Theorem 11.1.2]. -/
+lemma prod_measureReal_pow_typeCount_eq_mul_exp [Fintype α] {ν : Measure α} [IsFiniteMeasure ν]
+    {x : Fin n → α} (hx : ∀ k, ν {x k} ≠ 0) :
+    ∏ a, ν.real {a} ^ typeCount x a
+      = (∏ a, (empiricalFiniteMeasure x : Measure α).real {a} ^ typeCount x a)
+        * exp (-(n * ∑ a, (empiricalFiniteMeasure x : Measure α).real {a}
+          * log ((empiricalFiniteMeasure x : Measure α).real {a} / ν.real {a}))) := by
+  rw [mul_sum, ← sum_neg_distrib, exp_sum, ← prod_mul_distrib]
+  refine prod_congr rfl fun a _ ↦ ?_
+  rcases Nat.eq_zero_or_pos (typeCount x a) with hNa | hNa
+  · rw [measureReal_empiricalFiniteMeasure_singleton, hNa]
+    simp
+  obtain ⟨k, rfl⟩ := typeCount_pos_iff.1 hNa
+  have hn : (n : ℝ) ≠ 0 := by
+    have : 0 < n := k.pos
+    positivity
+  have hνa : 0 < ν.real {x k} := ENNReal.toReal_pos (hx k) (measure_ne_top ν _)
+  have hQa : 0 < (empiricalFiniteMeasure x : Measure α).real {x k} := by
+    rw [measureReal_empiricalFiniteMeasure_singleton]
+    positivity
+  have hnQ : n * (empiricalFiniteMeasure x : Measure α).real {x k} = typeCount x (x k) := by
+    rw [measureReal_empiricalFiniteMeasure_singleton]
+    field_simp
+  rw [← mul_assoc, hnQ, ← log_pow, ← log_inv, exp_log (by positivity), div_pow]
+  field_simp
+
 end Types
 
 section Sanov
@@ -156,44 +199,25 @@ theorem measure_typeCount_eq_le [Finite α] (hX : iIndepFun X μ) (hlaw : ∀ k,
     obtain ⟨a, hNa, hνa⟩ := hsupp
     rw [prod_eq_zero (mem_univ a) (by rw [hνa, zero_pow hNa.ne']), mul_zero]
     exact zero_le
-  have hnR : (0 : ℝ) < n := by exact_mod_cast hn
-  have hQ (a : α) : Q.real {a} = N a / n := measureReal_empiricalFiniteMeasure_singleton x a
+  have hx (k : Fin n) : ν {x k} ≠ 0 := hsupp _ (typeCount_pos_iff.2 ⟨k, rfl⟩)
   -- the type class has `Q^{⊗n}`-probability at most one
   have hQle : (#{y : Fin n → α | typeCount y = N} : ℝ) * ∏ a, Q.real {a} ^ N a ≤ 1 := by
-    have h := measureReal_le_one (μ := Measure.pi fun _ : Fin n ↦ Q) (s := {y | typeCount y = N})
-    rwa [measureReal_def, pi_setOf_typeCount_eq, ENNReal.toReal_mul, ENNReal.toReal_prod,
-      ENNReal.toReal_natCast, prod_congr rfl fun a _ ↦ ENNReal.toReal_pow _ _] at h
+    simpa [measureReal_def, pi_setOf_typeCount_eq, ENNReal.toReal_prod] using
+      measureReal_le_one (μ := Measure.pi fun _ : Fin n ↦ Q) (s := {y | typeCount y = N})
   -- the relative entropy of `Q` with respect to `ν` is at least `t`
-  have hac : Q ≪ ν :=
-    empiricalFiniteMeasure_absolutelyContinuous fun k ↦ hsupp _ (card_pos.2 ⟨k, by simp⟩)
+  have hac : Q ≪ ν := empiricalFiniteMeasure_absolutelyContinuous hx
   have htKL : t ≤ ∑ a, Q.real {a} * log (Q.real {a} / ν.real {a}) := by
     have h := toReal_klDiv_eq_sum_mul_log_div hac
     rw [probReal_univ, probReal_univ, add_sub_cancel_right] at h
     rw [← h]
     exact (ENNReal.ofReal_le_iff_le_toReal (klDiv_ne_top hac Integrable.of_finite)).1 ht
-  -- the probabilities of a sequence of type `N` under `ν^{⊗n}` and `Q^{⊗n}` have the ratio
-  -- `exp (-n KL(Q ‖ ν))`
-  have hkey : ∏ a, ν.real {a} ^ N a
-      = (∏ a, Q.real {a} ^ N a) * exp (-(n * ∑ a, Q.real {a} * log (Q.real {a} / ν.real {a}))) := by
-    rw [mul_sum, ← sum_neg_distrib, exp_sum, ← prod_mul_distrib]
-    refine prod_congr rfl fun a _ ↦ ?_
-    rcases Nat.eq_zero_or_pos (N a) with hNa | hNa
-    · simp [hQ a, hNa]
-    have hνa : 0 < ν.real {a} :=
-      ENNReal.toReal_pos (hsupp a hNa) (measure_ne_top ν _)
-    have hQa : 0 < Q.real {a} := by rw [hQ]; positivity
-    have hexp : exp (-(n * (Q.real {a} * log (Q.real {a} / ν.real {a}))))
-        = (ν.real {a} / Q.real {a}) ^ N a := by
-      rw [← mul_assoc, hQ a, mul_div_cancel₀ _ hnR.ne', ← hQ a, ← mul_neg, ← log_inv, inv_div,
-        ← log_pow, exp_log (pow_pos (div_pos hνa hQa) _)]
-    rw [hexp, ← mul_pow, mul_div_cancel₀ _ hQa.ne']
   have hreal : ∏ a, ν {a} ^ N a = ENNReal.ofReal (∏ a, ν.real {a} ^ N a) := by
     rw [ENNReal.ofReal_prod_of_nonneg fun a _ ↦ by positivity]
     refine prod_congr rfl fun a _ ↦ ?_
     rw [ENNReal.ofReal_pow measureReal_nonneg, ofReal_measureReal (measure_ne_top ν _)]
   rw [hreal, ← ENNReal.ofReal_natCast, ← ENNReal.ofReal_mul (by positivity)]
   refine ENNReal.ofReal_le_ofReal ?_
-  rw [hkey, ← mul_assoc]
+  rw [prod_measureReal_pow_typeCount_eq_mul_exp hx, ← mul_assoc]
   calc _ ≤ 1 * exp (-(n * t)) := by gcongr
     _ = exp (-(n * t)) := one_mul _
 
@@ -225,8 +249,7 @@ theorem measure_lt_klDiv_empiricalFiniteMeasure_le [Fintype α] (hX : iIndepFun 
     _ ≤ ((n + 1) ^ (Fintype.card α - 1) : ℕ) * ENNReal.ofReal (exp (-(n * t))) := by gcongr
     _ = ENNReal.ofReal ((n + 1) ^ (Fintype.card α - 1) * exp (-(n * t))) := by
         rw [ENNReal.ofReal_mul (by positivity), ← ENNReal.ofReal_natCast]
-        push_cast
-        rfl
+        norm_cast
 
 omit [DecidableEq α] in
 /-- **Sanov's bound**, confidence form: if `X` is an i.i.d. sample of size `n ≥ 1` with law `ν` on
@@ -239,8 +262,8 @@ theorem measure_log_div_lt_klDiv_empiricalFiniteMeasure_le [Fintype α] (hX : iI
       ≤ ENNReal.ofReal δ := by
   refine (measure_lt_klDiv_empiricalFiniteMeasure_le hX hlaw _).trans_eq ?_
   have hnR : (n : ℝ) ≠ 0 := by positivity
-  rw [mul_div_cancel₀ _ hnR, neg_add, exp_add, exp_neg, exp_neg, ← log_pow,
-    exp_log (by positivity), exp_log (by positivity)]
+  rw [mul_div_cancel₀ _ hnR, ← log_pow, ← log_mul (by positivity) (by positivity), exp_neg,
+    exp_log (by positivity)]
   congr 1
   field_simp
 

@@ -52,6 +52,13 @@ exponential weights in online learning.
 ## References
 
 * [CT] T. M. Cover and J. A. Thomas, *Elements of Information Theory*, 2nd ed., Wiley, 2006.
+
+`LMLExplore.toReal_klDiv_eq_sum_mul_log_div` is adapted, and generalised from probability vectors
+to finite measures, from the formalization Essakine2026Tight
+(`github.com/RemyDegenne/Essakine2026Tight`, file
+`ForLMLExplore/InformationTheory/KullbackLeibler/Fintype.lean`, commit
+`520dd39a55fa4e9a62a4a2d51f48163926176a5d`, by Rémy Degenne, Apache 2.0) of A. Essakine and
+C. Vernade, *Tight sample complexity bounds for entropic best policy identification*, COLT 2026.
 -/
 
 public section
