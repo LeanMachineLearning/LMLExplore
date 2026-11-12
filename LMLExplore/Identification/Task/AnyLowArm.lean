@@ -470,7 +470,7 @@ theorem oracleAlloc_anyLowArmTask_gaussianReal [DecidableEq α] (hv : ∀ a, v a
     have hlt : μ a < γ := by
       by_contra hge
       have h_le := ha b₀
-      rw [expFamilyDiv_gaussianReal_max_of_le _ (not_lt.1 hge)] at h_le
+      rw [max_eq_left (not_lt.1 hge), Measure.expFamilyDiv_self] at h_le
       linarith [expFamilyDiv_gaussianReal_max_pos (hv b₀) hb₀]
     refine ⟨hlt, fun b hb ↦ ?_⟩
     have h_le := ha b
@@ -482,7 +482,7 @@ theorem oracleAlloc_anyLowArmTask_gaussianReal [DecidableEq α] (hv : ∀ a, v a
     rcases lt_or_ge (μ b) γ with hb | hb
     · rw [expFamilyDiv_gaussianReal_max_of_lt (hv b) hb]
       linarith [ha b hb]
-    · rw [expFamilyDiv_gaussianReal_max_of_le _ hb]
+    · rw [max_eq_left hb, Measure.expFamilyDiv_self]
       positivity
 
 /-- **The oracle allocations of Gaussian Any Low Arm with a common variance** [DK19, Example 1].

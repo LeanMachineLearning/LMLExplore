@@ -435,12 +435,6 @@ lemma expFamilyDiv_gaussianReal_max_of_lt {σ2 : ℝ≥0} (hσ2 : σ2 ≠ 0) {x 
     (gaussianReal 0 σ2).expFamilyDiv id x (max x γ) = (x - γ) ^ 2 / σ2 / 2 := by
   rw [expFamilyDiv_gaussianReal 0 hσ2, max_eq_right h.le, div_mul_eq_div_div_swap]
 
-/-- For a mean `x ≥ γ`, the divergence of the exponential family of `𝒩(0, σ2)` from `x` to
-`max x γ = x` is `0`. -/
-lemma expFamilyDiv_gaussianReal_max_of_le (σ2 : ℝ≥0) {x : ℝ} (h : γ ≤ x) :
-    (gaussianReal 0 σ2).expFamilyDiv id x (max x γ) = 0 := by
-  rw [max_eq_left h, Measure.expFamilyDiv_self]
-
 /-- For a mean `x < γ` and a variance `σ2 ≠ 0`, the divergence of the exponential family of
 `𝒩(0, σ2)` from `x` to `max x γ` is positive. -/
 lemma expFamilyDiv_gaussianReal_max_pos {σ2 : ℝ≥0} (hσ2 : σ2 ≠ 0) {x : ℝ} (h : x < γ) :
@@ -524,7 +518,7 @@ theorem charTime_minThresholdTask_gaussianReal_true (hv : ∀ a, v a ≠ 0)
     rcases lt_or_ge (μ a) γ with h | h
     · rw [expFamilyDiv_gaussianReal_max_of_lt (hv a) h]
       exact div_le_div_of_nonneg_right (ha₀ a h) zero_le_two
-    · rw [expFamilyDiv_gaussianReal_max_of_le _ h]
+    · rw [max_eq_left h, Measure.expFamilyDiv_self]
       positivity
   rw [h_sup, ← ENNReal.ofReal_inv_of_pos (expFamilyDiv_gaussianReal_max_pos (hv a₀) hγ),
     expFamilyDiv_gaussianReal_max_of_lt (hv a₀) hγ, inv_div, div_div_eq_mul_div]
