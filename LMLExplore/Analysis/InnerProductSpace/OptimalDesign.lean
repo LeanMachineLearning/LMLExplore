@@ -8,7 +8,7 @@ module
 public import LMLExplore.Analysis.Convex.Caratheodory
 public import LMLExplore.Analysis.InnerProductSpace.MoorePenrose
 public import LMLExplore.Analysis.InnerProductSpace.RankOne
-public import LMLExplore.Analysis.InnerProductSpace.Symmetric
+public import LMLExplore.Analysis.InnerProductSpace.Symmetric.Finrank
 public import LMLExplore.LinearAlgebra.AffineSpace.Independent
 public import LMLExplore.Geometry.Convex.ConvexSpace.Defs
 public import Mathlib.Analysis.Calculus.Deriv.Pow
@@ -79,9 +79,6 @@ point `a` for each of them gives a design with the same design operator, hence t
   design operator and `⟪a, V(w)⁻¹ a⟫ ≤ d` for every `a ∈ 𝒜`.
 * `LMLExplore.inner_moorePenroseInverse_designOperator_map_subtype`: for a design on a subspace
   `K` with invertible design operator `V_K(w)` on `K`, `⟪a, V(w)⁺ a⟫ = ⟪a, V_K(w)⁻¹ a⟫` on `K`.
-* `LMLExplore.exists_design_inner_moorePenroseInverse_le_finrank`: **Kiefer–Wolfowitz on the
-  span** [LS, Exercise 21.6]: a nonempty compact set `𝒜` carries a design `w` with
-  `⟪a, V(w)⁺ a⟫ ≤ dim (span 𝒜)` for every `a ∈ 𝒜`.
 * `LMLExplore.exists_designOperator_eq_card_support_le`: a design with invertible design operator
   and `⟪a, V(w)⁻¹ a⟫ ≤ d` on its support has the design operator of a design supported in its
   support with at most `d (d + 1) / 2` points [LS, Theorem 21.1].
@@ -94,6 +91,9 @@ point `a` for each of them gives a design with the same design operator, hence t
   compact set `𝒜` has dimension `m ≥ 1`, then `𝒜` carries a design whose support spans the span of
   `𝒜` and has at most `m (m + 1) / 2` points, with `⟪a, V(w)⁺ a⟫ ≤ m` on `𝒜` and equality on the
   support.
+* `LMLExplore.exists_design_inner_moorePenroseInverse_le_finrank`: **Kiefer–Wolfowitz on the
+  span** [LS, Exercise 21.6]: a nonempty compact set `𝒜` carries a design `w` with
+  `⟪a, V(w)⁺ a⟫ ≤ dim (span 𝒜)` for every `a ∈ 𝒜`.
 
 The proof of the Kiefer–Wolfowitz theorem follows `exists_isGOptimalDesign` of the
 `colt-2026-83` project (Rémy Degenne, <https://github.com/RemyDegenne/colt-2026-83>), stated
@@ -402,29 +402,6 @@ theorem inner_moorePenroseInverse_designOperator_map_subtype {K : Submodule ℝ 
       rw [(isPositive_designOperator _).toLinearMap.isSymmetric
         |>.moorePenroseInverse_apply_apply_of_mem_range (hmem _), Submodule.coe_inner]
 
-/-- **The Kiefer–Wolfowitz theorem on the span of a compact set** [LS, Theorem 21.1, Exercises 21.3
-and 21.6]. A nonempty compact set `𝒜` of a finite-dimensional real inner product space carries a
-design `w` such that, with the Moore–Penrose inverse `V(w)⁺` of its design operator,
-`⟪a, V(w)⁺ a⟫ ≤ m` for every `a ∈ 𝒜`, where `m` is the dimension of the span of `𝒜`. The set `𝒜`
-need not span `E`. -/
-theorem exists_design_inner_moorePenroseInverse_le_finrank {𝒜 : Set E} (h𝒜 : IsCompact 𝒜)
-    (hne : 𝒜.Nonempty) :
-    ∃ w : StdSimplex ℝ E, ↑w.weights.support ⊆ 𝒜 ∧ ∀ a ∈ 𝒜,
-      ⟪a, (designOperator w : E →ₗ[ℝ] E).moorePenroseInverse a⟫_ℝ ≤
-        finrank ℝ (Submodule.span ℝ 𝒜) := by
-  classical
-  set K := Submodule.span ℝ 𝒜
-  -- the Kiefer–Wolfowitz theorem in `K` for the preimage of `𝒜`, which is compact and spans `K`
-  have h𝒜K : IsCompact (((↑) : K → E) ⁻¹' 𝒜) :=
-    K.closed_of_finiteDimensional.isClosedEmbedding_subtypeVal.isCompact_preimage h𝒜
-  obtain ⟨a₀, ha₀⟩ := hne
-  obtain ⟨w, hw, hu, hle⟩ := exists_design_inner_ringInverse_le_finrank h𝒜K
-    ⟨⟨a₀, Submodule.subset_span ha₀⟩, ha₀⟩ Submodule.span_span_coe_preimage
-  refine ⟨w.map (↑), (StdSimplex.support_weights_map_subset _ w).trans
-    (Set.image_subset_iff.2 hw), fun a ha ↦ ?_⟩
-  exact (inner_moorePenroseInverse_designOperator_map_subtype hu
-    ⟨a, Submodule.subset_span ha⟩).trans_le (hle _ ha)
-
 /-- **Support reduction of G-optimal designs** [LS, Theorem 21.1]. Let `w` be a design with
 invertible design operator `V(w)` on a nontrivial real inner product space of dimension `d`, with
 `⟪a, V(w)⁻¹ a⟫ ≤ d` on its support. Then some design `w'`, supported in the support of `w`, has the
@@ -529,6 +506,25 @@ theorem exists_design_inner_moorePenroseInverse_le_finrank_and_card_support_le {
       (inner_ringInverse_designOperator_eq_finrank hu (fun c hc ↦ hle c (hw hc)) hb)
   · rw [hsupp]
     exact Finset.card_image_le.trans hcard
+
+/-- **The Kiefer–Wolfowitz theorem on the span of a compact set** [LS, Theorem 21.1, Exercises 21.3
+and 21.6]. A nonempty compact set `𝒜` of a finite-dimensional real inner product space carries a
+design `w` such that, with the Moore–Penrose inverse `V(w)⁺` of its design operator,
+`⟪a, V(w)⁺ a⟫ ≤ m` for every `a ∈ 𝒜`, where `m` is the dimension of the span of `𝒜`. The set `𝒜`
+need not span `E`. -/
+theorem exists_design_inner_moorePenroseInverse_le_finrank {𝒜 : Set E} (h𝒜 : IsCompact 𝒜)
+    (hne : 𝒜.Nonempty) :
+    ∃ w : StdSimplex ℝ E, ↑w.weights.support ⊆ 𝒜 ∧ ∀ a ∈ 𝒜,
+      ⟪a, (designOperator w : E →ₗ[ℝ] E).moorePenroseInverse a⟫_ℝ ≤
+        finrank ℝ (Submodule.span ℝ 𝒜) := by
+  by_cases h0 : Submodule.span ℝ 𝒜 = ⊥
+  · -- then `𝒜 ⊆ {0}`, so the Dirac mass at a point of `𝒜` has G-value `0`
+    obtain ⟨a₀, ha₀⟩ := hne
+    refine ⟨.single a₀, by simp [StdSimplex.single, ha₀], fun a ha ↦ ?_⟩
+    simp [Submodule.span_eq_bot.1 h0 a ha]
+  · obtain ⟨w, hw, -, hle, -⟩ :=
+      exists_design_inner_moorePenroseInverse_le_finrank_and_card_support_le h𝒜 h0
+    exact ⟨w, hw, hle⟩
 
 end FiniteDimensional
 
