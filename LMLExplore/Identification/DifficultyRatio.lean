@@ -371,26 +371,8 @@ theorem inv_iSup_asymptoticRatio_le (task : IdentTask α Θ ℐ 𝓨) (H : Θ �
   -- `(sup_{λ ∈ D} R_{H,∞}(𝒜, λ))⁻¹ = inf_{λ ∈ D} liminf_T R_{H,T}(𝒜, λ)⁻¹`.
   simp_rw [ENNReal.inv_iSup, asymptoticRatio_def, ENNReal.inv_limsup]
   refine ENNReal.le_of_forall_lt_one_mul_le fun c hc ↦ ?_
-  have : Nonempty α := nonempty_of_mem_simplex hw₀
-  have hc1 : c.toNNReal < 1 := by
-    rwa [← ENNReal.coe_lt_coe, ENNReal.coe_toNNReal hc.ne_top, ENNReal.coe_one]
   -- Mix the limit proportions with the uniform allocation, which has positive entries.
-  set v : α → ℝ := (c.toNNReal : ℝ) • w₀ + (1 - (c.toNNReal : ℝ)) • fun _ ↦ (Fintype.card α : ℝ)⁻¹
-  have hv : v ∈ simplex α := convex_simplex α hw₀ (uniform_mem_simplex α) c.toNNReal.coe_nonneg
-    (by linarith [NNReal.coe_lt_one.2 hc1]) (by ring)
-  have hu : 0 < (1 - (c.toNNReal : ℝ)) * (Fintype.card α : ℝ)⁻¹ :=
-    mul_pos (by linarith [NNReal.coe_lt_one.2 hc1]) (by positivity)
-  have hva (a : α) : 0 < v a := by
-    have := mul_nonneg c.toNNReal.coe_nonneg ((mem_simplex_iff.1 hw₀).1 a)
-    simp only [v, Pi.add_apply, Pi.smul_apply, smul_eq_mul]
-    positivity
-  -- `c cost(w₀, μ, λ) ≤ cost(v, μ, λ)`.
-  have hcv (μ' : Θ) : c * task.cost w₀ μ μ' ≤ task.cost v μ μ' := by
-    calc c * task.cost w₀ μ μ' = task.cost (c.toNNReal • w₀) μ μ' := by
-          rw [cost_smul, ENNReal.smul_def, smul_eq_mul, ENNReal.coe_toNNReal hc.ne_top]
-      _ ≤ task.cost v μ μ' := monotone_cost task μ μ' fun a ↦ by
-          simp only [v, Pi.add_apply, Pi.smul_apply, NNReal.smul_def, smul_eq_mul]
-          linarith
+  obtain ⟨v, hv, hva, hcv⟩ := task.exists_pos_mem_simplex_mul_cost_le hw₀ hc
   refine le_iSup₂_of_le (f := fun w _ ↦ ⨅ μ' ∈ D, H μ' * task.cost w μ μ') v hv ?_
   calc c * ⨅ μ' ∈ D, liminf (fun T ↦ (task.difficultyRatio H 𝒜 μ' T)⁻¹) atTop
       ≤ ⨅ μ' ∈ D, c * liminf (fun T ↦ (task.difficultyRatio H 𝒜 μ' T)⁻¹) atTop :=
@@ -403,7 +385,7 @@ theorem inv_iSup_asymptoticRatio_le (task : IdentTask α Θ ℐ 𝓨) (H : Θ �
           exact liminf_inv_difficultyRatio_le_of_tendsto task H h𝒜 hμ (hD μ' hμ') (hH₀ μ' hμ')
             (hH μ' hμ') hfin hψ hlim
       _ = H μ' * (c * task.cost w₀ μ μ') := mul_left_comm _ _ _
-      _ ≤ H μ' * task.cost v μ μ' := by gcongr; exact hcv μ'
+      _ ≤ H μ' * task.cost v μ μ' := by gcongr; exact hcv μ μ'
   · -- At an infinite divergence on the arm `a`, `v a > 0` makes the cost infinite.
     push Not at hfin
     obtain ⟨a, ha⟩ := hfin

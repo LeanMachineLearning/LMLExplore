@@ -49,8 +49,6 @@ in exponential families and a regular task [D23, Theorem 1].
   `H^{sp}(θ)⁻¹ = sup_{w ∈ Δ_K} inf_{λ ∈ Alt(θ)} cost(w, λ, θ)`.
 * `LMLExplore.Identification.IdentTask.staticDifficulty_restrict_le`: restricting the admissible
   models can only decrease the static-proportions difficulty.
-* `LMLExplore.Identification.IdentTask.iSup_pos_iInf_cost_eq`: the supremum over the positive
-  allocations of the cost of a set of models is its supremum over the simplex.
 * `LMLExplore.Identification.IdentTask.staticDifficulty_eq_charTime`: with symmetric divergences,
   the static-proportions difficulty of a single-answer model is its characteristic time.
 * `LMLExplore.Identification.IdentTask.exists_isStaticProportions`: for positive proportions and
@@ -108,20 +106,6 @@ lemma staticDifficulty_restrict_le (S : Set Θ) (θ : Θ) :
   rw [staticDifficulty_def, staticDifficulty_def, alternatives_restrict, cost_restrict,
     ENNReal.inv_le_inv]
   exact iSup₂_mono fun w _ ↦ biInf_mono Set.inter_subset_left
-
-/-- The supremum of `w ↦ inf_{λ ∈ s} ∑ a, w a KL(ν_a(λ), ν_a(θ))` over the allocations with
-positive entries is its supremum over the simplex, for every set `s` of models. -/
-lemma iSup_pos_iInf_cost_eq (s : Set Θ) (θ : Θ) :
-    ⨆ (w ∈ simplex α) (_ : ∀ a, 0 < w a), ⨅ θ' ∈ s, task.cost w θ' θ =
-      ⨆ w ∈ simplex α, ⨅ θ' ∈ s, task.cost w θ' θ := by
-  refine le_antisymm (iSup₂_mono fun w _ ↦ iSup_le fun _ ↦ le_rfl) (iSup₂_le fun w hw ↦ ?_)
-  refine ENNReal.le_of_forall_lt_one_mul_le fun c hc ↦ ?_
-  obtain ⟨w', hw', hpos, hle⟩ := task.exists_pos_mem_simplex_mul_cost_le hw hc
-  refine le_iSup₂_of_le w' hw' (le_iSup_of_le hpos (le_iInf₂ fun θ' hθ' ↦ ?_))
-  calc c * ⨅ θ' ∈ s, task.cost w θ' θ ≤ c * task.cost w θ' θ := by
-        gcongr
-        exact iInf₂_le θ' hθ'
-    _ ≤ task.cost w' θ' θ := hle θ' θ
 
 /-- For a model `θ` with the single correct answer `i`, if the divergences between the arms of `θ`
 and those of its alternatives are symmetric (Gaussian arms with known variances), then the
@@ -201,9 +185,10 @@ a measurable recommendation rule `rec`, some family is a static proportions fami
 proportions `w` and recommendation rule `rec`: cumulative tracking with the constant targets `w`,
 stopped after `T` rounds with the deterministic output `rec μ̂_T` [D23, Section 2; DKM19,
 Lemma 7]. -/
-theorem exists_isStaticProportions [MeasurableSingletonClass α] [Nonempty ℐ]
+theorem exists_isStaticProportions [MeasurableSingletonClass α]
     (hrec : Measurable rec) (hw0 : ∀ a, 0 < w a) (hw1 : ∑ a, w a = 1) :
     ∃ 𝒜, task.IsStaticProportions rec 𝒜 w := by
+  have : Nonempty ℐ := ⟨rec 0⟩
   have : Nonempty α := nonempty_of_mem_simplex (mem_simplex_iff.2 ⟨fun a ↦ (hw0 a).le, hw1⟩)
   set alg := cumulativeTracking (fun _ _ ↦ w) (𝓨 := ℝ) fun _ ↦ measurable_const
   have hmeas (T : ℕ) : Measurable fun h : Hist Unit α ℝ T ↦ rec (empMean' T h) :=
@@ -227,7 +212,6 @@ class of static proportions families is nonempty. -/
 lemma staticClass_nonempty [MeasurableSingletonClass α] [Nonempty α] (hrec : Measurable rec)
     (hcorrect : ∀ θ ∈ task.M, rec (mean θ) ∈ task.correct θ) :
     (task.staticClass mean).Nonempty := by
-  have : Nonempty ℐ := ⟨rec 0⟩
   obtain ⟨𝒜, h𝒜⟩ := task.exists_isStaticProportions hrec (w := fun _ ↦ (Fintype.card α : ℝ)⁻¹)
     (fun _ ↦ by positivity) (mem_simplex_iff.1 (uniform_mem_simplex α)).2
   exact ⟨𝒜, h𝒜.mem_staticClass hcorrect⟩
@@ -251,11 +235,8 @@ lemma IsStaticProportions.errorProb_eq (h𝒜 : task.IsStaticProportions rec �
       ext a
       rw [empMean_eq_empMean' (O := IT.obs), IT.history_obs_action_feedback]
     rw [h𝒜.outputAt_eq, Measure.dirac_apply' _ hθ.compl, hmean]
-    by_cases hE : h ∈ E
-    · rw [Set.indicator_of_mem hE, Set.indicator_of_mem (show _ ∈ (task.correct θ)ᶜ from hE),
-        Pi.one_apply, Pi.one_apply]
-    · rw [Set.indicator_of_notMem hE,
-        Set.indicator_of_notMem (show _ ∉ (task.correct θ)ᶜ from hE)]
+    classical
+    simp only [Set.indicator_apply, Set.mem_compl_iff, E, Set.mem_ofPred_eq, Pi.one_apply]
   -- `E` is measurable as the preimage of `1` under the measurable function above, even when
   -- `rec` is not measurable.
   have hE : MeasurableSet E := by

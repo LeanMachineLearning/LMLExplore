@@ -50,6 +50,8 @@ treatment, and a negative entry of `w` counts as `0`.
   largest divergence between the arm laws.
 * `IdentTask.exists_pos_mem_simplex_mul_cost_le`: mixing an allocation with the uniform one gives
   an allocation with positive entries that keeps a fraction `c < 1` of every transportation cost.
+* `IdentTask.iSup_pos_iInf_cost_eq`: the supremum over the positive allocations of the cost of a
+  set of models is its supremum over the simplex.
 * `IdentTask.altCost_eq_biInf_of_subset_closure`: if the transportation cost is continuous in
   the alternative model, `D(θ, w, ¬i)` is also the infimum of the cost over any set between `¬i`
   and its closure.
@@ -197,6 +199,20 @@ lemma exists_pos_mem_simplex_mul_cost_le (hw : w ∈ simplex α) {c : ℝ≥0∞
         rw [cost_smul, ENNReal.smul_def, smul_eq_mul]
     _ ≤ task.cost ((c : ℝ) • w + (1 - (c : ℝ)) • u) θ θ' := task.monotone_cost θ θ' fun a ↦ by
         simpa [u, NNReal.smul_def] using mul_nonneg (sub_pos.2 hc1).le (by positivity : 0 ≤ u a)
+
+/-- The supremum of `w ↦ inf_{λ ∈ s} ∑ a, w a KL(ν_a(λ), ν_a(θ))` over the allocations with
+positive entries is its supremum over the simplex, for every set `s` of models. -/
+lemma iSup_pos_iInf_cost_eq (s : Set Θ) (θ : Θ) :
+    ⨆ (w ∈ simplex α) (_ : ∀ a, 0 < w a), ⨅ θ' ∈ s, task.cost w θ' θ =
+      ⨆ w ∈ simplex α, ⨅ θ' ∈ s, task.cost w θ' θ := by
+  refine le_antisymm (iSup₂_mono fun w _ ↦ iSup_le fun _ ↦ le_rfl) (iSup₂_le fun w hw ↦ ?_)
+  refine ENNReal.le_of_forall_lt_one_mul_le fun c hc ↦ ?_
+  obtain ⟨w', hw', hpos, hle⟩ := task.exists_pos_mem_simplex_mul_cost_le hw hc
+  refine le_iSup₂_of_le w' hw' (le_iSup_of_le hpos (le_iInf₂ fun θ' hθ' ↦ ?_))
+  calc c * ⨅ θ' ∈ s, task.cost w θ' θ ≤ c * task.cost w θ' θ := by
+        gcongr
+        exact iInf₂_le θ' hθ'
+    _ ≤ task.cost w' θ' θ := hle θ' θ
 
 /-- For an allocation `w`, the transportation cost from `θ` to `θ'` is at most the largest
 divergence `max_a KL(ν_a(θ), ν_a(θ'))` between the arm laws. -/
@@ -442,29 +458,12 @@ lemma answerValue_restrict_setOf_klDiv_ne_top (θ : Θ) (i : ℐ) :
   refine le_antisymm ?_ (task.answerValue_le_answerValue_restrict S θ i)
   rw [answerValue_def]
   refine iSup₂_le fun w hw ↦ ?_
-  obtain ⟨hw0, hw1⟩ := mem_simplex_iff.1 hw
-  have : Nonempty α := by
-    by_contra h
-    simp [not_nonempty_iff.1 h] at hw1
   -- Compare `w` with the allocations `w' = t w + (1 - t) u`, for `u` uniform and `t < 1`.
   refine ENNReal.le_of_forall_lt_one_mul_le fun t ht ↦ ?_
-  lift t to ℝ≥0 using ht.ne_top
-  rcases eq_or_ne t 0 with rfl | ht0
-  · simp
-  have ht1 : (t : ℝ) < 1 := by exact_mod_cast ENNReal.coe_lt_one_iff.1 ht
-  set u : α → ℝ := fun _ ↦ (Fintype.card α : ℝ)⁻¹
-  have hu : u ∈ simplex α := uniform_mem_simplex α
-  set w' : α → ℝ := (t : ℝ) • w + (1 - (t : ℝ)) • u
-  have hw' : w' ∈ simplex α :=
-    convex_simplex α hw hu t.2 (sub_nonneg.2 ht1.le) (add_sub_cancel _ _)
-  have hpos (a : α) : 0 < w' a :=
-    add_pos_of_nonneg_of_pos (mul_nonneg t.2 (hw0 a)) (mul_pos (sub_pos.2 ht1) (by positivity))
-  have hle : t • w ≤ w' := fun a ↦ by
-    simpa [w', NNReal.smul_def] using mul_nonneg (sub_pos.2 ht1).le (by positivity : 0 ≤ u a)
-  calc (t : ℝ≥0∞) * (task.restrict S).altCost θ w i
-      = (task.restrict S).altCost θ (t • w) i := by
-        rw [altCost_smul _ ht0, ENNReal.smul_def, smul_eq_mul]
-    _ ≤ (task.restrict S).altCost θ w' i := (task.restrict S).monotone_altCost θ i hle
+  obtain ⟨w', hw', hpos, hle⟩ := (task.restrict S).exists_pos_mem_simplex_mul_cost_le hw ht
+  calc t * (task.restrict S).altCost θ w i ≤ (task.restrict S).altCost θ w' i :=
+        le_iInf₂ fun θ' hθ' ↦
+          (mul_le_mul_right ((task.restrict S).altCost_le_cost hθ' w) t).trans (hle θ θ')
     _ = task.altCost θ w' i := task.altCost_restrict_setOf_klDiv_ne_top hpos θ i
     _ ≤ task.answerValue θ i := task.altCost_le_answerValue hw'
 
