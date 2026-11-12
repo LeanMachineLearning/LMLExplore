@@ -179,7 +179,8 @@ private lemma sum_mul_localNorm {p : α → ℝ} (hp : p ∈ simplex α) :
   have h := sum_mul_sum_mul_iwEstimator_apply_sub_sq (x := fun _ ↦ 1) hp'.2
     (f := fun b ↦ p b * √(p b)) fun b hb ↦ by simp [hb]
   simp only [one_pow, one_mul] at h
-  rw [show ∑ a, p a * localNorm p a = _ from h]
+  simp only [localNorm]
+  rw [h]
   refine sum_congr rfl fun b _ ↦ ?_
   rcases (hp'.1 b).eq_or_lt with hb | hb
   · simp [← hb]
