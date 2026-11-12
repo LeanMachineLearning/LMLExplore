@@ -13,8 +13,11 @@ public import LMLExplore.Identification.Task.Classical
 
 In top-`m` identification (`topMTask ν id m`), the correct answer of a vector of means `μ` is the
 set `s` of its `m` arms with the largest means, on the vectors where these means are larger than
-the other ones. Let the arm `c` belong to an exponential family `(ρ c, T c)` with divergence `d_c`
-in the mean parametrization, and let `b` be an arm outside `s` with the largest mean outside `s`
+the other ones. Let the arm `c` have a real divergence `d_c` on an open set `S_c` of means
+(`IsDivergenceOn`), in the sense that `KL(ν_c(μ), ν_c(μ')) = d_c(μ c, μ' c)` for the vectors of
+means `μ'` in `S`; the arms of per-arm exponential families, with the divergences of the families
+in the mean parametrization on their sets of means, are an instance
+(`isDivergenceOn_expFamilyDiv`). Let `b` be an arm outside `s` with the largest mean outside `s`
 (the `(m + 1)`-th largest mean) and `b'` an arm of `s` with the smallest mean in `s` (the `m`-th
 largest mean).
 
@@ -35,10 +38,10 @@ Garivier on the sample complexity of top-`m` identification [KCG16, Theorem 4]
 
 ## Main statements
 
-* `LMLExplore.Identification.altCost_topMTask_restrict_le_ofReal_mul_expFamilyDiv_of_mem`: for
-  `a ∈ s`, `D(μ, w, ¬s) ≤ w a d_a(μ a, μ b)`.
-* `LMLExplore.Identification.altCost_topMTask_restrict_le_ofReal_mul_expFamilyDiv_of_notMem`: for
-  `a ∉ s`, `D(μ, w, ¬s) ≤ w a d_a(μ a, μ b')`.
+* `LMLExplore.Identification.altCost_topMTask_restrict_le_ofReal_mul_of_mem`: for `a ∈ s`,
+  `D(μ, w, ¬s) ≤ w a d_a(μ a, μ b)`.
+* `LMLExplore.Identification.altCost_topMTask_restrict_le_ofReal_mul_of_notMem`: for `a ∉ s`,
+  `D(μ, w, ¬s) ≤ w a d_a(μ a, μ b')`.
 
 ## References
 
@@ -55,7 +58,7 @@ open scoped ENNReal
 namespace LMLExplore.Identification
 
 variable {α 𝓨 : Type*} {mα : MeasurableSpace α} {m𝓨 : MeasurableSpace 𝓨} [Fintype α]
-  [DecidableEq α] {ρ : α → Measure 𝓨} {T : α → 𝓨 → ℝ} {μ w : α → ℝ} {m : ℕ} {s : Finset α}
+  [DecidableEq α] {S : α → Set ℝ} {d : α → ℝ → ℝ → ℝ} {μ w : α → ℝ} {m : ℕ} {s : Finset α}
   {a b : α} (ν : (α → ℝ) → Kernel α 𝓨) [∀ μ, IsMarkovKernel (ν μ)]
 
 omit [Fintype α] in
@@ -127,19 +130,20 @@ private lemma update_shift_mem_alt_topMTask_of_notMem (hs : s ∈ (topMTask ν i
     linarith
 
 omit [DecidableEq α] in
-/-- **The cost of moving an arm out of the top-`m` set** [KCG16, proof of Theorem 4]. Let the arm
-`c` belong to an exponential family `(ρ c, T c)` with divergence `d_c`, let `μ` be a vector of means
-of the families whose top-`m` set is `s`, and let `b ∉ s` be an arm with the largest mean outside
-`s`. For `a ∈ s` such that `μ b` is a mean of the family of `a` and every nonnegative allocation
-`w`, `D(μ, w, ¬s) ≤ w a d_a(μ a, μ b)` within the vectors of means of the families. -/
-theorem altCost_topMTask_restrict_le_ofReal_mul_expFamilyDiv_of_mem
-    (hT : ∀ c x, ¬ T c =ᵐ[ρ c] fun _ ↦ x) (hμ : ∀ c, μ c ∈ (ρ c).expFamilyMeans (T c))
-    (hν : ∀ μ' : α → ℝ, (∀ c, μ' c ∈ (ρ c).expFamilyMeans (T c)) →
-      ∀ c, klDiv (ν μ c) (ν μ' c) = ENNReal.ofReal ((ρ c).expFamilyDiv (T c) (μ c) (μ' c)))
+/-- **The cost of moving an arm out of the top-`m` set** [KCG16, proof of Theorem 4]. Let each
+arm `c` have a divergence `d_c` on an open set `S_c` of means, in the sense that
+`KL(ν_c(μ), ν_c(μ')) = d_c(μ c, μ' c)` for all vectors of means `μ'` in `S`, let `μ` be a vector of
+means in `S` whose top-`m` set is `s`, and let `b ∉ s` be an arm with the largest mean outside `s`.
+For `a ∈ s` such that `μ b ∈ S_a` and every nonnegative allocation `w`,
+`D(μ, w, ¬s) ≤ w a d_a(μ a, μ b)` within the vectors of means in `S`. -/
+theorem altCost_topMTask_restrict_le_ofReal_mul_of_mem
+    (hd : ∀ c, IsDivergenceOn (d c) (S c)) (hμ : ∀ c, μ c ∈ S c)
+    (hν : ∀ μ' : α → ℝ, (∀ c, μ' c ∈ S c) →
+      ∀ c, klDiv (ν μ c) (ν μ' c) = ENNReal.ofReal (d c (μ c) (μ' c)))
     (hs : s ∈ (topMTask ν id m).correct μ) (ha : a ∈ s) (hb : b ∉ s)
-    (hb_max : ∀ c ∉ s, μ c ≤ μ b) (hba : μ b ∈ (ρ a).expFamilyMeans (T a)) (hw : 0 ≤ w) :
-    ((topMTask ν id m).restrict {μ' | ∀ c, μ' c ∈ (ρ c).expFamilyMeans (T c)}).altCost μ w s ≤
-      ENNReal.ofReal (w a * (ρ a).expFamilyDiv (T a) (μ a) (μ b)) := by
+    (hb_max : ∀ c ∉ s, μ c ≤ μ b) (hba : μ b ∈ S a) (hw : 0 ≤ w) :
+    ((topMTask ν id m).restrict {μ' | ∀ c, μ' c ∈ S c}).altCost μ w s ≤
+      ENNReal.ofReal (w a * d a (μ a) (μ b)) := by
   classical
   have hg : Continuous fun t : ℝ ↦
       Function.update (fun c ↦ if c ∈ s ∨ c = b then μ c else μ c - t) a (μ b - t) :=
@@ -149,26 +153,26 @@ theorem altCost_topMTask_restrict_le_ofReal_mul_expFamilyDiv_of_mem
         fun_prop
       · simp only [Function.update_of_ne hca]
         split_ifs <;> fun_prop
-  exact IdentTask.altCost_restrict_le_ofReal_mul_of_tendsto (by simp)
-    (fun c ↦ isDivergenceOn_expFamilyDiv (hT c)) hν hw hμ a hba
+  exact IdentTask.altCost_restrict_le_ofReal_mul_of_tendsto (by simp) hd hν hw hμ a hba
     (by simpa using (hg.tendsto 0).mono_left nhdsWithin_le_nhds)
     (eventually_nhdsWithin_of_forall (s := Set.Ioi (0 : ℝ)) fun _ ht ↦
       update_shift_mem_alt_topMTask_of_mem ν hs ha hb hb_max ht)
 
 omit [DecidableEq α] in
-/-- **The cost of moving an arm into the top-`m` set** [KCG16, proof of Theorem 4]. Let the arm `c`
-belong to an exponential family `(ρ c, T c)` with divergence `d_c`, let `μ` be a vector of means of
-the families whose top-`m` set is `s`, and let `b ∈ s` be an arm with the smallest mean in `s`. For
-`a ∉ s` such that `μ b` is a mean of the family of `a` and every nonnegative allocation `w`,
-`D(μ, w, ¬s) ≤ w a d_a(μ a, μ b)` within the vectors of means of the families. -/
-theorem altCost_topMTask_restrict_le_ofReal_mul_expFamilyDiv_of_notMem
-    (hT : ∀ c x, ¬ T c =ᵐ[ρ c] fun _ ↦ x) (hμ : ∀ c, μ c ∈ (ρ c).expFamilyMeans (T c))
-    (hν : ∀ μ' : α → ℝ, (∀ c, μ' c ∈ (ρ c).expFamilyMeans (T c)) →
-      ∀ c, klDiv (ν μ c) (ν μ' c) = ENNReal.ofReal ((ρ c).expFamilyDiv (T c) (μ c) (μ' c)))
+/-- **The cost of moving an arm into the top-`m` set** [KCG16, proof of Theorem 4]. Let each arm
+`c` have a divergence `d_c` on an open set `S_c` of means, in the sense that
+`KL(ν_c(μ), ν_c(μ')) = d_c(μ c, μ' c)` for all vectors of means `μ'` in `S`, let `μ` be a vector of
+means in `S` whose top-`m` set is `s`, and let `b ∈ s` be an arm with the smallest mean in `s`. For
+`a ∉ s` such that `μ b ∈ S_a` and every nonnegative allocation `w`,
+`D(μ, w, ¬s) ≤ w a d_a(μ a, μ b)` within the vectors of means in `S`. -/
+theorem altCost_topMTask_restrict_le_ofReal_mul_of_notMem
+    (hd : ∀ c, IsDivergenceOn (d c) (S c)) (hμ : ∀ c, μ c ∈ S c)
+    (hν : ∀ μ' : α → ℝ, (∀ c, μ' c ∈ S c) →
+      ∀ c, klDiv (ν μ c) (ν μ' c) = ENNReal.ofReal (d c (μ c) (μ' c)))
     (hs : s ∈ (topMTask ν id m).correct μ) (ha : a ∉ s) (hb : b ∈ s)
-    (hb_min : ∀ c ∈ s, μ b ≤ μ c) (hba : μ b ∈ (ρ a).expFamilyMeans (T a)) (hw : 0 ≤ w) :
-    ((topMTask ν id m).restrict {μ' | ∀ c, μ' c ∈ (ρ c).expFamilyMeans (T c)}).altCost μ w s ≤
-      ENNReal.ofReal (w a * (ρ a).expFamilyDiv (T a) (μ a) (μ b)) := by
+    (hb_min : ∀ c ∈ s, μ b ≤ μ c) (hba : μ b ∈ S a) (hw : 0 ≤ w) :
+    ((topMTask ν id m).restrict {μ' | ∀ c, μ' c ∈ S c}).altCost μ w s ≤
+      ENNReal.ofReal (w a * d a (μ a) (μ b)) := by
   classical
   have hg : Continuous fun t : ℝ ↦
       Function.update (fun c ↦ if c ∉ s ∨ c = b then μ c else μ c + t) a (μ b + t) :=
@@ -178,8 +182,7 @@ theorem altCost_topMTask_restrict_le_ofReal_mul_expFamilyDiv_of_notMem
         fun_prop
       · simp only [Function.update_of_ne hca]
         split_ifs <;> fun_prop
-  exact IdentTask.altCost_restrict_le_ofReal_mul_of_tendsto (by simp)
-    (fun c ↦ isDivergenceOn_expFamilyDiv (hT c)) hν hw hμ a hba
+  exact IdentTask.altCost_restrict_le_ofReal_mul_of_tendsto (by simp) hd hν hw hμ a hba
     (by simpa using (hg.tendsto 0).mono_left nhdsWithin_le_nhds)
     (eventually_nhdsWithin_of_forall (s := Set.Ioi (0 : ℝ)) fun _ ht ↦
       update_shift_mem_alt_topMTask_of_notMem ν hs ha hb hb_min ht)
