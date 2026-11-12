@@ -7,6 +7,7 @@ module
 
 public import LMLExplore.Analysis.FixedPoint.DynamicProgramming
 public import LMLExplore.MarkovDecisionProcess.Bellman
+public import LMLExplore.MarkovDecisionProcess.Value
 
 /-!
 # Bellman operators on bounded measurable functions and value iteration
@@ -16,11 +17,15 @@ let `0 ≤ γ < 1`. The Bellman optimality operator `M.bellman γ`, for countabl
 evaluation operator `M.bellmanEval γ π` of a stationary policy `π` map bounded measurable functions
 to bounded measurable functions. They therefore act on the Banach space
 `LMLExplore.boundedMeasurable 𝓢` of bounded measurable functions with the sup norm, as
-`M.bellmanOp γ hR` and `M.bellmanEvalOp γ π hR`.
+`M.bellmanOp γ hR` and `M.bellmanEvalOp γ π hR`. The evaluation operator is the affine map
+`v ↦ r_π + γ P_π v`, where `r_π` is the mean reward of `π` and the state kernel
+`P_π = M.stateKernel π` acts by `Kernel.integralCLM`.
 
 On that space they satisfy Blackwell's conditions for the constant function `1`, whose order-unit
 norm is the sup norm, so they are `γ`-contractions [P, Proposition 6.2.4] and Banach's fixed point
 theorem applies. This gives, on a general measurable state space,
+* the pointwise contraction bounds: `|v - w| ≤ D` gives `|T v - T w| ≤ γ * D` for bounded
+  measurable `v` and `w`;
 * a unique bounded measurable solution of the optimality equation `M.bellman γ u = u`, bounded by
   `C / (1 - γ)` (the fixed-point part of [P, Theorem 6.2.5 (a)], where `𝓢` is countable);
 * the convergence of value iteration `v, T v, T² v, …` to it at the geometric rate
@@ -39,14 +44,19 @@ operators an instance of the abstract dynamic programming of `LMLExplore.IsPolic
 ## Main definitions
 
 * `Learning.MDP.bellmanOp M γ hR`: the optimality operator acting on `boundedMeasurable 𝓢`.
-* `Learning.MDP.bellmanEvalOp M γ π hR`: the evaluation operator of `π` acting on
+* `Learning.MDP.policyRewardBM M π hR`: the mean reward `r_π` of `π` as an element of
   `boundedMeasurable 𝓢`.
+* `Learning.MDP.bellmanEvalOp M γ π hR`: the evaluation operator `v ↦ r_π + γ P_π v` of `π` acting
+  on `boundedMeasurable 𝓢`.
 
 ## Main statements
 
 * `Learning.MDP.isBlackwell_bellmanOp`, `Learning.MDP.contractingWith_bellmanOp`,
   `Learning.MDP.isBlackwell_bellmanEvalOp`, `Learning.MDP.contractingWith_bellmanEvalOp`: the
-  operators satisfy Blackwell's conditions and are `γ`-contractions of `boundedMeasurable 𝓢`.
+  operators satisfy Blackwell's conditions and are `γ`-contractions of `boundedMeasurable 𝓢`;
+  `Learning.MDP.coeFn_bellmanEvalOp`: pointwise, the evaluation operator is `M.bellmanEval γ π`.
+* `Learning.MDP.abs_bellman_sub_le`, `Learning.MDP.abs_bellmanEval_sub_le`: the contraction
+  bounds, stated pointwise for bounded measurable value functions.
 * `Learning.MDP.bellmanEvalOp_le_bellmanOp`, `Learning.MDP.bellmanEvalOp_greedy`: the evaluation
   operators of the stationary policies are below the optimality operator, and for finitely many
   actions the greedy policy attains it.
@@ -73,7 +83,7 @@ open scoped ENNReal NNReal lp
 namespace Learning.MDP
 
 variable {𝓢 𝓐 : Type*} {m𝓢 : MeasurableSpace 𝓢} {m𝓐 : MeasurableSpace 𝓐}
-  {M : MDP 𝓢 𝓐 ℝ} {γ : ℝ≥0} {u v : 𝓢 → ℝ} {B B' C D b : ℝ}
+  {M : MDP 𝓢 𝓐 ℝ} {γ : ℝ≥0} {u v w : 𝓢 → ℝ} {B B' C D b : ℝ}
 
 /-! ### The optimality operator on bounded measurable functions -/
 
@@ -138,6 +148,16 @@ theorem contractingWith_bellmanOp (hγ : γ < 1) : ContractingWith γ (M.bellman
   (isBlackwell_bellmanOp hR).contractingWith boundedMeasurable.orderUnitNorm_one_eq_norm hγ
 
 variable {hR}
+
+/-- With bounded rewards and countably many actions, the optimality operator is a `γ`-contraction
+for the sup norm, stated pointwise: if bounded measurable `v` and `w` satisfy `|v - w| ≤ D`, then
+`|M.bellman γ v - M.bellman γ w| ≤ γ * D`. -/
+theorem abs_bellman_sub_le (hR : ∀ p, ∀ᵐ x ∂(M.R p), |x| ≤ C) (hv : Measurable v)
+    (hvB : ∀ s, |v s| ≤ B) (hw : Measurable w) (hwB : ∀ s, |w s| ≤ B')
+    (hD : ∀ s, |v s - w s| ≤ D) (s : 𝓢) :
+    |M.bellman γ v s - M.bellman γ w s| ≤ γ * D :=
+  boundedMeasurable.abs_sub_apply_le_of_isBlackwell_of_coeFn_eq (isBlackwell_bellmanOp hR)
+    (coeFn_bellmanOp hR) hv hvB hw hwB hD s
 
 /-- **The optimality equation has a solution** (the fixed-point part of [P, Theorem 6.2.5 (a)]):
 with rewards bounded by `C`, countably many actions and `γ < 1`, there is a measurable `u` bounded
@@ -297,22 +317,41 @@ section Evaluation
 
 variable {π : Kernel 𝓢 𝓐} [IsMarkovKernel π]
 
+variable (M π) in
+/-- The mean reward `r_π` of the stationary policy `π` (`Learning.MDP.policyReward`), for rewards
+bounded by `C`, as a bounded measurable function on `𝓢`. -/
+noncomputable def policyRewardBM (hR : ∀ p, ∀ᵐ x ∂(M.R p), |x| ≤ C) : boundedMeasurable 𝓢 :=
+  boundedMeasurable.mk (M.policyReward π) measurable_policyReward
+    (bddAbove_def.2 ⟨C, forall_mem_range.2 (abs_policyReward_le hR)⟩)
+
+@[simp]
+lemma coeFn_policyRewardBM (hR : ∀ p, ∀ᵐ x ∂(M.R p), |x| ≤ C) :
+    ⇑(M.policyRewardBM π hR : ℓ^∞(𝓢, ℝ)) = M.policyReward π :=
+  boundedMeasurable.coeFn_mk ..
+
 variable (M γ π) in
-/-- The evaluation operator `M.bellmanEval γ π` of the stationary policy `π`, for rewards bounded
-by `C`, as a map of the bounded measurable functions on `𝓢`. -/
+/-- The evaluation operator of the stationary policy `π`, for rewards bounded by `C`, as the affine
+map `v ↦ r_π + γ P_π v` of the bounded measurable functions on `𝓢`, where the state kernel
+`P_π = M.stateKernel π` acts by `Kernel.integralCLM`. Pointwise, it is `M.bellmanEval γ π`
+(`Learning.MDP.coeFn_bellmanEvalOp`). -/
 noncomputable def bellmanEvalOp (hR : ∀ p, ∀ᵐ x ∂(M.R p), |x| ≤ C) (v : boundedMeasurable 𝓢) :
     boundedMeasurable 𝓢 :=
-  boundedMeasurable.mk (M.bellmanEval γ π ⇑(v : ℓ^∞(𝓢, ℝ)))
-    (measurable_bellmanEval (boundedMeasurable.measurable v))
-    (bddAbove_def.2 ⟨C + γ * ‖v‖,
-      forall_mem_range.2 (abs_bellmanEval_le hR (boundedMeasurable.abs_apply_le_norm v))⟩)
+  M.policyRewardBM π hR + (γ : ℝ) • (M.stateKernel π).integralCLM v
+
+lemma bellmanEvalOp_def (hR : ∀ p, ∀ᵐ x ∂(M.R p), |x| ≤ C) (v : boundedMeasurable 𝓢) :
+    M.bellmanEvalOp γ π hR v = M.policyRewardBM π hR + (γ : ℝ) • (M.stateKernel π).integralCLM v :=
+  (rfl)
 
 variable (hR : ∀ p, ∀ᵐ x ∂(M.R p), |x| ≤ C)
 
 @[simp]
 lemma coeFn_bellmanEvalOp (v : boundedMeasurable 𝓢) :
-    ⇑(M.bellmanEvalOp γ π hR v : ℓ^∞(𝓢, ℝ)) = M.bellmanEval γ π ⇑(v : ℓ^∞(𝓢, ℝ)) :=
-  boundedMeasurable.coeFn_mk ..
+    ⇑(M.bellmanEvalOp γ π hR v : ℓ^∞(𝓢, ℝ)) = M.bellmanEval γ π ⇑(v : ℓ^∞(𝓢, ℝ)) := by
+  ext s
+  rw [bellmanEvalOp_def, boundedMeasurable.coeFn_add, Pi.add_apply,
+    bellmanEval_eq_policyReward_add hR (boundedMeasurable.measurable v)
+      (boundedMeasurable.abs_apply_le_norm v)]
+  simp
 
 /-- The iterates of `M.bellmanEvalOp γ π hR` are those of `M.bellmanEval γ π`. -/
 @[simp]
@@ -332,23 +371,31 @@ lemma isFixedPt_bellmanEvalOp_mk (hu : Measurable u) (huB : ∀ s, |u s| ≤ B)
   boundedMeasurable.ext fun s ↦ by rw [coeFn_bellmanEvalOp, boundedMeasurable.coeFn_mk, hu_eq]
 
 /-- With bounded rewards, the evaluation operator of a stationary policy satisfies Blackwell's
-conditions on the bounded measurable functions, for the constant function `1`. -/
+conditions on the bounded measurable functions, for the constant function `1`: the action of the
+state kernel is monotone and fixes the constants. -/
 theorem isBlackwell_bellmanEvalOp : IsBlackwell 1 γ (M.bellmanEvalOp γ π hR) where
-  monotone v w hvw := boundedMeasurable.le_def.2 fun s ↦ by
-    simp only [coeFn_bellmanEvalOp]
-    exact bellmanEval_mono hR (boundedMeasurable.measurable v)
-      (boundedMeasurable.abs_apply_le_norm v) (boundedMeasurable.measurable w)
-      (boundedMeasurable.abs_apply_le_norm w) (boundedMeasurable.le_def.1 hvw) s
-  map_add_smul_le v c _ := le_of_eq <| boundedMeasurable.ext fun s ↦ by
-    simp only [coeFn_bellmanEvalOp, boundedMeasurable.coeFn_add, boundedMeasurable.coeFn_smul,
-      boundedMeasurable.coeFn_one, Pi.smul_one_eq_const]
-    rw [bellmanEval_add_const hR (boundedMeasurable.measurable v)
-      (boundedMeasurable.abs_apply_le_norm v)]
+  monotone v w hvw := by
+    simp only [bellmanEvalOp_def]
+    gcongr
+    exact Kernel.monotone_integralCLM hvw
+  map_add_smul_le v c _ := le_of_eq <| by
+    simp only [bellmanEvalOp_def, map_add, map_smul, Kernel.integralCLM_one]
+    module
 
 /-- With bounded rewards and `γ < 1`, the evaluation operator of a stationary policy is a
 `γ`-contraction of the bounded measurable functions with the sup norm [P, Proposition 6.2.4]. -/
 theorem contractingWith_bellmanEvalOp (hγ : γ < 1) : ContractingWith γ (M.bellmanEvalOp γ π hR) :=
   (isBlackwell_bellmanEvalOp hR).contractingWith boundedMeasurable.orderUnitNorm_one_eq_norm hγ
+
+/-- With bounded rewards, the evaluation operator of a stationary policy is a `γ`-contraction for
+the sup norm, stated pointwise: if bounded measurable `v` and `w` satisfy `|v - w| ≤ D`, then
+`|M.bellmanEval γ π v - M.bellmanEval γ π w| ≤ γ * D`. -/
+theorem abs_bellmanEval_sub_le (hR : ∀ p, ∀ᵐ x ∂(M.R p), |x| ≤ C) (hv : Measurable v)
+    (hvB : ∀ s, |v s| ≤ B) (hw : Measurable w) (hwB : ∀ s, |w s| ≤ B')
+    (hD : ∀ s, |v s - w s| ≤ D) (s : 𝓢) :
+    |M.bellmanEval γ π v s - M.bellmanEval γ π w s| ≤ γ * D :=
+  boundedMeasurable.abs_sub_apply_le_of_isBlackwell_of_coeFn_eq (isBlackwell_bellmanEvalOp hR)
+    (coeFn_bellmanEvalOp hR) hv hvB hw hwB hD s
 
 end Evaluation
 
