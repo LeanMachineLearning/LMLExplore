@@ -19,7 +19,7 @@ the loss estimates of adversarial linear bandits.
 
 ## Main statements
 
-* `measurable_ringInverse`: `Ring.inverse : R → R` is measurable.
+* `LMLExplore.measurable_ringInverse`: `Ring.inverse : R → R` is measurable.
 * `Measurable.ringInverse`, `AEMeasurable.ringInverse`: composition forms.
 -/
 
@@ -28,6 +28,8 @@ public section
 open MeasureTheory
 
 variable {R : Type*} [NormedRing R] [CompleteSpace R] [MeasurableSpace R] [BorelSpace R]
+
+namespace LMLExplore
 
 /-- In a complete normed ring, `Ring.inverse` is measurable: it is continuous on the open set of
 units and vanishes off it. -/
@@ -44,16 +46,18 @@ theorem measurable_ringInverse : Measurable (Ring.inverse : R → R) := by
   rintro x ⟨u, rfl⟩
   exact (NormedRing.inverse_continuousAt u).continuousWithinAt
 
+end LMLExplore
+
 variable {α : Type*} {mα : MeasurableSpace α} {f : α → R}
 
 /-- The inverse of a measurable function to a complete normed ring is measurable. -/
 @[fun_prop]
 theorem Measurable.ringInverse (hf : Measurable f) : Measurable fun a ↦ Ring.inverse (f a) :=
-  measurable_ringInverse.comp hf
+  LMLExplore.measurable_ringInverse.comp hf
 
 /-- The inverse of an almost everywhere measurable function to a complete normed ring is almost
 everywhere measurable. -/
 @[fun_prop]
 theorem AEMeasurable.ringInverse {μ : Measure α} (hf : AEMeasurable f μ) :
     AEMeasurable (fun a ↦ Ring.inverse (f a)) μ :=
-  measurable_ringInverse.comp_aemeasurable hf
+  LMLExplore.measurable_ringInverse.comp_aemeasurable hf
