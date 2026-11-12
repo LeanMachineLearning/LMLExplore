@@ -63,7 +63,8 @@ Fixed variance, statistic `id`:
 
 * `LMLExplore.expFamily_gaussianReal`: the member of natural parameter `η` of the exponential
   family of `𝒩(m, v)` is `𝒩(m + v η, v)`.
-* `LMLExplore.deriv_cgf_gaussianReal`: the mean map of the family is `η ↦ m + v η`.
+* `LMLExplore.deriv_cgf_gaussianReal`, `LMLExplore.deriv_cgf_gaussianReal_eq`: the mean map of the
+  family is `η ↦ m + v η`.
 * `LMLExplore.not_ae_eq_const_gaussianReal`: for `v ≠ 0`, the identity is not almost everywhere
   constant under `𝒩(m, v)`, the nondegeneracy assumption of the mean parametrization.
 * `LMLExplore.expFamilyMeans_gaussianReal`, `LMLExplore.mem_expFamilyMeans_gaussianReal`,
@@ -140,6 +141,11 @@ theorem deriv_cgf_gaussianReal (m : ℝ) (v : ℝ≥0) (η : ℝ) :
     ((hasDerivAt_id η).const_mul m).add ((((hasDerivAt_id η).pow 2).const_mul _).div_const 2)
   rw [h.deriv]
   ring
+
+/-- The mean map of the exponential family of `𝒩(m, v)` is the function `η ↦ m + v η`. -/
+theorem deriv_cgf_gaussianReal_eq (m : ℝ) (v : ℝ≥0) :
+    deriv (cgf id (gaussianReal m v)) = fun η ↦ m + v * η :=
+  funext (deriv_cgf_gaussianReal m v)
 
 /-- For `v ≠ 0`, the identity is not almost everywhere constant under `𝒩(m, v)`: the Gaussian law
 has no atoms. This is the nondegeneracy assumption of the mean parametrization of the exponential
@@ -254,9 +260,7 @@ derivative of its log-partition function is `v` at every natural parameter. -/
 @[simp]
 theorem iteratedDeriv_two_cgf_gaussianReal (m : ℝ) (v : ℝ≥0) (η : ℝ) :
     iteratedDeriv 2 (cgf id (gaussianReal m v)) η = v := by
-  rw [iteratedDeriv_succ, iteratedDeriv_one,
-    show deriv (cgf id (gaussianReal m v)) = fun η ↦ m + v * η from
-      funext (deriv_cgf_gaussianReal m v)]
+  rw [iteratedDeriv_succ, iteratedDeriv_one, deriv_cgf_gaussianReal_eq]
   simp
 
 /-- The Jeffreys prior of the exponential family of `𝒩(m, v)` is `√v` times Lebesgue measure. -/
@@ -295,8 +299,7 @@ theorem expFamilyPosterior_gaussianReal_volume (m : ℝ) (hv : v ≠ 0) {s : ℕ
     ring
   rw [Measure.expFamilyPosterior_def, integrableExpSet_id_gaussianReal, interior_univ, hdens,
     withDensity_smul' C _ ENNReal.ofReal_ne_top, ← gaussianReal_of_var_ne_zero _ (inv_ne_zero hsv),
-    ProbabilityTheory.cond, Measure.restrict_univ, smul_apply, measure_univ, smul_eq_mul,
-    mul_one, smul_smul, ENNReal.inv_mul_cancel hC0 ENNReal.ofReal_ne_top, one_smul]
+    cond_smul _ _ hC0 ENNReal.ofReal_ne_top, cond_univ]
 
 /-- For `v ≠ 0` and `s ≠ 0` observations whose sum is `S`, the posterior of the natural parameter
 of the exponential family of `𝒩(m, v)` for its Jeffreys prior is the Gaussian law
@@ -321,8 +324,9 @@ theorem map_deriv_cgf_expFamilyPosterior_gaussianReal_jeffreysPrior (m : ℝ) (h
   have hv' : (v : ℝ) ≠ 0 := NNReal.coe_ne_zero.2 hv
   have hs' : (s : ℝ) ≠ 0 := Nat.cast_ne_zero.2 hs
   rw [expFamilyPosterior_gaussianReal_jeffreysPrior m hv hs,
-    show deriv (cgf id (gaussianReal m v)) = (fun x ↦ x + m) ∘ (fun x ↦ (v : ℝ) * x) from
-      funext fun η ↦ by rw [deriv_cgf_gaussianReal, Function.comp_apply, add_comm],
+    deriv_cgf_gaussianReal_eq,
+    show (fun η ↦ m + v * η) = (fun x ↦ x + m) ∘ (fun x ↦ (v : ℝ) * x) from
+      funext fun η ↦ add_comm _ _,
     ← Measure.map_map (by fun_prop) (by fun_prop), gaussianReal_map_const_mul,
     gaussianReal_map_add_const]
   congr 1

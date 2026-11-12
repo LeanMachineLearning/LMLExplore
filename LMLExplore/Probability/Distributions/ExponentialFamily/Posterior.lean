@@ -5,7 +5,7 @@ Authors: Rémy Degenne
 -/
 module
 
-public import Mathlib.Probability.ConditionalProbability
+public import LMLExplore.Probability.ConditionalProbability
 public import LMLExplore.Probability.Distributions.ExponentialFamily.Basic
 public import LMLExplore.Probability.Moments.Basic
 
@@ -138,11 +138,8 @@ lemma expFamilyPosterior_eq_zero_iff :
 constant `c ∉ {0, ∞}` does not change the posterior. -/
 lemma expFamilyPosterior_smul {c : ℝ≥0∞} (hc0 : c ≠ 0) (hc : c ≠ ∞) :
     ρ.expFamilyPosterior T (c • ν) s S = ρ.expFamilyPosterior T ν s S := by
-  ext B hB
-  rw [expFamilyPosterior_apply hB, expFamilyPosterior_apply hB, Measure.restrict_smul,
-    Measure.restrict_smul, lintegral_smul_measure, lintegral_smul_measure, smul_eq_mul,
-    smul_eq_mul, ENNReal.mul_inv (Or.inl hc0) (Or.inl hc), mul_mul_mul_comm,
-    ENNReal.inv_mul_cancel hc0 hc, one_mul]
+  rw [expFamilyPosterior_def, expFamilyPosterior_def, withDensity_smul_measure,
+    cond_smul _ _ hc0 hc]
 
 /-- For an s-finite measure `ρ`, an almost-everywhere measurable statistic `T` and an s-finite
 prior `ν`, the posterior after `s` observations is a measurable function of the sum `S` of their
