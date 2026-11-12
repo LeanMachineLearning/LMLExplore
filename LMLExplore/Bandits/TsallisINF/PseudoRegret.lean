@@ -149,21 +149,6 @@ private lemma isAlgEnvSeq_weightAlgorithm (h : IsAlgEnvSeq O A Y tsallisINF env 
       (fun n x ↦ tsallisINFWeights_mem_simplex n x.1)) env P :=
   tsallisINF_def (𝓞 := 𝓞) (α := α) ▸ h
 
-omit [IsProbabilityMeasure P] in
-/-- Along a run of Tsallis-INF, its weights at round `t` are a measurable function of the run. -/
-private lemma measurable_weights (h : IsAlgEnvSeq O A Y tsallisINF env P) (t : ℕ) :
-    Measurable fun ω ↦ tsallisINFWeights t (history O A Y t ω) :=
-  (measurable_tsallisINFWeights t).comp (h.measurable_history t)
-
-omit [IsProbabilityMeasure P] in
-/-- Along a run of Tsallis-INF, the importance-weighted estimates of the losses of round `t` are a
-measurable function of the run. -/
-private lemma measurable_iwEstimator_run (h : IsAlgEnvSeq O A Y tsallisINF env P) (t : ℕ) :
-    Measurable fun ω ↦
-      iwEstimator (tsallisINFWeights t (history O A Y t ω)) (A t ω) (1 - Y t ω) :=
-  measurable_iwEstimator.comp ((measurable_weights h t).prodMk
-    ((h.measurable_action t).prodMk (measurable_const.sub (h.measurable_feedback t))))
-
 omit [Nonempty α] [MeasurableSpace α] [MeasurableSingletonClass α] [MeasurableSpace 𝓞] in
 /-- The local norm `∑ b, p b √(p b) (𝟙{a = b} / p b - 1) ^ 2` of the shifted estimate of a unit
 loss when the arm `a` is drawn from the weights `p`. -/
@@ -253,8 +238,12 @@ theorem integrable_sum_mul_sqrt_mul_sq (h : IsAlgEnvSeq O A Y tsallisINF env P)
       √(tsallisINFWeights t (history O A Y t ω) b) *
       (iwEstimator (tsallisINFWeights t (history O A Y t ω)) (A t ω) (1 - Y t ω) b -
         (1 - Y t ω)) ^ 2 := by
-    have hW := measurable_weights h t
-    have hiw := measurable_iwEstimator_run h t
+    have hW : Measurable fun ω ↦ tsallisINFWeights t (history O A Y t ω) :=
+      WeightAlgorithm.measurable_weights_run (isAlgEnvSeq_weightAlgorithm h) t
+    have hiw : Measurable fun ω ↦
+        iwEstimator (tsallisINFWeights t (history O A Y t ω)) (A t ω) (1 - Y t ω) :=
+      WeightAlgorithm.measurable_iwEstimator_run (isAlgEnvSeq_weightAlgorithm h)
+        (measurable_const.sub (h.measurable_feedback t))
     have hYt := h.measurable_feedback t
     fun_prop
   refine (integrable_localNorm h t).mono' hm.aestronglyMeasurable ?_
