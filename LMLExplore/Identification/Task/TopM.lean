@@ -149,8 +149,9 @@ theorem altCost_topMTask_restrict_le_ofReal_mul_expFamilyDiv_of_mem
         fun_prop
       · simp only [Function.update_of_ne hca]
         split_ifs <;> fun_prop
-  exact IdentTask.altCost_restrict_le_ofReal_mul_expFamilyDiv_of_tendsto (by simp) hν hw hT
-    hμ a hba (by simpa using (hg.tendsto 0).mono_left nhdsWithin_le_nhds)
+  exact IdentTask.altCost_restrict_le_ofReal_mul_of_tendsto (by simp)
+    (fun c ↦ isDivergenceOn_expFamilyDiv (hT c)) hν hw hμ a hba
+    (by simpa using (hg.tendsto 0).mono_left nhdsWithin_le_nhds)
     (eventually_nhdsWithin_of_forall (s := Set.Ioi (0 : ℝ)) fun _ ht ↦
       update_shift_mem_alt_topMTask_of_mem ν hs ha hb hb_max ht)
 
@@ -177,8 +178,9 @@ theorem altCost_topMTask_restrict_le_ofReal_mul_expFamilyDiv_of_notMem
         fun_prop
       · simp only [Function.update_of_ne hca]
         split_ifs <;> fun_prop
-  exact IdentTask.altCost_restrict_le_ofReal_mul_expFamilyDiv_of_tendsto (by simp) hν hw hT
-    hμ a hba (by simpa using (hg.tendsto 0).mono_left nhdsWithin_le_nhds)
+  exact IdentTask.altCost_restrict_le_ofReal_mul_of_tendsto (by simp)
+    (fun c ↦ isDivergenceOn_expFamilyDiv (hT c)) hν hw hμ a hba
+    (by simpa using (hg.tendsto 0).mono_left nhdsWithin_le_nhds)
     (eventually_nhdsWithin_of_forall (s := Set.Ioi (0 : ℝ)) fun _ ht ↦
       update_shift_mem_alt_topMTask_of_notMem ν hs ha hb hb_min ht)
 

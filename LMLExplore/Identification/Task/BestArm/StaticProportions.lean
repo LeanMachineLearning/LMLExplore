@@ -99,8 +99,8 @@ private lemma cost_baiTask_two
     (hw : 0 ≤ w) :
     (baiTask ν id).cost w μ' μ = ENNReal.ofReal (w 0 * ρ.expFamilyDiv T (μ' 0) (μ 0) +
       w 1 * ρ.expFamilyDiv T (μ' 1) (μ 1)) := by
-  rw [IdentTask.cost_eq_sum_ofReal_mul_expFamilyDiv (ν := ν) (ρ := fun _ ↦ ρ) (T := fun _ ↦ T)
-    (ν_baiTask ν id) (fun μ'' hμ'' c ↦ ?_) hw hμ, Fin.sum_univ_two,
+  rw [IdentTask.cost_eq_sum_ofReal_mul (ν := ν) (S := fun _ ↦ ρ.expFamilyMeans T)
+    (d := fun _ ↦ ρ.expFamilyDiv T) (ν_baiTask ν id) (fun μ'' hμ'' c ↦ ?_) hw hμ, Fin.sum_univ_two,
     ← ENNReal.ofReal_add (mul_nonneg (hw 0) (expFamilyDiv_nonneg (hμ' 0) (hμ 0)))
       (mul_nonneg (hw 1) (expFamilyDiv_nonneg (hμ' 1) (hμ 1)))]
   rw [hν _ _ (hμ' c), hν _ _ (hμ'' c), klDiv_expFamily_natParam (hμ' c) (hμ'' c)]

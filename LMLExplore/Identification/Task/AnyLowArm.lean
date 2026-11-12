@@ -154,8 +154,9 @@ theorem altCost_anyLowArmTask_restrict_some (hT : ∀ a c, ¬ T a =ᵐ[ρ a] fun
         · simp [μx, hcγ, expFamilyDiv_self]
         · simp [μx, hc, hcγ, expFamilyDiv_self]
     rw [← h_lim]
-    refine IdentTask.altCost_le_sum_ofReal_mul_expFamilyDiv_of_eventually hνt hν hw hT
-      (l := 𝓝[>] γ) nhdsWithin_le_nhds hcont hmem ?_
+    refine IdentTask.altCost_le_sum_ofReal_mul_of_eventually hνt
+      (fun c ↦ isDivergenceOn_expFamilyDiv (hT c)) hν hw hμ (l := 𝓝[>] γ) nhdsWithin_le_nhds
+      hcont hmem ?_
     filter_upwards [self_mem_nhdsWithin] with x (hx : γ < x) hS
     have hne (c : α) : μx x c ≠ γ := by
       by_cases hc : c = a ∨ μ c = γ
@@ -170,8 +171,8 @@ theorem altCost_anyLowArmTask_restrict_some (hT : ∀ a c, ¬ T a =ᵐ[ρ a] fun
     rw [IdentTask.altCost_def]
     refine le_iInf₂ fun μ' hμ' ↦ ?_
     rw [IdentTask.alt_restrict, Set.mem_inter_iff, mem_alt_anyLowArmTask_some_iff] at hμ'
-    exact IdentTask.ofReal_mul_expFamilyDiv_le_cost hνt hν hw hμ'.2 a (hT a) (hγ a)
-      (Set.mem_uIcc.2 (Or.inl ⟨ha, hμ'.1.1⟩))
+    exact IdentTask.ofReal_mul_le_cost hνt hν hw hμ'.2 a (isDivergenceOn_expFamilyDiv (hT a))
+      (hμ a) (hγ a) (Set.mem_uIcc.2 (Or.inl ⟨ha, hμ'.1.1⟩))
 
 /-- **The game value of an arm in Any Low Arm** [DK19, Example 1]. Under the assumptions of
 `altCost_anyLowArmTask_restrict_some`, if `μ a ≤ γ`, then `D(μ, ¬a) = d_a(μ a, γ)`. -/

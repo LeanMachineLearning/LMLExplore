@@ -140,12 +140,12 @@ theorem altCost_thresholdingTask_restrict (hT : ∀ a c, ¬ T a =ᵐ[ρ a] fun _
       tauto
     have hm := expFamilyMeans_mem_nhds (hT a) (hγ a)
     rcases (hμγ a).lt_or_gt with ha | ha
-    · refine IdentTask.altCost_le_ofReal_mul_expFamilyDiv_of_eventually (l := 𝓝[>] γ)
-        (by simp) hν hw hμ a (hT a) (hγ a) nhdsWithin_le_nhds ?_
+    · refine IdentTask.altCost_le_ofReal_mul_of_eventually (l := 𝓝[>] γ) (by simp)
+        (fun c ↦ isDivergenceOn_expFamilyDiv (hT c)) hν hw hμ a (hγ a) nhdsWithin_le_nhds ?_
       filter_upwards [self_mem_nhdsWithin, nhdsWithin_le_nhds hm] with x (hx : γ < x) hxm
       exact h_alt (iff_of_true hx ha.not_gt) hx.ne' hxm
-    · refine IdentTask.altCost_le_ofReal_mul_expFamilyDiv_of_eventually (l := 𝓝[<] γ)
-        (by simp) hν hw hμ a (hT a) (hγ a) nhdsWithin_le_nhds ?_
+    · refine IdentTask.altCost_le_ofReal_mul_of_eventually (l := 𝓝[<] γ) (by simp)
+        (fun c ↦ isDivergenceOn_expFamilyDiv (hT c)) hν hw hμ a (hγ a) nhdsWithin_le_nhds ?_
       filter_upwards [self_mem_nhdsWithin, nhdsWithin_le_nhds hm] with x (hx : x < γ) hxm
       exact h_alt (iff_of_false hx.not_gt (not_not.2 ha)) hx.ne hxm
   · -- Lower bound: some arm `a` is on different sides of `γ` in `μ` and `μ'`.
@@ -160,7 +160,8 @@ theorem altCost_thresholdingTask_restrict (hT : ∀ a c, ¬ T a =ᵐ[ρ a] fun _
       · exact Or.inr ⟨not_lt.1 fun h2 ↦ ha (iff_of_true h1 h2), h1.le⟩
       · exact Or.inl ⟨not_lt.1 h1, (lt_of_not_ge fun h2 ↦ ha (iff_of_false h1 h2.not_gt)).le⟩
     exact (iInf_le _ a).trans
-      (IdentTask.ofReal_mul_expFamilyDiv_le_cost (by simp) hν hw hμ' a (hT a) (hγ a) h_mem)
+      (IdentTask.ofReal_mul_le_cost (by simp) hν hw hμ' a (isDivergenceOn_expFamilyDiv (hT a))
+        (hμ a) (hγ a) h_mem)
 
 /-- **The game value of thresholding.** Under the assumptions of
 `altCost_thresholdingTask_restrict`, the value of the correct answer `s` is
@@ -296,8 +297,8 @@ theorem altCost_minThresholdTask_restrict_false (hT : ∀ a c, ¬ T a =ᵐ[ρ a]
   classical
   refine le_antisymm (le_iInf fun a ↦ ?_) ?_
   · -- Upper bound: move the mean of `a` below `γ`, close to `γ`.
-    refine IdentTask.altCost_le_ofReal_mul_expFamilyDiv_of_eventually (l := 𝓝[<] γ) (by simp)
-      hν hw hμ a (hT a) (hγ a) nhdsWithin_le_nhds ?_
+    refine IdentTask.altCost_le_ofReal_mul_of_eventually (l := 𝓝[<] γ) (by simp)
+      (fun c ↦ isDivergenceOn_expFamilyDiv (hT c)) hν hw hμ a (hγ a) nhdsWithin_le_nhds ?_
     filter_upwards [self_mem_nhdsWithin,
       nhdsWithin_le_nhds (expFamilyMeans_mem_nhds (hT a) (hγ a))] with x (hx : x < γ) hxm
     rw [IdentTask.alt_restrict, Set.mem_inter_iff, mem_alt_minThresholdTask_false_iff]
@@ -309,8 +310,9 @@ theorem altCost_minThresholdTask_restrict_false (hT : ∀ a c, ¬ T a =ᵐ[ρ a]
     refine le_iInf₂ fun μ' hμ' ↦ ?_
     rw [IdentTask.alt_restrict, Set.mem_inter_iff, mem_alt_minThresholdTask_false_iff, id_eq] at hμ'
     obtain ⟨⟨a, ha⟩, hμ'⟩ := hμ'
-    exact (iInf_le _ a).trans (IdentTask.ofReal_mul_expFamilyDiv_le_cost (by simp) hν hw hμ' a
-      (hT a) (hγ a) (Set.mem_uIcc.2 (Or.inr ⟨ha.le, hμγ a⟩)))
+    exact (iInf_le _ a).trans (IdentTask.ofReal_mul_le_cost (by simp) hν hw hμ' a
+      (isDivergenceOn_expFamilyDiv (hT a)) (hμ a) (hγ a)
+      (Set.mem_uIcc.2 (Or.inr ⟨ha.le, hμγ a⟩)))
 
 /-- **The game value of the answer `false` in minimum threshold** [DK19, Lemma 37;
 KKG18, Lemma 1]. Under the assumptions of `altCost_minThresholdTask_restrict_false`, if all the
@@ -391,7 +393,8 @@ theorem altCost_minThresholdTask_restrict_true (hT : ∀ a c, ¬ T a =ᵐ[ρ a] 
     simp
   refine le_antisymm ?_ ?_
   · -- Upper bound: raise every mean below `x > γ` to `x`, and let `x` decrease to `γ`.
-    refine IdentTask.altCost_le_sum_ofReal_mul_expFamilyDiv_of_eventually hνt hν hw hT
+    refine IdentTask.altCost_le_sum_ofReal_mul_of_eventually hνt
+      (fun c ↦ isDivergenceOn_expFamilyDiv (hT c)) hν hw hμ
       (μx := fun x c ↦ max (μ c) x) (l := 𝓝[>] γ) nhdsWithin_le_nhds
       (fun _ ↦ (continuous_const.max continuous_id).continuousAt) (fun c ↦ hmax c (hγ c)) ?_
     filter_upwards [self_mem_nhdsWithin] with x (hx : γ < x) hS
@@ -403,7 +406,7 @@ theorem altCost_minThresholdTask_restrict_true (hT : ∀ a c, ¬ T a =ᵐ[ρ a] 
     rw [IdentTask.alt_restrict, Set.mem_inter_iff, mem_alt_minThresholdTask_true_iff, id_eq] at hμ'
     obtain ⟨hgt, hμ'⟩ := hμ'
     have hge (c : α) : γ ≤ μ' c := (hgt c).le
-    rw [IdentTask.cost_eq_sum_ofReal_mul_expFamilyDiv hνt hν hw hμ']
+    rw [IdentTask.cost_eq_sum_ofReal_mul hνt hν hw hμ']
     refine Finset.sum_le_sum fun c _ ↦ ENNReal.ofReal_le_ofReal (mul_le_mul_of_nonneg_left
       (expFamilyDiv_le_expFamilyDiv_of_mem_uIcc (hT c) (hmax c (hγ c)) (hμ' c) ?_) (hw c))
     rcases le_total (μ c) γ with h | h
