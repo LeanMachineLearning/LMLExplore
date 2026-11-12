@@ -41,6 +41,9 @@ entropy.
 * `softmax_mem_simplex`, `softmax_pos`: on a nonempty finite type, the softmax is a probability
   vector with positive entries.
 * `softmax_add_const`: adding a constant to every coordinate does not change the softmax.
+* `softmax_log_add_apply`, `softmax_log_softmax_add`: the softmax of `log w + v` is the
+  multiplicative update `a ↦ w a * exp (v a)` normalized, and a multiplicative update of a softmax
+  is a softmax.
 * `measurable_softmax`: `v ↦ softmax v` is measurable.
 * `sum_mul_exp_neg_sub_one_add_le`: for nonnegative weights `p`, a nonnegative loss `y` and
   `η ≥ 0`, `∑ b, p b * (exp (-(η * y b)) - 1 + η * y b) ≤ η ^ 2 / 2 * ∑ b, p b * y b ^ 2`.
@@ -94,6 +97,23 @@ lemma softmax_add_const (v : α → ℝ) (c : ℝ) :
 lemma softmax_zero : softmax (0 : α → ℝ) = fun _ ↦ (Fintype.card α : ℝ)⁻¹ := by
   funext a
   simp [softmax_apply]
+
+/-- The softmax of `log w + v`, for `w` with positive coordinates, is the multiplicative update
+of `w` by `exp v`: the vector `a ↦ w a * exp (v a)` normalized. -/
+lemma softmax_log_add_apply {w : α → ℝ} (hw : ∀ a, 0 < w a) (v : α → ℝ) (a : α) :
+    softmax (fun a ↦ log (w a) + v a) a = w a * exp (v a) / ∑ b, w b * exp (v b) := by
+  simp only [softmax_apply, exp_add, exp_log (hw _)]
+
+/-- A multiplicative update of a softmax is a softmax:
+`softmax (log (softmax v) + u) = softmax (v + u)`. -/
+lemma softmax_log_softmax_add [Nonempty α] (v u : α → ℝ) :
+    softmax (fun a ↦ log (softmax v a) + u a) = softmax (fun a ↦ v a + u a) := by
+  have hS : 0 < ∑ b, exp (v b) := sum_pos (fun b _ ↦ exp_pos _) univ_nonempty
+  have h : (fun a ↦ log (softmax v a) + u a) = fun a ↦ (v a + u a) + -log (∑ b, exp (v b)) := by
+    funext a
+    rw [softmax_apply, log_div (exp_pos _).ne' hS.ne', log_exp]
+    ring
+  rw [h, softmax_add_const]
 
 @[fun_prop]
 lemma measurable_softmax : Measurable (softmax (α := α)) := by
