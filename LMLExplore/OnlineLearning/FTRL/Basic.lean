@@ -6,9 +6,9 @@ Authors: Rémy Degenne
 module
 
 public import LMLExplore.Analysis.Convex.Bregman.Euclidean
+public import LMLExplore.Analysis.Convex.Bregman.Projection
 public import LMLExplore.Analysis.Convex.Bregman.StrongConvex
 public import LMLExplore.OnlineLearning.FTRL.Equality
-public import Mathlib.Analysis.Calculus.LocalExtr.Basic
 public import Mathlib.Topology.Order.Compact
 
 /-!
@@ -131,29 +131,6 @@ theorem sum_apply_sub_le_ftrl (ψ : ℕ → E → ℝ) (y : ℕ → E →L[ℝ] 
   rw [regret_eq_sum_apply_sub] at h
   refine h.trans_eq (congrArg (_ + ·) (sum_congr rfl fun t _ ↦ ?_))
   ring
-
-/-- Let `a` minimize over `K` the function `c ↦ L c + F c`, where `L` is a continuous linear
-functional and `F` has derivative `F'` within `K` at `a`. If the segment from `a` to `b` lies in
-`K`, then this function increases from `a` to `b` by at least the Bregman divergence
-`D_F(b, a)`. -/
-lemma bregDiv_le_sub_of_isMinOn {F : E → ℝ} {L F' : E →L[ℝ] ℝ} {a b : E}
-    (h_seg : segment ℝ a b ⊆ K) (ha : IsMinOn (fun c ↦ L c + F c) K a)
-    (hF' : HasFDerivWithinAt F F' K a) :
-    bregDiv F b a F' ≤ L b + F b - (L a + F a) := by
-  -- the function has derivative `L + F'` within `K` at `a`, nonnegative towards `b`
-  have h_seg' : segment ℝ a (a + (b - a)) ⊆ K := by rwa [add_sub_cancel]
-  have h_nonneg := ha.isLocalMinOn.hasFDerivWithinAt_nonneg (L.hasFDerivWithinAt.add hF')
-    (mem_posTangentConeAt_of_segment_subset h_seg')
-  simp only [add_apply, map_sub] at h_nonneg
-  simp only [bregDiv, map_sub]
-  linarith
-
-/-- Let `a` minimize `F` over `K`, where `F` has derivative `F'` within `K` at `a`. If the
-segment from `a` to `b` lies in `K`, then `D_F(b, a) ≤ F b - F a`. -/
-lemma bregDiv_le_sub_of_isMinOn_self {F : E → ℝ} {F' : E →L[ℝ] ℝ} {a b : E}
-    (h_seg : segment ℝ a b ⊆ K) (ha : IsMinOn F K a) (hF' : HasFDerivWithinAt F F' K a) :
-    bregDiv F b a F' ≤ F b - F a := by
-  simpa using bregDiv_le_sub_of_isMinOn (L := 0) h_seg (by simpa using ha) hF'
 
 /-- **Regret of FTRL with time-varying regularizers** [Ora, Lemma 7.1]. Let `K` be convex and let
 the regularizers `ψ t` be nondecreasing in `t` on `K`. Let each `a t`, for `t < n`, minimize over
