@@ -428,6 +428,27 @@ section Gaussian
 
 variable {ν : (α → ℝ) → Kernel α ℝ} [∀ μ, IsMarkovKernel (ν μ)] {v : α → ℝ≥0}
 
+/-- For a mean `x < γ`, the divergence of the exponential family of `𝒩(0, σ2)` from `x` to
+`max x γ`, the mean to which minimum threshold and Any Low Arm move the arms below `γ`, is
+`(x - γ)² / σ2 / 2`. -/
+lemma expFamilyDiv_gaussianReal_max_of_lt {σ2 : ℝ≥0} (hσ2 : σ2 ≠ 0) {x : ℝ} (h : x < γ) :
+    (gaussianReal 0 σ2).expFamilyDiv id x (max x γ) = (x - γ) ^ 2 / σ2 / 2 := by
+  rw [expFamilyDiv_gaussianReal 0 hσ2, max_eq_right h.le, div_mul_eq_div_div_swap]
+
+/-- For a mean `x ≥ γ`, the divergence of the exponential family of `𝒩(0, σ2)` from `x` to
+`max x γ = x` is `0`. -/
+lemma expFamilyDiv_gaussianReal_max_of_le (σ2 : ℝ≥0) {x : ℝ} (h : γ ≤ x) :
+    (gaussianReal 0 σ2).expFamilyDiv id x (max x γ) = 0 := by
+  rw [max_eq_left h, Measure.expFamilyDiv_self]
+
+/-- For a mean `x < γ` and a variance `σ2 ≠ 0`, the divergence of the exponential family of
+`𝒩(0, σ2)` from `x` to `max x γ` is positive. -/
+lemma expFamilyDiv_gaussianReal_max_pos {σ2 : ℝ≥0} (hσ2 : σ2 ≠ 0) {x : ℝ} (h : x < γ) :
+    0 < (gaussianReal 0 σ2).expFamilyDiv id x (max x γ) := by
+  rw [expFamilyDiv_gaussianReal_max_of_lt hσ2 h]
+  exact div_pos (div_pos (sq_pos_of_neg (sub_neg.2 h)) (NNReal.coe_pos.2 (pos_iff_ne_zero.2 hσ2)))
+    two_pos
+
 /-- **The cost of the alternatives in Gaussian thresholding.** For Gaussian arms with variances
 `v a ≠ 0`, a vector of means `μ` with no mean equal to `γ`, whose correct answer is the set `s` of
 the arms with mean above `γ`, and a nonnegative allocation `w`,
@@ -443,7 +464,7 @@ theorem altCost_thresholdingTask_gaussianReal (hv : ∀ a, v a ≠ 0)
       (fun a ↦ isDivergenceOn_expFamilyDiv (not_ae_eq_const_gaussianReal 0 (hv a)))
       (fun a ↦ mem_expFamilyMeans_gaussianReal 0 (hv a) _)
       (fun a ↦ mem_expFamilyMeans_gaussianReal 0 (hv a) _)
-      (fun μ' _ ↦ klDiv_eq_ofReal_expFamilyDiv_gaussianReal hv hν μ μ') hμγ hs hw]
+      (fun μ' _ ↦ Bandits.klDiv_eq_ofReal_expFamilyDiv_gaussianReal hv hν μ μ') hμγ hs hw]
   exact iInf_congr fun a ↦ by rw [expFamilyDiv_gaussianReal 0 (hv a), mul_div_assoc]
 
 /-- **The characteristic time of Gaussian thresholding.** For Gaussian arms with variances
@@ -457,7 +478,7 @@ theorem charTime_thresholdingTask_gaussianReal [Nonempty α] (hv : ∀ a, v a �
       (fun a ↦ isDivergenceOn_expFamilyDiv (not_ae_eq_const_gaussianReal 0 (hv a)))
       (fun a ↦ mem_expFamilyMeans_gaussianReal 0 (hv a) _)
       (fun a ↦ mem_expFamilyMeans_gaussianReal 0 (hv a) _)
-      (fun μ' _ ↦ klDiv_eq_ofReal_expFamilyDiv_gaussianReal hv hν μ μ') hμγ]
+      (fun μ' _ ↦ Bandits.klDiv_eq_ofReal_expFamilyDiv_gaussianReal hv hν μ μ') hμγ]
   exact congrArg ENNReal.ofReal (Finset.sum_congr rfl fun a _ ↦ by
     rw [expFamilyDiv_gaussianReal 0 (hv a), inv_div])
 
@@ -474,7 +495,7 @@ theorem charTime_minThresholdTask_gaussianReal_false [Nonempty α] (hv : ∀ a, 
       (fun a ↦ isDivergenceOn_expFamilyDiv (not_ae_eq_const_gaussianReal 0 (hv a)))
       (fun a ↦ mem_expFamilyMeans_gaussianReal 0 (hv a) _)
       (fun a ↦ mem_expFamilyMeans_gaussianReal 0 (hv a) _)
-      (fun μ' _ ↦ klDiv_eq_ofReal_expFamilyDiv_gaussianReal hv hν μ μ') hμγ]
+      (fun μ' _ ↦ Bandits.klDiv_eq_ofReal_expFamilyDiv_gaussianReal hv hν μ μ') hμγ]
   exact congrArg ENNReal.ofReal (Finset.sum_congr rfl fun a _ ↦ by
     rw [expFamilyDiv_gaussianReal 0 (hv a), inv_div])
 
@@ -493,23 +514,20 @@ theorem charTime_minThresholdTask_gaussianReal_true (hv : ∀ a, v a ≠ 0)
       (fun a ↦ isDivergenceOn_expFamilyDiv (not_ae_eq_const_gaussianReal 0 (hv a)))
       (fun a ↦ mem_expFamilyMeans_gaussianReal 0 (hv a) _)
       (fun a ↦ mem_expFamilyMeans_gaussianReal 0 (hv a) _)
-      (fun μ' _ ↦ klDiv_eq_ofReal_expFamilyDiv_gaussianReal hv hν μ μ') ⟨a₀, hγ⟩]
+      (fun μ' _ ↦ Bandits.klDiv_eq_ofReal_expFamilyDiv_gaussianReal hv hν μ μ') ⟨a₀, hγ⟩]
   -- The largest divergence to the alternatives is that of the arm `a₀`.
   have h_sup : ⨆ a, ENNReal.ofReal ((gaussianReal 0 (v a)).expFamilyDiv id (μ a)
-      (max (μ a) γ)) = ENNReal.ofReal ((μ a₀ - γ) ^ 2 / (2 * v a₀)) := by
-    refine le_antisymm (iSup_le fun a ↦ ENNReal.ofReal_le_ofReal ?_)
-      (le_iSup_of_le a₀ (by rw [max_eq_right hγ.le, expFamilyDiv_gaussianReal 0 (hv a₀)]))
-    rw [expFamilyDiv_gaussianReal 0 (hv a)]
+      (max (μ a) γ)) = ENNReal.ofReal ((gaussianReal 0 (v a₀)).expFamilyDiv id (μ a₀)
+      (max (μ a₀) γ)) := by
+    refine le_antisymm (iSup_le fun a ↦ ENNReal.ofReal_le_ofReal ?_) (le_iSup_of_le a₀ le_rfl)
+    rw [expFamilyDiv_gaussianReal_max_of_lt (hv a₀) hγ]
     rcases lt_or_ge (μ a) γ with h | h
-    · rw [max_eq_right h.le, div_mul_eq_div_div_swap, div_mul_eq_div_div_swap]
+    · rw [expFamilyDiv_gaussianReal_max_of_lt (hv a) h]
       exact div_le_div_of_nonneg_right (ha₀ a h) zero_le_two
-    · rw [max_eq_left h, sub_self, zero_pow two_ne_zero, zero_div]
+    · rw [expFamilyDiv_gaussianReal_max_of_le _ h]
       positivity
-  have hpos : 0 < (μ a₀ - γ) ^ 2 / (2 * v a₀) := by
-    have : 0 < (μ a₀ - γ) ^ 2 := by nlinarith [mul_pos (sub_pos.2 hγ) (sub_pos.2 hγ)]
-    have : 0 < (v a₀ : ℝ) := NNReal.coe_pos.2 (pos_iff_ne_zero.2 (hv a₀))
-    positivity
-  rw [h_sup, ← ENNReal.ofReal_inv_of_pos hpos, inv_div]
+  rw [h_sup, ← ENNReal.ofReal_inv_of_pos (expFamilyDiv_gaussianReal_max_pos (hv a₀) hγ),
+    expFamilyDiv_gaussianReal_max_of_lt (hv a₀) hγ, inv_div, div_div_eq_mul_div]
 
 /-- **The cost of the alternatives in Gaussian thresholding with a common variance.** For Gaussian
 arms with a common variance `σ2 ≠ 0`, a vector of means `μ` with no mean equal to `γ`, whose

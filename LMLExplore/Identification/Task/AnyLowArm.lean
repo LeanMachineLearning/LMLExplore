@@ -459,20 +459,8 @@ theorem oracleAlloc_anyLowArmTask_gaussianReal [DecidableEq α] (hv : ∀ a, v a
       (fun a ↦ isDivergenceOn_expFamilyDiv (not_ae_eq_const_gaussianReal 0 (hv a)))
       (fun a ↦ mem_expFamilyMeans_gaussianReal 0 (hv a) _)
       (fun a ↦ mem_expFamilyMeans_gaussianReal 0 (hv a) _)
-      (fun μ' _ ↦ klDiv_eq_ofReal_expFamilyDiv_gaussianReal hv hν μ μ') h]
-  simp only [expFamilyDiv_gaussianReal 0 (hv _)]
+      (fun μ' _ ↦ Bandits.klDiv_eq_ofReal_expFamilyDiv_gaussianReal hv hν μ μ') h]
   congr 1
-  -- The divergence `(μ a - max (μ a) γ)² / (2 v a)` of an arm is `(μ a - γ)² / (2 v a) > 0` if
-  -- the arm is below `γ`, and `0` otherwise.
-  have h_lt (a : α) (ha : μ a < γ) :
-      (μ a - max (μ a) γ) ^ 2 / (2 * v a) = (μ a - γ) ^ 2 / v a / 2 := by
-    rw [max_eq_right ha.le, div_mul_eq_div_div_swap]
-  have h_ge (a : α) (ha : γ ≤ μ a) : (μ a - max (μ a) γ) ^ 2 / (2 * v a) = 0 := by
-    rw [max_eq_left ha, sub_self, zero_pow two_ne_zero, zero_div]
-  have h_pos (a : α) (ha : μ a < γ) : 0 < (μ a - γ) ^ 2 / v a := by
-    have : 0 < (v a : ℝ) := NNReal.coe_pos.2 (pos_iff_ne_zero.2 (hv a))
-    have : 0 < (μ a - γ) ^ 2 := by nlinarith [mul_pos (sub_pos.2 ha) (sub_pos.2 ha)]
-    positivity
   obtain ⟨b₀, hb₀⟩ := h
   ext a
   simp only [Set.mem_ofPred_eq]
@@ -482,19 +470,20 @@ theorem oracleAlloc_anyLowArmTask_gaussianReal [DecidableEq α] (hv : ∀ a, v a
     have hlt : μ a < γ := by
       by_contra hge
       have h_le := ha b₀
-      rw [h_lt b₀ hb₀, h_ge a (not_lt.1 hge)] at h_le
-      linarith [h_pos b₀ hb₀]
+      rw [expFamilyDiv_gaussianReal_max_of_le _ (not_lt.1 hge)] at h_le
+      linarith [expFamilyDiv_gaussianReal_max_pos (hv b₀) hb₀]
     refine ⟨hlt, fun b hb ↦ ?_⟩
     have h_le := ha b
-    rw [h_lt b hb, h_lt a hlt] at h_le
+    rw [expFamilyDiv_gaussianReal_max_of_lt (hv b) hb,
+      expFamilyDiv_gaussianReal_max_of_lt (hv a) hlt] at h_le
     linarith
   · rintro ⟨hlt, ha⟩ b
-    rw [h_lt a hlt]
+    rw [expFamilyDiv_gaussianReal_max_of_lt (hv a) hlt]
     rcases lt_or_ge (μ b) γ with hb | hb
-    · rw [h_lt b hb]
+    · rw [expFamilyDiv_gaussianReal_max_of_lt (hv b) hb]
       linarith [ha b hb]
-    · rw [h_ge b hb]
-      linarith [h_pos a hlt]
+    · rw [expFamilyDiv_gaussianReal_max_of_le _ hb]
+      positivity
 
 /-- **The oracle allocations of Gaussian Any Low Arm with a common variance** [DK19, Example 1].
 For Gaussian arms with a common variance `σ2 ≠ 0` and a vector of means `μ` whose smallest mean
