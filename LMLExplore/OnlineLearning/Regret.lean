@@ -69,8 +69,10 @@ every dynamic regret, in the supremum.
   intervals is the sum of the interval regrets.
 * `dynRegret_eq_sum_intervalRegret`: the dynamic regret against a sequence that is constant on each
   of consecutive intervals is the sum of the interval regrets.
-* `pathLength_le_numSwitches_mul`, `pathLength_le_mul_diam`: a sequence with at most `m` switches
-  in a set of diameter `D` has path length at most `m * D`.
+* `pathLength_le_numSwitches_mul`: a sequence whose steps have norm at most `D` has path length at
+  most `numSwitches u n * D`.
+* `pathLength_le_mul_diam`: a sequence with at most `m` switches in a bounded set `S` has path
+  length at most `m * diam S`.
 
 ## References
 
@@ -231,7 +233,7 @@ lemma intervalRegret_smul (c : ℝ) (ℓ : ℕ → α → ℝ) (x : ℕ → α) 
 these rounds. -/
 lemma dynRegret_add_intervalRegret {u : ℕ → α} {v : α} {s τ : ℕ}
     (hu : ∀ t ∈ Ico s (s + τ), u t = v) :
-    dynRegret ℓ x u (s + τ) = dynRegret ℓ x u s + intervalRegret ℓ x v s τ := by
+    dynRegret ℓ x u s + intervalRegret ℓ x v s τ = dynRegret ℓ x u (s + τ) := by
   rw [dynRegret_def, dynRegret_def, intervalRegret_def,
     ← sum_range_add_sum_Ico _ (Nat.le_add_right s τ)]
   congr 1
@@ -250,7 +252,7 @@ theorem dynRegret_eq_sum_intervalRegret {u v : ℕ → α} {b : ℕ → ℕ} {K 
     have hbK := hb K (Nat.lt_succ_self K)
     have h_end : b (K + 1) = b K + (b (K + 1) - b K) := by omega
     rw [sum_range_succ, ← ih (fun k hk ↦ hb k (by omega)) (fun k hk ↦ hu k (by omega)),
-      ← dynRegret_add_intervalRegret fun t ht ↦ hu K (Nat.lt_succ_self K) t (by rwa [h_end]),
+      dynRegret_add_intervalRegret fun t ht ↦ hu K (Nat.lt_succ_self K) t (by rwa [h_end]),
       ← h_end]
 
 end IntervalRegret
@@ -309,6 +311,29 @@ lemma numSwitches_def [DecidableEq α] (u : ℕ → α) (n : ℕ) :
     numSwitches u n = #{t ∈ range (n - 1) | u (t + 1) ≠ u t} := by
   rw [numSwitches]
   congr
+
+@[simp]
+lemma numSwitches_zero (u : ℕ → α) : numSwitches u 0 = 0 := by
+  classical
+  simp [numSwitches_def]
+
+@[simp]
+lemma numSwitches_one (u : ℕ → α) : numSwitches u 1 = 0 := by
+  classical
+  simp [numSwitches_def]
+
+/-- Extending the horizon by one round adds one switch iff the sequence switches at the last
+round. -/
+lemma numSwitches_succ [DecidableEq α] (u : ℕ → α) (n : ℕ) :
+    numSwitches u (n + 2) = numSwitches u (n + 1) + if u (n + 1) ≠ u n then 1 else 0 := by
+  simp [numSwitches_def, card_filter, sum_range_succ]
+
+/-- The number of switches is monotone in the horizon. -/
+lemma numSwitches_mono (u : ℕ → α) {n n' : ℕ} (hn : n ≤ n') :
+    numSwitches u n ≤ numSwitches u n' := by
+  classical
+  rw [numSwitches_def, numSwitches_def]
+  exact card_le_card (filter_subset_filter _ (range_subset_range.mpr (by omega)))
 
 /-- A constant sequence has no switches. -/
 @[simp]
@@ -378,6 +403,19 @@ def pathLength (u : ℕ → E) (n : ℕ) : ℝ :=
 
 lemma pathLength_def (u : ℕ → E) (n : ℕ) :
     pathLength u n = ∑ t ∈ range (n - 1), ‖u (t + 1) - u t‖ := (rfl)
+
+@[simp]
+lemma pathLength_zero (u : ℕ → E) : pathLength u 0 = 0 := by
+  simp [pathLength_def]
+
+@[simp]
+lemma pathLength_one (u : ℕ → E) : pathLength u 1 = 0 := by
+  simp [pathLength_def]
+
+/-- Extending the horizon by one round adds the norm of the last step to the path length. -/
+lemma pathLength_succ (u : ℕ → E) (n : ℕ) :
+    pathLength u (n + 2) = pathLength u (n + 1) + ‖u (n + 1) - u n‖ := by
+  simp [pathLength_def, sum_range_succ]
 
 lemma pathLength_nonneg (u : ℕ → E) (n : ℕ) : 0 ≤ pathLength u n :=
   sum_nonneg fun _ _ ↦ norm_nonneg _
