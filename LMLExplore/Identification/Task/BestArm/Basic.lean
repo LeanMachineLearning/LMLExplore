@@ -154,6 +154,9 @@ within a factor `2` of the complexity `H(μ) = ∑ c, 2 σ2 / Δ_c²`, where `Δ
 * `LMLExplore.Identification.le_charTime_baiTask_gaussianBandit`,
   `LMLExplore.Identification.charTime_baiTask_gaussianBandit_le`: for Gaussian arms with variance
   `σ2 ≠ 0` and a unique best arm, `H(μ) ≤ T*(μ) ≤ 2 H(μ)` [GK16, Section 2.2].
+* `LMLExplore.Identification.charTime_baiTask_gaussianBandit_ne_zero`,
+  `LMLExplore.Identification.charTime_baiTask_gaussianBandit_ne_top`: for Gaussian arms with
+  variance `σ2 ≠ 0`, a unique best arm and at least two arms, `0 < T*(μ) < ∞`.
 * `LMLExplore.Identification.le_answerValue_baiTask_gaussianBandit`,
   `LMLExplore.Identification.answerValue_baiTask_gaussianBandit_le`: the same bounds on the value,
   `1 / (2 H(μ)) ≤ D(μ, ¬a) ≤ 1 / H(μ)`.
@@ -1454,6 +1457,30 @@ theorem charTime_baiTask_gaussianBandit_le (hσ2 : σ2 ≠ 0) (hb₀a : b₀ ≠
     ← inv_inv (ENNReal.ofReal (2 * _)),
     ← ENNReal.ofReal_inv_of_pos (mul_pos two_pos (sum_div_sq_pos hσ2 hb₀a ha)), ENNReal.inv_le_inv]
   exact le_answerValue_baiTask_gaussianBandit hσ2 hb₀a ha hb₀
+
+omit [DecidableEq α] in
+/-- For Gaussian arms with a common variance `σ2 ≠ 0`, a unique best arm `a` of `μ` and another arm
+`b₀ ≠ a`, the characteristic time `T*(μ)` is positive: it is at least `H(μ) > 0`. -/
+theorem charTime_baiTask_gaussianBandit_ne_zero (hσ2 : σ2 ≠ 0) (hb₀a : b₀ ≠ a)
+    (ha : ∀ b ≠ a, μ b < μ a) :
+    (baiTask (Bandits.gaussianBandit · σ2) id).charTime μ ≠ 0 := by
+  classical
+  exact ((ENNReal.ofReal_pos.2 (sum_div_sq_pos hσ2 hb₀a ha)).trans_le
+      (le_charTime_baiTask_gaussianBandit hσ2 hb₀a ha)).ne'
+
+omit [DecidableEq α] in
+/-- For Gaussian arms with a common variance `σ2 ≠ 0`, a unique best arm `a` of `μ` and another arm
+`b₀ ≠ a`, the characteristic time `T*(μ)` is finite: it is at most `2 H(μ)` for a second best
+arm. -/
+theorem charTime_baiTask_gaussianBandit_ne_top (hσ2 : σ2 ≠ 0) (hb₀a : b₀ ≠ a)
+    (ha : ∀ b ≠ a, μ b < μ a) :
+    (baiTask (Bandits.gaussianBandit · σ2) id).charTime μ ≠ ∞ := by
+  classical
+  obtain ⟨b₁, hb₁, hb₁max⟩ :=
+    (Finset.univ.erase a).exists_max_image μ ⟨b₀, Finset.mem_erase.2 ⟨hb₀a, Finset.mem_univ _⟩⟩
+  exact ne_top_of_le_ne_top ENNReal.ofReal_ne_top (charTime_baiTask_gaussianBandit_le hσ2
+    (Finset.ne_of_mem_erase hb₁) ha fun b hb ↦
+      hb₁max b (Finset.mem_erase.2 ⟨hb, Finset.mem_univ _⟩))
 
 end Gaussian
 
