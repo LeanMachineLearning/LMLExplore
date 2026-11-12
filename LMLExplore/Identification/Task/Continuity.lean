@@ -49,8 +49,8 @@ semicontinuity is the difficult half. It holds in two settings [DK19, Lemmas 24�
   tends to infinity as `y` tends to an endpoint of the interval of means.
 
 In both settings the continuity holds for all allocations `w : α → ℝ` (a negative weight counts as
-`0`), and on a product model it gives the continuity of `D(θ)` and of `T*(θ)` on the admissible
-models.
+`0`). On a product model with finitely many answers whose admissible models lie in `∏ a, S a`, it
+gives the continuity of `D(θ)` and of `T*(θ)` on the admissible models.
 
 Upper hemicontinuity of `w*(·, ¬i)` at `θ` means that for every open set `U` containing
 `w*(θ, ¬i)`, `w*(θ', ¬i) ⊆ U` for `θ'` close to `θ`; when `w*(θ, ¬i)` is a single allocation,
@@ -175,6 +175,26 @@ theorem measurable_altCost [MeasurableSpace Θ] [OpensMeasurableSpace (Θ × (α
     Measurable fun p : Θ × (α → ℝ) ↦ task.altCost p.1 p.2 i :=
   (task.upperSemicontinuous_altCost h h_top).measurable
 
+/-- Upper semicontinuity of the cost of a set of alternatives for real divergences
+`KL(ν_a(θ), ν_a(θ')) = k a θ θ'`, continuous in `θ ∈ s` for every `θ' ∈ A`. -/
+private lemma upperSemicontinuousOn_biInf_cost_of_ofReal {k : α → Θ → Θ → ℝ} {A : Set Θ}
+    (hν : ∀ θ ∈ s, ∀ θ' ∈ A, ∀ a,
+      klDiv (task.ν θ a) (task.ν θ' a) = ENNReal.ofReal (k a θ θ'))
+    (hk : ∀ θ' ∈ A, ∀ a, ContinuousOn (fun θ ↦ k a θ θ') s) :
+    UpperSemicontinuousOn (fun p : Θ × (α → ℝ) ↦ ⨅ θ' ∈ A, task.cost p.2 p.1 θ') (s ×ˢ univ) := by
+  refine task.upperSemicontinuousOn_biInf_cost (fun θ' hθ' a ↦ ?_) fun θ' hθ' θ hθ a ↦ ?_
+  · exact (ENNReal.continuous_ofReal.comp_continuousOn (hk θ' hθ' a)).congr
+      fun θ hθ ↦ hν θ hθ θ' hθ' a
+  · rw [hν θ hθ θ' hθ' a]
+    exact ENNReal.ofReal_ne_top
+
+/-- Two reals `r₂ < r`, with `0 ≤ r`, such that `c < r₂` and `r < d`, between `c < d` in `ℝ≥0∞`. -/
+private lemma exists_lt_ofReal_lt_ofReal_lt {c d : ℝ≥0∞} (h : c < d) :
+    ∃ r₂ r : ℝ, r₂ < r ∧ 0 ≤ r ∧ c < ENNReal.ofReal r₂ ∧ ENNReal.ofReal r < d := by
+  obtain ⟨r, hr0, hcr, hrd⟩ := ENNReal.lt_iff_exists_real_btwn.1 h
+  obtain ⟨r₂, -, hcr₂, hr₂r⟩ := ENNReal.lt_iff_exists_real_btwn.1 hcr
+  exact ⟨r₂, r, (ENNReal.ofReal_lt_ofReal_iff'.1 hr₂r).1, hr0, hcr₂, hrd⟩
+
 omit [TopologicalSpace Θ] in
 /-- With real divergences `k a θ θ'`, the transportation cost is a sum of real terms, a negative
 weight or divergence counting as `0`. -/
@@ -206,9 +226,7 @@ private lemma lowerSemicontinuousOn_biInf_cost_of_isCompact {k : α → Θ → �
       rw [task.cost_eq_sum_ofReal_max_mul_max (hν p.1 hp.1 θ' (hAK hθ')),
         ENNReal.ofReal_sum_of_nonneg fun a _ ↦ mul_nonneg (le_max_right _ _) (le_max_right _ _)]
   intro p₀ hp₀ c hc
-  obtain ⟨r, -, hcr, hrD⟩ := ENNReal.lt_iff_exists_real_btwn.1 hc
-  obtain ⟨r₂, -, hcr₂, hr₂r⟩ := ENNReal.lt_iff_exists_real_btwn.1 hcr
-  have hr₂r' : r₂ < r := (ENNReal.ofReal_lt_ofReal_iff'.1 hr₂r).1
+  obtain ⟨r₂, r, hr₂r', -, hcr₂, hrD⟩ := exists_lt_ofReal_lt_ofReal_lt hc
   -- Near `p₀`, the real costs to the models of `K` are uniformly within `r - r₂` of those at `p₀`.
   obtain ⟨V, hV, hVG⟩ := hK.mem_uniformity_of_prod hG_cont hp₀
     (Metric.dist_mem_uniformity (sub_pos.2 hr₂r'))
@@ -234,12 +252,9 @@ theorem continuousOn_biInf_cost_of_isCompact {k : α → Θ → Θ → ℝ} {A K
     ContinuousOn (fun p : Θ × (α → ℝ) ↦ ⨅ θ' ∈ A, task.cost p.2 p.1 θ') (s ×ˢ univ) := by
   refine continuousOn_iff_lower_upperSemicontinuousOn.2
     ⟨task.lowerSemicontinuousOn_biInf_cost_of_isCompact hν hk hK hAK,
-      task.upperSemicontinuousOn_biInf_cost (fun θ' hθ' a ↦ ?_) fun θ' hθ' θ hθ a ↦ ?_⟩
-  · refine (ENNReal.continuous_ofReal.comp_continuousOn ((hk a).comp
-      (f := fun θ ↦ (θ, θ')) (by fun_prop) fun θ hθ ↦ ⟨hθ, hAK hθ'⟩)).congr fun θ hθ ↦ ?_
-    exact hν θ hθ θ' (hAK hθ') a
-  · rw [hν θ hθ θ' (hAK hθ') a]
-    exact ENNReal.ofReal_ne_top
+      task.upperSemicontinuousOn_biInf_cost_of_ofReal (fun θ hθ θ' hθ' ↦ hν θ hθ θ' (hAK hθ'))
+        fun θ' hθ' a ↦ (hk a).comp (f := fun θ ↦ (θ, θ')) (by fun_prop)
+          fun θ hθ ↦ ⟨hθ, hAK hθ'⟩⟩
 
 /-- **Continuity of the cost of the alternatives in a compact set** [DK19, Lemma 24]: under the
 hypotheses of `continuousOn_biInf_cost_of_isCompact`, if the alternatives to `i` lie in the compact
@@ -373,6 +388,35 @@ private lemma exists_isCompact_eventually_dist_lt {k : Θ₀ → Θ₀ → ℝ} 
   filter_upwards [hU', hv', hV] with q hqU hqv hqV
   exact ⟨hqv, fun y hy hky ↦ hK_mem q.1 hqU y hy hky, hVg q hqV⟩
 
+omit [TopologicalSpace Θ₀] in
+/-- An arm of weight `q > v / 2 > 0` whose weighted divergence `max q 0 * max d 0` is at most
+`r ≥ 0` has divergence `d ≤ 2 r / v`. -/
+private lemma le_two_mul_div_of_max_mul_max_le {v q d r : ℝ} (hv : 0 < v) (hq : v / 2 < q)
+    (hr : 0 ≤ r) (h : max q 0 * max d 0 ≤ r) : d ≤ 2 * r / v := by
+  have hq0 : 0 < q := (half_pos hv).trans hq
+  rw [max_eq_left hq0.le] at h
+  calc d ≤ max d 0 := le_max_left _ _
+    _ ≤ r / q := (le_div_iff₀' hq0).2 h
+    _ ≤ r / (v / 2) := div_le_div_of_nonneg_left hr (half_pos hv) hq.le
+    _ = 2 * r / v := by field_simp
+
+omit [TopologicalSpace Θ₀] in
+/-- If each of at most `Fintype.card α` reals `f a` is within `(r - r₂) / (Fintype.card α + 1)` of
+`g a`, and the `g a` sum to more than `r`, then the `f a` sum to at least `r₂`. -/
+private lemma le_sum_of_forall_sub_lt {P : Finset α} {f g : α → ℝ} {r r₂ : ℝ} (hr : r₂ < r)
+    (h_close : ∀ a ∈ P, g a - (r - r₂) / (Fintype.card α + 1) < f a)
+    (h_sum : r < ∑ a ∈ P, g a) : r₂ ≤ ∑ a ∈ P, f a := by
+  set ε := (r - r₂) / (Fintype.card α + 1) with hε_def
+  have hε : 0 < ε := div_pos (sub_pos.2 hr) (by positivity)
+  have h_card : (P.card : ℝ) * ε < r - r₂ := by
+    have hP_card : (P.card : ℝ) ≤ Fintype.card α := by exact_mod_cast Finset.card_le_univ P
+    calc (P.card : ℝ) * ε ≤ Fintype.card α * ε := by gcongr
+      _ < (Fintype.card α + 1) * ε := by linarith
+      _ = r - r₂ := by rw [hε_def]; field_simp
+  have := Finset.sum_le_sum fun a ha ↦ (h_close a ha).le
+  rw [Finset.sum_sub_distrib, Finset.sum_const, nsmul_eq_mul] at this
+  linarith
+
 /-- Lower semicontinuity of the cost of a set of alternatives on a product model with locally
 relatively compact sublevel sets of the per-arm divergences. Near a point `(θ, w)`, the
 alternatives whose cost stays bounded have their coordinates of positive weight in compact sets,
@@ -394,10 +438,8 @@ private lemma lowerSemicontinuousOn_biInf_cost_pi
     fun p hp θ' hθ' ↦ task.cost_eq_sum_ofReal_max_mul_max (k := fun a θ θ' ↦ k a (θ a) (θ' a))
       (hν p.1 hp.1 θ' (hA hθ')) p.2
   rintro ⟨θ, w⟩ ⟨hθ, -⟩ c hc
-  obtain ⟨r, hr0, hcr, hrD⟩ := ENNReal.lt_iff_exists_real_btwn.1 hc
-  obtain ⟨r₂, -, hcr₂, hr₂r⟩ := ENNReal.lt_iff_exists_real_btwn.1 hcr
-  have hr₂r' : r₂ < r := (ENNReal.ofReal_lt_ofReal_iff'.1 hr₂r).1
-  set ε := (r - r₂) / (Fintype.card α + 1) with hε_def
+  obtain ⟨r₂, r, hr₂r', hr0, hcr₂, hrD⟩ := exists_lt_ofReal_lt_ofReal_lt hc
+  set ε := (r - r₂) / (Fintype.card α + 1)
   have hε : 0 < ε := div_pos (sub_pos.2 hr₂r') (by positivity)
   -- For an arm of positive weight, the parameters of the alternatives of cost at most `r` near
   -- `(θ, w)` lie in a compact set, on which the cost of that arm converges uniformly.
@@ -430,17 +472,11 @@ private lemma lowerSemicontinuousOn_biInf_cost_pi
   have h_close : ∀ a, 0 < w a → g a (θ a, w a) (θ' a) - ε < g a (p.1 a, p.2 a) (θ' a) := by
     intro a ha
     obtain ⟨hpw, hpK, hpg⟩ := hp a ha
-    have hpa : 0 < p.2 a := (half_pos ha).trans hpw
     have hga : g a (p.1 a, p.2 a) (θ' a) ≤ r := by
       refine (ENNReal.ofReal_le_ofReal_iff hr0).1
         ((Finset.single_le_sum (f := fun a ↦ ENNReal.ofReal (g a (p.1 a, p.2 a) (θ' a)))
           (fun _ _ ↦ zero_le) (Finset.mem_univ a)).trans hle)
-    have hk_le : k a (p.1 a) (θ' a) ≤ 2 * r / w a := by
-      simp only [hg, max_eq_left hpa.le] at hga
-      calc k a (p.1 a) (θ' a) ≤ max (k a (p.1 a) (θ' a)) 0 := le_max_left _ _
-        _ ≤ r / p.2 a := (le_div_iff₀' hpa).2 hga
-        _ ≤ r / (w a / 2) := div_le_div_of_nonneg_left hr0 (half_pos ha) hpw.le
-        _ = 2 * r / w a := by field_simp
+    have hk_le := le_two_mul_div_of_max_mul_max_le ha hpw hr0 hga
     have h := hpg (θ' a) (hpK (θ' a) (hA hθ' a (mem_univ a)) hk_le)
     rw [Real.dist_eq, abs_lt] at h
     linarith [h.1]
@@ -454,15 +490,8 @@ private lemma lowerSemicontinuousOn_biInf_cost_pi
     · exact (ENNReal.ofReal_lt_ofReal_iff'.1 h₀).1
     · by_contra ha
       exact h (by simp [hg, max_eq_right (not_lt.1 ha)])
-  have h_card : (P.card : ℝ) * ε < r - r₂ := by
-    have hP_card : (P.card : ℝ) ≤ Fintype.card α := by exact_mod_cast Finset.card_le_univ P
-    calc (P.card : ℝ) * ε ≤ Fintype.card α * ε := by gcongr
-      _ < (Fintype.card α + 1) * ε := by linarith
-      _ = r - r₂ := by rw [hε_def]; field_simp
-  have h_sum : r₂ ≤ ∑ a ∈ P, g a (p.1 a, p.2 a) (θ' a) := by
-    have := Finset.sum_le_sum fun a (ha : a ∈ P) ↦ (h_close a (Finset.mem_filter.1 ha).2).le
-    rw [Finset.sum_sub_distrib, Finset.sum_const, nsmul_eq_mul] at this
-    linarith
+  have h_sum : r₂ ≤ ∑ a ∈ P, g a (p.1 a, p.2 a) (θ' a) :=
+    le_sum_of_forall_sub_lt hr₂r' (fun a ha ↦ h_close a (Finset.mem_filter.1 ha).2) h_sum₀
   calc ENNReal.ofReal r₂ ≤ ENNReal.ofReal (∑ a ∈ P, g a (p.1 a, p.2 a) (θ' a)) :=
         ENNReal.ofReal_le_ofReal h_sum
     _ = ∑ a ∈ P, ENNReal.ofReal (g a (p.1 a, p.2 a) (θ' a)) :=
@@ -490,14 +519,10 @@ theorem continuousOn_biInf_cost_pi
       (univ.pi S ×ˢ univ) := by
   refine continuousOn_iff_lower_upperSemicontinuousOn.2
     ⟨task.lowerSemicontinuousOn_biInf_cost_pi hν hk hk_compact hA,
-      task.upperSemicontinuousOn_biInf_cost (fun θ' hθ' a ↦ ?_) fun θ' hθ' θ hθ a ↦ ?_⟩
-  · have hθ'a := hA hθ' a (mem_univ a)
-    refine (ENNReal.continuous_ofReal.comp_continuousOn ((hk a).comp
-      (f := fun θ : α → Θ₀ ↦ (θ a, θ' a)) (by fun_prop)
-        fun θ (hθ : θ ∈ univ.pi S) ↦ ⟨hθ a (mem_univ a), hθ'a⟩)).congr fun θ hθ ↦ ?_
-    exact hν θ hθ θ' (hA hθ') a
-  · rw [hν θ hθ θ' (hA hθ') a]
-    exact ENNReal.ofReal_ne_top
+      task.upperSemicontinuousOn_biInf_cost_of_ofReal (k := fun a θ θ' ↦ k a (θ a) (θ' a))
+        (fun θ hθ θ' hθ' ↦ hν θ hθ θ' (hA hθ')) fun θ' hθ' a ↦
+          (hk a).comp (f := fun θ : α → Θ₀ ↦ (θ a, θ' a)) (by fun_prop)
+            fun θ (hθ : θ ∈ univ.pi S) ↦ ⟨hθ a (mem_univ a), hA hθ' a (mem_univ a)⟩⟩
 
 /-- **Continuity of the cost of the alternatives on a product model** [DK19, Lemma 27]: under
 the hypotheses of `continuousOn_biInf_cost_pi`, if the alternatives to `i` are models of
