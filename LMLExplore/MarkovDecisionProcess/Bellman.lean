@@ -39,7 +39,9 @@ abstract dynamic programming of `LMLExplore.IsPolicyIteration` and
 Value functions are functions `𝓢 → ℝ` and the statements are pointwise, with integrability or
 boundedness hypotheses where an integral is involved. On a finite state space, where every function
 is bounded and measurable, the operators satisfy `LMLExplore.IsBlackwell` for the unit `1`, hence
-are `γ`-Lipschitz for the sup norm of `𝓢 → ℝ`.
+are `γ`-Lipschitz for the sup norm of `𝓢 → ℝ`. On a general state space they act on bounded
+measurable functions (`MarkovDecisionProcess/ValueIteration/Basic.lean`), where Blackwell's
+conditions give their pointwise contraction bounds.
 
 The optimality operator is defined for every action space, as a supremum in `ℝ`; it is meaningful
 when the lookahead is bounded above in the action. The statements about it assume that bound,
@@ -65,8 +67,6 @@ actions give both, and so do bounded rewards and a bounded measurable value func
   `T (v + c) = T v + γ * c`.
 * `Learning.MDP.const_le_bellman_const`: if `c` bounds the mean rewards from below, the constant
   `c / (1 - γ)` is below its image by `T` [P, (6.5.8)].
-* `Learning.MDP.abs_bellman_sub_le`, `Learning.MDP.abs_bellmanEval_sub_le`: the operators are
-  `γ`-contractions for the sup norm, stated pointwise.
 * `Learning.MDP.measurable_bellman`, `Learning.MDP.abs_bellman_le`,
   `Learning.MDP.measurable_bellmanEval`, `Learning.MDP.abs_bellmanEval_le`: the operators preserve
   bounded measurable functions, and so do their iterates (`Learning.MDP.measurable_bellman_iterate`,
@@ -248,17 +248,6 @@ theorem const_le_bellman_const [Nonempty 𝓐] {c : ℝ} (hγ : γ < 1)
   rw [lookahead_def, integral_const, probReal_univ, one_smul]
   linarith [hc (s, a)]
 
-/-- The optimality operator is a `γ`-contraction for the sup norm: if `|v - w| ≤ D` then
-`|M.bellman γ v - M.bellman γ w| ≤ γ * D`. -/
-theorem abs_bellman_sub_le [Finite 𝓐] [Nonempty 𝓐] (hv : ∀ p, Integrable v (M.P p))
-    (hw : ∀ p, Integrable w (M.P p)) (hD : ∀ s, |v s - w s| ≤ D) (s : 𝓢) :
-    |M.bellman γ v s - M.bellman γ w s| ≤ γ * D :=
-  abs_sub_le_of_monotone_of_add_const hD
-    (bellman_mono hv (fun p ↦ (hw p).add (integrable_const D)) fun _ ↦ Finite.bddAbove_range _)
-    (bellman_mono hw (fun p ↦ (hv p).add (integrable_const D)) fun _ ↦ Finite.bddAbove_range _)
-    (bellman_add_const hv (fun _ ↦ Finite.bddAbove_range _) D)
-    (bellman_add_const hw (fun _ ↦ Finite.bddAbove_range _) D) s
-
 /-- The optimality operator maps measurable functions to measurable functions, for countably many
 actions. -/
 theorem measurable_bellman [Countable 𝓐] (hv : Measurable v) : Measurable (M.bellman γ v) :=
@@ -406,21 +395,6 @@ theorem bellmanEval_add_const [IsMarkovKernel π] (hR : ∀ p, ∀ᵐ x ∂(M.R 
   simp only [bellmanEval_def, Pi.add_apply, lookahead_add_const (integrable_of_abs_le hv hvB _)]
   rw [integral_add (integrable_lookahead_prodMk_left hR hv hvB s _) (integrable_const _)]
   simp
-
-/-- With bounded rewards, the evaluation operator is a `γ`-contraction for the sup norm on bounded
-measurable functions: if `|v - w| ≤ D` then
-`|M.bellmanEval γ π v - M.bellmanEval γ π w| ≤ γ * D`. -/
-theorem abs_bellmanEval_sub_le [IsMarkovKernel π] (hR : ∀ p, ∀ᵐ x ∂(M.R p), |x| ≤ C)
-    (hv : Measurable v) (hvB : ∀ s, |v s| ≤ B) (hw : Measurable w) (hwB : ∀ s, |w s| ≤ B')
-    (hD : ∀ s, |v s - w s| ≤ D) (s : 𝓢) :
-    |M.bellmanEval γ π v s - M.bellmanEval γ π w s| ≤ γ * D := by
-  have hB (u : 𝓢 → ℝ) {B₀ : ℝ} (huB : ∀ s, |u s| ≤ B₀) (s : 𝓢) :
-      |((u + fun _ ↦ D : 𝓢 → ℝ)) s| ≤ B₀ + |D| :=
-    (abs_add_le _ _).trans (add_le_add (huB s) le_rfl)
-  exact abs_sub_le_of_monotone_of_add_const hD
-    (bellmanEval_mono hR hv hvB (hw.add measurable_const) (hB w hwB))
-    (bellmanEval_mono hR hw hwB (hv.add measurable_const) (hB v hvB))
-    (bellmanEval_add_const hR hv hvB D) (bellmanEval_add_const hR hw hwB D) s
 
 /-- The evaluation operator maps measurable functions to measurable functions. -/
 theorem measurable_bellmanEval [IsSFiniteKernel π] (hv : Measurable v) :
