@@ -26,6 +26,9 @@ public import Mathlib.Analysis.Real.Sqrt
   `√n`, as for the exploration rates of C-tracking.
 * `Real.tendsto_one_add_sqrt_div_atTop`: `(1 + √x) / x → 0` as `x → ∞`, so that a tracking error
   of order `1 + √n` after `n` rounds, as for C-tracking, is `o(n)`.
+* `Real.le_add_sqrt_of_sq_le`: the root of a quadratic inequality, `x² ≤ b x + c` with `b, c ≥ 0`
+  forces `x ≤ b + √c`. It solves for `√τ` inequalities of the form `τ ≤ b √τ + c`, as in the
+  self-bounding inequality `Real.le_of_le_sqrt_mul_add`.
 * `Real.sum_range_inv_sqrt_add_one_le`: `∑_{j < n} 1 / √(j + 1) ≤ 2 √n`.
 * `Real.sum_range_inv_sqrt_max_one_le`: `∑_{j < n} 1 / √(max 1 j) ≤ 2 √n + 1`, the same sum with
   the index clipped at `1`.
@@ -113,6 +116,16 @@ theorem tendsto_one_add_sqrt_div_atTop : Tendsto (fun x : ℝ ↦ (1 + √x) / x
   refine h.congr' ?_
   filter_upwards with x
   rw [add_div, sqrt_div_self', one_div, Function.comp_apply, one_div]
+
+/-- The root of a quadratic inequality: `x² ≤ b x + c` with `b, c ≥ 0` forces `x ≤ b + √c`. -/
+theorem le_add_sqrt_of_sq_le {x b c : ℝ} (hb : 0 ≤ b) (hc : 0 ≤ c) (h : x ^ 2 ≤ b * x + c) :
+    x ≤ b + √c := by
+  by_contra! hlt
+  have hs := sq_sqrt hc
+  have hs0 := sqrt_nonneg c
+  -- `(x - √c) (x - b - √c) > 0` and `√c (2 x - b - 2 √c) ≥ 0` add up to `x² - b x > c`
+  nlinarith [mul_pos (show 0 < x - √c by linarith) (show 0 < x - b - √c by linarith),
+    mul_nonneg hs0 (show 0 ≤ 2 * x - b - 2 * √c by linarith)]
 
 /-- `∑_{j < n} 1 / √(j + 1) ≤ 2 √n`. -/
 theorem sum_range_inv_sqrt_add_one_le (n : ℕ) :
