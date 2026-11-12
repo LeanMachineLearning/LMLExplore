@@ -31,6 +31,13 @@ than the bound `C / (1 - γ) ^ 2` given by `√(Var_P(v^π)) ≤ C / (1 - γ)` a
 empirical MDP, it is the variance bound behind the sample complexity of planning with a generative
 model.
 
+For a nonnegative reward `r_π`, the bound can be stated in terms of the value rather than of the
+rewards [LWCGC24, Lemma 11]: if `v^π ≤ B`, the resolvent of the state kernel `P_π` applied to the
+standard deviations `√(Var_{P_π}(v^π))` is at most `B / (γ √(1 - γ))`. Applied to the values
+`V^(l) = R_γ(P_π) √(Var_{P_π}(V^(l-1)))` of the successive standard deviations, it bounds each
+by `(γ √(1 - γ))⁻¹` times the previous one; this recursion is how [LWCGC24] evaluates a fixed
+policy with a generative model from sample sizes of order `(1 - γ)⁻¹`.
+
 ## Main definitions
 
 * `Learning.MDP.returnVariance M γ π`: the variance `Σ^π (s, a)` of the discounted return of the
@@ -49,6 +56,10 @@ model.
   `Σ^π = γ ^ 2 Var_P(v^π) + γ ^ 2 P^π_SA Σ^π` [AJKS, Lemma 2.11].
 * `Learning.MDP.integral_sqrt_variance_value_resolvent_le`: the total-variance lemma
   `R_γ(P^π_SA) √(Var_P(v^π)) ≤ C √(2 / (1 - γ) ^ 3)` [AJKS, Lemma 2.12].
+* `Learning.MDP.mul_integral_variance_value_stateKernel_resolvent_le`,
+  `Learning.MDP.integral_sqrt_variance_value_stateKernel_resolvent_le`: for `r_π ≥ 0` and
+  `v^π ≤ B`, `γ ^ 2 R_γ(P_π) Var_{P_π}(v^π) ≤ 2 B v^π - (v^π) ^ 2` and
+  `R_γ(P_π) √(Var_{P_π}(v^π)) ≤ B / (γ √(1 - γ))` [LWCGC24, Lemma 11].
 
 ## References
 
@@ -56,6 +67,8 @@ model.
   Algorithms*, 2022][AJKS], §2.3, Lemmas 2.11 and 2.12
 * [M. G. Azar, R. Munos and H. J. Kappen, *Minimax PAC bounds on the sample complexity of
   reinforcement learning with a generative model*, 2013][AMK13]
+* [G. Li, Y. Wei, Y. Chi, Y. Gu and Y. Chen, *Breaking the sample size barrier in model-based
+  reinforcement learning with a generative model*, Operations Research, 2024][LWCGC24], Lemma 11
 -/
 
 public section
@@ -212,5 +225,33 @@ theorem integral_sqrt_variance_value_resolvent_le (hγ : γ < 1)
     _ ≤ C * √(2 / (1 - γ) ^ 3) := by
         gcongr
         linarith
+
+/-- For a stationary policy `π` with nonnegative reward `r_π`, bounded rewards and `γ < 1`, if the
+value `v^π` is bounded by `B`, then the resolvent `R_γ(P_π)` of the state kernel applied to the
+one-step variances `Var_{P_π}(v^π)` of the value satisfies
+`γ ^ 2 R_γ(P_π) Var_{P_π}(v^π) ≤ 2 B v^π - (v^π) ^ 2`, hence `≤ B ^ 2`. -/
+theorem mul_integral_variance_value_stateKernel_resolvent_le (hγ : γ < 1) {B : ℝ}
+    (hR : ∀ p, ∀ᵐ x ∂(M.R p), |x| ≤ C) (hr : ∀ s, 0 ≤ M.policyReward π s)
+    (hvB : ∀ s, M.value γ π s ≤ B) (s : 𝓢) :
+    (γ : ℝ) ^ 2 * ∫ s', Var[M.value γ π; M.stateKernel π s']
+        ∂(Kernel.resolvent γ (M.stateKernel π) s) ≤
+      2 * B * M.value γ π s - M.value γ π s ^ 2 := by
+  rw [funext (value_eq_integral_resolvent hγ hR)] at hvB ⊢
+  exact Kernel.mul_integral_variance_integral_resolvent_le hγ measurable_policyReward
+    (abs_policyReward_le hR) hr hvB s
+
+/-- **The total-variance lemma in terms of the value** [LWCGC24, Lemma 11]: for a stationary
+policy `π` with nonnegative reward `r_π`, bounded rewards and `0 < γ < 1`, if the value `v^π` is
+bounded by `B`, then the resolvent `R_γ(P_π)` of the state kernel applied to the one-step standard
+deviations `√(Var_{P_π}(v^π))` of the value is at most `B / (γ √(1 - γ))`. This improves the
+constant `4` of [LWCGC24, Lemma 11] to `1`. -/
+theorem integral_sqrt_variance_value_stateKernel_resolvent_le (hγ₀ : 0 < γ) (hγ : γ < 1)
+    {B : ℝ} (hR : ∀ p, ∀ᵐ x ∂(M.R p), |x| ≤ C) (hr : ∀ s, 0 ≤ M.policyReward π s)
+    (hvB : ∀ s, M.value γ π s ≤ B) (s : 𝓢) :
+    ∫ s', √(Var[M.value γ π; M.stateKernel π s']) ∂(Kernel.resolvent γ (M.stateKernel π) s) ≤
+      B / (γ * √(1 - γ)) := by
+  rw [funext (value_eq_integral_resolvent hγ hR)] at hvB ⊢
+  exact Kernel.integral_sqrt_variance_integral_resolvent_le hγ₀ hγ measurable_policyReward
+    (abs_policyReward_le hR) hr hvB s
 
 end Learning.MDP

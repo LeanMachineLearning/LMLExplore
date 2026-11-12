@@ -13,6 +13,9 @@ public import Mathlib.MeasureTheory.Integral.Bochner.SumMeasure
 public import Mathlib.Probability.Kernel.Composition.IntegralCompProd
 public import Mathlib.Probability.Kernel.Composition.MeasureComp
 public import Mathlib.Probability.Kernel.WithDensity
+public import Mathlib.Probability.Moments.Variance
+import LMLExplore.Analysis.Convex.Integral
+import LMLExplore.Probability.Moments.Variance
 
 /-!
 # The resolvent of a kernel
@@ -44,6 +47,15 @@ performance-difference identity). For a second Markov kernel `κ'` and a second 
 `R_γ(κ) f - R_γ(κ') f' = R_γ(κ') ((f - f') + γ (κ - κ') R_γ(κ) f)`. Since the
 resolvent is a positive operator, the performance-difference identity also compares `R_γ f` with
 sub- and supersolutions of `u = f + γ κ u`.
+
+The comparison with supersolutions bounds the resolvent of the one-step variances
+`Var[V; κ y] = κ (V ^ 2) (y) - (κ V) (y) ^ 2` of a nonnegative resolvent `V = R_γ f ≤ B`: the
+function `2 B V - V ^ 2` is a supersolution for `γ ^ 2 Var_κ(V)`, so that
+`γ ^ 2 R_γ Var_κ(V) ≤ B ^ 2`, and Jensen's inequality for the square root gives
+`R_γ √Var_κ(V) ≤ B / (γ √(1 - γ))` [LWCGC24, Lemma 11]. Bounds of this kind control the error
+`γ R_γ(κ') (κ' - κ) V` of the simulation identity when the deviation `(κ' - κ) V` is bounded by
+a multiple of the standard deviation `√Var_κ(V)`, as Bernstein's inequality bounds it for an
+empirical kernel `κ'`.
 
 In a Markov decision process, the value of a stationary policy is the resolvent of the state
 kernel of the policy applied to its reward, and the discounted occupancy measure of a stationary
@@ -89,6 +101,10 @@ equation of these objects.
   supersolutions, `f + γ κ u ≤ u → R_γ f ≤ u` and `u ≤ f + γ κ u → u ≤ R_γ f`.
 * `ProbabilityTheory.Kernel.integral_resolvent_sub_integral_resolvent`: the simulation identity
   with two rewards `R_γ(κ) f - R_γ(κ') f' = R_γ(κ') ((f - f') + γ (κ - κ') R_γ(κ) f)`.
+* `ProbabilityTheory.Kernel.mul_integral_variance_integral_resolvent_le`,
+  `ProbabilityTheory.Kernel.integral_sqrt_variance_integral_resolvent_le`: for a nonnegative
+  bounded measurable `f` with `V = R_γ f ≤ B`, `γ ^ 2 R_γ Var_κ(V) ≤ 2 B V - V ^ 2` and
+  `R_γ √Var_κ(V) ≤ B / (γ √(1 - γ))` [LWCGC24, Lemma 11].
 * `MeasureTheory.Measure.resolvent_comp_eq_add`: for every kernel and every `γ`,
   `resolvent γ κ ∘ₘ μ` solves the flow equation `ν = μ + γ • (κ ∘ₘ ν)`;
   `MeasureTheory.Measure.eq_resolvent_comp_of_eq_add`: for a Markov kernel and `γ < 1`, it is the
@@ -103,6 +119,9 @@ equation of these objects.
   optimality, approximation, and distribution shift*, 2021][AKLM21], Lemma 3.2
 * [A. Agarwal, N. Jiang, S. M. Kakade and W. Sun, *Reinforcement Learning: Theory and
   Algorithms*, 2022][AJKS], Lemma 2.2
+* [G. Li, Y. Wei, Y. Chi, Y. Gu and Y. Chen, *Breaking the sample size barrier in model-based
+  reinforcement learning with a generative model*, Operations Research, 2024][LWCGC24], Lemma 11
+  (arXiv:2005.12900)
 -/
 
 public section
@@ -447,6 +466,87 @@ theorem integral_resolvent_sub_integral_resolvent (κ' : Kernel α α) [IsMarkov
   congr with z
   rw [integral_resolvent_eq_add (κ := κ) hγ hf hfB z]
   ring
+
+/-! ### The resolvent of the one-step variances -/
+
+/-- **The resolvent of the one-step variances of a nonnegative resolvent**: for `γ < 1` and a
+nonnegative bounded measurable `f` whose resolvent `V = R_γ f` is bounded by `B`, the resolvent of
+the one-step variances `Var[V; κ y]` satisfies `γ ^ 2 R_γ Var_κ(V) ≤ 2 B V - V ^ 2`, hence
+`γ ^ 2 R_γ Var_κ(V) ≤ B ^ 2`. -/
+theorem mul_integral_variance_integral_resolvent_le (hγ : γ < 1) {f : α → ℝ} {B C : ℝ}
+    (hf : Measurable f) (hfC : ∀ y, |f y| ≤ C) (hf₀ : ∀ y, 0 ≤ f y)
+    (hVB : ∀ y, ∫ z, f z ∂(resolvent γ κ y) ≤ B) (x : α) :
+    (γ : ℝ) ^ 2 * ∫ y, Var[fun z ↦ ∫ w, f w ∂(resolvent γ κ z); κ y] ∂(resolvent γ κ x) ≤
+      2 * B * ∫ z, f z ∂(resolvent γ κ x) - (∫ z, f z ∂(resolvent γ κ x)) ^ 2 := by
+  have := isFiniteKernel_resolvent (κ := κ) hγ
+  set V := fun z ↦ ∫ w, f w ∂(resolvent γ κ z) with hV_def
+  have hV : Measurable V := measurable_integral_resolvent hf
+  have hVC := abs_integral_resolvent_le (κ := κ) hγ hfC
+  have hV₀ (z : α) : 0 ≤ V z := integral_nonneg hf₀
+  have hσ : Measurable fun y ↦ Var[V; κ y] := hV.variance_kernel
+  have hσB (y : α) : |(γ : ℝ) ^ 2 * Var[V; κ y]| ≤ (γ : ℝ) ^ 2 * (C / (1 - γ)) ^ 2 := by
+    rw [abs_of_nonneg (mul_nonneg (sq_nonneg _) (variance_nonneg _ _))]
+    gcongr
+    exact variance_le_sq_of_abs_le hV.aemeasurable (.of_forall hVC)
+  have huB (z : α) : |2 * B * V z - V z ^ 2| ≤ B ^ 2 := by
+    have := hVB z
+    rw [abs_le]
+    constructor <;> nlinarith [hV₀ z]
+  rw [← integral_const_mul]
+  refine integral_resolvent_le_of_add_le hγ (hσ.const_mul _) hσB
+    (u := fun z ↦ 2 * B * V z - V z ^ 2) ((hV.const_mul _).sub (hV.pow_const 2)) huB
+    (fun z ↦ ?_) x
+  -- With `a = κ V` and `b = κ V ^ 2` at `z`, this is the inequality
+  -- `γ ^ 2 (b - a ^ 2) + γ (2 B a - b) ≤ 2 B V z - V z ^ 2` for `V z = f z + γ a ≤ B`.
+  have hint := integrable_of_abs_le hV hVC (κ z)
+  have hint₂ : Integrable (fun w ↦ V w ^ 2) (κ z) :=
+    integrable_of_abs_le (hV.pow_const 2) (B := (C / (1 - γ)) ^ 2)
+      (fun w ↦ by rw [abs_pow]; exact pow_le_pow_left₀ (abs_nonneg _) (hVC w) 2) _
+  have hb : 0 ≤ ∫ w, V w ^ 2 ∂(κ z) := integral_nonneg fun w ↦ sq_nonneg _
+  have hVz : V z = f z + γ * ∫ w, V w ∂(κ z) := integral_resolvent_eq_add hγ hf hfC z
+  have hγ₀ : (0 : ℝ) ≤ γ := γ.coe_nonneg
+  have hγ₁ : (γ : ℝ) ≤ 1 := by exact_mod_cast hγ.le
+  have hVzB : f z + γ * ∫ w, V w ∂(κ z) ≤ B := hVz ▸ hVB z
+  rw [variance_eq_sub (MemLp.of_bound hV.aestronglyMeasurable _
+      (.of_forall fun w ↦ (Real.norm_eq_abs _).trans_le (hVC w))),
+    integral_sub (hint.const_mul (2 * B)) hint₂, integral_const_mul, hVz]
+  simp only [Pi.pow_apply]
+  nlinarith [mul_nonneg (hf₀ z) (sub_nonneg.2 hVzB), mul_nonneg (mul_nonneg hγ₀
+    (sub_nonneg.2 hγ₁)) hb, sq_nonneg (f z)]
+
+/-- **The resolvent of the one-step standard deviations of a nonnegative resolvent**
+[LWCGC24, Lemma 11]: for `0 < γ < 1` and a nonnegative bounded measurable `f` whose resolvent
+`V = R_γ f` is bounded by `B`, the resolvent of the one-step standard deviations `√(Var[V; κ y])` is
+at most `B / (γ √(1 - γ))`, improving the constant `4` of [LWCGC24, Lemma 11] to `1`. The bound
+is stated in terms of the size `B` of `V`, rather than of a bound on `f` as in the total-variance
+lemma. -/
+theorem integral_sqrt_variance_integral_resolvent_le (hγ₀ : 0 < γ) (hγ : γ < 1) {f : α → ℝ}
+    {B C : ℝ} (hf : Measurable f) (hfC : ∀ y, |f y| ≤ C) (hf₀ : ∀ y, 0 ≤ f y)
+    (hVB : ∀ y, ∫ z, f z ∂(resolvent γ κ y) ≤ B) (x : α) :
+    ∫ y, √(Var[fun z ↦ ∫ w, f w ∂(resolvent γ κ z); κ y]) ∂(resolvent γ κ x) ≤
+      B / (γ * √(1 - γ)) := by
+  have := isFiniteKernel_resolvent (κ := κ) hγ
+  have hV := measurable_integral_resolvent (γ := γ) (κ := κ) hf
+  have hVC := abs_integral_resolvent_le (κ := κ) hγ hfC
+  have hγ₀' : (0 : ℝ) < γ := hγ₀
+  have hγ' : 0 < 1 - (γ : ℝ) := sub_pos.2 hγ
+  have hB : 0 ≤ B := (integral_nonneg hf₀).trans (hVB x)
+  -- `γ ^ 2 R_γ Var_κ(V) ≤ 2 B V - V ^ 2 ≤ B ^ 2`.
+  have hI : ∫ y, Var[fun z ↦ ∫ w, f w ∂(resolvent γ κ z); κ y] ∂(resolvent γ κ x) ≤
+      (B / γ) ^ 2 := by
+    rw [div_pow, le_div_iff₀ (by positivity), mul_comm]
+    have := mul_integral_variance_integral_resolvent_le hγ hf hfC hf₀ hVB x
+    nlinarith [sq_nonneg (B - ∫ z, f z ∂(resolvent γ κ x))]
+  -- Jensen's inequality for the square root, for the resolvent of mass `(1 - γ)⁻¹`.
+  refine (integral_sqrt_le_sqrt_measureReal_mul_integral (.of_forall fun y ↦ variance_nonneg _ _)
+    (integrable_of_abs_le (B := (C / (1 - γ)) ^ 2) hV.variance_kernel (fun y ↦ ?_)
+      (resolvent γ κ x))).trans ?_
+  · rw [abs_of_nonneg (variance_nonneg _ _)]
+    exact variance_le_sq_of_abs_le hV.aemeasurable (.of_forall hVC)
+  rw [measureReal_resolvent_univ hγ, show B / (γ * √(1 - γ)) = √((1 - (γ : ℝ))⁻¹ * (B / γ) ^ 2) by
+    rw [Real.sqrt_mul (inv_nonneg.2 hγ'.le), Real.sqrt_sq (div_nonneg hB hγ₀'.le), Real.sqrt_inv]
+    ring]
+  gcongr
 
 end Markov
 
