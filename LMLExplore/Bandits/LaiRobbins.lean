@@ -356,11 +356,11 @@ lemma dInf_range_bernoulliMeasure (hpm : (p : ℝ) ≤ m) (hm : m < 1) :
     calc dInf _ _ m ≤ klDiv Ber((1 : ℝ), 0, p) Ber((1 : ℝ), 0, ⟨q, hqI⟩) :=
           dInf_le (Set.mem_range_self (f := fun q : I ↦ Ber((1 : ℝ), 0, q)) ⟨q, hqI⟩)
             (by simpa [TauCeti.Probability.integral_id_bernoulliMeasure] using hq.1)
-      _ = klBer p q := klDiv_bernoulliMeasure p ⟨q, hqI⟩
+      _ = klBer p q := klDiv_bernoulliMeasure one_ne_zero p ⟨q, hqI⟩
   · -- `d(p, ·)` is monotone on `[p, 1]`.
     rintro _ ⟨q, rfl⟩ hq
     have hq' : m < q := by simpa [TauCeti.Probability.integral_id_bernoulliMeasure] using hq
-    rw [klDiv_bernoulliMeasure]
+    rw [klDiv_bernoulliMeasure one_ne_zero]
     exact monotoneOn_klBer p hpm (hpm.trans hq'.le) hq'.le
 
 /-- **`d_inf` for Bernoulli laws** [LS, Table 16.1]: no Bernoulli law on `{0, 1}` has a mean above
