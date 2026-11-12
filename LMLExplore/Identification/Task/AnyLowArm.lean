@@ -171,8 +171,8 @@ theorem altCost_anyLowArmTask_restrict_some (hT : ∀ a c, ¬ T a =ᵐ[ρ a] fun
     rw [IdentTask.altCost_def]
     refine le_iInf₂ fun μ' hμ' ↦ ?_
     rw [IdentTask.alt_restrict, Set.mem_inter_iff, mem_alt_anyLowArmTask_some_iff] at hμ'
-    exact IdentTask.ofReal_mul_le_cost hνt (fun c ↦ isDivergenceOn_expFamilyDiv (hT c)) hν hw
-      hμ'.2 a (hμ a) (hγ a) (Set.mem_uIcc.2 (Or.inl ⟨ha, hμ'.1.1⟩))
+    exact IdentTask.ofReal_mul_le_cost hνt hν hw hμ'.2 a (isDivergenceOn_expFamilyDiv (hT a))
+      (hμ a) (hγ a) (Set.mem_uIcc.2 (Or.inl ⟨ha, hμ'.1.1⟩))
 
 /-- **The game value of an arm in Any Low Arm** [DK19, Example 1]. Under the assumptions of
 `altCost_anyLowArmTask_restrict_some`, if `μ a ≤ γ`, then `D(μ, ¬a) = d_a(μ a, γ)`. -/

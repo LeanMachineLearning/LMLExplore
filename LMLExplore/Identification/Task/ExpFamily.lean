@@ -149,7 +149,7 @@ lemma le_of_mem_uIcc (h : IsDivergenceOn d S) (hx : x ∈ S) (hγ : γ ∈ S) (h
 
 /-- The divergence to `y` grows as the first argument moves away from `y`: for `γ` between `y`
 and `x`, `d(γ, y) ≤ d(x, y)`. -/
-lemma le_of_mem_uIcc_left (h : IsDivergenceOn d S) (hx : x ∈ S) (hγ : γ ∈ S) (hy : y ∈ S)
+lemma le_left_of_mem_uIcc (h : IsDivergenceOn d S) (hx : x ∈ S) (hγ : γ ∈ S) (hy : y ∈ S)
     (hγxy : γ ∈ uIcc y x) : d γ y ≤ d x y := by
   rcases le_total y x with hyx | hxy
   · rw [uIcc_of_le hyx] at hγxy
@@ -202,9 +202,9 @@ lemma cost_eq_sum_ofReal_mul_left
   exact Finset.sum_congr rfl fun c _ ↦ by rw [hν μ' hμ' c, ENNReal.ofReal_mul (hw c)]
 
 /-- Moving the mean of the arm `a` of a vector of means `μ` in `S` to a mean `x ∈ S_a` costs
-`w a d_a(μ a, x)`. -/
+`w a d_a(μ a, x)`, when each divergence `d_c` vanishes at `(μ c, μ c)`. -/
 lemma cost_update_eq_ofReal_mul [DecidableEq α]
-    (hνt : task.ν = ν) (hd : ∀ c, IsDivergenceOn (d c) (S c))
+    (hνt : task.ν = ν) (hd : ∀ c, d c (μ c) (μ c) = 0)
     (hν : ∀ μ' : α → ℝ, (∀ c, μ' c ∈ S c) →
       ∀ c, klDiv (ν μ c) (ν μ' c) = ENNReal.ofReal (d c (μ c) (μ' c)))
     (hw : 0 ≤ w) (hμ : ∀ c, μ c ∈ S c) (a : α) {x : ℝ} (hx : x ∈ S a) :
@@ -213,7 +213,7 @@ lemma cost_update_eq_ofReal_mul [DecidableEq α]
     (Function.forall_update_iff μ fun c y ↦ y ∈ S c).2 ⟨hx, fun c _ ↦ hμ c⟩
   rw [cost_eq_sum_ofReal_mul hνt hν hw hμx, Finset.sum_eq_single a (fun c _ hc ↦ ?_) (by simp)]
   · simp
-  · simp [Function.update_of_ne hc, (hd c).apply_self (hμ c)]
+  · simp [Function.update_of_ne hc, hd c]
 
 /-- **Moving one arm close to a mean.** Let `μ` be a vector of means in `S`. If the vectors
 obtained from `μ` by moving the mean of the arm `a` to `x` are alternatives to `i` for all `x` near
@@ -231,7 +231,7 @@ lemma altCost_le_ofReal_mul_of_eventually [DecidableEq α]
       ((hd a).continuousAt_right (hμ a) hγ))).tendsto.mono_left hl
   refine ge_of_tendsto h_tendsto ?_
   filter_upwards [h_alt, hl ((hd a).isOpen.mem_nhds hγ)] with x hx hxm
-  rw [← cost_update_eq_ofReal_mul hνt hd hν hw hμ a hxm]
+  rw [← cost_update_eq_ofReal_mul hνt (fun c ↦ (hd c).apply_self (hμ c)) hν hw hμ a hxm]
   exact task.altCost_le_cost hx w
 
 /-- **Alternatives converging to a vector of means.** Let `μ` be a vector of means in `S`. If the
@@ -347,7 +347,8 @@ lemma altCost_restrict_le_ofReal_mul_of_tendsto [DecidableEq α]
   have h_mem : ∀ᶠ x in l, ∀ c, f x c ∈ S c :=
     eventually_all.2 fun c ↦ ((continuous_apply c).tendsto _).comp hf
       ((hd c).isOpen.mem_nhds (hμγ c))
-  rw [← cost_update_eq_ofReal_mul hνt hd hν hw hμ a hγ, cost_eq_sum_ofReal_mul hνt hν hw hμγ]
+  rw [← cost_update_eq_ofReal_mul hνt (fun c ↦ (hd c).apply_self (hμ c)) hν hw hμ a hγ,
+    cost_eq_sum_ofReal_mul hνt hν hw hμγ]
   refine altCost_le_sum_ofReal_mul_of_tendsto (by rw [ν_restrict, hνt]) hd hν hw hμ hμγ hf ?_
   filter_upwards [h_alt, h_mem] with x hx hxm
   rw [alt_restrict]
@@ -357,17 +358,18 @@ lemma altCost_restrict_le_ofReal_mul_of_tendsto [DecidableEq α]
 `μ a ∈ S_a` and a vector of means `μ'` in `S`, if a mean `γ ∈ S_a` lies between `μ a` and `μ' a`,
 then `w a d_a(μ a, γ) ≤ cost_μ(w, μ')`. -/
 lemma ofReal_mul_le_cost
-    (hνt : task.ν = ν) (hd : ∀ c, IsDivergenceOn (d c) (S c))
+    (hνt : task.ν = ν)
     (hν : ∀ μ' : α → ℝ, (∀ c, μ' c ∈ S c) →
       ∀ c, klDiv (ν μ c) (ν μ' c) = ENNReal.ofReal (d c (μ c) (μ' c)))
-    (hw : 0 ≤ w) {μ' : α → ℝ} (hμ' : ∀ c, μ' c ∈ S c) (a : α) (hμ : μ a ∈ S a) (hγ : γ ∈ S a)
+    (hw : 0 ≤ w) {μ' : α → ℝ} (hμ' : ∀ c, μ' c ∈ S c) (a : α) (hd : IsDivergenceOn (d a) (S a))
+    (hμ : μ a ∈ S a) (hγ : γ ∈ S a)
     (h : γ ∈ uIcc (μ a) (μ' a)) :
     ENNReal.ofReal (w a * d a (μ a) γ) ≤ task.cost w μ μ' := by
   rw [cost_eq_sum_ofReal_mul hνt hν hw hμ']
   refine le_trans ?_ (Finset.single_le_sum (f := fun c ↦
     ENNReal.ofReal (w c * d c (μ c) (μ' c))) (fun _ _ ↦ zero_le) (Finset.mem_univ a))
   exact ENNReal.ofReal_le_ofReal (mul_le_mul_of_nonneg_left
-    ((hd a).le_of_mem_uIcc hμ hγ (hμ' a) h) (hw a))
+    (hd.le_of_mem_uIcc hμ hγ (hμ' a) h) (hw a))
 
 /-- For Gaussian arms with variances `v c ≠ 0`, the transportation cost is a weighted squared
 distance between the vectors of means: `cost_μ(w, μ') = ∑ c, w c (μ c - μ' c)² / (2 v c)`. -/

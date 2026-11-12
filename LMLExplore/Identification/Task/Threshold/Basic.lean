@@ -160,8 +160,8 @@ theorem altCost_thresholdingTask_restrict (hT : ∀ a c, ¬ T a =ᵐ[ρ a] fun _
       · exact Or.inr ⟨not_lt.1 fun h2 ↦ ha (iff_of_true h1 h2), h1.le⟩
       · exact Or.inl ⟨not_lt.1 h1, (lt_of_not_ge fun h2 ↦ ha (iff_of_false h1 h2.not_gt)).le⟩
     exact (iInf_le _ a).trans
-      (IdentTask.ofReal_mul_le_cost (by simp) (fun c ↦ isDivergenceOn_expFamilyDiv (hT c)) hν hw
-        hμ' a (hμ a) (hγ a) h_mem)
+      (IdentTask.ofReal_mul_le_cost (by simp) hν hw hμ' a (isDivergenceOn_expFamilyDiv (hT a))
+        (hμ a) (hγ a) h_mem)
 
 /-- **The game value of thresholding.** Under the assumptions of
 `altCost_thresholdingTask_restrict`, the value of the correct answer `s` is
@@ -310,8 +310,8 @@ theorem altCost_minThresholdTask_restrict_false (hT : ∀ a c, ¬ T a =ᵐ[ρ a]
     refine le_iInf₂ fun μ' hμ' ↦ ?_
     rw [IdentTask.alt_restrict, Set.mem_inter_iff, mem_alt_minThresholdTask_false_iff, id_eq] at hμ'
     obtain ⟨⟨a, ha⟩, hμ'⟩ := hμ'
-    exact (iInf_le _ a).trans (IdentTask.ofReal_mul_le_cost (by simp)
-      (fun c ↦ isDivergenceOn_expFamilyDiv (hT c)) hν hw hμ' a (hμ a) (hγ a)
+    exact (iInf_le _ a).trans (IdentTask.ofReal_mul_le_cost (by simp) hν hw hμ' a
+      (isDivergenceOn_expFamilyDiv (hT a)) (hμ a) (hγ a)
       (Set.mem_uIcc.2 (Or.inr ⟨ha.le, hμγ a⟩)))
 
 /-- **The game value of the answer `false` in minimum threshold** [DK19, Lemma 37;
