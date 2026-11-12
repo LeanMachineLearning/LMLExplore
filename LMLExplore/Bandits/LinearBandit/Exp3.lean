@@ -383,6 +383,18 @@ private lemma integrable_inner_sub_inner [IsFiniteMeasure P] (hm : m ≤ mΩ)
   rw [Real.norm_eq_abs]
   exact (abs_sub _ _).trans (by linarith [hω c, hω b])
 
+omit [Fintype α] [FiniteDimensional ℝ E] [IsProbabilityMeasure P] in
+/-- For an `m`-measurable weight `r` bounded by `C`, the weighted loss `r * ⟪φ c, y⟫` of an arm
+`c` is integrable, for an `m`-measurable loss vector `y` with losses in `[-1, 1]`. -/
+private lemma integrable_mul_inner [IsFiniteMeasure P] (hm : m ≤ mΩ)
+    (hy : AEStronglyMeasurable[m] y P) (hy1 : ∀ᵐ ω ∂P, ∀ c, |⟪φ c, y ω⟫_ℝ| ≤ 1) {r : Ω → ℝ}
+    (hr : AEStronglyMeasurable[m] r P) {C : ℝ} (hrC : ∀ ω, |r ω| ≤ C) (c : α) :
+    Integrable (fun ω ↦ r ω * ⟪φ c, y ω⟫_ℝ) P := by
+  refine .of_bound ((hr.mul hy.const_inner).mono hm) C ?_
+  filter_upwards [hy1] with ω hω
+  rw [Real.norm_eq_abs, abs_mul]
+  exact (mul_le_of_le_one_right (abs_nonneg _) (hω c)).trans (hrC ω)
+
 variable (hπ : π ∈ simplex α) (hπu : IsUnit (∑ b, π b • rankOne ℝ (φ b) (φ b)))
   (hg : ∀ b, ⟪φ b, Ring.inverse (∑ b, π b • rankOne ℝ (φ b) (φ b)) (φ b)⟫_ℝ ≤ g)
   (hγ : 0 < γ) (hγ1 : γ ≤ 1) (hm : m ≤ mΩ) (hX : ∀ c, MeasurableSet (X ⁻¹' {c}))
@@ -464,11 +476,7 @@ theorem integral_sum_mul_linearExp3Estimate {r : Ω → α → ℝ}
   have h_int_X (b : α) := integrable_mul_linearExp3Estimate_apply_pow hπ hπu hg hγ hγ1 hm hX hXW
     hy hy1 (hr b) (fun ω ↦ hrC ω b) 1 b
   simp only [pow_one] at h_int_X
-  have h_int_y (b : α) : Integrable (fun ω ↦ r ω b * ⟪φ b, y ω⟫_ℝ) P := by
-    refine .of_bound (((hr b).mul hy.const_inner).mono hm) (C * 1) ?_
-    filter_upwards [hy1] with ω hω
-    rw [Real.norm_eq_abs, abs_mul]
-    exact mul_le_mul (hrC ω b) (hω b) (abs_nonneg _) ((abs_nonneg _).trans (hrC ω b))
+  have h_int_y (b : α) := integrable_mul_inner hm hy hy1 (hr b) (fun ω ↦ hrC ω b) b
   -- each term `r b * Ŷ b` has the mean of its average over the played arm, `r b * ⟪φ b, y⟫`
   have h_term (b : α) : ∫ ω, r ω b *
       linearExp3Estimate φ (linearExp3Weights π η γ (S ω)) (X ω) ⟪φ (X ω), y ω⟫_ℝ b ∂P =
@@ -540,7 +548,7 @@ include hπ hπu hg hγ hγ1 hm hX hXW hy hy1 in
 `integral_sum_mul_linearExp3Estimate`, against every arm `b`, the expected regret
 `E[⟪φ X, y⟫ - ⟪φ b, y⟫]` is at most the expected regret of the exponential weights
 `Q = softmax (-(η • S))` on the estimated losses, scaled by `1 - γ`, plus the cost `2 γ` of the
-exploration: `E[(1 - γ) (⟨Q, Ŷ⟩ - Ŷ b)] + 2 γ`. Both sides are integrable. -/
+exploration: `E[(1 - γ) (⟨Q, Ŷ⟩ - Ŷ b)] + 2 γ`. The right-hand integrand is integrable. -/
 theorem linearExp3_integral_inner_sub_le (b : α) :
     Integrable (fun ω ↦ (1 - γ) * (∑ c, softmax (-(η • S ω)) c *
       linearExp3Estimate φ (linearExp3Weights π η γ (S ω)) (X ω) ⟪φ (X ω), y ω⟫_ℝ c -
@@ -582,12 +590,8 @@ theorem linearExp3_integral_inner_sub_le (b : α) :
     (fun c ↦ hy.const_inner.sub hy.const_inner) hℓb]
   simp_rw [h_eq]
   rw [integral_sum_mul_linearExp3Estimate hπ hπu hg hγ hγ1 hm hX hXW hy hy1 hr hrC]
-  have h_int_rℓ : Integrable (fun ω ↦ ∑ c, r ω c * ⟪φ c, y ω⟫_ℝ) P := by
-    refine integrable_finsetSum _ fun c _ ↦
-      .of_bound (((hr c).mul hy.const_inner).mono hm) (2 * 1) ?_
-    filter_upwards [hy1] with ω hω
-    rw [Real.norm_eq_abs, abs_mul]
-    exact mul_le_mul (hrC ω c) (hω c) (abs_nonneg _) (by norm_num)
+  have h_int_rℓ : Integrable (fun ω ↦ ∑ c, r ω c * ⟪φ c, y ω⟫_ℝ) P :=
+    integrable_finsetSum _ fun c _ ↦ integrable_mul_inner hm hy hy1 (hr c) (fun ω ↦ hrC ω c) c
   calc ∫ ω, ∑ c, linearExp3Weights π η γ (S ω) c • (⟪φ c, y ω⟫_ℝ - ⟪φ b, y ω⟫_ℝ) ∂P
       ≤ ∫ ω, (∑ c, r ω c * ⟪φ c, y ω⟫_ℝ + 2 * γ) ∂P := by
         refine integral_mono_ae (integrable_finsetSum _ fun c _ ↦ ?_)
