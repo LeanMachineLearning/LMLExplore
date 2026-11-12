@@ -67,6 +67,7 @@ vector `y t` is `m t`-measurable (an adaptive adversary), and the arm `A t` has 
 * `linearExp3_integral_regret_le_two_mul_sqrt_three`: with an exploration distribution with
   `g = d`, which `LMLExplore.exists_mem_simplex_inner_ringInverse_le_finrank` (the Kiefer–Wolfowitz
   theorem) provides when the features span `E`, the expected regret is at most `2 √(3 d n log k)`.
+* `sum_linearExp3Weights_mul_sub_le`: the cost of the exploration in a round is at most `2 γ`.
 * `integral_sum_mul_linearExp3Estimate`, `integral_sum_mul_linearExp3Estimate_sq_le`,
   `linearExp3_integral_inner_sub_le`: unbiasedness, second moment and regret of a round, in
   expectation.
@@ -146,8 +147,9 @@ variable {π : α → ℝ} {η γ : ℝ}
 
 /-- For an exploration distribution `π` in the simplex and `0 ≤ γ ≤ 1`, the weights are in the
 simplex. -/
-lemma linearExp3Weights_mem_simplex [Nonempty α] (hπ : π ∈ simplex α) (hγ0 : 0 ≤ γ)
+lemma linearExp3Weights_mem_simplex (hπ : π ∈ simplex α) (hγ0 : 0 ≤ γ)
     (hγ1 : γ ≤ 1) (S : α → ℝ) : linearExp3Weights π η γ S ∈ simplex α := by
+  have := nonempty_of_mem_simplex hπ
   refine mem_simplex_iff.2 ⟨fun a ↦ ?_, ?_⟩
   · rw [linearExp3Weights_apply]
     have := softmax_nonneg (-(η • S)) a
@@ -165,11 +167,61 @@ lemma mul_le_linearExp3Weights (hγ1 : γ ≤ 1) (S : α → ℝ) (a : α) :
   have := mul_nonneg (sub_nonneg.2 hγ1) (softmax_nonneg (-(η • S)) a)
   linarith
 
+/-- The weights without the exploration, `P a - γ * π a`, are the exponential weights scaled by
+`1 - γ`. -/
+lemma linearExp3Weights_sub_mul_eq (S : α → ℝ) (a : α) :
+    linearExp3Weights π η γ S a - γ * π a = (1 - γ) * softmax (-(η • S)) a := by
+  rw [linearExp3Weights_apply]
+  ring
+
+/-- For `0 ≤ γ ≤ 1`, the weights without the exploration are bounded by `1`:
+`|P a - γ * π a| ≤ 1`. -/
+lemma abs_linearExp3Weights_sub_mul_le_one (hγ0 : 0 ≤ γ) (hγ1 : γ ≤ 1) (S : α → ℝ) (a : α) :
+    |linearExp3Weights π η γ S a - γ * π a| ≤ 1 := by
+  have : Nonempty α := ⟨a⟩
+  have hQ := softmax_nonneg (-(η • S)) a
+  rw [linearExp3Weights_sub_mul_eq, abs_of_nonneg (mul_nonneg (sub_nonneg.2 hγ1) hQ)]
+  exact (mul_le_of_le_one_right (sub_nonneg.2 hγ1)
+    ((simplex_subset_Icc (softmax_mem_simplex _)).2 a)).trans (by linarith)
+
+/-- The regret `(1 - γ) * (⟨Q, Z⟩ - Z b)` of the exponential weights `Q = softmax (-(η • S))`
+against an arm `b`, for the losses `Z` and scaled by `1 - γ`, is the inner product of `Z` with
+`P - γ π - (1 - γ) δ_b`, where `P` are the weights. -/
+lemma one_sub_mul_sum_softmax_mul_sub_eq [DecidableEq α] (S Z : α → ℝ) (b : α) :
+    (1 - γ) * (∑ c, softmax (-(η • S)) c * Z c - Z b) =
+      ∑ c, (linearExp3Weights π η γ S c - γ * π c - (1 - γ) * if c = b then 1 else 0) * Z c := by
+  simp_rw [linearExp3Weights_sub_mul_eq, ← mul_sub, mul_assoc, ← mul_sum, sub_mul,
+    sum_sub_distrib, ite_mul, one_mul, zero_mul, sum_ite_eq', mem_univ, ite_true]
+
+/-- **The cost of the exploration** [LS, proof of Theorem 27.1]. For an exploration distribution
+`π` in the simplex, `γ ≥ 0` and losses `ℓ` in `[-1, 1]`, the regret `∑ c, P c * (ℓ c - ℓ b)` of
+the weights `P` against an arm `b` is at most the regret of the exponential weights
+`Q = softmax (-(η • S))`, scaled by `1 - γ`, plus `2 γ`. -/
+lemma sum_linearExp3Weights_mul_sub_le (hπ : π ∈ simplex α) (hγ0 : 0 ≤ γ) (S : α → ℝ)
+    {ℓ : α → ℝ} (hℓ : ∀ c, |ℓ c| ≤ 1) (b : α) :
+    ∑ c, linearExp3Weights π η γ S c * (ℓ c - ℓ b) ≤
+      (1 - γ) * (∑ c, softmax (-(η • S)) c * ℓ c - ℓ b) + 2 * γ := by
+  have := nonempty_of_mem_simplex hπ
+  have hsub (p : α → ℝ) (hp : ∑ c, p c = 1) : ∑ c, p c * (ℓ c - ℓ b) = ∑ c, p c * ℓ c - ℓ b := by
+    simp only [mul_sub, sum_sub_distrib, ← sum_mul, hp, one_mul]
+  have hπℓ : ∑ c, π c * ℓ c ≤ 1 :=
+    (sum_le_sum fun c _ ↦ mul_le_of_le_one_right ((mem_simplex_iff.1 hπ).1 c)
+      (le_of_abs_le (hℓ c))).trans_eq (mem_simplex_iff.1 hπ).2
+  have h : ∑ c, linearExp3Weights π η γ S c * (ℓ c - ℓ b) =
+      (1 - γ) * (∑ c, softmax (-(η • S)) c * ℓ c - ℓ b) + γ * (∑ c, π c * ℓ c - ℓ b) := by
+    rw [← hsub _ (sum_softmax _), ← hsub _ (mem_simplex_iff.1 hπ).2, mul_sum, mul_sum,
+      ← sum_add_distrib]
+    exact sum_congr rfl fun c _ ↦ by rw [linearExp3Weights_apply]; ring
+  rw [h]
+  have := mul_le_mul_of_nonneg_left
+    (show ∑ c, π c * ℓ c - ℓ b ≤ 2 by linarith [(abs_le.1 (hℓ b)).1]) hγ0
+  linarith
+
 end Weights
 
 section Estimate
 
-variable {φ : α → E} {p π : α → ℝ} {g γ : ℝ}
+variable {φ : α → E} {p π : α → ℝ} {g η γ : ℝ}
 
 /-- **The loss estimate is unbiased** [LS, Chapter 27]: if `V(p)` is invertible, then for every
 loss vector `y`, `∑ c, p c * Ŷ(c) a = ⟪φ a, y⟫`, where `Ŷ(c)` is the estimate for the played
@@ -193,7 +245,7 @@ theorem sum_mul_linearExp3Estimate_sq_le (hp : ∀ b, 0 ≤ p b) {y : E}
     ∑ c, p c * linearExp3Estimate φ p c ⟪φ c, y⟫_ℝ a ^ 2 ≤
       ⟪φ a, Ring.inverse (∑ b, p b • rankOne ℝ (φ b) (φ b)) (φ a)⟫_ℝ := by
   set V := ∑ b, p b • rankOne ℝ (φ b) (φ b)
-  have hVp : V.IsPositive := isPositive_sum_smul_rankOne φ hp
+  have hVp : V.IsPositive := isPositive_sum_smul_rankOne univ φ fun b _ ↦ hp b
   set u := Ring.inverse V (φ a)
   -- `∑ c, p c * ⟪φ a, V⁻¹ φ c⟫ ^ 2 = ⟪u, V u⟫` with `u = V⁻¹ φ a`
   have h_quad : ∑ c, p c * ⟪φ a, Ring.inverse V (φ c)⟫_ℝ ^ 2 = ⟪u, V u⟫_ℝ := by
@@ -223,9 +275,9 @@ theorem abs_linearExp3Estimate_le (hπ0 : ∀ b, 0 ≤ π b)
     (hγ : 0 < γ) (hpπ : ∀ b, γ * π b ≤ p b) {ℓ : ℝ} (hℓ : |ℓ| ≤ 1) (c a : α) :
     |linearExp3Estimate φ p c ℓ a| ≤ g / γ := by
   set V := ∑ b, p b • rankOne ℝ (φ b) (φ b)
-  have hπp := isPositive_sum_smul_rankOne φ hπ0
+  have hπp := isPositive_sum_smul_rankOne univ φ fun b _ ↦ hπ0 b
   have hVp : V.IsPositive :=
-    isPositive_sum_smul_rankOne φ fun b ↦ (mul_nonneg hγ.le (hπ0 b)).trans (hpπ b)
+    isPositive_sum_smul_rankOne univ φ fun b _ ↦ (mul_nonneg hγ.le (hπ0 b)).trans (hpπ b)
   -- `⟪x, V(p)⁻¹ x⟫ ≤ ⟪x, V(π)⁻¹ x⟫ / γ ≤ g / γ` at the features, since `γ V(π) ≤ V(p)`
   have h_feat (b : α) : ⟪φ b, Ring.inverse V (φ b)⟫_ℝ ≤ g / γ := by
     rw [le_div_iff₀ hγ, mul_comm]
@@ -241,6 +293,13 @@ theorem abs_linearExp3Estimate_le (hπ0 : ∀ b, 0 ≤ π b)
   calc |⟪φ a, Ring.inverse V (φ c)⟫_ℝ| * |ℓ| ≤ g / γ * 1 :=
         mul_le_mul h_cs hℓ (abs_nonneg _) hgγ
     _ = g / γ := mul_one _
+
+/-- For a nonnegative exploration distribution `π` with invertible `V(π)` and `0 < γ ≤ 1`, the
+design operator `V(P)` of the weights `P` is invertible, as `γ V(π) ≤ V(P)`. -/
+lemma isUnit_sum_smul_rankOne_linearExp3Weights [FiniteDimensional ℝ E] (hπ0 : ∀ b, 0 ≤ π b)
+    (hπu : IsUnit (∑ b, π b • rankOne ℝ (φ b) (φ b))) (hγ : 0 < γ) (hγ1 : γ ≤ 1) (S : α → ℝ) :
+    IsUnit (∑ b, linearExp3Weights π η γ S b • rankOne ℝ (φ b) (φ b)) :=
+  isUnit_sum_smul_rankOne_of_mul_le hπ0 hπu hγ (mul_le_linearExp3Weights hγ1 S)
 
 end Estimate
 
@@ -296,20 +355,6 @@ variable [FiniteDimensional ℝ E] {φ : α → E} {π : α → ℝ} {g η γ : 
   {X : Ω → α} {S : Ω → α → ℝ} {y : Ω → E}
 
 omit [IsProbabilityMeasure P] in
-/-- The weights of a round are `m`-measurable when the played arm has them as conditional law
-given `m`. -/
-private lemma aestronglyMeasurable_weights
-    (hXW : ∀ c, P⟦X ⁻¹' {c} | m⟧ =ᵐ[P] fun ω ↦ linearExp3Weights π η γ (S ω) c) :
-    AEStronglyMeasurable[m] (fun ω ↦ linearExp3Weights π η γ (S ω)) P := by
-  refine ⟨fun ω c ↦ (P⟦X ⁻¹' {c} | m⟧) ω, ?_, ?_⟩
-  · have h : Measurable[m] fun ω c ↦ (P⟦X ⁻¹' {c} | m⟧) ω :=
-      @measurable_pi_iff Ω α (fun _ ↦ ℝ) m _ _ |>.2 fun c ↦
-        (stronglyMeasurable_condExp (m := m) (μ := P)).measurable
-    exact h.stronglyMeasurable
-  · filter_upwards [ae_all_iff.2 hXW] with ω hω
-    exact funext fun c ↦ (hω c).symm
-
-omit [IsProbabilityMeasure P] in
 /-- The estimate of the loss of each arm, for each played arm, is `m`-measurable when the weights
 and the loss vector are. -/
 private lemma aestronglyMeasurable_linearExp3Estimate {p : Ω → α → ℝ}
@@ -325,7 +370,18 @@ private lemma aestronglyMeasurable_linearExp3Estimate {p : Ω → α → ℝ}
   obtain ⟨q, hq, hpq⟩ := hp
   have hFp : AEStronglyMeasurable[m] (fun ω ↦ F (p ω)) P :=
     ⟨F ∘ q, (hF.comp hq.measurable).stronglyMeasurable, hpq.fun_comp F⟩
-  exact hFp.mul ((continuous_const.inner continuous_id).comp_aestronglyMeasurable hy)
+  exact hFp.mul hy.const_inner
+
+omit [Fintype α] [FiniteDimensional ℝ E] [IsProbabilityMeasure P] in
+/-- The difference `⟪φ c, y⟫ - ⟪φ b, y⟫` of the losses of two arms is integrable, for an
+`m`-measurable loss vector `y` with losses in `[-1, 1]`. -/
+private lemma integrable_inner_sub_inner [IsFiniteMeasure P] (hm : m ≤ mΩ)
+    (hy : AEStronglyMeasurable[m] y P) (hy1 : ∀ᵐ ω ∂P, ∀ c, |⟪φ c, y ω⟫_ℝ| ≤ 1) (c b : α) :
+    Integrable (fun ω ↦ ⟪φ c, y ω⟫_ℝ - ⟪φ b, y ω⟫_ℝ) P := by
+  refine .of_bound ((hy.const_inner.sub hy.const_inner).mono hm) 2 ?_
+  filter_upwards [hy1] with ω hω
+  rw [Real.norm_eq_abs]
+  exact (abs_sub _ _).trans (by linarith [hω c, hω b])
 
 variable (hπ : π ∈ simplex α) (hπu : IsUnit (∑ b, π b • rankOne ℝ (φ b) (φ b)))
   (hg : ∀ b, ⟪φ b, Ring.inverse (∑ b, π b • rankOne ℝ (φ b) (φ b)) (φ b)⟫_ℝ ≤ g)
@@ -353,7 +409,8 @@ private lemma integrable_mul_linearExp3Estimate_pow [IsFiniteMeasure P] {r : Ω 
       Integrable (fun ω ↦
         r ω * linearExp3Estimate φ (linearExp3Weights π η γ (S ω)) c ⟪φ c, y ω⟫_ℝ b ^ k) P := by
   have hmeas := hr.mul ((aestronglyMeasurable_linearExp3Estimate (φ := φ)
-    (aestronglyMeasurable_weights hXW) hy c b).pow k)
+    (p := fun ω ↦ linearExp3Weights π η γ (S ω))
+    (aestronglyMeasurable_of_condExp_preimage_ae_eq hXW) hy c b).pow k)
   refine ⟨hmeas, .of_bound (hmeas.mono hm) (C * (g / γ) ^ k) ?_⟩
   filter_upwards [ae_abs_linearExp3Estimate_le hπ hπu hg hγ hγ1 hy1] with ω hω
   rw [Real.norm_eq_abs, abs_mul, abs_pow]
@@ -377,7 +434,6 @@ omit [FiniteDimensional ℝ E] in
 /-- The weights are bounded by `1`. -/
 private lemma abs_linearExp3Weights_le_one (ω : Ω) (b : α) :
     |linearExp3Weights π η γ (S ω) b| ≤ 1 := by
-  have := nonempty_of_mem_simplex hπ
   have h := linearExp3Weights_mem_simplex (η := η) hπ hγ.le hγ1 (S ω)
   rw [abs_of_nonneg ((mem_simplex_iff.1 h).1 b)]
   exact (simplex_subset_Icc h).2 b
@@ -387,7 +443,9 @@ omit [IsProbabilityMeasure P] in
 private lemma aestronglyMeasurable_linearExp3Weights_apply
     (hXW : ∀ c, P⟦X ⁻¹' {c} | m⟧ =ᵐ[P] fun ω ↦ linearExp3Weights π η γ (S ω) c) (b : α) :
     AEStronglyMeasurable[m] (fun ω ↦ linearExp3Weights π η γ (S ω) b) P :=
-  (continuous_apply b).comp_aestronglyMeasurable (aestronglyMeasurable_weights hXW)
+  (continuous_apply b).comp_aestronglyMeasurable
+    (aestronglyMeasurable_of_condExp_preimage_ae_eq (q := fun c ω ↦ linearExp3Weights π η γ (S ω) c)
+      hXW)
 
 include hπ hπu hg hγ hγ1 hm hX hXW hy hy1 in
 /-- **Unbiasedness of the estimates in expectation** [LS, Chapter 27]. In a round in which the
@@ -407,8 +465,7 @@ theorem integral_sum_mul_linearExp3Estimate {r : Ω → α → ℝ}
     hy hy1 (hr b) (fun ω ↦ hrC ω b) 1 b
   simp only [pow_one] at h_int_X
   have h_int_y (b : α) : Integrable (fun ω ↦ r ω b * ⟪φ b, y ω⟫_ℝ) P := by
-    refine .of_bound (((hr b).mul ((continuous_const.inner continuous_id).comp_aestronglyMeasurable
-      hy)).mono hm) (C * 1) ?_
+    refine .of_bound (((hr b).mul hy.const_inner).mono hm) (C * 1) ?_
     filter_upwards [hy1] with ω hω
     rw [Real.norm_eq_abs, abs_mul]
     exact mul_le_mul (hrC ω b) (hω b) (abs_nonneg _) ((abs_nonneg _).trans (hrC ω b))
@@ -420,8 +477,8 @@ theorem integral_sum_mul_linearExp3Estimate {r : Ω → α → ℝ}
       linearExp3Estimate φ (linearExp3Weights π η γ (S ω)) c ⟪φ c, y ω⟫_ℝ b) hm hX hXW
       (fun c ↦ (h_int b c).1) (fun c ↦ (h_int b c).2)]
     refine integral_congr_ae (ae_of_all _ fun ω ↦ ?_)
-    have hu := isUnit_sum_smul_rankOne_of_mul_le (mem_simplex_iff.1 hπ).1 hπu hγ
-      (mul_le_linearExp3Weights (η := η) (S := S ω) hγ1)
+    have hu := isUnit_sum_smul_rankOne_linearExp3Weights (η := η) (mem_simplex_iff.1 hπ).1 hπu hγ
+      hγ1 (S ω)
     dsimp only
     rw [← sum_mul_linearExp3Estimate hu (y ω) b, mul_sum]
     exact sum_congr rfl fun c _ ↦ by rw [smul_eq_mul]; ring
@@ -459,9 +516,8 @@ theorem integral_sum_mul_linearExp3Estimate_sq_le :
   -- pointwise, `∑ b, avg b ≤ ∑ b, P b ⟪φ b, V(P)⁻¹ φ b⟫ = d`
   have h_le : ∀ᵐ ω ∂P, ∑ b, avg b ω ≤ finrank ℝ E := by
     filter_upwards [hy1] with ω hω
-    have := nonempty_of_mem_simplex hπ
-    have hu := isUnit_sum_smul_rankOne_of_mul_le (mem_simplex_iff.1 hπ).1 hπu hγ
-      (mul_le_linearExp3Weights (η := η) (S := S ω) hγ1)
+    have hu := isUnit_sum_smul_rankOne_linearExp3Weights (η := η) (mem_simplex_iff.1 hπ).1 hπu hγ
+      hγ1 (S ω)
     set p := linearExp3Weights π η γ (S ω)
     have hp0 : ∀ b, 0 ≤ p b :=
       (mem_simplex_iff.1 (linearExp3Weights_mem_simplex hπ hγ.le hγ1 (S ω))).1
@@ -495,37 +551,25 @@ theorem linearExp3_integral_inner_sub_le (b : α) :
           linearExp3Estimate φ (linearExp3Weights π η γ (S ω)) (X ω) ⟪φ (X ω), y ω⟫_ℝ b) ∂P +
         2 * γ := by
   classical
-  have := nonempty_of_mem_simplex hπ
-  have hπ0 := (mem_simplex_iff.1 hπ).1
   have hWb := aestronglyMeasurable_linearExp3Weights_apply hXW
   have hW1 := abs_linearExp3Weights_le_one hπ hγ hγ1 (η := η) (S := S)
   -- the weights `r = (1 - γ) (Q - δ_b) = P - γ π - (1 - γ) δ_b` are `m`-measurable and bounded
   set r : Ω → α → ℝ := fun ω c ↦
-    linearExp3Weights π η γ (S ω) c - γ * π c - (1 - γ) * if c = b then 1 else 0 with hr_def
+    linearExp3Weights π η γ (S ω) c - γ * π c - (1 - γ) * if c = b then 1 else 0
   have hr (c : α) : AEStronglyMeasurable[m] (fun ω ↦ r ω c) P :=
     ((hWb c).sub aestronglyMeasurable_const).sub aestronglyMeasurable_const
-  have hπ1 (c : α) : π c ≤ 1 := (simplex_subset_Icc hπ).2 c
-  have hrC (ω : Ω) (c : α) : |r ω c| ≤ 3 := by
-    have h1 := abs_le.1 (hW1 ω c)
-    have h2 : 0 ≤ γ * π c := mul_nonneg hγ.le (hπ0 c)
-    have h3 : γ * π c ≤ 1 := by nlinarith [hπ0 c, hπ1 c]
-    have h4 : 0 ≤ (1 - γ) * (if c = b then (1 : ℝ) else 0) :=
-      mul_nonneg (sub_nonneg.2 hγ1) (by split_ifs <;> norm_num)
-    have h5 : (1 - γ) * (if c = b then (1 : ℝ) else 0) ≤ 1 := by
+  have hrC (ω : Ω) (c : α) : |r ω c| ≤ 2 := by
+    have h1 := abs_linearExp3Weights_sub_mul_le_one (π := π) (η := η) hγ.le hγ1 (S ω) c
+    have h2 : |(1 - γ) * (if c = b then (1 : ℝ) else 0)| ≤ 1 := by
+      rw [abs_of_nonneg (mul_nonneg (sub_nonneg.2 hγ1) (by split_ifs <;> norm_num))]
       split_ifs <;> linarith
-    rw [abs_le]
-    constructor <;> linarith
+    exact (abs_sub _ _).trans (by linarith)
   have h_eq (ω : Ω) : (1 - γ) * (∑ c, softmax (-(η • S ω)) c *
       linearExp3Estimate φ (linearExp3Weights π η γ (S ω)) (X ω) ⟪φ (X ω), y ω⟫_ℝ c -
         linearExp3Estimate φ (linearExp3Weights π η γ (S ω)) (X ω) ⟪φ (X ω), y ω⟫_ℝ b) =
       ∑ c, r ω c *
-        linearExp3Estimate φ (linearExp3Weights π η γ (S ω)) (X ω) ⟪φ (X ω), y ω⟫_ℝ c := by
-    have hr_eq (c : α) :
-        r ω c = (1 - γ) * (softmax (-(η • S ω)) c - if c = b then 1 else 0) := by
-      simp only [hr_def, linearExp3Weights_apply]
-      ring
-    simp_rw [hr_eq, mul_assoc, ← mul_sum, sub_mul, sum_sub_distrib, ite_mul, one_mul, zero_mul,
-      sum_ite_eq', mem_univ, ite_true]
+        linearExp3Estimate φ (linearExp3Weights π η γ (S ω)) (X ω) ⟪φ (X ω), y ω⟫_ℝ c :=
+    one_sub_mul_sum_softmax_mul_sub_eq (S ω) _ b
   have h_int_r : Integrable (fun ω ↦ ∑ c, r ω c *
       linearExp3Estimate φ (linearExp3Weights π η γ (S ω)) (X ω) ⟪φ (X ω), y ω⟫_ℝ c) P :=
     integrable_finsetSum _ fun c _ ↦ by
@@ -533,44 +577,26 @@ theorem linearExp3_integral_inner_sub_le (b : α) :
         (hr c) (fun ω ↦ hrC ω c) 1 c
   refine ⟨by simpa only [h_eq] using h_int_r, ?_⟩
   -- the expected regret of the played arm is the expectation of its average under the weights
-  have hℓ (c : α) : AEStronglyMeasurable[m] (fun ω ↦ ⟪φ c, y ω⟫_ℝ) P :=
-    (continuous_const.inner continuous_id).comp_aestronglyMeasurable hy
-  have hℓb (c : α) : Integrable (fun ω ↦ ⟪φ c, y ω⟫_ℝ - ⟪φ b, y ω⟫_ℝ) P := by
-    refine .of_bound (((hℓ c).sub (hℓ b)).mono hm) 2 ?_
-    filter_upwards [hy1] with ω hω
-    rw [Real.norm_eq_abs]
-    exact (abs_sub _ _).trans (by linarith [hω c, hω b])
+  have hℓb (c : α) := integrable_inner_sub_inner hm hy hy1 c b
   rw [integral_apply_eq_integral_sum_smul (g := fun ω c ↦ ⟪φ c, y ω⟫_ℝ - ⟪φ b, y ω⟫_ℝ) hm hX hXW
-    (fun c ↦ (hℓ c).sub (hℓ b)) hℓb]
+    (fun c ↦ hy.const_inner.sub hy.const_inner) hℓb]
   simp_rw [h_eq]
   rw [integral_sum_mul_linearExp3Estimate hπ hπu hg hγ hγ1 hm hX hXW hy hy1 hr hrC]
   have h_int_rℓ : Integrable (fun ω ↦ ∑ c, r ω c * ⟪φ c, y ω⟫_ℝ) P := by
-    refine integrable_finsetSum _ fun c _ ↦ .of_bound (((hr c).mul (hℓ c)).mono hm) (3 * 1) ?_
+    refine integrable_finsetSum _ fun c _ ↦
+      .of_bound (((hr c).mul hy.const_inner).mono hm) (2 * 1) ?_
     filter_upwards [hy1] with ω hω
     rw [Real.norm_eq_abs, abs_mul]
     exact mul_le_mul (hrC ω c) (hω c) (abs_nonneg _) (by norm_num)
-  have hW_sum (ω : Ω) : ∑ c, linearExp3Weights π η γ (S ω) c = 1 :=
-    (mem_simplex_iff.1 (linearExp3Weights_mem_simplex hπ hγ.le hγ1 (S ω))).2
   calc ∫ ω, ∑ c, linearExp3Weights π η γ (S ω) c • (⟪φ c, y ω⟫_ℝ - ⟪φ b, y ω⟫_ℝ) ∂P
       ≤ ∫ ω, (∑ c, r ω c * ⟪φ c, y ω⟫_ℝ + 2 * γ) ∂P := by
         refine integral_mono_ae (integrable_finsetSum _ fun c _ ↦ ?_)
           (h_int_rℓ.add (integrable_const _)) ?_
         · exact (hℓb c).bdd_mul ((hWb c).mono hm) (ae_of_all _ fun ω ↦ hW1 ω c)
-        -- pointwise, the difference is `γ (⟨π, ℓ⟩ - ℓ b) ≤ 2 γ`
+        -- pointwise, this is the cost of the exploration
         filter_upwards [hy1] with ω hω
-        have hπℓ : ∑ c, π c * ⟪φ c, y ω⟫_ℝ ≤ 1 :=
-          (sum_le_sum fun c _ ↦ mul_le_of_le_one_right (hπ0 c) (le_of_abs_le (hω c))).trans_eq
-            (mem_simplex_iff.1 hπ).2
-        have h1 : ∑ c, linearExp3Weights π η γ (S ω) c • (⟪φ c, y ω⟫_ℝ - ⟪φ b, y ω⟫_ℝ) =
-            ∑ c, linearExp3Weights π η γ (S ω) c * ⟪φ c, y ω⟫_ℝ - ⟪φ b, y ω⟫_ℝ := by
-          simp_rw [smul_eq_mul, mul_sub, sum_sub_distrib, ← sum_mul, hW_sum, one_mul]
-        have h2 : ∑ c, r ω c * ⟪φ c, y ω⟫_ℝ =
-            ∑ c, linearExp3Weights π η γ (S ω) c * ⟪φ c, y ω⟫_ℝ -
-              γ * ∑ c, π c * ⟪φ c, y ω⟫_ℝ - (1 - γ) * ⟪φ b, y ω⟫_ℝ := by
-          simp_rw [hr_def, sub_mul, sum_sub_distrib, mul_assoc, ← mul_sum, ite_mul, one_mul,
-            zero_mul, sum_ite_eq', mem_univ, ite_true]
-        rw [h1, h2]
-        nlinarith [(abs_le.1 (hω b)).1]
+        rw [← one_sub_mul_sum_softmax_mul_sub_eq (S ω) (fun c ↦ ⟪φ c, y ω⟫_ℝ) b]
+        exact sum_linearExp3Weights_mul_sub_le hπ hγ.le (S ω) hω b
     _ = ∫ ω, ∑ c, r ω c * ⟪φ c, y ω⟫_ℝ ∂P + 2 * γ := by
         rw [integral_add h_int_rℓ (integrable_const _)]
         simp
@@ -594,18 +620,12 @@ private lemma integral_one_sub_mul_sum_softmax_mul_linearExp3Estimate_sq_le :
       ∑ c, (linearExp3Weights π η γ (S ω) c - γ * π c) *
         linearExp3Estimate φ (linearExp3Weights π η γ (S ω)) (X ω) ⟪φ (X ω), y ω⟫_ℝ c ^ 2 := by
     rw [mul_sum]
-    exact sum_congr rfl fun c _ ↦ by rw [linearExp3Weights_apply]; ring
-  have hπ1 (c : α) : π c ≤ 1 := (simplex_subset_Icc hπ).2 c
-  have hrC (ω : Ω) (c : α) : |linearExp3Weights π η γ (S ω) c - γ * π c| ≤ 2 := by
-    have h1 := abs_le.1 (hW1 ω c)
-    have h2 : 0 ≤ γ * π c := mul_nonneg hγ.le (hπ0 c)
-    have h3 : γ * π c ≤ 1 := by nlinarith [hπ0 c, hπ1 c]
-    rw [abs_le]
-    constructor <;> linarith
+    exact sum_congr rfl fun c _ ↦ by rw [linearExp3Weights_sub_mul_eq]; ring
   have h_int : Integrable (fun ω ↦ ∑ c, (linearExp3Weights π η γ (S ω) c - γ * π c) *
       linearExp3Estimate φ (linearExp3Weights π η γ (S ω)) (X ω) ⟪φ (X ω), y ω⟫_ℝ c ^ 2) P :=
     integrable_finsetSum _ fun c _ ↦ integrable_mul_linearExp3Estimate_apply_pow hπ hπu hg hγ
-      hγ1 hm hX hXW hy hy1 ((hWb c).sub aestronglyMeasurable_const) (fun ω ↦ hrC ω c) 2 c
+      hγ1 hm hX hXW hy hy1 ((hWb c).sub aestronglyMeasurable_const)
+      (fun ω ↦ abs_linearExp3Weights_sub_mul_le_one hγ.le hγ1 (S ω) c) 2 c
   have h_int_W : Integrable (fun ω ↦ ∑ c, linearExp3Weights π η γ (S ω) c *
       linearExp3Estimate φ (linearExp3Weights π η γ (S ω)) (X ω) ⟪φ (X ω), y ω⟫_ℝ c ^ 2) P :=
     integrable_finsetSum _ fun c _ ↦ integrable_mul_linearExp3Estimate_apply_pow hπ hπu hg hγ
@@ -656,14 +676,9 @@ theorem linearExp3_integral_regret_le (hπ : π ∈ simplex α)
     integral_one_sub_mul_sum_softmax_mul_linearExp3Estimate_sq_le (S := S t) hπ hπu hg hγ hγ1
       (hm t ht) (hA t ht) (hAW t ht) (hy t ht) (hy1 t ht)
   have h_int_ℓ (t : ℕ) (ht : t < n) :
-      Integrable (fun ω ↦ ⟪φ (A t ω), y t ω⟫_ℝ - ⟪φ b, y t ω⟫_ℝ) P := by
-    have hℓ (c : α) : AEStronglyMeasurable (fun ω ↦ ⟪φ c, y t ω⟫_ℝ) P :=
-      ((continuous_const.inner continuous_id).comp_aestronglyMeasurable (hy t ht)).mono (hm t ht)
-    refine integrable_apply_of_measurableSet_preimage (g := fun ω c ↦
-      ⟪φ c, y t ω⟫_ℝ - ⟪φ b, y t ω⟫_ℝ) (hA t ht) fun c ↦ .of_bound ((hℓ c).sub (hℓ b)) 2 ?_
-    filter_upwards [hy1 t ht] with ω hω
-    rw [Real.norm_eq_abs]
-    exact (abs_sub _ _).trans (by linarith [hω c, hω b])
+      Integrable (fun ω ↦ ⟪φ (A t ω), y t ω⟫_ℝ - ⟪φ b, y t ω⟫_ℝ) P :=
+    integrable_apply_of_measurableSet_preimage (g := fun ω c ↦ ⟪φ c, y t ω⟫_ℝ - ⟪φ b, y t ω⟫_ℝ)
+      (hA t ht) fun c ↦ integrable_inner_sub_inner (hm t ht) (hy t ht) (hy1 t ht) c b
   -- the pathwise bound of the exponential weights on the estimated losses
   have h_path : ∀ᵐ ω ∂P, ∑ t ∈ range n, (1 - γ) * (∑ c, Q t ω c * Y t ω c - Y t ω b) ≤
       (1 - γ) * (Real.log (Fintype.card α) / η) +
@@ -724,8 +739,8 @@ theorem linearExp3_integral_regret_le (hπ : π ∈ simplex α)
 the hypotheses of `linearExp3_integral_regret_le` on a nontrivial space of dimension `d`, with
 `k ≥ 2` arms, `n ≥ 1` rounds, the exploration rate `γ = η g` and the learning rate
 `η = √(log k / ((2 g + d) n))`, the expected regret against every arm is at most
-`2 √((2 g + d) n log k)`. The weights are only defined for `γ ≤ 1`, which holds for `n` large
-enough. -/
+`2 √((2 g + d) n log k)`. The hypothesis `γ = η g ≤ 1`, which makes the weights a probability
+distribution, holds for `n` large enough. -/
 theorem linearExp3_integral_regret_le_two_mul_sqrt [Nontrivial E] (hπ : π ∈ simplex α)
     (hπu : IsUnit (∑ b, π b • rankOne ℝ (φ b) (φ b)))
     (hg : ∀ b, ⟪φ b, Ring.inverse (∑ b, π b • rankOne ℝ (φ b) (φ b)) (φ b)⟫_ℝ ≤ g)

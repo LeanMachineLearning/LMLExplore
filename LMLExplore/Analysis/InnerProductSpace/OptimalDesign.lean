@@ -49,12 +49,13 @@ most `m` [LS, Exercise 21.6].
 * `LMLExplore.designOperator_map`: the design operator of the image `w.map φ` of a design on a
   finite type of arms by a feature map `φ` is `∑ i, w i • φ i ⊗ φ i`.
 * `LMLExplore.isPositive_sum_smul_rankOne`, `LMLExplore.smul_sum_smul_rankOne_le`,
-  `LMLExplore.isUnit_sum_smul_rankOne_of_mul_le`: for a feature map `φ` on a finite type,
-  `∑ i, w i • φ i ⊗ φ i` is positive for nonnegative weights, monotone in the weights in the
-  Loewner order, and invertible above an invertible one.
-* `LMLExplore.sum_mul_inner_ringInverse_sum_smul_rankOne`: for a feature map `φ` on a finite
-  type and real weights `w` with `V = ∑ i, w i • φ i ⊗ φ i` invertible,
-  `∑ i, w i ⟪φ i, V⁻¹ φ i⟫ = d`.
+  `LMLExplore.isUnit_sum_smul_rankOne_of_mul_le`: for a feature map `φ`, the weighted sum
+  `∑ i ∈ s, w i • φ i ⊗ φ i` is positive for nonnegative weights (on a finite type, monotone in
+  the weights in the Loewner order, and invertible above an invertible one).
+* `LMLExplore.sum_mul_inner_ringInverse_sum_smul_rankOne`: for a feature map `φ` and real weights
+  `w` with `V = ∑ i ∈ s, w i • φ i ⊗ φ i` invertible, `∑ i ∈ s, w i ⟪φ i, V⁻¹ φ i⟫ = d`. The
+  corresponding facts for the design operator are the case of the identity feature map on the
+  support of the design.
 * `LMLExplore.designOperator_map_subtype_apply`: on a subspace `K`, the design operator on `E` of
   a design on `K` restricts to its design operator on `K`.
 * `LMLExplore.designOperator_convexCombPair`: `V(w)` is affine in `w`.
@@ -153,28 +154,29 @@ theorem designOperator_map {ι : Type*} [Fintype ι] (φ : ι → E) (w : StdSim
     Finsupp.linearCombination_apply, Finsupp.sum_fintype _ _ fun _ ↦ by simp]
   rfl
 
-/-- The trace of `B ∘ ∑ i, w i • φ i ⊗ φ i` is `∑ i, w i * ⟪φ i, B (φ i)⟫`, for every family of
-real coefficients `w`. -/
-theorem trace_comp_sum_smul_rankOne [FiniteDimensional ℝ E] {ι : Type*} [Fintype ι]
+/-- The trace of `B ∘ ∑ i ∈ s, w i • φ i ⊗ φ i` is `∑ i ∈ s, w i * ⟪φ i, B (φ i)⟫`, for every
+family of real coefficients `w`. -/
+theorem trace_comp_sum_smul_rankOne [FiniteDimensional ℝ E] {ι : Type*} (s : Finset ι)
     (B : E →L[ℝ] E) (φ : ι → E) (w : ι → ℝ) :
-    LinearMap.trace ℝ E (B ∘L ∑ i, w i • rankOne ℝ (φ i) (φ i) : E →ₗ[ℝ] E) =
-      ∑ i, w i * ⟪φ i, B (φ i)⟫_ℝ := by
+    LinearMap.trace ℝ E (B ∘L ∑ i ∈ s, w i • rankOne ℝ (φ i) (φ i) : E →ₗ[ℝ] E) =
+      ∑ i ∈ s, w i * ⟪φ i, B (φ i)⟫_ℝ := by
   simp [comp_finsetSum, comp_rankOne, trace_rankOne]
 
-/-- If `V = ∑ i, w i • φ i ⊗ φ i` is invertible on a space of dimension `d`, then
-`∑ i, w i * ⟪φ i, V⁻¹ φ i⟫ = d`, the trace of `V⁻¹ V`. For weights `w` in the simplex, `V` is the
-design operator of the image design `w.map φ` (`designOperator_map`). -/
+/-- If `V = ∑ i ∈ s, w i • φ i ⊗ φ i` is invertible on a space of dimension `d`, then
+`∑ i ∈ s, w i * ⟪φ i, V⁻¹ φ i⟫ = d`, the trace of `V⁻¹ V`. For weights `w` in the simplex of a
+finite type, `V` is the design operator of the image design `w.map φ` (`designOperator_map`). -/
 theorem sum_mul_inner_ringInverse_sum_smul_rankOne [FiniteDimensional ℝ E] {ι : Type*}
-    [Fintype ι] {φ : ι → E} {w : ι → ℝ}
-    (hu : IsUnit (∑ i, w i • rankOne ℝ (φ i) (φ i))) :
-    ∑ i, w i * ⟪φ i, Ring.inverse (∑ i, w i • rankOne ℝ (φ i) (φ i)) (φ i)⟫_ℝ = finrank ℝ E := by
+    {s : Finset ι} {φ : ι → E} {w : ι → ℝ}
+    (hu : IsUnit (∑ i ∈ s, w i • rankOne ℝ (φ i) (φ i))) :
+    ∑ i ∈ s, w i * ⟪φ i, Ring.inverse (∑ i ∈ s, w i • rankOne ℝ (φ i) (φ i)) (φ i)⟫_ℝ =
+      finrank ℝ E := by
   rw [← trace_comp_sum_smul_rankOne, ← mul_def, Ring.inverse_mul_cancel _ hu, toLinearMap_one,
     LinearMap.trace_one]
 
-/-- For nonnegative weights `w`, `∑ i, w i • φ i ⊗ φ i` is positive. -/
-theorem isPositive_sum_smul_rankOne {ι : Type*} [Fintype ι] (φ : ι → E) {w : ι → ℝ}
-    (hw : ∀ i, 0 ≤ w i) : (∑ i, w i • rankOne ℝ (φ i) (φ i)).IsPositive :=
-  isPositive_sum _ fun i _ ↦ (isPositive_rankOne_self (φ i)).smul_of_nonneg (hw i)
+/-- For weights `w` nonnegative on `s`, `∑ i ∈ s, w i • φ i ⊗ φ i` is positive. -/
+theorem isPositive_sum_smul_rankOne {ι : Type*} (s : Finset ι) (φ : ι → E) {w : ι → ℝ}
+    (hw : ∀ i ∈ s, 0 ≤ w i) : (∑ i ∈ s, w i • rankOne ℝ (φ i) (φ i)).IsPositive :=
+  isPositive_sum _ fun i hi ↦ (isPositive_rankOne_self (φ i)).smul_of_nonneg (hw i hi)
 
 /-- If `c * v i ≤ w i` for every `i`, then `c • ∑ i, v i • φ i ⊗ φ i ≤ ∑ i, w i • φ i ⊗ φ i` in
 the Loewner order. -/
@@ -194,8 +196,8 @@ theorem isUnit_sum_smul_rankOne_of_mul_le [FiniteDimensional ℝ E] {ι : Type*}
     IsUnit (∑ i, w i • rankOne ℝ (φ i) (φ i)) := by
   have hcu : IsUnit (c • ∑ i, v i • rankOne ℝ (φ i) (φ i)) := by
     simpa [Units.smul_def] using hvu.smul (Units.mk0 c hc.ne')
-  exact ((isPositive_sum_smul_rankOne φ hv).smul_of_nonneg hc.le).isUnit_of_le hcu
-    (smul_sum_smul_rankOne_le h)
+  have hvp := isPositive_sum_smul_rankOne Finset.univ φ fun i _ ↦ hv i
+  exact (hvp.smul_of_nonneg hc.le).isUnit_of_le hcu (smul_sum_smul_rankOne_le h)
 
 /-- The design operator on `E` of a design on a subspace `K` restricts on `K` to the design
 operator on `K`: `V(w) v = V_K(w) v` for `v ∈ K`. -/
@@ -210,7 +212,7 @@ theorem designOperator_map_subtype_apply {K : Submodule ℝ E} (w : StdSimplex �
 /-- The design operator is positive. -/
 theorem isPositive_designOperator (w : StdSimplex ℝ E) : (designOperator w).IsPositive := by
   rw [designOperator_def]
-  exact isPositive_sum _ fun a _ ↦ (isPositive_rankOne_self a).smul_of_nonneg (w.nonneg a)
+  exact isPositive_sum_smul_rankOne _ id fun a _ ↦ w.nonneg a
 
 /-- The convex hull of the rank-one operators `a ⊗ a` of the points `a ∈ 𝒜` is the set of design
 operators of the designs on `𝒜`. -/
@@ -255,7 +257,8 @@ theorem ker_designOperator (w : StdSimplex ℝ E) :
 theorem trace_comp_designOperator [FiniteDimensional ℝ E] (B : E →L[ℝ] E) (w : StdSimplex ℝ E) :
     LinearMap.trace ℝ E (B ∘L designOperator w : E →ₗ[ℝ] E) =
       w.weights.sum fun a c ↦ c * ⟪a, B a⟫_ℝ := by
-  simp [designOperator_def, Finsupp.sum, comp_finsetSum, comp_rankOne, trace_rankOne]
+  rw [designOperator_def, Finsupp.sum, Finsupp.sum]
+  exact trace_comp_sum_smul_rankOne _ B id _
 
 section FiniteDimensional
 
@@ -278,8 +281,8 @@ theorem det_designOperator_pos {w : StdSimplex ℝ E} (hu : IsUnit (designOperat
 theorem sum_mul_inner_ringInverse_designOperator {w : StdSimplex ℝ E}
     (hu : IsUnit (designOperator w)) :
     (w.weights.sum fun a c ↦ c * ⟪a, Ring.inverse (designOperator w) a⟫_ℝ) = finrank ℝ E := by
-  rw [← trace_comp_designOperator, ← mul_def, Ring.inverse_mul_cancel _ hu, toLinearMap_one,
-    LinearMap.trace_one]
+  rw [designOperator_def, Finsupp.sum] at hu ⊢
+  exact sum_mul_inner_ringInverse_sum_smul_rankOne (φ := id) hu
 
 /-- Every design with invertible design operator `V(w)` on a space of dimension `d` has a support
 point `a` with `d ≤ ⟪a, V(w)⁻¹ a⟫`: the G-value `sup_{a ∈ 𝒜} ⟪a, V(w)⁻¹ a⟫` of a design on `𝒜` is
