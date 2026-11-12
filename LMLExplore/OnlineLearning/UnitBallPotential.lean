@@ -5,7 +5,7 @@ Authors: Rémy Degenne
 -/
 module
 
-public import LMLExplore.OnlineLearning.FTRL
+public import LMLExplore.OnlineLearning.FTRL.Basic
 public import Mathlib.Analysis.SpecialFunctions.Log.Deriv
 public import Mathlib.Analysis.SpecialFunctions.Sqrt
 

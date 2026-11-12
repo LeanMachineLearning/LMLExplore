@@ -5,16 +5,16 @@ Authors: Rémy Degenne
 -/
 module
 
-public import LMLExplore.OnlineLearning.FTRL
+public import LMLExplore.OnlineLearning.FTRL.Basic
 public import LeanMachineLearning.ForMathlib.Analysis.Convex.Subgradient.Deriv
 
 /-!
 # Mirror descent
 
 Online linear optimization on a set `K` of a real normed space `E`, with losses
-`y t : E →L[ℝ] ℝ` in the dual of `E`, as in `LMLExplore.OnlineLearning.FTRL`. **Mirror descent**
-with potential `F` and learning rate `η` starts at a minimizer `a 0` of `F` over `K` [LS, (28.1)]
-and, after the loss `y t` of round `t`, plays a minimizer over `K` of
+`y t : E →L[ℝ] ℝ` in the dual of `E`, as in `LMLExplore.OnlineLearning.FTRL.Basic`.
+**Mirror descent** with potential `F` and learning rate `η` starts at a minimizer `a 0` of `F`
+over `K` [LS, (28.1)] and, after the loss `y t` of round `t`, plays a minimizer over `K` of
 `b ↦ η y t b + D_F(b, a t)` [LS, (28.2)], where `D_F(b, a) = F b - F a - F'(b - a)` is the
 Bregman divergence of `F` for a derivative `F'` of `F` at `a`. Where FTRL regularizes the
 cumulative loss, mirror descent only uses the last loss and the last play. The learning rate may

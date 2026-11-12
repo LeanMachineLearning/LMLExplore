@@ -12,7 +12,7 @@ public import LMLExplore.OnlineLearning.MirrorDescent
 # Local-norm regret bounds through the unconstrained step
 
 The regret bounds of follow the regularized leader and of mirror descent with a potential `F`
-(`LMLExplore.OnlineLearning.FTRL`, `LMLExplore.OnlineLearning.MirrorDescent`) are sums of
+(`LMLExplore.OnlineLearning.FTRL.Basic`, `LMLExplore.OnlineLearning.MirrorDescent`) are sums of
 stability terms `y (a - b) - D_F(b, a) / η`, where `a` is the play of a round, `y` its loss, `η`
 its learning rate and `b` the next play (or the comparator). Strong convexity bounds such a term
 by `η / (2 m) * ‖y‖ ^ 2`, which is useless for losses with a large dual norm, such as the
