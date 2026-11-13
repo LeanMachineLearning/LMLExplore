@@ -37,6 +37,8 @@ coordinate, and conditional distributions under each `κ a` glue into one under 
   `∫ ω, g (X ω, Y ω) ∂P = ∫ ω, ∫ y, g (X ω, y) ∂(κ (X ω)) ∂P` for integrable `g`.
 * `ProbabilityTheory.HasCondDistrib.condExp_prod_ae_eq_integral`:
   `P[g (X, Y) | σ(X)] = ∫ y, g (X, y) ∂(κ X)` almost everywhere, for integrable `g`.
+* `ProbabilityTheory.HasCondDistrib.restrict_preimage`: `κ` is still the conditional
+  distribution of `Y` given `X` under the restriction of `P` to an event `X ⁻¹' s`.
 * `ProbabilityTheory.HasCondDistrib.ae_mem`: if every conditional law is concentrated on a set,
   then `Y` lies in that set almost surely.
 * `ProbabilityTheory.hasCondDistrib_snd_compProd_comap`: under `μ ⊗ₘ η.comap f`, the second
@@ -49,8 +51,9 @@ coordinate, and conditional distributions under each `κ a` glue into one under 
   `HasCondDistrib.comp_hasLaw`.
 
 `hasCondDistrib_snd_compProd_comap` is adapted from the LMLPapers project (same author). The
-characterization, the Bochner integral, the conditional expectation, the gluing over `μ ⊗ₘ κ`
-and the transport by a law are adapted from the Essakine2026Tight project
+characterization, the Bochner integral, the conditional expectation,
+`HasCondDistrib.restrict_preimage`, the gluing over `μ ⊗ₘ κ` and the transport by a law are
+adapted from the Essakine2026Tight project
 (`RemyDegenne/Essakine2026Tight`, Apache 2.0, files `HasCondDistribIntegral.lean`,
 `HasCondDistribCondExp.lean` and `CondDistrib.lean` of `ForLMLExplore/Probability/`).
 -/
@@ -141,6 +144,23 @@ lemma HasCondDistrib.integral_comp_prodMk_eq_integral_integral {E : Type*}
     _ = ∫ x, ∫ y, g (x, y) ∂(κ x) ∂(P.map X) := Measure.integral_compProd hg
     _ = ∫ ω, ∫ y, g (X ω, y) ∂(κ (X ω)) ∂P :=
         integral_map h.aemeasurable_fst hg'.aestronglyMeasurable
+
+/-- If `κ` is the conditional distribution of `Y` given `X` under `P`, it is also the conditional
+distribution of `Y` given `X` under the restriction of `P` to an event `X ⁻¹' s` determined by
+`X`. -/
+lemma HasCondDistrib.restrict_preimage (h : HasCondDistrib Y X κ P) {s : Set 𝓧}
+    (hs : MeasurableSet s) :
+    HasCondDistrib Y X κ (P.restrict (X ⁻¹' s)) := by
+  refine ⟨h.aemeasurable.restrict, ?_⟩
+  have h_pre : (fun ω ↦ (X ω, Y ω)) ⁻¹' (s ×ˢ Set.univ) = X ⁻¹' s := by
+    rw [Set.mk_preimage_prod, Set.preimage_univ, Set.inter_univ]
+  calc (P.restrict (X ⁻¹' s)).map (fun ω ↦ (X ω, Y ω))
+      = (P.map (fun ω ↦ (X ω, Y ω))).restrict (s ×ˢ Set.univ) := by
+        rw [Measure.restrict_map_of_aemeasurable h.aemeasurable (hs.prod .univ), h_pre]
+    _ = (P.map X).restrict s ⊗ₘ κ := by
+        rw [h.map_eq, Measure.compProd_restrict_left _ _ hs]
+    _ = (P.restrict (X ⁻¹' s)).map X ⊗ₘ κ := by
+        rw [Measure.restrict_map_of_aemeasurable h.aemeasurable_fst hs]
 
 omit [SFinite P] [IsSFiniteKernel κ] in
 /-- If `κ` is the conditional distribution of `Y` given `X` and every measure `κ x` is concentrated

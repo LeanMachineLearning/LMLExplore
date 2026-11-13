@@ -27,6 +27,9 @@ the time-uniform deviation bounds of [LS, Lemma 33.8], thus spends at most `δ` 
 * `LMLExplore.sum_range_succ_comp_max_one`:
   `∑ j < n + 1, f (max 1 j) = ∑ j < n, f (j + 1) + f 1`. Clipping the index at `1` only changes
   the term `j = 0`, as for the confidence widths `max(1, N)^{-1/2}` of optimistic algorithms.
+* `LMLExplore.sum_range_add_ite`:
+  `∑ k < m + L, (if m ≤ k ∧ k < m + L then F k else 0) = ∑ j < L, F (m + j)`, reindexing a sum
+  over a final block of indices.
 
 ## References
 
@@ -67,5 +70,13 @@ theorem sum_range_succ_comp_max_one {M : Type*} [AddCommMonoid M] [Semiring α] 
     ∑ j ∈ range (n + 1), f (max 1 (j : α)) = ∑ j ∈ range n, f ((j : α) + 1) + f 1 := by
   rw [sum_range_succ']
   simp [max_eq_right (le_add_of_nonneg_left (Nat.cast_nonneg (α := α) _))]
+
+/-- A sum over the indices `k < m + L` restricted to the indices `m ≤ k < m + L` is a sum over
+the shifted indices `j < L`:
+`∑_{k < m + L} (if m ≤ k ∧ k < m + L then F k else 0) = ∑_{j < L} F (m + j)`. -/
+theorem sum_range_add_ite {M : Type*} [AddCommMonoid M] (m L : ℕ) (F : ℕ → M) :
+    ∑ k ∈ range (m + L), (if m ≤ k ∧ k < m + L then F k else 0) = ∑ j ∈ range L, F (m + j) := by
+  rw [sum_range_add, sum_eq_zero fun k hk ↦ ite_eq_right fun h ↦ by simp at hk; lia, zero_add]
+  exact sum_congr rfl fun j hj ↦ ite_eq_left ⟨by lia, by simp at hj; lia⟩
 
 end LMLExplore

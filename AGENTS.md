@@ -60,7 +60,16 @@ LMLExplore depends on Mathlib, Tau Ceti and LML, at the exact versions recorded 
   axioms beyond `propext`, `Classical.choice` and `Quot.sound` (so no `native_decide`), no
   `meta import`, and the Mathlib linter set with warnings as errors (style, header, file length,
   no `maxHeartbeats` overrides). Do not try to disable these.
-- Every file starts with the copyright header and then `module`, as in LML and Tau Ceti.
+- Every file starts with the copyright header and then `module`, as in LML and Tau Ceti. The
+  header names `LMLExplore contributors` as both copyright holder and author, whoever wrote the
+  file, with the year the file was created. Do not add individual names to any header:
+  ```
+  /-
+  Copyright (c) 2026 LMLExplore contributors. All rights reserved.
+  Released under Apache 2.0 license as described in the file LICENSE.
+  Authors: LMLExplore contributors
+  -/
+  ```
 - `set_option` is forbidden anywhere in library code, including `set_option hygiene false`. Prefer
   named definitions, abbreviations and lemmas to custom term syntax. Local tactic macros must
   remove substantial repeated proof machinery. No meta or unsafe declarations, elaborators,
