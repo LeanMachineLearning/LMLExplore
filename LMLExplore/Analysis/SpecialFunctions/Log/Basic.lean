@@ -61,6 +61,8 @@ import Mathlib.Analysis.SpecialFunctions.Log.Deriv
 * [LS] T. Lattimore and Cs. Szepesvári, *Bandit Algorithms*, Cambridge University Press, 2020.
 * [MDJKLV21] P. Ménard, O. D. Domingues, A. Jonsson, E. Kaufmann, E. Leurent and M. Valko, *Fast
   active learning for pure exploration in reinforcement learning*, ICML 2021, Lemma 9.
+* [EV26] A. Essakine and C. Vernade, *Tight sample complexity bounds for entropic best policy
+  identification*, COLT 2026, arXiv:2605.13717, Lemma 28.
 -/
 
 public section
@@ -441,10 +443,13 @@ private theorem div_max_one_le_three_mul_log_sub_log {U u : ℝ} (hU : 0 ≤ U) 
 /-- **The logarithmic sum bound**: if `0 ≤ u k ≤ max 1 (U k)` for every `k < n`, where
 `U k = ∑_{i < k} u i`, then `∑_{k < n} u k / max 1 (U k) ≤ 3 log (U n + 1)`.
 
-This is [MDJKLV21, Lemma 9] with the constant `3` in place of `4` and the hypothesis `u k ≤ 1`
-weakened to `u k ≤ max 1 (U k)`; see `Real.sum_div_max_one_le_four_mul_log` for the stated form.
-Adapted from the formalization in the paper project RemyDegenne/Essakine2026Tight (same author),
-file `ForLMLExplore/Analysis/SpecialFunctions/Log/Basic.lean`, which assumes `u k ∈ [0, 1]`. -/
+This is [MDJKLV21, Lemma 9], restated as [EV26, Lemma 28], with the constant `3` in place of `4`
+and the hypothesis `u k ≤ 1` weakened to `u k ≤ max 1 (U k)`; see
+`Real.sum_div_max_one_le_four_mul_log` for the stated form. That the constant `3` holds is
+erratum E19 of the formalization of [EV26] in `github.com/RemyDegenne/Essakine2026Tight`
+(file `notes/paper-errata.md`). Adapted from that formalization (file
+`Essakine2026Tight/ForLMLExplore/Analysis/SpecialFunctions/Log/Basic.lean`, commit `9c77165d`,
+by Rémy Degenne, Apache 2.0), which assumes `u k ∈ [0, 1]`. -/
 theorem sum_div_max_one_le_three_mul_log {u : ℕ → ℝ} {n : ℕ} (hu : ∀ k < n, 0 ≤ u k)
     (huU : ∀ k < n, u k ≤ max 1 (∑ i ∈ Finset.range k, u i)) :
     ∑ k ∈ Finset.range n, u k / max 1 (∑ i ∈ Finset.range k, u i) ≤
