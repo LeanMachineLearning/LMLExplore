@@ -67,6 +67,7 @@ supported distributions, not a subset of `α → ℝ`.
   `(w ⬝ᵥ v) ^ 2 ≤ w ⬝ᵥ v ^ 2` for every vector `w` of the simplex.
 * `LMLExplore.sum_sqrt_mul_one_sub_le_sqrt`: `∑ a, √(w a) * (1 - w a) ≤ √(k - 1)` for every
   vector `w` of the simplex, with `k` the cardinality of `α`.
+* `LMLExplore.sum_sqrt_le_sqrt_card`: `∑ a, √(w a) ≤ √k` for every vector `w` of the simplex.
 * `LMLExplore.sum_inv_pos`: for positive weights `c` on a nonempty type, `0 < ∑ b, (c b)⁻¹`.
 * `LMLExplore.iInf_ofReal_inv_div_sum_inv_mul`: at the vector proportional to `c⁻¹`, the smallest
   weighted entry `min_a w a c a` is `(∑ b, (c b)⁻¹)⁻¹`.
@@ -330,6 +331,11 @@ lemma sum_sqrt_mul_one_sub_le_sqrt (hw : w ∈ simplex α) :
           nlinarith [mul_nonneg h0 (sub_nonneg.2 h1)]
     _ = (Fintype.card α : ℝ) - 1 := by simp [Finset.sum_sub_distrib, hw.2]
   exact (le_abs_self _).trans (Real.abs_le_sqrt (h.trans h2))
+
+/-- For every vector `w` of the simplex, `∑ a, √(w a) ≤ √k`, with `k` the cardinality of `α`: by
+the Cauchy–Schwarz inequality, the square of the sum is at most `k * ∑ a, w a = k`. -/
+lemma sum_sqrt_le_sqrt_card (hw : w ∈ simplex α) : ∑ a, √(w a) ≤ √(Fintype.card α) := by
+  simpa [hw.2] using Real.sum_sqrt_mul_sqrt_le Finset.univ hw.1 fun _ ↦ zero_le_one
 
 /-- For positive weights `c` on a nonempty type, the sum of the inverses `∑ b, (c b)⁻¹` is
 positive. -/
