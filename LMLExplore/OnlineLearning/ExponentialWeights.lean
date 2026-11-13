@@ -9,6 +9,7 @@ public import LMLExplore.Analysis.Convex.Simplex
 public import LMLExplore.Analysis.SpecialFunctions.Exp
 public import Mathlib.Algebra.BigOperators.Field
 public import Mathlib.MeasureTheory.Function.SpecialFunctions.Basic
+import TauCeti.Analysis.SpecialFunctions.Exp.QuadraticBound
 
 /-!
 # Exponential weights
@@ -142,7 +143,7 @@ theorem sum_mul_exp_neg_sub_one_add_le {p y : α → ℝ} (hp : ∀ b, 0 ≤ p b
     ∑ b, p b * (exp (-(η * y b)) - 1 + η * y b) ≤ η ^ 2 / 2 * ∑ b, p b * y b ^ 2 := by
   rw [mul_sum]
   refine sum_le_sum fun b _ ↦ ?_
-  have h := exp_neg_le_one_sub_add_sq_div_two (mul_nonneg hη (hy b))
+  have h := exp_le_one_add_add_sq_div_two_of_nonpos (neg_nonpos.2 (mul_nonneg hη (hy b)))
   calc p b * (exp (-(η * y b)) - 1 + η * y b)
   _ ≤ p b * (η ^ 2 / 2 * y b ^ 2) := mul_le_mul_of_nonneg_left (by linarith) (hp b)
   _ = η ^ 2 / 2 * (p b * y b ^ 2) := by ring
