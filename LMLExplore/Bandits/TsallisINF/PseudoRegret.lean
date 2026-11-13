@@ -139,16 +139,6 @@ end Path
 
 section Expectation
 
-omit [IsProbabilityMeasure P] in
-/-- A run of Tsallis-INF is a run of the weight-based algorithm with the weights of
-Tsallis-INF. -/
-private lemma isAlgEnvSeq_weightAlgorithm (h : IsAlgEnvSeq O A Y tsallisINF env P) :
-    IsAlgEnvSeq O A Y (weightAlgorithm (fun n x ↦ tsallisINFWeights n x.1)
-      (fun n a ↦ (measurable_pi_apply a).comp ((measurable_tsallisINFWeights n).comp
-        measurable_fst))
-      (fun n x ↦ tsallisINFWeights_mem_simplex n x.1)) env P :=
-  tsallisINF_def (𝓞 := 𝓞) (α := α) ▸ h
-
 omit [Nonempty α] [MeasurableSpace α] [MeasurableSingletonClass α] [MeasurableSpace 𝓞] in
 /-- The local norm `∑ b, p b √(p b) (𝟙{a = b} / p b - 1) ^ 2` of the shifted estimate of a unit
 loss when the arm `a` is drawn from the weights `p`. -/
@@ -198,7 +188,7 @@ private lemma measurable_localNorm : Measurable fun z : (α → ℝ) × α ↦ l
 integrable. -/
 private lemma integrable_localNorm (h : IsAlgEnvSeq O A Y tsallisINF env P) (t : ℕ) :
     Integrable (fun ω ↦ localNorm (tsallisINFWeights t (history O A Y t ω)) (A t ω)) P := by
-  refine WeightAlgorithm.integrable_comp_weights (isAlgEnvSeq_weightAlgorithm h) t
+  refine WeightAlgorithm.integrable_comp_weights (isAlgEnvSeq_tsallisINF_iff.1 h) t
     measurable_localNorm
     (C := √((Fintype.card α : ℝ) - 1)) fun p hp ↦ ?_
   have hnn (a : α) : 0 ≤ localNorm p a :=
@@ -239,10 +229,10 @@ theorem integrable_sum_mul_sqrt_mul_sq (h : IsAlgEnvSeq O A Y tsallisINF env P)
       (iwEstimator (tsallisINFWeights t (history O A Y t ω)) (A t ω) (1 - Y t ω) b -
         (1 - Y t ω)) ^ 2 := by
     have hW : Measurable fun ω ↦ tsallisINFWeights t (history O A Y t ω) :=
-      WeightAlgorithm.measurable_weights_run (isAlgEnvSeq_weightAlgorithm h) t
+      WeightAlgorithm.measurable_weights_run (isAlgEnvSeq_tsallisINF_iff.1 h) t
     have hiw : Measurable fun ω ↦
         iwEstimator (tsallisINFWeights t (history O A Y t ω)) (A t ω) (1 - Y t ω) :=
-      WeightAlgorithm.measurable_iwEstimator_run (isAlgEnvSeq_weightAlgorithm h)
+      WeightAlgorithm.measurable_iwEstimator_run (isAlgEnvSeq_tsallisINF_iff.1 h)
         (measurable_const.sub (h.measurable_feedback t))
     have hYt := h.measurable_feedback t
     fun_prop
@@ -272,7 +262,7 @@ theorem integral_sum_mul_sqrt_mul_sq_le_integral_sum_sqrt_mul_one_sub
     (integrable_localNorm h t)
     (by filter_upwards [hY] with ω hω using (sum_mul_sqrt_mul_sq_run_mem_Icc O A ω hω).2)
   -- whose expectation is that of `∑ b, √(P t b) (1 - P t b) ≤ √(k - 1)`
-  rw [WeightAlgorithm.integral_comp_weights (isAlgEnvSeq_weightAlgorithm h) t measurable_localNorm
+  rw [WeightAlgorithm.integral_comp_weights (isAlgEnvSeq_tsallisINF_iff.1 h) t measurable_localNorm
     (integrable_localNorm h t)] at h1
   simpa only [sum_mul_localNorm (tsallisINFWeights_mem_simplex _ _)] using h1
 
@@ -310,9 +300,9 @@ theorem pseudoRegret_le (h : IsAlgEnvSeq O A Y tsallisINF env P)
     (integrable_const 1).sub
       (Integrable.of_mem_Icc 0 1 (h.measurable_feedback t).aemeasurable (hYt t ht))
   have hLint (t : ℕ) (ht : t ∈ range n) :=
-    WeightAlgorithm.integrable_iwEstimator_one_sub (isAlgEnvSeq_weightAlgorithm h) (hYt t ht) a
+    WeightAlgorithm.integrable_iwEstimator_one_sub (isAlgEnvSeq_tsallisINF_iff.1 h) (hYt t ht) a
   have hMint (t : ℕ) (ht : t ∈ range n) : Integrable (fun ω ↦ 1 - env.means O A Y a t ω) P :=
-    WeightAlgorithm.integrable_one_sub_means (isAlgEnvSeq_weightAlgorithm h) (hYt t ht)
+    WeightAlgorithm.integrable_one_sub_means (isAlgEnvSeq_tsallisINF_iff.1 h) (hYt t ht)
       (ae_of_all _ fun ω ↦ tsallisINFWeights_pos _ _ a)
   have hVint (t : ℕ) (ht : t ∈ range n) := integrable_sum_mul_sqrt_mul_sq (t := t) h (hYt t ht)
   calc P[fun ω ↦ ∑ t ∈ range n, (env.means O A Y a t ω - Y t ω)]
@@ -326,7 +316,7 @@ theorem pseudoRegret_le (h : IsAlgEnvSeq O A Y tsallisINF env P)
   _ = ∑ t ∈ range n, (P[fun ω ↦ 1 - Y t ω] - P[fun ω ↦
         iwEstimator (tsallisINFWeights t (history O A Y t ω)) (A t ω) (1 - Y t ω) a]) :=
       sum_congr rfl fun t ht ↦ by
-        rw [WeightAlgorithm.integral_iwEstimator_one_sub (isAlgEnvSeq_weightAlgorithm h)
+        rw [WeightAlgorithm.integral_iwEstimator_one_sub (isAlgEnvSeq_tsallisINF_iff.1 h)
           (hYt t ht) (ae_of_all _ fun ω ↦ tsallisINFWeights_pos _ _ a)]
   _ = P[fun ω ↦ ∑ t ∈ range n, ((1 - Y t ω) -
         iwEstimator (tsallisINFWeights t (history O A Y t ω)) (A t ω) (1 - Y t ω) a)] := by

@@ -394,10 +394,12 @@ lemma tsallisDeriv2_def (z : α → ℝ) :
       (ContinuousLinearMap.proj (R := ℝ) (φ := fun _ : α ↦ ℝ) a) :=
   (rfl)
 
+@[simp]
 lemma tsallisDeriv_apply (z v : α → ℝ) :
     tsallisDeriv z v = ∑ a, -(2 * √(z a))⁻¹ * v a := by
   simp [tsallisDeriv_def]
 
+@[simp]
 lemma tsallisDeriv2_apply (z v w : α → ℝ) :
     tsallisDeriv2 z v w = ∑ a, (4 * z a * √(z a))⁻¹ * v a * w a := by
   simp [tsallisDeriv2_def, mul_assoc]
