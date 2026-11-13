@@ -8,14 +8,12 @@ module
 public import Mathlib.InformationTheory.KullbackLeibler.Basic
 public import Mathlib.Probability.Independence.InfinitePi
 public import LMLExplore.Data.Nat.Choose.Bounds
+public import LMLExplore.InformationTheory.MethodOfTypes
 public import LMLExplore.Probability.Martingale.LikelihoodRatio
 public import LMLExplore.Probability.Martingale.Ville
 public import LMLExplore.Probability.Process.Filtration
 public import LMLExplore.SequentialLearning.FiniteActions
-public import TauCeti.MeasureTheory.Measure.Decomposition.Lebesgue
 public import TauCeti.Probability.Process.EmpiricalMeasure
-
-import LMLExplore.InformationTheory.MethodOfTypes
 
 /-!
 # Time-uniform concentration of empirical distributions by the Laplace mixture
@@ -35,14 +33,14 @@ the probability that it ever reaches `1 / δ`. The likelihood of the rule of suc
 (`LMLExplore.prod_range_laplacePredictor`), the mixture of the likelihoods `∏_{t < n} p(ξ t)` over
 the uniform law of the probability vector `p`. It is within the factor
 `binom(n + m - 1, m - 1) ≤ (e (1 + n / (m - 1)))^{m - 1}` (`Nat.ascFactorial_div_factorial_le`)
-of the maximum likelihood `∏ₐ (N_n(a) / n)^{N_n(a)} = exp (n KL(p̂_n ‖ ν)) ∏_{t < n} ν{ξ t}`, by the
-multinomial bound `Nat.prod_div_pow_le_prod_factorial_div`
+of the maximum likelihood `∏ₐ (N_n(a) / n)^{N_n(a)} = exp (n KL(p̂_n ‖ ν)) ∏_{t < n} ν{ξ t}`
+(`LMLExplore.prod_measureReal_pow_typeCount_eq_mul_exp`, with the type counts identified with
+`N_n` by `LMLExplore.typeCount_eq_pullCount`), by the multinomial bound
+`Nat.prod_div_pow_le_prod_factorial_div`
 (`LMLExplore.exp_mul_toReal_klDiv_le_mul_predictorLikelihoodRatio_laplacePredictor`).
 
 ## Main statements
 
-* `LMLExplore.exp_mul_toReal_klDiv_empiricalFiniteMeasure`: for a finite family `x` of points
-  charged by `ν`, `exp (card κ KL(p̂ ‖ ν)) = ∏ᵢ p̂{x i} / ν{x i}`.
 * `LMLExplore.exp_mul_toReal_klDiv_le_mul_predictorLikelihoodRatio_laplacePredictor`:
   `exp (n KL(p̂_n ‖ ν)) ≤ (e (1 + n / (m - 1)))^{m - 1} L_n`.
 * `LMLExplore.measure_exists_le_mul_klDiv_empiricalFiniteMeasure_le`: the time-uniform bound,
@@ -123,57 +121,13 @@ lemma prod_range_laplacePredictor (n : ℕ) (ω : Ω) :
   · push_cast
     exact prod_congr rfl fun t _ ↦ add_comm _ _
 
-/-! ### The divergence of an empirical distribution -/
-
-section Empirical
-
-variable [MeasurableSpace α] [MeasurableSingletonClass α]
-
 omit [Fintype α] in
-/-- The mass of a point under the empirical distribution of `ξ 0, …, ξ (n - 1)` is its frequency
-`N_n(a) / n`. -/
-lemma measureReal_empiricalFiniteMeasure_singleton_eq_pullCount_div (n : ℕ) (ω : Ω) (a : α) :
-    (empiricalFiniteMeasure (fun k : Fin n ↦ ξ k ω) : Measure α).real {a} =
-      pullCount ξ a n ω / n := by
-  have h_sum : ∑ k : Fin n, ({a} : Set α).indicator (1 : α → ℝ≥0∞) (ξ k ω) = pullCount ξ a n ω := by
-    rw [pullCount_eq_sum, Nat.cast_sum,
-      ← Fin.sum_univ_eq_sum_range (fun s ↦ ((if ξ s ω = a then 1 else 0 : ℕ) : ℝ≥0∞))]
-    refine sum_congr rfl fun k _ ↦ ?_
-    simp [Set.indicator_apply]
-  rw [measureReal_def, empiricalFiniteMeasure_apply (measurableSet_singleton a), h_sum,
-    ENNReal.toReal_mul, ENNReal.toReal_inv, Fintype.card_fin, ENNReal.toReal_natCast,
-    ENNReal.toReal_natCast, inv_mul_eq_div]
-
-omit [Fintype α] [DecidableEq α] in
-/-- **The divergence of an empirical distribution**: for a nonempty finite family `x` of points
-charged by a probability measure `ν`, with empirical distribution `p̂`,
-`exp (card κ KL(p̂ ‖ ν)) = ∏ᵢ p̂{x i} / ν{x i}`. -/
-theorem exp_mul_toReal_klDiv_empiricalFiniteMeasure {κ : Type*} [Fintype κ] [Nonempty κ]
-    {ν : Measure α} [IsProbabilityMeasure ν] {x : κ → α} (hx : ∀ i, ν {x i} ≠ 0) :
-    exp (Fintype.card κ * (klDiv (empiricalFiniteMeasure x : Measure α) ν).toReal) =
-      ∏ i, (empiricalFiniteMeasure x : Measure α).real {x i} / ν.real {x i} := by
-  set p : Measure α := (empiricalFiniteMeasure x : Measure α)
-  have hκ : (0 : ℝ) < Fintype.card κ := by exact_mod_cast Fintype.card_pos
-  -- the empirical distribution only charges the points `x i`
-  have hac : p ≪ ν := empiricalFiniteMeasure_absolutelyContinuous hx
-  have hp_pos : ∀ i, 0 < p.real {x i} := fun i ↦ by
-    refine ENNReal.toReal_pos ?_ (measure_ne_top _ _)
-    rw [empiricalFiniteMeasure_apply (measurableSet_singleton _)]
-    refine mul_ne_zero (by simp) (ne_of_gt ?_)
-    refine lt_of_lt_of_le ?_ (single_le_sum (fun j _ ↦ zero_le) (mem_univ i))
-    simp
-  have hν_pos : ∀ i, 0 < ν.real {x i} := fun i ↦
-    ENNReal.toReal_pos (hx i) (measure_ne_top _ _)
-  have h_llr : ∀ i, llr p ν (x i) = log (p.real {x i} / ν.real {x i}) := fun i ↦ by
-    simp only [llr_def, Measure.rnDeriv_eq_measure_singleton_div (hx i) (measure_ne_top _ _),
-      ENNReal.toReal_div, measureReal_def]
-  rw [toReal_klDiv_of_measure_eq hac (by simp only [p, measure_univ]),
-    integral_empiricalFiniteMeasure_of_measurableSingletonClass, smul_eq_mul, ← mul_assoc,
-    mul_inv_cancel₀ hκ.ne', one_mul, exp_sum]
-  exact prod_congr rfl fun i _ ↦ by
-    rw [h_llr, exp_log (div_pos (hp_pos i) (hν_pos i))]
-
-end Empirical
+/-- The type of the observations `ξ 0, …, ξ (n - 1)` is their vector of counts: the type count
+of `a` is `N_n(a)`. -/
+lemma typeCount_eq_pullCount (n : ℕ) (ω : Ω) (a : α) :
+    typeCount (fun k : Fin n ↦ ξ k ω) a = pullCount ξ a n ω := by
+  rw [typeCount_def, card_filter, pullCount_eq_sum]
+  exact Fin.sum_univ_eq_sum_range (fun s ↦ if ξ s ω = a then 1 else 0) n
 
 /-! ### The likelihood ratio of the rule of succession -/
 
@@ -204,13 +158,20 @@ theorem exp_mul_toReal_klDiv_le_mul_predictorLikelihoodRatio_laplacePredictor
   -- the maximum likelihood: `exp (n KL(p̂_n ‖ ν)) P = ∏ₐ (N a / n) ^ N a`
   have h_max : exp (n * (klDiv (empiricalFiniteMeasure fun k : Fin n ↦ ξ k ω : Measure α)
       ν).toReal) = (∏ a, ((N a : ℝ) / n) ^ N a) / P := by
-    have h := exp_mul_toReal_klDiv_empiricalFiniteMeasure (ν := ν)
-      (x := fun k : Fin n ↦ ξ k ω) fun k ↦ hξ k k.2
-    rw [Fintype.card_fin] at h
-    rw [h, Fin.prod_univ_eq_prod_range (fun t ↦ (empiricalFiniteMeasure fun k : Fin n ↦ ξ k ω :
-      Measure α).real {ξ t ω} / ν.real {ξ t ω}) n, prod_div_distrib]
-    simp_rw [measureReal_empiricalFiniteMeasure_singleton_eq_pullCount_div]
-    rw [← prod_pow_pullCount (A := ξ) (fun a ↦ (pullCount ξ a n ω : ℝ) / n) n ω]
+    set x : Fin n → α := fun k ↦ ξ k ω
+    have hx : ∀ k, ν {x k} ≠ 0 := fun k ↦ hξ k k.2
+    have hN_type : typeCount x = N := funext fun a ↦ typeCount_eq_pullCount n ω a
+    -- `P = ∏ₐ ν{a} ^ N a = (∏ₐ (N a / n) ^ N a) exp (-n KL(p̂_n ‖ ν))`
+    have hP_eq : P = (∏ a, ((N a : ℝ) / n) ^ N a) *
+        exp (-(n * (klDiv (empiricalFiniteMeasure x : Measure α) ν).toReal)) := by
+      have h := prod_measureReal_pow_typeCount_eq_mul_exp hx
+      simp_rw [measureReal_empiricalFiniteMeasure_singleton, hN_type] at h
+      rw [toReal_klDiv_eq_sum_mul_log_div (empiricalFiniteMeasure_absolutelyContinuous hx),
+        probReal_univ, probReal_univ, add_sub_cancel_right]
+      simp_rw [measureReal_empiricalFiniteMeasure_singleton, hN_type]
+      rw [← h, prod_pow_pullCount (fun a ↦ ν.real {a}) n ω]
+    rw [eq_div_iff hP.ne', hP_eq, exp_neg]
+    field_simp
   -- the likelihood of the rule of succession: `L_n P = ∏ₐ N a ! / m^{(n)}`
   have h_lap : predictorLikelihoodRatio ν (laplacePredictor ξ) ξ n ω =
       (∏ a, ((N a)! : ℝ)) / m.ascFactorial n / P := by
