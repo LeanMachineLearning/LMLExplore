@@ -7,12 +7,12 @@ module
 
 public import Mathlib.Analysis.SpecialFunctions.Log.ENNRealLog
 public import Mathlib.Analysis.SpecialFunctions.Exp
-public import Mathlib.Data.EReal.Inv
 public import Mathlib.MeasureTheory.Measure.MeasureSpaceDef
 public import Mathlib.Order.LiminfLimsup
 public import Mathlib.Topology.Instances.EReal.Lemmas
 public import Mathlib.Topology.Semicontinuity.Defs
 public import TauCeti.Probability.LargeDeviations.Basic
+public import LMLExplore.Data.EReal.Inv
 
 /-!
 # Large deviation principles
@@ -76,12 +76,6 @@ open scoped ENNReal NNReal
 
 namespace LMLExplore
 
-/-- The speed `1 / n` as a multiplier in `EReal` is a division by `n`, also for `n = 0`, where
-both sides vanish. -/
-private lemma coe_inv_natCast_mul (n : ℕ) (a : EReal) :
-    (((n⁻¹ : ℝ≥0) : ℝ) : EReal) * a = a / n := by
-  rw [NNReal.coe_inv, NNReal.coe_natCast, EReal.coe_inv, EReal.coe_natCast, EReal.div_eq_inv_mul]
-
 /-! ### Exponential bounds -/
 
 /-- The logarithm of `exp (-(n r))` is `-r n`, as an extended real. -/
@@ -119,7 +113,7 @@ lemma limsup_inv_mul_log_le_neg_of_le_mul_exp {u : ℕ → ℝ≥0∞} {c : ℝ�
       ∀ᶠ n : ℕ in atTop, u n ≤ C * ENNReal.ofReal (Real.exp (-(n * r)))) :
     limsup (fun n : ℕ ↦ (((n⁻¹ : ℝ≥0) : ℝ) : EReal) * ENNReal.log (u n)) atTop ≤
       -(c : EReal) := by
-  simp_rw [coe_inv_natCast_mul]
+  simp_rw [EReal.coe_nnreal_inv_mul, NNReal.coe_natCast, EReal.coe_natCast]
   rw [EReal.le_neg]
   refine EReal.ge_of_forall_gt_iff_ge.1 fun r hr ↦ ?_
   rw [EReal.le_neg]
@@ -140,7 +134,7 @@ lemma neg_le_liminf_inv_mul_log_of_mul_exp_le {u : ℕ → ℝ≥0∞} {c : ℝ�
     (h : ∀ r : ℝ, (c : EReal) < r → ∃ C : ℝ≥0∞, C ≠ 0 ∧
       ∀ᶠ n : ℕ in atTop, C * ENNReal.ofReal (Real.exp (-(n * r))) ≤ u n) :
     -(c : EReal) ≤ liminf (fun n : ℕ ↦ (((n⁻¹ : ℝ≥0) : ℝ) : EReal) * ENNReal.log (u n)) atTop := by
-  simp_rw [coe_inv_natCast_mul]
+  simp_rw [EReal.coe_nnreal_inv_mul, NNReal.coe_natCast, EReal.coe_natCast]
   rw [EReal.neg_le]
   refine EReal.le_of_forall_lt_iff_le.1 fun r hr ↦ ?_
   rw [EReal.neg_le]
@@ -164,7 +158,7 @@ lemma eventually_le_exp_of_limsup_inv_mul_log_le {u : ℕ → ℝ≥0∞} {c : �
     (h : limsup (fun n : ℕ ↦ (((n⁻¹ : ℝ≥0) : ℝ) : EReal) * ENNReal.log (u n)) atTop ≤
       -(c : EReal)) {r : ℝ} (hr : (r : EReal) < c) :
     ∀ᶠ n : ℕ in atTop, u n ≤ ENNReal.ofReal (Real.exp (-(n * r))) := by
-  simp_rw [coe_inv_natCast_mul] at h
+  simp_rw [EReal.coe_nnreal_inv_mul, NNReal.coe_natCast, EReal.coe_natCast] at h
   have h' : limsup (fun n : ℕ ↦ ENNReal.log (u n) / n) atTop < ((-r : ℝ) : EReal) := by
     rw [EReal.coe_neg]
     exact h.trans_lt (EReal.neg_lt_neg_iff.2 hr)
@@ -181,7 +175,7 @@ lemma eventually_exp_le_of_neg_le_liminf_inv_mul_log {u : ℕ → ℝ≥0∞} {c
       liminf (fun n : ℕ ↦ (((n⁻¹ : ℝ≥0) : ℝ) : EReal) * ENNReal.log (u n)) atTop) {r : ℝ}
     (hr : (c : EReal) < r) :
     ∀ᶠ n : ℕ in atTop, ENNReal.ofReal (Real.exp (-(n * r))) ≤ u n := by
-  simp_rw [coe_inv_natCast_mul] at h
+  simp_rw [EReal.coe_nnreal_inv_mul, NNReal.coe_natCast, EReal.coe_natCast] at h
   have h' : ((-r : ℝ) : EReal) < liminf (fun n : ℕ ↦ ENNReal.log (u n) / n) atTop := by
     rw [EReal.coe_neg]
     exact (EReal.neg_lt_neg_iff.2 hr).trans_le h
