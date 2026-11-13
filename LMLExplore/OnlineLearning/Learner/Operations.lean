@@ -26,7 +26,7 @@ their runs, and transfers regret guarantees (`OnlineLearner.HasRegretBound`) thr
   their plays and feeds the coordinate `g i` of the feedback to `A i` (`run_pi`). For losses that
   are sums of losses of the coordinates, such as linear losses on `ι → ℝ`, its regret is the sum of
   the regrets of the coordinates (`regret_run_pi`, `HasRegretBound.pi`): this is how AdaGrad
-  [Ora, Section 4.2] and coordinatewise coin betting [Ora, Section 13.3] are built from
+  [Ora, Section 4.2.4] and coordinatewise coin betting [Ora, Section 13.3] are built from
   one-dimensional learners.
 * `OnlineLearner.sum A`, for a finite family of learners receiving the same feedback, plays the sum
   of their plays (`run_sum`). For linear losses, its regret against `∑ i, v i` is the sum of the
@@ -74,12 +74,13 @@ section Restart
 
 variable (A : OnlineLearner C G X)
 
-/-- The play of round `t` from a history read off a sequence `F` depends on `t` only through its
-value. -/
-private lemma play_comp_val_congr (F : ℕ → C × G) {t t' : ℕ} (h : t = t') (c : C) :
-    A.play t (fun i ↦ F i) c = A.play t' (fun i ↦ F i) c := by
-  subst h
-  rfl
+/-- Plays of equal rounds from histories with equal entries are equal. -/
+private lemma play_congr {t t' : ℕ} (ht : t = t') {h : Fin t → C × G} {h' : Fin t' → C × G}
+    (hh : ∀ (i : ℕ) (hi : i < t), h ⟨i, hi⟩ = h' ⟨i, ht ▸ hi⟩) (c : C) :
+    A.play t h c = A.play t' h' c := by
+  subst ht
+  congr
+  exact funext fun i ↦ hh i i.2
 
 /-- The learner `A` **restarted at round `s`**: from round `s` on, it plays as a fresh copy of `A`
 started at round `s`, from the contexts and feedback of the rounds `s, s + 1, …` only; before
@@ -88,25 +89,39 @@ def restart (s : ℕ) : OnlineLearner C G X where
   play t h c :=
     if hst : s ≤ t then A.play (t - s) (fun i ↦ h ⟨s + i, by omega⟩) c else A.play 0 Fin.elim0 c
 
+/-- From round `s` on, the play of `A` restarted at round `s` is the play of `A` from the history
+of the rounds `s, s + 1, …`. -/
+@[simp]
+lemma play_restart_of_le {s t : ℕ} (hst : s ≤ t) (h : Fin t → C × G) (c : C) :
+    (A.restart s).play t h c = A.play (t - s) (fun i ↦ h ⟨s + i, by omega⟩) c := by
+  simp [restart, hst]
+
+/-- Before round `s`, the play of `A` restarted at round `s` is the first play of `A` from the
+current context. -/
+@[simp]
+lemma play_restart_of_lt {s t : ℕ} (hts : t < s) (h : Fin t → C × G) (c : C) :
+    (A.restart s).play t h c = A.play 0 Fin.elim0 c := by
+  simp [restart, Nat.not_le.mpr hts]
+
 /-- From round `s` on, the plays of `A` restarted at round `s` are the plays of `A` against the
 contexts and feedback shifted by `s`. -/
 lemma run_restart_add (s : ℕ) (c : ℕ → C) (g : ℕ → G) (t : ℕ) :
     (A.restart s).run c g (s + t) = A.run (fun r ↦ c (s + r)) (fun r ↦ g (s + r)) t := by
-  simp only [run_def, restart, Nat.le_add_right, dite_true]
-  exact A.play_comp_val_congr (fun r ↦ (c (s + r), g (s + r))) (Nat.add_sub_cancel_left ..) _
+  rw [run_def, run_def, A.play_restart_of_le (Nat.le_add_right s t)]
+  exact A.play_congr (Nat.add_sub_cancel_left ..) (fun _ _ ↦ rfl) _
 
 /-- Before round `s`, the plays of `A` restarted at round `s` are the first play of `A` from the
 current context. -/
 lemma run_restart_of_lt {s t : ℕ} (hts : t < s) (c : ℕ → C) (g : ℕ → G) :
     (A.restart s).run c g t = A.play 0 Fin.elim0 (c t) := by
-  simp [run_def, restart, Nat.not_le.mpr hts]
+  rw [run_def, A.play_restart_of_lt hts]
 
 /-- A learner restarted at round `0` is the learner itself. -/
 @[simp]
 lemma restart_zero : A.restart 0 = A := by
   ext t h c
-  simp only [restart, Nat.zero_le, dite_true]
-  exact congrArg (A.play t · c) (funext fun i ↦ congrArg h (Fin.ext (zero_add _)))
+  rw [A.play_restart_of_le (Nat.zero_le t)]
+  exact A.play_congr (Nat.sub_zero t) (fun _ _ ↦ by simp) c
 
 variable {L : G → X → ℝ} {c : ℕ → C} {g : ℕ → G}
 
@@ -143,6 +158,12 @@ def pi (A : ∀ i, OnlineLearner C (G i) (X i)) : OnlineLearner C (∀ i, G i) (
   play t h c i := (A i).play t (fun s ↦ ((h s).1, (h s).2 i)) c
 
 variable (A : ∀ i, OnlineLearner C (G i) (X i))
+
+/-- The play of the coordinatewise product is the family of the plays of the learners from the
+coordinates of the history. -/
+@[simp]
+lemma play_pi (t : ℕ) (h : Fin t → C × ∀ i, G i) (c : C) (i : ι) :
+    (pi A).play t h c i = (A i).play t (fun s ↦ ((h s).1, (h s).2 i)) c := (rfl)
 
 /-- The plays of the coordinatewise product are the plays of the learners against the coordinates
 of the feedback. -/
@@ -192,6 +213,11 @@ protected def sum (A : ι → OnlineLearner C G X) : OnlineLearner C G X where
 
 variable (A : ι → OnlineLearner C G X)
 
+/-- The play of the sum of learners is the sum of their plays. -/
+@[simp]
+lemma play_sum (t : ℕ) (h : Fin t → C × G) (c : C) :
+    (OnlineLearner.sum A).play t h c = ∑ i, (A i).play t h c := (rfl)
+
 /-- The plays of the sum of learners are the sums of their plays. -/
 @[simp]
 lemma run_sum (c : ℕ → C) (g : ℕ → G) (t : ℕ) :
@@ -199,15 +225,14 @@ lemma run_sum (c : ℕ → C) (g : ℕ → G) (t : ℕ) :
   simp only [run_def]
   rfl
 
-variable {X : Type*} [AddCommGroup X] {F : Type*} [FunLike F X ℝ] [AddMonoidHomClass F X ℝ]
-  (A : ι → OnlineLearner C F X)
+variable {F : Type*} [FunLike F X ℝ] [AddMonoidHomClass F X ℝ] (A : ι → OnlineLearner C F X)
 
 /-- **Regret of a sum of learners** [Ora, Theorem 13.11]. For linear losses, the regret of the sum
 of learners against `∑ i, v i` is the sum of the regrets of the learners `A i` against `v i`. -/
 lemma regret_run_sum (c : ℕ → C) (y : ℕ → F) (v : ι → X) (n : ℕ) :
     regret (fun t ↦ y t) ((OnlineLearner.sum A).run c y) (∑ i, v i) n =
       ∑ i, regret (fun t ↦ y t) ((A i).run c y) (v i) n := by
-  simp only [regret_eq_sum_apply_sub, run_sum, ← sum_sub_distrib, map_sum]
+  simp only [regret_def, run_sum, map_sum, ← sum_sub_distrib]
   exact sum_comm
 
 variable {A} {adm : C → F → Prop} {U : ι → Set X} {B : ι → ℕ → (ℕ → C) → (ℕ → F) → X → ℝ}
@@ -234,6 +259,11 @@ variable (A : OnlineLearner C G X)
 /-- The learner playing the images by `f` of the plays of `A`. -/
 def map (f : X → Y) : OnlineLearner C G Y where
   play t h c := f (A.play t h c)
+
+/-- The play of `A.map f` is the image by `f` of the play of `A`. -/
+@[simp]
+lemma play_map (f : X → Y) (t : ℕ) (h : Fin t → C × G) (c : C) :
+    (A.map f).play t h c = f (A.play t h c) := (rfl)
 
 /-- The plays of `A.map f` are the images by `f` of the plays of `A`. -/
 @[simp]

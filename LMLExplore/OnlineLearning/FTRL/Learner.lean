@@ -63,6 +63,29 @@ noncomputable def ftrl (K : Set E) (F : E → ℝ) (η : ℕ → ℝ) (x₀ : E)
   play t h _ :=
     if hx : ∃ x ∈ K, IsMinOn (fun b ↦ η t * ∑ s, (h s).2 b + F b) K x then hx.choose else x₀
 
+open Classical in
+/-- The play of the FTRL learner: a minimizer over `K` of the FTRL objective of the history when
+one exists, and `x₀` otherwise. -/
+lemma play_ftrl (t : ℕ) (h : Fin t → C × (E →L[ℝ] ℝ)) (c : C) :
+    (ftrl K F η x₀).play t h c =
+      if hx : ∃ x ∈ K, IsMinOn (fun b ↦ η t * ∑ s, (h s).2 b + F b) K x then hx.choose
+      else x₀ := (rfl)
+
+/-- When the FTRL objective of the history has a minimizer over `K`, the FTRL learner plays one. -/
+lemma play_ftrl_of_exists {t : ℕ} {h : Fin t → C × (E →L[ℝ] ℝ)}
+    (hx : ∃ x ∈ K, IsMinOn (fun b ↦ η t * ∑ s, (h s).2 b + F b) K x) (c : C) :
+    (ftrl K F η x₀).play t h c ∈ K ∧
+      IsMinOn (fun b ↦ η t * ∑ s, (h s).2 b + F b) K ((ftrl K F η x₀).play t h c) := by
+  simp only [play_ftrl, hx, dite_true]
+  exact hx.choose_spec
+
+/-- When the FTRL objective of the history has no minimizer over `K`, the FTRL learner plays the
+default point `x₀`. -/
+lemma play_ftrl_of_not_exists {t : ℕ} {h : Fin t → C × (E →L[ℝ] ℝ)}
+    (hx : ¬ ∃ x ∈ K, IsMinOn (fun b ↦ η t * ∑ s, (h s).2 b + F b) K x) (c : C) :
+    (ftrl K F η x₀).play t h c = x₀ := by
+  simp [play_ftrl, hx]
+
 /-- **The FTRL learner plays FTRL.** At every round where the FTRL objective has a minimizer over
 `K`, the play of the FTRL learner is a play of FTRL (`IsFTRLPlay`). -/
 theorem isFTRLPlay_run_ftrl (c : ℕ → C) (y : ℕ → E →L[ℝ] ℝ) {t : ℕ}
@@ -72,12 +95,12 @@ theorem isFTRLPlay_run_ftrl (c : ℕ → C) (y : ℕ → E →L[ℝ] ℝ) {t : �
       fun b ↦ η t * ∑ s ∈ range t, y s b + F b := by
     funext b
     rw [Fin.sum_univ_eq_sum_range (fun s ↦ y s b) t]
-  have hx : ∃ x ∈ K, IsMinOn (fun b ↦ η t * ∑ s : Fin t, y s b + F b) K x := by
-    obtain ⟨x, hx⟩ := h
-    exact ⟨x, hx.mem, h_obj ▸ hx.isMinOn⟩
+  obtain ⟨x, hx⟩ := h
+  obtain ⟨hmem, hmin⟩ := play_ftrl_of_exists (x₀ := x₀) (h := fun s ↦ (c s, y s))
+    ⟨x, hx.mem, by rw [h_obj]; exact hx.isMinOn⟩ (c t)
+  rw [h_obj] at hmin
   rw [run_def]
-  simp only [ftrl, hx, dite_true]
-  exact ⟨hx.choose_spec.1, h_obj ▸ hx.choose_spec.2⟩
+  exact ⟨hmem, hmin⟩
 
 /-- On a nonempty compact set `K`, with a potential `F` continuous on `K`, every play of the FTRL
 learner is a play of FTRL. -/
