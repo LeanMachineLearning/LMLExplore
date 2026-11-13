@@ -205,7 +205,7 @@ variable {κ : Kernel α α} [IsMarkovKernel κ]
 
 /-- The `0`-step kernel acts as the identity. -/
 theorem integralCLM_pow_zero (f : boundedMeasurable α) : (κ ^ 0).integralCLM f = f := by
-  simp only [pow_zero, one_eq_id, integralCLM_id, ContinuousLinearMap.id_apply]
+  simp only [pow_zero, one_def, integralCLM_id, ContinuousLinearMap.id_apply]
 
 /-- The `(n + 1)`-step kernel acts as the `n`-step kernel followed by `κ`. -/
 theorem integralCLM_pow_succ (n : ℕ) (f : boundedMeasurable α) :

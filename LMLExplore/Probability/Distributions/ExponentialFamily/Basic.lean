@@ -8,6 +8,7 @@ module
 public import Mathlib.InformationTheory.KullbackLeibler.Basic
 public import LMLExplore.Probability.HasLaw
 public import LMLExplore.Probability.Moments.Tilted
+import TauCeti.Probability.Moments.Tilted
 
 /-!
 # Exponential families
@@ -134,7 +135,7 @@ lemma expFamily_expFamily (hη : η ∈ integrableExpSet T ρ) (t : ℝ) :
 
 /-- The moment generating function of `T` under `ρ_η` is `t ↦ mgf T ρ (η + t) / mgf T ρ η`. -/
 lemma mgf_expFamily : mgf T (ρ.expFamily T η) t = mgf T ρ (η + t) / mgf T ρ η :=
-  mgf_tilted_mul
+  TauCeti.mgf_tilted_mul T ρ η t
 
 /-- The moment generating function of `T` under `ρ_η` is at most `exp (ψ(η + t) - ψ(η))`, with
 equality when both moment generating functions are positive (`cgf_expFamily`). -/
@@ -152,11 +153,11 @@ lemma mgf_expFamily_le_exp_cgf_sub :
 /-- The cumulant generating function of `T` under `ρ_η` is `t ↦ ψ(η + t) - ψ(η)`. -/
 lemma cgf_expFamily (hη : η ∈ integrableExpSet T ρ) (hηt : η + t ∈ integrableExpSet T ρ) :
     cgf T (ρ.expFamily T η) t = cgf T ρ (η + t) - cgf T ρ η :=
-  cgf_tilted_mul hη hηt
+  TauCeti.cgf_tilted_mul hη hηt
 
 lemma integrableExpSet_expFamily (hη : η ∈ integrableExpSet T ρ) :
     integrableExpSet T (ρ.expFamily T η) = (η + ·) ⁻¹' integrableExpSet T ρ :=
-  integrableExpSet_tilted_mul hη
+  TauCeti.integrableExpSet_tilted_mul hη
 
 /-- The statistic `T` has an exponential moment of order `t` under `ρ_η` iff `η + t` is a natural
 parameter of `ρ` and `T`. -/
