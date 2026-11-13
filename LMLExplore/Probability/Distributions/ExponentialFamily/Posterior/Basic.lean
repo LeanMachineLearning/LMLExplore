@@ -42,7 +42,9 @@ These posteriors are the sampling laws of Thompson sampling for exponential fami
 ## Main statements
 
 * `MeasureTheory.Measure.expFamilyPosterior_apply`: the posterior of a measurable set `B` is
-  `∫_{Θ ∩ B} exp (θ S - s ψ(θ)) dν(θ) / ∫_Θ exp (θ S - s ψ(θ)) dν(θ)`.
+  `∫_{Θ ∩ B} exp (θ S - s ψ(θ)) dν(θ) / ∫_Θ exp (θ S - s ψ(θ)) dν(θ)`;
+  `MeasureTheory.Measure.expFamilyPosterior_apply_sub_const`: the same ratio with the exponent
+  shifted by any constant.
 * `MeasureTheory.Measure.isProbabilityMeasure_expFamilyPosterior`,
   `MeasureTheory.Measure.expFamilyPosterior_eq_zero_iff`: the posterior is a probability measure
   if the normalizing constant is positive and finite, and `0` otherwise;
@@ -106,6 +108,25 @@ lemma expFamilyPosterior_apply {B : Set ℝ} (hB : MeasurableSet B) :
   have hΘ : MeasurableSet (interior (integrableExpSet T ρ)) := isOpen_interior.measurableSet
   rw [expFamilyPosterior_def, cond_apply hΘ, withDensity_apply _ hΘ,
     withDensity_apply _ (hΘ.inter hB)]
+
+/-- The posterior can be computed with the exponent `θ S - s ψ(θ)` shifted by any constant `c`:
+the posterior of a measurable set `B` is
+`∫_{Θ ∩ B} exp (θ S - s ψ(θ) - c) dν(θ) / ∫_Θ exp (θ S - s ψ(θ) - c) dν(θ)`. -/
+lemma expFamilyPosterior_apply_sub_const (c : ℝ) {B : Set ℝ} (hB : MeasurableSet B) :
+    ρ.expFamilyPosterior T ν s S B =
+      (∫⁻ θ in interior (integrableExpSet T ρ),
+          ENNReal.ofReal (exp (θ * S - s * cgf T ρ θ - c)) ∂ν)⁻¹ *
+        ∫⁻ θ in interior (integrableExpSet T ρ) ∩ B,
+          ENNReal.ofReal (exp (θ * S - s * cgf T ρ θ - c)) ∂ν := by
+  have h (U : Set ℝ) : ∫⁻ θ in U, ENNReal.ofReal (exp (θ * S - s * cgf T ρ θ - c)) ∂ν =
+      (∫⁻ θ in U, ENNReal.ofReal (exp (θ * S - s * cgf T ρ θ)) ∂ν) *
+        ENNReal.ofReal (exp (-c)) := by
+    rw [← lintegral_mul_const' _ _ ENNReal.ofReal_ne_top]
+    congr with θ
+    rw [← ENNReal.ofReal_mul (exp_pos _).le, ← exp_add, sub_eq_add_neg]
+  rw [h, h, ← ENNReal.div_eq_inv_mul, ENNReal.mul_div_mul_right _ _
+    (ENNReal.ofReal_pos.2 (exp_pos _)).ne' ENNReal.ofReal_ne_top, ENNReal.div_eq_inv_mul,
+    expFamilyPosterior_apply hB]
 
 /-- The posterior is a probability measure if its normalizing constant
 `∫_Θ exp (θ S - s ψ(θ)) dν(θ)` is positive and finite. -/

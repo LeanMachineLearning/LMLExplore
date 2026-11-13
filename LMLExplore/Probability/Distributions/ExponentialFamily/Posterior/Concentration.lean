@@ -54,8 +54,6 @@ is a proper prior.
 
 ## Main statements
 
-* `MeasureTheory.Measure.expFamilyPosterior_apply_sub_const`: the posterior can be computed with
-  the exponent shifted by any constant.
 * `MeasureTheory.Measure.ofReal_exp_mul_measure_Icc_le_lintegral`: the lower bound on the
   normalizing constant relative to `θ₀`.
 * `MeasureTheory.Measure.expFamilyPosterior_le_of_forall_sub_le`: the posterior of a set on which
@@ -87,26 +85,6 @@ namespace MeasureTheory.Measure
 
 variable {𝓧 : Type*} {m𝓧 : MeasurableSpace 𝓧} {ρ : Measure 𝓧} {T : 𝓧 → ℝ} {ν : Measure ℝ}
   {s s₀ : ℕ} {S S₀ μ₀ m δ r D A : ℝ}
-
-/-- The posterior can be computed with the exponent `θ S - s ψ(θ)` shifted by any constant `c`:
-the posterior of a measurable set `B` is
-`∫_{Θ ∩ B} exp (θ S - s ψ(θ) - c) dν(θ) / ∫_Θ exp (θ S - s ψ(θ) - c) dν(θ)`. -/
-lemma expFamilyPosterior_apply_sub_const (c : ℝ) {B : Set ℝ} (hB : MeasurableSet B) :
-    ρ.expFamilyPosterior T ν s S B =
-      (∫⁻ θ in interior (integrableExpSet T ρ),
-          ENNReal.ofReal (exp (θ * S - s * cgf T ρ θ - c)) ∂ν)⁻¹ *
-        ∫⁻ θ in interior (integrableExpSet T ρ) ∩ B,
-          ENNReal.ofReal (exp (θ * S - s * cgf T ρ θ - c)) ∂ν := by
-  have h (U : Set ℝ) : ∫⁻ θ in U, ENNReal.ofReal (exp (θ * S - s * cgf T ρ θ - c)) ∂ν =
-      (∫⁻ θ in U, ENNReal.ofReal (exp (θ * S - s * cgf T ρ θ)) ∂ν) *
-        ENNReal.ofReal (exp (-c)) := by
-    rw [← lintegral_mul_const' _ _ ENNReal.ofReal_ne_top]
-    congr with θ
-    rw [← ENNReal.ofReal_mul (exp_pos _).le, ← exp_add, sub_eq_add_neg]
-  have h0 : ENNReal.ofReal (exp (-c)) ≠ 0 := (ENNReal.ofReal_pos.2 (exp_pos _)).ne'
-  rw [expFamilyPosterior_apply hB, h, h,
-    ENNReal.mul_inv (Or.inr ENNReal.ofReal_ne_top) (Or.inr h0), mul_mul_mul_comm,
-    ENNReal.inv_mul_cancel h0 ENNReal.ofReal_ne_top, mul_one]
 
 /-- **Lower bound on the normalizing constant.** Let `θ₀ = η(μ₀)` be the natural parameter of a
 mean `μ₀`, and let `[θ₀ - r, θ₀ + r]` be an interval of natural parameters on which the mean map
@@ -206,8 +184,8 @@ theorem expFamilyPosterior_le_of_forall_sub_le (hμ₀ : μ₀ ∈ ρ.expFamilyM
           (ofReal_exp_mul_measure_Icc_le_lintegral hμ₀ hr hΘ hD hS)) h_num
     _ = _ := by
       rw [ENNReal.mul_inv (Or.inl hL0) (Or.inl ENNReal.ofReal_ne_top), ENNReal.div_eq_inv_mul,
-        mul_comm (ENNReal.ofReal (exp (-L)))⁻¹, mul_assoc, ← mul_assoc _ (ENNReal.ofReal _),
-        h_inv]
+        ← h_inv]
+      ring
 
 /-! ### The two tails of the posterior mean -/
 
@@ -225,11 +203,8 @@ private lemma sub_le_of_le_deriv_cgf (hT : ∀ c, ¬ T =ᵐ[ρ] fun _ ↦ c)
         (θ * (s₀ * (μ₀ + δ)) - s₀ * cgf T ρ θ) := by
   set θ₀ := ρ.natParam T μ₀
   set θm := ρ.natParam T m
-  have hθm_le : θm ≤ θ := by
-    by_contra! h
-    have := (strictMonoOn_deriv_cgf hT) hθ (natParam_mem_interior_integrableExpSet hm) h
-    rw [deriv_cgf_natParam hm] at this
-    exact this.not_ge hθm
+  have hθm_le : θm ≤ θ :=
+    natParam_deriv_cgf hT hθ ▸ monotoneOn_natParam hm (deriv_cgf_mem_expFamilyMeans hθ) hθm
   have hθ₀m : θ₀ ≤ θm := monotoneOn_natParam hμ₀ hm (by linarith)
   -- the tangent line of `ψ` at `η(m)`
   have h_tan := cgf_natParam_add_mul_sub_le_cgf hm (interior_subset hθ)
@@ -256,11 +231,8 @@ private lemma sub_le_of_deriv_cgf_le (hT : ∀ c, ¬ T =ᵐ[ρ] fun _ ↦ c)
         (θ * (s₀ * (μ₀ - δ)) - s₀ * cgf T ρ θ) := by
   set θ₀ := ρ.natParam T μ₀
   set θm := ρ.natParam T m
-  have hθ_le : θ ≤ θm := by
-    by_contra! h
-    have := (strictMonoOn_deriv_cgf hT) (natParam_mem_interior_integrableExpSet hm) hθ h
-    rw [deriv_cgf_natParam hm] at this
-    exact this.not_ge hθm
+  have hθ_le : θ ≤ θm :=
+    natParam_deriv_cgf hT hθ ▸ monotoneOn_natParam (deriv_cgf_mem_expFamilyMeans hθ) hm hθm
   have hθm₀ : θm ≤ θ₀ := monotoneOn_natParam hm hμ₀ (by linarith)
   -- the tangent line of `ψ` at `η(m)`
   have h_tan := cgf_natParam_add_mul_sub_le_cgf hm (interior_subset hθ)
