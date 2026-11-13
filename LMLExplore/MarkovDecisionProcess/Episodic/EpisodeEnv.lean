@@ -154,17 +154,13 @@ private lemma comap_map_fst_snd_compProd_augmented (M : EpisodicMDP 𝓢 𝓐) (
       ((M.trans k ∘ₖ (Kernel.id ×ₖ π k)).comap (fun τ ↦ τ (Fin.last n))
         (measurable_pi_apply _)).comap (snocStates (𝓐 := 𝓐)) (measurable_snocStates n) := by
   ext p t ht
+  -- unfold the composite kernels at `p`, then integrate against the Dirac mass at `p.2`
   simp only [Kernel.comap_apply]
   rw [Kernel.map_apply' _ measurable_fst _ ht, Kernel.snd_apply' _ _ (measurable_fst ht),
-    Kernel.compProd_apply (measurable_snd (measurable_fst ht)), Kernel.comp_apply' _ _ _ ht,
-    Kernel.prod_apply, Kernel.id_apply, Measure.dirac_prod,
-    lintegral_map (Kernel.measurable_coe _ ht) measurable_prodMk_left]
-  simp only [snocStates, Fin.snoc_last, Kernel.prodMkLeft_apply, augMarkovPolicy_apply,
-    Kernel.comap_apply, augmented_P_apply]
-  refine lintegral_congr fun a ↦ ?_
-  simp only [Set.preimage_preimage]
-  rw [Measure.map_apply measurable_prodMk_right (measurable_fst ht)]
-  simp only [Set.preimage_preimage, Set.preimage_id']
+    Kernel.compProd_apply (measurable_snd (measurable_fst ht)), Kernel.comp_apply' _ _ _ ht]
+  simp [Kernel.prod_apply, Kernel.id_apply, Measure.dirac_prod,
+    lintegral_map (Kernel.measurable_coe _ ht) measurable_prodMk_left, snocStates,
+    Set.preimage_preimage, Measure.map_apply measurable_prodMk_right (measurable_fst ht)]
 
 section Runs
 
@@ -218,9 +214,22 @@ end Runs
 
 variable (M : EpisodicMDP 𝓢 𝓐) (H : ℕ) (μ : Measure 𝓢)
 
+/-- Under the initial law `μ` placed at the step `0`, the step is almost surely `0`. -/
+private lemma ae_snd_map_prodMk_zero : ∀ᵐ p ∂(μ.map fun s ↦ (s, 0)), p.2 = 0 :=
+  (ae_map_iff measurable_prodMk_right.aemeasurable
+    (measurable_snd (measurableSet_singleton 0))).2 (.of_forall fun _ ↦ rfl)
+
 section Laws
 
 variable [Nonempty 𝓢] (π : ℕ → Kernel 𝓢 𝓐) [∀ h, IsMarkovKernel (π h)]
+
+/-- The trajectories of the episodes of `π` from `μ` form a run of `π` in the augmented MDP. -/
+private lemma isAlgEnvSeq_episode :
+    IsAlgEnvSeq IT.obs IT.action IT.feedback (Algorithm.markov fun _ ↦ augMarkovPolicy π)
+      (M.augmented.env (μ.map fun s ↦ (s, 0)))
+      (trajMeasure (Algorithm.markov fun _ ↦ augMarkovPolicy π)
+        (M.augmented.env (μ.map fun s ↦ (s, 0)))) :=
+  IT.isAlgEnvSeq_trajMeasure _ _
 
 /-- The law of the state sequence `s_0, …, s_H` of an episode of horizon `H` played with the
 Markov policy `π` from the initial law `μ`. -/
@@ -246,9 +255,8 @@ instance : IsProbabilityMeasure (M.episodeLaw H μ π) :=
 /-- Forgetting the rewards maps the law of an episode to the law of its state sequence. -/
 @[simp]
 lemma map_fst_episodeLaw : (M.episodeLaw H μ π).map Prod.fst = M.statesLaw H μ π := by
-  rw [episodeLaw, Measure.map_map measurable_fst (by fun_prop)]
-  -- `Prod.fst ∘ (fun x ↦ (episodeStates H x, episodeRewards H x))` is `episodeStates H`
-  rfl
+  rw [episodeLaw, Measure.map_map measurable_fst (by fun_prop), statesLaw]
+  simp [Function.comp_def]
 
 variable {M H μ π}
 
@@ -279,18 +287,15 @@ variable [IsProbabilityMeasure μ]
 
 /-- Under the law of the state sequence of an episode, the first state has law `μ`. -/
 lemma hasLaw_statesLaw_zero : HasLaw (fun τ ↦ τ 0) μ (M.statesLaw H μ π) := by
-  have h0 := MDP.hasLaw_obs_zero (IT.isAlgEnvSeq_trajMeasure
-    (Algorithm.markov fun _ ↦ augMarkovPolicy π) (M.augmented.env (μ.map fun s ↦ (s, 0))))
+  have h0 := MDP.hasLaw_obs_zero (isAlgEnvSeq_episode M μ π)
   refine ⟨(measurable_pi_apply 0).aemeasurable, ?_⟩
-  rw [statesLaw, Measure.map_map (measurable_pi_apply 0) (measurable_episodeStates H)]
-  calc _ = ((trajMeasure (Algorithm.markov fun _ ↦ augMarkovPolicy π)
-          (M.augmented.env (μ.map fun s ↦ (s, 0)))).map (IT.obs 0)).map Prod.fst := by
-        rw [Measure.map_map measurable_fst (IT.measurable_obs 0)]
-        -- `(· 0) ∘ episodeStates H` is `Prod.fst ∘ IT.obs 0` by definition
-        rfl
-    _ = μ := by
-        rw [h0.map_eq, Measure.map_map measurable_fst measurable_prodMk_right]
-        exact Measure.map_id
+  have he : (fun τ : Fin (H + 1) → 𝓢 ↦ τ 0) ∘ episodeStates (𝓐 := 𝓐) H = Prod.fst ∘ IT.obs 0 := by
+    funext x
+    simp
+  rw [statesLaw, Measure.map_map (measurable_pi_apply 0) (measurable_episodeStates H), he,
+    ← Measure.map_map measurable_fst (IT.measurable_obs 0), h0.map_eq,
+    Measure.map_map measurable_fst measurable_prodMk_right]
+  exact Measure.map_id
 
 /-- **Markov property of the states of an episode**: under the law of the state sequence of an
 episode of the Markov policy `π`, the state of the step `h + 1` has conditional law
@@ -300,11 +305,8 @@ theorem hasCondDistrib_statesLaw (h : Fin H) :
       (fun τ (i : Fin (h + 1)) ↦ τ (Fin.castLE (Nat.succ_le_succ h.isLt.le) i))
       ((M.trans h ∘ₖ (Kernel.id ×ₖ π h)).comap (fun τ ↦ τ (Fin.last h))
         (measurable_pi_apply _)) (M.statesLaw H μ π) := by
-  have hrun := IT.isAlgEnvSeq_trajMeasure (Algorithm.markov fun _ ↦ augMarkovPolicy π)
-    (M.augmented.env (μ.map fun s ↦ (s, 0)))
-  have hc := hasCondDistrib_obs_fst_add_one_states
-    ((ae_map_iff measurable_prodMk_right.aemeasurable
-      (measurable_snd (measurableSet_singleton 0))).2 (.of_forall fun _ ↦ rfl)) hrun h
+  have hc := hasCondDistrib_obs_fst_add_one_states (ae_snd_map_prodMk_zero μ)
+    (isAlgEnvSeq_episode M μ π) h
   rw [zero_add] at hc
   have hX : Measurable fun (τ : Fin (H + 1) → 𝓢) (i : Fin (h + 1)) ↦
       τ (Fin.castLE (Nat.succ_le_succ h.isLt.le) i) :=
@@ -313,18 +315,14 @@ theorem hasCondDistrib_statesLaw (h : Fin H) :
   refine ⟨(hX.prodMk (measurable_pi_apply _)).aemeasurable, ?_⟩
   rw [statesLaw, Measure.map_map hX (measurable_episodeStates H),
     Measure.map_map (hX.prodMk (measurable_pi_apply _)) (measurable_episodeStates H)]
-  -- the composites with `episodeStates H` are the functions of `hc` by definition
-  exact hc.map_eq
+  convert hc.map_eq using 3 <;> simp [Function.comp_def]
 
 /-- **The expected return of an episode** is the value `∫ V^π_0 dμ` of the Markov policy `π`,
 for rewards bounded by `C`. -/
 theorem integral_sum_episodeLaw {C : ℝ} (hM : M.RewardsIn (Set.Icc (-C) C)) :
     ∫ e, ∑ h, e.2 h ∂(M.episodeLaw H μ π) = ∫ s, M.value H π 0 s ∂μ := by
-  have hrun := IT.isAlgEnvSeq_trajMeasure (Algorithm.markov fun _ ↦ augMarkovPolicy π)
-    (M.augmented.env (μ.map fun s ↦ (s, 0)))
-  have hv := integral_sum_feedback_eq_integral_value (H := H) hM
-    ((ae_map_iff measurable_prodMk_right.aemeasurable
-      (measurable_snd (measurableSet_singleton 0))).2 (.of_forall fun _ ↦ rfl)) hrun
+  have hv := integral_sum_feedback_eq_integral_value (H := H) hM (ae_snd_map_prodMk_zero μ)
+    (isAlgEnvSeq_episode M μ π)
   have hmap : ∫ p : 𝓢 × ℕ, M.value H π 0 p.1 ∂(μ.map fun s ↦ (s, 0)) =
       ∫ s, M.value H π 0 s ∂μ :=
     integral_map measurable_prodMk_right.aemeasurable
@@ -349,6 +347,7 @@ noncomputable def statesKernel : Kernel (Policy 𝓢 𝓐 H) (Fin (H + 1) → �
   toFun π := M.statesLaw H μ (π.toKernel fun _ ↦ measurable_of_countable _)
   measurable' := measurable_of_countable _
 
+@[simp]
 lemma statesKernel_apply (π : Policy 𝓢 𝓐 H) :
     M.statesKernel H μ π = M.statesLaw H μ (π.toKernel fun _ ↦ measurable_of_countable _) :=
   (rfl)
@@ -363,6 +362,7 @@ noncomputable def episodeKernel :
   toFun π := M.episodeLaw H μ (π.toKernel fun _ ↦ measurable_of_countable _)
   measurable' := measurable_of_countable _
 
+@[simp]
 lemma episodeKernel_apply (π : Policy 𝓢 𝓐 H) :
     M.episodeKernel H μ π = M.episodeLaw H μ (π.toKernel fun _ ↦ measurable_of_countable _) :=
   (rfl)

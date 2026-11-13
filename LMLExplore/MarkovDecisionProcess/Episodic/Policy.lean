@@ -37,7 +37,7 @@ Apache 2.0) of [EV26].
 * `Learning.MDP.Episodic.Policy.extend_injective`: extension beyond the horizon is injective.
 * `Learning.MDP.Episodic.Policy.measurable_extend`: the extension of a measurable policy is
   measurable at every step.
-* `Learning.MDP.Episodic.EpisodicMDP.value_toKernel_of_lt`: before the horizon, the value of
+* `Learning.MDP.Episodic.EpisodicMDP.value_toKernel_fin`: before the horizon, the value of
   `π` is its action value at the action it plays.
 
 ## References
@@ -117,7 +117,7 @@ variable [MeasurableSpace 𝓢] [MeasurableSpace 𝓐] [Nonempty 𝓐] (M : Epis
 
 /-- Before the horizon, the value of the `H`-step policy `π` is its action value at the action
 `π h s` it plays. -/
-theorem value_toKernel_of_lt {π : Policy 𝓢 𝓐 H} (hπ : ∀ h, Measurable (π h)) (h : Fin H)
+theorem value_toKernel_fin {π : Policy 𝓢 𝓐 H} (hπ : ∀ h, Measurable (π h)) (h : Fin H)
     (s : 𝓢) :
     M.value H (π.toKernel hπ) h s = M.qValue H (π.toKernel hπ) h s (π h s) := by
   have := M.value_deterministic_of_lt (H := H) (Policy.measurable_extend hπ) h.2 s
