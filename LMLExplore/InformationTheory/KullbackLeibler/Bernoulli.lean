@@ -266,7 +266,7 @@ theorem klBer_eq_top_iff (hp : p ∈ Set.Icc 0 1) (hq : q ∈ Set.Icc 0 1) :
 /-- The binary relative entropy is finite when the second argument lies in `(0, 1)`. -/
 theorem klBer_ne_top (hq : q ∈ Set.Ioo 0 1) : klBer p q ≠ ∞ := by
   rw [klBer_def, Set.projIcc_of_mem _ (Set.Ioo_subset_Icc_self hq)]
-  exact klDiv_ne_top_iff.2 ⟨bernoulliMeasure_absolutelyContinuous
+  exact klDiv_ne_top_iff.2 ⟨bernoulliMeasure_absolutelyContinuous_of_imp
     (fun h ↦ absurd (congrArg Subtype.val h) hq.1.ne')
     (fun h ↦ absurd (congrArg Subtype.val h) hq.2.ne), integrable_bernoulliMeasure _ _ _ _⟩
 
@@ -395,7 +395,7 @@ theorem klBer_projIcc (p q : ℝ) :
 @[simp]
 theorem klBer_one_sub_one_sub (p q : ℝ) : klBer (1 - p) (1 - q) = klBer p q := by
   have h (r : I) : Ber((1 : ℝ), 0, σ r) = Ber((1 : ℝ), 0, r).map (1 - ·) := by
-    rw [map_bernoulliMeasure, bernoulliMeasure_symm]
+    rw [map_bernoulliMeasure, bernoulliMeasure_swap]
     simp
   rw [klBer_def, klBer_def, ← symm_projIcc, ← symm_projIcc, h, h]
   exact klDiv_map_measurableEmbedding _ _ (MeasurableEquiv.subLeft (1 : ℝ)).measurableEmbedding
@@ -753,15 +753,16 @@ theorem klBer_mul_add_mul_le {p' q' : ℝ} (hp : p ∈ Set.Icc 0 1) (hq : q ∈ 
     (hp' : p' ∈ Set.Icc 0 1) (hq' : q' ∈ Set.Icc 0 1) {a b : ℝ≥0} (hab : a + b = 1) :
     klBer (a * p + b * p') (a * q + b * q') ≤ a * klBer p q + b * klBer p' q' := by
   have hab' : (a : ℝ) + b = 1 := by exact_mod_cast hab
+  have hb : (b : ℝ) = 1 - a := by linarith
   have hmem {u v : ℝ} (hu : u ∈ Set.Icc (0 : ℝ) 1) (hv : v ∈ Set.Icc (0 : ℝ) 1) :
       (a : ℝ) * u + b * v ∈ Set.Icc (0 : ℝ) 1 := by
     simpa using convex_Icc (0 : ℝ) 1 hu hv a.2 b.2 hab'
   rw [klBer_of_mem_Icc hp hq, klBer_of_mem_Icc hp' hq',
     klBer_of_mem_Icc (hmem hp hp') (hmem hq hq'),
-    bernoulliMeasure_eq_smul_add_smul (r := ⟨_, hmem hp hp'⟩) (p := ⟨p, hp⟩) (q := ⟨p', hp'⟩)
-      hab rfl,
-    bernoulliMeasure_eq_smul_add_smul (r := ⟨_, hmem hq hq'⟩) (p := ⟨q, hq⟩) (q := ⟨q', hq'⟩)
-      hab rfl]
+    bernoulliMeasure_eq_smul_add_smul (c := ⟨_, hmem hp hp'⟩) (a := ⟨p, hp⟩) (b := ⟨p', hp'⟩)
+      (t := a) _ _ (hab ▸ le_self_add) (by simp [hb]),
+    bernoulliMeasure_eq_smul_add_smul (c := ⟨_, hmem hq hq'⟩) (a := ⟨q, hq⟩) (b := ⟨q', hq'⟩)
+      (t := a) _ _ (hab ▸ le_self_add) (by simp [hb]), tsub_eq_of_eq_add_rev hab.symm]
   exact klDiv_smul_add_smul_le _ _ _ _ a b
 
 /-- The binary relative entropy is jointly convex on `[0, 1] × [0, 1]`, as a function with values
