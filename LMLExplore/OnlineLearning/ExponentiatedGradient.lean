@@ -69,6 +69,17 @@ namespace LMLExplore.OnlineLearning
 
 variable {α : Type*} [Fintype α] {w b x : α → ℝ} {ℓ : α → ℝ} {η : ℝ}
 
+/-- The objective `η ⟨ℓ, b⟩ + D(b, w)` of a step of mirror descent with the negative entropy, at
+`b ∈ simplex α`, written out as `∑ a, b a * (η * ℓ a) + ∑ a, b a * log (b a / w a)`. -/
+private lemma mul_apply_add_bregDiv_negEntropy_eq_sum (hw : w ∈ simplex α)
+    (hpos : ∀ a, 0 < w a) (ℓ : α → ℝ) (η : ℝ) (hb : b ∈ simplex α) :
+    η * (∑ a, ℓ a • ContinuousLinearMap.proj a : (α → ℝ) →L[ℝ] ℝ) b +
+        bregDiv negEntropy b w
+          (∑ a, log (w a) • ContinuousLinearMap.proj a : (α → ℝ) →L[ℝ] ℝ) =
+      ∑ a, b a * (η * ℓ a) + ∑ a, b a * log (b a / w a) := by
+  rw [bregDiv_negEntropy_pi hb hw fun a h ↦ absurd h (hpos a).ne']
+  simp [mul_sum, mul_left_comm, mul_comm]
+
 /-- **The objective of a step of mirror descent with the negative entropy.** From `w ∈ simplex α`
 with positive coordinates, with learning rate `η` and loss `ℓ`, the objective
 `η ⟨ℓ, b⟩ + D(b, w)` at `b ∈ simplex α` is the relative entropy of `b` to the multiplicative
@@ -89,12 +100,10 @@ theorem mul_apply_add_bregDiv_negEntropy_eq (hw : w ∈ simplex α) (hpos : ∀ 
     simp_rw [sub_eq_add_neg]
     exact softmax_log_add_apply hpos _ a
   have hwb (a : α) : w a = 0 → b a = 0 := fun h ↦ absurd h (hpos a).ne'
-  rw [hm, sum_mul_log_div_mul_exp_div_eq (mem_simplex_iff.1 hb).2 hwb hZ,
-    bregDiv_negEntropy_pi hb hw hwb]
-  simp only [FunLike.coe_sum, FunLike.coe_smul, Finset.sum_apply, Pi.smul_apply,
-    ContinuousLinearMap.proj_apply, smul_eq_mul, mul_neg, sum_neg_distrib, mul_sum]
-  rw [sub_neg_eq_add, add_sub_cancel_right, add_comm]
-  exact congrArg _ (sum_congr rfl fun a _ ↦ by ring)
+  rw [mul_apply_add_bregDiv_negEntropy_eq_sum hw hpos ℓ η hb, hm,
+    sum_mul_log_div_mul_exp_div_eq (mem_simplex_iff.1 hb).2 hwb hZ]
+  simp only [mul_neg, sum_neg_distrib]
+  ring
 
 /-- **The minimum of the objective of a step of mirror descent with the negative entropy** (the
 Gibbs variational principle). From `w ∈ simplex α` with positive coordinates, the minimum over the
@@ -112,11 +121,9 @@ theorem isLeast_mul_apply_add_bregDiv_negEntropy (hw : w ∈ simplex α) (hpos :
           bregDiv negEntropy b w
             (∑ a, log (w a) • ContinuousLinearMap.proj a : (α → ℝ) →L[ℝ] ℝ) =
         -(∑ a, b a * -(η * ℓ a) - ∑ a, b a * log (b a / w a)) := by
-    rw [bregDiv_negEntropy_pi hb hw fun a h ↦ absurd h (hpos a).ne']
-    simp only [FunLike.coe_sum, FunLike.coe_smul, Finset.sum_apply, Pi.smul_apply,
-      ContinuousLinearMap.proj_apply, smul_eq_mul, mul_neg, sum_neg_distrib, mul_sum]
-    rw [neg_sub, sub_neg_eq_add, add_comm]
-    exact congrArg _ (sum_congr rfl fun a _ ↦ by ring)
+    rw [mul_apply_add_bregDiv_negEntropy_eq_sum hw hpos ℓ η hb]
+    simp only [mul_neg, sum_neg_distrib]
+    ring
   obtain ⟨⟨q, hq, hq_eq⟩, h_le⟩ :=
     isGreatest_sum_mul_sub_sum_mul_log_div hw hpos fun a ↦ -(η * ℓ a)
   refine ⟨⟨q, hq, ?_⟩, ?_⟩
