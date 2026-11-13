@@ -6,6 +6,8 @@ Authors: LMLExplore contributors
 module
 
 public import Mathlib.InformationTheory.KullbackLeibler.Basic
+import Statlib.Divergence.BretagnolleHuber
+import Statlib.Divergence.TotalVariation.Integral
 
 /-!
 # The Bretagnolle–Huber inequality
@@ -13,17 +15,32 @@ public import Mathlib.InformationTheory.KullbackLeibler.Basic
 For probability measures `μ` and `ν` and a measurable set `A`,
 `μ A + ν Aᶜ ≥ exp (-KL(μ ‖ ν)) / 2`.
 
+Statlib proves the Bretagnolle–Huber inequality in terms of the total variation distance,
+`exp (-KL(μ ‖ ν)) ≤ 2 - tvDist μ ν` (`ProbabilityTheory.exp_neg_klDiv_le_two_sub_tvDist`). This file
+derives from it the integral form [LS, (14.8)] and the bound on the errors of a test
+[LS, Theorem 14.2].
+
 ## Main statements
 
 * `LMLExplore.ofReal_exp_neg_klDiv_div_two_le_lintegral_min_rnDeriv`: the stronger form
   `exp (-KL(μ ‖ ν)) / 2 ≤ ∫⁻ x, min (μ.rnDeriv ν x) 1 ∂ν`, an integral of the minimum of the two
   densities.
 * `LMLExplore.exp_neg_klDiv_div_two_le`: the Bretagnolle–Huber inequality.
+* `LMLExplore.lintegral_rnDeriv_rpow_half_le`: the Cauchy–Schwarz bound
+  `(∫⁻ √(μ.rnDeriv ν) ∂ν)² ≤ (μ univ + ν univ) ∫⁻ min (μ.rnDeriv ν) 1 ∂ν`.
+* `LMLExplore.ofReal_exp_neg_toReal_klDiv_div_two_le_lintegral_rnDeriv_rpow_half`: the Jensen
+  bound `exp (-KL(μ ‖ ν) / 2) ≤ ∫⁻ √(μ.rnDeriv ν) ∂ν`.
 
 ## Proof sketch
 
-Let `f = μ.rnDeriv ν`. Then `μ A + ν Aᶜ ≥ ∫⁻ min f 1 ∂ν`. By the Cauchy–Schwarz inequality,
-`(∫⁻ √f ∂ν)² ≤ (∫⁻ min f 1 ∂ν) (∫⁻ max f 1 ∂ν) ≤ 2 ∫⁻ min f 1 ∂ν`. Finally
+Let `f = μ.rnDeriv ν`. At finite relative entropy `μ ≪ ν`, so the integral form of the total
+variation distance with `ν` as reference measure
+(`ProbabilityTheory.tvDist_eq_add_sub_two_mul_integral_min`) reads
+`∫ min f 1 ∂ν = 1 - tvDist μ ν / 2`, and (14.8) is Statlib's inequality divided by two. Finally
+`μ A + ν Aᶜ ≥ ∫⁻ min f 1 ∂ν`.
+
+The last two bounds give another proof of (14.8), without the total variation distance: by the
+Cauchy–Schwarz inequality, `(∫⁻ √f ∂ν)² ≤ (∫⁻ min f 1 ∂ν) (∫⁻ max f 1 ∂ν) ≤ 2 ∫⁻ min f 1 ∂ν`, and
 `∫⁻ √f ∂ν = ∫ exp (-llr μ ν / 2) ∂μ ≥ exp (-KL(μ ‖ ν) / 2)` by Jensen's inequality.
 
 ## References
@@ -34,15 +51,15 @@ Let `f = μ.rnDeriv ν`. Then `μ A + ν Aᶜ ≥ ∫⁻ min f 1 ∂ν`. By the 
 * T. Lattimore and Cs. Szepesvári, *Bandit Algorithms*, Cambridge University Press (2020),
   Theorem 14.2 and (14.8).
 
-This file is adapted from the formalization in the LMLPapers project
+The Cauchy–Schwarz and Jensen bounds are adapted from the formalization in the LMLPapers project
 (`LeanMachineLearning/ForMathlib/InformationTheory/KullbackLeibler/BretagnolleHuber.lean` in
-`LeanMachineLearning/LMLPapers`). The stronger form (14.8), and the derivation of the
-inequality from it, are new here.
+`LeanMachineLearning/LMLPapers`). The stronger form (14.8), and the derivation of the inequality
+from it, are new here.
 -/
 
 public section
 
-open MeasureTheory InformationTheory Real Set
+open MeasureTheory InformationTheory ProbabilityTheory Real Set
 open scoped ENNReal
 
 namespace LMLExplore
@@ -58,9 +75,43 @@ lemma lintegral_min_rnDeriv_one_le (hA : MeasurableSet A) :
   · exact (lintegral_mono fun x ↦ min_le_left _ _).trans (Measure.setLIntegral_rnDeriv_le A)
   · exact (lintegral_mono fun x ↦ min_le_right _ _).trans (setLIntegral_one _).le
 
-/-- Cauchy–Schwarz step of the Bretagnolle–Huber inequality: the integral of the square root of
-the density `μ.rnDeriv ν` is bounded by the geometric mean of `μ univ + ν univ` and of the
-integral of `min (μ.rnDeriv ν) 1`. -/
+/-- The stronger form of the Bretagnolle–Huber inequality [LS, (14.8)]: for probability measures
+`μ` and `ν` at finite relative entropy, the integral of the minimum of the two densities,
+`∫⁻ x, min (μ.rnDeriv ν x) 1 ∂ν`, is at least `exp (-KL(μ ‖ ν)) / 2`. -/
+theorem ofReal_exp_neg_klDiv_div_two_le_lintegral_min_rnDeriv
+    [IsProbabilityMeasure μ] [IsProbabilityMeasure ν] (h : klDiv μ ν ≠ ∞) :
+    ENNReal.ofReal (exp (-(klDiv μ ν).toReal) / 2) ≤ ∫⁻ x, min (μ.rnDeriv ν x) 1 ∂ν := by
+  -- The density of `ν` with respect to itself is `1`, so the minimum of the two densities with
+  -- respect to `ν` is `min (μ.rnDeriv ν) 1`.
+  have h_int : ∫ x, min (μ.rnDeriv ν x).toReal (ν.rnDeriv ν x).toReal ∂ν =
+      (∫⁻ x, min (μ.rnDeriv ν x) 1 ∂ν).toReal := by
+    rw [← integral_toReal ((Measure.measurable_rnDeriv μ ν).min measurable_const).aemeasurable
+      (.of_forall fun x ↦ (min_le_right _ _).trans_lt ENNReal.one_lt_top)]
+    refine integral_congr_ae ?_
+    filter_upwards [Measure.rnDeriv_self ν, Measure.rnDeriv_lt_top μ ν] with x hx hlt
+    rw [hx, ENNReal.toReal_min hlt.ne ENNReal.one_ne_top]
+  have h_tv := tvDist_eq_add_sub_two_mul_integral_min (klDiv_ne_top_iff.mp h).1
+    (Measure.AbsolutelyContinuous.refl ν)
+  rw [probReal_univ, probReal_univ, h_int] at h_tv
+  refine ENNReal.ofReal_le_of_le_toReal ?_
+  linarith [exp_neg_klDiv_le_two_sub_tvDist μ ν h]
+
+/-- **Bretagnolle–Huber inequality** [LS, Theorem 14.2]: for probability measures `μ` and `ν` at
+finite relative entropy and a measurable set `A`, `exp (-KL(μ ‖ ν)) / 2 ≤ μ A + ν Aᶜ`. -/
+theorem exp_neg_klDiv_div_two_le [IsProbabilityMeasure μ] [IsProbabilityMeasure ν]
+    (hA : MeasurableSet A) (h : klDiv μ ν ≠ ∞) :
+    exp (-(klDiv μ ν).toReal) / 2 ≤ μ.real A + ν.real Aᶜ := by
+  have h_le := (ofReal_exp_neg_klDiv_div_two_le_lintegral_min_rnDeriv h).trans
+    (lintegral_min_rnDeriv_one_le (μ := μ) (ν := ν) hA)
+  rwa [ENNReal.ofReal_le_iff_le_toReal
+      (ENNReal.add_ne_top.mpr ⟨measure_ne_top _ _, measure_ne_top _ _⟩),
+    ENNReal.toReal_add (measure_ne_top _ _) (measure_ne_top _ _), ← measureReal_def,
+    ← measureReal_def] at h_le
+
+/-! ### The integral of the square root of the density -/
+
+/-- Cauchy–Schwarz bound: the integral of the square root of the density `μ.rnDeriv ν` is bounded
+by the geometric mean of `μ univ + ν univ` and of the integral of `min (μ.rnDeriv ν) 1`. -/
 lemma lintegral_rnDeriv_rpow_half_le :
     ∫⁻ x, μ.rnDeriv ν x ^ (1 / 2 : ℝ) ∂ν
       ≤ ((μ univ + ν univ) * ∫⁻ x, min (μ.rnDeriv ν x) 1 ∂ν) ^ (1 / 2 : ℝ) := by
@@ -107,8 +158,10 @@ lemma lintegral_rnDeriv_rpow_half_eq [SigmaFinite μ] [SigmaFinite ν] (hμν : 
       _ = μ.rnDeriv ν x ^ (1 : ℝ) * μ.rnDeriv ν x ^ (-1 / 2 : ℝ) := ENNReal.rpow_add _ _ h0 hx.ne
       _ = μ.rnDeriv ν x * μ.rnDeriv ν x ^ (-1 / 2 : ℝ) := by rw [ENNReal.rpow_one]
 
-/-- Jensen step of the Bretagnolle–Huber inequality:
-`exp (-KL(μ ‖ ν) / 2) ≤ ∫⁻ x, (μ.rnDeriv ν x) ^ (1 / 2) ∂ν`. -/
+/-- Jensen bound: for probability measures at finite relative entropy,
+`exp (-KL(μ ‖ ν) / 2) ≤ ∫⁻ x, (μ.rnDeriv ν x) ^ (1 / 2) ∂ν`. Together with
+`lintegral_rnDeriv_rpow_half_le`, it bounds `∫⁻ x, min (μ.rnDeriv ν x) 1 ∂ν` below by
+`exp (-KL(μ ‖ ν)) / 2` without the total variation distance. -/
 lemma ofReal_exp_neg_toReal_klDiv_div_two_le_lintegral_rnDeriv_rpow_half
     [IsProbabilityMeasure μ] [IsProbabilityMeasure ν] (h : klDiv μ ν ≠ ∞) :
     ENNReal.ofReal (exp (-(klDiv μ ν).toReal / 2)) ≤ ∫⁻ x, μ.rnDeriv ν x ^ (1 / 2 : ℝ) ∂ν := by
@@ -130,36 +183,5 @@ lemma ofReal_exp_neg_toReal_klDiv_div_two_le_lintegral_rnDeriv_rpow_half
   rw [← h_integral, lintegral_rnDeriv_rpow_half_eq hμν,
     ← ofReal_integral_eq_lintegral_ofReal h_int' h_nonneg]
   exact ENNReal.ofReal_le_ofReal h_jensen
-
-/-- The stronger form of the Bretagnolle–Huber inequality [LS, (14.8)]: for probability measures
-`μ` and `ν` at finite relative entropy, the integral of the minimum of the two densities,
-`∫⁻ x, min (μ.rnDeriv ν x) 1 ∂ν`, is at least `exp (-KL(μ ‖ ν)) / 2`. -/
-theorem ofReal_exp_neg_klDiv_div_two_le_lintegral_min_rnDeriv
-    [IsProbabilityMeasure μ] [IsProbabilityMeasure ν] (h : klDiv μ ν ≠ ∞) :
-    ENNReal.ofReal (exp (-(klDiv μ ν).toReal) / 2) ≤ ∫⁻ x, min (μ.rnDeriv ν x) 1 ∂ν := by
-  set I := ∫⁻ x, min (μ.rnDeriv ν x) 1 ∂ν
-  have h_le : ENNReal.ofReal (exp (-(klDiv μ ν).toReal / 2)) ≤ (2 * I) ^ (1 / 2 : ℝ) := by
-    calc _ ≤ _ := ofReal_exp_neg_toReal_klDiv_div_two_le_lintegral_rnDeriv_rpow_half h
-      _ ≤ _ := lintegral_rnDeriv_rpow_half_le
-      _ = _ := by simp [one_add_one_eq_two, I]
-  have h_sq : ENNReal.ofReal (exp (-(klDiv μ ν).toReal)) ≤ 2 * I := by
-    have h2 := ENNReal.rpow_le_rpow h_le (by norm_num : (0 : ℝ) ≤ 2)
-    rwa [← ENNReal.rpow_mul, show (1 / 2 : ℝ) * 2 = 1 by norm_num, ENNReal.rpow_one,
-      ENNReal.ofReal_rpow_of_nonneg (exp_pos _).le (by norm_num), ← exp_mul,
-      show -(klDiv μ ν).toReal / 2 * 2 = -(klDiv μ ν).toReal by ring] at h2
-  rw [ENNReal.ofReal_div_of_pos (by norm_num), ENNReal.ofReal_ofNat]
-  exact ENNReal.div_le_of_le_mul' h_sq
-
-/-- **Bretagnolle–Huber inequality** [LS, Theorem 14.2]: for probability measures `μ` and `ν` at
-finite relative entropy and a measurable set `A`, `exp (-KL(μ ‖ ν)) / 2 ≤ μ A + ν Aᶜ`. -/
-theorem exp_neg_klDiv_div_two_le [IsProbabilityMeasure μ] [IsProbabilityMeasure ν]
-    (hA : MeasurableSet A) (h : klDiv μ ν ≠ ∞) :
-    exp (-(klDiv μ ν).toReal) / 2 ≤ μ.real A + ν.real Aᶜ := by
-  have h_le := (ofReal_exp_neg_klDiv_div_two_le_lintegral_min_rnDeriv h).trans
-    (lintegral_min_rnDeriv_one_le (μ := μ) (ν := ν) hA)
-  rwa [ENNReal.ofReal_le_iff_le_toReal
-      (ENNReal.add_ne_top.mpr ⟨measure_ne_top _ _, measure_ne_top _ _⟩),
-    ENNReal.toReal_add (measure_ne_top _ _) (measure_ne_top _ _), ← measureReal_def,
-    ← measureReal_def] at h_le
 
 end LMLExplore
