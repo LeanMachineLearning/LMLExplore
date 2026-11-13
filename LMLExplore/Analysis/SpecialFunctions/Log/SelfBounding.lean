@@ -35,8 +35,10 @@ This file solves it for `τ`, for `α ≥ e`, `A, B, C, D ≥ 0` and `B ≤ E`. 
 [MDJKLV21, Lemma 13] and [EV26, Lemma 29] state the bound with
 `C₁ = (8 / 5) log (11 α² (A + E) (C + D))` and assume `A, B, C, D > 0` and `B ≥ 1`. That constant
 is too small: `α = e`, `B = E = 1`, `C = 1000`, `A = D = 10⁻⁶` and `τ = 4 · 10⁸` satisfy the
-hypothesis but not the conclusion. The factor `C + D` must be squared, which is
-`Real.le_of_le_sqrt_mul_add'`; the positivity assumptions and `B ≥ 1` are not needed.
+hypothesis but not the conclusion. The corrected bound `Real.le_of_le_sqrt_mul_add`, with
+`(C + √D)²`, holds for all `D ≥ 0` and needs neither the positivity assumptions nor `B ≥ 1`.
+Squaring `C + D` also gives a valid bound when `D ≥ 1` (an assumption the paper does not make),
+which is `Real.le_of_le_sqrt_mul_add'`.
 
 ## Implementation notes
 
