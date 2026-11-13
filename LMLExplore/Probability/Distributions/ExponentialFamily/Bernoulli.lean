@@ -404,20 +404,14 @@ theorem map_deriv_cgf_expFamilyPosterior_bernoulliMeasure_sigmoid_jeffreysPrior
     (by linarith)
   have hf : Measurable (deriv (cgf id Ber((1 : ℝ), 0, unitInterval.sigmoid η₀))) :=
     measurable_deriv _
-  set μ := (Ber((1 : ℝ), 0, unitInterval.sigmoid η₀).jeffreysPrior id).withDensity fun η ↦
-    ENNReal.ofReal (exp (η * S - s * cgf id Ber((1 : ℝ), 0, unitInterval.sigmoid η₀) η))
-  have hμ : μ Set.univ = μ.map (deriv (cgf id Ber((1 : ℝ), 0, unitInterval.sigmoid η₀)))
-      Set.univ := by
-    rw [Measure.map_apply hf MeasurableSet.univ, preimage_univ]
   have hc0 : ENNReal.ofReal (exp (-(η₀ * S) - s * log (1 - Real.sigmoid η₀)) *
       beta (S + 1 / 2) (s - S + 1 / 2)) ≠ 0 :=
     (ENNReal.ofReal_pos.2 (mul_pos (exp_pos _) (beta_pos (by linarith) (by linarith)))).ne'
   rw [Measure.expFamilyPosterior_def, integrableExpSet_bernoulliMeasure, interior_univ,
-    ProbabilityTheory.cond, Measure.restrict_univ, Measure.map_smul, hμ,
+    ← preimage_univ (f := deriv (cgf id Ber((1 : ℝ), 0, unitInterval.sigmoid η₀))),
+    ← cond_map hf.aemeasurable MeasurableSet.univ,
     map_deriv_cgf_withDensity_jeffreysPrior_bernoulliMeasure_sigmoid η₀ hS0 hS1,
-    smul_apply, measure_univ, smul_eq_mul, mul_one, smul_smul,
-    ENNReal.inv_mul_cancel hc0 ENNReal.ofReal_ne_top, one_smul]
-  exact hf.aemeasurable
+    cond_smul _ _ hc0 ENNReal.ofReal_ne_top, cond_univ]
 
 end Jeffreys
 
