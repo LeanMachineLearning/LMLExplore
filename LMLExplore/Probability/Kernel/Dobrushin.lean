@@ -12,6 +12,7 @@ public import LMLExplore.Probability.Kernel.TotalVariation
 public import Mathlib.Topology.UniformSpace.UniformConvergence
 
 import Mathlib.Analysis.SpecificLimits.Basic
+import TauCeti.MeasureTheory.Integral.Bind
 
 /-!
 # The Dobrushin coefficient and uniform ergodicity
@@ -191,7 +192,8 @@ theorem tvDist_comp_right_le_dobrushinCoeff_mul [IsFiniteMeasure μ] [IsFiniteMe
   have := abs_integral_sub_integral_le_mul_tvDist_of_forall_sub_le hμν hg.aestronglyMeasurable
     hg.aestronglyMeasurable fun x y ↦
       (le_abs_self _).trans (abs_measureReal_sub_measureReal_le_dobrushinCoeff x y hs)
-  rw [Measure.measureReal_bind_eq_integral κ hs, Measure.measureReal_bind_eq_integral κ hs]
+  rw [Measure.bind_apply_real κ.aemeasurable hs (ae_of_all _ fun _ ↦ measure_ne_top _ _),
+    Measure.bind_apply_real κ.aemeasurable hs (ae_of_all _ fun _ ↦ measure_ne_top _ _)]
   linarith [(abs_le.1 this).2]
 
 /-- Composing two probability measures with a Markov kernel `κ` brings them within
