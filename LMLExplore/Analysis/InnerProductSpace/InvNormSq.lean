@@ -44,13 +44,16 @@ it.
 
 ## Main statements
 
-* `LMLExplore.invNormSq_apply`: `‖V z‖²_{V⁻¹} = ⟪z, V z⟫` for a positive `V`.
-* `LMLExplore.invNormSq_ringInverse`: `‖y‖²_{V⁻¹} = ⟪y, V⁻¹ y⟫` for an invertible positive `V`.
+* `LMLExplore.invNormSq_apply_eq_ofReal_inner`: `‖V z‖²_{V⁻¹} = ⟪z, V z⟫` for a positive `V`.
+* `LMLExplore.invNormSq_eq_ofReal_inner_ringInverse`: `‖y‖²_{V⁻¹} = ⟪y, V⁻¹ y⟫` for an invertible
+  positive `V`.
 * `LMLExplore.invNormSq_eq_ofReal_inner_moorePenroseInverse`: in finite dimension,
   `‖y‖²_{V⁻¹} = ⟪y, V⁺ y⟫` for a positive `V` and `y` in its range.
-* `LMLExplore.invNormSq_eq_top_of_apply_eq_zero`, `LMLExplore.invNormSq_eq_top_iff`:
-  `‖y‖²_{V⁻¹} = ∞` if `y` is not orthogonal to the kernel of `V`; in finite dimension, for a
-  positive `V`, exactly when `y` is not in the range of `V`.
+* `LMLExplore.invNormSq_eq_top_of_inner_apply_self_eq_zero`,
+  `LMLExplore.invNormSq_eq_top_of_apply_eq_zero`, `LMLExplore.invNormSq_eq_top_iff`:
+  `‖y‖²_{V⁻¹} = ∞` if `y` is not orthogonal to a vector `x` with `⟪x, V x⟫ = 0`, for instance to
+  the kernel of `V`; in finite dimension, for a positive `V`, exactly when `y` is not in the range
+  of `V`.
 * `LMLExplore.biInf_ofReal_inner_apply_self_eq_div_invNormSq`: for a positive semidefinite
   quadratic form and `a > 0`, `inf {⟪x, V x⟫ | a ≤ ⟪y, x⟫} = a² / ‖y‖²_{V⁻¹}`.
 * `LMLExplore.biInf_ofReal_inner_sub_apply_sub_eq_div_invNormSq`: the squared `V`-distance from
@@ -73,9 +76,8 @@ variable {E : Type*} [NormedAddCommGroup E] [InnerProductSpace ℝ E] {V : E →
 
 /-- The squared norm `‖y‖²_{V⁻¹} = sup_x (2 ⟪y, x⟫ - ⟪x, V x⟫)` of `y` for the inverse of `V`, in
 `ℝ≥0∞`. For a positive operator `V` it is `⟪y, V⁻¹ y⟫` when `V` is invertible
-(`invNormSq_ringInverse`), `⟪y, V⁺ y⟫` on the range of `V` in finite dimension
-(`invNormSq_eq_ofReal_inner_moorePenroseInverse`), and `∞` off the range (`invNormSq_eq_top_iff`).
--/
+(`invNormSq_eq_ofReal_inner_ringInverse`) and, in finite dimension, `⟪y, V⁺ y⟫` on the range of
+`V` and `∞` off it (`invNormSq_eq_ofReal_inner_moorePenroseInverse`, `invNormSq_eq_top_iff`). -/
 noncomputable def invNormSq (V : E →ₗ[ℝ] E) (y : E) : ℝ≥0∞ :=
   ⨆ x, ENNReal.ofReal (2 * ⟪y, x⟫_ℝ - ⟪x, V x⟫_ℝ)
 
@@ -102,18 +104,23 @@ private lemma ofReal_le_invNormSq_smul (V : E →ₗ[ℝ] E) (x y : E) (t : ℝ)
 theorem invNormSq_zero (hV : ∀ x, 0 ≤ ⟪x, V x⟫_ℝ) : invNormSq V 0 = 0 :=
   nonpos_iff_eq_zero.1 <| invNormSq_le_iff.2 fun x ↦ by simp [hV x]
 
-/-- `‖y‖²_{V⁻¹} = ∞` as soon as `y` is not orthogonal to a vector `x` of the kernel of `V`: the
+/-- `‖y‖²_{V⁻¹} = ∞` as soon as `y` is not orthogonal to a vector `x` with `⟪x, V x⟫ = 0`: the
 concave quadratic function `2 ⟪y, ·⟫ - ⟪·, V ·⟫` is linear and unbounded along `x`. -/
-theorem invNormSq_eq_top_of_apply_eq_zero (hx : V x = 0) (hxy : ⟪y, x⟫_ℝ ≠ 0) :
-    invNormSq V y = ∞ := by
+theorem invNormSq_eq_top_of_inner_apply_self_eq_zero (hx : ⟪x, V x⟫_ℝ = 0)
+    (hxy : ⟪y, x⟫_ℝ ≠ 0) : invNormSq V y = ∞ := by
   refine ENNReal.eq_top_of_forall_nnreal_le fun r ↦ ?_
   refine le_trans (le_of_eq ?_) (ofReal_le_invNormSq_smul V x y (r / (2 * ⟪y, x⟫_ℝ)))
-  rw [hx, inner_zero_right, mul_zero, sub_zero,
+  rw [hx, mul_zero, sub_zero,
     show 2 * ((r : ℝ) / (2 * ⟪y, x⟫_ℝ)) * ⟪y, x⟫_ℝ = r by field_simp, ENNReal.ofReal_coe_nnreal]
+
+/-- `‖y‖²_{V⁻¹} = ∞` as soon as `y` is not orthogonal to a vector `x` of the kernel of `V`. -/
+theorem invNormSq_eq_top_of_apply_eq_zero (hx : V x = 0) (hxy : ⟪y, x⟫_ℝ ≠ 0) :
+    invNormSq V y = ∞ :=
+  invNormSq_eq_top_of_inner_apply_self_eq_zero (by rw [hx, inner_zero_right]) hxy
 
 /-- For a positive operator `V`, `‖V z‖²_{V⁻¹} = ⟪z, V z⟫`: the concave quadratic function
 `2 ⟪V z, x⟫ - ⟪x, V x⟫ = ⟪z, V z⟫ - ⟪x - z, V (x - z)⟫` is maximal at `x = z`. -/
-theorem invNormSq_apply (hV : V.IsPositive) (z : E) :
+theorem invNormSq_apply_eq_ofReal_inner (hV : V.IsPositive) (z : E) :
     invNormSq V (V z) = ENNReal.ofReal ⟪z, V z⟫_ℝ := by
   refine le_antisymm (invNormSq_le_iff.2 fun x ↦ ENNReal.ofReal_le_ofReal ?_) ?_
   · have h := hV.inner_nonneg_right (x - z)
@@ -126,9 +133,10 @@ theorem invNormSq_apply (hV : V.IsPositive) (z : E) :
     ring
 
 /-- `‖y‖²_{V⁻¹} = ⟪y, V⁻¹ y⟫` for an invertible positive operator `V`. -/
-theorem invNormSq_ringInverse {V : E →L[ℝ] E} (hV : V.IsPositive) (hVu : IsUnit V) (y : E) :
+theorem invNormSq_eq_ofReal_inner_ringInverse {V : E →L[ℝ] E} (hV : V.IsPositive)
+    (hVu : IsUnit V) (y : E) :
     invNormSq (V : E →ₗ[ℝ] E) y = ENNReal.ofReal ⟪y, Ring.inverse V y⟫_ℝ := by
-  have h := invNormSq_apply hV.toLinearMap (Ring.inverse V y)
+  have h := invNormSq_apply_eq_ofReal_inner hV.toLinearMap (Ring.inverse V y)
   rwa [ContinuousLinearMap.coe_coe, ContinuousLinearMap.apply_ringInverse_apply hVu,
     real_inner_comm] at h
 
@@ -136,7 +144,7 @@ theorem invNormSq_ringInverse {V : E →L[ℝ] E} (hV : V.IsPositive) (hVu : IsU
 theorem invNormSq_lt_top_of_mem_range (hV : V.IsPositive) (hy : y ∈ range V) :
     invNormSq V y < ∞ := by
   obtain ⟨z, rfl⟩ := hy
-  simp [invNormSq_apply hV]
+  simp [invNormSq_apply_eq_ofReal_inner hV]
 
 section FiniteDimensional
 
@@ -147,7 +155,7 @@ range, where `V⁺` is the Moore–Penrose inverse of `V`. -/
 theorem invNormSq_eq_ofReal_inner_moorePenroseInverse (hV : V.IsPositive) (hy : y ∈ range V) :
     invNormSq V y = ENNReal.ofReal ⟪y, V.moorePenroseInverse y⟫_ℝ := by
   obtain ⟨z, rfl⟩ := hy
-  rw [invNormSq_apply hV, hV.isSymmetric,
+  rw [invNormSq_apply_eq_ofReal_inner hV, hV.isSymmetric,
     V.isMoorePenroseInverse_moorePenroseInverse.apply_apply_apply]
 
 /-- In finite dimension, `‖y‖²_{V⁻¹} = ∞` for a symmetric operator `V` and `y` outside its range:
@@ -175,14 +183,7 @@ private lemma ofReal_sq_div_invNormSq_le (hV : ∀ x, 0 ≤ ⟪x, V x⟫_ℝ) {a
     ENNReal.ofReal (a ^ 2) / invNormSq V y ≤ ENNReal.ofReal ⟪x, V x⟫_ℝ := by
   rcases (hV x).eq_or_lt with hq | hq
   · -- `⟪x, V x⟫ = 0`: the function is linear and unbounded along `x`, so `‖y‖²_{V⁻¹} = ∞`
-    have htop : invNormSq V y = ∞ := by
-      refine ENNReal.eq_top_of_forall_nnreal_le fun r ↦ ?_
-      refine le_trans ?_ (ofReal_le_invNormSq_smul V x y (r / (2 * a)))
-      rw [← hq, mul_zero, sub_zero, ← ENNReal.ofReal_coe_nnreal]
-      refine ENNReal.ofReal_le_ofReal ?_
-      calc (r : ℝ) = 2 * (r / (2 * a)) * a := by field_simp
-        _ ≤ 2 * (r / (2 * a)) * ⟪y, x⟫_ℝ := by gcongr
-    simp [htop]
+    simp [invNormSq_eq_top_of_inner_apply_self_eq_zero hq.symm (ha.trans_le hx).ne']
   · -- `⟪x, V x⟫ > 0`: evaluate the function at `t x` with `t = a / ⟪x, V x⟫`
     refine ENNReal.div_le_of_le_mul ?_
     calc ENNReal.ofReal (a ^ 2)
