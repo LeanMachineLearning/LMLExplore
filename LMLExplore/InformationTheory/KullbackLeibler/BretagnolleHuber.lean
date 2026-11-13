@@ -77,9 +77,7 @@ lemma lintegral_min_rnDeriv_one_le (hA : MeasurableSet A) :
 
 /-- The stronger form of the Bretagnolle–Huber inequality [LS, (14.8)]: for probability measures
 `μ` and `ν` at finite relative entropy, the integral of the minimum of the two densities,
-`∫⁻ x, min (μ.rnDeriv ν x) 1 ∂ν`, is at least `exp (-KL(μ ‖ ν)) / 2`. This is Statlib's
-`ProbabilityTheory.exp_neg_klDiv_le_two_sub_tvDist` divided by two, since `μ ≪ ν` and then
-`∫ x, min (μ.rnDeriv ν x) 1 ∂ν = 1 - tvDist μ ν / 2`. -/
+`∫⁻ x, min (μ.rnDeriv ν x) 1 ∂ν`, is at least `exp (-KL(μ ‖ ν)) / 2`. -/
 theorem ofReal_exp_neg_klDiv_div_two_le_lintegral_min_rnDeriv
     [IsProbabilityMeasure μ] [IsProbabilityMeasure ν] (h : klDiv μ ν ≠ ∞) :
     ENNReal.ofReal (exp (-(klDiv μ ν).toReal) / 2) ≤ ∫⁻ x, min (μ.rnDeriv ν x) 1 ∂ν := by
