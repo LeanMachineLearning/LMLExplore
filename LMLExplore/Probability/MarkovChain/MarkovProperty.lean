@@ -10,12 +10,17 @@ public import Mathlib.Probability.HasCondDistrib
 public import TauCeti.Probability.MarkovChain.MarkovProperty
 
 /-!
-# The one-step Markov property for bounded measurable functions
+# Means and conditional laws of the states of a Markov chain
 
 Let `X` be the coordinate process on path space `ℕ → α` under the law `markovChainLaw ν κ` of the
 homogeneous Markov chain with initial law `ν` and transition kernel `κ`, with its natural filtration
-`MeasureTheory.Filtration.piLE`. This file states the Markov property in terms of the action
-`κ.integralCLM` of `κ` on bounded measurable functions.
+`MeasureTheory.Filtration.piLE`. This file expresses the mean of a bounded measurable function of
+`X n`, for the chain started at a point, through the action `κ.integralCLM` of `κ` on bounded
+measurable functions, and states the law of the next state given the past as a conditional
+distribution. The Markov property in conditional-expectation form,
+`E[f (X (n + 1)) | X 0, …, X n] = ∫ f dκ (X n)` for bounded measurable `f`, is Tau Ceti's
+`TauCeti.Probability.isMarkovChain_markovChainLaw` (field `IsMarkovChain.condExp_eq`, and
+`IsMarkovChain.condExp_add` for `k` steps).
 
 ## Main statements
 
@@ -23,8 +28,6 @@ homogeneous Markov chain with initial law `ν` and transition kernel `κ`, with 
   `g (X n)` is `κ ^ n g x`.
 * `MeasureTheory.Measure.hasCondDistrib_eval_succ_markovChainLaw`: given `X 0, …, X n`, the next
   state `X (n + 1)` has conditional law `κ (X n)`.
-* `MeasureTheory.Measure.condExp_eval_succ_markovChainLaw`: the Markov property in the form
-  `E[g (X (n + 1)) | X 0, …, X n] = ∫ g dκ (X n)`.
 -/
 
 public section
@@ -64,19 +67,5 @@ theorem hasCondDistrib_eval_succ_markovChainLaw (n : ℕ) :
       (markovChainLaw ν κ) where
   aemeasurable := by fun_prop
   map_eq := markovChainLaw_map_prefix_succ_eq_compProd ν κ n
-
-/-- **The Markov property** in the one-step form: given the history `X 0, …, X n`, the conditional
-expectation of `g (X (n + 1))` is `∫ g dκ (X n)`, for bounded measurable `g`. -/
-theorem condExp_eval_succ_markovChainLaw (g : boundedMeasurable α) (n : ℕ) :
-    (markovChainLaw ν κ)[fun ω ↦ (g : ℓ^∞(α, ℝ)) (ω (n + 1)) | Filtration.piLE n]
-      =ᵐ[markovChainLaw ν κ] fun ω ↦ (κ.integralCLM g : ℓ^∞(α, ℝ)) (ω n) := by
-  -- the Markov property at time `n` for the function `y ↦ g (y 1)` of the future path
-  have hint : Integrable (fun y : ℕ → α ↦ (g : ℓ^∞(α, ℝ)) (y 1))
-      (markovChainLaw ((κ ^ n : Kernel α α) ∘ₘ ν) κ) :=
-    (boundedMeasurable.integrable g _).comp_measurable (measurable_pi_apply 1)
-  have h := condExp_shift_iterate_markovChainLaw ν κ n hint
-  simp only [shift_iterate_apply, add_comm 1 n] at h
-  refine h.trans (.of_forall fun ω ↦ ?_)
-  simpa [Kernel.markovChainKernel_apply] using integral_eval_markovChainKernel (κ := κ) g 1 (ω n)
 
 end MeasureTheory.Measure

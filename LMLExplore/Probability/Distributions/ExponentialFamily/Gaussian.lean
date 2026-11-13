@@ -74,6 +74,8 @@ Fixed variance, statistic `id`:
 * `LMLExplore.natParam_gaussianReal`: for `v ≠ 0`, the natural parameter of the mean `μ` is
   `(μ - m) / v`.
 * `LMLExplore.expFamily_natParam_gaussianReal`: for `v ≠ 0`, the member of mean `μ` is `𝒩(μ, v)`.
+* `LMLExplore.image_expFamily_gaussianReal`: for `v ≠ 0`, the members of the family are the
+  Gaussian laws of variance `v`.
 * `LMLExplore.expFamilyDiv_gaussianReal`: for `v ≠ 0`, the divergence of the family is
   `d(μ, μ') = (μ - μ')² / (2 v)`.
 * `LMLExplore.expFamilyRate_gaussianReal`: for `v ≠ 0`, the extended divergence is
@@ -199,6 +201,16 @@ theorem expFamily_natParam_gaussianReal (m : ℝ) (hv : v ≠ 0) (μ : ℝ) :
   congr 1
   field_simp
   ring
+
+/-- For `v ≠ 0`, the members of the exponential family of `𝒩(m, v)` are the Gaussian laws
+`𝒩(μ, v)` of variance `v`, for every mean `μ`. -/
+theorem image_expFamily_gaussianReal (m : ℝ) (hv : v ≠ 0) :
+    (gaussianReal m v).expFamily id '' interior (integrableExpSet id (gaussianReal m v)) =
+      range fun μ ↦ gaussianReal μ v := by
+  ext Q
+  rw [Measure.mem_image_expFamily_iff (not_ae_eq_const_gaussianReal m hv),
+    expFamilyMeans_gaussianReal m hv]
+  simp only [mem_univ, true_and, expFamily_natParam_gaussianReal m hv, mem_range]
 
 /-- For `v ≠ 0`, the divergence of the exponential family of `𝒩(m, v)` in the mean
 parametrization is `d(μ, μ') = (μ - μ')² / (2 v)`, the relative entropy between `𝒩(μ, v)` and

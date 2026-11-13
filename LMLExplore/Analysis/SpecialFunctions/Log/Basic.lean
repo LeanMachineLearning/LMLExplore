@@ -19,7 +19,13 @@ import Mathlib.Analysis.SpecialFunctions.Log.Deriv
 * `Real.monotoneOn_log_one_add_mul_log_sq`: `x ↦ log (1 + x log² x)` is monotone on `[1, ∞)`.
 * `Real.log_natCast_le_log_natCast`: `log` is monotone on natural numbers.
 * `Real.one_le_log_natCast_of_three_le`: `1 ≤ log n` for a natural number `n ≥ 3`.
+* `Real.one_le_log_mul`: `1 ≤ log (x y)` for `x ≥ e` and `y ≥ 1`.
 * `Real.log_div_rpow_le_exp_neg_one`: `log x / x ^ p ≤ 1 / e` for `x ≥ 1` and `p ≥ 1`.
+* `Real.log_le_rpow_div_exp_one_mul`: `log y ≤ y ^ γ / (e γ)` for `y ≥ 0` and `γ > 0`, Mathlib's
+  `Real.log_le_rpow_div` sharpened by the factor `e`.
+* `Real.log_le_of_le_mul_sq_log`: if `1 ≤ y ≤ M log² y`, then
+  `log y ≤ (8 / 5) log (4 M)`. It bounds the logarithm in the self-bounding inequality
+  `Real.le_of_le_sqrt_mul_add`.
 * `Real.monotone_log_two_mul_mul_add_one`: `n ↦ log (2 n (n + 1))` is monotone on `ℕ`.
 * `Real.tendsto_log_one_add_mul_log_sq_div_log_atTop`: `log (1 + x log² x) / log x → 1` as
   `x → ∞`.
@@ -109,6 +115,15 @@ theorem one_le_log_natCast_of_three_le {n : ℕ} (hn : 3 ≤ n) : 1 ≤ log n :=
   rw [le_log_iff_exp_le (by positivity)]
   linarith [exp_one_lt_three]
 
+/-- `1 ≤ log (x y)` for `x ≥ e` and `y ≥ 1`.
+
+Adapted from the formalization in the paper project RemyDegenne/Essakine2026Tight (same author),
+file `ForLMLExplore/Analysis/SpecialFunctions/Log/SelfBounding.lean`. -/
+theorem one_le_log_mul {x y : ℝ} (hx : exp 1 ≤ x) (hy : 1 ≤ y) : 1 ≤ log (x * y) := by
+  have hx0 : 0 < x := (exp_pos 1).trans_le hx
+  exact (le_log_iff_exp_le (mul_pos hx0 (by linarith))).2
+    (hx.trans (le_mul_of_one_le_right hx0.le hy))
+
 /-- The function `n ↦ log (2 n (n + 1))` on `ℕ` is monotone. It is the boundary of the
 sub-Gaussian, two-tailed form of the time-uniform deviation bound of [LS, Lemma 33.8]: Lattimore
 and Szepesvári state that lemma for unit-variance Gaussians with the boundary `log (n (n + 1))`,
@@ -165,6 +180,61 @@ theorem log_div_rpow_le_exp_neg_one {x p : ℝ} (hx : 1 ≤ x) (hp : 1 ≤ p) :
   _ ≤ log x / x := div_le_div_of_nonneg_left (log_nonneg hx) hx0
     (by simpa using rpow_le_rpow_of_exponent_le hx hp)
   _ ≤ exp (-1) := h_log
+
+/-- `log y ≤ y ^ γ / (e γ)` for `y ≥ 0` and `γ > 0`: Mathlib's `Real.log_le_rpow_div` sharpened by
+the factor `e`.
+
+Adapted from the formalization in the paper project RemyDegenne/Essakine2026Tight (same author),
+file `ForLMLExplore/Analysis/SpecialFunctions/Pow/Real.lean`. -/
+theorem log_le_rpow_div_exp_one_mul {y γ : ℝ} (hy : 0 ≤ y) (hγ : 0 < γ) :
+    log y ≤ y ^ γ / (exp 1 * γ) := by
+  rcases hy.eq_or_lt with rfl | hy
+  · rw [log_zero, zero_rpow hγ.ne', zero_div]
+  have hz : 0 < y ^ γ := rpow_pos_of_pos hy γ
+  -- `log (y ^ γ / e) ≤ y ^ γ / e - 1`, and `log (y ^ γ / e) = γ log y - 1`
+  have h := log_le_sub_one_of_pos (show 0 < y ^ γ / exp 1 by positivity)
+  rw [log_div hz.ne' (exp_pos 1).ne', log_exp, log_rpow hy, sub_le_sub_iff_right] at h
+  rw [le_div_iff₀ (exp_pos 1)] at h
+  rw [le_div_iff₀ (by positivity)]
+  linarith
+
+/-- If `1 ≤ y ≤ M (log y)²`, then `log y ≤ (8 / 5) log (4 M)`.
+
+Adapted from the formalization in the paper project RemyDegenne/Essakine2026Tight (same author),
+file `ForLMLExplore/Analysis/SpecialFunctions/Pow/Real.lean`, where `M > 0` is assumed. -/
+theorem log_le_of_le_mul_sq_log {y M : ℝ} (hy : 1 ≤ y) (h : y ≤ M * log y ^ 2) :
+    log y ≤ 8 / 5 * log (4 * M) := by
+  have hy0 : 0 < y := by linarith
+  have hlog : 0 ≤ log y := log_nonneg hy
+  have hM : 0 < M := by
+    by_contra! hM
+    nlinarith [mul_nonneg (neg_nonneg.2 hM) (sq_nonneg (log y))]
+  have he : 2.7 < exp 1 := lt_trans (by norm_num) exp_one_gt_d9
+  -- `log y ≤ 16 / (3 e) y ^ (3 / 16)`, hence `log² y ≤ 4 y ^ (3 / 8)`
+  have h1 : log y ≤ 16 / (3 * exp 1) * y ^ (3 / 16 : ℝ) := by
+    calc log y ≤ y ^ (3 / 16 : ℝ) / (exp 1 * (3 / 16)) :=
+          log_le_rpow_div_exp_one_mul hy0.le (by norm_num)
+      _ = 16 / (3 * exp 1) * y ^ (3 / 16 : ℝ) := by field_simp
+  have h2 : log y ^ 2 ≤ 4 * y ^ (3 / 8 : ℝ) := by
+    calc log y ^ 2 ≤ (16 / (3 * exp 1) * y ^ (3 / 16 : ℝ)) ^ 2 := pow_le_pow_left₀ hlog h1 2
+      _ = (16 / (3 * exp 1)) ^ 2 * y ^ (3 / 8 : ℝ) := by
+          rw [mul_pow, sq (y ^ (3 / 16 : ℝ)), ← rpow_add hy0]; norm_num
+      _ ≤ 4 * y ^ (3 / 8 : ℝ) := by
+          gcongr
+          rw [div_pow, div_le_iff₀ (by positivity)]
+          nlinarith
+  -- so `y = y ^ (5 / 8) y ^ (3 / 8) ≤ 4 M y ^ (3 / 8)`, that is `y ^ (5 / 8) ≤ 4 M`
+  have h3 : y ^ (5 / 8 : ℝ) ≤ 4 * M := by
+    have hy38 : 0 < y ^ (3 / 8 : ℝ) := rpow_pos_of_pos hy0 _
+    refine le_of_mul_le_mul_right ?_ hy38
+    rw [← rpow_add hy0, show (5 / 8 : ℝ) + 3 / 8 = 1 by norm_num, rpow_one]
+    calc y ≤ M * log y ^ 2 := h
+      _ ≤ M * (4 * y ^ (3 / 8 : ℝ)) := by gcongr
+      _ = 4 * M * y ^ (3 / 8 : ℝ) := by ring
+  have h5 : 5 / 8 * log y ≤ log (4 * M) := by
+    rw [← log_rpow hy0]
+    exact log_le_log (rpow_pos_of_pos hy0 _) h3
+  linarith
 
 /-- If `g n / log n → D` as `n → ∞` and `D < c`, then eventually `g n < c log n`. -/
 theorem eventually_lt_mul_log_of_tendsto_div_log {g : ℕ → ℝ} {D c : ℝ}

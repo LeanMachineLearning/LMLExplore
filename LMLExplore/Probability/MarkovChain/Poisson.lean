@@ -15,6 +15,7 @@ import LMLExplore.MeasureTheory.Integral.Bochner.Basic
 import LMLExplore.Order.ConditionallyCompleteLattice.Group
 import Mathlib.MeasureTheory.OuterMeasure.BorelCantelli
 import Statlib.ForMathlib.Probability.Process.Filtration
+import TauCeti.Probability.MarkovChain.Filtered.Basic
 
 /-!
 # The Poisson equation along a Markov chain
@@ -140,9 +141,10 @@ theorem martingale_sum_sub_integralCLM (g : boundedMeasurable α) :
       (markovChainLaw ν κ) :=
     (boundedMeasurable.integrable _ _).comp_measurable (measurable_pi_apply _)
   filter_upwards [condExp_sub hgint hκint (Filtration.piLE n),
-    condExp_eval_succ_markovChainLaw (ν := ν) (κ := κ) g n] with ω h₁ h₂
-  rw [h₁, Pi.sub_apply, h₂, condExp_of_stronglyMeasurable (Filtration.le _ n) hκg hκint,
-    sub_self, Pi.zero_apply]
+    (isMarkovChain_markovChainLaw ν κ).condExp_eq n _ (boundedMeasurable.measurable g)
+      ⟨‖g‖, boundedMeasurable.abs_apply_le_norm g⟩] with ω h₁ h₂
+  rw [h₁, Pi.sub_apply, h₂, ← integralCLM_apply,
+    condExp_of_stronglyMeasurable (Filtration.le _ n) hκg hκint, sub_self, Pi.zero_apply]
 
 /-! ### Concentration -/
 
