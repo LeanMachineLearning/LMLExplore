@@ -7,7 +7,8 @@ module
 
 public import Mathlib.InformationTheory.KullbackLeibler.Basic
 public import Mathlib.Probability.Moments.Variance
-import Mathlib.Analysis.Convex.Integral
+import LMLExplore.Algebra.Order.Ring.Abs
+import LMLExplore.Analysis.Convex.Integral
 import LMLExplore.Analysis.SpecialFunctions.Exp
 import LMLExplore.Probability.Moments.Bernstein
 import LMLExplore.Probability.Moments.Variance
@@ -31,10 +32,18 @@ The proof combines the Donsker–Varadhan inequality
 Bennett's bound on the moment-generating function of the centred function
 (`MeasureTheory.MemLp.mgf_le_exp_mul_exp_sub_one_sub_of_ae_le`). Its sub-gamma form
 `exp x - 1 - x ≤ x² / (2 (1 - x / 3))` then inverts in closed form, as in the high-probability form
-of Bernstein's inequality [BLM13, Theorem 2.10].
+of Bernstein's inequality [BLM13, Theorem 2.10]
+(`Real.exists_pos_le_mul_sqrt_add_sub_mul_exp_sub_one_sub`).
+
+The statements, their order and the decomposition into [MDJKLV21, Lemmas 10 and 11] are adapted
+from the paper project Essakine2026Tight (`github.com/RemyDegenne/Essakine2026Tight`, file
+`Essakine2026Tight/ForLMLExplore/InformationTheory/KLBernstein.lean`, by Rémy Degenne,
+Apache 2.0), with a new proof of the transport of the mean and sharper constants.
 
 ## Main statements
 
+* `LMLExplore.absolutelyContinuous_of_klDiv_le_ofReal`: a finite bound on `KL(μ ‖ ν)` gives
+  `μ ≪ ν`.
 * `LMLExplore.integral_sub_integral_le_of_klDiv_le`: the one-sided transport, for `f` bounded
   above by its `ν`-mean plus `b`.
 * `LMLExplore.abs_integral_sub_integral_le_of_klDiv_le`: the two-sided transport for `f` with
@@ -66,6 +75,11 @@ namespace LMLExplore
 
 variable {α : Type*} {mα : MeasurableSpace α} {μ ν : Measure α} [IsProbabilityMeasure μ]
   [IsProbabilityMeasure ν] {f : α → ℝ} {a b c d : ℝ}
+
+/-- A finite bound `KL(μ ‖ ν) ≤ a` gives `μ ≪ ν`. -/
+theorem absolutelyContinuous_of_klDiv_le_ofReal {μ ν : Measure α}
+    (h : klDiv μ ν ≤ ENNReal.ofReal a) : μ ≪ ν :=
+  (klDiv_ne_top_iff.1 (ne_top_of_le_ne_top ENNReal.ofReal_ne_top h)).1
 
 /-- The Donsker–Varadhan inequality at `g = t (f - ∫ f ∂ν)`, with Bennett's bound on the
 moment-generating function: for every `t ≥ 0`,
@@ -110,36 +124,10 @@ private lemma integral_sub_integral_le_of_klDiv_le_of_pos (hfν : MemLp f 2 ν)
     have := key (t := (a + 1) / D) (by positivity)
     rw [← hv, div_mul_cancel₀ _ hD0.ne'] at this
     linarith
-  -- Chernoff's choice `t = r / (v + b r / 3)` with `r = √(2 v a)`, at which the sub-gamma bound
-  -- `ψ_b(t) ≤ t ^ 2 / (2 (1 - t b / 3))` makes `t (r + b a / 3) - v ψ_b(t)` at least `a`
-  set r := √(2 * v * a)
-  have hr : r ^ 2 = 2 * v * a := sq_sqrt (by positivity)
-  have hr0 : 0 < r := sqrt_pos.2 (by positivity)
-  obtain ⟨s, hs⟩ : ∃ s, s = v + b * r / 3 := ⟨_, rfl⟩
-  have hs0 : 0 < s := by rw [hs]; positivity
-  obtain ⟨t, rfl⟩ : ∃ t, t = r / s := ⟨_, rfl⟩
-  have ht : 0 < r / s := by positivity
-  have htb : r / s * b < 3 := by
-    rw [div_mul_eq_mul_div, div_lt_iff₀ hs0]
-    nlinarith
-  have hψ : (exp (r / s * b) - 1 - r / s * b) / b ^ 2 ≤
-      (r / s) ^ 2 / (2 * (1 - r / s * b / 3)) := by
-    calc (exp (r / s * b) - 1 - r / s * b) / b ^ 2
-        ≤ (r / s * b) ^ 2 / (2 * (1 - r / s * b / 3)) / b ^ 2 := by
-          gcongr
-          exact exp_sub_one_sub_id_le_sq_div (by positivity) htb
-      _ = (r / s) ^ 2 / (2 * (1 - r / s * b / 3)) := by field_simp
-  have h1 : 1 - r / s * b / 3 = v / s := by
-    field_simp
-    linear_combination 3 * hs
-  have hval : r / s * (r + b * a / 3) - v * ((r / s) ^ 2 / (2 * (1 - r / s * b / 3))) = a := by
-    have hv' : v ≠ 0 := hv.ne'
-    rw [h1]
-    field_simp
-    linear_combination 3 * hr - 6 * a * hs
+  -- Chernoff's choice of `t`, at which `t (√(2 v a) + b a / 3) - v ψ_b(t)` is at least `a`
+  obtain ⟨t, ht, hta⟩ := exists_pos_le_mul_sqrt_add_sub_mul_exp_sub_one_sub hb hv ha'
   have hkey := key ht.le
-  have : r / s * D ≤ r / s * (r + b * a / 3) := by nlinarith [mul_le_mul_of_nonneg_left hψ hv.le]
-  exact le_of_mul_le_mul_left this ht
+  exact le_of_mul_le_mul_left (by linarith) ht
 
 /-- **Transport of the mean under a Kullback–Leibler constraint**, one-sided form: if
 `KL(μ ‖ ν) ≤ a` and `f ≤ ∫ f ∂ν + b` holds `ν`-almost everywhere, then
@@ -168,12 +156,11 @@ if `KL(μ ‖ ν) ≤ a` and `f` has values in `[c, d]` `ν`-almost everywhere, 
 theorem abs_integral_sub_integral_le_of_klDiv_le (hfm : AEStronglyMeasurable f ν)
     (hf : ∀ᵐ x ∂ν, f x ∈ Set.Icc c d) (ha : 0 ≤ a) (h : klDiv μ ν ≤ ENNReal.ofReal a) :
     |∫ x, f x ∂μ - ∫ x, f x ∂ν| ≤ √(2 * Var[f; ν] * a) + (d - c) * a / 3 := by
-  have hμν : μ ≪ ν := (klDiv_ne_top_iff.1 (ne_top_of_le_ne_top ENNReal.ofReal_ne_top h)).1
+  have hμν : μ ≪ ν := absolutelyContinuous_of_klDiv_le_ofReal h
   have hfν : MemLp f 2 ν := memLp_of_bounded hf hfm 2
   have hfμ : Integrable f μ :=
     .of_mem_Icc c d (hfm.mono_ac hμν).aemeasurable (hμν.ae_le hf)
-  have hm : ν[f] ∈ Set.Icc c d :=
-    (convex_Icc c d).integral_mem isClosed_Icc hf (hfν.integrable one_le_two)
+  have hm : ν[f] ∈ Set.Icc c d := integral_mem_Icc_of_ae_mem_Icc hfm.aemeasurable hf
   have hup := integral_sub_integral_le_of_klDiv_le hfν hfμ (b := d - c)
     (hf.mono fun x hx ↦ by linarith [hx.2, hm.1]) ha h
   have hdown := integral_sub_integral_le_of_klDiv_le (f := fun x ↦ -f x) hfν.neg hfμ.neg
@@ -200,13 +187,13 @@ private lemma abs_integral_sub_integral_le_of_klDiv_le_of_nonneg {g : α → ℝ
 theorem variance_le_two_mul_variance_add_of_klDiv_le (hfm : AEStronglyMeasurable f ν)
     (hf : ∀ᵐ x ∂ν, f x ∈ Set.Icc c d) (ha : 0 ≤ a) (h : klDiv μ ν ≤ ENNReal.ofReal a) :
     Var[f; ν] ≤ 2 * Var[f; μ] + 8 / 3 * (d - c) ^ 2 * a := by
-  have hμν : μ ≪ ν := (klDiv_ne_top_iff.1 (ne_top_of_le_ne_top ENNReal.ofReal_ne_top h)).1
+  have hμν : μ ≪ ν := absolutelyContinuous_of_klDiv_le_ofReal h
   have hfμ : ∀ᵐ x ∂μ, f x ∈ Set.Icc c d := hμν.ae_le hf
-  have hm : μ[f] ∈ Set.Icc c d := (convex_Icc c d).integral_mem isClosed_Icc hfμ
-    (.of_mem_Icc c d (hfm.mono_ac hμν).aemeasurable hfμ)
+  have hm : μ[f] ∈ Set.Icc c d :=
+    integral_mem_Icc_of_ae_mem_Icc (hfm.mono_ac hμν).aemeasurable hfμ
   -- the square `g = (f - ∫ f ∂μ) ^ 2` has values in `[0, (d - c) ^ 2]`
-  have hg : ∀ᵐ x ∂ν, (f x - μ[f]) ^ 2 ∈ Set.Icc 0 ((d - c) ^ 2) := hf.mono fun x hx ↦
-    ⟨sq_nonneg _, by nlinarith [hx.1, hx.2, hm.1, hm.2]⟩
+  have hg : ∀ᵐ x ∂ν, (f x - μ[f]) ^ 2 ∈ Set.Icc 0 ((d - c) ^ 2) :=
+    hf.mono fun _ hx ↦ sq_sub_mem_Icc_of_mem_Icc hx hm
   have hT := abs_integral_sub_integral_le_of_klDiv_le_of_nonneg (μ := μ)
     (by fun_prop) hg ha h
   rw [← variance_eq_integral (hfm.mono_ac hμν).aemeasurable] at hT
@@ -225,12 +212,11 @@ then `Var_μ(f) ≤ 2 Var_ν(f) + (5 / 6) (d - c)² a`. -/
 theorem variance_le_two_mul_variance_add_of_klDiv_le' (hfm : AEStronglyMeasurable f ν)
     (hf : ∀ᵐ x ∂ν, f x ∈ Set.Icc c d) (ha : 0 ≤ a) (h : klDiv μ ν ≤ ENNReal.ofReal a) :
     Var[f; μ] ≤ 2 * Var[f; ν] + 5 / 6 * (d - c) ^ 2 * a := by
-  have hμν : μ ≪ ν := (klDiv_ne_top_iff.1 (ne_top_of_le_ne_top ENNReal.ofReal_ne_top h)).1
-  have hm : ν[f] ∈ Set.Icc c d := (convex_Icc c d).integral_mem isClosed_Icc hf
-    (.of_mem_Icc c d hfm.aemeasurable hf)
+  have hμν : μ ≪ ν := absolutelyContinuous_of_klDiv_le_ofReal h
+  have hm : ν[f] ∈ Set.Icc c d := integral_mem_Icc_of_ae_mem_Icc hfm.aemeasurable hf
   -- the square `g = (f - ∫ f ∂ν) ^ 2` has values in `[0, (d - c) ^ 2]`
-  have hg : ∀ᵐ x ∂ν, (f x - ν[f]) ^ 2 ∈ Set.Icc 0 ((d - c) ^ 2) := hf.mono fun x hx ↦
-    ⟨sq_nonneg _, by nlinarith [hx.1, hx.2, hm.1, hm.2]⟩
+  have hg : ∀ᵐ x ∂ν, (f x - ν[f]) ^ 2 ∈ Set.Icc 0 ((d - c) ^ 2) :=
+    hf.mono fun _ hx ↦ sq_sub_mem_Icc_of_mem_Icc hx hm
   have hT := abs_integral_sub_integral_le_of_klDiv_le_of_nonneg (μ := μ)
     (by fun_prop) hg ha h
   rw [← variance_eq_integral hfm.aemeasurable] at hT

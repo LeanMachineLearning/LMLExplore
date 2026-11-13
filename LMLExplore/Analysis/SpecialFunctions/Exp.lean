@@ -50,7 +50,7 @@ increases with the argument: `x ↦ (exp x - 1 - x) / x ^ 2` is monotone on `[0,
 [BLM13, proof of Theorem 2.9], the one-step bound behind the inequalities of Bennett, Bernstein
 and Freedman. Comparing the series
 with a geometric one gives `exp x - 1 - x ≤ x ^ 2 / (2 (1 - x / 3))` for `0 ≤ x < 3`, which turns
-these into Bernstein's form.
+these into Bernstein's form, and inverts in closed form at Chernoff's choice of parameter.
 
 By the convexity of the exponential, a sum of exponentials is at least its number of terms times
 the exponential of the mean of the exponents. This spreads a bound on a sum of divergences
@@ -82,6 +82,8 @@ lower bound for linear bandits on the unit ball [LS, Theorem 24.2].
 * `Real.exp_mul_le_one_add_mul_add_mul_sq`: Bennett's bound
   `exp (l x) ≤ 1 + l x + (exp (l b) - 1 - l b) / b ^ 2 * x ^ 2` for `b > 0`, `l ≥ 0`, `x ≤ b`.
 * `Real.exp_sub_one_sub_id_le_sq_div`: `exp x - 1 - x ≤ x ^ 2 / (2 (1 - x / 3))` for `0 ≤ x < 3`.
+* `Real.exists_pos_le_mul_sqrt_add_sub_mul_exp_sub_one_sub`: the closed-form inversion of this
+  sub-gamma bound, `L ≤ t (√(2 v L) + b L / 3) - v (exp (t b) - 1 - t b) / b ^ 2` for some `t > 0`.
 * `Real.card_mul_exp_sum_div_card_le_sum_exp`: `#s exp ((∑ i ∈ s, x i) / #s) ≤ ∑ i ∈ s, exp (x i)`.
 
 ## References
@@ -318,6 +320,42 @@ theorem exp_sub_one_sub_id_le_sq_div {x : ℝ} (hx : 0 ≤ x) (hx3 : x < 3) :
     _ = x ^ 2 / (2 * (1 - x / 3)) := by
         have : 1 - x / 3 ≠ 0 := by linarith
         field_simp
+
+/-- **Inversion of the sub-gamma bound**, Chernoff's choice of parameter in Bernstein's
+inequality [BLM13, Theorem 2.10]: for `b, v, L > 0`, some `t > 0` has
+`L ≤ t (√(2 v L) + b L / 3) - v ψ_b(t)`, with `ψ_b(t) = (exp (t b) - 1 - t b) / b ^ 2`. It is
+`t = r / (v + b r / 3)` with `r = √(2 v L)`, at which the bound
+`ψ_b(t) ≤ t ^ 2 / (2 (1 - t b / 3))` of `exp_sub_one_sub_id_le_sq_div` makes the right-hand
+side at least `L`. -/
+theorem exists_pos_le_mul_sqrt_add_sub_mul_exp_sub_one_sub {b v L : ℝ} (hb : 0 < b)
+    (hv : 0 < v) (hL : 0 < L) :
+    ∃ t, 0 < t ∧
+      L ≤ t * (√(2 * v * L) + b * L / 3) - v * ((exp (t * b) - 1 - t * b) / b ^ 2) := by
+  set r := √(2 * v * L)
+  have hr : r ^ 2 = 2 * v * L := sq_sqrt (by positivity)
+  have hr0 : 0 < r := sqrt_pos.2 (by positivity)
+  obtain ⟨s, hs⟩ : ∃ s, s = v + b * r / 3 := ⟨_, rfl⟩
+  have hs0 : 0 < s := by rw [hs]; positivity
+  refine ⟨r / s, by positivity, ?_⟩
+  have htb : r / s * b < 3 := by
+    rw [div_mul_eq_mul_div, div_lt_iff₀ hs0]
+    nlinarith
+  have hψ : (exp (r / s * b) - 1 - r / s * b) / b ^ 2 ≤
+      (r / s) ^ 2 / (2 * (1 - r / s * b / 3)) := by
+    calc (exp (r / s * b) - 1 - r / s * b) / b ^ 2
+        ≤ (r / s * b) ^ 2 / (2 * (1 - r / s * b / 3)) / b ^ 2 := by
+          gcongr
+          exact exp_sub_one_sub_id_le_sq_div (by positivity) htb
+      _ = (r / s) ^ 2 / (2 * (1 - r / s * b / 3)) := by field_simp
+  have h1 : 1 - r / s * b / 3 = v / s := by
+    field_simp
+    linear_combination 3 * hs
+  have hval : r / s * (r + b * L / 3) - v * ((r / s) ^ 2 / (2 * (1 - r / s * b / 3))) = L := by
+    have hv' : v ≠ 0 := hv.ne'
+    rw [h1]
+    field_simp
+    linear_combination 3 * hr - 6 * L * hs
+  linarith [mul_le_mul_of_nonneg_left hψ hv.le]
 
 /-- **Bennett's bound on the exponential.** For `b > 0`, `l ≥ 0` and `x ≤ b`,
 `exp (l x) ≤ 1 + l x + ψ x ^ 2` with `ψ = (exp (l b) - 1 - l b) / b ^ 2`. -/

@@ -8,7 +8,8 @@ module
 public import Mathlib.Probability.Kernel.MeasurableIntegral
 public import Mathlib.Probability.Moments.Variance
 import Mathlib.Algebra.QuadraticDiscriminant
-import Mathlib.Analysis.Convex.Integral
+import LMLExplore.Algebra.Order.Ring.Abs
+import LMLExplore.Analysis.Convex.Integral
 
 /-!
 # Variances under a kernel, and of bounded random variables
@@ -31,7 +32,11 @@ nearby function `Y` to `X`.
 
 The variance is also the least centred second moment, `Var[X; μ] ≤ ∫ (X - c) ^ 2 ∂μ`, which
 transports variances: between two functions within `D` of each other, and between two laws on a
-finite space at a cost proportional to their `ℓ¹` distance [MDJKLV21, Lemma 12].
+finite space at a cost proportional to their `ℓ¹` distance [MDJKLV21, Lemma 12]. These variance
+transports, and `variance_le_integral_sub_sq` and `variance_le_mul_integral_sub`, are adapted from
+the paper project Essakine2026Tight (`github.com/RemyDegenne/Essakine2026Tight`, file
+`Essakine2026Tight/ForLMLExplore/Probability/Moments/VarianceTransport.lean`, by Rémy Degenne,
+Apache 2.0).
 
 ## Main statements
 
@@ -173,8 +178,7 @@ theorem variance_le_integral_sub_sq (hX : AEStronglyMeasurable X μ) (c : ℝ) :
 inequality `ProbabilityTheory.variance_le_sub_mul_sub`. -/
 theorem variance_le_mul_integral_sub {c d : ℝ} (hX : AEMeasurable X μ)
     (h : ∀ᵐ b ∂μ, X b ∈ Set.Icc c d) : Var[X; μ] ≤ (d - c) * (μ[X] - c) := by
-  have hm : μ[X] ∈ Set.Icc c d :=
-    (convex_Icc c d).integral_mem isClosed_Icc h (.of_mem_Icc c d hX h)
+  have hm : μ[X] ∈ Set.Icc c d := integral_mem_Icc_of_ae_mem_Icc hX h
   refine (variance_le_sub_mul_sub h hX).trans ?_
   nlinarith [hm.1, hm.2]
 
@@ -212,13 +216,9 @@ theorem variance_le_variance_add_mul_sum_abs_sub {ι : Type*} [Fintype ι] [Meas
     Var[f; ν] ≤ Var[f; μ] + (d - c) ^ 2 / 2 * ∑ x, |μ.real {x} - ν.real {x}| := by
   have hfm : Measurable f := measurable_of_finite f
   set m := μ[f]
-  have hm : m ∈ Set.Icc c d :=
-    (convex_Icc c d).integral_mem isClosed_Icc (.of_forall hf) .of_finite
+  have hm : m ∈ Set.Icc c d := integral_mem_Icc_of_ae_mem_Icc hfm.aemeasurable (.of_forall hf)
   -- the centred square `(f - m) ^ 2` has values in `[0, (d - c) ^ 2]`
-  have hg x : (f x - m) ^ 2 ∈ Set.Icc 0 ((d - c) ^ 2) := by
-    refine ⟨sq_nonneg _, ?_⟩
-    have := (hf x).1; have := (hf x).2
-    nlinarith [hm.1, hm.2]
+  have hg x : (f x - m) ^ 2 ∈ Set.Icc 0 ((d - c) ^ 2) := sq_sub_mem_Icc_of_mem_Icc (hf x) hm
   have hsum (ρ : Measure ι) [IsProbabilityMeasure ρ] :
       ∫ x, (f x - m) ^ 2 ∂ρ = ∑ x, ρ.real {x} * (f x - m) ^ 2 := by
     simp [integral_fintype Integrable.of_finite]
