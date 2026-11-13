@@ -159,8 +159,8 @@ noncomputable def bernoulliKernel : Kernel ℝ ℝ :=
 
 @[simp]
 lemma bernoulliKernel_apply (x : ℝ) :
-    bernoulliKernel x = Ber((1 : ℝ), 0, Set.projIcc 0 1 zero_le_one x) :=
-  (rfl)
+    bernoulliKernel x = Ber((1 : ℝ), 0, Set.projIcc 0 1 zero_le_one x) := by
+  rw [bernoulliKernel, Kernel.comap_apply, ProbabilityTheory.bernoulliKernel_apply]
 
 instance : IsMarkovKernel bernoulliKernel :=
   ⟨fun x ↦ by rw [bernoulliKernel_apply]; infer_instance⟩
