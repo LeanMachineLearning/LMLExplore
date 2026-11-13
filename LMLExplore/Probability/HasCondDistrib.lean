@@ -8,6 +8,7 @@ module
 public import Mathlib.Probability.HasCondDistrib
 public import LeanMachineLearning.ForMathlib.Probability.HasCondDistrib
 public import TauCeti.Probability.Kernel.Composition.MeasureCompProd
+public import LMLExplore.Probability.Kernel.Composition.IntegralCompProd
 
 /-!
 # Conditional distributions: joint masses, integrals and composition-products
@@ -134,16 +135,11 @@ lemma HasCondDistrib.integral_comp_prodMk_eq_integral_integral {E : Type*}
     [NormedAddCommGroup E] [NormedSpace ℝ E] (h : HasCondDistrib Y X κ P) {g : 𝓧 × 𝓨 → E}
     (hg : Integrable g (P.map X ⊗ₘ κ)) :
     ∫ ω, g (X ω, Y ω) ∂P = ∫ ω, ∫ y, g (X ω, y) ∂(κ (X ω)) ∂P := by
-  have hg' : Integrable (fun x ↦ ∫ y, g (x, y) ∂(κ x)) (P.map X) := by
-    rw [Measure.compProd] at hg
-    simpa using hg.integral_compProd
   calc ∫ ω, g (X ω, Y ω) ∂P
-      = ∫ p, g p ∂(P.map (fun ω ↦ (X ω, Y ω))) :=
-        (integral_map h.aemeasurable (h.map_eq ▸ hg.aestronglyMeasurable)).symm
-    _ = ∫ p, g p ∂(P.map X ⊗ₘ κ) := by rw [h.map_eq]
+      = ∫ p, g p ∂(P.map X ⊗ₘ κ) := h.integral_comp hg.aestronglyMeasurable
     _ = ∫ x, ∫ y, g (x, y) ∂(κ x) ∂(P.map X) := Measure.integral_compProd hg
     _ = ∫ ω, ∫ y, g (X ω, y) ∂(κ (X ω)) ∂P :=
-        integral_map h.aemeasurable_fst hg'.aestronglyMeasurable
+        integral_map h.aemeasurable_fst hg.integral_measure_compProd.aestronglyMeasurable
 
 /-- If `κ` is the conditional distribution of `Y` given `X` under `P`, it is also the conditional
 distribution of `Y` given `X` under the restriction of `P` to an event `X ⁻¹' s` determined by
@@ -246,13 +242,8 @@ functions of `(X, Y)`, on any measurable space. -/
 lemma HasCondDistrib.condExp_prod_ae_eq_integral (h : HasCondDistrib Y X κ P) (hX : Measurable X)
     {g : 𝓧 × 𝓨 → E} (hg : Integrable g (P.map X ⊗ₘ κ)) :
     P[fun ω ↦ g (X ω, Y ω) | m𝓧.comap X] =ᵐ[P] fun ω ↦ ∫ y, g (X ω, y) ∂(κ (X ω)) := by
-  have hg' : Integrable (fun x ↦ ∫ y, g (x, y) ∂(κ x)) (P.map X) := by
-    rw [Measure.compProd] at hg
-    simpa using hg.integral_compProd
-  have hgXY : Integrable (fun ω ↦ g (X ω, Y ω)) P := by
-    rw [← h.map_eq] at hg
-    exact (integrable_map_measure hg.aestronglyMeasurable h.aemeasurable).mp hg
-  refine (ae_eq_condExp_of_forall_setIntegral_eq hX.comap_le hgXY
+  have hg' := hg.integral_measure_compProd
+  refine (ae_eq_condExp_of_forall_setIntegral_eq hX.comap_le (h.integrable_comp hg)
     (fun _ _ _ ↦ (hg'.comp_aemeasurable hX.aemeasurable).integrableOn) ?_
     (hg'.aestronglyMeasurable.comp_ae_measurable' hX.aemeasurable)).symm
   rintro _ ⟨t, ht, rfl⟩ _

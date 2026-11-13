@@ -10,14 +10,17 @@ public import Mathlib.Probability.Kernel.Composition.IntegralCompProd
 import LMLExplore.MeasureTheory.Integral.Bochner.Basic
 
 /-!
-# Integrals of differences against a composition-product
+# Integrals against a composition-product
 
-Complements to Mathlib's `Mathlib.Probability.Kernel.Composition.IntegralCompProd`. For a Markov
-kernel `κ`, the integral against `μ` of `f a - ∫ g (a, b) dκ_a(b)` is the integral of
-`f p.1 - g p` against the composition-product `μ ⊗ₘ κ`.
+Complements to Mathlib's `Mathlib.Probability.Kernel.Composition.IntegralCompProd`. If `g` is
+integrable for the composition-product `μ ⊗ₘ κ`, then `a ↦ ∫ g (a, b) dκ_a(b)` is integrable for
+`μ`. For a Markov kernel `κ`, the integral against `μ` of `f a - ∫ g (a, b) dκ_a(b)` is the
+integral of `f p.1 - g p` against `μ ⊗ₘ κ`.
 
 ## Main statements
 
+* `MeasureTheory.Integrable.integral_measure_compProd`: if `g` is integrable for `μ ⊗ₘ κ`, then
+  `a ↦ ∫ g (a, b) dκ_a(b)` is integrable for `μ`.
 * `MeasureTheory.Measure.integral_sub_integral_eq_integral_compProd`:
   `∫ (f a - ∫ g (a, b) dκ_a(b)) dμ(a) = ∫ (f p.1 - g p) d(μ ⊗ₘ κ)(p)`.
 -/
@@ -26,10 +29,19 @@ public section
 
 open ProbabilityTheory
 
-namespace MeasureTheory.Measure
+namespace MeasureTheory
 
 variable {α β E : Type*} {mα : MeasurableSpace α} {mβ : MeasurableSpace β}
   [NormedAddCommGroup E] [NormedSpace ℝ E] {μ : Measure α} {κ : Kernel α β}
+
+/-- If `g` is integrable for the composition-product `μ ⊗ₘ κ`, then `a ↦ ∫ g (a, b) dκ_a(b)` is
+integrable for `μ`. This is the measure form of Mathlib's `Integrable.integral_compProd`. -/
+lemma Integrable.integral_measure_compProd [SFinite μ] [IsSFiniteKernel κ] {g : α × β → E}
+    (hg : Integrable g (μ ⊗ₘ κ)) : Integrable (fun a ↦ ∫ b, g (a, b) ∂(κ a)) μ := by
+  rw [Measure.compProd] at hg
+  simpa only [Kernel.prodMkLeft_apply, Kernel.const_apply] using hg.integral_compProd
+
+namespace Measure
 
 /-- For a Markov kernel `κ`, the integral against `μ` of `f a - ∫ g (a, b) dκ_a(b)` is the
 integral of `f p.1 - g p` against the composition-product `μ ⊗ₘ κ`. -/
@@ -44,4 +56,6 @@ lemma integral_sub_integral_eq_integral_compProd [CompleteSpace E] [SFinite μ] 
   filter_upwards [((integrable_compProd_iff hg.1).1 hg).1] with a ha
   rw [integral_const_sub _ ha]
 
-end MeasureTheory.Measure
+end Measure
+
+end MeasureTheory
