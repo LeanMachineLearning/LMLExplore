@@ -206,6 +206,12 @@ lemma env_feedback_apply (M : MDP 𝓢 𝓐 𝓡) (μ₀ : Measure 𝓢) (n : �
     (M.env μ₀).feedback n p = M.R (p.1.2, p.2) := by
   rw [env_feedback, Kernel.comap_apply]
 
+/-- The reward of round `0` of the environment of `M` has law `M.R` at the state and action. -/
+@[simp]
+lemma feedbackZero_env (M : MDP 𝓢 𝓐 𝓡) (μ₀ : Measure 𝓢) : (M.env μ₀).feedbackZero = M.R := by
+  ext p : 1
+  rw [Environment.feedbackZero_apply, env_feedback_apply]
+
 /-- The environment of an MDP depends measurably on the initial law. -/
 lemma measurable_env (M : MDP 𝓢 𝓐 𝓡) : Measurable M.env := by
   rw [measurable_environment_iff]

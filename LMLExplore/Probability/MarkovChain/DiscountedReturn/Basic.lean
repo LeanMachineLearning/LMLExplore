@@ -12,6 +12,7 @@ public import LMLExplore.Probability.Moments.Variance
 public import TauCeti.Probability.MarkovChain.MarkovProperty
 public import TauCeti.Probability.Moments.Mixture
 import LMLExplore.Analysis.Convex.Integral
+import LMLExplore.Probability.MarkovChain.MarkovProperty
 
 /-!
 # The discounted return of a Markov chain: its mean and its variance
@@ -143,9 +144,8 @@ theorem variance_discountedReturn_markovChainKernel_eq_mul_variance_comp (hγ : 
     rw [h_eval, ae_dirac_iff hs]
   -- The shifted path is the chain started from `κ x`, a mixture of the laws `ℙ_y`.
   have h_shift : (κ.markovChainKernel x).map (shift α) = κ.markovChainKernel ∘ₘ κ x := by
-    rw [markovChainKernel_apply, ← Function.iterate_one (shift α),
-      Measure.markovChainLaw_map_shift_iterate, pow_one, Measure.dirac_bind κ.measurable,
-      Measure.markovChainLaw_eq_comp]
+    rw [← Function.iterate_one (shift α), ← map_apply _ (measurable_shift.iterate 1),
+      markovChainKernel_map_shift_iterate, pow_one, comp_apply]
   calc Var[discountedReturn γ f; κ.markovChainKernel x]
       = Var[fun ω ↦ f x + γ * discountedReturn γ f (shift α ω); κ.markovChainKernel x] := by
         refine variance_congr ?_

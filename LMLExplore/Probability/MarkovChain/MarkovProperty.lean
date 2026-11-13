@@ -26,6 +26,12 @@ distribution. The Markov property in conditional-expectation form,
 
 * `ProbabilityTheory.Kernel.integral_eval_markovChainKernel`: started from `x`, the mean of
   `g (X n)` is `κ ^ n g x`.
+* `ProbabilityTheory.Kernel.markovChainKernel_map_prodMk_eval_zero`: started from `x`, the chain
+  is at `x` at time `0`, in the form of a joint law: the pair `(X 0, X)` has law
+  `(Kernel.id ×ₖ κ.markovChainKernel) x`. Unlike an almost sure equality `X 0 = x`, this needs no
+  measurable singletons.
+* `ProbabilityTheory.Kernel.markovChainKernel_map_shift_iterate`: started from `x`, the path
+  shifted by `n` steps is the chain started from the law `(κ ^ n) x`.
 * `MeasureTheory.Measure.hasCondDistrib_eval_succ_markovChainLaw`: given `X 0, …, X n`, the next
   state `X (n + 1)` has conditional law `κ (X n)`.
 -/
@@ -48,6 +54,42 @@ theorem integral_eval_markovChainKernel (g : boundedMeasurable α) (n : ℕ) (x 
   rw [integralCLM_apply, ← markovChainKernel_map_eval, Kernel.map_apply _ (measurable_pi_apply n),
     integral_map (measurable_pi_apply n).aemeasurable
       (boundedMeasurable.measurable g).aestronglyMeasurable]
+
+/-- Started from `x`, the chain is at `x` at time `0`: the pair `(X 0, X)` has the law of `(x, X)`.
+This is the joint-law form of `X 0 = x` almost surely, which would need measurable singletons. It
+is the Markov property `Measure.markovChainLaw_map_prefix_shift_iterate_eq_compProd` at time `0`
+from a Dirac initial law. -/
+theorem markovChainKernel_map_prodMk_eval_zero :
+    κ.markovChainKernel.map (fun z ↦ (z 0, z)) = Kernel.id ×ₖ κ.markovChainKernel := by
+  ext x : 1
+  have h := Measure.markovChainLaw_map_prefix_shift_iterate_eq_compProd (Measure.dirac x) κ 0
+  simp only [Function.iterate_zero, id_eq] at h
+  have hpre : (markovChainLaw (Measure.dirac x) κ).map (fun z (i : Fin 1) ↦ z i.1) =
+      Measure.dirac (fun _ ↦ x) := by
+    have hc : (fun (z : ℕ → α) (i : Fin 1) ↦ z i.1) = (fun a _ ↦ a) ∘ fun z ↦ z 0 := by
+      funext z i
+      rw [Fin.fin_one_eq_zero i]
+      rfl
+    have hm : Measurable fun (a : α) (_ : Fin 1) ↦ a := Measurable.of_eval fun _ ↦ measurable_id
+    rw [hc, ← Measure.map_map hm (measurable_pi_apply 0), markovChainLaw_map_eval_zero,
+      Measure.map_dirac' hm]
+  rw [hpre, Measure.compProd_eq_comp_prod, Measure.dirac_bind (Kernel.measurable _),
+    Kernel.prod_apply, Kernel.id_apply, Measure.dirac_prod, Kernel.comap_apply,
+    markovChainKernel_apply] at h
+  rw [Kernel.map_apply _ (by fun_prop), Kernel.prod_apply, Kernel.id_apply, Measure.dirac_prod,
+    markovChainKernel_apply]
+  have h2 := congrArg (Measure.map fun p : (Fin 1 → α) × (ℕ → α) ↦ (p.1 0, p.2)) h
+  rwa [Measure.map_map (by fun_prop) (by fun_prop), Measure.map_map (by fun_prop) (by fun_prop)]
+    at h2
+
+/-- Started from `x`, the path shifted by `n` steps is the chain started from the law `(κ ^ n) x`
+(`Measure.markovChainLaw_map_shift_iterate` from a Dirac initial law). -/
+theorem markovChainKernel_map_shift_iterate (n : ℕ) :
+    κ.markovChainKernel.map (shift α)^[n] = κ.markovChainKernel ∘ₖ (κ ^ n) := by
+  ext x : 1
+  rw [Kernel.map_apply _ (measurable_shift.iterate n), markovChainKernel_apply,
+    Measure.markovChainLaw_map_shift_iterate, Measure.dirac_bind (Kernel.measurable _),
+    Kernel.comp_apply, Measure.markovChainLaw_eq_comp]
 
 end ProbabilityTheory.Kernel
 

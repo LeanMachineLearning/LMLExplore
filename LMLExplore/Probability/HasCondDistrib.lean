@@ -42,6 +42,9 @@ coordinate, and conditional distributions under each `κ a` glue into one under 
   distribution of `Y` given `X` under the restriction of `P` to an event `X ⁻¹' s`.
 * `ProbabilityTheory.HasCondDistrib.ae_mem`: if every conditional law is concentrated on a set,
   then `Y` lies in that set almost surely.
+* `ProbabilityTheory.HasCondDistrib.prodMkLeft_of_comp`: if `Z` has conditional distribution
+  `η ∘ₖ κ` given `X` and `f` reads off `Z` the point from which `η` draws it, then `Z` has
+  conditional distribution `η (f Z)` given `X` and `f Z`.
 * `ProbabilityTheory.hasCondDistrib_snd_compProd_comap`: under `μ ⊗ₘ η.comap f`, the second
   coordinate has conditional distribution `η` given `f` of the first coordinate.
 * `ProbabilityTheory.hasCondDistrib_compProd_of_forall_sectR`: if `Y` has conditional
@@ -171,6 +174,26 @@ lemma HasCondDistrib.ae_mem (h : HasCondDistrib Y X κ P) {t : Set 𝓨} (ht : M
   exact ae_of_ae_map h.aemeasurable h_ae
 
 end JointMass
+
+section Comp
+
+variable {Ω α β γ : Type*} {mΩ : MeasurableSpace Ω} {mα : MeasurableSpace α}
+  {mβ : MeasurableSpace β} {mγ : MeasurableSpace γ} {P : Measure Ω} [SFinite P] {X : Ω → α}
+  {Z : Ω → γ}
+
+/-- Let `Z` have conditional distribution `η ∘ₖ κ` given `X`: a point `b` is drawn from `κ X`,
+then `Z` from `η b`. If `f` reads `b` off `Z`, in the sense that `η.map (fun z ↦ (f z, z))` is
+`Kernel.id ×ₖ η` (the joint-law form of `f z = b` for `η b`-almost every `z`, which needs no
+measurable singletons), then `Z` has conditional distribution `η (f Z)` given `X` and `f Z`. -/
+lemma HasCondDistrib.prodMkLeft_of_comp {κ : Kernel α β} [IsSFiniteKernel κ] {η : Kernel β γ}
+    [IsMarkovKernel η] {f : γ → β} (hf : Measurable f)
+    (hη : η.map (fun z ↦ (f z, z)) = Kernel.id ×ₖ η) (h : HasCondDistrib Z X (η ∘ₖ κ) P) :
+    HasCondDistrib Z (fun ω ↦ (X ω, f (Z ω))) (Kernel.prodMkLeft α η) P := by
+  have h2 := h.comp_left (f := fun z ↦ (f z, z)) (by fun_prop)
+  rw [Kernel.map_comp, hη, ← Kernel.compProd_prodMkLeft_eq_comp] at h2
+  exact h2.of_compProd
+
+end Comp
 
 section CompProd
 
