@@ -19,17 +19,19 @@ survivors, computes the unregularized least-squares estimate `θ̂_ℓ` of the p
 features and the rewards of that phase only, and keeps the arms whose estimated reward is within
 `2 ε_ℓ` of the best estimated reward of `S_ℓ`:
 `S_{ℓ+1} = {a ∈ S_ℓ | ∀ b ∈ S_ℓ, ⟪θ̂_ℓ, φ b - φ a⟫ ≤ 2 ε_ℓ}`.
-In [LS], `ε_ℓ = 2^{-ℓ}` and `m ℓ S a = ⌈2 d π(a) log (k ℓ (ℓ + 1) / δ) / ε_ℓ²⌉` for a G-optimal
+[LS] numbers the phases from `1`, so phase `ℓ` here is phase `ℓ + 1` of [LS], and its choices read
+`ε_ℓ = 2^{-(ℓ+1)}` and `m ℓ S a = ⌈2 d π(a) log (k (ℓ + 1) (ℓ + 2) / δ) / ε_ℓ²⌉` for a G-optimal
 design `π` on `S`, so that the estimate of phase `ℓ` is `ε_ℓ`-accurate on `S_ℓ` with high
 probability. The numbers of pulls `m` and the accuracies `ε` are parameters here.
 
 If the estimate of phase `ℓ` is `ε_ℓ`-accurate on `S_ℓ`, that is `|⟪θ̂_ℓ - θ, φ b⟫| ≤ ε_ℓ` for every
 `b ∈ S_ℓ`, then the elimination keeps every arm of `S_ℓ` of largest expected reward
 `⟪θ, φ a⟫`, and every arm it keeps has a gap at most `4 ε_ℓ` to every arm of `S_ℓ`. When all the
-phases before `ℓ` are accurate, an optimal arm survives them, the arms pulled in phase `i + 1` have
-gaps at most `4 ε_i`, and the regret of the first `ℓ + 1` phases is at most
-`n_0 G + ∑_{i < ℓ} 4 ε_i n_{i+1}`, where `n_i` is the length of phase `i` and `G` bounds the gaps
-of all arms. This is the deterministic part of the proof of [LS, Theorem 22.1].
+phases before `ℓ` are accurate, an optimal arm survives them and the survivors of phase `i + 1`
+have gaps at most `4 ε_i`. If moreover every phase pulls only surviving arms, then the regret of the
+first `ℓ + 1` phases is at most `n_0 G + ∑_{i < ℓ} 4 ε_i n_{i+1}`, where `n_i` is the length of
+phase `i` and `G` bounds the gaps of all arms. This is the deterministic part of the proof of
+[LS, Theorem 22.1].
 
 The survivors and the first rounds of the phases are functions of the sequence of rewards
 `y : ℕ → ℝ` only: the arms pulled during a phase are determined by its survivors, through the
