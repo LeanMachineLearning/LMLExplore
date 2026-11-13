@@ -75,6 +75,10 @@ point `a` for each of them gives a design with the same design operator, hence t
   `LMLExplore.isUnit_sum_smul_rankOne_of_mul_le`: for a feature map `φ`, the weighted sum
   `∑ i ∈ s, w i • φ i ⊗ φ i` is positive for nonnegative weights (on a finite type, monotone in
   the weights in the Loewner order, and invertible above an invertible one).
+* `LMLExplore.inner_sum_smul_rankOne_apply_self`: its quadratic form is
+  `⟪v, (∑ i ∈ s, w i • φ i ⊗ φ i) v⟫ = ∑ i ∈ s, w i ⟪φ i, v⟫²`, and
+  `LMLExplore.sum_smul_rankOne_apply_of_orthonormal`: for an orthonormal family `φ`, it maps `φ i`
+  to `w i • φ i`.
 * `LMLExplore.sum_mul_inner_ringInverse_sum_smul_rankOne`: for a feature map `φ` and real weights
   `w` with `V = ∑ i ∈ s, w i • φ i ⊗ φ i` invertible, `∑ i ∈ s, w i ⟪φ i, V⁻¹ φ i⟫ = d`. The
   corresponding facts for the design operator are the case of the identity feature map on the
@@ -233,6 +237,23 @@ theorem sum_mul_inner_ringInverse_sum_smul_rankOne [FiniteDimensional ℝ E] {ι
 theorem isPositive_sum_smul_rankOne {ι : Type*} (s : Finset ι) (φ : ι → E) {w : ι → ℝ}
     (hw : ∀ i ∈ s, 0 ≤ w i) : (∑ i ∈ s, w i • rankOne ℝ (φ i) (φ i)).IsPositive :=
   isPositive_sum _ fun i hi ↦ (isPositive_rankOne_self (φ i)).smul_of_nonneg (hw i hi)
+
+/-- The quadratic form of `∑ i ∈ s, w i • φ i ⊗ φ i`:
+`⟪v, (∑ i ∈ s, w i • φ i ⊗ φ i) v⟫ = ∑ i ∈ s, w i * ⟪φ i, v⟫²`. -/
+theorem inner_sum_smul_rankOne_apply_self {ι : Type*} (s : Finset ι) (φ : ι → E) (w : ι → ℝ)
+    (v : E) :
+    ⟪v, (∑ i ∈ s, w i • rankOne ℝ (φ i) (φ i)) v⟫_ℝ = ∑ i ∈ s, w i * ⟪φ i, v⟫_ℝ ^ 2 := by
+  simp only [sum_apply, smul_apply, rankOne_apply, inner_sum, real_inner_smul_right,
+    real_inner_comm v (φ _)]
+  exact Finset.sum_congr rfl fun i _ ↦ by ring
+
+/-- For an orthonormal family `φ`, the vectors `φ i` are eigenvectors of
+`∑ j, w j • φ j ⊗ φ j`: `(∑ j, w j • φ j ⊗ φ j) (φ i) = w i • φ i`. -/
+theorem sum_smul_rankOne_apply_of_orthonormal {ι : Type*} [Fintype ι] {φ : ι → E}
+    (hφ : Orthonormal ℝ φ) (w : ι → ℝ) (i : ι) :
+    (∑ j, w j • rankOne ℝ (φ j) (φ j)) (φ i) = w i • φ i := by
+  classical
+  simp [sum_apply, orthonormal_iff_ite.1 hφ]
 
 /-- If `c * v i ≤ w i` for every `i`, then `c • ∑ i, v i • φ i ⊗ φ i ≤ ∑ i, w i • φ i ⊗ φ i` in
 the Loewner order. -/
