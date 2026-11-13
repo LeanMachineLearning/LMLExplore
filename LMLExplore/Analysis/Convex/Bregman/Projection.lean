@@ -26,7 +26,7 @@ For a Bregman projection this is the **generalized Pythagorean inequality**
 differentiable within `K` at `z`, then `D_F(x, z) + D_F(z, y) ≤ D_F(x, y)` for every `x ∈ K`.
 Neither the convexity of `F` nor a derivative of `F` at `y` is needed: `J` is any linear map.
 The existence, uniqueness and interiority of Bregman projections for Legendre functions are in
-`LMLExplore.Analysis.Convex.Legendre`.
+`LMLExplore.Analysis.Convex.Legendre.Basic`.
 
 ## Main statements
 
