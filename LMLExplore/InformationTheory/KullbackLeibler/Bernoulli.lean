@@ -15,7 +15,7 @@ public import Statlib.ForMathlib.InformationTheory.KullbackLeibler.ChainRule
 public import LeanMachineLearning.ForMathlib.InformationTheory.KullbackLeibler.DataProcessing
 public import TauCeti.InformationTheory.KullbackLeibler.Variational
 import Mathlib.Analysis.Complex.ExponentialBounds
-import LeanMachineLearning.ForMathlib.InformationTheory.KullbackLeibler.Convex
+import Statlib.Divergence.KullbackLeibler.Basic
 
 /-!
 # The binary relative entropy
@@ -747,7 +747,7 @@ theorem klBer_add_klBer_le {r : ℝ} (hpq : p ≤ q) (hqr : q ≤ r) :
 `a, b ≥ 0` with `a + b = 1`, `d(a p + b p', a q + b q') ≤ a d(p, q) + b d(p', q')`, the values
 `∞` included. The Bernoulli law of a mixture of two parameters is the mixture of the two
 Bernoulli laws (`ProbabilityTheory.bernoulliMeasure_eq_smul_add_smul`), and the relative entropy
-is jointly convex (`InformationTheory.klDiv_smul_add_smul_le`). In particular `d` is convex in
+is jointly convex (`ProbabilityTheory.klDiv_smul_add_smul_le`). In particular `d` is convex in
 each argument [LS, Lemma 10.2]. -/
 theorem klBer_mul_add_mul_le {p' q' : ℝ} (hp : p ∈ Set.Icc 0 1) (hq : q ∈ Set.Icc 0 1)
     (hp' : p' ∈ Set.Icc 0 1) (hq' : q' ∈ Set.Icc 0 1) {a b : ℝ≥0} (hab : a + b = 1) :
