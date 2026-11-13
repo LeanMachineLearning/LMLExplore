@@ -52,7 +52,7 @@ assumption. For one algorithm against two stationary environments, the equality 
 * `Learning.klDiv_stoppedHistMeasure_le_tsum`: the chain rule at a stopping time for any two
   algorithm-environment pairs, as a series over the rounds of the divergences of the steps, with
   the law of the history restricted to the histories after which `S` has not stopped.
-* `Learning.IsAlgEnvSeq.klDiv_map_stoppedProcess_sigmaHistory`: the chain rule at a bounded
+* `Learning.IsAlgEnvSeq.klDiv_map_stoppedProcess_sigmaHistory_eq_sum`: the chain rule at a bounded
   stopping time, with equality, for the histories stopped at a fixed time `M`.
 * `Learning.klDiv_stoppedHistMeasure_eq_tsum`: the chain rule at a stopping time is an equality
   when the hitting time is almost surely finite under both pairs.
@@ -109,7 +109,7 @@ the divergence between their trajectory and the trajectory under `(alg, env)` on
 rounds before `τ` (`klDiv_compProd_piecewise`). The data processing inequality for the stopped
 history, a function of the trajectory, gives the bound. The partial sums of the series are the
 divergences between the laws of the histories stopped at a fixed time
-(`IsAlgEnvSeq.klDiv_map_stoppedProcess_sigmaHistory`), which are truncations of the stopped
+(`IsAlgEnvSeq.klDiv_map_stoppedProcess_sigmaHistory_eq_sum`), which are truncations of the stopped
 histories when `τ` is almost surely finite under both pairs: the data processing inequality for
 the truncation gives the converse. -/
 
@@ -123,10 +123,10 @@ between the laws of the histories stopped at the time `M`, that is of the histor
 `min M τ` rounds, is the sum over the rounds `t < M` of the divergences of the step at round `t`,
 where the law of the history of the first `t` rounds under `(alg, env)` is restricted to the
 histories after which `S` has not stopped. -/
-theorem IsAlgEnvSeq.klDiv_map_stoppedProcess_sigmaHistory {Ω Ω' : Type*} {mΩ : MeasurableSpace Ω}
-    {mΩ' : MeasurableSpace Ω'} {P : Measure Ω} {P' : Measure Ω'} [IsProbabilityMeasure P]
-    [IsProbabilityMeasure P'] {O : ℕ → Ω → 𝓞} {X : ℕ → Ω → 𝓐} {Y : ℕ → Ω → 𝓨}
-    {O' : ℕ → Ω' → 𝓞} {X' : ℕ → Ω' → 𝓐} {Y' : ℕ → Ω' → 𝓨}
+theorem IsAlgEnvSeq.klDiv_map_stoppedProcess_sigmaHistory_eq_sum {Ω Ω' : Type*}
+    {mΩ : MeasurableSpace Ω} {mΩ' : MeasurableSpace Ω'} {P : Measure Ω} {P' : Measure Ω'}
+    [IsProbabilityMeasure P] [IsProbabilityMeasure P'] {O : ℕ → Ω → 𝓞} {X : ℕ → Ω → 𝓐}
+    {Y : ℕ → Ω → 𝓨} {O' : ℕ → Ω' → 𝓞} {X' : ℕ → Ω' → 𝓐} {Y' : ℕ → Ω' → 𝓨}
     (h : IsAlgEnvSeq O X Y alg env P) (h' : IsAlgEnvSeq O' X' Y' alg' env' P')
     (hS : MeasurableSet S) (M : ℕ) :
     klDiv (P.map (stoppedProcess (sigmaHistory O X Y) (hittingAfter (sigmaHistory O X Y) S 0) M))
@@ -239,7 +239,7 @@ theorem klDiv_stoppedHistMeasure_eq_tsum (hS : MeasurableSet S)
     IT.measurable_obs IT.measurable_action IT.measurable_feedback hS
   -- The sum over the rounds `t < M` is the divergence between the laws of the histories stopped
   -- at the time `M`, which are the truncations to at most `M` rounds of the stopped histories.
-  rw [← (IT.isAlgEnvSeq_trajMeasure alg env).klDiv_map_stoppedProcess_sigmaHistory
+  rw [← (IT.isAlgEnvSeq_trajMeasure alg env).klDiv_map_stoppedProcess_sigmaHistory_eq_sum
       (IT.isAlgEnvSeq_trajMeasure alg' env') hS M,
     map_stoppedProcess_sigmaHistory_eq_map_truncHist IT.measurable_obs IT.measurable_action
       IT.measurable_feedback hτm hτ M,

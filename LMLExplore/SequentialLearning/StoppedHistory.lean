@@ -7,7 +7,6 @@ module
 
 public import LeanMachineLearning.SequentialLearning.IonescuTulceaSpace
 public import LeanMachineLearning.SequentialLearning.StoppedHistory
-public import LMLExplore.Probability.HasCondDistrib
 public import Mathlib.Data.Fin.Tuple.Take
 public import LMLExplore.Topology.Algebra.InfiniteSum.NatInt
 public import TauCeti.Probability.Kernel.Composition.MeasureCompProd
@@ -31,9 +30,9 @@ can be modified after the stopping time without changing the law of the stopped 
 The history stopped at a fixed time `M`, `stoppedProcess (sigmaHistory O X Y) τ M`, is the history
 of the first `min M τ` rounds. Its law splits according to whether round `M` is played, which
 gives the chain rule for the divergence at a bounded stopping time
-(`Learning.IsAlgEnvSeq.klDiv_map_stoppedProcess_sigmaHistory`); when `τ` is almost surely finite,
-it is the image of the law of the stopped history by the truncation `truncHist M` to at most `M`
-rounds.
+(`Learning.IsAlgEnvSeq.klDiv_map_stoppedProcess_sigmaHistory_eq_sum`); when `τ` is almost surely
+finite, it is the image of the law of the stopped history by the truncation `truncHist M` to at
+most `M` rounds.
 
 ## Main definitions
 
@@ -57,9 +56,6 @@ rounds.
 * `Learning.map_stoppedProcess_sigmaHistory_eq_add`,
   `Learning.map_stoppedProcess_sigmaHistory_succ_eq_add`: the laws of the histories stopped at the
   times `M` and `M + 1` split according to whether round `M` is played.
-* `Learning.IsAlgEnvSeq.map_restrict_history_succ`: on an event of the history of the first `M`
-  rounds, the law of the history of the first `M + 1` rounds is the composition-product of the
-  restricted law of the history of the first `M` rounds with the step kernel of round `M`.
 
 The material on the histories stopped at a fixed time is adapted from the formalization of prefixes
 of stopped processes in the Essakine2026Tight project (`RemyDegenne/Essakine2026Tight`,
@@ -398,6 +394,19 @@ def truncHist (M : ℕ) (h : Σ n : ℕ, Hist 𝓞 𝓐 𝓨 n) : Σ n : ℕ, Hi
 lemma truncHist_def (M : ℕ) (h : Σ n : ℕ, Hist 𝓞 𝓐 𝓨 n) :
     truncHist M h = ⟨min M h.1, Fin.take (min M h.1) (min_le_right M h.1) h.2⟩ := (rfl)
 
+/-- The truncation of a history to at most `M` rounds has `min M n` rounds, where `n` is the
+number of rounds of the history. -/
+@[simp]
+lemma fst_truncHist (M : ℕ) (h : Σ n : ℕ, Hist 𝓞 𝓐 𝓨 n) : (truncHist M h).1 = min M h.1 := (rfl)
+
+/-- The truncation to at most `M` rounds fixes the histories of at most `M` rounds. -/
+lemma truncHist_of_le {M : ℕ} {h : Σ n : ℕ, Hist 𝓞 𝓐 𝓨 n} (hM : h.1 ≤ M) :
+    truncHist M h = h := by
+  obtain ⟨n, x⟩ := h
+  rw [truncHist_def]
+  refine Sigma.ext (min_eq_right hM) ((Fin.heq_fun_iff (min_eq_right hM)).2 fun i ↦ ?_)
+  exact Fin.take_apply (min M n) (min_le_right M n) x i
+
 /-- The truncation of histories of variable length is measurable. -/
 @[fun_prop]
 lemma measurable_truncHist (M : ℕ) : Measurable (truncHist (𝓞 := 𝓞) (𝓐 := 𝓐) (𝓨 := 𝓨) M) :=
@@ -408,7 +417,11 @@ lemma measurable_truncHist (M : ℕ) : Measurable (truncHist (𝓞 := 𝓞) (�
 first `min M n` rounds. -/
 @[simp]
 lemma truncHist_sigmaHistory (M n : ℕ) (ω : Ω) :
-    truncHist M (sigmaHistory O X Y n ω) = sigmaHistory O X Y (min M n) ω := (rfl)
+    truncHist M (sigmaHistory O X Y n ω) = sigmaHistory O X Y (min M n) ω := by
+  rw [sigmaHistory_apply, sigmaHistory_apply, truncHist_def]
+  refine Sigma.ext rfl (heq_of_eq ?_)
+  funext i
+  simp [Fin.take_apply, history_apply]
 
 /-- Truncating the history stopped at a finite time `τ` to at most `M` rounds gives the history
 stopped at the time `M`. -/
@@ -442,6 +455,7 @@ lemma map_stoppedProcess_sigmaHistory_eq_map_truncHist {P : Measure Ω}
   exact (truncHist_stoppedValue_sigmaHistory hω M).symm
 
 /-- The history stopped at the time `0` is the empty history. -/
+@[simp]
 lemma stoppedProcess_sigmaHistory_zero (τ : Ω → WithTop ℕ) :
     stoppedProcess (sigmaHistory O X Y) τ 0 = fun _ ↦ ⟨0, default⟩ := by
   funext ω
@@ -564,21 +578,6 @@ lemma map_stoppedProcess_sigmaHistory_apply_compl_fst_le (hO : ∀ n, Measurable
   rw [Measure.map_apply hm (measurableSet_sigma_fst_le M).compl]
   refine measure_mono_null (fun ω hω ↦ hω ?_) measure_empty
   exact (fst_sigmaHistory _ ω).trans_le (WithTop.untopA_le (min_le_left _ _))
-
-/-- On the event that the history of the first `M` rounds lies in a measurable set `s`, the law of
-the history of the first `M + 1` rounds is the composition-product of the restriction to `s` of
-the law of the history of the first `M` rounds with the step kernel of round `M`, read as a
-history of `M + 1` rounds. -/
-lemma IsAlgEnvSeq.map_restrict_history_succ {alg : Algorithm 𝓞 𝓐 𝓨} {env : Environment 𝓞 𝓐 𝓨}
-    [IsFiniteMeasure P] (h : IsAlgEnvSeq O X Y alg env P) {M : ℕ} {s : Set (Hist 𝓞 𝓐 𝓨 M)}
-    (hs : MeasurableSet s) :
-    (P.restrict (history O X Y M ⁻¹' s)).map (history O X Y (M + 1)) =
-      ((P.map (history O X Y M)).restrict s ⊗ₘ stepKernel alg env M).map
-        (MeasurableEquiv.finSuccProd (Round 𝓞 𝓐 𝓨) M).symm := by
-  rw [history_succ, ← Measure.map_map (MeasurableEquiv.finSuccProd _ M).symm.measurable
-      ((h.measurable_history M).prodMk (h.measurable_step M)),
-    ((h.hasCondDistrib_step M).restrict_preimage hs).map_eq,
-    Measure.restrict_map (h.measurable_history M) hs]
 
 end StoppedAtTime
 
