@@ -53,6 +53,8 @@ sampling law of Thompson sampling with the Jeffreys prior for Bernoulli arms [KK
 * `LMLExplore.expFamilyMeans_bernoulliMeasure_sigmoid`: the means of the family are `(0, 1)`.
 * `LMLExplore.expFamily_natParam_bernoulliMeasure_sigmoid`: the member of mean `m ∈ (0, 1)` is
   `Ber((1 : ℝ), 0, m)`.
+* `LMLExplore.image_expFamily_bernoulliMeasure_sigmoid`: the members of the family are the
+  Bernoulli laws `Ber((1 : ℝ), 0, q)` with `q ∈ (0, 1)`.
 * `LMLExplore.expFamilyDiv_bernoulliMeasure_sigmoid`: the divergence of the family is
   `klBerReal p m` for `p, m ∈ (0, 1)`.
 * `LMLExplore.rateFunction_id_bernoulliMeasure`: the rate function of `Ber((1 : ℝ), 0, q)` at a
@@ -151,6 +153,22 @@ theorem expFamily_natParam_bernoulliMeasure_sigmoid (η₀ : ℝ) (hm : m ∈ Io
   ext
   rw [unitInterval.coe_sigmoid, ← deriv_cgf_bernoulliMeasure_sigmoid,
     Measure.deriv_cgf_natParam hm']
+
+/-- The members of the exponential family of `Ber((1 : ℝ), 0, sigmoid η₀)` are the Bernoulli laws
+`Ber((1 : ℝ), 0, q)` with `q ∈ (0, 1)`. -/
+theorem image_expFamily_bernoulliMeasure_sigmoid (η₀ : ℝ) :
+    Ber((1 : ℝ), 0, unitInterval.sigmoid η₀).expFamily id ''
+        interior (integrableExpSet id Ber((1 : ℝ), 0, unitInterval.sigmoid η₀)) =
+      (fun q : I ↦ Ber((1 : ℝ), 0, q)) '' {q | (q : ℝ) ∈ Ioo 0 1} := by
+  ext Q
+  rw [Measure.mem_image_expFamily_iff (not_ae_eq_const_bernoulliMeasure
+    ⟨Real.sigmoid_pos η₀, Real.sigmoid_lt_one η₀⟩), expFamilyMeans_bernoulliMeasure_sigmoid]
+  constructor
+  · rintro ⟨μ, hμ, rfl⟩
+    exact ⟨⟨μ, Ioo_subset_Icc_self hμ⟩, hμ,
+      (expFamily_natParam_bernoulliMeasure_sigmoid η₀ hμ).symm⟩
+  · rintro ⟨q, hq, rfl⟩
+    exact ⟨q, hq, expFamily_natParam_bernoulliMeasure_sigmoid η₀ hq⟩
 
 /-- The divergence of the exponential family of `Ber((1 : ℝ), 0, sigmoid η₀)` in the mean
 parametrization is the binary relative entropy: `d(p, m) = klBerReal p m` for `p, m ∈ (0, 1)`. -/
