@@ -61,7 +61,6 @@ lower bound for linear bandits on the unit ball [LS, Theorem 24.2].
 ## Main statements
 
 * `Real.sum_range_exp_neg_mul_le`: `∑_{s < m} exp (-c (s + 1)) ≤ 1 / c` for `c > 0`.
-* `Real.sum_range_exp_neg_mul_le_one_add_inv`: `∑_{s < n} exp (-c s) ≤ 1 + 1 / c` for `c > 0`.
 * `Real.sum_range_exp_neg_mul_div_le`: `∑_{s < m} exp (-c (s + 1)) / (s + 1) ≤ log (1 + 1 / c)`
   for `c > 0`.
 * `Real.sum_range_two_pow_mul_exp_neg_le`: `∑_{j < m} 2 ^ j exp (-2 ^ j c) ≤ 3 / (2 c)` for
@@ -121,17 +120,6 @@ theorem sum_range_exp_neg_mul_le {c : ℝ} (hc : 0 < c) (m : ℕ) :
     have : 0 ≤ v m := by positivity
     simp only [hv, CharP.cast_eq_zero, mul_zero, neg_zero, exp_zero, one_div] at this ⊢
     linarith
-
-/-- For `c > 0`, `∑_{s < n} exp (-c s) ≤ 1 + 1 / c`, uniformly in `n`: the term of `s = 0` is `1`
-and the others are bounded by `sum_range_exp_neg_mul_le`. -/
-theorem sum_range_exp_neg_mul_le_one_add_inv {c : ℝ} (hc : 0 < c) (n : ℕ) :
-    ∑ s ∈ range n, exp (-(c * s)) ≤ 1 + c⁻¹ := by
-  rcases n with _ | k
-  · simp only [range_zero, sum_empty]
-    positivity
-  rw [sum_range_succ']
-  simp only [Nat.cast_add_one, Nat.cast_zero, mul_zero, neg_zero, exp_zero]
-  linarith [sum_range_exp_neg_mul_le hc k]
 
 /-- For `c > 0`, `∑_{s < m} exp (-c (s + 1)) / (s + 1) ≤ log (1 + 1 / c)`, uniformly in `m`: the
 series is the logarithmic series `-log (1 - exp (-c))`, and `1 - exp (-c) ≥ c / (1 + c)`. -/

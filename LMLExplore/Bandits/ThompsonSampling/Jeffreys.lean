@@ -43,8 +43,6 @@ to `μ`.
 
 ## Main statements
 
-* `LMLExplore.Bandits.expFamilyTSStackLaw_Ioi`: the perturbation of an arm with a proper posterior
-  exceeds `c` with the posterior probability that `c < ψ'(θ)`.
 * `LMLExplore.Bandits.exists_expFamilyTSStackLaw_jeffreysPrior_Ioi_le`: posterior concentration
   for Thompson sampling with the Jeffreys prior: for `μ < c` and `β < d(μ, c)`, there are `δ > 0`
   and `N` with `G_s ≤ exp (-s β)` after `s ≥ N` observations of sum `S` with `|S - s μ| ≤ s δ`.
@@ -74,17 +72,7 @@ open scoped ENNReal
 
 namespace LMLExplore.Bandits
 
-variable {ρ ν : Measure ℝ} {s : ℕ} {S : ℝ}
-
-/-- The perturbation of an arm pulled `s ≠ 0` times with sum of rewards `S`, whose posterior is not
-`0`, exceeds a level `c` with the posterior probability that the mean `ψ'(θ)` exceeds `c`. -/
-lemma expFamilyTSStackLaw_Ioi (hs : s ≠ 0) (h : ρ.expFamilyPosterior id ν s S ≠ 0) (c : ℝ) :
-    expFamilyTSStackLaw ρ ν s S (Ioi (c : EReal)) =
-      ρ.expFamilyPosterior id ν s S {θ | c < deriv (cgf id ρ) θ} := by
-  rw [expFamilyTSStackLaw_of_ne_zero hs h, Measure.map_apply (by fun_prop) measurableSet_Ioi]
-  congr 1
-  ext θ
-  simp
+variable {ρ : Measure ℝ}
 
 /-- An accuracy `δ > 0` for the posterior concentration of the mean `μ` against the level `c`:
 `μ ± 2 δ` are means of the family, `δ ≤ c - μ`, and the exponent `d(μ, c) - δ (η(c) - η(μ))` of
@@ -247,7 +235,15 @@ theorem iIndepFun.exists_sum_measure_inv_lt_expFamilyTSStackLaw_jeffreysPrior_Io
     exact_mod_cast (Finset.card_le_card fun s hs ↦
       Finset.mem_range.2 (Finset.mem_filter.1 hs).2).trans (Finset.card_range N).le
   have h2 := sum_range_ite_mul_le_exp_neg_mul_le hβ (log_natCast_nonneg n) ha₁ n
-  have h3 := sum_range_exp_neg_mul_le_one_add_inv ha₂ n
+  -- the case `D = 1`, `L = 0` of the same bound, where the indicator is `1` only at `s = 0`
+  have h3 : ∑ s ∈ Finset.range n, exp (-(a₂ * s)) ≤ 1 + a₂⁻¹ := by
+    have h := sum_range_ite_mul_le_exp_neg_mul_le one_pos le_rfl ha₂ n
+    rw [zero_div, add_zero] at h
+    refine (Finset.sum_congr rfl fun s _ ↦ ?_).trans_le h
+    split_ifs with hs
+    · simp only [mul_one, Nat.cast_nonpos] at hs
+      simp [hs]
+    · rfl
   linarith
 
 end ProbabilityTheory
