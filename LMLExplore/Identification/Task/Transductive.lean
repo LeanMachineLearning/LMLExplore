@@ -38,8 +38,6 @@ the characteristic time of linear identification with Gaussian noise
 
 ## Main statements
 
-* `LMLExplore.Identification.isOpen_answerSet_transductiveTask`: for finitely many answers, the
-  models with unique best answer `i` form an open set.
 * `LMLExplore.Identification.closure_alt_transductiveTask`: for finitely many distinct answers, the
   closure of the alternatives to `i` is the union of the half-spaces `{λ | ⟪z i - z j, λ⟫ ≤ 0}`,
   `j ≠ i`.
@@ -48,8 +46,9 @@ the characteristic time of linear identification with Gaussian noise
   half-space `{λ | ⟪z i - z j, λ⟫ ≤ 0}`.
 
 The single answer (`isSingleAnswer_baiTask`), the alternatives (`mem_alt_baiTask_iff`), the answer
-sets (`mem_answerSet_baiTask_iff`) and the characteristic time
-(`charTime_baiTask_eq_inv_answerValue`) are those of `baiTask`.
+sets (`mem_answerSet_baiTask_iff`, open for finitely many answers by
+`isOpen_answerSet_baiTask_of_continuous` since each `θ ↦ ⟪z i, θ⟫` is continuous) and the
+characteristic time (`charTime_baiTask_eq_inv_answerValue`) are those of `baiTask`.
 
 ## References
 
@@ -76,18 +75,6 @@ best answer. This is `baiTask` for the values `⟪z i, θ⟫`. Linear best arm i
 case of the features as answers, `transductiveTask ν φ = baiTask ν (fun θ a ↦ ⟪φ a, θ⟫)`. -/
 noncomputable abbrev transductiveTask : IdentTask α E ι 𝓨 :=
   baiTask ν (fun θ i ↦ ⟪z i, θ⟫_ℝ)
-
-/-- For finitely many answers, the models with unique best answer `i` form an open set. -/
-lemma isOpen_answerSet_transductiveTask [Finite ι] (i : ι) :
-    IsOpen ((transductiveTask ν z).answerSet i) := by
-  have h : (transductiveTask ν z).answerSet i =
-      ⋂ j ∈ ({i}ᶜ : Set ι), {θ | ⟪z j, θ⟫_ℝ < ⟪z i, θ⟫_ℝ} := by
-    ext θ
-    rw [mem_answerSet_baiTask_iff]
-    simp
-  rw [h]
-  exact (Set.toFinite _).isOpen_biInter fun j _ ↦
-    isOpen_lt (continuous_const.inner continuous_id) (continuous_const.inner continuous_id)
 
 /-! ### The closure of the alternatives -/
 
