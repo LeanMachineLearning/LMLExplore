@@ -47,7 +47,11 @@ The definitions `statesLaw`, `statesKernel`, `statesEnv` and `BPIAlg` are adapte
 names and namespace, from the formalization entropy-mdp (`github.com/RemyDegenne/entropy-mdp`,
 file `Essakine2026Tight/ForLMLExplore/MarkovDecisionProcess/Episodic/Basic.lean`, by Rémy
 Degenne, Apache 2.0) of [EV26], from a fixed initial state to an initial law, and from
-deterministic to Markov policies for `statesLaw`.
+deterministic to Markov policies for `statesLaw`. The statements of `hasCondDistrib_statesLaw`
+and `hasCondDistrib_feedback_statesEnv` are adapted, with their names, from the file
+`Essakine2026Tight/ForLMLExplore/MarkovDecisionProcess/Episodic/StepLaw.lean` of entropy-mdp,
+with the same generalizations; here `hasCondDistrib_statesLaw` is proved directly from the run
+lemmas instead of the source's iterated Markov property along an episode.
 
 ## Main definitions
 
