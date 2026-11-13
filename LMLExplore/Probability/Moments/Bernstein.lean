@@ -10,6 +10,7 @@ public import Mathlib.Probability.Independence.Basic
 public import Mathlib.Probability.Moments.Basic
 import LMLExplore.Analysis.SpecialFunctions.Exp
 import LMLExplore.Probability.Moments.Basic
+import TauCeti.Analysis.SpecialFunctions.Exp.QuadraticBound
 import TauCeti.MeasureTheory.Measure.Tail
 import TauCeti.Probability.Moments.Basic
 
@@ -29,8 +30,8 @@ at `t = log (1 + b ε / v) / b` gives **Bennett's inequality**
 it decays like `exp (-(ε / b) log (b ε / v))`, faster than the exponential decay of Bernstein's
 inequality.
 
-Since `ψ_b(t) ≤ t ^ 2 / (2 (1 - t b / 3))` for `t b < 3`
-(`Real.exp_sub_one_sub_id_le_sq_div`), `S` is also sub-gamma with variance factor `v` and scale
+Since `ψ_b(t) ≤ t ^ 2 / (2 (1 - t b / 3))` for `t b < 3` (Tau Ceti's
+`Real.exp_le_one_add_add_sq_div_of_le`), `S` is also sub-gamma with variance factor `v` and scale
 `b / 3`. Chernoff's bound at an explicit `t` then inverts in closed form: for every `L`,
 `P(√(2 v L) + b L / 3 ≤ S) ≤ exp (-L)`, so that with probability at least `1 - δ`,
 `S < √(2 v log (1 / δ)) + b log (1 / δ) / 3`. This is the form of Bernstein's inequality in which
@@ -248,7 +249,7 @@ theorem measureReal_sqrt_add_le_sum_le_of_ae_le (h_indep : iIndepFun X μ) {b v 
     calc v * ((exp (t * b) - 1 - t * b) / b ^ 2)
         ≤ v * ((t * b) ^ 2 / (2 * (1 - t * b / 3)) / b ^ 2) := by
           gcongr
-          exact exp_sub_one_sub_id_le_sq_div (by positivity) htb
+          linarith [exp_le_one_add_add_sq_div_of_le le_rfl (by positivity) htb]
       _ = v * t ^ 2 / (2 * (1 - t * b / 3)) := by
           field_simp
   refine (measureReal_sum_ge_le_exp_of_mgf_le

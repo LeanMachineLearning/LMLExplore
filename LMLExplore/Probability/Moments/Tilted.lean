@@ -14,8 +14,9 @@ public import Mathlib.Probability.Moments.Tilted
 Tilting a measure `μ` by `t * X` shifts the moment and cumulant generating functions of `X`:
 under `μ.tilted (t * X ·)`, the moment generating function of `X` is
 `s ↦ mgf X μ (t + s) / mgf X μ t` and its cumulant generating function is
-`s ↦ cgf X μ (t + s) - cgf X μ t`. Together with Mathlib's `variance_tilted_mul`, which identifies
-the second derivative of the cumulant generating function with a variance, this shows that the
+`s ↦ cgf X μ (t + s) - cgf X μ t` (Tau Ceti's `TauCeti.mgf_tilted_mul` and
+`TauCeti.cgf_tilted_mul`). Mathlib's `variance_tilted_mul` identifies the second derivative of the
+cumulant generating function at `t` with the variance of `X` under this tilt, which shows that the
 derivative of the cumulant generating function is monotone on the interior of
 `integrableExpSet X μ`, and strictly increasing there as soon as `X` is not almost surely
 constant. For a measure on `ℝ` and `X = id`, that derivative is the mean of the exponential tilts,
@@ -29,10 +30,6 @@ measure proves the lower bound of Cramér's theorem.
 
 ## Main statements
 
-* `ProbabilityTheory.mgf_tilted_mul`: `mgf X (μ.tilted (t * X ·)) s = mgf X μ (t + s) / mgf X μ t`.
-* `ProbabilityTheory.cgf_tilted_mul`: `cgf X (μ.tilted (t * X ·)) s = cgf X μ (t + s) - cgf X μ t`.
-* `ProbabilityTheory.integrableExpSet_tilted_mul`: the set `integrableExpSet X` of the tilted
-  measure is `integrableExpSet X μ` translated by `-t`.
 * `ProbabilityTheory.iteratedDeriv_two_cgf_pos`: if `X` is not almost surely constant, the second
   derivative of `cgf X μ` is positive on the interior of `integrableExpSet X μ`.
 * `ProbabilityTheory.hasStrictDerivAt_deriv_cgf`: on the interior of `integrableExpSet X μ`,
@@ -59,33 +56,6 @@ open scoped ProbabilityTheory
 namespace ProbabilityTheory
 
 variable {Ω : Type*} {mΩ : MeasurableSpace Ω} {μ : Measure Ω} {X : Ω → ℝ} {t s : ℝ}
-
-/-- The moment generating function of `X` under the tilted measure `μ.tilted (t * X ·)` is
-`s ↦ mgf X μ (t + s) / mgf X μ t`. -/
-lemma mgf_tilted_mul : mgf X (μ.tilted (t * X ·)) s = mgf X μ (t + s) / mgf X μ t := by
-  simp only [mgf]
-  rw [integral_tilted, ← integral_div]
-  congr with ω
-  rw [smul_eq_mul, add_mul, exp_add]
-  ring
-
-/-- The cumulant generating function of `X` under the tilted measure `μ.tilted (t * X ·)` is
-`s ↦ cgf X μ (t + s) - cgf X μ t`, where both exponential moments exist. -/
-lemma cgf_tilted_mul (ht : Integrable (fun ω ↦ exp (t * X ω)) μ)
-    (hts : Integrable (fun ω ↦ exp ((t + s) * X ω)) μ) :
-    cgf X (μ.tilted (t * X ·)) s = cgf X μ (t + s) - cgf X μ t := by
-  rcases eq_zero_or_neZero μ with rfl | hμ
-  · simp
-  rw [cgf, mgf_tilted_mul, log_div (mgf_pos' hμ.out hts).ne' (mgf_pos' hμ.out ht).ne', cgf, cgf]
-
-/-- Under the tilted measure `μ.tilted (t * X ·)`, the exponential moment `exp (s * X)` is
-integrable if and only if `exp ((t + s) * X)` is integrable under `μ`. -/
-lemma integrableExpSet_tilted_mul (ht : t ∈ integrableExpSet X μ) :
-    integrableExpSet X (μ.tilted (t * X ·)) = (t + ·) ⁻¹' integrableExpSet X μ := by
-  ext s
-  simp only [integrableExpSet, mem_ofPred_eq, mem_preimage]
-  rw [integrable_tilted_iff ht]
-  simp_rw [smul_eq_mul, ← exp_add, ← add_mul]
 
 /-- If `X` is not almost surely constant, the second derivative of its cumulant generating
 function is positive on the interior of `integrableExpSet X μ`: it is the variance of `X` under

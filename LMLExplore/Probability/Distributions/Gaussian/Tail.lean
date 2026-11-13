@@ -103,7 +103,8 @@ lemma integral_Ioi_sub_mul_gaussianPDFReal (μ : ℝ) (v : ℝ≥0) (t : ℝ) :
   have hv' : (v : ℝ) ≠ 0 := NNReal.coe_ne_zero.2 hv
   have hderiv : ∀ x, HasDerivAt (fun x ↦ -(v * gaussianPDFReal μ v x))
       ((x - μ) * gaussianPDFReal μ v x) x := fun x ↦
-    ((hasDerivAt_gaussianPDFReal μ v x).const_mul (v : ℝ)).neg.congr_deriv (by field_simp)
+    ((TauCeti.Probability.hasDerivAt_gaussianPDFReal μ v x).const_mul (v : ℝ)).neg.congr_deriv
+      (by field_simp)
   have htend : Tendsto (fun x ↦ -(v * gaussianPDFReal μ v x)) atTop (𝓝 0) := by
     simpa using ((tendsto_gaussianPDFReal_atTop μ v).const_mul (v : ℝ)).neg
   rw [integral_Ioi_of_hasDerivAt_of_tendsto (hderiv t).continuousAt.continuousWithinAt
@@ -114,8 +115,8 @@ lemma integral_Ioi_sub_mul_gaussianPDFReal (μ : ℝ) (v : ℝ≥0) (t : ℝ) :
 private lemma hasDerivAt_neg_gaussianPDFReal_div {x : ℝ} (hx : 0 < x) :
     HasDerivAt (fun x ↦ -gaussianPDFReal 0 1 x / x)
       (gaussianPDFReal 0 1 x * (1 + 1 / x ^ 2)) x := by
-  refine (((hasDerivAt_gaussianPDFReal 0 1 x).neg).div (hasDerivAt_id x)
-    hx.ne').congr_deriv ?_
+  refine (((TauCeti.Probability.hasDerivAt_gaussianPDFReal 0 1 x).neg).div
+    (hasDerivAt_id x) hx.ne').congr_deriv ?_
   simp only [sub_zero, NNReal.coe_one, div_one, id, Pi.neg_apply]
   field_simp
   ring
@@ -193,8 +194,8 @@ private lemma hasDerivAt_neg_gaussianPDFReal_div_one_add {x : ℝ} (hx : 0 ≤ x
     HasDerivAt (fun x ↦ -gaussianPDFReal 0 1 x / (1 + x))
       (gaussianPDFReal 0 1 x * ((x ^ 2 + x + 1) / (1 + x) ^ 2)) x := by
   have h1 : 1 + x ≠ 0 := by positivity
-  refine (((hasDerivAt_gaussianPDFReal 0 1 x).neg).div ((hasDerivAt_id x).const_add 1)
-    h1).congr_deriv ?_
+  refine (((TauCeti.Probability.hasDerivAt_gaussianPDFReal 0 1 x).neg).div
+    ((hasDerivAt_id x).const_add 1) h1).congr_deriv ?_
   simp only [sub_zero, NNReal.coe_one, div_one, id, Pi.neg_apply]
   field_simp
   ring
@@ -242,7 +243,8 @@ lemma gaussianPDFReal_div_one_add_le_measureReal_Ici_gaussianReal_zero_one {t : 
 `φ_t = gaussianPDFReal t 1` is the density of `N(t, 1)`. -/
 private lemma gaussianPDFReal_zero_one_le_exp_mul {t x : ℝ} (ht : 0 ≤ t) (hx : t ≤ x) :
     gaussianPDFReal 0 1 x ≤ exp (-t ^ 2 / 2) * gaussianPDFReal t 1 x := by
-  calc gaussianPDFReal 0 1 x = (√(2 * π))⁻¹ * exp (-x ^ 2 / 2) := gaussianPDFReal_zero_one x
+  calc gaussianPDFReal 0 1 x = (√(2 * π))⁻¹ * exp (-(x ^ 2 / 2)) :=
+        TauCeti.Probability.gaussianPDFReal_zero_one x
     _ ≤ (√(2 * π))⁻¹ * exp (-t ^ 2 / 2 + -(x - t) ^ 2 / 2) := by gcongr; nlinarith
     _ = exp (-t ^ 2 / 2) * gaussianPDFReal t 1 x := by
         rw [gaussianPDFReal_def, exp_add, NNReal.coe_one, mul_one, mul_one]

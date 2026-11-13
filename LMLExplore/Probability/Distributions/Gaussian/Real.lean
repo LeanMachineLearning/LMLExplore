@@ -17,8 +17,6 @@ Complements to Mathlib's `ProbabilityTheory.gaussianReal`:
 
 * `LMLExplore.log_gaussianPDFReal`: the logarithm of the Gaussian density is a quadratic
   polynomial.
-* `LMLExplore.hasDerivAt_gaussianPDFReal`: the derivative of the Gaussian density `φ` is
-  `φ' x = -((x - μ) / v) φ x`.
 * `LMLExplore.gaussianPDFReal_le`, `LMLExplore.tendsto_gaussianPDFReal_atTop`: the Gaussian
   density is bounded by its value `(√(2π v))⁻¹` at the mean and tends to `0` at `+∞`.
 * `LMLExplore.integrable_sub_mul_gaussianPDFReal`: `x ↦ (x - μ) φ x` is integrable.
@@ -45,8 +43,9 @@ Complements to Mathlib's `ProbabilityTheory.gaussianReal`:
 * `ProbabilityTheory.iIndepFun.hasLaw_sum_gaussianReal`: a finite sum of independent random
   variables of laws `𝒩(μ i, v i)` has law `𝒩(∑ μ i, ∑ v i)`.
 
-The derivative, boundedness, limit and integrability facts about the density are the ingredients
-of the Gaussian tail bounds in `LMLExplore.Probability.Distributions.Gaussian.Tail`.
+The boundedness, limit and integrability facts about the density, with Tau Ceti's derivative
+`TauCeti.Probability.hasDerivAt_gaussianPDFReal`, are the ingredients of the Gaussian tail bounds in
+`LMLExplore.Probability.Distributions.Gaussian.Tail`.
 There, `integral_exp_neg_sq_div_two_gaussianReal` enters the bound on the expected inverse of the
 Gaussian tail at a Gaussian point.
 `log_gaussianPDFReal`, `integral_sub_sq_gaussianReal`,
@@ -63,8 +62,8 @@ with Gaussian rewards.
 
 ## Implementation notes
 
-`hasDerivAt_gaussianPDFReal`, `gaussianPDFReal_le` and `tendsto_gaussianPDFReal_atTop` are adapted
-from the LMLPapers project (Rémy Degenne),
+`gaussianPDFReal_le` and `tendsto_gaussianPDFReal_atTop` are adapted from the LMLPapers project
+(Rémy Degenne),
 `LMLPapers/LeanMachineLearning/ForMathlib/Probability/Distributions/Gaussian/Real.lean` in
 <https://github.com/LeanMachineLearning/LMLPapers>.
 -/
@@ -86,24 +85,6 @@ lemma log_gaussianPDFReal (hv : v ≠ 0) (x : ℝ) :
   rw [gaussianPDFReal_def, log_mul (by positivity) (exp_pos _).ne', log_inv,
     log_sqrt (by positivity), log_exp]
   ring
-
-/-- The derivative of the Gaussian density `φ = gaussianPDFReal μ v` is
-`φ' x = -((x - μ) / v) * φ x`. Also true (as `0 = 0`) for `v = 0`. -/
-lemma hasDerivAt_gaussianPDFReal (μ : ℝ) (v : ℝ≥0) (x : ℝ) :
-    HasDerivAt (gaussianPDFReal μ v) (-((x - μ) / v) * gaussianPDFReal μ v x) x := by
-  simp only [gaussianPDFReal]
-  have h : HasDerivAt (fun y ↦ -(y - μ) ^ 2 / (2 * v)) (-(x - μ) / v) x := by
-    refine ((((hasDerivAt_id' x).sub_const μ).fun_pow 2).fun_neg.div_const
-      (2 * (v : ℝ))).congr_deriv ?_
-    norm_num
-    ring
-  refine (h.exp.const_mul (√(2 * π * v))⁻¹).congr_deriv ?_
-  ring
-
-/-- The standard Gaussian density: `φ x = exp (-x² / 2) / √(2π)`. -/
-lemma gaussianPDFReal_zero_one (x : ℝ) :
-    gaussianPDFReal 0 1 x = (√(2 * π))⁻¹ * exp (-x ^ 2 / 2) := by
-  simp [gaussianPDFReal]
 
 /-- The Gaussian density is bounded by its value `(√(2π v))⁻¹` at the mean. -/
 lemma gaussianPDFReal_le (μ : ℝ) (v : ℝ≥0) (x : ℝ) :
