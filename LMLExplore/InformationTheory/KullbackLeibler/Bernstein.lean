@@ -42,8 +42,7 @@ Apache 2.0), with a new proof of the transport of the mean and sharper constants
 
 ## Main statements
 
-* `LMLExplore.absolutelyContinuous_of_klDiv_le_ofReal`: a finite bound on `KL(μ ‖ ν)` gives
-  `μ ≪ ν`.
+* `LMLExplore.absolutelyContinuous_of_klDiv_ne_top`: a finite `KL(μ ‖ ν)` gives `μ ≪ ν`.
 * `LMLExplore.integral_sub_integral_le_of_klDiv_le`: the one-sided transport, for `f` bounded
   above by its `ν`-mean plus `b`.
 * `LMLExplore.abs_integral_sub_integral_le_of_klDiv_le`: the two-sided transport for `f` with
@@ -76,10 +75,9 @@ namespace LMLExplore
 variable {α : Type*} {mα : MeasurableSpace α} {μ ν : Measure α} [IsProbabilityMeasure μ]
   [IsProbabilityMeasure ν] {f : α → ℝ} {a b c d : ℝ}
 
-/-- A finite bound `KL(μ ‖ ν) ≤ a` gives `μ ≪ ν`. -/
-theorem absolutelyContinuous_of_klDiv_le_ofReal {μ ν : Measure α}
-    (h : klDiv μ ν ≤ ENNReal.ofReal a) : μ ≪ ν :=
-  (klDiv_ne_top_iff.1 (ne_top_of_le_ne_top ENNReal.ofReal_ne_top h)).1
+/-- A finite Kullback–Leibler divergence `KL(μ ‖ ν) ≠ ∞` gives `μ ≪ ν`. -/
+theorem absolutelyContinuous_of_klDiv_ne_top {μ ν : Measure α} (h : klDiv μ ν ≠ ∞) : μ ≪ ν :=
+  (klDiv_ne_top_iff.1 h).1
 
 /-- The Donsker–Varadhan inequality at `g = t (f - ∫ f ∂ν)`, with Bennett's bound on the
 moment-generating function: for every `t ≥ 0`,
@@ -156,7 +154,8 @@ if `KL(μ ‖ ν) ≤ a` and `f` has values in `[c, d]` `ν`-almost everywhere, 
 theorem abs_integral_sub_integral_le_of_klDiv_le (hfm : AEStronglyMeasurable f ν)
     (hf : ∀ᵐ x ∂ν, f x ∈ Set.Icc c d) (ha : 0 ≤ a) (h : klDiv μ ν ≤ ENNReal.ofReal a) :
     |∫ x, f x ∂μ - ∫ x, f x ∂ν| ≤ √(2 * Var[f; ν] * a) + (d - c) * a / 3 := by
-  have hμν : μ ≪ ν := absolutelyContinuous_of_klDiv_le_ofReal h
+  have hμν : μ ≪ ν :=
+    absolutelyContinuous_of_klDiv_ne_top (ne_top_of_le_ne_top ENNReal.ofReal_ne_top h)
   have hfν : MemLp f 2 ν := memLp_of_bounded hf hfm 2
   have hfμ : Integrable f μ :=
     .of_mem_Icc c d (hfm.mono_ac hμν).aemeasurable (hμν.ae_le hf)
@@ -187,7 +186,8 @@ private lemma abs_integral_sub_integral_le_of_klDiv_le_of_nonneg {g : α → ℝ
 theorem variance_le_two_mul_variance_add_of_klDiv_le (hfm : AEStronglyMeasurable f ν)
     (hf : ∀ᵐ x ∂ν, f x ∈ Set.Icc c d) (ha : 0 ≤ a) (h : klDiv μ ν ≤ ENNReal.ofReal a) :
     Var[f; ν] ≤ 2 * Var[f; μ] + 8 / 3 * (d - c) ^ 2 * a := by
-  have hμν : μ ≪ ν := absolutelyContinuous_of_klDiv_le_ofReal h
+  have hμν : μ ≪ ν :=
+    absolutelyContinuous_of_klDiv_ne_top (ne_top_of_le_ne_top ENNReal.ofReal_ne_top h)
   have hfμ : ∀ᵐ x ∂μ, f x ∈ Set.Icc c d := hμν.ae_le hf
   have hm : μ[f] ∈ Set.Icc c d :=
     integral_mem_Icc_of_ae_mem_Icc (hfm.mono_ac hμν).aemeasurable hfμ
@@ -212,7 +212,8 @@ then `Var_μ(f) ≤ 2 Var_ν(f) + (5 / 6) (d - c)² a`. -/
 theorem variance_le_two_mul_variance_add_of_klDiv_le' (hfm : AEStronglyMeasurable f ν)
     (hf : ∀ᵐ x ∂ν, f x ∈ Set.Icc c d) (ha : 0 ≤ a) (h : klDiv μ ν ≤ ENNReal.ofReal a) :
     Var[f; μ] ≤ 2 * Var[f; ν] + 5 / 6 * (d - c) ^ 2 * a := by
-  have hμν : μ ≪ ν := absolutelyContinuous_of_klDiv_le_ofReal h
+  have hμν : μ ≪ ν :=
+    absolutelyContinuous_of_klDiv_ne_top (ne_top_of_le_ne_top ENNReal.ofReal_ne_top h)
   have hm : ν[f] ∈ Set.Icc c d := integral_mem_Icc_of_ae_mem_Icc hfm.aemeasurable hf
   -- the square `g = (f - ∫ f ∂ν) ^ 2` has values in `[0, (d - c) ^ 2]`
   have hg : ∀ᵐ x ∂ν, (f x - ν[f]) ^ 2 ∈ Set.Icc 0 ((d - c) ^ 2) :=
