@@ -203,16 +203,15 @@ theorem exists_isMirrorDescentStep_of_strongConvexOn [FiniteDimensional ℝ E] {
     (hK : IsClosed K) (hK_ne : K.Nonempty) (hF : StrongConvexOn K m F) (hm : 0 < m)
     (hF_lsc : LowerSemicontinuousOn F K) (η : ℝ) (y : E →L[ℝ] ℝ) (a : E) (F' : E →L[ℝ] ℝ) :
     ∃ x, IsMirrorDescentStep K F η y a F' x := by
-  -- The objective is `F` plus the continuous affine map `b ↦ (η y - F') b + (F' a - F a)`.
-  set L : E →L[ℝ] ℝ := η • y - F'
-  have hL : (fun b ↦ η * y b + bregDiv F b a F') = F + (⇑L + fun _ ↦ F' a - F a) := by
+  -- The objective is `F` plus the continuous linear map `η y - F'`, plus the constant
+  -- `F' a - F a`.
+  obtain ⟨x, hx, hmin⟩ := hF.exists_isMinOn_add_continuousLinearMap hm hK hK_ne hF_lsc (η • y - F')
+  have hL : (fun b ↦ η * y b + bregDiv F b a F') =
+      fun b ↦ (F + ⇑(η • y - F')) b + (F' a - F a) := by
     ext b
-    simp only [bregDiv, L, Pi.add_apply, map_sub, sub_apply, smul_apply, smul_eq_mul]
+    simp only [bregDiv, Pi.add_apply, map_sub, sub_apply, smul_apply, smul_eq_mul]
     ring
-  have hLc : ConvexOn ℝ K L := by simpa using L.toLinearMap.convexOn hF.1
-  obtain ⟨x, hx, hmin⟩ := (hF.add_convexOn (hLc.add_const _)).exists_isMinOn hm hK hK_ne
-    (hF_lsc.add ((L.continuous.add continuous_const).lowerSemicontinuous.lowerSemicontinuousOn K))
-  exact ⟨x, hx, hL ▸ hmin⟩
+  exact ⟨x, hx, hL ▸ hmin.add isMinOn_const⟩
 
 /-- **One step of mirror descent.** Let `K` be convex, let `x` be a mirror descent step on `K`
 from `a` with derivative `F'`, and let `F` have derivative `G` within `K` at `x`. Then for every

@@ -41,25 +41,28 @@ with a strongly convex potential exist on closed sets that need not be bounded.
   convex function is `(m + n)`-strongly convex.
 * `StrongConvexOn.add_add_le_of_hasSubgradientWithinAt`: [Ora, Lemma 4.2] the subgradient
   inequality `f x + g (y - x) + m / 2 * ‖y - x‖ ^ 2 ≤ f y` of a strongly convex function.
-* `strongConvexOn_of_forall_exists_add_add_le`, `strongConvexOn_iff_forall_add_add_le`:
-  [Ora, Lemma 4.2] the converse, and the resulting characterization.
-* `convexOn_of_forall_exists_hasSubgradientWithinAt`: [Ora, Theorem 2.21] a function with a
-  subgradient within a convex set at each of its points is convex there.
+* `Convex.strongConvexOn_of_forall_exists_add_add_le`,
+  `Convex.strongConvexOn_iff_forall_add_add_le`: [Ora, Lemma 4.2] the converse, and the resulting
+  characterization.
 * `StrongConvexOn.mul_norm_sub_sq_le_sub_apply_sub`,
-  `strongConvexOn_of_mul_norm_sub_sq_le_sub_apply_sub`,
-  `strongConvexOn_iff_mul_norm_sub_sq_le_sub_apply_sub`: [Ora, Theorem 4.3] strong convexity is
-  strong monotonicity of the subgradients.
-* `strongConvexOn_of_hasFDerivWithinAt2_mul_norm_sub_sq_le`: [Ora, Theorem 4.3] the second-order
-  criterion along segments.
+  `Convex.strongConvexOn_of_mul_norm_sub_sq_le_sub_apply_sub`,
+  `Convex.strongConvexOn_iff_mul_norm_sub_sq_le_sub_apply_sub`: [Ora, Theorem 4.3] strong
+  convexity is strong monotonicity of the subgradients.
+* `Convex.strongConvexOn_of_hasFDerivWithinAt2_mul_norm_sub_sq_le`: [Ora, Theorem 4.3] the
+  second-order criterion along segments.
 * `StrongConvexOn.add_mul_norm_sub_sq_le_of_isMinOn`: quadratic growth away from a minimizer.
+* `StrongConvexOn.exists_forall_lt_of_lowerSemicontinuousWithinAt`: for `m > 0`, `f` exceeds its
+  value at a point of lower semicontinuity on the points of `s` far enough from it.
 * `StrongConvexOn.exists_isMinOn`, `StrongConvexOn.existsUnique_isMinOn`: [Ora, Theorem 6.9]
   existence and uniqueness of the minimizer of a lower semicontinuous strongly convex function on a
   closed set, in finite dimension.
+* `StrongConvexOn.exists_isMinOn_add_continuousLinearMap`: the same existence for `f` plus a
+  continuous linear map, as in the objectives of follow the regularized leader and mirror descent.
 
 ## References
 
 * [Ora] F. Orabona, *Online Learning: A Modern Introduction Using Convex Optimization*,
-  arXiv:1912.13213v10, Theorem 2.21, Lemma 4.2, Theorems 4.3, 4.6 and 6.9.
+  arXiv:1912.13213v10, Lemma 4.2, Theorems 4.3, 4.6 and 6.9.
 -/
 
 public section
@@ -132,6 +135,8 @@ theorem add_mul_norm_sub_sq_le_of_isMinOn (hf : StrongConvexOn s m f) (hx : x �
 
 end StrongConvexOn
 
+namespace Convex
+
 /-- **Strong convexity from paraboloids below** [Ora, Lemma 4.2]. If every point `x` of a convex
 set `s` has a linear map `g` such that `f` lies above the paraboloid
 `f x + g (y - x) + m / 2 * ‖y - x‖ ^ 2` on `s`, then `f` is `m`-strongly convex on `s`. For
@@ -164,14 +169,6 @@ theorem strongConvexOn_iff_forall_add_add_le (hs : Convex ℝ s)
     fun h ↦ strongConvexOn_of_forall_exists_add_add_le hs fun x hx ↦
       (hsub x hx).imp fun g hg ↦ h x hx g hg⟩
 
-/-- **Convexity from subgradients** [Ora, Theorem 2.21]. A function with a subgradient within a
-convex set `s` at each point of `s` is convex on `s`. -/
-theorem convexOn_of_forall_exists_hasSubgradientWithinAt (hs : Convex ℝ s)
-    (hsub : ∀ x ∈ s, ∃ g : E →L[ℝ] ℝ, HasSubgradientWithinAt f g s x) :
-    ConvexOn ℝ s f :=
-  strongConvexOn_zero.1 <| strongConvexOn_of_forall_exists_add_add_le hs fun x hx ↦
-    (hsub x hx).imp fun _ hg y hy ↦ by simpa using hasSubgradientWithinAt_iff_le.1 hg y hy
-
 /-- The paraboloid inequality from strongly monotone subgradients, up to the error
 `m / 2 * ‖y - x‖ ^ 2 / (N + 1)` of the Riemann sum of the subgradients over the points
 `x + k / (N + 1) • (y - x)` of the segment `[x, y]`. -/
@@ -180,14 +177,10 @@ private lemma add_add_sub_le_of_mul_norm_sub_sq_le_sub_apply_sub (hs : Convex �
     (hmono : ∀ x ∈ s, ∀ y ∈ s, m * ‖x - y‖ ^ 2 ≤ (g x - g y) (x - y)) (hx : x ∈ s) (hy : y ∈ s)
     (N : ℕ) :
     f x + g x (y - x) + m / 2 * ‖y - x‖ ^ 2 - m / 2 * ‖y - x‖ ^ 2 * (1 / ((N : ℝ) + 1)) ≤ f y := by
-  have hk : ∑ k ∈ range (N + 1), (k : ℝ) = N * (N + 1) / 2 := by
-    have h := sum_range_id_mul_two (N + 1)
-    rw [add_tsub_cancel_right] at h
-    have h' : ((∑ k ∈ range (N + 1), k : ℕ) : ℝ) * 2 = (N + 1 : ℕ) * N := by exact_mod_cast h
-    push_cast at h'
-    linarith
   set M : ℝ := N + 1 with hM
-  have hM0 : 0 < M := by positivity
+  clear_value M
+  have hM0 : 0 < M := by rw [hM]; positivity
+  have hNM : ((N + 1 : ℕ) : ℝ) = M := by rw [hM]; push_cast; rfl
   set z : ℕ → E := fun k ↦ x + ((k : ℝ) / M) • (y - x) with hz
   have hzs (k : ℕ) (hk : k ≤ N + 1) : z k ∈ s := by
     refine hs.add_smul_sub_mem hx hy ⟨by positivity, (div_le_one hM0).2 ?_⟩
@@ -196,9 +189,8 @@ private lemma add_add_sub_le_of_mul_norm_sub_sq_le_sub_apply_sub (hs : Convex �
   -- Each step `z k → z (k + 1)` gains at least `g (z k) (y - x) / M`, by the subgradient
   -- inequality at `z k`, and `g (z k) (y - x) ≥ g x (y - x) + m * k / M * ‖y - x‖ ^ 2`, by strong
   -- monotonicity between `z k` and `z 0 = x`.
-  have hstep (k : ℕ) (hk : k ∈ range (N + 1)) :
+  have hstep (k : ℕ) (hkN : k < N + 1) :
       1 / M * (g x (y - x) + m * (k / M) * ‖y - x‖ ^ 2) ≤ f (z (k + 1)) - f (z k) := by
-    have hkN := mem_range.1 hk
     have h₁ := hasSubgradientWithinAt_iff_le.1 (hg _ (hzs k hkN.le)) _ (hzs (k + 1) hkN)
     rw [show z (k + 1) - z k = (1 / M) • (y - x) by simp only [hz]; push_cast; module, map_smul,
       smul_eq_mul] at h₁
@@ -212,17 +204,18 @@ private lemma add_add_sub_le_of_mul_norm_sub_sq_le_sub_apply_sub (hs : Convex �
       refine le_of_mul_le_mul_left ?_ hkM
       nlinarith
     linarith [mul_le_mul_of_nonneg_left h₂ (by positivity : (0 : ℝ) ≤ 1 / M)]
-  -- Sum the steps.
-  have hsum := sum_le_sum hstep
-  have hzN : z (N + 1) = y := by
-    simp only [hz]
-    rw [show ((N + 1 : ℕ) : ℝ) / M = 1 by rw [hM]; push_cast; exact div_self hM0.ne']
-    simp
-  have hz0 : z 0 = x := by simp [hz]
-  rw [sum_range_sub (fun k ↦ f (z k)), hzN, hz0, ← mul_sum, sum_add_distrib, sum_const,
-    card_range, nsmul_eq_mul, ← sum_mul, ← mul_sum, ← sum_div] at hsum
-  rw [hk, show ((N + 1 : ℕ) : ℝ) = M by rw [hM]; push_cast; rfl] at hsum
-  field_simp at hsum ⊢
+  -- Sum the steps: after `j` of them, `f` has gained `j / M * g x (y - x)`, plus
+  -- `m / 2 * j * (j - 1) / M ^ 2 * ‖y - x‖ ^ 2`.
+  have hsum (j : ℕ) (hj : j ≤ N + 1) :
+      f x + j / M * g x (y - x) + m / 2 * (j * (j - 1) / M ^ 2) * ‖y - x‖ ^ 2 ≤ f (z j) := by
+    induction j with
+    | zero => simp [hz]
+    | succ j ih =>
+      push_cast
+      linear_combination ih (by omega) + hstep j hj
+  have hN := hsum (N + 1) le_rfl
+  simp only [hz, hNM, div_self hM0.ne', one_smul, add_sub_cancel] at hN
+  field_simp at hN ⊢
   linarith
 
 /-- **Strong convexity from strongly monotone subgradients** [Ora, Theorem 4.3]. Let `g x` be a
@@ -272,7 +265,42 @@ theorem strongConvexOn_of_hasFDerivWithinAt2_mul_norm_sub_sq_le (hs : Convex ℝ
   simp only [bregDiv] at heq
   linarith
 
+end Convex
+
 namespace StrongConvexOn
+
+/-- **Growth of a strongly convex function far from a point.** If `f` is `m`-strongly convex on
+`s` for some `m > 0` and lower semicontinuous within `s` at `x₀ ∈ s`, then `f x₀ < f y` for every
+`y ∈ s` far enough from `x₀`. -/
+theorem exists_forall_lt_of_lowerSemicontinuousWithinAt {x₀ : E} (hf : StrongConvexOn s m f)
+    (hm : 0 < m) (hx₀ : x₀ ∈ s) (hf_lsc : LowerSemicontinuousWithinAt f s x₀) :
+    ∃ R, ∀ y ∈ s, R < ‖y - x₀‖ → f x₀ < f y := by
+  -- By lower semicontinuity, `f > f x₀ - 1` on the points of `s` in a ball `B(x₀, δ)`.
+  obtain ⟨δ, hδ, hδf⟩ :=
+    Metric.eventually_nhds_iff.1 (eventually_nhdsWithin_iff.1 (hf_lsc _ (sub_one_lt _)))
+  set r := δ / 2 with hr
+  -- By strong convexity along `[x₀, y]`, `f y > f x₀` for `y ∈ s` outside
+  -- `closedBall x₀ (max δ (4 / (m * r)))`, comparing with the point at distance `r` from `x₀`.
+  refine ⟨max δ (4 / (m * r)), fun y hy hyR ↦ ?_⟩
+  set d := ‖y - x₀‖ with hd
+  have hδd : δ < d := (le_max_left _ _).trans_lt hyR
+  have hmrd : 4 < m * r * d := by
+    have := (le_max_right _ _).trans_lt hyR
+    rwa [div_lt_iff₀' (by positivity)] at this
+  set t := r / d with ht
+  have hd0 : 0 < d := hδ.trans hδd
+  have htd : t * d = r := div_mul_cancel₀ r hd0.ne'
+  have ht0 : 0 < t := by positivity
+  have ht1 : t ≤ 1 / 2 := by rw [ht, div_le_iff₀ hd0]; linarith
+  have hz := hδf (y := (1 - t) • x₀ + t • y) (by
+    rw [dist_eq_norm, show (1 - t) • x₀ + t • y - x₀ = t • (y - x₀) by module, norm_smul,
+      Real.norm_of_nonneg ht0.le, htd]
+    linarith) (hf.1 hx₀ hy (by linarith) ht0.le (sub_add_cancel 1 t))
+  have hconv := hf.2 hx₀ hy (by linarith) ht0.le (sub_add_cancel 1 t)
+  simp only [smul_eq_mul, norm_sub_rev x₀ y, ← hd] at hconv
+  refine lt_of_mul_lt_mul_left ?_ ht0.le
+  nlinarith [mul_le_mul_of_nonneg_left (show 1 / 2 ≤ 1 - t by linarith)
+    (show 0 ≤ m * r * d by positivity)]
 
 /-- **Existence of a minimizer of a strongly convex function** [Ora, Theorem 6.9]. In finite
 dimension, a function that is `m`-strongly convex for some `m > 0` and lower semicontinuous on a
@@ -281,42 +309,27 @@ theorem exists_isMinOn [FiniteDimensional ℝ E] (hf : StrongConvexOn s m f) (hm
     (hs : IsClosed s) (hs_ne : s.Nonempty) (hf_lsc : LowerSemicontinuousOn f s) :
     ∃ x ∈ s, IsMinOn f s x := by
   obtain ⟨x₀, hx₀⟩ := hs_ne
-  -- By lower semicontinuity, `f > f x₀ - 1` on the points of `s` in a ball `B(x₀, δ)`.
-  obtain ⟨δ, hδ, hδf⟩ :=
-    Metric.eventually_nhds_iff.1 (eventually_nhdsWithin_iff.1 (hf_lsc x₀ hx₀ _ (sub_one_lt _)))
-  set r := δ / 2 with hr
-  set R := max δ (4 / (m * r)) with hR
-  -- By strong convexity along `[x₀, y]`, `f y > f x₀` for `y ∈ s` outside `closedBall x₀ R`.
-  have hfar : ∀ y ∈ s, R < ‖y - x₀‖ → f x₀ < f y := by
-    intro y hy hyR
-    set d := ‖y - x₀‖ with hd
-    have hδd : δ < d := (le_max_left _ _).trans_lt hyR
-    have hmrd : 4 < m * r * d := by
-      have := (le_max_right _ _).trans_lt hyR
-      rwa [div_lt_iff₀' (by positivity)] at this
-    set t := r / d with ht
-    have hd0 : 0 < d := hδ.trans hδd
-    have htd : t * d = r := div_mul_cancel₀ r hd0.ne'
-    have ht0 : 0 < t := by positivity
-    have ht1 : t ≤ 1 / 2 := by rw [ht, div_le_iff₀ hd0]; linarith
-    have hz := hδf (y := (1 - t) • x₀ + t • y) (by
-      rw [dist_eq_norm, show (1 - t) • x₀ + t • y - x₀ = t • (y - x₀) by module, norm_smul,
-        Real.norm_of_nonneg ht0.le, htd]
-      linarith) (hf.1 hx₀ hy (by linarith) ht0.le (sub_add_cancel 1 t))
-    have hconv := hf.2 hx₀ hy (by linarith) ht0.le (sub_add_cancel 1 t)
-    simp only [smul_eq_mul, norm_sub_rev x₀ y, ← hd] at hconv
-    refine lt_of_mul_lt_mul_left ?_ ht0.le
-    nlinarith [mul_le_mul_of_nonneg_left (show 1 / 2 ≤ 1 - t by linarith)
-      (show 0 ≤ m * r * d by positivity)]
-  -- A minimizer over the compact set `s ∩ closedBall x₀ R` minimizes over `s`.
-  have hx₀K : x₀ ∈ s ∩ closedBall x₀ R :=
-    ⟨hx₀, mem_closedBall_self ((le_max_left _ _).trans' hδ.le)⟩
+  obtain ⟨R, hfar⟩ := hf.exists_forall_lt_of_lowerSemicontinuousWithinAt hm hx₀ (hf_lsc x₀ hx₀)
+  -- `R ≥ 0`, since `f x₀ < f x₀` fails. A minimizer over the compact set `s ∩ closedBall x₀ R`
+  -- minimizes over `s`.
+  have hR : 0 ≤ R := not_lt.1 fun hR ↦ (hfar x₀ hx₀ (by simpa using hR)).false
+  have hx₀K : x₀ ∈ s ∩ closedBall x₀ R := ⟨hx₀, mem_closedBall_self hR⟩
   obtain ⟨a, haK, hamin⟩ := (hf_lsc.mono inter_subset_left).exists_isMinOn ⟨x₀, hx₀K⟩
     ((isCompact_closedBall x₀ R).inter_left hs)
   refine ⟨a, haK.1, isMinOn_iff.2 fun y hy ↦ ?_⟩
   by_cases hyR : ‖y - x₀‖ ≤ R
   · exact isMinOn_iff.1 hamin y ⟨hy, mem_closedBall_iff_norm.2 hyR⟩
   · exact (isMinOn_iff.1 hamin x₀ hx₀K).trans (hfar y hy (not_le.1 hyR)).le
+
+/-- **Existence of a minimizer of a strongly convex function plus a linear map.** In finite
+dimension, if `f` is `m`-strongly convex for some `m > 0` and lower semicontinuous on a nonempty
+closed set `s`, then `f + L` attains its minimum on `s` for every continuous linear map `L`. -/
+theorem exists_isMinOn_add_continuousLinearMap [FiniteDimensional ℝ E]
+    (hf : StrongConvexOn s m f) (hm : 0 < m) (hs : IsClosed s) (hs_ne : s.Nonempty)
+    (hf_lsc : LowerSemicontinuousOn f s) (L : E →L[ℝ] ℝ) :
+    ∃ x ∈ s, IsMinOn (f + ⇑L) s x :=
+  (hf.add_convexOn (by simpa using L.toLinearMap.convexOn hf.1)).exists_isMinOn hm hs hs_ne
+    (hf_lsc.add (L.continuous.lowerSemicontinuous.lowerSemicontinuousOn s))
 
 /-- **Existence and uniqueness of the minimizer of a strongly convex function** [Ora,
 Theorem 6.9]. In finite dimension, a function that is `m`-strongly convex for some `m > 0` and

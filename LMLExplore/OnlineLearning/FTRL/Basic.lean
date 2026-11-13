@@ -523,15 +523,11 @@ theorem exists_ftrl_of_strongConvexOn [FiniteDimensional ℝ E] {F : E → ℝ} 
     (hF_lsc : LowerSemicontinuousOn F K) (η : ℝ) (y : ℕ → E →L[ℝ] ℝ) :
     ∃ a : ℕ → E, ∀ t, IsFTRLPlay K F η y t (a t) := by
   have h (t : ℕ) : ∃ x ∈ K, IsMinOn (fun b ↦ η * ∑ s ∈ range t, y s b + F b) K x := by
-    -- The objective is `F` plus the continuous linear map `L = η ∑ s < t, y s`.
-    set L : E →L[ℝ] ℝ := η • ∑ s ∈ range t, y s
-    have hL : (fun b ↦ η * ∑ s ∈ range t, y s b + F b) = F + L := by
+    -- The objective is `F` plus the continuous linear map `η ∑ s < t, y s`.
+    have hL : (fun b ↦ η * ∑ s ∈ range t, y s b + F b) = F + ⇑(η • ∑ s ∈ range t, y s) := by
       ext b
-      simp [L, add_comm]
-    have hLc : ConvexOn ℝ K L := by simpa using L.toLinearMap.convexOn hF.1
-    rw [hL]
-    exact (hF.add_convexOn hLc).exists_isMinOn hm hK hK_ne
-      (hF_lsc.add (L.continuous.lowerSemicontinuous.lowerSemicontinuousOn K))
+      simp [add_comm]
+    exact hL ▸ hF.exists_isMinOn_add_continuousLinearMap hm hK hK_ne hF_lsc _
   choose a ha using h
   exact ⟨a, fun t ↦ ⟨(ha t).1, (ha t).2⟩⟩
 

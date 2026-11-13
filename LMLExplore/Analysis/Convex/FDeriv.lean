@@ -21,7 +21,8 @@ For a convex function with a derivative `f' x` at every point `x` of an open con
 subgradients are the derivatives, so `f` is strictly convex on `s` if and only if `f'` is
 injective on `s`. The derivative of the conjugate of a Legendre function is the inverse of the
 derivative of the function, which is injective, so this gives the strict convexity of the conjugate
-[Roc70, Theorem 26.3].
+[Roc70, Theorem 26.3]. Without the separation condition, a function with a subgradient at every
+point of a convex set `s` is still convex on `s` [Ora, Theorem 2.21].
 
 Steepness passes to the inverse of the derivative. Let `f` be convex on an open set `s` of a proper
 space (for instance a finite-dimensional one), with derivatives `f'` on `s` whose norm tends to
@@ -33,6 +34,8 @@ steepness of the conjugate of a Legendre function [Roc70, Theorem 26.5; LS, Theo
 
 ## Main statements
 
+* `Convex.convexOn_of_hasSubgradientWithinAt`: [Ora, Theorem 2.21] a function with a subgradient
+  on `s` at every point of `s` is convex on `s`.
 * `Convex.strictConvexOn_of_hasSubgradientWithinAt`: a function with a subgradient on `s` at every
   point of `s` and no common subgradient at two distinct points is strictly convex on `s`.
 * `StrictConvexOn.eq_of_hasSubgradientWithinAt`: two points of `s` at which a strictly convex
@@ -51,6 +54,8 @@ steepness of the conjugate of a Legendre function [Roc70, Theorem 26.5; LS, Theo
 * [Roc70] R. T. Rockafellar, *Convex Analysis*, Princeton University Press, 1970, Section 26.
 * [LS] T. Lattimore and Cs. Szepesvári, *Bandit Algorithms*, Cambridge University Press, 2020,
   Section 26.4, Theorem 26.6.
+* [Ora] F. Orabona, *Online Learning: A Modern Introduction Using Convex Optimization*,
+  arXiv:1912.13213v10, Theorem 2.21.
 -/
 
 public section
@@ -63,6 +68,25 @@ section Subgradient
 
 variable [AddCommGroup E] [Module ℝ E] [TopologicalSpace E] {s : Set E} {f : E → ℝ}
   {g : E →L[ℝ] ℝ} {x y : E}
+
+/-- **Convexity from subgradients** [Ora, Theorem 2.21]. A function that has a subgradient on the
+convex set `s` at every point of `s` is convex on `s`. -/
+theorem Convex.convexOn_of_hasSubgradientWithinAt (hs : Convex ℝ s)
+    (hsub : ∀ x ∈ s, ∃ g : E →L[ℝ] ℝ, HasSubgradientWithinAt f g s x) :
+    ConvexOn ℝ s f := by
+  refine ⟨hs, fun x hx y hy a b ha hb hab ↦ ?_⟩
+  -- Average the subgradient inequalities at `z = a • x + b • y`, towards `x` and towards `y`.
+  obtain ⟨g, hg⟩ := hsub _ (hs hx hy ha hb hab)
+  set z := a • x + b • y
+  rw [hasSubgradientWithinAt_iff_le] at hg
+  have hlin : a * g (x - z) + b * g (y - z) = 0 := by
+    have hv : a • (x - z) + b • (y - z) = 0 := by
+      rw [show a • (x - z) + b • (y - z) = z - (a + b) • z by simp only [z]; module, hab,
+        one_smul, sub_self]
+    simpa only [map_add, map_smul, smul_eq_mul, map_zero] using congrArg g hv
+  have hz : (a + b) * f z = f z := by rw [hab, one_mul]
+  simp only [smul_eq_mul]
+  linarith [mul_le_mul_of_nonneg_left (hg x hx) ha, mul_le_mul_of_nonneg_left (hg y hy) hb]
 
 /-- **Strict convexity from separated subgradients.** A function that has a subgradient on the
 convex set `s` at every point of `s`, and no common subgradient at two distinct points of `s`, is
