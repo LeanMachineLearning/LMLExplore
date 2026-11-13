@@ -147,6 +147,20 @@ lemma le_dInf_iff : x ≤ dInf M P m ↔ ∀ Q ∈ M, m < Q[id] → x ≤ klDiv 
 lemma dInf_lt_iff : dInf M P m < x ↔ ∃ Q ∈ M, m < Q[id] ∧ klDiv P Q < x := by
   simp [dInf_def, iInf_lt_iff, and_assoc]
 
+/-- `d_inf(P, m, M)` can only grow when the set of laws `M` shrinks. -/
+lemma dInf_anti {M' : Set (Measure ℝ)} (hMM' : M ⊆ M') : dInf M' P m ≤ dInf M P m :=
+  le_dInf_iff.mpr fun _ hQ hm ↦ dInf_le (hMM' hQ) hm
+
+/-- Adding to `M` laws with a mean above `m` that are at infinite relative entropy from `P` leaves
+`d_inf(P, m, M)` unchanged. -/
+lemma dInf_eq_of_subset {M' : Set (Measure ℝ)} (hMM' : M ⊆ M')
+    (h : ∀ Q ∈ M' \ M, m < Q[id] → klDiv P Q = ∞) : dInf M' P m = dInf M P m := by
+  refine le_antisymm (dInf_anti hMM') (le_dInf_iff.mpr fun Q hQ hm ↦ ?_)
+  by_cases hQM : Q ∈ M
+  · exact dInf_le hQM hm
+  · rw [h Q ⟨hQ, hQM⟩ hm]
+    exact le_top
+
 end Defs
 
 variable [Finite α] [StandardBorelSpace α] {alg : Algorithm Unit α ℝ}
@@ -409,16 +423,13 @@ lemma dInf_range_bernoulliMeasure (hpm : (p : ℝ) ≤ m) (hm : m < 1) :
   have h_eq : dInf (Set.range fun q : I ↦ Ber((1 : ℝ), 0, q)) Ber((1 : ℝ), 0, p) m =
       dInf ((fun q : I ↦ Ber((1 : ℝ), 0, q)) '' {q | (q : ℝ) ∈ Set.Ioo 0 1})
         Ber((1 : ℝ), 0, p) m := by
-    refine le_antisymm (le_dInf_iff.mpr ?_) (le_dInf_iff.mpr ?_)
-    · rintro _ ⟨q, -, rfl⟩ hq
-      exact dInf_le ⟨q, rfl⟩ hq
-    · rintro _ ⟨q, rfl⟩ hq
-      have hq' : m < q := by simpa [TauCeti.Probability.integral_id_bernoulliMeasure] using hq
-      rcases q.2.2.lt_or_eq with hq1 | hq1
-      · exact dInf_le ⟨q, ⟨hmI.1.trans hq', hq1⟩, rfl⟩ hq
-      · rw [klDiv_bernoulliMeasure one_ne_zero,
-          (klBer_eq_top_iff p.2 q.2).mpr (Or.inr ⟨hq1, hpI.2.ne⟩)]
-        exact le_top
+    refine dInf_eq_of_subset (Set.image_subset_range _ _) ?_
+    rintro _ ⟨⟨q, rfl⟩, hqM⟩ hq
+    have hq' : m < q := by simpa [TauCeti.Probability.integral_id_bernoulliMeasure] using hq
+    have hq1 : (q : ℝ) = 1 :=
+      q.2.2.lt_or_eq.resolve_left fun hq1 ↦ hqM ⟨q, ⟨hmI.1.trans hq', hq1⟩, rfl⟩
+    rw [klDiv_bernoulliMeasure one_ne_zero,
+      (klBer_eq_top_iff p.2 q.2).mpr (Or.inr ⟨hq1, hpI.2.ne⟩)]
   -- These are the members of the exponential family of `Ber(1 / 2)`, `Ber(p)` is its member of
   -- mean `p`, and its divergence is `d`.
   rw [h_eq, ← image_expFamily_bernoulliMeasure_sigmoid 0,
