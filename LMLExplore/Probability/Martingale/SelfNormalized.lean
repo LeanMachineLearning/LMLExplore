@@ -170,8 +170,8 @@ theorem measure_exists_inner_ringInverse_designOp_ge_le [IsProbabilityMeasure P]
   have hσpos : (0 : ℝ) < σ2 := NNReal.coe_pos.2 (pos_iff_ne_zero.2 hσ)
   set d := finrank ℝ E
   set D₀ := LinearMap.det (V₀ : E →ₗ[ℝ] E)
-  have hD₀ : 0 < D₀ := hV₀.toLinearMap.det_pos
-    ((LinearMap.isUnit_iff_ker_eq_bot _).1 (hV₀u.map ContinuousLinearMap.toLinearMapRingHom))
+  have hD₀ : 0 < D₀ := by
+    simpa only [designOp_zero] using det_designOp_pos hV₀ hV₀u (fun _ ↦ (0 : E)) 0
   have hKd : 0 < (2 * π / σ2) ^ d := by positivity
   -- the mixture in closed form
   have hclosed (t : ℕ) (ω : Ω) : ∫ θ : E, exp (⟪θ, ∑ s ∈ range t, η s ω • x s ω⟫_ℝ -
