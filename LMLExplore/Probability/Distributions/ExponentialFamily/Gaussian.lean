@@ -7,7 +7,7 @@ module
 
 public import LMLExplore.Probability.Distributions.ExponentialFamily.Gamma
 public import LMLExplore.Probability.Distributions.ExponentialFamily.Invariance
-public import LMLExplore.Probability.Distributions.ExponentialFamily.Posterior
+public import LMLExplore.Probability.Distributions.ExponentialFamily.Posterior.Basic
 public import LMLExplore.Probability.Distributions.ExponentialFamily.UpperConfidence
 public import LMLExplore.Probability.Distributions.Gaussian.Real
 public import TauCeti.Probability.Distributions.Tilted
