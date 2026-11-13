@@ -41,17 +41,28 @@ entropy.
 * `softmax_mem_simplex`, `softmax_pos`: on a nonempty finite type, the softmax is a probability
   vector with positive entries.
 * `softmax_add_const`: adding a constant to every coordinate does not change the softmax.
+* `softmax_log_add_apply`, `softmax_log_softmax_add`: the softmax of `log w + v` is the
+  multiplicative update `a ↦ w a * exp (v a)` normalized, and a multiplicative update of a softmax
+  is a softmax.
 * `measurable_softmax`: `v ↦ softmax v` is measurable.
 * `sum_mul_exp_neg_sub_one_add_le`: for nonnegative weights `p`, a nonnegative loss `y` and
   `η ≥ 0`, `∑ b, p b * (exp (-(η * y b)) - 1 + η * y b) ≤ η ^ 2 / 2 * ∑ b, p b * y b ^ 2`.
 * `sum_mul_exp_neg_sub_one_add_le_of_neg_one_le`: for nonnegative weights `p` and a loss `y` with
   `η * y b ≥ -1`, `∑ b, p b * (exp (-(η * y b)) - 1 + η * y b) ≤ η ^ 2 * ∑ b, p b * y b ^ 2`.
 
+## Implementation notes
+
+The lemmas `softmax_log_add_apply` and `softmax_log_softmax_add` are adapted from the
+formalization of [SSKM26] in the paper project `RemyDegenne/Schlisselberg2026Hidden`
+(same author).
+
 ## References
 
 * [LS] T. Lattimore and Cs. Szepesvári, *Bandit Algorithms*, Cambridge University Press, 2020.
 * [Ora] F. Orabona, *Online learning: a modern introduction using convex optimization*,
   arXiv:1912.13213v10, 2026.
+* [SSKM26] O. Schlisselberg, U. Sherman, T. Koren and Y. Mansour, *The hidden cost of
+  approximation in online mirror descent*, arXiv:2511.22283v2, 2026.
 -/
 
 public section
@@ -96,6 +107,23 @@ lemma softmax_add_const (v : α → ℝ) (c : ℝ) :
 lemma softmax_zero : softmax (0 : α → ℝ) = fun _ ↦ (Fintype.card α : ℝ)⁻¹ := by
   funext a
   simp [softmax_apply]
+
+/-- The softmax of `log w + v`, for `w` with positive coordinates, is the multiplicative update
+of `w` by `exp v`: the vector `a ↦ w a * exp (v a)` normalized. -/
+lemma softmax_log_add_apply {w : α → ℝ} (hw : ∀ a, 0 < w a) (v : α → ℝ) (a : α) :
+    softmax (fun a ↦ log (w a) + v a) a = w a * exp (v a) / ∑ b, w b * exp (v b) := by
+  simp only [softmax_apply, exp_add, exp_log (hw _)]
+
+/-- A multiplicative update of a softmax is a softmax:
+`softmax (log (softmax v) + u) = softmax (v + u)`. -/
+lemma softmax_log_softmax_add [Nonempty α] (v u : α → ℝ) :
+    softmax (fun a ↦ log (softmax v a) + u a) = softmax (fun a ↦ v a + u a) := by
+  have hS : 0 < ∑ b, exp (v b) := sum_pos (fun b _ ↦ exp_pos _) univ_nonempty
+  have h : (fun a ↦ log (softmax v a) + u a) = fun a ↦ (v a + u a) + -log (∑ b, exp (v b)) := by
+    funext a
+    rw [softmax_apply, log_div (exp_pos _).ne' hS.ne', log_exp]
+    ring
+  rw [h, softmax_add_const]
 
 @[fun_prop]
 lemma measurable_softmax : Measurable (softmax (α := α)) := by

@@ -45,10 +45,21 @@ dual norm of the `ℓ¹` norm being the sup norm.
   negative entropy on `PiLp p (fun _ : α ↦ ℝ)` is `h ↦ ∑ a, log (x a) * h a`.
 * `LMLExplore.bregDiv_negEntropy`: on the simplex, the Bregman divergence of the negative entropy
   for that derivative is the relative entropy `∑ a, x a * log (x a / y a)`.
+* `LMLExplore.hasFDerivAt_negEntropy_pi`, `LMLExplore.bregDiv_negEntropy_pi`: the same on `α → ℝ`,
+  with the derivative `∑ a, log (x a) • ContinuousLinearMap.proj a`.
+
+## Implementation notes
+
+The lemmas on `α → ℝ`, `hasFDerivAt_negEntropy_pi` and `bregDiv_negEntropy_pi`, are adapted from
+`ForLMLExplore/Analysis/Convex/NegEntropy.lean` in the formalization of [SSKM26] in the paper
+project `RemyDegenne/Schlisselberg2026Hidden` (same author). Here `bregDiv_negEntropy_pi` is
+derived from `bregDiv_negEntropy` rather than reproved.
 
 ## References
 
 * [LS] T. Lattimore and Cs. Szepesvári, *Bandit Algorithms*, Cambridge University Press, 2020.
+* [SSKM26] O. Schlisselberg, U. Sherman, T. Koren and Y. Mansour, *The hidden cost of
+  approximation in online mirror descent*, arXiv:2511.22283v2, 2026.
 -/
 
 public section
@@ -207,5 +218,28 @@ theorem bregDiv_negEntropy {p : ℝ≥0∞} {x y : PiLp p fun _ : α ↦ ℝ}
     rw [sum_sub_distrib, (mem_simplex_iff.1 hx).2, (mem_simplex_iff.1 hy).2, sub_self]
   simp_rw [h_pt, sum_add_distrib, h_mass, add_zero, sum_sub_distrib, bregDiv, negEntropy_def]
   simp
+
+/-- At a vector `x` with nonzero coordinates, the negative entropy on `α → ℝ` has derivative
+`h ↦ ∑ a, log (x a) * h a`. This is `hasFDerivAt_negEntropy` for the sup norm of `α → ℝ`. -/
+theorem hasFDerivAt_negEntropy_pi {x : α → ℝ} (hx : ∀ a, x a ≠ 0) :
+    HasFDerivAt negEntropy (∑ a, log (x a) • ContinuousLinearMap.proj a : (α → ℝ) →L[ℝ] ℝ) x := by
+  rw [show (negEntropy : (α → ℝ) → ℝ) = fun x ↦ ∑ a, (x a * log (x a) - x a) from
+    funext negEntropy_def]
+  refine HasFDerivAt.fun_sum fun a _ ↦ ?_
+  have h : HasDerivAt (fun t ↦ t * log t - t) (log (x a)) (x a) := by
+    simpa using (hasDerivAt_mul_log (hx a)).fun_sub (hasDerivAt_id' (x a))
+  exact h.comp_hasFDerivAt x (hasFDerivAt_apply (𝕜 := ℝ) a x)
+
+/-- On the simplex, the **Bregman divergence of the negative entropy** on `α → ℝ`, for the
+derivative `h ↦ ∑ a, log (y a) * h a` of `hasFDerivAt_negEntropy_pi`, is the relative entropy
+`∑ a, x a * log (x a / y a)`, when `x a = 0` whenever `y a = 0`. This is `bregDiv_negEntropy`,
+since a Bregman divergence only evaluates the linear map. -/
+theorem bregDiv_negEntropy_pi {x y : α → ℝ} (hx : x ∈ simplex α) (hy : y ∈ simplex α)
+    (hxy : ∀ a, y a = 0 → x a = 0) :
+    bregDiv negEntropy x y (∑ a, log (y a) • ContinuousLinearMap.proj a : (α → ℝ) →L[ℝ] ℝ) =
+      ∑ a, x a * log (x a / y a) := by
+  have h := bregDiv_negEntropy (p := 1) (x := toLp 1 x) (y := toLp 1 y) (by rwa [ofLp_toLp])
+    (by rwa [ofLp_toLp]) (by simpa)
+  simpa [bregDiv] using h
 
 end LMLExplore
