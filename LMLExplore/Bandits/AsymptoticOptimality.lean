@@ -82,8 +82,12 @@ an instance, on the Bernoulli bandits with means in `(0, 1)`.
   `isLittleO_klucbFam_gaussianReal_regret_sub_mul_log`: the Gaussian instance with known variances
   `σ2 a`, with `c* = ∑_{a : Δ_a > 0} 2 σ2_a / Δ_a`.
 * `expFamilyTS_jeffreysPrior_regret_eventually_le_of_mem_image_expFamily`: on a bandit whose arms
-  are members of exponential families, the expected regret of Thompson sampling with the Jeffreys
-  priors satisfies `limsup_n E[R_n] / log n ≤ ∑_{a : Δ_a > 0} Δ_a / d_{ρ a}(μ_a, μ*)`.
+  are members of exponential families, where `μ*` is a mean of the family of every arm `a` with
+  positive gap, `μ_a` a mean of the family of the best arm, the Jeffreys posteriors of the arms
+  with positive gap are proper after some observations, and the Jeffreys prior of the best arm is
+  finite on the natural parameters of the means at most `m`, for every `m < μ*`, the expected
+  regret of Thompson sampling with the Jeffreys priors satisfies
+  `limsup_n E[R_n] / log n ≤ ∑_{a : Δ_a > 0} Δ_a / d_{ρ a}(μ_a, μ*)`.
 * `expFamilyTS_jeffreysPrior_regret_eventually_le_of_common_means`: the same bound for families
   with a common set of means, proper Jeffreys posteriors and Jeffreys priors finite below every
   mean.
