@@ -39,6 +39,12 @@ over the alternatives.
   predictor against a law that charges every point is a martingale.
 * `LMLExplore.integral_predictorLikelihoodRatio`: it has mean `1`.
 
+## Implementation notes
+
+The supermartingale property is adapted, and generalised from Laplace's rule of succession to
+every predictor, from `InformationTheory/KLTimeUniform.lean` of the formalization
+RemyDegenne/Essakine2026Tight (commit 38bbd16f, directory `ForLMLExplore/`).
+
 ## References
 
 * [JKMDLV20] A. Jonsson, E. Kaufmann, P. Ménard, O. D. Domingues, E. Leurent and M. Valko,

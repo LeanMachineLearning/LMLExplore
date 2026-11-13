@@ -10,6 +10,7 @@ public import Mathlib.Probability.Independence.InfinitePi
 public import LMLExplore.Data.Nat.Choose.Bounds
 public import LMLExplore.Probability.Martingale.LikelihoodRatio
 public import LMLExplore.Probability.Martingale.Ville
+public import LMLExplore.Probability.Process.Filtration
 public import LMLExplore.SequentialLearning.FiniteActions
 public import TauCeti.MeasureTheory.Measure.Decomposition.Lebesgue
 public import TauCeti.Probability.Process.EmpiricalMeasure
@@ -31,9 +32,9 @@ the probability that it ever reaches `1 / δ`. The likelihood of the rule of suc
 `∏_{t < n} q_t(ξ t) = ∏ₐ N_n(a)! / (m (m + 1) ⋯ (m + n - 1))`
 (`LMLExplore.prod_range_laplacePredictor`), the mixture of the likelihoods `∏_{t < n} p(ξ t)` over
 the uniform law of the probability vector `p`. It is within the factor
-`binom(n + m - 1, m - 1) ≤ (e (1 + n / (m - 1)))^{m - 1}` of the maximum likelihood
-`∏ₐ (N_n(a) / n)^{N_n(a)} = exp (n KL(p̂_n ‖ ν)) ∏_{t < n} ν{ξ t}`, by the multinomial bound
-`Nat.multinomial_mul_prod_pow_le_one`
+`binom(n + m - 1, m - 1) ≤ (e (1 + n / (m - 1)))^{m - 1}` (`Nat.ascFactorial_div_factorial_le`)
+of the maximum likelihood `∏ₐ (N_n(a) / n)^{N_n(a)} = exp (n KL(p̂_n ‖ ν)) ∏_{t < n} ν{ξ t}`, by the
+multinomial bound `Nat.prod_div_pow_le_prod_factorial_div`
 (`LMLExplore.exp_mul_toReal_klDiv_le_mul_predictorLikelihoodRatio_laplacePredictor`).
 
 ## Main statements
@@ -129,7 +130,7 @@ variable [MeasurableSpace α] [MeasurableSingletonClass α]
 omit [Fintype α] in
 /-- The mass of a point under the empirical distribution of `ξ 0, …, ξ (n - 1)` is its frequency
 `N_n(a) / n`. -/
-lemma measureReal_empiricalFiniteMeasure_singleton_eq_pullCount (n : ℕ) (ω : Ω) (a : α) :
+lemma measureReal_empiricalFiniteMeasure_singleton_eq_pullCount_div (n : ℕ) (ω : Ω) (a : α) :
     (empiricalFiniteMeasure (fun k : Fin n ↦ ξ k ω) : Measure α).real {a} =
       pullCount ξ a n ω / n := by
   have h_sum : ∑ k : Fin n, ({a} : Set α).indicator (1 : α → ℝ≥0∞) (ξ k ω) = pullCount ξ a n ω := by
@@ -140,6 +141,15 @@ lemma measureReal_empiricalFiniteMeasure_singleton_eq_pullCount (n : ℕ) (ω : 
   rw [measureReal_def, empiricalFiniteMeasure_apply (measurableSet_singleton a), h_sum,
     ENNReal.toReal_mul, ENNReal.toReal_inv, Fintype.card_fin, ENNReal.toReal_natCast,
     ENNReal.toReal_natCast, inv_mul_eq_div]
+
+omit [Fintype α] [DecidableEq α] [MeasurableSingletonClass α] in
+/-- The empirical distribution of a finite family `x` of points charged by `ν` is absolutely
+continuous with respect to `ν`. -/
+lemma empiricalFiniteMeasure_absolutelyContinuous {κ : Type*} [Fintype κ] {ν : Measure α}
+    {x : κ → α} (hx : ∀ i, ν {x i} ≠ 0) : (empiricalFiniteMeasure x : Measure α) ≪ ν :=
+  Measure.AbsolutelyContinuous.mk fun s hs hνs ↦ by
+    rw [empiricalFiniteMeasure_apply hs, sum_eq_zero fun i _ ↦ Set.indicator_of_notMem
+      (fun hi ↦ hx i (measure_mono_null (Set.singleton_subset_iff.2 hi) hνs)) _, mul_zero]
 
 omit [Fintype α] [DecidableEq α] in
 /-- **The divergence of an empirical distribution**: for a nonempty finite family `x` of points
@@ -152,9 +162,7 @@ theorem exp_mul_toReal_klDiv_empiricalFiniteMeasure {κ : Type*} [Fintype κ] [N
   set p : Measure α := (empiricalFiniteMeasure x : Measure α)
   have hκ : (0 : ℝ) < Fintype.card κ := by exact_mod_cast Fintype.card_pos
   -- the empirical distribution only charges the points `x i`
-  have hac : p ≪ ν := Measure.AbsolutelyContinuous.mk fun s hs hνs ↦ by
-    rw [empiricalFiniteMeasure_apply hs, sum_eq_zero fun i _ ↦ Set.indicator_of_notMem
-      (fun hi ↦ hx i (measure_mono_null (Set.singleton_subset_iff.2 hi) hνs)) _, mul_zero]
+  have hac : p ≪ ν := empiricalFiniteMeasure_absolutelyContinuous hx
   have hp_pos : ∀ i, 0 < p.real {x i} := fun i ↦ by
     refine ENNReal.toReal_pos ?_ (measure_ne_top _ _)
     rw [empiricalFiniteMeasure_apply (measurableSet_singleton _)]
@@ -195,7 +203,6 @@ theorem exp_mul_toReal_klDiv_le_mul_predictorLikelihoodRatio_laplacePredictor
   set m := Fintype.card α with hm_def
   have hm : 1 ≤ m := Fintype.card_pos
   set N : α → ℕ := fun a ↦ pullCount ξ a n ω with hN
-  have hnR : (0 : ℝ) < n := by exact_mod_cast Nat.pos_of_ne_zero hn
   have hN_sum : ∑ a, N a = n := sum_pullCount
   -- `P = ∏_{t < n} ν{ξ t} > 0`
   set P := ∏ t ∈ range n, ν.real {ξ t ω}
@@ -209,7 +216,7 @@ theorem exp_mul_toReal_klDiv_le_mul_predictorLikelihoodRatio_laplacePredictor
     rw [Fintype.card_fin] at h
     rw [h, Fin.prod_univ_eq_prod_range (fun t ↦ (empiricalFiniteMeasure fun k : Fin n ↦ ξ k ω :
       Measure α).real {ξ t ω} / ν.real {ξ t ω}) n, prod_div_distrib]
-    simp_rw [measureReal_empiricalFiniteMeasure_singleton_eq_pullCount]
+    simp_rw [measureReal_empiricalFiniteMeasure_singleton_eq_pullCount_div]
     rw [← prod_pow_pullCount (A := ξ) (fun a ↦ (pullCount ξ a n ω : ℝ) / n) n ω]
   -- the likelihood of the rule of succession: `L_n P = ∏ₐ N a ! / m^{(n)}`
   have h_lap : predictorLikelihoodRatio ν (laplacePredictor ξ) ξ n ω =
@@ -217,27 +224,11 @@ theorem exp_mul_toReal_klDiv_le_mul_predictorLikelihoodRatio_laplacePredictor
     rw [predictorLikelihoodRatio_def, prod_div_distrib, prod_range_laplacePredictor]
   -- the multinomial bound: `∏ₐ (N a / n) ^ N a ≤ ∏ₐ N a ! / n!`
   have h_mult : ∏ a, ((N a : ℝ) / n) ^ N a ≤ (∏ a, ((N a)! : ℝ)) / n ! := by
-    have h1 := Nat.multinomial_mul_prod_pow_le_one univ N (p := fun a ↦ (N a : ℝ) / n)
-      (fun a _ ↦ by positivity) (by rw [← sum_div, ← Nat.cast_sum, hN_sum, div_self hnR.ne'])
-    have h2 : (∏ a, ((N a)! : ℝ)) * (Nat.multinomial univ N : ℝ) = n ! := by
-      exact_mod_cast hN_sum ▸ Nat.multinomial_spec univ N
-    have h3 : (0 : ℝ) < Nat.multinomial univ N := by exact_mod_cast Nat.multinomial_pos _ _
-    rw [le_div_iff₀ (by positivity), ← h2]
-    nlinarith [prod_nonneg fun a (_ : a ∈ univ) ↦ (Nat.cast_nonneg (N a)! : (0 : ℝ) ≤ _),
-      mul_le_mul_of_nonneg_left h1 (prod_nonneg fun a (_ : a ∈ univ) ↦
-        (Nat.cast_nonneg (N a)! : (0 : ℝ) ≤ _))]
+    simpa only [hN_sum] using Nat.prod_div_pow_le_prod_factorial_div (R := ℝ) univ N
   -- the binomial bound: `m^{(n)} / n! = binom(n + m - 1, m - 1) ≤ (e (1 + n / (m - 1)))^{m - 1}`
   have h_choose : (m.ascFactorial n : ℝ) / n ! ≤
       (exp 1 * (1 + n / (m - 1 : ℕ))) ^ (m - 1) := by
-    rw [Nat.ascFactorial_eq_factorial_mul_choose', Nat.cast_mul, mul_div_cancel_left₀ _
-      (by positivity), show m + n - 1 = (m - 1) + n by omega, ← Nat.choose_symm_add]
-    refine (Nat.choose_le_exp_one_mul_div_pow _ _).trans_eq ?_
-    rcases Nat.eq_zero_or_pos (m - 1) with h0 | h0
-    · simp [h0]
-    · have : (0 : ℝ) < (m - 1 : ℕ) := by exact_mod_cast h0
-      congr 1
-      push_cast
-      field_simp
+    simpa only [Nat.sub_add_cancel hm] using Nat.ascFactorial_div_factorial_le (m - 1) n
   rw [h_max, h_lap]
   have h_asc : (0 : ℝ) < m.ascFactorial n := by
     obtain ⟨k, hk⟩ := Nat.exists_eq_add_of_le hm
@@ -263,10 +254,8 @@ private lemma one_div_le_predictorLikelihoodRatio [IsProbabilityMeasure ν] {n :
   set C := (exp 1 * (1 + n / (Fintype.card α - 1 : ℕ))) ^ (Fintype.card α - 1) with hC
   have hC_pos : 0 < C := by positivity
   -- the divergence is finite, since `p̂_n` is absolutely continuous with respect to `ν`
-  have hKL : klDiv p ν ≠ ∞ := by
-    refine klDiv_ne_top (Measure.AbsolutelyContinuous.mk fun s hs hνs ↦ ?_) Integrable.of_finite
-    rw [empiricalFiniteMeasure_apply hs, sum_eq_zero fun (i : Fin n) _ ↦ Set.indicator_of_notMem
-      (fun hi ↦ hξ i i.2 (measure_mono_null (Set.singleton_subset_iff.2 hi) hνs)) _, mul_zero]
+  have hKL : klDiv p ν ≠ ∞ :=
+    klDiv_ne_top (empiricalFiniteMeasure_absolutelyContinuous fun i ↦ hξ i i.2) Integrable.of_finite
   have h_le : log (1 / δ) + log C ≤ n * (klDiv p ν).toReal := by
     rw [← ENNReal.ofReal_toReal hKL, ← ENNReal.ofReal_natCast, ← ENNReal.ofReal_mul (by simp),
       ENNReal.ofReal_le_ofReal_iff'] at h
@@ -346,22 +335,11 @@ theorem _root_.ProbabilityTheory.iIndepFun.measure_exists_le_mul_klDiv_empirical
   rw [(h_indep.hasLaw_infinitePi hlaw h_meas).map_eq] at h_map
   refine h_map.trans ?_
   -- the filtration generated by the coordinates of index `k < n`
-  let ℱ : Filtration ℕ (MeasurableSpace.pi : MeasurableSpace (ℕ → α)) :=
-    { seq n := ⨆ k < n, MeasurableSpace.comap (fun x : ℕ → α ↦ x k) inferInstance
-      mono' _ _ hij := biSup_mono fun _ hk ↦ lt_of_lt_of_le hk hij
-      le' _ := iSup₂_le fun k _ ↦ (measurable_pi_apply k).comap_le }
-  have hY : ∀ n, Measurable[ℱ (n + 1)] (fun x : ℕ → α ↦ x n) := fun n ↦
-    (comap_measurable _).mono (le_iSup₂ (f := fun k (_ : k < n + 1) ↦
-      MeasurableSpace.comap (fun x : ℕ → α ↦ x k) inferInstance) n n.lt_succ_self) le_rfl
-  have h_iIndep : iIndep (fun k ↦ MeasurableSpace.comap (fun x : ℕ → α ↦ x k) inferInstance) P :=
-    (iIndepFun_iff_iIndep _ _ _).1 (iIndepFun_infinitePi (X := fun _ ↦ id) fun _ ↦ measurable_id)
-  have hind : ∀ n, Indep (MeasurableSpace.comap (fun x : ℕ → α ↦ x n) inferInstance) (ℱ n) P :=
-    fun n ↦ by
-      have h := indep_iSup_of_disjoint (fun k ↦ (measurable_pi_apply k).comap_le) h_iIndep
-        (S := {n}) (T := Set.Iio n) (by simp)
-      simpa only [Set.mem_singleton_iff, iSup_iSup_eq_left, Set.mem_Iio] using h
   exact LMLExplore.measure_exists_le_mul_klDiv_empiricalFiniteMeasure_le
-    (ξ := fun k (x : ℕ → α) ↦ x k) hY hind
+    (ξ := fun k (x : ℕ → α) ↦ x k) (ℱ := Filtration.naturalLT _ measurable_pi_apply)
+    (fun n ↦ Filtration.measurable_naturalLT measurable_pi_apply n.lt_succ_self)
+    (Filtration.indep_naturalLT measurable_pi_apply
+      (iIndepFun_infinitePi (X := fun _ ↦ id) fun _ ↦ measurable_id))
     (fun n ↦ (measurePreserving_eval_infinitePi (fun _ ↦ ν) n).hasLaw) hδ
 
 end LMLExplore

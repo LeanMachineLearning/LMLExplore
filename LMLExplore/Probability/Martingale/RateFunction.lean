@@ -7,6 +7,7 @@ module
 
 public import LMLExplore.Probability.Martingale.MGFBound
 public import LMLExplore.Probability.Moments.RateFunction
+public import LMLExplore.Probability.Process.Filtration
 
 /-!
 # Self-normalized deviations of selected variables, measured by the rate function
@@ -349,18 +350,10 @@ private lemma exists_filtration_hasCondMGFBound (h_indep : iIndepFun Z P)
     ∃ ℱ : Filtration ℕ mΩ, (∀ n, Measurable[ℱ (n + 1)] (Z n)) ∧
       ∀ n, HasCondMGFBound (ℱ n) (ℱ.le n) (Z n) (cgf Y Q) (Λ ∩ integrableExpSet Y Q) P := by
   -- the filtration of the past variables, of which `Z n` is independent
-  let ℱ : Filtration ℕ mΩ :=
-    { seq n := ⨆ i ∈ Set.Iio n, MeasurableSpace.comap (Z i) inferInstance
-      mono' _ _ hnm := biSup_mono fun i hi ↦ lt_of_lt_of_le hi hnm
-      le' _ := iSup₂_le fun i _ ↦ (hZm i).comap_le }
-  refine ⟨ℱ, fun n ↦ ?_, fun n ↦ ?_⟩
-  · exact Measurable.of_comap_le (le_iSup₂ (f := fun i (_ : i ∈ Set.Iio (n + 1)) ↦
-      MeasurableSpace.comap (Z i) inferInstance) n (Nat.lt_succ_self n))
-  · refine HasMGFBound.hasCondMGFBound_of_indep
-      (mgfDominatedOn_iff_hasMGFBound.1 (hZ n)) (hZm n) ?_
-    have h := indep_iSup_of_disjoint (fun i ↦ (hZm i).comap_le) h_indep
-      (S := {n}) (T := Set.Iio n) (by simp)
-    simpa only [Set.mem_singleton_iff, iSup_iSup_eq_left] using h
+  refine ⟨Filtration.naturalLT Z hZm, fun n ↦ Filtration.measurable_naturalLT hZm n.lt_succ_self,
+    fun n ↦ ?_⟩
+  exact HasMGFBound.hasCondMGFBound_of_indep (mgfDominatedOn_iff_hasMGFBound.1 (hZ n)) (hZm n)
+    (Filtration.indep_naturalLT hZm h_indep n)
 
 /-- **Time-uniform Chernoff bound for sums of independent variables, with the rate function.** Let
 `Z 0, Z 1, …` be independent, each dominated on `Set.Ici 0`, in moment generating function, by the
