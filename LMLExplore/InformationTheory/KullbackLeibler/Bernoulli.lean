@@ -48,7 +48,8 @@ smallest `q ∈ [0, p]` with `d(p, q) ≤ c`; together they are the confidence b
 
 ## Main statements
 
-* `LMLExplore.klDiv_bernoulliMeasure`: `D(Ber(1, 0, p), Ber(1, 0, q)) = klBer p q`.
+* `LMLExplore.klDiv_bernoulliMeasure`: `D(Ber(x, y, p), Ber(x, y, q)) = klBer p q` for any two
+  distinct points `x ≠ y` of a measurable space with measurable singletons.
 * `LMLExplore.klBer_measureReal_le_klDiv`: the data processing inequality
   `d(μ s, ν s) ≤ KL(μ ‖ ν)` for probability measures `μ`, `ν` and a measurable set `s`.
 * `LMLExplore.klBer_integral_le_klDiv`: the data processing inequality
@@ -123,6 +124,10 @@ smallest `q ∈ [0, p]` with `d(p, q) ≤ c`; together they are the confidence b
 * The derivative, monotonicity and quasi-convexity proofs are adapted from the formalization in
   the LMLPapers project
   (`LMLPapers/LeanMachineLearning/ForMathlib/InformationTheory/KullbackLeibler/Bernoulli.lean`).
+* The generalization of `klDiv_bernoulliMeasure` to two distinct points and its proof are adapted
+  from the formalization in the RemyDegenne/Essakine2026Tight project
+  (`Essakine2026Tight/ForLMLExplore/InformationTheory/KullbackLeibler/Bernoulli.lean`, commit
+  73a8c16c).
 -/
 
 public section
@@ -149,12 +154,37 @@ noncomputable def klBerReal (p q : ℝ) : ℝ :=
 
 variable {p q : ℝ}
 
-/-- The relative entropy between two real Bernoulli laws on `{0, 1}` is the binary relative
-entropy of their parameters. -/
+/-- The relative entropy between two Bernoulli laws on two distinct points `x ≠ y` of a measurable
+space with measurable singletons is the binary relative entropy of their parameters. The laws on
+`{1, 0} ⊆ ℝ`, by which `klBer` is defined, are the case `x = 1`, `y = 0`. -/
 @[simp]
-theorem klDiv_bernoulliMeasure (p q : I) :
-    klDiv Ber((1 : ℝ), 0, p) Ber((1 : ℝ), 0, q) = klBer p q := by
-  simp [klBer]
+theorem klDiv_bernoulliMeasure {X : Type*} [MeasurableSpace X] [MeasurableSingletonClass X]
+    {x y : X} (hxy : x ≠ y) (p q : I) :
+    klDiv Ber(x, y, p) Ber(x, y, q) = klBer p q := by
+  classical
+  have h10 : klDiv Ber((1 : ℝ), 0, p) Ber((1 : ℝ), 0, q) = klBer p q := by simp [klBer]
+  -- `Ber(x, y, ·)` and `Ber(1, 0, ·)` are images of each other by measurable maps.
+  have hf : Measurable fun z : X ↦ if z = x then (1 : ℝ) else 0 :=
+    Measurable.ite (measurableSet_singleton x) measurable_const measurable_const
+  have hg : Measurable fun r : ℝ ↦ if r = 1 then x else y :=
+    Measurable.ite (measurableSet_singleton 1) measurable_const measurable_const
+  have hfB (r : I) :
+      Ber(x, y, r).map (fun z ↦ if z = x then (1 : ℝ) else 0) = Ber((1 : ℝ), 0, r) := by
+    rw [map_bernoulliMeasure' x y hf]
+    simp [hxy.symm]
+  have hgB (r : I) : Ber((1 : ℝ), 0, r).map (fun r ↦ if r = 1 then x else y) = Ber(x, y, r) := by
+    rw [map_bernoulliMeasure' _ _ hg]
+    simp
+  refine le_antisymm ?_ ?_
+  · calc klDiv Ber(x, y, p) Ber(x, y, q)
+        = klDiv (Ber((1 : ℝ), 0, p).map fun r ↦ if r = 1 then x else y)
+            (Ber((1 : ℝ), 0, q).map fun r ↦ if r = 1 then x else y) := by rw [hgB, hgB]
+      _ ≤ klDiv Ber((1 : ℝ), 0, p) Ber((1 : ℝ), 0, q) := klDiv_map_le _ _ hg
+      _ = klBer p q := h10
+  · calc klBer p q = klDiv Ber((1 : ℝ), 0, p) Ber((1 : ℝ), 0, q) := h10.symm
+      _ = klDiv (Ber(x, y, p).map fun z ↦ if z = x then (1 : ℝ) else 0)
+            (Ber(x, y, q).map fun z ↦ if z = x then (1 : ℝ) else 0) := by rw [hfB, hfB]
+      _ ≤ klDiv Ber(x, y, p) Ber(x, y, q) := klDiv_map_le _ _ hf
 
 theorem klBer_def (p q : ℝ) :
     klBer p q = klDiv Ber((1 : ℝ), 0, Set.projIcc 0 1 zero_le_one p)
@@ -182,7 +212,7 @@ theorem klBer_measureReal_le_klDiv {α : Type*} {mα : MeasurableSpace α} {μ �
   have hν := hasLaw_indicator_one_bernoulliMeasure (M := ℝ) (P := ν) hs.nullMeasurableSet
   calc klBer (μ.real s) (ν.real s)
       = klDiv (μ.map (s.indicator 1)) (ν.map (s.indicator 1)) := by
-        rw [hμ.map_eq, hν.map_eq, klDiv_bernoulliMeasure]
+        rw [hμ.map_eq, hν.map_eq, klDiv_bernoulliMeasure one_ne_zero]
     _ ≤ klDiv μ ν := klDiv_map_le μ ν (measurable_const.indicator hs)
 
 /-- **Data processing inequality** for laws on `[0, 1]`: for probability measures `μ` and `ν` on
