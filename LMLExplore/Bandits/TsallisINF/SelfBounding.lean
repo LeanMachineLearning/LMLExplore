@@ -138,13 +138,6 @@ theorem pseudoRegret_le_sum_integral_sum_sqrt (h : IsAlgEnvSeq O A Y tsallisINF 
       rw [integral_finsetSum _ fun b _ ↦ integrable_sqrt_tsallisINFWeights h t b]
       ring
 
-/-- `2 q s - Δ s ^ 2 ≤ q ^ 2 / Δ` for `Δ > 0`: the gain of a round with weight `s ^ 2` is at most
-`q ^ 2 / Δ`. -/
-private lemma two_mul_mul_sub_mul_sq_le {q s Δ : ℝ} (hΔ : 0 < Δ) :
-    2 * q * s - Δ * s ^ 2 ≤ q ^ 2 / Δ := by
-  rw [le_div_iff₀ hΔ]
-  nlinarith [sq_nonneg (q - Δ * s)]
-
 /-- **Logarithmic pseudo-regret of Tsallis-INF under a self-bounding constraint** [ZS21],
 [Ora, Section 9.3]. Along a run of Tsallis-INF against any environment whose
 feedbacks of the rounds `t < n` are almost surely in `[0, 1]`, with `P t` the weights of
@@ -170,15 +163,13 @@ theorem pseudoRegret_le_log_of_selfBounding (h : IsAlgEnvSeq O A Y tsallisINF en
       (hP.const_mul _)]
     refine (integral_mono ((hS.const_mul _).sub (hP.const_mul _))
       (integrable_const (144 * ((Δ b)⁻¹ * ((t : ℝ) + 1)⁻¹))) fun ω ↦ ?_).trans_eq (by simp)
-    -- pointwise, `2 q √p - Δ p ≤ q ^ 2 / Δ` with `q = 12 / √(t + 1)`
+    -- pointwise, `2 √p q ≤ Δ p + Δ⁻¹ q ^ 2` with `q = 12 / √(t + 1)`
     have hW := (simplex_subset_Icc (tsallisINFWeights_mem_simplex t (history O A Y t ω))).1 b
-    have hq := two_mul_mul_sub_mul_sq_le (q := 12 / √((t : ℝ) + 1))
-      (s := √(tsallisINFWeights t (history O A Y t ω) b)) hΔb
+    have hq := two_mul_le_add_mul_sq (a := √(tsallisINFWeights t (history O A Y t ω) b))
+      (b := 12 / √((t : ℝ) + 1)) hΔb
     rw [sq_sqrt hW, div_pow, sq_sqrt (by positivity)] at hq
-    convert hq using 1
-    · simp only [Pi.sub_apply]
-      ring
-    · ring
+    simp only [Pi.sub_apply]
+    linear_combination hq
   calc pseudoRegret env O A Y P n
   _ ≤ 2 * ∑ t ∈ range n, 12 / √((t : ℝ) + 1) *
         ∑ b ∈ univ.erase a', P[fun ω ↦ √(tsallisINFWeights t (history O A Y t ω) b)] -
