@@ -191,7 +191,7 @@ instance [IsProbabilityMeasure μ] [∀ n, IsMarkovKernel (P n)] [∀ n, IsMarko
 lemma stateMarginal_const (π : Kernel 𝓢 𝓐) [IsSFiniteKernel π] [SFinite μ] (n : ℕ) :
     stateMarginal (fun _ ↦ M.P) (fun _ ↦ π) μ n = (M.stateKernel π ^ n) ∘ₘ μ := by
   induction n with
-  | zero => rw [stateMarginal_zero, pow_zero, Kernel.one_eq_id, Measure.id_comp]
+  | zero => rw [stateMarginal_zero, pow_zero, Kernel.one_def, Measure.id_comp]
   | succ n ih =>
     rw [stateMarginal_add_one, ← stateKernel_comp_eq_comp_compProd, ih, Measure.comp_assoc,
       pow_succ', Kernel.mul_eq_comp]
@@ -201,7 +201,7 @@ lemma stateMarginal_const (π : Kernel 𝓢 𝓐) [IsSFiniteKernel π] [SFinite 
 lemma stateMarginal_const_compProd (π : Kernel 𝓢 𝓐) [IsSFiniteKernel π] (n : ℕ) :
     stateMarginal (fun _ ↦ M.P) (fun _ ↦ π) μ n ⊗ₘ π = (M.saKernel π ^ n) ∘ₘ (μ ⊗ₘ π) := by
   induction n with
-  | zero => rw [stateMarginal_zero, pow_zero, Kernel.one_eq_id, Measure.id_comp]
+  | zero => rw [stateMarginal_zero, pow_zero, Kernel.one_def, Measure.id_comp]
   | succ n ih =>
     rw [stateMarginal_add_one, ← saKernel_comp_eq_compProd, ih, Measure.comp_assoc, pow_succ',
       Kernel.mul_eq_comp]
