@@ -42,19 +42,32 @@ dual norm of the `ℓ¹` norm being the sup norm.
   simplex, `-log k - 1 ≤ negEntropy x ≤ -1`.
 * `LMLExplore.strongConvexOn_negEntropy`: the negative entropy is `1`-strongly convex on the
   simplex for the `ℓ¹` norm.
-* `LMLExplore.hasFDerivAt_negEntropy`: at a vector with nonzero coordinates, the derivative of the
-  negative entropy on `α → ℝ` is `h ↦ ∑ a, log (x a) * h a`; `hasFDerivAt_negEntropy_ofLp` is
-  the same derivative on `PiLp p (fun _ : α ↦ ℝ)`.
-* `LMLExplore.bregDiv_negEntropy`: the Bregman divergence of the negative entropy for that
-  derivative is the generalized relative entropy `∑ a, (x a * log (x a / y a) - x a + y a)`.
-* `LMLExplore.bregDiv_negEntropy_of_mem_simplex`: on the simplex, it is the relative entropy
+* `LMLExplore.hasFDerivAt_negEntropy_pi`: at a vector with nonzero coordinates, the derivative of
+  the negative entropy on `α → ℝ` is `h ↦ ∑ a, log (x a) * h a`; `hasFDerivAt_negEntropy` is the
+  same derivative on `PiLp p (fun _ : α ↦ ℝ)`.
+* `LMLExplore.bregDiv_negEntropy_pi_eq`: the Bregman divergence of the negative entropy on
+  `α → ℝ` for that derivative is the generalized relative entropy
+  `∑ a, (x a * log (x a / y a) - x a + y a)`.
+* `LMLExplore.bregDiv_negEntropy_pi`: on the simplex, it is the relative entropy
   `∑ a, x a * log (x a / y a)`.
 * `LMLExplore.bregDiv_negEntropy_ofLp`: the Bregman divergence on `PiLp p (fun _ : α ↦ ℝ)` is the
-  one on `α → ℝ`, whatever `p`.
+  one on `α → ℝ`, whatever `p`; `bregDiv_negEntropy` is the relative entropy form on
+  `PiLp p (fun _ : α ↦ ℝ)`.
+
+## Implementation notes
+
+The lemmas on `α → ℝ`, `hasFDerivAt_negEntropy_pi`, `bregDiv_negEntropy_pi_eq` and
+`bregDiv_negEntropy_pi`, are adapted from the lemmas of the same names in
+`Schlisselberg2026Hidden/ForLMLExplore/Analysis/Convex/NegEntropy.lean` (commit `a7e3b85`) in the
+formalization of [SSKM26] in the paper project `RemyDegenne/Schlisselberg2026Hidden` (same
+author). The `PiLp p` forms `hasFDerivAt_negEntropy` and `bregDiv_negEntropy` are derived from
+them, through `PiLp.hasFDerivAt_ofLp` and `bregDiv_negEntropy_ofLp`.
 
 ## References
 
 * [LS] T. Lattimore and Cs. Szepesvári, *Bandit Algorithms*, Cambridge University Press, 2020.
+* [SSKM26] O. Schlisselberg, U. Sherman, T. Koren and Y. Mansour, *The hidden cost of
+  approximation in online mirror descent*, arXiv:2511.22283v2, 2026.
 -/
 
 public section
@@ -183,29 +196,32 @@ theorem strongConvexOn_negEntropy :
 
 /-- At a vector `x` with nonzero coordinates, the negative entropy on `α → ℝ` has derivative
 `h ↦ ∑ a, log (x a) * h a`. -/
-theorem hasFDerivAt_negEntropy {x : α → ℝ} (hx : ∀ a, x a ≠ 0) :
+theorem hasFDerivAt_negEntropy_pi {x : α → ℝ} (hx : ∀ a, x a ≠ 0) :
     HasFDerivAt negEntropy (∑ a, log (x a) • ContinuousLinearMap.proj a : (α → ℝ) →L[ℝ] ℝ) x := by
-  rw [show negEntropy = fun x : α → ℝ ↦ ∑ a, (x a * log (x a) - x a) from funext negEntropy_def]
+  rw [show (negEntropy : (α → ℝ) → ℝ) = fun x ↦ ∑ a, (x a * log (x a) - x a) from
+    funext negEntropy_def]
   refine HasFDerivAt.fun_sum fun a _ ↦ ?_
   have h : HasDerivAt (fun t ↦ t * log t - t) (log (x a)) (x a) := by
     simpa using (hasDerivAt_mul_log (hx a)).fun_sub (hasDerivAt_id' (x a))
-  exact h.comp_hasFDerivAt x (ContinuousLinearMap.proj (R := ℝ) (φ := fun _ : α ↦ ℝ) a).hasFDerivAt
+  exact h.comp_hasFDerivAt x (hasFDerivAt_apply (𝕜 := ℝ) a x)
 
 /-- At a vector `x` with nonzero coordinates, the negative entropy on `PiLp p (fun _ : α ↦ ℝ)`
-has derivative `h ↦ ∑ a, log (x a) * h a`. -/
-theorem hasFDerivAt_negEntropy_ofLp {p : ℝ≥0∞} [Fact (1 ≤ p)] {x : PiLp p fun _ : α ↦ ℝ}
+has derivative `h ↦ ∑ a, log (x a) * h a`. This is `hasFDerivAt_negEntropy_pi` composed with
+`ofLp`. -/
+theorem hasFDerivAt_negEntropy {p : ℝ≥0∞} [Fact (1 ≤ p)] {x : PiLp p fun _ : α ↦ ℝ}
     (hx : ∀ a, x a ≠ 0) :
     HasFDerivAt (fun x : PiLp p (fun _ : α ↦ ℝ) ↦ negEntropy (ofLp x))
       (∑ a, log (x a) • PiLp.proj (𝕜 := ℝ) p (fun _ : α ↦ ℝ) a) x := by
-  refine ((hasFDerivAt_negEntropy hx).comp x (PiLp.hasFDerivAt_ofLp (𝕜 := ℝ) p x)).congr_fderiv ?_
+  refine ((hasFDerivAt_negEntropy_pi hx).comp x
+    (PiLp.hasFDerivAt_ofLp (𝕜 := ℝ) p x)).congr_fderiv ?_
   ext h
   simp
 
 /-- The **Bregman divergence of the negative entropy** on `α → ℝ`, for the derivative
-`h ↦ ∑ a, log (y a) * h a` of `hasFDerivAt_negEntropy`, is the generalized relative entropy
+`h ↦ ∑ a, log (y a) * h a` of `hasFDerivAt_negEntropy_pi`, is the generalized relative entropy
 `∑ a, (x a * log (x a / y a) - x a + y a)` of `x` with respect to `y`, when `x a = 0` whenever
 `y a = 0`. -/
-theorem bregDiv_negEntropy {x y : α → ℝ} (hxy : ∀ a, y a = 0 → x a = 0) :
+theorem bregDiv_negEntropy_pi_eq {x y : α → ℝ} (hxy : ∀ a, y a = 0 → x a = 0) :
     bregDiv negEntropy x y (∑ a, log (y a) • ContinuousLinearMap.proj a : (α → ℝ) →L[ℝ] ℝ) =
       ∑ a, (x a * log (x a / y a) - x a + y a) := by
   simp only [bregDiv, negEntropy_def, sum_apply, smul_apply, ContinuousLinearMap.proj_apply,
@@ -218,18 +234,18 @@ theorem bregDiv_negEntropy {x y : α → ℝ} (hxy : ∀ a, y a = 0 → x a = 0)
   ring
 
 /-- On the simplex, the **Bregman divergence of the negative entropy** on `α → ℝ`, for the
-derivative `h ↦ ∑ a, log (y a) * h a` of `hasFDerivAt_negEntropy`, is the relative entropy
+derivative `h ↦ ∑ a, log (y a) * h a` of `hasFDerivAt_negEntropy_pi`, is the relative entropy
 `D(x, y) = ∑ a, x a * log (x a / y a)` of `x` with respect to `y`, when `x a = 0` whenever
 `y a = 0`. -/
-theorem bregDiv_negEntropy_of_mem_simplex {x y : α → ℝ} (hx : x ∈ simplex α)
-    (hy : y ∈ simplex α) (hxy : ∀ a, y a = 0 → x a = 0) :
+theorem bregDiv_negEntropy_pi {x y : α → ℝ} (hx : x ∈ simplex α) (hy : y ∈ simplex α)
+    (hxy : ∀ a, y a = 0 → x a = 0) :
     bregDiv negEntropy x y (∑ a, log (y a) • ContinuousLinearMap.proj a : (α → ℝ) →L[ℝ] ℝ) =
       ∑ a, x a * log (x a / y a) := by
-  rw [bregDiv_negEntropy hxy, sum_add_distrib, sum_sub_distrib, (mem_simplex_iff.1 hx).2,
+  rw [bregDiv_negEntropy_pi_eq hxy, sum_add_distrib, sum_sub_distrib, (mem_simplex_iff.1 hx).2,
     (mem_simplex_iff.1 hy).2, sub_add_cancel]
 
 /-- The Bregman divergence of the negative entropy on `PiLp p (fun _ : α ↦ ℝ)`, for the
-derivative of `hasFDerivAt_negEntropy_ofLp`, is the one on `α → ℝ`: a Bregman divergence only
+derivative of `hasFDerivAt_negEntropy`, is the one on `α → ℝ`: a Bregman divergence only
 evaluates the derivative, so it does not depend on the norm. -/
 theorem bregDiv_negEntropy_ofLp {p : ℝ≥0∞} (x y : PiLp p fun _ : α ↦ ℝ) :
     bregDiv (fun x : PiLp p (fun _ : α ↦ ℝ) ↦ negEntropy (ofLp x)) x y
@@ -237,5 +253,17 @@ theorem bregDiv_negEntropy_ofLp {p : ℝ≥0∞} (x y : PiLp p fun _ : α ↦ �
       bregDiv negEntropy (ofLp x) (ofLp y)
         (∑ a, log (y a) • ContinuousLinearMap.proj a : (α → ℝ) →L[ℝ] ℝ) := by
   simp [bregDiv]
+
+/-- On the simplex, the **Bregman divergence of the negative entropy** on `PiLp p (fun _ : α ↦ ℝ)`,
+for the derivative `h ↦ ∑ a, log (y a) * h a` of `hasFDerivAt_negEntropy`, is the relative entropy
+`D(x, y) = ∑ a, x a * log (x a / y a)` of `x` with respect to `y`, when `x a = 0` whenever
+`y a = 0`. -/
+theorem bregDiv_negEntropy {p : ℝ≥0∞} {x y : PiLp p fun _ : α ↦ ℝ}
+    (hx : ofLp x ∈ simplex α) (hy : ofLp y ∈ simplex α) (hxy : ∀ a, y a = 0 → x a = 0) :
+    bregDiv (fun x : PiLp p (fun _ : α ↦ ℝ) ↦ negEntropy (ofLp x)) x y
+        (∑ a, log (y a) • PiLp.proj (𝕜 := ℝ) p (fun _ : α ↦ ℝ) a) =
+      ∑ a, x a * log (x a / y a) := by
+  rw [bregDiv_negEntropy_ofLp]
+  exact bregDiv_negEntropy_pi hx hy hxy
 
 end LMLExplore

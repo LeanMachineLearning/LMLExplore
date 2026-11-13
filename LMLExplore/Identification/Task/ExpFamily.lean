@@ -405,7 +405,7 @@ lemma cost_bernoulliBandit [MeasurableSingletonClass α] {task : IdentTask α (�
     (μ' : α → ℝ) :
     task.cost w μ μ' = ∑ c, ENNReal.ofReal (w c) * klBer (μ c) (μ' c) := by
   rw [cost_def, hνt]
-  simp only [Bandits.bernoulliBandit_apply, klDiv_bernoulliMeasure, klBer_projIcc]
+  simp only [Bandits.bernoulliBandit_apply, klDiv_bernoulliMeasure one_ne_zero, klBer_projIcc]
 
 /-- For Bernoulli arms, the transportation cost is continuous in the alternative vector of means on
 the vectors of means in `(0, 1)`, where the binary relative entropy is continuous in its second

@@ -128,7 +128,7 @@ theorem expFamilyDiv_bernoulliMeasure_sigmoid (η₀ : ℝ) (hp : p ∈ Ioo 0 1)
   rw [← Measure.toReal_klDiv_expFamily_natParam (by rwa [expFamilyMeans_bernoulliMeasure_sigmoid])
       (by rwa [expFamilyMeans_bernoulliMeasure_sigmoid]),
     expFamily_natParam_bernoulliMeasure_sigmoid η₀ hp,
-    expFamily_natParam_bernoulliMeasure_sigmoid η₀ hm, klDiv_bernoulliMeasure]
+    expFamily_natParam_bernoulliMeasure_sigmoid η₀ hm, klDiv_bernoulliMeasure one_ne_zero]
   exact toReal_klBer (Ioo_subset_Icc_self hp) (Ioo_subset_Icc_self hm) (klBer_ne_top hm)
 
 /-- **Rate function of a Bernoulli law**: the Cramér rate function of `Ber((1 : ℝ), 0, q)` at a

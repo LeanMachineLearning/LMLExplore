@@ -8,13 +8,17 @@ module
 public import LMLExplore.Analysis.Convex.Simplex
 public import LMLExplore.Analysis.SpecialFunctions.Log.NegMulLog
 public import LMLExplore.InformationTheory.KullbackLeibler.Bernoulli
+public import TauCeti.MeasureTheory.Measure.Decomposition.Lebesgue
 
 /-!
 # The relative entropy of vectors on a finite type
 
 For nonnegative vectors `x z : α → ℝ` on a finite type `α`, with `x a = 0` whenever `z a = 0`, the
 relative entropy of `x` with respect to `z` is `∑ a, x a * log (x a / z a)`. When `x` and `z` are
-probability vectors, it is the Kullback–Leibler divergence of the corresponding laws on `α`.
+probability vectors, it is the Kullback–Leibler divergence of the corresponding laws on `α`: for
+finite measures `μ ≪ ν` on `α` with measurable singletons, `(klDiv μ ν).toReal` is the relative
+entropy of the vectors of masses `a ↦ μ.real {a}` and `a ↦ ν.real {a}`, plus Mathlib's mass
+correction `ν.real univ - μ.real univ`.
 
 **Gibbs' inequality** states that it is nonnegative as soon as `∑ a, z a ≤ ∑ a, x a`; it follows
 from the log-sum inequality. **Pinsker's inequality** for probability vectors reads
@@ -32,6 +36,9 @@ exponential weights in online learning.
 
 ## Main statements
 
+* `LMLExplore.toReal_klDiv_eq_sum_mul_log_div`: the Kullback–Leibler divergence of finite measures
+  `μ ≪ ν` on a finite type is the relative entropy of their vectors of masses, up to the mass
+  correction.
 * `LMLExplore.sum_mul_log_div_nonneg`: Gibbs' inequality.
 * `LMLExplore.sq_sum_abs_sub_le_two_mul_sum_mul_log_div`: Pinsker's inequality for probability
   vectors.
@@ -45,11 +52,18 @@ exponential weights in online learning.
 ## References
 
 * [CT] T. M. Cover and J. A. Thomas, *Elements of Information Theory*, 2nd ed., Wiley, 2006.
+
+`LMLExplore.toReal_klDiv_eq_sum_mul_log_div` is adapted, and generalised from probability vectors
+to finite measures, from the formalization Essakine2026Tight
+(`github.com/RemyDegenne/Essakine2026Tight`, file
+`ForLMLExplore/InformationTheory/KullbackLeibler/Fintype.lean`, commit
+`520dd39a55fa4e9a62a4a2d51f48163926176a5d`, by Rémy Degenne, Apache 2.0) of A. Essakine and
+C. Vernade, *Tight sample complexity bounds for entropic best policy identification*, COLT 2026.
 -/
 
 public section
 
-open Finset Real
+open Finset Real MeasureTheory InformationTheory
 open scoped ENNReal
 
 namespace LMLExplore
@@ -198,5 +212,22 @@ theorem isGreatest_sum_mul_sub_sum_mul_log_div {p : α → ℝ} (hp : p ∈ simp
     linarith
   · rintro _ ⟨q, hq, rfl⟩
     exact sum_mul_sub_sum_mul_log_div_le_log_sum_mul_exp hp hq (fun a h ↦ absurd h (hp0 a).ne') v
+
+/-- The Kullback–Leibler divergence of finite measures `μ ≪ ν` on a finite type with measurable
+singletons is the relative entropy `∑ a, μ{a} log (μ{a} / ν{a})` of their vectors of masses, plus
+the mass correction `ν(univ) - μ(univ)`, which vanishes for probability measures. Unlike Tau Ceti's
+`TauCeti.klDiv_eq_ofReal_sum_log_singleton`, `ν` may have atoms of mass zero. -/
+theorem toReal_klDiv_eq_sum_mul_log_div [MeasurableSpace α] [MeasurableSingletonClass α]
+    {μ ν : Measure α} [IsFiniteMeasure μ] [IsFiniteMeasure ν] (hμν : μ ≪ ν) :
+    (klDiv μ ν).toReal = ∑ a, μ.real {a} * log (μ.real {a} / ν.real {a}) + ν.real Set.univ
+      - μ.real Set.univ := by
+  rw [toReal_klDiv hμν Integrable.of_finite, integral_fintype Integrable.of_finite]
+  congr 2
+  refine sum_congr rfl fun a _ ↦ ?_
+  rw [smul_eq_mul]
+  by_cases hμa : μ {a} = 0
+  · simp [measureReal_def, hμa]
+  rw [llr, Measure.rnDeriv_eq_measure_singleton_div (fun h ↦ hμa (hμν h)) (measure_ne_top ν _),
+    ENNReal.toReal_div, measureReal_def, measureReal_def]
 
 end LMLExplore
