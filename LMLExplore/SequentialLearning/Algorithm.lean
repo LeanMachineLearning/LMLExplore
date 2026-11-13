@@ -57,6 +57,8 @@ the whole trajectory.
 * `Learning.IsAlgEnvSeq.condExp_comp_action`: the conditional expectation of a function
   `f (past, A n)` of the past (history and observation) and the action of round `n` given the past
   is the integral of `f (past, ·)` against the policy of round `n`.
+* `Learning.IsAlgEnvSeq.measurable_action_filtrationObs_of_lt`: the action of a round `m < n` is
+  measurable with respect to the past `h.filtrationObs n` of round `n`.
 * `Learning.IsAlgEnvSeq.setLIntegral_comp_feedback`: on an event of `h.filtrationAction n`, the
   expectation of `g(Y_n)` is that of `∫ g` against the conditional law of `Y_n`, for `g ≥ 0`.
 * `Learning.IsAlgEnvSeq.ae_forall_feedback_mem_bandit`: along a run against a stochastic bandit
@@ -144,6 +146,14 @@ measurable. -/
 lemma IsAlgEnvSeq.measurable_obs_action (h : IsAlgEnvSeq O X Y alg env P') (n : ℕ) :
     Measurable fun ω ↦ (O n ω, X n ω) :=
   (h.measurable_obs n).prodMk (h.measurable_action n)
+
+/-- Along a run of an algorithm, the action of a round `m < n` is measurable with respect to the
+past `h.filtrationObs n` of round `n`. -/
+lemma IsAlgEnvSeq.measurable_action_filtrationObs_of_lt (h : IsAlgEnvSeq O X Y alg env P')
+    {m n : ℕ} (hmn : m < n) :
+    Measurable[h.filtrationObs n] (X m) :=
+  (h.adapted_action m).mono
+    ((h.filtration_le_filtrationObs_succ m).trans (h.filtrationObs.mono hmn)) le_rfl
 
 section Feedback
 

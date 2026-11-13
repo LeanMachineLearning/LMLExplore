@@ -8,6 +8,8 @@ module
 public import LeanMachineLearning.SequentialLearning.SumRewards
 public import TauCeti.Probability.Process.EmpiricalMeasure
 
+import LMLExplore.Probability.Kernel.Basic
+
 /-!
 # Empirical laws of the outcomes observed at the visits of a key
 
@@ -15,10 +17,11 @@ A learner that visits keys `x i` (arms, state-action pairs, …) at the indices 
 `u` and observes an outcome `y i` at each visit estimates the law of the outcome of a key `a` by
 the empirical law of the outcomes observed at the visits of `a`:
 `empiricalLaw u x y a = N⁻¹ ∑_{i ∈ u, x i = a} δ_{y i}`, with `N = #{i ∈ u | x i = a}` the number
-of visits of `a`. It is Tau Ceti's empirical measure of the family of these outcomes. When `a` is
-not visited, it is the uniform law `uniformOn Set.univ`, so that for a finite nonempty outcome
-type it is a probability measure at every key (`isProbabilityMeasure_empiricalLaw`), and the
-kernel `empiricalLawKernel u x y` of the empirical laws of all keys is a Markov kernel.
+of visits of `a`. It is Tau Ceti's empirical measure of the family of these outcomes, a
+probability measure for every outcome type (`isProbabilityMeasure_empiricalLaw_of_card_ne_zero`).
+When `a` is not visited, it is the uniform law `uniformOn Set.univ`, so that for a finite nonempty
+outcome type it is a probability measure at every key (`isProbabilityMeasure_empiricalLaw`), and
+the kernel `empiricalLawKernel u x y` of the empirical laws of all keys is a Markov kernel.
 
 For a sequential process, the visits before time `t` are the indices `u = range t`, and the number
 of visits of `a` is LML's `pullCount`. The empirical mean of the rewards of an arm, LML's `empMean`,
@@ -30,6 +33,12 @@ form an adapted process (`adapted_empiricalLaw`).
 The empirical transition kernels of Markov decision processes are the case of the state-action
 pairs as keys and of the next states as outcomes
 (`LMLExplore/ReinforcementLearning/EmpiricalTransitions.lean`).
+
+The empirical laws and the pooled counts follow the empirical models of the formalization of
+[EV26] in Essakine2026Tight (`github.com/RemyDegenne/Essakine2026Tight`, files
+`Essakine2026Tight/ForLMLExplore/ReinforcementLearning/Episodic/Empirical.lean` and
+`Essakine2026Tight/ForLMLExplore/ReinforcementLearning/Episodic/EmpiricalCounts.lean`, by Rémy
+Degenne, Apache 2.0), restated through LML's `pullCount`, with the uniform law at unvisited keys.
 
 ## Main definitions
 
@@ -45,6 +54,11 @@ pairs as keys and of the next states as outcomes
   the empirical law of a visited key averages over its visits.
 * `LMLExplore.measurable_empiricalLaw`, `LMLExplore.adapted_empiricalLaw`: measurability in the
   observations.
+
+## References
+
+* [EV26] A. Essakine and C. Vernade, *Tight sample complexity bounds for entropic best policy
+  identification*, COLT 2026, arXiv:2605.13717.
 -/
 
 public section
@@ -99,6 +113,13 @@ lemma empiricalLaw_congr {x' : ι → α} {y' : ι → β} (hx : ∀ i ∈ u, x 
     refine congrArg _ (sum_congr rfl fun i hi ↦ ?_)
     rw [hy i (mem_filter.1 hi).1]
 
+/-- The empirical law of a visited key is a probability measure. -/
+lemma isProbabilityMeasure_empiricalLaw_of_card_ne_zero (h : #{i ∈ u | x i = a} ≠ 0) :
+    IsProbabilityMeasure (empiricalLaw u x y a) := by
+  rw [empiricalLaw_of_card_ne_zero h]
+  have : Nonempty (u.filter (x · = a)) := (card_pos.1 (Nat.pos_of_ne_zero h)).to_subtype
+  infer_instance
+
 /-- For a finite nonempty outcome type, the empirical law of every key is a probability
 measure. -/
 instance isProbabilityMeasure_empiricalLaw [Finite β] [Nonempty β] :
@@ -106,9 +127,7 @@ instance isProbabilityMeasure_empiricalLaw [Finite β] [Nonempty β] :
   by_cases h : #{i ∈ u | x i = a} = 0
   · rw [empiricalLaw_of_card_eq_zero h]
     infer_instance
-  · rw [empiricalLaw_of_card_ne_zero h]
-    have : Nonempty (u.filter (x · = a)) := (card_pos.1 (Nat.pos_of_ne_zero h)).to_subtype
-    infer_instance
+  · exact isProbabilityMeasure_empiricalLaw_of_card_ne_zero h
 
 open Classical in
 /-- A visited key gives a measurable set `s` the proportion `#{i ∈ u | x i = a ∧ y i ∈ s} / N` of
@@ -216,11 +235,11 @@ noncomputable def empiricalLawKernel (u : Finset ι) (x : ι → α) (y : ι →
 @[simp]
 lemma empiricalLawKernel_apply (u : Finset ι) (x : ι → α) (y : ι → β) (a : α) :
     empiricalLawKernel u x y a = empiricalLaw u x y a :=
-  (rfl)
+  Kernel.ofFunOfCountable_apply _ _
 
 instance isMarkovKernel_empiricalLawKernel [Finite β] [Nonempty β] :
     IsMarkovKernel (empiricalLawKernel u x y) :=
-  ⟨fun a ↦ by rw [empiricalLawKernel_apply]; infer_instance⟩
+  Kernel.isMarkovKernel_ofFunOfCountable _
 
 end Kernel
 

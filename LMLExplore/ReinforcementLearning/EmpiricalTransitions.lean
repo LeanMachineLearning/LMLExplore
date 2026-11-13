@@ -7,6 +7,8 @@ module
 
 public import LMLExplore.SequentialLearning.EmpiricalLaw
 
+import LMLExplore.SequentialLearning.Algorithm
+
 /-!
 # Counts and empirical transition kernels of Markov decision processes
 
@@ -42,9 +44,10 @@ Along a run whose actions are the policies and whose feedbacks are the state seq
 measurable with respect to the past of episode `k`.
 
 The episodic and pooled counts follow the empirical models of the formalization of [EV26] in
-Essakine2026Tight (`github.com/RemyDegenne/Essakine2026Tight`, file
-`Essakine2026Tight/ForLMLExplore/ReinforcementLearning/Episodic/Empirical.lean`, by Rémy Degenne,
-Apache 2.0), restated through LML's `pullCount` and empirical laws.
+Essakine2026Tight (`github.com/RemyDegenne/Essakine2026Tight`, files
+`Essakine2026Tight/ForLMLExplore/ReinforcementLearning/Episodic/Empirical.lean` and
+`Essakine2026Tight/ForLMLExplore/ReinforcementLearning/Episodic/EmpiricalCounts.lean`, by Rémy
+Degenne, Apache 2.0), restated through LML's `pullCount` and empirical laws.
 
 ## Main definitions
 
@@ -128,8 +131,7 @@ lemma measurable_empTrans_filtrationObs {alg : Algorithm 𝓢 𝓐 𝓨} {env : 
   refine measurable_empiricalLaw (fun n hn ↦ ?_) (fun n hn ↦ ?_) p
   · have hnt : n < t := mem_range.1 hn
     exact (h.adapted_obs_filtrationObs.measurable_le hnt.le).prodMk
-      ((h.adapted_action n).mono
-        ((h.filtration_le_filtrationObs_succ n).trans (h.filtrationObs.mono hnt)) le_rfl)
+      (h.measurable_action_filtrationObs_of_lt hnt)
   · exact h.adapted_obs_filtrationObs.measurable_le (mem_range.1 hn)
 
 end Run
@@ -145,9 +147,18 @@ deterministic `H`-step policy `π` along the state sequence `τ = (s_0, …, s_H
 def stepPair (π : Fin H → 𝓢 → 𝓐) (τ : Fin (H + 1) → 𝓢) (h : Fin H) : 𝓢 × 𝓐 :=
   (τ h.castSucc, π h (τ h.castSucc))
 
-@[simp]
 lemma stepPair_def (π : Fin H → 𝓢 → 𝓐) (τ : Fin (H + 1) → 𝓢) (h : Fin H) :
     stepPair π τ h = (τ h.castSucc, π h (τ h.castSucc)) :=
+  (rfl)
+
+@[simp]
+lemma fst_stepPair (π : Fin H → 𝓢 → 𝓐) (τ : Fin (H + 1) → 𝓢) (h : Fin H) :
+    (stepPair π τ h).1 = τ h.castSucc :=
+  (rfl)
+
+@[simp]
+lemma snd_stepPair (π : Fin H → 𝓢 → 𝓐) (τ : Fin (H + 1) → 𝓢) (h : Fin H) :
+    (stepPair π τ h).2 = π h (τ h.castSucc) :=
   (rfl)
 
 variable [Countable 𝓢] [MeasurableSingletonClass 𝓢]
@@ -256,16 +267,14 @@ variable {𝓞 : Type*} {m𝓞 : MeasurableSpace 𝓞}
 
 omit [Countable 𝓐] [MeasurableSingletonClass 𝓐] [DecidableEq 𝓢] [DecidableEq 𝓐] in
 /-- Along a run whose actions are the policies and whose feedbacks are the state sequences of the
-episodes, the state-action pair of a step and the next state of an episode `i < k` are measurable
-with respect to the past of episode `k`. -/
-private lemma measurable_stepPair_next_filtrationObs (hr : IsAlgEnvSeq O π τ alg env P)
+episodes, the state-action pair of the step `h` of an episode `i < k` is measurable with respect
+to the past `hr.filtrationObs k` of episode `k`. In particular, so are the episodic counts
+`pullCount (fun i ω ↦ stepPair (π i ω) (τ i ω) h) p k` before episode `k`. -/
+lemma measurable_stepPair_filtrationObs_of_lt (hr : IsAlgEnvSeq O π τ alg env P)
     {i k : ℕ} (hik : i < k) (h : Fin H) :
-    Measurable[hr.filtrationObs k] (fun ω ↦ stepPair (π i ω) (τ i ω) h) ∧
-      Measurable[hr.filtrationObs k] (fun ω ↦ τ i ω h.succ) := by
-  have hπ : Measurable[hr.filtrationObs k] (π i) := (hr.adapted_action i).mono
-    ((hr.filtration_le_filtrationObs_succ i).trans (hr.filtrationObs.mono hik)) le_rfl
-  have hτ : Measurable[hr.filtrationObs k] (τ i) := hr.measurable_feedback_filtrationObs_of_lt hik
-  exact ⟨(measurable_stepPair h).comp (hπ.prodMk hτ), (measurable_pi_apply _).comp hτ⟩
+    Measurable[hr.filtrationObs k] fun ω ↦ stepPair (π i ω) (τ i ω) h :=
+  (measurable_stepPair h).comp ((hr.measurable_action_filtrationObs_of_lt hik).prodMk
+    (hr.measurable_feedback_filtrationObs_of_lt hik))
 
 /-- **Measurability in the history.** Along a run whose actions are the policies and whose
 feedbacks are the state sequences of the episodes, the empirical kernel of the step `h` before
@@ -275,8 +284,9 @@ lemma measurable_stepEmpTrans_filtrationObs (hr : IsAlgEnvSeq O π τ alg env P)
     Measurable[hr.filtrationObs k] fun ω ↦ stepEmpTrans π τ h k ω p := by
   simp_rw [stepEmpTrans_apply]
   exact measurable_empiricalLaw
-    (fun i hi ↦ (measurable_stepPair_next_filtrationObs hr (mem_range.1 hi) h).1)
-    (fun i hi ↦ (measurable_stepPair_next_filtrationObs hr (mem_range.1 hi) h).2) p
+    (fun i hi ↦ measurable_stepPair_filtrationObs_of_lt hr (mem_range.1 hi) h)
+    (fun i hi ↦ (measurable_pi_apply _).comp
+      (hr.measurable_feedback_filtrationObs_of_lt (mem_range.1 hi))) p
 
 /-- **Measurability in the history.** Along a run whose actions are the policies and whose
 feedbacks are the state sequences of the episodes, the pooled empirical kernel before episode `k`
@@ -286,10 +296,10 @@ lemma measurable_pooledEmpTrans_filtrationObs (hr : IsAlgEnvSeq O π τ alg env 
     Measurable[hr.filtrationObs k] fun ω ↦ pooledEmpTrans π τ k ω p := by
   simp_rw [pooledEmpTrans_apply]
   exact measurable_empiricalLaw
-    (fun q hq ↦ (measurable_stepPair_next_filtrationObs hr
-      (mem_range.1 (mem_product.1 hq).1) q.2).1)
-    (fun q hq ↦ (measurable_stepPair_next_filtrationObs hr
-      (mem_range.1 (mem_product.1 hq).1) q.2).2) p
+    (fun q hq ↦ measurable_stepPair_filtrationObs_of_lt hr
+      (mem_range.1 (mem_product.1 hq).1) q.2)
+    (fun q hq ↦ (measurable_pi_apply q.2.succ).comp
+      (hr.measurable_feedback_filtrationObs_of_lt (mem_range.1 (mem_product.1 hq).1))) p
 
 end Measurability
 
