@@ -302,7 +302,8 @@ theorem klBer_eq_zero_iff (hp : p ∈ Set.Icc 0 1) (hq : q ∈ Set.Icc 0 1) :
 
 /-- For `p ∈ [0, 1]` and `q ∈ (0, 1)`, the real-valued binary relative entropy vanishes only at
 `p = q`. With `LMLExplore.klBerReal_nonneg`, `q` is the unique minimizer of `p ↦ d(p, q)` on
-`[0, 1]` and `p` the unique minimizer of `q ↦ d(p, q)` on `(0, 1)` [LS, Lemma 10.2]. -/
+`[0, 1]` and, for `p ∈ (0, 1)`, `p` is the unique minimizer of `q ↦ d(p, q)` on `(0, 1)`
+[LS, Lemma 10.2]. -/
 theorem klBerReal_eq_zero_iff (hp : p ∈ Set.Icc 0 1) (hq : q ∈ Set.Ioo 0 1) :
     klBerReal p q = 0 ↔ p = q := by
   rw [← toReal_klBer hp (Set.Ioo_subset_Icc_self hq) (klBer_ne_top hq),
