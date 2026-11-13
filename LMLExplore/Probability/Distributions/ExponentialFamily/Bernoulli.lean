@@ -69,6 +69,9 @@ sampling law of Thompson sampling with the Jeffreys prior for Bernoulli arms [KK
 * `LMLExplore.map_deriv_cgf_expFamilyPosterior_bernoulliMeasure_sigmoid_jeffreysPrior`: for
   `-1 / 2 < S < s + 1 / 2`, the image by the mean map of the posterior for the Jeffreys prior after
   `s` observations of sum `S` is `Beta(S + 1 / 2, s - S + 1 / 2)`.
+* `LMLExplore.isFiniteMeasure_jeffreysPrior_bernoulliMeasure_sigmoid`,
+  `LMLExplore.isProbabilityMeasure_expFamilyPosterior_bernoulliMeasure_sigmoid_jeffreysPrior`: the
+  Jeffreys prior is finite, and the posteriors for it are probability measures.
 
 ## References
 
@@ -412,6 +415,31 @@ theorem map_deriv_cgf_expFamilyPosterior_bernoulliMeasure_sigmoid_jeffreysPrior
     ← cond_map hf.aemeasurable MeasurableSet.univ,
     map_deriv_cgf_withDensity_jeffreysPrior_bernoulliMeasure_sigmoid η₀ hS0 hS1,
     cond_smul _ _ hc0 ENNReal.ofReal_ne_top, cond_univ]
+
+/-- The Jeffreys prior of the exponential family of `Ber((1 : ℝ), 0, sigmoid η₀)` is a finite
+measure, of total mass `π`. -/
+instance isFiniteMeasure_jeffreysPrior_bernoulliMeasure_sigmoid :
+    IsFiniteMeasure (Ber((1 : ℝ), 0, unitInterval.sigmoid η₀).jeffreysPrior id) := by
+  have := isProbabilityMeasureBeta (α := 1 / 2) (β := 1 / 2) (by norm_num) (by norm_num)
+  have h := congr_arg (· univ) (map_deriv_cgf_jeffreysPrior_bernoulliMeasure_sigmoid η₀)
+  simp only [Measure.map_apply (measurable_deriv _) MeasurableSet.univ, preimage_univ,
+    smul_apply, measure_univ, smul_eq_mul, mul_one] at h
+  exact ⟨h ▸ ENNReal.ofReal_lt_top⟩
+
+/-- The posterior of the exponential family of `Ber((1 : ℝ), 0, sigmoid η₀)` for its Jeffreys
+prior, after `s` observations of sum `S` with `-1 / 2 < S < s + 1 / 2` (for example `s` Bernoulli
+observations with `S` successes), is a probability measure: the image of
+`Beta(S + 1 / 2, s - S + 1 / 2)` by the inverse of the mean map. -/
+theorem isProbabilityMeasure_expFamilyPosterior_bernoulliMeasure_sigmoid_jeffreysPrior
+    (hS0 : -(1 / 2) < S) (hS1 : S < s + 1 / 2) :
+    IsProbabilityMeasure (Ber((1 : ℝ), 0, unitInterval.sigmoid η₀).expFamilyPosterior id
+      (Ber((1 : ℝ), 0, unitInterval.sigmoid η₀).jeffreysPrior id) s S) := by
+  refine Measure.isProbabilityMeasure_expFamilyPosterior_of_ne_zero fun h ↦ ?_
+  have := isProbabilityMeasureBeta (α := S + 1 / 2) (β := s - S + 1 / 2) (by linarith)
+    (by linarith)
+  have hmap := map_deriv_cgf_expFamilyPosterior_bernoulliMeasure_sigmoid_jeffreysPrior η₀ hS0 hS1
+  rw [h, Measure.map_zero] at hmap
+  exact IsProbabilityMeasure.ne_zero _ hmap.symm
 
 end Jeffreys
 

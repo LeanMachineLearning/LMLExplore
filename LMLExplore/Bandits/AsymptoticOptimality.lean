@@ -10,6 +10,7 @@ public import LMLExplore.Bandits.AsymptoticallyOptimalUCB
 public import LMLExplore.Bandits.KLUCB
 public import LMLExplore.Bandits.LaiRobbins
 public import LMLExplore.Bandits.ThompsonSampling.Gaussian
+public import LMLExplore.Bandits.ThompsonSampling.Optimality
 
 /-!
 # Consistency and asymptotic optimality of UCB-type algorithms and Thompson sampling
@@ -38,6 +39,14 @@ these families [GC11; CGMMS13] is consistent, and its expected regret is `c* log
 with `c* = ∑_{a : Δ_a > 0} Δ_a / d_{ρ a}(μ_a, μ*)`, the Lai–Robbins constant of these bandits
 [BK96]. The common set of means makes the largest mean `μ*` a mean of the family of every arm, so
 that `c*` is finite.
+
+Thompson sampling with the Jeffreys priors of these families has the same asymptotic regret
+[KKM13, Theorem 1], when the Jeffreys posteriors are proper after some observations and the
+Jeffreys priors are finite on the natural parameters of the means at most `m`, for every mean `m`
+of the families: its upper bound is `expFamilyTS_jeffreysPrior_regret_eventually_le`, which makes
+it consistent, and the Lai–Robbins lower bound matches it. The Bernoulli family, whose Jeffreys
+prior is finite and whose Thompson sampling draws the means from beta laws [KKM13, Figure 1], is
+an instance, on the Bernoulli bandits with means in `(0, 1)`.
 
 ## Main statements
 
@@ -72,10 +81,23 @@ that `c*` is finite.
 * `tendsto_klucbFam_gaussianReal_regret_div_log`,
   `isLittleO_klucbFam_gaussianReal_regret_sub_mul_log`: the Gaussian instance with known variances
   `σ2 a`, with `c* = ∑_{a : Δ_a > 0} 2 σ2_a / Δ_a`.
+* `expFamilyTS_jeffreysPrior_regret_eventually_le_of_mem_image_expFamily`: on a bandit whose arms
+  are members of exponential families, the expected regret of Thompson sampling with the Jeffreys
+  priors satisfies `limsup_n E[R_n] / log n ≤ ∑_{a : Δ_a > 0} Δ_a / d_{ρ a}(μ_a, μ*)`.
+* `ExpFamilyTS.isConsistent_jeffreysPrior`: Thompson sampling with the Jeffreys priors is
+  consistent over these bandits.
+* `tendsto_expFamilyTS_jeffreysPrior_regret_div_log`,
+  `isLittleO_expFamilyTS_jeffreysPrior_regret_sub_mul_log`: [KKM13, Theorem 1]: on each of them,
+  the expected regret of Thompson sampling with the Jeffreys priors is `c* log n + o(log n)`, with
+  `c* = ∑_{a : Δ_a > 0} Δ_a / d_{ρ a}(μ_a, μ*)`.
+* `tendsto_expFamilyTS_jeffreysPrior_regret_div_log_bernoulliBandit`,
+  `isLittleO_expFamilyTS_jeffreysPrior_regret_sub_mul_log_bernoulliBandit`: the Bernoulli instance,
+  on a Bernoulli bandit with means `p_a ∈ (0, 1)`, with `c* = ∑_{a : Δ_a > 0} Δ_a / d(p_a, μ*)`.
 
 In the Bernoulli statements, `Δ_a / d(p_a, μ*)` is computed from the real number
 `d(p_a, μ*).toReal`, as in `klucb_regret_eventually_le`. For an arm with positive gap it is `0`
-exactly when `μ* = 1`, where `d(p_a, 1) = ∞`.
+exactly when `μ* = 1`, where `d(p_a, 1) = ∞`; for Thompson sampling, all the means lie in
+`(0, 1)`.
 
 ## References
 
@@ -85,6 +107,8 @@ exactly when `μ* = 1`, where `d(p_a, 1) = ∞`.
   beyond*, COLT 2011.
 * [CGMMS13] O. Cappé, A. Garivier, O.-A. Maillard, R. Munos and G. Stoltz, *Kullback–Leibler upper
   confidence bounds for optimal sequential allocation*, Annals of Statistics, 2013.
+* [KKM13] N. Korda, E. Kaufmann and R. Munos, *Thompson sampling for 1-dimensional exponential
+  family bandits*, NeurIPS 2013.
 * [BK96] A. N. Burnetas and M. N. Katehakis, *Optimal adaptive policies for sequential allocation
   problems*, Advances in Applied Mathematics, 1996.
 -/
@@ -92,7 +116,7 @@ exactly when `μ* = 1`, where `d(p_a, 1) = ∞`.
 public section
 
 open MeasureTheory ProbabilityTheory Filter Finset Real Learning Bandits Asymptotics
-open scoped NNReal Topology unitInterval
+open scoped ENNReal NNReal Topology unitInterval
 
 namespace LMLExplore.Bandits
 
@@ -379,5 +403,195 @@ theorem isLittleO_klucbFam_gaussianReal_regret_sub_mul_log (m : α → ℝ) {σ2
     (tendsto_klucbFam_gaussianReal_regret_div_log m hσ2 hν h)
 
 end ExpFamily
+
+section ExpFamilyTS
+
+variable {ρ : α → Measure ℝ} [∀ a, SFinite (ρ a)] {ν : Kernel α ℝ} [IsMarkovKernel ν]
+
+/-- **Asymptotic regret of Thompson sampling with the Jeffreys prior on exponential families**
+[KKM13, Theorem 1, upper bound]. Let `ρ a` be a measure on `ℝ` for every arm `a`, and let the law
+of every arm `a` be a member `(ρ a)_η` of the exponential family of `ρ a`, with `η` in the interior
+of `integrableExpSet id (ρ a)`. Assume that for every arm `a` with positive gap, the largest mean
+`μ*` is a mean of the family of `ρ a`, `μ_a` is a mean of the family of the best arm, and the
+Jeffreys posterior of `ρ a` is proper after some observations, and that the Jeffreys prior of the
+family of the best arm is finite on the natural parameters of the means at most `m`, for every
+`m < μ*`. For every `c > ∑_{a : Δ_a > 0} Δ_a / d_{ρ a}(μ_a, μ*)`, the expected regret at horizon
+`n` of Thompson sampling with the Jeffreys priors of the families `ρ` is eventually at most
+`c log n`. -/
+theorem expFamilyTS_jeffreysPrior_regret_eventually_le_of_mem_image_expFamily
+    (hν : ∀ a, ν a ∈ (ρ a).expFamily id '' interior (integrableExpSet id (ρ a)))
+    (hμs : ∀ a, 0 < gap ν a → (ν (bestArm ν))[id] ∈ (ρ a).expFamilyMeans id)
+    (hμb : ∀ a, 0 < gap ν a → (ν a)[id] ∈ (ρ (bestArm ν)).expFamilyMeans id)
+    (hprop : ∀ a, 0 < gap ν a →
+      ∃ s₀ S₀, (ρ a).expFamilyPosterior id ((ρ a).jeffreysPrior id) s₀ S₀ ≠ 0)
+    (hπs : ∀ m < (ν (bestArm ν))[id], (ρ (bestArm ν)).jeffreysPrior id
+      {θ | deriv (cgf id (ρ (bestArm ν))) θ ≤ m} ≠ ∞)
+    (h : IsAlgEnvSeq O A R (expFamilyTS ρ fun a ↦ (ρ a).jeffreysPrior id) (Environment.bandit ν)
+      P) {c : ℝ}
+    (hc : ∑ a ∈ univ.filter (fun a ↦ 0 < gap ν a),
+      gap ν a / (ρ a).expFamilyDiv id (ν a)[id] (ν (bestArm ν))[id] < c) :
+    ∀ᶠ n : ℕ in atTop, P[regret ν A n] ≤ c * log n := by
+  have hμ (a : α) := Measure.integral_mem_expFamilyMeans_of_mem_image (hν a)
+  rcases (univ.filter (fun a ↦ 0 < gap ν a)).eq_empty_or_nonempty with hS | ⟨a₀, ha₀⟩
+  · -- If every gap vanishes, there is no arm to bound.
+    refine integral_regret_eventually_le_of_forall_integral_pullCount_eventually_le
+      h.measurable_action (.of_forall fun n ↦ log_natCast_nonneg n) 0
+      (fun a ha ↦ absurd (mem_filter.mpr ⟨mem_univ a, ha⟩) (hS ▸ notMem_empty a)) ?_
+    simpa [hS] using hc
+  -- The families of the arms with positive gap and of the best arm have the two distinct means
+  -- `μ_a < μ*`, so that none of them is a Dirac mass.
+  have hga₀ := (mem_filter.mp ha₀).2
+  have hρ (a : α) (ha : 0 < gap ν a) : ∀ c, ¬ id =ᵐ[ρ a] fun _ ↦ c :=
+    not_ae_eq_const_of_gap_pos (hμ a) (hμs a ha) ha
+  have hρs : ∀ c, ¬ id =ᵐ[ρ (bestArm ν)] fun _ ↦ c :=
+    not_ae_eq_const_of_gap_pos (hμb a₀ hga₀) (hμ _) hga₀
+  -- These arms are dominated by the members of their means, which are their own laws.
+  have hdom (a : α) (ha : ∀ c, ¬ id =ᵐ[ρ a] fun _ ↦ c) (Λ : Set ℝ) :
+      MGFDominatedOn id (ν a) id ((ρ a).expFamily id ((ρ a).natParam id (ν a)[id])) Λ := by
+    rw [Measure.expFamily_natParam_integral_of_mem_image ha (hν a)]
+    exact (IdentDistrib.refl aemeasurable_id).mgfDominatedOn
+  exact expFamilyTS_jeffreysPrior_regret_eventually_le h (fun a _ ↦ hμ a)
+    (fun a ha ↦ hdom a (hρ a ha) _) hprop hμs (hμ _) (hdom _ hρs _) hρs hπs hc
+
+/-- **Thompson sampling with the Jeffreys prior is consistent over exponential families.** Let
+`ρ a` be a measure on `ℝ` for every arm `a`, all with the same set of means, whose Jeffreys
+posteriors are proper after some observations, and whose Jeffreys priors are finite on the natural
+parameters of the means at most `m`, for every mean `m` of the families. Thompson sampling with the
+Jeffreys priors of the families `ρ` is consistent over the bandits whose arm `a` has a law in the
+exponential family of `ρ a`, a member `(ρ a)_η` with `η` in the interior of
+`integrableExpSet id (ρ a)`. -/
+theorem ExpFamilyTS.isConsistent_jeffreysPrior
+    (hM : ∀ a b, (ρ a).expFamilyMeans id = (ρ b).expFamilyMeans id)
+    (hprop : ∀ a, ∃ s₀ S₀, (ρ a).expFamilyPosterior id ((ρ a).jeffreysPrior id) s₀ S₀ ≠ 0)
+    (hπ : ∀ a, ∀ m ∈ (ρ a).expFamilyMeans id,
+      (ρ a).jeffreysPrior id {θ | deriv (cgf id (ρ a)) θ ≤ m} ≠ ∞) :
+    IsConsistent (expFamilyTS ρ fun a ↦ (ρ a).jeffreysPrior id)
+      {ν : Kernel α ℝ | ∀ a, ν a ∈ (ρ a).expFamily id '' interior (integrableExpSet id (ρ a))} :=
+  isConsistent_of_eventually_le_mul_log fun ν hν _ ↦
+    have hμ (a : α) := Measure.integral_mem_expFamilyMeans_of_mem_image (hν a)
+    ⟨_, expFamilyTS_jeffreysPrior_regret_eventually_le_of_mem_image_expFamily hν
+      (fun a _ ↦ hM (bestArm ν) a ▸ hμ _) (fun a _ ↦ hM a (bestArm ν) ▸ hμ a)
+      (fun a _ ↦ hprop a) (fun _ hm ↦ ne_top_of_le_ne_top (hπ _ _ (hμ _))
+        (measure_mono fun _ hθ ↦ le_trans hθ hm.le))
+      (IT.isAlgEnvSeq_trajMeasure _ _) (lt_add_one _)⟩
+
+/-- **Asymptotic optimality of Thompson sampling with the Jeffreys prior on exponential families**
+[KKM13, Theorem 1]. Let `ρ a` be a measure on `ℝ` for every arm `a`, all with the same set of
+means, whose Jeffreys posteriors are proper after some observations, and whose Jeffreys priors are
+finite on the natural parameters of the means at most `m`, for every mean `m` of the families. Let
+the law of every arm `a` be a member of the exponential family of `ρ a`. The expected regret of
+Thompson sampling with the Jeffreys priors of the families `ρ` satisfies
+`E[R_n] / log n → ∑_{a : Δ_a > 0} Δ_a / d_{ρ a}(μ_a, μ*)`, the Lai–Robbins constant of the
+bandits whose arms are members of these families. -/
+theorem tendsto_expFamilyTS_jeffreysPrior_regret_div_log
+    (hM : ∀ a b, (ρ a).expFamilyMeans id = (ρ b).expFamilyMeans id)
+    (hprop : ∀ a, ∃ s₀ S₀, (ρ a).expFamilyPosterior id ((ρ a).jeffreysPrior id) s₀ S₀ ≠ 0)
+    (hπ : ∀ a, ∀ m ∈ (ρ a).expFamilyMeans id,
+      (ρ a).jeffreysPrior id {θ | deriv (cgf id (ρ a)) θ ≤ m} ≠ ∞)
+    (hν : ∀ a, ν a ∈ (ρ a).expFamily id '' interior (integrableExpSet id (ρ a)))
+    (h : IsAlgEnvSeq O A R (expFamilyTS ρ fun a ↦ (ρ a).jeffreysPrior id) (Environment.bandit ν)
+      P) :
+    Tendsto (fun n : ℕ ↦ P[regret ν A n] / log n) atTop
+      (𝓝 (∑ a ∈ univ.filter (fun a ↦ 0 < gap ν a),
+        gap ν a / (ρ a).expFamilyDiv id (ν a)[id] (ν (bestArm ν))[id])) := by
+  -- The upper bound is `expFamilyTS_jeffreysPrior_regret_eventually_le_of_mem_image_expFamily`;
+  -- the lower bound is the Lai–Robbins lower bound.
+  have hμ (a : α) := Measure.integral_mem_expFamilyMeans_of_mem_image (hν a)
+  have hμs (a : α) (_ : 0 < gap ν a) : (ν (bestArm ν))[id] ∈ (ρ a).expFamilyMeans id :=
+    hM (bestArm ν) a ▸ hμ _
+  refine tendsto_div_of_eventually_mul_le
+    ((eventually_gt_atTop 1).mono fun n hn ↦ log_pos (by exact_mod_cast hn)) (fun c hc ↦ ?_)
+    fun c hc ↦ expFamilyTS_jeffreysPrior_regret_eventually_le_of_mem_image_expFamily hν hμs
+      (fun a _ ↦ hM a (bestArm ν) ▸ hμ a) (fun a _ ↦ hprop a)
+      (fun _ hm ↦ ne_top_of_le_ne_top (hπ _ _ (hμ _))
+        (measure_mono fun _ hθ ↦ le_trans hθ hm.le)) h hc
+  filter_upwards [eventually_mul_log_le_integral_regret_expFamily
+    (ExpFamilyTS.isConsistent_jeffreysPrior hM hprop hπ) hν hμs hc] with n hn
+  rwa [← h.integral_regret_eq_integral_trajMeasure] at hn
+
+/-- **Asymptotic optimality of Thompson sampling with the Jeffreys prior on exponential families**
+[KKM13, Theorem 1]. Under the assumptions of `tendsto_expFamilyTS_jeffreysPrior_regret_div_log`,
+the expected regret of Thompson sampling with the Jeffreys priors of the families `ρ` is
+`c* log n + o(log n)`, where `c* = ∑_{a : Δ_a > 0} Δ_a / d_{ρ a}(μ_a, μ*)` is the Lai–Robbins
+constant of the bandits whose arms are members of these families. -/
+theorem isLittleO_expFamilyTS_jeffreysPrior_regret_sub_mul_log
+    (hM : ∀ a b, (ρ a).expFamilyMeans id = (ρ b).expFamilyMeans id)
+    (hprop : ∀ a, ∃ s₀ S₀, (ρ a).expFamilyPosterior id ((ρ a).jeffreysPrior id) s₀ S₀ ≠ 0)
+    (hπ : ∀ a, ∀ m ∈ (ρ a).expFamilyMeans id,
+      (ρ a).jeffreysPrior id {θ | deriv (cgf id (ρ a)) θ ≤ m} ≠ ∞)
+    (hν : ∀ a, ν a ∈ (ρ a).expFamily id '' interior (integrableExpSet id (ρ a)))
+    (h : IsAlgEnvSeq O A R (expFamilyTS ρ fun a ↦ (ρ a).jeffreysPrior id) (Environment.bandit ν)
+      P) :
+    (fun n : ℕ ↦ P[regret ν A n] - (∑ a ∈ univ.filter (fun a ↦ 0 < gap ν a),
+        gap ν a / (ρ a).expFamilyDiv id (ν a)[id] (ν (bestArm ν))[id]) * log n)
+      =o[atTop] fun n : ℕ ↦ log n :=
+  isLittleO_sub_mul_of_tendsto_div
+    ((eventually_gt_atTop 1).mono fun n hn ↦ (log_pos (by exact_mod_cast hn)).ne')
+    (tendsto_expFamilyTS_jeffreysPrior_regret_div_log hM hprop hπ hν h)
+
+end ExpFamilyTS
+
+section BernoulliTS
+
+variable (η₀ : ℝ)
+
+/-- **Asymptotic optimality of Thompson sampling with the Jeffreys prior for Bernoulli bandits**
+[KKM13, Theorem 1 and Figure 1]. On a Bernoulli bandit with means `p_a ∈ (0, 1)` and largest mean
+`μ* = max_b p_b`, the expected regret of Thompson sampling with the Jeffreys prior of the Bernoulli
+family, which samples the mean of an arm with `S` successes in `s` pulls from
+`Beta(S + 1 / 2, s - S + 1 / 2)`, satisfies `E[R_n] / log n → ∑_{a : Δ_a > 0} Δ_a / d(p_a, μ*)`,
+the Lai–Robbins constant of the Bernoulli bandits with means in `(0, 1)`. The family is generated
+by `Ber((1 : ℝ), 0, unitInterval.sigmoid η₀)`, for any `η₀`. -/
+theorem tendsto_expFamilyTS_jeffreysPrior_regret_div_log_bernoulliBandit
+    (hp : ∀ a, (p a : ℝ) ∈ Set.Ioo 0 1)
+    (h : IsAlgEnvSeq O A R (expFamilyTS (fun _ ↦ Ber((1 : ℝ), 0, unitInterval.sigmoid η₀))
+      fun _ ↦ Ber((1 : ℝ), 0, unitInterval.sigmoid η₀).jeffreysPrior id)
+      (Environment.bandit (bernoulliBandit p)) P) :
+    Tendsto (fun n : ℕ ↦ P[regret (bernoulliBandit p) A n] / log n) atTop
+      (𝓝 (∑ a ∈ univ.filter (fun a ↦ 0 < gap (bernoulliBandit p) a),
+        gap (bernoulliBandit p) a / (klBer (p a) (⨆ b, (p b : ℝ))).toReal)) := by
+  -- The arm laws are members of the family, and the largest mean `μ*` lies in `(0, 1)`.
+  have hν (a : α) : bernoulliBandit p a ∈ Ber((1 : ℝ), 0, unitInterval.sigmoid η₀).expFamily id ''
+      interior (integrableExpSet id Ber((1 : ℝ), 0, unitInterval.sigmoid η₀)) := by
+    have hmem := Measure.expFamily_natParam_mem_image
+      ((expFamilyMeans_bernoulliMeasure_sigmoid η₀).symm ▸ hp a)
+    rwa [expFamily_natParam_bernoulliMeasure_sigmoid η₀ (hp a), Subtype.coe_eta,
+      ← bernoulliBandit_apply p a] at hmem
+  set ν := bernoulliBandit p
+  have hbest : (ν (bestArm ν))[id] = ⨆ b, (p b : ℝ) := by
+    simp_rw [← iSup_integral_eq_integral_bestArm, ν, integral_id_bernoulliBandit]
+  have hμs : (⨆ b, (p b : ℝ)) ∈ Set.Ioo 0 1 := hbest ▸ integral_id_bernoulliBandit p _ ▸ hp _
+  -- The divergence of the family is the binary relative entropy.
+  have hconst (a : α) :
+      Ber((1 : ℝ), 0, unitInterval.sigmoid η₀).expFamilyDiv id (ν a)[id] (ν (bestArm ν))[id] =
+        (klBer (p a) (⨆ b, (p b : ℝ))).toReal := by
+    rw [hbest, integral_id_bernoulliBandit, expFamilyDiv_bernoulliMeasure_sigmoid η₀ (hp a) hμs,
+      toReal_klBer (Set.Ioo_subset_Icc_self (hp a)) (Set.Ioo_subset_Icc_self hμs)
+        (klBer_ne_top hμs)]
+  simp_rw [← hconst]
+  exact tendsto_expFamilyTS_jeffreysPrior_regret_div_log (fun _ _ ↦ rfl)
+    (fun _ ↦ ⟨1, 0, (isProbabilityMeasure_expFamilyPosterior_bernoulliMeasure_sigmoid_jeffreysPrior
+      η₀ (by norm_num) (by norm_num)).ne_zero⟩) (fun _ _ _ ↦ measure_ne_top _ _) hν h
+
+/-- **Asymptotic optimality of Thompson sampling with the Jeffreys prior for Bernoulli bandits**
+[KKM13, Theorem 1 and Figure 1]. On a Bernoulli bandit with means `p_a ∈ (0, 1)` and largest mean
+`μ* = max_b p_b`, the expected regret of Thompson sampling with the Jeffreys prior of the Bernoulli
+family, generated by `Ber((1 : ℝ), 0, unitInterval.sigmoid η₀)`, is `c* log n + o(log n)`, where
+`c* = ∑_{a : Δ_a > 0} Δ_a / d(p_a, μ*)` is the Lai–Robbins constant of the Bernoulli bandits with
+means in `(0, 1)`. -/
+theorem isLittleO_expFamilyTS_jeffreysPrior_regret_sub_mul_log_bernoulliBandit
+    (hp : ∀ a, (p a : ℝ) ∈ Set.Ioo 0 1)
+    (h : IsAlgEnvSeq O A R (expFamilyTS (fun _ ↦ Ber((1 : ℝ), 0, unitInterval.sigmoid η₀))
+      fun _ ↦ Ber((1 : ℝ), 0, unitInterval.sigmoid η₀).jeffreysPrior id)
+      (Environment.bandit (bernoulliBandit p)) P) :
+    (fun n : ℕ ↦ P[regret (bernoulliBandit p) A n] -
+      (∑ a ∈ univ.filter (fun a ↦ 0 < gap (bernoulliBandit p) a),
+        gap (bernoulliBandit p) a / (klBer (p a) (⨆ b, (p b : ℝ))).toReal) * log n)
+      =o[atTop] fun n : ℕ ↦ log n :=
+  isLittleO_sub_mul_of_tendsto_div
+    ((eventually_gt_atTop 1).mono fun n hn ↦ (log_pos (by exact_mod_cast hn)).ne')
+    (tendsto_expFamilyTS_jeffreysPrior_regret_div_log_bernoulliBandit η₀ hp h)
+
+end BernoulliTS
 
 end LMLExplore.Bandits
