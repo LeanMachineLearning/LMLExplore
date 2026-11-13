@@ -183,11 +183,12 @@ open scoped ENNReal NNReal
 
 namespace LMLExplore.Identification
 
-variable {α Θ 𝓨 : Type*} {mα : MeasurableSpace α} {m𝓨 : MeasurableSpace 𝓨} {a : α}
+variable {α Θ 𝓨 : Type*} {mα : MeasurableSpace α} {m𝓨 : MeasurableSpace 𝓨}
 
 section MeanFunctional
 
-variable (ν : Θ → Kernel α 𝓨) [∀ θ, IsMarkovKernel (ν θ)] (mean : Θ → α → ℝ) {θ : Θ}
+variable {ι : Type*} (ν : Θ → Kernel α 𝓨) [∀ θ, IsMarkovKernel (ν θ)] (mean : Θ → ι → ℝ)
+  {θ : Θ} {a : ι}
 
 /-- The alternatives to the arm `a` in best arm identification are the models with a unique best
 arm `b ≠ a`. -/
@@ -230,7 +231,7 @@ theorem charTime_baiTask_eq_inv_answerValue (ha : ∀ b ≠ a, mean θ b < mean 
 
 end MeanFunctional
 
-variable (ν : (α → ℝ) → Kernel α 𝓨) [∀ μ, IsMarkovKernel (ν μ)] {S : Set (α → ℝ)}
+variable {a : α} (ν : (α → ℝ) → Kernel α 𝓨) [∀ μ, IsMarkovKernel (ν μ)] {S : Set (α → ℝ)}
   {μ' : α → ℝ}
 
 /-- The vectors of means with unique best arm `a` form an open set. -/
