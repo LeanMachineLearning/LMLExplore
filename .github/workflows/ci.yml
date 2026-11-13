@@ -220,7 +220,7 @@ jobs:
         # `--iofail`, as in the sandboxed PR build (TauCetiTools' sandbox-build.sh): the build
         # fails if any module, dependencies included, logs a warning or an info message. A plain
         # `lake build` here let main stay green while every PR build failed on deprecation
-        # warnings in LML.
+        # warnings in LML. Statlib, which LML requires, must also build without warnings.
         run: lake build --iofail
 
       # The same shared checks as trusted PR builds, compiled from merged main's sources.

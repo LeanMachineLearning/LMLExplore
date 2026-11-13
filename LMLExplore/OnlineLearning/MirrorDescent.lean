@@ -1,7 +1,7 @@
 /-
-Copyright (c) 2026 Rémy Degenne. All rights reserved.
+Copyright (c) 2026 LMLExplore contributors. All rights reserved.
 Released under Apache 2.0 license as described in the file LICENSE.
-Authors: Rémy Degenne
+Authors: LMLExplore contributors
 -/
 module
 
@@ -48,6 +48,9 @@ of losses, in particular for losses chosen adaptively from the past plays.
   objective of the step over `D`.
 * `exists_isMirrorDescentStep`: on a nonempty compact set, with a potential continuous on it,
   mirror descent steps exist.
+* `exists_isMirrorDescentStep_of_strongConvexOn`: in finite dimension, on a nonempty closed set
+  that need not be bounded, with a lower semicontinuous strongly convex potential, mirror descent
+  steps exist.
 * `apply_sub_sub_bregDiv_div_le_of_hasFDerivWithinAt`: for `F` convex on `D`, the stability term
   `y (a - b) - D_F(b, a) / η` at every `b ∈ D` is at most its value at the unconstrained step `x`,
   and `apply_sub_sub_bregDiv_div_le_bregDiv_div`: that value is `D_F(a, x) / η`.
@@ -190,6 +193,25 @@ theorem exists_isMirrorDescentStep (hK : IsCompact K) (hK_ne : K.Nonempty) (hF :
     fun_prop
   obtain ⟨x, hx, hmin⟩ := hK.exists_isMinOn hK_ne h_cont
   exact ⟨x, hx, hmin⟩
+
+/-- **Existence of mirror descent steps for a strongly convex potential.** In finite dimension, on
+a nonempty closed set `K`, with a potential `F` that is `m`-strongly convex for some `m > 0` and
+lower semicontinuous on `K`, every point `a` and linear map `F'` have a mirror descent step from
+`a` with derivative `F'`, for every learning rate and loss. Unlike `exists_isMirrorDescentStep`,
+`K` need not be bounded. -/
+theorem exists_isMirrorDescentStep_of_strongConvexOn [FiniteDimensional ℝ E] {m : ℝ}
+    (hK : IsClosed K) (hK_ne : K.Nonempty) (hF : StrongConvexOn K m F) (hm : 0 < m)
+    (hF_lsc : LowerSemicontinuousOn F K) (η : ℝ) (y : E →L[ℝ] ℝ) (a : E) (F' : E →L[ℝ] ℝ) :
+    ∃ x, IsMirrorDescentStep K F η y a F' x := by
+  -- The objective is `F` plus the continuous linear map `η y - F'`, plus the constant
+  -- `F' a - F a`.
+  obtain ⟨x, hx, hmin⟩ := hF.exists_isMinOn_add_continuousLinearMap hm hK hK_ne hF_lsc (η • y - F')
+  have hL : (fun b ↦ η * y b + bregDiv F b a F') =
+      fun b ↦ (F + ⇑(η • y - F')) b + (F' a - F a) := by
+    ext b
+    simp only [bregDiv, Pi.add_apply, map_sub, sub_apply, smul_apply, smul_eq_mul]
+    ring
+  exact ⟨x, hx, hL ▸ hmin.add isMinOn_const⟩
 
 /-- **One step of mirror descent.** Let `K` be convex, let `x` be a mirror descent step on `K`
 from `a` with derivative `F'`, and let `F` have derivative `G` within `K` at `x`. Then for every

@@ -1,7 +1,7 @@
 /-
-Copyright (c) 2026 Rémy Degenne. All rights reserved.
+Copyright (c) 2026 LMLExplore contributors. All rights reserved.
 Released under Apache 2.0 license as described in the file LICENSE.
-Authors: Rémy Degenne
+Authors: LMLExplore contributors
 -/
 module
 
@@ -27,12 +27,16 @@ conditional distribution `η` given `f` of the first coordinate.
   `∫⁻ ω in X ⁻¹' s, g (Y ω) ∂P = ∫⁻ ω in X ⁻¹' s, ∫⁻ y, g y ∂(κ (X ω)) ∂P`.
 * `ProbabilityTheory.HasCondDistrib.lintegral_comp_prodMk_eq_lintegral_lintegral`:
   `∫⁻ ω, g (X ω, Y ω) ∂P = ∫⁻ ω, ∫⁻ y, g (X ω, y) ∂(κ (X ω)) ∂P`.
+* `ProbabilityTheory.HasCondDistrib.restrict_preimage`: `κ` is still the conditional
+  distribution of `Y` given `X` under the restriction of `P` to an event `X ⁻¹' s`.
 * `ProbabilityTheory.HasCondDistrib.ae_mem`: if every conditional law is concentrated on a set,
   then `Y` lies in that set almost surely.
 * `ProbabilityTheory.hasCondDistrib_snd_compProd_comap`: under `μ ⊗ₘ η.comap f`, the second
   coordinate has conditional distribution `η` given `f` of the first coordinate.
 
-The last statement is adapted from the LMLPapers project (same author).
+The last statement is adapted from the LMLPapers project (same author), and
+`HasCondDistrib.restrict_preimage` from the Essakine2026Tight project
+(`RemyDegenne/Essakine2026Tight`, Apache 2.0, `ForLMLExplore/Probability/CondDistrib.lean`).
 -/
 
 public section
@@ -94,6 +98,24 @@ lemma HasCondDistrib.lintegral_comp_prodMk_eq_lintegral_lintegral (h : HasCondDi
     _ = ∫⁻ x, ∫⁻ y, g (x, y) ∂(κ x) ∂(P.map X) := Measure.lintegral_compProd hg
     _ = ∫⁻ ω, ∫⁻ y, g (X ω, y) ∂(κ (X ω)) ∂P :=
         lintegral_map' hg.lintegral_kernel_prod_right'.aemeasurable h.aemeasurable_fst
+
+omit [IsSFiniteKernel κ] in
+/-- If `κ` is the conditional distribution of `Y` given `X` under `P`, it is also the conditional
+distribution of `Y` given `X` under the restriction of `P` to an event `X ⁻¹' s` determined by
+`X`. -/
+lemma HasCondDistrib.restrict_preimage (h : HasCondDistrib Y X κ P) {s : Set 𝓧}
+    (hs : MeasurableSet s) :
+    HasCondDistrib Y X κ (P.restrict (X ⁻¹' s)) := by
+  refine ⟨h.aemeasurable.restrict, ?_⟩
+  have h_pre : (fun ω ↦ (X ω, Y ω)) ⁻¹' (s ×ˢ Set.univ) = X ⁻¹' s := by
+    rw [Set.mk_preimage_prod, Set.preimage_univ, Set.inter_univ]
+  calc (P.restrict (X ⁻¹' s)).map (fun ω ↦ (X ω, Y ω))
+      = (P.map (fun ω ↦ (X ω, Y ω))).restrict (s ×ˢ Set.univ) := by
+        rw [Measure.restrict_map_of_aemeasurable h.aemeasurable (hs.prod .univ), h_pre]
+    _ = (P.map X).restrict s ⊗ₘ κ := by
+        rw [h.map_eq, Measure.compProd_restrict_left _ _ hs]
+    _ = (P.restrict (X ⁻¹' s)).map X ⊗ₘ κ := by
+        rw [Measure.restrict_map_of_aemeasurable h.aemeasurable_fst hs]
 
 omit [SFinite P] [IsSFiniteKernel κ] in
 /-- If `κ` is the conditional distribution of `Y` given `X` and every measure `κ x` is concentrated

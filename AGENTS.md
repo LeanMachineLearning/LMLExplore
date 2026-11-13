@@ -34,14 +34,14 @@ LMLRoadmaps, are what put new material in scope.
 
 ## The dependencies
 
-LMLExplore depends on Mathlib, Tau Ceti and LML, at the exact versions recorded in
-`lake-manifest.json` (their sources are under `.lake/packages/`).
+LMLExplore depends on Mathlib, Tau Ceti, LML and Statlib (which LML requires), at the exact
+versions recorded in `lake-manifest.json` (their sources are under `.lake/packages/`).
 
-- **Reuse what exists.** Before adding a declaration, search all three dependencies as well as
+- **Reuse what exists.** Before adding a declaration, search all four dependencies as well as
   `LMLExplore/` for it, up to renaming, generalisation and definitional unfolding. Material that
   already exists at the pinned version must be used, never restated.
 - **Other projects' plans do not block you.** Tau Ceti's own roadmaps, open pull requests to
-  Mathlib, Tau Ceti or LML, and anything else that is planned but not present at the pinned
+  Mathlib, Tau Ceti, LML or Statlib, and anything else that is planned but not present at the pinned
   versions, are not reasons to wait or to skip a target. Build what the LMLRoadmaps target needs
   here, now. Where such a plan, pull request or Mathlib convention already fixes a name or a
   statement shape, follow it, so that adopting the upstream version later is a deletion plus an
@@ -51,8 +51,8 @@ LMLExplore depends on Mathlib, Tau Ceti and LML, at the exact versions recorded 
   declaration, keeping any additional mathematics. After each sync, a scan
   (`scripts/overlap/`) opens one issue labelled `upstream-overlap` per duplicate; resolve such an
   issue by following `scripts/overlap/fix.md`.
-- **Never contribute upstream.** Do not open pull requests or issues in Mathlib, Tau Ceti or LML.
-  Their maintainers decide, by hand, whether to adopt anything from here.
+- **Never contribute upstream.** Do not open pull requests or issues in Mathlib, Tau Ceti, LML or
+  Statlib. Their maintainers decide, by hand, whether to adopt anything from here.
 
 ## The rules of the repo
 
@@ -60,7 +60,16 @@ LMLExplore depends on Mathlib, Tau Ceti and LML, at the exact versions recorded 
   axioms beyond `propext`, `Classical.choice` and `Quot.sound` (so no `native_decide`), no
   `meta import`, and the Mathlib linter set with warnings as errors (style, header, file length,
   no `maxHeartbeats` overrides). Do not try to disable these.
-- Every file starts with the copyright header and then `module`, as in LML and Tau Ceti.
+- Every file starts with the copyright header and then `module`, as in LML and Tau Ceti. The
+  header names `LMLExplore contributors` as both copyright holder and author, whoever wrote the
+  file, with the year the file was created. Do not add individual names to any header:
+  ```
+  /-
+  Copyright (c) 2026 LMLExplore contributors. All rights reserved.
+  Released under Apache 2.0 license as described in the file LICENSE.
+  Authors: LMLExplore contributors
+  -/
+  ```
 - `set_option` is forbidden anywhere in library code, including `set_option hygiene false`. Prefer
   named definitions, abbreviations and lemmas to custom term syntax. Local tactic macros must
   remove substantial repeated proof machinery. No meta or unsafe declarations, elaborators,

@@ -6,8 +6,9 @@ Run after a dependency sync has landed and the dependencies are checked out at t
 
 The scan looks in two directions:
 
-1. what each upstream with `overlap = true` in `tauceti.toml` (Mathlib, Tau Ceti, LML) added or
-   changed between its previous pin and its current one, to be compared against LMLExplore;
+1. what each upstream with `overlap = true` in `tauceti.toml` (Mathlib, Tau Ceti, LML, Statlib)
+   added or changed between its previous pin and its current one, to be compared against
+   LMLExplore;
 2. what LMLExplore added or changed since the previous sync, to be compared against the
    current pinned upstreams. This catches duplicates that review could not see.
 

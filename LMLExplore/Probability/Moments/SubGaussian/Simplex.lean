@@ -1,7 +1,7 @@
 /-
-Copyright (c) 2026 Rémy Degenne. All rights reserved.
+Copyright (c) 2026 LMLExplore contributors. All rights reserved.
 Released under Apache 2.0 license as described in the file LICENSE.
-Authors: Rémy Degenne
+Authors: LMLExplore contributors
 -/
 module
 
@@ -54,7 +54,7 @@ theorem log_sum_mul_exp_le {w : α → ℝ} (hw : w ∈ simplex α) {ℓ : α �
   rw [hsplit, ← le_div_iff₀' (exp_pos _), ← exp_sub] at h
   rw [log_le_iff_le_exp hpos]
   refine h.trans_eq (congrArg exp ?_)
-  simp only [NNReal.coe_pow, NNReal.coe_div, coe_nnnorm, Real.norm_eq_abs, NNReal.coe_ofNat,
+  simp only [NNReal.coe_pow, NNReal.coe_div, coe_nnNorm, Real.norm_eq_abs, NNReal.coe_ofNat,
     div_pow, sq_abs]
   ring
 

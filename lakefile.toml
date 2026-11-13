@@ -3,9 +3,9 @@ defaultTargets = ["LMLExplore"]
 # LMLExplore is a pure Lean package: its module outputs can be reused across platforms.
 platformIndependent = true
 
-# Dependency policy (see README.md): the three dependencies move together, only at Lean
-# releases that both Tau Ceti and LML have tagged. `lake-manifest.json` records the exact
-# commits; the `rev`s below name the branch each pin must lie on.
+# Dependency policy (see README.md): the dependencies move together, by hand. Statlib comes
+# through LML, which requires it. `lake-manifest.json` records the exact commits; the `rev`s below
+# name the branch each pin must lie on.
 [[require]]
 name = "TauCeti"
 git = "https://github.com/TauCetiProject/TauCeti"
@@ -17,9 +17,9 @@ git = "https://github.com/LeanMachineLearning/LML"
 rev = "main"
 
 # Mathlib is required directly so that its pin overrides the ones inherited from Tau Ceti and
-# LML. It is pinned to the Mathlib commit used by Tau Ceti's release tag, so that Tau Ceti
-# builds against exactly the Mathlib it was released with; LML then builds against a Mathlib
-# a few commits newer than its own release pin.
+# LML. It is pinned to the Mathlib commit of the Tau Ceti pin, so that Tau Ceti builds against
+# exactly its own Mathlib and its prebuilt files apply; LML and Statlib are pinned at commits on
+# that same Mathlib.
 # It is required last because Lake gives precedence to later requires for shared dependencies:
 # this way the pins of Mathlib's own dependencies (Batteries, Aesop, ...) win over those
 # inherited from LML, as `lake exe cache get` and Tau Ceti's prebuilt files need.

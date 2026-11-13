@@ -1,7 +1,7 @@
 /-
-Copyright (c) 2026 Rémy Degenne. All rights reserved.
+Copyright (c) 2026 LMLExplore contributors. All rights reserved.
 Released under Apache 2.0 license as described in the file LICENSE.
-Authors: Rémy Degenne
+Authors: LMLExplore contributors
 -/
 module
 
@@ -12,6 +12,7 @@ public import Mathlib.Analysis.Complex.ExponentialBounds
 public import Mathlib.Analysis.SpecialFunctions.Log.Base
 public import Mathlib.MeasureTheory.Function.L2Space
 public import Mathlib.Probability.Moments.Basic
+import TauCeti.Analysis.SpecialFunctions.Exp.QuadraticBound
 
 /-!
 # Freedman's inequality
@@ -242,8 +243,8 @@ theorem measure_exists_le_sum_and_sum_condExp_sq_le_le [IsProbabilityMeasure μ]
       ring
     calc c * σ2 ≤ (l * b) ^ 2 / (2 * (1 - l * b / 3)) / b ^ 2 * σ2 := by
           gcongr
-          exact div_le_div_of_nonneg_right (exp_sub_one_sub_id_le_sq_div (by positivity) hu3)
-            (sq_nonneg b)
+          refine div_le_div_of_nonneg_right ?_ (sq_nonneg b)
+          linarith [exp_le_one_add_add_sq_div_of_le le_rfl (by positivity) hu3]
       _ = a ^ 2 / (2 * D) := by
           rw [h1, hl_def]
           field_simp

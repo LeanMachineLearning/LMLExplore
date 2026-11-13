@@ -1,7 +1,7 @@
 /-
-Copyright (c) 2026 Rémy Degenne. All rights reserved.
+Copyright (c) 2026 LMLExplore contributors. All rights reserved.
 Released under Apache 2.0 license as described in the file LICENSE.
-Authors: Rémy Degenne
+Authors: LMLExplore contributors
 -/
 module
 
@@ -13,6 +13,7 @@ public import Mathlib.Analysis.SpecialFunctions.Exp
 public import Mathlib.Analysis.SpecialFunctions.Exponential
 public import Mathlib.Analysis.SpecialFunctions.Log.Deriv
 public import Mathlib.Analysis.SpecialFunctions.Trigonometric.DerivHyp
+import TauCeti.Analysis.SpecialFunctions.Exp.QuadraticBound
 
 /-!
 # Sums of exponentials and quadratic bounds on the exponential
@@ -38,10 +39,11 @@ sequence `exp (-f n)` is summable as soon as `f n` grows faster than `log n`, fo
 tail bounds `exp (-c m n)` over a sequence of experiments whose sample sizes grow faster than
 logarithmically.
 
-For `x ≥ 0`, `exp (-x) ≤ 1 - x + x ^ 2 / 2`, the second-order bound that controls the growth of
-the potential of exponential weights fed with nonnegative losses. Conversely, discounting the
-argument of the exponential turns `1 + x` into an upper bound near `0`: `exp (x / (1 + l)) ≤ 1 + x`
-for `0 ≤ x ≤ 2 l` [LS, Lemma 12.5], which controls the exponential moments of the
+Tau Ceti's second-order bound `exp x ≤ 1 + x + x ^ 2 / 2` for `x ≤ 0`
+(`Real.exp_le_one_add_add_sq_div_two_of_nonpos`) controls the growth of the potential of
+exponential weights fed with nonnegative losses. Conversely, discounting the argument of the
+exponential turns `1 + x` into an upper bound near `0`: `exp (x / (1 + l)) ≤ 1 + x` for
+`0 ≤ x ≤ 2 l` [LS, Lemma 12.5], which controls the exponential moments of the
 implicit-exploration estimates of Exp3-IX.
 
 Above its affine part, the exponential grows like its second-order term up to a factor that
@@ -49,9 +51,9 @@ increases with the argument: `x ↦ (exp x - 1 - x) / x ^ 2` is monotone on `[0,
 `∑_j x ^ j / (j + 2)!` with nonnegative coefficients. Hence, for `b > 0`, `l ≥ 0` and `x ≤ b`,
 `exp (l x) ≤ 1 + l x + ψ x ^ 2` with `ψ = (exp (l b) - 1 - l b) / b ^ 2`
 [BLM13, proof of Theorem 2.9], the one-step bound behind the inequalities of Bennett, Bernstein
-and Freedman. Comparing the series
-with a geometric one gives `exp x - 1 - x ≤ x ^ 2 / (2 (1 - x / 3))` for `0 ≤ x < 3`, which turns
-these into Bernstein's form, and inverts in closed form at Chernoff's choice of parameter.
+and Freedman. Tau Ceti's `Real.exp_le_one_add_add_sq_div_of_le`, which gives
+`exp x - 1 - x ≤ x ^ 2 / (2 (1 - x / 3))` for `0 ≤ x < 3`, turns these into Bernstein's form,
+which inverts in closed form at Chernoff's choice of parameter.
 
 By the convexity of the exponential, a sum of exponentials is at least its number of terms times
 the exponential of the mean of the exponents. This spreads a bound on a sum of divergences
@@ -61,6 +63,7 @@ lower bound for linear bandits on the unit ball [LS, Theorem 24.2].
 ## Main statements
 
 * `Real.sum_range_exp_neg_mul_le`: `∑_{s < m} exp (-c (s + 1)) ≤ 1 / c` for `c > 0`.
+* `Real.sum_range_exp_neg_mul_le_one_add`: `∑_{s < m} exp (-c s) ≤ 1 + 1 / c` for `c > 0`.
 * `Real.sum_range_exp_neg_mul_div_le`: `∑_{s < m} exp (-c (s + 1)) / (s + 1) ≤ log (1 + 1 / c)`
   for `c > 0`.
 * `Real.sum_range_two_pow_mul_exp_neg_le`: `∑_{j < m} 2 ^ j exp (-2 ^ j c) ≤ 3 / (2 c)` for
@@ -74,7 +77,6 @@ lower bound for linear bandits on the unit ball [LS, Theorem 24.2].
 * `Real.exp_neg_mul_div_one_sub_exp_neg_nonneg`: the terms `exp (-x d) / (1 - exp (-d))` of these
   tail sums are nonnegative for `d ≥ 0`.
 * `Real.summable_exp_neg_of_tendsto_div_log`: `∑ n, exp (-f n) < ∞` if `f n / log n → ∞`.
-* `Real.exp_neg_le_one_sub_add_sq_div_two`: `exp (-x) ≤ 1 - x + x ^ 2 / 2` for `x ≥ 0`.
 * `Real.exp_div_one_add_le_one_add`: `exp (x / (1 + l)) ≤ 1 + x` for `0 ≤ x ≤ 2 l`.
 * `Real.hasSum_pow_add_two_div_factorial`: `∑_j x ^ (j + 2) / (j + 2)! = exp x - 1 - x`.
 * `Real.exp_sub_one_sub_id_div_sq_nonneg`: `0 ≤ (exp x - 1 - x) / y ^ 2`.
@@ -82,8 +84,7 @@ lower bound for linear bandits on the unit ball [LS, Theorem 24.2].
   `[0, ∞)`.
 * `Real.exp_mul_le_one_add_mul_add_mul_sq`: Bennett's bound
   `exp (l x) ≤ 1 + l x + (exp (l b) - 1 - l b) / b ^ 2 * x ^ 2` for `b > 0`, `l ≥ 0`, `x ≤ b`.
-* `Real.exp_sub_one_sub_id_le_sq_div`: `exp x - 1 - x ≤ x ^ 2 / (2 (1 - x / 3))` for `0 ≤ x < 3`.
-* `Real.exists_pos_le_mul_sqrt_add_sub_mul_exp_sub_one_sub`: the closed-form inversion of this
+* `Real.exists_pos_le_mul_sqrt_add_sub_mul_exp_sub_one_sub`: the closed-form inversion of the
   sub-gamma bound, `L ≤ t (√(2 v L) + b L / 3) - v (exp (t b) - 1 - t b) / b ^ 2` for some `t > 0`.
 * `Real.exp_neg_le_one_sub_add_sq`: `exp (-x) ≤ 1 - x + x ^ 2` for `x ≥ -1`.
 * `Real.card_mul_exp_sum_div_card_le_sum_exp`: `#s exp ((∑ i ∈ s, x i) / #s) ≤ ∑ i ∈ s, exp (x i)`.
@@ -122,6 +123,18 @@ theorem sum_range_exp_neg_mul_le {c : ℝ} (hc : 0 < c) (m : ℕ) :
     have : 0 ≤ v m := by positivity
     simp only [hv, CharP.cast_eq_zero, mul_zero, neg_zero, exp_zero, one_div] at this ⊢
     linarith
+
+/-- For `c > 0`, `∑_{s < m} exp (-c s) ≤ 1 + 1 / c`, uniformly in `m`. -/
+theorem sum_range_exp_neg_mul_le_one_add {c : ℝ} (hc : 0 < c) (m : ℕ) :
+    ∑ s ∈ range m, exp (-(c * s)) ≤ 1 + c⁻¹ := by
+  -- the term of `s = 0` is `1`, and the others are bounded by `sum_range_exp_neg_mul_le`
+  calc ∑ s ∈ range m, exp (-(c * s))
+  _ ≤ ∑ s ∈ range (m + 1), exp (-(c * s)) :=
+    sum_le_sum_of_subset_of_nonneg (range_subset_range.2 m.le_succ) fun _ _ _ ↦ (exp_pos _).le
+  _ = ∑ s ∈ range m, exp (-(c * (s + 1))) + 1 := by
+    rw [sum_range_succ']
+    simp
+  _ ≤ 1 + c⁻¹ := by linarith [sum_range_exp_neg_mul_le hc m]
 
 /-- For `c > 0`, `∑_{s < m} exp (-c (s + 1)) / (s + 1) ≤ log (1 + 1 / c)`, uniformly in `m`: the
 series is the logarithmic series `-log (1 - exp (-c))`, and `1 - exp (-c) ≥ c / (1 + c)`. -/
@@ -251,17 +264,6 @@ theorem summable_exp_neg_of_tendsto_div_log {f : ℕ → ℝ}
     ← exp_neg, Nat.cast_ofNat]
   exact exp_le_exp.2 (neg_le_neg hn)
 
-/-- For `x ≥ 0`, `exp (-x) ≤ 1 - x + x ^ 2 / 2`. -/
-theorem exp_neg_le_one_sub_add_sq_div_two {x : ℝ} (hx : 0 ≤ x) :
-    exp (-x) ≤ 1 - x + x ^ 2 / 2 := by
-  -- `exp x ≥ 1 + x + x ^ 2 / 2` and `(1 + x + x ^ 2 / 2) (1 - x + x ^ 2 / 2) = 1 + x ^ 4 / 4`
-  have hpos : 0 < 1 + x + x ^ 2 / 2 := by positivity
-  calc exp (-x) = (exp x)⁻¹ := exp_neg x
-  _ ≤ (1 + x + x ^ 2 / 2)⁻¹ := inv_anti₀ hpos (quadratic_le_exp_of_nonneg hx)
-  _ ≤ 1 - x + x ^ 2 / 2 := by
-    rw [inv_le_iff_one_le_mul₀' hpos]
-    nlinarith [pow_nonneg hx 4]
-
 /-- For `0 ≤ x ≤ 2 l`, `exp (x / (1 + l)) ≤ 1 + x` [LS, Lemma 12.5]. -/
 theorem exp_div_one_add_le_one_add {x l : ℝ} (hx : 0 ≤ x) (hxl : x ≤ 2 * l) :
     exp (x / (1 + l)) ≤ 1 + x := by
@@ -302,33 +304,12 @@ theorem monotoneOn_exp_sub_one_sub_id_div_sq :
   · refine hasSum_le (fun j ↦ ?_) (hseries u hu') (hseries v (hu'.trans_le huv))
     gcongr
 
-/-- For `0 ≤ x < 3`, `exp x - 1 - x ≤ x ^ 2 / (2 * (1 - x / 3))`, the bound on the exponential
-behind Bernstein's inequality. -/
-theorem exp_sub_one_sub_id_le_sq_div {x : ℝ} (hx : 0 ≤ x) (hx3 : x < 3) :
-    exp x - 1 - x ≤ x ^ 2 / (2 * (1 - x / 3)) := by
-  have hgeom : HasSum (fun j : ℕ ↦ x ^ 2 / 2 * (x / 3) ^ j) (x ^ 2 / 2 * (1 - x / 3)⁻¹) :=
-    (hasSum_geometric_of_lt_one (by positivity) (by linarith)).mul_left _
-  have hfact (j : ℕ) : (2 * 3 ^ j : ℝ) ≤ (j + 2).factorial := by
-    induction j with
-    | zero => norm_num
-    | succ j ih =>
-      rw [Nat.factorial_succ, Nat.cast_mul, pow_succ]
-      push_cast
-      nlinarith
-  calc exp x - 1 - x ≤ x ^ 2 / 2 * (1 - x / 3)⁻¹ := by
-        refine hasSum_le (fun j ↦ ?_) (hasSum_pow_add_two_div_factorial x) hgeom
-        rw [show x ^ 2 / 2 * (x / 3) ^ j = x ^ (j + 2) / (2 * 3 ^ j) by rw [div_pow, pow_add]; ring]
-        exact div_le_div_of_nonneg_left (by positivity) (by positivity) (hfact j)
-    _ = x ^ 2 / (2 * (1 - x / 3)) := by
-        have : 1 - x / 3 ≠ 0 := by linarith
-        field_simp
-
 /-- **Inversion of the sub-gamma bound**, Chernoff's choice of parameter in Bernstein's
 inequality [BLM13, Theorem 2.10]: for `b, v, L > 0`, some `t > 0` has
 `L ≤ t (√(2 v L) + b L / 3) - v ψ_b(t)`, with `ψ_b(t) = (exp (t b) - 1 - t b) / b ^ 2`. It is
 `t = r / (v + b r / 3)` with `r = √(2 v L)`, at which the bound
-`ψ_b(t) ≤ t ^ 2 / (2 (1 - t b / 3))` of `exp_sub_one_sub_id_le_sq_div` makes the right-hand
-side at least `L`. -/
+`ψ_b(t) ≤ t ^ 2 / (2 (1 - t b / 3))` of Tau Ceti's `exp_le_one_add_add_sq_div_of_le` makes the
+right-hand side at least `L`. -/
 theorem exists_pos_le_mul_sqrt_add_sub_mul_exp_sub_one_sub {b v L : ℝ} (hb : 0 < b)
     (hv : 0 < v) (hL : 0 < L) :
     ∃ t, 0 < t ∧
@@ -347,7 +328,7 @@ theorem exists_pos_le_mul_sqrt_add_sub_mul_exp_sub_one_sub {b v L : ℝ} (hb : 0
     calc (exp (r / s * b) - 1 - r / s * b) / b ^ 2
         ≤ (r / s * b) ^ 2 / (2 * (1 - r / s * b / 3)) / b ^ 2 := by
           gcongr
-          exact exp_sub_one_sub_id_le_sq_div (by positivity) htb
+          linarith [exp_le_one_add_add_sq_div_of_le le_rfl (by positivity) htb]
       _ = (r / s) ^ 2 / (2 * (1 - r / s * b / 3)) := by field_simp
   have h1 : 1 - r / s * b / 3 = v / s := by
     field_simp
@@ -374,8 +355,7 @@ theorem exp_mul_le_one_add_mul_add_mul_sq {b l x : ℝ} (hb : 0 < b) (hl : 0 ≤
   rw [hcoef]
   rcases le_or_gt (l * x) 0 with hu | hu
   · -- `exp u ≤ 1 + u + u ^ 2 / 2` for `u ≤ 0`, and `φ v ≥ 1 / 2`
-    have h₁ := exp_neg_le_one_sub_add_sq_div_two (neg_nonneg.2 hu)
-    rw [neg_neg, neg_sq, sub_neg_eq_add] at h₁
+    have h₁ := exp_le_one_add_add_sq_div_two_of_nonpos hu
     have h₂ : 1 / 2 ≤ (exp (l * b) - 1 - l * b) / (l * b) ^ 2 := by
       rw [le_div_iff₀ (by positivity)]
       linarith [quadratic_le_exp_of_nonneg hv.le]

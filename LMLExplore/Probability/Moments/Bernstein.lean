@@ -1,7 +1,7 @@
 /-
-Copyright (c) 2026 Rémy Degenne. All rights reserved.
+Copyright (c) 2026 LMLExplore contributors. All rights reserved.
 Released under Apache 2.0 license as described in the file LICENSE.
-Authors: Rémy Degenne
+Authors: LMLExplore contributors
 -/
 module
 
@@ -10,6 +10,7 @@ public import Mathlib.Probability.Independence.Basic
 public import Mathlib.Probability.Moments.Basic
 import LMLExplore.Analysis.SpecialFunctions.Exp
 import LMLExplore.Probability.Moments.Basic
+import TauCeti.Analysis.SpecialFunctions.Exp.QuadraticBound
 import TauCeti.Probability.Moments.Basic
 
 /-!
@@ -28,8 +29,8 @@ at `t = log (1 + b ε / v) / b` gives **Bennett's inequality**
 it decays like `exp (-(ε / b) log (b ε / v))`, faster than the exponential decay of Bernstein's
 inequality.
 
-Since `ψ_b(t) ≤ t ^ 2 / (2 (1 - t b / 3))` for `t b < 3`
-(`Real.exp_sub_one_sub_id_le_sq_div`), `S` is also sub-gamma with variance factor `v` and scale
+Since `ψ_b(t) ≤ t ^ 2 / (2 (1 - t b / 3))` for `t b < 3` (Tau Ceti's
+`Real.exp_le_one_add_add_sq_div_of_le`), `S` is also sub-gamma with variance factor `v` and scale
 `b / 3`. Chernoff's bound at an explicit `t` then inverts in closed form
 (`Real.exists_pos_le_mul_sqrt_add_sub_mul_exp_sub_one_sub`): for every `L`,
 `P(√(2 v L) + b L / 3 ≤ S) ≤ exp (-L)`, so that with probability at least `1 - δ`,

@@ -1,7 +1,7 @@
 /-
-Copyright (c) 2026 Rémy Degenne. All rights reserved.
+Copyright (c) 2026 LMLExplore contributors. All rights reserved.
 Released under Apache 2.0 license as described in the file LICENSE.
-Authors: Rémy Degenne
+Authors: LMLExplore contributors
 -/
 module
 
@@ -45,12 +45,24 @@ import Mathlib.Analysis.SpecialFunctions.Log.Deriv
 * `Real.eventually_exists_add_le_mul_and_forall_ofReal_add_lt_mul`: for `1 < κ c` and
   `f T = o(T)` from above, for all small enough `δ` the thresholds `log (1 / δ) + f T` are below
   `κ T` from a round `N ≤ c log (1 / δ)` on.
+* `Real.sum_div_max_one_le_three_mul_log`: the logarithmic sum bound. If `0 ≤ u k ≤ max 1 (U k)`
+  for every `k < n`, where `U k = ∑_{i < k} u i`, then
+  `∑_{k < n} u k / max 1 (U k) ≤ 3 log (U n + 1)`. It is the logarithmic counterpart of the
+  doubling bound `Real.sum_div_sqrt_max_one_le`: it sums the ratios of what is collected at a
+  step to what was collected before it, as the visit counts in the sample complexity analysis of
+  RF-Express [MDJKLV21].
+* `Real.sum_div_max_one_le_four_mul_log`: the form of [MDJKLV21, Lemma 9], for `u k ∈ [0, 1]`
+  and with the constant `4`.
 
 ## References
 
 * [GK16] A. Garivier and E. Kaufmann, *Optimal best arm identification with fixed confidence*,
   COLT 2016, proof of Theorem 14.
 * [LS] T. Lattimore and Cs. Szepesvári, *Bandit Algorithms*, Cambridge University Press, 2020.
+* [MDJKLV21] P. Ménard, O. D. Domingues, A. Jonsson, E. Kaufmann, E. Leurent and M. Valko, *Fast
+  active learning for pure exploration in reinforcement learning*, ICML 2021, Lemma 9.
+* [EV26] A. Essakine and C. Vernade, *Tight sample complexity bounds for entropic best policy
+  identification*, COLT 2026, arXiv:2605.13717, Lemma 28.
 -/
 
 public section
@@ -407,6 +419,65 @@ theorem add_one_mul_log_sub_le_one (m : ℕ) :
     field_simp
     ring
   rw [this] at h'
+  linarith
+
+/-- One step of the logarithmic sum bound: for `0 ≤ U`, `0 ≤ u` and `u ≤ max 1 U`,
+`u / max 1 U ≤ 3 (log (U + u + 1) - log (U + 1))`. -/
+private theorem div_max_one_le_three_mul_log_sub_log {U u : ℝ} (hU : 0 ≤ U) (hu : 0 ≤ u)
+    (huU : u ≤ max 1 U) : u / max 1 U ≤ 3 * (log (U + u + 1) - log (U + 1)) := by
+  have hM : 0 < max 1 U := lt_max_of_lt_left one_pos
+  have hb : 0 < U + u + 1 := by linarith
+  -- `u / (U + u + 1) = 1 - (U + 1) / (U + u + 1) ≤ log ((U + u + 1) / (U + 1))`
+  have hlog : u / (U + u + 1) ≤ log (U + u + 1) - log (U + 1) := by
+    have h := one_sub_inv_le_log_of_pos (x := (U + u + 1) / (U + 1)) (by positivity)
+    rw [inv_div, log_div hb.ne' (by linarith)] at h
+    calc u / (U + u + 1) = 1 - (U + 1) / (U + u + 1) := by field_simp; ring
+      _ ≤ _ := h
+  -- `U + u + 1 ≤ 3 max 1 U`, since `U`, `u` and `1` are at most `max 1 U`
+  have h3 : U + u + 1 ≤ 3 * max 1 U := by linarith [le_max_left 1 U, le_max_right 1 U]
+  calc u / max 1 U ≤ 3 * (u / (U + u + 1)) := by
+        rw [mul_div_assoc', div_le_div_iff₀ hM hb]
+        nlinarith
+    _ ≤ 3 * (log (U + u + 1) - log (U + 1)) := by gcongr
+
+/-- **The logarithmic sum bound**: if `0 ≤ u k ≤ max 1 (U k)` for every `k < n`, where
+`U k = ∑_{i < k} u i`, then `∑_{k < n} u k / max 1 (U k) ≤ 3 log (U n + 1)`.
+
+This is [MDJKLV21, Lemma 9], restated as [EV26, Lemma 28], with the constant `3` in place of `4`
+and the hypothesis `u k ≤ 1` weakened to `u k ≤ max 1 (U k)`; see
+`Real.sum_div_max_one_le_four_mul_log` for the stated form. That the constant `3` holds is
+erratum E19 of the formalization of [EV26] in `github.com/RemyDegenne/Essakine2026Tight`
+(file `notes/paper-errata.md`). Adapted from that formalization (file
+`Essakine2026Tight/ForLMLExplore/Analysis/SpecialFunctions/Log/Basic.lean`, commit `9c77165d`,
+by Rémy Degenne, Apache 2.0), which assumes `u k ∈ [0, 1]`. -/
+theorem sum_div_max_one_le_three_mul_log {u : ℕ → ℝ} {n : ℕ} (hu : ∀ k < n, 0 ≤ u k)
+    (huU : ∀ k < n, u k ≤ max 1 (∑ i ∈ Finset.range k, u i)) :
+    ∑ k ∈ Finset.range n, u k / max 1 (∑ i ∈ Finset.range k, u i) ≤
+      3 * log (∑ k ∈ Finset.range n, u k + 1) := by
+  induction n with
+  | zero => simp
+  | succ n ih =>
+    have hU : 0 ≤ ∑ i ∈ Finset.range n, u i :=
+      Finset.sum_nonneg fun i hi ↦ hu i (by simp at hi; omega)
+    have hstep := div_max_one_le_three_mul_log_sub_log hU (hu n n.lt_succ_self)
+      (huU n n.lt_succ_self)
+    have ih' := ih (fun k hk ↦ hu k (by omega)) (fun k hk ↦ huU k (by omega))
+    rw [Finset.sum_range_succ, Finset.sum_range_succ]
+    linarith
+
+/-- **The logarithmic sum bound** in the form of [MDJKLV21, Lemma 9]: if `u k ∈ [0, 1]` for every
+`k < n`, where `U k = ∑_{i < k} u i`, then `∑_{k < n} u k / max 1 (U k) ≤ 4 log (U n + 1)`.
+
+The source indexes the sequence from `1`: with `u_t = u (t - 1)` and `n = T + 1`, the bound reads
+`∑_{t = 0}^T u_{t+1} / max 1 U_t ≤ 4 log (U_{T+1} + 1)` for `U_t = ∑_{l = 1}^t u_l`. The sharper
+constant `3` and weaker hypotheses are `Real.sum_div_max_one_le_three_mul_log`. -/
+theorem sum_div_max_one_le_four_mul_log {u : ℕ → ℝ} {n : ℕ} (hu : ∀ k < n, u k ∈ Set.Icc 0 1) :
+    ∑ k ∈ Finset.range n, u k / max 1 (∑ i ∈ Finset.range k, u i) ≤
+      4 * log (∑ k ∈ Finset.range n, u k + 1) := by
+  have hlog : 0 ≤ log (∑ k ∈ Finset.range n, u k + 1) :=
+    log_nonneg (by linarith [Finset.sum_nonneg fun k hk ↦ (hu k (Finset.mem_range.1 hk)).1])
+  have h := sum_div_max_one_le_three_mul_log (fun k hk ↦ (hu k hk).1)
+    fun k hk ↦ (hu k hk).2.trans (le_max_left _ _)
   linarith
 
 end Real

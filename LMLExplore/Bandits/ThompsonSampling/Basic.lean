@@ -1,7 +1,7 @@
 /-
-Copyright (c) 2026 Rémy Degenne. All rights reserved.
+Copyright (c) 2026 LMLExplore contributors. All rights reserved.
 Released under Apache 2.0 license as described in the file LICENSE.
-Authors: Rémy Degenne
+Authors: LMLExplore contributors
 -/
 module
 
@@ -46,6 +46,8 @@ constant multiple of Lebesgue measure, and Thompson sampling is Gaussian Thompso
 
 * `expFamilyTSStackLaw_of_ne_zero`: the law of the perturbation of a pulled arm with a proper
   posterior is the image of the posterior by the mean map.
+* `expFamilyTSStackLaw_Ioi`: the perturbation of a pulled arm with a proper posterior exceeds `c`
+  with the posterior probability that `c < ψ'(θ)`.
 * `measurable_expFamilyTSStackLaw`, `measurable_expFamilyTSLaw`: measurability of the
   perturbation laws in the sum of rewards and in the history.
 * `expFamilyTSLaw_history`: along a sequence of rounds, the perturbation law in terms of LML's
@@ -111,6 +113,16 @@ lemma expFamilyTSStackLaw_of_ne_zero (hs : s ≠ 0) (h : ρ.expFamilyPosterior i
     expFamilyTSStackLaw ρ π s S =
       (ρ.expFamilyPosterior id π s S).map fun θ ↦ ((deriv (cgf id ρ) θ : ℝ) : EReal) := by
   simp [expFamilyTSStackLaw_def, hs, h]
+
+/-- The perturbation of an arm pulled `s ≠ 0` times with sum of rewards `S`, whose posterior is not
+`0`, exceeds a level `c` with the posterior probability that the mean `ψ'(θ)` exceeds `c`. -/
+lemma expFamilyTSStackLaw_Ioi (hs : s ≠ 0) (h : ρ.expFamilyPosterior id π s S ≠ 0) (c : ℝ) :
+    expFamilyTSStackLaw ρ π s S (Set.Ioi (c : EReal)) =
+      ρ.expFamilyPosterior id π s S {θ | c < deriv (cgf id ρ) θ} := by
+  rw [expFamilyTSStackLaw_of_ne_zero hs h, Measure.map_apply (by fun_prop) measurableSet_Ioi]
+  congr 1
+  ext θ
+  simp
 
 instance : IsProbabilityMeasure (expFamilyTSStackLaw ρ π s S) := by
   by_cases h : s = 0 ∨ ρ.expFamilyPosterior id π s S = 0

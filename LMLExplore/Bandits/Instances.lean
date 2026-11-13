@@ -1,7 +1,7 @@
 /-
-Copyright (c) 2026 Rémy Degenne. All rights reserved.
+Copyright (c) 2026 LMLExplore contributors. All rights reserved.
 Released under Apache 2.0 license as described in the file LICENSE.
-Authors: Rémy Degenne
+Authors: LMLExplore contributors
 -/
 module
 
@@ -207,7 +207,7 @@ lemma klDiv_bernoulliBandit_eq_ofReal_expFamilyDiv (η₀ : ℝ) {p p' : α → 
     (hp : (p a : ℝ) ∈ Set.Ioo 0 1) (hp' : (p' a : ℝ) ∈ Set.Ioo 0 1) :
     klDiv (bernoulliBandit p a) (bernoulliBandit p' a) =
       ENNReal.ofReal (Ber((1 : ℝ), 0, unitInterval.sigmoid η₀).expFamilyDiv id (p a) (p' a)) := by
-  rw [bernoulliBandit_apply, bernoulliBandit_apply, klDiv_bernoulliMeasure,
+  rw [bernoulliBandit_apply, bernoulliBandit_apply, klDiv_bernoulliMeasure one_ne_zero,
     expFamilyDiv_bernoulliMeasure_sigmoid η₀ hp hp', klBer_eq_ofReal_klBerReal
       (Set.Ioo_subset_Icc_self hp) (Set.Ioo_subset_Icc_self hp') (klBer_ne_top hp')]
 

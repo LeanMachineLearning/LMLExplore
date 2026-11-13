@@ -1,7 +1,7 @@
 /-
-Copyright (c) 2026 Rémy Degenne. All rights reserved.
+Copyright (c) 2026 LMLExplore contributors. All rights reserved.
 Released under Apache 2.0 license as described in the file LICENSE.
-Authors: Rémy Degenne
+Authors: LMLExplore contributors
 -/
 module
 
@@ -55,7 +55,9 @@ These posteriors are the sampling laws of Thompson sampling for exponential fami
 * `MeasureTheory.Measure.measurable_expFamilyPosterior`: for an s-finite measure `ρ`, a measurable
   statistic and an s-finite prior, the posterior is a measurable function of `S`.
 * `MeasureTheory.Measure.ofReal_mul_le_jeffreysPrior_Icc`: the Jeffreys prior of an interval of
-  natural parameters on which `√ψ''` is at least `c` is at least `c` times its length.
+  natural parameters on which `√ψ''` is at least `c` is at least `c` times its length;
+  `MeasureTheory.Measure.jeffreysPrior_Icc_ne_zero`: it is positive on every nondegenerate interval
+  of natural parameters.
 
 ## References
 
@@ -207,5 +209,19 @@ lemma ofReal_mul_le_jeffreysPrior_Icc {a b c : ℝ} (hc : 0 ≤ c)
     Measure.restrict_restrict measurableSet_Icc, inter_eq_left.2 hΘ, ENNReal.ofReal_mul hc,
     ← Real.volume_Icc, ← setLIntegral_const]
   exact setLIntegral_mono' measurableSet_Icc fun θ hθ ↦ ENNReal.ofReal_le_ofReal (hψ θ hθ)
+
+/-- For a statistic that is not almost everywhere constant, the Jeffreys prior gives positive mass
+to every nondegenerate interval `[a, b]` of natural parameters: `√ψ''` is continuous and positive,
+hence bounded below on `[a, b]`. -/
+lemma jeffreysPrior_Icc_ne_zero (hT : ∀ c, ¬ T =ᵐ[ρ] fun _ ↦ c) {a b : ℝ} (hab : a < b)
+    (hΘ : Icc a b ⊆ interior (integrableExpSet T ρ)) : ρ.jeffreysPrior T (Icc a b) ≠ 0 := by
+  have hcont : ContinuousOn (iteratedDeriv 2 (cgf T ρ)) (Icc a b) := fun θ hθ ↦ by
+    rw [iteratedDeriv_eq_iterate]
+    exact ((analyticAt_cgf (hΘ hθ)).iterated_deriv 2).continuousAt.continuousWithinAt
+  obtain ⟨θ₀, hθ₀, hmin⟩ := isCompact_Icc.exists_isMinOn (nonempty_Icc.2 hab.le) hcont
+  have hpos := iteratedDeriv_two_cgf_pos hT (hΘ hθ₀)
+  refine ((ENNReal.ofReal_pos.2 (mul_pos (Real.sqrt_pos.2 hpos) (sub_pos.2 hab))).trans_le
+    (ofReal_mul_le_jeffreysPrior_Icc (Real.sqrt_nonneg _) hΘ fun θ hθ ↦ ?_)).ne'
+  exact Real.sqrt_le_sqrt (isMinOn_iff.1 hmin θ hθ)
 
 end MeasureTheory.Measure

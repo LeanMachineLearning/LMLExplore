@@ -1,7 +1,7 @@
 /-
-Copyright (c) 2026 Rémy Degenne. All rights reserved.
+Copyright (c) 2026 LMLExplore contributors. All rights reserved.
 Released under Apache 2.0 license as described in the file LICENSE.
-Authors: Rémy Degenne
+Authors: LMLExplore contributors
 -/
 module
 
@@ -163,12 +163,12 @@ theorem IsAlgEnvSeq.integral_sum_feedback_eq_integral_sum_means [IsFiniteMeasure
     exact setLIntegral_mono_ae' (hS t) ((hC t).mono fun ω hω _ ↦ hω)
   have hY_sum : ∑' t, ∫⁻ ω, ‖(S t).indicator (Y t) ω‖ₑ ∂P ≠ ∞ := by
     refine ne_of_eq_of_ne (tsum_congr fun t ↦ ?_) hB
-    simp_rw [enorm_indicator_eq_indicator_enorm, lintegral_indicator (hS t)]
-    exact h.setLIntegral_comp_feedback (hS_F t) measurable_enorm
+    simp_rw [eNorm_indicator_eq_indicator_eNorm, lintegral_indicator (hS t)]
+    exact h.setLIntegral_comp_feedback (hS_F t) measurable_eNorm
   have hm_sum : ∑' t, ∫⁻ ω, ‖(S t).indicator (m t) ω‖ₑ ∂P ≠ ∞ := by
     refine ne_top_of_le_ne_top hB (tsum_le_tsum fun t ↦ ?_)
-    simp_rw [enorm_indicator_eq_indicator_enorm, lintegral_indicator (hS t)]
-    exact lintegral_mono fun ω ↦ enorm_integral_le_lintegral_enorm _
+    simp_rw [eNorm_indicator_eq_indicator_eNorm, lintegral_indicator (hS t)]
+    exact lintegral_mono fun ω ↦ eNorm_integral_le_lintegral_eNorm _
   have hm_meas (t : ℕ) : StronglyMeasurable (m t) :=
     (h.stronglyAdapted_means_filtrationAction t).mono (h.filtrationAction.le t)
   calc ∫ ω, ∑ t ∈ range (τ ω).toNat, Y t ω ∂P
@@ -235,7 +235,7 @@ theorem IsAlgEnvSeq.integral_sum_feedback_eq_sum_integral_pullCount_mul
     refine ⟨(Measurable.of_discrete.comp (measurable_uncurry_pullCount_comp h.measurable_action
       measurable_const (Measurable.of_discrete.comp hτ_meas))).aestronglyMeasurable, ?_⟩
     refine (lintegral_mono fun ω ↦ ?_).trans_lt hτ_int.lt_top
-    rw [Real.enorm_natCast]
+    rw [Real.eNorm_natCast]
     exact LMLExplore.natCast_pullCount_toNat_le a (τ ω) ω
   -- the conditional absolute means are bounded by `∑ a, ∫ |y| dν(a)`
   rw [h.integral_sum_feedback_eq_integral_sum_means hτ hτ_int
