@@ -19,6 +19,7 @@ import Mathlib.Analysis.SpecialFunctions.Log.Deriv
 * `Real.monotoneOn_log_one_add_mul_log_sq`: `x ↦ log (1 + x log² x)` is monotone on `[1, ∞)`.
 * `Real.log_natCast_le_log_natCast`: `log` is monotone on natural numbers.
 * `Real.one_le_log_natCast_of_three_le`: `1 ≤ log n` for a natural number `n ≥ 3`.
+* `Real.one_le_log_mul`: `1 ≤ log (x y)` for `x ≥ e` and `y ≥ 1`.
 * `Real.log_div_rpow_le_exp_neg_one`: `log x / x ^ p ≤ 1 / e` for `x ≥ 1` and `p ≥ 1`.
 * `Real.log_le_rpow_div_exp_one_mul`: `log y ≤ y ^ γ / (e γ)` for `y ≥ 0` and `γ > 0`, Mathlib's
   `Real.log_le_rpow_div` sharpened by the factor `e`.
@@ -101,6 +102,15 @@ theorem one_le_log_natCast_of_three_le {n : ℕ} (hn : 3 ≤ n) : 1 ≤ log n :=
   have hn' : (3 : ℝ) ≤ n := by exact_mod_cast hn
   rw [le_log_iff_exp_le (by positivity)]
   linarith [exp_one_lt_three]
+
+/-- `1 ≤ log (x y)` for `x ≥ e` and `y ≥ 1`.
+
+Adapted from the formalization in the paper project RemyDegenne/Essakine2026Tight (same author),
+file `ForLMLExplore/Analysis/SpecialFunctions/Log/SelfBounding.lean`. -/
+theorem one_le_log_mul {x y : ℝ} (hx : exp 1 ≤ x) (hy : 1 ≤ y) : 1 ≤ log (x * y) := by
+  have hx0 : 0 < x := (exp_pos 1).trans_le hx
+  exact (le_log_iff_exp_le (mul_pos hx0 (by linarith))).2
+    (hx.trans (le_mul_of_one_le_right hx0.le hy))
 
 /-- The function `n ↦ log (2 n (n + 1))` on `ℕ` is monotone. It is the boundary of the
 sub-Gaussian, two-tailed form of the time-uniform deviation bound of [LS, Lemma 33.8]: Lattimore

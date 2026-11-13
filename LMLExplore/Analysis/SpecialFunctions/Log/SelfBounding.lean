@@ -102,12 +102,6 @@ theorem le_mul_sq_of_le_sqrt_mul_add {L : ℝ} (hA : 0 ≤ A) (hB : 0 ≤ B) (hC
     _ ≤ L ^ 2 * (C ^ 2 * (A + B) + D * (A + E)) + 2 * C * √D * L ^ 2 * (A + E) := by gcongr
     _ = (C ^ 2 * (A + B) + (D + 2 * √D * C) * (A + E)) * L ^ 2 := by ring
 
-/-- `1 ≤ log (α τ)` for `α ≥ e` and `τ ≥ 1`. -/
-private lemma one_le_log_mul (hα : exp 1 ≤ α) (hτ : 1 ≤ τ) : 1 ≤ log (α * τ) := by
-  have hα0 : 0 < α := (exp_pos 1).trans_le hα
-  exact (le_log_iff_exp_le (mul_pos hα0 (by linarith))).2
-    (hα.trans (le_mul_of_one_le_right hα0.le hτ))
-
 /-- The logarithm in the self-bounding inequality: `log (α τ) ≤ (8 / 5) log (4 α K)` with
 `K = C² (A + B) + (D + 2 √D C) (A + E)`, for `α ≥ e` and `τ ≥ 1`. -/
 theorem log_le_of_le_sqrt_mul_add (hA : 0 ≤ A) (hB : 0 ≤ B) (hC : 0 ≤ C) (hD : 0 ≤ D)
