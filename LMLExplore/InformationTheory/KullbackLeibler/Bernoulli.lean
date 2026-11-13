@@ -124,6 +124,10 @@ smallest `q ∈ [0, p]` with `d(p, q) ≤ c`; together they are the confidence b
 * The derivative, monotonicity and quasi-convexity proofs are adapted from the formalization in
   the LMLPapers project
   (`LMLPapers/LeanMachineLearning/ForMathlib/InformationTheory/KullbackLeibler/Bernoulli.lean`).
+* The generalization of `klDiv_bernoulliMeasure` to two distinct points and its proof are adapted
+  from the formalization in the RemyDegenne/Essakine2026Tight project
+  (`Essakine2026Tight/ForLMLExplore/InformationTheory/KullbackLeibler/Bernoulli.lean`, commit
+  73a8c16c).
 -/
 
 public section
@@ -152,8 +156,7 @@ variable {p q : ℝ}
 
 /-- The relative entropy between two Bernoulli laws on two distinct points `x ≠ y` of a measurable
 space with measurable singletons is the binary relative entropy of their parameters. The laws on
-`{1, 0} ⊆ ℝ`, by which `klBer` is defined, are the case `x = 1`, `y = 0`, and the general case
-follows by data processing in both directions. -/
+`{1, 0} ⊆ ℝ`, by which `klBer` is defined, are the case `x = 1`, `y = 0`. -/
 @[simp]
 theorem klDiv_bernoulliMeasure {X : Type*} [MeasurableSpace X] [MeasurableSingletonClass X]
     {x y : X} (hxy : x ≠ y) (p q : I) :
