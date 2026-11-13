@@ -8,6 +8,7 @@ module
 public import LeanMachineLearning.ForMathlib.Analysis.Convex.Subgradient.Deriv
 public import LMLExplore.Analysis.Convex.Bregman.StrictConvex
 public import Mathlib.Analysis.Normed.Operator.Bilinear
+public import TauCeti.Analysis.Convex.EffectiveDomain
 public import TauCeti.Analysis.Convex.Subdifferential
 
 /-!
@@ -34,8 +35,9 @@ conjugate that hold at every subgradient of an interior point [LS, Theorem 26.6]
   neighbourhood of `u` and differentiable at `u` with derivative evaluation at `x`. For a
   differentiable `F` the subgradient is `∇F(x)`, so `∇F⋆ (∇F x) = x`: the gradient of the
   conjugate is a left inverse of the gradient of `F` on the interior of the domain, and `∇F`
-  maps that interior into the interior of the domain of `F⋆`. That `∇F` is onto the interior of
-  the domain of `F⋆`, the rest of [LS, Theorem 26.6 (a)], is not proved here.
+  maps that interior into the interior of the domain of `F⋆`. For a Legendre function `F`, the
+  rest of [LS, Theorem 26.6] (that `∇F` is onto the interior of the domain of `F⋆`, and that
+  `F⋆` is Legendre) is in `LMLExplore.Analysis.Convex.Legendre.Conjugate`.
 
 No lower semicontinuity of `F` at the boundary of `D` is needed, and `F` need not be
 differentiable. The differentiability of `F⋆` comes from a uniform growth bound: the Bregman
@@ -50,6 +52,7 @@ divergence `z ↦ D_F(z, x)` grows linearly away from `x`
 
 * `LMLExplore.fenchelConjugateOn_eq_fenchelConjugate`: the conversion to Tau Ceti's
   `fenchelConjugate`.
+* `LMLExplore.convexOn_toReal_fenchelConjugateOn`: the conjugate is convex on its effective domain.
 * `LMLExplore.hasSubgradientWithinAt_iff_fenchelConjugateOn_eq`: the Fenchel–Young equality.
 * `LMLExplore.bregDiv_toReal_fenchelConjugateOn`: `D_{F⋆}(v, u) = D_F(x, y)` [LS, Theorem 26.6 (b)].
 * `LMLExplore.hasFDerivAt_toReal_fenchelConjugateOn`: the conjugate has derivative evaluation at `x`
@@ -128,6 +131,21 @@ theorem sub_le_fenchelConjugateOn (hx : x ∈ D) (u : E →L[ℝ] ℝ) :
 theorem fenchelConjugateOn_ne_bot (hx : x ∈ D) (u : E →L[ℝ] ℝ) :
     fenchelConjugateOn F D u ≠ ⊥ :=
   ne_bot_of_le_ne_bot (by simp [← EReal.coe_sub]) (sub_le_fenchelConjugateOn hx u)
+
+/-- The real representative of the conjugate on `D` is convex on the effective domain
+`{u | F⋆ u ≠ ⊤}` of the conjugate. -/
+theorem convexOn_toReal_fenchelConjugateOn :
+    ConvexOn ℝ {u | fenchelConjugateOn F D u ≠ ⊤} fun u ↦ (fenchelConjugateOn F D u).toReal := by
+  classical
+  -- On the empty set the conjugate is `⊥`, whose real representative is `0`.
+  rcases D.eq_empty_or_nonempty with rfl | ⟨x, hx⟩
+  · simpa [fenchelConjugateOn_eq_iSup] using convexOn_const (0 : ℝ) convex_univ
+  have heq : fenchelConjugateOn F D = TauCeti.fenchelConjugate (topDualPairing ℝ E).flip
+      (fun x ↦ if x ∈ D then (F x : EReal) else ⊤) :=
+    funext (fenchelConjugateOn_eq_fenchelConjugate F D)
+  rw [heq]
+  exact TauCeti.convexOn_toReal (TauCeti.convex_epigraph_fenchelConjugate _ _)
+    fun u ↦ heq ▸ fenchelConjugateOn_ne_bot hx u
 
 /-- **The Fenchel–Young inequality** on `D` for real representatives: `u x - F x ≤ F⋆ u` for
 `x ∈ D` when `F⋆ u` is finite. -/

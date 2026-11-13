@@ -56,6 +56,8 @@ differentiable.
   In finite dimension, if `F` has a minimizer `y₀` over `D`, then for every closed convex `A`
   meeting the interior of `D`, `F` has a unique minimizer over `A ∩ D`, and the minimizers of `F`
   over any set are those of the Bregman divergence `D_F(·, y₀)`.
+* `IsLegendre.existsUnique_isMinOn_inter_of_isBounded`: the same existence and uniqueness when,
+  instead, some `x₀ ∈ A` interior to `D` has a bounded sublevel set `{x ∈ A ∩ D | F x ≤ F x₀}`.
 * `IsLegendre.bregDiv`: the Bregman divergence `D_F(·, y)` of a Legendre function is
   Legendre.
 * `IsLegendre.existsUnique_isMinOn_bregDiv`, `IsLegendre.mem_interior_of_isMinOn_bregDiv`: in
@@ -360,25 +362,36 @@ private lemma apply_add_smul_sub_le_of_tendsto {x₀ b : E} {m : ℝ} {u : ℕ �
   rwa [smul_eq_mul, smul_eq_mul, show (1 - α) • x₀ + α • u n = x₀ + α • (u n - x₀) by module]
     at this
 
-/-- Existence in [LS, Theorem 26.15 (a)]: in finite dimension, a Legendre function with a
-minimizer over its domain attains its minimum over `A ∩ D` for every closed convex `A` meeting the
-interior of `D`. -/
+/-- Existence in [LS, Theorem 26.15 (a)]: in finite dimension, a Legendre function attains its
+minimum over `A ∩ D`, for a closed convex `A`, as soon as some `x₀ ∈ A` interior to `D` has a
+bounded sublevel set `{x ∈ A ∩ D | F x ≤ F x₀}`. -/
 private lemma exists_isMinOn_inter [FiniteDimensional ℝ E] (hA : IsClosed A) (hAc : Convex ℝ A)
-    (hAD : (A ∩ interior D).Nonempty) {y₀ : E} (hy₀ : y₀ ∈ D) (hmin : IsMinOn F D y₀) :
+    {x₀ : E} (hx₀ : x₀ ∈ A ∩ interior D) (hbdd : Bornology.IsBounded {x ∈ A ∩ D | F x ≤ F x₀}) :
     ∃ y ∈ A ∩ D, IsMinOn F (A ∩ D) y := by
-  obtain ⟨x₀, hx₀A, hx₀⟩ := hAD
-  -- A minimizing sequence `u n`, bounded since it stays in a sublevel set.
-  have hbdd : BddBelow (F '' (A ∩ D)) :=
-    ⟨F y₀, forall_mem_image.2 fun x hx ↦ isMinOn_iff.1 hmin x hx.2⟩
-  obtain ⟨v, hv_anti, hv, hv_mem⟩ := exists_seq_tendsto_sInf (S := F '' (A ∩ D))
-    ⟨F x₀, mem_image_of_mem F ⟨hx₀A, interior_subset hx₀⟩⟩ hbdd
-  set m := sInf (F '' (A ∩ D))
-  have hm : ∀ y ∈ A ∩ D, m ≤ F y := fun y hy ↦ csInf_le hbdd (mem_image_of_mem F hy)
+  set S := {x ∈ A ∩ D | F x ≤ F x₀}
+  have hx₀S : x₀ ∈ S := ⟨⟨hx₀.1, interior_subset hx₀.2⟩, le_rfl⟩
+  -- `F` is bounded below on the bounded set `S`, by the tangent inequality at `x₀`.
+  obtain ⟨R, hR⟩ := hbdd.subset_closedBall x₀
+  have hbddS : BddBelow (F '' S) := by
+    refine ⟨F x₀ - ‖fderiv ℝ F x₀‖ * R, forall_mem_image.2 fun x hx ↦ ?_⟩
+    have htan := hF.add_fderiv_apply_sub_le hx₀.2 hx.1.2
+    have hL : |fderiv ℝ F x₀ (x - x₀)| ≤ ‖fderiv ℝ F x₀‖ * ‖x - x₀‖ :=
+      (fderiv ℝ F x₀).le_opNorm (x - x₀)
+    have hxR : ‖fderiv ℝ F x₀‖ * ‖x - x₀‖ ≤ ‖fderiv ℝ F x₀‖ * R :=
+      mul_le_mul_of_nonneg_left (by simpa [dist_eq_norm] using hR hx) (norm_nonneg _)
+    linarith [neg_abs_le (fderiv ℝ F x₀ (x - x₀))]
+  -- A minimizing sequence `u n` in the bounded set `S`, with values tending to `m = inf F`.
+  obtain ⟨v, -, hv, hv_mem⟩ := exists_seq_tendsto_sInf (S := F '' S)
+    ⟨F x₀, mem_image_of_mem F hx₀S⟩ hbddS
+  set m := sInf (F '' S)
+  have hm : ∀ y ∈ A ∩ D, m ≤ F y := fun y hy ↦ by
+    by_cases hyx : F y ≤ F x₀
+    · exact csInf_le hbddS (mem_image_of_mem F ⟨hy, hyx⟩)
+    · exact (csInf_le hbddS (mem_image_of_mem F hx₀S)).trans (not_le.1 hyx).le
   choose u hu hFu using hv_mem
-  obtain ⟨b, hb, φ, hφ, hlim⟩ := tendsto_subseq_of_bounded (hF.isBounded_sublevel hy₀ hmin (v 0))
-    fun n ↦ ⟨(hu n).2, (hFu n).le.trans (hv_anti (Nat.zero_le n))⟩
-  have hbD : b ∈ closure D := closure_mono (sep_subset _ _) hb
-  have hbA : b ∈ A := hA.mem_of_tendsto hlim (Eventually.of_forall fun n ↦ (hu (φ n)).1)
+  obtain ⟨b, hb, φ, hφ, hlim⟩ := tendsto_subseq_of_bounded hbdd hu
+  have hbD : b ∈ closure D := closure_mono (fun x (hx : x ∈ S) ↦ hx.1.2) hb
+  have hbA : b ∈ A := hA.mem_of_tendsto hlim (Eventually.of_forall fun n ↦ (hu (φ n)).1.1)
   have hFlim : Tendsto (fun n ↦ F (u (φ n))) atTop (𝓝 m) := by
     simpa only [Function.comp_def, hFu] using hv.comp hφ.tendsto_atTop
   by_cases hbi : b ∈ interior D
@@ -387,10 +400,28 @@ private lemma exists_isMinOn_inter [FiniteDimensional ℝ E] (hA : IsClosed A) (
       tendsto_nhds_unique (((hF.hasFDerivAt hbi).continuousAt.tendsto).comp hlim) hFlim
     exact ⟨b, ⟨hbA, interior_subset hbi⟩, isMinOn_iff.2 fun y hy ↦ hFb ▸ hm y hy⟩
   · -- A boundary limit point is impossible: `F < m` at some point of `A ∩ D`.
-    obtain ⟨α, hα, hlt⟩ := hF.exists_apply_add_smul_sub_lt hx₀ (hF.mem_frontier_interior hbD hbi)
-      fun α hα ↦ hF.apply_add_smul_sub_le_of_tendsto hx₀ hbD (fun n ↦ (hu (φ n)).2) hlim hFlim hα
-    exact absurd (hm _ ⟨hAc.add_smul_sub_mem hx₀A hbA ⟨hα.1.le, hα.2.le⟩, interior_subset
-      (hF.convex.add_smul_sub_mem_interior_of_mem_closure hx₀ hbD hα.1.le hα.2)⟩) (not_le.2 hlt)
+    obtain ⟨α, hα, hlt⟩ := hF.exists_apply_add_smul_sub_lt hx₀.2
+      (hF.mem_frontier_interior hbD hbi) fun α hα ↦ hF.apply_add_smul_sub_le_of_tendsto hx₀.2
+        hbD (fun n ↦ (hu (φ n)).1.2) hlim hFlim hα
+    exact absurd (hm _ ⟨hAc.add_smul_sub_mem hx₀.1 hbA ⟨hα.1.le, hα.2.le⟩, interior_subset
+      (hF.convex.add_smul_sub_mem_interior_of_mem_closure hx₀.2 hbD hα.1.le hα.2)⟩)
+      (not_le.2 hlt)
+
+/-- **Minimization of a Legendre function over a closed convex set**, from a bounded sublevel set.
+In finite dimension, if `A` is closed and convex and some `x₀ ∈ A` interior to the domain `D` has a
+bounded sublevel set `{x ∈ A ∩ D | F x ≤ F x₀}`, then `F` has a unique minimizer over `A ∩ D`. -/
+theorem existsUnique_isMinOn_inter_of_isBounded [FiniteDimensional ℝ E] (hA : IsClosed A)
+    (hAc : Convex ℝ A) {x₀ : E} (hx₀ : x₀ ∈ A ∩ interior D)
+    (hbdd : Bornology.IsBounded {x ∈ A ∩ D | F x ≤ F x₀}) :
+    ∃! y, y ∈ A ∩ D ∧ IsMinOn F (A ∩ D) y := by
+  obtain ⟨y, hy, hymin⟩ := hF.exists_isMinOn_inter hA hAc hx₀ hbdd
+  refine ⟨y, ⟨hy, hymin⟩, fun y' ⟨hy', hy'min⟩ ↦ ?_⟩
+  -- Both minimizers are interior, where `F` is strictly convex.
+  have hi := hF.mem_interior_of_isMinOn_inter hAc ⟨x₀, hx₀⟩ hy hymin
+  have hi' := hF.mem_interior_of_isMinOn_inter hAc ⟨x₀, hx₀⟩ hy' hy'min
+  have hsub : A ∩ interior D ⊆ A ∩ D := inter_subset_inter_right A interior_subset
+  exact (hF.strictConvexOn.subset inter_subset_right (hAc.inter hF.convex.interior)).eq_of_isMinOn
+    (hy'min.of_subset hsub) (hymin.of_subset hsub) ⟨hy'.1, hi'⟩ ⟨hy.1, hi⟩
 
 /-- **Minimization of a Legendre function over a closed convex set** [LS, Theorem 26.15 (a)]. In
 finite dimension, if `F` has a minimizer over its domain `D`, then for every closed convex set `A`
@@ -398,14 +429,9 @@ meeting the interior of `D`, `F` has a unique minimizer over `A ∩ D`. -/
 theorem existsUnique_isMinOn_inter [FiniteDimensional ℝ E] (hA : IsClosed A) (hAc : Convex ℝ A)
     (hAD : (A ∩ interior D).Nonempty) {y₀ : E} (hy₀ : y₀ ∈ D) (hmin : IsMinOn F D y₀) :
     ∃! y, y ∈ A ∩ D ∧ IsMinOn F (A ∩ D) y := by
-  obtain ⟨y, hy, hymin⟩ := hF.exists_isMinOn_inter hA hAc hAD hy₀ hmin
-  refine ⟨y, ⟨hy, hymin⟩, fun y' ⟨hy', hy'min⟩ ↦ ?_⟩
-  -- Both minimizers are interior, where `F` is strictly convex.
-  have hi := hF.mem_interior_of_isMinOn_inter hAc hAD hy hymin
-  have hi' := hF.mem_interior_of_isMinOn_inter hAc hAD hy' hy'min
-  have hsub : A ∩ interior D ⊆ A ∩ D := inter_subset_inter_right A interior_subset
-  exact (hF.strictConvexOn.subset inter_subset_right (hAc.inter hF.convex.interior)).eq_of_isMinOn
-    (hy'min.of_subset hsub) (hymin.of_subset hsub) ⟨hy'.1, hi'⟩ ⟨hy.1, hi⟩
+  obtain ⟨x₀, hx₀⟩ := hAD
+  exact hF.existsUnique_isMinOn_inter_of_isBounded hA hAc hx₀
+    ((hF.isBounded_sublevel hy₀ hmin (F x₀)).subset fun x hx ↦ ⟨hx.1.2, hx.2⟩)
 
 /-- **The constrained minimizer is a Bregman projection** [LS, Theorem 26.15 (b)]. If `y₀`
 minimizes `F` over its domain, then on every set `S`, the minimizers of the Bregman divergence
