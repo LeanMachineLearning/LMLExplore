@@ -120,6 +120,9 @@ feedback `Y n` is almost surely the reward `x (A n)` of the action, the conditio
 * `WeightAlgorithm.integrable_one_sub_means`: in any environment with feedback in `[0, 1]`, the
   loss `1 - env.means O A Y a n` of the mean feedback of an arm of almost surely positive weight is
   integrable.
+* `WeightAlgorithm.integral_sum_means_sub_eq_integral_sum_one_sub_sub_iwEstimator`: in any
+  environment with feedback in `[0, 1]`, the expected regret against an arm of almost surely
+  positive weight is the expected regret on the estimated losses.
 * `WeightAlgorithm.measure_log_one_div_le_sum_sum_mul_iwEstimator_add_sub_le`: the concentration of
   the implicit-exploration estimates of the losses in any environment [Neu15, Lemma 1;
   LS, Lemma 12.2].
@@ -919,6 +922,37 @@ theorem integrable_one_sub_means (h : IsAlgEnvSeq O A Y (weightAlgorithm w hw hp
     (integrable_iwEstimator_one_sub h hY a)).trans ?_)
   filter_upwards [ha] with ω hωa
   simp [hωa.ne']
+
+/-- **The expected regret against an arm is the expected estimated regret**, in any environment.
+Along a run of a weight-based algorithm whose feedbacks of the rounds `t < n` are almost surely in
+`[0, 1]`, let the arm `a` have almost surely positive weight at these rounds, and let
+`G t = iwEstimator (w t (past)) (A t) (1 - Y t)` be the importance-weighted estimates of the losses
+`1 - Y t`. Then `E[∑ t < n, (m_t(a) - Y t)] = E[∑ t < n, ((1 - Y t) - G t a)]`, with
+`m_t(a) = env.means O A Y a t` the mean feedback of `a` at round `t` given the past: pathwise
+bounds on the regret against `a` on the estimated losses bound the pseudo-regret. -/
+theorem integral_sum_means_sub_eq_integral_sum_one_sub_sub_iwEstimator
+    (h : IsAlgEnvSeq O A Y (weightAlgorithm w hw hp) env P)
+    (hY : ∀ t < n, ∀ᵐ ω ∂P, Y t ω ∈ Set.Icc 0 1)
+    (ha : ∀ t < n, ∀ᵐ ω ∂P, 0 < w t (history O A Y t ω, O t ω) a) :
+    P[fun ω ↦ ∑ t ∈ range n, (env.means O A Y a t ω - Y t ω)] =
+      P[fun ω ↦ ∑ t ∈ range n, ((1 - Y t ω) -
+        iwEstimator (w t (history O A Y t ω, O t ω)) (A t ω) (1 - Y t ω) a)] := by
+  have hYint (t : ℕ) (ht : t < n) : Integrable (fun ω ↦ 1 - Y t ω) P :=
+    (integrable_const 1).sub
+      (Integrable.of_mem_Icc 0 1 (h.measurable_feedback t).aemeasurable (hY t ht))
+  have hMint (t : ℕ) (ht : t < n) := integrable_one_sub_means h (hY t ht) (ha t ht)
+  have hLint (t : ℕ) (ht : t < n) := integrable_iwEstimator_one_sub h (hY t ht) a
+  rw [integral_finsetSum _ fun t ht ↦ ((hYint t (mem_range.1 ht)).sub
+      (hMint t (mem_range.1 ht))).congr (ae_of_all _ fun ω ↦ by simp only [Pi.sub_apply]; ring),
+    integral_finsetSum (f := fun t ω ↦ (1 - Y t ω) -
+      iwEstimator (w t (history O A Y t ω, O t ω)) (A t ω) (1 - Y t ω) a) _
+      fun t ht ↦ (hYint t (mem_range.1 ht)).sub (hLint t (mem_range.1 ht))]
+  refine sum_congr rfl fun t ht ↦ ?_
+  have ht := mem_range.1 ht
+  -- the estimate of the loss of `a` has the expectation of the loss of its mean feedback
+  rw [integral_sub (hYint t ht) (hLint t ht), integral_iwEstimator_one_sub h (hY t ht) (ha t ht),
+    ← integral_sub (hYint t ht) (hMint t ht)]
+  exact integral_congr_ae (ae_of_all _ fun ω ↦ by simp only; ring)
 
 /-- **Concentration of implicit-exploration estimates** [Neu15, Lemma 1; LS, Lemma 12.2], in any
 environment. Along a run of a weight-based algorithm with weights `P t = w t (past)` whose
