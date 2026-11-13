@@ -29,6 +29,12 @@ The bound is first proved for a derivative within the set at its points, with no
 it. This covers sets with empty interior, such as the simplex in `α → ℝ`, on which the inexact
 mirror descent analysis of [SSKM26, Lemma 22, Theorem 2] uses it.
 
+The proof of `Convex.norm_bregDiv_le_mul_norm_sub_sq` and its within-set form are adapted from the
+formalization in the paper project RemyDegenne/Schlisselberg2026Hidden
+(<https://github.com/RemyDegenne/Schlisselberg2026Hidden>, file
+`Schlisselberg2026Hidden/ForLMLExplore/Analysis/Convex/Smooth.lean`, commit
+`b08c8189133af6a5a8578c04ff6ae061acbdec60`, Apache-2.0).
+
 ## Main definitions
 
 * `LMLExplore.SmoothOn V s f`: `f` is differentiable on an open set containing `V` and
@@ -146,6 +152,10 @@ theorem differentiableAt (hf : SmoothOn V s f) (hx : x ∈ V) : DifferentiableAt
   obtain ⟨U, hU, hVU, hfU⟩ := hf.exists_isOpen_differentiableOn
   exact hfU.differentiableAt (hU.mem_nhds (hVU hx))
 
+/-- An `s`-smooth function on `V` is differentiable on `V`. -/
+theorem differentiableOn (hf : SmoothOn V s f) : DifferentiableOn ℝ f V :=
+  fun _ hx ↦ (hf.differentiableAt hx).differentiableWithinAt
+
 /-- An `s`-smooth function on `V` is `s`-smooth on every subset of `V`. -/
 theorem mono (hf : SmoothOn V s f) (hWV : W ⊆ V) : SmoothOn W s f where
   exists_isOpen_differentiableOn := by
@@ -187,3 +197,10 @@ theorem smoothOn_univ {f : E → F} :
   exact ⟨univ, isOpen_univ, subset_rfl, hd.differentiableOn⟩
 
 end LMLExplore
+
+/-- On an open set `V`, a function is `s`-smooth if and only if it is differentiable on `V` and its
+derivative is `s`-Lipschitz on `V`. -/
+theorem IsOpen.smoothOn_iff (hV : IsOpen V) {f : E → F} :
+    LMLExplore.SmoothOn V s f ↔ DifferentiableOn ℝ f V ∧ LipschitzOnWith s (fderiv ℝ f) V :=
+  ⟨fun hf ↦ ⟨hf.differentiableOn, hf.lipschitzOnWith⟩,
+    fun ⟨hd, hl⟩ ↦ ⟨⟨V, hV, subset_rfl, hd⟩, hl⟩⟩
