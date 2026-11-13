@@ -46,6 +46,13 @@ bounds the probability that a suboptimal arm looks better than the best mean, an
 the probability that the best arm looks worse than a suboptimal mean, once their empirical means
 are accurate.
 
+The Jeffreys prior is usually infinite, so its posterior may be improper (`0`) after few
+observations. Its normalizing constant is always positive, and a normalizing constant that is
+finite after `s₀` observations stays finite after more observations whose mean is a mean of the
+family. Hence, if the posterior is proper after some observations, it is proper after every large
+enough number `s` of observations whose sum `S` satisfies `|S - s μ₀| ≤ s δ`, for `μ₀ ± δ'` means
+of the family with `δ < δ'`.
+
 The factor `1 - δ C₂` of [KKM13, Theorem 4], with `C₂ = (η(m) - η(μ₀)) / d(μ₀, m)`, appears here as
 `d(μ₀, m) - δ (η(m) - η(μ₀)) = (1 - δ C₂) d(μ₀, m)`. Instead of the posterior after one
 well-chosen observation, a probability measure in [KKM13], the bounds use the normalizing constant
@@ -63,6 +70,15 @@ is a proper prior.
 * `MeasureTheory.Measure.expFamilyPosterior_setOf_le_deriv_cgf_le`,
   `MeasureTheory.Measure.expFamilyPosterior_setOf_deriv_cgf_le_le`: the bounds on the upper and
   lower tails of the posterior mean `ψ'(θ)`, for every prior.
+* `MeasureTheory.Measure.lintegral_exp_ne_top_of_div_mem_expFamilyMeans`: a finite normalizing
+  constant after `s₀` observations stays finite after `s > s₀` observations whose additional
+  statistics have a mean of the family.
+* `MeasureTheory.Measure.lintegral_exp_jeffreysPrior_ne_zero`,
+  `MeasureTheory.Measure.expFamilyPosterior_jeffreysPrior_ne_zero_iff`: the normalizing constant of
+  the Jeffreys posterior is positive, so the posterior is proper iff it is finite.
+* `MeasureTheory.Measure.exists_forall_expFamilyPosterior_jeffreysPrior_ne_zero`: a Jeffreys
+  posterior that is proper after some observations is proper after every large number `s` of
+  observations whose sum is within `s δ` of `s μ₀`.
 * `MeasureTheory.Measure.exists_expFamilyPosterior_jeffreysPrior_setOf_le_deriv_cgf_le`,
   `MeasureTheory.Measure.exists_expFamilyPosterior_jeffreysPrior_setOf_deriv_cgf_le_le`:
   **posterior concentration** [KKM13, Theorem 4]: for the Jeffreys prior, there are `C` and `N`
@@ -297,6 +313,46 @@ theorem expFamilyPosterior_setOf_deriv_cgf_le_le (hT : ∀ c, ¬ T =ᵐ[ρ] fun 
   congr 1
   ring
 
+/-! ### Finite normalizing constants -/
+
+/-- The normalizing constant after `s₀` observations whose statistics sum to `S₀` controls the
+normalizing constant after `s ≥ s₀` observations whose statistics sum to `S₀ + (s - s₀) m`, for a
+mean `m` of the family:
+`Z(s, S₀ + (s - s₀) m) ≤ exp ((s - s₀) (η(m) m - ψ(η(m)))) Z(s₀, S₀)`, with
+`Z(s, S) = ∫_Θ exp (θ S - s ψ(θ)) dν(θ)`. -/
+lemma lintegral_exp_mul_add_le (hm : m ∈ ρ.expFamilyMeans T) (hs : s₀ ≤ s) (S₀ : ℝ) :
+    ∫⁻ θ in interior (integrableExpSet T ρ),
+        ENNReal.ofReal (exp (θ * (S₀ + (s - s₀ : ℝ) * m) - s * cgf T ρ θ)) ∂ν ≤
+      ENNReal.ofReal (exp ((s - s₀ : ℝ) * (ρ.natParam T m * m - cgf T ρ (ρ.natParam T m)))) *
+        ∫⁻ θ in interior (integrableExpSet T ρ),
+          ENNReal.ofReal (exp (θ * S₀ - s₀ * cgf T ρ θ)) ∂ν := by
+  rw [← lintegral_const_mul' _ _ ENNReal.ofReal_ne_top]
+  refine setLIntegral_mono' isOpen_interior.measurableSet fun θ hθ ↦ ?_
+  rw [← ENNReal.ofReal_mul (exp_pos _).le, ← exp_add]
+  refine ENNReal.ofReal_le_ofReal (exp_le_exp.2 ?_)
+  have h_tan := cgf_natParam_add_mul_sub_le_cgf hm (interior_subset hθ)
+  have hk : (0 : ℝ) ≤ s - s₀ := sub_nonneg.2 (Nat.cast_le.2 hs)
+  nlinarith [mul_le_mul_of_nonneg_left h_tan hk]
+
+/-- **Finite normalizing constants.** If the normalizing constant
+`Z(s₀, S₀) = ∫_Θ exp (θ S₀ - s₀ ψ(θ)) dν(θ)` after `s₀` observations whose statistics sum to `S₀`
+is finite, then so is the normalizing constant `Z(s, S)` after `s > s₀` observations whose
+statistics sum to `S`, as soon as the mean `(S - S₀) / (s - s₀)` of the additional statistics is a
+mean of the family. -/
+theorem lintegral_exp_ne_top_of_div_mem_expFamilyMeans
+    (hZ : ∫⁻ θ in interior (integrableExpSet T ρ),
+      ENNReal.ofReal (exp (θ * S₀ - s₀ * cgf T ρ θ)) ∂ν ≠ ∞) (hs : s₀ < s)
+    (hm : (S - S₀) / (s - s₀ : ℝ) ∈ ρ.expFamilyMeans T) :
+    ∫⁻ θ in interior (integrableExpSet T ρ),
+      ENNReal.ofReal (exp (θ * S - s * cgf T ρ θ)) ∂ν ≠ ∞ := by
+  have hk : (s - s₀ : ℝ) ≠ 0 := sub_ne_zero.2 (by exact_mod_cast hs.ne')
+  have hS : S₀ + (s - s₀ : ℝ) * ((S - S₀) / (s - s₀)) = S := by
+    rw [mul_div_cancel₀ _ hk]
+    ring
+  have h := lintegral_exp_mul_add_le (ν := ν) hm hs.le S₀
+  rw [hS] at h
+  exact ne_top_of_le_ne_top (ENNReal.mul_ne_top ENNReal.ofReal_ne_top hZ) h
+
 /-! ### Posterior concentration for the Jeffreys prior -/
 
 /-- Around the natural parameter `θ₀ = η(μ₀)` of a mean `μ₀`, there is an interval
@@ -340,6 +396,76 @@ private lemma exists_Icc_natParam (hT : ∀ c, ¬ T =ᵐ[ρ] fun _ ↦ c)
   rw [deriv_cgf_natParam hμ₀] at h3 h4
   rw [abs_sub_le_iff]
   constructor <;> linarith
+
+/-- For a statistic that is not almost everywhere constant and a family with a mean, the
+normalizing constant `∫_Θ exp (θ S - s ψ(θ)) dπ_J(θ)` of the posterior of the Jeffreys prior `π_J`
+is positive, for every number `s` of observations and every sum of statistics `S`. -/
+lemma lintegral_exp_jeffreysPrior_ne_zero (hT : ∀ c, ¬ T =ᵐ[ρ] fun _ ↦ c)
+    (hμ₀ : μ₀ ∈ ρ.expFamilyMeans T) (s : ℕ) (S : ℝ) :
+    ∫⁻ θ in interior (integrableExpSet T ρ),
+      ENNReal.ofReal (exp (θ * S - s * cgf T ρ θ)) ∂(ρ.jeffreysPrior T) ≠ 0 := by
+  obtain ⟨r₀, hr₀, c, hc, -, hΘ, -, hψ⟩ := exists_Icc_natParam hT hμ₀
+  set I := Icc (ρ.natParam T μ₀ - r₀) (ρ.natParam T μ₀ + r₀)
+  -- the exponent is continuous on the compact interval `I`, so it attains a minimum there
+  have hcont : ContinuousOn (fun θ ↦ θ * S - s * cgf T ρ θ) I :=
+    (continuousOn_id.mul continuousOn_const).sub
+      (continuousOn_const.mul (analyticOn_cgf.continuousOn.mono hΘ))
+  obtain ⟨θ₁, -, hθ₁⟩ := isCompact_Icc.exists_isMinOn (nonempty_Icc.2 (by linarith)) hcont
+  have hmass := ofReal_mul_le_jeffreysPrior_Icc hc.le hΘ hψ
+  refine (lt_of_lt_of_le ?_ (lintegral_mono_set hΘ)).ne'
+  calc (0 : ℝ≥0∞) < ENNReal.ofReal (exp (θ₁ * S - s * cgf T ρ θ₁)) * ρ.jeffreysPrior T I :=
+        ENNReal.mul_pos (ENNReal.ofReal_pos.2 (exp_pos _)).ne'
+          ((ENNReal.ofReal_pos.2 (mul_pos hc (by linarith))).trans_le hmass).ne'
+    _ = ∫⁻ _ in I, ENNReal.ofReal (exp (θ₁ * S - s * cgf T ρ θ₁)) ∂(ρ.jeffreysPrior T) :=
+        (setLIntegral_const _ _).symm
+    _ ≤ ∫⁻ θ in I, ENNReal.ofReal (exp (θ * S - s * cgf T ρ θ)) ∂(ρ.jeffreysPrior T) :=
+        setLIntegral_mono' measurableSet_Icc fun θ hθ ↦
+          ENNReal.ofReal_le_ofReal (exp_le_exp.2 (isMinOn_iff.1 hθ₁ θ hθ))
+
+/-- For a statistic that is not almost everywhere constant and a family with a mean, the posterior
+of the Jeffreys prior is not `0` (it is a probability measure) exactly when its normalizing
+constant is finite. -/
+lemma expFamilyPosterior_jeffreysPrior_ne_zero_iff (hT : ∀ c, ¬ T =ᵐ[ρ] fun _ ↦ c)
+    (hμ₀ : μ₀ ∈ ρ.expFamilyMeans T) :
+    ρ.expFamilyPosterior T (ρ.jeffreysPrior T) s S ≠ 0 ↔
+      ∫⁻ θ in interior (integrableExpSet T ρ),
+        ENNReal.ofReal (exp (θ * S - s * cgf T ρ θ)) ∂(ρ.jeffreysPrior T) ≠ ∞ := by
+  rw [Ne, expFamilyPosterior_eq_zero_iff, not_or]
+  exact and_iff_left (lintegral_exp_jeffreysPrior_ne_zero hT hμ₀ s S)
+
+/-- **Proper posteriors of the Jeffreys prior on the accuracy event.** Let `μ₀` be a mean of the
+family, let `δ < δ'` with `μ₀ - δ'` and `μ₀ + δ'` means of the family, and let the posterior of
+the Jeffreys prior be proper (not `0`) after some `s₀` observations whose statistics sum to `S₀`
+(for example `s₀ = 0` for a proper Jeffreys prior). Then there is `N` such that for every `s ≥ N`
+and every sum of statistics `S` with `|S - s μ₀| ≤ s δ`, the posterior of the Jeffreys prior is
+proper. -/
+theorem exists_forall_expFamilyPosterior_jeffreysPrior_ne_zero (hT : ∀ c, ¬ T =ᵐ[ρ] fun _ ↦ c)
+    (hμ₀ : μ₀ ∈ ρ.expFamilyMeans T) {δ' : ℝ} (hδδ' : δ < δ')
+    (hlo : μ₀ - δ' ∈ ρ.expFamilyMeans T) (hhi : μ₀ + δ' ∈ ρ.expFamilyMeans T)
+    (hprop : ρ.expFamilyPosterior T (ρ.jeffreysPrior T) s₀ S₀ ≠ 0) :
+    ∃ N : ℕ, ∀ s ≥ N, ∀ S, |S - s * μ₀| ≤ s * δ →
+      ρ.expFamilyPosterior T (ρ.jeffreysPrior T) s S ≠ 0 := by
+  rw [expFamilyPosterior_jeffreysPrior_ne_zero_iff hT hμ₀] at hprop
+  set K := |s₀ * μ₀ - S₀| + s₀ * δ' with hK
+  refine ⟨s₀ + 1 + ⌈K / (δ' - δ)⌉₊, fun s hs S hS ↦ ?_⟩
+  rw [expFamilyPosterior_jeffreysPrior_ne_zero_iff hT hμ₀]
+  have hs₀ : s₀ < s := by omega
+  have hk : (0 : ℝ) < s - s₀ := sub_pos.2 (by exact_mod_cast hs₀)
+  have hKs : K ≤ s * (δ' - δ) := by
+    have h1 : K / (δ' - δ) ≤ s :=
+      (Nat.le_ceil _).trans (by exact_mod_cast (by omega : ⌈K / (δ' - δ)⌉₊ ≤ s))
+    rwa [div_le_iff₀ (by linarith)] at h1
+  refine lintegral_exp_ne_top_of_div_mem_expFamilyMeans hprop hs₀
+    (Icc_subset_expFamilyMeans hlo hhi ?_)
+  -- the additional statistics have a mean within `δ'` of `μ₀`
+  have habs : |S - S₀ - (s - s₀ : ℝ) * μ₀| ≤ (s - s₀ : ℝ) * δ' := by
+    calc |S - S₀ - (s - s₀ : ℝ) * μ₀| = |(S - s * μ₀) + (s₀ * μ₀ - S₀)| := by
+          congr 1
+          ring
+      _ ≤ |S - s * μ₀| + |s₀ * μ₀ - S₀| := abs_add_le _ _
+      _ ≤ (s - s₀ : ℝ) * δ' := by linarith
+  rw [mem_Icc, le_div_iff₀ hk, div_le_iff₀ hk]
+  constructor <;> linarith [abs_le.1 habs]
 
 /-- From bounds of the form of `expFamilyPosterior_setOf_le_deriv_cgf_le` for every interval
 `[θ₀ - r, θ₀ + r]` of natural parameters, the bound `C s exp (-s β)` for the Jeffreys prior,
