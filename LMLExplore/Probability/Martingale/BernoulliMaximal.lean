@@ -1,7 +1,7 @@
 /-
-Copyright (c) 2026 LMLExplore contributors. All rights reserved.
+Copyright (c) 2026 Rémy Degenne. All rights reserved.
 Released under Apache 2.0 license as described in the file LICENSE.
-Authors: LMLExplore contributors
+Authors: Rémy Degenne
 -/
 module
 
@@ -70,12 +70,11 @@ private theorem integrable_exp_condExp_div_two_sub [IsFiniteMeasure μ] (hm : m 
     {X : Ω → ℝ} (hX : Measurable X) (hX01 : ∀ᵐ ω ∂μ, X ω ∈ Set.Icc 0 1) :
     Integrable (fun ω ↦ exp (μ[X | m] ω / 2 - X ω)) μ := by
   have hXabs : ∀ᵐ ω ∂μ, |X ω| ≤ 1 := hX01.mono fun ω hω ↦ abs_le.2 ⟨by linarith [hω.1], hω.2⟩
-  refine .of_bound
-    (((stronglyMeasurable_condExp.mono hm).measurable.div_const 2).sub hX).exp.aestronglyMeasurable
-    (exp (1 / 2)) ?_
-  filter_upwards [hX01, ae_bdd_abs_condExp_of_ae_bdd_abs (m := m) hXabs] with ω hω hCω
-  rw [norm_of_nonneg (exp_pos _).le, exp_le_exp]
-  linarith [hω.1, (abs_le.1 hCω).2]
+  simpa using ProbabilityTheory.integrable_exp_mul_of_le 1 (1 / 2) zero_le_one
+    (((stronglyMeasurable_condExp.mono hm).measurable.div_const 2).sub hX).aemeasurable (by
+      filter_upwards [hX01, ae_bdd_abs_condExp_of_ae_bdd_abs (m := m) hXabs] with ω hω hCω
+      simp only [Pi.sub_apply]
+      linarith [hω.1, (abs_le.1 hCω).2])
 
 /-- **One-step bound of the Bernoulli maximal inequality.** If `X` is measurable with values in
 `[0, 1]` almost surely, then `E[exp (E[X | m] / 2 - X) | m] ≤ 1` almost surely. -/
