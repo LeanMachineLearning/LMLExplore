@@ -47,6 +47,9 @@ In the namespace `LMLExplore.Bandits.WeightAlgorithm`, for a run of `weightAlgor
   `condVar_comp_weights`: for a real function `g (w n (past), A n)` of the weights and the action,
   integrability when the `p`-averages of `|g p ·|` are bounded, and the conditional expectation,
   the expectation and the conditional variance given the past as `w n (past)`-averages;
+* `integrable_comp_weights_of_bound`, `integrable_weights_apply`: a function `g (w n (past))` of
+  the weights alone is integrable when `g` is measurable and bounded on the probability vectors;
+  so is each weight `w n (past) a`;
 * `integrable_div_weights`, `integral_div_weights_le`, `integral_div_weights`: the
   inverse-weighted value `c (A n) / w n (past) (A n)` of the action is integrable, its expectation
   is at most `∑ b, c b` for `c ≥ 0`, with equality when `c` vanishes on the arms of weight zero.
@@ -266,6 +269,24 @@ lemma integrable_comp_weights (h : IsAlgEnvSeq O A Y (weightAlgorithm w hw hp) e
     mul_nonneg ((mem_simplex_iff.1 hpω).1 b) (norm_nonneg _))]
   exact hC _ hpω
 
+omit [MeasurableSingletonClass α] in
+/-- Along a run of a weight-based algorithm, `g (w n (past))` is integrable for `g` measurable and
+bounded in absolute value on the probability vectors. -/
+lemma integrable_comp_weights_of_bound (h : IsAlgEnvSeq O A Y (weightAlgorithm w hw hp) env P)
+    (n : ℕ) {g : (α → ℝ) → ℝ} (hg : Measurable g) {C : ℝ} (hC : ∀ p ∈ simplex α, |g p| ≤ C) :
+    Integrable (fun ω ↦ g (w n (history O A Y n ω, O n ω))) P :=
+  Integrable.of_bound (hg.comp (measurable_weights_run h n)).aestronglyMeasurable C
+    (ae_of_all _ fun _ ↦ (Real.norm_eq_abs _).trans_le (hC _ (hp n _)))
+
+omit [MeasurableSingletonClass α] in
+/-- Along a run of a weight-based algorithm, the weight `w n (past) a` of an arm `a` at round `n`
+is integrable. -/
+lemma integrable_weights_apply (h : IsAlgEnvSeq O A Y (weightAlgorithm w hw hp) env P) (n : ℕ)
+    (a : α) : Integrable (fun ω ↦ w n (history O A Y n ω, O n ω) a) P :=
+  integrable_comp_weights_of_bound h n (measurable_pi_apply a) (C := 1) fun p hp ↦ by
+    rw [abs_of_nonneg ((simplex_subset_Icc hp).1 a)]
+    exact (simplex_subset_Icc hp).2 a
+
 /-- Along a run of a weight-based algorithm, the conditional expectation given the past of
 `g (w n (past), A n)` is the `w n (past)`-average of `g (w n (past))`, for `g` measurable and
 `g (w n (past), A n)` integrable. -/
@@ -365,10 +386,6 @@ lemma integral_regret_eq (h : IsAlgEnvSeq O A Y (weightAlgorithm w hw hp) env P)
     (ν : Kernel α ℝ) (n : ℕ) :
     P[_root_.Bandits.regret ν A n] = ∑ t ∈ Finset.range n,
       ∑ b, _root_.Bandits.gap ν b * P[fun ω ↦ w t (history O A Y t ω, O t ω) b] := by
-  have hw_int (t : ℕ) (b : α) : Integrable (fun ω ↦ w t (history O A Y t ω, O t ω) b) P :=
-    Integrable.of_mem_Icc 0 1 (((measurable_pi_apply b).comp
-      (measurable_weights_run h t)).aemeasurable)
-      (ae_of_all _ fun ω ↦ ⟨(simplex_subset_Icc (hp t _)).1 b, (simplex_subset_Icc (hp t _)).2 b⟩)
   have h_gap (t : ℕ) : Integrable (fun ω ↦ _root_.Bandits.gap ν (A t ω)) P :=
     Integrable.of_finite.comp_measurable (g := _root_.Bandits.gap ν) (h.measurable_action t)
   simp_rw [_root_.Bandits.regret_eq_sum_gap]
@@ -377,7 +394,7 @@ lemma integral_regret_eq (h : IsAlgEnvSeq O A Y (weightAlgorithm w hw hp) env P)
   have hg : Measurable fun z : (α → ℝ) × α ↦ _root_.Bandits.gap ν z.2 :=
     (measurable_of_countable (_root_.Bandits.gap ν)).comp measurable_snd
   rw [integral_comp_weights h t (g := fun _ b ↦ _root_.Bandits.gap ν b) hg (h_gap t),
-    integral_finsetSum _ fun b _ ↦ (hw_int t b).mul_const _]
+    integral_finsetSum _ fun b _ ↦ (integrable_weights_apply h t b).mul_const _]
   exact Finset.sum_congr rfl fun b _ ↦ by rw [integral_mul_const, mul_comm]
 
 end WeightAlgorithm

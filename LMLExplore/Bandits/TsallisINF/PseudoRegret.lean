@@ -341,6 +341,17 @@ theorem integrable_sum_mul_sqrt_mul_sq (h : IsAlgEnvSeq O A Y tsallisINF env P)
   rw [Real.norm_of_nonneg h_mem.1]
   exact h_mem.2
 
+/-- Along a run of Tsallis-INF whose feedback at round `t` is almost surely in `[0, 1]`, the
+estimated regret of round `t` against every arm `a` is integrable: the observed loss `1 - Y t`
+minus the importance-weighted estimate of the loss of `a`. -/
+theorem integrable_one_sub_sub_iwEstimator (h : IsAlgEnvSeq O A Y tsallisINF env P)
+    (hY : ∀ᵐ ω ∂P, Y t ω ∈ Set.Icc 0 1) (a : α) :
+    Integrable (fun ω ↦ (1 - Y t ω) -
+      iwEstimator (tsallisINFWeights t (history O A Y t ω)) (A t ω) (1 - Y t ω) a) P :=
+  ((integrable_const 1).sub
+      (Integrable.of_mem_Icc 0 1 (h.measurable_feedback t).aemeasurable hY)).sub
+    (WeightAlgorithm.integrable_iwEstimator_one_sub (isAlgEnvSeq_tsallisINF_iff.1 h) hY a)
+
 /-- **The expected local norm of a round of Tsallis-INF.** Along a run of Tsallis-INF whose
 feedback at round `t` is almost surely in `[0, 1]`, with `P t` the weights and `Ŷ t` the
 importance-weighted estimates of the losses `1 - Y t`, the local norm
@@ -422,7 +433,7 @@ theorem integral_sum_means_sub_eq_integral_sum_one_sub_sub_iwEstimator
         iwEstimator (tsallisINFWeights t (history O A Y t ω)) (A t ω) (1 - Y t ω) a)] := by
       rw [integral_finsetSum (f := fun t ω ↦ (1 - Y t ω) -
         iwEstimator (tsallisINFWeights t (history O A Y t ω)) (A t ω) (1 - Y t ω) a) _
-        fun t ht ↦ (hYint t ht).sub (hLint t ht)]
+        fun t ht ↦ integrable_one_sub_sub_iwEstimator h (hYt t ht) a]
       exact sum_congr rfl fun t ht ↦ (integral_sub (hYint t ht) (hLint t ht)).symm
 
 /-- **Pseudo-regret of Tsallis-INF against an adaptive adversary** [ZS21], [Ora, Section 9.3].
@@ -436,11 +447,6 @@ theorem pseudoRegret_le (h : IsAlgEnvSeq O A Y tsallisINF env P)
   refine pseudoRegret_le_iff.2 fun a ↦ ?_
   have hYt (t : ℕ) (ht : t ∈ range n) : ∀ᵐ ω ∂P, Y t ω ∈ Set.Icc 0 1 :=
     hY.mono fun _ hω ↦ hω t (mem_range.1 ht)
-  have hYint (t : ℕ) (ht : t ∈ range n) : Integrable (fun ω ↦ 1 - Y t ω) P :=
-    (integrable_const 1).sub
-      (Integrable.of_mem_Icc 0 1 (h.measurable_feedback t).aemeasurable (hYt t ht))
-  have hLint (t : ℕ) (ht : t ∈ range n) :=
-    WeightAlgorithm.integrable_iwEstimator_one_sub (isAlgEnvSeq_tsallisINF_iff.1 h) (hYt t ht) a
   have hVint (t : ℕ) (ht : t ∈ range n) := integrable_sum_mul_sqrt_mul_sq (t := t) h (hYt t ht)
   rw [integral_sum_means_sub_eq_integral_sum_one_sub_sub_iwEstimator h hY a]
   calc P[fun ω ↦ ∑ t ∈ range n, ((1 - Y t ω) -
@@ -451,7 +457,8 @@ theorem pseudoRegret_le (h : IsAlgEnvSeq O A Y tsallisINF env P)
           √(tsallisINFWeights t (history O A Y t ω) b) *
           (iwEstimator (tsallisINFWeights t (history O A Y t ω)) (A t ω) (1 - Y t ω) b -
             (1 - Y t ω)) ^ 2] := by
-      refine integral_mono_ae (integrable_finsetSum _ fun t ht ↦ (hYint t ht).sub (hLint t ht))
+      refine integral_mono_ae (integrable_finsetSum _ fun t ht ↦
+          integrable_one_sub_sub_iwEstimator h (hYt t ht) a)
         ((integrable_const _).add (integrable_finsetSum _ fun t ht ↦ (hVint t ht).const_mul _)) ?_
       filter_upwards [hY] with ω hω using sum_one_sub_sub_iwEstimator_le O A Y ω hω a
   _ = 4 * √n * (√(Fintype.card α) - 1) + ∑ t ∈ range n, 4 / √((t : ℝ) + 1) *

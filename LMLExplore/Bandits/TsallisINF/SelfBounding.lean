@@ -63,29 +63,14 @@ variable {α 𝓞 Ω : Type*} [Fintype α] [DecidableEq α] [Nonempty α] [Measu
 
 namespace TsallisINF
 
-/-- Along a run of Tsallis-INF, a measurable function `g` of the weights of round `t` that is
-bounded on the simplex is integrable. -/
-private lemma integrable_comp_tsallisINFWeights (h : IsAlgEnvSeq O A Y tsallisINF env P) (t : ℕ)
-    {g : (α → ℝ) → ℝ} (hg : Measurable g) {C : ℝ} (hC : ∀ p ∈ simplex α, |g p| ≤ C) :
-    Integrable (fun ω ↦ g (tsallisINFWeights t (history O A Y t ω))) P := by
-  have hm := hg.comp (WeightAlgorithm.measurable_weights_run (isAlgEnvSeq_tsallisINF_iff.1 h) t)
-  exact Integrable.of_bound hm.aestronglyMeasurable C (ae_of_all _ fun _ ↦
-    (Real.norm_eq_abs _).trans_le (hC _ (tsallisINFWeights_mem_simplex _ _)))
-
-/-- Along a run of Tsallis-INF, the weight of an arm at round `t` is integrable. -/
-private lemma integrable_tsallisINFWeights (h : IsAlgEnvSeq O A Y tsallisINF env P) (t : ℕ)
-    (b : α) : Integrable (fun ω ↦ tsallisINFWeights t (history O A Y t ω) b) P :=
-  integrable_comp_tsallisINFWeights h t (measurable_pi_apply b) (C := 1) fun p hp ↦ by
-    rw [abs_of_nonneg ((simplex_subset_Icc hp).1 b)]
-    exact (simplex_subset_Icc hp).2 b
-
 /-- Along a run of Tsallis-INF, the square root of the weight of an arm at round `t` is
 integrable. -/
 private lemma integrable_sqrt_tsallisINFWeights (h : IsAlgEnvSeq O A Y tsallisINF env P) (t : ℕ)
     (b : α) : Integrable (fun ω ↦ √(tsallisINFWeights t (history O A Y t ω) b)) P :=
-  integrable_comp_tsallisINFWeights h t (measurable_pi_apply b).sqrt (C := 1) fun p hp ↦ by
-    rw [abs_of_nonneg (sqrt_nonneg _)]
-    exact sqrt_le_one.2 ((simplex_subset_Icc hp).2 b)
+  WeightAlgorithm.integrable_comp_weights_of_bound (isAlgEnvSeq_tsallisINF_iff.1 h) t
+    (measurable_pi_apply b).sqrt (C := 1) fun p hp ↦ by
+      rw [abs_of_nonneg (sqrt_nonneg _)]
+      exact sqrt_le_one.2 ((simplex_subset_Icc hp).2 b)
 
 /-- **Pseudo-regret of Tsallis-INF in terms of the weights of the other arms** [ZS21],
 [Ora, Section 9.3]. Along a run of Tsallis-INF against any environment whose feedbacks of the
@@ -99,11 +84,6 @@ theorem pseudoRegret_le_sum_integral_sum_sqrt (h : IsAlgEnvSeq O A Y tsallisINF 
   refine pseudoRegret_le_iff.2 fun a ↦ ?_
   have hYt (t : ℕ) (ht : t ∈ range n) : ∀ᵐ ω ∂P, Y t ω ∈ Set.Icc 0 1 :=
     hY.mono fun _ hω ↦ hω t (mem_range.1 ht)
-  have hYint (t : ℕ) (ht : t ∈ range n) : Integrable (fun ω ↦ 1 - Y t ω) P :=
-    (integrable_const 1).sub
-      (Integrable.of_mem_Icc 0 1 (h.measurable_feedback t).aemeasurable (hYt t ht))
-  have hLint (t : ℕ) (ht : t ∈ range n) :=
-    WeightAlgorithm.integrable_iwEstimator_one_sub (isAlgEnvSeq_tsallisINF_iff.1 h) (hYt t ht) a
   have hVint (t : ℕ) (ht : t ∈ range n) := integrable_sum_mul_sqrt_mul_sq (t := t) h (hYt t ht)
   have hS (t : ℕ) : Integrable (fun ω ↦ ∑ b ∈ univ.erase a',
       √(tsallisINFWeights t (history O A Y t ω) b)) P :=
@@ -125,8 +105,8 @@ theorem pseudoRegret_le_sum_integral_sum_sqrt (h : IsAlgEnvSeq O A Y tsallisINF 
             √(tsallisINFWeights t (history O A Y t ω) b) *
             (iwEstimator (tsallisINFWeights t (history O A Y t ω)) (A t ω) (1 - Y t ω) b -
               (1 - Y t ω)) ^ 2)] := by
-      refine integral_mono_ae (integrable_finsetSum _ fun t ht ↦ (hYint t ht).sub (hLint t ht))
-        (integrable_finsetSum _ hI) ?_
+      refine integral_mono_ae (integrable_finsetSum _ fun t ht ↦
+          integrable_one_sub_sub_iwEstimator h (hYt t ht) a) (integrable_finsetSum _ hI) ?_
       filter_upwards [hY] with ω hω using sum_one_sub_sub_iwEstimator_le_sum_sqrt O A Y ω hω a a'
   _ = ∑ t ∈ range n, 4 / √((t : ℝ) + 1) *
         (P[fun ω ↦ ∑ b ∈ univ.erase a', √(tsallisINFWeights t (history O A Y t ω) b)] +
@@ -146,7 +126,8 @@ theorem pseudoRegret_le_sum_integral_sum_sqrt (h : IsAlgEnvSeq O A Y tsallisINF 
       rw [← integral_const_mul]
       refine integral_mono ?_ ((hS t).const_mul 2) fun ω ↦
         sum_sqrt_mul_one_sub_le_two_mul_sum_erase (tsallisINFWeights_mem_simplex _ _) a'
-      refine integrable_comp_tsallisINFWeights h t (g := fun p ↦ ∑ b, √(p b) * (1 - p b))
+      refine WeightAlgorithm.integrable_comp_weights_of_bound (isAlgEnvSeq_tsallisINF_iff.1 h) t
+        (g := fun p ↦ ∑ b, √(p b) * (1 - p b))
         (Finset.measurable_sum _ fun b _ ↦ (measurable_pi_apply b).sqrt.mul
           (measurable_const.sub (measurable_pi_apply b))) (C := √((Fintype.card α : ℝ) - 1))
         fun p hp ↦ (abs_of_nonneg (sum_nonneg fun b _ ↦ mul_nonneg (sqrt_nonneg _)
@@ -183,11 +164,11 @@ theorem pseudoRegret_le_log_of_selfBounding (h : IsAlgEnvSeq O A Y tsallisINF en
         Δ b * P[fun ω ↦ tsallisINFWeights t (history O A Y t ω) b] ≤
         144 * ((Δ b)⁻¹ * ((t : ℝ) + 1)⁻¹) := by
     have hΔb := hΔ b (ne_of_mem_erase hb)
-    rw [← integral_const_mul, ← integral_const_mul, ← integral_sub
-      ((integrable_sqrt_tsallisINFWeights h t b).const_mul _)
-      ((integrable_tsallisINFWeights h t b).const_mul _)]
-    refine (integral_mono (((integrable_sqrt_tsallisINFWeights h t b).const_mul _).sub
-      ((integrable_tsallisINFWeights h t b).const_mul _))
+    have hS := integrable_sqrt_tsallisINFWeights h t b
+    have hP := WeightAlgorithm.integrable_weights_apply (isAlgEnvSeq_tsallisINF_iff.1 h) t b
+    rw [← integral_const_mul, ← integral_const_mul, ← integral_sub (hS.const_mul _)
+      (hP.const_mul _)]
+    refine (integral_mono ((hS.const_mul _).sub (hP.const_mul _))
       (integrable_const (144 * ((Δ b)⁻¹ * ((t : ℝ) + 1)⁻¹))) fun ω ↦ ?_).trans_eq (by simp)
     -- pointwise, `2 q √p - Δ p ≤ q ^ 2 / Δ` with `q = 12 / √(t + 1)`
     have hW := (simplex_subset_Icc (tsallisINFWeights_mem_simplex t (history O A Y t ω))).1 b

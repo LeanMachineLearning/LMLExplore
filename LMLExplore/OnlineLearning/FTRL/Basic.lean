@@ -314,10 +314,10 @@ theorem ftrl_regret_succ_le_sum_inv_sub_inv {F : E → ℝ} (hK : Convex ℝ K) 
   have h_last : a' (n + 1) = u := by simp [ha'_def]
   have hmin (t : ℕ) (ht : t < n + 1) : min t n = t := min_eq_left (Nat.le_of_lt_succ ht)
   have h := ftrl_regret_le_of_isMinOn hK (n := n + 1) (u := u)
-    (fun t b ↦ (F b - 0) / η (min t n)) y a'
+    (fun t b ↦ F b / η (min t n)) y a'
     (fun t ht ↦ by
       rw [ha' t ht, hmin t ht]
-      exact (ha t (Nat.le_of_lt_succ ht)).isMinOn_sum_add_sub_div (hη t) 0)
+      simpa only [sub_zero] using (ha t (Nat.le_of_lt_succ ht)).isMinOn_sum_add_sub_div (hη t) 0)
     (fun t ht ↦ by
       rcases ht.lt_or_eq with ht | rfl
       · rw [ha' t ht]
@@ -326,16 +326,16 @@ theorem ftrl_regret_succ_le_sum_inv_sub_inv {F : E → ℝ} (hK : Convex ℝ K) 
     (by rw [h_last]) (fun t ↦ (η t)⁻¹ • F' t) fun t ht ↦ by
       rw [ha' t ht, hmin t ht]
       simpa only [div_eq_mul_inv] using
-        ((hF' t (Nat.le_of_lt_succ ht)).sub_const 0).mul_const (η t)⁻¹
+        (hF' t (Nat.le_of_lt_succ ht)).mul_const (η t)⁻¹
   -- rewrite the bound in terms of `a`, `F` and `η`
   have h_breg (t : ℕ) (b c : E) :
-      bregDiv (fun b ↦ (F b - 0) / η t) b c ((η t)⁻¹ • F' t) = bregDiv F b c (F' t) / η t := by
+      bregDiv (fun b ↦ F b / η t) b c ((η t)⁻¹ • F' t) = bregDiv F b c (F' t) / η t := by
     simp only [bregDiv, smul_apply, smul_eq_mul]
     ring
   have e_lhs : ∑ t ∈ range (n + 1), y t (a' t - u) = ∑ t ∈ range (n + 1), y t (a t - u) :=
     sum_congr rfl fun t ht ↦ by rw [ha' t (mem_range.mp ht)]
-  have e_pen : ∑ t ∈ range (n + 1), ((F (a' (t + 1)) - 0) / η (min (t + 1) n) -
-      (F (a' (t + 1)) - 0) / η (min t n)) =
+  have e_pen : ∑ t ∈ range (n + 1), (F (a' (t + 1)) / η (min (t + 1) n) -
+      F (a' (t + 1)) / η (min t n)) =
       ∑ t ∈ range n, ((η (t + 1))⁻¹ - (η t)⁻¹) * F (a (t + 1)) := by
     rw [sum_range_succ, min_eq_right n.le_succ, min_self, sub_self, add_zero]
     refine sum_congr rfl fun t ht ↦ ?_
@@ -344,7 +344,7 @@ theorem ftrl_regret_succ_le_sum_inv_sub_inv {F : E → ℝ} (hK : Convex ℝ K) 
       hmin t (ht.trans n.lt_succ_self)]
     ring
   have e_stab : ∑ t ∈ range (n + 1), (y t (a' t - a' (t + 1)) -
-      bregDiv (fun b ↦ (F b - 0) / η (min t n)) (a' (t + 1)) (a' t) ((η t)⁻¹ • F' t)) =
+      bregDiv (fun b ↦ F b / η (min t n)) (a' (t + 1)) (a' t) ((η t)⁻¹ • F' t)) =
       ∑ t ∈ range n, (y t (a t - a (t + 1)) - bregDiv F (a (t + 1)) (a t) (F' t) / η t) +
       (y n (a n - u) - bregDiv F u (a n) (F' n) / η n) := by
     rw [sum_range_succ, ha' n n.lt_succ_self, h_last, min_self, h_breg]
@@ -363,7 +363,7 @@ theorem ftrl_regret_succ_le_sum_inv_sub_inv {F : E → ℝ} (hK : Convex ℝ K) 
     rw [← sum_sub_distrib]
     exact sum_congr rfl fun t _ ↦ by ring
   rw [h_split, h_tel]
-  simp only [sub_zero, div_eq_mul_inv] at h ⊢
+  simp only [div_eq_mul_inv] at h ⊢
   linarith
 
 /-- **Regret of FTRL with nonincreasing learning rates, with the rate of the last play.** Let `K`
