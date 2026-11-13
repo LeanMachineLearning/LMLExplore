@@ -39,6 +39,11 @@ AM-GM inequality.
 * `ContinuousLinearMap.IsPositive.abs_inner_le_sqrt_mul_sqrt_ringInverse`: for a positive
   invertible operator `T`, the Cauchy–Schwarz inequality `|⟪x, y⟫| ≤ ‖x‖_T ‖y‖_{T⁻¹}` for the
   dual weighted norms.
+* `ContinuousLinearMap.IsPositive.mul_inner_ringInverse_le_of_smul_le`: the inverse is antitone
+  in the Loewner order: `c • T ≤ S` gives `c ⟪x, S⁻¹ x⟫ ≤ ⟪x, T⁻¹ x⟫` for a positive invertible `T`
+  and `c > 0`.
+* `ContinuousLinearMap.IsPositive.isUnit_of_le`: an operator above a positive invertible operator
+  is invertible, in finite dimension.
 * `LinearMap.IsPositive.eigenvalues_pos`: the eigenvalues of a positive invertible operator on a
   finite-dimensional inner product space are positive.
 * `LinearMap.IsPositive.det_le_trace_div_finrank_pow`,
@@ -132,6 +137,47 @@ theorem IsPositive.abs_inner_le_sqrt_mul_sqrt_ringInverse (hT : T.IsPositive) (h
     real_inner_comm x (T x)] at h
   rw [← Real.sqrt_mul (hT.inner_nonneg_right x)]
   exact Real.abs_le_sqrt h
+
+/-- **The inverse is antitone in the Loewner order**, in the form of quadratic forms: for a
+positive invertible operator `T`, `c > 0` and `c • T ≤ S`, `c ⟪x, S⁻¹ x⟫ ≤ ⟪x, T⁻¹ x⟫`, that is
+`c S⁻¹ ≤ T⁻¹`. -/
+theorem IsPositive.mul_inner_ringInverse_le_of_smul_le {S : F →L[ℝ] F} (hT : T.IsPositive)
+    (hTu : IsUnit T) {c : ℝ} (hc : 0 < c) (hTS : c • T ≤ S) (x : F) :
+    c * ⟪x, Ring.inverse S x⟫_ℝ ≤ ⟪x, Ring.inverse T x⟫_ℝ := by
+  by_cases hSu : IsUnit S
+  · -- with `v = S⁻¹ x`, `0 ≤ ⟪T⁻¹ x - c v, T (T⁻¹ x - c v)⟫` and `c ⟪v, T v⟫ ≤ ⟪v, S v⟫ = ⟪v, x⟫`
+    set v := Ring.inverse S x
+    have hv : S v = x := apply_ringInverse_apply hSu x
+    have hw := hT.inner_nonneg_right (Ring.inverse T x - c • v)
+    have hST := (le_def.1 hTS).inner_nonneg_right v
+    have hTv : ⟪Ring.inverse T x, T v⟫_ℝ = ⟪x, v⟫_ℝ := by
+      rw [← hT.inner_left_eq_inner_right, apply_ringInverse_apply hTu]
+    simp only [map_sub, map_smul, apply_ringInverse_apply hTu, inner_sub_left, inner_sub_right,
+      inner_smul_left, inner_smul_right, hTv, sub_apply, smul_apply, hv, RCLike.conj_to_real]
+      at hw hST
+    rw [real_inner_comm x (Ring.inverse T x), real_inner_comm x v] at hw
+    rw [real_inner_comm x v] at hST
+    nlinarith [hT.inner_nonneg_right v]
+  · rw [Ring.inverse_non_unit S hSu, zero_apply, inner_zero_right, mul_zero]
+    exact hT.ringInverse.inner_nonneg_right x
+
+/-- An operator above a positive invertible operator in the Loewner order is invertible, on a
+finite-dimensional real inner product space. -/
+theorem IsPositive.isUnit_of_le [FiniteDimensional ℝ F] {S : F →L[ℝ] F} (hT : T.IsPositive)
+    (hTu : IsUnit T) (hTS : T ≤ S) : IsUnit S := by
+  rw [isUnit_iff_isUnit_toLinearMap, LinearMap.isUnit_iff_ker_eq_bot, LinearMap.ker_eq_bot']
+  intro v hv
+  rw [coe_coe] at hv
+  -- `⟪v, T v⟫ ≤ ⟪v, S v⟫ = 0`, so `T v = 0` by the Cauchy–Schwarz inequality
+  have hST := (le_def.1 hTS).inner_nonneg_right v
+  rw [sub_apply, hv, inner_sub_right, inner_zero_right, zero_sub, neg_nonneg] at hST
+  have hTv : ⟪v, T v⟫_ℝ = 0 := le_antisymm hST (hT.inner_nonneg_right v)
+  have h := hT.sq_inner_apply_le (T v) v
+  rw [hTv, mul_zero] at h
+  have hT0 : T v = 0 := by
+    rw [← inner_self_eq_zero (𝕜 := ℝ)]
+    nlinarith [sq_nonneg ⟪T v, T v⟫_ℝ]
+  rw [← ringInverse_apply_apply hTu v, hT0, map_zero]
 
 end Real
 

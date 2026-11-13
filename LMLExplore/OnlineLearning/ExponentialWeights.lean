@@ -44,6 +44,8 @@ entropy.
 * `measurable_softmax`: `v ↦ softmax v` is measurable.
 * `sum_mul_exp_neg_sub_one_add_le`: for nonnegative weights `p`, a nonnegative loss `y` and
   `η ≥ 0`, `∑ b, p b * (exp (-(η * y b)) - 1 + η * y b) ≤ η ^ 2 / 2 * ∑ b, p b * y b ^ 2`.
+* `sum_mul_exp_neg_sub_one_add_le_of_neg_one_le`: for nonnegative weights `p` and a loss `y` with
+  `η * y b ≥ -1`, `∑ b, p b * (exp (-(η * y b)) - 1 + η * y b) ≤ η ^ 2 * ∑ b, p b * y b ^ 2`.
 
 ## References
 
@@ -116,5 +118,19 @@ theorem sum_mul_exp_neg_sub_one_add_le {p y : α → ℝ} (hp : ∀ b, 0 ≤ p b
   calc p b * (exp (-(η * y b)) - 1 + η * y b)
   _ ≤ p b * (η ^ 2 / 2 * y b ^ 2) := mul_le_mul_of_nonneg_left (by linarith) (hp b)
   _ = η ^ 2 / 2 * (p b * y b ^ 2) := by ring
+
+/-- **Second-order bound under exponential weights, for losses bounded below.** For nonnegative
+weights `p`, a learning rate `η` and a loss `y` with `η * y b ≥ -1` for every `b`,
+`∑ b, p b * (exp (-(η * y b)) - 1 + η * y b) ≤ η ^ 2 * ∑ b, p b * y b ^ 2`, from
+`exp (-x) ≤ 1 - x + x ^ 2` for `x ≥ -1` [LS, proof of Theorem 27.1]. -/
+theorem sum_mul_exp_neg_sub_one_add_le_of_neg_one_le {p y : α → ℝ} (hp : ∀ b, 0 ≤ p b) {η : ℝ}
+    (hy : ∀ b, -1 ≤ η * y b) :
+    ∑ b, p b * (exp (-(η * y b)) - 1 + η * y b) ≤ η ^ 2 * ∑ b, p b * y b ^ 2 := by
+  rw [mul_sum]
+  refine sum_le_sum fun b _ ↦ ?_
+  have h := exp_neg_le_one_sub_add_sq (hy b)
+  calc p b * (exp (-(η * y b)) - 1 + η * y b)
+  _ ≤ p b * (η ^ 2 * y b ^ 2) := mul_le_mul_of_nonneg_left (by nlinarith) (hp b)
+  _ = η ^ 2 * (p b * y b ^ 2) := by ring
 
 end LMLExplore.OnlineLearning

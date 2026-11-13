@@ -7,6 +7,7 @@ module
 
 public import LMLExplore.Analysis.Convex.Caratheodory
 public import LMLExplore.Analysis.InnerProductSpace.MoorePenrose
+public import LMLExplore.Analysis.InnerProductSpace.Positive
 public import LMLExplore.Analysis.InnerProductSpace.RankOne
 public import LMLExplore.Analysis.InnerProductSpace.Symmetric.Finrank
 public import LMLExplore.LinearAlgebra.AffineSpace.Independent
@@ -58,6 +59,14 @@ point `a` for each of them gives a design with the same design operator, hence t
 
 * `LMLExplore.designOperator_map`: the design operator of the image `w.map φ` of a design on a
   finite type of arms by a feature map `φ` is `∑ i, w i • φ i ⊗ φ i`.
+* `LMLExplore.isPositive_sum_smul_rankOne`, `LMLExplore.smul_sum_smul_rankOne_le`,
+  `LMLExplore.isUnit_sum_smul_rankOne_of_mul_le`: for a feature map `φ`, the weighted sum
+  `∑ i ∈ s, w i • φ i ⊗ φ i` is positive for nonnegative weights (on a finite type, monotone in
+  the weights in the Loewner order, and invertible above an invertible one).
+* `LMLExplore.sum_mul_inner_ringInverse_sum_smul_rankOne`: for a feature map `φ` and real weights
+  `w` with `V = ∑ i ∈ s, w i • φ i ⊗ φ i` invertible, `∑ i ∈ s, w i ⟪φ i, V⁻¹ φ i⟫ = d`. The
+  corresponding facts for the design operator are the case of the identity feature map on the
+  support of the design.
 * `LMLExplore.designOperator_map_subtype_apply`: on a subspace `K`, the design operator on `E` of
   a design on `K` restricts to its design operator on `K`.
 * `LMLExplore.designOperator_convexCombPair`: `V(w)` is affine in `w`.
@@ -77,6 +86,9 @@ point `a` for each of them gives a design with the same design operator, hence t
 * `LMLExplore.exists_design_inner_ringInverse_le_finrank`: **Kiefer–Wolfowitz** [LS, Theorem 21.1,
   Exercise 21.3]: a nonempty compact set `𝒜` spanning `E` carries a design `w` with invertible
   design operator and `⟪a, V(w)⁻¹ a⟫ ≤ d` for every `a ∈ 𝒜`.
+* `LMLExplore.exists_mem_simplex_inner_ringInverse_le_finrank`: **Kiefer–Wolfowitz for finitely
+  many arms**: if the features `φ i` of finitely many arms span `E`, some weights `w` in the
+  simplex have `⟪φ i, V⁻¹ φ i⟫ ≤ d` for every arm, with `V = ∑ i, w i • φ i ⊗ φ i` invertible.
 * `LMLExplore.inner_moorePenroseInverse_designOperator_map_subtype`: for a design on a subspace
   `K` with invertible design operator `V_K(w)` on `K`, `⟪a, V(w)⁺ a⟫ = ⟪a, V_K(w)⁻¹ a⟫` on `K`.
 * `LMLExplore.exists_designOperator_eq_card_support_le`: a design with invertible design operator
@@ -165,6 +177,51 @@ theorem designOperator_map {ι : Type*} [Fintype ι] (φ : ι → E) (w : StdSim
     Finsupp.linearCombination_apply, Finsupp.sum_fintype _ _ fun _ ↦ by simp]
   rfl
 
+/-- The trace of `B ∘ ∑ i ∈ s, w i • φ i ⊗ φ i` is `∑ i ∈ s, w i * ⟪φ i, B (φ i)⟫`, for every
+family of real coefficients `w`. -/
+theorem trace_comp_sum_smul_rankOne [FiniteDimensional ℝ E] {ι : Type*} (s : Finset ι)
+    (B : E →L[ℝ] E) (φ : ι → E) (w : ι → ℝ) :
+    LinearMap.trace ℝ E (B ∘L ∑ i ∈ s, w i • rankOne ℝ (φ i) (φ i) : E →ₗ[ℝ] E) =
+      ∑ i ∈ s, w i * ⟪φ i, B (φ i)⟫_ℝ := by
+  simp [comp_finsetSum, comp_rankOne, trace_rankOne]
+
+/-- If `V = ∑ i ∈ s, w i • φ i ⊗ φ i` is invertible on a space of dimension `d`, then
+`∑ i ∈ s, w i * ⟪φ i, V⁻¹ φ i⟫ = d`, the trace of `V⁻¹ V`. For weights `w` in the simplex of a
+finite type, `V` is the design operator of the image design `w.map φ` (`designOperator_map`). -/
+theorem sum_mul_inner_ringInverse_sum_smul_rankOne [FiniteDimensional ℝ E] {ι : Type*}
+    {s : Finset ι} {φ : ι → E} {w : ι → ℝ}
+    (hu : IsUnit (∑ i ∈ s, w i • rankOne ℝ (φ i) (φ i))) :
+    ∑ i ∈ s, w i * ⟪φ i, Ring.inverse (∑ i ∈ s, w i • rankOne ℝ (φ i) (φ i)) (φ i)⟫_ℝ =
+      finrank ℝ E := by
+  rw [← trace_comp_sum_smul_rankOne, ← mul_def, Ring.inverse_mul_cancel _ hu, toLinearMap_one,
+    LinearMap.trace_one]
+
+/-- For weights `w` nonnegative on `s`, `∑ i ∈ s, w i • φ i ⊗ φ i` is positive. -/
+theorem isPositive_sum_smul_rankOne {ι : Type*} (s : Finset ι) (φ : ι → E) {w : ι → ℝ}
+    (hw : ∀ i ∈ s, 0 ≤ w i) : (∑ i ∈ s, w i • rankOne ℝ (φ i) (φ i)).IsPositive :=
+  isPositive_sum _ fun i hi ↦ (isPositive_rankOne_self (φ i)).smul_of_nonneg (hw i hi)
+
+/-- If `c * v i ≤ w i` for every `i`, then `c • ∑ i, v i • φ i ⊗ φ i ≤ ∑ i, w i • φ i ⊗ φ i` in
+the Loewner order. -/
+theorem smul_sum_smul_rankOne_le {ι : Type*} [Fintype ι] {φ : ι → E} {v w : ι → ℝ} {c : ℝ}
+    (h : ∀ i, c * v i ≤ w i) :
+    c • ∑ i, v i • rankOne ℝ (φ i) (φ i) ≤ ∑ i, w i • rankOne ℝ (φ i) (φ i) := by
+  rw [ContinuousLinearMap.le_def, Finset.smul_sum, ← Finset.sum_sub_distrib]
+  refine isPositive_sum _ fun i _ ↦ ?_
+  rw [smul_smul, ← sub_smul]
+  exact (isPositive_rankOne_self (φ i)).smul_of_nonneg (sub_nonneg.2 (h i))
+
+/-- If `∑ i, v i • φ i ⊗ φ i` is invertible for nonnegative weights `v`, and `c * v i ≤ w i` for
+every `i` with `c > 0`, then `∑ i, w i • φ i ⊗ φ i` is invertible. -/
+theorem isUnit_sum_smul_rankOne_of_mul_le [FiniteDimensional ℝ E] {ι : Type*} [Fintype ι]
+    {φ : ι → E} {v w : ι → ℝ} {c : ℝ} (hv : ∀ i, 0 ≤ v i)
+    (hvu : IsUnit (∑ i, v i • rankOne ℝ (φ i) (φ i))) (hc : 0 < c) (h : ∀ i, c * v i ≤ w i) :
+    IsUnit (∑ i, w i • rankOne ℝ (φ i) (φ i)) := by
+  have hcu : IsUnit (c • ∑ i, v i • rankOne ℝ (φ i) (φ i)) := by
+    simpa [Units.smul_def] using hvu.smul (Units.mk0 c hc.ne')
+  have hvp := isPositive_sum_smul_rankOne Finset.univ φ fun i _ ↦ hv i
+  exact (hvp.smul_of_nonneg hc.le).isUnit_of_le hcu (smul_sum_smul_rankOne_le h)
+
 /-- The design operator on `E` of a design on a subspace `K` restricts on `K` to the design
 operator on `K`: `V(w) v = V_K(w) v` for `v ∈ K`. -/
 theorem designOperator_map_subtype_apply {K : Submodule ℝ E} (w : StdSimplex ℝ K) (v : K) :
@@ -178,7 +235,7 @@ theorem designOperator_map_subtype_apply {K : Submodule ℝ E} (w : StdSimplex �
 /-- The design operator is positive. -/
 theorem isPositive_designOperator (w : StdSimplex ℝ E) : (designOperator w).IsPositive := by
   rw [designOperator_def]
-  exact isPositive_sum _ fun a _ ↦ (isPositive_rankOne_self a).smul_of_nonneg (w.nonneg a)
+  exact isPositive_sum_smul_rankOne _ id fun a _ ↦ w.nonneg a
 
 /-- The convex hull of the rank-one operators `a ⊗ a` of the points `a ∈ 𝒜` is the set of design
 operators of the designs on `𝒜`. -/
@@ -223,7 +280,8 @@ theorem ker_designOperator (w : StdSimplex ℝ E) :
 theorem trace_comp_designOperator [FiniteDimensional ℝ E] (B : E →L[ℝ] E) (w : StdSimplex ℝ E) :
     LinearMap.trace ℝ E (B ∘L designOperator w : E →ₗ[ℝ] E) =
       w.weights.sum fun a c ↦ c * ⟪a, B a⟫_ℝ := by
-  simp [designOperator_def, Finsupp.sum, comp_finsetSum, comp_rankOne, trace_rankOne]
+  rw [designOperator_def, Finsupp.sum, Finsupp.sum]
+  exact trace_comp_sum_smul_rankOne _ B id _
 
 section FiniteDimensional
 
@@ -246,8 +304,8 @@ theorem det_designOperator_pos {w : StdSimplex ℝ E} (hu : IsUnit (designOperat
 theorem sum_mul_inner_ringInverse_designOperator {w : StdSimplex ℝ E}
     (hu : IsUnit (designOperator w)) :
     (w.weights.sum fun a c ↦ c * ⟪a, Ring.inverse (designOperator w) a⟫_ℝ) = finrank ℝ E := by
-  rw [← trace_comp_designOperator, ← mul_def, Ring.inverse_mul_cancel _ hu, toLinearMap_one,
-    LinearMap.trace_one]
+  rw [designOperator_def, Finsupp.sum] at hu ⊢
+  exact sum_mul_inner_ringInverse_sum_smul_rankOne (φ := id) hu
 
 /-- Every design with invertible design operator `V(w)` on a space of dimension `d` has a support
 point `a` with `d ≤ ⟪a, V(w)⁻¹ a⟫`: the G-value `sup_{a ∈ 𝒜} ⟪a, V(w)⁻¹ a⟫` of a design on `𝒜` is
@@ -381,6 +439,24 @@ theorem exists_design_inner_ringInverse_le_finrank {𝒜 : Set E} (h𝒜 : IsCom
     exact ((det_designOperator_pos hu₀).trans_le (hmax' hw₀)).ne'.isUnit
   exact ⟨w, hw, hu, fun _ ha ↦
     inner_ringInverse_designOperator_le_finrank_of_isMaxOn hw hu hmax' ha⟩
+
+/-- **The Kiefer–Wolfowitz theorem for finitely many arms** [LS, Theorem 21.1]. If the features
+`φ i` of the elements of a nonempty finite type span `E`, of dimension `d`, some weights `w` in the
+simplex have an invertible design operator `V = ∑ i, w i • φ i ⊗ φ i` with `⟪φ i, V⁻¹ φ i⟫ ≤ d`
+for every `i`: the Kiefer–Wolfowitz design on the features, pulled back to the arms. -/
+theorem exists_mem_simplex_inner_ringInverse_le_finrank {ι : Type*} [Fintype ι] [Nonempty ι]
+    {φ : ι → E} (hspan : Submodule.span ℝ (Set.range φ) = ⊤) :
+    ∃ w ∈ LMLExplore.simplex ι, IsUnit (∑ i, w i • rankOne ℝ (φ i) (φ i)) ∧
+      ∀ i, ⟪φ i, Ring.inverse (∑ i, w i • rankOne ℝ (φ i) (φ i)) (φ i)⟫_ℝ ≤ finrank ℝ E := by
+  obtain ⟨w, hw, hu, hle⟩ := exists_design_inner_ringInverse_le_finrank
+    (Set.finite_range φ).isCompact (Set.range_nonempty φ) hspan
+  -- the design is supported on the features, so it is the image of a design on the arms
+  obtain ⟨v, rfl⟩ := (StdSimplex.mem_range_map_iff φ w).2 fun x hx ↦ by
+    by_contra h
+    exact hx (hw (Finsupp.mem_support_iff.2 h))
+  rw [designOperator_map] at hu hle
+  exact ⟨v.weights, LMLExplore.mem_simplex_iff.2 ⟨v.weights_nonneg, v.total_of_fintype⟩, hu,
+    fun i ↦ hle _ ⟨i, rfl⟩⟩
 
 /-- Let `w` be a design on a subspace `K` whose design operator `V_K(w)` on `K` is invertible. For
 `a ∈ K`, the weighted norm of `a` for the Moore–Penrose inverse of the design operator `V(w)` on
