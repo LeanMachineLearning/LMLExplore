@@ -31,6 +31,7 @@ variable {𝕜 E : Type*} [RCLike 𝕜]
 
 /-- The evaluation `x ↦ (u ↦ u x)` into the bidual preserves the norm: it is
 `NormedSpace.inclusionInDoubleDualLi`, by definition of `NormedSpace.inclusionInDoubleDual`. -/
+@[simp]
 theorem norm_apply_apply [SeminormedAddCommGroup E] [NormedSpace 𝕜 E] (x : E) :
     ‖ContinuousLinearMap.apply 𝕜 𝕜 x‖ = ‖x‖ :=
   (NormedSpace.inclusionInDoubleDualLi 𝕜).norm_map x
