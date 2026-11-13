@@ -84,6 +84,9 @@ an instance, on the Bernoulli bandits with means in `(0, 1)`.
 * `expFamilyTS_jeffreysPrior_regret_eventually_le_of_mem_image_expFamily`: on a bandit whose arms
   are members of exponential families, the expected regret of Thompson sampling with the Jeffreys
   priors satisfies `limsup_n E[R_n] / log n ≤ ∑_{a : Δ_a > 0} Δ_a / d_{ρ a}(μ_a, μ*)`.
+* `expFamilyTS_jeffreysPrior_regret_eventually_le_of_common_means`: the same bound for families
+  with a common set of means, proper Jeffreys posteriors and Jeffreys priors finite below every
+  mean.
 * `ExpFamilyTS.isConsistent_jeffreysPrior`: Thompson sampling with the Jeffreys priors is
   consistent over these bandits.
 * `tendsto_expFamilyTS_jeffreysPrior_regret_div_log`,
@@ -301,12 +304,9 @@ theorem klucbFam_regret_eventually_le_of_mem_image_expFamily
   have hρs : ∀ c, ¬ id =ᵐ[ρ (bestArm ν)] fun _ ↦ c :=
     not_ae_eq_const_of_gap_pos (hμb a₀ hga₀) (hμ _) hga₀
   -- These arms are dominated by the members of their means, which are their own laws.
-  have hdom (a : α) (ha : ∀ c, ¬ id =ᵐ[ρ a] fun _ ↦ c) (Λ : Set ℝ) :
-      MGFDominatedOn id (ν a) id ((ρ a).expFamily id ((ρ a).natParam id (ν a)[id])) Λ := by
-    rw [Measure.expFamily_natParam_integral_of_mem_image ha (hν a)]
-    exact (IdentDistrib.refl aemeasurable_id).mgfDominatedOn
   exact klucbFam_regret_eventually_le h (fun a _ ↦ hμ a) (hμ _)
-    (fun a ha ↦ hdom a (hρ a ha) _) (hdom _ hρs _) hρs hμs hc
+    (fun a ha ↦ mgfDominatedOn_expFamily_natParam_integral_of_mem_image (hρ a ha) (hν a) _)
+    (mgfDominatedOn_expFamily_natParam_integral_of_mem_image hρs (hν _) _) hρs hμs hc
 
 /-- **KL-UCB is consistent over exponential families.** Let `ρ a` be a measure on `ℝ` for every
 arm `a`, all with the same set of means. The KL-UCB algorithm for the families `ρ` is consistent
@@ -446,12 +446,34 @@ theorem expFamilyTS_jeffreysPrior_regret_eventually_le_of_mem_image_expFamily
   have hρs : ∀ c, ¬ id =ᵐ[ρ (bestArm ν)] fun _ ↦ c :=
     not_ae_eq_const_of_gap_pos (hμb a₀ hga₀) (hμ _) hga₀
   -- These arms are dominated by the members of their means, which are their own laws.
-  have hdom (a : α) (ha : ∀ c, ¬ id =ᵐ[ρ a] fun _ ↦ c) (Λ : Set ℝ) :
-      MGFDominatedOn id (ν a) id ((ρ a).expFamily id ((ρ a).natParam id (ν a)[id])) Λ := by
-    rw [Measure.expFamily_natParam_integral_of_mem_image ha (hν a)]
-    exact (IdentDistrib.refl aemeasurable_id).mgfDominatedOn
   exact expFamilyTS_jeffreysPrior_regret_eventually_le h (fun a _ ↦ hμ a)
-    (fun a ha ↦ hdom a (hρ a ha) _) hprop hμs (hμ _) (hdom _ hρs _) hρs hπs hc
+    (fun a ha ↦ mgfDominatedOn_expFamily_natParam_integral_of_mem_image (hρ a ha) (hν a) _)
+    hprop hμs (hμ _) (mgfDominatedOn_expFamily_natParam_integral_of_mem_image hρs (hν _) _) hρs
+    hπs hc
+
+/-- **Asymptotic regret of Thompson sampling with the Jeffreys prior on exponential families with
+common means** [KKM13, Theorem 1, upper bound]. Let `ρ a` be a measure on `ℝ` for every arm `a`,
+all with the same set of means, whose Jeffreys posteriors are proper after some observations, and
+whose Jeffreys priors are finite on the natural parameters of the means at most `m`, for every mean
+`m` of the families. Let the law of every arm `a` be a member of the exponential family of `ρ a`.
+For every `c > ∑_{a : Δ_a > 0} Δ_a / d_{ρ a}(μ_a, μ*)`, the expected regret at horizon `n` of
+Thompson sampling with the Jeffreys priors of the families `ρ` is eventually at most `c log n`. -/
+theorem expFamilyTS_jeffreysPrior_regret_eventually_le_of_common_means
+    (hM : ∀ a b, (ρ a).expFamilyMeans id = (ρ b).expFamilyMeans id)
+    (hprop : ∀ a, ∃ s₀ S₀, (ρ a).expFamilyPosterior id ((ρ a).jeffreysPrior id) s₀ S₀ ≠ 0)
+    (hπ : ∀ a, ∀ m ∈ (ρ a).expFamilyMeans id,
+      (ρ a).jeffreysPrior id {θ | deriv (cgf id (ρ a)) θ ≤ m} ≠ ∞)
+    (hν : ∀ a, ν a ∈ (ρ a).expFamily id '' interior (integrableExpSet id (ρ a)))
+    (h : IsAlgEnvSeq O A R (expFamilyTS ρ fun a ↦ (ρ a).jeffreysPrior id) (Environment.bandit ν)
+      P) {c : ℝ}
+    (hc : ∑ a ∈ univ.filter (fun a ↦ 0 < gap ν a),
+      gap ν a / (ρ a).expFamilyDiv id (ν a)[id] (ν (bestArm ν))[id] < c) :
+    ∀ᶠ n : ℕ in atTop, P[regret ν A n] ≤ c * log n :=
+  have hμ (a : α) := Measure.integral_mem_expFamilyMeans_of_mem_image (hν a)
+  expFamilyTS_jeffreysPrior_regret_eventually_le_of_mem_image_expFamily hν
+    (fun a _ ↦ hM (bestArm ν) a ▸ hμ _) (fun a _ ↦ hM a (bestArm ν) ▸ hμ a) (fun a _ ↦ hprop a)
+    (fun _ hm ↦ ne_top_of_le_ne_top (hπ _ _ (hμ _)) (measure_mono fun _ hθ ↦ le_trans hθ hm.le))
+    h hc
 
 /-- **Thompson sampling with the Jeffreys prior is consistent over exponential families.** Let
 `ρ a` be a measure on `ℝ` for every arm `a`, all with the same set of means, whose Jeffreys
@@ -467,12 +489,8 @@ theorem ExpFamilyTS.isConsistent_jeffreysPrior
       (ρ a).jeffreysPrior id {θ | deriv (cgf id (ρ a)) θ ≤ m} ≠ ∞) :
     IsConsistent (expFamilyTS ρ fun a ↦ (ρ a).jeffreysPrior id)
       {ν : Kernel α ℝ | ∀ a, ν a ∈ (ρ a).expFamily id '' interior (integrableExpSet id (ρ a))} :=
-  isConsistent_of_eventually_le_mul_log fun ν hν _ ↦
-    have hμ (a : α) := Measure.integral_mem_expFamilyMeans_of_mem_image (hν a)
-    ⟨_, expFamilyTS_jeffreysPrior_regret_eventually_le_of_mem_image_expFamily hν
-      (fun a _ ↦ hM (bestArm ν) a ▸ hμ _) (fun a _ ↦ hM a (bestArm ν) ▸ hμ a)
-      (fun a _ ↦ hprop a) (fun _ hm ↦ ne_top_of_le_ne_top (hπ _ _ (hμ _))
-        (measure_mono fun _ hθ ↦ le_trans hθ hm.le))
+  isConsistent_of_eventually_le_mul_log fun _ hν _ ↦
+    ⟨_, expFamilyTS_jeffreysPrior_regret_eventually_le_of_common_means hM hprop hπ hν
       (IT.isAlgEnvSeq_trajMeasure _ _) (lt_add_one _)⟩
 
 /-- **Asymptotic optimality of Thompson sampling with the Jeffreys prior on exponential families**
@@ -494,17 +512,13 @@ theorem tendsto_expFamilyTS_jeffreysPrior_regret_div_log
     Tendsto (fun n : ℕ ↦ P[regret ν A n] / log n) atTop
       (𝓝 (∑ a ∈ univ.filter (fun a ↦ 0 < gap ν a),
         gap ν a / (ρ a).expFamilyDiv id (ν a)[id] (ν (bestArm ν))[id])) := by
-  -- The upper bound is `expFamilyTS_jeffreysPrior_regret_eventually_le_of_mem_image_expFamily`;
-  -- the lower bound is the Lai–Robbins lower bound.
-  have hμ (a : α) := Measure.integral_mem_expFamilyMeans_of_mem_image (hν a)
+  -- The upper bound is `expFamilyTS_jeffreysPrior_regret_eventually_le_of_common_means`; the
+  -- lower bound is the Lai–Robbins lower bound.
   have hμs (a : α) (_ : 0 < gap ν a) : (ν (bestArm ν))[id] ∈ (ρ a).expFamilyMeans id :=
-    hM (bestArm ν) a ▸ hμ _
+    hM (bestArm ν) a ▸ Measure.integral_mem_expFamilyMeans_of_mem_image (hν _)
   refine tendsto_div_of_eventually_mul_le
     ((eventually_gt_atTop 1).mono fun n hn ↦ log_pos (by exact_mod_cast hn)) (fun c hc ↦ ?_)
-    fun c hc ↦ expFamilyTS_jeffreysPrior_regret_eventually_le_of_mem_image_expFamily hν hμs
-      (fun a _ ↦ hM a (bestArm ν) ▸ hμ a) (fun a _ ↦ hprop a)
-      (fun _ hm ↦ ne_top_of_le_ne_top (hπ _ _ (hμ _))
-        (measure_mono fun _ hθ ↦ le_trans hθ hm.le)) h hc
+    fun c hc ↦ expFamilyTS_jeffreysPrior_regret_eventually_le_of_common_means hM hprop hπ hν h hc
   filter_upwards [eventually_mul_log_le_integral_regret_expFamily
     (ExpFamilyTS.isConsistent_jeffreysPrior hM hprop hπ) hν hμs hc] with n hn
   rwa [← h.integral_regret_eq_integral_trajMeasure] at hn

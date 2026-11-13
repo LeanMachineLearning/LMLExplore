@@ -56,6 +56,8 @@ members of an exponential family rather than for rewards in `[0, 1]`.
 
 ## Main statements
 
+* `ProbabilityTheory.mgfDominatedOn_expFamily_natParam_integral_of_mem_image`: a member of the
+  family is dominated on every set by the member of its mean.
 * `ProbabilityTheory.iIndepFun.measureReal_sum_ge_le_exp_expFamilyDiv`: the upper tail
   `P(#s * x ≤ ∑ i ∈ s, X i) ≤ exp (-(#s * d(x, μ)))` for variables dominated by the member of
   mean `μ` on `Set.Ici 0` and means `μ ≤ x` of the family.
@@ -97,6 +99,15 @@ namespace ProbabilityTheory
 
 variable {Ω ι 𝓧 : Type*} {mΩ : MeasurableSpace Ω} {m𝓧 : MeasurableSpace 𝓧} {P : Measure Ω}
   {ρ : Measure 𝓧} {T : 𝓧 → ℝ} {X : ι → Ω → ℝ} {Y : ι → Ω → 𝓧} {s : Finset ι} {μ x : ℝ}
+
+/-- A member `Q = ρ_η` of the exponential family of `ρ` and `T`, with `η` in the interior of
+`integrableExpSet T ρ`, is dominated on every set `Λ` by the member `ρ_η(μ)` of its mean
+`μ = ∫ T ∂Q`, which is `Q` itself. -/
+lemma mgfDominatedOn_expFamily_natParam_integral_of_mem_image (hT : ∀ c, ¬ T =ᵐ[ρ] fun _ ↦ c)
+    {Q : Measure 𝓧} (hQ : Q ∈ ρ.expFamily T '' interior (integrableExpSet T ρ)) (Λ : Set ℝ) :
+    MGFDominatedOn T Q T (ρ.expFamily T (ρ.natParam T (∫ x, T x ∂Q))) Λ := by
+  rw [Measure.expFamily_natParam_integral_of_mem_image hT hQ]
+  exact ⟨fun _ _ hY ↦ hY, fun _ _ _ ↦ le_rfl⟩
 
 /-! ### Cramér–Chernoff bounds -/
 
