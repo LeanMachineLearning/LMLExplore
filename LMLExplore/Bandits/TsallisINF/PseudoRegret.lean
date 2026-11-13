@@ -215,19 +215,15 @@ theorem sum_one_sub_sub_iwEstimator_le_sum_sqrt (O : ℕ → Ω → 𝓞) (A : �
   rw [sum_range_succ']
   refine (add_comm _ _).trans_le (add_le_add (sum_le_sum fun t _ ↦ ?_) ?_)
   · -- `4 (√(t + 2) - √(t + 1)) ≤ 4 / √(t + 2)`
-    have h1 : 0 < √((t : ℝ) + 1 + 1) := by positivity
-    have h2 : √((t : ℝ) + 1) ≤ √((t : ℝ) + 1 + 1) := sqrt_le_sqrt (by linarith)
-    have h3 : √((t : ℝ) + 1 + 1) * √((t : ℝ) + 1 + 1) = (t : ℝ) + 1 + 1 :=
-      mul_self_sqrt (by positivity)
-    have h4 : √((t : ℝ) + 1) * √((t : ℝ) + 1) = (t : ℝ) + 1 := mul_self_sqrt (by positivity)
     have h_coef : 4 * √((t : ℝ) + 1 + 1) - 4 * √((t : ℝ) + 1) ≤ 4 / √((t : ℝ) + 1 + 1) := by
-      rw [le_div_iff₀ h1]
-      nlinarith [sqrt_nonneg ((t : ℝ) + 1)]
+      have h := sqrt_add_one_sub_sqrt_le_one_div_sqrt_add_one (x := (t : ℝ) + 1) (by positivity)
+      rw [div_eq_mul_one_div]
+      linarith
     push_cast
     calc (4 * √((t : ℝ) + 1 + 1) - 4 * √((t : ℝ) + 1)) * (∑ b, √(W (t + 1) b) - 1)
         ≤ (4 * √((t : ℝ) + 1 + 1) - 4 * √((t : ℝ) + 1)) *
           ∑ b ∈ univ.erase a', √(W (t + 1) b) :=
-          mul_le_mul_of_nonneg_left (hS (t + 1)) (by linarith)
+          mul_le_mul_of_nonneg_left (hS (t + 1)) (sub_nonneg.2 (by gcongr; linarith))
       _ ≤ 4 / √((t : ℝ) + 1 + 1) * ∑ b ∈ univ.erase a', √(W (t + 1) b) :=
           mul_le_mul_of_nonneg_right h_coef (hS0 (t + 1))
   · have h0 : 4 * √(((0 : ℕ) : ℝ) + 1) = 4 / √(((0 : ℕ) : ℝ) + 1) := by simp
