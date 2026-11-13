@@ -12,6 +12,7 @@ public import LMLExplore.Analysis.InnerProductSpace.RankOne
 public import LMLExplore.Analysis.InnerProductSpace.Symmetric.Finrank
 public import LMLExplore.LinearAlgebra.AffineSpace.Independent
 public import LMLExplore.Geometry.Convex.ConvexSpace.Defs
+public import LMLExplore.Topology.Algebra.Module.Determinant
 public import Mathlib.Analysis.Calculus.Deriv.Pow
 public import Mathlib.Analysis.Calculus.Deriv.Slope
 public import Mathlib.Analysis.InnerProductSpace.Trace
@@ -419,9 +420,9 @@ theorem inner_ringInverse_designOperator_le_finrank_of_isMaxOn {𝒜 : Set E} {w
   rw [smul_eq_mul, le_inv_mul_iff₀ hs]
   linarith [hle s hs]
 
-/-- **G-optimal designs are D-optimal** [LS, Theorem 21.1]. Let `w` be a design with invertible
-design operator `V(w)` such that `⟪a, V(w)⁻¹ a⟫ ≤ d` for every `a ∈ 𝒜`. Then `w` maximizes
-`det V(w')` among the designs `w'` on `𝒜`. -/
+/-- **A design with `g(w) ≤ d` is D-optimal** [LS, Theorem 21.1]. Let `w` be a design with
+invertible design operator `V(w)` such that `⟪a, V(w)⁻¹ a⟫ ≤ d` for every `a ∈ 𝒜`. Then `w`
+maximizes `det V(w')` among the designs `w'` on `𝒜`. -/
 theorem isMaxOn_det_designOperator_of_inner_ringInverse_le_finrank {𝒜 : Set E}
     {w : StdSimplex ℝ E} (hu : IsUnit (designOperator w))
     (h : ∀ a ∈ 𝒜, ⟪a, Ring.inverse (designOperator w) a⟫_ℝ ≤ finrank ℝ E) :
@@ -447,14 +448,9 @@ theorem isMaxOn_det_designOperator_of_inner_ringInverse_le_finrank {𝒜 : Set E
       _ = d := by rw [← Finset.sum_mul, htotal, one_mul]
   have hpow : ((∑ a ∈ w'.weights.support, w'.weights a * ⟪a, Ring.inverse V a⟫_ℝ) / d) ^ d ≤ 1 :=
     pow_le_one₀ (div_nonneg htr_nonneg d.cast_nonneg) (div_le_one_of_le₀ htr_le d.cast_nonneg)
-  -- `det V⁻¹ * det V = 1`
-  have hinv : (Ring.inverse V).det * V.det = 1 := by
-    rw [det, det, ← LinearMap.det_comp, ← toLinearMap_comp, ← mul_def,
-      Ring.inverse_mul_cancel V hu]
-    simp
   calc (designOperator w').det
       = V.det * ((Ring.inverse V).det * (designOperator w').det) := by
-        rw [← mul_assoc, mul_comm V.det, hinv, one_mul]
+        rw [← mul_assoc, mul_comm V.det, det_ringInverse_mul_det hu, one_mul]
     _ ≤ V.det * 1 := mul_le_mul_of_nonneg_left (hkey.trans hpow) hdet.le
     _ = V.det := mul_one _
 
