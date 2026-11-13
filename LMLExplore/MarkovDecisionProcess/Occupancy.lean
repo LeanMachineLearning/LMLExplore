@@ -9,6 +9,8 @@ public import LMLExplore.MarkovDecisionProcess.RunValue
 public import LMLExplore.Probability.Kernel.Resolvent
 public import LMLExplore.Probability.Kernel.TotalVariation
 
+import Statlib.Divergence.TotalVariation
+
 /-!
 # Discounted occupancy measures of a Markov decision process
 
@@ -295,7 +297,7 @@ private lemma tvDist_fst_occupancy_le_mul (hγ : γ < 1) :
   -- both marginals are `(1 - γ) • μ + γ • (M.P ∘ₘ x)` for their occupancy measure `x`
   rw [occupancy_fst, occupancy_fst, tvDist_add_smul_add_smul]
   gcongr
-  exact tvDist_comp_right_le M.P
+  exact tvDist_comp_le _ _ M.P
 
 /-- The occupancy measures of two stationary policies `π'` and `π` with
 `tvDist (π' s) (π s) ≤ ε` for every state `s` are within `ε` plus the distance of their state

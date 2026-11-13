@@ -9,18 +9,19 @@ public import Mathlib.Probability.Kernel.Composition.MeasureCompProd
 public import LMLExplore.MeasureTheory.Measure.TotalVariation.Basic
 
 import Mathlib.MeasureTheory.Integral.IntegrableOn
-import Mathlib.MeasureTheory.Measure.TotalVariation.Basic
 import Mathlib.Probability.Kernel.Composition.MeasureComp
-import Mathlib.Probability.Kernel.Integral
-import TauCeti.MeasureTheory.Integral.Bind
+import Statlib.Divergence.TotalVariation
+import Statlib.ForMathlib.Probability.Kernel.Composition.MeasureCompProd
 
 /-!
 # Total variation distance under Markov kernels
 
 Composition with a Markov kernel does not increase the total variation distance between two
-finite measures (the data processing inequality for the total variation distance), and
-replacing the kernel of a composition-product `μ ⊗ₘ κ` by a kernel `η` with
-`tvDist (κ x) (η x) ≤ ε` for almost every `x` moves the measure by at most `μ univ * ε`.
+measures: this is Statlib's data processing inequality `ProbabilityTheory.tvDist_comp_le`,
+`tvDist (κ ∘ₘ μ) (κ ∘ₘ ν) ≤ tvDist μ ν`. It gives the same bound for composition-products
+`μ ⊗ₘ κ` and `ν ⊗ₘ κ` with a common Markov kernel. Replacing the kernel of a composition-product
+`μ ⊗ₘ κ` by a kernel `η` with `tvDist (κ x) (η x) ≤ ε` for almost every `x` moves the measure by
+at most `μ univ * ε`.
 
 These are the two ways a perturbation propagates along a Markov chain: through the law of the
 current state, and through the transition kernel. Together they bound the distance between the
@@ -29,24 +30,19 @@ a Markov decision process.
 
 ## Main statements
 
-* `MeasureTheory.Measure.measureReal_compProd_eq_integral`: the mass of an event under `μ ⊗ₘ κ`,
-  as an integral against `μ`;
-* `MeasureTheory.tvDist_comp_right_le`: `tvDist (κ ∘ₘ μ) (κ ∘ₘ ν) ≤ tvDist μ ν` for a Markov
-  kernel `κ` and finite measures `μ` and `ν`;
-* `MeasureTheory.tvDist_compProd_left_le`: `tvDist (μ ⊗ₘ κ) (ν ⊗ₘ κ) ≤ tvDist μ ν`, under the
-  same hypotheses;
+* `MeasureTheory.tvDist_compProd_left_le`: `tvDist (μ ⊗ₘ κ) (ν ⊗ₘ κ) ≤ tvDist μ ν` for a Markov
+  kernel `κ` and s-finite measures `μ` and `ν`;
 * `MeasureTheory.tvDist_compProd_right_le`: `tvDist (μ ⊗ₘ κ) (μ ⊗ₘ η) ≤ μ.real univ * ε` for
   Markov kernels `κ` and `η` with `tvDist (κ x) (η x) ≤ ε` for `μ`-almost every `x`.
 
 ## Implementation notes
 
-The mass of an event under a composition `κ ∘ₘ μ` or a composition-product `μ ⊗ₘ κ` is the
-integral of a function with values in `[0, 1]`; for `κ ∘ₘ μ` this is Tau Ceti's
-`MeasureTheory.Measure.bind_apply_real`. The data processing inequality evaluates the distance on
-a Hahn decomposition `s` of the two compositions, where it is the gap between the integrals of
-`x ↦ κ x sᶜ - κ x s`, bounded by `MeasureTheory.norm_integral_sub_integral_le_mul_tvDist`. The
-bound for a change of kernel is proved eventwise, through
-`MeasureTheory.tvDist_le_two_mul_of_forall_measureReal_le_add`.
+The composition-product `μ ⊗ₘ κ` is the composition of `μ` with the kernel `Kernel.id ×ₖ κ`
+(`MeasureTheory.Measure.compProd_eq_comp_prod`), so the first bound is the data processing
+inequality. The bound for a change of kernel is proved eventwise, through
+`MeasureTheory.tvDist_le_two_mul_of_forall_measureReal_le_add`: the mass of an event under
+`μ ⊗ₘ κ` is the integral of a function with values in `[0, 1]`
+(Statlib's `ProbabilityTheory.Measure.compProd_apply_toReal`).
 -/
 
 public section
@@ -58,51 +54,12 @@ namespace MeasureTheory
 
 variable {α β : Type*} {mα : MeasurableSpace α} {mβ : MeasurableSpace β} {μ ν : Measure α}
 
-/-- The mass of an event `s` under the composition-product of a measure `μ` with a finite kernel
-`κ`, as the integral of `x ↦ κ x (Prod.mk x ⁻¹' s)`. -/
-theorem Measure.measureReal_compProd_eq_integral [SFinite μ] (κ : Kernel α β) [IsFiniteKernel κ]
-    {s : Set (α × β)} (hs : MeasurableSet s) :
-    (μ ⊗ₘ κ).real s = ∫ x, (κ x).real (Prod.mk x ⁻¹' s) ∂μ := by
-  simp only [measureReal_def]
-  rw [Measure.compProd_apply hs,
-    integral_toReal (Kernel.measurable_kernel_prodMk_left hs).aemeasurable
-      (ae_of_all _ fun _ ↦ measure_lt_top _ _)]
-
-/-- **Data processing inequality** for the total variation distance: composing two finite
-measures `μ` and `ν` with a Markov kernel `κ` does not increase their total variation
-distance. -/
-theorem tvDist_comp_right_le [IsFiniteMeasure μ] [IsFiniteMeasure ν] (κ : Kernel α β)
-    [IsMarkovKernel κ] :
-    tvDist (κ ∘ₘ μ) (κ ∘ₘ ν) ≤ tvDist μ ν := by
-  -- on a Hahn set `s` of the two compositions, the distance is the gap between the integrals of
-  -- `f x = κ x sᶜ - κ x s`, which has absolute value at most `1`
-  obtain ⟨s, hs⟩ := exists_isHahnDecomposition (κ ∘ₘ μ) (κ ∘ₘ ν)
-  have hm := hs.measurableSet
-  have hf : Measurable fun x ↦ (κ x).real sᶜ - (κ x).real s :=
-    (κ.measurable_coe hm.compl).ennreal_toReal.sub (κ.measurable_coe hm).ennreal_toReal
-  have hf1 (x : α) : ‖(κ x).real sᶜ - (κ x).real s‖ ≤ 1 := by
-    rw [Real.norm_eq_abs, abs_le]
-    constructor <;> linarith [measureReal_nonneg (μ := κ x) (s := s),
-      measureReal_nonneg (μ := κ x) (s := sᶜ), measureReal_le_one (μ := κ x) (s := s),
-      measureReal_le_one (μ := κ x) (s := sᶜ)]
-  have h := norm_integral_sub_integral_le_mul_tvDist hf.aestronglyMeasurable
-    hf.aestronglyMeasurable (ae_of_all μ hf1) (ae_of_all ν hf1)
-  rw [integral_sub (Kernel.IsMarkovKernel.integrable μ κ hm.compl)
-      (Kernel.IsMarkovKernel.integrable μ κ hm),
-    integral_sub (Kernel.IsMarkovKernel.integrable ν κ hm.compl)
-      (Kernel.IsMarkovKernel.integrable ν κ hm), one_mul, Real.norm_eq_abs] at h
-  have hbind (ρ : Measure α) {t : Set β} (ht : MeasurableSet t) :=
-    Measure.bind_apply_real (μ := ρ) κ.aemeasurable ht (ae_of_all _ fun _ ↦ measure_ne_top _ _)
-  rw [hs.tvDist_eq, hbind μ hm, hbind ν hm, hbind μ hm.compl, hbind ν hm.compl]
-  linarith [(abs_le.1 h).2]
-
 /-- Composition-products with a common Markov kernel `κ` do not increase the total variation
-distance between finite measures `μ` and `ν`. -/
-theorem tvDist_compProd_left_le [IsFiniteMeasure μ] [IsFiniteMeasure ν] (κ : Kernel α β)
-    [IsMarkovKernel κ] :
+distance between s-finite measures `μ` and `ν`. -/
+theorem tvDist_compProd_left_le [SFinite μ] [SFinite ν] (κ : Kernel α β) [IsMarkovKernel κ] :
     tvDist (μ ⊗ₘ κ) (ν ⊗ₘ κ) ≤ tvDist μ ν := by
   rw [Measure.compProd_eq_comp_prod, Measure.compProd_eq_comp_prod]
-  exact tvDist_comp_right_le _
+  exact tvDist_comp_le _ _ _
 
 /-- Replacing the kernel `κ` of the composition-product `μ ⊗ₘ κ` by a Markov kernel `η` with
 `tvDist (κ x) (η x) ≤ ε` for `μ`-almost every `x` moves it by at most `μ.real univ * ε` in total
@@ -113,8 +70,9 @@ theorem tvDist_compProd_right_le [IsFiniteMeasure μ] {κ η : Kernel α β} [Is
   rw [← mul_div_cancel₀ (μ.real univ * ε) (two_ne_zero' ℝ)]
   refine tvDist_le_two_mul_of_forall_measureReal_le_add
     (by rw [Measure.compProd_apply_univ, Measure.compProd_apply_univ]) fun s hs ↦ ?_
-  rw [Measure.measureReal_compProd_eq_integral κ hs,
-    Measure.measureReal_compProd_eq_integral η hs]
+  rw [measureReal_def, Measure.compProd_apply_toReal hs, measureReal_def,
+    Measure.compProd_apply_toReal hs]
+  simp only [← measureReal_def]
   have hκ : Measurable fun x ↦ (κ x).real (Prod.mk x ⁻¹' s) :=
     (Kernel.measurable_kernel_prodMk_left hs).ennreal_toReal
   have hη : Measurable fun x ↦ (η x).real (Prod.mk x ⁻¹' s) :=
