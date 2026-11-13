@@ -839,10 +839,16 @@ section OrthonormalBasis
 
 variable {ι : Type*} [Fintype ι] [Nonempty ι] (b : OrthonormalBasis ι ℝ E)
 
-/-- The uniform design on an orthonormal basis `b` is supported on the basis. -/
-theorem support_weights_map_barycenter_subset :
-    ↑((StdSimplex.barycenter : StdSimplex ℝ ι).map b).weights.support ⊆ Set.range b :=
-  (StdSimplex.support_weights_map_subset b _).trans (Set.image_subset_range _ _)
+include b in
+/-- The dimension of `E`, which has an orthonormal basis indexed by a nonempty type, is nonzero. -/
+private theorem natCast_finrank_ne_zero : (finrank ℝ E : ℝ) ≠ 0 := by
+  simp [finrank_eq_card_basis b.toBasis, Fintype.card_ne_zero]
+
+omit [Nonempty ι] in
+/-- A set containing an orthonormal basis of `E` spans `E`. -/
+private theorem span_eq_top_of_range_subset {𝒜 : Set E} (hb : Set.range b ⊆ 𝒜) :
+    Submodule.span ℝ 𝒜 = ⊤ :=
+  eq_top_mono (Submodule.span_mono (by simpa using hb)) b.toBasis.span_eq
 
 /-- The design operator of the uniform design on an orthonormal basis `b` of `E`, of dimension
 `d`, is `V = d⁻¹ • 1`. -/
@@ -852,24 +858,21 @@ theorem designOperator_map_barycenter :
   simp_rw [designOperator_map, StdSimplex.weights_barycenter_apply, ← Finset.smul_sum,
     b.sum_rankOne_eq_id, finrank_eq_card_basis b.toBasis, ContinuousLinearMap.one_def]
 
-/-- The design operator `V = d⁻¹ • 1` of the uniform design on an orthonormal basis of `E`, of
-dimension `d`, is invertible, with inverse `V⁻¹ = d • 1`. -/
-theorem ringInverse_designOperator_map_barycenter :
-    Ring.inverse (designOperator ((StdSimplex.barycenter : StdSimplex ℝ ι).map b)) =
-      (finrank ℝ E : ℝ) • (1 : E →L[ℝ] E) := by
-  have hd : (finrank ℝ E : ℝ) ≠ 0 := by
-    simp [finrank_eq_card_basis b.toBasis, Fintype.card_ne_zero]
-  rw [designOperator_map_barycenter]
-  simpa [Units.smul_def] using
-    Ring.inverse_unit (Units.mk0 _ (inv_ne_zero hd) • (1 : (E →L[ℝ] E)ˣ))
-
 /-- The design operator of the uniform design on an orthonormal basis is invertible. -/
 theorem isUnit_designOperator_map_barycenter :
     IsUnit (designOperator ((StdSimplex.barycenter : StdSimplex ℝ ι).map b)) := by
-  have hd : (finrank ℝ E : ℝ)⁻¹ ≠ 0 := by
-    simp [finrank_eq_card_basis b.toBasis, Fintype.card_ne_zero]
   rw [designOperator_map_barycenter]
-  exact (Units.mk0 _ hd • (1 : (E →L[ℝ] E)ˣ)).isUnit
+  exact (Units.mk0 _ (inv_ne_zero (natCast_finrank_ne_zero b)) • (1 : (E →L[ℝ] E)ˣ)).isUnit
+
+/-- The design operator `V = d⁻¹ • 1` of the uniform design on an orthonormal basis of `E`, of
+dimension `d`, has inverse `V⁻¹ = d • 1`. -/
+theorem ringInverse_designOperator_map_barycenter :
+    Ring.inverse (designOperator ((StdSimplex.barycenter : StdSimplex ℝ ι).map b)) =
+      (finrank ℝ E : ℝ) • (1 : E →L[ℝ] E) := by
+  simpa using (Ring.inverse_mul_eq_iff_eq_mul _ 1 ((finrank ℝ E : ℝ) • (1 : E →L[ℝ] E))
+    (isUnit_designOperator_map_barycenter b)).2 (by
+      rw [designOperator_map_barycenter, smul_mul_smul_comm, one_mul,
+        inv_mul_cancel₀ (natCast_finrank_ne_zero b), one_smul])
 
 /-- For the uniform design on an orthonormal basis of `E`, of dimension `d`, the weighted norm of
 every vector is `‖a‖²_{V⁻¹} = d ‖a‖²`. -/
@@ -890,14 +893,13 @@ theorem gValue_map_barycenter [FiniteDimensional ℝ E] (𝒜 : Set E) :
 /-- **The uniform design on an orthonormal basis is G-optimal**. Let `𝒜`
 contain an orthonormal basis `b` of `E`, of dimension `d`, and lie in the closed unit ball, as the
 unit sphere and the basis itself do. Then the uniform design on `b`, a design on `𝒜`
-(`support_weights_map_barycenter_subset`), has G-value `d` on `𝒜`, the smallest possible. -/
+(`Convexity.StdSimplex.support_weights_map_subset_range`), has G-value `d` on `𝒜`, the smallest
+possible. -/
 theorem gValue_map_barycenter_eq_finrank [FiniteDimensional ℝ E] {𝒜 : Set E}
     (hb : Set.range b ⊆ 𝒜) (h𝒜 : 𝒜 ⊆ Metric.closedBall 0 1) :
     gValue 𝒜 ((StdSimplex.barycenter : StdSimplex ℝ ι).map b) = finrank ℝ E := by
-  have hspan : Submodule.span ℝ 𝒜 = ⊤ :=
-    eq_top_mono (Submodule.span_mono (by simpa using hb)) b.toBasis.span_eq
-  refine le_antisymm ?_ (finrank_le_gValue hspan
-    ((support_weights_map_barycenter_subset b).trans hb))
+  refine le_antisymm ?_ (finrank_le_gValue (span_eq_top_of_range_subset b hb)
+    ((StdSimplex.support_weights_map_subset_range b _).trans hb))
   rw [← ENNReal.ofReal_natCast, gValue_le_ofReal_iff_of_isUnit
     (isUnit_designOperator_map_barycenter b) (Nat.cast_nonneg _)]
   intro a ha
@@ -910,11 +912,9 @@ theorem gValue_map_barycenter_eq_finrank [FiniteDimensional ℝ E] {𝒜 : Set E
 theorem isMinOn_gValue_map_barycenter [FiniteDimensional ℝ E] {𝒜 : Set E}
     (hb : Set.range b ⊆ 𝒜) (h𝒜 : 𝒜 ⊆ Metric.closedBall 0 1) :
     IsMinOn (gValue 𝒜) {w : StdSimplex ℝ E | ↑w.weights.support ⊆ 𝒜}
-      ((StdSimplex.barycenter : StdSimplex ℝ ι).map b) := by
-  have hspan : Submodule.span ℝ 𝒜 = ⊤ :=
-    eq_top_mono (Submodule.span_mono (by simpa using hb)) b.toBasis.span_eq
-  exact fun w hw ↦
-    (gValue_map_barycenter_eq_finrank b hb h𝒜).trans_le (finrank_le_gValue hspan hw)
+      ((StdSimplex.barycenter : StdSimplex ℝ ι).map b) :=
+  fun _ hw ↦ (gValue_map_barycenter_eq_finrank b hb h𝒜).trans_le
+    (finrank_le_gValue (span_eq_top_of_range_subset b hb) hw)
 
 end OrthonormalBasis
 

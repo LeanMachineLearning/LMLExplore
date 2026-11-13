@@ -26,7 +26,8 @@ exactly the vectors of `LMLExplore.simplex α`, the vectors with nonnegative ent
 * `Convexity.StdSimplex.weights_pos_of_mem_support`: the points of the support have positive
   weight.
 * `Convexity.StdSimplex.support_weights_map_subset`: the support of the image of a finitely
-  supported probability measure by a map is contained in the image of its support.
+  supported probability measure by a map is contained in the image of its support;
+  `Convexity.StdSimplex.support_weights_map_subset_range`: hence in the range of the map.
 * `Convexity.StdSimplex.support_weights_convexCombPair_subset`: the support of a convex combination
   of two finitely supported probability measures is contained in the union of their supports.
 * `Convexity.StdSimplex.weights_mem_simplex`, `LMLExplore.simplex_eq_range_weights`: on a finite
@@ -57,6 +58,12 @@ theorem support_weights_map_subset (f : X → Y) (w : StdSimplex R X) :
   intro y hy
   obtain ⟨x, hx, rfl⟩ := Finset.mem_image.1 (Finsupp.mapDomain_support hy)
   exact Set.mem_image_of_mem f hx
+
+/-- The support of the image of a finitely supported probability measure by `f` is contained in
+the range of `f`. -/
+theorem support_weights_map_subset_range (f : X → Y) (w : StdSimplex R X) :
+    ((w.map f).weights.support : Set Y) ⊆ Set.range f :=
+  (support_weights_map_subset f w).trans (Set.image_subset_range _ _)
 
 /-- The support of a convex combination of two finitely supported probability measures is
 contained in the union of their supports. -/
