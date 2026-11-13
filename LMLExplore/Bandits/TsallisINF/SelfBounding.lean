@@ -95,7 +95,9 @@ theorem pseudoRegret_le_sum_integral_sum_sqrt (h : IsAlgEnvSeq O A Y tsallisINF 
           (iwEstimator (tsallisINFWeights t (history O A Y t ω)) (A t ω) (1 - Y t ω) b -
             (1 - Y t ω)) ^ 2)) P :=
     ((hS t).add (hVint t ht)).const_mul _
-  rw [integral_sum_means_sub_eq_integral_sum_one_sub_sub_iwEstimator h hY a]
+  rw [WeightAlgorithm.integral_sum_means_sub_eq_integral_sum_one_sub_sub_iwEstimator
+    (isAlgEnvSeq_tsallisINF_iff.1 h) (fun t ht ↦ hYt t (mem_range.2 ht))
+    fun t _ ↦ ae_of_all _ fun ω ↦ tsallisINFWeights_pos _ _ a]
   calc P[fun ω ↦ ∑ t ∈ range n, ((1 - Y t ω) -
         iwEstimator (tsallisINFWeights t (history O A Y t ω)) (A t ω) (1 - Y t ω) a)]
   -- take expectations in the pathwise bound

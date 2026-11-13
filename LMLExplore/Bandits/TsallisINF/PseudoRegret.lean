@@ -42,8 +42,6 @@ conditionally unbiased, so the expected regret against `a` is the expected estim
 * `TsallisINF.sum_one_sub_sub_iwEstimator_le_sum_sqrt`: the finer pathwise bound
   `∑ t < n, 4 / √(t + 1) * (∑ b ≠ a', √(P t b) + ∑ b, P t b √(P t b) (Ŷ t b - (1 - Y t)) ^ 2)`,
   for every arm `a'`, which keeps the penalty of each round at its weights.
-* `TsallisINF.integral_sum_means_sub_eq_integral_sum_one_sub_sub_iwEstimator`: the expected
-  regret against an arm is the expected estimated regret.
 * `TsallisINF.integral_sum_mul_sqrt_mul_sq_le_integral_sum_sqrt_mul_one_sub`,
   `TsallisINF.integral_sum_mul_sqrt_mul_sq_le`: the expected local norm of each round is at most
   `E[∑ b, √(P t b) (1 - P t b)]`, hence at most `√(k - 1)`.
@@ -391,47 +389,6 @@ theorem integral_sum_mul_sqrt_mul_sq_le (h : IsAlgEnvSeq O A Y tsallisINF env P)
   exact sum_nonneg fun b _ ↦ mul_nonneg (sqrt_nonneg _)
     (sub_nonneg.2 ((simplex_subset_Icc (tsallisINFWeights_mem_simplex _ _)).2 b))
 
-/-- **The expected regret of Tsallis-INF is its expected estimated regret.** Along a run of
-Tsallis-INF against any environment whose feedbacks of the rounds `t < n` are almost surely in
-`[0, 1]`, with `m t a = env.means O A Y a t` the conditional means of the rewards and `Ŷ t` the
-importance-weighted estimates of the losses `1 - Y t`, the expected regret against every arm `a`
-is `E[∑ t < n, (m t a - Y t)] = E[∑ t < n, ((1 - Y t) - Ŷ t a)]`, by the conditional
-unbiasedness of the estimates. -/
-theorem integral_sum_means_sub_eq_integral_sum_one_sub_sub_iwEstimator
-    (h : IsAlgEnvSeq O A Y tsallisINF env P) (hY : ∀ᵐ ω ∂P, ∀ t < n, Y t ω ∈ Set.Icc 0 1)
-    (a : α) :
-    P[fun ω ↦ ∑ t ∈ range n, (env.means O A Y a t ω - Y t ω)] =
-      P[fun ω ↦ ∑ t ∈ range n, ((1 - Y t ω) -
-        iwEstimator (tsallisINFWeights t (history O A Y t ω)) (A t ω) (1 - Y t ω) a)] := by
-  have hYt (t : ℕ) (ht : t ∈ range n) : ∀ᵐ ω ∂P, Y t ω ∈ Set.Icc 0 1 :=
-    hY.mono fun _ hω ↦ hω t (mem_range.1 ht)
-  have hYint (t : ℕ) (ht : t ∈ range n) : Integrable (fun ω ↦ 1 - Y t ω) P :=
-    (integrable_const 1).sub
-      (Integrable.of_mem_Icc 0 1 (h.measurable_feedback t).aemeasurable (hYt t ht))
-  have hLint (t : ℕ) (ht : t ∈ range n) :=
-    WeightAlgorithm.integrable_iwEstimator_one_sub (isAlgEnvSeq_tsallisINF_iff.1 h) (hYt t ht) a
-  have hMint (t : ℕ) (ht : t ∈ range n) : Integrable (fun ω ↦ 1 - env.means O A Y a t ω) P :=
-    WeightAlgorithm.integrable_one_sub_means (isAlgEnvSeq_tsallisINF_iff.1 h) (hYt t ht)
-      (ae_of_all _ fun ω ↦ tsallisINFWeights_pos _ _ a)
-  calc P[fun ω ↦ ∑ t ∈ range n, (env.means O A Y a t ω - Y t ω)]
-  _ = ∑ t ∈ range n, (P[fun ω ↦ 1 - Y t ω] - P[fun ω ↦ 1 - env.means O A Y a t ω]) := by
-      rw [integral_finsetSum _ fun t ht ↦ ((hYint t ht).sub (hMint t ht)).congr
-        (ae_of_all _ fun ω ↦ by simp only [Pi.sub_apply]; ring)]
-      refine sum_congr rfl fun t ht ↦ ?_
-      rw [← integral_sub (hYint t ht) (hMint t ht)]
-      exact integral_congr_ae (ae_of_all _ fun ω ↦ by simp only; ring)
-  _ = ∑ t ∈ range n, (P[fun ω ↦ 1 - Y t ω] - P[fun ω ↦
-        iwEstimator (tsallisINFWeights t (history O A Y t ω)) (A t ω) (1 - Y t ω) a]) :=
-      sum_congr rfl fun t ht ↦ by
-        rw [WeightAlgorithm.integral_iwEstimator_one_sub (isAlgEnvSeq_tsallisINF_iff.1 h)
-          (hYt t ht) (ae_of_all _ fun ω ↦ tsallisINFWeights_pos _ _ a)]
-  _ = P[fun ω ↦ ∑ t ∈ range n, ((1 - Y t ω) -
-        iwEstimator (tsallisINFWeights t (history O A Y t ω)) (A t ω) (1 - Y t ω) a)] := by
-      rw [integral_finsetSum (f := fun t ω ↦ (1 - Y t ω) -
-        iwEstimator (tsallisINFWeights t (history O A Y t ω)) (A t ω) (1 - Y t ω) a) _
-        fun t ht ↦ integrable_one_sub_sub_iwEstimator h (hYt t ht) a]
-      exact sum_congr rfl fun t ht ↦ (integral_sub (hYint t ht) (hLint t ht)).symm
-
 /-- **Pseudo-regret of Tsallis-INF against an adaptive adversary** [ZS21], [Ora, Section 9.3].
 Along a run of Tsallis-INF against any environment whose feedbacks of the rounds `t < n` are
 almost surely in `[0, 1]`, the pseudo-regret after `n` rounds is at most
@@ -444,7 +401,10 @@ theorem pseudoRegret_le (h : IsAlgEnvSeq O A Y tsallisINF env P)
   have hYt (t : ℕ) (ht : t ∈ range n) : ∀ᵐ ω ∂P, Y t ω ∈ Set.Icc 0 1 :=
     hY.mono fun _ hω ↦ hω t (mem_range.1 ht)
   have hVint (t : ℕ) (ht : t ∈ range n) := integrable_sum_mul_sqrt_mul_sq (t := t) h (hYt t ht)
-  rw [integral_sum_means_sub_eq_integral_sum_one_sub_sub_iwEstimator h hY a]
+  -- the expected regret against `a` is the expected estimated regret
+  rw [WeightAlgorithm.integral_sum_means_sub_eq_integral_sum_one_sub_sub_iwEstimator
+    (isAlgEnvSeq_tsallisINF_iff.1 h) (fun t ht ↦ hYt t (mem_range.2 ht))
+    fun t _ ↦ ae_of_all _ fun ω ↦ tsallisINFWeights_pos _ _ a]
   calc P[fun ω ↦ ∑ t ∈ range n, ((1 - Y t ω) -
         iwEstimator (tsallisINFWeights t (history O A Y t ω)) (A t ω) (1 - Y t ω) a)]
   -- take expectations in the pathwise bound
