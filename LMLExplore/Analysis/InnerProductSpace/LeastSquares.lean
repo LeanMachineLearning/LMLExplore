@@ -37,6 +37,8 @@ deterministic part of the fixed-design confidence bound [LS, (20.2)].
 
 ## Main statements
 
+* `LMLExplore.leastSquaresEstimate_eq_sum`: `θ̂_t = ∑_{s < t} y s • V_t⁺ (x s)` is linear in the
+  responses.
 * `LMLExplore.designOp_leastSquaresEstimate`: the normal equations, for `λ ≥ 0`.
 * `LMLExplore.isMinOn_ridgeLoss_leastSquaresEstimate`: `θ̂_t` minimizes `L_t` for `λ ≥ 0`
   [LS, (19.4)–(19.6)].
@@ -47,8 +49,10 @@ deterministic part of the fixed-design confidence bound [LS, (20.2)].
 * `LMLExplore.inner_leastSquaresEstimate_sub_eq_sum`: the error `⟪v, θ̂_t - θ⟫` in the linear model,
   for `λ = 0` and `v` in the span of the covariates.
 * `LMLExplore.sum_inner_moorePenroseInverse_designOp_sq`: `∑_{s < t} ⟪V_t⁺ v, x s⟫² = ⟪v, V_t⁺ v⟫`
-  for `λ = 0`, and `LMLExplore.inner_moorePenroseInverse_designOp_pos`: this weighted norm is
-  positive for nonzero `v` in the span of the covariates.
+  for `λ = 0`, `LMLExplore.inner_moorePenroseInverse_designOp_le_sum_sq`: this is at most the
+  squared norm of the coefficients of any representation `v = ∑_{s < t} c s • x s`, and
+  `LMLExplore.inner_moorePenroseInverse_designOp_pos`: this weighted norm is positive for nonzero
+  `v` in the span of the covariates.
 
 ## References
 
@@ -85,6 +89,13 @@ theorem leastSquaresEstimate_congr {x' : ℕ → E} {y' : ℕ → ℝ} (hx : ∀
     leastSquaresEstimate lam x y t = leastSquaresEstimate lam x' y' t := by
   rw [leastSquaresEstimate, leastSquaresEstimate, designOp_congr hx,
     sum_congr rfl fun s hs ↦ by rw [hx s (mem_range.1 hs), hy s (mem_range.1 hs)]]
+
+/-- The least-squares estimate is linear in the responses:
+`θ̂_t = ∑_{s < t} y s • V_t⁺ (x s)`. -/
+theorem leastSquaresEstimate_eq_sum (lam : ℝ) (x : ℕ → E) (y : ℕ → ℝ) (t : ℕ) :
+    leastSquaresEstimate lam x y t =
+      ∑ s ∈ range t, y s • (designOp (lam • 1) x t : E →ₗ[ℝ] E).moorePenroseInverse (x s) := by
+  simp [leastSquaresEstimate_def, map_sum, map_smul]
 
 /-- For `λ > 0`, the least-squares estimate is the ridge estimate `V_t⁻¹ ∑_{s < t} y s • x s`. -/
 theorem leastSquaresEstimate_eq_ridgeEstimate (hlam : 0 < lam) (x : ℕ → E) (y : ℕ → ℝ)
@@ -188,6 +199,33 @@ theorem sum_inner_moorePenroseInverse_designOp_sq (x : ℕ → E) (t : ℕ) (v :
     ← ContinuousLinearMap.coe_coe] at h
   rw [← h, hsymm, (designOp 0 x t : E →ₗ[ℝ] E).isMoorePenroseInverse_moorePenroseInverse
     |>.apply_apply_apply']
+
+/-- **Variational bound on the weighted norm**: if `v = ∑_{s < t} c s • x s`, then
+`‖v‖²_{V_t⁺} = ⟪v, V_t⁺ v⟫ ≤ ∑_{s < t} (c s)²`, where `V_t = V_t(0)`. The coefficients
+`⟪V_t⁺ v, x s⟫` of `sum_inner_moorePenroseInverse_designOp_sq` are the representation of `v` of
+minimal norm. -/
+theorem inner_moorePenroseInverse_designOp_le_sum_sq {c : ℕ → ℝ} {v : E}
+    (hv : ∑ s ∈ range t, c s • x s = v) :
+    ⟪v, (designOp 0 x t : E →ₗ[ℝ] E).moorePenroseInverse v⟫_ℝ ≤ ∑ s ∈ range t, c s ^ 2 := by
+  have hQ := sum_inner_moorePenroseInverse_designOp_sq x t v
+  set Q := ⟪v, (designOp 0 x t : E →ₗ[ℝ] E).moorePenroseInverse v⟫_ℝ
+  -- `Q = ∑_{s < t} c s ⟪x s, V_t⁺ v⟫`, and Cauchy–Schwarz gives `Q² ≤ (∑_{s < t} c s ^ 2) Q`
+  have hQc : Q = ∑ s ∈ range t,
+      c s * ⟪(designOp 0 x t : E →ₗ[ℝ] E).moorePenroseInverse v, x s⟫_ℝ := by
+    simp only [Q, ← hv, sum_inner, real_inner_smul_left, real_inner_comm (x _)]
+  have hQ0 : 0 ≤ Q := by
+    rw [← hQ]
+    exact sum_nonneg fun _ _ ↦ sq_nonneg _
+  have hle : Q ^ 2 ≤ (∑ s ∈ range t, c s ^ 2) * Q := by
+    calc Q ^ 2 ≤ (∑ s ∈ range t, c s ^ 2) * ∑ s ∈ range t,
+          ⟪(designOp 0 x t : E →ₗ[ℝ] E).moorePenroseInverse v, x s⟫_ℝ ^ 2 := by
+          rw [hQc]
+          exact sum_mul_sq_le_sq_mul_sq _ _ _
+      _ = _ := by rw [hQ]
+  rcases hQ0.eq_or_lt with h0 | hpos
+  · rw [← h0]
+    exact sum_nonneg fun _ _ ↦ sq_nonneg _
+  · nlinarith
 
 /-- The weighted norm `‖v‖²_{V_t⁺}` of the unregularized design operator is positive for every
 nonzero `v` in the span of the covariates. -/

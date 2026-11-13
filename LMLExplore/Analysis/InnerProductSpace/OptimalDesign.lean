@@ -72,9 +72,10 @@ point `a` for each of them gives a design with the same design operator, hence t
 * `LMLExplore.designOperator_convexCombPair`: `V(w)` is affine in `w`.
 * `LMLExplore.mem_convexHull_image_rankOne_iff`: the convex hull of `{a ⊗ a | a ∈ 𝒜}` is the set
   of design operators of the designs on `𝒜`.
-* `LMLExplore.ker_designOperator`, `LMLExplore.isUnit_designOperator_iff`: the kernel of `V(w)` is
-  the orthogonal complement of the span of the support of `w`, and `V(w)` is invertible iff the
-  support spans `E`; `LMLExplore.det_designOperator_pos`: then `det V(w) > 0`.
+* `LMLExplore.ker_designOperator`, `LMLExplore.range_designOperator`,
+  `LMLExplore.isUnit_designOperator_iff`: the kernel of `V(w)` is the orthogonal complement of the
+  span of the support of `w`, its range is that span, and `V(w)` is invertible iff the support
+  spans `E`; `LMLExplore.det_designOperator_pos`: then `det V(w) > 0`.
 * `LMLExplore.trace_comp_designOperator`: `trace (B V(w)) = ∑_a w a ⟪a, B a⟫`; hence
   `LMLExplore.sum_mul_inner_ringInverse_designOperator`: `∑_a w a ⟪a, V(w)⁻¹ a⟫ = d`.
 * `LMLExplore.exists_mem_support_finrank_le_inner_ringInverse_designOperator`: every design with
@@ -104,8 +105,11 @@ point `a` for each of them gives a design with the same design operator, hence t
   `𝒜` and has at most `m (m + 1) / 2` points, with `⟪a, V(w)⁺ a⟫ ≤ m` on `𝒜` and equality on the
   support.
 * `LMLExplore.exists_design_inner_moorePenroseInverse_le_finrank`: **Kiefer–Wolfowitz on the
-  span** [LS, Exercise 21.6]: a nonempty compact set `𝒜` carries a design `w` with
-  `⟪a, V(w)⁺ a⟫ ≤ dim (span 𝒜)` for every `a ∈ 𝒜`.
+  span** [LS, Exercise 21.6]: a nonempty compact set `𝒜` carries a design `w` whose support spans
+  the span of `𝒜`, with `⟪a, V(w)⁺ a⟫ ≤ dim (span 𝒜)` for every `a ∈ 𝒜`.
+* `LMLExplore.exists_design_map_inner_moorePenroseInverse_le_finrank`: the same for a design on a
+  nonempty finite set `S` of arms with features `φ`: the features of `S` lie in the range of the
+  design operator `V` of the image design, and `⟪φ i, V⁺ φ i⟫ ≤ dim (span (φ '' S))` on `S`.
 
 The proof of the Kiefer–Wolfowitz theorem follows `exists_isGOptimalDesign` of the
 `colt-2026-83` project (Rémy Degenne, <https://github.com/RemyDegenne/colt-2026-83>), stated
@@ -292,6 +296,14 @@ theorem isUnit_designOperator_iff (w : StdSimplex ℝ E) :
     IsUnit (designOperator w) ↔ Submodule.span ℝ (w.weights.support : Set E) = ⊤ := by
   rw [isUnit_iff_isUnit_toLinearMap, LinearMap.isUnit_iff_ker_eq_bot, ker_designOperator,
     Submodule.orthogonal_eq_bot_iff]
+
+/-- The range of the design operator is the span of the support of the design. -/
+theorem range_designOperator (w : StdSimplex ℝ E) :
+    LinearMap.range (designOperator w : E →ₗ[ℝ] E) =
+      Submodule.span ℝ (w.weights.support : Set E) := by
+  rw [← Submodule.orthogonal_orthogonal (LinearMap.range _),
+    (isPositive_designOperator w).isSymmetric.orthogonal_range, ker_designOperator,
+    Submodule.orthogonal_orthogonal]
 
 /-- An invertible design operator has positive determinant. -/
 theorem det_designOperator_pos {w : StdSimplex ℝ E} (hu : IsUnit (designOperator w)) :
@@ -585,22 +597,57 @@ theorem exists_design_inner_moorePenroseInverse_le_finrank_and_card_support_le {
 
 /-- **The Kiefer–Wolfowitz theorem on the span of a compact set** [LS, Theorem 21.1, Exercises 21.3
 and 21.6]. A nonempty compact set `𝒜` of a finite-dimensional real inner product space carries a
-design `w` such that, with the Moore–Penrose inverse `V(w)⁺` of its design operator,
-`⟪a, V(w)⁺ a⟫ ≤ m` for every `a ∈ 𝒜`, where `m` is the dimension of the span of `𝒜`. The set `𝒜`
-need not span `E`. -/
+design `w` whose support spans the span of `𝒜`, such that, with the Moore–Penrose inverse `V(w)⁺`
+of its design operator, `⟪a, V(w)⁺ a⟫ ≤ m` for every `a ∈ 𝒜`, where `m` is the dimension of the
+span of `𝒜`. The set `𝒜` need not span `E`. -/
 theorem exists_design_inner_moorePenroseInverse_le_finrank {𝒜 : Set E} (h𝒜 : IsCompact 𝒜)
     (hne : 𝒜.Nonempty) :
-    ∃ w : StdSimplex ℝ E, ↑w.weights.support ⊆ 𝒜 ∧ ∀ a ∈ 𝒜,
+    ∃ w : StdSimplex ℝ E, ↑w.weights.support ⊆ 𝒜 ∧
+      Submodule.span ℝ (w.weights.support : Set E) = Submodule.span ℝ 𝒜 ∧ ∀ a ∈ 𝒜,
       ⟪a, (designOperator w : E →ₗ[ℝ] E).moorePenroseInverse a⟫_ℝ ≤
         finrank ℝ (Submodule.span ℝ 𝒜) := by
   by_cases h0 : Submodule.span ℝ 𝒜 = ⊥
   · -- then `𝒜 ⊆ {0}`, so the Dirac mass at a point of `𝒜` has G-value `0`
     obtain ⟨a₀, ha₀⟩ := hne
-    refine ⟨.single a₀, by simp [StdSimplex.single, ha₀], fun a ha ↦ ?_⟩
-    simp [Submodule.span_eq_bot.1 h0 a ha]
-  · obtain ⟨w, hw, -, hle, -⟩ :=
+    have h0₀ : a₀ = 0 := Submodule.span_eq_bot.1 h0 a₀ ha₀
+    refine ⟨.single a₀, by simp [StdSimplex.single, ha₀], ?_, fun a ha ↦ ?_⟩
+    · rw [h0]
+      simp [StdSimplex.single, h0₀]
+    · simp [Submodule.span_eq_bot.1 h0 a ha]
+  · obtain ⟨w, hw, hspan, hle, -⟩ :=
       exists_design_inner_moorePenroseInverse_le_finrank_and_card_support_le h𝒜 h0
-    exact ⟨w, hw, hle⟩
+    exact ⟨w, hw, hspan, hle⟩
+
+/-- **The Kiefer–Wolfowitz theorem for finitely many arms** [LS, Theorem 21.1, Exercise 21.6]. Let
+`φ : ι → E` be a feature map and `S` a nonempty finite set of arms. Some design `w` on the arms,
+supported in `S`, has an image design `w.map φ` whose design operator `V` has the features of `S`
+in its range and satisfies `⟪φ i, V⁺ φ i⟫ ≤ m` for every `i ∈ S`, where `m` is the dimension of the
+span of the features of `S`. -/
+theorem exists_design_map_inner_moorePenroseInverse_le_finrank {ι : Type*} (φ : ι → E)
+    {S : Finset ι} (hS : S.Nonempty) :
+    ∃ w : StdSimplex ℝ ι, w.weights.support ⊆ S ∧
+      (∀ i ∈ S, φ i ∈ LinearMap.range (designOperator (w.map φ) : E →ₗ[ℝ] E)) ∧
+      ∀ i ∈ S, ⟪φ i, (designOperator (w.map φ) : E →ₗ[ℝ] E).moorePenroseInverse (φ i)⟫_ℝ ≤
+        finrank ℝ (Submodule.span ℝ (φ '' S)) := by
+  classical
+  obtain ⟨π, hπ, hspan, hle⟩ := exists_design_inner_moorePenroseInverse_le_finrank
+    (S.finite_toSet.image φ).isCompact ((Finset.coe_nonempty.2 hS).image φ)
+  have : Nonempty ι := ⟨hS.choose⟩
+  -- an arm of `S` above each feature of `S`
+  have hsec : ∀ v ∈ φ '' S, ∃ i ∈ S, φ i = v := fun v ⟨i, hi, hv⟩ ↦ ⟨i, hi, hv⟩
+  choose! g hgS hgφ using hsec
+  -- the design `π.map g` on the arms has image `π`
+  have hmap : (π.map g).map φ = π := by
+    rw [← StdSimplex.weights_inj, StdSimplex.map_map, StdSimplex.weights_map,
+      Finsupp.mapDomain_congr fun v hv ↦ hgφ v (hπ hv)]
+    exact Finsupp.mapDomain_id
+  refine ⟨π.map g, fun i hi ↦ ?_, fun i hi ↦ ?_, fun i hi ↦ ?_⟩
+  · obtain ⟨v, hv, rfl⟩ := Finset.mem_image.1 (Finsupp.mapDomain_support hi)
+    exact hgS v (hπ hv)
+  · rw [hmap, range_designOperator, hspan]
+    exact Submodule.subset_span ⟨i, hi, rfl⟩
+  · rw [hmap]
+    exact hle _ ⟨i, hi, rfl⟩
 
 end FiniteDimensional
 
