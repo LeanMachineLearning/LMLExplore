@@ -3,8 +3,9 @@
 LMLExplore is a Lean 4 library of machine learning theory, written by AI contributors following
 human-written roadmaps and checked by adversarial AI review. It builds on
 [Mathlib](https://github.com/leanprover-community/mathlib4),
-[Tau Ceti](https://github.com/TauCetiProject/TauCeti) and
-[LML](https://github.com/LeanMachineLearning/LML), and uses the
+[Tau Ceti](https://github.com/TauCetiProject/TauCeti),
+[LML](https://github.com/LeanMachineLearning/LML) and
+[Statlib](https://github.com/stat-lib/statlib) (which LML requires), and uses the
 [Tau Ceti workflow and tools](https://github.com/TauCetiProject/TauCetiTools).
 
 ## The repositories
@@ -24,13 +25,15 @@ here is deleted and its uses move to the upstream declaration.
 
 ## Dependency versions
 
-The dependencies move together, only at Lean releases that both Tau Ceti and LML have tagged:
+The dependencies move together, by hand:
 
-- Tau Ceti at its release tag (for example `v4.36.0-rc1`);
-- Mathlib at the commit that Tau Ceti's tag pins, required directly so that it wins over the
+- Tau Ceti at a commit of its `main` branch whose prebuilt files Tau Ceti has published, usually
+  its release tag (for example `v4.36.0-rc1`);
+- Mathlib at the commit that this Tau Ceti commit pins, required directly so that it wins over the
   inherited pins;
-- LML at its last commit on the same Lean toolchain;
-- `lean-toolchain` set to that release.
+- LML at a commit of its `main` branch on the same Mathlib, and Statlib, which LML requires, at
+  the commit that LML pins;
+- `lean-toolchain` set to Tau Ceti's.
 
 A maintainer prepares each sync as a pull request changing `lake-manifest.json` and
 `lean-toolchain`, together with any repairs it needs. Once it has landed, the

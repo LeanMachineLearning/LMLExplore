@@ -1,10 +1,10 @@
 # Upstream overlap scan
 
-LMLExplore never waits for its dependencies: it may build material that Mathlib, Tau Ceti or LML
-later provide. This scan finds such material after each dependency sync, so that LMLExplore can
-delete its copy and use the upstream version. It also catches duplicates of material that already
-existed upstream, which review cannot see for Tau Ceti and LML: the review engine only gives
-reviewers Mathlib's source.
+LMLExplore never waits for its dependencies: it may build material that Mathlib, Tau Ceti, LML or
+Statlib later provide. This scan finds such material after each dependency sync, so that LMLExplore
+can delete its copy and use the upstream version. It also catches duplicates of material that
+already existed upstream, which review cannot see for Tau Ceti, LML and Statlib: the review engine
+only gives reviewers Mathlib's source.
 
 The design follows Tau Ceti's Mathlib overlap scanner (scan, then one issue per finding, then one
 refactor pull request per issue). Because LMLExplore moves its pins only at syncs, each scan simply

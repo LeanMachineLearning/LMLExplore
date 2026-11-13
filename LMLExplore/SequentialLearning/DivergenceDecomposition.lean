@@ -1,7 +1,7 @@
 /-
-Copyright (c) 2026 Rémy Degenne. All rights reserved.
+Copyright (c) 2026 LMLExplore contributors. All rights reserved.
 Released under Apache 2.0 license as described in the file LICENSE.
-Authors: Rémy Degenne
+Authors: LMLExplore contributors
 -/
 module
 
@@ -271,12 +271,12 @@ private lemma tsum_klDiv_restrict_compProd_stepKernel_eq_lintegral
   have hf (t : ℕ) : Measurable fun ω ↦
       klDiv (stepKernel alg env t (history IT.obs IT.action IT.feedback t ω))
         (stepKernel alg' env' t (history IT.obs IT.action IT.feedback t ω)) :=
-    (measurable_klDiv_kernel _ _).comp (hH t)
+    (measurable_klDiv _ _).comp (hH t)
   refine (tsum_congr fun t ↦ ?_).trans
     (tsum_setLIntegral_notStoppedSet IT.measurable_obs IT.measurable_action IT.measurable_feedback
       hS hτ hf)
-  rw [klDiv_compProd_right_eq_lintegral,
-    setLIntegral_map (measurableSet_notStoppedSet hS t) (measurable_klDiv_kernel _ _) (hH t)]
+  rw [← condKL, condKL_eq_lintegral,
+    setLIntegral_map (measurableSet_notStoppedSet hS t) (measurable_klDiv _ _) (hH t)]
 
 /-- **Chain rule at a stopping time**, integral form. For two algorithms `alg`, `alg'` run against
 two environments `env`, `env'` with countably generated spaces of observations, actions and
@@ -342,7 +342,7 @@ lemma IsAlgEnvSeq.klDiv_map_history_eq_sum_pullCount
   have hsum : ∑ t ∈ range M, ∫⁻ ω, klDiv (κ (A t ω)) (κ' (A t ω)) ∂P =
       ∫⁻ ω, ∑ t ∈ range M, klDiv (κ (A t ω)) (κ' (A t ω)) ∂P :=
     (lintegral_finsetSum _ fun t _ ↦
-      (measurable_klDiv_kernel κ κ').comp (h.measurable_action t)).symm
+      (measurable_klDiv κ κ').comp (h.measurable_action t)).symm
   rw [h.klDiv_map_history_bandit h' M, hsum]
   exact (LMLExplore.sum_lintegral_pullCount_mul (g := fun _ ↦ M) h.measurable_action
     measurable_const fun a ↦ klDiv (κ a) (κ' a)).symm
@@ -411,8 +411,8 @@ lemma IsAlgEnvSeq.klDiv_restrict_compProd_stepKernel_bandit
         ((P.map fun ω ↦ ((history O A Y t ω, O t ω), A t ω)).restrict
           ((s ×ˢ .univ) ×ˢ .univ) ⊗ₘ κ'.prodMkLeft _) := by
     rw [stepKernel_bandit, stepKernel_bandit, klDiv_compProd_assoc, klDiv_compProd_assoc, h_joint]
-  rw [h_assoc, klDiv_compProd_right_eq_lintegral,
-    setLIntegral_map ((hs.prod .univ).prod .univ) (measurable_klDiv_kernel _ _) hX]
+  rw [h_assoc, ← condKL, condKL_eq_lintegral,
+    setLIntegral_map ((hs.prod .univ).prod .univ) (measurable_klDiv _ _) hX]
   have h_pre : (fun ω ↦ ((history O A Y t ω, O t ω), A t ω)) ⁻¹' ((s ×ˢ .univ) ×ˢ .univ) =
       history O A Y t ⁻¹' s := by
     ext; simp
@@ -441,7 +441,7 @@ private lemma tsum_klDiv_restrict_compProd_stepKernel_bandit_eq_sum (hS : Measur
     IT.measurable_obs IT.measurable_action IT.measurable_feedback hS
   have hf (t : ℕ) : Measurable fun ω : ℕ → Round Unit 𝓐 𝓨 ↦
       klDiv (κ (IT.action t ω)) (κ' (IT.action t ω)) :=
-    (measurable_klDiv_kernel κ κ').comp (IT.measurable_action t)
+    (measurable_klDiv κ κ').comp (IT.measurable_action t)
   refine ((tsum_congr fun t ↦ h.klDiv_restrict_compProd_stepKernel_bandit (κ' := κ')
       (measurableSet_notStoppedSet hS t)).trans
         (tsum_setLIntegral_notStoppedSet IT.measurable_obs IT.measurable_action

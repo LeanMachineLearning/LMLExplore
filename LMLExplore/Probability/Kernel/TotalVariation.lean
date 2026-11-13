@@ -1,7 +1,7 @@
 /-
-Copyright (c) 2026 Rémy Degenne. All rights reserved.
+Copyright (c) 2026 LMLExplore contributors. All rights reserved.
 Released under Apache 2.0 license as described in the file LICENSE.
-Authors: Rémy Degenne
+Authors: LMLExplore contributors
 -/
 module
 
@@ -12,6 +12,7 @@ import Mathlib.MeasureTheory.Integral.IntegrableOn
 import Mathlib.MeasureTheory.Measure.TotalVariation.Basic
 import Mathlib.Probability.Kernel.Composition.MeasureComp
 import Mathlib.Probability.Kernel.Integral
+import TauCeti.MeasureTheory.Integral.Bind
 
 /-!
 # Total variation distance under Markov kernels
@@ -28,9 +29,8 @@ a Markov decision process.
 
 ## Main statements
 
-* `MeasureTheory.Measure.measureReal_bind_eq_integral`,
-  `MeasureTheory.Measure.measureReal_compProd_eq_integral`: the mass of an event under `κ ∘ₘ μ`
-  or `μ ⊗ₘ κ`, as an integral against `μ`;
+* `MeasureTheory.Measure.measureReal_compProd_eq_integral`: the mass of an event under `μ ⊗ₘ κ`,
+  as an integral against `μ`;
 * `MeasureTheory.tvDist_comp_right_le`: `tvDist (κ ∘ₘ μ) (κ ∘ₘ ν) ≤ tvDist μ ν` for a Markov
   kernel `κ` and finite measures `μ` and `ν`;
 * `MeasureTheory.tvDist_compProd_left_le`: `tvDist (μ ⊗ₘ κ) (ν ⊗ₘ κ) ≤ tvDist μ ν`, under the
@@ -40,11 +40,13 @@ a Markov decision process.
 
 ## Implementation notes
 
-The mass of an event under a composition is the integral of a function with values in
-`[0, 1]`. The data processing inequality evaluates the distance on a Hahn decomposition `s` of
-the two compositions, where it is the gap between the integrals of `x ↦ κ x sᶜ - κ x s`, bounded
-by `MeasureTheory.norm_integral_sub_integral_le_mul_tvDist`. The bound for a change of kernel is
-proved eventwise, through `MeasureTheory.tvDist_le_two_mul_of_forall_measureReal_le_add`.
+The mass of an event under a composition `κ ∘ₘ μ` or a composition-product `μ ⊗ₘ κ` is the
+integral of a function with values in `[0, 1]`; for `κ ∘ₘ μ` this is Tau Ceti's
+`MeasureTheory.Measure.bind_apply_real`. The data processing inequality evaluates the distance on
+a Hahn decomposition `s` of the two compositions, where it is the gap between the integrals of
+`x ↦ κ x sᶜ - κ x s`, bounded by `MeasureTheory.norm_integral_sub_integral_le_mul_tvDist`. The
+bound for a change of kernel is proved eventwise, through
+`MeasureTheory.tvDist_le_two_mul_of_forall_measureReal_le_add`.
 -/
 
 public section
@@ -55,15 +57,6 @@ open scoped ENNReal
 namespace MeasureTheory
 
 variable {α β : Type*} {mα : MeasurableSpace α} {mβ : MeasurableSpace β} {μ ν : Measure α}
-
-/-- The mass of an event `s` under the composition of a measure `μ` with a finite kernel `κ`,
-as the integral of `x ↦ κ x s`. -/
-theorem Measure.measureReal_bind_eq_integral (κ : Kernel α β) [IsFiniteKernel κ] {s : Set β}
-    (hs : MeasurableSet s) :
-    (κ ∘ₘ μ).real s = ∫ x, (κ x).real s ∂μ := by
-  simp only [measureReal_def]
-  rw [Measure.bind_apply hs κ.aemeasurable,
-    integral_toReal (κ.measurable_coe hs).aemeasurable (ae_of_all _ fun _ ↦ measure_lt_top _ _)]
 
 /-- The mass of an event `s` under the composition-product of a measure `μ` with a finite kernel
 `κ`, as the integral of `x ↦ κ x (Prod.mk x ⁻¹' s)`. -/
@@ -98,9 +91,9 @@ theorem tvDist_comp_right_le [IsFiniteMeasure μ] [IsFiniteMeasure ν] (κ : Ker
       (Kernel.IsMarkovKernel.integrable μ κ hm),
     integral_sub (Kernel.IsMarkovKernel.integrable ν κ hm.compl)
       (Kernel.IsMarkovKernel.integrable ν κ hm), one_mul, Real.norm_eq_abs] at h
-  rw [hs.tvDist_eq, Measure.measureReal_bind_eq_integral κ hm,
-    Measure.measureReal_bind_eq_integral κ hm, Measure.measureReal_bind_eq_integral κ hm.compl,
-    Measure.measureReal_bind_eq_integral κ hm.compl]
+  have hbind (ρ : Measure α) {t : Set β} (ht : MeasurableSet t) :=
+    Measure.bind_apply_real (μ := ρ) κ.aemeasurable ht (ae_of_all _ fun _ ↦ measure_ne_top _ _)
+  rw [hs.tvDist_eq, hbind μ hm, hbind ν hm, hbind μ hm.compl, hbind ν hm.compl]
   linarith [(abs_le.1 h).2]
 
 /-- Composition-products with a common Markov kernel `κ` do not increase the total variation

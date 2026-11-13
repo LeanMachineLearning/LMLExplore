@@ -1,7 +1,7 @@
 /-
-Copyright (c) 2026 Rémy Degenne. All rights reserved.
+Copyright (c) 2026 LMLExplore contributors. All rights reserved.
 Released under Apache 2.0 license as described in the file LICENSE.
-Authors: Rémy Degenne
+Authors: LMLExplore contributors
 -/
 module
 
@@ -39,6 +39,9 @@ conditionally unbiased, so the expected regret against `a` is the expected estim
 
 * `TsallisINF.sum_one_sub_sub_iwEstimator_le`: the pathwise regret bound on the estimated losses,
   along every sequence of actions and feedbacks in `[0, 1]`.
+* `TsallisINF.sum_one_sub_sub_iwEstimator_le_sum_sqrt`: the finer pathwise bound
+  `∑ t < n, 4 / √(t + 1) * (∑ b ≠ a', √(P t b) + ∑ b, P t b √(P t b) (Ŷ t b - (1 - Y t)) ^ 2)`,
+  for every arm `a'`, which keeps the penalty of each round at its weights.
 * `TsallisINF.integral_sum_mul_sqrt_mul_sq_le_integral_sum_sqrt_mul_one_sub`,
   `TsallisINF.integral_sum_mul_sqrt_mul_sq_le`: the expected local norm of each round is at most
   `E[∑ b, √(P t b) (1 - P t b)]`, hence at most `√(k - 1)`.
@@ -70,6 +73,57 @@ namespace TsallisINF
 section Path
 
 omit [MeasurableSpace α] [MeasurableSingletonClass α] [MeasurableSpace 𝓞] in
+/-- Along a run, the weights of Tsallis-INF at round `t` are the Tsallis weights with coefficient
+`4 √(t + 1)` of the cumulative importance-weighted estimates shifted by the observed losses,
+`Ŷ s b - (1 - Y s)`: the shift does not change the weights. -/
+private lemma tsallisINFWeights_history_eq_shift (O : ℕ → Ω → 𝓞) (A : ℕ → Ω → α)
+    (Y : ℕ → Ω → ℝ) (ω : Ω) (t : ℕ) :
+    tsallisINFWeights t (history O A Y t ω) = tsallisWeights (4 * √((t : ℝ) + 1))
+      (∑ s ∈ range t, fun b ↦
+        iwEstimator (tsallisINFWeights s (history O A Y s ω)) (A s ω) (1 - Y s ω) b -
+          (1 - Y s ω)) := by
+  rw [tsallisINFWeights_history_eq_add_const O A Y (fun s ↦ -(1 - Y s ω)) t ω]
+  congr 1
+  funext b
+  simp only [Finset.sum_apply, sub_eq_add_neg]
+
+omit [MeasurableSpace α] [MeasurableSingletonClass α] [MeasurableSpace 𝓞] in
+/-- For a feedback in `[0, 1]`, the shifted estimates are at least `-1`, hence at least
+`-(4 √(t + 1)) / 4`. -/
+private lemma neg_le_iwEstimator_sub (O : ℕ → Ω → 𝓞) (A : ℕ → Ω → α) (Y : ℕ → Ω → ℝ)
+    {ω : Ω} {t : ℕ} (hY : Y t ω ∈ Set.Icc 0 1) (b : α) :
+    -(4 * √((t : ℝ) + 1) / 4) ≤
+      iwEstimator (tsallisINFWeights t (history O A Y t ω)) (A t ω) (1 - Y t ω) b -
+        (1 - Y t ω) := by
+  have h0 : 0 ≤ iwEstimator (tsallisINFWeights t (history O A Y t ω)) (A t ω) (1 - Y t ω) b :=
+    iwEstimator_nonneg (tsallisINFWeights_pos _ _ _).le (sub_nonneg.2 hY.2)
+  have h1 : 1 ≤ √((t : ℝ) + 1) := one_le_sqrt.2 (by linarith [(t.cast_nonneg : (0 : ℝ) ≤ t)])
+  linarith [hY.1]
+
+omit [MeasurableSpace α] [MeasurableSingletonClass α] [MeasurableSpace 𝓞] in
+/-- The regret of round `t` of the weights on the shifted estimates against the vertex of `a` is
+the estimated regret `(1 - Y t) - Ŷ t a` against `a`: the weights average the shifted estimates
+to `0`. -/
+private lemma sum_mul_sub_sum_single_mul (O : ℕ → Ω → 𝓞) (A : ℕ → Ω → α) (Y : ℕ → Ω → ℝ)
+    (ω : Ω) (t : ℕ) (a : α) :
+    ∑ b, tsallisINFWeights t (history O A Y t ω) b *
+        (iwEstimator (tsallisINFWeights t (history O A Y t ω)) (A t ω) (1 - Y t ω) b -
+          (1 - Y t ω)) -
+      ∑ b, (Pi.single a 1 : α → ℝ) b *
+        (iwEstimator (tsallisINFWeights t (history O A Y t ω)) (A t ω) (1 - Y t ω) b -
+          (1 - Y t ω)) =
+      (1 - Y t ω) - iwEstimator (tsallisINFWeights t (history O A Y t ω)) (A t ω) (1 - Y t ω) a
+    := by
+  set W := tsallisINFWeights t (history O A Y t ω)
+  have hpos : W (A t ω) ≠ 0 := (tsallisINFWeights_pos _ _ _).ne'
+  have hW1 : ∑ b, W b = 1 := (mem_simplex_iff.1 (tsallisINFWeights_mem_simplex _ _)).2
+  have hsum : ∑ b, W b * (iwEstimator W (A t ω) (1 - Y t ω) b - (1 - Y t ω)) = 0 := by
+    simp only [mul_sub, sum_sub_distrib, ← sum_mul, sum_mul_iwEstimator hpos, hW1, one_mul,
+      sub_self]
+  rw [hsum]
+  simp [Pi.single_apply]
+
+omit [MeasurableSpace α] [MeasurableSingletonClass α] [MeasurableSpace 𝓞] in
 /-- **Pathwise regret of Tsallis-INF on the estimated losses** [ZS21], [Ora, Section 9.3]. Along
 every sequence of observations `O`, actions `A` and feedbacks `Y` with `Y t ω ∈ [0, 1]` for
 `t < n`, with `P t` the weights of Tsallis-INF and `Ŷ t = iwEstimator (P t) (A t) (1 - Y t)` the
@@ -89,42 +143,16 @@ theorem sum_one_sub_sub_iwEstimator_le (O : ℕ → Ω → 𝓞) (A : ℕ → Ω
             (1 - Y t ω)) ^ 2 := by
   rcases n with _ | m
   · simp
-  set W : ℕ → α → ℝ := fun t ↦ tsallisINFWeights t (history O A Y t ω) with hW
-  -- the estimates shifted by the observed loss of the played arm
-  set ℓ : ℕ → α → ℝ := fun t b ↦ iwEstimator (W t) (A t ω) (1 - Y t ω) b - (1 - Y t ω) with hℓ
   have hc (t : ℕ) : 0 < 4 * √((t : ℝ) + 1) := by positivity
   have hc_mono : Monotone fun t : ℕ ↦ 4 * √((t : ℝ) + 1) := fun s t hst ↦ by
     have : (s : ℝ) ≤ t := by exact_mod_cast hst
     dsimp only
     gcongr
-  -- the weights are the Tsallis weights of the shifted estimates
-  have hW_eq (t : ℕ) : W t = tsallisWeights (4 * √((t : ℝ) + 1)) (∑ s ∈ range t, ℓ s) := by
-    rw [hW]
-    dsimp only
-    rw [tsallisINFWeights_history_eq_add_const O A Y (fun s ↦ -(1 - Y s ω)) t ω]
-    congr 1
-    funext b
-    simp only [hℓ, hW, Finset.sum_apply, sub_eq_add_neg]
-  have hℓ_ge (t : ℕ) (ht : t < m + 1) (b : α) : -(4 * √((t : ℝ) + 1) / 4) ≤ ℓ t b := by
-    have h0 : 0 ≤ iwEstimator (W t) (A t ω) (1 - Y t ω) b :=
-      iwEstimator_nonneg (tsallisINFWeights_pos _ _ _).le (sub_nonneg.2 (hY t ht).2)
-    have h1 : 1 ≤ √((t : ℝ) + 1) := one_le_sqrt.2 (by linarith [(t.cast_nonneg : (0 : ℝ) ≤ t)])
-    have h2 : 1 - Y t ω ≤ 1 := by linarith [(hY t ht).1]
-    simp only [hℓ]
-    linarith
-  have h := OnlineLearning.tsallisWeights_regret_le_of_monotone hc hc_mono hℓ_ge
-    (single_mem_simplex a)
-  simp_rw [← hW_eq] at h
+  have h := OnlineLearning.tsallisWeights_regret_le_of_monotone hc hc_mono
+    (fun t ht b ↦ neg_le_iwEstimator_sub O A Y (hY t ht) b) (single_mem_simplex a)
+  simp_rw [← tsallisINFWeights_history_eq_shift O A Y ω] at h
   refine (le_of_eq ?_).trans (h.trans_eq ?_)
-  · -- the regret of the weights on the shifted estimates against the vertex of `a`
-    refine sum_congr rfl fun t _ ↦ ?_
-    have hpos : W t (A t ω) ≠ 0 := (tsallisINFWeights_pos _ _ _).ne'
-    have hW1 : ∑ b, W t b = 1 := (mem_simplex_iff.1 (tsallisINFWeights_mem_simplex _ _)).2
-    have hsum : ∑ b, W t b * ℓ t b = 0 := by
-      simp only [hℓ, mul_sub, sum_sub_distrib, ← sum_mul, sum_mul_iwEstimator hpos, hW1, one_mul,
-        sub_self]
-    rw [hsum]
-    simp [hℓ, hW, Pi.single_apply]
+  · exact sum_congr rfl fun t _ ↦ (sum_mul_sub_sum_single_mul O A Y ω t a).symm
   · -- the penalty term and the coefficients `16 / (4 √(t + 1))`
     have hu : ∑ b, √((Pi.single a 1 : α → ℝ) b) = 1 := by
       simp [Pi.single_apply, apply_ite]
@@ -134,6 +162,71 @@ theorem sum_one_sub_sub_iwEstimator_le (O : ℕ → Ω → 𝓞) (A : ℕ → Ω
     have : 0 < √((t : ℝ) + 1) := by positivity
     field_simp
     ring
+
+omit [MeasurableSpace α] [MeasurableSingletonClass α] [MeasurableSpace 𝓞] in
+/-- **Pathwise regret of Tsallis-INF on the estimated losses, in terms of the weights of the
+other arms** [ZS21], [Ora, Section 9.3]. Along every sequence of observations `O`, actions `A`
+and feedbacks `Y` with `Y t ω ∈ [0, 1]` for `t < n`, with `P t` the weights of Tsallis-INF and
+`Ŷ t = iwEstimator (P t) (A t) (1 - Y t)` the importance-weighted estimates of the losses
+`1 - Y t`, the estimated regret against every arm `a` satisfies, for every arm `a'`,
+`∑ t < n, ((1 - Y t) - Ŷ t a)
+  ≤ ∑ t < n, 4 / √(t + 1) * (∑ b ≠ a', √(P t b) + ∑ b, P t b √(P t b) (Ŷ t b - (1 - Y t)) ^ 2)`.
+The arm `a'` need not be `a`: the penalty of each round is at most its weights `∑ b ≠ a', √(P t b)`
+away from any vertex. -/
+theorem sum_one_sub_sub_iwEstimator_le_sum_sqrt (O : ℕ → Ω → 𝓞) (A : ℕ → Ω → α)
+    (Y : ℕ → Ω → ℝ) (ω : Ω) (hY : ∀ t < n, Y t ω ∈ Set.Icc 0 1) (a a' : α) :
+    ∑ t ∈ range n, ((1 - Y t ω) -
+        iwEstimator (tsallisINFWeights t (history O A Y t ω)) (A t ω) (1 - Y t ω) a) ≤
+      ∑ t ∈ range n, 4 / √((t : ℝ) + 1) *
+        (∑ b ∈ univ.erase a', √(tsallisINFWeights t (history O A Y t ω) b) +
+          ∑ b, tsallisINFWeights t (history O A Y t ω) b *
+            √(tsallisINFWeights t (history O A Y t ω) b) *
+            (iwEstimator (tsallisINFWeights t (history O A Y t ω)) (A t ω) (1 - Y t ω) b -
+              (1 - Y t ω)) ^ 2) := by
+  rcases n with _ | m
+  · simp
+  set W : ℕ → α → ℝ := fun t ↦ tsallisINFWeights t (history O A Y t ω) with hW
+  have hc (t : ℕ) : 0 < 4 * √((t : ℝ) + 1) := by positivity
+  have h := OnlineLearning.tsallisWeights_regret_succ_le_sum_sub_mul hc
+    (fun t ht b ↦ neg_le_iwEstimator_sub O A Y (hY t (Nat.lt_succ_of_le ht)) b)
+    (single_mem_simplex a)
+  simp_rw [← tsallisINFWeights_history_eq_shift O A Y ω] at h
+  have hW0 : tsallisWeights (4 * √(((0 : ℕ) : ℝ) + 1)) (0 : α → ℝ) = W 0 := by
+    simp [hW, tsallisINFWeights_history_eq_shift O A Y ω 0]
+  have hu : ∑ b, √((Pi.single a 1 : α → ℝ) b) = 1 := by
+    simp [Pi.single_apply, apply_ite]
+  rw [hW0, hu] at h
+  refine (le_of_eq ?_).trans (h.trans ?_)
+  · exact sum_congr rfl fun t _ ↦ (sum_mul_sub_sum_single_mul O A Y ω t a).symm
+  -- the stability terms have the coefficients `16 / (4 √(t + 1)) = 4 / √(t + 1)`
+  have h_stab : ∀ t ∈ range (m + 1), 16 / (4 * √((t : ℝ) + 1)) = 4 / √((t : ℝ) + 1) :=
+    fun t _ ↦ by
+      have : 0 < √((t : ℝ) + 1) := by positivity
+      field_simp
+      ring
+  simp only [mul_add, sum_add_distrib]
+  refine add_le_add ?_ (sum_le_sum fun t ht ↦ by rw [h_stab t ht])
+  -- the penalty of round `t` is at most `4 / √(t + 1) * ∑ b ≠ a', √(P t b)`
+  have hS (t : ℕ) : ∑ b, √(W t b) - 1 ≤ ∑ b ∈ univ.erase a', √(W t b) :=
+    sum_sqrt_sub_one_le_sum_erase (tsallisINFWeights_mem_simplex _ _) a'
+  have hS0 (t : ℕ) : 0 ≤ ∑ b ∈ univ.erase a', √(W t b) := sum_nonneg fun _ _ ↦ sqrt_nonneg _
+  rw [sum_range_succ']
+  refine (add_comm _ _).trans_le (add_le_add (sum_le_sum fun t _ ↦ ?_) ?_)
+  · -- `4 (√(t + 2) - √(t + 1)) ≤ 4 / √(t + 2)`
+    have h_coef : 4 * √((t : ℝ) + 1 + 1) - 4 * √((t : ℝ) + 1) ≤ 4 / √((t : ℝ) + 1 + 1) := by
+      have h := sqrt_add_one_sub_sqrt_le_one_div_sqrt_add_one (x := (t : ℝ) + 1) (by positivity)
+      rw [div_eq_mul_one_div]
+      linarith
+    push_cast
+    calc (4 * √((t : ℝ) + 1 + 1) - 4 * √((t : ℝ) + 1)) * (∑ b, √(W (t + 1) b) - 1)
+        ≤ (4 * √((t : ℝ) + 1 + 1) - 4 * √((t : ℝ) + 1)) *
+          ∑ b ∈ univ.erase a', √(W (t + 1) b) :=
+          mul_le_mul_of_nonneg_left (hS (t + 1)) (sub_nonneg.2 (by gcongr; linarith))
+      _ ≤ 4 / √((t : ℝ) + 1 + 1) * ∑ b ∈ univ.erase a', √(W (t + 1) b) :=
+          mul_le_mul_of_nonneg_right h_coef (hS0 (t + 1))
+  · have h0 : 4 * √(((0 : ℕ) : ℝ) + 1) = 4 / √(((0 : ℕ) : ℝ) + 1) := by simp
+    rw [h0]
+    exact mul_le_mul_of_nonneg_left (hS 0) (by positivity)
 
 end Path
 
@@ -242,6 +335,17 @@ theorem integrable_sum_mul_sqrt_mul_sq (h : IsAlgEnvSeq O A Y tsallisINF env P)
   rw [Real.norm_of_nonneg h_mem.1]
   exact h_mem.2
 
+/-- Along a run of Tsallis-INF whose feedback at round `t` is almost surely in `[0, 1]`, the
+estimated regret of round `t` against every arm `a` is integrable: the observed loss `1 - Y t`
+minus the importance-weighted estimate of the loss of `a`. -/
+theorem integrable_one_sub_sub_iwEstimator (h : IsAlgEnvSeq O A Y tsallisINF env P)
+    (hY : ∀ᵐ ω ∂P, Y t ω ∈ Set.Icc 0 1) (a : α) :
+    Integrable (fun ω ↦ (1 - Y t ω) -
+      iwEstimator (tsallisINFWeights t (history O A Y t ω)) (A t ω) (1 - Y t ω) a) P :=
+  ((integrable_const 1).sub
+      (Integrable.of_mem_Icc 0 1 (h.measurable_feedback t).aemeasurable hY)).sub
+    (WeightAlgorithm.integrable_iwEstimator_one_sub (isAlgEnvSeq_tsallisINF_iff.1 h) hY a)
+
 /-- **The expected local norm of a round of Tsallis-INF.** Along a run of Tsallis-INF whose
 feedback at round `t` is almost surely in `[0, 1]`, with `P t` the weights and `Ŷ t` the
 importance-weighted estimates of the losses `1 - Y t`, the local norm
@@ -296,11 +400,6 @@ theorem pseudoRegret_le (h : IsAlgEnvSeq O A Y tsallisINF env P)
   refine pseudoRegret_le_iff.2 fun a ↦ ?_
   have hYt (t : ℕ) (ht : t ∈ range n) : ∀ᵐ ω ∂P, Y t ω ∈ Set.Icc 0 1 :=
     hY.mono fun _ hω ↦ hω t (mem_range.1 ht)
-  have hYint (t : ℕ) (ht : t ∈ range n) : Integrable (fun ω ↦ 1 - Y t ω) P :=
-    (integrable_const 1).sub
-      (Integrable.of_mem_Icc 0 1 (h.measurable_feedback t).aemeasurable (hYt t ht))
-  have hLint (t : ℕ) (ht : t ∈ range n) :=
-    WeightAlgorithm.integrable_iwEstimator_one_sub (isAlgEnvSeq_tsallisINF_iff.1 h) (hYt t ht) a
   have hVint (t : ℕ) (ht : t ∈ range n) := integrable_sum_mul_sqrt_mul_sq (t := t) h (hYt t ht)
   -- the expected regret against `a` is the expected estimated regret
   rw [WeightAlgorithm.integral_sum_means_sub_eq_integral_sum_one_sub_sub_iwEstimator
@@ -314,7 +413,8 @@ theorem pseudoRegret_le (h : IsAlgEnvSeq O A Y tsallisINF env P)
           √(tsallisINFWeights t (history O A Y t ω) b) *
           (iwEstimator (tsallisINFWeights t (history O A Y t ω)) (A t ω) (1 - Y t ω) b -
             (1 - Y t ω)) ^ 2] := by
-      refine integral_mono_ae (integrable_finsetSum _ fun t ht ↦ (hYint t ht).sub (hLint t ht))
+      refine integral_mono_ae (integrable_finsetSum _ fun t ht ↦
+          integrable_one_sub_sub_iwEstimator h (hYt t ht) a)
         ((integrable_const _).add (integrable_finsetSum _ fun t ht ↦ (hVint t ht).const_mul _)) ?_
       filter_upwards [hY] with ω hω using sum_one_sub_sub_iwEstimator_le O A Y ω hω a
   _ = 4 * √n * (√(Fintype.card α) - 1) + ∑ t ∈ range n, 4 / √((t : ℝ) + 1) *

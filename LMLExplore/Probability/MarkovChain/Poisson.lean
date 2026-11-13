@@ -1,7 +1,7 @@
 /-
-Copyright (c) 2026 Rémy Degenne. All rights reserved.
+Copyright (c) 2026 LMLExplore contributors. All rights reserved.
 Released under Apache 2.0 license as described in the file LICENSE.
-Authors: Rémy Degenne
+Authors: LMLExplore contributors
 -/
 module
 
@@ -13,8 +13,8 @@ public import Mathlib.Probability.Martingale.Basic
 
 import LMLExplore.MeasureTheory.Integral.Bochner.Basic
 import LMLExplore.Order.ConditionallyCompleteLattice.Group
-import LMLExplore.Probability.Process.Filtration
 import Mathlib.MeasureTheory.OuterMeasure.BorelCantelli
+import Statlib.ForMathlib.Probability.Process.Filtration
 
 /-!
 # The Poisson equation along a Markov chain
@@ -99,9 +99,9 @@ variable {α : Type*} {mα : MeasurableSpace α} {κ : Kernel α α} [IsMarkovKe
 private lemma measurable_increment (g : boundedMeasurable α) {k n : ℕ} (hkn : k + 1 ≤ n) :
     Measurable[Filtration.piLE (X := fun _ : ℕ ↦ α) n] fun ω : ℕ → α ↦
       (g : ℓ^∞(α, ℝ)) (ω (k + 1)) - (κ.integralCLM g : ℓ^∞(α, ℝ)) (ω k) :=
-  ((boundedMeasurable.measurable g).comp (Filtration.measurable_eval_piLE hkn)).sub
+  ((boundedMeasurable.measurable g).comp (Filtration.measurable_piLE_apply hkn)).sub
     ((boundedMeasurable.measurable _).comp
-    (Filtration.measurable_eval_piLE (by omega)))
+    (Filtration.measurable_piLE_apply (by omega)))
 
 private lemma integrable_increment (g : boundedMeasurable α) (k : ℕ) :
     Integrable (fun ω : ℕ → α ↦
@@ -133,7 +133,7 @@ theorem martingale_sum_sub_integralCLM (g : boundedMeasurable α) :
   have hκg : StronglyMeasurable[Filtration.piLE n]
       fun ω : ℕ → α ↦ (κ.integralCLM g : ℓ^∞(α, ℝ)) (ω n) :=
     ((boundedMeasurable.measurable _).comp
-      (Filtration.measurable_eval_piLE le_rfl)).stronglyMeasurable
+      (Filtration.measurable_piLE_apply le_rfl)).stronglyMeasurable
   have hgint : Integrable (fun ω : ℕ → α ↦ (g : ℓ^∞(α, ℝ)) (ω (n + 1))) (markovChainLaw ν κ) :=
     (boundedMeasurable.integrable g _).comp_measurable (measurable_pi_apply _)
   have hκint : Integrable (fun ω : ℕ → α ↦ (κ.integralCLM g : ℓ^∞(α, ℝ)) (ω n))

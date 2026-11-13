@@ -1,7 +1,7 @@
 /-
-Copyright (c) 2026 Rémy Degenne. All rights reserved.
+Copyright (c) 2026 LMLExplore contributors. All rights reserved.
 Released under Apache 2.0 license as described in the file LICENSE.
-Authors: Rémy Degenne
+Authors: LMLExplore contributors
 -/
 module
 
@@ -12,7 +12,8 @@ import Mathlib.MeasureTheory.Integral.Bochner.Set
 import Mathlib.MeasureTheory.Integral.IntegrableOn
 import Mathlib.MeasureTheory.VectorMeasure.Integral
 import LMLExplore.Order.ConditionallyCompleteLattice.Group
-import TauCeti.MeasureTheory.Measure.TotalVariation
+import TauCeti.MeasureTheory.Measure.TotalVariation.Basic
+import TauCeti.MeasureTheory.Measure.TotalVariation.Countable
 
 /-!
 # Integrals against measures close in total variation
@@ -25,9 +26,8 @@ bound depends only on the oscillation of `f`: if `f` takes values in `[a, b]`, t
 variation distance is also controlled by events: `|μ s - ν s| ≤ tvDist μ ν / 2` for every
 measurable `s`, and conversely `tvDist μ ν ≤ 2 * c` as soon as `μ s ≤ ν s + c` for every
 measurable `s`. On a finite type, the total variation distance of two
-finite measures is the `ℓ¹` distance `∑ x, |μ {x} - ν {x}|` of their mass functions, and for
-probability measures half of it is the mass `1 - ∑ x, min (μ {x}) (ν {x})` that they do not
-share.
+finite measures is `μ univ + ν univ - 2 * ∑ x, min (μ {x}) (ν {x})`, and for probability measures
+half of it is the mass `1 - ∑ x, min (μ {x}) (ν {x})` that they do not share.
 Adding a common finite measure and scaling both measures by `t` multiplies the
 distance by `t`, so the distance from a mixture `(1 - α) • μ + α • ν` to `μ` is
 `α * tvDist ν μ`, at most `2 * α` for probability measures.
@@ -52,10 +52,8 @@ contraction of the oscillation of functions by a Markov kernel (Dobrushin's coef
   `MeasureTheory.tvDist_le_two_mul_of_forall_measureReal_le_add`: for measures of the same mass,
   the total variation distance bounds the difference of the masses of every event, and eventwise
   bounds bound the total variation distance.
-* `MeasureTheory.tvDist_eq_sum_abs_measureReal_singleton_sub`: on a finite type,
-  `tvDist μ ν = ∑ x, |μ {x} - ν {x}|`, and
-  `MeasureTheory.tvDist_eq_measureReal_univ_add_sub_two_mul_sum_min`,
-  `MeasureTheory.tvDist_div_two_eq_one_sub_sum_min` its overlap form
+* `MeasureTheory.tvDist_eq_measureReal_univ_add_sub_two_mul_sum_min`,
+  `MeasureTheory.tvDist_div_two_eq_one_sub_sum_min`: on a finite type, the overlap form
   `tvDist μ ν = μ univ + ν univ - 2 * ∑ x, min (μ {x}) (ν {x})`.
 * `MeasureTheory.tvDist_add_smul_add_smul`: `tvDist (ξ + t • μ) (ξ + t • ν) = t * tvDist μ ν`.
 * `MeasureTheory.tvDist_one_sub_smul_add_smul`, `MeasureTheory.tvDist_one_sub_smul_add_smul_le`:
@@ -67,7 +65,9 @@ contraction of the oscillation of functions by a Markov kernel (Dobrushin's coef
 The first bound is the bound `MeasureTheory.VectorMeasure.norm_integral_le_of_norm_le_const` on
 integrals against the signed measure `μ - ν`, whose variation has mass `tvDist μ ν`. The eventwise
 characterization is Tau Ceti's `MeasureTheory.etvDist_le_two_mul_iff`, transferred to the real
-distance `tvDist`. The behaviour under sums and scalings is read off the supremum over finite
+distance `tvDist`. The overlap form on a finite type is read off Tau Ceti's `ℓ¹` formula
+`MeasureTheory.tvDist_eq_tsum_abs_singleton`, `tvDist μ ν = ∑' x, |μ {x} - ν {x}|` on a countable
+type. The behaviour under sums and scalings is read off the supremum over finite
 measurable partitions, `MeasureTheory.tvDist_eq_iSup_finPartition_abs`, so it needs no assumption
 on the masses.
 -/
@@ -188,41 +188,6 @@ theorem tvDist_le_two_mul_of_forall_measureReal_le_add [IsFiniteMeasure μ] [IsF
     ENNReal.ofReal_mul zero_le_two, ENNReal.ofReal_ofNat]
   exact he
 
-/-- **Total variation on a finite type**: for finite measures `μ` and `ν` on a finite type with
-measurable singletons, `tvDist μ ν = ∑ x, |μ {x} - ν {x}|`, the `ℓ¹` distance of their mass
-functions. -/
-theorem tvDist_eq_sum_abs_measureReal_singleton_sub [Fintype 𝓧] [MeasurableSingletonClass 𝓧]
-    [IsFiniteMeasure μ] [IsFiniteMeasure ν] :
-    tvDist μ ν = ∑ x, |μ.real {x} - ν.real {x}| := by
-  classical
-  -- on a singleton, the restrictions of two measures are comparable
-  have h_le {ρ ρ' : Measure 𝓧} {x : 𝓧} (h : ρ {x} ≤ ρ' {x}) : ρ.restrict {x} ≤ ρ'.restrict {x} :=
-    Measure.le_iff'.2 fun t ↦ by
-      simp only [Measure.restrict_singleton, FunLike.coe_smul, Pi.smul_apply, smul_eq_mul]
-      gcongr
-  have h_single (x : 𝓧) :
-      tvDist (μ.restrict {x}) (ν.restrict {x}) = |μ.real {x} - ν.real {x}| := by
-    rcases le_total (μ {x}) (ν {x}) with h | h
-    · rw [tvDist_of_le (h_le h), abs_of_nonpos (sub_nonpos.2 (show μ.real {x} ≤ ν.real {x} from
-        ENNReal.toReal_mono (measure_ne_top _ _) h))]
-      simp [measureReal_def]
-    · rw [tvDist_of_ge (h_le h), abs_of_nonneg (sub_nonneg.2 (show ν.real {x} ≤ μ.real {x} from
-        ENNReal.toReal_mono (measure_ne_top _ _) h))]
-      simp [measureReal_def]
-  -- split the restriction to a finite set into its singletons
-  have h_fin (s : Finset 𝓧) :
-      tvDist (μ.restrict s) (ν.restrict s) = ∑ x ∈ s, |μ.real {x} - ν.real {x}| := by
-    induction s using Finset.induction_on with
-    | empty => simp
-    | insert a s ha ih =>
-      have h1 : ({a} : Set 𝓧) ∩ ↑(insert a s) = {a} := by ext; simp +contextual
-      have h2 : ({a} : Set 𝓧)ᶜ ∩ ↑(insert a s) = s := by
-        ext y; simp; grind
-      rw [← tvDist_restrict_add_compl (measurableSet_singleton a)]
-      simp only [Measure.restrict_restrict, measurableSet_singleton,
-        (measurableSet_singleton a).compl, h1, h2, h_single, ih, Finset.sum_insert ha]
-  simpa using h_fin Finset.univ
-
 /-- **Total variation and overlap on a finite type**: for finite measures `μ` and `ν` on a finite
 type with measurable singletons,
 `tvDist μ ν = μ univ + ν univ - 2 * ∑ x, min (μ {x}) (ν {x})`. -/
@@ -233,7 +198,7 @@ theorem tvDist_eq_measureReal_univ_add_sub_two_mul_sum_min [Fintype 𝓧]
     rcases le_total a b with hab | hab
     · rw [abs_of_nonpos (sub_nonpos.2 hab), min_eq_left hab]; ring
     · rw [abs_of_nonneg (sub_nonneg.2 hab), min_eq_right hab]; ring
-  simp only [tvDist_eq_sum_abs_measureReal_singleton_sub, h, Finset.sum_sub_distrib,
+  simp only [tvDist_eq_tsum_abs_singleton, tsum_fintype, h, Finset.sum_sub_distrib,
     Finset.sum_add_distrib, ← Finset.mul_sum, sum_measureReal_singleton, Finset.coe_univ]
 
 /-- **Total variation and overlap on a finite type**: for probability measures `μ` and `ν` on a

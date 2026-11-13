@@ -1,7 +1,7 @@
 /-
-Copyright (c) 2026 Rémy Degenne. All rights reserved.
+Copyright (c) 2026 LMLExplore contributors. All rights reserved.
 Released under Apache 2.0 license as described in the file LICENSE.
-Authors: Rémy Degenne
+Authors: LMLExplore contributors
 -/
 module
 
@@ -257,7 +257,7 @@ theorem bellmanEval_iterate_succ_sub (hR : ∀ p, ∀ᵐ x ∂(M.R p), |x| ≤ C
   induction n generalizing s with
   | zero =>
     simp only [zero_add, Function.iterate_one, Function.iterate_zero, id_eq, pow_zero, one_mul,
-      Kernel.one_eq_id, Kernel.id_apply]
+      Kernel.one_def, Kernel.id_apply]
     rw [integral_dirac' _ s hg.stronglyMeasurable]
   | succ n ih =>
     calc (M.bellmanEval γ π)^[n + 1 + 1] v s - (M.bellmanEval γ π)^[n + 1] v s

@@ -105,8 +105,8 @@ jobs:
         run: bash scripts/build.sh
 
       # The newest trust-extract release for lean-toolchain. The upstream closure brings in the LML,
-      # Tau Ceti and Mathlib declarations LMLExplore rests on: the site shows them, and the reviews
-      # of them in the imported stores. The kernel checks that each declaration's dependency
+      # Statlib, Tau Ceti and Mathlib declarations LMLExplore rests on: the site shows them, and the
+      # reviews of them in the imported stores. The kernel checks that each declaration's dependency
       # closure is all it needs, proofs included.
       - name: Extract the dataset
         id: extract
@@ -211,9 +211,9 @@ jobs:
         with:
           root: LMLExplore
           dataset: ${{ runner.temp }}/dataset
-          # An editorial claim: the publisher vouches for Mathlib and everything under it. LML and
-          # Tau Ceti are not under Mathlib, so the declarations of theirs that LMLExplore rests on
-          # count as unaudited, unless reviews in the imported stores say otherwise.
+          # An editorial claim: the publisher vouches for Mathlib and everything under it. LML,
+          # Statlib and Tau Ceti are not under Mathlib, so the declarations of theirs that LMLExplore
+          # rests on count as unaudited, unless reviews in the imported stores say otherwise.
           trust: mathlib
           evidence: LeanMachineLearning/LMLExplore-evidence
 

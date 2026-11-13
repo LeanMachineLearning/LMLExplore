@@ -1,7 +1,7 @@
 /-
-Copyright (c) 2026 Rémy Degenne. All rights reserved.
+Copyright (c) 2026 LMLExplore contributors. All rights reserved.
 Released under Apache 2.0 license as described in the file LICENSE.
-Authors: Rémy Degenne
+Authors: LMLExplore contributors
 -/
 module
 
@@ -141,6 +141,7 @@ lemma HasCondDistrib.integral_comp_prodMk_eq_integral_integral {E : Type*}
     _ = ∫ ω, ∫ y, g (X ω, y) ∂(κ (X ω)) ∂P :=
         integral_map h.aemeasurable_fst hg.integral_measure_compProd.aestronglyMeasurable
 
+omit [IsSFiniteKernel κ] in
 /-- If `κ` is the conditional distribution of `Y` given `X` under `P`, it is also the conditional
 distribution of `Y` given `X` under the restriction of `P` to an event `X ⁻¹' s` determined by
 `X`. -/
