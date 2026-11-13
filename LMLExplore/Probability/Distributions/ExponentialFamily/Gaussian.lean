@@ -1,13 +1,13 @@
 /-
-Copyright (c) 2026 Rémy Degenne. All rights reserved.
+Copyright (c) 2026 LMLExplore contributors. All rights reserved.
 Released under Apache 2.0 license as described in the file LICENSE.
-Authors: Rémy Degenne
+Authors: LMLExplore contributors
 -/
 module
 
 public import LMLExplore.Probability.Distributions.ExponentialFamily.Gamma
 public import LMLExplore.Probability.Distributions.ExponentialFamily.Invariance
-public import LMLExplore.Probability.Distributions.ExponentialFamily.Posterior
+public import LMLExplore.Probability.Distributions.ExponentialFamily.Posterior.Basic
 public import LMLExplore.Probability.Distributions.ExponentialFamily.UpperConfidence
 public import LMLExplore.Probability.Distributions.Gaussian.Real
 public import TauCeti.Probability.Distributions.Tilted

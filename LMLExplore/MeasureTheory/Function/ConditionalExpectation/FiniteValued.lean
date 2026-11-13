@@ -1,7 +1,7 @@
 /-
-Copyright (c) 2026 Rémy Degenne. All rights reserved.
+Copyright (c) 2026 LMLExplore contributors. All rights reserved.
 Released under Apache 2.0 license as described in the file LICENSE.
-Authors: Rémy Degenne
+Authors: LMLExplore contributors
 -/
 module
 
@@ -23,6 +23,8 @@ outcome, is a finite weighted sum.
 
 * `LMLExplore.integrable_apply_of_measurableSet_preimage`: `ω ↦ g ω (X ω)` is integrable when
   each `g · o` is.
+* `LMLExplore.aestronglyMeasurable_of_condExp_preimage_ae_eq`: the conditional law `q` of `X` is
+  `m`-measurable.
 * `LMLExplore.condExp_apply_ae_eq_sum_smul`: `P[fun ω ↦ g ω (X ω) | m] =ᵐ ∑ o, q o • g · o`.
 * `LMLExplore.integral_apply_eq_integral_sum_smul`: the corresponding identity of expectations.
 -/
@@ -51,6 +53,19 @@ lemma integrable_apply_of_measurableSet_preimage [Finite O] (hX : ∀ o, Measura
   have := Fintype.ofFinite O
   simp_rw [apply_eq_sum_indicator X g]
   exact integrable_finsetSum _ fun o _ ↦ (hg o).indicator (hX o)
+
+/-- The conditional law of a finite-valued `X` given `m` is `m`-measurable: if
+`μ⟦X ⁻¹' {o} | m⟧ =ᵐ q o` for every outcome `o`, then `ω ↦ (q o ω)_o` is `m`-measurable as a
+function with values in `O → ℝ`. -/
+lemma aestronglyMeasurable_of_condExp_preimage_ae_eq [Finite O]
+    (hq : ∀ o, μ⟦X ⁻¹' {o} | m⟧ =ᵐ[μ] q o) : AEStronglyMeasurable[m] (fun ω o ↦ q o ω) μ := by
+  refine ⟨fun ω o ↦ (μ⟦X ⁻¹' {o} | m⟧) ω, ?_, ?_⟩
+  · have h : Measurable[m] fun ω o ↦ (μ⟦X ⁻¹' {o} | m⟧) ω :=
+      @measurable_pi_iff Ω O (fun _ ↦ ℝ) m _ _ |>.2 fun _ ↦
+        (stronglyMeasurable_condExp (m := m) (μ := μ)).measurable
+    exact h.stronglyMeasurable
+  · filter_upwards [ae_all_iff.2 hq] with ω hω
+    exact funext fun o ↦ (hω o).symm
 
 variable [Fintype O] [NormedSpace ℝ F] [CompleteSpace F]
 

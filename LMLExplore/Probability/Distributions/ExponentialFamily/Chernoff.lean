@@ -1,7 +1,7 @@
 /-
-Copyright (c) 2026 Rémy Degenne. All rights reserved.
+Copyright (c) 2026 LMLExplore contributors. All rights reserved.
 Released under Apache 2.0 license as described in the file LICENSE.
-Authors: Rémy Degenne
+Authors: LMLExplore contributors
 -/
 module
 
@@ -56,12 +56,18 @@ members of an exponential family rather than for rewards in `[0, 1]`.
 
 ## Main statements
 
+* `ProbabilityTheory.mgfDominatedOn_expFamily_natParam_integral_of_mem_image`: a member of the
+  family is dominated on every set by the member of its mean.
 * `ProbabilityTheory.iIndepFun.measureReal_sum_ge_le_exp_expFamilyDiv`: the upper tail
   `P(#s * x ≤ ∑ i ∈ s, X i) ≤ exp (-(#s * d(x, μ)))` for variables dominated by the member of
   mean `μ` on `Set.Ici 0` and means `μ ≤ x` of the family.
 * `ProbabilityTheory.iIndepFun.measureReal_sum_le_le_exp_expFamilyDiv`: the lower tail
   `P(∑ i ∈ s, X i ≤ #s * x) ≤ exp (-(#s * d(x, μ)))` for variables dominated by the member of
   mean `μ` on `Set.Iic 0` and means `x ≤ μ` of the family.
+* `ProbabilityTheory.iIndepFun.measureReal_sum_ge_or_sum_le_le_exp_add_exp_expFamilyDiv`: the
+  two-sided bound `P(#s * x ≤ ∑ i ∈ s, X i ∨ ∑ i ∈ s, X i ≤ #s * y)
+  ≤ exp (-(#s * d(x, μ))) + exp (-(#s * d(y, μ)))` for variables dominated by the member of mean
+  `μ` and means `y ≤ μ ≤ x` of the family.
 * `ProbabilityTheory.iIndepFun.measureReal_sum_ge_le_exp_expFamilyDiv_of_hasLaw`,
   `ProbabilityTheory.iIndepFun.measureReal_sum_le_le_exp_expFamilyDiv_of_hasLaw`: the same bounds
   for the statistics `T (Y i)` of independent observations `Y i` with law the member of mean `μ`.
@@ -93,6 +99,15 @@ namespace ProbabilityTheory
 
 variable {Ω ι 𝓧 : Type*} {mΩ : MeasurableSpace Ω} {m𝓧 : MeasurableSpace 𝓧} {P : Measure Ω}
   {ρ : Measure 𝓧} {T : 𝓧 → ℝ} {X : ι → Ω → ℝ} {Y : ι → Ω → 𝓧} {s : Finset ι} {μ x : ℝ}
+
+/-- A member `Q = ρ_η` of the exponential family of `ρ` and `T`, with `η` in the interior of
+`integrableExpSet T ρ`, is dominated on every set `Λ` by the member `ρ_η(μ)` of its mean
+`μ = ∫ T ∂Q`, which is `Q` itself. -/
+lemma mgfDominatedOn_expFamily_natParam_integral_of_mem_image (hT : ∀ c, ¬ T =ᵐ[ρ] fun _ ↦ c)
+    {Q : Measure 𝓧} (hQ : Q ∈ ρ.expFamily T '' interior (integrableExpSet T ρ)) (Λ : Set ℝ) :
+    MGFDominatedOn T Q T (ρ.expFamily T (ρ.natParam T (∫ x, T x ∂Q))) Λ := by
+  rw [Measure.expFamily_natParam_integral_of_mem_image hT hQ]
+  exact ⟨fun _ _ hY ↦ hY, fun _ _ _ ↦ le_rfl⟩
 
 /-! ### Cramér–Chernoff bounds -/
 
@@ -135,6 +150,26 @@ theorem iIndepFun.measureReal_sum_le_le_exp_expFamilyDiv (h_indep : iIndepFun X 
   have := Measure.isProbabilityMeasure_expFamily (interior_subset hη)
   exact h_indep.measureReal_sum_le_le_exp_of_le_rateFunction hX (Measure.integrable_expFamily hη)
     (by rwa [Measure.integral_expFamily_natParam hμ]) (rateFunction_expFamily_natParam hx hμ).ge
+
+/-- **Two-sided Cramér–Chernoff bound under domination by an exponential family.** For independent
+random variables `X i`, `i ∈ s`, dominated by the member `ρ_η(μ)` of mean `μ` of the exponential
+family of `ρ` and `T`, and means `y ≤ μ ≤ x` of the family, the probability that
+`#s * x ≤ ∑ i ∈ s, X i` or `∑ i ∈ s, X i ≤ #s * y` is at most
+`exp (-(#s * d(x, μ))) + exp (-(#s * d(y, μ)))`, where `d(x, μ) = KL(ρ_η(x), ρ_η(μ))`. -/
+theorem iIndepFun.measureReal_sum_ge_or_sum_le_le_exp_add_exp_expFamilyDiv
+    (h_indep : iIndepFun X P)
+    (hX : ∀ i ∈ s, MGFDominatedOn (X i) P T (ρ.expFamily T (ρ.natParam T μ)) Set.univ)
+    (hμ : μ ∈ ρ.expFamilyMeans T) {y : ℝ} (hx : x ∈ ρ.expFamilyMeans T)
+    (hy : y ∈ ρ.expFamilyMeans T) (hμx : μ ≤ x) (hyμ : y ≤ μ) :
+    P.real {ω | #s * x ≤ ∑ i ∈ s, X i ω ∨ ∑ i ∈ s, X i ω ≤ #s * y} ≤
+      exp (-(#s * ρ.expFamilyDiv T x μ)) + exp (-(#s * ρ.expFamilyDiv T y μ)) := by
+  have := h_indep.isProbabilityMeasure
+  rw [Set.ofPred_or]
+  exact (measureReal_union_le _ _).trans (add_le_add
+    (h_indep.measureReal_sum_ge_le_exp_expFamilyDiv (fun i hi ↦ (hX i hi).mono (Set.subset_univ _))
+      hμ hx hμx)
+    (h_indep.measureReal_sum_le_le_exp_expFamilyDiv (fun i hi ↦ (hX i hi).mono (Set.subset_univ _))
+      hμ hy hyμ))
 
 /-! ### Observations with law a member of the family -/
 

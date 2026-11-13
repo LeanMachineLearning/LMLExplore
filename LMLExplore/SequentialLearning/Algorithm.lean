@@ -1,7 +1,7 @@
 /-
-Copyright (c) 2026 Rémy Degenne. All rights reserved.
+Copyright (c) 2026 LMLExplore contributors. All rights reserved.
 Released under Apache 2.0 license as described in the file LICENSE.
-Authors: Rémy Degenne
+Authors: LMLExplore contributors
 -/
 module
 
@@ -57,6 +57,8 @@ the whole trajectory.
 * `Learning.IsAlgEnvSeq.condExp_comp_action`: the conditional expectation of a function
   `f (past, A n)` of the past (history and observation) and the action of round `n` given the past
   is the integral of `f (past, ·)` against the policy of round `n`.
+* `Learning.IsAlgEnvSeq.measurable_action_filtrationObs_of_lt`: the action of a round `m < n` is
+  measurable with respect to the past `h.filtrationObs n` of round `n`.
 * `Learning.IsAlgEnvSeq.setLIntegral_comp_feedback`: on an event of `h.filtrationAction n`, the
   expectation of `g(Y_n)` is that of `∫ g` against the conditional law of `Y_n`, for `g ≥ 0`.
 * `Learning.IsAlgEnvSeq.ae_forall_feedback_mem_bandit`: along a run against a stochastic bandit
@@ -70,6 +72,9 @@ the whole trajectory.
 * `Learning.IsAlgEnvSeq.map_obs`, `Learning.IsAlgEnvSeq.map_obs_action`: along every run, the
   observation of round `n`, and the pair of the observation and the action of round `n`, have the
   same laws as under the trajectory measure `trajMeasure alg env`.
+* `Learning.IsAlgEnvSeq.map_restrict_history_succ`: on an event of the history of the first `M`
+  rounds, the law of the history of the first `M + 1` rounds is the composition-product of the
+  restricted law of the history of the first `M` rounds with the step kernel of round `M`.
 * `Learning.stepKernel_piecewise`: the step kernel of `alg.piecewise s hs alg'` against
   `env.piecewise s hs env'` at a history in `s n` is that of `(alg, env)`, and that of
   `(alg', env')` elsewhere.
@@ -145,6 +150,14 @@ lemma IsAlgEnvSeq.measurable_obs_action (h : IsAlgEnvSeq O X Y alg env P') (n : 
     Measurable fun ω ↦ (O n ω, X n ω) :=
   (h.measurable_obs n).prodMk (h.measurable_action n)
 
+/-- Along a run of an algorithm, the action of a round `m < n` is measurable with respect to the
+past `h.filtrationObs n` of round `n`. -/
+lemma IsAlgEnvSeq.measurable_action_filtrationObs_of_lt (h : IsAlgEnvSeq O X Y alg env P')
+    {m n : ℕ} (hmn : m < n) :
+    Measurable[h.filtrationObs n] (X m) :=
+  (h.adapted_action m).mono
+    ((h.filtration_le_filtrationObs_succ m).trans (h.filtrationObs.mono hmn)) le_rfl
+
 section Feedback
 
 variable {P : Measure Ω} {O : ℕ → Ω → 𝓞} {A : ℕ → Ω → 𝓐} {Y : ℕ → Ω → 𝓨}
@@ -181,9 +194,9 @@ lemma IsAlgEnvSeq.integrable_feedback [SFinite P] [OpensMeasurableSpace 𝓨]
     (hY : ∫⁻ ω, ∫⁻ y, ‖y‖ₑ ∂(env.feedbackKernel O A Y n ω (A n ω)) ∂P ≠ ∞) :
     Integrable (Y n) P := by
   refine ⟨(h.measurable_feedback n).aestronglyMeasurable, ?_⟩
-  have h_eq := h.setLIntegral_comp_feedback (n := n) MeasurableSet.univ measurable_enorm
+  have h_eq := h.setLIntegral_comp_feedback (n := n) MeasurableSet.univ measurable_eNorm
   simp only [Measure.restrict_univ] at h_eq
-  rw [hasFiniteIntegral_iff_enorm, h_eq]
+  rw [hasFiniteIntegral_iff_eNorm, h_eq]
   exact hY.lt_top
 
 variable [NormedSpace ℝ 𝓨]
@@ -232,6 +245,21 @@ lemma IsAlgEnvSeq.map_obs_action (h : IsAlgEnvSeq O A Y alg env P) (n : ℕ) :
   simp only [Function.comp_def, trajectory, IT.obs, IT.action, Round.obs_mk, Round.action_mk]
 
 end Laws
+
+/-- On the event that the history of the first `M` rounds lies in a measurable set `s`, the law of
+the history of the first `M + 1` rounds is the composition-product of the restriction to `s` of
+the law of the history of the first `M` rounds with the step kernel of round `M`, read as a
+history of `M + 1` rounds. -/
+lemma IsAlgEnvSeq.map_restrict_history_succ {P : Measure Ω} [IsFiniteMeasure P]
+    {O : ℕ → Ω → 𝓞} {X : ℕ → Ω → 𝓐} {Y : ℕ → Ω → 𝓨} (h : IsAlgEnvSeq O X Y alg env P) {M : ℕ}
+    {s : Set (Hist 𝓞 𝓐 𝓨 M)} (hs : MeasurableSet s) :
+    (P.restrict (history O X Y M ⁻¹' s)).map (history O X Y (M + 1)) =
+      ((P.map (history O X Y M)).restrict s ⊗ₘ stepKernel alg env M).map
+        (MeasurableEquiv.finSuccProd (Round 𝓞 𝓐 𝓨) M).symm := by
+  rw [history_succ, ← Measure.map_map (MeasurableEquiv.finSuccProd _ M).symm.measurable
+      ((h.measurable_history M).prodMk (h.measurable_step M)),
+    ((h.hasCondDistrib_step M).restrict_preimage hs).map_eq,
+    Measure.restrict_map (h.measurable_history M) hs]
 
 variable {s : (n : ℕ) → Set (Hist 𝓞 𝓐 𝓨 n)} {hs : ∀ n, MeasurableSet (s n)}
   {env' : Environment 𝓞 𝓐 𝓨} {n : ℕ} {x : Hist 𝓞 𝓐 𝓨 n}

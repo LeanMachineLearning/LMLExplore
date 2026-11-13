@@ -15,6 +15,8 @@ public import LMLExplore.SequentialLearning.FiniteActions
 public import TauCeti.MeasureTheory.Measure.Decomposition.Lebesgue
 public import TauCeti.Probability.Process.EmpiricalMeasure
 
+import LMLExplore.InformationTheory.MethodOfTypes
+
 /-!
 # Time-uniform concentration of empirical distributions by the Laplace mixture
 
@@ -141,15 +143,6 @@ lemma measureReal_empiricalFiniteMeasure_singleton_eq_pullCount_div (n : ℕ) (�
   rw [measureReal_def, empiricalFiniteMeasure_apply (measurableSet_singleton a), h_sum,
     ENNReal.toReal_mul, ENNReal.toReal_inv, Fintype.card_fin, ENNReal.toReal_natCast,
     ENNReal.toReal_natCast, inv_mul_eq_div]
-
-omit [Fintype α] [DecidableEq α] [MeasurableSingletonClass α] in
-/-- The empirical distribution of a finite family `x` of points charged by `ν` is absolutely
-continuous with respect to `ν`. -/
-lemma empiricalFiniteMeasure_absolutelyContinuous {κ : Type*} [Fintype κ] {ν : Measure α}
-    {x : κ → α} (hx : ∀ i, ν {x i} ≠ 0) : (empiricalFiniteMeasure x : Measure α) ≪ ν :=
-  Measure.AbsolutelyContinuous.mk fun s hs hνs ↦ by
-    rw [empiricalFiniteMeasure_apply hs, sum_eq_zero fun i _ ↦ Set.indicator_of_notMem
-      (fun hi ↦ hx i (measure_mono_null (Set.singleton_subset_iff.2 hi) hνs)) _, mul_zero]
 
 omit [Fintype α] [DecidableEq α] in
 /-- **The divergence of an empirical distribution**: for a nonempty finite family `x` of points

@@ -1,7 +1,7 @@
 /-
-Copyright (c) 2026 Rémy Degenne. All rights reserved.
+Copyright (c) 2026 LMLExplore contributors. All rights reserved.
 Released under Apache 2.0 license as described in the file LICENSE.
-Authors: Rémy Degenne
+Authors: LMLExplore contributors
 -/
 module
 
@@ -42,6 +42,12 @@ coordinate, so the second derivative on `[a, x]` dominates its value at `a`.
 
 * `exists_mem_segment_apply_sub_sub_bregDiv_div_le_of_hasFDerivWithinAt`: the local-norm bound of
   one round through the unconstrained step [Ora, Lemma 6.32 and Lemma 7.15, second forms].
+* `apply_sub_sub_bregDiv_div_le_of_forall_mem_segment`: the same bound with a bound on the local
+  norm along the whole segment, the form the regret bounds use.
+* `ftrl_regret_succ_le_sum_inv_sub_inv_of_localNorm`: for FTRL with positive learning rates, the
+  regret after `n + 1` rounds is at most
+  `(F u - F (a 0)) / η 0 + ∑ t < n, (1 / η (t + 1) - 1 / η t) (F u - F (a (t + 1)))
+    + ∑ t < n + 1, η t / 2 * c t`, the penalty of each change of rate measured at its play.
 * `ftrl_regret_le_of_localNorm_of_antitone`: for FTRL with nonincreasing learning rates `η t`, the
   regret is at most `(F u - F (a 0)) / η (n - 1) + ∑ t < n, η t / 2 * c t`, for local norms
   `c t` of the losses along the segments from the plays to the unconstrained steps
@@ -97,6 +103,21 @@ theorem exists_mem_segment_apply_sub_sub_bregDiv_div_le_of_hasFDerivWithinAt
   rw [← hxa]
   exact hF' x hx
 
+/-- **Local-norm bound of one round through the unconstrained step**, with a bound `c` on the
+squared local norm of the loss along the whole segment `[a, x]`: under the hypotheses of
+`exists_mem_segment_apply_sub_sub_bregDiv_div_le_of_hasFDerivWithinAt`, if
+`y (x - a) ^ 2 ≤ c * F'' z (x - a) (x - a)` for every `z ∈ [a, x]`, then
+`y (a - b) - D_F(b, a) / η ≤ η / 2 * c` for every `b ∈ D`. -/
+theorem apply_sub_sub_bregDiv_div_le_of_forall_mem_segment (hF : ConvexOn ℝ D F)
+    (hUc : Convex ℝ U) (hUD : U ⊆ D) (hF' : ∀ z ∈ U, HasFDerivWithinAt F (F' z) D z)
+    (hF'' : ∀ z ∈ U, HasFDerivWithinAt F' (F'' z) U z) {η : ℝ} (hη : 0 < η) (y : E →L[ℝ] ℝ)
+    {a x : E} (ha : a ∈ U) (hx : x ∈ U) (hxa : F' x = F' a - η • y) {c : ℝ} (hc : 0 ≤ c)
+    (hcy : ∀ z ∈ segment ℝ a x, y (x - a) ^ 2 ≤ c * F'' z (x - a) (x - a)) {b : E} (hb : b ∈ D) :
+    y (a - b) - bregDiv F b a (F' a) / η ≤ η / 2 * c := by
+  obtain ⟨z, hz, h⟩ := exists_mem_segment_apply_sub_sub_bregDiv_div_le_of_hasFDerivWithinAt
+    hF hUc hUD hF' hF'' hη y ha hx hxa
+  exact h c hc (hcy z hz) b hb
+
 /-- **Regret of FTRL with local norms through the unconstrained steps** [Ora, Lemma 7.15, second
 form]. Let `K` be convex and let the potential `F` be convex on a set `D ⊇ K`, and at every point
 `z` of a convex set `U ⊆ D` let `F` have derivative `F' z` within `D` and `F'` have derivative
@@ -124,10 +145,9 @@ theorem ftrl_regret_le_of_localNorm_of_antitone (hF : ConvexOn ℝ D F) (hK : Co
   · simpa using div_nonneg (sub_nonneg.mpr (isMinOn_iff.mp ha0.isMinOn_zero u hu)) (hη 0).le
   -- each stability term, against any point of `D`, is bounded through the unconstrained step
   have h_stab (t : ℕ) (ht : t < n + 1) (b : E) (hb : b ∈ D) :
-      y t (a t - b) - bregDiv F b (a t) (F' (a t)) / η t ≤ η t / 2 * c t := by
-    obtain ⟨z, hz, h⟩ := exists_mem_segment_apply_sub_sub_bregDiv_div_le_of_hasFDerivWithinAt
-      hF hUc hUD hF' hF'' (hη t) (y t) (haU t ht) (hxU t ht) (hxa t ht)
-    exact h (c t) (hc t ht) (hcy t ht z hz) b hb
+      y t (a t - b) - bregDiv F b (a t) (F' (a t)) / η t ≤ η t / 2 * c t :=
+    apply_sub_sub_bregDiv_div_le_of_forall_mem_segment hF hUc hUD hF' hF'' (hη t) (y t)
+      (haU t ht) (hxU t ht) (hxa t ht) (hc t ht) (hcy t ht) hb
   have ha' (t : ℕ) (ht : t ≤ n) : IsFTRLPlay K F (η t) y t (a t) := ha t (Nat.lt_succ_of_le ht)
   refine (ftrl_regret_succ_le_of_antitone hK hη hη_anti y a ha' (fun t ↦ F' (a t))
     (fun t ht ↦ (hF' _ (haU t (Nat.lt_succ_of_le ht))).mono hKD) hu).trans ?_
@@ -136,6 +156,43 @@ theorem ftrl_regret_le_of_localNorm_of_antitone (hF : ConvexOn ℝ D F) (hK : Co
     (h_stab n n.lt_succ_self u (hKD hu))
   have ht := mem_range.mp ht
   exact h_stab t (ht.trans n.lt_succ_self) _ (hKD (ha' (t + 1) ht).mem)
+
+/-- **Regret of FTRL with local norms and the penalties of the changes of rate.** Let `K` be
+convex and let the potential `F` be convex on a set `D ⊇ K`, and at every point `z` of a convex set
+`U ⊆ D` let `F` have derivative `F' z` within `D` and `F'` have derivative `F'' z` within `U`. Let
+the learning rates `η t` be positive, and let each `a t`, for `t ≤ n`, be a play of FTRL on `K`
+with potential `F` and learning rate `η t` (`IsFTRLPlay`), with `a t ∈ U`. Let `x t ∈ U` be the
+unconstrained step from `a t`, with `F' (x t) = F' (a t) - η t y t`, and let `c t ≥ 0` bound the
+squared local norm of the loss along `[a t, x t]`:
+`y t (x t - a t) ^ 2 ≤ c t * F'' z (x t - a t) (x t - a t)` for every `z ∈ [a t, x t]`. Then for
+every `u ∈ K`,
+`∑ t < n + 1, y t (a t - u) ≤ (F u - F (a 0)) / η 0
+  + ∑ t < n, (1 / η (t + 1) - 1 / η t) * (F u - F (a (t + 1))) + ∑ t < n + 1, η t / 2 * c t`.
+The learning rates need not be monotone, and the penalty of each round is measured at its play. -/
+theorem ftrl_regret_succ_le_sum_inv_sub_inv_of_localNorm (hF : ConvexOn ℝ D F)
+    (hK : Convex ℝ K) (hKD : K ⊆ D) (hUc : Convex ℝ U) (hUD : U ⊆ D)
+    (hF' : ∀ z ∈ U, HasFDerivWithinAt F (F' z) D z)
+    (hF'' : ∀ z ∈ U, HasFDerivWithinAt F' (F'' z) U z)
+    {η : ℕ → ℝ} (hη : ∀ t, 0 < η t) (y : ℕ → E →L[ℝ] ℝ) (a x : ℕ → E)
+    (ha : ∀ t ≤ n, IsFTRLPlay K F (η t) y t (a t)) (haU : ∀ t ≤ n, a t ∈ U)
+    (hxU : ∀ t ≤ n, x t ∈ U) (hxa : ∀ t ≤ n, F' (x t) = F' (a t) - η t • y t) (c : ℕ → ℝ)
+    (hc : ∀ t ≤ n, 0 ≤ c t)
+    (hcy : ∀ t ≤ n, ∀ z ∈ segment ℝ (a t) (x t),
+      y t (x t - a t) ^ 2 ≤ c t * F'' z (x t - a t) (x t - a t)) (hu : u ∈ K) :
+    ∑ t ∈ range (n + 1), y t (a t - u) ≤ (F u - F (a 0)) / η 0 +
+      ∑ t ∈ range n, ((η (t + 1))⁻¹ - (η t)⁻¹) * (F u - F (a (t + 1))) +
+      ∑ t ∈ range (n + 1), η t / 2 * c t := by
+  -- each stability term, against any point of `D`, is bounded through the unconstrained step
+  have h_stab (t : ℕ) (ht : t ≤ n) (b : E) (hb : b ∈ D) :
+      y t (a t - b) - bregDiv F b (a t) (F' (a t)) / η t ≤ η t / 2 * c t :=
+    apply_sub_sub_bregDiv_div_le_of_forall_mem_segment hF hUc hUD hF' hF'' (hη t) (y t)
+      (haU t ht) (hxU t ht) (hxa t ht) (hc t ht) (hcy t ht) hb
+  refine (ftrl_regret_succ_le_sum_inv_sub_inv hK hη y a ha (fun t ↦ F' (a t))
+    (fun t ht ↦ (hF' _ (haU t ht)).mono hKD) hu).trans ?_
+  rw [sum_range_succ (fun t ↦ η t / 2 * c t), ← add_assoc]
+  refine add_le_add (add_le_add le_rfl (sum_le_sum fun t ht ↦ ?_)) (h_stab n le_rfl u (hKD hu))
+  have ht := mem_range.mp ht
+  exact h_stab t ht.le _ (hKD (ha (t + 1) ht).mem)
 
 /-- **Regret of mirror descent with local norms through the unconstrained steps**
 [Ora, Lemma 6.32, second form]. Let `K` be convex and let the potential `F` be convex on a set
@@ -167,8 +224,8 @@ theorem mirrorDescent_regret_le_of_localNorm_of_antitone (hF : ConvexOn ℝ D F)
     hu).trans (add_le_add le_rfl (sum_le_sum fun t ht ↦ ?_))
   have ht := mem_range.mp ht
   -- the stability term of round `t` is bounded through the unconstrained step from `a t`
-  obtain ⟨z, hz, h⟩ := exists_mem_segment_apply_sub_sub_bregDiv_div_le_of_hasFDerivWithinAt hF
-    hUc hUD hF' hF'' (hη t) (y t) (haU t ht.le) (hxU t ht) (hxa t ht)
-  exact h (c t) (hc t ht) (hcy t ht z hz) _ (hKD (mem_of_isMirrorDescentStep ha0K ha (t + 1) ht))
+  exact apply_sub_sub_bregDiv_div_le_of_forall_mem_segment hF hUc hUD hF' hF'' (hη t) (y t)
+    (haU t ht.le) (hxU t ht) (hxa t ht) (hc t ht) (hcy t ht)
+    (hKD (mem_of_isMirrorDescentStep ha0K ha (t + 1) ht))
 
 end LMLExplore.OnlineLearning

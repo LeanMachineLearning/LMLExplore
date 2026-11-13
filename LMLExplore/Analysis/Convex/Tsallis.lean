@@ -1,12 +1,13 @@
 /-
-Copyright (c) 2026 Rémy Degenne. All rights reserved.
+Copyright (c) 2026 LMLExplore contributors. All rights reserved.
 Released under Apache 2.0 license as described in the file LICENSE.
-Authors: Rémy Degenne
+Authors: LMLExplore contributors
 -/
 module
 
 public import LMLExplore.Analysis.Convex.Simplex
-public import Mathlib.Analysis.Real.Sqrt
+public import LMLExplore.Analysis.Real.Sqrt
+public import Mathlib.Analysis.Convex.SpecificFunctions.Pow
 public import Mathlib.MeasureTheory.Constructions.BorelSpace.Order
 public import Mathlib.Topology.Order.IntermediateValue
 
@@ -36,6 +37,9 @@ rounds before `t`, which is follow the regularized leader with the ½-Tsallis po
 * `LMLExplore.tsallisNormalizer c L`: the normalizer `λ`, the supremum of the levels
   `r < min L` with `∑ a, (c / (2 (L a - r))) ^ 2 ≤ 1`.
 * `LMLExplore.tsallisWeights c L`: the vector `a ↦ (c / (2 (L a - λ))) ^ 2`.
+* `LMLExplore.tsallisDeriv z`, `LMLExplore.tsallisDeriv2 z`: the first and second derivatives
+  `v ↦ -∑ a, v a / (2 √(z a))` and `(v, w) ↦ ∑ a, v a * w a / (4 z a √(z a))` of the ½-Tsallis
+  potential at `z`.
 
 ## Main statements
 
@@ -54,6 +58,11 @@ rounds before `t`, which is follow the regularized leader with the ½-Tsallis po
 * `tsallisNormalizer_const`, `tsallisWeights_const`: for a constant vector `r`, the normalizer is
   `r - |c| √k / 2` and the weights are uniform, with `k` the cardinality of `α`.
 * `measurable_tsallisNormalizer`, `measurable_tsallisWeights`: both are measurable in `L`.
+* `convexOn_neg_sum_sqrt`: the ½-Tsallis potential `p ↦ -∑ a, √(p a)` is convex on the
+  nonnegative orthant.
+* `hasFDerivAt_neg_sum_sqrt`, `hasFDerivAt_tsallisDeriv`: on the positive orthant, the ½-Tsallis
+  potential has derivative `tsallisDeriv z` at `z`, and `tsallisDeriv` has derivative
+  `tsallisDeriv2 z` at `z`.
 
 ## References
 
@@ -360,5 +369,74 @@ theorem measurable_tsallisWeights (hc : c ≠ 0) [Nonempty α] :
   have := measurable_tsallisNormalizer (α := α) hc
   simp_rw [tsallisWeights_apply]
   fun_prop
+
+section Potential
+
+open Real
+
+/-- The derivative `v ↦ -∑ a, v a / (2 √(z a))` of the ½-Tsallis potential `p ↦ -∑ a, √(p a)` at
+`z`, for `z` in the positive orthant (`hasFDerivAt_neg_sum_sqrt`). -/
+noncomputable def tsallisDeriv (z : α → ℝ) : (α → ℝ) →L[ℝ] ℝ :=
+  ∑ a, (-(2 * √(z a))⁻¹) • ContinuousLinearMap.proj a
+
+/-- The second derivative `(v, w) ↦ ∑ a, v a * w a / (4 z a √(z a))` of the ½-Tsallis potential
+at `z`, for `z` in the positive orthant (`hasFDerivAt_tsallisDeriv`). -/
+noncomputable def tsallisDeriv2 (z : α → ℝ) : (α → ℝ) →L[ℝ] (α → ℝ) →L[ℝ] ℝ :=
+  ∑ a, ((4 * z a * √(z a))⁻¹ • ContinuousLinearMap.proj a).smulRight
+    (ContinuousLinearMap.proj (R := ℝ) (φ := fun _ : α ↦ ℝ) a)
+
+lemma tsallisDeriv_def (z : α → ℝ) :
+    tsallisDeriv z = ∑ a, (-(2 * √(z a))⁻¹) • ContinuousLinearMap.proj a :=
+  (rfl)
+
+lemma tsallisDeriv2_def (z : α → ℝ) :
+    tsallisDeriv2 z = ∑ a, ((4 * z a * √(z a))⁻¹ • ContinuousLinearMap.proj a).smulRight
+      (ContinuousLinearMap.proj (R := ℝ) (φ := fun _ : α ↦ ℝ) a) :=
+  (rfl)
+
+@[simp]
+lemma tsallisDeriv_apply (z v : α → ℝ) :
+    tsallisDeriv z v = ∑ a, -(2 * √(z a))⁻¹ * v a := by
+  simp [tsallisDeriv_def]
+
+@[simp]
+lemma tsallisDeriv2_apply (z v w : α → ℝ) :
+    tsallisDeriv2 z v w = ∑ a, (4 * z a * √(z a))⁻¹ * v a * w a := by
+  simp [tsallisDeriv2_def, mul_assoc]
+
+/-- The ½-Tsallis potential `p ↦ -∑ a, √(p a)` is convex on the nonnegative orthant. -/
+theorem convexOn_neg_sum_sqrt :
+    ConvexOn ℝ (Set.Ici (0 : α → ℝ)) fun p ↦ -∑ a, √(p a) := by
+  refine ⟨convex_Ici 0, fun p hp q hq s t hs ht hst ↦ ?_⟩
+  simp only [smul_eq_mul, mul_neg, ← neg_add, neg_le_neg_iff, mul_sum, ← sum_add_distrib]
+  refine sum_le_sum fun a _ ↦ ?_
+  simpa using strictConcaveOn_sqrt.concaveOn.2 (Set.mem_Ici.2 (hp a))
+    (Set.mem_Ici.2 (hq a)) hs ht hst
+
+/-- On the positive orthant, the ½-Tsallis potential has derivative `tsallisDeriv z` at `z`. -/
+theorem hasFDerivAt_neg_sum_sqrt {z : α → ℝ} (hz : ∀ a, 0 < z a) :
+    HasFDerivAt (fun p : α → ℝ ↦ -∑ a, √(p a)) (tsallisDeriv z) z := by
+  have ha (a : α) : HasFDerivAt (fun p : α → ℝ ↦ √(p a))
+      ((1 / (2 * √(z a))) • ContinuousLinearMap.proj a) z :=
+    HasDerivAt.comp_hasFDerivAt (h₂ := fun y ↦ √y) (f := fun p : α → ℝ ↦ p a) z
+      (hasDerivAt_sqrt (hz a).ne') (hasFDerivAt_apply (𝕜 := ℝ) a z)
+  refine (HasFDerivAt.fun_sum (u := univ) fun a _ ↦ ha a).neg.congr_fderiv
+    (ContinuousLinearMap.ext fun v ↦ ?_)
+  simp [tsallisDeriv_apply]
+
+/-- On the positive orthant, the derivative of the ½-Tsallis potential has derivative
+`tsallisDeriv2 z` at `z`. -/
+theorem hasFDerivAt_tsallisDeriv {z : α → ℝ} (hz : ∀ a, 0 < z a) :
+    HasFDerivAt (tsallisDeriv (α := α)) (tsallisDeriv2 z) z := by
+  have ha (a : α) : HasFDerivAt (fun p : α → ℝ ↦ (-(2 * √(p a))⁻¹) •
+      ContinuousLinearMap.proj (R := ℝ) (φ := fun _ : α ↦ ℝ) a)
+      (((4 * z a * √(z a))⁻¹ • ContinuousLinearMap.proj a).smulRight
+        (ContinuousLinearMap.proj (R := ℝ) (φ := fun _ : α ↦ ℝ) a)) z :=
+    (HasDerivAt.comp_hasFDerivAt (h₂ := fun y ↦ -(2 * √y)⁻¹) (f := fun p : α → ℝ ↦ p a) z
+      (hasDerivAt_neg_inv_two_mul_sqrt (hz a)) (hasFDerivAt_apply (𝕜 := ℝ) a z)).smul_const _
+  unfold tsallisDeriv tsallisDeriv2
+  exact HasFDerivAt.fun_sum (u := univ) fun a _ ↦ ha a
+
+end Potential
 
 end LMLExplore

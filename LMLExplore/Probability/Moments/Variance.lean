@@ -1,7 +1,7 @@
 /-
-Copyright (c) 2026 Rémy Degenne. All rights reserved.
+Copyright (c) 2026 LMLExplore contributors. All rights reserved.
 Released under Apache 2.0 license as described in the file LICENSE.
-Authors: Rémy Degenne
+Authors: LMLExplore contributors
 -/
 module
 
@@ -58,7 +58,7 @@ theorem Measurable.variance_kernel {η : Kernel β δ} [IsSFiniteKernel η] {X :
     hX.stronglyMeasurable.integral_kernel.measurable
   refine ENNReal.measurable_toReal.comp (Measurable.lintegral_kernel_prod_right'
     (f := fun p : β × δ ↦ ‖X p.2 - ∫ z, X z ∂(η p.1)‖ₑ ^ 2) ?_)
-  exact ((hX.comp measurable_snd).sub (h_mean.comp measurable_fst)).enorm.pow_const 2
+  exact ((hX.comp measurable_snd).sub (h_mean.comp measurable_fst)).eNorm.pow_const 2
 
 namespace ProbabilityTheory
 

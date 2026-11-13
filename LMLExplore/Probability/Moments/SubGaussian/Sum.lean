@@ -1,7 +1,7 @@
 /-
-Copyright (c) 2026 Rémy Degenne. All rights reserved.
+Copyright (c) 2026 LMLExplore contributors. All rights reserved.
 Released under Apache 2.0 license as described in the file LICENSE.
-Authors: Rémy Degenne
+Authors: LMLExplore contributors
 -/
 module
 
@@ -232,7 +232,7 @@ private lemma sum_tailBound_le (hσ2 : σ2 ≠ 0) (hε : 0 < ε) (hc : 0 ≤ c) 
     rw [intervalIntegral.integral_of_le (Nat.cast_nonneg m)] at h_sum
     have h_mono : ∫ t in Ioc 0 (m : ℝ), tailBound σ2 ε c t ≤ ∫ t in Ioi 0, tailBound σ2 ε c t :=
       setIntegral_mono_set hint (ae_of_all _ fun t ↦ (exp_pos _).le)
-        Ioc_subset_Ioi_self.eventuallyLE
+        Ioc_subset_Ioi_self.eventuallySubset
     have h_zero := tailBound_le_one σ2 ε c 0
     push_cast at h_sum ⊢
     linarith

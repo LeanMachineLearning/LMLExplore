@@ -1,12 +1,16 @@
 /-
-Copyright (c) 2026 Rémy Degenne. All rights reserved.
+Copyright (c) 2026 LMLExplore contributors. All rights reserved.
 Released under Apache 2.0 license as described in the file LICENSE.
-Authors: Rémy Degenne
+Authors: LMLExplore contributors
 -/
 module
 
 public import LMLExplore.Algebra.BigOperators.Intervals
+public import Mathlib.Analysis.Calculus.Deriv.Add
+public import Mathlib.Analysis.Calculus.Deriv.Inv
+public import Mathlib.Analysis.Calculus.Deriv.Mul
 public import Mathlib.Analysis.Real.Sqrt
+public import Mathlib.Analysis.SpecialFunctions.Sqrt
 
 /-!
 # Square roots of quotients, increments of the square root and sums of inverse square roots
@@ -24,6 +28,11 @@ public import Mathlib.Analysis.Real.Sqrt
   `Real.sqrt_add_one_sub_sqrt_le_one_div_two_mul_sqrt`: the increments of the square root satisfy
   `1 / (2 √(x + 1)) ≤ √(x + 1) - √x ≤ 1 / (2 √x)`. They compare sums `∑_{s < n} 1 / (2 √s)` with
   `√n`, as for the exploration rates of C-tracking.
+* `Real.sqrt_add_one_sub_sqrt_le_one_div_sqrt_add_one`: `√(x + 1) - √x ≤ 1 / √(x + 1)` for
+  `x ≥ 0`, an upper bound on the increments that also holds at `x = 0`. It bounds the increments
+  `√(t + 2) - √(t + 1)` of the Tsallis-INF learning rates by `1 / √(t + 2)`.
+* `Real.hasDerivAt_neg_inv_two_mul_sqrt`: `x ↦ -(2 √x)⁻¹`, the derivative of `x ↦ -√x`, has
+  derivative `(4 x √x)⁻¹` at `x > 0`. It gives the second derivative of the ½-Tsallis potential.
 * `Real.tendsto_one_add_sqrt_div_atTop`: `(1 + √x) / x → 0` as `x → ∞`, so that a tracking error
   of order `1 + √n` after `n` rounds, as for C-tracking, is `o(n)`.
 * `Real.sum_range_inv_sqrt_add_one_le`: `∑_{j < n} 1 / √(j + 1) ≤ 2 √n`.
@@ -105,6 +114,29 @@ theorem sqrt_add_one_sub_sqrt_le_one_div_two_mul_sqrt {x : ℝ} (hx : 0 < x) :
   have hab := sqrt_mul_sqrt_add_one_le hx.le
   rw [le_div_iff₀ (by positivity)]
   nlinarith
+
+/-- An upper bound on the increments of the square root that also holds at `0`:
+`√(x + 1) - √x ≤ 1 / √(x + 1)` for `x ≥ 0`. -/
+theorem sqrt_add_one_sub_sqrt_le_one_div_sqrt_add_one {x : ℝ} (hx : 0 ≤ x) :
+    √(x + 1) - √x ≤ 1 / √(x + 1) := by
+  have ha := sq_sqrt (show 0 ≤ x + 1 by linarith)
+  have hb := sq_sqrt hx
+  have ha0 : 0 < √(x + 1) := sqrt_pos.2 (by linarith)
+  have hab : √x ≤ √(x + 1) := sqrt_le_sqrt (by linarith)
+  rw [le_div_iff₀ ha0]
+  nlinarith [mul_le_mul_of_nonneg_left hab (sqrt_nonneg x)]
+
+/-- `x ↦ -(2 √x)⁻¹` has derivative `(4 x √x)⁻¹` at `x > 0`. -/
+theorem hasDerivAt_neg_inv_two_mul_sqrt {x : ℝ} (hx : 0 < x) :
+    HasDerivAt (fun y ↦ -(2 * √y)⁻¹) (4 * x * √x)⁻¹ x := by
+  have hs : 0 < √x := sqrt_pos.2 hx
+  have h1 : HasDerivAt (fun y ↦ 2 * √y) (2 * (1 / (2 * √x))) x :=
+    HasDerivAt.const_mul 2 (hasDerivAt_sqrt hx.ne')
+  have h := HasDerivAt.neg (HasDerivAt.inv h1 (by positivity))
+  convert h using 1
+  rw [mul_pow, sq_sqrt hx.le]
+  field_simp
+  ring
 
 /-- `(1 + √x) / x → 0` as `x → ∞`. -/
 theorem tendsto_one_add_sqrt_div_atTop : Tendsto (fun x : ℝ ↦ (1 + √x) / x) atTop (𝓝 0) := by

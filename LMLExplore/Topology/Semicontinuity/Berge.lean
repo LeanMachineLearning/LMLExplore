@@ -1,7 +1,7 @@
 /-
-Copyright (c) 2026 Rémy Degenne. All rights reserved.
+Copyright (c) 2026 LMLExplore contributors. All rights reserved.
 Released under Apache 2.0 license as described in the file LICENSE.
-Authors: Rémy Degenne
+Authors: LMLExplore contributors
 -/
 module
 
@@ -32,8 +32,8 @@ restriction of a correspondence to a subset of its domain:
 The continuity statements are the analogues for a varying compact set of Mathlib's
 `IsCompact.continuous_sSup` and `IsCompact.continuous_sInf`, which treat a fixed compact set and
 a conditionally complete order. For the constant correspondence on a compact space, the lower
-semicontinuity of infima is Tau Ceti's `TauCeti.lowerSemicontinuous_iInf_of_compactSpace`. The
-order `β` carries no topology except in the continuity statements.
+semicontinuity of infima is Tau Ceti's `LowerSemicontinuous.iInf_of_compactSpace`. The order
+`β` carries no topology except in the continuity statements.
 
 In bandit identification, these statements give the continuity in the model of the value of the
 pure exploration game and the upper hemicontinuity of its optimal allocations [DK19, Appendix F].
