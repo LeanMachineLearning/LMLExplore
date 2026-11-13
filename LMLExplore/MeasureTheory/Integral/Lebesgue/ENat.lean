@@ -5,24 +5,26 @@ Authors: LMLExplore contributors
 -/
 module
 
-public import Mathlib.MeasureTheory.Integral.Lebesgue.Countable
 public import Mathlib.MeasureTheory.Measure.Typeclasses.Probability
 public import Mathlib.Topology.Algebra.InfiniteSum.NatInt
-public import LMLExplore.Topology.Algebra.InfiniteSum.NatInt
+public import TauCeti.MeasureTheory.Integral.Lebesgue.Encard
 
 /-!
 # Lebesgue integral of an `ℕ∞`-valued function
 
 The expectation of a random variable `f` with values in `ℕ∞`, such as a random time, is the sum of
-its tail probabilities: `∫⁻ f ∂μ = ∑ n, μ {n < f}` (the discrete layer cake formula). As a
-consequence, a random time that is at most `T` on an event `E T` for every `T ≥ T₀` has
-expectation at most `T₀ + ∑_{T ≥ T₀} μ (E T)ᶜ` under a probability measure. This is the form in
-which upper bounds on the expected stopping time of sequential algorithms are proved: the events
-`E T` are good events of the first `T` rounds on which the algorithm must have stopped.
+its tail probabilities: `∫⁻ f ∂μ = ∑ n, μ {n < f}` (the discrete layer cake formula). Tau Ceti
+proves it for measurable `f` (`MeasureTheory.lintegral_enat_eq_tsum`); here it is extended to
+a.e.-measurable `f`. As a consequence, a random time that is at most `T` on an event `E T` for
+every `T ≥ T₀` has expectation at most `T₀ + ∑_{T ≥ T₀} μ (E T)ᶜ` under a probability measure.
+This is the form in which upper bounds on the expected stopping time of sequential algorithms are
+proved: the events `E T` are good events of the first `T` rounds on which the algorithm must have
+stopped.
 
 ## Main statements
 
-* `MeasureTheory.lintegral_toENNReal_eq_tsum_measure_lt`: `∫⁻ f ∂μ = ∑' n, μ {n < f}`.
+* `MeasureTheory.lintegral_toENNReal_eq_tsum_measure_lt`: `∫⁻ f ∂μ = ∑' n, μ {n < f}` for
+  a.e.-measurable `f`.
 * `MeasureTheory.lintegral_toENNReal_le_add_tsum_measure_compl`: if `f ≤ T` on `E T` for every
   `T ≥ T₀`, then `∫⁻ f ∂μ ≤ T₀ + ∑' T, μ (E (T + T₀))ᶜ`.
 -/
@@ -35,26 +37,15 @@ namespace MeasureTheory
 
 variable {Ω : Type*} {mΩ : MeasurableSpace Ω} {μ : Measure Ω} {f : Ω → ℕ∞}
 
-/-- **Tail-sum formula** (discrete layer cake formula): the integral of a function with values in
-`ℕ∞` is the sum of the measures of the sets where it exceeds each natural number. -/
+/-- **Tail-sum formula** (discrete layer cake formula): the integral of an a.e.-measurable
+function with values in `ℕ∞` is the sum of the measures of the sets where it exceeds each natural
+number. This extends Tau Ceti's `lintegral_enat_eq_tsum`, which asks for measurable superlevel
+sets. -/
 lemma lintegral_toENNReal_eq_tsum_measure_lt (hf : AEMeasurable f μ) :
     ∫⁻ ω, (f ω : ℝ≥0∞) ∂μ = ∑' n : ℕ, μ {ω | (n : ℕ∞) < f ω} := by
-  have h_meas (n : ℕ) : NullMeasurableSet {ω | (n : ℕ∞) < f ω} μ :=
-    hf.nullMeasurableSet_preimage (s := Set.Ioi (n : ℕ∞)) .of_discrete
-  -- Pointwise, `f ω` is the number of natural numbers below it.
-  have h_card (k : ℕ∞) : (k : ℝ≥0∞) = ∑' n : ℕ, {n : ℕ | (n : ℕ∞) < k}.indicator 1 n := by
-    induction k using ENat.recTopCoe with
-    | top => simp
-    | coe k =>
-      exact ((LMLExplore.tsum_indicator_natCast_lt_eq_sum_range (ENat.natCast_ne_top k) 1).trans
-        (by simp)).symm
-  calc ∫⁻ ω, (f ω : ℝ≥0∞) ∂μ
-  _ = ∫⁻ ω, ∑' n : ℕ, {ω | (n : ℕ∞) < f ω}.indicator 1 ω ∂μ :=
-    lintegral_congr fun ω ↦ by simp [h_card (f ω), Set.indicator_apply]
-  _ = ∑' n : ℕ, μ {ω | (n : ℕ∞) < f ω} := by
-    rw [lintegral_tsum (f := fun (n : ℕ) ↦ {ω | (n : ℕ∞) < f ω}.indicator 1)
-      fun n ↦ aemeasurable_one.indicator₀ (h_meas n)]
-    exact tsum_congr fun n ↦ lintegral_indicator_one₀ (h_meas n)
+  rw [lintegral_congr_ae (hf.ae_eq_mk.mono fun ω hω ↦ by rw [hω]),
+    lintegral_enat_eq_tsum μ fun n ↦ hf.measurable_mk (.of_discrete (s := Set.Ioi (n : ℕ∞)))]
+  exact tsum_congr fun n ↦ measure_congr (hf.ae_eq_mk.preimage (Set.Ioi (n : ℕ∞))).symm
 
 /-- If a function with values in `ℕ∞` is at most `T` on a set `E T` for every `T ≥ T₀`, then its
 integral under a probability measure is at most `T₀ + ∑_{T ≥ T₀} μ (E T)ᶜ`. For a random time,

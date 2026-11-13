@@ -8,6 +8,7 @@ module
 public import LMLExplore.Analysis.Convex.Bregman.Euclidean
 public import LMLExplore.Analysis.Convex.Bregman.Projection
 public import LMLExplore.Analysis.Convex.Bregman.StrongConvex
+public import LMLExplore.Analysis.Convex.Strong
 public import LMLExplore.OnlineLearning.FTRL.Equality
 public import Mathlib.Topology.Order.Compact
 
@@ -83,6 +84,8 @@ The regret analysis of FTRL rests on the FTRL equality of
   changes over the rounds.
 * `exists_ftrl`: on a nonempty compact set, FTRL with a potential continuous on that set has
   plays.
+* `exists_ftrl_of_strongConvexOn`: in finite dimension, on a nonempty closed set that need not be
+  bounded, FTRL with a lower semicontinuous strongly convex potential has plays.
 * `ftrl_regret_le_sqrt_of_closedBall`: [LS, Proposition 28.6] for FTRL. On the closed unit ball
   of a real inner product space, with the potential `‖b‖ ^ 2 / 2` and the learning rate `1 / √n`,
   the regret after `n` rounds against every point of the ball is at most `√n` for the losses
@@ -508,6 +511,24 @@ theorem exists_ftrl {F : E → ℝ} (hK : IsCompact K) (hK_ne : K.Nonempty) (hF 
   have h_cont (t : ℕ) : ContinuousOn (fun b ↦ η * ∑ s ∈ range t, y s b + F b) K :=
     (by fun_prop : Continuous fun b ↦ η * ∑ s ∈ range t, y s b).continuousOn.add hF
   choose a ha using fun t ↦ hK.exists_isMinOn hK_ne (h_cont t)
+  exact ⟨a, fun t ↦ ⟨(ha t).1, (ha t).2⟩⟩
+
+/-- **Existence of FTRL plays for a strongly convex potential.** In finite dimension, on a nonempty
+closed set `K`, with a potential `F` that is `m`-strongly convex for some `m > 0` and lower
+semicontinuous on `K`, there is a sequence `a` such that each `a t` is a play of FTRL on `K` at
+round `t`, with potential `F`, learning rate `η` and losses `y`. Unlike `exists_ftrl`, `K` need not
+be bounded. -/
+theorem exists_ftrl_of_strongConvexOn [FiniteDimensional ℝ E] {F : E → ℝ} {m : ℝ}
+    (hK : IsClosed K) (hK_ne : K.Nonempty) (hF : StrongConvexOn K m F) (hm : 0 < m)
+    (hF_lsc : LowerSemicontinuousOn F K) (η : ℝ) (y : ℕ → E →L[ℝ] ℝ) :
+    ∃ a : ℕ → E, ∀ t, IsFTRLPlay K F η y t (a t) := by
+  have h (t : ℕ) : ∃ x ∈ K, IsMinOn (fun b ↦ η * ∑ s ∈ range t, y s b + F b) K x := by
+    -- The objective is `F` plus the continuous linear map `η ∑ s < t, y s`.
+    have hL : (fun b ↦ η * ∑ s ∈ range t, y s b + F b) = F + ⇑(η • ∑ s ∈ range t, y s) := by
+      ext b
+      simp [add_comm]
+    exact hL ▸ hF.exists_isMinOn_add_continuousLinearMap hm hK hK_ne hF_lsc _
+  choose a ha using h
   exact ⟨a, fun t ↦ ⟨(ha t).1, (ha t).2⟩⟩
 
 end NormedSpace

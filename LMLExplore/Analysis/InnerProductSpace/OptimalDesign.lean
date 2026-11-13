@@ -5,7 +5,6 @@ Authors: LMLExplore contributors
 -/
 module
 
-public import LMLExplore.Analysis.Convex.Caratheodory
 public import LMLExplore.Analysis.InnerProductSpace.MoorePenrose
 public import LMLExplore.Analysis.InnerProductSpace.Positive
 public import LMLExplore.Analysis.InnerProductSpace.RankOne
@@ -17,6 +16,7 @@ public import Mathlib.Analysis.Calculus.Deriv.Pow
 public import Mathlib.Analysis.Calculus.Deriv.Slope
 public import Mathlib.Analysis.InnerProductSpace.Trace
 public import Mathlib.Geometry.Convex.ConvexSpace.Barycenter
+public import TauCeti.Analysis.Convex.Caratheodory
 public import TauCeti.Analysis.InnerProductSpace.Spectrum
 
 /-!
@@ -511,7 +511,7 @@ theorem exists_design_inner_ringInverse_le_finrank {𝒜 : Set E} (h𝒜 : IsCom
       ∀ a ∈ 𝒜, ⟪a, Ring.inverse (designOperator w) a⟫_ℝ ≤ finrank ℝ E := by
   -- a maximizer of the determinant on the compact convex hull of the `a ⊗ a`
   have hC : IsCompact (convexHull ℝ ((fun a : E ↦ rankOne ℝ a a) '' 𝒜)) :=
-    (h𝒜.image ((rankOne ℝ).continuous.clm_apply continuous_id)).convexHull ℝ
+    (h𝒜.image ((rankOne ℝ).continuous.clm_apply continuous_id)).convexHull
   obtain ⟨a₀, ha₀⟩ := hne
   obtain ⟨V, hV, hmax⟩ := hC.exists_isMaxOn
     ⟨_, subset_convexHull ℝ _ (Set.mem_image_of_mem _ ha₀)⟩ continuous_det.continuousOn

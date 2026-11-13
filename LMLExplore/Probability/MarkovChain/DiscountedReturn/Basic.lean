@@ -135,7 +135,7 @@ theorem variance_discountedReturn_markovChainKernel_eq_mul_variance_comp (hγ : 
   have hG := measurable_discountedReturn hγ hf hfC
   -- Started at `x`, the chain has `x` as its first state.
   have h_eval : (κ.markovChainKernel x).map (fun ω ↦ ω 0) = Measure.dirac x := by
-    rw [← map_apply _ (measurable_pi_apply 0), markovChainKernel_map_eval, pow_zero, one_eq_id,
+    rw [← map_apply _ (measurable_pi_apply 0), markovChainKernel_map_eval, pow_zero, one_def,
       id_apply]
   have h_zero : ∀ᵐ ω ∂(κ.markovChainKernel x), f (ω 0) = f x := by
     have hs : MeasurableSet {y | f y = f x} := measurableSet_eq_fun hf measurable_const

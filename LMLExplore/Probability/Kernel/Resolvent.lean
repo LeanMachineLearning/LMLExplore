@@ -188,7 +188,7 @@ theorem measurable_integral_resolvent {f : α → ℝ} (hf : Measurable f) :
 lemma resolvent_zero (κ : Kernel α α) : resolvent 0 κ = Kernel.id := by
   ext x s hs
   rw [resolvent_apply' _ _ _ hs, tsum_eq_single 0 fun n hn ↦ by simp [hn]]
-  simp [one_eq_id]
+  simp [one_def]
 
 /-- The measure `resolvent γ κ x` dominates the Dirac mass at `x`. -/
 lemma dirac_le_resolvent (γ : ℝ≥0) (κ : Kernel α α) (x : α) :
@@ -196,7 +196,7 @@ lemma dirac_le_resolvent (γ : ℝ≥0) (κ : Kernel α α) (x : α) :
   refine Measure.le_iff.2 fun s hs ↦ ?_
   rw [resolvent_apply' _ _ _ hs]
   refine le_trans ?_ (le_tsum _ 0)
-  simp [one_eq_id, Kernel.id_apply]
+  simp [one_def, Kernel.id_apply]
 
 /-! ### The resolvent identities -/
 
@@ -212,7 +212,7 @@ theorem dirac_add_resolvent_comp_apply (γ : ℝ≥0) (κ : Kernel α α) (x : �
   simp_rw [resolvent_apply' _ _ _ hs]
   rw [lintegral_tsum fun n ↦ (h n).aemeasurable, ← ENNReal.tsum_mul_left]
   congr 1
-  · simp [one_eq_id, Kernel.id_apply]
+  · simp [one_def, Kernel.id_apply]
   · refine tsum_congr fun n ↦ ?_
     rw [lintegral_const_mul _ ((κ ^ n).measurable_coe hs), pow_succ, pow_succ, mul_eq_comp,
       comp_apply' _ _ _ hs]
@@ -227,7 +227,7 @@ theorem dirac_add_comp_resolvent_apply (γ : ℝ≥0) (κ : Kernel α α) (x : �
     lintegral_resolvent, resolvent_apply' _ _ _ hs, ← ENNReal.tsum_mul_left]
   conv_rhs => rw [tsum_eq_zero_add' CompleteLattice.summable]
   congr 1
-  · simp [one_eq_id, Kernel.id_apply]
+  · simp [one_def, Kernel.id_apply]
   · refine tsum_congr fun n ↦ ?_
     rw [pow_succ_apply_eq_lintegral _ _ _ hs, pow_succ]
     ring
@@ -589,7 +589,7 @@ theorem eq_sum_range_add_of_eq_add {c : ℝ≥0∞} (h : ν = μ + c • (κ ∘
     ν = (∑ k ∈ Finset.range n, c ^ k • ((κ ^ k : Kernel α α) ∘ₘ μ)) +
       c ^ n • ((κ ^ n : Kernel α α) ∘ₘ ν) := by
   induction n with
-  | zero => simp [one_eq_id, id_comp]
+  | zero => simp [one_def, id_comp]
   | succ n ih =>
     conv_lhs => rw [ih, h]
     simp [comp_add, comp_smul, comp_assoc, ← mul_eq_comp, ← pow_succ, smul_smul,

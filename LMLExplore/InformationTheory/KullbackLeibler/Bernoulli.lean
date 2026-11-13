@@ -103,6 +103,11 @@ smallest `q ∈ [0, p]` with `d(p, q) ≤ c`; together they are the confidence b
   `LMLExplore.ofReal_mul_neg_log_le_klBer_add_log_two`: the bound
   `p log (1 / q) ≤ d(p, q) + log 2`, by which the change of measure bounds the probability of an
   event that is likely under one law and unlikely under the other.
+* `LMLExplore.mul_klFun_div_le_klBerReal`: the bound `q klFun (p / q) ≤ d(p, q)` for `p ≤ 1`,
+  `q ≠ 0` and `q < 1`, of the order of `q` when `p / q` stays away from `1`
+  [D23, proof of Theorem 10].
+* `LMLExplore.klBer_ne_zero_of_klBer_eq`: if `d(z, a) = d(z, b)` for distinct `a, b ∈ [0, 1]`,
+  then `d(z, a) ≠ 0`.
 * `LMLExplore.le_klUpper_iff`: for `q ∈ [p, 1]`, `q ≤ U(p, c)` if and only if `d(p, q) ≤ c`;
   `LMLExplore.klUpper_mem_Icc` and `LMLExplore.klBer_klUpper_le` say that the maximum is attained.
 * `LMLExplore.le_klUpper_iff_of_le_one`: for `p ≤ 1` and every real `r`, `r ≤ U(p, c)` if and only
@@ -129,6 +134,11 @@ smallest `q ∈ [0, p]` with `d(p, q) ≤ c`; together they are the confidence b
   `d(μ s, ν s) ≤ KL(μ ‖ ν)` and `d(∫ x ∂μ, ∫ x ∂ν) ≤ KL(μ ‖ ν)` (their fundamental inequality).
 * E. Kaufmann, O. Cappé and A. Garivier, *On the complexity of best-arm identification in
   multi-armed bandit models*, JMLR 17 (2016), for the bound `d(δ, 1 - δ) ≥ log (1 / (2.4 δ))`.
+* [D23] R. Degenne, *On the existence of a complexity in fixed budget bandit identification*,
+  COLT 2023, arXiv:2303.09468v2, proof of Theorem 10, for the bound `q klFun (p / q) ≤ d(p, q)`.
+  `LMLExplore.mul_klFun_div_le_klBerReal` and `LMLExplore.klBer_ne_zero_of_klBer_eq` are adapted
+  from the formalization Degenne2023Existence (`github.com/RemyDegenne/Degenne2023Existence`, file
+  `Degenne2023Existence/ForLMLExplore/InformationTheory/KullbackLeibler/Bernoulli.lean`).
 * The derivative, monotonicity and quasi-convexity proofs are adapted from the formalization in
   the LMLPapers project
   (`LMLPapers/LeanMachineLearning/ForMathlib/InformationTheory/KullbackLeibler/Bernoulli.lean`).
@@ -389,6 +399,17 @@ theorem klBer_one_sub_mul_add_div_two_le {t : ℝ} (hp : p ∈ Set.Icc 0 1) (ht 
 theorem klBer_projIcc (p q : ℝ) :
     klBer (Set.projIcc 0 1 zero_le_one p) (Set.projIcc 0 1 zero_le_one q) = klBer p q := by
   simp only [klBer_def, Set.projIcc_val]
+
+/-- If the binary relative entropies `d(z, a)` and `d(z, b)` to two distinct points
+`a, b ∈ [0, 1]` are equal, they do not vanish: `d(z, ·)` vanishes on `[0, 1]` only at the clamp
+of `z` to `[0, 1]`. -/
+theorem klBer_ne_zero_of_klBer_eq {z a b : ℝ} (ha : a ∈ Set.Icc 0 1) (hb : b ∈ Set.Icc 0 1)
+    (hab : a ≠ b) (h : klBer z a = klBer z b) : klBer z a ≠ 0 := by
+  have key {c : ℝ} (hc : c ∈ Set.Icc 0 1) (h0 : klBer z c = 0) :
+      (Set.projIcc 0 1 zero_le_one z : ℝ) = c := by
+    rw [← klBer_projIcc, Set.projIcc_of_mem zero_le_one hc] at h0
+    exact (klBer_eq_zero_iff (Set.projIcc 0 1 zero_le_one z).2 hc).1 h0
+  exact fun h0 ↦ hab ((key ha h0).symm.trans (key hb (h ▸ h0)))
 
 /-- The binary relative entropy is invariant under exchanging the roles of the two outcomes:
 `d(1 - p, 1 - q) = d(p, q)`. -/
@@ -1007,6 +1028,31 @@ theorem ofReal_mul_neg_log_le_klBer_add_log_two (hp : p ∈ Set.Icc 0 1) (hq : q
     ← ENNReal.ofReal_mul hp.1, klBer_eq_ofReal_klBerReal hp hq (klBer_ne_top ⟨hq0, hq1⟩)]
   exact (ENNReal.ofReal_le_ofReal (mul_neg_log_le_klBerReal_add_log_two hp ⟨hq0, hq1⟩)).trans
     ENNReal.ofReal_add_le
+
+/-- **Lower bound on the binary relative entropy by `klFun`**: for `p ≤ 1`, `q ≠ 0` and `q < 1`,
+`q klFun (p / q) ≤ d(p, q)`, with `klFun x = x log x + 1 - x`. For `p, q ∈ (0, 1)` with `p / q`
+bounded away from `1`, the bound is of the order of `q`, where Pinsker's inequality only gives the
+order `q²`. -/
+theorem mul_klFun_div_le_klBerReal (hp : p ≤ 1) (hq0 : q ≠ 0) (hq1 : q < 1) :
+    q * klFun (p / q) ≤ klBerReal p q := by
+  -- The first term of `d(p, q)` is `q (p / q) log (p / q)`, and the second,
+  -- `(1 - p) log ((1 - p) / (1 - q))`, is at least `q - p` since `log x ≥ 1 - 1 / x`.
+  have h4 : q - p ≤ (1 - p) * log ((1 - p) / (1 - q)) := by
+    rcases hp.eq_or_lt with rfl | hp
+    · simp only [sub_self, zero_mul]
+      linarith
+    have h1 : 0 < 1 - p := sub_pos.2 hp
+    have h2 : 0 < 1 - q := sub_pos.2 hq1
+    have h3 : (1 - p) * (1 - ((1 - p) / (1 - q))⁻¹) = q - p := by
+      field_simp
+      ring
+    rw [← h3]
+    exact mul_le_mul_of_nonneg_left (one_sub_inv_le_log_of_pos (div_pos h1 h2)) h1.le
+  have h5 : q * (p / q * log (p / q) + 1 - p / q) = p * log (p / q) + (q - p) := by
+    field_simp
+    ring
+  rw [klBerReal_def, klFun_apply, h5]
+  linarith
 
 /-! ### The upper confidence level -/
 

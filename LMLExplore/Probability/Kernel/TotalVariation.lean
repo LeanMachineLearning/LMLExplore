@@ -30,8 +30,6 @@ a Markov decision process.
 
 ## Main statements
 
-* `MeasureTheory.Measure.measureReal_bind_eq_integral`: the mass of an event under `κ ∘ₘ μ`, as
-  an integral against `μ`;
 * `MeasureTheory.tvDist_compProd_left_le`: `tvDist (μ ⊗ₘ κ) (ν ⊗ₘ κ) ≤ tvDist μ ν` for a Markov
   kernel `κ` and s-finite measures `μ` and `ν`;
 * `MeasureTheory.tvDist_compProd_right_le`: `tvDist (μ ⊗ₘ κ) (μ ⊗ₘ η) ≤ μ.real univ * ε` for
@@ -55,15 +53,6 @@ open scoped ENNReal
 namespace MeasureTheory
 
 variable {α β : Type*} {mα : MeasurableSpace α} {mβ : MeasurableSpace β} {μ ν : Measure α}
-
-/-- The mass of an event `s` under the composition of a measure `μ` with a finite kernel `κ`,
-as the integral of `x ↦ κ x s`. -/
-theorem Measure.measureReal_bind_eq_integral (κ : Kernel α β) [IsFiniteKernel κ] {s : Set β}
-    (hs : MeasurableSet s) :
-    (κ ∘ₘ μ).real s = ∫ x, (κ x).real s ∂μ := by
-  simp only [measureReal_def]
-  rw [Measure.bind_apply hs κ.aemeasurable,
-    integral_toReal (κ.measurable_coe hs).aemeasurable (ae_of_all _ fun _ ↦ measure_lt_top _ _)]
 
 /-- Composition-products with a common Markov kernel `κ` do not increase the total variation
 distance between s-finite measures `μ` and `ν`. -/
