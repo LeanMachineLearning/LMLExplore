@@ -44,7 +44,8 @@ where the closed form of the divergence makes the transportation costs explicit.
 * `MeasureTheory.Measure.expFamily_expFamily`: tilting `ρ_η` by `fun x ↦ t * T x` gives
   `ρ_(η + t)`.
 * `MeasureTheory.Measure.cgf_expFamily`: the cumulant generating function of `T` under `ρ_η` is
-  `t ↦ ψ(η + t) - ψ(η)`.
+  `t ↦ ψ(η + t) - ψ(η)`; `MeasureTheory.Measure.mgf_expFamily_le_exp_cgf_sub`: its moment
+  generating function is at most `t ↦ exp (ψ(η + t) - ψ(η))`, without integrability assumptions.
 * `ProbabilityTheory.HasLaw.cgf_expFamily`,
   `ProbabilityTheory.iIndepFun.cgf_sum_of_hasLaw_expFamily`: the cumulant generating function of
   `T (Y)` for a random variable `Y` with law `ρ_η` is `t ↦ ψ(η + t) - ψ(η)`, and that of
@@ -61,7 +62,9 @@ where the closed form of the divergence makes the transportation costs explicit.
   the natural parameters of `ρ` shifted by `-η`, and the mean map `t ↦ ψ'(η + t)`.
 * `MeasureTheory.Measure.llr_expFamily`: the log-likelihood ratio of `ρ_η` with respect to `ρ_η'`
   is `x ↦ (η - η') T(x) + ψ(η') - ψ(η)`, `ρ_η`-almost everywhere.
-* `MeasureTheory.Measure.klDiv_expFamily`: `KL(ρ_η, ρ_η') = ψ(η') - ψ(η) - ψ'(η) (η' - η)`.
+* `MeasureTheory.Measure.klDiv_expFamily`: `KL(ρ_η, ρ_η') = ψ(η') - ψ(η) - ψ'(η) (η' - η)`;
+  `MeasureTheory.Measure.cgf_add_deriv_cgf_mul_sub_le_cgf`: hence `ψ` lies above its tangent
+  lines at the natural parameters of the interior.
 -/
 
 public section
@@ -132,6 +135,19 @@ lemma expFamily_expFamily (hη : η ∈ integrableExpSet T ρ) (t : ℝ) :
 /-- The moment generating function of `T` under `ρ_η` is `t ↦ mgf T ρ (η + t) / mgf T ρ η`. -/
 lemma mgf_expFamily : mgf T (ρ.expFamily T η) t = mgf T ρ (η + t) / mgf T ρ η :=
   mgf_tilted_mul
+
+/-- The moment generating function of `T` under `ρ_η` is at most `exp (ψ(η + t) - ψ(η))`, with
+equality when both moment generating functions are positive (`cgf_expFamily`). -/
+lemma mgf_expFamily_le_exp_cgf_sub :
+    mgf T (ρ.expFamily T η) t ≤ exp (cgf T ρ (η + t) - cgf T ρ η) := by
+  rw [mgf_expFamily, exp_sub, cgf, cgf]
+  rcases (mgf_nonneg (X := T) (μ := ρ) (t := η)).eq_or_lt with h | h
+  · rw [← h, div_zero]
+    positivity
+  rcases (mgf_nonneg (X := T) (μ := ρ) (t := η + t)).eq_or_lt with h' | h'
+  · rw [← h', zero_div]
+    positivity
+  rw [exp_log h, exp_log h']
 
 /-- The cumulant generating function of `T` under `ρ_η` is `t ↦ ψ(η + t) - ψ(η)`. -/
 lemma cgf_expFamily (hη : η ∈ integrableExpSet T ρ) (hηt : η + t ∈ integrableExpSet T ρ) :
@@ -256,6 +272,14 @@ theorem klDiv_expFamily (hη : η ∈ interior (integrableExpSet T ρ))
   rw [← toReal_klDiv_expFamily hη hη', ENNReal.ofReal_toReal]
   exact klDiv_ne_top (expFamily_absolutelyContinuous_expFamily η hη')
     (integrable_llr_expFamily hη hη')
+
+/-- The log-partition function lies above its tangent lines at the natural parameters of the
+interior: `ψ(η) + ψ'(η) (η' - η) ≤ ψ(η')`, since the divergence `KL(ρ_η, ρ_η')` is nonnegative. -/
+lemma cgf_add_deriv_cgf_mul_sub_le_cgf (hη : η ∈ interior (integrableExpSet T ρ))
+    (hη' : η' ∈ integrableExpSet T ρ) :
+    cgf T ρ η + deriv (cgf T ρ) η * (η' - η) ≤ cgf T ρ η' := by
+  have h := toReal_klDiv_expFamily hη hη'
+  linarith [ENNReal.toReal_nonneg.trans_eq h]
 
 end MeasureTheory.Measure
 

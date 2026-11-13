@@ -498,9 +498,8 @@ theorem klDiv_expFamily_natParam (hμ : μ ∈ ρ.expFamilyMeans T)
 lemma cgf_natParam_add_mul_sub_le_cgf (hμ : μ ∈ ρ.expFamilyMeans T)
     (hη : η ∈ integrableExpSet T ρ) :
     cgf T ρ (ρ.natParam T μ) + μ * (η - ρ.natParam T μ) ≤ cgf T ρ η := by
-  have h := toReal_klDiv_expFamily (natParam_mem_interior_integrableExpSet hμ) hη
-  rw [deriv_cgf_natParam hμ] at h
-  linarith [ENNReal.toReal_nonneg.trans_eq h]
+  have h := cgf_add_deriv_cgf_mul_sub_le_cgf (natParam_mem_interior_integrableExpSet hμ) hη
+  rwa [deriv_cgf_natParam hμ] at h
 
 lemma expFamilyDiv_nonneg (hμ : μ ∈ ρ.expFamilyMeans T) (hμ' : μ' ∈ ρ.expFamilyMeans T) :
     0 ≤ ρ.expFamilyDiv T μ μ' := by
