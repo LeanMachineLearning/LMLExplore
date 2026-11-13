@@ -9,12 +9,14 @@ public import Mathlib.Analysis.Convex.Integral
 public import Mathlib.Analysis.Convex.SpecificFunctions.Pow
 
 /-!
-# The mean of a measure concentrated on an interval, and Jensen's inequality for the square root
+# The mean of a function with values in an interval, and Jensen's inequality for the square root
 
 ## Main statements
 
+* `MeasureTheory.integral_mem_Icc_of_ae_mem_Icc`: the mean of a function with values in `[l, u]`
+  almost everywhere under a probability measure lies in `[l, u]`, by `Convex.integral_mem`.
 * `MeasureTheory.integral_id_mem_Icc_of_ae_mem_Icc`: the mean of a probability measure on `ℝ`
-  concentrated on `[l, u]` lies in `[l, u]`, by `Convex.integral_mem`.
+  concentrated on `[l, u]` lies in `[l, u]`.
 * `MeasureTheory.integral_sqrt_le_sqrt_measureReal_mul_integral`: Jensen's inequality for the
   square root, `∫ √g ∂μ ≤ √(μ(univ) ∫ g ∂μ)` for a finite measure `μ` and an integrable `g ≥ 0`,
   by `ConcaveOn.le_map_average`.
@@ -24,10 +26,17 @@ public section
 
 namespace MeasureTheory
 
+/-- The mean of a real function with values in `[l, u]` almost everywhere under a probability
+measure lies in `[l, u]`. -/
+theorem integral_mem_Icc_of_ae_mem_Icc {α : Type*} {mα : MeasurableSpace α} {μ : Measure α}
+    [IsProbabilityMeasure μ] {f : α → ℝ} {l u : ℝ} (hf : AEMeasurable f μ)
+    (h : ∀ᵐ x ∂μ, f x ∈ Set.Icc l u) : ∫ x, f x ∂μ ∈ Set.Icc l u :=
+  (convex_Icc l u).integral_mem isClosed_Icc h (Integrable.of_mem_Icc l u hf h)
+
 /-- The mean of a probability measure on `ℝ` concentrated on `[l, u]` lies in `[l, u]`. -/
 theorem integral_id_mem_Icc_of_ae_mem_Icc {μ : Measure ℝ} [IsProbabilityMeasure μ] {l u : ℝ}
     (h : ∀ᵐ x ∂μ, x ∈ Set.Icc l u) : ∫ x, id x ∂μ ∈ Set.Icc l u :=
-  (convex_Icc l u).integral_mem isClosed_Icc h (Integrable.of_mem_Icc l u aemeasurable_id h)
+  integral_mem_Icc_of_ae_mem_Icc aemeasurable_id h
 
 /-- **Jensen's inequality for the square root**: for a finite measure `μ` and an integrable
 function `g ≥ 0`, `∫ √g ∂μ ≤ √(μ(univ) ∫ g ∂μ)`. For a probability measure, this is

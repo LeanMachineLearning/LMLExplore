@@ -32,7 +32,8 @@ inequality.
 
 Since `ψ_b(t) ≤ t ^ 2 / (2 (1 - t b / 3))` for `t b < 3` (Tau Ceti's
 `Real.exp_le_one_add_add_sq_div_of_le`), `S` is also sub-gamma with variance factor `v` and scale
-`b / 3`. Chernoff's bound at an explicit `t` then inverts in closed form: for every `L`,
+`b / 3`. Chernoff's bound at an explicit `t` then inverts in closed form
+(`Real.exists_pos_le_mul_sqrt_add_sub_mul_exp_sub_one_sub`): for every `L`,
 `P(√(2 v L) + b L / 3 ≤ S) ≤ exp (-L)`, so that with probability at least `1 - δ`,
 `S < √(2 v log (1 / δ)) + b log (1 / δ) / 3`. This is the form of Bernstein's inequality in which
 confidence bounds are stated [BLM13, Theorem 2.10]. It is also the high-probability form of
@@ -228,37 +229,12 @@ theorem measureReal_sqrt_add_le_sum_le_of_ae_le (h_indep : iIndepFun X μ) {b v 
       linarith
     rw [hnull]
     positivity
-  -- Chernoff's bound at `t = r / (v + b r / 3)` with `r = √(2 v L)`, where the sub-gamma bound
-  -- `ψ_b(t) ≤ t ^ 2 / (2 (1 - t b / 3))` makes the exponent exactly `-L`.
-  set r := √(2 * v * L)
-  have hr : r ^ 2 = 2 * v * L := sq_sqrt (by positivity)
-  have hr0 : 0 ≤ r := sqrt_nonneg _
-  have hD : 0 < v + b * r / 3 := by positivity
-  set t := r / (v + b * r / 3)
-  have ht : 0 ≤ t := by positivity
-  have htb : t * b < 3 := by
-    rw [div_mul_eq_mul_div, div_lt_iff₀ hD]
-    nlinarith
-  have h1 : 1 - t * b / 3 = v / (v + b * r / 3) := by
-    simp only [t]
-    field_simp
-    ring
-  have hmgf : mgf (fun ω ↦ ∑ i ∈ s, X i ω) μ t ≤ exp (v * t ^ 2 / (2 * (1 - t * b / 3))) := by
-    refine (h_indep.mgf_sum_le_exp_mul_exp_sub_one_sub_of_ae_le hX hmean hb hXb hv ht).trans
-      (exp_le_exp.2 ?_)
-    calc v * ((exp (t * b) - 1 - t * b) / b ^ 2)
-        ≤ v * ((t * b) ^ 2 / (2 * (1 - t * b / 3)) / b ^ 2) := by
-          gcongr
-          linarith [exp_le_one_add_add_sq_div_of_le le_rfl (by positivity) htb]
-      _ = v * t ^ 2 / (2 * (1 - t * b / 3)) := by
-          field_simp
+  -- Chernoff's bound at the parameter `t` at which the exponent is at most `-L`.
+  obtain ⟨t, ht, htL⟩ := exists_pos_le_mul_sqrt_add_sub_mul_exp_sub_one_sub hb hv0 hL
   refine (measureReal_sum_ge_le_exp_of_mgf_le
-    (fun i hi ↦ (hX i hi).aestronglyMeasurable.aemeasurable) hXb ht hmgf).trans_eq ?_
-  rw [h1]
-  congr 1
-  simp only [t]
-  field_simp
-  linear_combination (-3 : ℝ) * hr
+    (fun i hi ↦ (hX i hi).aestronglyMeasurable.aemeasurable) hXb ht.le
+    (h_indep.mgf_sum_le_exp_mul_exp_sub_one_sub_of_ae_le hX hmean hb hXb hv ht.le)).trans
+    (exp_le_exp.2 (by linarith))
 
 /-- **Bernstein's inequality at confidence level `δ`** [BLM13, Theorem 2.10]. Under the
 hypotheses of `measureReal_sqrt_add_le_sum_le_of_ae_le`, for `δ > 0`, with probability at least
