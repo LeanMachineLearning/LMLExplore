@@ -25,8 +25,8 @@ homogeneous Markov chain with initial law `ν` and transition kernel `κ`, with 
   is at `x` at time `0`, in the form of a joint law: the pair `(X 0, X)` has law
   `(Kernel.id ×ₖ κ.markovChainKernel) x`. Unlike an almost sure equality `X 0 = x`, this needs no
   measurable singletons.
-* `ProbabilityTheory.Kernel.markovChainKernel_map_shift`: started from `x`, the path shifted by one
-  step is the chain started from the law `κ x`.
+* `ProbabilityTheory.Kernel.markovChainKernel_map_shift_iterate`: started from `x`, the path
+  shifted by `n` steps is the chain started from the law `(κ ^ n) x`.
 * `MeasureTheory.Measure.hasCondDistrib_eval_succ_markovChainLaw`: given `X 0, …, X n`, the next
   state `X (n + 1)` has conditional law `κ (X n)`.
 * `MeasureTheory.Measure.condExp_eval_succ_markovChainLaw`: the Markov property in the form
@@ -79,14 +79,14 @@ theorem markovChainKernel_map_prodMk_eval_zero :
   rwa [Measure.map_map (by fun_prop) (by fun_prop), Measure.map_map (by fun_prop) (by fun_prop)]
     at h2
 
-/-- Started from `x`, the path shifted by one step is the chain started from the law `κ x`
-(`Measure.markovChainLaw_map_shift_iterate` at `n = 1`, from a Dirac initial law). -/
-theorem markovChainKernel_map_shift :
-    κ.markovChainKernel.map (shift α) = κ.markovChainKernel ∘ₖ κ := by
+/-- Started from `x`, the path shifted by `n` steps is the chain started from the law `(κ ^ n) x`
+(`Measure.markovChainLaw_map_shift_iterate` from a Dirac initial law). -/
+theorem markovChainKernel_map_shift_iterate (n : ℕ) :
+    κ.markovChainKernel.map (shift α)^[n] = κ.markovChainKernel ∘ₖ (κ ^ n) := by
   ext x : 1
-  rw [Kernel.map_apply _ measurable_shift, markovChainKernel_apply,
-    ← Function.iterate_one (shift α), Measure.markovChainLaw_map_shift_iterate, pow_one,
-    Measure.dirac_bind (Kernel.measurable _), Kernel.comp_apply, Measure.markovChainLaw_eq_comp]
+  rw [Kernel.map_apply _ (measurable_shift.iterate n), markovChainKernel_apply,
+    Measure.markovChainLaw_map_shift_iterate, Measure.dirac_bind (Kernel.measurable _),
+    Kernel.comp_apply, Measure.markovChainLaw_eq_comp]
 
 end ProbabilityTheory.Kernel
 

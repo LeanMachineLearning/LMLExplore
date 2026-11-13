@@ -7,6 +7,7 @@ module
 
 public import LMLExplore.MarkovDecisionProcess.MarkovPolicy
 public import LMLExplore.Probability.MarkovChain.MarkovProperty
+public import LMLExplore.SequentialLearning.Algorithm
 
 /-!
 # The trajectory of a stationary policy is a Markov chain
@@ -107,6 +108,7 @@ lemma roundKernel_apply (r : Round 𝓢 𝓐 𝓡) :
     M.roundKernel π r = M.P (r.obs, r.action) ⊗ₘ (π ⊗ₖ M.R) := by
   rw [roundKernel_def, Kernel.comap_apply, Kernel.comp_apply, stateRoundKernel_comp]
 
+@[simp]
 lemma stateRoundKernel_apply (s : 𝓢) :
     M.stateRoundKernel π s = Measure.dirac s ⊗ₘ (π ⊗ₖ M.R) := by
   rw [← stateRoundKernel_comp, Measure.dirac_bind (Kernel.measurable _)]
@@ -124,7 +126,9 @@ lemma stateRoundKernel_map_obs_action :
   rw [Kernel.map_apply _ (by fun_prop), stateRoundKernel_def, Kernel.prod_apply, Kernel.prod_apply,
     Kernel.id_apply, Measure.dirac_prod, Measure.dirac_prod,
     Measure.map_map (by fun_prop) measurable_prodMk_left]
-  have : (fun r : Round 𝓢 𝓐 𝓡 ↦ (r.obs, r.action)) ∘ Prod.mk s = Prod.mk s ∘ Prod.fst := rfl
+  have : (fun r : Round 𝓢 𝓐 𝓡 ↦ (r.obs, r.action)) ∘ Prod.mk s = Prod.mk s ∘ Prod.fst := by
+    funext ⟨a, r⟩
+    simp
   rw [this, ← Measure.map_map measurable_prodMk_left measurable_fst,
     ← Kernel.map_apply _ measurable_fst, ← Kernel.fst_eq, Kernel.fst_compProd]
 
@@ -182,7 +186,7 @@ lemma trajKernel_map_obs_one :
     ext r : 1
     rw [Kernel.map_apply _ (by fun_prop), roundKernel_apply, Kernel.comap_apply]
     exact Measure.fst_compProd _ _
-  rw [show (fun z : ℕ → Round 𝓢 𝓐 𝓡 ↦ (z 1).obs) = Round.obs ∘ fun z ↦ z 1 from rfl,
+  rw [← Function.comp_def Round.obs fun z : ℕ → Round 𝓢 𝓐 𝓡 ↦ z 1,
     Kernel.map_comp_right _ (measurable_pi_apply 1) (by fun_prop), h1, Kernel.map_comp, h2,
     ← Kernel.comp_map _ _ (by fun_prop), stateRoundKernel_map_obs_action, stateKernel_def]
 
@@ -259,8 +263,7 @@ theorem hasLaw_trajectory_markovChainLaw
   · rw [h.hasLaw_step_zero.map_eq, ← stepKernel_zero _ _ default,
       stepKernel_markov_env_zero]
   · have hc := (h.hasCondDistrib_step (n + 1)).map_eq
-    rw [stepKernel_markov_env_add_one] at hc
-    -- `history O A Y (n + 1)` is by definition the prefix `fun ω i ↦ step O A Y i ω`.
+    rw [stepKernel_markov_env_add_one, history_eq_prefix_step] at hc
     rw [prefixLaw_def, blockLaw_def]
     exact hc
 
@@ -275,10 +278,8 @@ theorem hasLaw_trajectory_trajKernel
 /-- The trajectory law of the stationary policy `π` from `μ` is `trajKernel M π ∘ₘ μ`. -/
 theorem trajMeasure_markov_env :
     trajMeasure (Algorithm.markov fun _ ↦ π) (M.env μ) = M.trajKernel π ∘ₘ μ := by
-  have h := (hasLaw_trajectory_trajKernel (IT.isAlgEnvSeq_trajMeasure
-    (Algorithm.markov fun _ ↦ π) (M.env μ))).map_eq
-  -- On the trajectory space, the coordinate processes reassemble every round.
-  rwa [show trajectory IT.obs IT.action IT.feedback = id from rfl, Measure.map_id] at h
+  have h := IT.isAlgEnvSeq_trajMeasure (Algorithm.markov fun _ ↦ π) (M.env μ)
+  rw [← h.map_trajectory, (hasLaw_trajectory_trajKernel h).map_eq]
 
 /-- **Markov property** of the runs of a stationary policy: given the rounds before `n`, the
 rounds from `n` on (`processShift (step O A Y) n`) have the law of the trajectory of `π` started
@@ -306,15 +307,16 @@ theorem hasCondDistrib_processShift_history
             processShift (step O A Y) n ω)).map (Prod.map id (shift _)) := by
           rw [Measure.map_map (measurable_id.prodMap measurable_shift)
             ((measurable_pi_iff.2 fun i : Fin (n + 1) ↦ hstep i).prodMk
-              (measurable_processShift fun _ ↦ hstep _)), hshift]
-          -- `history O A Y (n + 1)` is by definition the prefix `fun ω i ↦ step O A Y i ω`.
+              (measurable_processShift fun _ ↦ hstep _)), hshift, history_eq_prefix_step]
           rfl
       _ = _ := by
-          rw [h1.map_eq, ← Measure.compProd_map measurable_shift, prefixLaw_def, blockLaw_def]
+          rw [h1.map_eq, ← Measure.compProd_map measurable_shift, prefixLaw_def, blockLaw_def,
+            history_eq_prefix_step]
           congr 1
           ext hist : 1
-          rw [Kernel.map_apply _ measurable_shift, Kernel.comap_apply, ← Kernel.map_apply _
-            measurable_shift, Kernel.markovChainKernel_map_shift, Kernel.comp_apply,
+          rw [Kernel.map_apply _ measurable_shift, Kernel.comap_apply,
+            ← Function.iterate_one (shift _), ← Kernel.map_apply _ (measurable_shift.iterate 1),
+            Kernel.markovChainKernel_map_shift_iterate, pow_one, Kernel.comp_apply,
             Kernel.comp_apply, env_obs_add_one_apply, trajKernel_def, ← Measure.comp_assoc,
             roundKernel_apply, stateRoundKernel_comp]
 
@@ -339,28 +341,24 @@ theorem hasLaw_obs_markovChainLaw
   have h1 := (hasCondDistrib_processShift_history_obs h n).comp_left
     (f := fun z ↦ (z 1).obs) (by fun_prop)
   rw [Kernel.map_prodMkLeft, trajKernel_map_obs_one] at h1
-  have hsnoc : Measurable fun p : Hist 𝓢 𝓐 𝓡 n × 𝓢 ↦
-      (Fin.snoc (fun i ↦ (p.1 i).obs) p.2 : Fin (n + 1) → 𝓢) := by
-    convert (MeasurableEquiv.finSuccProd 𝓢 n).symm.measurable.comp
-      (f := fun p : Hist 𝓢 𝓐 𝓡 n × 𝓢 ↦ ((fun i ↦ (p.1 i).obs), p.2)) (by fun_prop) using 1
-    funext p
-    simp [MeasurableEquiv.finSuccProd_symm_apply]
+  -- the states before time `n + 1` are read off the history before `n` and the state at `n`
+  set g : Hist 𝓢 𝓐 𝓡 n × 𝓢 → Fin (n + 1) → 𝓢 :=
+    (MeasurableEquiv.finSuccProd 𝓢 n).symm ∘ fun p ↦ (fun i ↦ (p.1 i).obs, p.2) with hg_def
+  have hg : Measurable g := (MeasurableEquiv.measurable _).comp (by fun_prop)
   have h2 : HasCondDistrib (O (n + 1)) (fun ω ↦ (history O A Y n ω, O n ω))
       ((M.stateKernel π).comap (fun w : Fin (n + 1) → 𝓢 ↦ w (Fin.last n))
-        (measurable_pi_apply _) |>.comap _ hsnoc) P := by
+        (measurable_pi_apply _) |>.comap g hg) P := by
     convert h1 using 2
     · funext ω
       rw [Function.comp_apply, processShift_apply, obs_step]
     · ext p : 1
-      rw [Kernel.prodMkLeft_apply, Kernel.comap_apply, Kernel.comap_apply, Fin.snoc_last]
+      simp [g, MeasurableEquiv.finSuccProd_symm_apply]
+  have hfun : g ∘ (fun ω ↦ (history O A Y n ω, O n ω)) = fun ω (i : Fin (n + 1)) ↦ O i ω := by
+    funext ω
+    rw [Function.comp_apply, hg_def, Function.comp_apply, MeasurableEquiv.symm_apply_eq,
+      MeasurableEquiv.finSuccProd_apply]
+    simp [history_apply]
   have h3 := h2.comp_right
-  have hfun : ((fun p : Hist 𝓢 𝓐 𝓡 n × 𝓢 ↦ (Fin.snoc (fun i ↦ (p.1 i).obs) p.2 :
-      Fin (n + 1) → 𝓢)) ∘ fun ω ↦ (history O A Y n ω, O n ω)) =
-      fun ω (i : Fin (n + 1)) ↦ O i ω := by
-    funext ω i
-    refine Fin.lastCases ?_ (fun j ↦ ?_) i
-    · simp
-    · simp [history_apply]
   rw [hfun] at h3
   rw [prefixLaw_def, blockLaw_def]
   exact h3.map_eq
@@ -386,9 +384,10 @@ theorem hasLaw_obs_action_markovChainLaw
     · ext hist : 1
       rw [Kernel.comap_apply, Kernel.comap_apply, Kernel.comp_apply, env_obs_add_one_apply,
         saKernel_def, Kernel.comp_apply]
-  -- the prefix of the state-action pairs is by definition a function of `history O A Y (n + 1)`
+  have h3 := h2.comp_right
+  simp only [Function.comp_def, history_apply, Round.obs_mk, Round.action_mk] at h3
   rw [prefixLaw_def, blockLaw_def]
-  exact h2.comp_right.map_eq
+  exact h3.map_eq
 
 end Runs
 
@@ -411,6 +410,7 @@ lemma policyMeasure_eq_trajKernel (π : 𝓢 → 𝓐) (hπ : Measurable π) (s 
 
 /-- The trajectory law of a deterministic stationary policy depends measurably on the initial
 state. -/
+@[fun_prop]
 lemma measurable_policyMeasure (π : 𝓢 → 𝓐) (hπ : Measurable π) :
     Measurable (M.policyMeasure π hπ) := by
   simp_rw [funext (policyMeasure_eq_trajKernel M π hπ)]
