@@ -154,7 +154,7 @@ lemma tilted_mul_apply_mem_Icc (ht : Integrable (fun ω ↦ exp (t * X ω)) μ) 
   have h_mono {f g : Ω → ℝ} (h : ∀ ω ∈ A, f ω ≤ g ω) :
       ∫⁻ ω in A, ENNReal.ofReal (exp (f ω)) ∂μ ≤ ∫⁻ ω in A, ENNReal.ofReal (exp (g ω)) ∂μ :=
     lintegral_mono_ae ((ae_restrict_iff'₀ hA).2 (ae_of_all _ fun ω hω ↦ by gcongr; exact h ω hω))
-  rw [← measure_congr ((tilted_absolutelyContinuous _ _).ae_eq hA.toMeasurable_ae_eq),
+  rw [← measure_congr ((tilted_absolutelyContinuous _ _).ae_le hA.toMeasurable_ae_eq),
     tilted_mul_apply_cgf' (measurableSet_toMeasurable _ _) ht,
     setLIntegral_congr hA.toMeasurable_ae_eq, ← setLIntegral_const, ← setLIntegral_const]
   exact ⟨h_mono fun ω hω ↦ by linarith [(hX ω hω).1], h_mono fun ω hω ↦ by linarith [(hX ω hω).2]⟩

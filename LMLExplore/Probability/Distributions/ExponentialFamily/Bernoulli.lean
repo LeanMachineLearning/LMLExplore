@@ -339,7 +339,6 @@ private lemma map_deriv_cgf_withDensity_jeffreysPrior_bernoulliMeasure_sigmoid
   -- the density `g` on `(0, 1)`
   have hmap := TauCeti.MeasureTheory.map_withDensity_abs_deriv_mul
     (φ := fun η ↦ Real.sigmoid (η₀ + η)) (f := g) MeasurableSet.univ
-    (continuous_sigmoid.comp (continuous_const_add η₀)).measurable
     (fun η _ ↦ ((Real.hasDerivAt_sigmoid (η₀ + η)).comp_const_add η₀ η).hasDerivWithinAt)
     (Real.sigmoid_strictMono.comp (strictMono_id.const_add η₀)).injective.injOn
   have hrange : range (fun η ↦ Real.sigmoid (η₀ + η)) = Ioo 0 1 := by

@@ -7,7 +7,7 @@ module
 
 public import LMLExplore.Probability.Kernel.Dobrushin
 public import Mathlib.LinearAlgebra.Matrix.Irreducible.Defs
-public import TauCeti.Probability.Kernel.Matrix
+public import TauCeti.Probability.Kernel.Matrix.Basic
 
 /-!
 # Primitive Markov chains on finite spaces

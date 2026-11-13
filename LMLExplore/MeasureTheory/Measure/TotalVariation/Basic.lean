@@ -12,7 +12,7 @@ import Mathlib.MeasureTheory.Integral.Bochner.Set
 import Mathlib.MeasureTheory.Integral.IntegrableOn
 import Mathlib.MeasureTheory.VectorMeasure.Integral
 import LMLExplore.Order.ConditionallyCompleteLattice.Group
-import TauCeti.MeasureTheory.Measure.TotalVariation
+import TauCeti.MeasureTheory.Measure.TotalVariation.Basic
 
 /-!
 # Integrals against measures close in total variation

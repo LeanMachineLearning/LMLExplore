@@ -184,9 +184,9 @@ lemma IsAlgEnvSeq.integrable_feedback [SFinite P] [OpensMeasurableSpace 𝓨]
     (hY : ∫⁻ ω, ∫⁻ y, ‖y‖ₑ ∂(env.feedbackKernel O A Y n ω (A n ω)) ∂P ≠ ∞) :
     Integrable (Y n) P := by
   refine ⟨(h.measurable_feedback n).aestronglyMeasurable, ?_⟩
-  have h_eq := h.setLIntegral_comp_feedback (n := n) MeasurableSet.univ measurable_enorm
+  have h_eq := h.setLIntegral_comp_feedback (n := n) MeasurableSet.univ measurable_eNorm
   simp only [Measure.restrict_univ] at h_eq
-  rw [hasFiniteIntegral_iff_enorm, h_eq]
+  rw [hasFiniteIntegral_iff_eNorm, h_eq]
   exact hY.lt_top
 
 variable [NormedSpace ℝ 𝓨]
