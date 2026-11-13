@@ -51,8 +51,8 @@ divergence `z ↦ D_F(z, x)` grows linearly away from `x`
 * `LMLExplore.fenchelConjugateOn_eq_fenchelConjugate`: the conversion to Tau Ceti's
   `fenchelConjugate`.
 * `LMLExplore.hasSubgradientWithinAt_iff_fenchelConjugateOn_eq`: the Fenchel–Young equality.
-* `LMLExplore.bregDiv_fenchelConjugateOn`: `D_{F⋆}(v, u) = D_F(x, y)` [LS, Theorem 26.6 (b)].
-* `LMLExplore.hasFDerivAt_fenchelConjugateOn`: the conjugate has derivative evaluation at `x`
+* `LMLExplore.bregDiv_toReal_fenchelConjugateOn`: `D_{F⋆}(v, u) = D_F(x, y)` [LS, Theorem 26.6 (b)].
+* `LMLExplore.hasFDerivAt_toReal_fenchelConjugateOn`: the conjugate has derivative evaluation at `x`
   at every subgradient of `F` at an interior point `x` (part of [LS, Theorem 26.6 (a)]).
 * `LMLExplore.mem_interior_setOf_fenchelConjugateOn_ne_top`: such a subgradient is interior to
   the domain of the conjugate (part of [LS, Theorem 26.6 (a)]).
@@ -177,9 +177,9 @@ variable {E : Type*} [NormedAddCommGroup E] [NormedSpace ℝ E] {F : E → ℝ} 
 `x ∈ D` and `v` at `y ∈ D`, the Bregman divergence of the conjugate between `v` and `u`, with
 the evaluation at `x` as linear part at `u`, is `D_F(x, y) = F x - F y - v (x - y)`. The
 evaluation at `x` is the derivative of the conjugate at `u` under the hypotheses of
-`hasFDerivAt_fenchelConjugateOn` (finite dimension, `x ∈ interior D`, `F` convex on `D` and
+`hasFDerivAt_toReal_fenchelConjugateOn` (finite dimension, `x ∈ interior D`, `F` convex on `D` and
 strictly convex on the interior of `D`). -/
-theorem bregDiv_fenchelConjugateOn (hu : HasSubgradientWithinAt F u D x)
+theorem bregDiv_toReal_fenchelConjugateOn (hu : HasSubgradientWithinAt F u D x)
     (hv : HasSubgradientWithinAt F v D y) (hx : x ∈ D) (hy : y ∈ D) :
     bregDiv (fun w ↦ (fenchelConjugateOn F D w).toReal) v u (ContinuousLinearMap.apply ℝ ℝ x) =
       bregDiv F x y v := by
@@ -254,7 +254,7 @@ convex on `D` and strictly convex on the interior of `D`, then at every subgradi
 on `D` at an interior point `x`, the real representative of the conjugate is differentiable with
 derivative the evaluation at `x`. For a differentiable `F` (`HasFDerivAt.hasSubgradientWithinAt`)
 this is `∇F⋆ (∇F x) = x`. -/
-theorem hasFDerivAt_fenchelConjugateOn (hF : ConvexOn ℝ D F)
+theorem hasFDerivAt_toReal_fenchelConjugateOn (hF : ConvexOn ℝ D F)
     (hFs : StrictConvexOn ℝ (interior D) F) (hx : x ∈ interior D)
     (hu : HasSubgradientWithinAt F u D x) :
     HasFDerivAt (fun w ↦ (fenchelConjugateOn F D w).toReal) (ContinuousLinearMap.apply ℝ ℝ x)
