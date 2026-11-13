@@ -25,10 +25,10 @@ the parent of the node `j + 1` is `j / A`, so that the children of the node `j` 
 * `depth A j`, the depth of the node `j`, increases by one from a node to each of its children
   (`depth_mul_add_add_one`), and is characterized by
   `∑_{i < D} A ^ i ≤ j ↔ D ≤ depth A j` (`sum_pow_le_iff_le_depth`).
-* `height A n = ⌈log_A ((A - 1) n + 1)⌉`, the number of levels of the tree with `n` nodes, is
-  characterized by `height A n ≤ D ↔ n ≤ ∑_{i < D} A ^ i` (`height_le_iff`). Every node has depth
-  less than `height A n` (`depth_lt_height`), and the full tree of depth `d`, with
-  `n = ∑_{i < d} A ^ i = (A ^ d - 1) / (A - 1)` nodes, has height `d` (`height_sum_pow`).
+* `height A n = ⌈log_A ((A - 1) n + 1)⌉` is, for arity `A ≥ 2`, the number of levels of the tree
+  with `n` nodes, characterized by `height A n ≤ D ↔ n ≤ ∑_{i < D} A ^ i` (`height_le_iff`).
+  Every node has depth less than `height A n` (`depth_lt_height`), and the full tree of depth `d`,
+  with `n = ∑_{i < d} A ^ i = (A ^ d - 1) / (A - 1)` nodes, has height `d` (`height_sum_pow`).
 * `child A n j k` is the node reached from `j` by the action `k < A`: the child `A * j + k + 1`
   when it is a node of the tree, and the first child `A * j + 1` otherwise, so that in a tree that
   is not full every action leads somewhere (`child_lt`, `depth_child`).
@@ -76,6 +76,7 @@ lemma depth_add_one (A j : ℕ) : depth A (j + 1) = depth A (j / A) + 1 := by
   rw [depth]
 
 /-- The child `A * j + k + 1` of the node `j`, for `k < A`, has depth one more than `j`. -/
+@[simp]
 lemma depth_mul_add_add_one (j : ℕ) (hk : k < A) : depth A (A * j + k + 1) = depth A j + 1 := by
   rw [depth_add_one, Nat.mul_add_div (by omega), Nat.div_eq_of_lt hk, add_zero]
 
@@ -119,7 +120,7 @@ theorem sum_pow_le_iff_le_depth (hA : 0 < A) : ∑ i ∈ range D, A ^ i ≤ j �
 /-! ### The height of a tree -/
 
 /-- The number of levels `⌈log_A ((A - 1) n + 1)⌉` of the breadth-first `A`-ary tree with the
-nodes `0, …, n - 1`: the least `D` with `n ≤ ∑_{i < D} A ^ i` (`height_le_iff`). -/
+nodes `0, …, n - 1`: for `1 < A`, the least `D` with `n ≤ ∑_{i < D} A ^ i` (`height_le_iff`). -/
 def height (A n : ℕ) : ℕ := Nat.clog A ((A - 1) * n + 1)
 
 lemma height_def (A n : ℕ) : height A n = Nat.clog A ((A - 1) * n + 1) :=
@@ -129,8 +130,8 @@ lemma height_def (A n : ℕ) : height A n = Nat.clog A ((A - 1) * n + 1) :=
 infinite tree contain `n` nodes. -/
 theorem height_le_iff (hA : 1 < A) : height A n ≤ D ↔ n ≤ ∑ i ∈ range D, A ^ i := by
   obtain ⟨B, rfl⟩ : ∃ B, A = B + 1 := ⟨A - 1, by omega⟩
-  rw [height_def, Nat.clog_le_iff_le_pow hA, ← geom_sum_mul_add, Nat.add_sub_cancel, mul_comm,
-    add_le_add_iff_right, Nat.mul_le_mul_right_iff (by omega)]
+  rw [height_def, Nat.clog_le_iff_le_pow hA, ← geom_sum_mul_add]
+  simp [mul_comm B, Nat.mul_le_mul_right_iff (show 0 < B by omega)]
 
 lemma le_sum_pow_height (hA : 1 < A) (n : ℕ) : n ≤ ∑ i ∈ range (height A n), A ^ i :=
   (height_le_iff hA).1 le_rfl
@@ -140,9 +141,11 @@ lemma lt_height_iff (hA : 1 < A) : D < height A n ↔ ∑ i ∈ range D, A ^ i <
 
 /-- The full tree of depth `d`, with `∑_{i < d} A ^ i = (A ^ d - 1) / (A - 1)` nodes, has `d`
 levels. -/
+@[simp]
 theorem height_sum_pow (hA : 1 < A) (d : ℕ) : height A (∑ i ∈ range d, A ^ i) = d := by
   obtain ⟨B, rfl⟩ : ∃ B, A = B + 1 := ⟨A - 1, by omega⟩
-  rw [height_def, Nat.add_sub_cancel, mul_comm, geom_sum_mul_add, Nat.clog_pow _ _ hA]
+  simp only [height_def, Nat.add_sub_cancel, mul_comm B]
+  rw [geom_sum_mul_add, Nat.clog_pow _ _ hA]
 
 /-- A tree with at least two nodes has at least two levels. -/
 lemma two_le_height (hA : 1 < A) (hn : 2 ≤ n) : 2 ≤ height A n :=
@@ -172,6 +175,7 @@ lemma child_lt (hj : A * j + 1 < n) : child A n j k < n := by
   unfold child
   split_ifs <;> omega
 
+@[simp]
 lemma depth_child (hk : k < A) : depth A (child A n j k) = depth A j + 1 := by
   unfold child
   split_ifs
