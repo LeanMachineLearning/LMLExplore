@@ -16,6 +16,7 @@ public import LMLExplore.Topology.Algebra.Module.Determinant
 public import Mathlib.Analysis.Calculus.Deriv.Pow
 public import Mathlib.Analysis.Calculus.Deriv.Slope
 public import Mathlib.Analysis.InnerProductSpace.Trace
+public import Mathlib.Geometry.Convex.ConvexSpace.Barycenter
 public import TauCeti.Analysis.InnerProductSpace.Spectrum
 
 /-!
@@ -130,6 +131,14 @@ point `a` for each of them gives a design with the same design operator, hence t
 * `LMLExplore.tfae_isMinOn_gValue_isMaxOn_det_designOperator`: **the Kiefer–Wolfowitz equivalence
   theorem** [LS, Theorem 21.1]: on a compact set spanning `E`, a design is G-optimal iff it is
   D-optimal iff its G-value is `d`.
+* `LMLExplore.designOperator_map_barycenter`,
+  `LMLExplore.inner_ringInverse_designOperator_map_barycenter`: the uniform design on an
+  orthonormal basis `b` of `E` has design operator `V = d⁻¹ • 1`, so `⟪a, V⁻¹ a⟫ = d ‖a‖²`;
+  `LMLExplore.gValue_map_barycenter`: its G-value on `𝒜` is `d sup_{a ∈ 𝒜} ‖a‖²`.
+* `LMLExplore.gValue_map_barycenter_eq_finrank`, `LMLExplore.isMinOn_gValue_map_barycenter`: on a
+  set `𝒜` containing `b` and contained in the closed unit ball, such as the unit sphere or the
+  basis itself (the standard basis of `EuclideanSpace ℝ ι` for `EuclideanSpace.basisFun`), the
+  uniform design on `b` has G-value `d` and is G-optimal.
 
 The proof of the Kiefer–Wolfowitz theorem follows `exists_isGOptimalDesign` of the
 `colt-2026-83` project (Rémy Degenne, <https://github.com/RemyDegenne/colt-2026-83>), stated
@@ -529,8 +538,7 @@ theorem exists_mem_simplex_inner_ringInverse_le_finrank {ι : Type*} [Fintype ι
     by_contra h
     exact hx (hw (Finsupp.mem_support_iff.2 h))
   rw [designOperator_map] at hu hle
-  exact ⟨v.weights, LMLExplore.mem_simplex_iff.2 ⟨v.weights_nonneg, v.total_of_fintype⟩, hu,
-    fun i ↦ hle _ ⟨i, rfl⟩⟩
+  exact ⟨v.weights, v.weights_mem_simplex, hu, fun i ↦ hle _ ⟨i, rfl⟩⟩
 
 /-- Let `w` be a design on a subspace `K` whose design operator `V_K(w)` on `K` is invertible. For
 `a ∈ K`, the weighted norm of `a` for the Moore–Penrose inverse of the design operator `V(w)` on
@@ -824,5 +832,90 @@ theorem tfae_isMinOn_gValue_isMaxOn_det_designOperator {𝒜 : Set E} (h𝒜 : I
   tfae_finish
 
 end FiniteDimensional
+
+/-! ### The uniform design on an orthonormal basis -/
+
+section OrthonormalBasis
+
+variable {ι : Type*} [Fintype ι] [Nonempty ι] (b : OrthonormalBasis ι ℝ E)
+
+/-- The uniform design on an orthonormal basis `b` is supported on the basis. -/
+theorem support_weights_map_barycenter_subset :
+    ↑((StdSimplex.barycenter : StdSimplex ℝ ι).map b).weights.support ⊆ Set.range b :=
+  (StdSimplex.support_weights_map_subset b _).trans (Set.image_subset_range _ _)
+
+/-- The design operator of the uniform design on an orthonormal basis `b` of `E`, of dimension
+`d`, is `V = d⁻¹ • 1`. -/
+theorem designOperator_map_barycenter :
+    designOperator ((StdSimplex.barycenter : StdSimplex ℝ ι).map b) =
+      (finrank ℝ E : ℝ)⁻¹ • (1 : E →L[ℝ] E) := by
+  simp_rw [designOperator_map, StdSimplex.weights_barycenter_apply, ← Finset.smul_sum,
+    b.sum_rankOne_eq_id, finrank_eq_card_basis b.toBasis, ContinuousLinearMap.one_def]
+
+/-- The design operator `V = d⁻¹ • 1` of the uniform design on an orthonormal basis of `E`, of
+dimension `d`, is invertible, with inverse `V⁻¹ = d • 1`. -/
+theorem ringInverse_designOperator_map_barycenter :
+    Ring.inverse (designOperator ((StdSimplex.barycenter : StdSimplex ℝ ι).map b)) =
+      (finrank ℝ E : ℝ) • (1 : E →L[ℝ] E) := by
+  have hd : (finrank ℝ E : ℝ) ≠ 0 := by
+    simp [finrank_eq_card_basis b.toBasis, Fintype.card_ne_zero]
+  rw [designOperator_map_barycenter]
+  simpa [Units.smul_def] using
+    Ring.inverse_unit (Units.mk0 _ (inv_ne_zero hd) • (1 : (E →L[ℝ] E)ˣ))
+
+/-- The design operator of the uniform design on an orthonormal basis is invertible. -/
+theorem isUnit_designOperator_map_barycenter :
+    IsUnit (designOperator ((StdSimplex.barycenter : StdSimplex ℝ ι).map b)) := by
+  have hd : (finrank ℝ E : ℝ)⁻¹ ≠ 0 := by
+    simp [finrank_eq_card_basis b.toBasis, Fintype.card_ne_zero]
+  rw [designOperator_map_barycenter]
+  exact (Units.mk0 _ hd • (1 : (E →L[ℝ] E)ˣ)).isUnit
+
+/-- For the uniform design on an orthonormal basis of `E`, of dimension `d`, the weighted norm of
+every vector is `‖a‖²_{V⁻¹} = d ‖a‖²`. -/
+theorem inner_ringInverse_designOperator_map_barycenter (a : E) :
+    ⟪a, Ring.inverse (designOperator ((StdSimplex.barycenter : StdSimplex ℝ ι).map b)) a⟫_ℝ =
+      finrank ℝ E * ‖a‖ ^ 2 := by
+  rw [ringInverse_designOperator_map_barycenter, smul_apply, one_apply_eq_self,
+    real_inner_smul_right, real_inner_self_eq_norm_sq]
+
+/-- The G-value of the uniform design on an orthonormal basis of `E`, of dimension `d`, on a set
+`𝒜` is `g = d sup_{a ∈ 𝒜} ‖a‖²`. -/
+theorem gValue_map_barycenter [FiniteDimensional ℝ E] (𝒜 : Set E) :
+    gValue 𝒜 ((StdSimplex.barycenter : StdSimplex ℝ ι).map b) =
+      ⨆ a ∈ 𝒜, ENNReal.ofReal (finrank ℝ E * ‖a‖ ^ 2) := by
+  simp_rw [gValue_eq_iSup_of_isUnit 𝒜 (isUnit_designOperator_map_barycenter b),
+    inner_ringInverse_designOperator_map_barycenter]
+
+/-- **The uniform design on an orthonormal basis is G-optimal**. Let `𝒜`
+contain an orthonormal basis `b` of `E`, of dimension `d`, and lie in the closed unit ball, as the
+unit sphere and the basis itself do. Then the uniform design on `b`, a design on `𝒜`
+(`support_weights_map_barycenter_subset`), has G-value `d` on `𝒜`, the smallest possible. -/
+theorem gValue_map_barycenter_eq_finrank [FiniteDimensional ℝ E] {𝒜 : Set E}
+    (hb : Set.range b ⊆ 𝒜) (h𝒜 : 𝒜 ⊆ Metric.closedBall 0 1) :
+    gValue 𝒜 ((StdSimplex.barycenter : StdSimplex ℝ ι).map b) = finrank ℝ E := by
+  have hspan : Submodule.span ℝ 𝒜 = ⊤ :=
+    eq_top_mono (Submodule.span_mono (by simpa using hb)) b.toBasis.span_eq
+  refine le_antisymm ?_ (finrank_le_gValue hspan
+    ((support_weights_map_barycenter_subset b).trans hb))
+  rw [← ENNReal.ofReal_natCast, gValue_le_ofReal_iff_of_isUnit
+    (isUnit_designOperator_map_barycenter b) (Nat.cast_nonneg _)]
+  intro a ha
+  rw [inner_ringInverse_designOperator_map_barycenter]
+  have : ‖a‖ ≤ 1 := by simpa using h𝒜 ha
+  exact mul_le_of_le_one_right (Nat.cast_nonneg _) (pow_le_one₀ (norm_nonneg a) this)
+
+/-- The uniform design on an orthonormal basis `b` minimizes the G-value among the designs on a set
+`𝒜` that contains `b` and lies in the closed unit ball. -/
+theorem isMinOn_gValue_map_barycenter [FiniteDimensional ℝ E] {𝒜 : Set E}
+    (hb : Set.range b ⊆ 𝒜) (h𝒜 : 𝒜 ⊆ Metric.closedBall 0 1) :
+    IsMinOn (gValue 𝒜) {w : StdSimplex ℝ E | ↑w.weights.support ⊆ 𝒜}
+      ((StdSimplex.barycenter : StdSimplex ℝ ι).map b) := by
+  have hspan : Submodule.span ℝ 𝒜 = ⊤ :=
+    eq_top_mono (Submodule.span_mono (by simpa using hb)) b.toBasis.span_eq
+  exact fun w hw ↦
+    (gValue_map_barycenter_eq_finrank b hb h𝒜).trans_le (finrank_le_gValue hspan hw)
+
+end OrthonormalBasis
 
 end LMLExplore
