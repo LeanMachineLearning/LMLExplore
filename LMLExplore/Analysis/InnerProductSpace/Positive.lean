@@ -9,6 +9,7 @@ public import LMLExplore.Analysis.InnerProductSpace.Symmetric
 public import LMLExplore.Analysis.MeanInequalities
 public import Mathlib.Analysis.InnerProductSpace.Positive
 public import Mathlib.Analysis.InnerProductSpace.Trace
+import TauCeti.Analysis.InnerProductSpace.Positive.SquareRoot
 
 /-!
 # Positive operators: inverse, quadratic form, determinant and trace
@@ -19,7 +20,9 @@ positive operator `T` satisfies the Cauchy–Schwarz inequality, so `x ↦ √�
 (the weighted norms `‖x‖_V` and `‖x‖_{V⁻¹}` of least squares). The determinant of a positive
 operator `T` on a real inner product space of dimension `d` is at most `(trace T / d) ^ d`: both
 are expressed through the eigenvalues of `T`, which are nonnegative, and the inequality is the
-AM-GM inequality.
+AM-GM inequality. More generally, for positive operators `A` and `B`,
+`det A * det B ≤ (trace (A B) / d) ^ d`: the operator `√A B √A` is positive, with determinant
+`det A * det B` and trace `trace (A B)`.
 
 ## Main statements
 
@@ -49,6 +52,9 @@ AM-GM inequality.
 * `LinearMap.IsPositive.det_le_trace_div_finrank_pow`,
   `ContinuousLinearMap.IsPositive.det_le_trace_div_finrank_pow`: for a positive operator `T`,
   `det T ≤ (trace T / d) ^ d`.
+* `LinearMap.IsPositive.det_mul_det_le_trace_comp_div_finrank_pow`,
+  `ContinuousLinearMap.IsPositive.det_mul_det_le_trace_comp_div_finrank_pow`: for positive
+  operators `A` and `B`, `det A * det B ≤ (trace (A B) / d) ^ d`.
 
 ## References
 
@@ -221,5 +227,34 @@ theorem ContinuousLinearMap.IsPositive.det_le_trace_div_finrank_pow {T : E →L[
     LinearMap.det (T : E →ₗ[ℝ] E) ≤
       (LinearMap.trace ℝ E (T : E →ₗ[ℝ] E) / finrank ℝ E) ^ finrank ℝ E :=
   hT.toLinearMap.det_le_trace_div_finrank_pow
+
+/-- For positive operators `A` and `B` on a real inner product space of dimension `d`,
+`det A * det B ≤ (trace (A B) / d) ^ d`. With `A = V⁻¹` for a positive invertible `V`, this is
+`det B ≤ det V * (trace (V⁻¹ B) / d) ^ d`. -/
+theorem LinearMap.IsPositive.det_mul_det_le_trace_comp_div_finrank_pow {A B : E →ₗ[ℝ] E}
+    (hA : A.IsPositive) (hB : B.IsPositive) :
+    LinearMap.det A * LinearMap.det B ≤
+      (LinearMap.trace ℝ E (A ∘ₗ B) / finrank ℝ E) ^ finrank ℝ E := by
+  -- `√A B √A` is positive, with determinant `det A * det B` and trace `trace (A B)`
+  set S := hA.sqrt
+  have hS : S ∘ₗ S = A := hA.sqrt_sq
+  have hC : (S ∘ₗ B ∘ₗ S).IsPositive := by
+    have h := hB.conj_adjoint S
+    rwa [LinearMap.IsSymmetric.adjoint_eq hA.sqrt_isSymmetric] at h
+  have hdet : LinearMap.det (S ∘ₗ B ∘ₗ S) = LinearMap.det A * LinearMap.det B := by
+    rw [← hS, LinearMap.det_comp, LinearMap.det_comp, LinearMap.det_comp]
+    ring
+  have htr : LinearMap.trace ℝ E (S ∘ₗ B ∘ₗ S) = LinearMap.trace ℝ E (A ∘ₗ B) := by
+    rw [← LinearMap.comp_assoc, ← LinearMap.trace_comp_comm', ← LinearMap.comp_assoc, hS]
+  rw [← hdet, ← htr]
+  exact hC.det_le_trace_div_finrank_pow
+
+/-- For positive continuous linear operators `A` and `B` on a real inner product space of
+dimension `d`, `det A * det B ≤ (trace (A B) / d) ^ d`. -/
+theorem ContinuousLinearMap.IsPositive.det_mul_det_le_trace_comp_div_finrank_pow
+    {A B : E →L[ℝ] E} (hA : A.IsPositive) (hB : B.IsPositive) :
+    LinearMap.det (A : E →ₗ[ℝ] E) * LinearMap.det (B : E →ₗ[ℝ] E) ≤
+      (LinearMap.trace ℝ E (A ∘L B : E →ₗ[ℝ] E) / finrank ℝ E) ^ finrank ℝ E :=
+  hA.toLinearMap.det_mul_det_le_trace_comp_div_finrank_pow hB.toLinearMap
 
 end DetTrace
