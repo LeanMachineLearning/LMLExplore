@@ -86,24 +86,20 @@ namespace MeasureTheory.Measure
 variable {𝓧 : Type*} {m𝓧 : MeasurableSpace 𝓧} {ρ : Measure 𝓧} {T : 𝓧 → ℝ} {ν : Measure ℝ}
   {s s₀ : ℕ} {S S₀ μ₀ m δ r D A : ℝ}
 
-/-- **Lower bound on the normalizing constant.** Let `θ₀ = η(μ₀)` be the natural parameter of a
-mean `μ₀`, and let `[θ₀ - r, θ₀ + r]` be an interval of natural parameters on which the mean map
-stays within `D` of `μ₀`. After `s` observations whose statistics sum to `S` with
-`|S - s μ₀| ≤ s δ`, the exponent relative to `θ₀` is at least `-s r (δ + D)` on that interval, so
-the normalizing constant of the posterior relative to `θ₀` is at least
-`exp (-s r (δ + D)) ν([θ₀ - r, θ₀ + r])` [KKM13, (12)]. -/
-lemma ofReal_exp_mul_measure_Icc_le_lintegral (hμ₀ : μ₀ ∈ ρ.expFamilyMeans T) (hr : 0 ≤ r)
-    (hΘ : Icc (ρ.natParam T μ₀ - r) (ρ.natParam T μ₀ + r) ⊆ interior (integrableExpSet T ρ))
-    (hD : ∀ θ ∈ Icc (ρ.natParam T μ₀ - r) (ρ.natParam T μ₀ + r),
-      |deriv (cgf T ρ) θ - μ₀| ≤ D)
+/-- **Lower bound on the normalizing constant.** Let `θ₀` and `μ₀` be real numbers, and let
+`[θ₀ - r, θ₀ + r]` be an interval of natural parameters on which the mean map stays within `D`
+of `μ₀` (typically `θ₀ = η(μ₀)` is the natural parameter of a mean `μ₀`). After `s`
+observations whose statistics sum to `S` with `|S - s μ₀| ≤ s δ`, the exponent relative to `θ₀`
+is at least `-s r (δ + D)` on that interval, so the normalizing constant of the posterior
+relative to `θ₀` is at least `exp (-s r (δ + D)) ν([θ₀ - r, θ₀ + r])` [KKM13, (12)]. -/
+lemma ofReal_exp_mul_measure_Icc_le_lintegral {θ₀ : ℝ} (hr : 0 ≤ r)
+    (hΘ : Icc (θ₀ - r) (θ₀ + r) ⊆ interior (integrableExpSet T ρ))
+    (hD : ∀ θ ∈ Icc (θ₀ - r) (θ₀ + r), |deriv (cgf T ρ) θ - μ₀| ≤ D)
     (hS : |S - s * μ₀| ≤ s * δ) :
-    ENNReal.ofReal (exp (-(s * r * (δ + D)))) *
-        ν (Icc (ρ.natParam T μ₀ - r) (ρ.natParam T μ₀ + r)) ≤
+    ENNReal.ofReal (exp (-(s * r * (δ + D)))) * ν (Icc (θ₀ - r) (θ₀ + r)) ≤
       ∫⁻ θ in interior (integrableExpSet T ρ), ENNReal.ofReal (exp (θ * S - s * cgf T ρ θ -
-        (ρ.natParam T μ₀ * S - s * cgf T ρ (ρ.natParam T μ₀)))) ∂ν := by
-  set θ₀ := ρ.natParam T μ₀
-  have hθ₀ : θ₀ ∈ integrableExpSet T ρ :=
-    interior_subset (natParam_mem_interior_integrableExpSet hμ₀)
+        (θ₀ * S - s * cgf T ρ θ₀))) ∂ν := by
+  have hθ₀ : θ₀ ∈ integrableExpSet T ρ := interior_subset (hΘ ⟨by linarith, by linarith⟩)
   calc ENNReal.ofReal (exp (-(s * r * (δ + D)))) * ν (Icc (θ₀ - r) (θ₀ + r))
       = ∫⁻ _ in Icc (θ₀ - r) (θ₀ + r), ENNReal.ofReal (exp (-(s * r * (δ + D)))) ∂ν :=
         (setLIntegral_const _ _).symm
@@ -128,28 +124,26 @@ lemma ofReal_exp_mul_measure_Icc_le_lintegral (hμ₀ : μ₀ ∈ ρ.expFamilyMe
         linarith [neg_abs_le ((θ - θ₀) * (S - s * μ₀))]
     _ ≤ _ := lintegral_mono_set hΘ
 
-/-- **Posterior bound through a pointwise bound on the exponent.** Let `θ₀ = η(μ₀)` be the natural
-parameter of a mean `μ₀`, let `[θ₀ - r, θ₀ + r]` be an interval of natural parameters on which
-the mean map stays within `D` of `μ₀`, and let `|S - s μ₀| ≤ s δ`. If on the natural parameters
-of a measurable set `B` the exponent relative to `θ₀` is at most `A + θ S₀ - s₀ ψ(θ)`, then the
-posterior of `B` after `s` observations whose statistics sum to `S` is at most
-`exp (s r (δ + D) + A) Z(s₀, S₀) / ν([θ₀ - r, θ₀ + r])`, with
+/-- **Posterior bound through a pointwise bound on the exponent.** Let `θ₀` and `μ₀` be real
+numbers (typically `θ₀ = η(μ₀)` for a mean `μ₀`), let `[θ₀ - r, θ₀ + r]` be an interval of
+natural parameters on which the mean map stays within `D` of `μ₀`, and let `|S - s μ₀| ≤ s δ`.
+If on the natural parameters of a measurable set `B` the exponent relative to `θ₀` is at most
+`A + θ S₀ - s₀ ψ(θ)`, then the posterior of `B` after `s` observations whose statistics sum to
+`S` is at most `exp (s r (δ + D) + A) Z(s₀, S₀) / ν([θ₀ - r, θ₀ + r])`, with
 `Z(s₀, S₀) = ∫_Θ exp (θ S₀ - s₀ ψ(θ)) dν(θ)` the normalizing constant of the posterior after
 `s₀` observations whose statistics sum to `S₀`. -/
-theorem expFamilyPosterior_le_of_forall_sub_le (hμ₀ : μ₀ ∈ ρ.expFamilyMeans T) (hr : 0 ≤ r)
-    (hΘ : Icc (ρ.natParam T μ₀ - r) (ρ.natParam T μ₀ + r) ⊆ interior (integrableExpSet T ρ))
-    (hD : ∀ θ ∈ Icc (ρ.natParam T μ₀ - r) (ρ.natParam T μ₀ + r),
-      |deriv (cgf T ρ) θ - μ₀| ≤ D)
+theorem expFamilyPosterior_le_of_forall_sub_le {θ₀ : ℝ} (hr : 0 ≤ r)
+    (hΘ : Icc (θ₀ - r) (θ₀ + r) ⊆ interior (integrableExpSet T ρ))
+    (hD : ∀ θ ∈ Icc (θ₀ - r) (θ₀ + r), |deriv (cgf T ρ) θ - μ₀| ≤ D)
     (hS : |S - s * μ₀| ≤ s * δ) {B : Set ℝ} (hB : MeasurableSet B)
     (hA : ∀ θ ∈ interior (integrableExpSet T ρ) ∩ B,
-      θ * S - s * cgf T ρ θ - (ρ.natParam T μ₀ * S - s * cgf T ρ (ρ.natParam T μ₀)) ≤
+      θ * S - s * cgf T ρ θ - (θ₀ * S - s * cgf T ρ θ₀) ≤
         A + (θ * S₀ - s₀ * cgf T ρ θ)) :
     ρ.expFamilyPosterior T ν s S B ≤
       ENNReal.ofReal (exp (s * r * (δ + D) + A)) *
           (∫⁻ θ in interior (integrableExpSet T ρ),
             ENNReal.ofReal (exp (θ * S₀ - s₀ * cgf T ρ θ)) ∂ν) /
-        ν (Icc (ρ.natParam T μ₀ - r) (ρ.natParam T μ₀ + r)) := by
-  set θ₀ := ρ.natParam T μ₀
+        ν (Icc (θ₀ - r) (θ₀ + r)) := by
   set Θ := interior (integrableExpSet T ρ)
   set L := s * r * (δ + D)
   have hL0 : ENNReal.ofReal (exp (-L)) ≠ 0 := (ENNReal.ofReal_pos.2 (exp_pos _)).ne'
@@ -181,7 +175,7 @@ theorem expFamilyPosterior_le_of_forall_sub_le (hμ₀ : μ₀ ∈ ρ.expFamilyM
         (ENNReal.ofReal (exp A) *
           ∫⁻ θ in Θ, ENNReal.ofReal (exp (θ * S₀ - s₀ * cgf T ρ θ)) ∂ν) :=
         mul_le_mul' (ENNReal.inv_le_inv.2
-          (ofReal_exp_mul_measure_Icc_le_lintegral hμ₀ hr hΘ hD hS)) h_num
+          (ofReal_exp_mul_measure_Icc_le_lintegral hr hΘ hD hS)) h_num
     _ = _ := by
       rw [ENNReal.mul_inv (Or.inl hL0) (Or.inl ENNReal.ofReal_ne_top), ENNReal.div_eq_inv_mul,
         ← h_inv]
@@ -268,7 +262,7 @@ theorem expFamilyPosterior_setOf_le_deriv_cgf_le (hT : ∀ c, ¬ T =ᵐ[ρ] fun 
             ENNReal.ofReal (exp (θ * (s₀ * (μ₀ + δ)) - s₀ * cgf T ρ θ)) ∂ν) /
         ν (Icc (ρ.natParam T μ₀ - r) (ρ.natParam T μ₀ + r)) := by
   have hS' : S ≤ s * (μ₀ + δ) := by linarith [le_of_abs_le hS]
-  convert expFamilyPosterior_le_of_forall_sub_le hμ₀ hr hΘ hD hS
+  convert expFamilyPosterior_le_of_forall_sub_le hr hΘ hD hS
     (B := {θ | m ≤ deriv (cgf T ρ) θ}) (measurableSet_le measurable_const (measurable_deriv _))
     (fun θ hθ ↦ sub_le_of_le_deriv_cgf hT hμ₀ hm hδ hδm hs₀ hS' hθ.1 hθ.2) using 4
   congr 1
@@ -297,7 +291,7 @@ theorem expFamilyPosterior_setOf_deriv_cgf_le_le (hT : ∀ c, ¬ T =ᵐ[ρ] fun 
             ENNReal.ofReal (exp (θ * (s₀ * (μ₀ - δ)) - s₀ * cgf T ρ θ)) ∂ν) /
         ν (Icc (ρ.natParam T μ₀ - r) (ρ.natParam T μ₀ + r)) := by
   have hS' : s * (μ₀ - δ) ≤ S := by linarith [neg_abs_le (S - s * μ₀)]
-  convert expFamilyPosterior_le_of_forall_sub_le hμ₀ hr hΘ hD hS
+  convert expFamilyPosterior_le_of_forall_sub_le hr hΘ hD hS
     (B := {θ | deriv (cgf T ρ) θ ≤ m}) (measurableSet_le (measurable_deriv _) measurable_const)
     (fun θ hθ ↦ sub_le_of_deriv_cgf_le hT hμ₀ hm hδ hδm hs₀ hS' hθ.1 hθ.2) using 4
   congr 1
