@@ -7,6 +7,7 @@ module
 
 public import LMLExplore.Analysis.Convex.Bregman.Projection
 public import LMLExplore.Analysis.Convex.Extrema
+public import LMLExplore.Analysis.Convex.Topology
 public import Mathlib.Analysis.Normed.Module.FiniteDimension
 public import Mathlib.Analysis.Normed.Module.RCLike.Basic
 public import Mathlib.Analysis.SpecialFunctions.Log.NegMulLog
@@ -54,7 +55,7 @@ differentiable.
   In finite dimension, if `F` has a minimizer `y₀` over `D`, then for every closed convex `A`
   meeting the interior of `D`, `F` has a unique minimizer over `A ∩ D`, and the minimizers of `F`
   over any set are those of the Bregman divergence `D_F(·, y₀)`.
-* `IsLegendre.isLegendre_bregDiv`: the Bregman divergence `D_F(·, y)` of a Legendre function is
+* `IsLegendre.bregDiv`: the Bregman divergence `D_F(·, y)` of a Legendre function is
   Legendre.
 * `IsLegendre.existsUnique_isMinOn_bregDiv`, `IsLegendre.mem_interior_of_isMinOn_bregDiv`: in
   finite dimension, the Bregman projection of an interior point onto `A ∩ D` exists and is
@@ -129,23 +130,13 @@ lemma mem_frontier_interior (hx : x ∈ closure D) (hx' : x ∉ interior D) :
     hF.convex.closure_interior_eq_closure_of_nonempty_interior hF.nonempty_interior]
   exact ⟨hx, hx'⟩
 
-omit hF in
-/-- The points `x + α (y - x)`, `0 ≤ α < 1`, of the segment from an interior point `x` of a convex
-set to a point `y` of its closure are interior: `Convex.add_smul_sub_mem_interior'` read from the
-endpoint `x`. -/
-private lemma add_smul_sub_mem_interior (hD : Convex ℝ D) (hx : x ∈ interior D)
-    (hy : y ∈ closure D) {α : ℝ} (hα₀ : 0 ≤ α) (hα₁ : α < 1) :
-    x + α • (y - x) ∈ interior D := by
-  convert hD.add_smul_sub_mem_interior' hy hx ⟨sub_pos.2 hα₁, by linarith⟩ using 1
-  module
-
 /-- Along a segment from an interior point `x` of the domain, the directional derivative
 `α ↦ ∇F(x + α (y - x)) (y - x)` is nondecreasing on `[0, 1)`. -/
 private lemma fderiv_apply_sub_mono (hx : x ∈ interior D) (hy : y ∈ closure D) {α β : ℝ}
     (hα : 0 ≤ α) (hαβ : α ≤ β) (hβ : β < 1) :
     fderiv ℝ F (x + α • (y - x)) (y - x) ≤ fderiv ℝ F (x + β • (y - x)) (y - x) := by
-  have hzα := add_smul_sub_mem_interior hF.convex hx hy hα (hαβ.trans_lt hβ)
-  have hzβ := add_smul_sub_mem_interior hF.convex hx hy (hα.trans hαβ) hβ
+  have hzα := hF.convex.add_smul_sub_mem_interior_of_mem_closure hx hy hα (hαβ.trans_lt hβ)
+  have hzβ := hF.convex.add_smul_sub_mem_interior_of_mem_closure hx hy (hα.trans hαβ) hβ
   have h := HasSubgradientWithinAt.sub_apply_sub_nonneg (interior_subset hzβ)
     (interior_subset hzα) (hF.hasSubgradientWithinAt hzβ) (hF.hasSubgradientWithinAt hzα)
   have h_eq : x + β • (y - x) - (x + α • (y - x)) = (β - α) • (y - x) := by module
@@ -175,7 +166,7 @@ private lemma exists_norm_fderiv_le (hx : x ∈ interior D) (hy : y ∈ closure 
   set L₀ := fderiv ℝ F x
   refine ⟨(1 + |L₀ (y - x)| + |M|) / (ε / 2), fun α hα ↦ ?_⟩
   set z := x + α • (y - x)
-  have hz := add_smul_sub_mem_interior hF.convex hx hy hα.1 hα.2
+  have hz := hF.convex.add_smul_sub_mem_interior_of_mem_closure hx hy hα.1 hα.2
   -- The tangent inequalities at `x` and at `z` bound `∇F(z)` on the ball.
   have hlow : F x + α * L₀ (y - x) ≤ F z := by
     have := hF.add_fderiv_apply_sub_le hx (interior_subset hz)
@@ -220,7 +211,7 @@ theorem tendsto_fderiv_apply_sub (hx : x ∈ interior D) (hy : y ∈ frontier (i
   -- But the derivative is unbounded near the boundary point `y`.
   have h_tendsto : Tendsto (fun α : ℝ ↦ x + α • (y - x)) (𝓝[<] 1) (𝓝[interior D] y) := by
     refine tendsto_nhdsWithin_iff.2 ⟨?_, eventually_of_mem (Ioo_mem_nhdsLT zero_lt_one)
-      fun α hα ↦ add_smul_sub_mem_interior hF.convex hx hyD hα.1.le hα.2⟩
+      fun α hα ↦ hF.convex.add_smul_sub_mem_interior_of_mem_closure hx hyD hα.1.le hα.2⟩
     have : Tendsto (fun α : ℝ ↦ x + α • (y - x)) (𝓝 1) (𝓝 (x + (1 : ℝ) • (y - x))) :=
       ((continuous_const.add (continuous_id.smul continuous_const)).tendsto 1)
     rw [one_smul, add_sub_cancel] at this
@@ -241,7 +232,7 @@ theorem mem_interior_of_isMinOn_inter (hA : Convex ℝ A) (hAD : (A ∩ interior
     (hF.mem_frontier_interior hxD hx')).eventually_gt_atTop 0
     |>.and (Ioo_mem_nhdsLT zero_lt_one)).exists
   set z := x₀ + α • (x - x₀)
-  have hz := add_smul_sub_mem_interior hF.convex hx₀ hxD hα.1.le hα.2
+  have hz := hF.convex.add_smul_sub_mem_interior_of_mem_closure hx₀ hxD hα.1.le hα.2
   have hzA : z ∈ A := hA.add_smul_sub_mem hx₀A hx.1 ⟨hα.1.le, hα.2.le⟩
   -- The tangent inequality at `z` shows `F z < F x`.
   have htan := hF.add_fderiv_apply_sub_le hz hx.2
@@ -363,7 +354,7 @@ private lemma exists_apply_add_smul_sub_lt {x₀ b : E} {m : ℝ} (hx₀ : x₀ 
   obtain ⟨α₀, hg, hα₀⟩ := ((hF.tendsto_fderiv_apply_sub hx₀ hb).eventually_gt_atTop 0
     |>.and (Ioo_mem_nhdsLT zero_lt_one)).exists
   set g := fderiv ℝ F (x₀ + α₀ • (b - x₀)) (b - x₀)
-  have hz₀ := add_smul_sub_mem_interior hF.convex hx₀ hbD hα₀.1.le hα₀.2
+  have hz₀ := hF.convex.add_smul_sub_mem_interior_of_mem_closure hx₀ hbD hα₀.1.le hα₀.2
   refine ⟨α₀, hα₀, ?_⟩
   -- The chord bound beyond `z₀`, minus the tangent at `z₀`, tends to `m - (1 - α₀) g < m`.
   have hcont : Tendsto (fun α : ℝ ↦ (1 - α) * F x₀ + α * m - (α - α₀) * g) (𝓝[<] 1)
@@ -373,7 +364,8 @@ private lemma exists_apply_add_smul_sub_lt {x₀ b : E} {m : ℝ} (hx₀ : x₀ 
     nlinarith [mul_pos (sub_pos.2 hα₀.2) hg]
   obtain ⟨α, hαm, hα⟩ := ((hcont.eventually (Iio_mem_nhds hlt)).and
     (Ioo_mem_nhdsLT hα₀.2)).exists
-  have hz := add_smul_sub_mem_interior hF.convex hx₀ hbD (hα₀.1.le.trans hα.1.le) hα.2
+  have hz := hF.convex.add_smul_sub_mem_interior_of_mem_closure hx₀ hbD
+    (hα₀.1.le.trans hα.1.le) hα.2
   have htan := hF.add_fderiv_apply_sub_le hz₀ (interior_subset hz)
   rw [show x₀ + α • (b - x₀) - (x₀ + α₀ • (b - x₀)) = (α - α₀) • (b - x₀) by module, map_smul,
     smul_eq_mul] at htan
@@ -387,7 +379,7 @@ private lemma apply_add_smul_sub_le_of_tendsto {x₀ b : E} {m : ℝ} {u : ℕ �
     (hu : Tendsto u atTop (𝓝 b)) (hFu : Tendsto (fun n ↦ F (u n)) atTop (𝓝 m)) {α : ℝ}
     (hα : α ∈ Ico (0 : ℝ) 1) :
     F (x₀ + α • (b - x₀)) ≤ (1 - α) * F x₀ + α * m := by
-  have hz := add_smul_sub_mem_interior hF.convex hx₀ hb hα.1 hα.2
+  have hz := hF.convex.add_smul_sub_mem_interior_of_mem_closure hx₀ hb hα.1 hα.2
   have hlim : Tendsto (fun n ↦ x₀ + α • (u n - x₀)) atTop (𝓝 (x₀ + α • (b - x₀))) :=
     tendsto_const_nhds.add ((hu.sub_const x₀).const_smul α)
   refine le_of_tendsto_of_tendsto' (((hF.hasFDerivAt hz).continuousAt.tendsto).comp hlim)
@@ -427,7 +419,7 @@ private lemma exists_isMinOn_inter [FiniteDimensional ℝ E] (hA : IsClosed A) (
     obtain ⟨α, hα, hlt⟩ := hF.exists_apply_add_smul_sub_lt hx₀ (hF.mem_frontier_interior hbD hbi)
       fun α hα ↦ hF.apply_add_smul_sub_le_of_tendsto hx₀ hbD (fun n ↦ (hu (φ n)).2) hlim hFlim hα
     exact absurd (hm _ ⟨hAc.add_smul_sub_mem hx₀A hbA ⟨hα.1.le, hα.2.le⟩, interior_subset
-      (add_smul_sub_mem_interior hF.convex hx₀ hbD hα.1.le hα.2)⟩) (not_le.2 hlt)
+      (hF.convex.add_smul_sub_mem_interior_of_mem_closure hx₀ hbD hα.1.le hα.2)⟩) (not_le.2 hlt)
 
 /-- **Minimization of a Legendre function over a closed convex set** [LS, Theorem 26.15 (a)]. In
 finite dimension, if `F` has a minimizer over its domain `D`, then for every closed convex set `A`
@@ -455,7 +447,7 @@ theorem isMinOn_bregDiv_iff {y₀ : E} (hy₀ : y₀ ∈ D) (hmin : IsMinOn F D 
 
 /-- The Bregman divergence `D_F(·, y) = F - F y - J (· - y)` of a Legendre function, for any
 linear map `J`, is Legendre with the same domain. -/
-theorem isLegendre_bregDiv (y : E) (J : E →L[ℝ] ℝ) : IsLegendre (fun x ↦ bregDiv F x y J) D := by
+protected theorem bregDiv (y : E) (J : E →L[ℝ] ℝ) : IsLegendre (fun x ↦ bregDiv F x y J) D := by
   convert (hF.add_linear (-J)).add_const (J y - F y) using 1
   ext x
   simp only [bregDiv, map_sub, neg_apply]
@@ -467,16 +459,18 @@ the interior of `D`, the Bregman divergence `D_F(·, y)` has a unique minimizer 
 theorem existsUnique_isMinOn_bregDiv [FiniteDimensional ℝ E] (hA : IsClosed A) (hAc : Convex ℝ A)
     (hAD : (A ∩ interior D).Nonempty) (hy : y ∈ interior D) :
     ∃! z, z ∈ A ∩ D ∧ IsMinOn (fun w ↦ bregDiv F w y (fderiv ℝ F y)) (A ∩ D) z :=
-  (hF.isLegendre_bregDiv y (fderiv ℝ F y)).existsUnique_isMinOn_inter hA hAc hAD
+  (hF.bregDiv y (fderiv ℝ F y)).existsUnique_isMinOn_inter hA hAc hAD
     (interior_subset hy) (isMinOn_iff.2 fun w hw ↦ by
-      simpa only [bregDiv_self] using hF.hasSubgradientWithinAt hy w hw)
+      have := hF.add_fderiv_apply_sub_le hy hw
+      simp only [bregDiv, sub_self, map_zero]
+      linarith)
 
 /-- Bregman projections onto `A ∩ D`, for a convex set `A` meeting the interior of the domain `D`,
 lie in the interior of `D`. -/
 theorem mem_interior_of_isMinOn_bregDiv {J : E →L[ℝ] ℝ} {z : E} (hAc : Convex ℝ A)
     (hAD : (A ∩ interior D).Nonempty) (hz : z ∈ A ∩ D)
     (hmin : IsMinOn (fun w ↦ bregDiv F w y J) (A ∩ D) z) : z ∈ interior D :=
-  (hF.isLegendre_bregDiv y J).mem_interior_of_isMinOn_inter hAc hAD hz hmin
+  (hF.bregDiv y J).mem_interior_of_isMinOn_inter hAc hAD hz hmin
 
 /-- **Generalized Pythagorean inequality for Legendre functions** [LS, Exercise 26.13 (a)]. If `z`
 is a Bregman projection of `y` onto `A ∩ D`, for a convex set `A` meeting the interior of the
