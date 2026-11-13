@@ -19,9 +19,9 @@ Let `E` be a real normed space, paired with its dual `E →L[ℝ] ℝ` by `(x, u
 lies in the interior of the effective domain `{v | f⋆ v ≠ ⊤}` exactly when the tilted function
 `x ↦ f x - u x` grows at least linearly: `u x + r ‖x‖ - M ≤ f x` for some `r > 0` and some `M`.
 The direction from growth to the interior holds in every normed space: the conjugate is then at
-most `M` on the closed ball of radius `r` around `u`. The converse needs `E` to be
-finite-dimensional, so that the convex function `f⋆` is bounded above near every interior point
-of its domain.
+most `M` on the closed ball of radius `r` around `u`. The converse is proved here for
+finite-dimensional `E`, where Mathlib's `ConvexOn.continuousOn_interior` bounds the convex
+function `f⋆` above near every interior point of its domain.
 
 The tilted sublevel sets `{x | f x ≤ u x + c}` of a function whose conjugate is not `⊤` near `u`
 are therefore bounded. This is the compactness that produces minimizers of `F - u`, and so
