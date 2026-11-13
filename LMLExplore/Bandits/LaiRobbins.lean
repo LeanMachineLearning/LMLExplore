@@ -50,19 +50,19 @@ integrability assumption.
   of pulls, `liminf_n E[T_a(n)] / log n ≥ 1 / d_inf(ν_a, μ*, M_a)`.
 * `eventually_mul_log_le_integral_regret_of_isConsistent`: [LS, Theorem 16.2],
   `liminf_n E[R_n] / log n ≥ ∑_{a : Δ_a > 0} Δ_a / d_inf(ν_a, μ*, M_a)`.
-* `dInf_range_gaussianReal`: `d_inf` for Gaussian laws with known variance `σ²` is
-  `(m - μ)² / (2 σ²)` [LS, Table 16.1].
-* `eventually_mul_log_le_integral_regret_gaussianBandit`: the Lai–Robbins lower bound for Gaussian
-  bandits with variance `σ²`, `liminf_n E[R_n] / log n ≥ ∑_{a : Δ_a > 0} 2 σ² / Δ_a`.
-* `dInf_range_bernoulliMeasure`: `d_inf` for Bernoulli laws is the binary relative entropy
-  `d(p, m)` for `p ≤ m < 1` [LS, Table 16.1]; `dInf_range_bernoulliMeasure_of_one_le`: it is `∞`
-  for `m ≥ 1`.
-* `eventually_mul_log_le_integral_regret_bernoulliBandit`: the Lai–Robbins lower bound for
-  Bernoulli bandits, `liminf_n E[R_n] / log n ≥ ∑_{a : Δ_a > 0} Δ_a / d(p_a, μ*)`.
 * `dInf_image_expFamily`: for the members of an exponential family, `d_inf` from the member of
   mean `μ` at a mean `m ≥ μ` of the family is the divergence `d(μ, m)` of the family [BK96];
   `dInf_image_expFamily_of_mem_upperBounds`: it is `∞` when `m` is at least every mean of the
   family.
+* `dInf_range_gaussianReal`: `d_inf` for Gaussian laws with known variance `σ²` is
+  `(m - μ)² / (2 σ²)` [LS, Table 16.1], the case of the Gaussian family of variance `σ²`.
+* `eventually_mul_log_le_integral_regret_gaussianBandit`: the Lai–Robbins lower bound for Gaussian
+  bandits with variance `σ²`, `liminf_n E[R_n] / log n ≥ ∑_{a : Δ_a > 0} 2 σ² / Δ_a`.
+* `dInf_range_bernoulliMeasure`: `d_inf` for Bernoulli laws is the binary relative entropy
+  `d(p, m)` for `p ≤ m < 1` [LS, Table 16.1], the case of the Bernoulli family for `p > 0`;
+  `dInf_range_bernoulliMeasure_of_one_le`: it is `∞` for `m ≥ 1`.
+* `eventually_mul_log_le_integral_regret_bernoulliBandit`: the Lai–Robbins lower bound for
+  Bernoulli bandits, `liminf_n E[R_n] / log n ≥ ∑_{a : Δ_a > 0} Δ_a / d(p_a, μ*)`.
 * `eventually_mul_log_le_integral_regret_expFamily`: the Lai–Robbins lower bound for the bandits
   whose arms are members of exponential families,
   `liminf_n E[R_n] / log n ≥ ∑_{a : Δ_a > 0} Δ_a / d_{ρ a}(μ_a, μ*)`.
@@ -146,6 +146,20 @@ lemma le_dInf_iff : x ≤ dInf M P m ↔ ∀ Q ∈ M, m < Q[id] → x ≤ klDiv 
 
 lemma dInf_lt_iff : dInf M P m < x ↔ ∃ Q ∈ M, m < Q[id] ∧ klDiv P Q < x := by
   simp [dInf_def, iInf_lt_iff, and_assoc]
+
+/-- `d_inf(P, m, M)` can only grow when the set of laws `M` shrinks. -/
+lemma dInf_anti {M' : Set (Measure ℝ)} (hMM' : M ⊆ M') : dInf M' P m ≤ dInf M P m :=
+  le_dInf_iff.mpr fun _ hQ hm ↦ dInf_le (hMM' hQ) hm
+
+/-- Adding to `M` laws with a mean above `m` that are at infinite relative entropy from `P` leaves
+`d_inf(P, m, M)` unchanged. -/
+lemma dInf_eq_of_subset {M' : Set (Measure ℝ)} (hMM' : M ⊆ M')
+    (h : ∀ Q ∈ M' \ M, m < Q[id] → klDiv P Q = ∞) : dInf M' P m = dInf M P m := by
+  refine le_antisymm (dInf_anti hMM') (le_dInf_iff.mpr fun Q hQ hm ↦ ?_)
+  by_cases hQM : Q ∈ M
+  · exact dInf_le hQM hm
+  · rw [h Q ⟨hQ, hQM⟩ hm]
+    exact le_top
 
 end Defs
 
@@ -272,6 +286,54 @@ theorem eventually_mul_log_le_integral_regret_of_dInf_eq_zero
     _ ≤ _ := single_le_sum (f := fun a ↦ ENNReal.ofReal (gap ν a) / dInf (M a) (ν a) _)
         (fun _ _ ↦ bot_le) (mem_filter.mpr ⟨mem_univ a, ha⟩)
 
+section ExpFamilyDInf
+
+variable {ρ : Measure ℝ} {μ m : ℝ}
+
+/-- **`d_inf` for an exponential family** [BK96; LS, Table 16.1]. Let `ρ` be a measure on `ℝ`
+under which `id` is not almost everywhere constant, with members `ρ_η`, `η` in the interior of
+`integrableExpSet id ρ`. For
+means `μ ≤ m` of the family, the infimum of the relative entropies from the member `ρ_η(μ)` of
+mean `μ` to the members with a mean above `m` is the divergence `d(μ, m)` of the family in the
+mean parametrization. -/
+theorem dInf_image_expFamily (hρ : ∀ c, ¬ id =ᵐ[ρ] fun _ ↦ c)
+    (hμ : μ ∈ ρ.expFamilyMeans id) (hm : m ∈ ρ.expFamilyMeans id) (hμm : μ ≤ m) :
+    dInf (ρ.expFamily id '' interior (integrableExpSet id ρ))
+        (ρ.expFamily id (ρ.natParam id μ)) m =
+      ENNReal.ofReal (ρ.expFamilyDiv id μ m) := by
+  refine le_antisymm ?_ (le_dInf_iff.mpr ?_)
+  · -- `d(μ, q) → d(μ, m)` as `q → m` from above, and `d_inf ≤ d(μ, q)` for the means `q > m`.
+    have h_tendsto : Tendsto (fun q ↦ ENNReal.ofReal (ρ.expFamilyDiv id μ q)) (𝓝[>] m)
+        (𝓝 (ENNReal.ofReal (ρ.expFamilyDiv id μ m))) :=
+      (ENNReal.tendsto_ofReal
+        (Measure.hasDerivAt_expFamilyDiv_right hρ μ hm).continuousAt.tendsto).mono_left
+        nhdsWithin_le_nhds
+    refine ge_of_tendsto h_tendsto ?_
+    filter_upwards [self_mem_nhdsWithin,
+      mem_nhdsWithin_of_mem_nhds (Measure.expFamilyMeans_mem_nhds hρ hm)] with q hq hqM
+    rw [← Measure.klDiv_expFamily_natParam hμ hqM]
+    exact dInf_le (Measure.expFamily_natParam_mem_image hqM)
+      (by rwa [Measure.integral_expFamily_natParam hqM])
+  · -- A member with a mean `q > m` is the member of mean `q`, and `d(μ, ·)` is monotone on
+    -- the means above `μ`.
+    intro Q hQM hQ
+    obtain ⟨q, hq, rfl⟩ := (Measure.mem_image_expFamily_iff hρ).mp hQM
+    rw [Measure.integral_expFamily_natParam hq] at hQ
+    rw [Measure.klDiv_expFamily_natParam hμ hq]
+    exact ENNReal.ofReal_le_ofReal <| (Measure.strictMonoOn_expFamilyDiv_right hρ μ).monotoneOn
+      ⟨hm, hμm⟩ ⟨hq, hμm.trans hQ.le⟩ hQ.le
+
+/-- **`d_inf` for an exponential family** [BK96]: if `m` is at least every mean of the family of
+`ρ`, then no member has a mean above `m`, so that `d_inf(P, m)` is `∞` for every law `P`. -/
+lemma dInf_image_expFamily_of_mem_upperBounds (P : Measure ℝ)
+    (hm : m ∈ upperBounds (ρ.expFamilyMeans id)) :
+    dInf (ρ.expFamily id '' interior (integrableExpSet id ρ)) P m = ∞ := by
+  refine top_le_iff.mp (le_dInf_iff.mpr ?_)
+  intro Q hQM hQ
+  exact absurd (hm (Measure.integral_mem_expFamilyMeans_of_mem_image hQM)) (not_le.mpr hQ)
+
+end ExpFamilyDInf
+
 section Gaussian
 
 /-- **`d_inf` for Gaussian laws with known variance** [LS, Table 16.1]: among the Gaussian laws
@@ -280,22 +342,12 @@ mean above `m ≥ μ` is `(m - μ)² / (2 σ²)`. -/
 lemma dInf_range_gaussianReal {σ2 : ℝ≥0} (hσ2 : σ2 ≠ 0) {μ m : ℝ} (hμm : μ ≤ m) :
     dInf (Set.range fun x ↦ gaussianReal x σ2) (gaussianReal μ σ2) m =
       ENNReal.ofReal ((m - μ) ^ 2 / (2 * σ2)) := by
-  have hkl (x : ℝ) : klDiv (gaussianReal μ σ2) (gaussianReal x σ2) =
-      ENNReal.ofReal ((x - μ) ^ 2 / (2 * σ2)) := by
-    rw [klDiv_gaussianReal_gaussianReal_same_var hσ2, sub_sq_comm]
-  refine le_antisymm ?_ (le_dInf_iff.mpr ?_)
-  · -- The relative entropies to `𝒩(x, σ²)` for `x > m` tend to `(m - μ)² / (2 σ²)` as `x → m`.
-    have h_tendsto : Tendsto (fun x ↦ ENNReal.ofReal ((x - μ) ^ 2 / (2 * σ2))) (𝓝[>] m)
-        (𝓝 (ENNReal.ofReal ((m - μ) ^ 2 / (2 * σ2)))) :=
-      ((ENNReal.continuous_ofReal.comp (by fun_prop)).tendsto m).mono_left nhdsWithin_le_nhds
-    refine ge_of_tendsto h_tendsto (eventually_nhdsWithin_of_forall fun x hx ↦ ?_)
-    rw [← hkl]
-    exact dInf_le ⟨x, rfl⟩ (by simpa using hx)
-  · rintro _ ⟨x, rfl⟩ hx
-    have hx' : m < x := by simpa using hx
-    dsimp only
-    rw [hkl]
-    gcongr
+  -- The Gaussian laws of variance `σ²` are the members of the exponential family of `𝒩(0, σ²)`,
+  -- whose divergence is `(μ - m)² / (2 σ²)`.
+  rw [← image_expFamily_gaussianReal 0 hσ2, ← expFamily_natParam_gaussianReal 0 hσ2 μ,
+    dInf_image_expFamily (not_ae_eq_const_gaussianReal 0 hσ2)
+      (mem_expFamilyMeans_gaussianReal 0 hσ2 μ) (mem_expFamilyMeans_gaussianReal 0 hσ2 m) hμm,
+    expFamilyDiv_gaussianReal 0 hσ2, sub_sq_comm]
 
 variable {σ2 : ℝ≥0} {μ : α → ℝ}
 
@@ -348,20 +400,44 @@ infimum of the relative entropies from `Ber(p)` to the laws with a mean above `m
 binary relative entropy `d(p, m)`. -/
 lemma dInf_range_bernoulliMeasure (hpm : (p : ℝ) ≤ m) (hm : m < 1) :
     dInf (Set.range fun q : I ↦ Ber((1 : ℝ), 0, q)) Ber((1 : ℝ), 0, p) m = klBer p m := by
-  refine le_antisymm ?_ (le_dInf_iff.mpr ?_)
-  · -- `d(p, q) → d(p, m)` as `q → m` from above, and `d_inf ≤ d(p, q)` for `q ∈ (m, 1)`.
-    refine ge_of_tendsto (tendsto_klBer_nhdsGT p.2 hpm hm) ?_
-    filter_upwards [Ioo_mem_nhdsGT hm] with q hq
-    have hqI : q ∈ Set.Icc (0 : ℝ) 1 := ⟨(p.2.1.trans hpm).trans hq.1.le, hq.2.le⟩
-    calc dInf _ _ m ≤ klDiv Ber((1 : ℝ), 0, p) Ber((1 : ℝ), 0, ⟨q, hqI⟩) :=
-          dInf_le (Set.mem_range_self (f := fun q : I ↦ Ber((1 : ℝ), 0, q)) ⟨q, hqI⟩)
-            (by simpa [TauCeti.Probability.integral_id_bernoulliMeasure] using hq.1)
-      _ = klBer p q := klDiv_bernoulliMeasure one_ne_zero p ⟨q, hqI⟩
-  · -- `d(p, ·)` is monotone on `[p, 1]`.
-    rintro _ ⟨q, rfl⟩ hq
+  rcases p.2.1.eq_or_lt with hp0 | hp0
+  · -- `p = 0` is not a mean of the Bernoulli family: `d(0, q) → d(0, m)` as `q → m` from above,
+    -- `d_inf ≤ d(0, q)` for `q ∈ (m, 1)`, and `d(0, ·)` is monotone on `[0, 1]`.
+    obtain rfl : p = 0 := Subtype.ext hp0.symm
+    refine le_antisymm ?_ (le_dInf_iff.mpr ?_)
+    · refine ge_of_tendsto (tendsto_klBer_nhdsGT unitInterval.zero_mem hpm hm) ?_
+      filter_upwards [Ioo_mem_nhdsGT hm] with q hq
+      have hqI : q ∈ Set.Icc (0 : ℝ) 1 := ⟨hpm.trans hq.1.le, hq.2.le⟩
+      calc dInf _ _ m ≤ klDiv Ber((1 : ℝ), 0, 0) Ber((1 : ℝ), 0, ⟨q, hqI⟩) :=
+            dInf_le (Set.mem_range_self (f := fun q : I ↦ Ber((1 : ℝ), 0, q)) ⟨q, hqI⟩)
+              (by simpa [TauCeti.Probability.integral_id_bernoulliMeasure] using hq.1)
+        _ = klBer 0 q := klDiv_bernoulliMeasure one_ne_zero 0 ⟨q, hqI⟩
+    · rintro _ ⟨q, rfl⟩ hq
+      have hq' : m < q := by simpa [TauCeti.Probability.integral_id_bernoulliMeasure] using hq
+      rw [klDiv_bernoulliMeasure one_ne_zero]
+      exact monotoneOn_klBer _ hpm (hpm.trans hq'.le) hq'.le
+  -- For `p ∈ (0, 1)`, the Bernoulli laws with a mean above `m` are the laws `Ber(q)` with
+  -- `q ∈ (m, 1)` and `Ber(1)`, which is at divergence `d(p, 1) = ∞`.
+  have hpI : (p : ℝ) ∈ Set.Ioo 0 1 := ⟨hp0, hpm.trans_lt hm⟩
+  have hmI : m ∈ Set.Ioo 0 1 := ⟨hp0.trans_le hpm, hm⟩
+  have h_eq : dInf (Set.range fun q : I ↦ Ber((1 : ℝ), 0, q)) Ber((1 : ℝ), 0, p) m =
+      dInf ((fun q : I ↦ Ber((1 : ℝ), 0, q)) '' {q | (q : ℝ) ∈ Set.Ioo 0 1})
+        Ber((1 : ℝ), 0, p) m := by
+    refine dInf_eq_of_subset (Set.image_subset_range _ _) ?_
+    rintro _ ⟨⟨q, rfl⟩, hqM⟩ hq
     have hq' : m < q := by simpa [TauCeti.Probability.integral_id_bernoulliMeasure] using hq
-    rw [klDiv_bernoulliMeasure one_ne_zero]
-    exact monotoneOn_klBer p hpm (hpm.trans hq'.le) hq'.le
+    have hq1 : (q : ℝ) = 1 :=
+      q.2.2.lt_or_eq.resolve_left fun hq1 ↦ hqM ⟨q, ⟨hmI.1.trans hq', hq1⟩, rfl⟩
+    rw [klDiv_bernoulliMeasure one_ne_zero,
+      (klBer_eq_top_iff p.2 q.2).mpr (Or.inr ⟨hq1, hpI.2.ne⟩)]
+  -- These are the members of the exponential family of `Ber(1 / 2)`, `Ber(p)` is its member of
+  -- mean `p`, and its divergence is `d`.
+  rw [h_eq, ← image_expFamily_bernoulliMeasure_sigmoid 0,
+    ← expFamily_natParam_bernoulliMeasure_sigmoid 0 hpI,
+    dInf_image_expFamily (not_ae_eq_const_bernoulliMeasure
+      ⟨Real.sigmoid_pos 0, Real.sigmoid_lt_one 0⟩) (by simpa using hpI) (by simpa using hmI) hpm,
+    expFamilyDiv_bernoulliMeasure_sigmoid 0 hpI hmI,
+    ← klBer_eq_ofReal_klBerReal p.2 (Set.Ioo_subset_Icc_self hmI) (klBer_ne_top hmI)]
 
 /-- **`d_inf` for Bernoulli laws** [LS, Table 16.1]: no Bernoulli law on `{0, 1}` has a mean above
 `m ≥ 1`, so that `d_inf(P, m)` is `∞` for every law `P`. -/
@@ -431,49 +507,7 @@ end Bernoulli
 
 section ExpFamily
 
-variable {ρ : Measure ℝ} {μ m : ℝ}
-
-/-- **`d_inf` for an exponential family** [BK96; LS, Table 16.1]. Let `ρ` be a measure on `ℝ`
-under which `id` is not almost everywhere constant, with members `ρ_η`, `η` in the interior of
-`integrableExpSet id ρ`. For
-means `μ ≤ m` of the family, the infimum of the relative entropies from the member `ρ_η(μ)` of
-mean `μ` to the members with a mean above `m` is the divergence `d(μ, m)` of the family in the
-mean parametrization. -/
-theorem dInf_image_expFamily (hρ : ∀ c, ¬ id =ᵐ[ρ] fun _ ↦ c)
-    (hμ : μ ∈ ρ.expFamilyMeans id) (hm : m ∈ ρ.expFamilyMeans id) (hμm : μ ≤ m) :
-    dInf (ρ.expFamily id '' interior (integrableExpSet id ρ))
-        (ρ.expFamily id (ρ.natParam id μ)) m =
-      ENNReal.ofReal (ρ.expFamilyDiv id μ m) := by
-  refine le_antisymm ?_ (le_dInf_iff.mpr ?_)
-  · -- `d(μ, q) → d(μ, m)` as `q → m` from above, and `d_inf ≤ d(μ, q)` for the means `q > m`.
-    have h_tendsto : Tendsto (fun q ↦ ENNReal.ofReal (ρ.expFamilyDiv id μ q)) (𝓝[>] m)
-        (𝓝 (ENNReal.ofReal (ρ.expFamilyDiv id μ m))) :=
-      (ENNReal.tendsto_ofReal
-        (Measure.hasDerivAt_expFamilyDiv_right hρ μ hm).continuousAt.tendsto).mono_left
-        nhdsWithin_le_nhds
-    refine ge_of_tendsto h_tendsto ?_
-    filter_upwards [self_mem_nhdsWithin,
-      mem_nhdsWithin_of_mem_nhds (Measure.expFamilyMeans_mem_nhds hρ hm)] with q hq hqM
-    rw [← Measure.klDiv_expFamily_natParam hμ hqM]
-    exact dInf_le (Measure.expFamily_natParam_mem_image hqM)
-      (by rwa [Measure.integral_expFamily_natParam hqM])
-  · -- A member with a mean `q > m` is the member of mean `q`, and `d(μ, ·)` is monotone on
-    -- the means above `μ`.
-    intro Q hQM hQ
-    obtain ⟨q, hq, rfl⟩ := (Measure.mem_image_expFamily_iff hρ).mp hQM
-    rw [Measure.integral_expFamily_natParam hq] at hQ
-    rw [Measure.klDiv_expFamily_natParam hμ hq]
-    exact ENNReal.ofReal_le_ofReal <| (Measure.strictMonoOn_expFamilyDiv_right hρ μ).monotoneOn
-      ⟨hm, hμm⟩ ⟨hq, hμm.trans hQ.le⟩ hQ.le
-
-/-- **`d_inf` for an exponential family** [BK96]: if `m` is at least every mean of the family of
-`ρ`, then no member has a mean above `m`, so that `d_inf(P, m)` is `∞` for every law `P`. -/
-lemma dInf_image_expFamily_of_mem_upperBounds (P : Measure ℝ)
-    (hm : m ∈ upperBounds (ρ.expFamilyMeans id)) :
-    dInf (ρ.expFamily id '' interior (integrableExpSet id ρ)) P m = ∞ := by
-  refine top_le_iff.mp (le_dInf_iff.mpr ?_)
-  intro Q hQM hQ
-  exact absurd (hm (Measure.integral_mem_expFamilyMeans_of_mem_image hQM)) (not_le.mpr hQ)
+variable {ρ : Measure ℝ}
 
 omit [Finite α] [StandardBorelSpace α] [IsMarkovKernel ν] in
 /-- An arm `a` with a positive gap has a mean below the largest mean `μ*`; if both are means of the
