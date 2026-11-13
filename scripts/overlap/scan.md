@@ -20,7 +20,8 @@ The bundle directory (given to you with these instructions) contains:
 - `lmlexplore-all.txt`: every LMLExplore declaration.
 
 The full sources at the current pins are under `.lake/packages/mathlib/Mathlib`,
-`.lake/packages/TauCeti/TauCeti` and `.lake/packages/LeanMachineLearning/LeanMachineLearning`.
+`.lake/packages/TauCeti/TauCeti`, `.lake/packages/LeanMachineLearning/LeanMachineLearning` and
+`.lake/packages/Statlib/Statlib`.
 LMLExplore itself is under `LMLExplore/`.
 
 ## What to look for
@@ -64,7 +65,8 @@ a paragraph starting with `Preserve:` listing the LMLExplore material that must 
 that nothing additional exists). Link to sources as
 `https://github.com/leanprover-community/mathlib4/blob/<pin>/<path>#L<line>`,
 `https://github.com/TauCetiProject/TauCeti/blob/<pin>/<path>#L<line>`,
-`https://github.com/LeanMachineLearning/LML/blob/<pin>/<path>#L<line>` and
+`https://github.com/LeanMachineLearning/LML/blob/<pin>/<path>#L<line>`,
+`https://github.com/stat-lib/statlib/blob/<pin>/<path>#L<line>` and
 `https://github.com/LeanMachineLearning/LMLExplore/blob/<head>/<path>#L<line>`, using the commits in
 `scan.json`.
 
@@ -78,7 +80,7 @@ Write this JSON object to the result path in `scan.json`:
   "complete": true,
   "findings": [
     {
-      "upstream": "mathlib | TauCeti | LeanMachineLearning",
+      "upstream": "mathlib | TauCeti | LeanMachineLearning | Statlib",
       "direction": "new-upstream | missed-existing",
       "upstream_declarations": ["fully qualified names"],
       "lmlexplore_declarations": ["fully qualified names"],
