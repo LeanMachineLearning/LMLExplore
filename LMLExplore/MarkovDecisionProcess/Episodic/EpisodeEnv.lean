@@ -155,12 +155,10 @@ private lemma comap_map_fst_snd_compProd_augmented (M : EpisodicMDP 𝓢 𝓐) (
         (measurable_pi_apply _)).comap (snocStates (𝓐 := 𝓐)) (measurable_snocStates n) := by
   ext p t ht
   -- unfold the composite kernels at `p`, then integrate against the Dirac mass at `p.2`
-  simp only [Kernel.comap_apply]
-  rw [Kernel.map_apply' _ measurable_fst _ ht, Kernel.snd_apply' _ _ (measurable_fst ht),
-    Kernel.compProd_apply (measurable_snd (measurable_fst ht)), Kernel.comp_apply' _ _ _ ht]
-  simp [Kernel.prod_apply, Kernel.id_apply, Measure.dirac_prod,
-    lintegral_map (Kernel.measurable_coe _ ht) measurable_prodMk_left, snocStates,
-    Set.preimage_preimage, Measure.map_apply measurable_prodMk_right (measurable_fst ht)]
+  have := (M.trans k).measurable_coe ht
+  simp (disch := measurability) [Kernel.map_apply', Kernel.snd_apply', Kernel.compProd_apply,
+    Kernel.comp_apply', Kernel.prod_apply, Kernel.id_apply, Measure.dirac_prod, lintegral_map,
+    snocStates, Set.preimage_preimage]
 
 section Runs
 
