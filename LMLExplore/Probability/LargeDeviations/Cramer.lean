@@ -17,9 +17,10 @@ public import LMLExplore.MeasureTheory.Constructions.Pi
 Let `ν` be a probability measure on `ℝ` with Cramér rate function
 `I(x) = sup_t (t x - log E_ν[exp (t X)])` (`LMLExplore.rateFunction id ν`). The laws of the
 empirical means `(∑ i < n, X i) / n` of `n` independent samples of `ν` satisfy the large deviation
-principle with speed `n` and rate function `I` as soon as `ν` has a mean, and `I` is a good rate
-function when the cumulant generating function of `ν` is finite on a neighbourhood of `0`:
-this is Cramér's theorem [DZ98, Theorem 2.2.3]. The same holds for the empirical means of a
+principle (`TauCeti.Probability.HasLDP`) with speed `1 / n` and rate function `I` as soon as `ν`
+has a mean, and `I` is a good rate function (`TauCeti.Probability.IsGoodRateFunction`) when the
+cumulant generating function of `ν` is finite on a neighbourhood of `0`: this is Cramér's theorem
+[DZ98, Theorem 2.2.3]. The same holds for the empirical means of a
 sequence of independent identically distributed real random variables, and for the empirical
 means of the statistic `T` of the samples of a member of an exponential family, with the extended
 divergence `Measure.expFamilyRate` of the family as rate function [D23, Lemma 11]. These are the
@@ -47,13 +48,13 @@ coercive, so a nested compact sets argument shows that their infima converge.
   closed sets, for `ν` with a mean.
 * `LMLExplore.neg_rateFunction_le_liminf_log_measure`: the lower bound of Cramér's theorem on the
   neighbourhoods of every level, for every probability measure `ν`.
-* `LMLExplore.isLDP_cramer`: **Cramér's theorem**, the large deviation principle of the empirical
+* `LMLExplore.hasLDP_cramer`: **Cramér's theorem**, the large deviation principle of the empirical
   means of independent samples of a law on `ℝ` with a mean.
 * `LMLExplore.isGoodRateFunction_rateFunction`: the rate function is good when the cumulant
   generating function is finite near `0`.
-* `LMLExplore.isLDP_cramer_of_iIndepFun`: Cramér's theorem for a sequence of independent
+* `LMLExplore.hasLDP_cramer_of_iIndepFun`: Cramér's theorem for a sequence of independent
   identically distributed integrable real random variables.
-* `MeasureTheory.Measure.isLDP_cramer_expFamily`: Cramér's theorem for the statistic of the
+* `MeasureTheory.Measure.hasLDP_cramer_expFamily`: Cramér's theorem for the statistic of the
   samples of a member of a one-parameter exponential family on any measurable space, with the
   extended divergence `Measure.expFamilyRate` as rate function, and
   `MeasureTheory.Measure.isGoodRateFunction_expFamilyRate_left`: that rate function is good.
@@ -76,6 +77,7 @@ new.
 public section
 
 open MeasureTheory ProbabilityTheory Filter Real Set Finset Topology
+open TauCeti.Probability (HasLDP IsGoodRateFunction)
 
 open scoped ENNReal NNReal
 
@@ -105,10 +107,11 @@ a closed set `F`, the laws `P n` of the empirical means of `n` independent sampl
 [DZ98, Theorem 2.2.3]. -/
 lemma limsup_log_measure_le_neg_iInf_rateFunction [IsProbabilityMeasure ν]
     (hν : Integrable id ν) {F : Set ℝ} (hF : IsClosed F) :
-    limsup (fun n : ℕ ↦ ENNReal.log (((Measure.pi fun _ : Fin n ↦ ν).map
-        fun y : Fin n → ℝ ↦ (∑ i, y i) / (n : ℝ)) F) / n) atTop ≤
+    limsup (fun n : ℕ ↦ (((n⁻¹ : ℝ≥0) : ℝ) : EReal) *
+      ENNReal.log (((Measure.pi fun _ : Fin n ↦ ν).map
+        fun y : Fin n → ℝ ↦ (∑ i, y i) / (n : ℝ)) F)) atTop ≤
       -(((⨅ x ∈ F, rateFunction id ν x : ℝ≥0∞)) : EReal) := by
-  refine limsup_log_div_le_neg_of_le_mul_exp fun r hr ↦
+  refine limsup_inv_mul_log_le_neg_of_le_mul_exp fun r hr ↦
     ⟨2, ENNReal.ofNat_ne_top, Eventually.of_forall fun n ↦ ?_⟩
   -- The rate function is at least `r` on `F`, and the empirical mean has rate at least `r` with
   -- probability at most `2 exp (-(n r))` by the two-sided Cramér–Chernoff bound.
@@ -470,12 +473,12 @@ samples of `ν` satisfy `-I(x) ≤ liminf_n (1 / n) log P n U`, with `I` the Cra
 `ν` [DZ98, Theorem 2.2.3]. -/
 lemma neg_rateFunction_le_liminf_log_measure [IsProbabilityMeasure ν] {U : Set ℝ}
     (hU : U ∈ 𝓝 x) :
-    -(rateFunction id ν x : EReal) ≤ liminf (fun n : ℕ ↦ ENNReal.log
-      (((Measure.pi fun _ : Fin n ↦ ν).map fun y : Fin n → ℝ ↦ (∑ i, y i) / (n : ℝ)) U) / n)
-      atTop := by
+    -(rateFunction id ν x : EReal) ≤ liminf (fun n : ℕ ↦ (((n⁻¹ : ℝ≥0) : ℝ) : EReal) *
+      ENNReal.log (((Measure.pi fun _ : Fin n ↦ ν).map
+        fun y : Fin n → ℝ ↦ (∑ i, y i) / (n : ℝ)) U)) atTop := by
   by_cases hI : rateFunction id ν x = ⊤
   · simp [hI]
-  refine neg_le_liminf_log_div_of_mul_exp_le fun r hr ↦ ⟨1, one_ne_zero, ?_⟩
+  refine neg_le_liminf_inv_mul_log_of_mul_exp_le fun r hr ↦ ⟨1, one_ne_zero, ?_⟩
   simp only [one_mul]
   by_cases hgt : ν (Ioi x) = 0
   · -- `ν` gives no mass above `x`.
@@ -499,10 +502,11 @@ lemma neg_rateFunction_le_liminf_log_measure [IsProbabilityMeasure ν] {U : Set 
 
 /-- **Cramér's theorem** [DZ98, Theorem 2.2.3]. For a probability measure `ν` on `ℝ` with a mean,
 the laws of the empirical means `(∑ i < n, X i) / n` of `n` independent samples of `ν` satisfy the
-large deviation principle with speed `n` and the Cramér rate function
+large deviation principle with speed `1 / n` and the Cramér rate function
 `I(x) = sup_t (t x - log E_ν[exp (t X)])` of `ν`. -/
-theorem isLDP_cramer [IsProbabilityMeasure ν] (hν : Integrable id ν) :
-    IsLDP (fun n ↦ (Measure.pi fun _ : Fin n ↦ ν).map fun y : Fin n → ℝ ↦ (∑ i, y i) / (n : ℝ))
+theorem hasLDP_cramer [IsProbabilityMeasure ν] (hν : Integrable id ν) :
+    HasLDP atTop (fun n : ℕ ↦ (n : ℝ≥0)⁻¹)
+      (fun n ↦ (Measure.pi fun _ : Fin n ↦ ν).map fun y : Fin n → ℝ ↦ (∑ i, y i) / (n : ℝ))
       (rateFunction id ν) :=
   .of_isClosed_of_mem_nhds (lowerSemicontinuous_rateFunction id ν)
     (fun _ hF ↦ limsup_log_measure_le_neg_iInf_rateFunction hν hF)
@@ -515,7 +519,8 @@ finite on a neighbourhood of `0` [DZ98, Lemma 2.2.5]. -/
 lemma isGoodRateFunction_rateFunction {Ω : Type*} {mΩ : MeasurableSpace Ω} {X : Ω → ℝ}
     {P : Measure Ω} (h : 0 ∈ interior (integrableExpSet X P)) :
     IsGoodRateFunction (rateFunction X P) := by
-  refine ⟨lowerSemicontinuous_rateFunction X P, fun c ↦ ?_⟩
+  refine ⟨lowerSemicontinuous_rateFunction X P, fun c hc ↦ ?_⟩
+  lift c to ℝ≥0 using hc
   obtain ⟨ε, hε, hball⟩ := Metric.mem_nhds_iff.1 (mem_interior_iff_mem_nhds.1 h)
   have hε2 : 0 < ε / 2 := by positivity
   have ht : ε / 2 ∈ integrableExpSet X P := by
@@ -543,11 +548,12 @@ lemma isGoodRateFunction_rateFunction {Ω : Type*} {mΩ : MeasurableSpace Ω} {X
 /-- **Cramér's theorem for independent identically distributed random variables**
 [DZ98, Theorem 2.2.3]. For independent real random variables `X i`, `i : ℕ`, distributed as `X 0`,
 with `X 0` integrable, the laws of the empirical means `(∑ i < n, X i) / n` satisfy the large
-deviation principle with speed `n` and the Cramér rate function of `X 0`. -/
-theorem isLDP_cramer_of_iIndepFun {Ω : Type*} {mΩ : MeasurableSpace Ω} {P : Measure Ω}
+deviation principle with speed `1 / n` and the Cramér rate function of `X 0`. -/
+theorem hasLDP_cramer_of_iIndepFun {Ω : Type*} {mΩ : MeasurableSpace Ω} {P : Measure Ω}
     [IsProbabilityMeasure P] {X : ℕ → Ω → ℝ} (hint : Integrable (X 0) P)
     (hindep : iIndepFun X P) (hident : ∀ i, IdentDistrib (X i) (X 0) P P) :
-    IsLDP (fun n ↦ P.map fun ω ↦ (∑ i ∈ range n, X i ω) / (n : ℝ)) (rateFunction (X 0) P) := by
+    HasLDP atTop (fun n : ℕ ↦ (n : ℝ≥0)⁻¹)
+      (fun n ↦ P.map fun ω ↦ (∑ i ∈ range n, X i ω) / (n : ℝ)) (rateFunction (X 0) P) := by
   have hX0 : HasLaw (X 0) (P.map (X 0)) P := ⟨hint.aemeasurable, rfl⟩
   have := hX0.isProbabilityMeasure_iff.1 ‹_›
   have h_law (n : ℕ) : P.map (fun ω ↦ (∑ i ∈ range n, X i ω) / (n : ℝ)) =
@@ -561,7 +567,7 @@ theorem isLDP_cramer_of_iIndepFun {Ω : Type*} {mΩ : MeasurableSpace Ω} {P : M
     simp [Fin.sum_univ_eq_sum_range (fun i ↦ X i ω) n]
   simp_rw [h_law]
   rw [(hX0.identDistrib HasLaw.id).rateFunction_eq]
-  exact isLDP_cramer ((integrable_map_measure aestronglyMeasurable_id hint.aemeasurable).2 hint)
+  exact hasLDP_cramer ((integrable_map_measure aestronglyMeasurable_id hint.aemeasurable).2 hint)
 
 end LMLExplore
 
@@ -576,12 +582,13 @@ variable {𝓧 : Type*} {m𝓧 : MeasurableSpace 𝓧} {ρ : Measure 𝓧} {T : 
 /-- **Cramér's theorem for exponential families.** For a nonzero measure `ρ` on a measurable
 space `𝓧`, a statistic `T` and a mean `μ` of the exponential family of `ρ` and `T`, the laws of
 the empirical means `(∑ i < n, T (Y i)) / n` of the statistic of `n` independent samples `Y i` of
-the member of mean `μ` satisfy the large deviation principle with speed `n` and rate function
+the member of mean `μ` satisfy the large deviation principle with speed `1 / n` and rate function
 the extended divergence `x ↦ dbar(x, μ)` (`Measure.expFamilyRate`), which is the divergence
 `d(x, μ)` at the means `x` of the family [D23, Lemma 11]. -/
-theorem isLDP_cramer_expFamily [NeZero ρ] (hμ : μ ∈ ρ.expFamilyMeans T) :
-    IsLDP (fun n ↦ (Measure.pi fun _ : Fin n ↦ ρ.expFamily T (ρ.natParam T μ)).map
-      fun y : Fin n → 𝓧 ↦ (∑ i, T (y i)) / (n : ℝ)) (fun x ↦ ρ.expFamilyRate T x μ) := by
+theorem hasLDP_cramer_expFamily [NeZero ρ] (hμ : μ ∈ ρ.expFamilyMeans T) :
+    HasLDP atTop (fun n : ℕ ↦ (n : ℝ≥0)⁻¹)
+      (fun n ↦ (Measure.pi fun _ : Fin n ↦ ρ.expFamily T (ρ.natParam T μ)).map
+        fun y : Fin n → 𝓧 ↦ (∑ i, T (y i)) / (n : ℝ)) (fun x ↦ ρ.expFamilyRate T x μ) := by
   have hη := natParam_mem_interior_integrableExpSet hμ
   have := isProbabilityMeasure_expFamily (interior_subset hη)
   have hT := integrable_expFamily hη
@@ -596,7 +603,7 @@ theorem isLDP_cramer_expFamily [NeZero ρ] (hμ : μ ∈ ρ.expFamilyMeans T) :
       (measurable_mean n).aemeasurable
   simp_rw [h_law, expFamilyRate_def,
     (hlaw.identDistrib HasLaw.id).rateFunction_eq]
-  exact isLDP_cramer ((integrable_map_measure aestronglyMeasurable_id hT.aemeasurable).2 hT)
+  exact hasLDP_cramer ((integrable_map_measure aestronglyMeasurable_id hT.aemeasurable).2 hT)
 
 /-- **The extended divergence of an exponential family is a good rate function** in its first
 argument: for a mean `μ` of the exponential family of `ρ` and `T`, the function
