@@ -207,6 +207,7 @@ lemma length_schedule (T : α → ℕ) : (schedule T).length = ∑ a, T a := by
   rw [← Multiset.coe_card, coe_schedule, Multiset.card_sum]
   simp
 
+@[simp]
 lemma mem_schedule {a : α} : a ∈ schedule T ↔ T a ≠ 0 := by
   classical
   rw [← List.count_pos_iff, count_schedule, Nat.pos_iff_ne_zero]
@@ -449,6 +450,7 @@ noncomputable def eliminate (ℓ : ℕ) (S : Finset α) (θ : E) : Finset α :=
   {a ∈ S | ∀ b ∈ S, ⟪θ, φ b - φ a⟫_ℝ ≤ 2 * width ℓ}
 
 omit [Fintype α] [FiniteDimensional ℝ E] [Nonempty α] in
+@[simp]
 lemma mem_eliminate {ℓ : ℕ} {S : Finset α} {θ : E} {a : α} :
     a ∈ eliminate φ ℓ S θ ↔ a ∈ S ∧ ∀ b ∈ S, ⟪θ, φ b - φ a⟫_ℝ ≤ 2 * width ℓ := by
   rw [eliminate, mem_filter]
@@ -614,7 +616,7 @@ lemma lt_phaseStart_phaseIndex_succ (y : ℕ → ℝ) (n : ℕ) :
   rw [← phaseIndex_def] at h2
   lia
 
-/-- Round `n` lies in phase `ℓ` iff `t_ℓ ≤ n < t_{ℓ+1}`. -/
+/-- If `t_ℓ ≤ n < t_{ℓ+1}`, round `n` lies in phase `ℓ`. -/
 lemma phaseIndex_eq_of_le_of_lt (h₁ : phaseStart D σ2 δ y ℓ ≤ n)
     (h₂ : n < phaseStart D σ2 δ y (ℓ + 1)) : phaseIndex D σ2 δ y n = ℓ := by
   have hmono := (strictMono_phaseStart (D := D) (σ2 := σ2) (δ := δ) y).monotone

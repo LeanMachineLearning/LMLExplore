@@ -49,8 +49,8 @@ deterministic part of the fixed-design confidence bound [LS, (20.2)].
 * `LMLExplore.inner_leastSquaresEstimate_sub_eq_sum`: the error `⟪v, θ̂_t - θ⟫` in the linear model,
   for `λ = 0` and `v` in the span of the covariates.
 * `LMLExplore.sum_inner_moorePenroseInverse_designOp_sq`: `∑_{s < t} ⟪V_t⁺ v, x s⟫² = ⟪v, V_t⁺ v⟫`
-  for `λ = 0`, `LMLExplore.inner_moorePenroseInverse_designOp_le_sum_sq`: this is the least
-  squared norm of the coefficients of a representation `v = ∑_{s < t} c s • x s`, and
+  for `λ = 0`, `LMLExplore.inner_moorePenroseInverse_designOp_le_sum_sq`: this is at most the
+  squared norm of the coefficients of any representation `v = ∑_{s < t} c s • x s`, and
   `LMLExplore.inner_moorePenroseInverse_designOp_pos`: this weighted norm is positive for nonzero
   `v` in the span of the covariates.
 
