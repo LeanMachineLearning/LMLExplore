@@ -62,6 +62,10 @@ members of an exponential family rather than for rewards in `[0, 1]`.
 * `ProbabilityTheory.iIndepFun.measureReal_sum_le_le_exp_expFamilyDiv`: the lower tail
   `P(∑ i ∈ s, X i ≤ #s * x) ≤ exp (-(#s * d(x, μ)))` for variables dominated by the member of
   mean `μ` on `Set.Iic 0` and means `x ≤ μ` of the family.
+* `ProbabilityTheory.iIndepFun.measureReal_sum_ge_or_sum_le_le_exp_add_exp_expFamilyDiv`: the
+  two-sided bound `P(#s * x ≤ ∑ i ∈ s, X i ∨ ∑ i ∈ s, X i ≤ #s * y)
+  ≤ exp (-(#s * d(x, μ))) + exp (-(#s * d(y, μ)))` for variables dominated by the member of mean
+  `μ` and means `y ≤ μ ≤ x` of the family.
 * `ProbabilityTheory.iIndepFun.measureReal_sum_ge_le_exp_expFamilyDiv_of_hasLaw`,
   `ProbabilityTheory.iIndepFun.measureReal_sum_le_le_exp_expFamilyDiv_of_hasLaw`: the same bounds
   for the statistics `T (Y i)` of independent observations `Y i` with law the member of mean `μ`.
@@ -135,6 +139,26 @@ theorem iIndepFun.measureReal_sum_le_le_exp_expFamilyDiv (h_indep : iIndepFun X 
   have := Measure.isProbabilityMeasure_expFamily (interior_subset hη)
   exact h_indep.measureReal_sum_le_le_exp_of_le_rateFunction hX (Measure.integrable_expFamily hη)
     (by rwa [Measure.integral_expFamily_natParam hμ]) (rateFunction_expFamily_natParam hx hμ).ge
+
+/-- **Two-sided Cramér–Chernoff bound under domination by an exponential family.** For independent
+random variables `X i`, `i ∈ s`, dominated by the member `ρ_η(μ)` of mean `μ` of the exponential
+family of `ρ` and `T`, and means `y ≤ μ ≤ x` of the family, the probability that
+`#s * x ≤ ∑ i ∈ s, X i` or `∑ i ∈ s, X i ≤ #s * y` is at most
+`exp (-(#s * d(x, μ))) + exp (-(#s * d(y, μ)))`, where `d(x, μ) = KL(ρ_η(x), ρ_η(μ))`. -/
+theorem iIndepFun.measureReal_sum_ge_or_sum_le_le_exp_add_exp_expFamilyDiv
+    (h_indep : iIndepFun X P)
+    (hX : ∀ i ∈ s, MGFDominatedOn (X i) P T (ρ.expFamily T (ρ.natParam T μ)) Set.univ)
+    (hμ : μ ∈ ρ.expFamilyMeans T) {y : ℝ} (hx : x ∈ ρ.expFamilyMeans T)
+    (hy : y ∈ ρ.expFamilyMeans T) (hμx : μ ≤ x) (hyμ : y ≤ μ) :
+    P.real {ω | #s * x ≤ ∑ i ∈ s, X i ω ∨ ∑ i ∈ s, X i ω ≤ #s * y} ≤
+      exp (-(#s * ρ.expFamilyDiv T x μ)) + exp (-(#s * ρ.expFamilyDiv T y μ)) := by
+  have := h_indep.isProbabilityMeasure
+  rw [Set.ofPred_or]
+  exact (measureReal_union_le _ _).trans (add_le_add
+    (h_indep.measureReal_sum_ge_le_exp_expFamilyDiv (fun i hi ↦ (hX i hi).mono (Set.subset_univ _))
+      hμ hx hμx)
+    (h_indep.measureReal_sum_le_le_exp_expFamilyDiv (fun i hi ↦ (hX i hi).mono (Set.subset_univ _))
+      hμ hy hyμ))
 
 /-! ### Observations with law a member of the family -/
 

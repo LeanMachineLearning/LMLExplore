@@ -218,38 +218,23 @@ theorem iIndepFun.exists_sum_measure_inv_lt_expFamilyTSStackLaw_jeffreysPrior_Io
     push Not at h
     obtain ⟨hsN, hlog⟩ := h
     simp only [not_lt.2 hsN, not_le.2 hlog, ite_false, zero_add]
-    have h_up := h_indep.measureReal_sum_ge_le_exp_expFamilyDiv (s := Finset.range s)
-      (fun k _ ↦ (hX k).mono (subset_univ _)) hμ hhi (by linarith)
-    have h_down := h_indep.measureReal_sum_le_le_exp_expFamilyDiv (s := Finset.range s)
-      (fun k _ ↦ (hX k).mono (subset_univ _)) hμ hlo (by linarith)
-    rw [Finset.card_range, mul_comm (s : ℝ) (ρ.expFamilyDiv id (μ + δ) μ)] at h_up
-    rw [Finset.card_range, mul_comm (s : ℝ) (ρ.expFamilyDiv id (μ - δ) μ)] at h_down
-    calc P {ω | (n : ℝ≥0∞)⁻¹ <
-          expFamilyTSStackLaw ρ (ρ.jeffreysPrior id) s (∑ k ∈ Finset.range s, X k ω)
-            (Ioi (c : EReal))}
-        ≤ P ({ω | s * (μ + δ) ≤ ∑ k ∈ Finset.range s, X k ω} ∪
-            {ω | ∑ k ∈ Finset.range s, X k ω ≤ s * (μ - δ)}) := by
-          -- with an accurate empirical mean, `1 / n < G_s ≤ exp (-s β)` forces `s β < log n`
-          refine measure_mono fun ω hω ↦ ?_
-          by_contra h_not
-          simp only [mem_union, mem_ofPred_eq, not_or, not_le] at h_not
-          have hlt := (show (n : ℝ≥0∞)⁻¹ < _ from hω).trans_le
-            (hN s hsN _ (abs_sub_le_iff.2 ⟨by linarith, by linarith⟩))
-          have hn0 : n ≠ 0 := by
-            rintro rfl
-            simp at hlt
-          rw [← ENNReal.ofReal_natCast, ← ENNReal.ofReal_inv_of_pos (by positivity),
-            ENNReal.ofReal_lt_ofReal_iff (exp_pos _)] at hlt
-          have h_log := Real.log_lt_log (by positivity) hlt
-          rw [Real.log_inv, Real.log_exp] at h_log
-          linarith
-      _ ≤ P {ω | s * (μ + δ) ≤ ∑ k ∈ Finset.range s, X k ω} +
-            P {ω | ∑ k ∈ Finset.range s, X k ω ≤ s * (μ - δ)} := measure_union_le _ _
-      _ ≤ ENNReal.ofReal (exp (-(a₁ * s))) + ENNReal.ofReal (exp (-(a₂ * s))) := by
-          rw [← ofReal_measureReal, ← ofReal_measureReal]
-          exact add_le_add (ENNReal.ofReal_le_ofReal h_up) (ENNReal.ofReal_le_ofReal h_down)
-      _ = ENNReal.ofReal (exp (-(a₁ * s)) + exp (-(a₂ * s))) :=
-          (ENNReal.ofReal_add (exp_pos _).le (exp_pos _).le).symm
+    have h_dev := h_indep.measureReal_sum_ge_or_sum_le_le_exp_add_exp_expFamilyDiv
+      (s := Finset.range s) (fun k _ ↦ hX k) hμ hhi hlo (by linarith) (by linarith)
+    rw [Finset.card_range, mul_comm (s : ℝ) a₁, mul_comm (s : ℝ) a₂] at h_dev
+    refine (measure_mono fun ω hω ↦ ?_).trans
+      ((ENNReal.le_ofReal_iff_toReal_le (measure_ne_top _ _) (by positivity)).2 h_dev)
+    -- with an accurate empirical mean, `1 / n < G_s ≤ exp (-s β)` forces `s β < log n`
+    by_contra h_not
+    simp only [mem_ofPred_eq, not_or, not_le] at hω h_not
+    have hlt := hω.trans_le (hN s hsN _ (abs_sub_le_iff.2 ⟨by linarith, by linarith⟩))
+    have hn0 : n ≠ 0 := by
+      rintro rfl
+      simp at hlt
+    rw [← ENNReal.ofReal_natCast, ← ENNReal.ofReal_inv_of_pos (by positivity),
+      ENNReal.ofReal_lt_ofReal_iff (exp_pos _)] at hlt
+    have h_log := Real.log_lt_log (by positivity) hlt
+    rw [Real.log_inv, Real.log_exp] at h_log
+    linarith
   -- summing over the sample sizes: at most `N` sizes below `N`, at most `1 + log n / β` sizes
   -- with `s β ≤ log n`, and two geometric series
   refine ⟨N + (1 + a₁⁻¹) + (1 + a₂⁻¹), fun n ↦ ?_⟩
@@ -262,15 +247,7 @@ theorem iIndepFun.exists_sum_measure_inv_lt_expFamilyTSStackLaw_jeffreysPrior_Io
     exact_mod_cast (Finset.card_le_card fun s hs ↦
       Finset.mem_range.2 (Finset.mem_filter.1 hs).2).trans (Finset.card_range N).le
   have h2 := sum_range_ite_mul_le_exp_neg_mul_le hβ (log_natCast_nonneg n) ha₁ n
-  have h3 : ∑ s ∈ Finset.range n, exp (-(a₂ * s)) ≤ 1 + a₂⁻¹ := by
-    rcases n with _ | k
-    · simp only [Finset.range_zero, Finset.sum_empty]
-      positivity
-    rw [Finset.sum_range_succ']
-    have := sum_range_exp_neg_mul_le ha₂ k
-    push_cast
-    simp only [mul_zero, neg_zero, exp_zero]
-    linarith
+  have h3 := sum_range_exp_neg_mul_le_one_add_inv ha₂ n
   linarith
 
 end ProbabilityTheory
