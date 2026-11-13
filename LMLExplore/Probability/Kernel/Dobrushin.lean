@@ -12,6 +12,7 @@ public import LMLExplore.Probability.Kernel.TotalVariation
 public import Mathlib.Topology.UniformSpace.UniformConvergence
 
 import Mathlib.Analysis.SpecificLimits.Basic
+import Statlib.Divergence.TotalVariation
 
 /-!
 # The Dobrushin coefficient and uniform ergodicity
@@ -404,7 +405,7 @@ theorem exists_invariant_of_dobrushinCoeff_pow_lt_one [Nonempty α] {m : ℕ}
           tvDist_triangle _ _ _
       _ ≤ tvDist π ((κ ^ n) x₀) + tvDist ((κ ^ (n + 1)) x₀) π := by
           rw [hstep]
-          exact add_le_add_left (tvDist_comp_right_le κ) _
+          exact add_le_add_left (tvDist_comp_le _ _ κ) _
       _ ≤ _ := by rw [tvDist_comm]; exact add_le_add (hdist n) (hdist (n + 1))
   have hlim : Tendsto (fun n ↦ 2 * dobrushinCoeff (κ ^ n) + 2 * dobrushinCoeff (κ ^ (n + 1)))
       atTop (𝓝 0) := by
