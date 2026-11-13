@@ -5,7 +5,7 @@ Authors: LMLExplore contributors
 -/
 module
 
-public import LeanMachineLearning.ForMathlib.InformationTheory.KullbackLeibler.ChainRule
+public import Statlib.ForMathlib.InformationTheory.KullbackLeibler.ChainRule
 public import LeanMachineLearning.ForMathlib.InformationTheory.KullbackLeibler.DataProcessing
 public import LeanMachineLearning.ForMathlib.InformationTheory.KullbackLeibler.Restrict
 public import TauCeti.Probability.Kernel.Composition.MeasureCompProd

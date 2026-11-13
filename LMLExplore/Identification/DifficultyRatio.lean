@@ -7,7 +7,7 @@ module
 
 public import LMLExplore.Identification.ErrorLowerBound
 public import LMLExplore.InformationTheory.KullbackLeibler.Bernoulli
-import LMLExplore.Data.EReal.Inv
+import Statlib.ForMathlib.EReal
 
 /-!
 # Difficulty ratios and complexity of fixed-budget identification, and their lower bounds

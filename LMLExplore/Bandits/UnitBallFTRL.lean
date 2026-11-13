@@ -282,7 +282,7 @@ theorem isUnbiasedRound_unitBall (b : OrthonormalBasis ι ℝ E) (hm : m ≤ mΩ
       Integrable (fun ω ↦ unitBallEstimate b (a ω) (y ω) o) P :=
     (hyi.norm.const_mul _).mono' ((hY o).mono hm) (hY_le o)
   have := b.toBasis.finiteDimensional_of_finite
-  have : CompleteSpace E := FiniteDimensional.complete ℝ E
+  have : CompleteSpace E := FiniteDimensional.completeSpace ℝ E
   refine
     { le := hm
       integrable_action := integrable_apply_of_measurableSet_preimage (X := X)
@@ -435,7 +435,7 @@ theorem ftrl_integral_regret_le_of_unitBallEstimate (b : OrthonormalBasis ι ℝ
     ∫ ω, ∑ t ∈ range n, y t ω (unitBallAction b (a t ω) (X t ω) - u) ∂P ≤
       (1 - r) * n - log (1 - r) / η + η * Fintype.card ι * n / 2 := by
   have := b.toBasis.finiteDimensional_of_finite
-  have : CompleteSpace E := FiniteDimensional.complete ℝ E
+  have : CompleteSpace E := FiniteDimensional.completeSpace ℝ E
   set A : ℕ → Ω → E := fun t ω ↦ unitBallAction b (a t ω) (X t ω) with hA_def
   set Y : ℕ → Ω → E →L[ℝ] ℝ := fun t ω ↦ unitBallEstimate b (a t ω) (y t ω) (X t ω) with hY_def
   have har (t : ℕ) (ht : t ≤ n) : ∀ᵐ ω ∂P, ‖a t ω‖ ≤ r := by

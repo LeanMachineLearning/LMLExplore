@@ -180,7 +180,7 @@ parameter is clamped to `[0, 1]` by `Set.projIcc`, so that the kernel is defined
 noncomputable def bernoulliKernel : Kernel ℝ ℝ where
   toFun x := Ber((1 : ℝ), 0, Set.projIcc 0 1 zero_le_one x)
   measurable' :=
-    (TauCeti.Probability.measurable_bernoulliMeasure _ _).comp continuous_projIcc.measurable
+    measurable_const.bernoulliMeasure measurable_const continuous_projIcc.measurable
 
 @[simp]
 lemma bernoulliKernel_apply (x : ℝ) :

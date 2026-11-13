@@ -644,7 +644,7 @@ theorem exists_design_inner_moorePenroseInverse_le_finrank_and_card_support_le {
   have : Nontrivial K := Submodule.nontrivial_iff_ne_bot.2 h0
   -- the Kiefer–Wolfowitz theorem in `K` for the preimage of `𝒜`, which is compact and spans `K`
   have h𝒜K : IsCompact (((↑) : K → E) ⁻¹' 𝒜) :=
-    K.closed_of_finiteDimensional.isClosedEmbedding_subtypeVal.isCompact_preimage h𝒜
+    K.isClosed_of_finiteDimensional.isClosedEmbedding_subtypeVal.isCompact_preimage h𝒜
   obtain ⟨w, hw, hu, hle, hcard⟩ :=
     exists_design_inner_ringInverse_le_finrank_and_card_support_le h𝒜K
       Submodule.span_span_coe_preimage

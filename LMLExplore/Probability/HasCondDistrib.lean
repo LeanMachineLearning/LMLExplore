@@ -99,6 +99,7 @@ lemma HasCondDistrib.lintegral_comp_prodMk_eq_lintegral_lintegral (h : HasCondDi
     _ = ∫⁻ ω, ∫⁻ y, g (X ω, y) ∂(κ (X ω)) ∂P :=
         lintegral_map' hg.lintegral_kernel_prod_right'.aemeasurable h.aemeasurable_fst
 
+omit [IsSFiniteKernel κ] in
 /-- If `κ` is the conditional distribution of `Y` given `X` under `P`, it is also the conditional
 distribution of `Y` given `X` under the restriction of `P` to an event `X ⁻¹' s` determined by
 `X`. -/
