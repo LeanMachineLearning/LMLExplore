@@ -5,6 +5,7 @@ Authors: LMLExplore contributors
 -/
 module
 
+public import LMLExplore.Analysis.InnerProductSpace.InvNormSq
 public import LMLExplore.Analysis.InnerProductSpace.MoorePenrose
 public import LMLExplore.Analysis.InnerProductSpace.Positive
 public import LMLExplore.Analysis.InnerProductSpace.RankOne
@@ -75,6 +76,14 @@ point `a` for each of them gives a design with the same design operator, hence t
   `LMLExplore.isUnit_sum_smul_rankOne_of_mul_le`: for a feature map `φ`, the weighted sum
   `∑ i ∈ s, w i • φ i ⊗ φ i` is positive for nonnegative weights (on a finite type, monotone in
   the weights in the Loewner order, and invertible above an invertible one).
+* `LMLExplore.inner_sum_smul_rankOne_apply_self`: its quadratic form is
+  `⟪v, (∑ i ∈ s, w i • φ i ⊗ φ i) v⟫ = ∑ i ∈ s, w i ⟪φ i, v⟫²`, and
+  `LMLExplore.sum_smul_rankOne_apply_of_orthonormal`: for an orthonormal family `φ`, it maps `φ i`
+  to `w i • φ i`.
+* `LMLExplore.invNormSq_sum_smul_rankOne_sub_of_orthonormal`,
+  `LMLExplore.invNormSq_sum_smul_rankOne_sub_eq_top_of_orthonormal`: for an orthonormal family `φ`,
+  nonnegative weights `w` and `i ≠ j`, `‖φ i - φ j‖²_{V⁻¹} = 1 / w i + 1 / w j` for
+  `V = ∑ k, w k • φ k ⊗ φ k` when `w i, w j > 0`, and `∞` when `w i = 0` or `w j = 0`.
 * `LMLExplore.sum_mul_inner_ringInverse_sum_smul_rankOne`: for a feature map `φ` and real weights
   `w` with `V = ∑ i ∈ s, w i • φ i ⊗ φ i` invertible, `∑ i ∈ s, w i ⟪φ i, V⁻¹ φ i⟫ = d`. The
   corresponding facts for the design operator are the case of the identity feature map on the
@@ -233,6 +242,59 @@ theorem sum_mul_inner_ringInverse_sum_smul_rankOne [FiniteDimensional ℝ E] {ι
 theorem isPositive_sum_smul_rankOne {ι : Type*} (s : Finset ι) (φ : ι → E) {w : ι → ℝ}
     (hw : ∀ i ∈ s, 0 ≤ w i) : (∑ i ∈ s, w i • rankOne ℝ (φ i) (φ i)).IsPositive :=
   isPositive_sum _ fun i hi ↦ (isPositive_rankOne_self (φ i)).smul_of_nonneg (hw i hi)
+
+/-- The quadratic form of `∑ i ∈ s, w i • φ i ⊗ φ i`:
+`⟪v, (∑ i ∈ s, w i • φ i ⊗ φ i) v⟫ = ∑ i ∈ s, w i * ⟪φ i, v⟫²`. -/
+theorem inner_sum_smul_rankOne_apply_self {ι : Type*} (s : Finset ι) (φ : ι → E) (w : ι → ℝ)
+    (v : E) :
+    ⟪v, (∑ i ∈ s, w i • rankOne ℝ (φ i) (φ i)) v⟫_ℝ = ∑ i ∈ s, w i * ⟪φ i, v⟫_ℝ ^ 2 := by
+  simp only [sum_apply, smul_apply, rankOne_apply, inner_sum, real_inner_smul_right,
+    real_inner_comm v (φ _)]
+  exact Finset.sum_congr rfl fun i _ ↦ by ring
+
+/-- For an orthonormal family `φ`, the vectors `φ i` are eigenvectors of
+`∑ j, w j • φ j ⊗ φ j`: `(∑ j, w j • φ j ⊗ φ j) (φ i) = w i • φ i`. -/
+theorem sum_smul_rankOne_apply_of_orthonormal {ι : Type*} [Fintype ι] {φ : ι → E}
+    (hφ : Orthonormal ℝ φ) (w : ι → ℝ) (i : ι) :
+    (∑ j, w j • rankOne ℝ (φ j) (φ j)) (φ i) = w i • φ i := by
+  classical
+  simp [sum_apply, orthonormal_iff_ite.1 hφ]
+
+/-- For an orthonormal family `φ`, nonnegative weights `w` and `i ≠ j` with `w i, w j > 0`,
+`‖φ i - φ j‖²_{V⁻¹} = 1 / w i + 1 / w j` for `V = ∑ k, w k • φ k ⊗ φ k`: it is `⟪z, V z⟫` at
+`z = (1 / w i) • φ i - (1 / w j) • φ j`, whose image is `V z = φ i - φ j`. -/
+theorem invNormSq_sum_smul_rankOne_sub_of_orthonormal {ι : Type*} [Fintype ι] {φ : ι → E}
+    (hφ : Orthonormal ℝ φ) {w : ι → ℝ} (hw : 0 ≤ w) {i j : ι} (hij : i ≠ j) (hi : 0 < w i)
+    (hj : 0 < w j) :
+    invNormSq (∑ k, w k • rankOne ℝ (φ k) (φ k) : E →L[ℝ] E) (φ i - φ j) =
+      ENNReal.ofReal (1 / w i + 1 / w j) := by
+  classical
+  have hV := (isPositive_sum_smul_rankOne Finset.univ φ fun k _ ↦ hw k).toLinearMap
+  have hz : (∑ k, w k • rankOne ℝ (φ k) (φ k)) ((1 / w i) • φ i - (1 / w j) • φ j) = φ i - φ j := by
+    rw [map_sub, map_smul, map_smul, sum_smul_rankOne_apply_of_orthonormal hφ,
+      sum_smul_rankOne_apply_of_orthonormal hφ, smul_smul, smul_smul, one_div_mul_cancel hi.ne',
+      one_div_mul_cancel hj.ne', one_smul, one_smul]
+  have h := invNormSq_apply_eq_ofReal_inner hV ((1 / w i) • φ i - (1 / w j) • φ j)
+  rw [ContinuousLinearMap.coe_coe, hz] at h
+  rw [h]
+  simp [inner_sub_left, inner_sub_right, real_inner_smul_left, orthonormal_iff_ite.1 hφ, hφ.1,
+    hij, hij.symm]
+
+/-- For an orthonormal family `φ`, weights `w` and `i ≠ j` with `w i = 0` or `w j = 0`,
+`‖φ i - φ j‖²_{V⁻¹} = ∞` for `V = ∑ k, w k • φ k ⊗ φ k`: the vector `φ i` (or `φ j`) is in the
+kernel of `V` and not orthogonal to `φ i - φ j`. -/
+theorem invNormSq_sum_smul_rankOne_sub_eq_top_of_orthonormal {ι : Type*} [Fintype ι] {φ : ι → E}
+    (hφ : Orthonormal ℝ φ) {w : ι → ℝ} {i j : ι} (hij : i ≠ j) (h : w i = 0 ∨ w j = 0) :
+    invNormSq (∑ k, w k • rankOne ℝ (φ k) (φ k) : E →L[ℝ] E) (φ i - φ j) = ∞ := by
+  classical
+  have he := orthonormal_iff_ite.1 hφ
+  rcases h with h | h
+  · exact invNormSq_eq_top_of_apply_eq_zero (x := φ i)
+      (by rw [ContinuousLinearMap.coe_coe, sum_smul_rankOne_apply_of_orthonormal hφ, h, zero_smul])
+      (by simp [inner_sub_left, he, hφ.1, hij.symm])
+  · exact invNormSq_eq_top_of_apply_eq_zero (x := φ j)
+      (by rw [ContinuousLinearMap.coe_coe, sum_smul_rankOne_apply_of_orthonormal hφ, h, zero_smul])
+      (by simp [inner_sub_left, he, hφ.1, hij])
 
 /-- If `c * v i ≤ w i` for every `i`, then `c • ∑ i, v i • φ i ⊗ φ i ≤ ∑ i, w i • φ i ⊗ φ i` in
 the Loewner order. -/
