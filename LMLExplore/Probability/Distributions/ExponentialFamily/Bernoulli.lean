@@ -1,13 +1,20 @@
 /-
-Copyright (c) 2026 Rémy Degenne. All rights reserved.
+Copyright (c) 2026 LMLExplore contributors. All rights reserved.
 Released under Apache 2.0 license as described in the file LICENSE.
-Authors: Rémy Degenne
+Authors: LMLExplore contributors
 -/
 module
 
 public import LMLExplore.Analysis.SpecialFunctions.Sigmoid
 public import LMLExplore.InformationTheory.KullbackLeibler.Bernoulli
+public import LMLExplore.Probability.Distributions.ExponentialFamily.Posterior.Basic
 public import LMLExplore.Probability.Distributions.ExponentialFamily.UpperConfidence
+public import Mathlib.Probability.Distributions.Beta
+import Mathlib.Analysis.SpecialFunctions.Gaussian.GaussianIntegral
+import TauCeti.Analysis.SpecialFunctions.Sigmoid
+import TauCeti.MeasureTheory.Measure.WithDensity
+import TauCeti.Probability.Distributions.Bernoulli.Basic
+import TauCeti.Probability.Distributions.Beta.Basic
 
 /-!
 # The Bernoulli laws as an exponential family
@@ -29,6 +36,14 @@ binary relative entropy `klBer x q`, the boundary levels `0` and `1` and the bou
 This identifies the Chernoff bounds for exponential families with the Chernoff bounds for
 Bernoulli laws in relative-entropy form.
 
+The variance function of the family is `ψ''(η) = m (1 - m)` at the mean `m = sigmoid (η₀ + η)`,
+which is also the derivative of the mean map. So the Jeffreys prior `√ψ''(η) dη` is, in the mean,
+`√(m (1 - m)) dm / (m (1 - m)) = m ^ (-1 / 2) (1 - m) ^ (-1 / 2) dm`: the arcsine law
+`Beta(1 / 2, 1 / 2)` times its total mass `B(1 / 2, 1 / 2) = π`. After `s` observations of sum
+`S`, the likelihood `exp (η S - s ψ(η))` is a constant multiple of `m ^ S (1 - m) ^ (s - S)`, so
+for `-1 / 2 < S < s + 1 / 2` the posterior of the mean is `Beta(S + 1 / 2, s - S + 1 / 2)`: the
+sampling law of Thompson sampling with the Jeffreys prior for Bernoulli arms [KKM13, Figure 1].
+
 ## Main statements
 
 * `LMLExplore.not_ae_eq_const_bernoulliMeasure`: for `q ∈ (0, 1)`, the identity is not almost
@@ -46,6 +61,19 @@ Bernoulli laws in relative-entropy form.
   `klBer x m` for `x ∈ [0, 1]` and `m ∈ (0, 1)`.
 * `LMLExplore.expFamilyUpper_bernoulliMeasure_sigmoid`: the upper confidence level of the family is
   `klUpper x c` for `x ∈ [0, 1]`.
+* `LMLExplore.iteratedDeriv_two_cgf_bernoulliMeasure_sigmoid`,
+  `LMLExplore.jeffreysPrior_bernoulliMeasure_sigmoid`: the variance function of the family is
+  `m (1 - m)` at the mean `m = sigmoid (η₀ + η)`, and its Jeffreys prior is `√(m (1 - m)) dη`.
+* `LMLExplore.map_deriv_cgf_jeffreysPrior_bernoulliMeasure_sigmoid`: the image of the Jeffreys
+  prior by the mean map is `π • Beta(1 / 2, 1 / 2)`.
+* `LMLExplore.map_deriv_cgf_expFamilyPosterior_bernoulliMeasure_sigmoid_jeffreysPrior`: for
+  `-1 / 2 < S < s + 1 / 2`, the image by the mean map of the posterior for the Jeffreys prior after
+  `s` observations of sum `S` is `Beta(S + 1 / 2, s - S + 1 / 2)`.
+
+## References
+
+* [KKM13] N. Korda, E. Kaufmann and R. Munos, *Thompson sampling for 1-dimensional exponential
+  family bandits*, NeurIPS 2013.
 -/
 
 public section
@@ -128,7 +156,7 @@ theorem expFamilyDiv_bernoulliMeasure_sigmoid (η₀ : ℝ) (hp : p ∈ Ioo 0 1)
   rw [← Measure.toReal_klDiv_expFamily_natParam (by rwa [expFamilyMeans_bernoulliMeasure_sigmoid])
       (by rwa [expFamilyMeans_bernoulliMeasure_sigmoid]),
     expFamily_natParam_bernoulliMeasure_sigmoid η₀ hp,
-    expFamily_natParam_bernoulliMeasure_sigmoid η₀ hm, klDiv_bernoulliMeasure]
+    expFamily_natParam_bernoulliMeasure_sigmoid η₀ hm, klDiv_bernoulliMeasure one_ne_zero]
   exact toReal_klBer (Ioo_subset_Icc_self hp) (Ioo_subset_Icc_self hm) (klBer_ne_top hm)
 
 /-- **Rate function of a Bernoulli law**: the Cramér rate function of `Ber((1 : ℝ), 0, q)` at a
@@ -222,5 +250,169 @@ theorem expFamilyUpper_bernoulliMeasure_sigmoid (η₀ : ℝ) (hx : x ∈ Icc 0 
     (by rw [expFamilyMeans_bernoulliMeasure_sigmoid]; exact hr01) hr.2.le ?_)
   rw [expFamilyRate_bernoulliMeasure_sigmoid η₀ hx hr01]
   exact (le_klUpper_iff ⟨hr.2.le, hr01.2.le⟩).1 hru'.le
+
+/-! ### The Jeffreys prior and its posteriors -/
+
+section Jeffreys
+
+variable {s : ℕ} {S : ℝ}
+
+/-- The log-partition function of the exponential family of `Ber((1 : ℝ), 0, sigmoid η₀)`:
+`ψ(η) = log (1 - sigmoid η₀) - log (1 - sigmoid (η₀ + η))`. -/
+private lemma cgf_bernoulliMeasure_sigmoid (η₀ η : ℝ) :
+    cgf id Ber((1 : ℝ), 0, unitInterval.sigmoid η₀) η =
+      log (1 - Real.sigmoid η₀) - log (1 - Real.sigmoid (η₀ + η)) := by
+  have h0 : 0 < 1 - Real.sigmoid η₀ := sub_pos.2 (Real.sigmoid_lt_one _)
+  have h1 : 0 < 1 - Real.sigmoid (η₀ + η) := sub_pos.2 (Real.sigmoid_lt_one _)
+  rw [TauCeti.Probability.cgf_id_bernoulliMeasure, unitInterval.coe_sigmoid,
+    ← log_div h0.ne' h1.ne']
+  congr 1
+  rw [eq_div_iff h1.ne']
+  simp only [Real.sigmoid_def, exp_neg, exp_add]
+  field_simp
+  ring
+
+/-- The variance function of the exponential family of `Ber((1 : ℝ), 0, sigmoid η₀)`: the second
+derivative of its log-partition function at `η` is the variance `m (1 - m)` of the member of mean
+`m = sigmoid (η₀ + η)`. -/
+@[simp]
+theorem iteratedDeriv_two_cgf_bernoulliMeasure_sigmoid (η₀ η : ℝ) :
+    iteratedDeriv 2 (cgf id Ber((1 : ℝ), 0, unitInterval.sigmoid η₀)) η =
+      Real.sigmoid (η₀ + η) * (1 - Real.sigmoid (η₀ + η)) := by
+  rw [iteratedDeriv_succ, iteratedDeriv_one,
+    funext (deriv_cgf_bernoulliMeasure_sigmoid η₀), deriv_comp_const_add, Real.deriv_sigmoid]
+
+/-- The Jeffreys prior of the exponential family of `Ber((1 : ℝ), 0, sigmoid η₀)` is the measure
+`√(m (1 - m)) dη` on the line of natural parameters, with `m = sigmoid (η₀ + η)` the mean of the
+member of natural parameter `η`. -/
+theorem jeffreysPrior_bernoulliMeasure_sigmoid (η₀ : ℝ) :
+    Ber((1 : ℝ), 0, unitInterval.sigmoid η₀).jeffreysPrior id = volume.withDensity fun η ↦
+      ENNReal.ofReal √(Real.sigmoid (η₀ + η) * (1 - Real.sigmoid (η₀ + η))) := by
+  simp [Measure.jeffreysPrior_def, integrableExpSet_bernoulliMeasure]
+
+/-- The unnormalized posterior density of the exponential family of
+`Ber((1 : ℝ), 0, sigmoid η₀)` for its Jeffreys prior, after `s` observations of sum `S`, is
+`m (1 - m)` times `C m ^ (S - 1 / 2) (1 - m) ^ (s - S - 1 / 2)` at the mean
+`m = sigmoid (η₀ + η)`, with `C = exp (-η₀ S - s log (1 - sigmoid η₀))`. -/
+private lemma sqrt_mul_exp_cgf_bernoulliMeasure_sigmoid (η₀ η S : ℝ) (s : ℕ) :
+    √(Real.sigmoid (η₀ + η) * (1 - Real.sigmoid (η₀ + η))) *
+        exp (η * S - s * cgf id Ber((1 : ℝ), 0, unitInterval.sigmoid η₀) η) =
+      Real.sigmoid (η₀ + η) * (1 - Real.sigmoid (η₀ + η)) *
+        (exp (-(η₀ * S) - s * log (1 - Real.sigmoid η₀)) *
+          (Real.sigmoid (η₀ + η) ^ (S - 1 / 2) *
+            (1 - Real.sigmoid (η₀ + η)) ^ ((s : ℝ) - S - 1 / 2))) := by
+  rw [cgf_bernoulliMeasure_sigmoid]
+  have hη : η = log (Real.sigmoid (η₀ + η)) - log (1 - Real.sigmoid (η₀ + η)) - η₀ := by
+    rw [← log_div (Real.sigmoid_pos _).ne' (sub_pos.2 (Real.sigmoid_lt_one _)).ne',
+      Real.log_sigmoid_div_one_sub]
+    ring
+  set m := Real.sigmoid (η₀ + η)
+  have hm0 : 0 < m := Real.sigmoid_pos _
+  have hm1 : 0 < 1 - m := sub_pos.2 (Real.sigmoid_lt_one _)
+  have hm : m * (1 - m) = exp (log m + log (1 - m)) := by
+    rw [exp_add, exp_log hm0, exp_log hm1]
+  rw [hm, sqrt_eq_rpow, rpow_def_of_pos (exp_pos _), rpow_def_of_pos hm0,
+    rpow_def_of_pos hm1, log_exp, ← exp_add, ← exp_add, ← exp_add, ← exp_add]
+  congr 1
+  rw [hη]
+  ring
+
+variable (η₀ : ℝ)
+
+/-- The image by the mean map of the Jeffreys prior of the exponential family of
+`Ber((1 : ℝ), 0, sigmoid η₀)` weighted by the likelihood of `s` observations of sum `S`, for
+`-1 / 2 < S < s + 1 / 2`: a positive finite multiple of `Beta(S + 1 / 2, s - S + 1 / 2)`. -/
+private lemma map_deriv_cgf_withDensity_jeffreysPrior_bernoulliMeasure_sigmoid
+    (hS0 : -(1 / 2) < S) (hS1 : S < s + 1 / 2) :
+    ((Ber((1 : ℝ), 0, unitInterval.sigmoid η₀).jeffreysPrior id).withDensity fun η ↦
+          ENNReal.ofReal (exp (η * S - s * cgf id Ber((1 : ℝ), 0, unitInterval.sigmoid η₀) η))).map
+        (deriv (cgf id Ber((1 : ℝ), 0, unitInterval.sigmoid η₀))) =
+      ENNReal.ofReal (exp (-(η₀ * S) - s * log (1 - Real.sigmoid η₀)) *
+          beta (S + 1 / 2) (s - S + 1 / 2)) • betaMeasure (S + 1 / 2) (s - S + 1 / 2) := by
+  have hα : 0 < S + 1 / 2 := by linarith
+  have hβ : 0 < (s : ℝ) - S + 1 / 2 := by linarith
+  have hB := beta_pos hα hβ
+  set C := exp (-(η₀ * S) - s * log (1 - Real.sigmoid η₀))
+  set g := ENNReal.ofReal (C * beta (S + 1 / 2) (s - S + 1 / 2)) •
+    betaPDF (S + 1 / 2) (s - S + 1 / 2)
+  -- the mean map `η ↦ σ(η₀ + η)` carries the density `|σ'(η₀ + η)| g(σ(η₀ + η))` on the line to
+  -- the density `g` on `(0, 1)`
+  have hmap := TauCeti.MeasureTheory.map_withDensity_abs_deriv_mul
+    (φ := fun η ↦ Real.sigmoid (η₀ + η)) (f := g) MeasurableSet.univ
+    (continuous_sigmoid.comp (continuous_const_add η₀)).measurable
+    (fun η _ ↦ ((Real.hasDerivAt_sigmoid (η₀ + η)).comp_const_add η₀ η).hasDerivWithinAt)
+    (Real.sigmoid_strictMono.comp (strictMono_id.const_add η₀)).injective.injOn
+  have hrange : range (fun η ↦ Real.sigmoid (η₀ + η)) = Ioo 0 1 := by
+    rw [← Real.range_sigmoid]
+    exact (add_left_surjective η₀).range_comp Real.sigmoid
+  rw [Measure.restrict_univ, image_univ, hrange] at hmap
+  -- the posterior weight of the Jeffreys prior is that density, for a multiple `g` of the beta
+  -- density
+  have hdens : (fun η ↦ ENNReal.ofReal √(Real.sigmoid (η₀ + η) * (1 - Real.sigmoid (η₀ + η))) *
+        ENNReal.ofReal
+          (exp (η * S - s * cgf id Ber((1 : ℝ), 0, unitInterval.sigmoid η₀) η))) =
+      fun η ↦ ENNReal.ofReal |Real.sigmoid (η₀ + η) * (1 - Real.sigmoid (η₀ + η))| *
+        g (Real.sigmoid (η₀ + η)) := by
+    ext η
+    have hm0 := Real.sigmoid_pos (η₀ + η)
+    have hm1 := Real.sigmoid_lt_one (η₀ + η)
+    simp only [g, Pi.smul_apply, smul_eq_mul]
+    rw [abs_of_nonneg (mul_nonneg hm0.le (sub_nonneg.2 hm1.le)), betaPDF_of_pos_lt_one hm0 hm1,
+      ← ENNReal.ofReal_mul (sqrt_nonneg _), sqrt_mul_exp_cgf_bernoulliMeasure_sigmoid,
+      ← ENNReal.ofReal_mul (mul_pos (exp_pos _) hB).le,
+      ← ENNReal.ofReal_mul (mul_nonneg hm0.le (sub_nonneg.2 hm1.le))]
+    congr 2
+    rw [show S + 1 / 2 - 1 = S - 1 / 2 by ring,
+      show (s : ℝ) - S + 1 / 2 - 1 = s - S - 1 / 2 by ring]
+    generalize beta (S + 1 / 2) (s - S + 1 / 2) = B at hB ⊢
+    field_simp
+  rw [jeffreysPrior_bernoulliMeasure_sigmoid, ← withDensity_mul _ (by fun_prop) ?_,
+    Pi.mul_def, hdens, funext (deriv_cgf_bernoulliMeasure_sigmoid η₀), hmap,
+    withDensity_smul' _ _ ENNReal.ofReal_ne_top,
+    ← TauCeti.Probability.betaMeasure_eq_withDensity_restrict_Ioo]
+  simp_rw [cgf_bernoulliMeasure_sigmoid]
+  fun_prop
+
+/-- The Jeffreys prior of the Bernoulli family is the arcsine law `Beta(1 / 2, 1 / 2)` on the mean,
+up to its total mass `π`: the image of the Jeffreys prior of the exponential family of
+`Ber((1 : ℝ), 0, sigmoid η₀)` by the mean map `ψ'(η) = sigmoid (η₀ + η)` is
+`π • Beta(1 / 2, 1 / 2)` [KKM13, Section 2]. -/
+theorem map_deriv_cgf_jeffreysPrior_bernoulliMeasure_sigmoid :
+    (Ber((1 : ℝ), 0, unitInterval.sigmoid η₀).jeffreysPrior id).map
+        (deriv (cgf id Ber((1 : ℝ), 0, unitInterval.sigmoid η₀))) =
+      ENNReal.ofReal π • betaMeasure (1 / 2) (1 / 2) := by
+  have h := map_deriv_cgf_withDensity_jeffreysPrior_bernoulliMeasure_sigmoid (s := 0) (S := 0) η₀
+    (by norm_num) (by norm_num)
+  have hbeta : beta (1 / 2) (1 / 2) = π := by
+    norm_num [beta, Gamma_one_half_eq, mul_self_sqrt pi_pos.le]
+  simp only [CharP.cast_eq_zero, mul_zero, zero_mul, sub_zero, neg_zero, exp_zero, zero_add,
+    one_mul, ENNReal.ofReal_one, hbeta] at h
+  rwa [← Pi.one_def, withDensity_one] at h
+
+/-- **The posterior of the Bernoulli family for the Jeffreys prior is a beta law** [KKM13,
+Figure 1]: after `s` observations of sum `S` with `-1 / 2 < S < s + 1 / 2` (for example `s`
+Bernoulli observations with `S` successes), the image of the posterior of the natural parameter of
+the exponential family of `Ber((1 : ℝ), 0, sigmoid η₀)` for its Jeffreys prior by the mean map
+`ψ'(η) = sigmoid (η₀ + η)` is `Beta(S + 1 / 2, s - S + 1 / 2)`. -/
+theorem map_deriv_cgf_expFamilyPosterior_bernoulliMeasure_sigmoid_jeffreysPrior
+    (hS0 : -(1 / 2) < S) (hS1 : S < s + 1 / 2) :
+    (Ber((1 : ℝ), 0, unitInterval.sigmoid η₀).expFamilyPosterior id
+          (Ber((1 : ℝ), 0, unitInterval.sigmoid η₀).jeffreysPrior id) s S).map
+        (deriv (cgf id Ber((1 : ℝ), 0, unitInterval.sigmoid η₀))) =
+      betaMeasure (S + 1 / 2) (s - S + 1 / 2) := by
+  have := isProbabilityMeasureBeta (α := S + 1 / 2) (β := s - S + 1 / 2) (by linarith)
+    (by linarith)
+  have hf : Measurable (deriv (cgf id Ber((1 : ℝ), 0, unitInterval.sigmoid η₀))) :=
+    measurable_deriv _
+  have hc0 : ENNReal.ofReal (exp (-(η₀ * S) - s * log (1 - Real.sigmoid η₀)) *
+      beta (S + 1 / 2) (s - S + 1 / 2)) ≠ 0 :=
+    (ENNReal.ofReal_pos.2 (mul_pos (exp_pos _) (beta_pos (by linarith) (by linarith)))).ne'
+  rw [Measure.expFamilyPosterior_def, integrableExpSet_bernoulliMeasure, interior_univ,
+    ← preimage_univ (f := deriv (cgf id Ber((1 : ℝ), 0, unitInterval.sigmoid η₀))),
+    ← cond_map hf.aemeasurable MeasurableSet.univ,
+    map_deriv_cgf_withDensity_jeffreysPrior_bernoulliMeasure_sigmoid η₀ hS0 hS1,
+    cond_smul _ _ hc0 ENNReal.ofReal_ne_top, cond_univ]
+
+end Jeffreys
 
 end LMLExplore

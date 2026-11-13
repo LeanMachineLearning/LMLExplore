@@ -1,7 +1,7 @@
 /-
-Copyright (c) 2026 Rémy Degenne. All rights reserved.
+Copyright (c) 2026 LMLExplore contributors. All rights reserved.
 Released under Apache 2.0 license as described in the file LICENSE.
-Authors: Rémy Degenne
+Authors: LMLExplore contributors
 -/
 module
 
@@ -42,7 +42,9 @@ These posteriors are the sampling laws of Thompson sampling for exponential fami
 ## Main statements
 
 * `MeasureTheory.Measure.expFamilyPosterior_apply`: the posterior of a measurable set `B` is
-  `∫_{Θ ∩ B} exp (θ S - s ψ(θ)) dν(θ) / ∫_Θ exp (θ S - s ψ(θ)) dν(θ)`.
+  `∫_{Θ ∩ B} exp (θ S - s ψ(θ)) dν(θ) / ∫_Θ exp (θ S - s ψ(θ)) dν(θ)`;
+  `MeasureTheory.Measure.expFamilyPosterior_apply_sub_const`: the same ratio with the exponent
+  shifted by any constant.
 * `MeasureTheory.Measure.isProbabilityMeasure_expFamilyPosterior`,
   `MeasureTheory.Measure.expFamilyPosterior_eq_zero_iff`: the posterior is a probability measure
   if the normalizing constant is positive and finite, and `0` otherwise;
@@ -52,6 +54,10 @@ These posteriors are the sampling laws of Thompson sampling for exponential fami
   multiplied by a positive finite constant.
 * `MeasureTheory.Measure.measurable_expFamilyPosterior`: for an s-finite measure `ρ`, a measurable
   statistic and an s-finite prior, the posterior is a measurable function of `S`.
+* `MeasureTheory.Measure.ofReal_mul_le_jeffreysPrior_Icc`: the Jeffreys prior of an interval of
+  natural parameters on which `√ψ''` is at least `c` is at least `c` times its length;
+  `MeasureTheory.Measure.jeffreysPrior_Icc_ne_zero`: it is positive on every nondegenerate interval
+  of natural parameters.
 
 ## References
 
@@ -104,6 +110,25 @@ lemma expFamilyPosterior_apply {B : Set ℝ} (hB : MeasurableSet B) :
   have hΘ : MeasurableSet (interior (integrableExpSet T ρ)) := isOpen_interior.measurableSet
   rw [expFamilyPosterior_def, cond_apply hΘ, withDensity_apply _ hΘ,
     withDensity_apply _ (hΘ.inter hB)]
+
+/-- The posterior can be computed with the exponent `θ S - s ψ(θ)` shifted by any constant `c`:
+the posterior of a measurable set `B` is
+`∫_{Θ ∩ B} exp (θ S - s ψ(θ) - c) dν(θ) / ∫_Θ exp (θ S - s ψ(θ) - c) dν(θ)`. -/
+lemma expFamilyPosterior_apply_sub_const (c : ℝ) {B : Set ℝ} (hB : MeasurableSet B) :
+    ρ.expFamilyPosterior T ν s S B =
+      (∫⁻ θ in interior (integrableExpSet T ρ),
+          ENNReal.ofReal (exp (θ * S - s * cgf T ρ θ - c)) ∂ν)⁻¹ *
+        ∫⁻ θ in interior (integrableExpSet T ρ) ∩ B,
+          ENNReal.ofReal (exp (θ * S - s * cgf T ρ θ - c)) ∂ν := by
+  have h (U : Set ℝ) : ∫⁻ θ in U, ENNReal.ofReal (exp (θ * S - s * cgf T ρ θ - c)) ∂ν =
+      (∫⁻ θ in U, ENNReal.ofReal (exp (θ * S - s * cgf T ρ θ)) ∂ν) *
+        ENNReal.ofReal (exp (-c)) := by
+    rw [← lintegral_mul_const' _ _ ENNReal.ofReal_ne_top]
+    congr with θ
+    rw [← ENNReal.ofReal_mul (exp_pos _).le, ← exp_add, sub_eq_add_neg]
+  rw [h, h, ← ENNReal.div_eq_inv_mul, ENNReal.mul_div_mul_right _ _
+    (ENNReal.ofReal_pos.2 (exp_pos _)).ne' ENNReal.ofReal_ne_top, ENNReal.div_eq_inv_mul,
+    expFamilyPosterior_apply hB]
 
 /-- The posterior is a probability measure if its normalizing constant
 `∫_Θ exp (θ S - s ψ(θ)) dν(θ)` is positive and finite. -/
@@ -173,5 +198,30 @@ lemma jeffreysPrior_def (ρ : Measure 𝓧) (T : 𝓧 → ℝ) :
 instance : SigmaFinite (ρ.jeffreysPrior T) := by
   rw [jeffreysPrior_def]
   infer_instance
+
+/-- The Jeffreys prior of an interval `[a, b]` of natural parameters on which `√ψ''` is at least
+`c ≥ 0` is at least `c (b - a)`. -/
+lemma ofReal_mul_le_jeffreysPrior_Icc {a b c : ℝ} (hc : 0 ≤ c)
+    (hΘ : Icc a b ⊆ interior (integrableExpSet T ρ))
+    (hψ : ∀ θ ∈ Icc a b, c ≤ √(iteratedDeriv 2 (cgf T ρ) θ)) :
+    ENNReal.ofReal (c * (b - a)) ≤ ρ.jeffreysPrior T (Icc a b) := by
+  rw [jeffreysPrior_def, withDensity_apply _ measurableSet_Icc,
+    Measure.restrict_restrict measurableSet_Icc, inter_eq_left.2 hΘ, ENNReal.ofReal_mul hc,
+    ← Real.volume_Icc, ← setLIntegral_const]
+  exact setLIntegral_mono' measurableSet_Icc fun θ hθ ↦ ENNReal.ofReal_le_ofReal (hψ θ hθ)
+
+/-- For a statistic that is not almost everywhere constant, the Jeffreys prior gives positive mass
+to every nondegenerate interval `[a, b]` of natural parameters: `√ψ''` is continuous and positive,
+hence bounded below on `[a, b]`. -/
+lemma jeffreysPrior_Icc_ne_zero (hT : ∀ c, ¬ T =ᵐ[ρ] fun _ ↦ c) {a b : ℝ} (hab : a < b)
+    (hΘ : Icc a b ⊆ interior (integrableExpSet T ρ)) : ρ.jeffreysPrior T (Icc a b) ≠ 0 := by
+  have hcont : ContinuousOn (iteratedDeriv 2 (cgf T ρ)) (Icc a b) := fun θ hθ ↦ by
+    rw [iteratedDeriv_eq_iterate]
+    exact ((analyticAt_cgf (hΘ hθ)).iterated_deriv 2).continuousAt.continuousWithinAt
+  obtain ⟨θ₀, hθ₀, hmin⟩ := isCompact_Icc.exists_isMinOn (nonempty_Icc.2 hab.le) hcont
+  have hpos := iteratedDeriv_two_cgf_pos hT (hΘ hθ₀)
+  refine ((ENNReal.ofReal_pos.2 (mul_pos (Real.sqrt_pos.2 hpos) (sub_pos.2 hab))).trans_le
+    (ofReal_mul_le_jeffreysPrior_Icc (Real.sqrt_nonneg _) hΘ fun θ hθ ↦ ?_)).ne'
+  exact Real.sqrt_le_sqrt (isMinOn_iff.1 hmin θ hθ)
 
 end MeasureTheory.Measure

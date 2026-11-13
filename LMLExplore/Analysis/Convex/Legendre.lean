@@ -6,6 +6,7 @@ Authors: LMLExplore contributors
 module
 
 public import LMLExplore.Analysis.Convex.Bregman.Projection
+public import LMLExplore.Analysis.Convex.Bregman.StrictConvex
 public import LMLExplore.Analysis.Convex.Extrema
 public import LMLExplore.Analysis.Convex.Topology
 public import Mathlib.Analysis.Normed.Module.FiniteDimension
@@ -291,54 +292,24 @@ theorem add_const (c : ℝ) : IsLegendre (fun x ↦ F x + c) D where
 minimizer over its domain are bounded. -/
 theorem isBounded_sublevel [FiniteDimensional ℝ E] {y₀ : E} (hy₀ : y₀ ∈ D) (hmin : IsMinOn F D y₀)
     (c : ℝ) : Bornology.IsBounded {x ∈ D | F x ≤ c} := by
-  rcases subsingleton_or_nontrivial E with hE | hE
-  · exact Set.subsingleton_of_subsingleton.finite.isBounded
   have hy₀i := hF.mem_interior_of_isMinOn hy₀ hmin
   obtain ⟨r, hr, hball⟩ := Metric.mem_nhds_iff.1 (mem_interior_iff_mem_nhds.1 hy₀i)
-  -- On the sphere of radius `r / 2` around `y₀`, `F` exceeds `F y₀` by some `δ > 0`.
-  have hr' : 0 < r / 2 := half_pos hr
   have hsph : Metric.sphere y₀ (r / 2) ⊆ interior D := fun z hz ↦
     interior_maximal hball Metric.isOpen_ball
       (by rw [Metric.mem_ball, Metric.mem_sphere.1 hz]; linarith)
-  obtain ⟨z₀, hz₀, hz₀min⟩ := (isCompact_sphere y₀ (r / 2)).exists_isMinOn
-    (NormedSpace.sphere_nonempty.2 hr'.le)
-    (hF.differentiableOn.continuousOn.mono hsph)
-  have hδ : F y₀ < F z₀ := by
-    refine (isMinOn_iff.1 hmin z₀ (interior_subset (hsph hz₀))).lt_of_ne fun h ↦ ?_
-    have hmin' : IsMinOn F (interior D) z₀ :=
-      isMinOn_iff.2 fun w hw ↦ h ▸ isMinOn_iff.1 hmin w (interior_subset hw)
-    have := hF.strictConvexOn.eq_of_isMinOn hmin' (hmin.of_subset interior_subset)
-      (hsph hz₀) hy₀i
-    rw [this, Metric.mem_sphere, dist_self] at hz₀
-    linarith
-  -- By convexity along `[y₀, x]`, `F x - F y₀ ≥ (F z₀ - F y₀) ‖x - y₀‖ / (r / 2)` beyond the
-  -- sphere.
-  refine (Metric.isBounded_closedBall (x := y₀)
-    (r := max (r / 2) (r / 2 * (c - F y₀) / (F z₀ - F y₀)))).subset fun x ⟨hxD, hxc⟩ ↦ ?_
+  -- Beyond the sphere of radius `r / 2`, `F x - F y₀ = D_F(x, y₀)` grows at least linearly in
+  -- `‖x - y₀‖`, since the derivative of `F` vanishes at the minimizer `y₀`.
+  obtain ⟨k, hk, hgrow⟩ := hF.strictConvexOn.exists_pos_mul_norm_le_bregDiv hF.convexOn hy₀i
+    (hF.hasSubgradientWithinAt hy₀i) (half_pos hr) hsph
+  refine (Metric.isBounded_closedBall (x := y₀) (r := max (r / 2) ((c - F y₀) / k))).subset
+    fun x ⟨hxD, hxc⟩ ↦ ?_
   rw [Metric.mem_closedBall, dist_eq_norm]
   by_contra hfar
-  have hd : r / 2 < ‖x - y₀‖ := (le_max_left _ _).trans_lt (not_le.1 hfar)
-  have hd' : r / 2 * (c - F y₀) / (F z₀ - F y₀) < ‖x - y₀‖ :=
-    (le_max_right _ _).trans_lt (not_le.1 hfar)
-  have hnorm : 0 < ‖x - y₀‖ := hr'.trans hd
-  set t := r / 2 / ‖x - y₀‖
-  have ht : 0 < t := div_pos hr' hnorm
-  have ht1 : t < 1 := (div_lt_one hnorm).2 hd
-  set z := y₀ + t • (x - y₀)
-  have hz : z ∈ Metric.sphere y₀ (r / 2) := by
-    rw [Metric.mem_sphere, dist_eq_norm, show z - y₀ = t • (x - y₀) by simp [z], norm_smul,
-      Real.norm_of_nonneg ht.le, div_mul_cancel₀ _ hnorm.ne']
-  have hconv := hF.convexOn.2 hy₀ hxD (sub_pos.2 ht1).le ht.le (by ring)
-  rw [smul_eq_mul, smul_eq_mul,
-    show (1 - t) • y₀ + t • x = z by simp only [z]; module] at hconv
-  have hz₀z := isMinOn_iff.1 hz₀min z hz
-  have htc : t * F x ≤ t * c := mul_le_mul_of_nonneg_left hxc ht.le
-  -- `F z₀ - F y₀ ≤ t (F x - F y₀) ≤ t (c - F y₀)`, contradicting
-  -- `‖x - y₀‖ > (r / 2) (c - F y₀) / (F z₀ - F y₀)`.
-  have hle : F z₀ - F y₀ ≤ t * (c - F y₀) := by linarith
-  rw [show t * (c - F y₀) = r / 2 * (c - F y₀) / ‖x - y₀‖ by simp only [t]; ring,
-    le_div_iff₀ hnorm] at hle
-  rw [div_lt_iff₀ (sub_pos.2 hδ)] at hd'
+  have hgrow_x := hgrow x hxD ((le_max_left _ _).trans (not_le.1 hfar).le)
+  rw [bregDiv, hF.fderiv_eq_zero_of_isMinOn hy₀ hmin, zero_apply,
+    sub_zero] at hgrow_x
+  have hd : (c - F y₀) / k < ‖x - y₀‖ := (le_max_right _ _).trans_lt (not_le.1 hfar)
+  rw [div_lt_iff₀ hk] at hd
   linarith
 
 /-- Along a segment from an interior point `x₀` to a boundary point `b` of the interior of the

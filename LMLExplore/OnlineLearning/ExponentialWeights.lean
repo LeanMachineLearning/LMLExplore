@@ -1,7 +1,7 @@
 /-
-Copyright (c) 2026 Rémy Degenne. All rights reserved.
+Copyright (c) 2026 LMLExplore contributors. All rights reserved.
 Released under Apache 2.0 license as described in the file LICENSE.
-Authors: Rémy Degenne
+Authors: LMLExplore contributors
 -/
 module
 
@@ -41,15 +41,28 @@ entropy.
 * `softmax_mem_simplex`, `softmax_pos`: on a nonempty finite type, the softmax is a probability
   vector with positive entries.
 * `softmax_add_const`: adding a constant to every coordinate does not change the softmax.
+* `softmax_log_add_apply`, `softmax_log_softmax_add`: the softmax of `log w + v` is the
+  multiplicative update `a ↦ w a * exp (v a)` normalized, and a multiplicative update of a softmax
+  is a softmax.
 * `measurable_softmax`: `v ↦ softmax v` is measurable.
 * `sum_mul_exp_neg_sub_one_add_le`: for nonnegative weights `p`, a nonnegative loss `y` and
   `η ≥ 0`, `∑ b, p b * (exp (-(η * y b)) - 1 + η * y b) ≤ η ^ 2 / 2 * ∑ b, p b * y b ^ 2`.
+* `sum_mul_exp_neg_sub_one_add_le_of_neg_one_le`: for nonnegative weights `p` and a loss `y` with
+  `η * y b ≥ -1`, `∑ b, p b * (exp (-(η * y b)) - 1 + η * y b) ≤ η ^ 2 * ∑ b, p b * y b ^ 2`.
+
+## Implementation notes
+
+The lemmas `softmax_log_add_apply` and `softmax_log_softmax_add` are adapted from the
+formalization of [SSKM26] in the paper project `RemyDegenne/Schlisselberg2026Hidden`
+(same author).
 
 ## References
 
 * [LS] T. Lattimore and Cs. Szepesvári, *Bandit Algorithms*, Cambridge University Press, 2020.
 * [Ora] F. Orabona, *Online learning: a modern introduction using convex optimization*,
   arXiv:1912.13213v10, 2026.
+* [SSKM26] O. Schlisselberg, U. Sherman, T. Koren and Y. Mansour, *The hidden cost of
+  approximation in online mirror descent*, arXiv:2511.22283v2, 2026.
 -/
 
 public section
@@ -95,6 +108,23 @@ lemma softmax_zero : softmax (0 : α → ℝ) = fun _ ↦ (Fintype.card α : ℝ
   funext a
   simp [softmax_apply]
 
+/-- The softmax of `log w + v`, for `w` with positive coordinates, is the multiplicative update
+of `w` by `exp v`: the vector `a ↦ w a * exp (v a)` normalized. -/
+lemma softmax_log_add_apply {w : α → ℝ} (hw : ∀ a, 0 < w a) (v : α → ℝ) (a : α) :
+    softmax (fun a ↦ log (w a) + v a) a = w a * exp (v a) / ∑ b, w b * exp (v b) := by
+  simp only [softmax_apply, exp_add, exp_log (hw _)]
+
+/-- A multiplicative update of a softmax is a softmax:
+`softmax (log (softmax v) + u) = softmax (v + u)`. -/
+lemma softmax_log_softmax_add [Nonempty α] (v u : α → ℝ) :
+    softmax (fun a ↦ log (softmax v a) + u a) = softmax (fun a ↦ v a + u a) := by
+  have hS : 0 < ∑ b, exp (v b) := sum_pos (fun b _ ↦ exp_pos _) univ_nonempty
+  have h : (fun a ↦ log (softmax v a) + u a) = fun a ↦ (v a + u a) + -log (∑ b, exp (v b)) := by
+    funext a
+    rw [softmax_apply, log_div (exp_pos _).ne' hS.ne', log_exp]
+    ring
+  rw [h, softmax_add_const]
+
 @[fun_prop]
 lemma measurable_softmax : Measurable (softmax (α := α)) := by
   refine Measurable.of_eval fun a ↦ ?_
@@ -116,5 +146,19 @@ theorem sum_mul_exp_neg_sub_one_add_le {p y : α → ℝ} (hp : ∀ b, 0 ≤ p b
   calc p b * (exp (-(η * y b)) - 1 + η * y b)
   _ ≤ p b * (η ^ 2 / 2 * y b ^ 2) := mul_le_mul_of_nonneg_left (by linarith) (hp b)
   _ = η ^ 2 / 2 * (p b * y b ^ 2) := by ring
+
+/-- **Second-order bound under exponential weights, for losses bounded below.** For nonnegative
+weights `p`, a learning rate `η` and a loss `y` with `η * y b ≥ -1` for every `b`,
+`∑ b, p b * (exp (-(η * y b)) - 1 + η * y b) ≤ η ^ 2 * ∑ b, p b * y b ^ 2`, from
+`exp (-x) ≤ 1 - x + x ^ 2` for `x ≥ -1` [LS, proof of Theorem 27.1]. -/
+theorem sum_mul_exp_neg_sub_one_add_le_of_neg_one_le {p y : α → ℝ} (hp : ∀ b, 0 ≤ p b) {η : ℝ}
+    (hy : ∀ b, -1 ≤ η * y b) :
+    ∑ b, p b * (exp (-(η * y b)) - 1 + η * y b) ≤ η ^ 2 * ∑ b, p b * y b ^ 2 := by
+  rw [mul_sum]
+  refine sum_le_sum fun b _ ↦ ?_
+  have h := exp_neg_le_one_sub_add_sq (hy b)
+  calc p b * (exp (-(η * y b)) - 1 + η * y b)
+  _ ≤ p b * (η ^ 2 * y b ^ 2) := mul_le_mul_of_nonneg_left (by nlinarith) (hp b)
+  _ = η ^ 2 * (p b * y b ^ 2) := by ring
 
 end LMLExplore.OnlineLearning

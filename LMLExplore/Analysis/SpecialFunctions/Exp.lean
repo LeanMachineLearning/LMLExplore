@@ -1,10 +1,11 @@
 /-
-Copyright (c) 2026 Rémy Degenne. All rights reserved.
+Copyright (c) 2026 LMLExplore contributors. All rights reserved.
 Released under Apache 2.0 license as described in the file LICENSE.
-Authors: Rémy Degenne
+Authors: LMLExplore contributors
 -/
 module
 
+public import Mathlib.Analysis.Complex.ExponentialBounds
 public import Mathlib.Analysis.Convex.Jensen
 public import Mathlib.Analysis.Convex.SpecificFunctions.Basic
 public import Mathlib.Analysis.PSeries
@@ -60,6 +61,7 @@ lower bound for linear bandits on the unit ball [LS, Theorem 24.2].
 ## Main statements
 
 * `Real.sum_range_exp_neg_mul_le`: `∑_{s < m} exp (-c (s + 1)) ≤ 1 / c` for `c > 0`.
+* `Real.sum_range_exp_neg_mul_le_one_add`: `∑_{s < m} exp (-c s) ≤ 1 + 1 / c` for `c > 0`.
 * `Real.sum_range_exp_neg_mul_div_le`: `∑_{s < m} exp (-c (s + 1)) / (s + 1) ≤ log (1 + 1 / c)`
   for `c > 0`.
 * `Real.sum_range_two_pow_mul_exp_neg_le`: `∑_{j < m} 2 ^ j exp (-2 ^ j c) ≤ 3 / (2 c)` for
@@ -82,6 +84,7 @@ lower bound for linear bandits on the unit ball [LS, Theorem 24.2].
 * `Real.exp_mul_le_one_add_mul_add_mul_sq`: Bennett's bound
   `exp (l x) ≤ 1 + l x + (exp (l b) - 1 - l b) / b ^ 2 * x ^ 2` for `b > 0`, `l ≥ 0`, `x ≤ b`.
 * `Real.exp_sub_one_sub_id_le_sq_div`: `exp x - 1 - x ≤ x ^ 2 / (2 (1 - x / 3))` for `0 ≤ x < 3`.
+* `Real.exp_neg_le_one_sub_add_sq`: `exp (-x) ≤ 1 - x + x ^ 2` for `x ≥ -1`.
 * `Real.card_mul_exp_sum_div_card_le_sum_exp`: `#s exp ((∑ i ∈ s, x i) / #s) ≤ ∑ i ∈ s, exp (x i)`.
 
 ## References
@@ -118,6 +121,18 @@ theorem sum_range_exp_neg_mul_le {c : ℝ} (hc : 0 < c) (m : ℕ) :
     have : 0 ≤ v m := by positivity
     simp only [hv, CharP.cast_eq_zero, mul_zero, neg_zero, exp_zero, one_div] at this ⊢
     linarith
+
+/-- For `c > 0`, `∑_{s < m} exp (-c s) ≤ 1 + 1 / c`, uniformly in `m`. -/
+theorem sum_range_exp_neg_mul_le_one_add {c : ℝ} (hc : 0 < c) (m : ℕ) :
+    ∑ s ∈ range m, exp (-(c * s)) ≤ 1 + c⁻¹ := by
+  -- the term of `s = 0` is `1`, and the others are bounded by `sum_range_exp_neg_mul_le`
+  calc ∑ s ∈ range m, exp (-(c * s))
+  _ ≤ ∑ s ∈ range (m + 1), exp (-(c * s)) :=
+    sum_le_sum_of_subset_of_nonneg (range_subset_range.2 m.le_succ) fun _ _ _ ↦ (exp_pos _).le
+  _ = ∑ s ∈ range m, exp (-(c * (s + 1))) + 1 := by
+    rw [sum_range_succ']
+    simp
+  _ ≤ 1 + c⁻¹ := by linarith [sum_range_exp_neg_mul_le hc m]
 
 /-- For `c > 0`, `∑_{s < m} exp (-c (s + 1)) / (s + 1) ≤ log (1 + 1 / c)`, uniformly in `m`: the
 series is the logarithmic series `-log (1 - exp (-c))`, and `1 - exp (-c) ≥ c / (1 + c)`. -/
@@ -346,6 +361,14 @@ theorem exp_mul_le_one_add_mul_add_mul_sq {b l x : ℝ} (hb : 0 < b) (hl : 0 ≤
     have h' : exp (l * x) - 1 - l * x = (exp (l * x) - 1 - l * x) / (l * x) ^ 2 * (l * x) ^ 2 :=
       (div_mul_cancel₀ _ (pow_ne_zero 2 hu.ne')).symm
     nlinarith [sq_nonneg (l * x)]
+
+/-- For `x ≥ -1`, `exp (-x) ≤ 1 - x + x ^ 2`: Bennett's bound `exp u ≤ 1 + u + (e - 2) u ^ 2` for
+`u ≤ 1`, with `e - 2 ≤ 1`. -/
+theorem exp_neg_le_one_sub_add_sq {x : ℝ} (hx : -1 ≤ x) : exp (-x) ≤ 1 - x + x ^ 2 := by
+  have h := exp_mul_le_one_add_mul_add_mul_sq one_pos zero_le_one (show -x ≤ 1 by linarith)
+  simp only [one_mul, one_pow, div_one] at h
+  have he : exp 1 - 1 - 1 ≤ 1 := by linarith [exp_one_lt_three]
+  nlinarith [sq_nonneg x]
 
 /-- **Jensen's inequality for the exponential** with uniform weights: a sum of exponentials is at
 least its number of terms times the exponential of the mean of the exponents. -/

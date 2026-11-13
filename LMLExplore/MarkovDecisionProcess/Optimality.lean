@@ -1,7 +1,7 @@
 /-
-Copyright (c) 2026 Rémy Degenne. All rights reserved.
+Copyright (c) 2026 LMLExplore contributors. All rights reserved.
 Released under Apache 2.0 license as described in the file LICENSE.
-Authors: Rémy Degenne
+Authors: LMLExplore contributors
 -/
 module
 
@@ -54,6 +54,8 @@ here on a general measurable state space.
   the uniqueness of its bounded measurable solution.
 * `Learning.MDP.qValue_le_optQValue`, `Learning.MDP.qValue_eq_optQValue`: the action value of a
   stationary policy is at most `Q*`, with equality for an optimal policy.
+* `Learning.MDP.optQValue_sub_qValue_le_of_optValue_sub_value_le`: if `v* - v^π ≤ ε`, then
+  `Q* - Q^π ≤ γ ε`.
 * `Learning.MDP.integral_optQValue_saKernel_le`: for every stationary policy `π` and transition
   kernel `P'`, `P'^π_SA Q* ≤ P' v*`.
 
@@ -278,6 +280,20 @@ theorem qValue_le_optQValue (hγ : γ < 1) (hR : ∀ p, ∀ᵐ x ∂(M.R p), |x|
   exact lookahead_mono (integrable_of_abs_le (measurable_value hγ hR) (abs_value_le hγ hR) _)
     (integrable_of_abs_le (measurable_optValue hγ hR) (abs_optValue_le hγ hR) _)
     (value_le_optValue hγ hR)
+
+/-- With finitely many actions, bounded rewards and `γ < 1`, a stationary policy whose value is
+within `ε` of the optimal value, `v* - v^π ≤ ε`, has action values within `γ ε` of the optimal
+action values: `Q* - Q^π ≤ γ ε`. -/
+theorem optQValue_sub_qValue_le_of_optValue_sub_value_le (hγ : γ < 1)
+    (hR : ∀ p, ∀ᵐ x ∂(M.R p), |x| ≤ C) {ε : ℝ} (hπ : ∀ s, M.optValue γ s - M.value γ π s ≤ ε)
+    (p : 𝓢 × 𝓐) :
+    M.optQValue γ p - M.qValue γ π p ≤ γ * ε := by
+  have hv := integrable_of_abs_le (measurable_optValue hγ hR) (abs_optValue_le hγ hR) (M.P p)
+  have hv' := integrable_of_abs_le (measurable_value (π := π) hγ hR) (abs_value_le hγ hR) (M.P p)
+  rw [optQValue_def, qValue_eq_lookahead, lookahead_def, add_sub_add_left_eq_sub, ← mul_sub,
+    ← integral_sub hv hv']
+  gcongr
+  exact (integral_mono (hv.sub hv') (integrable_const ε) hπ).trans_eq (by simp)
 
 /-- With finitely many actions, bounded rewards and `γ < 1`, the optimal action value integrated
 against the state-action kernel of a stationary policy `π` built on the transition kernel of any

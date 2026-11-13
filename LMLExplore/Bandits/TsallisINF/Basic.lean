@@ -1,7 +1,7 @@
 /-
-Copyright (c) 2026 Rémy Degenne. All rights reserved.
+Copyright (c) 2026 LMLExplore contributors. All rights reserved.
 Released under Apache 2.0 license as described in the file LICENSE.
-Authors: Rémy Degenne
+Authors: LMLExplore contributors
 -/
 module
 
@@ -44,6 +44,8 @@ loss of the played arm.
 * `isMinOn_tsallisINFWeights`, `isMinOn_iff_eq_tsallisINFWeights`: the weights of round `n`
   minimize `p ↦ ⟨L̂ n, p⟩ - 4 √(n + 1) ∑ a, √(p a)` over the simplex, and they are its only
   minimizer there.
+* `isAlgEnvSeq_tsallisINF_iff`: a run of Tsallis-INF is a run of the weight-based algorithm with
+  its weights.
 * `tsallisINFWeights_history_eq`: along every sequence of actions and feedbacks, the weights of
   round `n` are the Tsallis weights of the cumulative importance-weighted loss estimates of the
   rounds `t < n`.
@@ -180,6 +182,18 @@ lemma tsallisINF_def :
 lemma tsallisINF_policy_apply (n : ℕ) (x : Hist 𝓞 α ℝ n × 𝓞) :
     (tsallisINF (𝓞 := 𝓞) (α := α)).policy n x = weightedMeasure (tsallisINFWeights n x.1) := by
   rw [tsallisINF_def, weightAlgorithm_policy, weightKernel_apply]
+
+/-- A run of Tsallis-INF is a run of the weight-based algorithm with the weights
+`tsallisINFWeights`, so the run lemmas of weight-based algorithms (`WeightAlgorithm`) apply to
+it. -/
+lemma isAlgEnvSeq_tsallisINF_iff {Ω : Type*} {mΩ : MeasurableSpace Ω} {P : Measure Ω}
+    {O : ℕ → Ω → 𝓞} {A : ℕ → Ω → α} {Y : ℕ → Ω → ℝ} {env : Environment 𝓞 α ℝ} :
+    IsAlgEnvSeq O A Y tsallisINF env P ↔
+      IsAlgEnvSeq O A Y (weightAlgorithm (fun n x ↦ tsallisINFWeights n x.1)
+        (fun n a ↦ (measurable_pi_apply a).comp ((measurable_tsallisINFWeights n).comp
+          measurable_fst))
+        (fun n x ↦ tsallisINFWeights_mem_simplex n x.1)) env P := by
+  rw [tsallisINF_def]
 
 end Algorithm
 

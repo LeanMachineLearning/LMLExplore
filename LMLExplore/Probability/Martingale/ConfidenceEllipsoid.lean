@@ -1,7 +1,7 @@
 /-
-Copyright (c) 2026 Rémy Degenne. All rights reserved.
+Copyright (c) 2026 LMLExplore contributors. All rights reserved.
 Released under Apache 2.0 license as described in the file LICENSE.
-Authors: Rémy Degenne
+Authors: LMLExplore contributors
 -/
 module
 
@@ -27,7 +27,8 @@ confidence sets of optimistic algorithms for linear bandits.
 The bound combines the deterministic estimate
 `‖θ̂_t - θ‖_{V_t} ≤ √λ ‖θ‖ + ‖∑_{s < t} η s • x s‖_{V_t⁻¹}`
 (`LMLExplore.sqrt_inner_ridgeEstimate_sub_le`) with the self-normalized bound for
-vector-valued martingales (`LMLExplore.measure_exists_inner_ringInverse_designOp_ge_le`).
+vector-valued martingales with the ridge regularizer
+(`LMLExplore.measure_exists_inner_ringInverse_designOp_smul_one_ge_le`).
 
 ## Main statements
 
@@ -78,7 +79,7 @@ theorem measure_exists_sqrt_inner_ridgeEstimate_sub_ge_le
           (ridgeEstimate lam (fun s ↦ x s ω) (fun s ↦ y s ω) t - θ)⟫_ℝ} ≤
       ENNReal.ofReal δ := by
   refine (measure_mono fun ω hω ↦ ?_).trans
-    (measure_exists_inner_ringInverse_designOp_ge_le hx hη hsub hσ hlam hδ)
+    (measure_exists_inner_ringInverse_designOp_smul_one_ge_le hx hη hsub hσ hlam hδ)
   obtain ⟨t, ht⟩ := hω
   refine ⟨t, ?_⟩
   have h := ht.trans (sqrt_inner_ridgeEstimate_sub_le hlam (fun s ↦ x s ω) θ t (hy · ω))
@@ -100,8 +101,8 @@ theorem le_measureReal_forall_sqrt_inner_ridgeEstimate_sub_lt
       √lam * ‖θ‖ + √(2 * σ2 * log (1 / δ) +
         σ2 * log (LinearMap.det (designOp (lam • 1) (fun s ↦ x s ω) t : E →ₗ[ℝ] E) /
           lam ^ finrank ℝ E))} := by
-  refine (le_measureReal_forall_inner_ringInverse_designOp_lt hx hη hsub hσ hlam hδ).trans
-    (measureReal_mono fun ω hω t ↦ ?_)
+  refine (le_measureReal_forall_inner_ringInverse_designOp_smul_one_lt hx hη hsub hσ hlam
+    hδ).trans (measureReal_mono fun ω hω t ↦ ?_)
   refine (sqrt_inner_ridgeEstimate_sub_le hlam (fun s ↦ x s ω) θ t (hy · ω)).trans_lt ?_
   rw [add_lt_add_iff_left]
   exact Real.sqrt_lt_sqrt
