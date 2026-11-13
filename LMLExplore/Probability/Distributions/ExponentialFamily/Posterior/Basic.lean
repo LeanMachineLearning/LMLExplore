@@ -52,6 +52,8 @@ These posteriors are the sampling laws of Thompson sampling for exponential fami
   multiplied by a positive finite constant.
 * `MeasureTheory.Measure.measurable_expFamilyPosterior`: for an s-finite measure `ρ`, a measurable
   statistic and an s-finite prior, the posterior is a measurable function of `S`.
+* `MeasureTheory.Measure.ofReal_mul_le_jeffreysPrior_Icc`: the Jeffreys prior of an interval of
+  natural parameters on which `√ψ''` is at least `c` is at least `c` times its length.
 
 ## References
 
@@ -173,5 +175,16 @@ lemma jeffreysPrior_def (ρ : Measure 𝓧) (T : 𝓧 → ℝ) :
 instance : SigmaFinite (ρ.jeffreysPrior T) := by
   rw [jeffreysPrior_def]
   infer_instance
+
+/-- The Jeffreys prior of an interval `[a, b]` of natural parameters on which `√ψ''` is at least
+`c ≥ 0` is at least `c (b - a)`. -/
+lemma ofReal_mul_le_jeffreysPrior_Icc {a b c : ℝ} (hc : 0 ≤ c)
+    (hΘ : Icc a b ⊆ interior (integrableExpSet T ρ))
+    (hψ : ∀ θ ∈ Icc a b, c ≤ √(iteratedDeriv 2 (cgf T ρ) θ)) :
+    ENNReal.ofReal (c * (b - a)) ≤ ρ.jeffreysPrior T (Icc a b) := by
+  rw [jeffreysPrior_def, withDensity_apply _ measurableSet_Icc,
+    Measure.restrict_restrict measurableSet_Icc, inter_eq_left.2 hΘ, ENNReal.ofReal_mul hc,
+    ← Real.volume_Icc, ← setLIntegral_const]
+  exact setLIntegral_mono' measurableSet_Icc fun θ hθ ↦ ENNReal.ofReal_le_ofReal (hψ θ hθ)
 
 end MeasureTheory.Measure

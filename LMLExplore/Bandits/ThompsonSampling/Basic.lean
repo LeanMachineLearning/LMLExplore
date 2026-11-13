@@ -7,7 +7,7 @@ module
 
 public import LeanMachineLearning.SequentialLearning.SumRewards
 public import LMLExplore.Bandits.PerturbedLeader
-public import LMLExplore.Probability.Distributions.ExponentialFamily.Posterior
+public import LMLExplore.Probability.Distributions.ExponentialFamily.Posterior.Basic
 public import LMLExplore.SequentialLearning.FiniteActions
 
 /-!
