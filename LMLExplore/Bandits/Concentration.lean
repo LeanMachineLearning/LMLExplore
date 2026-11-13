@@ -132,7 +132,7 @@ and 10.8] used in the regret analysis of KL-UCB for exponential families [GC11; 
 
 public section
 
-open MeasureTheory ProbabilityTheory Finset Real Set Learning Bandits
+open MeasureTheory InformationTheory ProbabilityTheory Finset Real Set Learning Bandits
 
 open scoped NNReal
 

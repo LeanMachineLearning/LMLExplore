@@ -48,7 +48,7 @@ RemyDegenne/Garivier2016Optimal (commit 53ac67e4, directory `ForLMLExplore/`).
 
 public section
 
-open MeasureTheory ProbabilityTheory Learning Finset Real unitInterval
+open MeasureTheory InformationTheory ProbabilityTheory Learning Finset Real unitInterval
 
 open scoped ENNReal
 

@@ -115,7 +115,7 @@ theorem sq_sum_abs_sub_le_two_mul_sum_mul_log_div {x z : α → ℝ} (hx : x ∈
     ring
   -- the log-sum inequality on both blocks bounds the relative entropy below by `d(p, q)`
   have h_blocks : klBerReal p q ≤ ∑ a, x a * log (x a / z a) := by
-    rw [← sum_filter_add_sum_filter_not univ (fun a ↦ z a ≤ x a), klBerReal_def, ← hpc, ← hqc]
+    rw [← sum_filter_add_sum_filter_not univ (fun a ↦ z a ≤ x a), klBerReal_apply, ← hpc, ← hqc]
     exact add_le_add
       (sum_mul_log_div_sum_le_sum_mul_log_div _ (fun a _ ↦ hx0 a) (fun a _ ↦ hz0 a)
         fun a _ ↦ hxz a)

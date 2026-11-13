@@ -103,7 +103,7 @@ expected number of sample sizes `s` at which `s = 0`, `c ≤ μ̂_s` or `d(μ̂_
 
 public section
 
-open MeasureTheory ProbabilityTheory Filter Real Finset
+open MeasureTheory InformationTheory ProbabilityTheory Filter Real Finset
 open scoped NNReal Topology unitInterval
 
 namespace LMLExplore
@@ -278,7 +278,7 @@ theorem measureReal_sum_le_le_exp_klBerReal {X : ι → Ω → ℝ} (h_indep : i
       (fun i hi ↦ by
         simp [integral_sub (integrable_const 1) (.of_mem_Icc 0 1 (hXm i hi) (hX i hi))]
         linarith [hmean i hi])
-    rw [← klBerReal_one_sub_one_sub, sub_zero, klBerReal_one_left, mul_neg, neg_neg, exp_nat_mul,
+    rw [← klBerReal_one_sub, sub_zero, klBerReal_one_left, mul_neg, neg_neg, exp_nat_mul,
       exp_log (sub_pos.2 hm)]
     refine le_of_eq_of_le ?_ h
     congr 1

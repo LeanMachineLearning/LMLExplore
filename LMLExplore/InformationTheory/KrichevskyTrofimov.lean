@@ -57,7 +57,7 @@ RemyDegenne/Garivier2016Optimal (commit 53ac67e4, directory `ForLMLExplore/`).
 
 public section
 
-open MeasureTheory ProbabilityTheory Real Set
+open MeasureTheory InformationTheory ProbabilityTheory Real Set
 
 namespace LMLExplore
 
