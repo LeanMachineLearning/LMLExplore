@@ -8,8 +8,8 @@ module
 public import LMLExplore.Probability.Martingale.Basic
 public import LMLExplore.Probability.Martingale.Ville
 public import Mathlib.Analysis.Complex.ExponentialBounds
-public import Mathlib.Analysis.Convex.SpecificFunctions.Basic
 public import Mathlib.MeasureTheory.Function.ConditionalExpectation.PullOut
+import LMLExplore.Probability.Moments.KLChernoff
 
 /-!
 # The Bernoulli maximal inequality
@@ -47,6 +47,12 @@ started at `1`, and Ville's inequality bounds the probability that it ever reach
   (2017), Lemma F.4.
 * [EV26] A. Essakine and C. Vernade, *Tight sample complexity bounds for entropic best policy
   identification*, COLT 2026, arXiv:2605.13717, Lemma 20.
+
+The declarations are adapted and generalized from the formalization of [EV26] in
+`RemyDegenne/Essakine2026Tight`, file
+`Essakine2026Tight/ForLMLExplore/Probability/Martingale/Ville.lean`, by Rémy Degenne
+(Apache 2.0). The source assumes `X i ∈ {0, 1}`, and its one-step lemma is
+`condExp_exp_sub_le_one`.
 -/
 
 public section
@@ -79,19 +85,16 @@ theorem condExp_exp_condExp_div_two_sub_le_one [IsFiniteMeasure μ] (hm : m ≤ 
   set C := μ[X | m]
   set k : ℝ := 1 - exp (-1)
   have hCm : StronglyMeasurable[m] C := stronglyMeasurable_condExp
-  have hXabs : ∀ᵐ ω ∂μ, |X ω| ≤ 1 := hX01.mono fun ω hω ↦ abs_le.2 ⟨by linarith [hω.1], hω.2⟩
-  have hXint : Integrable X μ := .of_bound hX.aestronglyMeasurable 1 hXabs
+  have hXint : Integrable X μ := .of_mem_Icc 0 1 hX.aemeasurable hX01
   have hC0 : 0 ≤ᵐ[μ] C := condExp_nonneg (hX01.mono fun _ hω ↦ hω.1)
   -- the exponential of `-X` lies below its chord on `[0, 1]`
   have hchord : (fun ω ↦ exp (-X ω)) ≤ᵐ[μ] fun ω ↦ 1 - k * X ω := hX01.mono fun ω hω ↦ by
-    have h := convexOn_exp.2 (Set.mem_univ 0) (Set.mem_univ (-1)) (sub_nonneg.2 hω.2) hω.1
-      (sub_add_cancel 1 (X ω))
-    simp only [smul_eq_mul, mul_zero, zero_add, mul_neg, mul_one, exp_zero] at h
+    have h := exp_mul_le_one_sub_add_mul_exp hω (-1)
+    rw [neg_one_mul] at h
     linarith
-  have hEint : Integrable (fun ω ↦ exp (-X ω)) μ :=
-    .of_bound hX.neg.exp.aestronglyMeasurable 1 (hX01.mono fun ω hω ↦ by
-      rw [norm_of_nonneg (exp_pos _).le, exp_le_one_iff]
-      linarith [hω.1])
+  have hEint : Integrable (fun ω ↦ exp (-X ω)) μ := by
+    simpa only [neg_one_mul] using
+      ProbabilityTheory.integrable_exp_mul_of_mem_Icc (t := -1) hX.aemeasurable hX01
   have hLint : Integrable (fun ω ↦ 1 - k * X ω) μ := (integrable_const 1).sub (hXint.const_mul k)
   have hfun : (fun ω ↦ exp (C ω / 2 - X ω)) =
       (fun ω ↦ exp (C ω / 2)) * fun ω ↦ exp (-X ω) := by
@@ -113,7 +116,7 @@ theorem condExp_exp_condExp_div_two_sub_le_one [IsFiniteMeasure μ] (hm : m ≤ 
   rw [hp, Pi.mul_apply, Pi.one_apply]
   -- `1 - k C ≤ 1 - C / 2 ≤ exp (-C / 2)`, since `k ≥ 1 / 2` and `C ≥ 0`
   have hk : 1 / 2 ≤ k := by linarith [exp_neg_one_lt_half]
-  have hC : 0 ≤ C ω := hCω
+  have hC : 0 ≤ C ω := by simpa using hCω
   have hbound : 1 - k * C ω ≤ exp (-(C ω / 2)) := by
     nlinarith [add_one_le_exp (-(C ω / 2))]
   calc exp (C ω / 2) * μ[fun ω ↦ exp (-X ω) | m] ω
