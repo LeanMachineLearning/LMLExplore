@@ -31,7 +31,7 @@ plus these odds, and [LS, Theorem 36.2] needs `E[∑_s (1 / G_s - 1)]` to be sma
 * *In expectation.* For `θ ≤ e ≤ η`, the likelihood ratio `exp (f(θ) - f(e))` of `s` independent
   observations dominated on `Set.Iic 0` by `ρ_η` has expectation at most
   `exp (-s (η - e) (ψ'(e) - ψ'(θ + η - e)))`, by the Chernoff bound of the sum at `θ - e ≤ 0` and
-  two tangent lines of `ψ`. For `θ ≤ η(c)` and `e > (η(c) + η) / 2` the exponent is a negative
+  two tangent lines of `ψ`. For `θ ≤ η(c)` and `(η(c) + η) / 2 < e < η` the exponent is a negative
   multiple of `s`, uniformly in `θ`.
 
 Together, the expected odds decay exponentially in `s` as soon as the prior mass `ν(ψ' ≤ c)` of
@@ -40,7 +40,7 @@ infinite mass to every set of small means; there the expected odds are infinite.
 
 ## Main statements
 
-* `MeasureTheory.Measure.expFamilyPosterior_inv_sub_one_le`: the pointwise bound on the posterior
+* `MeasureTheory.Measure.inv_expFamilyPosterior_sub_one_le`: the pointwise bound on the posterior
   odds `(P(c < ψ'(θ)))⁻¹ - 1`.
 * `ProbabilityTheory.iIndepFun.lintegral_exp_sub_le`: the bound on the expected likelihood ratio
   `E[exp (f(θ) - f(e))]` for observations dominated on `Set.Iic 0` by `ρ_η`.
@@ -70,7 +70,7 @@ statistics sum to `S`, if the posterior is proper, then the posterior odds
 `(P(c < ψ'(θ)))⁻¹ - 1 = P(ψ'(θ) ≤ c) / P(c < ψ'(θ))` are at most
 `ν([a, b])⁻¹ ∫_{θ ∈ Θ, ψ'(θ) ≤ c} (exp (f(θ) - f(a)) + exp (f(θ) - f(b))) dν(θ)`, with
 `f(θ) = θ S - s ψ(θ)`. -/
-theorem expFamilyPosterior_inv_sub_one_le (hΘ : Icc a b ⊆ interior (integrableExpSet T ρ))
+theorem inv_expFamilyPosterior_sub_one_le (hΘ : Icc a b ⊆ interior (integrableExpSet T ρ))
     (hc : c < deriv (cgf T ρ) a) (hν : ν (Icc a b) ≠ 0) (h : ρ.expFamilyPosterior T ν s S ≠ 0) :
     (ρ.expFamilyPosterior T ν s S {θ | c < deriv (cgf T ρ) θ})⁻¹ - 1 ≤
       (ν (Icc a b))⁻¹ * ∫⁻ θ in interior (integrableExpSet T ρ) ∩ {θ | deriv (cgf T ρ) θ ≤ c},
@@ -172,8 +172,7 @@ theorem iIndepFun.lintegral_exp_sub_le (h_indep : iIndepFun X P)
   -- the Chernoff bound of the sum at `θ - e ≤ 0`
   have ht : θ - e ∈ Iic 0 := sub_nonpos.2 hθe
   have hY : Integrable (fun x ↦ exp ((θ - e) * T x)) (ρ.expFamily T η) := by
-    change θ - e ∈ integrableExpSet T (ρ.expFamily T η)
-    rw [Measure.integrableExpSet_expFamily (interior_subset hη), mem_preimage,
+    rw [Measure.integrable_exp_mul_expFamily_iff (interior_subset hη),
       show η + (θ - e) = θ + η - e by ring]
     exact interior_subset hw
   have hint := h_indep.integrable_exp_mul_sum_of_mgfDominatedOn hX ht hY

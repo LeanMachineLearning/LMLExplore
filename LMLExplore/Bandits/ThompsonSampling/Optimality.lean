@@ -26,7 +26,7 @@ concentration theorem [KKM13, Theorem 4]).
 
 This file bounds the first sum, for an optimal arm `j` of mean `μ_j > c`, uniformly in `n`:
 `1 / G_{j s} - 1` is the posterior odds of the means at most `c`, whose expectation decays
-exponentially in `s` (`MeasureTheory.Measure.expFamilyPosterior_inv_sub_one_le`,
+exponentially in `s` (`MeasureTheory.Measure.inv_expFamilyPosterior_sub_one_le`,
 `ProbabilityTheory.iIndepFun.lintegral_exp_sub_le`) as soon as the prior `π_j` gives finite mass
 to the natural parameters of the means at most `c`. Letting `c → μ_j` and `β → d_i(μ_i, μ_j)`,
 `limsup_n E[T_i(n)] / log n ≤ 1 / d_i(μ_i, μ_j)`, and the regret of Thompson sampling with the
@@ -34,8 +34,8 @@ Jeffreys prior satisfies `limsup_n E[R_n] / log n ≤ ∑_{a : Δ_a > 0} Δ_a / 
 upper bound of [KKM13, Theorem 1], which matches the Lai–Robbins lower bound.
 
 The finiteness of the Jeffreys prior on the natural parameters of the means below `μ*` is a
-hypothesis. It holds for Bernoulli arms, whose Jeffreys prior is finite, and for Poisson arms,
-whose Jeffreys prior `√r e^{θ / 2} dθ` is finite on every half-line `(-∞, θ]`. It fails for
+hypothesis. It holds for Bernoulli arms, whose Jeffreys prior is finite, and for Poisson arms, whose
+Jeffreys prior, proportional to `e^{θ / 2} dθ`, is finite on every half-line `(-∞, θ]`. It fails for
 exponential arms, whose Jeffreys prior `dλ / λ` on the rate `λ` gives infinite mass to the large
 rates, that is, to the small means: then, after one observation `S` of the optimal arm, the
 posterior of the rate is the exponential law of rate `S`, `G_{j 1} = 1 - exp (-S / c)` is of order
@@ -47,7 +47,7 @@ separately by `gaussianTS_regret_eventually_le`, through the explicit Gaussian p
 
 * `LMLExplore.Bandits.inv_expFamilyTSStackLaw_Ioi_sub_one_le`: whatever the number of pulls and
   the sum of rewards of an arm, `1 / G - 1` is at most the bound on the posterior odds of
-  `MeasureTheory.Measure.expFamilyPosterior_inv_sub_one_le`.
+  `MeasureTheory.Measure.inv_expFamilyPosterior_sub_one_le`.
 * `ProbabilityTheory.iIndepFun.exists_sum_lintegral_inv_expFamilyTSStackLaw_Ioi_sub_one_le`: for
   independent observations dominated on `Set.Iic 0` by the member of mean `μ > c`, and a prior
   that gives finite mass to the natural parameters of the means at most `c` and positive mass to
@@ -106,7 +106,7 @@ theorem inv_expFamilyTSStackLaw_Ioi_sub_one_le (hΘ : Icc a b ⊆ interior (inte
     simp [h1]
   push Not at h0
   rw [expFamilyTSStackLaw_Ioi h0.1 h0.2]
-  exact Measure.expFamilyPosterior_inv_sub_one_le hΘ hc hπ h0.2
+  exact Measure.inv_expFamilyPosterior_sub_one_le hΘ hc hπ h0.2
 
 end LMLExplore.Bandits
 
@@ -147,8 +147,7 @@ private lemma iIndepFun.lintegral_inv_expFamilyTSStackLaw_Ioi_sub_one_le [SFinit
   -- the observations are almost everywhere measurable
   have hXm (j : ℕ) : AEMeasurable (X j) P := by
     have hY : Integrable (fun x ↦ exp ((θc - η) * id x)) (ρ.expFamily id η) := by
-      change θc - η ∈ integrableExpSet id (ρ.expFamily id η)
-      rw [Measure.integrableExpSet_expFamily (interior_subset hη), mem_preimage, add_sub_cancel]
+      rw [Measure.integrable_exp_mul_expFamily_iff (interior_subset hη), add_sub_cancel]
       exact interior_subset hθc
     exact aemeasurable_of_aemeasurable_exp_mul (sub_ne_zero.2 (by linarith))
       ((hX j).integrable_exp_mul (sub_nonpos.2 (by linarith)) hY).aemeasurable
@@ -257,13 +256,7 @@ theorem iIndepFun.exists_sum_lintegral_inv_expFamilyTSStackLaw_Ioi_sub_one_le [S
   set K := (π (Icc a b))⁻¹ * π {θ | deriv ψ θ ≤ c}
   have hK : K ≠ ∞ := ENNReal.mul_ne_top (ENNReal.inv_ne_top.2 (hπ a b hab hIcc)) hπc
   have h_geom (n : ℕ) : ∑ s ∈ Finset.range n, exp (-(s * k)) ≤ 1 + k⁻¹ := by
-    calc ∑ s ∈ Finset.range n, exp (-(s * k)) ≤ ∑ s ∈ Finset.range (n + 1), exp (-(s * k)) :=
-          Finset.sum_le_sum_of_subset_of_nonneg (Finset.range_subset_range.2 n.le_succ)
-            fun _ _ _ ↦ (exp_pos _).le
-      _ = ∑ s ∈ Finset.range n, exp (-(k * (s + 1))) + 1 := by
-          rw [Finset.sum_range_succ']
-          simp [mul_comm]
-      _ ≤ 1 + k⁻¹ := by linarith [Real.sum_range_exp_neg_mul_le hk n]
+    simpa only [mul_comm k] using Real.sum_range_exp_neg_mul_le_one_add hk n
   refine ⟨K.toReal * (2 * (1 + k⁻¹)), fun n ↦ ?_⟩
   calc ∑ s ∈ Finset.range n, ∫⁻ ω,
         (expFamilyTSStackLaw ρ π s (∑ k ∈ Finset.range s, X k ω) (Ioi (c : EReal)))⁻¹ - 1 ∂P
