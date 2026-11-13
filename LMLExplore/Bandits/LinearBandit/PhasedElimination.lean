@@ -104,11 +104,13 @@ namespace LMLExplore.Bandits
 
 namespace PhasedElimination
 
-variable {α E : Type*} [Fintype α] [NormedAddCommGroup E] [InnerProductSpace ℝ E]
+variable {α E : Type*} [NormedAddCommGroup E] [InnerProductSpace ℝ E]
 
 /-! ### Schedules -/
 
 section Schedule
+
+variable [Fintype α]
 
 /-- The **schedule** of a phase that pulls each arm `a` exactly `n a` times: the list of the arms
 in which each arm `a` appears `n a` times, the arms being taken in the order of
@@ -192,6 +194,7 @@ arm of `S`. -/
 noncomputable def eliminate (φ : α → E) (S : Finset α) (θ' : E) (ε : ℝ) : Finset α :=
   {a ∈ S | ∀ b ∈ S, ⟪θ', φ b - φ a⟫_ℝ ≤ 2 * ε}
 
+@[simp]
 lemma mem_eliminate :
     a ∈ eliminate φ S θ' ε ↔ a ∈ S ∧ ∀ b ∈ S, ⟪θ', φ b - φ a⟫_ℝ ≤ 2 * ε := by
   classical
@@ -208,7 +211,6 @@ lemma eliminate_nonempty (hS : S.Nonempty) (hε : 0 ≤ ε) : (eliminate φ S θ
   rw [inner_sub_right]
   linarith [hmax b hb]
 
-omit [Fintype α] in
 /-- With an estimate `θ'` that is `ε`-accurate on `S`, the estimated gaps are within `2 ε` of the
 true gaps: `⟪θ', φ b - φ a⟫ ≤ ⟪θ, φ b - φ a⟫ + 2 ε`. -/
 private lemma inner_sub_le_inner_sub_add (hacc : ∀ c ∈ S, |⟪θ' - θ, φ c⟫_ℝ| ≤ ε) (ha : a ∈ S)
@@ -239,6 +241,8 @@ theorem inner_sub_le_of_mem_eliminate (hacc : ∀ c ∈ S, |⟪θ' - θ, φ c⟫
   linarith [h₁.2, h₂.1]
 
 end Eliminate
+
+variable [Fintype α]
 
 /-! ### Phases -/
 
@@ -385,6 +389,14 @@ lemma armAt_def (t : ℕ) :
 
 variable {φ m ε y}
 
+/-- The phase of round `t` is at most `t`. -/
+lemma phaseOf_le (t : ℕ) : phaseOf φ m ε y t ≤ t :=
+  Nat.findGreatest_le t
+
+/-- The phase of round `t` starts at or before round `t`. -/
+lemma phaseStart_phaseOf_le (t : ℕ) : phaseStart φ m ε y (phaseOf φ m ε y t) ≤ t :=
+  Nat.findGreatest_spec (P := fun ℓ ↦ phaseStart φ m ε y ℓ ≤ t) (Nat.zero_le t) (by simp)
+
 /-- A round `t` with `phaseStart ℓ ≤ t < phaseStart (ℓ + 1)` belongs to phase `ℓ`. -/
 lemma phaseOf_eq (hε : ∀ ℓ, 0 ≤ ε ℓ) (hm : ∀ ℓ S, S.Nonempty → 0 < ∑ a, m ℓ S a) {t ℓ : ℕ}
     (h₁ : phaseStart φ m ε y ℓ ≤ t) (h₂ : t < phaseStart φ m ε y (ℓ + 1)) :
@@ -392,9 +404,7 @@ lemma phaseOf_eq (hε : ∀ ℓ, 0 ≤ ε ℓ) (hm : ∀ ℓ S, S.Nonempty → 0
   have hℓt : ℓ ≤ t := (le_phaseStart hε hm ℓ).trans h₁
   refine le_antisymm ?_ (Nat.le_findGreatest hℓt h₁)
   by_contra! hlt
-  have hspec : phaseStart φ m ε y (phaseOf φ m ε y t) ≤ t :=
-    Nat.findGreatest_spec (P := fun ℓ ↦ phaseStart φ m ε y ℓ ≤ t) hℓt h₁
-  exact h₂.not_ge ((monotone_phaseStart φ m ε y hlt).trans hspec)
+  exact h₂.not_ge ((monotone_phaseStart φ m ε y hlt).trans (phaseStart_phaseOf_le t))
 
 /-- The arm pulled `j` rounds after the start of phase `ℓ`, for `j` less than the length
 `∑ a, m ℓ S_ℓ a` of the phase, is the arm at offset `j` of the schedule of phase `ℓ`. -/
@@ -410,9 +420,8 @@ theorem armAt_congr {y' : ℕ → ℝ} {t : ℕ} (h : ∀ s < t, y s = y' s) :
   have hphase : phaseOf φ m ε y t = phaseOf φ m ε y' t := by
     rw [phaseOf_def, phaseOf_def]
     simp only [phaseStart_le_iff_of_eq h]
-  have hspec : phaseStart φ m ε y (phaseOf φ m ε y t) ≤ t :=
-    Nat.findGreatest_spec (P := fun ℓ ↦ phaseStart φ m ε y ℓ ≤ t) (Nat.zero_le t) (by simp)
-  obtain ⟨hS, hs⟩ := survivors_eq_and_phaseStart_eq fun s hs ↦ h s (hs.trans_le hspec)
+  obtain ⟨hS, hs⟩ := survivors_eq_and_phaseStart_eq (ℓ := phaseOf φ m ε y t) fun s hs ↦
+    h s (hs.trans_le (phaseStart_phaseOf_le t))
   rw [armAt_def, armAt_def, ← hphase, hS, hs]
 
 /-- **Sums over the first phases.** The sum of a function of the arms pulled during the rounds of
