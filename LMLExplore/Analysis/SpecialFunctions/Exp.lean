@@ -61,6 +61,7 @@ lower bound for linear bandits on the unit ball [LS, Theorem 24.2].
 ## Main statements
 
 * `Real.sum_range_exp_neg_mul_le`: `∑_{s < m} exp (-c (s + 1)) ≤ 1 / c` for `c > 0`.
+* `Real.sum_range_exp_neg_mul_le_one_add`: `∑_{s < m} exp (-c s) ≤ 1 + 1 / c` for `c > 0`.
 * `Real.sum_range_exp_neg_mul_div_le`: `∑_{s < m} exp (-c (s + 1)) / (s + 1) ≤ log (1 + 1 / c)`
   for `c > 0`.
 * `Real.sum_range_two_pow_mul_exp_neg_le`: `∑_{j < m} 2 ^ j exp (-2 ^ j c) ≤ 3 / (2 c)` for
@@ -120,6 +121,18 @@ theorem sum_range_exp_neg_mul_le {c : ℝ} (hc : 0 < c) (m : ℕ) :
     have : 0 ≤ v m := by positivity
     simp only [hv, CharP.cast_eq_zero, mul_zero, neg_zero, exp_zero, one_div] at this ⊢
     linarith
+
+/-- For `c > 0`, `∑_{s < m} exp (-c s) ≤ 1 + 1 / c`, uniformly in `m`. -/
+theorem sum_range_exp_neg_mul_le_one_add {c : ℝ} (hc : 0 < c) (m : ℕ) :
+    ∑ s ∈ range m, exp (-(c * s)) ≤ 1 + c⁻¹ := by
+  -- the term of `s = 0` is `1`, and the others are bounded by `sum_range_exp_neg_mul_le`
+  calc ∑ s ∈ range m, exp (-(c * s))
+  _ ≤ ∑ s ∈ range (m + 1), exp (-(c * s)) :=
+    sum_le_sum_of_subset_of_nonneg (range_subset_range.2 m.le_succ) fun _ _ _ ↦ (exp_pos _).le
+  _ = ∑ s ∈ range m, exp (-(c * (s + 1))) + 1 := by
+    rw [sum_range_succ']
+    simp
+  _ ≤ 1 + c⁻¹ := by linarith [sum_range_exp_neg_mul_le hc m]
 
 /-- For `c > 0`, `∑_{s < m} exp (-c (s + 1)) / (s + 1) ≤ log (1 + 1 / c)`, uniformly in `m`: the
 series is the logarithmic series `-log (1 - exp (-c))`, and `1 - exp (-c) ≥ c / (1 + c)`. -/
