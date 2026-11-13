@@ -11,6 +11,7 @@ public import Mathlib.Probability.Moments.Basic
 import LMLExplore.Analysis.SpecialFunctions.Exp
 import LMLExplore.Probability.Moments.Basic
 import TauCeti.Analysis.SpecialFunctions.Exp.QuadraticBound
+import TauCeti.MeasureTheory.Measure.Tail
 import TauCeti.Probability.Moments.Basic
 
 /-!
@@ -118,17 +119,12 @@ theorem mgf_sum_le_exp_mul_exp_sub_one_sub_of_ae_le (h_indep : iIndepFun X μ) {
     (hXb : ∀ i ∈ s, ∀ᵐ ω ∂μ, X i ω ≤ b) (hv : ∑ i ∈ s, ∫ ω, X i ω ^ 2 ∂μ ≤ v) (ht : 0 ≤ t) :
     mgf (fun ω ↦ ∑ i ∈ s, X i ω) μ t ≤ exp (v * ((exp (t * b) - 1 - t * b) / b ^ 2)) := by
   have : IsProbabilityMeasure μ := h_indep.isProbabilityMeasure
-  rw [h_indep.mgf_sum_eq_prod_of_mem fun i hi ↦ (hX i hi).aestronglyMeasurable.aemeasurable]
-  calc ∏ i ∈ s, mgf (X i) μ t
-      ≤ ∏ i ∈ s, exp ((∫ ω, X i ω ^ 2 ∂μ) * ((exp (t * b) - 1 - t * b) / b ^ 2)) :=
-        prod_le_prod₀ (fun i _ ↦ mgf_nonneg)
-          (fun i hi ↦ (hX i hi).mgf_le_exp_mul_exp_sub_one_sub_of_ae_le (hmean i hi) hb
-            (hXb i hi) ht)
-    _ = exp ((∑ i ∈ s, ∫ ω, X i ω ^ 2 ∂μ) * ((exp (t * b) - 1 - t * b) / b ^ 2)) := by
-        rw [← exp_sum, sum_mul]
-    _ ≤ exp (v * ((exp (t * b) - 1 - t * b) / b ^ 2)) := by
-        gcongr
-        exact exp_sub_one_sub_id_div_sq_nonneg _ _
+  refine (h_indep.mgf_sum_le_exp_sum (fun i hi ↦ (hX i hi).aestronglyMeasurable.aemeasurable)
+    fun i hi ↦ (hX i hi).mgf_le_exp_mul_exp_sub_one_sub_of_ae_le (hmean i hi) hb (hXb i hi)
+      ht).trans ?_
+  rw [← sum_mul]
+  gcongr
+  exact exp_sub_one_sub_id_div_sq_nonneg _ _
 
 /-- Chernoff's bound for a sum bounded above: if `X i ≤ b` almost surely for `i ∈ s` and the
 moment-generating function of `∑ i ∈ s, X i` at `t ≥ 0` is at most `exp K`, then
@@ -164,7 +160,7 @@ private lemma measureReal_abs_sum_ge_le_two_mul (h_indep : iIndepFun X μ) {b v 
     (fun i hi ↦ by filter_upwards [hXb i hi] with ω hω using (neg_le_abs _).trans hω)
     (by simpa using hv)
   simp only [sum_neg_distrib] at hlow
-  exact (measureReal_abs_ge_le_add _ ε).trans (by linarith)
+  exact TauCeti.measureReal_le_abs_le_add.trans (by linarith)
 
 /-- **Bennett's inequality** [Ben62], [BLM13, Theorem 2.9]. Let the `X i`, `i ∈ s`, be
 independent with finite second moments, nonpositive means and `X i ≤ b` almost surely with
