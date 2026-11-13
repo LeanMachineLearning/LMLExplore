@@ -391,6 +391,37 @@ private lemma tsallisStep_le (hc : 0 < c) {ℓ p : α → ℝ} (hp : ∀ a, 0 < 
   _ ≤ ((√(p a))⁻¹)⁻¹ ^ 2 := by gcongr
   _ = p a := by rw [inv_inv, sq_sqrt (hp a).le]
 
+/-- **Stability of a mirror descent step with the ½-Tsallis potential** for a nonnegative loss.
+For `c > 0`, positive weights `p ≤ 1` and a nonnegative loss `ℓ`, the stability term
+`⟨ℓ, p - q⟩ - c D_ψ(q, p)` of the step `q = tsallisMDStep c p ℓ`, with `ψ q = -∑ a, √(q a)`, is at
+most `2 / c * ∑ a, p a √(p a) ℓ a ^ 2`. The unconstrained step decreases every coordinate, so the
+local norm at the intermediate point is bounded at `p`, which gives the constant `2 / c`. -/
+private lemma stab_tsallisMDStep_le (hc : 0 < c) {p ℓ : α → ℝ} (hp : ∀ a, 0 < p a)
+    (hp1 : ∀ a, p a ≤ 1) (hℓ : ∀ a, 0 ≤ ℓ a) :
+    lossCLM ℓ (p - tsallisMDStep c p ℓ) -
+        bregDiv (fun q ↦ -∑ a, √(q a)) (tsallisMDStep c p ℓ) p (tsallisDeriv p) / c⁻¹ ≤
+      2 / c * ∑ a, p a * √(p a) * ℓ a ^ 2 := by
+  set U : Set (α → ℝ) := Set.univ.pi fun _ ↦ Set.Ioi 0
+  have hUD : U ⊆ Set.Ici 0 := fun z hz a ↦ (Set.mem_univ_pi.1 hz a).le
+  have hF' (z : α → ℝ) (hz : z ∈ U) :=
+    (hasFDerivAt_neg_sum_sqrt (Set.mem_univ_pi.1 hz)).hasFDerivWithinAt (s := Set.Ici 0)
+  have hℓ' (a : α) : -(c / 4) ≤ ℓ a := (neg_nonpos.2 (by positivity)).trans (hℓ a)
+  have hx (a : α) := (tsallisStep_pos_le hc hp hp1 hℓ' a).1
+  obtain ⟨z, hz, h⟩ := exists_mem_segment_apply_sub_sub_bregDiv_div_le_of_hasFDerivWithinAt
+    convexOn_neg_sum_sqrt (convex_pi fun _ _ ↦ convex_Ioi 0) hUD hF'
+    (fun z hz ↦ (hasFDerivAt_tsallisDeriv (Set.mem_univ_pi.1 hz)).hasFDerivWithinAt)
+    (inv_pos.2 hc) (lossCLM ℓ) (Set.mem_univ_pi.2 hp) (Set.mem_univ_pi.2 hx)
+    (tsallisDeriv_tsallisStep hc hp hp1 hℓ')
+  have h_norm := sq_lossCLM_le_of_le_mul (ℓ := ℓ) le_rfl hp hx
+    (fun a ↦ (tsallisStep_le hc hp hℓ a).trans_eq (one_mul _).symm) hz
+  rw [sqrt_one, mul_one, mul_one] at h_norm
+  refine (h _ (mul_nonneg (by norm_num) (sum_nonneg fun a _ ↦ by
+    have := hp a
+    positivity)) h_norm _
+    (simplex_subset_nonneg (tsallisMDStep_mem_simplex hc.ne' _ _))).trans_eq ?_
+  field_simp
+  ring
+
 /-- **Regret of mirror descent with the ½-Tsallis potential and a constant learning rate**, with
 local norms [Ora, Section 9.1.2]. Let `c > 0` and let the losses be nonnegative at the rounds
 `t < n`. Let `p 0` be uniform and let `p (t + 1)` be the mirror descent step on the simplex from
@@ -419,10 +450,6 @@ theorem tsallisMirrorDescent_regret_le (hc : 0 < c) {ℓ p : ℕ → α → ℝ}
       exact inv_le_one_of_one_le₀ (by exact_mod_cast Fintype.card_pos)
     · rw [hp t ht]
       exact (simplex_subset_Icc (tsallisMDStep_mem_simplex hc.ne' _ _)).2 a
-  set U : Set (α → ℝ) := Set.univ.pi fun _ ↦ Set.Ioi 0
-  have hUD : U ⊆ Set.Ici 0 := fun z hz a ↦ (Set.mem_univ_pi.1 hz a).le
-  have hF' (z : α → ℝ) (hz : z ∈ U) :=
-    (hasFDerivAt_neg_sum_sqrt (Set.mem_univ_pi.1 hz)).hasFDerivWithinAt (s := Set.Ici 0)
   -- the uniform weights minimize the potential over the simplex
   have h_min : IsMinOn (fun q : α → ℝ ↦ -∑ a, √(q a)) (simplex α) (p 0) := by
     have h := isMinOn_tsallisWeights one_pos (fun _ : α ↦ (0 : ℝ))
@@ -433,30 +460,6 @@ theorem tsallisMirrorDescent_regret_le (hc : 0 < c) {ℓ p : ℕ → α → ℝ}
       h_min (hp0 ▸ uniform_mem_simplex α) (fun t ht ↦ (isMirrorDescentStep_iff_eq_tsallisMDStep hc
         (p t) (ℓ t)).2 (hp t ht))
       (fun t ht ↦ (hasFDerivAt_neg_sum_sqrt (hp_pos t ht)).hasFDerivWithinAt) hu
-  -- the stability term of each round, through the unconstrained step
-  have h_stab (t : ℕ) (ht : t < n) :
-      lossCLM (ℓ t) (p t - p (t + 1)) -
-          bregDiv (fun q ↦ -∑ a, √(q a)) (p (t + 1)) (p t) (tsallisDeriv (p t)) / c⁻¹ ≤
-        2 / c * ∑ a, p t a * √(p t a) * ℓ t a ^ 2 := by
-    have hpU : p t ∈ U := Set.mem_univ_pi.2 (hp_pos t ht.le)
-    have hℓ' (a : α) : -(c / 4) ≤ ℓ t a := (neg_nonpos.2 (by positivity)).trans (hℓ t ht a)
-    have hx (a : α) := (tsallisStep_pos_le hc (hp_pos t ht.le) (hp_le_one t ht.le) hℓ' a).1
-    obtain ⟨z, hz, h⟩ := exists_mem_segment_apply_sub_sub_bregDiv_div_le_of_hasFDerivWithinAt
-      convexOn_neg_sum_sqrt (convex_pi fun _ _ ↦ convex_Ioi 0) hUD hF'
-      (fun z hz ↦ (hasFDerivAt_tsallisDeriv (Set.mem_univ_pi.1 hz)).hasFDerivWithinAt)
-      (inv_pos.2 hc) (lossCLM (ℓ t)) hpU (Set.mem_univ_pi.2 hx)
-      (tsallisDeriv_tsallisStep hc (hp_pos t ht.le) (hp_le_one t ht.le) hℓ')
-    have h_norm := sq_lossCLM_le_of_le_mul (ℓ := ℓ t) le_rfl (hp_pos t ht.le) hx
-      (fun a ↦ (tsallisStep_le hc (hp_pos t ht.le) (hℓ t ht) a).trans_eq (one_mul _).symm) hz
-    rw [sqrt_one, mul_one, mul_one] at h_norm
-    refine (h _ (mul_nonneg (by norm_num) (sum_nonneg fun a _ ↦ by
-      have := hp_pos t ht.le a
-      positivity)) h_norm _
-      (simplex_subset_nonneg (?_ : p (t + 1) ∈ simplex α))).trans_eq ?_
-    · rw [hp t ht]
-      exact tsallisMDStep_mem_simplex hc.ne' _ _
-    · field_simp
-      ring
   -- the potential at the uniform weights is `-√k`
   have h_F0 : -∑ a, √(p 0 a) = -√(Fintype.card α) := by
     rw [hp0, sum_const, card_univ, nsmul_eq_mul, sqrt_inv]
@@ -472,8 +475,11 @@ theorem tsallisMirrorDescent_regret_le (hc : 0 < c) {ℓ p : ℕ → α → ℝ}
         (lossCLM (ℓ t) (p t - p (t + 1)) -
           bregDiv (fun q ↦ -∑ a, √(q a)) (p (t + 1)) (p t) (tsallisDeriv (p t)) / c⁻¹) := h_md
     _ ≤ (-∑ a, √(u a) - -√(Fintype.card α)) * c +
-        ∑ t ∈ range n, 2 / c * ∑ a, p t a * √(p t a) * ℓ t a ^ 2 :=
-        by gcongr with t ht; exact h_stab t (mem_range.1 ht)
+        ∑ t ∈ range n, 2 / c * ∑ a, p t a * √(p t a) * ℓ t a ^ 2 := by
+        gcongr with t ht
+        have ht := mem_range.1 ht
+        rw [hp t ht]
+        exact stab_tsallisMDStep_le hc (hp_pos t ht.le) (hp_le_one t ht.le) (hℓ t ht)
     _ = _ := by ring
 
 end MirrorDescent

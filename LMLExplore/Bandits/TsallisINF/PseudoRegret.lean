@@ -301,29 +301,13 @@ theorem pseudoRegret_le (h : IsAlgEnvSeq O A Y tsallisINF env P)
       (Integrable.of_mem_Icc 0 1 (h.measurable_feedback t).aemeasurable (hYt t ht))
   have hLint (t : ℕ) (ht : t ∈ range n) :=
     WeightAlgorithm.integrable_iwEstimator_one_sub (isAlgEnvSeq_tsallisINF_iff.1 h) (hYt t ht) a
-  have hMint (t : ℕ) (ht : t ∈ range n) : Integrable (fun ω ↦ 1 - env.means O A Y a t ω) P :=
-    WeightAlgorithm.integrable_one_sub_means (isAlgEnvSeq_tsallisINF_iff.1 h) (hYt t ht)
-      (ae_of_all _ fun ω ↦ tsallisINFWeights_pos _ _ a)
   have hVint (t : ℕ) (ht : t ∈ range n) := integrable_sum_mul_sqrt_mul_sq (t := t) h (hYt t ht)
-  calc P[fun ω ↦ ∑ t ∈ range n, (env.means O A Y a t ω - Y t ω)]
   -- the expected regret against `a` is the expected estimated regret
-  _ = ∑ t ∈ range n, (P[fun ω ↦ 1 - Y t ω] - P[fun ω ↦ 1 - env.means O A Y a t ω]) := by
-      rw [integral_finsetSum _ fun t ht ↦ ((hYint t ht).sub (hMint t ht)).congr
-        (ae_of_all _ fun ω ↦ by simp only [Pi.sub_apply]; ring)]
-      refine sum_congr rfl fun t ht ↦ ?_
-      rw [← integral_sub (hYint t ht) (hMint t ht)]
-      exact integral_congr_ae (ae_of_all _ fun ω ↦ by simp only; ring)
-  _ = ∑ t ∈ range n, (P[fun ω ↦ 1 - Y t ω] - P[fun ω ↦
-        iwEstimator (tsallisINFWeights t (history O A Y t ω)) (A t ω) (1 - Y t ω) a]) :=
-      sum_congr rfl fun t ht ↦ by
-        rw [WeightAlgorithm.integral_iwEstimator_one_sub (isAlgEnvSeq_tsallisINF_iff.1 h)
-          (hYt t ht) (ae_of_all _ fun ω ↦ tsallisINFWeights_pos _ _ a)]
-  _ = P[fun ω ↦ ∑ t ∈ range n, ((1 - Y t ω) -
-        iwEstimator (tsallisINFWeights t (history O A Y t ω)) (A t ω) (1 - Y t ω) a)] := by
-      rw [integral_finsetSum (f := fun t ω ↦ (1 - Y t ω) -
-        iwEstimator (tsallisINFWeights t (history O A Y t ω)) (A t ω) (1 - Y t ω) a) _
-        fun t ht ↦ (hYint t ht).sub (hLint t ht)]
-      exact sum_congr rfl fun t ht ↦ (integral_sub (hYint t ht) (hLint t ht)).symm
+  rw [WeightAlgorithm.integral_sum_means_sub_eq_integral_sum_one_sub_sub_iwEstimator
+    (isAlgEnvSeq_tsallisINF_iff.1 h) (fun t ht ↦ hYt t (mem_range.2 ht))
+    fun t _ ↦ ae_of_all _ fun ω ↦ tsallisINFWeights_pos _ _ a]
+  calc P[fun ω ↦ ∑ t ∈ range n, ((1 - Y t ω) -
+        iwEstimator (tsallisINFWeights t (history O A Y t ω)) (A t ω) (1 - Y t ω) a)]
   -- take expectations in the pathwise bound
   _ ≤ P[fun ω ↦ 4 * √n * (√(Fintype.card α) - 1) + ∑ t ∈ range n, 4 / √((t : ℝ) + 1) *
         ∑ b, tsallisINFWeights t (history O A Y t ω) b *

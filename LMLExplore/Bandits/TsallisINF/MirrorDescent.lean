@@ -68,10 +68,11 @@ variable {α 𝓞 : Type*} [Fintype α] [DecidableEq α] {η : ℝ}
 section Weights
 
 /-- The weights of mirror descent with the ½-Tsallis potential `-2 ∑ a, √(p a)` and the learning
-rate `η`, after the history `h` of the first `n` rounds: uniform at round `0`, and at round
-`n + 1` the mirror descent step `OnlineLearning.tsallisMDStep (2 / η)` from the weights `P n` of
-round `n`, for the importance-weighted estimate `iwEstimator (P n) (A n) (1 - X n)` of the losses
-`1 - X n`, computed from the action `A n` and the reward `X n` of round `n` of `h`. -/
+rate `η` (for `η > 0`, `isMirrorDescentStep_tsallisMDWeights`), after the history `h` of the first
+`n` rounds: uniform at round `0`, and at round `n + 1` the step
+`OnlineLearning.tsallisMDStep (2 / η)` from the weights `P n` of round `n`, for the
+importance-weighted estimate `iwEstimator (P n) (A n) (1 - X n)` of the losses `1 - X n`, computed
+from the action `A n` and the reward `X n` of round `n` of `h`. -/
 noncomputable def tsallisMDWeights (η : ℝ) : (n : ℕ) → Hist 𝓞 α ℝ n → α → ℝ
   | 0, _ => fun _ ↦ (Fintype.card α : ℝ)⁻¹
   | n + 1, h => OnlineLearning.tsallisMDStep (2 / η) (tsallisMDWeights η n (Fin.init h))
@@ -149,9 +150,10 @@ variable [Nonempty α] [MeasurableSpace α] [MeasurableSingletonClass α] [Measu
 
 /-- **Mirror descent with the ½-Tsallis potential** for adversarial bandits [Ora, Section 9.1.2]:
 the weight-based algorithm that draws its action of round `n` from the weights
-`tsallisMDWeights η n h` of the history `h`, the iterates of mirror descent with the potential
-`-2 ∑ a, √(p a)` and the learning rate `η` on the importance-weighted loss estimates, from the
-uniform weights. It ignores the observations. -/
+`tsallisMDWeights η n h` of the history `h`, from the uniform weights. For `η > 0`, these are the
+iterates of mirror descent with the potential `-2 ∑ a, √(p a)` and the learning rate `η` on the
+importance-weighted loss estimates (`isMirrorDescentStep_tsallisMDWeights`); the definition only
+needs `η ≠ 0`. It ignores the observations. -/
 noncomputable def tsallisMD (η : ℝ) (hη : η ≠ 0) : Algorithm 𝓞 α ℝ :=
   weightAlgorithm (fun n x ↦ tsallisMDWeights η n x.1)
     (fun n a ↦ (measurable_pi_apply a).comp ((measurable_tsallisMDWeights hη n).comp
@@ -429,26 +431,25 @@ theorem pseudoRegret_le_two_mul_sqrt (hη : 0 < η) (hηn : η = √(2 / n))
     (h : IsAlgEnvSeq O A Y (tsallisMD η hη.ne') env P)
     (hY : ∀ᵐ ω ∂P, ∀ t < n, Y t ω ∈ Set.Icc 0 1) :
     pseudoRegret env O A Y P n ≤ 2 * √(2 * Fintype.card α * n) := by
-  have hn : (0 : ℝ) < n := by
-    rcases (n.cast_nonneg : (0 : ℝ) ≤ n).eq_or_lt with hn | hn
-    · rw [hηn, ← hn, div_zero, sqrt_zero] at hη
-      exact absurd hη (lt_irrefl 0)
-    · exact hn
+  have hn : (0 : ℝ) < n := (div_pos_iff_of_pos_left two_pos).1 (sqrt_pos.1 (hηn ▸ hη))
   refine (pseudoRegret_le hη h hY).trans ?_
-  have hsk := sqrt_nonneg (Fintype.card α : ℝ)
-  -- `2 (√k - 1) / η + η √k n ≤ 2 √k / η + η √k n = 2 √(2 k n)` for `η = √(2 / n)`
-  have h_eq : 2 * √(Fintype.card α) / η + η * √(Fintype.card α) * n =
-      2 * √(2 * Fintype.card α * n) := by
-    have h2n : √(2 / n) * √n = √2 := by
-      rw [← sqrt_mul (by positivity), div_mul_cancel₀ _ hn.ne']
-    have hsn : √n ^ 2 = n := sq_sqrt hn.le
-    rw [hηn, sqrt_mul (by positivity), sqrt_mul (by positivity)]
-    have : 0 < √(2 / n) := by positivity
-    field_simp
-    nlinarith [h2n, hsn, sq_sqrt (show (0 : ℝ) ≤ 2 by norm_num)]
-  rw [← h_eq]
-  gcongr
-  linarith
+  -- for `η = √(2 / n)`, both `η n` and `2 / η` are `√(2 n)`
+  have h_mul : η * n = √(2 * n) := by
+    refine ((sqrt_eq_iff_eq_sq (by positivity) (by positivity)).2 ?_).symm
+    rw [mul_pow, hηn, sq_sqrt (by positivity), sq, ← mul_assoc, div_mul_cancel₀ _ hn.ne']
+  have h_div : 2 / η = √(2 * n) := by
+    refine ((sqrt_eq_iff_eq_sq (by positivity) (by positivity)).2 ?_).symm
+    rw [div_pow, hηn, sq_sqrt (by positivity), div_div_eq_mul_div]
+    ring
+  -- `2 (√k - 1) / η + η √k n ≤ 2 √k / η + η √k n = 2 √(2 k n)`
+  calc 2 * (√(Fintype.card α) - 1) / η + η * √(Fintype.card α) * n
+      ≤ 2 * √(Fintype.card α) / η + η * √(Fintype.card α) * n := by
+        gcongr
+        linarith
+    _ = √(Fintype.card α) * (2 / η) + √(Fintype.card α) * (η * n) := by ring
+    _ = 2 * √(2 * Fintype.card α * n) := by
+        rw [h_mul, h_div, ← two_mul, ← sqrt_mul (Nat.cast_nonneg _), ← mul_assoc,
+          mul_comm (Fintype.card α : ℝ) 2]
 
 end Expectation
 
