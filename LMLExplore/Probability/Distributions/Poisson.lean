@@ -5,6 +5,7 @@ Authors: LMLExplore contributors
 -/
 module
 
+public import LMLExplore.Probability.Moments.IntegrableExpMul
 public import TauCeti.Probability.Distributions.Poisson.Basic
 
 /-!
@@ -12,8 +13,13 @@ public import TauCeti.Probability.Distributions.Poisson.Basic
 
 The count under the Poisson law `Po(r)` on `ℕ` has the moment generating function
 `η ↦ exp (r (exp η - 1))`, finite for every `η`, hence the cumulant generating function
-`η ↦ r (exp η - 1)`. Tilting `Po(r)` by `n ↦ η n` multiplies its rate by `exp η`: that is
-Tau Ceti's `TauCeti.Probability.poissonMeasure_tilted_mul`.
+`η ↦ r (exp η - 1)`. Tau Ceti states these facts for the identity under the real-valued law
+`Po(ℝ, r) = (poissonMeasure r).map Nat.cast` (`TauCeti.Probability.mgf_id_map_cast_poissonMeasure`,
+`TauCeti.Probability.cgf_id_map_cast_poissonMeasure` and
+`TauCeti.Probability.integrableExpSet_id_map_cast_poissonMeasure`); this file transfers them to the
+count through `ProbabilityTheory.mgf_id_map`, `LMLExplore.cgf_id_map` and
+`LMLExplore.integrableExpSet_id_map`. Tilting `Po(r)` by `n ↦ η n` multiplies its rate by `exp η`:
+that is Tau Ceti's `TauCeti.Probability.poissonMeasure_tilted_mul`.
 
 ## Main statements
 
@@ -35,20 +41,21 @@ namespace LMLExplore
 @[simp]
 lemma mgf_natCast_poissonMeasure (r : ℝ≥0) (η : ℝ) :
     mgf (Nat.cast : ℕ → ℝ) (poissonMeasure r) η = exp (r * (exp η - 1)) :=
-  (TauCeti.Probability.pgf_exp id _ η).symm.trans (TauCeti.Probability.pgf_poissonMeasure r _)
+  congrFun ((mgf_id_map .of_discrete).symm.trans
+    (TauCeti.Probability.mgf_id_map_cast_poissonMeasure r)) η
 
 /-- The cumulant generating function of the count under `Po(r)` is `η ↦ r (exp η - 1)`. -/
 @[simp]
 theorem cgf_natCast_poissonMeasure (r : ℝ≥0) (η : ℝ) :
-    cgf (Nat.cast : ℕ → ℝ) (poissonMeasure r) η = r * (exp η - 1) := by
-  rw [cgf, mgf_natCast_poissonMeasure, log_exp]
+    cgf (Nat.cast : ℕ → ℝ) (poissonMeasure r) η = r * (exp η - 1) :=
+  congrFun ((cgf_id_map .of_discrete).symm.trans
+    (TauCeti.Probability.cgf_id_map_cast_poissonMeasure r)) η
 
 /-- Every exponential moment of the count under `Po(r)` is finite. -/
 @[simp]
 theorem integrableExpSet_natCast_poissonMeasure (r : ℝ≥0) :
     integrableExpSet (Nat.cast : ℕ → ℝ) (poissonMeasure r) = univ :=
-  eq_univ_of_forall fun η ↦ by
-    rw [integrableExpSet, mem_ofPred_eq, ← mgf_pos_iff, mgf_natCast_poissonMeasure]
-    exact exp_pos _
+  (integrableExpSet_id_map .of_discrete).symm.trans
+    (TauCeti.Probability.integrableExpSet_id_map_cast_poissonMeasure r)
 
 end LMLExplore
