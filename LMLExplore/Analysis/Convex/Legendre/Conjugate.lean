@@ -9,7 +9,7 @@ public import LMLExplore.Analysis.Convex.Coercive
 public import LMLExplore.Analysis.Convex.Conjugate
 public import LMLExplore.Analysis.Convex.FDeriv
 public import LMLExplore.Analysis.Convex.Legendre.Basic
-public import Mathlib.Analysis.Normed.Module.DoubleDual
+public import LMLExplore.Analysis.Normed.Module.DoubleDual
 
 /-!
 # The conjugate of a Legendre function
@@ -57,16 +57,6 @@ namespace LMLExplore.IsLegendre
 
 variable {E : Type*} [NormedAddCommGroup E] [NormedSpace ℝ E] {F : E → ℝ} {D : Set E} {x y : E}
   {u : E →L[ℝ] ℝ}
-
-/-- The evaluation `x ↦ (u ↦ u x)` into the bidual is injective: it is
-`NormedSpace.inclusionInDoubleDual`, by definition. -/
-private theorem apply_injective :
-    Function.Injective (ContinuousLinearMap.apply ℝ ℝ : E → (E →L[ℝ] ℝ) →L[ℝ] ℝ) :=
-  (NormedSpace.inclusionInDoubleDualLi ℝ).injective
-
-/-- The evaluation `x ↦ (u ↦ u x)` into the bidual preserves the norm. -/
-private theorem norm_apply (x : E) : ‖ContinuousLinearMap.apply ℝ ℝ x‖ = ‖x‖ :=
-  (NormedSpace.inclusionInDoubleDualLi ℝ).norm_map x
 
 variable (hF : IsLegendre F D)
 include hF
@@ -140,7 +130,7 @@ theorem fderiv_toReal_fenchelConjugateOn_eq_apply_iff
   refine ⟨fun h ↦ ?_, fun h ↦ h ▸ hF.fderiv_toReal_fenchelConjugateOn_fderiv hx⟩
   obtain ⟨y, hy, rfl⟩ := hF.surjOn_fderiv hu
   rw [hF.fderiv_toReal_fenchelConjugateOn_fderiv hy] at h
-  rw [apply_injective h]
+  rw [ContinuousLinearMap.apply_injective h]
 
 /-- **Duality of Bregman divergences for Legendre functions** [LS, Theorem 26.6 (b)]: for `x, y`
 in the interior of the domain, `D_{F⋆}(∇F y, ∇F x) = D_F(x, y)`, where the divergence of the
@@ -177,7 +167,7 @@ theorem toReal_fenchelConjugateOn :
   · -- Strict convexity: the derivative `u ↦ g u` is injective.
     refine (hconv.subset interior_subset hconv.1.interior).strictConvexOn_of_injOn
       isOpen_interior hderiv fun u hu v hv h ↦ ?_
-    rw [← hinv u hu, ← hinv v hv, apply_injective h]
+    rw [← hinv u hu, ← hinv v hv, ContinuousLinearMap.apply_injective h]
   · -- Steepness: `‖g u‖ → ∞` as `u` tends to a boundary point `b` of the interior of `D'`, which
     -- is not a derivative of `F` on the interior of `D`.
     have hb' : b ∉ fderiv ℝ F '' interior D := by
@@ -187,6 +177,6 @@ theorem toReal_fenchelConjugateOn :
       ((hF.convexOn.subset interior_subset hF.convex.interior).tendsto_norm_comp_atTop_of_steep
         isOpen_interior (fun _ hx ↦ hF.hasFDerivAt hx) hF.tendsto_norm_fderiv hb' hmaps hinv)
     filter_upwards [self_mem_nhdsWithin] with u hu
-    rw [(hderiv u hu).fderiv, norm_apply]
+    rw [(hderiv u hu).fderiv, ContinuousLinearMap.norm_apply_apply]
 
 end LMLExplore.IsLegendre
