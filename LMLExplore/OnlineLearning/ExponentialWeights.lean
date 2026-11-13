@@ -48,11 +48,19 @@ entropy.
 * `sum_mul_exp_neg_sub_one_add_le`: for nonnegative weights `p`, a nonnegative loss `y` and
   `η ≥ 0`, `∑ b, p b * (exp (-(η * y b)) - 1 + η * y b) ≤ η ^ 2 / 2 * ∑ b, p b * y b ^ 2`.
 
+## Implementation notes
+
+The lemmas `softmax_log_add_apply` and `softmax_log_softmax_add` are adapted from the
+formalization of [SSKM26] in the paper project `RemyDegenne/Schlisselberg2026Hidden`
+(same author).
+
 ## References
 
 * [LS] T. Lattimore and Cs. Szepesvári, *Bandit Algorithms*, Cambridge University Press, 2020.
 * [Ora] F. Orabona, *Online learning: a modern introduction using convex optimization*,
   arXiv:1912.13213v10, 2026.
+* [SSKM26] O. Schlisselberg, U. Sherman, T. Koren and Y. Mansour, *The hidden cost of
+  approximation in online mirror descent*, arXiv:2511.22283v2, 2026.
 -/
 
 public section

@@ -48,9 +48,18 @@ dual norm of the `ℓ¹` norm being the sup norm.
 * `LMLExplore.hasFDerivAt_negEntropy_pi`, `LMLExplore.bregDiv_negEntropy_pi`: the same on `α → ℝ`,
   with the derivative `∑ a, log (x a) • ContinuousLinearMap.proj a`.
 
+## Implementation notes
+
+The lemmas on `α → ℝ`, `hasFDerivAt_negEntropy_pi` and `bregDiv_negEntropy_pi`, are adapted from
+`ForLMLExplore/Analysis/Convex/NegEntropy.lean` in the formalization of [SSKM26] in the paper
+project `RemyDegenne/Schlisselberg2026Hidden` (same author). Here `bregDiv_negEntropy_pi` is
+derived from `bregDiv_negEntropy` rather than reproved.
+
 ## References
 
 * [LS] T. Lattimore and Cs. Szepesvári, *Bandit Algorithms*, Cambridge University Press, 2020.
+* [SSKM26] O. Schlisselberg, U. Sherman, T. Koren and Y. Mansour, *The hidden cost of
+  approximation in online mirror descent*, arXiv:2511.22283v2, 2026.
 -/
 
 public section

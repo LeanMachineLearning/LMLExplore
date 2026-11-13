@@ -46,6 +46,13 @@ uses the step in this form, with the minimum value of its objective.
   `LMLExplore.OnlineLearning.eq_softmax_of_isMirrorDescentStep_negEntropy`: from the uniform point
   with a constant learning rate, exponential weights are the exact trajectory, and the only one.
 
+## Implementation notes
+
+This file is adapted from `ForLMLExplore/OnlineLearning/ExponentiatedGradient.lean` in the
+formalization of [SSKM26] in the paper project `RemyDegenne/Schlisselberg2026Hidden`
+(same author). The minimum value of the objective is obtained here from the Gibbs variational
+principle `LMLExplore.isGreatest_sum_mul_sub_sum_mul_log_div`.
+
 ## References
 
 * [Ora] F. Orabona, *Online learning: a modern introduction using convex optimization*,
@@ -99,19 +106,26 @@ theorem isLeast_mul_apply_add_bregDiv_negEntropy (hw : w ∈ simplex α) (hpos :
         bregDiv negEntropy b w
           (∑ a, log (w a) • ContinuousLinearMap.proj a : (α → ℝ) →L[ℝ] ℝ)) '' simplex α)
       (-log (∑ a, w a * exp (-(η * ℓ a)))) := by
-  have := nonempty_of_mem_simplex hw
-  set p := softmax fun a ↦ log (w a) - η * ℓ a
-  refine ⟨⟨p, softmax_mem_simplex _, ?_⟩, ?_⟩
-  · simp only
-    rw [mul_apply_add_bregDiv_negEntropy_eq hw hpos ℓ η (softmax_mem_simplex _)]
-    simp [div_self (softmax_pos _ _).ne']
+  -- the objective is the negative of the Gibbs variational objective for `-(η • ℓ)`
+  have hobj (b : α → ℝ) (hb : b ∈ simplex α) :
+      η * (∑ a, ℓ a • ContinuousLinearMap.proj a : (α → ℝ) →L[ℝ] ℝ) b +
+          bregDiv negEntropy b w
+            (∑ a, log (w a) • ContinuousLinearMap.proj a : (α → ℝ) →L[ℝ] ℝ) =
+        -(∑ a, b a * -(η * ℓ a) - ∑ a, b a * log (b a / w a)) := by
+    rw [bregDiv_negEntropy_pi hb hw fun a h ↦ absurd h (hpos a).ne']
+    simp only [FunLike.coe_sum, FunLike.coe_smul, Finset.sum_apply, Pi.smul_apply,
+      ContinuousLinearMap.proj_apply, smul_eq_mul, mul_neg, sum_neg_distrib, mul_sum]
+    rw [neg_sub, sub_neg_eq_add, add_comm]
+    exact congrArg _ (sum_congr rfl fun a _ ↦ by ring)
+  obtain ⟨⟨q, hq, hq_eq⟩, h_le⟩ :=
+    isGreatest_sum_mul_sub_sum_mul_log_div hw hpos fun a ↦ -(η * ℓ a)
+  refine ⟨⟨q, hq, ?_⟩, ?_⟩
+  · simp only at hq_eq ⊢
+    rw [hobj q hq, hq_eq]
   · rintro _ ⟨b, hb, rfl⟩
     simp only
-    rw [mul_apply_add_bregDiv_negEntropy_eq hw hpos ℓ η hb]
-    have := sum_mul_log_div_nonneg (mem_simplex_iff.1 hb).1 (softmax_nonneg _)
-      (fun a h ↦ absurd h (softmax_pos _ a).ne')
-      (by rw [sum_softmax, (mem_simplex_iff.1 hb).2] : ∑ a, p a ≤ ∑ a, b a)
-    linarith
+    rw [hobj b hb]
+    exact neg_le_neg (h_le ⟨b, hb, rfl⟩)
 
 /-- **Mirror descent with the negative entropy is multiplicative weights** [Ora, Section 6.6,
 (6.12)]. From `w ∈ simplex α` with positive coordinates, the step of mirror descent on the simplex
