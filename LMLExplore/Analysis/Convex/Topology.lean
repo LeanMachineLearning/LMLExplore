@@ -27,7 +27,7 @@ open Set
 
 namespace Convex
 
-variable {𝕜 E : Type*} [Field 𝕜] [LinearOrder 𝕜] [IsStrictOrderedRing 𝕜]
+variable {𝕜 E : Type*} [Field 𝕜] [PartialOrder 𝕜] [AddRightMono 𝕜]
   [AddCommGroup E] [Module 𝕜 E] [TopologicalSpace E] [IsTopologicalAddGroup E]
   [ContinuousConstSMul 𝕜 E] {s : Set E} {x y : E} {t : 𝕜}
 
@@ -35,7 +35,8 @@ variable {𝕜 E : Type*} [Field 𝕜] [LinearOrder 𝕜] [IsStrictOrderedRing �
 included in `interior s`: `x + t • (y - x) ∈ interior s` for `0 ≤ t < 1`. -/
 theorem add_smul_sub_mem_interior_of_mem_closure (hs : Convex 𝕜 s) (hx : x ∈ interior s)
     (hy : y ∈ closure s) (ht₀ : 0 ≤ t) (ht₁ : t < 1) : x + t • (y - x) ∈ interior s := by
-  convert hs.add_smul_sub_mem_interior' hy hx ⟨sub_pos.2 ht₁, sub_le_self 1 ht₀⟩ using 1
+  convert hs.add_smul_sub_mem_interior' hy hx ⟨sub_pos.2 ht₁, sub_nonneg.1 (by simpa using ht₀)⟩
+    using 1
   module
 
 end Convex
