@@ -25,12 +25,16 @@ finite state space. The improvement holds for every action set, the comparison w
 iteration for countably many actions, and the statements about the optimal value for finitely
 many actions.
 
-The basic step is *policy improvement*, `Learning.MDP.bellmanEval_le_value`: if `v ≤ T_π v` for a
-bounded measurable `v`, then `T_π v ≤ v^π`. Since
-`v k = T_{d k} v k ≤ T v k = T_{d (k + 1)} v k`, it gives `v k ≤ T v k ≤ v (k + 1) ≤ v*`, hence
-`T^[k] v 0 ≤ v k ≤ v*`, and the contraction property of `T` gives
-`|v k - v*| ≤ γ ^ k * sup |v 0 - v*|`. On a finite state space there are finitely many
-deterministic policies, and the abstract dynamic programming of
+These results are the instance of the abstract dynamic programming of
+`LMLExplore.IsPolicyIteration` on the bounded measurable functions, with the evaluation operators
+of the measurable deterministic stationary policies as decisions. The basic step is *policy
+improvement*, `LMLExplore.map_le_of_le_map`: if a bounded measurable `v` satisfies `v ≤ T v` and
+`d` is greedy for `v`, then `T v ≤ v^d`. Since `v k = T_{d k} v k ≤ T v k = T_{d (k + 1)} v k`, it
+gives `v k ≤ T v k ≤ v (k + 1) ≤ v*`, hence `T^[k] v 0 ≤ v k ≤ v*`
+(`LMLExplore.IsPolicyIteration.iterate_le`), and Blackwell's conditions for `T` give
+`‖v k - v*‖ ≤ γ ^ k * ‖v 0 - v*‖` (`LMLExplore.IsPolicyIteration.norm_sub_le`), stated here
+pointwise. These comparisons use the closedness of the pointwise order of the bounded measurable
+functions. On a finite state space there are finitely many deterministic policies, and
 `LMLExplore.IsPolicyIteration.exists_le_card_eq` shows that the optimal value is reached after at
 most `|𝓐| ^ |𝓢|` improvements. When the improvement keeps `d (k + 1) = d k` whenever `d k` is
 already greedy, as in Puterman's algorithm, the algorithm stops (`d (k + 1) = d k`) exactly when
@@ -128,6 +132,14 @@ private lemma coeFn_valueBM (k : ℕ) :
     ⇑(h.valueBM hγ hR k : ℓ^∞(𝓢, ℝ)) = M.value γ (Kernel.deterministic (d k) (h.measurable k)) :=
   LMLExplore.boundedMeasurable.coeFn_mk ..
 
+/-- The value of `d k`, as a bounded measurable function, is the fixed point of the evaluation
+operator of `d k`. -/
+private lemma isFixedPt_valueBM (k : ℕ) :
+    IsFixedPt (M.bellmanEvalOp γ (Kernel.deterministic (d k) (h.measurable k)) hR)
+      (h.valueBM hγ hR k) :=
+  isFixedPt_bellmanEvalOp_mk (measurable_value hγ hR) (abs_value_le hγ hR)
+    (bellmanEval_value hγ hR)
+
 /-- The policy `d (k + 1)` of policy iteration attains the optimality operator at the value of
 `d k`. -/
 theorem bellmanEval_succ_value (k : ℕ) :
@@ -137,17 +149,26 @@ theorem bellmanEval_succ_value (k : ℕ) :
   exact (isApproxGreedy_zero_iff_bellmanEval_eq (measurable_value hγ hR) _
     (bddAbove_range_lookahead hR (abs_value_le hγ hR))).1 (h.isGreedy k)
 
-variable [Nonempty 𝓢]
-
 /-- **Policy improvement** [P, Proposition 6.4.1]: the value of each policy of policy iteration is
 above the image by the optimality operator of the value of the previous one. -/
 theorem bellman_le_value_succ (k : ℕ) :
     M.bellman γ (M.value γ (Kernel.deterministic (d k) (h.measurable k))) ≤
-      M.value γ (Kernel.deterministic (d (k + 1)) (h.measurable (k + 1))) := by
-  rw [← h.bellmanEval_succ_value hγ hR k]
-  refine bellmanEval_le_value hγ hR (measurable_value hγ hR) (abs_value_le hγ hR) ?_
-  rw [h.bellmanEval_succ_value hγ hR k]
-  exact value_le_bellman hγ hR (h.measurable k)
+      M.value γ (Kernel.deterministic (d (k + 1)) (h.measurable (k + 1))) := fun s ↦ by
+  -- For uncountably many actions the optimality operator need not map bounded measurable
+  -- functions to measurable ones. The abstract policy improvement step is applied with the
+  -- evaluation operator of `d (k + 1)` in its place: the two agree at the value of `d k`.
+  have hle := LMLExplore.map_le_of_le_map (D := {d : 𝓢 → 𝓐 // Measurable d})
+    (T := fun d ↦ M.bellmanEvalOp γ (Kernel.deterministic d d.2) hR)
+    (B := M.bellmanEvalOp γ (Kernel.deterministic (d (k + 1)) (h.measurable (k + 1))) hR)
+    (x := h.valueBM hγ hR k) (d := ⟨d (k + 1), h.measurable (k + 1)⟩)
+    LMLExplore.boundedMeasurable.orderUnitNorm_one_eq_norm
+    (fun _ ↦ isBlackwell_bellmanEvalOp hR) hγ
+    (LMLExplore.boundedMeasurable.le_def.2 fun t ↦ by
+      simpa only [coeFn_bellmanEvalOp, coeFn_valueBM, h.bellmanEval_succ_value hγ hR k] using
+        value_le_bellman hγ hR (h.measurable k) t)
+    rfl (h.isFixedPt_valueBM hγ hR (k + 1))
+  simpa only [coeFn_bellmanEvalOp, coeFn_valueBM, h.bellmanEval_succ_value hγ hR k] using
+    LMLExplore.boundedMeasurable.le_def.1 hle s
 
 /-- **Policy improvement** [P, Proposition 6.4.1]: the values of policy iteration are
 nondecreasing. -/
@@ -160,7 +181,7 @@ theorem monotone_value :
 `v k + ∑ n, γ ^ n P ^ n (T v k - v k)`, where `v k` is the value of `d k`, `T` the optimality
 operator and `P` the state kernel of `d (k + 1)`; that is,
 `v (k + 1) = v k + (I - γ P)⁻¹ (T v k - v k)`. -/
-theorem value_succ_eq_add_tsum (k : ℕ) (s : 𝓢) :
+theorem value_succ_eq_add_tsum [Nonempty 𝓢] (k : ℕ) (s : 𝓢) :
     M.value γ (Kernel.deterministic (d (k + 1)) (h.measurable (k + 1))) s =
       M.value γ (Kernel.deterministic (d k) (h.measurable k)) s + ∑' n, (γ : ℝ) ^ n *
         ∫ s', (M.bellman γ (M.value γ (Kernel.deterministic (d k) (h.measurable k))) s' -
@@ -172,7 +193,7 @@ theorem value_succ_eq_add_tsum (k : ℕ) (s : 𝓢) :
 
 /-- **Stopping rule**: the value of policy iteration does not change at step `k` if and only if
 the value of `d k` is the optimal value. -/
-theorem value_succ_eq_iff [Finite 𝓐] [Nonempty 𝓐] (k : ℕ) :
+theorem value_succ_eq_iff [Nonempty 𝓢] [Finite 𝓐] [Nonempty 𝓐] (k : ℕ) :
     M.value γ (Kernel.deterministic (d (k + 1)) (h.measurable (k + 1))) =
         M.value γ (Kernel.deterministic (d k) (h.measurable k)) ↔
       M.value γ (Kernel.deterministic (d k) (h.measurable k)) = M.optValue γ := by
@@ -186,7 +207,7 @@ theorem value_succ_eq_iff [Finite 𝓐] [Nonempty 𝓐] (k : ℕ) :
 /-- **Stopping rule with ties kept**: if policy iteration keeps the current policy whenever it is
 greedy for its own value, as in Puterman's algorithm, then the policy does not change at step `k`
 if and only if `d k` is optimal. -/
-theorem succ_eq_iff [Finite 𝓐] [Nonempty 𝓐] (hkeep : h.KeepsGreedy) (k : ℕ) :
+theorem succ_eq_iff [Nonempty 𝓢] [Finite 𝓐] [Nonempty 𝓐] (hkeep : h.KeepsGreedy) (k : ℕ) :
     d (k + 1) = d k ↔
       M.value γ (Kernel.deterministic (d k) (h.measurable k)) = M.optValue γ := by
   rw [← h.value_succ_eq_iff hγ hR k]
@@ -208,13 +229,16 @@ section Convergence
 
 variable [Countable 𝓐] [Nonempty 𝓐]
 
-/-- The values of policy iteration, as bounded measurable functions, satisfy
-`T (v k) ≤ v (k + 1)` for the optimality operator `T` on bounded measurable functions. -/
-private lemma bellmanOp_valueBM_le (k : ℕ) :
-    M.bellmanOp γ hR (h.valueBM hγ hR k) ≤ h.valueBM hγ hR (k + 1) :=
-  LMLExplore.boundedMeasurable.le_def.2 fun s ↦ by
-    rw [coeFn_bellmanOp, coeFn_valueBM, coeFn_valueBM]
-    exact h.bellman_le_value_succ hγ hR k s
+/-- On the bounded measurable functions, the values of `d` are a run of the abstract policy
+iteration of the evaluation operators of the measurable deterministic stationary policies. -/
+private lemma isPolicyIteration_valueBM :
+    LMLExplore.IsPolicyIteration
+      (fun d : {d : 𝓢 → 𝓐 // Measurable d} ↦ M.bellmanEvalOp γ (Kernel.deterministic d d.2) hR)
+      (M.bellmanOp γ hR) (fun k ↦ ⟨d k, h.measurable k⟩) (h.valueBM hγ hR) where
+  isFixedPt k := h.isFixedPt_valueBM hγ hR k
+  map_eq k := LMLExplore.boundedMeasurable.ext fun s ↦ by
+    simp only [coeFn_bellmanEvalOp, coeFn_bellmanOp, coeFn_valueBM,
+      h.bellmanEval_succ_value hγ hR k]
 
 /-- **Convergence of policy iteration** [P, Theorem 6.4.6]: the values of policy iteration are
 above the iterates of the optimality operator from the value of `d 0`. Together with
@@ -222,28 +246,33 @@ above the iterates of the optimality operator from the value of `d 0`. Together 
 theorem bellman_iterate_le_value (k : ℕ) :
     (M.bellman γ)^[k] (M.value γ (Kernel.deterministic (d 0) (h.measurable 0))) ≤
       M.value γ (Kernel.deterministic (d k) (h.measurable k)) := fun s ↦ by
-  have hle := LMLExplore.boundedMeasurable.le_def.1
-    ((isBlackwell_bellmanOp hR).monotone.iterate_le_of_map_le_succ (h.bellmanOp_valueBM_le hγ hR)
-      k) s
-  rwa [coeFn_bellmanOp_iterate, coeFn_valueBM, coeFn_valueBM] at hle
+  simpa only [coeFn_bellmanOp_iterate, coeFn_valueBM] using LMLExplore.boundedMeasurable.le_def.1
+    ((h.isPolicyIteration_valueBM hγ hR).iterate_le
+      LMLExplore.boundedMeasurable.orderUnitNorm_one_eq_norm (fun _ ↦ isBlackwell_bellmanEvalOp hR)
+      hγ (fun _ ↦ bellmanEvalOp_le_bellmanOp hR) (isBlackwell_bellmanOp hR).monotone k) s
 
 end Convergence
 
 /-- **Convergence of policy iteration at a geometric rate** (the norm convergence of
 [P, Theorem 6.4.6], with its rate): if the value of `d 0` is within `D` of the optimal value, then
 the value of `d k` is within `γ ^ k * D` of it. -/
-theorem abs_value_sub_optValue_le [Finite 𝓐] [Nonempty 𝓐]
+theorem abs_value_sub_optValue_le [Nonempty 𝓢] [Finite 𝓐] [Nonempty 𝓐]
     (hD : ∀ s, |M.value γ (Kernel.deterministic (d 0) (h.measurable 0)) s - M.optValue γ s| ≤ D)
     (k : ℕ) (s : 𝓢) :
-    |M.value γ (Kernel.deterministic (d k) (h.measurable k)) s - M.optValue γ s| ≤ γ ^ k * D :=
-  abs_sub_optValue_le_of_bellman_le_succ hγ hR (fun _ ↦ measurable_value hγ hR)
-    (fun _ ↦ ⟨_, abs_value_le hγ hR⟩) (fun _ ↦ value_le_optValue hγ hR)
-    (h.bellman_le_value_succ hγ hR) hD k s
+    |M.value γ (Kernel.deterministic (d k) (h.measurable k)) s - M.optValue γ s| ≤ γ ^ k * D := by
+  have hnorm := (h.isPolicyIteration_valueBM hγ hR).norm_sub_le
+    LMLExplore.boundedMeasurable.orderUnitNorm_one_eq_norm (fun _ ↦ isBlackwell_bellmanEvalOp hR)
+    hγ (fun _ ↦ bellmanEvalOp_le_bellmanOp hR) (isBlackwell_bellmanOp hR)
+    (isFixedPt_bellmanOp_optValueBM hγ hR) k
+  rw [← dist_eq_norm, ← dist_eq_norm] at hnorm
+  simpa only [coeFn_valueBM, coeFn_optValueBM] using
+    LMLExplore.boundedMeasurable.abs_sub_apply_le_mul_of_dist_le (pow_nonneg γ.coe_nonneg k) hnorm
+      (by simpa only [coeFn_valueBM, coeFn_optValueBM] using hD) s
 
 /-- **Finite termination of policy iteration** [P, Theorem 6.4.2]: on a finite state space, the
 value of policy iteration reaches the optimal value after at most `|𝓐| ^ |𝓢|` improvements. -/
-theorem exists_le_card_value_eq_optValue [Finite 𝓢] [MeasurableSingletonClass 𝓢] [Finite 𝓐]
-    [MeasurableSingletonClass 𝓐] [Nonempty 𝓐] :
+theorem exists_le_card_value_eq_optValue [Nonempty 𝓢] [Finite 𝓢] [MeasurableSingletonClass 𝓢]
+    [Finite 𝓐] [MeasurableSingletonClass 𝓐] [Nonempty 𝓐] :
     ∃ k ≤ Nat.card 𝓐 ^ Nat.card 𝓢,
       M.value γ (Kernel.deterministic (d k) (h.measurable k)) = M.optValue γ := by
   have := Fintype.ofFinite 𝓢
@@ -264,7 +293,7 @@ theorem exists_le_card_value_eq_optValue [Finite 𝓢] [MeasurableSingletonClass
 /-- **Finite termination of policy iteration with ties kept** [P, Theorem 6.4.2]: on a finite
 state space, if policy iteration keeps the current policy whenever it is greedy for its own value,
 then it stops, with an optimal policy, after at most `|𝓐| ^ |𝓢|` improvements. -/
-theorem exists_le_card_succ_eq [Finite 𝓢] [MeasurableSingletonClass 𝓢] [Finite 𝓐]
+theorem exists_le_card_succ_eq [Nonempty 𝓢] [Finite 𝓢] [MeasurableSingletonClass 𝓢] [Finite 𝓐]
     [MeasurableSingletonClass 𝓐] [Nonempty 𝓐] (hkeep : h.KeepsGreedy) :
     ∃ k ≤ Nat.card 𝓐 ^ Nat.card 𝓢, d (k + 1) = d k ∧
       M.value γ (Kernel.deterministic (d k) (h.measurable k)) = M.optValue γ := by
