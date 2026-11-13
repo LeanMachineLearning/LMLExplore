@@ -165,11 +165,13 @@ theorem exp_mul_toReal_klDiv_le_mul_predictorLikelihoodRatio_laplacePredictor
     have hP_eq : P = (∏ a, ((N a : ℝ) / n) ^ N a) *
         exp (-(n * (klDiv (empiricalFiniteMeasure x : Measure α) ν).toReal)) := by
       have h := prod_measureReal_pow_typeCount_eq_mul_exp hx
+      rw [← prod_comp_eq_prod_pow_typeCount (fun a ↦ ν.real {a}) x,
+        Fin.prod_univ_eq_prod_range (fun k ↦ ν.real {ξ k ω})] at h
       simp_rw [measureReal_empiricalFiniteMeasure_singleton, hN_type] at h
       rw [toReal_klDiv_eq_sum_mul_log_div (empiricalFiniteMeasure_absolutelyContinuous hx),
         probReal_univ, probReal_univ, add_sub_cancel_right]
       simp_rw [measureReal_empiricalFiniteMeasure_singleton, hN_type]
-      rw [← h, prod_pow_pullCount (fun a ↦ ν.real {a}) n ω]
+      exact h
     rw [eq_div_iff hP.ne', hP_eq, exp_neg]
     field_simp
   -- the likelihood of the rule of succession: `L_n P = ∏ₐ N a ! / m^{(n)}`

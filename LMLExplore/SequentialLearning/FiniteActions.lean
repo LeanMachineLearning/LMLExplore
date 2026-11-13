@@ -27,9 +27,9 @@ Facts about LML's `pullCount` that hold for any sequence of actions `A : ℕ →
   round `n`.
 * `sum_natCast_pullCount`: the pull counts of all arms before `K` add up to `K`, cast to an
   additive commutative monoid with one.
-* `prod_pow_pullCount`, `prod_comp_pullCount`: products over the rounds regrouped arm by arm, the
-  multiplicative forms of LML's `sum_pullCount_mul` and `sum_comp_pullCount`; in particular
-  `prod_range_pullCount_action_add_one`: `∏_{s < t} (N_s(A_s) + 1) = ∏_a N_t(a)!`.
+* `prod_comp_pullCount`: a product over the rounds of a function of the number of previous pulls
+  of the arm played, regrouped arm by arm, the multiplicative form of LML's `sum_comp_pullCount`;
+  in particular `prod_range_pullCount_action_add_one`: `∏_{s < t} (N_s(A_s) + 1) = ∏_a N_t(a)!`.
 * `exists_pullCount_eq_zero_of_lt_card`: before round `Fintype.card α`, some arm has not been
   pulled yet.
 * `pullCount_card_eq_one_of_forall_pullCount_action_eq_zero`: if each of the first
@@ -111,12 +111,6 @@ arm. -/
 lemma sum_natCast_pullCount {R : Type*} [AddCommMonoidWithOne R] (ω : Ω) (K : ℕ) :
     ∑ a, (pullCount A a K ω : R) = K := by
   rw [← Nat.cast_sum, sum_pullCount]
-
-/-- `∏_a f(a) ^ N_t(a) = ∏_{s < t} f(A_s)`: the multiplicative form of LML's `sum_pullCount_mul`. -/
-lemma prod_pow_pullCount {M : Type*} [CommMonoid M] (f : α → M) (t : ℕ) (ω : Ω) :
-    ∏ a, f a ^ pullCount A a t ω = ∏ s ∈ range t, f (A s ω) := by
-  simp_rw [pullCount, ← prod_const]
-  exact prod_fiberwise' (range t) (A · ω) f
 
 /-- `∏_{s < t} f(N_s(A_s)) = ∏_a ∏_{j < N_t(a)} f(j)`: the product over the rounds of a function of
 the number of previous pulls of the arm played is, arm by arm, its product over `0, …, N_t(a) - 1`.
