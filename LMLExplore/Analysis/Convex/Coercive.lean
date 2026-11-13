@@ -23,7 +23,7 @@ most `M` on the closed ball of radius `r` around `u`. The converse needs `E` to 
 finite-dimensional, so that the convex function `f⋆` is bounded above near every interior point
 of its domain.
 
-The tilted sublevel sets `{x | f x ≤ u x + c}` of a function whose conjugate is finite near `u`
+The tilted sublevel sets `{x | f x ≤ u x + c}` of a function whose conjugate is not `⊤` near `u`
 are therefore bounded. This is the compactness that produces minimizers of `F - u`, and so
 preimages of `u` under the gradient `∇F`, in the proof that the gradient of a Legendre function is
 onto the interior of the domain of its conjugate.
@@ -72,8 +72,8 @@ theorem fenchelConjugate_le_of_norm_sub_le
   exact (EReal.coe_le_coe_iff.2 (by linarith)).trans (hf x)
 
 /-- **Linear growth puts the tilt in the interior of the domain of the conjugate.** If
-`u x + r ‖x‖ - M ≤ f x` for every `x`, with `r > 0`, then the conjugate of `f` is finite on a
-neighbourhood of `u`. -/
+`u x + r ‖x‖ - M ≤ f x` for every `x`, with `r > 0`, then the conjugate of `f` is not `⊤` on a
+neighbourhood of `u` (`u` is interior to the effective domain of `f⋆`). -/
 theorem mem_interior_setOf_fenchelConjugate_ne_top_of_forall_le (hr : 0 < r)
     (hf : ∀ x, ((u x + r * ‖x‖ - M : ℝ) : EReal) ≤ f x) :
     u ∈ interior {v | fenchelConjugate (topDualPairing ℝ E).flip f v ≠ ⊤} := by
@@ -82,7 +82,7 @@ theorem mem_interior_setOf_fenchelConjugate_ne_top_of_forall_le (hr : 0 < r)
   exact ne_top_of_le_ne_top (EReal.coe_ne_top M) (fenchelConjugate_le_of_norm_sub_le hf hv.le)
 
 /-- **Linear growth of the tilt at an interior point of the domain of the conjugate.** In finite
-dimension, if the conjugate of `f` is finite on a neighbourhood of `u`, then
+dimension, if the conjugate of `f` is not `⊤` on a neighbourhood of `u`, then
 `u x + r ‖x‖ - M ≤ f x` for every `x`, for some `r > 0` and some `M`. -/
 theorem exists_forall_le_of_mem_interior_setOf_fenchelConjugate_ne_top [FiniteDimensional ℝ E]
     (hu : u ∈ interior {v | fenchelConjugate (topDualPairing ℝ E).flip f v ≠ ⊤}) :
@@ -126,7 +126,7 @@ theorem mem_interior_setOf_fenchelConjugate_ne_top_iff [FiniteDimensional ℝ E]
   ⟨exists_forall_le_of_mem_interior_setOf_fenchelConjugate_ne_top, fun ⟨_, hr, _, hf⟩ ↦
     mem_interior_setOf_fenchelConjugate_ne_top_of_forall_le hr hf⟩
 
-/-- **Bounded tilted sublevel sets.** In finite dimension, if the conjugate of `f` is finite on a
+/-- **Bounded tilted sublevel sets.** In finite dimension, if the conjugate of `f` is not `⊤` on a
 neighbourhood of `u`, then every sublevel set `{x | f x ≤ u x + c}` of `f - u` is bounded. -/
 theorem isBounded_setOf_le_of_mem_interior_setOf_fenchelConjugate_ne_top
     [FiniteDimensional ℝ E]
