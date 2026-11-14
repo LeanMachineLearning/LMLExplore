@@ -5,7 +5,7 @@ Authors: LMLExplore contributors
 -/
 module
 
-public import LMLExplore.Probability.Distributions.ExponentialFamily.Mean
+public import LMLExplore.Probability.Distributions.ExponentialFamily.UpperConfidence
 public import TauCeti.Probability.Distributions.Gamma.Basic
 import LMLExplore.Analysis.SpecialFunctions.Log.Basic
 import TauCeti.Probability.Distributions.Tilted
@@ -25,6 +25,13 @@ the family in the mean parametrization is `d(μ, μ') = a (μ / μ' - 1 - log (�
 the rates, the Kullback–Leibler divergence between `gammaMeasure a r` and `gammaMeasure a r'` is
 `a (r' / r - 1 - log (r' / r))`. For `r = 1`, the member `gammaMeasure a r'` of the family of
 `gammaMeasure a 1` has natural parameter `1 - r'`.
+
+Every positive level `x` is a mean, so the extended divergence `dbar(x, μ)`, the Cramér rate
+function of the member of mean `μ` at `x`, is `a (x / μ - 1 - log (x / μ))` there. At a level
+`x ≤ 0` it is infinite, since the gamma laws are supported on `(0, ∞)`. The upper confidence level
+`U(x, c)` of the family, the index of KL-UCB for gamma rewards of known shape `a`, is therefore
+characterized by `q ≤ U(x, c) ↔ a (x / q - 1 - log (x / q)) ≤ c` for `0 < x ≤ q`, and is `x` itself
+for `x ≤ 0` and a finite budget `c`.
 
 The exponential laws `expMeasure r = gammaMeasure 1 r` are the shape `a = 1`
 (`Probability/Distributions/ExponentialFamily/Exponential.lean`).
@@ -48,6 +55,14 @@ COLT 2016, where the closed form of the divergence makes the transportation cost
   `d(μ, μ') = a (μ / μ' - 1 - log (μ / μ'))` for `μ, μ' > 0`.
 * `LMLExplore.klDiv_gammaMeasure`: the Kullback–Leibler divergence between `gammaMeasure a r` and
   `gammaMeasure a r'` for `r, r' > 0` is `a (r' / r - 1 - log (r' / r))`.
+* `LMLExplore.image_expFamily_gammaMeasure`: the members of the family are the gamma laws
+  `gammaMeasure a b` of shape `a` and rate `b > 0`.
+* `LMLExplore.expFamilyRate_gammaMeasure`, `LMLExplore.expFamilyRate_gammaMeasure_of_nonpos`: the
+  extended divergence is `dbar(x, μ) = a (x / μ - 1 - log (x / μ))` at levels `x > 0`, and `∞` at
+  levels `x ≤ 0`.
+* `LMLExplore.le_expFamilyUpper_gammaMeasure_iff`,
+  `LMLExplore.expFamilyUpper_gammaMeasure_of_nonpos`: the upper confidence level of the family at
+  positive and at nonpositive levels.
 * `LMLExplore.tendsto_expFamilyDiv_gammaMeasure_nhdsGT_zero`,
   `LMLExplore.tendsto_expFamilyDiv_gammaMeasure_atTop`: `d(μ, μ') → ∞` as `μ'` tends to either
   endpoint `0` or `∞` of the means.
@@ -57,9 +72,11 @@ public section
 
 open MeasureTheory ProbabilityTheory InformationTheory Real Set Filter Topology
 
+open scoped ENNReal
+
 namespace LMLExplore
 
-variable {a r η μ μ' : ℝ}
+variable {a r η μ μ' x q : ℝ}
 
 /-- For `η < r`, the member of natural parameter `η` of the exponential family of
 `gammaMeasure a r` with statistic `id` is `gammaMeasure a (r - η)`. -/
@@ -166,6 +183,62 @@ theorem klDiv_gammaMeasure {r' : ℝ} (ha : 0 < a) (hr : 0 < r) (hr' : 0 < r') :
     expFamily_natParam_gammaMeasure ha hr (div_pos ha hr'), div_div_cancel₀ ha.ne',
     div_div_cancel₀ ha.ne', expFamilyDiv_gammaMeasure ha hr (div_pos ha hr) (div_pos ha hr'),
     div_div_div_cancel_left' _ _ ha.ne'] at h
+
+/-- The members of the exponential family of `gammaMeasure a r` are the gamma laws
+`gammaMeasure a b` of shape `a` and positive rate `b`. -/
+theorem image_expFamily_gammaMeasure (ha : 0 < a) (hr : 0 < r) :
+    (gammaMeasure a r).expFamily id '' interior (integrableExpSet id (gammaMeasure a r)) =
+      (fun b ↦ gammaMeasure a b) '' Ioi 0 := by
+  rw [interior_integrableExpSet_id_gammaMeasure ha hr]
+  ext Q
+  constructor
+  · rintro ⟨η, hη, rfl⟩
+    exact ⟨r - η, sub_pos.2 hη, (expFamily_gammaMeasure ha hr hη).symm⟩
+  · rintro ⟨b, hb, rfl⟩
+    refine ⟨r - b, sub_lt_self r hb, ?_⟩
+    rw [expFamily_gammaMeasure ha hr (sub_lt_self r hb), sub_sub_cancel]
+
+/-- At a level `x > 0`, the extended divergence of the exponential family of `gammaMeasure a r` is
+`dbar(x, μ) = a (x / μ - 1 - log (x / μ))` for every mean `μ > 0`, since `x` is itself a mean. -/
+@[simp]
+theorem expFamilyRate_gammaMeasure (ha : 0 < a) (hr : 0 < r) (hx : 0 < x) (hμ : 0 < μ) :
+    (gammaMeasure a r).expFamilyRate id x μ = ENNReal.ofReal (a * (x / μ - 1 - log (x / μ))) := by
+  rw [Measure.expFamilyRate_eq_ofReal_expFamilyDiv
+    (by rwa [expFamilyMeans_gammaMeasure ha hr]) (by rwa [expFamilyMeans_gammaMeasure ha hr]),
+    expFamilyDiv_gammaMeasure ha hr hx hμ]
+
+/-- At a level `x ≤ 0`, the extended divergence of the exponential family of `gammaMeasure a r` is
+infinite for every mean `μ > 0`: the member of mean `μ` is almost surely strictly positive, so
+every level `x ≤ 0` lies strictly below it almost surely and the rate function there is infinite. -/
+@[simp]
+theorem expFamilyRate_gammaMeasure_of_nonpos (ha : 0 < a) (hr : 0 < r) (hx : x ≤ 0)
+    (hμ : 0 < μ) : (gammaMeasure a r).expFamilyRate id x μ = ∞ := by
+  rw [Measure.expFamilyRate_def, expFamily_natParam_gammaMeasure ha hr hμ]
+  have := isProbabilityMeasure_gammaMeasure ha (div_pos ha hμ)
+  exact rateFunction_eq_top_of_ae_gt aemeasurable_id
+    ((TauCeti.Probability.ae_pos_gammaMeasure a (a / μ)).mono fun _ hy ↦ hx.trans_lt hy)
+
+/-- The upper confidence level of the exponential family of `gammaMeasure a r` at a level `x > 0`:
+for every `q ≥ x`, `q ≤ U(x, c)` if and only if `a (x / q - 1 - log (x / q)) ≤ c`. This is the
+KL-UCB index of rewards with gamma laws of known shape `a`. -/
+theorem le_expFamilyUpper_gammaMeasure_iff (ha : 0 < a) (hr : 0 < r) (hx : 0 < x) (hxq : x ≤ q)
+    {c : ℝ≥0∞} : (q : EReal) ≤ (gammaMeasure a r).expFamilyUpper id x c ↔
+      ENNReal.ofReal (a * (x / q - 1 - log (x / q))) ≤ c := by
+  rw [Measure.le_expFamilyUpper_iff (not_ae_eq_const_gammaMeasure ha hr)
+    (by rw [expFamilyMeans_gammaMeasure ha hr]; exact hx.trans_le hxq) hxq,
+    expFamilyRate_gammaMeasure ha hr hx (hx.trans_le hxq)]
+
+/-- The upper confidence level of the exponential family of `gammaMeasure a r` at a level `x ≤ 0`
+with a finite budget `c` is `U(x, c) = x`: every mean is at infinite extended divergence from
+`x`. -/
+@[simp]
+theorem expFamilyUpper_gammaMeasure_of_nonpos (ha : 0 < a) (hr : 0 < r) (hx : x ≤ 0)
+    {c : ℝ≥0∞} (hc : c ≠ ∞) : (gammaMeasure a r).expFamilyUpper id x c = x := by
+  refine le_antisymm (Measure.expFamilyUpper_le_iff.2 ⟨le_rfl, fun q hq _ hqc ↦ ?_⟩)
+    (Measure.le_expFamilyUpper _ _ _ _)
+  rw [expFamilyMeans_gammaMeasure ha hr] at hq
+  rw [expFamilyRate_gammaMeasure_of_nonpos ha hr hx hq, top_le_iff] at hqc
+  exact absurd hqc hc
 
 /-- For a mean `μ > 0`, the divergence `d(μ, μ')` of the exponential family of `gammaMeasure a r`
 tends to infinity as `μ'` tends to the endpoint `0` of the means. -/

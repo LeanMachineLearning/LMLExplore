@@ -22,7 +22,9 @@ value: the means of the family are the interval `(0, ∞)`, the natural paramete
 `r - μ⁻¹`, the member of mean `μ` is `expMeasure μ⁻¹`, and the divergence of the family in the mean
 parametrization is `d(μ, μ') = μ / μ' - 1 - log (μ / μ')`. In terms of the rates, the
 Kullback–Leibler divergence between `expMeasure r` and `expMeasure r'` is
-`r' / r - 1 - log (r' / r)`.
+`r' / r - 1 - log (r' / r)`. Its extension to every level, the Cramér rate function of the member
+of mean `μ`, is `dbar(x, μ) = x / μ - 1 - log (x / μ)` at levels `x > 0` and infinite at levels
+`x ≤ 0`; it determines the KL-UCB index of exponential rewards.
 
 Exponential arms are one of the parametric arm models of bandit identification, for example in
 A. Garivier and E. Kaufmann, *Optimal best arm identification with fixed confidence*, COLT 2016,
@@ -43,6 +45,13 @@ where the closed form of the divergence makes the transportation costs explicit.
   `d(μ, μ') = μ / μ' - 1 - log (μ / μ')` for `μ, μ' > 0`.
 * `LMLExplore.klDiv_expMeasure`: the Kullback–Leibler divergence between `expMeasure r` and
   `expMeasure r'` for `r, r' > 0` is `r' / r - 1 - log (r' / r)`.
+* `LMLExplore.image_expFamily_expMeasure`: the members of the family are the exponential laws
+  `expMeasure b` of rate `b > 0`.
+* `LMLExplore.expFamilyRate_expMeasure`, `LMLExplore.expFamilyRate_expMeasure_of_nonpos`: the
+  extended divergence is `dbar(x, μ) = x / μ - 1 - log (x / μ)` at levels `x > 0`, and `∞` at
+  levels `x ≤ 0`.
+* `LMLExplore.le_expFamilyUpper_expMeasure_iff`, `LMLExplore.expFamilyUpper_expMeasure_of_nonpos`:
+  the upper confidence level of the family at positive and at nonpositive levels.
 * `LMLExplore.tendsto_expFamilyDiv_expMeasure_nhdsGT_zero`,
   `LMLExplore.tendsto_expFamilyDiv_expMeasure_atTop`: `d(μ, μ') → ∞` as `μ'` tends to either
   endpoint `0` or `∞` of the means.
@@ -52,9 +61,11 @@ public section
 
 open MeasureTheory ProbabilityTheory InformationTheory Real Set Filter Topology
 
+open scoped ENNReal
+
 namespace LMLExplore
 
-variable {r η μ μ' : ℝ}
+variable {r η μ μ' x q : ℝ}
 
 /-- The member of natural parameter `η` of the exponential family of `expMeasure r` with statistic
 `id` is `expMeasure (r - η)`. For `η ≥ r`, both sides are the zero measure. -/
@@ -112,6 +123,43 @@ is `r' / r - 1 - log (r' / r)`. -/
 theorem klDiv_expMeasure {r' : ℝ} (hr : 0 < r) (hr' : 0 < r') :
     klDiv (expMeasure r) (expMeasure r') = ENNReal.ofReal (r' / r - 1 - log (r' / r)) := by
   rw [expMeasure, expMeasure, klDiv_gammaMeasure one_pos hr hr', one_mul]
+
+/-- The members of the exponential family of `expMeasure r` are the exponential laws `expMeasure b`
+of positive rate `b`. -/
+theorem image_expFamily_expMeasure (hr : 0 < r) :
+    (expMeasure r).expFamily id '' interior (integrableExpSet id (expMeasure r)) =
+      (fun b ↦ expMeasure b) '' Ioi 0 := by
+  simp only [expMeasure]
+  exact image_expFamily_gammaMeasure one_pos hr
+
+/-- At a level `x > 0`, the extended divergence of the exponential family of `expMeasure r` is
+`dbar(x, μ) = x / μ - 1 - log (x / μ)` for every mean `μ > 0`. -/
+@[simp]
+theorem expFamilyRate_expMeasure (hr : 0 < r) (hx : 0 < x) (hμ : 0 < μ) :
+    (expMeasure r).expFamilyRate id x μ = ENNReal.ofReal (x / μ - 1 - log (x / μ)) := by
+  rw [expMeasure, expFamilyRate_gammaMeasure one_pos hr hx hμ, one_mul]
+
+/-- At a level `x ≤ 0`, the extended divergence of the exponential family of `expMeasure r` is
+infinite for every mean `μ > 0`, since the exponential laws are supported on `(0, ∞)`. -/
+@[simp]
+theorem expFamilyRate_expMeasure_of_nonpos (hr : 0 < r) (hx : x ≤ 0) (hμ : 0 < μ) :
+    (expMeasure r).expFamilyRate id x μ = ∞ := by
+  rw [expMeasure, expFamilyRate_gammaMeasure_of_nonpos one_pos hr hx hμ]
+
+/-- The upper confidence level of the exponential family of `expMeasure r` at a level `x > 0`: for
+every `q ≥ x`, `q ≤ U(x, c)` if and only if `x / q - 1 - log (x / q) ≤ c`. This is the KL-UCB index
+of exponential rewards. -/
+theorem le_expFamilyUpper_expMeasure_iff (hr : 0 < r) (hx : 0 < x) (hxq : x ≤ q) {c : ℝ≥0∞} :
+    (q : EReal) ≤ (expMeasure r).expFamilyUpper id x c ↔
+      ENNReal.ofReal (x / q - 1 - log (x / q)) ≤ c := by
+  rw [expMeasure, le_expFamilyUpper_gammaMeasure_iff one_pos hr hx hxq, one_mul]
+
+/-- The upper confidence level of the exponential family of `expMeasure r` at a level `x ≤ 0` with
+a finite budget `c` is `U(x, c) = x`. -/
+@[simp]
+theorem expFamilyUpper_expMeasure_of_nonpos (hr : 0 < r) (hx : x ≤ 0) {c : ℝ≥0∞} (hc : c ≠ ∞) :
+    (expMeasure r).expFamilyUpper id x c = x := by
+  rw [expMeasure, expFamilyUpper_gammaMeasure_of_nonpos one_pos hr hx hc]
 
 /-- For a mean `μ > 0`, the divergence `d(μ, μ')` of the exponential family of `expMeasure r`
 tends to infinity as `μ'` tends to the endpoint `0` of the means. -/
