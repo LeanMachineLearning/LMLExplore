@@ -56,7 +56,7 @@ rates is above `r`.
 * [GJ04] P. Glynn and S. Juneja, *A large deviations perspective on ordinal optimization*,
   Winter Simulation Conference 2004.
 * [D23] R. Degenne, *On the existence of a complexity in fixed budget bandit identification*,
-  COLT 2023, arXiv:2303.09468, Theorem 12.
+  COLT 2023, arXiv:2303.09468, Lemma 11 and Theorem 12.
 -/
 
 public section
@@ -69,6 +69,19 @@ open scoped ENNReal NNReal
 namespace LMLExplore
 
 section Product
+
+/-- The bound `exp (-(n ∑ a ∈ s, g a))` is the product of the bounds `exp (-(n g a))`. -/
+private lemma ofReal_exp_neg_mul_sum {ι : Type*} (s : Finset ι) (n : ℕ) (g : ι → ℝ) :
+    ENNReal.ofReal (Real.exp (-(n * ∑ a ∈ s, g a))) =
+      ∏ a ∈ s, ENNReal.ofReal (Real.exp (-(n * g a))) := by
+  rw [← ENNReal.ofReal_prod_of_nonneg fun a _ ↦ (Real.exp_pos _).le, ← Real.exp_sum,
+    Finset.mul_sum, Finset.sum_neg_distrib]
+
+/-- The bound `exp (-(n r))` is antitone in the exponent `r`. -/
+private lemma ofReal_exp_neg_mul_le (n : ℕ) {r r' : ℝ} (h : r ≤ r') :
+    ENNReal.ofReal (Real.exp (-(n * r'))) ≤ ENNReal.ofReal (Real.exp (-(n * r))) :=
+  ENNReal.ofReal_le_ofReal <| Real.exp_le_exp.2 <| neg_le_neg <|
+    mul_le_mul_of_nonneg_left h n.cast_nonneg
 
 variable {ι : Type*} [Fintype ι] {X : ι → Type*} [∀ a, MeasurableSpace (X a)]
   {P : ∀ a, ℕ → Measure (X a)} {I : ∀ a, X a → ℝ≥0∞}
@@ -90,11 +103,8 @@ private lemma neg_sum_le_liminf_log_pi [∀ a, TopologicalSpace (X a)]
   calc 1 * ENNReal.ofReal (Real.exp (-(n * r)))
       ≤ ENNReal.ofReal (Real.exp (-(n * ∑ a, g a))) := by
         rw [one_mul]
-        refine ENNReal.ofReal_le_ofReal (Real.exp_le_exp.2 (neg_le_neg ?_))
-        exact mul_le_mul_of_nonneg_left hgr.le n.cast_nonneg
-    _ = ∏ a, ENNReal.ofReal (Real.exp (-(n * g a))) := by
-        rw [← ENNReal.ofReal_prod_of_nonneg fun a _ ↦ (Real.exp_pos _).le, ← Real.exp_sum,
-          Finset.mul_sum, Finset.sum_neg_distrib]
+        exact ofReal_exp_neg_mul_le n hgr.le
+    _ = ∏ a, ENNReal.ofReal (Real.exp (-(n * g a))) := ofReal_exp_neg_mul_sum _ n g
     _ ≤ ∏ a, P a n (U a) := Finset.prod_le_prod fun a _ ↦ hn a
     _ = Measure.pi (fun a ↦ P a n) (univ.pi U) := (Measure.pi_pi _ _).symm
     _ ≤ Measure.pi (fun a ↦ P a n) s :=
@@ -131,12 +141,8 @@ private lemma exists_mem_nhds_eventually_pi_le_exp [∀ a, TopologicalSpace (X a
   filter_upwards [eventually_all.2 hCP] with n hn
   calc Measure.pi (fun a ↦ P a n) (univ.pi C) = ∏ a, P a n (C a) := Measure.pi_pi _ _
     _ ≤ ∏ a, ENNReal.ofReal (Real.exp (-(n * g a))) := Finset.prod_le_prod fun a _ ↦ hn a
-    _ = ENNReal.ofReal (Real.exp (-(n * ∑ a, g a))) := by
-        rw [← ENNReal.ofReal_prod_of_nonneg fun a _ ↦ (Real.exp_pos _).le, ← Real.exp_sum,
-          Finset.mul_sum, Finset.sum_neg_distrib]
-    _ ≤ ENNReal.ofReal (Real.exp (-(n * r))) := by
-        refine ENNReal.ofReal_le_ofReal (Real.exp_le_exp.2 (neg_le_neg ?_))
-        exact mul_le_mul_of_nonneg_left hgr.le n.cast_nonneg
+    _ = ENNReal.ofReal (Real.exp (-(n * ∑ a, g a))) := (ofReal_exp_neg_mul_sum _ n g).symm
+    _ ≤ ENNReal.ofReal (Real.exp (-(n * r))) := ofReal_exp_neg_mul_le n hgr.le
 
 variable [∀ a, SeminormedAddCommGroup (X a)] [∀ a, ProperSpace (X a)]
   [∀ a n, IsZeroOrProbabilityMeasure (P a n)]
@@ -217,12 +223,15 @@ section Cramer
 
 variable {ι : Type*} [Fintype ι] {m : ι → ℕ → ℕ} {w : ι → ℝ}
 
-/-- **Large deviations of the empirical means under static allocations** [D23, Theorem 12].
+/-- **Large deviations of the empirical means under static allocations** [DZ98, Theorem 2.2.3,
+Exercise 4.2.7].
 Let `ν a`, for `a` in a finite type, be probability measures on `ℝ` whose cumulant generating
 functions are finite on a neighbourhood of `0`, with Cramér rate functions `I_a`, and let
 `m a n / n → w a` with `w a > 0`. The vector of the empirical means of `m a n` independent samples
 of `ν a`, independent across the coordinates `a`, satisfies the large deviation principle with
-speed `1 / n` and rate function `x ↦ ∑ a, w a I_a(x a)`. -/
+speed `1 / n` and rate function `x ↦ ∑ a, w a I_a(x a)`. The error exponent of the
+static-proportions algorithms of fixed-budget identification [GJ04; D23, Theorem 12] uses this
+principle. -/
 theorem hasLDP_pi_cramer {ν : ι → Measure ℝ} [∀ a, IsProbabilityMeasure (ν a)]
     (hν : ∀ a, 0 ∈ interior (integrableExpSet id (ν a))) (hw : ∀ a, 0 < w a)
     (hm : ∀ a, Tendsto (fun n ↦ (m a n : ℝ) / n) atTop (𝓝 (w a))) :
@@ -236,13 +245,13 @@ theorem hasLDP_pi_cramer {ν : ι → Measure ℝ} [∀ a, IsProbabilityMeasure 
     (fun a ↦ isGoodRateFunction_rateFunction (hν a)) hw hm
 
 /-- **Large deviations of the empirical means under static allocations, for exponential
-families** [D23, Theorem 12]. Let arm `a`, in a finite type, have the member of mean `μ a` of the
-exponential family of a nonzero measure `ρ a` on a measurable space `𝓧` and a statistic `T a`, and
-let `m a n / n → w a` with `w a > 0`. The vector of the empirical means of the statistics
-`T a (Y i)` of `m a n` independent samples `Y i` of each arm `a`, independent across the arms,
-satisfies the large deviation principle with speed `1 / n` and rate function
-`x ↦ ∑ a, w a dbar_a(x a, μ a)`, with `dbar_a` the extended divergence of the family of arm `a`
-(`MeasureTheory.Measure.expFamilyRate`). -/
+families** [DZ98, Theorem 2.2.3, Exercise 4.2.7; D23, Lemma 11]. Let arm `a`, in a finite type,
+have the member of mean `μ a` of the exponential family of a nonzero measure `ρ a` on a measurable
+space `𝓧` and a statistic `T a`, and let `m a n / n → w a` with `w a > 0`. The vector of the
+empirical means of the statistics `T a (Y i)` of `m a n` independent samples `Y i` of each arm `a`,
+independent across the arms, satisfies the large deviation principle with speed `1 / n` and rate
+function `x ↦ ∑ a, w a dbar_a(x a, μ a)`, with `dbar_a` the extended divergence of the family of
+arm `a` (`MeasureTheory.Measure.expFamilyRate`). -/
 theorem hasLDP_pi_cramer_expFamily {𝓧 : Type*} {m𝓧 : MeasurableSpace 𝓧} {ρ : ι → Measure 𝓧}
     [∀ a, NeZero (ρ a)] {T : ι → 𝓧 → ℝ} {μ : ι → ℝ}
     (hμ : ∀ a, μ a ∈ (ρ a).expFamilyMeans (T a)) (hw : ∀ a, 0 < w a)

@@ -192,6 +192,13 @@ lemma eventually_exp_le_of_neg_le_liminf_inv_mul_log {u : ℕ → ℝ≥0∞} {c
     ENNReal.log_strictMono.lt_iff_lt] at hn
   exact hn.le
 
+/-- A finite multiple `y ↦ c f y` of a lower semicontinuous function `f` to `ℝ≥0∞` is lower
+semicontinuous. -/
+private lemma lowerSemicontinuous_const_mul {Y : Type*} [TopologicalSpace Y] {f : Y → ℝ≥0∞}
+    (hf : LowerSemicontinuous f) {c : ℝ≥0∞} (hc : c ≠ ∞) :
+    LowerSemicontinuous fun y ↦ c * f y :=
+  (ENNReal.continuous_const_mul hc).comp_lowerSemicontinuous hf fun _ _ h ↦ by dsimp only; gcongr
+
 end LMLExplore
 
 namespace TauCeti.Probability.HasLDP
@@ -326,8 +333,7 @@ theorem comp_of_tendsto_div {P : ℕ → Measure X}
     linarith
   have hw0 : ENNReal.ofReal w ≠ 0 := (ENNReal.ofReal_pos.2 hw).ne'
   refine .of_isClosed_of_mem_nhds ?_ (fun F hF ↦ ?_) (fun x s hs ↦ ?_)
-  · exact (ENNReal.continuous_const_mul ENNReal.ofReal_ne_top).comp_lowerSemicontinuous
-      h.lowerSemicontinuous fun _ _ h ↦ by dsimp only; gcongr
+  · exact LMLExplore.lowerSemicontinuous_const_mul h.lowerSemicontinuous ENNReal.ofReal_ne_top
   · refine LMLExplore.limsup_inv_mul_log_le_neg_of_le_mul_exp fun r hr ↦
       ⟨1, ENNReal.one_ne_top, ?_⟩
     simp_rw [← ENNReal.mul_iInf_of_ne hw0 ENNReal.ofReal_ne_top] at hr
@@ -358,9 +364,8 @@ lemma isGoodRateFunction_sum_mul {ι : Type*} [Fintype ι] {X : ι → Type*}
     {w : ι → ℝ} (hw : ∀ a, 0 < w a) :
     IsGoodRateFunction fun x : (∀ a, X a) ↦ ∑ a, ENNReal.ofReal (w a) * I a (x a) := by
   have h_lsc : LowerSemicontinuous fun x : (∀ a, X a) ↦ ∑ a, ENNReal.ofReal (w a) * I a (x a) :=
-    lowerSemicontinuous_sum fun a _ ↦
-      (ENNReal.continuous_const_mul ENNReal.ofReal_ne_top).comp_lowerSemicontinuous
-        ((hI a).lowerSemicontinuous.comp (continuous_apply a)) fun _ _ h ↦ by dsimp only; gcongr
+    lowerSemicontinuous_sum fun a _ ↦ lowerSemicontinuous_const_mul
+      ((hI a).lowerSemicontinuous.comp (continuous_apply a)) ENNReal.ofReal_ne_top
   refine ⟨h_lsc, fun c hc ↦ ?_⟩
   lift c to ℝ≥0 using hc
   refine IsCompact.of_isClosed_subset
@@ -385,8 +390,8 @@ namespace TauCeti.Probability.IsGoodRateFunction
 lemma ofReal_mul {X : Type*} [TopologicalSpace X] {I : X → ℝ≥0∞} (hI : IsGoodRateFunction I)
     {w : ℝ} (hw : 0 < w) : IsGoodRateFunction fun x ↦ ENNReal.ofReal w * I x := by
   have hw0 : ENNReal.ofReal w ≠ 0 := (ENNReal.ofReal_pos.2 hw).ne'
-  refine ⟨(ENNReal.continuous_const_mul ENNReal.ofReal_ne_top).comp_lowerSemicontinuous
-    hI.lowerSemicontinuous fun _ _ h ↦ by dsimp only; gcongr, fun c hc ↦ ?_⟩
+  refine ⟨LMLExplore.lowerSemicontinuous_const_mul hI.lowerSemicontinuous ENNReal.ofReal_ne_top,
+    fun c hc ↦ ?_⟩
   convert hI.isCompact_sublevel (c / ENNReal.ofReal w) (ENNReal.div_ne_top hc hw0) using 2
   ext x
   rw [ENNReal.le_div_iff_mul_le (Or.inl hw0) (Or.inl ENNReal.ofReal_ne_top), mul_comm]

@@ -35,11 +35,23 @@ public section
 
 open Finset
 
-open scoped ENNReal
+open scoped ENNReal NNReal
 
 namespace EReal
 
 variable {ι : Type*} {s : Finset ι} {f : ι → ℝ≥0∞} {r : ℝ}
+
+/-- A real `r` below a finite sum of reals `x a` stays below the sum when every term is lowered by
+a common margin `δ > 0`. -/
+private lemma exists_pos_lt_sum_sub {x : ι → ℝ} (h : r < ∑ a ∈ s, x a) :
+    ∃ δ > 0, r < ∑ a ∈ s, (x a - δ) := by
+  set δ := (∑ a ∈ s, x a - r) / (#s + 1) with hδ_def
+  have hδ' : (#s + 1 : ℝ) * δ = ∑ a ∈ s, x a - r := by
+    rw [hδ_def, mul_div_cancel₀ _ (by positivity)]
+  have hδ : 0 < δ := _root_.div_pos (by linarith) (by positivity)
+  refine ⟨δ, hδ, ?_⟩
+  rw [sum_sub_distrib, sum_const, _root_.nsmul_eq_mul]
+  linarith
 
 /-- **Splitting a real below a sum.** If a real `r` is below the sum `∑ a ∈ s, f a` of values in
 `ℝ≥0∞`, then there are reals `g a`, each below `f a`, whose sum is still above `r`. -/
@@ -61,15 +73,10 @@ lemma exists_forall_lt_and_lt_sum (h : (r : EReal) < ((∑ a ∈ s, f a : ℝ≥
   · -- All terms are finite: each takes its value minus a common margin.
     have hf : ∀ a ∈ s, f a ≠ ∞ := fun a ha h' ↦ htop (ENNReal.sum_eq_top.2 ⟨a, ha, h'⟩)
     rw [← coe_ennreal_toReal htop, EReal.coe_lt_coe_iff, ENNReal.toReal_sum hf] at h
-    set δ := (∑ a ∈ s, (f a).toReal - r) / (#s + 1) with hδ_def
-    have hδ : 0 < δ := _root_.div_pos (by linarith) (by positivity)
-    refine ⟨fun a ↦ (f a).toReal - δ, fun a ha ↦ ?_, ?_⟩
-    · rw [← coe_ennreal_toReal (hf a ha), EReal.coe_lt_coe_iff]
-      linarith
-    · have hδ' : (#s + 1 : ℝ) * δ = ∑ a ∈ s, (f a).toReal - r := by
-        rw [hδ_def, mul_div_cancel₀ _ (by positivity)]
-      rw [sum_sub_distrib, sum_const, _root_.nsmul_eq_mul]
-      linarith
+    obtain ⟨δ, hδ, hδr⟩ := exists_pos_lt_sum_sub h
+    refine ⟨fun a ↦ (f a).toReal - δ, fun a ha ↦ ?_, mod_cast hδr⟩
+    rw [← coe_ennreal_toReal (hf a ha), EReal.coe_lt_coe_iff]
+    linarith
 
 /-- **Splitting a real above a sum.** If the sum `∑ a ∈ s, f a` of values in `ℝ≥0∞` is below a
 real `r`, then there are reals `g a`, each above `f a`, whose sum is still below `r`. -/
@@ -78,15 +85,22 @@ lemma exists_forall_gt_and_sum_lt (h : ((∑ a ∈ s, f a : ℝ≥0∞) : EReal)
   have htop : ∑ a ∈ s, f a ≠ ∞ := fun h' ↦ by simp [h'] at h
   have hf : ∀ a ∈ s, f a ≠ ∞ := fun a ha h' ↦ htop (ENNReal.sum_eq_top.2 ⟨a, ha, h'⟩)
   rw [← coe_ennreal_toReal htop, EReal.coe_lt_coe_iff, ENNReal.toReal_sum hf] at h
-  set δ := (r - ∑ a ∈ s, (f a).toReal) / (#s + 1) with hδ_def
-  have hδ : 0 < δ := _root_.div_pos (by linarith) (by positivity)
+  -- Lower the negated terms below the negated sum.
+  obtain ⟨δ, hδ, hδr⟩ := exists_pos_lt_sum_sub (x := fun a ↦ -(f a).toReal) (r := -r)
+    (by rw [sum_neg_distrib]; linarith)
   refine ⟨fun a ↦ (f a).toReal + δ, fun a ha ↦ ?_, ?_⟩
   · rw [← coe_ennreal_toReal (hf a ha), EReal.coe_lt_coe_iff]
     linarith
-  · have hδ' : (#s + 1 : ℝ) * δ = r - ∑ a ∈ s, (f a).toReal := by
-      rw [hδ_def, mul_div_cancel₀ _ (by positivity)]
-    rw [sum_add_distrib, sum_const, _root_.nsmul_eq_mul]
-    linarith
+  · simp only [← neg_add', sum_neg_distrib] at hδr
+    have : ∑ a ∈ s, ((f a).toReal + δ) < r := by linarith
+    exact_mod_cast this
+
+/-- For `w ≥ 0` and `c : ℝ≥0`, the product `w * c` in `ℝ≥0∞`, cast to `EReal`, is the real
+`w * c`. -/
+private lemma coe_ennreal_ofReal_mul_coe {w : ℝ} (hw : 0 ≤ w) (c : ℝ≥0) :
+    ((ENNReal.ofReal w * c : ℝ≥0∞) : EReal) = ((w * c : ℝ) : EReal) := by
+  rw [← ENNReal.ofReal_coe_nnreal, ← ENNReal.ofReal_mul hw, coe_ennreal_ofReal,
+    max_eq_left (by positivity)]
 
 /-- For `w > 0`, a real `r` is below `w * c`, for `c : ℝ≥0∞`, if and only if `r / w` is below
 `c`. -/
@@ -95,9 +109,8 @@ lemma coe_lt_coe_ennreal_ofReal_mul_iff {w : ℝ} (hw : 0 < w) {c : ℝ≥0∞} 
   induction c using ENNReal.recTopCoe with
   | top => simp [ENNReal.mul_top (ENNReal.ofReal_pos.2 hw).ne']
   | coe c =>
-    rw [← ENNReal.ofReal_coe_nnreal, ← ENNReal.ofReal_mul hw.le, coe_ennreal_ofReal,
-      coe_ennreal_ofReal, max_eq_left (by positivity), max_eq_left c.coe_nonneg,
-      EReal.coe_lt_coe_iff, EReal.coe_lt_coe_iff, div_lt_iff₀' hw]
+    rw [coe_ennreal_ofReal_mul_coe hw.le, coe_nnreal_eq_coe_real, EReal.coe_lt_coe_iff,
+      EReal.coe_lt_coe_iff, div_lt_iff₀' hw]
 
 /-- For `w > 0`, `w * c`, for `c : ℝ≥0∞`, is below a real `r` if and only if `c` is below
 `r / w`. -/
@@ -106,8 +119,7 @@ lemma coe_ennreal_ofReal_mul_lt_coe_iff {w : ℝ} (hw : 0 < w) {c : ℝ≥0∞} 
   induction c using ENNReal.recTopCoe with
   | top => simp [ENNReal.mul_top (ENNReal.ofReal_pos.2 hw).ne']
   | coe c =>
-    rw [← ENNReal.ofReal_coe_nnreal, ← ENNReal.ofReal_mul hw.le, coe_ennreal_ofReal,
-      coe_ennreal_ofReal, max_eq_left (by positivity), max_eq_left c.coe_nonneg,
-      EReal.coe_lt_coe_iff, EReal.coe_lt_coe_iff, lt_div_iff₀' hw]
+    rw [coe_ennreal_ofReal_mul_coe hw.le, coe_nnreal_eq_coe_real, EReal.coe_lt_coe_iff,
+      EReal.coe_lt_coe_iff, lt_div_iff₀' hw]
 
 end EReal
