@@ -66,7 +66,9 @@ let the weights `σ t ≥ 0` have positive partial sums `0 < ∑ s ≤ t, σ s`,
 `x 0` is any point of `V`, and let `g t` be a subgradient of `ℓ t` within `V` at `x t`, for
 `t < n`. Then for every `u ∈ V`,
 `regret ℓ x u n ≤ ∑ t < n, σ t / 2 * ‖u - x t‖ ^ 2 + ∑ t < n, ‖g t‖ ^ 2 / (2 ∑ s ≤ t, σ s)`,
-where `‖g t‖` is the dual norm. The weight `σ t` may depend on the losses up to round `t`. -/
+where `‖g t‖` is the dual norm. The weight `σ t` may depend on the losses up to round `t`.
+FTRL-Proximal is follow-the-leader on the `σ t`-strongly convex losses
+`σ t / 2 * ‖· - x t‖ ^ 2 + ℓ t`, and the bound follows from `regret_le_ftl_of_strongConvexOn`. -/
 theorem regret_le_ftrl_proximal (ℓ : ℕ → E → ℝ) (x : ℕ → E) (g : ℕ → E →L[ℝ] ℝ) {σ : ℕ → ℝ}
     {u : E} {n : ℕ} (hσ : ∀ t < n, 0 ≤ σ t) (hσ_sum : ∀ t < n, 0 < ∑ s ∈ range (t + 1), σ s)
     (hℓ : ∀ t < n, ConvexOn ℝ V (ℓ t)) (hx : ∀ t < n, x t ∈ V)
@@ -75,39 +77,26 @@ theorem regret_le_ftrl_proximal (ℓ : ℕ → E → ℝ) (x : ℕ → E) (g : �
     (hg : ∀ t < n, HasSubgradientWithinAt (ℓ t) (g t) V (x t)) (hu : u ∈ V) :
     regret ℓ x u n ≤ ∑ t ∈ range n, σ t / 2 * ‖u - x t‖ ^ 2 +
       ∑ t ∈ range n, ‖g t‖ ^ 2 / (2 * ∑ s ∈ range (t + 1), σ s) := by
-  -- the proximal regularizers, and the plays up to round `n - 1` followed by the comparator
-  set ψ : ℕ → E → ℝ := fun t a ↦ ∑ s ∈ range t, σ s / 2 * ‖a - x s‖ ^ 2 with hψ_def
-  set x' : ℕ → E := fun t ↦ if t < n then x t else u with hx'_def
-  have hx'_lt (t : ℕ) (ht : t < n) : x' t = x t := by simp [x', ht]
-  have hx' (t : ℕ) (ht : t ≤ n) : x' t ∈ V := by
-    rcases ht.lt_or_eq with ht | rfl
-    · exact (hx'_lt t ht).symm ▸ hx t ht
-    · simpa [x'] using hu
-  -- `x t` minimizes the increment `ψ (t + 1) - ψ t = σ t / 2 * ‖· - x t‖ ^ 2`
-  have hprox (t : ℕ) (ht : t < n) : IsMinOn (fun a ↦ ψ (t + 1) a - ψ t a) V (x' t) := by
-    refine isMinOn_iff.mpr fun a _ ↦ ?_
+  -- FTRL-Proximal is follow-the-leader on the `σ t`-strongly convex losses
+  -- `ℓ' t = σ t / 2 * ‖· - x t‖ ^ 2 + ℓ t`
+  set ℓ' : ℕ → E → ℝ := fun t a ↦ σ t / 2 * ‖a - x t‖ ^ 2 + ℓ t a with hℓ'_def
+  have hℓ' (t : ℕ) (ht : t < n) : StrongConvexOn V (σ t) (ℓ' t) :=
+    (strongConvexOn_div_two_mul_norm_sub_sq (hℓ t ht).1 (σ t) (x t)).add_convexOn (hℓ t ht)
+  -- `g t` is a subgradient of `ℓ' t` at `x t`, where the quadratic is nonnegative and vanishes
+  have hg' (t : ℕ) (ht : t < n) : HasSubgradientWithinAt (ℓ' t) (g t) V (x t) := by
+    refine hasSubgradientWithinAt_iff_le.mpr fun a ha ↦ ?_
+    have h := hasSubgradientWithinAt_iff_le.mp (hg t ht) a ha
     have := hσ t ht
-    simp only [hψ_def, sum_range_succ, add_sub_cancel_left, hx'_lt t ht, sub_self, norm_zero,
-      zero_pow two_ne_zero, mul_zero]
-    positivity
-  -- the objectives `F (t + 1)` are `∑ s ≤ t, σ s`-strongly convex
-  have hF (t : ℕ) (ht : t < n) : StrongConvexOn V (∑ s ∈ range (t + 1), σ s)
-      fun a ↦ ψ (t + 1) a + ∑ s ∈ range (t + 1), ℓ s a := by
-    have hV := (hℓ t ht).1
-    have h := StrongConvexOn.fun_sum (t := range (t + 1)) (m := σ)
-      (f := fun s a ↦ σ s / 2 * ‖a - x s‖ ^ 2 + ℓ s a) hV fun s hs ↦
-        (strongConvexOn_div_two_mul_norm_sub_sq hV (σ s) (x s)).add_convexOn
-          (hℓ s ((mem_range.mp hs).trans_le ht))
-    simpa only [sum_add_distrib] using h
-  have h := regret_le_ftrl_of_isMinOn_sub_of_strongConvexOn ψ ℓ x' g (u := u) hσ_sum hF hx'
-    (fun t ht ↦ by simpa [hx'_lt t ht] using hmin t ht) hprox
-    (fun t ht ↦ (hx'_lt t ht).symm ▸ hg t ht) (by simp [x'])
-  -- the increments of the regularizers vanish at the plays
-  have h_inc : ∑ t ∈ range n, (ψ t (x' t) - ψ (t + 1) (x' t)) = 0 :=
-    sum_eq_zero fun t ht ↦ by simp [hψ_def, sum_range_succ, hx'_lt t (mem_range.mp ht)]
-  have h_pen : ψ n u = ∑ t ∈ range n, σ t / 2 * ‖u - x t‖ ^ 2 := rfl
-  rw [h_inc, add_zero, h_pen, regret_congr hx'_lt] at h
-  simpa [hψ_def] using h
+    simp only [hℓ'_def, sub_self, norm_zero, zero_pow two_ne_zero, mul_zero, zero_add]
+    nlinarith [sq_nonneg ‖a - x t‖]
+  have h := regret_le_ftl_of_strongConvexOn ℓ' x g hℓ' hσ_sum hx
+    (fun t ht ↦ by simpa only [hℓ'_def, sum_add_distrib] using hmin t ht) hg' hu
+  -- the regret of `ℓ'` is that of `ℓ` minus the quadratic terms at the comparator
+  have h_reg : regret ℓ' x u n = regret ℓ x u n - ∑ t ∈ range n, σ t / 2 * ‖u - x t‖ ^ 2 := by
+    simp only [regret_def, hℓ'_def, sub_self, norm_zero, zero_pow two_ne_zero, mul_zero,
+      zero_add, ← sum_sub_distrib]
+    exact sum_congr rfl fun _ _ ↦ by ring
+  linarith
 
 /-- **Follow-the-leader on quadratized losses** [Ora, Corollary 7.25, Algorithm 7.5]. Let the
 weights `μ t ≥ 0` have positive partial sums `0 < ∑ s ≤ t, μ s`, and let each loss `ℓ t` lie

@@ -41,8 +41,9 @@ minimizes `F n` over `V`),
 `regret ≤ ψ n u - ψ 0 (x 0) + ∑ t < n, ‖g t‖ ^ 2 / (2 λ t)
   + ∑ t < n, (ψ t (x (t + 1)) - ψ (t + 1) (x (t + 1)))`.
 With proximal regularizers the increments are evaluated at `x t` instead, and with no regularizer,
-follow-the-leader on losses whose partial sums `∑ s ≤ t, ℓ s` are strongly convex has regret at
-most `∑ t < n, ‖g t‖ ^ 2 / (2 ∑ s ≤ t, μ s)` [Ora, Corollary 7.25].
+follow-the-leader on `μ t`-strongly convex losses `ℓ t` whose moduli have positive partial sums
+`0 < ∑ s ≤ t, μ s` has regret at most `∑ t < n, ‖g t‖ ^ 2 / (2 ∑ s ≤ t, μ s)`
+[Ora, Corollary 7.25].
 
 ## Main statements
 
@@ -67,7 +68,7 @@ most `∑ t < n, ‖g t‖ ^ 2 / (2 ∑ s ≤ t, μ s)` [Ora, Corollary 7.25].
 ## References
 
 * [Ora] F. Orabona, *Online learning: a modern introduction using convex optimization*,
-  arXiv:1912.13213v10, 2026, Lemmas 7.5 and 7.7, Corollaries 7.6 and 7.25.
+  arXiv:1912.13213v10, 2026, Lemmas 7.1, 7.5 and 7.7, Corollaries 7.6 and 7.25.
 -/
 public section
 
