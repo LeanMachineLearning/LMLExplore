@@ -71,10 +71,11 @@ converge. The optimal allocations form a convex compact set, and they are upper 
 when `(μ', w') ↦ D(μ', w', ¬i)` is continuous [DK19, Lemma 28], so that the targets `w(μ̂(s))`
 eventually lie in every neighbourhood of `w*(μ, ¬i)`. C-tracking makes the pull counts follow the
 cumulated targets up to `(K - 1) (1 + √T)` [GK16, Lemma 7], and averages of points close to a
-convex set are close to it: the proportions of pulls `N(T) / T` approach `w*(μ, ¬i)`, which is
-enough for the GLR statistic to grow like `T (T*(μ)⁻¹ - ε)`. Track-and-Stop with C-tracking
-therefore has `limsup_{δ → 0} 𝔼[τ_δ] / log (1 / δ) ≤ T*(μ)` whatever the selection of the
-optimal allocations.
+convex set are close to it: on the good events of forced exploration, the proportions of pulls
+`N(T) / T` approach `w*(μ, ¬i)`. The reduction above with `W = w*(μ, ¬i)` then gives
+`limsup_{δ → 0} 𝔼[τ_δ] / log (1 / δ) ≤ T*(μ)` for Track-and-Stop with C-tracking, whatever the
+selection of the optimal allocations. The two analyses share the step from forced exploration to
+the good events, and differ only in how the proportions of pulls follow the targets.
 
 **Union-bound thresholds.** The thresholds `K log (2 n (n + 1)) + x_δ` of `Identification/GLR.lean`,
 which are `δ`-correct for Gaussian arms, are not of the form `log (r n / δ)`, since
@@ -126,8 +127,8 @@ above `T*(μ)`. A finite expected stopping time at small `δ` gives almost sure 
 * `IdentTask.stopsAS_trackAndStop_unionBoundThreshold`: with these thresholds, Track-and-Stop
   stops almost surely for every `δ ∈ (0, 1]`.
 * `IdentTask.eventually_expectedStoppingTime_cTrackAndStop_le`: [DK19, Theorem 7] for targets that
-  converge to a convex compact set `C`: `𝔼[τ_δ] ≤ c log (1 / δ)` for all small enough `δ`, for
-  every `c > (inf_{v ∈ C} D(μ, v, ¬i))⁻¹`.
+  converge to a convex compact set `C`, the reduction with `W = C`: `𝔼[τ_δ] ≤ c log (1 / δ)` for
+  all small enough `δ`, for every `c > (inf_{v ∈ C} D(μ, v, ¬i))⁻¹`.
 * `IdentTask.eventually_expectedStoppingTime_cTrackAndStop_le_of_charTime_lt`: **sample complexity
   of Track-and-Stop with C-tracking at the characteristic time** [DK19, Theorem 7]: if the targets
   are optimal allocations near `μ` and `(μ', w') ↦ D(μ', w', ¬i)` is continuous within
@@ -441,6 +442,43 @@ variable {𝓧 : Type*} {m𝓧 : MeasurableSpace 𝓧} {ρ : α → Measure 𝓧
     {h | β δ n h < task.glr (task.plugInCost empMean') n h (rec (empMean' n h))}}
   {r : ℕ → ℝ} {p : ℝ} {n₀ : ℕ}
 
+omit [Fintype α] [Nonempty α] [MeasurableSingletonClass α] in
+/-- The argument over the rounds shared by the analyses of Track-and-Stop with D-tracking and with
+C-tracking [GK16, proof of Theorem 14]. Let `μ` be a vector of means of the nondegenerate
+exponential families `(ρ a, T a)`, and let the sampling rule explore enough: for all vectors of
+means `l < μ < u` of the families, the probabilities that the empirical mean of some arm `a` is
+outside `(l a, u a)` at some round `t ≥ t₀ T` have a finite sum over `T` (forced exploration,
+[GK16, Lemma 19]). Then for every neighbourhood `W` of `μ` and every property `G` of the runs that
+holds almost surely, there are events `E T` with `∑ T, P((E T)ᶜ) < ∞` on which `G` holds and the
+empirical means are in `W` at every round `k ≥ t₀ T`. -/
+private lemma exists_tsum_measure_compl_ne_top_forall_ge_empMean'_mem [Finite α] {Ω : Type*}
+    {mΩ : MeasurableSpace Ω} {P : Measure Ω} {O : ℕ → Ω → Unit} {A : ℕ → Ω → α}
+    {Y : ℕ → Ω → ℝ} {t₀ : ℕ → ℕ} (hT : ∀ a c, ¬ T a =ᵐ[ρ a] fun _ ↦ c)
+    (hμ : ∀ a, μ a ∈ (ρ a).expFamilyMeans (T a))
+    (h_forced : ∀ l u : α → ℝ, (∀ a, l a ∈ (ρ a).expFamilyMeans (T a)) →
+      (∀ a, u a ∈ (ρ a).expFamilyMeans (T a)) → (∀ a, l a < μ a) → (∀ a, μ a < u a) →
+        ∑' T, P {ω | ∃ t ≥ t₀ T, ∃ a, empMean A Y a t ω ∉ Set.Ioo (l a) (u a)} ≠ ∞)
+    {G : Ω → Prop} (hG : ∀ᵐ ω ∂P, G ω) {W : Set (α → ℝ)} (hW : W ∈ 𝓝 μ) :
+    ∃ E : ℕ → Set Ω, ∑' T, P (E T)ᶜ ≠ ∞ ∧
+      ∀ T, ∀ ω ∈ E T, G ω ∧ ∀ k ≥ t₀ T, empMean' k (history O A Y k ω) ∈ W := by
+  -- A box `∏ [l a, u a]` around `μ` of vectors of means of the families, inside `W`.
+  have hW' : W ∩ {μ' | ∀ a, μ' a ∈ (ρ a).expFamilyMeans (T a)} ∈ 𝓝 μ :=
+    inter_mem hW (eventually_all.2 fun a ↦ (continuous_apply a).continuousAt.preimage_mem_nhds
+      (Measure.expFamilyMeans_mem_nhds (hT a) (hμ a)))
+  obtain ⟨l, u, hlμ, hμu, h_box⟩ := exists_pi_Icc_subset_of_mem_nhds hW'
+  have hlu : l ≤ u := fun a ↦ ((hlμ a).trans (hμu a)).le
+  -- The good events: `G` holds and the empirical means stay in the box from round `t₀ T` on.
+  refine ⟨fun T ↦ {ω | G ω ∧ ∀ t ≥ t₀ T, ∀ a, empMean A Y a t ω ∈ Set.Ioo (l a) (u a)}, ?_, ?_⟩
+  · refine ne_top_of_le_ne_top (h_forced l u (h_box (Set.left_mem_Icc.2 hlu)).2
+      (h_box (Set.right_mem_Icc.2 hlu)).2 hlμ hμu) (tsum_le_tsum fun T ↦ measure_mono_ae ?_)
+    filter_upwards [hG] with ω hGω hωE
+    by_contra h_mem
+    push Not at h_mem
+    exact hωE ⟨hGω, h_mem⟩
+  · rintro T ω ⟨hGω, hω⟩
+    refine ⟨hGω, fun k hk ↦ (h_box ⟨fun b ↦ ?_, fun b ↦ ?_⟩).1⟩ <;> rw [← empMean_eq_empMean']
+    exacts [(hω k hk b).1.le, (hω k hk b).2.le]
+
 omit [MeasurableSingletonClass α] in
 /-- The deterministic step of the analysis of Track-and-Stop [GK16, proof of Theorem 14]. Along a
 sequence of arms following the D-tracking rule with targets `v k`, suppose that from round `t₀` on,
@@ -509,57 +547,30 @@ theorem eventually_expectedStoppingTime_trackAndStop_le (hT : ∀ a c, ¬ T a =�
   · simpa only [trackAndStop_def] using h
   intro U hU V hV
   obtain ⟨η, hη, hηV⟩ := Metric.mem_nhds_iff.1 (nhdsSet_singleton (x := w μ) ▸ hV)
-  -- Near `μ`, the vectors are in `U`, the targets are `ε`-close to `w(μ)` and the vectors are
-  -- vectors of means of the families.
   set ε := η / (3 * K)
   have hε : 0 < ε := by positivity
-  set W := {μ' | μ' ∈ U ∧ dist (w μ') (w μ) < ε ∧ ∀ a, μ' a ∈ (ρ a).expFamilyMeans (T a)}
-  have hW : W ∈ 𝓝 μ := by
-    filter_upwards [hU, hw_cont (Metric.ball_mem_nhds _ hε), eventually_all.2 fun a ↦
-      (continuous_apply a).continuousAt.preimage_mem_nhds
-        (Measure.expFamilyMeans_mem_nhds (hT a) (hμ a))] with μ' h1 h2 h3
-    exact ⟨h1, Metric.mem_ball.1 h2, h3⟩
-  obtain ⟨l, u, hlμ, hμu, h_box⟩ := exists_pi_Icc_subset_of_mem_nhds hW
-  have hlu : l ≤ u := fun a ↦ ((hlμ a).trans (hμu a)).le
-  have hlW := h_box (Set.left_mem_Icc.2 hlu)
-  have huW := h_box (Set.right_mem_Icc.2 hlu)
-  -- The good events: the empirical means stay in the box `∏ (l a, u a)` from round `t₀(T)` on,
-  -- and the run follows the D-tracking rule.
-  set E : ℕ → Set _ := fun T ↦ {ω |
-    (∀ t ≥ roundsAfter T, ∀ a, empMean IT.action IT.feedback a t ω ∈ Set.Ioo (l a) (u a)) ∧
-    (∀ (k : ℕ) a, (pullCount IT.action a k ω : ℝ) < √(k : ℝ) - K / 2 →
-      pullCount IT.action (IT.action k ω) k ω ≤ pullCount IT.action a k ω) ∧
-    (∀ k : ℕ, (∀ a, √(k : ℝ) - K / 2 ≤ pullCount IT.action a k ω) → ∀ a,
-      k * w (empMean' k (history IT.obs IT.action IT.feedback k ω)) a -
-          pullCount IT.action a k ω ≤
-        k * w (empMean' k (history IT.obs IT.action IT.feedback k ω)) (IT.action k ω) -
-          pullCount IT.action (IT.action k ω) k ω)}
-  refine ⟨E, ?_, ?_⟩
-  · refine ne_top_of_le_ne_top (DTracking.tsum_measure_exists_ge_empMean_notMem_Ioo_ne_top hseq
-      hν hμ (fun a ↦ hlW.2.2 a) (fun a ↦ huW.2.2 a) hlμ hμu
-      tendsto_sqrt_roundsAfter_div_log)
-      (tsum_le_tsum fun T ↦ measure_mono_ae ?_)
-    filter_upwards [DTracking.pullCount_action_le_of_lt hseq,
-      DTracking.mul_sub_pullCount_le_of_forall_le hseq] with ω h_forced h_track hωE
-    by_contra h_box
-    push Not at h_box
-    exact hωE ⟨h_box, h_forced, h_track⟩
+  -- The good events: from round `t₀(T)` on, the empirical means are in `U` with targets `ε`-close
+  -- to `w(μ)`, and the run follows the D-tracking rule.
+  obtain ⟨E, hE_sum, hE⟩ := exists_tsum_measure_compl_ne_top_forall_ge_empMean'_mem
+    (O := IT.obs) hT hμ (fun l u hl hu hlμ hμu ↦
+      DTracking.tsum_measure_exists_ge_empMean_notMem_Ioo_ne_top hseq hν hμ hl hu hlμ hμu
+        tendsto_sqrt_roundsAfter_div_log)
+    ((DTracking.pullCount_action_le_of_lt hseq).and
+      (DTracking.mul_sub_pullCount_le_of_forall_le hseq))
+    (inter_mem hU (hw_cont (Metric.ball_mem_nhds _ hε)))
+  refine ⟨E, hE_sum, ?_⟩
   -- For all large `T`, on the good event of round `T`, the empirical means after `T` rounds are
   -- in `U` and the proportions of pulls are `η`-close to `w(μ)`.
   filter_upwards [eventually_roundsAfter_le (by positivity : 0 < 3 * ε),
     eventually_roundsAfter_le one_pos,
     tendsto_roundsAfter.eventually_ge_atTop (1 / (4 * ε ^ 2)),
     tendsto_natCast_atTop_atTop.eventually_ge_atTop (1 / ε)]
-    with T h3ε hT_le ht₀ hεT ω ⟨hω_box, hω_forced, hω_track⟩
+    with T h3ε hT_le ht₀ hεT ω hω
+  obtain ⟨⟨hω_forced, hω_track⟩, hω_W⟩ := hE T ω hω
   have hT_le' : roundsAfter T ≤ T := by exact_mod_cast hT_le.trans_eq (one_mul _)
-  -- The empirical means at the rounds `k ≥ t₀(T)` are in `W`.
-  have hk_W (k : ℕ) (hk : roundsAfter T ≤ k) :
-      empMean' k (history IT.obs IT.action IT.feedback k ω) ∈ W := by
-    refine h_box ⟨fun b ↦ ?_, fun b ↦ ?_⟩ <;> rw [← empMean_eq_empMean']
-    exacts [(hω_box k hk b).1.le, (hω_box k hk b).2.le]
-  refine ⟨(hk_W T hT_le').1, hηV (Metric.mem_ball.2 ?_)⟩
+  refine ⟨(hω_W T hT_le').1, hηV (Metric.mem_ball.2 ?_)⟩
   exact dist_pullCount_div_lt hw_mem hε (le_of_eq (by simp only [ε, K]; field_simp))
-    (fun k hk ↦ (hk_W k hk).2.1) hω_forced hω_track ht₀ hT_le' h3ε
+    (fun k hk ↦ (hω_W k hk).2) hω_forced hω_track ht₀ hT_le' h3ε
     (by rwa [div_le_iff₀' hε] at hεT)
 
 /-- **Sample complexity of Track-and-Stop at the characteristic time** [GK16, Theorem 14], the
@@ -680,54 +691,44 @@ variable {w : (α → ℝ) → α → ℝ} {hw : ∀ n, Measurable fun h : Hist 
 
 omit [MeasurableSingletonClass α] in
 /-- The deterministic step of the analysis of Track-and-Stop with C-tracking [DK19, Lemma 6 and
-proof of Theorem 7]. Along a sequence of arms whose pull counts follow the cumulated targets
-`w(μ̂(s))` up to `(K - 1) (1 + √T)` after `T` rounds, suppose that from round `t₀` on, the
-empirical means `μ̂(k)` lie in a set `U` on which the cost of the alternatives to `i` exceeds `κ`
-at every allocation of the simplex `η`-close to the convex set `C`, the targets `w(μ̂(k))` are
-`ε`-close to `C` and the recommendation is `i`. Since averages of points close to `C` are close
-to `C` (`Convex.exists_mem_norm_sum_sub_smul_le`), the proportions of pulls after `T` rounds are
-close to `C`: if the elements of `C` have norm at most `B` and
-`(K - 1) (1 + √T) + (1 + B) t₀ + ε T < η T`, then the GLR statistic of the recommendation after
-`T` rounds is at least `κ T`. -/
-private lemma mul_le_glr_plugInCost_of_mem_thickening {Ω : Type*} {O : ℕ → Ω → Unit}
-    {A : ℕ → Ω → α} {Y : ℕ → Ω → ℝ} {ω : Ω} {C U : Set (α → ℝ)} {B ε η : ℝ} {κ : ℝ≥0}
-    {t₀ T : ℕ} (hw_mem : ∀ μ', w μ' ∈ simplex α) (hC : Convex ℝ C) (hCB : ∀ v ∈ C, ‖v‖ ≤ B)
-    (hU : ∀ μ' ∈ U, ∀ w' ∈ simplex α, w' ∈ thickening η C → (κ : ℝ≥0∞) < task.altCost μ' w' i)
-    (hmeans : ∀ k ≥ t₀, empMean' k (history O A Y k ω) ∈ U ∧
-      w (empMean' k (history O A Y k ω)) ∈ thickening ε C ∧
-      rec (empMean' k (history O A Y k ω)) = i)
-    (htrack : ∀ a, |(pullCount A a T ω : ℝ) -
-      ∑ s ∈ range T, w (empMean' s (history O A Y s ω)) a| ≤ (Fintype.card α - 1) * (1 + √(T : ℝ)))
-    (hT : t₀ ≤ T) (hT0 : T ≠ 0)
-    (hTη : (Fintype.card α - 1) * (1 + √(T : ℝ)) + (1 + B) * t₀ + ε * T < η * T) :
-    κ * T ≤ task.glr (task.plugInCost empMean') T (history O A Y T ω)
-      (rec (empMean' T (history O A Y T ω))) := by
-  set v : ℕ → α → ℝ := fun s ↦ w (empMean' s (history O A Y s ω))
-  have hT' : (0 : ℝ) < T := Nat.cast_pos.2 (Nat.pos_of_ne_zero hT0)
-  obtain ⟨hU', hεC, hrec'⟩ := hmeans T hT
-  obtain ⟨c₀, hc₀, hdc₀⟩ := mem_thickening_iff.1 hεC
+proof of Theorem 7]. Along a sequence of arms whose pull counts follow the cumulated targets `v s`
+up to `e` after `T` rounds, suppose that the targets are allocations, `ε`-close to the convex set
+`C` from round `t₀` on. Since averages of points close to `C` are close to `C`
+(`Convex.exists_mem_norm_sum_sub_smul_le`), if the elements of `C` have norm at most `B` and
+`e + (1 + B) t₀ + ε T < η T`, then the proportions of pulls after `T` rounds are `η`-close to
+`C`. -/
+private lemma pullCount_div_mem_thickening {Ω : Type*} {A : ℕ → Ω → α} {ω : Ω}
+    {v : ℕ → α → ℝ} {C : Set (α → ℝ)} {B e ε η : ℝ} {t₀ T : ℕ} (hv_mem : ∀ s, v s ∈ simplex α)
+    (hC : Convex ℝ C) (hCB : ∀ c ∈ C, ‖c‖ ≤ B) (hv : ∀ k ≥ t₀, v k ∈ thickening ε C)
+    (htrack : ∀ a, |(pullCount A a T ω : ℝ) - ∑ s ∈ range T, v s a| ≤ e) (hT : t₀ ≤ T)
+    (hTη : e + (1 + B) * t₀ + ε * T < η * T) :
+    (fun a ↦ (pullCount A a T ω : ℝ) / T) ∈ thickening η C := by
+  obtain ⟨c₀, hc₀, hdc₀⟩ := mem_thickening_iff.1 (hv T hT)
   have hε : 0 < ε := dist_nonneg.trans_lt hdc₀
+  have he : 0 ≤ e := (abs_nonneg _).trans (htrack (Classical.arbitrary α))
+  -- At `T = 0` the condition `e < 0` on the tracking error fails.
+  have hT' : (0 : ℝ) < T := by
+    obtain rfl | hT0 := eq_or_ne T 0
+    · obtain rfl := Nat.le_zero.1 hT
+      norm_num at hTη
+      linarith
+    · exact Nat.cast_pos.2 (Nat.pos_of_ne_zero hT0)
   -- The targets are allocations, of norm at most `1`.
-  have hv (s : ℕ) : ‖v s‖ ≤ 1 := by
+  have hv1 (s : ℕ) : ‖v s‖ ≤ 1 := by
     refine (pi_norm_le_iff_of_nonneg zero_le_one).2 fun a ↦ ?_
-    have hv := mem_simplex_iff.1 (hw_mem (empMean' s (history O A Y s ω)))
-    rw [Real.norm_eq_abs]
-    exact abs_le.2 ⟨by linarith [hv.1 a],
-      (simplex_subset_Icc (hw_mem (empMean' s (history O A Y s ω)))).2 a⟩
+    rw [Real.norm_eq_abs, abs_le]
+    exact ⟨by linarith [(mem_simplex_iff.1 (hv_mem s)).1 a], (simplex_subset_Icc (hv_mem s)).2 a⟩
   -- The average of the targets is close to a point `cbar` of the convex set `C`.
   obtain ⟨cbar, hcbar, h_avg⟩ := hC.exists_mem_norm_sum_sub_smul_le ⟨c₀, hc₀⟩ hT
-    (fun s _ ↦ hv s) hCB fun s hs _ ↦ (hmeans s hs).2.1
+    (fun s _ ↦ hv1 s) hCB fun s hs _ ↦ hv s hs
   have h_sum (a : α) : |∑ s ∈ range T, v s a - T * cbar a| ≤ (1 + B) * t₀ + ε * (T - t₀) := by
     have h := (norm_le_pi_norm (∑ s ∈ range T, v s - (T : ℝ) • cbar) a).trans h_avg
     simpa only [Pi.sub_apply, Finset.sum_apply, Pi.smul_apply, smul_eq_mul, Real.norm_eq_abs]
       using h
-  -- The proportions of pulls `q = N(T) / T` are an allocation `η`-close to `cbar`.
-  set q : α → ℝ := fun a ↦ (pullCount' T (history O A Y T ω) a : ℝ) / T
-  have hq : q ∈ simplex α := pullCount'_div_mem_simplex _ hT0
-  have hq_dist (a : α) : |q a - cbar a| < η := by
-    have h_eq : q a - cbar a = ((pullCount A a T ω - ∑ s ∈ range T, v s a) +
-        (∑ s ∈ range T, v s a - T * cbar a)) / T := by
-      simp only [q, ← pullCount_eq_pullCount']
+  -- The proportions of pulls are `η`-close to `cbar`.
+  have hq_dist (a : α) : |(pullCount A a T ω : ℝ) / T - cbar a| < η := by
+    have h_eq : (pullCount A a T ω : ℝ) / T - cbar a = ((pullCount A a T ω - ∑ s ∈ range T, v s a)
+        + (∑ s ∈ range T, v s a - T * cbar a)) / T := by
       field_simp
       ring
     rw [h_eq, abs_div, abs_of_pos hT', div_lt_iff₀ hT']
@@ -735,9 +736,8 @@ private lemma mul_le_glr_plugInCost_of_mem_thickening {Ω : Type*} {O : ℕ → 
       (∑ s ∈ range T, v s a - T * cbar a), htrack a, h_sum a,
       mul_nonneg hε.le (Nat.cast_nonneg (α := ℝ) t₀)]
   have hη : 0 < η := (abs_nonneg _).trans_lt (hq_dist (Classical.arbitrary α))
-  rw [hrec', glr_plugInCost_eq_mul task empMean' hT0, mul_comm]
-  refine mul_le_mul_right (hU _ hU' q hq (mem_thickening_iff.2 ⟨cbar, hcbar, ?_⟩)).le _
-  exact (dist_pi_lt_iff hη).2 fun a ↦ Real.dist_eq _ _ ▸ hq_dist a
+  exact mem_thickening_iff.2
+    ⟨cbar, hcbar, (dist_pi_lt_iff hη).2 fun a ↦ Real.dist_eq _ _ ▸ hq_dist a⟩
 
 variable {𝓧 : Type*} {m𝓧 : MeasurableSpace 𝓧} {ρ : α → Measure 𝓧} {T : α → 𝓧 → ℝ} {μ : α → ℝ}
   {β : ℝ → (n : ℕ) → Hist Unit α ℝ n → ℝ≥0∞}
@@ -768,9 +768,6 @@ theorem eventually_expectedStoppingTime_cTrackAndStop_le (hT : ∀ a c, ¬ T a =
     (hβ : ∀ᶠ δ in 𝓝[>] 0, ∀ n ≥ n₀, ∀ h, β δ n h ≤ ENNReal.ofReal (log (r n / δ))) :
     ∀ᶠ δ in 𝓝[>] 0, expectedStoppingTime (task.cTrackAndStop empMean' w hw (β δ) rec hrec (hstop δ))
       (Environment.bandit (task.ν μ)) ≤ c * ENNReal.ofReal (log (1 / δ)) := by
-  -- A rate `κ` with `c⁻¹ < κ < D(μ, v, ¬i)` for all `v ∈ C`, at which the GLR statistic grows.
-  obtain ⟨κ, hκ', hκc⟩ := ENNReal.exists_nnreal_lt_one_lt_mul_of_inv_lt hc
-  have hκ : ∀ v ∈ C, (κ : ℝ≥0∞) < task.altCost μ v i := fun v hv ↦ hκ'.trans_le (iInf₂_le v hv)
   set alg := cTracking (fun n h ↦ w (empMean' n h)) hw
   set P := trajMeasure alg (Environment.bandit (task.ν μ))
   have hseq : IsAlgEnvSeq IT.obs IT.action IT.feedback alg (Environment.bandit (task.ν μ)) P :=
@@ -781,85 +778,52 @@ theorem eventually_expectedStoppingTime_cTrackAndStop_le (hT : ∀ a c, ¬ T a =
     (mem_simplex_iff.1 (hw_mem _)).1 a
   have hw1 (n : ℕ) (h : Hist Unit α ℝ n) : ∑ a, w (empMean' n h) a = 1 :=
     (mem_simplex_iff.1 (hw_mem _)).2
-  -- Uniformly near `{μ} × C` on the simplex, the cost of the alternatives exceeds `κ`, by
-  -- compactness of `C`.
-  obtain ⟨U, hU, η, hη, hUη⟩ :=
-    hC_compact.exists_forall_mem_thickening_lt_of_lowerSemicontinuousWithinAt h_lsc hκ
+  -- The reduction with `W = C`: it remains to show that the allocations converge to `C` on good
+  -- events.
+  have h := task.eventually_expectedStoppingTime_glrt_plugInCost_le_of_isBigO empMean' alg hseq
+    hC_compact h_lsc hrec_eq ?_ hc hr hβ (hrec := hrec) (hstop := hstop)
+  · simpa only [cTrackAndStop_def] using h
+  intro U hU V hV
+  obtain ⟨η, hη, hηV⟩ := (hasBasis_nhdsSet_thickening hC_compact).mem_iff.1 hV
   obtain ⟨B, hB, hCB⟩ := hC_compact.isBounded.exists_pos_norm_le
-  -- Near `μ`, the targets are `ε`-close to `C`, the recommendation is `i` and the vectors are
-  -- vectors of means of the families.
   set ε := η / 4
   have hε : 0 < ε := by positivity
-  set W := {μ' | μ' ∈ U ∧ w μ' ∈ thickening ε C ∧ rec μ' = i ∧
-    ∀ a, μ' a ∈ (ρ a).expFamilyMeans (T a)}
-  have hW : W ∈ 𝓝 μ := by
-    filter_upwards [hU, hw_tendsto (thickening_mem_nhdsSet C hε), hrec_eq, eventually_all.2 fun a ↦
-      (continuous_apply a).continuousAt.preimage_mem_nhds
-        (Measure.expFamilyMeans_mem_nhds (hT a) (hμ a))] with μ' h1 h2 h3 h4
-    exact ⟨h1, h2, h3, h4⟩
-  obtain ⟨l, u, hlμ, hμu, h_box⟩ := exists_pi_Icc_subset_of_mem_nhds hW
-  have hlu : l ≤ u := fun a ↦ ((hlμ a).trans (hμu a)).le
-  have hlW := h_box (Set.left_mem_Icc.2 hlu)
-  have huW := h_box (Set.right_mem_Icc.2 hlu)
-  -- The good events: the empirical means stay in the box `∏ (l a, u a)` from round `t₀(T)` on,
-  -- and the pull counts follow the cumulated targets.
-  set E : ℕ → Set _ := fun T ↦ {ω |
-    (∀ t ≥ roundsAfter T, ∀ a, empMean IT.action IT.feedback a t ω ∈ Set.Ioo (l a) (u a)) ∧
-    ∀ (n : ℕ) a, |(pullCount IT.action a n ω : ℝ) -
-      ∑ s ∈ range n, w (empMean' s (history IT.obs IT.action IT.feedback s ω)) a| ≤
-        (K - 1) * (1 + √(n : ℝ))}
-  have hE_sum : ∑' T, P (E T)ᶜ ≠ ∞ := by
-    refine ne_top_of_le_ne_top (CTracking.tsum_measure_exists_ge_empMean_notMem_Ioo_ne_top hw0 hw1
-      hseq hν hμ (fun a ↦ hlW.2.2.2 a) (fun a ↦ huW.2.2.2 a) hlμ hμu
-      tendsto_sqrt_roundsAfter_div_log)
-      (tsum_le_tsum fun T ↦ measure_mono_ae ?_)
-    filter_upwards [CTracking.abs_pullCount_sub_sum_le_mul_one_add_sqrt hw0 hw1 hseq]
-      with ω h_track hωE
-    by_contra h_box
-    push Not at h_box
-    exact hωE ⟨h_box, h_track⟩
+  -- The good events: from round `t₀(T)` on, the empirical means are in `U` with targets
+  -- `ε`-close to `C`, and the pull counts follow the cumulated targets.
+  obtain ⟨E, hE_sum, hE⟩ := exists_tsum_measure_compl_ne_top_forall_ge_empMean'_mem
+    (O := IT.obs) hT hμ (fun l u hl hu hlμ hμu ↦
+      CTracking.tsum_measure_exists_ge_empMean_notMem_Ioo_ne_top hw0 hw1 hseq hν hμ hl hu hlμ hμu
+        tendsto_sqrt_roundsAfter_div_log)
+    (CTracking.abs_pullCount_sub_sum_le_mul_one_add_sqrt hw0 hw1 hseq)
+    (inter_mem hU (hw_tendsto (thickening_mem_nhdsSet C hε)))
+  refine ⟨E, hE_sum, ?_⟩
   -- The tracking error `(K - 1) (1 + √T)` is `o(T)`.
   have h_sqrt : Tendsto (fun T : ℕ ↦ (1 + √(T : ℝ)) / T) atTop (𝓝 0) :=
     tendsto_one_add_sqrt_div_atTop.comp tendsto_natCast_atTop_atTop
-  -- From some round on, on the good event of round `T`, the GLR statistic is at least `κ T`.
-  obtain ⟨T₁, hT₁⟩ := eventually_atTop.1
-    ((eventually_roundsAfter_le (by positivity : 0 < η / (4 * (1 + B)))).and
-    ((eventually_roundsAfter_le one_pos).and
-    ((h_sqrt.eventually_le_const (by positivity : 0 < η / (4 * K))).and
-    (eventually_gt_atTop 0))))
-  have hE (T : ℕ) (hT : max n₀ T₁ ≤ T) (ω) (hω : ω ∈ E T) :
-      κ * T ≤ task.glr (task.plugInCost empMean') T (history IT.obs IT.action IT.feedback T ω)
-        (rec (empMean' T (history IT.obs IT.action IT.feedback T ω))) := by
-    obtain ⟨hω_box, hω_track⟩ := hω
-    obtain ⟨h_t₀, hT_le, h_sqrt_le, hT0⟩ := hT₁ T (le_of_max_le_right hT)
-    have hT' : (0 : ℝ) < T := Nat.cast_pos.2 hT0
-    refine task.mul_le_glr_plugInCost_of_mem_thickening (ε := ε) hw_mem hC_conv hCB hUη
-      (fun k hk ↦ ?_) (hω_track T) (by exact_mod_cast hT_le.trans_eq (one_mul _)) hT0.ne' ?_
-    · -- The empirical means at the rounds `k ≥ t₀(T)` are in `W`.
-      have hk_box (b : α) :
-          empMean' k (history IT.obs IT.action IT.feedback k ω) b ∈ Set.Ioo (l b) (u b) := by
-        rw [← empMean_eq_empMean']
-        exact hω_box k hk b
-      exact (h_box ⟨fun b ↦ (hk_box b).1.le, fun b ↦ (hk_box b).2.le⟩).imp_right
-        fun h ↦ ⟨h.1, h.2.1⟩
-    · -- `(K - 1) (1 + √T) + (1 + B) t₀(T) + ε T ≤ 3 η T / 4 < η T`.
-      rw [div_le_iff₀ hT'] at h_sqrt_le
-      have h1 : (K - 1) * (1 + √(T : ℝ)) ≤ η / 4 * T := by
-        have : (K - 1) * (1 + √(T : ℝ)) ≤ K * (1 + √(T : ℝ)) := by gcongr; linarith
-        refine this.trans ?_
-        calc K * (1 + √(T : ℝ)) ≤ K * (η / (4 * K) * T) := by gcongr
-        _ = η / 4 * T := by field_simp
-      have h2 : (1 + B) * roundsAfter T ≤ η / 4 * T := by
-        calc (1 + B) * roundsAfter T ≤ (1 + B) * (η / (4 * (1 + B)) * T) := by gcongr
-        _ = η / 4 * T := by field_simp
-      have h3 : 0 < η * T := mul_pos hη hT'
-      simp only [ε]
-      linarith
-  have h := task.eventually_expectedStoppingTime_glrt_le_of_isBigO (task.plugInCost empMean') alg
-    (fun n h ↦ rec (empMean' n h)) hrec hstop hseq
-    hE_sum hκc hE hr (T₀ := max n₀ T₁)
-    (by filter_upwards [hβ] with δ hδ n hn h using hδ n (le_of_max_le_left hn) h)
-  simpa only [cTrackAndStop_def] using h
+  -- For all large `T`, on the good event of round `T`, the empirical means after `T` rounds are
+  -- in `U` and the proportions of pulls are `η`-close to `C`.
+  filter_upwards [eventually_roundsAfter_le (by positivity : 0 < η / (4 * (1 + B))),
+    eventually_roundsAfter_le one_pos,
+    h_sqrt.eventually_le_const (by positivity : 0 < η / (4 * K)), eventually_gt_atTop 0]
+    with T h_t₀ hT_le h_sqrt_le hT0 ω hω
+  obtain ⟨hω_track, hω_W⟩ := hE T ω hω
+  have hT_le' : roundsAfter T ≤ T := by exact_mod_cast hT_le.trans_eq (one_mul _)
+  have hT' : (0 : ℝ) < T := Nat.cast_pos.2 hT0
+  refine ⟨(hω_W T hT_le').1, hηV (pullCount_div_mem_thickening (fun _ ↦ hw_mem _) hC_conv hCB
+    (fun k hk ↦ (hω_W k hk).2) (hω_track T) hT_le' ?_)⟩
+  -- `(K - 1) (1 + √T) + (1 + B) t₀(T) + ε T ≤ 3 η T / 4 < η T`.
+  rw [div_le_iff₀ hT'] at h_sqrt_le
+  have h1 : (K - 1) * (1 + √(T : ℝ)) ≤ η / 4 * T := by
+    have : (K - 1) * (1 + √(T : ℝ)) ≤ K * (1 + √(T : ℝ)) := by gcongr; linarith
+    refine this.trans ?_
+    calc K * (1 + √(T : ℝ)) ≤ K * (η / (4 * K) * T) := by gcongr
+    _ = η / 4 * T := by field_simp
+  have h2 : (1 + B) * roundsAfter T ≤ η / 4 * T := by
+    calc (1 + B) * roundsAfter T ≤ (1 + B) * (η / (4 * (1 + B)) * T) := by gcongr
+    _ = η / 4 * T := by field_simp
+  have h3 : 0 < η * T := mul_pos hη hT'
+  simp only [ε]
+  linarith
 
 /-- **Sample complexity of Track-and-Stop with C-tracking at the characteristic time**
 [DK19, Theorem 7], the upper bound `𝔼[τ_δ] ≤ c log (1 / δ)` with `c > T*(μ)`, even when the
