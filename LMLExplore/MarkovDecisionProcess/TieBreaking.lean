@@ -17,17 +17,19 @@ import LMLExplore.MeasureTheory.Measure.Real
 The optimal policy of an MDP need not be unique, and two actions may have optimal action values
 arbitrarily close to each other. Adding a small random perturbation to the rewards separates the
 optimal action values of distinct actions with high probability. This is the tie-breaking step of
-the perturbed model-based planning algorithm of [LWCGC24, Lemma 6]: the optimal policy of the
-perturbed model is unique and stands out from all other policies by a polynomially small margin.
+the perturbed model-based planning algorithm of [LWCGC24, Lemma 6]: with probability at least
+`1 - δ`, every state of the perturbed model has a unique optimal action, whose optimal action
+value exceeds that of every other action by a polynomially small margin.
 
 The deterministic part holds on any measurable state space with finitely many actions, bounded
-rewards and `γ < 1`. Let `M` and `M'` be two MDPs with the same transition kernel.
-* If the mean rewards of `M'` are at least those of `M`, so are the optimal action values and the
-  optimal values.
-* Suppose moreover that the mean rewards only differ at one pair `p`. Then the increase of the
-  optimal value at every state is at most the increase `D` of the optimal action value at `p`,
-  the optimal action value at every other pair `q` increases by at most `γ D`, and the gap
-  `Q* p - Q* q` increases by at least `(1 - γ)` times the increase of the reward at `p`.
+rewards and `γ < 1`. Let `M` and `M'` be two MDPs with the same transition kernel. If the mean
+rewards of `M'` are at least those of `M`, so are the optimal action values and the optimal values
+(`Learning.MDP.optQValue_le_optQValue_of_meanReward_le` in
+`LMLExplore.MarkovDecisionProcess.Simulation`). Suppose moreover that the mean rewards only differ
+at one pair `p`. Then the increase of the optimal value at every state is at most the increase `D`
+of the optimal action value at `p`, the optimal action value at every other pair `q` increases by
+at most `γ D`, and the gap `Q* p - Q* q` increases by at least `(1 - γ)` times the increase of the
+reward at `p`.
 
 So, as a function of the reward `τ` at `p`, the gap `Q*_τ p - Q*_τ q` increases at rate at least
 `1 - γ`, and it is at most `ω` in absolute value only on an interval of length `2 ω / (1 - γ)`.
@@ -49,9 +51,6 @@ which the perturbation is independent of.
 
 ## Main statements
 
-* `Learning.MDP.optQValue_le_optQValue_of_meanReward_le`,
-  `Learning.MDP.optValue_le_optValue_of_meanReward_le`: the optimal action values and values are
-  monotone in the mean rewards.
 * `Learning.MDP.optValue_sub_optValue_le_optQValue_sub_optQValue`: raising the reward at one pair
   `p` raises the optimal value by at most the increase of the optimal action value at `p`.
 * `Learning.MDP.optQValue_sub_optQValue_le_mul_optQValue_sub_optQValue`: it raises the optimal
@@ -84,40 +83,20 @@ namespace Learning.MDP
 
 variable {𝓢 𝓐 : Type*} {m𝓢 : MeasurableSpace 𝓢} {m𝓐 : MeasurableSpace 𝓐}
 
-/-! ### Monotonicity of the optimal values in the rewards -/
-
 section Deterministic
 
 variable [Nonempty 𝓢] [Nonempty 𝓐] [Finite 𝓐] {M M' : MDP 𝓢 𝓐 ℝ} {γ : ℝ≥0} {C C' : ℝ}
 
-/-- For two MDPs with finitely many actions, bounded rewards, the same transition kernel and
-`γ < 1`, if the mean rewards of `M'` are at least those of `M`, so are its optimal action values. -/
-theorem optQValue_le_optQValue_of_meanReward_le (hγ : γ < 1) (hR : ∀ p, ∀ᵐ x ∂(M.R p), |x| ≤ C)
-    (hR' : ∀ p, ∀ᵐ x ∂(M'.R p), |x| ≤ C') (hP : M'.P = M.P)
-    (hr : ∀ q, meanReward M.R q ≤ meanReward M'.R q) :
-    M.optQValue γ ≤ M'.optQValue γ := fun p ↦ by
-  have := Fintype.ofFinite 𝓐
-  -- the componentwise lower bound, with the greedy optimal policy of `M`
-  have hg := measurable_greedy (M := M) (γ := γ) (measurable_optValue hγ hR)
-  have h := le_optQValue_sub_optQValue (M := M') (M' := M) hγ hR' hR
-    (value_greedy_optValue hγ hR hg) p
-  simp only [hP, sub_self, mul_zero, add_zero] at h
-  linarith [integral_nonneg (μ := Kernel.resolvent γ (M.saKernel (Kernel.deterministic _ hg)) p)
-    fun q ↦ sub_nonneg.2 (hr q)]
-
-/-- For two MDPs with finitely many actions, bounded rewards, the same transition kernel and
-`γ < 1`, if the mean rewards of `M'` are at least those of `M`, so are its optimal values. -/
-theorem optValue_le_optValue_of_meanReward_le (hγ : γ < 1) (hR : ∀ p, ∀ᵐ x ∂(M.R p), |x| ≤ C)
-    (hR' : ∀ p, ∀ᵐ x ∂(M'.R p), |x| ≤ C') (hP : M'.P = M.P)
-    (hr : ∀ q, meanReward M.R q ≤ meanReward M'.R q) :
-    M.optValue γ ≤ M'.optValue γ := fun s ↦ by
-  rw [← iSup_optQValue hγ hR s, ← iSup_optQValue hγ hR' s]
-  exact ciSup_mono (Finite.bddAbove_range _) fun a ↦
-    optQValue_le_optQValue_of_meanReward_le hγ hR hR' hP hr (s, a)
-
 /-! ### Raising the reward at one pair -/
 
 variable {p q : 𝓢 × 𝓐}
+
+omit [Nonempty 𝓢] [Nonempty 𝓐] [Finite 𝓐] in
+/-- Mean rewards that agree outside the pair `p` and increase at `p` increase everywhere. -/
+private lemma meanReward_le_of_eq_of_ne (hr : ∀ q ≠ p, meanReward M'.R q = meanReward M.R q)
+    (hp : meanReward M.R p ≤ meanReward M'.R p) (q : 𝓢 × 𝓐) :
+    meanReward M.R q ≤ meanReward M'.R q :=
+  (eq_or_ne q p).elim (· ▸ hp) fun hq ↦ (hr q hq).ge
 
 /-- If two MDPs have the same transition kernel and the same mean reward at `q`, their optimal
 action values at `q` differ by `γ` times the one-step prediction of the difference of their
@@ -128,8 +107,7 @@ lemma optQValue_sub_optQValue_eq_mul_integral (hγ : γ < 1) (hR : ∀ p, ∀ᵐ
     M'.optQValue γ q - M.optQValue γ q =
       γ * ∫ s, (M'.optValue γ s - M.optValue γ s) ∂(M.P q) := by
   rw [optQValue_def, optQValue_def, hq, hP, add_sub_add_left_eq_sub, ← mul_sub,
-    integral_sub (integrable_of_abs_le (measurable_optValue hγ hR') (abs_optValue_le hγ hR') _)
-      (integrable_of_abs_le (measurable_optValue hγ hR) (abs_optValue_le hγ hR) _)]
+    integral_sub (integrable_optValue hγ hR' _) (integrable_optValue hγ hR _)]
 
 /-- **Raising the reward at one pair raises the optimal value by at most the increase of the
 optimal action value at that pair.** For two MDPs with finitely many actions, bounded rewards, the
@@ -140,10 +118,8 @@ theorem optValue_sub_optValue_le_optQValue_sub_optQValue (hγ : γ < 1)
     (hr : ∀ q ≠ p, meanReward M'.R q = meanReward M.R q)
     (hp : meanReward M.R p ≤ meanReward M'.R p) (s : 𝓢) :
     M'.optValue γ s - M.optValue γ s ≤ M'.optQValue γ p - M.optQValue γ p := by
-  have hr_le (q : 𝓢 × 𝓐) : meanReward M.R q ≤ meanReward M'.R q :=
-    (eq_or_ne q p).elim (· ▸ hp) fun hq ↦ (hr q hq).ge
-  have hD : 0 ≤ M'.optQValue γ p - M.optQValue γ p :=
-    sub_nonneg.2 (optQValue_le_optQValue_of_meanReward_le hγ hR hR' hP hr_le p)
+  have hD : 0 ≤ M'.optQValue γ p - M.optQValue γ p := sub_nonneg.2
+    (optQValue_le_optQValue_of_meanReward_le hγ hR hR' hP (meanReward_le_of_eq_of_ne hr hp) p)
   -- `d` is the largest increase of the optimal value; the optimal action values at the other
   -- pairs increase by at most `γ d`, so `d` is at most the increase at `p` or at most `γ d`, and
   -- in the second case `d ≤ 0`
@@ -158,9 +134,8 @@ theorem optValue_sub_optValue_le_optQValue_sub_optQValue (hγ : γ < 1)
   have hq (q : 𝓢 × 𝓐) (hq : q ≠ p) : M'.optQValue γ q - M.optQValue γ q ≤ γ * d := by
     rw [optQValue_sub_optQValue_eq_mul_integral hγ hR hR' hP (hr q hq)]
     gcongr
-    refine (integral_mono ?_ (integrable_const d) hle).trans_eq (by simp)
-    exact (integrable_of_abs_le (measurable_optValue hγ hR') (abs_optValue_le hγ hR') _).sub
-      (integrable_of_abs_le (measurable_optValue hγ hR) (abs_optValue_le hγ hR) _)
+    exact (integral_mono ((integrable_optValue hγ hR' _).sub (integrable_optValue hγ hR _))
+      (integrable_const d) hle).trans_eq (by simp)
   -- the optimal value at `s'` increases by at most the increase at an optimal action of `M'`
   have hs (s' : 𝓢) : M'.optValue γ s' - M.optValue γ s' ≤
       max (M'.optQValue γ p - M.optQValue γ p) (γ * d) := by
@@ -191,10 +166,9 @@ theorem optQValue_sub_optQValue_le_mul_optQValue_sub_optQValue (hγ : γ < 1)
     M'.optQValue γ q - M.optQValue γ q ≤ γ * (M'.optQValue γ p - M.optQValue γ p) := by
   rw [optQValue_sub_optQValue_eq_mul_integral hγ hR hR' hP (hr q hq)]
   gcongr
-  refine (integral_mono ?_ (integrable_const _)
+  exact (integral_mono ((integrable_optValue hγ hR' _).sub (integrable_optValue hγ hR _))
+    (integrable_const _)
     (optValue_sub_optValue_le_optQValue_sub_optQValue hγ hR hR' hP hr hp)).trans_eq (by simp)
-  exact (integrable_of_abs_le (measurable_optValue hγ hR') (abs_optValue_le hγ hR') _).sub
-    (integrable_of_abs_le (measurable_optValue hγ hR) (abs_optValue_le hγ hR) _)
 
 /-- **The gaps of the optimal action values grow at rate at least `1 - γ` in the reward**
 [LWCGC24, proof of Lemma 6]. For two MDPs with finitely many actions, bounded rewards, the same
@@ -207,15 +181,12 @@ theorem mul_meanReward_sub_le_optQValue_sub_sub_optQValue_sub (hγ : γ < 1)
     (hp : meanReward M.R p ≤ meanReward M'.R p) (hq : q ≠ p) :
     (1 - γ) * (meanReward M'.R p - meanReward M.R p) ≤
       M'.optQValue γ p - M'.optQValue γ q - (M.optQValue γ p - M.optQValue γ q) := by
-  have hr_le (q : 𝓢 × 𝓐) : meanReward M.R q ≤ meanReward M'.R q :=
-    (eq_or_ne q p).elim (· ▸ hp) fun hq ↦ (hr q hq).ge
   have h₁ := optQValue_sub_optQValue_le_mul_optQValue_sub_optQValue hγ hR hR' hP hr hp hq
   -- the optimal action value at `p` increases by at least the reward, since `v* ≤ v*'`
   have h₂ : meanReward M'.R p - meanReward M.R p ≤ M'.optQValue γ p - M.optQValue γ p := by
-    have hv := integral_mono
-      (integrable_of_abs_le (measurable_optValue hγ hR) (abs_optValue_le hγ hR) (M.P p))
-      (integrable_of_abs_le (measurable_optValue hγ hR') (abs_optValue_le hγ hR') (M.P p))
-      (optValue_le_optValue_of_meanReward_le hγ hR hR' hP hr_le)
+    have hv := integral_mono (integrable_optValue hγ hR (M.P p))
+      (integrable_optValue hγ hR' (M.P p))
+      (optValue_le_optValue_of_meanReward_le hγ hR hR' hP (meanReward_le_of_eq_of_ne hr hp))
     rw [optQValue_def, optQValue_def, hP]
     nlinarith [γ.coe_nonneg]
   have h₃ := mul_le_mul_of_nonneg_left h₂ (sub_nonneg.2 (NNReal.coe_le_one.2 hγ.le))
@@ -252,8 +223,7 @@ private lemma ae_abs_ofDet_R_le_sum [Fintype 𝓢] [Fintype 𝓐] (r : 𝓢 × �
     (fun _ _ ↦ abs_nonneg _) (Finset.mem_univ q)) p
 
 /-- For finite state and action spaces and `γ < 1`, the optimal action values of the MDP with
-transition kernel `P` and deterministic rewards `r` are continuous in `r`: they are
-`(1 - γ)⁻¹`-Lipschitz for the uniform distance. -/
+transition kernel `P` and deterministic rewards `r` are continuous in `r`. -/
 theorem continuous_optQValue_ofDet [Finite 𝓢] [Finite 𝓐] [Nonempty 𝓢] [Nonempty 𝓐]
     (hγ : γ < 1) (q : 𝓢 × 𝓐) :
     Continuous fun r : 𝓢 × 𝓐 → ℝ ↦ (ofDet P r (measurable_of_finite r)).optQValue γ q := by

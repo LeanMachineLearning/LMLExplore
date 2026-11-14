@@ -151,8 +151,7 @@ theorem optQValue_lt_optValue_of_lookahead_lt (hγ : γ < 1) (hR : ∀ p, ∀ᵐ
     (hL : vL s ≤ M.optValue γ s) (h : M.lookahead γ vU (s, a) < vL s) :
     M.optQValue γ (s, a) < M.optValue γ s := by
   rw [optQValue_eq_lookahead]
-  exact ((lookahead_mono (integrable_of_abs_le (measurable_optValue hγ hR)
-    (abs_optValue_le hγ hR) _) hU_int hU).trans_lt h).trans_le hL
+  exact ((lookahead_mono (integrable_optValue hγ hR _) hU_int hU).trans_lt h).trans_le hL
 
 /-- **The action elimination test** for deterministic policies [P, Proposition 6.7.3]: with
 finitely many actions, bounded rewards and `γ < 1`, let `vU` be an upper bound of `v*`, integrable

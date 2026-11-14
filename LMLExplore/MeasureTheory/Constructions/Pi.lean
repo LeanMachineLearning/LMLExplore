@@ -10,7 +10,7 @@ public import Mathlib.Probability.ConditionalProbability
 import TauCeti.MeasureTheory.Constructions.Pi
 
 /-!
-# Laws of functions of the coordinatewise images under a product measure, and restricted factors
+# Product measures: laws of coordinatewise images, restricted factors and bounds by lines
 
 Under the product measure `Measure.pi μ`, the law of a function `f` of the coordinatewise images
 `X i (y i)` is the law of `f` under the product of the laws of the `X i`. For example, the law of
@@ -20,6 +20,10 @@ mean of independent samples of the law of `X`.
 Restricting every factor of a product of copies of `μ` to a set `B` of finite positive measure
 gives the product of the conditional measures `μ[|B]`, scaled by `μ(B)` to the number of factors.
 
+Under a product of probability measures, a measurable set whose lines along one coordinate `i`
+all have `μ i`-measure at most `c` has product measure at most `c`, by resampling the coordinate
+`i` and integrating the measures of the lines.
+
 ## Main statements
 
 * `MeasureTheory.Measure.map_pi_comp_eq_map_pi_map`:
@@ -28,6 +32,9 @@ gives the product of the conditional measures `μ[|B]`, scaled by `μ(B)` to the
   `Measure.pi (fun _ ↦ μ.restrict B) = μ B ^ card ι • Measure.pi (fun _ ↦ μ[|B])`.
 * `MeasureTheory.Measure.pi_eval_preimage_le`: for measures of mass at most `1`, the product
   measure of the cylinder `{y | y i ∈ s}` is at most `μ i s`, for every set `s`.
+* `MeasureTheory.Measure.pi_le_of_forall_measure_update_preimage_le`: under a product of
+  probability measures, a measurable set whose lines `{t | update x i t ∈ E}` along one coordinate
+  `i` all have `μ i`-measure at most `c` has product measure at most `c`.
 -/
 
 public section
