@@ -31,7 +31,8 @@ strong convexity, with subgradients within `V` in the sense of LML's `HasSubgrad
   strong convexity of `F (t + 1)` gives the bound with `ψ t (x t) - ψ (t + 1) (x t)`.
 
 Neither the regularizers nor the losses need to be differentiable, the regularizers need not be
-monotone in `t`, and only `F t + ℓ t` (not `ψ t`) must be strongly convex. Summed through the FTRL
+monotone in `t`, and only the objective `F t + ℓ t` (or `F (t + 1)` for proximal regularizers),
+not `ψ t`, must be strongly convex. Summed through the FTRL
 equality, the stability bounds give the regret of FTRL for convex losses on sets that need not be
 bounded [Ora, Corollary 7.6]: when the plays minimize their objectives over `V`, `g t` is a
 subgradient of `ℓ t` within `V` at `x t` and `F t + ℓ t` is `λ t`-strongly convex on `V` with
@@ -72,14 +73,6 @@ section NormedSpace
 
 variable {E : Type*} [NormedAddCommGroup E] [NormedSpace ℝ E] {V : Set E} {ψ ℓ : ℕ → E → ℝ}
   {x : ℕ → E} {t : ℕ} {z : E} {g : E →L[ℝ] ℝ} {lam : ℝ}
-
-/-- The quadratic case of `apply_sub_sub_div_le_of_mul_norm_sq_le`:
-`g (a - b) - lam / 2 * ‖a - b‖ ^ 2 ≤ ‖g‖ ^ 2 / (2 lam)` for `lam > 0`. -/
-private lemma apply_sub_sub_mul_norm_sq_le (hlam : 0 < lam) (g : E →L[ℝ] ℝ) (a b : E) :
-    g (a - b) - lam / 2 * ‖a - b‖ ^ 2 ≤ ‖g‖ ^ 2 / (2 * lam) := by
-  have h := apply_sub_sub_div_le_of_mul_norm_sq_le hlam one_pos g
-    (le_of_eq (by rw [norm_sub_rev]) : lam / 2 * ‖b - a‖ ^ 2 ≤ lam / 2 * ‖a - b‖ ^ 2)
-  rwa [div_one, one_div_mul_eq_div] at h
 
 /-- **Stability of FTRL with a divergence** (relative strong convexity) [Ora, Lemma 7.5 and
 Remark 7.28]. Let `x t` minimize the objective `F t = ψ t + ∑ s < t, ℓ s` over `V`, let `g` be a

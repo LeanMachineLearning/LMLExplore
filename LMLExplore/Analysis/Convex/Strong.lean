@@ -65,6 +65,8 @@ with a strongly convex potential exist on closed sets that need not be bounded.
   for a continuous linear functional `y` when `m / 2 * ‖b - a‖ ^ 2 ≤ D`, with `‖y‖` the dual norm;
   with a divergence `D` dominating the strong convexity term, it bounds the stability terms of
   follow the regularized leader and mirror descent.
+* `LMLExplore.apply_sub_sub_mul_norm_sq_le`: its quadratic case
+  `g (a - b) - lam / 2 * ‖a - b‖ ^ 2 ≤ ‖g‖ ^ 2 / (2 lam)` for `lam > 0`.
 
 ## References
 
@@ -391,5 +393,14 @@ lemma apply_sub_sub_div_le_of_mul_norm_sq_le {m η D : ℝ} (hm : 0 < m) (hη : 
   have h_nonneg : 0 ≤ (m * x - η * z) ^ 2 / (2 * m * η) := by positivity
   have h_div := div_le_div_of_nonneg_right h hη.le
   linarith
+
+/-- The quadratic case of `apply_sub_sub_div_le_of_mul_norm_sq_le`: for `lam > 0` and a
+continuous linear functional `g`, `g (a - b) - lam / 2 * ‖a - b‖ ^ 2 ≤ ‖g‖ ^ 2 / (2 lam)`, where
+`‖g‖` is the dual norm. -/
+lemma apply_sub_sub_mul_norm_sq_le {lam : ℝ} (hlam : 0 < lam) (g : E →L[ℝ] ℝ) (a b : E) :
+    g (a - b) - lam / 2 * ‖a - b‖ ^ 2 ≤ ‖g‖ ^ 2 / (2 * lam) := by
+  have h := apply_sub_sub_div_le_of_mul_norm_sq_le hlam one_pos g
+    (le_of_eq (by rw [norm_sub_rev]) : lam / 2 * ‖b - a‖ ^ 2 ≤ lam / 2 * ‖a - b‖ ^ 2)
+  rwa [div_one, one_div_mul_eq_div] at h
 
 end LMLExplore
