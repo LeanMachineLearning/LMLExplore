@@ -208,8 +208,8 @@ theorem expFamilyRate_gammaMeasure (ha : 0 < a) (hr : 0 < r) (hx : 0 < x) (hμ :
     expFamilyDiv_gammaMeasure ha hr hx hμ]
 
 /-- At a level `x ≤ 0`, the extended divergence of the exponential family of `gammaMeasure a r` is
-infinite for every mean `μ > 0`: the member of mean `μ` is supported on `(0, ∞)`, so the rate
-function of the identity under it is infinite below its essential infimum. -/
+infinite for every mean `μ > 0`: the member of mean `μ` is almost surely strictly positive, so
+every level `x ≤ 0` lies strictly below it almost surely and the rate function there is infinite. -/
 @[simp]
 theorem expFamilyRate_gammaMeasure_of_nonpos (ha : 0 < a) (hr : 0 < r) (hx : x ≤ 0)
     (hμ : 0 < μ) : (gammaMeasure a r).expFamilyRate id x μ = ∞ := by
