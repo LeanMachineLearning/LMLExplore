@@ -48,7 +48,7 @@ RemyDegenne/Garivier2016Optimal (commit 53ac67e4, directory `ForLMLExplore/`).
 
 public section
 
-open MeasureTheory ProbabilityTheory Learning Finset Real unitInterval
+open MeasureTheory InformationTheory ProbabilityTheory Learning Finset Real unitInterval
 
 open scoped ENNReal
 
@@ -281,7 +281,7 @@ theorem measure_exists_log_two_mul_mul_lt_klBer_le
       ENNReal.ofReal_natCast]
   have hT_nonneg : ∀ {q : ℝ} {j N : ℕ}, q ∈ Set.Ioo 0 1 → j ≤ N →
       0 ≤ (N : ℝ) * klBerReal (j / N) q := fun {q j N} hq hj ↦
-    mul_nonneg (Nat.cast_nonneg _) (klBerReal_nonneg
+    mul_nonneg (Nat.cast_nonneg _) (klBerReal_nonneg_of_klBer_ne_top
       (div_mem (Nat.cast_nonneg _) (Nat.cast_nonneg _) (by exact_mod_cast hj))
       ⟨hq.1.le, hq.2.le⟩ (klBer_ne_top hq))
   rw [hmean hpa hja (by rw [empMean, hSa]), hmean hpb hjb (by rw [empMean, hSb]),

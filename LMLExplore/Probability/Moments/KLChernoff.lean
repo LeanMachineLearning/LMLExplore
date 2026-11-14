@@ -103,7 +103,7 @@ expected number of sample sizes `s` at which `s = 0`, `c ≤ μ̂_s` or `d(μ̂_
 
 public section
 
-open MeasureTheory ProbabilityTheory Filter Real Finset
+open MeasureTheory InformationTheory ProbabilityTheory Filter Real Finset
 open scoped NNReal Topology unitInterval
 
 namespace LMLExplore
@@ -278,7 +278,7 @@ theorem measureReal_sum_le_le_exp_klBerReal {X : ι → Ω → ℝ} (h_indep : i
       (fun i hi ↦ by
         simp [integral_sub (integrable_const 1) (.of_mem_Icc 0 1 (hXm i hi) (hX i hi))]
         linarith [hmean i hi])
-    rw [← klBerReal_one_sub_one_sub, sub_zero, klBerReal_one_left, mul_neg, neg_neg, exp_nat_mul,
+    rw [← klBerReal_one_sub, sub_zero, klBerReal_one_left, mul_neg, neg_neg, exp_nat_mul,
       exp_log (sub_pos.2 hm)]
     refine le_of_eq_of_le ?_ h
     congr 1
@@ -388,7 +388,7 @@ theorem measureReal_klUpper_le_le {X : ι → Ω → ℝ} (h_indep : iIndepFun X
       rw [sub_sq_comm]
       exact ofReal_two_mul_sq_le_klBer hq' hm'
     refine ⟨x, ⟨hx.1, hxq.trans hqm⟩, (mul_div_cancel₀ _ hs0.ne').ge, ?_⟩
-    exact (ENNReal.ofReal_le_ofReal_iff (klBerReal_nonneg hx hm' h_fin)).1 h_le
+    exact (ENNReal.ofReal_le_ofReal_iff (klBerReal_nonneg_of_klBer_ne_top hx hm' h_fin)).1 h_le
   _ ≤ exp (-(#s * (L / #s + 2 * (m - q) ^ 2))) :=
     measureReal_exists_sum_le_and_le_klBerReal_le h_indep hXm hX hmean hm _
   _ = exp (-L) * exp (-(2 * (m - q) ^ 2 * #s)) := by

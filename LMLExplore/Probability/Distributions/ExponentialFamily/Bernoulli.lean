@@ -86,7 +86,7 @@ sampling law of Thompson sampling with the Jeffreys prior for Bernoulli arms [KK
 
 public section
 
-open MeasureTheory ProbabilityTheory Real Set
+open MeasureTheory InformationTheory ProbabilityTheory Real Set
 
 open scoped unitInterval ENNReal Topology
 
@@ -225,7 +225,7 @@ theorem rateFunction_id_bernoulliMeasure (q : I) (hx : x ∈ Icc 0 1) :
         (fun h ↦ sub_ne_zero.2 (Ne.symm hq) (by rw [← hP]; exact (measureReal_eq_zero_iff).2 h)),
         hP, klBer_eq_ofReal_klBerReal hx q.2 ((klBer_ne_top_iff hx q.2).2
           ⟨fun _ ↦ rfl, fun h ↦ absurd h hq⟩)]
-      simp [klBerReal_def]
+      simp [klBerReal_apply]
   rcases hx.2.eq_or_lt with rfl | hx1
   · -- The level `1` is the essential supremum, of probability `q`.
     have hs : {z : ℝ | id z = 1} = {1} := by ext; simp

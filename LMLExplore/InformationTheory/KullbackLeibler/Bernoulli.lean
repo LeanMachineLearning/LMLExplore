@@ -11,6 +11,7 @@ public import Mathlib.Analysis.SpecialFunctions.Log.ENNRealLog
 public import LMLExplore.Probability.Distributions.Bernoulli
 public import TauCeti.InformationTheory.KullbackLeibler.Basic
 public import TauCeti.InformationTheory.KullbackLeibler.Pinsker
+public import Statlib.ForMathlib.InformationTheory.KullbackLeibler.Bernoulli
 public import Statlib.ForMathlib.InformationTheory.KullbackLeibler.ChainRule
 public import LeanMachineLearning.ForMathlib.InformationTheory.KullbackLeibler.DataProcessing
 public import TauCeti.InformationTheory.KullbackLeibler.Variational
@@ -28,8 +29,10 @@ for `[0, 1]`-valued random variables, and the quantity in the KL-UCB index and i
 Lai–Robbins lower bound for Bernoulli bandits.
 
 We define `klBer p q : ℝ≥0∞` as `klDiv` of the two Bernoulli laws on `{0, 1} ⊆ ℝ`, so that it
-takes the value `∞` exactly where `d(p, q)` does, and the real-valued `klBerReal p q` by the
-closed form above. For `p, q ∈ [0, 1]`, the two agree wherever `klBer p q` is finite.
+takes the value `∞` exactly where `d(p, q)` does. The real-valued closed form above is Statlib's
+`InformationTheory.klBerReal p q`, whose basic API (`klBerReal_apply`, `klBerReal_self`,
+`klBerReal_one_left`, `klBerReal_one_sub`, `klBerReal_eq_neg_binEntropy_sub`) comes from Statlib
+too. For `p, q ∈ [0, 1]`, the two agree wherever `klBer p q` is finite.
 
 The upper confidence level `U(p, c)` is the largest `q ∈ [p, 1]` with `d(p, q) ≤ c`: evaluated at
 an empirical mean `p` and an exploration level `c` divided by a number of samples, it is the index
@@ -41,7 +44,6 @@ smallest `q ∈ [0, p]` with `d(p, q) ≤ c`; together they are the confidence b
 
 * `LMLExplore.klBer p q`: the binary relative entropy in `ℝ≥0∞`, the arguments being clamped to
   `[0, 1]`.
-* `LMLExplore.klBerReal p q`: the real number `p log (p / q) + (1 - p) log ((1 - p) / (1 - q))`.
 * `LMLExplore.klUpper p c`: the upper confidence level `U(p, c) = max {q ∈ [p, 1] | d(p, q) ≤ c}`
   of the KL-UCB algorithm, for `c : ℝ≥0∞`.
 * `LMLExplore.klLower p c`: the lower confidence level `L(p, c) = min {q ∈ [0, p] | d(p, q) ≤ c}`,
@@ -61,8 +63,8 @@ smallest `q ∈ [0, p]` with `d(p, q) ≤ c`; together they are the confidence b
   is finite, `klBer p q` is given by the closed form `klBerReal p q`.
 * `LMLExplore.klBer_eq_zero_iff`: for `p, q ∈ [0, 1]`, `klBer p q = 0` if and only if `p = q`.
   `LMLExplore.klBerReal_eq_zero_iff` is its real-valued form for `q ∈ (0, 1)`.
-* `LMLExplore.klBer_one_sub_one_sub`, `LMLExplore.klBerReal_one_sub_one_sub`:
-  `d(1 - p, 1 - q) = d(p, q)`.
+* `LMLExplore.klBer_one_sub_one_sub`: `d(1 - p, 1 - q) = d(p, q)`, the `ℝ≥0∞`-valued form of
+  `InformationTheory.klBerReal_one_sub`.
 * `LMLExplore.ofReal_two_mul_sq_le_klBer`, `LMLExplore.two_mul_sq_le_klBerReal`: Pinsker's
   inequality `2 (p - q)² ≤ d(p, q)` for `p, q ∈ [0, 1]`.
 * `LMLExplore.klBer_le_ofReal_sq_sub_div`, `LMLExplore.klBerReal_le_sq_sub_div`: the reverse
@@ -166,12 +168,6 @@ noncomputable def klBer (p q : ℝ) : ℝ≥0∞ :=
   klDiv Ber((1 : ℝ), 0, Set.projIcc 0 1 zero_le_one p)
     Ber((1 : ℝ), 0, Set.projIcc 0 1 zero_le_one q)
 
-/-- The real-valued binary relative entropy `p log (p / q) + (1 - p) log ((1 - p) / (1 - q))`.
-For `p, q ∈ [0, 1]` it is the value of `klBer p q` whenever the latter is finite
-(`LMLExplore.toReal_klBer`). -/
-noncomputable def klBerReal (p q : ℝ) : ℝ :=
-  p * log (p / q) + (1 - p) * log ((1 - p) / (1 - q))
-
 variable {p q : ℝ}
 
 /-- The relative entropy between two Bernoulli laws on two distinct points `x ≠ y` of a measurable
@@ -211,10 +207,6 @@ theorem klBer_def (p q : ℝ) :
       Ber((1 : ℝ), 0, Set.projIcc 0 1 zero_le_one q) := by
   rw [klBer]
 
-theorem klBerReal_def (p q : ℝ) :
-    klBerReal p q = p * log (p / q) + (1 - p) * log ((1 - p) / (1 - q)) := by
-  rw [klBerReal]
-
 /-- On `[0, 1]`, `klBer p q` is the relative entropy of the Bernoulli laws of parameters `p`
 and `q`. -/
 theorem klBer_of_mem_Icc (hp : p ∈ Set.Icc 0 1) (hq : q ∈ Set.Icc 0 1) :
@@ -251,15 +243,6 @@ theorem klBer_integral_le_klDiv {μ ν : Measure ℝ} [IsProbabilityMeasure μ]
 theorem klBer_self (p : ℝ) : klBer p p = 0 := by
   rw [klBer_def, klDiv_self]
 
-@[simp]
-theorem klBerReal_self (p : ℝ) : klBerReal p p = 0 := by
-  simp [klBerReal_def]
-
-/-- `d(1, q) = -log q`. -/
-@[simp]
-theorem klBerReal_one_left (q : ℝ) : klBerReal 1 q = -log q := by
-  simp [klBerReal_def]
-
 /-- For `p, q ∈ [0, 1]`, `klBer p q` is finite if and only if `p` vanishes when `q` does and
 `p = 1` when `q = 1`. -/
 theorem klBer_ne_top_iff (hp : p ∈ Set.Icc 0 1) (hq : q ∈ Set.Icc 0 1) :
@@ -290,7 +273,7 @@ theorem toReal_klBer (hp : p ∈ Set.Icc 0 1) (hq : q ∈ Set.Icc 0 1) (h : klBe
   rw [klBer_of_mem_Icc hp hq] at h ⊢
   obtain ⟨hac, hint⟩ := klDiv_ne_top_iff.1 h
   rw [toReal_klDiv hac hint, integral_bernoulliMeasure]
-  simp only [probReal_univ, add_sub_cancel_right, smul_eq_mul, klBerReal_def]
+  simp only [probReal_univ, add_sub_cancel_right, smul_eq_mul, klBerReal_apply]
   congr 1
   · rcases eq_or_ne q 0 with rfl | hq0
     · simp [h0 rfl]
@@ -330,7 +313,8 @@ theorem two_mul_sq_le_klBerReal (hp : p ∈ Set.Icc 0 1) (hq : q ∈ Set.Icc 0 1
 
 /-- For `p, q ∈ [0, 1]`, the real-valued binary relative entropy is nonnegative where `klBer p q`
 is finite. -/
-theorem klBerReal_nonneg (hp : p ∈ Set.Icc 0 1) (hq : q ∈ Set.Icc 0 1) (h : klBer p q ≠ ∞) :
+theorem klBerReal_nonneg_of_klBer_ne_top (hp : p ∈ Set.Icc 0 1) (hq : q ∈ Set.Icc 0 1)
+    (h : klBer p q ≠ ∞) :
     0 ≤ klBerReal p q :=
   (by positivity : (0 : ℝ) ≤ 2 * (p - q) ^ 2).trans (two_mul_sq_le_klBerReal hp hq h)
 
@@ -343,9 +327,9 @@ theorem klBer_eq_zero_iff (hp : p ∈ Set.Icc 0 1) (hq : q ∈ Set.Icc 0 1) :
   nlinarith [sq_nonneg (p - q)]
 
 /-- For `p ∈ [0, 1]` and `q ∈ (0, 1)`, the real-valued binary relative entropy vanishes only at
-`p = q`. With `LMLExplore.klBerReal_nonneg`, `q` is the unique minimizer of `p ↦ d(p, q)` on
-`[0, 1]` and, for `p ∈ (0, 1)`, `p` is the unique minimizer of `q ↦ d(p, q)` on `(0, 1)`
-[LS, Lemma 10.2]. -/
+`p = q`. With `LMLExplore.klBerReal_nonneg_of_klBer_ne_top`, `q` is the unique minimizer of
+`p ↦ d(p, q)` on `[0, 1]` and, for `p ∈ (0, 1)`, `p` is the unique minimizer of `q ↦ d(p, q)` on
+`(0, 1)` [LS, Lemma 10.2]. -/
 theorem klBerReal_eq_zero_iff (hp : p ∈ Set.Icc 0 1) (hq : q ∈ Set.Ioo 0 1) :
     klBerReal p q = 0 ↔ p = q := by
   rw [← toReal_klBer hp (Set.Ioo_subset_Icc_self hq) (klBer_ne_top hq),
@@ -423,12 +407,6 @@ theorem klBer_one_sub_one_sub (p q : ℝ) : klBer (1 - p) (1 - q) = klBer p q :=
   rw [klBer_def, klBer_def, ← symm_projIcc, ← symm_projIcc, h, h]
   exact klDiv_map_measurableEmbedding _ _ (MeasurableEquiv.subLeft (1 : ℝ)).measurableEmbedding
 
-/-- The real-valued binary relative entropy is invariant under exchanging the roles of the two
-outcomes. -/
-@[simp]
-theorem klBerReal_one_sub_one_sub (p q : ℝ) : klBerReal (1 - p) (1 - q) = klBerReal p q := by
-  rw [klBerReal_def, klBerReal_def, sub_sub_cancel, sub_sub_cancel, add_comm]
-
 /-! ### The maximum likelihood of a Bernoulli sample -/
 
 /-- The frequency factor `(k / n) ^ k` of the maximum likelihood is positive for `n > 0`, including
@@ -463,7 +441,7 @@ theorem mul_klBerReal_div_eq_log {k m n : ℕ} (hkm : k + m = n) (hn : 0 < n)
     rw [div_pow]
     exact (div_pos (div_pow_self_pos m hn) (pow_pos (sub_pos.2 hp.2) _)).ne'
   rw [mul_div_mul_comm, ← div_pow, ← div_pow, log_mul hk hm]
-  simp only [log_pow, klBerReal_def, h1]
+  simp only [log_pow, klBerReal_apply, h1]
   field_simp
 
 /-- The maximum likelihood of a Bernoulli sample: `u ^ k (1 - u) ^ m ≤ (k / n) ^ k (m / n) ^ m`
@@ -494,22 +472,10 @@ theorem pow_mul_one_sub_pow_le_div_pow_mul_div_pow {k m n : ℕ} (hkm : k + m = 
   have hq : 0 < u ^ k * (1 - u) ^ m := mul_pos (pow_pos hu0 _) (pow_pos (sub_pos.2 hu1) _)
   have hlog : 0 ≤ log (((k : ℝ) / n) ^ k * ((m : ℝ) / n) ^ m / (u ^ k * (1 - u) ^ m)) := by
     rw [← mul_klBerReal_div_eq_log hkm hn ⟨hu0, hu1⟩]
-    exact mul_nonneg hn'.le (klBerReal_nonneg hkn hu (klBer_ne_top ⟨hu0, hu1⟩))
+    exact mul_nonneg hn'.le (klBerReal_nonneg_of_klBer_ne_top hkn hu (klBer_ne_top ⟨hu0, hu1⟩))
   rwa [log_nonneg_iff (div_pos hR hq), one_le_div hq] at hlog
 
 /-! ### Continuity and monotonicity -/
-
-/-- Away from `q ∈ {0, 1}`, `klBerReal p q` is the binary cross-entropy
-`-(p log q + (1 - p) log (1 - q))` minus the binary entropy of `p`. -/
-theorem klBerReal_eq_neg_binEntropy_sub (hq0 : q ≠ 0) (hq1 : q ≠ 1) :
-    klBerReal p q = -binEntropy p - (p * log q + (1 - p) * log (1 - q)) := by
-  have key {a b : ℝ} (hb : b ≠ 0) : a * log (a / b) = a * log a - a * log b := by
-    rcases eq_or_ne a 0 with rfl | ha
-    · simp
-    rw [log_div ha hb, mul_sub]
-  rw [klBerReal_def, key hq0, key (sub_ne_zero.2 hq1.symm)]
-  simp only [binEntropy_eq_negMulLog_add_negMulLog_one_sub, negMulLog_def]
-  ring
 
 /-- The real-valued binary relative entropy is jointly continuous on `ℝ × (0, 1)`. -/
 theorem continuousOn_klBerReal :
@@ -520,7 +486,7 @@ theorem continuousOn_klBerReal :
     (continuous_const.sub continuous_snd).continuousOn.log fun x hx ↦ (sub_pos.2 hx.2.2).ne'
   refine ContinuousOn.congr (f := fun x : ℝ × ℝ ↦
       -binEntropy x.1 - (x.1 * log x.2 + (1 - x.1) * log (1 - x.2))) ?_
-    fun x hx ↦ klBerReal_eq_neg_binEntropy_sub hx.2.1.ne' hx.2.2.ne
+    fun x hx ↦ (klBerReal_eq_neg_binEntropy_sub hx.2.1.ne' hx.2.2.ne).trans (sub_sub _ _ _)
   exact (binEntropy_continuous.comp continuous_fst).neg.continuousOn.sub
     ((continuous_fst.continuousOn.mul hlog).add
       ((continuous_const.sub continuous_fst).continuousOn.mul hlog'))
@@ -572,7 +538,7 @@ theorem hasDerivAt_klBerReal (p : ℝ) (hq : q ∈ Set.Ioo 0 1) :
   · field_simp
     ring
   · filter_upwards [isOpen_Ioo.mem_nhds hq] with x hx
-    exact klBerReal_eq_neg_binEntropy_sub hx.1.ne' hx.2.ne
+    exact (klBerReal_eq_neg_binEntropy_sub hx.1.ne' hx.2.ne).trans (sub_sub _ _ _)
 
 /-- On the right of `p`, `q ↦ klBerReal p q` is strictly increasing on `(0, 1)`. -/
 theorem strictMonoOn_klBerReal (p : ℝ) :
@@ -613,7 +579,8 @@ theorem strictMonoOn_klBer (hp : p ∈ Set.Icc 0 1) : StrictMonoOn (klBer p) (Se
   have hq₂01 : q₂ ∈ Set.Ioo 0 1 := ⟨hq₁01.1.trans h, hq₂1⟩
   rw [klBer_eq_ofReal_klBerReal hp hq₁' (klBer_ne_top hq₁01),
     klBer_eq_ofReal_klBerReal hp hq₂' (klBer_ne_top hq₂01),
-    ENNReal.ofReal_lt_ofReal_iff_of_nonneg (klBerReal_nonneg hp hq₁' (klBer_ne_top hq₁01))]
+    ENNReal.ofReal_lt_ofReal_iff_of_nonneg
+      (klBerReal_nonneg_of_klBer_ne_top hp hq₁' (klBer_ne_top hq₁01))]
   exact strictMonoOn_klBerReal p ⟨hq₁.1, hq₁01⟩ ⟨hq₂.1, hq₂01⟩ h
 
 /-- For `p ∈ [0, 1]`, `q ↦ klBer p q` is strictly decreasing on `[0, p]`. -/
@@ -660,7 +627,7 @@ theorem hasDerivAt_klBerReal_left (hp0 : p ≠ 0) (hp1 : p ≠ 1) (hq0 : q ≠ 0
       (-(log (1 - p) - log p) - (1 * log q + -1 * log (1 - q))) p :=
     (hasDerivAt_binEntropy hp0 hp1).neg.sub
       (((hasDerivAt_id' p).mul_const _).add (((hasDerivAt_id' p).const_sub 1).mul_const _))
-  rw [funext fun x ↦ klBerReal_eq_neg_binEntropy_sub (p := x) hq0 hq1]
+  rw [funext fun x ↦ (klBerReal_eq_neg_binEntropy_sub (p := x) hq0 hq1).trans (sub_sub _ _ _)]
   exact h.congr_deriv (by ring)
 
 /-- For `q ∈ (0, 1)`, `p ↦ klBerReal p q` is strictly decreasing on `[0, q]`. -/
@@ -738,9 +705,10 @@ theorem klBer_add_klBer_le {r : ℝ} (hpq : p ≤ q) (hqr : q ≤ r) :
       klBer_eq_ofReal_klBerReal (Set.Ioo_subset_Icc_self hq') (Set.Ioo_subset_Icc_self hr')
         (klBer_ne_top hr'),
       klBer_eq_ofReal_klBerReal hp' (Set.Ioo_subset_Icc_self hr') (klBer_ne_top hr'),
-      ← ENNReal.ofReal_add (klBerReal_nonneg hp' (Set.Ioo_subset_Icc_self hq') (klBer_ne_top hq'))
-        (klBerReal_nonneg (Set.Ioo_subset_Icc_self hq') (Set.Ioo_subset_Icc_self hr')
-          (klBer_ne_top hr'))]
+      ← ENNReal.ofReal_add
+        (klBerReal_nonneg_of_klBer_ne_top hp' (Set.Ioo_subset_Icc_self hq') (klBer_ne_top hq'))
+        (klBerReal_nonneg_of_klBer_ne_top (Set.Ioo_subset_Icc_self hq')
+          (Set.Ioo_subset_Icc_self hr') (klBer_ne_top hr'))]
     refine ENNReal.ofReal_le_ofReal ?_
     -- `d(p, r) - d(p, q)` is affine in `p`, with value `d(q, r)` at `p = q` and a nonpositive
     -- slope `(log q - log r) - (log (1 - q) - log (1 - r))`
@@ -753,12 +721,11 @@ theorem klBer_add_klBer_le {r : ℝ} (hpq : p ≤ q) (hqr : q ≤ r) :
         (1 - p) * log ((1 - p) / (1 - q)) + (1 - p) * (log (1 - q) - log (1 - r)) := by
       rw [log_div (by linarith) (by linarith), log_div (by linarith) (by linarith)]
       ring
-    have h₃ : klBerReal q r = q * (log q - log r) + (1 - q) * (log (1 - q) - log (1 - r)) := by
-      rw [klBerReal_def, log_div hq'.1.ne' hr'.1.ne', log_div (by linarith) (by linarith)]
+    have h₃ := klBerReal_eq_of_ne (p := q) hr'.1.ne' hr'.2.ne
     have hA : log q - log r ≤ 0 := by linarith [log_le_log hq'.1 hqr.le]
     have hB : 0 ≤ log (1 - q) - log (1 - r) := by
       linarith [log_le_log (sub_pos.2 hr1) (by linarith : 1 - r ≤ 1 - q)]
-    rw [klBerReal_def p r, h₁, h₂, h₃, klBerReal_def p q]
+    rw [klBerReal_apply p r, h₁, h₂, h₃, klBerReal_apply p q]
     nlinarith [mul_nonneg (sub_nonneg.2 hpq.le) (sub_nonneg.2 (hA.trans hB))]
   rw [← klBer_projIcc p q, ← klBer_projIcc q r, ← klBer_projIcc p r]
   exact key (Set.projIcc 0 1 zero_le_one p).2.1 (Set.monotone_projIcc zero_le_one hpq)
@@ -830,7 +797,8 @@ theorem strictConvexOn_klBerReal_left (hq : q ∈ Set.Ioo 0 1) :
     refine ⟨convex_Icc 0 1, fun x _ y _ a b _ _ hab ↦ le_of_eq ?_⟩
     simp only [smul_eq_mul]
     linear_combination (log (1 - q)) * hab
-  rw [funext fun p ↦ klBerReal_eq_neg_binEntropy_sub (p := p) hq.1.ne' hq.2.ne]
+  rw [funext fun p ↦
+    (klBerReal_eq_neg_binEntropy_sub (p := p) hq.1.ne' hq.2.ne).trans (sub_sub _ _ _)]
   exact strictConcave_binEntropy.neg.sub_concaveOn haff
 
 /-- For `p ∈ [0, 1]`, `q ↦ d(p, q)` is strictly convex on `(0, 1)` [LS, Lemma 10.2]: its
@@ -890,7 +858,7 @@ theorem _root_.Measurable.klBer {α : Type*} {mα : MeasurableSpace α} {f g : �
 /-- `d(p, 1 - p) = (1 - 2p) log ((1 - p) / p)`. -/
 theorem klBerReal_one_sub_right (p : ℝ) :
     klBerReal p (1 - p) = (1 - 2 * p) * log ((1 - p) / p) := by
-  rw [klBerReal_def, sub_sub_cancel, ← inv_div (1 - p) p, Real.log_inv]
+  rw [klBerReal_apply, sub_sub_cancel, ← inv_div (1 - p) p, Real.log_inv]
   ring
 
 /-- For `p ∈ (0, 1)`, `d(p, 1 - p) = (1 - 2p) log ((1 - p) / p)`. -/
@@ -1053,7 +1021,7 @@ theorem tendsto_klBerReal_nhdsLT_one (hp0 : 0 ≤ p) (hp : p < 1) :
         nhdsWithin_le_nhds,
         eventually_nhdsWithin_of_forall fun q (hq : q < 1) ↦ sub_pos.2 hq⟩
   refine ((tendsto_klBerReal_nhdsGT_zero (sub_pos.2 hp) (by linarith)).comp h).congr fun q ↦ ?_
-  exact klBerReal_one_sub_one_sub p q
+  exact klBerReal_one_sub p q
 
 /-- **Lower bound on the binary relative entropy by `klFun`**: for `p ≤ 1`, `q ≠ 0` and `q < 1`,
 `q klFun (p / q) ≤ d(p, q)`, with `klFun x = x log x + 1 - x`. For `p, q ∈ (0, 1)` with `p / q`
@@ -1077,7 +1045,7 @@ theorem mul_klFun_div_le_klBerReal (hp : p ≤ 1) (hq0 : q ≠ 0) (hq1 : q < 1) 
   have h5 : q * (p / q * log (p / q) + 1 - p / q) = p * log (p / q) + (q - p) := by
     field_simp
     ring
-  rw [klBerReal_def, klFun_apply, h5]
+  rw [klBerReal_apply, klFun_apply, h5]
   linarith
 
 /-! ### The upper confidence level -/

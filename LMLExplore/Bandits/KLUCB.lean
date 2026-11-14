@@ -150,7 +150,7 @@ this limit to its Exercise 10.2.
 
 public section
 
-open MeasureTheory ProbabilityTheory Finset Filter Topology Real Learning Bandits
+open MeasureTheory InformationTheory ProbabilityTheory Finset Filter Topology Real Learning Bandits
 
 open scoped ENNReal NNReal
 
