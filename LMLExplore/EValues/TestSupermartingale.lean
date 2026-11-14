@@ -7,6 +7,7 @@ module
 
 public import LMLExplore.EValues.CondEVariable
 public import LMLExplore.Probability.Martingale.Basic
+public import LMLExplore.Probability.Process.Adapted
 
 /-!
 # Test supermartingales and wealth processes
@@ -272,14 +273,6 @@ theorem _root_.MeasureTheory.Supermartingale.isTestSupermartingale_ofReal
 
 /-! ### Wealth processes -/
 
-/-- The wealth `M₀ * ∏ k < n, F k` is adapted when `M₀` is `ℱ 0`-measurable and each factor
-`F k` is `ℱ (k + 1)`-measurable. -/
-private lemma adapted_mul_prod {M₀ : Ω → ℝ≥0∞} (hM₀ : Measurable[ℱ 0] M₀) {F : ℕ → Ω → ℝ≥0∞}
-    (hF : ∀ k, Measurable[ℱ (k + 1)] (F k)) :
-    Adapted ℱ (fun n ω ↦ M₀ ω * ∏ k ∈ range n, F k ω) := fun n ↦
-  (hM₀.mono (ℱ.mono n.zero_le) le_rfl).mul <| Finset.measurable_fun_prod _ fun k hk ↦
-    (hF k).mono (ℱ.mono (Finset.mem_range.1 hk)) le_rfl
-
 /-- **Wealth of a reinvesting gambler.** For an `ℱ 0`-measurable initial wealth `M₀` with
 expectation at most `1` under every member of `S`, and factors `F k` that are
 `ℱ (k + 1)`-measurable conditional e-variables given `ℱ k`, the wealth
@@ -288,9 +281,9 @@ theorem isTestSupermartingale_mul_prod {M₀ : Ω → ℝ≥0∞} (hM₀ : Measu
     (hM₀_le : ∀ P ∈ S, ∫⁻ ω, M₀ ω ∂P ≤ 1) {F : ℕ → Ω → ℝ≥0∞}
     (hF_meas : ∀ k, Measurable[ℱ (k + 1)] (F k)) (hF : ∀ k, IsCondEVar (F k) (ℱ k) S) :
     IsTestSupermartingale (fun n ω ↦ M₀ ω * ∏ k ∈ range n, F k ω) ℱ S := by
-  refine ⟨⟨adapted_mul_prod hM₀ hF_meas, fun P hP n s hs ↦ ?_⟩, by simpa using hM₀_le⟩
+  refine ⟨⟨adapted_mul_prod_range hM₀ hF_meas, fun P hP n s hs ↦ ?_⟩, by simpa using hM₀_le⟩
   simp_rw [prod_range_succ, ← mul_assoc]
-  exact (hF n).setLIntegral_mul_le (ℱ.le n) hP (adapted_mul_prod hM₀ hF_meas n) hs
+  exact (hF n).setLIntegral_mul_le (ℱ.le n) hP (adapted_mul_prod_range hM₀ hF_meas n) hs
 
 /-- **Wealth of a reinvesting gambler, exact case.** For an `ℱ 0`-measurable initial wealth `M₀`
 with expectation at most `1` under every member of `S`, and factors `F k` that are
@@ -300,9 +293,9 @@ theorem isTestMartingale_mul_prod {M₀ : Ω → ℝ≥0∞} (hM₀ : Measurable
     (hM₀_le : ∀ P ∈ S, ∫⁻ ω, M₀ ω ∂P ≤ 1) {F : ℕ → Ω → ℝ≥0∞}
     (hF_meas : ∀ k, Measurable[ℱ (k + 1)] (F k)) (hF : ∀ k, IsExactCondEVar (F k) (ℱ k) S) :
     IsTestMartingale (fun n ω ↦ M₀ ω * ∏ k ∈ range n, F k ω) ℱ S := by
-  refine ⟨adapted_mul_prod hM₀ hF_meas, by simpa using hM₀_le, fun P hP n s hs ↦ ?_⟩
+  refine ⟨adapted_mul_prod_range hM₀ hF_meas, by simpa using hM₀_le, fun P hP n s hs ↦ ?_⟩
   simp_rw [prod_range_succ, ← mul_assoc]
-  exact (hF n).setLIntegral_mul_eq (ℱ.le n) hP (adapted_mul_prod hM₀ hF_meas n) hs
+  exact (hF n).setLIntegral_mul_eq (ℱ.le n) hP (adapted_mul_prod_range hM₀ hF_meas n) hs
 
 /-- **Wealth of portfolios** [WSJ26]. For conditional e-variables `E k i` given `ℱ k` that are
 `ℱ (k + 1)`-measurable, and `ℱ k`-measurable portfolios `w k` with `∑ i, w k ω i ≤ 1`, the wealth
@@ -368,7 +361,7 @@ theorem isTestSupermartingale_betting (hS : ∀ P ∈ S, IsProbabilityMeasure P)
   have := isTestSupermartingale_portfolio (ℱ := ℱ) (M₀ := 1) (w := fun k ω ↦ ![1 - c k ω, c k ω])
     (E := fun k ↦ ![1, E k]) measurable_const (fun P hP ↦ by have := hS P hP; simp)
     (fun k i ↦ by fin_cases i <;> simp [measurable_one, hE_meas k])
-    (fun k i ↦ by fin_cases i <;> simp [isCondEVar_one, hE k])
+    (fun k i ↦ by fin_cases i <;> simp [hE k])
     (fun k i ↦ by fin_cases i <;> simp [(hc k).const_sub, hc k])
     (fun k ω ↦ by simp [tsub_add_cancel_of_le (hc_le k ω)])
   simpa [Fin.sum_univ_two] using this
@@ -384,7 +377,7 @@ theorem isTestMartingale_betting (hS : ∀ P ∈ S, IsProbabilityMeasure P)
   have := isTestMartingale_portfolio (ℱ := ℱ) (M₀ := 1) (w := fun k ω ↦ ![1 - c k ω, c k ω])
     (E := fun k ↦ ![1, E k]) measurable_const (fun P hP ↦ by have := hS P hP; simp)
     (fun k i ↦ by fin_cases i <;> simp [measurable_one, hE_meas k])
-    (fun k i ↦ by fin_cases i <;> simp [isExactCondEVar_one, hE k])
+    (fun k i ↦ by fin_cases i <;> simp [hE k])
     (fun k i ↦ by fin_cases i <;> simp [(hc k).const_sub, hc k])
     (fun k ω ↦ by simp [tsub_add_cancel_of_le (hc_le k ω)])
   simpa [Fin.sum_univ_two] using this

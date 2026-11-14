@@ -34,8 +34,8 @@ a conditional e-variable.
 
 * `ProbabilityTheory.isCondEVar_iff_withDensity_trim_le`: `X` is a conditional e-variable exactly
   when the restriction of `P.withDensity X` to `m` is at most that of `P`.
-* `ProbabilityTheory.isCondEVar_bot_iff`: the conditional e-variables given `⊥` are Statlib's
-  e-variables.
+* `ProbabilityTheory.isCondEVar_bot_iff`: for a null of finite measures, the conditional
+  e-variables given `⊥` are Statlib's e-variables.
 * `ProbabilityTheory.IsCondEVar.setLIntegral_mul_le`: an `m`-measurable factor can be pulled out.
 * `ProbabilityTheory.isCondEVar_sum_mul`, `ProbabilityTheory.isExactCondEVar_sum_mul`:
   portfolios of conditional e-variables.
@@ -79,10 +79,12 @@ theorem IsExactCondEVar.isCondEVar (hX : IsExactCondEVar X m S) : IsCondEVar X m
   ⟨hX.measurable, fun P hP s hs ↦ (hX.setLIntegral_eq P hP s hs).le⟩
 
 /-- The constant `1` is an exact conditional e-variable given every σ-algebra. -/
+@[simp]
 theorem isExactCondEVar_one : IsExactCondEVar 1 m S :=
   ⟨measurable_const, fun _ _ _ _ ↦ by simp⟩
 
 /-- The constant `1` is a conditional e-variable given every σ-algebra. -/
+@[simp]
 theorem isCondEVar_one : IsCondEVar 1 m S :=
   isExactCondEVar_one.isCondEVar
 
@@ -151,8 +153,8 @@ theorem isExactCondEVar_iff_withDensity_trim_eq (hm : m ≤ mΩ) :
   simp_rw [h]
   exact ⟨fun hX ↦ ⟨hX.measurable, hX.setLIntegral_eq⟩, fun hX ↦ ⟨hX.1, hX.2⟩⟩
 
-/-- A conditional e-variable given the trivial σ-algebra is an e-variable, and conversely for
-nulls of finite measures. -/
+/-- For a null of finite measures, the conditional e-variables given the trivial σ-algebra are
+exactly the e-variables. -/
 theorem isCondEVar_bot_iff (hS : ∀ P ∈ S, IsFiniteMeasure P) :
     IsCondEVar X ⊥ S ↔ IsEVar X S := by
   refine ⟨fun hX ↦ IsEVar.of_lintegral_le_measure_univ hS hX.measurable fun P hP ↦ ?_,
