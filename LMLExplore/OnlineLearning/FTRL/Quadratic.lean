@@ -42,8 +42,6 @@ bound `4 + 4 log n` of [Ora, Theorem 1.3].
   `⟪v i, ·⟫ + μ i / 2 * ‖· - x i‖ ^ 2` with positive total weight are the nearest points to an
   explicit center; in particular the plays of follow-the-leader on the quadratized losses
   [Ora, (7.9)].
-* `strongConvexOn_sq_sub`, `hasSubgradientWithinAt_sq_sub`: the squared loss `(a - y) ^ 2` is
-  `2`-strongly convex, with subgradient `2 (x - y)` at `x`.
 * `regret_sq_sub_le_one_add_log`: [Ora, Example 7.26] the regret of follow-the-leader on the
   guessing game.
 
@@ -169,21 +167,6 @@ theorem isMinOn_sum_inner_add_div_two_mul_norm_sub_sq_iff {ι : Type*} (t : Fins
   simp only [isMinOn_iff, h_sq, add_le_add_iff_right]
   refine forall₂_congr fun b _ ↦ ?_
   rw [mul_le_mul_iff_of_pos_left (half_pos hμ), sq_le_sq₀ (norm_nonneg _) (norm_nonneg _)]
-
-/-- The squared loss `(a - y) ^ 2` is `2`-strongly convex on every convex set of `ℝ`. -/
-theorem strongConvexOn_sq_sub {s : Set ℝ} (hs : Convex ℝ s) (y : ℝ) :
-    StrongConvexOn s 2 fun a ↦ (a - y) ^ 2 := by
-  convert strongConvexOn_div_two_mul_norm_sub_sq hs 2 y using 2 with a
-  rw [Real.norm_eq_abs, sq_abs]
-  ring
-
-/-- The derivative `2 (x - y)` of the squared loss `(a - y) ^ 2` at `x` is a subgradient of it
-within every set of `ℝ`. -/
-theorem hasSubgradientWithinAt_sq_sub (s : Set ℝ) (x y : ℝ) :
-    HasSubgradientWithinAt (fun a ↦ (a - y) ^ 2) (innerSL ℝ (2 * (x - y))) s x := by
-  refine hasSubgradientWithinAt_iff_le.mpr fun a _ ↦ ?_
-  simp only [innerSL_apply_apply, Real.inner_apply]
-  nlinarith [sq_nonneg (a - x)]
 
 /-- **Follow-the-leader on the guessing game** [Ora, Example 7.26]. Let the outcomes `y t` and the
 plays `x t` lie in `[0, 1]`, and let `x t` minimize over `[0, 1]` the cumulative squared loss

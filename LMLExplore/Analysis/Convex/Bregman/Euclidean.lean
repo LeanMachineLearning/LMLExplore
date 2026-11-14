@@ -6,6 +6,7 @@ Authors: LMLExplore contributors
 module
 
 public import LeanMachineLearning.ForMathlib.Analysis.Convex.Bregman.Basic
+public import LeanMachineLearning.ForMathlib.Analysis.Convex.Subgradient.Basic
 public import Mathlib.Analysis.InnerProductSpace.Calculus
 public import TauCeti.Analysis.Convex.Strong
 
@@ -24,6 +25,8 @@ With this potential, mirror descent is projected gradient descent.
 * `LMLExplore.strongConvexOn_div_two_mul_norm_sub_sq`: `m / 2 * ‖b - c‖ ^ 2` is `m`-strongly
   convex on every convex set; in particular `‖b‖ ^ 2 / 2` is `1`-strongly convex
   (`LMLExplore.strongConvexOn_norm_sq_div_two`).
+* `LMLExplore.strongConvexOn_sq_sub`, `LMLExplore.hasSubgradientWithinAt_sq_sub`: on `ℝ`, the
+  squared loss `(a - y) ^ 2` is `2`-strongly convex, with subgradient `2 (x - y)` at `x`.
 -/
 
 public section
@@ -71,5 +74,20 @@ theorem strongConvexOn_norm_sq_div_two (hK : Convex ℝ K) :
   convert strongConvexOn_div_two_mul_norm_sub_sq hK 1 0 using 2 with b
   rw [sub_zero]
   ring
+
+/-- The squared loss `(a - y) ^ 2` is `2`-strongly convex on every convex set of `ℝ`. -/
+theorem strongConvexOn_sq_sub {s : Set ℝ} (hs : Convex ℝ s) (y : ℝ) :
+    StrongConvexOn s 2 fun a ↦ (a - y) ^ 2 := by
+  convert strongConvexOn_div_two_mul_norm_sub_sq hs 2 y using 2 with a
+  rw [Real.norm_eq_abs, sq_abs]
+  ring
+
+/-- The derivative `2 (x - y)` of the squared loss `(a - y) ^ 2` at `x` is a subgradient of it
+within every set of `ℝ`. -/
+theorem hasSubgradientWithinAt_sq_sub (s : Set ℝ) (x y : ℝ) :
+    HasSubgradientWithinAt (fun a ↦ (a - y) ^ 2) (innerSL ℝ (2 * (x - y))) s x := by
+  refine hasSubgradientWithinAt_iff_le.mpr fun a _ ↦ ?_
+  simp only [innerSL_apply_apply, Real.inner_apply]
+  nlinarith [sq_nonneg (a - x)]
 
 end LMLExplore

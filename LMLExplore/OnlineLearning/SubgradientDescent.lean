@@ -5,9 +5,9 @@ Authors: LMLExplore contributors
 -/
 module
 
+public import LMLExplore.Analysis.Convex.Bregman.Euclidean
 public import LMLExplore.Analysis.Real.Sqrt
 public import LMLExplore.NumberTheory.Harmonic.Bounds
-public import LMLExplore.OnlineLearning.FTRL.Quadratic
 public import LMLExplore.OnlineLearning.MirrorDescent
 public import LMLExplore.OnlineLearning.Regret
 
