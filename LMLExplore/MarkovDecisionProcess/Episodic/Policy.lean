@@ -100,6 +100,10 @@ noncomputable def toKernel (π : Policy 𝓢 𝓐 H) (hπ : ∀ h, Measurable (�
     Kernel 𝓢 𝓐 :=
   Kernel.deterministic (π.extend h) (measurable_extend hπ h)
 
+lemma toKernel_def (π : Policy 𝓢 𝓐 H) (hπ : ∀ h, Measurable (π h)) :
+    π.toKernel hπ = fun h ↦ Kernel.deterministic (π.extend h) (measurable_extend hπ h) :=
+  (rfl)
+
 @[simp]
 lemma toKernel_apply (π : Policy 𝓢 𝓐 H) (hπ : ∀ h, Measurable (π h)) (h : ℕ) (s : 𝓢) :
     π.toKernel hπ h s = Measure.dirac (π.extend h s) :=
@@ -120,8 +124,8 @@ variable [MeasurableSpace 𝓢] [MeasurableSpace 𝓐] [Nonempty 𝓐] (M : Epis
 theorem value_toKernel_fin {π : Policy 𝓢 𝓐 H} (hπ : ∀ h, Measurable (π h)) (h : Fin H)
     (s : 𝓢) :
     M.value H (π.toKernel hπ) h s = M.qValue H (π.toKernel hπ) h s (π h s) := by
-  have := M.value_deterministic_of_lt (H := H) (Policy.measurable_extend hπ) h.2 s
-  rwa [Policy.extend_fin] at this
+  rw [Policy.toKernel_def, M.value_deterministic_of_lt (Policy.measurable_extend hπ) h.2 s,
+    Policy.extend_fin]
 
 end EpisodicMDP
 
