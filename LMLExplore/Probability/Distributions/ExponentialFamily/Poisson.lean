@@ -8,6 +8,7 @@ module
 public import LMLExplore.Probability.Distributions.ExponentialFamily.Mean
 public import LMLExplore.Probability.Distributions.Poisson
 public import TauCeti.Probability.Distributions.Tilted
+import LMLExplore.Analysis.SpecialFunctions.Log.Basic
 
 /-!
 # The Poisson laws as an exponential family
@@ -44,11 +45,14 @@ where the closed form of the divergence makes the transportation costs explicit.
   `d(μ, μ') = μ log (μ / μ') - μ + μ'` for `μ, μ' > 0`.
 * `LMLExplore.klDiv_poissonMeasure`: the Kullback–Leibler divergence between `Po(μ)` and `Po(μ')`
   for `μ, μ' ≠ 0` is `μ log (μ / μ') - μ + μ'`.
+* `LMLExplore.tendsto_expFamilyDiv_poissonMeasure_nhdsGT_zero`,
+  `LMLExplore.tendsto_expFamilyDiv_poissonMeasure_atTop`: for `r ≠ 0`, `d(μ, μ') → ∞` as `μ'`
+  tends to either endpoint `0` or `∞` of the means.
 -/
 
 public section
 
-open MeasureTheory ProbabilityTheory InformationTheory Real Set
+open MeasureTheory ProbabilityTheory InformationTheory Real Set Filter Topology
 
 open scoped NNReal ENNReal Nat
 
@@ -148,5 +152,34 @@ theorem klDiv_poissonMeasure {μ μ' : ℝ≥0} (hμ : μ ≠ 0) (hμ' : μ' ≠
   have h := Measure.klDiv_expFamily_natParam (hmem μ hμ₀) (hmem μ' hμ₀')
   rwa [expFamily_natParam_poissonMeasure hμ' hμ₀, expFamily_natParam_poissonMeasure hμ' hμ₀',
     toNNReal_coe, toNNReal_coe, expFamilyDiv_poissonMeasure hμ' hμ₀ hμ₀'] at h
+
+/-- For `r ≠ 0` and means `μ, μ' > 0`, the divergence of the exponential family of `Po(r)` is
+`d(μ, μ') = μ (t - 1 - log t)` for the ratio `t = μ' / μ`. -/
+private lemma expFamilyDiv_poissonMeasure_eq_mul (hr : r ≠ 0) (hμ : 0 < μ) (hμ' : 0 < μ') :
+    (poissonMeasure r).expFamilyDiv Nat.cast μ μ' = μ * (μ' / μ - 1 - log (μ' / μ)) := by
+  rw [expFamilyDiv_poissonMeasure hr hμ hμ', log_div hμ.ne' hμ'.ne', log_div hμ'.ne' hμ.ne']
+  field_simp
+  ring
+
+/-- For `r ≠ 0` and a mean `μ > 0`, the divergence `d(μ, μ')` of the exponential family of `Po(r)`
+tends to infinity as `μ'` tends to the endpoint `0` of the means. -/
+theorem tendsto_expFamilyDiv_poissonMeasure_nhdsGT_zero (hr : r ≠ 0) (hμ : 0 < μ) :
+    Tendsto ((poissonMeasure r).expFamilyDiv Nat.cast μ) (𝓝[>] 0) atTop := by
+  have h : Tendsto (fun μ' ↦ μ' / μ) (𝓝[>] 0) (𝓝[>] 0) :=
+    tendsto_nhdsWithin_iff.2
+      ⟨((continuous_id.div_const μ).tendsto' 0 0 (zero_div μ)).mono_left nhdsWithin_le_nhds,
+        eventually_nhdsWithin_of_forall fun μ' (hμ' : 0 < μ') ↦ div_pos hμ' hμ⟩
+  refine ((tendsto_sub_one_sub_log_nhdsGT_zero.comp h).const_mul_atTop hμ).congr' ?_
+  filter_upwards [self_mem_nhdsWithin] with μ' (hμ' : 0 < μ')
+  exact (expFamilyDiv_poissonMeasure_eq_mul hr hμ hμ').symm
+
+/-- For `r ≠ 0` and a mean `μ > 0`, the divergence `d(μ, μ')` of the exponential family of `Po(r)`
+tends to infinity as `μ'` tends to the endpoint `∞` of the means. -/
+theorem tendsto_expFamilyDiv_poissonMeasure_atTop (hr : r ≠ 0) (hμ : 0 < μ) :
+    Tendsto ((poissonMeasure r).expFamilyDiv Nat.cast μ) atTop atTop := by
+  refine ((tendsto_sub_one_sub_log_atTop.comp (tendsto_id.atTop_div_const hμ)).const_mul_atTop
+    hμ).congr' ?_
+  filter_upwards [eventually_gt_atTop 0] with μ' hμ'
+  exact (expFamilyDiv_poissonMeasure_eq_mul hr hμ hμ').symm
 
 end LMLExplore

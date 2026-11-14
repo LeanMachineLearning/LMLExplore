@@ -103,6 +103,8 @@ smallest `q ∈ [0, p]` with `d(p, q) ≤ c`; together they are the confidence b
   `LMLExplore.ofReal_mul_neg_log_le_klBer_add_log_two`: the bound
   `p log (1 / q) ≤ d(p, q) + log 2`, by which the change of measure bounds the probability of an
   event that is likely under one law and unlikely under the other.
+* `LMLExplore.tendsto_klBerReal_nhdsGT_zero`, `LMLExplore.tendsto_klBerReal_nhdsLT_one`:
+  `d(p, q) → ∞` as `q → 0⁺` for `p ∈ (0, 1]`, and as `q → 1⁻` for `p ∈ [0, 1)`.
 * `LMLExplore.mul_klFun_div_le_klBerReal`: the bound `q klFun (p / q) ≤ d(p, q)` for `p ≤ 1`,
   `q ≠ 0` and `q < 1`, of the order of `q` when `p / q` stays away from `1`
   [D23, proof of Theorem 10].
@@ -1029,6 +1031,29 @@ theorem ofReal_mul_neg_log_le_klBer_add_log_two (hp : p ∈ Set.Icc 0 1) (hq : q
     ← ENNReal.ofReal_mul hp.1, klBer_eq_ofReal_klBerReal hp hq (klBer_ne_top ⟨hq0, hq1⟩)]
   exact (ENNReal.ofReal_le_ofReal (mul_neg_log_le_klBerReal_add_log_two hp ⟨hq0, hq1⟩)).trans
     ENNReal.ofReal_add_le
+
+/-- For `p ∈ (0, 1]`, the binary relative entropy `d(p, q)` tends to infinity as `q → 0⁺`, since
+`p log (1 / q) ≤ d(p, q) + log 2`. -/
+theorem tendsto_klBerReal_nhdsGT_zero (hp : 0 < p) (hp1 : p ≤ 1) :
+    Tendsto (klBerReal p) (𝓝[>] 0) atTop := by
+  refine tendsto_atTop_mono' _ ?_ (tendsto_atTop_add_const_right _ (-log 2)
+    ((tendsto_neg_atBot_atTop.comp tendsto_log_nhdsGT_zero).const_mul_atTop hp))
+  filter_upwards [Ioo_mem_nhdsGT one_pos] with q hq
+  have h := mul_neg_log_le_klBerReal_add_log_two ⟨hp.le, hp1⟩ hq
+  simp only [Function.comp_apply]
+  linarith
+
+/-- For `p ∈ [0, 1)`, the binary relative entropy `d(p, q)` tends to infinity as `q → 1⁻`, by the
+symmetry `d(1 - p, 1 - q) = d(p, q)`. -/
+theorem tendsto_klBerReal_nhdsLT_one (hp0 : 0 ≤ p) (hp : p < 1) :
+    Tendsto (klBerReal p) (𝓝[<] 1) atTop := by
+  have h : Tendsto (fun q : ℝ ↦ 1 - q) (𝓝[<] 1) (𝓝[>] 0) :=
+    tendsto_nhdsWithin_iff.2
+      ⟨((continuous_const.sub continuous_id).tendsto' 1 0 (sub_self 1)).mono_left
+        nhdsWithin_le_nhds,
+        eventually_nhdsWithin_of_forall fun q (hq : q < 1) ↦ sub_pos.2 hq⟩
+  refine ((tendsto_klBerReal_nhdsGT_zero (sub_pos.2 hp) (by linarith)).comp h).congr fun q ↦ ?_
+  exact klBerReal_one_sub_one_sub p q
 
 /-- **Lower bound on the binary relative entropy by `klFun`**: for `p ≤ 1`, `q ≠ 0` and `q < 1`,
 `q klFun (p / q) ≤ d(p, q)`, with `klFun x = x log x + 1 - x`. For `p, q ∈ (0, 1)` with `p / q`

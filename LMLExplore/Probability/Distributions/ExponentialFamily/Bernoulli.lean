@@ -57,6 +57,9 @@ sampling law of Thompson sampling with the Jeffreys prior for Bernoulli arms [KK
   Bernoulli laws `Ber((1 : ℝ), 0, q)` with `q ∈ (0, 1)`.
 * `LMLExplore.expFamilyDiv_bernoulliMeasure_sigmoid`: the divergence of the family is
   `klBerReal p m` for `p, m ∈ (0, 1)`.
+* `LMLExplore.tendsto_expFamilyDiv_bernoulliMeasure_sigmoid_nhdsGT_zero`,
+  `LMLExplore.tendsto_expFamilyDiv_bernoulliMeasure_sigmoid_nhdsLT_one`: `d(p, m) → ∞` as `m`
+  tends to either endpoint `0` or `1` of the means.
 * `LMLExplore.rateFunction_id_bernoulliMeasure`: the rate function of `Ber((1 : ℝ), 0, q)` at a
   level `x ∈ [0, 1]` is `klBer x q`.
 * `LMLExplore.expFamilyRate_bernoulliMeasure_sigmoid`: the extended divergence of the family is
@@ -85,7 +88,7 @@ public section
 
 open MeasureTheory ProbabilityTheory Real Set
 
-open scoped unitInterval ENNReal
+open scoped unitInterval ENNReal Topology
 
 namespace LMLExplore
 
@@ -179,6 +182,24 @@ theorem expFamilyDiv_bernoulliMeasure_sigmoid (η₀ : ℝ) (hp : p ∈ Ioo 0 1)
     expFamily_natParam_bernoulliMeasure_sigmoid η₀ hp,
     expFamily_natParam_bernoulliMeasure_sigmoid η₀ hm, klDiv_bernoulliMeasure one_ne_zero]
   exact toReal_klBer (Ioo_subset_Icc_self hp) (Ioo_subset_Icc_self hm) (klBer_ne_top hm)
+
+/-- For a mean `p ∈ (0, 1)`, the divergence `d(p, m)` of the exponential family of
+`Ber((1 : ℝ), 0, sigmoid η₀)` tends to infinity as `m` tends to the endpoint `0` of the means. -/
+theorem tendsto_expFamilyDiv_bernoulliMeasure_sigmoid_nhdsGT_zero (η₀ : ℝ) (hp : p ∈ Ioo 0 1) :
+    Filter.Tendsto (Ber((1 : ℝ), 0, unitInterval.sigmoid η₀).expFamilyDiv id p) (𝓝[>] 0)
+      Filter.atTop := by
+  refine (tendsto_klBerReal_nhdsGT_zero hp.1 hp.2.le).congr' ?_
+  filter_upwards [Ioo_mem_nhdsGT one_pos] with m hm
+  exact (expFamilyDiv_bernoulliMeasure_sigmoid η₀ hp hm).symm
+
+/-- For a mean `p ∈ (0, 1)`, the divergence `d(p, m)` of the exponential family of
+`Ber((1 : ℝ), 0, sigmoid η₀)` tends to infinity as `m` tends to the endpoint `1` of the means. -/
+theorem tendsto_expFamilyDiv_bernoulliMeasure_sigmoid_nhdsLT_one (η₀ : ℝ) (hp : p ∈ Ioo 0 1) :
+    Filter.Tendsto (Ber((1 : ℝ), 0, unitInterval.sigmoid η₀).expFamilyDiv id p) (𝓝[<] 1)
+      Filter.atTop := by
+  refine (tendsto_klBerReal_nhdsLT_one hp.1.le hp.2).congr' ?_
+  filter_upwards [Ioo_mem_nhdsLT one_pos] with m hm
+  exact (expFamilyDiv_bernoulliMeasure_sigmoid η₀ hp hm).symm
 
 /-- **Rate function of a Bernoulli law**: the Cramér rate function of `Ber((1 : ℝ), 0, q)` at a
 level `x ∈ [0, 1]` is the binary relative entropy `d(x, q)`. At the boundary levels `0` and `1`, it
