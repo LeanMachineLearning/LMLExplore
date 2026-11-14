@@ -31,7 +31,7 @@ badly, the worst-case bound of FTRL is essentially kept.
   and nondecreasing in `t` on `V`, and any auxiliary linear hints `q t`, the regret is at most
   [Ora, Theorem 7.48]
   `ψ (n - 1) u - min ψ 0 + ∑ t < n, (‖g t - q t‖ ^ 2 / (2 λ t) + ‖g t‖ * ‖p t - q t‖ / λ t)`.
-  With `q = p` this is the previous bound for these losses; with `q = g` the first term
+  With `q = p` this is implied by the previous bound for these losses; with `q = g` the first term
   vanishes, which is what delayed feedback needs [Ora, Section 7.13]. The proof compares the
   plays with those of the auxiliary hints, through the stability of the minimizers of a strongly
   convex function under linear perturbations,
@@ -82,7 +82,8 @@ the objective `F t + p` of optimistic FTRL with hint `p`, where `F t = ψ t + �
 be a subgradient of the prediction error `ℓ t - p` within `V` at `x t`, and let `F t + ℓ t` be
 `lam`-strongly convex on `V`. Then for every `z ∈ V`,
 `F t (x t) - F (t + 1) z + ℓ t (x t) ≤ g (x t - z) - lam / 2 * ‖x t - z‖ ^ 2 + ψ t z - ψ (t + 1) z`.
-The hint `p = 0` gives back `ftrl_stability_le_of_strongConvexOn`. -/
+This is `ftrl_stability_le_of_strongConvexOn` for the regularizers `ψ s + p` and the loss
+`ℓ t - p` at round `t`, which leave the objective `F (t + 1)` unchanged. -/
 theorem optimistic_ftrl_stability_le_of_strongConvexOn {ψ ℓ : ℕ → E → ℝ} {p : E → ℝ}
     {x : ℕ → E} {t : ℕ} {z : E} {g : E →L[ℝ] ℝ} {lam : ℝ}
     (hmin : IsMinOn (fun a ↦ ψ t a + ∑ s ∈ range t, ℓ s a + p a) V (x t))
@@ -92,16 +93,15 @@ theorem optimistic_ftrl_stability_le_of_strongConvexOn {ψ ℓ : ℕ → E → �
     (ψ t (x t) + ∑ s ∈ range t, ℓ s (x t)) - (ψ (t + 1) z + ∑ s ∈ range (t + 1), ℓ s z) +
         ℓ t (x t) ≤
       g (x t - z) - lam / 2 * ‖x t - z‖ ^ 2 + ψ t z - ψ (t + 1) z := by
-  -- `x t` minimizes `F t + p` on `V`, so a subgradient of `ℓ t - p` is a subgradient of
-  -- `F t + p + (ℓ t - p) = F t + ℓ t`
-  have hΦ' : HasSubgradientWithinAt (fun a ↦ ψ t a + ∑ s ∈ range (t + 1), ℓ s a) g V (x t) := by
-    have h := HasSubgradientWithinAt.fun_add_isMinOn hmin hg
-    convert h using 2 with a
-    rw [sum_range_succ]
-    ring
-  have h := hΦ.add_add_le_of_hasSubgradientWithinAt hx hz hΦ'
-  rw [show z - x t = -(x t - z) by abel, map_neg, norm_neg] at h
-  simp only [sum_range_succ] at h ⊢
+  -- FTRL with the regularizers `ψ s + p` and the loss `ℓ t - p` at round `t`
+  set ℓ' := Function.update ℓ t fun a ↦ ℓ t a - p a
+  have hℓ't : ℓ' t = fun a ↦ ℓ t a - p a := Function.update_self _ _ _
+  have hℓ' (a : E) : ∑ s ∈ range t, ℓ' s a = ∑ s ∈ range t, ℓ s a :=
+    sum_congr rfl fun s hs ↦ congrFun (Function.update_of_ne (mem_range.mp hs).ne _ _) a
+  have h := ftrl_stability_le_of_strongConvexOn (ψ := fun s a ↦ ψ s a + p a) (ℓ := ℓ')
+    (lam := lam) (by simpa only [hℓ', add_right_comm] using hmin) (by rwa [hℓ't])
+    (by convert hΦ using 2 with a; simp only [sum_range_succ, hℓ', hℓ't]; ring) hx hz
+  simp only [sum_range_succ, hℓ', hℓ't] at h ⊢
   linarith
 
 /-- **The regret of optimistic FTRL** [Ora, Algorithm 7.8, Theorem 7.47, first inequality]. Let
@@ -217,13 +217,11 @@ theorem sum_apply_sub_le_optimistic_ftrl (ψ : ℕ → E → ℝ) (g p q : ℕ �
       ∑ t ∈ range n, (‖g t - q t‖ ^ 2 / (2 * lam t) + ‖g t‖ * ‖p t - q t‖ / lam t) := by
   rcases Nat.eq_zero_or_pos n with rfl | hn
   · simpa using hc u hu
-  -- `ψ t` plus a linear map is `lam t`-strongly convex
-  have hψL (t : ℕ) (ht : t < n) (L : E →L[ℝ] ℝ) : StrongConvexOn V (lam t) fun a ↦ ψ t a + L a :=
-    (hψ t ht).add_convexOn (L.toLinearMap.convexOn (hψ t ht).1)
   -- the regret of the auxiliary plays, by the second inequality of Theorem 7.47
   have h_aux := regret_le_optimistic_ftrl_norm_sq_div_of_strongConvexOn ψ (fun t ↦ g t)
     (fun t ↦ q t) y (fun t ↦ g t - q t) hn hlam
-    (fun t ht ↦ by simpa using hψL t ht (∑ s ∈ range (t + 1), g s)) hy hymin
+    (fun t ht ↦ by simpa using (hψ t ht).add_continuousLinearMap (∑ s ∈ range (t + 1), g s))
+    hy hymin
     (fun t _ ↦ hasSubgradientWithinAt_linear (g t - q t)) hu
   have h_inc : ∑ t ∈ range (n - 1), (ψ t (y (t + 1)) - ψ (t + 1) (y (t + 1))) ≤ 0 :=
     sum_nonpos fun t ht ↦ by
@@ -234,10 +232,11 @@ theorem sum_apply_sub_le_optimistic_ftrl (ψ : ℕ → E → ℝ) (g p q : ℕ �
   have h_close : ∀ t ∈ range n, g t (x t - y t) ≤ ‖g t‖ * ‖p t - q t‖ / lam t := by
     intro t ht
     have ht := mem_range.mp ht
-    have h := (hψL t ht (∑ s ∈ range t, g s)).mul_norm_sub_le_norm_sub_of_isMinOn_add (hx t ht)
-      (hy t ht) (θ₁ := p t) (θ₂ := q t) (by simpa using hmin t ht) (by simpa using hymin t ht)
+    have h := ((hψ t ht).add_continuousLinearMap (∑ s ∈ range t, g s)
+      ).mul_norm_sub_le_norm_sub_of_isMinOn_add (hx t ht) (hy t ht) (θ₁ := p t) (θ₂ := q t)
+      (by simpa using hmin t ht) (by simpa using hymin t ht)
     rw [mul_div_assoc]
-    calc g t (x t - y t) ≤ ‖g t‖ * ‖x t - y t‖ := (Real.le_norm_self _).trans ((g t).le_opNorm _)
+    calc g t (x t - y t) ≤ ‖g t‖ * ‖x t - y t‖ := (g t).apply_le_opNorm_mul_norm _
       _ ≤ ‖g t‖ * (‖p t - q t‖ / lam t) := by
         gcongr
         rw [le_div_iff₀ (hlam t ht), mul_comm]
@@ -257,7 +256,8 @@ and nondecreasing in `t` on `V`, with `c ≤ ψ 0` on `V`. For `t < n`, let `x t
 linear maps `q t`,
 `∑ t < n, g t (x t - u)
   ≤ ψ (n - 1) u - c + ∑ t < n, (‖g t - q t‖ ^ 2 / (2 lam t) + ‖g t‖ * ‖p t - q t‖ / lam t)`,
-where the norms of `g t`, `p t` and `q t` are dual norms. With `q = p` this is the bound of
+where the norms of `g t`, `p t` and `q t` are dual norms. With `q = p` this is a weakening, for
+linear losses and nondecreasing regularizers, of the bound of
 `regret_le_optimistic_ftrl_norm_sq_div_of_strongConvexOn`; with `q = g` the bound is
 `ψ (n - 1) u - c + ∑ t < n, ‖g t‖ * ‖p t - g t‖ / lam t`. -/
 theorem sum_apply_sub_le_optimistic_ftrl_of_isClosed [FiniteDimensional ℝ E] (hV : IsClosed V)

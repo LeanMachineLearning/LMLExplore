@@ -7,6 +7,7 @@ module
 
 public import LeanMachineLearning.ForMathlib.Analysis.Convex.Subgradient.Basic
 public import LMLExplore.Analysis.Convex.Bregman.Taylor
+public import LMLExplore.Analysis.Normed.Operator.Basic
 public import Mathlib.Analysis.Convex.Strong
 public import Mathlib.Analysis.Normed.Module.FiniteDimension
 public import Mathlib.Topology.Semicontinuity.Basic
@@ -113,6 +114,12 @@ theorem add_convexOn (hf : StrongConvexOn s m f) (hg : ConvexOn ℝ s g) :
     StrongConvexOn s m (f + g) := by
   simpa using hf.add (strongConvexOn_zero.2 hg)
 
+/-- The sum of an `m`-strongly convex function on `s` and a continuous linear map is
+`m`-strongly convex on `s`. -/
+theorem add_continuousLinearMap (hf : StrongConvexOn s m f) (L : E →L[ℝ] ℝ) :
+    StrongConvexOn s m fun a ↦ f a + L a :=
+  hf.add_convexOn (L.toLinearMap.convexOn hf.1)
+
 /-- A nonnegative multiple `c • f` of an `m`-strongly convex function on `s` is
 `(c * m)`-strongly convex on `s`. -/
 theorem smul {c : ℝ} (hc : 0 ≤ c) (hf : StrongConvexOn s m f) :
@@ -188,14 +195,12 @@ theorem mul_norm_sub_le_norm_sub_of_isMinOn_add (hf : StrongConvexOn s m f) (hx 
     (hy : y ∈ s) {θ₁ θ₂ : E →L[ℝ] ℝ} (hx_min : IsMinOn (fun a ↦ f a + θ₁ a) s x)
     (hy_min : IsMinOn (fun a ↦ f a + θ₂ a) s y) :
     m * ‖x - y‖ ≤ ‖θ₁ - θ₂‖ := by
-  have hθ (θ : E →L[ℝ] ℝ) : StrongConvexOn s m fun a ↦ f a + θ a :=
-    hf.add_convexOn (θ.toLinearMap.convexOn hf.1)
-  have h₁ := (hθ θ₁).add_mul_norm_sub_sq_le_of_isMinOn hx hx_min hy
-  have h₂ := (hθ θ₂).add_mul_norm_sub_sq_le_of_isMinOn hy hy_min hx
+  have h₁ := (hf.add_continuousLinearMap θ₁).add_mul_norm_sub_sq_le_of_isMinOn hx hx_min hy
+  have h₂ := (hf.add_continuousLinearMap θ₂).add_mul_norm_sub_sq_le_of_isMinOn hy hy_min hx
   -- adding the quadratic growths at the two minimizers, `m ‖x - y‖² ≤ (θ₁ - θ₂) (y - x)`
   have h_op : (θ₁ - θ₂) (y - x) ≤ ‖θ₁ - θ₂‖ * ‖x - y‖ := by
     rw [norm_sub_rev x y]
-    exact (Real.le_norm_self _).trans ((θ₁ - θ₂).le_opNorm _)
+    exact (θ₁ - θ₂).apply_le_opNorm_mul_norm _
   simp only [sub_apply, map_sub] at h_op
   rw [norm_sub_rev y x] at h₁
   have h_sq : m * ‖x - y‖ * ‖x - y‖ ≤ ‖θ₁ - θ₂‖ * ‖x - y‖ := by nlinarith
@@ -399,7 +404,7 @@ theorem exists_isMinOn_add_continuousLinearMap [FiniteDimensional ℝ E]
     (hf : StrongConvexOn s m f) (hm : 0 < m) (hs : IsClosed s) (hs_ne : s.Nonempty)
     (hf_lsc : LowerSemicontinuousOn f s) (L : E →L[ℝ] ℝ) :
     ∃ x ∈ s, IsMinOn (f + ⇑L) s x :=
-  (hf.add_convexOn (by simpa using L.toLinearMap.convexOn hf.1)).exists_isMinOn hm hs hs_ne
+  (hf.add_continuousLinearMap L).exists_isMinOn hm hs hs_ne
     (hf_lsc.add (L.continuous.lowerSemicontinuous.lowerSemicontinuousOn s))
 
 /-- **Existence and uniqueness of the minimizer of a strongly convex function** [Ora,
@@ -426,7 +431,7 @@ lemma apply_sub_sub_div_le_of_mul_norm_sq_le {m η D : ℝ} (hm : 0 < m) (hη : 
     y (a - b) - D / η ≤ η / (2 * m) * ‖y‖ ^ 2 := by
   have h_apply : y (a - b) ≤ ‖b - a‖ * ‖y‖ := by
     rw [norm_sub_rev, mul_comm]
-    exact (Real.le_norm_self _).trans (y.le_opNorm _)
+    exact y.apply_le_opNorm_mul_norm _
   -- `x z - m x² / (2 η) ≤ η z² / (2 m)`, a square completion
   set x := ‖b - a‖
   set z := ‖y‖
