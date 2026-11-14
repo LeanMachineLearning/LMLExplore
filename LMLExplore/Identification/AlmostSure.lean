@@ -10,8 +10,9 @@ public import LMLExplore.Identification.TrackAndStop
 /-!
 # Almost sure sample complexity of the GLRT
 
-The almost sure counterpart [GK16, Proposition 13] of the sample complexity bound in expectation
-`IdentTask.eventually_expectedStoppingTime_glrt_le`. Consider the GLRTs with thresholds
+The almost sure counterpart [GK16, Proposition 13] of the sample complexity bounds in expectation
+`IdentTask.eventually_expectedStoppingTime_glrt_le` and
+`IdentTask.eventually_expectedStoppingTime_glrt_plugInCost_le`. Consider the GLRTs with thresholds
 `β δ T h ≤ log (1 / δ) + f T`, where `f T ≤ ε T` eventually for every `ε > 0`.
 
 * **Pathwise.** Along one sequence of histories, if the GLR statistic of the recommended answer
@@ -150,17 +151,12 @@ lemma eventually_mul_le_glr_plugInCost {rec : Θ → ℐ} (hW : IsCompact W)
     (h_prop : Tendsto (fun n a ↦ (pullCount X a n ω : ℝ) / n) atTop (𝓝ˢ W)) :
     ∀ᶠ T in atTop, κ * T ≤ task.glr (task.plugInCost est) T (history O X Y T ω)
       (rec (est T (history O X Y T ω))) := by
-  -- Near `θ`, on the allocations of a thickening of `W`, the cost of the alternatives exceeds `κ`.
-  obtain ⟨U, hU, η, hη, hUη⟩ := hW.exists_forall_mem_thickening_lt_of_lowerSemicontinuousWithinAt
-    h_lsc hκ
-  filter_upwards [h_est.eventually_mem (inter_mem hU hrec_eq),
-    h_prop.eventually_mem (thickening_mem_nhdsSet W hη), eventually_ne_atTop 0] with T hT hTW hT0
-  have h_eq : (fun a ↦ (pullCount' T (history O X Y T ω) a : ℝ) / T) =
-      fun a ↦ (pullCount X a T ω : ℝ) / T := by
-    simp_rw [pullCount_eq_pullCount' (O := O) (R' := Y)]
-  rw [← h_eq] at hTW
-  rw [hT.2, glr_plugInCost_eq_mul task est hT0, mul_comm]
-  exact mul_le_mul_right (hUη _ hT.1 _ (pullCount'_div_mem_simplex _ hT0) hTW).le _
+  obtain ⟨U, hU, V, hV, hUV⟩ :=
+    task.exists_mem_nhds_mul_le_glr_plugInCost est hW h_lsc hκ hrec_eq
+  filter_upwards [h_est.eventually_mem hU, h_prop.eventually_mem hV, eventually_ne_atTop 0]
+    with T hT hTV hT0
+  refine hUV T hT0 _ hT ?_
+  simpa only [pullCount_eq_pullCount' (O := O) (R' := Y)] using hTV
 
 /-! ### Almost sure sample complexity -/
 

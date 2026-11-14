@@ -36,17 +36,26 @@ allocation, `GLR_n(h, ¬i) = D(θ̂, N, ¬i) = n D(θ̂, N / n, ¬i)`.
 The sample complexity bounds below are stated for tasks whose models are vectors of means
 `μ : α → ℝ` of arms with real observations, with the vector `μ̂` of empirical means as estimator.
 
+**Sample complexity of the plug-in GLRT** [GK16, proof of Theorem 14]. The GLR statistic after
+`T` rounds is `T D(θ̂_T, N(T) / T, ¬i)`. If `(θ', w) ↦ D(θ', w, ¬i)` is lower semicontinuous at
+`(θ, w)` for every `w` in a compact set `W` of allocations, it is at least `κ T` for any
+`κ < inf_{w ∈ W} D(θ, w, ¬i)` as soon as `θ̂_T` is close to `θ` and `N(T) / T` is close to `W`.
+If, for all neighbourhoods of `θ` and of `W`, the estimates and the proportions of pulls are in
+them on events whose complements have probabilities with a finite sum over `T`, the reduction
+`IdentTask.eventually_expectedStoppingTime_glrt_le` of `Identification/GLR.lean` gives
+`𝔼[τ_δ] ≤ c log (1 / δ)` for all small enough `δ`, for every
+`c > (inf_{w ∈ W} D(θ, w, ¬i))⁻¹`. This holds for every task, every estimator and every sampling
+rule, which enters only through the convergence of its allocations on these events.
+
 **Sample complexity with D-tracking** [GK16, Theorem 14]. Let the true model `μ` have rewards
 dominated by exponential families with means `μ a`, let the target map be continuous at `μ` and the
 recommendation be `i` near `μ`. By the forced exploration of D-tracking, the empirical means stay
 close to `μ` from round `t₀(T)` on, except on events whose probabilities have a finite sum over `T`
 [GK16, Lemma 19]. On these events, the targets `w(μ̂)` stay close to `w(μ)` from round `t₀(T)` on,
-so that the proportions of pulls `N(T) / T` are close to `w(μ)`, and the GLR statistic after `T`
-rounds is `T D(μ̂(T), N(T) / T, ¬i) ≥ κ T` for any `κ < D(μ, w(μ), ¬i)`, provided
-`(μ', w') ↦ D(μ', w', ¬i)` is lower semicontinuous at `(μ, w(μ))`. The generic reduction
-`IdentTask.eventually_expectedStoppingTime_glrt_le_of_isBigO` then gives, for thresholds
-`β δ n h ≤ log (r n / δ)` with `r n = O(n ^ p)`, the bound `𝔼[τ_δ] ≤ c log (1 / δ)` for all small
-enough `δ`, for every `c > 1 / κ`, hence for every `c > D(μ, w(μ), ¬i)⁻¹`. When `w(μ)` is an
+so that the proportions of pulls `N(T) / T` are close to `w(μ)`. The reduction above with
+`W = {w(μ)}` then gives, for thresholds `β δ n h ≤ log (r n / δ)` with `r n = O(n ^ p)`, the bound
+`𝔼[τ_δ] ≤ c log (1 / δ)` for all small enough `δ`, for every `c > D(μ, w(μ), ¬i)⁻¹`, provided
+`(μ', w') ↦ D(μ', w', ¬i)` is lower semicontinuous at `(μ, w(μ))`. When `w(μ)` is an
 optimal allocation for the single correct answer `i` of `μ`, `D(μ, w(μ), ¬i) = T*(μ)⁻¹` and the
 sample complexity of Track-and-Stop is at most the characteristic time:
 `limsup_{δ → 0} 𝔼[τ_δ] / log (1 / δ) ≤ T*(μ)`. This upper bound holds for all such thresholds,
@@ -92,6 +101,16 @@ above `T*(μ)`. A finite expected stopping time at small `δ` gives almost sure 
 
 * `IdentTask.glr_plugInCost`, `IdentTask.glr_plugInCost_eq_mul`: the GLR statistic of the plug-in
   statistic is `D(θ̂, N, ¬i) = n D(θ̂, N / n, ¬i)`.
+* `IdentTask.exists_mem_nhds_mul_le_glr_plugInCost`: the GLR statistic of the plug-in statistic
+  after `n` rounds is at least `κ n` when the estimate is close to `θ` and the proportions of pulls
+  are close to `W`, for every `κ` below `D(θ, w, ¬i)` at all `w ∈ W`.
+* `IdentTask.eventually_expectedStoppingTime_glrt_plugInCost_le`: **asymptotic sample complexity
+  of the plug-in GLRT** [GK16, proof of Theorem 14], for every task, estimator and sampling rule
+  whose allocations converge to `W` on good events: `𝔼[τ_δ] ≤ c log (1 / δ)` for all small enough
+  `δ`, for every `c > (inf_{w ∈ W} D(θ, w, ¬i))⁻¹`, for thresholds at most `log (1 / δ) + f T`
+  with `f T = o(T)`.
+* `IdentTask.eventually_expectedStoppingTime_glrt_plugInCost_le_of_isBigO`: the same bound for
+  thresholds at most `log (r T / δ)`, with `r T = O(T ^ p)`.
 * `IdentTask.eventually_expectedStoppingTime_trackAndStop_le`: [GK16, Theorem 14] for any target
   map continuous at `μ`: `𝔼[τ_δ] ≤ c log (1 / δ)` for all small enough `δ`, for every
   `c > D(μ, w(μ), ¬i)⁻¹`.
@@ -174,6 +193,112 @@ lemma glr_plugInCost_eq_mul (hn : n ≠ 0) :
     simp [NNReal.smul_def, field]
   rw [glr_plugInCost, h_smul, task.altCost_smul hn', ENNReal.smul_def, smul_eq_mul,
     ENNReal.coe_natCast]
+
+/-! ### Sample complexity of the plug-in GLRT -/
+
+section SampleComplexity
+
+open Metric
+
+variable [TopologicalSpace Θ] {θ : Θ} {W : Set (α → ℝ)} {κ : ℝ≥0} {rec : Θ → ℐ}
+
+/-- **Linear growth of the plug-in statistic near a model** [GK16, proof of Theorem 14]. Let `W`
+be a compact set of allocations such that `(θ', w) ↦ D(θ', w, ¬i)` is lower semicontinuous at
+`(θ, w)` on the allocations of the simplex for every `w ∈ W`, let `κ < D(θ, w, ¬i)` for every
+`w ∈ W`, and let the recommendation be `i` near `θ`. Then there are a neighbourhood `U` of `θ` and
+a neighbourhood `V` of `W` such that, after `n ≠ 0` rounds with history `h`, if the estimate
+`θ̂ = est n h` is in `U` and the proportions of pulls `N / n` are in `V`, then the GLR statistic of
+the recommendation `rec(θ̂)` is at least `κ n`. -/
+lemma exists_mem_nhds_mul_le_glr_plugInCost (hW : IsCompact W)
+    (h_lsc : ∀ w ∈ W, LowerSemicontinuousWithinAt
+      (fun q : Θ × (α → ℝ) ↦ task.altCost q.1 q.2 i) (Set.univ ×ˢ simplex α) (θ, w))
+    (hκ : ∀ w ∈ W, (κ : ℝ≥0∞) < task.altCost θ w i) (hrec_eq : ∀ᶠ θ' in 𝓝 θ, rec θ' = i) :
+    ∃ U ∈ 𝓝 θ, ∃ V ∈ 𝓝ˢ W, ∀ n ≠ 0, ∀ h : Hist Unit α 𝓨 n, est n h ∈ U →
+      (fun a ↦ (pullCount' n h a : ℝ) / n) ∈ V →
+        κ * n ≤ task.glr (task.plugInCost est) n h (rec (est n h)) := by
+  -- Near `θ`, on the allocations of a thickening of `W`, the cost of the alternatives exceeds `κ`.
+  obtain ⟨U, hU, η, hη, hUη⟩ := hW.exists_forall_mem_thickening_lt_of_lowerSemicontinuousWithinAt
+    h_lsc hκ
+  refine ⟨U ∩ {θ' | rec θ' = i}, inter_mem hU hrec_eq, thickening η W,
+    thickening_mem_nhdsSet W hη, fun n hn h hθ hV ↦ ?_⟩
+  rw [hθ.2, glr_plugInCost_eq_mul task est hn, mul_comm]
+  exact mul_le_mul_right (hUη _ hθ.1 _ (pullCount'_div_mem_simplex _ hn) hV).le _
+
+variable {mℐ : MeasurableSpace ℐ} (alg : Algorithm Unit α 𝓨)
+  {hrec : ∀ n, Measurable fun h : Hist Unit α 𝓨 n ↦ rec (est n h)}
+  {β : ℝ → (n : ℕ) → Hist Unit α 𝓨 n → ℝ≥0∞}
+  {hstop : ∀ δ n, MeasurableSet
+    {h | β δ n h < task.glr (task.plugInCost est) n h (rec (est n h))}}
+  {Ω : Type*} {mΩ : MeasurableSpace Ω} {P : Measure Ω} [IsProbabilityMeasure P]
+  {O : ℕ → Ω → Unit} {X : ℕ → Ω → α} {Y : ℕ → Ω → 𝓨} {env : Environment Unit α 𝓨} {T₀ : ℕ}
+
+/-- **Asymptotic sample complexity of the plug-in GLRT** [GK16, proof of Theorem 14], for every
+task, every topological space of models, every estimator and every sampling rule. Let `W` be a
+compact set of allocations such that `(θ', w) ↦ D(θ', w, ¬i)` is lower semicontinuous at `(θ, w)`
+on the allocations of the simplex for every `w ∈ W`, and let the GLRT use the plug-in statistic of
+the estimator `θ̂` and recommend `i` near `θ`, with thresholds `β δ T h ≤ log (1 / δ) + f T` for
+every history `h`, `T ≥ T₀` and small `δ`, where `f T ≤ ε T` eventually for every `ε > 0`.
+Suppose that the allocations converge on good events: along an algorithm-environment sequence of
+the sampling rule in `env`, for all neighbourhoods `U` of `θ` and `V` of `W`, there are events
+`E T` with `∑ T, P((E T)ᶜ) < ∞` on which, for all large `T`, the estimate `θ̂_T` is in `U` and the
+proportions of pulls `N(T) / T` are in `V`. Then `𝔼[τ_δ] ≤ c log (1 / δ)` for all small enough
+`δ`, for every `c > (inf_{w ∈ W} D(θ, w, ¬i))⁻¹`:
+`limsup_{δ → 0} 𝔼[τ_δ] / log (1 / δ) ≤ (inf_{w ∈ W} D(θ, w, ¬i))⁻¹`. -/
+theorem eventually_expectedStoppingTime_glrt_plugInCost_le (hseq : IsAlgEnvSeq O X Y alg env P)
+    (hW : IsCompact W)
+    (h_lsc : ∀ w ∈ W, LowerSemicontinuousWithinAt
+      (fun q : Θ × (α → ℝ) ↦ task.altCost q.1 q.2 i) (Set.univ ×ˢ simplex α) (θ, w))
+    (hrec_eq : ∀ᶠ θ' in 𝓝 θ, rec θ' = i)
+    (h_conv : ∀ U ∈ 𝓝 θ, ∀ V ∈ 𝓝ˢ W, ∃ E : ℕ → Set Ω, ∑' T, P (E T)ᶜ ≠ ∞ ∧
+      ∀ᶠ T in atTop, ∀ ω ∈ E T, est T (history O X Y T ω) ∈ U ∧
+        (fun a ↦ (pullCount X a T ω : ℝ) / T) ∈ V)
+    {c : ℝ≥0} (hc : (⨅ w ∈ W, task.altCost θ w i)⁻¹ < c)
+    {f : ℕ → ℝ} (hf : ∀ ε > 0, ∀ᶠ T in atTop, f T ≤ ε * T)
+    (hβ : ∀ᶠ δ in 𝓝[>] 0, ∀ T ≥ T₀, ∀ h, β δ T h ≤ ENNReal.ofReal (log (1 / δ) + f T)) :
+    ∀ᶠ δ in 𝓝[>] 0, expectedStoppingTime (task.glrt (task.plugInCost est) alg (β δ)
+      (fun n h ↦ rec (est n h)) hrec (hstop δ)) env ≤ c * ENNReal.ofReal (log (1 / δ)) := by
+  -- A rate `κ` with `c⁻¹ < κ < D(θ, w, ¬i)` for all `w ∈ W`, at which the GLR statistic grows on
+  -- the good events of the neighbourhoods of `exists_mem_nhds_mul_le_glr_plugInCost`.
+  obtain ⟨κ, hκ, hκc⟩ := ENNReal.exists_nnreal_lt_one_lt_mul_of_inv_lt hc
+  obtain ⟨U, hU, V, hV, hUV⟩ := task.exists_mem_nhds_mul_le_glr_plugInCost est hW h_lsc
+    (fun w hw ↦ hκ.trans_le (iInf₂_le w hw)) hrec_eq
+  obtain ⟨E, hE_sum, hE⟩ := h_conv U hU V hV
+  obtain ⟨T₁, hT₁⟩ := eventually_atTop.1 (hE.and (eventually_ne_atTop 0))
+  refine task.eventually_expectedStoppingTime_glrt_le (task.plugInCost est) alg _ hrec hstop hseq
+    hE_sum hκc (T₀ := max T₀ T₁) (fun T hT ω hω ↦ ?_) hf
+    (by filter_upwards [hβ] with δ hδ T hT h using hδ T (le_of_max_le_left hT) h)
+  obtain ⟨hTE, hT0⟩ := hT₁ T (le_of_max_le_right hT)
+  obtain ⟨hθ, hN⟩ := hTE ω hω
+  refine hUV T hT0 _ hθ ?_
+  simpa only [pullCount_eq_pullCount' (O := O) (R' := Y)] using hN
+
+/-- **Asymptotic sample complexity of the plug-in GLRT with thresholds `log (r T / δ)`**, for the
+thresholds of [GK16, Theorem 14], `r T = O(T ^ p)`. Under the assumptions of
+`IdentTask.eventually_expectedStoppingTime_glrt_plugInCost_le` on the task, the estimator and the
+convergence of the allocations on good events, with thresholds `β δ T h ≤ log (r T / δ)` for every
+history `h`, `T ≥ T₀` and small `δ`, `𝔼[τ_δ] ≤ c log (1 / δ)` for all small enough `δ`, for every
+`c > (inf_{w ∈ W} D(θ, w, ¬i))⁻¹`. -/
+theorem eventually_expectedStoppingTime_glrt_plugInCost_le_of_isBigO
+    (hseq : IsAlgEnvSeq O X Y alg env P) (hW : IsCompact W)
+    (h_lsc : ∀ w ∈ W, LowerSemicontinuousWithinAt
+      (fun q : Θ × (α → ℝ) ↦ task.altCost q.1 q.2 i) (Set.univ ×ˢ simplex α) (θ, w))
+    (hrec_eq : ∀ᶠ θ' in 𝓝 θ, rec θ' = i)
+    (h_conv : ∀ U ∈ 𝓝 θ, ∀ V ∈ 𝓝ˢ W, ∃ E : ℕ → Set Ω, ∑' T, P (E T)ᶜ ≠ ∞ ∧
+      ∀ᶠ T in atTop, ∀ ω ∈ E T, est T (history O X Y T ω) ∈ U ∧
+        (fun a ↦ (pullCount X a T ω : ℝ) / T) ∈ V)
+    {c : ℝ≥0} (hc : (⨅ w ∈ W, task.altCost θ w i)⁻¹ < c)
+    {r : ℕ → ℝ} {p : ℝ} (hr : r =O[atTop] fun T ↦ (T : ℝ) ^ p)
+    (hβ : ∀ᶠ δ in 𝓝[>] 0, ∀ T ≥ T₀, ∀ h, β δ T h ≤ ENNReal.ofReal (log (r T / δ))) :
+    ∀ᶠ δ in 𝓝[>] 0, expectedStoppingTime (task.glrt (task.plugInCost est) alg (β δ)
+      (fun n h ↦ rec (est n h)) hrec (hstop δ)) env ≤ c * ENNReal.ofReal (log (1 / δ)) := by
+  refine task.eventually_expectedStoppingTime_glrt_plugInCost_le est alg hseq hW h_lsc hrec_eq
+    h_conv hc (T₀ := T₀) (f := fun T ↦ log (r T))
+    (fun ε hε ↦ eventually_log_le_mul_of_isBigO hr hε) ?_
+  filter_upwards [hβ, Ioo_mem_nhdsGT one_pos] with δ hβδ hδ T hT h
+  exact (hβδ T hT h).trans
+    (ENNReal.ofReal_le_ofReal (log_div_le_log_one_div_add_log _ hδ.1 hδ.2.le))
+
+end SampleComplexity
 
 /-! ### Track-and-Stop -/
 
@@ -318,33 +443,21 @@ variable {𝓧 : Type*} {m𝓧 : MeasurableSpace 𝓧} {ρ : α → Measure 𝓧
 
 omit [MeasurableSingletonClass α] in
 /-- The deterministic step of the analysis of Track-and-Stop [GK16, proof of Theorem 14]. Along a
-sequence of arms following the D-tracking rule with targets `w(μ̂(k))`, suppose that from round `t₀`
-on, the empirical means `μ̂(k)` lie in a set `U` on which the cost of the alternatives to `i`
-exceeds `κ` at every allocation of the simplex `η`-close to `w(μ)`, the targets `w(μ̂(k))` are
-`ε`-close to `w(μ)` with `3 K ε ≤ η`, and the recommendation is `i`. If `t₀ ≥ 1 / (4 ε²)`,
-`t₀ ≤ T`, `t₀ ≤ 3 ε T` and `1 ≤ ε T`, then the GLR statistic of the recommendation after `T`
-rounds is at least `κ T`. -/
-private lemma mul_le_glr_plugInCost {Ω : Type*} {O : ℕ → Ω → Unit} {A : ℕ → Ω → α}
-    {Y : ℕ → Ω → ℝ} {ω : Ω} {U : Set (α → ℝ)} {ε η : ℝ} {κ : ℝ≥0} {t₀ T : ℕ}
-    (hw_mem : w μ ∈ simplex α) (hε : 0 < ε) (hεη : 3 * Fintype.card α * ε ≤ η)
-    (hU : ∀ μ' ∈ U, ∀ w' ∈ simplex α, dist w' (w μ) < η → (κ : ℝ≥0∞) < task.altCost μ' w' i)
-    (hmeans : ∀ k ≥ t₀, empMean' k (history O A Y k ω) ∈ U ∧
-      dist (w (empMean' k (history O A Y k ω))) (w μ) < ε ∧
-      rec (empMean' k (history O A Y k ω)) = i)
+sequence of arms following the D-tracking rule with targets `v k`, suppose that from round `t₀` on,
+the targets are `ε`-close to the probability vector `l`. If `t₀ ≥ 1 / (4 ε²)`, `t₀ ≤ T`,
+`t₀ ≤ 3 ε T` and `1 ≤ ε T`, then the proportions of pulls after `T` rounds are `3 K ε`-close
+to `l`. -/
+private lemma dist_pullCount_div_lt {Ω : Type*} {A : ℕ → Ω → α} {ω : Ω} {v : ℕ → α → ℝ}
+    {l : α → ℝ} {ε η : ℝ} {t₀ T : ℕ} (hl : l ∈ simplex α) (hε : 0 < ε)
+    (hεη : 3 * Fintype.card α * ε ≤ η) (hv : ∀ k ≥ t₀, dist (v k) l < ε)
     (hforced : ∀ (k : ℕ) a, (pullCount A a k ω : ℝ) < √(k : ℝ) - Fintype.card α / 2 →
       pullCount A (A k ω) k ω ≤ pullCount A a k ω)
     (htrack : ∀ k : ℕ, (∀ a, √(k : ℝ) - Fintype.card α / 2 ≤ pullCount A a k ω) → ∀ a,
-      k * w (empMean' k (history O A Y k ω)) a - pullCount A a k ω ≤
-        k * w (empMean' k (history O A Y k ω)) (A k ω) - pullCount A (A k ω) k ω)
+      k * v k a - pullCount A a k ω ≤ k * v k (A k ω) - pullCount A (A k ω) k ω)
     (ht₀ : 1 / (4 * ε ^ 2) ≤ t₀) (hT : t₀ ≤ T) (ht₀T : (t₀ : ℝ) ≤ 3 * ε * T) (hεT : 1 ≤ ε * T) :
-    κ * T ≤ task.glr (task.plugInCost empMean') T (history O A Y T ω)
-      (rec (empMean' T (history O A Y T ω))) := by
-  have hT0 : T ≠ 0 := by
-    rintro rfl
-    simp only [CharP.cast_eq_zero, mul_zero] at hεT
-    linarith
-  have hw_close : ∀ k ≥ t₀, ∀ a, |w (empMean' k (history O A Y k ω)) a - w μ a| ≤ ε :=
-    fun k hk a ↦ (Real.dist_eq _ _ ▸ (dist_pi_lt_iff hε).1 (hmeans k hk).2.1 a).le
+    dist (fun a ↦ (pullCount A a T ω : ℝ) / T) l < η := by
+  have hv_close : ∀ k ≥ t₀, ∀ a, |v k a - l a| ≤ ε :=
+    fun k hk a ↦ (Real.dist_eq _ _ ▸ (dist_pi_lt_iff hε).1 (hv k hk) a).le
   -- The exploration threshold `√k - K / 2` is below `2 ε k` from round `t₀` on.
   have hg (k : ℕ) (hk : t₀ ≤ k) : √(k : ℝ) - Fintype.card α / 2 ≤ 2 * ε * k := by
     have hk' : 1 / (4 * ε ^ 2) ≤ (k : ℝ) := ht₀.trans (Nat.cast_le.2 hk)
@@ -353,22 +466,14 @@ private lemma mul_le_glr_plugInCost {Ω : Type*} {O : ℕ → Ω → Unit} {A : 
       rw [sqrt_le_left (by positivity)]
       nlinarith [Nat.cast_nonneg (α := ℝ) k]
     linarith [show (0 : ℝ) ≤ Fintype.card α / 2 by positivity]
-  -- The proportions of pulls `q = N(T) / T` are an allocation `η`-close to `w(μ)`.
-  set q : α → ℝ := fun a ↦ (pullCount' T (history O A Y T ω) a : ℝ) / T
-  have hq : q ∈ simplex α := pullCount'_div_mem_simplex _ hT0
-  have hq_dist : dist q (w μ) < η := by
-    refine (dist_pi_lt_iff (hε.trans_le (le_mul_of_one_le_left hε.le ?_) |>.trans_le hεη)).2
-      fun a ↦ ?_
-    · have : (1 : ℝ) ≤ Fintype.card α := Nat.one_le_cast.2 Fintype.card_pos
-      linarith
-    have h := abs_pullCount_div_sub_le (mem_simplex_iff.1 hw_mem).1 (mem_simplex_iff.1 hw_mem).2
-      (fun k _ ↦ hforced k) (fun k _ ↦ htrack k) hw_close hg hT ht₀T hεT a
-    rw [Real.dist_eq]
-    simp only [q, ← pullCount_eq_pullCount']
+  refine (dist_pi_lt_iff (hε.trans_le (le_mul_of_one_le_left hε.le ?_) |>.trans_le hεη)).2
+    fun a ↦ ?_
+  · have : (1 : ℝ) ≤ Fintype.card α := Nat.one_le_cast.2 Fintype.card_pos
     linarith
-  obtain ⟨hU', -, hrec'⟩ := hmeans T hT
-  rw [hrec', glr_plugInCost_eq_mul task empMean' hT0, mul_comm]
-  exact mul_le_mul_right (hU _ hU' q hq hq_dist).le _
+  have h := abs_pullCount_div_sub_le (mem_simplex_iff.1 hl).1 (mem_simplex_iff.1 hl).2
+    (fun k _ ↦ hforced k) (fun k _ ↦ htrack k) hv_close hg hT ht₀T hεT a
+  rw [Real.dist_eq]
+  linarith
 
 /-- **Sample complexity of Track-and-Stop** [GK16, Theorem 14]. Let the rewards of each arm `a` of
 the model `μ` be dominated on `Set.univ` by the member of mean `μ a` of a nondegenerate
@@ -391,30 +496,29 @@ theorem eventually_expectedStoppingTime_trackAndStop_le (hT : ∀ a c, ¬ T a =�
     (hβ : ∀ᶠ δ in 𝓝[>] 0, ∀ n ≥ n₀, ∀ h, β δ n h ≤ ENNReal.ofReal (log (r n / δ))) :
     ∀ᶠ δ in 𝓝[>] 0, expectedStoppingTime (task.trackAndStop empMean' w hw (β δ) rec hrec (hstop δ))
       (Environment.bandit (task.ν μ)) ≤ c * ENNReal.ofReal (log (1 / δ)) := by
-  -- A rate `κ` with `c⁻¹ < κ < D(μ, w(μ), ¬i)`, at which the GLR statistic grows.
-  obtain ⟨κ, hκ, hκc⟩ := ENNReal.exists_nnreal_lt_one_lt_mul_of_inv_lt hc
   set alg := dTracking (fun n h ↦ w (empMean' n h)) hw
   set P := trajMeasure alg (Environment.bandit (task.ν μ))
   have hseq : IsAlgEnvSeq IT.obs IT.action IT.feedback alg (Environment.bandit (task.ν μ)) P :=
     IT.isAlgEnvSeq_trajMeasure alg _
   set K : ℝ := (Fintype.card α : ℝ)
-  -- Near `(μ, w(μ))` on the simplex, the cost of the alternatives exceeds `κ`.
-  obtain ⟨U, hU, η, hη, hUη⟩ :=
-    (isCompact_singleton (x := w μ)).exists_forall_mem_thickening_lt_of_lowerSemicontinuousWithinAt
-      (f := fun q : (α → ℝ) × (α → ℝ) ↦ task.altCost q.1 q.2 i) (c := (κ : ℝ≥0∞))
-      (fun v hv ↦ (Set.mem_singleton_iff.1 hv) ▸ h_lsc)
-      (fun v hv ↦ (Set.mem_singleton_iff.1 hv) ▸ hκ)
-  -- Near `μ`, the targets are `ε`-close to `w(μ)`, the recommendation is `i` and the vectors are
+  -- The reduction with `W = {w(μ)}`: it remains to show that the allocations converge on good
+  -- events.
+  have h := task.eventually_expectedStoppingTime_glrt_plugInCost_le_of_isBigO empMean' alg hseq
+    (isCompact_singleton (x := w μ)) (fun v hv ↦ (Set.mem_singleton_iff.1 hv) ▸ h_lsc) hrec_eq
+    ?_ (by rwa [iInf_singleton]) hr hβ (hrec := hrec) (hstop := hstop)
+  · simpa only [trackAndStop_def] using h
+  intro U hU V hV
+  obtain ⟨η, hη, hηV⟩ := Metric.mem_nhds_iff.1 (nhdsSet_singleton (x := w μ) ▸ hV)
+  -- Near `μ`, the vectors are in `U`, the targets are `ε`-close to `w(μ)` and the vectors are
   -- vectors of means of the families.
   set ε := η / (3 * K)
   have hε : 0 < ε := by positivity
-  set W := {μ' | μ' ∈ U ∧ dist (w μ') (w μ) < ε ∧ rec μ' = i ∧
-    ∀ a, μ' a ∈ (ρ a).expFamilyMeans (T a)}
+  set W := {μ' | μ' ∈ U ∧ dist (w μ') (w μ) < ε ∧ ∀ a, μ' a ∈ (ρ a).expFamilyMeans (T a)}
   have hW : W ∈ 𝓝 μ := by
-    filter_upwards [hU, hw_cont (Metric.ball_mem_nhds _ hε), hrec_eq, eventually_all.2 fun a ↦
+    filter_upwards [hU, hw_cont (Metric.ball_mem_nhds _ hε), eventually_all.2 fun a ↦
       (continuous_apply a).continuousAt.preimage_mem_nhds
-        (Measure.expFamilyMeans_mem_nhds (hT a) (hμ a))] with μ' h1 h2 h3 h4
-    exact ⟨h1, Metric.mem_ball.1 h2, h3, h4⟩
+        (Measure.expFamilyMeans_mem_nhds (hT a) (hμ a))] with μ' h1 h2 h3
+    exact ⟨h1, Metric.mem_ball.1 h2, h3⟩
   obtain ⟨l, u, hlμ, hμu, h_box⟩ := exists_pi_Icc_subset_of_mem_nhds hW
   have hlu : l ≤ u := fun a ↦ ((hlμ a).trans (hμu a)).le
   have hlW := h_box (Set.left_mem_Icc.2 hlu)
@@ -430,9 +534,9 @@ theorem eventually_expectedStoppingTime_trackAndStop_le (hT : ∀ a c, ¬ T a =�
           pullCount IT.action a k ω ≤
         k * w (empMean' k (history IT.obs IT.action IT.feedback k ω)) (IT.action k ω) -
           pullCount IT.action (IT.action k ω) k ω)}
-  have hE_sum : ∑' T, P (E T)ᶜ ≠ ∞ := by
-    refine ne_top_of_le_ne_top (DTracking.tsum_measure_exists_ge_empMean_notMem_Ioo_ne_top hseq
-      hν hμ (fun a ↦ hlW.2.2.2 a) (fun a ↦ huW.2.2.2 a) hlμ hμu
+  refine ⟨E, ?_, ?_⟩
+  · refine ne_top_of_le_ne_top (DTracking.tsum_measure_exists_ge_empMean_notMem_Ioo_ne_top hseq
+      hν hμ (fun a ↦ hlW.2.2 a) (fun a ↦ huW.2.2 a) hlμ hμu
       tendsto_sqrt_roundsAfter_div_log)
       (tsum_le_tsum fun T ↦ measure_mono_ae ?_)
     filter_upwards [DTracking.pullCount_action_le_of_lt hseq,
@@ -440,34 +544,23 @@ theorem eventually_expectedStoppingTime_trackAndStop_le (hT : ∀ a c, ¬ T a =�
     by_contra h_box
     push Not at h_box
     exact hωE ⟨h_box, h_forced, h_track⟩
-  -- From some round on, on the good event of round `T`, the GLR statistic is at least `κ T`.
-  obtain ⟨T₁, hT₁⟩ := eventually_atTop.1
-    ((eventually_roundsAfter_le (by positivity : 0 < 3 * ε)).and
-    ((eventually_roundsAfter_le one_pos).and
-    ((tendsto_roundsAfter.eventually_ge_atTop (1 / (4 * ε ^ 2))).and
-    (tendsto_natCast_atTop_atTop.eventually_ge_atTop (1 / ε)))))
-  have hE (T : ℕ) (hT : max n₀ T₁ ≤ T) (ω) (hω : ω ∈ E T) :
-      κ * T ≤ task.glr (task.plugInCost empMean') T (history IT.obs IT.action IT.feedback T ω)
-        (rec (empMean' T (history IT.obs IT.action IT.feedback T ω))) := by
-    obtain ⟨hω_box, hω_forced, hω_track⟩ := hω
-    obtain ⟨h3ε, hT_le, ht₀, hεT⟩ := hT₁ T (le_of_max_le_right hT)
-    refine task.mul_le_glr_plugInCost (η := η) hw_mem hε
-      (le_of_eq (by simp only [ε, K]; field_simp)) (fun μ' hμ' w' hw' hd ↦
-        hUη μ' hμ' w' hw' (by rwa [Metric.thickening_singleton, Metric.mem_ball]))
-      (fun k hk ↦ ?_) hω_forced hω_track ht₀ (by exact_mod_cast hT_le.trans_eq (one_mul _)) h3ε
-      (by rwa [div_le_iff₀' hε] at hεT)
-    -- The empirical means at the rounds `k ≥ t₀(T)` are in `W`.
-    have hk_box (b : α) :
-        empMean' k (history IT.obs IT.action IT.feedback k ω) b ∈ Set.Ioo (l b) (u b) := by
-      rw [← empMean_eq_empMean']
-      exact hω_box k hk b
-    exact (h_box ⟨fun b ↦ (hk_box b).1.le, fun b ↦ (hk_box b).2.le⟩).imp_right
-      fun h ↦ ⟨h.1, h.2.1⟩
-  have h := task.eventually_expectedStoppingTime_glrt_le_of_isBigO (task.plugInCost empMean') alg
-    (fun n h ↦ rec (empMean' n h)) hrec hstop hseq
-    hE_sum hκc hE hr (T₀ := max n₀ T₁)
-    (by filter_upwards [hβ] with δ hδ n hn h using hδ n (le_of_max_le_left hn) h)
-  simpa only [trackAndStop_def] using h
+  -- For all large `T`, on the good event of round `T`, the empirical means after `T` rounds are
+  -- in `U` and the proportions of pulls are `η`-close to `w(μ)`.
+  filter_upwards [eventually_roundsAfter_le (by positivity : 0 < 3 * ε),
+    eventually_roundsAfter_le one_pos,
+    tendsto_roundsAfter.eventually_ge_atTop (1 / (4 * ε ^ 2)),
+    tendsto_natCast_atTop_atTop.eventually_ge_atTop (1 / ε)]
+    with T h3ε hT_le ht₀ hεT ω ⟨hω_box, hω_forced, hω_track⟩
+  have hT_le' : roundsAfter T ≤ T := by exact_mod_cast hT_le.trans_eq (one_mul _)
+  -- The empirical means at the rounds `k ≥ t₀(T)` are in `W`.
+  have hk_W (k : ℕ) (hk : roundsAfter T ≤ k) :
+      empMean' k (history IT.obs IT.action IT.feedback k ω) ∈ W := by
+    refine h_box ⟨fun b ↦ ?_, fun b ↦ ?_⟩ <;> rw [← empMean_eq_empMean']
+    exacts [(hω_box k hk b).1.le, (hω_box k hk b).2.le]
+  refine ⟨(hk_W T hT_le').1, hηV (Metric.mem_ball.2 ?_)⟩
+  exact dist_pullCount_div_lt hw_mem hε (le_of_eq (by simp only [ε, K]; field_simp))
+    (fun k hk ↦ (hk_W k hk).2.1) hω_forced hω_track ht₀ hT_le' h3ε
+    (by rwa [div_le_iff₀' hε] at hεT)
 
 /-- **Sample complexity of Track-and-Stop at the characteristic time** [GK16, Theorem 14], the
 upper bound `𝔼[τ_δ] ≤ c log (1 / δ)` with `c > T*(μ)`. Let the rewards of each arm `a`
