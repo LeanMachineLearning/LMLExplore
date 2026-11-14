@@ -6,6 +6,7 @@ Authors: LMLExplore contributors
 module
 
 public import LMLExplore.ReinforcementLearning.Generative.Basic
+import LMLExplore.Algebra.Order.Ring.Abs
 import LMLExplore.Analysis.Convex.Integral
 import LMLExplore.Analysis.Convex.Simplex
 
@@ -135,13 +136,8 @@ theorem measureReal_sqrt_variance_add_le_abs_integral_sub_integral_stateKernel_e
       rw [hZρ]
       exact sq_dotProduct_le_dotProduct_sq_of_mem_simplex (mem_simplex_iff.2 ⟨hw₀, hw₁⟩)
         fun a ↦ f (ρ (s, a)) - m
-    have h_bsq {y : ℝ} (hy : y ∈ Set.Icc l u) : (y - m) ^ 2 ∈ Set.Icc 0 ((u - l) ^ 2) :=
-      ⟨sq_nonneg _, by
-        rw [← sq_abs]
-        exact pow_le_pow_left₀ (abs_nonneg _)
-          (abs_le.2 ⟨by linarith [hy.1, hm_mem.2], by linarith [hy.2, hm_mem.1]⟩) 2⟩
     have h_int_sq (a : 𝓐) := h_int a (g := fun y ↦ (y - m) ^ 2) (by fun_prop)
-      fun y hy ↦ h_bsq hy
+      fun y hy ↦ sq_sub_mem_Icc_of_mem_Icc hy hm_mem
     have h_int_Z : Integrable (fun ρ ↦ (Z ρ - m) ^ 2) μ :=
       Integrable.of_mem_Icc 0 ((u - l) ^ 2) ((hZ.sub_const m).pow_const 2).aemeasurable
         (hZb.mono fun ρ hρ ↦
