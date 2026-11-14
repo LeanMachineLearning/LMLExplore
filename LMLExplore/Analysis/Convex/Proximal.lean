@@ -181,8 +181,14 @@ theorem softThreshold_def (c z : ℝ) : softThreshold c z = Real.sign z * max (|
   (rfl)
 
 /-- Soft thresholding vanishes on the points of absolute value at most the level. -/
+@[simp]
 theorem softThreshold_of_abs_le (h : |z| ≤ c) : softThreshold c z = 0 := by
   rw [softThreshold_def, max_eq_right (sub_nonpos.2 h), mul_zero]
+
+/-- Soft thresholding at any level sends `0` to `0`. -/
+@[simp]
+theorem softThreshold_zero_right (c : ℝ) : softThreshold c 0 = 0 := by
+  rw [softThreshold_def, Real.sign_zero, zero_mul]
 
 /-- Above a nonnegative level `c`, soft thresholding subtracts `c`. -/
 theorem softThreshold_of_lt (hc : 0 ≤ c) (h : c < z) : softThreshold c z = z - c := by
@@ -196,6 +202,7 @@ theorem softThreshold_of_lt_neg (hc : 0 ≤ c) (h : z < -c) : softThreshold c z 
   ring
 
 /-- Soft thresholding is odd. -/
+@[simp]
 theorem softThreshold_neg (c z : ℝ) : softThreshold c (-z) = -softThreshold c z := by
   rw [softThreshold_def, softThreshold_def, Real.sign_neg, abs_neg, neg_mul]
 
@@ -203,7 +210,7 @@ theorem softThreshold_neg (c z : ℝ) : softThreshold c (-z) = -softThreshold c 
 theorem softThreshold_mul {η : ℝ} (hη : 0 ≤ η) (c z : ℝ) :
     softThreshold (η * c) (η * z) = η * softThreshold c z := by
   rcases hη.eq_or_lt with rfl | hη
-  · simp [softThreshold_def, Real.sign_zero]
+  · rw [zero_mul, zero_mul, zero_mul, softThreshold_zero_right]
   have hmax : max (η * (|z| - c)) 0 = η * max (|z| - c) 0 := by
     rw [mul_max_of_nonneg _ _ hη.le, mul_zero]
   rw [softThreshold_def, softThreshold_def, abs_mul, abs_of_pos hη, ← mul_sub, hmax]
