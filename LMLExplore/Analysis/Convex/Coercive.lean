@@ -5,6 +5,7 @@ Authors: LMLExplore contributors
 -/
 module
 
+public import LMLExplore.Analysis.Normed.Operator.Basic
 public import Mathlib.Analysis.Convex.Continuous
 public import Mathlib.Analysis.Normed.Module.HahnBanach
 public import TauCeti.Analysis.Convex.Conjugate
@@ -67,7 +68,7 @@ theorem fenchelConjugate_le_of_norm_sub_le
   refine fenchelConjugate_le _ fun x ↦ EReal.coe_sub_le_comm.2 ?_
   have hvx : v x - u x ≤ r * ‖x‖ := by
     rw [← sub_apply]
-    exact (le_abs_self _).trans ((v - u).le_opNorm x |>.trans (by gcongr))
+    exact (v - u).apply_le_opNorm_mul_norm x |>.trans (by gcongr)
   rw [LinearMap.flip_apply, topDualPairing_apply, ← EReal.coe_sub]
   exact (EReal.coe_le_coe_iff.2 (by linarith)).trans (hf x)
 
