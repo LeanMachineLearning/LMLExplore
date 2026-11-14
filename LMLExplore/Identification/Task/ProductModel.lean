@@ -779,14 +779,6 @@ namespace IdentTask
 
 variable [Fintype α] [MeasurableSingletonClass α] {task : IdentTask α (α → ℝ × ℝ≥0) ℐ ℝ} {i : ℐ}
 
-/-- The per-arm finiteness hypothesis of `continuousOn_biInf_cost_productBandit` for Gaussian
-laws on the parameters of nonzero variance. -/
-private lemma klDiv_gaussianReal_ne_top_of_ne_zero :
-    ∀ x ∈ {p : ℝ × ℝ≥0 | p.2 ≠ 0}, ∀ y ∈ {p : ℝ × ℝ≥0 | p.2 ≠ 0},
-      klDiv (gaussianReal x.1 x.2) (gaussianReal y.1 y.2) ≠ ∞ := fun _ hx _ hy ↦ by
-  rw [klDiv_gaussianReal_gaussianReal hx hy]
-  exact ENNReal.ofReal_ne_top
-
 open Topology in
 /-- The per-arm sublevel-compactness hypothesis of `continuousOn_biInf_cost_productBandit` for
 Gaussian laws on the parameters of nonzero variance, relative to that set of parameters. -/
@@ -809,7 +801,7 @@ theorem continuousOn_biInf_cost_gaussianMeanVarBandit
     ContinuousOn (fun p : (α → ℝ × ℝ≥0) × (α → ℝ) ↦ ⨅ θ' ∈ A, task.cost p.2 p.1 θ')
       ((univ.pi fun _ ↦ {p : ℝ × ℝ≥0 | p.2 ≠ 0}) ×ˢ univ) :=
   continuousOn_biInf_cost_productBandit (hν.trans (funext gaussianMeanVarBandit_eq_productBandit))
-    (fun _ ↦ klDiv_gaussianReal_ne_top_of_ne_zero)
+    (fun _ _ hx _ hy ↦ klDiv_gaussianReal_gaussianReal_ne_top hx hy)
     (fun _ ↦ continuousOn_klDiv_gaussianReal)
     (fun _ ↦ exists_mem_nhdsWithin_forall_exists_isCompact_klDiv_gaussianReal) hA
 
@@ -832,7 +824,7 @@ theorem continuousOn_gameValue_gaussianMeanVarBandit [Finite ℐ]
     (hν : task.ν = Bandits.gaussianMeanVarBandit) (hM : task.M ⊆ univ.pi fun _ ↦ {p | p.2 ≠ 0}) :
     ContinuousOn task.gameValue task.M :=
   continuousOn_gameValue_productBandit (hν.trans (funext gaussianMeanVarBandit_eq_productBandit))
-    (fun _ ↦ klDiv_gaussianReal_ne_top_of_ne_zero)
+    (fun _ _ hx _ hy ↦ klDiv_gaussianReal_gaussianReal_ne_top hx hy)
     (fun _ ↦ continuousOn_klDiv_gaussianReal)
     (fun _ ↦ exists_mem_nhdsWithin_forall_exists_isCompact_klDiv_gaussianReal) hM
 
@@ -843,7 +835,7 @@ theorem continuousOn_charTime_gaussianMeanVarBandit [Finite ℐ]
     (hν : task.ν = Bandits.gaussianMeanVarBandit) (hM : task.M ⊆ univ.pi fun _ ↦ {p | p.2 ≠ 0}) :
     ContinuousOn task.charTime task.M :=
   continuousOn_charTime_productBandit (hν.trans (funext gaussianMeanVarBandit_eq_productBandit))
-    (fun _ ↦ klDiv_gaussianReal_ne_top_of_ne_zero)
+    (fun _ _ hx _ hy ↦ klDiv_gaussianReal_gaussianReal_ne_top hx hy)
     (fun _ ↦ continuousOn_klDiv_gaussianReal)
     (fun _ ↦ exists_mem_nhdsWithin_forall_exists_isCompact_klDiv_gaussianReal) hM
 

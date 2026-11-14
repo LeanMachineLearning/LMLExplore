@@ -30,6 +30,8 @@ degenerate law `𝒩(μ₂, 0)`, a Dirac mass, is at infinite relative entropy. 
 * `LMLExplore.llr_gaussianReal_gaussianReal`: the log-likelihood ratio, almost everywhere.
 * `LMLExplore.klDiv_gaussianReal_gaussianReal`: the relative entropy for arbitrary variances.
 * `LMLExplore.klDiv_gaussianReal_gaussianReal_same_var`: the relative entropy for equal variances.
+* `LMLExplore.klDiv_gaussianReal_gaussianReal_ne_top`: the relative entropy between two laws of
+  nonzero variance is finite.
 * `LMLExplore.klDiv_gaussianReal_gaussianReal_zero`: the relative entropy to a Dirac mass `𝒩(μ₂, 0)`
   is infinite.
 * `LMLExplore.continuousOn_klDiv_gaussianReal`: the relative entropy is continuous in the means and
@@ -111,6 +113,13 @@ theorem klDiv_gaussianReal_gaussianReal (hv₁ : v₁ ≠ 0) (hv₂ : v₂ ≠ 0
   rw [klDiv_of_ac_of_integrable (gaussianReal_absolutelyContinuous_gaussianReal hv₁ hv₂)
     (integrable_llr_gaussianReal_gaussianReal hv₁ hv₂), probReal_univ, probReal_univ,
     add_sub_cancel_right, integral_llr_gaussianReal_gaussianReal hv₁ hv₂]
+
+/-- The relative entropy between two real Gaussian distributions with nonzero variances is
+finite. -/
+theorem klDiv_gaussianReal_gaussianReal_ne_top (hv₁ : v₁ ≠ 0) (hv₂ : v₂ ≠ 0) :
+    klDiv (gaussianReal μ₁ v₁) (gaussianReal μ₂ v₂) ≠ ∞ := by
+  rw [klDiv_gaussianReal_gaussianReal hv₁ hv₂]
+  exact ENNReal.ofReal_ne_top
 
 /-- The relative entropy between real Gaussian distributions is continuous in the means and the
 variances of the two laws, on the pairs of laws of nonzero variance. -/
