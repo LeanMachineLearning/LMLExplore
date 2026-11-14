@@ -34,6 +34,8 @@ is the junk value `0`, for which weak duality fails.
 
 ## Main statements
 
+* `LMLExplore.exists_ne_zero_forall_le_of_convexLike`: Fritz John multipliers for convex-like data,
+  with no constraint qualification.
 * `LMLExplore.exists_forall_le_add_sum_of_convexLike`: under Slater's condition, every lower bound
   of the objective on the feasible set is a lower bound of the Lagrangian on all of `C` for some
   multiplier, for convex-like data on any type.
@@ -139,16 +141,25 @@ private lemma apply_nonpos_of_forall_lt {f : StrongDual ℝ (Option ι → ℝ)}
   rw [map_add, map_smul, smul_eq_mul, div_mul_cancel₀ _ hfw.ne'] at this
   linarith
 
-/-- **Fritz John multipliers** for convex-like data: if `m` is a lower bound of `F` on the feasible
-set and `C` is nonempty, some nonzero nonpositive `c : Option ι → ℝ` has
-`c none * F x + ∑ i, c (some i) * h i x ≤ c none * m` on `C`. -/
-private lemma exists_fritzJohn [Fintype ι]
+/-- **Fritz John multipliers** for convex-like data, with no constraint qualification. Let `F` and
+finitely many `h i` be jointly convex-like on a set `C`, as in
+`LMLExplore.exists_forall_le_add_sum_of_convexLike`. If `m` is a lower bound of `F` on the feasible
+set `{x ∈ C | ∀ i, h i x ≤ 0}`, then some nonzero `c : Option ι → ℝ` with nonnegative entries, the
+coefficient `c none` of the objective and the coefficients `c (some i)` of the constraints, has
+`c none * m ≤ c none * F x + ∑ i, c (some i) * h i x` for every `x ∈ C`.
+
+Under Slater's condition `c none` is positive, which gives
+`LMLExplore.exists_forall_le_add_sum_of_convexLike`. -/
+theorem exists_ne_zero_forall_le_of_convexLike [Fintype ι]
     (hconv : ∀ x ∈ C, ∀ y ∈ C, ∀ a b : ℝ, 0 ≤ a → 0 ≤ b → a + b = 1 →
       ∃ z ∈ C, F z ≤ a * F x + b * F y ∧ ∀ i, h i z ≤ a * h i x + b * h i y)
-    {x₀ : X} (hx₀ : x₀ ∈ C) {m : ℝ} (hm : ∀ x ∈ C, (∀ i, h i x ≤ 0) → m ≤ F x) :
-    ∃ c : Option ι → ℝ, c ≠ 0 ∧ (∀ j, c j ≤ 0) ∧
-      ∀ x ∈ C, c none * F x + ∑ i, c (some i) * h i x ≤ c none * m := by
+    {m : ℝ} (hm : ∀ x ∈ C, (∀ i, h i x ≤ 0) → m ≤ F x) :
+    ∃ c : Option ι → ℝ, c ≠ 0 ∧ (∀ j, 0 ≤ c j) ∧
+      ∀ x ∈ C, c none * m ≤ c none * F x + ∑ i, c (some i) * h i x := by
   classical
+  rcases C.eq_empty_or_nonempty with rfl | ⟨x₀, hx₀⟩
+  · exact ⟨fun _ ↦ 1, fun h1 ↦ one_ne_zero (congrFun h1 none), fun _ ↦ zero_le_one,
+      fun x hx ↦ absurd hx (notMem_empty x)⟩
   -- The point `(m, 0)` lies outside the open convex set `strictEpigraph C F h`, so a continuous
   -- linear functional `f` separates them.
   let p : Option ι → ℝ := fun j ↦ j.elim m fun _ ↦ 0
@@ -159,19 +170,21 @@ private lemma exists_fritzJohn [Fintype ι]
     isOpen_strictEpigraph hp
   have ha₀ : (fun j ↦ objConstr F h j x₀ + 1) ∈ strictEpigraph C F h :=
     ⟨x₀, hx₀, fun j ↦ by simp⟩
-  -- The coefficients `c j` of `f` in the standard basis.
+  -- The coefficients `c j` of `f` in the standard basis; the multipliers are `-c`.
   let e : Option ι → Option ι → ℝ := fun j k ↦ if j = k then 1 else 0
   let c : Option ι → ℝ := fun j ↦ f (e j)
   have hfc (v : Option ι → ℝ) : f v = c none * v none + ∑ i, c (some i) * v (some i) := by
     rw [← Fintype.sum_option (fun j ↦ c j * v j)]
     simpa [c, e, smul_eq_mul, mul_comm] using
       LinearMap.pi_apply_eq_sum_univ (f : (Option ι → ℝ) →ₗ[ℝ] ℝ) v
-  refine ⟨c, fun hc ↦ ?_, fun j ↦ apply_nonpos_of_forall_lt hf ha₀ fun k ↦ by
-    by_cases hjk : j = k <;> simp [e, hjk], fun x hx ↦ ?_⟩
+  refine ⟨-c, neg_ne_zero.2 fun hc ↦ ?_, fun j ↦ neg_nonneg.2 <|
+    apply_nonpos_of_forall_lt hf ha₀ fun k ↦ by by_cases hjk : j = k <;> simp [e, hjk],
+    fun x hx ↦ ?_⟩
   · -- `f` is nonzero, since it is strictly below `f p` somewhere.
     have := hf _ ha₀
     simp [hfc, hc] at this
-  · simpa [hfc, objConstr, p] using apply_le_of_forall_lt hf hx
+  · simp only [Pi.neg_apply, neg_mul, Finset.sum_neg_distrib, ← neg_add, neg_le_neg_iff]
+    simpa [hfc, objConstr, p] using apply_le_of_forall_lt hf hx
 
 /-- **Lagrange multipliers under Slater's condition** [Lue69, §8.3, Theorem 1], for convex-like
 data [Fan53]. Let `F` and finitely many `h i` be jointly convex-like on a set `C`: for `x, y ∈ C`
@@ -191,23 +204,23 @@ theorem exists_forall_le_add_sum_of_convexLike [Fintype ι]
     (hm : ∀ x ∈ C, (∀ i, h i x ≤ 0) → m ≤ F x) :
     ∃ π : ι → ℝ≥0, ∀ x ∈ C, m ≤ F x + ∑ i, (π i : ℝ) * h i x := by
   obtain ⟨x₀, hx₀, hx₀h⟩ := hslater
-  obtain ⟨c, hc, hc_nonpos, hcx⟩ := exists_fritzJohn hconv hx₀ hm
-  -- By Slater's condition the coefficient of the objective is negative: otherwise the terms
-  -- `c (some i) * h i x₀ ≥ 0` would have a nonpositive sum, so every coefficient would vanish.
-  have hc_neg : c none < 0 := by
-    refine (hc_nonpos none).lt_of_ne fun h0 ↦ hc ?_
+  obtain ⟨c, hc, hc_nonneg, hcx⟩ := exists_ne_zero_forall_le_of_convexLike hconv hm
+  -- By Slater's condition the coefficient of the objective is positive: otherwise the terms
+  -- `c (some i) * h i x₀ ≤ 0` would have a nonnegative sum, so every coefficient would vanish.
+  have hc_pos : 0 < c none := by
+    refine (hc_nonneg none).lt_of_ne' fun h0 ↦ hc ?_
     have hsum := hcx x₀ hx₀
     rw [h0, zero_mul, zero_mul, zero_add] at hsum
-    have hterm (i : ι) : 0 ≤ c (some i) * h i x₀ :=
-      mul_nonneg_of_nonpos_of_nonpos (hc_nonpos _) (hx₀h i).le
+    have hterm (i : ι) : c (some i) * h i x₀ ≤ 0 :=
+      mul_nonpos_of_nonneg_of_nonpos (hc_nonneg _) (hx₀h i).le
     have hzero (i : ι) : c (some i) = 0 := by
-      have := (Finset.sum_eq_zero_iff_of_nonneg fun i _ ↦ hterm i).1
-        (le_antisymm hsum (Finset.sum_nonneg fun i _ ↦ hterm i)) i (Finset.mem_univ _)
+      have := (Finset.sum_eq_zero_iff_of_nonpos fun i _ ↦ hterm i).1
+        (le_antisymm (Finset.sum_nonpos fun i _ ↦ hterm i) hsum) i (Finset.mem_univ _)
       exact (mul_eq_zero.1 this).resolve_right (hx₀h i).ne
     ext (_ | i)
     exacts [h0, hzero i]
   -- Normalize the coefficient of the objective to `1`.
-  have hc0 : c none ≠ 0 := hc_neg.ne
+  have hc0 : c none ≠ 0 := hc_pos.ne'
   have hL (x : X) (hx : x ∈ C) : m ≤ F x + ∑ i, c (some i) / c none * h i x := by
     have hmul : c none * (F x + ∑ i, c (some i) / c none * h i x) =
         c none * F x + ∑ i, c (some i) * h i x := by
@@ -215,9 +228,10 @@ theorem exists_forall_le_add_sum_of_convexLike [Fintype ι]
       congr 1
       refine Finset.sum_congr rfl fun i _ ↦ ?_
       field_simp
-    rw [← mul_le_mul_left_of_neg hc_neg, hmul]
+    refine le_of_mul_le_mul_left ?_ hc_pos
+    rw [hmul]
     exact hcx x hx
-  exact ⟨fun i ↦ ⟨c (some i) / c none, div_nonneg_of_nonpos (hc_nonpos _) hc_neg.le⟩, hL⟩
+  exact ⟨fun i ↦ ⟨c (some i) / c none, div_nonneg (hc_nonneg _) hc_pos.le⟩, hL⟩
 
 /-- **Weak duality.** For every multiplier `π : ι → ℝ≥0`, the infimum over `C` of the Lagrangian
 `F x + ∑ i, π i * h i x` is at most the infimum of `F` over the feasible set
