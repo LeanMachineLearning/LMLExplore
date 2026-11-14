@@ -7,6 +7,7 @@ module
 
 public import LMLExplore.Identification.CumulativeTracking
 public import LMLExplore.Identification.DifficultyRatio
+public import LMLExplore.SequentialLearning.StaticAllocation
 public import LeanMachineLearning.SequentialLearning.SumRewards
 
 /-!
@@ -56,6 +57,19 @@ in exponential families and a regular task [D23, Theorem 1].
 * `LMLExplore.Identification.IdentTask.IsStaticProportions.errorProb_eq`: the probability of error
   of a static proportions family is the probability that the recommendation of the empirical means
   is not correct.
+* `LMLExplore.Identification.IdentTask.IsStaticProportions.hasLDP_empMean`: for arms whose
+  cumulant generating functions are finite near `0`, the laws of the empirical means of a static
+  proportions family satisfy the large deviation principle with rate function
+  `x ↦ ∑ a, w a I_a(x a)`, for the Cramér rate functions `I_a` of the arms.
+* `LMLExplore.Identification.IdentTask.IsStaticProportions.limsup_log_errorProb_div_le`,
+  `LMLExplore.Identification.IdentTask.IsStaticProportions.neg_le_liminf_log_errorProb_div`: the
+  error exponent of a static proportions family is between the infima of `∑ a, w a I_a(x a)` over
+  the interior and over the closure of the set of the vectors `x` whose recommendation `rec x` is
+  not correct [GJ04; D23, Theorem 12].
+* `LMLExplore.Identification.IdentTask.IsStaticProportions.tendsto_log_errorProb_div`,
+  `LMLExplore.Identification.IdentTask.IsStaticProportions.tendsto_errorComplexity`: when the two
+  infima agree, the error exponent is their common value `c`, and the error complexity
+  `T / log (1 / p_{θ,T})` tends to `c⁻¹`.
 
 ## References
 
@@ -71,9 +85,10 @@ in exponential families and a regular task [D23, Theorem 1].
 
 public section
 
-open MeasureTheory Learning
+open MeasureTheory Learning Filter Topology ProbabilityTheory
+open TauCeti.Probability (HasLDP)
 
-open scoped ENNReal
+open scoped ENNReal NNReal
 
 namespace LMLExplore.Identification.IdentTask
 
@@ -249,5 +264,106 @@ lemma IsStaticProportions.errorProb_eq (h𝒜 : task.IsStaticProportions rec �
     Measure.bind_apply hθ.compl (ProbabilityTheory.Kernel.aemeasurable _),
     lintegral_map (ProbabilityTheory.Kernel.measurable_coe _ hθ.compl) (IT.measurable_hist T),
     lintegral_congr heq, lintegral_indicator_one hE]
+
+/-! ### The error exponent of static proportions families -/
+
+variable [MeasurableSingletonClass α] {θ : Θ}
+
+/-- **Large deviations of the empirical means of a static proportions family** [GJ04;
+D23, Theorem 12]. If the cumulant generating function of each arm of the admissible model `θ` is
+finite on a neighbourhood of `0`, the laws of the vectors of the empirical means after `T` rounds
+of a static proportions family with proportions `w` satisfy the large deviation principle with
+speed `1 / T` and rate function `x ↦ ∑ a, w a I_a(x a)`, with `I_a` the Cramér rate function of
+the law `ν_a(θ)` of arm `a`. -/
+theorem IsStaticProportions.hasLDP_empMean (h𝒜 : task.IsStaticProportions rec 𝒜 w)
+    (hθ : θ ∈ task.M) (hν : ∀ a, 0 ∈ interior (integrableExpSet id (task.ν θ a))) :
+    HasLDP atTop (fun T : ℕ ↦ (T : ℝ≥0)⁻¹)
+      (fun T ↦ (trajMeasure (𝒜 T).alg (Environment.bandit (task.ν θ))).map
+        fun h a ↦ empMean IT.action IT.feedback a T h)
+      (fun x ↦ ∑ a, ENNReal.ofReal (w a) * rateFunction id (task.ν θ a) (x a)) :=
+  hasLDP_empMean_rateFunction_of_abs_pullCount_sub_le hν h𝒜.pos (Fintype.card α)
+    (fun T ↦ IT.isAlgEnvSeq_trajMeasure (𝒜 T).alg (Environment.bandit (task.ν θ)))
+    (h𝒜.ae_abs_pullCount_sub_le θ hθ)
+
+/-- **Upper bound on the error exponent of a static proportions family** [GJ04; D23, Theorem 12].
+If the set of correct answers of the admissible model `θ` is measurable and the cumulant generating
+function of each of its arms is finite on a neighbourhood of `0`, the probability of error
+`p_{θ,T}` of a static proportions family with proportions `w` and recommendation rule `rec`
+satisfies `limsup_T (1 / T) log p_{θ,T} ≤ -inf_x ∑ a, w a I_a(x a)`, the infimum over the closure
+of the set of the vectors `x` with `rec x` not correct for `θ`, with `I_a` the Cramér rate function
+of the law `ν_a(θ)` of arm `a`. -/
+theorem IsStaticProportions.limsup_log_errorProb_div_le (h𝒜 : task.IsStaticProportions rec 𝒜 w)
+    (hθ : θ ∈ task.M) (hcorrect : MeasurableSet (task.correct θ))
+    (hν : ∀ a, 0 ∈ interior (integrableExpSet id (task.ν θ a))) :
+    limsup (fun T : ℕ ↦ ENNReal.log (task.errorProb 𝒜 θ T) / T) atTop ≤
+      -((⨅ x ∈ closure {x | rec x ∉ task.correct θ},
+        ∑ a, ENNReal.ofReal (w a) * rateFunction id (task.ν θ a) (x a) : ℝ≥0∞) : EReal) := by
+  have h := (h𝒜.hasLDP_empMean hθ hν).limsup_le_neg_iInf_closure {x | rec x ∉ task.correct θ}
+  simp_rw [EReal.coe_nnreal_inv_natCast_mul] at h
+  refine le_trans (limsup_le_limsup (Eventually.of_forall fun T ↦ ?_)) h
+  -- The error is the event that the empirical means lie in the set where `rec` is not correct.
+  rw [h𝒜.errorProb_eq hcorrect]
+  exact EReal.div_le_div_right_of_nonneg (by positivity) (ENNReal.log_monotone
+    (Measure.le_map_apply
+      (measurable_empMean_pi IT.measurable_action IT.measurable_feedback T).aemeasurable
+      {x | rec x ∉ task.correct θ}))
+
+/-- **Lower bound on the error exponent of a static proportions family** [GJ04; D23, Theorem 12].
+If the set of correct answers of the admissible model `θ` is measurable and the cumulant generating
+function of each of its arms is finite on a neighbourhood of `0`, the probability of error
+`p_{θ,T}` of a static proportions family with proportions `w` and recommendation rule `rec`
+satisfies `-inf_x ∑ a, w a I_a(x a) ≤ liminf_T (1 / T) log p_{θ,T}`, the infimum over the
+interior of the set of the vectors `x` with `rec x` not correct for `θ`, with `I_a` the Cramér rate
+function of the law `ν_a(θ)` of arm `a`. -/
+theorem IsStaticProportions.neg_le_liminf_log_errorProb_div
+    (h𝒜 : task.IsStaticProportions rec 𝒜 w) (hθ : θ ∈ task.M)
+    (hcorrect : MeasurableSet (task.correct θ))
+    (hν : ∀ a, 0 ∈ interior (integrableExpSet id (task.ν θ a))) :
+    -((⨅ x ∈ interior {x | rec x ∉ task.correct θ},
+        ∑ a, ENNReal.ofReal (w a) * rateFunction id (task.ν θ a) (x a) : ℝ≥0∞) : EReal) ≤
+      liminf (fun T : ℕ ↦ ENNReal.log (task.errorProb 𝒜 θ T) / T) atTop := by
+  have h := (h𝒜.hasLDP_empMean hθ hν).lower_bound (interior {x | rec x ∉ task.correct θ})
+    isOpen_interior
+  simp_rw [EReal.coe_nnreal_inv_natCast_mul] at h
+  refine h.trans (liminf_le_liminf (Eventually.of_forall fun T ↦ ?_))
+  -- The empirical means in the interior of the set where `rec` is not correct give an error.
+  rw [h𝒜.errorProb_eq hcorrect, Measure.map_apply
+    (measurable_empMean_pi IT.measurable_action IT.measurable_feedback T)
+    isOpen_interior.measurableSet]
+  exact EReal.div_le_div_right_of_nonneg (by positivity)
+    (ENNReal.log_monotone (measure_mono (Set.preimage_mono interior_subset)))
+
+/-- **The error exponent of a static proportions family** [GJ04; D23, Theorem 12]. If moreover the
+infima of `x ↦ ∑ a, w a I_a(x a)` over the interior and over the closure of the set of the vectors
+`x` with `rec x` not correct for `θ` agree, then `(1 / T) log p_{θ,T}` tends to minus their common
+value. -/
+theorem IsStaticProportions.tendsto_log_errorProb_div (h𝒜 : task.IsStaticProportions rec 𝒜 w)
+    (hθ : θ ∈ task.M) (hcorrect : MeasurableSet (task.correct θ))
+    (hν : ∀ a, 0 ∈ interior (integrableExpSet id (task.ν θ a)))
+    (h_eq : ⨅ x ∈ interior {x | rec x ∉ task.correct θ},
+        ∑ a, ENNReal.ofReal (w a) * rateFunction id (task.ν θ a) (x a) =
+      ⨅ x ∈ closure {x | rec x ∉ task.correct θ},
+        ∑ a, ENNReal.ofReal (w a) * rateFunction id (task.ν θ a) (x a)) :
+    Tendsto (fun T : ℕ ↦ ENNReal.log (task.errorProb 𝒜 θ T) / T) atTop
+      (𝓝 (-((⨅ x ∈ closure {x | rec x ∉ task.correct θ},
+        ∑ a, ENNReal.ofReal (w a) * rateFunction id (task.ν θ a) (x a) : ℝ≥0∞) : EReal))) :=
+  tendsto_of_le_liminf_of_limsup_le (h_eq ▸ h𝒜.neg_le_liminf_log_errorProb_div hθ hcorrect hν)
+    (h𝒜.limsup_log_errorProb_div_le hθ hcorrect hν)
+
+/-- **The error complexity of a static proportions family** [D23, Theorem 12]. Under the hypotheses
+of `IsStaticProportions.tendsto_log_errorProb_div`, the error complexity `T / log (1 / p_{θ,T})`
+tends to the inverse of the error exponent `inf_x ∑ a, w a I_a(x a)`. -/
+theorem IsStaticProportions.tendsto_errorComplexity (h𝒜 : task.IsStaticProportions rec 𝒜 w)
+    (hθ : θ ∈ task.M) (hcorrect : MeasurableSet (task.correct θ))
+    (hν : ∀ a, 0 ∈ interior (integrableExpSet id (task.ν θ a)))
+    (h_eq : ⨅ x ∈ interior {x | rec x ∉ task.correct θ},
+        ∑ a, ENNReal.ofReal (w a) * rateFunction id (task.ν θ a) (x a) =
+      ⨅ x ∈ closure {x | rec x ∉ task.correct θ},
+        ∑ a, ENNReal.ofReal (w a) * rateFunction id (task.ν θ a) (x a)) :
+    Tendsto (task.errorComplexity 𝒜 θ) atTop
+      (𝓝 (⨅ x ∈ closure {x | rec x ∉ task.correct θ},
+        ∑ a, ENNReal.ofReal (w a) * rateFunction id (task.ν θ a) (x a))⁻¹) :=
+  tendsto_errorComplexity_of_tendsto_log_div
+    (h𝒜.tendsto_log_errorProb_div hθ hcorrect hν h_eq)
 
 end LMLExplore.Identification.IdentTask

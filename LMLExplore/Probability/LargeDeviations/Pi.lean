@@ -40,6 +40,8 @@ rates is above `r`.
 
 * `LMLExplore.hasLDP_pi`: the large deviation principle of the product measures, with
   rate function `x ↦ ∑ a, I a (x a)`.
+* `LMLExplore.neg_sum_le_liminf_log_pi`: the lower bound of the product principle at a point,
+  which needs no goodness of the rate functions.
 * `LMLExplore.hasLDP_pi_comp_of_tendsto_div`: the large deviation principle of the
   product measures `Measure.pi fun a ↦ P a (m a n)` with `m a n / n → w a > 0`, with rate function
   `x ↦ ∑ a, w a I a (x a)`.
@@ -89,7 +91,7 @@ variable {ι : Type*} [Fintype ι] {X : ι → Type*} [∀ a, MeasurableSpace (X
 /-- **The lower bound of the product principle.** If each `P a` satisfies the lower bound of a
 large deviation principle at the speed `1 / n` with rate function `I a`, every neighbourhood `s`
 of a point `x` satisfies `-∑ a, I a (x a) ≤ liminf_n (1 / n) log (∏ a, P a n) s`. -/
-private lemma neg_sum_le_liminf_log_pi [∀ a, TopologicalSpace (X a)]
+theorem neg_sum_le_liminf_log_pi [∀ a, TopologicalSpace (X a)]
     [∀ a n, SigmaFinite (P a n)] (h : ∀ a, HasLDP atTop (fun n : ℕ ↦ (n : ℝ≥0)⁻¹) (P a) (I a))
     {x : ∀ a, X a} {s : Set (∀ a, X a)} (hs : s ∈ 𝓝 x) :
     -((∑ a, I a (x a) : ℝ≥0∞) : EReal) ≤ liminf (fun n : ℕ ↦
