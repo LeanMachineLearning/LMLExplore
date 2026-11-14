@@ -52,11 +52,14 @@ where the closed form of the divergence makes the transportation costs explicit.
   levels `x ≤ 0`.
 * `LMLExplore.le_expFamilyUpper_expMeasure_iff`, `LMLExplore.expFamilyUpper_expMeasure_of_nonpos`:
   the upper confidence level of the family at positive and at nonpositive levels.
+* `LMLExplore.tendsto_expFamilyDiv_expMeasure_nhdsGT_zero`,
+  `LMLExplore.tendsto_expFamilyDiv_expMeasure_atTop`: `d(μ, μ') → ∞` as `μ'` tends to either
+  endpoint `0` or `∞` of the means.
 -/
 
 public section
 
-open MeasureTheory ProbabilityTheory InformationTheory Real Set
+open MeasureTheory ProbabilityTheory InformationTheory Real Set Filter Topology
 
 open scoped ENNReal
 
@@ -157,5 +160,19 @@ a finite budget `c` is `U(x, c) = x`. -/
 theorem expFamilyUpper_expMeasure_of_nonpos (hr : 0 < r) (hx : x ≤ 0) {c : ℝ≥0∞} (hc : c ≠ ∞) :
     (expMeasure r).expFamilyUpper id x c = x := by
   rw [expMeasure, expFamilyUpper_gammaMeasure_of_nonpos one_pos hr hx hc]
+
+/-- For a mean `μ > 0`, the divergence `d(μ, μ')` of the exponential family of `expMeasure r`
+tends to infinity as `μ'` tends to the endpoint `0` of the means. -/
+theorem tendsto_expFamilyDiv_expMeasure_nhdsGT_zero (hr : 0 < r) (hμ : 0 < μ) :
+    Tendsto ((expMeasure r).expFamilyDiv id μ) (𝓝[>] 0) atTop := by
+  rw [expMeasure]
+  exact tendsto_expFamilyDiv_gammaMeasure_nhdsGT_zero one_pos hr hμ
+
+/-- For a mean `μ > 0`, the divergence `d(μ, μ')` of the exponential family of `expMeasure r`
+tends to infinity as `μ'` tends to the endpoint `∞` of the means. -/
+theorem tendsto_expFamilyDiv_expMeasure_atTop (hr : 0 < r) (hμ : 0 < μ) :
+    Tendsto ((expMeasure r).expFamilyDiv id μ) atTop atTop := by
+  rw [expMeasure]
+  exact tendsto_expFamilyDiv_gammaMeasure_atTop one_pos hr hμ
 
 end LMLExplore

@@ -12,7 +12,9 @@ public import Mathlib.Order.LiminfLimsup
 public import Mathlib.Topology.Instances.EReal.Lemmas
 public import Mathlib.Topology.Semicontinuity.Defs
 public import TauCeti.Probability.LargeDeviations.Basic
+public import LMLExplore.Data.EReal.Basic
 public import LMLExplore.Data.EReal.Inv
+public import LMLExplore.Topology.Semicontinuity.ENNReal
 
 /-!
 # Large deviation principles
@@ -52,8 +54,14 @@ neighbourhoods of single points.
   exponential bounds on closed sets and on neighbourhoods of points, from the principle.
 * `TauCeti.Probability.HasLDP.exists_eventually_measure_norm_ge_le_exp`: exponential tightness on a
   normed group, from a principle at the speed `1 / n` with a good rate function.
+* `TauCeti.Probability.HasLDP.comp_of_tendsto_div`: a change of time. If `P n` satisfies the
+  principle at the speed `1 / n` with rate `I` and `m n / n → w > 0`, then `P (m n)` satisfies it
+  at the speed `1 / n` with rate `w I`: `m n` samples taken at the time `n` deviate at the rate
+  `w I` per unit of time.
 * `LMLExplore.isGoodRateFunction_sum_mul`: positive weighted sums of good rate functions on the
   coordinates of a finite product are good.
+* `TauCeti.Probability.IsGoodRateFunction.ofReal_mul`: a positive multiple of a good rate function
+  is good.
 
 ## References
 
@@ -287,6 +295,57 @@ theorem exists_eventually_measure_norm_ge_le_exp {E : Type*} [SeminormedAddCommG
     simp only [Set.mem_ofPred_eq] at hx
     linarith
 
+/-! ### A change of time -/
+
+/-- **A change of time in a large deviation principle at the speed `1 / n`.** If the measures
+`P n` satisfy the large deviation principle with speed `1 / n` and rate function `I`, and the
+indices `m n` grow linearly, `m n / n → w` with `w > 0`, then the measures `P (m n)` satisfy the
+large deviation principle with speed `1 / n` and rate function `w I`. For `P n` the law of a
+statistic of `n` samples, the measures `P (m n)` are the laws of the statistic of a proportion
+`w` of `n` samples. -/
+theorem comp_of_tendsto_div {P : ℕ → Measure X}
+    (h : HasLDP atTop (fun n : ℕ ↦ (n : ℝ≥0)⁻¹) P I) {m : ℕ → ℕ} {w : ℝ} (hw : 0 < w)
+    (hm : Tendsto (fun n ↦ (m n : ℝ) / n) atTop (𝓝 w)) :
+    HasLDP atTop (fun n : ℕ ↦ (n : ℝ≥0)⁻¹) (fun n ↦ P (m n))
+      (fun x ↦ ENNReal.ofReal w * I x) := by
+  have hm_top : Tendsto m atTop atTop := by
+    refine tendsto_natCast_atTop_iff.1 <|
+      (hm.pos_mul_atTop hw tendsto_natCast_atTop_atTop).congr' ?_
+    filter_upwards [eventually_ne_atTop 0] with n hn
+    field_simp
+  -- For every real `r'`, `m n r'` is eventually above `n r` if `r < w r'`, and below it if
+  -- `w r' < r`.
+  have h_lt {r r' : ℝ} (hr : r < w * r') : ∀ᶠ n : ℕ in atTop, n * r ≤ m n * r' := by
+    filter_upwards [(hm.mul_const r').eventually (eventually_gt_nhds hr),
+      eventually_gt_atTop 0] with n hn hn0
+    rw [div_mul_eq_mul_div, lt_div_iff₀ (by exact_mod_cast hn0)] at hn
+    linarith
+  have h_gt {r r' : ℝ} (hr : w * r' < r) : ∀ᶠ n : ℕ in atTop, m n * r' ≤ n * r := by
+    filter_upwards [(hm.mul_const r').eventually (eventually_lt_nhds hr),
+      eventually_gt_atTop 0] with n hn hn0
+    rw [div_mul_eq_mul_div, div_lt_iff₀ (by exact_mod_cast hn0)] at hn
+    linarith
+  have hw0 : ENNReal.ofReal w ≠ 0 := (ENNReal.ofReal_pos.2 hw).ne'
+  refine .of_isClosed_of_mem_nhds ?_ (fun F hF ↦ ?_) (fun x s hs ↦ ?_)
+  · exact h.lowerSemicontinuous.ennreal_const_mul ENNReal.ofReal_ne_top
+  · refine LMLExplore.limsup_inv_mul_log_le_neg_of_le_mul_exp fun r hr ↦
+      ⟨1, ENNReal.one_ne_top, ?_⟩
+    simp_rw [← ENNReal.mul_iInf_of_ne hw0 ENNReal.ofReal_ne_top] at hr
+    obtain ⟨r', hr₁, hr₂⟩ := EReal.lt_iff_exists_real_btwn.1
+      ((EReal.coe_lt_coe_ennreal_ofReal_mul_iff hw).1 hr)
+    filter_upwards [hm_top.eventually (h.eventually_measure_le_exp hF hr₂),
+      h_lt ((div_lt_iff₀' hw).1 (EReal.coe_lt_coe_iff.1 hr₁))] with n hn hn'
+    rw [one_mul]
+    exact hn.trans (ENNReal.ofReal_le_ofReal (Real.exp_le_exp.2 (by linarith)))
+  · refine LMLExplore.neg_le_liminf_inv_mul_log_of_mul_exp_le fun r hr ↦
+      ⟨1, one_ne_zero, ?_⟩
+    obtain ⟨r', hr₁, hr₂⟩ := EReal.lt_iff_exists_real_btwn.1
+      ((EReal.coe_ennreal_ofReal_mul_lt_coe_iff hw).1 hr)
+    filter_upwards [hm_top.eventually (h.eventually_exp_le_measure hs hr₁),
+      h_gt ((lt_div_iff₀' hw).1 (EReal.coe_lt_coe_iff.1 hr₂))] with n hn hn'
+    rw [one_mul]
+    exact (ENNReal.ofReal_le_ofReal (Real.exp_le_exp.2 (by linarith))).trans hn
+
 end TauCeti.Probability.HasLDP
 
 namespace LMLExplore
@@ -300,8 +359,7 @@ lemma isGoodRateFunction_sum_mul {ι : Type*} [Fintype ι] {X : ι → Type*}
     IsGoodRateFunction fun x : (∀ a, X a) ↦ ∑ a, ENNReal.ofReal (w a) * I a (x a) := by
   have h_lsc : LowerSemicontinuous fun x : (∀ a, X a) ↦ ∑ a, ENNReal.ofReal (w a) * I a (x a) :=
     lowerSemicontinuous_sum fun a _ ↦
-      (ENNReal.continuous_const_mul ENNReal.ofReal_ne_top).comp_lowerSemicontinuous
-        ((hI a).lowerSemicontinuous.comp (continuous_apply a)) fun _ _ h ↦ by dsimp only; gcongr
+      ((hI a).lowerSemicontinuous.comp (continuous_apply a)).ennreal_const_mul ENNReal.ofReal_ne_top
   refine ⟨h_lsc, fun c hc ↦ ?_⟩
   lift c to ℝ≥0 using hc
   refine IsCompact.of_isClosed_subset
@@ -318,3 +376,18 @@ lemma isGoodRateFunction_sum_mul {ι : Type*} [Fintype ι] {X : ι → Type*}
   exact h_le
 
 end LMLExplore
+
+namespace TauCeti.Probability.IsGoodRateFunction
+
+/-- **Positive multiples of good rate functions are good.** For a good rate function `I` and
+`w > 0`, the function `x ↦ w I x` is a good rate function. -/
+lemma ofReal_mul {X : Type*} [TopologicalSpace X] {I : X → ℝ≥0∞} (hI : IsGoodRateFunction I)
+    {w : ℝ} (hw : 0 < w) : IsGoodRateFunction fun x ↦ ENNReal.ofReal w * I x := by
+  have hw0 : ENNReal.ofReal w ≠ 0 := (ENNReal.ofReal_pos.2 hw).ne'
+  refine ⟨hI.lowerSemicontinuous.ennreal_const_mul ENNReal.ofReal_ne_top,
+    fun c hc ↦ ?_⟩
+  convert hI.isCompact_sublevel (c / ENNReal.ofReal w) (ENNReal.div_ne_top hc hw0) using 2
+  ext x
+  rw [ENNReal.le_div_iff_mul_le (Or.inl hw0) (Or.inl ENNReal.ofReal_ne_top), mul_comm]
+
+end TauCeti.Probability.IsGoodRateFunction

@@ -25,6 +25,8 @@ gives the product of the conditional measures `μ[|B]`, scaled by `μ(B)` to the
   `(Measure.pi μ).map (fun y ↦ f fun i ↦ X i (y i)) = (Measure.pi fun i ↦ (μ i).map (X i)).map f`.
 * `MeasureTheory.Measure.pi_restrict_eq_pow_smul_pi_cond`:
   `Measure.pi (fun _ ↦ μ.restrict B) = μ B ^ card ι • Measure.pi (fun _ ↦ μ[|B])`.
+* `MeasureTheory.Measure.pi_eval_preimage_le`: for measures of mass at most `1`, the product
+  measure of the cylinder `{y | y i ∈ s}` is at most `μ i s`, for every set `s`.
 -/
 
 public section
@@ -61,5 +63,15 @@ lemma pi_restrict_eq_pow_smul_pi_cond {α : Type*} {mα : MeasurableSpace α} {�
   refine Finset.prod_congr rfl fun i _ ↦ ?_
   rw [cond_apply' (hs i), Measure.restrict_apply (hs i), ← mul_assoc,
     ENNReal.mul_inv_cancel hB0 hB, one_mul, Set.inter_comm]
+
+/-- For measures of mass at most `1`, the product measure of the cylinder `eval i ⁻¹' s` of a set
+`s`, measurable or not, is at most `μ i s`. -/
+lemma pi_eval_preimage_le {μ : ∀ i, Measure (Ω i)} [∀ i, IsZeroOrProbabilityMeasure (μ i)]
+    (i : ι) (s : Set (Ω i)) :
+    Measure.pi μ (Function.eval i ⁻¹' s) ≤ μ i s := by
+  classical
+  rw [← Set.univ_pi_update_univ, Measure.pi_pi,
+    Finset.prod_eq_mul_prod_sdiff_singleton_of_mem (Finset.mem_univ i), Function.update_self]
+  exact mul_le_of_le_one_right' (Finset.prod_le_one fun j _ ↦ prob_le_one)
 
 end MeasureTheory.Measure

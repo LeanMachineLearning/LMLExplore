@@ -7,6 +7,7 @@ module
 
 public import LMLExplore.Probability.Distributions.ExponentialFamily.UpperConfidence
 public import TauCeti.Probability.Distributions.Gamma.Basic
+import LMLExplore.Analysis.SpecialFunctions.Log.Basic
 import TauCeti.Probability.Distributions.Tilted
 
 /-!
@@ -62,11 +63,14 @@ COLT 2016, where the closed form of the divergence makes the transportation cost
 * `LMLExplore.le_expFamilyUpper_gammaMeasure_iff`,
   `LMLExplore.expFamilyUpper_gammaMeasure_of_nonpos`: the upper confidence level of the family at
   positive and at nonpositive levels.
+* `LMLExplore.tendsto_expFamilyDiv_gammaMeasure_nhdsGT_zero`,
+  `LMLExplore.tendsto_expFamilyDiv_gammaMeasure_atTop`: `d(μ, μ') → ∞` as `μ'` tends to either
+  endpoint `0` or `∞` of the means.
 -/
 
 public section
 
-open MeasureTheory ProbabilityTheory InformationTheory Real Set
+open MeasureTheory ProbabilityTheory InformationTheory Real Set Filter Topology
 
 open scoped ENNReal
 
@@ -235,5 +239,26 @@ theorem expFamilyUpper_gammaMeasure_of_nonpos (ha : 0 < a) (hr : 0 < r) (hx : x 
   rw [expFamilyMeans_gammaMeasure ha hr] at hq
   rw [expFamilyRate_gammaMeasure_of_nonpos ha hr hx hq, top_le_iff] at hqc
   exact absurd hqc hc
+
+/-- For a mean `μ > 0`, the divergence `d(μ, μ')` of the exponential family of `gammaMeasure a r`
+tends to infinity as `μ'` tends to the endpoint `0` of the means. -/
+theorem tendsto_expFamilyDiv_gammaMeasure_nhdsGT_zero (ha : 0 < a) (hr : 0 < r) (hμ : 0 < μ) :
+    Tendsto ((gammaMeasure a r).expFamilyDiv id μ) (𝓝[>] 0) atTop := by
+  have h : Tendsto (fun μ' ↦ μ / μ') (𝓝[>] 0) atTop := by
+    simpa only [div_eq_mul_inv] using tendsto_inv_nhdsGT_zero.const_mul_atTop hμ
+  refine ((tendsto_sub_one_sub_log_atTop.comp h).const_mul_atTop ha).congr' ?_
+  filter_upwards [self_mem_nhdsWithin] with μ' (hμ' : 0 < μ')
+  exact (expFamilyDiv_gammaMeasure ha hr hμ hμ').symm
+
+/-- For a mean `μ > 0`, the divergence `d(μ, μ')` of the exponential family of `gammaMeasure a r`
+tends to infinity as `μ'` tends to the endpoint `∞` of the means. -/
+theorem tendsto_expFamilyDiv_gammaMeasure_atTop (ha : 0 < a) (hr : 0 < r) (hμ : 0 < μ) :
+    Tendsto ((gammaMeasure a r).expFamilyDiv id μ) atTop atTop := by
+  have h : Tendsto (fun μ' ↦ μ / μ') atTop (𝓝[>] 0) :=
+    tendsto_nhdsWithin_iff.2 ⟨tendsto_const_nhds.div_atTop tendsto_id,
+      (eventually_gt_atTop 0).mono fun μ' hμ' ↦ div_pos hμ hμ'⟩
+  refine ((tendsto_sub_one_sub_log_nhdsGT_zero.comp h).const_mul_atTop ha).congr' ?_
+  filter_upwards [eventually_gt_atTop 0] with μ' hμ'
+  exact (expFamilyDiv_gammaMeasure ha hr hμ hμ').symm
 
 end LMLExplore
