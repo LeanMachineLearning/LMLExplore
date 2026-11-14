@@ -58,9 +58,9 @@ function `2 B V - V ^ 2` is a supersolution for `γ ^ 2 Var_κ(V)`, so that
 a multiple of the standard deviation `√Var_κ(V)`, as Bernstein's inequality bounds it for an
 empirical kernel `κ'`. Iterating this control along the functions `V 0 = R_γ f` and
 `V (l + 1) = R_γ √Var_κ(V l)`, each bounded through Lemma 11 by the previous one, compares
-`R_γ(κ') f` with `R_γ(κ) f` up to `3 C √(ε / (1 - γ) ^ 3)` for `0 ≤ f ≤ C`, as soon as `κ'`
-deviates from `κ` by `√(ε Var_κ(V l))` plus a lower-order term on the first `log (1 - γ)⁻¹`
-levels [LWCGC24, Lemma 2].
+`R_γ(κ') f` with `R_γ(κ) f` up to `3 C √(ε / (1 - γ) ^ 3)` for `0 ≤ f ≤ C`: for `0 < γ < 1` and
+`9 ε ≤ 1 - γ`, as soon as `κ'` deviates from `κ` by `√(ε Var_κ(V l))` plus a lower-order term on
+the levels `l ≤ m`, for some `m ≥ log (1 - γ)⁻¹` [LWCGC24, Lemma 2].
 
 In a Markov decision process, the value of a stationary policy is the resolvent of the state
 kernel of the policy applied to its reward, and the discounted occupancy measure of a stationary
