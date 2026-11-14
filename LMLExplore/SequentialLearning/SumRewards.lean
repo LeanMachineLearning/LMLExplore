@@ -84,6 +84,7 @@ this way.
   `measure_exists_pullCount_sumRewards_le` and `measure_exists_lt_pullCount_sumRewards_le`: the
   event transfers for properties of the numbers of pulls and the sums of rewards.
 * `empMean_mem_Icc`: rewards in `[l, u]` give empirical means in `[l, u]`.
+* `measurable_empMean_pi`: the vector of the empirical means of all arms is measurable.
 * `sum_ite_mul_add_one_sub_mul`: the sum over the pulls of an arm of an affine function
   `R x + (1 - R) y` of the reward is `S x + (N - S) y`, with `S` the sum of the rewards and `N` the
   number of pulls.
@@ -193,6 +194,12 @@ lemma empMean_mem_Icc {a : α} {t : ℕ} {ω : Ω} {l u : ℝ} (hR : ∀ s < t, 
   constructor
   · simpa [pullCount, mul_comm] using card_nsmul_le_sum _ (fun s ↦ R s ω) l fun s hs ↦ (hR' s hs).1
   · simpa [pullCount, mul_comm] using sum_le_card_nsmul _ (fun s ↦ R s ω) u fun s hs ↦ (hR' s hs).2
+
+/-- The vector `(empMean A R a t ω)_a` of the empirical means of all arms before round `t` is
+measurable in `ω`. -/
+lemma measurable_empMean_pi [MeasurableSingletonClass α] (hA : ∀ n, Measurable (A n))
+    (hR : ∀ n, Measurable (R n)) (t : ℕ) : Measurable fun ω a ↦ empMean A R a t ω :=
+  .of_eval fun a ↦ measurable_empMean hA hR a t
 
 /-- The sum over the pulls of an arm `a` of a function `R x + (1 - R) y` of the reward `R`, which is
 affine in the reward, is `S_a(n) x + (N_a(n) - S_a(n)) y`, where `S_a(n)` is the sum of the rewards

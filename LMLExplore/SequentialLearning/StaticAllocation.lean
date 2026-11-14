@@ -5,6 +5,7 @@ Authors: LMLExplore contributors
 -/
 module
 
+public import LMLExplore.Analysis.SpecificLimits.Basic
 public import LMLExplore.Probability.LargeDeviations.Pi
 public import LMLExplore.SequentialLearning.SumRewards
 
@@ -38,8 +39,8 @@ after `T` rounds is the mean of the first `N_{T,a}` entries of its row
 
 ## Main statements
 
-* `MeasureTheory.Measure.infinitePi_mean_mem_and_forall_mem`: for an i.i.d. sequence, the mean of
-  the first `n` terms and the next `m` terms are independent.
+* `MeasureTheory.Measure.infinitePi_fin_mem_and_forall_add_mem`: for an i.i.d. sequence, the
+  first `n` terms and the next `m` terms are independent.
 * `LMLExplore.eventually_streamMeasure_mean_mem_le_exp`,
   `LMLExplore.exists_eventually_le_streamMeasure_forall_mean_mem`: the exponential upper and lower
   bounds for the empirical means of the rows, uniformly over the numbers of samples in a window.
@@ -78,43 +79,38 @@ open scoped ENNReal NNReal
 
 namespace MeasureTheory.Measure
 
-/-- **The mean of the first terms of an i.i.d. sequence and the next terms are independent.** For
-an i.i.d. sequence of law `μ`, the mean of the first `n` terms lies in `B` and the next `m` terms
-lie in `C` with probability `P(μ̂_n ∈ B) μ(C)^m`, where `μ̂_n` is the mean of `n` independent
-samples of `μ`. -/
-theorem infinitePi_mean_mem_and_forall_mem (μ : Measure ℝ) [IsProbabilityMeasure μ] (n m : ℕ)
-    {B C : Set ℝ} (hB : MeasurableSet B) (hC : MeasurableSet C) :
-    (Measure.infinitePi fun _ : ℕ ↦ μ)
-      {z | (∑ i ∈ range n, z i) / (n : ℝ) ∈ B ∧ ∀ j < m, z (n + j) ∈ C} =
-      ((Measure.pi fun _ : Fin n ↦ μ).map fun y ↦ (∑ i, y i) / (n : ℝ)) B * μ C ^ m := by
+/-- **The first terms of an i.i.d. sequence and the next terms are independent.** For an i.i.d.
+sequence `z` of law `μ`, the first `n` terms `(z i)_{i < n}` lie in `B` and the next `m` terms lie
+in `C` with probability `μ^⊗n(B) μ(C)^m`. -/
+theorem infinitePi_fin_mem_and_forall_add_mem {X : Type*} [MeasurableSpace X] (μ : Measure X)
+    [IsProbabilityMeasure μ] (n m : ℕ) {B : Set (Fin n → X)} {C : Set X} (hB : MeasurableSet B)
+    (hC : MeasurableSet C) :
+    (Measure.infinitePi fun _ : ℕ ↦ μ) {z | (fun i : Fin n ↦ z i) ∈ B ∧ ∀ j < m, z (n + j) ∈ C} =
+      Measure.pi (fun _ : Fin n ↦ μ) B * μ C ^ m := by
   -- The first `n` terms and the next `m` terms are independent.
   have h_ind := (iIndepFun_infinitePi (P := fun _ : ℕ ↦ μ) (X := fun _ ↦ id)
     (fun _ ↦ measurable_id)).indepFun_finset (range n) (Ico n (n + m))
     (Finset.disjoint_left.2 fun i hi hi' ↦ by simp at hi hi'; omega) (fun _ ↦ by fun_prop)
   simp only [id] at h_ind
-  have h_mean : Measurable fun u : {i // i ∈ range n} → ℝ ↦ (∑ i, u i) / (n : ℝ) := by fun_prop
-  have h_set : {z : ℕ → ℝ | (∑ i ∈ range n, z i) / (n : ℝ) ∈ B ∧ ∀ j < m, z (n + j) ∈ C} =
-      (fun z (i : range n) ↦ z i) ⁻¹' ((fun u ↦ (∑ i, u i) / (n : ℝ)) ⁻¹' B) ∩
+  have h_fin : Measurable fun (u : {i // i ∈ range n} → X) (i : Fin n) ↦
+      u ⟨i, mem_range.2 i.2⟩ := by fun_prop
+  have h_set : {z : ℕ → X | (fun i : Fin n ↦ z i) ∈ B ∧ ∀ j < m, z (n + j) ∈ C} =
+      (fun z (i : range n) ↦ z i) ⁻¹' ((fun u (i : Fin n) ↦ u ⟨i, mem_range.2 i.2⟩) ⁻¹' B) ∩
         (fun z (i : Ico n (n + m)) ↦ z i) ⁻¹' (Set.univ.pi fun _ ↦ C) := by
     ext z
     simp only [Set.mem_ofPred_eq, Set.mem_inter_iff, Set.mem_preimage, Set.mem_pi,
       Set.mem_univ, true_implies, Subtype.forall, mem_Ico]
-    refine and_congr ?_ ⟨fun h i hi ↦ ?_, fun h j hj ↦ h _ ⟨by omega, by omega⟩⟩
-    · rw [Finset.sum_coe_sort (range n) z]
-    · obtain ⟨j, rfl⟩ := Nat.exists_eq_add_of_le hi.1
-      exact h j (by omega)
-  rw [h_set, h_ind.measure_inter_preimage_eq_mul _ _ (h_mean hB) (.univ_pi fun _ ↦ hC)]
+    refine and_congr Iff.rfl ⟨fun h i hi ↦ ?_, fun h j hj ↦ h _ ⟨by omega, by omega⟩⟩
+    obtain ⟨j, rfl⟩ := Nat.exists_eq_add_of_le hi.1
+    exact h j (by omega)
+  rw [h_set, h_ind.measure_inter_preimage_eq_mul _ _ (h_fin hB) (.univ_pi fun _ ↦ hC)]
   congr 1
   · -- The first `n` terms are `n` independent samples of `μ`.
-    have h_fin : (Measure.infinitePi fun _ : ℕ ↦ μ).map (fun z (i : Fin n) ↦ z i) =
+    have h_pi : (Measure.infinitePi fun _ : ℕ ↦ μ).map (fun z (i : Fin n) ↦ z i) =
         Measure.pi fun _ : Fin n ↦ μ := by
       rw [Measure.map_infinitePi_infinitePi_of_inj Fin.val_injective, Measure.infinitePi_eq_pi]
-    rw [← h_fin, Measure.map_map (by fun_prop) (by fun_prop),
-      Measure.map_apply (by fun_prop) hB, ← Set.preimage_comp]
-    congr 1
-    ext z
-    simp only [Set.mem_preimage, Function.comp_apply]
-    rw [Finset.sum_coe_sort (range n) z, Fin.sum_univ_eq_sum_range (fun i ↦ z i)]
+    rw [← h_pi, Measure.map_apply (by fun_prop) hB]
+    rfl
   · have h_pi : (fun z (i : Ico n (n + m)) ↦ z i) ⁻¹' (Set.univ.pi fun _ ↦ C) =
         ((Ico n (n + m) : Finset ℕ) : Set ℕ).pi fun _ ↦ C := by
       ext z
@@ -133,19 +129,6 @@ variable {α : Type*} {mα : MeasurableSpace α}
 section Stream
 
 variable [Fintype α] {ν : Kernel α ℝ} [IsMarkovKernel ν] {I : α → ℝ → ℝ≥0∞} {w : α → ℝ}
-
-/-- If `|m T - T w| ≤ c` for every `T`, then `m T / T → w`. -/
-private lemma tendsto_div_of_abs_sub_le {m : ℕ → ℕ} {w c : ℝ} (h : ∀ T, |(m T : ℝ) - T * w| ≤ c) :
-    Tendsto (fun T ↦ (m T : ℝ) / T) atTop (𝓝 w) := by
-  have h0 : Tendsto (fun T : ℕ ↦ ((m T : ℝ) - T * w) / T) atTop (𝓝 0) := by
-    refine squeeze_zero_norm (fun T ↦ ?_) (tendsto_const_div_atTop_nhds_zero_nat c)
-    rw [norm_div, Real.norm_eq_abs, Real.norm_eq_abs, Nat.abs_cast]
-    exact div_le_div_of_nonneg_right (h T) T.cast_nonneg
-  have h1 : Tendsto (fun T : ℕ ↦ ((m T : ℝ) - T * w) / T + w) atTop (𝓝 w) := by
-    simpa using h0.add_const w
-  refine h1.congr' ?_
-  filter_upwards [eventually_ne_atTop 0] with T hT
-  rw [sub_div, mul_div_cancel_left₀ _ (Nat.cast_ne_zero.2 hT), sub_add_cancel]
 
 /-- **The exponential upper bound for the rows of the reward stream, uniformly in a window.** Let
 the laws of the empirical means of `m` independent samples of `ν a` satisfy the large deviation
@@ -179,7 +162,7 @@ theorem eventually_streamMeasure_mean_mem_le_exp
       rw [abs_of_nonneg (sub_nonneg.2 (Nat.le_ceil _))]
       linarith [Nat.ceil_lt_add_one h0, le_max_right c 1]
   have hLDP := hasLDP_pi_comp_of_tendsto_div hP hI (m := fun a T ↦ m T a) hw
-    fun a ↦ tendsto_div_of_abs_sub_le fun T ↦ hm_abs T a
+    fun a ↦ tendsto_div_natCast_of_abs_sub_mul_le fun T ↦ hm_abs T a
   filter_upwards [hLDP.eventually_measure_le_exp hF hr] with T hT n hn
   by_contra hlt
   have h : ∃ n, B T n := ⟨n, hn, not_le.1 hlt⟩
@@ -291,7 +274,7 @@ theorem exists_eventually_le_streamMeasure_forall_mean_mem
   set V : Set (α → ℝ) := Set.univ.pi fun a ↦ Metric.ball (x a) (δ / 2)
   have h_box := eventually_exp_le_of_neg_le_liminf_inv_mul_log
     (neg_sum_le_liminf_log_pi (fun a ↦ (hP a).comp_of_tendsto_div (hw a)
-      (tendsto_div_of_abs_sub_le fun T ↦ hn₀_abs T a))
+      (tendsto_div_natCast_of_abs_sub_mul_le fun T ↦ hn₀_abs T a))
       (x := x) (s := V) (set_pi_mem_nhds Set.finite_univ fun a _ ↦
         Metric.ball_mem_nhds (x a) (half_pos hδ))) hr
   refine ⟨∏ a, ν a (Metric.closedBall (x a) (L a)) ^ (2 * k),
@@ -331,11 +314,20 @@ theorem exists_eventually_le_streamMeasure_forall_mean_mem
     simp only [Metric.mem_ball, hnd]
     exact dist_mean_lt (hn₀_pos a) (L a).cast_nonneg (hn₀_L a) (hω a).1 (hω a).2 hd
   refine le_trans ?_ (measure_mono h_sub)
-  rw [streamMeasure_forall_row_mem ν hE]
-  simp only [E]
-  simp_rw [Measure.infinitePi_mean_mem_and_forall_mem _ _ _ Metric.isOpen_ball.measurableSet
-    Metric.isClosed_closedBall.measurableSet]
-  rw [Finset.prod_mul_distrib, mul_comm]
+  -- The event on each row splits into an event on its first `n₀ T a` entries and on the next ones.
+  have hE_eq (a : α) : (Measure.infinitePi fun _ : ℕ ↦ ν a) (E a) =
+      ((Measure.pi fun _ : Fin (n₀ T a) ↦ ν a).map fun y ↦ (∑ i, y i) / (n₀ T a : ℝ))
+        (Metric.ball (x a) (δ / 2)) * ν a (Metric.closedBall (x a) (L a)) ^ (2 * k) := by
+    rw [Measure.map_apply (by fun_prop) Metric.isOpen_ball.measurableSet,
+      ← Measure.infinitePi_fin_mem_and_forall_add_mem _ _ _
+        ((by fun_prop : Measurable fun y : Fin (n₀ T a) → ℝ ↦ (∑ i, y i) / (n₀ T a : ℝ))
+          Metric.isOpen_ball.measurableSet) Metric.isClosed_closedBall.measurableSet]
+    congr 1
+    ext z
+    simp only [E, Set.mem_ofPred_eq, Set.mem_preimage,
+      Fin.sum_univ_eq_sum_range (fun i ↦ z i)]
+  rw [streamMeasure_forall_row_mem ν hE, Finset.prod_congr rfl fun a _ ↦ hE_eq a,
+    Finset.prod_mul_distrib, mul_comm]
   gcongr
   refine hT.trans_eq ?_
   rw [Measure.pi_pi]
@@ -363,16 +355,12 @@ theorem measure_empMean_mem_le_streamMeasure [Countable α]
       streamMeasure ν {y | ∃ n ∈ S, (fun a ↦ (∑ i ∈ range (n a), y i a) / (n a : ℝ)) ∈ F} := by
   calc P {ω | (fun a ↦ empMean A R a T ω) ∈ F}
   _ ≤ P {ω | ∃ t, (fun a ↦ pullCount A a t ω) ∈ S ∧
-      (fun a ↦ (∑ i, armObs A R a t ω i) / (pullCount A a t ω : ℝ)) ∈ F} := by
+      (fun a ↦ sumRewards A R a t ω / (pullCount A a t ω : ℝ)) ∈ F} := by
     refine measure_mono_ae ?_
     filter_upwards [hS] with ω hω hF
-    exact ⟨T, hω, by simpa only [sum_armObs, empMean] using hF⟩
-  _ ≤ streamMeasure ν {y | ∃ s : α → ℕ, s ∈ S ∧
-      (fun a ↦ (∑ i : Fin (s a), y i a) / (s a : ℝ)) ∈ F} :=
-    measure_exists_pullCount_armObs_pi_le h
-      fun s y ↦ s ∈ S ∧ (fun a ↦ (∑ i, y a i) / (s a : ℝ)) ∈ F
-  _ = streamMeasure ν {y | ∃ n ∈ S, (fun a ↦ (∑ i ∈ range (n a), y i a) / (n a : ℝ)) ∈ F} := by
-    simp only [Finset.sum_range]
+    exact ⟨T, hω, by simpa only [empMean] using hF⟩
+  _ ≤ streamMeasure ν {y | ∃ n ∈ S, (fun a ↦ (∑ i ∈ range (n a), y i a) / (n a : ℝ)) ∈ F} :=
+    measure_exists_pullCount_sumRewards_pi_le h fun s y ↦ s ∈ S ∧ (fun a ↦ y a / (s a : ℝ)) ∈ F
 
 /-- **Lower transfer of the empirical means of a run to the stream.** In a run of any algorithm
 against the stochastic bandit `Environment.bandit ν`, if the numbers of pulls after `T` rounds lie
@@ -431,8 +419,7 @@ theorem hasLDP_empMean_of_abs_pullCount_sub_le
       (fun T ↦ (P T).map fun ω a ↦ empMean (A T) (R T) a T ω)
       (fun x ↦ ∑ a, ENNReal.ofReal (w a) * I a (x a)) := by
   have hmeas (T : ℕ) : Measurable fun ω a ↦ empMean (A T) (R T) a T ω :=
-    .of_eval fun a ↦
-      measurable_empMean (h T).measurable_action (h T).measurable_feedback a T
+    measurable_empMean_pi (h T).measurable_action (h T).measurable_feedback T
   have hS (T : ℕ) : ∀ᵐ ω ∂(P T), (fun a ↦ pullCount (A T) a T ω) ∈
       {n : α → ℕ | ∀ a, |(n a : ℝ) - T * w a| ≤ k} := h_pull T
   refine .of_isClosed_of_mem_nhds (isGoodRateFunction_sum_mul hI hw).lowerSemicontinuous

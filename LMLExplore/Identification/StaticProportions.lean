@@ -302,11 +302,11 @@ theorem IsStaticProportions.limsup_log_errorProb_div_le (h𝒜 : task.IsStaticPr
   simp_rw [EReal.coe_nnreal_inv_natCast_mul] at h
   refine le_trans (limsup_le_limsup (Eventually.of_forall fun T ↦ ?_)) h
   -- The error is the event that the empirical means lie in the set where `rec` is not correct.
-  have hmeas : Measurable fun (h : ℕ → Round Unit α ℝ) a ↦ empMean IT.action IT.feedback a T h :=
-    .of_eval fun a ↦ measurable_empMean IT.measurable_action IT.measurable_feedback a T
   rw [h𝒜.errorProb_eq hcorrect]
   exact EReal.div_le_div_right_of_nonneg (by positivity) (ENNReal.log_monotone
-    (Measure.le_map_apply hmeas.aemeasurable {x | rec x ∉ task.correct θ}))
+    (Measure.le_map_apply
+      (measurable_empMean_pi IT.measurable_action IT.measurable_feedback T).aemeasurable
+      {x | rec x ∉ task.correct θ}))
 
 /-- **Lower bound on the error exponent of a static proportions family** [GJ04; D23, Theorem 12].
 If the set of correct answers of the admissible model `θ` is measurable and the cumulant generating
@@ -327,9 +327,9 @@ theorem IsStaticProportions.neg_le_liminf_log_errorProb_div
   simp_rw [EReal.coe_nnreal_inv_natCast_mul] at h
   refine h.trans (liminf_le_liminf (Eventually.of_forall fun T ↦ ?_))
   -- The empirical means in the interior of the set where `rec` is not correct give an error.
-  have hmeas : Measurable fun (h : ℕ → Round Unit α ℝ) a ↦ empMean IT.action IT.feedback a T h :=
-    .of_eval fun a ↦ measurable_empMean IT.measurable_action IT.measurable_feedback a T
-  rw [h𝒜.errorProb_eq hcorrect, Measure.map_apply hmeas isOpen_interior.measurableSet]
+  rw [h𝒜.errorProb_eq hcorrect, Measure.map_apply
+    (measurable_empMean_pi IT.measurable_action IT.measurable_feedback T)
+    isOpen_interior.measurableSet]
   exact EReal.div_le_div_right_of_nonneg (by positivity)
     (ENNReal.log_monotone (measure_mono (Set.preimage_mono interior_subset)))
 
