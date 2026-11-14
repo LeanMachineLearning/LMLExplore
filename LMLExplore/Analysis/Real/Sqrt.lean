@@ -11,6 +11,7 @@ public import Mathlib.Analysis.Calculus.Deriv.Inv
 public import Mathlib.Analysis.Calculus.Deriv.Mul
 public import Mathlib.Analysis.Real.Sqrt
 public import Mathlib.Analysis.SpecialFunctions.Sqrt
+import TauCeti.Analysis.SpecialFunctions.Sqrt
 
 /-!
 # Square roots of quotients, increments of the square root and sums of inverse square roots
@@ -38,6 +39,10 @@ public import Mathlib.Analysis.SpecialFunctions.Sqrt
 * `Real.le_add_sqrt_of_sq_le`: the root of a quadratic inequality, `x² ≤ b x + c` with `b, c ≥ 0`
   forces `x ≤ b + √c`. It solves for `√τ` inequalities of the form `τ ≤ b √τ + c`, as in the
   self-bounding inequality `Real.le_of_le_sqrt_mul_add`.
+* `Real.le_div_two_add_add_sqrt_of_sub_sqrt_le`, `Real.le_add_add_sqrt_of_sub_sqrt_le`: an
+  implicit bound solved [Ora, Lemma 4.29]. For `a ≥ 0`, `x - √(a x + b) ≤ c` forces
+  `x ≤ a / 2 + c + √(a² / 4 + b + a c) ≤ a + c + √(b + a c)`. It turns regret bounds in which the
+  losses of the algorithm appear on both sides, as the `L⋆` bounds, into explicit ones.
 * `Real.sum_range_inv_sqrt_add_one_le`: `∑_{j < n} 1 / √(j + 1) ≤ 2 √n`.
 * `Real.sum_range_inv_sqrt_max_one_le`: `∑_{j < n} 1 / √(max 1 j) ≤ 2 √n + 1`, the same sum with
   the index clipped at `1`.
@@ -48,6 +53,7 @@ public import Mathlib.Analysis.SpecialFunctions.Sqrt
 
 ## References
 
+* [Ora] F. Orabona, *A Modern Introduction to Online Learning*, arXiv:1912.13213v10.
 * [JOA10] T. Jaksch, R. Ortner and P. Auer, *Near-optimal regret bounds for reinforcement
   learning*, Journal of Machine Learning Research 11 (2010).
 -/
@@ -161,6 +167,31 @@ theorem le_add_sqrt_of_sq_le {x b c : ℝ} (hb : 0 ≤ b) (hc : 0 ≤ c) (h : x 
   -- `(x - √c) (x - b - √c) > 0` and `√c (2 x - b - 2 √c) ≥ 0` add up to `x² - b x > c`
   nlinarith [mul_pos (show 0 < x - √c by linarith) (show 0 < x - b - √c by linarith),
     mul_nonneg hs0 (show 0 ≤ 2 * x - b - 2 * √c by linarith)]
+
+/-- **An implicit bound solved** [Ora, Lemma 4.29]: for `a ≥ 0`, `x - √(a x + b) ≤ c` forces
+`x ≤ a / 2 + c + √(a² / 4 + b + a c)`.
+
+It makes explicit the regret bounds that contain the losses of the algorithm on both sides, as the
+`L⋆` bounds for self-bounded losses. Unlike [Ora], it needs no sign condition on `x`, `b` or
+`c`. -/
+theorem le_div_two_add_add_sqrt_of_sub_sqrt_le {x a b c : ℝ} (ha : 0 ≤ a)
+    (h : x - √(a * x + b) ≤ c) : x ≤ a / 2 + c + √(a ^ 2 / 4 + b + a * c) := by
+  rcases le_or_gt x c with hxc | hxc
+  · linarith [sqrt_nonneg (a ^ 2 / 4 + b + a * c)]
+  -- for `x > c`, `(x - c)² ≤ a (x - c) + (a c + b)`, so `x - c` is at most the larger root
+  have hsq : (x - c) ^ 2 ≤ a * x + b := (le_sqrt' (by linarith)).1 (by linarith)
+  have := le_sqrt_of_sq_le (show (x - c - a / 2) ^ 2 ≤ a ^ 2 / 4 + b + a * c by nlinarith)
+  linarith
+
+/-- **An implicit bound solved** [Ora, Lemma 4.29], in its simpler form: for `a ≥ 0`,
+`x - √(a x + b) ≤ c` forces `x ≤ a + c + √(b + a c)`. -/
+theorem le_add_add_sqrt_of_sub_sqrt_le {x a b c : ℝ} (ha : 0 ≤ a) (h : x - √(a * x + b) ≤ c) :
+    x ≤ a + c + √(b + a * c) := by
+  have h2 : √(a ^ 2 / 4) = a / 2 := by
+    rw [show a ^ 2 / 4 = (a / 2) ^ 2 by ring, sqrt_sq (by positivity)]
+  have := sqrt_add_le_add_sqrt (a ^ 2 / 4) (b + a * c)
+  rw [← add_assoc] at this
+  linarith [le_div_two_add_add_sqrt_of_sub_sqrt_le ha h]
 
 /-- `∑_{j < n} 1 / √(j + 1) ≤ 2 √n`. -/
 theorem sum_range_inv_sqrt_add_one_le (n : ℕ) :

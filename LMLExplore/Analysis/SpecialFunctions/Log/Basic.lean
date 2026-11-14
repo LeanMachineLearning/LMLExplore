@@ -16,6 +16,9 @@ import Mathlib.Analysis.SpecialFunctions.Log.Deriv
 ## Main statements
 
 * `Real.min_one_le_two_mul_log_one_add`: `min 1 u ≤ 2 log (1 + u)` for `u ≥ 0`.
+* `Real.sub_sq_le_log_one_add`, `Real.log_one_add_le_sub_sq_div_four`: the quadratic bounds
+  `x - x² ≤ log (1 + x)` for `x ≥ -1 / 2` and `log (1 + x) ≤ x - x² / 4` for `-1 < x ≤ 1`, which
+  linearize logarithmic losses and log-wealths in online learning [Ora, Example 7.39, §13.7].
 * `Real.monotoneOn_log_one_add_mul_log_sq`: `x ↦ log (1 + x log² x)` is monotone on `[1, ∞)`.
 * `Real.log_natCast_le_log_natCast`: `log` is monotone on natural numbers.
 * `Real.one_le_log_natCast_of_three_le`: `1 ≤ log n` for a natural number `n ≥ 3`.
@@ -68,6 +71,7 @@ import Mathlib.Analysis.SpecialFunctions.Log.Deriv
 * [GK16] A. Garivier and E. Kaufmann, *Optimal best arm identification with fixed confidence*,
   COLT 2016, proof of Theorem 14.
 * [LS] T. Lattimore and Cs. Szepesvári, *Bandit Algorithms*, Cambridge University Press, 2020.
+* [Ora] F. Orabona, *A Modern Introduction to Online Learning*, arXiv:1912.13213v10.
 * [MDJKLV21] P. Ménard, O. D. Domingues, A. Jonsson, E. Kaufmann, E. Leurent and M. Valko, *Fast
   active learning for pure exploration in reinforcement learning*, ICML 2021, Lemma 9.
 * [EV26] A. Essakine and C. Vernade, *Tight sample complexity bounds for entropic best policy
@@ -92,6 +96,86 @@ theorem min_one_le_two_mul_log_one_add {u : ℝ} (hu : 0 ≤ u) : min 1 u ≤ 2 
         mul_nonneg hu (sub_nonneg.2 hu2)]
     · nlinarith [mul_le_mul_of_nonneg_right (min_le_left 1 u) hpos.le]
   linarith [le_log_one_add_of_nonneg hu]
+
+/-- The derivative of `y ↦ log (1 + y) + p y` at `y > -1`, for `p` with derivative `q` at `y`. -/
+private lemma hasDerivAt_log_one_add_add {p : ℝ → ℝ} {q y : ℝ} (hp : HasDerivAt p q y)
+    (hy : -1 < y) : HasDerivAt (fun z ↦ log (1 + z) + p z) ((1 + y)⁻¹ + q) y := by
+  have h := ((hasDerivAt_id y).const_add 1).log (by simp; linarith)
+  exact (h.add hp).congr_deriv (by simp [one_div])
+
+/-- **A quadratic lower bound on `log (1 + x)`**: `x - x² ≤ log (1 + x)` for `x ≥ -1 / 2`.
+
+It bounds below the log-wealth `log (1 + β c)` of a bettor who stakes a fraction `|β| ≤ 1 / 2`
+of their wealth on a coin `c ∈ [-1, 1]`, as in [Ora, §13.7], which states it for `|x| ≤ 1 / 2`. -/
+theorem sub_sq_le_log_one_add {x : ℝ} (hx : -1 / 2 ≤ x) : x - x ^ 2 ≤ log (1 + x) := by
+  rcases le_or_gt 0 x with h0 | h0
+  · -- `x - x² ≤ 2 x / (x + 2) ≤ log (1 + x)`
+    refine le_trans ?_ (le_log_one_add_of_nonneg h0)
+    rw [le_div_iff₀ (by linarith)]
+    nlinarith [mul_nonneg h0 (sq_nonneg x)]
+  -- `y ↦ log (1 + y) - y + y²` decreases on `[-1 / 2, 0]`, its derivative `y (1 + 2 y) / (1 + y)`
+  -- being nonpositive there
+  have hd : ∀ y : ℝ, -1 < y →
+      HasDerivAt (fun z ↦ log (1 + z) + (z ^ 2 - z)) ((1 + y)⁻¹ + (2 * y - 1)) y :=
+    fun y hy ↦ hasDerivAt_log_one_add_add (p := fun z ↦ z ^ 2 - z)
+      (((hasDerivAt_pow 2 y).sub (hasDerivAt_id y)).congr_deriv (by simp)) hy
+  have hanti : AntitoneOn (fun z ↦ log (1 + z) + (z ^ 2 - z)) (Set.Icc (-1 / 2) 0) := by
+    refine antitoneOn_of_hasDerivWithinAt_nonpos (f' := fun y ↦ (1 + y)⁻¹ + (2 * y - 1))
+      (convex_Icc _ _) (fun y hy ↦ (hd y (by linarith [hy.1])).continuousAt.continuousWithinAt)
+      ?_ ?_
+    · exact fun y hy ↦ (hd y (by rw [interior_Icc] at hy; linarith [hy.1])).hasDerivWithinAt
+    · intro y hy
+      rw [interior_Icc] at hy
+      have h1 : 0 < 1 + y := by linarith [hy.1]
+      rw [← sub_nonneg, show 0 - ((1 + y)⁻¹ + (2 * y - 1)) = -(y * (1 + 2 * y)) / (1 + y) by
+        field_simp; ring]
+      exact div_nonneg (by nlinarith [hy.1, hy.2]) h1.le
+  have := hanti ⟨hx, h0.le⟩ ⟨by norm_num, le_rfl⟩ h0.le
+  simp at this
+  linarith
+
+/-- **A quadratic upper bound on `log (1 + x)`**: `log (1 + x) ≤ x - x² / 4` for `-1 < x ≤ 1`.
+
+It turns exp-concavity into the quadratic lower bound on the losses that the Online Newton Step
+uses [Ora, Example 7.39]. -/
+theorem log_one_add_le_sub_sq_div_four {x : ℝ} (hx₁ : -1 < x) (hx₂ : x ≤ 1) :
+    log (1 + x) ≤ x - x ^ 2 / 4 := by
+  -- `y ↦ log (1 + y) + y² / 4 - y` has derivative `-y (1 - y) / (2 (1 + y))`: it increases on
+  -- `(-1, 0]` and decreases on `[0, 1]`, so it is at most its value `0` at `0`
+  have hd : ∀ y : ℝ, -1 < y →
+      HasDerivAt (fun z ↦ log (1 + z) + (z ^ 2 / 4 - z)) ((1 + y)⁻¹ + (y / 2 - 1)) y :=
+    fun y hy ↦ hasDerivAt_log_one_add_add (p := fun z ↦ z ^ 2 / 4 - z)
+      ((((hasDerivAt_pow 2 y).div_const 4).sub (hasDerivAt_id y)).congr_deriv (by simp; ring)) hy
+  have hd' : ∀ y : ℝ, -1 < y → (1 + y)⁻¹ + (y / 2 - 1) = -(y * (1 - y)) / (2 * (1 + y)) :=
+    fun y hy ↦ by
+      have : 1 + y ≠ 0 := by linarith
+      field_simp
+      ring
+  have hcont : ∀ D ⊆ Set.Ioi (-1), ContinuousOn (fun z ↦ log (1 + z) + (z ^ 2 / 4 - z)) D :=
+    fun D hD y hy ↦ (hd y (hD hy)).continuousAt.continuousWithinAt
+  rcases le_or_gt x 0 with h0 | h0
+  · have hmono : MonotoneOn (fun z ↦ log (1 + z) + (z ^ 2 / 4 - z)) (Set.Ioc (-1) 0) := by
+      refine monotoneOn_of_hasDerivWithinAt_nonneg (f' := fun y ↦ (1 + y)⁻¹ + (y / 2 - 1))
+        (convex_Ioc _ _) (hcont _ Set.Ioc_subset_Ioi_self) ?_ ?_
+      · exact fun y hy ↦ (hd y (by rw [interior_Ioc] at hy; exact hy.1)).hasDerivWithinAt
+      · intro y hy
+        rw [interior_Ioc] at hy
+        rw [hd' y hy.1]
+        exact div_nonneg (by nlinarith [hy.1, hy.2]) (by linarith [hy.1])
+    have := hmono ⟨hx₁, h0⟩ ⟨by norm_num, le_rfl⟩ h0
+    simp at this
+    linarith
+  · have hanti : AntitoneOn (fun z ↦ log (1 + z) + (z ^ 2 / 4 - z)) (Set.Icc 0 1) := by
+      refine antitoneOn_of_hasDerivWithinAt_nonpos (f' := fun y ↦ (1 + y)⁻¹ + (y / 2 - 1))
+        (convex_Icc _ _) (hcont _ fun y hy ↦ by simp only [Set.mem_Ioi]; linarith [hy.1]) ?_ ?_
+      · exact fun y hy ↦ (hd y (by rw [interior_Icc] at hy; linarith [hy.1])).hasDerivWithinAt
+      · intro y hy
+        rw [interior_Icc] at hy
+        rw [hd' y (by linarith [hy.1])]
+        exact div_nonpos_of_nonpos_of_nonneg (by nlinarith [hy.1, hy.2]) (by linarith [hy.1])
+    have := hanti ⟨le_rfl, zero_le_one⟩ ⟨h0.le, hx₂⟩ h0.le
+    simp at this
+    linarith
 
 /-- The function `x ↦ log (1 + x log² x)` is monotone on `[1, ∞)`. It is the logarithm of the
 exploration function `f(x) = 1 + x log² x` of the asymptotically optimal UCB and KL-UCB
