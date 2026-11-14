@@ -65,7 +65,11 @@ inequality on the mean.
   `LMLExplore.Identification.IdentTask.continuousOn_altCost_productBandit`: if the per-arm
   divergences are finite and continuous on `S a ×ˢ S a` with locally relatively compact sublevel
   sets, the cost of any set of alternatives in `∏ a, S a` is jointly continuous in the model and
-  the allocation [DK19, Lemmas 25–27].
+  the allocation [DK19, Lemmas 25–27];
+  `LMLExplore.Identification.IdentTask.continuousOn_gameValue_productBandit`,
+  `LMLExplore.Identification.IdentTask.continuousOn_charTime_productBandit`: for finitely many
+  answers and admissible models in `∏ a, S a`, `D(θ)` and `T*(θ)` are continuous on the admissible
+  models [DK19, Lemmas 27, 29].
 * `LMLExplore.Identification.iInf_cost_baiTask_productBandit`,
   `LMLExplore.Identification.iInf_cost_topMTask_productBandit`,
   `LMLExplore.Identification.iInf_cost_thresholdingTask_productBandit`: the infimum of the cost over
@@ -435,6 +439,37 @@ theorem continuousOn_altCost_productBandit [TopologicalSpace Θ₀] {i : ℐ}
   simp_rw [altCost_def]
   exact continuousOn_biInf_cost_productBandit hν hfin hcont hcomp h_alt
 
+/-- **Continuity of the value of the game on a product model** [DK19, Lemmas 27, 29]. For
+finitely many answers, under the hypotheses of `continuousOn_biInf_cost_productBandit`, if the
+admissible models are models of `∏ a, S a`, then the value `θ ↦ D(θ)` of the game is continuous
+on the admissible models. -/
+theorem continuousOn_gameValue_productBandit [TopologicalSpace Θ₀] [Finite ℐ]
+    (hν : task.ν = productBandit κ)
+    (hfin : ∀ a, ∀ x ∈ S a, ∀ y ∈ S a, klDiv (κ a x) (κ a y) ≠ ∞)
+    (hcont : ∀ a, ContinuousOn (fun p : Θ₀ × Θ₀ ↦ klDiv (κ a p.1) (κ a p.2)) (S a ×ˢ S a))
+    (hcomp : ∀ a, ∀ x ∈ S a, ∃ U ∈ 𝓝[S a] x, ∀ r : ℝ≥0∞, r ≠ ∞ →
+      ∃ K ⊆ S a, IsCompact K ∧ ∀ x' ∈ U, ∀ y ∈ S a, klDiv (κ a x') (κ a y) ≤ r → y ∈ K)
+    (hM : task.M ⊆ univ.pi S) :
+    ContinuousOn task.gameValue task.M := fun θ hθ ↦
+  task.continuousWithinAt_gameValue subset_rfl hθ fun i w hw ↦
+    ((continuousOn_altCost_productBandit hν hfin hcont hcomp
+      ((task.alt_subset_M i).trans hM)).mono (prod_mono hM (subset_univ _))) (θ, w) ⟨hθ, hw⟩
+
+/-- **Continuity of the characteristic time on a product model** [DK19, Lemmas 27, 29]: under
+the hypotheses of `continuousOn_gameValue_productBandit`, the characteristic time `θ ↦ T*(θ)` is
+continuous on the admissible models. -/
+theorem continuousOn_charTime_productBandit [TopologicalSpace Θ₀] [Finite ℐ]
+    (hν : task.ν = productBandit κ)
+    (hfin : ∀ a, ∀ x ∈ S a, ∀ y ∈ S a, klDiv (κ a x) (κ a y) ≠ ∞)
+    (hcont : ∀ a, ContinuousOn (fun p : Θ₀ × Θ₀ ↦ klDiv (κ a p.1) (κ a p.2)) (S a ×ˢ S a))
+    (hcomp : ∀ a, ∀ x ∈ S a, ∃ U ∈ 𝓝[S a] x, ∀ r : ℝ≥0∞, r ≠ ∞ →
+      ∃ K ⊆ S a, IsCompact K ∧ ∀ x' ∈ U, ∀ y ∈ S a, klDiv (κ a x') (κ a y) ≤ r → y ∈ K)
+    (hM : task.M ⊆ univ.pi S) :
+    ContinuousOn task.charTime task.M := fun θ hθ ↦
+  task.continuousWithinAt_charTime subset_rfl hθ fun i w hw ↦
+    ((continuousOn_altCost_productBandit hν hfin hcont hcomp
+      ((task.alt_subset_M i).trans hM)).mono (prod_mono hM (subset_univ _))) (θ, w) ⟨hθ, hw⟩
+
 end Continuity
 
 end IdentTask
@@ -744,6 +779,25 @@ namespace IdentTask
 
 variable [Fintype α] [MeasurableSingletonClass α] {task : IdentTask α (α → ℝ × ℝ≥0) ℐ ℝ} {i : ℐ}
 
+/-- The per-arm finiteness hypothesis of `continuousOn_biInf_cost_productBandit` for Gaussian
+laws on the parameters of nonzero variance. -/
+private lemma klDiv_gaussianReal_ne_top_of_ne_zero :
+    ∀ x ∈ {p : ℝ × ℝ≥0 | p.2 ≠ 0}, ∀ y ∈ {p : ℝ × ℝ≥0 | p.2 ≠ 0},
+      klDiv (gaussianReal x.1 x.2) (gaussianReal y.1 y.2) ≠ ∞ := fun _ hx _ hy ↦ by
+  rw [klDiv_gaussianReal_gaussianReal hx hy]
+  exact ENNReal.ofReal_ne_top
+
+open Topology in
+/-- The per-arm sublevel-compactness hypothesis of `continuousOn_biInf_cost_productBandit` for
+Gaussian laws on the parameters of nonzero variance, relative to that set of parameters. -/
+private lemma exists_mem_nhdsWithin_forall_exists_isCompact_klDiv_gaussianReal :
+    ∀ x ∈ {p : ℝ × ℝ≥0 | p.2 ≠ 0}, ∃ U ∈ 𝓝[{p : ℝ × ℝ≥0 | p.2 ≠ 0}] x,
+      ∀ r : ℝ≥0∞, r ≠ ∞ → ∃ K ⊆ {p : ℝ × ℝ≥0 | p.2 ≠ 0}, IsCompact K ∧
+        ∀ x' ∈ U, ∀ y ∈ {p : ℝ × ℝ≥0 | p.2 ≠ 0},
+          klDiv (gaussianReal x'.1 x'.2) (gaussianReal y.1 y.2) ≤ r → y ∈ K := fun _ hx ↦
+  let ⟨U, hU, hUK⟩ := exists_mem_nhds_forall_exists_isCompact_klDiv_gaussianReal hx
+  ⟨U, mem_nhdsWithin_of_mem_nhds hU, hUK⟩
+
 /-- **Continuity of the cost of a set of alternatives for Gaussian arms with unknown variances**
 [DK19, Lemmas 25–27]. For a task on the models `θ : α → ℝ × ℝ≥0` of Gaussian arms with unknown
 means and variances, and every set `A` of models of nonzero variances, compact or not, the cost
@@ -755,13 +809,9 @@ theorem continuousOn_biInf_cost_gaussianMeanVarBandit
     ContinuousOn (fun p : (α → ℝ × ℝ≥0) × (α → ℝ) ↦ ⨅ θ' ∈ A, task.cost p.2 p.1 θ')
       ((univ.pi fun _ ↦ {p : ℝ × ℝ≥0 | p.2 ≠ 0}) ×ˢ univ) :=
   continuousOn_biInf_cost_productBandit (hν.trans (funext gaussianMeanVarBandit_eq_productBandit))
-    (fun _ _ hx _ hy ↦ by
-      rw [klDiv_gaussianReal_gaussianReal hx hy]
-      exact ENNReal.ofReal_ne_top)
+    (fun _ ↦ klDiv_gaussianReal_ne_top_of_ne_zero)
     (fun _ ↦ continuousOn_klDiv_gaussianReal)
-    (fun _ _ hx ↦
-      let ⟨U, hU, hUK⟩ := exists_mem_nhds_forall_exists_isCompact_klDiv_gaussianReal hx
-      ⟨U, mem_nhdsWithin_of_mem_nhds hU, hUK⟩) hA
+    (fun _ ↦ exists_mem_nhdsWithin_forall_exists_isCompact_klDiv_gaussianReal) hA
 
 /-- **Continuity of the cost of the alternatives for Gaussian arms with unknown variances**
 [DK19, Lemma 27]: for a task on the models of Gaussian arms with unknown means and variances whose
@@ -780,20 +830,22 @@ unknown means and variances whose admissible models have nonzero variances, `θ 
 continuous on the admissible models. -/
 theorem continuousOn_gameValue_gaussianMeanVarBandit [Finite ℐ]
     (hν : task.ν = Bandits.gaussianMeanVarBandit) (hM : task.M ⊆ univ.pi fun _ ↦ {p | p.2 ≠ 0}) :
-    ContinuousOn task.gameValue task.M := fun θ hθ ↦
-  task.continuousWithinAt_gameValue subset_rfl hθ fun i w hw ↦
-    ((continuousOn_altCost_gaussianMeanVarBandit hν ((task.alt_subset_M i).trans hM)).mono
-      (prod_mono hM (subset_univ _))) (θ, w) ⟨hθ, hw⟩
+    ContinuousOn task.gameValue task.M :=
+  continuousOn_gameValue_productBandit (hν.trans (funext gaussianMeanVarBandit_eq_productBandit))
+    (fun _ ↦ klDiv_gaussianReal_ne_top_of_ne_zero)
+    (fun _ ↦ continuousOn_klDiv_gaussianReal)
+    (fun _ ↦ exists_mem_nhdsWithin_forall_exists_isCompact_klDiv_gaussianReal) hM
 
 /-- **Continuity of the characteristic time for Gaussian arms with unknown variances**
 [DK19, Lemmas 27, 29]: under the hypotheses of `continuousOn_gameValue_gaussianMeanVarBandit`,
 `θ ↦ T*(θ)` is continuous on the admissible models. -/
 theorem continuousOn_charTime_gaussianMeanVarBandit [Finite ℐ]
     (hν : task.ν = Bandits.gaussianMeanVarBandit) (hM : task.M ⊆ univ.pi fun _ ↦ {p | p.2 ≠ 0}) :
-    ContinuousOn task.charTime task.M := fun θ hθ ↦
-  task.continuousWithinAt_charTime subset_rfl hθ fun i w hw ↦
-    ((continuousOn_altCost_gaussianMeanVarBandit hν ((task.alt_subset_M i).trans hM)).mono
-      (prod_mono hM (subset_univ _))) (θ, w) ⟨hθ, hw⟩
+    ContinuousOn task.charTime task.M :=
+  continuousOn_charTime_productBandit (hν.trans (funext gaussianMeanVarBandit_eq_productBandit))
+    (fun _ ↦ klDiv_gaussianReal_ne_top_of_ne_zero)
+    (fun _ ↦ continuousOn_klDiv_gaussianReal)
+    (fun _ ↦ exists_mem_nhdsWithin_forall_exists_isCompact_klDiv_gaussianReal) hM
 
 end IdentTask
 
