@@ -26,8 +26,8 @@ the corresponding convex combinations of the values at `x` and `y`. It is stated
 `LMLExplore.exists_forall_le_add_sum_of_convexLike`, which needs no linear structure on the domain
 and so applies to convex sets of probability measures, which carry no real scalar multiplication.
 Strong duality and the saddle point characterization are stated in the same convex-like form, and
-specialized to convex functions on a convex set in the `ConvexOn` namespace. Weak duality holds with
-no hypothesis.
+specialized to convex functions on a convex set in the `ConvexOn` namespace. Weak duality, and the
+sufficiency of the saddle point condition, hold with no hypothesis.
 
 Values of the dual function are taken in `EReal`: the real infimum of a Lagrangian unbounded below
 is the junk value `0`, for which weak duality fails.
@@ -41,6 +41,8 @@ is the junk value `0`, for which weak duality fails.
   multiplier, for convex-like data on any type.
 * `ConvexOn.exists_forall_le_add_sum_of_slater`: the same for convex functions on a convex set.
 * `LMLExplore.iInf_add_sum_le_iInf`: weak duality, for every multiplier and with no hypothesis.
+* `LMLExplore.isMinOn_of_isMinOn_add_sum`: a minimizer of a Lagrangian with complementary
+  slackness minimizes the program, with no hypothesis.
 * `LMLExplore.exists_iInf_eq_iInf_add_of_convexLike`: strong duality with an optimal multiplier,
   for convex-like data; `ConvexOn.exists_iInf_eq_iInf_add_of_slater` for convex functions.
 * `LMLExplore.iInf_eq_iSup_iInf_add_of_convexLike`: strong duality, the value of the program is the
@@ -244,6 +246,20 @@ theorem iInf_add_sum_le_iInf [Fintype ι] (π : ι → ℝ≥0) :
     Finset.sum_nonpos fun i _ ↦ mul_nonpos_of_nonneg_of_nonpos (π i).2 (hxh i)
   linarith
 
+/-- **Sufficiency of the saddle point condition** [Lue69, §8.4]. If `x` minimizes over `C` the
+Lagrangian `F y + ∑ i, π i * h i y` of some multiplier `π : ι → ℝ≥0`, with complementary slackness
+`π i * h i x = 0` for every `i`, then `x` minimizes `F` over `{y ∈ C | ∀ i, h i y ≤ 0}`. No
+convexity or constraint qualification is needed. -/
+theorem isMinOn_of_isMinOn_add_sum [Fintype ι] {π : ι → ℝ≥0} {x : X}
+    (hmin : IsMinOn (fun y ↦ F y + ∑ i, (π i : ℝ) * h i y) C x)
+    (hslack : ∀ i, (π i : ℝ) * h i x = 0) : IsMinOn F {y ∈ C | ∀ i, h i y ≤ 0} x := by
+  refine isMinOn_iff.2 fun y ⟨hy, hyh⟩ ↦ ?_
+  have hle := isMinOn_iff.1 hmin y hy
+  simp only [hslack, Finset.sum_const_zero, add_zero] at hle
+  have hsum : ∑ i, (π i : ℝ) * h i y ≤ 0 :=
+    Finset.sum_nonpos fun i _ ↦ mul_nonpos_of_nonneg_of_nonpos (π i).2 (hyh i)
+  linarith
+
 /-- **Strong Lagrange duality under Slater's condition** [Lue69, §8.6, Theorem 1], for convex-like
 data [Fan53]. Let `F` and finitely many `h i` be jointly convex-like on a set `C`, as in
 `LMLExplore.exists_forall_le_add_sum_of_convexLike`. If some `x₀ ∈ C` satisfies `h i x₀ < 0` for
@@ -312,10 +328,7 @@ theorem isMinOn_iff_exists_isMinOn_add_sum_of_convexLike [Fintype ι]
       (Finset.sum_eq_zero_iff_of_nonpos fun i _ ↦ hterm π x hxh i).1 hsum i (Finset.mem_univ _)
     exact ⟨π, isMinOn_iff.2 fun y hy ↦ by simpa [hsum] using hπ y hy, hslack⟩
   · rintro ⟨π, hmin, hslack⟩
-    refine isMinOn_iff.2 fun y ⟨hy, hyh⟩ ↦ ?_
-    have hle := isMinOn_iff.1 hmin y hy
-    simp only [hslack, Finset.sum_const_zero, add_zero] at hle
-    linarith [Finset.sum_nonpos fun i (_ : i ∈ Finset.univ) ↦ hterm π y hyh i]
+    exact isMinOn_of_isMinOn_add_sum hmin hslack
 
 end LMLExplore
 
