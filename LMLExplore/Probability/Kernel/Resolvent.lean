@@ -15,6 +15,7 @@ public import Mathlib.Probability.Kernel.Composition.MeasureComp
 public import Mathlib.Probability.Kernel.WithDensity
 public import Mathlib.Probability.Moments.Variance
 import LMLExplore.Analysis.Convex.Integral
+import Mathlib.Analysis.Complex.ExponentialBounds
 import LMLExplore.Probability.Moments.Variance
 
 /-!
@@ -55,7 +56,11 @@ function `2 B V - V ^ 2` is a supersolution for `γ ^ 2 Var_κ(V)`, so that
 `R_γ √Var_κ(V) ≤ B / (γ √(1 - γ))` [LWCGC24, Lemma 11]. Bounds of this kind control the error
 `γ R_γ(κ') (κ' - κ) V` of the simulation identity when the deviation `(κ' - κ) V` is bounded by
 a multiple of the standard deviation `√Var_κ(V)`, as Bernstein's inequality bounds it for an
-empirical kernel `κ'`.
+empirical kernel `κ'`. Iterating this control along the functions `V 0 = R_γ f` and
+`V (l + 1) = R_γ √Var_κ(V l)`, each bounded through Lemma 11 by the previous one, compares
+`R_γ(κ') f` with `R_γ(κ) f` up to `3 C √(ε / (1 - γ) ^ 3)` for `0 ≤ f ≤ C`, as soon as `κ'`
+deviates from `κ` by `√(ε Var_κ(V l))` plus a lower-order term on the first `log (1 - γ)⁻¹`
+levels [LWCGC24, Lemma 2].
 
 In a Markov decision process, the value of a stationary policy is the resolvent of the state
 kernel of the policy applied to its reward, and the discounted occupancy measure of a stationary
@@ -105,6 +110,13 @@ equation of these objects.
   `ProbabilityTheory.Kernel.integral_sqrt_variance_integral_resolvent_le`: for a nonnegative
   bounded measurable `f` with `V = R_γ f ≤ B`, `γ ^ 2 R_γ Var_κ(V) ≤ 2 B V - V ^ 2` and
   `R_γ √Var_κ(V) ≤ B / (γ √(1 - γ))` [LWCGC24, Lemma 11].
+* `ProbabilityTheory.Kernel.measurable_of_eq_integral_resolvent_sqrt_variance`,
+  `ProbabilityTheory.Kernel.mem_Icc_of_eq_integral_resolvent_sqrt_variance`: the iterated
+  resolvents `V (l + 1) = R_γ √Var_κ(V l)` of the one-step standard deviations of `V 0 = R_γ f` are
+  measurable, with `0 ≤ V l ≤ C / ((1 - γ) (γ √(1 - γ)) ^ l)` for `0 ≤ f ≤ C`.
+* `ProbabilityTheory.Kernel.abs_integral_resolvent_sub_integral_resolvent_le_of_abs_sub_le`: the
+  comparison of the resolvents of two kernels with Bernstein-type deviations on these functions
+  [LWCGC24, Lemma 2].
 * `MeasureTheory.Measure.resolvent_comp_eq_add`: for every kernel and every `γ`,
   `resolvent γ κ ∘ₘ μ` solves the flow equation `ν = μ + γ • (κ ∘ₘ ν)`;
   `MeasureTheory.Measure.eq_resolvent_comp_of_eq_add`: for a Markov kernel and `γ < 1`, it is the
@@ -120,8 +132,8 @@ equation of these objects.
 * [A. Agarwal, N. Jiang, S. M. Kakade and W. Sun, *Reinforcement Learning: Theory and
   Algorithms*, 2022][AJKS], Lemma 2.2
 * [G. Li, Y. Wei, Y. Chi, Y. Gu and Y. Chen, *Breaking the sample size barrier in model-based
-  reinforcement learning with a generative model*, Operations Research, 2024][LWCGC24], Lemma 11
-  (arXiv:2005.12900)
+  reinforcement learning with a generative model*, Operations Research, 2024][LWCGC24], Lemmas 2
+  and 11 (arXiv:2005.12900)
 -/
 
 public section
@@ -547,6 +559,262 @@ theorem integral_sqrt_variance_integral_resolvent_le (hγ₀ : 0 < γ) (hγ : γ
     rw [Real.sqrt_mul (inv_nonneg.2 hγ'.le), Real.sqrt_sq (div_nonneg hB hγ₀'.le), Real.sqrt_inv]
     ring]
   gcongr
+
+/-! ### The resolvent of a kernel with Bernstein-type deviations -/
+
+omit [IsMarkovKernel κ] in
+/-- The iterated resolvents of the one-step standard deviations are measurable: if
+`V 0 = R_γ f` for a measurable `f` and `V (l + 1) = R_γ √Var_κ(V l)` for every `l`, then every
+`V l` is measurable. -/
+theorem measurable_of_eq_integral_resolvent_sqrt_variance [IsSFiniteKernel κ] {f : α → ℝ}
+    (hf : Measurable f) {V : ℕ → α → ℝ} (hV₀ : ∀ x, V 0 x = ∫ y, f y ∂(resolvent γ κ x))
+    (hV : ∀ l x, V (l + 1) x = ∫ y, √Var[V l; κ y] ∂(resolvent γ κ x)) (l : ℕ) :
+    Measurable (V l) := by
+  induction l with
+  | zero => rw [funext hV₀]; exact measurable_integral_resolvent hf
+  | succ l ih => rw [funext (hV l)]; exact measurable_integral_resolvent ih.variance_kernel.sqrt
+
+/-- **A priori bounds on the iterated resolvents of the one-step standard deviations**
+[LWCGC24, (73)]: for `0 < γ < 1` and a measurable `f` with `0 ≤ f ≤ C`, if `V 0 = R_γ f` and
+`V (l + 1) = R_γ √Var_κ(V l)` for every `l`, then `0 ≤ V l ≤ C / ((1 - γ) (γ √(1 - γ)) ^ l)`.
+The bound of `V 0` is `C / (1 - γ)`, and each step multiplies it by `1 / (γ √(1 - γ))`
+(`ProbabilityTheory.Kernel.integral_sqrt_variance_integral_resolvent_le`). -/
+theorem mem_Icc_of_eq_integral_resolvent_sqrt_variance (hγ₀ : 0 < γ) (hγ : γ < 1) {f : α → ℝ}
+    {C : ℝ} (hf : Measurable f) (hf₀ : ∀ x, 0 ≤ f x) (hfC : ∀ x, f x ≤ C) {V : ℕ → α → ℝ}
+    (hV₀ : ∀ x, V 0 x = ∫ y, f y ∂(resolvent γ κ x))
+    (hV : ∀ l x, V (l + 1) x = ∫ y, √Var[V l; κ y] ∂(resolvent γ κ x)) (l : ℕ) (x : α) :
+    V l x ∈ Icc 0 (C / ((1 - γ) * (γ * √(1 - γ)) ^ l)) := by
+  have hVm := measurable_of_eq_integral_resolvent_sqrt_variance hf hV₀ hV
+  -- `V l` is the resolvent of a nonnegative bounded measurable function `g`
+  suffices h : ∃ g : α → ℝ, Measurable g ∧ (∀ y, 0 ≤ g y) ∧ (∃ B, ∀ y, |g y| ≤ B) ∧
+      (∀ x, V l x = ∫ y, g y ∂(resolvent γ κ x)) ∧
+      ∀ x, V l x ∈ Icc 0 (C / ((1 - γ) * (γ * √(1 - γ)) ^ l)) from h.choose_spec.2.2.2.2 x
+  induction l with
+  | zero =>
+    refine ⟨f, hf, hf₀, ⟨C, fun y ↦ abs_le.2 ⟨by linarith [hf₀ y, hfC y], hfC y⟩⟩, hV₀,
+      fun x ↦ ⟨?_, ?_⟩⟩
+    · rw [hV₀]
+      exact integral_nonneg hf₀
+    · rw [hV₀, pow_zero, mul_one]
+      exact (le_abs_self _).trans (abs_integral_resolvent_le hγ
+        (fun y ↦ abs_le.2 ⟨by linarith [hf₀ y, hfC y], hfC y⟩) x)
+  | succ l ih =>
+    obtain ⟨g, hg, hg₀, ⟨B, hgB⟩, hVg, hVl⟩ := ih
+    have hb : 0 ≤ C / ((1 - γ) * (γ * √(1 - γ)) ^ l) := (hVl x).1.trans (hVl x).2
+    have hσ (y : α) : √Var[V l; κ y] ≤ C / ((1 - γ) * (γ * √(1 - γ)) ^ l) :=
+      (Real.sqrt_le_left hb).2 (variance_le_sq_of_abs_le (hVm l).aemeasurable
+        (.of_forall fun z ↦ abs_le.2 ⟨by linarith [(hVl z).1], (hVl z).2⟩))
+    refine ⟨fun y ↦ √Var[V l; κ y], (hVm l).variance_kernel.sqrt, fun y ↦ Real.sqrt_nonneg _,
+      ⟨_, fun y ↦ (abs_of_nonneg (Real.sqrt_nonneg _)).trans_le (hσ y)⟩, hV l,
+      fun x ↦ ⟨?_, ?_⟩⟩
+    · rw [hV]
+      exact integral_nonneg fun y ↦ Real.sqrt_nonneg _
+    · -- Lemma 11 for `V l = R_γ g ≤ C / ((1 - γ) (γ √(1 - γ)) ^ l)`
+      have h := integral_sqrt_variance_integral_resolvent_le (κ := κ) hγ₀ hγ hg hgB hg₀
+        (fun y ↦ (hVg y).symm.trans_le (hVl y).2) x
+      rw [← funext hVg] at h
+      rw [hV, pow_succ, ← mul_assoc, ← div_div]
+      exact h
+
+/-- **The resolvent of a kernel with Bernstein-type deviations** [LWCGC24, Lemma 2]. Let `κ` and
+`κ'` be Markov kernels, `0 < γ < 1`, and `f` a measurable function with `0 ≤ f ≤ C`. Let
+`V 0 = R_γ(κ) f` and `V (l + 1) = R_γ(κ) √Var_κ(V l)` be the iterated resolvents of the one-step
+standard deviations, so that `0 ≤ V l ≤ b l := C / ((1 - γ) (γ √(1 - γ)) ^ l)`
+(`ProbabilityTheory.Kernel.mem_Icc_of_eq_integral_resolvent_sqrt_variance`). Suppose that `κ'`
+deviates from `κ` on the first levels by a Bernstein-type bound
+`|κ' V l - κ V l| ≤ √(ε Var_κ(V l)) + ε b l` for every `l ≤ m`, with `log (1 - γ)⁻¹ ≤ m` and
+`9 ε ≤ 1 - γ`. Then the resolvents of `f` satisfy
+`|R_γ(κ') f - R_γ(κ) f| ≤ 3 C √(ε / (1 - γ) ^ 3)`.
+
+With `ε = β / N`, [LWCGC24] assumes the deviation bound with the sup norm of `V l`,
+which is at most `b l`, in place of `b l`, and concludes
+`|R_γ(κ') f - R_γ(κ) f| ≤ 6 C √(ε / (1 - γ) ^ 3)` under the stronger condition
+`16 e ^ 2 ε < 1 - γ`; the bound `γ R_γ √Var_κ(V) ≤ sup V / √(1 - γ)` of Lemma 11 with constant
+`1` instead of `4` gives the constant `3`. -/
+theorem abs_integral_resolvent_sub_integral_resolvent_le_of_abs_sub_le (κ' : Kernel α α)
+    [IsMarkovKernel κ'] (hγ₀ : 0 < γ) (hγ : γ < 1) {f : α → ℝ} {C ε : ℝ} (hf : Measurable f)
+    (hf₀ : ∀ x, 0 ≤ f x) (hfC : ∀ x, f x ≤ C) {V : ℕ → α → ℝ}
+    (hV₀ : ∀ x, V 0 x = ∫ y, f y ∂(resolvent γ κ x))
+    (hV : ∀ l x, V (l + 1) x = ∫ y, √Var[V l; κ y] ∂(resolvent γ κ x)) {m : ℕ}
+    (hm : Real.log (1 - γ)⁻¹ ≤ m) (hε₀ : 0 ≤ ε) (hε : 9 * ε ≤ 1 - γ)
+    (h : ∀ l ≤ m, ∀ x, |∫ y, V l y ∂(κ' x) - ∫ y, V l y ∂(κ x)| ≤
+      √(ε * Var[V l; κ x]) + ε * (C / ((1 - γ) * (γ * √(1 - γ)) ^ l))) (x : α) :
+    |∫ y, f y ∂(resolvent γ κ' x) - ∫ y, f y ∂(resolvent γ κ x)| ≤
+      3 * C * √(ε / (1 - γ) ^ 3) := by
+  -- The error `D l = |R_γ(κ') (r l) - V l|` at level `l`, where `V l = R_γ(κ) (r l)`, is bounded
+  -- by the simulation identity by `γ √ε` times `R_γ(κ') √Var_κ(V l)`, which is `V (l + 1)` up to
+  -- the error at level `l + 1` [LWCGC24, (74)–(76)]. A backward induction from the level `m`
+  -- unrolls these bounds, and after `m ≥ log (1 - γ)⁻¹` levels the remaining error is negligible.
+  have := isFiniteKernel_resolvent (κ := κ') hγ
+  have hγ₁ : (γ : ℝ) < 1 := hγ
+  have hu : 0 < 1 - (γ : ℝ) := sub_pos.2 hγ₁
+  have hC : 0 ≤ C := (hf₀ x).trans (hfC x)
+  set b : ℕ → ℝ := fun l ↦ C / ((1 - γ) * (γ * √(1 - γ)) ^ l) with hb_def
+  have hVm := measurable_of_eq_integral_resolvent_sqrt_variance hf hV₀ hV
+  have hVb : ∀ l y, V l y ∈ Icc 0 (b l) :=
+    mem_Icc_of_eq_integral_resolvent_sqrt_variance hγ₀ hγ hf hf₀ hfC hV₀ hV
+  have hb₀ (l : ℕ) : 0 ≤ b l := (hVb l x).1.trans (hVb l x).2
+  have hσ (l : ℕ) (y : α) : √Var[V l; κ y] ≤ b l :=
+    (Real.sqrt_le_left (hb₀ l)).2 (variance_le_sq_of_abs_le (hVm l).aemeasurable
+      (.of_forall fun z ↦ abs_le.2 ⟨by linarith [(hVb l z).1, hb₀ l], (hVb l z).2⟩))
+  -- the rewards `r l` of the levels: `V l = R_γ(κ) (r l)`
+  set r : ℕ → α → ℝ := fun l ↦ Nat.casesOn l f fun k y ↦ √Var[V k; κ y] with hr_def
+  have hr₀ : r 0 = f := rfl
+  have hr (l : ℕ) : r (l + 1) = fun y ↦ √Var[V l; κ y] := rfl
+  have hr_meas (l : ℕ) : Measurable (r l) := by
+    cases l
+    exacts [hf, (hVm _).variance_kernel.sqrt]
+  have hrB (l : ℕ) : ∃ B, ∀ y, |r l y| ≤ B := by
+    cases l with
+    | zero => exact ⟨C, fun y ↦ show |f y| ≤ C from abs_le.2 ⟨by linarith [hf₀ y, hfC y], hfC y⟩⟩
+    | succ k => exact ⟨b k, fun y ↦ (abs_of_nonneg (Real.sqrt_nonneg _)).trans_le (hσ k y)⟩
+  have hVr (l : ℕ) (x : α) : V l x = ∫ y, r l y ∂(resolvent γ κ x) := by
+    cases l
+    exacts [hV₀ x, hV _ x]
+  -- the error `D l = |R_γ(κ') (r l) - V l|` at level `l`
+  set D : ℕ → α → ℝ := fun l x ↦ |∫ y, r l y ∂(resolvent γ κ' x) - V l x| with hD_def
+  have hstep (l : ℕ) (hl : l ≤ m) (x : α) :
+      D l x ≤ γ * √ε * ∫ y, r (l + 1) y ∂(resolvent γ κ' x) + γ * ε * b l / (1 - γ) := by
+    obtain ⟨B, hB⟩ := hrB l
+    obtain ⟨B', hB'⟩ := hrB (l + 1)
+    -- the simulation identity `V l - R_γ(κ') (r l) = R_γ(κ') (γ (κ - κ') V l)`
+    have hsim := integral_resolvent_sub_integral_resolvent (κ := κ) κ' hγ (hr_meas l) hB
+      (hr_meas l) hB x
+    simp_rw [← hVr l, sub_self, zero_add] at hsim
+    have hint : Integrable (fun z ↦ γ * (√ε * r (l + 1) z + ε * b l)) (resolvent γ κ' x) := by
+      have hm := hr_meas (l + 1)
+      refine integrable_of_abs_le (by fun_prop) (B := γ * (√ε * B' + ε * b l)) (fun z ↦ ?_)
+        (resolvent γ κ' x)
+      have h₁ : 0 ≤ r (l + 1) z := Real.sqrt_nonneg _
+      rw [abs_of_nonneg (mul_nonneg γ.coe_nonneg (add_nonneg (mul_nonneg (Real.sqrt_nonneg _) h₁)
+        (mul_nonneg hε₀ (hb₀ l))))]
+      gcongr
+      exact (le_abs_self _).trans (hB' z)
+    calc D l x = |∫ z, γ * (∫ w, V l w ∂(κ z) - ∫ w, V l w ∂(κ' z)) ∂(resolvent γ κ' x)| := by
+          simp only [hD_def]
+          rw [abs_sub_comm, hsim]
+      _ ≤ ∫ z, γ * (√ε * r (l + 1) z + ε * b l) ∂(resolvent γ κ' x) := by
+          refine (abs_integral_le_integral_abs).trans (integral_mono_of_nonneg
+            (.of_forall fun _ ↦ abs_nonneg _) hint (.of_forall fun z ↦ ?_))
+          dsimp only
+          rw [abs_mul, NNReal.abs_eq, abs_sub_comm, hr, ← Real.sqrt_mul hε₀]
+          exact mul_le_mul_of_nonneg_left (h l hl z) γ.coe_nonneg
+      _ = γ * √ε * ∫ y, r (l + 1) y ∂(resolvent γ κ' x) + γ * ε * b l / (1 - γ) := by
+          have hi : Integrable (fun a ↦ √ε * r (l + 1) a) (resolvent γ κ' x) :=
+            (integrable_of_abs_le (hr_meas (l + 1)) hB' (resolvent γ κ' x)).const_mul _
+          rw [integral_const_mul, integral_add hi (integrable_const _), integral_const_mul,
+            integral_const, smul_eq_mul, measureReal_resolvent_univ hγ]
+          field_simp
+  -- the next level: `R_γ(κ') (r (l + 1)) ≤ V (l + 1) + D (l + 1) ≤ b (l + 1) + D (l + 1)`
+  have hnext (l : ℕ) (x : α) : ∫ y, r (l + 1) y ∂(resolvent γ κ' x) ≤ b (l + 1) + D (l + 1) x := by
+    have h₁ := le_abs_self (∫ y, r (l + 1) y ∂(resolvent γ κ' x) - V (l + 1) x)
+    linarith [(hVb (l + 1) x).2]
+  -- the last level: `R_γ(κ') (r (m + 1)) ≤ b m / (1 - γ)`
+  have hlast (x : α) : ∫ y, r (m + 1) y ∂(resolvent γ κ' x) ≤ b m / (1 - γ) :=
+    (le_abs_self _).trans (abs_integral_resolvent_le hγ
+      (fun y ↦ (abs_of_nonneg (Real.sqrt_nonneg _)).trans_le (hσ m y)) x)
+  -- rescaling: with `a = γ √ε` and `q = √(ε / (1 - γ))`, `a ^ l b l = (C / (1 - γ)) q ^ l`
+  set a : ℝ := γ * √ε with ha_def
+  set q : ℝ := √(ε / (1 - γ)) with hq_def
+  set B : ℝ := C / (1 - γ) with hB_def
+  have ha₀ : 0 ≤ a := by positivity
+  have hq₀ : 0 ≤ q := Real.sqrt_nonneg _
+  have hB₀ : 0 ≤ B := by positivity
+  have hq : q = √ε / √(1 - γ) := Real.sqrt_div' _ hu.le
+  have hsqrt : 0 < √(1 - (γ : ℝ)) := Real.sqrt_pos.2 hu
+  have hab (l : ℕ) : a ^ l * b l = B * q ^ l := by
+    rw [hB_def, hq, ha_def]
+    simp only [hb_def]
+    rw [mul_pow, mul_pow, div_pow]
+    field_simp
+  have hq2 : γ * ε / (1 - γ) ≤ q ^ 2 := by
+    rw [hq_def, Real.sq_sqrt (div_nonneg hε₀ hu.le), mul_div_assoc]
+    exact mul_le_of_le_one_left (by positivity) hγ₁.le
+  have haq : a / (1 - γ) ≤ q / √(1 - γ) := by
+    rw [hq, div_div, Real.mul_self_sqrt hu.le, ha_def]
+    exact div_le_div_of_nonneg_right (mul_le_of_le_one_left (Real.sqrt_nonneg _) hγ₁.le) hu.le
+  have hq13 : q ≤ 1 / 3 := by
+    rw [hq_def, show (1 / 3 : ℝ) = √(1 / 9) by
+      rw [show (1 / 9 : ℝ) = (1 / 3) ^ 2 by norm_num, Real.sqrt_sq (by norm_num)]]
+    exact Real.sqrt_le_sqrt (by rw [div_le_iff₀ hu]; linarith)
+  set θ : ℝ := q * (1 + q) / (1 - q) with hθ_def
+  have hq1 : 0 < 1 - q := by linarith
+  have hθ : q + θ * q + q ^ 2 = θ := by
+    rw [hθ_def]
+    field_simp
+    ring
+  have hθq : q ^ 2 ≤ θ := by
+    rw [hθ_def, le_div_iff₀ hq1]
+    nlinarith
+  -- backward induction over the levels: `a ^ l D l ≤ B (θ q ^ l + q ^ m q / √(1 - γ))`
+  have hind (k : ℕ) (hk : k ≤ m) (x : α) :
+      a ^ (m - k) * D (m - k) x ≤ B * (θ * q ^ (m - k) + q ^ m * (q / √(1 - γ))) := by
+    induction k generalizing x with
+    | zero =>
+      rw [Nat.sub_zero]
+      have h₁ := hstep m le_rfl x
+      have h₂ := hlast x
+      calc a ^ m * D m x ≤ a ^ m * (a * (b m / (1 - γ)) + γ * ε * b m / (1 - γ)) := by
+            gcongr
+            exact h₁.trans (by gcongr)
+        _ = (a ^ m * b m) * (a / (1 - γ) + γ * ε / (1 - γ)) := by ring
+        _ ≤ (B * q ^ m) * (q / √(1 - γ) + θ) := by
+            rw [hab]
+            gcongr
+            exact hq2.trans hθq
+        _ = B * (θ * q ^ m + q ^ m * (q / √(1 - γ))) := by ring
+    | succ k ih =>
+      have hl : m - k = m - (k + 1) + 1 := by omega
+      have h₁ := hstep (m - (k + 1)) (Nat.sub_le _ _) x
+      have h₂ := hnext (m - (k + 1)) x
+      have h₃ := ih (by omega) x
+      rw [hl] at h₃
+      set l := m - (k + 1)
+      calc a ^ l * D l x ≤ a ^ l * (a * (b (l + 1) + D (l + 1) x) + γ * ε * b l / (1 - γ)) := by
+            gcongr
+            exact h₁.trans (by gcongr)
+        _ = a ^ (l + 1) * b (l + 1) + a ^ (l + 1) * D (l + 1) x +
+            (a ^ l * b l) * (γ * ε / (1 - γ)) := by ring
+        _ ≤ B * q ^ (l + 1) + B * (θ * q ^ (l + 1) + q ^ m * (q / √(1 - γ))) +
+            (B * q ^ l) * q ^ 2 := by
+            rw [hab, hab]
+            gcongr
+        _ = B * (q ^ l * (q + θ * q + q ^ 2) + q ^ m * (q / √(1 - γ))) := by ring
+        _ = B * (θ * q ^ l + q ^ m * (q / √(1 - γ))) := by rw [hθ]; ring
+  -- after `m ≥ log (1 - γ)⁻¹` levels, `q ^ m ≤ exp (-m) ≤ 1 - γ`
+  have hqm : q ^ m ≤ 1 - γ := by
+    have hqe : q ≤ Real.exp (-1) :=
+      hq13.trans (le_of_lt (by
+        rw [Real.exp_neg, one_div]
+        exact inv_strictAnti₀ (Real.exp_pos 1) Real.exp_one_lt_three))
+    calc q ^ m ≤ Real.exp (-1) ^ m := pow_le_pow_left₀ hq₀ hqe m
+      _ = Real.exp (-m) := by rw [← Real.exp_nat_mul]; ring_nf
+      _ ≤ Real.exp (Real.log (1 - γ)) := Real.exp_le_exp.2 (by rw [Real.log_inv] at hm; linarith)
+      _ = 1 - γ := Real.exp_log hu
+  have h₀ := hind m le_rfl x
+  rw [Nat.sub_self, pow_zero, one_mul, pow_zero, mul_one] at h₀
+  have hD₀ : D 0 x = |∫ y, f y ∂(resolvent γ κ' x) - ∫ y, f y ∂(resolvent γ κ x)| := by
+    simp only [hD_def, hr₀, hV₀]
+  have hfin : q ^ m * (q / √(1 - γ)) ≤ q := by
+    rw [mul_div_assoc', div_le_iff₀ hsqrt]
+    calc q ^ m * q ≤ (1 - γ) * q := by gcongr
+      _ = q * (√(1 - γ) * √(1 - γ)) := by rw [Real.mul_self_sqrt hu.le]; ring
+      _ ≤ q * √(1 - γ) := by
+          gcongr
+          rw [mul_le_iff_le_one_left hsqrt, Real.sqrt_le_one]
+          linarith [γ.coe_nonneg]
+  have hθ2 : θ ≤ 2 * q := by
+    rw [hθ_def, div_le_iff₀ hq1]
+    nlinarith
+  have hBq : B * q = C * √(ε / (1 - γ) ^ 3) := by
+    rw [hB_def, hq_def, show ε / (1 - (γ : ℝ)) ^ 3 = ε / (1 - γ) / (1 - γ) ^ 2 by
+      rw [div_div]; ring, Real.sqrt_div' _ (sq_nonneg _), Real.sqrt_sq hu.le]
+    ring
+  rw [← hD₀]
+  calc D 0 x ≤ B * (θ + q ^ m * (q / √(1 - γ))) := h₀
+    _ ≤ B * (2 * q + q) := by gcongr
+    _ = 3 * (B * q) := by ring
+    _ = 3 * C * √(ε / (1 - γ) ^ 3) := by rw [hBq]; ring
 
 end Markov
 
