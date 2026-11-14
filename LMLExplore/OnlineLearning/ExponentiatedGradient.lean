@@ -26,9 +26,9 @@ minimum value of the objective is `-log ∑ a, w a * exp (-(η * ℓ a))`. In pa
 in the interior of the simplex, the steps do not change when a constant is added to the loss, and
 from the uniform point with a constant learning rate the exact trajectory is the sequence of
 exponential weights `softmax (-(η • ∑ s < t, ℓ s))`, to which the regret bounds of
-`LMLExplore.OnlineLearning.Simplex` apply (for instance `softmax_regret_le`). The analysis of
-mirror descent with the negative entropy and approximate steps [SSKM26, Section 5.3, Appendix D]
-uses the step in this form, with the minimum value of its objective.
+`LMLExplore.OnlineLearning.ExponentialWeights` apply (for instance `softmax_regret_le`). The
+analysis of mirror descent with the negative entropy and approximate steps [SSKM26, Section 5.3,
+Appendix D] uses the step in this form, with the minimum value of its objective.
 
 ## Main statements
 

@@ -7,7 +7,6 @@ module
 
 public import LMLExplore.OnlineLearning.ExponentialWeights
 public import LMLExplore.Probability.Moments.SubGaussian.Simplex
-public import Mathlib.Analysis.MeanInequalitiesPow
 
 /-!
 # AdaHedge
@@ -23,8 +22,9 @@ round, the learning rate is infinite and AdaHedge follows the leader: it plays t
 distribution on the experts of minimal cumulative loss, with mix loss the smallest loss of these
 experts.
 
-The analysis rests on two facts. The mix losses telescope: for a fixed learning rate `η`, the mix
-loss of the exponential weights is the increment of the potential
+The analysis rests on two facts. The mix losses telescope, as for exponential weights with any
+nonincreasing learning rates (`LMLExplore.OnlineLearning.ExponentialWeights`): for a fixed learning
+rate `η`, the mix loss of the exponential weights is the increment of the potential
 `Φ_η(L) = -(1/η) log ((1/K) ∑ a, exp (-η L a))` (`mixLoss_softmax`), which is at most
 `L a + log K / η` and nonincreasing in `η` (`hedgePotential_le_of_le`). Since the learning rates of
 AdaHedge decrease, the total mix loss is at most `min_a L_n a + Δ_n`, so that the regret is at most
@@ -37,9 +37,6 @@ pure exploration games of [DKM19, Lemma 3].
 
 ## Main definitions
 
-* `LMLExplore.OnlineLearning.mixLoss η w ℓ`: the mix loss `-(1/η) log ∑ a, w a exp (-η ℓ a)`.
-* `LMLExplore.OnlineLearning.hedgePotential η L`: the potential
-  `-(1/η) log ((1/K) ∑ a, exp (-η L a))` of exponential weights.
 * `LMLExplore.OnlineLearning.leaders L`, `LMLExplore.OnlineLearning.ftlWeights L`: the experts of
   minimal cumulative loss and the uniform distribution on them (follow the leader).
 * `LMLExplore.OnlineLearning.adaHedgeGap y t`: the cumulative mixability gap `Δ_t` of AdaHedge
@@ -48,10 +45,8 @@ pure exploration games of [DKM19, Lemma 3].
 
 ## Main statements
 
-* `mixLoss_le_sum_mul`, `sum_mul_le_mixLoss_add`: `⟨w, ℓ⟩ - η (hi - lo) ^ 2 / 8 ≤ m ≤ ⟨w, ℓ⟩`.
-* `hedgePotential_eq_mixLoss`: the potential is the mix loss of the uniform weights.
-* `mixLoss_softmax`: the mix loss of exponential weights is the increment of the potential.
-* `hedgePotential_le_of_le`: the potential is nonincreasing in the learning rate.
+* `sum_mul_le_mixLoss_add`: `⟨w, ℓ⟩ - η (hi - lo) ^ 2 / 8 ≤ mixLoss η w ℓ` for losses in
+  `[lo, hi]`.
 * `adaHedge_mem_simplex`: AdaHedge plays probability vectors.
 * `adaHedge_regret_le_two_mul_adaHedgeGap`: the regret of AdaHedge is at most `2 Δ_n`.
 * `adaHedgeGap_le`: `Δ_n ≤ B + √((∑ t < n, b t ^ 2) log K) / 2` for loss ranges `b t ≤ B`.
@@ -77,142 +72,16 @@ namespace LMLExplore.OnlineLearning
 
 variable {α : Type*} [Fintype α]
 
-/-! ### The mix loss and the potential of exponential weights -/
-
-/-- Multiplying an inequality by `-η⁻¹` for `0 < η`: `-η⁻¹ X ≤ c ↔ -η c ≤ X`. -/
-private lemma neg_inv_mul_le_iff {η : ℝ} (hη : 0 < η) {X c : ℝ} :
-    -η⁻¹ * X ≤ c ↔ -η * c ≤ X := by
-  rw [neg_mul, neg_le, inv_mul_eq_div, le_div_iff₀ hη, neg_mul, mul_comm, neg_mul]
-
-/-- Multiplying an inequality by `-η⁻¹` for `0 < η`: `c ≤ -η⁻¹ X ↔ X ≤ -η c`. -/
-private lemma le_neg_inv_mul_iff {η : ℝ} (hη : 0 < η) {X c : ℝ} :
-    c ≤ -η⁻¹ * X ↔ X ≤ -η * c := by
-  rw [neg_mul, le_neg, inv_mul_eq_div, div_le_iff₀ hη, neg_mul, mul_comm, neg_mul]
-
-/-- The **mix loss** `-(1/η) log ∑ a, w a exp (-η ℓ a)` of the loss vector `ℓ` under the weights
-`w`, at the learning rate `η`. -/
-noncomputable def mixLoss (η : ℝ) (w ℓ : α → ℝ) : ℝ :=
-  -η⁻¹ * log (∑ a, w a * exp (-η * ℓ a))
-
-lemma mixLoss_def (η : ℝ) (w ℓ : α → ℝ) :
-    mixLoss η w ℓ = -η⁻¹ * log (∑ a, w a * exp (-η * ℓ a)) := (rfl)
-
-/-- The mix loss is at most the loss `⟨w, ℓ⟩` of the weights, by Jensen's inequality. -/
-lemma mixLoss_le_sum_mul {w : α → ℝ} (hw : w ∈ simplex α) {η : ℝ} (hη : 0 < η) (ℓ : α → ℝ) :
-    mixLoss η w ℓ ≤ ∑ a, w a * ℓ a := by
-  have hw' := mem_simplex_iff.1 hw
-  have h := convexOn_exp.map_sum_le (t := univ) (w := w) (p := fun a ↦ -η * ℓ a)
-    (fun a _ ↦ hw'.1 a) hw'.2 (fun _ _ ↦ Set.mem_univ _)
-  simp only [smul_eq_mul] at h
-  have hsum : ∑ a, w a * (-η * ℓ a) = -η * ∑ a, w a * ℓ a := by
-    rw [Finset.mul_sum]
-    exact Finset.sum_congr rfl fun a _ ↦ by ring
-  rw [hsum] at h
-  rw [mixLoss_def, neg_inv_mul_le_iff hη, ← log_exp (-η * ∑ a, w a * ℓ a)]
-  exact log_le_log (exp_pos _) h
+/-! ### The mix loss of bounded losses -/
 
 /-- The mix loss is at least `⟨w, ℓ⟩ - η (hi - lo) ^ 2 / 8` for losses in `[lo, hi]`, by Hoeffding's
 lemma. -/
 lemma sum_mul_le_mixLoss_add {w : α → ℝ} (hw : w ∈ simplex α) {η : ℝ} (hη : 0 < η)
     {ℓ : α → ℝ} {lo hi : ℝ} (hℓ : ∀ a, ℓ a ∈ Set.Icc lo hi) :
     ∑ a, w a * ℓ a ≤ mixLoss η w ℓ + η * (hi - lo) ^ 2 / 8 := by
-  rw [← sub_le_iff_le_add, mixLoss_def, le_neg_inv_mul_iff hη]
+  rw [← sub_le_iff_le_add, mixLoss_def, ← inv_neg, ← div_eq_inv_mul,
+    le_div_iff_of_neg (neg_lt_zero.2 hη)]
   exact (log_sum_mul_exp_le hw hℓ (-η)).trans_eq (by ring)
-
-/-- The mix loss of losses at least `lo` is at least `lo`. -/
-lemma le_mixLoss {w : α → ℝ} (hw : w ∈ simplex α) {η : ℝ} (hη : 0 < η) {ℓ : α → ℝ} {lo : ℝ}
-    (hℓ : ∀ a, lo ≤ ℓ a) :
-    lo ≤ mixLoss η w ℓ := by
-  have hw' := mem_simplex_iff.1 hw
-  have hle : ∑ a, w a * exp (-η * ℓ a) ≤ exp (-η * lo) := by
-    calc ∑ a, w a * exp (-η * ℓ a) ≤ ∑ a, w a * exp (-η * lo) :=
-          Finset.sum_le_sum fun a _ ↦ mul_le_mul_of_nonneg_left
-            (exp_le_exp.2 (by nlinarith [hℓ a])) (hw'.1 a)
-      _ = exp (-η * lo) := by rw [← Finset.sum_mul, hw'.2, one_mul]
-  have hpos := sum_mul_pos_of_mem_simplex hw fun a ↦ exp_pos (-η * ℓ a)
-  rw [mixLoss_def, le_neg_inv_mul_iff hη, ← log_exp (-η * lo)]
-  exact log_le_log hpos hle
-
-/-- The potential `-(1/η) log ((1/K) ∑ a, exp (-η L a))` of exponential weights with learning rate
-`η` at the cumulative loss vector `L`, with `K` the cardinality of `α`. -/
-noncomputable def hedgePotential (η : ℝ) (L : α → ℝ) : ℝ :=
-  -η⁻¹ * log ((∑ a, exp (-η * L a)) / Fintype.card α)
-
-lemma hedgePotential_def (η : ℝ) (L : α → ℝ) :
-    hedgePotential η L = -η⁻¹ * log ((∑ a, exp (-η * L a)) / Fintype.card α) := (rfl)
-
-/-- The potential is the mix loss of the cumulative losses under the uniform weights. -/
-lemma hedgePotential_eq_mixLoss (η : ℝ) (L : α → ℝ) :
-    hedgePotential η L = mixLoss η (fun _ ↦ (Fintype.card α : ℝ)⁻¹) L := by
-  simp_rw [hedgePotential_def, mixLoss_def, Finset.sum_div, div_eq_inv_mul]
-
-/-- The mix loss of the exponential weights `softmax (-(η • L))` is the increment
-`Φ_η(L + ℓ) - Φ_η(L)` of the potential. -/
-lemma mixLoss_softmax [Nonempty α] (η : ℝ) (L ℓ : α → ℝ) :
-    mixLoss η (softmax (-(η • L))) ℓ = hedgePotential η (L + ℓ) - hedgePotential η L := by
-  have hZ : 0 < ∑ a, exp (-η * L a) := Finset.sum_pos (fun a _ ↦ exp_pos _) univ_nonempty
-  have hZ' : 0 < ∑ a, exp (-η * (L + ℓ) a) := Finset.sum_pos (fun a _ ↦ exp_pos _) univ_nonempty
-  have hK : (0 : ℝ) < Fintype.card α := by exact_mod_cast Fintype.card_pos
-  have hsum : ∑ a, softmax (-(η • L)) a * exp (-η * ℓ a) =
-      (∑ a, exp (-η * (L + ℓ) a)) / ∑ a, exp (-η * L a) := by
-    rw [Finset.sum_div]
-    refine Finset.sum_congr rfl fun a _ ↦ ?_
-    simp only [softmax_apply, Pi.neg_apply, Pi.smul_apply, smul_eq_mul, Pi.add_apply, mul_add,
-      neg_mul, exp_add]
-    ring
-  rw [mixLoss_def, hsum, hedgePotential_def, hedgePotential_def, log_div hZ'.ne' hZ.ne',
-    log_div hZ'.ne' hK.ne', log_div hZ.ne' hK.ne']
-  ring
-
-/-- The potential is at most `L a + log K / η` for every expert `a`. -/
-lemma hedgePotential_le {η : ℝ} (hη : 0 < η) (L : α → ℝ) (a : α) :
-    hedgePotential η L ≤ L a + log (Fintype.card α) / η := by
-  have : Nonempty α := ⟨a⟩
-  have hK : (0 : ℝ) < Fintype.card α := by exact_mod_cast Fintype.card_pos
-  have hle : exp (-η * L a) ≤ ∑ b, exp (-η * L b) :=
-    Finset.single_le_sum (f := fun b ↦ exp (-η * L b)) (fun b _ ↦ (exp_pos _).le) (mem_univ a)
-  have hlog : -η * L a - log (Fintype.card α) ≤ log ((∑ b, exp (-η * L b)) / Fintype.card α) := by
-    rw [log_div (Finset.sum_pos (fun b _ ↦ exp_pos _) univ_nonempty).ne' hK.ne',
-      ← log_exp (-η * L a)]
-    exact sub_le_sub_right (log_le_log (exp_pos _) hle) _
-  rw [hedgePotential_def, neg_inv_mul_le_iff hη]
-  refine le_of_eq_of_le ?_ hlog
-  field_simp
-  ring
-
-/-- The potential is at least every lower bound of the cumulative losses. -/
-lemma le_hedgePotential [Nonempty α] {η : ℝ} (hη : 0 < η) {L : α → ℝ} {x : ℝ}
-    (hL : ∀ a, x ≤ L a) :
-    x ≤ hedgePotential η L :=
-  hedgePotential_eq_mixLoss η L ▸ le_mixLoss (uniform_mem_simplex α) hη hL
-
-/-- The potential is nonincreasing in the learning rate: for `0 < η' ≤ η`,
-`Φ_η(L) ≤ Φ_η'(L)`. This is the power mean inequality. -/
-lemma hedgePotential_le_of_le [Nonempty α] {η η' : ℝ} (hη' : 0 < η') (hη : η' ≤ η)
-    (L : α → ℝ) :
-    hedgePotential η L ≤ hedgePotential η' L := by
-  have hη0 : 0 < η := hη'.trans_le hη
-  have hK : (0 : ℝ) < Fintype.card α := by exact_mod_cast Fintype.card_pos
-  set p := η / η' with hp
-  have hp1 : 1 ≤ p := by rw [hp, le_div_iff₀ hη', one_mul]; exact hη
-  -- the power mean inequality for the weights `1/K` and the values `exp (-η' L a)`
-  have hmean := Real.rpow_arith_mean_le_arith_mean_rpow univ (fun _ ↦ (Fintype.card α : ℝ)⁻¹)
-    (fun a ↦ exp (-η' * L a)) (fun _ _ ↦ inv_nonneg.2 hK.le)
-    (by simp [Finset.card_univ, hK.ne']) (fun _ _ ↦ (exp_pos _).le) hp1
-  have hpow (a : α) : exp (-η' * L a) ^ p = exp (-η * L a) := by
-    rw [← exp_mul, hp]
-    congr 1
-    field_simp
-  simp only [hpow, ← Finset.mul_sum] at hmean
-  have hpos' : 0 < (Fintype.card α : ℝ)⁻¹ * ∑ a, exp (-η' * L a) :=
-    mul_pos (inv_pos.2 hK) (Finset.sum_pos (fun a _ ↦ exp_pos _) univ_nonempty)
-  have hlog := log_le_log (rpow_pos_of_pos hpos' p) hmean
-  rw [log_rpow hpos'] at hlog
-  rw [hedgePotential_def, hedgePotential_def, div_eq_inv_mul, div_eq_inv_mul,
-    neg_inv_mul_le_iff hη0]
-  refine le_of_eq_of_le ?_ hlog
-  rw [hp]
-  field_simp
 
 /-! ### Follow the leader -/
 
@@ -521,7 +390,6 @@ private lemma sum_adaHedgeMixLoss_le (y : ℕ → α → ℝ) (n : ℕ) :
     set L := ∑ s ∈ range n, y s
     set S := ∑ t ∈ range n, adaHedgeMixLoss (adaHedgeGap y t) (∑ s ∈ range t, y s) (y t)
     have hmono : Δ ≤ adaHedgeGap y (n + 1) := monotone_adaHedgeGap y n.le_succ
-    have hLsucc : ∑ t ∈ range (n + 1), y t = L + y n := sum_range_succ _ _
     simp only [Finset.sum_range_succ]
     by_cases hΔ : Δ = 0
     · -- infinite learning rate, all experts tied: the mix loss is the smallest loss
@@ -541,17 +409,12 @@ private lemma sum_adaHedgeMixLoss_le (y : ℕ → α → ℝ) (n : ℕ) :
       have hΔpos : 0 < Δ := lt_of_le_of_ne h0 (Ne.symm hΔ)
       have hpos : 0 < adaHedgeGap y (n + 1) := hΔpos.trans_le hmono
       have hlogK := log_card_pos_of_div_pos h0 hΔ (hη hΔ)
-      have hm : adaHedgeMixLoss Δ L (y n) =
-          hedgePotential (log (Fintype.card α) / Δ) (L + y n) -
-            hedgePotential (log (Fintype.card α) / Δ) L := by
-        rw [adaHedgeMixLoss_of_ne_zero hΔ, adaHedgeWeights_of_ne_zero hΔ, mixLoss_softmax]
       refine ⟨fun h ↦ absurd h hpos.ne', fun _ ↦ ?_⟩
       have hrate : log (Fintype.card α) / adaHedgeGap y (n + 1) ≤ log (Fintype.card α) / Δ :=
         div_le_div_of_nonneg_left hlogK.le hΔpos hmono
-      have := hedgePotential_le_of_le (div_pos hlogK hpos) hrate (L + y n)
-      have := ih.2 hΔ
-      rw [hm]
-      linarith
+      have hstep := add_mixLoss_softmax_le_hedgePotential (hη hΔ) le_rfl (ih.2 hΔ) (y n)
+      rw [adaHedgeMixLoss_of_ne_zero hΔ, adaHedgeWeights_of_ne_zero hΔ]
+      exact hstep.trans (hedgePotential_le_of_le (div_pos hlogK hpos) hrate (L + y n))
 
 /-- **Regret of AdaHedge** in terms of its cumulative mixability gap: against every expert `a`,
 `∑ t < n, (⟨w_t, y t⟩ - y t a) ≤ 2 Δ_n`. -/
