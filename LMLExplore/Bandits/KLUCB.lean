@@ -82,6 +82,10 @@ Lean round `n` uses `log f(n + 1)`.
   family of every arm with positive gap.
 * `klucbFam_gaussianReal_regret_eventually_le`: for `σ2_a`-sub-Gaussian rewards and the Gaussian
   families of variances `σ2_a`, `limsup_n E[R_n] / log n ≤ ∑_{a : Δ_a > 0} 2 σ2_a / Δ_a`.
+* `UCBF.integral_pullCount_eventually_le`, `ucbF_regret_eventually_le`: [LS, (8.2)], the
+  asymptotic part of [LS, Theorem 8.1], as the instance with a common variance `σ²`: for
+  σ²-sub-Gaussian rewards, `ucbF σ2` satisfies `limsup_n E[T_a(n)] / log n ≤ 2 σ² / Δ_a²` and
+  `limsup_n E[R_n] / log n ≤ ∑_{a : Δ_a > 0} 2 σ² / Δ_a`.
 * `KLUCB.integral_pullCount_le`: for rewards in `[0, 1]`, the bound
   `log f(n) / d(μ_a + ε₁, μ* - ε₂) + 1 / (2 ε₁²) + 2 / ε₂²` on the expected number of pulls of an
   arm `a` with gap `Δ_a`, for all `ε₁, ε₂ > 0` with `ε₁ + ε₂ < Δ_a`.
@@ -141,7 +145,7 @@ this limit to its Exercise 10.2.
 ## References
 
 * [LS] T. Lattimore and Cs. Szepesvári, *Bandit Algorithms*, Cambridge University Press, 2020,
-  Chapter 10.
+  Chapters 8 and 10.
 * [GC11] A. Garivier and O. Cappé, *The KL-UCB algorithm for bounded stochastic bandits and
   beyond*, COLT 2011.
 * [CGMMS13] O. Cappé, A. Garivier, O.-A. Maillard, R. Munos and G. Stoltz, *Kullback–Leibler
@@ -778,6 +782,45 @@ theorem klucbFam_gaussianReal_regret_eventually_le [StandardBorelSpace α] (m : 
     (not_ae_eq_const_gaussianReal _ (hσ2 _))
     (fun a _ ↦ mem_expFamilyMeans_gaussianReal _ (hσ2 a) _) ?_
   exact (sum_gap_div_expFamilyDiv_gaussianReal m hσ2).trans_lt hc
+
+/-- **Asymptotic number of pulls of asymptotically optimal UCB.** For σ²-sub-Gaussian rewards
+with `σ² ≠ 0`, an arm `a` with positive gap `Δ_a`, and every `c > 2 σ² / Δ_a²`, the expected
+number of pulls of `a` by `ucbF σ2` during the first `n` rounds is eventually at most `c log n`;
+that is, `limsup_n E[T_a(n)] / log n ≤ 2 σ² / Δ_a²`. This is the Gaussian instance of
+`KLUCBFam.integral_pullCount_eventually_le`, since `ucbF σ2` is KL-UCB for the Gaussian family of
+variance `σ²` (`klucbFam_gaussianReal`) and `d(μ_a, μ*) = Δ_a² / (2 σ²)` for that family. -/
+theorem UCBF.integral_pullCount_eventually_le {σ2 : ℝ≥0}
+    (h : IsAlgEnvSeq O A R (ucbF σ2) (Environment.bandit ν) P)
+    (hν : ∀ a, HasSubgaussianMGF (fun x ↦ x - (ν a)[id]) σ2 (ν a)) (hσ2 : σ2 ≠ 0) (a : α)
+    (ha : 0 < gap ν a) {c : ℝ} (hc : 2 * σ2 / gap ν a ^ 2 < c) :
+    ∀ᶠ n : ℕ in atTop, P[fun ω ↦ (pullCount A a n ω : ℝ)] ≤ c * log n := by
+  rw [← klucbFam_gaussianReal 0 hσ2] at h
+  -- every arm is dominated on `ℝ` by the member `𝒩(μ_b, σ2)` of the Gaussian family
+  have hdom (b : α) : MGFDominatedOn id (ν b) id ((gaussianReal 0 σ2).expFamily id
+      ((gaussianReal 0 σ2).natParam id (ν b)[id])) Set.univ := by
+    rw [expFamily_natParam_gaussianReal 0 hσ2]
+    exact (hν b).mgfDominatedOn_gaussianReal
+  have hgap : gap ν a = (ν (bestArm ν))[id] - (ν a)[id] := gap_eq_bestArm_sub
+  refine KLUCBFam.integral_pullCount_eventually_le (b := bestArm ν) h
+    (mem_expFamilyMeans_gaussianReal _ hσ2 _)
+    ((hdom a).mono (Set.subset_univ _)) (mem_expFamilyMeans_gaussianReal _ hσ2 _)
+    ((hdom _).mono (Set.subset_univ _)) (not_ae_eq_const_gaussianReal _ hσ2) (by linarith)
+    (mem_expFamilyMeans_gaussianReal _ hσ2 _) ?_
+  rwa [expFamilyDiv_gaussianReal _ hσ2, ← neg_sub, neg_sq, ← hgap, inv_div]
+
+/-- **[LS, (8.2)]**, the asymptotic part of [LS, Theorem 8.1]. For σ²-sub-Gaussian rewards with
+`σ² ≠ 0` and every `c > ∑_{a : Δ_a > 0} 2 σ² / Δ_a`, the expected regret of the asymptotically
+optimal UCB algorithm `ucbF σ2` at horizon `n` is eventually at most `c log n`; that is,
+`limsup_n E[R_n] / log n ≤ ∑_{a : Δ_a > 0} 2 σ² / Δ_a`. This is the instance of
+`klucbFam_gaussianReal_regret_eventually_le` with a common variance, since `ucbF σ2` is KL-UCB for
+the Gaussian family of variance `σ²` (`klucbFam_gaussianReal`). -/
+theorem ucbF_regret_eventually_le [StandardBorelSpace α] {σ2 : ℝ≥0}
+    (h : IsAlgEnvSeq O A R (ucbF σ2) (Environment.bandit ν) P)
+    (hν : ∀ a, HasSubgaussianMGF (fun x ↦ x - (ν a)[id]) σ2 (ν a)) (hσ2 : σ2 ≠ 0) {c : ℝ}
+    (hc : ∑ a ∈ univ.filter (fun a ↦ 0 < gap ν a), 2 * σ2 / gap ν a < c) :
+    ∀ᶠ n : ℕ in atTop, P[regret ν A n] ≤ c * log n := by
+  rw [← klucbFam_gaussianReal 0 hσ2] at h
+  exact klucbFam_gaussianReal_regret_eventually_le (fun _ ↦ 0) h hν (fun _ ↦ hσ2) hc
 
 end FamilyRegret
 

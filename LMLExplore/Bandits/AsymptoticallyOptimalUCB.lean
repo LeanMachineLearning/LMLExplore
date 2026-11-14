@@ -9,7 +9,6 @@ public import LeanMachineLearning.Online.Bandit.Regret
 public import LMLExplore.Analysis.SpecialFunctions.Log.Basic
 public import LMLExplore.Bandits.Concentration
 public import LMLExplore.Bandits.IndexAlgorithm
-public import LMLExplore.Bandits.Regret
 
 /-!
 # Asymptotically optimal UCB
@@ -48,12 +47,12 @@ Lean round `n` uses `log f(n + 1)`.
   `1 + 5 σ² / ε² + 2 σ² (log f(n) + √(π log f(n)) + 1) / (Δ_a - ε)²` on the expected number of
   pulls of an arm `a` with gap `Δ_a`, for every `ε ∈ (0, Δ_a)`.
 * `ucbF_regret_le`: [LS, Theorem 8.1], the finite-time bound on the expected regret.
-* `UCBF.integral_pullCount_eventually_le`: for an arm `a` with positive gap `Δ_a` and every
-  `c > 2 σ² / Δ_a²`, eventually `E[T_a(n)] ≤ c log n`, that is,
-  `limsup_n E[T_a(n)] / log n ≤ 2 σ² / Δ_a²`.
-* `ucbF_regret_eventually_le`: [LS, (8.2)], the asymptotic part of [LS, Theorem 8.1]: for every
-  `c > ∑_{a : Δ_a > 0} 2 σ² / Δ_a`, eventually `E[R_n] ≤ c log n`, that is,
-  `limsup_n E[R_n] / log n ≤ ∑_{a : Δ_a > 0} 2 σ² / Δ_a`.
+
+The asymptotic part of [LS, Theorem 8.1], `limsup_n E[R_n] / log n ≤ ∑_{a : Δ_a > 0} 2 σ² / Δ_a`,
+and its form `limsup_n E[T_a(n)] / log n ≤ 2 σ² / Δ_a²` for the number of pulls, are the Gaussian
+instances of the asymptotic bounds of KL-UCB for exponential families, since `ucbF σ2` is KL-UCB
+for the Gaussian family of variance `σ²`: they are `ucbF_regret_eventually_le` and
+`UCBF.integral_pullCount_eventually_le` in `LMLExplore.Bandits.KLUCB`.
 
 ## Implementation notes
 
@@ -63,10 +62,6 @@ at most `5 σ² / ε²` by `sum_measureReal_pullCount_ne_zero_and_empMean_add_sq
 sum, the overestimation of `a` by more than `Δ_a - ε`, is bounded by [LS, Lemma 8.2] in LML's
 i.i.d. reward stream model, by
 `sum_measureReal_action_eq_and_pullCount_eq_zero_or_lt_empMean_add_sqrt_le`.
-
-For the asymptotic bound, `ε` is chosen small enough that `2 σ² / (Δ_a - ε)² < c`. The bound of
-`UCBF.integral_pullCount_le` divided by `log n` then tends to `2 σ² / (Δ_a - ε)²`, since
-`log f(n) / log n → 1` (`Real.tendsto_log_one_add_mul_log_sq_div_log_atTop`).
 
 ## References
 
@@ -264,37 +259,6 @@ theorem ucbF_regret_le
   have : Nonempty (Set.Ioo 0 (gap ν a)) := (Set.nonempty_Ioo.mpr (mem_filter.mp ha).2).to_subtype
   exact le_ciInf fun ε ↦ mul_le_mul_of_nonneg_left
     (UCBF.integral_pullCount_le h hν hσ2 a ε.2.1 ε.2.2 n) gap_nonneg
-
-/-- **Asymptotic number of pulls of asymptotically optimal UCB.** For σ²-sub-Gaussian rewards
-with `σ² ≠ 0`, an arm `a` with positive gap `Δ_a`, and every `c > 2 σ² / Δ_a²`, the expected
-number of pulls of `a` during the first `n` rounds is eventually at most `c log n`; that is,
-`limsup_n E[T_a(n)] / log n ≤ 2 σ² / Δ_a²`. -/
-theorem UCBF.integral_pullCount_eventually_le
-    (h : IsAlgEnvSeq O A R (ucbF σ2) (Environment.bandit ν) P)
-    (hν : ∀ a, HasSubgaussianMGF (fun x ↦ x - (ν a)[id]) σ2 (ν a)) (hσ2 : σ2 ≠ 0) (a : α)
-    (ha : 0 < gap ν a) {c : ℝ} (hc : 2 * σ2 / gap ν a ^ 2 < c) :
-    ∀ᶠ n : ℕ in atTop, P[fun ω ↦ (pullCount A a n ω : ℝ)] ≤ c * log n :=
-  eventually_le_mul_log_of_forall_le_add_mul_add_sqrt_add_one
-    (L := fun n ↦ log (1 + n * log n ^ 2)) ha
-    (tendsto_log_one_add_mul_log_sq_div_log_atTop.comp tendsto_natCast_atTop_atTop) pi_pos.le
-    (fun ε hε ↦ ⟨1 + 5 * σ2 / ε ^ 2, fun n ↦
-      (UCBF.integral_pullCount_le h hν hσ2 a hε.1 hε.2 n).trans_eq (by ring)⟩) hc
-
-/-- **[LS, (8.2)]**, the asymptotic part of [LS, Theorem 8.1]. For σ²-sub-Gaussian rewards with
-`σ² ≠ 0` and every `c > ∑_{a : Δ_a > 0} 2 σ² / Δ_a`, the expected regret of the asymptotically
-optimal UCB algorithm at horizon `n` is eventually at most `c log n`; that is,
-`limsup_n E[R_n] / log n ≤ ∑_{a : Δ_a > 0} 2 σ² / Δ_a`. -/
-theorem ucbF_regret_eventually_le [StandardBorelSpace α]
-    (h : IsAlgEnvSeq O A R (ucbF σ2) (Environment.bandit ν) P)
-    (hν : ∀ a, HasSubgaussianMGF (fun x ↦ x - (ν a)[id]) σ2 (ν a)) (hσ2 : σ2 ≠ 0) {c : ℝ}
-    (hc : ∑ a ∈ univ.filter (fun a ↦ 0 < gap ν a), 2 * σ2 / gap ν a < c) :
-    ∀ᶠ n : ℕ in atTop, P[regret ν A n] ≤ c * log n := by
-  refine integral_regret_eventually_le_of_forall_integral_pullCount_eventually_le
-    h.measurable_action (.of_forall fun n ↦ log_natCast_nonneg n)
-    (fun a ↦ 2 * σ2 / gap ν a ^ 2)
-    (fun a ha _ hc ↦ UCBF.integral_pullCount_eventually_le h hν hσ2 a ha hc) ?_
-  refine (sum_congr rfl fun a ha ↦ ?_).trans_lt hc
-  field_simp [(mem_filter.mp ha).2.ne']
 
 end Regret
 
