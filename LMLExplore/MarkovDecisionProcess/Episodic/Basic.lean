@@ -6,6 +6,7 @@ Authors: LMLExplore contributors
 module
 
 public import LMLExplore.MarkovDecisionProcess.Basic
+import LMLExplore.MeasureTheory.Measure.Prod
 import Mathlib.Analysis.Convex.Integral
 
 /-!
@@ -271,8 +272,8 @@ theorem ae_obs_snd_eq (hμ : ∀ᵐ p ∂μ, p.2 = h₀) (h : IsAlgEnvSeq O A Y 
       rw [h_law]
       refine Measure.ae_comp_of_ae_ae (h_meas _) (h_pair.mono fun p hp ↦ ?_)
       obtain ⟨⟨s, k⟩, a⟩ := p
-      rw [augmented_P_apply, ae_map_iff measurable_prodMk_right.aemeasurable (h_meas _)]
-      exact .of_forall fun _ ↦ by simp only at hp ⊢; omega
+      rw [augmented_P_apply]
+      exact (Measure.ae_map_prodMk_right_snd_eq _ _).mono fun _ hq ↦ by simp only at hp ⊢; omega
     exact ae_of_ae_map (hO (n + 1)).aemeasurable h_next
 
 /-- Along a run of the augmented MDP started at the step `h₀`, the augmented state-action pair of
