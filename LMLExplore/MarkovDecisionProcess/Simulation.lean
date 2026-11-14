@@ -41,7 +41,9 @@ bound compares `Q*_M - Q*_M'` with the solution of the resolvent equation of `P'
 supersolution, because `π'*` is suboptimal in `M`. Only the fixed function `v*` of `M` enters the
 transition error, so that a reward error of at most `δ` and an error of at most `ε` in the
 one-step predictions of `v*` result in an error of at most `δ / (1 - γ) + γ ε / (1 - γ)` in the
-optimal action values and the optimal values.
+optimal action values and the optimal values. When the two MDPs have the same transition kernel,
+the lower bound shows that the optimal action values and the optimal values are monotone in the
+mean rewards.
 
 When the transition kernels are within `η` in total variation, `tvDist (P (s, a)) (P' (s, a)) ≤ η`
 (Mathlib's `tvDist`, with values in `[0, 2]`), and the rewards of `M` satisfy `|r| ≤ C`, the
@@ -89,6 +91,9 @@ plug-in policy of a generative model.
   models differ by at most `δ / (1 - γ) + γ ε / (1 - γ)`.
 * `Learning.MDP.optQValue_sub_optQValue_le`, `Learning.MDP.le_optQValue_sub_optQValue`:
   **the componentwise bounds** [AJKS, Lemma 2.5] on `Q*_M - Q*_M'`, with a reward error.
+* `Learning.MDP.optQValue_le_optQValue_of_meanReward_le`,
+  `Learning.MDP.optValue_le_optValue_of_meanReward_le`: for two MDPs with the same transition
+  kernel, the optimal action values and the optimal values are monotone in the mean rewards.
 * `Learning.MDP.abs_optQValue_sub_optQValue_le`, `Learning.MDP.abs_optValue_sub_optValue_le`: if
   `|r - r'| ≤ δ` and `|(P - P') v*| ≤ ε`, the optimal action values and the optimal values of the
   two models differ by at most `δ / (1 - γ) + γ ε / (1 - γ)`.
@@ -277,6 +282,31 @@ theorem le_optQValue_sub_optQValue (hγ : γ < 1) (hR : ∀ p, ∀ᵐ x ∂(M.R 
   rw [integral_sub hint hint', h₂, optQValue_def M γ q, optQValue_def M' γ q]
   simp only [Pi.add_apply, Pi.sub_apply]
   linarith
+
+/-- For two MDPs with finitely many actions, bounded rewards, the same transition kernel and
+`γ < 1`, if the mean rewards of `M'` are at least those of `M`, so are its optimal action values. -/
+theorem optQValue_le_optQValue_of_meanReward_le (hγ : γ < 1) (hR : ∀ p, ∀ᵐ x ∂(M.R p), |x| ≤ C)
+    (hR' : ∀ p, ∀ᵐ x ∂(M'.R p), |x| ≤ C') (hP : M'.P = M.P)
+    (hr : ∀ q, meanReward M.R q ≤ meanReward M'.R q) :
+    M.optQValue γ ≤ M'.optQValue γ := fun p ↦ by
+  have := Fintype.ofFinite 𝓐
+  -- the componentwise lower bound, with the greedy optimal policy of `M`
+  have hg := measurable_greedy (M := M) (γ := γ) (measurable_optValue hγ hR)
+  have h := le_optQValue_sub_optQValue (M := M') (M' := M) hγ hR' hR
+    (value_greedy_optValue hγ hR hg) p
+  simp only [hP, sub_self, mul_zero, add_zero] at h
+  linarith [integral_nonneg (μ := Kernel.resolvent γ (M.saKernel (Kernel.deterministic _ hg)) p)
+    fun q ↦ sub_nonneg.2 (hr q)]
+
+/-- For two MDPs with finitely many actions, bounded rewards, the same transition kernel and
+`γ < 1`, if the mean rewards of `M'` are at least those of `M`, so are its optimal values. -/
+theorem optValue_le_optValue_of_meanReward_le (hγ : γ < 1) (hR : ∀ p, ∀ᵐ x ∂(M.R p), |x| ≤ C)
+    (hR' : ∀ p, ∀ᵐ x ∂(M'.R p), |x| ≤ C') (hP : M'.P = M.P)
+    (hr : ∀ q, meanReward M.R q ≤ meanReward M'.R q) :
+    M.optValue γ ≤ M'.optValue γ := fun s ↦ by
+  rw [← iSup_optQValue hγ hR s, ← iSup_optQValue hγ hR' s]
+  exact ciSup_mono (Finite.bddAbove_range _) fun a ↦
+    optQValue_le_optQValue_of_meanReward_le hγ hR hR' hP hr (s, a)
 
 /-- For two MDPs `M` and `M'` with finitely many actions, bounded rewards and `γ < 1`, if the mean
 rewards differ by at most `δ` and the one-step predictions of the optimal value `v*` of `M` differ

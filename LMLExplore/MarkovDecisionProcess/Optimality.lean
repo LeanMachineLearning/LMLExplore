@@ -38,7 +38,8 @@ here on a general measurable state space.
 ## Main statements
 
 * `Learning.MDP.bellman_optValue`: `T v* = v*` [P, Theorem 6.2.5 (a)];
-  `Learning.MDP.measurable_optValue`: `v*` is measurable.
+  `Learning.MDP.measurable_optValue`, `Learning.MDP.integrable_optValue`: `v*` is measurable,
+  and integrable for every finite measure.
 * `Learning.MDP.value_greedy_optValue`: the greedy policy for `v*` has value `v*`
   [P, Theorem 6.2.7 (b)].
 * `Learning.MDP.optValueBM`, `Learning.MDP.isFixedPt_bellmanOp_optValueBM`: `v*` is the fixed point
@@ -95,6 +96,12 @@ theorem measurable_optValue (hγ : γ < 1) (hR : ∀ p, ∀ᵐ x ∂(M.R p), |x|
     Measurable (M.optValue γ) := by
   obtain ⟨u, hu, huB, hu_eq⟩ := exists_bellman_eq (M := M) hγ hR
   rwa [← eq_optValue_of_bellman_eq hγ hR hu huB hu_eq]
+
+/-- With finitely many actions, bounded rewards and `γ < 1`, the optimal value is integrable for
+every finite measure on the states. -/
+theorem integrable_optValue (hγ : γ < 1) (hR : ∀ p, ∀ᵐ x ∂(M.R p), |x| ≤ C) (μ : Measure 𝓢)
+    [IsFiniteMeasure μ] : Integrable (M.optValue γ) μ :=
+  integrable_of_abs_le (measurable_optValue hγ hR) (abs_optValue_le hγ hR) μ
 
 /-- With finitely many actions, bounded rewards and `γ < 1`, the discounted value of every
 algorithm from the probability measure `μ` is at most `∫ v* dμ`. -/
@@ -286,8 +293,7 @@ theorem qValue_le_optQValue (hγ : γ < 1) (hR : ∀ p, ∀ᵐ x ∂(M.R p), |x|
     M.qValue γ π ≤ M.optQValue γ := fun p ↦ by
   rw [qValue_eq_lookahead, optQValue_eq_lookahead]
   exact lookahead_mono (integrable_of_abs_le (measurable_value hγ hR) (abs_value_le hγ hR) _)
-    (integrable_of_abs_le (measurable_optValue hγ hR) (abs_optValue_le hγ hR) _)
-    (value_le_optValue hγ hR)
+    (integrable_optValue hγ hR _) (value_le_optValue hγ hR)
 
 /-- With finitely many actions, bounded rewards and `γ < 1`, a stationary policy whose value is
 within `ε` of the optimal value, `v* - v^π ≤ ε`, has action values within `γ ε` of the optimal
@@ -296,7 +302,7 @@ theorem optQValue_sub_qValue_le_of_optValue_sub_value_le (hγ : γ < 1)
     (hR : ∀ p, ∀ᵐ x ∂(M.R p), |x| ≤ C) {ε : ℝ} (hπ : ∀ s, M.optValue γ s - M.value γ π s ≤ ε)
     (p : 𝓢 × 𝓐) :
     M.optQValue γ p - M.qValue γ π p ≤ γ * ε := by
-  have hv := integrable_of_abs_le (measurable_optValue hγ hR) (abs_optValue_le hγ hR) (M.P p)
+  have hv := integrable_optValue hγ hR (M.P p)
   have hv' := integrable_of_abs_le (measurable_value (π := π) hγ hR) (abs_value_le hγ hR) (M.P p)
   rw [optQValue_def, qValue_eq_lookahead, lookahead_def, add_sub_add_left_eq_sub, ← mul_sub,
     ← integral_sub hv hv']
