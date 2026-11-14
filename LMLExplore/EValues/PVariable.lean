@@ -15,8 +15,9 @@ A p-variable for a null hypothesis `S : Set (Measure Ω)` is a measurable `p : �
 `P {ω | p ω ≤ α} ≤ α` for every member `P` of the null and every level `α`: rejecting when
 `p ≤ α` is a level-`α` test for every `α` at once. As for Statlib's e-variables, the null is an
 arbitrary set of measures and p-variables are `ℝ≥0∞`-valued; values above `1` carry no evidence.
-This file defines p-variables and exact p-variables, and proves that the inverse `E⁻¹` of an
-e-variable is a p-variable (the e-to-p calibration, with `0⁻¹ = ∞` and no truncation at `1`).
+This file defines p-variables and exact p-variables, and proves that, for a null of probability
+measures, the inverse `E⁻¹` of an e-variable is a p-variable (the e-to-p calibration, with
+`0⁻¹ = ∞` and no truncation at `1`).
 
 ## Main definitions
 
@@ -26,7 +27,8 @@ e-variable is a p-variable (the e-to-p calibration, with `0⁻¹ = ∞` and no t
 
 ## Main statements
 
-* `ProbabilityTheory.IsEVar.isPVar_inv`: the inverse of an e-variable is a p-variable.
+* `ProbabilityTheory.IsEVar.isPVar_inv`: for a null of probability measures, the inverse of an
+  e-variable is a p-variable.
 * `ProbabilityTheory.isExactPVar_ofReal_volume`: the identity of `[0, 1]` under Lebesgue measure is
   an exact p-variable, and `ProbabilityTheory.isExactPVar_ofReal_of_map_eq`: so is every random
   variable uniformly distributed on `[0, 1]` under every member of the null.
@@ -95,8 +97,8 @@ theorem IsPVar.comp {q : 𝓨 → ℝ≥0∞} {φ : Ω → 𝓨} (hφ : Measurab
     have h_le := h.measure_le_le (P.map φ) ⟨P, hP, rfl⟩ α
     rwa [Measure.map_apply hφ (measurableSet_le h.measurable measurable_const)] at h_le
 
-/-- **E-to-p calibration**: the inverse `E⁻¹` of an e-variable `E` is a p-variable, by Markov's
-inequality. -/
+/-- **E-to-p calibration**: for a null of probability measures, the inverse `E⁻¹` of an
+e-variable `E` is a p-variable. -/
 theorem IsEVar.isPVar_inv (hS : ∀ P ∈ S, IsProbabilityMeasure P) (hE : IsEVar E S) :
     IsPVar (fun ω ↦ (E ω)⁻¹) S where
   measurable := hE.measurable.inv
