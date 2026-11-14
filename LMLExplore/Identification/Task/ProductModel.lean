@@ -6,6 +6,7 @@ Authors: LMLExplore contributors
 module
 
 public import LMLExplore.Identification.Task.BestArm.Basic
+import LMLExplore.Analysis.SpecialFunctions.Log.Basic
 
 /-!
 # Product models and the transportation costs `K⁻` and `K⁺`
@@ -84,6 +85,14 @@ inequality on the mean.
   `LMLExplore.Identification.kInfUpper_gaussianReal`: for Gaussian laws with unknown variance,
   `K⁻((μ, σ²), u) = log (1 + (μ - u)² / σ²) / 2` for `u ≤ μ`, and the same value of `K⁺` for
   `μ ≤ u` [JDK23a, Lemma 3].
+* `LMLExplore.Identification.exists_mem_nhds_forall_exists_isCompact_klDiv_gaussianReal`: for
+  Gaussian laws with unknown means and variances, every parameter `(μ, σ²)` with `σ² ≠ 0` has a
+  neighbourhood near which the sublevel sets of the divergence lie in compact sets of parameters of
+  nonzero variance, the per-arm hypothesis of the joint continuity of the cost.
+* `LMLExplore.Identification.IdentTask.continuousOn_biInf_cost_gaussianMeanVarBandit`,
+  `LMLExplore.Identification.IdentTask.continuousOn_altCost_gaussianMeanVarBandit`: for Gaussian
+  arms with unknown variances, the cost of every set of alternatives of nonzero variances, and
+  `D(θ, w, ¬i)`, are jointly continuous in the model and the allocation [DK19, Lemmas 25–27].
 
 ## References
 
@@ -621,6 +630,8 @@ end ExpFamily
 
 section Gaussian
 
+open Topology
+
 variable {μ u : ℝ} {v : ℝ≥0}
 
 /-- **`K⁻` for Gaussian laws with unknown variance** [JDK23a, Lemma 3]. For the Gaussian laws
@@ -649,6 +660,112 @@ theorem kInfUpper_gaussianReal (hv : v ≠ 0) (hμu : μ ≤ u) :
   have h : (μ - u) ^ 2 ≤ (μ - y.1) ^ 2 := by nlinarith
   gcongr
 
+/-- If `D(𝒩(μ, v), 𝒩(μ', v')) ≤ R` for positive variances, then the variance ratio is bounded on
+both sides and so is the distance between the means: `v / (4 R + 2) ≤ v' ≤ v exp (1 + 2 R)` and
+`(μ - μ')² ≤ 2 R v'`. With `s = v / v'`, the divergence is
+`(s - 1 - log s + (μ - μ')² / v') / 2`, and `s - 1 - log s` is at least `0`, `s / 2 - 1` and
+`-1 - log s`. -/
+private lemma le_and_le_and_sq_le_of_klDiv_le {μ μ' v v' R : ℝ} (hv : 0 < v) (hv' : 0 < v')
+    (h : (log (v' / v) + (v + (μ - μ') ^ 2) / v' - 1) / 2 ≤ R) :
+    v / (4 * R + 2) ≤ v' ∧ v' ≤ v * exp (1 + 2 * R) ∧ (μ - μ') ^ 2 ≤ 2 * R * v' := by
+  have hs : 0 < v / v' := div_pos hv hv'
+  have h_log : log (v' / v) = -log (v / v') := by rw [← log_inv, inv_div]
+  have hq : 0 ≤ (μ - μ') ^ 2 / v' := div_nonneg (sq_nonneg _) hv'.le
+  rw [h_log, add_div] at h
+  have h₀ := log_le_sub_one_of_pos hs
+  have h₁ := log_le_div_two hs.le
+  refine ⟨?_, ?_, ?_⟩
+  · have h4 : 0 < 4 * R + 2 := by linarith
+    have : v / v' ≤ 4 * R + 2 := by linarith
+    rw [div_le_iff₀ hv'] at this
+    rw [div_le_iff₀ h4]
+    linarith
+  · have : log (v' / v) ≤ 1 + 2 * R := by rw [h_log]; linarith
+    rw [log_le_iff_le_exp (div_pos hv' hv), div_le_iff₀ hv] at this
+    linarith
+  · have : (μ - μ') ^ 2 / v' ≤ 2 * R := by linarith
+    rwa [div_le_iff₀ hv'] at this
+
+/-- **Locally relatively compact sublevel sets of the Gaussian divergence** with unknown means and
+variances [DK19, Appendix F]. Every parameter `x = (μ, σ²)` with `σ² ≠ 0` has a neighbourhood `U`
+such that, for every finite `r`, the parameters `y = (μ', σ'²)` with `σ'² ≠ 0` and
+`KL(𝒩(x'), 𝒩(y)) ≤ r` for some `x' ∈ U` lie in a compact set of parameters of nonzero variance:
+the divergence tends to infinity as `σ'² → 0`, as `σ'² → ∞`, and as `|μ'| → ∞` with a bounded
+variance. This is the per-arm hypothesis of the joint continuity of the cost
+(`IdentTask.continuousOn_biInf_cost_productBandit`) for the two-parameter Gaussian model. -/
+theorem exists_mem_nhds_forall_exists_isCompact_klDiv_gaussianReal {x : ℝ × ℝ≥0} (hx : x.2 ≠ 0) :
+    ∃ U ∈ 𝓝 x, ∀ r : ℝ≥0∞, r ≠ ∞ → ∃ K ⊆ {p : ℝ × ℝ≥0 | p.2 ≠ 0}, IsCompact K ∧
+      ∀ x' ∈ U, ∀ y ∈ {p : ℝ × ℝ≥0 | p.2 ≠ 0},
+        klDiv (gaussianReal x'.1 x'.2) (gaussianReal y.1 y.2) ≤ r → y ∈ K := by
+  obtain ⟨μ₀, v₀⟩ := x
+  have hv₀ : (0 : ℝ) < v₀ := NNReal.coe_pos.2 (pos_iff_ne_zero.2 hx)
+  -- `U` is the set of parameters with mean within `1` of `μ₀` and variance in `(v₀ / 2, 2 v₀)`.
+  refine ⟨(fun p : ℝ × ℝ≥0 ↦ (p.1, (p.2 : ℝ))) ⁻¹'
+      (Ioo (μ₀ - 1) (μ₀ + 1) ×ˢ Ioo ((v₀ : ℝ) / 2) (2 * v₀)),
+    ((isOpen_Ioo.prod isOpen_Ioo).preimage (by fun_prop)).mem_nhds
+      ⟨⟨by linarith, by linarith⟩, ⟨by linarith, by linarith⟩⟩, fun r hr ↦ ?_⟩
+  set R := r.toReal
+  have hR : 0 ≤ R := ENNReal.toReal_nonneg
+  -- Bounds on the variance and the mean of the parameters at divergence at most `R`.
+  set a := v₀ / 2 / (4 * R + 2)
+  set b := 2 * v₀ * exp (1 + 2 * R)
+  have ha : 0 < a := by positivity
+  refine ⟨Icc (μ₀ - 1 - √(2 * R * b)) (μ₀ + 1 + √(2 * R * b)) ×ˢ Icc a.toNNReal b.toNNReal,
+    fun p hp ↦ (lt_of_lt_of_le (Real.toNNReal_pos.2 ha) hp.2.1).ne',
+    isCompact_Icc.prod isCompact_Icc, ?_⟩
+  rintro ⟨μ, v⟩ ⟨⟨hμ₁, hμ₂⟩, ⟨hv₁, hv₂⟩⟩ ⟨μ', v'⟩ (hv' : v' ≠ 0) hle
+  have hv0 : v ≠ 0 := by
+    rintro rfl
+    simp only [NNReal.coe_zero] at hv₁
+    linarith
+  have hvpos : (0 : ℝ) < v := by linarith
+  rw [klDiv_gaussianReal_gaussianReal hv0 hv', ENNReal.ofReal_le_iff_le_toReal hr] at hle
+  obtain ⟨h₁, h₂, h₃⟩ := le_and_le_and_sq_le_of_klDiv_le hvpos
+    (NNReal.coe_pos.2 (pos_iff_ne_zero.2 hv')) hle
+  have h_lo : a ≤ v' := (div_le_div_of_nonneg_right hv₁.le (by linarith)).trans h₁
+  have h_hi : (v' : ℝ) ≤ b := h₂.trans (mul_le_mul_of_nonneg_right hv₂.le (exp_pos _).le)
+  have h_abs : |μ - μ'| ≤ √(2 * R * b) :=
+    abs_le_sqrt (h₃.trans (mul_le_mul_of_nonneg_left h_hi (by positivity)))
+  rw [abs_le] at h_abs
+  exact ⟨⟨by linarith, by linarith⟩, Real.toNNReal_le_iff_le_coe.2 h_lo,
+    (Real.le_toNNReal_iff_coe_le (by positivity)).2 h_hi⟩
+
 end Gaussian
+
+namespace IdentTask
+
+variable [Fintype α] [MeasurableSingletonClass α] {task : IdentTask α (α → ℝ × ℝ≥0) ℐ ℝ} {i : ℐ}
+
+/-- **Continuity of the cost of a set of alternatives for Gaussian arms with unknown variances**
+[DK19, Lemmas 25–27]. For a task on the models `θ : α → ℝ × ℝ≥0` of Gaussian arms with unknown
+means and variances, and every set `A` of models of nonzero variances, compact or not, the cost
+`(θ, w) ↦ inf_{θ' ∈ A} cost_θ(w, θ')` is continuous on the models of nonzero variances and all
+allocations. -/
+theorem continuousOn_biInf_cost_gaussianMeanVarBandit
+    (hν : task.ν = Bandits.gaussianMeanVarBandit) {A : Set (α → ℝ × ℝ≥0)}
+    (hA : A ⊆ univ.pi fun _ ↦ {p | p.2 ≠ 0}) :
+    ContinuousOn (fun p : (α → ℝ × ℝ≥0) × (α → ℝ) ↦ ⨅ θ' ∈ A, task.cost p.2 p.1 θ')
+      ((univ.pi fun _ ↦ {p : ℝ × ℝ≥0 | p.2 ≠ 0}) ×ˢ univ) :=
+  continuousOn_biInf_cost_productBandit (hν.trans (funext gaussianMeanVarBandit_eq_productBandit))
+    (fun _ _ hx _ hy ↦ by
+      rw [klDiv_gaussianReal_gaussianReal hx hy]
+      exact ENNReal.ofReal_ne_top)
+    (fun _ ↦ continuousOn_klDiv_gaussianReal)
+    (fun _ _ hx ↦
+      let ⟨U, hU, hUK⟩ := exists_mem_nhds_forall_exists_isCompact_klDiv_gaussianReal hx
+      ⟨U, mem_nhdsWithin_of_mem_nhds hU, hUK⟩) hA
+
+/-- **Continuity of the cost of the alternatives for Gaussian arms with unknown variances**
+[DK19, Lemma 27]: for a task on the models of Gaussian arms with unknown means and variances whose
+alternatives to `i` have nonzero variances, `(θ, w) ↦ D(θ, w, ¬i)` is continuous on the models of
+nonzero variances and all allocations. -/
+theorem continuousOn_altCost_gaussianMeanVarBandit (hν : task.ν = Bandits.gaussianMeanVarBandit)
+    (h_alt : task.alt i ⊆ univ.pi fun _ ↦ {p | p.2 ≠ 0}) :
+    ContinuousOn (fun p : (α → ℝ × ℝ≥0) × (α → ℝ) ↦ task.altCost p.1 p.2 i)
+      ((univ.pi fun _ ↦ {p : ℝ × ℝ≥0 | p.2 ≠ 0}) ×ˢ univ) := by
+  simp_rw [altCost_def]
+  exact continuousOn_biInf_cost_gaussianMeanVarBandit hν h_alt
+
+end IdentTask
 
 end LMLExplore.Identification

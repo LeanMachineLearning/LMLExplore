@@ -43,11 +43,14 @@ where the closed form of the divergence makes the transportation costs explicit.
   `d(μ, μ') = μ / μ' - 1 - log (μ / μ')` for `μ, μ' > 0`.
 * `LMLExplore.klDiv_expMeasure`: the Kullback–Leibler divergence between `expMeasure r` and
   `expMeasure r'` for `r, r' > 0` is `r' / r - 1 - log (r' / r)`.
+* `LMLExplore.tendsto_expFamilyDiv_expMeasure_nhdsGT_zero`,
+  `LMLExplore.tendsto_expFamilyDiv_expMeasure_atTop`: `d(μ, μ') → ∞` as `μ'` tends to either
+  endpoint `0` or `∞` of the means.
 -/
 
 public section
 
-open MeasureTheory ProbabilityTheory InformationTheory Real Set
+open MeasureTheory ProbabilityTheory InformationTheory Real Set Filter Topology
 
 namespace LMLExplore
 
@@ -109,5 +112,19 @@ is `r' / r - 1 - log (r' / r)`. -/
 theorem klDiv_expMeasure {r' : ℝ} (hr : 0 < r) (hr' : 0 < r') :
     klDiv (expMeasure r) (expMeasure r') = ENNReal.ofReal (r' / r - 1 - log (r' / r)) := by
   rw [expMeasure, expMeasure, klDiv_gammaMeasure one_pos hr hr', one_mul]
+
+/-- For a mean `μ > 0`, the divergence `d(μ, μ')` of the exponential family of `expMeasure r`
+tends to infinity as `μ'` tends to the endpoint `0` of the means. -/
+theorem tendsto_expFamilyDiv_expMeasure_nhdsGT_zero (hr : 0 < r) (hμ : 0 < μ) :
+    Tendsto ((expMeasure r).expFamilyDiv id μ) (𝓝[>] 0) atTop := by
+  rw [expMeasure]
+  exact tendsto_expFamilyDiv_gammaMeasure_nhdsGT_zero one_pos hr hμ
+
+/-- For a mean `μ > 0`, the divergence `d(μ, μ')` of the exponential family of `expMeasure r`
+tends to infinity as `μ'` tends to the endpoint `∞` of the means. -/
+theorem tendsto_expFamilyDiv_expMeasure_atTop (hr : 0 < r) (hμ : 0 < μ) :
+    Tendsto ((expMeasure r).expFamilyDiv id μ) atTop atTop := by
+  rw [expMeasure]
+  exact tendsto_expFamilyDiv_gammaMeasure_atTop one_pos hr hμ
 
 end LMLExplore

@@ -6,6 +6,7 @@ Authors: LMLExplore contributors
 module
 
 public import LMLExplore.Bandits.Instances
+public import LMLExplore.Identification.Task.Continuity
 public import LMLExplore.Identification.Task.TransportationCost
 public import LMLExplore.Probability.Distributions.ExponentialFamily.Mean
 
@@ -26,6 +27,18 @@ These bounds use only the following properties of the per-arm divergences, bundl
 each argument on each side of the other. The divergences of exponential families in the mean
 parametrization have them (`isDivergenceOn_expFamilyDiv`).
 
+The analysis of asymptotically optimal algorithms needs the cost of the alternatives
+`D(μ, w, ¬i)` to be jointly continuous in the model and the allocation. On vectors of means this
+holds, for every task and every set of alternatives, compact or not, as soon as each per-arm
+divergence `d_c` is a divergence on an interval which is unbounded on each side of every point,
+that is, `d_c(x, y) → ∞` as `y` tends to either endpoint of `S_c`: near every vector of means, the
+alternatives of bounded cost then have their coordinates in compact subsets of the intervals. This
+is the non-compact setting of Feinberg, Kasyanov and Voorneveld (2014), used by Degenne and Koolen
+(2019), and it is the setting of the exponential families of Gaussian, Bernoulli, Poisson, gamma
+and exponential laws and of the Gaussian laws of known mean, whose divergences tend to infinity at
+both endpoints of the means (`tendsto_expFamilyDiv_gaussianReal_atBot`,
+`tendsto_expFamilyDiv_bernoulliMeasure_sigmoid_nhdsGT_zero`, ...).
+
 ## Main definitions
 
 * `LMLExplore.Identification.IsDivergenceOn d S`: the function `d : ℝ → ℝ → ℝ` is a divergence on
@@ -36,6 +49,23 @@ parametrization have them (`isDivergenceOn_expFamilyDiv`).
 
 * `LMLExplore.Identification.isDivergenceOn_expFamilyDiv`: the divergence `d(μ, μ')` of an
   exponential family in the mean parametrization is a divergence on its means.
+* `LMLExplore.Identification.IsDivergenceOn.exists_mem_nhds_forall_exists_isCompact`: a
+  divergence on an interval that is unbounded on each side of every point has, near every point,
+  sublevel sets contained in compact subsets of the interval.
+* `LMLExplore.Identification.IdentTask.continuousOn_biInf_cost_of_isDivergenceOn`,
+  `LMLExplore.Identification.IdentTask.continuousOn_altCost_of_isDivergenceOn`: for such per-arm
+  divergences, the cost `(μ, w) ↦ inf_{μ' ∈ A} cost_μ(w, μ')` of every set `A` of vectors of means
+  is jointly continuous, and so is `D(μ, w, ¬i)` [DK19, Lemmas 25–27];
+  `LMLExplore.Identification.IdentTask.continuousOn_gameValue_of_isDivergenceOn`,
+  `LMLExplore.Identification.IdentTask.continuousOn_charTime_of_isDivergenceOn`: for finitely many
+  answers, `D(μ)` and `T*(μ)` are continuous on the admissible models.
+* `LMLExplore.Identification.IdentTask.continuousOn_biInf_cost_expFamily`: the case of arms in
+  exponential families in the mean parametrization whose divergence `d(x, y)` tends to infinity as
+  `y` tends to either endpoint of the means.
+* `LMLExplore.Identification.IdentTask.continuous_altCost_gaussianReal`,
+  `LMLExplore.Identification.IdentTask.continuousOn_gameValue_gaussianReal`: for Gaussian arms with
+  known arm-dependent variances, `D(μ, w, ¬i)` is continuous for every task, and so is `D(μ)` for
+  finitely many answers.
 * `LMLExplore.Identification.IdentTask.cost_eq_sum_ofReal_mul`: on the vectors of means in `S`,
   `cost_μ(w, μ') = ∑ c, w c d_c(μ c, μ' c)`.
 * `LMLExplore.Identification.IdentTask.cost_eq_sum_ofReal_mul_left`: the cost with the free vector
@@ -73,6 +103,13 @@ The lemmas `cost_gaussianReal` and `cost_comm_gaussianReal` are adapted from the
 Degenne2023Existence (`github.com/RemyDegenne/Degenne2023Existence`, file
 `ForLMLExplore/Identification/Task/ExpFamily.lean`, commit
 `76f5b36f9219535e1049ef12f781fb5426a2b835`, by Rémy Degenne, Apache 2.0).
+
+## References
+
+* [DK19] R. Degenne and W. M. Koolen, *Pure exploration with multiple correct answers*,
+  NeurIPS 2019, supplementary material, Appendix F, Lemmas 25–29.
+* [FKV14] E. A. Feinberg, P. O. Kasyanov and M. Voorneveld, *Berge's maximum theorem for
+  noncompact image sets*, J. Math. Anal. Appl. 413 (2014).
 -/
 
 public section
@@ -156,6 +193,38 @@ lemma le_left_of_mem_uIcc (h : IsDivergenceOn d S) (hx : x ∈ S) (hγ : γ ∈ 
     exact h.monotoneOn_left hy ⟨hγ, hγxy.1⟩ ⟨hx, hyx⟩ hγxy.2
   · rw [uIcc_of_ge hxy] at hγxy
     exact h.antitoneOn_left hy ⟨hx, hxy⟩ ⟨hγ, hγxy.2⟩ hγxy.1
+
+/-- **Sublevel sets of a divergence near a point.** Let `d` be a divergence on an interval `S`
+that is unbounded on each side of every point: for every `x ∈ S` and every `r`, some `y ∈ S` below
+`x` and some `y ∈ S` above `x` have `d(x, y) > r`. By monotonicity, this means that `d(x, y) → ∞`
+as `y` tends to either endpoint of `S`. Then every `x ∈ S` has a neighbourhood `U` such that, for
+every `r`, the points `y ∈ S` with `d(x', y) ≤ r` for some `x' ∈ U` lie in a compact subset of
+`S`. This is the per-arm hypothesis of the joint continuity of the cost of the alternatives on
+product models (`IdentTask.continuousOn_biInf_cost_pi`). -/
+theorem exists_mem_nhds_forall_exists_isCompact (h : IsDivergenceOn d S) (hS : S.OrdConnected)
+    (h_lt : ∀ x ∈ S, ∀ r : ℝ, ∃ y ∈ S, y < x ∧ r < d x y)
+    (h_gt : ∀ x ∈ S, ∀ r : ℝ, ∃ y ∈ S, x < y ∧ r < d x y) (hx : x ∈ S) :
+    ∃ U ∈ 𝓝 x, ∀ r : ℝ, ∃ K ⊆ S, IsCompact K ∧ ∀ x' ∈ U, ∀ y ∈ S, d x' y ≤ r → y ∈ K := by
+  -- Take `U = [b, c] ⊆ S`. A point `y < b` at divergence at most `r` from some `x' ∈ U` has
+  -- `d(b, y) ≤ d(x', y) ≤ r`, so it lies above the point `y₁ < b` with `d(b, y₁) > r`;
+  -- symmetrically above `c`.
+  obtain ⟨b, c, hxbc, hU, hUS⟩ := exists_Icc_mem_subset_of_mem_nhds (h.isOpen.mem_nhds hx)
+  have hb : b ∈ S := hUS (left_mem_Icc.2 (hxbc.1.trans hxbc.2))
+  have hc : c ∈ S := hUS (right_mem_Icc.2 (hxbc.1.trans hxbc.2))
+  refine ⟨Icc b c, hU, fun r ↦ ?_⟩
+  obtain ⟨y₁, hy₁, hy₁b, hr₁⟩ := h_lt b hb r
+  obtain ⟨y₂, hy₂, hcy₂, hr₂⟩ := h_gt c hc r
+  refine ⟨Icc y₁ y₂, hS.out hy₁ hy₂, isCompact_Icc, fun x' hx' y hy hxy ↦ ⟨?_, ?_⟩⟩
+  · by_contra! hyy₁
+    have hyb : y ≤ b := (hyy₁.trans hy₁b).le
+    have h₁ : d b y₁ ≤ d b y := h.antitoneOn_right hb ⟨hy, hyb⟩ ⟨hy₁, hy₁b.le⟩ hyy₁.le
+    have h₂ : d b y ≤ d x' y := h.monotoneOn_left hy ⟨hb, hyb⟩ ⟨hUS hx', hyb.trans hx'.1⟩ hx'.1
+    linarith
+  · by_contra! hy₂y
+    have hcy : c ≤ y := (hcy₂.trans hy₂y).le
+    have h₁ : d c y₂ ≤ d c y := h.monotoneOn_right hc ⟨hy₂, hcy₂.le⟩ ⟨hy, hcy⟩ hy₂y.le
+    have h₂ : d c y ≤ d x' y := h.antitoneOn_left hy ⟨hUS hx', hx'.2.trans hcy⟩ ⟨hc, hcy⟩ hx'.2
+    linarith
 
 end IsDivergenceOn
 
@@ -419,6 +488,162 @@ lemma continuousOn_cost_bernoulliBandit [MeasurableSingletonClass α]
     (continuousOn_const.prodMk (continuous_apply c).continuousOn)
     fun μ' hμ' ↦ ⟨Subtype.prop (projIcc 0 1 zero_le_one (μ c)), hμ' c⟩).congr fun μ' hμ' ↦ ?_
   simp [hνt, klDiv_bernoulliMeasure, projIcc_of_mem _ (Ioo_subset_Icc_self (hμ' c))]
+
+/-! ### Continuity of the cost of the alternatives -/
+
+section Continuity
+
+omit [Fintype α] in
+/-- The per-arm hypothesis of `continuousOn_biInf_cost_pi` for divergences on intervals that are
+unbounded on each side of every point. -/
+private lemma forall_exists_mem_nhdsWithin_isCompact (hd : ∀ c, IsDivergenceOn (d c) (S c))
+    (hS : ∀ c, (S c).OrdConnected)
+    (h_lt : ∀ c, ∀ x ∈ S c, ∀ r : ℝ, ∃ y ∈ S c, y < x ∧ r < d c x y)
+    (h_gt : ∀ c, ∀ x ∈ S c, ∀ r : ℝ, ∃ y ∈ S c, x < y ∧ r < d c x y) :
+    ∀ c, ∀ x ∈ S c, ∃ U ∈ 𝓝[S c] x, ∀ r : ℝ,
+      ∃ K ⊆ S c, IsCompact K ∧ ∀ x' ∈ U, ∀ y ∈ S c, d c x' y ≤ r → y ∈ K := fun c _ hx ↦
+  let ⟨U, hU, hUK⟩ := (hd c).exists_mem_nhds_forall_exists_isCompact (hS c) (h_lt c) (h_gt c) hx
+  ⟨U, mem_nhdsWithin_of_mem_nhds hU, hUK⟩
+
+/-- **Continuity of the cost of a set of alternatives under per-arm divergences**
+[DK19, Lemmas 25–27; FKV14]. Let the divergences between the arm laws of the vectors of means in
+`∏ c, S c` be per-arm divergences, `KL(ν_c(μ), ν_c(μ')) = d_c(μ c, μ' c)`, where each `d_c` is a
+divergence on the interval `S c` which is unbounded on each side of every point, so that
+`d_c(x, y) → ∞` as `y` tends to either endpoint of `S c`. Then for every set `A ⊆ ∏ c, S c` of
+vectors of means, compact or not, the cost `(μ, w) ↦ inf_{μ' ∈ A} cost_μ(w, μ')` is continuous on
+`(∏ c, S c) ×ˢ univ`. -/
+theorem continuousOn_biInf_cost_of_isDivergenceOn
+    (hν : ∀ μ ∈ univ.pi S, ∀ μ' ∈ univ.pi S, ∀ c,
+      klDiv (task.ν μ c) (task.ν μ' c) = ENNReal.ofReal (d c (μ c) (μ' c)))
+    (hd : ∀ c, IsDivergenceOn (d c) (S c)) (hS : ∀ c, (S c).OrdConnected)
+    (h_lt : ∀ c, ∀ x ∈ S c, ∀ r : ℝ, ∃ y ∈ S c, y < x ∧ r < d c x y)
+    (h_gt : ∀ c, ∀ x ∈ S c, ∀ r : ℝ, ∃ y ∈ S c, x < y ∧ r < d c x y)
+    {A : Set (α → ℝ)} (hA : A ⊆ univ.pi S) :
+    ContinuousOn (fun p : (α → ℝ) × (α → ℝ) ↦ ⨅ μ' ∈ A, task.cost p.2 p.1 μ')
+      (univ.pi S ×ˢ univ) :=
+  task.continuousOn_biInf_cost_pi hν (fun c ↦ (hd c).continuousOn)
+    (forall_exists_mem_nhdsWithin_isCompact hd hS h_lt h_gt) hA
+
+/-- **Continuity of the cost of the alternatives under per-arm divergences** [DK19, Lemma 27]:
+under the hypotheses of `continuousOn_biInf_cost_of_isDivergenceOn`, if the alternatives to `i`
+are vectors of means in `∏ c, S c`, then `(μ, w) ↦ D(μ, w, ¬i)` is continuous on
+`(∏ c, S c) ×ˢ univ`. -/
+theorem continuousOn_altCost_of_isDivergenceOn
+    (hν : ∀ μ ∈ univ.pi S, ∀ μ' ∈ univ.pi S, ∀ c,
+      klDiv (task.ν μ c) (task.ν μ' c) = ENNReal.ofReal (d c (μ c) (μ' c)))
+    (hd : ∀ c, IsDivergenceOn (d c) (S c)) (hS : ∀ c, (S c).OrdConnected)
+    (h_lt : ∀ c, ∀ x ∈ S c, ∀ r : ℝ, ∃ y ∈ S c, y < x ∧ r < d c x y)
+    (h_gt : ∀ c, ∀ x ∈ S c, ∀ r : ℝ, ∃ y ∈ S c, x < y ∧ r < d c x y)
+    (h_alt : task.alt i ⊆ univ.pi S) :
+    ContinuousOn (fun p : (α → ℝ) × (α → ℝ) ↦ task.altCost p.1 p.2 i) (univ.pi S ×ˢ univ) :=
+  task.continuousOn_altCost_pi hν (fun c ↦ (hd c).continuousOn)
+    (forall_exists_mem_nhdsWithin_isCompact hd hS h_lt h_gt) h_alt
+
+/-- **Continuity of the value of the game under per-arm divergences** [DK19, Lemmas 27, 29]: for
+finitely many answers, under the hypotheses of `continuousOn_biInf_cost_of_isDivergenceOn`, if the
+admissible models are vectors of means in `∏ c, S c`, then `μ ↦ D(μ)` is continuous on the
+admissible models. -/
+theorem continuousOn_gameValue_of_isDivergenceOn [Finite ℐ]
+    (hν : ∀ μ ∈ univ.pi S, ∀ μ' ∈ univ.pi S, ∀ c,
+      klDiv (task.ν μ c) (task.ν μ' c) = ENNReal.ofReal (d c (μ c) (μ' c)))
+    (hd : ∀ c, IsDivergenceOn (d c) (S c)) (hS : ∀ c, (S c).OrdConnected)
+    (h_lt : ∀ c, ∀ x ∈ S c, ∀ r : ℝ, ∃ y ∈ S c, y < x ∧ r < d c x y)
+    (h_gt : ∀ c, ∀ x ∈ S c, ∀ r : ℝ, ∃ y ∈ S c, x < y ∧ r < d c x y)
+    (hM : task.M ⊆ univ.pi S) :
+    ContinuousOn task.gameValue task.M :=
+  task.continuousOn_gameValue_pi hν (fun c ↦ (hd c).continuousOn)
+    (forall_exists_mem_nhdsWithin_isCompact hd hS h_lt h_gt) hM
+
+/-- **Continuity of the characteristic time under per-arm divergences** [DK19, Lemmas 27, 29]:
+under the hypotheses of `continuousOn_gameValue_of_isDivergenceOn`, `μ ↦ T*(μ)` is continuous on
+the admissible models. -/
+theorem continuousOn_charTime_of_isDivergenceOn [Finite ℐ]
+    (hν : ∀ μ ∈ univ.pi S, ∀ μ' ∈ univ.pi S, ∀ c,
+      klDiv (task.ν μ c) (task.ν μ' c) = ENNReal.ofReal (d c (μ c) (μ' c)))
+    (hd : ∀ c, IsDivergenceOn (d c) (S c)) (hS : ∀ c, (S c).OrdConnected)
+    (h_lt : ∀ c, ∀ x ∈ S c, ∀ r : ℝ, ∃ y ∈ S c, y < x ∧ r < d c x y)
+    (h_gt : ∀ c, ∀ x ∈ S c, ∀ r : ℝ, ∃ y ∈ S c, x < y ∧ r < d c x y)
+    (hM : task.M ⊆ univ.pi S) :
+    ContinuousOn task.charTime task.M :=
+  task.continuousOn_charTime_pi hν (fun c ↦ (hd c).continuousOn)
+    (forall_exists_mem_nhdsWithin_isCompact hd hS h_lt h_gt) hM
+
+/-- **Continuity of the cost of a set of alternatives for arms in exponential families**
+[DK19, Lemma 27, Appendix F]. Let the arm `c` be in the exponential family of `ρ c` and `T c` in the
+mean parametrization, in the sense that `KL(ν_c(μ), ν_c(μ')) = d_c(μ c, μ' c)` for the divergence
+`d_c` of that family and all vectors of means `μ`, `μ'` of the families (for example when
+`ν μ c` is the member of mean `μ c`, by `klDiv_expFamily_natParam`). Suppose that each divergence
+`d_c(x, y)` is unbounded as `y` moves away from `x` on either side within the means, that is,
+tends to infinity as `y` tends to either endpoint of the means (`tendsto_expFamilyDiv_*` for the
+Gaussian, Bernoulli, Poisson, gamma and exponential families). Then for every set `A` of vectors of
+means of the families, the cost `(μ, w) ↦ inf_{μ' ∈ A} cost_μ(w, μ')` is continuous on the vectors
+of means of the families and all allocations. -/
+theorem continuousOn_biInf_cost_expFamily {𝓧 : Type*} {m𝓧 : MeasurableSpace 𝓧}
+    {ρ : α → Measure 𝓧} {T : α → 𝓧 → ℝ} (hT : ∀ c, ∀ x, ¬ T c =ᵐ[ρ c] fun _ ↦ x)
+    (hν : ∀ μ ∈ univ.pi fun c ↦ (ρ c).expFamilyMeans (T c),
+      ∀ μ' ∈ univ.pi fun c ↦ (ρ c).expFamilyMeans (T c), ∀ c,
+        klDiv (task.ν μ c) (task.ν μ' c) = ENNReal.ofReal ((ρ c).expFamilyDiv (T c) (μ c) (μ' c)))
+    (h_lt : ∀ c, ∀ x ∈ (ρ c).expFamilyMeans (T c), ∀ r : ℝ,
+      ∃ y ∈ (ρ c).expFamilyMeans (T c), y < x ∧ r < (ρ c).expFamilyDiv (T c) x y)
+    (h_gt : ∀ c, ∀ x ∈ (ρ c).expFamilyMeans (T c), ∀ r : ℝ,
+      ∃ y ∈ (ρ c).expFamilyMeans (T c), x < y ∧ r < (ρ c).expFamilyDiv (T c) x y)
+    {A : Set (α → ℝ)} (hA : A ⊆ univ.pi fun c ↦ (ρ c).expFamilyMeans (T c)) :
+    ContinuousOn (fun p : (α → ℝ) × (α → ℝ) ↦ ⨅ μ' ∈ A, task.cost p.2 p.1 μ')
+      ((univ.pi fun c ↦ (ρ c).expFamilyMeans (T c)) ×ˢ univ) :=
+  continuousOn_biInf_cost_of_isDivergenceOn hν (fun c ↦ isDivergenceOn_expFamilyDiv (hT c))
+    (fun _ ↦ convex_expFamilyMeans.ordConnected) h_lt h_gt hA
+
+omit [Fintype α] in
+/-- For Gaussian arms with variances `v c ≠ 0`, the divergences are those of the Gaussian
+exponential families, which tend to infinity at `±∞`. -/
+private lemma klDiv_eq_expFamilyDiv_and_exists_lt_gaussianReal {v : α → ℝ≥0}
+    {task : IdentTask α (α → ℝ) ℐ ℝ} (hv : ∀ c, v c ≠ 0)
+    (hν : ∀ μ c, task.ν μ c = gaussianReal (μ c) (v c)) :
+    (∀ μ ∈ univ.pi fun c ↦ (gaussianReal 0 (v c)).expFamilyMeans id,
+      ∀ μ' ∈ univ.pi fun c ↦ (gaussianReal 0 (v c)).expFamilyMeans id, ∀ c,
+        klDiv (task.ν μ c) (task.ν μ' c) =
+          ENNReal.ofReal ((gaussianReal 0 (v c)).expFamilyDiv id (μ c) (μ' c))) ∧
+    (∀ c, ∀ x ∈ (gaussianReal 0 (v c)).expFamilyMeans id, ∀ r : ℝ,
+      ∃ y ∈ (gaussianReal 0 (v c)).expFamilyMeans id, y < x ∧
+        r < (gaussianReal 0 (v c)).expFamilyDiv id x y) ∧
+    (∀ c, ∀ x ∈ (gaussianReal 0 (v c)).expFamilyMeans id, ∀ r : ℝ,
+      ∃ y ∈ (gaussianReal 0 (v c)).expFamilyMeans id, x < y ∧
+        r < (gaussianReal 0 (v c)).expFamilyDiv id x y) := by
+  refine ⟨fun μ _ μ' _ c ↦ ?_, fun c x _ r ↦ ?_, fun c x _ r ↦ ?_⟩
+  · rw [hν, hν, klDiv_gaussianReal_gaussianReal_same_var (hv c),
+      expFamilyDiv_gaussianReal 0 (hv c)]
+  · obtain ⟨y, hry, hyx⟩ := (((tendsto_expFamilyDiv_gaussianReal_atBot 0 (hv c)
+      x).eventually_gt_atTop r).and (eventually_lt_atBot x)).exists
+    exact ⟨y, mem_expFamilyMeans_gaussianReal 0 (hv c) y, hyx, hry⟩
+  · obtain ⟨y, hry, hxy⟩ := (((tendsto_expFamilyDiv_gaussianReal_atTop 0 (hv c)
+      x).eventually_gt_atTop r).and (eventually_gt_atTop x)).exists
+    exact ⟨y, mem_expFamilyMeans_gaussianReal 0 (hv c) y, hxy, hry⟩
+
+/-- **Continuity of the cost of the alternatives for Gaussian arms** [DK19, Lemma 27]: for
+Gaussian arms with known variances `v c ≠ 0`, `(μ, w) ↦ D(μ, w, ¬i)` is continuous, for every task
+on vectors of means and every answer `i`. -/
+theorem continuous_altCost_gaussianReal {v : α → ℝ≥0} {task : IdentTask α (α → ℝ) ℐ ℝ}
+    (hv : ∀ c, v c ≠ 0) (hν : ∀ μ c, task.ν μ c = gaussianReal (μ c) (v c)) (i : ℐ) :
+    Continuous fun p : (α → ℝ) × (α → ℝ) ↦ task.altCost p.1 p.2 i := by
+  obtain ⟨hν', h_lt, h_gt⟩ := klDiv_eq_expFamilyDiv_and_exists_lt_gaussianReal hv hν
+  have h := continuousOn_altCost_of_isDivergenceOn (i := i) hν'
+    (fun c ↦ isDivergenceOn_expFamilyDiv (not_ae_eq_const_gaussianReal 0 (hv c)))
+    (fun _ ↦ convex_expFamilyMeans.ordConnected) h_lt h_gt (by simp [hv])
+  simpa [hv, continuousOn_univ] using h
+
+/-- **Continuity of the value of the game for Gaussian arms** [DK19, Lemmas 27, 29]: for Gaussian
+arms with known variances `v c ≠ 0` and every task with finitely many answers on vectors of means,
+`μ ↦ D(μ)` is continuous on the admissible models. -/
+theorem continuousOn_gameValue_gaussianReal [Finite ℐ] {v : α → ℝ≥0}
+    {task : IdentTask α (α → ℝ) ℐ ℝ} (hv : ∀ c, v c ≠ 0)
+    (hν : ∀ μ c, task.ν μ c = gaussianReal (μ c) (v c)) :
+    ContinuousOn task.gameValue task.M := by
+  obtain ⟨hν', h_lt, h_gt⟩ := klDiv_eq_expFamilyDiv_and_exists_lt_gaussianReal hv hν
+  exact continuousOn_gameValue_of_isDivergenceOn hν'
+    (fun c ↦ isDivergenceOn_expFamilyDiv (not_ae_eq_const_gaussianReal 0 (hv c)))
+    (fun _ ↦ convex_expFamilyMeans.ordConnected) h_lt h_gt (by simp [hv])
+
+end Continuity
 
 end IdentTask
 

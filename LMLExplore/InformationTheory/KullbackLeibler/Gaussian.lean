@@ -32,6 +32,8 @@ degenerate law `𝒩(μ₂, 0)`, a Dirac mass, is at infinite relative entropy. 
 * `LMLExplore.klDiv_gaussianReal_gaussianReal_same_var`: the relative entropy for equal variances.
 * `LMLExplore.klDiv_gaussianReal_gaussianReal_zero`: the relative entropy to a Dirac mass `𝒩(μ₂, 0)`
   is infinite.
+* `LMLExplore.continuousOn_klDiv_gaussianReal`: the relative entropy is continuous in the means and
+  the variances of the two laws, on the laws of nonzero variance.
 * `LMLExplore.ofReal_log_one_add_div_le_klDiv_gaussianReal`,
   `LMLExplore.klDiv_gaussianReal_gaussianReal_add_sq`: the relative entropy from `𝒩(μ₁, v₁)` to a
   Gaussian law of mean `μ₂` is at least `log (1 + (μ₁ - μ₂) ^ 2 / v₁) / 2`, with equality for the
@@ -109,6 +111,26 @@ theorem klDiv_gaussianReal_gaussianReal (hv₁ : v₁ ≠ 0) (hv₂ : v₂ ≠ 0
   rw [klDiv_of_ac_of_integrable (gaussianReal_absolutelyContinuous_gaussianReal hv₁ hv₂)
     (integrable_llr_gaussianReal_gaussianReal hv₁ hv₂), probReal_univ, probReal_univ,
     add_sub_cancel_right, integral_llr_gaussianReal_gaussianReal hv₁ hv₂]
+
+/-- The relative entropy between real Gaussian distributions is continuous in the means and the
+variances of the two laws, on the pairs of laws of nonzero variance. -/
+theorem continuousOn_klDiv_gaussianReal :
+    ContinuousOn (fun q : (ℝ × ℝ≥0) × (ℝ × ℝ≥0) ↦
+        klDiv (gaussianReal q.1.1 q.1.2) (gaussianReal q.2.1 q.2.2))
+      ({p | p.2 ≠ 0} ×ˢ {p | p.2 ≠ 0}) := by
+  have h₁ : ∀ q ∈ ({p : ℝ × ℝ≥0 | p.2 ≠ 0} ×ˢ {p : ℝ × ℝ≥0 | p.2 ≠ 0}), (q.1.2 : ℝ) ≠ 0 :=
+    fun q hq ↦ NNReal.coe_ne_zero.2 hq.1
+  have h₂ : ∀ q ∈ ({p : ℝ × ℝ≥0 | p.2 ≠ 0} ×ˢ {p : ℝ × ℝ≥0 | p.2 ≠ 0}), (q.2.2 : ℝ) ≠ 0 :=
+    fun q hq ↦ NNReal.coe_ne_zero.2 hq.2
+  have hc₁ : Continuous fun q : (ℝ × ℝ≥0) × (ℝ × ℝ≥0) ↦ (q.1.2 : ℝ) := by fun_prop
+  have hc₂ : Continuous fun q : (ℝ × ℝ≥0) × (ℝ × ℝ≥0) ↦ (q.2.2 : ℝ) := by fun_prop
+  have hc : Continuous fun q : (ℝ × ℝ≥0) × (ℝ × ℝ≥0) ↦ (q.1.2 : ℝ) + (q.1.1 - q.2.1) ^ 2 := by
+    fun_prop
+  refine (ENNReal.continuous_ofReal.comp_continuousOn
+    (((((hc₂.continuousOn.div hc₁.continuousOn h₁).log fun q hq ↦
+      div_ne_zero (h₂ q hq) (h₁ q hq)).add (hc.continuousOn.div hc₂.continuousOn h₂)).sub
+        (continuousOn_const (c := (1 : ℝ)))).div_const 2)).congr fun q hq ↦ ?_
+  exact klDiv_gaussianReal_gaussianReal hq.1 hq.2
 
 /-- The relative entropy between two real Gaussian distributions with the same nonzero variance
 [LS, Theorem 14.1]: `D(𝒩(μ₁, v), 𝒩(μ₂, v)) = (μ₁ - μ₂) ^ 2 / (2 v)`. -/

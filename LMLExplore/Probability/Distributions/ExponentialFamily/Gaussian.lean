@@ -78,6 +78,9 @@ Fixed variance, statistic `id`:
   Gaussian laws of variance `v`.
 * `LMLExplore.expFamilyDiv_gaussianReal`: for `v ≠ 0`, the divergence of the family is
   `d(μ, μ') = (μ - μ')² / (2 v)`.
+* `LMLExplore.tendsto_expFamilyDiv_gaussianReal_atBot`,
+  `LMLExplore.tendsto_expFamilyDiv_gaussianReal_atTop`: for `v ≠ 0`, `d(μ, μ') → ∞` as `μ'`
+  tends to `-∞` or `∞`.
 * `LMLExplore.expFamilyRate_gaussianReal`: for `v ≠ 0`, the extended divergence is
   `dbar(x, μ) = (x - μ)² / (2 v)`.
 * `LMLExplore.expFamilyUpper_gaussianReal`, `LMLExplore.expFamilyUpper_top_gaussianReal`: for
@@ -111,12 +114,15 @@ Fixed mean, statistic `x ↦ (x - m) ^ 2`:
 * `LMLExplore.expFamilyDiv_sub_sq_gaussianReal`: for `v ≠ 0`, the divergence of the family is
   `d(μ, μ') = (μ / μ' - 1 - log (μ / μ')) / 2` for `μ, μ' > 0`, the shape-`1 / 2` case of the
   divergence of the gamma laws.
+* `LMLExplore.tendsto_expFamilyDiv_sub_sq_gaussianReal_nhdsGT_zero`,
+  `LMLExplore.tendsto_expFamilyDiv_sub_sq_gaussianReal_atTop`: for `v ≠ 0`, `d(μ, μ') → ∞` as `μ'`
+  tends to either endpoint `0` or `∞` of the means.
 -/
 public section
 
 open MeasureTheory ProbabilityTheory Real Set
 
-open scoped ENNReal NNReal
+open scoped ENNReal NNReal Topology
 
 namespace LMLExplore
 
@@ -223,6 +229,29 @@ theorem expFamilyDiv_gaussianReal (m : ℝ) (hv : v ≠ 0) (μ μ' : ℝ) :
     cgf_gaussianReal HasLaw.id, cgf_gaussianReal HasLaw.id]
   field_simp
   ring
+
+/-- For `v ≠ 0`, the divergence `d(μ, μ') = (μ - μ')² / (2 v)` of the exponential family of
+`𝒩(m, v)` tends to infinity as `μ' → -∞`. -/
+theorem tendsto_expFamilyDiv_gaussianReal_atBot (m : ℝ) (hv : v ≠ 0) (μ : ℝ) :
+    Filter.Tendsto ((gaussianReal m v).expFamilyDiv id μ) Filter.atBot Filter.atTop := by
+  have hv' : 0 < 2 * (v : ℝ) := by positivity
+  rw [funext (expFamilyDiv_gaussianReal m hv μ)]
+  have h : Filter.Tendsto (fun μ' : ℝ ↦ μ - μ') Filter.atBot Filter.atTop := by
+    simpa only [sub_eq_add_neg] using
+      Filter.tendsto_atTop_add_const_left _ μ Filter.tendsto_neg_atBot_atTop
+  exact ((Filter.tendsto_pow_atTop two_ne_zero).comp h).atTop_div_const hv'
+
+/-- For `v ≠ 0`, the divergence `d(μ, μ') = (μ - μ')² / (2 v)` of the exponential family of
+`𝒩(m, v)` tends to infinity as `μ' → ∞`. -/
+theorem tendsto_expFamilyDiv_gaussianReal_atTop (m : ℝ) (hv : v ≠ 0) (μ : ℝ) :
+    Filter.Tendsto ((gaussianReal m v).expFamilyDiv id μ) Filter.atTop Filter.atTop := by
+  have hv' : 0 < 2 * (v : ℝ) := by positivity
+  rw [funext (expFamilyDiv_gaussianReal m hv μ)]
+  simp_rw [sub_sq_comm μ]
+  have h : Filter.Tendsto (fun μ' : ℝ ↦ μ' - μ) Filter.atTop Filter.atTop := by
+    simpa only [sub_eq_add_neg, id] using
+      Filter.tendsto_atTop_add_const_right _ (-μ) Filter.tendsto_id
+  exact ((Filter.tendsto_pow_atTop two_ne_zero).comp h).atTop_div_const hv'
 
 /-- For `v ≠ 0`, the extended divergence of the exponential family of `𝒩(m, v)` is
 `dbar(x, μ) = (x - μ)² / (2 v)` at every level `x`, since every level is a mean. -/
@@ -493,6 +522,32 @@ theorem expFamilyDiv_sub_sq_gaussianReal (m : ℝ) (hv : v ≠ 0) (hμ : 0 < μ)
       (h_means hμ) (h_means hμ'),
     ← Measure.expFamilyDiv_id_map (by fun_prop), gaussianReal_map_sub_sq,
     expFamilyDiv_gammaMeasure (by norm_num) (by norm_num) hμ hμ']
+  ring
+
+/-- For `v ≠ 0` and a variance `μ > 0`, the divergence `d(μ, μ')` of the exponential family of
+`𝒩(m, v)` with statistic `x ↦ (x - m) ^ 2` tends to infinity as `μ'` tends to the endpoint `0` of
+the means: it is the divergence of the gamma laws of shape `1 / 2`. -/
+theorem tendsto_expFamilyDiv_sub_sq_gaussianReal_nhdsGT_zero (m : ℝ) (hv : v ≠ 0) (hμ : 0 < μ) :
+    Filter.Tendsto ((gaussianReal m v).expFamilyDiv (fun x ↦ (x - m) ^ 2) μ) (𝓝[>] 0)
+      Filter.atTop := by
+  refine (tendsto_expFamilyDiv_gammaMeasure_nhdsGT_zero (a := 1 / 2) (r := 1 / 2) (by norm_num)
+    (by norm_num) hμ).congr' ?_
+  filter_upwards [self_mem_nhdsWithin] with μ' (hμ' : 0 < μ')
+  rw [expFamilyDiv_gammaMeasure (by norm_num) (by norm_num) hμ hμ',
+    expFamilyDiv_sub_sq_gaussianReal m hv hμ hμ']
+  ring
+
+/-- For `v ≠ 0` and a variance `μ > 0`, the divergence `d(μ, μ')` of the exponential family of
+`𝒩(m, v)` with statistic `x ↦ (x - m) ^ 2` tends to infinity as `μ'` tends to the endpoint `∞` of
+the means. -/
+theorem tendsto_expFamilyDiv_sub_sq_gaussianReal_atTop (m : ℝ) (hv : v ≠ 0) (hμ : 0 < μ) :
+    Filter.Tendsto ((gaussianReal m v).expFamilyDiv (fun x ↦ (x - m) ^ 2) μ) Filter.atTop
+      Filter.atTop := by
+  refine (tendsto_expFamilyDiv_gammaMeasure_atTop (a := 1 / 2) (r := 1 / 2) (by norm_num)
+    (by norm_num) hμ).congr' ?_
+  filter_upwards [Filter.eventually_gt_atTop 0] with μ' hμ'
+  rw [expFamilyDiv_gammaMeasure (by norm_num) (by norm_num) hμ hμ',
+    expFamilyDiv_sub_sq_gaussianReal m hv hμ hμ']
   ring
 
 end SubSq

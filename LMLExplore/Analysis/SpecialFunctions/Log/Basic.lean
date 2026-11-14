@@ -59,6 +59,10 @@ import Mathlib.Analysis.SpecialFunctions.Log.Deriv
   RF-Express [MDJKLV21].
 * `Real.sum_div_max_one_le_four_mul_log`: the form of [MDJKLV21, Lemma 9], for `u k ∈ [0, 1]`
   and with the constant `4`.
+* `Real.log_le_div_two`: `log x ≤ x / 2` for `x ≥ 0`.
+* `Real.tendsto_sub_one_sub_log_atTop`, `Real.tendsto_sub_one_sub_log_nhdsGT_zero`:
+  `t - 1 - log t → ∞` as `t → ∞` and as `t → 0⁺`. The divergences of the Poisson and gamma
+  families are multiples of this function of a ratio of means.
 
 ## References
 
@@ -548,6 +552,34 @@ theorem sum_div_max_one_le_four_mul_log {u : ℕ → ℝ} {n : ℕ} (hu : ∀ k 
     log_nonneg (by linarith [Finset.sum_nonneg fun k hk ↦ (hu k (Finset.mem_range.1 hk)).1])
   have h := sum_div_max_one_le_three_mul_log (fun k hk ↦ (hu k hk).1)
     fun k hk ↦ (hu k hk).2.trans (le_max_left _ _)
+  linarith
+
+/-- `log x ≤ x / 2` for `x ≥ 0`: by `log y ≤ y - 1` at `y = x / 2`, since `log 2 < 1`. -/
+theorem log_le_div_two {x : ℝ} (hx : 0 ≤ x) : log x ≤ x / 2 := by
+  rcases hx.eq_or_lt with rfl | hx
+  · simp
+  have h := log_le_sub_one_of_pos (half_pos hx)
+  rw [log_div hx.ne' two_ne_zero] at h
+  have h2 := log_two_lt_d9
+  norm_num at h2
+  linarith
+
+/-- `t - 1 - log t → ∞` as `t → ∞`, since `log t ≤ t / 2` for `t ≥ 0`. -/
+theorem tendsto_sub_one_sub_log_atTop : Tendsto (fun t ↦ t - 1 - log t) atTop atTop := by
+  refine tendsto_atTop_mono' atTop ?_
+    (tendsto_atTop_add_const_right _ (-1) (tendsto_id.atTop_div_const two_pos))
+  filter_upwards [eventually_ge_atTop 0] with t ht
+  have h := log_le_div_two ht
+  simp only [id]
+  linarith
+
+/-- `t - 1 - log t → ∞` as `t → 0⁺`, since `-log t → ∞`. -/
+theorem tendsto_sub_one_sub_log_nhdsGT_zero :
+    Tendsto (fun t ↦ t - 1 - log t) (𝓝[>] 0) atTop := by
+  refine tendsto_atTop_mono' _ ?_
+    (tendsto_atTop_add_const_right _ (-1) (tendsto_neg_atBot_atTop.comp tendsto_log_nhdsGT_zero))
+  filter_upwards [self_mem_nhdsWithin] with t (ht : 0 < t)
+  simp only [Function.comp_apply]
   linarith
 
 end Real
