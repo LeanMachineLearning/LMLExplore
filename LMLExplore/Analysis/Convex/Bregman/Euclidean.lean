@@ -21,8 +21,9 @@ With this potential, mirror descent is projected gradient descent.
 * `LMLExplore.hasFDerivAt_norm_sq_div_two`: the derivative of `‖b‖ ^ 2 / 2` at `x` is `⟪x, ·⟫`.
 * `LMLExplore.bregDiv_norm_sq_div_two`: the Bregman divergence of `‖b‖ ^ 2 / 2` is
   `D(x, y) = ‖x - y‖ ^ 2 / 2`.
-* `LMLExplore.strongConvexOn_norm_sq_div_two`: `‖b‖ ^ 2 / 2` is `1`-strongly convex on every
-  convex set.
+* `LMLExplore.strongConvexOn_div_two_mul_norm_sub_sq`: `m / 2 * ‖b - c‖ ^ 2` is `m`-strongly
+  convex on every convex set; in particular `‖b‖ ^ 2 / 2` is `1`-strongly convex
+  (`LMLExplore.strongConvexOn_norm_sq_div_two`).
 -/
 
 public section
@@ -52,11 +53,23 @@ theorem bregDiv_norm_sq_div_two (x y : E) :
   rw [real_inner_comm]
   ring
 
+/-- `m / 2 * ‖b - c‖ ^ 2` is `m`-strongly convex on every convex set, for every real `m` and every
+center `c`. -/
+theorem strongConvexOn_div_two_mul_norm_sub_sq (hK : Convex ℝ K) (m : ℝ) (c : E) :
+    StrongConvexOn K m fun b : E ↦ m / 2 * ‖b - c‖ ^ 2 := by
+  refine strongConvexOn_iff_convex.mpr ?_
+  -- `m / 2 * ‖b - c‖ ^ 2 - m / 2 * ‖b‖ ^ 2 = m / 2 * ‖c‖ ^ 2 - m * ⟪c, b⟫` is affine in `b`
+  convert (convexOn_const (m / 2 * ‖c‖ ^ 2) hK).add
+    (((-m) • innerSL ℝ c).toLinearMap.convexOn hK) using 1
+  ext b
+  simp [norm_sub_sq_real, real_inner_comm b c]
+  ring
+
 /-- `‖b‖ ^ 2 / 2` is `1`-strongly convex on every convex set. -/
 theorem strongConvexOn_norm_sq_div_two (hK : Convex ℝ K) :
     StrongConvexOn K 1 fun b : E ↦ ‖b‖ ^ 2 / 2 := by
-  refine strongConvexOn_iff_convex.mpr ?_
-  convert convexOn_const (0 : ℝ) hK using 2 with b
+  convert strongConvexOn_div_two_mul_norm_sub_sq hK 1 0 using 2 with b
+  rw [sub_zero]
   ring
 
 end LMLExplore

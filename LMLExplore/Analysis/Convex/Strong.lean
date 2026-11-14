@@ -39,6 +39,8 @@ with a strongly convex potential exist on closed sets that need not be bounded.
 
 * `StrongConvexOn.add`: [Ora, Theorem 4.6] the sum of an `m`-strongly convex and an `n`-strongly
   convex function is `(m + n)`-strongly convex.
+* `StrongConvexOn.fun_sum`: a finite sum of `m i`-strongly convex functions is
+  `(∑ i, m i)`-strongly convex.
 * `UniformConvexOn.smul`, `StrongConvexOn.smul`: a nonnegative multiple `c • f` of a uniformly
   convex function with modulus `φ` is uniformly convex with modulus `c • φ`; of an `m`-strongly
   convex function, it is `(c * m)`-strongly convex.
@@ -113,6 +115,19 @@ theorem smul {c : ℝ} (hc : 0 ≤ c) (hf : StrongConvexOn s m f) :
     StrongConvexOn s (c * m) fun x ↦ c • f x :=
   (UniformConvexOn.smul hc hf).mono fun r ↦
     le_of_eq (by simp only [Pi.smul_apply, smul_eq_mul]; ring)
+
+/-- **Finite sums of strongly convex functions.** If each `f i`, for `i ∈ t`, is
+`m i`-strongly convex on the convex set `s`, then `∑ i ∈ t, f i` is `(∑ i ∈ t, m i)`-strongly
+convex on `s`. The moduli need not be nonnegative. -/
+theorem fun_sum {ι : Type*} {t : Finset ι} {m : ι → ℝ} {f : ι → E → ℝ} (hs : Convex ℝ s)
+    (hf : ∀ i ∈ t, StrongConvexOn s (m i) (f i)) :
+    StrongConvexOn s (∑ i ∈ t, m i) fun x ↦ ∑ i ∈ t, f i x := by
+  classical
+  induction t using Finset.induction_on with
+  | empty => simpa using strongConvexOn_zero.2 (convexOn_const 0 hs)
+  | insert i t hi ih =>
+    simp only [Finset.sum_insert hi]
+    exact (hf i (Finset.mem_insert_self i t)).add (ih fun j hj ↦ hf j (Finset.mem_insert_of_mem hj))
 
 /-- **The subgradient inequality of a strongly convex function** [Ora, Lemma 4.2].
 If `f` is `m`-strongly convex on `s` and `g` is a subgradient of `f` within `s` at `x ∈ s`, then
