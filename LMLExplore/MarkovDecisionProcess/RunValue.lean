@@ -374,6 +374,19 @@ theorem abs_optQValue_le (hγ : γ < 1) (hR : ∀ p, ∀ᵐ x ∂(M.R p), |x| �
   field_simp
   ring
 
+/-- With rewards bounded by `C` and `γ < 1`, `Q* (s, a) - γ v* s` is bounded by
+`(1 + γ) C / (1 - γ)` in absolute value. -/
+theorem abs_optQValue_sub_mul_optValue_le (hγ : γ < 1) (hR : ∀ p, ∀ᵐ x ∂(M.R p), |x| ≤ C)
+    (p : 𝓢 × 𝓐) :
+    |M.optQValue γ p - γ * M.optValue γ p.1| ≤ (1 + γ) * C / (1 - γ) := by
+  have h₁ := abs_optQValue_le hγ hR p
+  have h₂ := abs_optValue_le hγ hR p.1
+  calc |M.optQValue γ p - γ * M.optValue γ p.1|
+      ≤ |M.optQValue γ p| + γ * |M.optValue γ p.1| := by
+        simpa [abs_mul] using abs_sub (M.optQValue γ p) (γ * M.optValue γ p.1)
+    _ ≤ C / (1 - γ) + γ * (C / (1 - γ)) := by gcongr
+    _ = (1 + γ) * C / (1 - γ) := by ring
+
 end OptValue
 
 end Learning.MDP
