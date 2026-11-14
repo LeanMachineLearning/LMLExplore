@@ -61,6 +61,8 @@ here on a general measurable state space.
   `Q* - Q^π ≤ γ ε`.
 * `Learning.MDP.integral_optQValue_saKernel_le`: for every stationary policy `π` and transition
   kernel `P'`, `P'^π_SA Q* ≤ P' v*`.
+* `Learning.MDP.greedy_optValue_eq_of_forall_optQValue_lt`: a deterministic policy whose actions
+  are the strict maximizers of `Q*` is the greedy policy for `v*`.
 
 ## References
 
@@ -334,5 +336,27 @@ theorem qValue_eq_optQValue (h : M.value γ π = M.optValue γ) : M.qValue γ π
 end Stationary
 
 end Finite
+
+/-! ### Uniqueness of the optimal action -/
+
+section Greedy
+
+variable [Fintype 𝓐]
+
+/-- With finitely many actions, bounded rewards and `γ < 1`, if at every state `s` the action
+`d s` has a strictly larger optimal action value than every other action, then `d` is the greedy
+policy for the optimal value. -/
+theorem greedy_optValue_eq_of_forall_optQValue_lt (hγ : γ < 1)
+    (hR : ∀ p, ∀ᵐ x ∂(M.R p), |x| ≤ C) {d : 𝓢 → 𝓐}
+    (hd : ∀ s a, a ≠ d s → M.optQValue γ (s, a) < M.optQValue γ (s, d s)) :
+    M.greedy γ (M.optValue γ) = d := by
+  ext s
+  by_contra h
+  -- the greedy action attains `v* s ≥ Q* (s, d s)`
+  have hg : M.optQValue γ (s, M.greedy γ (M.optValue γ) s) = M.optValue γ s := by
+    rw [optQValue_eq_lookahead, lookahead_greedy, bellman_optValue hγ hR]
+  linarith [hd s _ h, optQValue_le_optValue hγ hR s (d s)]
+
+end Greedy
 
 end Learning.MDP

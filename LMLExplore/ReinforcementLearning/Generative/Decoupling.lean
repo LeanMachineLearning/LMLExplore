@@ -5,7 +5,7 @@ Authors: LMLExplore contributors
 -/
 module
 
-public import LMLExplore.MarkovDecisionProcess.Absorbing
+public import LMLExplore.MarkovDecisionProcess.Absorbing.Basic
 public import LMLExplore.ReinforcementLearning.Generative.Basic
 import LMLExplore.Probability.Moments.Variance
 import LMLExplore.SequentialLearning.SumRewards
@@ -22,7 +22,7 @@ bounds on the one-step prediction errors `∫ v̂ dP (s, a) - ∫ v̂ dP̂ (s, a
 samples, including those of `(s, a)`, so that Bernstein's inequality does not apply directly.
 
 Agarwal, Kakade and Yang decouple the two through the `s`-absorbing modifications of `M̂`
-(`MarkovDecisionProcess/Absorbing.lean`), in which every action leads back to `s` with reward
+(`MarkovDecisionProcess/Absorbing/Basic.lean`), in which every action leads back to `s` with reward
 `(1 - γ) u`:
 * the modification is computed from the samples of the pairs at the other states, so that every
   function of it is independent of the samples of `(s, a)`
