@@ -20,7 +20,8 @@ This is what makes one-step variances such as `κ (V ^ 2) - (κ V) ^ 2` of a Mar
 themselves integrable against kernels, in variance recursions of Markov chains.
 
 A real random variable with `|X| ≤ B` almost surely has variance at most `B ^ 2`, the symmetric
-case of Mathlib's `ProbabilityTheory.variance_le_sq_of_bounded`.
+case of Mathlib's `ProbabilityTheory.variance_le_sq_of_bounded`, and standard deviation at most
+`B`.
 
 The standard deviation `√Var[X; μ]` is a seminorm on square-integrable random variables: the
 Cauchy–Schwarz inequality `cov[X, Y] ^ 2 ≤ Var[X] Var[Y]` gives the triangle inequality
@@ -42,6 +43,7 @@ Apache 2.0).
 
 * `Measurable.variance_kernel`: `b ↦ Var[X; η b]` is measurable.
 * `ProbabilityTheory.variance_le_sq_of_abs_le`: `|X| ≤ B` almost surely gives `Var[X; μ] ≤ B ^ 2`.
+* `ProbabilityTheory.sqrt_variance_le_of_abs_le`: `|X| ≤ B` almost surely gives `√Var[X; μ] ≤ B`.
 * `ProbabilityTheory.sq_covariance_le_variance_mul_variance`: the Cauchy–Schwarz inequality
   `cov[X, Y; μ] ^ 2 ≤ Var[X; μ] * Var[Y; μ]`.
 * `ProbabilityTheory.sqrt_variance_add_le`: `√Var[X + Y; μ] ≤ √Var[X; μ] + √Var[Y; μ]`.
@@ -123,6 +125,12 @@ theorem variance_le_sq_of_abs_le (hX : AEMeasurable X μ) (hXB : ∀ᵐ b ∂μ,
   (variance_le_sq_of_bounded (a := -B) (b := B) (hXB.mono fun _ ↦ abs_le.1) hX).trans_eq
     (by ring)
 
+/-- A real random variable bounded by `B` in absolute value almost surely has standard deviation
+at most `B`. -/
+theorem sqrt_variance_le_of_abs_le (hX : AEMeasurable X μ) (hB : 0 ≤ B)
+    (hXB : ∀ᵐ b ∂μ, |X b| ≤ B) : √Var[X; μ] ≤ B :=
+  (Real.sqrt_le_left hB).2 (variance_le_sq_of_abs_le hX hXB)
+
 /-- Two square-integrable real random variables within `D` of each other almost surely have
 standard deviations within `D`: `√Var[X; μ] ≤ √Var[Y; μ] + D`. -/
 theorem sqrt_variance_le_sqrt_variance_add_of_abs_sub_le (hX : MemLp X 2 μ) (hY : MemLp Y 2 μ)
@@ -135,8 +143,7 @@ theorem sqrt_variance_le_sqrt_variance_add_of_abs_sub_le (hX : MemLp X 2 μ) (hY
   rw [add_sub_cancel] at h
   refine h.trans ?_
   gcongr
-  rw [Real.sqrt_le_left hD₀]
-  exact variance_le_sq_of_abs_le (hX.sub hY).aemeasurable hD
+  exact sqrt_variance_le_of_abs_le (hX.sub hY).aemeasurable hD₀ hD
 
 /-- **Perturbation of a Bernstein-type bound.** If `Y` satisfies the Bernstein-type bound
 `|∫ Y dμ - ∫ Y dν| ≤ a √Var[Y; μ] + b`, with `a ≥ 0`, between two probability measures, and `X` is

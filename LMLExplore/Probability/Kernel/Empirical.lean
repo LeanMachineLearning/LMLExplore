@@ -82,6 +82,8 @@ This is the decoupling device of [AKY20, Lemma 6].
   `LMLExplore.le_streamMeasure_forall_abs_integral_sub_integral_empiricalKernel_lt_sqrt_add`: the
   empirical Bernstein inequality for the empirical means of a bounded function, for one key and
   uniformly over finitely many keys.
+* `LMLExplore.measureReal_sqrt_add_le_abs_sub_inv_mul_sum_le`: Bernstein's inequality for the
+  empirical means `N⁻¹ ∑_{i < N} Z (ω i)` of a bounded function `Z` of the samples.
 * `LMLExplore.measureReal_sqrt_variance_add_le_abs_integral_sub_integral_empiricalKernel_le`:
   Bernstein's inequality for the empirical means of a bounded function, with its variance under
   `ν a`.
@@ -296,6 +298,58 @@ theorem measureReal_sqrt_add_le_abs_integral_sub_integral_empiricalKernel_le (ν
     integral_empiricalKernel N ω a hf.stronglyMeasurable, smul_eq_mul, inv_mul_eq_div]
   rw [abs_sub_comm]
 
+omit [MeasurableSingletonClass α] [Countable α] in
+/-- **Bernstein's inequality for the empirical means of a function of the samples.** Under the
+stream model `streamMeasure ν` of a Markov kernel `ν`, let `Z` be a measurable function of the
+samples `ρ : α → β` with mean `m`, `|Z - m| ≤ b` almost everywhere for `b > 0`, and second moment
+`∫ (Z - m) ^ 2 ≤ σ` under the law `Measure.infinitePi ν` of the samples. For `N ≠ 0` and every
+`x`, the mean `N⁻¹ ∑_{i < N} Z (ω i)` deviates from `m` by at least `√(2 σ x / N) + b x / (3 N)`
+with probability at most `2 exp (-x)`. -/
+theorem measureReal_sqrt_add_le_abs_sub_inv_mul_sum_le (ν : Kernel α β) [IsMarkovKernel ν]
+    {Z : (α → β) → ℝ} (hZ : Measurable Z) {m b σ : ℝ} (hb : 0 < b)
+    (hZm : ∫ ρ, Z ρ ∂(Measure.infinitePi ν) = m)
+    (hZb : ∀ᵐ ρ ∂(Measure.infinitePi ν), |Z ρ - m| ≤ b)
+    (hZσ : ∫ ρ, (Z ρ - m) ^ 2 ∂(Measure.infinitePi ν) ≤ σ) (N : ℕ) [NeZero N] (x : ℝ) :
+    (streamMeasure ν).real {ω | √(2 * σ * x / N) + b * x / (3 * N) ≤
+      |m - (N : ℝ)⁻¹ * ∑ i ∈ range N, Z (ω i)|} ≤ 2 * exp (-x) := by
+  have hN : (0 : ℝ) < N := by exact_mod_cast Nat.pos_of_ne_zero (NeZero.ne N)
+  -- the centred samples `Z (ω i) - m` are independent, with mean zero and second moment `≤ σ`
+  have h_law (i : ℕ) := hasLaw_eval_streamMeasure ν i
+  have h_indep : iIndepFun (fun i (ω : ℕ → α → β) ↦ Z (ω i) - m) (streamMeasure ν) :=
+    (iIndepFun_eval_streamMeasure' ν).comp (fun _ ρ ↦ Z ρ - m) fun _ ↦ hZ.sub_const m
+  have hZi : Integrable Z (Measure.infinitePi ν) :=
+    .of_bound hZ.aestronglyMeasurable (b + |m|) (hZb.mono fun ρ hρ ↦ by
+      rw [Real.norm_eq_abs]
+      linarith [abs_sub_abs_le_abs_sub (Z ρ) m])
+  have h_mean (i : ℕ) : ∫ ω, Z (ω i) - m ∂(streamMeasure ν) = 0 := by
+    refine ((h_law i).integral_comp (f := fun ρ ↦ Z ρ - m)
+      (hZ.sub_const m).aestronglyMeasurable).trans ?_
+    rw [integral_sub hZi (integrable_const m), hZm]
+    simp
+  have h_sq (i : ℕ) : ∫ ω, (Z (ω i) - m) ^ 2 ∂(streamMeasure ν) ≤ σ :=
+    ((h_law i).integral_comp (f := fun ρ ↦ (Z ρ - m) ^ 2)
+      ((hZ.sub_const m).pow_const 2).aestronglyMeasurable).trans_le hZσ
+  have h := h_indep.measureReal_sqrt_add_le_abs_sum_le_of_abs_le (s := range N) (b := b)
+    (v := N * σ) (L := x) (fun i _ ↦ (hZ.sub_const m).comp_aemeasurable (h_law i).aemeasurable)
+    (fun i _ ↦ h_mean i) hb
+    (fun i _ ↦ ae_of_ae_map (p := fun ρ ↦ |Z ρ - m| ≤ b) (h_law i).aemeasurable
+      ((h_law i).map_eq ▸ hZb))
+    ((sum_le_sum fun i _ ↦ h_sq i).trans_eq (by simp))
+  refine le_trans (measureReal_mono fun ω (hω : _ ≤ _) ↦ ?_) h
+  -- the centred sum is `-N` times the deviation of the mean
+  have h_sum : ∑ i ∈ range N, (Z (ω i) - m) =
+      -(N * (m - (N : ℝ)⁻¹ * ∑ i ∈ range N, Z (ω i))) := by
+    simp only [sum_sub_distrib, sum_const, card_range, nsmul_eq_mul]
+    field_simp
+    ring
+  have h_sqrt : √(2 * (N * σ) * x) = N * √(2 * σ * x / N) := by
+    rw [show 2 * (N * σ) * x = N ^ 2 * (2 * σ * x / N) by field_simp,
+      Real.sqrt_mul (sq_nonneg _), Real.sqrt_sq hN.le]
+  simp only [Set.mem_ofPred_eq, h_sum, abs_neg, abs_mul, abs_of_pos hN, h_sqrt]
+  calc N * √(2 * σ * x / N) + b * x / 3 = N * (√(2 * σ * x / N) + b * x / (3 * N)) := by
+        field_simp
+    _ ≤ N * |m - (N : ℝ)⁻¹ * ∑ i ∈ range N, Z (ω i)| := by gcongr
+
 /-- **Bernstein's inequality for the empirical kernel.** Under the stream model `streamMeasure ν`
 of a Markov kernel `ν`, let `f` be a measurable function with values in `[l, u]`, `l < u`,
 `ν a`-almost everywhere. For `N ≠ 0` and every `x`, the mean of `f` over the first `N` samples of
@@ -306,49 +360,24 @@ theorem measureReal_sqrt_variance_add_le_abs_integral_sub_integral_empiricalKern
     {a : α} (hfb : ∀ᵐ y ∂(ν a), f y ∈ Set.Icc l u) (N : ℕ) [NeZero N] (x : ℝ) :
     (streamMeasure ν).real {ω | √(2 * Var[f; ν a] * x / N) + (u - l) * x / (3 * N) ≤
       |∫ y, f y ∂(ν a) - ∫ y, f y ∂(empiricalKernel N ω a)|} ≤ 2 * exp (-x) := by
-  have hN : (0 : ℝ) < N := by exact_mod_cast Nat.pos_of_ne_zero (NeZero.ne N)
-  set m := ∫ y, f y ∂(ν a)
+  -- the samples `f (ρ a)` have mean `∫ f d(ν a)` and variance `Var[f; ν a]`
+  have h_law := hasLaw_eval_infinitePi ν a
   have hf_int : Integrable f (ν a) := Integrable.of_mem_Icc l u hf.aemeasurable hfb
-  have hm : m ∈ Set.Icc l u := by
+  have hm : ∫ y, f y ∂(ν a) ∈ Set.Icc l u := by
     constructor
     · simpa using integral_mono_ae (integrable_const l) hf_int (hfb.mono fun y hy ↦ hy.1)
     · simpa using integral_mono_ae hf_int (integrable_const u) (hfb.mono fun y hy ↦ hy.2)
-  -- the centred samples `f (ω i a) - m` are independent, with mean zero and variance `Var[f; ν a]`
-  have h_law (i : ℕ) := hasLaw_eval_eval_streamMeasure ν i a
-  have h_indep : iIndepFun (fun i (ω : ℕ → α → β) ↦ f (ω i a) - m) (streamMeasure ν) :=
-    (iIndepFun_eval_streamMeasure'' ν a).comp (fun _ y ↦ f y - m) fun _ ↦ hf.sub_const m
-  have h_mean (i : ℕ) : ∫ ω, f (ω i a) - m ∂(streamMeasure ν) = 0 := by
-    refine ((h_law i).integral_comp (f := fun y ↦ f y - m)
-      (hf.sub_const m).aestronglyMeasurable).trans ?_
-    rw [integral_sub hf_int (integrable_const m)]
-    simp [m]
-  have h_sq (i : ℕ) : ∫ ω, (f (ω i a) - m) ^ 2 ∂(streamMeasure ν) = Var[f; ν a] := by
-    refine ((h_law i).integral_comp (f := fun y ↦ (f y - m) ^ 2)
-      ((hf.sub_const m).pow_const 2).aestronglyMeasurable).trans ?_
-    rw [variance_eq_integral hf.aemeasurable]
-  have h := h_indep.measureReal_sqrt_add_le_abs_sum_le_of_abs_le (s := range N) (b := u - l)
-    (v := N * Var[f; ν a]) (L := x)
-    (fun i _ ↦ (hf.sub_const m).comp_aemeasurable (h_law i).aemeasurable) (fun i _ ↦ h_mean i)
-    (sub_pos.2 hlu)
-    (fun i _ ↦ (ae_of_ae_map (h_law i).aemeasurable ((h_law i).map_eq ▸ hfb)).mono fun ω hω ↦
-      abs_le.2 ⟨by linarith [hω.1, hm.2], by linarith [hω.2, hm.1]⟩)
-    (by simp [h_sq])
-  refine le_trans (measureReal_mono fun ω (hω : _ ≤ _) ↦ ?_) h
-  -- the centred sum is `-N` times the deviation of the empirical mean
-  have h_sum : ∑ i ∈ range N, (f (ω i a) - m) =
-      -(N * (m - ∫ y, f y ∂(empiricalKernel N ω a))) := by
-    rw [integral_empiricalKernel N ω a hf.stronglyMeasurable]
-    simp [sum_sub_distrib]
-    field_simp
-    ring
-  have h_sqrt : √(2 * (N * Var[f; ν a]) * x) = N * √(2 * Var[f; ν a] * x / N) := by
-    rw [show 2 * (N * Var[f; ν a]) * x = N ^ 2 * (2 * Var[f; ν a] * x / N) by field_simp,
-      Real.sqrt_mul (sq_nonneg _), Real.sqrt_sq hN.le]
-  simp only [Set.mem_ofPred_eq, h_sum, abs_neg, abs_mul, abs_of_pos hN, h_sqrt]
-  calc N * √(2 * Var[f; ν a] * x / N) + (u - l) * x / 3 =
-        N * (√(2 * Var[f; ν a] * x / N) + (u - l) * x / (3 * N)) := by
-        field_simp
-    _ ≤ N * |m - ∫ y, f y ∂(empiricalKernel N ω a)| := by gcongr
+  have h := measureReal_sqrt_add_le_abs_sub_inv_mul_sum_le ν (Z := fun ρ ↦ f (ρ a))
+    (hf.comp (measurable_pi_apply a)) (sub_pos.2 hlu)
+    (h_law.integral_comp hf.aestronglyMeasurable)
+    ((ae_of_ae_map h_law.aemeasurable (h_law.map_eq ▸ hfb)).mono fun ρ hρ ↦
+      abs_le.2 ⟨by linarith [hρ.1, hm.2], by linarith [hρ.2, hm.1]⟩)
+    ((h_law.integral_comp (f := fun y ↦ (f y - ∫ y, f y ∂(ν a)) ^ 2)
+      ((hf.sub_const _).pow_const 2).aestronglyMeasurable).trans_le
+        (variance_eq_integral hf.aemeasurable).ge) N x
+  refine le_trans (measureReal_mono fun ω hω ↦ ?_) h
+  rwa [Set.mem_ofPred_eq, integral_empiricalKernel N ω a hf.stronglyMeasurable, smul_eq_mul]
+    at hω
 
 /-- **Bernstein's inequality for the empirical means of a random function independent of the
 samples.** Under the stream model `streamMeasure ν` with countably many values, let `W ω` be a

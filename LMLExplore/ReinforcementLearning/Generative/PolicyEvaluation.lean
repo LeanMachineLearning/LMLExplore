@@ -7,8 +7,6 @@ module
 
 public import LMLExplore.ReinforcementLearning.Generative.Basic
 import LMLExplore.Analysis.Convex.Integral
-import LMLExplore.Probability.Moments.Bernstein
-import Mathlib.Analysis.Complex.ExponentialBounds
 
 /-!
 # Planning with a generative model: policy evaluation over the full range of sample sizes
@@ -68,15 +66,6 @@ namespace Learning.MDP
 variable {𝓢 𝓐 𝓡 : Type*} {m𝓢 : MeasurableSpace 𝓢} {m𝓐 : MeasurableSpace 𝓐}
   {m𝓡 : MeasurableSpace 𝓡} [MeasurableSingletonClass 𝓢] [MeasurableSingletonClass 𝓐]
 
-/-- For finite state and action spaces, integrating against the state kernel of `π` from `s` is
-the average over the actions `a`, with the weights `π(a | s)`, of the integrals against
-`M.P (s, a)`. -/
-private lemma integral_stateKernel_eq_sum [Finite 𝓢] [Fintype 𝓐] (M : MDP 𝓢 𝓐 𝓡)
-    (π : Kernel 𝓢 𝓐) [IsMarkovKernel π] (s : 𝓢) (g : 𝓢 → ℝ) :
-    ∫ y, g y ∂(M.stateKernel π s) = ∑ a, (π s).real {a} * ∫ y, g y ∂(M.P (s, a)) := by
-  rw [integral_stateKernel .of_finite, integral_fintype .of_finite]
-  simp only [smul_eq_mul]
-
 /-- **Bernstein's inequality for the empirical state kernel of a stationary policy.** Under the
 generative model `streamMeasure M.P` of an MDP `M` with finitely many states and actions, let `π`
 be a stationary policy and `f` a function with values in `[l, u]`, `l < u`, `M.P (s, a)`-almost
@@ -93,66 +82,58 @@ theorem measureReal_sqrt_variance_add_le_abs_integral_sub_integral_stateKernel_e
         |∫ y, f y ∂(M.stateKernel π s) - ∫ y, f y ∂((M.empirical N ω).stateKernel π s)|} ≤
       2 * exp (-x) := by
   -- The empirical integral is the mean of the `N` independent variables
-  -- `∑ a, π(a | s) f (ω i (s, a))`, `i < N`, with values in `[l, u]` and mean `∫ f d(P_π s)`. By
-  -- Jensen's inequality, their variance is at most the variance `Var[f; P_π s]` of the mixture
-  -- `P_π s = ∑ a, π(a | s) M.P (s, a)`, and the bound is Bernstein's inequality for their sum.
+  -- `Z (ω i) = ∑ a, π(a | s) f (ω i (s, a))`, `i < N`, with values in `[l, u]` and mean
+  -- `∫ f d(P_π s)`. By Jensen's inequality, their variance is at most the variance `Var[f; P_π s]`
+  -- of the mixture `P_π s = ∑ a, π(a | s) M.P (s, a)`, and the bound is Bernstein's inequality for
+  -- their mean.
   have := Fintype.ofFinite 𝓐
-  have hN : (0 : ℝ) < N := by exact_mod_cast Nat.pos_of_ne_zero (NeZero.ne N)
   have hf : Measurable f := .of_discrete
   -- the weights `w a = π(a | s)` of the actions
   set w : 𝓐 → ℝ := fun a ↦ (π s).real {a} with hw_def
   have hw₀ (a : 𝓐) : 0 ≤ w a := measureReal_nonneg
   have hw₁ : ∑ a, w a = 1 := by simp [hw_def]
   have h_comb {y : 𝓐 → ℝ} (hy : ∀ a, y a ∈ Set.Icc l u) : ∑ a, w a * y a ∈ Set.Icc l u := by
-    constructor
-    · calc l = ∑ a, w a * l := by rw [← sum_mul, hw₁, one_mul]
-        _ ≤ ∑ a, w a * y a := sum_le_sum fun a _ ↦ mul_le_mul_of_nonneg_left (hy a).1 (hw₀ a)
-    · calc ∑ a, w a * y a ≤ ∑ a, w a * u := sum_le_sum fun a _ ↦
-          mul_le_mul_of_nonneg_left (hy a).2 (hw₀ a)
-        _ = u := by rw [← sum_mul, hw₁, one_mul]
-  -- the mean `m = ∫ f d(P_π s)` and the summands `Z (ω i) - m`
+    simpa only [smul_eq_mul] using (convex_Icc l u).sum_mem (fun a _ ↦ hw₀ a) hw₁ fun a _ ↦ hy a
+  -- the mean `m = ∫ f d(P_π s)` and the variable `Z`
   set m := ∫ y, f y ∂(M.stateKernel π s) with hm_def
-  have hm : m = ∑ a, w a * ∫ y, f y ∂(M.P (s, a)) := integral_stateKernel_eq_sum M π s f
+  have hm : m = ∑ a, w a * ∫ y, f y ∂(M.P (s, a)) := integral_stateKernel_eq_sum .of_finite
   have hm_mem : m ∈ Set.Icc l u :=
     hm ▸ h_comb fun a ↦ integral_mem_Icc_of_ae_mem_Icc hf.aemeasurable (hfb a)
   set Z : (𝓢 × 𝓐 → 𝓢) → ℝ := fun ρ ↦ ∑ a, w a * f (ρ (s, a)) with hZ_def
   have hZ : Measurable Z :=
     Finset.measurable_sum _ fun a _ ↦ (hf.comp (measurable_pi_apply (s, a))).const_mul _
-  set X : ℕ → (ℕ → 𝓢 × 𝓐 → 𝓢) → ℝ := fun i ω ↦ Z (ω i) - m with hX_def
-  have h_indep : iIndepFun X (streamMeasure M.P) :=
-    (iIndepFun_eval_streamMeasure' M.P).comp (fun _ ρ ↦ Z ρ - m) fun _ ↦ hZ.sub_const m
-  have h_law (i : ℕ) (a : 𝓐) := hasLaw_eval_eval_streamMeasure M.P i (s, a)
-  have h_ae (i : ℕ) : ∀ᵐ ω ∂(streamMeasure M.P), ∀ a, f (ω i (s, a)) ∈ Set.Icc l u :=
-    ae_all_iff.2 fun a ↦ ae_of_ae_map (h_law i a).aemeasurable ((h_law i a).map_eq ▸ hfb a)
-  have h_int (i : ℕ) (a : 𝓐) {g : ℝ → ℝ} (hg : Measurable g) {c d : ℝ}
+  -- the law of the samples `ρ (s, a)` under `Measure.infinitePi M.P` is `M.P (s, a)`
+  set μ := Measure.infinitePi M.P with hμ_def
+  have h_law (a : 𝓐) := hasLaw_eval_infinitePi M.P (s, a)
+  have h_ae : ∀ᵐ ρ ∂μ, ∀ a, f (ρ (s, a)) ∈ Set.Icc l u :=
+    ae_all_iff.2 fun a ↦ ae_of_ae_map (h_law a).aemeasurable ((h_law a).map_eq ▸ hfb a)
+  have h_int (a : 𝓐) {g : ℝ → ℝ} (hg : Measurable g) {c d : ℝ}
       (hgb : ∀ y ∈ Set.Icc l u, g y ∈ Set.Icc c d) :
-      Integrable (fun ω : ℕ → 𝓢 × 𝓐 → 𝓢 ↦ g (f (ω i (s, a)))) (streamMeasure M.P) :=
-    Integrable.of_mem_Icc c d ((hg.comp hf).comp_aemeasurable (h_law i a).aemeasurable)
-      ((h_ae i).mono fun ω hω ↦ hgb _ (hω a))
-  have h_mean (i : ℕ) : ∫ ω, X i ω ∂(streamMeasure M.P) = 0 := by
-    have h₁ (a : 𝓐) : ∫ ω, f (ω i (s, a)) ∂(streamMeasure M.P) = ∫ y, f y ∂(M.P (s, a)) :=
-      (h_law i a).integral_comp hf.aestronglyMeasurable
-    have hi (a : 𝓐) : Integrable (fun ω : ℕ → 𝓢 × 𝓐 → 𝓢 ↦ f (ω i (s, a))) (streamMeasure M.P) :=
-      h_int i a (g := fun y ↦ y) measurable_id' fun y hy ↦ hy
-    simp only [hX_def, hZ_def]
-    rw [integral_sub (integrable_finsetSum _ fun a _ ↦ (hi a).const_mul _) (integrable_const m),
-      integral_finsetSum _ fun a _ ↦ (hi a).const_mul _]
+      Integrable (fun ρ : 𝓢 × 𝓐 → 𝓢 ↦ g (f (ρ (s, a)))) μ :=
+    Integrable.of_mem_Icc c d ((hg.comp hf).comp_aemeasurable (h_law a).aemeasurable)
+      (h_ae.mono fun ρ hρ ↦ hgb _ (hρ a))
+  have hZm : ∫ ρ, Z ρ ∂μ = m := by
+    have h₁ (a : 𝓐) : ∫ ρ, f (ρ (s, a)) ∂μ = ∫ y, f y ∂(M.P (s, a)) :=
+      (h_law a).integral_comp hf.aestronglyMeasurable
+    have hi (a : 𝓐) : Integrable (fun ρ : 𝓢 × 𝓐 → 𝓢 ↦ f (ρ (s, a))) μ :=
+      h_int a (g := fun y ↦ y) measurable_id' fun y hy ↦ hy
+    simp only [hZ_def]
+    rw [integral_finsetSum _ fun a _ ↦ (hi a).const_mul _]
     simp_rw [integral_const_mul, h₁, ← hm]
-    simp
-  -- the summands are bounded by `u - l`
-  have hXb (i : ℕ) : ∀ᵐ ω ∂(streamMeasure M.P), |X i ω| ≤ u - l := by
-    filter_upwards [h_ae i] with ω hω
-    have hZm := h_comb hω
+  -- the centred variable is bounded by `u - l`
+  have hZb : ∀ᵐ ρ ∂μ, |Z ρ - m| ≤ u - l := by
+    filter_upwards [h_ae] with ρ hρ
+    have hZρ := h_comb hρ
     rw [abs_le]
-    constructor <;> simp only [hX_def, hZ_def] <;> linarith [hZm.1, hZm.2, hm_mem.1, hm_mem.2]
-  -- by Jensen's inequality, the variance of a summand is at most `Var[f; P_π s]`
-  have h_sq (i : ℕ) : ∫ ω, X i ω ^ 2 ∂(streamMeasure M.P) ≤ Var[f; M.stateKernel π s] := by
-    have h_pt (ω : ℕ → 𝓢 × 𝓐 → 𝓢) : X i ω ^ 2 ≤ ∑ a, w a * (f (ω i (s, a)) - m) ^ 2 := by
-      have hXω : X i ω = ∑ a, w a * (f (ω i (s, a)) - m) := by
-        simp only [hX_def, hZ_def, mul_sub, sum_sub_distrib, ← sum_mul, hw₁, one_mul]
-      rw [hXω]
-      refine (sum_sq_le_sum_mul_sum_of_sq_le_mul _ (r := fun a ↦ w a * (f (ω i (s, a)) - m))
-        (f := w) (g := fun a ↦ w a * (f (ω i (s, a)) - m) ^ 2) (fun a _ ↦ hw₀ a)
+    constructor <;> simp only [hZ_def] <;> linarith [hZρ.1, hZρ.2, hm_mem.1, hm_mem.2]
+  -- by Jensen's inequality, the variance of `Z` is at most `Var[f; P_π s]`
+  have hZσ : ∫ ρ, (Z ρ - m) ^ 2 ∂μ ≤ Var[f; M.stateKernel π s] := by
+    have h_pt (ρ : 𝓢 × 𝓐 → 𝓢) : (Z ρ - m) ^ 2 ≤ ∑ a, w a * (f (ρ (s, a)) - m) ^ 2 := by
+      have hZρ : Z ρ - m = ∑ a, w a * (f (ρ (s, a)) - m) := by
+        simp only [hZ_def, mul_sub, sum_sub_distrib, ← sum_mul, hw₁, one_mul]
+      rw [hZρ]
+      refine (sum_sq_le_sum_mul_sum_of_sq_le_mul _ (r := fun a ↦ w a * (f (ρ (s, a)) - m))
+        (f := w) (g := fun a ↦ w a * (f (ρ (s, a)) - m) ^ 2) (fun a _ ↦ hw₀ a)
         (fun a _ ↦ mul_nonneg (hw₀ a) (sq_nonneg _)) fun a _ ↦ le_of_eq (by ring)).trans_eq ?_
       rw [hw₁, one_mul]
     have h_bsq {y : ℝ} (hy : y ∈ Set.Icc l u) : (y - m) ^ 2 ∈ Set.Icc 0 ((u - l) ^ 2) :=
@@ -160,54 +141,37 @@ theorem measureReal_sqrt_variance_add_le_abs_integral_sub_integral_stateKernel_e
         rw [← sq_abs]
         exact pow_le_pow_left₀ (abs_nonneg _)
           (abs_le.2 ⟨by linarith [hy.1, hm_mem.2], by linarith [hy.2, hm_mem.1]⟩) 2⟩
-    have h_int_sq (a : 𝓐) := h_int i a (g := fun y ↦ (y - m) ^ 2) (by fun_prop)
+    have h_int_sq (a : 𝓐) := h_int a (g := fun y ↦ (y - m) ^ 2) (by fun_prop)
       fun y hy ↦ h_bsq hy
-    have h_int_X : Integrable (fun ω ↦ X i ω ^ 2) (streamMeasure M.P) :=
-      Integrable.of_mem_Icc 0 ((u - l) ^ 2) (((hZ.sub_const m).pow_const 2).comp_aemeasurable
-        (hasLaw_eval_streamMeasure M.P i).aemeasurable) ((hXb i).mono fun ω hω ↦
-          ⟨sq_nonneg _, by rw [← sq_abs]; exact pow_le_pow_left₀ (abs_nonneg _) hω 2⟩)
-    calc ∫ ω, X i ω ^ 2 ∂(streamMeasure M.P)
-        ≤ ∫ ω, ∑ a, w a * (f (ω i (s, a)) - m) ^ 2 ∂(streamMeasure M.P) :=
-          integral_mono h_int_X (integrable_finsetSum _ fun a _ ↦ (h_int_sq a).const_mul _) h_pt
+    have h_int_Z : Integrable (fun ρ ↦ (Z ρ - m) ^ 2) μ :=
+      Integrable.of_mem_Icc 0 ((u - l) ^ 2) ((hZ.sub_const m).pow_const 2).aemeasurable
+        (hZb.mono fun ρ hρ ↦
+          ⟨sq_nonneg _, by rw [← sq_abs]; exact pow_le_pow_left₀ (abs_nonneg _) hρ 2⟩)
+    calc ∫ ρ, (Z ρ - m) ^ 2 ∂μ
+        ≤ ∫ ρ, ∑ a, w a * (f (ρ (s, a)) - m) ^ 2 ∂μ :=
+          integral_mono h_int_Z (integrable_finsetSum _ fun a _ ↦ (h_int_sq a).const_mul _) h_pt
       _ = ∑ a, w a * ∫ y, (f y - m) ^ 2 ∂(M.P (s, a)) := by
           rw [integral_finsetSum _ fun a _ ↦ (h_int_sq a).const_mul _]
           refine sum_congr rfl fun a _ ↦ ?_
           rw [integral_const_mul]
           congr 1
-          exact (h_law i a).integral_comp (f := fun y ↦ (f y - m) ^ 2)
+          exact (h_law a).integral_comp (f := fun y ↦ (f y - m) ^ 2)
             ((hf.sub_const m).pow_const 2).aestronglyMeasurable
       _ = Var[f; M.stateKernel π s] := by
-          rw [← integral_stateKernel_eq_sum, variance_eq_integral hf.aemeasurable]
-  have h := h_indep.measureReal_sqrt_add_le_abs_sum_le_of_abs_le (s := range N) (b := u - l)
-    (v := N * Var[f; M.stateKernel π s]) (L := x)
-    (fun i _ ↦ (hZ.sub_const m).comp_aemeasurable (hasLaw_eval_streamMeasure M.P i).aemeasurable)
-    (fun i _ ↦ h_mean i) (sub_pos.2 hlu) (fun i _ ↦ hXb i)
-    ((sum_le_sum fun i _ ↦ h_sq i).trans_eq (by simp))
-  refine le_trans (measureReal_mono fun ω (hω : _ ≤ _) ↦ ?_) h
-  -- the centred sum is `-N` times the deviation of the empirical integral
+          rw [← integral_stateKernel_eq_sum (v := fun y ↦ (f y - m) ^ 2) .of_finite,
+            variance_eq_integral hf.aemeasurable]
+  refine le_trans (measureReal_mono fun ω (hω : _ ≤ _) ↦ ?_)
+    (measureReal_sqrt_add_le_abs_sub_inv_mul_sum_le M.P hZ (sub_pos.2 hlu) hZm hZb hZσ N x)
+  -- the empirical integral is the mean of the `Z (ω i)`, `i < N`
   have h_emp : ∫ y, f y ∂((M.empirical N ω).stateKernel π s) =
       (N : ℝ)⁻¹ * ∑ i ∈ range N, Z (ω i) := by
-    rw [integral_stateKernel_eq_sum, mul_sum]
+    rw [integral_stateKernel_eq_sum .of_finite, mul_sum]
     simp_rw [empirical_P, integral_empiricalKernel N ω _ hf.stronglyMeasurable, smul_eq_mul,
       hZ_def, mul_sum]
     rw [sum_comm]
     exact sum_congr rfl fun i _ ↦ sum_congr rfl fun a _ ↦ by ring
-  have h_sum : ∑ i ∈ range N, X i ω =
-      -(N * (m - ∫ y, f y ∂((M.empirical N ω).stateKernel π s))) := by
-    rw [h_emp]
-    simp only [hX_def, sum_sub_distrib, sum_const, card_range, nsmul_eq_mul]
-    field_simp
-    ring
-  have h_sqrt : √(2 * (N * Var[f; M.stateKernel π s]) * x) =
-      N * √(2 * Var[f; M.stateKernel π s] * x / N) := by
-    rw [show 2 * (N * Var[f; M.stateKernel π s]) * x =
-        N ^ 2 * (2 * Var[f; M.stateKernel π s] * x / N) by field_simp,
-      Real.sqrt_mul (sq_nonneg _), Real.sqrt_sq hN.le]
-  simp only [Set.mem_ofPred_eq, h_sum, abs_neg, abs_mul, abs_of_pos hN, h_sqrt]
-  calc N * √(2 * Var[f; M.stateKernel π s] * x / N) + (u - l) * x / 3 =
-        N * (√(2 * Var[f; M.stateKernel π s] * x / N) + (u - l) * x / (3 * N)) := by
-        field_simp
-    _ ≤ N * |m - ∫ y, f y ∂((M.empirical N ω).stateKernel π s)| := by gcongr
+  rw [Set.mem_ofPred_eq, ← h_emp]
+  exact hω
 
 /-- **Model-based policy evaluation with a generative model** [LWCGC24, Lemma 1]. Under the
 generative model of an MDP `M` with `S` states, finitely many actions and rewards in `[0, C]`, let
@@ -217,8 +181,9 @@ MDP `M.empirical N ω` satisfies `|v̂^π - v^π| ≤ 3 C √(2 L / (N (1 - γ) 
 
 [LWCGC24] assumes `N ≥ 32 e ^ 2 L / (1 - γ)`, which implies `18 L ≤ (1 - γ) N`, and proves the
 bound `6 √(2 L / (N (1 - γ) ^ 3))` for rewards in `[0, 1]` and deterministic policies; the constant
-`3` comes from the constant `1` in [LWCGC24, Lemma 11]
-(`ProbabilityTheory.Kernel.integral_sqrt_variance_integral_resolvent_le`). -/
+`3` comes from the constant `1` of
+`ProbabilityTheory.Kernel.integral_sqrt_variance_integral_resolvent_le`, which improves the
+constant `4` of [LWCGC24, Lemma 11]. -/
 theorem le_streamMeasure_forall_abs_value_empirical_sub_value_le [Fintype 𝓢] [Finite 𝓐]
     {M : MDP 𝓢 𝓐 ℝ} {γ : ℝ≥0}
     (hγ : γ < 1) {C : ℝ} (hR : ∀ p, ∀ᵐ x ∂(M.R p), x ∈ Set.Icc 0 C) (π : Kernel 𝓢 𝓐)
