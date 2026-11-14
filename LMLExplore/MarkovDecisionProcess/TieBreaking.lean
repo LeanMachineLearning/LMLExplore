@@ -58,8 +58,8 @@ which the perturbation is independent of.
 * `Learning.MDP.mul_meanReward_sub_le_optQValue_sub_sub_optQValue_sub`: it raises the gap
   `Q* p - Q* q` by at least `(1 - γ)` times the increase of the reward.
 * `Learning.MDP.optQValue_add_lt_optValue_of_forall_lt_abs_optQValue_sub`: if the optimal action
-  values of distinct actions at `s` differ by more than `ω`, the optimal action at `s` is unique
-  and beats every other action by more than `ω`.
+  values of distinct actions at `s` differ by more than `ω`, an optimal action at `s` beats every
+  other action by more than `ω`; for `0 ≤ ω`, it is then the unique optimal action.
 * `Learning.MDP.continuous_optQValue_ofDet`: for finite state and action spaces, the optimal
   action values are continuous in the deterministic rewards.
 * `Learning.MDP.le_measureReal_pi_forall_lt_abs_optQValue_ofDet_sub`: **tie-breaking**, for
@@ -195,8 +195,8 @@ theorem mul_meanReward_sub_le_optQValue_sub_sub_optQValue_sub (hγ : γ < 1)
 /-! ### Separated optimal action values -/
 
 /-- If the optimal action values of any two distinct actions at `s` differ by more than `ω`, then
-an optimal action `a` at `s`, with `Q* (s, a) = v* s`, is the only one, and every other action
-`a'` satisfies `Q* (s, a') + ω < v* s`. -/
+for an optimal action `a` at `s`, with `Q* (s, a) = v* s`, every other action `a'` satisfies
+`Q* (s, a') + ω < v* s`. If moreover `0 ≤ ω`, then `a` is the only optimal action at `s`. -/
 theorem optQValue_add_lt_optValue_of_forall_lt_abs_optQValue_sub (hγ : γ < 1)
     (hR : ∀ p, ∀ᵐ x ∂(M.R p), |x| ≤ C) {s : 𝓢} {ω : ℝ}
     (hω : ∀ a₁ a₂, a₁ ≠ a₂ → ω < |M.optQValue γ (s, a₁) - M.optQValue γ (s, a₂)|) {a a' : 𝓐}
