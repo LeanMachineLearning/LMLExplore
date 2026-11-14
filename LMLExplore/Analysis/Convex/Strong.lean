@@ -39,6 +39,8 @@ with a strongly convex potential exist on closed sets that need not be bounded.
 
 * `StrongConvexOn.add`: [Ora, Theorem 4.6] the sum of an `m`-strongly convex and an `n`-strongly
   convex function is `(m + n)`-strongly convex.
+* `StrongConvexOn.smul`: a nonnegative multiple `c • f` of an `m`-strongly convex function is
+  `(c * m)`-strongly convex.
 * `StrongConvexOn.add_add_le_of_hasSubgradientWithinAt`: [Ora, Lemma 4.2] the subgradient
   inequality `f x + g (y - x) + m / 2 * ‖y - x‖ ^ 2 ≤ f y` of a strongly convex function.
 * `Convex.strongConvexOn_of_forall_exists_add_add_le`,
@@ -86,6 +88,15 @@ on `s`. -/
 theorem add_convexOn (hf : StrongConvexOn s m f) (hg : ConvexOn ℝ s g) :
     StrongConvexOn s m (f + g) := by
   simpa using hf.add (strongConvexOn_zero.2 hg)
+
+/-- A nonnegative multiple `c • f` of an `m`-strongly convex function on `s` is
+`(c * m)`-strongly convex on `s`. -/
+theorem smul {c : ℝ} (hc : 0 ≤ c) (hf : StrongConvexOn s m f) :
+    StrongConvexOn s (c * m) fun x ↦ c • f x := by
+  refine ⟨hf.1, fun x hx y hy a b ha hb hab ↦ ?_⟩
+  have h := mul_le_mul_of_nonneg_left (hf.2 hx hy ha hb hab) hc
+  simp only [smul_eq_mul] at h ⊢
+  linarith
 
 /-- **The subgradient inequality of a strongly convex function** [Ora, Lemma 4.2].
 If `f` is `m`-strongly convex on `s` and `g` is a subgradient of `f` within `s` at `x ∈ s`, then
