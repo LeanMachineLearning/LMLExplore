@@ -25,20 +25,26 @@ finite state space. The improvement holds for every action set, the comparison w
 iteration for countably many actions, and the statements about the optimal value for finitely
 many actions.
 
-These results are the instance of the abstract dynamic programming of
-`LMLExplore.IsPolicyIteration` on the bounded measurable functions, with the evaluation operators
-of the measurable deterministic stationary policies as decisions. The basic step is *policy
-improvement*, `LMLExplore.map_le_of_le_map`: if a bounded measurable `v` satisfies `v ≤ T v` and
-`d` is greedy for `v`, then `T v ≤ v^d`. Since `v k = T_{d k} v k ≤ T v k = T_{d (k + 1)} v k`, it
-gives `v k ≤ T v k ≤ v (k + 1) ≤ v*`, hence `T^[k] v 0 ≤ v k ≤ v*`
-(`LMLExplore.IsPolicyIteration.iterate_le`), and Blackwell's conditions for `T` give
-`‖v k - v*‖ ≤ γ ^ k * ‖v 0 - v*‖` (`LMLExplore.IsPolicyIteration.norm_sub_le`), stated here
-pointwise. These comparisons use the closedness of the pointwise order of the bounded measurable
-functions. On a finite state space there are finitely many deterministic policies, and
-`LMLExplore.IsPolicyIteration.exists_le_card_eq` shows that the optimal value is reached after at
-most `|𝓐| ^ |𝓢|` improvements. When the improvement keeps `d (k + 1) = d k` whenever `d k` is
-already greedy, as in Puterman's algorithm, the algorithm stops (`d (k + 1) = d k`) exactly when
-`d k` is optimal.
+The basic step is *policy improvement*, `LMLExplore.map_le_of_le_map` on the bounded measurable
+functions: if `v ≤ B v` for a map `B`, and `d` is a policy whose evaluation operator `T_d`
+(which satisfies Blackwell's conditions) agrees with `B` at `v`, then `B v ≤ v^d`. It is applied
+with `B = T_{d (k + 1)}` and `v = v k`: since `v k = T_{d k} v k ≤ T v k = T_{d (k + 1)} v k`, it
+gives `v k ≤ T v k ≤ v (k + 1)` for every action set, without the countability that makes `T`
+preserve measurability. The Newton form and the stopping rules are proved directly from the
+greediness and this improvement step.
+
+The comparison with value iteration, the geometric rate and the finite termination are instances
+of the abstract policy iteration `LMLExplore.IsPolicyIteration`, with the evaluation operators of
+the measurable deterministic stationary policies as decisions. On the bounded measurable
+functions, for countably many actions, it gives `T^[k] v 0 ≤ v k ≤ v*`
+(`LMLExplore.IsPolicyIteration.iterate_le`), and for finitely many actions Blackwell's conditions
+for `T` give `‖v k - v*‖ ≤ γ ^ k * ‖v 0 - v*‖` (`LMLExplore.IsPolicyIteration.norm_sub_le`),
+stated here pointwise. These comparisons use the closedness of the pointwise order of the bounded
+measurable functions. On a finite state space there are finitely many deterministic policies, and
+`LMLExplore.IsPolicyIteration.exists_le_card_eq`, applied on the functions `𝓢 → ℝ`, shows that
+the optimal value is reached after at most `|𝓐| ^ |𝓢|` improvements. When the improvement keeps
+`d (k + 1) = d k` whenever `d k` is already greedy, as in Puterman's algorithm, the algorithm
+stops (`d (k + 1) = d k`) exactly when `d k` is optimal.
 
 Policy iteration is also Newton's method for the equation `T v - v = 0`: with the greedy policy
 `d` for `v`, the map `u ↦ T u - u` lies above its affine minorant
@@ -264,10 +270,9 @@ theorem abs_value_sub_optValue_le [Nonempty 𝓢] [Finite 𝓐] [Nonempty 𝓐]
     LMLExplore.boundedMeasurable.orderUnitNorm_one_eq_norm (fun _ ↦ isBlackwell_bellmanEvalOp hR)
     hγ (fun _ ↦ bellmanEvalOp_le_bellmanOp hR) (isBlackwell_bellmanOp hR)
     (isFixedPt_bellmanOp_optValueBM hγ hR) k
-  rw [← dist_eq_norm, ← dist_eq_norm] at hnorm
   simpa only [coeFn_valueBM, coeFn_optValueBM] using
-    LMLExplore.boundedMeasurable.abs_sub_apply_le_mul_of_dist_le (pow_nonneg γ.coe_nonneg k) hnorm
-      (by simpa only [coeFn_valueBM, coeFn_optValueBM] using hD) s
+    LMLExplore.boundedMeasurable.abs_sub_apply_le_mul_of_norm_sub_le (pow_nonneg γ.coe_nonneg k)
+      hnorm (by simpa only [coeFn_valueBM, coeFn_optValueBM] using hD) s
 
 /-- **Finite termination of policy iteration** [P, Theorem 6.4.2]: on a finite state space, the
 value of policy iteration reaches the optimal value after at most `|𝓐| ^ |𝓢|` improvements. -/

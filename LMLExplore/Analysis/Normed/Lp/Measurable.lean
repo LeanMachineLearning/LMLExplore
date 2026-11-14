@@ -43,8 +43,8 @@ convergence and a pointwise limit of measurable functions is measurable.
 * `LMLExplore.boundedMeasurable.orderUnitNorm_one_eq_norm`: for the pointwise order, the
   order-unit norm of the constant `1` is the sup norm, so that maps satisfying Blackwell's
   conditions for `1` are contractions of `boundedMeasurable α` (`LMLExplore.IsBlackwell`).
-* `LMLExplore.boundedMeasurable.abs_sub_apply_le_mul_of_dist_le`: a bound
-  `dist f g ≤ c * dist f₀ g₀` turns a pointwise bound `|f₀ - g₀| ≤ D` into `|f - g| ≤ c * D`.
+* `LMLExplore.boundedMeasurable.abs_sub_apply_le_mul_of_norm_sub_le`: a bound
+  `‖f - g‖ ≤ c * ‖f₀ - g₀‖` turns a pointwise bound `|f₀ - g₀| ≤ D` into `|f - g| ≤ c * D`.
 * `LMLExplore.boundedMeasurable.abs_sub_apply_le_of_isBlackwell`: Blackwell's argument, pointwise:
   such maps turn a pointwise bound `|f - g| ≤ D` into `|T f - T g| ≤ γ * D`;
   `LMLExplore.boundedMeasurable.abs_sub_apply_le_of_isBlackwell_of_coeFn_eq` states it for the
@@ -233,13 +233,15 @@ theorem dist_le_of_forall_abs_sub_le {f g : boundedMeasurable α} {C : ℝ} (hC 
   rw [dist_eq_norm]
   exact norm_le_of_forall_le hC fun x ↦ by rw [coeFn_sub, Pi.sub_apply]; exact h x
 
-/-- A bound `dist f g ≤ c * dist f₀ g₀` with `0 ≤ c` turns a pointwise bound `|f₀ x - g₀ x| ≤ D`
+/-- A bound `‖f - g‖ ≤ c * ‖f₀ - g₀‖` with `0 ≤ c` turns a pointwise bound `|f₀ x - g₀ x| ≤ D`
 into the pointwise bound `|f x - g x| ≤ c * D`. This is how the contraction and convergence rates
 of operators on `boundedMeasurable α` are read pointwise. -/
-theorem abs_sub_apply_le_mul_of_dist_le {f g f₀ g₀ : boundedMeasurable α} {c D : ℝ} (hc : 0 ≤ c)
-    (h : dist f g ≤ c * dist f₀ g₀) (hD : ∀ x, |(f₀ : ℓ^∞(α, ℝ)) x - (g₀ : ℓ^∞(α, ℝ)) x| ≤ D)
-    (x : α) : |(f : ℓ^∞(α, ℝ)) x - (g : ℓ^∞(α, ℝ)) x| ≤ c * D :=
-  (abs_sub_apply_le_dist f g x).trans <| h.trans <|
+theorem abs_sub_apply_le_mul_of_norm_sub_le {f g f₀ g₀ : boundedMeasurable α} {c D : ℝ}
+    (hc : 0 ≤ c) (h : ‖f - g‖ ≤ c * ‖f₀ - g₀‖)
+    (hD : ∀ x, |(f₀ : ℓ^∞(α, ℝ)) x - (g₀ : ℓ^∞(α, ℝ)) x| ≤ D) (x : α) :
+    |(f : ℓ^∞(α, ℝ)) x - (g : ℓ^∞(α, ℝ)) x| ≤ c * D := by
+  rw [← dist_eq_norm, ← dist_eq_norm] at h
+  exact (abs_sub_apply_le_dist f g x).trans <| h.trans <|
     mul_le_mul_of_nonneg_left (dist_le_of_forall_abs_sub_le ((abs_nonneg _).trans (hD x)) hD) hc
 
 /-- A bounded measurable function lies in the order interval `[-c • 1, c • 1]` if and only if it
@@ -271,8 +273,9 @@ theorem abs_sub_apply_le_of_isBlackwell {T : boundedMeasurable α → boundedMea
     {γ : NNReal} (hT : IsBlackwell 1 γ T) {f g : boundedMeasurable α} {D : ℝ}
     (h : ∀ x, |(f : ℓ^∞(α, ℝ)) x - (g : ℓ^∞(α, ℝ)) x| ≤ D) (x : α) :
     |(T f : ℓ^∞(α, ℝ)) x - (T g : ℓ^∞(α, ℝ)) x| ≤ γ * D :=
-  abs_sub_apply_le_mul_of_dist_le γ.coe_nonneg
-    ((hT.lipschitzWith orderUnitNorm_one_eq_norm).dist_le_mul f g) h x
+  abs_sub_apply_le_mul_of_norm_sub_le γ.coe_nonneg
+    (by simpa only [dist_eq_norm] using
+      (hT.lipschitzWith orderUnitNorm_one_eq_norm).dist_le_mul f g) h x
 
 /-- **Blackwell's argument, for plain functions**: if `T` satisfies Blackwell's conditions for the
 constant function `1` with modulus `γ` and acts on bounded measurable functions as `t : (α → ℝ) →

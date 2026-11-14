@@ -150,9 +150,8 @@ theorem abs_sub_optValue_le_of_bellman_le_succ (hγ : γ < 1) (hR : ∀ p, ∀�
       simpa only [hU, coeFn_optValueBM] using hle k s)
     (fun k ↦ boundedMeasurable.le_def.2 fun s ↦ by
       simpa only [coeFn_bellmanOp, hU] using hsucc k s) k
-  rw [← dist_eq_norm, ← dist_eq_norm] at hnorm
   simpa only [hU, coeFn_optValueBM] using
-    boundedMeasurable.abs_sub_apply_le_mul_of_dist_le (pow_nonneg γ.coe_nonneg k) hnorm
+    boundedMeasurable.abs_sub_apply_le_mul_of_norm_sub_le (pow_nonneg γ.coe_nonneg k) hnorm
       (by simpa only [hU, coeFn_optValueBM] using hD) s
 
 end Finite

@@ -249,10 +249,9 @@ theorem abs_sub_optValue_le (hγ : γ < 1) (h₀ : v 0 ≤ M.bellman γ (v 0))
     (fun _ ↦ (isBlackwell_bellmanEvalOp hR).monotone) hγ (fun _ ↦ bellmanEvalOp_le_bellmanOp hR)
     (isBlackwell_bellmanOp hR) (h.valueBM_zero_le hR hv hvB h₀)
     (isFixedPt_bellmanOp_optValueBM hγ hR) k
-  rw [← dist_eq_norm, ← dist_eq_norm] at hnorm
   simpa only [coeFn_valueBM, coeFn_optValueBM] using
-    LMLExplore.boundedMeasurable.abs_sub_apply_le_mul_of_dist_le (pow_nonneg γ.coe_nonneg k) hnorm
-      (by simpa only [coeFn_valueBM, coeFn_optValueBM] using hD) s
+    LMLExplore.boundedMeasurable.abs_sub_apply_le_mul_of_norm_sub_le (pow_nonneg γ.coe_nonneg k)
+      hnorm (by simpa only [coeFn_valueBM, coeFn_optValueBM] using hD) s
 
 end Convergence
 
