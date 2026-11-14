@@ -70,17 +70,15 @@ theorem abs_value_sub_le {π : Kernel 𝓢 𝓐} [IsMarkovKernel π] (hγ : γ <
     |M.value γ π s - w s| ≤ D / (1 - γ) := by
   have hT := contractingWith_bellmanEvalOp (M := M) (γ := γ) (π := π) hR hγ
   set W := boundedMeasurable.mk w hw (bddAbove_def.2 ⟨B, forall_mem_range.2 hwB⟩)
-  set V := boundedMeasurable.mk (M.value γ π) (measurable_value hγ hR)
-    (bddAbove_def.2 ⟨C / (1 - γ), forall_mem_range.2 (abs_value_le hγ hR)⟩)
-  have hV : V = ContractingWith.fixedPoint _ hT := hT.fixedPoint_unique
-    (isFixedPt_bellmanEvalOp_mk (measurable_value hγ hR) (abs_value_le hγ hR)
-      (bellmanEval_value hγ hR))
+  set V := M.valueBM γ π hγ hR
+  have hV : V = ContractingWith.fixedPoint _ hT :=
+    hT.fixedPoint_unique (isFixedPt_bellmanEvalOp_valueBM hγ hR)
   have hWD : dist W (M.bellmanEvalOp γ π hR W) ≤ D :=
     boundedMeasurable.dist_le_of_forall_abs_sub_le ((abs_nonneg _).trans (hD s)) fun s ↦ by
       rw [coeFn_bellmanEvalOp, boundedMeasurable.coeFn_mk, abs_sub_comm]
       exact hD s
   calc |M.value γ π s - w s| = |⇑(V : ℓ^∞(𝓢, ℝ)) s - ⇑(W : ℓ^∞(𝓢, ℝ)) s| := by
-        rw [boundedMeasurable.coeFn_mk, boundedMeasurable.coeFn_mk]
+        rw [coeFn_valueBM, boundedMeasurable.coeFn_mk]
     _ ≤ dist W (ContractingWith.fixedPoint _ hT) := by
         rw [← hV, dist_comm]
         exact boundedMeasurable.abs_sub_apply_le_dist _ _ s

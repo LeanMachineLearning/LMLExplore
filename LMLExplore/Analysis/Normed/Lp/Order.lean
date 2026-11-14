@@ -12,9 +12,12 @@ public import Mathlib.Analysis.Normed.Lp.lpSpace
 
 When every `E i` is partially ordered, `lp E p` carries the pointwise order: `f ≤ g` if and only
 if `f i ≤ g i` for every `i`. It is compatible with addition and with scalar multiplication by
-nonnegative scalars. On `ℓ^∞(α, ℝ)` and its subspaces this is the order for which operators on
+nonnegative scalars, and for `1 ≤ p` it is closed for the topology of `lp E p`, when it is so on
+every `E i`. On `ℓ^∞(α, ℝ)` and its subspaces this is the order for which operators on
 bounded functions, such as the action of a Markov kernel or the Bellman operators of dynamic
-programming, are monotone.
+programming, are monotone. Its closedness lets limits of iterates of such operators keep the
+inequalities that the iterates satisfy: the comparison results of abstract dynamic programming
+need it.
 
 ## Main definitions
 
@@ -25,6 +28,8 @@ programming, are monotone.
 * `lp.coeFn_le_coeFn`, `lp.le_def`: the order on `lp E p` is the pointwise order.
 * `lp.instIsOrderedAddMonoid`, `lp.instPosSMulMono`: the order is compatible with addition and
   with multiplication by nonnegative scalars.
+* `lp.instOrderClosedTopology`: for `1 ≤ p`, the order on `lp E p` is closed. It is inherited by
+  the subspaces of `lp E p`, such as the bounded measurable functions.
 -/
 
 public section
@@ -62,6 +67,15 @@ instance instPosSMulMono {𝕜 : Type*} [NormedRing 𝕜] [Preorder 𝕜] [∀ i
     [∀ i, IsBoundedSMul 𝕜 (E i)] [∀ i, PosSMulMono 𝕜 (E i)] : PosSMulMono 𝕜 (lp E p) where
   smul_le_smul_of_nonneg_left _ hc _ _ h i := by
     simpa using smul_le_smul_of_nonneg_left (h i) hc
+
+/-- For `1 ≤ p`, the pointwise order on `lp E p` is closed when it is so on every `E i`, since the
+coercion of `lp E p` to the functions `∀ i, E i` is continuous. -/
+instance instOrderClosedTopology [Fact (1 ≤ p)] [∀ i, OrderClosedTopology (E i)] :
+    OrderClosedTopology (lp E p) where
+  isClosed_le' := by
+    have hc : Continuous fun f : lp E p ↦ ⇑f := uniformContinuous_coe.continuous
+    simpa only [Function.comp_apply, coeFn_le_coeFn] using
+      isClosed_le (hc.comp continuous_fst) (hc.comp continuous_snd)
 
 end PartialOrder
 

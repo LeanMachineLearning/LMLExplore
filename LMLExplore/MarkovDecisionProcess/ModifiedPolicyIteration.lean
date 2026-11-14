@@ -31,10 +31,11 @@ the mean rewards (`Learning.MDP.const_le_bellman_const`, [P, (6.5.8)]), modified
 increases monotonically to the optimal value at the geometric rate of value iteration:
 `v k ≤ T v k ≤ v (k + 1)`, `T^[k] (v 0) ≤ v k ≤ v*` and `|v k - v*| ≤ γ ^ k * D` when
 `|v 0 - v*| ≤ D`. These are the convergence results of [P, §6.5], here on a general measurable
-state space. The monotonicity statements are the instance, on the bounded measurable functions
-with the evaluation operators of the measurable deterministic stationary policies as decisions,
-of the abstract dynamic programming of `LMLExplore.IsModifiedPolicyIteration`, and the rate is
-`Learning.MDP.abs_sub_optValue_le_of_bellman_le_succ`.
+state space. They are the instance, on the bounded measurable functions with the evaluation
+operators of the measurable deterministic stationary policies as decisions, of the abstract
+dynamic programming of `LMLExplore.IsModifiedPolicyIteration`, whose comparison with the fixed
+point of the optimality operator, the optimal value, uses the closedness of the pointwise order of
+the bounded measurable functions.
 
 ## Main definitions
 
@@ -229,18 +230,28 @@ variable [Finite 𝓐] [Nonempty 𝓐] [Nonempty 𝓢]
 /-- The values of modified policy iteration started below their image by the optimality operator
 are below the optimal value. -/
 theorem le_optValue (hγ : γ < 1) (h₀ : v 0 ≤ M.bellman γ (v 0)) (k : ℕ) :
-    v k ≤ M.optValue γ := by
-  obtain ⟨B', hB'⟩ := h.exists_abs_le hR hvB k
-  exact le_optValue_of_le_bellman hγ hR (h.measurable hv k) hB' (h.le_bellman hR hv hvB h₀ k)
+    v k ≤ M.optValue γ := fun s ↦ by
+  simpa only [coeFn_valueBM, coeFn_optValueBM] using LMLExplore.boundedMeasurable.le_def.1
+    ((h.isModifiedPolicyIteration_valueBM hR hv hvB).le_of_isFixedPt
+      LMLExplore.boundedMeasurable.orderUnitNorm_one_eq_norm
+      (fun _ ↦ (isBlackwell_bellmanEvalOp hR).monotone) hγ (fun _ ↦ bellmanEvalOp_le_bellmanOp hR)
+      (isBlackwell_bellmanOp hR) (h.valueBM_zero_le hR hv hvB h₀)
+      (isFixedPt_bellmanOp_optValueBM hγ hR) k) s
 
 /-- **Convergence of modified policy iteration at a geometric rate** [P, §6.5]: started below its
 image by the optimality operator and within `D` of the optimal value, modified policy iteration
 is within `γ ^ k * D` of the optimal value after `k` steps. -/
 theorem abs_sub_optValue_le (hγ : γ < 1) (h₀ : v 0 ≤ M.bellman γ (v 0))
     (hD : ∀ s, |v 0 s - M.optValue γ s| ≤ D) (k : ℕ) (s : 𝓢) :
-    |v k s - M.optValue γ s| ≤ γ ^ k * D :=
-  abs_sub_optValue_le_of_bellman_le_succ hγ hR (h.measurable hv) (h.exists_abs_le hR hvB)
-    (h.le_optValue hR hv hvB hγ h₀) (h.bellman_le_succ hR hv hvB h₀) hD k s
+    |v k s - M.optValue γ s| ≤ γ ^ k * D := by
+  have hnorm := (h.isModifiedPolicyIteration_valueBM hR hv hvB).norm_sub_le
+    LMLExplore.boundedMeasurable.orderUnitNorm_one_eq_norm
+    (fun _ ↦ (isBlackwell_bellmanEvalOp hR).monotone) hγ (fun _ ↦ bellmanEvalOp_le_bellmanOp hR)
+    (isBlackwell_bellmanOp hR) (h.valueBM_zero_le hR hv hvB h₀)
+    (isFixedPt_bellmanOp_optValueBM hγ hR) k
+  simpa only [coeFn_valueBM, coeFn_optValueBM] using
+    LMLExplore.boundedMeasurable.abs_sub_apply_le_mul_of_norm_sub_le (pow_nonneg γ.coe_nonneg k)
+      hnorm (by simpa only [coeFn_valueBM, coeFn_optValueBM] using hD) s
 
 end Convergence
 
