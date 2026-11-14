@@ -9,7 +9,9 @@ public import Mathlib.MeasureTheory.MeasurableSpace.Instances
 public import Mathlib.Probability.Process.Stopping
 
 /-!
-# Measurability of stopping times valued in `ℕ∞`
+# Stopping times: the constant time `⊤` and measurability in `ℕ∞`
+
+The constant time `⊤ : WithTop ι` is a stopping time of every filtration indexed by `ι`.
 
 A stopping time of a filtration indexed by `ℕ` takes values in `WithTop ℕ`, which Mathlib equips
 with its Borel σ-algebra, and `IsStoppingTime.measurable'` is measurability for that σ-algebra.
@@ -19,11 +21,21 @@ syntactically equal. This file states measurability of such a stopping time for 
 
 ## Main statements
 
+* `MeasureTheory.isStoppingTime_top`: the constant time `⊤` is a stopping time.
 * `MeasureTheory.IsStoppingTime.measurable_enat`: a stopping time `τ : Ω → ℕ∞` of a filtration
   indexed by `ℕ` is measurable for the discrete σ-algebra of `ℕ∞`.
 -/
 
 public section
+
+namespace MeasureTheory
+
+/-- The constant time `⊤` is a stopping time. -/
+theorem isStoppingTime_top {Ω ι : Type*} {m : MeasurableSpace Ω} [Preorder ι]
+    (f : Filtration ι m) : IsStoppingTime f fun _ : Ω ↦ (⊤ : WithTop ι) :=
+  fun _ ↦ by simp
+
+end MeasureTheory
 
 namespace MeasureTheory.IsStoppingTime
 

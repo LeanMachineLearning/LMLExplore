@@ -7,6 +7,7 @@ module
 
 public import LMLExplore.EValues.TestSupermartingale
 public import LMLExplore.Probability.Process.StoppedValueLimsup
+public import LMLExplore.Probability.Process.Stopping
 public import Mathlib.Probability.Martingale.Convergence
 
 /-!
