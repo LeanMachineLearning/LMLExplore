@@ -133,7 +133,10 @@ theorem infinitePi_fin_mem_and_forall_add_mem {X : Type*} [MeasurableSpace X] (�
     have h_pi : (Measure.infinitePi fun _ : ℕ ↦ μ).map (fun z (i : Fin n) ↦ z i) =
         Measure.pi fun _ : Fin n ↦ μ := by
       rw [Measure.map_infinitePi_infinitePi_of_inj Fin.val_injective, Measure.infinitePi_eq_pi]
-    rw [← h_pi, Measure.map_apply (by fun_prop) hB]
+    rw [← h_pi, Measure.map_apply (by fun_prop) hB, ← Set.preimage_comp]
+    -- Both sides are the preimage of `B` under `z ↦ (z i)_{i : Fin n}`: the composite
+    -- `(fun u i ↦ u ⟨i, _⟩) ∘ (fun z i ↦ z i)` unfolds to `fun z i ↦ z ↑⟨i, _⟩`, and
+    -- `↑⟨i, _⟩ = i` is `Subtype.val` applied to a constructor.
     rfl
   · have h_pi : (fun z (i : Ico n (n + m)) ↦ z i) ⁻¹' (Set.univ.pi fun _ ↦ C) =
         ((Ico n (n + m) : Finset ℕ) : Set ℕ).pi fun _ ↦ C := by
