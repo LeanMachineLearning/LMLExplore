@@ -36,7 +36,7 @@ the Gibbs variational principle. Since `log x ≤ x - 1` and `exp (-x) ≤ 1 - x
 `x ≥ 0`, it is at most `η / 2 * ⟨p, y ^ 2⟩`. The regret bounds of exponential weights with
 nonincreasing learning rates that these stability terms give (`softmax_regret_le_of_antitone` and
 its relatives) are proved in `LMLExplore.OnlineLearning.ExponentialWeights` from the telescoping of
-the mix losses, which needs no convex analysis.
+the mix losses, which needs neither FTRL nor Bregman divergences.
 
 ## Main statements
 
@@ -246,7 +246,8 @@ private lemma sum_sub_mul_sub_sum_mul_log_div_div_eq (p q y : α → ℝ) {η : 
   field_simp
   ring
 
-/-- **The stability term of exponential weights is the mixability gap** [Ora, Section 7.5]. For a
+/-- **The maximum of the stability term of exponential weights is the mixability gap**
+[Ora, Section 7.5]. For a
 probability vector `p` with positive coordinates, a loss `y` and a learning rate `η > 0`, the
 stability term of FTRL with the negative entropy at `p`,
 `q ↦ ∑ a, (p a - q a) * y a - D(q, p) / η` with `D(q, p) = ∑ a, q a * log (q a / p a)` the

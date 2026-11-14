@@ -43,9 +43,10 @@ nonnegative importance-weighted loss estimates of Exp3 [LS, Section 11.3]. For l
 negative but satisfy `η t * y t a ≥ -1`, such as the loss estimates of adversarial linear bandits,
 `exp (-x) ≤ 1 - x + x ^ 2` for `x ≥ -1` gives the same bound with `η t * ⟨p t, (y t) ^ 2⟩` in place
 of `η t / 2 * ⟨p t, (y t) ^ 2⟩` [LS, proof of Theorem 27.1]. The same mix losses and potential give
-the regret bound of AdaHedge (`LMLExplore.OnlineLearning.AdaHedge`), and the mixability gap is the
-stability term of follow the regularized leader with the negative entropy
-(`LMLExplore.OnlineLearning.Simplex`).
+the regret bound of AdaHedge (`LMLExplore.OnlineLearning.AdaHedge`), and the mixability gap at `p`
+is the maximum over the simplex of the stability term of follow the regularized leader with the
+negative entropy at `p`, by the Gibbs variational principle
+(`isGreatest_sum_sub_mul_sub_sum_mul_log_div_div` in `LMLExplore.OnlineLearning.Simplex`).
 
 ## Main definitions
 
@@ -406,8 +407,9 @@ the simplex,
 `∑ t < n, (⟨p t, y t⟩ - ⟨u, y t⟩) ≤ log k / η (n - 1)
   + ∑ t < n, (⟨p t, y t⟩ - mixLoss (η t) (p t) (y t))`,
 with `k` the cardinality of `α` and `⟨p, y⟩ = ∑ b, p b * y b`. The mixability gap
-`⟨p, y⟩ - mixLoss η p y = ⟨p, y⟩ + log (∑ b, p b * exp (-(η * y b))) / η` is also the stability
-term of follow the regularized leader with the negative entropy at `p`. -/
+`⟨p, y⟩ - mixLoss η p y = ⟨p, y⟩ + log (∑ b, p b * exp (-(η * y b))) / η` is also the maximum
+over the simplex of the stability term of follow the regularized leader with the negative entropy
+at `p`, by the Gibbs variational principle (`isGreatest_sum_sub_mul_sub_sum_mul_log_div_div`). -/
 theorem softmax_regret_le_sum_sub_mixLoss_of_antitone {η : ℕ → ℝ} (hη : ∀ t, 0 < η t)
     (hη_anti : Antitone η) (y : ℕ → α → ℝ) (n : ℕ) {u : α → ℝ} (hu : u ∈ simplex α) :
     ∑ t ∈ range n, (∑ b, softmax (-(η t • ∑ s ∈ range t, y s)) b * y t b - ∑ b, u b * y t b) ≤
