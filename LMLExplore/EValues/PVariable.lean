@@ -104,7 +104,10 @@ theorem IsEVar.isPVar_inv (hS : ∀ P ∈ S, IsProbabilityMeasure P) (hE : IsEVa
   measurable := hE.measurable.inv
   measure_le_le P hP α := by
     have := hS P hP
-    simpa only [ENNReal.inv_le_iff_inv_le] using hE.measure_inv_le_le hP α
+    have h_set : {ω | (E ω)⁻¹ ≤ α} = {ω | α⁻¹ ≤ E ω} :=
+      Set.ext fun _ ↦ ENNReal.inv_le_iff_inv_le
+    rw [h_set]
+    exact hE.measure_inv_le_le hP α
 
 /-! ### Exact p-variables -/
 
