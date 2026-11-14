@@ -7,6 +7,7 @@ module
 
 public import LMLExplore.ReinforcementLearning.Generative.Basic
 import LMLExplore.Analysis.Convex.Integral
+import LMLExplore.Analysis.Convex.Simplex
 
 /-!
 # Planning with a generative model: policy evaluation over the full range of sample sizes
@@ -132,10 +133,8 @@ theorem measureReal_sqrt_variance_add_le_abs_integral_sub_integral_stateKernel_e
       have hZρ : Z ρ - m = ∑ a, w a * (f (ρ (s, a)) - m) := by
         simp only [hZ_def, mul_sub, sum_sub_distrib, ← sum_mul, hw₁, one_mul]
       rw [hZρ]
-      refine (sum_sq_le_sum_mul_sum_of_sq_le_mul _ (r := fun a ↦ w a * (f (ρ (s, a)) - m))
-        (f := w) (g := fun a ↦ w a * (f (ρ (s, a)) - m) ^ 2) (fun a _ ↦ hw₀ a)
-        (fun a _ ↦ mul_nonneg (hw₀ a) (sq_nonneg _)) fun a _ ↦ le_of_eq (by ring)).trans_eq ?_
-      rw [hw₁, one_mul]
+      exact sq_dotProduct_le_dotProduct_sq_of_mem_simplex (mem_simplex_iff.2 ⟨hw₀, hw₁⟩)
+        fun a ↦ f (ρ (s, a)) - m
     have h_bsq {y : ℝ} (hy : y ∈ Set.Icc l u) : (y - m) ^ 2 ∈ Set.Icc 0 ((u - l) ^ 2) :=
       ⟨sq_nonneg _, by
         rw [← sq_abs]
