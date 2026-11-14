@@ -5,7 +5,7 @@ Authors: LMLExplore contributors
 -/
 module
 
-public import LMLExplore.MarkovDecisionProcess.Simulation
+public import LMLExplore.MarkovDecisionProcess.Absorbing.Basic
 import LMLExplore.Topology.UnitInterval
 
 /-!
@@ -16,7 +16,9 @@ Let `M : MDP 𝓢 𝓐 𝓡` be an MDP, `p = (s, a)` a state-action pair and `c`
 the next state is `s` and the reward is the deterministic `c`. The state `s` is thus absorbing
 when the action `a` is always played at `s`, and only then. The transitions and the rewards of the
 other pairs, including the other actions at `s`, are those of `M`, so that the modification only
-depends on `M` through its rows outside `p` (`Learning.MDP.saAbsorbing_congr`).
+depends on `M` through its rows outside `p` (`Learning.MDP.saAbsorbing_congr`). The modification
+is the redirection `Learning.MDP.redirect` of `M` on `{p}` to `s`, so that its basic properties and
+its Lipschitz dependence on `c` are those of redirections.
 
 These MDPs are the decoupling device of Li, Wei, Chi, Gu and Chen [LWCGC24, §6.3.2], a
 state-action refinement of the state-absorbing MDPs of Agarwal, Kakade and Yang
@@ -86,56 +88,42 @@ variable {𝓢 𝓐 𝓡 : Type*} {m𝓢 : MeasurableSpace 𝓢} {m𝓐 : Measur
 
 /-! ### The state-action absorbing modification -/
 
-open scoped Classical in
 /-- The `p`-absorbing modification of the MDP `M` with reward `c`, for a state-action pair
 `p = (s, a)`: at the pair `p`, the next state is `s` and the reward is `c`; at every other pair,
-the transitions and the rewards are those of `M`. -/
-noncomputable def saAbsorbing (M : MDP 𝓢 𝓐 𝓡) (p : 𝓢 × 𝓐) (c : 𝓡) : MDP 𝓢 𝓐 𝓡 where
-  P := Kernel.piecewise (measurableSet_singleton p) (Kernel.const _ (Measure.dirac p.1)) M.P
-  R := Kernel.piecewise (measurableSet_singleton p) (Kernel.const _ (Measure.dirac c)) M.R
+the transitions and the rewards are those of `M`. It is the redirection of `M` on `{p}` to `s`. -/
+noncomputable def saAbsorbing (M : MDP 𝓢 𝓐 𝓡) (p : 𝓢 × 𝓐) (c : 𝓡) : MDP 𝓢 𝓐 𝓡 :=
+  M.redirect (measurableSet_singleton p) p.1 c
 
 variable (M M' : MDP 𝓢 𝓐 𝓡) (c : 𝓡)
 
+/-- The `p`-absorbing modification is the redirection on `{p}` to `p.1`. -/
+lemma saAbsorbing_def : M.saAbsorbing p c = M.redirect (measurableSet_singleton p) p.1 c :=
+  (rfl)
+
 /-- At the absorbing pair `(s, a)`, the next state is `s`. -/
 @[simp]
-lemma saAbsorbing_P_apply_self : (M.saAbsorbing p c).P p = Measure.dirac p.1 := by
-  simp [saAbsorbing, Kernel.piecewise_apply]
+lemma saAbsorbing_P_apply_self : (M.saAbsorbing p c).P p = Measure.dirac p.1 :=
+  redirect_P_apply_of_mem M _ c rfl
 
 /-- At the absorbing pair, the reward is `c`. -/
 @[simp]
-lemma saAbsorbing_R_apply_self : (M.saAbsorbing p c).R p = Measure.dirac c := by
-  simp [saAbsorbing, Kernel.piecewise_apply]
+lemma saAbsorbing_R_apply_self : (M.saAbsorbing p c).R p = Measure.dirac c :=
+  redirect_R_apply_of_mem M _ c rfl
 
 /-- Outside the absorbing pair, the transitions are those of `M`. -/
-lemma saAbsorbing_P_apply_of_ne {q : 𝓢 × 𝓐} (hq : q ≠ p) : (M.saAbsorbing p c).P q = M.P q := by
-  simp [saAbsorbing, Kernel.piecewise_apply, hq]
+lemma saAbsorbing_P_apply_of_ne {q : 𝓢 × 𝓐} (hq : q ≠ p) : (M.saAbsorbing p c).P q = M.P q :=
+  redirect_P_apply_of_notMem M _ c hq
 
 /-- Outside the absorbing pair, the rewards are those of `M`. -/
-lemma saAbsorbing_R_apply_of_ne {q : 𝓢 × 𝓐} (hq : q ≠ p) : (M.saAbsorbing p c).R q = M.R q := by
-  simp [saAbsorbing, Kernel.piecewise_apply, hq]
-
-/-- The transitions of the modification do not depend on the reward at the absorbing pair. -/
-lemma saAbsorbing_P_eq_saAbsorbing_P (c' : 𝓡) :
-    (M.saAbsorbing p c).P = (M.saAbsorbing p c').P := by
-  ext1 q
-  rcases eq_or_ne q p with rfl | hq
-  · simp
-  · rw [saAbsorbing_P_apply_of_ne _ _ hq, saAbsorbing_P_apply_of_ne _ _ hq]
+lemma saAbsorbing_R_apply_of_ne {q : 𝓢 × 𝓐} (hq : q ≠ p) : (M.saAbsorbing p c).R q = M.R q :=
+  redirect_R_apply_of_notMem M _ c hq
 
 variable {M M'} in
 /-- **Decoupling**: the `p`-absorbing modification of an MDP only depends on its transitions and
 rewards at the pairs other than `p`. -/
 theorem saAbsorbing_congr (hP : ∀ q ≠ p, M.P q = M'.P q) (hR : ∀ q ≠ p, M.R q = M'.R q) :
-    M.saAbsorbing p c = M'.saAbsorbing p c := by
-  ext1
-  · ext1 q
-    rcases eq_or_ne q p with rfl | hq
-    · simp
-    · rw [saAbsorbing_P_apply_of_ne _ _ hq, saAbsorbing_P_apply_of_ne _ _ hq, hP q hq]
-  · ext1 q
-    rcases eq_or_ne q p with rfl | hq
-    · simp
-    · rw [saAbsorbing_R_apply_of_ne _ _ hq, saAbsorbing_R_apply_of_ne _ _ hq, hR q hq]
+    M.saAbsorbing p c = M'.saAbsorbing p c :=
+  redirect_congr _ c hP hR
 
 /-! ### Rewards and lookaheads of the modification -/
 
@@ -145,24 +133,23 @@ variable (M : MDP 𝓢 𝓐 ℝ) (c : ℝ) {γ : ℝ≥0} {π : Kernel 𝓢 𝓐
 
 /-- At the absorbing pair, the mean reward is `c`. -/
 @[simp]
-lemma meanReward_saAbsorbing_self : meanReward (M.saAbsorbing p c).R p = c := by
-  simp [meanReward_def]
+lemma meanReward_saAbsorbing_self : meanReward (M.saAbsorbing p c).R p = c :=
+  meanReward_redirect_of_mem M _ c rfl
 
 /-- Outside the absorbing pair, the mean rewards are those of `M`. -/
 lemma meanReward_saAbsorbing_of_ne {q : 𝓢 × 𝓐} (hq : q ≠ p) :
-    meanReward (M.saAbsorbing p c).R q = meanReward M.R q := by
-  rw [meanReward_def, meanReward_def, saAbsorbing_R_apply_of_ne _ _ hq]
+    meanReward (M.saAbsorbing p c).R q = meanReward M.R q :=
+  meanReward_redirect_of_notMem M _ c hq
 
 /-- At the absorbing pair `(s, a)`, the lookahead of `v` is `c + γ * v s`. -/
 @[simp]
-lemma lookahead_saAbsorbing_self : (M.saAbsorbing p c).lookahead γ v p = c + γ * v p.1 := by
-  simp [lookahead_def, integral_dirac]
+lemma lookahead_saAbsorbing_self : (M.saAbsorbing p c).lookahead γ v p = c + γ * v p.1 :=
+  lookahead_redirect_of_mem M _ c rfl
 
 /-- Outside the absorbing pair, the lookahead is that of `M`. -/
 lemma lookahead_saAbsorbing_of_ne {q : 𝓢 × 𝓐} (hq : q ≠ p) :
-    (M.saAbsorbing p c).lookahead γ v q = M.lookahead γ v q := by
-  rw [lookahead_def, lookahead_def, meanReward_saAbsorbing_of_ne _ _ hq,
-    saAbsorbing_P_apply_of_ne _ _ hq]
+    (M.saAbsorbing p c).lookahead γ v q = M.lookahead γ v q :=
+  lookahead_redirect_of_notMem M _ c hq
 
 variable {M c}
 
@@ -179,19 +166,8 @@ theorem lookahead_saAbsorbing_of_eq (h : c + γ * v p.1 = M.lookahead γ v p) :
 /-- If the rewards of `M` are bounded by `C`, those of its modification with reward `c` are
 bounded by `max C |c|`. -/
 lemma ae_abs_saAbsorbing_R_le (hR : ∀ p, ∀ᵐ x ∂(M.R p), |x| ≤ C) (q : 𝓢 × 𝓐) :
-    ∀ᵐ x ∂((M.saAbsorbing p c).R q), |x| ≤ max C |c| := by
-  rcases eq_or_ne q p with rfl | hq
-  · simp
-  · rw [saAbsorbing_R_apply_of_ne _ _ hq]
-    exact (hR q).mono fun _ hx ↦ hx.trans (le_max_left _ _)
-
-/-- The mean rewards of two modifications at the same pair differ by at most the difference of
-their rewards at that pair. -/
-lemma abs_meanReward_saAbsorbing_sub_le (c' : ℝ) (q : 𝓢 × 𝓐) :
-    |meanReward (M.saAbsorbing p c).R q - meanReward (M.saAbsorbing p c').R q| ≤ |c - c'| := by
-  rcases eq_or_ne q p with rfl | hq
-  · simp
-  · simp [meanReward_saAbsorbing_of_ne _ _ hq]
+    ∀ᵐ x ∂((M.saAbsorbing p c).R q), |x| ≤ max C |c| :=
+  ae_abs_redirect_R_le _ hR q
 
 /-! ### The modification at the value of a policy -/
 
@@ -226,20 +202,16 @@ theorem qValue_saAbsorbing_qValue [IsMarkovKernel π] (hγ : γ < 1)
 theorem abs_qValue_saAbsorbing_sub_qValue_saAbsorbing_le [IsMarkovKernel π] (hγ : γ < 1)
     (hR : ∀ p, ∀ᵐ x ∂(M.R p), |x| ≤ C) (c c' : ℝ) (q : 𝓢 × 𝓐) :
     |(M.saAbsorbing p c).qValue γ π q - (M.saAbsorbing p c').qValue γ π q| ≤
-      |c - c'| / (1 - γ) := by
-  simpa using abs_qValue_sub_qValue_le hγ (ae_abs_saAbsorbing_R_le hR)
-    (ae_abs_saAbsorbing_R_le hR) (abs_meanReward_saAbsorbing_sub_le c') (ε := 0)
-    (fun q ↦ by rw [saAbsorbing_P_eq_saAbsorbing_P M c c', sub_self, abs_zero]) q
+      |c - c'| / (1 - γ) :=
+  abs_qValue_redirect_sub_qValue_redirect_le _ hγ hR c c' q
 
 /-- With bounded rewards and `γ < 1`, the values of a stationary policy in the `p`-absorbing
 modifications of `M` with rewards `c` and `c'` differ by at most `|c - c'| / (1 - γ)`. -/
 theorem abs_value_saAbsorbing_sub_value_saAbsorbing_le [IsMarkovKernel π] (hγ : γ < 1)
     (hR : ∀ p, ∀ᵐ x ∂(M.R p), |x| ≤ C) (c c' : ℝ) (s' : 𝓢) :
     |(M.saAbsorbing p c).value γ π s' - (M.saAbsorbing p c').value γ π s'| ≤
-      |c - c'| / (1 - γ) := by
-  simpa using abs_value_sub_value_le hγ (ae_abs_saAbsorbing_R_le hR)
-    (ae_abs_saAbsorbing_R_le hR) (abs_meanReward_saAbsorbing_sub_le c') (ε := 0)
-    (fun q ↦ by rw [saAbsorbing_P_eq_saAbsorbing_P M c c', sub_self, abs_zero]) s'
+      |c - c'| / (1 - γ) :=
+  abs_value_redirect_sub_value_redirect_le _ hγ hR c c' s'
 
 /-! ### Optimal values and optimal policies -/
 
@@ -275,10 +247,8 @@ finitely many actions, bounded rewards and `γ < 1`, the optimal action values o
 theorem abs_optQValue_saAbsorbing_sub_optQValue_saAbsorbing_le (hγ : γ < 1)
     (hR : ∀ p, ∀ᵐ x ∂(M.R p), |x| ≤ C) (c c' : ℝ) (q : 𝓢 × 𝓐) :
     |(M.saAbsorbing p c).optQValue γ q - (M.saAbsorbing p c').optQValue γ q| ≤
-      |c - c'| / (1 - γ) := by
-  simpa using abs_optQValue_sub_optQValue_le hγ (ae_abs_saAbsorbing_R_le hR)
-    (ae_abs_saAbsorbing_R_le hR) (abs_meanReward_saAbsorbing_sub_le c') (ε := 0)
-    (fun q ↦ by rw [saAbsorbing_P_eq_saAbsorbing_P M c c', sub_self, abs_zero]) q
+      |c - c'| / (1 - γ) :=
+  abs_optQValue_redirect_sub_optQValue_redirect_le _ hγ hR c c' q
 
 /-- **The optimal values are Lipschitz in the absorbing reward**: with finitely many actions,
 bounded rewards and `γ < 1`, the optimal values of the `p`-absorbing modifications of `M` with
@@ -286,10 +256,8 @@ rewards `c` and `c'` differ by at most `|c - c'| / (1 - γ)`. -/
 theorem abs_optValue_saAbsorbing_sub_optValue_saAbsorbing_le (hγ : γ < 1)
     (hR : ∀ p, ∀ᵐ x ∂(M.R p), |x| ≤ C) (c c' : ℝ) (s' : 𝓢) :
     |(M.saAbsorbing p c).optValue γ s' - (M.saAbsorbing p c').optValue γ s'| ≤
-      |c - c'| / (1 - γ) := by
-  simpa using abs_optValue_sub_optValue_le hγ (ae_abs_saAbsorbing_R_le hR)
-    (ae_abs_saAbsorbing_R_le hR) (abs_meanReward_saAbsorbing_sub_le c') (ε := 0)
-    (fun q ↦ by rw [saAbsorbing_P_eq_saAbsorbing_P M c c', sub_self, abs_zero]) s'
+      |c - c'| / (1 - γ) :=
+  abs_optValue_redirect_sub_optValue_redirect_le _ hγ hR c c' s'
 
 /-- With finitely many actions, bounded rewards and `γ < 1`, the optimal action values of `M` and
 of its `p`-absorbing modification with reward `c` differ by at most `|c - (Q* p - γ v* s)| /
@@ -356,7 +324,6 @@ theorem exists_greedy_optValue_saAbsorbing_eq [Fintype 𝓐] (hγ : γ < 1)
     (hKω : 8 * B ≤ (1 - γ) * ω * K) :
     ∃ k : Fin (K + 1), (M.saAbsorbing p (-B + 2 * B * (k : ℕ) / K)).greedy γ
       ((M.saAbsorbing p (-B + 2 * B * (k : ℕ) / K)).optValue γ) = d := by
-  have h1γ : 0 < 1 - (γ : ℝ) := sub_pos.2 (NNReal.coe_lt_one.2 hγ)
   have hK' : (0 : ℝ) < K := Nat.cast_pos.2 hK
   obtain ⟨k, hk⟩ := exists_abs_sub_grid_le (x := M.optQValue γ p - γ * M.optValue γ p.1) (c := 0)
     (Δ := B) (by rwa [sub_zero]) hK
@@ -366,7 +333,7 @@ theorem exists_greedy_optValue_saAbsorbing_eq [Fintype 𝓐] (hγ : γ < 1)
   have h : 4 * (2 * B / K) ≤ (1 - γ) * ω := by
     rw [mul_div_assoc', div_le_iff₀ hK']
     linarith
-  nlinarith [mul_pos h1γ hω]
+  linarith
 
 end Optimal
 
