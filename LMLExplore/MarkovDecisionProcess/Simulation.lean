@@ -366,8 +366,8 @@ private lemma abs_integral_resolvent_le_of_abs_le_sqrt_variance (hγ : γ < 1)
   set σ : 𝓢 × 𝓐 → ℝ := fun q ↦ √(Var[M.value γ π; M.P q])
   have hσ : Measurable σ := (hv.variance_kernel (η := M.P)).sqrt
   have hσB (q : 𝓢 × 𝓐) : |σ q| ≤ C / (1 - γ) := by
-    rw [abs_of_nonneg (Real.sqrt_nonneg _), Real.sqrt_le_left hB]
-    exact variance_le_sq_of_abs_le hv.aemeasurable (.of_forall hvB)
+    rw [abs_of_nonneg (Real.sqrt_nonneg _)]
+    exact sqrt_variance_le_of_abs_le hv.aemeasurable hB (.of_forall hvB)
   have hσi := (integrable_of_abs_le hσ hσB ρ).const_mul a
   have h_int : ∫ q, σ q ∂ρ ≤ C * √(2 / (1 - γ) ^ 3) :=
     integral_sqrt_variance_value_resolvent_le hγ hR p
@@ -537,8 +537,7 @@ theorem abs_optQValue_sub_optQValue_le_of_le_sqrt_variance (hγ : γ < 1)
       a * (C / (1 - γ)) + b := by
     refine (hε q).trans ?_
     gcongr
-    rw [Real.sqrt_le_left hB]
-    exact variance_le_sq_of_abs_le hv.aemeasurable (.of_forall hvB)
+    exact sqrt_variance_le_of_abs_le hv.aemeasurable hB (.of_forall hvB)
   -- the greedy policies for the optimal values are optimal stationary policies
   have hg := measurable_greedy (M := M) (γ := γ) hv
   have hg' := measurable_greedy (M := M') (γ := γ) (measurable_optValue hγ hR')

@@ -32,8 +32,9 @@ policy `π`, these marginals are given by powers of two kernels:
   `(M.saKernel π ^ n) ∘ₘ (μ ⊗ₘ π)`.
 
 Integrating a function against `M.stateKernel π s` averages over the actions `a` of `π s` its
-integral against `M.P (s, a)` (`integral_stateKernel`); integrating a function against
-`M.saKernel π p` integrates over `M.P p` its average over the actions of `π` (`integral_saKernel`).
+integral against `M.P (s, a)` (`integral_stateKernel`, and `integral_stateKernel_eq_sum` for
+finitely many actions); integrating a function against `M.saKernel π p` integrates over `M.P p`
+its average over the actions of `π` (`integral_saKernel`).
 
 The deterministic stationary policies `policyAlg π hπ` are Markov policies
 (`policyAlg_eq_markov`).
@@ -138,6 +139,16 @@ lemma integral_stateKernel {s : 𝓢} {v : 𝓢 → ℝ} (hv : Integrable v (M.s
   rw [Kernel.prod_apply, Kernel.id_apply, Measure.dirac_prod] at h
   rw [Kernel.integral_comp hv, Kernel.prod_apply, Kernel.id_apply, Measure.dirac_prod,
     integral_map measurable_prodMk_left.aemeasurable h]
+
+omit [IsSFiniteKernel π] in
+variable {M π} in
+/-- For finitely many actions, integrating against the state kernel of `π` from `s` is the average
+over the actions `a`, with the weights `π(a | s)`, of the integrals against `M.P (s, a)`. -/
+lemma integral_stateKernel_eq_sum [Fintype 𝓐] [MeasurableSingletonClass 𝓐] [IsFiniteKernel π]
+    {s : 𝓢} {v : 𝓢 → ℝ} (hv : Integrable v (M.stateKernel π s)) :
+    ∫ s', v s' ∂(M.stateKernel π s) = ∑ a, (π s).real {a} * ∫ s', v s' ∂(M.P (s, a)) := by
+  rw [integral_stateKernel hv, integral_fintype .of_finite]
+  simp only [smul_eq_mul]
 
 @[simp]
 lemma saKernel_apply (p : 𝓢 × 𝓐) : M.saKernel π p = M.P p ⊗ₘ π := by
