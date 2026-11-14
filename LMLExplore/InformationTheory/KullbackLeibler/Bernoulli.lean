@@ -313,7 +313,8 @@ theorem two_mul_sq_le_klBerReal (hp : p ∈ Set.Icc 0 1) (hq : q ∈ Set.Icc 0 1
 
 /-- For `p, q ∈ [0, 1]`, the real-valued binary relative entropy is nonnegative where `klBer p q`
 is finite. -/
-theorem klBerReal_nonneg (hp : p ∈ Set.Icc 0 1) (hq : q ∈ Set.Icc 0 1) (h : klBer p q ≠ ∞) :
+theorem klBerReal_nonneg_of_klBer_ne_top (hp : p ∈ Set.Icc 0 1) (hq : q ∈ Set.Icc 0 1)
+    (h : klBer p q ≠ ∞) :
     0 ≤ klBerReal p q :=
   (by positivity : (0 : ℝ) ≤ 2 * (p - q) ^ 2).trans (two_mul_sq_le_klBerReal hp hq h)
 
@@ -326,9 +327,9 @@ theorem klBer_eq_zero_iff (hp : p ∈ Set.Icc 0 1) (hq : q ∈ Set.Icc 0 1) :
   nlinarith [sq_nonneg (p - q)]
 
 /-- For `p ∈ [0, 1]` and `q ∈ (0, 1)`, the real-valued binary relative entropy vanishes only at
-`p = q`. With `LMLExplore.klBerReal_nonneg`, `q` is the unique minimizer of `p ↦ d(p, q)` on
-`[0, 1]` and, for `p ∈ (0, 1)`, `p` is the unique minimizer of `q ↦ d(p, q)` on `(0, 1)`
-[LS, Lemma 10.2]. -/
+`p = q`. With `LMLExplore.klBerReal_nonneg_of_klBer_ne_top`, `q` is the unique minimizer of
+`p ↦ d(p, q)` on `[0, 1]` and, for `p ∈ (0, 1)`, `p` is the unique minimizer of `q ↦ d(p, q)` on
+`(0, 1)` [LS, Lemma 10.2]. -/
 theorem klBerReal_eq_zero_iff (hp : p ∈ Set.Icc 0 1) (hq : q ∈ Set.Ioo 0 1) :
     klBerReal p q = 0 ↔ p = q := by
   rw [← toReal_klBer hp (Set.Ioo_subset_Icc_self hq) (klBer_ne_top hq),
@@ -471,7 +472,7 @@ theorem pow_mul_one_sub_pow_le_div_pow_mul_div_pow {k m n : ℕ} (hkm : k + m = 
   have hq : 0 < u ^ k * (1 - u) ^ m := mul_pos (pow_pos hu0 _) (pow_pos (sub_pos.2 hu1) _)
   have hlog : 0 ≤ log (((k : ℝ) / n) ^ k * ((m : ℝ) / n) ^ m / (u ^ k * (1 - u) ^ m)) := by
     rw [← mul_klBerReal_div_eq_log hkm hn ⟨hu0, hu1⟩]
-    exact mul_nonneg hn'.le (klBerReal_nonneg hkn hu (klBer_ne_top ⟨hu0, hu1⟩))
+    exact mul_nonneg hn'.le (klBerReal_nonneg_of_klBer_ne_top hkn hu (klBer_ne_top ⟨hu0, hu1⟩))
   rwa [log_nonneg_iff (div_pos hR hq), one_le_div hq] at hlog
 
 /-! ### Continuity and monotonicity -/
@@ -578,7 +579,8 @@ theorem strictMonoOn_klBer (hp : p ∈ Set.Icc 0 1) : StrictMonoOn (klBer p) (Se
   have hq₂01 : q₂ ∈ Set.Ioo 0 1 := ⟨hq₁01.1.trans h, hq₂1⟩
   rw [klBer_eq_ofReal_klBerReal hp hq₁' (klBer_ne_top hq₁01),
     klBer_eq_ofReal_klBerReal hp hq₂' (klBer_ne_top hq₂01),
-    ENNReal.ofReal_lt_ofReal_iff_of_nonneg (klBerReal_nonneg hp hq₁' (klBer_ne_top hq₁01))]
+    ENNReal.ofReal_lt_ofReal_iff_of_nonneg
+      (klBerReal_nonneg_of_klBer_ne_top hp hq₁' (klBer_ne_top hq₁01))]
   exact strictMonoOn_klBerReal p ⟨hq₁.1, hq₁01⟩ ⟨hq₂.1, hq₂01⟩ h
 
 /-- For `p ∈ [0, 1]`, `q ↦ klBer p q` is strictly decreasing on `[0, p]`. -/
@@ -703,9 +705,10 @@ theorem klBer_add_klBer_le {r : ℝ} (hpq : p ≤ q) (hqr : q ≤ r) :
       klBer_eq_ofReal_klBerReal (Set.Ioo_subset_Icc_self hq') (Set.Ioo_subset_Icc_self hr')
         (klBer_ne_top hr'),
       klBer_eq_ofReal_klBerReal hp' (Set.Ioo_subset_Icc_self hr') (klBer_ne_top hr'),
-      ← ENNReal.ofReal_add (klBerReal_nonneg hp' (Set.Ioo_subset_Icc_self hq') (klBer_ne_top hq'))
-        (klBerReal_nonneg (Set.Ioo_subset_Icc_self hq') (Set.Ioo_subset_Icc_self hr')
-          (klBer_ne_top hr'))]
+      ← ENNReal.ofReal_add
+        (klBerReal_nonneg_of_klBer_ne_top hp' (Set.Ioo_subset_Icc_self hq') (klBer_ne_top hq'))
+        (klBerReal_nonneg_of_klBer_ne_top (Set.Ioo_subset_Icc_self hq')
+          (Set.Ioo_subset_Icc_self hr') (klBer_ne_top hr'))]
     refine ENNReal.ofReal_le_ofReal ?_
     -- `d(p, r) - d(p, q)` is affine in `p`, with value `d(q, r)` at `p = q` and a nonpositive
     -- slope `(log q - log r) - (log (1 - q) - log (1 - r))`
@@ -718,8 +721,7 @@ theorem klBer_add_klBer_le {r : ℝ} (hpq : p ≤ q) (hqr : q ≤ r) :
         (1 - p) * log ((1 - p) / (1 - q)) + (1 - p) * (log (1 - q) - log (1 - r)) := by
       rw [log_div (by linarith) (by linarith), log_div (by linarith) (by linarith)]
       ring
-    have h₃ : klBerReal q r = q * (log q - log r) + (1 - q) * (log (1 - q) - log (1 - r)) := by
-      rw [klBerReal_apply, log_div hq'.1.ne' hr'.1.ne', log_div (by linarith) (by linarith)]
+    have h₃ := klBerReal_eq_of_ne (p := q) hr'.1.ne' hr'.2.ne
     have hA : log q - log r ≤ 0 := by linarith [log_le_log hq'.1 hqr.le]
     have hB : 0 ≤ log (1 - q) - log (1 - r) := by
       linarith [log_le_log (sub_pos.2 hr1) (by linarith : 1 - r ≤ 1 - q)]

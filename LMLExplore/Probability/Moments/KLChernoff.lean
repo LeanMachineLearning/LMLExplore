@@ -388,7 +388,7 @@ theorem measureReal_klUpper_le_le {X : ι → Ω → ℝ} (h_indep : iIndepFun X
       rw [sub_sq_comm]
       exact ofReal_two_mul_sq_le_klBer hq' hm'
     refine ⟨x, ⟨hx.1, hxq.trans hqm⟩, (mul_div_cancel₀ _ hs0.ne').ge, ?_⟩
-    exact (ENNReal.ofReal_le_ofReal_iff (klBerReal_nonneg hx hm' h_fin)).1 h_le
+    exact (ENNReal.ofReal_le_ofReal_iff (klBerReal_nonneg_of_klBer_ne_top hx hm' h_fin)).1 h_le
   _ ≤ exp (-(#s * (L / #s + 2 * (m - q) ^ 2))) :=
     measureReal_exists_sum_le_and_le_klBerReal_le h_indep hXm hX hmean hm _
   _ = exp (-L) * exp (-(2 * (m - q) ^ 2 * #s)) := by
