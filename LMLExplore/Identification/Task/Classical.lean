@@ -24,7 +24,9 @@ are the models `θ : α → ℝ × ℝ≥0` with `mean θ a = (θ a).1`. The tas
 of mean `μ a`, for example `ν μ = gaussianBandit μ σ2`.
 
 * `baiTask ν mean`: best arm identification. The answer is the arm with the largest mean, on the
-  models with a unique best arm.
+  models with a unique best arm. The answers may form any type `ι`, with `mean : Θ → ι → ℝ`: the
+  answer is then the one with the largest value, as in the transductive task of linear
+  identification.
 * `epsBaiTask ν mean ε`: `ε`-best arm identification. The correct answers are the arms whose mean
   is within `ε` of the largest mean, on every model. Several answers may be correct.
 * `mulEpsBaiTask ν mean ε`: multiplicative `ε`-best arm identification [JDK23b]. The correct
@@ -100,19 +102,23 @@ open MeasureTheory ProbabilityTheory
 
 namespace LMLExplore.Identification
 
-variable {α Θ Θ' 𝓨 : Type*} {mα : MeasurableSpace α} {m𝓨 : MeasurableSpace 𝓨}
+variable {α Θ Θ' 𝓨 ι : Type*} {mα : MeasurableSpace α} {m𝓨 : MeasurableSpace 𝓨}
 
-section MeanFunctional
+section BestArm
 
 /-! ### Best arm identification -/
 
-variable (ν : Θ → Kernel α 𝓨) [∀ θ, IsMarkovKernel (ν θ)] (mean : Θ → α → ℝ) {θ : Θ}
+variable (ν : Θ → Kernel α 𝓨) [∀ θ, IsMarkovKernel (ν θ)] (mean : Θ → ι → ℝ) {θ : Θ}
 
 /-- *Best arm identification* [GK16] on a type `Θ` of models with the mean functional
 `mean : Θ → α → ℝ`: the correct answer of a model `θ` is its arm with the largest mean
 `mean θ a`, and the admissible models are those with a unique best arm. The task on vectors of
-means is `baiTask ν id`. -/
-noncomputable def baiTask : IdentTask α Θ α 𝓨 where
+means is `baiTask ν id`.
+
+More generally, the answers form any type `ι`, with the value `mean θ a` of the answer `a` under
+`θ`, and the correct answer is the one with the largest value. Best arm identification is the case
+`ι = α`. -/
+noncomputable def baiTask : IdentTask α Θ ι 𝓨 where
   M := {θ | ∃ a, ∀ b ≠ a, mean θ b < mean θ a}
   ν := ν
   isMarkovKernel_ν _ := inferInstance
@@ -146,7 +152,7 @@ lemma subsingleton_correct_baiTask (θ : Θ) : ((baiTask ν mean).correct θ).Su
   exact lt_asymm (ha a' (Ne.symm h)) (ha' a h)
 
 /-- The arm `a` is the only best arm of `θ` iff every other arm `b` has `mean θ b < mean θ a`. -/
-lemma correct_baiTask_eq_singleton_iff {a : α} :
+lemma correct_baiTask_eq_singleton_iff {a : ι} :
     (baiTask ν mean).correct θ = {a} ↔ ∀ b ≠ a, mean θ b < mean θ a :=
   ⟨fun h ↦ by simpa using h.symm.subset (Set.mem_singleton a),
     fun h ↦ (subsingleton_correct_baiTask ν mean θ).eq_singleton_of_mem h⟩
@@ -157,6 +163,12 @@ lemma isSingleAnswer_baiTask : (baiTask ν mean).IsSingleAnswer := by
   refine (IdentTask.isSingleAnswer_iff _).2 ?_
   rintro θ ⟨a, ha⟩
   exact ⟨a, (correct_baiTask_eq_singleton_iff ν mean).2 ha⟩
+
+end BestArm
+
+section MeanFunctional
+
+variable (ν : Θ → Kernel α 𝓨) [∀ θ, IsMarkovKernel (ν θ)] (mean : Θ → α → ℝ) {θ : Θ}
 
 /-! ### `ε`-best arm identification -/
 
