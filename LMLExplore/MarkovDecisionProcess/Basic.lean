@@ -44,6 +44,7 @@ the dot notation `M.env` when the namespace `Learning` is open.
 * `Learning.MDP.policyMeasure M π hπ s`: the law of the trajectory of `π` started at `s`.
 * `Learning.MDP.stateLaw M π hπ s`: the law of the state-action trajectory of `π` from `s`.
 * `Learning.MDP.meanReward R p`: the mean reward of the state-action pair `p`.
+* `Learning.MDP.ofDet P r hr`: the MDP with transition kernel `P` and deterministic rewards `r`.
 
 ## Main statements
 
@@ -115,6 +116,40 @@ lemma norm_meanReward_le (R : Kernel (𝓢 × 𝓐) 𝓡) [IsMarkovKernel R] {p 
   simpa [meanReward_def] using norm_integral_le_of_norm_le_const hR
 
 end MeanReward
+
+/-! ### Deterministic rewards -/
+
+/-- The MDP with transition kernel `P` and the deterministic reward `r p` at every state-action
+pair `p`. -/
+noncomputable def ofDet (P : Kernel (𝓢 × 𝓐) 𝓢) [IsMarkovKernel P] (r : 𝓢 × 𝓐 → 𝓡)
+    (hr : Measurable r) : MDP 𝓢 𝓐 𝓡 where
+  P := P
+  R := Kernel.deterministic r hr
+
+@[simp]
+lemma ofDet_P (P : Kernel (𝓢 × 𝓐) 𝓢) [IsMarkovKernel P] (r : 𝓢 × 𝓐 → 𝓡) (hr : Measurable r) :
+    (ofDet P r hr).P = P :=
+  (rfl)
+
+@[simp]
+lemma ofDet_R (P : Kernel (𝓢 × 𝓐) 𝓢) [IsMarkovKernel P] (r : 𝓢 × 𝓐 → 𝓡) (hr : Measurable r) :
+    (ofDet P r hr).R = Kernel.deterministic r hr :=
+  (rfl)
+
+/-- The mean reward of the deterministic reward kernel of a function `r` is `r`. It gives the mean
+reward of `ofDet P r hr`. -/
+@[simp]
+lemma meanReward_deterministic [NormedAddCommGroup 𝓡] [NormedSpace ℝ 𝓡] [CompleteSpace 𝓡]
+    [MeasurableSingletonClass 𝓡] (r : 𝓢 × 𝓐 → 𝓡) (hr : Measurable r) :
+    meanReward (Kernel.deterministic r hr) = r := by
+  ext p
+  simp [meanReward_def, Kernel.deterministic_apply]
+
+/-- Deterministic rewards bounded by `C` are almost surely bounded by `C`. -/
+lemma ae_abs_ofDet_R_le (P : Kernel (𝓢 × 𝓐) 𝓢) [IsMarkovKernel P] {r : 𝓢 × 𝓐 → ℝ}
+    (hr : Measurable r) {C : ℝ} (hC : ∀ p, |r p| ≤ C) (p : 𝓢 × 𝓐) :
+    ∀ᵐ x ∂((ofDet P r hr).R p), |x| ≤ C := by
+  simpa [Kernel.deterministic_apply, ae_dirac_eq] using hC p
 
 /-! ### Deterministic stationary policies and their trajectory laws -/
 
