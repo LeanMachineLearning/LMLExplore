@@ -179,24 +179,17 @@ theorem regret_sq_sub_le_one_add_log (x y : ℕ → ℝ) {u : ℝ} {n : ℕ}
     (hu : u ∈ Set.Icc 0 1) :
     regret (fun t a ↦ (a - y t) ^ 2) x u n ≤ 1 + Real.log n := by
   -- the squared losses are `2`-strongly convex, with derivative `2 (x t - y t)` at `x t`
-  have hℓ (t : ℕ) (_ : t < n) : StrongConvexOn (Set.Icc (0 : ℝ) 1) 2 fun a ↦ (a - y t) ^ 2 := by
-    convert strongConvexOn_div_two_mul_norm_sub_sq (convex_Icc (0 : ℝ) 1) 2 (y t) using 2 with a
-    rw [Real.norm_eq_abs, sq_abs]
-    ring
-  have hg (t : ℕ) (_ : t < n) : HasSubgradientWithinAt (fun a ↦ (a - y t) ^ 2)
-      (ContinuousLinearMap.toSpanSingleton ℝ (2 * (x t - y t))) (Set.Icc 0 1) (x t) := by
-    refine hasSubgradientWithinAt_iff_le.mpr fun a _ ↦ ?_
-    simp only [ContinuousLinearMap.toSpanSingleton_apply, smul_eq_mul]
-    nlinarith [sq_nonneg (a - x t)]
-  have h := regret_le_ftl_of_strongConvexOn (fun t a ↦ (a - y t) ^ 2) x _ hℓ
-    (fun t _ ↦ by simp only [sum_const, card_range, nsmul_eq_mul]; positivity) hx hmin hg hu
+  have h := regret_le_ftl_of_strongConvexOn (fun t a ↦ (a - y t) ^ 2) x _
+    (fun t _ ↦ strongConvexOn_sq_sub (convex_Icc 0 1) (y t))
+    (fun t _ ↦ by simp only [sum_const, card_range, nsmul_eq_mul]; positivity) hx hmin
+    (fun t _ ↦ hasSubgradientWithinAt_sq_sub _ (x t) (y t)) hu
   refine h.trans ((sum_le_sum fun t ht ↦ ?_).trans (Real.sum_range_inv_add_one_le n))
   -- each stability term is `(x t - y t) ^ 2 / (t + 1) ≤ 1 / (t + 1)`
   have ht := mem_range.mp ht
   have h_sq : (x t - y t) ^ 2 ≤ 1 := by
     nlinarith [(hx t ht).1, (hx t ht).2, (hy t ht).1, (hy t ht).2]
-  simp only [ContinuousLinearMap.norm_toSpanSingleton, Real.norm_eq_abs, sum_const, card_range,
-    nsmul_eq_mul, Nat.cast_add, Nat.cast_one]
+  simp only [innerSL_apply_norm, Real.norm_eq_abs, sum_const, card_range, nsmul_eq_mul,
+    Nat.cast_add, Nat.cast_one]
   rw [sq_abs, inv_eq_one_div, div_le_div_iff₀ (by positivity) (by positivity)]
   nlinarith
 
