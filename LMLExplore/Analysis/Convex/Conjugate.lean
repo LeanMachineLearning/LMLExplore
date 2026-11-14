@@ -7,6 +7,7 @@ module
 
 public import LeanMachineLearning.ForMathlib.Analysis.Convex.Subgradient.Deriv
 public import LMLExplore.Analysis.Convex.Bregman.StrictConvex
+public import LMLExplore.Analysis.Normed.Operator.Basic
 public import Mathlib.Analysis.Normed.Operator.Bilinear
 public import TauCeti.Analysis.Convex.EffectiveDomain
 public import TauCeti.Analysis.Convex.Subdifferential
@@ -229,7 +230,7 @@ private lemma exists_pos_apply_sub_sub_bregDiv_le (hF : ConvexOn ℝ D F)
   obtain ⟨c, hc, hgrow⟩ := hFs.exists_pos_mul_norm_le_bregDiv hF hx hu hρ hsphere
   refine ⟨c, hc, fun h hh z hz ↦ ?_⟩
   have hφz : 0 ≤ bregDiv F z x u := hu z hz
-  have hhz : h (z - x) ≤ ‖h‖ * ‖z - x‖ := (le_abs_self _).trans (h.le_opNorm _)
+  have hhz : h (z - x) ≤ ‖h‖ * ‖z - x‖ := h.apply_le_opNorm_mul_norm _
   rcases le_or_gt ‖z - x‖ ρ with hzx | hzx
   · -- Near `x`, the tilt is at most `‖h‖ ρ ≤ ε ‖h‖`.
     have : ‖h‖ * ‖z - x‖ ≤ ε * ‖h‖ := by

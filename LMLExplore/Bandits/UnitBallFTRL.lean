@@ -6,6 +6,7 @@ Authors: LMLExplore contributors
 module
 
 public import LMLExplore.Analysis.InnerProductSpace.Dual
+public import LMLExplore.Analysis.Normed.Operator.Basic
 public import LMLExplore.Bandits.StochasticMirrorDescent
 public import LMLExplore.MeasureTheory.Function.ConditionalExpectation.FiniteValued
 public import LMLExplore.OnlineLearning.UnitBallPotential
@@ -407,7 +408,7 @@ private lemma integral_sum_apply_smul_sub_le (hr1 : r ≤ 1) (hu : ‖u‖ ≤ 1
                 (integrable_const _) ?_
               filter_upwards [hy1 t (mem_range.1 ht)] with ω hω
               calc y t ω (r • u - u) ≤ ‖y t ω‖ * ‖r • u - u‖ :=
-                    (le_abs_self _).trans ((y t ω).le_opNorm (r • u - u))
+                    (y t ω).apply_le_opNorm_mul_norm _
                 _ ≤ 1 * (1 - r) := mul_le_mul hω h_norm (norm_nonneg _) zero_le_one
                 _ = 1 - r := one_mul _
           _ = 1 - r := by simp
