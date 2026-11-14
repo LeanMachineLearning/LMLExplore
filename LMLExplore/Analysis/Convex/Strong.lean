@@ -28,9 +28,10 @@ sense at every point of `s`, including its boundary [Ora, Lemma 4.2, Theorems 4.
   strong monotonicity `m * ‖x - y‖ ^ 2 ≤ (g_x - g_y) (x - y)` of the subgradients;
 * a function whose second derivative satisfies `m * ‖y - x‖ ^ 2 ≤ f'' z (y - x) (y - x)` at the
   points `z` of each segment `[x, y]` of a convex set is `m`-strongly convex there;
-* an `m`-strongly convex function grows quadratically away from a minimizer, and, for `m > 0` in
-  finite dimension, a lower semicontinuous `m`-strongly convex function on a nonempty closed set
-  has exactly one minimizer there.
+* an `m`-strongly convex function grows quadratically away from a minimizer, so that, for
+  `m > 0`, minimizers of its perturbations by continuous linear maps `θ₁` and `θ₂` are at distance
+  at most `‖θ₁ - θ₂‖ / m`, and, for `m > 0` in finite dimension, a lower semicontinuous
+  `m`-strongly convex function on a nonempty closed set has exactly one minimizer there.
 
 The last statement is what makes the plays of follow the regularized leader and mirror descent
 with a strongly convex potential exist on closed sets that need not be bounded.
@@ -56,6 +57,9 @@ with a strongly convex potential exist on closed sets that need not be bounded.
 * `Convex.strongConvexOn_of_hasFDerivWithinAt2_mul_norm_sub_sq_le`: [Ora, Theorem 4.3] the
   second-order criterion along segments.
 * `StrongConvexOn.add_mul_norm_sub_sq_le_of_isMinOn`: quadratic growth away from a minimizer.
+* `StrongConvexOn.mul_norm_sub_le_norm_sub_of_isMinOn_add`: [Ora, Lemma 7.49] the minimizers
+  `x, y` of the linear perturbations `f + θ₁` and `f + θ₂` of an `m`-strongly convex `f` satisfy
+  `m * ‖x - y‖ ≤ ‖θ₁ - θ₂‖`.
 * `StrongConvexOn.exists_forall_lt_of_lowerSemicontinuousWithinAt`: for `m > 0`, `f` exceeds its
   value at a point of lower semicontinuity on the points of `s` far enough from it.
 * `StrongConvexOn.exists_isMinOn`, `StrongConvexOn.existsUnique_isMinOn`: [Ora, Theorem 6.9]
@@ -75,7 +79,7 @@ with a strongly convex potential exist on closed sets that need not be bounded.
 * [LS] T. Lattimore and Cs. Szepesvári, *Bandit Algorithms*, Cambridge University Press, 2020,
   Corollary 28.8.
 * [Ora] F. Orabona, *Online Learning: A Modern Introduction Using Convex Optimization*,
-  arXiv:1912.13213v10, Lemma 4.2, Theorems 4.3, 4.6 and 6.9.
+  arXiv:1912.13213v10, Lemmas 4.2 and 7.49, Theorems 4.3, 4.6 and 6.9.
 -/
 
 public section
@@ -174,6 +178,31 @@ theorem add_mul_norm_sub_sq_le_of_isMinOn (hf : StrongConvexOn s m f) (hx : x �
     f x + m / 2 * ‖y - x‖ ^ 2 ≤ f y := by
   simpa using hf.add_add_le_of_hasSubgradientWithinAt hx hy
     (hasSubgradientWithinAt_zero_iff_isMinOn.2 hmin)
+
+/-- **Stability of the minimizers under linear perturbations** [Ora, Lemma 7.49]. If `f` is
+`m`-strongly convex on `s`, and `x, y ∈ s` minimize on `s` the perturbations `f + θ₁` and
+`f + θ₂` of `f` by continuous linear maps, then `m * ‖x - y‖ ≤ ‖θ₁ - θ₂‖`, where `‖θ₁ - θ₂‖` is
+the dual norm. For `m > 0`, the minimizers are thus `1 / m`-Lipschitz in the perturbation:
+`‖x - y‖ ≤ ‖θ₁ - θ₂‖ / m`. -/
+theorem mul_norm_sub_le_norm_sub_of_isMinOn_add (hf : StrongConvexOn s m f) (hx : x ∈ s)
+    (hy : y ∈ s) {θ₁ θ₂ : E →L[ℝ] ℝ} (hx_min : IsMinOn (fun a ↦ f a + θ₁ a) s x)
+    (hy_min : IsMinOn (fun a ↦ f a + θ₂ a) s y) :
+    m * ‖x - y‖ ≤ ‖θ₁ - θ₂‖ := by
+  have hθ (θ : E →L[ℝ] ℝ) : StrongConvexOn s m fun a ↦ f a + θ a :=
+    hf.add_convexOn (θ.toLinearMap.convexOn hf.1)
+  have h₁ := (hθ θ₁).add_mul_norm_sub_sq_le_of_isMinOn hx hx_min hy
+  have h₂ := (hθ θ₂).add_mul_norm_sub_sq_le_of_isMinOn hy hy_min hx
+  -- adding the quadratic growths at the two minimizers, `m ‖x - y‖² ≤ (θ₁ - θ₂) (y - x)`
+  have h_op : (θ₁ - θ₂) (y - x) ≤ ‖θ₁ - θ₂‖ * ‖x - y‖ := by
+    rw [norm_sub_rev x y]
+    exact (Real.le_norm_self _).trans ((θ₁ - θ₂).le_opNorm _)
+  simp only [sub_apply, map_sub] at h_op
+  rw [norm_sub_rev y x] at h₁
+  have h_sq : m * ‖x - y‖ * ‖x - y‖ ≤ ‖θ₁ - θ₂‖ * ‖x - y‖ := by nlinarith
+  rcases (norm_nonneg (x - y)).eq_or_lt with h0 | hpos
+  · rw [← h0, mul_zero]
+    exact norm_nonneg _
+  · exact le_of_mul_le_mul_right h_sq hpos
 
 end StrongConvexOn
 
