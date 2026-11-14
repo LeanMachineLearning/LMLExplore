@@ -12,10 +12,13 @@ public import Statlib.EValues.EVariable
 /-!
 # Exact e-variables, Markov's inequality and products of independent e-variables
 
-An e-variable for a null hypothesis `S : Set (Measure Ω)` is a measurable `E : Ω → ℝ≥0∞` with
-`∫⁻ E ∂P ≤ P univ` for every `P ∈ S` (Statlib's `ProbabilityTheory.IsEVar`), that is, with
-expectation at most one under every probability measure of `S`. This file develops the first
-properties of e-variables that hypothesis testing uses:
+An e-variable for a null hypothesis `S : Set (Measure Ω)` (Statlib's `ProbabilityTheory.IsEVar`)
+is a measurable `E : Ω → ℝ≥0∞` with `∫ᵉ ω, E ω - 1 ∂P ≠ ⊥` and `∫ᵉ ω, E ω - 1 ∂P ≤ 0` for every
+`P ∈ S`. For a null of finite measures this says `∫⁻ E ∂P ≤ P univ` for every `P ∈ S`
+(`ProbabilityTheory.IsEVar.of_lintegral_le_measure_univ`,
+`ProbabilityTheory.IsEVar.lintegral_le_measure_univ`), that is, `E` has expectation at most one
+under every probability measure of `S`. This file develops the first properties of e-variables
+that hypothesis testing uses:
 
 * the exact e-variables, with `∫⁻ E ∂P = P univ` for every `P ∈ S`;
 * Markov's inequality, which makes `{α⁻¹ ≤ E}` the rejection region of a level-`α` test, and its
@@ -36,8 +39,8 @@ e-variables are `ℝ≥0∞`-valued.
   every probability measure of the null.
 * `ProbabilityTheory.isEVar_iff_lintegral_le_one`, `ProbabilityTheory.isExactEVar_iff`: for a null
   of probability measures, the e-variables and the exact e-variables in terms of `∫⁻`.
-* `ProbabilityTheory.isExactEVar_rnDeriv`: a likelihood ratio `Q.rnDeriv P` with `Q ≪ P` and
-  `Q univ = P univ` is an exact e-variable for `{P}`.
+* `ProbabilityTheory.isExactEVar_rnDeriv`: for a finite measure `P`, a likelihood ratio
+  `Q.rnDeriv P` with `Q ≪ P` and `Q univ = P univ` is an exact e-variable for `{P}`.
 * `ProbabilityTheory.IsEVar.measure_inv_le_le`: **Markov's inequality** for e-variables,
   `P {ω | α⁻¹ ≤ E ω} ≤ α`.
 * `ProbabilityTheory.IsEVar.lintegral_min_mul_le`: `∫⁻ ω, min (α * E ω) 1 ∂P ≤ α`.
