@@ -47,8 +47,9 @@ conditional e-variables with predictable weights [WSJ26], and betting
 * `ProbabilityTheory.isTestSupermartingale_mul_prod`, `ProbabilityTheory.isTestMartingale_mul_prod`:
   wealth processes `M₀ * ∏ k < n, F k` of conditional e-variables.
 * `ProbabilityTheory.isTestSupermartingale_portfolio`,
-  `ProbabilityTheory.isTestSupermartingale_prod`, `ProbabilityTheory.isTestSupermartingale_betting`
-  and their martingale versions: portfolios, products of sequential e-variables and betting.
+  `ProbabilityTheory.isTestSupermartingale_prod`,
+  `ProbabilityTheory.isTestSupermartingale_betting_condEVar` and their martingale versions:
+  portfolios, products of sequential e-variables and betting.
 * `ProbabilityTheory.IsENNSupermartingale.isCondEVar_div`,
   `ProbabilityTheory.IsTestSupermartingale.ae_eq_mul_prod_div`: conversely, every test
   supermartingale is almost surely the wealth `M 0 * ∏ k < n, M (k + 1) / M k` of its successive
@@ -357,7 +358,7 @@ theorem isTestMartingale_prod (hS : ∀ P ∈ S, IsProbabilityMeasure P)
 are `ℱ (k + 1)`-measurable, and `ℱ k`-measurable bets `c k ≤ 1`, the wealth
 `∏ k < n, (1 - c k + c k * E k)` is a test supermartingale for every null of probability
 measures. -/
-theorem isTestSupermartingale_betting (hS : ∀ P ∈ S, IsProbabilityMeasure P)
+theorem isTestSupermartingale_betting_condEVar (hS : ∀ P ∈ S, IsProbabilityMeasure P)
     {E : ℕ → Ω → ℝ≥0∞} (hE_meas : ∀ k, Measurable[ℱ (k + 1)] (E k))
     (hE : ∀ k, IsCondEVar (E k) (ℱ k) S) {c : ℕ → Ω → ℝ≥0∞}
     (hc : ∀ k, Measurable[ℱ k] (c k)) (hc_le : ∀ k ω, c k ω ≤ 1) :
@@ -373,7 +374,7 @@ theorem isTestSupermartingale_betting (hS : ∀ P ∈ S, IsProbabilityMeasure P)
 /-- **Betting, exact case.** For exact conditional e-variables `E k` given `ℱ k` that are
 `ℱ (k + 1)`-measurable, and `ℱ k`-measurable bets `c k ≤ 1`, the wealth
 `∏ k < n, (1 - c k + c k * E k)` is a test martingale for every null of probability measures. -/
-theorem isTestMartingale_betting (hS : ∀ P ∈ S, IsProbabilityMeasure P)
+theorem isTestMartingale_betting_condEVar (hS : ∀ P ∈ S, IsProbabilityMeasure P)
     {E : ℕ → Ω → ℝ≥0∞} (hE_meas : ∀ k, Measurable[ℱ (k + 1)] (E k))
     (hE : ∀ k, IsExactCondEVar (E k) (ℱ k) S) {c : ℕ → Ω → ℝ≥0∞}
     (hc : ∀ k, Measurable[ℱ k] (c k)) (hc_le : ∀ k ω, c k ω ≤ 1) :

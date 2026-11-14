@@ -6,15 +6,18 @@ Authors: LMLExplore contributors
 module
 
 public import LMLExplore.MeasureTheory.Measure.WithDensity
+public import Mathlib.MeasureTheory.Function.ConditionalLExpectation
 public import Statlib.EValues.EVariable
 
 /-!
 # Conditional e-variables
 
 A conditional e-variable given a σ-algebra `m` for a set of measures `S` is a measurable
-`X : Ω → ℝ≥0∞` whose conditional expectation given `m` is at most `1` under every `P ∈ S`. With no
-conditional expectations of `ℝ≥0∞`-valued variables and no integrability condition, this is stated
-with set integrals: `∫⁻ ω in s, X ω ∂P ≤ P s` for every `m`-measurable `s`. Conditional
+`X : Ω → ℝ≥0∞` whose conditional expectation given `m` is at most `1` under every `P ∈ S`. It is
+stated with set integrals, `∫⁻ ω in s, X ω ∂P ≤ P s` for every `m`-measurable `s`, which needs
+neither integrability nor σ-finiteness of the restriction of `P` to `m`. When those restrictions
+are σ-finite, it is the bound `P⁻[X|m] ≤ 1` on Mathlib's conditional expectation
+`MeasureTheory.condLExp` of `ℝ≥0∞`-valued variables. Conditional
 e-variables are the factors of test supermartingales: the factor of round `n` of a product of
 sequential e-variables, of a bet or of a portfolio is a conditional e-variable given the past
 `ℱ n` [GdHK24, Definition 1; RW, Proposition 7.20].
@@ -34,6 +37,9 @@ a conditional e-variable.
 
 * `ProbabilityTheory.isCondEVar_iff_withDensity_trim_le`: `X` is a conditional e-variable exactly
   when the restriction of `P.withDensity X` to `m` is at most that of `P`.
+* `ProbabilityTheory.isCondEVar_iff_condLExp_le`,
+  `ProbabilityTheory.isExactCondEVar_iff_condLExp_eq`: for σ-finite restrictions to `m`, the
+  bounds `P⁻[X|m] ≤ 1` and `P⁻[X|m] = 1` on the conditional expectation.
 * `ProbabilityTheory.isCondEVar_bot_iff`: for a null of finite measures, the conditional
   e-variables given `⊥` are Statlib's e-variables.
 * `ProbabilityTheory.IsCondEVar.setLIntegral_mul_le`: an `m`-measurable factor can be pulled out.
@@ -152,6 +158,32 @@ theorem isExactCondEVar_iff_withDensity_trim_eq (hm : m ≤ mΩ) :
     simpa using withDensity_trim_eq_withDensity_trim_iff (μ := P) (f := X) (g := 1) hm
   simp_rw [h]
   exact ⟨fun hX ↦ ⟨hX.measurable, hX.setLIntegral_eq⟩, fun hX ↦ ⟨hX.1, hX.2⟩⟩
+
+/-- When the restrictions to a sub-σ-algebra `m` of the members of `S` are σ-finite, `X` is a
+conditional e-variable given `m` exactly when it is measurable and its conditional expectation
+`P⁻[X|m]` is almost surely at most `1` under every `P ∈ S`. -/
+theorem isCondEVar_iff_condLExp_le (hm : m ≤ mΩ) (hS : ∀ P ∈ S, SigmaFinite (P.trim hm)) :
+    IsCondEVar X m S ↔ Measurable X ∧ ∀ P ∈ S, P⁻[X|m] ≤ᵐ[P] 1 := by
+  refine ⟨fun hX ↦ ⟨hX.measurable, fun P hP ↦ ?_⟩, fun hX ↦ ⟨hX.1, fun P hP s hs ↦ ?_⟩⟩ <;>
+    have := hS P hP
+  · refine ae_le_of_ae_le_trim (hm := hm) <| ae_le_of_forall_setLIntegral_le_of_sigmaFinite
+      (μ := P.trim hm) (measurable_condLExp _ _ _) fun s hs _ ↦ ?_
+    rw [setLIntegral_condLExp_trim hm _ _ hs]
+    simpa [trim_measurableSet_eq hm hs] using hX.setLIntegral_le P hP s hs
+  · rw [← setLIntegral_condLExp hm P X hs]
+    simpa using lintegral_mono_ae (ae_restrict_of_ae (hX.2 P hP))
+
+/-- When the restrictions to a sub-σ-algebra `m` of the members of `S` are σ-finite, `X` is an
+exact conditional e-variable given `m` exactly when it is measurable and its conditional
+expectation `P⁻[X|m]` is almost surely `1` under every `P ∈ S`. -/
+theorem isExactCondEVar_iff_condLExp_eq (hm : m ≤ mΩ) (hS : ∀ P ∈ S, SigmaFinite (P.trim hm)) :
+    IsExactCondEVar X m S ↔ Measurable X ∧ ∀ P ∈ S, P⁻[X|m] =ᵐ[P] 1 := by
+  refine ⟨fun hX ↦ ⟨hX.measurable, fun P hP ↦ ?_⟩, fun hX ↦ ⟨hX.1, fun P hP s hs ↦ ?_⟩⟩ <;>
+    have := hS P hP
+  · exact (ae_eq_condLExp hm P X (Y := 1) (by fun_prop) fun s hs ↦ by
+      simpa using (hX.setLIntegral_eq P hP s hs).symm).symm
+  · rw [← setLIntegral_condLExp hm P X hs, lintegral_congr_ae (ae_restrict_of_ae (hX.2 P hP))]
+    simp
 
 /-- For a null of finite measures, the conditional e-variables given the trivial σ-algebra are
 exactly the e-variables. -/
