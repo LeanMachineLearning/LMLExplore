@@ -211,6 +211,10 @@ end IsTestSupermartingale
 
 namespace IsTestMartingale
 
+/-- Each value of a test martingale is measurable. -/
+theorem measurable (hM : IsTestMartingale M ℱ S) (n : ℕ) : Measurable (M n) :=
+  (hM.adapted n).mono (ℱ.le n) le_rfl
+
 /-- A test martingale is a test supermartingale. -/
 theorem isTestSupermartingale (hM : IsTestMartingale M ℱ S) : IsTestSupermartingale M ℱ S :=
   ⟨⟨hM.adapted, fun P hP n s hs ↦ (hM.setLIntegral_succ_eq P hP n s hs).le⟩,
