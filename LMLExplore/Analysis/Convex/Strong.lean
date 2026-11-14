@@ -39,8 +39,9 @@ with a strongly convex potential exist on closed sets that need not be bounded.
 
 * `StrongConvexOn.add`: [Ora, Theorem 4.6] the sum of an `m`-strongly convex and an `n`-strongly
   convex function is `(m + n)`-strongly convex.
-* `StrongConvexOn.smul`: a nonnegative multiple `c • f` of an `m`-strongly convex function is
-  `(c * m)`-strongly convex.
+* `UniformConvexOn.smul`, `StrongConvexOn.smul`: a nonnegative multiple `c • f` of a uniformly
+  convex function with modulus `φ` is uniformly convex with modulus `c • φ`; of an `m`-strongly
+  convex function, it is `(c * m)`-strongly convex.
 * `StrongConvexOn.add_add_le_of_hasSubgradientWithinAt`: [Ora, Lemma 4.2] the subgradient
   inequality `f x + g (y - x) + m / 2 * ‖y - x‖ ^ 2 ≤ f y` of a strongly convex function.
 * `Convex.strongConvexOn_of_forall_exists_add_add_le`,
@@ -60,9 +61,15 @@ with a strongly convex potential exist on closed sets that need not be bounded.
   closed set, in finite dimension.
 * `StrongConvexOn.exists_isMinOn_add_continuousLinearMap`: the same existence for `f` plus a
   continuous linear map, as in the objectives of follow the regularized leader and mirror descent.
+* `LMLExplore.apply_sub_sub_div_le_of_mul_norm_sq_le`: `y (a - b) - D / η ≤ η / (2 m) * ‖y‖ ^ 2`
+  for a continuous linear functional `y` when `m / 2 * ‖b - a‖ ^ 2 ≤ D`, with `‖y‖` the dual norm;
+  with a divergence `D` dominating the strong convexity term, it bounds the stability terms of
+  follow the regularized leader and mirror descent.
 
 ## References
 
+* [LS] T. Lattimore and Cs. Szepesvári, *Bandit Algorithms*, Cambridge University Press, 2020,
+  Corollary 28.8.
 * [Ora] F. Orabona, *Online Learning: A Modern Introduction Using Convex Optimization*,
   arXiv:1912.13213v10, Lemma 4.2, Theorems 4.3, 4.6 and 6.9.
 -/
@@ -74,6 +81,15 @@ open scoped Topology
 
 variable {E : Type*} [NormedAddCommGroup E] [NormedSpace ℝ E] {s : Set E} {m n : ℝ}
   {f g : E → ℝ} {x y : E}
+
+/-- A nonnegative multiple `c • f` of a uniformly convex function with modulus `φ` on `s` is
+uniformly convex on `s` with modulus `c • φ`. -/
+theorem UniformConvexOn.smul {φ : ℝ → ℝ} {c : ℝ} (hc : 0 ≤ c) (hf : UniformConvexOn s φ f) :
+    UniformConvexOn s (c • φ) fun x ↦ c • f x := by
+  refine ⟨hf.1, fun x hx y hy a b ha hb hab ↦ ?_⟩
+  have h := mul_le_mul_of_nonneg_left (hf.2 hx hy ha hb hab) hc
+  simp only [Pi.smul_apply, smul_eq_mul] at h ⊢
+  linarith
 
 namespace StrongConvexOn
 
@@ -92,11 +108,9 @@ theorem add_convexOn (hf : StrongConvexOn s m f) (hg : ConvexOn ℝ s g) :
 /-- A nonnegative multiple `c • f` of an `m`-strongly convex function on `s` is
 `(c * m)`-strongly convex on `s`. -/
 theorem smul {c : ℝ} (hc : 0 ≤ c) (hf : StrongConvexOn s m f) :
-    StrongConvexOn s (c * m) fun x ↦ c • f x := by
-  refine ⟨hf.1, fun x hx y hy a b ha hb hab ↦ ?_⟩
-  have h := mul_le_mul_of_nonneg_left (hf.2 hx hy ha hb hab) hc
-  simp only [smul_eq_mul] at h ⊢
-  linarith
+    StrongConvexOn s (c * m) fun x ↦ c • f x :=
+  (UniformConvexOn.smul hc hf).mono fun r ↦
+    le_of_eq (by simp only [Pi.smul_apply, smul_eq_mul]; ring)
 
 /-- **The subgradient inequality of a strongly convex function** [Ora, Lemma 4.2].
 If `f` is `m`-strongly convex on `s` and `g` is a subgradient of `f` within `s` at `x ∈ s`, then
@@ -353,3 +367,29 @@ theorem existsUnique_isMinOn [FiniteDimensional ℝ E] (hf : StrongConvexOn s m 
     (hf.strictConvexOn hm).eq_of_isMinOn hymin hxmin hy hx⟩
 
 end StrongConvexOn
+
+namespace LMLExplore
+
+/-- **Stability of one round.** Let `m > 0` and `η > 0`. If `D` dominates `m / 2 * ‖b - a‖ ^ 2`,
+then `y (a - b) - D / η ≤ η / (2 m) * ‖y‖ ^ 2`, where `‖y‖` is the operator norm of the loss, the
+dual norm of the norm of `E`. With `D = D_F(b, a)` the Bregman divergence of a potential `F`, this
+bounds the stability term of a round of FTRL or mirror descent [LS, Corollary 28.8]; the
+modulus `m` may depend on the base point `a`. -/
+lemma apply_sub_sub_div_le_of_mul_norm_sq_le {m η D : ℝ} (hm : 0 < m) (hη : 0 < η)
+    (y : E →L[ℝ] ℝ) {a b : E} (h : m / 2 * ‖b - a‖ ^ 2 ≤ D) :
+    y (a - b) - D / η ≤ η / (2 * m) * ‖y‖ ^ 2 := by
+  have h_apply : y (a - b) ≤ ‖b - a‖ * ‖y‖ := by
+    rw [norm_sub_rev, mul_comm]
+    exact (Real.le_norm_self _).trans (y.le_opNorm _)
+  -- `x z - m x² / (2 η) ≤ η z² / (2 m)`, a square completion
+  set x := ‖b - a‖
+  set z := ‖y‖
+  have h_sq : η / (2 * m) * z ^ 2 - (x * z - m / 2 * x ^ 2 / η) =
+      (m * x - η * z) ^ 2 / (2 * m * η) := by
+    field_simp
+    ring
+  have h_nonneg : 0 ≤ (m * x - η * z) ^ 2 / (2 * m * η) := by positivity
+  have h_div := div_le_div_of_nonneg_right h hη.le
+  linarith
+
+end LMLExplore

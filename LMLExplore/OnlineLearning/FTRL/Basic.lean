@@ -462,18 +462,8 @@ theorem ftrl_regret_le_of_strongConvexOn_of_antitone {F : E → ℝ} {m : ℝ}
   -- each play minimizes `(F - F (a 0)) / η t + ∑ s < t, y s` over `K`
   have hmin (t : ℕ) (ht : t < n + 1) : IsMinOn
       (fun b ↦ (F b - F (a 0)) / η' t + ∑ s ∈ range t, y s b) K (x t) := by
-    have hη_t := hη t
     rw [hx_le t (Nat.le_of_lt_succ ht), hη'_le t (Nat.le_of_lt_succ ht)]
-    refine isMinOn_iff.mpr fun b hb ↦ ?_
-    have h := isMinOn_iff.mp (ha t ht).isMinOn b hb
-    rw [← sub_nonneg]
-    have h_div : (F b - F (a 0)) / η t + ∑ s ∈ range t, y s b -
-        ((F (a t) - F (a 0)) / η t + ∑ s ∈ range t, y s (a t)) =
-        (η t * ∑ s ∈ range t, y s b + F b - (η t * ∑ s ∈ range t, y s (a t) + F (a t))) / η t := by
-      field_simp
-      ring
-    rw [h_div]
-    exact div_nonneg (sub_nonneg.mpr h) hη_t.le
+    simpa only [add_comm] using (ha t ht).isMinOn_sum_add_sub_div (hη t) (F (a 0))
   have h := regret_le_ftrl_of_strongConvexOn_div (F := fun b ↦ F b - F (a 0)) (η := η') (u := u)
     (hF.add_convexOn (convexOn_const _ hF.1)) hm (fun t b ↦ y t b) x y (fun t _ ↦ hη (min t n))
     (fun t _ ↦ (y t).toLinearMap.convexOn hF.1)

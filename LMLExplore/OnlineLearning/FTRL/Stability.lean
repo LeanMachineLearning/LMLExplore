@@ -33,14 +33,15 @@ strong convexity, with subgradients within `V` in the sense of LML's `HasSubgrad
 Neither the regularizers nor the losses need to be differentiable, the regularizers need not be
 monotone in `t`, and only `F t + ℓ t` (not `ψ t`) must be strongly convex. Summed through the FTRL
 equality, the stability bounds give the regret of FTRL for convex losses on sets that need not be
-bounded [Ora, Corollary 7.6]: for every comparator `u`,
+bounded [Ora, Corollary 7.6]: when the plays minimize their objectives over `V`, `g t` is a
+subgradient of `ℓ t` within `V` at `x t` and `F t + ℓ t` is `λ t`-strongly convex on `V` with
+`λ t > 0`, for every comparator `u` with `F n (x n) ≤ F n u` (for instance `u ∈ V` when `x n`
+minimizes `F n` over `V`),
 `regret ≤ ψ n u - ψ 0 (x 0) + ∑ t < n, ‖g t‖ ^ 2 / (2 λ t)
   + ∑ t < n, (ψ t (x (t + 1)) - ψ (t + 1) (x (t + 1)))`.
 
 ## Main statements
 
-* `apply_sub_sub_div_le_of_mul_norm_sq_le`: `y (a - b) - D / η ≤ η / (2 m) * ‖y‖ ^ 2` when
-  `m / 2 * ‖b - a‖ ^ 2 ≤ D`, with `‖y‖` the dual norm.
 * `ftrl_stability_le_of_forall_hasSubgradientWithinAt`: the stability bound with a divergence
   (relative strong convexity).
 * `ftrl_stability_le_of_strongConvexOn`, `ftrl_stability_le_norm_sq_div_of_strongConvexOn`:
@@ -57,7 +58,6 @@ bounded [Ora, Corollary 7.6]: for every comparator `u`,
 
 ## References
 
-* [LS] T. Lattimore and Cs. Szepesvári, *Bandit Algorithms*, Cambridge University Press, 2020.
 * [Ora] F. Orabona, *Online learning: a modern introduction using convex optimization*,
   arXiv:1912.13213v10, 2026, Lemmas 7.5 and 7.7, Corollary 7.6.
 -/
@@ -73,27 +73,13 @@ section NormedSpace
 variable {E : Type*} [NormedAddCommGroup E] [NormedSpace ℝ E] {V : Set E} {ψ ℓ : ℕ → E → ℝ}
   {x : ℕ → E} {t : ℕ} {z : E} {g : E →L[ℝ] ℝ} {lam : ℝ}
 
-/-- **Stability of one round.** Let `m > 0` and `η > 0`. If `D` dominates `m / 2 * ‖b - a‖ ^ 2`,
-then `y (a - b) - D / η ≤ η / (2 m) * ‖y‖ ^ 2`, where `‖y‖` is the operator norm of the loss, the
-dual norm of the norm of `E`. With `D = D_F(b, a)` the Bregman divergence of a potential `F`, this
-bounds the stability term of a round of FTRL or mirror descent [LS, Corollary 28.8]; the
-modulus `m` may depend on the base point `a`. -/
-lemma apply_sub_sub_div_le_of_mul_norm_sq_le {m η D : ℝ} (hm : 0 < m) (hη : 0 < η)
-    (y : E →L[ℝ] ℝ) {a b : E} (h : m / 2 * ‖b - a‖ ^ 2 ≤ D) :
-    y (a - b) - D / η ≤ η / (2 * m) * ‖y‖ ^ 2 := by
-  have h_apply : y (a - b) ≤ ‖b - a‖ * ‖y‖ := by
-    rw [norm_sub_rev, mul_comm]
-    exact (Real.le_norm_self _).trans (y.le_opNorm _)
-  -- `x z - m x² / (2 η) ≤ η z² / (2 m)`, a square completion
-  set x := ‖b - a‖
-  set z := ‖y‖
-  have h_sq : η / (2 * m) * z ^ 2 - (x * z - m / 2 * x ^ 2 / η) =
-      (m * x - η * z) ^ 2 / (2 * m * η) := by
-    field_simp
-    ring
-  have h_nonneg : 0 ≤ (m * x - η * z) ^ 2 / (2 * m * η) := by positivity
-  have h_div := div_le_div_of_nonneg_right h hη.le
-  linarith
+/-- The quadratic case of `apply_sub_sub_div_le_of_mul_norm_sq_le`:
+`g (a - b) - lam / 2 * ‖a - b‖ ^ 2 ≤ ‖g‖ ^ 2 / (2 lam)` for `lam > 0`. -/
+private lemma apply_sub_sub_mul_norm_sq_le (hlam : 0 < lam) (g : E →L[ℝ] ℝ) (a b : E) :
+    g (a - b) - lam / 2 * ‖a - b‖ ^ 2 ≤ ‖g‖ ^ 2 / (2 * lam) := by
+  have h := apply_sub_sub_div_le_of_mul_norm_sq_le hlam one_pos g
+    (le_of_eq (by rw [norm_sub_rev]) : lam / 2 * ‖b - a‖ ^ 2 ≤ lam / 2 * ‖a - b‖ ^ 2)
+  rwa [div_one, one_div_mul_eq_div] at h
 
 /-- **Stability of FTRL with a divergence** (relative strong convexity) [Ora, Lemma 7.5 and
 Remark 7.28]. Let `x t` minimize the objective `F t = ψ t + ∑ s < t, ℓ s` over `V`, let `g` be a
@@ -154,10 +140,7 @@ theorem ftrl_stability_le_norm_sq_div_of_strongConvexOn (hlam : 0 < lam)
         ℓ t (x t) ≤
       ‖g‖ ^ 2 / (2 * lam) + ψ t z - ψ (t + 1) z := by
   have h := ftrl_stability_le_of_strongConvexOn hmin hg hΦ hx hz
-  have h_stab := apply_sub_sub_div_le_of_mul_norm_sq_le hlam one_pos g
-    (le_of_eq (by rw [norm_sub_rev]) : lam / 2 * ‖z - x t‖ ^ 2 ≤ lam / 2 * ‖x t - z‖ ^ 2)
-  rw [div_one, one_div_mul_eq_div] at h_stab
-  linarith
+  linarith [apply_sub_sub_mul_norm_sq_le hlam g (x t) z]
 
 /-- **Stability of FTRL with proximal regularizers** [Ora, Lemma 7.7, first inequality]. Let
 `x t ∈ V` minimize over `V` both the objective `F t = ψ t + ∑ s < t, ℓ s` and the increment
@@ -204,10 +187,7 @@ theorem ftrl_stability_le_norm_sq_div_of_isMinOn_sub_of_strongConvexOn (hlam : 0
         ℓ t (x t) ≤
       ‖g‖ ^ 2 / (2 * lam) + ψ t (x t) - ψ (t + 1) (x t) := by
   have h := ftrl_stability_le_of_isMinOn_sub_of_strongConvexOn hmin hprox hg hF hx hz
-  have h_stab := apply_sub_sub_div_le_of_mul_norm_sq_le hlam one_pos g
-    (le_of_eq (by rw [norm_sub_rev]) : lam / 2 * ‖z - x t‖ ^ 2 ≤ lam / 2 * ‖x t - z‖ ^ 2)
-  rw [div_one, one_div_mul_eq_div] at h_stab
-  linarith
+  linarith [apply_sub_sub_mul_norm_sq_le hlam g (x t) z]
 
 /-- **The regret of FTRL for convex losses** [Ora, Corollary 7.6]. Let `x t ∈ V`, for `t ≤ n`,
 and let `x t`, for `t < n`, minimize over `V` the objective `F t = ψ t + ∑ s < t, ℓ s`. Let
