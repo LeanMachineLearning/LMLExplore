@@ -12,7 +12,8 @@ public import Mathlib.Analysis.SpecialFunctions.Integrals.Basic
 
 Mathlib's `AntitoneOn.sum_le_integral` compares the values of an antitone function at the
 integers with its integral. Its weighted form compares the values at the partial sums of a
-nonnegative sequence: for `f` antitone on `(c, c + ∑_{t < n} a t]` and `a t ≥ 0`,
+nonnegative sequence: for `f` antitone on `(c, c + ∑_{t < n} a t]` and integrable on
+`[c, c + ∑_{t < n} a t]`, and `a t ≥ 0`,
 `∑_{t < n} a t f (c + ∑_{s ≤ t} a s) ≤ ∫_c^{c + ∑_{t < n} a t} f`.
 
 Adaptive learning rates of online learning are of the form `η_t ∝ f (∑_{s ≤ t} a s)`, where
