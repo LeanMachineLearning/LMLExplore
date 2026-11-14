@@ -9,6 +9,7 @@ public import Mathlib.Analysis.LocallyConvex.Separation
 public import Mathlib.Data.EReal.Basic
 public import Mathlib.Basic.NNReal.Basic
 public import Mathlib.Order.Filter.Extr
+public import LMLExplore.LinearAlgebra.Pi
 
 /-!
 # Lagrange duality for finitely many convex constraints
@@ -87,19 +88,6 @@ private lemma isOpen_setOf_exists_lt [Finite ι] :
     (isOpen_iInter_of_finite fun i ↦ isOpen_lt continuous_const
       ((continuous_apply i).comp continuous_snd))
 
-/-- A continuous linear functional on `ℝ × (ι → ℝ)` is determined by its values on the
-coordinate vectors. -/
-private lemma strongDual_prod_pi_apply [Fintype ι] [DecidableEq ι]
-    (f : StrongDual ℝ (ℝ × (ι → ℝ))) (t : ℝ) (u : ι → ℝ) :
-    f (t, u) = f (1, 0) * t + ∑ i, f (0, Pi.single i 1) * u i := by
-  have hdec : (t, u) =
-      t • ((1 : ℝ), (0 : ι → ℝ)) + ∑ i, u i • ((0 : ℝ), Pi.single i (1 : ℝ)) := by
-    ext j
-    · simp [Prod.fst_sum]
-    · simp [Prod.snd_sum, Pi.single_apply]
-  rw [hdec, map_add, map_smul, map_sum]
-  simp only [map_smul, smul_eq_mul, mul_comm]
-
 variable [AddCommGroup V] [Module ℝ V]
 
 /-- The values `(t, u)` strictly above `(F x, fun i ↦ h i x)` for some `x ∈ C` form a convex set
@@ -139,7 +127,8 @@ private lemma exists_strongDual_le_of_slater [Finite ι] [DecidableEq ι] (hF : 
     set s := |f (p, 0) - f (F x₀ + 1, 0)| / f w
     have hs : 0 ≤ s := by positivity
     have hmem : ((F x₀ + 1, 0) : ℝ × (ι → ℝ)) + s • w ∈ A :=
-      ⟨x₀, hx₀, by have := mul_nonneg hs hw₁; simp; linarith,
+      ⟨x₀, hx₀, by
+        simp only [Prod.fst_add, Prod.smul_fst, smul_eq_mul]; linarith [mul_nonneg hs hw₁],
         fun i ↦ (hx₀h i).trans_le (by simpa using mul_nonneg hs (hw₂ i))⟩
     have hlt := hf _ hmem
     rw [map_add, map_smul, smul_eq_mul, div_mul_cancel₀ _ hw.ne'] at hlt
@@ -149,7 +138,9 @@ private lemma exists_strongDual_le_of_slater [Finite ι] [DecidableEq ι] (hF : 
   -- Slater's condition makes the coefficient of the first coordinate negative.
   · refine (hf_nonpos (1, 0) zero_le_one fun _ ↦ le_rfl).lt_of_ne fun hc0 ↦ ?_
     have h0 := hf _ hz₀
-    rw [strongDual_prod_pi_apply f (F x₀ + 1), strongDual_prod_pi_apply f p, hc0] at h0
+    have hdec := (f : ℝ × (ι → ℝ) →ₗ[ℝ] ℝ).prod_pi_apply_eq_sum_univ
+    simp only [ContinuousLinearMap.coe_coe] at hdec
+    rw [hdec (F x₀ + 1), hdec p, hc0] at h0
     simp at h0
   -- At `(F x, fun i ↦ h i x)`, by continuity from the points of `A` just above.
   have hcont : Continuous fun ε : ℝ ↦ f (F x + ε, fun i ↦ h i x + ε) :=
@@ -175,14 +166,16 @@ theorem exists_forall_le_add_sum_mul_of_slater (hF : ConvexOn ℝ C F)
   refine ⟨fun i ↦ ⟨f (0, Pi.single i 1) / f (1, 0), div_nonneg_of_nonpos (hd i) hc.le⟩,
     fun x hx ↦ (mul_le_mul_left_of_neg hc).1 ?_⟩
   have hle := hf x hx
-  rw [strongDual_prod_pi_apply f (F x), strongDual_prod_pi_apply f p] at hle
+  have hdec := (f : ℝ × (ι → ℝ) →ₗ[ℝ] ℝ).prod_pi_apply_eq_sum_univ
+  simp only [ContinuousLinearMap.coe_coe, smul_eq_mul] at hdec
+  rw [hdec (F x), hdec p] at hle
   have hc' : f (1, 0) ≠ 0 := hc.ne
   calc f (1, 0) * (F x + ∑ i, (f (0, Pi.single i 1) / f (1, 0)) * h i x)
       = f (1, 0) * F x + ∑ i, f (0, Pi.single i 1) * h i x := by
         rw [mul_add, Finset.mul_sum]
         congr 1
         exact Finset.sum_congr rfl fun i _ ↦ by field_simp
-    _ ≤ f (1, 0) * p := by simpa using hle
+    _ ≤ f (1, 0) * p := by simpa [mul_comm] using hle
 
 /-- **Strong duality under Slater's condition**, with an attained dual optimum. If `F` and the
 finitely many constraints `h i` are convex on `C`, some point of `C` satisfies every constraint
