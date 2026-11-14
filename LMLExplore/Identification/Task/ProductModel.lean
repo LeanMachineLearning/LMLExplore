@@ -92,7 +92,11 @@ inequality on the mean.
 * `LMLExplore.Identification.IdentTask.continuousOn_biInf_cost_gaussianMeanVarBandit`,
   `LMLExplore.Identification.IdentTask.continuousOn_altCost_gaussianMeanVarBandit`: for Gaussian
   arms with unknown variances, the cost of every set of alternatives of nonzero variances, and
-  `D(θ, w, ¬i)`, are jointly continuous in the model and the allocation [DK19, Lemmas 25–27].
+  `D(θ, w, ¬i)`, are jointly continuous in the model and the allocation [DK19, Lemmas 25–27];
+  `LMLExplore.Identification.IdentTask.continuousOn_gameValue_gaussianMeanVarBandit`,
+  `LMLExplore.Identification.IdentTask.continuousOn_charTime_gaussianMeanVarBandit`: for finitely
+  many answers and admissible models of nonzero variances, `D(θ)` and `T*(θ)` are continuous on the
+  admissible models [DK19, Lemmas 27, 29].
 
 ## References
 
@@ -673,7 +677,11 @@ private lemma le_and_le_and_sq_le_of_klDiv_le {μ μ' v v' R : ℝ} (hv : 0 < v)
   have hq : 0 ≤ (μ - μ') ^ 2 / v' := div_nonneg (sq_nonneg _) hv'.le
   rw [h_log, add_div] at h
   have h₀ := log_le_sub_one_of_pos hs
-  have h₁ := log_le_div_two hs.le
+  -- `log s ≤ s / e ≤ s / 2`
+  have h₁ := log_le_rpow_div_exp_one_mul hs.le one_pos
+  rw [rpow_one, mul_one] at h₁
+  have he : v / v' / exp 1 ≤ v / v' / 2 :=
+    div_le_div_of_nonneg_left hs.le two_pos (by linarith [add_one_lt_exp one_ne_zero])
   refine ⟨?_, ?_, ?_⟩
   · have h4 : 0 < 4 * R + 2 := by linarith
     have : v / v' ≤ 4 * R + 2 := by linarith
@@ -765,6 +773,27 @@ theorem continuousOn_altCost_gaussianMeanVarBandit (hν : task.ν = Bandits.gaus
       ((univ.pi fun _ ↦ {p : ℝ × ℝ≥0 | p.2 ≠ 0}) ×ˢ univ) := by
   simp_rw [altCost_def]
   exact continuousOn_biInf_cost_gaussianMeanVarBandit hν h_alt
+
+/-- **Continuity of the value of the game for Gaussian arms with unknown variances**
+[DK19, Lemmas 27, 29]: for a task with finitely many answers on the models of Gaussian arms with
+unknown means and variances whose admissible models have nonzero variances, `θ ↦ D(θ)` is
+continuous on the admissible models. -/
+theorem continuousOn_gameValue_gaussianMeanVarBandit [Finite ℐ]
+    (hν : task.ν = Bandits.gaussianMeanVarBandit) (hM : task.M ⊆ univ.pi fun _ ↦ {p | p.2 ≠ 0}) :
+    ContinuousOn task.gameValue task.M := fun θ hθ ↦
+  task.continuousWithinAt_gameValue subset_rfl hθ fun i w hw ↦
+    ((continuousOn_altCost_gaussianMeanVarBandit hν ((task.alt_subset_M i).trans hM)).mono
+      (prod_mono hM (subset_univ _))) (θ, w) ⟨hθ, hw⟩
+
+/-- **Continuity of the characteristic time for Gaussian arms with unknown variances**
+[DK19, Lemmas 27, 29]: under the hypotheses of `continuousOn_gameValue_gaussianMeanVarBandit`,
+`θ ↦ T*(θ)` is continuous on the admissible models. -/
+theorem continuousOn_charTime_gaussianMeanVarBandit [Finite ℐ]
+    (hν : task.ν = Bandits.gaussianMeanVarBandit) (hM : task.M ⊆ univ.pi fun _ ↦ {p | p.2 ≠ 0}) :
+    ContinuousOn task.charTime task.M := fun θ hθ ↦
+  task.continuousWithinAt_charTime subset_rfl hθ fun i w hw ↦
+    ((continuousOn_altCost_gaussianMeanVarBandit hν ((task.alt_subset_M i).trans hM)).mono
+      (prod_mono hM (subset_univ _))) (θ, w) ⟨hθ, hw⟩
 
 end IdentTask
 

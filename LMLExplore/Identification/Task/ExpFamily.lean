@@ -52,6 +52,9 @@ both endpoints of the means (`tendsto_expFamilyDiv_gaussianReal_atBot`,
 * `LMLExplore.Identification.IsDivergenceOn.exists_mem_nhds_forall_exists_isCompact`: a
   divergence on an interval that is unbounded on each side of every point has, near every point,
   sublevel sets contained in compact subsets of the interval.
+* `LMLExplore.Identification.forall_exists_lt_of_tendsto_atTop`,
+  `LMLExplore.Identification.forall_exists_gt_of_tendsto_atTop`: a function `d(x, ·)` tending to
+  infinity at an endpoint of `S` is unbounded on the points of `S` on that side of `x`.
 * `LMLExplore.Identification.IdentTask.continuousOn_biInf_cost_of_isDivergenceOn`,
   `LMLExplore.Identification.IdentTask.continuousOn_altCost_of_isDivergenceOn`: for such per-arm
   divergences, the cost `(μ, w) ↦ inf_{μ' ∈ A} cost_μ(w, μ')` of every set `A` of vectors of means
@@ -63,9 +66,10 @@ both endpoints of the means (`tendsto_expFamilyDiv_gaussianReal_atBot`,
   exponential families in the mean parametrization whose divergence `d(x, y)` tends to infinity as
   `y` tends to either endpoint of the means.
 * `LMLExplore.Identification.IdentTask.continuous_altCost_gaussianReal`,
-  `LMLExplore.Identification.IdentTask.continuousOn_gameValue_gaussianReal`: for Gaussian arms with
-  known arm-dependent variances, `D(μ, w, ¬i)` is continuous for every task, and so is `D(μ)` for
-  finitely many answers.
+  `LMLExplore.Identification.IdentTask.continuousOn_gameValue_gaussianReal`,
+  `LMLExplore.Identification.IdentTask.continuousOn_charTime_gaussianReal`: for Gaussian arms with
+  known arm-dependent variances, `D(μ, w, ¬i)` is continuous for every task, and so are `D(μ)` and
+  `T*(μ)` for finitely many answers.
 * `LMLExplore.Identification.IdentTask.cost_eq_sum_ofReal_mul`: on the vectors of means in `S`,
   `cost_μ(w, μ') = ∑ c, w c d_c(μ c, μ' c)`.
 * `LMLExplore.Identification.IdentTask.cost_eq_sum_ofReal_mul_left`: the cost with the free vector
@@ -227,6 +231,30 @@ theorem exists_mem_nhds_forall_exists_isCompact (h : IsDivergenceOn d S) (hS : S
     linarith
 
 end IsDivergenceOn
+
+/-- **Unboundedness below from a limit at the lower endpoint.** If for every `x ∈ S` the function
+`d(x, ·)` tends to infinity along a filter `l` (such as `atBot` or `𝓝[>] a` for the lower endpoint
+`a` of an interval `S`) along which eventually `y ∈ S` and `y < x`, then `d(x, ·)` is unbounded on
+the points of `S` below `x`: the hypothesis `h_lt` of
+`IsDivergenceOn.exists_mem_nhds_forall_exists_isCompact` and of
+`IdentTask.continuousOn_biInf_cost_of_isDivergenceOn`. -/
+theorem forall_exists_lt_of_tendsto_atTop {d : ℝ → ℝ → ℝ} {S : Set ℝ} {l : Filter ℝ} [l.NeBot]
+    (hd : ∀ x ∈ S, Tendsto (d x) l atTop) (hl : ∀ x ∈ S, ∀ᶠ y in l, y ∈ S ∧ y < x) :
+    ∀ x ∈ S, ∀ r : ℝ, ∃ y ∈ S, y < x ∧ r < d x y := fun x hx r ↦
+  let ⟨y, hry, hyS, hyx⟩ := (((hd x hx).eventually_gt_atTop r).and (hl x hx)).exists
+  ⟨y, hyS, hyx, hry⟩
+
+/-- **Unboundedness above from a limit at the upper endpoint.** If for every `x ∈ S` the function
+`d(x, ·)` tends to infinity along a filter `l` (such as `atTop` or `𝓝[<] b` for the upper endpoint
+`b` of an interval `S`) along which eventually `y ∈ S` and `x < y`, then `d(x, ·)` is unbounded on
+the points of `S` above `x`: the hypothesis `h_gt` of
+`IsDivergenceOn.exists_mem_nhds_forall_exists_isCompact` and of
+`IdentTask.continuousOn_biInf_cost_of_isDivergenceOn`. -/
+theorem forall_exists_gt_of_tendsto_atTop {d : ℝ → ℝ → ℝ} {S : Set ℝ} {l : Filter ℝ} [l.NeBot]
+    (hd : ∀ x ∈ S, Tendsto (d x) l atTop) (hl : ∀ x ∈ S, ∀ᶠ y in l, y ∈ S ∧ x < y) :
+    ∀ x ∈ S, ∀ r : ℝ, ∃ y ∈ S, x < y ∧ r < d x y := fun x hx r ↦
+  let ⟨y, hry, hyS, hxy⟩ := (((hd x hx).eventually_gt_atTop r).and (hl x hx)).exists
+  ⟨y, hyS, hxy, hry⟩
 
 /-- The divergence `d(μ, μ')` of the exponential family of `ρ` and `T`, in the mean
 parametrization, is a divergence on the means of the family. -/
@@ -609,15 +637,14 @@ private lemma klDiv_eq_expFamilyDiv_and_exists_lt_gaussianReal {v : α → ℝ�
     (∀ c, ∀ x ∈ (gaussianReal 0 (v c)).expFamilyMeans id, ∀ r : ℝ,
       ∃ y ∈ (gaussianReal 0 (v c)).expFamilyMeans id, x < y ∧
         r < (gaussianReal 0 (v c)).expFamilyDiv id x y) := by
-  refine ⟨fun μ _ μ' _ c ↦ ?_, fun c x _ r ↦ ?_, fun c x _ r ↦ ?_⟩
-  · rw [hν, hν, klDiv_gaussianReal_gaussianReal_same_var (hv c),
-      expFamilyDiv_gaussianReal 0 (hv c)]
-  · obtain ⟨y, hry, hyx⟩ := (((tendsto_expFamilyDiv_gaussianReal_atBot 0 (hv c)
-      x).eventually_gt_atTop r).and (eventually_lt_atBot x)).exists
-    exact ⟨y, mem_expFamilyMeans_gaussianReal 0 (hv c) y, hyx, hry⟩
-  · obtain ⟨y, hry, hxy⟩ := (((tendsto_expFamilyDiv_gaussianReal_atTop 0 (hv c)
-      x).eventually_gt_atTop r).and (eventually_gt_atTop x)).exists
-    exact ⟨y, mem_expFamilyMeans_gaussianReal 0 (hv c) y, hxy, hry⟩
+  refine ⟨fun μ _ μ' _ c ↦ ?_, fun c ↦ forall_exists_lt_of_tendsto_atTop
+      (fun x _ ↦ tendsto_expFamilyDiv_gaussianReal_atBot 0 (hv c) x) fun x _ ↦
+        (eventually_lt_atBot x).mono fun y hy ↦ ⟨mem_expFamilyMeans_gaussianReal 0 (hv c) y, hy⟩,
+    fun c ↦ forall_exists_gt_of_tendsto_atTop
+      (fun x _ ↦ tendsto_expFamilyDiv_gaussianReal_atTop 0 (hv c) x) fun x _ ↦
+        (eventually_gt_atTop x).mono fun y hy ↦ ⟨mem_expFamilyMeans_gaussianReal 0 (hv c) y, hy⟩⟩
+  rw [hν, hν, klDiv_gaussianReal_gaussianReal_same_var (hv c),
+    expFamilyDiv_gaussianReal 0 (hv c)]
 
 /-- **Continuity of the cost of the alternatives for Gaussian arms** [DK19, Lemma 27]: for
 Gaussian arms with known variances `v c ≠ 0`, `(μ, w) ↦ D(μ, w, ¬i)` is continuous, for every task
@@ -640,6 +667,18 @@ theorem continuousOn_gameValue_gaussianReal [Finite ℐ] {v : α → ℝ≥0}
     ContinuousOn task.gameValue task.M := by
   obtain ⟨hν', h_lt, h_gt⟩ := klDiv_eq_expFamilyDiv_and_exists_lt_gaussianReal hv hν
   exact continuousOn_gameValue_of_isDivergenceOn hν'
+    (fun c ↦ isDivergenceOn_expFamilyDiv (not_ae_eq_const_gaussianReal 0 (hv c)))
+    (fun _ ↦ convex_expFamilyMeans.ordConnected) h_lt h_gt (by simp [hv])
+
+/-- **Continuity of the characteristic time for Gaussian arms** [DK19, Lemmas 27, 29]: for
+Gaussian arms with known variances `v c ≠ 0` and every task with finitely many answers on vectors
+of means, `μ ↦ T*(μ)` is continuous on the admissible models. -/
+theorem continuousOn_charTime_gaussianReal [Finite ℐ] {v : α → ℝ≥0}
+    {task : IdentTask α (α → ℝ) ℐ ℝ} (hv : ∀ c, v c ≠ 0)
+    (hν : ∀ μ c, task.ν μ c = gaussianReal (μ c) (v c)) :
+    ContinuousOn task.charTime task.M := by
+  obtain ⟨hν', h_lt, h_gt⟩ := klDiv_eq_expFamilyDiv_and_exists_lt_gaussianReal hv hν
+  exact continuousOn_charTime_of_isDivergenceOn hν'
     (fun c ↦ isDivergenceOn_expFamilyDiv (not_ae_eq_const_gaussianReal 0 (hv c)))
     (fun _ ↦ convex_expFamilyMeans.ordConnected) h_lt h_gt (by simp [hv])
 
