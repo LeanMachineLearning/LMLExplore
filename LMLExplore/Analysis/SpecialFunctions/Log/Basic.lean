@@ -103,6 +103,27 @@ private lemma hasDerivAt_log_one_add_add {p : ℝ → ℝ} {q y : ℝ} (hp : Has
   have h := ((hasDerivAt_id y).const_add 1).log (by simp; linarith)
   exact (h.add hp).congr_deriv (by simp [one_div])
 
+/-- If `f` is differentiable on the segment between `x` and `0`, with a nonnegative derivative
+between `x` and `0` when `x < 0` and a nonpositive one when `x > 0`, then `f x ≤ f 0`. -/
+private lemma le_apply_zero_of_hasDerivAt {f f' : ℝ → ℝ} {x : ℝ}
+    (hd : ∀ y ∈ Set.uIcc x 0, HasDerivAt f (f' y) y)
+    (hneg : ∀ y ∈ Set.Ioo x 0, 0 ≤ f' y) (hpos : ∀ y ∈ Set.Ioo 0 x, f' y ≤ 0) : f x ≤ f 0 := by
+  have hcont : ContinuousOn f (Set.uIcc x 0) :=
+    fun y hy ↦ (hd y hy).continuousAt.continuousWithinAt
+  rcases le_total x 0 with h0 | h0
+  · rw [Set.uIcc_of_le h0] at hd hcont
+    refine monotoneOn_of_hasDerivWithinAt_nonneg (convex_Icc x 0) hcont
+      (fun y hy ↦ (hd y (interior_subset hy)).hasDerivWithinAt) ?_
+      ⟨le_rfl, h0⟩ ⟨h0, le_rfl⟩ h0
+    rw [interior_Icc]
+    exact hneg
+  · rw [Set.uIcc_of_ge h0] at hd hcont
+    refine antitoneOn_of_hasDerivWithinAt_nonpos (convex_Icc 0 x) hcont
+      (fun y hy ↦ (hd y (interior_subset hy)).hasDerivWithinAt) ?_
+      ⟨le_rfl, h0⟩ ⟨h0, le_rfl⟩ h0
+    rw [interior_Icc]
+    exact hpos
+
 /-- **A quadratic lower bound on `log (1 + x)`**: `x - x² ≤ log (1 + x)` for `x ≥ -1 / 2`.
 
 It bounds below the log-wealth `log (1 + β c)` of a bettor who stakes a fraction `|β| ≤ 1 / 2`
@@ -115,23 +136,18 @@ theorem sub_sq_le_log_one_add {x : ℝ} (hx : -1 / 2 ≤ x) : x - x ^ 2 ≤ log 
     nlinarith [mul_nonneg h0 (sq_nonneg x)]
   -- `y ↦ log (1 + y) - y + y²` decreases on `[-1 / 2, 0]`, its derivative `y (1 + 2 y) / (1 + y)`
   -- being nonpositive there
-  have hd : ∀ y : ℝ, -1 < y →
-      HasDerivAt (fun z ↦ log (1 + z) + (z ^ 2 - z)) ((1 + y)⁻¹ + (2 * y - 1)) y :=
-    fun y hy ↦ hasDerivAt_log_one_add_add (p := fun z ↦ z ^ 2 - z)
-      (((hasDerivAt_pow 2 y).sub (hasDerivAt_id y)).congr_deriv (by simp)) hy
-  have hanti : AntitoneOn (fun z ↦ log (1 + z) + (z ^ 2 - z)) (Set.Icc (-1 / 2) 0) := by
-    refine antitoneOn_of_hasDerivWithinAt_nonpos (f' := fun y ↦ (1 + y)⁻¹ + (2 * y - 1))
-      (convex_Icc _ _) (fun y hy ↦ (hd y (by linarith [hy.1])).continuousAt.continuousWithinAt)
-      ?_ ?_
-    · exact fun y hy ↦ (hd y (by rw [interior_Icc] at hy; linarith [hy.1])).hasDerivWithinAt
-    · intro y hy
-      rw [interior_Icc] at hy
+  have h := le_apply_zero_of_hasDerivAt (f := fun z ↦ -(log (1 + z) + (z ^ 2 - z)))
+    (f' := fun y ↦ -((1 + y)⁻¹ + (2 * y - 1))) (x := x)
+    (fun y hy ↦ (hasDerivAt_log_one_add_add (p := fun z ↦ z ^ 2 - z)
+      (((hasDerivAt_pow 2 y).sub (hasDerivAt_id y)).congr_deriv (by simp))
+      (by rw [Set.uIcc_of_le h0.le] at hy; linarith [hy.1])).neg)
+    (fun y hy ↦ by
       have h1 : 0 < 1 + y := by linarith [hy.1]
-      rw [← sub_nonneg, show 0 - ((1 + y)⁻¹ + (2 * y - 1)) = -(y * (1 + 2 * y)) / (1 + y) by
-        field_simp; ring]
-      exact div_nonneg (by nlinarith [hy.1, hy.2]) h1.le
-  have := hanti ⟨hx, h0.le⟩ ⟨by norm_num, le_rfl⟩ h0.le
-  simp at this
+      rw [show -((1 + y)⁻¹ + (2 * y - 1)) = -(y * (1 + 2 * y)) / (1 + y) by field_simp; ring]
+      exact div_nonneg (by nlinarith [hy.1, hy.2]) h1.le)
+    (fun y hy ↦ absurd (hy.1.trans hy.2) h0.not_gt)
+  simp only [add_zero, log_one, ne_eq, OfNat.ofNat_ne_zero, not_false_eq_true, zero_pow,
+    sub_self, neg_zero, neg_add_rev, neg_sub] at h
   linarith
 
 /-- **A quadratic upper bound on `log (1 + x)`**: `log (1 + x) ≤ x - x² / 4` for `-1 < x ≤ 1`.
@@ -142,40 +158,25 @@ theorem log_one_add_le_sub_sq_div_four {x : ℝ} (hx₁ : -1 < x) (hx₂ : x ≤
     log (1 + x) ≤ x - x ^ 2 / 4 := by
   -- `y ↦ log (1 + y) + y² / 4 - y` has derivative `-y (1 - y) / (2 (1 + y))`: it increases on
   -- `(-1, 0]` and decreases on `[0, 1]`, so it is at most its value `0` at `0`
-  have hd : ∀ y : ℝ, -1 < y →
-      HasDerivAt (fun z ↦ log (1 + z) + (z ^ 2 / 4 - z)) ((1 + y)⁻¹ + (y / 2 - 1)) y :=
-    fun y hy ↦ hasDerivAt_log_one_add_add (p := fun z ↦ z ^ 2 / 4 - z)
-      ((((hasDerivAt_pow 2 y).div_const 4).sub (hasDerivAt_id y)).congr_deriv (by simp; ring)) hy
   have hd' : ∀ y : ℝ, -1 < y → (1 + y)⁻¹ + (y / 2 - 1) = -(y * (1 - y)) / (2 * (1 + y)) :=
     fun y hy ↦ by
       have : 1 + y ≠ 0 := by linarith
       field_simp
       ring
-  have hcont : ∀ D ⊆ Set.Ioi (-1), ContinuousOn (fun z ↦ log (1 + z) + (z ^ 2 / 4 - z)) D :=
-    fun D hD y hy ↦ (hd y (hD hy)).continuousAt.continuousWithinAt
-  rcases le_or_gt x 0 with h0 | h0
-  · have hmono : MonotoneOn (fun z ↦ log (1 + z) + (z ^ 2 / 4 - z)) (Set.Ioc (-1) 0) := by
-      refine monotoneOn_of_hasDerivWithinAt_nonneg (f' := fun y ↦ (1 + y)⁻¹ + (y / 2 - 1))
-        (convex_Ioc _ _) (hcont _ Set.Ioc_subset_Ioi_self) ?_ ?_
-      · exact fun y hy ↦ (hd y (by rw [interior_Ioc] at hy; exact hy.1)).hasDerivWithinAt
-      · intro y hy
-        rw [interior_Ioc] at hy
-        rw [hd' y hy.1]
-        exact div_nonneg (by nlinarith [hy.1, hy.2]) (by linarith [hy.1])
-    have := hmono ⟨hx₁, h0⟩ ⟨by norm_num, le_rfl⟩ h0
-    simp at this
-    linarith
-  · have hanti : AntitoneOn (fun z ↦ log (1 + z) + (z ^ 2 / 4 - z)) (Set.Icc 0 1) := by
-      refine antitoneOn_of_hasDerivWithinAt_nonpos (f' := fun y ↦ (1 + y)⁻¹ + (y / 2 - 1))
-        (convex_Icc _ _) (hcont _ fun y hy ↦ by simp only [Set.mem_Ioi]; linarith [hy.1]) ?_ ?_
-      · exact fun y hy ↦ (hd y (by rw [interior_Icc] at hy; linarith [hy.1])).hasDerivWithinAt
-      · intro y hy
-        rw [interior_Icc] at hy
-        rw [hd' y (by linarith [hy.1])]
-        exact div_nonpos_of_nonpos_of_nonneg (by nlinarith [hy.1, hy.2]) (by linarith [hy.1])
-    have := hanti ⟨le_rfl, zero_le_one⟩ ⟨h0.le, hx₂⟩ h0.le
-    simp at this
-    linarith
+  have h := le_apply_zero_of_hasDerivAt (f := fun z ↦ log (1 + z) + (z ^ 2 / 4 - z))
+    (f' := fun y ↦ (1 + y)⁻¹ + (y / 2 - 1)) (x := x)
+    (fun y hy ↦ hasDerivAt_log_one_add_add (p := fun z ↦ z ^ 2 / 4 - z)
+      ((((hasDerivAt_pow 2 y).div_const 4).sub (hasDerivAt_id y)).congr_deriv (by simp; ring))
+      (by rcases Set.mem_uIcc.1 hy with hy | hy <;> linarith [hy.1, hy.2]))
+    (fun y hy ↦ by
+      rw [hd' y (hx₁.trans hy.1)]
+      exact div_nonneg (by nlinarith [hy.1, hy.2]) (by linarith [hx₁.trans hy.1]))
+    (fun y hy ↦ by
+      rw [hd' y (by linarith [hy.1])]
+      exact div_nonpos_of_nonpos_of_nonneg (by nlinarith [hy.1, hy.2]) (by linarith [hy.1]))
+  simp only [add_zero, log_one, ne_eq, OfNat.ofNat_ne_zero, not_false_eq_true, zero_pow,
+    zero_div, sub_self] at h
+  linarith
 
 /-- The function `x ↦ log (1 + x log² x)` is monotone on `[1, ∞)`. It is the logarithm of the
 exploration function `f(x) = 1 + x log² x` of the asymptotically optimal UCB and KL-UCB

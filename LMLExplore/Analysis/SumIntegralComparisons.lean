@@ -6,7 +6,6 @@ Authors: LMLExplore contributors
 module
 
 public import Mathlib.Analysis.SpecialFunctions.Integrals.Basic
-public import Mathlib.Analysis.SumIntegralComparisons
 
 /-!
 # Weighted sums of an antitone function and its integral
