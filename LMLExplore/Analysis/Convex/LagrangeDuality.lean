@@ -25,8 +25,9 @@ of Fan [Fan53]: for `x, y ∈ C` and weights `a, b`, some `z ∈ C` has `F z` an
 the corresponding convex combinations of the values at `x` and `y`. It is stated in that form in
 `LMLExplore.exists_forall_le_add_sum_of_convexLike`, which needs no linear structure on the domain
 and so applies to convex sets of probability measures, which carry no real scalar multiplication.
-Weak duality holds with no hypothesis; strong duality and the saddle point characterization are
-stated for convex functions on a convex set.
+Strong duality and the saddle point characterization are stated in the same convex-like form, and
+specialized to convex functions on a convex set in the `ConvexOn` namespace. Weak duality holds with
+no hypothesis.
 
 Values of the dual function are taken in `EReal`: the real infimum of a Lagrangian unbounded below
 is the junk value `0`, for which weak duality fails.
@@ -38,11 +39,13 @@ is the junk value `0`, for which weak duality fails.
   multiplier, for convex-like data on any type.
 * `ConvexOn.exists_forall_le_add_sum_of_slater`: the same for convex functions on a convex set.
 * `LMLExplore.iInf_add_sum_le_iInf`: weak duality, for every multiplier and with no hypothesis.
-* `ConvexOn.exists_iInf_eq_iInf_add_of_slater`: strong duality with an optimal multiplier.
-* `ConvexOn.iInf_eq_iSup_iInf_add_of_slater`: strong duality, the value of the program is the
-  supremum of the dual function.
-* `ConvexOn.isMinOn_iff_exists_isMinOn_add_sum_of_slater`: the saddle point characterization of the
-  minimizers, by a multiplier for which they minimize the Lagrangian with complementary slackness.
+* `LMLExplore.exists_iInf_eq_iInf_add_of_convexLike`: strong duality with an optimal multiplier,
+  for convex-like data; `ConvexOn.exists_iInf_eq_iInf_add_of_slater` for convex functions.
+* `LMLExplore.iInf_eq_iSup_iInf_add_of_convexLike`: strong duality, the value of the program is the
+  supremum of the dual function; `ConvexOn.iInf_eq_iSup_iInf_add_of_slater` for convex functions.
+* `LMLExplore.isMinOn_iff_exists_isMinOn_add_sum_of_convexLike`: the saddle point characterization
+  of the minimizers, by a multiplier for which they minimize the Lagrangian with complementary
+  slackness; `ConvexOn.isMinOn_iff_exists_isMinOn_add_sum_of_slater` for convex functions.
 
 ## Implementation notes
 
@@ -227,35 +230,16 @@ theorem iInf_add_sum_le_iInf [Fintype ι] (π : ι → ℝ≥0) :
     Finset.sum_nonpos fun i _ ↦ mul_nonpos_of_nonneg_of_nonpos (π i).2 (hxh i)
   linarith
 
-end LMLExplore
-
-namespace ConvexOn
-
-open LMLExplore
-
-variable [Fintype ι] {V : Type*} [AddCommMonoid V] [SMul ℝ V] {C : Set V} {F : V → ℝ}
-  {h : ι → V → ℝ}
-
-/-- **Lagrange multipliers under Slater's condition** [Lue69, §8.3, Theorem 1]. Let `F` and
-finitely many `h i` be convex on a convex set `C`. If some `x₀ ∈ C` satisfies
-`h i x₀ < 0` for every `i` and `m` is a lower bound of `F` on the feasible set
-`{x ∈ C | ∀ i, h i x ≤ 0}`, then some multiplier `π : ι → ℝ≥0` makes `m` a lower bound of the
-Lagrangian `F x + ∑ i, π i * h i x` on all of `C`. -/
-theorem exists_forall_le_add_sum_of_slater (hF : ConvexOn ℝ C F) (hh : ∀ i, ConvexOn ℝ C (h i))
-    (hslater : ∃ x₀ ∈ C, ∀ i, h i x₀ < 0) {m : ℝ}
-    (hm : ∀ x ∈ C, (∀ i, h i x ≤ 0) → m ≤ F x) :
-    ∃ π : ι → ℝ≥0, ∀ x ∈ C, m ≤ F x + ∑ i, (π i : ℝ) * h i x :=
-  exists_forall_le_add_sum_of_convexLike (fun x hx y hy a b ha hb hab ↦
-    ⟨a • x + b • y, hF.1 hx hy ha hb hab, by simpa using hF.2 hx hy ha hb hab,
-      fun i ↦ by simpa using (hh i).2 hx hy ha hb hab⟩) hslater hm
-
-/-- **Strong Lagrange duality under Slater's condition** [Lue69, §8.6, Theorem 1]. For `F` and
-finitely many `h i` convex on a convex set `C`, if some `x₀ ∈ C` satisfies `h i x₀ < 0` for every
-`i`, then some multiplier `π : ι → ℝ≥0` has dual value equal to the value of the program: the
+/-- **Strong Lagrange duality under Slater's condition** [Lue69, §8.6, Theorem 1], for convex-like
+data [Fan53]. Let `F` and finitely many `h i` be jointly convex-like on a set `C`, as in
+`LMLExplore.exists_forall_le_add_sum_of_convexLike`. If some `x₀ ∈ C` satisfies `h i x₀ < 0` for
+every `i`, then some multiplier `π : ι → ℝ≥0` has dual value equal to the value of the program: the
 infimum over `C` of the Lagrangian `F x + ∑ i, π i * h i x` is the infimum of `F` over
 `{x ∈ C | ∀ i, h i x ≤ 0}`. Values are in `EReal`, so no boundedness is assumed: when `F` is
 unbounded below on the feasible set, both sides are `⊥`. -/
-theorem exists_iInf_eq_iInf_add_of_slater (hF : ConvexOn ℝ C F) (hh : ∀ i, ConvexOn ℝ C (h i))
+theorem exists_iInf_eq_iInf_add_of_convexLike [Fintype ι]
+    (hconv : ∀ x ∈ C, ∀ y ∈ C, ∀ a b : ℝ, 0 ≤ a → 0 ≤ b → a + b = 1 →
+      ∃ z ∈ C, F z ≤ a * F x + b * F y ∧ ∀ i, h i z ≤ a * h i x + b * h i y)
     (hslater : ∃ x₀ ∈ C, ∀ i, h i x₀ < 0) :
     ∃ π : ι → ℝ≥0, ⨅ x ∈ {x ∈ C | ∀ i, h i x ≤ 0}, (F x : EReal) =
       ⨅ x ∈ C, ((F x + ∑ i, (π i : ℝ) * h i x : ℝ) : EReal) := by
@@ -265,7 +249,7 @@ theorem exists_iInf_eq_iInf_add_of_slater (hF : ConvexOn ℝ C F) (hh : ∀ i, C
   · exact ⟨0, hP.trans (le_bot_iff.1 (hP ▸ iInf_add_sum_le_iInf 0)).symm⟩
   have hPtop : P ≠ ⊤ :=
     ((iInf₂_le x₀ ⟨hx₀, fun i ↦ (hx₀h i).le⟩).trans_lt (EReal.coe_lt_top _)).ne
-  obtain ⟨π, hπ⟩ := hF.exists_forall_le_add_sum_of_slater hh ⟨x₀, hx₀, hx₀h⟩ (m := P.toReal)
+  obtain ⟨π, hπ⟩ := exists_forall_le_add_sum_of_convexLike hconv ⟨x₀, hx₀, hx₀h⟩ (m := P.toReal)
     fun x hx hxh ↦ by
       rw [← EReal.coe_le_coe_iff, EReal.coe_toReal hPtop hP]
       exact iInf₂_le x ⟨hx, hxh⟩
@@ -273,34 +257,39 @@ theorem exists_iInf_eq_iInf_add_of_slater (hF : ConvexOn ℝ C F) (hh : ∀ i, C
   rw [← EReal.coe_toReal hPtop hP]
   exact le_iInf₂ fun x hx ↦ EReal.coe_le_coe_iff.2 (hπ x hx)
 
-/-- **Strong Lagrange duality under Slater's condition** [Lue69, §8.6, Theorem 1]. For `F` and
-finitely many `h i` convex on a convex set `C`, if some `x₀ ∈ C` satisfies `h i x₀ < 0` for every
-`i`, then the infimum of `F` over `{x ∈ C | ∀ i, h i x ≤ 0}` is the supremum over multipliers
+/-- **Strong Lagrange duality under Slater's condition** [Lue69, §8.6, Theorem 1], for convex-like
+data [Fan53]. Let `F` and finitely many `h i` be jointly convex-like on a set `C`, as in
+`LMLExplore.exists_forall_le_add_sum_of_convexLike`. If some `x₀ ∈ C` satisfies `h i x₀ < 0` for
+every `i`, then the infimum of `F` over `{x ∈ C | ∀ i, h i x ≤ 0}` is the supremum over multipliers
 `π : ι → ℝ≥0` of the infimum over `C` of the Lagrangian `F x + ∑ i, π i * h i x`, in `EReal`. The
-supremum is attained (`ConvexOn.exists_iInf_eq_iInf_add_of_slater`). -/
-theorem iInf_eq_iSup_iInf_add_of_slater (hF : ConvexOn ℝ C F) (hh : ∀ i, ConvexOn ℝ C (h i))
+supremum is attained (`LMLExplore.exists_iInf_eq_iInf_add_of_convexLike`). -/
+theorem iInf_eq_iSup_iInf_add_of_convexLike [Fintype ι]
+    (hconv : ∀ x ∈ C, ∀ y ∈ C, ∀ a b : ℝ, 0 ≤ a → 0 ≤ b → a + b = 1 →
+      ∃ z ∈ C, F z ≤ a * F x + b * F y ∧ ∀ i, h i z ≤ a * h i x + b * h i y)
     (hslater : ∃ x₀ ∈ C, ∀ i, h i x₀ < 0) :
     ⨅ x ∈ {x ∈ C | ∀ i, h i x ≤ 0}, (F x : EReal) =
       ⨆ π : ι → ℝ≥0, ⨅ x ∈ C, ((F x + ∑ i, (π i : ℝ) * h i x : ℝ) : EReal) := by
-  obtain ⟨π, hπ⟩ := hF.exists_iInf_eq_iInf_add_of_slater hh hslater
+  obtain ⟨π, hπ⟩ := exists_iInf_eq_iInf_add_of_convexLike hconv hslater
   exact le_antisymm (hπ.le.trans (le_iSup_of_le π le_rfl)) (iSup_le iInf_add_sum_le_iInf)
 
-/-- **Saddle point characterization of the minimizers** [Lue69, §8.3, Theorem 1; §8.4].
-For `F` and finitely many `h i` convex on a convex set `C`, with some `x₀ ∈ C` satisfying
-`h i x₀ < 0` for every `i`, a feasible point `x` minimizes `F` over `{y ∈ C | ∀ i, h i y ≤ 0}`
-exactly when some multiplier `π : ι → ℝ≥0` makes `x` a minimizer over `C` of the Lagrangian
+/-- **Saddle point characterization of the minimizers** [Lue69, §8.3, Theorem 1; §8.4], for
+convex-like data [Fan53]. Let `F` and finitely many `h i` be jointly convex-like on a set `C`, as
+in `LMLExplore.exists_forall_le_add_sum_of_convexLike`, with some `x₀ ∈ C` satisfying `h i x₀ < 0`
+for every `i`. A feasible point `x` minimizes `F` over `{y ∈ C | ∀ i, h i y ≤ 0}` exactly when some
+multiplier `π : ι → ℝ≥0` makes `x` a minimizer over `C` of the Lagrangian
 `F y + ∑ i, π i * h i y`, with complementary slackness `π i * h i x = 0` for every `i`. -/
-theorem isMinOn_iff_exists_isMinOn_add_sum_of_slater (hF : ConvexOn ℝ C F)
-    (hh : ∀ i, ConvexOn ℝ C (h i)) (hslater : ∃ x₀ ∈ C, ∀ i, h i x₀ < 0) {x : V} (hx : x ∈ C)
-    (hxh : ∀ i, h i x ≤ 0) :
+theorem isMinOn_iff_exists_isMinOn_add_sum_of_convexLike [Fintype ι]
+    (hconv : ∀ x ∈ C, ∀ y ∈ C, ∀ a b : ℝ, 0 ≤ a → 0 ≤ b → a + b = 1 →
+      ∃ z ∈ C, F z ≤ a * F x + b * F y ∧ ∀ i, h i z ≤ a * h i x + b * h i y)
+    (hslater : ∃ x₀ ∈ C, ∀ i, h i x₀ < 0) {x : X} (hx : x ∈ C) (hxh : ∀ i, h i x ≤ 0) :
     IsMinOn F {y ∈ C | ∀ i, h i y ≤ 0} x ↔
       ∃ π : ι → ℝ≥0, IsMinOn (fun y ↦ F y + ∑ i, (π i : ℝ) * h i y) C x ∧
         ∀ i, (π i : ℝ) * h i x = 0 := by
-  have hterm (π : ι → ℝ≥0) (y : V) (hyh : ∀ i, h i y ≤ 0) (i : ι) : (π i : ℝ) * h i y ≤ 0 :=
+  have hterm (π : ι → ℝ≥0) (y : X) (hyh : ∀ i, h i y ≤ 0) (i : ι) : (π i : ℝ) * h i y ≤ 0 :=
     mul_nonpos_of_nonneg_of_nonpos (π i).2 (hyh i)
   constructor
   · intro hmin
-    obtain ⟨π, hπ⟩ := hF.exists_forall_le_add_sum_of_slater hh hslater (m := F x)
+    obtain ⟨π, hπ⟩ := exists_forall_le_add_sum_of_convexLike hconv hslater (m := F x)
       fun y hy hyh ↦ isMinOn_iff.1 hmin y ⟨hy, hyh⟩
     -- At `x` the sum of the nonpositive terms `π i * h i x` is nonnegative, hence each is zero.
     have hsum : ∑ i, (π i : ℝ) * h i x = 0 :=
@@ -313,5 +302,70 @@ theorem isMinOn_iff_exists_isMinOn_add_sum_of_slater (hF : ConvexOn ℝ C F)
     have hle := isMinOn_iff.1 hmin y hy
     simp only [hslack, Finset.sum_const_zero, add_zero] at hle
     linarith [Finset.sum_nonpos fun i (_ : i ∈ Finset.univ) ↦ hterm π y hyh i]
+
+end LMLExplore
+
+namespace ConvexOn
+
+open LMLExplore
+
+variable {V : Type*} [AddCommMonoid V] [SMul ℝ V] {C : Set V} {F : V → ℝ}
+  {h : ι → V → ℝ}
+
+/-- Convex functions on a convex set are jointly convex-like there, witnessed by `a • x + b • y`. -/
+private lemma convexLike (hF : ConvexOn ℝ C F) (hh : ∀ i, ConvexOn ℝ C (h i)) :
+    ∀ x ∈ C, ∀ y ∈ C, ∀ a b : ℝ, 0 ≤ a → 0 ≤ b → a + b = 1 →
+      ∃ z ∈ C, F z ≤ a * F x + b * F y ∧ ∀ i, h i z ≤ a * h i x + b * h i y :=
+  fun x hx y hy a b ha hb hab ↦ ⟨a • x + b • y, hF.1 hx hy ha hb hab,
+    by simpa using hF.2 hx hy ha hb hab, fun i ↦ by simpa using (hh i).2 hx hy ha hb hab⟩
+
+variable [Fintype ι]
+
+/-- **Lagrange multipliers under Slater's condition** [Lue69, §8.3, Theorem 1]. Let `F` and
+finitely many `h i` be convex on a convex set `C`. If some `x₀ ∈ C` satisfies
+`h i x₀ < 0` for every `i` and `m` is a lower bound of `F` on the feasible set
+`{x ∈ C | ∀ i, h i x ≤ 0}`, then some multiplier `π : ι → ℝ≥0` makes `m` a lower bound of the
+Lagrangian `F x + ∑ i, π i * h i x` on all of `C`. -/
+theorem exists_forall_le_add_sum_of_slater (hF : ConvexOn ℝ C F) (hh : ∀ i, ConvexOn ℝ C (h i))
+    (hslater : ∃ x₀ ∈ C, ∀ i, h i x₀ < 0) {m : ℝ}
+    (hm : ∀ x ∈ C, (∀ i, h i x ≤ 0) → m ≤ F x) :
+    ∃ π : ι → ℝ≥0, ∀ x ∈ C, m ≤ F x + ∑ i, (π i : ℝ) * h i x :=
+  exists_forall_le_add_sum_of_convexLike (hF.convexLike hh) hslater hm
+
+/-- **Strong Lagrange duality under Slater's condition** [Lue69, §8.6, Theorem 1]. For `F` and
+finitely many `h i` convex on a convex set `C`, if some `x₀ ∈ C` satisfies `h i x₀ < 0` for every
+`i`, then some multiplier `π : ι → ℝ≥0` has dual value equal to the value of the program: the
+infimum over `C` of the Lagrangian `F x + ∑ i, π i * h i x` is the infimum of `F` over
+`{x ∈ C | ∀ i, h i x ≤ 0}`. Values are in `EReal`, so no boundedness is assumed: when `F` is
+unbounded below on the feasible set, both sides are `⊥`. -/
+theorem exists_iInf_eq_iInf_add_of_slater (hF : ConvexOn ℝ C F) (hh : ∀ i, ConvexOn ℝ C (h i))
+    (hslater : ∃ x₀ ∈ C, ∀ i, h i x₀ < 0) :
+    ∃ π : ι → ℝ≥0, ⨅ x ∈ {x ∈ C | ∀ i, h i x ≤ 0}, (F x : EReal) =
+      ⨅ x ∈ C, ((F x + ∑ i, (π i : ℝ) * h i x : ℝ) : EReal) :=
+  exists_iInf_eq_iInf_add_of_convexLike (hF.convexLike hh) hslater
+
+/-- **Strong Lagrange duality under Slater's condition** [Lue69, §8.6, Theorem 1]. For `F` and
+finitely many `h i` convex on a convex set `C`, if some `x₀ ∈ C` satisfies `h i x₀ < 0` for every
+`i`, then the infimum of `F` over `{x ∈ C | ∀ i, h i x ≤ 0}` is the supremum over multipliers
+`π : ι → ℝ≥0` of the infimum over `C` of the Lagrangian `F x + ∑ i, π i * h i x`, in `EReal`. The
+supremum is attained (`ConvexOn.exists_iInf_eq_iInf_add_of_slater`). -/
+theorem iInf_eq_iSup_iInf_add_of_slater (hF : ConvexOn ℝ C F) (hh : ∀ i, ConvexOn ℝ C (h i))
+    (hslater : ∃ x₀ ∈ C, ∀ i, h i x₀ < 0) :
+    ⨅ x ∈ {x ∈ C | ∀ i, h i x ≤ 0}, (F x : EReal) =
+      ⨆ π : ι → ℝ≥0, ⨅ x ∈ C, ((F x + ∑ i, (π i : ℝ) * h i x : ℝ) : EReal) :=
+  iInf_eq_iSup_iInf_add_of_convexLike (hF.convexLike hh) hslater
+
+/-- **Saddle point characterization of the minimizers** [Lue69, §8.3, Theorem 1; §8.4].
+For `F` and finitely many `h i` convex on a convex set `C`, with some `x₀ ∈ C` satisfying
+`h i x₀ < 0` for every `i`, a feasible point `x` minimizes `F` over `{y ∈ C | ∀ i, h i y ≤ 0}`
+exactly when some multiplier `π : ι → ℝ≥0` makes `x` a minimizer over `C` of the Lagrangian
+`F y + ∑ i, π i * h i y`, with complementary slackness `π i * h i x = 0` for every `i`. -/
+theorem isMinOn_iff_exists_isMinOn_add_sum_of_slater (hF : ConvexOn ℝ C F)
+    (hh : ∀ i, ConvexOn ℝ C (h i)) (hslater : ∃ x₀ ∈ C, ∀ i, h i x₀ < 0) {x : V} (hx : x ∈ C)
+    (hxh : ∀ i, h i x ≤ 0) :
+    IsMinOn F {y ∈ C | ∀ i, h i y ≤ 0} x ↔
+      ∃ π : ι → ℝ≥0, IsMinOn (fun y ↦ F y + ∑ i, (π i : ℝ) * h i y) C x ∧
+        ∀ i, (π i : ℝ) * h i x = 0 :=
+  isMinOn_iff_exists_isMinOn_add_sum_of_convexLike (hF.convexLike hh) hslater hx hxh
 
 end ConvexOn
