@@ -6,20 +6,21 @@ Authors: LMLExplore contributors
 module
 
 public import Mathlib.MeasureTheory.Measure.Decomposition.RadonNikodym
-public import Mathlib.Probability.Independence.Integration
+public import LMLExplore.Probability.Independence.Integration
 public import Statlib.EValues.EVariable
 
 /-!
 # Exact e-variables, Markov's inequality and products of independent e-variables
 
 An e-variable for a null hypothesis `S : Set (Measure Ω)` is a measurable `E : Ω → ℝ≥0∞` with
-expectation at most one under every member of `S` (Statlib's `ProbabilityTheory.IsEVar`). This
-file develops the first properties of e-variables that hypothesis testing uses:
+`∫⁻ E ∂P ≤ P univ` for every `P ∈ S` (Statlib's `ProbabilityTheory.IsEVar`), that is, with
+expectation at most one under every probability measure of `S`. This file develops the first
+properties of e-variables that hypothesis testing uses:
 
-* the e-variables whose expectation is exactly one under every member of the null;
+* the exact e-variables, with `∫⁻ E ∂P = P univ` for every `P ∈ S`;
 * Markov's inequality, which makes `{α⁻¹ ≤ E}` the rejection region of a level-`α` test, and its
   smoothed form `min (α * E) 1`;
-* products of e-variables that are independent under every member of the null.
+* products of e-variables from a family that is independent under every member of the null.
 
 Following Statlib, the null is an arbitrary set of measures, with no dominating measure, and
 e-variables are `ℝ≥0∞`-valued.
@@ -31,6 +32,8 @@ e-variables are `ℝ≥0∞`-valued.
 
 ## Main statements
 
+* `ProbabilityTheory.IsEVar.lintegral_le_one`: an e-variable has expectation at most one under
+  every probability measure of the null.
 * `ProbabilityTheory.isEVar_iff_lintegral_le_one`, `ProbabilityTheory.isExactEVar_iff`: for a null
   of probability measures, the e-variables and the exact e-variables in terms of `∫⁻`.
 * `ProbabilityTheory.isExactEVar_rnDeriv`: a likelihood ratio `Q.rnDeriv P` with `Q ≪ P` and
@@ -39,9 +42,9 @@ e-variables are `ℝ≥0∞`-valued.
   `P {ω | α⁻¹ ≤ E ω} ≤ α`.
 * `ProbabilityTheory.IsEVar.lintegral_min_mul_le`: `∫⁻ ω, min (α * E ω) 1 ∂P ≤ α`.
 * `ProbabilityTheory.isEVar_finsetProd`, `ProbabilityTheory.isExactEVar_finsetProd`: a finite
-  product of (exact) e-variables that are independent under every member of the null is an
-  (exact) e-variable. Statlib's `ProbabilityTheory.IsEVar.prod` treats the two coordinates of a
-  product space, where independence holds by construction.
+  product of (exact) e-variables, from a family that is independent under every member of the
+  null, is an (exact) e-variable. Statlib's `ProbabilityTheory.IsEVar.prod` treats the two
+  coordinates of a product space, where independence holds by construction.
 
 ## References
 
@@ -61,6 +64,11 @@ namespace ProbabilityTheory
 variable {Ω 𝓨 : Type*} {mΩ : MeasurableSpace Ω} {m𝓨 : MeasurableSpace 𝓨}
   {S T : Set (Measure Ω)} {E F : Ω → ℝ≥0∞} {P : Measure Ω}
 
+/-- An e-variable has expectation at most one under every probability measure of the null. -/
+theorem IsEVar.lintegral_le_one (hE : IsEVar E S) (hP : P ∈ S) [IsProbabilityMeasure P] :
+    ∫⁻ ω, E ω ∂P ≤ 1 := by
+  simpa using hE.lintegral_le_measure_univ P hP
+
 /-- For a null of probability measures, `E` is an e-variable exactly when it is measurable and has
 expectation at most one under every member of the null. -/
 theorem isEVar_iff_lintegral_le_one (hS : ∀ P ∈ S, IsProbabilityMeasure P) :
@@ -68,7 +76,7 @@ theorem isEVar_iff_lintegral_le_one (hS : ∀ P ∈ S, IsProbabilityMeasure P) :
   refine ⟨fun hE ↦ ⟨hE.measurable, fun P hP ↦ ?_⟩,
     fun h ↦ IsEVar.of_lintegral_le_one hS h.1 h.2⟩
   have := hS P hP
-  simpa using hE.lintegral_le_measure_univ P hP
+  exact hE.lintegral_le_one hP
 
 /-! ### Exact e-variables -/
 
@@ -134,7 +142,8 @@ theorem isExactEVar_rnDeriv {Q : Measure Ω} [IsFiniteMeasure P] [Q.HaveLebesgue
 
 /-! ### Markov's inequality -/
 
-/-- **Markov's inequality** for e-variables: for every member `P` of the null and every level
+/-- **Markov's inequality** for e-variables: for every probability measure `P` of the null and
+every level
 `α`, the e-variable reaches `α⁻¹` with probability at most `α`. -/
 theorem IsEVar.measure_inv_le_le (hE : IsEVar E S) (hP : P ∈ S) [IsProbabilityMeasure P]
     (α : ℝ≥0∞) :
@@ -151,11 +160,11 @@ theorem IsEVar.measure_inv_le_le (hE : IsEVar E S) (hP : P ∈ S) [IsProbability
     meas_ge_le_lintegral_div hE.measurable.aemeasurable (by simpa) (by simpa)
   _ ≤ 1 / α⁻¹ := by
     gcongr
-    simpa using hE.lintegral_le_measure_univ P hP
+    exact hE.lintegral_le_one hP
   _ = α := by simp
 
-/-- The test that rejects when an e-variable reaches `α⁻¹` has level `α` under every member of
-the null. -/
+/-- The test that rejects when an e-variable reaches `α⁻¹` has level `α` under every probability
+measure of the null. -/
 theorem IsEVar.lintegral_indicator_le (hE : IsEVar E S) (hP : P ∈ S) [IsProbabilityMeasure P]
     (α : ℝ≥0∞) :
     ∫⁻ ω, {ω | α⁻¹ ≤ E ω}.indicator 1 ω ∂P ≤ α := by
@@ -163,7 +172,7 @@ theorem IsEVar.lintegral_indicator_le (hE : IsEVar E S) (hP : P ∈ S) [IsProbab
   exact hE.measure_inv_le_le hP α
 
 /-- The randomized test `min (α * E) 1` of an e-variable `E` has expectation at most `α` under
-every member of the null. -/
+every probability measure of the null. -/
 theorem IsEVar.lintegral_min_mul_le (hE : IsEVar E S) (hP : P ∈ S) [IsProbabilityMeasure P]
     (α : ℝ≥0∞) :
     ∫⁻ ω, min (α * E ω) 1 ∂P ≤ α :=
@@ -172,22 +181,14 @@ theorem IsEVar.lintegral_min_mul_le (hE : IsEVar E S) (hP : P ∈ S) [IsProbabil
   _ = α * ∫⁻ ω, E ω ∂P := lintegral_const_mul α hE.measurable
   _ ≤ α * 1 := by
     gcongr
-    simpa using hE.lintegral_le_measure_univ P hP
+    exact hE.lintegral_le_one hP
   _ = α := mul_one α
 
 /-! ### Products of independent e-variables -/
 
-/-- The expectation of a finite product of e-variables that are independent under `P` is the
-product of their expectations. -/
-private theorem lintegral_finsetProd_eq {ι : Type*} {E : ι → Ω → ℝ≥0∞} (s : Finset ι)
-    (hE : ∀ i ∈ s, IsEVar (E i) S) (hind : iIndepFun E P) :
-    ∫⁻ ω, ∏ i ∈ s, E i ω ∂P = ∏ i ∈ s, ∫⁻ ω, E i ω ∂P := by
-  simp_rw [← Finset.prod_coe_sort s]
-  exact lintegral_prod_eq_prod_lintegral_of_indepFun _ (fun i : s ↦ E i)
-    (hind.precomp Subtype.val_injective) fun i ↦ (hE i i.2).measurable
-
-/-- A finite product of e-variables that are independent under every member of the null is an
-e-variable. -/
+/-- A finite product `∏ i ∈ s, E i` of e-variables is an e-variable when the whole family `E` is
+independent under every member of the null, which makes the null a set of probability
+measures. -/
 theorem isEVar_finsetProd {ι : Type*} {E : ι → Ω → ℝ≥0∞} (s : Finset ι)
     (hE : ∀ i ∈ s, IsEVar (E i) S) (hind : ∀ P ∈ S, iIndepFun E P) :
     IsEVar (fun ω ↦ ∏ i ∈ s, E i ω) S := by
@@ -195,11 +196,13 @@ theorem isEVar_finsetProd {ι : Type*} {E : ι → Ω → ℝ≥0∞} (s : Finse
   refine .of_lintegral_le_one hS (Finset.measurable_fun_prod s fun i hi ↦ (hE i hi).measurable)
     fun P hP ↦ ?_
   have := hS P hP
-  rw [lintegral_finsetProd_eq s hE (hind P hP)]
-  exact Finset.prod_le_one fun i hi ↦ by simpa using (hE i hi).lintegral_le_measure_univ P hP
+  rw [lintegral_prod_eq_prod_lintegral_of_indepFun' s (hind P hP)
+    fun i hi ↦ (hE i hi).measurable]
+  exact Finset.prod_le_one fun i hi ↦ (hE i hi).lintegral_le_one hP
 
-/-- A finite product of exact e-variables that are independent under every member of the null is
-an exact e-variable. -/
+/-- A finite product `∏ i ∈ s, E i` of exact e-variables is an exact e-variable when the whole
+family `E` is independent under every member of the null, which makes the null a set of
+probability measures. -/
 theorem isExactEVar_finsetProd {ι : Type*} {E : ι → Ω → ℝ≥0∞} (s : Finset ι)
     (hE : ∀ i ∈ s, IsExactEVar (E i) S) (hind : ∀ P ∈ S, iIndepFun E P) :
     IsExactEVar (fun ω ↦ ∏ i ∈ s, E i ω) S := by
@@ -207,7 +210,8 @@ theorem isExactEVar_finsetProd {ι : Type*} {E : ι → Ω → ℝ≥0∞} (s : 
   refine .of_lintegral_eq_one hS (Finset.measurable_fun_prod s fun i hi ↦ (hE i hi).measurable)
     fun P hP ↦ ?_
   have := hS P hP
-  rw [lintegral_finsetProd_eq s (fun i hi ↦ (hE i hi).toIsEVar) (hind P hP)]
+  rw [lintegral_prod_eq_prod_lintegral_of_indepFun' s (hind P hP)
+    fun i hi ↦ (hE i hi).measurable]
   exact Finset.prod_eq_one fun i hi ↦ (hE i hi).lintegral_eq_one hP
 
 end ProbabilityTheory

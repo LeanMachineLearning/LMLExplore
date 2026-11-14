@@ -29,7 +29,7 @@ e-variable is a p-variable (the e-to-p calibration, with `0⁻¹ = ∞` and no t
 * `ProbabilityTheory.IsEVar.isPVar_inv`: the inverse of an e-variable is a p-variable.
 * `ProbabilityTheory.isExactPVar_ofReal_volume`: the identity of `[0, 1]` under Lebesgue measure is
   an exact p-variable, and `ProbabilityTheory.isExactPVar_ofReal_of_map_eq`: so is every random
-  variable uniformly distributed on `[0, 1]`.
+  variable uniformly distributed on `[0, 1]` under every member of the null.
 * `ProbabilityTheory.IsExactPVar.ae_le_one`: an exact p-variable is almost surely at most `1`
   under every probability measure of the null.
 
@@ -153,22 +153,21 @@ theorem isExactPVar_ofReal_volume :
       simp only [mem_inter_iff, mem_ofPred_eq, mem_Icc, le_min_iff,
         ENNReal.ofReal_le_iff_le_toReal hα]
       tauto
-    rw [Measure.restrict_apply (measurableSet_le ENNReal.measurable_ofReal measurable_const),
-      h_set, Real.volume_Icc, sub_zero, ENNReal.ofReal_min, ENNReal.ofReal_toReal hα,
-      ENNReal.ofReal_one]
+    rw [Measure.restrict_apply (measurableSet_le ENNReal.measurable_ofReal measurable_const), h_set]
+    simp [ENNReal.ofReal_min, hα]
   refine ⟨⟨ENNReal.measurable_ofReal, fun P hP α ↦ ?_⟩, fun P hP α hα ↦ ?_⟩
   · rw [mem_singleton_iff.1 hP, h_eq]
     exact min_le_left α 1
   · rw [mem_singleton_iff.1 hP, h_eq, min_eq_left hα]
 
-/-- A real random variable `U` uniformly distributed on `[0, 1]` under `P` is an exact p-variable
-for `{P}`. -/
+/-- A real random variable `U` uniformly distributed on `[0, 1]` under every member of the null
+`S` is an exact p-variable for `S`. -/
 theorem isExactPVar_ofReal_of_map_eq {U : Ω → ℝ} (hU : Measurable U)
-    (hU_law : P.map U = volume.restrict (Icc 0 1)) :
-    IsExactPVar (fun ω ↦ ENNReal.ofReal (U ω)) {P} := by
-  have h_set : {Q.map U | Q ∈ ({P} : Set (Measure Ω))} = {volume.restrict (Icc (0 : ℝ) 1)} := by
-    ext Q
-    simp [hU_law, eq_comm]
-  exact IsExactPVar.comp (q := fun x : ℝ ↦ ENNReal.ofReal x) hU (h_set ▸ isExactPVar_ofReal_volume)
+    (hU_law : ∀ P ∈ S, P.map U = volume.restrict (Icc 0 1)) :
+    IsExactPVar (fun ω ↦ ENNReal.ofReal (U ω)) S := by
+  refine IsExactPVar.comp (q := fun x : ℝ ↦ ENNReal.ofReal x) hU
+    (isExactPVar_ofReal_volume.anti_set ?_)
+  rintro _ ⟨P, hP, rfl⟩
+  exact hU_law P hP
 
 end ProbabilityTheory
