@@ -116,12 +116,16 @@ theorem sub_sq_le_log_one_add {x : ℝ} (hx : -1 / 2 ≤ x) : x - x ^ 2 ≤ log 
     nlinarith [mul_nonneg h0 (sq_nonneg x)]
   -- `y ↦ log (1 + y) - y + y²` decreases on `[-1 / 2, 0]`, its derivative `y (1 + 2 y) / (1 + y)`
   -- being nonpositive there
+  have hd : ∀ y ∈ Set.uIcc x 0, HasDerivAt (fun z ↦ -(log (1 + z) + (z ^ 2 - z)))
+      (-((1 + y)⁻¹ + (2 * y - 1))) y := fun y hy ↦
+    (hasDerivAt_log_one_add_add (p := fun z ↦ z ^ 2 - z)
+      (((hasDerivAt_pow 2 y).sub (hasDerivAt_id y)).congr_deriv (by simp))
+      (by rw [Set.uIcc_of_le h0.le] at hy; linarith [hy.1])).neg
   have h := LMLExplore.apply_le_apply_of_hasDerivAt_of_nonneg_of_nonpos
     (f := fun z ↦ -(log (1 + z) + (z ^ 2 - z)))
     (f' := fun y ↦ -((1 + y)⁻¹ + (2 * y - 1))) (x := x) (x₀ := 0)
-    (fun y hy ↦ (hasDerivAt_log_one_add_add (p := fun z ↦ z ^ 2 - z)
-      (((hasDerivAt_pow 2 y).sub (hasDerivAt_id y)).congr_deriv (by simp))
-      (by rw [Set.uIcc_of_le h0.le] at hy; linarith [hy.1])).neg)
+    (fun y hy ↦ (hd y hy).continuousAt.continuousWithinAt)
+    (fun y hy ↦ hd y (Set.uIoo_subset_uIcc_self hy))
     (fun y hy ↦ by
       have h1 : 0 < 1 + y := by linarith [hy.1]
       rw [show -((1 + y)⁻¹ + (2 * y - 1)) = -(y * (1 + 2 * y)) / (1 + y) by field_simp; ring]
@@ -144,12 +148,16 @@ theorem log_one_add_le_sub_sq_div_four {x : ℝ} (hx₁ : -1 < x) (hx₂ : x ≤
       have : 1 + y ≠ 0 := by linarith
       field_simp
       ring
+  have hd : ∀ y ∈ Set.uIcc x 0, HasDerivAt (fun z ↦ log (1 + z) + (z ^ 2 / 4 - z))
+      ((1 + y)⁻¹ + (y / 2 - 1)) y := fun y hy ↦
+    hasDerivAt_log_one_add_add (p := fun z ↦ z ^ 2 / 4 - z)
+      ((((hasDerivAt_pow 2 y).div_const 4).sub (hasDerivAt_id y)).congr_deriv (by simp; ring))
+      (by rcases Set.mem_uIcc.1 hy with hy | hy <;> linarith [hy.1, hy.2])
   have h := LMLExplore.apply_le_apply_of_hasDerivAt_of_nonneg_of_nonpos
     (f := fun z ↦ log (1 + z) + (z ^ 2 / 4 - z))
     (f' := fun y ↦ (1 + y)⁻¹ + (y / 2 - 1)) (x := x) (x₀ := 0)
-    (fun y hy ↦ hasDerivAt_log_one_add_add (p := fun z ↦ z ^ 2 / 4 - z)
-      ((((hasDerivAt_pow 2 y).div_const 4).sub (hasDerivAt_id y)).congr_deriv (by simp; ring))
-      (by rcases Set.mem_uIcc.1 hy with hy | hy <;> linarith [hy.1, hy.2]))
+    (fun y hy ↦ (hd y hy).continuousAt.continuousWithinAt)
+    (fun y hy ↦ hd y (Set.uIoo_subset_uIcc_self hy))
     (fun y hy ↦ by
       rw [hd' y (hx₁.trans hy.1)]
       exact div_nonneg (by nlinarith [hy.1, hy.2]) (by linarith [hx₁.trans hy.1]))

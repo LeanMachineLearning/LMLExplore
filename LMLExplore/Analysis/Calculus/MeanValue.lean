@@ -17,33 +17,35 @@ of `x₀` and nonpositive to its right, then `f x ≤ f x₀` for every `x`.
 
 ## Main statements
 
-* `LMLExplore.apply_le_apply_of_hasDerivAt_of_nonneg_of_nonpos`: if `f` has derivative `f' y` at
-  each `y` between `x` and `x₀`, with `f' ≥ 0` on `(x, x₀)` and `f' ≤ 0` on `(x₀, x)`, then
-  `f x ≤ f x₀`.
+* `LMLExplore.apply_le_apply_of_hasDerivAt_of_nonneg_of_nonpos`: if `f` is continuous on the
+  segment between `x` and `x₀` and has derivative `f' y` at each `y` strictly between them, with
+  `f' ≥ 0` on `(x, x₀)` and `f' ≤ 0` on `(x₀, x)`, then `f x ≤ f x₀`.
 -/
 
 public section
 
 namespace LMLExplore
 
-/-- If `f` is differentiable on the segment between `x` and `x₀`, with a nonnegative derivative
-between `x` and `x₀` when `x < x₀` and a nonpositive one when `x > x₀`, then `f x ≤ f x₀`. -/
+/-- If `f` is continuous on the segment between `x` and `x₀` and differentiable in its interior,
+with a nonnegative derivative between `x` and `x₀` when `x < x₀` and a nonpositive one when
+`x > x₀`, then `f x ≤ f x₀`. -/
 theorem apply_le_apply_of_hasDerivAt_of_nonneg_of_nonpos {f f' : ℝ → ℝ} {x x₀ : ℝ}
-    (hd : ∀ y ∈ Set.uIcc x x₀, HasDerivAt f (f' y) y)
+    (hcont : ContinuousOn f (Set.uIcc x x₀))
+    (hd : ∀ y ∈ Set.Ioo (min x x₀) (max x x₀), HasDerivAt f (f' y) y)
     (hneg : ∀ y ∈ Set.Ioo x x₀, 0 ≤ f' y) (hpos : ∀ y ∈ Set.Ioo x₀ x, f' y ≤ 0) :
     f x ≤ f x₀ := by
-  have hcont : ContinuousOn f (Set.uIcc x x₀) :=
-    fun y hy ↦ (hd y hy).continuousAt.continuousWithinAt
   rcases le_total x x₀ with h0 | h0
-  · rw [Set.uIcc_of_le h0] at hd hcont
+  · rw [Set.uIcc_of_le h0] at hcont
+    rw [min_eq_left h0, max_eq_right h0] at hd
     refine monotoneOn_of_hasDerivWithinAt_nonneg (convex_Icc x x₀) hcont
-      (fun y hy ↦ (hd y (interior_subset hy)).hasDerivWithinAt) ?_
+      (fun y hy ↦ (hd y (by rwa [interior_Icc] at hy)).hasDerivWithinAt) ?_
       ⟨le_rfl, h0⟩ ⟨h0, le_rfl⟩ h0
     rw [interior_Icc]
     exact hneg
-  · rw [Set.uIcc_of_ge h0] at hd hcont
+  · rw [Set.uIcc_of_ge h0] at hcont
+    rw [min_eq_right h0, max_eq_left h0] at hd
     refine antitoneOn_of_hasDerivWithinAt_nonpos (convex_Icc x₀ x) hcont
-      (fun y hy ↦ (hd y (interior_subset hy)).hasDerivWithinAt) ?_
+      (fun y hy ↦ (hd y (by rwa [interior_Icc] at hy)).hasDerivWithinAt) ?_
       ⟨le_rfl, h0⟩ ⟨h0, le_rfl⟩ h0
     rw [interior_Icc]
     exact hpos
