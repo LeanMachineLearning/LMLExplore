@@ -42,6 +42,8 @@ bound `4 + 4 log n` of [Ora, Theorem 1.3].
   `⟪v i, ·⟫ + μ i / 2 * ‖· - x i‖ ^ 2` with positive total weight are the nearest points to an
   explicit center; in particular the plays of follow-the-leader on the quadratized losses
   [Ora, (7.9)].
+* `strongConvexOn_sq_sub`, `hasSubgradientWithinAt_sq_sub`: the squared loss `(a - y) ^ 2` is
+  `2`-strongly convex, with subgradient `2 (x - y)` at `x`.
 * `regret_sq_sub_le_one_add_log`: [Ora, Example 7.26] the regret of follow-the-leader on the
   guessing game.
 
@@ -168,6 +170,21 @@ theorem isMinOn_sum_inner_add_div_two_mul_norm_sub_sq_iff {ι : Type*} (t : Fins
   refine forall₂_congr fun b _ ↦ ?_
   rw [mul_le_mul_iff_of_pos_left (half_pos hμ), sq_le_sq₀ (norm_nonneg _) (norm_nonneg _)]
 
+/-- The squared loss `(a - y) ^ 2` is `2`-strongly convex on every convex set of `ℝ`. -/
+theorem strongConvexOn_sq_sub {s : Set ℝ} (hs : Convex ℝ s) (y : ℝ) :
+    StrongConvexOn s 2 fun a ↦ (a - y) ^ 2 := by
+  convert strongConvexOn_div_two_mul_norm_sub_sq hs 2 y using 2 with a
+  rw [Real.norm_eq_abs, sq_abs]
+  ring
+
+/-- The derivative `2 (x - y)` of the squared loss `(a - y) ^ 2` at `x` is a subgradient of it
+within every set of `ℝ`. -/
+theorem hasSubgradientWithinAt_sq_sub (s : Set ℝ) (x y : ℝ) :
+    HasSubgradientWithinAt (fun a ↦ (a - y) ^ 2) (innerSL ℝ (2 * (x - y))) s x := by
+  refine hasSubgradientWithinAt_iff_le.mpr fun a _ ↦ ?_
+  simp only [innerSL_apply_apply, Real.inner_apply]
+  nlinarith [sq_nonneg (a - x)]
+
 /-- **Follow-the-leader on the guessing game** [Ora, Example 7.26]. Let the outcomes `y t` and the
 plays `x t` lie in `[0, 1]`, and let `x t` minimize over `[0, 1]` the cumulative squared loss
 `∑ s < t, (a - y s) ^ 2` of the previous rounds, so that `x 0` is any point of `[0, 1]`, for
@@ -179,24 +196,17 @@ theorem regret_sq_sub_le_one_add_log (x y : ℕ → ℝ) {u : ℝ} {n : ℕ}
     (hu : u ∈ Set.Icc 0 1) :
     regret (fun t a ↦ (a - y t) ^ 2) x u n ≤ 1 + Real.log n := by
   -- the squared losses are `2`-strongly convex, with derivative `2 (x t - y t)` at `x t`
-  have hℓ (t : ℕ) (_ : t < n) : StrongConvexOn (Set.Icc (0 : ℝ) 1) 2 fun a ↦ (a - y t) ^ 2 := by
-    convert strongConvexOn_div_two_mul_norm_sub_sq (convex_Icc (0 : ℝ) 1) 2 (y t) using 2 with a
-    rw [Real.norm_eq_abs, sq_abs]
-    ring
-  have hg (t : ℕ) (_ : t < n) : HasSubgradientWithinAt (fun a ↦ (a - y t) ^ 2)
-      (ContinuousLinearMap.toSpanSingleton ℝ (2 * (x t - y t))) (Set.Icc 0 1) (x t) := by
-    refine hasSubgradientWithinAt_iff_le.mpr fun a _ ↦ ?_
-    simp only [ContinuousLinearMap.toSpanSingleton_apply, smul_eq_mul]
-    nlinarith [sq_nonneg (a - x t)]
-  have h := regret_le_ftl_of_strongConvexOn (fun t a ↦ (a - y t) ^ 2) x _ hℓ
-    (fun t _ ↦ by simp only [sum_const, card_range, nsmul_eq_mul]; positivity) hx hmin hg hu
+  have h := regret_le_ftl_of_strongConvexOn (fun t a ↦ (a - y t) ^ 2) x _
+    (fun t _ ↦ strongConvexOn_sq_sub (convex_Icc 0 1) (y t))
+    (fun t _ ↦ by simp only [sum_const, card_range, nsmul_eq_mul]; positivity) hx hmin
+    (fun t _ ↦ hasSubgradientWithinAt_sq_sub _ (x t) (y t)) hu
   refine h.trans ((sum_le_sum fun t ht ↦ ?_).trans (Real.sum_range_inv_add_one_le n))
   -- each stability term is `(x t - y t) ^ 2 / (t + 1) ≤ 1 / (t + 1)`
   have ht := mem_range.mp ht
   have h_sq : (x t - y t) ^ 2 ≤ 1 := by
     nlinarith [(hx t ht).1, (hx t ht).2, (hy t ht).1, (hy t ht).2]
-  simp only [ContinuousLinearMap.norm_toSpanSingleton, Real.norm_eq_abs, sum_const, card_range,
-    nsmul_eq_mul, Nat.cast_add, Nat.cast_one]
+  simp only [innerSL_apply_norm, Real.norm_eq_abs, sum_const, card_range, nsmul_eq_mul,
+    Nat.cast_add, Nat.cast_one]
   rw [sq_abs, inv_eq_one_div, div_le_div_iff₀ (by positivity) (by positivity)]
   nlinarith
 

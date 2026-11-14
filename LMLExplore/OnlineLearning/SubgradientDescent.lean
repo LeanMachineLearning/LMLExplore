@@ -7,6 +7,7 @@ module
 
 public import LMLExplore.Analysis.Real.Sqrt
 public import LMLExplore.NumberTheory.Harmonic.Bounds
+public import LMLExplore.OnlineLearning.FTRL.Quadratic
 public import LMLExplore.OnlineLearning.MirrorDescent
 public import LMLExplore.OnlineLearning.Regret
 
@@ -45,6 +46,8 @@ to the gradient step `a t - η t • g t`. Each such step satisfies
   at the plays is at most the regret of the linearized losses.
 * `isMirrorDescentStep_norm_sq_div_two_iff`: the mirror descent steps for the potential
   `‖b‖ ^ 2 / 2` and the loss `⟪g, ·⟫` from `a` are the points of `K` nearest to `a - η • g`.
+* `inner_sub_sub_norm_sq_div_le`: the stability term of one step of projected online
+  subgradient descent.
 * `inner_sub_le_of_isMinOn_norm_sub`: [Ora, Lemmas 2.12 and 2.31] one step of projected online
   subgradient descent.
 * `onlineSubgradientDescent_regret_le_norm_sub_sq_div`: [Ora, Theorem 2.13] the regret with a
@@ -118,6 +121,16 @@ theorem isMirrorDescentStep_norm_sq_div_two_iff {η : ℝ} {g a x : E} :
   refine and_congr_right fun _ ↦ forall₂_congr fun c _ ↦ ?_
   rw [div_le_div_iff_of_pos_right two_pos, sq_le_sq₀ (norm_nonneg _) (norm_nonneg _)]
 
+/-- **Stability of one step of projected online subgradient descent.** For `η > 0`,
+`⟪g, a - b⟫ - ‖b - a‖ ^ 2 / 2 / η ≤ η / 2 * ‖g‖ ^ 2`: the linear gain of a step from `a` to `b`
+minus its Bregman divergence for the potential `‖·‖ ^ 2 / 2`, divided by `η`, is at most
+`η / 2 * ‖g‖ ^ 2`. -/
+theorem inner_sub_sub_norm_sq_div_le {η : ℝ} (hη : 0 < η) (g a b : E) :
+    ⟪g, a - b⟫ - ‖b - a‖ ^ 2 / 2 / η ≤ η / 2 * ‖g‖ ^ 2 := by
+  have h := apply_sub_sub_div_le_of_mul_norm_sq_le one_pos hη (innerSL ℝ g)
+    (one_div_mul_eq_div 2 (‖b - a‖ ^ 2)).le
+  rwa [mul_one, innerSL_apply_norm, innerSL_apply_apply] at h
+
 /-- **One step of projected online subgradient descent** [Ora, Lemmas 2.12 and 2.31]. Let `K` be
 convex, let `η > 0`, and let `x ∈ K` be a point of `K` nearest to the gradient step `a - η • g`.
 Then for every `u ∈ K`,
@@ -130,13 +143,11 @@ theorem inner_sub_le_of_isMinOn_norm_sub (hK : Convex ℝ K) {η : ℝ} (hη : 0
   have h := (isMirrorDescentStep_norm_sq_div_two_iff.mpr ⟨hx, hmin⟩).apply_sub_le hK hη
     (hasFDerivAt_norm_sq_div_two x).hasFDerivWithinAt hu
   -- its stability term
-  have h_stab := apply_sub_sub_div_le_of_mul_norm_sq_le one_pos hη (innerSL ℝ g)
-    (le_of_eq (by ring) : 1 / 2 * ‖x - a‖ ^ 2 ≤ ‖x - a‖ ^ 2 / 2)
-  simp only [bregDiv_norm_sq_div_two, innerSL_apply_apply, innerSL_apply_norm] at h h_stab
+  have h_stab := inner_sub_sub_norm_sq_div_le hη g a x
+  simp only [bregDiv_norm_sq_div_two, innerSL_apply_apply] at h
   have h_eq : (‖u - a‖ ^ 2 / 2 - ‖u - x‖ ^ 2 / 2 - ‖x - a‖ ^ 2 / 2) / η =
       (‖u - a‖ ^ 2 - ‖u - x‖ ^ 2) / (2 * η) - ‖x - a‖ ^ 2 / 2 / η := by
     field_simp
-  have h_eq' : η / (2 * 1) * ‖g‖ ^ 2 = η / 2 * ‖g‖ ^ 2 := by rw [mul_one]
   linarith
 
 /-- **Regret of projected online subgradient descent with a constant learning rate**
@@ -192,10 +203,8 @@ theorem onlineSubgradientDescent_regret_le_of_antitone (hK : Convex ℝ K) {η :
       bregDiv (fun b : E ↦ ‖b‖ ^ 2 / 2) (a (t + 1)) (a t) (innerSL ℝ (a t)) / η t) ≤
         ∑ t ∈ range n, η t / 2 * ‖g t‖ ^ 2 := by
     refine sum_le_sum fun t _ ↦ ?_
-    have := apply_sub_sub_div_le_of_mul_norm_sq_le one_pos (hη t) (innerSL ℝ (g t))
-      (le_of_eq (by ring) : 1 / 2 * ‖a (t + 1) - a t‖ ^ 2 ≤ ‖a (t + 1) - a t‖ ^ 2 / 2)
-    rw [bregDiv_norm_sq_div_two]
-    simpa [innerSL_apply_norm] using this
+    rw [bregDiv_norm_sq_div_two, innerSL_apply_apply]
+    exact inner_sub_sub_norm_sq_div_le (hη t) (g t) (a t) (a (t + 1))
   rw [bregDiv_norm_sq_div_two] at h
   have h_eq : (D ^ 2 / 2 - ‖u - a n‖ ^ 2 / 2) / η (n - 1) =
       (D ^ 2 - ‖u - a n‖ ^ 2) / (2 * η (n - 1)) := by
@@ -359,11 +368,10 @@ theorem onlineSubgradientDescent_regret_le_of_strongConvexOn (hK : Convex ℝ K)
       IsMinOn (fun b ↦ ‖b - (a t - (∑ s ∈ range (t + 1), μ s)⁻¹ • g t)‖) K (a (t + 1)))
     (hu : u ∈ K) :
     regret f a u n ≤ ∑ t ∈ range n, ‖g t‖ ^ 2 / (2 * ∑ s ∈ range (t + 1), μ s) := by
-  have h_mem : ∀ t < n, a t ∈ K
-    | 0, _ => ha0
-    | t + 1, ht => (ha t (Nat.lt_of_succ_lt ht)).1
+  have h_mem := mem_of_isMirrorDescentStep ha0 fun t ht ↦
+    isMirrorDescentStep_norm_sq_div_two_iff.mpr (ha t ht)
   refine onlineSubgradientDescent_regret_le_sum_norm_sq_div hK f g a hμ (fun t ht v hv ↦ ?_) ha hu
-  simpa using (hf t ht).add_add_le_of_hasSubgradientWithinAt (h_mem t ht) hv (hg t ht)
+  simpa using (hf t ht).add_add_le_of_hasSubgradientWithinAt (h_mem t ht.le) hv (hg t ht)
 
 /-- **Logarithmic regret of projected online subgradient descent on strongly convex losses**
 [Ora, Corollary 4.8]. Let `K` be convex and `μ > 0`. Let the loss `f t` be `μ`-strongly convex
@@ -424,16 +432,7 @@ theorem onlineSubgradientDescent_regret_sq_sub_le_one_add_log (x y : ℕ → ℝ
       · positivity
       · rw [div_le_one (by positivity)]
         nlinarith
-  -- the squared losses are `2`-strongly convex, with derivative `2 (x t - y t)` at `x t`
-  have hf (t : ℕ) (_ : t < n) : StrongConvexOn (Set.Icc (0 : ℝ) 1) 2 fun a ↦ (a - y t) ^ 2 := by
-    convert strongConvexOn_div_two_mul_norm_sub_sq (convex_Icc (0 : ℝ) 1) 2 (y t) using 2 with a
-    rw [Real.norm_eq_abs, sq_abs]
-    ring
-  have hg (t : ℕ) (_ : t < n) : HasSubgradientWithinAt (fun a ↦ (a - y t) ^ 2)
-      (innerSL ℝ (2 * (x t - y t))) (Set.Icc 0 1) (x t) := by
-    refine hasSubgradientWithinAt_iff_le.mpr fun a _ ↦ ?_
-    simp only [innerSL_apply_apply, Real.inner_apply]
-    nlinarith [sq_nonneg (a - x t)]
+  -- the gradients `2 (x t - y t)` of the squared losses are bounded by `2`
   have hgL (t : ℕ) (ht : t < n) : ‖2 * (x t - y t)‖ ≤ 2 := by
     have ⟨h0, h1⟩ := h_mem t ht.le
     have ⟨hy0, hy1⟩ := hy t ht
@@ -450,7 +449,8 @@ theorem onlineSubgradientDescent_regret_sq_sub_le_one_add_log (x y : ℕ → ℝ
     rw [h_step, sub_self, norm_zero]
     exact norm_nonneg _
   have h := onlineSubgradientDescent_regret_le_mul_one_add_log (convex_Icc (0 : ℝ) 1) _
-    (fun t ↦ 2 * (x t - y t)) x two_pos hf hg hgL hx0 ha hu
+    (fun t ↦ 2 * (x t - y t)) x two_pos (fun t _ ↦ strongConvexOn_sq_sub (convex_Icc 0 1) (y t))
+    (fun t _ ↦ hasSubgradientWithinAt_sq_sub _ (x t) (y t)) hgL hx0 ha hu
   norm_num at h
   exact h
 
