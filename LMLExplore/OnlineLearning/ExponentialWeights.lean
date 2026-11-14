@@ -228,6 +228,16 @@ lemma mixLoss_eq_neg_log_div (η : ℝ) (w ℓ : α → ℝ) :
   simp_rw [mixLoss_def, neg_mul]
   ring
 
+/-- For `0 < η`, the mix loss is at most `c` iff `-η c ≤ log ∑ a, w a exp (-η ℓ a)`. -/
+lemma mixLoss_le_iff {η : ℝ} (hη : 0 < η) {w ℓ : α → ℝ} {c : ℝ} :
+    mixLoss η w ℓ ≤ c ↔ -η * c ≤ log (∑ a, w a * exp (-η * ℓ a)) := by
+  rw [mixLoss_def, neg_inv_mul_le_iff hη]
+
+/-- For `0 < η`, the mix loss is at least `c` iff `log ∑ a, w a exp (-η ℓ a) ≤ -η c`. -/
+lemma le_mixLoss_iff {η : ℝ} (hη : 0 < η) {w ℓ : α → ℝ} {c : ℝ} :
+    c ≤ mixLoss η w ℓ ↔ log (∑ a, w a * exp (-η * ℓ a)) ≤ -η * c := by
+  rw [mixLoss_def, le_neg_inv_mul_iff hη]
+
 /-- The mix loss is at most the loss `⟨w, ℓ⟩` of the weights, by Jensen's inequality. -/
 lemma mixLoss_le_sum_mul {w : α → ℝ} (hw : w ∈ simplex α) {η : ℝ} (hη : 0 < η) (ℓ : α → ℝ) :
     mixLoss η w ℓ ≤ ∑ a, w a * ℓ a := by
@@ -239,7 +249,7 @@ lemma mixLoss_le_sum_mul {w : α → ℝ} (hw : w ∈ simplex α) {η : ℝ} (h�
     rw [Finset.mul_sum]
     exact Finset.sum_congr rfl fun a _ ↦ by ring
   rw [hsum] at h
-  rw [mixLoss_def, neg_inv_mul_le_iff hη, ← log_exp (-η * ∑ a, w a * ℓ a)]
+  rw [mixLoss_le_iff hη, ← log_exp (-η * ∑ a, w a * ℓ a)]
   exact log_le_log (exp_pos _) h
 
 /-- The mix loss of losses at least `lo` is at least `lo`. -/
@@ -253,7 +263,7 @@ lemma le_mixLoss {w : α → ℝ} (hw : w ∈ simplex α) {η : ℝ} (hη : 0 < 
             (exp_le_exp.2 (by nlinarith [hℓ a])) (hw'.1 a)
       _ = exp (-η * lo) := by rw [← Finset.sum_mul, hw'.2, one_mul]
   have hpos := sum_mul_pos_of_mem_simplex hw fun a ↦ exp_pos (-η * ℓ a)
-  rw [mixLoss_def, le_neg_inv_mul_iff hη, ← log_exp (-η * lo)]
+  rw [le_mixLoss_iff hη, ← log_exp (-η * lo)]
   exact log_le_log hpos hle
 
 /-- The potential `-(1/η) log ((1/K) ∑ a, exp (-η L a))` of exponential weights with learning rate

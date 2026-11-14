@@ -79,8 +79,7 @@ lemma. -/
 lemma sum_mul_le_mixLoss_add {w : α → ℝ} (hw : w ∈ simplex α) {η : ℝ} (hη : 0 < η)
     {ℓ : α → ℝ} {lo hi : ℝ} (hℓ : ∀ a, ℓ a ∈ Set.Icc lo hi) :
     ∑ a, w a * ℓ a ≤ mixLoss η w ℓ + η * (hi - lo) ^ 2 / 8 := by
-  rw [← sub_le_iff_le_add, mixLoss_def, ← inv_neg, ← div_eq_inv_mul,
-    le_div_iff_of_neg (neg_lt_zero.2 hη)]
+  rw [← sub_le_iff_le_add, le_mixLoss_iff hη]
   exact (log_sum_mul_exp_le hw hℓ (-η)).trans_eq (by ring)
 
 /-! ### Follow the leader -/
