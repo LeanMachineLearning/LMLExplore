@@ -40,6 +40,9 @@ subgradient of `ℓ t` within `V` at `x t` and `F t + ℓ t` is `λ t`-strongly 
 minimizes `F n` over `V`),
 `regret ≤ ψ n u - ψ 0 (x 0) + ∑ t < n, ‖g t‖ ^ 2 / (2 λ t)
   + ∑ t < n, (ψ t (x (t + 1)) - ψ (t + 1) (x (t + 1)))`.
+With proximal regularizers the increments are evaluated at `x t` instead, and with no regularizer,
+follow-the-leader on losses whose partial sums `∑ s ≤ t, ℓ s` are strongly convex has regret at
+most `∑ t < n, ‖g t‖ ^ 2 / (2 ∑ s ≤ t, μ s)` [Ora, Corollary 7.25].
 
 ## Main statements
 
@@ -56,11 +59,15 @@ minimizes `F n` over `V`),
 * `regret_le_ftrl_of_strongConvexOn_div`: [Ora, Corollary 7.6] its case of the regularizers
   `F / η t`, for an `m`-strongly convex `F`, convex losses and arbitrary positive learning rates,
   keeping the increments `(1 / η t - 1 / η (t + 1)) * F (x (t + 1))` of the regularizers.
+* `regret_le_ftrl_of_isMinOn_sub_of_strongConvexOn`: [Ora, Lemmas 7.1 and 7.7] the regret of FTRL
+  with proximal regularizers.
+* `regret_le_ftl_of_strongConvexOn`: [Ora, Corollary 7.25] the regret of follow-the-leader on
+  strongly convex losses.
 
 ## References
 
 * [Ora] F. Orabona, *Online learning: a modern introduction using convex optimization*,
-  arXiv:1912.13213v10, 2026, Lemmas 7.5 and 7.7, Corollary 7.6.
+  arXiv:1912.13213v10, 2026, Lemmas 7.5 and 7.7, Corollaries 7.6 and 7.25.
 -/
 public section
 
@@ -249,6 +256,65 @@ theorem regret_le_ftrl_of_strongConvexOn_div {F : E → ℝ} {m : ℝ} (hF : Str
   have h_inc : ∀ t ∈ range n, F (x (t + 1)) / η t - F (x (t + 1)) / η (t + 1) =
       (1 / η t - 1 / η (t + 1)) * F (x (t + 1)) := fun _ _ ↦ by ring
   rwa [sum_congr rfl h_stab, sum_congr rfl h_inc] at h
+
+/-- **The regret of FTRL with proximal regularizers** [Ora, Lemmas 7.1 and 7.7]. Let `x t ∈ V`,
+for `t ≤ n`, and let `x t`, for `t < n`, minimize over `V` both the objective
+`F t = ψ t + ∑ s < t, ℓ s` and the increment `ψ (t + 1) - ψ t` of the regularizers. Let `g t` be
+a subgradient of `ℓ t` within `V` at `x t` and let `F (t + 1)` be `lam t`-strongly convex on `V`,
+with `lam t > 0`, for `t < n`. If the last point does at least as well as the comparator `u` on
+the last objective, `F n (x n) ≤ F n u`, then
+`regret ℓ x u n ≤ ψ n u - ψ 0 (x 0) + ∑ t < n, ‖g t‖ ^ 2 / (2 lam t)
+  + ∑ t < n, (ψ t (x t) - ψ (t + 1) (x t))`,
+where `‖g t‖` is the dual norm. Only the objectives `F (t + 1)` must be strongly convex, and the
+regularizer increments are evaluated at the plays `x t` themselves. -/
+theorem regret_le_ftrl_of_isMinOn_sub_of_strongConvexOn (ψ ℓ : ℕ → E → ℝ) (x : ℕ → E)
+    (g : ℕ → E →L[ℝ] ℝ) {lam : ℕ → ℝ} {u : E} {n : ℕ} (hlam : ∀ t < n, 0 < lam t)
+    (hF : ∀ t < n, StrongConvexOn V (lam t) fun a ↦ ψ (t + 1) a + ∑ s ∈ range (t + 1), ℓ s a)
+    (hx : ∀ t ≤ n, x t ∈ V)
+    (hmin : ∀ t < n, IsMinOn (fun a ↦ ψ t a + ∑ s ∈ range t, ℓ s a) V (x t))
+    (hprox : ∀ t < n, IsMinOn (fun a ↦ ψ (t + 1) a - ψ t a) V (x t))
+    (hg : ∀ t < n, HasSubgradientWithinAt (ℓ t) (g t) V (x t))
+    (hxn : ψ n (x n) + ∑ s ∈ range n, ℓ s (x n) ≤ ψ n u + ∑ s ∈ range n, ℓ s u) :
+    regret ℓ x u n ≤ ψ n u - ψ 0 (x 0) + ∑ t ∈ range n, ‖g t‖ ^ 2 / (2 * lam t) +
+      ∑ t ∈ range n, (ψ t (x t) - ψ (t + 1) (x t)) := by
+  refine (regret_le_ftrl ψ ℓ x x hxn).trans ?_
+  rw [add_assoc, ← sum_add_distrib]
+  -- bound each stability term, with the comparison point `x (t + 1)`
+  refine add_le_add le_rfl (sum_le_sum fun t ht ↦ ?_)
+  have ht := mem_range.mp ht
+  have h := ftrl_stability_le_norm_sq_div_of_isMinOn_sub_of_strongConvexOn (hlam t ht) (hmin t ht)
+    (hprox t ht) (hg t ht) (hF t ht) (hx t ht.le) (hx (t + 1) ht)
+  linarith
+
+/-- **Follow-the-leader on strongly convex losses** [Ora, Corollary 7.25]. Let each loss `ℓ t` be
+`μ t`-strongly convex on `V`, with positive partial sums `0 < ∑ s ≤ t, μ s`, for `t < n`. Let
+`x t ∈ V` minimize over `V` the cumulative loss `∑ s < t, ℓ s` of the previous rounds, so that
+`x 0` is any point of `V`, and let `g t` be a subgradient of `ℓ t` within `V` at `x t`, for
+`t < n`. Then for every `u ∈ V`,
+`regret ℓ x u n ≤ ∑ t < n, ‖g t‖ ^ 2 / (2 ∑ s ≤ t, μ s)`,
+where `‖g t‖` is the dual norm. The moduli `μ t` themselves may be negative. -/
+theorem regret_le_ftl_of_strongConvexOn (ℓ : ℕ → E → ℝ) (x : ℕ → E) (g : ℕ → E →L[ℝ] ℝ)
+    {μ : ℕ → ℝ} {u : E} {n : ℕ} (hℓ : ∀ t < n, StrongConvexOn V (μ t) (ℓ t))
+    (hμ : ∀ t < n, 0 < ∑ s ∈ range (t + 1), μ s) (hx : ∀ t < n, x t ∈ V)
+    (hmin : ∀ t < n, IsMinOn (fun a ↦ ∑ s ∈ range t, ℓ s a) V (x t))
+    (hg : ∀ t < n, HasSubgradientWithinAt (ℓ t) (g t) V (x t)) (hu : u ∈ V) :
+    regret ℓ x u n ≤ ∑ t ∈ range n, ‖g t‖ ^ 2 / (2 * ∑ s ∈ range (t + 1), μ s) := by
+  -- the plays up to round `n - 1`, then the comparator
+  set x' : ℕ → E := fun t ↦ if t < n then x t else u with hx'_def
+  have hx'_lt (t : ℕ) (ht : t < n) : x' t = x t := by simp [x', ht]
+  have hx' (t : ℕ) (ht : t ≤ n) : x' t ∈ V := by
+    rcases ht.lt_or_eq with ht | rfl
+    · exact (hx'_lt t ht).symm ▸ hx t ht
+    · simpa [x'] using hu
+  -- the cumulative losses up to round `t` are `∑ s ≤ t, μ s`-strongly convex
+  have hF (t : ℕ) (ht : t < n) :
+      StrongConvexOn V (∑ s ∈ range (t + 1), μ s) fun a ↦ 0 + ∑ s ∈ range (t + 1), ℓ s a := by
+    simpa using StrongConvexOn.fun_sum (hℓ t ht).1 fun s hs ↦
+      hℓ s ((mem_range.mp hs).trans_le ht)
+  have h := regret_le_ftrl_of_isMinOn_sub_of_strongConvexOn (fun _ _ ↦ 0) ℓ x' g (u := u) hμ hF
+    hx' (fun t ht ↦ by simpa [hx'_lt t ht] using hmin t ht) (fun t _ ↦ isMinOn_const)
+    (fun t ht ↦ (hx'_lt t ht).symm ▸ hg t ht) (by simp [x'])
+  simpa [regret_congr hx'_lt] using h
 
 end NormedSpace
 

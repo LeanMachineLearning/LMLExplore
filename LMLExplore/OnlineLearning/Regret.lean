@@ -106,6 +106,12 @@ lemma regret_succ (ℓ : ℕ → α → ℝ) (x : ℕ → α) (u : α) (n : ℕ)
     regret ℓ x u (n + 1) = regret ℓ x u n + (ℓ n (x n) - ℓ n u) := by
   rw [regret_def, regret_def, sum_range_succ]
 
+/-- The regret after `n` rounds depends only on the plays of the first `n` rounds. -/
+lemma regret_congr {y : ℕ → α} (h : ∀ t < n, x t = y t) :
+    regret ℓ x u n = regret ℓ y u n := by
+  simp only [regret_def]
+  exact sum_congr rfl fun t ht ↦ by rw [h t (mem_range.mp ht)]
+
 /-- The regret against a comparator is the difference of the cumulative losses. -/
 lemma regret_eq_sum_sub_sum (ℓ : ℕ → α → ℝ) (x : ℕ → α) (u : α) (n : ℕ) :
     regret ℓ x u n = ∑ t ∈ range n, ℓ t (x t) - ∑ t ∈ range n, ℓ t u := by
