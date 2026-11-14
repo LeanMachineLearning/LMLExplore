@@ -202,6 +202,11 @@ theorem congr (hM : IsTestSupermartingale M ℱ S) (hM' : Adapted ℱ M')
   ⟨hM.toIsENNSupermartingale.congr hM' h, fun P hP ↦
     (lintegral_congr_ae (h P hP 0)).symm.trans_le (hM.lintegral_zero_le P hP)⟩
 
+/-- A test supermartingale has finite initial expectation under every member of the null. -/
+theorem lintegral_zero_ne_top (hM : IsTestSupermartingale M ℱ S) (hP : P ∈ S) :
+    ∫⁻ ω, M 0 ω ∂P ≠ ∞ :=
+  ((hM.lintegral_zero_le P hP).trans_lt ENNReal.one_lt_top).ne
+
 /-- Every value of a test supermartingale has expectation at most `1`. -/
 theorem lintegral_le_one (hM : IsTestSupermartingale M ℱ S) (hP : P ∈ S) (n : ℕ) :
     ∫⁻ ω, M n ω ∂P ≤ 1 :=
@@ -217,14 +222,14 @@ theorem isEVar (hS : ∀ P ∈ S, IsProbabilityMeasure P) (hM : IsTestSupermarti
 theorem ae_lt_top (hM : IsTestSupermartingale M ℱ S) (hP : P ∈ S) :
     ∀ᵐ ω ∂P, ∀ n, M n ω < ∞ :=
   hM.toIsENNSupermartingale.ae_lt_top hP
-    ((hM.lintegral_zero_le P hP).trans_lt ENNReal.one_lt_top).ne
+    (hM.lintegral_zero_ne_top hP)
 
 /-- The real values of a test supermartingale form a real supermartingale under every finite
 member of the null. -/
 theorem supermartingale_toReal (hM : IsTestSupermartingale M ℱ S) (hP : P ∈ S)
     [IsFiniteMeasure P] : Supermartingale (fun n ω ↦ (M n ω).toReal) ℱ P :=
   hM.toIsENNSupermartingale.supermartingale_toReal hP
-    ((hM.lintegral_zero_le P hP).trans_lt ENNReal.one_lt_top).ne
+    (hM.lintegral_zero_ne_top hP)
 
 end IsTestSupermartingale
 
@@ -459,7 +464,7 @@ theorem IsTestSupermartingale.ae_eq_mul_prod_div (hM : IsTestSupermartingale M �
     (hP : P ∈ S) :
     ∀ᵐ ω ∂P, ∀ n, M n ω = M 0 ω * ∏ k ∈ range n, M (k + 1) ω / M k ω :=
   hM.toIsENNSupermartingale.ae_eq_mul_prod_div hP
-    ((hM.lintegral_zero_le P hP).trans_lt ENNReal.one_lt_top).ne
+    (hM.lintegral_zero_ne_top hP)
 
 /-! ### Pulling a known factor out of a supermartingale step -/
 
