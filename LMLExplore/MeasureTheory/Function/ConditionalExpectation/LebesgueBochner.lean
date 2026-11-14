@@ -5,6 +5,7 @@ Authors: LMLExplore contributors
 -/
 module
 
+public import LMLExplore.MeasureTheory.Measure.WithDensity
 public import Mathlib.MeasureTheory.Function.ConditionalExpectation.Basic
 
 /-!
@@ -38,38 +39,19 @@ theorem lintegral_mul_ofReal_le_of_condExp_le (hm : m ≤ mΩ) [SigmaFinite (μ.
     {f h : Ω → ℝ} (hf : Integrable f μ) (hf_nonneg : 0 ≤ᵐ[μ] f) (hfh : μ[f | m] ≤ᵐ[μ] h)
     {g : Ω → ℝ≥0∞} (hg : Measurable[m] g) :
     ∫⁻ ω, g ω * ENNReal.ofReal (f ω) ∂μ ≤ ∫⁻ ω, g ω * ENNReal.ofReal (h ω) ∂μ := by
-  have hF : AEMeasurable (fun ω ↦ ENNReal.ofReal (f ω)) μ := hf.1.aemeasurable.ennreal_ofReal
-  refine @Measurable.ennreal_induction Ω m
-    (fun g ↦ ∫⁻ ω, g ω * ENNReal.ofReal (f ω) ∂μ ≤ ∫⁻ ω, g ω * ENNReal.ofReal (h ω) ∂μ)
-    (fun c s hs ↦ ?_) (fun g₁ g₂ _ hg₁ _ h₁ h₂ ↦ ?_) (fun g hg hmono ih ↦ ?_) g hg
-  · -- indicators: `∫_s f = ∫_s μ[f | m] ≤ ∫_s h`
-    have hind : ∀ F : Ω → ℝ≥0∞,
-        ∫⁻ ω, s.indicator (fun _ ↦ c) ω * F ω ∂μ = ∫⁻ ω in s, c * F ω ∂μ := fun F ↦ by
-      rw [← lintegral_indicator (hm s hs)]
-      congr 1 with ω
-      by_cases hω : ω ∈ s <;> simp [hω]
-    rw [hind, hind, lintegral_const_mul'' c hF.restrict]
-    refine le_trans ?_ (lintegral_const_mul_le c _)
-    gcongr c * ?_
-    calc ∫⁻ ω in s, ENNReal.ofReal (f ω) ∂μ = ENNReal.ofReal (∫ ω in s, f ω ∂μ) :=
-          (ofReal_integral_eq_lintegral_ofReal hf.integrableOn (ae_restrict_of_ae hf_nonneg)).symm
-      _ = ENNReal.ofReal (∫ ω in s, μ[f | m] ω ∂μ) := by rw [setIntegral_condExp hm hf hs]
-      _ = ∫⁻ ω in s, ENNReal.ofReal (μ[f | m] ω) ∂μ :=
-          ofReal_integral_eq_lintegral_ofReal integrable_condExp.integrableOn
-            (ae_restrict_of_ae (condExp_nonneg hf_nonneg))
-      _ ≤ ∫⁻ ω in s, ENNReal.ofReal (h ω) ∂μ :=
-          lintegral_mono_ae (ae_restrict_of_ae (hfh.mono fun ω hω ↦ ENNReal.ofReal_le_ofReal hω))
-  · -- sums
-    simp only [Pi.add_apply, add_mul]
-    rw [lintegral_add_left' (f := fun ω ↦ g₁ ω * ENNReal.ofReal (f ω))
-      ((hg₁.mono hm le_rfl).aemeasurable.mul hF)]
-    exact (add_le_add h₁ h₂).trans (le_lintegral_add _ _)
-  · -- increasing suprema, by monotone convergence
-    simp only [ENNReal.iSup_mul]
-    rw [lintegral_iSup' (f := fun n ω ↦ g n ω * ENNReal.ofReal (f ω))
-      (fun n ↦ ((hg n).mono hm le_rfl).aemeasurable.mul hF)
-      (ae_of_all _ fun ω n k hnk ↦ by dsimp only; gcongr; exact hmono hnk ω)]
-    exact iSup_le fun n ↦ (ih n).trans
-      (lintegral_mono fun ω ↦ le_iSup (fun i ↦ g i ω * ENNReal.ofReal (h ω)) n)
+  calc ∫⁻ ω, g ω * ENNReal.ofReal (f ω) ∂μ
+      ≤ ∫⁻ ω, g ω * ENNReal.ofReal (μ[f | m] ω) ∂μ :=
+        lintegral_mul_le_lintegral_mul_of_forall_setLIntegral_le
+          (f := fun ω ↦ ENNReal.ofReal (f ω)) (g := fun ω ↦ ENNReal.ofReal (μ[f | m] ω)) hm
+          hf.1.aemeasurable.ennreal_ofReal integrable_condExp.1.aemeasurable.ennreal_ofReal
+          (fun s hs ↦ by
+            -- `∫_s f = ∫_s μ[f | m]`, in `ℝ≥0∞`
+            rw [← ofReal_integral_eq_lintegral_ofReal hf.integrableOn
+                (ae_restrict_of_ae hf_nonneg),
+              ← ofReal_integral_eq_lintegral_ofReal integrable_condExp.integrableOn
+                (ae_restrict_of_ae (condExp_nonneg hf_nonneg)),
+              setIntegral_condExp hm hf hs]) hg
+    _ ≤ ∫⁻ ω, g ω * ENNReal.ofReal (h ω) ∂μ :=
+        lintegral_mono_ae (hfh.mono fun ω hω ↦ by gcongr)
 
 end LMLExplore
