@@ -128,24 +128,6 @@ variable {d : ℕ → 𝓢 → 𝓐} (h : M.IsPolicyIteration γ d) (hγ : γ < 
   (hR : ∀ p, ∀ᵐ x ∂(M.R p), |x| ≤ C)
 include h hγ hR
 
-/-- The bounded measurable value of `d k`, as an element of `boundedMeasurable 𝓢`. -/
-private noncomputable def valueBM (k : ℕ) : LMLExplore.boundedMeasurable 𝓢 :=
-  LMLExplore.boundedMeasurable.mk (M.value γ (Kernel.deterministic (d k) (h.measurable k)))
-    (measurable_value hγ hR)
-    (bddAbove_def.2 ⟨C / (1 - γ), forall_mem_range.2 (abs_value_le hγ hR)⟩)
-
-private lemma coeFn_valueBM (k : ℕ) :
-    ⇑(h.valueBM hγ hR k : ℓ^∞(𝓢, ℝ)) = M.value γ (Kernel.deterministic (d k) (h.measurable k)) :=
-  LMLExplore.boundedMeasurable.coeFn_mk ..
-
-/-- The value of `d k`, as a bounded measurable function, is the fixed point of the evaluation
-operator of `d k`. -/
-private lemma isFixedPt_valueBM (k : ℕ) :
-    IsFixedPt (M.bellmanEvalOp γ (Kernel.deterministic (d k) (h.measurable k)) hR)
-      (h.valueBM hγ hR k) :=
-  isFixedPt_bellmanEvalOp_mk (measurable_value hγ hR) (abs_value_le hγ hR)
-    (bellmanEval_value hγ hR)
-
 /-- The policy `d (k + 1)` of policy iteration attains the optimality operator at the value of
 `d k`. -/
 theorem bellmanEval_succ_value (k : ℕ) :
@@ -166,13 +148,14 @@ theorem bellman_le_value_succ (k : ℕ) :
   have hle := LMLExplore.map_le_of_le_map (D := {d : 𝓢 → 𝓐 // Measurable d})
     (T := fun d ↦ M.bellmanEvalOp γ (Kernel.deterministic d d.2) hR)
     (B := M.bellmanEvalOp γ (Kernel.deterministic (d (k + 1)) (h.measurable (k + 1))) hR)
-    (x := h.valueBM hγ hR k) (d := ⟨d (k + 1), h.measurable (k + 1)⟩)
+    (x := M.valueBM γ (Kernel.deterministic (d k) (h.measurable k)) hγ hR)
+    (d := ⟨d (k + 1), h.measurable (k + 1)⟩)
     LMLExplore.boundedMeasurable.orderUnitNorm_one_eq_norm
     (fun _ ↦ isBlackwell_bellmanEvalOp hR) hγ
     (LMLExplore.boundedMeasurable.le_def.2 fun t ↦ by
       simpa only [coeFn_bellmanEvalOp, coeFn_valueBM, h.bellmanEval_succ_value hγ hR k] using
         value_le_bellman hγ hR (h.measurable k) t)
-    rfl (h.isFixedPt_valueBM hγ hR (k + 1))
+    rfl (isFixedPt_bellmanEvalOp_valueBM hγ hR)
   simpa only [coeFn_bellmanEvalOp, coeFn_valueBM, h.bellmanEval_succ_value hγ hR k] using
     LMLExplore.boundedMeasurable.le_def.1 hle s
 
@@ -240,8 +223,9 @@ iteration of the evaluation operators of the measurable deterministic stationary
 private lemma isPolicyIteration_valueBM :
     LMLExplore.IsPolicyIteration
       (fun d : {d : 𝓢 → 𝓐 // Measurable d} ↦ M.bellmanEvalOp γ (Kernel.deterministic d d.2) hR)
-      (M.bellmanOp γ hR) (fun k ↦ ⟨d k, h.measurable k⟩) (h.valueBM hγ hR) where
-  isFixedPt k := h.isFixedPt_valueBM hγ hR k
+      (M.bellmanOp γ hR) (fun k ↦ ⟨d k, h.measurable k⟩)
+      (fun k ↦ M.valueBM γ (Kernel.deterministic (d k) (h.measurable k)) hγ hR) where
+  isFixedPt _ := isFixedPt_bellmanEvalOp_valueBM hγ hR
   map_eq k := LMLExplore.boundedMeasurable.ext fun s ↦ by
     simp only [coeFn_bellmanEvalOp, coeFn_bellmanOp, coeFn_valueBM,
       h.bellmanEval_succ_value hγ hR k]

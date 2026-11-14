@@ -48,6 +48,9 @@ operators an instance of the abstract dynamic programming of `LMLExplore.IsPolic
   `boundedMeasurable 𝓢`.
 * `Learning.MDP.bellmanEvalOp M γ π hR`: the evaluation operator `v ↦ r_π + γ P_π v` of `π` acting
   on `boundedMeasurable 𝓢`.
+* `Learning.MDP.valueBM M γ π hγ hR`: the value `v^π` of `π` as an element of
+  `boundedMeasurable 𝓢`, the fixed point of `Learning.MDP.bellmanEvalOp M γ π hR`
+  (`Learning.MDP.isFixedPt_bellmanEvalOp_valueBM`).
 
 ## Main statements
 
@@ -398,6 +401,35 @@ theorem abs_bellmanEval_sub_le (hR : ∀ p, ∀ᵐ x ∂(M.R p), |x| ≤ C) (hv 
     (coeFn_bellmanEvalOp hR) hv hvB hw hwB hD s
 
 end Evaluation
+
+/-! ### The value of a stationary policy as a bounded measurable function -/
+
+section Value
+
+variable {π : Kernel 𝓢 𝓐} [IsMarkovKernel π]
+
+variable (M γ π) in
+/-- With rewards bounded by `C` and `γ < 1`, the value `v^π` of the stationary policy `π`
+(`Learning.MDP.value`) as an element of `boundedMeasurable 𝓢`. It is the fixed point of the
+evaluation operator of `π` (`Learning.MDP.isFixedPt_bellmanEvalOp_valueBM`). -/
+noncomputable def valueBM (hγ : γ < 1) (hR : ∀ p, ∀ᵐ x ∂(M.R p), |x| ≤ C) :
+    boundedMeasurable 𝓢 :=
+  boundedMeasurable.mk (M.value γ π) (measurable_value hγ hR)
+    (bddAbove_def.2 ⟨C / (1 - γ), forall_mem_range.2 (abs_value_le hγ hR)⟩)
+
+@[simp]
+lemma coeFn_valueBM (hγ : γ < 1) (hR : ∀ p, ∀ᵐ x ∂(M.R p), |x| ≤ C) :
+    ⇑(M.valueBM γ π hγ hR : ℓ^∞(𝓢, ℝ)) = M.value γ π :=
+  boundedMeasurable.coeFn_mk ..
+
+/-- With bounded rewards and `γ < 1`, the value of a stationary policy is the fixed point of its
+evaluation operator on the bounded measurable functions. -/
+lemma isFixedPt_bellmanEvalOp_valueBM (hγ : γ < 1) (hR : ∀ p, ∀ᵐ x ∂(M.R p), |x| ≤ C) :
+    IsFixedPt (M.bellmanEvalOp γ π hR) (M.valueBM γ π hγ hR) :=
+  isFixedPt_bellmanEvalOp_mk (measurable_value hγ hR) (abs_value_le hγ hR)
+    (bellmanEval_value hγ hR)
+
+end Value
 
 /-- **Randomizing does not increase the supremum**: for countably many actions and bounded
 rewards, the evaluation operator of every stationary policy is below the optimality operator on the
