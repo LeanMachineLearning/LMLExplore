@@ -153,14 +153,7 @@ theorem ftrl_regret_le_of_negEntropy {n : ℕ} {η : ℝ} (hη : 0 < η)
     {u : PiLp 1 fun _ : α ↦ ℝ} (hu : ofLp u ∈ simplex α) :
     ∑ t ∈ range n, y t (a t - u) ≤
       log (Fintype.card α) / η + η / 2 * ∑ t ∈ range n, ‖y t‖ ^ 2 := by
-  classical
-  have := nonempty_of_mem_simplex hu
-  -- the plays are exponential weights, whose coordinates are positive
-  have h_ne (t : ℕ) (ht : t ≤ n) (c : α) : a t c ≠ 0 := by
-    rw [isFTRLPlay_negEntropy_iff.1 (ha t ht)]
-    exact (softmax_pos _ c).ne'
-  have h := ftrl_regret_le_of_strongConvexOn strongConvexOn_negEntropy one_pos hη y a ha _
-    (fun t ht ↦ (hasFDerivAt_negEntropy (h_ne t ht.le)).hasFDerivWithinAt) hu
+  have h := ftrl_regret_le_of_strongConvexOn strongConvexOn_negEntropy one_pos hη y a ha hu
   -- the range of the negative entropy on the simplex is at most `log k`
   have h_range : (negEntropy (ofLp u) - negEntropy (ofLp (a 0))) / η ≤
       log (Fintype.card α) / η := by

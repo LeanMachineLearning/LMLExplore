@@ -9,7 +9,7 @@ public import LMLExplore.Analysis.Convex.Bregman.Euclidean
 public import LMLExplore.Analysis.Convex.Bregman.Projection
 public import LMLExplore.Analysis.Convex.Bregman.StrongConvex
 public import LMLExplore.Analysis.Convex.Strong
-public import LMLExplore.OnlineLearning.FTRL.Equality
+public import LMLExplore.OnlineLearning.FTRL.Stability
 public import Mathlib.Topology.Order.Compact
 
 /-!
@@ -37,7 +37,9 @@ norm, whose dual norm is the sup norm.
 
 The regret analysis of FTRL rests on the FTRL equality of
 `LMLExplore.OnlineLearning.FTRL.Equality`, which needs no structure at all
-[Ora, Lemma 7.1]. The bounds for linear losses on a normed space below are derived from it.
+[Ora, Lemma 7.1]. The bounds for linear losses on a normed space below are derived from it, those
+for strongly convex potentials through the stability bounds of
+`LMLExplore.OnlineLearning.FTRL.Stability`.
 
 ## Main definitions
 
@@ -69,13 +71,10 @@ The regret analysis of FTRL rests on the FTRL equality of
   comparator `u` taking the place of a play of round `n + 1` in the last stability term.
 * `ftrl_regret_succ_le_of_antitone`: its case of nonincreasing learning rates, with the penalty
   `(F u - F (a 0)) / η n` of the rate `η n` of the last play.
-* `apply_sub_sub_div_le_of_mul_norm_sq_le`: the stability term of one round is at most
-  `η / (2 m) * ‖y‖ ^ 2` when the Bregman divergence dominates `m / 2` times the squared distance,
-  with `‖y‖` the operator norm.
 * `ftrl_regret_le_of_strongConvexOn_of_antitone`: [Ora, Corollary 7.6]. For an `m`-strongly
   convex potential with respect to the norm of `E` and nonincreasing learning rates, the regret is
-  at most `(F u - F (a 0)) / η (n - 1) + ∑ t < n, η t / (2 m) * ‖y t‖ ^ 2`, from
-  `ftrl_regret_succ_le_of_antitone` and the stability bound of each round.
+  at most `(F u - F (a 0)) / η (n - 1) + ∑ t < n, η t / (2 m) * ‖y t‖ ^ 2`, with no derivative of
+  the potential, from the bound for convex losses of `LMLExplore.OnlineLearning.FTRL.Stability`.
 * `ftrl_regret_le_of_strongConvexOn`: [LS, Corollary 28.8], its case of a constant learning
   rate, with the bound `(F u - F (a 0)) / η + η / (2 m) ∑ t < n, ‖y t‖ ^ 2`.
 * `sum_apply_sub_sub_bregDiv_le_of_strongConvexOn`: the summed stability bound for a strongly
@@ -396,28 +395,6 @@ theorem ftrl_regret_le {F : E → ℝ} (hK : Convex ℝ K) {η : ℝ} (hη : 0 <
   have h := ftrl_regret_le_of_antitone hK (fun _ ↦ hη) antitone_const y a ha F' hF' hu
   rwa [sum_sub_distrib, ← sum_div, ← add_sub_assoc] at h
 
-/-- **Stability of one round.** Let `m > 0` and `η > 0`. If `D` dominates `m / 2 * ‖b - a‖ ^ 2`,
-then `y (a - b) - D / η ≤ η / (2 m) * ‖y‖ ^ 2`, where `‖y‖` is the operator norm of the loss, the
-dual norm of the norm of `E`. With `D = D_F(b, a)` the Bregman divergence of a potential `F`, this
-bounds the stability term of a round of FTRL or mirror descent [LS, Corollary 28.8]; the
-modulus `m` may depend on the base point `a`. -/
-lemma apply_sub_sub_div_le_of_mul_norm_sq_le {m η D : ℝ} (hm : 0 < m) (hη : 0 < η)
-    (y : E →L[ℝ] ℝ) {a b : E} (h : m / 2 * ‖b - a‖ ^ 2 ≤ D) :
-    y (a - b) - D / η ≤ η / (2 * m) * ‖y‖ ^ 2 := by
-  have h_apply : y (a - b) ≤ ‖b - a‖ * ‖y‖ := by
-    rw [norm_sub_rev, mul_comm]
-    exact (Real.le_norm_self _).trans (y.le_opNorm _)
-  -- `x z - m x² / (2 η) ≤ η z² / (2 m)`, a square completion
-  set x := ‖b - a‖
-  set z := ‖y‖
-  have h_sq : η / (2 * m) * z ^ 2 - (x * z - m / 2 * x ^ 2 / η) =
-      (m * x - η * z) ^ 2 / (2 * m * η) := by
-    field_simp
-    ring
-  have h_nonneg : 0 ≤ (m * x - η * z) ^ 2 / (2 * m * η) := by positivity
-  have h_div := div_le_div_of_nonneg_right h hη.le
-  linarith
-
 /-- **Stability terms for a local strong convexity modulus.** Let `η > 0` and, for `t < n`, let
 `m t > 0` be such that the Bregman divergence `D_F(a (t + 1), a t)` dominates
 `m t / 2 * ‖a (t + 1) - a t‖ ^ 2`. Then
@@ -455,51 +432,73 @@ theorem sum_apply_sub_sub_bregDiv_le_of_strongConvexOn {F : E → ℝ} {m : ℝ}
     hF.mul_norm_sub_sq_le_bregDiv (ha t ht.le) (ha (t + 1) ht) (hF' t ht)
 
 /-- **Regret of FTRL with nonincreasing learning rates and a strongly convex potential**
-[Ora, Corollary 7.6]. Let `K` be convex, let the learning rates `η t > 0` be nonincreasing, and
-let the potential `F` be `m`-strongly convex on `K` for the norm of `E`, with `m > 0`. Let each
-`a t`, for `t < n` and for `t = 0`, be a play of FTRL on `K` with potential `F` and learning rate
-`η t` (`IsFTRLPlay`), where `F` has derivative `F' t` within `K` at `a t` for `t < n`. Then for
-every `u ∈ K`,
+[Ora, Corollary 7.6]. Let the learning rates `η t > 0` be nonincreasing, and let the potential `F`
+be `m`-strongly convex on `K` for the norm of `E`, with `m > 0`. Let each `a t`, for `t < n` and
+for `t = 0`, be a play of FTRL on `K` with potential `F` and learning rate `η t` (`IsFTRLPlay`).
+Then for every `u ∈ K`,
 `∑ t < n, y t (a t - u) ≤ (F u - F (a 0)) / η (n - 1) + ∑ t < n, η t / (2 m) * ‖y t‖ ^ 2`,
 where `‖y t‖` is the operator norm of the loss, the dual norm of the norm of `E`. The bound holds
-for every horizon `n`, without tuning the learning rates to it. -/
+for every horizon `n`, without tuning the learning rates to it, and needs no derivative of `F`.
+-/
 theorem ftrl_regret_le_of_strongConvexOn_of_antitone {F : E → ℝ} {m : ℝ}
     (hF : StrongConvexOn K m F) (hm : 0 < m) {η : ℕ → ℝ} (hη : ∀ t, 0 < η t)
     (hη_anti : Antitone η) (y : ℕ → E →L[ℝ] ℝ) (a : ℕ → E)
     (ha0 : IsFTRLPlay K F (η 0) y 0 (a 0)) (ha : ∀ t < n, IsFTRLPlay K F (η t) y t (a t))
-    (F' : ℕ → E →L[ℝ] ℝ) (hF' : ∀ t < n, HasFDerivWithinAt F (F' t) K (a t)) (hu : u ∈ K) :
+    (hu : u ∈ K) :
     ∑ t ∈ range n, y t (a t - u) ≤
       (F u - F (a 0)) / η (n - 1) + ∑ t ∈ range n, η t / (2 * m) * ‖y t‖ ^ 2 := by
+  have hF0 : ∀ b ∈ K, F (a 0) ≤ F b := isMinOn_iff.mp ha0.isMinOn_zero
   rcases n with _ | n
-  · simpa using div_nonneg (sub_nonneg.mpr (isMinOn_iff.mp ha0.isMinOn_zero u hu)) (hη 0).le
-  have ha' (t : ℕ) (ht : t ≤ n) : IsFTRLPlay K F (η t) y t (a t) := ha t (Nat.lt_succ_of_le ht)
-  refine (ftrl_regret_succ_le_of_antitone hF.1 hη hη_anti y a ha' F'
-    (fun t ht ↦ hF' t (Nat.lt_succ_of_le ht)) hu).trans ?_
-  rw [Nat.add_sub_cancel, sum_range_succ, ← add_assoc]
-  -- each stability term is bounded through the strong convexity of `F`
-  refine add_le_add (add_le_add le_rfl (sum_le_sum fun t ht ↦ ?_)) ?_
-  · have ht := mem_range.mp ht
-    exact apply_sub_sub_div_le_of_mul_norm_sq_le hm (hη t) (y t)
-      (hF.mul_norm_sub_sq_le_bregDiv (ha' t ht.le).mem (ha' (t + 1) ht).mem
-        (hF' t (ht.trans n.lt_succ_self)))
-  · exact apply_sub_sub_div_le_of_mul_norm_sq_le hm (hη n) (y n)
-      (hF.mul_norm_sub_sq_le_bregDiv (ha' n le_rfl).mem hu (hF' n n.lt_succ_self))
+  · simpa using div_nonneg (sub_nonneg.mpr (hF0 u hu)) (hη 0).le
+  -- the plays up to round `n`, then the comparator; the rates up to round `n`, then `η n`
+  set x : ℕ → E := fun t ↦ if t ≤ n then a t else u with hx_def
+  set η' : ℕ → ℝ := fun t ↦ η (min t n) with hη'_def
+  have hx_le (t : ℕ) (ht : t ≤ n) : x t = a t := by simp [hx_def, ht]
+  have hη'_le (t : ℕ) (ht : t ≤ n) : η' t = η t := by simp [hη'_def, ht]
+  have hx_mem (t : ℕ) : x t ∈ K := by
+    by_cases ht : t ≤ n
+    · exact hx_le t ht ▸ (ha t (Nat.lt_succ_of_le ht)).mem
+    · simpa [hx_def, ht] using hu
+  -- each play minimizes `(F - F (a 0)) / η t + ∑ s < t, y s` over `K`
+  have hmin (t : ℕ) (ht : t < n + 1) : IsMinOn
+      (fun b ↦ (F b - F (a 0)) / η' t + ∑ s ∈ range t, y s b) K (x t) := by
+    rw [hx_le t (Nat.le_of_lt_succ ht), hη'_le t (Nat.le_of_lt_succ ht)]
+    simpa only [add_comm] using (ha t ht).isMinOn_sum_add_sub_div (hη t) (F (a 0))
+  have h := regret_le_ftrl_of_strongConvexOn_div (F := fun b ↦ F b - F (a 0)) (η := η') (u := u)
+    (hF.add_convexOn (convexOn_const _ hF.1)) hm (fun t b ↦ y t b) x y (fun t _ ↦ hη (min t n))
+    (fun t _ ↦ (y t).toLinearMap.convexOn hF.1)
+    (fun t _ ↦ hx_mem t) hmin (fun t _ ↦ hasSubgradientWithinAt_linear (y t))
+    (by simp [hx_def])
+  -- the increments of the regularizers are nonpositive
+  have h_inc :
+      ∑ t ∈ range (n + 1), (1 / η' t - 1 / η' (t + 1)) * (F (x (t + 1)) - F (a 0)) ≤ 0 := by
+    refine sum_nonpos fun t _ ↦ mul_nonpos_of_nonpos_of_nonneg ?_ (sub_nonneg.mpr ?_)
+    · exact sub_nonpos.mpr (one_div_le_one_div_of_le (hη _)
+        (hη_anti (min_le_min_right n t.le_succ)))
+    · exact hF0 _ (hx_mem _)
+  have h_eq : ∑ t ∈ range (n + 1), y t (x t - u) = ∑ t ∈ range (n + 1), y t (a t - u) :=
+    sum_congr rfl fun t ht ↦ by rw [hx_le t (Nat.le_of_lt_succ (mem_range.mp ht))]
+  have h_stab : ∑ t ∈ range (n + 1), η' t / (2 * m) * ‖y t‖ ^ 2 =
+      ∑ t ∈ range (n + 1), η t / (2 * m) * ‖y t‖ ^ 2 :=
+    sum_congr rfl fun t ht ↦ by rw [hη'_le t (Nat.le_of_lt_succ (mem_range.mp ht))]
+  rw [regret_eq_sum_apply_sub, h_eq, h_stab, hx_le 0 n.zero_le, sub_self, zero_div, sub_zero] at h
+  simp only [hη'_def, min_eq_right n.le_succ, Nat.add_sub_cancel] at h ⊢
+  linarith
 
-/-- **Regret of FTRL with a strongly convex potential** [LS, Corollary 28.8]. Under the
-assumptions of `ftrl_regret_le`, if the potential `F` is `m`-strongly convex on `K` for the norm
-of `E`, with `m > 0`, then for every `u ∈ K`,
+/-- **Regret of FTRL with a strongly convex potential** [LS, Corollary 28.8]. Let `F` be
+`m`-strongly convex on `K` for the norm of `E`, with `m > 0`, let `η > 0`, and let each `a t`, for
+`t ≤ n`, be a play of FTRL on `K` with potential `F` and learning rate `η`. Then for every `u ∈ K`,
 `∑ t < n, y t (a t - u) ≤ (F u - F (a 0)) / η + η / (2 m) ∑ t < n, ‖y t‖ ^ 2`,
 where `‖y t‖` is the operator norm of the loss, the dual norm of the norm of `E`. [LS] states it
 with the diameter of `K` for `F` in place of `F u - F (a 0)`. This is the case of constant
 learning rates of `ftrl_regret_le_of_strongConvexOn_of_antitone`. -/
 theorem ftrl_regret_le_of_strongConvexOn {F : E → ℝ} {m : ℝ} (hF : StrongConvexOn K m F)
     (hm : 0 < m) {η : ℝ} (hη : 0 < η) (y : ℕ → E →L[ℝ] ℝ) (a : ℕ → E)
-    (ha : ∀ t ≤ n, IsFTRLPlay K F η y t (a t))
-    (F' : ℕ → E →L[ℝ] ℝ) (hF' : ∀ t < n, HasFDerivWithinAt F (F' t) K (a t)) (hu : u ∈ K) :
+    (ha : ∀ t ≤ n, IsFTRLPlay K F η y t (a t)) (hu : u ∈ K) :
     ∑ t ∈ range n, y t (a t - u) ≤
       (F u - F (a 0)) / η + η / (2 * m) * ∑ t ∈ range n, ‖y t‖ ^ 2 := by
   have h := ftrl_regret_le_of_strongConvexOn_of_antitone hF hm (fun _ ↦ hη) antitone_const y a
-    (ha 0 n.zero_le) (fun t ht ↦ ha t ht.le) F' hF' hu
+    (ha 0 n.zero_le) (fun t ht ↦ ha t ht.le) hu
   rwa [← mul_sum] at h
 
 /-- **Existence of FTRL plays.** On a nonempty compact set `K`, with a potential `F` continuous
@@ -552,8 +551,7 @@ theorem ftrl_regret_le_sqrt_of_closedBall (g a : ℕ → E) (hg : ∀ t < n, ‖
   · simp
   have hsqrt : 0 < √(n : ℝ) := Real.sqrt_pos.mpr (Nat.cast_pos.mpr hn)
   have h := ftrl_regret_le_of_strongConvexOn
-    (strongConvexOn_norm_sq_div_two (convex_closedBall 0 1)) one_pos (inv_pos.mpr hsqrt) _ a ha _
-    (fun t _ ↦ (hasFDerivAt_norm_sq_div_two (a t)).hasFDerivWithinAt) hu
+    (strongConvexOn_norm_sq_div_two (convex_closedBall 0 1)) one_pos (inv_pos.mpr hsqrt) _ a ha hu
   simp only [innerSL_apply_apply, innerSL_apply_norm] at h
   -- the penalty is at most `√n / 2` and the stability terms add up to at most `√n / 2`
   have hu' : ‖u‖ ≤ 1 := mem_closedBall_zero_iff.mp hu
