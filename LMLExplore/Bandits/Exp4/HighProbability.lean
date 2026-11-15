@@ -261,8 +261,8 @@ at most `δ`, with `μ t a = env.means O A Y a t` the conditional means of the r
 not depend on the horizon `n` nor on `δ`. [Neu15] states this bound with `2 √(n k / log k)` in
 place of `√(n k / log k)`. -/
 theorem measure_four_mul_sqrt_add_le_randomRegret_le [Nonempty α]
-    (h : IsAlgEnvSeq O A Y (exp4IX (fun _ b ↦ ⟨Pi.single b 1, single_mem_simplex b⟩)
-      measurable_const (fun t ↦ √(log (Fintype.card α) / (Fintype.card α * (t + 1))))
+    (h : IsAlgEnvSeq O A Y (exp4IX singleAdvice measurable_singleAdvice
+      (fun t ↦ √(log (Fintype.card α) / (Fintype.card α * (t + 1))))
       (fun t ↦ √(log (Fintype.card α) / (Fintype.card α * (t + 1))) / 2)) env P)
     (hY : ∀ᵐ ω ∂P, ∀ t < n, Y t ω ∈ Set.Icc 0 1) (hk : 1 < Fintype.card α) (hn : 0 < n)
     (hδ : 0 < δ) :
@@ -284,9 +284,10 @@ theorem measure_four_mul_sqrt_add_le_randomRegret_le [Nonempty α]
       (fun t _ ↦ by linarith) hδ)
   simp only [Set.mem_ofPred_eq] at hω ⊢
   -- with the experts that each recommend one arm, the expert random regret is the random regret
-  have hR : expertRandomRegret env
-      (fun o m ↦ ((⟨Pi.single m 1, single_mem_simplex m⟩ : simplex α) : α → ℝ)) O A Y n ω =
-      randomRegret env O A Y n ω := expertRandomRegret_single
+  have hR : expertRandomRegret env (fun o m ↦ (singleAdvice (α := α) o m : α → ℝ)) O A Y n ω =
+      randomRegret env O A Y n ω := by
+    simp only [coe_singleAdvice]
+    exact expertRandomRegret_single
   rw [hR]
   refine le_trans ?_ hω
   -- the learning rate of the last round and the sum of the learning rates
