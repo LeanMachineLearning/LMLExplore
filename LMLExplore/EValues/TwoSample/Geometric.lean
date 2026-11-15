@@ -5,7 +5,7 @@ Authors: LMLExplore contributors
 -/
 module
 
-public import LMLExplore.EValues.EVariable.Conditional
+public import LMLExplore.EValues.CondEVariable.Statistic
 public import LMLExplore.EValues.Numeraire
 public import LMLExplore.Probability.Kernel.AntidiagonalUniform
 public import Mathlib.Probability.Distributions.Geometric
