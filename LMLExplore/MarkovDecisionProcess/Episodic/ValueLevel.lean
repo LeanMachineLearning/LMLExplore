@@ -6,26 +6,19 @@ Authors: LMLExplore contributors
 module
 
 public import LMLExplore.MarkovDecisionProcess.Episodic.Value
-public import LMLExplore.Probability.Kernel.HorizonSum
-import LMLExplore.Analysis.Convex.Integral
-import LMLExplore.MeasureTheory.Integral.BoundedMeasurable
 
 /-!
-# Values of episodic MDPs as finite-horizon sums, and the levels of [LWCGC24, Lemma 9]
+# The levels of [LWCGC24, Lemma 9] for episodic MDPs
 
-For a Markov policy `π : ℕ → Kernel 𝓢 𝓐` of an episodic MDP `M`, the state kernel
-`M.stateKernel π h = M.trans h ∘ₖ (Kernel.id ×ₖ π h)` of the step `h` draws an action from `π h s`
-and then the next state from `M.trans h`, and the policy reward `M.policyReward π h s` is the
-average of the mean rewards `r_h (s, a)` over the actions of `π h s`. For bounded rewards, the
-value of `π` is the finite-horizon sum of its rewards along its state kernels
-(`value_eq_horizonSum`):
-`V^π_h = horizonSum (M.stateKernel π) H (M.policyReward π) h`.
+For a Markov policy `π : ℕ → Kernel 𝓢 𝓐` of an episodic MDP `M` with bounded rewards, the value
+of `π` is the finite-horizon sum of its rewards along its state kernels `P_π = M.stateKernel π`
+(`Learning.MDP.Episodic.EpisodicMDP.value_eq_horizonSum`).
 
 The levels `M.valueLevel H π l` of [LWCGC24, (62)] are the levels
 `ProbabilityTheory.Kernel.horizonSumLevel` of this finite-horizon sum: `V 0 = V^π` and
 `V (l + 1) h = ∑_{j ≥ h} P_π^{h:j} √Var_{P_π j}(V l (j + 1))`. For rewards in `[0, C]`, the level
 `l` lies in `[0, C H √H ^ l]` [LWCGC24, Lemma 12]. Comparing two episodic MDPs `M` and `M'` with
-the same mean rewards, whose state kernels deviate by the Bernstein-type bound
+the same reward kernels, whose state kernels deviate by the Bernstein-type bound
 `√(2 Var_{P_π j}(V l (j + 1)) L / N) + C H √H ^ l L / (3 N)` on the levels `l ≤ m`, with
 `H ≤ 4 ^ m` and `18 L H ≤ N`, the values of `π` satisfy
 `|V'^π_h - V^π_h| ≤ 4 C H √(2 L H / N)` [LWCGC24, Lemma 9]. This is the deterministic part of the
@@ -33,14 +26,14 @@ analysis of model-based planning with a generative model in finite horizon [LWCG
 
 ## Main definitions
 
-* `Learning.MDP.Episodic.EpisodicMDP.stateKernel M π h`: the state kernel of `π` at the step `h`.
-* `Learning.MDP.Episodic.EpisodicMDP.policyReward M π h`: the reward of `π` at the step `h`.
 * `Learning.MDP.Episodic.EpisodicMDP.valueLevel M H π`: the levels of [LWCGC24, (62)].
 
 ## Main statements
 
-* `Learning.MDP.Episodic.EpisodicMDP.value_eq_horizonSum`: for bounded rewards, the value of `π`
-  is the finite-horizon sum of its rewards along its state kernels.
+* `Learning.MDP.Episodic.EpisodicMDP.valueLevel_zero`,
+  `Learning.MDP.Episodic.EpisodicMDP.valueLevel_succ`:
+  the level `0` is the value, and each level is the finite-horizon sum of the one-step standard
+  deviations of the previous one.
 * `Learning.MDP.Episodic.EpisodicMDP.valueLevel_mem_Icc`: for rewards in `[0, C]`, the level `l`
   lies in `[0, C H √H ^ l]`.
 * `Learning.MDP.Episodic.EpisodicMDP.valueLevel_congr`: the levels from the step `h₀` on only
@@ -62,111 +55,7 @@ open MeasureTheory ProbabilityTheory LMLExplore
 namespace Learning.MDP.Episodic.EpisodicMDP
 
 variable {𝓢 𝓐 : Type*} {m𝓢 : MeasurableSpace 𝓢} {m𝓐 : MeasurableSpace 𝓐}
-
-/-! ### The state kernels and the rewards of a Markov policy -/
-
-section StateKernel
-
-variable (M : EpisodicMDP 𝓢 𝓐) (π : ℕ → Kernel 𝓢 𝓐)
-
-/-- The state kernel of the Markov policy `π` at the step `h`: from the state `s`, draw an action
-`a` from `π h s`, then the next state from `M.trans h (s, a)`. -/
-noncomputable def stateKernel (h : ℕ) : Kernel 𝓢 𝓢 :=
-  M.trans h ∘ₖ (Kernel.id ×ₖ π h)
-
-lemma stateKernel_def (h : ℕ) : M.stateKernel π h = M.trans h ∘ₖ (Kernel.id ×ₖ π h) :=
-  (rfl)
-
-instance (h : ℕ) : IsSFiniteKernel (M.stateKernel π h) := by
-  rw [stateKernel_def]
-  infer_instance
-
-instance [∀ h, IsMarkovKernel (π h)] (h : ℕ) : IsMarkovKernel (M.stateKernel π h) := by
-  rw [stateKernel_def]
-  infer_instance
-
-/-- The reward `∫ a, r_h (s, a) ∂(π h s)` of the Markov policy `π` at the step `h` and the
-state `s`. -/
-noncomputable def policyReward (h : ℕ) (s : 𝓢) : ℝ :=
-  ∫ a, M.meanReward h s a ∂(π h s)
-
-lemma policyReward_def (h : ℕ) (s : 𝓢) :
-    M.policyReward π h s = ∫ a, M.meanReward h s a ∂(π h s) :=
-  (rfl)
-
-variable {M π}
-
-/-- Integrating against the state kernel of `π` at the step `h` from `s` averages over the
-actions `a` of `π h s` the integral against `M.trans h (s, a)`. -/
-lemma integral_stateKernel [∀ h, IsSFiniteKernel (π h)] {h : ℕ} {s : 𝓢} {v : 𝓢 → ℝ}
-    (hv : Integrable v (M.stateKernel π h s)) :
-    ∫ s', v s' ∂(M.stateKernel π h s) = ∫ a, ∫ s', v s' ∂(M.trans h (s, a)) ∂(π h s) := by
-  rw [stateKernel_def] at hv ⊢
-  have h' := hv.integral_comp.aestronglyMeasurable
-  rw [Kernel.prod_apply, Kernel.id_apply, Measure.dirac_prod] at h'
-  rw [Kernel.integral_comp hv, Kernel.prod_apply, Kernel.id_apply, Measure.dirac_prod,
-    integral_map measurable_prodMk_left.aemeasurable h']
-
-/-- The state kernel of the deterministic Markov policy playing `d h s` draws the next state from
-`M.trans h (s, d h s)`. -/
-@[simp]
-lemma stateKernel_deterministic_apply {d : ℕ → 𝓢 → 𝓐} (hd : ∀ h, Measurable (d h)) (h : ℕ)
-    (s : 𝓢) :
-    M.stateKernel (fun h ↦ Kernel.deterministic (d h) (hd h)) h s = M.trans h (s, d h s) := by
-  ext t ht
-  rw [stateKernel_def, Kernel.comp_apply' _ _ _ ht, Kernel.prod_apply, Kernel.id_apply,
-    Kernel.deterministic_apply, Measure.dirac_prod_dirac,
-    lintegral_dirac' _ ((M.trans h).measurable_coe ht)]
-
-/-- The reward of `π` at every step is a measurable function of the state. -/
-lemma measurable_policyReward [∀ h, IsSFiniteKernel (π h)] (h : ℕ) :
-    Measurable (M.policyReward π h) :=
-  ((M.measurable_meanReward h).stronglyMeasurable.integral_kernel_prod_right'
-    (κ := π h)).measurable
-
-/-- For rewards in `[a, b]`, the reward of `π` lies in `[a, b]`. -/
-lemma policyReward_mem_Icc [∀ h, IsMarkovKernel (π h)] {a b : ℝ}
-    (hM : M.RewardsIn (Set.Icc a b)) (h : ℕ) (s : 𝓢) : M.policyReward π h s ∈ Set.Icc a b :=
-  integral_mem_Icc_of_ae_mem_Icc
-    ((M.measurable_meanReward h).comp measurable_prodMk_left).aemeasurable
-    (.of_forall fun a' ↦ meanReward_mem_Icc hM h s a')
-
-/-- The reward of the deterministic Markov policy playing `d h s` is the mean reward of this
-action. -/
-@[simp]
-lemma policyReward_deterministic {d : ℕ → 𝓢 → 𝓐} (hd : ∀ h, Measurable (d h)) (h : ℕ)
-    (s : 𝓢) :
-    M.policyReward (fun h ↦ Kernel.deterministic (d h) (hd h)) h s = M.meanReward h s (d h s) :=
-  Kernel.integral_deterministic' (hd h)
-    ((M.measurable_meanReward h).comp measurable_prodMk_left).stronglyMeasurable
-
-end StateKernel
-
-/-! ### Values as finite-horizon sums -/
-
-variable {M M' : EpisodicMDP 𝓢 𝓐} {H : ℕ} {π π' : ℕ → Kernel 𝓢 𝓐}
-
-/-- **The value of a Markov policy is the finite-horizon sum of its rewards along its state
-kernels**: for bounded rewards, `V^π_h = horizonSum (M.stateKernel π) H (M.policyReward π) h`. -/
-theorem value_eq_horizonSum [∀ h, IsMarkovKernel (π h)] {a b : ℝ}
-    (hM : M.RewardsIn (Set.Icc a b)) (h : ℕ) :
-    M.value H π h = Kernel.horizonSum (M.stateKernel π) H (M.policyReward π) h := by
-  funext s
-  by_cases hh : h < H
-  · have hV := value_eq_horizonSum hM (h + 1)
-    have hVm := measurable_value (M := M) (H := H) (π := π) (h + 1)
-    have hVI := value_mem_Icc (H := H) (π := π) hM (h + 1)
-    rw [Kernel.horizonSum_of_lt hh, ← hV, integral_stateKernel (integrable_value hM (h + 1)),
-      value_of_lt hh, policyReward_def]
-    simp_rw [qValue_def]
-    exact integral_add (.of_mem_Icc a b
-      ((M.measurable_meanReward h).comp measurable_prodMk_left).aemeasurable
-      (.of_forall fun a' ↦ meanReward_mem_Icc hM h s a'))
-      (.of_mem_Icc _ _ (((hVm.stronglyMeasurable.integral_kernel
-        (κ := M.trans h)).measurable).comp measurable_prodMk_left).aemeasurable
-        (.of_forall fun a' ↦ integral_mem_Icc_of_ae_mem_Icc hVm.aemeasurable (.of_forall hVI)))
-  · rw [value_of_le (not_lt.1 hh), Kernel.horizonSum_of_le (not_lt.1 hh)]
-termination_by H - h
+  {M M' : EpisodicMDP 𝓢 𝓐} {H : ℕ} {π π' : ℕ → Kernel 𝓢 𝓐}
 
 /-! ### The levels of [LWCGC24, Lemma 9] -/
 
@@ -182,6 +71,16 @@ variable (M H π) in
 lemma valueLevel_def (l h : ℕ) :
     M.valueLevel H π l h = Kernel.horizonSumLevel (M.stateKernel π) H (M.policyReward π) l h :=
   (rfl)
+
+variable (M H π) in
+/-- Each level is the finite-horizon sum of the one-step standard deviations of the previous
+level: `V (l + 1) h = ∑_{j ≥ h} P_π^{h:j} √Var_{P_π j}(V l (j + 1))`. -/
+@[simp]
+lemma valueLevel_succ (l : ℕ) :
+    M.valueLevel H π (l + 1) = Kernel.horizonSum (M.stateKernel π) H
+      (fun j y ↦ √Var[M.valueLevel H π l (j + 1); M.stateKernel π j y]) := by
+  funext h
+  simp only [valueLevel_def, Kernel.horizonSumLevel_succ]
 
 /-- For bounded rewards, the level `0` is the value of `π`. -/
 lemma valueLevel_zero [∀ h, IsMarkovKernel (π h)] {a b : ℝ} (hM : M.RewardsIn (Set.Icc a b)) :
@@ -212,11 +111,12 @@ theorem valueLevel_congr {h₀ : ℕ} (htrans : ∀ h, h₀ ≤ h → M.trans h 
     rw [policyReward_def, policyReward_def, hr j hj, hπ j hj]
 
 /-- **The deterministic part of model-based planning in finite horizon** [LWCGC24, Lemma 9].
-Let `M` and `M'` be episodic MDPs with the same rewards, in `[0, C]`, and `π` a Markov
-policy, with state kernels `P_π` in `M` and `P'_π` in `M'`. Let `V = M.valueLevel H π` be the
-levels `V 0 = V^π` and `V (l + 1) h = ∑_{j ≥ h} P_π^{h:j} √Var_{P_π j}(V l (j + 1))` of
-[LWCGC24, (62)], bounded by `C H √H ^ l`, and `H ≤ 4 ^ m`. Let `L ≥ 0`, `N > 0` and
-`18 L H ≤ N`. If `P'_π` deviates from `P_π` on the levels `l ≤ m` by the bound
+Let `M` and `M'` be episodic MDPs with the same reward kernels, with rewards in `[0, C]`, and
+`π` a Markov policy, with state kernels `P_π` in `M` and `P'_π` in `M'`. Let
+`V = M.valueLevel H π` be the levels `V 0 = V^π` and
+`V (l + 1) h = ∑_{j ≥ h} P_π^{h:j} √Var_{P_π j}(V l (j + 1))` of [LWCGC24, (62)], bounded by
+`C H √H ^ l`, and `H ≤ 4 ^ m`. Let `L ≥ 0`, `N > 0` and `18 L H ≤ N`. If `P'_π` deviates from
+`P_π` on the levels `l ≤ m` by the bound
 `√(2 Var_{P_π j}(V l (j + 1)) L / N) + C H √H ^ l L / (3 N)` of Bernstein's inequality at the
 level `L`, at every step `j < H`, then the value of `π` in `M'` satisfies
 `|V'^π_h - V^π_h| ≤ 4 C H √(2 L H / N)`.

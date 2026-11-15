@@ -7,8 +7,8 @@ module
 
 public import Mathlib.Probability.Kernel.MeasurableIntegral
 public import Mathlib.Probability.Moments.Variance
+import Mathlib.Analysis.Real.Sqrt
 import LMLExplore.Analysis.Convex.Integral
-import LMLExplore.Analysis.Real.Sqrt
 import LMLExplore.MeasureTheory.Integral.BoundedMeasurable
 import LMLExplore.Probability.Moments.Variance
 
@@ -50,6 +50,9 @@ finite-horizon counterpart of
   kernels `κ`, with the horizon `H`.
 * `ProbabilityTheory.Kernel.horizonSumLevel κ H f`: the levels `V 0 = horizonSum κ H f` and
   `V (l + 1) = horizonSum κ H √Var_κ(V l)` of [LWCGC24, (62)].
+* `ProbabilityTheory.Kernel.horizonSumLevelReward κ H f`: the rewards of the levels, so that
+  `horizonSumLevel κ H f l = horizonSum κ H (horizonSumLevelReward κ H f l)`
+  (`horizonSumLevel_eq_horizonSum`).
 
 ## Main statements
 
@@ -57,6 +60,9 @@ finite-horizon counterpart of
   sums and the levels from the step `h₀` on only depend on the kernels and rewards from `h₀` on.
 * `ProbabilityTheory.Kernel.horizonSum_mem_Icc`: for rewards in `[a, b]`, the sum from the step
   `h` lies in `[(H - h) a, (H - h) b]`.
+* `ProbabilityTheory.Kernel.horizonSum_nonneg`: for nonnegative rewards, the sum is nonnegative.
+* `ProbabilityTheory.Kernel.abs_variance_horizonSum_le`: for rewards bounded by `C`, the variance
+  of the sum is at most `(H |C|) ^ 2`.
 * `ProbabilityTheory.Kernel.horizonSum_add`, `ProbabilityTheory.Kernel.horizonSum_const_mul`,
   `ProbabilityTheory.Kernel.horizonSum_const`: the finite-horizon sum is affine in the rewards.
 * `ProbabilityTheory.Kernel.abs_horizonSum_sub_horizonSum_le`: the simulation bound.
@@ -137,6 +143,14 @@ theorem measurable_horizonSum (hf : ∀ j, Measurable (f j))
     exact measurable_const
 termination_by H - h
 
+/-- For nonnegative rewards, the finite-horizon sum is nonnegative. -/
+theorem horizonSum_nonneg (hf₀ : ∀ j x, 0 ≤ f j x) (h : ℕ) (x : α) : 0 ≤ horizonSum κ H f h x := by
+  by_cases hh : h < H
+  · rw [horizonSum_of_lt hh]
+    exact add_nonneg (hf₀ h x) (integral_nonneg fun y ↦ horizonSum_nonneg hf₀ (h + 1) y)
+  · rw [horizonSum_of_le (not_lt.1 hh)]
+termination_by H - h
+
 /-! ### The levels of [LWCGC24, Lemma 9] -/
 
 variable (κ H f) in
@@ -159,6 +173,41 @@ lemma horizonSumLevel_succ (l : ℕ) :
       horizonSum κ H fun j y ↦ √Var[horizonSumLevel κ H f l (j + 1); κ j y] :=
   (rfl)
 
+variable (κ H f) in
+/-- The rewards of the levels: `f` for the level `0`, and the one-step standard deviations
+`√Var[V l (j + 1); κ j y]` of the level `l` for the level `l + 1`, so that each level is the
+finite-horizon sum of its rewards (`horizonSumLevel_eq_horizonSum`). -/
+noncomputable def horizonSumLevelReward : ℕ → ℕ → α → ℝ
+  | 0 => f
+  | l + 1 => fun j y ↦ √Var[horizonSumLevel κ H f l (j + 1); κ j y]
+
+variable (κ H f) in
+@[simp]
+lemma horizonSumLevelReward_zero : horizonSumLevelReward κ H f 0 = f :=
+  (rfl)
+
+variable (κ H f) in
+@[simp]
+lemma horizonSumLevelReward_succ (l : ℕ) :
+    horizonSumLevelReward κ H f (l + 1) =
+      fun j y ↦ √Var[horizonSumLevel κ H f l (j + 1); κ j y] :=
+  (rfl)
+
+variable (κ H f) in
+/-- Each level is the finite-horizon sum of its rewards. -/
+theorem horizonSumLevel_eq_horizonSum (l : ℕ) :
+    horizonSumLevel κ H f l = horizonSum κ H (horizonSumLevelReward κ H f l) := by
+  cases l with
+  | zero => rw [horizonSumLevel_zero, horizonSumLevelReward_zero]
+  | succ l => rw [horizonSumLevel_succ, horizonSumLevelReward_succ]
+
+/-- For nonnegative rewards, the rewards of the levels are nonnegative. -/
+theorem horizonSumLevelReward_nonneg (hf₀ : ∀ j x, 0 ≤ f j x) (l j : ℕ) (x : α) :
+    0 ≤ horizonSumLevelReward κ H f l j x := by
+  cases l with
+  | zero => exact hf₀ j x
+  | succ l => exact Real.sqrt_nonneg _
+
 /-- The levels from the step `h₀` on only depend on the kernels and the rewards from the step `h₀`
 on. -/
 theorem horizonSumLevel_congr {h₀ : ℕ} (hκ : ∀ j, h₀ ≤ j → κ j = κ' j)
@@ -176,6 +225,13 @@ theorem measurable_horizonSumLevel [∀ j, IsSFiniteKernel (κ j)] (hf : ∀ j, 
   induction l generalizing h with
   | zero => exact measurable_horizonSum hf h
   | succ l ih => exact measurable_horizonSum (fun j ↦ (ih (j + 1)).variance_kernel.sqrt) h
+
+/-- The rewards of the levels of measurable rewards along s-finite kernels are measurable. -/
+theorem measurable_horizonSumLevelReward [∀ j, IsSFiniteKernel (κ j)]
+    (hf : ∀ j, Measurable (f j)) (l j : ℕ) : Measurable (horizonSumLevelReward κ H f l j) := by
+  cases l with
+  | zero => exact hf j
+  | succ l => exact (measurable_horizonSumLevel hf l (j + 1)).variance_kernel.sqrt
 
 section Markov
 
@@ -217,6 +273,15 @@ measure. -/
 theorem integrable_horizonSum {C : ℝ} (hf : ∀ j, Measurable (f j)) (hfC : ∀ j x, |f j x| ≤ C)
     (h : ℕ) (μ : Measure α) [IsFiniteMeasure μ] : Integrable (horizonSum κ H f h) μ :=
   integrable_of_abs_le (measurable_horizonSum hf h) (abs_horizonSum_le_mul_abs hf hfC h) μ
+
+/-- For bounded measurable rewards, the variance of the finite-horizon sum for every probability
+measure is at most `(H |C|) ^ 2`. -/
+theorem abs_variance_horizonSum_le {C : ℝ} (hf : ∀ j, Measurable (f j))
+    (hfC : ∀ j x, |f j x| ≤ C) (h : ℕ) (μ : Measure α) [IsProbabilityMeasure μ] :
+    |Var[horizonSum κ H f h; μ]| ≤ (H * |C|) ^ 2 := by
+  rw [abs_of_nonneg (variance_nonneg _ _)]
+  exact variance_le_sq_of_abs_le (measurable_horizonSum hf h).aemeasurable
+    (.of_forall (abs_horizonSum_le_mul_abs hf hfC h))
 
 /-- The finite-horizon sum of bounded measurable rewards is additive in the rewards. -/
 theorem horizonSum_add {C D : ℝ} (hf : ∀ j, Measurable (f j)) (hfC : ∀ j x, |f j x| ≤ C)
@@ -293,11 +358,8 @@ theorem horizonSum_variance_le {B C : ℝ} (hf : ∀ j, Measurable (f j)) (hfC :
     have hWC := abs_horizonSum_le_mul_abs (κ := κ) (H := H) hf hfC
     have hVarm (j : ℕ) : Measurable fun y ↦ Var[horizonSum κ H f (j + 1); κ j y] :=
       (measurable_horizonSum hf (j + 1)).variance_kernel
-    have hVarB (j : ℕ) (y : α) :
-        |Var[horizonSum κ H f (j + 1); κ j y]| ≤ (H * |C|) ^ 2 := by
-      rw [abs_of_nonneg (variance_nonneg _ _)]
-      exact variance_le_sq_of_abs_le (measurable_horizonSum hf (j + 1)).aemeasurable
-        (.of_forall (hWC (j + 1)))
+    have hVarB (j : ℕ) (y : α) :=
+      abs_variance_horizonSum_le (κ := κ) (H := H) hf hfC (j + 1) (κ j y)
     have hint := integrable_of_abs_le hWm (hWC (h + 1)) (κ h x)
     have hint₂ : Integrable (fun y ↦ W y ^ 2) (κ h x) :=
       integrable_of_abs_le (hWm.pow_const 2) (B := (H * |C|) ^ 2)
@@ -326,9 +388,7 @@ theorem horizonSum_sqrt_le {C : ℝ} (hg : ∀ j, Measurable (g j)) (hgC : ∀ j
     (hg₀ : ∀ j x, 0 ≤ g j x) (h : ℕ) (x : α) :
     horizonSum κ H (fun j y ↦ √(g j y)) h x ≤ √((H - h : ℕ) * horizonSum κ H g h x) := by
   by_cases hh : h < H
-  · have hT₀ (j : ℕ) (y : α) : 0 ≤ horizonSum κ H g j y := by
-      simpa using (horizonSum_mem_Icc (κ := κ) (H := H) hg
-        (fun j y ↦ ⟨hg₀ j y, (le_abs_self _).trans (hgC j y)⟩) j y).1
+  · have hT₀ (j : ℕ) (y : α) : 0 ≤ horizonSum κ H g j y := horizonSum_nonneg hg₀ j y
     have hsm (j : ℕ) : Measurable fun y ↦ √(g j y) := (hg j).sqrt
     have hsC (j : ℕ) (y : α) : |√(g j y)| ≤ √|C| := by
       rw [abs_of_nonneg (Real.sqrt_nonneg _)]
@@ -352,8 +412,15 @@ theorem horizonSum_sqrt_le {C : ℝ} (hg : ∀ j, Measurable (g j)) (hgC : ∀ j
       rwa [probReal_univ, one_mul, integral_const_mul] at hJ
     rw [horizonSum_of_lt hh, horizonSum_of_lt hh, show H - h = H - (h + 1) + 1 by omega,
       Nat.cast_add_one, ← hn]
-    exact (add_le_add le_rfl hstep).trans
-      (Real.sqrt_add_sqrt_mul_le (hg₀ h x) (integral_nonneg (hT₀ (h + 1))) hn₀)
+    -- the Cauchy–Schwarz inequality for the two terms `√1 √(g h x)` and `√n √(∫ T)`
+    have hI : 0 ≤ ∫ y, horizonSum κ H g (h + 1) y ∂(κ h x) := integral_nonneg (hT₀ (h + 1))
+    have hCS := Real.sum_sqrt_mul_sqrt_le Finset.univ (f := ![1, n])
+      (g := ![g h x, ∫ y, horizonSum κ H g (h + 1) y ∂(κ h x)])
+      (by simp [Fin.forall_fin_two, hn₀]) (by simp [Fin.forall_fin_two, hg₀ h x, hI])
+    simp only [Fin.sum_univ_two, Matrix.cons_val_zero, Matrix.cons_val_one, Real.sqrt_one,
+      one_mul] at hCS
+    rw [← Real.sqrt_mul hn₀, ← Real.sqrt_mul (by positivity), add_comm (1 : ℝ)] at hCS
+    exact (add_le_add le_rfl hstep).trans hCS
   · simp [horizonSum_of_le (not_lt.1 hh)]
 termination_by H - h
 
@@ -365,15 +432,9 @@ theorem horizonSum_sqrt_variance_le {B C : ℝ} (hf : ∀ j, Measurable (f j))
     (hfC : ∀ j x, |f j x| ≤ C) (hf₀ : ∀ j x, 0 ≤ f j x) (hWB : ∀ j x, horizonSum κ H f j x ≤ B)
     (h : ℕ) (x : α) :
     horizonSum κ H (fun j y ↦ √Var[horizonSum κ H f (j + 1); κ j y]) h x ≤ √(H - h : ℕ) * B := by
-  have hWC := abs_horizonSum_le_mul_abs (κ := κ) (H := H) hf hfC
-  have hW₀ : 0 ≤ horizonSum κ H f h x := by
-    simpa using (horizonSum_mem_Icc (κ := κ) (H := H) hf
-      (fun j y ↦ ⟨hf₀ j y, (le_abs_self _).trans (hfC j y)⟩) h x).1
+  have hW₀ : 0 ≤ horizonSum κ H f h x := horizonSum_nonneg hf₀ h x
   have hB : 0 ≤ B := hW₀.trans (hWB h x)
-  have hVarB (j : ℕ) (y : α) : |Var[horizonSum κ H f (j + 1); κ j y]| ≤ (H * |C|) ^ 2 := by
-    rw [abs_of_nonneg (variance_nonneg _ _)]
-    exact variance_le_sq_of_abs_le (measurable_horizonSum hf (j + 1)).aemeasurable
-      (.of_forall (hWC (j + 1)))
+  have hVarB (j : ℕ) (y : α) := abs_variance_horizonSum_le (κ := κ) (H := H) hf hfC (j + 1) (κ j y)
   refine (horizonSum_sqrt_le (fun j ↦ (measurable_horizonSum hf (j + 1)).variance_kernel) hVarB
     (fun j y ↦ variance_nonneg _ _) h x).trans ?_
   rw [← Real.sqrt_sq hB, ← Real.sqrt_mul (Nat.cast_nonneg _)]
@@ -381,29 +442,27 @@ theorem horizonSum_sqrt_variance_le {B C : ℝ} (hf : ∀ j, Measurable (f j))
   have := horizonSum_variance_le hf hfC hf₀ hWB h x
   nlinarith [sq_nonneg (B - horizonSum κ H f h x)]
 
-/-- The levels of measurable rewards in `[0, C]` lie in `[0, C H √H ^ l]`, and each of them is the
-finite-horizon sum of nonnegative bounded measurable rewards. -/
-private lemma horizonSumLevel_mem_Icc_and_exists {C : ℝ} (hf : ∀ j, Measurable (f j))
-    (hfC : ∀ j x, f j x ∈ Set.Icc 0 C) (hC : 0 ≤ C) (l : ℕ) :
+/-- The levels of measurable rewards in `[0, C]` lie in `[0, C H √H ^ l]`, and the rewards of the
+level `l` are bounded by `C H √H ^ l + C`. -/
+private lemma horizonSumLevel_mem_Icc_and_abs_horizonSumLevelReward_le {C : ℝ}
+    (hf : ∀ j, Measurable (f j)) (hfC : ∀ j x, f j x ∈ Set.Icc 0 C) (hC : 0 ≤ C) (l : ℕ) :
     (∀ h x, horizonSumLevel κ H f l h x ∈ Set.Icc 0 (C * H * √H ^ l)) ∧
-      ∃ g : ℕ → α → ℝ, (∀ j, Measurable (g j)) ∧ (∀ j y, |g j y| ≤ C * H * √H ^ l + C) ∧
-        (∀ j y, 0 ≤ g j y) ∧ horizonSumLevel κ H f l = horizonSum κ H g := by
+      ∀ j y, |horizonSumLevelReward κ H f l j y| ≤ C * H * √H ^ l + C := by
   have hb (l : ℕ) : 0 ≤ C * H * √H ^ l := by positivity
+  have hf₀ (j : ℕ) (x : α) : 0 ≤ f j x := (hfC j x).1
   induction l with
   | zero =>
-    refine ⟨fun h x ↦ ?_, f, hf, fun j y ↦ ?_, fun j y ↦ (hfC j y).1, rfl⟩
+    refine ⟨fun h x ↦ ?_, fun j y ↦ ?_⟩
     · have hW := horizonSum_mem_Icc (κ := κ) (H := H) hf hfC h x
       simp only [mul_zero, horizonSumLevel_zero, pow_zero, mul_one] at hW ⊢
       exact ⟨hW.1, hW.2.trans (by rw [mul_comm]; gcongr; exact_mod_cast Nat.sub_le H h)⟩
-    · rw [abs_of_nonneg (hfC j y).1]
+    · rw [horizonSumLevelReward_zero, abs_of_nonneg (hfC j y).1]
       linarith [(hfC j y).2, hb 0]
   | succ l ih =>
-    obtain ⟨hVl, g, hg, hgC, hg₀, hVg⟩ := ih
+    obtain ⟨hVl, hrC⟩ := ih
     have hσ (j : ℕ) (y : α) : √Var[horizonSumLevel κ H f l (j + 1); κ j y] ≤ C * H * √H ^ l :=
       sqrt_variance_le_of_abs_le (measurable_horizonSumLevel hf l (j + 1)).aemeasurable (hb l)
         (.of_forall fun z ↦ abs_le.2 ⟨by linarith [(hVl (j + 1) z).1, hb l], (hVl (j + 1) z).2⟩)
-    have hσm (j : ℕ) : Measurable fun y ↦ √Var[horizonSumLevel κ H f l (j + 1); κ j y] :=
-      (measurable_horizonSumLevel hf l (j + 1)).variance_kernel.sqrt
     have hHl : C * H * √H ^ l ≤ C * H * √H ^ (l + 1) + C := by
       rcases Nat.eq_zero_or_pos H with hH | hH
       · simp [hH, hC]
@@ -412,18 +471,18 @@ private lemma horizonSumLevel_mem_Icc_and_exists {C : ℝ} (hf : ∀ j, Measurab
           (pow_le_pow_right₀ h1 (Nat.le_succ l) : √H ^ l ≤ √H ^ (l + 1))
           (mul_nonneg hC (Nat.cast_nonneg H))
         linarith
-    refine ⟨fun h x ↦ ⟨?_, ?_⟩, fun j y ↦ √Var[horizonSumLevel κ H f l (j + 1); κ j y], hσm,
-      fun j y ↦ ?_, fun j y ↦ Real.sqrt_nonneg _, rfl⟩
-    · simpa using (horizonSum_mem_Icc (κ := κ) (H := H) hσm
-        (fun j y ↦ ⟨Real.sqrt_nonneg _, hσ j y⟩) h x).1
-    · have h₁ := horizonSum_sqrt_variance_le (κ := κ) hg hgC hg₀
-        (fun j y ↦ hVg ▸ (hVl j y).2) h x
-      rw [← hVg] at h₁
+    refine ⟨fun h x ↦ ⟨?_, ?_⟩, fun j y ↦ ?_⟩
+    · rw [horizonSumLevel_eq_horizonSum]
+      exact horizonSum_nonneg (horizonSumLevelReward_nonneg hf₀ (l + 1)) h x
+    · have h₁ := horizonSum_sqrt_variance_le (κ := κ) (measurable_horizonSumLevelReward hf l) hrC
+        (horizonSumLevelReward_nonneg hf₀ l)
+        (fun j y ↦ by rw [← horizonSumLevel_eq_horizonSum]; exact (hVl j y).2) h x
+      rw [← horizonSumLevel_eq_horizonSum, ← horizonSumLevel_succ] at h₁
       calc horizonSumLevel κ H f (l + 1) h x ≤ √(H - h : ℕ) * (C * H * √H ^ l) := h₁
         _ ≤ √H * (C * H * √H ^ l) := mul_le_mul_of_nonneg_right
             (Real.sqrt_le_sqrt (by exact_mod_cast Nat.sub_le H h)) (hb l)
         _ = C * H * √H ^ (l + 1) := by ring
-    · rw [abs_of_nonneg (Real.sqrt_nonneg _)]
+    · rw [horizonSumLevelReward_succ, abs_of_nonneg (Real.sqrt_nonneg _)]
       exact (hσ j y).trans hHl
 
 /-- **A priori bounds on the levels** [LWCGC24, Lemma 12]: for measurable rewards `f` in
@@ -432,7 +491,8 @@ multiplies the bound by `√H` (`ProbabilityTheory.Kernel.horizonSum_sqrt_varian
 theorem horizonSumLevel_mem_Icc {C : ℝ} (hf : ∀ j, Measurable (f j))
     (hfC : ∀ j x, f j x ∈ Set.Icc 0 C) (l h : ℕ) (x : α) :
     horizonSumLevel κ H f l h x ∈ Set.Icc 0 (C * H * √H ^ l) :=
-  (horizonSumLevel_mem_Icc_and_exists hf hfC ((hfC 0 x).1.trans (hfC 0 x).2) l).1 h x
+  (horizonSumLevel_mem_Icc_and_abs_horizonSumLevelReward_le hf hfC ((hfC 0 x).1.trans (hfC 0 x).2)
+    l).1 h x
 
 /-- The scalar recursion behind [LWCGC24, (113)–(119)]: for `B, ε ≥ 0`, `9 ε H ≤ 1` and
 `H ≤ 4 ^ m`, if the errors `d l` and the next-level terms `e l` satisfy
@@ -561,21 +621,13 @@ theorem abs_horizonSum_sub_horizonSum_le_of_abs_sub_le {C ε : ℝ} (hf : ∀ j,
       (.of_forall fun z ↦ abs_le.2 ⟨by linarith [(hVb l (j + 1) z).1, hb₀ l],
         (hVb l (j + 1) z).2⟩)
   -- the rewards `r l` of the levels: `V l = horizonSum κ H (r l)`
-  set r : ℕ → ℕ → α → ℝ := fun l ↦ Nat.casesOn l f fun k j y ↦ √Var[V k (j + 1); κ j y]
-    with hr_def
-  have hr₀ : r 0 = f := rfl
-  have hr (l : ℕ) : r (l + 1) = fun j y ↦ √Var[V l (j + 1); κ j y] := rfl
-  have hr_meas (l j : ℕ) : Measurable (r l j) := by
-    cases l
-    exacts [hf j, (hVm _ (j + 1)).variance_kernel.sqrt]
-  have hrB (l : ℕ) : ∃ B, ∀ j y, |r l j y| ≤ B := by
-    cases l with
-    | zero =>
-      rw [hr₀]
-      exact ⟨C, fun j y ↦ abs_le.2 ⟨by linarith [(hfC j y).1], (hfC j y).2⟩⟩
-    | succ k => exact ⟨b k, fun j y ↦ (abs_of_nonneg (Real.sqrt_nonneg _)).trans_le (hσ k j y)⟩
-  have hVr (l : ℕ) : V l = horizonSum κ H (r l) := by
-    cases l <;> rfl
+  set r := horizonSumLevelReward κ H f with hr_def
+  have hr (l : ℕ) : r (l + 1) = fun j y ↦ √Var[V l (j + 1); κ j y] :=
+    horizonSumLevelReward_succ κ H f l
+  have hr_meas (l j : ℕ) : Measurable (r l j) := measurable_horizonSumLevelReward hf l j
+  have hrB (l : ℕ) : ∃ B, ∀ j y, |r l j y| ≤ B :=
+    ⟨_, (horizonSumLevel_mem_Icc_and_abs_horizonSumLevelReward_le hf hfC hC l).2⟩
+  have hVr (l : ℕ) : V l = horizonSum κ H (r l) := horizonSumLevel_eq_horizonSum κ H f l
   -- the error `D l` at level `l`
   set D : ℕ → ℝ := fun l ↦ |horizonSum κ' H (r l) h x - V l h x| with hD_def
   have hstep (l : ℕ) (hl : l ≤ m) :
@@ -611,9 +663,10 @@ theorem abs_horizonSum_sub_horizonSum_le_of_abs_sub_le {C ε : ℝ} (hf : ∀ j,
   -- the last level: `horizonSum κ' H (r (m + 1)) h x ≤ H b m`
   have hlast : horizonSum κ' H (r (m + 1)) h x ≤ H * (C * H * √H ^ m) := by
     have := (horizonSum_mem_Icc (κ := κ') (H := H) (hr_meas (m + 1))
-      (fun j y ↦ ⟨Real.sqrt_nonneg _, hσ m j y⟩) h x).2
+      (fun j y ↦ by rw [hr]; exact ⟨Real.sqrt_nonneg _, hσ m j y⟩) h x).2
     exact this.trans (mul_le_mul_of_nonneg_right (by exact_mod_cast Nat.sub_le H h) (hb₀ m))
-  have hD₀ : D 0 = |horizonSum κ' H f h x - horizonSum κ H f h x| := rfl
+  have hD₀ : D 0 = |horizonSum κ' H f h x - horizonSum κ H f h x| := by
+    simp only [hD_def, hr_def, hV_def, horizonSumLevelReward_zero, horizonSumLevel_zero]
   rw [← hD₀, mul_assoc 4, mul_assoc 4]
   refine (le_four_mul_sqrt_of_le_mul_add (mul_nonneg hC (Nat.cast_nonneg _)) hε₀ hε hm
     (fun l hl ↦ (hstep l hl).trans_eq (by ring)) (fun l ↦ (hnext l).trans_eq (by ring))
