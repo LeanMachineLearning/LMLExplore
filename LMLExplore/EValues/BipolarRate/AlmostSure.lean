@@ -25,6 +25,12 @@ The bound in expectation, `ProbabilityTheory.IsEProcess.eintegral_log_div_le_bip
 [RR26, Lemma 3.3], holds for each `n` separately; the almost sure bound is about the whole
 trajectory.
 
+## Main definitions
+
+* `ProbabilityTheory.coverWeight`: the weight `1 / (k (k + 1))` of a block of `k` observations in
+  a mixture over block lengths; the weights of `1, 2, …` add up to at most `1`
+  (`ProbabilityTheory.sum_coverWeight_le_one`).
+
 ## Main statements
 
 * `ProbabilityTheory.ae_limsup_log_div_le_bipolarRate_of_dependsOn`: the bound for functions `F n`
@@ -85,15 +91,18 @@ variable {𝓧 : Type*} {m𝓧 : MeasurableSpace 𝓧}
 
 /-- The weight `1 / (k (k + 1))` of a block of `k` observations in the covering mixture. These
 weights add up to at most `1`, and their logarithms are `o(k)`. -/
-private noncomputable def coverWeight (k : ℕ) : ℝ := 1 / ((k : ℝ) * (k + 1))
+noncomputable def coverWeight (k : ℕ) : ℝ := 1 / ((k : ℝ) * (k + 1))
+
+/-- The definition of the weights of the covering mixture. -/
+lemma coverWeight_def (k : ℕ) : coverWeight k = 1 / ((k : ℝ) * (k + 1)) := (rfl)
 
 /-- The weights of the covering mixture are nonnegative. -/
-private lemma coverWeight_nonneg (k : ℕ) : 0 ≤ coverWeight k := by
+lemma coverWeight_nonneg (k : ℕ) : 0 ≤ coverWeight k := by
   unfold coverWeight
   positivity
 
 /-- The weights of the blocks of lengths `1, …, n` add up to at most `1`. -/
-private lemma sum_coverWeight_le_one (n : ℕ) :
+lemma sum_coverWeight_le_one (n : ℕ) :
     ∑ j ∈ Finset.range n, coverWeight (j + 1) ≤ 1 := by
   have h (n : ℕ) : ∑ j ∈ Finset.range n, coverWeight (j + 1) = 1 - 1 / ((n : ℝ) + 1) := by
     induction n with

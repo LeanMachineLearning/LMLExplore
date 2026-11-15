@@ -12,6 +12,7 @@ public import Mathlib.Probability.ProductMeasure
 import LMLExplore.EValues.BipolarRate.AlmostSure
 import LMLExplore.MeasureTheory.MeasurableSpace.CountablyGenerated
 import LMLExplore.Probability.ProductMeasure
+import LMLExplore.Probability.Process.Filtration
 import Mathlib.Algebra.Order.Floor.Semifield
 import Mathlib.MeasureTheory.Function.ConvergenceInMeasure
 import Mathlib.MeasureTheory.Measure.SeparableMeasure
@@ -68,13 +69,20 @@ The proof has three steps.
   on the growth; the upper bound is
   `ProbabilityTheory.ae_limsup_log_div_le_bipolarRate_of_dependsOn`.
 
-The statement and its proof are adapted from `EValuesResearch/Results/UniversalEProcess.lean`
-(commit `a1002bc`) in the paper project `RemyDegenne/evalues_research`, rewritten on the API of
-LMLExplore.
+The statement is the theorem of [EVR26, Note 13] (`results/13-universal-eprocess.md` there). The
+note builds the e-process from the running maxima of the block products, passed through an
+adjuster, and Ville's inequality; the proof here uses the mixture over the number of blocks
+instead, which needs neither. The statement and its proof are adapted from
+`EValuesResearch/Results/UniversalEProcess.lean` (commit `a1002bc`) in the paper project
+`RemyDegenne/evalues_research`, rewritten on the API of LMLExplore.
 
 ## References
 
 * [RR26] A. Ram and A. Ramdas, *The optimal betting wealth growth rate*, arXiv:2604.25280v1.
+* [EVR26] *Answers to open questions in e-values and anytime-valid inference*, notes 01 to 34 and
+  the Lean library `EValuesResearch` of github.com/RemyDegenne/evalues_research, 2026; written and
+  refereed by AI agents: Note 13, *One e-process at the bipolar rate for every dominated
+  alternative*, Theorem.
 -/
 
 public section
@@ -214,7 +222,7 @@ private theorem eintegral_le_of_forall_min_le {Ω : Type*} [MeasurableSpace Ω] 
   exact EReal.coe_ennreal_le_coe_ennreal_iff.2
     (iSup_le fun k ↦ EReal.coe_ennreal_le_coe_ennreal_iff.1 (hk k))
 
-/-! ### Observations, shifts and the filtration -/
+/-! ### Observations and shifts -/
 
 variable {𝓧 : Type*} {m𝓧 : MeasurableSpace 𝓧}
 
@@ -231,29 +239,11 @@ private lemma indepFun_initSeg_shift_iterate (P : Measure 𝓧) [IsProbabilityMe
     (ψ := fun (y : Set.Ici t → 𝓧) (i : ℕ) ↦ y ⟨i + t, Nat.le_add_left t i⟩)
     (by fun_prop) (by fun_prop)
 
-/-- For `k ≤ n + 1`, the first `k` terms of a sequence are measurable at time `n` of
-`Filtration.piLE`. -/
-private lemma Filtration.measurable_piLE_initSeg {k n : ℕ} (hk : k ≤ n + 1) :
-    Measurable[Filtration.piLE (X := fun _ : ℕ ↦ 𝓧) n] (initSeg k) := by
-  rw [initSeg_def]
-  exact @Measurable.of_eval _ _ _ (Filtration.piLE n) _ _ fun i ↦
-    Filtration.measurable_piLE_apply (by have := i.2; omega)
-
 end MeasureTheory
 
 namespace ProbabilityTheory
 
 variable {𝓧 : Type*} {m𝓧 : MeasurableSpace 𝓧} {S₁ : Set (Measure 𝓧)}
-
-/-- A measurable function of the first `n + 1` observations is measurable at time `n` of
-`Filtration.piLE`. -/
-private lemma measurable_piLE_of_dependsOn {β : Type*} [MeasurableSpace β]
-    {f : (ℕ → 𝓧) → β} {n : ℕ} (hf : Measurable f) (hfn : DependsOn f (Set.Iio (n + 1))) :
-    Measurable[Filtration.piLE n] f := by
-  rcases isEmpty_or_nonempty 𝓧 with h𝓧 | h𝓧
-  · exact @Subsingleton.measurable _ _ _ (Filtration.piLE n) _ _
-  obtain ⟨g, hg, rfl⟩ := exists_measurable_eq_comp_initSeg hf hfn
-  exact Measurable.comp (mα := Filtration.piLE n) hg (Filtration.measurable_piLE_initSeg le_rfl)
 
 /-! ### A countable family of bounded log-e-variables that determines the bipolar rate -/
 
@@ -438,6 +428,9 @@ private lemma exists_rateFamily [MeasurableSpace.CountablyGenerated 𝓧]
     obtain ⟨N, f, hf, hft⟩ := exists_mem_boundedLogEVarSet_lt_integral Q hS₁ hE hEt
     obtain ⟨j, hj⟩ := hdense (m, N) Q hQ hQρ f hf _ hft
     refine ⟨e.symm ((m, N), j), ?_⟩
+    -- `e (e.symm ((m, N), j))` occurs both in the integrand and in the type `Fin (_ + 1) → 𝓧` of
+    -- its argument, so rewriting it with `Equiv.apply_symm_apply` gives an ill-typed motive; we
+    -- generalize it to a variable and substitute instead.
     beta_reduce
     generalize hp : e (e.symm ((m, N), j)) = p
     rw [Equiv.apply_symm_apply] at hp
@@ -473,18 +466,25 @@ private lemma measurable_blockSum {g : (ℕ → 𝓧) → ℝ} (hg : Measurable 
     Measurable (blockSum L g k) :=
   Finset.measurable_sum _ fun _ _ ↦ hg.comp (measurable_shift_iterate _)
 
+/-- A function of the first `L` observations, played on the sequence shifted by `a`, is a
+function of the first `a + L` observations. -/
+private lemma dependsOn_comp_shift_iterate {β : Type*} {L : ℕ} {g : (ℕ → 𝓧) → β}
+    (hg : DependsOn g (Set.Iio L)) (a : ℕ) :
+    DependsOn (g ∘ (shift 𝓧)^[a]) (Set.Iio (a + L)) := by
+  intro ω ω' h
+  refine hg fun i hi ↦ ?_
+  simp only [shift_iterate_apply]
+  exact h _ (by simp only [Set.mem_Iio] at hi ⊢; omega)
+
 /-- The sums of a function of the first `L` observations over `k` blocks of `L` observations are
 functions of the first `L * k` observations. -/
 private lemma dependsOn_blockSum {L : ℕ} {g : (ℕ → 𝓧) → ℝ} (hg : DependsOn g (Set.Iio L))
     (k : ℕ) : DependsOn (blockSum L g k) (Set.Iio (L * k)) := by
   intro ω ω' h
-  refine Finset.sum_congr rfl fun l hl ↦ hg fun i hi ↦ ?_
-  simp only [shift_iterate_apply]
-  refine h _ ?_
-  have hlk : L * (l + 1) ≤ L * k := Nat.mul_le_mul_left _ (Finset.mem_range.1 hl)
-  simp only [Set.mem_Iio] at hi ⊢
-  rw [Nat.mul_succ] at hlk
-  omega
+  refine Finset.sum_congr rfl fun l hl ↦ dependsOn_comp_shift_iterate hg (L * l) fun i hi ↦
+    h i (Set.mem_Iio.2 (lt_of_lt_of_le (Set.mem_Iio.1 hi) ?_))
+  rw [← Nat.mul_succ]
+  exact Nat.mul_le_mul_left _ (Finset.mem_range.1 hl)
 
 /-- If `exp g` has expectation at most `1` under the i.i.d. law of `P`, so has the exponential of
 its block sums, as the blocks are independent. -/
@@ -531,14 +531,9 @@ private lemma ae_tendsto_blockSum (Q : Measure 𝓧) [IsProbabilityMeasure Q] {L
   have hlt : ∀ a b, a < b → IndepFun (X a) (X b) μ := by
     intro a b hab
     have hXa : DependsOn (X a) (Set.Iio (L * b)) := by
-      intro ω ω' h
-      refine hgL fun i hi ↦ ?_
-      simp only [shift_iterate_apply]
-      refine h _ ?_
-      have hlk : L * (a + 1) ≤ L * b := Nat.mul_le_mul_left _ hab
-      simp only [Set.mem_Iio] at hi ⊢
-      rw [Nat.mul_succ] at hlk
-      omega
+      refine (dependsOn_comp_shift_iterate hgL (L * a)).mono (Set.Iio_subset_Iio ?_)
+      rw [← Nat.mul_succ]
+      exact Nat.mul_le_mul_left _ hab
     obtain ⟨φ, hφ, hφeq⟩ := exists_measurable_eq_comp_initSeg
       (hg.comp (measurable_shift_iterate (L * a))) hXa
     have ha : X a = φ ∘ initSeg (L * b) := hφeq
@@ -562,41 +557,26 @@ private lemma ae_tendsto_blockSum (Q : Measure 𝓧) [IsProbabilityMeasure Q] {L
   simp only [smul_eq_mul] at hω
   exact hω
 
-/-! ### The weights of the numbers of blocks -/
+/-! ### The weights of the numbers of blocks
 
-/-- The weight `1 / ((k + 1) (k + 2))` of `k` blocks in the mixture. These weights add up to `1`,
-and their logarithms are `o(k)`. -/
-private noncomputable def horizonWeight (k : ℕ) : ℝ := 1 / (((k : ℝ) + 1) * (k + 2))
+The weight of `k` blocks in the mixture is `coverWeight (k + 1) = 1 / ((k + 1) (k + 2))`, the
+weight of the covering mixture of `AlmostSure.lean`. -/
 
-/-- The weights are positive. -/
-private lemma horizonWeight_pos (k : ℕ) : 0 < horizonWeight k := by
-  unfold horizonWeight
+/-- The weights of the numbers of blocks are positive. -/
+private lemma coverWeight_succ_pos (k : ℕ) : 0 < coverWeight (k + 1) := by
+  rw [coverWeight_def]
   positivity
 
-/-- The weights of `0, …, n - 1` blocks add up to at most `1`. -/
-private lemma sum_horizonWeight_le_one (n : ℕ) : ∑ k ∈ Finset.range n, horizonWeight k ≤ 1 := by
-  have h (n : ℕ) : ∑ k ∈ Finset.range n, horizonWeight k = 1 - 1 / ((n : ℝ) + 1) := by
-    induction n with
-    | zero => simp
-    | succ n ih =>
-      rw [Finset.sum_range_succ, ih, horizonWeight]
-      push_cast
-      field_simp
-      ring
-  rw [h]
-  have : 0 ≤ 1 / ((n : ℝ) + 1) := by positivity
-  linarith
-
 /-- The weights of all the numbers of blocks add up to at most `1`. -/
-private lemma tsum_ofReal_horizonWeight_le_one :
-    ∑' k : ℕ, ENNReal.ofReal (horizonWeight k) ≤ 1 := by
+private lemma tsum_ofReal_coverWeight_succ_le_one :
+    ∑' k : ℕ, ENNReal.ofReal (coverWeight (k + 1)) ≤ 1 := by
   refine ENNReal.tsum_le_of_sum_range_le fun n ↦ ?_
-  rw [← ENNReal.ofReal_sum_of_nonneg fun k _ ↦ (horizonWeight_pos k).le]
-  exact ENNReal.ofReal_le_one.2 (sum_horizonWeight_le_one n)
+  rw [← ENNReal.ofReal_sum_of_nonneg fun k _ ↦ (coverWeight_succ_pos k).le]
+  exact ENNReal.ofReal_le_one.2 (sum_coverWeight_le_one n)
 
 /-- The logarithm of the weight of `n / L` blocks, divided by `n`, tends to `0`. -/
-private lemma tendsto_log_horizonWeight_div (L : ℕ) :
-    Tendsto (fun n : ℕ ↦ Real.log (horizonWeight (n / L)) / n) atTop (𝓝 0) := by
+private lemma tendsto_log_coverWeight_div (L : ℕ) :
+    Tendsto (fun n : ℕ ↦ Real.log (coverWeight (n / L + 1)) / n) atTop (𝓝 0) := by
   have hlog2 : Tendsto (fun n : ℕ ↦ Real.log ((n : ℝ) + 2) / n) atTop (𝓝 0) := by
     have := (Real.tendsto_pow_log_div_mul_add_atTop 1 (-2) 1 one_ne_zero).comp
       (tendsto_atTop_add_const_right _ 2 tendsto_natCast_atTop_atTop)
@@ -608,32 +588,34 @@ private lemma tendsto_log_horizonWeight_div (L : ℕ) :
   refine tendsto_of_tendsto_of_tendsto_of_le_of_le' hlow tendsto_const_nhds
     (Eventually.of_forall fun n ↦ ?_) (Eventually.of_forall fun n ↦ ?_)
   · have hk : ((n / L : ℕ) : ℝ) ≤ n := by exact_mod_cast Nat.div_le_self n L
-    have hge : 1 / ((n : ℝ) + 2) ^ 2 ≤ horizonWeight (n / L) := by
-      unfold horizonWeight
+    have hge : 1 / ((n : ℝ) + 2) ^ 2 ≤ coverWeight (n / L + 1) := by
+      rw [coverWeight_def]
       apply one_div_le_one_div_of_le (by positivity)
+      push_cast
       nlinarith [(Nat.cast_nonneg (n / L) : (0 : ℝ) ≤ (n / L : ℕ))]
-    have hlog : -(2 * Real.log ((n : ℝ) + 2)) ≤ Real.log (horizonWeight (n / L)) := by
+    have hlog : -(2 * Real.log ((n : ℝ) + 2)) ≤ Real.log (coverWeight (n / L + 1)) := by
       calc -(2 * Real.log ((n : ℝ) + 2)) = Real.log (1 / ((n : ℝ) + 2) ^ 2) := by
             rw [one_div, Real.log_inv, Real.log_pow]
             push_cast
             ring
-      _ ≤ Real.log (horizonWeight (n / L)) := Real.log_le_log (by positivity) hge
+      _ ≤ Real.log (coverWeight (n / L + 1)) := Real.log_le_log (by positivity) hge
     rw [mul_div_assoc', neg_mul]
     exact div_le_div_of_nonneg_right hlog (Nat.cast_nonneg n)
-  · refine div_nonpos_of_nonpos_of_nonneg (Real.log_nonpos (horizonWeight_pos _).le ?_)
+  · refine div_nonpos_of_nonpos_of_nonneg (Real.log_nonpos (coverWeight_succ_pos _).le ?_)
       (Nat.cast_nonneg n)
-    unfold horizonWeight
+    rw [coverWeight_def]
     rw [div_le_one (by positivity)]
+    push_cast
     nlinarith [(Nat.cast_nonneg (n / L) : (0 : ℝ) ≤ (n / L : ℕ))]
 
 /-! ### The mixture over the family and the numbers of blocks -/
 
 /-- The term of the mixture for the function `g i` on blocks of `len i` observations, played on
 `k` blocks: the product of `exp (g i)` over the blocks, with weight
-`2⁻¹ ^ (i + 1) * horizonWeight k`. -/
+`2⁻¹ ^ (i + 1) * coverWeight (k + 1)`. -/
 private noncomputable def blockMixtureTerm (len : ℕ → ℕ) (g : ℕ → (ℕ → 𝓧) → ℝ) (i k : ℕ)
     (ω : ℕ → 𝓧) : ℝ≥0∞ :=
-  2⁻¹ ^ (i + 1) * ENNReal.ofReal (horizonWeight k) *
+  2⁻¹ ^ (i + 1) * ENNReal.ofReal (coverWeight (k + 1)) *
     ENNReal.ofReal (Real.exp (blockSum (len i) (g i) k ω))
 
 /-- **The mixture over the family and the numbers of blocks**: at time `n`, the sum of the terms
@@ -698,22 +680,57 @@ private lemma lintegral_tsum_blockMixtureTerm_le_one (P : Measure 𝓧) [IsProba
       (Measurable.tsum fun k ↦ measurable_blockMixtureTerm hg i k).aemeasurable]
     exact tsum_congr fun i ↦
       lintegral_tsum fun k ↦ (measurable_blockMixtureTerm hg i k).aemeasurable
-  _ = ∑' i, ∑' k, 2⁻¹ ^ (i + 1) * ENNReal.ofReal (horizonWeight k) *
+  _ = ∑' i, ∑' k, 2⁻¹ ^ (i + 1) * ENNReal.ofReal (coverWeight (k + 1)) *
       ∫⁻ ω, ENNReal.ofReal (Real.exp (blockSum (len i) (g i) k ω)) ∂μ := by
     refine tsum_congr fun i ↦ tsum_congr fun k ↦ ?_
     exact lintegral_const_mul _
       (ENNReal.measurable_ofReal.comp (Real.measurable_exp.comp (measurable_blockSum (hg i) _ k)))
-  _ ≤ ∑' i, ∑' k, (2⁻¹ : ℝ≥0∞) ^ (i + 1) * ENNReal.ofReal (horizonWeight k) :=
+  _ ≤ ∑' i, ∑' k, (2⁻¹ : ℝ≥0∞) ^ (i + 1) * ENNReal.ofReal (coverWeight (k + 1)) :=
     tsum_le_tsum fun i ↦ tsum_le_tsum fun k ↦
       mul_le_of_le_one_right' (lintegral_exp_blockSum_le_one P (hg i) (hgd i) (hP i) k)
-  _ = ∑' i, (2⁻¹ : ℝ≥0∞) ^ (i + 1) * ∑' k : ℕ, ENNReal.ofReal (horizonWeight k) := by
+  _ = ∑' i, (2⁻¹ : ℝ≥0∞) ^ (i + 1) * ∑' k : ℕ, ENNReal.ofReal (coverWeight (k + 1)) := by
     simp_rw [ENNReal.tsum_mul_left]
   _ ≤ ∑' i, (2⁻¹ : ℝ≥0∞) ^ (i + 1) * 1 :=
-    tsum_le_tsum fun i ↦ by gcongr; exact tsum_ofReal_horizonWeight_le_one
+    tsum_le_tsum fun i ↦ by gcongr; exact tsum_ofReal_coverWeight_succ_le_one
   _ = 1 := by
     simp_rw [mul_one, pow_succ', ENNReal.tsum_mul_left, ENNReal.tsum_geometric,
       ENNReal.one_sub_inv_two, inv_inv]
     exact ENNReal.inv_mul_cancel (by simp) (by simp)
+
+/-- The weight of `n / L` blocks costs `o(n)`: if the averages `s k / k` tend to `μ`, then
+`(s (n / L) + log (c * coverWeight (n / L + 1))) / n` tends to `μ / L`, for `c > 0` and `L ≥ 1`. -/
+private lemma tendsto_add_log_coverWeight_div {s : ℕ → ℝ} {μ c : ℝ} {L : ℕ} (hL : 1 ≤ L)
+    (hc : 0 < c) (hs : Tendsto (fun k : ℕ ↦ (k : ℝ)⁻¹ * s k) atTop (𝓝 μ)) :
+    Tendsto (fun n : ℕ ↦ (s (n / L) + Real.log (c * coverWeight (n / L + 1))) / n) atTop
+      (𝓝 (μ / L)) := by
+  have hL0 : (0 : ℝ) < L := by exact_mod_cast hL
+  have hkn : Tendsto (fun n : ℕ ↦ n / L) atTop atTop := Nat.tendsto_div_const_atTop (by omega)
+  have h1 : Tendsto (fun n : ℕ ↦ ((n / L : ℕ) : ℝ)⁻¹ * s (n / L)) atTop (𝓝 μ) := hs.comp hkn
+  have h2 : Tendsto (fun n : ℕ ↦ ((n / L : ℕ) : ℝ) / n) atTop (𝓝 (1 / L)) := by
+    have hdiv : Tendsto (fun n : ℕ ↦ (n : ℝ) / L) atTop atTop :=
+      tendsto_natCast_atTop_atTop.atTop_div_const hL0
+    have := (tendsto_nat_floor_div_atTop.comp hdiv).mul_const (1 / (L : ℝ))
+    rw [one_mul] at this
+    refine this.congr' ?_
+    filter_upwards [eventually_ge_atTop 1] with n hn
+    have hn0 : (n : ℝ) ≠ 0 := by positivity
+    simp only [Function.comp, Nat.floor_div_eq_div]
+    field_simp
+  have h3 : Tendsto (fun n : ℕ ↦ Real.log c / n) atTop (𝓝 0) :=
+    tendsto_const_div_atTop_nhds_zero_nat _
+  have hsum := (h2.mul h1).add (h3.add (tendsto_log_coverWeight_div L))
+  have heq : 1 / (L : ℝ) * μ + (0 + 0) = μ / L := by ring
+  rw [heq] at hsum
+  refine hsum.congr' ?_
+  filter_upwards [eventually_ge_atTop L] with n hn
+  have hk0 : ((n / L : ℕ) : ℝ) ≠ 0 := by
+    have : 1 ≤ n / L := (Nat.one_le_div_iff (by omega)).2 hn
+    positivity
+  have hn0 : (n : ℝ) ≠ 0 := by
+    have : 1 ≤ n := hL.trans hn
+    positivity
+  rw [Real.log_mul hc.ne' (coverWeight_succ_pos _).ne']
+  field_simp
 
 /-- **Growth of the mixture.** Almost surely under the i.i.d. law of `Q`, the mixture grows at
 least at the rate `∫ g i ∂Q^∞ / len i` of each member of the family. -/
@@ -725,20 +742,17 @@ private lemma le_liminf_log_blockMixture (Q : Measure 𝓧) [IsProbabilityMeasur
         liminf (fun n : ℕ ↦ ENNReal.log (blockMixture len g n ω) / (n : EReal)) atTop := by
   filter_upwards [ae_tendsto_blockSum Q hg hgd hgC] with ω hω
   set L := len i with hL
-  set μg := ∫ ω, g i ω ∂Measure.infinitePi (fun _ : ℕ ↦ Q)
-  have hL0 : (0 : ℝ) < L := by exact_mod_cast hlen
   -- the logarithm of the term of `n / L` blocks of `g i`
   set r : ℕ → ℝ := fun n ↦
-    blockSum L (g i) (n / L) ω + Real.log ((1 / 2 : ℝ) ^ (i + 1) * horizonWeight (n / L))
+    blockSum L (g i) (n / L) ω + Real.log (2⁻¹ ^ (i + 1) * coverWeight (n / L + 1))
   have hbound : ∀ n, ENNReal.ofReal (Real.exp (r n)) ≤ blockMixture len g n ω := by
     intro n
-    have hw := horizonWeight_pos (n / L)
+    have hw := coverWeight_succ_pos (n / L)
     have hterm : ENNReal.ofReal (Real.exp (r n)) = blockMixtureTerm len g i (n / L) ω := by
       simp only [r, blockMixtureTerm]
       rw [Real.exp_add, Real.exp_log (mul_pos (by positivity) hw), mul_comm,
-        ENNReal.ofReal_mul (mul_pos (by positivity) hw).le,
-        ENNReal.ofReal_mul (by positivity), ENNReal.ofReal_pow (by norm_num), one_div,
-        ENNReal.ofReal_inv_of_pos two_pos, ENNReal.ofReal_ofNat]
+        ENNReal.ofReal_mul (by positivity), ENNReal.ofReal_mul (by positivity)]
+      simp [ENNReal.ofReal_pow, ENNReal.ofReal_inv_of_pos, ENNReal.inv_pow, L]
     rw [hterm]
     calc blockMixtureTerm len g i (n / L) ω
     _ = if len i * (n / L) ≤ n then blockMixtureTerm len g i (n / L) ω else 0 :=
@@ -755,38 +769,10 @@ private lemma le_liminf_log_blockMixture (Q : Measure 𝓧) [IsProbabilityMeasur
     calc (r n : EReal) = ENNReal.log (ENNReal.ofReal (Real.exp (r n))) := by
           rw [ENNReal.log_ofReal_of_pos (Real.exp_pos _), Real.log_exp]
     _ ≤ ENNReal.log (blockMixture len g n ω) := ENNReal.log_le_log (hbound n)
-  -- `r n / n` tends to `μg / L`, by the strong law along blocks
-  have hlim : Tendsto (fun n : ℕ ↦ r n / n) atTop (𝓝 (μg / L)) := by
-    have hkn : Tendsto (fun n : ℕ ↦ n / L) atTop atTop := Nat.tendsto_div_const_atTop (by omega)
-    have h1 : Tendsto (fun n : ℕ ↦ ((n / L : ℕ) : ℝ)⁻¹ * blockSum L (g i) (n / L) ω) atTop
-        (𝓝 μg) := hω.comp hkn
-    have h2 : Tendsto (fun n : ℕ ↦ ((n / L : ℕ) : ℝ) / n) atTop (𝓝 (1 / L)) := by
-      have hdiv : Tendsto (fun n : ℕ ↦ (n : ℝ) / L) atTop atTop :=
-        tendsto_natCast_atTop_atTop.atTop_div_const hL0
-      have := (tendsto_nat_floor_div_atTop.comp hdiv).mul_const (1 / (L : ℝ))
-      rw [one_mul] at this
-      refine this.congr' ?_
-      filter_upwards [eventually_ge_atTop 1] with n hn
-      have hn0 : (n : ℝ) ≠ 0 := by positivity
-      simp only [Function.comp, Nat.floor_div_eq_div]
-      field_simp
-    have h3 : Tendsto (fun n : ℕ ↦ Real.log ((1 / 2 : ℝ) ^ (i + 1)) / n) atTop (𝓝 0) :=
-      tendsto_const_div_atTop_nhds_zero_nat _
-    have hsum := (h2.mul h1).add (h3.add (tendsto_log_horizonWeight_div L))
-    have heq : 1 / (L : ℝ) * μg + (0 + 0) = μg / L := by ring
-    rw [heq] at hsum
-    refine hsum.congr' ?_
-    filter_upwards [eventually_ge_atTop L] with n hn
-    have hk0 : ((n / L : ℕ) : ℝ) ≠ 0 := by
-      have : 1 ≤ n / L := (Nat.one_le_div_iff (by omega)).2 hn
-      positivity
-    have hn0 : (n : ℝ) ≠ 0 := by
-      have : 1 ≤ n := hlen.trans hn
-      positivity
-    simp only [r]
-    rw [Real.log_mul (by positivity) (horizonWeight_pos _).ne']
-    field_simp
-  calc ((μg / L : ℝ) : EReal) = liminf (fun n : ℕ ↦ ((r n / n : ℝ) : EReal)) atTop :=
+  -- `r n / n` tends to `∫ g i / L`, by the strong law along blocks
+  have hlim := tendsto_add_log_coverWeight_div hlen (by positivity : (0 : ℝ) < 2⁻¹ ^ (i + 1)) hω
+  calc (((∫ ω, g i ω ∂Measure.infinitePi (fun _ : ℕ ↦ Q)) / L : ℝ) : EReal)
+  _ = liminf (fun n : ℕ ↦ ((r n / n : ℝ) : EReal)) atTop :=
         ((continuous_coe_real_ereal.tendsto _).comp hlim).liminf_eq.symm
   _ ≤ liminf (fun n : ℕ ↦ ENNReal.log (blockMixture len g n ω) / (n : EReal)) atTop :=
     liminf_le_liminf hle
@@ -798,7 +784,8 @@ generated space, a null `S₁` of probability measures and an s-finite measure `
 e-process `E` for the i.i.d. laws of the members of `S₁`, in the filtration of the observations,
 nondecreasing in time, such that for every `Q₁ ≪ ρ`, almost surely under the i.i.d. law of `Q₁`,
 `(1/n) log (E n)` tends to the bipolar rate `bipolarRate Q₁ S₁`. If `Q₁` is not a probability
-measure, its i.i.d. law is `0` and the convergence holds trivially. -/
+measure, its i.i.d. law is `0` and the convergence holds trivially. This is the theorem of
+[EVR26, Note 13]. -/
 theorem exists_isEProcess_ae_tendsto_log_div_bipolarRate [MeasurableSpace.CountablyGenerated 𝓧]
     (hS₁ : ∀ P ∈ S₁, IsProbabilityMeasure P) (ρ : Measure 𝓧) [SFinite ρ] :
     ∃ E : ℕ → (ℕ → 𝓧) → ℝ≥0∞,
@@ -818,7 +805,7 @@ theorem exists_isEProcess_ae_tendsto_log_div_bipolarRate [MeasurableSpace.Counta
     exact (lintegral_mono fun ω ↦ blockMixture_le_tsum _ ω).trans
       (lintegral_tsum_blockMixtureTerm_le_one P hgm hgd fun i ↦ hgnull i P hP)
   refine ⟨blockMixture len g, IsEProcess.of_lintegral_le_one ?_
-    (fun n ↦ measurable_piLE_of_dependsOn (hEm n)
+    (fun n ↦ Filtration.measurable_piLE_of_dependsOn (hEm n)
       ((hEd n).mono (Set.Iio_subset_Iio n.le_succ))) ?_, monotone_blockMixture,
     fun Q₁ hQ₁ρ ↦ ?_⟩
   · rintro _ ⟨P, hP, rfl⟩
