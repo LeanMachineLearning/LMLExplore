@@ -165,9 +165,10 @@ private lemma abs_subgaussianCompensatedExp_sub_le {t x : ℝ} (hu : |t * x - t 
     ring_nf
     simp
   set u := t * x - t ^ 2 / 2 with hu_def
-  have hR := Real.exp_bound hu (n := 3) (by norm_num)
-  simp only [Finset.sum_range_succ, Finset.sum_range_zero, Nat.factorial] at hR
-  norm_num at hR
+  have hR : |exp u - (1 + u + u ^ 2 / 2)| ≤ |u| ^ 3 * (4 / (6 * 3)) := by
+    convert Real.exp_bound hu (n := 3) (by norm_num) using 3
+    · simp [Finset.sum_range_succ, Nat.factorial]
+    · norm_num [Nat.factorial]
   have hkey : subgaussianCompensatedExp t x -
       (t * x - 1 / 2 - t ^ 2 / 2 + (1 + t ^ 2) * (x - t / 2) ^ 2 / 2) =
       (1 + t ^ 2) / t ^ 2 * (exp u - (1 + u + u ^ 2 / 2)) := by
@@ -180,9 +181,7 @@ private lemma abs_subgaussianCompensatedExp_sub_le {t x : ℝ} (hu : |t * x - t 
   calc (1 + t ^ 2) / t ^ 2 * |exp u - (1 + u + u ^ 2 / 2)|
       ≤ (1 + t ^ 2) / t ^ 2 * |u| ^ 3 := by
         gcongr
-        refine (le_of_eq_of_le ?_ hR).trans ?_
-        · congr 1
-        · nlinarith [pow_nonneg (abs_nonneg u) 3]
+        exact hR.trans (by nlinarith [pow_nonneg (abs_nonneg u) 3])
     _ = (1 + t ^ 2) * |t| * |x - t / 2| ^ 3 := by
         rw [hut, mul_pow]
         have : |t| ^ 3 = t ^ 2 * |t| := by
@@ -301,6 +300,11 @@ theorem measurable_subgaussianCompensatedExp :
   · have : Measurable fun p : EReal × ℝ ↦ p.1.toReal := measurable_ereal_toReal.comp measurable_fst
     fun_prop
 
+/-- The compensated kernel is jointly measurable as a function of the point and the parameter. -/
+theorem measurable_subgaussianCompensatedExp_swap :
+    Measurable fun p : ℝ × EReal ↦ subgaussianCompensatedExp p.2 p.1 :=
+  measurable_subgaussianCompensatedExp.comp measurable_swap
+
 /-- The compensated kernel is at least `-3 / 2`. -/
 theorem neg_three_halves_le_subgaussianCompensatedExp (l : EReal) (x : ℝ) :
     -3 / 2 ≤ subgaussianCompensatedExp l x := by
@@ -365,6 +369,14 @@ private lemma integral_exp_mul_sub_sq_div_two_le_one (hμ : HasSubgaussianMGF id
     _ ≤ exp (-(t ^ 2 / 2)) * exp (t ^ 2 / 2) := by gcongr
     _ = 1 := by rw [← exp_add]; simp
 
+/-- Under a `1`-sub-Gaussian probability law, `x` has mean `0`. A `1`-sub-Gaussian variable is
+sub-exponential with variance proxy `1`, and LML's `HasSubexponentialMGF.integral_eq_zero` gives
+its mean. Tau Ceti's `HasSubgaussianMGF.integral_eq_zero` states this directly, but its module
+cannot be imported next to LML's sub-Gaussian file (both declare `HasSubgaussianMGF.mono`). -/
+private lemma integral_id_eq_zero [IsProbabilityMeasure μ] (hμ : HasSubgaussianMGF id 1 μ) :
+    ∫ x, x ∂μ = 0 := by
+  simpa using (hμ.hasSubexponentialMGF 0).integral_eq_zero
+
 /-- Under a `1`-sub-Gaussian law, every section of the compensated kernel is integrable. -/
 theorem integrable_subgaussianCompensatedExp (hμ : HasSubgaussianMGF id 1 μ) (l : EReal) :
     Integrable (fun x ↦ subgaussianCompensatedExp l x) μ := by
@@ -406,7 +418,7 @@ theorem integral_subgaussianCompensatedExp_nonpos [IsProbabilityMeasure μ]
       field_simp
       ring
     have he := integrable_exp_mul_sub_sq_div_two hμ t
-    have hmean : ∫ x, x ∂μ = 0 := by simpa using (hμ.hasSubexponentialMGF 0).integral_eq_zero
+    have hmean := integral_id_eq_zero hμ
     have hexp := integral_exp_mul_sub_sq_div_two_le_one hμ t
     have hid : Integrable (fun x : ℝ ↦ x) μ := hμ.integrable
     have h1 : Integrable (fun x ↦ (1 + t ^ 2) / t ^ 2 * (exp (t * x - t ^ 2 / 2) - 1)) μ :=
@@ -422,8 +434,7 @@ the compensated kernel is integrable on the product `μ.prod ν`. -/
 theorem integrable_prod_subgaussianCompensatedExp [IsProbabilityMeasure μ]
     (hμ : HasSubgaussianMGF id 1 μ) (ν : Measure EReal) [IsFiniteMeasure ν] :
     Integrable (fun p : ℝ × EReal ↦ subgaussianCompensatedExp p.2 p.1) (μ.prod ν) := by
-  have hmeas : Measurable fun p : ℝ × EReal ↦ subgaussianCompensatedExp p.2 p.1 :=
-    measurable_subgaussianCompensatedExp.comp measurable_swap
+  have hmeas := measurable_subgaussianCompensatedExp_swap
   -- the kernel plus `3 / 2` is nonnegative, with integral at most `3 / 2` by Tonelli's theorem
   have hlow : ∀ p : ℝ × EReal, 0 ≤ subgaussianCompensatedExp p.2 p.1 + 3 / 2 := fun p ↦ by
     linarith [neg_three_halves_le_subgaussianCompensatedExp p.2 p.1]
@@ -460,8 +471,7 @@ theorem isEVar_ofReal_one_add_integral_subgaussianCompensatedExp (a : ℝ) (ν :
     [IsFiniteMeasure ν] (h : ∀ x, 0 ≤ 1 + a * x + ∫ l, subgaussianCompensatedExp l x ∂ν) :
     IsEVar (fun x ↦ ENNReal.ofReal (1 + a * x + ∫ l, subgaussianCompensatedExp l x ∂ν))
       {μ : Measure ℝ | IsProbabilityMeasure μ ∧ HasSubgaussianMGF id 1 μ} := by
-  have hmeas : Measurable fun p : ℝ × EReal ↦ subgaussianCompensatedExp p.2 p.1 :=
-    measurable_subgaussianCompensatedExp.comp measurable_swap
+  have hmeas := measurable_subgaussianCompensatedExp_swap
   have hJm : Measurable fun x ↦ ∫ l, subgaussianCompensatedExp l x ∂ν :=
     (StronglyMeasurable.integral_prod_right (ν := ν)
       (f := fun (x : ℝ) (l : EReal) ↦ subgaussianCompensatedExp l x)
@@ -482,7 +492,7 @@ theorem isEVar_ofReal_one_add_integral_subgaussianCompensatedExp (a : ℝ) (ν :
   have h2 : Integrable (fun x ↦ 1 + a * x + ∫ l, subgaussianCompensatedExp l x ∂ν) μ := h1.add hJ
   rw [← ofReal_integral_eq_lintegral_ofReal h2 (ae_of_all _ h), ENNReal.ofReal_le_one,
     integral_add h1 hJ, integral_add (integrable_const 1) hx, integral_const_mul]
-  have hmean : ∫ x, x ∂μ = 0 := by simpa using (hμ.hasSubexponentialMGF 0).integral_eq_zero
+  have hmean := integral_id_eq_zero hμ
   simp only [hmean, integral_const, probReal_univ, smul_eq_mul, one_mul, mul_zero, add_zero]
   linarith
 
@@ -636,6 +646,67 @@ private lemma hasSubgaussianMGF_sum_div_smul_dirac {A : Finset ℝ} {q : A → �
         exact Finset.sum_congr rfl fun i _ ↦ by ring
     _ ≤ exp (t ^ 2 / 2) := by rw [div_le_iff₀ hQ0]; linarith [hexp t]
 
+/-- A linear functional on the vectors indexed by a finite set `A` of points, nonpositive on the
+vectors dominated by some `(a y + ∫ k (l, y) ∂ν(l))_{y ∈ A}`, is the weighting of the points by
+nonnegative weights `q` under which `x` has mean `0` and every section `k (l, ·)` of the
+compensated kernel a nonpositive mean. -/
+private lemma exists_weights_of_map_nonpos {A : Finset ℝ} (φ : StrongDual ℝ (A → ℝ))
+    (hφC : ∀ v : A → ℝ, (∃ θ, v ≤ compensatedExpVec A θ) → φ v ≤ 0) :
+    ∃ q : A → ℝ, (∀ v, φ v = ∑ i : A, v i * q i) ∧ (∀ i, 0 ≤ q i) ∧
+      ∑ i : A, (i : ℝ) * q i = 0 ∧
+      ∀ l : EReal, ∑ i : A, subgaussianCompensatedExp l i * q i ≤ 0 := by
+  set q : A → ℝ := fun i ↦ φ (fun j ↦ if i = j then 1 else 0) with hq
+  have hφsum : ∀ v, φ v = ∑ i : A, v i * q i := fun v ↦ by
+    simpa [smul_eq_mul] using LinearMap.pi_apply_eq_sum_univ (φ : (A → ℝ) →ₗ[ℝ] ℝ) v
+  refine ⟨q, hφsum, fun i ↦ ?_, ?_, fun l ↦ ?_⟩
+  -- the nonpositive vectors are dominated, so the weights are nonnegative
+  · have := hφC (-(fun j ↦ if i = j then (1 : ℝ) else 0)) ⟨(0, 0), by
+      rw [compensatedExpVec_zero]
+      intro j
+      simp only [Pi.neg_apply, Pi.zero_apply, neg_nonpos]
+      split_ifs <;> norm_num⟩
+    rw [map_neg] at this
+    linarith
+  -- `x` and `-x` are dominated (the drifts `±1`), so `x` has mean `0`
+  · have h1' := hφC (fun j : A ↦ (j : ℝ)) ⟨(1, 0), fun j ↦ by simp [compensatedExpVec]⟩
+    have h2' := hφC (fun j : A ↦ -(j : ℝ)) ⟨(-1, 0), fun j ↦ by simp [compensatedExpVec]⟩
+    rw [hφsum] at h1' h2'
+    simp only [neg_mul, Finset.sum_neg_distrib] at h2'
+    linarith
+  -- every section `k (l, ·)` is dominated (a Dirac mass at `l`), so it has a nonpositive mean
+  · have := hφC (fun j : A ↦ subgaussianCompensatedExp l j)
+      ⟨(0, ⟨Measure.dirac l, inferInstance⟩), by
+        rw [compensatedExpVec_dirac]; intro j; simp⟩
+    rwa [hφsum] at this
+
+/-- Let `E` have mean at most `1` under every finitely supported `1`-sub-Gaussian probability law.
+For nonnegative weights `q` on a finite set `A` of points, of positive total mass, under which `x`
+has mean `0` and every section `k (l, ·)` of the compensated kernel a nonpositive mean, the
+normalised weights are such a law, so the normalised weighted mean of `E` on `A` is at most `1`. -/
+private lemma sum_div_mul_toReal_le_one {E : ℝ → ℝ≥0∞}
+    (hE : ∀ μ : Measure ℝ, IsProbabilityMeasure μ → HasSubgaussianMGF id 1 μ →
+      (∃ s : Finset ℝ, μ (↑s)ᶜ = 0) → ∫⁻ x, E x ∂μ ≤ 1)
+    {A : Finset ℝ} {q : A → ℝ} (hq0 : ∀ i, 0 ≤ q i) (hQ0 : 0 < ∑ i, q i)
+    (hmean : ∑ i : A, (i : ℝ) * q i = 0)
+    (hker : ∀ l : EReal, ∑ i : A, subgaussianCompensatedExp l i * q i ≤ 0) :
+    ∑ i : A, q i / (∑ j, q j) * (E i).toReal ≤ 1 := by
+  have hfin := ne_top_of_forall_lintegral_le_one hE
+  set Q := ∑ i : A, q i with hQ
+  have hw : ∀ i, 0 ≤ q i / Q := fun i ↦ div_nonneg (hq0 i) hQ0.le
+  have hsum1 : ∑ i : A, q i / Q = 1 := by rw [← Finset.sum_div, div_self hQ0.ne']
+  set P : Measure ℝ := ∑ i : A, ENNReal.ofReal (q i / Q) • Measure.dirac (i : ℝ) with hP
+  have hP1 : IsProbabilityMeasure P := LMLExplore.isProbabilityMeasure_sum_smul_dirac hw hsum1 _
+  have hPsg : HasSubgaussianMGF id 1 P := hasSubgaussianMGF_sum_div_smul_dirac hq0 hQ0 hmean hker
+  have hEP := hE P hP1 hPsg ⟨A, LMLExplore.sum_smul_dirac_compl_eq_zero fun i ↦ i.2⟩
+  rw [hP, lintegral_finsetSum_measure] at hEP
+  simp only [lintegral_smul_measure, lintegral_dirac, smul_eq_mul] at hEP
+  have hconv : ∑ i : A, ENNReal.ofReal (q i / Q) * E i =
+      ENNReal.ofReal (∑ i : A, q i / Q * (E i).toReal) := by
+    rw [ENNReal.ofReal_sum_of_nonneg fun i _ ↦ mul_nonneg (hw i) ENNReal.toReal_nonneg]
+    refine Finset.sum_congr rfl fun i _ ↦ ?_
+    rw [ENNReal.ofReal_mul (hw i), ENNReal.ofReal_toReal (hfin i)]
+  rwa [hconv, ENNReal.ofReal_le_one] at hEP
+
 /-- Completeness on a finite set of points containing `0` and `±1`: a function whose mean is at
 most `1` under every finitely supported `1`-sub-Gaussian law is dominated there by some
 `1 + a x + ∫ k (l, x) ∂ν(l)`. The proof separates the point from the closed convex cone of the
@@ -646,7 +717,6 @@ private lemma exists_le_compensatedExpVec {E : ℝ → ℝ≥0∞}
       (∃ s : Finset ℝ, μ (↑s)ᶜ = 0) → ∫⁻ x, E x ∂μ ≤ 1)
     (A : Finset ℝ) (h0 : (0 : ℝ) ∈ A) (h1 : (1 : ℝ) ∈ A) (hm1 : (-1 : ℝ) ∈ A) :
     ∃ θ : ℝ × FiniteMeasure EReal, (fun y : A ↦ (E y).toReal - 1) ≤ compensatedExpVec A θ := by
-  have hfin := ne_top_of_forall_lintegral_le_one hE
   set C : Set (A → ℝ) := {v | ∃ θ, v ≤ compensatedExpVec A θ} with hC
   have hconv : Convex ℝ C := by
     rintro v₁ ⟨θ₁, h₁⟩ v₂ ⟨θ₂, h₂⟩ a b ha hb -
@@ -671,34 +741,7 @@ private lemma exists_le_compensatedExpVec {E : ℝ → ℝ≥0∞}
     have := hφ ((u / φ v + 1) • v) (hcone v hv _ (by positivity))
     rw [map_smul, smul_eq_mul, add_mul, div_mul_cancel₀ _ hpos'.ne'] at this
     linarith
-  -- `φ` is the weighting of the points of `A` by the weights `q`
-  set q : A → ℝ := fun i ↦ φ (fun j ↦ if i = j then 1 else 0) with hq
-  have hφsum : ∀ v, φ v = ∑ i : A, v i * q i := fun v ↦ by
-    simpa [smul_eq_mul] using LinearMap.pi_apply_eq_sum_univ (φ : (A → ℝ) →ₗ[ℝ] ℝ) v
-  -- `C` contains the nonpositive vectors, so the weights are nonnegative
-  have hq0 : ∀ i, 0 ≤ q i := by
-    intro i
-    have := hφC (-(fun j ↦ if i = j then (1 : ℝ) else 0)) ⟨(0, 0), by
-      rw [compensatedExpVec_zero]
-      intro j
-      simp only [Pi.neg_apply, Pi.zero_apply, neg_nonpos]
-      split_ifs <;> norm_num⟩
-    rw [map_neg] at this
-    linarith
-  -- `C` contains `x` and `-x` (the drifts `±1`), so `x` has mean `0` under `q`
-  have hmean : ∑ i : A, (i : ℝ) * q i = 0 := by
-    have h1' := hφC (fun j : A ↦ (j : ℝ)) ⟨(1, 0), fun j ↦ by simp [compensatedExpVec]⟩
-    have h2' := hφC (fun j : A ↦ -(j : ℝ)) ⟨(-1, 0), fun j ↦ by simp [compensatedExpVec]⟩
-    rw [hφsum] at h1' h2'
-    simp only [neg_mul, Finset.sum_neg_distrib] at h2'
-    linarith
-  -- `C` contains every section `k (l, ·)` (a Dirac mass at `l`), so it has a nonpositive mean
-  have hker : ∀ l : EReal, ∑ i : A, subgaussianCompensatedExp l i * q i ≤ 0 := by
-    intro l
-    have := hφC (fun j : A ↦ subgaussianCompensatedExp l j)
-      ⟨(0, ⟨Measure.dirac l, inferInstance⟩), by
-        rw [compensatedExpVec_dirac]; intro j; simp⟩
-    rwa [hφsum] at this
+  obtain ⟨q, hφsum, hq0, hmean, hker⟩ := exists_weights_of_map_nonpos φ hφC
   -- the vector of `E - 1` has a positive mean under `q`
   have hpos : 0 < ∑ i : A, ((E i).toReal - 1) * q i := by rw [← hφsum]; linarith
   set Q := ∑ i : A, q i with hQ
@@ -710,22 +753,8 @@ private lemma exists_le_compensatedExpVec {E : ℝ → ℝ≥0∞}
       have : ∑ i : A, ((E i).toReal - 1) * q i = 0 :=
         Finset.sum_eq_zero fun i hi ↦ by rw [h' i hi, mul_zero]
       linarith
-  -- the normalised weights are a finitely supported member of the null
-  have hw : ∀ i, 0 ≤ q i / Q := fun i ↦ div_nonneg (hq0 i) hQ0.le
-  have hsum1 : ∑ i : A, q i / Q = 1 := by rw [← Finset.sum_div, div_self hQ0.ne']
-  set P : Measure ℝ := ∑ i : A, ENNReal.ofReal (q i / Q) • Measure.dirac (i : ℝ) with hP
-  have hP1 : IsProbabilityMeasure P := LMLExplore.isProbabilityMeasure_sum_smul_dirac hw hsum1 _
-  have hPsg : HasSubgaussianMGF id 1 P := hasSubgaussianMGF_sum_div_smul_dirac hq0 hQ0 hmean hker
-  -- under which `E` has mean above `1`
-  have hEP := hE P hP1 hPsg ⟨A, LMLExplore.sum_smul_dirac_compl_eq_zero fun i ↦ i.2⟩
-  rw [hP, lintegral_finsetSum_measure] at hEP
-  simp only [lintegral_smul_measure, lintegral_dirac, smul_eq_mul] at hEP
-  have hconv' : ∑ i : A, ENNReal.ofReal (q i / Q) * E i =
-      ENNReal.ofReal (∑ i : A, q i / Q * (E i).toReal) := by
-    rw [ENNReal.ofReal_sum_of_nonneg fun i _ ↦ mul_nonneg (hw i) ENNReal.toReal_nonneg]
-    refine Finset.sum_congr rfl fun i _ ↦ ?_
-    rw [ENNReal.ofReal_mul (hw i), ENNReal.ofReal_toReal (hfin i)]
-  rw [hconv', ENNReal.ofReal_le_one] at hEP
+  -- but its normalised mean is at most `0`, as the normalised weights are a member of the null
+  have hle := sum_div_mul_toReal_le_one hE hq0 hQ0 hmean hker
   have hrw : ∑ i : A, ((E i).toReal - 1) * q i =
       Q * (∑ i : A, q i / Q * (E i).toReal - 1) := by
     rw [mul_sub, Finset.mul_sum, mul_one]

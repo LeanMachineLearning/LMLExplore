@@ -21,6 +21,13 @@ the projection of a closed subset of a product with a compact factor.
 ## Main statements
 
 * `LMLExplore.isClosed_setOf_exists_le`: the closedness criterion above.
+
+## References
+
+* The criterion is adapted from the closed-cone step of the Lean proof in
+  `EValuesResearch/Results/SubGaussianCompleteClass.lean` and
+  `EValuesResearch/Results/SubGaussianCompleteClassAux.lean` (commit `dd4072f`) of the paper
+  project `RemyDegenne/evalues_research`.
 -/
 
 public section

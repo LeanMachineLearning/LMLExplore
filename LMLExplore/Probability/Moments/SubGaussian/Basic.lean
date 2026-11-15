@@ -49,8 +49,13 @@ martingale bounds.
 
 ## References
 
-* The proof is adapted from the formalization in the LMLPapers project
-  (`LMLPapers/LeanMachineLearning/ForMathlib/Probability/Moments/SubGaussian.lean`).
+* The conditional sub-Gaussian material is adapted from the formalization in the LMLPapers
+  project (`LMLPapers/LeanMachineLearning/ForMathlib/Probability/Moments/SubGaussian.lean`).
+* `HasSubgaussianMGF.integral_sq_le`, `hasSubgaussianMGF_sum_smul_dirac` and
+  `exists_hasSubgaussianMGF_measure_singleton_pos` are adapted from the Lean proof in
+  `EValuesResearch/Results/SubGaussianCompleteClass.lean` and
+  `EValuesResearch/Results/SubGaussianCompleteClassAux.lean` (commit `dd4072f`) of the paper
+  project `RemyDegenne/evalues_research`.
 -/
 
 public section

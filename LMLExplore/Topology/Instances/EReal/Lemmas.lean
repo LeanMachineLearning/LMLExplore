@@ -16,6 +16,13 @@ is continuous and has limits at `+∞` and `-∞` equal to its values at `⊤` a
 ## Main statements
 
 * `EReal.continuous_of_continuous_coe_of_tendsto`: the continuity criterion above.
+
+## References
+
+* The criterion is adapted from the Lean proof in
+  `EValuesResearch/Results/SubGaussianCompleteClass.lean` and
+  `EValuesResearch/Results/SubGaussianCompleteClassAux.lean` (commit `dd4072f`) of the paper
+  project `RemyDegenne/evalues_research`.
 -/
 
 public section

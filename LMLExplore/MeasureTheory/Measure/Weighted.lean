@@ -20,7 +20,10 @@ weight-based bandit algorithms.
 
 The definition of `weightedMeasure` and its basic API (masses of sets and atoms, finiteness,
 probability, absolute continuity, lower integrals and measurability) are adapted from the
-LMLPapers project.
+LMLPapers project. `isProbabilityMeasure_sum_smul_dirac` and `sum_smul_dirac_compl_eq_zero` are
+adapted from the Lean proof in `EValuesResearch/Results/SubGaussianCompleteClass.lean` and
+`EValuesResearch/Results/SubGaussianCompleteClassAux.lean` (commit `dd4072f`) of the paper project
+`RemyDegenne/evalues_research`.
 
 ## Main definitions
 

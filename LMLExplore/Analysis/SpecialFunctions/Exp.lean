@@ -97,6 +97,10 @@ lower bound for linear bandits on the unit ball [LS, Theorem 24.2].
 * [LS] T. Lattimore and Cs. Szepesvári, *Bandit Algorithms*, Cambridge University Press, 2020.
 * [BLM13] S. Boucheron, G. Lugosi and P. Massart, *Concentration Inequalities*, Oxford University
   Press, 2013.
+* `Real.one_add_sq_div_two_le_cosh` and `Real.sum_inv_two_pow_mul_exp_mul_sum_sign` are adapted
+  from the Lean proof in `EValuesResearch/Results/SubGaussianCompleteClass.lean` and
+  `EValuesResearch/Results/SubGaussianCompleteClassAux.lean` (commit `dd4072f`) of the paper
+  project `RemyDegenne/evalues_research`.
 -/
 
 public section
