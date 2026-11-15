@@ -13,7 +13,8 @@ import Mathlib.Analysis.Analytic.Uniqueness
 import TauCeti.MeasureTheory.Constructions.Pi
 
 /-!
-# Product measures: laws of coordinatewise images, restricted factors, mixtures and bounds by lines
+# Measures on products: laws of coordinatewise images, restricted factors, mixtures, bounds by
+lines and fixed prefixes
 
 Under the product measure `Measure.pi μ`, the law of a function `f` of the coordinatewise images
 `X i (y i)` is the law of `f` under the product of the laws of the `X i`. For example, the law of
@@ -38,6 +39,10 @@ Under a product of probability measures, a measurable set whose lines along one 
 all have `μ i`-measure at most `c` has product measure at most `c`, by resampling the coordinate
 `i` and integrating the measures of the lines.
 
+Under a measure on `ℕ → β` that agrees almost surely with a path `ω` on the first `k` coordinates,
+a set that only depends on these coordinates is almost surely full or empty according to whether
+it contains `ω`.
+
 ## Main statements
 
 * `MeasureTheory.Measure.map_pi_comp_eq_map_pi_map`:
@@ -58,6 +63,9 @@ all have `μ i`-measure at most `c` has product measure at most `c`, by resampli
 * `MeasureTheory.Measure.pi_le_of_forall_measure_update_preimage_le`: under a product of
   probability measures, a measurable set whose lines `{t | update x i t ∈ E}` along one coordinate
   `i` all have `μ i`-measure at most `c` has product measure at most `c`.
+* `MeasureTheory.setLIntegral_eq_ite_of_ae_prefix`, `MeasureTheory.measure_eq_ite_of_ae_prefix`:
+  under a measure that agrees almost surely with `ω` on the first `k` coordinates, the integral
+  over, and the measure of, a set that only depends on these coordinates.
 
 ## References
 
@@ -266,3 +274,40 @@ lemma pi_le_of_forall_measure_update_preimage_le [DecidableEq ι] {μ : ∀ i, M
   exact (lintegral_mono fun x ↦ h x).trans_eq (by simp)
 
 end MeasureTheory.Measure
+
+namespace MeasureTheory
+
+variable {β : Type*} [MeasurableSpace β] {μ : Measure (ℕ → β)} {k : ℕ} {ω : ℕ → β}
+  {s : Set (ℕ → β)}
+
+open scoped Classical in
+/-- Under a measure that agrees almost surely with `ω` on the first `k` coordinates, the integral
+over a set that only depends on these coordinates is the whole integral if the set contains `ω`,
+and `0` otherwise. -/
+theorem setLIntegral_eq_ite_of_ae_prefix (hpre : ∀ᵐ ω' ∂μ, ∀ i < k, ω' i = ω i)
+    (hs : MeasurableSet[MeasurableSpace.comap (fun (ω : ℕ → β) (i : Fin k) ↦ ω i)
+      MeasurableSpace.pi] s) (G : (ℕ → β) → ℝ≥0∞) :
+    ∫⁻ ω' in s, G ω' ∂μ = if ω ∈ s then ∫⁻ ω', G ω' ∂μ else 0 := by
+  obtain ⟨B, -, rfl⟩ := MeasurableSpace.measurableSet_comap.1 hs
+  have hae : ∀ᵐ ω' ∂μ, (ω' ∈ (fun (ω : ℕ → β) (i : Fin k) ↦ ω i) ⁻¹' B ↔
+      ω ∈ (fun (ω : ℕ → β) (i : Fin k) ↦ ω i) ⁻¹' B) := by
+    filter_upwards [hpre] with ω' h
+    have : (fun i : Fin k ↦ ω' i) = fun i : Fin k ↦ ω i := funext fun i ↦ h i i.2
+    simp only [Set.mem_preimage, this]
+  split_ifs with hω
+  · rw [Measure.restrict_eq_self_of_ae_mem (hae.mono fun ω' h ↦ h.2 hω)]
+  · rw [Measure.restrict_eq_zero.2 (measure_eq_zero_iff_ae_notMem.2
+      (hae.mono fun ω' h h' ↦ hω (h.1 h'))), lintegral_zero_measure]
+
+open scoped Classical in
+/-- Under a measure that agrees almost surely with `ω` on the first `k` coordinates, a set that
+only depends on these coordinates has full measure if it contains `ω`, and measure `0`
+otherwise. -/
+theorem measure_eq_ite_of_ae_prefix (hpre : ∀ᵐ ω' ∂μ, ∀ i < k, ω' i = ω i)
+    (hs : MeasurableSet[MeasurableSpace.comap (fun (ω : ℕ → β) (i : Fin k) ↦ ω i)
+      MeasurableSpace.pi] s) :
+    μ s = if ω ∈ s then μ Set.univ else 0 := by
+  have h := setLIntegral_eq_ite_of_ae_prefix hpre hs fun _ ↦ 1
+  rwa [setLIntegral_one, lintegral_one] at h
+
+end MeasureTheory
