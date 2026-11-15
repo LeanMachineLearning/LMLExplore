@@ -42,7 +42,9 @@ theorem, which has `g = d` when the features span `E`, at most `2 √(3 d n log 
 As in `LMLExplore.Bandits.UnitBallFTRL`, the interaction is described round by round relative to
 σ-algebras `m t`, the information available before the arm of round `t` is drawn: the loss
 vector `y t` is `m t`-measurable (an adaptive adversary), and the arm `A t` has conditional law
-`P t` given `m t`. Losses fixed in advance by an oblivious adversary are the constant ones.
+`P t` given `m t`. Losses fixed in advance by an oblivious adversary are the constant ones. The
+algorithm itself, and these bounds for its runs, are in
+`LMLExplore.Bandits.LinearBandit.Exp3.Algorithm`.
 
 ## Main definitions
 
@@ -68,6 +70,10 @@ vector `y t` is `m t`-measurable (an adaptive adversary), and the arm `A t` has 
   `g = d`, which `LMLExplore.exists_mem_simplex_inner_ringInverse_le_finrank` (the Kiefer–Wolfowitz
   theorem) provides when the features span `E`, the expected regret is at most `2 √(3 d n log k)`.
 * `sum_linearExp3Weights_mul_sub_le`: the cost of the exploration in a round is at most `2 γ`.
+* `linearExp3Sum_congr`: the cumulative estimate after `t` rounds only depends on the observed
+  losses of these rounds.
+* `measurable_linearExp3Weights`, `measurable_linearExp3Estimate`: the weights and the estimates
+  depend measurably on their arguments.
 * `integral_sum_mul_linearExp3Estimate`, `integral_sum_mul_linearExp3Estimate_sq_le`,
   `linearExp3_integral_inner_sub_le`: unbiasedness, second moment and regret of a round, in
   expectation.
@@ -138,6 +144,16 @@ lemma linearExp3Sum_eq_sum (π : α → ℝ) (η γ : ℝ) (A : ℕ → α) (ℓ
   induction t with
   | zero => simp
   | succ t ih => rw [linearExp3Sum_succ, sum_range_succ, ← ih]
+
+/-- The cumulative estimate after the rounds `s < t` only depends on the observed losses of these
+rounds. -/
+lemma linearExp3Sum_congr (π : α → ℝ) (η γ : ℝ) (A : ℕ → α) {ℓ ℓ' : ℕ → ℝ} {t : ℕ}
+    (hℓ : ∀ s < t, ℓ s = ℓ' s) : linearExp3Sum φ π η γ A ℓ t = linearExp3Sum φ π η γ A ℓ' t := by
+  induction t with
+  | zero => rfl
+  | succ t ih =>
+    rw [linearExp3Sum_succ, linearExp3Sum_succ, ih fun s hs ↦ hℓ s (by omega),
+      hℓ t (by omega)]
 
 end Defs
 
@@ -216,6 +232,13 @@ lemma sum_linearExp3Weights_mul_sub_le (hπ : π ∈ simplex α) (hγ0 : 0 ≤ �
   have := mul_le_mul_of_nonneg_left
     (show ∑ c, π c * ℓ c - ℓ b ≤ 2 by linarith [(abs_le.1 (hℓ b)).1]) hγ0
   linarith
+
+lemma measurable_linearExp3Weights (π : α → ℝ) (η γ : ℝ) :
+    Measurable (linearExp3Weights π η γ) := by
+  refine measurable_pi_iff.2 fun a ↦ ?_
+  simp_rw [linearExp3Weights_apply]
+  exact (((measurable_pi_apply a).comp (measurable_softmax.comp
+    (measurable_id.const_smul η).neg)).const_mul _).add_const _
 
 end Weights
 
@@ -301,6 +324,27 @@ lemma isUnit_sum_smul_rankOne_linearExp3Weights [FiniteDimensional ℝ E] (hπ0 
     IsUnit (∑ b, linearExp3Weights π η γ S b • rankOne ℝ (φ b) (φ b)) :=
   isUnit_sum_smul_rankOne_of_mul_le hπ0 hπu hγ (mul_le_linearExp3Weights hγ1 S)
 
+/-- The coefficient `⟪φ a, V(p)⁻¹ φ c⟫` of the loss estimate depends measurably on the weights
+`p`, as `p ↦ V(p)` is continuous and `Ring.inverse` is measurable. -/
+lemma measurable_inner_ringInverse_sum_smul_rankOne [FiniteDimensional ℝ E] (φ : α → E)
+    (a c : α) : Measurable fun p : α → ℝ ↦
+      ⟪φ a, Ring.inverse (∑ b, p b • rankOne ℝ (φ b) (φ b)) (φ c)⟫_ℝ := by
+  have hV : Continuous fun q : α → ℝ ↦ ∑ b, q b • rankOne ℝ (φ b) (φ b) := by fun_prop
+  exact (by fun_prop : Continuous fun T : E →L[ℝ] E ↦ ⟪φ a, T (φ c)⟫_ℝ).measurable.comp
+    (measurable_ringInverse.comp hV.measurable)
+
+/-- The loss estimate depends measurably on the weights, the played arm and the observed loss. -/
+lemma measurable_linearExp3Estimate [FiniteDimensional ℝ E] [MeasurableSpace α]
+    [MeasurableSingletonClass α] (φ : α → E) :
+    Measurable fun x : (α → ℝ) × α × ℝ ↦ linearExp3Estimate φ x.1 x.2.1 x.2.2 := by
+  refine measurable_pi_iff.2 fun a ↦ ?_
+  simp_rw [linearExp3Estimate_apply]
+  exact ((measurable_from_prod_countable_left (measurable_inner_ringInverse_sum_smul_rankOne φ a)
+    (f := fun z : (α → ℝ) × α ↦
+      ⟪φ a, Ring.inverse (∑ b, z.1 b • rankOne ℝ (φ b) (φ b)) (φ z.2)⟫_ℝ)).comp
+    (measurable_fst.prodMk (measurable_fst.comp measurable_snd))).mul
+    (measurable_snd.comp measurable_snd)
+
 end Estimate
 
 section Pathwise
@@ -360,13 +404,9 @@ and the loss vector are. -/
 private lemma aestronglyMeasurable_linearExp3Estimate {p : Ω → α → ℝ}
     (hp : AEStronglyMeasurable[m] p P) (hy : AEStronglyMeasurable[m] y P) (c a : α) :
     AEStronglyMeasurable[m] (fun ω ↦ linearExp3Estimate φ (p ω) c ⟪φ c, y ω⟫_ℝ a) P := by
-  -- `p ↦ ⟪φ a, V(p)⁻¹ φ c⟫` is measurable, as `V` is continuous and `Ring.inverse` measurable
-  have hV : Continuous fun q : α → ℝ ↦ ∑ b, q b • rankOne ℝ (φ b) (φ b) := by fun_prop
   set F : (α → ℝ) → ℝ := fun q ↦
     ⟪φ a, Ring.inverse (∑ b, q b • rankOne ℝ (φ b) (φ b)) (φ c)⟫_ℝ with hF_def
-  have hF : Measurable F :=
-    (continuous_const.inner (continuous_id.clm_apply continuous_const)).measurable.comp
-      (measurable_ringInverse.comp hV.measurable)
+  have hF : Measurable F := measurable_inner_ringInverse_sum_smul_rankOne φ a c
   obtain ⟨q, hq, hpq⟩ := hp
   have hFp : AEStronglyMeasurable[m] (fun ω ↦ F (p ω)) P :=
     ⟨F ∘ q, (hF.comp hq.measurable).stronglyMeasurable, hpq.fun_comp F⟩
