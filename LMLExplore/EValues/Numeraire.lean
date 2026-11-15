@@ -6,7 +6,7 @@ Authors: LMLExplore contributors
 module
 
 public import Statlib.EValues.RIPr
-public import LMLExplore.EValues.EffectiveSet
+public import LMLExplore.EValues.EffectiveSet.Basic
 public import LMLExplore.EValues.EVariable
 public import LMLExplore.MeasureTheory.Measure.AbsolutelyContinuousSet
 public import LMLExplore.MeasureTheory.Measure.WithDensity

@@ -9,11 +9,14 @@ public import LMLExplore.EValues.ConstraintNull.Basic
 public import LMLExplore.EValues.EProcess
 public import LMLExplore.Probability.Process.Filtration
 public import Mathlib.MeasureTheory.Constructions.BorelSpace.Real
+import LMLExplore.Analysis.SpecialFunctions.Exp
 import LMLExplore.LinearAlgebra.Pi
 import LMLExplore.MeasureTheory.Constructions.Pi
 import LMLExplore.MeasureTheory.Integral.Lebesgue.Countable
 import LMLExplore.MeasureTheory.Measure.FiniteMeasure
 import LMLExplore.MeasureTheory.Measure.Weighted
+import LMLExplore.Topology.Instances.EReal.Lemmas
+import LMLExplore.Topology.Order.Compact
 import Mathlib.Analysis.Convex.SpecificFunctions.Basic
 import Mathlib.Analysis.LocallyConvex.Separation
 import Mathlib.MeasureTheory.Function.FactorsThrough
@@ -342,25 +345,14 @@ private lemma continuous_expKernel (x : ℝ) : Continuous fun l ↦ expKernel l 
   have hc : Continuous fun t : ℝ ↦ expKernel t x := by
     simp only [expKernel, EReal.coe_ne_top, ↓reduceIte, EReal.toReal_coe]
     fun_prop
-  refine continuous_iff_continuousAt.2 fun l ↦ ?_
-  induction l using EReal.rec with
-  | bot =>
-    rw [← continuousWithinAt_compl_self, ContinuousWithinAt, EReal.nhdsWithin_bot]
-    refine tendsto_map'_iff.2 (tendsto_const_nhds.congr' ?_)
-    filter_upwards [eventually_le_atBot 0] with t ht
-    simp [expKernel, max_eq_right ht]
-  | coe t => exact EReal.isOpenEmbedding_coe.continuousAt_iff.1 hc.continuousAt
-  | top =>
-    rw [← continuousWithinAt_compl_self, ContinuousWithinAt, EReal.nhdsWithin_top]
-    refine tendsto_map'_iff.2 ?_
-    have hlim : Tendsto (fun t : ℝ ↦ t * x - t ^ 2 / 2) atTop atBot := by
-      refine tendsto_atBot_mono' _ ?_ (tendsto_neg_atTop_atBot (G := ℝ))
-      filter_upwards [eventually_ge_atTop (2 * (|x| + 1))] with t ht
-      nlinarith [abs_nonneg x, le_abs_self x]
-    simp only [expKernel, ↓reduceIte]
-    refine (Real.tendsto_exp_atBot.comp hlim).congr' ?_
+  refine EReal.continuous_of_continuous_coe_of_tendsto hc ?_ ?_
+  · simp only [expKernel, ↓reduceIte]
+    refine (Real.tendsto_exp_atBot.comp (Real.tendsto_mul_sub_sq_div_two_atTop x)).congr' ?_
     filter_upwards [eventually_ge_atTop 0] with t ht
     simp [max_eq_left ht]
+  · refine tendsto_const_nhds.congr' ?_
+    filter_upwards [eventually_le_atBot 0] with t ht
+    simp [expKernel, max_eq_right ht]
 
 /-- The exponential kernel at `x`, as a bounded continuous function of its parameter. -/
 private noncomputable def expBCF (x : ℝ) : EReal →ᵇ ℝ :=
@@ -413,14 +405,12 @@ private lemma isClosed_setOf_le_expVec (F : Finset ℝ) :
   have hT : CompactSpace {π : FiniteMeasure EReal // π.mass ≤ 1} :=
     isCompact_iff_compactSpace.1 (isCompact_setOfPred_finiteMeasure_le_of_compactSpace EReal 1)
   have heq : {v : F → ℝ | ∃ π : FiniteMeasure EReal, π.mass ≤ 1 ∧ v ≤ expVec F π} =
-      Prod.fst '' {p : (F → ℝ) × {π : FiniteMeasure EReal // π.mass ≤ 1} |
-        p.1 ≤ expVec F p.2.1} := by
+      {v : F → ℝ | ∃ π : {π : FiniteMeasure EReal // π.mass ≤ 1}, v ≤ expVec F π.1} := by
     ext v
-    exact ⟨fun ⟨π, hπ1, hπ⟩ ↦ ⟨(v, ⟨π, hπ1⟩), hπ, rfl⟩,
-      fun ⟨⟨_, π⟩, hπ, h⟩ ↦ ⟨π.1, π.2, h ▸ hπ⟩⟩
+    exact ⟨fun ⟨π, hπ1, hπ⟩ ↦ ⟨⟨π, hπ1⟩, hπ⟩, fun ⟨π, hπ⟩ ↦ ⟨π.1, π.2, hπ⟩⟩
   rw [heq]
-  exact isClosedMap_fst_of_compactSpace _ (isClosed_le continuous_fst
-    ((continuous_expVec F).comp (continuous_subtype_val.comp continuous_snd)))
+  exact LMLExplore.isClosed_setOf_exists_le ((continuous_expVec F).comp continuous_subtype_val)
+    fun _ ↦ ⟨univ, isCompact_univ, fun _ _ _ _ ↦ mem_univ _⟩
 
 /-- The vectors dominated by the vector of a mixing measure of mass at most `1` form a convex
 set. -/

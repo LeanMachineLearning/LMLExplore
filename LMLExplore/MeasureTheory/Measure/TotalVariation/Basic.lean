@@ -10,6 +10,7 @@ public import Mathlib.MeasureTheory.Measure.TotalVariation.Defs
 
 import Mathlib.MeasureTheory.Integral.Bochner.Set
 import Mathlib.MeasureTheory.Integral.IntegrableOn
+import Mathlib.MeasureTheory.Measure.TotalVariation.Basic
 import Mathlib.MeasureTheory.VectorMeasure.Integral
 import LMLExplore.Order.ConditionallyCompleteLattice.Group
 import TauCeti.MeasureTheory.Measure.TotalVariation.Basic
@@ -48,6 +49,12 @@ contraction of the oscillation of functions by a Markov kernel (Dobrushin's coef
   `|∫ f dμ - ∫ f dν| ≤ (b - a) / 2 * tvDist μ ν`, and
   `MeasureTheory.abs_integral_sub_integral_le_mul_tvDist_of_forall_sub_le` its form for `f` whose
   values differ by at most `c`.
+* `MeasureTheory.measure_le_add_etvDist`: `μ s ≤ ν s + etvDist μ ν` for every measurable `s`, and
+  `MeasureTheory.measure_le_add_of_etvDist_le` its form `μ s ≤ ν s + ε` when `etvDist ν μ ≤ ε`.
+* `MeasureTheory.isProbabilityMeasure_of_forall_exists_etvDist_lt`: a limit in total variation of
+  probability measures is a probability measure.
+* `MeasureTheory.exists_le_le_add_etvDist`: two finite measures have a common minorant `ρ` with
+  `μ univ + ν univ = 2 * ρ univ + etvDist μ ν`.
 * `MeasureTheory.abs_measureReal_sub_measureReal_le_tvDist_div_two`,
   `MeasureTheory.tvDist_le_two_mul_of_forall_measureReal_le_add`: for measures of the same mass,
   the total variation distance bounds the difference of the masses of every event, and eventwise
@@ -75,7 +82,7 @@ on the masses.
 public section
 
 open Set
-open scoped NNReal
+open scoped ENNReal NNReal
 
 namespace MeasureTheory
 
@@ -159,6 +166,62 @@ theorem abs_integral_sub_integral_le_mul_tvDist_of_forall_sub_le [IsFiniteMeasur
     (ae_of_all _ hmem) (ae_of_all _ hmem)
 
 /-! ### Eventwise bounds -/
+
+/-- **Events of measures close in total variation**, in `ℝ≥0∞`: every measurable event `s`
+satisfies `μ s ≤ ν s + etvDist μ ν`. No finiteness is assumed: the distance is `∞` unless both
+measures are finite. -/
+theorem measure_le_add_etvDist (μ ν : Measure 𝓧) {s : Set 𝓧} (hs : MeasurableSet s) :
+    μ s ≤ ν s + etvDist μ ν := by
+  by_cases h : IsFiniteMeasure μ ∧ IsFiniteMeasure ν
+  · obtain ⟨_, _⟩ := h
+    rw [etvDist_eq_iSup_sub_add_iSup_sub]
+    calc μ s ≤ ν s + (μ s - ν s) := le_add_tsub
+    _ ≤ _ := by
+      gcongr
+      exact le_add_right (le_iSup₂ (f := fun A (_ : MeasurableSet A) ↦ μ A - ν A) s hs)
+  · simp [etvDist_of_not_isFiniteMeasure h]
+
+/-- **Events of measures within `ε` in total variation**: if `etvDist ν μ ≤ ε`, every measurable
+event `s` satisfies `μ s ≤ ν s + ε`. -/
+theorem measure_le_add_of_etvDist_le {μ ν : Measure 𝓧} {s : Set 𝓧} {ε : ℝ≥0∞}
+    (hs : MeasurableSet s) (h : etvDist ν μ ≤ ε) : μ s ≤ ν s + ε :=
+  (measure_le_add_etvDist μ ν hs).trans (add_le_add le_rfl ((etvDist_comm μ ν).trans_le h))
+
+/-- A limit in total variation of probability measures is a probability measure. -/
+theorem isProbabilityMeasure_of_forall_exists_etvDist_lt {S : Set (Measure 𝓧)} {Q : Measure 𝓧}
+    (hS : ∀ P ∈ S, IsProbabilityMeasure P) (hQ : ∀ ε > 0, ∃ P ∈ S, etvDist P Q < ε) :
+    IsProbabilityMeasure Q := by
+  have h (ε : ℝ≥0) (hε : 0 < ε) : Q univ ≤ 1 + ε ∧ 1 ≤ Q univ + ε := by
+    obtain ⟨P, hP, hPQ⟩ := hQ ε (ENNReal.coe_pos.2 hε)
+    have := hS P hP
+    constructor
+    · simpa using measure_le_add_of_etvDist_le .univ hPQ.le
+    · simpa using measure_le_add_of_etvDist_le (μ := P) .univ ((etvDist_comm Q P).trans_le hPQ.le)
+  exact ⟨le_antisymm (ENNReal.le_of_forall_pos_le_add fun ε hε _ ↦ (h ε hε).1)
+    (ENNReal.le_of_forall_pos_le_add fun ε hε _ ↦ (h ε hε).2)⟩
+
+/-- **A common minorant of two finite measures.** On a Hahn decomposition `s`, the measure
+`μ.restrict s + ν.restrict sᶜ` is below `μ` and `ν`, and its mass is the mean of the masses of `μ`
+and `ν` minus half their total variation distance. -/
+theorem exists_le_le_add_etvDist (μ ν : Measure 𝓧) [IsFiniteMeasure μ] [IsFiniteMeasure ν] :
+    ∃ ρ : Measure 𝓧, ρ ≤ μ ∧ ρ ≤ ν ∧ μ univ + ν univ = 2 * ρ univ + etvDist μ ν := by
+  obtain ⟨s, hs⟩ := exists_isHahnDecomposition μ ν
+  refine ⟨μ.restrict s + ν.restrict sᶜ, ?_, ?_, ?_⟩
+  · calc μ.restrict s + ν.restrict sᶜ ≤ μ.restrict s + μ.restrict sᶜ :=
+          add_le_add le_rfl hs.ge_on_compl
+    _ = μ := Measure.restrict_add_restrict_compl hs.measurableSet
+  · calc μ.restrict s + ν.restrict sᶜ ≤ ν.restrict s + ν.restrict sᶜ :=
+          add_le_add hs.le_on le_rfl
+    _ = ν := Measure.restrict_add_restrict_compl hs.measurableSet
+  · have h₁ : μ s ≤ ν s := by simpa using hs.le_on univ
+    have h₂ : ν sᶜ ≤ μ sᶜ := by simpa using hs.ge_on_compl univ
+    calc μ univ + ν univ = (μ s + μ sᶜ) + (ν s + ν sᶜ) := by
+          rw [measure_add_measure_compl hs.measurableSet,
+            measure_add_measure_compl hs.measurableSet]
+    _ = (μ s + (ν sᶜ + (μ sᶜ - ν sᶜ))) + ((μ s + (ν s - μ s)) + ν sᶜ) := by
+          rw [add_tsub_cancel_of_le h₁, add_tsub_cancel_of_le h₂]
+    _ = 2 * (μ s + ν sᶜ) + ((ν s - μ s) + (μ sᶜ - ν sᶜ)) := by ring
+    _ = 2 * (μ.restrict s + ν.restrict sᶜ) univ + etvDist μ ν := by simp [hs.etvDist_eq]
 
 /-- **Events of measures of the same mass close in total variation**: for finite measures `μ`
 and `ν` of the same mass, every measurable event `s` satisfies
