@@ -6,7 +6,10 @@ Authors: LMLExplore contributors
 module
 
 public import LMLExplore.EValues.TestSupermartingale
+import LMLExplore.Data.Int.Interval
 import LMLExplore.EValues.MultipleTesting.RunningMaxima
+import LMLExplore.MeasureTheory.MeasurableSpace.Constructions
+import LMLExplore.MeasureTheory.Measure.Weighted
 
 /-!
 # E-BH on the running maxima of test martingales: the lower bound
@@ -16,7 +19,8 @@ filtration. The e-BH procedure at level `α` [WR22] applied to the running maxim
 makes a rejection exactly when some nonempty set `R` of hypotheses is self-consistent:
 `K ≤ α * #R * ⨆ n, M i n ω` for every `i ∈ R`. For every `K` and every `α ≤ (K + 1) / (2 * K)`,
 this file constructs test martingales for one filtration, with every hypothesis true, for which
-the procedure rejects with probability exactly `2 * K * α / (K + 1)`. For two and three hypotheses
+the procedure rejects with probability exactly `2 * K * α / (K + 1)` [EVR26, Note 18]. For two and
+three hypotheses
 this is `4 * α / 3` and `3 * α / 2`: the upper bounds
 `ProbabilityTheory.measure_exists_selfConsistent_iSup_le_of_card_eq_two` and
 `ProbabilityTheory.measure_exists_selfConsistent_iSup_le_of_card_eq_three` are attained. Since
@@ -32,8 +36,9 @@ level [TGdH25].
   and `…_of_card_eq_three`: the bounds `4 * α / 3` for two hypotheses and `3 * α / 2` for three
   are attained.
 * `ProbabilityTheory.exists_isTestMartingale_lt_measure_exists_selfConsistent_iSup`: for at least
-  two hypotheses and every level `0 < α < 1`, e-BH on the running maxima rejects with probability
-  larger than `α`.
+  two hypotheses and every level `0 < α < 1`, there are test martingales for one filtration, with
+  every hypothesis true, for which e-BH on the running maxima rejects with probability larger
+  than `α`.
 
 ## Implementation notes
 
@@ -56,7 +61,8 @@ The Doob martingales are weighted fiber averages on a finite space, for the filt
 `ProbabilityTheory.measure_exists_selfConsistent_le_of_equiv`.
 
 The construction and its proof are adapted from `EValuesResearch/Results/RunningMaxima.lean`
-(commit `ffba78a`) in the paper project `RemyDegenne/evalues_research`.
+(commit `ffba78a`) in the paper project `RemyDegenne/evalues_research`, which formalizes the notes
+[EVR26, Notes 10 and 18].
 
 ## References
 
@@ -64,11 +70,13 @@ The construction and its proof are adapted from `EValuesResearch/Results/Running
   Ser. B 84 (2022), arXiv:2009.02824v5.
 * [TGdH25] Y. Tavyrikov, J. J. Goeman and R. de Heide, *Carefree multiple testing with
   e-processes*, arXiv:2501.19360.
+* [EVR26] the research notes of the paper project `RemyDegenne/evalues_research`: Note 10,
+  `results/10-running-maxima-ebh.md`, and Note 18, `results/18-running-maxima-general-k.md`.
 -/
 
 public section
 
-open MeasureTheory
+open MeasureTheory MeasurableSpace LMLExplore
 open scoped ENNReal
 
 namespace ProbabilityTheory
@@ -134,15 +142,6 @@ private lemma sum_mul_fiberAvg {w : Ω → ℝ≥0∞} (hw : ∀ ω, w ω ≠ �
           · rw [ENNReal.mul_inv_cancel h0 (hWtop _), mul_one]
         · rfl
 
-omit [Fintype Ω] [DecidableEq β] in
-/-- The sets that are measurable for the σ-algebra `MeasurableSpace.comap f ⊤` are the unions of
-fibers of `f`. -/
-private lemma measurableSet_comap_top_iff {f : Ω → β} {s : Set Ω} :
-    MeasurableSet[MeasurableSpace.comap f ⊤] s ↔ ∀ ω ω', f ω = f ω' → (ω ∈ s ↔ ω' ∈ s) := by
-  refine ⟨fun ⟨u, _, hu⟩ ω ω' h ↦ by simp [← hu, h], fun h ↦ ⟨f '' s, trivial, ?_⟩⟩
-  ext ω
-  exact ⟨fun ⟨ω', hω', he⟩ ↦ (h ω' ω he).1 hω', fun hω ↦ ⟨ω, hω, rfl⟩⟩
-
 variable [MeasurableSpace Ω] [MeasurableSingletonClass Ω]
 
 /-- The filtration of the information `info t`, for maps `info t` of a finite space that refine
@@ -154,15 +153,6 @@ private def fiberFiltration (info : ℕ → Ω → β)
   mono' := monotone_nat_of_le_succ fun t _ hs ↦ measurableSet_comap_top_iff.2 fun ω ω' h ↦
     measurableSet_comap_top_iff.1 hs ω ω' (hinfo t ω ω' h)
   le' _ s _ := s.toFinite.measurableSet
-
-/-- The lower Lebesgue integral for a finite weighted sum of Dirac masses. -/
-private lemma setLIntegral_sum_smul_dirac (w : Ω → ℝ≥0∞) (g : Ω → ℝ≥0∞) (s : Set Ω)
-    [DecidablePred (· ∈ s)] :
-    ∫⁻ ω in s, g ω ∂(∑ ω, w ω • Measure.dirac ω) = ∑ ω, if ω ∈ s then w ω * g ω else 0 := by
-  rw [← lintegral_indicator s.toFinite.measurableSet, lintegral_finsetSum_measure]
-  refine Finset.sum_congr rfl fun ω _ ↦ ?_
-  rw [lintegral_smul_measure, lintegral_dirac]
-  by_cases h : ω ∈ s <;> simp [h]
 
 /-- **Doob martingales on a finite space.** The fiber averages of `Z` given refining
 maps `info t` form a test martingale for the weighted sum of Dirac masses, as soon as the
@@ -321,6 +311,27 @@ private lemma ladderInfo_climb_iff (ω ω' : LadderΩ n) (l : Fin (n + 1)) :
     generalize (n + 1) * (l : ℕ) = B at *
     omega
 
+/-- A sum over the fiber of the information of the ladder at the time `(n + 1) l + H l`, for the
+coin `true` and the shift `s`: a sum over the heights `H'` that agree with `H` before the
+position `l` and are at least `H l` at `l`. -/
+private lemma sum_ladderInfo_climb (s : Fin (n + 1)) (H : Fin (n + 1) → Fin (n + 1))
+    (l : Fin (n + 1)) {Q : Fin (n + 1) → Fin (n + 1) → Prop} [∀ l', DecidablePred (Q l')]
+    (hQ : ∀ l' v, Q l' v ↔ ((l' : ℕ) < l → v = H l') ∧ (l' = l → H l ≤ v))
+    (f : LadderΩ n → ℝ≥0∞) :
+    (∑ ω' : LadderΩ n, if ladderInfo n ((n + 1) * l + H l) ω' =
+      ladderInfo n ((n + 1) * l + H l) (true, s, H) then f ω' else 0) =
+      ∑ H', if ∀ l', Q l' (H' l') then f (true, s, H') else 0 := by
+  have hfib (ω' : LadderΩ n) :
+      ladderInfo n ((n + 1) * l + H l) ω' = ladderInfo n ((n + 1) * l + H l) (true, s, H) ↔
+        ω'.1 = true ∧ ω'.2.1 = s ∧ ∀ l', Q l' (ω'.2.2 l') := by
+    simp only [hQ]
+    exact ladderInfo_climb_iff (true, s, H) ω' l
+  simp_rw [hfib, sum_ladderΩ]
+  simp only [Fintype.sum_bool, Bool.false_eq_true, ite_false, Finset.sum_const_zero, add_zero,
+    ite_and]
+  rw [Fintype.sum_eq_single s fun x hx ↦ by simp [hx]]
+  simp
+
 /-- **The climbing player.** When the coin is `true` and nobody before the position `l` of the
 process `i` has won, the process is worth `a / (n + 1 - H l)` at the time `(n + 1) l + H l` at
 which it reaches its height `H l`. -/
@@ -338,19 +349,10 @@ private lemma ladder_climb {p a : ℝ≥0∞} (hp0 : p ≠ 0) (hp : p ≠ ⊤) (
   have hc0 : c ≠ 0 := (ENNReal.div_pos hp0 (by simp)).ne'
   have hctop : c ≠ ⊤ := ENNReal.div_ne_top hp (pow_ne_zero _ (by simp))
   -- the weight and the weighted terminal value of the fiber
-  have hfib (ω' : LadderΩ n) :
-      ladderInfo n ((n + 1) * l + H l) ω' = ladderInfo n ((n + 1) * l + H l) (true, s, H) ↔
-        ω'.1 = true ∧ ω'.2.1 = s ∧ ∀ l', Q l' (ω'.2.2 l') :=
-    ladderInfo_climb_iff (true, s, H) ω' l
   have hW : (∑ ω' : LadderΩ n, if ladderInfo n ((n + 1) * l + H l) ω' =
       ladderInfo n ((n + 1) * l + H l) (true, s, H) then ladderWeight n p ω' else 0) =
       c * ∏ l', ((Finset.univ.filter (Q l')).card : ℝ≥0∞) := by
-    simp_rw [hfib, sum_ladderΩ]
-    simp only [Fintype.sum_bool, Bool.false_eq_true, ite_false, Finset.sum_const_zero, add_zero,
-      ite_and]
-    rw [Fintype.sum_eq_single s fun x hx ↦ by simp [hx]]
-    simp only [ite_true]
-    rw [← Finset.sum_filter]
+    rw [sum_ladderInfo_climb s H l (Q := Q) (fun _ _ ↦ Iff.rfl), ← Finset.sum_filter]
     simp only [ladderWeight, ite_true, Finset.sum_const, nsmul_eq_mul]
     rw [card_filter_forall, Nat.cast_prod, mul_comm]
   have hN : (∑ ω' : LadderΩ n, if ladderInfo n ((n + 1) * l + H l) ω' =
@@ -358,11 +360,7 @@ private lemma ladder_climb {p a : ℝ≥0∞} (hp0 : p ≠ 0) (hp : p ≠ ⊤) (
         ladderWeight n p ω' * ladderValue n a i ω' else 0) =
       c * a * ∏ l', ((Finset.univ.filter fun v ↦ Q l' v ∧ (l' = l → v = Fin.last n)).card :
         ℝ≥0∞) := by
-    simp_rw [hfib, sum_ladderΩ]
-    simp only [Fintype.sum_bool, Bool.false_eq_true, ite_false, Finset.sum_const_zero, add_zero,
-      ite_and]
-    rw [Fintype.sum_eq_single s fun x hx ↦ by simp [hx]]
-    simp only [ite_true]
+    rw [sum_ladderInfo_climb s H l (Q := Q) (fun _ _ ↦ Iff.rfl)]
     have hpt (H' : Fin (n + 1) → Fin (n + 1)) :
         (if ∀ l', Q l' (H' l') then ladderWeight n p (true, s, H') *
           ladderValue n a i (true, s, H') else 0) =
@@ -402,42 +400,44 @@ private lemma ladder_climb {p a : ℝ≥0∞} (hp0 : p ≠ 0) (hp : p ≠ ⊤) (
     have : l' ≠ l := by simpa using hl'
     congr 1
     exact Finset.filter_congr fun v _ ↦ by simp [this]
+  -- the products of the cards split into the factor at `l` and the common factor `R` elsewhere
   set R : ℕ := ∏ l' ∈ Finset.univ.erase l, (Finset.univ.filter (Q l')).card
   have hR0 : (R : ℝ≥0∞) ≠ 0 := by
     refine Nat.cast_ne_zero.2 (Finset.prod_ne_zero_iff.2 fun l' hl' ↦ ?_)
     have : l' ≠ l := by simpa using hl'
     exact Finset.card_ne_zero.2 ⟨H l', by simp [Q, this]⟩
+  have hprodW : ∏ l', (Finset.univ.filter (Q l')).card = (n + 1 - H l) * R := by
+    rw [← Finset.mul_prod_erase _ _ (Finset.mem_univ l), hQl]
+  have hprodN :
+      ∏ l', (Finset.univ.filter fun v ↦ Q l' v ∧ (l' = l → v = Fin.last n)).card = R := by
+    rw [← Finset.mul_prod_erase _ _ (Finset.mem_univ l), hQ'l, one_mul,
+      Finset.prod_congr rfl hrest]
   unfold ladder fiberAvg
-  rw [hN, hW, ← Nat.cast_prod, ← Nat.cast_prod, ← Finset.mul_prod_erase _ _ (Finset.mem_univ l),
-    ← Finset.mul_prod_erase _ _ (Finset.mem_univ l), Finset.prod_congr rfl hrest, hQl,
-    hQ'l, one_mul, Nat.cast_mul]
-  rw [show c * a * (R : ℝ≥0∞) = (c * R) * a by ring,
-    show c * (((n + 1 - H l : ℕ) : ℝ≥0∞) * R) = (c * R) * ((n + 1 - H l : ℕ) : ℝ≥0∞) by ring]
-  exact ENNReal.mul_div_mul_left _ _ (mul_ne_zero hc0 hR0)
-    (ENNReal.mul_ne_top hctop (ENNReal.natCast_ne_top _))
+  rw [hN, hW, ← Nat.cast_prod, ← Nat.cast_prod, hprodW, hprodN, Nat.cast_mul]
+  calc c * a * R / (c * ((n + 1 - H l : ℕ) * R))
+      = (c * R) * a / ((c * R) * ((n + 1 - H l : ℕ) : ℝ≥0∞)) := by ring_nf
+    _ = a / ((n + 1 - H l : ℕ) : ℝ≥0∞) := ENNReal.mul_div_mul_left _ _ (mul_ne_zero hc0 hR0)
+        (ENNReal.mul_ne_top hctop (ENNReal.natCast_ne_top _))
+
+/-- The `(n + 1) ^ (n + 2)` shifts and heights of the ladder share a mass `c` uniformly. -/
+private lemma sum_sum_div_pow (c : ℝ≥0∞) :
+    ∑ _s : Fin (n + 1), ∑ _H : Fin (n + 1) → Fin (n + 1), c / (n + 1 : ℝ≥0∞) ^ (n + 2) = c := by
+  simp only [Finset.sum_const, Finset.card_univ, Fintype.card_fin, Fintype.card_pi,
+    Finset.prod_const, nsmul_eq_mul, Nat.cast_pow, Nat.cast_add, Nat.cast_one, ← mul_assoc,
+    ← pow_succ']
+  exact ENNReal.mul_div_cancel (pow_ne_zero _ (by simp)) (ENNReal.pow_ne_top (by simp))
 
 /-- The weights of the ladder sum to `1`. -/
 private lemma sum_ladderWeight {p : ℝ≥0∞} (hp : p ≤ 1) : ∑ ω, ladderWeight n p ω = 1 := by
-  have hK0 : (n + 1 : ℝ≥0∞) ^ (n + 2) ≠ 0 := pow_ne_zero _ (by simp)
-  have hKtop : (n + 1 : ℝ≥0∞) ^ (n + 2) ≠ ⊤ := ENNReal.pow_ne_top (by simp)
-  rw [sum_ladderΩ]
-  simp only [ladderWeight, Fintype.sum_bool, ite_true, Bool.false_eq_true, ite_false,
-    Finset.sum_const, Finset.card_univ, Fintype.card_fin, Fintype.card_pi, Finset.prod_const,
-    nsmul_eq_mul, Nat.cast_pow, Nat.cast_add, Nat.cast_one]
-  rw [← mul_assoc, ← mul_assoc, ← pow_succ', show n + 1 + 1 = n + 2 from rfl,
-    ENNReal.mul_div_cancel hK0 hKtop, ENNReal.mul_div_cancel hK0 hKtop, add_tsub_cancel_of_le hp]
+  simp only [sum_ladderΩ, Fintype.sum_bool, ladderWeight, ↓reduceIte, Bool.false_eq_true,
+    sum_sum_div_pow]
+  exact add_tsub_cancel_of_le hp
 
 /-- The coin of the ladder is `true` with probability `p`. -/
 private lemma sum_ladderWeight_true (p : ℝ≥0∞) :
     ∑ ω : LadderΩ n, (if ω.1 = true then ladderWeight n p ω else 0) = p := by
-  have hK0 : (n + 1 : ℝ≥0∞) ^ (n + 2) ≠ 0 := pow_ne_zero _ (by simp)
-  have hKtop : (n + 1 : ℝ≥0∞) ^ (n + 2) ≠ ⊤ := ENNReal.pow_ne_top (by simp)
-  rw [sum_ladderΩ]
-  simp only [ladderWeight, Fintype.sum_bool, ite_true, Bool.false_eq_true, ite_false,
-    Finset.sum_const_zero, add_zero, Finset.sum_const, Finset.card_univ, Fintype.card_fin,
-    Fintype.card_pi, Finset.prod_const, nsmul_eq_mul, Nat.cast_pow, Nat.cast_add, Nat.cast_one]
-  rw [← mul_assoc, ← pow_succ', show n + 1 + 1 = n + 2 from rfl,
-    ENNReal.mul_div_cancel hK0 hKtop]
+  simp only [sum_ladderΩ, Fintype.sum_bool, ↓reduceIte, Bool.false_eq_true, Finset.sum_const_zero,
+    add_zero, ladderWeight, sum_sum_div_pow]
 
 /-- The weighted sum of the terminal value of a process of the ladder. -/
 private lemma sum_ladderWeight_mul_ladderValue (p a : ℝ≥0∞) (i : Fin (n + 1)) :
@@ -450,8 +450,7 @@ private lemma sum_ladderWeight_mul_ladderValue (p a : ℝ≥0∞) (i : Fin (n + 
     Finset.sum_const_zero, add_zero, true_and, ladderWeight, ite_true, mul_ite]
   rw [Finset.mul_sum]
   refine (Fintype.sum_equiv (Equiv.addLeft i) _ _ fun s ↦ ?_)
-  rw [← Finset.sum_filter, Finset.sum_const, nsmul_eq_mul, mul_comm]
-  rfl
+  rw [← Finset.sum_filter, Finset.sum_const, nsmul_eq_mul, mul_comm, Equiv.coe_addLeft]
 
 /-- E-BH rejects on the running maxima of the ladder exactly when the coin is `true`. -/
 private lemma exists_selfConsistent_ladder_iff {α p : ℝ≥0∞} (hα0 : α ≠ 0) (hαtop : α ≠ ⊤)
@@ -583,24 +582,20 @@ private lemma card_shift_eq (H : Fin (n + 1) → Fin (n + 1)) (j : ℕ) {u m : �
     constructor
     · rintro ⟨⟨hl, -⟩, h⟩; exact ⟨hl, h⟩
     · rintro ⟨hl, h⟩; exact ⟨⟨hl, h ▸ hx.1⟩, h⟩
-  rw [h1, Finset.sum_congr rfl h2, Finset.sum_Ico_add' (fun y ↦ heightCount H j (y % (n + 1))),
-    freeWalk, freeWalk, ← Finset.sum_Ico_eq_sub _ (by omega),
-    show m + (n + 1 - u) = n + 1 + m - u by omega,
-    show n + 1 + (n + 1 - u) = 2 * (n + 1) - u by omega, Finset.sum_sub_distrib]
-  simp only [Finset.sum_const, Nat.card_Ico, nsmul_eq_mul, mul_one, Nat.cast_sum]
-  rw [show 2 * (n + 1) - u - (n + 1 + m - u) = n + 1 - m by omega]
-  ring
-
-/-- A finite set of integers whose elements are less than `d` apart has at most `d` elements. -/
-private lemma card_le_of_forall_lt_add {S : Finset ℤ} {d : ℤ}
-    (h : ∀ x ∈ S, ∀ y ∈ S, x ≤ y → y < x + d) :
-    S.card ≤ d.toNat := by
-  rcases S.eq_empty_or_nonempty with rfl | hS
-  · simp
-  have hsub : S ⊆ Finset.Ico (S.min' hS) (S.min' hS + d) := fun x hx ↦
-    Finset.mem_Ico.2 ⟨S.min'_le x hx, h _ (S.min'_mem hS) x hx (S.min'_le x hx)⟩
-  calc S.card ≤ (Finset.Ico (S.min' hS) (S.min' hS + d)).card := Finset.card_le_card hsub
-    _ = d.toNat := by simp
+  -- the shifted heights `x ∈ [m, n]` are the spots `y ∈ [n + 1 + m - u, 2 (n + 1) - u)` of the walk
+  have h3 : ∑ x ∈ Finset.Ico m (n + 1), heightCount H j ((x + (n + 1 - u)) % (n + 1)) =
+      ∑ y ∈ Finset.Ico (n + 1 + m - u) (2 * (n + 1) - u), heightCount H j (y % (n + 1)) := by
+    rw [Finset.sum_Ico_add' (fun y ↦ heightCount H j (y % (n + 1))),
+      show m + (n + 1 - u) = n + 1 + m - u by omega,
+      show n + 1 + (n + 1 - u) = 2 * (n + 1) - u by omega]
+  have h4 : freeWalk H j (2 * (n + 1) - u) - freeWalk H j (n + 1 + m - u) =
+      ∑ y ∈ Finset.Ico (n + 1 + m - u) (2 * (n + 1) - u),
+        (1 - (heightCount H j (y % (n + 1)) : ℤ)) :=
+    (Finset.sum_Ico_eq_sub _ (by omega)).symm
+  have h5 : (Finset.Ico (n + 1 + m - u) (2 * (n + 1) - u)).card = n + 1 - m := by
+    rw [Nat.card_Ico]; omega
+  rw [h1, Finset.sum_congr rfl h2, h3, h4, Finset.sum_sub_distrib]
+  simp [h5]
 
 /-- **Cycle lemma.** For any heights, among the `n + 1` cyclic shifts of the heights at most
 `n + 1 - j` leave no win among the first `j` players. -/
@@ -636,7 +631,7 @@ private lemma card_shift_noWin_le (H : Fin (n + 1) → Fin (n + 1)) {j : ℕ} (h
     rcases lt_or_gt_of_ne hne with h' | h'
     · exact (hlt u' u hu h').ne h.symm
     · exact (hlt u u' hu' h').ne h
-  have hcard := card_le_of_forall_lt_add (S := G.image φ) (d := (n : ℤ) + 1 - j)
+  have hcard := Int.card_le_toNat_of_forall_lt_add (S := G.image φ) (d := (n : ℤ) + 1 - j)
     fun x hx y hy hxy ↦ by
       obtain ⟨u, hu, rfl⟩ := Finset.mem_image.1 hx
       obtain ⟨u', hu', rfl⟩ := Finset.mem_image.1 hy
@@ -657,8 +652,9 @@ private lemma card_noWin_le (j : ℕ) (hj : j ≤ n + 1) :
       (Finset.univ.filter fun H : Fin (n + 1) → Fin (n + 1) ↦ NoWin (fun l ↦ H l + u) j).card =
         (Finset.univ.filter fun H : Fin (n + 1) → Fin (n + 1) ↦ NoWin H j).card :=
     Finset.card_equiv (Equiv.piCongrRight fun _ ↦ Equiv.addRight u) fun H ↦ by
-      simp only [Finset.mem_filter, Finset.mem_univ, true_and]
-      rfl
+      have he : (Equiv.piCongrRight fun _ ↦ Equiv.addRight u) H = fun l ↦ H l + u :=
+        funext fun l ↦ by simp
+      simp [he]
   calc (n + 1) * (Finset.univ.filter fun H : Fin (n + 1) → Fin (n + 1) ↦ NoWin H j).card
       = ∑ u : Fin (n + 1), (Finset.univ.filter fun H : Fin (n + 1) → Fin (n + 1) ↦
           NoWin (fun l ↦ H l + u) j).card := by simp [hshift]
@@ -805,7 +801,8 @@ private lemma exists_isTestMartingale_measure_exists_selfConsistent_iSup_eq_fin 
 `α ≤ (K + 1) / (2 * K)` there are test martingales `M i`, `i : ι`, for one filtration, under a
 probability measure `P`, for which e-BH at level `α` on the running maxima makes a rejection, that
 is, some nonempty set `R` of hypotheses has `K ≤ α * #R * ⨆ n, M i n ω` for every `i ∈ R`, with
-probability `2 * K * α / (K + 1)`. Every hypothesis `{P}` is true. -/
+probability `2 * K * α / (K + 1)`. Every hypothesis `{P}` is true. This is the construction of
+[EVR26, Note 18]. -/
 theorem exists_isTestMartingale_measure_exists_selfConsistent_iSup_eq (ι : Type*) [Fintype ι]
     {α : ℝ≥0∞} (hα : α ≤ (Fintype.card ι + 1) / (2 * Fintype.card ι)) :
     ∃ (Ω : Type) (mΩ : MeasurableSpace Ω) (P : Measure Ω) (ℱ : Filtration ℕ mΩ)
