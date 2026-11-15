@@ -60,14 +60,14 @@ divergence of the log-partition function (A. Banerjee, S. Merugu, I. S. Dhillon 
 * `MeasureTheory.Measure.convex_vecIntegrableExpSet`,
   `MeasureTheory.Measure.convexOn_vecLogPartition`: the set of integrable exponential moments and
   the log-partition function on it are convex.
-* `MeasureTheory.Measure.memLp_vecExpFamily`: for `η` in the interior, `T` has moments of all
-  orders under `ρ_η`.
+* `MeasureTheory.Measure.memLp_vecExpFamily`: in finite dimension, for `η` in the interior, `T`
+  has moments of all orders under `ρ_η`.
 * `MeasureTheory.Measure.hasFDerivAt_vecLogPartition`: in finite dimension, `ψ` is differentiable
   on the interior, with gradient at `η` the mean of `T` under `ρ_η`.
 * `MeasureTheory.Measure.llr_vecExpFamily`: the log-likelihood ratio of `ρ_η` with respect to
   `ρ_η'` is `x ↦ ⟪η - η', T x⟫ + ψ(η') - ψ(η)`, `ρ_η`-almost everywhere.
-* `MeasureTheory.Measure.klDiv_vecExpFamily`: `KL(ρ_η, ρ_η')` is the Bregman divergence
-  `ψ(η') - ψ(η) - Dψ(η) (η' - η)` of the log-partition function.
+* `MeasureTheory.Measure.klDiv_vecExpFamily`: in finite dimension, `KL(ρ_η, ρ_η')` is the
+  Bregman divergence `ψ(η') - ψ(η) - Dψ(η) (η' - η)` of the log-partition function.
 -/
 
 public section
@@ -393,8 +393,8 @@ section FiniteDimensional
 
 variable [FiniteDimensional ℝ E]
 
-/-- For `η` in the interior of `ρ.vecIntegrableExpSet T`, the statistic `T` has moments of all
-orders under `ρ_η`. -/
+/-- In finite dimension, for `η` in the interior of `ρ.vecIntegrableExpSet T`, the statistic `T`
+has moments of all orders under `ρ_η`. -/
 lemma memLp_vecExpFamily (hη : η ∈ interior (ρ.vecIntegrableExpSet T)) (p : ℝ≥0) :
     MemLp T p (ρ.vecExpFamily T η) := by
   let b := stdOrthonormalBasis ℝ E
@@ -511,8 +511,9 @@ lemma differentiableOn_vecLogPartition :
 
 /-! ### The Kullback–Leibler divergence between two members -/
 
-/-- The Kullback–Leibler divergence between two members of an exponential family, as a real
-number: `KL(ρ_η, ρ_η') = ψ(η') - ψ(η) - ⟪∫ T ∂ρ_η, η' - η⟫`. -/
+/-- The Kullback–Leibler divergence between two members of an exponential family with a
+statistic in a finite-dimensional space, as a real number:
+`KL(ρ_η, ρ_η') = ψ(η') - ψ(η) - ⟪∫ T ∂ρ_η, η' - η⟫`. -/
 theorem toReal_klDiv_vecExpFamily (hη : η ∈ interior (ρ.vecIntegrableExpSet T))
     (hη' : η' ∈ ρ.vecIntegrableExpSet T) :
     (klDiv (ρ.vecExpFamily T η) (ρ.vecExpFamily T η')).toReal =
@@ -544,9 +545,9 @@ lemma integral_llr_vecExpFamily (hη : η ∈ interior (ρ.vecIntegrableExpSet T
     (vecExpFamily_absolutelyContinuous_vecExpFamily η hη') (integrable_llr_vecExpFamily hη hη')]
   simp
 
-/-- **Kullback–Leibler divergence in an exponential family with a vector statistic.** The
-divergence between two members is the Bregman divergence of the log-partition function `ψ`:
-`KL(ρ_η, ρ_η') = ψ(η') - ψ(η) - Dψ(η) (η' - η)`. In particular it is finite. -/
+/-- **Kullback–Leibler divergence in an exponential family with a vector statistic.** In finite
+dimension, the divergence between two members is the Bregman divergence of the log-partition
+function `ψ`: `KL(ρ_η, ρ_η') = ψ(η') - ψ(η) - Dψ(η) (η' - η)`. In particular it is finite. -/
 theorem klDiv_vecExpFamily (hη : η ∈ interior (ρ.vecIntegrableExpSet T))
     (hη' : η' ∈ ρ.vecIntegrableExpSet T) :
     klDiv (ρ.vecExpFamily T η) (ρ.vecExpFamily T η') =
