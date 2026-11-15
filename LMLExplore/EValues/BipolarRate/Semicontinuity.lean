@@ -27,8 +27,6 @@ such that every probability measure `R` whose integrals of the `f i` are within 
 
 ## Main statements
 
-* `ProbabilityTheory.le_maxLogGrowth_of_ofReal_exp_mul_le_one`: the lower bound on the growth of
-  `m` observations given by the e-variable `1/2 + (1/2) exp t 1_A`.
 * `ProbabilityTheory.bipolarRate_eq_iInf_klDiv_of_forall_exists_forall_le`: the bipolar rate
   equals the smallest relative entropy to the null under the semicontinuity above.
 
@@ -39,9 +37,10 @@ of the event `A` that the empirical averages of the test functions lie in the ne
 most `exp (- m c)` (`ProbabilityTheory.ofReal_exp_mul_measure_pi_le_one`, Csiszár's conditioning
 argument [Csi84]): condition `P ^ m` on that event, and use the superadditivity of the relative
 entropy over the coordinates and its convexity. The mixture `1/2 + (1/2) exp (m c) 1_A` is then an
-`m`-sample e-variable, whose expected logarithm under `Q ^ m` is at least
-`m c Q ^ m (A) - log 2`; the weak law of large numbers under `Q ^ m`, from Chebyshev's inequality,
-gives `Q ^ m (A) ≥ 1 - D / m` for a constant `D`, so this is at least `m c - O(1)`.
+`m`-sample e-variable, whose expected logarithm under `Q ^ m` is at least `m c Q ^ m (A) - log 2`
+(`ProbabilityTheory.le_maxLogGrowth_of_ofReal_exp_mul_le_one`); the weak law of large numbers
+under `Q ^ m`, from Chebyshev's inequality, gives `Q ^ m (A) ≥ 1 - D / m` for a constant `D`, so
+this is at least `m c - O(1)`.
 
 ## References
 
@@ -58,59 +57,6 @@ open scoped ENNReal NNReal Topology
 namespace ProbabilityTheory
 
 variable {𝓧 : Type*} {m𝓧 : MeasurableSpace 𝓧}
-
-/-- The e-variable `1/2 + (1/2) e ^ t 1_A`, valid when `e ^ t P (A) ≤ 1` for every member `P` of
-the null, gives the lower bound `t Q (A) - log 2` on the growth of `m` observations. -/
-lemma le_maxLogGrowth_of_ofReal_exp_mul_le_one (Q : Measure 𝓧) [IsProbabilityMeasure Q]
-    {S : Set (Measure 𝓧)} (hS : ∀ P ∈ S, IsProbabilityMeasure P) {m : ℕ}
-    {A : Set (Fin m → 𝓧)} (hA : MeasurableSet A) {t : ℝ}
-    (hP : ∀ P ∈ S, ENNReal.ofReal (Real.exp t) * (Measure.pi fun _ : Fin m ↦ P) A ≤ 1) :
-    ((t * (Measure.pi fun _ : Fin m ↦ Q).real A - Real.log 2 : ℝ) : EReal) ≤
-      maxLogGrowth Q S m := by
-  set Qm := Measure.pi fun _ : Fin m ↦ Q
-  set b := ENNReal.ofReal (Real.exp t)
-  set X : (Fin m → 𝓧) → ℝ≥0∞ := fun x ↦ 2⁻¹ + 2⁻¹ * A.indicator (fun _ ↦ b) x
-  have hXm : Measurable X := measurable_const.add (measurable_const.mul
-    (measurable_const.indicator hA))
-  have hX : IsEVar X ((fun P ↦ Measure.pi fun _ : Fin m ↦ P) '' S) := by
-    refine IsEVar.of_lintegral_le_one ?_ hXm ?_
-    · rintro _ ⟨P, hP, rfl⟩
-      have := hS P hP
-      infer_instance
-    · rintro _ ⟨P, hPS, rfl⟩
-      have := hS P hPS
-      calc ∫⁻ x, X x ∂(Measure.pi fun _ : Fin m ↦ P)
-      _ = 2⁻¹ + 2⁻¹ * (b * (Measure.pi fun _ : Fin m ↦ P) A) := by
-        simp only [X]
-        rw [lintegral_add_right _ ((measurable_const.indicator hA).const_mul _),
-          lintegral_const, measure_univ, mul_one,
-          lintegral_const_mul _ (measurable_const.indicator hA), lintegral_indicator_const hA]
-      _ ≤ 2⁻¹ + 2⁻¹ * 1 := by gcongr; exact hP P hPS
-      _ = 1 := by rw [mul_one, ENNReal.inv_two_add_inv_two]
-  set g : (Fin m → 𝓧) → ℝ := fun x ↦ A.indicator (fun _ ↦ t) x - Real.log 2
-  have hg (x : Fin m → 𝓧) : ENNReal.ofReal (Real.exp (g x)) ≤ X x := by
-    by_cases hx : x ∈ A
-    · simp only [g, X, Set.indicator_of_mem hx]
-      rw [Real.exp_sub, Real.exp_log two_pos, ENNReal.ofReal_div_of_pos two_pos,
-        ENNReal.ofReal_ofNat, div_eq_mul_inv, mul_comm]
-      exact le_add_self
-    · simp only [g, X, Set.indicator_of_notMem hx, zero_sub, Real.exp_neg, Real.exp_log two_pos,
-        mul_zero, add_zero]
-      rw [ENNReal.ofReal_inv_of_pos two_pos, ENNReal.ofReal_ofNat]
-  have hgi : Integrable g Qm := ((integrable_const t).indicator hA).sub (integrable_const _)
-  calc ((t * Qm.real A - Real.log 2 : ℝ) : EReal)
-  _ = ∫ᵉ x, (g x : EReal) ∂Qm := by
-    rw [eintegral_eq_integral hgi, integral_sub ((integrable_const t).indicator hA)
-      (integrable_const _), integral_indicator_const _ hA, integral_const, probReal_univ,
-      smul_eq_mul, one_smul, mul_comm]
-  _ ≤ ∫ᵉ x, (logUtility ∘ X) x ∂Qm := eintegral_mono fun x ↦ by
-    calc (g x : EReal)
-    _ = ENNReal.log (ENNReal.ofReal (Real.exp (g x))) := by
-      rw [ENNReal.log_ofReal_of_pos (Real.exp_pos _), Real.log_exp]
-    _ ≤ (logUtility ∘ X) x := ENNReal.log_monotone (hg x)
-  _ ≤ maxLogGrowth Q S m := by
-    rw [maxLogGrowth_def]
-    exact hX.eintegral_le_maxUtility _ _
 
 /-- If the smallest relative entropy to `S` is lower semicontinuous at `Q` for the topology of
 integrals of bounded measurable functions, in the sense of neighbourhoods, then the bipolar rate
@@ -136,7 +82,9 @@ theorem bipolarRate_eq_iInf_klDiv_of_forall_exists_forall_le (Q : Measure 𝓧)
   obtain ⟨k, f, ε, hε, hfm, hfC, hU⟩ :=
     h (ENNReal.ofReal c) (EReal.coe_ennreal_lt_coe_ennreal_iff.1 (hcE ▸ hc))
   choose C hC using hfC
-  set D := ∑ i, C i ^ 2 / ε ^ 2
+  have hfL (i : Fin k) : MemLp (f i) 2 Q :=
+    .of_bound (hfm i).aestronglyMeasurable (C i) (.of_forall fun x ↦ (hC i x).trans' (by simp))
+  set D := ∑ i, Var[f i; Q] / ε ^ 2
   refine le_bipolarRate_of_tendsto (r := fun n ↦ (n + 1) * c * (1 - D / (n + 1)) - Real.log 2)
     (fun n ↦ ?_) ?_
   · -- the e-variable `1/2 + (1/2) exp ((n + 1) c) 1_A`, with the law of large numbers under `Q`
@@ -145,13 +93,12 @@ theorem bipolarRate_eq_iInf_klDiv_of_forall_exists_forall_le (Q : Measure 𝓧)
       ofReal_exp_mul_measure_pi_le_one hfm hC hc0'.le
         (fun R hR hRf ↦ (hU R hR hRf).trans (iInf₂_le P hP)) (m := n + 1) n.succ_ne_zero
     refine le_trans ?_ (le_maxLogGrowth_of_ofReal_exp_mul_le_one Q hS
-      (measurableSet_setOf_forall_abs_avg_sub_le hfm _ ε (n + 1)) hsan)
-    have h := one_sub_div_le_measureReal_pi_forall_abs_avg_sub_le hfm hC Q hε n.succ_ne_zero
+      (measurableSet_setOf_forall_abs_sum_div_sub_le hfm _ ε (n + 1)) hsan)
+    have h := one_sub_div_le_measureReal_pi_forall_abs_sum_div_sub_le hfL hε n.succ_ne_zero
     refine EReal.coe_le_coe_iff.2 ?_
-    have hnc : 0 ≤ ((n + 1 : ℕ) : ℝ) * c := by positivity
     have hn1 : ((n + 1 : ℕ) : ℝ) = (n : ℝ) + 1 := by push_cast; ring
-    rw [hn1] at hnc h ⊢
-    nlinarith
+    rw [hn1] at h ⊢
+    gcongr
   · have h0 := tendsto_one_div_add_atTop_nhds_zero_nat (𝕜 := ℝ)
     have h1 := (tendsto_const_nhds (x := c)).sub (h0.const_mul (c * D + Real.log 2))
     rw [mul_zero, sub_zero] at h1
