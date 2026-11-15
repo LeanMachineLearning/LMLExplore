@@ -64,6 +64,22 @@ section NormedSpace
 
 variable {E : Type*} [NormedAddCommGroup E] [NormedSpace ℝ E] {K : Set E} {F : E → ℝ} {u : E}
 
+/-- The two terms of the regret bound balance at the adaptive learning rates: if `r ^ 2 = m B`,
+then `B √A / r + r √A / m = 2 √(B A / m)`. -/
+private lemma mul_sqrt_div_add_mul_sqrt_div_eq {r m B A : ℝ} (hr : 0 < r) (hm : 0 < m)
+    (hr_sq : r ^ 2 = m * B) (hA : 0 ≤ A) :
+    B * √A / r + r * √A / m = 2 * √(B * A / m) := by
+  have h_B : B * √A / r = r * √A / m := by
+    rw [div_eq_div_iff hr.ne' hm.ne']
+    linear_combination (-√A) * hr_sq
+  have h_sqrt : √(B * A / m) = r * √A / m := by
+    rw [show B * A / m = (r * √A / m) ^ 2 by
+      rw [div_pow, mul_pow, hr_sq, Real.sq_sqrt hA]
+      field_simp]
+    exact Real.sqrt_sq (by positivity)
+  rw [h_B, h_sqrt]
+  ring
+
 /-- The case of `mirrorDescent_regret_le_two_mul_sqrt` with `B > 0` and a first round `t₀ < n`
 with a nonzero loss. From `t₀` on, the adaptive learning rates are positive and nonincreasing;
 before `t₀` the losses vanish, so that the steps are also steps for the learning rate of `t₀`,
@@ -123,18 +139,7 @@ private theorem mirrorDescent_regret_le_two_mul_sqrt_of_ne_zero {m B : ℝ}
           mul_le_mul_of_nonneg_left (Real.sum_div_sqrt_le_two_mul_sqrt fun _ _ ↦ sq_nonneg _)
             (by positivity)
       _ = r * √A / m := by field_simp
-  -- and `B √A / r = r √A / m = √(B A / m)`, as `r ^ 2 = m B`
-  have h_B : B * √A / r = r * √A / m := by
-    rw [div_eq_div_iff hr.ne' hm.ne']
-    linear_combination (-√A) * hr_sq
-  have h_sqrt : √(B * A / m) = r * √A / m := by
-    have hA : 0 ≤ A := sum_nonneg fun _ _ ↦ sq_nonneg _
-    rw [show B * A / m = (r * √A / m) ^ 2 by
-      rw [div_pow, mul_pow, hr_sq, Real.sq_sqrt hA]
-      field_simp]
-    exact Real.sqrt_sq (by positivity)
-  rw [h_sqrt]
-  linarith
+  linarith [mul_sqrt_div_add_mul_sqrt_div_eq hr hm hr_sq (sum_nonneg fun _ _ ↦ sq_nonneg _ : 0 ≤ A)]
 
 /-- **Mirror descent with adaptive learning rates**, the form of [Ora, Theorem 4.14] for mirror
 descent with a strongly convex potential. Let `F` be `m`-strongly
