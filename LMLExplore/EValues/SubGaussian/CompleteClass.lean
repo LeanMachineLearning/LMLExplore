@@ -10,6 +10,7 @@ public import Mathlib.MeasureTheory.Integral.Bochner.Basic
 public import Mathlib.Probability.Moments.SubGaussian
 public import Statlib.EValues.EVariable
 import LeanMachineLearning.ForMathlib.Probability.Moments.SubExponential
+import LMLExplore.Analysis.SpecialFunctions.Exp
 import LMLExplore.EValues.EVariable
 import LMLExplore.MeasureTheory.Measure.Weighted
 import LMLExplore.Probability.Moments.SubGaussian.Basic
@@ -241,20 +242,13 @@ private lemma continuous_subgaussianCompensatedExp_coe (x : ℝ) :
   filter_upwards [eventually_ne_nhds ht] with s hs
   rw [subgaussianCompensatedExp_coe' hs]
 
-/-- `t x - t ^ 2 / 2` tends to `-∞` as `t` tends to `+∞`. -/
-private lemma tendsto_mul_sub_sq_div_two_atTop (x : ℝ) :
-    Tendsto (fun t : ℝ ↦ t * x - t ^ 2 / 2) atTop atBot := by
-  refine tendsto_atBot_mono' _ ?_ (tendsto_neg_atTop_atBot (G := ℝ))
-  filter_upwards [eventually_ge_atTop (2 * (|x| + 1))] with t ht
-  nlinarith [abs_nonneg x, le_abs_self x]
-
 /-- The compensated kernel tends to `-1` as its parameter tends to `+∞`. -/
 private lemma tendsto_subgaussianCompensatedExp_atTop (x : ℝ) :
     Tendsto (fun t : ℝ ↦ subgaussianCompensatedExp t x) atTop (𝓝 (-1)) := by
   have h1 : Tendsto (fun t : ℝ ↦ (t ^ 2)⁻¹) atTop (𝓝 0) :=
     tendsto_inv_atTop_zero.comp (tendsto_pow_atTop two_ne_zero)
   have h2 : Tendsto (fun t : ℝ ↦ exp (t * x - t ^ 2 / 2)) atTop (𝓝 0) :=
-    tendsto_exp_atBot.comp (tendsto_mul_sub_sq_div_two_atTop x)
+    tendsto_exp_atBot.comp (Real.tendsto_mul_sub_sq_div_two_atTop x)
   have h3 : Tendsto (fun t : ℝ ↦ x * t⁻¹) atTop (𝓝 0) := by
     simpa using tendsto_inv_atTop_zero.const_mul x
   have := ((((tendsto_const_nhds (x := (1 : ℝ))).add h1).mul h2).sub

@@ -91,14 +91,17 @@ lower bound for linear bandits on the unit ball [LS, Theorem 24.2].
 * `Real.one_add_sq_div_two_le_cosh`: `1 + v ^ 2 / 2 ≤ cosh v`.
 * `Real.sum_inv_two_pow_mul_exp_mul_sum_sign`: the moment generating function of a sum of `n`
   independent uniform signs is `cosh ^ n`.
+* `Real.tendsto_mul_sub_sq_div_two_atTop`: the exponent `t x - t ^ 2 / 2` of a sub-Gaussian
+  exponential tends to `-∞` as `t → ∞`.
 
 ## References
 
 * [LS] T. Lattimore and Cs. Szepesvári, *Bandit Algorithms*, Cambridge University Press, 2020.
 * [BLM13] S. Boucheron, G. Lugosi and P. Massart, *Concentration Inequalities*, Oxford University
   Press, 2013.
-* `Real.one_add_sq_div_two_le_cosh` and `Real.sum_inv_two_pow_mul_exp_mul_sum_sign` are adapted
-  from the Lean proof in `EValuesResearch/Results/SubGaussianCompleteClass.lean` and
+* `Real.one_add_sq_div_two_le_cosh`, `Real.sum_inv_two_pow_mul_exp_mul_sum_sign` and
+  `Real.tendsto_mul_sub_sq_div_two_atTop` are adapted from the Lean proof in
+  `EValuesResearch/Results/SubGaussianCompleteClass.lean` and
   `EValuesResearch/Results/SubGaussianCompleteClassAux.lean` (commit `dd4072f`) of the paper
   project `RemyDegenne/evalues_research`.
 -/
@@ -425,5 +428,12 @@ theorem sum_inv_two_pow_mul_exp_mul_sum_sign (n : ℕ) (a : ℝ) :
   simp only [Fintype.sum_bool, ↓reduceIte, mul_one, Bool.false_eq_true, mul_neg,
     prod_const, card_univ, Fintype.card_fin, cosh_eq]
   rw [div_pow, inv_mul_eq_div]
+
+/-- The exponent `t x - t ^ 2 / 2` of a sub-Gaussian exponential tends to `-∞` as `t → ∞`. -/
+theorem tendsto_mul_sub_sq_div_two_atTop (x : ℝ) :
+    Tendsto (fun t : ℝ ↦ t * x - t ^ 2 / 2) atTop atBot := by
+  refine tendsto_atBot_mono' _ ?_ (tendsto_neg_atTop_atBot (G := ℝ))
+  filter_upwards [eventually_ge_atTop (2 * (|x| + 1))] with t ht
+  nlinarith [abs_nonneg x, le_abs_self x]
 
 end Real
