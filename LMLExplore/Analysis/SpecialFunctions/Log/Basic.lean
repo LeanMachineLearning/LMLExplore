@@ -67,6 +67,7 @@ import Mathlib.Analysis.SpecialFunctions.Log.Deriv
   RF-Express [MDJKLV21].
 * `Real.sum_div_max_one_le_four_mul_log`: the form of [MDJKLV21, Lemma 9], for `u k ∈ [0, 1]`
   and with the constant `4`.
+* `Real.abs_log_one_add_mul_le`: `|log (1 + δ t)| ≤ log (1 + t)` for `t ≥ 0` and `δ ∈ [0, 1]`.
 * `Real.tendsto_sub_one_sub_log_atTop`, `Real.tendsto_sub_one_sub_log_nhdsGT_zero`:
   `t - 1 - log t → ∞` as `t → ∞` and as `t → 0⁺`. The divergences of the Poisson and gamma
   families are multiples of this function of a ratio of means.
@@ -673,5 +674,13 @@ theorem tendsto_sub_one_sub_log_nhdsGT_zero :
   filter_upwards [self_mem_nhdsWithin] with t (ht : 0 < t)
   simp only [Function.comp_apply]
   linarith
+
+/-- Damping by a factor `δ ∈ [0, 1]` decreases `log (1 + t)`, for `t ≥ 0`, and keeps it
+nonnegative. -/
+theorem abs_log_one_add_mul_le {δ t : ℝ} (hδ : 0 ≤ δ) (hδ1 : δ ≤ 1) (ht : 0 ≤ t) :
+    |log (1 + δ * t)| ≤ log (1 + t) := by
+  have h0 : 0 ≤ δ * t := mul_nonneg hδ ht
+  rw [abs_of_nonneg (log_nonneg (by linarith))]
+  exact log_le_log (by linarith) (by nlinarith)
 
 end Real

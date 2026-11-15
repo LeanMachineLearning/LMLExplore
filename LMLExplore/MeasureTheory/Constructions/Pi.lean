@@ -43,6 +43,8 @@ Under a measure on `ℕ → β` that agrees almost surely with a path `ω` on th
 a set that only depends on these coordinates is almost surely full or empty according to whether
 it contains `ω`.
 
+A function of the images of the coordinates under measurable maps to finite types is measurable.
+
 ## Main statements
 
 * `MeasureTheory.Measure.map_pi_comp_eq_map_pi_map`:
@@ -63,6 +65,8 @@ it contains `ω`.
 * `MeasureTheory.Measure.pi_le_of_forall_measure_update_preimage_le`: under a product of
   probability measures, a measurable set whose lines `{t | update x i t ∈ E}` along one coordinate
   `i` all have `μ i`-measure at most `c` has product measure at most `c`.
+* `MeasureTheory.measurable_pi_comp_of_finite`: `fun e ↦ g fun i ↦ φ i (e i)` is measurable for
+  measurable maps `φ i` to finite types.
 * `MeasureTheory.setLIntegral_eq_ite_of_ae_prefix`, `MeasureTheory.measure_eq_ite_of_ae_prefix`:
   under a measure that agrees almost surely with `ω` on the first `k` coordinates, the integral
   over, and the measure of, a set that only depends on these coordinates.
@@ -276,6 +280,15 @@ lemma pi_le_of_forall_measure_update_preimage_le [DecidableEq ι] {μ : ∀ i, M
 end MeasureTheory.Measure
 
 namespace MeasureTheory
+
+/-- A function `g fun i ↦ φ i (e i)` of the images of the coordinates under measurable maps `φ i`
+to finite types is measurable. -/
+lemma measurable_pi_comp_of_finite {ι : Type*} [Countable ι] {Ω κ : ι → Type*}
+    [∀ i, MeasurableSpace (Ω i)] [Finite (∀ i, κ i)] [∀ i, MeasurableSpace (κ i)]
+    [∀ i, MeasurableSingletonClass (κ i)] {β : Type*} [MeasurableSpace β] {φ : ∀ i, Ω i → κ i}
+    (hφ : ∀ i, Measurable (φ i)) (g : (∀ i, κ i) → β) :
+    Measurable fun e : ∀ i, Ω i ↦ g fun i ↦ φ i (e i) :=
+  (measurable_of_finite g).comp (.of_eval fun i ↦ (hφ i).comp (measurable_pi_apply i))
 
 variable {β : Type*} [MeasurableSpace β] {μ : Measure (ℕ → β)} {k : ℕ} {ω : ℕ → β}
   {s : Set (ℕ → β)}
