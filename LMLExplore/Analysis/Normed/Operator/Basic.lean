@@ -18,8 +18,8 @@ displacement in online learning and convex analysis.
 ## Main statements
 
 * `ContinuousLinearMap.apply_le_opNorm_mul_norm`: `f x ≤ ‖f‖ * ‖x‖` for `f : E →L[ℝ] ℝ`.
-* `ContinuousLinearMap.exists_lt_apply_of_lt_opNorm_real`: below `‖f‖`, the values of `f` on the
-  open unit ball exceed every `r < ‖f‖`, without absolute values.
+* `ContinuousLinearMap.exists_lt_apply_of_lt_opNorm_real`: every `r < ‖f‖` is exceeded by some
+  value `f x` with `‖x‖ < 1`, without absolute values.
 -/
 
 public section
