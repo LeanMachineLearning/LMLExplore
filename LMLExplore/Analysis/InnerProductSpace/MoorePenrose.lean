@@ -29,8 +29,9 @@ singular, as for the Gram operator of unregularized least squares or of a design
   inverse of `A`, then `A B` is the orthogonal projection onto the range of `A`.
 * `ContinuousLinearMap.moorePenroseInverse_eq_ringInverse`: `V⁺ = V⁻¹` for an invertible
   operator `V`.
-* `ContinuousLinearMap.inner_moorePenroseInverse_of_apply_coe_eq`: if a symmetric operator `T`
-  on `E` acts on a subspace `K` as an invertible operator `T_K` on `K`, then
+* `ContinuousLinearMap.moorePenroseInverse_apply_coe_of_apply_coe_eq`: if a symmetric operator
+  `T` on `E` acts on a subspace `K` as an invertible operator `T_K` on `K`, then `T⁺ c = T_K⁻¹ c`
+  for `c ∈ K`, and `ContinuousLinearMap.inner_moorePenroseInverse_of_apply_coe_eq`:
   `⟪a, T⁺ c⟫ = ⟪a, T_K⁻¹ c⟫` for `a c ∈ K`; `ContinuousLinearMap.le_range_of_apply_coe_eq`: then
   `K` lies in the range of `T`.
 * `LinearMap.IsSymmetric.moorePenroseInverse`, `LinearMap.IsPositive.moorePenroseInverse`: the
@@ -174,14 +175,22 @@ theorem moorePenroseInverse_eq_ringInverse {V : E →L[𝕜] E} (hV : IsUnit V) 
 
 /-- If a symmetric operator `T` on a finite-dimensional space `E` acts on a subspace `K` as an
 invertible operator `T_K` on `K`, then the Moore–Penrose inverse of `T` acts on `K` as the inverse
-of `T_K`, in the weak sense `⟪a, T⁺ c⟫ = ⟪a, T_K⁻¹ c⟫` for `a c ∈ K`. -/
+of `T_K`: `T⁺ c = T_K⁻¹ c` for `c ∈ K`. -/
+theorem moorePenroseInverse_apply_coe_of_apply_coe_eq {K : Submodule 𝕜 E} {T : E →L[𝕜] E}
+    {T_K : K →L[𝕜] K} (hsym : (T : E →ₗ[𝕜] E).IsSymmetric) (hT : ∀ v : K, T v = T_K v)
+    (hu : IsUnit T_K) (c : K) :
+    (T : E →ₗ[𝕜] E).moorePenroseInverse c = Ring.inverse T_K c := by
+  have h := hsym.moorePenroseInverse_apply_apply_of_mem_range
+    (le_range_of_apply_coe_eq hT hu (Ring.inverse T_K c).2)
+  rwa [coe_coe, apply_coe_ringInverse_of_apply_coe_eq hT hu] at h
+
+/-- If a symmetric operator `T` on a finite-dimensional space `E` acts on a subspace `K` as an
+invertible operator `T_K` on `K`, then `⟪a, T⁺ c⟫ = ⟪a, T_K⁻¹ c⟫` for `a c ∈ K`, the inner products
+on the right being those of `K`. -/
 theorem inner_moorePenroseInverse_of_apply_coe_eq {K : Submodule 𝕜 E} {T : E →L[𝕜] E}
     {T_K : K →L[𝕜] K} (hsym : (T : E →ₗ[𝕜] E).IsSymmetric) (hT : ∀ v : K, T v = T_K v)
     (hu : IsUnit T_K) (a c : K) :
     ⟪(a : E), (T : E →ₗ[𝕜] E).moorePenroseInverse c⟫_𝕜 = ⟪a, Ring.inverse T_K c⟫_𝕜 := by
-  have h := hsym.moorePenroseInverse_apply_apply_of_mem_range
-    (le_range_of_apply_coe_eq hT hu (Ring.inverse T_K c).2)
-  rw [coe_coe, apply_coe_ringInverse_of_apply_coe_eq hT hu] at h
-  rw [h, Submodule.coe_inner]
+  rw [moorePenroseInverse_apply_coe_of_apply_coe_eq hsym hT hu, Submodule.coe_inner]
 
 end ContinuousLinearMap
