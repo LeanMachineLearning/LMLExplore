@@ -5,6 +5,7 @@ Authors: LMLExplore contributors
 -/
 module
 
+public import LMLExplore.Probability.Exchangeability.PrefixSigma
 public import Mathlib.Probability.Martingale.Upcrossing
 public import Mathlib.Probability.Process.Filtration
 public import TauCeti.Probability.Exchangeability.PathSpace.Law.Basic
@@ -12,7 +13,6 @@ public import TauCeti.Probability.Martingale.Reverse
 import LMLExplore.MeasureTheory.Integral.Bochner.Basic
 import LMLExplore.Probability.Exchangeability.Law
 import LMLExplore.Probability.Martingale.Upcrossing
-import Mathlib.MeasureTheory.MeasurableSpace.Invariants
 import Statlib.ForMathlib.Probability.Process.Filtration
 import TauCeti.Probability.Martingale.Crossings.Pathwise
 import TauCeti.Probability.Martingale.MaximalInequality.Basic
@@ -25,8 +25,9 @@ measure on `ℕ → ℝ` invariant under the permutations of the coordinates, Ta
 `TauCeti.Probability.ExchangeableLaw`), for instance the law `Measure.infinitePi fun _ ↦ P` of an
 i.i.d. sequence, with `X₀` integrable of mean `m`. Let `Aₙ = (X₀ + ⋯ + Xₙ) / (n + 1)`. For a
 horizon `N`, the sample means read backwards, `k ↦ A_{N - k}`, form a martingale for the
-σ-algebras of the events that are symmetric in the first `N - k + 1` coordinates. Doob's
-inequalities for this martingale give two bounds that hold uniformly in the horizon:
+σ-algebras `ProbabilityTheory.prefixExchangeableSigma ℝ (N - k)` of the events that are symmetric
+in the first `N - k + 1` coordinates. Doob's inequalities for this martingale give two bounds that
+hold uniformly in the horizon:
 
 * for every `m' : ℝ`, the sample means come at distance at least `L` from `m'` with probability
   at most `𝔼|X₀ - m'| / L`;
@@ -42,8 +43,6 @@ with those of its negated time reversal.
 
 ## Main definitions
 
-* `ProbabilityTheory.prefixExchangeableSigma α n`: the σ-algebra of the events on `ℕ → α` that are
-  symmetric in the first `n + 1` coordinates.
 * `ProbabilityTheory.sampleMean n`: the mean `(ω 0 + ⋯ + ω n) / (n + 1)` of the coordinates
   `0, …, n` of a sequence.
 
@@ -75,34 +74,6 @@ open scoped ENNReal NNReal
 namespace ProbabilityTheory
 
 variable {μ : Measure (ℕ → ℝ)}
-
-/-! ### Symmetric events -/
-
-/-- The σ-algebra of the measurable events on `ℕ → α` that are invariant under the swap of the
-coordinates `0` and `i` for every `i ≤ n`. These swaps generate the permutations of the first
-`n + 1` coordinates, so these are the events symmetric in the first `n + 1` coordinates. -/
-@[instance_reducible]
-def prefixExchangeableSigma (α : Type*) [MeasurableSpace α] (n : ℕ) : MeasurableSpace (ℕ → α) :=
-  ⨅ i ≤ n, MeasurableSpace.invariants (permReindex (α := α) (Equiv.swap 0 i))
-
-variable {α : Type*} [MeasurableSpace α]
-
-/-- An event is symmetric in the first `n + 1` coordinates when it is measurable and invariant
-under the swaps of the coordinates `0` and `i ≤ n`. -/
-theorem measurableSet_prefixExchangeableSigma_iff {n : ℕ} {s : Set (ℕ → α)} :
-    MeasurableSet[prefixExchangeableSigma α n] s ↔
-      ∀ i ≤ n, MeasurableSet s ∧ permReindex (Equiv.swap 0 i) ⁻¹' s = s := by
-  simp only [MeasurableSpace.measurableSet_iInf, MeasurableSpace.measurableSet_invariants]
-
-variable (α) in
-/-- Fewer events are symmetric in more coordinates. -/
-theorem prefixExchangeableSigma_anti : Antitone (prefixExchangeableSigma α) := fun _ _ hnm ↦
-  biInf_mono fun _ hi ↦ hi.trans hnm
-
-variable (α) in
-/-- The symmetric events are measurable. -/
-theorem prefixExchangeableSigma_le (n : ℕ) : prefixExchangeableSigma α n ≤ MeasurableSpace.pi :=
-  (iInf₂_le 0 (Nat.zero_le n)).trans (MeasurableSpace.invariants_le _)
 
 /-! ### The reverse martingale of the sample means -/
 

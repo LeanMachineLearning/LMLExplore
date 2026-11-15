@@ -187,7 +187,8 @@ private lemma measure_stopTime_lt_top_le {μ : Measure (ℕ → ℝ)} [IsProbabi
     · simp [hq]
     simp only [hq, true_and]
     refine measure_natCast_le_le_of_mul_lintegral_le
-      (stronglyAdapted_piLE_sampleMean.measurable_upcrossings hq).aemeasurable hq (hK0 q)
+      (stronglyAdapted_piLE_sampleMean.measurable_upcrossings hq).aemeasurable (sub_pos.2 hq)
+      (hK0 q)
       ((mul_lintegral_upcrossings_sampleMean_le hμ hint q.1 q.2).trans hC) (hK q hq)
   -- a sample mean at distance at least `L` from `m` has probability at most `η`
   have hfar : μ {ω | ∃ n, (L : ℝ) ≤ |sampleMean n ω - m|} ≤ η := by
