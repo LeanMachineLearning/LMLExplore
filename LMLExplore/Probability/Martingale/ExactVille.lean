@@ -7,7 +7,6 @@ module
 
 public import LMLExplore.Probability.Martingale.Centering
 public import LMLExplore.Probability.Martingale.OptionalStopping
-public import LMLExplore.Probability.Process.HittingTime
 
 /-!
 # The exact Ville identity
@@ -213,8 +212,8 @@ theorem setLIntegral_eq_exact_ville_horizon (hM : IsENNSupermartingale M ℱ S) 
         (fun ω ↦ min (hittingAfter M (Ici b) m ω) N) ω ∂P +
       ∫⁻ ω in s ∩ {ω | (N : WithTop ℕ) < hittingAfter M (Ici b) m ω}, M N ω ∂P := by
   have hT := hM.isStoppingTime_hittingAfter_Ici (m := m) b
-  rw [hM.setLIntegral_eq_add_stoppedValueLimsup_min hP h0 hT (natCast_le_hittingAfter)
-    hmN hs,
+  rw [hM.setLIntegral_eq_add_stoppedValueLimsup_min hP h0 hT
+    (fun ω ↦ (Nat.cast_withTop m).trans_le (le_hittingAfter ω)) hmN hs,
     setLIntegral_stoppedValueLimsup_hittingAfter b
       ((ℱ.le m _ hs).inter (ℱ.le N _ (hT.measurableSet_le_natCast N)))
       (fun ω hω ↦ ne_top_of_le_ne_top (WithTop.natCast_ne_top N) hω.2)]
@@ -308,8 +307,8 @@ theorem setLIntegral_eq_exact_ville (hM : IsENNSupermartingale M ℱ S) (hP : P 
   have hT := hM.isStoppingTime_hittingAfter_Ici (m := m) b
   have hTtop : MeasurableSet {ω | hittingAfter M (Ici b) m ω ≠ ⊤} := by
     exact (hT.measurable' (measurableSet_singleton ⊤)).compl
-  rw [hM.setLIntegral_eq_add_stoppedValueLimsup_add_iInf hP h0 hT (natCast_le_hittingAfter)
-      hs,
+  rw [hM.setLIntegral_eq_add_stoppedValueLimsup_add_iInf hP h0 hT
+      (fun ω ↦ (Nat.cast_withTop m).trans_le (le_hittingAfter ω)) hs,
     setLIntegral_stoppedValueLimsup_hittingAfter b ((ℱ.le m _ hs).inter hTtop)
       inter_subset_right]
 
