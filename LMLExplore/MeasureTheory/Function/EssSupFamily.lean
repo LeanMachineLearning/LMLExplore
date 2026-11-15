@@ -15,7 +15,8 @@ For a family `f : ι → Ω → ℝ≥0∞` of functions, indexed by an arbitrar
 type, the pointwise supremum `fun ω ↦ ⨆ i, f i ω` need not be measurable, and changing each
 `f i` on a null set may change it everywhere. The **essential supremum** of the family is the
 almost everywhere least function that dominates every `f i` almost everywhere. For an s-finite
-measure it exists, it is the supremum of a countable subfamily, and it is unique up to null sets.
+measure and almost everywhere measurable members it exists, it is the supremum of a countable
+subfamily, and it is unique up to null sets.
 It is the object behind the Snell envelope of optimal stopping, the essential supremum over
 stopping times of conditional expectations.
 
