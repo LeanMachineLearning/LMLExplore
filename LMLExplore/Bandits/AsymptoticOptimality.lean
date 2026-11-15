@@ -71,6 +71,9 @@ an instance, on the Bernoulli bandits with means in `(0, 1)`.
   expected regret of `klucb` satisfies `E[R_n] / log n → ∑_{a : Δ_a > 0} Δ_a / d(p_a, μ*)`.
 * `isLittleO_klucb_regret_sub_mul_log_bernoulliBandit`: the same statement in the form
   `E[R_n] = c* log n + o(log n)`.
+* `tendsto_klucb_regret_div_log_bernoulliBandit_of_card_eq_two`: on a two-armed Bernoulli bandit
+  with means `p_a < p_b`, the expected regret of `klucb` satisfies
+  `E[R_n] / log n → (p_b - p_a) / d(p_a, p_b)`.
 * `klucbFam_regret_eventually_le_of_mem_image_expFamily`: on a bandit whose arms are members of
   exponential families, where `μ*` is a mean of the family of every arm `a` with positive gap and
   `μ_a` a mean of the family of the best arm, the expected regret of `klucbFam ρ` satisfies
@@ -278,6 +281,36 @@ theorem isLittleO_klucb_regret_sub_mul_log_bernoulliBandit
   isLittleO_sub_mul_of_tendsto_div
     ((eventually_gt_atTop 1).mono fun n hn ↦ (log_pos (by exact_mod_cast hn)).ne')
     (tendsto_klucb_regret_div_log_bernoulliBandit h)
+
+/-- **KL-UCB on a two-armed Bernoulli bandit.** On a Bernoulli bandit with two arms `a` and `b` of
+means `p_a < p_b`, the expected regret of the KL-UCB algorithm satisfies
+`E[R_n] / log n → (p_b - p_a) / d(p_a, p_b)`, the Lai–Robbins constant of this bandit. The
+constant is computed from the real number `d(p_a, p_b).toReal`, so that it vanishes when `p_b = 1`,
+where `d(p_a, 1) = ∞`. -/
+theorem tendsto_klucb_regret_div_log_bernoulliBandit_of_card_eq_two (hα : Fintype.card α = 2)
+    {a b : α} (hab : (p a : ℝ) < p b)
+    (h : IsAlgEnvSeq O A R klucb (Environment.bandit (bernoulliBandit p)) P) :
+    Tendsto (fun n : ℕ ↦ P[regret (bernoulliBandit p) A n] / log n) atTop
+      (𝓝 ((p b - p a) / (klBer (p a) (p b)).toReal)) := by
+  -- Every arm is `a` or `b`, so the largest mean is `p_b` and `a` is the only arm with a gap.
+  have hab' : a ≠ b := fun h ↦ hab.ne (by rw [h])
+  have hmem (c : α) : c = a ∨ c = b := by
+    have hc := mem_univ c
+    rw [← Finset.eq_univ_of_card {a, b} (by rw [card_pair hab', hα])] at hc
+    simpa using hc
+  have hsup : ⨆ c, (p c : ℝ) = p b := le_antisymm
+    (ciSup_le fun c ↦ by rcases hmem c with rfl | rfl <;> [exact hab.le; exact le_rfl])
+    (le_ciSup (Finite.bddAbove_range fun c ↦ (p c : ℝ)) b)
+  have hgap (c : α) : gap (bernoulliBandit p) c = p b - p c := by
+    rw [gap, ← hsup]
+    simp_rw [integral_id_bernoulliBandit]
+  have hfilter : univ.filter (fun c ↦ 0 < gap (bernoulliBandit p) c) = {a} := by
+    ext c
+    rcases hmem c with rfl | rfl
+    · simpa [hgap] using hab
+    · simp [hgap, hab'.symm]
+  have := tendsto_klucb_regret_div_log_bernoulliBandit h
+  rwa [hfilter, sum_singleton, hgap, hsup] at this
 
 section ExpFamily
 

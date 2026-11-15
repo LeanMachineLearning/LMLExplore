@@ -25,7 +25,7 @@ Every test supermartingale for a null of probability measures is an e-process, b
 stopping (`ProbabilityTheory.IsTestSupermartingale.isEVar_stoppedValueLimsup`), but not
 conversely. This file also proves the closure properties of e-processes that follow from those of
 e-variables at each stopping time: restricting the null, passing to an adapted process that is
-almost surely smaller, and convex combinations.
+almost surely equal or almost surely smaller, and convex combinations.
 
 The converse holds one member of the null at a time [RRLK, Lemma 6]: an adapted process is an
 e-process exactly when, under every member `P` of the null, it is `P`-almost surely dominated by a
@@ -146,6 +146,13 @@ theorem of_lintegral_le_one (hS : ∀ P ∈ S, IsProbabilityMeasure P) (hE : Ada
 /-- An e-process for `T` is one for every subset of `T`. -/
 theorem anti_set (hST : S ⊆ T) (hE : IsEProcess E ℱ T) : IsEProcess E ℱ S :=
   ⟨hE.adapted, fun τ hτ ↦ (hE.isEVar_stoppedValue τ hτ).anti_set hST⟩
+
+/-- An adapted process equal to an e-process at every time, almost surely under every member of the
+null, is an e-process. -/
+theorem congr (hE : IsEProcess E ℱ S) (hF : Adapted ℱ F) (hEF : ∀ P ∈ S, ∀ n, E n =ᵐ[P] F n) :
+    IsEProcess F ℱ S :=
+  ⟨hF, fun τ hτ ↦ (hE.isEVar_stoppedValue τ hτ).congr (hF.measurable_apply_stoppingTime hτ)
+    fun P hP ↦ by filter_upwards [ae_all_iff.2 (hEF P hP)] with ω hω using hω (τ ω)⟩
 
 /-- **Domination.** For a null of finite measures, an adapted process that is almost surely at most
 an e-process at every time, under every member of the null, is an e-process. -/
