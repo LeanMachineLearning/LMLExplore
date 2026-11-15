@@ -22,8 +22,8 @@ process, the smallest `ℝ≥0∞`-valued supermartingale that dominates it.
 The conditional expectations are Mathlib's conditional Lebesgue expectations `P⁻[X|m]` of
 `ℝ≥0∞`-valued functions, and the essential supremum is `MeasureTheory.essSupFamily`. Neither needs
 integrability, so the Snell envelope is defined and is a supermartingale for every process. When
-the values of the process have finite expectations, it agrees almost surely with the essential
-supremum of the conditional expectations `P[(E τ).toReal|ℱ n]` of the real values
+the values of the process are measurable with finite expectations, it agrees almost surely with
+the essential supremum of the conditional expectations `P[(E τ).toReal|ℱ n]` of the real values
 (`ProbabilityTheory.snellEnvelope_ae_eq_essSupFamily_condExp`).
 
 Its role in anytime-valid inference is the characterization of e-processes: an adapted process
