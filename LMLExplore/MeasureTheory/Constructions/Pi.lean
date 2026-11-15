@@ -7,10 +7,13 @@ module
 
 public import Mathlib.MeasureTheory.Constructions.Pi
 public import Mathlib.Probability.ConditionalProbability
+import Statlib.ForMathlib.MeasureTheory.Measure.Decomposition.RNDerivProd
 import TauCeti.MeasureTheory.Constructions.Pi
 
 /-!
-# Product measures: laws of coordinatewise images, restricted factors and bounds by lines
+# Product measures: monotonicity, coordinatewise images, restricted factors, bounds by lines
+
+The product of finite measures is monotone in its factors.
 
 Under the product measure `Measure.pi μ`, the law of a function `f` of the coordinatewise images
 `X i (y i)` is the law of `f` under the product of the laws of the `X i`. For example, the law of
@@ -26,6 +29,8 @@ all have `μ i`-measure at most `c` has product measure at most `c`, by resampli
 
 ## Main statements
 
+* `MeasureTheory.Measure.pi_mono`: if `μ i ≤ ν i` for every `i`, with every `ν i` finite, then
+  `Measure.pi μ ≤ Measure.pi ν`.
 * `MeasureTheory.Measure.map_pi_comp_eq_map_pi_map`:
   `(Measure.pi μ).map (fun y ↦ f fun i ↦ X i (y i)) = (Measure.pi fun i ↦ (μ i).map (X i)).map f`.
 * `MeasureTheory.Measure.pi_restrict_eq_pow_smul_pi_cond`:
@@ -45,6 +50,20 @@ namespace MeasureTheory.Measure
 
 variable {ι : Type*} [Fintype ι] {Ω 𝓨 : ι → Type*} {mΩ : ∀ i, MeasurableSpace (Ω i)}
   [∀ i, MeasurableSpace (𝓨 i)] {β : Type*} {mβ : MeasurableSpace β}
+
+/-- **Monotonicity of the product measure.** The product of finite measures is monotone in its
+factors: if `μ i ≤ ν i` for every `i`, then `Measure.pi μ ≤ Measure.pi ν`. -/
+@[gcongr]
+lemma pi_mono {μ ν : ∀ i, Measure (Ω i)} [∀ i, IsFiniteMeasure (ν i)] (h : ∀ i, μ i ≤ ν i) :
+    Measure.pi μ ≤ Measure.pi ν := by
+  have (i : ι) : IsFiniteMeasure (μ i) := isFiniteMeasure_of_le (ν i) (h i)
+  rw [pi_eq_withDensity_prod_rnDeriv fun i ↦ absolutelyContinuous_of_le (h i)]
+  calc (Measure.pi ν).withDensity (fun x ↦ ∏ i, (μ i).rnDeriv (ν i) (x i))
+  _ ≤ (Measure.pi ν).withDensity 1 := by
+    refine withDensity_mono ?_
+    filter_upwards [ae_le_pi fun i ↦ rnDeriv_le_one_of_le (h i)] with x hx
+    exact Finset.prod_le_one fun i _ ↦ hx i
+  _ = Measure.pi ν := withDensity_one
 
 /-- The law under a product measure of a function `f` of the coordinatewise images `X i (y i)` is
 the law of `f` under the product of the laws of the `X i`. -/

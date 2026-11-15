@@ -39,8 +39,9 @@ laws: e-variables cannot tell it apart from the null of all laws, and they have 
   `bipolarRate Q S` vanish, and a test of level `α` for the i.i.d. laws of `S` has power at most
   `α`.
 
-The mean-zero null on `ℝ` (`ProbabilityTheory.meanZeroNull`) is the motivating instance; this is
-the form for e-variables of the theorem of Bahadur and Savage [BS56].
+The null on `ℝ` of the laws with mean `0` and a finite, positive variance
+(`ProbabilityTheory.meanZeroPosVarNull`) is the motivating instance; this is the form for
+e-variables of the theorem of Bahadur and Savage [BS56].
 
 ## Main statements
 
@@ -68,10 +69,19 @@ e-variables by monotone convergence. Total variation enters only through the eve
 `μ s ≤ ν s + etvDist μ ν` (`MeasureTheory.measure_le_add_etvDist`) and its subadditivity over
 products.
 
+The results are those of [EVR26, Note 22]. The proofs are rewritten from the Lean proofs in
+`EValuesResearch/Results/PowerlessNulls.lean` (commit `dd4072f`) of the paper project
+`RemyDegenne/evalues_research`, which proves the corollary directly, by common minorants and
+truncation, and the statements for one observation and for sequences through the masses
+`⨆ P ∈ S, P {x}`; here all of them go through the closure of the effective null. [BS56] is cited
+for the theorem of which this is the form for e-variables; its proofs are not used.
+
 ## References
 
 * [BS56] R. R. Bahadur and L. J. Savage, *The nonexistence of certain statistical procedures in
   nonparametric problems*, Ann. Math. Statist. 27 (1956).
+* [EVR26] *Answers to open questions in e-values and anytime-valid inference*, Note 22, and the
+  Lean library `EValuesResearch` of github.com/RemyDegenne/evalues_research, 2026.
 -/
 
 public section
@@ -193,24 +203,6 @@ theorem isEVar_infinitePi_iff_of_forall_exists_etvDist_dirac_lt {ι : Type*} [Co
 
 variable {ι : Type*} [Fintype ι] {Q : Measure 𝓧}
 
-/-- A limit in total variation of probability measures is a probability measure. -/
-private lemma isProbabilityMeasure_of_forall_exists_etvDist_lt
-    (hS : ∀ P ∈ S, IsProbabilityMeasure P) (hQ : ∀ ε > 0, ∃ P ∈ S, etvDist P Q < ε) :
-    IsProbabilityMeasure Q := by
-  have h (ε : NNReal) (hε : 0 < ε) : Q univ ≤ 1 + ε ∧ 1 ≤ Q univ + ε := by
-    obtain ⟨P, hP, hPQ⟩ := hQ ε (ENNReal.coe_pos.2 hε)
-    have := hS P hP
-    constructor
-    · calc Q univ ≤ P univ + etvDist Q P := measure_le_add_etvDist Q P .univ
-      _ ≤ 1 + ε := by
-        rw [measure_univ, etvDist_comm]
-        exact add_le_add le_rfl hPQ.le
-    · calc 1 = P univ := measure_univ.symm
-      _ ≤ Q univ + etvDist P Q := measure_le_add_etvDist P Q .univ
-      _ ≤ Q univ + ε := add_le_add le_rfl hPQ.le
-  exact ⟨le_antisymm (ENNReal.le_of_forall_pos_le_add fun ε hε _ ↦ (h ε hε).1)
-    (ENNReal.le_of_forall_pos_le_add fun ε hε _ ↦ (h ε hε).2)⟩
-
 /-- If `Q` is a limit in total variation of members of a null `S` of probability measures, then
 `Q ^ ι` is a limit in total variation of the products `P ^ ι` of members of `S`. -/
 private lemma exists_etvDist_pi_lt (hS : ∀ P ∈ S, IsProbabilityMeasure P)
@@ -290,8 +282,7 @@ theorem maxLogGrowth_eq_zero_of_forall_exists_etvDist_lt (hS : ∀ P ∈ S, IsPr
   · rintro _ ⟨P, hP, rfl⟩
     have := hS P hP
     infer_instance
-  · rw [klIntegral_eq_klDiv rfl, klDiv_self]
-    rfl
+  · rw [klIntegral_eq_klDiv rfl, klDiv_self, EReal.coe_ennreal_zero]
 
 /-- **The bipolar rate against a limit in total variation is zero.** If a probability measure `Q`
 is a limit in total variation of members of a null `S` of probability measures, the optimal growth
