@@ -445,14 +445,6 @@ theorem horizonSum_sqrt_variance_le {B C : ℝ} (hf : ∀ j, Measurable (f j))
   have := horizonSum_variance_le hf hfC hf₀ hWB h x
   nlinarith [sq_nonneg (B - horizonSum κ H f h x)]
 
-/-- A measurable function with values in `[0, b]` has standard deviation at most `b` under a
-probability measure. This bounds the rewards `√Var[V l (j + 1); κ j y]` of the levels. -/
-private lemma sqrt_variance_le_of_forall_mem_Icc {μ : Measure α} [IsProbabilityMeasure μ]
-    {g : α → ℝ} {b : ℝ} (hg : Measurable g) (hb : 0 ≤ b) (hgb : ∀ z, g z ∈ Set.Icc 0 b) :
-    √Var[g; μ] ≤ b :=
-  sqrt_variance_le_of_abs_le hg.aemeasurable hb
-    (.of_forall fun z ↦ abs_le.2 ⟨by linarith [(hgb z).1], (hgb z).2⟩)
-
 /-- The levels of measurable rewards in `[0, C]` lie in `[0, C H √H ^ l]`, and the rewards of the
 level `l` are bounded by `C H √H ^ l + C`. -/
 private lemma horizonSumLevel_mem_Icc_and_abs_horizonSumLevelReward_le {C : ℝ}
@@ -491,8 +483,9 @@ private lemma horizonSumLevel_mem_Icc_and_abs_horizonSumLevelReward_le {C : ℝ}
             (Real.sqrt_le_sqrt (by exact_mod_cast Nat.sub_le H h)) (hb l)
         _ = C * H * √H ^ (l + 1) := by ring
     · rw [horizonSumLevelReward_succ, abs_of_nonneg (Real.sqrt_nonneg _)]
-      exact (sqrt_variance_le_of_forall_mem_Icc (measurable_horizonSumLevel hf l (j + 1)) (hb l)
-        (hVl (j + 1))).trans hHl
+      exact (sqrt_variance_le_of_abs_le (measurable_horizonSumLevel hf l (j + 1)).aemeasurable
+        (hb l) (.of_forall fun z ↦ (abs_of_nonneg (hVl (j + 1) z).1).trans_le
+          (hVl (j + 1) z).2)).trans hHl
 
 /-- **A priori bounds on the levels** [LWCGC24, Lemma 12]: for measurable rewards `f` in
 `[0, C]`, the level `l` lies in `[0, C H √H ^ l]`. The level `0` is at most `C H`, and each level
@@ -519,8 +512,9 @@ theorem sqrt_variance_horizonSumLevel_le {C : ℝ} (hf : ∀ j, Measurable (f j)
     (hfC : ∀ j x, f j x ∈ Set.Icc 0 C) (l j : ℕ) (y : α) :
     √Var[horizonSumLevel κ H f l (j + 1); κ j y] ≤ C * H * √H ^ l := by
   have hC : 0 ≤ C := (hfC 0 y).1.trans (hfC 0 y).2
-  exact sqrt_variance_le_of_forall_mem_Icc (measurable_horizonSumLevel hf l (j + 1))
-    (by positivity) (horizonSumLevel_mem_Icc hf hfC l (j + 1))
+  have hV := horizonSumLevel_mem_Icc (κ := κ) (H := H) hf hfC l (j + 1)
+  exact sqrt_variance_le_of_abs_le (measurable_horizonSumLevel hf l (j + 1)).aemeasurable
+    (by positivity) (.of_forall fun z ↦ (abs_of_nonneg (hV z).1).trans_le (hV z).2)
 
 /-- The scalar recursion behind [LWCGC24, (113)–(119)]: for `B, ε ≥ 0`, `9 ε H ≤ 1` and
 `H ≤ 4 ^ m`, if the errors `d l` and the next-level terms `e l` satisfy
