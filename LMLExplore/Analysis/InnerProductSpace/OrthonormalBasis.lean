@@ -6,46 +6,55 @@ Authors: LMLExplore contributors
 module
 
 public import Mathlib.Analysis.InnerProductSpace.PiL2
+public import Mathlib.Analysis.SpecialFunctions.Exp
 
 /-!
-# The norm and the coordinates in an orthonormal basis
+# Exponential of the norm and of the coordinates in an orthonormal basis
 
-The norm of a vector of a finite-dimensional inner product space is at most the sum of the
-absolute values of its coordinates `⟪b i, y⟫` in an orthonormal basis `b` (the `ℓ²` norm of the
-coordinates is at most their `ℓ¹` norm), hence at most the dimension times the largest of them.
-These bounds reduce the control of a function of `‖y‖` to finitely many linear functionals, for
-example the exponential moments `exp (c ‖T‖)` of a vector statistic `T` to the real exponential
-moments of its coordinates.
+The exponential `exp (c ‖y‖)` of a multiple of the norm of a vector of a finite-dimensional real
+inner product space is bounded by a sum of exponentials of its coordinates `⟪b i, y⟫` in an
+orthonormal basis `b`. This reduces the control of the exponential moments `exp (c ‖T‖)` of a
+vector statistic `T` to the real exponential moments of its coordinates. It follows from Mathlib's
+`OrthonormalBasis.norm_le_card_mul_iSup_norm_inner`.
 
 ## Main statements
 
-* `OrthonormalBasis.norm_le_sum_norm_inner`: `‖y‖ ≤ ∑ i, ‖⟪b i, y⟫‖`.
-* `OrthonormalBasis.exists_norm_le_card_mul_norm_inner`: for a nonempty index type, there is `i`
-  with `‖y‖ ≤ card ι * ‖⟪b i, y⟫‖`.
+* `OrthonormalBasis.exp_mul_norm_le`: for `c ≥ 0`, with `n` the cardinality of the index type,
+  `exp (c ‖y‖) ≤ 1 + ∑ i, (exp (c √n ⟪b i, y⟫) + exp (-(c √n ⟪b i, y⟫)))`.
 -/
 
 public section
 
-open scoped InnerProductSpace
+open Real
+
+open scoped RealInnerProductSpace
 
 namespace OrthonormalBasis
 
-variable {ι 𝕜 E : Type*} [Fintype ι] [RCLike 𝕜] [NormedAddCommGroup E] [InnerProductSpace 𝕜 E]
+variable {ι E : Type*} [Fintype ι] [NormedAddCommGroup E] [InnerProductSpace ℝ E]
 
-/-- The norm of a vector is at most the sum of the norms of its coordinates in an orthonormal
-basis. -/
-lemma norm_le_sum_norm_inner (b : OrthonormalBasis ι 𝕜 E) (y : E) :
-    ‖y‖ ≤ ∑ i, ‖⟪b i, y⟫_𝕜‖ := by
-  calc ‖y‖ = ‖∑ i, ⟪b i, y⟫_𝕜 • b i‖ := by rw [b.sum_repr']
-  _ ≤ ∑ i, ‖⟪b i, y⟫_𝕜 • b i‖ := norm_sum_le _ _
-  _ = ∑ i, ‖⟪b i, y⟫_𝕜‖ := by simp [norm_smul, b.orthonormal.1]
-
-/-- The norm of a vector is at most the dimension times the norm of its largest coordinate in an
-orthonormal basis. -/
-lemma exists_norm_le_card_mul_norm_inner [Nonempty ι] (b : OrthonormalBasis ι 𝕜 E) (y : E) :
-    ∃ i, ‖y‖ ≤ Fintype.card ι * ‖⟪b i, y⟫_𝕜‖ := by
-  obtain ⟨i, -, hi⟩ := Finset.univ.exists_max_image (fun i ↦ ‖⟪b i, y⟫_𝕜‖) Finset.univ_nonempty
-  refine ⟨i, (b.norm_le_sum_norm_inner y).trans ?_⟩
-  simpa using Finset.sum_le_card_nsmul Finset.univ _ _ fun j _ ↦ hi j (Finset.mem_univ j)
+/-- The exponential of a nonnegative multiple `c ‖y‖` of the norm of a vector is at most
+`1 + ∑ i, (exp (c √n ⟪b i, y⟫) + exp (-(c √n ⟪b i, y⟫)))`, where `n` is the cardinality of the
+index type of the orthonormal basis `b`. -/
+lemma exp_mul_norm_le (b : OrthonormalBasis ι ℝ E) {c : ℝ} (hc : 0 ≤ c) (y : E) :
+    exp (c * ‖y‖) ≤ 1 + ∑ i, (exp (c * √(Fintype.card ι) * ⟪b i, y⟫) +
+      exp (-(c * √(Fintype.card ι) * ⟪b i, y⟫))) := by
+  have h_norm := b.norm_le_card_mul_iSup_norm_inner y
+  rcases isEmpty_or_nonempty ι with hι | hι
+  · simp only [Fintype.card_eq_zero, CharP.cast_eq_zero, sqrt_zero, zero_mul, norm_le_zero_iff]
+      at h_norm
+    simp [h_norm]
+  obtain ⟨i, hi⟩ := exists_eq_ciSup_of_finite (f := fun i ↦ ‖⟪b i, y⟫‖)
+  rw [← hi, norm_eq_abs] at h_norm
+  calc exp (c * ‖y‖) ≤ exp |c * √(Fintype.card ι) * ⟪b i, y⟫| := by
+        rw [abs_mul, abs_of_nonneg (by positivity), mul_assoc]
+        gcongr
+  _ ≤ exp (c * √(Fintype.card ι) * ⟪b i, y⟫) + exp (-(c * √(Fintype.card ι) * ⟪b i, y⟫)) :=
+        exp_abs_le _
+  _ ≤ ∑ j, (exp (c * √(Fintype.card ι) * ⟪b j, y⟫) +
+        exp (-(c * √(Fintype.card ι) * ⟪b j, y⟫))) :=
+        Finset.single_le_sum (f := fun j ↦ exp (c * √(Fintype.card ι) * ⟪b j, y⟫) +
+          exp (-(c * √(Fintype.card ι) * ⟪b j, y⟫))) (fun j _ ↦ by positivity) (Finset.mem_univ i)
+  _ ≤ _ := le_add_of_nonneg_left zero_le_one
 
 end OrthonormalBasis
