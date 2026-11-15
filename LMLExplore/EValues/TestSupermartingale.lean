@@ -69,6 +69,8 @@ stopping time `τ` is multiplied by a new supermartingale `B` that equals `1` up
   `ProbabilityTheory.IsTestMartingale.stoppedProcess`: stopped test (super)martingales, the case
   `B = 1` of optional continuation.
 * `ProbabilityTheory.IsTestSupermartingale.inf`: the minimum of two test supermartingales.
+* `ProbabilityTheory.IsENNSupermartingale.iInf_affine`: the minimum of finitely many affine forms
+  of `ℝ≥0∞`-valued supermartingales, with coefficients that are `ℱ n`-measurable at time `n`.
 * `ProbabilityTheory.isTestSupermartingale_lintegral`,
   `ProbabilityTheory.isTestMartingale_lintegral`: mixtures over a probability measure, for a null
   of s-finite measures.
@@ -513,6 +515,64 @@ theorem IsTestSupermartingale.inf (hM : IsTestSupermartingale M ℱ S)
     (hN : IsENNSupermartingale N ℱ S) : IsTestSupermartingale (M ⊓ N) ℱ S :=
   ⟨hM.toIsENNSupermartingale.inf hN, fun P hP ↦
     (lintegral_mono fun _ ↦ inf_le_left).trans (hM.lintegral_zero_le P hP)⟩
+
+/-- The minimum over finitely many `j` of the affine forms `∑ i, a n j i * X i n + a₀ n j` of
+`ℝ≥0∞`-valued supermartingales `X i`, with `ℱ n`-measurable coefficients, is a supermartingale as
+soon as each form of time `n`, evaluated at time `n + 1`, dominates the minimum at time `n + 1`.
+The coefficients may change with time, which `IsENNSupermartingale.inf` does not allow. -/
+theorem IsENNSupermartingale.iInf_affine {J : Type*} [Fintype ι] [Finite J] [Nonempty J]
+    {X : ι → ℕ → Ω → ℝ≥0∞} (hX : ∀ i, IsENNSupermartingale (X i) ℱ S)
+    {a : ℕ → J → ι → Ω → ℝ≥0∞} {a₀ : ℕ → J → Ω → ℝ≥0∞}
+    (ha : ∀ n j i, Measurable[ℱ n] (a n j i)) (ha₀ : ∀ n j, Measurable[ℱ n] (a₀ n j))
+    (hY : ∀ n j ω, ⨅ j', (∑ i, a (n + 1) j' i ω * X i (n + 1) ω + a₀ (n + 1) j' ω) ≤
+      ∑ i, a n j i ω * X i (n + 1) ω + a₀ n j ω) :
+    IsENNSupermartingale (fun n ω ↦ ⨅ j, (∑ i, a n j i ω * X i n ω + a₀ n j ω)) ℱ S := by
+  have := Fintype.ofFinite J
+  set Y : ℕ → Ω → ℝ≥0∞ := fun n ω ↦ ⨅ j, (∑ i, a n j i ω * X i n ω + a₀ n j ω)
+  have hℓ (n : ℕ) (j : J) : Measurable[ℱ n] fun ω ↦ ∑ i, a n j i ω * X i n ω + a₀ n j ω :=
+    (Finset.measurable_sum _ fun i _ ↦ (ha n j i).mul ((hX i).adapted n)).add (ha₀ n j)
+  have hYm (n : ℕ) : Measurable[ℱ n] (Y n) := Measurable.iInf (hℓ n)
+  refine ⟨hYm, fun P hP n s hs ↦ ?_⟩
+  -- the form `j` attains the minimum at time `n` on `T j`
+  set T : J → Set Ω := fun j ↦ {ω | Y n ω = ∑ i, a n j i ω * X i n ω + a₀ n j ω}
+  have hT (j : J) : MeasurableSet[ℱ n] (T j) := measurableSet_eq_fun (hYm n) (hℓ n j)
+  have hloc (j : J) (t : Set Ω) (ht : MeasurableSet[ℱ n] t) (htT : t ⊆ T j) :
+      ∫⁻ ω in t, Y (n + 1) ω ∂P ≤ ∫⁻ ω in t, Y n ω ∂P := by
+    have hint (m : ℕ) : ∫⁻ ω in t, (∑ i, a n j i ω * X i m ω + a₀ n j ω) ∂P =
+        ∑ i, ∫⁻ ω in t, a n j i ω * X i m ω ∂P + ∫⁻ ω in t, a₀ n j ω ∂P := by
+      rw [lintegral_add_right _ ((ha₀ n j).mono (ℱ.le n) le_rfl), lintegral_finsetSum]
+      exact fun i _ ↦ ((ha n j i).mono (ℱ.le n) le_rfl).mul ((hX i).measurable m)
+    calc ∫⁻ ω in t, Y (n + 1) ω ∂P
+        ≤ ∫⁻ ω in t, (∑ i, a n j i ω * X i (n + 1) ω + a₀ n j ω) ∂P :=
+          lintegral_mono fun ω ↦ hY n j ω
+      _ ≤ ∫⁻ ω in t, (∑ i, a n j i ω * X i n ω + a₀ n j ω) ∂P := by
+          rw [hint, hint]
+          exact add_le_add (Finset.sum_le_sum fun i _ ↦
+            (hX i).setLIntegral_mul_succ_le hP (ha n j i) ht) le_rfl
+      _ = ∫⁻ ω in t, Y n ω ∂P :=
+          setLIntegral_congr_fun (ℱ.le n t ht) fun ω hω ↦ (htT hω).symm
+  -- glue the inequalities over the finitely many sets `T j`, which cover `Ω`
+  have hglue (F : Finset J) : ∀ t, MeasurableSet[ℱ n] t → t ⊆ ⋃ j ∈ F, T j →
+      ∫⁻ ω in t, Y (n + 1) ω ∂P ≤ ∫⁻ ω in t, Y n ω ∂P := by
+    classical
+    induction F using Finset.induction_on with
+    | empty =>
+      intro t _ htF
+      simp only [Finset.notMem_empty, Set.iUnion_of_empty, Set.iUnion_empty,
+        Set.subset_empty_iff] at htF
+      simp [htF]
+    | insert j F _ ih =>
+      intro t ht htF
+      rw [← lintegral_inter_add_sdiff _ t (ℱ.le n _ (hT j)),
+        ← lintegral_inter_add_sdiff (fun ω ↦ Y n ω) t (ℱ.le n _ (hT j))]
+      refine add_le_add (hloc j _ (ht.inter (hT j)) Set.inter_subset_right)
+        (ih _ (ht.diff (hT j)) fun ω hω ↦ ?_)
+      have h := htF hω.1
+      simp only [Finset.set_biUnion_insert, Set.mem_union] at h
+      exact h.resolve_left hω.2
+  refine hglue Finset.univ s hs fun ω _ ↦ ?_
+  obtain ⟨j, hj⟩ := exists_eq_ciInf_of_finite (f := fun j ↦ ∑ i, a n j i ω * X i n ω + a₀ n j ω)
+  exact Set.mem_biUnion (Finset.mem_univ j) (show ω ∈ T j by simp [T, Y, hj])
 
 /-! ### Optional continuation and stopped processes -/
 

@@ -43,6 +43,8 @@ LMLPapers project.
 * `measurable_weightedMeasure`: `p ↦ weightedMeasure p` is measurable;
 * `integral_sum_smul_dirac`: the integral against a finite sum `∑ k, w k • δ_{x k}` of weighted
   Dirac measures at points of any measurable space is the weighted sum `∑ k, w k • f (x k)`.
+* `lintegral_sum_smul_dirac`: the same for lower integrals of any function, measurable or not,
+  in a space with measurable singletons.
 -/
 
 public section
@@ -156,5 +158,14 @@ lemma integral_sum_smul_dirac {α 𝓧 E : Type*} [Fintype α] [MeasurableSpace 
     (integrable_dirac' hf (by simp)).smul_measure ENNReal.ofReal_ne_top
   rw [integral_finsetSum_measure hint]
   simp_rw [integral_smul_measure, integral_dirac' _ _ hf, ENNReal.toReal_ofReal (hw _)]
+
+/-- In a space with measurable singletons, the lower integral of any function against
+`∑ k, w k • δ_{x k}` is the weighted sum `∑ k, w k * f (x k)`. -/
+lemma lintegral_sum_smul_dirac {α 𝓧 : Type*} [Fintype α] [MeasurableSpace 𝓧]
+    [MeasurableSingletonClass 𝓧] (w : α → ℝ) (x : α → 𝓧) (f : 𝓧 → ℝ≥0∞) :
+    ∫⁻ y, f y ∂(∑ k, ENNReal.ofReal (w k) • Measure.dirac (x k)) =
+      ∑ k, ENNReal.ofReal (w k) * f (x k) := by
+  rw [lintegral_finsetSum_measure]
+  simp [lintegral_smul_measure, lintegral_dirac]
 
 end LMLExplore
