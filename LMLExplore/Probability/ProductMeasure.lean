@@ -21,7 +21,10 @@ coordinates.
 
 If `Q + ∑ i, b i • P i = ∑ i, c i • P i` for a probability measure `Q` and probability measures
 `P i`, two functions of the first `N + 1` observations with equal integrals under the i.i.d. law of
-every convex combination of the `P i` have equal integrals under the i.i.d. law of `Q`.
+every convex combination of the `P i` have equal integrals under the i.i.d. law of `Q`. This is
+the polarization step of [EVR26, Note 03, Theorem 1], adapted from
+`EValuesResearch/Results/TestMartingaleConverse.lean` (commit `6f05c5f`) in the paper project
+`RemyDegenne/evalues_research`.
 
 ## Main statements
 
@@ -32,6 +35,13 @@ every convex combination of the `P i` have equal integrals under the i.i.d. law 
 * `MeasureTheory.Measure.lintegral_infinitePi_eq_of_add_sum_eq_sum`: polarization for i.i.d. laws,
   from the convex combinations of finitely many probability measures to every probability measure
   in their linear span.
+
+## References
+
+* [EVR26] *Answers to open questions in e-values and anytime-valid inference*, notes 01 to 34 and
+  the Lean library `EValuesResearch` of github.com/RemyDegenne/evalues_research, 2026; written and
+  refereed by AI agents: Note 03, *Converse of the power-one theorem for test martingales*,
+  Theorem 1.
 -/
 
 public section

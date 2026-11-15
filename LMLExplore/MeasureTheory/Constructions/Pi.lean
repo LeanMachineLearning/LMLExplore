@@ -29,7 +29,10 @@ the product of copies of a finite mixture `∑ k, w k • R k` is the mixture of
 Expanding the product of copies of `Q + t • B` this way makes its integrals polynomials in `t`,
 which is how equal integrals under the products of copies of the convex combinations of finitely
 many measures `P i` transfer to every probability measure `Q` with
-`Q + ∑ i, b i • P i = ∑ i, c i • P i`.
+`Q + ∑ i, b i • P i = ∑ i, c i • P i`. This polarization argument is the proof of
+[EVR26, Note 03, Theorem 1], and the lemmas are adapted from
+`EValuesResearch/Results/TestMartingaleConverse.lean` (commit `6f05c5f`) in the paper project
+`RemyDegenne/evalues_research`.
 
 Under a product of probability measures, a measurable set whose lines along one coordinate `i`
 all have `μ i`-measure at most `c` has product measure at most `c`, by resampling the coordinate
@@ -55,6 +58,13 @@ all have `μ i`-measure at most `c` has product measure at most `c`, by resampli
 * `MeasureTheory.Measure.pi_le_of_forall_measure_update_preimage_le`: under a product of
   probability measures, a measurable set whose lines `{t | update x i t ∈ E}` along one coordinate
   `i` all have `μ i`-measure at most `c` has product measure at most `c`.
+
+## References
+
+* [EVR26] *Answers to open questions in e-values and anytime-valid inference*, notes 01 to 34 and
+  the Lean library `EValuesResearch` of github.com/RemyDegenne/evalues_research, 2026; written and
+  refereed by AI agents: Note 03, *Converse of the power-one theorem for test martingales*,
+  Theorem 1.
 -/
 
 public section
