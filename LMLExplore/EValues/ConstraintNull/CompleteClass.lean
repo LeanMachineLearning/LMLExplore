@@ -6,6 +6,9 @@ Authors: LMLExplore contributors
 module
 
 public import LMLExplore.EValues.ConstraintNull.Basic
+import LMLExplore.Algebra.Order.Archimedean.Basic
+import LMLExplore.Algebra.Order.Field.Basic
+import LMLExplore.LinearAlgebra.Pi
 import Mathlib.Analysis.Convex.Combination
 import Mathlib.Analysis.Convex.Topology
 import Mathlib.Analysis.LocallyConvex.Separation
@@ -90,6 +93,11 @@ def NoArbitrageOn (a : ι → 𝓧 → ℝ) (Y : Set 𝓧) : Prop :=
   ∀ ρ : ι → ℝ, (∀ i, 0 ≤ ρ i) → (∀ x ∈ Y, 0 ≤ ∑ i, ρ i * a i x) →
     ∀ x ∈ Y, ∑ i, ρ i * a i x = 0
 
+/-- The absence of arbitrage on `Y`, restated. -/
+theorem noArbitrageOn_iff : NoArbitrageOn a Y ↔ ∀ ρ : ι → ℝ, (∀ i, 0 ≤ ρ i) →
+    (∀ x ∈ Y, 0 ≤ ∑ i, ρ i * a i x) → ∀ x ∈ Y, ∑ i, ρ i * a i x = 0 :=
+  Iff.rfl
+
 /-- The nonnegative weights whose support is not redundant on `Y` [LRR26, (3.1)]: no nonzero
 nonnegative combination of the functions `a i` with support inside that of the weights vanishes
 on `Y`. -/
@@ -109,7 +117,7 @@ theorem isClosed_nonredundantWeights : IsClosed (nonredundantWeights a Y) := by
       ⋂ (ρ : ι → ℝ) (_ : (∀ i, 0 ≤ ρ i) ∧ (∀ x ∈ Y, ∑ i, ρ i * a i x = 0) ∧ ρ ≠ 0),
         ⋃ i ∈ {i | ρ i ≠ 0}, {π | π i = 0} := by
     ext π
-    simp only [nonredundantWeights, mem_ofPred_eq, mem_inter_iff, mem_iInter, mem_iUnion,
+    simp only [mem_nonredundantWeights_iff, mem_inter_iff, mem_iInter, mem_ofPred_eq, mem_iUnion,
       exists_prop, and_imp]
     refine and_congr_right fun _ ↦ forall_congr' fun ρ ↦ ?_
     constructor
@@ -144,7 +152,7 @@ theorem exists_mem_nonredundantWeights_sum_mul_eq {π : ι → ℝ} (hπ : ∀ i
   | _ n ih =>
   by_cases hK : π ∈ nonredundantWeights a Y
   · exact ⟨π, hK, fun _ _ ↦ rfl⟩
-  simp only [nonredundantWeights, mem_ofPred_eq, hπ, implies_true, true_and, not_forall] at hK
+  simp only [mem_nonredundantWeights_iff, hπ, implies_true, true_and, not_forall] at hK
   obtain ⟨ρ, hρ, hπρ, hρa, hne⟩ := hK
   have hsne : (Finset.univ.filter fun i ↦ ρ i ≠ 0).Nonempty := by
     by_contra hs
@@ -195,13 +203,16 @@ theorem isCompact_nonredundantWeights_inter {T : Set (ι → ℝ)} (hT : IsClose
   exact ((Finset.single_le_sum (fun j _ ↦ hπ.1.1 j) (Finset.mem_univ i)).trans
     (hc π hπ)).trans (le_max_left _ _)
 
-/-- Without arbitrage on `Y`, the nonredundant weights that keep the combination of the functions
-`a i` above `-c` at finitely many well chosen points of `Y` have a total mass at most `R * c`
-[LRR26, proof of Lemma 7.2]. -/
+/-- Without arbitrage on `Y`, there are a finite set `F₀ ⊆ Y` and `R ≥ 0` such that every
+nonredundant weight keeping the combination of the functions `a i` above `-c` on `F₀` has total
+mass at most `R * c` [LRR26, proof of Lemma 7.2]. -/
 theorem exists_finset_sum_le_of_noArbitrageOn (h : NoArbitrageOn a Y) :
     ∃ F₀ : Finset 𝓧, ↑F₀ ⊆ Y ∧ ∃ R : ℝ, 0 ≤ R ∧ ∀ π ∈ nonredundantWeights a Y, ∀ c : ℝ,
       0 ≤ c → (∀ x ∈ F₀, -c ≤ ∑ i, π i * a i x) → ∑ i, π i ≤ R * c := by
   classical
+  -- The nonredundant weights of total mass `1` form a compact set `S`. Without arbitrage, it
+  -- misses the intersection of the closed sets `t (x, n)` of the weights keeping the combination
+  -- above `-1 / (n + 1)` at `x ∈ Y`.
   set S := nonredundantWeights a Y ∩ {ρ | ∑ i, ρ i = 1}
   have hS : IsCompact S := isCompact_nonredundantWeights_inter
     (isClosed_eq (by fun_prop) continuous_const) (c := 1) fun ρ hρ ↦ hρ.2.le
@@ -211,17 +222,17 @@ theorem exists_finset_sum_le_of_noArbitrageOn (h : NoArbitrageOn a Y) :
     rw [disjoint_left]
     rintro ρ ⟨hρK, hρS⟩ hρt
     simp only [mem_iInter, t, mem_ofPred_eq] at hρt
-    have h0 : ∀ x ∈ Y, 0 ≤ ∑ i, ρ i * a i x := by
-      intro x hx
-      refine le_of_forall_pos_le_add fun ε hε ↦ ?_
-      obtain ⟨n, hn⟩ := exists_nat_one_div_lt hε
-      have := hρt (⟨x, hx⟩, n)
-      simp only at this
-      linarith
+    have h0 : ∀ x ∈ Y, 0 ≤ ∑ i, ρ i * a i x := fun x hx ↦
+      le_of_forall_nat_le_add_one_div fun n ↦ by
+        have := hρt (⟨x, hx⟩, n)
+        simp only at this
+        linarith
     have hρ0 := hρK.2 ρ hρK.1 (fun i hi ↦ hi) (h ρ hρK.1 h0)
     simp [hρ0] at hρS
+  -- Finite subcover: finitely many `t p`, `p ∈ u`, already miss `S`; their points form `F₀`.
   obtain ⟨u, hu⟩ := hS.elim_finite_subfamily_closed t htc hdisj
-  refine ⟨u.image fun p ↦ (p.1 : 𝓧), ?_, (u.sup Prod.snd : ℕ) + 1, by positivity, ?_⟩
+  set N := u.sup Prod.snd
+  refine ⟨u.image fun p ↦ (p.1 : 𝓧), ?_, (N : ℝ) + 1, by positivity, ?_⟩
   · intro x hx
     simp only [Finset.coe_image, mem_image, Finset.mem_coe] at hx
     obtain ⟨p, -, rfl⟩ := hx
@@ -231,6 +242,7 @@ theorem exists_finset_sum_le_of_noArbitrageOn (h : NoArbitrageOn a Y) :
   rcases hsum0.eq_or_lt with hs | hs
   · rw [← hs]
     positivity
+  -- Normalisation to the simplex: `s⁻¹ • π ∈ S`, so it leaves some `t p` with `p ∈ u`.
   set s := ∑ i, π i with hs_def
   have hρS : s⁻¹ • π ∈ S := by
     refine ⟨smul_mem_nonredundantWeights hπ (inv_nonneg.2 hs.le), ?_⟩
@@ -238,37 +250,14 @@ theorem exists_finset_sum_le_of_noArbitrageOn (h : NoArbitrageOn a Y) :
     exact inv_mul_cancel₀ hs.ne'
   have hnot : s⁻¹ • π ∉ ⋂ p ∈ u, t p := fun h' ↦ disjoint_left.1 hu hρS h'
   simp only [mem_iInter, not_forall, t, mem_ofPred_eq, not_le, Pi.smul_apply,
-    smul_eq_mul] at hnot
+    smul_eq_mul, mul_assoc, ← Finset.mul_sum] at hnot
   obtain ⟨p, hp, hlt⟩ := hnot
-  have hx : (p.1 : 𝓧) ∈ u.image fun p ↦ (p.1 : 𝓧) := Finset.mem_image_of_mem _ hp
-  have hc' := hπc _ hx
-  have hle : (p.2 : ℝ) + 1 ≤ (u.sup Prod.snd : ℕ) + 1 := by
-    have : p.2 ≤ u.sup Prod.snd := Finset.le_sup (f := Prod.snd) hp
-    exact_mod_cast Nat.add_le_add_right this 1
-  have hsum : ∑ i, s⁻¹ * π i * a i p.1 = s⁻¹ * ∑ i, π i * a i p.1 := by
-    rw [Finset.mul_sum]
-    exact Finset.sum_congr rfl fun i _ ↦ by ring
-  rw [hsum] at hlt
-  have h1 : 1 / ((u.sup Prod.snd : ℕ) + 1 : ℝ) ≤ 1 / ((p.2 : ℝ) + 1) :=
-    one_div_le_one_div_of_le (by positivity) hle
-  have h2 : s⁻¹ * (-c) < -(1 / ((u.sup Prod.snd : ℕ) + 1 : ℝ)) := by
-    calc s⁻¹ * (-c) ≤ s⁻¹ * ∑ i, π i * a i p.1 :=
-          mul_le_mul_of_nonneg_left hc' (inv_nonneg.2 hs.le)
-      _ < -(1 / ((p.2 : ℝ) + 1)) := hlt
-      _ ≤ _ := neg_le_neg h1
-  have hN : (0 : ℝ) < (u.sup Prod.snd : ℕ) + 1 := by positivity
-  rw [inv_mul_eq_div, div_lt_iff₀ hs] at h2
-  rw [neg_mul, neg_lt_neg_iff, one_div_mul_eq_div, div_lt_iff₀ hN] at h2
-  linarith
-
-/-- If `v < A + t * B` for every `t ≥ 0`, then `B` is nonnegative. -/
-private lemma nonneg_of_forall_lt_add_mul {A B v : ℝ} (h : ∀ t : ℝ, 0 ≤ t → v < A + t * B) :
-    0 ≤ B := by
-  by_contra! hB
-  have h1 := h _ (le_max_left 0 ((A - v) / -B))
-  have h3 : max 0 ((A - v) / -B) * B ≤ (A - v) / -B * B :=
-    mul_le_mul_of_nonpos_right (le_max_right _ _) hB.le
-  have h4 : (A - v) / -B * B = -(A - v) := by rw [div_neg, neg_mul, div_mul_cancel₀ _ hB.ne]
+  -- The final bound: `-c ≤ ∑ i, π i * a i p.1 < -s / (p.2 + 1) ≤ -s / (N + 1)`.
+  have hc' := hπc _ (Finset.mem_image_of_mem _ hp)
+  have hN := Nat.one_div_le_one_div (α := ℝ) (Finset.le_sup (f := Prod.snd) hp)
+  rw [inv_mul_lt_iff₀ hs] at hlt
+  have : s * (1 / ((N : ℝ) + 1)) < c := by linarith [mul_le_mul_of_nonneg_left hN hs.le]
+  rw [mul_one_div, div_lt_iff₀ (by positivity)] at this
   linarith
 
 /-- The finite step of the complete class theorem, up to `δ`: if `f` has a nonpositive mean under
@@ -281,108 +270,78 @@ private lemma exists_le_add_sum_mul_of_finset {f : 𝓧 → ℝ}
     {F : Finset 𝓧} (hF : ↑F ⊆ Y) {δ : ℝ} (hδ : 0 < δ) :
     ∃ π : ι → ℝ, (∀ i, 0 ≤ π i) ∧ ∀ x ∈ F, f x ≤ δ + ∑ i, π i * a i x := by
   classical
-  let φ : 𝓧 → (ι → ℝ) × ℝ := fun x ↦ (fun i ↦ a i x, f x)
-  let Q : Set ((ι → ℝ) × ℝ) := {p | (∀ i, p.1 i ≤ 0) ∧ δ ≤ p.2}
-  have hQ : Convex ℝ Q := by
-    rintro p ⟨hp1, hp2⟩ q ⟨hq1, hq2⟩ s t hs ht hst
-    refine ⟨fun i ↦ ?_, ?_⟩
-    · simp only [Prod.fst_add, Prod.smul_fst, Pi.add_apply, Pi.smul_apply, smul_eq_mul]
-      nlinarith [hp1 i, hq1 i]
-    · simp only [Prod.snd_add, Prod.smul_snd, smul_eq_mul]
-      nlinarith
-  have hQc : IsClosed Q := by
-    have : Q = (⋂ i, {p : (ι → ℝ) × ℝ | p.1 i ≤ 0}) ∩ {p | δ ≤ p.2} := by
-      ext p
-      simp [Q]
-    rw [this]
-    exact (isClosed_iInter fun i ↦ isClosed_le (by fun_prop) continuous_const).inter
-      (isClosed_le continuous_const (by fun_prop))
-  have hdisj : Disjoint (convexHull ℝ (φ '' F)) Q := by
+  -- Separate the compact convex hull of the points `(f x, (a i x)ᵢ)`, `x ∈ F`, from the closed
+  -- convex set of the points `(r, y)` with `δ ≤ r` and `y ≤ 0`.
+  let φ : 𝓧 → ℝ × (ι → ℝ) := fun x ↦ (f x, fun i ↦ a i x)
+  have hdisj : Disjoint (convexHull ℝ (φ '' F)) (Ici δ ×ˢ Iic 0) := by
     rw [disjoint_left]
     rintro p hp ⟨hp1, hp2⟩
     obtain ⟨α, _, w, z, hw0, hw1, hz, rfl⟩ := mem_convexHull_iff_exists_fintype.1 hp
     choose x hxF hxz using hz
-    have hsum1 : ∀ i, ∑ k, w k * a i (x k) ≤ 0 := by
-      intro i
-      have := hp1 i
-      simpa [← hxz, φ, Prod.fst_sum, Finset.sum_apply] using this
-    have key := hf α x w (fun k ↦ hF (hxF k)) (mem_simplex_iff.2 ⟨hw0, hw1⟩) hsum1
-    have h2 : δ ≤ ∑ k, w k * f (x k) := by simpa [← hxz, φ, Prod.snd_sum] using hp2
+    have hsum2 : ∀ i, ∑ k, w k * a i (x k) ≤ 0 := fun i ↦ by
+      simpa [← hxz, φ, Prod.snd_sum, Finset.sum_apply] using hp2 i
+    have key := hf α x w (fun k ↦ hF (hxF k)) (mem_simplex_iff.2 ⟨hw0, hw1⟩) hsum2
+    have h1 : δ ≤ ∑ k, w k * f (x k) := by simpa [← hxz, φ, Prod.fst_sum] using hp1
     linarith
   obtain ⟨ℓ, u, v, hℓP, huv, hℓQ⟩ := geometric_hahn_banach_compact_closed
-    (convex_convexHull ℝ _) ((F.finite_toSet.image φ).isCompact_convexHull ℝ) hQ hQc hdisj
-  set β := ℓ (0, 1) with hβ_def
-  set π : ι → ℝ := fun i ↦ -ℓ ((fun j ↦ if i = j then 1 else 0), 0) with hπ_def
-  have hℓ : ∀ p : (ι → ℝ) × ℝ, ℓ p = -∑ i, π i * p.1 i + β * p.2 := by
-    intro p
-    have h1 : ℓ p = ℓ (p.1, 0) + p.2 * β := by
-      conv_lhs => rw [show p = (p.1, 0) + p.2 • ((0 : ι → ℝ), (1 : ℝ)) by ext <;> simp]
-      rw [map_add, map_smul, smul_eq_mul]
-    have h2 := LinearMap.pi_apply_eq_sum_univ
-      ((ℓ : (ι → ℝ) × ℝ →ₗ[ℝ] ℝ) ∘ₗ LinearMap.inl ℝ (ι → ℝ) ℝ) p.1
-    simp only [LinearMap.coe_comp, Function.comp_apply, LinearMap.inl_apply,
-      ContinuousLinearMap.coe_coe, smul_eq_mul] at h2
-    rw [h1, h2]
-    simp only [π, neg_mul, Finset.sum_neg_distrib, neg_neg, mul_comm (p.1 _)]
-    ring
+    (convex_convexHull ℝ _) ((F.finite_toSet.image φ).isCompact_convexHull ℝ)
+    ((convex_Ici δ).prod (convex_Iic 0)) (isClosed_Ici.prod isClosed_Iic) hdisj
+  -- Read off the separating functional: `ℓ (r, y) = β * r - ∑ i, π i * y i`.
+  set β := ℓ (1, 0) with hβ_def
+  set π : ι → ℝ := fun i ↦ -ℓ (0, Pi.single i 1) with hπ_def
+  have hℓ : ∀ p : ℝ × (ι → ℝ), ℓ p = β * p.1 - ∑ i, π i * p.2 i := fun p ↦ by
+    simpa [π, mul_comm, sub_eq_add_neg] using
+      LinearMap.prod_pi_apply_eq_sum_univ (ℓ : ℝ × (ι → ℝ) →ₗ[ℝ] ℝ) p.1 p.2
+  -- `ℓ` is bounded below on the closed convex set, so `β` and the `π i` are nonnegative.
   have hβ : 0 ≤ β := by
     refine nonneg_of_forall_lt_add_mul (A := β * δ) (v := v) fun t ht ↦ ?_
-    have := hℓQ (0, δ + t) ⟨fun i ↦ le_rfl, by linarith⟩
+    have := hℓQ (δ + t, 0) ⟨by simpa using ht, mem_Iic.2 le_rfl⟩
     rw [hℓ] at this
     simpa [add_mul, mul_comm] using this
   have hπ : ∀ i, 0 ≤ π i := by
     intro i
     refine nonneg_of_forall_lt_add_mul (A := β * δ) (v := v) fun t ht ↦ ?_
-    have := hℓQ (fun j ↦ if i = j then -t else 0, δ)
-      ⟨fun j ↦ by simp only; split_ifs <;> linarith, le_rfl⟩
+    have := hℓQ (δ, fun j ↦ if i = j then -t else 0)
+      ⟨mem_Ici.2 le_rfl, fun j ↦ by simp only [Pi.zero_apply]; split_ifs <;> linarith⟩
     rw [hℓ] at this
-    simpa [mul_ite, Finset.sum_ite_eq, mul_comm, add_comm] using this
-  have hx : ∀ x ∈ F, -∑ i, π i * a i x + β * f x < u := by
-    intro x hx
-    have := hℓP (φ x) (subset_convexHull ℝ _ (mem_image_of_mem φ hx))
-    rwa [hℓ] at this
-  have hv : v < β * δ := by
-    have := hℓQ (0, δ) ⟨fun i ↦ le_rfl, le_rfl⟩
-    simpa [hℓ] using this
+    simpa [mul_ite, Finset.sum_ite_eq, mul_comm] using this
+  have hx : ∀ x ∈ F, β * f x - ∑ i, π i * a i x < u := fun x hx ↦ by
+    simpa [hℓ, φ] using hℓP (φ x) (subset_convexHull ℝ _ (mem_image_of_mem φ hx))
+  have hv : v < β * δ := by simpa [hℓ] using hℓQ (δ, 0) ⟨mem_Ici.2 le_rfl, mem_Iic.2 le_rfl⟩
   rcases hβ.eq_or_lt with hβ0 | hβ0
-  · -- the separating functional is vertical: the combination is positive on `F`
+  · -- The separating functional is vertical: the combination is positive on `F`, and a large
+    -- multiple of it dominates `f` there.
     rw [← hβ0, zero_mul] at hv
     set M := (∑ y ∈ F, |f y|) / -u
     have hM : 0 ≤ M := div_nonneg (Finset.sum_nonneg fun _ _ ↦ abs_nonneg _) (by linarith)
     refine ⟨M • π, fun i ↦ by simpa using mul_nonneg hM (hπ i), fun x hxF ↦ ?_⟩
     have h1 := hx x hxF
-    rw [← hβ0, zero_mul, add_zero] at h1
+    rw [← hβ0, zero_mul, zero_sub] at h1
     have h2 : M * -u ≤ M * ∑ i, π i * a i x := mul_le_mul_of_nonneg_left (by linarith) hM
     have h3 : M * -u = ∑ y ∈ F, |f y| := div_mul_cancel₀ _ (by linarith)
     have h4 : f x ≤ ∑ y ∈ F, |f y| :=
       (le_abs_self _).trans (Finset.single_le_sum (fun y _ ↦ abs_nonneg (f y)) hxF)
-    have h5 : ∑ i, (M • π) i * a i x = M * ∑ i, π i * a i x := by
-      rw [Finset.mul_sum]
-      exact Finset.sum_congr rfl fun i _ ↦ by simp [mul_assoc]
-    rw [h5]
+    simp only [Pi.smul_apply, smul_eq_mul, mul_assoc, ← Finset.mul_sum]
     linarith
-  · refine ⟨β⁻¹ • π, fun i ↦ by simpa using mul_nonneg (inv_nonneg.2 hβ) (hπ i),
+  · -- Otherwise, dividing by `β` gives `f ≤ δ + ∑ i, β⁻¹ * π i * a i` on `F`.
+    refine ⟨β⁻¹ • π, fun i ↦ by simpa using mul_nonneg (inv_nonneg.2 hβ) (hπ i),
       fun x hxF ↦ ?_⟩
     have h1 := hx x hxF
-    have h5 : ∑ i, (β⁻¹ • π) i * a i x = β⁻¹ * ∑ i, π i * a i x := by
-      rw [Finset.mul_sum]
-      exact Finset.sum_congr rfl fun i _ ↦ by simp [mul_assoc]
-    rw [h5]
-    have h6 : β * (f x - δ) < ∑ i, π i * a i x := by nlinarith
-    have h7 : f x - δ < β⁻¹ * ∑ i, π i * a i x := by
+    simp only [Pi.smul_apply, smul_eq_mul, mul_assoc, ← Finset.mul_sum]
+    have h2 : f x - δ < β⁻¹ * ∑ i, π i * a i x := by
       rw [lt_inv_mul_iff₀ hβ0]
-      exact h6
+      nlinarith
     linarith
 
 /-- **The complete class theorem on a set without arbitrage**, in finite-dimensional form: if `f`
 has a nonpositive mean under every finitely supported law on `Y` under which the functions `a i`
-have nonpositive means, then `f ≤ ∑ i, π i * a i` on `Y` for some nonredundant weights `π`. The
-proof combines the finite step, up to `δ`, with the compactness of the nonredundant weights. -/
+have nonpositive means, then `f ≤ ∑ i, π i * a i` on `Y` for some nonredundant weights `π`. -/
 theorem exists_mem_nonredundantWeights_le_of_noArbitrageOn (h : NoArbitrageOn a Y) {f : 𝓧 → ℝ}
     (hf : ∀ (α : Type) [Fintype α] (x : α → 𝓧) (w : α → ℝ), (∀ k, x k ∈ Y) →
       w ∈ simplex α → (∀ i, ∑ k, w k * a i (x k) ≤ 0) → ∑ k, w k * f (x k) ≤ 0) :
     ∃ π ∈ nonredundantWeights a Y, ∀ x ∈ Y, f x ≤ ∑ i, π i * a i x := by
   classical
+  -- The nonredundant weights keeping the combination above `-C` on `F₀` form a compact set.
   obtain ⟨F₀, hF₀, R, hR, hbound⟩ := exists_finset_sum_le_of_noArbitrageOn h
   have hC0 : 0 ≤ 1 + ∑ x ∈ F₀, |f x| :=
     add_nonneg zero_le_one (Finset.sum_nonneg fun _ _ ↦ abs_nonneg _)
@@ -394,6 +353,8 @@ theorem exists_mem_nonredundantWeights_le_of_noArbitrageOn (h : NoArbitrageOn a 
   have hs : IsCompact (nonredundantWeights a Y ∩ T) :=
     isCompact_nonredundantWeights_inter hTc (c := R * C) fun π hπ ↦
       hbound π hπ.1 C hC0 hπ.2
+  -- By the finite step, it meets every finite intersection of the closed sets `t (x, n)` of the
+  -- weights with `f x ≤ 1 / (n + 1) + ∑ i, π i * a i x`, so it meets their intersection.
   let t : Y × ℕ → Set (ι → ℝ) := fun p ↦
     {π | f p.1 ≤ 1 / ((p.2 : ℝ) + 1) + ∑ i, π i * a i p.1}
   have htc : ∀ p, IsClosed (t p) := fun p ↦ isClosed_le continuous_const (by fun_prop)
@@ -423,21 +384,18 @@ theorem exists_mem_nonredundantWeights_le_of_noArbitrageOn (h : NoArbitrageOn a 
     · simp only [mem_iInter]
       intro p hp
       have h1 := hπ p.1 (Finset.mem_union_right _ (Finset.mem_image_of_mem _ hp))
-      have h2 : 1 / ((N : ℝ) + 1) ≤ 1 / ((p.2 : ℝ) + 1) :=
-        one_div_le_one_div_of_le (by positivity)
-          (by exact_mod_cast Nat.add_le_add_right (Finset.le_sup (f := Prod.snd) hp) 1)
+      have h2 := Nat.one_div_le_one_div (α := ℝ) (Finset.le_sup (f := Prod.snd) hp)
       simp only [t, mem_ofPred_eq]
       rw [hπ'eq p.1 p.1.2]
       linarith
-  refine ⟨π, hπK, fun x hx ↦ le_of_forall_pos_le_add fun ε hε ↦ ?_⟩
-  obtain ⟨n, hn⟩ := exists_nat_one_div_lt hε
+  refine ⟨π, hπK, fun x hx ↦ le_of_forall_nat_le_add_one_div fun n ↦ ?_⟩
   have := mem_iInter.1 hπt (⟨x, hx⟩, n)
   simp only [t, mem_ofPred_eq] at this
   linarith
 
 /-- Without arbitrage on `Y`, every point of `Y` is charged by a finitely supported law on `Y`
-under which the functions `a i` have nonpositive means. The proof applies the complete class
-theorem to multiples of the indicator of the point. -/
+under which the functions `a i` have nonpositive means. This is what makes e-variables for the
+null finite on `Y` (`ProbabilityTheory.lt_top_of_isEVar_of_noArbitrageOn`). -/
 theorem exists_charging_family_of_noArbitrageOn (h : NoArbitrageOn a Y) {x₀ : 𝓧}
     (hx₀ : x₀ ∈ Y) :
     ∃ (α : Type) (_ : Fintype α) (x : α → 𝓧) (w : α → ℝ), (∀ k, x k ∈ Y) ∧ w ∈ simplex α ∧
@@ -484,11 +442,6 @@ theorem exists_charging_family_of_noArbitrageOn (h : NoArbitrageOn a Y) {x₀ : 
 
 variable [MeasurableSpace 𝓧] {g : ι → 𝓧 → ℝ} {f : 𝓧 → ℝ} {E : 𝓧 → ℝ≥0∞}
 
-/-- A property that holds on a set carrying a measure holds almost everywhere. -/
-private lemma ae_of_forall_mem {ν : Measure 𝓧} (hν : ν Yᶜ = 0) {p : 𝓧 → Prop}
-    (hp : ∀ x ∈ Y, p x) : ∀ᵐ x ∂ν, p x :=
-  Filter.mem_of_superset (mem_ae_iff.2 hν) hp
-
 /-- The support of a null generated by finitely many measurable constraints: a measurable set
 that carries every member of the null and on which the constraints admit no arbitrage. -/
 theorem exists_measurableSet_noArbitrageOn (hg : ∀ i, Measurable (g i)) :
@@ -507,7 +460,7 @@ theorem exists_measurableSet_noArbitrageOn (hg : ∀ i, Measurable (g i)) :
   intro Y hY hμY hn
   by_cases hT : NoArbitrageOn g Y
   · exact ⟨Y, hY, hμY, hT⟩
-  simp only [NoArbitrageOn, not_forall] at hT
+  simp only [noArbitrageOn_iff, not_forall] at hT
   obtain ⟨ρ, hρ0, hρY, x₀, hx₀, hne⟩ := hT
   set Y' := Y ∩ {x | ∑ i, ρ i * g i x ≤ 0}
   have hY' : MeasurableSet Y' := hY.inter (measurableSet_le (by fun_prop) measurable_const)
@@ -520,18 +473,12 @@ theorem exists_measurableSet_noArbitrageOn (hg : ∀ i, Measurable (g i)) :
   -- the combination has a nonnegative integrand and a nonpositive integral under the null
   have hμY' : ∀ μ ∈ constraintNull (range g), μ Y'ᶜ = 0 := by
     intro μ hμ
-    have hgi : ∀ i, Integrable (fun x ↦ ρ i * g i x) μ := fun i ↦
-      (integrable_of_mem_constraintNull hμ (mem_range_self i)).const_mul (ρ i)
-    have hint : Integrable (fun x ↦ ∑ i, ρ i * g i x) μ := integrable_finsetSum _ fun i _ ↦ hgi i
-    have hnn : 0 ≤ᵐ[μ] fun x ↦ ∑ i, ρ i * g i x := ae_of_forall_mem (hμY μ hμ) hρY
-    have hle : ∫ x, ∑ i, ρ i * g i x ∂μ ≤ 0 := by
-      rw [integral_finsetSum _ fun i _ ↦ hgi i]
-      refine Finset.sum_nonpos fun i _ ↦ ?_
-      rw [integral_const_mul]
-      exact mul_nonpos_of_nonneg_of_nonpos (hρ0 i)
-        (integral_nonpos_of_mem_constraintNull hμ (mem_range_self i))
+    have hint := integrable_sum_mul_of_mem_constraintNull hμ ρ
+    have hnn : 0 ≤ᵐ[μ] fun x ↦ ∑ i, ρ i * g i x :=
+      Filter.eventually_of_mem (mem_ae_iff.2 (hμY μ hμ)) hρY
     have h0 := (integral_eq_zero_iff_of_nonneg_ae hnn hint).1
-      (le_antisymm hle (integral_nonneg_of_ae hnn))
+      (le_antisymm (integral_sum_mul_nonpos_of_mem_constraintNull hμ hρ0)
+        (integral_nonneg_of_ae hnn))
     refine measure_mono_null hsub (measure_union_null (hμY μ hμ) ?_)
     exact measure_mono_null (fun x hx ↦ (mem_ofPred_eq ▸ hx).ne') (ae_iff.1 h0)
   -- removing the set where the combination is positive lowers the dimension
@@ -606,17 +553,13 @@ theorem forall_integral_nonpos_iff_exists_ae_le (hg : ∀ i, Measurable (g i))
   refine ⟨fun h ↦ ?_, fun ⟨π, hπ⟩ μ hμ ↦ ?_⟩
   · obtain ⟨Y, -, hYμ, hY⟩ := exists_measurableSet_noArbitrageOn hg
     obtain ⟨π, hπK, hπ⟩ := exists_mem_nonredundantWeights_le_of_forall_integral_nonpos hg hY hf h
-    refine ⟨fun i ↦ (π i).toNNReal, fun μ hμ ↦ ae_of_forall_mem (hYμ μ hμ) fun x hx ↦ ?_⟩
+    refine ⟨fun i ↦ (π i).toNNReal, fun μ hμ ↦
+      Filter.eventually_of_mem (mem_ae_iff.2 (hYμ μ hμ)) fun x hx ↦ ?_⟩
     simpa only [Real.coe_toNNReal _ (hπK.1 _)] using hπ x hx
-  · have hgi : ∀ i, Integrable (fun x ↦ (π i : ℝ) * g i x) μ := fun i ↦
-      (integrable_of_mem_constraintNull hμ (mem_range_self i)).const_mul _
-    by_cases hfi : Integrable f μ
-    · refine (integral_mono_ae hfi (integrable_finsetSum _ fun i _ ↦ hgi i) (hπ μ hμ)).trans ?_
-      rw [integral_finsetSum _ fun i _ ↦ hgi i]
-      refine Finset.sum_nonpos fun i _ ↦ ?_
-      rw [integral_const_mul]
-      exact mul_nonpos_of_nonneg_of_nonpos (π i).coe_nonneg
-        (integral_nonpos_of_mem_constraintNull hμ (mem_range_self i))
+  · by_cases hfi : Integrable f μ
+    · exact (integral_mono_ae hfi (integrable_sum_mul_of_mem_constraintNull hμ _)
+        (hπ μ hμ)).trans
+        (integral_sum_mul_nonpos_of_mem_constraintNull hμ fun i ↦ (π i).coe_nonneg)
     · rw [integral_undef hfi]
 
 /-- **The complete class theorem for e-variables** [LRR26, Theorem 3.1]: every e-variable for the
@@ -631,8 +574,9 @@ theorem IsEVar.exists_mem_constraintBets_ae_le (hg : ∀ i, Measurable (g i))
   have hπY : ∀ x ∈ Y, (E x).toReal ≤ 1 + ∑ i, ((π i).toNNReal : ℝ) * g i x := fun x hx ↦ by
     simpa only [Real.coe_toNNReal _ (hπK.1 _)] using hπ x hx
   refine ⟨fun i ↦ (π i).toNNReal, mem_constraintBets_iff.2 fun μ hμ ↦
-    ae_of_forall_mem (hYμ μ hμ) fun x hx ↦ ENNReal.toReal_nonneg.trans (hπY x hx), fun μ hμ ↦
-    ae_of_forall_mem (hYμ μ hμ) fun x hx ↦ ?_⟩
+    Filter.eventually_of_mem (mem_ae_iff.2 (hYμ μ hμ)) fun x hx ↦
+      ENNReal.toReal_nonneg.trans (hπY x hx), fun μ hμ ↦
+    Filter.eventually_of_mem (mem_ae_iff.2 (hYμ μ hμ)) fun x hx ↦ ?_⟩
   rw [← ENNReal.ofReal_toReal (lt_top_of_isEVar_of_noArbitrageOn hg hY hE hx).ne]
   exact ENNReal.ofReal_le_ofReal (hπY x hx)
 
