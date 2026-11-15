@@ -18,6 +18,10 @@ of the supports of `w` and `w'`: the measures supported in a set `𝒜` form a c
 `StdSimplex R X`. This is what makes the designs on a set of vectors, and their design operators,
 a convex set.
 
+A finitely supported probability measure supported in the image `f '' S` of a set is the image by
+`f` of one supported in `S`, with no more support points: a design on the features of a set of arms
+is the image of a design on these arms.
+
 On a finite type `α`, the weight vectors of the finitely supported probability measures are
 exactly the vectors of `LMLExplore.simplex α`, the vectors with nonnegative entries summing to `1`.
 
@@ -28,6 +32,9 @@ exactly the vectors of `LMLExplore.simplex α`, the vectors with nonnegative ent
 * `Convexity.StdSimplex.support_weights_map_subset`: the support of the image of a finitely
   supported probability measure by a map is contained in the image of its support;
   `Convexity.StdSimplex.support_weights_map_subset_range`: hence in the range of the map.
+* `Convexity.StdSimplex.exists_map_eq_of_support_subset_image`: a finitely supported probability
+  measure supported in the image `f '' S` is the image by `f` of one supported in `S`, with at most
+  as many support points.
 * `Convexity.StdSimplex.support_weights_convexCombPair_subset`: the support of a convex combination
   of two finitely supported probability measures is contained in the union of their supports.
 * `Convexity.StdSimplex.weights_mem_simplex`, `LMLExplore.simplex_eq_range_weights`: on a finite
@@ -38,6 +45,8 @@ exactly the vectors of `LMLExplore.simplex α`, the vectors with nonnegative ent
 -/
 
 public section
+
+open scoped Finset
 
 namespace Convexity.StdSimplex
 
@@ -64,6 +73,29 @@ the range of `f`. -/
 theorem support_weights_map_subset_range (f : X → Y) (w : StdSimplex R X) :
     ((w.map f).weights.support : Set Y) ⊆ Set.range f :=
   (support_weights_map_subset f w).trans (Set.image_subset_range _ _)
+
+/-- A finitely supported probability measure `π` on `Y` supported in the image `f '' S` is the
+image by `f` of a finitely supported probability measure on `X` supported in `S`, with at most as
+many support points as `π`. -/
+theorem exists_map_eq_of_support_subset_image {f : X → Y} {S : Set X} {π : StdSimplex R Y}
+    (hπ : ↑π.weights.support ⊆ f '' S) :
+    ∃ w : StdSimplex R X, ↑w.weights.support ⊆ S ∧ w.map f = π ∧
+      #w.weights.support ≤ #π.weights.support := by
+  classical
+  -- a section `g` of `f` on `f '' S` with values in `S`
+  have hsec : ∀ y ∈ f '' S, ∃ x ∈ S, f x = y := fun y ⟨x, hx, hy⟩ ↦ ⟨x, hx, hy⟩
+  have : Nonempty X := by
+    obtain ⟨y, hy⟩ := π.support_weights_nonempty
+    obtain ⟨x, -, -⟩ := hπ hy
+    exact ⟨x⟩
+  choose! g hgS hgf using hsec
+  refine ⟨π.map g, fun x hx ↦ ?_, ?_, ?_⟩
+  · obtain ⟨y, hy, rfl⟩ := support_weights_map_subset g π hx
+    exact hgS y (hπ hy)
+  · rw [← weights_inj, map_map, weights_map,
+      Finsupp.mapDomain_congr fun y hy ↦ hgf y (hπ hy)]
+    exact Finsupp.mapDomain_id
+  · exact (Finset.card_le_card Finsupp.mapDomain_support).trans Finset.card_image_le
 
 /-- The support of a convex combination of two finitely supported probability measures is
 contained in the union of their supports. -/

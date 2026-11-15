@@ -5,7 +5,7 @@ Authors: LMLExplore contributors
 -/
 module
 
-public import LMLExplore.MarkovDecisionProcess.Episodic.Value
+public import LMLExplore.MarkovDecisionProcess.Episodic.Value.Basic
 public import LMLExplore.Probability.Kernel.Composition.IntegralCompProd
 
 /-!

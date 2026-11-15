@@ -5,7 +5,7 @@ Authors: LMLExplore contributors
 -/
 module
 
-public import LMLExplore.MarkovDecisionProcess.Episodic.Value
+public import LMLExplore.MarkovDecisionProcess.Episodic.Value.Basic
 
 /-!
 # Deterministic `H`-step policies of an episodic MDP
@@ -18,8 +18,8 @@ which holds for every policy when the state space is countable and discrete.
 When the action space is nonempty, `Policy.extend π : ℕ → 𝓢 → 𝓐` extends `π` to all steps by a
 fixed action beyond the horizon, and `Policy.toKernel π hπ : ℕ → Kernel 𝓢 𝓐` is the
 corresponding deterministic Markov policy, to which the values of
-`LMLExplore/MarkovDecisionProcess/Episodic/Value.lean` apply. The steps `h ≥ H` never matter for
-an episode of horizon `H`.
+`LMLExplore/MarkovDecisionProcess/Episodic/Value/Basic.lean` apply. The steps `h ≥ H` never
+matter for an episode of horizon `H`.
 
 The definitions `Policy` and `Policy.extend` are adapted, with their names and namespace, from
 the formalization entropy-mdp (`github.com/RemyDegenne/entropy-mdp`, file

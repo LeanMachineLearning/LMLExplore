@@ -36,6 +36,8 @@ version for bounded stopping times, under integrability. Convergence is derived 
 * `ProbabilityTheory.IsENNSupermartingale.ae_tendsto_limsup`,
   `ProbabilityTheory.IsENNSupermartingale.ae_limsup_lt_top`: almost sure convergence, to an almost
   surely finite limit.
+* `ProbabilityTheory.IsENNSupermartingale.ae_exists_tendsto_of_ne_top`: almost sure convergence to
+  a finite limit where the initial value is finite, with no integrability.
 * `ProbabilityTheory.IsENNSupermartingale.setLIntegral_limsup_le`: the set integrals of the limit
   over `ℱ n`-measurable sets are at most those of `M n`.
 * `ProbabilityTheory.IsENNSupermartingale.setLIntegral_stoppedValueLimsup_le_of_le_const`: optional
@@ -119,6 +121,27 @@ theorem ae_limsup_lt_top (hM : IsENNSupermartingale M ℱ S) (hP : P ∈ S) [IsF
     (h0 : ∫⁻ ω, M 0 ω ∂P ≠ ∞) : ∀ᵐ ω ∂P, limsup (fun n ↦ M n ω) atTop < ∞ := by
   filter_upwards [hM.ae_exists_tendsto hP h0] with ω ⟨c, hc_lt, hc⟩
   rwa [hc.limsup_eq]
+
+/-- An `ℝ≥0∞`-valued supermartingale under a finite measure converges almost surely to a finite
+limit on the event where its initial value is finite. No integrability is assumed: the
+convergence is proved on each `ℱ 0`-measurable event `{M 0 ≤ K}`, under the restriction of the
+measure to it. -/
+theorem ae_exists_tendsto_of_ne_top (hM : IsENNSupermartingale M ℱ S) (hP : P ∈ S)
+    [IsFiniteMeasure P] :
+    ∀ᵐ ω ∂P, M 0 ω ≠ ∞ → ∃ c < ∞, Tendsto (fun n ↦ M n ω) atTop (𝓝 c) := by
+  have hK (K : ℕ) : ∀ᵐ ω ∂P, M 0 ω ≤ K → ∃ c < ∞, Tendsto (fun n ↦ M n ω) atTop (𝓝 c) := by
+    have hs : MeasurableSet[ℱ 0] {ω | M 0 ω ≤ K} :=
+      measurableSet_le (hM.adapted 0) measurable_const
+    have h0 : ∫⁻ ω, M 0 ω ∂(P.restrict {ω | M 0 ω ≤ K}) ≠ ∞ := by
+      refine ne_top_of_le_ne_top (ENNReal.mul_ne_top (ENNReal.natCast_ne_top K)
+        (measure_ne_top P {ω | M 0 ω ≤ K})) ?_
+      rw [← setLIntegral_const]
+      exact setLIntegral_mono' (ℱ.le 0 _ hs) fun ω hω ↦ hω
+    have h := (hM.restrict hP hs).ae_exists_tendsto (Set.mem_singleton _) h0
+    rwa [ae_restrict_iff' (ℱ.le 0 _ hs)] at h
+  filter_upwards [ae_all_iff.2 hK] with ω hω h0
+  obtain ⟨K, hK⟩ := ENNReal.exists_nat_gt h0
+  exact hω K hK.le
 
 /-- **Optional stopping for bounded stopping times.** For stopping times `σ ≤ τ ≤ N` and a set `s`
 measurable for the σ-algebra at `σ`, the set integral over `s` of an `ℝ≥0∞`-valued
