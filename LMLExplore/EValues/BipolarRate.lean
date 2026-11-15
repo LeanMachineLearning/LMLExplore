@@ -47,6 +47,11 @@ else: no domination, convexity or compactness.
 * `ProbabilityTheory.maxLogGrowth_le_mul_klDiv`, `ProbabilityTheory.bipolarRate_le_iInf_klDiv`:
   the bipolar rate is at most the smallest relative entropy from `Q₁` to the null
   [RR26, proof of Theorem 4.1].
+* `ProbabilityTheory.le_bipolarRate_of_tendsto`: a lower bound on the bipolar rate from real lower
+  bounds on `maxLogGrowth Q₁ S₁ (n + 1)` whose quotients by `n + 1` converge.
+* `ProbabilityTheory.le_maxLogGrowth_of_ofReal_exp_mul_le_one`: the lower bound on the growth of
+  `m` observations given by the e-variable `1/2 + (1/2) e ^ t 1_A`, valid when
+  `e ^ t P ^ m (A) ≤ 1` for every member `P` of the null.
 
 ## References
 
@@ -223,5 +228,71 @@ theorem bipolarRate_le_iInf_klDiv (Q₁ : Measure 𝓧) [IsProbabilityMeasure Q�
   have := hS₁ P hP
   rw [← EReal.toENNReal_coe (x := klDiv Q₁ P)]
   exact EReal.toENNReal_le_toENNReal (bipolarRate_le_klDiv Q₁ hP)
+
+/-- A real lower bound on the growth of `n + 1` observations, divided by `n + 1`, that converges
+to `L` gives the lower bound `L` on the bipolar rate. -/
+lemma le_bipolarRate_of_tendsto {r : ℕ → ℝ} {L : ℝ}
+    (hr : ∀ n, (r n : EReal) ≤ maxLogGrowth Q₁ S₁ (n + 1))
+    (hlim : Tendsto (fun n : ℕ ↦ r n / (n + 1)) atTop (𝓝 L)) :
+    (L : EReal) ≤ bipolarRate Q₁ S₁ := by
+  refine le_of_tendsto' (EReal.tendsto_coe.2 hlim) fun n ↦ ?_
+  have h : ((r n / (n + 1) : ℝ) : EReal) = (r n : EReal) / ((n + 1 : ℕ) : EReal) := by
+    rw [EReal.coe_div]
+    norm_cast
+  rw [h]
+  exact (EReal.div_le_div_right_of_nonneg (by positivity) (hr n)).trans
+    (maxLogGrowth_div_le_bipolarRate Q₁ S₁ n.succ_ne_zero)
+
+/-- The e-variable `1/2 + (1/2) e ^ t 1_A` on `m` observations, valid when `e ^ t P ^ m (A) ≤ 1`
+for every member `P` of the null, gives the lower bound `t Q ^ m (A) - log 2` on the growth of `m`
+observations. -/
+lemma le_maxLogGrowth_of_ofReal_exp_mul_le_one (Q : Measure 𝓧) [IsProbabilityMeasure Q]
+    {S : Set (Measure 𝓧)} (hS : ∀ P ∈ S, IsProbabilityMeasure P) {m : ℕ}
+    {A : Set (Fin m → 𝓧)} (hA : MeasurableSet A) {t : ℝ}
+    (hP : ∀ P ∈ S, ENNReal.ofReal (Real.exp t) * (Measure.pi fun _ : Fin m ↦ P) A ≤ 1) :
+    ((t * (Measure.pi fun _ : Fin m ↦ Q).real A - Real.log 2 : ℝ) : EReal) ≤
+      maxLogGrowth Q S m := by
+  set Qm := Measure.pi fun _ : Fin m ↦ Q
+  set b := ENNReal.ofReal (Real.exp t)
+  set X : (Fin m → 𝓧) → ℝ≥0∞ := fun x ↦ 2⁻¹ + 2⁻¹ * A.indicator (fun _ ↦ b) x
+  have hXm : Measurable X := measurable_const.add (measurable_const.mul
+    (measurable_const.indicator hA))
+  have hX : IsEVar X ((fun P ↦ Measure.pi fun _ : Fin m ↦ P) '' S) := by
+    refine IsEVar.of_lintegral_le_one ?_ hXm ?_
+    · rintro _ ⟨P, hP, rfl⟩
+      have := hS P hP
+      infer_instance
+    · rintro _ ⟨P, hPS, rfl⟩
+      have := hS P hPS
+      calc ∫⁻ x, X x ∂(Measure.pi fun _ : Fin m ↦ P)
+      _ = 2⁻¹ + 2⁻¹ * (b * (Measure.pi fun _ : Fin m ↦ P) A) := by
+        simp [X, lintegral_add_right _ ((measurable_const.indicator hA).const_mul _),
+          lintegral_const_mul _ (measurable_const.indicator hA), lintegral_indicator_const hA]
+      _ ≤ 2⁻¹ + 2⁻¹ * 1 := by gcongr; exact hP P hPS
+      _ = 1 := by rw [mul_one, ENNReal.inv_two_add_inv_two]
+  set g : (Fin m → 𝓧) → ℝ := fun x ↦ A.indicator (fun _ ↦ t) x - Real.log 2
+  have hg (x : Fin m → 𝓧) : ENNReal.ofReal (Real.exp (g x)) ≤ X x := by
+    by_cases hx : x ∈ A
+    · simp only [g, X, Set.indicator_of_mem hx]
+      rw [Real.exp_sub, Real.exp_log two_pos, ENNReal.ofReal_div_of_pos two_pos,
+        ENNReal.ofReal_ofNat, div_eq_mul_inv, mul_comm]
+      exact le_add_self
+    · simp only [g, X, Set.indicator_of_notMem hx, zero_sub, Real.exp_neg, Real.exp_log two_pos,
+        mul_zero, add_zero]
+      rw [ENNReal.ofReal_inv_of_pos two_pos, ENNReal.ofReal_ofNat]
+  have hgi : Integrable g Qm := ((integrable_const t).indicator hA).sub (integrable_const _)
+  calc ((t * Qm.real A - Real.log 2 : ℝ) : EReal)
+  _ = ∫ᵉ x, (g x : EReal) ∂Qm := by
+    rw [eintegral_eq_integral hgi]
+    simp [g, integral_sub ((integrable_const t).indicator hA) (integrable_const _),
+      integral_indicator_const _ hA, mul_comm]
+  _ ≤ ∫ᵉ x, (logUtility ∘ X) x ∂Qm := eintegral_mono fun x ↦ by
+    calc (g x : EReal)
+    _ = ENNReal.log (ENNReal.ofReal (Real.exp (g x))) := by
+      rw [ENNReal.log_ofReal_of_pos (Real.exp_pos _), Real.log_exp]
+    _ ≤ (logUtility ∘ X) x := ENNReal.log_monotone (hg x)
+  _ ≤ maxLogGrowth Q S m := by
+    rw [maxLogGrowth_def]
+    exact hX.eintegral_le_maxUtility _ _
 
 end ProbabilityTheory

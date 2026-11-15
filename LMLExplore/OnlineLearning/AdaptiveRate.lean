@@ -5,13 +5,15 @@ Authors: LMLExplore contributors
 -/
 module
 
+public import LMLExplore.Algebra.Order.Interval.Set.ProjIcc
 public import LMLExplore.Analysis.Convex.Smooth
 public import LMLExplore.Analysis.SumIntegralComparisons
+public import LMLExplore.OnlineLearning.Learner.Operations
 public import LMLExplore.OnlineLearning.SubgradientDescent
 import TauCeti.Analysis.Real.Sqrt
 
 /-!
-# Adaptive learning rates and `L⋆` bounds
+# Adaptive learning rates, `L⋆` bounds and AdaGrad
 
 The regret bound of mirror descent with nonincreasing learning rates `η t` and an `m`-strongly
 convex potential `F` is `B / η (n - 1) + ∑ t < n, η t / (2 m) * ‖y t‖ ^ 2`, where `B` bounds the
@@ -34,6 +36,25 @@ controlled by the losses, `‖g t‖ ^ 2 ≤ 2 s f t (a t)`, as for nonnegative 
 comparator `u`: it is at most `4 s D ^ 2 + 2 D √(s ∑ t < n, f t u)` [Ora, Theorem 4.30]. This
 **`L⋆` bound** is constant when the comparator has zero cumulative loss.
 
+**AdaGrad** [DHS11], [Ora, Section 4.2.4] adapts one learning rate per coordinate. On a box
+`∏ a, [l a, r a]` of `α → ℝ`, it runs in each coordinate `a` the adaptive projected online
+subgradient descent on the interval `[l a, r a]`, of diameter `D a = r a - l a`, with the learning
+rate `D a / √(2 ∑ s ≤ t, g s a ^ 2)` computed from that coordinate of the subgradients alone. It
+is the coordinatewise product (`OnlineLearner.pi`) of the one-dimensional learners
+`OnlineLearner.adaGradIcc`, so its linear regret is the sum of the regrets of the coordinates, and
+the one-dimensional case of [Ora, Theorem 4.14] gives the regret bound
+`√2 ∑ a, D a √(∑ t < n, g t a ^ 2)` [Ora, Theorem 4.32]. Since `|g t a| ≤ ‖g t‖`, this is at most
+`√2 (∑ a, D a) √(∑ t < n, ‖g t‖ ^ 2)`, for the sup norm of `α → ℝ`. Since each coordinate divides
+its step by the root of the sum of its own squared subgradients, the plays of AdaGrad are unchanged
+when each coordinate of every subgradient is multiplied by a positive constant of that coordinate.
+
+## Main definitions
+
+* `LMLExplore.OnlineLearning.OnlineLearner.adaGradIcc l r h x₀`: AdaGrad on the interval `[l, r]`,
+  that is, projected online subgradient descent on `[l, r]` with adaptive learning rates.
+* `LMLExplore.OnlineLearning.OnlineLearner.adaGrad l r h x₀`: AdaGrad on the box
+  `∏ a, [l a, r a]` [Ora, Algorithm 4.1].
+
 ## Main statements
 
 * `mirrorDescent_regret_le_two_mul_sqrt`: mirror descent with an `m`-strongly convex potential and
@@ -45,9 +66,18 @@ comparator `u`: it is at most `4 s D ^ 2 + 2 D √(s ∑ t < n, f t u)` [Ora, Th
   `4 s D ^ 2 + 2 D √(s ∑ t < n, f t u)` for losses with `‖g t‖ ^ 2 ≤ 2 s f t (a t)`.
 * `onlineSubgradientDescent_regret_le_of_selfBoundedOn`: its form for nonnegative `s`-self-bounded
   losses.
+* `OnlineLearner.hasRegretBound_adaGradIcc`: AdaGrad on an interval `[l, r]` has regret at most
+  `(r - l) √(2 ∑ t < n, g t ^ 2)` for linear losses.
+* `OnlineLearner.hasRegretBound_adaGrad`, `OnlineLearner.regret_run_adaGrad_le`:
+  [Ora, Theorem 4.32] AdaGrad on a box has regret at most `√2 ∑ a, D a √(∑ t < n, g t a ^ 2)`,
+  for linear and for convex losses.
+* `OnlineLearner.run_adaGrad_mul`: AdaGrad is coordinatewise scale-free (see
+  [Ora, Definition 4.33]).
 
 ## References
 
+* [DHS11] J. Duchi, E. Hazan and Y. Singer, *Adaptive subgradient methods for online learning and
+  stochastic optimization*, JMLR 12, 2011.
 * [Ora] F. Orabona, *Online learning: a modern introduction using convex optimization*,
   arXiv:1912.13213v10, 2026.
 -/
@@ -295,5 +325,200 @@ theorem onlineSubgradientDescent_regret_le_of_selfBoundedOn (hK : Convex ℝ K) 
   rwa [innerSL_apply_norm] at this
 
 end InnerProductSpace
+
+section AdaGrad
+
+open Set
+
+/-- The play of round `t` of `OnlineLearner.adaGradIcc l r h x₀` from the feedback `g` of the
+rounds `s < t`, by recursion on `t`. -/
+private noncomputable def adaGradIccPlay (l r : ℝ) (h : l ≤ r) (x₀ : ℝ) :
+    (t : ℕ) → (Fin t → ℝ) → ℝ
+  | 0, _ => projIcc l r h x₀
+  | t + 1, g => projIcc l r h (adaGradIccPlay l r h x₀ t (fun s ↦ g s.castSucc) -
+      (r - l) / √(2 * ∑ s, g s ^ 2) * g (Fin.last t))
+
+namespace OnlineLearner
+
+variable {C : Type*}
+
+section Interval
+
+variable {l r : ℝ} {h : l ≤ r} {x₀ : ℝ}
+
+/-- **AdaGrad on an interval** `[l, r]`: projected online subgradient descent on `[l, r]` with the
+adaptive learning rates of [Ora, Theorem 4.14], for the diameter `r - l`. Its feedback at round
+`t` is the derivative `g t` of a linear loss `x ↦ g t * x`, or a subgradient of a convex loss at
+the play. It plays first the projection of `x₀` onto `[l, r]`, then
+`x (t + 1) = projIcc l r h (x t - (r - l) / √(2 ∑ s ≤ t, g s ^ 2) * g t)`
+(`run_adaGradIcc_succ`). While the feedback observed so far vanishes, the learning rate is `0`
+with Lean's division, and the learner stays at its play. It ignores the contexts. -/
+noncomputable def adaGradIcc (l r : ℝ) (h : l ≤ r) (x₀ : ℝ) : OnlineLearner C ℝ ℝ where
+  play t hist _ := adaGradIccPlay l r h x₀ t fun s ↦ (hist s).2
+
+/-- The first play of AdaGrad on `[l, r]` is the projection of `x₀` onto `[l, r]`. -/
+@[simp]
+lemma run_adaGradIcc_zero (c : ℕ → C) (g : ℕ → ℝ) :
+    (adaGradIcc l r h x₀).run c g 0 = projIcc l r h x₀ := by
+  simp only [run_def, adaGradIcc, adaGradIccPlay]
+
+/-- The update of AdaGrad on `[l, r]`: the projection onto `[l, r]` of the subgradient step from
+the current play, with the learning rate `(r - l) / √(2 ∑ s ≤ t, g s ^ 2)`. -/
+lemma run_adaGradIcc_succ (c : ℕ → C) (g : ℕ → ℝ) (t : ℕ) :
+    (adaGradIcc l r h x₀).run c g (t + 1) = projIcc l r h ((adaGradIcc l r h x₀).run c g t -
+      (r - l) / √(2 * ∑ s ∈ range (t + 1), g s ^ 2) * g t) := by
+  rw [run_def, run_def]
+  simp only [adaGradIcc, adaGradIccPlay, Fin.val_castSucc, Fin.val_last,
+    Fin.sum_univ_eq_sum_range (fun s ↦ g s ^ 2)]
+
+/-- The plays of AdaGrad on `[l, r]` lie in `[l, r]`. -/
+lemma run_adaGradIcc_mem (c : ℕ → C) (g : ℕ → ℝ) (t : ℕ) :
+    (adaGradIcc l r h x₀).run c g t ∈ Icc l r := by
+  rcases t with _ | t
+  · rw [run_adaGradIcc_zero]
+    exact Subtype.mem _
+  · rw [run_adaGradIcc_succ]
+    exact Subtype.mem _
+
+/-- **AdaGrad on an interval is scale-free**: its plays are unchanged when every feedback is
+multiplied by the same positive constant. -/
+theorem run_adaGradIcc_const_mul {k : ℝ} (hk : 0 < k) (c : ℕ → C) (g : ℕ → ℝ) :
+    (adaGradIcc l r h x₀).run c (fun t ↦ k * g t) = (adaGradIcc l r h x₀).run c g := by
+  funext t
+  induction t with
+  | zero => rw [run_adaGradIcc_zero, run_adaGradIcc_zero]
+  | succ t ih =>
+    rw [run_adaGradIcc_succ, run_adaGradIcc_succ, ih]
+    -- the learning rate is divided by `k`, and the feedback multiplied by `k`
+    have h_sum : 2 * ∑ s ∈ range (t + 1), (k * g s) ^ 2 =
+        k ^ 2 * (2 * ∑ s ∈ range (t + 1), g s ^ 2) := by
+      simp only [mul_pow, ← mul_sum]
+      ring
+    rw [h_sum, Real.sqrt_sq_mul, abs_of_pos hk]
+    rcases eq_or_ne (√(2 * ∑ s ∈ range (t + 1), g s ^ 2)) 0 with h0 | h0
+    · simp [h0]
+    · congr 3
+      field_simp
+
+/-- **Regret guarantee of AdaGrad on an interval** [Ora, Theorem 4.14]. For linear losses
+`x ↦ g t * x` on `ℝ`, the regret of AdaGrad on `[l, r]` after `n` rounds against every `u ∈ [l, r]`
+is at most `(r - l) √(2 ∑ t < n, g t ^ 2)`. The learning rates need neither the horizon nor a bound
+on the feedback. -/
+theorem hasRegretBound_adaGradIcc :
+    (adaGradIcc (C := C) l r h x₀).HasRegretBound (fun g x ↦ g * x) (fun _ _ ↦ True) (Icc l r)
+      (fun n _ g _ ↦ (r - l) * √(2 * ∑ t ∈ range n, g t ^ 2)) := by
+  refine hasRegretBound_iff.mpr fun c g n _ u hu ↦ ?_
+  have h_mem := run_adaGradIcc_mem (l := l) (r := r) (h := h) (x₀ := x₀) c g
+  -- the step is a projected subgradient step on `[l, r]` for the losses `⟪g t, ·⟫ = g t * ·`
+  have h_step (t : ℕ) (_ : t < n) : (adaGradIcc l r h x₀).run c g (t + 1) ∈ Icc l r ∧
+      IsMinOn (fun b ↦ ‖b - ((adaGradIcc l r h x₀).run c g t -
+        ((r - l) / √(2 * ∑ s ∈ range (t + 1), ‖g s‖ ^ 2)) • g t)‖) (Icc l r)
+        ((adaGradIcc l r h x₀).run c g (t + 1)) := by
+    simp only [Real.norm_eq_abs, sq_abs, smul_eq_mul]
+    rw [run_adaGradIcc_succ]
+    exact ⟨Subtype.mem _, isMinOn_abs_sub_projIcc h _⟩
+  have h_dist (t : ℕ) (_ : t < n) : ‖u - (adaGradIcc l r h x₀).run c g t‖ ≤ r - l := by
+    rw [Real.norm_eq_abs, abs_sub_le_iff]
+    constructor <;> linarith [hu.1, hu.2, (h_mem t).1, (h_mem t).2]
+  have h_bound := onlineSubgradientDescent_regret_le_mul_sqrt_sum (convex_Icc l r)
+    (fun t ↦ innerSL ℝ (g t)) g _ (fun t _ ↦ hasSubgradientWithinAt_linear _) (h_mem 0) h_step
+    h_dist hu
+  simp only [Real.norm_eq_abs, sq_abs] at h_bound
+  convert h_bound using 1
+  simp only [regret_def, innerSL_apply_apply, Real.inner_apply]
+
+end Interval
+
+section Box
+
+variable {α : Type*} {l r : α → ℝ} {h : l ≤ r} {x₀ : α → ℝ}
+
+/-- **AdaGrad** on the box `∏ a, [l a, r a]` of `α → ℝ` [Ora, Algorithm 4.1]: the coordinatewise
+product (`OnlineLearner.pi`) of the learners AdaGrad on the intervals `[l a, r a]`. Its feedback at
+round `t` is a vector `g t : α → ℝ`, the gradient of a linear loss `x ↦ ∑ a, g t a * x a` or a
+subgradient of a convex loss at the play. Each coordinate `a` runs projected online subgradient
+descent on `[l a, r a]` with its own adaptive learning rate
+`(r a - l a) / √(2 ∑ s ≤ t, g s a ^ 2)` (`run_adaGrad_succ`), from the projection of `x₀` onto the
+box. It ignores the contexts. -/
+noncomputable def adaGrad (l r : α → ℝ) (h : l ≤ r) (x₀ : α → ℝ) :
+    OnlineLearner C (α → ℝ) (α → ℝ) :=
+  pi (G := fun _ ↦ ℝ) (X := fun _ ↦ ℝ) fun a ↦ adaGradIcc (l a) (r a) (h a) (x₀ a)
+
+/-- The coordinates of the plays of AdaGrad are the plays of AdaGrad on the intervals
+`[l a, r a]` against the coordinates of the feedback. -/
+lemma run_adaGrad (c : ℕ → C) (g : ℕ → α → ℝ) (t : ℕ) (a : α) :
+    (adaGrad l r h x₀).run c g t a = (adaGradIcc (l a) (r a) (h a) (x₀ a)).run c (g · a) t :=
+  run_pi (G := fun _ ↦ ℝ) (X := fun _ ↦ ℝ) _ c g t a
+
+/-- The first play of AdaGrad is the projection of `x₀` onto the box. -/
+@[simp]
+lemma run_adaGrad_zero (c : ℕ → C) (g : ℕ → α → ℝ) (a : α) :
+    (adaGrad l r h x₀).run c g 0 a = projIcc (l a) (r a) (h a) (x₀ a) := by
+  rw [run_adaGrad, run_adaGradIcc_zero]
+
+/-- The update of AdaGrad [Ora, Algorithm 4.1]: each coordinate takes a projected subgradient step
+on `[l a, r a]`, with the learning rate `(r a - l a) / √(2 ∑ s ≤ t, g s a ^ 2)` of that
+coordinate. -/
+lemma run_adaGrad_succ (c : ℕ → C) (g : ℕ → α → ℝ) (t : ℕ) (a : α) :
+    (adaGrad l r h x₀).run c g (t + 1) a = projIcc (l a) (r a) (h a)
+      ((adaGrad l r h x₀).run c g t a -
+        (r a - l a) / √(2 * ∑ s ∈ range (t + 1), g s a ^ 2) * g t a) := by
+  rw [run_adaGrad, run_adaGrad, run_adaGradIcc_succ]
+
+/-- The plays of AdaGrad lie in the box `∏ a, [l a, r a]`. -/
+lemma run_adaGrad_mem (c : ℕ → C) (g : ℕ → α → ℝ) (t : ℕ) :
+    (adaGrad l r h x₀).run c g t ∈ univ.pi fun a ↦ Icc (l a) (r a) := fun a _ ↦ by
+  rw [run_adaGrad]
+  exact run_adaGradIcc_mem c _ t
+
+/-- **AdaGrad is coordinatewise scale-free** (see [Ora, Definition 4.33]): its plays are unchanged
+when each coordinate of every feedback is multiplied by a positive constant of that coordinate. -/
+theorem run_adaGrad_mul {k : α → ℝ} (hk : ∀ a, 0 < k a) (c : ℕ → C) (g : ℕ → α → ℝ) :
+    (adaGrad l r h x₀).run c (fun t ↦ k * g t) = (adaGrad l r h x₀).run c g := by
+  funext t a
+  rw [run_adaGrad, run_adaGrad]
+  exact congrFun (run_adaGradIcc_const_mul (hk a) c fun s ↦ g s a) t
+
+variable [Fintype α]
+
+/-- **Regret guarantee of AdaGrad** [Ora, Theorem 4.32]. For linear losses
+`x ↦ ∑ a, g t a * x a` on `α → ℝ`, the regret of AdaGrad after `n` rounds against every `u` in the
+box `∏ a, [l a, r a]` is at most `√2 ∑ a, (r a - l a) √(∑ t < n, g t a ^ 2)`: the sum over the
+coordinates of the regret bounds of AdaGrad on the intervals. -/
+theorem hasRegretBound_adaGrad :
+    (adaGrad (C := C) l r h x₀).HasRegretBound (fun g x ↦ ∑ a, g a * x a) (fun _ _ ↦ True)
+      (univ.pi fun a ↦ Icc (l a) (r a))
+      (fun n _ g _ ↦ √2 * ∑ a, (r a - l a) * √(∑ t ∈ range n, g t a ^ 2)) := by
+  refine (HasRegretBound.pi (G := fun _ ↦ ℝ) (X := fun _ ↦ ℝ)
+    fun a ↦ hasRegretBound_adaGradIcc).mono (fun _ _ _ _ ↦ trivial) subset_rfl
+    fun n c g u _ _ ↦ le_of_eq ?_
+  rw [mul_sum]
+  refine sum_congr rfl fun a _ ↦ ?_
+  rw [Real.sqrt_mul zero_le_two]
+  ring
+
+/-- **AdaGrad on convex losses** [Ora, Theorem 4.32]. Let `g t` be a subgradient of the loss `f t`
+within the box `∏ a, [l a, r a]` at the play of round `t` of AdaGrad, for `t < n`: the linear map
+`x ↦ ∑ a, g t a * x a`. Then for every `u` in the box, the regret of AdaGrad after `n` rounds is at
+most `√2 ∑ a, (r a - l a) √(∑ t < n, g t a ^ 2)`. The feedback `g` may be chosen adaptively, as for
+the closed-loop runs (`OnlineLearner.closedLoopFeedback`). -/
+theorem regret_run_adaGrad_le (f : ℕ → (α → ℝ) → ℝ) (c : ℕ → C) (g : ℕ → α → ℝ) {n : ℕ}
+    (hg : ∀ t < n, HasSubgradientWithinAt (f t)
+      (∑ a, g t a • ContinuousLinearMap.proj a : (α → ℝ) →L[ℝ] ℝ)
+      (univ.pi fun a ↦ Icc (l a) (r a)) ((adaGrad l r h x₀).run c g t))
+    {u : α → ℝ} (hu : u ∈ univ.pi fun a ↦ Icc (l a) (r a)) :
+    regret f ((adaGrad l r h x₀).run c g) u n ≤
+      √2 * ∑ a, (r a - l a) * √(∑ t ∈ range n, g t a ^ 2) := by
+  rw [regret_def]
+  refine (sum_sub_le_sum_apply_sub_of_hasSubgradientWithinAt f _ _ hg hu).trans ?_
+  refine le_of_eq_of_le ?_ ((hasRegretBound_adaGrad (h := h) (x₀ := x₀)).regret_le (c := c)
+    (g := g) (fun _ _ ↦ trivial) hu)
+  simp [regret_def, mul_sub, sum_sub_distrib]
+
+end Box
+
+end OnlineLearner
+
+end AdaGrad
 
 end LMLExplore.OnlineLearning
