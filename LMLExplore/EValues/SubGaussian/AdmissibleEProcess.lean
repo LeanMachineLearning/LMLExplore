@@ -619,9 +619,7 @@ private lemma exists_coeffs_four {E : ℝ} (hE : E ≠ 0) (hE1 : E ≠ 1) (U₁ 
       - E * U₂ - 3 * E * U₃ + E * U₄ - 2 * U₄) / (E * (E - 1) ^ 3),
     (E ^ 2 * U₂ + 2 * E * U₁ - E * U₂ - 2 * E * U₃ + E * U₄ - U₄) / (E * (E - 1) ^ 3)],
     ?_, ?_, ?_, ?_⟩ <;>
-  · simp only [Fin.sum_univ_four, Fin.isValue, Matrix.cons_val_zero, Matrix.cons_val_one,
-      Matrix.cons_val, Fin.coe_ofNat_eq_mod, Nat.zero_mod, Nat.one_mod, Nat.reduceMod, Nat.mod_succ,
-      Nat.cast_zero, Nat.cast_one, Nat.cast_ofNat, pow_zero, pow_one, mul_zero, mul_one, zero_add]
+  · simp [Fin.sum_univ_four]
     field_simp
     ring
 
