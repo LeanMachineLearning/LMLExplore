@@ -6,6 +6,7 @@ Authors: LMLExplore contributors
 module
 
 public import Mathlib.Analysis.Calculus.Deriv.MeanValue
+import Mathlib.Analysis.Calculus.Deriv.Pow
 
 /-!
 # Comparing values of a function through the sign of its derivative
@@ -13,13 +14,17 @@ public import Mathlib.Analysis.Calculus.Deriv.MeanValue
 Mathlib's `monotoneOn_of_hasDerivWithinAt_nonneg` and `antitoneOn_of_hasDerivWithinAt_nonpos`
 turn the sign of a derivative on an interval into monotonicity. This file packages the two-sided
 form used to prove that a point is a maximum: if the derivative of `f` is nonnegative to the left
-of `x₀` and nonpositive to its right, then `f x ≤ f x₀` for every `x`.
+of `x₀` and nonpositive to its right, then `f x ≤ f x₀` for every `x`. It also gives the
+second-order lower bound that a lower bound on the second derivative gives on a convex set.
 
 ## Main statements
 
 * `LMLExplore.apply_le_apply_of_hasDerivAt_of_nonneg_of_nonpos`: if `f` is continuous on the
   segment between `x` and `x₀` and has derivative `f' y` at each `y` strictly between them, with
   `f' ≥ 0` on `(x, x₀)` and `f' ≤ 0` on `(x₀, x)`, then `f x ≤ f x₀`.
+* `LMLExplore.add_mul_add_mul_sq_le_of_le_deriv2`: if `c ≤ f''` on a convex set `I` containing
+  `a`, then `f` lies above its second-order polynomial `f a + f' a (x - a) + c / 2 (x - a) ^ 2`
+  on `I`.
 -/
 
 public section
@@ -49,5 +54,49 @@ theorem apply_le_apply_of_hasDerivAt_of_nonneg_of_nonpos {f f' : ℝ → ℝ} {x
       ⟨le_rfl, h0⟩ ⟨h0, le_rfl⟩ h0
     rw [interior_Icc]
     exact hpos
+
+/-- **Second-order lower bound.** If `c ≤ f''` on a convex set `I` containing `a`, then
+`f a + f' a * (x - a) + c / 2 * (x - a) ^ 2 ≤ f x` on `I`. -/
+theorem add_mul_add_mul_sq_le_of_le_deriv2 {f f' f'' : ℝ → ℝ} {I : Set ℝ} (hI : Convex ℝ I)
+    {a c : ℝ} (ha : a ∈ I) (hf : ∀ x, HasDerivAt f (f' x) x)
+    (hf' : ∀ x, HasDerivAt f' (f'' x) x) (hc : ∀ x ∈ I, c ≤ f'' x) {x : ℝ} (hx : x ∈ I) :
+    f a + f' a * (x - a) + c / 2 * (x - a) ^ 2 ≤ f x := by
+  set g := fun y ↦ f y - (f a + f' a * (y - a) + c / 2 * (y - a) ^ 2) with hg_def
+  set g' := fun y ↦ f' y - (f' a + c * (y - a)) with hg'_def
+  have h1 (y : ℝ) : HasDerivAt (fun y ↦ f a + f' a * (y - a) + c / 2 * (y - a) ^ 2)
+      (f' a + c * (y - a)) y := by
+    have h := (hasDerivAt_id y).sub_const a
+    exact (((h.const_mul (f' a)).const_add (f a)).add ((h.pow 2).const_mul (c / 2))).congr_deriv
+      (by simp only [id, Nat.cast_ofNat]; ring)
+  have hg (y : ℝ) : HasDerivAt g (g' y) y := (hf y).sub (h1 y)
+  have hg' (y : ℝ) : HasDerivAt g' (f'' y - c) y :=
+    (hf' y).sub (((((hasDerivAt_id y).sub_const a).const_mul c).const_add (f' a)).congr_deriv
+      (by simp))
+  have hmono : MonotoneOn g' I :=
+    monotoneOn_of_hasDerivWithinAt_nonneg hI
+      (fun y _ ↦ (hg' y).continuousAt.continuousWithinAt) (fun y _ ↦ (hg' y).hasDerivWithinAt)
+      fun y hy ↦ sub_nonneg.2 (hc y (interior_subset hy))
+  have hga : g a = 0 := by simp [g]
+  have hg'a : g' a = 0 := by simp [g']
+  suffices 0 ≤ g x by simp only [g] at this; linarith
+  rcases le_total a x with hax | hxa
+  · have h : MonotoneOn g (I ∩ Set.Ici a) :=
+      monotoneOn_of_hasDerivWithinAt_nonneg (hI.inter (convex_Ici a))
+        (fun y _ ↦ (hg y).continuousAt.continuousWithinAt) (fun y _ ↦ (hg y).hasDerivWithinAt)
+        fun y hy ↦ by
+          have hy' := interior_subset hy
+          rw [← hg'a]
+          exact hmono ha hy'.1 hy'.2
+    rw [← hga]
+    exact h ⟨ha, Set.mem_Ici.2 le_rfl⟩ ⟨hx, hax⟩ hax
+  · have h : AntitoneOn g (I ∩ Set.Iic a) :=
+      antitoneOn_of_hasDerivWithinAt_nonpos (hI.inter (convex_Iic a))
+        (fun y _ ↦ (hg y).continuousAt.continuousWithinAt) (fun y _ ↦ (hg y).hasDerivWithinAt)
+        fun y hy ↦ by
+          have hy' := interior_subset hy
+          rw [← hg'a]
+          exact hmono hy'.1 ha hy'.2
+    rw [← hga]
+    exact h ⟨hx, hxa⟩ ⟨ha, Set.mem_Iic.2 le_rfl⟩ hxa
 
 end LMLExplore

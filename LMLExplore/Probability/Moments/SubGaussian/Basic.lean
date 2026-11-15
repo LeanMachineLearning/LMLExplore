@@ -28,6 +28,8 @@ martingale bounds.
 
 * `ProbabilityTheory.HasSubgaussianMGF.integrable_of_sub_const`: if `X - a` is sub-Gaussian under
   a finite measure for a constant `a`, then `X` is integrable.
+* `ProbabilityTheory.HasSubgaussianMGF.of_lintegral_le`: if the lower integral of `exp (t X)` is
+  at most `exp (c t ^ 2 / 2)` for every `t`, then `X` is `c`-sub-Gaussian.
 * `ProbabilityTheory.HasCondSubgaussianMGF.of_ae_trim_condExp_le`: if `exp (t * X)` is integrable
   for every `t` and `E[exp (q * X) | m] ≤ exp (c * q ^ 2 / 2)` for every rational `q`, then `X` is
   conditionally `c`-sub-Gaussian given `m`.
@@ -59,6 +61,21 @@ theorem HasSubgaussianMGF.integrable_of_sub_const [IsFiniteMeasure μ] {a : ℝ}
     (h : HasSubgaussianMGF (fun ω ↦ X ω - a) c μ) : Integrable X μ :=
   (h.integrable.add (integrable_const a)).congr
     (ae_of_all _ fun ω ↦ by simp only [Pi.add_apply, sub_add_cancel])
+
+/-- If the lower integral of `exp (t X)` is at most `exp (c t ^ 2 / 2)` for every `t`, then `X`
+is `c`-sub-Gaussian: the bound makes every `exp (t X)` integrable, and it bounds its integral. -/
+theorem HasSubgaussianMGF.of_lintegral_le (hX : AEMeasurable X μ)
+    (h : ∀ t : ℝ, ∫⁻ ω, ENNReal.ofReal (Real.exp (t * X ω)) ∂μ ≤
+      ENNReal.ofReal (Real.exp (c * t ^ 2 / 2))) :
+    HasSubgaussianMGF X c μ := by
+  have hint (t : ℝ) : Integrable (fun ω ↦ Real.exp (t * X ω)) μ :=
+    ⟨(Real.measurable_exp.comp_aemeasurable (hX.const_mul t)).aestronglyMeasurable,
+      (hasFiniteIntegral_iff_ofReal (ae_of_all _ fun _ ↦ (Real.exp_pos _).le)).2
+        ((h t).trans_lt ENNReal.ofReal_lt_top)⟩
+  refine ⟨hint, fun t ↦ ?_⟩
+  rw [mgf, integral_eq_lintegral_of_nonneg_ae (ae_of_all _ fun _ ↦ (Real.exp_pos _).le)
+    (hint t).aestronglyMeasurable]
+  exact ENNReal.toReal_le_of_le_ofReal (Real.exp_pos _).le (h t)
 
 /-- **Conditional sub-Gaussianity from a conditional expectation bound.** If `exp (t * X)` is
 integrable for every `t` and, for every rational `q`, `E[exp (q * X) | m] ≤ exp (c * q ^ 2 / 2)`

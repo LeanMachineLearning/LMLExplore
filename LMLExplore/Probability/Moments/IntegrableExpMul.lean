@@ -8,6 +8,7 @@ module
 public import Mathlib.MeasureTheory.Integral.DominatedConvergence
 public import Mathlib.Probability.Moments.Basic
 public import Mathlib.Probability.Moments.IntegrableExpMul
+public import Mathlib.Probability.Moments.MGFAnalytic
 
 /-!
 # Exponential moments of a shifted or pushed-forward random variable
@@ -39,6 +40,10 @@ natural exponential family of the law of `T`.
   `E[exp (t (X - x))]` tends to `P(X = x)` as `t → ∞`.
 * `LMLExplore.integrableExpSet_id_map`, `LMLExplore.cgf_id_map`: the identity under the law of `X`
   has the exponential moments and the cumulant generating function of `X`.
+* `LMLExplore.integrable_pow_mul_exp_of_ae_abs_le`,
+  `LMLExplore.hasDerivAt_integral_pow_mul_exp_of_ae_abs_le`: if `|X| ≤ b` almost surely under a
+  finite measure, then every `X ^ n exp (t X)` is integrable, and the derivative of
+  `t ↦ E[X ^ n exp (t X)]` is `t ↦ E[X ^ (n + 1) exp (t X)]`.
 -/
 
 public section
@@ -125,5 +130,30 @@ the analogue of `ProbabilityTheory.mgf_id_map`. -/
 lemma cgf_id_map (hX : AEMeasurable X P) : cgf id (P.map X) = cgf X P := by
   ext t
   rw [cgf, cgf, mgf_id_map hX]
+
+/-- If `|X| ≤ b` almost surely under a finite measure, then `X ^ n exp (t X)` is integrable. -/
+lemma integrable_pow_mul_exp_of_ae_abs_le [IsFiniteMeasure P] (hX : AEMeasurable X P) {b : ℝ}
+    (hb : ∀ᵐ ω ∂P, |X ω| ≤ b) (n : ℕ) (t : ℝ) :
+    Integrable (fun ω ↦ X ω ^ n * exp (t * X ω)) P := by
+  refine Integrable.of_bound (by fun_prop) (|b| ^ n * exp (|t| * |b|)) ?_
+  filter_upwards [hb] with ω hω
+  have hωb : |X ω| ≤ |b| := hω.trans (le_abs_self b)
+  rw [norm_eq_abs, abs_mul, abs_pow, abs_exp]
+  refine mul_le_mul (pow_le_pow_left₀ (abs_nonneg _) hωb n) (exp_le_exp.2 ?_) (exp_pos _).le
+    (by positivity)
+  calc t * X ω ≤ |t * X ω| := le_abs_self _
+    _ = |t| * |X ω| := abs_mul _ _
+    _ ≤ |t| * |b| := mul_le_mul_of_nonneg_left hωb (abs_nonneg _)
+
+/-- If `|X| ≤ b` almost surely under a finite measure, then the derivative of
+`t ↦ E[X ^ n exp (t X)]` is `t ↦ E[X ^ (n + 1) exp (t X)]`. -/
+lemma hasDerivAt_integral_pow_mul_exp_of_ae_abs_le [IsFiniteMeasure P] (hX : AEMeasurable X P)
+    {b : ℝ} (hb : ∀ᵐ ω ∂P, |X ω| ≤ b) (n : ℕ) (t : ℝ) :
+    HasDerivAt (fun t ↦ ∫ ω, X ω ^ n * exp (t * X ω) ∂P)
+      (∫ ω, X ω ^ (n + 1) * exp (t * X ω) ∂P) t := by
+  refine hasDerivAt_integral_pow_mul_exp_real ?_ n
+  rw [interior_integrableExpSet_eq_univ fun t ↦ by
+    simpa using integrable_pow_mul_exp_of_ae_abs_le hX hb 0 t]
+  trivial
 
 end LMLExplore

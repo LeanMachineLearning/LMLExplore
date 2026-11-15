@@ -6,17 +6,26 @@ Authors: LMLExplore contributors
 module
 
 public import Mathlib.Probability.Independence.InfinitePi
+public import Mathlib.Probability.Process.Filtration
+import Mathlib.Probability.Independence.Integration
 
 /-!
 # Infinite products of probability measures: the first terms and the next terms
 
 Under the infinite product `Measure.infinitePi` of copies of a probability measure `μ`, the first
-`n` coordinates and the next `m` coordinates are independent.
+`n` coordinates and the next `m` coordinates are independent. In particular the coordinate
+`n + 1` is independent of the σ-algebra `Filtration.piLE n` of the first `n + 1` coordinates, so
+that integrating a function of it over an event of that σ-algebra factorizes.
 
 ## Main statements
 
 * `MeasureTheory.Measure.infinitePi_fin_mem_and_forall_add_mem`: for an i.i.d. sequence, the
   first `n` terms and the next `m` terms are independent.
+* `ProbabilityTheory.indep_piLE_comap_eval_succ`: for an i.i.d. sequence, the coordinate `n + 1`
+  is independent of the first `n + 1` coordinates.
+* `ProbabilityTheory.setLIntegral_infinitePi_comp_eval_succ`: for an event `s` of the first
+  `n + 1` coordinates of an i.i.d. sequence of law `μ`,
+  `∫⁻ ω in s, f (ω (n + 1)) ∂μ^ℕ = μ^ℕ s * ∫⁻ f ∂μ`.
 -/
 
 public section
@@ -67,3 +76,51 @@ theorem infinitePi_fin_mem_and_forall_add_mem {X : Type*} [MeasurableSpace X] (�
       Nat.add_sub_cancel_left]
 
 end MeasureTheory.Measure
+
+namespace ProbabilityTheory
+
+open MeasureTheory
+open scoped ENNReal
+
+variable {𝓧 : Type*} {m𝓧 : MeasurableSpace 𝓧}
+
+/-- Under an i.i.d. law, the coordinate `n + 1` is independent of the first `n + 1`
+coordinates. -/
+theorem indep_piLE_comap_eval_succ (μ : Measure 𝓧) [IsProbabilityMeasure μ] (n : ℕ) :
+    Indep (Filtration.piLE (X := fun _ : ℕ ↦ 𝓧) n) (m𝓧.comap fun ω : ℕ → 𝓧 ↦ ω (n + 1))
+      (Measure.infinitePi fun _ ↦ μ) := by
+  have h := (iIndepFun_infinitePi (P := fun _ : ℕ ↦ μ) (X := fun _ ↦ id)
+    fun _ ↦ measurable_id).indepFun_finset (Finset.Iic n) {n + 1} (by simp)
+    fun i ↦ measurable_pi_apply i
+  have h' : (fun ω : ℕ → 𝓧 ↦ Preorder.frestrictLe n ω)
+      ⟂ᵢ[Measure.infinitePi fun _ ↦ μ] fun ω ↦ ω (n + 1) := by
+    exact h.comp measurable_id (measurable_pi_apply ⟨n + 1, by simp⟩)
+  rw [Filtration.piLE_eq_comap_frestrictLe]
+  exact (IndepFun_iff_Indep _ _ _).mp h'
+
+/-- For an event `s` determined by the first `n + 1` coordinates of an i.i.d. sequence,
+`∫⁻ ω in s, f (ω (n + 1)) ∂μ^ℕ = μ^ℕ s * ∫⁻ f ∂μ`. -/
+theorem setLIntegral_infinitePi_comp_eval_succ (μ : Measure 𝓧) [IsProbabilityMeasure μ]
+    {f : 𝓧 → ℝ≥0∞} (hf : Measurable f) (n : ℕ) {s : Set (ℕ → 𝓧)}
+    (hs : MeasurableSet[Filtration.piLE (X := fun _ : ℕ ↦ 𝓧) n] s) :
+    ∫⁻ ω in s, f (ω (n + 1)) ∂(Measure.infinitePi fun _ ↦ μ) =
+      (Measure.infinitePi fun _ ↦ μ) s * ∫⁻ x, f x ∂μ := by
+  have hs' : MeasurableSet s := Filtration.le _ n _ hs
+  have h1 : Measurable[Filtration.piLE (X := fun _ : ℕ ↦ 𝓧) n]
+      (s.indicator (1 : (ℕ → 𝓧) → ℝ≥0∞)) :=
+    Measurable.indicator (m := Filtration.piLE (X := fun _ : ℕ ↦ 𝓧) n) measurable_const hs
+  calc ∫⁻ ω in s, f (ω (n + 1)) ∂(Measure.infinitePi fun _ ↦ μ)
+      = ∫⁻ ω, s.indicator 1 ω * f (ω (n + 1)) ∂(Measure.infinitePi fun _ ↦ μ) := by
+        rw [← lintegral_indicator hs']
+        congr 1 with ω
+        by_cases h : ω ∈ s <;> simp [h]
+    _ = (∫⁻ ω, s.indicator 1 ω ∂(Measure.infinitePi fun _ ↦ μ)) *
+          ∫⁻ ω, f (ω (n + 1)) ∂(Measure.infinitePi fun _ ↦ μ) :=
+        lintegral_mul_eq_lintegral_mul_lintegral_of_independent_measurableSpace
+          (Filtration.le _ n) (measurable_pi_apply (n + 1)).comap_le
+          (indep_piLE_comap_eval_succ μ n) h1 (hf.comp (comap_measurable _))
+    _ = (Measure.infinitePi fun _ ↦ μ) s * ∫⁻ x, f x ∂μ := by
+        rw [lintegral_indicator_one hs',
+          (measurePreserving_eval_infinitePi (fun _ ↦ μ) (n + 1)).lintegral_comp hf]
+
+end ProbabilityTheory

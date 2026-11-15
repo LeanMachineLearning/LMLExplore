@@ -8,14 +8,15 @@ module
 public import LMLExplore.EValues.EProcess.Admissible
 public import Mathlib.Probability.Moments.SubGaussian
 public import Mathlib.Probability.ProductMeasure
+import LMLExplore.Analysis.Calculus.MeanValue
 import LMLExplore.EValues.TestSupermartingale
+import LMLExplore.Probability.Distributions.Gaussian.Real
+import LMLExplore.Probability.Moments.IntegrableExpMul
+import LMLExplore.Probability.Moments.SubGaussian.Basic
+import LMLExplore.Probability.ProductMeasure
 import Mathlib.Analysis.Complex.ExponentialBounds
 import Mathlib.Analysis.Convex.Deriv
 import Mathlib.Analysis.SpecialFunctions.Log.Deriv
-import Mathlib.Probability.Distributions.Gaussian.Real
-import Mathlib.Probability.Independence.InfinitePi
-import Mathlib.Probability.Independence.Integration
-import Mathlib.Probability.Moments.MGFAnalytic
 import Statlib.ForMathlib.MeasureTheory.Measure.Decomposition.RNDerivProd
 import Statlib.ForMathlib.Probability.Process.Filtration
 
@@ -32,7 +33,8 @@ e-process, and it is admissible: every e-process that is at least `E` at every t
 under every member of the null, is equal to `E` at every time, almost surely under every member of
 the null. Ramdas, Ruf, Larsson and Koolen prove the admissibility of this process for the larger
 null of conditionally `1`-sub-Gaussian increments [RRLK, Theorem 35], and conjecture it for the
-nonatomic laws; this file proves that conjecture for the i.i.d. nonatomic laws.
+nonatomic laws; this file proves that conjecture for the i.i.d. nonatomic laws, following the
+proof of [EVR26, Note 02].
 
 ## Main statements
 
@@ -56,17 +58,30 @@ parameter `p = 1 / (1 + √e)` and `Z` is an independent centred Gaussian variab
 `6 p - 2`: a mixture of the four Gaussian laws `N_j = N (j - 3 p, 6 p - 2)` with binomial weights
 `w j`. Its moment generating function is `exp (t ^ 2 / 2 - 3 g t)`, where
 `g t = (1 - 2 p) t ^ 2 / 2 + p t - log (p e ^ t + 1 - p)` vanishes at `0` and at `1` and is
-otherwise positive, with a quadratic margin, by the Kearns–Saul inequality: `ν₀` is a touching
-law with strict slack away from `0` and `1`. The coefficients `c j` match the mass, the mean and
-the moments `∫ exp x` and `∫ x exp x` of `m`, which is possible because the moment vectors of the
-four components form a basis of `ℝ ^ 4`; so the perturbation vanishes to second order at `0` and
-`1`, and for `c₀ > 0` small the slack of the base law absorbs it.
+otherwise positive, with a quadratic margin, by the Kearns–Saul inequality [KS98]: `ν₀` is a
+touching law with strict slack away from `0` and `1`. The coefficients `c j` match the mass, the
+mean and the moments `∫ exp x` and `∫ x exp x` of `m`, which is possible because the moment
+vectors of the four components form a basis of `ℝ ^ 4`; so the perturbation vanishes to second
+order at `0` and `1`, and for `c₀ > 0` small the slack of the base law absorbs it.
+
+The proof is adapted from `EValuesResearch/Results/SubGaussian.lean` (commit `dd4072f`) in the
+paper project `RemyDegenne/evalues_research` (same author), the Lean proof of
+[EVR26, Note 02]. Its general helpers are in `LMLExplore.Analysis.Calculus.MeanValue`,
+`LMLExplore.Probability.ProductMeasure`, `LMLExplore.Probability.Moments.IntegrableExpMul`,
+`LMLExplore.Probability.Moments.SubGaussian.Basic` and
+`LMLExplore.Probability.Distributions.Gaussian.Real`.
 
 ## References
 
 * [RRLK] A. Ramdas, J. Ruf, M. Larsson and W. M. Koolen, *Admissible anytime-valid sequential
   inference must rely on nonnegative martingales*, arXiv:2009.03167v3: Theorem 35 and the
   conjecture that follows it.
+* [EVR26] *Answers to open questions in e-values and anytime-valid inference*, notes and the Lean
+  library `EValuesResearch` of github.com/RemyDegenne/evalues_research, 2026, written and refereed
+  by AI agents: Note 02 (`results/02-subgaussian-admissibility.md`), *Admissibility of the
+  sub-Gaussian exponential e-process for nonatomic laws*.
+* [KS98] M. Kearns and L. Saul, *Large deviation methods for approximate probabilistic inference*,
+  Proceedings of the Fourteenth Conference on Uncertainty in Artificial Intelligence (UAI 1998).
 -/
 
 public section
@@ -75,53 +90,6 @@ open MeasureTheory Filter
 open scoped ENNReal NNReal
 
 namespace ProbabilityTheory
-
-/-! ### The coordinates of an i.i.d. sequence -/
-
-section IID
-
-variable {𝓧 : Type*} {m𝓧 : MeasurableSpace 𝓧}
-
-/-- Under an i.i.d. law, the coordinate `n + 1` is independent of the first `n + 1`
-coordinates. -/
-private lemma indep_piLE_comap_eval_succ (μ : Measure 𝓧) [IsProbabilityMeasure μ] (n : ℕ) :
-    Indep (Filtration.piLE (X := fun _ : ℕ ↦ 𝓧) n) (m𝓧.comap fun ω : ℕ → 𝓧 ↦ ω (n + 1))
-      (Measure.infinitePi fun _ ↦ μ) := by
-  have h := (iIndepFun_infinitePi (P := fun _ : ℕ ↦ μ) (X := fun _ ↦ id)
-    fun _ ↦ measurable_id).indepFun_finset (Finset.Iic n) {n + 1} (by simp)
-    fun i ↦ measurable_pi_apply i
-  have h' : (fun ω : ℕ → 𝓧 ↦ Preorder.frestrictLe n ω)
-      ⟂ᵢ[Measure.infinitePi fun _ ↦ μ] fun ω ↦ ω (n + 1) := by
-    exact h.comp measurable_id (measurable_pi_apply ⟨n + 1, by simp⟩)
-  rw [Filtration.piLE_eq_comap_frestrictLe]
-  exact (IndepFun_iff_Indep _ _ _).mp h'
-
-/-- For an event `s` determined by the first `n + 1` coordinates of an i.i.d. sequence,
-`∫⁻ ω in s, f (ω (n + 1)) ∂μ^ℕ = μ^ℕ s * ∫⁻ f ∂μ`. -/
-private lemma setLIntegral_comp_eval_succ (μ : Measure 𝓧) [IsProbabilityMeasure μ]
-    {f : 𝓧 → ℝ≥0∞} (hf : Measurable f) (n : ℕ) {s : Set (ℕ → 𝓧)}
-    (hs : MeasurableSet[Filtration.piLE (X := fun _ : ℕ ↦ 𝓧) n] s) :
-    ∫⁻ ω in s, f (ω (n + 1)) ∂(Measure.infinitePi fun _ ↦ μ) =
-      (Measure.infinitePi fun _ ↦ μ) s * ∫⁻ x, f x ∂μ := by
-  have hs' : MeasurableSet s := Filtration.le _ n _ hs
-  have h1 : Measurable[Filtration.piLE (X := fun _ : ℕ ↦ 𝓧) n]
-      (s.indicator (1 : (ℕ → 𝓧) → ℝ≥0∞)) :=
-    Measurable.indicator (m := Filtration.piLE (X := fun _ : ℕ ↦ 𝓧) n) measurable_const hs
-  calc ∫⁻ ω in s, f (ω (n + 1)) ∂(Measure.infinitePi fun _ ↦ μ)
-      = ∫⁻ ω, s.indicator 1 ω * f (ω (n + 1)) ∂(Measure.infinitePi fun _ ↦ μ) := by
-        rw [← lintegral_indicator hs']
-        congr 1 with ω
-        by_cases h : ω ∈ s <;> simp [h]
-    _ = (∫⁻ ω, s.indicator 1 ω ∂(Measure.infinitePi fun _ ↦ μ)) *
-          ∫⁻ ω, f (ω (n + 1)) ∂(Measure.infinitePi fun _ ↦ μ) :=
-        lintegral_mul_eq_lintegral_mul_lintegral_of_independent_measurableSpace
-          (Filtration.le _ n) (measurable_pi_apply (n + 1)).comap_le
-          (indep_piLE_comap_eval_succ μ n) h1 (hf.comp (comap_measurable _))
-    _ = (Measure.infinitePi fun _ ↦ μ) s * ∫⁻ x, f x ∂μ := by
-        rw [lintegral_indicator_one hs',
-          (measurePreserving_eval_infinitePi (fun _ ↦ μ) (n + 1)).lintegral_comp hf]
-
-end IID
 
 /-! ### The exponential process is a test supermartingale -/
 
@@ -175,7 +143,7 @@ private lemma isTestSupermartingale_expProcess {N : Set (Measure ℝ)}
     exact (hN μ hμ).2
   · rintro _ ⟨μ, hμ, rfl⟩ s hs
     have := (hN μ hμ).1
-    rw [setLIntegral_comp_eval_succ μ measurable_expFactor k hs]
+    rw [setLIntegral_infinitePi_comp_eval_succ μ measurable_expFactor k hs]
     exact mul_le_of_le_one_right' (hN μ hμ).2
 
 /-- For i.i.d. sampling from a probability law `ν` with `∫⁻ exp (x - 1 / 2) ∂ν = 1`, the
@@ -192,7 +160,7 @@ private lemma lintegral_expProcess_of_touching {ν : Measure ℝ} [IsProbability
     (fun k ↦ measurable_expFactor_apply le_rfl)
     fun k ↦ ⟨measurable_expFactor.comp (measurable_pi_apply _), by
       rintro _ rfl s hs
-      rw [setLIntegral_comp_eval_succ ν measurable_expFactor k hs, hν, mul_one]⟩
+      rw [setLIntegral_infinitePi_comp_eval_succ ν measurable_expFactor k hs, hν, mul_one]⟩
   have := h.lintegral_eq (Set.mem_singleton _) n 0
   simp only [Finset.range_zero, Finset.prod_empty, mul_one] at this
   rw [← h0, this]
@@ -221,20 +189,6 @@ private lemma lintegral_expFactor_le_one {μ : Measure ℝ} (hμ : HasSubgaussia
       ≤ Real.exp (-(1 / 2)) * Real.exp (1 / 2) := by gcongr
     _ = 1 := by rw [← Real.exp_add]; simp
 
-/-- A measure whose Laplace transform is at most `exp (t ^ 2 / 2)`, as a lower integral, is
-`1`-sub-Gaussian. -/
-private lemma hasSubgaussianMGF_of_lintegral_le {μ : Measure ℝ}
-    (h : ∀ t : ℝ, ∫⁻ x, ENNReal.ofReal (Real.exp (t * x)) ∂μ ≤
-      ENNReal.ofReal (Real.exp (t ^ 2 / 2))) :
-    HasSubgaussianMGF id 1 μ := by
-  have hint (t : ℝ) : Integrable (fun x ↦ Real.exp (t * id x)) μ :=
-    ⟨by fun_prop, (hasFiniteIntegral_iff_ofReal (ae_of_all _ fun _ ↦ (Real.exp_pos _).le)).2
-      ((h t).trans_lt ENNReal.ofReal_lt_top)⟩
-  refine ⟨hint, fun t ↦ ?_⟩
-  rw [mgf, integral_eq_lintegral_of_nonneg_ae (ae_of_all _ fun _ ↦ (Real.exp_pos _).le)
-    (hint t).aestronglyMeasurable]
-  simpa using ENNReal.toReal_le_of_le_ofReal (Real.exp_pos _).le (h t)
-
 /-- The exponential process is an e-process for i.i.d. sampling from `1`-sub-Gaussian laws. -/
 private lemma isEProcess_expProcess :
     IsEProcess expProcess (Filtration.piLE (X := fun _ : ℕ ↦ ℝ))
@@ -248,53 +202,11 @@ private lemma isEProcess_expProcess :
   have := hμ.1
   infer_instance
 
-/-! ### A second-order lower bound -/
+/-! ### The Kearns–Saul gap
 
-/-- **Second-order lower bound.** If `c ≤ f''` on a convex set `I` containing `a`, then
-`f a + f' a * (x - a) + c / 2 * (x - a) ^ 2 ≤ f x` on `I`. -/
-private lemma add_mul_add_mul_sq_le_of_le_deriv2 {f f' f'' : ℝ → ℝ} {I : Set ℝ} (hI : Convex ℝ I)
-    {a c : ℝ} (ha : a ∈ I) (hf : ∀ x, HasDerivAt f (f' x) x)
-    (hf' : ∀ x, HasDerivAt f' (f'' x) x) (hc : ∀ x ∈ I, c ≤ f'' x) {x : ℝ} (hx : x ∈ I) :
-    f a + f' a * (x - a) + c / 2 * (x - a) ^ 2 ≤ f x := by
-  set g := fun y ↦ f y - (f a + f' a * (y - a) + c / 2 * (y - a) ^ 2) with hg_def
-  set g' := fun y ↦ f' y - (f' a + c * (y - a)) with hg'_def
-  have h1 (y : ℝ) : HasDerivAt (fun y ↦ f a + f' a * (y - a) + c / 2 * (y - a) ^ 2)
-      (f' a + c * (y - a)) y := by
-    have h := (hasDerivAt_id y).sub_const a
-    exact (((h.const_mul (f' a)).const_add (f a)).add ((h.pow 2).const_mul (c / 2))).congr_deriv
-      (by simp only [id, Nat.cast_ofNat]; ring)
-  have hg (y : ℝ) : HasDerivAt g (g' y) y := (hf y).sub (h1 y)
-  have hg' (y : ℝ) : HasDerivAt g' (f'' y - c) y :=
-    (hf' y).sub (((((hasDerivAt_id y).sub_const a).const_mul c).const_add (f' a)).congr_deriv
-      (by simp))
-  have hmono : MonotoneOn g' I :=
-    monotoneOn_of_hasDerivWithinAt_nonneg hI
-      (fun y _ ↦ (hg' y).continuousAt.continuousWithinAt) (fun y _ ↦ (hg' y).hasDerivWithinAt)
-      fun y hy ↦ sub_nonneg.2 (hc y (interior_subset hy))
-  have hga : g a = 0 := by simp [g]
-  have hg'a : g' a = 0 := by simp [g']
-  suffices 0 ≤ g x by simp only [g] at this; linarith
-  rcases le_total a x with hax | hxa
-  · have h : MonotoneOn g (I ∩ Set.Ici a) :=
-      monotoneOn_of_hasDerivWithinAt_nonneg (hI.inter (convex_Ici a))
-        (fun y _ ↦ (hg y).continuousAt.continuousWithinAt) (fun y _ ↦ (hg y).hasDerivWithinAt)
-        fun y hy ↦ by
-          have hy' := interior_subset hy
-          rw [← hg'a]
-          exact hmono ha hy'.1 hy'.2
-    rw [← hga]
-    exact h ⟨ha, Set.mem_Ici.2 le_rfl⟩ ⟨hx, hax⟩ hax
-  · have h : AntitoneOn g (I ∩ Set.Iic a) :=
-      antitoneOn_of_hasDerivWithinAt_nonpos (hI.inter (convex_Iic a))
-        (fun y _ ↦ (hg y).continuousAt.continuousWithinAt) (fun y _ ↦ (hg y).hasDerivWithinAt)
-        fun y hy ↦ by
-          have hy' := interior_subset hy
-          rw [← hg'a]
-          exact hmono hy'.1 ha hy'.2
-    rw [← hga]
-    exact h ⟨hx, hxa⟩ ⟨ha, Set.mem_Iic.2 le_rfl⟩ hxa
-
-/-! ### The Kearns–Saul gap -/
+For `p < 1 / 2`, the centred Bernoulli law of parameter `p` is sub-Gaussian with variance proxy
+`(1 - 2 p) / (2 log ((1 - p) / p))` [KS98]. For `p = 1 / (1 + √e)` this variance proxy is
+`1 - 2 p`, and the gap below is the slack in that bound. -/
 
 /-- The parameter `p = 1 / (1 + √e)` of the Bernoulli law in the base law. -/
 private noncomputable def ksParam : ℝ := 1 / (1 + Real.exp (1 / 2))
@@ -364,8 +276,7 @@ private lemma ksCurv_pos : 0 < 1 - 2 * ksParam - ksParam * (1 - ksParam) := by
   -- `(1 - 2 p - p (1 - p)) (1 + r) ^ 2 = r ^ 2 - r - 1` with `r = √e`
   have key : (1 - 2 * ksParam - ksParam * (1 - ksParam)) * (1 + Real.exp (1 / 2)) ^ 2 =
       Real.exp (1 / 2) ^ 2 - Real.exp (1 / 2) - 1 := by
-    have : ksParam = 1 / (1 + Real.exp (1 / 2)) := rfl
-    rw [this]
+    unfold ksParam
     field_simp
     ring
   have : 0 < Real.exp (1 / 2) ^ 2 - Real.exp (1 / 2) - 1 := by nlinarith
@@ -451,7 +362,7 @@ private lemma ksGap_one_sub (t : ℝ) : ksGap (1 - t) = ksGap t := by
   rw [ksGap, ksGap, hden, Real.log_mul (Real.exp_pos _).ne' (ksDen_pos t).ne', Real.log_exp]
   ring
 
-/-- **Kearns–Saul with a quadratic margin.** The gap is at least `κ min (t ^ 2, (t - 1) ^ 2)`
+/-- **Kearns–Saul with a quadratic margin** [KS98]. The gap is at least `κ min (t ^ 2, (t - 1) ^ 2)`
 for some `κ > 0`. -/
 private lemma exists_mul_min_le_ksGap :
     ∃ κ > 0, ∀ t, κ * min (t ^ 2) ((t - 1) ^ 2) ≤ ksGap t := by
@@ -492,7 +403,7 @@ private lemma exists_mul_min_le_ksGap :
   -- quadratic growth on `[1 - δ, ∞)`
   have hnear : ∀ x, 1 - δ ≤ x → κ₀ / 4 * (x - 1) ^ 2 ≤ ksGap x := by
     intro x hx
-    have := add_mul_add_mul_sq_le_of_le_deriv2 (convex_Ici (1 - δ)) (a := 1)
+    have := LMLExplore.add_mul_add_mul_sq_le_of_le_deriv2 (convex_Ici (1 - δ)) (a := 1)
       (Set.mem_Ici.2 (by linarith)) hasDerivAt_ksGap hasDerivAt_ksGap_deriv hG2ge
       (Set.mem_Ici.2 hx)
     have hG1one : (1 - 2 * ksParam) * 1 + ksParam - ksSigmoid 1 = 0 := by
@@ -569,26 +480,33 @@ private lemma baseVar_pos : 0 < baseVar := by
   unfold baseVar
   linarith [one_third_lt_ksParam]
 
+/-- **Binomial theorem for the weights of the base law.**
+`∑ j, w j x ^ j = (p x + 1 - p) ^ 3`. -/
+private lemma sum_baseWeight_mul_pow (x : ℝ) :
+    ∑ j, baseWeight j * x ^ (j : ℕ) = (ksParam * x + (1 - ksParam)) ^ 3 := by
+  rw [add_pow, ← Fin.sum_univ_eq_sum_range
+    (fun i ↦ (ksParam * x) ^ i * (1 - ksParam) ^ (3 - i) * (Nat.choose 3 i : ℝ))]
+  refine Finset.sum_congr rfl fun j _ ↦ ?_
+  rw [baseWeight, mul_pow]
+  ring
+
 /-- The weights of the base law sum to `1`. -/
 private lemma sum_baseWeight : ∑ j, baseWeight j = 1 := by
-  simp only [baseWeight, Fin.sum_univ_four, Fin.isValue, Fin.coe_ofNat_eq_mod, Nat.zero_mod,
-    Nat.choose_zero_right, Nat.cast_one, pow_zero, mul_one, tsub_zero, one_mul, Nat.one_mod,
-    Nat.choose_one_right, Nat.cast_ofNat, pow_one, Nat.add_one_sub_one, Nat.reduceMod,
-    Nat.choose_succ_self_right, Nat.reduceAdd, Nat.reduceSub, Nat.mod_succ, Nat.choose_self,
-    tsub_self]
-  ring
+  simpa using sum_baseWeight_mul_pow 1
 
 /-- Each weight of the base law is at least `p ^ 3`. -/
 private lemma pow_three_le_baseWeight (j : Fin 4) : ksParam ^ 3 ≤ baseWeight j := by
   have hp := ksParam_pos
   have hq : ksParam ≤ 1 - ksParam := by linarith [ksParam_lt_half]
-  have hq3 : ksParam ^ 3 ≤ (1 - ksParam) ^ 3 := pow_le_pow_left₀ hp.le hq 3
-  have hq2 : ksParam ^ 2 ≤ (1 - ksParam) ^ 2 := pow_le_pow_left₀ hp.le hq 2
-  fin_cases j <;>
-  simp only [baseWeight, Nat.choose_zero_right, Nat.cast_one, pow_zero, mul_one, tsub_zero,
-    one_mul, Nat.choose_one_right, Nat.cast_ofNat, pow_one, Nat.add_one_sub_one,
-    Nat.choose_succ_self_right, Nat.reduceAdd, Nat.reduceSub, Nat.choose_self, tsub_self] <;>
-  nlinarith [mul_le_mul_of_nonneg_left hq2 hp.le, mul_le_mul_of_nonneg_left hq (sq_nonneg ksParam)]
+  have hq0 : 0 ≤ 1 - ksParam := hp.le.trans hq
+  have hj : (j : ℕ) ≤ 3 := Nat.lt_succ_iff.1 j.2
+  calc ksParam ^ 3 = ksParam ^ (j : ℕ) * ksParam ^ (3 - (j : ℕ)) := by
+        rw [← pow_add, Nat.add_sub_cancel' hj]
+    _ ≤ ksParam ^ (j : ℕ) * (1 - ksParam) ^ (3 - (j : ℕ)) := by gcongr
+    _ ≤ baseWeight j := by
+      rw [baseWeight, mul_assoc]
+      exact le_mul_of_one_le_left (mul_nonneg (pow_nonneg hp.le _) (pow_nonneg hq0 _))
+        (Nat.one_le_cast.2 (Nat.choose_pos hj))
 
 /-- The moment generating function of the base law is `exp (t ^ 2 / 2 - 3 ksGap t)`. -/
 private lemma sum_baseWeight_mul_exp (t : ℝ) :
@@ -607,13 +525,8 @@ private lemma sum_baseWeight_mul_exp (t : ℝ) :
       simp only [ksGap, baseVar, Nat.cast_ofNat]
       ring
     rw [h3, Real.exp_add, Real.exp_nat_mul, Real.exp_log (ksDen_pos t)]
-  simp_rw [h]
-  rw [hR, Fin.sum_univ_four]
-  simp only [baseWeight, Fin.isValue, Fin.coe_ofNat_eq_mod, Nat.zero_mod, Nat.choose_zero_right,
-    Nat.cast_one, pow_zero, mul_one, tsub_zero, one_mul, Nat.one_mod, Nat.choose_one_right,
-    Nat.cast_ofNat, pow_one, Nat.add_one_sub_one, Nat.reduceMod, Nat.choose_succ_self_right,
-    Nat.reduceAdd, Nat.reduceSub, Nat.mod_succ, Nat.choose_self, tsub_self]
-  ring
+  simp_rw [h, mul_left_comm _ (Real.exp (baseVar * t ^ 2 / 2 - 3 * ksParam * t)), ← Finset.mul_sum,
+    sum_baseWeight_mul_pow, hR]
 
 /-- The base law has strict slack: `exp (-3 ksGap t) ≤ 1 - κ min (t ^ 2, (t - 1) ^ 2, 1)` for
 some `κ > 0`. -/
@@ -656,7 +569,7 @@ private lemma exists_exp_mul_le_mul_min {D D1 D2 : ℝ → ℝ} (hD : ∀ x, Has
       (ht : t ∈ Set.Icc (a - 1 / 2) (a + 1 / 2)) : D t ≤ C / 2 * (t - a) ^ 2 := by
     have hsub : Set.Icc (a - 1 / 2) (a + 1 / 2) ⊆ Set.Icc (-1 / 2) (3 / 2) :=
       Set.Icc_subset_Icc (by linarith [ha.1]) (by linarith [ha.2])
-    have := add_mul_add_mul_sq_le_of_le_deriv2 (f := fun x ↦ -D x) (f' := fun x ↦ -D1 x)
+    have := LMLExplore.add_mul_add_mul_sq_le_of_le_deriv2 (f := fun x ↦ -D x) (f' := fun x ↦ -D1 x)
       (f'' := fun x ↦ -D2 x) (convex_Icc _ _) (a := a) (c := -C)
       ⟨by linarith, by linarith⟩ (fun x ↦ (hD x).neg) (fun x ↦ (hD1 x).neg)
       (fun x hx ↦ neg_le_neg ((le_abs_self _).trans (hC x (hsub hx)))) ht
@@ -743,16 +656,15 @@ private lemma exists_base_coeffs (T₁ T₂ T₃ T₄ : ℝ) :
     congr 1
     simp only [baseMean]
     ring
-  have hmean (j : Fin 4) : baseMean j = (j : ℕ) - 3 * ksParam := rfl
   refine ⟨c, h1, ?_, ?_, ?_⟩
-  · simp only [hmean]
+  · simp only [baseMean]
     simp only [Fin.sum_univ_four] at h1 h2 ⊢
     linear_combination h2 - 3 * ksParam * h1
   · simp only [hexp]
     simp only [Fin.sum_univ_four] at h3 ⊢
     linear_combination Q * h3 + T₃ * hQ
   · simp only [hexp]
-    simp only [hmean]
+    simp only [baseMean]
     simp only [Fin.sum_univ_four] at h3 h4 ⊢
     linear_combination Q * h4 + Q * (baseVar - 3 * ksParam) * h3 + T₄ * hQ
 
@@ -763,32 +675,14 @@ private lemma ae_mem_Icc_of_measure_compl {m : Measure ℝ} {b : ℝ} (hb : m (S
     ∀ᵐ x ∂m, x ∈ Set.Icc (-b) b :=
   ae_iff.2 hb
 
+/-- A measure carried by `[-b, b]` is almost surely of absolute value at most `b`. -/
+private lemma ae_abs_le_of_measure_compl {m : Measure ℝ} {b : ℝ} (hb : m (Set.Icc (-b) b)ᶜ = 0) :
+    ∀ᵐ x ∂m, |x| ≤ b :=
+  (ae_mem_Icc_of_measure_compl hb).mono fun _ hx ↦ abs_le.2 hx
+
 section Perturbation
 
 variable {m : Measure ℝ} [IsFiniteMeasure m] {b : ℝ}
-
-/-- Under a finite measure carried by `[-b, b]`, `x ^ n exp (t x)` is integrable. -/
-private lemma integrable_pow_mul_exp_of_measure_compl (hb : m (Set.Icc (-b) b)ᶜ = 0) (n : ℕ)
-    (t : ℝ) : Integrable (fun x ↦ x ^ n * Real.exp (t * x)) m := by
-  refine Integrable.of_bound (by fun_prop) (|b| ^ n * Real.exp (|t| * |b|)) ?_
-  filter_upwards [ae_mem_Icc_of_measure_compl hb] with x hx
-  have hxb : |x| ≤ |b| := (abs_le.2 hx).trans (le_abs_self b)
-  rw [Real.norm_eq_abs, abs_mul, abs_pow, Real.abs_exp]
-  refine mul_le_mul (pow_le_pow_left₀ (abs_nonneg _) hxb n) (Real.exp_le_exp.2 ?_)
-    (Real.exp_pos _).le (by positivity)
-  calc t * x ≤ |t * x| := le_abs_self _
-    _ = |t| * |x| := abs_mul _ _
-    _ ≤ |t| * |b| := mul_le_mul_of_nonneg_left hxb (abs_nonneg _)
-
-/-- Under a finite measure carried by `[-b, b]`, the derivative of `t ↦ ∫ x ^ n exp (t x)` is
-`t ↦ ∫ x ^ (n + 1) exp (t x)`. -/
-private lemma hasDerivAt_integral_pow_mul_exp_of_measure_compl (hb : m (Set.Icc (-b) b)ᶜ = 0)
-    (n : ℕ) (t : ℝ) :
-    HasDerivAt (fun t ↦ ∫ x, x ^ n * Real.exp (t * x) ∂m)
-      (∫ x, x ^ (n + 1) * Real.exp (t * x) ∂m) t := by
-  have h : integrableExpSet (fun x ↦ x) m = Set.univ := Set.eq_univ_of_forall fun t ↦ by
-    simpa [integrableExpSet] using integrable_pow_mul_exp_of_measure_compl hb 0 t
-  exact hasDerivAt_integral_pow_mul_exp_real (X := fun x ↦ x) (by rw [h, interior_univ]; trivial) n
 
 /-- Under a finite measure carried by `[-b, b]`,
 `exp (-t ^ 2 / 2) ∫ exp (t x) ≤ exp (b ^ 2 / 2) m(ℝ)`. -/
@@ -798,7 +692,8 @@ private lemma exp_neg_mul_integral_exp_le (hb : m (Set.Icc (-b) b)ᶜ = 0) (t : 
   rw [← integral_const_mul]
   calc ∫ x, Real.exp (-(t ^ 2 / 2)) * Real.exp (t * x) ∂m ≤ ∫ _, Real.exp (b ^ 2 / 2) ∂m := by
         refine integral_mono_ae ?_ (integrable_const _) ?_
-        · simpa using (integrable_pow_mul_exp_of_measure_compl hb 0 t).const_mul
+        · simpa using (LMLExplore.integrable_pow_mul_exp_of_ae_abs_le measurable_id.aemeasurable
+            (ae_abs_le_of_measure_compl hb) 0 t).const_mul
             (Real.exp (-(t ^ 2 / 2)))
         · filter_upwards [ae_mem_Icc_of_measure_compl hb] with x hx
           rw [← Real.exp_add]
@@ -807,22 +702,42 @@ private lemma exp_neg_mul_integral_exp_le (hb : m (Set.Icc (-b) b)ᶜ = 0) (t : 
             (by linarith [hx.1] : (0 : ℝ) ≤ b + x)]
     _ = Real.exp (b ^ 2 / 2) * m.real Set.univ := by rw [integral_const, smul_eq_mul, mul_comm]
 
-/-- The Laplace transform of a finite measure carried by `[-b, b]`, as a Lebesgue integral. -/
-private lemma lintegral_ofReal_exp_of_measure_compl (hb : m (Set.Icc (-b) b)ᶜ = 0) (t : ℝ) :
-    ∫⁻ x, ENNReal.ofReal (Real.exp (t * x)) ∂m = ENNReal.ofReal (∫ x, Real.exp (t * x) ∂m) :=
-  (ofReal_integral_eq_lintegral_ofReal
-    (by simpa using integrable_pow_mul_exp_of_measure_compl hb 0 t)
-    (ae_of_all _ fun _ ↦ (Real.exp_pos _).le)).symm
+/-- For `v < 1`, `exp (-t ^ 2 / 2) exp (a t + v t ^ 2 / 2) ≤ exp (a ^ 2 / (2 (1 - v)))`: the
+maximum over `t` of the exponent is attained at `t = a / (1 - v)`. -/
+private lemma exp_neg_mul_exp_le {v : ℝ} (hv : v < 1) (a t : ℝ) :
+    Real.exp (-(t ^ 2 / 2)) * Real.exp (a * t + v * t ^ 2 / 2) ≤
+      Real.exp (a ^ 2 / (2 * (1 - v))) := by
+  have hk : 0 < 1 - v := by linarith
+  rw [← Real.exp_add]
+  refine Real.exp_le_exp.2 ?_
+  rw [le_div_iff₀ (by positivity)]
+  nlinarith [sq_nonneg ((1 - v) * t - a)]
+
+/-- The Laplace transform, as a lower integral, of the mixture `∑ j, w j N (a j, v) + c₀ m` of
+Gaussian laws and of a finite measure `m` carried by `[-b, b]`. -/
+private lemma lintegral_ofReal_exp_mul_mixture {ι : Type*} [Fintype ι] {w : ι → ℝ}
+    (hw : ∀ j, 0 ≤ w j) (a : ι → ℝ) (v : ℝ≥0) {c₀ : ℝ} (hc₀ : 0 ≤ c₀)
+    (hb : m (Set.Icc (-b) b)ᶜ = 0) (t : ℝ) :
+    ∫⁻ x, ENNReal.ofReal (Real.exp (t * x))
+        ∂(∑ j, ENNReal.ofReal (w j) • gaussianReal (a j) v + ENNReal.ofReal c₀ • m) =
+      ENNReal.ofReal (∑ j, w j * Real.exp (a j * t + v * t ^ 2 / 2) +
+        c₀ * ∫ x, Real.exp (t * x) ∂m) := by
+  have hint : Integrable (fun x ↦ Real.exp (t * x)) m := by
+    simpa using LMLExplore.integrable_pow_mul_exp_of_ae_abs_le measurable_id.aemeasurable
+      (ae_abs_le_of_measure_compl hb) 0 t
+  have hw' (j : ι) : 0 ≤ w j * Real.exp (a j * t + v * t ^ 2 / 2) :=
+    mul_nonneg (hw j) (Real.exp_pos _).le
+  rw [lintegral_add_measure, lintegral_finsetSum_measure, lintegral_smul_measure,
+    ← ofReal_integral_eq_lintegral_ofReal hint (ae_of_all _ fun _ ↦ (Real.exp_pos _).le),
+    ENNReal.ofReal_add (Finset.sum_nonneg fun j _ ↦ hw' j)
+      (mul_nonneg hc₀ (integral_nonneg fun _ ↦ (Real.exp_pos _).le)),
+    ENNReal.ofReal_sum_of_nonneg fun j _ ↦ hw' j, ENNReal.ofReal_mul hc₀, smul_eq_mul]
+  congr 1
+  refine Finset.sum_congr rfl fun j _ ↦ ?_
+  rw [lintegral_smul_measure, LMLExplore.lintegral_ofReal_exp_mul_gaussianReal, smul_eq_mul,
+    ENNReal.ofReal_mul (hw j)]
 
 end Perturbation
-
-/-- The moment generating function of a Gaussian law, as a Lebesgue integral. -/
-private lemma lintegral_ofReal_exp_gaussianReal (μ : ℝ) (v : ℝ≥0) (t : ℝ) :
-    ∫⁻ x, ENNReal.ofReal (Real.exp (t * x)) ∂gaussianReal μ v =
-      ENNReal.ofReal (Real.exp (μ * t + v * t ^ 2 / 2)) := by
-  rw [← ofReal_integral_eq_lintegral_ofReal (integrable_exp_mul_gaussianReal t)
-    (ae_of_all _ fun _ ↦ (Real.exp_pos _).le)]
-  exact congrArg ENNReal.ofReal (congrFun mgf_fun_id_gaussianReal t)
 
 /-- **Polar sets**: every finite nonatomic measure `m` carried by `[-b, b]` is absolutely
 continuous with respect to a nonatomic `1`-sub-Gaussian law `ν` with `∫⁻ exp (x - 1 / 2) ∂ν = 1`.
@@ -841,7 +756,8 @@ private lemma exists_touching_absolutelyContinuous {m : Measure ℝ} [IsFiniteMe
   set D : ℝ → ℝ := fun t ↦ F 0 t - ∑ j, c j * g j t with hD_def
   have hF0 (t : ℝ) : F 0 t = ∫ x, Real.exp (t * x) ∂m := by simp [F]
   have hFd (n : ℕ) (t : ℝ) : HasDerivAt (F n) (F (n + 1) t) t :=
-    hasDerivAt_integral_pow_mul_exp_of_measure_compl hb n t
+    LMLExplore.hasDerivAt_integral_pow_mul_exp_of_ae_abs_le (X := fun x ↦ x)
+      measurable_id.aemeasurable (ae_abs_le_of_measure_compl hb) n t
   have hgd (j : Fin 4) (t : ℝ) : HasDerivAt (g j) ((baseMean j + baseVar * t) * g j t) t := by
     have := ((hasDerivAt_id t).const_mul (baseMean j)).add
       (((hasDerivAt_pow 2 t).const_mul baseVar).div_const 2)
@@ -869,25 +785,17 @@ private lemma exists_touching_absolutelyContinuous {m : Measure ℝ} [IsFiniteMe
   have h1' : F 1 1 - ∑ j, c j * ((baseMean j + baseVar * 1) * g j 1) = 0 := by
     simp [F, g, hc4]
   -- a global upper bound for `exp (-t ^ 2 / 2) D t`
-  have hk : 0 < 1 - baseVar := by unfold baseVar; linarith [ksParam_lt_half]
+  have hk : baseVar < 1 := by unfold baseVar; linarith [ksParam_lt_half]
   have hL₀ (t : ℝ) : Real.exp (-(t ^ 2 / 2)) * D t ≤ Real.exp (b ^ 2 / 2) * m.real Set.univ +
       ∑ j, |c j| * Real.exp (baseMean j ^ 2 / (2 * (1 - baseVar))) := by
     have hj (j : Fin 4) : -(c j * (Real.exp (-(t ^ 2 / 2)) * g j t)) ≤
-        |c j| * Real.exp (baseMean j ^ 2 / (2 * (1 - baseVar))) := by
-      have h1 : Real.exp (-(t ^ 2 / 2)) * g j t ≤
-          Real.exp (baseMean j ^ 2 / (2 * (1 - baseVar))) := by
-        simp only [g]
-        rw [← Real.exp_add]
-        refine Real.exp_le_exp.2 ?_
-        rw [le_div_iff₀ (by positivity)]
-        nlinarith [sq_nonneg ((1 - baseVar) * t - baseMean j)]
-      have h2 : 0 ≤ Real.exp (-(t ^ 2 / 2)) * g j t := by positivity
+        |c j| * Real.exp (baseMean j ^ 2 / (2 * (1 - baseVar))) :=
       calc -(c j * (Real.exp (-(t ^ 2 / 2)) * g j t))
           ≤ |c j| * (Real.exp (-(t ^ 2 / 2)) * g j t) := by
             rw [← neg_mul]
-            exact mul_le_mul_of_nonneg_right (neg_le_abs _) h2
+            exact mul_le_mul_of_nonneg_right (neg_le_abs _) (by positivity)
         _ ≤ |c j| * Real.exp (baseMean j ^ 2 / (2 * (1 - baseVar))) :=
-            mul_le_mul_of_nonneg_left h1 (abs_nonneg _)
+            mul_le_mul_of_nonneg_left (exp_neg_mul_exp_le hk _ t) (abs_nonneg _)
     have hsum := Finset.sum_le_sum fun j (_ : j ∈ Finset.univ) ↦ hj j
     have hm := exp_neg_mul_integral_exp_le hb t
     have heq : Real.exp (-(t ^ 2 / 2)) * D t = Real.exp (-(t ^ 2 / 2)) * F 0 t +
@@ -896,8 +804,7 @@ private lemma exists_touching_absolutelyContinuous {m : Measure ℝ} [IsFiniteMe
           -(Real.exp (-(t ^ 2 / 2)) * ∑ j, c j * g j t) := by
         rw [Finset.sum_neg_distrib, Finset.mul_sum]
         exact congrArg Neg.neg (Finset.sum_congr rfl fun j _ ↦ by ring)
-      rw [hs]
-      change Real.exp (-(t ^ 2 / 2)) * (F 0 t - ∑ j, c j * g j t) = _
+      simp only [hs, hD_def]
       ring
     rw [heq, hF0]
     linarith
@@ -948,17 +855,8 @@ private lemma exists_touching_absolutelyContinuous {m : Measure ℝ} [IsFiniteMe
       gaussianReal (baseMean j) baseVar.toNNReal + ENNReal.ofReal c₀ • m with hν
   have hmgf (t : ℝ) : ∫⁻ x, ENNReal.ofReal (Real.exp (t * x)) ∂ν =
       ENNReal.ofReal (∑ j, (baseWeight j - c₀ * c j) * g j t + c₀ * F 0 t) := by
-    rw [hν, lintegral_add_measure, lintegral_finsetSum_measure, lintegral_smul_measure,
-      lintegral_ofReal_exp_of_measure_compl hb, ← hF0,
-      ENNReal.ofReal_add (Finset.sum_nonneg fun j _ ↦ mul_nonneg (hw j) (Real.exp_pos _).le)
-        (mul_nonneg hc₀pos.le (by rw [hF0]; exact integral_nonneg fun _ ↦ (Real.exp_pos _).le)),
-      ENNReal.ofReal_sum_of_nonneg fun j _ ↦ mul_nonneg (hw j) (Real.exp_pos _).le,
-      ENNReal.ofReal_mul hc₀pos.le, smul_eq_mul]
-    congr 1
-    refine Finset.sum_congr rfl fun j _ ↦ ?_
-    rw [lintegral_smul_measure, lintegral_ofReal_exp_gaussianReal, hvar, smul_eq_mul,
-      ENNReal.ofReal_mul (hw j)]
-  refine ⟨ν, ⟨?_⟩, ⟨fun x ↦ ?_⟩, hasSubgaussianMGF_of_lintegral_le fun t ↦ ?_, ?_,
+    rw [hν, lintegral_ofReal_exp_mul_mixture hw baseMean _ hc₀pos.le hb, hvar, hF0]
+  refine ⟨ν, ⟨?_⟩, ⟨fun x ↦ ?_⟩, HasSubgaussianMGF.of_lintegral_le aemeasurable_id fun t ↦ ?_, ?_,
     fun s hs ↦ ?_⟩
   · have h := hmgf 0
     rw [hreal 0, ksGap_zero, h0] at h
@@ -967,7 +865,8 @@ private lemma exists_touching_absolutelyContinuous {m : Measure ℝ} [IsFiniteMe
       have := nullSingletonClass_gaussianReal (μ := baseMean j) hv
       exact measure_singleton x
     simp [ν, hg]
-  · rw [hmgf]
+  · simp only [id, NNReal.coe_one, one_mul]
+    rw [hmgf]
     exact ENNReal.ofReal_le_ofReal (hle t)
   · have he : Real.exp (-(1 / 2)) * Real.exp (1 / 2) = 1 := by
       rw [← Real.exp_add]
@@ -1035,7 +934,8 @@ laws on `ℕ → ℝ` whose marginal is `1`-sub-Gaussian and has no atom, with t
 admissible e-process: every e-process that is at least it at every time, almost surely under every
 member of the null, is equal to it at every time, almost surely under every member of the null.
 [RRLK] proves this for the larger null of conditionally `1`-sub-Gaussian increments
-[RRLK, Theorem 35] and conjectures it for the nonatomic laws. -/
+[RRLK, Theorem 35] and conjectures it for the nonatomic laws; the proof follows
+[EVR26, Note 02]. -/
 theorem isAdmissibleEProcess_ofReal_exp_sum_sub_iid :
     IsAdmissibleEProcess
       (fun n ω ↦ ENNReal.ofReal (Real.exp (∑ i ∈ Finset.range (n + 1), ω i - (n + 1) / 2)))
