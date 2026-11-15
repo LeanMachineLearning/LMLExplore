@@ -6,6 +6,7 @@ Authors: LMLExplore contributors
 module
 
 public import Statlib.EValues.RIPr
+public import LMLExplore.EValues.EVariable
 public import LMLExplore.MeasureTheory.Integral.Lebesgue.Add
 public import LMLExplore.MeasureTheory.Measure.AbsolutelyContinuousSet
 
@@ -140,14 +141,6 @@ theorem mem_effectiveSet_of_tendsto {ι : Type*} {l : Filter ι} [l.NeBot] {μs 
     (h : ∀ s, MeasurableSet s → Tendsto (fun i ↦ μs i s) l (𝓝 (μ s))) :
     μ ∈ effectiveSet S :=
   mem_effectiveSet_of_measure_le_liminf hμs fun s hs ↦ (h s hs).liminf_eq.ge
-
-/-- For a measurable set `s` that is null for every member of `S`, the function equal to `∞` on
-`s` and to `1` elsewhere is an e-variable for `S`. -/
-theorem isEVar_piecewise_top {s : Set Ω} [DecidablePred (· ∈ s)] (hs : MeasurableSet s)
-    (hS : ∀ P ∈ S, P s = 0) : IsEVar (s.piecewise (fun _ ↦ ∞) 1) S :=
-  (isEVar_one S).congr (measurable_const.piecewise hs measurable_const) fun P hP ↦ by
-    filter_upwards [measure_eq_zero_iff_ae_notMem.mp (hS P hP)] with ω hω
-    simp [hω]
 
 /-- A measurable set that is null for every member of `S` is null for every member of the
 effective null of `S`. -/

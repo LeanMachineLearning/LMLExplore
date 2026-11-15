@@ -27,7 +27,8 @@ The finiteness of `X` is automatic when `Q` is absolutely continuous with respec
 `Q.AbsolutelyContinuousSet S`, defined in
 `LMLExplore.MeasureTheory.Measure.AbsolutelyContinuousSet`: every measurable set that is null for
 every member of `S` is `Q`-null. This holds exactly when every e-variable for `S` is `Q`-almost
-surely finite [LRR25, Theorem 2.6].
+surely finite (`ProbabilityTheory.absolutelyContinuousSet_iff_forall_isEVar_ae_ne_top`, in
+`LMLExplore.EValues.EVariable`) [LRR25, Theorem 2.6].
 
 The verification theorem turns the search for the numeraire into checking one integral inequality
 per e-variable, or per member of the null. For a likelihood ratio `Q.rnDeriv R` against a member
@@ -41,9 +42,6 @@ topology is assumed, except in the dominated criterion, which names its referenc
 
 ## Main statements
 
-* `ProbabilityTheory.absolutelyContinuousSet_iff_forall_isEVar_ae_ne_top`: `Q` is absolutely
-  continuous with respect to `S` exactly when every e-variable for `S` is `Q`-almost surely finite
-  [LRR25, Theorem 2.6].
 * `ProbabilityTheory.withDensity_inv_mem_effectiveSet_iff`: `Q.withDensity X⁻¹` is in the
   effective null exactly when `∫⁻ Y / X ∂Q ≤ 1` for every e-variable `Y`.
 * `ProbabilityTheory.isNumeraire_iff_withDensity_inv_mem_effectiveSet`: **the verification
@@ -91,22 +89,6 @@ variable {Ω : Type*} {mΩ : MeasurableSpace Ω} {S : Set (Measure Ω)} {P Q R :
 namespace ProbabilityTheory
 
 open Measure
-
-/-- An e-variable for `S` is almost surely finite under a measure absolutely continuous with
-respect to `S` [LRR25, Theorem 2.6]. -/
-theorem _root_.MeasureTheory.Measure.AbsolutelyContinuousSet.ae_ne_top
-    (hQS : Q.AbsolutelyContinuousSet S) (hX : IsEVar X S) : ∀ᵐ ω ∂Q, X ω ≠ ∞ :=
-  hQS.ae_of_forall_ae ((measurableSet_singleton ∞).compl.preimage hX.measurable)
-    fun _ hP ↦ hX.ae_ne_top hP
-
-/-- A measure is absolutely continuous with respect to `S` exactly when every e-variable for `S`
-is almost surely finite under it [LRR25, Theorem 2.6]. -/
-theorem absolutelyContinuousSet_iff_forall_isEVar_ae_ne_top :
-    Q.AbsolutelyContinuousSet S ↔ ∀ X, IsEVar X S → ∀ᵐ ω ∂Q, X ω ≠ ∞ := by
-  classical
-  refine ⟨fun hQS _ hX ↦ hQS.ae_ne_top hX, fun h ↦ absolutelyContinuousSet_iff.mpr fun s hs hS ↦ ?_⟩
-  refine measure_mono_null (fun ω hω ↦ ?_) (ae_iff.mp (h _ (isEVar_piecewise_top hs hS)))
-  simp [hω]
 
 /-! ### The verification theorem -/
 
