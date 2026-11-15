@@ -190,9 +190,8 @@ theorem exists_add_sum_smul_dirac_mem_constraintNull (hg : ∀ i, Measurable (g 
       hm_def, add_sub_cancel, ENNReal.ofReal_one]
   · refine ⟨(hgμ i).add_measure (integrable_finsetSum_measure.2 (hdirac _ (hg i))), ?_⟩
     rw [integral_add_measure (hgμ i) (integrable_finsetSum_measure.2 (hdirac _ (hg i))),
-      integral_finsetSum_measure (hdirac _ (hg i))]
-    simp_rw [integral_smul_measure, integral_dirac' _ _ (hg i).stronglyMeasurable,
-      ENNReal.toReal_ofReal (mul_nonneg hm0.le (hw0 _)), smul_eq_mul]
+      integral_sum_smul_dirac (fun k ↦ mul_nonneg hm0.le (hw0 k)) (hg i).stronglyMeasurable]
+    simp_rw [smul_eq_mul]
     have h1 := hwz i
     simp only [mul_add, Finset.sum_add_distrib, ← Finset.sum_mul, hw1, one_mul] at h1
     have h2 : ∑ k, m * w k * g i (x k) = m * ∑ k, w k * g i (x k) := by

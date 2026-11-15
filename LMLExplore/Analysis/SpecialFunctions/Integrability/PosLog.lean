@@ -8,6 +8,7 @@ module
 public import Mathlib.Analysis.SpecialFunctions.Log.PosLog
 public import Mathlib.MeasureTheory.Function.L1Space.Integrable
 public import Mathlib.MeasureTheory.Integral.Bochner.Basic
+import LMLExplore.Analysis.SpecialFunctions.Log.Basic
 import Mathlib.MeasureTheory.Function.SpecialFunctions.Basic
 import Mathlib.MeasureTheory.Integral.DominatedConvergence
 
@@ -21,7 +22,6 @@ logarithm, by dominated convergence.
 
 ## Main statements
 
-* `Real.abs_log_one_add_mul_le`: `|log (1 + δ t)| ≤ log (1 + t)` for `t ≥ 0` and `δ ∈ [0, 1]`.
 * `MeasureTheory.integrable_log_one_add_sum_abs`: if every `log⁺ (f i)` is integrable under a
   finite measure, so is `log (1 + ∑ i, |f i|)`.
 * `MeasureTheory.Integrable.log_one_add_const_mul`: if `log (1 + f)` is integrable for a
@@ -33,18 +33,6 @@ logarithm, by dominated convergence.
 public section
 
 open MeasureTheory Filter Topology
-
-namespace Real
-
-/-- Damping by a factor `δ ∈ [0, 1]` decreases `log (1 + t)`, for `t ≥ 0`, and keeps it
-nonnegative. -/
-theorem abs_log_one_add_mul_le {δ t : ℝ} (hδ : 0 ≤ δ) (hδ1 : δ ≤ 1) (ht : 0 ≤ t) :
-    |log (1 + δ * t)| ≤ log (1 + t) := by
-  have h0 : 0 ≤ δ * t := mul_nonneg hδ ht
-  rw [abs_of_nonneg (log_nonneg (by linarith))]
-  exact log_le_log (by linarith) (by nlinarith)
-
-end Real
 
 namespace MeasureTheory
 
