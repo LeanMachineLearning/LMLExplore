@@ -7,7 +7,7 @@ module
 
 public import LMLExplore.Analysis.Real.Sqrt
 public import LMLExplore.Bandits.Adversarial.Regret
-public import LMLExplore.Bandits.Exp4.IX
+public import LMLExplore.Bandits.Exp3.Basic
 
 /-!
 # Pseudo-regret of Exp4-IX against an adaptive adversary
@@ -80,14 +80,6 @@ variable {α β 𝓞 Ω : Type*} [Fintype α] [DecidableEq α] [Nonempty α] [Me
 namespace Exp4IX
 
 section Round
-
-omit [Nonempty α] [IsProbabilityMeasure P] in
-/-- A run of Exp4-IX is a run of the weight-based algorithm with the weights of Exp4-IX. -/
-private lemma isAlgEnvSeq_weightAlgorithm (h : IsAlgEnvSeq O A Y (exp4IX adv hadv η γ) env P) :
-    IsAlgEnvSeq O A Y (weightAlgorithm (fun n x ↦ exp4IXWeights adv η γ n x.1 x.2)
-      (fun n a ↦ (measurable_pi_apply a).comp (measurable_exp4IXWeights hadv η γ n))
-      (fun n x ↦ exp4IXWeights_mem_simplex n x.1 x.2)) env P :=
-  exp4IX_def adv hadv η γ ▸ h
 
 omit [Nonempty α] in
 /-- Along a run of Exp4-IX, a random variable bounded by the inverse weight `1 / P t (A t)` of the
@@ -549,7 +541,7 @@ number of arms. -/
 theorem pseudoRegret_le {η₀ : ℝ} (h : IsAlgEnvSeq O A Y (exp3 η₀) env P) (hη : 0 < η₀)
     (hY : ∀ᵐ ω ∂P, ∀ t < n, Y t ω ∈ Set.Icc 0 1) :
     pseudoRegret env O A Y P n ≤ log (Fintype.card α) / η₀ + η₀ * n * Fintype.card α / 2 := by
-  rw [exp3_eq_exp4IX] at h
+  rw [exp3_def] at h
   refine (Exp4IX.expertPseudoRegret_le h (fun _ ↦ hη) antitone_const (fun _ ↦ le_rfl) hY).trans_eq'
     ?_ |>.trans_eq ?_
   · simp
@@ -564,7 +556,7 @@ theorem pseudoRegret_le_sqrt
     (h : IsAlgEnvSeq O A Y (exp3 √(2 * log (Fintype.card α) / (n * Fintype.card α))) env P)
     (hY : ∀ᵐ ω ∂P, ∀ t < n, Y t ω ∈ Set.Icc 0 1) :
     pseudoRegret env O A Y P n ≤ √(2 * n * Fintype.card α * log (Fintype.card α)) := by
-  rw [exp3_eq_exp4IX] at h
+  rw [exp3_def] at h
   simpa using Exp4IX.expertPseudoRegret_le_sqrt h hY
 
 /-- **Pseudo-regret of Exp3 with anytime learning rates** [BCB12, Theorem 3.1] against an adaptive

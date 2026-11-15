@@ -5,8 +5,8 @@ Authors: LMLExplore contributors
 -/
 module
 
-public import LMLExplore.Bandits.Exp3.IX
-public import LMLExplore.Bandits.Exp4.Basic
+public import LMLExplore.Bandits.ImportanceWeighted
+public import LMLExplore.OnlineLearning.ExponentialWeights
 
 /-!
 # Exp4-IX
@@ -26,11 +26,12 @@ through a fixed advice map `adv : 𝓞 → β → simplex α`, and plays at roun
 The learning rates `η t > 0` and the implicit-exploration parameters `γ t ≥ 0` are sequences fixed
 in advance, used at round `t`; a constant sequence is a rate tuned for the horizon.
 
-Exp4-IX is a single algorithm for the three importance-weighted algorithms of [LS], which use
-constant rates: Exp4 [LS, Algorithm 11] is the case `γ = 0` with the advice observed directly
-(`adv = id`), and Exp3-IX [LS, Algorithm 10] and Exp3 [LS, Algorithm 9] are the cases with the
-experts `α`, expert `b` advising the Dirac mass at `b` at every observation, with any constant `γ`
-and with `γ = 0`. Along every run,
+Exp4-IX is the single algorithm of the three importance-weighted algorithms of [LS], which use
+constant rates, and which are defined as its instances: `exp4` [LS, Algorithm 11]
+(`Bandits/Exp4/Basic.lean`) is the case `γ = 0` with the advice observed directly (`adv = id`),
+and `exp3IX` [LS, Algorithm 10] (`Bandits/Exp3/IX.lean`) and `exp3` [LS, Algorithm 9]
+(`Bandits/Exp3/Basic.lean`) are the cases with the experts `α`, expert `b` advising the Dirac mass
+at `b` at every observation, with any constant `γ` and with `γ = 0`. Along every run,
 the weights `Q t` are the exponential weights of the nonnegative estimated losses of the experts,
 so the local-norm bound of exponential weights with nonincreasing learning rates holds pathwise:
 against every expert `m`, with `M` the number of experts,
@@ -57,11 +58,9 @@ implicit-exploration estimates [LS, Lemma 12.4] bounds the estimated regret agai
 * `exp4IXExpertWeights_history_eq`: along every sequence of observations, actions and feedbacks,
   the weights of Exp4-IX on the experts are the exponential weights of `-η n` times the cumulative
   estimated losses of the experts.
-* `exp4Sum_eq_sub_exp4IXSum`, `exp3IXSum_eq_exp4IXSum`: the cumulative estimates of Exp4 and
-  Exp3-IX are those of Exp4-IX, up to the sign and the shift by `n` for Exp4.
-* `exp4_eq_exp4IX`, `exp3IX_eq_exp4IX`, `exp3_eq_exp4IX`: Exp4, Exp3-IX and Exp3 are instances of
-  Exp4-IX with constant rates.
 * `exp4IX_eq_of_subsingleton`: with a single expert, Exp4-IX does not depend on its parameters.
+* `Exp4IX.isAlgEnvSeq_weightAlgorithm`: a run of Exp4-IX is a run of the weight-based algorithm
+  with its weights on the arms.
 * `Exp4IX.sum_sum_mul_sub_le`: the local-norm bound of the weights of Exp4-IX on the experts,
   [LS, Lemma 18.2] for a constant rate, with nonincreasing learning rates as in
   [Ora, Section 7.5; BCB12, proof of Theorem 3.1].
@@ -311,108 +310,17 @@ lemma exp4IXExpertWeights_history_eq (n : ℕ) (ω : Ω) :
 
 end History
 
-section Instances
-
-variable {η₀ γ₀ : ℝ}
-
-/-- If the cumulative reward estimates of the experts in Exp4 are `n` minus their cumulative
-estimated losses in Exp4-IX, then both algorithms put the same weights on the experts, as the
-softmax is invariant under the addition of a constant. -/
-private lemma exp4ExpertWeights_eq_of_exp4Sum_eq {n : ℕ} {h : Hist (β → simplex α) α ℝ n}
-    (hS : exp4Sum η₀ n h = fun m ↦ (n : ℝ) - exp4IXSum id (fun _ ↦ η₀) 0 n h m) :
-    exp4ExpertWeights η₀ n h = exp4IXExpertWeights id (fun _ ↦ η₀) 0 n h := by
-  rw [exp4ExpertWeights_def, exp4IXExpertWeights_def, hS, ← softmax_add_const _ (-(η₀ * n))]
-  congr 1
-  funext m
-  simp only [Pi.smul_apply, Pi.neg_apply, smul_eq_mul]
-  ring
-
-/-- The cumulative reward estimates of the experts in Exp4 are `n` minus their cumulative
-estimated losses in Exp4-IX with the advice observed directly, constant learning rate and `γ = 0`,
-since the advice of each expert sums to `1`. -/
-lemma exp4Sum_eq_sub_exp4IXSum (n : ℕ) (h : Hist (β → simplex α) α ℝ n) :
-    exp4Sum η₀ n h = fun m ↦ (n : ℝ) - exp4IXSum id (fun _ ↦ η₀) 0 n h m := by
-  induction n with
-  | zero => funext m; simp
-  | succ n ih =>
-    have hP : exp4Weights η₀ n (Fin.init h) = exp4IXWeights id (fun _ ↦ η₀) 0 n (Fin.init h) := by
-      funext e
-      rw [exp4Weights_def, exp4IXWeights_def, exp4ExpertWeights_eq_of_exp4Sum_eq (ih _), id]
-    funext m
-    rw [exp4Sum_succ, exp4IXSum_succ, ih, hP]
-    simp only [Pi.add_apply, id, Pi.zero_apply, add_zero,
-      dotProduct_lossIwEstimator (mem_simplex_iff.1 ((h (Fin.last n)).obs m).2).2,
-      dotProduct_iwEstimator]
-    push_cast
-    ring
-
-/-- The weights of Exp4 on the experts are those of Exp4-IX with the advice observed directly,
-constant learning rate and `γ = 0`. -/
-lemma exp4ExpertWeights_eq_exp4IXExpertWeights (n : ℕ) (h : Hist (β → simplex α) α ℝ n) :
-    exp4ExpertWeights η₀ n h = exp4IXExpertWeights id (fun _ ↦ η₀) 0 n h :=
-  exp4ExpertWeights_eq_of_exp4Sum_eq (exp4Sum_eq_sub_exp4IXSum n h)
-
-/-- The weights of Exp4 on the arms are those of Exp4-IX with the advice observed directly,
-constant learning rate and `γ = 0`. -/
-lemma exp4Weights_eq_exp4IXWeights (n : ℕ) (h : Hist (β → simplex α) α ℝ n) :
-    exp4Weights η₀ n h = exp4IXWeights id (fun _ ↦ η₀) 0 n h := by
-  funext e
-  rw [exp4Weights_def, exp4IXWeights_def, exp4ExpertWeights_eq_exp4IXExpertWeights, id]
-
-/-- The cumulative loss estimates of Exp3-IX are the cumulative estimated losses of the experts in
-Exp4-IX with the experts `α` that each recommend one arm (expert `b` advises the Dirac mass at `b`),
-constant learning rate and constant implicit exploration. -/
-lemma exp3IXSum_eq_exp4IXSum (n : ℕ) (h : Hist 𝓞 α ℝ n) :
-    exp3IXSum η₀ γ₀ n h = exp4IXSum (fun _ b ↦ ⟨Pi.single b 1, single_mem_simplex b⟩)
-      (fun _ ↦ η₀) (fun _ ↦ γ₀) n h := by
-  induction n with
-  | zero => simp
-  | succ n ih =>
-    rw [exp3IXSum_succ, exp4IXSum_succ, ih, exp4IXWeights_def, exp4IXExpertWeights_def, ← ih]
-    simp only [← pi_eq_sum_univ', single_dotProduct, one_mul, exp3IXWeights_def]
-
-/-- The weights of Exp3-IX are the weights on the experts of Exp4-IX with the experts `α` that
-each recommend one arm, constant learning rate and constant implicit exploration. -/
-lemma exp3IXWeights_eq_exp4IXExpertWeights (n : ℕ) (h : Hist 𝓞 α ℝ n) :
-    exp3IXWeights η₀ γ₀ n h = exp4IXExpertWeights
-      (fun _ b ↦ ⟨Pi.single b 1, single_mem_simplex b⟩) (fun _ ↦ η₀) (fun _ ↦ γ₀) n h := by
-  rw [exp3IXWeights_def, exp4IXExpertWeights_def, exp3IXSum_eq_exp4IXSum]
-
-/-- The weights of Exp3-IX are the weights on the arms of Exp4-IX with the experts `α` that each
-recommend one arm, constant learning rate and constant implicit exploration, at every
-observation. -/
-lemma exp3IXWeights_eq_exp4IXWeights (n : ℕ) (h : Hist 𝓞 α ℝ n) (o : 𝓞) :
-    exp3IXWeights η₀ γ₀ n h = exp4IXWeights
-      (fun _ b ↦ ⟨Pi.single b 1, single_mem_simplex b⟩) (fun _ ↦ η₀) (fun _ ↦ γ₀) n h o := by
-  rw [exp4IXWeights_def, ← exp3IXWeights_eq_exp4IXExpertWeights]
-  exact pi_eq_sum_univ' _
-
-variable [MeasurableSpace α] [MeasurableSingletonClass α]
-
-/-- **Exp4 is Exp4-IX** with the advice observed directly, constant learning rate and `γ = 0`. -/
-lemma exp4_eq_exp4IX [Nonempty β] (η₀ : ℝ) :
-    exp4 (α := α) (β := β) η₀ = exp4IX id measurable_id (fun _ ↦ η₀) 0 := by
-  simp only [exp4_def, exp4IX_def, exp4Weights_eq_exp4IXWeights]
-
-variable [MeasurableSpace 𝓞] [Nonempty α]
-
-/-- **Exp3-IX is Exp4-IX** with the experts `α` that each recommend one arm, constant learning
-rate and constant implicit exploration. -/
-lemma exp3IX_eq_exp4IX (η₀ γ₀ : ℝ) :
-    exp3IX (𝓞 := 𝓞) (α := α) η₀ γ₀ = exp4IX (fun _ b ↦ ⟨Pi.single b 1, single_mem_simplex b⟩)
-      measurable_const (fun _ ↦ η₀) (fun _ ↦ γ₀) := by
-  simp only [exp3IX_def, exp4IX_def, ← exp3IXWeights_eq_exp4IXWeights]
-
-/-- **Exp3 is Exp4-IX** with the experts `α` that each recommend one arm, constant learning rate
-and `γ = 0`. -/
-lemma exp3_eq_exp4IX (η₀ : ℝ) :
-    exp3 (𝓞 := 𝓞) (α := α) η₀ = exp4IX (fun _ b ↦ ⟨Pi.single b 1, single_mem_simplex b⟩)
-      measurable_const (fun _ ↦ η₀) 0 := by
-  rw [← exp3IX_eq_exp3, exp3IX_eq_exp4IX, Pi.zero_def]
-
-end Instances
-
 namespace Exp4IX
+
+/-- A run of Exp4-IX is a run of the weight-based algorithm with the weights of Exp4-IX. -/
+lemma isAlgEnvSeq_weightAlgorithm [MeasurableSpace α] [MeasurableSingletonClass α]
+    [MeasurableSpace 𝓞] [Nonempty β] {Ω : Type*} {mΩ : MeasurableSpace Ω} {P : Measure Ω}
+    {O : ℕ → Ω → 𝓞} {A : ℕ → Ω → α} {Y : ℕ → Ω → ℝ} {env : Environment 𝓞 α ℝ}
+    {hadv : Measurable adv} (h : IsAlgEnvSeq O A Y (exp4IX adv hadv η γ) env P) :
+    IsAlgEnvSeq O A Y (weightAlgorithm (fun n x ↦ exp4IXWeights adv η γ n x.1 x.2)
+      (fun n a ↦ (measurable_pi_apply a).comp (measurable_exp4IXWeights hadv η γ n))
+      (fun n x ↦ exp4IXWeights_mem_simplex n x.1 x.2)) env P :=
+  exp4IX_def adv hadv η γ ▸ h
 
 section Pathwise
 
