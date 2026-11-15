@@ -98,6 +98,9 @@ transfers lower bounds on the stochastic regret to the adversarial regret.
   tables `f t ((h, o), ·)`, the random regret is almost surely
   `max_a ∑_{t < n} (f t ((H t, O t), a) - f t ((H t, O t), A t))`, and against
   `Environment.evalSeq x _` it is `max_a ∑_{t < n} (x t a - x t (A t))`.
+* `Learning.IsAlgEnvSeq.measure_exists_le_sum_sub_le_measure_le_randomRegret`: against
+  `Environment.evalSeq x _`, the probability that the regret against some arm is at least `B` is
+  at most the probability that the random regret is at least `B`.
 * `Learning.IsAlgEnvSeq.pseudoRegret_bandit`: against `Environment.bandit ν` with integrable arms,
   the pseudo-regret is LML's expected stochastic regret, and
   `Learning.IsAlgEnvSeq.integral_regret_le_of_pseudoRegret_le`: with rewards in `[0, 1]`, every
@@ -466,6 +469,20 @@ lemma _root_.Learning.IsAlgEnvSeq.randomRegret_evalSeq_ae_eq [SFinite P]
       ⨆ a, ∑ t ∈ range n, (x t a - x t (A t ω)) := by
   rw [Environment.evalSeq_eq_deterministic, Environment.deterministic_def] at h ⊢
   exact h.randomRegret_detFeedback_ae_eq n
+
+/-- Along a run against LML's evaluation environment `Environment.evalSeq x _`, the probability
+that the regret `∑_{t < n} (x t a - x t (A t))` against some arm `a` is at least `B` is at most the
+probability that the random regret is at least `B`. Bounds in probability on the random regret
+against any environment thus bound the regret against an oblivious reward table. -/
+lemma _root_.Learning.IsAlgEnvSeq.measure_exists_le_sum_sub_le_measure_le_randomRegret
+    [Finite α] [SFinite P] {hx : ∀ t, Measurable (x t)} {alg : Algorithm Unit α ℝ}
+    {O : ℕ → Ω → Unit} (h : IsAlgEnvSeq O A Y alg (Environment.evalSeq x hx) P) (n : ℕ) (B : ℝ) :
+    P {ω | ∃ a, B ≤ ∑ t ∈ range n, (x t a - x t (A t ω))} ≤
+      P {ω | B ≤ randomRegret (Environment.evalSeq x hx) O A Y n ω} := by
+  refine measure_mono_ae ?_
+  filter_upwards [h.randomRegret_evalSeq_ae_eq n] with ω hω ⟨a, ha⟩
+  rw [hω]
+  exact ha.trans (Finite.le_ciSup (fun a ↦ ∑ t ∈ range n, (x t a - x t (A t ω))) a)
 
 /-- Along a run against a stationary bandit `Environment.bandit ν` with finitely many arms and
 integrable reward distributions, the pseudo-regret is LML's expected stochastic regret. -/
