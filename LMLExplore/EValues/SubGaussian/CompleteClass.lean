@@ -136,6 +136,20 @@ theorem subgaussianCompensatedExp_coe {t : ℝ} (ht : t ≠ 0) (x : ℝ) :
       (1 + t ^ 2) / t ^ 2 * (exp (t * x - t ^ 2 / 2) - 1 - t * x / (1 + t ^ 2)) := by
   simp [subgaussianCompensatedExp, ht]
 
+/-- Changing the signs of the parameter and of the point leaves the compensated kernel
+unchanged. -/
+theorem subgaussianCompensatedExp_neg_neg (l : EReal) (x : ℝ) :
+    subgaussianCompensatedExp (-l) (-x) = subgaussianCompensatedExp l x := by
+  induction l using EReal.rec with
+  | bot => simp
+  | top => simp
+  | coe t =>
+    rcases eq_or_ne t 0 with rfl | ht
+    · simp
+    rw [← EReal.coe_neg, subgaussianCompensatedExp_coe (neg_ne_zero.2 ht),
+      subgaussianCompensatedExp_coe ht]
+    ring_nf
+
 /-- The compensated kernel at a nonzero real parameter, in a form suited to limits. -/
 private lemma subgaussianCompensatedExp_coe' {t : ℝ} (ht : t ≠ 0) (x : ℝ) :
     subgaussianCompensatedExp t x =
@@ -250,21 +264,13 @@ private lemma tendsto_subgaussianCompensatedExp_atTop (x : ℝ) :
   filter_upwards [eventually_ne_atTop 0] with t ht
   rw [subgaussianCompensatedExp_coe' ht]
 
-/-- Changing the signs of a real parameter and of the point leaves the compensated kernel
-unchanged. -/
-private lemma subgaussianCompensatedExp_neg_coe (t x : ℝ) :
-    subgaussianCompensatedExp ((-t : ℝ) : EReal) (-x) = subgaussianCompensatedExp t x := by
-  rcases eq_or_ne t 0 with rfl | ht
-  · simp
-  rw [subgaussianCompensatedExp_coe (neg_ne_zero.2 ht), subgaussianCompensatedExp_coe ht]
-  ring_nf
-
 /-- The compensated kernel tends to `-1` as its parameter tends to `-∞`, by the symmetry
 `k (-t, -x) = k (t, x)` and the limit at `+∞`. -/
 private lemma tendsto_subgaussianCompensatedExp_atBot (x : ℝ) :
     Tendsto (fun t : ℝ ↦ subgaussianCompensatedExp t x) atBot (𝓝 (-1)) :=
   ((tendsto_subgaussianCompensatedExp_atTop (-x)).comp tendsto_neg_atBot_atTop).congr
-    fun t ↦ subgaussianCompensatedExp_neg_coe t x
+    fun t ↦ by
+      rw [Function.comp_apply, EReal.coe_neg, subgaussianCompensatedExp_neg_neg]
 
 /-- The compensated kernel is continuous in its parameter on the extended line. -/
 theorem continuous_subgaussianCompensatedExp (x : ℝ) :
@@ -352,23 +358,6 @@ section Validity
 
 variable {μ : Measure ℝ}
 
-/-- Under a `1`-sub-Gaussian law, the constraint `exp (t x - t ^ 2 / 2)` is integrable. -/
-private lemma integrable_exp_mul_sub_sq_div_two (hμ : HasSubgaussianMGF id 1 μ) (t : ℝ) :
-    Integrable (fun x ↦ exp (t * x - t ^ 2 / 2)) μ :=
-  ((hμ.integrable_exp_mul t).const_mul (exp (-(t ^ 2 / 2)))).congr
-    (ae_of_all _ fun x ↦ by simp [← exp_add, sub_eq_add_neg, add_comm])
-
-/-- Under a `1`-sub-Gaussian law, `exp (t x - t ^ 2 / 2)` has mean at most `1`: this is the
-defining constraint of the null. -/
-private lemma integral_exp_mul_sub_sq_div_two_le_one (hμ : HasSubgaussianMGF id 1 μ) (t : ℝ) :
-    ∫ x, exp (t * x - t ^ 2 / 2) ∂μ ≤ 1 := by
-  have h : ∫ x, exp (t * x) ∂μ ≤ exp (t ^ 2 / 2) := by simpa [mgf] using hμ.mgf_le t
-  calc ∫ x, exp (t * x - t ^ 2 / 2) ∂μ = exp (-(t ^ 2 / 2)) * ∫ x, exp (t * x) ∂μ := by
-        rw [← integral_const_mul]
-        simp [← exp_add, sub_eq_add_neg, add_comm]
-    _ ≤ exp (-(t ^ 2 / 2)) * exp (t ^ 2 / 2) := by gcongr
-    _ = 1 := by rw [← exp_add]; simp
-
 -- Tau Ceti's `HasSubgaussianMGF.integral_eq_zero` states this lemma, but at the pinned versions
 -- its module and LML's sub-Gaussian file both declare `HasSubgaussianMGF.mono`, so the mean is
 -- obtained here through LML's `HasSubexponentialMGF.integral_eq_zero`.
@@ -392,9 +381,10 @@ theorem integrable_subgaussianCompensatedExp (hμ : HasSubgaussianMGF id 1 μ) (
     · have hsq : Integrable (fun x : ℝ ↦ x ^ 2) μ := (hμ.memLp 2).integrable_sq
       simpa using (hsq.sub (integrable_const 1)).div_const 2
     simp_rw [subgaussianCompensatedExp_coe' ht]
+    have he : Integrable (fun x ↦ exp (t * x - t ^ 2 / 2)) μ := by
+      simpa using hμ.integrable_exp_mul_sub t
     have hid : Integrable (fun x : ℝ ↦ x) μ := hμ.integrable
-    exact (((integrable_exp_mul_sub_sq_div_two hμ t).const_mul _).sub (integrable_const _)).sub
-      (hid.mul_const _)
+    exact ((he.const_mul _).sub (integrable_const _)).sub (hid.mul_const _)
 
 /-- Under a `1`-sub-Gaussian probability law, every section of the compensated kernel has a
 nonpositive mean. -/
@@ -417,9 +407,11 @@ theorem integral_subgaussianCompensatedExp_nonpos [IsProbabilityMeasure μ]
       rw [exp_sub_one_eq_mul_subgaussianCompensatedExp_add]
       field_simp
       ring
-    have he := integrable_exp_mul_sub_sq_div_two hμ t
+    have he : Integrable (fun x ↦ exp (t * x - t ^ 2 / 2)) μ := by
+      simpa using hμ.integrable_exp_mul_sub t
     have hmean := integral_id_eq_zero hμ
-    have hexp := integral_exp_mul_sub_sq_div_two_le_one hμ t
+    have hexp : ∫ x, exp (t * x - t ^ 2 / 2) ∂μ ≤ 1 := by
+      simpa using hμ.integral_exp_mul_sub_le_one t
     have hid : Integrable (fun x : ℝ ↦ x) μ := hμ.integrable
     have h1 : Integrable (fun x ↦ (1 + t ^ 2) / t ^ 2 * (exp (t * x - t ^ 2 / 2) - 1)) μ :=
       (he.sub (integrable_const 1)).const_mul _

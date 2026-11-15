@@ -27,8 +27,9 @@ variable `Y - g ∘ X` is conditionally `c`-sub-Gaussian given `X`. This is how 
 feedback whose conditional law given the past is sub-Gaussian around a prediction enters the
 martingale bounds.
 
-The file also holds unconditional facts: a `c`-sub-Gaussian variable under a probability measure
-has second moment at most `c`, and a finitely supported law is `c`-sub-Gaussian as soon as its
+The file also holds unconditional facts: for a `c`-sub-Gaussian variable, `exp (t X - c t ^ 2 / 2)`
+is integrable with mean at most `1`, a `c`-sub-Gaussian variable under a probability measure has
+second moment at most `c`, and a finitely supported law is `c`-sub-Gaussian as soon as its
 moment generating function is at most `exp (c t ^ 2 / 2)`. For `c > 0`, any given point of `ℝ` is
 charged by such a finitely supported `c`-sub-Gaussian probability law.
 
@@ -45,6 +46,8 @@ charged by such a finitely supported `c`-sub-Gaussian probability law.
 * `ProbabilityTheory.HasCondDistrib.hasCondSubgaussianMGF_sub`: if `Y` has conditional
   distribution `κ` given `X` and almost every `κ x` is `c`-sub-Gaussian around `g x`, then
   `Y - g ∘ X` is conditionally `c`-sub-Gaussian given `X`.
+* `ProbabilityTheory.HasSubgaussianMGF.integral_exp_mul_sub_le_one`: for a `c`-sub-Gaussian
+  variable, `exp (t X - c t ^ 2 / 2)` has mean at most `1`.
 * `ProbabilityTheory.HasSubgaussianMGF.integral_sq_le`: a `c`-sub-Gaussian variable under a
   probability measure has second moment at most `c`.
 * `ProbabilityTheory.hasSubgaussianMGF_sum_smul_dirac`: a finitely supported law whose moment
@@ -150,6 +153,20 @@ theorem HasCondDistrib.hasCondSubgaussianMGF_sub [StandardBorelSpace Ω] [IsFini
   exact (StronglyMeasurable.ae_eq_trim_of_stronglyMeasurable hm stronglyMeasurable_condExp (hF q)
     h_condExp).trans_le h_le
 
+/-- For a `c`-sub-Gaussian variable `X`, `exp (t X - c t ^ 2 / 2)` is integrable for every `t`;
+the unconditional version of `HasCondSubgaussianMGF.integrable_exp_mul_sub`. -/
+theorem HasSubgaussianMGF.integrable_exp_mul_sub (h : HasSubgaussianMGF X c μ) (t : ℝ) :
+    Integrable (fun ω ↦ Real.exp (t * X ω - c * t ^ 2 / 2)) μ := by
+  simp_rw [Real.exp_sub]
+  exact (h.integrable_exp_mul t).div_const _
+
+/-- For a `c`-sub-Gaussian variable `X`, `exp (t X - c t ^ 2 / 2)` has mean at most `1` for every
+`t`; the unconditional version of `HasCondSubgaussianMGF.ae_condExp_exp_sub_le_one`. -/
+theorem HasSubgaussianMGF.integral_exp_mul_sub_le_one (h : HasSubgaussianMGF X c μ) (t : ℝ) :
+    ∫ ω, Real.exp (t * X ω - c * t ^ 2 / 2) ∂μ ≤ 1 := by
+  simp_rw [Real.exp_sub]
+  rw [integral_div, div_le_one (Real.exp_pos _)]
+  simpa [mgf] using h.mgf_le t
 
 /-- A `c`-sub-Gaussian variable under a probability measure has second moment at most `c`, since
 `t ^ 2 ∫ X ^ 2 ≤ 2 (exp (c t ^ 2 / 2) - 1) ≤ c t ^ 2 exp (c t ^ 2 / 2)` for every real `t`. -/
