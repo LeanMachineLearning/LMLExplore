@@ -74,6 +74,9 @@ finite-horizon counterpart of
   standard deviations of `W ≤ B` is at most `√(H - h) B`.
 * `ProbabilityTheory.Kernel.horizonSumLevel_mem_Icc`: the level `l` lies in `[0, C H √H ^ l]`
   [LWCGC24, Lemma 12].
+* `ProbabilityTheory.Kernel.abs_horizonSumLevelReward_le`,
+  `ProbabilityTheory.Kernel.sqrt_variance_horizonSumLevel_le`: the rewards of the level `l` are
+  at most `C H √H ^ l + C`, and its one-step standard deviations at most `C H √H ^ l`.
 * `ProbabilityTheory.Kernel.abs_horizonSum_sub_horizonSum_le_of_abs_sub_le`: the comparison of
   the finite-horizon sums along two sequences of kernels with Bernstein-type deviations on the
   levels [LWCGC24, Lemma 9].
@@ -442,6 +445,14 @@ theorem horizonSum_sqrt_variance_le {B C : ℝ} (hf : ∀ j, Measurable (f j))
   have := horizonSum_variance_le hf hfC hf₀ hWB h x
   nlinarith [sq_nonneg (B - horizonSum κ H f h x)]
 
+/-- A measurable function with values in `[0, b]` has standard deviation at most `b` under a
+probability measure. This bounds the rewards `√Var[V l (j + 1); κ j y]` of the levels. -/
+private lemma sqrt_variance_le_of_forall_mem_Icc {μ : Measure α} [IsProbabilityMeasure μ]
+    {g : α → ℝ} {b : ℝ} (hg : Measurable g) (hb : 0 ≤ b) (hgb : ∀ z, g z ∈ Set.Icc 0 b) :
+    √Var[g; μ] ≤ b :=
+  sqrt_variance_le_of_abs_le hg.aemeasurable hb
+    (.of_forall fun z ↦ abs_le.2 ⟨by linarith [(hgb z).1], (hgb z).2⟩)
+
 /-- The levels of measurable rewards in `[0, C]` lie in `[0, C H √H ^ l]`, and the rewards of the
 level `l` are bounded by `C H √H ^ l + C`. -/
 private lemma horizonSumLevel_mem_Icc_and_abs_horizonSumLevelReward_le {C : ℝ}
@@ -460,9 +471,6 @@ private lemma horizonSumLevel_mem_Icc_and_abs_horizonSumLevelReward_le {C : ℝ}
       linarith [(hfC j y).2, hb 0]
   | succ l ih =>
     obtain ⟨hVl, hrC⟩ := ih
-    have hσ (j : ℕ) (y : α) : √Var[horizonSumLevel κ H f l (j + 1); κ j y] ≤ C * H * √H ^ l :=
-      sqrt_variance_le_of_abs_le (measurable_horizonSumLevel hf l (j + 1)).aemeasurable (hb l)
-        (.of_forall fun z ↦ abs_le.2 ⟨by linarith [(hVl (j + 1) z).1, hb l], (hVl (j + 1) z).2⟩)
     have hHl : C * H * √H ^ l ≤ C * H * √H ^ (l + 1) + C := by
       rcases Nat.eq_zero_or_pos H with hH | hH
       · simp [hH, hC]
@@ -483,7 +491,8 @@ private lemma horizonSumLevel_mem_Icc_and_abs_horizonSumLevelReward_le {C : ℝ}
             (Real.sqrt_le_sqrt (by exact_mod_cast Nat.sub_le H h)) (hb l)
         _ = C * H * √H ^ (l + 1) := by ring
     · rw [horizonSumLevelReward_succ, abs_of_nonneg (Real.sqrt_nonneg _)]
-      exact (hσ j y).trans hHl
+      exact (sqrt_variance_le_of_forall_mem_Icc (measurable_horizonSumLevel hf l (j + 1)) (hb l)
+        (hVl (j + 1))).trans hHl
 
 /-- **A priori bounds on the levels** [LWCGC24, Lemma 12]: for measurable rewards `f` in
 `[0, C]`, the level `l` lies in `[0, C H √H ^ l]`. The level `0` is at most `C H`, and each level
@@ -493,6 +502,25 @@ theorem horizonSumLevel_mem_Icc {C : ℝ} (hf : ∀ j, Measurable (f j))
     horizonSumLevel κ H f l h x ∈ Set.Icc 0 (C * H * √H ^ l) :=
   (horizonSumLevel_mem_Icc_and_abs_horizonSumLevelReward_le hf hfC ((hfC 0 x).1.trans (hfC 0 x).2)
     l).1 h x
+
+/-- For measurable rewards `f` in `[0, C]`, the rewards of the level `l` are bounded by
+`C H √H ^ l + C`, so that the bounds on `horizonSum` apply to the levels
+`horizonSumLevel κ H f l = horizonSum κ H (horizonSumLevelReward κ H f l)`. -/
+theorem abs_horizonSumLevelReward_le {C : ℝ} (hf : ∀ j, Measurable (f j))
+    (hfC : ∀ j x, f j x ∈ Set.Icc 0 C) (l j : ℕ) (y : α) :
+    |horizonSumLevelReward κ H f l j y| ≤ C * H * √H ^ l + C :=
+  (horizonSumLevel_mem_Icc_and_abs_horizonSumLevelReward_le hf hfC ((hfC 0 y).1.trans (hfC 0 y).2)
+    l).2 j y
+
+/-- **The one-step standard deviations of the levels**: for measurable rewards `f` in `[0, C]`,
+the standard deviation `√Var[V l (j + 1); κ j y]` of the level `V l = horizonSumLevel κ H f l` is
+at most `C H √H ^ l` (`ProbabilityTheory.Kernel.horizonSumLevel_mem_Icc`). -/
+theorem sqrt_variance_horizonSumLevel_le {C : ℝ} (hf : ∀ j, Measurable (f j))
+    (hfC : ∀ j x, f j x ∈ Set.Icc 0 C) (l j : ℕ) (y : α) :
+    √Var[horizonSumLevel κ H f l (j + 1); κ j y] ≤ C * H * √H ^ l := by
+  have hC : 0 ≤ C := (hfC 0 y).1.trans (hfC 0 y).2
+  exact sqrt_variance_le_of_forall_mem_Icc (measurable_horizonSumLevel hf l (j + 1))
+    (by positivity) (horizonSumLevel_mem_Icc hf hfC l (j + 1))
 
 /-- The scalar recursion behind [LWCGC24, (113)–(119)]: for `B, ε ≥ 0`, `9 ε H ≤ 1` and
 `H ≤ 4 ^ m`, if the errors `d l` and the next-level terms `e l` satisfy
@@ -613,20 +641,17 @@ theorem abs_horizonSum_sub_horizonSum_le_of_abs_sub_le {C ε : ℝ} (hf : ∀ j,
   have hC : 0 ≤ C := (hfC 0 x).1.trans (hfC 0 x).2
   set V := horizonSumLevel κ H f with hV_def
   set b : ℕ → ℝ := fun l ↦ C * H * √H ^ l with hb_def
-  have hVm := measurable_horizonSumLevel (κ := κ) (H := H) hf
   have hVb : ∀ l j y, V l j y ∈ Set.Icc 0 (b l) := horizonSumLevel_mem_Icc hf hfC
   have hb₀ (l : ℕ) : 0 ≤ b l := (hVb l 0 x).1.trans (hVb l 0 x).2
   have hσ (l j : ℕ) (y : α) : √Var[V l (j + 1); κ j y] ≤ b l :=
-    sqrt_variance_le_of_abs_le (hVm l (j + 1)).aemeasurable (hb₀ l)
-      (.of_forall fun z ↦ abs_le.2 ⟨by linarith [(hVb l (j + 1) z).1, hb₀ l],
-        (hVb l (j + 1) z).2⟩)
+    sqrt_variance_horizonSumLevel_le hf hfC l j y
   -- the rewards `r l` of the levels: `V l = horizonSum κ H (r l)`
   set r := horizonSumLevelReward κ H f with hr_def
   have hr (l : ℕ) : r (l + 1) = fun j y ↦ √Var[V l (j + 1); κ j y] :=
     horizonSumLevelReward_succ κ H f l
   have hr_meas (l j : ℕ) : Measurable (r l j) := measurable_horizonSumLevelReward hf l j
   have hrB (l : ℕ) : ∃ B, ∀ j y, |r l j y| ≤ B :=
-    ⟨_, (horizonSumLevel_mem_Icc_and_abs_horizonSumLevelReward_le hf hfC hC l).2⟩
+    ⟨_, abs_horizonSumLevelReward_le hf hfC l⟩
   have hVr (l : ℕ) : V l = horizonSum κ H (r l) := horizonSumLevel_eq_horizonSum κ H f l
   -- the error `D l` at level `l`
   set D : ℕ → ℝ := fun l ↦ |horizonSum κ' H (r l) h x - V l h x| with hD_def
