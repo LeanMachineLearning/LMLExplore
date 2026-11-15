@@ -136,9 +136,7 @@ theorem optQValue_perturbedPlugIn (r : 𝓢 × 𝓐 → ℝ) (N : ℕ) [NeZero N
     (ofDet (empiricalKernel N ω) (r + ζ) (measurable_of_finite _)).optQValue γ
         (s, perturbedPlugIn r N γ ω ζ s) =
       (ofDet (empiricalKernel N ω) (r + ζ) (measurable_of_finite _)).optValue γ s :=
-  optQValue_greedy_optValue hγ (ae_abs_ofDet_R_le (empiricalKernel N ω) (measurable_of_finite _)
-    fun p ↦ Finset.single_le_sum (f := fun q ↦ |(r + ζ) q|) (fun _ _ ↦ abs_nonneg _)
-      (Finset.mem_univ p)) s
+  optQValue_greedy_optValue hγ (ae_abs_ofDet_R_le_sum (empiricalKernel N ω) (r + ζ)) s
 
 /-- **Suboptimality of the perturbed plug-in policy**, with an explicit level [LWCGC24, proof of
 Theorem 1]. Let `P` be a transition kernel on `S` states and `A` actions, `r` deterministic
@@ -260,8 +258,7 @@ theorem le_streamMeasure_prod_forall_optValue_sub_sqrt_le_value_perturbedPlugIn
       rw [optQValue_perturbedPlugIn r N hγ ω ζ s]
       exact this.le
     -- the perturbation changes the values by at most `ξ / (1 - γ)`
-    exact optValue_sub_le_value_of_perturbation P (fun p ↦ abs_le.2 ⟨by linarith [(hr p).1],
-      (hr p).2⟩) hζ hγ _ (hω hsep s)
+    exact optValue_sub_le_value_of_perturbation P hζ hγ _ (hω hsep s)
   -- the two events
   have h := one_sub_sub_le_measureReal_inter hH
     ((ENNReal.ofReal_le_iff_le_toReal (measure_ne_top _ _)).1 h₁)

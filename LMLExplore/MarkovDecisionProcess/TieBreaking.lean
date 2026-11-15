@@ -219,7 +219,7 @@ variable [MeasurableSingletonClass 𝓢] [MeasurableSingletonClass 𝓐] (P : Ke
 
 /-- Deterministic rewards on finitely many pairs are bounded by the sum of their absolute
 values. -/
-private lemma ae_abs_ofDet_R_le_sum [Fintype 𝓢] [Fintype 𝓐] (r : 𝓢 × 𝓐 → ℝ) (p : 𝓢 × 𝓐) :
+lemma ae_abs_ofDet_R_le_sum [Fintype 𝓢] [Fintype 𝓐] (r : 𝓢 × 𝓐 → ℝ) (p : 𝓢 × 𝓐) :
     ∀ᵐ x ∂((ofDet P r (measurable_of_finite r)).R p), |x| ≤ ∑ q, |r q| :=
   ae_abs_ofDet_R_le P _ (fun q ↦ Finset.single_le_sum (f := fun q ↦ |r q|)
     (fun _ _ ↦ abs_nonneg _) (Finset.mem_univ q)) p
@@ -385,16 +385,16 @@ with values in `[0, ξ]` does not lower the optimal value and changes the value 
 policy by at most `ξ / (1 - γ)`: a suboptimality bound `b` at `s` in the MDP with transition kernel
 `P` and rewards `r + ζ` gives the bound `b + ξ / (1 - γ)` in the MDP with rewards `r`. -/
 theorem optValue_sub_le_value_of_perturbation [Finite 𝓢] [Finite 𝓐] [Nonempty 𝓢] [Nonempty 𝓐]
-    {r ζ : 𝓢 × 𝓐 → ℝ} {C ξ : ℝ} (hr : ∀ p, |r p| ≤ C) (hζ : ∀ p, ζ p ∈ Icc 0 ξ) (hγ : γ < 1)
+    {r ζ : 𝓢 × 𝓐 → ℝ} {ξ : ℝ} (hζ : ∀ p, ζ p ∈ Icc 0 ξ) (hγ : γ < 1)
     (π : Kernel 𝓢 𝓐) [IsMarkovKernel π] {b : ℝ} {s : 𝓢}
     (h : (ofDet P (r + ζ) (measurable_of_finite _)).optValue γ s -
       (ofDet P (r + ζ) (measurable_of_finite _)).value γ π s ≤ b) :
     (ofDet P r (measurable_of_finite r)).optValue γ s - (b + ξ / (1 - γ)) ≤
       (ofDet P r (measurable_of_finite r)).value γ π s := by
-  have hR := ae_abs_ofDet_R_le P (measurable_of_finite r) hr
-  have hR' := ae_abs_ofDet_R_le P (measurable_of_finite (r + ζ)) (C := C + ξ) fun p ↦
-    (abs_add_le (r p) (ζ p)).trans
-      (add_le_add (hr p) (abs_le.2 ⟨by linarith [(hζ p).1, (hζ p).2], (hζ p).2⟩))
+  have := Fintype.ofFinite 𝓢
+  have := Fintype.ofFinite 𝓐
+  have hR := ae_abs_ofDet_R_le_sum P r
+  have hR' := ae_abs_ofDet_R_le_sum P (r + ζ)
   have hv₁ := optValue_le_optValue_of_meanReward_le hγ hR hR' (by simp)
     (fun q ↦ by simp [(hζ q).1]) s
   have hv₂ := abs_value_sub_value_le (π := π) hγ hR' hR (δ := ξ) (ε := 0)
