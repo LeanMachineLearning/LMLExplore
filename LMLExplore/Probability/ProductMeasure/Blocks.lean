@@ -43,7 +43,8 @@ law of large numbers holds along the blocks.
 * `MeasureTheory.measurePreserving_seqBlock`: the law of one block.
 * `ProbabilityTheory.iIndepFun_seqBlock`: the blocks are independent.
 * `ProbabilityTheory.lintegral_seqBlockProd`: the expectation of a product over `k` blocks is the
-  `k`-th power of the expectation of one factor.
+  product of the expectations of its factors; `ProbabilityTheory.lintegral_seqBlockProd_const`:
+  under an i.i.d. law, it is the `k`-th power of the expectation of one factor.
 * `ProbabilityTheory.strong_law_ae_seqBlock`, `ProbabilityTheory.strong_law_ae_seqBlock_nat_div`:
   the strong law of large numbers along the blocks, averaged over the blocks and over the
   observations.
@@ -208,17 +209,25 @@ theorem iIndepFun_seqBlock (μ : ℕ → Measure 𝓧) [∀ i, IsProbabilityMeas
     (measurePreserving_seqBlock_infinitePi μ m).map_eq]
   simp_rw [(measurePreserving_seqBlock μ m _).map_eq]
 
+/-- Under a product `Measure.infinitePi μ` of probability measures, the expectation of the
+product of `V` over `k` blocks of `m` terms is the product of the expectations of `V` under the
+laws `Measure.pi fun i ↦ μ (j * m + i)` of the blocks. -/
+theorem lintegral_seqBlockProd (μ : ℕ → Measure 𝓧) [∀ i, IsProbabilityMeasure (μ i)] {m : ℕ}
+    {V : (Fin m → 𝓧) → ℝ≥0∞} (hV : Measurable V) (k : ℕ) :
+    ∫⁻ ω, seqBlockProd m V k ω ∂Measure.infinitePi μ =
+      ∏ j ∈ Finset.range k, ∫⁻ x, V x ∂Measure.pi fun i : Fin m ↦ μ (j * m + i) := by
+  simp_rw [seqBlockProd_def]
+  rw [lintegral_prod_eq_prod_lintegral_of_indepFun _ (fun j ω ↦ V (seqBlock m j ω))
+    ((iIndepFun_seqBlock μ m).comp _ fun _ ↦ hV) fun j ↦ hV.comp (measurable_seqBlock m j)]
+  simp_rw [(measurePreserving_seqBlock μ m _).lintegral_comp hV]
+
 /-- Under the i.i.d. law of `P`, the expectation of the product of `V` over `k` blocks of `m`
 terms is the `k`-th power of the expectation of `V` under the `m`-fold product of `P`. -/
-theorem lintegral_seqBlockProd (P : Measure 𝓧) [IsProbabilityMeasure P] {m : ℕ}
+theorem lintegral_seqBlockProd_const (P : Measure 𝓧) [IsProbabilityMeasure P] {m : ℕ}
     {V : (Fin m → 𝓧) → ℝ≥0∞} (hV : Measurable V) (k : ℕ) :
     ∫⁻ ω, seqBlockProd m V k ω ∂Measure.infinitePi (fun _ : ℕ ↦ P) =
       (∫⁻ x, V x ∂Measure.pi fun _ : Fin m ↦ P) ^ k := by
-  simp_rw [seqBlockProd_def]
-  rw [lintegral_prod_eq_prod_lintegral_of_indepFun _ (fun j ω ↦ V (seqBlock m j ω))
-    ((iIndepFun_seqBlock _ m).comp _ fun _ ↦ hV) fun j ↦ hV.comp (measurable_seqBlock m j)]
-  simp_rw [(measurePreserving_seqBlock (fun _ ↦ P) m _).lintegral_comp hV]
-  rw [Finset.prod_const, Finset.card_range]
+  rw [lintegral_seqBlockProd _ hV, Finset.prod_const, Finset.card_range]
 
 section StrongLaw
 

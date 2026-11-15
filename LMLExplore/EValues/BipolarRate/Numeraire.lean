@@ -303,7 +303,7 @@ theorem ae_eventually_log_le_log_numeraire_add (Q₁ : Measure 𝓧)
   filter_upwards [ae_eventually_notMem hsum] with ω hω
   filter_upwards [hω] with n hn
   simp only [A, Set.mem_ofPred_eq, not_le] at hn
-  exact ENNReal.log_le_log_add_of_div_lt hn
+  exact ENNReal.log_le_log_add_of_div_le hn.le
 
 /-- **Comparison of a function of the first observations with the numeraire.** Let `F n` be
 measurable functions of the first `n` observations with expectation at most `1` under the i.i.d.
@@ -414,7 +414,7 @@ private lemma ae_eventually_mul_le_log_of_forall_ae_eventually_log_le (Q₁ : Me
     (fun n ↦ (dependsOn_seqBlockProd Em _).mono (Set.Iio_subset_Iio (Nat.div_mul_le_self n m)))
     (fun P hP n ↦ by
       have := hS₁ P hP
-      rw [lintegral_seqBlockProd P hEm]
+      rw [lintegral_seqBlockProd_const P hEm]
       exact pow_le_one₀ (by positivity) ((isEVar_numeraire _ _).lintegral_le_one ⟨P, hP, rfl⟩))
     (L' - L) (sub_pos.2 (EReal.coe_lt_coe_iff.1 hLL'))
   filter_upwards [h1, h2] with ω hω1 hω2
