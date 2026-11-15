@@ -5,7 +5,7 @@ Authors: LMLExplore contributors
 -/
 module
 
-public import LMLExplore.EValues.BipolarRate
+public import LMLExplore.EValues.BipolarRate.Basic
 
 /-!
 # When one observation attains the smallest relative entropy
