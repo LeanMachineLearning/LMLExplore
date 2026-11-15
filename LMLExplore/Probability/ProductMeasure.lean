@@ -7,6 +7,10 @@ module
 
 public import LMLExplore.MeasureTheory.MeasurableSpace.Constructions
 public import Mathlib.Probability.Independence.InfinitePi
+public import Mathlib.Probability.Process.Filtration
+import LMLExplore.MeasureTheory.Constructions.Pi
+import LMLExplore.MeasureTheory.Measure.Typeclasses.Probability
+import Mathlib.MeasureTheory.Function.FactorsThrough
 
 /-!
 # Infinite products of probability measures: the first terms and the next terms
@@ -15,12 +19,29 @@ Under the infinite product `Measure.infinitePi` of copies of a probability measu
 `n` coordinates have the product law `Measure.pi`, and they are independent of the next `m`
 coordinates.
 
+If `Q + ∑ i, b i • P i = ∑ i, c i • P i` for a probability measure `Q` and probability measures
+`P i`, two functions of the first `N + 1` observations with equal integrals under the i.i.d. law of
+every convex combination of the `P i` have equal integrals under the i.i.d. law of `Q`. This is
+the polarization step of [EVR26, Note 03, Theorem 1], adapted from
+`EValuesResearch/Results/TestMartingaleConverse.lean` (commit `6f05c5f`) in the paper project
+`RemyDegenne/evalues_research`.
+
 ## Main statements
 
 * `MeasureTheory.measurePreserving_initSeg`: the first `n` terms `initSeg n` of an i.i.d. sequence
   have the product law.
 * `MeasureTheory.Measure.infinitePi_fin_mem_and_forall_add_mem`: for an i.i.d. sequence, the
   first `n` terms and the next `m` terms are independent.
+* `MeasureTheory.Measure.lintegral_infinitePi_eq_of_add_sum_eq_sum`: polarization for i.i.d. laws,
+  from the convex combinations of finitely many probability measures to every probability measure
+  in their linear span.
+
+## References
+
+* [EVR26] *Answers to open questions in e-values and anytime-valid inference*, notes 01 to 34 and
+  the Lean library `EValuesResearch` of github.com/RemyDegenne/evalues_research, 2026; written and
+  refereed by AI agents: Note 03, *Converse of the power-one theorem for test martingales*,
+  Theorem 1.
 -/
 
 public section
@@ -81,5 +102,38 @@ theorem infinitePi_fin_mem_and_forall_add_mem {X : Type*} [MeasurableSpace X] (�
       simp
     rw [h_pi, Measure.infinitePi_pi _ fun _ _ ↦ hC, Finset.prod_const, Nat.card_Ico,
       Nat.add_sub_cancel_left]
+
+open scoped NNReal ENNReal in
+/-- **Polarization for i.i.d. laws.** Let `Q` be a probability measure and `P i` probability
+measures with `Q + ∑ i, b i • P i = ∑ i, c i • P i`. If two functions of the first `N + 1`
+observations have equal integrals under the i.i.d. law of every convex combination of the `P i`,
+finite for the first function, then they have equal integrals under the i.i.d. law of `Q`. -/
+lemma lintegral_infinitePi_eq_of_add_sum_eq_sum {𝓧 ι : Type*} {m𝓧 : MeasurableSpace 𝓧}
+    [Fintype ι] {P : ι → Measure 𝓧} [∀ i, IsProbabilityMeasure (P i)] {b c : ι → ℝ≥0}
+    {Q : Measure 𝓧} [IsProbabilityMeasure Q] (hQ : Q + ∑ i, b i • P i = ∑ i, c i • P i) {N : ℕ}
+    {f g : (ℕ → 𝓧) → ℝ≥0∞} (hf : Measurable[Filtration.piLE (X := fun _ : ℕ ↦ 𝓧) N] f)
+    (hg : Measurable[Filtration.piLE (X := fun _ : ℕ ↦ 𝓧) N] g)
+    (hfg : ∀ w : ι → ℝ≥0, ∑ i, w i = 1 →
+      ∫⁻ ω, f ω ∂Measure.infinitePi (fun _ ↦ ∑ i, w i • P i) =
+        ∫⁻ ω, g ω ∂Measure.infinitePi (fun _ ↦ ∑ i, w i • P i))
+    (hf_ne : ∀ w : ι → ℝ≥0, ∑ i, w i = 1 →
+      ∫⁻ ω, f ω ∂Measure.infinitePi (fun _ ↦ ∑ i, w i • P i) ≠ ∞) :
+    ∫⁻ ω, f ω ∂Measure.infinitePi (fun _ ↦ Q) = ∫⁻ ω, g ω ∂Measure.infinitePi (fun _ ↦ Q) := by
+  rw [Filtration.piLE_eq_comap_frestrictLe] at hf hg
+  obtain ⟨f', hf', rfl⟩ := hf.exists_eq_measurable_comp
+  obtain ⟨g', hg', rfl⟩ := hg.exists_eq_measurable_comp
+  have h (μ : Measure 𝓧) [IsProbabilityMeasure μ] {H : (Finset.Iic N → 𝓧) → ℝ≥0∞}
+      (hH : Measurable H) :
+      ∫⁻ ω, (H ∘ Preorder.frestrictLe N) ω ∂Measure.infinitePi (fun _ ↦ μ) =
+        ∫⁻ x, H x ∂Measure.pi (fun _ : Finset.Iic N ↦ μ) :=
+    lintegral_restrict_infinitePi _ hH
+  rw [h Q hf', h Q hg']
+  refine lintegral_pi_eq_of_add_sum_eq_sum hQ (fun w hw ↦ ?_) fun w hw ↦ ?_
+  · have := isProbabilityMeasure_sum_smul (P := P) hw
+    rw [← h _ hf', ← h _ hg']
+    exact hfg w hw
+  · have := isProbabilityMeasure_sum_smul (P := P) hw
+    rw [← h _ hf']
+    exact hf_ne w hw
 
 end MeasureTheory.Measure
