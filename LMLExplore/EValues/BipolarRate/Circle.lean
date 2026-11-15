@@ -297,13 +297,12 @@ theorem maxLogGrowth_one_coset_mixtures_eq_zero (hε : ε ≤ 1) :
   have hx (x : UnitAddCircle) : (1 - ε) * X x + ε * c ≤ 1 := by
     have := isProbabilityMeasure_coset_mixture hε x 1
     have h := hX.lintegral_le_measure_univ _ ⟨x, 1, rfl⟩
-    rwa [measure_univ, uniformOn_coset_one, lintegral_add_measure, lintegral_smul_measure,
-      lintegral_smul_measure, lintegral_dirac, smul_eq_mul, smul_eq_mul] at h
+    rw [uniformOn_coset_one] at h
+    simpa [c, lintegral_add_measure, tsub_add_cancel_of_le hε] using h
   calc c
   _ = ((1 - ε) + ε) * c := by rw [tsub_add_cancel_of_le hε, one_mul]
   _ = ∫⁻ x, ((1 - ε) * X x + ε * c) ∂(volume : Measure UnitAddCircle) := by
-    rw [lintegral_add_right _ measurable_const, lintegral_const_mul _ hX.measurable,
-      lintegral_const, measure_univ, mul_one, add_mul]
+    simp [c, lintegral_add_right _ measurable_const, lintegral_const_mul _ hX.measurable, add_mul]
   _ ≤ ∫⁻ _, 1 ∂(volume : Measure UnitAddCircle) := lintegral_mono hx
   _ = 1 := by simp
 
@@ -314,22 +313,14 @@ theorem iInf_klDiv_coset_mixtures (hε : ε ≤ 1) :
     ((⨅ P ∈ {(1 - ε) • uniformOn {x | x - x₀ ∈ AddSubgroup.zmultiples
       (((N : ℝ)⁻¹ : ℝ) : UnitAddCircle)} + ε • volume |
       (x₀ : UnitAddCircle) (N : ℕ)}, klDiv volume P : ℝ≥0∞) : EReal) = ENNReal.log ε⁻¹ := by
-  have hkl (x₀ : UnitAddCircle) (N : ℕ) :
-      ((klDiv volume ((1 - ε) • uniformOn {x | x - x₀ ∈ AddSubgroup.zmultiples
-        (((N : ℝ)⁻¹ : ℝ) : UnitAddCircle)} + ε • volume) : ℝ≥0∞) :
-        EReal) = ENNReal.log ε⁻¹ := by
-    have hfin := finite_coset x₀ N
-    have := isProbabilityMeasure_uniformOn hfin ⟨x₀, by simp⟩
-    refine klDiv_mixture_of_mutuallySingular ⟨_, hfin.measurableSet.compl, ?_, ?_⟩ hε
-    · exact (uniformOn_eq_zero_iff hfin).2 (Set.inter_compl_self _)
-    · rw [compl_compl]
-      exact hfin.measure_zero _
-  -- the relative entropy is the same for every member of the null
-  rw [← hkl 0 0]
-  congr 1
-  refine (biInf_congr ?_).trans (biInf_const ⟨_, 0, 0, rfl⟩)
+  refine iInf_klDiv_mixture_of_mutuallySingular ⟨_, 0, 0, rfl⟩ ?_ hε
   rintro _ ⟨x₀, N, rfl⟩
-  exact EReal.coe_ennreal_injective ((hkl x₀ N).trans (hkl 0 0).symm)
+  have hfin := finite_coset x₀ N
+  refine ⟨_, isProbabilityMeasure_uniformOn hfin ⟨x₀, by simp⟩,
+    ⟨_, hfin.measurableSet.compl, ?_, ?_⟩, rfl⟩
+  · exact (uniformOn_eq_zero_iff hfin).2 (Set.inter_compl_self _)
+  · rw [compl_compl]
+    exact hfin.measure_zero _
 
 /-- The bipolar rate of Lebesgue measure on the circle against the mixtures `(1 - ε) U + ε volume`,
 with `U` uniform on a coset `x₀ + (1 / N) ℤ`, is `log (1 / ε)`, the smallest relative entropy to
@@ -348,8 +339,8 @@ theorem bipolarRate_coset_mixtures (hε : ε ≤ 1) :
     refine ⟨{x | x - x₀ ∈ AddSubgroup.zmultiples (((N : ℝ)⁻¹ : ℝ) : UnitAddCircle)}, ?_,
       fun a ha b hb ↦ zmultiples_subset_ratCircle N
         (by simpa using sub_mem (Set.mem_ofPred.1 ha) (Set.mem_ofPred.1 hb))⟩
-    rw [add_apply, smul_apply, (uniformOn_eq_zero_iff (finite_coset x₀ N)).2
-      (Set.inter_compl_self _), smul_zero, zero_add, smul_apply, smul_eq_mul]
+    simp only [add_apply, smul_apply, smul_eq_mul,
+      (uniformOn_eq_zero_iff (finite_coset x₀ N)).2 (Set.inter_compl_self _), mul_zero, zero_add]
     exact mul_le_of_le_one_right' prob_le_one
   exact le_antisymm ((bipolarRate_le_iInf_klDiv volume hS).trans_eq
     (iInf_klDiv_coset_mixtures hε)) (log_inv_le_bipolarRate hε fun n hn ↦

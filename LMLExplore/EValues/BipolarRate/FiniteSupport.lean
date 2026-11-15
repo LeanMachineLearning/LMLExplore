@@ -202,9 +202,8 @@ theorem maxLogGrowth_finitelySupported_mixtures_eq_zero (Q : Measure 𝓧) [IsPr
       Tendsto (fun m : ℕ ↦ ENNReal.ofReal ((m.descFactorial n : ℝ) / (m : ℝ) ^ n)) atTop
         (𝓝 1)).congr' ?_
     filter_upwards [eventually_ne_atTop 0] with m hm
-    rw [ENNReal.ofReal_div_of_pos (pow_pos (Nat.cast_pos.2 (Nat.pos_of_ne_zero hm)) n),
-      ENNReal.ofReal_natCast, ENNReal.ofReal_pow (Nat.cast_nonneg m), ENNReal.ofReal_natCast,
-      div_eq_mul_inv, ENNReal.inv_pow]
+    simp [div_eq_mul_inv, ENNReal.ofReal_mul, ENNReal.ofReal_inv_of_pos, ENNReal.ofReal_pow,
+      Nat.pos_of_ne_zero hm, ENNReal.inv_pow]
   rw [maxLogGrowth_def]
   refine maxUtility_eq_zero_of_mem_effectiveSet fun E hE ↦
     ENNReal.le_of_forall_lt_one_mul_le fun a ha ↦ ?_
@@ -229,19 +228,11 @@ theorem iInf_klDiv_finitelySupported_mixtures (Q : Measure 𝓧) [IsProbabilityM
     ((⨅ P ∈ {(1 - ε) • F + ε • Q | (F : Measure 𝓧) (_ : IsProbabilityMeasure F)
       (_ : ∃ s : Set 𝓧, s.Finite ∧ F sᶜ = 0)}, klDiv Q P : ℝ≥0∞) : EReal) =
         ENNReal.log ε⁻¹ := by
-  have hkl (F : Measure 𝓧) [IsProbabilityMeasure F] (hF : ∃ s : Set 𝓧, s.Finite ∧ F sᶜ = 0) :
-      ((klDiv Q ((1 - ε) • F + ε • Q) : ℝ≥0∞) : EReal) = ENNReal.log ε⁻¹ := by
-    obtain ⟨s, hs, hFs⟩ := hF
-    exact klDiv_mixture_of_mutuallySingular
-      ⟨sᶜ, hs.measurableSet.compl, hFs, by rw [compl_compl]; exact hs.measure_zero Q⟩ hε
   obtain ⟨x⟩ := nonempty_of_isProbabilityMeasure Q
-  have hx : ∃ s : Set 𝓧, s.Finite ∧ Measure.dirac x sᶜ = 0 :=
-    ⟨{x}, Set.finite_singleton x, by simp⟩
-  -- the relative entropy is the same for every member of the null
-  rw [← hkl (Measure.dirac x) hx]
-  congr 1
-  refine (biInf_congr ?_).trans (biInf_const ⟨_, _, inferInstance, hx, rfl⟩)
-  rintro _ ⟨F, hF, hFs, rfl⟩
-  exact EReal.coe_ennreal_injective ((hkl F hFs).trans (hkl _ hx).symm)
+  refine iInf_klDiv_mixture_of_mutuallySingular
+    ⟨_, Measure.dirac x, inferInstance, ⟨{x}, Set.finite_singleton x, by simp⟩, rfl⟩ ?_ hε
+  rintro _ ⟨F, hF, ⟨s, hs, hFs⟩, rfl⟩
+  exact ⟨F, hF, ⟨sᶜ, hs.measurableSet.compl, hFs, by rw [compl_compl]; exact hs.measure_zero Q⟩,
+    rfl⟩
 
 end ProbabilityTheory
