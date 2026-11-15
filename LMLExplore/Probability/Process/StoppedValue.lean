@@ -35,6 +35,11 @@ optional stopping holds at every stopping time with this convention.
 * `MeasureTheory.tendsto_stoppedValueLimsup_min`: for a convergent process, the values at the
   truncated times `min τ N` converge to the value at `τ`.
 * `MeasureTheory.measurable_stoppedValueLimsup`: it is measurable for measurable `u n` and `τ`.
+* `MeasureTheory.tendsto_lintegral_stoppedValueLimsup_min`: for an almost everywhere nondecreasing
+  `ℝ≥0∞`-valued process, the integrals at the truncated times `min τ N` converge to the integral
+  at `τ`.
+* `MeasureTheory.tendsto_setLIntegral_inter_le_natCast`: the integrals of a function over
+  `s ∩ {τ ≤ N}` increase to its integral over `s ∩ {τ ≠ ⊤}`.
 * `MeasureTheory.measurable_apply_of_countable`: the value `fun ω ↦ u (σ ω) ω` of a process of
   measurable functions, indexed by a countable type, at a measurable random time is measurable.
 * `MeasureTheory.Adapted.measurable_apply_stoppingTime`: the value of an adapted process at a
@@ -51,6 +56,7 @@ optional stopping holds at every stopping time with this convention.
 public section
 
 open Filter Topology
+open scoped ENNReal
 
 namespace MeasureTheory
 
@@ -139,6 +145,48 @@ theorem measurable_stoppedValueLimsup [ConditionallyCompleteLinearOrder β] [Top
     | top => simpa using Measurable.limsup hu
     | coe n => simpa using hu n
   exact h.comp (measurable_id.prodMk hτ)
+
+/-- **Monotone convergence at truncated times.** For an almost everywhere nondecreasing process
+of measurable `ℝ≥0∞`-valued functions and a measurable random time `τ`, the integrals of its
+values at the truncated times `min τ N` increase to the integral of its value at `τ`. -/
+theorem tendsto_lintegral_stoppedValueLimsup_min {mΩ : MeasurableSpace Ω} {μ : Measure Ω}
+    {u : ℕ → Ω → ℝ≥0∞} (hu : ∀ n, Measurable (u n)) (hmono : ∀ᵐ ω ∂μ, Monotone (u · ω))
+    (hτ : Measurable τ) :
+    Tendsto (fun N : ℕ ↦ ∫⁻ ω, stoppedValueLimsup u (fun ω ↦ min (τ ω) N) ω ∂μ) atTop
+      (𝓝 (∫⁻ ω, stoppedValueLimsup u τ ω ∂μ)) := by
+  have hmin_top (ω : Ω) (N : ℕ) : min (τ ω) N ≠ ⊤ :=
+    ne_top_of_le_ne_top (WithTop.natCast_ne_top N) (min_le_right _ _)
+  refine lintegral_tendsto_of_tendsto_of_monotone (fun N ↦ (measurable_stoppedValueLimsup hu
+    ((measurable_of_countable fun t : WithTop ℕ ↦ min t N).comp hτ)).aemeasurable) ?_ ?_
+  · filter_upwards [hmono] with ω hω N N' h
+    dsimp only
+    rw [stoppedValueLimsup_eq_stoppedValue (τ := fun ω ↦ min (τ ω) N) (hmin_top ω N),
+      stoppedValueLimsup_eq_stoppedValue (τ := fun ω ↦ min (τ ω) N') (hmin_top ω N')]
+    exact hω (WithTop.untopA_mono (hmin_top ω N') (min_le_min_left _ (by exact_mod_cast h)))
+  · filter_upwards [hmono] with ω hω
+    refine tendsto_stoppedValueLimsup_min ?_
+    rw [(tendsto_atTop_iSup hω).limsup_eq]
+    exact tendsto_atTop_iSup hω
+
+/-- The integrals of `f` over `s ∩ {τ ≤ N}` increase to its integral over `s ∩ {τ ≠ ⊤}`. -/
+theorem tendsto_setLIntegral_inter_le_natCast {mΩ : MeasurableSpace Ω} {μ : Measure Ω}
+    {s : Set Ω} (f : Ω → ℝ≥0∞) (hs : MeasurableSet s) (hτ : Measurable τ) :
+    Tendsto (fun N : ℕ ↦ ∫⁻ ω in s ∩ {ω | τ ω ≤ N}, f ω ∂μ) atTop
+      (𝓝 (∫⁻ ω in s ∩ {ω | τ ω ≠ ⊤}, f ω ∂μ)) := by
+  have hmeas (N : ℕ) : MeasurableSet (s ∩ {ω | τ ω ≤ N}) := hs.inter (hτ measurableSet_Iic)
+  have hU : ⋃ N : ℕ, s ∩ {ω | τ ω ≤ N} = s ∩ {ω | τ ω ≠ ⊤} := by
+    rw [← Set.inter_iUnion]
+    congr 1
+    ext ω
+    simp only [Set.mem_iUnion, Set.mem_ofPred_eq]
+    refine ⟨fun ⟨N, hN⟩ ↦ ne_top_of_le_ne_top (WithTop.natCast_ne_top N) hN, fun h ↦ ?_⟩
+    obtain ⟨t, ht⟩ := WithTop.ne_top_iff_exists.1 h
+    exact ⟨t, by simp [← ht]⟩
+  -- The set integrals of `f` are the measures of the sets under `μ.withDensity f`.
+  simp_rw [← withDensity_apply _ (hmeas _)]
+  rw [← withDensity_apply _ (hU ▸ MeasurableSet.iUnion hmeas), ← hU]
+  exact tendsto_measure_iUnion_atTop fun N N' h ↦
+    Set.inter_subset_inter_right _ fun ω (hω : τ ω ≤ N) ↦ hω.trans (by exact_mod_cast h)
 
 /-- The value `fun ω ↦ u (σ ω) ω` of a process of measurable functions, indexed by a countable
 type, at a measurable random time is measurable. -/
