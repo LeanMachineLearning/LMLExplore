@@ -6,6 +6,8 @@ Authors: LMLExplore contributors
 module
 
 public import Mathlib.Algebra.Order.Field.Basic
+import Mathlib.Tactic.FieldSimp
+import Mathlib.Tactic.Linarith
 
 /-!
 # Bounds in linearly ordered fields
@@ -39,10 +41,8 @@ theorem mul_div_add_le_right (hx : 0 ≤ x) (hy : 0 ≤ y) : x * y / (x + y) ≤
 theorem nonneg_of_forall_lt_add_mul {K : Type*} [Field K] [LinearOrder K] [IsStrictOrderedRing K]
     {A B v : K} (h : ∀ t : K, 0 ≤ t → v < A + t * B) : 0 ≤ B := by
   by_contra! hB
-  have h1 := h _ (le_max_left 0 ((A - v) / -B))
-  have h3 : max 0 ((A - v) / -B) * B ≤ (A - v) / -B * B :=
-    mul_le_mul_of_nonpos_right (le_max_right _ _) hB.le
-  have h4 : (A - v) / -B * B = -(A - v) := by rw [div_neg, neg_mul, div_mul_cancel₀ _ hB.ne]
-  have h5 := h1.trans_le ((add_le_add_iff_left A).2 h3)
-  rw [h4, neg_sub, add_sub_cancel] at h5
-  exact lt_irrefl v h5
+  have h0 : v < A := by simpa using h 0 le_rfl
+  -- at `t = (A - v) / -B`, the affine function takes the value `v`
+  have h1 := h ((A - v) / -B) (div_nonneg (sub_nonneg.2 h0.le) (neg_nonneg.2 hB.le))
+  field_simp [hB.ne] at h1
+  linarith
