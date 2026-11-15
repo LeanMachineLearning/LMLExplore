@@ -5,7 +5,7 @@ Authors: LMLExplore contributors
 -/
 module
 
-public import LMLExplore.MarkovDecisionProcess.Episodic.Value
+public import LMLExplore.MarkovDecisionProcess.Episodic.Value.Basic
 
 /-!
 # Optimal values and the optimal policy of an episodic MDP

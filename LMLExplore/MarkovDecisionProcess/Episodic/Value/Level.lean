@@ -5,7 +5,7 @@ Authors: LMLExplore contributors
 -/
 module
 
-public import LMLExplore.MarkovDecisionProcess.Episodic.Value
+public import LMLExplore.MarkovDecisionProcess.Episodic.Value.Basic
 
 /-!
 # The levels of [LWCGC24, Lemma 9] for episodic MDPs

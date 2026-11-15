@@ -5,7 +5,7 @@ Authors: LMLExplore contributors
 -/
 module
 
-public import LMLExplore.MarkovDecisionProcess.Episodic.ValueLevel
+public import LMLExplore.MarkovDecisionProcess.Episodic.Value.Level
 public import LMLExplore.ReinforcementLearning.Generative.Episodic.Basic
 import Mathlib.Data.Nat.Log
 
@@ -23,7 +23,7 @@ the rewards, unlike the discounted case (`ReinforcementLearning/Generative/Pertu
 The proof has a deterministic part and a probabilistic part.
 * The **deterministic part**, [LWCGC24, Lemma 9], is
   `EpisodicMDP.abs_value_sub_value_le_of_abs_integral_stateKernel_sub_le` in
-  `MarkovDecisionProcess/Episodic/ValueLevel.lean`: if the transitions of `M̂` deviate from those
+  `MarkovDecisionProcess/Episodic/Value/Level.lean`: if the transitions of `M̂` deviate from those
   of `M` by Bernstein-type bounds on the levels `V l` of [LWCGC24, (62)] of a policy, for
   `l ≤ m` with `H ≤ 4 ^ m`, then the values of the policy in `M` and in `M̂` are within
   `4 H √(2 L H / N)`.
