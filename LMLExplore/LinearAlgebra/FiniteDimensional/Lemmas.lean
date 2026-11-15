@@ -64,15 +64,11 @@ theorem forall_sum_mul_eq_of_forall_le_of_sum_le [Field K] [LinearOrder K]
     {ρ ρ' : ι → K} (hle : ∀ x ∈ Y, ∑ i, ρ i * a i x ≤ ∑ i, ρ' i * a i x)
     (hsum : ∑ x ∈ F, ∑ i, ρ' i * a i x ≤ ∑ x ∈ F, ∑ i, ρ i * a i x) :
     ∀ x ∈ Y, ∑ i, ρ i * a i x = ∑ i, ρ' i * a i x := by
-  -- the nonnegative differences on `F` have a nonpositive sum, so they vanish on `F`
-  have h0 : ∑ x ∈ F, (∑ i, ρ' i * a i x - ∑ i, ρ i * a i x) = 0 := by
-    refine le_antisymm ?_ (Finset.sum_nonneg fun x hx ↦ sub_nonneg.2 (hle x (hFY hx)))
-    rw [Finset.sum_sub_distrib]
-    exact sub_nonpos.2 hsum
-  have hF0 : ∀ x ∈ F, ∑ i, (ρ' i - ρ i) * a i x = 0 := fun x hx ↦ by
-    simpa only [sub_mul, Finset.sum_sub_distrib] using (Finset.sum_eq_zero_iff_of_nonneg
-      (fun y hy ↦ sub_nonneg.2 (hle y (hFY hy)))).1 h0 x hx
+  -- the sums over `F` are equal, so the two combinations agree on `F`
+  have hF0 := (Finset.sum_eq_sum_iff_of_le fun x hx ↦ hle x (hFY hx)).1
+    (le_antisymm (Finset.sum_le_sum fun x hx ↦ hle x (hFY hx)) hsum)
   intro x hx
-  have := hF _ hF0 x hx
-  simp only [sub_mul, Finset.sum_sub_distrib, sub_eq_zero] at this
+  have := hF (ρ' - ρ) (fun y hy ↦ by
+    simp [sub_mul, Finset.sum_sub_distrib, hF0 y hy]) x hx
+  simp only [Pi.sub_apply, sub_mul, Finset.sum_sub_distrib, sub_eq_zero] at this
   exact this.symm
