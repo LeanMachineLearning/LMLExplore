@@ -8,6 +8,7 @@ module
 public import LeanMachineLearning.Online.Bandit.RewardByCountMeasure
 public import LMLExplore.MeasureTheory.Integral.Lebesgue.Add
 public import LMLExplore.MeasureTheory.Measure.Prod
+public import LMLExplore.Probability.ProductMeasure
 public import LMLExplore.SequentialLearning.FiniteActions
 public import Mathlib.Probability.StrongLaw
 
@@ -387,10 +388,8 @@ theorem hasLaw_arm_fin_streamMeasure {𝓡 : Type*} [MeasurableSpace 𝓡] (ν :
     HasLaw (fun (ω : ℕ → α → 𝓡) (i : Fin n) ↦ ω i a) (Measure.pi fun _ : Fin n ↦ ν a)
       (streamMeasure ν) := by
   -- the first `n` terms of an i.i.d. sequence are `n` independent samples
-  have h_fin : HasLaw (fun (z : ℕ → 𝓡) (i : Fin n) ↦ z i) (Measure.pi fun _ : Fin n ↦ ν a)
-      (Measure.infinitePi fun _ : ℕ ↦ ν a) :=
-    ⟨(Measurable.of_eval fun i : Fin n ↦ measurable_pi_apply (i : ℕ)).aemeasurable, by
-      rw [Measure.map_infinitePi_infinitePi_of_inj Fin.val_injective, Measure.infinitePi_eq_pi]⟩
+  have h_fin := (measurePreserving_initSeg (ν a) n).hasLaw
+  rw [initSeg_def] at h_fin
   exact h_fin.comp ((hasLaw_eval_infinitePi _ a).comp (hasLaw_arm_streamMeasure ν))
 
 omit [DecidableEq α] [Countable α] [MeasurableSingletonClass α] in
