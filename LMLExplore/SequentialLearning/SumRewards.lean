@@ -8,6 +8,7 @@ module
 public import LeanMachineLearning.Online.Bandit.RewardByCountMeasure
 public import LMLExplore.MeasureTheory.Integral.Lebesgue.Add
 public import LMLExplore.MeasureTheory.Measure.Prod
+public import LMLExplore.Probability.ProductMeasure
 public import LMLExplore.SequentialLearning.FiniteActions
 public import Mathlib.Probability.StrongLaw
 
@@ -57,7 +58,9 @@ this way.
   stream, have the law `streamMeasure ν` of the stream model.
 * `hasLaw_arm_streamMeasure`: in the stream model, the array of the reward sequences of the arms
   has law `⨂ a, ⨂ i, ν a`, and `iIndepFun_arm_streamMeasure`: these sequences are independent;
-  `streamMeasure_forall_arm_mem` is the product formula for events about them.
+  `streamMeasure_forall_arm_mem` is the product formula for events about them, and
+  `indepFun_streamMeasure_of_forall_eq`: a function of the reward sequences of a set of arms is
+  independent of the reward sequence of every other arm.
 * `hasLaw_arm_fin_streamMeasure`: in the stream model, the first `n` rewards of an arm `a` are `n`
   independent samples of `ν a`, and `hasLaw_pi_arm_fin_streamMeasure`: for finitely many arms,
   the first `n a` rewards of the arms `a` are independent across the arms.
@@ -334,6 +337,35 @@ theorem iIndepFun_arm_streamMeasure {𝓡 : Type*} [MeasurableSpace 𝓡] (ν : 
   rw [← (hasLaw_eval_infinitePi _ a).comp h_arms |>.map_eq, Function.comp_def]
 
 omit [DecidableEq α] [Countable α] [MeasurableSingletonClass α] in
+/-- **Decoupling in the stream model.** In LML's reward stream model, a measurable function `W` of
+the array that only depends on the reward sequences of the arms of a set `T` is independent of the
+reward sequence `(ω i a)_i` of every arm `a ∉ T`. -/
+theorem indepFun_streamMeasure_of_forall_eq {𝓡 β : Type*} [MeasurableSpace 𝓡]
+    [MeasurableSpace β] (ν : Kernel α 𝓡) [IsMarkovKernel ν] {T : Set α} {W : (ℕ → α → 𝓡) → β}
+    (hW : Measurable W) (hWT : ∀ ω ω', (∀ i, ∀ b ∈ T, ω i b = ω' i b) → W ω = W ω') {a : α}
+    (ha : a ∉ T) :
+    IndepFun W (fun ω i ↦ ω i a) (streamMeasure ν) := by
+  classical
+  have := nonempty_of_isProbabilityMeasure (ν a)
+  -- the reward sequences of the arms of `T` are independent of those of `a`
+  have h := (iIndepFun_arm_streamMeasure ν).indepFun_set T {a}
+    (Set.disjoint_singleton_right.2 ha) fun b ↦ by fun_prop
+  -- the array with the reward sequences of the arms of `T`, and a fixed reward elsewhere
+  let ext : (T → ℕ → 𝓡) → ℕ → α → 𝓡 :=
+    fun x i b ↦ if hb : b ∈ T then x ⟨b, hb⟩ i else Classical.arbitrary 𝓡
+  have h_ext : Measurable ext := by
+    refine Measurable.of_eval fun i ↦ Measurable.of_eval fun b ↦ ?_
+    by_cases hb : b ∈ T
+    · have h₁ : (fun x ↦ ext x i b) = fun x ↦ x ⟨b, hb⟩ i := funext fun x ↦ by simp [ext, hb]
+      rw [h₁]
+      fun_prop
+    · simp [ext, hb]
+  have h_eq : W = (W ∘ ext) ∘ fun ω (b : T) i ↦ ω i b :=
+    funext fun ω ↦ hWT _ _ fun i b hb ↦ by simp [ext, hb]
+  rw [h_eq]
+  exact h.comp (hW.comp h_ext) (measurable_pi_apply ⟨a, Set.mem_singleton a⟩)
+
+omit [DecidableEq α] [Countable α] [MeasurableSingletonClass α] in
 /-- **Independence of the arms of the reward stream.** For finitely many arms, events about the
 reward sequences `(ω i a)_i` of different arms `a` in LML's reward stream model are independent,
 and the reward sequence of `a` is an i.i.d. sequence of law `ν a`. -/
@@ -356,10 +388,8 @@ theorem hasLaw_arm_fin_streamMeasure {𝓡 : Type*} [MeasurableSpace 𝓡] (ν :
     HasLaw (fun (ω : ℕ → α → 𝓡) (i : Fin n) ↦ ω i a) (Measure.pi fun _ : Fin n ↦ ν a)
       (streamMeasure ν) := by
   -- the first `n` terms of an i.i.d. sequence are `n` independent samples
-  have h_fin : HasLaw (fun (z : ℕ → 𝓡) (i : Fin n) ↦ z i) (Measure.pi fun _ : Fin n ↦ ν a)
-      (Measure.infinitePi fun _ : ℕ ↦ ν a) :=
-    ⟨(Measurable.of_eval fun i : Fin n ↦ measurable_pi_apply (i : ℕ)).aemeasurable, by
-      rw [Measure.map_infinitePi_infinitePi_of_inj Fin.val_injective, Measure.infinitePi_eq_pi]⟩
+  have h_fin := (measurePreserving_initSeg (ν a) n).hasLaw
+  rw [initSeg_def] at h_fin
   exact h_fin.comp ((hasLaw_eval_infinitePi _ a).comp (hasLaw_arm_streamMeasure ν))
 
 omit [DecidableEq α] [Countable α] [MeasurableSingletonClass α] in
