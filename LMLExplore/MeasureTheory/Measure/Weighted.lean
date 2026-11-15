@@ -40,7 +40,9 @@ LMLPapers project.
   of `q` is contained in that of `p`;
 * `lintegral_weightedMeasure_eq_sum`, `integral_weightedMeasure_eq_sum`: integrals against
   `weightedMeasure p` are weighted sums;
-* `measurable_weightedMeasure`: `p ↦ weightedMeasure p` is measurable.
+* `measurable_weightedMeasure`: `p ↦ weightedMeasure p` is measurable;
+* `integral_sum_smul_dirac`: the integral against a finite sum `∑ k, w k • δ_{x k}` of weighted
+  Dirac measures at points of any measurable space is the weighted sum `∑ k, w k • f (x k)`.
 -/
 
 public section
@@ -141,5 +143,18 @@ lemma measurable_weightedMeasure : Measurable (weightedMeasure (ι := ι)) := by
   simp_rw [weightedMeasure_apply _ hs]
   exact Finset.measurable_sum _ fun i _ ↦
     (ENNReal.measurable_ofReal.comp (measurable_pi_apply i)).mul measurable_const
+
+/-- For nonnegative weights `w k` and points `x k` of a measurable space, the integral of a
+strongly measurable function with values in a Banach space against `∑ k, w k • δ_{x k}` is the
+weighted sum `∑ k, w k • f (x k)`. -/
+lemma integral_sum_smul_dirac {α 𝓧 E : Type*} [Fintype α] [MeasurableSpace 𝓧]
+    [NormedAddCommGroup E] [NormedSpace ℝ E] [CompleteSpace E] {f : 𝓧 → E} {x : α → 𝓧}
+    {w : α → ℝ} (hw : ∀ k, 0 ≤ w k) (hf : StronglyMeasurable f) :
+    ∫ y, f y ∂(∑ k, ENNReal.ofReal (w k) • Measure.dirac (x k)) = ∑ k, w k • f (x k) := by
+  have hint : ∀ k ∈ Finset.univ,
+      Integrable f (ENNReal.ofReal (w k) • Measure.dirac (x k)) := fun k _ ↦
+    (integrable_dirac' hf (by simp)).smul_measure ENNReal.ofReal_ne_top
+  rw [integral_finsetSum_measure hint]
+  simp_rw [integral_smul_measure, integral_dirac' _ _ hf, ENNReal.toReal_ofReal (hw _)]
 
 end LMLExplore
