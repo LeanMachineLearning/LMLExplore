@@ -14,12 +14,12 @@ Let `S₁` be a set of probability measures on `𝓧` (the null) and `Q₁` a la
 alternative). The observations are the coordinates of `ℕ → 𝓧`, with the i.i.d. laws
 `Measure.infinitePi fun _ ↦ P`. For every sequence of `n`-sample e-variables `M n` for the
 i.i.d. null, almost surely under the i.i.d. law of `Q₁`, `M n` evaluated at the first `n`
-observations has `limsup (1/n) log (M n) ≤ bipolarRate Q₁ S₁`. In particular an e-process for the
-i.i.d. null grows almost surely at most at the bipolar rate per observation. The members of `S₁`
-are probability measures, and nothing else is assumed on `S₁` or `Q₁`: no domination, convexity
-or compactness. Since the bipolar rate is at most the smallest relative entropy from `Q₁` to the
-null (`ProbabilityTheory.bipolarRate_le_iInf_klDiv`), the bound by that relative entropy follows
-[WSJ26, Proposition 2.2, for portfolio nulls].
+observations has `limsup (1/n) log (M n) ≤ bipolarRate Q₁ S₁` [EVR26, Note 01]. In particular an
+e-process for the i.i.d. null grows almost surely at most at the bipolar rate per observation. The
+members of `S₁` are probability measures, and nothing else is assumed on `S₁` or `Q₁`: no
+domination, convexity or compactness. Since the bipolar rate is at most the smallest relative
+entropy from `Q₁` to the null (`ProbabilityTheory.bipolarRate_le_iInf_klDiv`), the bound by that
+relative entropy follows [WSJ26, Proposition 2.2, for portfolio nulls].
 
 The bound in expectation, `ProbabilityTheory.IsEProcess.eintegral_log_div_le_bipolarRate`
 [RR26, Lemma 3.3], holds for each `n` separately; the almost sure bound is about the whole
@@ -58,14 +58,17 @@ Write `d` for the bipolar rate, assume it finite, and let `L > d`. The proof has
   the covering step gives `L' ≤ d`, a contradiction.
 
 The statements and proofs are adapted from `EValuesResearch/Results/BipolarRate.lean`
-(commit `decbae4`) in the paper project `RemyDegenne/evalues_research` (same author), rewritten on
-the API of LMLExplore.
+(commit `decbae4`) in the paper project `RemyDegenne/evalues_research` (same author), which
+formalizes [EVR26, Note 01], rewritten on the API of LMLExplore.
 
 ## References
 
 * [RR26] A. Ram and A. Ramdas, *The optimal betting wealth growth rate*, arXiv:2604.25280v1.
 * [WSJ26] I. Waudby-Smith, R. Sandoval and M. I. Jordan, *Instance-log-optimality of
   portfolio-based e-processes and their sequential hypothesis tests*, arXiv:2504.02818v2.
+* [EVR26] *Answers to open questions in e-values and anytime-valid inference*, notes 01 to 34 and
+  the Lean library `EValuesResearch` of github.com/RemyDegenne/evalues_research, 2026; written and
+  refereed by AI agents.
 -/
 
 public section
@@ -121,21 +124,6 @@ private lemma exists_log_inv_coverWeight_le {ε : ℝ} (hε : 0 < ε) :
   _ ≤ Real.log (((k : ℝ) + 1) ^ 2) := Real.log_le_log (by positivity) (by nlinarith)
   _ = 2 * Real.log ((k : ℝ) + 1) := by rw [Real.log_pow]; push_cast; ring
   _ ≤ ε * k := by nlinarith
-
-/-- `2⁻¹ ^ n` is `exp (-(n log 2))`. -/
-private lemma inv_two_pow_eq_exp (n : ℕ) : (2⁻¹ : ℝ) ^ n = Real.exp (-(n * Real.log 2)) := by
-  rw [← Real.log_pow, Real.exp_neg, Real.exp_log (by positivity), inv_pow]
-
-/-- `2⁻¹ ^ n` is `exp (-(n log 2))`, in `ℝ≥0∞`. -/
-private lemma inv_two_pow_eq_ofReal_exp (n : ℕ) :
-    (2⁻¹ : ℝ≥0∞) ^ n = ENNReal.ofReal (Real.exp (-(n * Real.log 2))) := by
-  rw [← inv_two_pow_eq_exp, ENNReal.ofReal_pow (by norm_num), ENNReal.ofReal_inv_of_pos two_pos,
-    ENNReal.ofReal_ofNat]
-
-/-- A finite bipolar rate is the coercion of its real value. -/
-private lemma coe_toReal_bipolarRate {Q : Measure 𝓧} {S : Set (Measure 𝓧)}
-    (hd : bipolarRate Q S ≠ ⊤) : ((bipolarRate Q S).toReal : EReal) = bipolarRate Q S :=
-  EReal.coe_toReal hd (ne_bot_of_le_ne_bot EReal.zero_ne_bot (bipolarRate_nonneg Q S))
 
 variable {M : ℕ → (ℕ → 𝓧) → ℝ≥0∞}
 
@@ -364,15 +352,15 @@ private lemma ofReal_exp_le_coverMixture {L ε : ℝ} (hεL : ε ≤ L) {k₀ K 
   set G := goodSet M L k₀ K
   have hlog2 : 0 < Real.log 2 := Real.log_pos one_lt_two
   have hk₀' : (0 : ℝ) < k₀ := by exact_mod_cast hk₀
-  have hexp2 : Real.exp (-Real.log 2) = 2⁻¹ := by
-    rw [← pow_one (2⁻¹ : ℝ), inv_two_pow_eq_exp, Nat.cast_one, one_mul]
+  have hexp2 : Real.exp (-Real.log 2) = 2⁻¹ := by rw [Real.exp_neg, Real.exp_log two_pos]
   induction N using Nat.strong_induction_on generalizing ω with
   | _ N ih =>
   have hC := badCount_nonneg G N ω
   by_cases hNK : N ≤ K
   · -- too few observations: the bound is below `2⁻¹ ^ N`
     refine le_trans ?_ (pow_le_coverMixture N ω)
-    rw [inv_two_pow_eq_ofReal_exp]
+    rw [← ENNReal.ofReal_ofNat 2, ← ENNReal.ofReal_inv_of_pos two_pos,
+      ← ENNReal.ofReal_pow (by norm_num), ← hexp2, ← Real.exp_nat_mul]
     refine ENNReal.ofReal_le_ofReal (Real.exp_le_exp.2 ?_)
     have hN : (N : ℝ) ≤ K := by exact_mod_cast hNK
     have h1 : (L - ε) * (N - K - badCount G N ω) ≤ 0 :=
@@ -507,17 +495,6 @@ private lemma cover_le_mul_toReal_bipolarRate (Q : Measure 𝓧) [IsProbabilityM
   rwa [← coe_toReal_bipolarRate hd, ← EReal.coe_natCast, ← EReal.coe_mul,
     EReal.coe_le_coe_iff] at hle
 
-/-- If `N a - b ≤ N d` for every `N ≥ 1`, then `a ≤ d`. -/
-private lemma le_of_forall_mul_sub_le {a b d : ℝ} (h : ∀ N : ℕ, 1 ≤ N → N * a - b ≤ N * d) :
-    a ≤ d := by
-  by_contra hcon
-  rw [not_le] at hcon
-  obtain ⟨N, hN⟩ := exists_nat_gt (b / (a - d))
-  have h1 := h (N + 1) (by omega)
-  rw [div_lt_iff₀ (by linarith)] at hN
-  push_cast at h1
-  nlinarith
-
 /-- **The covering argument, for fixed `K`.** Letting `N → ∞` in
 `cover_le_mul_toReal_bipolarRate`. -/
 private lemma sub_le_toReal_bipolarRate_of_goodSet (Q : Measure 𝓧) [IsProbabilityMeasure Q]
@@ -529,9 +506,21 @@ private lemma sub_le_toReal_bipolarRate_of_goodSet (Q : Measure 𝓧) [IsProbabi
     (L - ε) - Real.log 2 / k₀ -
       (L - ε + Real.log 2) * (Measure.infinitePi fun _ : ℕ ↦ Q).real (goodSet M L k₀ K)ᶜ ≤
         (bipolarRate Q S).toReal := by
-  refine le_of_forall_mul_sub_le (b := K * (L - ε + Real.log 2)) fun N hN ↦ ?_
-  refine le_of_eq_of_le ?_ (cover_le_mul_toReal_bipolarRate Q hS hMm hMd hMS hd hεL hk₀ hw K hN)
-  ring
+  -- `N a - b ≤ N d` for every `N ≥ 1`, with `b = K (L - ε + log 2)`, so `a ≤ d`
+  set a := (L - ε) - Real.log 2 / k₀ -
+    (L - ε + Real.log 2) * (Measure.infinitePi fun _ : ℕ ↦ Q).real (goodSet M L k₀ K)ᶜ
+  set b := K * (L - ε + Real.log 2)
+  set d := (bipolarRate Q S).toReal
+  have h (N : ℕ) (hN : 1 ≤ N) : N * a - b ≤ N * d := by
+    refine le_of_eq_of_le ?_ (cover_le_mul_toReal_bipolarRate Q hS hMm hMd hMS hd hεL hk₀ hw K hN)
+    ring
+  by_contra hcon
+  rw [not_le] at hcon
+  obtain ⟨N, hN⟩ := exists_nat_gt (b / (a - d))
+  have h1 := h (N + 1) (by omega)
+  rw [div_lt_iff₀ (by linarith)] at hN
+  push_cast at h1
+  nlinarith
 
 /-- As `K → ∞`, the probability that no bet `M k`, `k₀ ≤ k ≤ K`, exceeds `exp (k L)` tends to `0`
 when, almost surely, `M n ≥ exp (n L)` for infinitely many `n`. -/
@@ -675,7 +664,8 @@ private lemma frequently_le_shiftMixture {L L' : ℝ} (hLL' : L' < L) {s : ℕ} 
   refine ⟨m + s, by omega, ?_⟩
   have hm1 : (m₀ : ℝ) < m := by exact_mod_cast (by omega : m₀ < m)
   have hreal : Real.exp (((m + s : ℕ) : ℝ) * L') ≤ 2⁻¹ ^ (s + 1) * Real.exp (m * L) := by
-    rw [inv_two_pow_eq_exp, ← Real.exp_add]
+    rw [← Real.exp_log (by positivity : (0 : ℝ) < 2⁻¹ ^ (s + 1)), ← Real.exp_add, Real.log_pow,
+      Real.log_inv]
     refine Real.exp_le_exp.2 ?_
     rw [div_lt_iff₀ (by linarith)] at hm₀
     push_cast
@@ -683,7 +673,8 @@ private lemma frequently_le_shiftMixture {L L' : ℝ} (hLL' : L' < L) {s : ℕ} 
   calc ENNReal.ofReal (Real.exp (((m + s : ℕ) : ℝ) * L'))
   _ ≤ ENNReal.ofReal (2⁻¹ ^ (s + 1) * Real.exp (m * L)) := ENNReal.ofReal_le_ofReal hreal
   _ = 2⁻¹ ^ (s + 1) * ENNReal.ofReal (Real.exp (m * L)) := by
-    rw [ENNReal.ofReal_mul (by positivity), inv_two_pow_eq_exp, ← inv_two_pow_eq_ofReal_exp]
+    rw [ENNReal.ofReal_mul (by positivity), ENNReal.ofReal_pow (by norm_num),
+      ENNReal.ofReal_inv_of_pos two_pos, ENNReal.ofReal_ofNat]
   _ ≤ 2⁻¹ ^ (s + 1) * M m ((shift 𝓧)^[s] ω) := by gcongr
   _ = 2⁻¹ ^ (s + 1) * M (m + s - s) ((shift 𝓧)^[s] ω) := by rw [Nat.add_sub_cancel]
   _ ≤ shiftMixture M (m + s) ω :=
@@ -697,8 +688,8 @@ variable {Q₁ : Measure 𝓧} {S₁ : Set (Measure 𝓧)}
 /-- **No function of the first observations grows faster than the bipolar rate, almost surely.**
 Let `F n` be measurable functions of the first `n` observations with expectation at most `1`
 under the i.i.d. laws of the members of `S₁`. Almost surely under the i.i.d. law of `Q₁`,
-`limsup (1/n) log (F n) ≤ bipolarRate Q₁ S₁`. If `Q₁` is not a probability measure, its i.i.d.
-law `Measure.infinitePi` is `0` and the statement holds trivially. -/
+`limsup (1/n) log (F n) ≤ bipolarRate Q₁ S₁` [EVR26, Note 01]. If `Q₁` is not a probability
+measure, its i.i.d. law `Measure.infinitePi` is `0` and the statement holds trivially. -/
 theorem ae_limsup_log_div_le_bipolarRate_of_dependsOn (Q₁ : Measure 𝓧)
     (hS₁ : ∀ P ∈ S₁, IsProbabilityMeasure P) {F : ℕ → (ℕ → 𝓧) → ℝ≥0∞}
     (hF : ∀ n, Measurable (F n)) (hFn : ∀ n, DependsOn (F n) (Set.Iio n))
@@ -782,7 +773,7 @@ theorem ae_limsup_log_div_le_bipolarRate_of_dependsOn (Q₁ : Measure 𝓧)
 /-- **No sequence of `n`-sample e-variables grows faster than the bipolar rate, almost surely.**
 For every sequence of `n`-sample e-variables `M n` for the i.i.d. laws of the members of `S₁`,
 almost surely under the i.i.d. law of `Q₁`, `M n` evaluated at the first `n` observations has
-`limsup (1/n) log (M n) ≤ bipolarRate Q₁ S₁`. -/
+`limsup (1/n) log (M n) ≤ bipolarRate Q₁ S₁` [EVR26, Note 01]. -/
 theorem ae_limsup_log_div_le_bipolarRate (Q₁ : Measure 𝓧)
     (hS₁ : ∀ P ∈ S₁, IsProbabilityMeasure P) {M : (n : ℕ) → (Fin n → 𝓧) → ℝ≥0∞}
     (hM : ∀ n, IsEVar (M n) ((fun P ↦ Measure.pi fun _ : Fin n ↦ P) '' S₁)) :

@@ -201,6 +201,11 @@ lemma bipolarRate_nonneg (Q₁ : Measure 𝓧) (S₁ : Set (Measure 𝓧)) : 0 �
   (EReal.div_nonneg (maxLogGrowth_nonneg _ _ _) (by positivity)).trans
     (maxLogGrowth_div_le_bipolarRate Q₁ S₁ one_ne_zero)
 
+/-- A finite bipolar rate is the coercion of its real value. -/
+lemma coe_toReal_bipolarRate (hd : bipolarRate Q₁ S₁ ≠ ⊤) :
+    ((bipolarRate Q₁ S₁).toReal : EReal) = bipolarRate Q₁ S₁ :=
+  EReal.coe_toReal hd (ne_bot_of_le_ne_bot EReal.zero_ne_bot (bipolarRate_nonneg Q₁ S₁))
+
 /-- The bipolar rate is antitone in the null. -/
 @[gcongr]
 lemma bipolarRate_anti (h : S₁ ⊆ T₁) : bipolarRate Q₁ T₁ ≤ bipolarRate Q₁ S₁ :=
