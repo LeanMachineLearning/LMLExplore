@@ -6,16 +6,18 @@ Authors: LMLExplore contributors
 module
 
 public import Mathlib.MeasureTheory.Constructions.Pi
+public import Mathlib.MeasureTheory.Measure.GiryMonad
 public import Mathlib.Probability.ConditionalProbability
 import LMLExplore.Algebra.BigOperators.Field
 import Mathlib.Analysis.Analytic.Constructions
 import Mathlib.Analysis.Analytic.Uniqueness
 import Statlib.ForMathlib.MeasureTheory.Measure.Decomposition.RNDerivProd
 import TauCeti.MeasureTheory.Constructions.Pi
+import TauCeti.MeasureTheory.Integral.Pi
 
 /-!
 # Measures on products: monotonicity, laws of coordinatewise images, restricted factors, mixtures,
-bounds by lines and fixed prefixes
+bounds by lines, binds and fixed prefixes
 
 The product of finite measures is monotone in its factors.
 
@@ -27,20 +29,31 @@ mean of independent samples of the law of `X`.
 Restricting every factor of a product of copies of `μ` to a set `B` of finite positive measure
 gives the product of the conditional measures `μ[|B]`, scaled by `μ(B)` to the number of factors.
 
-The product of copies of a multiple `s • ν` is `s ^ card ι` times the product of copies of `ν`, and
-the product of copies of a finite mixture `∑ k, w k • R k` is the mixture of the products
-`Measure.pi (fun i ↦ R (e i))` over the assignments `e : ι → κ`, with weights `∏ i, w (e i)`.
-Expanding the product of copies of `Q + t • B` this way makes its integrals polynomials in `t`,
-which is how equal integrals under the products of copies of the convex combinations of finitely
-many measures `P i` transfer to every probability measure `Q` with
-`Q + ∑ i, b i • P i = ∑ i, c i • P i`. This polarization argument is the proof of
-[EVR26, Note 03, Theorem 1], and the lemmas are adapted from
-`EValuesResearch/Results/TestMartingaleConverse.lean` (commit `6f05c5f`) in the paper project
-`RemyDegenne/evalues_research`.
+The product of copies of a multiple `s • ν` is `s ^ card ι` times the product of copies of `ν`.
+The product of finite mixtures `∑ k, w i k • μ i k` of measures is the mixture, over the choices
+`σ` of one component for each coordinate, of the products `Measure.pi fun i ↦ μ i (σ i)`, with
+weights `∏ i, w i (σ i)`; in particular the product of copies of a finite mixture
+`∑ k, w k • R k` is the mixture of the products `Measure.pi (fun i ↦ R (e i))` over the
+assignments `e : ι → κ`, with weights `∏ i, w (e i)`. Expanding the product of copies of
+`Q + t • B` this way makes its integrals polynomials in `t`, which is how equal integrals under
+the products of copies of the convex combinations of finitely many measures `P i` transfer to
+every probability measure `Q` with `Q + ∑ i, b i • P i = ∑ i, c i • P i`.
+This polarization argument is the proof of [EVR26, Note 03, Theorem 1], and the lemmas are
+adapted from `EValuesResearch/Results/TestMartingaleConverse.lean` (commit `6f05c5f`) in the
+paper project `RemyDegenne/evalues_research`.
 
 Under a product of probability measures, a measurable set whose lines along one coordinate `i`
 all have `μ i`-measure at most `c` has product measure at most `c`, by resampling the coordinate
 `i` and integrating the measures of the lines.
+
+For measurable maps `G i` to finite measures, the product `Measure.pi fun i ↦ G i (x i)` depends
+measurably on `x`, and binding a product measure along it gives the product of the binds: an
+independent sample from `μ i` followed by independent draws from the `G i (x i)` is an
+independent sample from the mixtures. These two lemmas, and the per-coordinate form of
+`pi_sum_smul`, are adapted from the helpers `pi_sum_ennreal_smul`, `measurable_pi_comp` and
+`lintegral_lintegral_pi_comp` of `EValuesResearch/Results/RateVersusKL.lean` (commit `dd4072f`)
+in the paper project `RemyDegenne/evalues_research` (same author), where all the coordinates
+share one mixture or one kernel.
 
 Under a measure on `ℕ → β` that agrees almost surely with a path `ω` on the first `k` coordinates,
 a set that only depends on these coordinates is almost surely full or empty according to whether
@@ -58,9 +71,11 @@ A function of the images of the coordinates under measurable maps to finite type
   `Measure.pi (fun _ ↦ μ.restrict B) = μ B ^ card ι • Measure.pi (fun _ ↦ μ[|B])`.
 * `MeasureTheory.Measure.pi_const_smul`:
   `Measure.pi (fun _ ↦ s • ν) = s ^ card ι • Measure.pi (fun _ ↦ ν)`.
-* `MeasureTheory.Measure.pi_sum_smul`, `MeasureTheory.Measure.lintegral_pi_sum_smul`:
-  `Measure.pi (fun _ ↦ ∑ k, w k • R k) = ∑ e, (∏ i, w (e i)) • Measure.pi (fun i ↦ R (e i))`, and
-  the corresponding expansion of integrals.
+* `MeasureTheory.Measure.pi_sum_smul`: the product of the finite mixtures `∑ k, w i k • μ i k` is
+  `∑ σ, (∏ i, w i (σ i)) • Measure.pi fun i ↦ μ i (σ i)`.
+* `MeasureTheory.Measure.lintegral_pi_sum_smul`: the integral of `F` under
+  `Measure.pi (fun _ ↦ ∑ k, w k • R k)` is
+  `∑ e, (∏ i, w (e i)) * ∫⁻ x, F x ∂Measure.pi (fun i ↦ R (e i))`.
 * `MeasureTheory.Measure.lintegral_pi_eq_of_add_sum_eq_sum`: if `Q + ∑ i, b i • P i =
   ∑ i, c i • P i`, two functions with equal integrals under the products of copies of every convex
   combination of the `P i`, finite for the first one, have equal integrals under the product of
@@ -70,6 +85,9 @@ A function of the images of the coordinates under measurable maps to finite type
 * `MeasureTheory.Measure.pi_le_of_forall_measure_update_preimage_le`: under a product of
   probability measures, a measurable set whose lines `{t | update x i t ∈ E}` along one coordinate
   `i` all have `μ i`-measure at most `c` has product measure at most `c`.
+* `MeasureTheory.Measure.measurable_pi_comp`: `x ↦ Measure.pi fun i ↦ G i (x i)` is measurable.
+* `MeasureTheory.Measure.pi_bind_pi`: binding `Measure.pi μ` along
+  `x ↦ Measure.pi fun i ↦ G i (x i)` gives `Measure.pi fun i ↦ (μ i).bind (G i)`.
 * `MeasureTheory.measurable_pi_comp_of_finite`: `fun e ↦ g fun i ↦ φ i (e i)` is measurable for
   measurable maps `φ i` to finite types.
 * `MeasureTheory.setLIntegral_eq_ite_of_ae_prefix`, `MeasureTheory.measure_eq_ite_of_ae_prefix`:
@@ -144,16 +162,17 @@ lemma pi_const_smul {α : Type*} {mα : MeasurableSpace α} (ν : Measure α) [S
   simp only [smul_apply, Measure.pi_pi, Finset.prod_mul_distrib, Finset.prod_const,
     Finset.card_univ, ENNReal.smul_def, smul_eq_mul, ENNReal.coe_pow]
 
-/-- **Product of copies of a mixture.** The product of copies of a finite mixture
-`∑ k, w k • R k` of finite measures is the mixture of the products `Measure.pi (fun i ↦ R (e i))`
-over the assignments `e : ι → κ`, with weights `∏ i, w (e i)`. -/
-lemma pi_sum_smul [DecidableEq ι] {α κ : Type*} {mα : MeasurableSpace α} [Fintype κ]
-    {R : κ → Measure α} [∀ k, IsFiniteMeasure (R k)] (w : κ → ℝ≥0) :
-    Measure.pi (fun _ : ι ↦ ∑ k, w k • R k) =
-      ∑ e : ι → κ, (∏ i, (w (e i) : ℝ≥0∞)) • Measure.pi (fun i ↦ R (e i)) := by
-  refine Measure.pi_eq fun A hA ↦ ?_
-  simp only [sum_apply, smul_apply, Measure.pi_pi, smul_eq_mul, Measure.nnreal_smul_coe_apply,
-    Fintype.prod_sum, Finset.prod_mul_distrib]
+/-- **Products of finite mixtures.** The product of the finite mixtures `∑ k, w i k • μ i k` is the
+mixture of the products `Measure.pi fun i ↦ μ i (σ i)` over the choices `σ` of a component for
+each coordinate, with weights `∏ i, w i (σ i)`. -/
+lemma pi_sum_smul [DecidableEq ι] {κ : ι → Type*} [∀ i, Fintype (κ i)] (w : ∀ i, κ i → ℝ≥0∞)
+    (μ : ∀ i, κ i → Measure (Ω i)) [∀ i, SigmaFinite (∑ k, w i k • μ i k)]
+    [∀ i k, SigmaFinite (μ i k)] :
+    Measure.pi (fun i ↦ ∑ k, w i k • μ i k) =
+      ∑ σ : ∀ i, κ i, (∏ i, w i (σ i)) • Measure.pi fun i ↦ μ i (σ i) := by
+  refine Measure.pi_eq fun s _ ↦ ?_
+  simp only [_root_.sum_apply, smul_apply, smul_eq_mul, Measure.pi_pi, Fintype.prod_sum,
+    ← Finset.prod_mul_distrib]
 
 /-- The integral under the product of copies of a finite mixture `∑ k, w k • R k` of finite
 measures is a polynomial in the weights: the sum over the assignments `e : ι → κ` of
@@ -162,7 +181,11 @@ lemma lintegral_pi_sum_smul [DecidableEq ι] {α κ : Type*} {mα : MeasurableSp
     {R : κ → Measure α} [∀ k, IsFiniteMeasure (R k)] (w : κ → ℝ≥0) (F : (ι → α) → ℝ≥0∞) :
     ∫⁻ x, F x ∂Measure.pi (fun _ : ι ↦ ∑ k, w k • R k) =
       ∑ e : ι → κ, (∏ i, (w (e i) : ℝ≥0∞)) * ∫⁻ x, F x ∂Measure.pi (fun i ↦ R (e i)) := by
-  rw [pi_sum_smul]
+  have (k : κ) : IsFiniteMeasure ((w k : ℝ≥0∞) • R k) := by
+    rw [← ENNReal.smul_def]
+    infer_instance
+  simp_rw [ENNReal.smul_def]
+  rw [pi_sum_smul (fun _ k ↦ (w k : ℝ≥0∞)) (fun _ ↦ R)]
   simp only [lintegral_finsetSum_measure, lintegral_smul_measure, smul_eq_mul]
 
 /-- **Identity theorem for the polynomials of the polarization.** Two families `a` and `a'` of
@@ -295,6 +318,39 @@ lemma pi_le_of_forall_measure_update_preimage_le [DecidableEq ι] {μ : ∀ i, M
   rw [← (TauCeti.measurePreserving_update_prod_pi μ i).measure_preimage hE.nullMeasurableSet,
     Measure.prod_apply (measurable_update' hE)]
   exact (lintegral_mono fun x ↦ h x).trans_eq (by simp)
+
+/-! ### Binds of products -/
+
+/-- The product of the finite measures `G i (x i)` depends measurably on `x` when each `G i` is
+measurable. -/
+lemma measurable_pi_comp {G : ∀ i, Ω i → Measure (𝓨 i)} [∀ i x, IsFiniteMeasure (G i x)]
+    (hG : ∀ i, Measurable (G i)) :
+    Measurable fun x : ∀ i, Ω i ↦ Measure.pi fun i ↦ G i (x i) := by
+  have h_box (s : ∀ i, Set (𝓨 i)) (hs : ∀ i, MeasurableSet (s i)) :
+      Measurable fun x : ∀ i, Ω i ↦ Measure.pi (fun i ↦ G i (x i)) (Set.univ.pi s) := by
+    simp_rw [Measure.pi_pi]
+    exact Finset.measurable_prod _ fun i _ ↦
+      ((measurable_coe (hs i)).comp (hG i)).comp (measurable_pi_apply i)
+  refine Measurable.measure_of_isPiSystem generateFrom_pi.symm isPiSystem_pi ?_ ?_
+  · rintro _ ⟨s, hs, rfl⟩
+    exact h_box s fun i ↦ hs i (Set.mem_univ i)
+  · simpa using h_box (fun _ ↦ Set.univ) fun _ ↦ .univ
+
+/-- **Binding a product measure coordinatewise.** Binding `Measure.pi μ` along the products of
+the finite measures `G i (x i)` gives the product of the binds `(μ i).bind (G i)`: for probability
+measures, an independent sample of the `μ i`, followed by independent draws from the
+`G i (x i)`, is an independent sample of the mixtures. -/
+lemma pi_bind_pi {μ : ∀ i, Measure (Ω i)} [∀ i, SigmaFinite (μ i)]
+    {G : ∀ i, Ω i → Measure (𝓨 i)} [∀ i x, IsFiniteMeasure (G i x)]
+    [∀ i, SigmaFinite ((μ i).bind (G i))] (hG : ∀ i, Measurable (G i)) :
+    (Measure.pi μ).bind (fun x ↦ Measure.pi fun i ↦ G i (x i)) =
+      Measure.pi fun i ↦ (μ i).bind (G i) := by
+  refine (Measure.pi_eq fun s hs ↦ ?_).symm
+  rw [bind_apply (.univ_pi hs) (measurable_pi_comp hG).aemeasurable]
+  simp_rw [Measure.pi_pi]
+  rw [TauCeti.lintegral_fintype_prod_eq_prod μ (f := fun i x ↦ G i x (s i))
+    fun i ↦ (measurable_coe (hs i)).comp (hG i)]
+  exact Finset.prod_congr rfl fun i _ ↦ (bind_apply (hs i) (hG i).aemeasurable).symm
 
 end MeasureTheory.Measure
 

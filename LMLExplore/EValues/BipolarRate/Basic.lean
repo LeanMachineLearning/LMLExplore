@@ -52,6 +52,9 @@ else: no domination, convexity or compactness.
   [RR26, proof of Theorem 4.1].
 * `ProbabilityTheory.le_bipolarRate_of_tendsto`: a lower bound on the bipolar rate from real lower
   bounds on `maxLogGrowth Q₁ S₁ (n + 1)` whose quotients by `n + 1` converge.
+* `ProbabilityTheory.log_inv_le_bipolarRate_of_forall_le_maxLogGrowth`: for `ε ≤ 1`, the lower
+  bound `log (1 / ε)` on the bipolar rate from the lower bounds `log (1 / (n ε ^ (n - 1)))` on
+  `maxLogGrowth Q₁ S₁ n`.
 * `ProbabilityTheory.le_maxLogGrowth_of_ofReal_exp_mul_le_one`: the lower bound on the growth of
   `m` observations given by the e-variable `1/2 + (1/2) e ^ t 1_A`, valid when
   `e ^ t P ^ m (A) ≤ 1` for every member `P` of the null.
@@ -201,6 +204,11 @@ lemma bipolarRate_nonneg (Q₁ : Measure 𝓧) (S₁ : Set (Measure 𝓧)) : 0 �
   (EReal.div_nonneg (maxLogGrowth_nonneg _ _ _) (by positivity)).trans
     (maxLogGrowth_div_le_bipolarRate Q₁ S₁ one_ne_zero)
 
+/-- A finite bipolar rate is the coercion of its real value. -/
+lemma coe_toReal_bipolarRate (hd : bipolarRate Q₁ S₁ ≠ ⊤) :
+    ((bipolarRate Q₁ S₁).toReal : EReal) = bipolarRate Q₁ S₁ :=
+  EReal.coe_toReal hd (ne_bot_of_le_ne_bot EReal.zero_ne_bot (bipolarRate_nonneg Q₁ S₁))
+
 /-- The bipolar rate is antitone in the null. -/
 @[gcongr]
 lemma bipolarRate_anti (h : S₁ ⊆ T₁) : bipolarRate Q₁ T₁ ≤ bipolarRate Q₁ S₁ :=
@@ -262,6 +270,50 @@ lemma le_bipolarRate_of_tendsto {r : ℕ → ℝ} {L : ℝ}
   rw [h]
   exact (EReal.div_le_div_right_of_nonneg (by positivity) (hr n)).trans
     (maxLogGrowth_div_le_bipolarRate Q₁ S₁ n.succ_ne_zero)
+
+/-- If the growth of `n` observations is at least `log (1 / (n ε ^ (n - 1)))` for every `n ≠ 0`,
+the bipolar rate is at least `log (1 / ε)`: the term `log n` is negligible against `n`. For
+`ε = 0`, two observations already give infinite growth. -/
+lemma log_inv_le_bipolarRate_of_forall_le_maxLogGrowth {ε : ℝ≥0∞} (hε : ε ≤ 1)
+    (h : ∀ n : ℕ, n ≠ 0 → ENNReal.log (((n : ℝ≥0∞) * ε ^ (n - 1))⁻¹) ≤ maxLogGrowth Q₁ S₁ n) :
+    ENNReal.log ε⁻¹ ≤ bipolarRate Q₁ S₁ := by
+  rcases eq_or_ne ε 0 with rfl | hε0
+  · have h2 := h 2 two_ne_zero
+    simp only [Nat.add_one_sub_one, pow_one, mul_zero, ENNReal.inv_zero, ENNReal.log_top,
+      top_le_iff] at h2
+    refine le_trans ?_ (maxLogGrowth_div_le_bipolarRate _ _ two_ne_zero)
+    rw [h2, ENNReal.inv_zero, ENNReal.log_top,
+      EReal.top_div_of_pos_ne_top (by norm_num) (EReal.natCast_ne_top 2)]
+  -- for `ε > 0`, the growth of `n + 1` observations is at least `n log (1 / ε) - log (n + 1)`
+  set e := ε.toReal
+  have hε_top : ε ≠ ⊤ := ne_top_of_le_ne_top ENNReal.one_ne_top hε
+  have he0 : 0 < e := ENNReal.toReal_pos hε0 hε_top
+  have hεe : ε = ENNReal.ofReal e := (ENNReal.ofReal_toReal hε_top).symm
+  have hlog : ENNReal.log ε⁻¹ = (Real.log e⁻¹ : EReal) := by
+    rw [hεe, ← ENNReal.ofReal_inv_of_pos he0, ENNReal.log_ofReal_of_pos (inv_pos.2 he0)]
+  rw [hlog]
+  refine le_bipolarRate_of_tendsto (r := fun n ↦ n * Real.log e⁻¹ - Real.log (n + 1))
+    (fun n ↦ le_trans (le_of_eq ?_) (h (n + 1) n.succ_ne_zero)) ?_
+  · -- move to `ℝ`, where the identity is `Real.log` of a product
+    have hpos : 0 < ((n : ℝ) + 1) * e ^ n := by positivity
+    have hcast : ((n + 1 : ℕ) : ℝ≥0∞) * ε ^ (n + 1 - 1) =
+        ENNReal.ofReal (((n : ℝ) + 1) * e ^ n) := by
+      rw [ENNReal.ofReal_mul (by positivity), ENNReal.ofReal_pow he0.le, ← hεe]
+      norm_cast
+    rw [hcast, ← ENNReal.ofReal_inv_of_pos hpos, ENNReal.log_ofReal_of_pos (inv_pos.2 hpos),
+      EReal.coe_eq_coe_iff]
+    simp only [Real.log_inv]
+    rw [Real.log_mul (by positivity) (by positivity), Real.log_pow]
+    ring
+  · have h1 : Tendsto (fun n : ℕ ↦ (n : ℝ) / (n + 1)) atTop (𝓝 1) :=
+      tendsto_natCast_div_add_atTop 1
+    have h2 : Tendsto (fun n : ℕ ↦ Real.log ((n : ℝ) + 1) / ((n : ℝ) + 1)) atTop (𝓝 0) := by
+      have := (Real.tendsto_pow_log_div_mul_add_atTop 1 0 1 one_ne_zero).comp
+        (tendsto_atTop_add_const_right atTop (1 : ℝ) tendsto_natCast_atTop_atTop)
+      simpa [Function.comp_def] using this
+    convert (h1.const_mul (Real.log e⁻¹)).sub h2 using 2 with n
+    · field_simp
+    · simp
 
 /-- The e-variable `1/2 + (1/2) e ^ t 1_A` on `m` observations, valid when `e ^ t P ^ m (A) ≤ 1`
 for every member `P` of the null, gives the lower bound `t Q ^ m (A) - log 2` on the growth of `m`
