@@ -285,8 +285,7 @@ theorem SmoothOn.selfBoundedOn_univ {f : E → ℝ} (hf : SmoothOn univ s f)
   bddBelow := by rwa [image_univ]
   norm_sq_le x _ g hg := by
     rw [(hf.differentiableAt (mem_univ x)).hasFDerivAt.eq_of_hasSubgradientWithinAt
-      Filter.univ_mem hg, image_univ]
-    -- `⨅ y, f y` is by definition `sInf (range f)`
+      Filter.univ_mem hg, image_univ, sInf_range]
     exact hf.norm_fderiv_sq_le hbdd x
 
 end LMLExplore

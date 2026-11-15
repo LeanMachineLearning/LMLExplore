@@ -8,6 +8,7 @@ module
 public import LMLExplore.Analysis.Convex.Smooth
 public import LMLExplore.Analysis.SumIntegralComparisons
 public import LMLExplore.OnlineLearning.SubgradientDescent
+import TauCeti.Analysis.Real.Sqrt
 
 /-!
 # Adaptive learning rates and `L⋆` bounds
@@ -230,8 +231,8 @@ theorem onlineSubgradientDescent_regret_le_mul_sqrt_sum (hK : Convex ℝ K) {D :
   rw [regret_def]
   refine (sum_sub_le_sum_apply_sub_of_hasSubgradientWithinAt f _ a hg hu).trans (h.trans_eq ?_)
   rw [div_one, show D ^ 2 / 2 * ∑ t ∈ range n, ‖g t‖ ^ 2 =
-    (D / 2) ^ 2 * (2 * ∑ t ∈ range n, ‖g t‖ ^ 2) by ring, Real.sqrt_mul (sq_nonneg _),
-    Real.sqrt_sq (by positivity)]
+    (D / 2) ^ 2 * (2 * ∑ t ∈ range n, ‖g t‖ ^ 2) by ring, Real.sqrt_sq_mul,
+    abs_of_nonneg (by positivity)]
   ring
 
 /-- **The `L⋆` bound of projected online subgradient descent** [Ora, Theorem 4.30]. Under the
@@ -263,13 +264,13 @@ theorem onlineSubgradientDescent_regret_le_of_norm_sq_le (hK : Convex ℝ K) {D 
   have h_imp : L - √(4 * s * D ^ 2 * L + 0) ≤ U := by
     have h_le : D * √(2 * ∑ t ∈ range n, ‖g t‖ ^ 2) ≤ √(4 * s * D ^ 2 * L + 0) := by
       rw [add_zero, show 4 * s * D ^ 2 * L = D ^ 2 * (4 * s * L) by ring,
-        Real.sqrt_mul (sq_nonneg _), Real.sqrt_sq hD0]
+        Real.sqrt_sq_mul, abs_of_nonneg hD0]
       exact mul_le_mul_of_nonneg_left (Real.sqrt_le_sqrt h_sum) hD0
     linarith
   -- solving for `L` gives `L ≤ 4 s D ^ 2 + U + √(4 s D ^ 2 U)`
   have h_sol := Real.le_add_add_sqrt_of_sub_sqrt_le (by positivity) h_imp
   rw [zero_add, show 4 * s * D ^ 2 * U = (2 * D) ^ 2 * (s * U) by ring,
-    Real.sqrt_mul (sq_nonneg _), Real.sqrt_sq (by positivity)] at h_sol
+    Real.sqrt_sq_mul, abs_of_nonneg (by positivity)] at h_sol
   rw [h_reg]
   linarith
 
