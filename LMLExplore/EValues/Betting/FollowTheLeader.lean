@@ -8,10 +8,13 @@ module
 public import Mathlib.Analysis.SpecialFunctions.Log.ENNRealLogExp
 public import Mathlib.Probability.ProductMeasure
 public import Statlib.ForMathlib.MeasureTheory.Integral.EReal.EIntegral
-import Mathlib.Analysis.Asymptotics.SpecificAsymptotics
+import LMLExplore.Analysis.Asymptotics.SpecificAsymptotics
+import LMLExplore.MeasureTheory.Integral.DominatedConvergence
+import LMLExplore.MeasureTheory.Integral.Lebesgue.Add
+import LMLExplore.Probability.ProductMeasure
+import LMLExplore.Probability.StrongLaw
 import Mathlib.Analysis.Convex.SpecificFunctions.Basic
 import Statlib.ForMathlib.MeasureTheory.Integral.EReal.Bochner
-import TauCeti.Probability.Independence.InfinitePi
 import TauCeti.Probability.StrongLaw
 
 /-!
@@ -23,7 +26,8 @@ fraction `λ k ∈ [0, 1]` of its wealth on `E k`, so that the round multiplies 
 follow-the-leader bettor (GREE in [WSJ26]) bets at round `n + 1` a fraction that maximizes over
 `[0, 1]` the wealth that a constant fraction would have produced on `E 0, …, E n`, or
 equivalently its logarithm `∑ k ≤ n, log (1 + λ * (E k - 1))`. Waudby-Smith, Sandoval and Jordan
-ask whether it is almost surely log-optimal [WSJ26, Remark 2.3].
+ask whether it is almost surely log-optimal [WSJ26, Remark 2.3]. The two answers below are those
+of [EVR26, Note 07].
 
 When `Q` gives no mass to `0`, almost surely, `(1/n) log` of its wealth tends to
 `⨆ λ ∈ [0, 1], 𝔼_Q log (1 + λ (E - 1))`, the best growth rate of a constant fraction, which is
@@ -43,6 +47,11 @@ rule that breaks ties: the almost sure event depends on `Q` only. No hypothesis 
   with positive probability all follow-the-leader fractions lose everything at the second round.
 
 ## Implementation notes
+
+The statements and their proofs are adapted from `EValuesResearch/Results/FollowTheLeader.lean`
+(commit `decbae4`) in the paper project `RemyDegenne/evalues_research` (same author), where they
+are `ae_tendsto_sum_log_followTheLeader_div` and `measure_followTheLeader_bankrupt_pos`; the proofs
+are rewritten here.
 
 Write `g l e = log (1 + l (e - 1))` and `f l` for the mean of `g l` under `Q`; `g · e` is concave
 on `[0, 1]`, antitone when `e ≤ 1` and monotone when `e ≥ 1`. The point mass at `1` is a trivial
@@ -70,6 +79,9 @@ law with an infinite mean.
 
 * [WSJ26] I. Waudby-Smith, R. Sandoval and M. I. Jordan, *Instance-log-optimality of
   portfolio-based e-processes and their sequential hypothesis tests*, arXiv:2504.02818v2.
+* [EVR26] *Answers to open questions in e-values and anytime-valid inference*, notes 01 to 34 and
+  the Lean library `EValuesResearch` of github.com/RemyDegenne/evalues_research, 2026; written and
+  refereed by AI agents.
 -/
 
 public section
@@ -270,7 +282,7 @@ private lemma log_prod_ofReal_eq {x : ℕ → ℝ≥0} (hx : ∀ i, x i ≠ 0) {
   rw [← ENNReal.ofReal_prod_of_nonneg fun k _ ↦ (hpos k).le,
     ENNReal.log_ofReal_of_pos (Finset.prod_pos fun k _ ↦ hpos k),
     Real.log_prod fun k _ ↦ (hpos k).ne']
-  rfl
+  simp only [logBetFactor]
 
 /-- On positive e-values, a fraction in `[0, 1]` that maximizes over `[0, 1]` the wealth of a
 constant fraction maximizes the sum of the real logarithms of the rounds. -/
@@ -284,50 +296,6 @@ private lemma isMaxOn_sum_logBetFactor {x : ℕ → ℝ≥0} (hx : ∀ i, x i �
     rwa [log_prod_ofReal_eq hx (l := fun _ ↦ c) (fun _ ↦ hc) n,
       log_prod_ofReal_eq hx (l := fun _ ↦ l) (fun _ ↦ hl) n, EReal.coe_le_coe_iff] at h'
 
-/-! ### Averages -/
-
-/-- Averages ignore finitely many terms: if `z i ≤ y i` eventually, the average of `y` is at least
-the average of `z` plus a sequence tending to `0`. -/
-private lemma exists_tendsto_zero_add_average_le {y z : ℕ → ℝ} (h : ∀ᶠ i in atTop, z i ≤ y i) :
-    ∃ r : ℕ → ℝ, Tendsto r atTop (𝓝 0) ∧ ∀ n : ℕ,
-      (n : ℝ)⁻¹ * ∑ i ∈ Finset.range n, z i + r n ≤ (n : ℝ)⁻¹ * ∑ i ∈ Finset.range n, y i := by
-  refine ⟨fun n ↦ (n : ℝ)⁻¹ * ∑ i ∈ Finset.range n, min (y i - z i) 0,
-    Tendsto.cesaro (tendsto_const_nhds.congr' ?_), fun n ↦ ?_⟩
-  · filter_upwards [h] with i hi
-    exact (min_eq_right (sub_nonneg.2 hi)).symm
-  · rw [← mul_add, ← Finset.sum_add_distrib]
-    gcongr with i
-    linarith [min_le_left (y i - z i) 0]
-
-/-- If `z i ≤ y i` eventually and the averages of `z` tend to `V > c`, the averages of `y` are
-eventually larger than `c`. -/
-private lemma eventually_lt_average {y z : ℕ → ℝ} (h : ∀ᶠ i in atTop, z i ≤ y i) {V c : ℝ}
-    (hz : Tendsto (fun n : ℕ ↦ (n : ℝ)⁻¹ * ∑ i ∈ Finset.range n, z i) atTop (𝓝 V))
-    (hc : c < V) : ∀ᶠ n : ℕ in atTop, c < (n : ℝ)⁻¹ * ∑ i ∈ Finset.range n, y i := by
-  obtain ⟨r, hr, hle⟩ := exists_tendsto_zero_add_average_le h
-  have hlim := hz.add hr
-  rw [add_zero] at hlim
-  filter_upwards [hlim.eventually (lt_mem_nhds hc)] with n hn
-  exact hn.trans_le (hle n)
-
-/-- If `y i ≤ z i` eventually and the averages of `z` tend to `U < c`, the averages of `y` are
-eventually smaller than `c`. -/
-private lemma eventually_average_lt {y z : ℕ → ℝ} (h : ∀ᶠ i in atTop, y i ≤ z i) {U c : ℝ}
-    (hz : Tendsto (fun n : ℕ ↦ (n : ℝ)⁻¹ * ∑ i ∈ Finset.range n, z i) atTop (𝓝 U))
-    (hc : U < c) : ∀ᶠ n : ℕ in atTop, (n : ℝ)⁻¹ * ∑ i ∈ Finset.range n, y i < c := by
-  obtain ⟨r, hr, hle⟩ := exists_tendsto_zero_add_average_le h
-  have hlim := hz.sub hr
-  rw [sub_zero] at hlim
-  filter_upwards [hlim.eventually (gt_mem_nhds hc)] with n hn
-  linarith [hle n]
-
-/-- If `z i ≤ y i` eventually and the averages of `z` tend to `+∞`, so do the averages of `y`. -/
-private lemma tendsto_average_atTop {y z : ℕ → ℝ} (h : ∀ᶠ i in atTop, z i ≤ y i)
-    (hz : Tendsto (fun n : ℕ ↦ (n : ℝ)⁻¹ * ∑ i ∈ Finset.range n, z i) atTop atTop) :
-    Tendsto (fun n : ℕ ↦ (n : ℝ)⁻¹ * ∑ i ∈ Finset.range n, y i) atTop atTop := by
-  obtain ⟨r, hr, hle⟩ := exists_tendsto_zero_add_average_le h
-  exact tendsto_atTop_mono hle (hz.atTop_add hr)
-
 /-! ### The strong law along the coordinates -/
 
 variable {Q : Measure ℝ≥0}
@@ -339,40 +307,10 @@ private lemma ae_tendsto_average [IsProbabilityMeasure Q] {f : ℝ≥0 → ℝ} 
         (𝓝 (∫ e, f e ∂Q)) := by
   simpa only [smul_eq_mul] using TauCeti.Probability.strong_law_ae_infinitePi Q hf
 
-/-- The strong law of large numbers with an infinite mean along the coordinates of `Q^ℕ`: if `ψ`
-is integrable, and `χ` has a negative part of finite mean and a positive part of infinite mean,
-the averages of `ψ + χ` tend to `+∞`. -/
-private lemma ae_tendsto_average_add_atTop [IsProbabilityMeasure Q] {ψ χ : ℝ≥0 → ℝ}
-    (hψ : Integrable ψ Q) (hχ : Measurable χ) (hneg : ∫⁻ e, ENNReal.ofReal (-χ e) ∂Q ≠ ⊤)
-    (hpos : ∫⁻ e, ENNReal.ofReal (χ e) ∂Q = ⊤) :
-    ∀ᵐ x ∂Measure.infinitePi (fun _ : ℕ ↦ Q),
-      Tendsto (fun n : ℕ ↦ (n : ℝ)⁻¹ * ∑ i ∈ Finset.range n, (ψ (x i) + χ (x i))) atTop
-        atTop := by
-  have h0 := measurePreserving_eval_infinitePi (fun _ : ℕ ↦ Q) 0
-  filter_upwards [ae_tendsto_average hψ,
-    TauCeti.Probability.strong_law_ae_real_of_lintegral_eq_top
-      (fun i (x : ℕ → ℝ≥0) ↦ χ (x i))
-      (fun i j hij ↦ ((TauCeti.Probability.iIndepFun_eval_infinitePi _).comp (fun _ ↦ χ)
-        (fun _ ↦ hχ)).indepFun hij)
-      (fun i ↦ (Q.identDistrib_eval_infinitePi i 0).comp hχ)
-      (by simpa only [h0.lintegral_comp (f := fun e ↦ ENNReal.ofReal (-χ e)) (by fun_prop)]
-        using hneg)
-      (by simpa only [h0.lintegral_comp (f := fun e ↦ ENNReal.ofReal (χ e)) (by fun_prop)]
-        using hpos)] with x hψx hχx
-  simp_rw [Finset.sum_add_distrib, mul_add]
-  exact hψx.add_atTop (by simpa only [div_eq_inv_mul] using hχx)
-
 /-- If `Q` gives no mass to `0`, almost every e-value is positive. -/
 private lemma ae_ne_zero (hQ0 : Q {0} = 0) : ∀ᵐ e ∂Q, e ≠ 0 := by
   rw [ae_iff]
   simpa using hQ0
-
-/-- If `Q` gives no mass to `0`, almost surely all the e-values are positive. -/
-private lemma ae_forall_ne_zero [IsProbabilityMeasure Q] (hQ0 : Q {0} = 0) :
-    ∀ᵐ x ∂Measure.infinitePi (fun _ : ℕ ↦ Q), ∀ i, x i ≠ 0 :=
-  ae_all_iff.2 fun i ↦
-    (measurePreserving_eval_infinitePi (fun _ : ℕ ↦ Q) i).quasiMeasurePreserving.ae
-      (ae_ne_zero hQ0)
 
 /-! ### The expected logarithm of one round -/
 
@@ -511,28 +449,15 @@ private lemma exists_integral_logBetFactor_neg [IsFiniteMeasure Q] (hQ0 : Q {0} 
     filter_upwards [ae_ne_zero hQ0] with e he
     rw [log_ofReal_one_add_mul ⟨zero_le_one, le_rfl⟩ he, ← EReal.coe_neg,
       EReal.real_coe_toENNReal]
-  set l : ℕ → ℝ := fun k ↦ 1 - 1 / ((k : ℝ) + 2) with hl_def
-  have hl0 : ∀ k, 0 ≤ l k := fun k ↦ by
-    rw [hl_def, sub_nonneg, div_le_one (by positivity)]
-    linarith [(k.cast_nonneg : (0 : ℝ) ≤ k)]
-  have hl1 : ∀ k, l k < 1 := fun k ↦ by
-    simp only [hl_def, sub_lt_self_iff]
-    positivity
-  have hlmono : Monotone l := fun i j hij ↦ by
-    simp only [hl_def, sub_le_sub_iff_left]
-    gcongr
-  have hlim : Tendsto l atTop (𝓝 1) := by
-    have h : Tendsto (fun k : ℕ ↦ 1 / ((k : ℝ) + 2)) atTop (𝓝 0) :=
-      tendsto_const_nhds.div_atTop (tendsto_atTop_add_const_right _ 2 tendsto_natCast_atTop_atTop)
-    have h2 := (tendsto_const_nhds (x := (1 : ℝ))).sub h
-    rw [sub_zero] at h2
-    exact h2
+  obtain ⟨l, hlmono, hl, hlim⟩ := exists_seq_strictMono_tendsto' (zero_lt_one' ℝ)
+  have hl0 : ∀ k, 0 ≤ l k := fun k ↦ (hl k).1.le
+  have hl1 : ∀ k, l k < 1 := fun k ↦ (hl k).2
   have hmc : Tendsto (fun k ↦ ∫⁻ e, ENNReal.ofReal (-logBetFactor (l k) e) ∂Q) atTop
       (𝓝 (∫⁻ e, ENNReal.ofReal (-logBetFactor 1 e) ∂Q)) := by
     refine lintegral_tendsto_of_tendsto_of_monotone
       (fun k ↦ (measurable_logBetFactor _).neg.ennreal_ofReal.aemeasurable) ?_ ?_
     · filter_upwards [ae_ne_zero hQ0] with e he i j hij
-      exact ofReal_neg_logBetFactor_le (hl0 i) (hlmono hij) (hl1 j).le he
+      exact ofReal_neg_logBetFactor_le (hl0 i) (hlmono.monotone hij) (hl1 j).le he
     · filter_upwards [ae_ne_zero hQ0] with e he
       refine (ENNReal.continuous_ofReal.tendsto _).comp (Tendsto.neg ?_)
       refine (continuousAt_logBetFactor ?_).tendsto.comp hlim
@@ -631,15 +556,6 @@ private lemma integral_logBetFactor_lt [IsProbabilityMeasure Q] (hQ0 : Q {0} = 0
 Then the expected logarithm of every round with a fraction in `(0, 1)` is `+∞`, and fractions are
 compared through the bounded differences `log (1 + l (e - 1)) - log (1 + (e - 1) / 2)`. -/
 
-/-- If `ofReal ∘ f ≤ ofReal ∘ g + C` with `C` finite and the positive part of `f` has an infinite
-mean, so does the positive part of `g`. -/
-private lemma lintegral_ofReal_eq_top_of_le_add [IsFiniteMeasure Q] {f g : ℝ≥0 → ℝ} {C : ℝ≥0∞}
-    (hC : C ≠ ⊤) (hfg : ∀ e, ENNReal.ofReal (f e) ≤ ENNReal.ofReal (g e) + C)
-    (hf : ∫⁻ e, ENNReal.ofReal (f e) ∂Q = ⊤) : ∫⁻ e, ENNReal.ofReal (g e) ∂Q = ⊤ := by
-  have h := (lintegral_mono (μ := Q) hfg).trans_eq (lintegral_add_right _ measurable_const)
-  rw [hf, lintegral_const, top_le_iff, ENNReal.add_eq_top] at h
-  exact h.resolve_right (ENNReal.mul_ne_top hC (measure_ne_top _ _))
-
 /-- For a fraction in `(0, 1)`, the difference with the round of fraction `1 / 2` is
 integrable. -/
 private lemma integrable_logBetFactor_sub_one_half [IsFiniteMeasure Q] {l : ℝ} (hl0 : 0 < l)
@@ -664,75 +580,33 @@ private lemma lintegral_ofReal_logBetFactor_one_half_eq_top [IsFiniteMeasure Q]
     (ENNReal.ofReal_le_ofReal (by rw [logBetFactor_one_half]; linarith)).trans
       ENNReal.ofReal_add_le) hlog
 
-/-- A reverse Fatou argument: if integrable functions bounded above by a constant converge almost
-everywhere to a function whose negative part has an infinite mean, one of them has a negative
-integral. -/
-private lemma exists_integral_neg_of_tendsto [IsFiniteMeasure Q] {f : ℕ → ℝ≥0 → ℝ}
-    {F : ℝ≥0 → ℝ} {C : ℝ} (hf : ∀ k, Integrable (f k) Q) (hfC : ∀ k e, f k e ≤ C)
-    (hlim : ∀ᵐ e ∂Q, Tendsto (fun k ↦ f k e) atTop (𝓝 (F e)))
-    (hF : ∫⁻ e, ENNReal.ofReal (-F e) ∂Q = ⊤) : ∃ k, ∫ e, f k e ∂Q < 0 := by
-  have hfatou := lintegral_liminf_le' (μ := Q) (u := atTop)
-    (f := fun k e ↦ ENNReal.ofReal (-f k e))
-    (fun k ↦ (hf k).1.aemeasurable.neg.ennreal_ofReal)
-  have hlhs : ∫⁻ e, liminf (fun k ↦ ENNReal.ofReal (-f k e)) atTop ∂Q = ⊤ := by
-    rw [← hF]
-    refine lintegral_congr_ae ?_
-    filter_upwards [hlim] with e he
-    exact ((ENNReal.continuous_ofReal.tendsto _).comp he.neg).liminf_eq
-  rw [hlhs, top_le_iff] at hfatou
-  have hB : ENNReal.ofReal C * Q univ < ⊤ :=
-    ENNReal.mul_lt_top ENNReal.ofReal_lt_top (measure_lt_top _ _)
-  rw [← hfatou] at hB
-  obtain ⟨k, hk⟩ := (eventually_lt_of_lt_liminf hB).exists
-  refine ⟨k, ?_⟩
-  rw [integral_eq_lintegral_pos_part_sub_lintegral_neg_part (hf k), sub_neg]
-  have hP : ∫⁻ e, ENNReal.ofReal (f k e) ∂Q ≤ ENNReal.ofReal C * Q univ := by
-    rw [← lintegral_const]
-    exact lintegral_mono fun e ↦ ENNReal.ofReal_le_ofReal (hfC k e)
-  exact (ENNReal.toReal_lt_toReal (hf k).lintegral_lt_top.ne
-    (hf k).neg.lintegral_lt_top.ne).2 (hP.trans_lt hk)
-
 /-- If `log (1 + E)` has an infinite mean, some small fraction does worse than `1 / 2`. -/
 private lemma exists_integral_logBetFactor_sub_one_half_neg_of_lt [IsFiniteMeasure Q]
     (hlog : ∫⁻ e, ENNReal.ofReal (Real.log (1 + (e : ℝ))) ∂Q = ⊤) :
     ∃ a, 0 < a ∧ a < 1 / 2 ∧ ∫ e, (logBetFactor a e - logBetFactor (1 / 2) e) ∂Q < 0 := by
-  have ha0 : ∀ k : ℕ, 0 < 1 / ((k : ℝ) + 3) := fun k ↦ by positivity
-  have ha2 : ∀ k : ℕ, 1 / ((k : ℝ) + 3) < 1 / 2 := fun k ↦
-    one_div_lt_one_div_of_lt two_pos (by linarith [(k.cast_nonneg : (0 : ℝ) ≤ k)])
-  have hlim : Tendsto (fun k : ℕ ↦ 1 / ((k : ℝ) + 3)) atTop (𝓝 0) :=
-    tendsto_const_nhds.div_atTop (tendsto_atTop_add_const_right _ 3 tendsto_natCast_atTop_atTop)
+  obtain ⟨a, -, ha, hlim⟩ := exists_seq_strictAnti_tendsto' (by norm_num : (0 : ℝ) < 1 / 2)
+  have ha1 : ∀ k, a k < 1 := fun k ↦ (ha k).2.trans (by norm_num)
   obtain ⟨k, hk⟩ := exists_integral_neg_of_tendsto
-    (f := fun k e ↦ logBetFactor (1 / ((k : ℝ) + 3)) e - logBetFactor (1 / 2) e)
+    (f := fun k e ↦ logBetFactor (a k) e - logBetFactor (1 / 2) e)
     (F := fun e ↦ logBetFactor 0 e - logBetFactor (1 / 2) e) (C := Real.log 2)
-    (fun k ↦ integrable_logBetFactor_sub_one_half (ha0 k) ((ha2 k).trans (by norm_num)))
-    (fun k e ↦ logBetFactor_sub_one_half_le ⟨(ha0 k).le, ((ha2 k).trans (by norm_num)).le⟩ e)
+    (fun k ↦ integrable_logBetFactor_sub_one_half (ha k).1 (ha1 k))
+    (fun k e ↦ logBetFactor_sub_one_half_le ⟨(ha k).1.le, (ha1 k).le⟩ e)
     (ae_of_all _ fun e ↦ ((continuousAt_logBetFactor (by simp)).tendsto.comp hlim).sub_const _)
     (by simpa [logBetFactor_zero] using lintegral_ofReal_logBetFactor_one_half_eq_top hlog)
-  exact ⟨_, ha0 k, ha2 k, hk⟩
+  exact ⟨a k, (ha k).1, (ha k).2, hk⟩
 
 /-- If the negative part of `log E` has an infinite mean, some fraction close to `1` does worse
 than `1 / 2`. -/
 private lemma exists_integral_logBetFactor_sub_one_half_neg_of_gt [IsFiniteMeasure Q]
     (hQ0 : Q {0} = 0) (hlog1 : ∫⁻ e, ENNReal.ofReal (-logBetFactor 1 e) ∂Q = ⊤) :
     ∃ b, 1 / 2 < b ∧ b < 1 ∧ ∫ e, (logBetFactor b e - logBetFactor (1 / 2) e) ∂Q < 0 := by
-  have hb1 : ∀ k : ℕ, 1 - 1 / ((k : ℝ) + 3) < 1 := fun k ↦ by
-    simp only [sub_lt_self_iff]
-    positivity
-  have hb2 : ∀ k : ℕ, 1 / 2 < 1 - 1 / ((k : ℝ) + 3) := fun k ↦ by
-    have : 1 / ((k : ℝ) + 3) < 1 / 2 :=
-      one_div_lt_one_div_of_lt two_pos (by linarith [(k.cast_nonneg : (0 : ℝ) ≤ k)])
-    linarith
-  have hlim : Tendsto (fun k : ℕ ↦ 1 - 1 / ((k : ℝ) + 3)) atTop (𝓝 1) := by
-    have h := (tendsto_const_nhds (x := (1 : ℝ))).sub
-      ((tendsto_const_nhds (x := (1 : ℝ))).div_atTop
-        (tendsto_atTop_add_const_right _ 3 tendsto_natCast_atTop_atTop))
-    rwa [sub_zero] at h
+  obtain ⟨b, -, hb, hlim⟩ := exists_seq_strictMono_tendsto' (by norm_num : (1 / 2 : ℝ) < 1)
+  have hb0 : ∀ k, 0 < b k := fun k ↦ (hb k).1.trans' (by norm_num)
   obtain ⟨k, hk⟩ := exists_integral_neg_of_tendsto
-    (f := fun k e ↦ logBetFactor (1 - 1 / ((k : ℝ) + 3)) e - logBetFactor (1 / 2) e)
+    (f := fun k e ↦ logBetFactor (b k) e - logBetFactor (1 / 2) e)
     (F := fun e ↦ logBetFactor 1 e - logBetFactor (1 / 2) e) (C := Real.log 2)
-    (fun k ↦ integrable_logBetFactor_sub_one_half ((hb2 k).trans' (by norm_num)) (hb1 k))
-    (fun k e ↦ logBetFactor_sub_one_half_le
-      ⟨((hb2 k).trans' (by norm_num)).le, (hb1 k).le⟩ e)
+    (fun k ↦ integrable_logBetFactor_sub_one_half (hb0 k) (hb k).2)
+    (fun k e ↦ logBetFactor_sub_one_half_le ⟨(hb0 k).le, (hb k).2.le⟩ e)
     (by
       filter_upwards [ae_ne_zero hQ0] with e he
       exact ((continuousAt_logBetFactor (by simpa using he)).tendsto.comp hlim).sub_const _)
@@ -740,7 +614,7 @@ private lemma exists_integral_logBetFactor_sub_one_half_neg_of_gt [IsFiniteMeasu
       (ENNReal.ofReal_le_ofReal (by
         linarith [logBetFactor_one_half e, Real.log_nonneg (by simp : (1 : ℝ) ≤ 1 + e)])).trans
         ENNReal.ofReal_add_le) hlog1)
-  exact ⟨_, hb2 k, hb1 k, hk⟩
+  exact ⟨b k, (hb k).1, (hb k).2, hk⟩
 
 /-! ### Pathwise arguments -/
 
@@ -768,6 +642,34 @@ private lemma eventually_notMem_uIcc {x : ℕ → ℝ≥0} (hx : ∀ i, x i ≠ 
   rw [min_eq_right (isMaxOn_iff.1 (hmax m) l₀ hl₀)] at h
   exact absurd h (not_le.2 hm)
 
+/-- Consistency of follow-the-leader from below: if a fraction `a < l₀` does worse than `l₀` on
+average, the fractions are eventually at least `a`. -/
+private lemma eventually_le_of_lt {x : ℕ → ℝ≥0} (hx : ∀ i, x i ≠ 0) {l : ℕ → ℝ}
+    (hl : ∀ n, l n ∈ Icc (0 : ℝ) 1)
+    (hmax : ∀ n, IsMaxOn (fun c ↦ ∑ i ∈ Finset.range (n + 1), logBetFactor c (x i)) (Icc 0 1)
+      (l (n + 1)))
+    {a l₀ : ℝ} (hl₀ : l₀ ∈ Icc (0 : ℝ) 1) {D : ℝ}
+    (hD : Tendsto (fun n : ℕ ↦ (n : ℝ)⁻¹ *
+      ∑ i ∈ Finset.range n, (logBetFactor a (x i) - logBetFactor l₀ (x i))) atTop (𝓝 D))
+    (hD0 : D < 0) (ha : a < l₀) :
+    ∀ᶠ n in atTop, a ≤ l n := by
+  filter_upwards [eventually_notMem_uIcc hx hl hmax hl₀ hD hD0] with n hn
+  exact not_lt.1 fun h ↦ hn (Set.mem_uIcc.2 (Or.inl ⟨h.le, ha.le⟩))
+
+/-- Consistency of follow-the-leader from above: if a fraction `a > l₀` does worse than `l₀` on
+average, the fractions are eventually at most `a`. -/
+private lemma eventually_le_of_gt {x : ℕ → ℝ≥0} (hx : ∀ i, x i ≠ 0) {l : ℕ → ℝ}
+    (hl : ∀ n, l n ∈ Icc (0 : ℝ) 1)
+    (hmax : ∀ n, IsMaxOn (fun c ↦ ∑ i ∈ Finset.range (n + 1), logBetFactor c (x i)) (Icc 0 1)
+      (l (n + 1)))
+    {a l₀ : ℝ} (hl₀ : l₀ ∈ Icc (0 : ℝ) 1) {D : ℝ}
+    (hD : Tendsto (fun n : ℕ ↦ (n : ℝ)⁻¹ *
+      ∑ i ∈ Finset.range n, (logBetFactor a (x i) - logBetFactor l₀ (x i))) atTop (𝓝 D))
+    (hD0 : D < 0) (ha : l₀ < a) :
+    ∀ᶠ n in atTop, l n ≤ a := by
+  filter_upwards [eventually_notMem_uIcc hx hl hmax hl₀ hD hD0] with n hn
+  exact not_lt.1 fun h ↦ hn (Set.mem_uIcc.2 (Or.inr ⟨ha.le, h.le⟩))
+
 /-- The pathwise transfer: if the fractions are eventually between `a k` and `b k`, and the
 averages of the maximum and of the minimum of the logarithms of the rounds with fractions `a k`
 and `b k` tend to limits that tend to `L`, then the averages of the logarithms of the rounds tend
@@ -784,11 +686,11 @@ private lemma tendsto_average_logBetFactor {x : ℕ → ℝ≥0} (hx : ∀ i, x 
       (𝓝 L) := by
   refine tendsto_order.2 ⟨fun c hc ↦ ?_, fun c hc ↦ ?_⟩
   · obtain ⟨k, hk⟩ := (hvL.eventually (lt_mem_nhds hc)).exists
-    refine eventually_lt_average ?_ (hv k) hk
+    refine LMLExplore.eventually_lt_average_of_eventually_le ?_ (hv k) hk
     filter_upwards [hab k] with i hi
     exact (logBetFactor_mem_Icc (ha0 k) hi.1 hi.2 (hb1 k) (hx i)).1
   · obtain ⟨k, hk⟩ := (huL.eventually (gt_mem_nhds hc)).exists
-    refine eventually_average_lt ?_ (hu k) hk
+    refine LMLExplore.eventually_average_lt_of_eventually_le ?_ (hu k) hk
     filter_upwards [hab k] with i hi
     exact (logBetFactor_mem_Icc (ha0 k) hi.1 hi.2 (hb1 k) (hx i)).2
 
@@ -810,10 +712,31 @@ private lemma ae_tendsto_average_of_measure_one_eq_one [IsProbabilityMeasure Q]
     filter_upwards [hQ] with e he
     simp [he]
   · simp
-  · filter_upwards [ae_all_iff.2 fun i ↦
-      (measurePreserving_eval_infinitePi (fun _ : ℕ ↦ Q) i).quasiMeasurePreserving.ae hQ]
-      with x hx l
+  · filter_upwards [Measure.ae_forall_apply_infinitePi _ fun _ ↦ hQ] with x hx l
     simp [hx, logBetFactor]
+
+/-- Fractions `a k → l₀` from below and `b k → l₀` from above, all in `[0, (1 + l₀) / 2]`, with
+`a k < l₀` unless `l₀ = 0` and `l₀ < b k` unless `l₀ = 1`. -/
+private lemma exists_seq_tendsto_fraction {l₀ : ℝ} (hl₀ : l₀ ∈ Icc (0 : ℝ) 1) :
+    ∃ a b : ℕ → ℝ, (∀ k, a k ∈ Icc 0 ((1 + l₀) / 2)) ∧ (∀ k, b k ∈ Icc 0 ((1 + l₀) / 2)) ∧
+      (∀ k, a k < l₀ ∨ a k = 0) ∧ (∀ k, l₀ < b k ∨ b k = 1) ∧
+      Tendsto a atTop (𝓝 l₀) ∧ Tendsto b atTop (𝓝 l₀) := by
+  obtain ⟨a, ha_mem, ha_lt, ha_lim⟩ : ∃ a : ℕ → ℝ, (∀ k, a k ∈ Icc 0 l₀) ∧
+      (∀ k, a k < l₀ ∨ a k = 0) ∧ Tendsto a atTop (𝓝 l₀) := by
+    rcases eq_or_lt_of_le hl₀.1 with h | h
+    · exact ⟨fun _ ↦ 0, fun _ ↦ ⟨le_rfl, hl₀.1⟩, fun _ ↦ Or.inr rfl, h ▸ tendsto_const_nhds⟩
+    · obtain ⟨a, -, ha, ha_lim⟩ := exists_seq_strictMono_tendsto' h
+      exact ⟨a, fun k ↦ Ioo_subset_Icc_self (ha k), fun k ↦ Or.inl (ha k).2, ha_lim⟩
+  obtain ⟨b, hb_mem, hb_gt, hb_lim⟩ : ∃ b : ℕ → ℝ, (∀ k, b k ∈ Icc l₀ ((1 + l₀) / 2)) ∧
+      (∀ k, l₀ < b k ∨ b k = 1) ∧ Tendsto b atTop (𝓝 l₀) := by
+    rcases eq_or_lt_of_le hl₀.2 with h | h
+    · exact ⟨fun _ ↦ 1, fun _ ↦ ⟨hl₀.2, by linarith⟩, fun _ ↦ Or.inr rfl,
+        h ▸ tendsto_const_nhds⟩
+    · obtain ⟨b, -, hb, hb_lim⟩ := exists_seq_strictAnti_tendsto' (by linarith :
+        l₀ < (1 + l₀) / 2)
+      exact ⟨b, fun k ↦ Ioo_subset_Icc_self (hb k), fun k ↦ Or.inl (hb k).1, hb_lim⟩
+  exact ⟨a, b, fun k ↦ ⟨(ha_mem k).1, (ha_mem k).2.trans (by linarith [hl₀.2])⟩,
+    fun k ↦ ⟨hl₀.1.trans (hb_mem k).1, (hb_mem k).2⟩, ha_lt, hb_gt, ha_lim, hb_lim⟩
 
 /-- The growth rate when `log (1 + E)` has a finite mean and `Q` is not the point mass at `1`:
 the fractions tend to the strict maximizer `l₀` of the expected logarithm of one round, and the
@@ -832,6 +755,7 @@ private lemma ae_tendsto_average_of_lintegral_ne_top [IsProbabilityMeasure Q] (h
   refine ⟨∫ e, logBetFactor l₀ e ∂Q, le_antisymm (iSup₂_le hmax₀)
     (le_iSup₂_of_le l₀ hl₀ (eintegral_log_ofReal_eq hQ0 hl₀ hint₀).ge), ?_⟩
   -- fractions `a k ↑ l₀` and `b k ↓ l₀`, all in `[0, c]` where `c = (1 + l₀) / 2`
+  obtain ⟨a, b, ha_mem, hb_mem, ha_lt, hb_gt, ha_lim, hb_lim⟩ := exists_seq_tendsto_fraction hl₀
   set c := (1 + l₀) / 2 with hc
   have hc1 : c ≤ 1 := by linarith [hl₀.2]
   have hintc : Integrable (logBetFactor c) Q := by
@@ -839,50 +763,10 @@ private lemma ae_tendsto_average_of_lintegral_ne_top [IsProbabilityMeasure Q] (h
     · rw [show c = l₀ by rw [hc, h]; norm_num]
       exact hint₀
     · exact integrable_logBetFactor hlog (by linarith [hl₀.1]) (by linarith)
-  set a : ℕ → ℝ := fun k ↦ l₀ - l₀ / ((k : ℝ) + 2) with ha
-  set b : ℕ → ℝ := fun k ↦ l₀ + (1 - l₀) / ((k : ℝ) + 2) with hb
-  have hk2 : ∀ k : ℕ, (0 : ℝ) < (k : ℝ) + 2 := fun k ↦ by positivity
-  have hdiv : ∀ (k : ℕ) {r : ℝ}, 0 ≤ r → r / ((k : ℝ) + 2) ≤ r / 2 := fun k r hr ↦
-    div_le_div_of_nonneg_left hr two_pos (by linarith [(k.cast_nonneg : (0 : ℝ) ≤ k)])
-  have ha_mem : ∀ k, a k ∈ Icc 0 c := fun k ↦ by
-    have h1 := hdiv k hl₀.1
-    have h2 : 0 ≤ l₀ / ((k : ℝ) + 2) := div_nonneg hl₀.1 (hk2 k).le
-    exact ⟨by simp only [ha]; linarith, by simp only [ha]; linarith [hl₀.2]⟩
-  have hb_mem : ∀ k, b k ∈ Icc 0 c := fun k ↦ by
-    have h1 := hdiv k (sub_nonneg.2 hl₀.2)
-    have h2 : 0 ≤ (1 - l₀) / ((k : ℝ) + 2) := div_nonneg (sub_nonneg.2 hl₀.2) (hk2 k).le
-    exact ⟨by simp only [hb]; linarith [hl₀.1], by simp only [hb, hc]; linarith⟩
-  have ha_lt : ∀ k, a k < l₀ ∨ a k = 0 := fun k ↦ by
-    rcases eq_or_lt_of_le hl₀.1 with h | h
-    · right
-      simp [ha, ← h]
-    · left
-      simp only [ha, sub_lt_self_iff]
-      exact div_pos h (hk2 k)
-  have hb_gt : ∀ k, l₀ < b k ∨ b k = 1 := fun k ↦ by
-    rcases eq_or_lt_of_le hl₀.2 with h | h
-    · right
-      simp [hb, h]
-    · left
-      simp only [hb, lt_add_iff_pos_right]
-      exact div_pos (sub_pos.2 h) (hk2 k)
-  have hlim0 : Tendsto (fun k : ℕ ↦ 1 / ((k : ℝ) + 2)) atTop (𝓝 0) :=
-    tendsto_const_nhds.div_atTop (tendsto_atTop_add_const_right _ 2 tendsto_natCast_atTop_atTop)
-  have ha_lim : Tendsto a atTop (𝓝 l₀) := by
-    have h := (tendsto_const_nhds (x := l₀)).sub (hlim0.const_mul l₀)
-    rw [mul_zero, sub_zero] at h
-    refine h.congr fun k ↦ ?_
-    simp only [ha]
-    ring
-  have hb_lim : Tendsto b atTop (𝓝 l₀) := by
-    have h := (tendsto_const_nhds (x := l₀)).add (hlim0.const_mul (1 - l₀))
-    rw [mul_zero, add_zero] at h
-    refine h.congr fun k ↦ ?_
-    simp only [hb]
-    ring
   have hint_le : ∀ l ∈ Icc 0 c, Integrable (logBetFactor l) Q := fun l hl ↦
     integrable_logBetFactor_of_le hQ0 hlog hl.1 hl.2 hc1 hintc
-  filter_upwards [ae_forall_ne_zero hQ0, ae_tendsto_average hint₀,
+  filter_upwards [Measure.ae_forall_apply_infinitePi _ fun _ ↦ ae_ne_zero hQ0,
+    ae_tendsto_average hint₀,
     ae_all_iff.2 fun k ↦ ae_tendsto_average (hint_le _ (ha_mem k)),
     ae_all_iff.2 fun k ↦ ae_tendsto_average (hint_le _ (hb_mem k)),
     ae_all_iff.2 fun k ↦ ae_tendsto_average ((hint_le _ (ha_mem k)).sup (hint_le _ (hb_mem k))),
@@ -895,19 +779,17 @@ private lemma ae_tendsto_average_of_lintegral_ne_top [IsProbabilityMeasure Q] (h
       rcases ha_lt k with h | h
       · have hlt := integral_logBetFactor_lt hQ0 hQ1 hlog hl₀ hint₀ hmax₀ (hIcc _ (ha_mem k))
           h.ne (hint_le _ (ha_mem k))
-        filter_upwards [eventually_notMem_uIcc hx hl hmax hl₀
+        exact eventually_le_of_lt hx hl hmax hl₀
           (((hA k).sub hL₀).congr fun n ↦ by rw [Finset.sum_sub_distrib, mul_sub])
-          (sub_neg.2 hlt)] with n hn
-        exact not_lt.1 fun h' ↦ hn (Set.mem_uIcc.2 (Or.inl ⟨h'.le, h.le⟩))
+          (sub_neg.2 hlt) h
       · exact Eventually.of_forall fun n ↦ h ▸ (hl n).1
     have hup : ∀ᶠ n in atTop, l n ≤ b k := by
       rcases hb_gt k with h | h
       · have hlt := integral_logBetFactor_lt hQ0 hQ1 hlog hl₀ hint₀ hmax₀ (hIcc _ (hb_mem k))
           h.ne' (hint_le _ (hb_mem k))
-        filter_upwards [eventually_notMem_uIcc hx hl hmax hl₀
+        exact eventually_le_of_gt hx hl hmax hl₀
           (((hB k).sub hL₀).congr fun n ↦ by rw [Finset.sum_sub_distrib, mul_sub])
-          (sub_neg.2 hlt)] with n hn
-        exact not_lt.1 fun h' ↦ hn (Set.mem_uIcc.2 (Or.inr ⟨h.le, h'.le⟩))
+          (sub_neg.2 hlt) h
       · exact Eventually.of_forall fun n ↦ h ▸ (hl n).2
     exact hlow.and hup
   exact tendsto_average_logBetFactor hx (fun k ↦ (ha_mem k).1) (fun k ↦ (hb_mem k).2.trans hc1)
@@ -951,15 +833,14 @@ private lemma ae_tendsto_average_of_lintegral_eq_top [IsProbabilityMeasure Q] (h
     obtain ⟨b, hb2, hb1, hdb⟩ := exists_integral_logBetFactor_sub_one_half_neg_of_gt hQ0 hlog1
     have hintb := integrable_logBetFactor_sub_one_half (Q := Q) (hb2.trans' (by norm_num)) hb1
     have hm : 0 < min a (1 - b) := lt_min ha0 (by linarith)
-    filter_upwards [ae_forall_ne_zero hQ0, ae_tendsto_average hinta, ae_tendsto_average hintb,
-      ae_tendsto_average_add_atTop (integrable_const (Real.log (min a (1 - b)))) hχm
+    filter_upwards [Measure.ae_forall_apply_infinitePi _ fun _ ↦ ae_ne_zero hQ0,
+      ae_tendsto_average hinta, ae_tendsto_average hintb,
+      ae_tendsto_average_add_atTop_infinitePi (integrable_const (Real.log (min a (1 - b)))) hχm
         (by simp [ENNReal.ofReal_of_nonpos (neg_nonpos.2 (hχ0 _))]) hlog]
       with x hx hA hB hT l hl hmax
-    refine tendsto_average_atTop ?_ hT
-    filter_upwards [eventually_notMem_uIcc hx hl hmax hhalf hA hda,
-      eventually_notMem_uIcc hx hl hmax hhalf hB hdb] with i ha' hb'
-    have h1 : a ≤ l i := not_lt.1 fun h ↦ ha' (Set.mem_uIcc.2 (Or.inl ⟨h.le, ha2.le⟩))
-    have h2 : l i ≤ b := not_lt.1 fun h ↦ hb' (Set.mem_uIcc.2 (Or.inr ⟨hb2.le, h.le⟩))
+    refine LMLExplore.tendsto_average_atTop_of_eventually_le ?_ hT
+    filter_upwards [eventually_le_of_lt hx hl hmax hhalf hA hda ha2,
+      eventually_le_of_gt hx hl hmax hhalf hB hdb hb2] with i h1 h2
     exact log_add_log_one_add_le_logBetFactor hm ((min_le_left _ _).trans h1)
       ((min_le_right _ _).trans (by linarith)) (x i)
   · -- the fractions eventually stay in `[a, 1]`, and `log E` has a positive part of infinite
@@ -973,14 +854,14 @@ private lemma ae_tendsto_average_of_lintegral_eq_top [IsProbabilityMeasure Q] (h
       · rw [← ENNReal.ofReal_add (logBetFactor_nonneg zero_le_one he) (Real.log_nonneg one_le_two),
           logBetFactor_one, ← Real.log_mul (by positivity) two_ne_zero]
         exact ENNReal.ofReal_le_ofReal (Real.log_le_log (by positivity) (by linarith))
-    filter_upwards [ae_forall_ne_zero hQ0, ae_tendsto_average hinta,
-      ae_tendsto_average_add_atTop (integrable_const (Real.log a)) (measurable_logBetFactor 1)
-        hlog1 hpos] with x hx hA hT l hl hmax
-    refine tendsto_average_atTop ?_ hT
-    filter_upwards [eventually_notMem_uIcc hx hl hmax hhalf hA hda] with i ha'
+    filter_upwards [Measure.ae_forall_apply_infinitePi _ fun _ ↦ ae_ne_zero hQ0,
+      ae_tendsto_average hinta, ae_tendsto_average_add_atTop_infinitePi
+        (integrable_const (Real.log a)) (measurable_logBetFactor 1) hlog1 hpos]
+      with x hx hA hT l hl hmax
+    refine LMLExplore.tendsto_average_atTop_of_eventually_le ?_ hT
+    filter_upwards [eventually_le_of_lt hx hl hmax hhalf hA hda ha2] with i ha'
     rw [logBetFactor_one]
-    exact log_add_log_le_logBetFactor ha0
-      (not_lt.1 fun h ↦ ha' (Set.mem_uIcc.2 (Or.inl ⟨h.le, ha2.le⟩))) (hl i).2 (hx i)
+    exact log_add_log_le_logBetFactor ha0 ha' (hl i).2 (hx i)
 
 /-- The growth rate of follow-the-leader in terms of the real logarithms of the rounds. -/
 private lemma ae_tendsto_average_logBetFactor [IsProbabilityMeasure Q] (hQ0 : Q {0} = 0) :
@@ -1009,7 +890,7 @@ private lemma ae_tendsto_average_logBetFactor [IsProbabilityMeasure Q] (hQ0 : Q 
 /-! ### Main results -/
 
 /-- **Follow-the-leader betting grows at the best rate of a constant fraction when no e-value
-vanishes**
+vanishes** [EVR26, Note 07, Theorem (1)]. This answers, for `Q {0} = 0`, the question of
 [WSJ26, Remark 2.3]. Let `Q` be a probability measure on `ℝ≥0` with `Q {0} = 0`. Almost surely
 under `Q^ℕ`, for all fractions `l n ∈ [0, 1]` such that `l (n + 1)` maximizes over `[0, 1]` the
 wealth `∏ k ≤ n, (1 + c * (ω k - 1))` of a constant fraction `c`, the logarithm of the wealth
@@ -1026,13 +907,14 @@ theorem ae_tendsto_log_prod_followTheLeader_div (Q : Measure ℝ≥0) [IsProbabi
           ENNReal.log (∏ k ∈ Finset.range n, ENNReal.ofReal (1 + l k * ((ω k : ℝ) - 1))) / n)
         atTop (𝓝 (⨆ c ∈ Icc (0 : ℝ) 1,
           ∫ᵉ e, ENNReal.log (ENNReal.ofReal (1 + c * ((e : ℝ) - 1))) ∂Q)) := by
-  filter_upwards [ae_forall_ne_zero hQ0, ae_tendsto_average_logBetFactor hQ0]
-    with ω hω h l hl hmax
+  filter_upwards [Measure.ae_forall_apply_infinitePi _ fun _ ↦ ae_ne_zero hQ0,
+    ae_tendsto_average_logBetFactor hQ0] with ω hω h l hl hmax
   refine (h l hl fun n ↦ isMaxOn_sum_logBetFactor hω (hl (n + 1)) (hmax n)).congr fun n ↦ ?_
   rw [log_prod_ofReal_eq hω hl, ← EReal.coe_natCast, ← EReal.coe_div, div_eq_inv_mul]
 
 /-- **Follow-the-leader betting goes bankrupt with positive probability when some e-values
-vanish** [WSJ26, Remark 2.3]. Let `Q` be a probability measure on `ℝ≥0` that charges `0` and
+vanish** [EVR26, Note 07, Theorem (2)]. This answers negatively, when `Q` charges `0`, the
+question of [WSJ26, Remark 2.3]. Let `Q` be a probability measure on `ℝ≥0` that charges `0` and
 `(1, ∞)`. With positive probability under `Q^ℕ`, the wealth `∏ k < 2, (1 + l k * (ω k - 1))`
 after two rounds is `0` for every fraction `l 1 ≤ 1` that maximizes over `[0, 1]` the factor
 `1 + c * (ω 0 - 1)` of the first round, whatever `l 0`: on the event `{1 < ω 0, ω 1 = 0}`, such a
