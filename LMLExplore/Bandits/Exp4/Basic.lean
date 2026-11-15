@@ -43,9 +43,10 @@ learning rate `η = √(2 log M / (n k))` gives `R_n ≤ √(2 n k log M)` [LS, 
 * `exp4_eq_of_subsingleton`: with a single expert, Exp4 does not depend on its learning rate.
 * `Exp4.sum_sub_sum_le`: [LS, Lemma 18.2], the pathwise bound
   `∑ t < n, (X̂ᴱ t m - ⟨Q t, X̂ᴱ t⟩) ≤ log M / η + η / 2 * ∑ t < n, ⟨Q t, (1 - X̂ᴱ t) ^ 2⟩`.
-* `Exp4.sum_exp4IXExpertWeights_mul_dotProduct_lossIwEstimator`: the `Q t`-average of the
-  estimated rewards `X̂ᴱ t` of the experts is the observed reward `Y t`.
-* `Exp4.sum_mul_one_sub_sq_le`: the second-order term satisfies
+* `Exp4IX.sum_exp4IXExpertWeights_mul_dotProduct_lossIwEstimator`: for every instance of
+  Exp4-IX, the `Q t`-average of the estimated rewards `X̂ᴱ t` of the experts is the observed reward
+  `Y t`.
+* `Exp4IX.sum_mul_one_sub_sq_le`: for every instance of Exp4-IX, the second-order term satisfies
   `⟨Q t, (1 - X̂ᴱ t) ^ 2⟩ ≤ (1 - Y t) ^ 2 / P t (A t)`.
 * `Exp4.sum_dotProduct_lossIwEstimator_sub_le`: the resulting pathwise bound on the estimated
   regret against an expert.
@@ -72,7 +73,70 @@ open MeasureTheory ProbabilityTheory Learning Finset Real LMLExplore.OnlineLearn
 
 namespace LMLExplore.Bandits
 
-variable {α β : Type*} [Fintype α] [DecidableEq α] [Fintype β] {η : ℝ}
+variable {α β : Type*} [Fintype α] [DecidableEq α] [Fintype β]
+
+omit [Fintype β] in
+/-- The estimate `e m ⬝ᵥ X̂` of the reward of an expert `m` whose advice `e m` sums to `1`, from the
+loss-based importance-weighted estimates `X̂` of the rewards of the arms. -/
+private lemma dotProduct_lossIwEstimator_advice (e : β → simplex α) (m : β) (p : α → ℝ) (b : α)
+    (y : ℝ) :
+    (e m : α → ℝ) ⬝ᵥ lossIwEstimator p b y = 1 - (e m : α → ℝ) b * (1 - y) / p b :=
+  dotProduct_lossIwEstimator (mem_simplex_iff.1 (e m).2).2
+
+namespace Exp4IX
+
+section LossIwEstimator
+
+variable {𝓞 Ω : Type*} {adv : 𝓞 → β → simplex α} {η γ : ℕ → ℝ}
+
+/-- The `Q`-average of the estimated rewards `adv o m ⬝ᵥ X̂` of the experts, with `Q` the weights
+of Exp4-IX on the experts and `X̂` the loss-based importance-weighted estimates of the weights `P`
+of Exp4-IX on the arms for the observation `o`, is the observed reward `y` of an arm `b` with
+`P b ≠ 0`, since it is the `P`-average of `X̂`. -/
+lemma sum_exp4IXExpertWeights_mul_dotProduct_lossIwEstimator [Nonempty β] (n : ℕ)
+    (h : Hist 𝓞 α ℝ n) (o : 𝓞) {b : α} (y : ℝ) (hb : exp4IXWeights adv η γ n h o b ≠ 0) :
+    ∑ m, exp4IXExpertWeights adv η γ n h m *
+      (adv o m : α → ℝ) ⬝ᵥ lossIwEstimator (exp4IXWeights adv η γ n h o) b y = y := by
+  rw [sum_exp4IXExpertWeights_mul_dotProduct]
+  exact sum_mul_lossIwEstimator (mem_simplex_iff.1 (exp4IXWeights_mem_simplex _ _ _)).2 hb
+
+/-- **The second-order term of the estimated rewards in Exp4-IX.** Along every sequence of
+observations `O`, actions `A` and feedbacks `Y`, with `Q t` and `P t` the weights of Exp4-IX on
+the experts and on the arms at round `t` and `X̂ᴱ t m = adv (O t) m ⬝ᵥ X̂ t` the estimated reward of
+expert `m`, for the loss-based importance-weighted estimates `X̂ t` of the weights `P t`,
+`∑ m', Q t m' * (1 - X̂ᴱ t m') ^ 2 ≤ (1 - Y t) ^ 2 / P t (A t)`. -/
+lemma sum_mul_one_sub_sq_le (O : ℕ → Ω → 𝓞) (A : ℕ → Ω → α) (Y : ℕ → Ω → ℝ) (ω : Ω) (t : ℕ) :
+    ∑ m', exp4IXExpertWeights adv η γ t (history O A Y t ω) m' *
+        (1 - (adv (O t ω) m' : α → ℝ) ⬝ᵥ lossIwEstimator
+          (exp4IXWeights adv η γ t (history O A Y t ω) (O t ω)) (A t ω) (Y t ω)) ^ 2 ≤
+      (1 - Y t ω) ^ 2 / exp4IXWeights adv η γ t (history O A Y t ω) (O t ω) (A t ω) := by
+  set P := exp4IXWeights adv η γ t (history O A Y t ω) (O t ω) (A t ω) with hP
+  set q := exp4IXExpertWeights adv η γ t (history O A Y t ω) with hq
+  set e : β → ℝ := fun m' ↦ (adv (O t ω) m' : α → ℝ) (A t ω) with he
+  simp only [dotProduct_lossIwEstimator_advice, sub_sub_cancel]
+  -- `∑ m', q m' * e m' ^ 2 ≤ ∑ m', q m' * e m' = P`, as the advice lies in `[0, 1]`
+  have hle : ∑ m', q m' * e m' ^ 2 ≤ P := by
+    rw [hP, exp4IXWeights_apply]
+    refine Finset.sum_le_sum fun m' _ ↦ mul_le_mul_of_nonneg_left ?_
+      (by rw [hq, exp4IXExpertWeights_def]; exact softmax_nonneg _ m')
+    have h0 : 0 ≤ e m' := (mem_simplex_iff.1 (adv (O t ω) m').2).1 _
+    have h1 : e m' ≤ 1 := by simpa using (simplex_subset_Icc (adv (O t ω) m').2).2 (A t ω)
+    nlinarith
+  calc ∑ m', q m' * ((adv (O t ω) m' : α → ℝ) (A t ω) * (1 - Y t ω) / P) ^ 2
+  _ = (∑ m', q m' * e m' ^ 2) * ((1 - Y t ω) / P) ^ 2 := by
+      rw [Finset.sum_mul]
+      exact Finset.sum_congr rfl fun m' _ ↦ by rw [he, mul_div_assoc]; ring
+  _ ≤ P * ((1 - Y t ω) / P) ^ 2 := mul_le_mul_of_nonneg_right hle (sq_nonneg _)
+  _ = (1 - Y t ω) ^ 2 / P := by
+      rcases eq_or_ne P 0 with h0 | h0
+      · simp [h0]
+      · field_simp
+
+end LossIwEstimator
+
+end Exp4IX
+
+variable {η : ℝ}
 
 section Algorithm
 
@@ -99,32 +163,7 @@ namespace Exp4
 
 section Pathwise
 
-variable {Ω : Type*} {n : ℕ}
-
-omit [Fintype β] in
-/-- The estimate `e m ⬝ᵥ X̂` of the reward of an expert `m` whose advice `e m` sums to `1`, from the
-loss-based importance-weighted estimates `X̂` of the rewards of the arms. -/
-private lemma dotProduct_lossIwEstimator_advice (e : β → simplex α) (m : β) (p : α → ℝ) (b : α)
-    (y : ℝ) :
-    (e m : α → ℝ) ⬝ᵥ lossIwEstimator p b y = 1 - (e m : α → ℝ) b * (1 - y) / p b :=
-  dotProduct_lossIwEstimator (mem_simplex_iff.1 (e m).2).2
-
-variable [Nonempty β]
-
-/-- The `Q`-average of the estimated rewards `e m ⬝ᵥ X̂` of the experts, with `Q` the weights of
-Exp4 on the experts and `X̂` the loss-based importance-weighted estimates of the weights `P` of
-Exp4 on the arms for the advice `e`, is the observed reward `y` of an arm `b` with `P b ≠ 0`, since
-it is the `P`-average of `X̂`. -/
-lemma sum_exp4IXExpertWeights_mul_dotProduct_lossIwEstimator (n : ℕ)
-    (h : Hist (β → simplex α) α ℝ n) (e : β → simplex α) {b : α} (y : ℝ)
-    (hb : exp4IXWeights id (fun _ ↦ η) 0 n h e b ≠ 0) :
-    ∑ m, exp4IXExpertWeights id (fun _ ↦ η) 0 n h m *
-      (e m : α → ℝ) ⬝ᵥ lossIwEstimator (exp4IXWeights id (fun _ ↦ η) 0 n h e) b y = y := by
-  have key := Exp4IX.sum_exp4IXExpertWeights_mul_dotProduct (adv := id) (η := fun _ ↦ η) (γ := 0)
-    n h e (lossIwEstimator (exp4IXWeights id (fun _ ↦ η) 0 n h e) b y)
-  simp only [id] at key
-  rw [key]
-  exact sum_mul_lossIwEstimator (mem_simplex_iff.1 (exp4IXWeights_mem_simplex _ _ _)).2 hb
+variable {Ω : Type*} {n : ℕ} [Nonempty β]
 
 /-- **Pathwise regret of the experts' weights in Exp4** [LS, Lemma 18.2]. Along every sequence of
 observations `O`, actions `A` and feedbacks `Y ≤ 1` of the rounds `t < n`, with `Q t` the weights
@@ -149,10 +188,7 @@ theorem sum_sub_sum_le (hη : 0 < η) (O : ℕ → Ω → β → simplex α) (A 
   have key := Exp4IX.sum_sum_mul_sub_le (adv := id) (η := fun _ ↦ η) (γ := 0) O A Y ω
     (fun _ ↦ hη) antitone_const (fun _ ↦ le_rfl) hY m
   -- with `γ = 0`, the estimates are the importance-weighted estimates for the weights on the arms
-  have hp0 : ∀ t, (fun b ↦ exp4IXWeights id (fun _ ↦ η) 0 t (history O A Y t ω) (O t ω) b +
-      (0 : ℕ → ℝ) t) = exp4IXWeights id (fun _ ↦ η) 0 t (history O A Y t ω) (O t ω) :=
-    fun t ↦ funext fun b ↦ by simp
-  simp only [hp0, id] at key
+  simp only [Pi.zero_apply, add_zero, id] at key
   -- the estimated rewards are one minus the estimated losses
   have hX : ∀ t m', (O t ω m' : α → ℝ) ⬝ᵥ lossIwEstimator
       (exp4IXWeights id (fun _ ↦ η) 0 t (history O A Y t ω) (O t ω)) (A t ω) (Y t ω) =
@@ -171,39 +207,6 @@ theorem sum_sub_sum_le (hη : 0 < η) (O : ℕ → Ω → β → simplex α) (A 
   exact le_of_eq_of_le (Finset.sum_congr rfl fun t _ ↦ h1 t fun m' ↦ (O t ω m' : α → ℝ) ⬝ᵥ
     iwEstimator (exp4IXWeights id (fun _ ↦ η) 0 t (history O A Y t ω) (O t ω)) (A t ω)
       (1 - Y t ω)) key
-
-omit [Nonempty β] in
-/-- **The second-order term of Exp4.** Along every sequence of observations `O`, actions `A` and
-feedbacks `Y`, with `Q t` and `P t` the weights of Exp4 on the experts and on the arms at round `t`
-and `X̂ᴱ t m = O t m ⬝ᵥ X̂ t` the estimated reward of expert `m`,
-`∑ m', Q t m' * (1 - X̂ᴱ t m') ^ 2 ≤ (1 - Y t) ^ 2 / P t (A t)`. -/
-lemma sum_mul_one_sub_sq_le (O : ℕ → Ω → β → simplex α) (A : ℕ → Ω → α) (Y : ℕ → Ω → ℝ)
-    (ω : Ω) (t : ℕ) :
-    ∑ m', exp4IXExpertWeights id (fun _ ↦ η) 0 t (history O A Y t ω) m' * (1 - (O t ω m' : α → ℝ) ⬝ᵥ
-        lossIwEstimator
-          (exp4IXWeights id (fun _ ↦ η) 0 t (history O A Y t ω) (O t ω)) (A t ω) (Y t ω)) ^ 2 ≤
-      (1 - Y t ω) ^ 2 / exp4IXWeights id (fun _ ↦ η) 0 t (history O A Y t ω) (O t ω) (A t ω) := by
-  set P := exp4IXWeights id (fun _ ↦ η) 0 t (history O A Y t ω) (O t ω) (A t ω) with hP
-  set q := exp4IXExpertWeights id (fun _ ↦ η) 0 t (history O A Y t ω) with hq
-  set e : β → ℝ := fun m' ↦ (O t ω m' : α → ℝ) (A t ω) with he
-  simp only [dotProduct_lossIwEstimator_advice, sub_sub_cancel]
-  -- `∑ m', q m' * e m' ^ 2 ≤ ∑ m', q m' * e m' = P`, as the advice lies in `[0, 1]`
-  have hle : ∑ m', q m' * e m' ^ 2 ≤ P := by
-    rw [hP, exp4IXWeights_apply, id]
-    refine Finset.sum_le_sum fun m' _ ↦ mul_le_mul_of_nonneg_left ?_
-      (by rw [hq, exp4IXExpertWeights_def]; exact softmax_nonneg _ m')
-    have h0 : 0 ≤ e m' := (mem_simplex_iff.1 (O t ω m').2).1 _
-    have h1 : e m' ≤ 1 := by simpa using (simplex_subset_Icc (O t ω m').2).2 (A t ω)
-    nlinarith
-  calc ∑ m', q m' * ((O t ω m' : α → ℝ) (A t ω) * (1 - Y t ω) / P) ^ 2
-  _ = (∑ m', q m' * e m' ^ 2) * ((1 - Y t ω) / P) ^ 2 := by
-      rw [Finset.sum_mul]
-      exact Finset.sum_congr rfl fun m' _ ↦ by rw [he, mul_div_assoc]; ring
-  _ ≤ P * ((1 - Y t ω) / P) ^ 2 := mul_le_mul_of_nonneg_right hle (sq_nonneg _)
-  _ = (1 - Y t ω) ^ 2 / P := by
-      rcases eq_or_ne P 0 with h0 | h0
-      · simp [h0]
-      · field_simp
 
 /-- **Pathwise bound on the estimated regret of Exp4.** Along every sequence of observations `O`,
 actions `A` and feedbacks `Y ≤ 1` of the rounds `t < n` whose actions have positive weight
@@ -229,12 +232,14 @@ theorem sum_dotProduct_lossIwEstimator_sub_le (hη : 0 < η) (O : ℕ → Ω →
         lossIwEstimator
           (exp4IXWeights id (fun _ ↦ η) 0 t (history O A Y t ω) (O t ω)) (A t ω) (Y t ω)) :=
       Finset.sum_congr rfl fun t ht ↦ by
-        rw [sum_exp4IXExpertWeights_mul_dotProduct_lossIwEstimator _ _ _ _
-          (hpos t (mem_range.1 ht))]
+        have key := Exp4IX.sum_exp4IXExpertWeights_mul_dotProduct_lossIwEstimator (adv := id)
+          (η := fun _ ↦ η) (γ := 0) t (history O A Y t ω) (O t ω) (Y t ω) (hpos t (mem_range.1 ht))
+        simp only [id_eq] at key
+        rw [key]
   _ ≤ _ := sum_sub_sum_le hη O A Y ω hY m
   _ ≤ _ := by
       gcongr with t ht
-      exact sum_mul_one_sub_sq_le O A Y ω t
+      exact Exp4IX.sum_mul_one_sub_sq_le (adv := id) O A Y ω t
 
 end Pathwise
 

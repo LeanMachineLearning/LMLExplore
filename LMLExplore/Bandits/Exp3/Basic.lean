@@ -20,8 +20,9 @@ estimate of the losses `1 - X s` of round `s`, computed from the arm `A s` drawn
 observed reward `X s`: `Ŷ s a = 𝟙{A s = a} (1 - X s) / P s a`. The learning rate `η > 0` is a
 parameter. Exp3 ignores the observations of the environment. It is defined as the instance of
 Exp4-IX (`LMLExplore.Bandits.exp4IX`) with the experts `α`, expert `b` advising the Dirac mass at
-`b` at every observation, the constant learning rate `η` and no implicit exploration: its weights
-on the arms are its weights on the experts, and the estimated loss of expert `b` is `Ŷ s b`.
+`b` at every observation (`singleAdvice`), the constant learning rate `η` and no implicit
+exploration: its weights on the arms are its weights on the experts, and the estimated loss of
+expert `b` is `Ŷ s b`.
 [LS, Algorithm 9] writes the weights as `softmax (η • Ŝ t)` with the loss-based reward estimates
 `Ŝ t = ∑ s < t, (1 - Ŷ s)`, which differ from `-L̂ t` by the constant `t`.
 
@@ -34,6 +35,8 @@ estimates `X̂ s = 1 - Ŷ s` are conditionally unbiased, and the second-order t
 
 ## Main definitions
 
+* `LMLExplore.Bandits.singleAdvice`: the advice of the experts `α` that each recommend one arm,
+  expert `b` advising the Dirac mass at `b` at every observation.
 * `LMLExplore.Bandits.exp3 η`: the Exp3 algorithm with learning rate `η`, the instance of Exp4-IX
   with one expert per arm, the constant learning rate `η` and `γ = 0`.
 
@@ -73,19 +76,32 @@ variable {α 𝓞 : Type*} [Fintype α] [DecidableEq α]
 
 section Single
 
+/-- The advice of the experts `α` that each recommend one arm: at every observation, expert `b`
+advises the Dirac mass at `b`. Exp3 and Exp3-IX are the instances of Exp4-IX with this advice. -/
+noncomputable def singleAdvice : 𝓞 → α → simplex α :=
+  fun _ b ↦ ⟨Pi.single b 1, single_mem_simplex b⟩
+
+@[simp]
+lemma coe_singleAdvice (o : 𝓞) (b : α) : (singleAdvice o b : α → ℝ) = Pi.single b 1 := (rfl)
+
+@[fun_prop]
+lemma measurable_singleAdvice [MeasurableSpace 𝓞] :
+    Measurable (singleAdvice : 𝓞 → α → simplex α) :=
+  measurable_const
+
 variable {η γ : ℕ → ℝ}
 
 /-- With the experts `α` that each recommend one arm (expert `b` advises the Dirac mass at `b`),
 the weights of Exp4-IX on the arms are its weights on the experts, at every observation. -/
+@[simp]
 lemma exp4IXWeights_single (n : ℕ) (h : Hist 𝓞 α ℝ n) (o : 𝓞) :
-    exp4IXWeights (fun _ b ↦ ⟨Pi.single b 1, single_mem_simplex b⟩) η γ n h o =
-      exp4IXExpertWeights (fun (_ : 𝓞) b ↦ ⟨Pi.single b 1, single_mem_simplex b⟩) η γ n h := by
+    exp4IXWeights singleAdvice η γ n h o = exp4IXExpertWeights singleAdvice η γ n h := by
   rw [exp4IXWeights_def]
   exact (pi_eq_sum_univ' _).symm
 
 /-- With the experts `α` that each recommend one arm, every arm has positive weight in Exp4-IX. -/
 lemma exp4IXWeights_single_pos [Nonempty α] (n : ℕ) (h : Hist 𝓞 α ℝ n) (o : 𝓞) (a : α) :
-    0 < exp4IXWeights (fun _ b ↦ ⟨Pi.single b 1, single_mem_simplex b⟩) η γ n h o a := by
+    0 < exp4IXWeights singleAdvice η γ n h o a := by
   rw [exp4IXWeights_single]
   exact exp4IXExpertWeights_pos n h a
 
@@ -95,10 +111,10 @@ the sum over the rounds `t < n` of the implicit-exploration estimates `Ŷ t b` 
 `1 - Y t` at the arm `b`. -/
 lemma exp4IXSum_single_history {Ω : Type*} (O : ℕ → Ω → 𝓞) (A : ℕ → Ω → α) (Y : ℕ → Ω → ℝ)
     (n : ℕ) (ω : Ω) (b : α) :
-    exp4IXSum (fun _ b ↦ ⟨Pi.single b 1, single_mem_simplex b⟩) η γ n (history O A Y n ω) b =
-      ∑ t ∈ range n, iwEstimator (fun a ↦ exp4IXWeights
-        (fun _ b ↦ ⟨Pi.single b 1, single_mem_simplex b⟩) η γ t (history O A Y t ω) (O t ω) a +
-          γ t) (A t ω) (1 - Y t ω) b := by
+    exp4IXSum singleAdvice η γ n (history O A Y n ω) b =
+      ∑ t ∈ range n, iwEstimator (fun a ↦
+        exp4IXWeights singleAdvice η γ t (history O A Y t ω) (O t ω) a + γ t) (A t ω) (1 - Y t ω)
+          b := by
   simp [exp4IXSum_history, Finset.sum_apply, single_dotProduct]
 
 end Single
@@ -115,11 +131,10 @@ implicit exploration. It draws its action of round `n` from the exponential weig
 the cumulative importance-weighted loss estimates computed from the history, and ignores the
 observations. -/
 noncomputable def exp3 (η : ℝ) : Algorithm 𝓞 α ℝ :=
-  exp4IX (fun _ b ↦ ⟨Pi.single b 1, single_mem_simplex b⟩) measurable_const (fun _ ↦ η) 0
+  exp4IX singleAdvice measurable_singleAdvice (fun _ ↦ η) 0
 
 lemma exp3_def (η : ℝ) :
-    exp3 (𝓞 := 𝓞) (α := α) η =
-      exp4IX (fun _ b ↦ ⟨Pi.single b 1, single_mem_simplex b⟩) measurable_const (fun _ ↦ η) 0 :=
+    exp3 (𝓞 := 𝓞) (α := α) η = exp4IX singleAdvice measurable_singleAdvice (fun _ ↦ η) 0 :=
   (rfl)
 
 end Algorithm
@@ -139,26 +154,23 @@ actions `A` and feedbacks `Y ≤ 1` of the rounds `t < n`, with `P t` the weight
 local-norm bound of Exp4-IX for the constant learning rate `η` and `γ = 0`. -/
 theorem sum_lossIwEstimator_sub_le (hη : 0 < η) (O : ℕ → Ω → 𝓞) (A : ℕ → Ω → α)
     (Y : ℕ → Ω → ℝ) (ω : Ω) (hY : ∀ t < n, Y t ω ≤ 1) (a : α) :
-    ∑ t ∈ range n, (lossIwEstimator (exp4IXWeights (fun _ b ↦ ⟨Pi.single b 1, single_mem_simplex b⟩)
+    ∑ t ∈ range n, (lossIwEstimator (exp4IXWeights singleAdvice
         (fun _ ↦ η) 0 t (history O A Y t ω) (O t ω)) (A t ω) (Y t ω) a - Y t ω) ≤
       log (Fintype.card α) / η + η / 2 * ∑ t ∈ range n, (1 - Y t ω) ^ 2 /
-        exp4IXWeights (fun _ b ↦ ⟨Pi.single b 1, single_mem_simplex b⟩) (fun _ ↦ η) 0 t
+        exp4IXWeights singleAdvice (fun _ ↦ η) 0 t
           (history O A Y t ω) (O t ω) (A t ω) := by
   have key := Exp4IX.sum_sum_mul_sub_dotProduct_le
-    (adv := fun _ b ↦ ⟨Pi.single b 1, single_mem_simplex b⟩) (η := fun _ ↦ η) (γ := 0) O A Y ω
+    (adv := singleAdvice) (η := fun _ ↦ η) (γ := 0) O A Y ω
     (fun _ ↦ hη) antitone_const (fun _ ↦ le_rfl) hY a
-  -- with `γ = 0`, the estimates are the importance-weighted estimates for the weights on the arms
-  have hp0 : ∀ t, (fun b ↦ exp4IXWeights (fun _ b ↦ ⟨Pi.single b 1, single_mem_simplex b⟩)
-      (fun _ ↦ η) 0 t (history O A Y t ω) (O t ω) b + (0 : ℕ → ℝ) t) =
-        exp4IXWeights (fun _ b ↦ ⟨Pi.single b 1, single_mem_simplex b⟩) (fun _ ↦ η) 0 t
-          (history O A Y t ω) (O t ω) := fun t ↦ funext fun b ↦ by simp
   -- the regret and second-order terms of the loss estimates in terms of `Y t`
   have h1 : ∀ (p : α → ℝ) (b : α) (y : ℝ), p b ≠ 0 →
       ∑ c, p c * iwEstimator p b (1 - y) c - iwEstimator p b (1 - y) a =
         lossIwEstimator p b y a - y := fun p b y hb ↦ by
     rw [sum_mul_iwEstimator hb, lossIwEstimator_apply]
     ring
-  simp only [hp0, single_dotProduct, one_mul, sum_mul_iwEstimator_sq, ← Finset.mul_sum] at key
+  -- with `γ = 0`, the estimates are the importance-weighted estimates for the weights on the arms
+  simp only [Pi.zero_apply, add_zero, coe_singleAdvice, single_dotProduct, one_mul,
+    sum_mul_iwEstimator_sq, ← Finset.mul_sum] at key
   rwa [Finset.sum_congr rfl fun t _ ↦ h1 _ _ _ (exp4IXWeights_single_pos _ _ _ _).ne'] at key
 
 /-- Along a run of Exp3 whose feedback is the reward `x t (A t)` of its action, the second-order
@@ -166,12 +178,12 @@ term `(1 - Y t) ^ 2 / P t (A t)` of round `t` is integrable. -/
 lemma integrable_sq_div_exp4IXWeights {t : ℕ} (hY : Y t =ᵐ[P] x t ∘ A t)
     (h : IsAlgEnvSeq O A Y (exp3 η) env P) :
     Integrable (fun ω ↦ (1 - Y t ω) ^ 2 /
-      exp4IXWeights (fun _ b ↦ ⟨Pi.single b 1, single_mem_simplex b⟩) (fun _ ↦ η) 0 t
+      exp4IXWeights singleAdvice (fun _ ↦ η) 0 t
         (history O A Y t ω) (O t ω) (A t ω)) P :=
   have hw := Exp4IX.isAlgEnvSeq_weightAlgorithm h
   (WeightAlgorithm.integrable_div_weights hw t fun b ↦ (1 - x t b) ^ 2).congr
     (comp_feedback_ae_eq hY fun z b y ↦ (1 - y) ^ 2 /
-      exp4IXWeights (fun _ b ↦ ⟨Pi.single b 1, single_mem_simplex b⟩) (fun _ ↦ η) 0 t z.1 z.2
+      exp4IXWeights singleAdvice (fun _ ↦ η) 0 t z.1 z.2
         b).symm
 
 /-- Along a run of Exp3 whose feedback is the reward `x t (A t)` of its action, the second-order
@@ -179,11 +191,11 @@ term `(1 - Y t) ^ 2 / P t (A t)` of round `t` has expectation `∑ b, (1 - x t b
 lemma integral_sq_div_exp4IXWeights {t : ℕ} (hY : Y t =ᵐ[P] x t ∘ A t)
     (h : IsAlgEnvSeq O A Y (exp3 η) env P) :
     P[fun ω ↦ (1 - Y t ω) ^ 2 /
-      exp4IXWeights (fun _ b ↦ ⟨Pi.single b 1, single_mem_simplex b⟩) (fun _ ↦ η) 0 t
+      exp4IXWeights singleAdvice (fun _ ↦ η) 0 t
         (history O A Y t ω) (O t ω) (A t ω)] = ∑ b, (1 - x t b) ^ 2 := by
   have hw := Exp4IX.isAlgEnvSeq_weightAlgorithm h
   rw [integral_congr_ae (comp_feedback_ae_eq hY fun z b y ↦ (1 - y) ^ 2 /
-    exp4IXWeights (fun _ b ↦ ⟨Pi.single b 1, single_mem_simplex b⟩) (fun _ ↦ η) 0 t z.1 z.2 b)]
+    exp4IXWeights singleAdvice (fun _ ↦ η) 0 t z.1 z.2 b)]
   exact WeightAlgorithm.integral_div_weights hw t (c := fun b ↦ (1 - x t b) ^ 2)
     (ae_of_all _ fun _ b hb ↦ absurd hb (exp4IXWeights_single_pos _ _ _ b).ne')
 
@@ -195,11 +207,11 @@ theorem sum_sub_integral_eq_integral_sum_lossIwEstimator_sub
     (hY : ∀ t < n, Y t =ᵐ[P] x t ∘ A t) (h : IsAlgEnvSeq O A Y (exp3 η) env P) (a : α) :
     ∑ t ∈ range n, x t a - P[fun ω ↦ ∑ t ∈ range n, x t (A t ω)] =
       P[fun ω ↦ ∑ t ∈ range n, (lossIwEstimator
-        (exp4IXWeights (fun _ b ↦ ⟨Pi.single b 1, single_mem_simplex b⟩) (fun _ ↦ η) 0 t
+        (exp4IXWeights singleAdvice (fun _ ↦ η) 0 t
           (history O A Y t ω) (O t ω)) (A t ω) (Y t ω) a - Y t ω)] := by
   have hw := Exp4IX.isAlgEnvSeq_weightAlgorithm h
   set X : ℕ → Ω → ℝ := fun t ω ↦ lossIwEstimator
-    (exp4IXWeights (fun _ b ↦ ⟨Pi.single b 1, single_mem_simplex b⟩) (fun _ ↦ η) 0 t
+    (exp4IXWeights singleAdvice (fun _ ↦ η) 0 t
       (history O A Y t ω) (O t ω)) (A t ω) (Y t ω) a with hX
   have hYint := fun t (ht : t ∈ range n) ↦
     h.integrable_feedback_of_ae_eq (hY t (mem_range.1 ht))
@@ -223,7 +235,7 @@ theorem advRegret_le (hη : 0 < η) (hY : ∀ t < n, Y t =ᵐ[P] x t ∘ A t)
     advRegret x A P n ≤ log (Fintype.card α) / η + η * n * Fintype.card α / 2 := by
   have hw := Exp4IX.isAlgEnvSeq_weightAlgorithm h
   set V : ℕ → Ω → ℝ := fun t ω ↦ (1 - Y t ω) ^ 2 /
-    exp4IXWeights (fun _ b ↦ ⟨Pi.single b 1, single_mem_simplex b⟩) (fun _ ↦ η) 0 t
+    exp4IXWeights singleAdvice (fun _ ↦ η) 0 t
       (history O A Y t ω) (O t ω) (A t ω)
   have hVint : ∀ t ∈ range n, Integrable (V t) P := fun t ht ↦
     integrable_sq_div_exp4IXWeights (hY t (mem_range.1 ht)) h

@@ -44,6 +44,7 @@ with probability at least `1 - δ`, and the confidence-dependent learning rate
 
 ## Main statements
 
+* `exp3IX_eq_exp3`: Exp3-IX with `γ = 0` is Exp3.
 * `Exp3IX.sum_sub_sum_mul_eq_mul_sum`: [LS, Lemma 12.4], the bias of the loss estimates.
 * `Exp3IX.sum_sub_exp4IXSum_le`: the pathwise bound on the estimated regret of Exp3-IX.
 * `Exp3IX.mul_sum_mul_exp4IXSum_sub_eq`: the weighted deviations of the loss estimates from the
@@ -87,12 +88,15 @@ constant learning rate `η` and the constant implicit-exploration parameter `γ`
 of round `n` from the exponential weights of `-η` times the cumulative implicit-exploration loss
 estimates computed from the history, and ignores the observations. -/
 noncomputable def exp3IX (η γ : ℝ) : Algorithm 𝓞 α ℝ :=
-  exp4IX (fun _ b ↦ ⟨Pi.single b 1, single_mem_simplex b⟩) measurable_const (fun _ ↦ η)
-    (fun _ ↦ γ)
+  exp4IX singleAdvice measurable_singleAdvice (fun _ ↦ η) (fun _ ↦ γ)
 
 lemma exp3IX_def (η γ : ℝ) :
-    exp3IX (𝓞 := 𝓞) (α := α) η γ = exp4IX (fun _ b ↦ ⟨Pi.single b 1, single_mem_simplex b⟩)
-      measurable_const (fun _ ↦ η) (fun _ ↦ γ) := (rfl)
+    exp3IX (𝓞 := 𝓞) (α := α) η γ =
+      exp4IX singleAdvice measurable_singleAdvice (fun _ ↦ η) (fun _ ↦ γ) := (rfl)
+
+/-- Exp3-IX with `γ = 0` is Exp3. -/
+lemma exp3IX_eq_exp3 (η : ℝ) : exp3IX (𝓞 := 𝓞) (α := α) η 0 = exp3 η := by
+  rw [exp3IX_def, exp3_def, Pi.zero_def]
 
 end Algorithm
 
@@ -111,11 +115,11 @@ observations `O`, actions `A` and feedbacks `Y`, with `P t` the weights of Exp3-
 `∑ t < n, ((1 - Y t) - ⟨P t, Ŷ t⟩) = γ * ∑ b, L̂ n b`. -/
 theorem sum_sub_sum_mul_eq_mul_sum (hγ : 0 ≤ γ) :
     ∑ t ∈ range n, ((1 - Y t ω) - ∑ b,
-      exp4IXWeights (fun _ b ↦ ⟨Pi.single b 1, single_mem_simplex b⟩) (fun _ ↦ η) (fun _ ↦ γ) t
+      exp4IXWeights singleAdvice (fun _ ↦ η) (fun _ ↦ γ) t
         (history O A Y t ω) (O t ω) b *
-      iwEstimator (fun a ↦ exp4IXWeights (fun _ b ↦ ⟨Pi.single b 1, single_mem_simplex b⟩)
+      iwEstimator (fun a ↦ exp4IXWeights singleAdvice
         (fun _ ↦ η) (fun _ ↦ γ) t (history O A Y t ω) (O t ω) a + γ) (A t ω) (1 - Y t ω) b) =
-      γ * ∑ b, exp4IXSum (fun _ b ↦ ⟨Pi.single b 1, single_mem_simplex b⟩) (fun _ ↦ η)
+      γ * ∑ b, exp4IXSum singleAdvice (fun _ ↦ η)
         (fun _ ↦ γ) n (history O A Y n ω) b := by
   simp_rw [exp4IXSum_single_history]
   rw [Finset.sum_comm, Finset.mul_sum]
@@ -129,16 +133,16 @@ sequence of observations `O`, actions `A` and feedbacks `Y t ∈ [0, 1]` of the 
 arms. This is the pathwise bound of Exp4-IX for constant rates and one expert per arm. -/
 theorem sum_sub_exp4IXSum_le (hη : 0 < η) (hγ : 0 ≤ γ) (hY : ∀ t < n, Y t ω ∈ Set.Icc 0 1)
     (a : α) :
-    ∑ t ∈ range n, (1 - Y t ω) - exp4IXSum (fun _ b ↦ ⟨Pi.single b 1, single_mem_simplex b⟩)
+    ∑ t ∈ range n, (1 - Y t ω) - exp4IXSum singleAdvice
         (fun _ ↦ η) (fun _ ↦ γ) n (history O A Y n ω) a ≤
       log (Fintype.card α) / η + (γ + η / 2) * ∑ b, exp4IXSum
-        (fun _ b ↦ ⟨Pi.single b 1, single_mem_simplex b⟩) (fun _ ↦ η) (fun _ ↦ γ) n
+        singleAdvice (fun _ ↦ η) (fun _ ↦ γ) n
           (history O A Y n ω) b := by
   have key := Exp4IX.sum_one_sub_sub_dotProduct_le
-    (adv := fun _ b ↦ ⟨Pi.single b 1, single_mem_simplex b⟩) (η := fun _ ↦ η) (γ := fun _ ↦ γ)
+    (adv := singleAdvice) (η := fun _ ↦ η) (γ := fun _ ↦ γ)
     O A Y ω (fun _ ↦ hη) antitone_const (fun _ ↦ hγ) hY
     (fun t _ ↦ (add_pos_of_pos_of_nonneg (exp4IXWeights_single_pos _ _ _ _) hγ).ne') a
-  simp only [single_dotProduct, one_mul, ← Finset.mul_sum] at key
+  simp only [coe_singleAdvice, single_dotProduct, one_mul, ← Finset.mul_sum] at key
   simp only [exp4IXSum_single_history, ← Finset.sum_sub_distrib]
   rwa [Finset.sum_comm (s := univ)]
 
@@ -149,12 +153,12 @@ sums over the rounds `t < n` and the arms of `c v a` times the deviations of the
 estimates for the weights `P t`, discounted by `1 + γ / P t a` as in [LS, Lemma 12.2], from the
 losses `1 - x t a`. -/
 lemma mul_sum_mul_exp4IXSum_sub_eq (c : ℝ) (v : α → ℝ) (x : ℕ → α → ℝ) :
-    c * ∑ a, v a * (exp4IXSum (fun _ b ↦ ⟨Pi.single b 1, single_mem_simplex b⟩) (fun _ ↦ η)
+    c * ∑ a, v a * (exp4IXSum singleAdvice (fun _ ↦ η)
       (fun _ ↦ γ) n (history O A Y n ω) a - ∑ t ∈ range n, (1 - x t a)) =
       ∑ t ∈ range n, ∑ a, c * v a *
-        (iwEstimator (exp4IXWeights (fun _ b ↦ ⟨Pi.single b 1, single_mem_simplex b⟩) (fun _ ↦ η)
+        (iwEstimator (exp4IXWeights singleAdvice (fun _ ↦ η)
           (fun _ ↦ γ) t (history O A Y t ω) (O t ω)) (A t ω) (1 - Y t ω) a /
-          (1 + γ / exp4IXWeights (fun _ b ↦ ⟨Pi.single b 1, single_mem_simplex b⟩) (fun _ ↦ η)
+          (1 + γ / exp4IXWeights singleAdvice (fun _ ↦ η)
             (fun _ ↦ γ) t (history O A Y t ω) (O t ω) a) - (1 - x t a)) := by
   simp only [exp4IXSum_single_history]
   rw [Finset.mul_sum, Finset.sum_comm]
@@ -186,7 +190,7 @@ theorem measure_le_sum_mul_exp4IXSum_sub_le {v : α → ℝ} (hv : ∀ a, v a �
     (hγ : 0 ≤ γ) (hY : ∀ t < n, Y t =ᵐ[P] x t ∘ A t) (hx : ∀ t < n, ∀ a, x t a ∈ Set.Icc 0 1)
     (h : IsAlgEnvSeq O A Y (exp3IX η γ) env P) (hδ : 0 < δ) :
     P {ω | log (1 / δ) ≤ 2 * γ * ∑ a, v a *
-      (exp4IXSum (fun _ b ↦ ⟨Pi.single b 1, single_mem_simplex b⟩) (fun _ ↦ η) (fun _ ↦ γ) n
+      (exp4IXSum singleAdvice (fun _ ↦ η) (fun _ ↦ γ) n
         (history O A Y n ω) a - ∑ t ∈ range n, (1 - x t a))} ≤
       ENNReal.ofReal δ := by
   -- this is the concentration of implicit-exploration estimates in any environment, for the
@@ -218,7 +222,7 @@ theorem measure_le_exp4IXSum_sub_le (hγ : 0 < γ) (hY : ∀ t < n, Y t =ᵐ[P] 
     (hx : ∀ t < n, ∀ a, x t a ∈ Set.Icc 0 1) (h : IsAlgEnvSeq O A Y (exp3IX η γ) env P)
     (hδ : 0 < δ) (a : α) :
     P {ω | log (1 / δ) / (2 * γ) ≤
-      exp4IXSum (fun _ b ↦ ⟨Pi.single b 1, single_mem_simplex b⟩) (fun _ ↦ η) (fun _ ↦ γ) n
+      exp4IXSum singleAdvice (fun _ ↦ η) (fun _ ↦ γ) n
         (history O A Y n ω) a - ∑ t ∈ range n, (1 - x t a)} ≤
       ENNReal.ofReal δ := by
   refine le_trans (measure_mono fun ω hω ↦ ?_)
@@ -238,7 +242,7 @@ theorem measure_le_sum_exp4IXSum_sub_le (hγ : 0 < γ) (hY : ∀ t < n, Y t =ᵐ
     (hx : ∀ t < n, ∀ a, x t a ∈ Set.Icc 0 1) (h : IsAlgEnvSeq O A Y (exp3IX η γ) env P)
     (hδ : 0 < δ) :
     P {ω | log (1 / δ) / (2 * γ) ≤
-      ∑ a, (exp4IXSum (fun _ b ↦ ⟨Pi.single b 1, single_mem_simplex b⟩) (fun _ ↦ η) (fun _ ↦ γ) n
+      ∑ a, (exp4IXSum singleAdvice (fun _ ↦ η) (fun _ ↦ γ) n
         (history O A Y n ω) a - ∑ t ∈ range n, (1 - x t a))} ≤
       ENNReal.ofReal δ := by
   refine le_trans (measure_mono fun ω hω ↦ ?_)
@@ -257,10 +261,10 @@ theorem measure_exists_le_exp4IXSum_sub_union_le (hγ : 0 < γ)
     (hY : ∀ t < n, Y t =ᵐ[P] x t ∘ A t) (hx : ∀ t < n, ∀ a, x t a ∈ Set.Icc 0 1)
     (h : IsAlgEnvSeq O A Y (exp3IX η γ) env P) (hδ : 0 < δ) :
     P ({ω | ∃ a, log ((Fintype.card α + 1) / δ) / (2 * γ) ≤
-        exp4IXSum (fun _ b ↦ ⟨Pi.single b 1, single_mem_simplex b⟩) (fun _ ↦ η) (fun _ ↦ γ) n
+        exp4IXSum singleAdvice (fun _ ↦ η) (fun _ ↦ γ) n
           (history O A Y n ω) a - ∑ t ∈ range n, (1 - x t a)} ∪
       {ω | log ((Fintype.card α + 1) / δ) / (2 * γ) ≤
-        ∑ a, (exp4IXSum (fun _ b ↦ ⟨Pi.single b 1, single_mem_simplex b⟩) (fun _ ↦ η) (fun _ ↦ γ)
+        ∑ a, (exp4IXSum singleAdvice (fun _ ↦ η) (fun _ ↦ γ)
           n (history O A Y n ω) a - ∑ t ∈ range n, (1 - x t a))}) ≤
       ENNReal.ofReal δ := by
   -- a union bound over `k + 1` events of probability at most `δ / (k + 1)`
@@ -269,10 +273,10 @@ theorem measure_exists_le_exp4IXSum_sub_union_le (hγ : 0 < γ)
   have hlog : log (1 / (δ / (Fintype.card α + 1))) = log ((Fintype.card α + 1) / δ) := by
     rw [one_div_div]
   calc _ ≤ P {ω | ∃ a, log ((Fintype.card α + 1) / δ) / (2 * γ) ≤
-        exp4IXSum (fun _ b ↦ ⟨Pi.single b 1, single_mem_simplex b⟩) (fun _ ↦ η) (fun _ ↦ γ) n
+        exp4IXSum singleAdvice (fun _ ↦ η) (fun _ ↦ γ) n
           (history O A Y n ω) a - ∑ t ∈ range n, (1 - x t a)} +
       P {ω | log ((Fintype.card α + 1) / δ) / (2 * γ) ≤
-        ∑ a, (exp4IXSum (fun _ b ↦ ⟨Pi.single b 1, single_mem_simplex b⟩) (fun _ ↦ η) (fun _ ↦ γ)
+        ∑ a, (exp4IXSum singleAdvice (fun _ ↦ η) (fun _ ↦ γ)
           n (history O A Y n ω) a - ∑ t ∈ range n, (1 - x t a))} :=
         measure_union_le _ _
     _ ≤ ∑ _a : α, ENNReal.ofReal (δ / (Fintype.card α + 1)) +
@@ -320,7 +324,7 @@ theorem measure_exists_le_sum_sub_le (hη : 0 < η) (hγ : 0 < γ)
   obtain ⟨hEa, hEs⟩ := hE
   -- the estimated regret, the deviation of arm `a` and the sum of the estimates
   have hpath := sum_sub_exp4IXSum_le O A Y ω hη hγ.le h01 a
-  set L := exp4IXSum (fun _ b ↦ ⟨Pi.single b 1, single_mem_simplex b⟩) (fun _ ↦ η) (fun _ ↦ γ) n
+  set L := exp4IXSum singleAdvice (fun _ ↦ η) (fun _ ↦ γ) n
     (history O A Y n ω)
   have hR : ∑ t ∈ range n, (x t a - x t (A t ω)) =
       (∑ t ∈ range n, (1 - Y t ω) - L a) + (L a - ∑ t ∈ range n, (1 - x t a)) := by
