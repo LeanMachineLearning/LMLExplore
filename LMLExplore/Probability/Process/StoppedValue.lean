@@ -6,6 +6,7 @@ Authors: LMLExplore contributors
 module
 
 public import Mathlib.MeasureTheory.Constructions.BorelSpace.Order
+public import Mathlib.MeasureTheory.Integral.Lebesgue.Add
 public import Mathlib.Probability.Process.Stopping
 
 /-!
@@ -35,6 +36,8 @@ optional stopping holds at every stopping time with this convention.
 * `MeasureTheory.tendsto_stoppedValueLimsup_min`: for a convergent process, the values at the
   truncated times `min τ N` converge to the value at `τ`.
 * `MeasureTheory.measurable_stoppedValueLimsup`: it is measurable for measurable `u n` and `τ`.
+* `MeasureTheory.lintegral_stoppedValueLimsup_le_sum`: at a random time bounded by `N`, the
+  integral of an `ℝ≥0∞`-valued process is at most the sum of its integrals at the times up to `N`.
 
 ## References
 
@@ -135,5 +138,23 @@ theorem measurable_stoppedValueLimsup [ConditionallyCompleteLinearOrder β] [Top
     | top => simpa using Measurable.limsup hu
     | coe n => simpa using hu n
   exact h.comp (measurable_id.prodMk hτ)
+
+open scoped ENNReal in
+/-- The integral of the value of an `ℝ≥0∞`-valued process at a random time bounded by `N` is at
+most the sum of the integrals of the process at the times up to `N`. -/
+theorem lintegral_stoppedValueLimsup_le_sum {mΩ : MeasurableSpace Ω} {μ : Measure Ω}
+    {u : ℕ → Ω → ℝ≥0∞} (hu : ∀ n, AEMeasurable (u n) μ) {N : ℕ} (hτN : ∀ ω, τ ω ≤ N) :
+    ∫⁻ ω, stoppedValueLimsup u τ ω ∂μ ≤ ∑ k ∈ Finset.range (N + 1), ∫⁻ ω, u k ω ∂μ := by
+  rw [← lintegral_finsetSum' (Finset.range (N + 1)) fun k _ ↦ hu k]
+  refine lintegral_mono fun ω ↦ ?_
+  have h := hτN ω
+  induction hτω : τ ω using WithTop.recTopCoe with
+  | top => simp [hτω] at h
+  | coe k =>
+    rw [← Nat.cast_withTop] at hτω
+    rw [hτω, Nat.cast_le] at h
+    rw [stoppedValueLimsup_of_eq_natCast hτω]
+    exact Finset.single_le_sum (f := fun k ↦ u k ω) (fun _ _ ↦ zero_le)
+      (Finset.mem_range.2 (Nat.lt_succ_of_le h))
 
 end MeasureTheory
