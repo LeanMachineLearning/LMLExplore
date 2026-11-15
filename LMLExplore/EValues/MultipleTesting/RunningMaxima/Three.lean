@@ -13,26 +13,34 @@ public import LMLExplore.EValues.MultipleTesting.RunningMaxima
 Let `M i`, for `i` in a finite type `ι` of three hypotheses, be test supermartingales for one
 filtration, and let every hypothesis be true under `P`. This file proves that e-BH at level `α`
 [WR22] applied to the running maxima `⨆ n, M i n` makes a rejection with probability at most
-`3 * α / 2`, by the potential argument
+`3 * α / 2` [EVR26, Note 18, Theorem B], by the potential argument
 `ProbabilityTheory.measure_exists_selfConsistent_le_of_key` of
 `LMLExplore.EValues.MultipleTesting.RunningMaxima`.
 
 ## Main statements
 
 * `ProbabilityTheory.measure_exists_selfConsistent_iSup_le_of_card_eq_three`: for three
-  hypotheses, e-BH on the running maxima rejects with probability at most `3 * α / 2`.
+  hypotheses, e-BH on the running maxima rejects with probability at most `3 * α / 2`
+  [EVR26, Note 18, Theorem B].
 
 ## Implementation notes
 
 The levels of a process, in units of the threshold, are `0`, `1`, `2` and `3`, cut at `1`,
 `3 / 2` and `3`. The potential of each of the sixteen non-winning flag states is the minimum of
 the constant `1` and of one to three affine forms, listed in `table3`. The key inequality is
-checked state by state and cell by cell, by `linarith`.
+checked state by state and cell by cell, by `linarith`; the local tactic `key3_tac` carries the
+case analysis shared by the states.
+
+The table of forms `table3`, the level cuts and the case analysis are adapted from
+`EValuesResearch/Results/RunningMaximaAux.lean` (commit `ffba78a`) in the paper project
+`RemyDegenne/evalues_research`, which formalizes [EVR26, Note 18, Theorem B].
 
 ## References
 
 * [WR22] R. Wang and A. Ramdas, *False discovery rate control with e-values*, J. R. Stat. Soc.
   Ser. B 84 (2022), arXiv:2009.02824v5.
+* [EVR26] the research notes of the paper project `RemyDegenne/evalues_research`: Note 18,
+  `results/18-running-maxima-general-k.md`.
 -/
 
 public section
@@ -80,41 +88,38 @@ private lemma lev3_ofReal {x : ℝ} (hx : 0 ≤ x) :
   unfold lev3
   simp only [h1, h2, h3]
 
-/-- The levels of a real value from the flag `0`. -/
-private lemma lev3_cases_zero {x : ℝ} (hx : 0 ≤ x) :
-    (max 0 (lev3 (ENNReal.ofReal x)) = 0 ∧ 0 ≤ x ∧ x < 1) ∨
-      (max 0 (lev3 (ENNReal.ofReal x)) = 1 ∧ 1 ≤ x ∧ x < 3 / 2) ∨
-      (max 0 (lev3 (ENNReal.ofReal x)) = 2 ∧ 3 / 2 ≤ x ∧ x < 3) ∨
-      (max 0 (lev3 (ENNReal.ofReal x)) = 3 ∧ 3 ≤ x ∧ 3 ≤ x) := by
-  rw [lev3_ofReal hx]
+/-- The flag `m` reached from the flag `0` by moving to a real value `x`, with the cell of `x`. -/
+private lemma lev3_cases_zero {x : ℝ} (hx : 0 ≤ x) {m : ℕ}
+    (hm : max 0 (lev3 (ENNReal.ofReal x)) = m) :
+    (m = 0 ∧ x < 1) ∨ (m = 1 ∧ 1 ≤ x ∧ x < 3 / 2) ∨ (m = 2 ∧ 3 / 2 ≤ x ∧ x < 3) ∨
+      (m = 3 ∧ 3 ≤ x) := by
+  rw [← hm, lev3_ofReal hx]
   by_cases h3 : 3 ≤ x
-  · exact Or.inr (Or.inr (Or.inr ⟨by simp [h3], h3, h3⟩))
+  · exact Or.inr (Or.inr (Or.inr ⟨by simp [h3], h3⟩))
   by_cases h2 : 3 / 2 ≤ x
   · exact Or.inr (Or.inr (Or.inl ⟨by simp [h3, h2], h2, not_le.1 h3⟩))
   by_cases h1 : 1 ≤ x
   · exact Or.inr (Or.inl ⟨by simp [h3, h2, h1], h1, not_le.1 h2⟩)
-  · exact Or.inl ⟨by simp [h3, h2, h1], hx, not_le.1 h1⟩
+  · exact Or.inl ⟨by simp [h3, h2, h1], not_le.1 h1⟩
 
-/-- The levels of a real value from the flag `1`. -/
-private lemma lev3_cases_one {x : ℝ} (hx : 0 ≤ x) :
-    (max 1 (lev3 (ENNReal.ofReal x)) = 1 ∧ 0 ≤ x ∧ x < 3 / 2) ∨
-      (max 1 (lev3 (ENNReal.ofReal x)) = 2 ∧ 3 / 2 ≤ x ∧ x < 3) ∨
-      (max 1 (lev3 (ENNReal.ofReal x)) = 3 ∧ 3 ≤ x ∧ 3 ≤ x) := by
-  rw [lev3_ofReal hx]
+/-- The flag `m` reached from the flag `1` by moving to a real value `x`, with the cell of `x`. -/
+private lemma lev3_cases_one {x : ℝ} (hx : 0 ≤ x) {m : ℕ}
+    (hm : max 1 (lev3 (ENNReal.ofReal x)) = m) :
+    (m = 1 ∧ x < 3 / 2) ∨ (m = 2 ∧ 3 / 2 ≤ x ∧ x < 3) ∨ (m = 3 ∧ 3 ≤ x) := by
+  rw [← hm, lev3_ofReal hx]
   by_cases h3 : 3 ≤ x
-  · exact Or.inr (Or.inr ⟨by simp [h3], h3, h3⟩)
+  · exact Or.inr (Or.inr ⟨by simp [h3], h3⟩)
   by_cases h2 : 3 / 2 ≤ x
   · exact Or.inr (Or.inl ⟨by simp [h3, h2], h2, not_le.1 h3⟩)
-  · exact Or.inl ⟨by simp only [h3, h2, ite_false]; split_ifs <;> simp, hx, not_le.1 h2⟩
+  · exact Or.inl ⟨by simp only [h3, h2, ite_false]; split_ifs <;> simp, not_le.1 h2⟩
 
-/-- The levels of a real value from the flag `2`. -/
-private lemma lev3_cases_two {x : ℝ} (hx : 0 ≤ x) :
-    (max 2 (lev3 (ENNReal.ofReal x)) = 2 ∧ 0 ≤ x ∧ x < 3) ∨
-      (max 2 (lev3 (ENNReal.ofReal x)) = 3 ∧ 3 ≤ x ∧ 3 ≤ x) := by
-  rw [lev3_ofReal hx]
+/-- The flag `m` reached from the flag `2` by moving to a real value `x`, with the cell of `x`. -/
+private lemma lev3_cases_two {x : ℝ} (hx : 0 ≤ x) {m : ℕ}
+    (hm : max 2 (lev3 (ENNReal.ofReal x)) = m) : (m = 2 ∧ x < 3) ∨ (m = 3 ∧ 3 ≤ x) := by
+  rw [← hm, lev3_ofReal hx]
   by_cases h3 : 3 ≤ x
-  · exact Or.inr ⟨by simp [h3], h3, h3⟩
-  · exact Or.inl ⟨by simp only [h3, ite_false]; split_ifs <;> simp, hx, not_le.1 h3⟩
+  · exact Or.inr ⟨by simp [h3], h3⟩
+  · exact Or.inl ⟨by simp only [h3, ite_false]; split_ifs <;> simp, not_le.1 h3⟩
 
 /-- The flags of three hypotheses win: one flag is `3`, or two are at least `2`, or all three
 are at least `1`. -/
@@ -164,6 +169,10 @@ private noncomputable def const3 (b : Fin 3 → ℕ) (j : Fin 4) : ℝ :=
 private noncomputable def ell3 (b : Fin 3 → ℕ) (j : Fin 4) (r : Fin 3 → ℝ) : ℝ :=
   ∑ i, coef3 b j i * r i + const3 b j
 
+/-- The affine form `j` of the potential for three hypotheses, from its definition. -/
+private lemma ell3_def (b : Fin 3 → ℕ) (j : Fin 4) (r : Fin 3 → ℝ) :
+    ell3 b j r = ∑ i, coef3 b j i * r i + const3 b j := (rfl)
+
 /-- The form `0` of the potential for three hypotheses is the constant `1`. -/
 private lemma ell3_zero (b : Fin 3 → ℕ) (r : Fin 3 → ℝ) : ell3 b 0 r = 1 := by
   simp [ell3, coef3, const3]
@@ -172,14 +181,15 @@ private lemma ell3_zero (b : Fin 3 → ℕ) (r : Fin 3 → ℝ) : ell3 b 0 r = 1
 private noncomputable def step3 (b : Fin 3 → ℕ) (r : Fin 3 → ℝ) : Fin 3 → ℕ :=
   b ⊔ fun i ↦ lev3 (ENNReal.ofReal (r i))
 
-/-- The flag state reached from `b` by moving to `r`, from its three coordinates. -/
-private lemma step3_eq {b : Fin 3 → ℕ} {r : Fin 3 → ℝ} {c₀ c₁ c₂ : ℕ}
-    (h0 : max (b 0) (lev3 (ENNReal.ofReal (r 0))) = c₀)
-    (h1 : max (b 1) (lev3 (ENNReal.ofReal (r 1))) = c₁)
-    (h2 : max (b 2) (lev3 (ENNReal.ofReal (r 2))) = c₂) : step3 b r = ![c₀, c₁, c₂] := by
+/-- The flag state reached from `b` by moving to `r`, from its definition. -/
+private lemma step3_def (b : Fin 3 → ℕ) (r : Fin 3 → ℝ) :
+    step3 b r = b ⊔ fun i ↦ lev3 (ENNReal.ofReal (r i)) := (rfl)
+
+/-- The flag state reached from `b` by moving to `r`, as the vector of its three coordinates. -/
+private lemma step3_eq_vec (b : Fin 3 → ℕ) (r : Fin 3 → ℝ) :
+    step3 b r = ![step3 b r 0, step3 b r 1, step3 b r 2] := by
   funext i
-  fin_cases i
-  exacts [h0, h1, h2]
+  fin_cases i <;> rfl
 
 /-- The affine forms of the potential for three hypotheses have nonnegative coefficients and
 constant terms, and each of them either has constant term at least `1` or has positive
@@ -358,529 +368,121 @@ private lemma fin_four_cases (j : Fin 4) : j = 0 ∨ j = 1 ∨ j = 2 ∨ j = 3 :
 
 /-! ### The key inequality in the non-winning states -/
 
-/-- The key inequality for three hypotheses in the flag state `![0, 0, 0]`. -/
-private lemma key3_000 (j : Fin 4) (r : Fin 3 → ℝ) (hr : ∀ i, 0 ≤ r i) :
-    ∃ j', ell3 (step3 ![0, 0, 0] r) j' r ≤ ell3 ![0, 0, 0] j r := by
-  rcases fin_four_cases j with rfl | rfl | rfl | rfl
+/-- `key3_tac b c₀ c₁ c₂` proves the key inequality for three hypotheses in the non-winning flag
+state `b`, where `c₀`, `c₁`, `c₂` list the flags reached by each coordinate from its flag in `b`
+(`lev3_cases_zero`, `lev3_cases_one` or `lev3_cases_two`). A form without coefficients is the
+constant `1`, which is the form `0` of every state. For the others, argue by contradiction: split
+each coordinate of `r` into its cells, which fixes the state reached, evaluate the forms by the
+lemmas `ell3_*` above, and compare them by `linarith`. -/
+local macro "key3_tac " b:term:max c₀:term:max c₁:term:max c₂:term:max : tactic => `(tactic| (
+  intro j r hr
+  rcases fin_four_cases j with hj | hj | hj | hj <;> subst hj
   all_goals first
-    | refine ⟨0, ?_⟩
-      simp [ell3, coef3, const3, table3, Wins3]
-      done
-    | by_contra! h
-      simp only [ell3_000_1] at h
-      have h0 := h 0
-      rw [ell3_zero] at h0
-      obtain ⟨_, _, _⟩ : 0 ≤ r 0 ∧ 0 ≤ r 1 ∧ 0 ≤ r 2 := ⟨hr 0, hr 1, hr 2⟩
-      rcases lev3_cases_zero (hr 0) with ⟨l0, _, _⟩ | ⟨l0, _, _⟩ | ⟨l0, _, _⟩ | ⟨l0, _, _⟩
-      · rcases lev3_cases_zero (hr 1) with ⟨l1, _, _⟩ | ⟨l1, _, _⟩ | ⟨l1, _, _⟩ | ⟨l1, _, _⟩
-        · rcases lev3_cases_zero (hr 2) with ⟨l2, _, _⟩ | ⟨l2, _, _⟩ | ⟨l2, _, _⟩ | ⟨l2, _, _⟩
-          · rw [step3_eq (b := ![0, 0, 0]) l0 l1 l2] at h
-            linarith [h 1, ell3_000_1 r]
-          · rw [step3_eq (b := ![0, 0, 0]) l0 l1 l2] at h
-            linarith [h 1, ell3_001_1 r]
-          · rw [step3_eq (b := ![0, 0, 0]) l0 l1 l2] at h
-            linarith [h 1, ell3_002_1 r, h 2, ell3_002_2 r, h 3, ell3_002_3 r]
-          · linarith
-        · rcases lev3_cases_zero (hr 2) with ⟨l2, _, _⟩ | ⟨l2, _, _⟩ | ⟨l2, _, _⟩ | ⟨l2, _, _⟩
-          · rw [step3_eq (b := ![0, 0, 0]) l0 l1 l2] at h
-            linarith [h 1, ell3_010_1 r]
-          · rw [step3_eq (b := ![0, 0, 0]) l0 l1 l2] at h
-            linarith [h 1, ell3_011_1 r, h 2, ell3_011_2 r]
-          · rw [step3_eq (b := ![0, 0, 0]) l0 l1 l2] at h
-            linarith [h 1, ell3_012_1 r]
-          · linarith
-        · rcases lev3_cases_zero (hr 2) with ⟨l2, _, _⟩ | ⟨l2, _, _⟩ | ⟨l2, _, _⟩ | ⟨l2, _, _⟩
-          · rw [step3_eq (b := ![0, 0, 0]) l0 l1 l2] at h
-            linarith [h 1, ell3_020_1 r, h 2, ell3_020_2 r, h 3, ell3_020_3 r]
-          · rw [step3_eq (b := ![0, 0, 0]) l0 l1 l2] at h
-            linarith [h 1, ell3_021_1 r]
-          all_goals linarith
-        · linarith
-      · rcases lev3_cases_zero (hr 1) with ⟨l1, _, _⟩ | ⟨l1, _, _⟩ | ⟨l1, _, _⟩ | ⟨l1, _, _⟩
-        · rcases lev3_cases_zero (hr 2) with ⟨l2, _, _⟩ | ⟨l2, _, _⟩ | ⟨l2, _, _⟩ | ⟨l2, _, _⟩
-          · rw [step3_eq (b := ![0, 0, 0]) l0 l1 l2] at h
-            linarith [h 1, ell3_100_1 r]
-          · rw [step3_eq (b := ![0, 0, 0]) l0 l1 l2] at h
-            linarith [h 1, ell3_101_1 r, h 2, ell3_101_2 r]
-          · rw [step3_eq (b := ![0, 0, 0]) l0 l1 l2] at h
-            linarith [h 1, ell3_102_1 r]
-          · linarith
-        · rcases lev3_cases_zero (hr 2) with ⟨l2, _, _⟩ | ⟨l2, _, _⟩ | ⟨l2, _, _⟩ | ⟨l2, _, _⟩
-          · rw [step3_eq (b := ![0, 0, 0]) l0 l1 l2] at h
-            linarith [h 1, ell3_110_1 r, h 2, ell3_110_2 r]
-          all_goals linarith
-        · rcases lev3_cases_zero (hr 2) with ⟨l2, _, _⟩ | ⟨l2, _, _⟩ | ⟨l2, _, _⟩ | ⟨l2, _, _⟩
-          · rw [step3_eq (b := ![0, 0, 0]) l0 l1 l2] at h
-            linarith [h 1, ell3_120_1 r]
-          all_goals linarith
-        · linarith
-      · rcases lev3_cases_zero (hr 1) with ⟨l1, _, _⟩ | ⟨l1, _, _⟩ | ⟨l1, _, _⟩ | ⟨l1, _, _⟩
-        · rcases lev3_cases_zero (hr 2) with ⟨l2, _, _⟩ | ⟨l2, _, _⟩ | ⟨l2, _, _⟩ | ⟨l2, _, _⟩
-          · rw [step3_eq (b := ![0, 0, 0]) l0 l1 l2] at h
-            linarith [h 1, ell3_200_1 r, h 2, ell3_200_2 r, h 3, ell3_200_3 r]
-          · rw [step3_eq (b := ![0, 0, 0]) l0 l1 l2] at h
-            linarith [h 1, ell3_201_1 r]
-          all_goals linarith
-        · rcases lev3_cases_zero (hr 2) with ⟨l2, _, _⟩ | ⟨l2, _, _⟩ | ⟨l2, _, _⟩ | ⟨l2, _, _⟩
-          · rw [step3_eq (b := ![0, 0, 0]) l0 l1 l2] at h
-            linarith [h 1, ell3_210_1 r]
-          all_goals linarith
-        all_goals linarith
-      · linarith
+    | (refine ⟨0, ?_⟩; simp [ell3, coef3, const3, table3, Wins3]; done)
+    | (by_contra! h
+       have := hr 0
+       have := hr 1
+       have := hr 2
+       rw [step3_eq_vec] at h
+       generalize hm₀ : step3 $b r 0 = m₀ at h
+       generalize hm₁ : step3 $b r 1 = m₁ at h
+       generalize hm₂ : step3 $b r 2 = m₂ at h
+       have c₀ := $c₀ (hr 0) hm₀
+       have c₁ := $c₁ (hr 1) hm₁
+       have c₂ := $c₂ (hr 2) hm₂
+       clear hm₀ hm₁ hm₂
+       casesm* _ ∨ _, _ ∧ _
+       all_goals
+         subst_vars
+         have h0 := h 0
+         have h1 := h 1
+         have h2 := h 2
+         have h3 := h 3
+         simp only [ell3_zero, ell3_000_1, ell3_001_1, ell3_002_1, ell3_002_2, ell3_002_3,
+           ell3_010_1, ell3_011_1, ell3_011_2, ell3_012_1, ell3_020_1, ell3_020_2, ell3_020_3,
+           ell3_021_1, ell3_100_1, ell3_101_1, ell3_101_2, ell3_102_1, ell3_110_1, ell3_110_2,
+           ell3_120_1, ell3_200_1, ell3_200_2, ell3_200_3, ell3_201_1, ell3_210_1] at h0 h1 h2 h3
+         linarith)))
+
+/-- The key inequality for three hypotheses in the flag state `![0, 0, 0]`. -/
+private lemma key3_000 : ∀ (j : Fin 4) (r : Fin 3 → ℝ), (∀ i, 0 ≤ r i) →
+    ∃ j', ell3 (step3 ![0, 0, 0] r) j' r ≤ ell3 ![0, 0, 0] j r := by
+  key3_tac ![0, 0, 0] lev3_cases_zero lev3_cases_zero lev3_cases_zero
 
 /-- The key inequality for three hypotheses in the flag state `![0, 0, 1]`. -/
-private lemma key3_001 (j : Fin 4) (r : Fin 3 → ℝ) (hr : ∀ i, 0 ≤ r i) :
+private lemma key3_001 : ∀ (j : Fin 4) (r : Fin 3 → ℝ), (∀ i, 0 ≤ r i) →
     ∃ j', ell3 (step3 ![0, 0, 1] r) j' r ≤ ell3 ![0, 0, 1] j r := by
-  rcases fin_four_cases j with rfl | rfl | rfl | rfl
-  all_goals first
-    | refine ⟨0, ?_⟩
-      simp [ell3, coef3, const3, table3, Wins3]
-      done
-    | by_contra! h
-      simp only [ell3_001_1] at h
-      have h0 := h 0
-      rw [ell3_zero] at h0
-      obtain ⟨_, _, _⟩ : 0 ≤ r 0 ∧ 0 ≤ r 1 ∧ 0 ≤ r 2 := ⟨hr 0, hr 1, hr 2⟩
-      rcases lev3_cases_zero (hr 0) with ⟨l0, _, _⟩ | ⟨l0, _, _⟩ | ⟨l0, _, _⟩ | ⟨l0, _, _⟩
-      · rcases lev3_cases_zero (hr 1) with ⟨l1, _, _⟩ | ⟨l1, _, _⟩ | ⟨l1, _, _⟩ | ⟨l1, _, _⟩
-        · rcases lev3_cases_one (hr 2) with ⟨l2, _, _⟩ | ⟨l2, _, _⟩ | ⟨l2, _, _⟩
-          · rw [step3_eq (b := ![0, 0, 1]) l0 l1 l2] at h
-            linarith [h 1, ell3_001_1 r]
-          · rw [step3_eq (b := ![0, 0, 1]) l0 l1 l2] at h
-            linarith [h 1, ell3_002_1 r, h 2, ell3_002_2 r, h 3, ell3_002_3 r]
-          · linarith
-        · rcases lev3_cases_one (hr 2) with ⟨l2, _, _⟩ | ⟨l2, _, _⟩ | ⟨l2, _, _⟩
-          · rw [step3_eq (b := ![0, 0, 1]) l0 l1 l2] at h
-            linarith [h 1, ell3_011_1 r, h 2, ell3_011_2 r]
-          · rw [step3_eq (b := ![0, 0, 1]) l0 l1 l2] at h
-            linarith [h 1, ell3_012_1 r]
-          · linarith
-        · rcases lev3_cases_one (hr 2) with ⟨l2, _, _⟩ | ⟨l2, _, _⟩ | ⟨l2, _, _⟩
-          · rw [step3_eq (b := ![0, 0, 1]) l0 l1 l2] at h
-            linarith [h 1, ell3_021_1 r]
-          all_goals linarith
-        · linarith
-      · rcases lev3_cases_zero (hr 1) with ⟨l1, _, _⟩ | ⟨l1, _, _⟩ | ⟨l1, _, _⟩ | ⟨l1, _, _⟩
-        · rcases lev3_cases_one (hr 2) with ⟨l2, _, _⟩ | ⟨l2, _, _⟩ | ⟨l2, _, _⟩
-          · rw [step3_eq (b := ![0, 0, 1]) l0 l1 l2] at h
-            linarith [h 1, ell3_101_1 r, h 2, ell3_101_2 r]
-          · rw [step3_eq (b := ![0, 0, 1]) l0 l1 l2] at h
-            linarith [h 1, ell3_102_1 r]
-          · linarith
-        all_goals linarith
-      · rcases lev3_cases_zero (hr 1) with ⟨l1, _, _⟩ | ⟨l1, _, _⟩ | ⟨l1, _, _⟩ | ⟨l1, _, _⟩
-        · rcases lev3_cases_one (hr 2) with ⟨l2, _, _⟩ | ⟨l2, _, _⟩ | ⟨l2, _, _⟩
-          · rw [step3_eq (b := ![0, 0, 1]) l0 l1 l2] at h
-            linarith [h 1, ell3_201_1 r]
-          all_goals linarith
-        all_goals linarith
-      · linarith
+  key3_tac ![0, 0, 1] lev3_cases_zero lev3_cases_zero lev3_cases_one
 
 /-- The key inequality for three hypotheses in the flag state `![0, 0, 2]`. -/
-private lemma key3_002 (j : Fin 4) (r : Fin 3 → ℝ) (hr : ∀ i, 0 ≤ r i) :
+private lemma key3_002 : ∀ (j : Fin 4) (r : Fin 3 → ℝ), (∀ i, 0 ≤ r i) →
     ∃ j', ell3 (step3 ![0, 0, 2] r) j' r ≤ ell3 ![0, 0, 2] j r := by
-  rcases fin_four_cases j with rfl | rfl | rfl | rfl
-  all_goals first
-    | refine ⟨0, ?_⟩
-      simp [ell3, coef3, const3, table3, Wins3]
-      done
-    | by_contra! h
-      simp only [ell3_002_1, ell3_002_2, ell3_002_3] at h
-      have h0 := h 0
-      rw [ell3_zero] at h0
-      obtain ⟨_, _, _⟩ : 0 ≤ r 0 ∧ 0 ≤ r 1 ∧ 0 ≤ r 2 := ⟨hr 0, hr 1, hr 2⟩
-      rcases lev3_cases_zero (hr 0) with ⟨l0, _, _⟩ | ⟨l0, _, _⟩ | ⟨l0, _, _⟩ | ⟨l0, _, _⟩
-      · rcases lev3_cases_zero (hr 1) with ⟨l1, _, _⟩ | ⟨l1, _, _⟩ | ⟨l1, _, _⟩ | ⟨l1, _, _⟩
-        · rcases lev3_cases_two (hr 2) with ⟨l2, _, _⟩ | ⟨l2, _, _⟩
-          · rw [step3_eq (b := ![0, 0, 2]) l0 l1 l2] at h
-            linarith [h 1, ell3_002_1 r, h 2, ell3_002_2 r, h 3, ell3_002_3 r]
-          · linarith
-        · rcases lev3_cases_two (hr 2) with ⟨l2, _, _⟩ | ⟨l2, _, _⟩
-          · rw [step3_eq (b := ![0, 0, 2]) l0 l1 l2] at h
-            linarith [h 1, ell3_012_1 r]
-          · linarith
-        all_goals linarith
-      · rcases lev3_cases_zero (hr 1) with ⟨l1, _, _⟩ | ⟨l1, _, _⟩ | ⟨l1, _, _⟩ | ⟨l1, _, _⟩
-        · rcases lev3_cases_two (hr 2) with ⟨l2, _, _⟩ | ⟨l2, _, _⟩
-          · rw [step3_eq (b := ![0, 0, 2]) l0 l1 l2] at h
-            linarith [h 1, ell3_102_1 r]
-          · linarith
-        all_goals linarith
-      all_goals linarith
+  key3_tac ![0, 0, 2] lev3_cases_zero lev3_cases_zero lev3_cases_two
 
 /-- The key inequality for three hypotheses in the flag state `![0, 1, 0]`. -/
-private lemma key3_010 (j : Fin 4) (r : Fin 3 → ℝ) (hr : ∀ i, 0 ≤ r i) :
+private lemma key3_010 : ∀ (j : Fin 4) (r : Fin 3 → ℝ), (∀ i, 0 ≤ r i) →
     ∃ j', ell3 (step3 ![0, 1, 0] r) j' r ≤ ell3 ![0, 1, 0] j r := by
-  rcases fin_four_cases j with rfl | rfl | rfl | rfl
-  all_goals first
-    | refine ⟨0, ?_⟩
-      simp [ell3, coef3, const3, table3, Wins3]
-      done
-    | by_contra! h
-      simp only [ell3_010_1] at h
-      have h0 := h 0
-      rw [ell3_zero] at h0
-      obtain ⟨_, _, _⟩ : 0 ≤ r 0 ∧ 0 ≤ r 1 ∧ 0 ≤ r 2 := ⟨hr 0, hr 1, hr 2⟩
-      rcases lev3_cases_zero (hr 0) with ⟨l0, _, _⟩ | ⟨l0, _, _⟩ | ⟨l0, _, _⟩ | ⟨l0, _, _⟩
-      · rcases lev3_cases_one (hr 1) with ⟨l1, _, _⟩ | ⟨l1, _, _⟩ | ⟨l1, _, _⟩
-        · rcases lev3_cases_zero (hr 2) with ⟨l2, _, _⟩ | ⟨l2, _, _⟩ | ⟨l2, _, _⟩ | ⟨l2, _, _⟩
-          · rw [step3_eq (b := ![0, 1, 0]) l0 l1 l2] at h
-            linarith [h 1, ell3_010_1 r]
-          · rw [step3_eq (b := ![0, 1, 0]) l0 l1 l2] at h
-            linarith [h 1, ell3_011_1 r, h 2, ell3_011_2 r]
-          · rw [step3_eq (b := ![0, 1, 0]) l0 l1 l2] at h
-            linarith [h 1, ell3_012_1 r]
-          · linarith
-        · rcases lev3_cases_zero (hr 2) with ⟨l2, _, _⟩ | ⟨l2, _, _⟩ | ⟨l2, _, _⟩ | ⟨l2, _, _⟩
-          · rw [step3_eq (b := ![0, 1, 0]) l0 l1 l2] at h
-            linarith [h 1, ell3_020_1 r, h 2, ell3_020_2 r, h 3, ell3_020_3 r]
-          · rw [step3_eq (b := ![0, 1, 0]) l0 l1 l2] at h
-            linarith [h 1, ell3_021_1 r]
-          all_goals linarith
-        · linarith
-      · rcases lev3_cases_one (hr 1) with ⟨l1, _, _⟩ | ⟨l1, _, _⟩ | ⟨l1, _, _⟩
-        · rcases lev3_cases_zero (hr 2) with ⟨l2, _, _⟩ | ⟨l2, _, _⟩ | ⟨l2, _, _⟩ | ⟨l2, _, _⟩
-          · rw [step3_eq (b := ![0, 1, 0]) l0 l1 l2] at h
-            linarith [h 1, ell3_110_1 r, h 2, ell3_110_2 r]
-          all_goals linarith
-        · rcases lev3_cases_zero (hr 2) with ⟨l2, _, _⟩ | ⟨l2, _, _⟩ | ⟨l2, _, _⟩ | ⟨l2, _, _⟩
-          · rw [step3_eq (b := ![0, 1, 0]) l0 l1 l2] at h
-            linarith [h 1, ell3_120_1 r]
-          all_goals linarith
-        · linarith
-      · rcases lev3_cases_one (hr 1) with ⟨l1, _, _⟩ | ⟨l1, _, _⟩ | ⟨l1, _, _⟩
-        · rcases lev3_cases_zero (hr 2) with ⟨l2, _, _⟩ | ⟨l2, _, _⟩ | ⟨l2, _, _⟩ | ⟨l2, _, _⟩
-          · rw [step3_eq (b := ![0, 1, 0]) l0 l1 l2] at h
-            linarith [h 1, ell3_210_1 r]
-          all_goals linarith
-        all_goals linarith
-      · linarith
+  key3_tac ![0, 1, 0] lev3_cases_zero lev3_cases_one lev3_cases_zero
 
 /-- The key inequality for three hypotheses in the flag state `![0, 1, 1]`. -/
-private lemma key3_011 (j : Fin 4) (r : Fin 3 → ℝ) (hr : ∀ i, 0 ≤ r i) :
+private lemma key3_011 : ∀ (j : Fin 4) (r : Fin 3 → ℝ), (∀ i, 0 ≤ r i) →
     ∃ j', ell3 (step3 ![0, 1, 1] r) j' r ≤ ell3 ![0, 1, 1] j r := by
-  rcases fin_four_cases j with rfl | rfl | rfl | rfl
-  all_goals first
-    | refine ⟨0, ?_⟩
-      simp [ell3, coef3, const3, table3, Wins3]
-      done
-    | by_contra! h
-      simp only [ell3_011_1, ell3_011_2] at h
-      have h0 := h 0
-      rw [ell3_zero] at h0
-      obtain ⟨_, _, _⟩ : 0 ≤ r 0 ∧ 0 ≤ r 1 ∧ 0 ≤ r 2 := ⟨hr 0, hr 1, hr 2⟩
-      rcases lev3_cases_zero (hr 0) with ⟨l0, _, _⟩ | ⟨l0, _, _⟩ | ⟨l0, _, _⟩ | ⟨l0, _, _⟩
-      · rcases lev3_cases_one (hr 1) with ⟨l1, _, _⟩ | ⟨l1, _, _⟩ | ⟨l1, _, _⟩
-        · rcases lev3_cases_one (hr 2) with ⟨l2, _, _⟩ | ⟨l2, _, _⟩ | ⟨l2, _, _⟩
-          · rw [step3_eq (b := ![0, 1, 1]) l0 l1 l2] at h
-            linarith [h 1, ell3_011_1 r, h 2, ell3_011_2 r]
-          · rw [step3_eq (b := ![0, 1, 1]) l0 l1 l2] at h
-            linarith [h 1, ell3_012_1 r]
-          · linarith
-        · rcases lev3_cases_one (hr 2) with ⟨l2, _, _⟩ | ⟨l2, _, _⟩ | ⟨l2, _, _⟩
-          · rw [step3_eq (b := ![0, 1, 1]) l0 l1 l2] at h
-            linarith [h 1, ell3_021_1 r]
-          all_goals linarith
-        · linarith
-      all_goals linarith
+  key3_tac ![0, 1, 1] lev3_cases_zero lev3_cases_one lev3_cases_one
 
 /-- The key inequality for three hypotheses in the flag state `![0, 1, 2]`. -/
-private lemma key3_012 (j : Fin 4) (r : Fin 3 → ℝ) (hr : ∀ i, 0 ≤ r i) :
+private lemma key3_012 : ∀ (j : Fin 4) (r : Fin 3 → ℝ), (∀ i, 0 ≤ r i) →
     ∃ j', ell3 (step3 ![0, 1, 2] r) j' r ≤ ell3 ![0, 1, 2] j r := by
-  rcases fin_four_cases j with rfl | rfl | rfl | rfl
-  all_goals first
-    | refine ⟨0, ?_⟩
-      simp [ell3, coef3, const3, table3, Wins3]
-      done
-    | by_contra! h
-      simp only [ell3_012_1] at h
-      have h0 := h 0
-      rw [ell3_zero] at h0
-      obtain ⟨_, _, _⟩ : 0 ≤ r 0 ∧ 0 ≤ r 1 ∧ 0 ≤ r 2 := ⟨hr 0, hr 1, hr 2⟩
-      rcases lev3_cases_zero (hr 0) with ⟨l0, _, _⟩ | ⟨l0, _, _⟩ | ⟨l0, _, _⟩ | ⟨l0, _, _⟩
-      · rcases lev3_cases_one (hr 1) with ⟨l1, _, _⟩ | ⟨l1, _, _⟩ | ⟨l1, _, _⟩
-        · rcases lev3_cases_two (hr 2) with ⟨l2, _, _⟩ | ⟨l2, _, _⟩
-          · rw [step3_eq (b := ![0, 1, 2]) l0 l1 l2] at h
-            linarith [h 1, ell3_012_1 r]
-          · linarith
-        all_goals linarith
-      all_goals linarith
+  key3_tac ![0, 1, 2] lev3_cases_zero lev3_cases_one lev3_cases_two
 
 /-- The key inequality for three hypotheses in the flag state `![0, 2, 0]`. -/
-private lemma key3_020 (j : Fin 4) (r : Fin 3 → ℝ) (hr : ∀ i, 0 ≤ r i) :
+private lemma key3_020 : ∀ (j : Fin 4) (r : Fin 3 → ℝ), (∀ i, 0 ≤ r i) →
     ∃ j', ell3 (step3 ![0, 2, 0] r) j' r ≤ ell3 ![0, 2, 0] j r := by
-  rcases fin_four_cases j with rfl | rfl | rfl | rfl
-  all_goals first
-    | refine ⟨0, ?_⟩
-      simp [ell3, coef3, const3, table3, Wins3]
-      done
-    | by_contra! h
-      simp only [ell3_020_1, ell3_020_2, ell3_020_3] at h
-      have h0 := h 0
-      rw [ell3_zero] at h0
-      obtain ⟨_, _, _⟩ : 0 ≤ r 0 ∧ 0 ≤ r 1 ∧ 0 ≤ r 2 := ⟨hr 0, hr 1, hr 2⟩
-      rcases lev3_cases_zero (hr 0) with ⟨l0, _, _⟩ | ⟨l0, _, _⟩ | ⟨l0, _, _⟩ | ⟨l0, _, _⟩
-      · rcases lev3_cases_two (hr 1) with ⟨l1, _, _⟩ | ⟨l1, _, _⟩
-        · rcases lev3_cases_zero (hr 2) with ⟨l2, _, _⟩ | ⟨l2, _, _⟩ | ⟨l2, _, _⟩ | ⟨l2, _, _⟩
-          · rw [step3_eq (b := ![0, 2, 0]) l0 l1 l2] at h
-            linarith [h 1, ell3_020_1 r, h 2, ell3_020_2 r, h 3, ell3_020_3 r]
-          · rw [step3_eq (b := ![0, 2, 0]) l0 l1 l2] at h
-            linarith [h 1, ell3_021_1 r]
-          all_goals linarith
-        · linarith
-      · rcases lev3_cases_two (hr 1) with ⟨l1, _, _⟩ | ⟨l1, _, _⟩
-        · rcases lev3_cases_zero (hr 2) with ⟨l2, _, _⟩ | ⟨l2, _, _⟩ | ⟨l2, _, _⟩ | ⟨l2, _, _⟩
-          · rw [step3_eq (b := ![0, 2, 0]) l0 l1 l2] at h
-            linarith [h 1, ell3_120_1 r]
-          all_goals linarith
-        · linarith
-      all_goals linarith
+  key3_tac ![0, 2, 0] lev3_cases_zero lev3_cases_two lev3_cases_zero
 
 /-- The key inequality for three hypotheses in the flag state `![0, 2, 1]`. -/
-private lemma key3_021 (j : Fin 4) (r : Fin 3 → ℝ) (hr : ∀ i, 0 ≤ r i) :
+private lemma key3_021 : ∀ (j : Fin 4) (r : Fin 3 → ℝ), (∀ i, 0 ≤ r i) →
     ∃ j', ell3 (step3 ![0, 2, 1] r) j' r ≤ ell3 ![0, 2, 1] j r := by
-  rcases fin_four_cases j with rfl | rfl | rfl | rfl
-  all_goals first
-    | refine ⟨0, ?_⟩
-      simp [ell3, coef3, const3, table3, Wins3]
-      done
-    | by_contra! h
-      simp only [ell3_021_1] at h
-      have h0 := h 0
-      rw [ell3_zero] at h0
-      obtain ⟨_, _, _⟩ : 0 ≤ r 0 ∧ 0 ≤ r 1 ∧ 0 ≤ r 2 := ⟨hr 0, hr 1, hr 2⟩
-      rcases lev3_cases_zero (hr 0) with ⟨l0, _, _⟩ | ⟨l0, _, _⟩ | ⟨l0, _, _⟩ | ⟨l0, _, _⟩
-      · rcases lev3_cases_two (hr 1) with ⟨l1, _, _⟩ | ⟨l1, _, _⟩
-        · rcases lev3_cases_one (hr 2) with ⟨l2, _, _⟩ | ⟨l2, _, _⟩ | ⟨l2, _, _⟩
-          · rw [step3_eq (b := ![0, 2, 1]) l0 l1 l2] at h
-            linarith [h 1, ell3_021_1 r]
-          all_goals linarith
-        · linarith
-      all_goals linarith
+  key3_tac ![0, 2, 1] lev3_cases_zero lev3_cases_two lev3_cases_one
 
 /-- The key inequality for three hypotheses in the flag state `![1, 0, 0]`. -/
-private lemma key3_100 (j : Fin 4) (r : Fin 3 → ℝ) (hr : ∀ i, 0 ≤ r i) :
+private lemma key3_100 : ∀ (j : Fin 4) (r : Fin 3 → ℝ), (∀ i, 0 ≤ r i) →
     ∃ j', ell3 (step3 ![1, 0, 0] r) j' r ≤ ell3 ![1, 0, 0] j r := by
-  rcases fin_four_cases j with rfl | rfl | rfl | rfl
-  all_goals first
-    | refine ⟨0, ?_⟩
-      simp [ell3, coef3, const3, table3, Wins3]
-      done
-    | by_contra! h
-      simp only [ell3_100_1] at h
-      have h0 := h 0
-      rw [ell3_zero] at h0
-      obtain ⟨_, _, _⟩ : 0 ≤ r 0 ∧ 0 ≤ r 1 ∧ 0 ≤ r 2 := ⟨hr 0, hr 1, hr 2⟩
-      rcases lev3_cases_one (hr 0) with ⟨l0, _, _⟩ | ⟨l0, _, _⟩ | ⟨l0, _, _⟩
-      · rcases lev3_cases_zero (hr 1) with ⟨l1, _, _⟩ | ⟨l1, _, _⟩ | ⟨l1, _, _⟩ | ⟨l1, _, _⟩
-        · rcases lev3_cases_zero (hr 2) with ⟨l2, _, _⟩ | ⟨l2, _, _⟩ | ⟨l2, _, _⟩ | ⟨l2, _, _⟩
-          · rw [step3_eq (b := ![1, 0, 0]) l0 l1 l2] at h
-            linarith [h 1, ell3_100_1 r]
-          · rw [step3_eq (b := ![1, 0, 0]) l0 l1 l2] at h
-            linarith [h 1, ell3_101_1 r, h 2, ell3_101_2 r]
-          · rw [step3_eq (b := ![1, 0, 0]) l0 l1 l2] at h
-            linarith [h 1, ell3_102_1 r]
-          · linarith
-        · rcases lev3_cases_zero (hr 2) with ⟨l2, _, _⟩ | ⟨l2, _, _⟩ | ⟨l2, _, _⟩ | ⟨l2, _, _⟩
-          · rw [step3_eq (b := ![1, 0, 0]) l0 l1 l2] at h
-            linarith [h 1, ell3_110_1 r, h 2, ell3_110_2 r]
-          all_goals linarith
-        · rcases lev3_cases_zero (hr 2) with ⟨l2, _, _⟩ | ⟨l2, _, _⟩ | ⟨l2, _, _⟩ | ⟨l2, _, _⟩
-          · rw [step3_eq (b := ![1, 0, 0]) l0 l1 l2] at h
-            linarith [h 1, ell3_120_1 r]
-          all_goals linarith
-        · linarith
-      · rcases lev3_cases_zero (hr 1) with ⟨l1, _, _⟩ | ⟨l1, _, _⟩ | ⟨l1, _, _⟩ | ⟨l1, _, _⟩
-        · rcases lev3_cases_zero (hr 2) with ⟨l2, _, _⟩ | ⟨l2, _, _⟩ | ⟨l2, _, _⟩ | ⟨l2, _, _⟩
-          · rw [step3_eq (b := ![1, 0, 0]) l0 l1 l2] at h
-            linarith [h 1, ell3_200_1 r, h 2, ell3_200_2 r, h 3, ell3_200_3 r]
-          · rw [step3_eq (b := ![1, 0, 0]) l0 l1 l2] at h
-            linarith [h 1, ell3_201_1 r]
-          all_goals linarith
-        · rcases lev3_cases_zero (hr 2) with ⟨l2, _, _⟩ | ⟨l2, _, _⟩ | ⟨l2, _, _⟩ | ⟨l2, _, _⟩
-          · rw [step3_eq (b := ![1, 0, 0]) l0 l1 l2] at h
-            linarith [h 1, ell3_210_1 r]
-          all_goals linarith
-        all_goals linarith
-      · linarith
+  key3_tac ![1, 0, 0] lev3_cases_one lev3_cases_zero lev3_cases_zero
 
 /-- The key inequality for three hypotheses in the flag state `![1, 0, 1]`. -/
-private lemma key3_101 (j : Fin 4) (r : Fin 3 → ℝ) (hr : ∀ i, 0 ≤ r i) :
+private lemma key3_101 : ∀ (j : Fin 4) (r : Fin 3 → ℝ), (∀ i, 0 ≤ r i) →
     ∃ j', ell3 (step3 ![1, 0, 1] r) j' r ≤ ell3 ![1, 0, 1] j r := by
-  rcases fin_four_cases j with rfl | rfl | rfl | rfl
-  all_goals first
-    | refine ⟨0, ?_⟩
-      simp [ell3, coef3, const3, table3, Wins3]
-      done
-    | by_contra! h
-      simp only [ell3_101_1, ell3_101_2] at h
-      have h0 := h 0
-      rw [ell3_zero] at h0
-      obtain ⟨_, _, _⟩ : 0 ≤ r 0 ∧ 0 ≤ r 1 ∧ 0 ≤ r 2 := ⟨hr 0, hr 1, hr 2⟩
-      rcases lev3_cases_one (hr 0) with ⟨l0, _, _⟩ | ⟨l0, _, _⟩ | ⟨l0, _, _⟩
-      · rcases lev3_cases_zero (hr 1) with ⟨l1, _, _⟩ | ⟨l1, _, _⟩ | ⟨l1, _, _⟩ | ⟨l1, _, _⟩
-        · rcases lev3_cases_one (hr 2) with ⟨l2, _, _⟩ | ⟨l2, _, _⟩ | ⟨l2, _, _⟩
-          · rw [step3_eq (b := ![1, 0, 1]) l0 l1 l2] at h
-            linarith [h 1, ell3_101_1 r, h 2, ell3_101_2 r]
-          · rw [step3_eq (b := ![1, 0, 1]) l0 l1 l2] at h
-            linarith [h 1, ell3_102_1 r]
-          · linarith
-        all_goals linarith
-      · rcases lev3_cases_zero (hr 1) with ⟨l1, _, _⟩ | ⟨l1, _, _⟩ | ⟨l1, _, _⟩ | ⟨l1, _, _⟩
-        · rcases lev3_cases_one (hr 2) with ⟨l2, _, _⟩ | ⟨l2, _, _⟩ | ⟨l2, _, _⟩
-          · rw [step3_eq (b := ![1, 0, 1]) l0 l1 l2] at h
-            linarith [h 1, ell3_201_1 r]
-          all_goals linarith
-        all_goals linarith
-      · linarith
+  key3_tac ![1, 0, 1] lev3_cases_one lev3_cases_zero lev3_cases_one
 
 /-- The key inequality for three hypotheses in the flag state `![1, 0, 2]`. -/
-private lemma key3_102 (j : Fin 4) (r : Fin 3 → ℝ) (hr : ∀ i, 0 ≤ r i) :
+private lemma key3_102 : ∀ (j : Fin 4) (r : Fin 3 → ℝ), (∀ i, 0 ≤ r i) →
     ∃ j', ell3 (step3 ![1, 0, 2] r) j' r ≤ ell3 ![1, 0, 2] j r := by
-  rcases fin_four_cases j with rfl | rfl | rfl | rfl
-  all_goals first
-    | refine ⟨0, ?_⟩
-      simp [ell3, coef3, const3, table3, Wins3]
-      done
-    | by_contra! h
-      simp only [ell3_102_1] at h
-      have h0 := h 0
-      rw [ell3_zero] at h0
-      obtain ⟨_, _, _⟩ : 0 ≤ r 0 ∧ 0 ≤ r 1 ∧ 0 ≤ r 2 := ⟨hr 0, hr 1, hr 2⟩
-      rcases lev3_cases_one (hr 0) with ⟨l0, _, _⟩ | ⟨l0, _, _⟩ | ⟨l0, _, _⟩
-      · rcases lev3_cases_zero (hr 1) with ⟨l1, _, _⟩ | ⟨l1, _, _⟩ | ⟨l1, _, _⟩ | ⟨l1, _, _⟩
-        · rcases lev3_cases_two (hr 2) with ⟨l2, _, _⟩ | ⟨l2, _, _⟩
-          · rw [step3_eq (b := ![1, 0, 2]) l0 l1 l2] at h
-            linarith [h 1, ell3_102_1 r]
-          · linarith
-        all_goals linarith
-      all_goals linarith
+  key3_tac ![1, 0, 2] lev3_cases_one lev3_cases_zero lev3_cases_two
 
 /-- The key inequality for three hypotheses in the flag state `![1, 1, 0]`. -/
-private lemma key3_110 (j : Fin 4) (r : Fin 3 → ℝ) (hr : ∀ i, 0 ≤ r i) :
+private lemma key3_110 : ∀ (j : Fin 4) (r : Fin 3 → ℝ), (∀ i, 0 ≤ r i) →
     ∃ j', ell3 (step3 ![1, 1, 0] r) j' r ≤ ell3 ![1, 1, 0] j r := by
-  rcases fin_four_cases j with rfl | rfl | rfl | rfl
-  all_goals first
-    | refine ⟨0, ?_⟩
-      simp [ell3, coef3, const3, table3, Wins3]
-      done
-    | by_contra! h
-      simp only [ell3_110_1, ell3_110_2] at h
-      have h0 := h 0
-      rw [ell3_zero] at h0
-      obtain ⟨_, _, _⟩ : 0 ≤ r 0 ∧ 0 ≤ r 1 ∧ 0 ≤ r 2 := ⟨hr 0, hr 1, hr 2⟩
-      rcases lev3_cases_one (hr 0) with ⟨l0, _, _⟩ | ⟨l0, _, _⟩ | ⟨l0, _, _⟩
-      · rcases lev3_cases_one (hr 1) with ⟨l1, _, _⟩ | ⟨l1, _, _⟩ | ⟨l1, _, _⟩
-        · rcases lev3_cases_zero (hr 2) with ⟨l2, _, _⟩ | ⟨l2, _, _⟩ | ⟨l2, _, _⟩ | ⟨l2, _, _⟩
-          · rw [step3_eq (b := ![1, 1, 0]) l0 l1 l2] at h
-            linarith [h 1, ell3_110_1 r, h 2, ell3_110_2 r]
-          all_goals linarith
-        · rcases lev3_cases_zero (hr 2) with ⟨l2, _, _⟩ | ⟨l2, _, _⟩ | ⟨l2, _, _⟩ | ⟨l2, _, _⟩
-          · rw [step3_eq (b := ![1, 1, 0]) l0 l1 l2] at h
-            linarith [h 1, ell3_120_1 r]
-          all_goals linarith
-        · linarith
-      · rcases lev3_cases_one (hr 1) with ⟨l1, _, _⟩ | ⟨l1, _, _⟩ | ⟨l1, _, _⟩
-        · rcases lev3_cases_zero (hr 2) with ⟨l2, _, _⟩ | ⟨l2, _, _⟩ | ⟨l2, _, _⟩ | ⟨l2, _, _⟩
-          · rw [step3_eq (b := ![1, 1, 0]) l0 l1 l2] at h
-            linarith [h 1, ell3_210_1 r]
-          all_goals linarith
-        all_goals linarith
-      · linarith
+  key3_tac ![1, 1, 0] lev3_cases_one lev3_cases_one lev3_cases_zero
 
 /-- The key inequality for three hypotheses in the flag state `![1, 2, 0]`. -/
-private lemma key3_120 (j : Fin 4) (r : Fin 3 → ℝ) (hr : ∀ i, 0 ≤ r i) :
+private lemma key3_120 : ∀ (j : Fin 4) (r : Fin 3 → ℝ), (∀ i, 0 ≤ r i) →
     ∃ j', ell3 (step3 ![1, 2, 0] r) j' r ≤ ell3 ![1, 2, 0] j r := by
-  rcases fin_four_cases j with rfl | rfl | rfl | rfl
-  all_goals first
-    | refine ⟨0, ?_⟩
-      simp [ell3, coef3, const3, table3, Wins3]
-      done
-    | by_contra! h
-      simp only [ell3_120_1] at h
-      have h0 := h 0
-      rw [ell3_zero] at h0
-      obtain ⟨_, _, _⟩ : 0 ≤ r 0 ∧ 0 ≤ r 1 ∧ 0 ≤ r 2 := ⟨hr 0, hr 1, hr 2⟩
-      rcases lev3_cases_one (hr 0) with ⟨l0, _, _⟩ | ⟨l0, _, _⟩ | ⟨l0, _, _⟩
-      · rcases lev3_cases_two (hr 1) with ⟨l1, _, _⟩ | ⟨l1, _, _⟩
-        · rcases lev3_cases_zero (hr 2) with ⟨l2, _, _⟩ | ⟨l2, _, _⟩ | ⟨l2, _, _⟩ | ⟨l2, _, _⟩
-          · rw [step3_eq (b := ![1, 2, 0]) l0 l1 l2] at h
-            linarith [h 1, ell3_120_1 r]
-          all_goals linarith
-        · linarith
-      all_goals linarith
+  key3_tac ![1, 2, 0] lev3_cases_one lev3_cases_two lev3_cases_zero
 
 /-- The key inequality for three hypotheses in the flag state `![2, 0, 0]`. -/
-private lemma key3_200 (j : Fin 4) (r : Fin 3 → ℝ) (hr : ∀ i, 0 ≤ r i) :
+private lemma key3_200 : ∀ (j : Fin 4) (r : Fin 3 → ℝ), (∀ i, 0 ≤ r i) →
     ∃ j', ell3 (step3 ![2, 0, 0] r) j' r ≤ ell3 ![2, 0, 0] j r := by
-  rcases fin_four_cases j with rfl | rfl | rfl | rfl
-  all_goals first
-    | refine ⟨0, ?_⟩
-      simp [ell3, coef3, const3, table3, Wins3]
-      done
-    | by_contra! h
-      simp only [ell3_200_1, ell3_200_2, ell3_200_3] at h
-      have h0 := h 0
-      rw [ell3_zero] at h0
-      obtain ⟨_, _, _⟩ : 0 ≤ r 0 ∧ 0 ≤ r 1 ∧ 0 ≤ r 2 := ⟨hr 0, hr 1, hr 2⟩
-      rcases lev3_cases_two (hr 0) with ⟨l0, _, _⟩ | ⟨l0, _, _⟩
-      · rcases lev3_cases_zero (hr 1) with ⟨l1, _, _⟩ | ⟨l1, _, _⟩ | ⟨l1, _, _⟩ | ⟨l1, _, _⟩
-        · rcases lev3_cases_zero (hr 2) with ⟨l2, _, _⟩ | ⟨l2, _, _⟩ | ⟨l2, _, _⟩ | ⟨l2, _, _⟩
-          · rw [step3_eq (b := ![2, 0, 0]) l0 l1 l2] at h
-            linarith [h 1, ell3_200_1 r, h 2, ell3_200_2 r, h 3, ell3_200_3 r]
-          · rw [step3_eq (b := ![2, 0, 0]) l0 l1 l2] at h
-            linarith [h 1, ell3_201_1 r]
-          all_goals linarith
-        · rcases lev3_cases_zero (hr 2) with ⟨l2, _, _⟩ | ⟨l2, _, _⟩ | ⟨l2, _, _⟩ | ⟨l2, _, _⟩
-          · rw [step3_eq (b := ![2, 0, 0]) l0 l1 l2] at h
-            linarith [h 1, ell3_210_1 r]
-          all_goals linarith
-        all_goals linarith
-      · linarith
+  key3_tac ![2, 0, 0] lev3_cases_two lev3_cases_zero lev3_cases_zero
 
 /-- The key inequality for three hypotheses in the flag state `![2, 0, 1]`. -/
-private lemma key3_201 (j : Fin 4) (r : Fin 3 → ℝ) (hr : ∀ i, 0 ≤ r i) :
+private lemma key3_201 : ∀ (j : Fin 4) (r : Fin 3 → ℝ), (∀ i, 0 ≤ r i) →
     ∃ j', ell3 (step3 ![2, 0, 1] r) j' r ≤ ell3 ![2, 0, 1] j r := by
-  rcases fin_four_cases j with rfl | rfl | rfl | rfl
-  all_goals first
-    | refine ⟨0, ?_⟩
-      simp [ell3, coef3, const3, table3, Wins3]
-      done
-    | by_contra! h
-      simp only [ell3_201_1] at h
-      have h0 := h 0
-      rw [ell3_zero] at h0
-      obtain ⟨_, _, _⟩ : 0 ≤ r 0 ∧ 0 ≤ r 1 ∧ 0 ≤ r 2 := ⟨hr 0, hr 1, hr 2⟩
-      rcases lev3_cases_two (hr 0) with ⟨l0, _, _⟩ | ⟨l0, _, _⟩
-      · rcases lev3_cases_zero (hr 1) with ⟨l1, _, _⟩ | ⟨l1, _, _⟩ | ⟨l1, _, _⟩ | ⟨l1, _, _⟩
-        · rcases lev3_cases_one (hr 2) with ⟨l2, _, _⟩ | ⟨l2, _, _⟩ | ⟨l2, _, _⟩
-          · rw [step3_eq (b := ![2, 0, 1]) l0 l1 l2] at h
-            linarith [h 1, ell3_201_1 r]
-          all_goals linarith
-        all_goals linarith
-      · linarith
+  key3_tac ![2, 0, 1] lev3_cases_two lev3_cases_zero lev3_cases_one
 
 /-- The key inequality for three hypotheses in the flag state `![2, 1, 0]`. -/
-private lemma key3_210 (j : Fin 4) (r : Fin 3 → ℝ) (hr : ∀ i, 0 ≤ r i) :
+private lemma key3_210 : ∀ (j : Fin 4) (r : Fin 3 → ℝ), (∀ i, 0 ≤ r i) →
     ∃ j', ell3 (step3 ![2, 1, 0] r) j' r ≤ ell3 ![2, 1, 0] j r := by
-  rcases fin_four_cases j with rfl | rfl | rfl | rfl
-  all_goals first
-    | refine ⟨0, ?_⟩
-      simp [ell3, coef3, const3, table3, Wins3]
-      done
-    | by_contra! h
-      simp only [ell3_210_1] at h
-      have h0 := h 0
-      rw [ell3_zero] at h0
-      obtain ⟨_, _, _⟩ : 0 ≤ r 0 ∧ 0 ≤ r 1 ∧ 0 ≤ r 2 := ⟨hr 0, hr 1, hr 2⟩
-      rcases lev3_cases_two (hr 0) with ⟨l0, _, _⟩ | ⟨l0, _, _⟩
-      · rcases lev3_cases_one (hr 1) with ⟨l1, _, _⟩ | ⟨l1, _, _⟩ | ⟨l1, _, _⟩
-        · rcases lev3_cases_zero (hr 2) with ⟨l2, _, _⟩ | ⟨l2, _, _⟩ | ⟨l2, _, _⟩ | ⟨l2, _, _⟩
-          · rw [step3_eq (b := ![2, 1, 0]) l0 l1 l2] at h
-            linarith [h 1, ell3_210_1 r]
-          all_goals linarith
-        all_goals linarith
-      · linarith
+  key3_tac ![2, 1, 0] lev3_cases_two lev3_cases_one lev3_cases_zero
 
 /-- **Key inequality for three hypotheses**, at real points: from every flag state `b`, every
 affine form of the potential dominates at every point `r` one of the forms of the state reached
@@ -891,7 +493,7 @@ private lemma key3_real (b : Fin 3 → ℕ) (j : Fin 4) (r : Fin 3 → ℝ) (hr 
         ∑ i, coef3 b j i * r i + const3 b j := by
   by_cases hb : Wins3 b
   · exact ⟨0, by simp [coef3, const3, hb]⟩
-  change ∃ j', ell3 (step3 b r) j' r ≤ ell3 b j r
+  simp only [← step3_def, ← ell3_def]
   obtain ⟨b₀, b₁, b₂, rfl⟩ : ∃ b₀ b₁ b₂ : ℕ, b = ![b₀, b₁, b₂] :=
     ⟨b 0, b 1, b 2, by funext i; fin_cases i <;> rfl⟩
   have h₀ : b₀ ≤ 2 := by by_contra! h; exact hb (Or.inl h)
@@ -974,7 +576,8 @@ end Three
 supermartingales for one filtration and nulls `H i`, for three hypotheses, all true under `P`.
 E-BH at level `α` applied to the running maxima `⨆ n, M i n` makes a rejection, that is, some
 nonempty set `R` of hypotheses has `3 ≤ α * #R * ⨆ n, M i n ω` for every `i ∈ R`, with
-probability at most `3 * α / 2`. The measure `P` need not be a probability measure. -/
+probability at most `3 * α / 2` [EVR26, Note 18, Theorem B]. The measure `P` need not be a
+probability measure. -/
 theorem measure_exists_selfConsistent_iSup_le_of_card_eq_three {ι : Type*} [Fintype ι]
     (hι : Fintype.card ι = 3) {H : ι → Set (Measure Ω)} {M : ι → ℕ → Ω → ℝ≥0∞}
     (hM : ∀ i, IsTestSupermartingale (M i) ℱ (H i)) (hP : ∀ i, P ∈ H i) (α : ℝ≥0∞) :

@@ -6,7 +6,6 @@ Authors: LMLExplore contributors
 module
 
 public import LMLExplore.EValues.TestSupermartingale
-import Mathlib.Algebra.Order.SuccPred.PartialSups
 
 /-!
 # E-BH on the running maxima of test supermartingales
@@ -19,7 +18,7 @@ hypothesis is true, the false discovery rate of the procedure is the probability
 The running maxima are not e-variables, and the procedure does not control the false discovery
 rate at level `α` [TGdH25]. This file and `LMLExplore.EValues.MultipleTesting.RunningMaxima.Three`
 bound the inflation: the probability of a rejection is at most `4 * α / 3` for two hypotheses and
-at most `3 * α / 2` for three.
+at most `3 * α / 2` for three [EVR26, Notes 10 and 18].
 
 ## Main statements
 
@@ -27,7 +26,8 @@ at most `3 * α / 2` for three.
   bounds the probability that e-BH on the running maxima rejects by the initial value of a
   potential built from affine forms satisfying the key inequality.
 * `ProbabilityTheory.measure_exists_selfConsistent_iSup_le_of_card_eq_two`: for two hypotheses,
-  e-BH on the running maxima rejects with probability at most `4 * α / 3`.
+  e-BH on the running maxima rejects with probability at most `4 * α / 3`
+  [EVR26, Note 10, Theorem].
 
 The bound `3 * α / 2` for three hypotheses,
 `ProbabilityTheory.measure_exists_selfConsistent_iSup_le_of_card_eq_three`, is in
@@ -46,8 +46,15 @@ moving to that point. The potential is at least `1` in the winning states, which
 probability that the flags ever win by the initial expectation of the potential. No optional
 stopping is needed. The key inequality is checked at real points, cell by cell, by `linarith`.
 
-The rejection event is written out: compound e-values, self-consistent sets and the e-BH
-procedure are the subject of Layer 8.2 of the roadmap.
+The rejection event is written out, through the self-consistency condition
+`K ≤ α * #R * E i` for every `i ∈ R` with `E i = ⨆ n, M i n ω`, rather than through a definition
+of the e-BH procedure.
+
+The potential argument, the bound for two hypotheses and the bound for three in
+`LMLExplore.EValues.MultipleTesting.RunningMaxima.Three` are adapted from
+`EValuesResearch/Results/RunningMaxima.lean` and `EValuesResearch/Results/RunningMaximaAux.lean`
+(commit `ffba78a`) in the paper project `RemyDegenne/evalues_research`, which formalizes the
+notes [EVR26, Notes 10 and 18].
 
 ## References
 
@@ -55,6 +62,8 @@ procedure are the subject of Layer 8.2 of the roadmap.
   Ser. B 84 (2022), arXiv:2009.02824v5.
 * [TGdH25] Y. Tavyrikov, J. J. Goeman and R. de Heide, *Carefree multiple testing with
   e-processes*, arXiv:2501.19360.
+* [EVR26] the research notes of the paper project `RemyDegenne/evalues_research`: Note 10,
+  `results/10-running-maxima-ebh.md`, and Note 18, `results/18-running-maxima-general-k.md`.
 -/
 
 public section
@@ -71,79 +80,6 @@ variable {Ω : Type*} {mΩ : MeasurableSpace Ω} {ℱ : Filtration ℕ mΩ} {P :
 section Potential
 
 variable {ι J : Type*} [Fintype ι]
-
-/-- The minimum over `j` of the affine forms `∑ i, a n j i * X i n + a₀ n j` of supermartingales
-`X i`, with `ℱ n`-measurable coefficients, is a supermartingale as soon as each form of time `n`,
-evaluated at time `n + 1`, dominates the minimum at time `n + 1`. -/
-private lemma isENNSupermartingale_iInf_affine [Finite J] [Nonempty J]
-    {X : ι → ℕ → Ω → ℝ≥0∞} (hX : ∀ i, IsENNSupermartingale (X i) ℱ {P})
-    {a : ℕ → J → ι → Ω → ℝ≥0∞} {a₀ : ℕ → J → Ω → ℝ≥0∞}
-    (ha : ∀ n j i, Measurable[ℱ n] (a n j i)) (ha₀ : ∀ n j, Measurable[ℱ n] (a₀ n j))
-    (hY : ∀ n j ω, ⨅ j', (∑ i, a (n + 1) j' i ω * X i (n + 1) ω + a₀ (n + 1) j' ω) ≤
-      ∑ i, a n j i ω * X i (n + 1) ω + a₀ n j ω) :
-    IsENNSupermartingale (fun n ω ↦ ⨅ j, (∑ i, a n j i ω * X i n ω + a₀ n j ω)) ℱ {P} := by
-  have := Fintype.ofFinite J
-  set Y : ℕ → Ω → ℝ≥0∞ := fun n ω ↦ ⨅ j, (∑ i, a n j i ω * X i n ω + a₀ n j ω)
-  have hℓ (n : ℕ) (j : J) : Measurable[ℱ n] fun ω ↦ ∑ i, a n j i ω * X i n ω + a₀ n j ω :=
-    (Finset.measurable_sum _ fun i _ ↦ (ha n j i).mul ((hX i).adapted n)).add (ha₀ n j)
-  have hYm (n : ℕ) : Measurable[ℱ n] (Y n) := Measurable.iInf (hℓ n)
-  refine ⟨hYm, ?_⟩
-  rintro P' rfl n s hs
-  -- the form `j` attains the minimum at time `n` on `T j`
-  set T : J → Set Ω := fun j ↦ {ω | Y n ω = ∑ i, a n j i ω * X i n ω + a₀ n j ω}
-  have hT (j : J) : MeasurableSet[ℱ n] (T j) := measurableSet_eq_fun (hYm n) (hℓ n j)
-  have hloc (j : J) (t : Set Ω) (ht : MeasurableSet[ℱ n] t) (htT : t ⊆ T j) :
-      ∫⁻ ω in t, Y (n + 1) ω ∂P' ≤ ∫⁻ ω in t, Y n ω ∂P' := by
-    have hint (m : ℕ) : ∫⁻ ω in t, (∑ i, a n j i ω * X i m ω + a₀ n j ω) ∂P' =
-        ∑ i, ∫⁻ ω in t, a n j i ω * X i m ω ∂P' + ∫⁻ ω in t, a₀ n j ω ∂P' := by
-      rw [lintegral_add_right _ ((ha₀ n j).mono (ℱ.le n) le_rfl), lintegral_finsetSum]
-      exact fun i _ ↦ ((ha n j i).mono (ℱ.le n) le_rfl).mul ((hX i).measurable m)
-    calc ∫⁻ ω in t, Y (n + 1) ω ∂P'
-        ≤ ∫⁻ ω in t, (∑ i, a n j i ω * X i (n + 1) ω + a₀ n j ω) ∂P' :=
-          lintegral_mono fun ω ↦ hY n j ω
-      _ ≤ ∫⁻ ω in t, (∑ i, a n j i ω * X i n ω + a₀ n j ω) ∂P' := by
-          rw [hint, hint]
-          exact add_le_add (Finset.sum_le_sum fun i _ ↦
-            (hX i).setLIntegral_mul_succ_le rfl (ha n j i) ht) le_rfl
-      _ = ∫⁻ ω in t, Y n ω ∂P' :=
-          setLIntegral_congr_fun (ℱ.le n t ht) fun ω hω ↦ (htT hω).symm
-  -- glue the inequalities over the finitely many sets `T j`, which cover `Ω`
-  have hglue (F : Finset J) : ∀ t, MeasurableSet[ℱ n] t → t ⊆ ⋃ j ∈ F, T j →
-      ∫⁻ ω in t, Y (n + 1) ω ∂P' ≤ ∫⁻ ω in t, Y n ω ∂P' := by
-    classical
-    induction F using Finset.induction_on with
-    | empty =>
-      intro t _ htF
-      simp only [Finset.notMem_empty, Set.iUnion_of_empty, Set.iUnion_empty,
-        Set.subset_empty_iff] at htF
-      simp [htF]
-    | insert j F _ ih =>
-      intro t ht htF
-      rw [← lintegral_inter_add_sdiff _ t (ℱ.le n _ (hT j)),
-        ← lintegral_inter_add_sdiff (fun ω ↦ Y n ω) t (ℱ.le n _ (hT j))]
-      refine add_le_add (hloc j _ (ht.inter (hT j)) Set.inter_subset_right)
-        (ih _ (ht.diff (hT j)) fun ω hω ↦ ?_)
-      have h := htF hω.1
-      simp only [Finset.set_biUnion_insert, Set.mem_union] at h
-      exact h.resolve_left hω.2
-  refine hglue Finset.univ s hs fun ω _ ↦ ?_
-  obtain ⟨j, hj⟩ := exists_eq_ciInf_of_finite (f := fun j ↦ ∑ i, a n j i ω * X i n ω + a₀ n j ω)
-  exact Set.mem_biUnion (Finset.mem_univ j) (show ω ∈ T j by simp [T, Y, hj])
-
-omit [Fintype ι] in
-/-- The running flags `partialSups (fun k i ↦ lev (X i k ω)) n` of adapted processes, the largest
-levels reached up to time `n`, are adapted. -/
-private lemma measurable_partialSups_lev {X : ι → ℕ → Ω → ℝ≥0∞} {lev : ℝ≥0∞ → ℕ}
-    (hlev : Measurable lev) (hX : ∀ i, Adapted ℱ (X i)) (n : ℕ) :
-    Measurable[ℱ n] fun ω ↦ partialSups (fun k i ↦ lev (X i k ω)) n := by
-  induction n with
-  | zero =>
-    simp only [partialSups_zero]
-    exact @Measurable.of_eval Ω ι (fun _ ↦ ℕ) (ℱ 0) _ _ fun i ↦ hlev.comp (hX i 0)
-  | succ n ih =>
-    simp only [partialSups_add_one]
-    exact @Measurable.of_eval Ω ι (fun _ ↦ ℕ) (ℱ (n + 1)) _ _ fun i ↦ ((measurable_pi_apply i).comp
-      (ih.mono (ℱ.mono n.le_succ) le_rfl)).sup (hlev.comp (hX i (n + 1)))
 
 /-- **Potential bound for running flags.** Let `X i` be `ℝ≥0∞`-valued supermartingales with
 running flags for a measurable level function `lev`, and let the potential in the flag state `b`
@@ -163,9 +99,13 @@ private lemma measure_exists_partialSups_mem_le [Finite J] [Nonempty J]
     P {ω | ∃ n, partialSups (fun k i ↦ lev (X i k ω)) n ∈ W} ≤
       ∫⁻ ω, (∑ i, A 0 j i * X i 0 ω + A₀ 0 j) ∂P := by
   set F : ℕ → Ω → ι → ℕ := fun n ω ↦ partialSups (fun k i ↦ lev (X i k ω)) n
+  -- the measurable space on `Ω` is `ℱ n`, not the ambient `mΩ`, hence the explicit instance
   have hF (n : ℕ) : Measurable[ℱ n] (F n) :=
-    measurable_partialSups_lev hlev (fun i ↦ (hX i).adapted) n
-  have hY := isENNSupermartingale_iInf_affine hX (a := fun n j i ω ↦ A (F n ω) j i)
+    (@measurable_pi_iff Ω ι (fun _ ↦ ℕ) (ℱ n) _ _).2 fun i ↦ by
+      convert Adapted.partialSups (fun k ↦ hlev.comp ((hX i).adapted k)) n using 1
+      funext ω
+      simp only [F, Pi.partialSups_apply, Function.comp_apply]
+  have hY := IsENNSupermartingale.iInf_affine hX (a := fun n j i ω ↦ A (F n ω) j i)
     (a₀ := fun n j ω ↦ A₀ (F n ω) j)
     (fun n j i ↦ (measurable_of_countable fun b ↦ A b j i).comp (hF n))
     (fun n j ↦ (measurable_of_countable fun b ↦ A₀ b j).comp (hF n))
@@ -369,8 +309,8 @@ theorem measure_exists_selfConsistent_le_of_key [DecidableEq ι] [Finite J] [Non
           (Or.inl (ENNReal.inv_ne_top.2 hα))).2 hprod
     _ = ENNReal.ofReal q * α := by rw [div_eq_mul_inv, inv_inv]
 
-/-- The rejection event of e-BH on running maxima does not depend on the indexing of the
-hypotheses. -/
+/-- Reindexing the hypotheses along `e : ι ≃ κ` does not decrease the probability of the
+rejection event of e-BH on running maxima. -/
 theorem measure_exists_selfConsistent_le_of_equiv {κ : Type*} [Fintype κ] (e : ι ≃ κ)
     (M : ι → ℕ → Ω → ℝ≥0∞) (α : ℝ≥0∞) :
     P {ω | ∃ R : Finset ι, R.Nonempty ∧
@@ -457,12 +397,7 @@ private lemma key2_real (b : Fin 2 → ℕ) (j : Fin 2) (r : Fin 2 → ℝ) (hr 
   rcases lev2_ofReal_cases (hr 0) with ⟨hl0, hx0⟩ | ⟨hl0, hx0, hx0'⟩ | ⟨hl0, hx0⟩ <;>
   rcases lev2_ofReal_cases (hr 1) with ⟨hl1, hx1⟩ | ⟨hl1, hx1, hx1'⟩ | ⟨hl1, hx1⟩ <;>
   rcases hb0' with hb0' | hb0' <;> rcases hb1' with hb1' | hb1' <;>
-  simp only [coef2, Fin.isValue, one_ne_zero, Wins2, hb0', nonpos_iff_eq_zero, OfNat.ofNat_ne_zero,
-    hb1', and_self, or_self, ↓reduceIte, Fin.sum_univ_two, Matrix.cons_val_zero,
-    Matrix.cons_val_one, Matrix.cons_val_fin_one, const2, add_zero, Pi.sup_apply, hl0, max_self,
-    hl1, or_false, Pi.zero_apply, zero_mul, Finset.sum_const_zero, zero_add, lt_self_iff_false,
-    Nat.not_ofNat_le_one, Std.le_refl, and_true, one_div, one_mul, zero_le, sup_of_le_left,
-    and_false, or_true, sup_of_le_right, Order.lt_one_iff, Nat.one_le_ofNat] at h0 h1 hb <;>
+  simp [coef2, const2, Wins2, hb0', hb1', hl0, hl1, Fin.sum_univ_two] at h0 h1 <;>
   linarith
 
 /-- The level function for two hypotheses reaches `3 - k` above the e-BH threshold `2 / k`. -/
@@ -512,7 +447,8 @@ end Two
 supermartingales for one filtration and nulls `H i`, for two hypotheses, both true under `P`.
 E-BH at level `α` applied to the running maxima `⨆ n, M i n` makes a rejection, that is, some
 nonempty set `R` of hypotheses has `2 ≤ α * #R * ⨆ n, M i n ω` for every `i ∈ R`, with
-probability at most `4 * α / 3`. The measure `P` need not be a probability measure. -/
+probability at most `4 * α / 3` [EVR26, Note 10, Theorem]. The measure `P` need not be a
+probability measure. -/
 theorem measure_exists_selfConsistent_iSup_le_of_card_eq_two {ι : Type*} [Fintype ι]
     (hι : Fintype.card ι = 2) {H : ι → Set (Measure Ω)} {M : ι → ℕ → Ω → ℝ≥0∞}
     (hM : ∀ i, IsTestSupermartingale (M i) ℱ (H i)) (hP : ∀ i, P ∈ H i) (α : ℝ≥0∞) :
