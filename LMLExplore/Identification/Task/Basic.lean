@@ -56,6 +56,8 @@ answer is not correct".
   answer of an admissible model is its only correct answer.
 * `IdentTask.IsSingleAnswer.mem_alt_iff`: for a single-answer task, an admissible model is an
   alternative to `j` iff `j` is not its answer.
+* `IdentTask.IsSingleAnswer.alt_eq_biUnion_answerSet`: for a single-answer task, the alternatives
+  to `i` are the union of the answer sets of the other answers.
 * `IdentTask.isDeltaCorrect_iff`, `IdentTask.isDeltaPAC_iff`: the properties on the laws of the
   runs, quantified over the admissible models.
 * `IdentTask.IsDeltaPAC.isDeltaCorrect`, `IdentTask.IsDeltaCorrect.isPAC`: `δ`-PAC implies
@@ -192,6 +194,18 @@ lemma IsSingleAnswer.correct_eq_singleton_of_mem (h : task.IsSingleAnswer) (hθ 
 lemma IsSingleAnswer.mem_alt_iff (h : task.IsSingleAnswer) (hθ : θ ∈ task.M)
     (hi : i ∈ task.correct θ) : θ ∈ task.alt j ↔ j ≠ i := by
   simp [hθ, h.correct_eq_singleton_of_mem hθ hi]
+
+/-- For a single-answer task, the alternatives to `i` are the admissible models whose correct
+answer is another answer `j`. -/
+lemma IsSingleAnswer.alt_eq_biUnion_answerSet (h : task.IsSingleAnswer) (i : ℐ) :
+    task.alt i = ⋃ (j) (_ : j ≠ i), task.answerSet j := by
+  ext θ
+  simp only [IdentTask.mem_alt_iff, Set.mem_iUnion, mem_answerSet_iff, exists_prop]
+  refine ⟨fun ⟨hθ, hi⟩ ↦ ?_, fun ⟨j, hji, hθ, hj⟩ ↦ ⟨hθ, ?_⟩⟩
+  · obtain ⟨j, hj⟩ := h θ hθ
+    exact ⟨j, fun hji ↦ hi (by rw [hj, hji, Set.mem_singleton_iff]), hθ, hj ▸ Set.mem_singleton j⟩
+  · rw [h.correct_eq_singleton_of_mem hθ hj, Set.mem_singleton_iff]
+    exact Ne.symm hji
 
 /-! ### Restriction of the admissible models -/
 
