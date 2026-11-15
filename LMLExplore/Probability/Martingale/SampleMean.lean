@@ -19,8 +19,8 @@ import TauCeti.Probability.Martingale.Reverse
 Let `μ` be an exchangeable law of a sequence `X₀, X₁, …` of real random variables (a probability
 measure on `ℕ → ℝ` invariant under the permutations of the coordinates, Tau Ceti's
 `TauCeti.Probability.ExchangeableLaw`), for instance the law `Measure.infinitePi fun _ ↦ P` of an
-i.i.d. sequence, with `X₀` integrable of mean `m`. Let `X̄ₙ = (X₀ + ⋯ + Xₙ) / (n + 1)`. For a
-horizon `N`, the sample means read backwards, `k ↦ X̄_{N - k}`, form a martingale for the
+i.i.d. sequence, with `X₀` integrable of mean `m`. Let `Aₙ = (X₀ + ⋯ + Xₙ) / (n + 1)`. For a
+horizon `N`, the sample means read backwards, `k ↦ A_{N - k}`, form a martingale for the
 σ-algebras of the events that are symmetric in the first `N - k + 1` coordinates. Doob's
 inequalities for this martingale give two bounds that hold uniformly in the horizon:
 
@@ -192,7 +192,7 @@ theorem mul_measure_exists_le_abs_sum_div_sub_le [IsFiniteMeasure μ] (hμ : Exc
     fun _ _ h _ ⟨n, hn, hn'⟩ ↦ ⟨n, hn.trans h, hn'⟩
   rw [hset, hmono.measure_iUnion, ENNReal.mul_iSup]
   refine iSup_le fun N ↦ ?_
-  -- Doob's maximal inequality for the submartingale `k ↦ |X̄_{N - k} - m|`
+  -- Doob's maximal inequality for the submartingale `k ↦ |A_{N - k} - m|`
   have hM := ((martingale_smean_rev hμ hint N).sub (martingale_const _ _ m)).submartingale_norm
   have h : L * μ {ω | ∃ k ∈ Finset.range (N + 1), (L : ℝ) ≤ |smean (N - k) ω - m|} ≤
       ENNReal.ofReal (∫ ω, |ω 0 - m| ∂μ) := by

@@ -38,9 +38,10 @@ strong law implies this hypothesis.
 
 ## Implementation notes
 
-The stopping time stops at the first time `n` at which, for some interval `[a, b]` with rational
-endpoints, the sample means `X̄₁, …, X̄ₙ₊₁` have completed `K (a, b)` upcrossings of `[a, b]`, or
-at which `X̄ₙ₊₁` is at distance at least `2 L` from the first observation. A sequence on which it
+Write `Aₖ` for the mean of the first `k` observations. The stopping time stops at the first time
+`n` at which, for some interval `[a, b]` with rational endpoints, the sample means
+`A₁, …, Aₙ₊₁` have completed `K (a, b)` upcrossings of `[a, b]`, or
+at which `Aₙ₊₁` is at distance at least `2 L` from the first observation. A sequence on which it
 never stops has bounded sample means that cross each such interval finitely often, so its sample
 means converge (Mathlib's `MeasureTheory.tendsto_of_upcrossings_lt_top`). The probability of
 stopping under each member of the null is bounded by the upcrossing and maximal inequalities
