@@ -7,14 +7,17 @@ module
 
 public import Mathlib.Analysis.SpecialFunctions.Log.PosLog
 public import Mathlib.MeasureTheory.Function.L1Space.Integrable
+public import Mathlib.MeasureTheory.Integral.Bochner.Basic
 import Mathlib.MeasureTheory.Function.SpecialFunctions.Basic
+import Mathlib.MeasureTheory.Integral.DominatedConvergence
 
 /-!
 # Integrability of `log (1 + ∑ i, |f i|)`
 
 Finitely many real functions whose positive logarithms `log⁺ (f i)` are integrable under a finite
 measure have an integrable `log (1 + ∑ i, |f i|)`, and damping the sum by a factor in `[0, 1]`
-keeps the integrability.
+keeps the integrability. As the damping factor tends to `0`, so does the integral of the damped
+logarithm, by dominated convergence.
 
 ## Main statements
 
@@ -23,11 +26,13 @@ keeps the integrability.
   finite measure, so is `log (1 + ∑ i, |f i|)`.
 * `MeasureTheory.Integrable.log_one_add_const_mul`: if `log (1 + f)` is integrable for a
   nonnegative `f`, so is `log (1 + δ f)` for `δ ∈ [0, 1]`.
+* `MeasureTheory.Integrable.tendsto_integral_log_one_add_mul`: if `log (1 + f)` is integrable for
+  a nonnegative `f`, then `∫ log (1 + δ f)` tends to `0` as `δ ≥ 0` tends to `0`.
 -/
 
 public section
 
-open MeasureTheory
+open MeasureTheory Filter Topology
 
 namespace Real
 
@@ -70,5 +75,24 @@ theorem Integrable.log_one_add_const_mul {f : α → ℝ}
   refine h.mono' hm.aestronglyMeasurable (ae_of_all _ fun x ↦ ?_)
   rw [Real.norm_eq_abs]
   exact Real.abs_log_one_add_mul_le hδ hδ1 (hf x)
+
+/-- If `log (1 + f)` is integrable for a nonnegative `f`, then `∫ log (1 + δ f)` tends to `0` as
+the damping factor `δ ≥ 0` tends to `0`, by dominated convergence. -/
+theorem Integrable.tendsto_integral_log_one_add_mul {f : α → ℝ}
+    (h : Integrable (fun x ↦ Real.log (1 + f x)) μ) (hfm : AEMeasurable f μ) (hf : ∀ x, 0 ≤ f x)
+    {β : Type*} {l : Filter β} [l.IsCountablyGenerated] {δ : β → ℝ} (hδ : Tendsto δ l (𝓝 0))
+    (hδ0 : ∀ᶠ n in l, 0 ≤ δ n) :
+    Tendsto (fun n ↦ ∫ x, Real.log (1 + δ n * f x) ∂μ) l (𝓝 0) := by
+  rw [← integral_zero α ℝ (μ := μ)]
+  refine tendsto_integral_filter_of_dominated_convergence _
+    (.of_forall fun n ↦ (by fun_prop : AEMeasurable (fun x ↦ Real.log (1 + δ n * f x)) μ)
+      |>.aestronglyMeasurable)
+    ((hδ0.and (hδ.eventually (ge_mem_nhds one_pos))).mono fun n hn ↦ ae_of_all _ fun x ↦ ?_) h
+    (ae_of_all _ fun x ↦ ?_)
+  · rw [Real.norm_eq_abs]
+    exact Real.abs_log_one_add_mul_le hn.1 hn.2 (hf x)
+  · have : Tendsto (fun n ↦ 1 + δ n * f x) l (𝓝 1) := by
+      simpa using (hδ.mul_const (f x)).const_add 1
+    simpa [Function.comp_def] using (Real.continuousAt_log one_ne_zero).tendsto.comp this
 
 end MeasureTheory
