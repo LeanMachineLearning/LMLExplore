@@ -40,9 +40,11 @@ equivalent member of the effective null.
   only e-variable that is a likelihood ratio `Q.rnDeriv μ` against a member `μ` of the effective
   null equivalent to `Q` [LRR25, Theorem 4.1; RW, Theorem 6.15].
 * `ProbabilityTheory.isNumeraire_of_lintegral_div_le_one`,
-  `ProbabilityTheory.ripr_mem_of_lintegral_div_le_one`: for a null containing every probability
-  measure under which a family `𝓔₀` of variables has expectation at most `1`, checking the
-  numeraire property on `𝓔₀` suffices [LRR25, Corollary 4.2].
+  `ProbabilityTheory.ripr_mem_of_lintegral_div_le_one`: for `Q ≪ S` and a null `S` containing
+  every probability measure under which each member of a family `𝓔₀` has expectation at most
+  `1`, a `Q`-almost surely positive e-variable `X` with `∫⁻ X⁻¹ ∂Q = 1` and `∫⁻ Y / X ∂Q ≤ 1` for
+  every `Y ∈ 𝓔₀` is the numeraire, and the reverse information projection then belongs to `S`
+  [LRR25, Corollary 4.2].
 * `ProbabilityTheory.isNumeraire_piecewise_rnDeriv_cond`: the numeraire of a simple null `{P}`
   with no absolute continuity: `∞` on a `P`-null set `N` off which `Q` is absolutely continuous
   with respect to `P`, and the likelihood ratio of `Q[|Nᶜ]` to `P` on `Nᶜ` [LRR25,
@@ -73,6 +75,13 @@ variable {Ω : Type*} {mΩ : MeasurableSpace Ω} {S : Set (Measure Ω)} {Q P μ 
 
 /-! ### The numeraire through the effective null, for any alternative -/
 
+/-- The expectation of `Y` under the measure of density `X⁻¹` with respect to `Q` is the
+expectation of `Y / X` under `Q`. -/
+private theorem lintegral_withDensity_inv {Y : Ω → ℝ≥0∞} (hX : Measurable X) (hY : Measurable Y) :
+    ∫⁻ ω, Y ω ∂(Q.withDensity fun ω ↦ (X ω)⁻¹) = ∫⁻ ω, Y ω / X ω ∂Q := by
+  rw [lintegral_withDensity_eq_lintegral_mul _ (f := fun ω ↦ (X ω)⁻¹) hX.inv hY]
+  simp_rw [Pi.mul_apply, mul_comm _ (Y _), ← div_eq_mul_inv]
+
 /-- **The numeraire through the effective null.** For a finite measure `Q` and any null `S`, an
 e-variable `X` for `S` is the numeraire of `S` under `Q` exactly when the measure of density `X⁻¹`
 with respect to `Q`, divided by the mass `Q X.fsupport` of the set where `X` is positive and
@@ -86,9 +95,8 @@ theorem isNumeraire_iff_smul_withDensity_inv_mem_effectiveSet [IsFiniteMeasure Q
   all_goals
     have h_eq : ∫⁻ ω, Y ω ∂((Q X.fsupport)⁻¹ • Q.withDensity fun ω ↦ (X ω)⁻¹)
         = (∫⁻ ω, Y ω / X ω ∂Q) / Q X.fsupport := by
-      rw [lintegral_smul_measure, smul_eq_mul, lintegral_withDensity_eq_lintegral_mul _
-        (f := fun ω ↦ (X ω)⁻¹) hX.measurable.inv hY.measurable]
-      simp_rw [Pi.mul_apply, ENNReal.div_eq_inv_mul]
+      rw [lintegral_smul_measure, smul_eq_mul,
+        lintegral_withDensity_inv hX.measurable hY.measurable, ENNReal.div_eq_inv_mul]
     have h_iff : (∫⁻ ω, Y ω / X ω ∂Q) / Q X.fsupport ≤ 1 ↔ ∫⁻ ω, Y ω / X ω ∂Q ≤ Q X.fsupport := by
       rw [ENNReal.div_le_iff_le_mul (.inr ENNReal.one_ne_top) (.inr one_ne_zero), one_mul]
   · rw [h_eq, h_iff]
@@ -176,15 +184,14 @@ theorem IsNumeraire.eq_withDensity_inv_of_le [IsProbabilityMeasure Q]
   have : IsFiniteMeasure ν := isFiniteMeasure_of_le μ hle
   -- `X` has expectation `1` under `ν` and at most `1` under `μ = (μ - ν) + ν`
   have h_one : ∫⁻ ω, X ω ∂ν = 1 := by
-    rw [lintegral_withDensity_eq_lintegral_mul _ (f := fun ω ↦ (X ω)⁻¹) hX_meas.inv hX_meas]
-    simp_rw [Pi.mul_apply, mul_comm _ (X _), ← div_eq_mul_inv,
+    rw [lintegral_withDensity_inv hX_meas hX_meas,
       lintegral_div_self_eq_measure_fsupport hX_meas.aemeasurable,
       hX.isEVar.measure_fsupport_eq_measure_univ hQS hX.ae_ne_zero, measure_univ]
-  have h_add : ∫⁻ ω, X ω ∂(μ - ν) + 1 ≤ 0 + 1 := by
-    rw [← h_one, ← lintegral_add_measure, Measure.sub_add_cancel_of_le hle, zero_add, h_one]
-    exact hμ X hX.isEVar
-  have h_zero : ∫⁻ ω, X ω ∂(μ - ν) = 0 :=
-    nonpos_iff_eq_zero.mp ((ENNReal.add_le_add_iff_right ENNReal.one_ne_top).mp h_add)
+  have h_add : ∫⁻ ω, X ω ∂(μ - ν) + 1 ≤ 1 := by
+    have h_le := hμ X hX.isEVar
+    rwa [← Measure.sub_add_cancel_of_le hle, lintegral_add_measure, h_one] at h_le
+  have h_zero : ∫⁻ ω, X ω ∂(μ - ν) = 0 := nonpos_iff_eq_zero.mp
+    ((ENNReal.le_sub_of_add_le_right ENNReal.one_ne_top h_add).trans_eq (tsub_self 1))
   -- so `X` vanishes `(μ - ν)`-almost everywhere, while it is positive `Q`-almost everywhere
   have h_ac : μ - ν ≪ Q := (Measure.absolutelyContinuous_of_le Measure.sub_le).trans hμQ
   have h_sub : μ - ν = 0 := by
@@ -239,9 +246,7 @@ private theorem withDensity_inv_mem_of_lintegral_div_le_one {𝓔₀ : Set (Ω �
     (h_le : ∀ Y ∈ 𝓔₀, ∫⁻ ω, Y ω / X ω ∂Q ≤ 1) :
     Q.withDensity (fun ω ↦ (X ω)⁻¹) ∈ S := by
   refine hS _ ⟨by rwa [withDensity_apply _ MeasurableSet.univ, setLIntegral_univ]⟩ fun Y hY ↦ ?_
-  rw [lintegral_withDensity_eq_lintegral_mul _ (f := fun ω ↦ (X ω)⁻¹) hX.inv (h𝓔₀ Y hY)]
-  simp_rw [Pi.mul_apply, mul_comm _ (Y _), ← div_eq_mul_inv]
-  exact h_le Y hY
+  exact (lintegral_withDensity_inv hX (h𝓔₀ Y hY)).trans_le (h_le Y hY)
 
 /-- **Generated nulls** [LRR25, Corollary 4.2]. Let `S` contain every probability measure under
 which each member of a family `𝓔₀` has expectation at most `1`, and let every measurable set
@@ -251,28 +256,27 @@ the numeraire of `S` under `Q`. -/
 theorem isNumeraire_of_lintegral_div_le_one [IsProbabilityMeasure Q] {𝓔₀ : Set (Ω → ℝ≥0∞)}
     (h𝓔₀ : ∀ Y ∈ 𝓔₀, Measurable Y)
     (hS : ∀ P : Measure Ω, IsProbabilityMeasure P → (∀ Y ∈ 𝓔₀, ∫⁻ ω, Y ω ∂P ≤ 1) → P ∈ S)
-    (hS_prob : ∀ P ∈ S, IsProbabilityMeasure P)
     (hQS : ∀ s, MeasurableSet s → (∀ P ∈ S, P s = 0) → Q s = 0) (hX : IsEVar X S)
     (hX₀ : ∀ᵐ ω ∂Q, X ω ≠ 0) (h_one : ∫⁻ ω, (X ω)⁻¹ ∂Q = 1)
     (h_le : ∀ Y ∈ 𝓔₀, ∫⁻ ω, Y ω / X ω ∂Q ≤ 1) :
-    IsNumeraire X S Q :=
-  (isNumeraire_iff_withDensity_inv_mem_effectiveSet hQS hX hX₀).mpr
-    (subset_effectiveSet (fun P hP ↦ (hS_prob P hP).measure_univ.le)
-      (withDensity_inv_mem_of_lintegral_div_le_one h𝓔₀ hS hX.measurable h_one h_le))
+    IsNumeraire X S Q := by
+  have hmem := withDensity_inv_mem_of_lintegral_div_le_one h𝓔₀ hS hX.measurable h_one h_le
+  refine (isNumeraire_iff_withDensity_inv_mem_effectiveSet hQS hX hX₀).mpr fun Y hY ↦ ?_
+  refine (hY.lintegral_le_measure_univ _ hmem).trans_eq ?_
+  rw [withDensity_apply _ MeasurableSet.univ, setLIntegral_univ, h_one]
 
 /-- **Generated nulls** [LRR25, Corollary 4.2]. Under the hypotheses of
-`isNumeraire_of_lintegral_div_le_one`, the reverse information projection of `Q` on `S` belongs to
-`S`. -/
+`isNumeraire_of_lintegral_div_le_one`, and if `S` consists of finite measures, the reverse
+information projection of `Q` on `S` belongs to `S`. -/
 theorem ripr_mem_of_lintegral_div_le_one [IsProbabilityMeasure Q] {𝓔₀ : Set (Ω → ℝ≥0∞)}
     (h𝓔₀ : ∀ Y ∈ 𝓔₀, Measurable Y)
     (hS : ∀ P : Measure Ω, IsProbabilityMeasure P → (∀ Y ∈ 𝓔₀, ∫⁻ ω, Y ω ∂P ≤ 1) → P ∈ S)
-    (hS_prob : ∀ P ∈ S, IsProbabilityMeasure P)
+    (hS_fin : ∀ P ∈ S, IsFiniteMeasure P)
     (hQS : ∀ s, MeasurableSet s → (∀ P ∈ S, P s = 0) → Q s = 0) (hX : IsEVar X S)
     (hX₀ : ∀ᵐ ω ∂Q, X ω ≠ 0) (h_one : ∫⁻ ω, (X ω)⁻¹ ∂Q = 1)
     (h_le : ∀ Y ∈ 𝓔₀, ∫⁻ ω, Y ω / X ω ∂Q ≤ 1) :
     ripr Q S ∈ S := by
-  rw [(isNumeraire_of_lintegral_div_le_one h𝓔₀ hS hS_prob hQS hX hX₀ h_one h_le).ripr_eq
-    fun P hP ↦ have := hS_prob P hP; inferInstance]
+  rw [(isNumeraire_of_lintegral_div_le_one h𝓔₀ hS hQS hX hX₀ h_one h_le).ripr_eq hS_fin]
   exact withDensity_inv_mem_of_lintegral_div_le_one h𝓔₀ hS hX.measurable h_one h_le
 
 /-! ### Simple nulls: likelihood ratios -/
@@ -296,13 +300,7 @@ theorem isNumeraire_piecewise_rnDeriv_cond [IsFiniteMeasure Q] [IsProbabilityMea
   have hQν : Q.restrict Nᶜ ≪ ν := by
     rw [h_restrict]
     exact Measure.smul_absolutelyContinuous
-  have hνP : ν ≪ P := by
-    by_cases h₀ : Q Nᶜ = 0
-    · rw [hν, cond_eq_zero_of_meas_eq_zero h₀]
-      exact Measure.AbsolutelyContinuous.zero _
-    · refine Measure.AbsolutelyContinuous.trans ?_ hQN
-      rw [h_restrict]
-      exact Measure.absolutelyContinuous_smul h₀
+  have hνP : ν ≪ P := Measure.smul_absolutelyContinuous.trans hQN
   have hX_ae : X =ᵐ[P] ν.rnDeriv P := by
     filter_upwards [measure_eq_zero_iff_ae_notMem.mp hPN] with ω hω
     simp [X, hω]
