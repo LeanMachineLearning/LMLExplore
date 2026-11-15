@@ -22,6 +22,8 @@ public import TauCeti.Topology.Instances.ENNReal
   `ofReal a • μ + ofReal b • ν` of two measures, a function with finite integrals against `μ` and
   `ν` has finite integral, and for `a, b ≥ 0` its real value is
   `a * (∫⁻ g ∂μ).toReal + b * (∫⁻ g ∂ν).toReal`.
+* `MeasureTheory.lintegral_eq_top_of_le_add`: against a finite measure, if `f ≤ g + C` almost
+  everywhere with `C` finite and `∫⁻ f = ∞`, then `∫⁻ g = ∞`.
 * `MeasureTheory.SimpleFunc.tendsto_lintegral_of_tendsto_measure`: the integral of a simple function
   with finite values is continuous for the setwise convergence of measures.
 * `MeasureTheory.SimpleFunc.lintegral_le_liminf_lintegral`: the integral of a simple function with
@@ -83,6 +85,15 @@ lemma toReal_lintegral_ofReal_smul_add_smul (ha : 0 ≤ a) (hb : 0 ≤ b) (hμ :
     ENNReal.toReal_ofReal ha, ENNReal.toReal_ofReal hb]
 
 end Mixture
+
+/-- If `f ≤ g + C` almost everywhere with `C` finite and `f` has an infinite integral against a
+finite measure, so does `g`. -/
+lemma lintegral_eq_top_of_le_add [IsFiniteMeasure μ] {f g : α → ℝ≥0∞} {C : ℝ≥0∞}
+    (hC : C ≠ ∞) (hfg : ∀ᵐ x ∂μ, f x ≤ g x + C) (hf : ∫⁻ x, f x ∂μ = ∞) :
+    ∫⁻ x, g x ∂μ = ∞ := by
+  have h := (lintegral_mono_ae hfg).trans_eq (lintegral_add_right g measurable_const)
+  rw [hf, lintegral_const, top_le_iff, ENNReal.add_eq_top] at h
+  exact h.resolve_right (ENNReal.mul_ne_top hC (measure_ne_top _ _))
 
 section Setwise
 
