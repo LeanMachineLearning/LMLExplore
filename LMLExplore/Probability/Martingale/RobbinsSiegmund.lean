@@ -6,6 +6,7 @@ Authors: LMLExplore contributors
 module
 
 public import LMLExplore.Probability.Martingale.OptionalStopping
+import LMLExplore.Analysis.SpecialFunctions.Exp
 
 /-!
 # The Robbins–Siegmund theorem
@@ -87,13 +88,6 @@ private lemma prod_mul_disc_mul (n : ℕ) (x : ℝ≥0) :
 private lemma dsum_le_sum (n : ℕ) : dsum a b n ≤ ∑ k ∈ range n, b k :=
   sum_le_sum fun _ _ ↦ mul_le_of_le_one_left' (disc_le_one _)
 
-/-- For summable `a`, the products `∏ k < n, (1 + a k)` are bounded by `exp (∑ a)`. -/
-private lemma prod_le_exp (ha : Summable a) (n : ℕ) :
-    ((∏ k ∈ range n, (1 + a k) : ℝ≥0) : ℝ) ≤ Real.exp (∑' k, (a k : ℝ)) := by
-  push_cast
-  refine (Real.prod_one_add_le_exp_sum _ fun k ↦ (a k).coe_nonneg).trans
-    (Real.exp_le_exp.2 ((NNReal.summable_coe.2 ha).sum_le_tsum _ fun k _ ↦ (a k).coe_nonneg))
-
 /-- The deterministic half of the Robbins–Siegmund theorem: if `∑ a` and `∑ b` are finite and the
 process of every level `M` converges to a finite limit, then `V` converges and `∑ c` is
 finite. -/
@@ -132,7 +126,8 @@ private lemma tendsto_and_summable (ha : Summable a) (hb : Summable b)
   -- The products `∏ k < n, (1 + a k)` increase and are bounded, so they converge.
   set K : ℝ≥0 := ⟨Real.exp (∑' k, (a k : ℝ)), (Real.exp_pos _).le⟩
   have hβK (n : ℕ) : ∏ k ∈ range n, (1 + a k) ≤ K := by
-    rw [← NNReal.coe_le_coe]; exact prod_le_exp ha n
+    rw [← NNReal.coe_le_coe]; push_cast
+    exact Real.prod_one_add_le_exp_tsum _ (fun k ↦ (a k).coe_nonneg) (NNReal.summable_coe.2 ha)
   have hβ_mono : Monotone fun n ↦ ∏ k ∈ range n, (1 + a k) := monotone_nat_of_le_succ fun n ↦ by
     rw [prod_range_succ]; exact le_mul_of_one_le_right' (le_add_of_nonneg_right zero_le)
   have hβ_lim := tendsto_atTop_ciSup hβ_mono ⟨K, by rintro _ ⟨n, rfl⟩; exact hβK n⟩
