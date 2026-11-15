@@ -47,6 +47,8 @@ measures `S`.
 * `ProbabilityTheory.exists_powered_test_iff`: for a null `S` of probability measures,
   a measure `Q` admits, for some `α ∈ (0, 1)`, a level-`α` test for `S` with power larger than `α`
   under `Q` exactly when `Q` is not in the effective null of `S` [RW, Theorem 6.10].
+* `ProbabilityTheory.maxUtility_eq_zero_of_mem_effectiveSet`: no e-variable for `S` has a
+  positive expected logarithm under a probability measure of the effective null of `S`.
 
 ## References
 
@@ -264,5 +266,15 @@ theorem exists_powered_test_iff (hS : ∀ P ∈ S, IsProbabilityMeasure P) (Q : 
       _ < (N : ℝ≥0∞)⁻¹ * ∫⁻ ω, Y ω ∂Q :=
             ENNReal.mul_lt_mul_right (ENNReal.inv_ne_zero.mpr hNtop) (ENNReal.inv_ne_top.mpr hN0)
               hYQ
+
+/-- Under a probability measure `P` of the effective null of `S`, no e-variable for `S` has a
+positive expected logarithm, by Jensen's inequality: the maximal expected logarithm is `0`.
+Statlib's `maxUtility_eq_zero_of_mem` is the analogue for the members of `S`. -/
+theorem maxUtility_eq_zero_of_mem_effectiveSet {P : Measure Ω} [IsProbabilityMeasure P]
+    (hP : P ∈ effectiveSet S) : maxUtility P S logUtility = 0 := by
+  refine le_antisymm (iSup₂_le fun X hX ↦ ?_) (maxUtility_nonneg P)
+  calc ∫ᵉ ω, (logUtility ∘ X) ω ∂P
+  _ ≤ logUtility (∫⁻ ω, X ω ∂P) := Utility.eintegral_le_map logUtility hX.measurable.aemeasurable
+  _ ≤ 0 := by rw [logUtility_apply, ENNReal.log_le_zero_iff]; exact hP X hX
 
 end ProbabilityTheory

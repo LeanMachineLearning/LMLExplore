@@ -6,8 +6,10 @@ Authors: LMLExplore contributors
 module
 
 public import Mathlib.MeasureTheory.Constructions.Pi
+public import Mathlib.MeasureTheory.Measure.GiryMonad
 public import Mathlib.Probability.ConditionalProbability
 import TauCeti.MeasureTheory.Constructions.Pi
+import TauCeti.MeasureTheory.Integral.Pi
 
 /-!
 # Product measures: laws of coordinatewise images, restricted factors and bounds by lines
@@ -24,6 +26,12 @@ Under a product of probability measures, a measurable set whose lines along one 
 all have `μ i`-measure at most `c` has product measure at most `c`, by resampling the coordinate
 `i` and integrating the measures of the lines.
 
+The product of finite mixtures of measures is the mixture, over the choices of one component for
+each coordinate, of the products of the components. For measurable maps `G i` to finite
+measures, the product `Measure.pi fun i ↦ G i (x i)` depends measurably on `x`, and binding a
+product measure along it gives the product of the binds: an independent sample from `μ i` followed
+by independent draws from the `G i (x i)` is an independent sample from the mixtures.
+
 ## Main statements
 
 * `MeasureTheory.Measure.map_pi_comp_eq_map_pi_map`:
@@ -35,6 +43,11 @@ all have `μ i`-measure at most `c` has product measure at most `c`, by resampli
 * `MeasureTheory.Measure.pi_le_of_forall_measure_update_preimage_le`: under a product of
   probability measures, a measurable set whose lines `{t | update x i t ∈ E}` along one coordinate
   `i` all have `μ i`-measure at most `c` has product measure at most `c`.
+* `MeasureTheory.Measure.pi_sum_smul`: the product of the finite mixtures `∑ k, w i k • μ i k` is
+  `∑ σ, (∏ i, w i (σ i)) • Measure.pi fun i ↦ μ i (σ i)`.
+* `MeasureTheory.Measure.measurable_pi_comp`: `x ↦ Measure.pi fun i ↦ G i (x i)` is measurable.
+* `MeasureTheory.Measure.pi_bind_pi`: binding `Measure.pi μ` along
+  `x ↦ Measure.pi fun i ↦ G i (x i)` gives `Measure.pi fun i ↦ (μ i).bind (G i)`.
 -/
 
 public section
@@ -95,5 +108,50 @@ lemma pi_le_of_forall_measure_update_preimage_le [DecidableEq ι] {μ : ∀ i, M
   rw [← (TauCeti.measurePreserving_update_prod_pi μ i).measure_preimage hE.nullMeasurableSet,
     Measure.prod_apply (measurable_update' hE)]
   exact (lintegral_mono fun x ↦ h x).trans_eq (by simp)
+
+/-! ### Products of mixtures -/
+
+/-- **Products of finite mixtures.** The product of the finite mixtures `∑ k, w i k • μ i k` is the
+mixture of the products `Measure.pi fun i ↦ μ i (σ i)` over the choices `σ` of a component for
+each coordinate, with weights `∏ i, w i (σ i)`. -/
+lemma pi_sum_smul [DecidableEq ι] {κ : ι → Type*} [∀ i, Fintype (κ i)] (w : ∀ i, κ i → ℝ≥0∞)
+    (μ : ∀ i, κ i → Measure (Ω i)) [∀ i, SigmaFinite (∑ k, w i k • μ i k)]
+    [∀ i k, SigmaFinite (μ i k)] :
+    Measure.pi (fun i ↦ ∑ k, w i k • μ i k) =
+      ∑ σ : ∀ i, κ i, (∏ i, w i (σ i)) • Measure.pi fun i ↦ μ i (σ i) := by
+  refine Measure.pi_eq fun s _ ↦ ?_
+  simp only [_root_.sum_apply, smul_apply, smul_eq_mul, Measure.pi_pi, Fintype.prod_sum,
+    ← Finset.prod_mul_distrib]
+
+/-- The product of the finite measures `G i (x i)` depends measurably on `x` when each `G i` is
+measurable. -/
+lemma measurable_pi_comp {G : ∀ i, Ω i → Measure (𝓨 i)} [∀ i x, IsFiniteMeasure (G i x)]
+    (hG : ∀ i, Measurable (G i)) :
+    Measurable fun x : ∀ i, Ω i ↦ Measure.pi fun i ↦ G i (x i) := by
+  have h_box (s : ∀ i, Set (𝓨 i)) (hs : ∀ i, MeasurableSet (s i)) :
+      Measurable fun x : ∀ i, Ω i ↦ Measure.pi (fun i ↦ G i (x i)) (Set.univ.pi s) := by
+    simp_rw [Measure.pi_pi]
+    exact Finset.measurable_prod _ fun i _ ↦
+      ((measurable_coe (hs i)).comp (hG i)).comp (measurable_pi_apply i)
+  refine Measurable.measure_of_isPiSystem generateFrom_pi.symm isPiSystem_pi ?_ ?_
+  · rintro _ ⟨s, hs, rfl⟩
+    exact h_box s fun i ↦ hs i (Set.mem_univ i)
+  · simpa using h_box (fun _ ↦ Set.univ) fun _ ↦ .univ
+
+/-- **Binding a product measure coordinatewise.** Binding `Measure.pi μ` along the products of
+the finite measures `G i (x i)` gives the product of the binds `(μ i).bind (G i)`: for probability
+measures, an independent sample of the `μ i`, followed by independent draws from the
+`G i (x i)`, is an independent sample of the mixtures. -/
+lemma pi_bind_pi {μ : ∀ i, Measure (Ω i)} [∀ i, SigmaFinite (μ i)]
+    {G : ∀ i, Ω i → Measure (𝓨 i)} [∀ i x, IsFiniteMeasure (G i x)]
+    [∀ i, SigmaFinite ((μ i).bind (G i))] (hG : ∀ i, Measurable (G i)) :
+    (Measure.pi μ).bind (fun x ↦ Measure.pi fun i ↦ G i (x i)) =
+      Measure.pi fun i ↦ (μ i).bind (G i) := by
+  refine (Measure.pi_eq fun s hs ↦ ?_).symm
+  rw [bind_apply (.univ_pi hs) (measurable_pi_comp hG).aemeasurable]
+  simp_rw [Measure.pi_pi]
+  rw [TauCeti.lintegral_fintype_prod_eq_prod μ (f := fun i x ↦ G i x (s i))
+    fun i ↦ (measurable_coe (hs i)).comp (hG i)]
+  exact Finset.prod_congr rfl fun i _ ↦ (bind_apply (hs i) (hG i).aemeasurable).symm
 
 end MeasureTheory.Measure
