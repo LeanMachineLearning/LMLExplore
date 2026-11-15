@@ -85,8 +85,9 @@ private lemma lintegral_ofReal_comp_fin_two (P : Measure Bool) [IsProbabilityMea
       ENNReal.ofReal (∑ b₀, ∑ b₁, g ![b₀, b₁] * (P.real {b₀} * P.real {b₁})) := by
   have hnn : ∀ b₀ b₁, 0 ≤ g ![b₀, b₁] * (P.real {b₀} * P.real {b₁}) := fun _ _ ↦
     mul_nonneg (hg _) (mul_nonneg measureReal_nonneg measureReal_nonneg)
-  rw [lintegral_comp_fin P (f := fun y ↦ ENNReal.ofReal (g y)) Measurable.of_discrete,
-    lintegral_fintype, ← (finTwoArrowEquiv Bool).symm.sum_comp, Fintype.sum_prod_type,
+  rw [lintegral_comp_initSeg_infinitePi P (f := fun y ↦ ENNReal.ofReal (g y))
+    Measurable.of_discrete, lintegral_fintype, ← (finTwoArrowEquiv Bool).symm.sum_comp,
+    Fintype.sum_prod_type,
     ENNReal.ofReal_sum_of_nonneg fun b₀ _ ↦ Finset.sum_nonneg fun b₁ _ ↦ hnn b₀ b₁]
   refine Finset.sum_congr rfl fun b₀ _ ↦ ?_
   rw [ENNReal.ofReal_sum_of_nonneg fun b₁ _ ↦ hnn b₀ b₁]

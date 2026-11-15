@@ -23,7 +23,7 @@ coordinates. Under a countable product, almost surely every coordinate has a pro
 every point of its factor has. With the filtration `Filtration.piLE` of the first coordinates,
 whose time `n` has seen the coordinates `0, …, n`, the coordinate `n + 1` is independent of time
 `n`; functions of the first coordinates are adapted, and random times that are functions of the
-first coordinates are stopping times.
+first `k + 1` coordinates and are at least `k` are stopping times.
 
 If `Q + ∑ i, b i • P i = ∑ i, c i • P i` for a probability measure `Q` and probability measures
 `P i`, two functions of the first `N + 1` observations with equal integrals under the i.i.d. law of
@@ -34,8 +34,8 @@ the polarization step of [EVR26, Note 03, Theorem 1], adapted from
 
 ## Main statements
 
-* `MeasureTheory.measurePreserving_initSeg`: the first `n` terms `initSeg n` of an i.i.d. sequence
-  have the product law.
+* `MeasureTheory.measurePreserving_initSeg`, `MeasureTheory.lintegral_comp_initSeg_infinitePi`:
+  the first `n` terms `initSeg n` of an i.i.d. sequence have the product law.
 * `MeasureTheory.Measure.ae_forall_apply_infinitePi`: if, for each `i` of a countable index type,
   `p i` holds almost everywhere under `μ i`, then almost surely under `Measure.infinitePi μ` every
   coordinate `x i` satisfies `p i`.
@@ -78,6 +78,15 @@ lemma measurePreserving_initSeg (P : Measure 𝓧) [IsProbabilityMeasure P] (n :
   refine ⟨measurable_initSeg n, ?_⟩
   rw [initSeg_def, ← Measure.infinitePi_eq_pi]
   exact Measure.map_infinitePi_infinitePi_of_inj Fin.val_injective
+
+/-- The integral of a function of the first `n` terms of an i.i.d. sequence is its integral under
+the product law: the form of `measurePreserving_initSeg` for an integrand written with
+`fun i ↦ ω i`. -/
+lemma lintegral_comp_initSeg_infinitePi (P : Measure 𝓧) [IsProbabilityMeasure P] {n : ℕ}
+    {f : (Fin n → 𝓧) → ℝ≥0∞} (hf : Measurable f) :
+    ∫⁻ ω : ℕ → 𝓧, f (fun i ↦ ω i) ∂(Measure.infinitePi fun _ ↦ P) =
+      ∫⁻ x, f x ∂(Measure.pi fun _ : Fin n ↦ P) := by
+  simpa only [initSeg_def] using (measurePreserving_initSeg P n).lintegral_comp hf
 
 end MeasureTheory
 

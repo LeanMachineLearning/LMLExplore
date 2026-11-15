@@ -8,10 +8,11 @@ module
 public import LMLExplore.EValues.EProcess
 public import Mathlib.Probability.ProductMeasure
 public import Statlib.EValues.Numeraire
+import LMLExplore.Algebra.Polynomial.Roots
 import LMLExplore.EValues.Numeraire
 import LMLExplore.EValues.TestSupermartingale.IID
+import LMLExplore.MeasureTheory.Measure.Real
 import LMLExplore.Probability.ProductMeasure
-import Mathlib.Algebra.Polynomial.Roots
 import Mathlib.Topology.Order.IntermediateValue
 
 /-!
@@ -81,22 +82,6 @@ open scoped ENNReal
 
 namespace ProbabilityTheory
 
-/-! ### I.i.d. sequences -/
-
-section IID
-
-variable {𝓧 : Type*} {m𝓧 : MeasurableSpace 𝓧}
-
-/-- The first `n` coordinates of an i.i.d. sequence have the product law: the form of
-`measurePreserving_initSeg` for an integrand written with `fun i ↦ ω i`. -/
-private lemma lintegral_comp_fin (P : Measure 𝓧) [IsProbabilityMeasure P] {n : ℕ}
-    {f : (Fin n → 𝓧) → ℝ≥0∞} (hf : Measurable f) :
-    ∫⁻ ω : ℕ → 𝓧, f (fun i ↦ ω i) ∂(Measure.infinitePi fun _ ↦ P) =
-      ∫⁻ x, f x ∂(Measure.pi fun _ : Fin n ↦ P) := by
-  simpa only [initSeg_def] using (measurePreserving_initSeg P n).lintegral_comp hf
-
-end IID
-
 /-! ### Masses and mixtures on a finite space -/
 
 section Finite
@@ -110,16 +95,10 @@ private noncomputable def piMass (μ : Measure α) {n : ℕ} (x : Fin n → α) 
   ∏ i, μ.real {x i}
 
 omit [MeasurableSingletonClass α] [Fintype α] in
-/-- A finite measure that charges every point gives positive real masses. -/
-private lemma measureReal_singleton_pos {μ : Measure α} [IsFiniteMeasure μ]
-    (hμ : ∀ x, μ {x} ≠ 0) (x : α) : 0 < μ.real {x} :=
-  ENNReal.toReal_pos (hμ x) (measure_ne_top _ _)
-
-omit [MeasurableSingletonClass α] [Fintype α] in
 /-- The masses of a product of a finite measure that charges every point are positive. -/
 private lemma piMass_pos {μ : Measure α} [IsFiniteMeasure μ] (hμ : ∀ x, μ {x} ≠ 0) {n : ℕ}
     (x : Fin n → α) : 0 < piMass μ x :=
-  Finset.prod_pos fun _ _ ↦ measureReal_singleton_pos hμ _
+  Finset.prod_pos fun _ _ ↦ measureReal_pos_of_ne_zero (hμ _)
 
 omit [MeasurableSingletonClass α] [Fintype α] in
 /-- The masses of a product of a measure are nonnegative. -/
@@ -132,11 +111,6 @@ private lemma pi_singleton_eq_ofReal_piMass (μ : Measure α) [IsFiniteMeasure �
     (x : Fin n → α) : (Measure.pi fun _ : Fin n ↦ μ) {x} = ENNReal.ofReal (piMass μ x) := by
   rw [Measure.pi_singleton, piMass, ENNReal.ofReal_prod_of_nonneg fun _ _ ↦ measureReal_nonneg]
   simp
-
-/-- The real masses of a probability measure sum to `1`. -/
-private lemma sum_measureReal_singleton_eq_one (μ : Measure α) [IsProbabilityMeasure μ] :
-    ∑ y, μ.real {y} = 1 := by
-  rw [sum_measureReal_singleton, Finset.coe_univ, probReal_univ]
 
 /-- The masses of the product of a probability measure sum to `1`. -/
 private lemma sum_piMass_eq_one (μ : Measure α) [IsProbabilityMeasure μ] (n : ℕ) :
@@ -152,7 +126,7 @@ private lemma lintegral_div_eq_ofReal (hP₁ : ∀ x, P₁ {x} ≠ 0) :
   refine Finset.sum_congr rfl fun y _ ↦ ?_
   rw [← ofReal_measureReal (μ := P₂), ← ofReal_measureReal (μ := P₁),
     ← ofReal_measureReal (μ := Q), ← ENNReal.ofReal_div_of_pos
-      (measureReal_singleton_pos hP₁ y), ← ENNReal.ofReal_mul (by positivity)]
+      (measureReal_pos_of_ne_zero (hP₁ y)), ← ENNReal.ofReal_mul (by positivity)]
   congr 1
   ring
 
@@ -174,7 +148,7 @@ private lemma prod_div_eq_ofReal (hP₁ : ∀ x, P₁ {x} ≠ 0) {n : ℕ} (x : 
   rw [piMass, piMass, ← Finset.prod_div_distrib,
     ENNReal.ofReal_prod_of_nonneg fun _ _ ↦ by positivity]
   refine Finset.prod_congr rfl fun i _ ↦ ?_
-  rw [ENNReal.ofReal_div_of_pos (measureReal_singleton_pos hP₁ _), ofReal_measureReal,
+  rw [ENNReal.ofReal_div_of_pos (measureReal_pos_of_ne_zero (hP₁ _)), ofReal_measureReal,
     ofReal_measureReal]
 
 omit [MeasurableSingletonClass α] [Fintype α] in
@@ -288,25 +262,6 @@ private lemma eq_ofReal_div_mix (hQ : ∀ x, Q {x} ≠ 0) {n : ℕ} {X : (Fin n 
   rw [pi_singleton_eq_ofReal_piMass]
   exact (ENNReal.ofReal_pos.2 (piMass_pos hQ y)).ne'
 
-omit [Fintype α] [IsProbabilityMeasure P₂] in
-/-- The likelihood ratio of `Q` against a law `P₁` that charges every point has expectation `1`
-under `P₁`. -/
-private lemma lintegral_div_eq_one [Finite α] (hP₁ : ∀ x, P₁ {x} ≠ 0) :
-    ∫⁻ x, Q {x} / P₁ {x} ∂P₁ = 1 := by
-  have := Fintype.ofFinite α
-  rw [lintegral_fintype, Finset.sum_congr rfl fun y _ ↦
-    ENNReal.div_mul_cancel (hP₁ y) (measure_ne_top _ _), sum_measure_singleton, Finset.coe_univ,
-    measure_univ]
-
-omit [Fintype α] [IsProbabilityMeasure P₂] in
-/-- The likelihood ratio of `Q` against a law `P₁` that charges every point is an e-variable for
-`{P₁}`. -/
-private lemma isEVar_div_singleton [Finite α] (hP₁ : ∀ x, P₁ {x} ≠ 0) :
-    IsEVar (fun x ↦ Q {x} / P₁ {x}) {P₁} :=
-  IsEVar.of_lintegral_le_one (by simpa) Measurable.of_discrete fun _ h ↦ by
-    rw [Set.mem_singleton_iff.1 h]
-    exact (lintegral_div_eq_one hP₁).le
-
 /-- **The projection weight `1`.** If `E_Q[p₂ / p₁] ≤ 1`, a numeraire of `n` observations for the
 i.i.d. null `{P₁, P₂}` is the likelihood ratio of `Q ^ n` against `P₁ ^ n`. -/
 private lemma eq_ofReal_div_of_le (hQ : ∀ x, Q {x} ≠ 0) (hP₁ : ∀ x, P₁ {x} ≠ 0)
@@ -340,7 +295,7 @@ private lemma isEVar_div_and_eq_prod_of_le [Finite α] (hQ : ∀ x, Q {x} ≠ 0)
   · refine IsEVar.of_lintegral_le_one isProbabilityMeasure_of_mem_pair Measurable.of_discrete ?_
     simp only [Set.mem_insert_iff, Set.mem_singleton_iff]
     rintro μ (rfl | rfl)
-    · exact (lintegral_div_eq_one hP₁).le
+    · exact (isEVar_div_singleton (Q := Q) hP₁).lintegral_le_one (by simp)
     · refine le_trans (le_of_eq ?_) h
       rw [lintegral_fintype, lintegral_fintype]
       refine Finset.sum_congr rfl fun y _ ↦ ?_
@@ -463,7 +418,7 @@ private lemma le_sum_of_lintegral_stop_le_one [DecidableEq α] {P : Measure α}
   have hx₀ : (Measure.pi fun _ : Fin (k + 1) ↦ P) {x₀} ≠ 0 := by
     rw [Measure.pi_singleton]
     exact Finset.prod_ne_zero_iff.2 fun i _ ↦ hP _
-  rw [lintegral_congr hEG, lintegral_comp_fin P Measurable.of_discrete, hsplit] at hτ
+  rw [lintegral_congr hEG, lintegral_comp_initSeg_infinitePi P Measurable.of_discrete, hsplit] at hτ
   rw [hsplit] at hF₂
   set c : (Fin (k + 1) → α) → ℝ≥0∞ := fun x ↦ ∑ y, F₂ (Fin.snoc x y) * P {y} with hc
   have hsum : ∀ x, ∑ y, G (Fin.snoc x y) * P {y} = if x = x₀ then F₁ x else c x := by
@@ -540,47 +495,6 @@ private lemma mixture_le_and_sum_eq_zero {A B C D w' : ℝ} {p₁ p₂ q : α �
         exact Finset.sum_congr rfl fun y _ ↦ by ring
     _ = 0 := by rw [hG, sub_self]
 
-omit [MeasurableSpace α] [MeasurableSingletonClass α] in
-/-- **A rational function with few zeros.** If `s ↦ ∑ y, c y / (p₁ y + s p₂ y)`, with positive
-`p₁`, `p₂`, vanishes at as many distinct nonnegative points as the space has elements, it
-vanishes at `0`: multiplied by `∏ y, (p₁ y + s p₂ y)`, it is a polynomial of degree less than the
-number of elements of the space. -/
-private lemma sum_div_eq_zero_of_injective {p₁ p₂ c : α → ℝ} (hp₁ : ∀ y, 0 < p₁ y)
-    (hp₂ : ∀ y, 0 < p₂ y) {ι : Type*} [Fintype ι] (hι : Fintype.card α ≤ Fintype.card ι)
-    {s : ι → ℝ} (hs : Function.Injective s) (hs0 : ∀ j, 0 ≤ s j)
-    (h : ∀ j, ∑ y, c y / (p₁ y + s j * p₂ y) = 0) :
-    ∑ y, c y / p₁ y = 0 := by
-  classical
-  rcases Nat.eq_zero_or_pos (Fintype.card α) with hα | hα
-  · rw [Fintype.card_eq_zero_iff] at hα
-    simp
-  set N : Polynomial ℝ := ∑ y, Polynomial.C (c y) *
-    ∏ y' ∈ Finset.univ.erase y, (Polynomial.C (p₂ y') * Polynomial.X + Polynomial.C (p₁ y'))
-  have heval : ∀ t : ℝ, 0 ≤ t →
-      (∑ y, c y / (p₁ y + t * p₂ y)) * ∏ y, (p₁ y + t * p₂ y) = N.eval t := by
-    intro t ht
-    simp only [N, Polynomial.eval_finsetSum, Polynomial.eval_mul, Polynomial.eval_C,
-      Polynomial.eval_prod, Polynomial.eval_add, Polynomial.eval_X, Finset.sum_mul]
-    refine Finset.sum_congr rfl fun y _ ↦ ?_
-    have hy : 0 < p₁ y + t * p₂ y := add_pos_of_pos_of_nonneg (hp₁ y) (by positivity [hp₂ y])
-    rw [← Finset.mul_prod_erase _ _ (Finset.mem_univ y), ← mul_assoc, div_mul_cancel₀ _ hy.ne']
-    exact congrArg _ (Finset.prod_congr rfl fun y' _ ↦ by ring)
-  have hdeg : N.natDegree < Fintype.card ι := by
-    have hle : N.natDegree ≤ Fintype.card α - 1 := by
-      refine Polynomial.natDegree_sum_le_of_forall_le _ _ fun y _ ↦ ?_
-      refine (Polynomial.natDegree_C_mul_le _ _).trans
-        ((Polynomial.natDegree_prod_le _ _).trans ?_)
-      refine (Finset.sum_le_sum fun y' _ ↦ Polynomial.natDegree_linear_le).trans ?_
-      rw [Finset.sum_const, Finset.card_erase_of_mem (Finset.mem_univ y), Finset.card_univ,
-        smul_eq_mul, mul_one]
-    omega
-  have hN : N = 0 := Polynomial.eq_zero_of_natDegree_lt_card_of_eval_eq_zero N hs
-    (fun j ↦ by rw [← heval _ (hs0 j), h j, zero_mul]) hdeg
-  have h0 := heval 0 le_rfl
-  rw [hN, Polynomial.eval_zero] at h0
-  simp only [zero_mul, add_zero] at h0
-  exact (mul_eq_zero.1 h0).resolve_right (Finset.prod_pos fun y _ ↦ hp₁ y).ne'
-
 /-! ### The numeraires fail at a stopping time with two values -/
 
 /-- If `E_Q[p₂ / p₁] > 1`, the likelihood ratio `p₂ / p₁` is not constant: otherwise it would be
@@ -593,7 +507,7 @@ private lemma exists_ratio_lt_of_one_lt (hP₁ : ∀ x, P₁ {x} ≠ 0)
   obtain ⟨y₀⟩ := nonempty_of_isProbabilityMeasure Q
   set c := P₂.real {y₀} / P₁.real {y₀}
   have hP₂c : ∀ y, P₂.real {y} = c * P₁.real {y} := fun y ↦ by
-    rw [← div_eq_iff (measureReal_singleton_pos hP₁ y).ne']
+    rw [← div_eq_iff (measureReal_pos_of_ne_zero (hP₁ y)).ne']
     exact le_antisymm (hcon y₀ y) (hcon y y₀)
   have hc : c = 1 := by
     have h := sum_measureReal_singleton_eq_one P₂
@@ -602,7 +516,7 @@ private lemma exists_ratio_lt_of_one_lt (hP₁ : ∀ x, P₁ {x} ≠ 0)
   have h1 : ∑ y, P₂.real {y} * (Q.real {y} / P₁.real {y}) = 1 := by
     rw [← sum_measureReal_singleton_eq_one Q]
     refine Finset.sum_congr rfl fun y _ ↦ ?_
-    rw [hP₂c y, hc, one_mul, mul_div_cancel₀ _ (measureReal_singleton_pos hP₁ y).ne']
+    rw [hP₂c y, hc, one_mul, mul_div_cancel₀ _ (measureReal_pos_of_ne_zero (hP₁ y)).ne']
   linarith
 
 omit [MeasurableSpace α] [MeasurableSingletonClass α] [Fintype α] in
@@ -628,11 +542,6 @@ private lemma prod_ite_lt_eq {f : α → ℝ} {y₂ : α} (hf : f y₂ ≠ 0) (y
     rw [← pow_add]
     congr 1
     omega, mul_assoc, mul_div_assoc', mul_div_cancel_left₀ _ (pow_ne_zero _ hf), mul_comm]
-
-/-- The geometric sequence `j ↦ c * a ^ j` of ratio `0 < a ≠ 1` is injective. -/
-private lemma injective_mul_pow {c a : ℝ} (hc : c ≠ 0) (ha0 : 0 < a) (ha1 : a ≠ 1) {m : ℕ} :
-    Function.Injective fun j : Fin m ↦ c * a ^ (j : ℕ) :=
-  fun _ _ h ↦ Fin.ext (pow_right_injective₀ ha0 ha1 (mul_left_cancel₀ hc h))
 
 omit [IsProbabilityMeasure Q] [IsProbabilityMeasure P₁] [IsProbabilityMeasure P₂] in
 /-- **The e-process property at a stopping time with two values.** Let the numeraires form an
@@ -693,8 +602,8 @@ private lemma ratio_mix_le_sum_of_isEProcess {X : (n : ℕ) → (Fin (n + 1) →
 
 omit [MeasurableSpace α] [MeasurableSingletonClass α] in
 /-- Dividing every denominator by `w' * A` turns the vanishing sum of
-`mixture_le_and_sum_eq_zero` into one of the form of `sum_div_eq_zero_of_injective`, with the
-root `(1 - w') * B / (w' * A)`. -/
+`mixture_le_and_sum_eq_zero` into one of the form of `LMLExplore.sum_div_eq_zero_of_injective`,
+with the root `(1 - w') * B / (w' * A)`. -/
 private lemma sum_div_eq_zero_of_sum_mix_eq_zero {A B w' : ℝ} {p₁ p₂ q : α → ℝ} (hA : 0 < A)
     (hw0 : 0 < w')
     (h : ∑ y, (p₁ y - p₂ y) * q y / (w' * (A * p₁ y) + (1 - w') * (B * p₂ y)) = 0) :
@@ -740,8 +649,8 @@ private lemma not_isEProcess_of_one_lt (hQ : ∀ x, Q {x} ≠ 0) (hP₁ : ∀ x,
   have hN₂ := eq_ofReal_div_mix hQ (hX (k + 1)) hw0'.le hw1'.le (hmix hw0' hw1') hE₁'.le hE₂'.le
   -- the e-process property at the stopping times with values in `{k, k + 1}`
   have hstep := fun x₀ ↦ mixture_le_and_sum_eq_zero (piMass_pos hP₁ x₀) (piMass_pos hP₂ x₀)
-    (piMass_pos hQ x₀) (hmix hw0 hw1 x₀) hw0' hw1' (measureReal_singleton_pos hP₁)
-    (measureReal_singleton_pos hP₂) (sum_measureReal_singleton_eq_one Q)
+    (piMass_pos hQ x₀) (hmix hw0 hw1 x₀) hw0' hw1' (fun y ↦ measureReal_pos_of_ne_zero (hP₁ y))
+    (fun y ↦ measureReal_pos_of_ne_zero (hP₂ y)) (sum_measureReal_singleton_eq_one Q)
     (ratio_mix_le_sum_of_isEProcess hE (hmix hw0' hw1') hN₁ hN₂ (by simp) hP₁ hE₁' x₀)
     (ratio_mix_le_sum_of_isEProcess hE (hmix hw0' hw1') hN₁ hN₂ (by simp) hP₂ hE₂' x₀)
   -- the mixtures with weights `w` and `w'` coincide
@@ -759,9 +668,9 @@ private lemma not_isEProcess_of_one_lt (hQ : ∀ x, Q {x} ≠ 0) (hP₁ : ∀ x,
     linarith
   -- the rational function vanishes at `|α|` distinct points
   have hr₁ : 0 < r y₁ :=
-    div_pos (measureReal_singleton_pos hP₂ _) (measureReal_singleton_pos hP₁ _)
+    div_pos (measureReal_pos_of_ne_zero (hP₂ _)) (measureReal_pos_of_ne_zero (hP₁ _))
   have hr₂ : 0 < r y₂ :=
-    div_pos (measureReal_singleton_pos hP₂ _) (measureReal_singleton_pos hP₁ _)
+    div_pos (measureReal_pos_of_ne_zero (hP₂ _)) (measureReal_pos_of_ne_zero (hP₁ _))
   set x : Fin (k + 2) → Fin (k + 1) → α := fun j i ↦ if (i : ℕ) < j then y₁ else y₂ with hx
   have hratio : ∀ j : Fin (k + 2),
       piMass P₂ (x j) / piMass P₁ (x j) = r y₂ ^ (k + 1) * (r y₁ / r y₂) ^ (j : ℕ) := fun j ↦ by
@@ -781,19 +690,21 @@ private lemma not_isEProcess_of_one_lt (hQ : ∀ x, Q {x} ≠ 0) (hP₁ : ∀ x,
         (1 - w') / w' * r y₂ ^ (k + 1) * (r y₁ / r y₂) ^ (j : ℕ) :=
       funext fun j ↦ by rw [hs', mul_assoc]
     rw [hs'']
-    exact injective_mul_pow hK (div_pos hr₁ hr₂) (ne_of_lt ((div_lt_one hr₂).2 hy))
+    exact (mul_right_injective₀ hK).comp <|
+      (pow_right_injective₀ (div_pos hr₁ hr₂) ((div_lt_one hr₂).2 hy).ne).comp Fin.val_injective
   have hs0 : ∀ j, 0 ≤ s j := fun j ↦ div_nonneg
     (mul_nonneg (by linarith) (piMass_nonneg _ _)) (mul_nonneg hw0'.le (piMass_nonneg _ _))
   have hroot : ∀ j, ∑ y, (P₁.real {y} - P₂.real {y}) * Q.real {y} /
       (P₁.real {y} + s j * P₂.real {y}) = 0 := fun j ↦
     sum_div_eq_zero_of_sum_mix_eq_zero (piMass_pos hP₁ (x j)) hw0' ((hstep (x j)).2 (heq (x j)))
-  have hzero := sum_div_eq_zero_of_injective (measureReal_singleton_pos hP₁)
-    (measureReal_singleton_pos hP₂) (by rw [hk, Fintype.card_fin]) hinj hs0 hroot
+  have hzero := LMLExplore.sum_div_eq_zero_of_injective
+    (fun y ↦ measureReal_pos_of_ne_zero (hP₁ y)) (fun y ↦ measureReal_pos_of_ne_zero (hP₂ y))
+    (by rw [hk, Fintype.card_fin]) hinj hs0 hroot
   have h1 : ∑ y, (P₁.real {y} - P₂.real {y}) * Q.real {y} / P₁.real {y} =
       1 - ∑ y, P₂.real {y} * (Q.real {y} / P₁.real {y}) := by
     rw [← sum_measureReal_singleton_eq_one Q, ← Finset.sum_sub_distrib]
     refine Finset.sum_congr rfl fun y _ ↦ ?_
-    have := measureReal_singleton_pos hP₁ y
+    have := measureReal_pos_of_ne_zero (hP₁ y)
     field_simp
   linarith
 
