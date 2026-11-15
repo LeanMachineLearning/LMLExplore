@@ -81,6 +81,8 @@ within a factor `2` of the complexity `H(μ) = ∑ c, 2 σ2 / Δ_c²`, where `Δ
 * `LMLExplore.Identification.mem_answerSet_baiTask_iff`,
   `LMLExplore.Identification.isOpen_answerSet_baiTask`: the vectors of means for which `a` is
   correct, those with unique best arm `a`, form an open set;
+  `LMLExplore.Identification.isOpen_answerSet_baiTask_of_continuous` is the same for finitely many
+  arms and any mean functional continuous in the model;
   `LMLExplore.Identification.isOpen_answerSet_baiTask_restrict` is the same within an open set `S`
   of vectors of means.
 * `LMLExplore.Identification.closure_alt_baiTask_restrict_inter`: for `S` open, the closure of the
@@ -183,11 +185,12 @@ open scoped ENNReal NNReal
 
 namespace LMLExplore.Identification
 
-variable {α Θ 𝓨 : Type*} {mα : MeasurableSpace α} {m𝓨 : MeasurableSpace 𝓨} {a : α}
+variable {α Θ 𝓨 : Type*} {mα : MeasurableSpace α} {m𝓨 : MeasurableSpace 𝓨}
 
 section MeanFunctional
 
-variable (ν : Θ → Kernel α 𝓨) [∀ θ, IsMarkovKernel (ν θ)] (mean : Θ → α → ℝ) {θ : Θ}
+variable {ι : Type*} (ν : Θ → Kernel α 𝓨) [∀ θ, IsMarkovKernel (ν θ)] (mean : Θ → ι → ℝ)
+  {θ : Θ} {a : ι}
 
 /-- The alternatives to the arm `a` in best arm identification are the models with a unique best
 arm `b ≠ a`. -/
@@ -210,6 +213,18 @@ lemma mem_answerSet_baiTask_iff :
   rw [IdentTask.mem_answerSet_iff, M_baiTask, correct_baiTask]
   exact ⟨fun h ↦ h.2, fun h ↦ ⟨⟨a, h⟩, h⟩⟩
 
+/-- For finitely many arms and means continuous in the model, the models with unique best arm `a`
+form an open set. -/
+lemma isOpen_answerSet_baiTask_of_continuous [TopologicalSpace Θ] [Finite ι]
+    (hmean : ∀ b, Continuous fun θ ↦ mean θ b) (a : ι) :
+    IsOpen ((baiTask ν mean).answerSet a) := by
+  have h : (baiTask ν mean).answerSet a = ⋂ b ∈ ({a}ᶜ : Set ι), {θ | mean θ b < mean θ a} := by
+    ext θ
+    rw [mem_answerSet_baiTask_iff]
+    simp
+  rw [h]
+  exact (Set.toFinite _).isOpen_biInter fun b _ ↦ isOpen_lt (hmean b) (hmean a)
+
 variable [Fintype α]
 
 /-- If `a` is the unique best arm of `θ`, then `T*(θ) = D(θ, ¬a)⁻¹` in best arm identification
@@ -230,18 +245,12 @@ theorem charTime_baiTask_eq_inv_answerValue (ha : ∀ b ≠ a, mean θ b < mean 
 
 end MeanFunctional
 
-variable (ν : (α → ℝ) → Kernel α 𝓨) [∀ μ, IsMarkovKernel (ν μ)] {S : Set (α → ℝ)}
+variable {a : α} (ν : (α → ℝ) → Kernel α 𝓨) [∀ μ, IsMarkovKernel (ν μ)] {S : Set (α → ℝ)}
   {μ' : α → ℝ}
 
 /-- The vectors of means with unique best arm `a` form an open set. -/
-lemma isOpen_answerSet_baiTask [Finite α] (a : α) : IsOpen ((baiTask ν id).answerSet a) := by
-  have h : (baiTask ν id).answerSet a = ⋂ b ∈ ({a}ᶜ : Set α), {μ' | μ' b < μ' a} := by
-    ext μ'
-    rw [mem_answerSet_baiTask_iff]
-    simp
-  rw [h]
-  exact (Set.toFinite _).isOpen_biInter fun b _ ↦
-    isOpen_lt (continuous_apply b) (continuous_apply a)
+lemma isOpen_answerSet_baiTask [Finite α] (a : α) : IsOpen ((baiTask ν id).answerSet a) :=
+  isOpen_answerSet_baiTask_of_continuous ν id continuous_apply a
 
 /-- For an open set `S` of vectors of means, the models of best arm identification restricted to
 `S` with unique best arm `a` form an open set. -/
