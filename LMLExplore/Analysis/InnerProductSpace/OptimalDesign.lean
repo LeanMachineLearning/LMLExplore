@@ -95,8 +95,6 @@ point `a` for each of them gives a design with the same design operator, hence t
   support of the design.
 * `LMLExplore.designOperator_map_subtype_apply`: on a subspace `K`, the design operator on `E` of
   a design on `K` restricts to its design operator on `K`.
-* `LMLExplore.inner_moorePenroseInverse_of_apply_coe_eq`: if a symmetric operator `T` on `E` acts
-  on a subspace `K` as an invertible operator `T_K` on `K`, then `⟪a, T⁺ c⟫ = ⟪a, T_K⁻¹ c⟫` on `K`.
 * `LMLExplore.designOperator_convexCombPair`: `V(w)` is affine in `w`.
 * `LMLExplore.mem_convexHull_image_rankOne_iff`: the convex hull of `{a ⊗ a | a ∈ 𝒜}` is the set
   of design operators of the designs on `𝒜`.
@@ -340,36 +338,6 @@ theorem isUnit_sum_smul_rankOne_of_mul_le [FiniteDimensional ℝ E] {ι : Type*}
     simpa [Units.smul_def] using hvu.smul (Units.mk0 c hc.ne')
   have hvp := isPositive_sum_smul_rankOne Finset.univ φ fun i _ ↦ hv i
   exact (hvp.smul_of_nonneg hc.le).isUnit_of_le hcu (smul_sum_smul_rankOne_le h)
-
-section Restrict
-
-variable {K : Submodule ℝ E} {T : E →L[ℝ] E} {T_K : K →L[ℝ] K}
-
-/-- If an operator `T` on `E` acts on a subspace `K` as an invertible operator `T_K` on `K`, then
-`T` maps `T_K⁻¹ v` to `v` for `v ∈ K`. -/
-theorem apply_coe_ringInverse_of_apply_coe_eq (hT : ∀ v : K, T v = T_K v) (hu : IsUnit T_K)
-    (v : K) : T ↑(Ring.inverse T_K v) = v := by
-  rw [hT, apply_ringInverse_apply hu]
-
-/-- If an operator `T` on `E` acts on a subspace `K` as an invertible operator `T_K` on `K`, then
-`K` lies in the range of `T`. -/
-theorem le_range_of_apply_coe_eq (hT : ∀ v : K, T v = T_K v) (hu : IsUnit T_K) :
-    K ≤ LinearMap.range (T : E →ₗ[ℝ] E) := fun v hv ↦
-  ⟨_, apply_coe_ringInverse_of_apply_coe_eq hT hu ⟨v, hv⟩⟩
-
-/-- If a symmetric operator `T` on a finite-dimensional space `E` acts on a subspace `K` as an
-invertible operator `T_K` on `K`, then the Moore–Penrose inverse of `T` acts on `K` as the inverse
-of `T_K`, in the weak sense `⟪a, T⁺ c⟫ = ⟪a, T_K⁻¹ c⟫` for `a c ∈ K`. -/
-theorem inner_moorePenroseInverse_of_apply_coe_eq [FiniteDimensional ℝ E]
-    (hsym : (T : E →ₗ[ℝ] E).IsSymmetric) (hT : ∀ v : K, T v = T_K v) (hu : IsUnit T_K)
-    (a c : K) :
-    ⟪(a : E), (T : E →ₗ[ℝ] E).moorePenroseInverse c⟫_ℝ = ⟪a, Ring.inverse T_K c⟫_ℝ := by
-  have h := hsym.moorePenroseInverse_apply_apply_of_mem_range
-    (le_range_of_apply_coe_eq hT hu (Ring.inverse T_K c).2)
-  rw [coe_coe, apply_coe_ringInverse_of_apply_coe_eq hT hu] at h
-  rw [h, Submodule.coe_inner]
-
-end Restrict
 
 /-! ### Features in their span -/
 
