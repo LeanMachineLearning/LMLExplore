@@ -88,8 +88,7 @@ instead, which needs neither. The statement and its proof are adapted from
 public section
 
 open MeasureTheory Filter
-open TauCeti.Probability (shift shift_iterate_apply shift_iterate_eq_reindex
-  measurable_shift_iterate)
+open TauCeti.Probability (shift shift_iterate_eq_reindex measurable_shift_iterate)
 open scoped ENNReal Topology
 
 /-! ### The truncated logarithm, and monotone convergence for truncations -/
@@ -324,19 +323,6 @@ private lemma exists_seq_boundedLogEVarSet [MeasurableSpace.CountablyGenerated �
   obtain ⟨i, hi⟩ := (hint.eventually (lt_mem_nhds hc)).exists
   exact ⟨_, hi⟩
 
-/-- **Mixing with a constant.** For `ε ∈ [0, 1]`, the mixture `(1 - ε) E + ε` of an e-variable
-`E` with the constant `1` is an e-variable. -/
-private lemma IsEVar.ofReal_one_sub_mul_add_ofReal {Ω : Type*} [MeasurableSpace Ω]
-    {S : Set (Measure Ω)} {E : Ω → ℝ≥0∞} (hE : IsEVar E S) {ε : ℝ} (hε0 : 0 ≤ ε) (hε1 : ε ≤ 1) :
-    IsEVar (fun x ↦ ENNReal.ofReal (1 - ε) * E x + ENNReal.ofReal ε) S := by
-  have h : IsEVar (ENNReal.ofReal (1 - ε) • E + ENNReal.ofReal ε • 1) S :=
-    convex_isEVar S hE (isEVar_one S) (zero_le : 0 ≤ ENNReal.ofReal (1 - ε))
-      (zero_le : 0 ≤ ENNReal.ofReal ε)
-      (by rw [← ENNReal.ofReal_add (by linarith) hε0, sub_add_cancel, ENNReal.ofReal_one])
-  convert h using 1
-  ext x
-  simp
-
 /-- For `a > 0`, some `ε ∈ (0, 1)` has `log (1 - ε) = -a`. -/
 private lemma exists_log_one_sub_eq_neg {a : ℝ} (ha : 0 < a) :
     ∃ ε : ℝ, 0 < ε ∧ ε < 1 ∧ Real.log (1 - ε) = -a := by
@@ -484,16 +470,6 @@ private lemma measurable_blockSum {g : (ℕ → 𝓧) → ℝ} (hg : Measurable 
     Measurable (blockSum L g k) :=
   Finset.measurable_sum _ fun _ _ ↦ hg.comp (measurable_shift_iterate _)
 
-/-- A function of the first `L` observations, played on the sequence shifted by `a`, is a
-function of the first `a + L` observations. -/
-private lemma dependsOn_comp_shift_iterate {β : Type*} {L : ℕ} {g : (ℕ → 𝓧) → β}
-    (hg : DependsOn g (Set.Iio L)) (a : ℕ) :
-    DependsOn (g ∘ (shift 𝓧)^[a]) (Set.Iio (a + L)) := by
-  intro ω ω' h
-  refine hg fun i hi ↦ ?_
-  simp only [shift_iterate_apply]
-  exact h _ (by simp only [Set.mem_Iio] at hi ⊢; omega)
-
 /-- The sums of a function of the first `L` observations over `k` blocks of `L` observations are
 functions of the first `L * k` observations. -/
 private lemma dependsOn_blockSum {L : ℕ} {g : (ℕ → 𝓧) → ℝ} (hg : DependsOn g (Set.Iio L))
@@ -580,18 +556,6 @@ private lemma ae_tendsto_blockSum (Q : Measure 𝓧) [IsProbabilityMeasure Q] {L
 The weight of `k` blocks in the mixture is `coverWeight (k + 1) = 1 / ((k + 1) (k + 2))`, the
 weight of the covering mixture of `AlmostSure.lean`. -/
 
-/-- The weights of the numbers of blocks are positive. -/
-private lemma coverWeight_succ_pos (k : ℕ) : 0 < coverWeight (k + 1) := by
-  rw [coverWeight_def]
-  positivity
-
-/-- The weights of all the numbers of blocks add up to at most `1`. -/
-private lemma tsum_ofReal_coverWeight_succ_le_one :
-    ∑' k : ℕ, ENNReal.ofReal (coverWeight (k + 1)) ≤ 1 := by
-  refine ENNReal.tsum_le_of_sum_range_le fun n ↦ ?_
-  rw [← ENNReal.ofReal_sum_of_nonneg fun k _ ↦ (coverWeight_succ_pos k).le]
-  exact ENNReal.ofReal_le_one.2 (sum_coverWeight_le_one n)
-
 /-- The logarithm of the weight of `n / L` blocks, divided by `n`, tends to `0`. -/
 private lemma tendsto_log_coverWeight_div (L : ℕ) :
     Tendsto (fun n : ℕ ↦ Real.log (coverWeight (n / L + 1)) / n) atTop (𝓝 0) := by
@@ -619,8 +583,8 @@ private lemma tendsto_log_coverWeight_div (L : ℕ) :
       _ ≤ Real.log (coverWeight (n / L + 1)) := Real.log_le_log (by positivity) hge
     rw [mul_div_assoc', neg_mul]
     exact div_le_div_of_nonneg_right hlog (Nat.cast_nonneg n)
-  · refine div_nonpos_of_nonpos_of_nonneg (Real.log_nonpos (coverWeight_succ_pos _).le ?_)
-      (Nat.cast_nonneg n)
+  · refine div_nonpos_of_nonpos_of_nonneg
+      (Real.log_nonpos (coverWeight_pos (Nat.succ_pos _)).le ?_) (Nat.cast_nonneg n)
     rw [coverWeight_def]
     rw [div_le_one (by positivity)]
     push_cast
@@ -747,7 +711,7 @@ private lemma tendsto_add_log_coverWeight_div {s : ℕ → ℝ} {μ c : ℝ} {L 
   have hn0 : (n : ℝ) ≠ 0 := by
     have : 1 ≤ n := hL.trans hn
     positivity
-  rw [Real.log_mul hc.ne' (coverWeight_succ_pos _).ne']
+  rw [Real.log_mul hc.ne' (coverWeight_pos (Nat.succ_pos _)).ne']
   field_simp
 
 /-- **Growth of the mixture.** Almost surely under the i.i.d. law of `Q`, the mixture grows at
@@ -765,7 +729,7 @@ private lemma le_liminf_log_blockMixture (Q : Measure 𝓧) [IsProbabilityMeasur
     blockSum L (g i) (n / L) ω + Real.log (2⁻¹ ^ (i + 1) * coverWeight (n / L + 1))
   have hbound : ∀ n, ENNReal.ofReal (Real.exp (r n)) ≤ blockMixture len g n ω := by
     intro n
-    have hw := coverWeight_succ_pos (n / L)
+    have hw := coverWeight_pos (Nat.succ_pos (n / L))
     have hterm : ENNReal.ofReal (Real.exp (r n)) = blockMixtureTerm len g i (n / L) ω := by
       simp only [r, blockMixtureTerm]
       rw [Real.exp_add, Real.exp_log (mul_pos (by positivity) hw), mul_comm,

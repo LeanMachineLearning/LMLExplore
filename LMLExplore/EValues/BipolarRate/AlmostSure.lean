@@ -29,7 +29,8 @@ trajectory.
 
 * `ProbabilityTheory.coverWeight`: the weight `1 / (k (k + 1))` of a block of `k` observations in
   a mixture over block lengths; the weights of `1, 2, …` add up to at most `1`
-  (`ProbabilityTheory.sum_coverWeight_le_one`).
+  (`ProbabilityTheory.sum_coverWeight_le_one`,
+  `ProbabilityTheory.tsum_ofReal_coverWeight_succ_le_one`).
 
 ## Main statements
 
@@ -115,6 +116,18 @@ lemma sum_coverWeight_le_one (n : ℕ) :
   rw [h]
   have : 0 ≤ 1 / ((n : ℝ) + 1) := by positivity
   linarith
+
+/-- The weights of the covering mixture of nonempty blocks are positive. -/
+lemma coverWeight_pos {k : ℕ} (hk : 0 < k) : 0 < coverWeight k := by
+  rw [coverWeight_def]
+  exact one_div_pos.2 (mul_pos (Nat.cast_pos.2 hk) (by positivity))
+
+/-- The weights of the blocks of all lengths `1, 2, …` add up to at most `1`. -/
+lemma tsum_ofReal_coverWeight_succ_le_one :
+    ∑' k : ℕ, ENNReal.ofReal (coverWeight (k + 1)) ≤ 1 := by
+  refine ENNReal.tsum_le_of_sum_range_le fun n ↦ ?_
+  rw [← ENNReal.ofReal_sum_of_nonneg fun k _ ↦ coverWeight_nonneg _]
+  exact ENNReal.ofReal_le_one.2 (sum_coverWeight_le_one n)
 
 /-- The logarithm of the inverse weight of a block is at most `ε` times its length, for long
 blocks. -/
