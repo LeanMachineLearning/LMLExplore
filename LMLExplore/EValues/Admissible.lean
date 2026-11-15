@@ -7,6 +7,7 @@ module
 
 public import LMLExplore.EValues.EVariable
 public import Statlib.EValues.Product
+public import LMLExplore.MeasureTheory.Measure.Prod
 
 /-!
 # Admissible e-variables
@@ -117,6 +118,38 @@ structure IsStronglyAdmissibleEVar (E : Ω → ℝ≥0∞) (S : Set (Measure Ω)
   exists_lintegral_eq : ∀ A, MeasurableSet A → (∃ P ∈ S, P A ≠ 0) →
     ∃ P ∈ S, P A ≠ 0 ∧ ∫⁻ ω, E ω ∂P = P univ
 
+/-- A measurable function equal to a strongly admissible e-variable almost surely under every
+member of the null is a strongly admissible e-variable. -/
+theorem IsStronglyAdmissibleEVar.congr (hE : IsStronglyAdmissibleEVar E S) (hF : Measurable F)
+    (hEF : ∀ P ∈ S, E =ᵐ[P] F) : IsStronglyAdmissibleEVar F S where
+  toIsEVar := hE.toIsEVar.congr hF hEF
+  exists_lintegral_eq A hA hSA := by
+    obtain ⟨P, hP, hPA, hPE⟩ := hE.exists_lintegral_eq A hA hSA
+    exact ⟨P, hP, hPA, by rw [← lintegral_congr_ae (hEF P hP), hPE]⟩
+
+/-- For a null of probability measures, `E` is a strongly admissible e-variable exactly when it is
+an e-variable such that every measurable set charged by a member of the null is charged by a
+member under which `E` has expectation one. -/
+theorem isStronglyAdmissibleEVar_iff (hS : ∀ P ∈ S, IsProbabilityMeasure P) :
+    IsStronglyAdmissibleEVar E S ↔ IsEVar E S ∧ ∀ A, MeasurableSet A → (∃ P ∈ S, P A ≠ 0) →
+      ∃ P ∈ S, P A ≠ 0 ∧ ∫⁻ ω, E ω ∂P = 1 := by
+  refine ⟨fun hE ↦ ⟨hE.toIsEVar, fun A hA hSA ↦ ?_⟩, fun ⟨hE, h⟩ ↦ ⟨hE, fun A hA hSA ↦ ?_⟩⟩
+  · obtain ⟨P, hP, hPA, hPE⟩ := hE.exists_lintegral_eq A hA hSA
+    have := hS P hP
+    exact ⟨P, hP, hPA, by simpa using hPE⟩
+  · obtain ⟨P, hP, hPA, hPE⟩ := h A hA hSA
+    have := hS P hP
+    exact ⟨P, hP, hPA, by simpa using hPE⟩
+
+/-- For a null of probability measures, an e-variable such that every measurable set charged by a
+member of the null is charged by a member under which it has expectation one is strongly
+admissible. -/
+theorem IsStronglyAdmissibleEVar.of_lintegral_eq_one (hS : ∀ P ∈ S, IsProbabilityMeasure P)
+    (hE : IsEVar E S) (h : ∀ A, MeasurableSet A → (∃ P ∈ S, P A ≠ 0) →
+      ∃ P ∈ S, P A ≠ 0 ∧ ∫⁻ ω, E ω ∂P = 1) :
+    IsStronglyAdmissibleEVar E S :=
+  (isStronglyAdmissibleEVar_iff hS).2 ⟨hE, h⟩
+
 /-- A strongly admissible e-variable for a null of finite measures is admissible
 [RW, Corollary 2.15 (a)]. -/
 theorem IsStronglyAdmissibleEVar.isAdmissibleEVar (hS : ∀ P ∈ S, IsFiniteMeasure P)
@@ -131,15 +164,10 @@ theorem IsStronglyAdmissibleEVar.isAdmissibleEVar (hS : ∀ P ∈ S, IsFiniteMea
     -- integral at most that of `E`
     obtain ⟨P, hP, hPA, hPE⟩ := hE.exists_lintegral_eq _ hA ⟨P₀, hP₀, hP₀A⟩
     have := hS P hP
-    have h_sub : ∫⁻ ω, F ω - E ω ∂P = 0 := by
-      rw [lintegral_sub hE.measurable (by rw [hPE]; exact measure_ne_top P univ) (hEF P hP), hPE]
-      exact tsub_eq_zero_of_le (hF.lintegral_le_measure_univ P hP)
-    rw [lintegral_eq_zero_iff (f := fun ω ↦ F ω - E ω) (hF.measurable.sub hE.measurable)]
-      at h_sub
-    have h_le : ∀ᵐ ω ∂P, ¬ E ω < F ω := by
-      filter_upwards [h_sub] with ω hω
-      exact not_lt.2 (tsub_eq_zero_iff_le.1 hω)
-    exact hPA (by simpa only [not_not] using ae_iff.1 h_le)
+    have h_eq : E =ᵐ[P] F := ae_eq_of_ae_le_of_lintegral_le (hEF P hP)
+      (by rw [hPE]; exact measure_ne_top P univ) hF.measurable.aemeasurable
+      (by rw [hPE]; exact hF.lintegral_le_measure_univ P hP)
+    exact hPA (measure_mono_null (fun ω hω ↦ (hω : E ω < F ω).ne) h_eq)
 
 /-- An exact e-variable is strongly admissible. -/
 theorem IsExactEVar.isStronglyAdmissibleEVar (hE : IsExactEVar E S) :
@@ -216,24 +244,17 @@ theorem IsStronglyAdmissibleEVar.prod {F : Ω' → ℝ≥0∞} (hE : IsStronglyA
     have := hT P' hP'
     -- replace the first factor by a member of `S` under which `E` is exact
     have hB := measurable_measure_prodMk_left (ν := P') hA
-    obtain ⟨P₁, hP₁, hP₁B, hP₁E⟩ := hE.exists_lintegral_eq _
-      (hB (measurableSet_singleton 0).compl)
-      ⟨P, hP, ((lintegral_pos_iff_support hB).1
-        (by rwa [← Measure.prod_apply hA, pos_iff_ne_zero])).ne'⟩
+    obtain ⟨P₁, hP₁, hP₁B, hP₁E⟩ := hE.exists_lintegral_eq _ (measurableSet_support hB)
+      ⟨P, hP, (Measure.prod_apply_ne_zero_iff hA).1 hPA⟩
     have := hS P₁ hP₁
-    have hP₁A : (P₁.prod P') A ≠ 0 := by
-      rw [Measure.prod_apply hA]
-      exact ((lintegral_pos_iff_support hB).2 (pos_iff_ne_zero.2 hP₁B)).ne'
+    have hP₁A : (P₁.prod P') A ≠ 0 := (Measure.prod_apply_ne_zero_iff hA).2 hP₁B
     -- then the second factor by a member of `T` under which `F` is exact
     have hC := measurable_measure_prodMk_right (μ := P₁) hA
-    obtain ⟨P₂, hP₂, hP₂C, hP₂F⟩ := hF.exists_lintegral_eq _
-      (hC (measurableSet_singleton 0).compl)
-      ⟨P', hP', ((lintegral_pos_iff_support hC).1
-        (by rwa [← Measure.prod_apply_symm hA, pos_iff_ne_zero])).ne'⟩
+    obtain ⟨P₂, hP₂, hP₂C, hP₂F⟩ := hF.exists_lintegral_eq _ (measurableSet_support hC)
+      ⟨P', hP', (Measure.prod_apply_ne_zero_iff_symm hA).1 hP₁A⟩
     have := hT P₂ hP₂
     refine ⟨P₁.prod P₂, ⟨P₁, hP₁, P₂, hP₂, rfl⟩, ?_, ?_⟩
-    · rw [Measure.prod_apply_symm hA]
-      exact ((lintegral_pos_iff_support hC).2 (pos_iff_ne_zero.2 hP₂C)).ne'
+    · exact (Measure.prod_apply_ne_zero_iff_symm hA).2 hP₂C
     · rw [lintegral_prod_mul hE.measurable.aemeasurable hF.measurable.aemeasurable, hP₁E, hP₂F,
         ← univ_prod_univ, Measure.prod_prod]
 
