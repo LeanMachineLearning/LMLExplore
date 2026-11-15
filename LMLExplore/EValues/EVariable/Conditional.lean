@@ -8,7 +8,7 @@ module
 public import LMLExplore.EValues.EVariable
 
 /-!
-# Numeraires of nulls with a common conditional law given a statistic
+# The conditional e-variable given a statistic
 
 Let `T : Ω → 𝓨` be a statistic and `κ : Kernel 𝓨 Ω` a kernel such that `κ y` is carried by the
 fiber `T ⁻¹' {y}`. Suppose that `κ` is the conditional law given `T` of every member `P` of a
@@ -19,12 +19,15 @@ The likelihood ratio of `Q` to `κ ∘ₘ Q.map T` integrates to one against `κ
 every `y`: its conditional expectation given `T` is one. So it is an e-variable for `S`, with
 expectation exactly the mass `P univ` (one for probability measures) under every member `P` of `S`
 such that the law of `T` under `P` is absolutely continuous with respect to its law under `Q`. This
-is the conditional e-variable of [HGLLA24]. When moreover `κ ∘ₘ Q.map T` belongs to the effective
-null of `S` (for example when it is a mixture of members of `S`, by
-`ProbabilityTheory.comp_mem_effectiveSet`), this likelihood ratio is the numeraire of `S` under
-`Q` by the criterion of [LRR25, Theorem 4.1] (`ProbabilityTheory.isNumeraire_of_ae_eq_rnDeriv`),
-and `κ ∘ₘ Q.map T` is the reverse information projection of `Q` on `S` when it is equivalent to
-`Q` (`ProbabilityTheory.ripr_eq_of_isEVar_rnDeriv`).
+is the conditional e-variable of [HGLLA24].
+
+This file contains no statement about numeraires; they follow from the results here and those of
+`LMLExplore.EValues.Numeraire`. When moreover `κ ∘ₘ Q.map T` belongs to the effective null of `S`
+(for example when it is a mixture of members of `S`, by `ProbabilityTheory.comp_mem_effectiveSet`),
+this likelihood ratio is the numeraire of `S` under `Q` by the criterion of [LRR25, Theorem 4.1]
+(`ProbabilityTheory.isNumeraire_of_ae_eq_rnDeriv`), and `κ ∘ₘ Q.map T` is the reverse
+information projection of `Q` on `S` when it is equivalent to `Q`
+(`ProbabilityTheory.ripr_eq_of_isEVar_rnDeriv`).
 
 ## Main statements
 
