@@ -9,7 +9,7 @@ public import LMLExplore.EValues.EVariable.Conditional
 public import LMLExplore.EValues.Numeraire
 public import LMLExplore.Probability.Kernel.AntidiagonalUniform
 public import Mathlib.Probability.Distributions.Geometric
-import LMLExplore.Algebra.GeomSum
+import LMLExplore.Algebra.BigOperators.NatAntidiagonal
 import LMLExplore.MeasureTheory.Measure.Singletons
 import LMLExplore.Probability.Distributions.Geometric
 import LMLExplore.Probability.Distributions.Uniform
