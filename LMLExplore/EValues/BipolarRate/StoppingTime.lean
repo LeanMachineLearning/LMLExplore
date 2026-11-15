@@ -246,7 +246,7 @@ theorem IsEProcess.eintegral_log_stoppedValue_le_mul_bipolarRate (Q₁ : Measure
         bipolarRate Q₁ S₁ := by
   by_cases hQ : IsProbabilityMeasure Q₁
   swap
-  · simp [Measure.infinitePi_of_not_isProbabilityMeasure (μ := fun _ : ℕ ↦ Q₁) fun h ↦ hQ (h 0)]
+  · simp [Measure.infinitePi_eq_zero_of_not_isProbabilityMeasure (μ := fun _ : ℕ ↦ Q₁) (i := 0) hQ]
   set m := ∫⁻ ω, (τ ω : ℝ≥0∞) + 1 ∂Measure.infinitePi (fun _ : ℕ ↦ Q₁)
   have hm0 : (0 : EReal) < m := by
     have : (1 : ℝ≥0∞) ≤ m :=
