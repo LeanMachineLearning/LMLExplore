@@ -720,7 +720,7 @@ theorem ae_limsup_log_div_le_bipolarRate_of_dependsOn (Q₁ : Measure 𝓧)
       limsup (fun n : ℕ ↦ ENNReal.log (F n ω) / (n : EReal)) atTop ≤ bipolarRate Q₁ S₁ := by
   by_cases hQ : IsProbabilityMeasure Q₁
   swap
-  · simp [Measure.infinitePi_eq_zero_of_not_isProbabilityMeasure (μ := fun _ : ℕ ↦ Q₁) (i := 0) hQ]
+  · exact Measure.ae_infinitePi_of_not_isProbabilityMeasure (i := 0) hQ
   set μ := Measure.infinitePi (fun _ : ℕ ↦ Q₁)
   by_cases hd : bipolarRate Q₁ S₁ = ⊤
   · simp [hd]

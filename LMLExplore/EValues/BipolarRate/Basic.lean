@@ -141,6 +141,13 @@ lemma maxLogGrowth_one (Q₁ : Measure 𝓧) (S₁ : Set (Measure 𝓧)) :
   ext μ
   simp only [Set.mem_image, Set.mem_ofPred_eq, h_map]
 
+/-- The `k`-fold products of the members of a set of finite measures are finite measures. -/
+lemma isFiniteMeasure_of_mem_image_pi (hS₁ : ∀ P ∈ S₁, IsFiniteMeasure P) (k : ℕ) :
+    ∀ μ ∈ (fun P ↦ Measure.pi fun _ : Fin k ↦ P) '' S₁, IsFiniteMeasure μ := by
+  rintro _ ⟨P, hP, rfl⟩
+  have := hS₁ P hP
+  infer_instance
+
 /-- **Superadditivity** of the maximal expected logarithm of e-variables for an i.i.d. null
 [RR26, Lemma 3.2]: the product of an `m`-sample e-variable and an `n`-sample e-variable, on
 disjoint blocks of observations, is an `m + n`-sample e-variable (Statlib's `IsEVar.prod`, through
@@ -157,16 +164,12 @@ theorem maxLogGrowth_add_le (Q₁ : Measure 𝓧) [IsProbabilityMeasure Q₁]
         (Measure.pi fun _ : Fin m ↦ P).prod (Measure.pi fun _ : Fin n ↦ P) :=
     ((measurePreserving_sumPiEquivProdPi fun _ ↦ P).comp
       ((measurePreserving_piCongrLeft (fun _ ↦ P) finSumFinEquiv).symm _)).map_eq
-  have h_fin (k : ℕ) :
-      ∀ μ ∈ (fun P ↦ Measure.pi fun _ : Fin k ↦ P) '' S₁, IsFiniteMeasure μ := by
-    rintro _ ⟨P, hP, rfl⟩
-    have := hS₁ P hP
-    infer_instance
   calc maxLogGrowth Q₁ S₁ m + maxLogGrowth Q₁ S₁ n
   _ = maxUtility ((Measure.pi fun _ : Fin m ↦ Q₁).prod (Measure.pi fun _ : Fin n ↦ Q₁))
       (Set.image2 Measure.prod ((fun P ↦ Measure.pi fun _ : Fin m ↦ P) '' S₁)
         ((fun P ↦ Measure.pi fun _ : Fin n ↦ P) '' S₁)) logUtility :=
-    by rw [maxLogGrowth_def, maxLogGrowth_def, maxUtility_prod_eq_add _ _ (h_fin m) (h_fin n)]
+    by rw [maxLogGrowth_def, maxLogGrowth_def, maxUtility_prod_eq_add _ _
+      (isFiniteMeasure_of_mem_image_pi hS₁ m) (isFiniteMeasure_of_mem_image_pi hS₁ n)]
   _ ≤ maxUtility ((Measure.pi fun _ : Fin (m + n) ↦ Q₁).map e)
       {μ.map e | μ ∈ (fun P ↦ Measure.pi fun _ : Fin (m + n) ↦ P) '' S₁} logUtility := by
     rw [h_map]
