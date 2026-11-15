@@ -240,8 +240,7 @@ theorem exists_isStoppingTime_lt_top_of_not_tendsto_mean {S : Set (Measure ℝ)}
   by_cases hP₁ : IsProbabilityMeasure P
   swap
   · -- the product of copies of `P` is zero
-    simp [Measure.infinitePi_eq_zero_of_not_isProbabilityMeasure (μ := fun _ : ℕ ↦ P)
-      fun h ↦ hP₁ (h 0)]
+    simp [Measure.infinitePi_eq_zero_of_not_isProbabilityMeasure (μ := fun _ : ℕ ↦ P) (i := 0) hP₁]
   set μ := Measure.infinitePi fun _ : ℕ ↦ P
   set m := ∫ y, y ∂P
   -- the i.i.d. law is exchangeable, and its first coordinate is integrable of law `P`

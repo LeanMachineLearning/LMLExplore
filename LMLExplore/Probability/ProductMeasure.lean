@@ -8,18 +8,20 @@ module
 public import LMLExplore.MeasureTheory.MeasurableSpace.Constructions
 public import Mathlib.Probability.Independence.InfinitePi
 public import Mathlib.Probability.Process.Filtration
+public import TauCeti.Probability.Ergodic.BernoulliShift
 import LMLExplore.MeasureTheory.Constructions.Pi
 import LMLExplore.MeasureTheory.Measure.Typeclasses.Probability
 import Mathlib.MeasureTheory.Function.FactorsThrough
+import Mathlib.Probability.Independence.Integration
 
 /-!
 # Infinite products of probability measures: coordinatewise properties, first and next terms
 
 Under the infinite product `Measure.infinitePi` of copies of a probability measure `μ`, the first
 `n` coordinates have the product law `Measure.pi`, and they are independent of the next `m`
-coordinates. Under a countable product, almost surely every coordinate has a property that almost
-every point of its factor has. The product of a family that is not made of probability measures is
-zero.
+coordinates. The shift of an i.i.d. sequence is again i.i.d. with the same law, and a function of
+the first `t` terms is independent of a function of the terms after them. Under a countable
+product, almost surely every coordinate has a property that almost every point of its factor has.
 
 If `Q + ∑ i, b i • P i = ∑ i, c i • P i` for a probability measure `Q` and probability measures
 `P i`, two functions of the first `N + 1` observations with equal integrals under the i.i.d. law of
@@ -37,8 +39,12 @@ the polarization step of [EVR26, Note 03, Theorem 1], adapted from
   coordinate `x i` satisfies `p i`.
 * `MeasureTheory.Measure.infinitePi_fin_mem_and_forall_add_mem`: for an i.i.d. sequence, the
   first `n` terms and the next `m` terms are independent.
-* `MeasureTheory.Measure.infinitePi_eq_zero_of_not_isProbabilityMeasure`: the product of a family
-  that is not made of probability measures is zero.
+* `MeasureTheory.measurePreserving_shift`, `MeasureTheory.measurePreserving_shift_iterate`: the
+  shift and its iterates preserve the i.i.d. law.
+* `MeasureTheory.lintegral_mul_comp_shift_iterate`: under an i.i.d. law, a function of the first
+  `t` terms is independent of a function of the terms after them.
+* `MeasureTheory.Measure.infinitePi_eq_zero_of_not_isProbabilityMeasure`: the infinite product
+  is `0` as soon as one factor is not a probability measure.
 * `MeasureTheory.Measure.lintegral_infinitePi_eq_of_add_sum_eq_sum`: polarization for i.i.d. laws,
   from the convex combinations of finitely many probability measures to every probability measure
   in their linear span.
@@ -53,6 +59,8 @@ the polarization step of [EVR26, Note 03, Theorem 1], adapted from
 
 public section
 
+open scoped ENNReal
+
 namespace MeasureTheory
 
 variable {𝓧 : Type*} {m𝓧 : MeasurableSpace 𝓧}
@@ -65,15 +73,57 @@ lemma measurePreserving_initSeg (P : Measure 𝓧) [IsProbabilityMeasure P] (n :
   rw [initSeg_def, ← Measure.infinitePi_eq_pi]
   exact Measure.map_infinitePi_infinitePi_of_inj Fin.val_injective
 
+open TauCeti.Probability (shift measurable_shift_iterate)
+
+/-- The shift preserves the i.i.d. law. -/
+lemma measurePreserving_shift (P : Measure 𝓧) [IsProbabilityMeasure P] :
+    MeasurePreserving (shift 𝓧) (Measure.infinitePi fun _ : ℕ ↦ P)
+      (Measure.infinitePi fun _ : ℕ ↦ P) :=
+  (Measure.ergodic_shift_infinitePi_const P).toMeasurePreserving
+
+/-- The iterates of the shift preserve the i.i.d. law. -/
+lemma measurePreserving_shift_iterate (P : Measure 𝓧) [IsProbabilityMeasure P] (t : ℕ) :
+    MeasurePreserving (shift 𝓧)^[t] (Measure.infinitePi fun _ : ℕ ↦ P)
+      (Measure.infinitePi fun _ : ℕ ↦ P) :=
+  (measurePreserving_shift P).iterate t
+
+open ProbabilityTheory in
+/-- Under an i.i.d. law, a function of the first `t` terms is independent of a function of the
+terms after them: the expectation of their product is the product of their expectations. -/
+lemma lintegral_mul_comp_shift_iterate (P : Measure 𝓧) [IsProbabilityMeasure P]
+    {f g : (ℕ → 𝓧) → ℝ≥0∞} {t : ℕ} (hf : Measurable f) (hft : DependsOn f (Set.Iio t))
+    (hg : Measurable g) :
+    ∫⁻ ω, f ω * g ((shift 𝓧)^[t] ω) ∂Measure.infinitePi (fun _ : ℕ ↦ P) =
+      (∫⁻ ω, f ω ∂Measure.infinitePi (fun _ : ℕ ↦ P)) *
+        ∫⁻ ω, g ω ∂Measure.infinitePi (fun _ : ℕ ↦ P) := by
+  have := nonempty_of_isProbabilityMeasure P
+  obtain ⟨F, hF, rfl⟩ := exists_measurable_eq_comp_initSeg hf hft
+  -- the first `t` coordinates are independent of the later ones
+  have hind : IndepFun (initSeg t) (shift 𝓧)^[t] (Measure.infinitePi fun _ : ℕ ↦ P) := by
+    have h := (iIndepFun_infinitePi (P := fun _ : ℕ ↦ P) (X := fun _ x ↦ x)
+      fun _ ↦ measurable_id).indepFun_set (Set.Iio t) (Set.Ici t)
+      (Set.disjoint_left.2 fun i (hi : i < t) (hi' : t ≤ i) ↦ (not_lt.2 hi') hi)
+      fun i ↦ measurable_pi_apply i
+    rw [initSeg_def, TauCeti.Probability.shift_iterate_eq_reindex]
+    exact h.comp (φ := fun (y : Set.Iio t → 𝓧) (i : Fin t) ↦ y ⟨i, i.2⟩)
+      (ψ := fun (y : Set.Ici t → 𝓧) (i : ℕ) ↦ y ⟨i + t, Nat.le_add_left t i⟩)
+      (by fun_prop) (by fun_prop)
+  rw [← (measurePreserving_shift_iterate P t).lintegral_comp hg]
+  exact lintegral_mul_eq_lintegral_mul_lintegral_of_indepFun (hF.comp (measurable_initSeg t))
+    (hg.comp (measurable_shift_iterate t)) (hind.comp hF hg)
+
 end MeasureTheory
 
 namespace MeasureTheory.Measure
 
-/-- `Measure.infinitePi` is zero on a family of measures that are not all probability measures. -/
-theorem infinitePi_eq_zero_of_not_isProbabilityMeasure {ι : Type*} {X : ι → Type*}
-    [∀ i, MeasurableSpace (X i)] {μ : (i : ι) → Measure (X i)}
-    (hμ : ¬ ∀ i, IsProbabilityMeasure (μ i)) : Measure.infinitePi μ = 0 := by
-  rw [Measure.infinitePi, dite_eq_right fun h ↦ (hμ h).elim]
+/-- The infinite product of a family of measures is `0` as soon as one of them is not a probability
+measure. -/
+lemma infinitePi_eq_zero_of_not_isProbabilityMeasure {ι : Type*} {X : ι → Type*}
+    [∀ i, MeasurableSpace (X i)] {μ : (i : ι) → Measure (X i)} {i : ι}
+    (h : ¬ IsProbabilityMeasure (μ i)) :
+    Measure.infinitePi μ = 0 := by
+  have h' : ¬ ∀ j, IsProbabilityMeasure (μ j) := fun h' ↦ h (h' i)
+  simp [Measure.infinitePi, h']
 
 /-- Under a countable product of probability measures, if almost every point of each factor
 satisfies a property, then almost surely every coordinate does. -/
