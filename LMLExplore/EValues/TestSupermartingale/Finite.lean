@@ -63,7 +63,7 @@ lemma fiberAvg_def (w : Ω → ℝ≥0∞) (f : Ω → β) (Z : Ω → ℝ≥0�
   rw [fiberAvg]
 
 /-- The fiber average over a fiber of weight `0` is `0`. -/
-lemma fiberAvg_of_sum_eq_zero {w : Ω → ℝ≥0∞} {f : Ω → β} (Z : Ω → ℝ≥0∞) {y : β}
+lemma fiberAvg_eq_zero_of_sum_eq_zero {w : Ω → ℝ≥0∞} {f : Ω → β} (Z : Ω → ℝ≥0∞) {y : β}
     (h : ∑ ω, (if f ω = y then w ω else 0) = 0) : fiberAvg w f Z y = 0 := by
   rw [fiberAvg_def, ENNReal.div_eq_zero_iff]
   refine Or.inl (Finset.sum_eq_zero fun ω _ ↦ ?_)
