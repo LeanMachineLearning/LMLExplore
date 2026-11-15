@@ -34,7 +34,7 @@ the function `H_z(x) = min_{y ∈ (1, z]} y (x - log log y)` of [KK21, Definitio
 
 ## Main statements
 
-* `LMLExplore.calibrationExp_eq`: the defining equation of `𝒞^exp` in terms of `H_{3/2}`.
+* `LMLExplore.calibrationExp_def`: the defining equation of `𝒞^exp` in terms of `H_{3/2}`.
 * `LMLExplore.isLeast_two_mul_minMulSubLogLog` [KK21, Lemma 12]: for `c > 0`, `x > 0` and
   `z ∈ (0, e - 1]`, the minimum of `(x - log (1 - λ (1 + ξ))) / λ + (1 + ξ) log (c / log² (1 + ξ))`
   over `ξ ∈ (0, z]` and `λ ∈ (0, 1 / (1 + ξ))` is `2 H_{1+z}((h⁻¹(1 + x) + log c) / 2)`. The case
@@ -64,7 +64,7 @@ noncomputable def calibrationExp (x : ℝ) : ℝ :=
   2 * minMulSubLogLog (3 / 2) ((subLogInv (1 + x) + log (π ^ 2 / 3)) / 2)
 
 /-- The defining equation `𝒞^exp(x) = 2 H_{3/2}((h⁻¹(1 + x) + log (π² / 3)) / 2)`. -/
-theorem calibrationExp_eq (x : ℝ) :
+theorem calibrationExp_def (x : ℝ) :
     calibrationExp x = 2 * minMulSubLogLog (3 / 2) ((subLogInv (1 + x) + log (π ^ 2 / 3)) / 2) := by
   rw [calibrationExp]
 
@@ -126,12 +126,12 @@ theorem isLeast_calibrationExp {x : ℝ} (hx : 0 < x) :
       (calibrationExp x) := by
   have h := isLeast_two_mul_minMulSubLogLog (c := π ^ 2 / 3) (z := 1 / 2) (by positivity) hx
     (by norm_num) (by linarith [three_halves_le_exp_one])
-  rw [calibrationExp_eq]
+  rw [calibrationExp_def]
   rwa [show (1 + 1 / 2 : ℝ) = 3 / 2 by norm_num] at h
 
 theorem monotone_calibrationExp : Monotone calibrationExp := by
   intro x x' hxx'
-  rw [calibrationExp_eq, calibrationExp_eq]
+  rw [calibrationExp_def, calibrationExp_def]
   refine mul_le_mul_of_nonneg_left (monotone_minMulSubLogLog (by norm_num)
     three_halves_le_exp_one ?_) zero_le_two
   gcongr
@@ -162,7 +162,7 @@ theorem one_add_add_log_le_calibrationExp {x : ℝ} (hx : 0 ≤ x) :
   have h := self_le_minMulSubLogLog (by norm_num) three_halves_le_exp_one hY
   have h1 := Real.add_log_le_subLogInv (by linarith : (0 : ℝ) < 1 + x)
   have h2 := one_le_log_pi_sq_div_three
-  rw [calibrationExp_eq]
+  rw [calibrationExp_def]
   linarith
 
 /-- The upper bound `𝒞^exp(x) ≤ x + 3 log (1 + x) + 11` for `x ≥ 0`: with the lower bound
@@ -199,7 +199,7 @@ theorem calibrationExp_le_add_three_mul_log_add {x : ℝ} (hx : 0 ≤ x) :
     max_le (by linarith [Real.subLogInv_le_add_log_two_mul hY])
       (by norm_num at h32 ⊢; linarith [log_two_gt_d9])
   have h := minMulSubLogLog_le_max (z := 3 / 2) (by norm_num) ((u₁ + L) / 2)
-  rw [calibrationExp_eq]
+  rw [calibrationExp_def]
   linarith
 
 end LMLExplore

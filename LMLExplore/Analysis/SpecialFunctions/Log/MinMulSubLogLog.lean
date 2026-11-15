@@ -15,7 +15,7 @@ import Mathlib.Analysis.SpecialFunctions.Log.Deriv
 For `z ∈ (1, e]`, Kaufmann and Koolen [KK21, Definition 29] introduce the function
 `H_z(x) = min_{y ∈ (1, z]} y (x - log log y)` (written with a tilde over `h` in [KK21]). With the
 inverse `h⁻¹` of `h(u) = u - log u` on `[1, ∞)` (`Real.subLogInv`), its minimizer is
-`y = exp (1 / h⁻¹(x))` when this point is at most `z`, and `y = z` otherwise [KK21, (9), Lemma 30].
+`y = exp (1 / h⁻¹(x))` when `h(1 / log z) ≤ x`, and `y = z` otherwise [KK21, (9), Lemma 30].
 `H_z` is the outer step of the optimal tuning of their time-uniform deviation inequalities for
 several arms [KK21, Lemma 12], proved with the calibration function `𝒞^exp` of [KK21, (10)] in
 `LMLExplore.SequentialLearning.CalibrationExp`.
@@ -36,10 +36,11 @@ several arms [KK21, Lemma 12], proved with the calibration function `𝒞^exp` o
 
 ## Implementation notes
 
-The closed form (9) of [KK21] as printed switches branches at `x ≥ h⁻¹(1 / log z)`. The
-unconstrained minimizer `exp (1 / h⁻¹(x))` is at most `z` exactly when `h(1 / log z) ≤ x`, which is
-the threshold used in the proof of [KK21, Lemma 30] (Appendix B.2), so `minMulSubLogLog` switches
-at `h(1 / log z)`: with this threshold the closed form is the minimum of [KK21, Definition 29].
+The closed form (9) of [KK21] as printed switches branches at `x ≥ h⁻¹(1 / log z)`. For `x ≥ 1`,
+the unconstrained minimizer `exp (1 / h⁻¹(x))` is at most `z` exactly when `h(1 / log z) ≤ x`; for
+`x < 1` the objective is decreasing on `(1, z]`, and `x < 1 ≤ h(1 / log z)`. This is the threshold
+used in the proof of [KK21, Lemma 30] (Appendix B.2), so `minMulSubLogLog` switches at
+`h(1 / log z)`: with this threshold the closed form is the minimum of [KK21, Definition 29].
 
 ## References
 
@@ -54,8 +55,8 @@ open Real Set
 namespace LMLExplore
 
 /-- The function `H_z(x) = min_{y ∈ (1, z]} y (x - log log y)` of [KK21, Definition 29], for
-`z ∈ (1, e]`, by its closed form [KK21, (9)]: `exp (1 / h⁻¹(x)) h⁻¹(x)` when `h(1 / log z) ≤ x`,
-that is, when the unconstrained minimizer `exp (1 / h⁻¹(x))` is at most `z`, and
+`z ∈ (1, e]`, by its closed form [KK21, (9)]: `exp (1 / h⁻¹(x)) h⁻¹(x)` when `h(1 / log z) ≤ x`
+(for `x ≥ 1`, exactly when the unconstrained minimizer `exp (1 / h⁻¹(x))` is at most `z`), and
 `z (x - log log z)` otherwise. Here `h(u) = u - log u` and `h⁻¹` is `Real.subLogInv`. The
 threshold `h(1 / log z)` is the one of the proof of [KK21, Lemma 30] (Appendix B.2); (9) as printed
 in [KK21] has `h⁻¹(1 / log z)` instead. That it is the minimum is
