@@ -34,6 +34,9 @@ means `∫⁻ E ∂P = P univ`, which is expectation one for a probability measu
 
 * `ProbabilityTheory.isAdmissibleEVar_iff_forall_le`: admissibility can be tested on the
   e-variables that dominate `E` everywhere.
+* `ProbabilityTheory.IsEVar.measure_lt_eq_zero_of_ae_le`: an e-variable that dominates `E`
+  almost surely under a finite member of the null under which `E` is exact is equal to `E`
+  almost surely under that member.
 * `ProbabilityTheory.IsStronglyAdmissibleEVar.isAdmissibleEVar`: a strongly admissible e-variable
   for a null of finite measures is admissible.
 * `ProbabilityTheory.IsExactEVar.isAdmissibleEVar`: so is an exact e-variable.
@@ -150,6 +153,16 @@ theorem IsStronglyAdmissibleEVar.of_lintegral_eq_one (hS : ∀ P ∈ S, IsProbab
     IsStronglyAdmissibleEVar E S :=
   (isStronglyAdmissibleEVar_iff hS).2 ⟨hE, h⟩
 
+/-- If an e-variable `F` dominates `E` almost surely under a finite member `P` of the null under
+which `E` is exact, `∫⁻ E ∂P = P univ`, then `F` is equal to `E` almost surely under `P`: the event
+`E < F` is `P`-null. -/
+theorem IsEVar.measure_lt_eq_zero_of_ae_le [IsFiniteMeasure P] (hF : IsEVar F S) (hP : P ∈ S)
+    (hEF : E ≤ᵐ[P] F) (hE : ∫⁻ ω, E ω ∂P = P univ) : P {ω | E ω < F ω} = 0 := by
+  have h_eq : E =ᵐ[P] F := ae_eq_of_ae_le_of_lintegral_le hEF
+    (by rw [hE]; exact measure_ne_top P univ) hF.measurable.aemeasurable
+    (by rw [hE]; exact hF.lintegral_le_measure_univ P hP)
+  exact measure_mono_null (fun ω hω ↦ (hω : E ω < F ω).ne) h_eq
+
 /-- A strongly admissible e-variable for a null of finite measures is admissible
 [RW, Corollary 2.15 (a)]. -/
 theorem IsStronglyAdmissibleEVar.isAdmissibleEVar (hS : ∀ P ∈ S, IsFiniteMeasure P)
@@ -160,14 +173,10 @@ theorem IsStronglyAdmissibleEVar.isAdmissibleEVar (hS : ∀ P ∈ S, IsFiniteMea
     have hA : MeasurableSet {ω | E ω < F ω} := measurableSet_lt hE.measurable hF.measurable
     have hP₀A : P₀ {ω | E ω < F ω} ≠ 0 :=
       fun h0 ↦ h_not (ae_iff.2 (by simpa only [not_le] using h0))
-    -- under a member of the null that charges `{E < F}` and under which `E` is exact, `F` has
-    -- integral at most that of `E`
+    -- a member of the null that charges `{E < F}` and under which `E` is exact cannot charge it
     obtain ⟨P, hP, hPA, hPE⟩ := hE.exists_lintegral_eq _ hA ⟨P₀, hP₀, hP₀A⟩
     have := hS P hP
-    have h_eq : E =ᵐ[P] F := ae_eq_of_ae_le_of_lintegral_le (hEF P hP)
-      (by rw [hPE]; exact measure_ne_top P univ) hF.measurable.aemeasurable
-      (by rw [hPE]; exact hF.lintegral_le_measure_univ P hP)
-    exact hPA (measure_mono_null (fun ω hω ↦ (hω : E ω < F ω).ne) h_eq)
+    exact hPA (hF.measure_lt_eq_zero_of_ae_le hP (hEF P hP) hPE)
 
 /-- An exact e-variable is strongly admissible. -/
 theorem IsExactEVar.isStronglyAdmissibleEVar (hE : IsExactEVar E S) :
