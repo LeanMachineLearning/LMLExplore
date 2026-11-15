@@ -275,6 +275,26 @@ theorem isEMerging_iff_exists_le_add_sum_mul :
   rintro ⟨hF, w₀, w, hw, hle⟩
   exact (isEMerging_add_sum_mul hw.le).of_le hF hle
 
+omit [Fintype ι] in
+/-- If a weighted mean is at most another one at every finite argument, then each weight of the
+first is at most the corresponding weight of the second. -/
+private lemma le_and_forall_le_of_add_sum_mul_le [Fintype ι] {w₀ v₀ : ℝ≥0} {w v : ι → ℝ≥0}
+    (h : ∀ e : ι → ℝ≥0, w₀ + ∑ i, w i * e i ≤ v₀ + ∑ i, v i * e i) :
+    w₀ ≤ v₀ ∧ ∀ i, w i ≤ v i := by
+  classical
+  refine ⟨by simpa using h 0, fun i ↦ le_of_not_gt fun hlt ↦ ?_⟩
+  -- At the argument `t` on coordinate `i` and `0` elsewhere, for `t` large, the first mean
+  -- exceeds the second.
+  have hd : (0 : ℝ) < w i - v i := sub_pos.2 (by exact_mod_cast hlt)
+  set t : ℝ := (v₀ + 1) / (w i - v i)
+  have ht := h fun j ↦ if j = i then t.toNNReal else 0
+  simp only [mul_ite, mul_zero, Finset.sum_ite_eq', Finset.mem_univ, ↓reduceIte] at ht
+  have ht' : (w₀ : ℝ) + w i * t ≤ v₀ + v i * t := by
+    simpa [Real.coe_toNNReal _ (by positivity : 0 ≤ t)] using NNReal.coe_le_coe.2 ht
+  have h2 : (w i : ℝ) * t - v i * t = v₀ + 1 := by
+    rw [← sub_mul, mul_div_cancel₀ _ hd.ne']
+  linarith [NNReal.coe_nonneg w₀]
+
 /-- An **admissible** e-merging function [VW21, §3]: an e-merging function `F`
 such that every e-merging function dominating `F` at finite arguments equals `F` there. Values
 at infinite arguments are not compared, since they do not affect the e-merging property
@@ -306,18 +326,7 @@ theorem isAdmissibleEMerging_iff :
     have hwv (e : ι → ℝ≥0) : w₀ + ∑ i, w i * e i ≤ v₀ + ∑ i, v i * e i := by
       have := ((heq e).symm.trans_le (hle e)).trans (hGv e)
       rwa [← coe_add_sum_mul, ← coe_add_sum_mul, ENNReal.coe_le_coe] at this
-    have hw₀ : w₀ ≤ v₀ := by simpa using hwv 0
-    have hwi (i : ι) : w i ≤ v i := by
-      refine le_of_not_gt fun hlt ↦ ?_
-      have hd : (0 : ℝ) < w i - v i := sub_pos.2 (by exact_mod_cast hlt)
-      set t : ℝ := (v₀ + 1) / (w i - v i)
-      have ht := hwv fun j ↦ if j = i then t.toNNReal else 0
-      simp only [mul_ite, mul_zero, Finset.sum_ite_eq', Finset.mem_univ, ↓reduceIte] at ht
-      have ht' : (w₀ : ℝ) + w i * t ≤ v₀ + v i * t := by
-        simpa [Real.coe_toNNReal _ (by positivity : 0 ≤ t)] using NNReal.coe_le_coe.2 ht
-      have h2 : (w i : ℝ) * t - v i * t = v₀ + 1 := by
-        rw [← sub_mul, mul_div_cancel₀ _ hd.ne']
-      linarith [NNReal.coe_nonneg w₀]
+    obtain ⟨hw₀, hwi⟩ := le_and_forall_le_of_add_sum_mul_le hwv
     have hsum : ∑ i, w i ≤ ∑ i, v i := Finset.sum_le_sum fun i _ ↦ hwi i
     obtain ⟨rfl, hsum_eq⟩ := (add_eq_add_iff_eq_and_eq hw₀ hsum).1 (hw.trans hv.symm)
     have hvw : v = w := funext fun i ↦ ((Finset.sum_eq_sum_iff_of_le fun i _ ↦ hwi i).1
@@ -359,6 +368,37 @@ private lemma coe_add_mul_sum_div_card (lam : ℝ≥0) (e : ι → ℝ≥0) :
       lam + (1 - lam) * ((∑ i, (e i : ℝ≥0∞)) / Fintype.card ι) := by
   rw [ENNReal.coe_add, ENNReal.coe_mul, ENNReal.coe_sub, ENNReal.coe_one, coe_sum_div_card]
 
+/-- **Symmetrizing a dominating weighted mean**: if `F` is symmetric at finite arguments and
+dominated there by the weighted mean with weights `w₀` and `w i`, then it is also dominated by the
+weighted mean with weights `w₀` and the averages `(∑ σ, w (σ j)) / N` over the `N` permutations
+`σ`. -/
+private lemma le_add_sum_div_card_mul_of_symmetric [DecidableEq ι] {w₀ : ℝ≥0} {w : ι → ℝ≥0}
+    (hsymm : ∀ (σ : Equiv.Perm ι) (e : ι → ℝ≥0), F (fun i ↦ e (σ i)) = F (fun i ↦ e i))
+    (hle : ∀ e : ι → ℝ≥0, F (fun i ↦ e i) ≤ w₀ + ∑ i, (w i : ℝ≥0∞) * e i) (e : ι → ℝ≥0) :
+    F (fun i ↦ e i) ≤
+      ↑(w₀ + ∑ j, (∑ σ : Equiv.Perm ι, w (σ j)) / Fintype.card (Equiv.Perm ι) * e j) := by
+  set N : ℝ≥0 := (Fintype.card (Equiv.Perm ι) : ℝ≥0)
+  have hN : N ≠ 0 := by simp [N, Fintype.card_ne_zero]
+  -- `F e = F (e ∘ σ⁻¹)` is dominated by the weighted mean with the weights `w ∘ σ`.
+  have hσ (σ : Equiv.Perm ι) : F (fun i ↦ e i) ≤ ↑(w₀ + ∑ j, w (σ j) * e j) := by
+    refine ((hsymm σ⁻¹ e).symm.trans_le (hle _)).trans_eq ?_
+    rw [coe_add_sum_mul, ← Equiv.sum_comp σ fun j ↦ (w j : ℝ≥0∞) * e (σ⁻¹ j)]
+    simp
+  -- Average these bounds over the permutations `σ`.
+  have hsum : (N : ℝ≥0∞) * F (fun i ↦ e i) ≤
+      ↑(∑ σ : Equiv.Perm ι, (w₀ + ∑ j, w (σ j) * e j)) := by
+    have := Finset.card_nsmul_le_sum Finset.univ _ _ fun σ _ ↦ hσ σ
+    rwa [Finset.card_univ, nsmul_eq_mul, ← ENNReal.coe_natCast,
+      ← ENNReal.ofNNReal_finsetSum] at this
+  have hcalc : (∑ σ : Equiv.Perm ι, (w₀ + ∑ j, w (σ j) * e j)) / N =
+      w₀ + ∑ j, (∑ σ : Equiv.Perm ι, w (σ j)) / N * e j := by
+    rw [Finset.sum_add_distrib, Finset.sum_const, Finset.card_univ, nsmul_eq_mul, add_div,
+      mul_div_cancel_left₀ _ hN, Finset.sum_comm, Finset.sum_div]
+    simp only [← Finset.sum_mul, mul_div_right_comm]
+  rw [← hcalc, ENNReal.coe_div hN, ENNReal.le_div_iff_mul_le (Or.inl (by simpa using hN))
+    (Or.inl ENNReal.coe_ne_top), mul_comm]
+  exact hsum
+
 /-- **A symmetric e-merging function is dominated by a mixture of `1` and the arithmetic mean**
 [VW21, Theorem 3.2]: for some `λ ∈ [0, 1]`, `F e ≤ λ + (1 - λ) * (∑ i, e i) / K` at every finite
 argument `e`, with `K` the number of e-values. Symmetry is needed only at finite arguments. -/
@@ -369,40 +409,11 @@ theorem IsEMerging.exists_le_add_mul_sum_div_card (hF : IsEMerging F)
   classical
   obtain ⟨w₀, w, hw, hle⟩ := hF.exists_le_add_sum_mul
   refine ⟨w₀, hw ▸ le_self_add, fun e ↦ ?_⟩
-  rw [← coe_add_mul_sum_div_card]
-  -- Average the domination by `w ∘ σ⁻¹` over all permutations `σ`.
-  set N : ℝ≥0 := (Fintype.card (Equiv.Perm ι) : ℝ≥0)
-  have hN : N ≠ 0 := by simp [N, Fintype.card_ne_zero]
-  set v : ι → ℝ≥0 := fun j ↦ (∑ σ : Equiv.Perm ι, w (σ⁻¹ j)) / N
-  have hσ (σ : Equiv.Perm ι) : F (fun i ↦ e i) ≤ ↑(w₀ + ∑ j, w (σ⁻¹ j) * e j) := by
-    have h := ((hsymm σ e).symm.trans_le (hle (e ∘ σ))).trans_eq (coe_add_sum_mul _ _ _).symm
-    refine h.trans_eq ?_
-    congr 2
-    rw [← Equiv.sum_comp σ fun j ↦ w (σ⁻¹ j) * e j]
-    simp
-  have havg : F (fun i ↦ e i) ≤ ↑(w₀ + ∑ j, v j * e j) := by
-    have hsum : (N : ℝ≥0∞) * F (fun i ↦ e i) ≤
-        ↑(∑ σ : Equiv.Perm ι, (w₀ + ∑ j, w (σ⁻¹ j) * e j)) := by
-      have := Finset.card_nsmul_le_sum Finset.univ _ _ fun σ _ ↦ hσ σ
-      simpa [N, nsmul_eq_mul] using this
-    have hcalc : (∑ σ : Equiv.Perm ι, (w₀ + ∑ j, w (σ⁻¹ j) * e j)) / N =
-        w₀ + ∑ j, v j * e j := by
-      rw [Finset.sum_add_distrib, Finset.sum_const, Finset.card_univ, nsmul_eq_mul, add_div,
-        mul_div_cancel_left₀ _ hN, Finset.sum_comm, Finset.sum_div]
-      simp only [v, ← Finset.sum_mul, mul_div_right_comm]
-    rw [← hcalc, ENNReal.coe_div hN]
-    refine (ENNReal.le_div_iff_mul_le (Or.inl (by simpa using hN))
-      (Or.inl ENNReal.coe_ne_top)).2 ?_
-    rw [mul_comm]
-    exact hsum
-  refine havg.trans_eq ?_
+  rw [← coe_add_mul_sum_div_card, mul_sum_div_card_eq_sum_mul]
+  refine (le_add_sum_div_card_mul_of_symmetric hsymm hle e).trans_eq ?_
   -- The averaged weights are all equal to `(1 - w₀) / K`.
-  have hc (j : ι) : v j = (1 - w₀) / Fintype.card ι := by
-    simp only [v, N]
-    rw [Fintype.sum_equiv (Equiv.inv (Equiv.Perm ι)) (fun σ ↦ w (σ⁻¹ j)) (fun σ ↦ w (σ j))
-      fun _ ↦ rfl, Equiv.Perm.sum_apply_div_card, ← hw, add_tsub_cancel_left]
-  rw [mul_sum_div_card_eq_sum_mul]
-  simp_rw [hc]
+  simp_rw [Equiv.Perm.sum_apply_div_card]
+  rw [← hw, add_tsub_cancel_left]
 
 /-- **The admissible symmetric e-merging functions** [VW21, Theorem 3.2]: a function of at least
 one e-value, symmetric at finite arguments, is an admissible e-merging function exactly when it is

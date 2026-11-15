@@ -17,6 +17,11 @@ public import TauCeti.Topology.Instances.ENNReal
 * `MeasureTheory.lintegral_finsetSum_indicator_one`: the Lebesgue integral of a finite sum of
   indicators of measurable sets is the sum of their measures, and
   `MeasureTheory.lintegral_finsetSum_indicator_one₀`, its version for null measurable sets.
+* `MeasureTheory.lintegral_ofReal_smul_add_smul_ne_top` and
+  `MeasureTheory.toReal_lintegral_ofReal_smul_add_smul`: against the mixture
+  `ofReal a • μ + ofReal b • ν` of two measures, a function with finite integrals against `μ` and
+  `ν` has finite integral, and for `a, b ≥ 0` its real value is
+  `a * (∫⁻ g ∂μ).toReal + b * (∫⁻ g ∂ν).toReal`.
 * `MeasureTheory.SimpleFunc.tendsto_lintegral_of_tendsto_measure`: the integral of a simple function
   with finite values is continuous for the setwise convergence of measures.
 * `MeasureTheory.SimpleFunc.lintegral_le_liminf_lintegral`: the integral of a simple function with
