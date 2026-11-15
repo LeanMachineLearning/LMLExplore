@@ -706,7 +706,7 @@ theorem inner_moorePenroseInverse_designOperator_map_subtype {K : Submodule ℝ 
     {w : StdSimplex ℝ K} (hu : IsUnit (designOperator w)) (a : K) :
     ⟪(a : E), (designOperator (w.map ((↑) : K → E)) : E →ₗ[ℝ] E).moorePenroseInverse a⟫_ℝ =
       ⟪a, Ring.inverse (designOperator w) a⟫_ℝ :=
-  inner_moorePenroseInverse_of_apply_coe_eq (isPositive_designOperator _).toLinearMap.isSymmetric
+  (isPositive_designOperator _).toLinearMap.isSymmetric.inner_moorePenroseInverse_of_apply_coe_eq
     (designOperator_map_subtype_apply w) hu a a
 
 /-- **The inverse on the span is the Moore–Penrose inverse.** If the operator
@@ -720,7 +720,7 @@ theorem inner_ringInverse_sum_smul_rankOne_spanFeatures {ι : Type*} [Fintype ι
         (spanFeatures φ c)⟫_ℝ =
       ⟪φ a, ((∑ i, p i • rankOne ℝ (φ i) (φ i) : E →L[ℝ] E) : E →ₗ[ℝ] E).moorePenroseInverse
         (φ c)⟫_ℝ :=
-  (inner_moorePenroseInverse_of_apply_coe_eq (isSymmetric_sum_smul_rankOne _ φ p)
+  ((isSymmetric_sum_smul_rankOne _ φ p).inner_moorePenroseInverse_of_apply_coe_eq
     (fun v ↦ by simp) hu _ _).symm
 
 /-- **Support reduction of G-optimal designs** [LS, Theorem 21.1]. Let `w` be a design with
