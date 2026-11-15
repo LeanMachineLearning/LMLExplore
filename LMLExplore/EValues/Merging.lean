@@ -170,19 +170,26 @@ theorem IsEMerging.lt_top [Finite ι] (hF : IsEMerging F) (e : ι → ℝ≥0) :
   exact ENNReal.top_ne_one (le_antisymm hle le_top)
 
 omit [Fintype ι] in
+/-- A function dominated on finite arguments by `G` is dominated by `G` almost everywhere, under
+every measure on `ι → ℝ≥0∞` whose coordinates are almost everywhere finite. -/
+theorem ae_le_of_forall_nnreal_le {ν : Measure (ι → ℝ≥0∞)} (hfin : ∀ᵐ e ∂ν, ∀ i, e i ≠ ∞)
+    (hle : ∀ e : ι → ℝ≥0, F (fun i ↦ e i) ≤ G (fun i ↦ e i)) : F ≤ᵐ[ν] G := by
+  filter_upwards [hfin] with e he
+  have : e = fun i ↦ ((e i).toNNReal : ℝ≥0∞) := funext fun i ↦ (ENNReal.coe_toNNReal (he i)).symm
+  rw [this]
+  exact hle _
+
+omit [Fintype ι] in
 /-- A measurable function dominated on finite arguments by an e-merging function is e-merging:
 the values of an e-merging function at infinite arguments are irrelevant, since the
 coordinates of `μ` are `μ`-almost surely finite. -/
 theorem IsEMerging.of_le [Countable ι] (hG : IsEMerging G) (hF : Measurable F)
     (hle : ∀ e : ι → ℝ≥0, F (fun i ↦ e i) ≤ G (fun i ↦ e i)) : IsEMerging F := by
-  refine ⟨hF, fun μ _ he ↦ (lintegral_mono_ae ?_).trans (hG.lintegral_le_one μ he)⟩
-  have hfin : ∀ᵐ e ∂μ, ∀ i, e i ≠ ∞ := ae_all_iff.2 fun i ↦
+  refine ⟨hF, fun μ _ he ↦ (lintegral_mono_ae (ae_le_of_forall_nnreal_le ?_ hle)).trans
+    (hG.lintegral_le_one μ he)⟩
+  exact ae_all_iff.2 fun i ↦
     (ae_lt_top (measurable_pi_apply i) ((he i).trans_lt ENNReal.one_lt_top).ne).mono
       fun _ h ↦ h.ne
-  filter_upwards [hfin] with e he
-  have : e = fun i ↦ ((e i).toNNReal : ℝ≥0∞) := funext fun i ↦ (ENNReal.coe_toNNReal (he i)).symm
-  rw [this]
-  exact hle _
 
 /-- The **weighted means** `e ↦ w₀ + ∑ i, w i * e i`, with nonnegative weights of total mass at
 most `1`, are e-merging. -/

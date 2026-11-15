@@ -8,6 +8,7 @@ module
 public import Mathlib.MeasureTheory.Constructions.Pi
 public import Mathlib.Probability.Independence.Basic
 public import Statlib.EValues.EVariable
+import LMLExplore.EValues.Merging
 import LMLExplore.MeasureTheory.Constructions.Pi
 import LMLExplore.MeasureTheory.Integral.Pi
 import LMLExplore.MeasureTheory.Integral.Lebesgue.Countable
@@ -133,14 +134,11 @@ e-values is one: the values at infinite arguments are irrelevant, since the coor
 almost surely finite under a product of laws with finite expectations. -/
 theorem IsIEMerging.of_le (hG : IsIEMerging G) (hF : Measurable F)
     (hle : ∀ e : ι → ℝ≥0, F (fun i ↦ e i) ≤ G (fun i ↦ e i)) : IsIEMerging F := by
-  refine ⟨hF, fun μ _ hμ ↦ (lintegral_mono_ae ?_).trans (hG.lintegral_le_one μ hμ)⟩
-  have hfin : ∀ᵐ e ∂Measure.pi μ, ∀ i, e i ≠ ∞ := Filter.eventually_all.2 fun i ↦
+  refine ⟨hF, fun μ _ hμ ↦ (lintegral_mono_ae (ae_le_of_forall_nnreal_le ?_ hle)).trans
+    (hG.lintegral_le_one μ hμ)⟩
+  exact Filter.eventually_all.2 fun i ↦
     Measure.tendsto_eval_ae_ae.eventually <| (ae_lt_top measurable_id'
       ((hμ i).trans_lt ENNReal.one_lt_top).ne).mono fun _ h ↦ h.ne
-  filter_upwards [hfin] with e he
-  have : e = fun i ↦ ((e i).toNNReal : ℝ≥0∞) := funext fun i ↦ (ENNReal.coe_toNNReal (he i)).symm
-  rw [this]
-  exact hle _
 
 /-- A merging function for independent e-values, applied to e-variables that are independent under
 every member of the null, is an e-variable. -/
