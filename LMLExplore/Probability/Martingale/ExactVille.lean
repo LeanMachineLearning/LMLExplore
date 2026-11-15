@@ -40,6 +40,9 @@ rejects the null as soon as the evidence exceeds `α⁻¹`.
 * `ProbabilityTheory.IsENNSupermartingale.setLIntegral_eq_add_stoppedValueLimsup`: exact optional
   stopping at a bounded stopping time `τ ≥ m`: `∫⁻ ω in s, M m ω ∂P` is the integral of `M` at
   `τ` plus that of the decrease up to `τ`.
+* `ProbabilityTheory.IsENNSupermartingale.setLIntegral_eq_add_stoppedValueLimsup_min`,
+  `ProbabilityTheory.IsENNSupermartingale.setLIntegral_eq_add_stoppedValueLimsup_add_iInf`: exact
+  optional stopping at any stopping time `T ≥ m`, with a horizon `N` and without one.
 * `ProbabilityTheory.IsENNSupermartingale.setLIntegral_eq_exact_ville_horizon`,
   `ProbabilityTheory.IsENNSupermartingale.lintegral_zero_eq_exact_ville_horizon`: the exact Ville
   identity with a horizon [dlP+26, Theorem 1].
@@ -139,11 +142,16 @@ theorem setLIntegral_eq_add_stoppedValueLimsup (hM : IsENNSupermartingale M ℱ 
   rw [integral_sub (hA_int m).integrableOn hint_A.integrableOn]
   linarith
 
-/-- Splitting at the horizon: for a stopping time `T ≥ m` and `N ≥ m`, the value at `min T N` is
-the value at `T` on `{T ≤ N}` and `M N` on `{N < T}`. -/
-private theorem setLIntegral_eq_add_add_of_le (hM : IsENNSupermartingale M ℱ S) (hP : P ∈ S)
-    [IsFiniteMeasure P] (h0 : ∫⁻ ω, M 0 ω ∂P ≠ ∞) {T : Ω → WithTop ℕ} (hT : IsStoppingTime ℱ T)
-    (hmT : ∀ ω, (m : WithTop ℕ) ≤ T ω) (hmN : m ≤ N) (hs : MeasurableSet[ℱ m] s) :
+/-- **Exact optional stopping in `ℝ≥0∞` with a horizon.** For an `ℝ≥0∞`-valued supermartingale with
+finite initial expectation under a finite measure, a stopping time `T ≥ m`, a horizon `N ≥ m` and
+an `ℱ m`-measurable set `s`, the integral of `M m` over `s` is that of `M` at `T` over
+`s ∩ {T ≤ N}`, plus that of the decrease from `m` to `T ∧ N` (the value at `T ∧ N` of
+`n ↦ ofReal (A m - A n)` for `A` the predictable part of the real values of `M`), plus that of
+`M N` over `s ∩ {N < T}`. -/
+theorem setLIntegral_eq_add_stoppedValueLimsup_min (hM : IsENNSupermartingale M ℱ S)
+    (hP : P ∈ S) [IsFiniteMeasure P] (h0 : ∫⁻ ω, M 0 ω ∂P ≠ ∞) {T : Ω → WithTop ℕ}
+    (hT : IsStoppingTime ℱ T) (hmT : ∀ ω, (m : WithTop ℕ) ≤ T ω) (hmN : m ≤ N)
+    (hs : MeasurableSet[ℱ m] s) :
     ∫⁻ ω in s, M m ω ∂P = ∫⁻ ω in s ∩ {ω | T ω ≤ N}, stoppedValueLimsup M T ω ∂P +
       ∫⁻ ω in s, stoppedValueLimsup (fun n ω ↦ ENNReal.ofReal
         (predictablePart (fun n ω ↦ (M n ω).toReal) ℱ P m ω -
@@ -210,7 +218,7 @@ theorem setLIntegral_eq_exact_ville_horizon (hM : IsENNSupermartingale M ℱ S) 
         (fun ω ↦ min (hittingAfter M (Ici b) m ω) N) ω ∂P +
       ∫⁻ ω in s ∩ {ω | (N : WithTop ℕ) < hittingAfter M (Ici b) m ω}, M N ω ∂P := by
   have hT := hM.isStoppingTime_hittingAfter_Ici (m := m) b
-  rw [hM.setLIntegral_eq_add_add_of_le hP h0 hT (natCast_le_hittingAfter (Ici b))
+  rw [hM.setLIntegral_eq_add_stoppedValueLimsup_min hP h0 hT (natCast_le_hittingAfter (Ici b))
     hmN hs,
     setLIntegral_stoppedValueLimsup_hittingAfter b
       ((ℱ.le m _ hs).inter (ℱ.le N _ (hT.measurableSet_le_natCast N)))
@@ -250,12 +258,16 @@ private theorem tendsto_setLIntegral_natCast_lt (hM : IsENNSupermartingale M ℱ
   refine tendsto_atTop_iInf (antitone_nat_of_succ_le fun k ↦ ?_)
   simpa [add_right_comm] using hr_succ (k + m) (Nat.le_add_left m k)
 
-/-- Letting the horizon tend to infinity: for a stopping time `T ≥ m`, the integral of `M m` over
-`s` is that of `M` at `T` over `s ∩ {T ≠ ⊤}`, plus the decrease up to `T`, plus the limit of the
+/-- **Exact optional stopping in `ℝ≥0∞` without horizon.** For an `ℝ≥0∞`-valued supermartingale
+with finite initial expectation under a finite measure, a stopping time `T ≥ m` (possibly
+infinite) and an `ℱ m`-measurable set `s`, the integral of `M m` over `s` is that of `M` at `T`
+over `s ∩ {T ≠ ⊤}`, plus that of the decrease from `m` to `T` (the value at `T`, read with
+`MeasureTheory.stoppedValueLimsup`, of `n ↦ ofReal (A m - A n)` for `A` the predictable part of
+the real values of `M`), plus the limit `⨅ N ≥ m, ∫⁻ ω in s ∩ {N < T}, M N ω ∂P` of the
 remainders. -/
-private theorem setLIntegral_eq_add_add_iInf (hM : IsENNSupermartingale M ℱ S) (hP : P ∈ S)
-    [IsFiniteMeasure P] (h0 : ∫⁻ ω, M 0 ω ∂P ≠ ∞) {T : Ω → WithTop ℕ} (hT : IsStoppingTime ℱ T)
-    (hmT : ∀ ω, (m : WithTop ℕ) ≤ T ω) (hs : MeasurableSet[ℱ m] s) :
+theorem setLIntegral_eq_add_stoppedValueLimsup_add_iInf (hM : IsENNSupermartingale M ℱ S)
+    (hP : P ∈ S) [IsFiniteMeasure P] (h0 : ∫⁻ ω, M 0 ω ∂P ≠ ∞) {T : Ω → WithTop ℕ}
+    (hT : IsStoppingTime ℱ T) (hmT : ∀ ω, (m : WithTop ℕ) ≤ T ω) (hs : MeasurableSet[ℱ m] s) :
     ∫⁻ ω in s, M m ω ∂P = ∫⁻ ω in s ∩ {ω | T ω ≠ ⊤}, stoppedValueLimsup M T ω ∂P +
       ∫⁻ ω in s, stoppedValueLimsup (fun n ω ↦ ENNReal.ofReal
         (predictablePart (fun n ω ↦ (M n ω).toReal) ℱ P m ω -
@@ -280,7 +292,7 @@ private theorem setLIntegral_eq_add_add_iInf (hM : IsENNSupermartingale M ℱ S)
   -- The finite-horizon identities pass to the limit.
   refine tendsto_nhds_unique (tendsto_const_nhds.congr' ?_) ((ha.add hd).add hr)
   filter_upwards [eventually_ge_atTop m] with N hN
-  exact hM.setLIntegral_eq_add_add_of_le hP h0 hT hmT hN hs
+  exact hM.setLIntegral_eq_add_stoppedValueLimsup_min hP h0 hT hmT hN hs
 
 /-- **The exact Ville identity without horizon** [dlP+26, Theorem 4], from time `m` on an
 `ℱ m`-measurable set `s`. For an `ℝ≥0∞`-valued supermartingale with finite initial expectation
@@ -301,7 +313,8 @@ theorem setLIntegral_eq_exact_ville (hM : IsENNSupermartingale M ℱ S) (hP : P 
   have hT := hM.isStoppingTime_hittingAfter_Ici (m := m) b
   have hTtop : MeasurableSet {ω | hittingAfter M (Ici b) m ω ≠ ⊤} := by
     exact (hT.measurable' (measurableSet_singleton ⊤)).compl
-  rw [hM.setLIntegral_eq_add_add_iInf hP h0 hT (natCast_le_hittingAfter (Ici b)) hs,
+  rw [hM.setLIntegral_eq_add_stoppedValueLimsup_add_iInf hP h0 hT (natCast_le_hittingAfter (Ici b))
+      hs,
     setLIntegral_stoppedValueLimsup_hittingAfter b ((ℱ.le m _ hs).inter hTtop)
       inter_subset_right]
 
