@@ -6,6 +6,7 @@ Authors: LMLExplore contributors
 module
 
 public import LMLExplore.Analysis.Subadditive
+public import LMLExplore.EValues.DPI
 public import Statlib.Divergence.KullbackLeibler.CondKL
 public import Statlib.EValues.Product
 public import Statlib.EValues.RIPr
@@ -85,13 +86,6 @@ lemma bipolarRate_def (Q₁ : Measure 𝓧) (S₁ : Set (Measure 𝓧)) :
     bipolarRate Q₁ S₁ = ⨆ n : ℕ, maxLogGrowth Q₁ S₁ (n + 1) / ((n + 1 : ℕ) : EReal) :=
   (rfl)
 
-/-- The maximal utility of e-variables under the zero measure vanishes. -/
-@[simp]
-lemma maxUtility_zero_measure {Ω : Type*} [MeasurableSpace Ω] (T : Set (Measure Ω))
-    (U : Utility) : maxUtility 0 T U = 0 :=
-  le_antisymm (iSup₂_le fun _ _ ↦ (eintegral_zero_measure _).le)
-    (le_iSup₂_of_le _ (isEVar_fun_one T) (eintegral_zero_measure _).ge)
-
 /-- The maximal expected logarithm of an `n`-sample e-variable is nonnegative, as the constant `1`
 is an e-variable. -/
 lemma maxLogGrowth_nonneg (Q₁ : Measure 𝓧) (S₁ : Set (Measure 𝓧)) (n : ℕ) :
@@ -100,7 +94,7 @@ lemma maxLogGrowth_nonneg (Q₁ : Measure 𝓧) (S₁ : Set (Measure 𝓧)) (n :
 
 /-- The normalized maximal expected logarithm of an `n`-sample e-variable is at most the bipolar
 rate, for `n ≠ 0`. -/
-lemma div_le_bipolarRate (Q₁ : Measure 𝓧) (S₁ : Set (Measure 𝓧)) (hn : n ≠ 0) :
+lemma maxLogGrowth_div_le_bipolarRate (Q₁ : Measure 𝓧) (S₁ : Set (Measure 𝓧)) (hn : n ≠ 0) :
     maxLogGrowth Q₁ S₁ n / n ≤ bipolarRate Q₁ S₁ := by
   obtain ⟨k, rfl⟩ := Nat.exists_eq_succ_of_ne_zero hn
   exact le_iSup (fun k : ℕ ↦ maxLogGrowth Q₁ S₁ (k + 1) / ((k + 1 : ℕ) : EReal)) k
@@ -111,7 +105,8 @@ lemma bipolarRate_le_iff {c : EReal} :
     bipolarRate Q₁ S₁ ≤ c ↔ ∀ n ≠ 0, maxLogGrowth Q₁ S₁ n ≤ n * c := by
   have h (n : ℕ) (hn : n ≠ 0) : maxLogGrowth Q₁ S₁ n / n ≤ c ↔ maxLogGrowth Q₁ S₁ n ≤ n * c :=
     EReal.div_le_iff_le_mul (by exact_mod_cast Nat.pos_of_ne_zero hn) (EReal.natCast_ne_top _)
-  refine ⟨fun hc n hn ↦ (h n hn).1 ((div_le_bipolarRate Q₁ S₁ hn).trans hc), fun hc ↦ ?_⟩
+  refine ⟨fun hc n hn ↦ (h n hn).1 ((maxLogGrowth_div_le_bipolarRate Q₁ S₁ hn).trans hc),
+    fun hc ↦ ?_⟩
   exact iSup_le fun n ↦ (h _ n.succ_ne_zero).2 (hc _ n.succ_ne_zero)
 
 /-- The maximal expected logarithm of an `n`-sample e-variable is antitone in the null. -/
@@ -179,7 +174,7 @@ lemma maxLogGrowth_le_mul_bipolarRate (Q₁ : Measure 𝓧) (S₁ : Set (Measure
 /-- The bipolar rate is nonnegative. -/
 lemma bipolarRate_nonneg (Q₁ : Measure 𝓧) (S₁ : Set (Measure 𝓧)) : 0 ≤ bipolarRate Q₁ S₁ :=
   (EReal.div_nonneg (maxLogGrowth_nonneg _ _ _) (by positivity)).trans
-    (div_le_bipolarRate Q₁ S₁ one_ne_zero)
+    (maxLogGrowth_div_le_bipolarRate Q₁ S₁ one_ne_zero)
 
 /-- The bipolar rate is antitone in the null. -/
 @[gcongr]

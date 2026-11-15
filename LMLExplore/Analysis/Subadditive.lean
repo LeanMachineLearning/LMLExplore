@@ -20,6 +20,9 @@ with `u n / n` bounded below. This file proves it for a superadditive sequence o
 
 * `EReal.tendsto_div_iSup_of_superadditive`: Fekete's lemma for superadditive sequences of
   extended reals.
+* `EReal.nsmul_le_of_superadditive`, `EReal.nsmul_add_nsmul_le_of_superadditive`: iterated
+  superadditivity.
+* `EReal.eq_top_of_superadditive`: a value `⊤` carries forward to every later index.
 
 ## Implementation notes
 
@@ -37,27 +40,30 @@ namespace EReal
 
 variable {u : ℕ → EReal}
 
+/-- Superadditivity iterated: `(q + 1) • u m ≤ u ((q + 1) * m)`. -/
+lemma nsmul_le_of_superadditive (h : ∀ m n, u m + u n ≤ u (m + n)) (m q : ℕ) :
+    (q + 1) • u m ≤ u ((q + 1) * m) := by
+  induction q with
+  | zero => simp
+  | succ q ih =>
+    calc (q + 1 + 1) • u m = (q + 1) • u m + u m := succ_nsmul _ _
+    _ ≤ u ((q + 1) * m) + u m := by gcongr
+    _ ≤ u ((q + 1) * m + m) := h _ _
+    _ = u ((q + 1 + 1) * m) := by congr 1; ring
+
 /-- Superadditivity iterated: `(q + 1) • u m + s • u 1 ≤ u ((q + 1) * m + s)`. -/
-private lemma nsmul_add_nsmul_le_of_superadditive (h : ∀ m n, u m + u n ≤ u (m + n))
+lemma nsmul_add_nsmul_le_of_superadditive (h : ∀ m n, u m + u n ≤ u (m + n))
     (m q s : ℕ) : (q + 1) • u m + s • u 1 ≤ u ((q + 1) * m + s) := by
-  have h_mul (m q : ℕ) : (q + 1) • u m ≤ u ((q + 1) * m) := by
-    induction q with
-    | zero => simp
-    | succ q ih =>
-      calc (q + 1 + 1) • u m = (q + 1) • u m + u m := succ_nsmul _ _
-      _ ≤ u ((q + 1) * m) + u m := by gcongr
-      _ ≤ u ((q + 1) * m + m) := h _ _
-      _ = u ((q + 1 + 1) * m) := by congr 1; ring
   cases s with
-  | zero => simpa using h_mul m q
+  | zero => simpa using nsmul_le_of_superadditive h m q
   | succ s =>
     calc (q + 1) • u m + (s + 1) • u 1 ≤ u ((q + 1) * m) + u ((s + 1) * 1) :=
-        add_le_add (h_mul m q) (h_mul 1 s)
+        add_le_add (nsmul_le_of_superadditive h m q) (nsmul_le_of_superadditive h 1 s)
     _ ≤ u ((q + 1) * m + (s + 1)) := by rw [mul_one]; exact h _ _
 
 /-- A value `⊤` of a superadditive sequence that takes the value `⊥` at no `n ≠ 0` carries
 forward: if `u j = ⊤` and `j ≤ n`, then `u n = ⊤`. -/
-private lemma eq_top_of_superadditive (hu : ∀ n ≠ 0, u n ≠ ⊥)
+lemma eq_top_of_superadditive (hu : ∀ n ≠ 0, u n ≠ ⊥)
     (h : ∀ m n, u m + u n ≤ u (m + n)) {j n : ℕ} (hjt : u j = ⊤) (hjn : j ≤ n) : u n = ⊤ := by
   rcases hjn.eq_or_lt with rfl | hjn
   · exact hjt
