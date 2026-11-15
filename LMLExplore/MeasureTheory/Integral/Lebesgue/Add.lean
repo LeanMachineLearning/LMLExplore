@@ -10,7 +10,7 @@ public import Mathlib.Order.Filter.ENNReal
 public import TauCeti.Topology.Instances.ENNReal
 
 /-!
-# Lebesgue integral of finite sums and lower semicontinuity under setwise convergence
+# Lebesgue integral of finite sums and mixtures, and lower semicontinuity under setwise convergence
 
 ## Main statements
 
@@ -19,6 +19,11 @@ public import TauCeti.Topology.Instances.ENNReal
   `MeasureTheory.lintegral_finsetSum_indicator_one₀`, its version for null measurable sets.
 * `MeasureTheory.lintegral_comp_eq_sum_measure_preimage_singleton`: the integral of `g ∘ φ`, for a
   map `φ` to a finite type, is `∑ i, g i * μ (φ ⁻¹' {i})`.
+* `MeasureTheory.lintegral_ofReal_smul_add_smul_ne_top` and
+  `MeasureTheory.toReal_lintegral_ofReal_smul_add_smul`: against the mixture
+  `ofReal a • μ + ofReal b • ν` of two measures, a function with finite integrals against `μ` and
+  `ν` has finite integral, and for `a, b ≥ 0` its real value is
+  `a * (∫⁻ g ∂μ).toReal + b * (∫⁻ g ∂ν).toReal`.
 * `MeasureTheory.SimpleFunc.tendsto_lintegral_of_tendsto_measure`: the integral of a simple function
   with finite values is continuous for the setwise convergence of measures.
 * `MeasureTheory.SimpleFunc.lintegral_le_liminf_lintegral`: the integral of a simple function with
@@ -63,6 +68,32 @@ lemma lintegral_comp_eq_sum_measure_preimage_singleton {κ : Type*} [Fintype κ]
     ∫⁻ x, g (φ x) ∂μ = ∑ i, g i * μ (φ ⁻¹' {i}) := by
   rw [← lintegral_map' (measurable_of_finite g).aemeasurable hφ, lintegral_fintype]
   simp_rw [Measure.map_apply_of_aemeasurable hφ (measurableSet_singleton _)]
+
+section Mixture
+
+variable {ν : Measure α} {a b : ℝ} {g : α → ℝ≥0∞}
+
+/-- Against the mixture `ofReal a • μ + ofReal b • ν` of two measures, a function with finite
+integrals against `μ` and `ν` has finite integral. -/
+lemma lintegral_ofReal_smul_add_smul_ne_top (hμ : ∫⁻ x, g x ∂μ ≠ ∞) (hν : ∫⁻ x, g x ∂ν ≠ ∞) :
+    ∫⁻ x, g x ∂(ENNReal.ofReal a • μ + ENNReal.ofReal b • ν) ≠ ∞ := by
+  simp only [lintegral_add_measure, lintegral_smul_measure, smul_eq_mul]
+  exact ENNReal.add_ne_top.2 ⟨ENNReal.mul_ne_top ENNReal.ofReal_ne_top hμ,
+    ENNReal.mul_ne_top ENNReal.ofReal_ne_top hν⟩
+
+/-- Against the mixture `ofReal a • μ + ofReal b • ν` of two measures, for `a, b ≥ 0`, the real
+value of the integral of a function with finite integrals against `μ` and `ν` is the mixture
+`a * (∫⁻ g ∂μ).toReal + b * (∫⁻ g ∂ν).toReal`. -/
+lemma toReal_lintegral_ofReal_smul_add_smul (ha : 0 ≤ a) (hb : 0 ≤ b) (hμ : ∫⁻ x, g x ∂μ ≠ ∞)
+    (hν : ∫⁻ x, g x ∂ν ≠ ∞) :
+    (∫⁻ x, g x ∂(ENNReal.ofReal a • μ + ENNReal.ofReal b • ν)).toReal =
+      a * (∫⁻ x, g x ∂μ).toReal + b * (∫⁻ x, g x ∂ν).toReal := by
+  simp only [lintegral_add_measure, lintegral_smul_measure, smul_eq_mul]
+  rw [ENNReal.toReal_add (ENNReal.mul_ne_top ENNReal.ofReal_ne_top hμ)
+    (ENNReal.mul_ne_top ENNReal.ofReal_ne_top hν), ENNReal.toReal_mul, ENNReal.toReal_mul,
+    ENNReal.toReal_ofReal ha, ENNReal.toReal_ofReal hb]
+
+end Mixture
 
 section Setwise
 
