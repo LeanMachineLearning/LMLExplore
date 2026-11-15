@@ -30,6 +30,8 @@ conditionally bounded increment.
 * `MeasureTheory.setLIntegral_mul_le_setLIntegral_mul_of_forall_setLIntegral_le`,
   `MeasureTheory.setLIntegral_mul_eq_setLIntegral_mul_of_forall_setLIntegral_eq`: the same over an
   `m`-measurable set.
+* `MeasureTheory.lintegral_withDensity_inv_eq_lintegral_div`: integrating against the measure of
+  density `X⁻¹` is integrating `Y / X`.
 -/
 
 public section
@@ -114,5 +116,13 @@ theorem setLIntegral_mul_eq_setLIntegral_mul_of_forall_setLIntegral_eq (hm : m �
   rw [← lintegral_indicator (hm s hs), ← lintegral_indicator (hm s hs)]
   simp_rw [indicator_mul_left]
   exact lintegral_mul_eq_lintegral_mul_of_forall_setLIntegral_eq hm hf hg h (hY.indicator hs)
+
+/-- The integral of `Y` against the measure of density `X⁻¹` with respect to `μ` is the integral of
+`Y / X` against `μ`. -/
+theorem lintegral_withDensity_inv_eq_lintegral_div {X : Ω → ℝ≥0∞} (hX : AEMeasurable X μ)
+    (hY : AEMeasurable Y μ) :
+    ∫⁻ ω, Y ω ∂(μ.withDensity fun ω ↦ (X ω)⁻¹) = ∫⁻ ω, Y ω / X ω ∂μ := by
+  rw [lintegral_withDensity_eq_lintegral_mul₀ (f := fun ω ↦ (X ω)⁻¹) hX.inv hY]
+  simp_rw [Pi.mul_apply, mul_comm _ (Y _), ← div_eq_mul_inv]
 
 end MeasureTheory

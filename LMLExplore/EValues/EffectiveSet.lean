@@ -6,7 +6,9 @@ Authors: LMLExplore contributors
 module
 
 public import Statlib.EValues.RIPr
+public import LMLExplore.EValues.EVariable
 public import LMLExplore.MeasureTheory.Integral.Lebesgue.Add
+public import LMLExplore.MeasureTheory.Measure.AbsolutelyContinuousSet
 
 /-!
 # The effective null
@@ -40,6 +42,9 @@ measures `S`.
 * `ProbabilityTheory.isEVar_effectiveSet_inter_iff`: for a null `S` of probability measures, `S`
   and the probability measures of its effective null have the same e-variables, and hence
   (`ProbabilityTheory.effectiveSet_effectiveSet_inter`) the same effective null.
+* `ProbabilityTheory.absolutelyContinuousSet_of_mem_effectiveSet`: every member of the effective
+  null is absolutely continuous with respect to `S`
+  (`MeasureTheory.Measure.AbsolutelyContinuousSet`).
 * `ProbabilityTheory.absolutelyContinuous_of_mem_effectiveSet`: if every member of `S` is
   absolutely continuous with respect to `μ`, so is every member of the effective null.
 * `ProbabilityTheory.exists_isEVar_le_lt_lintegral_of_notMem_effectiveSet`: a measure outside the
@@ -142,24 +147,23 @@ effective null of `S`. -/
 theorem measure_eq_zero_of_mem_effectiveSet (hμ : μ ∈ effectiveSet S) {s : Set Ω}
     (hs : MeasurableSet s) (hS : ∀ P ∈ S, P s = 0) : μ s = 0 := by
   classical
-  -- The function equal to `∞` on `s` and to `1` elsewhere is an e-variable for `S`.
-  have hX : IsEVar (s.piecewise (fun _ ↦ ∞) 1) S :=
-    (isEVar_one S).congr (measurable_const.piecewise hs measurable_const) fun P hP ↦ by
-      filter_upwards [measure_eq_zero_iff_ae_notMem.mp (hS P hP)] with ω hω
-      simp [hω]
   have h : ∞ * μ s ≤ 1 := by
     rw [← lintegral_indicator_const hs]
-    refine (lintegral_mono fun ω ↦ ?_).trans (hμ _ hX)
+    refine (lintegral_mono fun ω ↦ ?_).trans (hμ _ (isEVar_piecewise_top hs hS))
     by_cases hω : ω ∈ s <;> simp [hω]
   by_contra h_ne
   simp [ENNReal.top_mul h_ne] at h
 
+/-- Every member of the effective null of `S` is absolutely continuous with respect to `S`. -/
+theorem absolutelyContinuousSet_of_mem_effectiveSet (hμ : μ ∈ effectiveSet S) :
+    μ.AbsolutelyContinuousSet S :=
+  Measure.absolutelyContinuousSet_iff.mpr fun _ hs h ↦ measure_eq_zero_of_mem_effectiveSet hμ hs h
+
 /-- If every member of `S` is absolutely continuous with respect to a measure `ν`, so is every
 member of the effective null of `S`. -/
 theorem absolutelyContinuous_of_mem_effectiveSet (hμ : μ ∈ effectiveSet S)
-    (hS : ∀ P ∈ S, P ≪ ν) : μ ≪ ν := by
-  refine Measure.AbsolutelyContinuous.mk fun s hs hνs ↦ ?_
-  exact measure_eq_zero_of_mem_effectiveSet hμ hs fun P hP ↦ hS P hP hνs
+    (hS : ∀ P ∈ S, P ≪ ν) : μ ≪ ν :=
+  (absolutelyContinuousSet_of_mem_effectiveSet hμ).absolutelyContinuous hS
 
 /-- An e-variable for `S` is an e-variable for the probability measures of the effective null of
 `S`. -/

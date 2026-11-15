@@ -54,6 +54,9 @@ bound `2 √(n k log k)` of Exp3 with anytime rates [BCB12, Theorem 3.1].
   learning rate against an adaptive adversary, and [LS, Theorem 11.2].
 * `Exp3.pseudoRegret_le_two_mul_sqrt`: the pseudo-regret of Exp3 with anytime learning rates
   [BCB12, Theorem 3.1].
+* `Exp3.integral_regret_le`, `Exp3.integral_regret_le_sqrt`,
+  `Exp3.integral_regret_le_two_mul_sqrt`: the same three bounds for the expected regret of Exp3
+  on stochastic bandits with rewards in `[0, 1]`.
 
 ## References
 
@@ -575,6 +578,53 @@ theorem pseudoRegret_le_two_mul_sqrt
     (hY : ∀ᵐ ω ∂P, ∀ t < n, Y t ω ∈ Set.Icc 0 1) :
     pseudoRegret env O A Y P n ≤ 2 * √(n * Fintype.card α * log (Fintype.card α)) := by
   simpa using Exp4IX.expertPseudoRegret_le_two_mul_sqrt h hY
+
+/-! ### Stochastic bandits
+
+A stochastic bandit `Environment.bandit ν` whose rewards are in `[0, 1]` is an environment with
+feedbacks in `[0, 1]`, on which the pseudo-regret is LML's expected regret
+(`Learning.IsAlgEnvSeq.pseudoRegret_bandit`): the bounds of Exp3 against adaptive adversaries bound
+the expected regret of Exp3 on stochastic bandits, with no change of the algorithm. -/
+
+section Bandit
+
+variable {ν : Kernel α ℝ} [IsMarkovKernel ν] {O : ℕ → Ω → Unit}
+
+/-- **Regret of Exp3 on stochastic bandits**: along a run of Exp3 with learning rate `η > 0`
+against a stochastic bandit `Environment.bandit ν` whose rewards are almost surely in `[0, 1]`,
+the expected regret after `n` rounds is at most `log k / η + η n k / 2`, with `k` the number of
+arms. -/
+theorem integral_regret_le {η₀ : ℝ} (h : IsAlgEnvSeq O A Y (exp3 η₀) (Environment.bandit ν) P)
+    (hη : 0 < η₀) (hν : ∀ a, ∀ᵐ x ∂(ν a), x ∈ Set.Icc (0 : ℝ) 1) :
+    P[_root_.Bandits.regret ν A n] ≤
+      log (Fintype.card α) / η₀ + η₀ * n * Fintype.card α / 2 :=
+  h.integral_regret_le_of_pseudoRegret_le hν fun hY ↦ pseudoRegret_le h hη hY
+
+/-- **Regret of Exp3 on stochastic bandits** with the learning rate `η = √(2 log k / (n k))` tuned
+for the horizon `n` [LS, Theorem 11.2]: along a run against a stochastic bandit
+`Environment.bandit ν` whose rewards are almost surely in `[0, 1]`, the expected regret after `n`
+rounds is at most `√(2 n k log k)`, with `k` the number of arms. -/
+theorem integral_regret_le_sqrt
+    (h : IsAlgEnvSeq O A Y (exp3 √(2 * log (Fintype.card α) / (n * Fintype.card α)))
+      (Environment.bandit ν) P)
+    (hν : ∀ a, ∀ᵐ x ∂(ν a), x ∈ Set.Icc (0 : ℝ) 1) :
+    P[_root_.Bandits.regret ν A n] ≤ √(2 * n * Fintype.card α * log (Fintype.card α)) :=
+  h.integral_regret_le_of_pseudoRegret_le hν fun hY ↦ pseudoRegret_le_sqrt h hY
+
+/-- **Regret of Exp3 with anytime learning rates on stochastic bandits** [BCB12, Theorem 3.1]:
+along a run of Exp4-IX with the experts `α`, expert `b` advising the Dirac mass at `b`, `γ = 0`
+(Exp3) and the learning rates `η t = √(log k / (k (t + 1)))`, against a stochastic bandit
+`Environment.bandit ν` whose rewards are almost surely in `[0, 1]`, the expected regret after `n`
+rounds is at most `2 √(n k log k)` at every horizon `n`, with `k` the number of arms. -/
+theorem integral_regret_le_two_mul_sqrt
+    (h : IsAlgEnvSeq O A Y (exp4IX (fun _ b ↦ ⟨Pi.single b 1, single_mem_simplex b⟩)
+      measurable_const (fun t ↦ √(log (Fintype.card α) / (Fintype.card α * (t + 1)))) 0)
+      (Environment.bandit ν) P)
+    (hν : ∀ a, ∀ᵐ x ∂(ν a), x ∈ Set.Icc (0 : ℝ) 1) :
+    P[_root_.Bandits.regret ν A n] ≤ 2 * √(n * Fintype.card α * log (Fintype.card α)) :=
+  h.integral_regret_le_of_pseudoRegret_le hν fun hY ↦ pseudoRegret_le_two_mul_sqrt h hY
+
+end Bandit
 
 end Exp3
 

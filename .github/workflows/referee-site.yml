@@ -204,10 +204,10 @@ jobs:
           commit=$(python3 -c "import json,sys; print(json.load(open(sys.argv[1]))['library'].get('commit',''))" "$DATASET/meta.json")
           [ "$commit" = "$GITHUB_SHA" ] || { echo "::error::the dataset is of $commit, not $GITHUB_SHA"; exit 1; }
 
-      # Pinned to v0.12.0, which pins the evidence-core and evidence-store releases it was tested with.
+      # Pinned to v0.13.0, which pins the evidence-core and evidence-store releases it was tested with.
       - name: Build the referee site
         id: referee
-        uses: LeanTrustBuilders/referee-site@3b745e5b418ceff84f30f2f9a64af0c4938effa7 # v0.12.0
+        uses: LeanTrustBuilders/referee-site@eade1b7399e849b427d1ee4967f058bc7a84d28e # v0.13.0
         with:
           root: LMLExplore
           dataset: ${{ runner.temp }}/dataset
