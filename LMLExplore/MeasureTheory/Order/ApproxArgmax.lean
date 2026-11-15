@@ -5,7 +5,6 @@ Authors: LMLExplore contributors
 -/
 module
 
-public import LMLExplore.Order.ConditionallyCompleteLattice.Group
 public import Mathlib.MeasureTheory.Constructions.BorelSpace.Order
 
 /-!
@@ -22,8 +21,9 @@ These are the infinite counterparts of LML's `argmax` on a finite index type, wh
 maximum. In dynamic programming over countably many actions, they give measurable `ε`-greedy
 policies, whose values come within `ε` of the optimality operator at every state.
 
-When the family is not bounded above, `⨆ j, f j = 0` in `ℝ`, and the statements still hold: some
-value then exceeds every bound, in particular `-ε` (`exists_iSup_sub_lt`).
+No boundedness of the family is needed: Mathlib's `exists_lt_of_lt_ciSup` gives an index whose
+value exceeds `(⨆ j, f j) - ε` whether or not the family is bounded above (when it is not,
+`⨆ j, f j = 0` in `ℝ` and some value exceeds `-ε`).
 
 ## Main definitions
 
@@ -54,10 +54,10 @@ variable {ε : ℝ}
 
 /-- The least index `i` with `f i > (⨆ j, f j) - ε`, for `ε > 0` (`0` for `ε ≤ 0`). -/
 noncomputable def approxArgmaxNat (ε : ℝ) (f : ℕ → ℝ) : ℕ :=
-  if hε : 0 < ε then Nat.find (exists_iSup_sub_lt f hε) else 0
+  if hε : 0 < ε then Nat.find (exists_lt_of_lt_ciSup (f := f) (sub_lt_self _ hε)) else 0
 
 lemma approxArgmaxNat_of_pos (hε : 0 < ε) (f : ℕ → ℝ) :
-    approxArgmaxNat ε f = Nat.find (exists_iSup_sub_lt f hε) := by
+    approxArgmaxNat ε f = Nat.find (exists_lt_of_lt_ciSup (f := f) (sub_lt_self _ hε)) := by
   simp only [approxArgmaxNat, hε, ↓reduceDIte]
 
 lemma approxArgmaxNat_of_nonpos (hε : ε ≤ 0) (f : ℕ → ℝ) : approxArgmaxNat ε f = 0 := by
@@ -67,7 +67,7 @@ lemma approxArgmaxNat_of_nonpos (hε : ε ≤ 0) (f : ℕ → ℝ) : approxArgma
 theorem iSup_sub_lt_apply_approxArgmaxNat (hε : 0 < ε) (f : ℕ → ℝ) :
     (⨆ j, f j) - ε < f (approxArgmaxNat ε f) := by
   rw [approxArgmaxNat_of_pos hε]
-  exact Nat.find_spec (exists_iSup_sub_lt f hε)
+  exact Nat.find_spec (exists_lt_of_lt_ciSup (f := f) (sub_lt_self _ hε))
 
 /-- `approxArgmaxNat ε f` is at most every index whose value exceeds `(⨆ j, f j) - ε`. -/
 theorem approxArgmaxNat_le {f : ℕ → ℝ} {i : ℕ} (hi : (⨆ j, f j) - ε < f i) :

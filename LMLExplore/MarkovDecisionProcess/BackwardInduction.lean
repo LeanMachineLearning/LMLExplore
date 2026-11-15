@@ -196,8 +196,7 @@ theorem runReturn_markov_eq_integral_foldr (hR : ∀ p, ∀ᵐ x ∂(M.R p), |x|
     simp only [hW, show N - n = N - (n + 1) + 1 by omega, List.range'_succ, List.foldr_cons]
   have h := runReturn_markov_eq_integral_of_bellmanEval_eq (μ := μ) hR
     (fun n ↦ measurable_foldr_bellmanEval hu (List.range' n (N - n))) hK hev
-  rwa [Nat.sub_self, List.range'_zero, List.foldr_nil, Nat.sub_zero,
-    ← List.range_eq_range'] at h
+  simpa [List.range_eq_range'] using h
 
 /-- **Policy evaluation in finite horizon for a stationary policy**: with bounded rewards and a
 bounded measurable terminal value `u`, the `N`-step return of the stationary policy `π` from `μ`

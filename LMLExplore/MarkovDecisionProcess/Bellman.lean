@@ -364,7 +364,9 @@ lemma approxGreedy_def [Countable 𝓐] [Nonempty 𝓐] (ε : ℝ) (v : 𝓢 →
 /-- For `ε > 0`, the policy `M.approxGreedy γ ε v` is `ε`-greedy for `v`. -/
 theorem isApproxGreedy_approxGreedy [Countable 𝓐] [Nonempty 𝓐] {ε : ℝ} (hε : 0 < ε)
     (v : 𝓢 → ℝ) : M.IsApproxGreedy γ ε v (M.approxGreedy γ ε v) :=
-  fun s ↦ (iSup_sub_lt_apply_approxArgmax hε fun a ↦ M.lookahead γ v (s, a)).le
+  (isApproxGreedy_def M γ _ _ _).2 fun s ↦ by
+    rw [bellman_def, approxGreedy_def]
+    exact (iSup_sub_lt_apply_approxArgmax hε _).le
 
 /-- The `ε`-greedy policy of a measurable function is measurable. -/
 theorem measurable_approxGreedy [Countable 𝓐] [Nonempty 𝓐] {ε : ℝ} (hv : Measurable v) :
