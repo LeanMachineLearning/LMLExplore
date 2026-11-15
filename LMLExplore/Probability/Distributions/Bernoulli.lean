@@ -43,6 +43,8 @@ means.
 
 ## Main statements
 
+* `ProbabilityTheory.bernoulliMeasure_true_false_real_singleton`: `Ber(true, false, p)` has mass
+  `p` at `true` and `1 - p` at `false`.
 * `ProbabilityTheory.bernoulliMeasure_absolutelyContinuous_of_imp`: if `q = 0 → p = 0` and
   `q = 1 → p = 1`, then `Ber(x, y, p) ≪ Ber(x, y, q)`.
 * `ProbabilityTheory.bernoulliMeasure_absolutelyContinuous_iff`: for `x ≠ y`,
@@ -97,6 +99,17 @@ theorem bernoulliMeasure_absolutelyContinuous_iff [MeasurableSingletonClass X] (
     fun h ↦ bernoulliMeasure_absolutelyContinuous_of_imp h.1 h.2⟩
   · simpa [hxy.symm] using h (s := {x}) (by simp [hq, hxy.symm])
   · simpa [hxy, unitInterval.symm_eq_zero] using h (s := {y}) (by simp [hq, hxy])
+
+/-- The real masses of the Bernoulli law `Ber(true, false, p)` on `Bool`: `p` at `true` and
+`1 - p` at `false`. -/
+@[simp]
+lemma bernoulliMeasure_true_false_real_singleton (p : I) (b : Bool) :
+    Ber(true, false, p).real {b} = if b then (p : ℝ) else 1 - p := by
+  cases b
+  · exact bernoulliMeasure_real_apply_of_notMem_of_mem p (measurableSet_singleton _) (by simp)
+      (by simp)
+  · exact bernoulliMeasure_real_apply_of_mem_of_notMem p (measurableSet_singleton _) (by simp)
+      (by simp)
 
 /-- Every real function has exponential moments of all orders under a Bernoulli law. -/
 @[simp]
