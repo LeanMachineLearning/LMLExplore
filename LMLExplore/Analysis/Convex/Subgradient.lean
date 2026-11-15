@@ -152,8 +152,8 @@ theorem hasSubgradientWithinAt_of_mem_nhdsWithin (hf : ConvexOn ℝ s f) (hx : x
     simp only [Pi.sub_apply, map_sub] at this ⊢
     linarith
   refine hasSubgradientWithinAt_iff_le.2 fun y hy ↦ ?_
-  have := hmin hy
-  simp only [mem_ofPred_eq, Pi.sub_apply] at this
+  have := isMinOn_iff.1 hmin y hy
+  simp only [Pi.sub_apply] at this
   rw [map_sub]
   linarith
 

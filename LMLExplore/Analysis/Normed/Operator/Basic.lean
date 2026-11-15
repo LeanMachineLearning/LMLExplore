@@ -15,8 +15,9 @@ A real continuous linear functional `f` satisfies `f x ≤ ‖f‖ * ‖x‖`, t
 norm bound `ContinuousLinearMap.le_opNorm` that pairs a loss or a dual vector with a
 displacement in online learning and convex analysis. The bound is sharp on every sphere: the
 supremum of `f` on the sphere of radius `r ≥ 0` about `0` is `r * ‖f‖`, the dual norm of `f`
-seen from the primal side, and in finite dimension it is attained, as used in [Ora]. This is the
-form in which the dual norm enters the lower bounds of online linear optimization.
+seen from the primal side, and in a nontrivial finite-dimensional space it is attained, as used
+in [Ora]. This is the form in which the dual norm enters the lower bounds of online linear
+optimization.
 
 ## Main statements
 
