@@ -9,6 +9,8 @@ public import Mathlib.Probability.ProductMeasure
 public import Mathlib.Probability.Process.Stopping
 import LMLExplore.Probability.Martingale.SampleMean
 import LMLExplore.Probability.Martingale.Upcrossing
+import LMLExplore.Probability.Process.HittingTime
+import LMLExplore.Probability.ProductMeasure
 import Mathlib.Probability.Martingale.Convergence
 import Mathlib.Probability.Process.HittingTime
 import Statlib.ForMathlib.Probability.Process.Filtration
@@ -29,8 +31,8 @@ outer measure zero for a null of i.i.d. laws.
 This file proves it for the i.i.d. laws on `ℕ → ℝ` whose marginal ranges over a set of integrable
 laws `P` with centred first absolute moments `∫ |x - m_P| dP ≤ c` for one constant `c`, where
 `m_P` is the mean of `P`, in the stopping-time form, for the canonical filtration
-`Filtration.piLE`. The centred uniform integrability under which [RLKR23, §4.2] proves a composite
-strong law implies this hypothesis.
+`Filtration.piLE`, following [EVR26, Note 16, Theorem 1]. The centred uniform integrability under
+which [RLKR23, §4.2] proves a composite strong law implies this hypothesis.
 
 ## Main statements
 
@@ -50,8 +52,14 @@ stopping under each member of the null is bounded by the upcrossing and maximal 
 its centred first absolute moment. The thresholds `K (a, b)` come from summable positive weights
 on the rational pairs (`ENNReal.exists_pos_sum_of_countable`).
 
+The proof is adapted from `EValuesResearch/Results/CompositeSLLN.lean` (commit `7695891`) in the
+paper project `RemyDegenne/evalues_research`, which proves [EVR26, Note 16, Theorem 1]; its
+reverse-martingale helpers are replaced here by Tau Ceti's reverse filtration and time reversal.
+
 ## References
 
+* [EVR26] *Answers to open questions in e-values and anytime-valid inference*, notes 01 to 34 and
+  the Lean library `EValuesResearch` of github.com/RemyDegenne/evalues_research, 2026.
 * [RLKR23] J. Ruf, M. Larsson, W. M. Koolen and A. Ramdas, *A composite generalization of Ville's
   martingale theorem using e-processes*, Electron. J. Probab. 28 (2023), arXiv:2203.04485v3.
 -/
@@ -83,8 +91,8 @@ private lemma exists_tendsto_of_upcrossingsBefore_lt {ω : ℕ → ℝ} {L : ℝ
   have hlim : liminf (fun n ↦ (‖Y n ω‖₊ : ℝ≥0∞)) atTop < ⊤ := by
     refine (liminf_le_of_frequently_le' (x := ((‖ω 0‖₊ + L.toNNReal : ℝ≥0) : ℝ≥0∞))
       (Eventually.of_forall fun n ↦ ?_).frequently).trans_lt ENNReal.coe_lt_top
-    rw [ENNReal.coe_le_coe, ← NNReal.coe_le_coe, NNReal.coe_add, coe_nnNorm, coe_nnNorm,
-      Real.coe_toNNReal', Real.norm_eq_abs, Real.norm_eq_abs]
+    rw [ENNReal.coe_le_coe, ← NNReal.coe_le_coe]
+    push_cast [Real.norm_eq_abs, Real.coe_toNNReal']
     have h1 := abs_sub_abs_le_abs_sub (Y n ω) (ω 0)
     have h2 := hL n
     have h3 := le_max_left L 0
@@ -94,21 +102,47 @@ private lemma exists_tendsto_of_upcrossingsBefore_lt {ω : ℕ → ℝ} {L : ℝ
   refine ⟨l, (tendsto_add_atTop_iff_nat 1).1 ?_⟩
   simpa [Y] using hl
 
-/-- The hitting time of a sequence of sets is finite exactly on their union. -/
-private lemma hittingAfter_indicator_lt_top_iff {Ω : Type*} (E : ℕ → Set Ω) (ω : Ω) :
-    hittingAfter (fun n ↦ (E n).indicator fun _ ↦ (1 : ℝ)) {1} 0 ω < ⊤ ↔ ∃ n, ω ∈ E n := by
-  rw [lt_top_iff_ne_top, Ne, hittingAfter_eq_top_iff]
-  push Not
-  refine exists_congr fun n ↦ ?_
-  by_cases h : ω ∈ E n <;> simp [h]
+/-- If `y` is at distance at least `2 L` from `y₀`, then `y` or `y₀` is at distance at least `L`
+from `m`, by the triangle inequality. -/
+private lemma le_abs_sub_or_le_abs_sub_of_two_mul_le {y y₀ m L : ℝ} (h : 2 * L ≤ |y - y₀|) :
+    L ≤ |y - m| ∨ L ≤ |y₀ - m| := by
+  by_contra! h'
+  have := abs_sub_le y m y₀
+  rw [abs_sub_comm m] at this
+  linarith [h'.1, h'.2]
+
+/-- **Markov's inequality for a count.** If `(b - a) ∫⁻ U ≤ C` and `C ≤ (b - a) K ε`, with `a < b`
+and `K ≠ 0`, then `U` is at least `K` with probability at most `ε`. -/
+private lemma measure_natCast_le_le_of_mul_lintegral_le {Ω : Type*} {mΩ : MeasurableSpace Ω}
+    {μ : Measure Ω} {U : Ω → ℝ≥0∞} (hU : AEMeasurable U μ) {a b : ℝ} (hab : a < b) {K : ℕ}
+    (hK : K ≠ 0) {C ε : ℝ≥0} (hUC : ENNReal.ofReal (b - a) * ∫⁻ ω, U ω ∂μ ≤ C)
+    (hC : (C : ℝ) ≤ (b - a) * K * ε) :
+    μ {ω | (K : ℝ≥0∞) ≤ U ω} ≤ ε := by
+  set x := ENNReal.ofReal (b - a) * K
+  have hx0 : x ≠ 0 :=
+    mul_ne_zero (ENNReal.ofReal_pos.2 (sub_pos.2 hab)).ne' (Nat.cast_ne_zero.2 hK)
+  have hxtop : x ≠ ⊤ := ENNReal.mul_ne_top ENNReal.ofReal_ne_top (ENNReal.natCast_ne_top _)
+  rw [← ENNReal.mul_le_mul_iff_right hx0 hxtop]
+  calc x * μ {ω | (K : ℝ≥0∞) ≤ U ω}
+      = ENNReal.ofReal (b - a) * (K * μ {ω | (K : ℝ≥0∞) ≤ U ω}) := mul_assoc _ _ _
+    _ ≤ ENNReal.ofReal (b - a) * ∫⁻ ω, U ω ∂μ := by
+        gcongr
+        exact mul_meas_ge_le_lintegral₀ hU _
+    _ ≤ C := hUC
+    _ = ENNReal.ofReal C := ENNReal.ofReal_coe_nnreal.symm
+    _ ≤ ENNReal.ofReal ((b - a) * K * ε) := ENNReal.ofReal_le_ofReal hC
+    _ = x * ε := by
+        rw [ENNReal.ofReal_mul (mul_nonneg (sub_nonneg.2 hab.le) (Nat.cast_nonneg _)),
+          ENNReal.ofReal_mul (sub_nonneg.2 hab.le), ENNReal.ofReal_natCast,
+          ENNReal.ofReal_coe_nnreal]
 
 /-- **A composite strong law of large numbers.** Let `S` be a set of integrable laws on `ℝ` whose
 centred first absolute moments `∫ |x - m_P| dP` are at most `c`, where `m_P` is the mean of `P`.
 For every `α > 0`, some stopping time of the canonical filtration of `ℕ → ℝ` is finite on every
 sequence whose sample means do not converge in `ℝ`, and finite with probability at most `α` under
-i.i.d. sampling from each member of `S`. The set of these sequences has thus inverse capital outer
-measure zero [RLKR23]. (For a member that is not a probability measure, `Measure.infinitePi` is
-zero.) -/
+i.i.d. sampling from each member of `S` [EVR26, Note 16, Theorem 1]. The set of these sequences
+has thus inverse capital outer measure zero [RLKR23]. (For a member that is not a probability
+measure, `Measure.infinitePi` is zero.) -/
 theorem exists_isStoppingTime_lt_top_of_not_tendsto_mean {S : Set (Measure ℝ)}
     (hS : ∀ P ∈ S, Integrable id P) {c : ℝ} (hc : ∀ P ∈ S, ∫ x, |x - ∫ y, y ∂P| ∂P ≤ c)
     {α : ℝ≥0∞} (hα : 0 < α) :
@@ -157,10 +191,8 @@ theorem exists_isStoppingTime_lt_top_of_not_tendsto_mean {S : Set (Measure ℝ)}
   · by_cases hP₁ : IsProbabilityMeasure P
     swap
     · -- the product of copies of `P` is zero
-      have : Measure.infinitePi (fun _ : ℕ ↦ P) = 0 := by
-        simp only [Measure.infinitePi]
-        exact dite_eq_right fun h ↦ hP₁ (h 0)
-      simp [this]
+      simp [Measure.infinitePi_eq_zero_of_not_isProbabilityMeasure (μ := fun _ : ℕ ↦ P)
+        fun h ↦ hP₁ (h 0)]
     set μ := Measure.infinitePi fun _ : ℕ ↦ P
     set m := ∫ y, y ∂P
     -- the i.i.d. law is exchangeable, and its first coordinate is integrable of law `P`
@@ -183,19 +215,13 @@ theorem exists_isStoppingTime_lt_top_of_not_tendsto_mean {S : Set (Measure ℝ)}
           {ω | ∃ n, (L : ℝ) ≤ |Y n ω - m|} := by
       intro ω hω
       rw [Set.mem_ofPred_eq, hittingAfter_indicator_lt_top_iff] at hω
-      obtain ⟨n, hn⟩ := hω
+      obtain ⟨n, -, hn⟩ := hω
       rcases hn with ⟨q, hq, hKq⟩ | hfar
       · refine Or.inl (Set.mem_iUnion.2 ⟨q, hq, ?_⟩)
         exact (Nat.cast_le.2 hKq).trans
           (le_iSup (fun N ↦ (upcrossingsBefore q.1 q.2 Y N ω : ℝ≥0∞)) n)
-      · refine Or.inr ?_
-        by_contra h
-        simp only [Set.mem_ofPred_eq, not_exists, not_le] at h
-        have h1 := h n
-        have h0 := h 0
-        have := abs_sub_le (Y n ω) m (Y 0 ω)
-        rw [abs_sub_comm m] at this
-        linarith
+      · rcases le_abs_sub_or_le_abs_sub_of_two_mul_le (m := m) hfar with h | h
+        exacts [Or.inr ⟨n, h⟩, Or.inr ⟨0, h⟩]
     -- many upcrossings of `[q.1, q.2]` have probability at most `ε q`
     have hq (q : ℚ × ℚ) :
         μ {ω | (q.1 : ℝ) < q.2 ∧ (K q : ℝ≥0∞) ≤ upcrossings q.1 q.2 Y ω} ≤ ε q := by
@@ -203,34 +229,19 @@ theorem exists_isStoppingTime_lt_top_of_not_tendsto_mean {S : Set (Measure ℝ)}
       swap
       · simp [hq]
       simp only [hq, true_and]
-      set x := ENNReal.ofReal ((q.2 : ℝ) - q.1) * K q
-      have hx0 : x ≠ 0 := mul_ne_zero (ENNReal.ofReal_pos.2 (sub_pos.2 hq)).ne' (by simp [hK])
-      have hxtop : x ≠ ⊤ := ENNReal.mul_ne_top ENNReal.ofReal_ne_top (ENNReal.natCast_ne_top _)
-      have hreal : (C : ℝ) ≤ ((q.2 : ℝ) - q.1) * K q * ε q := by
-        have hd : 0 < ((q.2 : ℝ) - q.1) * ε q := mul_pos (sub_pos.2 hq) (hε0 q)
+      refine measure_natCast_le_le_of_mul_lintegral_le (C := C)
+        (hYadapted.measurable_upcrossings hq).aemeasurable hq (by simp [hK]) ?_ ?_
+      · calc ENNReal.ofReal ((q.2 : ℝ) - q.1) * ∫⁻ ω, upcrossings q.1 q.2 Y ω ∂μ
+            ≤ ENNReal.ofReal (∫ ω, |ω 0 - m| ∂μ) := by
+              simpa only [hm] using mul_lintegral_upcrossings_sum_div_le hμ hint q.1 q.2
+          _ ≤ C := hc₀
+      · have hd : 0 < ((q.2 : ℝ) - q.1) * ε q := mul_pos (sub_pos.2 hq) (hε0 q)
         have hceil := Nat.le_ceil ((C : ℝ) / (((q.2 : ℝ) - q.1) * ε q))
         have hKq : (C : ℝ) / (((q.2 : ℝ) - q.1) * ε q) ≤ K q := by
           simp only [hK, Nat.cast_add, Nat.cast_one]
           linarith
         calc (C : ℝ) ≤ K q * (((q.2 : ℝ) - q.1) * ε q) := (div_le_iff₀ hd).1 hKq
           _ = ((q.2 : ℝ) - q.1) * K q * ε q := by ring
-      rw [← ENNReal.mul_le_mul_iff_right hx0 hxtop]
-      calc x * μ {ω | (K q : ℝ≥0∞) ≤ upcrossings q.1 q.2 Y ω}
-          = ENNReal.ofReal ((q.2 : ℝ) - q.1) *
-              (K q * μ {ω | (K q : ℝ≥0∞) ≤ upcrossings q.1 q.2 Y ω}) := mul_assoc _ _ _
-        _ ≤ ENNReal.ofReal ((q.2 : ℝ) - q.1) * ∫⁻ ω, upcrossings q.1 q.2 Y ω ∂μ := by
-            gcongr
-            exact mul_meas_ge_le_lintegral₀
-              (hYadapted.measurable_upcrossings hq).aemeasurable _
-        _ ≤ ENNReal.ofReal (∫ ω, |ω 0 - m| ∂μ) := by
-            simpa only [hm] using mul_lintegral_upcrossings_sum_div_le hμ hint q.1 q.2
-        _ ≤ C := hc₀
-        _ = ENNReal.ofReal C := ENNReal.ofReal_coe_nnreal.symm
-        _ ≤ ENNReal.ofReal (((q.2 : ℝ) - q.1) * K q * ε q) := ENNReal.ofReal_le_ofReal hreal
-        _ = x * ε q := by
-            rw [ENNReal.ofReal_mul (mul_nonneg (sub_nonneg.2 hq.le) (Nat.cast_nonneg _)),
-              ENNReal.ofReal_mul (sub_nonneg.2 hq.le), ENNReal.ofReal_natCast,
-              ENNReal.ofReal_coe_nnreal]
     -- a sample mean at distance at least `L` from `m` has probability at most `δ / 2`
     have hfar : μ {ω | ∃ n, (L : ℝ) ≤ |Y n ω - m|} ≤ ((δ / 2 : ℝ≥0) : ℝ≥0∞) := by
       have hL0 : (L : ℝ≥0∞) ≠ 0 := by
@@ -251,7 +262,8 @@ theorem exists_isStoppingTime_lt_top_of_not_tendsto_mean {S : Set (Measure ℝ)}
   · -- a sequence on which the stopping time is infinite has convergent sample means
     rw [hittingAfter_indicator_lt_top_iff]
     by_contra h
-    simp only [hE, Set.mem_ofPred_eq, not_exists, not_or, not_and, not_le] at h
+    simp only [hE, Set.mem_ofPred_eq, zero_le, true_and, not_exists, not_or, not_and,
+      not_le] at h
     refine hω (exists_tendsto_of_upcrossingsBefore_lt (L := 2 * L) (K := K) (fun n ↦ ?_)
       fun q hq n ↦ (h n).1 q hq)
     simpa [Y] using (h n).2

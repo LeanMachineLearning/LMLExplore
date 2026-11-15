@@ -11,17 +11,26 @@ public import Mathlib.Probability.Independence.InfinitePi
 # Infinite products of probability measures: the first terms and the next terms
 
 Under the infinite product `Measure.infinitePi` of copies of a probability measure `μ`, the first
-`n` coordinates and the next `m` coordinates are independent.
+`n` coordinates and the next `m` coordinates are independent. The product of a family that is not
+made of probability measures is zero.
 
 ## Main statements
 
 * `MeasureTheory.Measure.infinitePi_fin_mem_and_forall_add_mem`: for an i.i.d. sequence, the
   first `n` terms and the next `m` terms are independent.
+* `MeasureTheory.Measure.infinitePi_eq_zero_of_not_isProbabilityMeasure`: the product of a family
+  that is not made of probability measures is zero.
 -/
 
 public section
 
 namespace MeasureTheory.Measure
+
+/-- `Measure.infinitePi` is zero on a family of measures that are not all probability measures. -/
+theorem infinitePi_eq_zero_of_not_isProbabilityMeasure {ι : Type*} {X : ι → Type*}
+    [∀ i, MeasurableSpace (X i)] {μ : (i : ι) → Measure (X i)}
+    (hμ : ¬ ∀ i, IsProbabilityMeasure (μ i)) : Measure.infinitePi μ = 0 := by
+  rw [Measure.infinitePi, dite_eq_right fun h ↦ (hμ h).elim]
 
 open ProbabilityTheory Finset in
 /-- **The first terms of an i.i.d. sequence and the next terms are independent.** For an i.i.d.

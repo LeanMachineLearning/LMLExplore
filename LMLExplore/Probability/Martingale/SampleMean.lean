@@ -7,6 +7,8 @@ module
 
 public import Mathlib.Probability.Martingale.Upcrossing
 public import TauCeti.Probability.Exchangeability.PathSpace.Law.Basic
+import LMLExplore.MeasureTheory.Integral.Bochner.Basic
+import LMLExplore.Probability.Exchangeability.Law
 import LMLExplore.Probability.Martingale.Upcrossing
 import Mathlib.MeasureTheory.MeasurableSpace.Invariants
 import TauCeti.Probability.Martingale.Crossings.Pathwise
@@ -40,6 +42,18 @@ with those of its negated time reversal.
 
 * `ProbabilityTheory.mul_measure_exists_le_abs_sum_div_sub_le`: the maximal inequality.
 * `ProbabilityTheory.mul_lintegral_upcrossings_sum_div_le`: the upcrossing inequality.
+
+## Implementation notes
+
+The argument is that of [EVR26, Note 16], for i.i.d. sequences there. The proofs are adapted from
+`EValuesResearch/Results/CompositeSLLN.lean` (commit `7695891`) in the paper project
+`RemyDegenne/evalues_research`, and stated here for exchangeable laws; its reverse-martingale
+helpers are replaced by Tau Ceti's `MeasureTheory.revFiltration` and `MeasureTheory.revProcess`.
+
+## References
+
+* [EVR26] *Answers to open questions in e-values and anytime-valid inference*, notes 01 to 34 and
+  the Lean library `EValuesResearch` of github.com/RemyDegenne/evalues_research, 2026.
 -/
 
 public section
@@ -72,14 +86,6 @@ private lemma setIntegral_apply_eq_of_preimage_swapAt_eq (hμ : ExchangeableLaw 
   rw [hs] at h
   simpa using h
 
-/-- The coordinates of an exchangeable sequence whose first coordinate is integrable are
-integrable. -/
-private lemma integrable_apply (hμ : ExchangeableLaw μ) (hint : Integrable (fun ω ↦ ω 0) μ)
-    (i : ℕ) : Integrable (fun ω : ℕ → ℝ ↦ ω i) μ := by
-  simpa [Function.comp_def] using
-    ((hμ.measurePreserving_permReindex (Equiv.swap 0 i)).integrable_comp
-      hint.aestronglyMeasurable).2 hint
-
 /-- The σ-algebra of the measurable events that are invariant under the swap of the coordinates
 `0` and `i` for every `i ≤ n`, that is, symmetric in the first `n + 1` coordinates. -/
 @[instance_reducible]
@@ -105,6 +111,10 @@ private lemma symmLE_le (n : ℕ) : symmLE n ≤ MeasurableSpace.pi :=
 /-- The mean of the coordinates `0, …, n` of a sequence. -/
 private noncomputable def smean (n : ℕ) (ω : ℕ → ℝ) : ℝ :=
   (∑ i ∈ Finset.range (n + 1), ω i) / (n + 1)
+
+/-- The defining formula of the sample mean. -/
+private lemma smean_def (n : ℕ) (ω : ℕ → ℝ) :
+    smean n ω = (∑ i ∈ Finset.range (n + 1), ω i) / (n + 1) := rfl
 
 /-- The mean of the coordinate `0` alone is that coordinate. -/
 private lemma smean_zero (ω : ℕ → ℝ) : smean 0 ω = ω 0 := by simp [smean]
@@ -139,7 +149,7 @@ private lemma measurable_symmLE_smean (n : ℕ) : Measurable[symmLE n] (smean n)
 integrable. -/
 private lemma integrable_smean (hμ : ExchangeableLaw μ) (hint : Integrable (fun ω ↦ ω 0) μ)
     (n : ℕ) : Integrable (smean n) μ :=
-  (integrable_finsetSum _ fun i _ ↦ integrable_apply hμ hint i).div_const _
+  (integrable_finsetSum _ fun i _ ↦ hμ.integrable_comp_eval (f := fun x ↦ x) hint i).div_const _
 
 /-- On an event symmetric in the first `n + 1` coordinates, the integral of the mean of the
 coordinates `0, …, m`, for `m ≤ n`, is that of the coordinate `0`. -/
@@ -148,7 +158,8 @@ private lemma setIntegral_smean_eq (hμ : ExchangeableLaw μ) (hint : Integrable
     ∫ ω in s, smean m ω ∂μ = ∫ ω in s, ω 0 ∂μ := by
   rw [measurableSet_symmLE_iff] at hs
   unfold smean
-  rw [integral_div, integral_finsetSum _ fun i _ ↦ (integrable_apply hμ hint i).integrableOn,
+  rw [integral_div, integral_finsetSum _ fun i _ ↦
+      (hμ.integrable_comp_eval (f := fun x ↦ x) hint i).integrableOn,
     Finset.sum_congr rfl fun i hi ↦ setIntegral_apply_eq_of_preimage_swapAt_eq hμ
       (hs i ((Nat.lt_succ_iff.1 (Finset.mem_range.1 hi)).trans hmn)).2,
     Finset.sum_const, Finset.card_range, nsmul_eq_mul]
@@ -181,7 +192,7 @@ theorem mul_measure_exists_le_abs_sum_div_sub_le [IsFiniteMeasure μ] (hμ : Exc
     (hint : Integrable (fun ω ↦ ω 0) μ) (m : ℝ) (L : ℝ≥0) :
     L * μ {ω | ∃ n : ℕ, (L : ℝ) ≤ |(∑ i ∈ Finset.range (n + 1), ω i) / (n + 1) - m|} ≤
       ENNReal.ofReal (∫ ω, |ω 0 - m| ∂μ) := by
-  change L * μ {ω | ∃ n : ℕ, (L : ℝ) ≤ |smean n ω - m|} ≤ _
+  simp only [← smean_def]
   -- the event is the increasing union of the events up to the horizons `N`
   have hset : {ω | ∃ n : ℕ, (L : ℝ) ≤ |smean n ω - m|} =
       ⋃ N, {ω | ∃ n ≤ N, (L : ℝ) ≤ |smean n ω - m|} := by
@@ -225,7 +236,7 @@ theorem mul_lintegral_upcrossings_sum_div_le [IsProbabilityMeasure μ] (hμ : Ex
   rcases le_or_gt b a with hba | hab
   · simp [ENNReal.ofReal_of_nonpos (sub_nonpos.2 hba)]
   set m := ∫ ω, ω 0 ∂μ
-  change ENNReal.ofReal (b - a) * ∫⁻ ω, upcrossings a b smean ω ∂μ ≤ _
+  simp only [← smean_def]
   -- monotone convergence in the horizon
   have hadapted : StronglyAdapted (Filtration.const ℕ MeasurableSpace.pi le_rfl) smean :=
     fun n ↦ (measurable_smean n).stronglyMeasurable
@@ -244,31 +255,15 @@ theorem mul_lintegral_upcrossings_sum_div_le [IsProbabilityMeasure μ] (hμ : Ex
   simp only [Pi.neg_apply, Nat.sub_eq_zero_of_le (Nat.le_succ N), Nat.sub_zero, smean_zero,
     sub_neg_eq_add, neg_add_eq_sub] at hDoob
   -- the expectation at time `0` is at least `(b - m)⁺`, by convexity
-  have hb : Integrable (fun ω ↦ b - smean N ω) μ := (integrable_const b).sub
-    (integrable_smean hμ hint N)
   have h₁ : (b - m)⁺ ≤ ∫ ω, (b - smean N ω)⁺ ∂μ := by
-    have heq : ∫ ω, (b - smean N ω) ∂μ = b - m := by
-      rw [integral_sub (integrable_const b) (integrable_smean hμ hint N), integral_const,
-        probReal_univ, one_smul, integral_smean hμ hint N]
-    rw [← heq, posPart_def]
-    exact sup_le (integral_mono hb hb.pos_part fun ω ↦ le_posPart _)
-      (integral_nonneg fun ω ↦ posPart_nonneg _)
-  -- `(b - x)⁺ - (b - m)⁺ ≤ |x - m|`, the positive part being `1`-Lipschitz
+    have hm : ∫ ω, smean N ω ∂μ = m := integral_smean hμ hint N
+    rw [← hm, ← integral_const_sub b (integrable_smean hμ hint N)]
+    exact posPart_integral_le_integral_posPart _
+  -- `𝔼(b - X₀)⁺ - (b - m)⁺ ≤ 𝔼|X₀ - m|`, the positive part being `1`-Lipschitz
   have h₂ : ∫ ω, (b - ω 0)⁺ ∂μ - (b - m)⁺ ≤ ∫ ω, |ω 0 - m| ∂μ := by
-    have key (x : ℝ) : (b - x)⁺ - (b - m)⁺ ≤ |x - m| := by
-      rw [sub_le_iff_le_add, posPart_def, posPart_def]
-      refine sup_le ?_ ?_
-      · have := le_sup_left (a := b - m) (b := 0)
-        have := neg_abs_le (x - m)
-        linarith
-      · have := le_sup_right (a := b - m) (b := 0)
-        have := abs_nonneg (x - m)
-        linarith
-    have hint₀ : Integrable (fun ω ↦ (b - ω 0)⁺) μ := ((integrable_const b).sub hint).pos_part
-    calc ∫ ω, (b - ω 0)⁺ ∂μ - (b - m)⁺ = ∫ ω, ((b - ω 0)⁺ - (b - m)⁺) ∂μ := by
-          rw [integral_sub hint₀ (integrable_const _), integral_const, probReal_univ, one_smul]
-      _ ≤ ∫ ω, |ω 0 - m| ∂μ := integral_mono (hint₀.sub (integrable_const _))
-          (hint.sub (integrable_const m)).abs fun ω ↦ key (ω 0)
+    simpa only [sub_sub_sub_cancel_left, abs_sub_comm m] using
+      integral_posPart_sub_posPart_le (f := fun ω : ℕ → ℝ ↦ b - ω 0) ((integrable_const b).sub hint)
+        (b - m)
   calc ENNReal.ofReal (b - a) * ∫⁻ ω, (upcrossingsBefore a b smean N ω : ℝ≥0∞) ∂μ
       ≤ ENNReal.ofReal (b - a) * ∫⁻ ω,
           (upcrossingsBefore (-b) (-a) (-fun k ↦ smean (N - k)) (N + 1) ω : ℝ≥0∞) ∂μ := by
