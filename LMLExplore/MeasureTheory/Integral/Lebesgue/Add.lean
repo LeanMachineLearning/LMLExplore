@@ -10,7 +10,7 @@ public import Mathlib.Order.Filter.ENNReal
 public import TauCeti.Topology.Instances.ENNReal
 
 /-!
-# Lebesgue integral of finite sums and lower semicontinuity under setwise convergence
+# Lebesgue integral of finite sums and mixtures, and lower semicontinuity under setwise convergence
 
 ## Main statements
 
@@ -52,6 +52,32 @@ measures. -/
 lemma lintegral_finsetSum_indicator_one (hS : ∀ i ∈ s, MeasurableSet (S i)) :
     ∫⁻ a, ∑ i ∈ s, (S i).indicator 1 a ∂μ = ∑ i ∈ s, μ (S i) :=
   lintegral_finsetSum_indicator_one₀ fun i hi ↦ (hS i hi).nullMeasurableSet
+
+section Mixture
+
+variable {ν : Measure α} {a b : ℝ} {g : α → ℝ≥0∞}
+
+/-- Against the mixture `ofReal a • μ + ofReal b • ν` of two measures, a function with finite
+integrals against `μ` and `ν` has finite integral. -/
+lemma lintegral_ofReal_smul_add_smul_ne_top (hμ : ∫⁻ x, g x ∂μ ≠ ∞) (hν : ∫⁻ x, g x ∂ν ≠ ∞) :
+    ∫⁻ x, g x ∂(ENNReal.ofReal a • μ + ENNReal.ofReal b • ν) ≠ ∞ := by
+  simp only [lintegral_add_measure, lintegral_smul_measure, smul_eq_mul]
+  exact ENNReal.add_ne_top.2 ⟨ENNReal.mul_ne_top ENNReal.ofReal_ne_top hμ,
+    ENNReal.mul_ne_top ENNReal.ofReal_ne_top hν⟩
+
+/-- Against the mixture `ofReal a • μ + ofReal b • ν` of two measures, for `a, b ≥ 0`, the real
+value of the integral of a function with finite integrals against `μ` and `ν` is the mixture
+`a * (∫⁻ g ∂μ).toReal + b * (∫⁻ g ∂ν).toReal`. -/
+lemma toReal_lintegral_ofReal_smul_add_smul (ha : 0 ≤ a) (hb : 0 ≤ b) (hμ : ∫⁻ x, g x ∂μ ≠ ∞)
+    (hν : ∫⁻ x, g x ∂ν ≠ ∞) :
+    (∫⁻ x, g x ∂(ENNReal.ofReal a • μ + ENNReal.ofReal b • ν)).toReal =
+      a * (∫⁻ x, g x ∂μ).toReal + b * (∫⁻ x, g x ∂ν).toReal := by
+  simp only [lintegral_add_measure, lintegral_smul_measure, smul_eq_mul]
+  rw [ENNReal.toReal_add (ENNReal.mul_ne_top ENNReal.ofReal_ne_top hμ)
+    (ENNReal.mul_ne_top ENNReal.ofReal_ne_top hν), ENNReal.toReal_mul, ENNReal.toReal_mul,
+    ENNReal.toReal_ofReal ha, ENNReal.toReal_ofReal hb]
+
+end Mixture
 
 section Setwise
 

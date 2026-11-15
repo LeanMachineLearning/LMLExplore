@@ -8,6 +8,7 @@ module
 public import Statlib.EValues.EVariable
 import LMLExplore.Algebra.BigOperators.Perm
 import LMLExplore.Analysis.Convex.LagrangeDuality
+import LMLExplore.MeasureTheory.Integral.Lebesgue.Add
 import Mathlib.Algebra.BigOperators.Field
 
 /-!
@@ -203,21 +204,6 @@ private lemma coe_add_sum_mul (w₀ : ℝ≥0) (w e : ι → ℝ≥0) :
   rw [ENNReal.coe_add, ENNReal.ofNNReal_finsetSum]
   simp only [ENNReal.coe_mul]
 
-/-- Integrals against the mixture `ofReal a • μ + ofReal b • ν` of two measures, for `a, b ≥ 0`,
-are finite and the mixtures of the integrals against `μ` and `ν`, when these are finite. -/
-private lemma lintegral_ofReal_smul_add_smul {α : Type*} [MeasurableSpace α] (μ ν : Measure α)
-    {a b : ℝ} (ha : 0 ≤ a) (hb : 0 ≤ b) (g : α → ℝ≥0∞) (hμ : ∫⁻ x, g x ∂μ ≠ ∞)
-    (hν : ∫⁻ x, g x ∂ν ≠ ∞) :
-    ∫⁻ x, g x ∂(ENNReal.ofReal a • μ + ENNReal.ofReal b • ν) ≠ ∞ ∧
-      (∫⁻ x, g x ∂(ENNReal.ofReal a • μ + ENNReal.ofReal b • ν)).toReal =
-        a * (∫⁻ x, g x ∂μ).toReal + b * (∫⁻ x, g x ∂ν).toReal := by
-  simp only [lintegral_add_measure, lintegral_smul_measure, smul_eq_mul]
-  have h₁ := ENNReal.mul_ne_top (ENNReal.ofReal_ne_top : ENNReal.ofReal a ≠ ∞) hμ
-  have h₂ := ENNReal.mul_ne_top (ENNReal.ofReal_ne_top : ENNReal.ofReal b ≠ ∞) hν
-  refine ⟨ENNReal.add_ne_top.2 ⟨h₁, h₂⟩, ?_⟩
-  rw [ENNReal.toReal_add h₁ h₂, ENNReal.toReal_mul, ENNReal.toReal_mul,
-    ENNReal.toReal_ofReal ha, ENNReal.toReal_ofReal hb]
-
 omit [Fintype ι] in
 /-- The objective `μ ↦ -∫⁻ F ∂μ` and the constraints `μ ↦ ∫⁻ e, e i ∂μ - 1` are jointly
 convex-like on the probability measures against which `F` and the coordinates have finite
@@ -231,10 +217,10 @@ private lemma jointlyConvexLikeOn_lintegral (F : (ι → ℝ≥0∞) → ℝ≥0
   rintro μ ⟨hμ, hμF, hμe⟩ ν ⟨hν, hνF, hνe⟩ a b ha hb hab
   have hprob : IsProbabilityMeasure (ENNReal.ofReal a • μ + ENNReal.ofReal b • ν) :=
     ⟨by simp [← ENNReal.ofReal_add ha hb, hab]⟩
-  have hFmix := lintegral_ofReal_smul_add_smul μ ν ha hb F hμF hνF
-  have hemix i := lintegral_ofReal_smul_add_smul μ ν ha hb (fun e ↦ e i) (hμe i) (hνe i)
-  refine ⟨_, ⟨hprob, hFmix.1, fun i ↦ (hemix i).1⟩, by rw [hFmix.2]; linarith, fun i ↦ ?_⟩
-  rw [(hemix i).2]
+  refine ⟨_, ⟨hprob, lintegral_ofReal_smul_add_smul_ne_top hμF hνF,
+    fun i ↦ lintegral_ofReal_smul_add_smul_ne_top (hμe i) (hνe i)⟩,
+    by rw [toReal_lintegral_ofReal_smul_add_smul ha hb hμF hνF]; linarith, fun i ↦ ?_⟩
+  rw [toReal_lintegral_ofReal_smul_add_smul ha hb (hμe i) (hνe i)]
   linear_combination hab
 
 /-- **Every e-merging function is dominated by a weighted mean** [Wan25, Theorem 1; Cle26; RW,
