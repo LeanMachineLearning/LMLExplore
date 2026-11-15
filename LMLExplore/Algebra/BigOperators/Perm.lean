@@ -5,6 +5,7 @@ Authors: LMLExplore contributors
 -/
 module
 
+public import Mathlib.Algebra.BigOperators.Field
 public import Mathlib.Basic.ENNReal.Inv
 public import Mathlib.GroupTheory.Perm.Basic
 public import Mathlib.Algebra.BigOperators.Group.Finset.Sigma
@@ -15,15 +16,16 @@ public import Mathlib.Data.Fintype.Perm
 
 For `w : ι → M` and `j : ι`, the sum `∑ σ : Perm ι, w (σ j)` over all permutations of a finite
 type does not depend on `j`, and `K` times it is `(K!)` times `∑ i, w i`, for `K` the cardinality
-of `ι`. In `ℝ≥0∞`: averaging the `w (σ j)` over the permutations `σ` gives the average
-`(∑ i, w i) / K` of the `w i`.
+of `ι`. In a semifield of characteristic zero: averaging the `w (σ j)` over the permutations `σ`
+gives the average `(∑ i, w i) / K` of the `w i`, and likewise in `ℝ≥0∞`, which is not a
+semifield. This is how a weighting is symmetrized.
 
 ## Main statements
 
 * `Equiv.Perm.sum_apply_eq_sum_apply`: `∑ σ, w (σ j) = ∑ σ, w (σ k)`.
 * `Equiv.Perm.card_nsmul_sum_apply`: `K • ∑ σ, w (σ j) = card (Perm ι) • ∑ i, w i`.
-* `ENNReal.sum_perm_apply_div_card`: `(∑ σ, w (σ j)) / card (Perm ι) = (∑ i, w i) / K` in
-  `ℝ≥0∞`.
+* `Equiv.Perm.sum_apply_div_card`: `(∑ σ, w (σ j)) / card (Perm ι) = (∑ i, w i) / K`.
+* `ENNReal.sum_perm_apply_div_card`: the same identity in `ℝ≥0∞`.
 -/
 
 public section
@@ -49,6 +51,16 @@ theorem card_nsmul_sum_apply [AddCommMonoid M] (w : ι → M) (j : ι) :
     simp_rw [fun σ : Perm ι ↦ Equiv.sum_comp σ w]
     rw [Finset.sum_const, Finset.card_univ]
   simpa [sum_apply_eq_sum_apply w _ j, Finset.sum_const, Finset.card_univ] using h
+
+/-- **Averaging over all permutations**: the average of `w (σ j)` over the permutations `σ` is the
+average `(∑ i, w i) / K` of the `w i`, for `K` the cardinality of `ι`. -/
+theorem sum_apply_div_card [Semifield M] [CharZero M] (w : ι → M) (j : ι) :
+    (∑ σ : Perm ι, w (σ j)) / Fintype.card (Perm ι) = (∑ i, w i) / Fintype.card ι := by
+  have hN : (Fintype.card (Perm ι) : M) ≠ 0 := Nat.cast_ne_zero.2 Fintype.card_ne_zero
+  have hK : (Fintype.card ι : M) ≠ 0 := Nat.cast_ne_zero.2 (@Fintype.card_ne_zero ι _ ⟨j⟩)
+  have h := card_nsmul_sum_apply w j
+  rw [nsmul_eq_mul, nsmul_eq_mul] at h
+  rw [div_eq_div_iff hN hK, mul_comm, h, mul_comm]
 
 end Equiv.Perm
 
