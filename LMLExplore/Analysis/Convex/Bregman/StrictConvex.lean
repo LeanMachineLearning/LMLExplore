@@ -20,7 +20,7 @@ convex on a set `s`, at a subgradient `g` of `f` on `s` at `x ∈ s`, is positiv
 In finite dimension, combined with continuity and compactness, this gives a positive lower bound
 for `D_f(·, x)` on a small sphere around an interior point `x`, and then, by convexity, a linear
 lower bound `c ‖y - x‖ ≤ D_f(y, x)` outside that sphere. This growth bound gives the
-differentiability of the conjugate in `LMLExplore.Analysis.Convex.Conjugate`.
+differentiability of the conjugate in `LMLExplore.Analysis.Convex.Conjugate.Basic`.
 
 ## Main statements
 

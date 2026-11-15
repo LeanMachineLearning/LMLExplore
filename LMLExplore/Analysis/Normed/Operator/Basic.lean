@@ -27,6 +27,8 @@ enters the lower bounds of online linear optimization.
   radius `r ≥ 0` about `0` is `r * ‖f‖`.
 * `ContinuousLinearMap.isGreatest_image_sphere`: in a nontrivial proper (for instance
   finite-dimensional) space, this supremum is a maximum.
+* `ContinuousLinearMap.exists_lt_apply_of_lt_opNorm_real`: every `r < ‖f‖` is exceeded by some
+  value `f x` with `‖x‖ < 1`, without absolute values.
 
 ## References
 
@@ -52,6 +54,17 @@ theorem apply_le_opNorm_mul_norm (f : E →L[ℝ] ℝ) (x : E) : f x ≤ ‖f‖
 end Seminormed
 
 variable {E : Type*} [NormedAddCommGroup E] [NormedSpace ℝ E] {r : ℝ}
+
+/-- Every real `r < ‖f‖` is exceeded by a value of the real continuous linear functional `f` on
+the open unit ball: this is `ContinuousLinearMap.exists_lt_apply_of_lt_opNorm` without the absolute
+value, using `f (-x) = -f x`. -/
+theorem exists_lt_apply_of_lt_opNorm_real (f : E →L[ℝ] ℝ) (hr : r < ‖f‖) :
+    ∃ x : E, ‖x‖ < 1 ∧ r < f x := by
+  obtain ⟨x, hx1, hrx⟩ := f.exists_lt_apply_of_lt_opNorm hr
+  rw [Real.norm_eq_abs] at hrx
+  rcases abs_choice (f x) with h | h
+  · exact ⟨x, hx1, h ▸ hrx⟩
+  · exact ⟨-x, by rwa [norm_neg], by rwa [map_neg, ← h]⟩
 
 /-- **The dual norm on a sphere.** The supremum of a real continuous linear functional `f` on the
 sphere of radius `r ≥ 0` about `0` is `r * ‖f‖`. -/

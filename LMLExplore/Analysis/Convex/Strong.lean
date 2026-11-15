@@ -8,6 +8,7 @@ module
 public import LeanMachineLearning.ForMathlib.Analysis.Convex.Subgradient.Basic
 public import LMLExplore.Analysis.Convex.Bregman.Taylor
 public import LMLExplore.Analysis.Normed.Operator.Basic
+public import LMLExplore.Topology.Semicontinuity.Basic
 public import Mathlib.Analysis.Convex.Strong
 public import Mathlib.Analysis.Normed.Module.FiniteDimension
 public import Mathlib.Topology.Semicontinuity.Basic
@@ -63,6 +64,9 @@ with a strongly convex potential exist on closed sets that need not be bounded.
   `m * ‖x - y‖ ≤ ‖θ₁ - θ₂‖`.
 * `StrongConvexOn.exists_forall_lt_of_lowerSemicontinuousWithinAt`: for `m > 0`, `f` exceeds its
   value at a point of lower semicontinuity on the points of `s` far enough from it.
+* `StrongConvexOn.exists_isMinOn_of_lowerSemicontinuous`: [Ora, Theorem 6.9] existence of the
+  minimizer of a strongly convex function on a nonempty set `s`, not necessarily closed, whose
+  extension by `⊤` off `s` is lower semicontinuous, in finite dimension.
 * `StrongConvexOn.exists_isMinOn`, `StrongConvexOn.existsUnique_isMinOn`: [Ora, Theorem 6.9]
   existence and uniqueness of the minimizer of a lower semicontinuous strongly convex function on a
   closed set, in finite dimension.
@@ -378,24 +382,47 @@ theorem exists_forall_lt_of_lowerSemicontinuousWithinAt {x₀ : E} (hf : StrongC
   nlinarith [mul_le_mul_of_nonneg_left (show 1 / 2 ≤ 1 - t by linarith)
     (show 0 ≤ m * r * d by positivity)]
 
+/-- **Existence of a minimizer of a proper lower semicontinuous strongly convex function**
+[Ora, Theorem 6.9]. In finite dimension, a function that is `m`-strongly convex for some `m > 0` on
+a nonempty set `s`, and whose extension by `⊤` off `s` is lower semicontinuous, attains its minimum
+on `s`. The set `s` need not be closed or bounded. -/
+theorem exists_isMinOn_of_lowerSemicontinuous [FiniteDimensional ℝ E] [DecidablePred (· ∈ s)]
+    (hf : StrongConvexOn s m f) (hm : 0 < m) (hs_ne : s.Nonempty)
+    (hf_lsc : LowerSemicontinuous fun x ↦ if x ∈ s then (f x : EReal) else ⊤) :
+    ∃ x ∈ s, IsMinOn f s x := by
+  obtain ⟨x₀, hx₀⟩ := hs_ne
+  -- `f` is lower semicontinuous within `s` at `x₀`, so it exceeds `f x₀` far from `x₀`.
+  have hlsc₀ : LowerSemicontinuousWithinAt f s x₀ := fun y hy ↦ by
+    filter_upwards [eventually_nhdsWithin_of_eventually_nhds
+      (hf_lsc x₀ y (by simpa [hx₀] using hy)), self_mem_nhdsWithin] with x hx hxs
+    simpa [hxs] using hx
+  obtain ⟨R, hfar⟩ := hf.exists_forall_lt_of_lowerSemicontinuousWithinAt hm hx₀ hlsc₀
+  -- `R ≥ 0`, since `f x₀ < f x₀` fails. A minimizer of the extension over the compact ball
+  -- `closedBall x₀ R` lies in `s` and minimizes `f` over `s`.
+  have hR : 0 ≤ R := not_lt.1 fun hR ↦ (hfar x₀ hx₀ (by simpa using hR)).false
+  obtain ⟨a, -, hamin⟩ := (hf_lsc.lowerSemicontinuousOn _).exists_isMinOn
+    ⟨x₀, mem_closedBall_self hR⟩ (isCompact_closedBall x₀ R)
+  have hax₀ := isMinOn_iff.1 hamin x₀ (mem_closedBall_self hR)
+  have has : a ∈ s := by
+    by_contra ha
+    simp only [ha, hx₀, ite_true, ite_false, top_le_iff] at hax₀
+    exact EReal.coe_ne_top _ hax₀
+  simp only [has, hx₀, ite_true, EReal.coe_le_coe_iff] at hax₀
+  refine ⟨a, has, isMinOn_iff.2 fun y hy ↦ ?_⟩
+  by_cases hyR : ‖y - x₀‖ ≤ R
+  · simpa [has, hy] using isMinOn_iff.1 hamin y (mem_closedBall_iff_norm.2 hyR)
+  · exact hax₀.trans (hfar y hy (not_le.1 hyR)).le
+
 /-- **Existence of a minimizer of a strongly convex function** [Ora, Theorem 6.9]. In finite
 dimension, a function that is `m`-strongly convex for some `m > 0` and lower semicontinuous on a
 nonempty closed set `s` attains its minimum on `s`. The set `s` need not be bounded. -/
 theorem exists_isMinOn [FiniteDimensional ℝ E] (hf : StrongConvexOn s m f) (hm : 0 < m)
     (hs : IsClosed s) (hs_ne : s.Nonempty) (hf_lsc : LowerSemicontinuousOn f s) :
     ∃ x ∈ s, IsMinOn f s x := by
-  obtain ⟨x₀, hx₀⟩ := hs_ne
-  obtain ⟨R, hfar⟩ := hf.exists_forall_lt_of_lowerSemicontinuousWithinAt hm hx₀ (hf_lsc x₀ hx₀)
-  -- `R ≥ 0`, since `f x₀ < f x₀` fails. A minimizer over the compact set `s ∩ closedBall x₀ R`
-  -- minimizes over `s`.
-  have hR : 0 ≤ R := not_lt.1 fun hR ↦ (hfar x₀ hx₀ (by simpa using hR)).false
-  have hx₀K : x₀ ∈ s ∩ closedBall x₀ R := ⟨hx₀, mem_closedBall_self hR⟩
-  obtain ⟨a, haK, hamin⟩ := (hf_lsc.mono inter_subset_left).exists_isMinOn ⟨x₀, hx₀K⟩
-    ((isCompact_closedBall x₀ R).inter_left hs)
-  refine ⟨a, haK.1, isMinOn_iff.2 fun y hy ↦ ?_⟩
-  by_cases hyR : ‖y - x₀‖ ≤ R
-  · exact isMinOn_iff.1 hamin y ⟨hy, mem_closedBall_iff_norm.2 hyR⟩
-  · exact (isMinOn_iff.1 hamin x₀ hx₀K).trans (hfar y hy (not_le.1 hyR)).le
+  classical
+  exact hf.exists_isMinOn_of_lowerSemicontinuous hm hs_ne
+    ((continuous_coe_real_ereal.comp_lowerSemicontinuousOn hf_lsc
+      EReal.coe_strictMono.monotone).lowerSemicontinuous_ite_top hs)
 
 /-- **Existence of a minimizer of a strongly convex function plus a linear map.** In finite
 dimension, if `f` is `m`-strongly convex for some `m > 0` and lower semicontinuous on a nonempty

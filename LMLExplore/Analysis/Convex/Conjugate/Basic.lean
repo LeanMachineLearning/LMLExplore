@@ -56,6 +56,9 @@ divergence `z ↦ D_F(z, x)` grows linearly away from `x`
 * `LMLExplore.convexOn_toReal_fenchelConjugateOn`: the conjugate is convex on its effective domain.
 * `LMLExplore.hasSubgradientWithinAt_iff_fenchelConjugateOn_eq`: the Fenchel–Young equality.
 * `LMLExplore.bregDiv_toReal_fenchelConjugateOn`: `D_{F⋆}(v, u) = D_F(x, y)` [LS, Theorem 26.6 (b)].
+* `LMLExplore.hasSubgradientWithinAt_toReal_fenchelConjugateOn`: when the conjugate is finite
+  everywhere, the evaluation at `x` is a subgradient of the conjugate at every subgradient `u` of
+  `F` at `x ∈ D`.
 * `LMLExplore.hasFDerivAt_toReal_fenchelConjugateOn`: the conjugate has derivative evaluation at `x`
   at every subgradient of `F` at an interior point `x` (part of [LS, Theorem 26.6 (a)]).
 * `LMLExplore.mem_interior_setOf_fenchelConjugateOn_ne_top`: such a subgradient is interior to
@@ -206,6 +209,19 @@ theorem bregDiv_toReal_fenchelConjugateOn (hu : HasSubgradientWithinAt F u D x)
     toReal_fenchelConjugateOn_of_hasSubgradientWithinAt hv hy, ContinuousLinearMap.apply_apply,
     map_sub]
   ring
+
+/-- **The tangent of the conjugate.** If the conjugate of `F` on `D` is finite everywhere and `u`
+is a subgradient of `F` within `D` at `x ∈ D`, then the evaluation at `x` is a subgradient of the
+conjugate at `u`: `F⋆ u + (w - u) x ≤ F⋆ w` for every `w`. No convexity of `F` is needed. -/
+theorem hasSubgradientWithinAt_toReal_fenchelConjugateOn
+    (hfin : ∀ w, fenchelConjugateOn F D w ≠ ⊤) (hx : x ∈ D) (hu : HasSubgradientWithinAt F u D x) :
+    HasSubgradientWithinAt (fun w ↦ (fenchelConjugateOn F D w).toReal)
+      (ContinuousLinearMap.apply ℝ ℝ x) univ u := by
+  intro w _
+  have := sub_le_toReal_fenchelConjugateOn hx (hfin w)
+  simp only [bregDiv, toReal_fenchelConjugateOn_of_hasSubgradientWithinAt hu hx,
+    ContinuousLinearMap.apply_apply, sub_apply]
+  linarith
 
 section FiniteDimensional
 
