@@ -5,6 +5,7 @@ Authors: LMLExplore contributors
 -/
 module
 
+public import LMLExplore.Basic.ENNReal.BigOperators
 public import LMLExplore.EValues.TestSupermartingale
 
 /-!
@@ -127,15 +128,6 @@ private lemma measure_exists_partialSups_mem_le [Finite J] [Nonempty J]
     _ ≤ ∫⁻ ω, (∑ i, A 0 j i * X i 0 ω + A₀ 0 j) ∂P := lintegral_mono fun ω ↦ by
         simpa only [h0] using hkey 0 j fun i ↦ X i 0 ω
 
-/-- An affine form with nonnegative real coefficients commutes with `ENNReal.ofReal`. -/
-private lemma sum_ofReal_mul_ofReal_add_ofReal {c : ι → ℝ} {c₀ : ℝ} {r : ι → ℝ}
-    (hc : ∀ i, 0 ≤ c i) (hc₀ : 0 ≤ c₀) (hr : ∀ i, 0 ≤ r i) :
-    ∑ i, ENNReal.ofReal (c i) * ENNReal.ofReal (r i) + ENNReal.ofReal c₀ =
-      ENNReal.ofReal (∑ i, c i * r i + c₀) := by
-  have h : ∀ i ∈ Finset.univ, 0 ≤ c i * r i := fun i _ ↦ mul_nonneg (hc i) (hr i)
-  rw [ENNReal.ofReal_add (Finset.sum_nonneg h) hc₀, ENNReal.ofReal_sum_of_nonneg h]
-  simp_rw [ENNReal.ofReal_mul (hc _)]
-
 /-- **The key inequality from its real form.** For affine forms with nonnegative real
 coefficients, each of which is either at least `1` or has positive coefficients, and with a
 constant form `1` in every state, the key inequality of `measure_exists_partialSups_mem_le` holds
@@ -171,8 +163,8 @@ private lemma key_of_real {lev : ℝ≥0∞ → ℕ}
         funext fun i ↦ (ENNReal.ofReal_toReal (hz i)).symm⟩
     obtain ⟨j', hj'⟩ := hreal b j r hr
     refine (iInf_le _ j').trans ?_
-    rw [sum_ofReal_mul_ofReal_add_ofReal (hC _ _) (hC₀ _ _) hr,
-      sum_ofReal_mul_ofReal_add_ofReal (hC _ _) (hC₀ _ _) hr]
+    rw [← ENNReal.ofReal_sum_mul_add (fun i _ ↦ hC _ _ i) (fun i _ ↦ hr i) (hC₀ _ _),
+      ← ENNReal.ofReal_sum_mul_add (fun i _ ↦ hC _ _ i) (fun i _ ↦ hr i) (hC₀ _ _)]
     exact ENNReal.ofReal_le_ofReal hj'
 
 /-- If some nonempty set `R` is self-consistent at level `α` for the running maxima of the
@@ -225,12 +217,16 @@ private lemma exists_partialSups_mem_of_selfConsistent [DecidableEq ι]
   obtain ⟨N, hN⟩ := (eventually_all.2 hev).exists
   exact ⟨N, hW (fun i ↦ hN i) (hWs R hR)⟩
 
-/-- **E-BH on running maxima, from a potential.** Let `M i` be test supermartingales, `lev` a
-measurable level function adapted to the e-BH thresholds, and real affine forms `C b j`,
-`C₀ b j` satisfying the key inequality at real points (`hreal`), at least `1` in winning states,
-with a constant form `1` in every state. If the form `j` of the initial state has no constant
-term and coefficients of sum at most `q`, then e-BH at level `α` on the running maxima rejects
-with probability at most `q * α`. -/
+/-- **E-BH on running maxima, from a potential.** Let `M i` be test supermartingales and `lev` a
+measurable level function adapted to the e-BH thresholds: `K + 1 - k ≤ lev x` whenever
+`K / k < x`. Let `C b j`, `C₀ b j` be real affine forms with nonnegative coefficients, each of
+which either has constant term at least `1` or has positive coefficients, with a constant form `1`
+in every state, and satisfying the key inequality at real points (`hreal`). Let `W` be an upper
+set of winning states that contains every e-BH rejection pattern (the state equal to `K + 1 - #s`
+on a nonempty `s` and to `0` elsewhere) and on which every form has constant term at least `1`.
+If the form `j` of the initial state has no constant term and coefficients of sum at most `q`,
+for some `q > 0`, then e-BH at level `α` on the running maxima rejects with probability at most
+`ENNReal.ofReal q * α`. -/
 theorem measure_exists_selfConsistent_le_of_key [DecidableEq ι] [Finite J] [Nonempty J]
     {M : ι → ℕ → Ω → ℝ≥0∞} (hM : ∀ i, IsTestSupermartingale (M i) ℱ {P}) {lev : ℝ≥0∞ → ℕ}
     (hlev_meas : Measurable lev)
