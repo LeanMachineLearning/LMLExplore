@@ -5,8 +5,9 @@ Authors: LMLExplore contributors
 -/
 module
 
-public import Mathlib.Analysis.Normed.Module.FiniteDimension
+public import Mathlib.Analysis.Normed.Module.RCLike.Real
 public import Mathlib.Analysis.Normed.Operator.NNNorm
+public import Mathlib.Topology.MetricSpace.ProperSpace
 
 /-!
 # Real continuous linear functionals and the operator norm
@@ -15,17 +16,17 @@ A real continuous linear functional `f` satisfies `f x ≤ ‖f‖ * ‖x‖`, t
 norm bound `ContinuousLinearMap.le_opNorm` that pairs a loss or a dual vector with a
 displacement in online learning and convex analysis. The bound is sharp on every sphere: the
 supremum of `f` on the sphere of radius `r ≥ 0` about `0` is `r * ‖f‖`, the dual norm of `f`
-seen from the primal side, and in a nontrivial finite-dimensional space it is attained, as used
-in [Ora]. This is the form in which the dual norm enters the lower bounds of online linear
-optimization.
+seen from the primal side, and in a nontrivial proper space, such as a nontrivial
+finite-dimensional one, it is attained, as used in [Ora]. This is the form in which the dual norm
+enters the lower bounds of online linear optimization.
 
 ## Main statements
 
 * `ContinuousLinearMap.apply_le_opNorm_mul_norm`: `f x ≤ ‖f‖ * ‖x‖` for `f : E →L[ℝ] ℝ`.
 * `ContinuousLinearMap.sSup_image_sphere_eq_mul_norm`: the supremum of `f` on the sphere of
   radius `r ≥ 0` about `0` is `r * ‖f‖`.
-* `ContinuousLinearMap.isGreatest_image_sphere`: in a nontrivial finite-dimensional space, this
-  supremum is a maximum.
+* `ContinuousLinearMap.isGreatest_image_sphere`: in a nontrivial proper (for instance
+  finite-dimensional) space, this supremum is a maximum.
 
 ## References
 
@@ -81,10 +82,10 @@ theorem sSup_image_sphere_eq_mul_norm (f : E →L[ℝ] ℝ) (hr : 0 ≤ r) :
     · simp [norm_smul, hx, abs_of_pos hr]
     · simpa [abs_of_nonpos hfx] using hxc
 
-/-- **The dual norm is attained on spheres in finite dimension.** In a
-nontrivial finite-dimensional real normed space, a real continuous linear functional `f` attains
-its supremum `r * ‖f‖` on the sphere of radius `r ≥ 0` about `0`. -/
-theorem isGreatest_image_sphere [FiniteDimensional ℝ E] [Nontrivial E] (f : E →L[ℝ] ℝ)
+/-- **The dual norm is attained on spheres in proper spaces.** In a
+nontrivial proper (for instance finite-dimensional) real normed space, a real continuous linear
+functional `f` attains its supremum `r * ‖f‖` on the sphere of radius `r ≥ 0` about `0`. -/
+theorem isGreatest_image_sphere [ProperSpace E] [Nontrivial E] (f : E →L[ℝ] ℝ)
     (hr : 0 ≤ r) : IsGreatest (f '' sphere 0 r) (r * ‖f‖) := by
   obtain ⟨x, hx, hmax⟩ := (isCompact_sphere (0 : E) r).exists_isMaxOn
     (NormedSpace.sphere_nonempty.2 hr) f.continuous.continuousOn

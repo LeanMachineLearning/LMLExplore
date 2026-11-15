@@ -10,6 +10,7 @@ public import LMLExplore.Analysis.Convex.FDeriv
 public import LMLExplore.Analysis.Normed.Operator.Basic
 public import Mathlib.Analysis.Convex.Extrema
 public import Mathlib.Analysis.Convex.Function
+public import Mathlib.LinearAlgebra.FiniteDimensional.Defs
 public import Mathlib.Topology.Algebra.Ring.Real
 import Mathlib.Analysis.Convex.Continuous
 import Mathlib.Analysis.LocallyConvex.Separation
@@ -27,13 +28,12 @@ strict epigraph `{(y, t) | y ∈ s, f y < t}`, which is open by continuity and c
 with the geometric Hahn–Banach theorem `geometric_hahn_banach_open_point`, and reads the
 subgradient off the separating functional [ET, Chapter I, Section 5]. This applies to functions
 that are continuous on a normed space of any dimension, such as the distance to a convex set
-[Ora, Section 12.1].
+[Ora, Section 12.1]. In the same generality, for a function convex on `s`, a subgradient
+within a neighbourhood of `x` in `s` is a subgradient within all of `s`: convexity turns the local
+supporting inequality into a global one.
 
 On a real normed space `E` [Ora, Theorems 2.30 and 4.21, Lemma 4.20]:
 
-* for a function convex on `s`, a subgradient within a neighbourhood of `x` in `s` is a
-  subgradient within all of `s`: convexity turns the local supporting inequality into a global
-  one;
 * in finite dimension, a function convex on `s` is continuous on the interior of `s`, so has a
   subgradient within `s` at every interior point of `s`; on an open convex set convexity is thus
   the existence of subgradients at every point (the converse direction is
@@ -128,19 +128,11 @@ theorem ConvexOn.exists_hasSubgradientWithinAt_univ (hf : ConvexOn ℝ univ f) (
     (x : E) : ∃ g : E →L[ℝ] ℝ, HasSubgradientWithinAt f g univ x :=
   hf.exists_hasSubgradientWithinAt_of_continuousOn isOpen_univ hfc.continuousOn (mem_univ x)
 
-end TopologicalVectorSpace
-
-section NormedSpace
-
-variable {E : Type*} [NormedAddCommGroup E] [NormedSpace ℝ E] {s t : Set E} {f : E → ℝ}
-  {g : E →L[ℝ] ℝ} {x : E} {L : ℝ≥0}
-
-namespace ConvexOn
-
 /-- **Local subgradients of a convex function are global.** If `f` is convex on `s` and `g` is a
 subgradient of `f` at `x ∈ s` within a neighbourhood `t` of `x` in `s`, then `g` is a subgradient
 of `f` within `s` at `x`. -/
-theorem hasSubgradientWithinAt_of_mem_nhdsWithin (hf : ConvexOn ℝ s f) (hx : x ∈ s)
+theorem ConvexOn.hasSubgradientWithinAt_of_mem_nhdsWithin {t : Set E} {g : E →L[ℝ] ℝ}
+    (hf : ConvexOn ℝ s f) (hx : x ∈ s)
     (ht : t ∈ 𝓝[s] x) (hg : HasSubgradientWithinAt f g t x) :
     HasSubgradientWithinAt f g s x := by
   -- The subgradient inequality says that `x` minimizes the convex function `f - g` on `t`, hence
@@ -156,6 +148,15 @@ theorem hasSubgradientWithinAt_of_mem_nhdsWithin (hf : ConvexOn ℝ s f) (hx : x
   simp only [Pi.sub_apply] at this
   rw [map_sub]
   linarith
+
+end TopologicalVectorSpace
+
+section NormedSpace
+
+variable {E : Type*} [NormedAddCommGroup E] [NormedSpace ℝ E] {s t : Set E} {f : E → ℝ}
+  {g : E →L[ℝ] ℝ} {x : E} {L : ℝ≥0}
+
+namespace ConvexOn
 
 /-- **Subgradients exist in the interior**. In a finite-dimensional real
 normed space, a function convex on `s` has a subgradient within `s` at every interior point of
