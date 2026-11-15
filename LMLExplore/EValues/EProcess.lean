@@ -70,9 +70,8 @@ e-processes, so that thresholding an e-process at `α⁻¹` is a level-`α` sequ
   measures, an adapted process is an e-process exactly when it is dominated by a test
   supermartingale, or by a test martingale, under each member of the null.
 * `ProbabilityTheory.IsEProcess.exists_isTestSupermartingale_ae_le`,
-  `ProbabilityTheory.IsEProcess.exists_isTestMartingale_ae_le`,
-  `ProbabilityTheory.IsEProcess.of_ae_le_isTestSupermartingale`: an e-process is dominated by a
-  test supermartingale and by a test martingale under each member of the null, and conversely.
+  `ProbabilityTheory.IsEProcess.exists_isTestMartingale_ae_le`: an e-process is dominated by a
+  test supermartingale and by a test martingale under each member of the null.
 * `ProbabilityTheory.IsEProcess.isEVar_stoppedValueLimsup`: the value of an e-process at every
   stopping time with values in `WithTop ℕ` is an e-variable.
 * `ProbabilityTheory.IsEProcess.measure_exists_le_le`,
@@ -297,17 +296,10 @@ theorem isEProcess_tfae (hS : ∀ P ∈ S, IsProbabilityMeasure P) (hE : Adapted
     · rw [ite_eq_right hτω, stoppedValueLimsup_eq_stoppedValue hτω]
   tfae_have 4 → 1 := fun h ↦ .of_lintegral_le_one hS hE fun τ hτ P hP ↦ by
     refine le_of_eq_of_le (lintegral_congr fun ω ↦ ?_) (h _ hτ P hP)
+    -- `↑(τ ω) ≠ ⊤` selects the `stoppedValue` branch, and `stoppedValue E (↑τ) ω` is `E (τ ω) ω`
+    -- by definition, since `WithTop.untopA ↑n` reduces to `n` (Mathlib has no simp lemma for it)
     exact (ite_eq_right (WithTop.natCast_ne_top _)).symm
   tfae_finish
-
-/-- For a null of probability measures, an adapted process that is, under every member `P` of the
-null, `P`-almost surely dominated by a test supermartingale for `P` is an e-process. The test
-supermartingale may depend on `P`. -/
-theorem IsEProcess.of_ae_le_isTestSupermartingale (hS : ∀ P ∈ S, IsProbabilityMeasure P)
-    (hE : Adapted ℱ E)
-    (h : ∀ P ∈ S, ∃ M, IsTestSupermartingale M ℱ {P} ∧ ∀ n, E n ≤ᵐ[P] M n) :
-    IsEProcess E ℱ S :=
-  ((isEProcess_tfae hS hE).out 5 1).1 h
 
 /-- **The characterization of e-processes by test supermartingales** [RRLK, Lemma 6]. For a null
 of probability measures, an adapted process is an e-process exactly when, under every member `P`
