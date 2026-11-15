@@ -35,6 +35,11 @@ the function `H_z(x) = min_{y ∈ (1, z]} y (x - log log y)` of [KK21, Definitio
 ## Main statements
 
 * `LMLExplore.calibrationExp_eq`: the defining equation of `𝒞^exp` in terms of `H_{3/2}`.
+* `LMLExplore.isLeast_two_mul_minMulSubLogLog` [KK21, Lemma 12]: for `c > 0`, `x > 0` and
+  `z ∈ (0, e - 1]`, the minimum of `(x - log (1 - λ (1 + ξ))) / λ + (1 + ξ) log (c / log² (1 + ξ))`
+  over `ξ ∈ (0, z]` and `λ ∈ (0, 1 / (1 + ξ))` is `2 H_{1+z}((h⁻¹(1 + x) + log c) / 2)`. The case
+  `c = 2 ζ(2)`, `z = 1/2` is `𝒞^exp`; the case `c = ζ(2)` is the smaller calibration of one-sided
+  deviations [KK21, Theorem 7].
 * `LMLExplore.isLeast_calibrationExp`: `𝒞^exp(x)` is the optimal tuning of [KK21, Lemma 12].
 * `LMLExplore.monotone_calibrationExp`, `LMLExplore.one_add_add_log_le_calibrationExp`,
   `LMLExplore.calibrationExp_le_add_three_mul_log_add`: `𝒞^exp` is monotone and, for `x ≥ 0`,
@@ -65,6 +70,51 @@ theorem calibrationExp_eq (x : ℝ) :
 
 private theorem three_halves_le_exp_one : (3 / 2 : ℝ) ≤ exp 1 := by
   linarith [add_one_le_exp (1 : ℝ)]
+
+/-- `(x - log (1 - λ y)) / λ + y log (c / log² y) = 2 y ((h⁻¹(1 + x) + log c) / 2 - log log y)
++ y ((x - log (1 - λ y)) / (λ y) - h⁻¹(1 + x))`, the decomposition of the objective of
+[KK21, Lemma 12] into the objective of [KK21, Lemma 30] and that of [KK21, Lemma 28]. -/
+private theorem tuning_eq {c x y l : ℝ} (hc : 0 < c) (hy : 1 < y) (hl : 0 < l) :
+    (x - log (1 - l * y)) / l + y * log (c / log y ^ 2) =
+      2 * (y * ((subLogInv (1 + x) + log c) / 2 - log (log y))) +
+        y * ((x - log (1 - l * y)) / (l * y) - subLogInv (1 + x)) := by
+  have hy0 : 0 < y := by linarith
+  rw [log_div hc.ne' (pow_ne_zero 2 (log_pos hy).ne'), log_pow]
+  field_simp
+  ring
+
+/-- **The optimal tuning of [KK21, Lemma 12]**: for `c > 0`, `x > 0` and `z ∈ (0, e - 1]`, the
+minimum of `(x - log (1 - λ (1 + ξ))) / λ + (1 + ξ) log (c / log² (1 + ξ))` over `ξ ∈ (0, z]` and
+`λ ∈ (0, 1 / (1 + ξ))` is `2 H_{1+z}((h⁻¹(1 + x) + log c) / 2)`. -/
+theorem isLeast_two_mul_minMulSubLogLog {c x z : ℝ} (hc : 0 < c) (hx : 0 < x) (hz0 : 0 < z)
+    (hz : z ≤ exp 1 - 1) :
+    IsLeast {v | ∃ ξ ∈ Ioc 0 z, ∃ l ∈ Ioo 0 (1 + ξ)⁻¹,
+        v = (x - log (1 - l * (1 + ξ))) / l + (1 + ξ) * log (c / log (1 + ξ) ^ 2)}
+      (2 * minMulSubLogLog (1 + z) ((subLogInv (1 + x) + log c) / 2)) := by
+  have hz1 : 1 < 1 + z := by linarith
+  have hze : 1 + z ≤ exp 1 := by linarith
+  refine ⟨?_, ?_⟩
+  · obtain ⟨y, ⟨hy1, hyz⟩, hyeq⟩ := (isLeast_minMulSubLogLog hz1 hze
+      ((subLogInv (1 + x) + log c) / 2)).1
+    obtain ⟨q, ⟨hq0, hq1⟩, hqeq⟩ := (Real.isLeast_subLogInv_one_add hx).1
+    beta_reduce at hyeq hqeq
+    have hy0 : 0 < y := by linarith
+    refine ⟨y - 1, ⟨by linarith, by linarith⟩, q / y, ⟨div_pos hq0 hy0, ?_⟩, ?_⟩
+    · rw [add_sub_cancel, div_lt_iff₀ hy0, inv_mul_cancel₀ hy0.ne']
+      exact hq1
+    · rw [add_sub_cancel, tuning_eq hc hy1 (div_pos hq0 hy0), div_mul_cancel₀ q hy0.ne',
+        hqeq]
+      simp [← hyeq]
+  · rintro _ ⟨ξ, ⟨hξ0, hξz⟩, l, ⟨hl0, hl1⟩, rfl⟩
+    have hy1 : 1 < 1 + ξ := by linarith
+    have hy0 : 0 < 1 + ξ := by linarith
+    rw [tuning_eq hc hy1 hl0]
+    have hq1 : l * (1 + ξ) < 1 := by
+      simpa [inv_mul_cancel₀ hy0.ne'] using mul_lt_mul_of_pos_right hl1 hy0
+    have h28 := Real.subLogInv_one_add_le_div hx.le (mul_pos hl0 hy0) hq1
+    have h30 := minMulSubLogLog_le (x := (subLogInv (1 + x) + log c) / 2) hz1 hze
+      ⟨hy1, by linarith⟩
+    nlinarith
 
 /-- `𝒞^exp(x)` is the optimal tuning of [KK21, Lemma 12] for `C(ξ) = 2 ζ(2) / log² (1 + ξ)` and
 `ξ ∈ (0, 1/2]`: for `x > 0` it is the minimum of `(x + g_ξ(λ)) / λ`, with

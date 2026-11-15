@@ -28,8 +28,9 @@ several arms; it grows like `x + log x`:
 
 ## Main statements
 
-* `Real.strictMonoOn_sub_log`, `Real.monotoneOn_sub_log`, `Real.one_le_sub_log`: `h` is strictly
-  increasing on `[1, ∞)`, and `1 ≤ h(u)` for `u > 0`.
+* `Real.strictMonoOn_sub_log`, `Real.monotoneOn_sub_log`, `Real.sub_log_lt_sub_log`,
+  `Real.sub_log_le_sub_log`, `Real.one_le_sub_log`: `h` is strictly increasing on `[1, ∞)`, and
+  `1 ≤ h(u)` for `u > 0`.
 * `Real.subLogInv_sub_log_subLogInv`, `Real.subLogInv_sub_log`, `Real.subLogInv_eq_iff`: `subLogInv`
   is the inverse of `h` on `[1, ∞)`; `Real.subLogInv_le_iff`, `Real.lt_subLogInv_iff` compare it
   with a point of `[1, ∞)`.
@@ -75,6 +76,14 @@ theorem strictMonoOn_sub_log : StrictMonoOn (fun u : ℝ ↦ u - log u) (Ici 1) 
 /-- `u ↦ u - log u` is monotone on `[1, ∞)`. -/
 theorem monotoneOn_sub_log : MonotoneOn (fun u : ℝ ↦ u - log u) (Ici 1) :=
   strictMonoOn_sub_log.monotoneOn
+
+/-- `a - log a < b - log b` for `1 ≤ a < b`. -/
+theorem sub_log_lt_sub_log {a b : ℝ} (ha : 1 ≤ a) (hab : a < b) : a - log a < b - log b :=
+  strictMonoOn_sub_log (mem_Ici.2 ha) (mem_Ici.2 (ha.trans hab.le)) hab
+
+/-- `a - log a ≤ b - log b` for `1 ≤ a ≤ b`. -/
+theorem sub_log_le_sub_log {a b : ℝ} (ha : 1 ≤ a) (hab : a ≤ b) : a - log a ≤ b - log b :=
+  monotoneOn_sub_log (mem_Ici.2 ha) (mem_Ici.2 (ha.trans hab)) hab
 
 /-- `1 ≤ u - log u` for `u > 0`. -/
 theorem one_le_sub_log {u : ℝ} (hu : 0 < u) : 1 ≤ u - log u := by
@@ -150,14 +159,12 @@ theorem subLogInv_one : subLogInv 1 = 1 :=
 theorem subLogInv_le_iff {x u : ℝ} (hu : 1 ≤ u) : subLogInv x ≤ u ↔ x ≤ u - log u := by
   constructor
   · intro h
-    have h' := monotoneOn_sub_log (one_le_subLogInv x) hu h
-    beta_reduce at h'
+    have h' := sub_log_le_sub_log (one_le_subLogInv x) h
     rw [subLogInv_sub_log_subLogInv_eq_max] at h'
     exact (le_max_left x 1).trans h'
   · intro h
     by_contra hlt
-    have h' := strictMonoOn_sub_log hu (one_le_subLogInv x) (not_le.1 hlt)
-    beta_reduce at h'
+    have h' := sub_log_lt_sub_log hu (not_le.1 hlt)
     rw [subLogInv_sub_log_subLogInv_eq_max] at h'
     have h1 := one_le_sub_log (by linarith : (0 : ℝ) < u)
     exact absurd h' (not_lt.2 (max_le h h1))

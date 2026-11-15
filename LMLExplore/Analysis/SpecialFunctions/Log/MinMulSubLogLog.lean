@@ -17,8 +17,8 @@ For `z ∈ (1, e]`, Kaufmann and Koolen [KK21, Definition 29] introduce the func
 inverse `h⁻¹` of `h(u) = u - log u` on `[1, ∞)` (`Real.subLogInv`), its minimizer is
 `y = exp (1 / h⁻¹(x))` when this point is at most `z`, and `y = z` otherwise [KK21, (9), Lemma 30].
 `H_z` is the outer step of the optimal tuning of their time-uniform deviation inequalities for
-several arms [KK21, Lemma 12], which this file also proves; the calibration function `𝒞^exp` of
-[KK21, (10)] is `LMLExplore.calibrationExp`, the case `c = 2 ζ(2)`, `z = 1/2` of that tuning.
+several arms [KK21, Lemma 12], proved with the calibration function `𝒞^exp` of [KK21, (10)] in
+`LMLExplore.SequentialLearning.CalibrationExp`.
 
 ## Main definitions
 
@@ -33,11 +33,6 @@ several arms [KK21, Lemma 12], which this file also proves; the calibration func
 * `LMLExplore.monotone_minMulSubLogLog`, `LMLExplore.self_le_minMulSubLogLog`,
   `LMLExplore.minMulSubLogLog_le_max`: `H_z` is monotone, `x ≤ H_z(x)` for `x ≥ 0`, and
   `H_z(x) ≤ max (h⁻¹(x) + 2) (z / log z)`.
-* `LMLExplore.isLeast_two_mul_minMulSubLogLog` [KK21, Lemma 12]: for `c > 0`, `x > 0` and
-  `z ∈ (0, e - 1]`, the minimum of `(x - log (1 - λ (1 + ξ))) / λ + (1 + ξ) log (c / log² (1 + ξ))`
-  over `ξ ∈ (0, z]` and `λ ∈ (0, 1 / (1 + ξ))` is `2 H_{1+z}((h⁻¹(1 + x) + log c) / 2)`. The case
-  `c = 2 ζ(2)`, `z = 1/2` is `𝒞^exp`; the case `c = ζ(2)` is the smaller calibration of one-sided
-  deviations [KK21, Theorem 7].
 
 ## Implementation notes
 
@@ -49,7 +44,7 @@ at `h(1 / log z)`: with this threshold the closed form is the minimum of [KK21, 
 ## References
 
 * [KK21] E. Kaufmann and W. M. Koolen, *Mixture martingales revisited with applications to
-  sequential tests and confidence intervals*, JMLR 22 (2021), Lemma 12 and Appendix B.2.
+  sequential tests and confidence intervals*, JMLR 22 (2021), Appendix B.2.
 -/
 
 public section
@@ -132,22 +127,18 @@ private theorem one_le_inv_log_le_inv_log {y z : ℝ} (hy : 1 < y) (hyz : y ≤ 
 theorem isLeast_minMulSubLogLog {z : ℝ} (hz1 : 1 < z) (hze : z ≤ exp 1) (x : ℝ) :
     IsLeast ((fun y ↦ y * (x - log (log y))) '' Ioc 1 z) (minMulSubLogLog z x) := by
   set f : ℝ → ℝ := fun y ↦ y * (x - log (log y))
-  have hv₀ := (one_le_inv_log_le_inv_log hz1 le_rfl hze).1
   rcases le_or_gt ((log z)⁻¹ - log (log z)⁻¹) x with h | h
   · -- the minimizer `exp (1 / h⁻¹(x))` lies in `(1, z]`
     rw [minMulSubLogLog_of_le h]
     set u := subLogInv x
     have hx1 : 1 ≤ x := by
-      have := monotoneOn_sub_log (mem_Ici.2 le_rfl) hv₀ hv₀
-      beta_reduce at this
-      rw [log_one, sub_zero] at this
+      have := one_le_sub_log (inv_pos.2 (log_pos hz1))
       linarith
     have hu : u - log u = x := subLogInv_sub_log_subLogInv hx1
     have hu0 : 0 < u := subLogInv_pos x
     have hvu : (log z)⁻¹ ≤ u := by
       by_contra hlt
-      have := strictMonoOn_sub_log (one_le_subLogInv x) (mem_Ici.2 hv₀) (not_le.1 hlt)
-      beta_reduce at this
+      have := sub_log_lt_sub_log (one_le_subLogInv x) (not_le.1 hlt)
       linarith
     have hy₀1 : 1 < exp u⁻¹ := one_lt_exp_iff.2 (inv_pos.2 hu0)
     have hy₀z : exp u⁻¹ ≤ z := by
@@ -169,7 +160,7 @@ theorem isLeast_minMulSubLogLog {z : ℝ} (hz1 : 1 < z) (hze : z ≤ exp 1) (x :
       have : u ≤ (log w)⁻¹ := by
         rw [le_inv_comm₀ hu0 (log_pos hw.1)]
         exact hlw.le
-      linarith [monotoneOn_sub_log (one_le_subLogInv x) ((one_le_subLogInv x).trans this) this]
+      linarith [sub_log_le_sub_log (one_le_subLogInv x) this]
     · -- `f` is monotone on `[exp (1 / u), z]`
       refine monotoneOn_mul_sub_log_log hy₀1 (fun w hw ↦ ?_) ⟨le_rfl, hy₀z⟩ ⟨hyy, hyz⟩ hyy
       have hw1 : 1 < w := hy₀1.trans hw.1
@@ -180,14 +171,14 @@ theorem isLeast_minMulSubLogLog {z : ℝ} (hz1 : 1 < z) (hze : z ≤ exp 1) (x :
         rw [inv_le_comm₀ (log_pos hw1) hu0]
         exact hlw.le
       have h1w := (one_le_inv_log_le_inv_log hw1 hw.2.le hze)
-      linarith [monotoneOn_sub_log (h1w.1.trans h1w.2) (one_le_subLogInv x) hwu]
+      linarith [sub_log_le_sub_log (h1w.1.trans h1w.2) hwu]
   · -- the minimizer is `z`: `f` is antitone on `(1, z]`
     rw [minMulSubLogLog_of_lt h]
     refine ⟨⟨z, ⟨hz1, le_rfl⟩, rfl⟩, ?_⟩
     rintro _ ⟨y, hy, rfl⟩
     refine antitoneOn_mul_sub_log_log (fun w hw ↦ ?_) hy ⟨hz1, le_rfl⟩ hy.2
     have h1w := one_le_inv_log_le_inv_log hw.1 hw.2.le hze
-    linarith [monotoneOn_sub_log h1w.1 (h1w.1.trans h1w.2) h1w.2]
+    linarith [sub_log_le_sub_log h1w.1 h1w.2]
 
 theorem minMulSubLogLog_le {z x y : ℝ} (hz1 : 1 < z) (hze : z ≤ exp 1) (hy : y ∈ Ioc 1 z) :
     minMulSubLogLog z x ≤ y * (x - log (log y)) :=
@@ -236,50 +227,5 @@ theorem minMulSubLogLog_le_max {z : ℝ} (hz : 0 ≤ z) (x : ℝ) :
     rw [div_eq_mul_inv]
     gcongr
     linarith
-
-/-- `(x - log (1 - λ y)) / λ + y log (c / log² y) = 2 y ((h⁻¹(1 + x) + log c) / 2 - log log y)
-+ y ((x - log (1 - λ y)) / (λ y) - h⁻¹(1 + x))`, the decomposition of the objective of
-[KK21, Lemma 12] into the objective of [KK21, Lemma 30] and that of [KK21, Lemma 28]. -/
-private theorem tuning_eq {c x y l : ℝ} (hc : 0 < c) (hy : 1 < y) (hl : 0 < l) :
-    (x - log (1 - l * y)) / l + y * log (c / log y ^ 2) =
-      2 * (y * ((subLogInv (1 + x) + log c) / 2 - log (log y))) +
-        y * ((x - log (1 - l * y)) / (l * y) - subLogInv (1 + x)) := by
-  have hy0 : 0 < y := by linarith
-  rw [log_div hc.ne' (pow_ne_zero 2 (log_pos hy).ne'), log_pow]
-  field_simp
-  ring
-
-/-- **The optimal tuning of [KK21, Lemma 12]**: for `c > 0`, `x > 0` and `z ∈ (0, e - 1]`, the
-minimum of `(x - log (1 - λ (1 + ξ))) / λ + (1 + ξ) log (c / log² (1 + ξ))` over `ξ ∈ (0, z]` and
-`λ ∈ (0, 1 / (1 + ξ))` is `2 H_{1+z}((h⁻¹(1 + x) + log c) / 2)`. -/
-theorem isLeast_two_mul_minMulSubLogLog {c x z : ℝ} (hc : 0 < c) (hx : 0 < x) (hz0 : 0 < z)
-    (hz : z ≤ exp 1 - 1) :
-    IsLeast {v | ∃ ξ ∈ Ioc 0 z, ∃ l ∈ Ioo 0 (1 + ξ)⁻¹,
-        v = (x - log (1 - l * (1 + ξ))) / l + (1 + ξ) * log (c / log (1 + ξ) ^ 2)}
-      (2 * minMulSubLogLog (1 + z) ((subLogInv (1 + x) + log c) / 2)) := by
-  have hz1 : 1 < 1 + z := by linarith
-  have hze : 1 + z ≤ exp 1 := by linarith
-  refine ⟨?_, ?_⟩
-  · obtain ⟨y, ⟨hy1, hyz⟩, hyeq⟩ := (isLeast_minMulSubLogLog hz1 hze
-      ((subLogInv (1 + x) + log c) / 2)).1
-    obtain ⟨q, ⟨hq0, hq1⟩, hqeq⟩ := (Real.isLeast_subLogInv_one_add hx).1
-    beta_reduce at hyeq hqeq
-    have hy0 : 0 < y := by linarith
-    refine ⟨y - 1, ⟨by linarith, by linarith⟩, q / y, ⟨div_pos hq0 hy0, ?_⟩, ?_⟩
-    · rw [add_sub_cancel, div_lt_iff₀ hy0, inv_mul_cancel₀ hy0.ne']
-      exact hq1
-    · rw [add_sub_cancel, tuning_eq hc hy1 (div_pos hq0 hy0), div_mul_cancel₀ q hy0.ne',
-        hqeq]
-      simp [← hyeq]
-  · rintro _ ⟨ξ, ⟨hξ0, hξz⟩, l, ⟨hl0, hl1⟩, rfl⟩
-    have hy1 : 1 < 1 + ξ := by linarith
-    have hy0 : 0 < 1 + ξ := by linarith
-    rw [tuning_eq hc hy1 hl0]
-    have hq1 : l * (1 + ξ) < 1 := by
-      simpa [inv_mul_cancel₀ hy0.ne'] using mul_lt_mul_of_pos_right hl1 hy0
-    have h28 := Real.subLogInv_one_add_le_div hx.le (mul_pos hl0 hy0) hq1
-    have h30 := minMulSubLogLog_le (x := (subLogInv (1 + x) + log c) / 2) hz1 hze
-      ⟨hy1, by linarith⟩
-    nlinarith
 
 end LMLExplore
