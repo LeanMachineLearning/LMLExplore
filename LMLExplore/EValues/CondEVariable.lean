@@ -5,6 +5,7 @@ Authors: LMLExplore contributors
 -/
 module
 
+public import LMLExplore.MeasureTheory.Function.ConditionalLExpectation
 public import LMLExplore.MeasureTheory.Measure.WithDensity
 public import Mathlib.MeasureTheory.Function.ConditionalLExpectation
 public import Statlib.EValues.EVariable
@@ -164,14 +165,12 @@ conditional e-variable given `m` exactly when it is measurable and its condition
 `P⁻[X|m]` is almost surely at most `1` under every `P ∈ S`. -/
 theorem isCondEVar_iff_condLExp_le (hm : m ≤ mΩ) (hS : ∀ P ∈ S, SigmaFinite (P.trim hm)) :
     IsCondEVar X m S ↔ Measurable X ∧ ∀ P ∈ S, P⁻[X|m] ≤ᵐ[P] 1 := by
+  have h1 : Measurable[m] (1 : Ω → ℝ≥0∞) := @measurable_const _ _ _ m 1
   refine ⟨fun hX ↦ ⟨hX.measurable, fun P hP ↦ ?_⟩, fun hX ↦ ⟨hX.1, fun P hP s hs ↦ ?_⟩⟩ <;>
     have := hS P hP
-  · refine ae_le_of_ae_le_trim (hm := hm) <| ae_le_of_forall_setLIntegral_le_of_sigmaFinite
-      (μ := P.trim hm) (measurable_condLExp _ _ _) fun s hs _ ↦ ?_
-    rw [setLIntegral_condLExp_trim hm _ _ hs]
-    simpa [trim_measurableSet_eq hm hs] using hX.setLIntegral_le P hP s hs
-  · rw [← setLIntegral_condLExp hm P X hs]
-    simpa using lintegral_mono_ae (ae_restrict_of_ae (hX.2 P hP))
+  · rw [condLExp_ae_le_iff_forall_setLIntegral_le hm h1]
+    simpa using hX.setLIntegral_le P hP
+  · simpa using (condLExp_ae_le_iff_forall_setLIntegral_le hm h1).1 (hX.2 P hP) s hs
 
 /-- When the restrictions to a sub-σ-algebra `m` of the members of `S` are σ-finite, `X` is an
 exact conditional e-variable given `m` exactly when it is measurable and its conditional
