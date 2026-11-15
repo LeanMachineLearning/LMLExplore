@@ -59,8 +59,8 @@ losses.
   the action is the play and the mean of the estimate is the loss.
 * `sum_unitBallProb_mul_one_sub_norm_mul_norm_unitBallEstimate_sq`: the mean of
   `(1 - ‖a‖) * ‖unitBallEstimate b a y o‖ ^ 2` is `d * ‖y‖ ^ 2`.
-* `measurable_unitBallProb`, `measurable_unitBallAction`: the probabilities of the outcomes and
-  the action are measurable functions of the play.
+* `measurable_unitBallProb`, `measurable_unitBallAction`, `Measurable.unitBallAction`: the
+  probabilities of the outcomes and the action are measurable functions of the play.
 * `isUnbiasedRound_unitBall`: a round of the algorithm is unbiased (`IsUnbiasedRound`).
 * `integral_one_sub_norm_mul_norm_unitBallEstimate_sq`: the expected variance term of a round.
 * `ftrl_integral_regret_le_of_unitBallEstimate`: the expected regret against every `u` of the unit
@@ -249,6 +249,14 @@ lemma measurable_unitBallAction [MeasurableSpace ι] [MeasurableSingletonClass �
     fun_prop
   · simp only [unitBallAction_some]
     exact measurable_const
+
+/-- The action is measurable when the play and the outcome are. -/
+@[fun_prop]
+lemma _root_.Measurable.unitBallAction [MeasurableSpace ι] [MeasurableSingletonClass ι]
+    {α : Type*} {mα : MeasurableSpace α} (b : OrthonormalBasis ι ℝ E) {a : α → E}
+    {o : α → Option (ι × Bool)} (ha : Measurable a) (ho : Measurable o) :
+    Measurable fun x ↦ unitBallAction b (a x) (o x) :=
+  (measurable_unitBallAction b).comp (ha.prodMk ho)
 
 end Measurable
 

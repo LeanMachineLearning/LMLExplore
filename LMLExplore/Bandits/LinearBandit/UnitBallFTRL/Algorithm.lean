@@ -5,7 +5,7 @@ Authors: LMLExplore contributors
 -/
 module
 
-public import LMLExplore.Bandits.UnitBallFTRL.Basic
+public import LMLExplore.Bandits.LinearBandit.UnitBallFTRL.Basic
 public import LMLExplore.MeasureTheory.MeasurableSpace.Constructions
 public import LMLExplore.MeasureTheory.Measure.Weighted
 public import LMLExplore.SequentialLearning.Algorithm
@@ -33,8 +33,9 @@ of the history `h` of the first `t` rounds and of the observation `o` of round `
 observes the loss `⟪v, ℓ t (h, o)⟫` of the vector `v` it plays. This is the hypothesis
 `Y t =ᵐ[P] fun ω ↦ ⟪(A t ω).1, ℓ t (history O A Y t ω, O t ω)⟫` on a run, which holds against the
 environment `Environment.detFeedback obs (fun t x ↦ ⟪x.2.1, ℓ t x.1⟫) _` whatever the observation
-kernels `obs`. Applying the round-by-round analysis of `LMLExplore.Bandits.UnitBallFTRL.Basic` with
-the σ-algebras `h.filtrationObs t` gives [LS, Theorem 28.11] for every run of the algorithm.
+kernels `obs`. Applying the round-by-round analysis of
+`LMLExplore.Bandits.LinearBandit.UnitBallFTRL.Basic` with the σ-algebras `h.filtrationObs t` gives
+[LS, Theorem 28.11] for every run of the algorithm.
 
 ## Main definitions
 
@@ -130,8 +131,16 @@ lemma measurable_unitBallFeedbackEstimate :
   rcases o with _ | p
   · exact measurable_const
   · simp only [unitBallFeedbackEstimate_some]
-    exact (by fun_prop : Measurable fun z : E × ℝ ↦ Fintype.card ι / (1 - ‖z.1‖) * z.2).smul
-      ((measurable_unitBallAction b).comp (measurable_fst.prodMk measurable_const))
+    fun_prop
+
+/-- The vector loss estimate is measurable when the play, the observed loss and the outcome
+are. -/
+@[fun_prop]
+lemma _root_.Measurable.unitBallFeedbackEstimate {α : Type*} {mα : MeasurableSpace α}
+    {a : α → E} {x : α → ℝ} {o : α → Option (ι × Bool)} (ha : Measurable a) (hx : Measurable x)
+    (ho : Measurable o) :
+    Measurable fun z ↦ unitBallFeedbackEstimate b (a z) (x z) (o z) :=
+  (measurable_unitBallFeedbackEstimate b).comp ((ha.prodMk hx).prodMk ho)
 
 end Measurability
 
@@ -188,13 +197,8 @@ lemma measurable_unitBallFTRLHistSum (n : ℕ) :
     exact measurable_const
   | succ n ih =>
     have hS := ih.comp (measurable_finInit (β := fun _ ↦ _))
-    have hlast : Measurable fun h : Hist 𝓞 (E × Option (ι × Bool)) ℝ (n + 1) ↦ h (Fin.last n) :=
-      measurable_pi_apply _
     rw [funext (unitBallFTRLHistSum_succ b η r n)]
-    exact hS.add ((measurable_unitBallFeedbackEstimate b).comp
-      ((((measurable_unitBallFTRLPlay η r).comp hS).prodMk
-        (Round.measurable_feedback.comp hlast)).prodMk
-        (measurable_snd.comp (Round.measurable_action.comp hlast))))
+    fun_prop
 
 end HistSum
 
@@ -220,9 +224,7 @@ lemma measurable_unitBallLaw [BorelSpace E] [MeasurableSingletonClass ι] :
     smul_eq_mul]
   refine Finset.measurable_sum _ fun o _ ↦
     (ENNReal.measurable_ofReal.comp (measurable_unitBallProb o)).mul ?_
-  exact (measurable_one.indicator hs).comp
-    (((measurable_unitBallAction b).comp (measurable_id.prodMk measurable_const)).prodMk
-      measurable_const)
+  exact (measurable_one.indicator hs).comp (by fun_prop)
 
 /-- For a play in the closed unit ball, the law of the action is a probability measure. -/
 lemma isProbabilityMeasure_unitBallLaw [Nonempty ι] (ha : ‖a‖ ≤ 1) :
@@ -246,8 +248,7 @@ variable [BorelSpace E] [FiniteDimensional ℝ E] [MeasurableSingletonClass ι]
 /-- Under the law of the action, the vector played is almost surely the action of the outcome. -/
 lemma ae_unitBallLaw_fst_eq (a : E) : ∀ᵐ z ∂(unitBallLaw b a), z.1 = unitBallAction b a z.2 := by
   have hS : MeasurableSet {z : E × Option (ι × Bool) | z.1 = unitBallAction b a z.2} :=
-    measurableSet_eq_fun measurable_fst ((measurable_unitBallAction b).comp
-      (measurable_const.prodMk measurable_snd))
+    measurableSet_eq_fun measurable_fst (by fun_prop)
   have hS' : MeasurableSet {z : E × Option (ι × Bool) | ¬z.1 = unitBallAction b a z.2} :=
     hS.compl
   rw [ae_iff, unitBallLaw_def, _root_.sum_apply]
@@ -273,8 +274,7 @@ noncomputable def unitBallFTRL (hη : 0 ≤ η) (hr : r ∈ Set.Icc 0 1) :
     Algorithm 𝓞 (E × Option (ι × Bool)) ℝ where
   policy n :=
     { toFun x := unitBallLaw b (unitBallFTRLPlay η r (unitBallFTRLHistSum b η r n x.1))
-      measurable' := (measurable_unitBallLaw b).comp (((measurable_unitBallFTRLPlay η r).comp
-        (measurable_unitBallFTRLHistSum b η r n)).comp measurable_fst) }
+      measurable' := (measurable_unitBallLaw b).comp (by fun_prop) }
   isMarkovKernel_policy _ :=
     ⟨fun _ ↦ isProbabilityMeasure_unitBallLaw b ((norm_unitBallFTRLPlay_le hη hr.1 _).trans hr.2)⟩
 
@@ -304,9 +304,7 @@ theorem ae_fst_action_eq (h : IsAlgEnvSeq O A Y (unitBallFTRL b η r hη hr) env
       (unitBallFTRLPlay η r (unitBallFTRLHistSum b η r n (history O A Y n ω))) (A n ω).2 := by
   have hS : MeasurableSet {q : (Hist 𝓞 (E × Option (ι × Bool)) ℝ n × 𝓞) × (E × Option (ι × Bool)) |
       q.2.1 = unitBallAction b (unitBallFTRLPlay η r (unitBallFTRLHistSum b η r n q.1.1)) q.2.2} :=
-    measurableSet_eq_fun measurable_snd.fst ((measurable_unitBallAction b).comp
-      ((((measurable_unitBallFTRLPlay η r).comp (measurable_unitBallFTRLHistSum b η r n)).comp
-        measurable_fst.fst).prodMk measurable_snd.snd))
+    measurableSet_eq_fun (by fun_prop) (by fun_prop)
   have h_ae := Measure.ae_compProd_of_ae_ae (μ := P.map fun ω ↦ (history O A Y n ω, O n ω))
     (κ := (unitBallFTRL b η r hη hr).policy n) hS (.of_forall fun x ↦ ae_unitBallLaw_fst_eq b _)
   rw [← (h.hasCondDistrib_action n).map_eq] at h_ae
