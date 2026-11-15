@@ -8,6 +8,7 @@ module
 public import LMLExplore.EValues.BipolarRate.Basic
 public import Mathlib.Probability.ProductMeasure
 import LMLExplore.EValues.BipolarRate.EProcess
+import LMLExplore.Logic.Function.DependsOn
 import LMLExplore.Probability.ProductMeasure
 import LMLExplore.Probability.Process.StoppedValue
 import Statlib.ForMathlib.MeasureTheory.Integral.EReal.Bochner
@@ -165,13 +166,6 @@ private lemma measurable_restartPayoff (hσm : Measurable σ) (hVm : Measurable 
   | succ j ih => exact ih.mul (measurable_apply_of_countable
       (fun t ↦ hVm.comp (measurable_shift_iterate t)) (measurable_restartTime hσm j))
 
-/-- If two sequences of observations agree on the first `t`, their shifts by `s` agree on the
-first `t - s`. -/
-private lemma shift_iterate_eqOn {t : ℕ} {ω ω' : ℕ → 𝓧} (h : ∀ i < t, ω i = ω' i) (s : ℕ) :
-    ∀ i < t - s, (shift 𝓧)^[s] ω i = (shift 𝓧)^[s] ω' i := fun i hi ↦ by
-  simp only [shift_iterate_apply]
-  exact h _ (by omega)
-
 /-- The first `j` rounds are determined by the observations that they use. -/
 private lemma restartTime_eq_of_eqOn (hσ : DependsOnBefore σ σ) (j : ℕ) {t : ℕ}
     {ω ω' : ℕ → 𝓧} (h : ∀ i < t, ω i = ω' i) (hj : restartTime σ j ω ≤ t) :
@@ -210,19 +204,6 @@ private lemma restartTime_le_iff_of_eqOn (hσ : DependsOnBefore σ σ) (j N : �
     (h : ∀ i < N, ω i = ω' i) : restartTime σ j ω' ≤ N ↔ restartTime σ j ω ≤ N :=
   ⟨fun h' ↦ (restartTime_eq_of_eqOn hσ j (fun i hi ↦ (h i hi).symm) h') ▸ h',
     fun h' ↦ (restartTime_eq_of_eqOn hσ j h h').symm ▸ h'⟩
-
-/-- The indicator of an event determined by the first `t` observations, applied to a function
-determined by them on that event, is a function of the first `t` observations. -/
-private lemma dependsOn_indicator_of_eqOn {β : Type*} [Zero β] {A : Set (ℕ → 𝓧)}
-    {f : (ℕ → 𝓧) → β} {t : ℕ}
-    (hA : ∀ ⦃ω ω' : ℕ → 𝓧⦄, (∀ i < t, ω i = ω' i) → (ω' ∈ A ↔ ω ∈ A))
-    (hf : ∀ ⦃ω ω' : ℕ → 𝓧⦄, (∀ i < t, ω i = ω' i) → ω ∈ A → f ω' = f ω) :
-    DependsOn (A.indicator f) (Set.Iio t) := by
-  intro ω ω' h
-  have h' : ∀ i < t, ω i = ω' i := fun i hi ↦ h i hi
-  by_cases hω : ω ∈ A
-  · rw [Set.indicator_of_mem hω, Set.indicator_of_mem ((hA h').2 hω), hf h' hω]
-  · rw [Set.indicator_of_notMem hω, Set.indicator_of_notMem (mt (hA h').1 hω)]
 
 /-- On the event that the first `j` rounds use `t` observations, their payoff is a function of
 the first `t` observations. -/

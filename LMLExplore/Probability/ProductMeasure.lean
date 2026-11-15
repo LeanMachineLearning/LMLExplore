@@ -13,6 +13,7 @@ import LMLExplore.MeasureTheory.Constructions.Pi
 import LMLExplore.MeasureTheory.Measure.Typeclasses.Probability
 import Mathlib.MeasureTheory.Function.FactorsThrough
 import Mathlib.Probability.Independence.Integration
+import TauCeti.Probability.Process.PathLaw.Shift
 
 /-!
 # Infinite products of probability measures: coordinatewise properties, first and next terms
@@ -41,6 +42,8 @@ the polarization step of [EVR26, Note 03, Theorem 1], adapted from
   first `n` terms and the next `m` terms are independent.
 * `MeasureTheory.measurePreserving_shift`, `MeasureTheory.measurePreserving_shift_iterate`: the
   shift and its iterates preserve the i.i.d. law.
+* `MeasureTheory.shift_iterate_eqOn`: two sequences that agree on the first `t` terms have shifts
+  by `s` that agree on the first `t - s` terms.
 * `MeasureTheory.indepFun_initSeg_shift_iterate`: the first `t` terms are independent of the
   terms after them.
 * `MeasureTheory.lintegral_mul_comp_shift_iterate`, `MeasureTheory.integral_mul_comp_shift_iterate`:
@@ -77,7 +80,15 @@ lemma measurePreserving_initSeg (P : Measure 𝓧) [IsProbabilityMeasure P] (n :
   exact Measure.map_infinitePi_infinitePi_of_inj Fin.val_injective
 
 open ProbabilityTheory
-open TauCeti.Probability (shift shift_iterate_eq_reindex measurable_shift_iterate)
+open TauCeti.Probability (shift shift_iterate_apply shift_iterate_eq_reindex
+  measurable_shift_iterate)
+
+/-- If two sequences agree on the first `t` terms, their shifts by `s` agree on the first `t - s`
+terms. -/
+lemma shift_iterate_eqOn {t : ℕ} {ω ω' : ℕ → 𝓧} (h : ∀ i < t, ω i = ω' i) (s : ℕ) :
+    ∀ i < t - s, (shift 𝓧)^[s] ω i = (shift 𝓧)^[s] ω' i := fun i hi ↦ by
+  simp only [shift_iterate_apply]
+  exact h _ (by omega)
 
 /-- The shift preserves the i.i.d. law. -/
 lemma measurePreserving_shift (P : Measure 𝓧) [IsProbabilityMeasure P] :
