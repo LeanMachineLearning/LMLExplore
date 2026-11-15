@@ -76,6 +76,7 @@ stopping times with values in `ℕ`.
 public section
 
 open MeasureTheory Filter
+open ENNReal (truncLog)
 open scoped ENNReal Topology
 
 namespace ProbabilityTheory
@@ -170,9 +171,10 @@ private lemma integral_truncLog_stoppedValue_le (Q₁ : Measure 𝓧) [IsProbabi
     · exact hD k
   -- let `k` tend to infinity
   refine le_of_tendsto' (tendsto_integral_of_dominated_convergence (fun _ ↦ max |Real.log ε| |c|)
-    (fun k ↦ ((measurable_truncLog c).comp (hVm k)).aestronglyMeasurable) (integrable_const _)
+    (fun k ↦ ((ENNReal.measurable_truncLog c).comp (hVm k)).aestronglyMeasurable)
+    (integrable_const _)
     (fun k ↦ ae_of_all _ fun ω ↦ (Real.norm_eq_abs _).trans_le
-      (abs_truncLog_le hε0 (hVε k ω) hc)) (ae_of_all _ fun ω ↦ ?_)) hk
+      (ENNReal.abs_truncLog_le hε0 (hVε k ω) hc)) (ae_of_all _ fun ω ↦ ?_)) hk
   exact tendsto_atTop_of_eventually_const (i₀ := τ ω) fun k hk ↦ by simp [V, min_eq_left hk]
 
 /-- The Wald inequality when the bipolar rate is finite and either it is `0` or the expected
@@ -210,11 +212,11 @@ private lemma eintegral_log_stoppedValue_le_toReal_mul (Q₁ : Measure 𝓧) [Is
     set W : (ℕ → 𝓧) → ℝ≥0∞ := fun ω ↦ ENNReal.ofReal (1 - ε) * E (τ ω) ω + ENNReal.ofReal ε
     have hc : Real.log ε ≤ k := (Real.log_neg hε0 hε1).le.trans (Nat.cast_nonneg k)
     have hYi : Integrable (fun ω ↦ truncLog k (W ω)) μ :=
-      integrable_truncLog_comp hε0 ((measurable_const.mul hEτm).add measurable_const)
+      ENNReal.integrable_truncLog_comp hε0 ((measurable_const.mul hEτm).add measurable_const)
         (fun _ ↦ le_add_self) hc
     calc ∫ᵉ ω, min (ENNReal.log (E (τ ω) ω)) k ∂μ
     _ ≤ ∫ᵉ ω, ((truncLog k (W ω) - Real.log (1 - ε) : ℝ) : EReal) ∂μ :=
-      eintegral_mono fun ω ↦ by simpa using min_log_le_truncLog_sub hε0 hε1 k (E (τ ω) ω)
+      eintegral_mono fun ω ↦ by simpa using ENNReal.min_log_le_truncLog_sub hε0 hε1 k (E (τ ω) ω)
     _ = ((∫ ω, truncLog k (W ω) ∂μ - Real.log (1 - ε) : ℝ) : EReal) := by
       have hYi' : Integrable (fun ω ↦ truncLog k (W ω) - Real.log (1 - ε)) μ :=
         hYi.sub (integrable_const _)
@@ -338,11 +340,10 @@ private lemma neg_log_le_toReal_mul_sub (Q₁ : Measure 𝓧) [IsProbabilityMeas
   -- the stopping times `min τ k`, with values in `ℕ`
   set τk : ℕ → (ℕ → 𝓧) → ℕ := fun k ω ↦ ENat.toNat (min (τ ω) k)
   have hτk_coe (k : ℕ) (ω : ℕ → 𝓧) : ((τk k ω : ℕ) : WithTop ℕ) = min (τ ω) k :=
-    ENat.natCast_toNat (ne_top_of_le_ne_top (WithTop.natCast_ne_top k) (min_le_right _ _))
+    ENat.natCast_toNat_min (τ ω) k
   have hτk (k : ℕ) : IsStoppingTime (Filtration.piLE (X := fun _ : ℕ ↦ 𝓧))
-      fun ω ↦ (τk k ω : WithTop ℕ) := by
-    rw [show (fun ω ↦ (τk k ω : WithTop ℕ)) = fun ω ↦ min (τ ω) k from funext (hτk_coe k)]
-    exact hτ.min_natCast k
+      fun ω ↦ (τk k ω : WithTop ℕ) :=
+    hτ.toNat_min k
   have hmk (k : ℕ) : ∫⁻ ω, (τk k ω : ℝ≥0∞) + 1 ∂μ ≤ m := lintegral_mono fun ω ↦ by
     gcongr
     have h : ((τk k ω : ℕ) : ℕ∞) ≤ τ ω := (hτk_coe k ω).trans_le (min_le_left _ _)

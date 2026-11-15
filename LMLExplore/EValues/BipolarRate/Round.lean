@@ -5,6 +5,7 @@ Authors: LMLExplore contributors
 -/
 module
 
+public import LMLExplore.Analysis.SpecialFunctions.Log.TruncLog
 public import LMLExplore.EValues.BipolarRate.Basic
 public import Mathlib.Probability.ProductMeasure
 import LMLExplore.EValues.BipolarRate.EProcess
@@ -24,7 +25,7 @@ Let `S₁` be a set of probability measures on `𝓧` (the null) and `Q₁` a pr
 both determined by the observations of the round (`ProbabilityTheory.DependsOnBefore`). If
 `1 ≤ σ ≤ K`, `V ≥ δ > 0` and the payoff has expectation at most `1` on each event `{σ ≤ n}` under
 the i.i.d. law of every member of the null, then under the i.i.d. law of `Q₁` the expected
-logarithm of the payoff, truncated above at `c` (`ProbabilityTheory.truncLog`), is at most
+logarithm of the payoff, truncated above at `c` (`ENNReal.truncLog`), is at most
 `d * 𝔼[σ]` [EVR26, Note 01]. This is the step of the proof of the Wald inequality
 `ProbabilityTheory.IsEProcess.eintegral_log_stoppedValue_le_mul_bipolarRate` that uses the
 bipolar rate.
@@ -33,15 +34,11 @@ bipolar rate.
 
 * `ProbabilityTheory.DependsOnBefore σ f`: `f` is determined by the first `σ` observations
   (`ProbabilityTheory.dependsOnBefore_iff`).
-* `ProbabilityTheory.truncLog c x`: the logarithm of `x : ℝ≥0∞` truncated above at `c`, as a real
-  number.
 
 ## Main statements
 
 * `ProbabilityTheory.integral_truncLog_le_bipolarRate_mul`: the Wald inequality for a round,
   `𝔼_Q[truncLog c V] ≤ d * 𝔼_Q[σ]`.
-* `ProbabilityTheory.min_log_le_truncLog_sub`: mixing a payoff `x` with a constant `ε` costs at
-  most `- log (1 - ε)` in truncated logarithm.
 
 ## Implementation notes
 
@@ -72,6 +69,7 @@ public section
 
 open MeasureTheory Filter
 open TauCeti.Probability (shift shift_iterate_apply measurable_shift_iterate)
+open ENNReal (truncLog)
 open scoped ENNReal
 
 namespace ProbabilityTheory
@@ -396,6 +394,21 @@ private lemma restartTime_le_iff_le_numRounds {N i : ℕ} (hi : i ≤ N) (ω : �
   ⟨fun h ↦ Nat.le_findGreatest hi h,
     fun h ↦ (monotone_restartTime σ ω h).trans (restartTime_numRounds_le N ω)⟩
 
+/-- Among the first `N + 1` rounds, those that end within the first `N` observations are the
+completed ones. -/
+private lemma sum_range_indicator_restartTime_le (g : ℕ → (ℕ → 𝓧) → ℝ) (N : ℕ) (ω : ℕ → 𝓧) :
+    ∑ i ∈ Finset.range (N + 1), {ω | restartTime σ i ω ≤ N}.indicator (g i) ω =
+      ∑ i ∈ Finset.range (numRounds σ N ω + 1), g i ω := by
+  have hJN : numRounds σ N ω ≤ N := numRounds_le N ω
+  rw [← Finset.sum_subset (Finset.range_subset_range.2 (Nat.succ_le_succ hJN))
+    (f := fun i ↦ {ω | restartTime σ i ω ≤ N}.indicator (g i) ω)]
+  · refine Finset.sum_congr rfl fun i hi ↦ Set.indicator_of_mem ?_ _
+    have hi' := Nat.lt_succ_iff.1 (Finset.mem_range.1 hi)
+    exact (restartTime_le_iff_le_numRounds (hi'.trans hJN) ω).2 hi'
+  · intro i hi hiJ
+    refine Set.indicator_of_notMem (fun h ↦ hiJ (Finset.mem_range.2 (Nat.lt_succ_of_le ?_))) _
+    exact (restartTime_le_iff_le_numRounds (Nat.lt_succ_iff.1 (Finset.mem_range.1 hi)) ω).1 h
+
 /-- If every round uses at least one observation, the round after the completed ones ends after
 the first `N` observations. -/
 private lemma lt_restartTime_numRounds_succ (hσ1 : ∀ ω, 1 ≤ σ ω) (N : ℕ) (ω : ℕ → 𝓧) :
@@ -413,20 +426,12 @@ private lemma add_one_le_sum_indicator (hσ1 : ∀ ω, 1 ≤ σ ω) (N : ℕ) (�
     (N + 1 : ℝ) ≤ ∑ i ∈ Finset.range (N + 1), {ω | restartTime σ i ω ≤ N}.indicator
       (fun ω ↦ (σ ((shift 𝓧)^[restartTime σ i ω] ω) : ℝ)) ω := by
   set J := numRounds σ N ω
-  have hJN : J ≤ N := numRounds_le N ω
   have hJ : N + 1 ≤ restartTime σ (J + 1) ω := lt_restartTime_numRounds_succ hσ1 N ω
   calc (N + 1 : ℝ) ≤ (restartTime σ (J + 1) ω : ℝ) := by exact_mod_cast hJ
   _ = ∑ i ∈ Finset.range (J + 1), (σ ((shift 𝓧)^[restartTime σ i ω] ω) : ℝ) := by
     rw [restartTime_eq_sum, Nat.cast_sum]
-  _ = ∑ i ∈ Finset.range (J + 1), {ω | restartTime σ i ω ≤ N}.indicator
-      (fun ω ↦ (σ ((shift 𝓧)^[restartTime σ i ω] ω) : ℝ)) ω := by
-    refine Finset.sum_congr rfl fun i hi ↦ ?_
-    rw [Set.indicator_of_mem]
-    exact (restartTime_le_iff_le_numRounds ((Nat.lt_succ_iff.1 (Finset.mem_range.1 hi)).trans
-      hJN) ω).2 (Nat.lt_succ_iff.1 (Finset.mem_range.1 hi))
-  _ ≤ _ := Finset.sum_le_sum_of_subset_of_nonneg
-    (Finset.range_subset_range.2 (Nat.succ_le_succ hJN))
-    fun i _ _ ↦ Set.indicator_nonneg (fun _ _ ↦ Nat.cast_nonneg _) _
+  _ = _ := (sum_range_indicator_restartTime_le
+    (fun i ω ↦ (σ ((shift 𝓧)^[restartTime σ i ω] ω) : ℝ)) N ω).symm
 
 /-- **Wald's argument, in expectation.** Under an i.i.d. law, the observations after the first
 `i` rounds are independent of the event that these rounds use at most `N` observations. -/
@@ -476,109 +481,6 @@ private lemma integral_indicator_comp_shift_restartTime (hσ : DependsOnBefore �
 
 end Restart
 
-/-! ### The truncated logarithm -/
-
-/-- The logarithm truncated above at `c`, as a real number. -/
-noncomputable def truncLog (c : ℝ) (x : ℝ≥0∞) : ℝ := (min (ENNReal.log x) c).toReal
-
-/-- The definition of the truncated logarithm, `truncLog c x = (min (log x) c).toReal`. -/
-lemma truncLog_def (c : ℝ) (x : ℝ≥0∞) : truncLog c x = (min (ENNReal.log x) c).toReal := by
-  rw [truncLog]
-
-/-- The truncated logarithm is measurable. -/
-lemma measurable_truncLog (c : ℝ) : Measurable (truncLog c) :=
-  measurable_ereal_toReal.comp (ENNReal.measurable_log.min measurable_const)
-
-/-- The truncated logarithm of a positive finite number. -/
-lemma truncLog_of_ne {c : ℝ} {x : ℝ≥0∞} (h0 : x ≠ 0) (htop : x ≠ ∞) :
-    truncLog c x = min (Real.log x.toReal) c := by
-  rw [truncLog, ENNReal.log_pos_real h0 htop, ← EReal.coe_strictMono.monotone.map_min,
-    EReal.toReal_coe]
-
-/-- The truncated logarithm of `∞` is the truncation level. -/
-@[simp]
-lemma truncLog_top (c : ℝ) : truncLog c ∞ = c := by simp [truncLog]
-
-/-- The truncated logarithm of `0` is `0`, the real part of `⊥ = log 0`. -/
-@[simp]
-lemma truncLog_zero (c : ℝ) : truncLog c 0 = 0 := by simp [truncLog]
-
-/-- The truncated logarithm is at most the truncation level. -/
-lemma truncLog_le {c : ℝ} {x : ℝ≥0∞} (h0 : x ≠ 0) : truncLog c x ≤ c := by
-  by_cases htop : x = ∞
-  · rw [htop, truncLog_top]
-  · rw [truncLog_of_ne h0 htop]
-    exact min_le_right _ _
-
-/-- The truncated logarithm of `x ≥ δ` is at least `log δ`, if `log δ ≤ c`. -/
-lemma log_le_truncLog {c δ : ℝ} (hδ : 0 < δ) {x : ℝ≥0∞} (hx : ENNReal.ofReal δ ≤ x)
-    (hc : Real.log δ ≤ c) : Real.log δ ≤ truncLog c x := by
-  have h0 : x ≠ 0 := (lt_of_lt_of_le (ENNReal.ofReal_pos.2 hδ) hx).ne'
-  by_cases htop : x = ∞
-  · rw [htop, truncLog_top]
-    exact hc
-  · rw [truncLog_of_ne h0 htop]
-    exact le_min (Real.log_le_log hδ ((ENNReal.ofReal_le_iff_le_toReal htop).1 hx)) hc
-
-/-- The truncated logarithm of `x ≥ δ` is bounded in absolute value, if `log δ ≤ c`. -/
-lemma abs_truncLog_le {c δ : ℝ} (hδ : 0 < δ) {x : ℝ≥0∞} (hx : ENNReal.ofReal δ ≤ x)
-    (hc : Real.log δ ≤ c) : |truncLog c x| ≤ max |Real.log δ| |c| :=
-  abs_le_max_abs_abs (log_le_truncLog hδ hx hc)
-    (truncLog_le (lt_of_lt_of_le (ENNReal.ofReal_pos.2 hδ) hx).ne')
-
-/-- The truncated logarithm of a measurable function bounded below by `δ > 0` is integrable
-under a finite measure. -/
-lemma integrable_truncLog_comp {Ω : Type*} {mΩ : MeasurableSpace Ω} {μ : Measure Ω}
-    [IsFiniteMeasure μ] {c δ : ℝ} (hδ : 0 < δ) {V : Ω → ℝ≥0∞} (hVm : Measurable V)
-    (hVδ : ∀ ω, ENNReal.ofReal δ ≤ V ω) (hc : Real.log δ ≤ c) :
-    Integrable (fun ω ↦ truncLog c (V ω)) μ :=
-  Integrable.of_bound ((measurable_truncLog c).comp hVm).aestronglyMeasurable
-    (max |Real.log δ| |c|) (ae_of_all _ fun ω ↦ (Real.norm_eq_abs _).trans_le
-      (abs_truncLog_le hδ (hVδ ω) hc))
-
-/-- The exponential of the truncated logarithm of `x` is at most `x`. -/
-lemma ofReal_exp_truncLog_le {c : ℝ} {x : ℝ≥0∞} (h0 : x ≠ 0) :
-    ENNReal.ofReal (Real.exp (truncLog c x)) ≤ x := by
-  by_cases htop : x = ∞
-  · rw [htop]
-    exact le_top
-  · rw [truncLog_of_ne h0 htop]
-    calc ENNReal.ofReal (Real.exp (min (Real.log x.toReal) c))
-    _ ≤ ENNReal.ofReal (Real.exp (Real.log x.toReal)) :=
-      ENNReal.ofReal_le_ofReal (Real.exp_le_exp.2 (min_le_left _ _))
-    _ = x := by
-      rw [Real.exp_log (ENNReal.toReal_pos h0 htop), ENNReal.ofReal_toReal htop]
-
-/-- Mixing a payoff with a constant: `min (log x) c ≤ truncLog c ((1 - ε) x + ε) - log (1 - ε)`. -/
-lemma min_log_le_truncLog_sub {ε : ℝ} (hε0 : 0 < ε) (hε1 : ε < 1) (c : ℝ) (x : ℝ≥0∞) :
-    min (ENNReal.log x) c ≤
-      ((truncLog c (ENNReal.ofReal (1 - ε) * x + ENNReal.ofReal ε) - Real.log (1 - ε) : ℝ) :
-        EReal) := by
-  have hlog : Real.log (1 - ε) ≤ 0 := Real.log_nonpos (by linarith) (by linarith)
-  by_cases h0 : x = 0
-  · simp [h0]
-  by_cases htop : x = ∞
-  · have : ENNReal.ofReal (1 - ε) * x + ENNReal.ofReal ε = ∞ := by
-      rw [htop, ENNReal.mul_top (ENNReal.ofReal_pos.2 (by linarith)).ne', top_add]
-    rw [this, truncLog_top]
-    exact (min_le_right _ _).trans (EReal.coe_le_coe_iff.2 (by linarith))
-  have hε' : ENNReal.ofReal ε ≠ 0 := (ENNReal.ofReal_pos.2 hε0).ne'
-  have hV0 : ENNReal.ofReal (1 - ε) * x + ENNReal.ofReal ε ≠ 0 := by simp [hε']
-  have hVtop : ENNReal.ofReal (1 - ε) * x + ENNReal.ofReal ε ≠ ∞ :=
-    ENNReal.add_ne_top.2 ⟨ENNReal.mul_ne_top ENNReal.ofReal_ne_top htop, ENNReal.ofReal_ne_top⟩
-  have hVreal : (ENNReal.ofReal (1 - ε) * x + ENNReal.ofReal ε).toReal =
-      (1 - ε) * x.toReal + ε := by
-    rw [ENNReal.toReal_add (ENNReal.mul_ne_top ENNReal.ofReal_ne_top htop) ENNReal.ofReal_ne_top,
-      ENNReal.toReal_mul, ENNReal.toReal_ofReal (by linarith), ENNReal.toReal_ofReal hε0.le]
-  rw [truncLog_of_ne hV0 hVtop, hVreal, ENNReal.log_pos_real h0 htop,
-    ← EReal.coe_strictMono.monotone.map_min, EReal.coe_le_coe_iff]
-  have hx : 0 < x.toReal := ENNReal.toReal_pos h0 htop
-  have hL : Real.log (1 - ε) + Real.log x.toReal ≤ Real.log ((1 - ε) * x.toReal + ε) := by
-    rw [← Real.log_mul (by linarith) hx.ne']
-    exact Real.log_le_log (mul_pos (by linarith) hx) (by linarith)
-  rw [← min_sub_sub_right]
-  exact le_min ((min_le_left _ _).trans (by linarith)) ((min_le_right _ _).trans (by linarith))
-
 /-! ### The Wald inequality for a round -/
 
 section Wald
@@ -618,7 +520,7 @@ private lemma log_restartMixture_ge {δ : ℝ} (hδ : 0 < δ) (hVδ : ∀ ω, EN
     _ ≤ ENNReal.ofReal ((1 - r) * r ^ J) * restartPayoff σ V J ω := by
       rw [restartPayoff_eq_prod]
       gcongr with i hi
-      exact ofReal_exp_truncLog_le (hV0 _)
+      exact ENNReal.ofReal_exp_truncLog_le (hV0 _)
     _ = ENNReal.ofReal ((1 - r) * r ^ J) *
           {ω | restartTime σ J ω ≤ N}.indicator (restartPayoff σ V J) ω := by
       rw [Set.indicator_of_mem (restartTime_numRounds_le N ω)]
@@ -638,19 +540,10 @@ private lemma log_restartMixture_ge {δ : ℝ} (hδ : 0 < δ) (hVδ : ∀ ω, EN
   -- the sum over the rounds that start within the first `N` observations
   have h3 : ∑ i ∈ Finset.range (N + 1), {ω | restartTime σ i ω ≤ N}.indicator
       (fun ω ↦ truncLog c (V ((shift 𝓧)^[restartTime σ i ω] ω))) ω =
-        ∑ i ∈ Finset.range (J + 1), Y i := by
-    symm
-    refine Finset.sum_subset (Finset.range_subset_range.2 (Nat.succ_le_succ hJN))
-      (fun i hi hiJ ↦ ?_) |>.symm.trans (Finset.sum_congr rfl fun i hi ↦ ?_) |>.symm
-    · rw [Set.indicator_of_notMem]
-      rw [Set.mem_ofPred_eq, restartTime_le_iff_le_numRounds
-        (Nat.lt_succ_iff.1 (Finset.mem_range.1 hi))]
-      exact fun h ↦ hiJ (Finset.mem_range.2 (Nat.lt_succ_of_le h))
-    · rw [Set.indicator_of_mem]
-      exact (restartTime_le_iff_le_numRounds
-        ((Nat.lt_succ_iff.1 (Finset.mem_range.1 hi)).trans hJN) ω).2
-        (Nat.lt_succ_iff.1 (Finset.mem_range.1 hi))
-  have h4 : Y J ≤ c := truncLog_le (hV0 _)
+        ∑ i ∈ Finset.range (J + 1), Y i :=
+    sum_range_indicator_restartTime_le
+      (fun i ω ↦ truncLog c (V ((shift 𝓧)^[restartTime σ i ω] ω))) N ω
+  have h4 : Y J ≤ c := ENNReal.truncLog_le (hV0 _)
   have h5 : (N : ℝ) * Real.log r ≤ J * Real.log r :=
     mul_le_mul_of_nonpos_right (by exact_mod_cast hJN) (Real.log_nonpos hr0.le hr1.le)
   calc ((Real.log (1 - r) + N * Real.log r - c + ∑ i ∈ Finset.range (N + 1),
@@ -747,12 +640,12 @@ private lemma add_integral_truncLog_mul_sum_measureReal_le (Q₁ : Measure 𝓧)
       N * (bipolarRate Q₁ S₁).toReal := by
   set μ := Measure.infinitePi (fun _ : ℕ ↦ Q₁)
   set A := ∫ ω, truncLog c (V ω) ∂μ
-  have hYm : Measurable fun ω ↦ truncLog c (V ω) := (measurable_truncLog c).comp hVm
+  have hYm : Measurable fun ω ↦ truncLog c (V ω) := (ENNReal.measurable_truncLog c).comp hVm
   have hT (i : ℕ) : Measurable (restartTime σ i) := measurable_restartTime hσm i
   -- the truncated log-payoffs are bounded, hence integrable
   have hfi (i : ℕ) : Integrable (fun ω ↦ {ω | restartTime σ i ω ≤ N}.indicator
       (fun ω ↦ truncLog c (V ((shift 𝓧)^[restartTime σ i ω] ω))) ω) μ :=
-    (integrable_truncLog_comp hδ (measurable_apply_of_countable
+    (ENNReal.integrable_truncLog_comp hδ (measurable_apply_of_countable
       (fun t ↦ hVm.comp (measurable_shift_iterate t)) (hT i)) (fun _ ↦ hVδ _) hc).indicator
       (hT i measurableSet_Iic)
   set B := Real.log (1 - r) + N * Real.log r - c
@@ -772,7 +665,7 @@ private lemma add_integral_truncLog_mul_sum_measureReal_le (Q₁ : Measure 𝓧)
     simp only [integral_const, probReal_univ, one_smul]
     congr 1
     exact Finset.sum_congr rfl fun i _ ↦ (integral_indicator_comp_shift_restartTime hσ hσm Q₁
-      hYm (fun ω ↦ abs_truncLog_le hδ (hVδ ω) hc) i N).trans (mul_comm _ _)
+      hYm (fun ω ↦ ENNReal.abs_truncLog_le hδ (hVδ ω) hc) i N).trans (mul_comm _ _)
   have hle : ((B + A * ∑ i ∈ Finset.range (N + 1), μ.real {ω | restartTime σ i ω ≤ N} : ℝ) :
       EReal) ≤ (N : EReal) * bipolarRate Q₁ S₁ := by
     rw [← hval, ← eintegral_eq_integral hint]
