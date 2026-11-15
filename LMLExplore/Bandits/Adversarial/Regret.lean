@@ -99,7 +99,9 @@ transfers lower bounds on the stochastic regret to the adversarial regret.
   `max_a ∑_{t < n} (f t ((H t, O t), a) - f t ((H t, O t), A t))`, and against
   `Environment.evalSeq x _` it is `max_a ∑_{t < n} (x t a - x t (A t))`.
 * `Learning.IsAlgEnvSeq.pseudoRegret_bandit`: against `Environment.bandit ν` with integrable arms,
-  the pseudo-regret is LML's expected stochastic regret.
+  the pseudo-regret is LML's expected stochastic regret, and
+  `Learning.IsAlgEnvSeq.integral_regret_le_of_pseudoRegret_le`: with rewards in `[0, 1]`, every
+  bound on the pseudo-regret for feedbacks in `[0, 1]` bounds the expected stochastic regret.
 * `integral_regret_le_integral_advRegret`: the expected stochastic regret against
   `Environment.bandit ν` is at most the expected adversarial regret over the tables
   `x ∼ streamMeasure ν`, which is integrable (`integrable_advRegret_evalSeq`).
@@ -484,6 +486,23 @@ lemma _root_.Learning.IsAlgEnvSeq.pseudoRegret_bandit [Finite α] [Nonempty α]
     nsmul_eq_mul, integral_const_sub_sum _ fun t _ ↦ hY t,
     integral_const_sub_sum _ fun t _ ↦ hmA t, hE, Real.mul_iSup_of_nonneg (Nat.cast_nonneg n),
     ciSup_sub (Finite.bddAbove_range _)]
+
+/-- Along a run against a stationary bandit `Environment.bandit ν` with finitely many arms whose
+rewards are almost surely in `[0, 1]`, a bound on the pseudo-regret after `n` rounds that holds
+whenever the feedbacks of the rounds `t < n` are almost surely in `[0, 1]` bounds LML's expected
+stochastic regret. This is how the bounds of the adversarial bandit algorithms, which hold against
+every environment with feedbacks in `[0, 1]`, apply to stochastic bandits. -/
+lemma _root_.Learning.IsAlgEnvSeq.integral_regret_le_of_pseudoRegret_le [Finite α] [Nonempty α]
+    [MeasurableSingletonClass α] [IsProbabilityMeasure P] {ν : Kernel α ℝ} [IsMarkovKernel ν]
+    {alg : Algorithm Unit α ℝ} {O : ℕ → Ω → Unit}
+    (h : IsAlgEnvSeq O A Y alg (Environment.bandit ν) P)
+    (hν : ∀ a, ∀ᵐ x ∂(ν a), x ∈ Set.Icc (0 : ℝ) 1)
+    (hB : (∀ᵐ ω ∂P, ∀ t < n, Y t ω ∈ Set.Icc 0 1) →
+      pseudoRegret (Environment.bandit ν) O A Y P n ≤ B) :
+    P[Bandits.regret ν A n] ≤ B := by
+  rw [← h.pseudoRegret_bandit
+    (fun a ↦ Integrable.of_mem_Icc 0 1 measurable_id.aemeasurable (hν a)) n]
+  exact hB ((h.ae_forall_feedback_mem_bandit measurableSet_Icc hν).mono fun _ hω t _ ↦ hω t)
 
 end PseudoRegret
 
