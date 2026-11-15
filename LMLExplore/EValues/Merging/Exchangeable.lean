@@ -174,6 +174,16 @@ private lemma lintegral_apply_orbitMeasure (E : ι → ℝ≥0∞) (i : ι) :
   rw [lintegral_orbitMeasure E fun x ↦ x i]
   exact ENNReal.sum_perm_apply_div_card E i
 
+omit [Fintype ι] [DecidableEq ι] in
+/-- A mixture of measures that are invariant under the permutations of the coordinates is
+invariant. -/
+private lemma map_perm_smul_add_smul {μ ν : Measure (ι → ℝ≥0∞)}
+    (hμ : ∀ σ : Equiv.Perm ι, μ.map (fun e i ↦ e (σ i)) = μ)
+    (hν : ∀ σ : Equiv.Perm ι, ν.map (fun e i ↦ e (σ i)) = ν) (p q : ℝ≥0∞) (σ : Equiv.Perm ι) :
+    (p • μ + q • ν).map (fun e i ↦ e (σ i)) = p • μ + q • ν :=
+  ((MeasurePreserving.smul_measure ⟨by fun_prop, hμ σ⟩ p).add_measure
+    (MeasurePreserving.smul_measure ⟨by fun_prop, hν σ⟩ q)).map_eq
+
 /-- If `F` is a merging function for exchangeable e-values, then for every mixture with weights
 `p` and `q` of the uniform laws on the orbits of `E` and `E'` whose coordinate means are at most
 one, the corresponding mixture of the symmetrizations of `F` at `E` and `E'` is at most one. -/
@@ -185,8 +195,7 @@ private lemma mix_le_one_of_isExchangeableEMerging {F : (ι → ℝ≥0∞) → 
   have hprob : IsProbabilityMeasure (p • orbitMeasure E + q • orbitMeasure E') :=
     ⟨by simp [orbitMeasure_univ, hpq]⟩
   have := hF.lintegral_le_one (p • orbitMeasure E + q • orbitMeasure E')
-    (fun σ ↦ ((MeasurePreserving.smul_measure ⟨by fun_prop, map_orbitMeasure E σ⟩ p).add_measure
-      (MeasurePreserving.smul_measure ⟨by fun_prop, map_orbitMeasure E' σ⟩ q)).map_eq)
+    (map_perm_smul_add_smul (map_orbitMeasure E) (map_orbitMeasure E') p q)
     (fun i ↦ by simpa [lintegral_apply_orbitMeasure] using h)
   simpa [lintegral_orbitMeasure] using this
 
@@ -200,6 +209,11 @@ theorem IsExchangeableEMerging.exists_sum_perm_div_le {F : (ι → ℝ≥0∞) �
   let M : (ι → ℝ≥0) → ℝ≥0∞ := fun e ↦ (∑ i, (e i : ℝ≥0∞)) / Fintype.card ι
   let A : (ι → ℝ≥0) → ℝ≥0∞ := fun e ↦
     (∑ σ : Equiv.Perm ι, F fun i ↦ e (σ i)) / Fintype.card (Equiv.Perm ι)
+  -- the integrals against the uniform law on the orbit of `e` are `A e` and `M e`
+  have hA (e : ι → ℝ≥0) : ∫⁻ x, F x ∂orbitMeasure (fun i ↦ (e i : ℝ≥0∞)) = A e :=
+    lintegral_orbitMeasure _ F
+  have hM (e : ι → ℝ≥0) (i : ι) : ∫⁻ x, x i ∂orbitMeasure (fun i ↦ (e i : ℝ≥0∞)) = M e :=
+    lintegral_apply_orbitMeasure _ i
   have hM_top : ∀ e, M e ≠ ⊤ := by
     intro e
     rcases isEmpty_or_nonempty ι with hι | hι
@@ -215,38 +229,23 @@ theorem IsExchangeableEMerging.exists_sum_perm_div_le {F : (ι → ℝ≥0∞) �
         simp only [Pi.zero_apply, Finset.sum_const_zero, ENNReal.zero_div, mul_zero, add_zero]
         calc (M e + 1)⁻¹ * M e ≤ (M e + 1)⁻¹ * (M e + 1) := by gcongr; exact le_self_add
           _ = 1 := ENNReal.inv_mul_cancel (by simp) (by simp [hM_top e]))
-    change (M e + 1)⁻¹ * A e + _ ≤ 1 at h
+    simp only [A] at htop
     rw [htop, ENNReal.mul_top (by simp [hM_top e])] at h
     simp at h
-  -- the program: maximize `∫⁻ F ∂μ` over the invariant probability measures `μ` on which `F` and
-  -- the coordinates have finite integrals, under the constraints `∫⁻ e, e i ∂μ ≤ 1`
-  let P : Measure (ι → ℝ≥0∞) → Prop := fun μ ↦ ∀ σ : Equiv.Perm ι, μ.map (fun e i ↦ e (σ i)) = μ
-  set C : Set (Measure (ι → ℝ≥0∞)) := {μ | IsProbabilityMeasure μ ∧ P μ ∧
-    ∫⁻ e, F e ∂μ ≠ ∞ ∧ ∀ i, ∫⁻ e, e i ∂μ ≠ ∞}
-  have horbit (e : ι → ℝ≥0) : orbitMeasure (fun i ↦ (e i : ℝ≥0∞)) ∈ C :=
-    ⟨⟨orbitMeasure_univ _⟩, map_orbitMeasure _, by rw [lintegral_orbitMeasure]; exact hA_top e,
-      fun i ↦ by rw [lintegral_apply_orbitMeasure]; exact hM_top e⟩
-  -- a mixture of invariant measures is invariant
-  have hconv := jointlyConvexLikeOn_lintegral F (P := P) fun μ ν hμ hν p q σ ↦
-    ((MeasurePreserving.smul_measure ⟨by fun_prop, hμ σ⟩ p).add_measure
-      (MeasurePreserving.smul_measure ⟨by fun_prop, hν σ⟩ q)).map_eq
-  have hslater : ∃ μ ∈ C, ∀ i, (fun i μ ↦ (∫⁻ e, e i ∂μ).toReal - 1) i μ < 0 :=
-    ⟨_, horbit 0, fun i ↦ by simp [lintegral_apply_orbitMeasure]⟩
-  have hvalue : ∀ μ ∈ C, (∀ i, (∫⁻ e, e i ∂μ).toReal - 1 ≤ 0) →
-      -1 ≤ -(∫⁻ e, F e ∂μ).toReal := by
-    rintro μ ⟨hμ, hμσ, -, hμe⟩ hle
-    have h1 : ∫⁻ e, F e ∂μ ≤ 1 := hF.lintegral_le_one μ hμσ fun i ↦
-      (ENNReal.toReal_le_toReal (hμe i) ENNReal.one_ne_top).1 (by simpa using hle i)
-    simpa using ENNReal.toReal_mono ENNReal.one_ne_top h1
-  obtain ⟨π, hπ⟩ := LMLExplore.exists_forall_le_add_sum_mul_of_convexLike hconv hslater hvalue
+  -- the program: maximize `∫⁻ F ∂μ` over the invariant probability measures `μ` under the
+  -- constraints `∫⁻ e, e i ∂μ ≤ 1`; Slater's condition holds at the point `0`
+  obtain ⟨π, hπ⟩ := exists_forall_toReal_lintegral_le_add_sum_mul F
+    (P := fun μ ↦ ∀ σ : Equiv.Perm ι, μ.map (fun e i ↦ e (σ i)) = μ)
+    (fun _ _ hμ hν p q ↦ map_perm_smul_add_smul hμ hν p q)
+    (fun μ _ ↦ hF.lintegral_le_one μ)
+    ⟨_, ⟨orbitMeasure_univ _⟩, map_orbitMeasure _, by rw [hA]; exact hA_top 0,
+      fun i ↦ by simp [lintegral_apply_orbitMeasure]⟩
   -- the Lagrangian at the uniform law on the orbit of `e` bounds the symmetrization at `e`
   have hbound (e : ι → ℝ≥0) :
       (A e).toReal ≤ 1 - ∑ i, (π i : ℝ) + (∑ i, (π i : ℝ)) * (M e).toReal := by
-    have h := hπ _ (horbit e)
-    simp only [lintegral_apply_orbitMeasure] at h
-    rw [lintegral_orbitMeasure] at h
-    change -1 ≤ -(A e).toReal + ∑ i, (π i : ℝ) * ((M e).toReal - 1) at h
-    rw [← Finset.sum_mul] at h
+    have h := hπ _ ⟨orbitMeasure_univ _⟩ (map_orbitMeasure _) (by rw [hA]; exact hA_top e)
+      fun i ↦ by rw [hM]; exact hM_top e
+    simp only [hA, hM, ← Finset.sum_mul] at h
     linarith
   have hl₀ : 0 ≤ ∑ i, (π i : ℝ) := Finset.sum_nonneg fun i _ ↦ (π i).2
   have hl₁ : ∑ i, (π i : ℝ) ≤ 1 := by

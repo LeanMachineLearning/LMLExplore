@@ -54,7 +54,9 @@ Proposition 8.3].
   among measurable functions.
 * `ProbabilityTheory.jointlyConvexLikeOn_lintegral`: the integrals of `F` and of the coordinates
   are jointly convex-like on the probability measures with a property closed under mixtures, so
-  Lagrange duality applies to them.
+  Lagrange duality applies to them, and
+  `ProbabilityTheory.exists_forall_toReal_lintegral_le_add_sum_mul`: the resulting Lagrange
+  multipliers for the program of maximizing `∫⁻ F ∂μ` under the constraints `∫⁻ e, e i ∂μ ≤ 1`.
 * `ProbabilityTheory.isAdmissibleEMerging_iff`: the admissible e-merging functions are the weighted
   means on finite arguments [Wan25, Theorem 1; RW, Theorem 8.4], and
   `ProbabilityTheory.IsEMerging.exists_isAdmissibleEMerging_le`: every e-merging function is
@@ -234,33 +236,55 @@ theorem jointlyConvexLikeOn_lintegral (F : (ι → ℝ≥0∞) → ℝ≥0∞) {
   rw [toReal_lintegral_ofReal_smul_add_smul ha hb (hμe i) (hνe i)]
   linear_combination hab
 
+omit [Fintype ι] in
+/-- **Lagrange multipliers for the e-merging program** over the probability measures that satisfy
+a property `P` closed under mixtures. If `∫⁻ F ∂μ ≤ 1` for every such `μ` whose coordinates have
+expectation at most `1`, and some such `μ` against which `F` has a finite integral has all
+coordinate expectations `< 1`, then some multipliers `π : ι → ℝ≥0` bound `∫⁻ F ∂μ` by the
+Lagrangian `1 + ∑ i, π i * (∫⁻ e, e i ∂μ - 1)` at every such `μ` against which `F` and the
+coordinates have finite integrals. -/
+theorem exists_forall_toReal_lintegral_le_add_sum_mul [Fintype ι] (F : (ι → ℝ≥0∞) → ℝ≥0∞)
+    {P : Measure (ι → ℝ≥0∞) → Prop}
+    (hP : ∀ μ ν, P μ → P ν → ∀ p q : ℝ≥0∞, P (p • μ + q • ν))
+    (hF : ∀ (μ : Measure (ι → ℝ≥0∞)) [IsProbabilityMeasure μ], P μ →
+      (∀ i, ∫⁻ e, e i ∂μ ≤ 1) → ∫⁻ e, F e ∂μ ≤ 1)
+    (hslater : ∃ μ : Measure (ι → ℝ≥0∞), IsProbabilityMeasure μ ∧ P μ ∧ ∫⁻ e, F e ∂μ ≠ ∞ ∧
+      ∀ i, ∫⁻ e, e i ∂μ < 1) :
+    ∃ π : ι → ℝ≥0, ∀ μ : Measure (ι → ℝ≥0∞), IsProbabilityMeasure μ → P μ →
+      ∫⁻ e, F e ∂μ ≠ ∞ → (∀ i, ∫⁻ e, e i ∂μ ≠ ∞) →
+      (∫⁻ e, F e ∂μ).toReal ≤ 1 + ∑ i, (π i : ℝ) * ((∫⁻ e, e i ∂μ).toReal - 1) := by
+  obtain ⟨μ₀, hμ₀, hPμ₀, hμ₀F, hμ₀e⟩ := hslater
+  obtain ⟨π, hπ⟩ := LMLExplore.exists_forall_le_add_sum_mul_of_convexLike
+    (jointlyConvexLikeOn_lintegral F hP)
+    ⟨μ₀, ⟨hμ₀, hPμ₀, hμ₀F, fun i ↦ (hμ₀e i).ne_top⟩, fun i ↦ sub_neg.2 <| by
+      simpa using (ENNReal.toReal_lt_toReal (hμ₀e i).ne_top ENNReal.one_ne_top).2 (hμ₀e i)⟩
+    (m := -1) (by
+      rintro μ ⟨hμ, hPμ, -, hμe⟩ hle
+      have h1 : ∫⁻ e, F e ∂μ ≤ 1 := hF μ hPμ fun i ↦
+        (ENNReal.toReal_le_toReal (hμe i) ENNReal.one_ne_top).1 (by simpa using hle i)
+      simpa using ENNReal.toReal_mono ENNReal.one_ne_top h1)
+  refine ⟨π, fun μ hμ hPμ hμF hμe ↦ ?_⟩
+  have := hπ μ ⟨hμ, hPμ, hμF, hμe⟩
+  linarith
+
 /-- **Every e-merging function is dominated by a weighted mean** [Wan25, Theorem 1; Cle26; RW,
 Theorem 8.4]: for some nonnegative weights `w₀` and `w i` summing to `1`,
 `F e ≤ w₀ + ∑ i, w i * e i` at every finite argument `e`. No monotonicity of `F` is assumed. -/
 theorem IsEMerging.exists_le_add_sum_mul (hF : IsEMerging F) :
     ∃ (w₀ : ℝ≥0) (w : ι → ℝ≥0), w₀ + ∑ i, w i = 1 ∧
       ∀ e : ι → ℝ≥0, F (fun i ↦ e i) ≤ w₀ + ∑ i, (w i : ℝ≥0∞) * e i := by
-  -- The program: maximize `∫⁻ F ∂μ` over the probability measures `μ` on which `F` and the
-  -- coordinates have finite integrals, under the constraints `∫⁻ e, e i ∂μ ≤ 1`.
-  set C : Set (Measure (ι → ℝ≥0∞)) :=
-    {μ | IsProbabilityMeasure μ ∧ True ∧ ∫⁻ e, F e ∂μ ≠ ∞ ∧ ∀ i, ∫⁻ e, e i ∂μ ≠ ∞}
-  have hdirac (e : ι → ℝ≥0) : Measure.dirac (fun i ↦ (e i : ℝ≥0∞)) ∈ C :=
-    ⟨inferInstance, trivial, by rw [lintegral_dirac]; exact (hF.lt_top e).ne,
-      fun i ↦ by rw [lintegral_dirac]; exact ENNReal.coe_ne_top⟩
-  have hslater : ∃ μ ∈ C, ∀ i, (fun i μ ↦ (∫⁻ e, e i ∂μ).toReal - 1) i μ < 0 :=
-    ⟨_, hdirac 0, fun i ↦ by simp [lintegral_dirac]⟩
-  have hvalue : ∀ μ ∈ C, (∀ i, (∫⁻ e, e i ∂μ).toReal - 1 ≤ 0) →
-      -1 ≤ -(∫⁻ e, F e ∂μ).toReal := by
-    rintro μ ⟨hμ, -, -, hμe⟩ hle
-    have h1 : ∫⁻ e, F e ∂μ ≤ 1 := hF.lintegral_le_one μ fun i ↦
-      (ENNReal.toReal_le_toReal (hμe i) ENNReal.one_ne_top).1 (by simpa using hle i)
-    simpa using ENNReal.toReal_mono ENNReal.one_ne_top h1
-  obtain ⟨π, hπ⟩ := LMLExplore.exists_forall_le_add_sum_mul_of_convexLike
-    (jointlyConvexLikeOn_lintegral F (P := fun _ ↦ True) fun _ _ _ _ _ _ ↦ trivial) hslater hvalue
+  -- The program: maximize `∫⁻ F ∂μ` over the probability measures `μ` under the constraints
+  -- `∫⁻ e, e i ∂μ ≤ 1`; Slater's condition holds at the Dirac mass at `0`.
+  obtain ⟨π, hπ⟩ := exists_forall_toReal_lintegral_le_add_sum_mul F (P := fun _ ↦ True)
+    (fun _ _ _ _ _ _ ↦ trivial) (fun μ _ _ ↦ hF.lintegral_le_one μ)
+    ⟨Measure.dirac fun i ↦ ((0 : ι → ℝ≥0) i : ℝ≥0∞), inferInstance, trivial,
+      by rw [lintegral_dirac]; exact (hF.lt_top 0).ne,
+      fun i ↦ by simp [lintegral_dirac]⟩
   -- The Lagrangian at the Dirac mass at `e` bounds `F e`.
   have hbound (e : ι → ℝ≥0) :
       (F fun i ↦ e i).toReal ≤ 1 - ∑ i, (π i : ℝ) + ∑ i, (π i : ℝ) * e i := by
-    have := hπ _ (hdirac e)
+    have := hπ _ inferInstance trivial (by rw [lintegral_dirac]; exact (hF.lt_top e).ne)
+      fun i ↦ by rw [lintegral_dirac]; exact ENNReal.coe_ne_top
     simp only [lintegral_dirac, ENNReal.coe_toReal, mul_sub, mul_one,
       Finset.sum_sub_distrib] at this
     linarith
