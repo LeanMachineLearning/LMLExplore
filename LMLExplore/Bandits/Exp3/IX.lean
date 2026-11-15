@@ -19,20 +19,25 @@ and its observed reward `X s`. This is the importance-weighted estimate of the l
 for the weights `P s + γ`. With `γ = 0` it is Exp3. Both are defined as instances of
 Exp4-IX (`LMLExplore.Bandits.exp4IX`), with the experts `α` that each recommend one arm.
 
-Exp3-IX has high-probability regret bounds. For rewards `x t a ∈ [0, 1]`, write
-`L t a = ∑ s < t, (1 - x s a)` for the cumulative losses and
-`R̂_n = max_a ∑ t < n, (x t a - x t (A t))` for the random regret. The analysis of [LS, §12.2]
-bounds the random regret against every arm `a` by
+Exp3-IX has high-probability regret bounds against every environment whose feedback is in
+`[0, 1]`: an adaptive adversary, which includes oblivious reward tables and stochastic bandits.
+Write `m t a = env.means O A Y a t` for the conditional mean of the reward of arm `a` at round
+`t` given the past, `L t a = ∑ s < t, (1 - m s a)` for the cumulative losses of these means and
+`R̂_n = max_a ∑ t < n, (m t a - Y t)` for the random regret. The analysis of [LS, §12.2]
+bounds the regret against every arm `a` by
 `log k / η + (γ + η / 2) ∑ b, L̂ n b + (L̂ n a - L n a)`, with `k` the number of arms: this
 combines the local-norm bound of exponential weights with the bias identity
 `∑ t < n, (1 - X t) - ∑ t < n, ⟨P t, Ŷ t⟩ = γ ∑ b, L̂ n b` [LS, Lemma 12.4]. The deviations
 `L̂ n a - L n a` and their sum over the arms are at most `log ((k + 1) / δ) / (2 γ)` with
 probability at least `1 - δ` [LS, Lemma 12.3], by the concentration of implicit-exploration
-estimates [LS, Lemma 12.2]. With `γ = η / 2` and `η = √(2 log (k + 1) / (n k))`, the random regret
+estimates around the conditional means [LS, Lemma 12.2; Neu15, Lemma 1], which holds against
+adaptive adversaries. With `γ = η / 2` and `η = √(2 log (k + 1) / (n k))`, the random regret
 is then at most `√(8 n k log (k + 1)) + √(n k / (2 log (k + 1))) log (1 / δ) + log ((k + 1) / δ)`
 with probability at least `1 - δ`, and the confidence-dependent learning rate
 `η = √((log k + log ((k + 1) / δ)) / (n k))` improves this to
-`2 √((2 log (k + 1) + log (1 / δ)) n k) + log ((k + 1) / δ)` [LS, Theorem 12.1].
+`2 √((2 log (k + 1) + log (1 / δ)) n k) + log ((k + 1) / δ)` [LS, Theorem 12.1]. [LS] states
+these bounds for an oblivious reward table `x`, where `m t a = x t a` and the random regret is
+`max_a ∑ t < n, (x t a - x t (A t))`; they are the corollaries for LML's `Environment.evalSeq x _`.
 
 ## Main definitions
 
@@ -50,18 +55,20 @@ with probability at least `1 - δ`, and the confidence-dependent learning rate
 * `Exp3IX.mul_sum_mul_exp4IXSum_sub_eq`: the weighted deviations of the loss estimates from the
   losses, written as the sum to which the concentration of [LS, Lemma 12.2] applies.
 * `Exp3IX.measure_le_sum_mul_exp4IXSum_sub_le`: the concentration of a weighted sum of the
-  deviations `L̂ n a - L n a` of the loss estimates from the losses.
+  deviations `L̂ n a - L n a` of the loss estimates from the losses of the conditional means.
 * `Exp3IX.measure_le_exp4IXSum_sub_le`, `Exp3IX.measure_le_sum_exp4IXSum_sub_le`: the
   deviations of the loss estimates of one arm and of their sum over the arms [LS, (12.9), (12.8)].
 * `Exp3IX.measure_exists_le_exp4IXSum_sub_union_le`: [LS, Lemma 12.3].
-* `Exp3IX.measure_exists_le_sum_sub_le`: the high-probability bound on the random regret of
+* `Exp3IX.measure_le_randomRegret_le`: the high-probability bound on the random regret of
   Exp3-IX for every `η, γ > 0`.
-* `Exp3IX.measure_exists_div_add_mul_add_le_sum_sub_le`: the same bound for `γ = η / 2`, in the
+* `Exp3IX.measure_div_add_mul_add_le_randomRegret_le`: the same bound for `γ = η / 2`, in the
   form `L / η + η n k + log ((k + 1) / δ)` from which both bounds of [LS, Theorem 12.1] follow.
-* `Exp3IX.measure_exists_sqrt_le_sum_sub_le`, `Exp3IX.measure_exists_two_mul_sqrt_le_sum_sub_le`:
-  the two bounds of [LS, Theorem 12.1].
+* `Exp3IX.measure_sqrt_add_le_randomRegret_le`,
+  `Exp3IX.measure_two_mul_sqrt_add_le_randomRegret_le`: the two bounds of [LS, Theorem 12.1],
+  against an adaptive adversary.
 * `exp3IX_measure_exists_sqrt_le_sum_sub_le`, `exp3IX_measure_exists_two_mul_sqrt_le_sum_sub_le`:
-  the same bounds for runs against LML's `Environment.evalSeq x _`.
+  the same bounds for runs against LML's `Environment.evalSeq x _`, for the regret
+  `∑ t < n, (x t a - x t (A t))` against the arms.
 
 ## References
 
@@ -176,57 +183,47 @@ section Concentration
 
 variable [MeasurableSpace α] [MeasurableSingletonClass α] [MeasurableSpace 𝓞] [Nonempty α]
   {Ω : Type*} {mΩ : MeasurableSpace Ω} {P : Measure Ω} [IsProbabilityMeasure P]
-  {O : ℕ → Ω → 𝓞} {A : ℕ → Ω → α} {Y : ℕ → Ω → ℝ} {env : Environment 𝓞 α ℝ}
-  {x : ℕ → α → ℝ} {n : ℕ} {δ : ℝ}
+  {O : ℕ → Ω → 𝓞} {A : ℕ → Ω → α} {Y : ℕ → Ω → ℝ} {env : Environment 𝓞 α ℝ} {n : ℕ} {δ : ℝ}
 
 /-- **Concentration of the loss estimates of Exp3-IX** [LS, proof of Lemma 12.3]. Along a run of
-Exp3-IX with `γ ≥ 0` whose feedback at every round `t < n` is the reward `x t (A t) ∈ [0, 1]` of
-its action, for weights `v a ∈ [0, 1]` on the arms and `δ > 0`, the probability that
+Exp3-IX with `γ ≥ 0` against any environment whose feedback at every round `t < n` is almost
+surely in `[0, 1]`, for weights `v a ∈ [0, 1]` on the arms and `δ > 0`, the probability that
 `log (1 / δ) ≤ 2 γ ∑ a, v a * (L̂ n a - L n a)` is at most `δ`, with `L̂ n` the cumulative loss
-estimates and `L n a = ∑ t < n, (1 - x t a)` the cumulative losses. This is the instance of
+estimates and `L n a = ∑ t < n, (1 - m_t(a))` the cumulative losses of the conditional means
+`m_t(a) = env.means O A Y a t` of the rewards. This is the instance of
 `WeightAlgorithm.measure_log_one_div_le_sum_sum_mul_iwEstimator_add_sub_le` with the coefficients
 `2 γ v a`. -/
 theorem measure_le_sum_mul_exp4IXSum_sub_le {v : α → ℝ} (hv : ∀ a, v a ∈ Set.Icc 0 1)
-    (hγ : 0 ≤ γ) (hY : ∀ t < n, Y t =ᵐ[P] x t ∘ A t) (hx : ∀ t < n, ∀ a, x t a ∈ Set.Icc 0 1)
+    (hγ : 0 ≤ γ) (hY : ∀ᵐ ω ∂P, ∀ t < n, Y t ω ∈ Set.Icc 0 1)
     (h : IsAlgEnvSeq O A Y (exp3IX η γ) env P) (hδ : 0 < δ) :
     P {ω | log (1 / δ) ≤ 2 * γ * ∑ a, v a *
       (exp4IXSum singleAdvice (fun _ ↦ η) (fun _ ↦ γ) n
-        (history O A Y n ω) a - ∑ t ∈ range n, (1 - x t a))} ≤
+        (history O A Y n ω) a - ∑ t ∈ range n, (1 - env.means O A Y a t ω))} ≤
       ENNReal.ofReal δ := by
-  -- this is the concentration of implicit-exploration estimates in any environment, for the
-  -- coefficients `2 γ v a`, since the means of the arms are almost surely their rewards
-  have hmeans : ∀ᵐ ω ∂P, ∀ t < n, ∀ a, env.means O A Y a t ω = x t a := by
-    refine ae_all_iff.2 fun t ↦ ?_
-    by_cases ht : t < n
-    · filter_upwards [WeightAlgorithm.ae_means_eq_of_weights_pos
-        (Exp4IX.isAlgEnvSeq_weightAlgorithm h) (hY t ht)] with ω hω _ a
-        using hω a (exp4IXWeights_single_pos _ _ _ a)
-    · exact ae_of_all _ fun _ ht' ↦ absurd ht' ht
-  refine le_trans (measure_mono_ae ?_)
+  refine le_trans (measure_mono fun ω hω ↦ ?_)
     (WeightAlgorithm.measure_log_one_div_le_sum_sum_mul_iwEstimator_add_sub_le
-      (Exp4IX.isAlgEnvSeq_weightAlgorithm h)
-      (ae_feedback_mem_Icc hY hx) (γ := fun _ ↦ γ) (c := fun _ a _ ↦ 2 * γ * v a)
+      (Exp4IX.isAlgEnvSeq_weightAlgorithm h) hY (γ := fun _ ↦ γ) (c := fun _ a _ ↦ 2 * γ * v a)
       (fun _ _ _ ↦ measurable_const) (fun _ _ a _ ↦ mul_nonneg (by positivity) (hv a).1)
       (fun _ _ a _ ↦ mul_le_of_le_one_right (by positivity) (hv a).2)
       (fun t _ a _ ha ↦ absurd ha (exp4IXWeights_single_pos t _ _ a).ne') hδ)
-  filter_upwards [hmeans] with ω hm hω
-  rw [mul_sum_mul_exp4IXSum_sub_eq O A Y ω] at hω
-  refine hω.trans_eq (Finset.sum_congr rfl fun t ht ↦ Finset.sum_congr rfl fun a _ ↦ ?_)
-  rw [hm t (mem_range.1 ht) a, iwEstimator_div_one_add_div (exp4IXWeights_single_pos _ _ _ a)]
+  simp only [Set.mem_ofPred_eq] at hω ⊢
+  rw [mul_sum_mul_exp4IXSum_sub_eq O A Y ω _ _ fun t a ↦ env.means O A Y a t ω] at hω
+  refine hω.trans_eq (Finset.sum_congr rfl fun t _ ↦ Finset.sum_congr rfl fun a _ ↦ ?_)
+  rw [iwEstimator_div_one_add_div (exp4IXWeights_single_pos _ _ _ a)]
 
 /-- **Concentration of the loss estimates of one arm** [LS, (12.9)]. Along a run of Exp3-IX with
-`γ > 0` whose feedback at every round `t < n` is the reward `x t (A t) ∈ [0, 1]` of its action, for
-every arm `a` and `δ > 0`, the probability that `log (1 / δ) / (2 γ) ≤ L̂ n a - L n a` is at most
-`δ`, with `L̂ n` the cumulative loss estimates and `L n a = ∑ t < n, (1 - x t a)`. -/
-theorem measure_le_exp4IXSum_sub_le (hγ : 0 < γ) (hY : ∀ t < n, Y t =ᵐ[P] x t ∘ A t)
-    (hx : ∀ t < n, ∀ a, x t a ∈ Set.Icc 0 1) (h : IsAlgEnvSeq O A Y (exp3IX η γ) env P)
-    (hδ : 0 < δ) (a : α) :
+`γ > 0` against any environment whose feedback at every round `t < n` is almost surely in
+`[0, 1]`, for every arm `a` and `δ > 0`, the probability that
+`log (1 / δ) / (2 γ) ≤ L̂ n a - L n a` is at most `δ`, with `L̂ n` the cumulative loss estimates
+and `L n a = ∑ t < n, (1 - m_t(a))`, `m_t(a) = env.means O A Y a t`. -/
+theorem measure_le_exp4IXSum_sub_le (hγ : 0 < γ) (hY : ∀ᵐ ω ∂P, ∀ t < n, Y t ω ∈ Set.Icc 0 1)
+    (h : IsAlgEnvSeq O A Y (exp3IX η γ) env P) (hδ : 0 < δ) (a : α) :
     P {ω | log (1 / δ) / (2 * γ) ≤
       exp4IXSum singleAdvice (fun _ ↦ η) (fun _ ↦ γ) n
-        (history O A Y n ω) a - ∑ t ∈ range n, (1 - x t a)} ≤
+        (history O A Y n ω) a - ∑ t ∈ range n, (1 - env.means O A Y a t ω)} ≤
       ENNReal.ofReal δ := by
   refine le_trans (measure_mono fun ω hω ↦ ?_)
-    (measure_le_sum_mul_exp4IXSum_sub_le (v := Pi.single a 1) (fun b ↦ ?_) hγ.le hY hx h hδ)
+    (measure_le_sum_mul_exp4IXSum_sub_le (v := Pi.single a 1) (fun b ↦ ?_) hγ.le hY h hδ)
   · simp only [Set.mem_ofPred_eq] at hω ⊢
     rw [Finset.sum_eq_single a (fun b _ hb ↦ by simp [hb]) (by simp), Pi.single_eq_same, one_mul,
       ← div_le_iff₀' (by positivity)]
@@ -235,37 +232,39 @@ theorem measure_le_exp4IXSum_sub_le (hγ : 0 < γ) (hY : ∀ t < n, Y t =ᵐ[P] 
     split_ifs <;> simp
 
 /-- **Concentration of the sum of the loss estimates** [LS, (12.8)]. Along a run of Exp3-IX with
-`γ > 0` whose feedback at every round `t < n` is the reward `x t (A t) ∈ [0, 1]` of its action, for
-`δ > 0`, the probability that `log (1 / δ) / (2 γ) ≤ ∑ a, (L̂ n a - L n a)` is at most `δ`, with
-`L̂ n` the cumulative loss estimates and `L n a = ∑ t < n, (1 - x t a)`. -/
-theorem measure_le_sum_exp4IXSum_sub_le (hγ : 0 < γ) (hY : ∀ t < n, Y t =ᵐ[P] x t ∘ A t)
-    (hx : ∀ t < n, ∀ a, x t a ∈ Set.Icc 0 1) (h : IsAlgEnvSeq O A Y (exp3IX η γ) env P)
+`γ > 0` against any environment whose feedback at every round `t < n` is almost surely in
+`[0, 1]`, for `δ > 0`, the probability that `log (1 / δ) / (2 γ) ≤ ∑ a, (L̂ n a - L n a)` is at
+most `δ`, with `L̂ n` the cumulative loss estimates and `L n a = ∑ t < n, (1 - m_t(a))`,
+`m_t(a) = env.means O A Y a t`. -/
+theorem measure_le_sum_exp4IXSum_sub_le (hγ : 0 < γ)
+    (hY : ∀ᵐ ω ∂P, ∀ t < n, Y t ω ∈ Set.Icc 0 1) (h : IsAlgEnvSeq O A Y (exp3IX η γ) env P)
     (hδ : 0 < δ) :
     P {ω | log (1 / δ) / (2 * γ) ≤
       ∑ a, (exp4IXSum singleAdvice (fun _ ↦ η) (fun _ ↦ γ) n
-        (history O A Y n ω) a - ∑ t ∈ range n, (1 - x t a))} ≤
+        (history O A Y n ω) a - ∑ t ∈ range n, (1 - env.means O A Y a t ω))} ≤
       ENNReal.ofReal δ := by
   refine le_trans (measure_mono fun ω hω ↦ ?_)
     (measure_le_sum_mul_exp4IXSum_sub_le (v := fun _ ↦ 1) (fun _ ↦ ⟨zero_le_one, le_rfl⟩) hγ.le
-      hY hx h hδ)
+      hY h hδ)
   simp only [Set.mem_ofPred_eq, one_mul] at hω ⊢
   rwa [← div_le_iff₀' (by positivity)]
 
 /-- **Concentration of the loss estimates of Exp3-IX** [LS, Lemma 12.3]. Along a run of Exp3-IX
-with `γ > 0` whose feedback at every round `t < n` is the reward `x t (A t) ∈ [0, 1]` of its
-action, for `δ > 0`, with probability at least `1 - δ`, both
+with `γ > 0` against any environment whose feedback at every round `t < n` is almost surely in
+`[0, 1]`, for `δ > 0`, with probability at least `1 - δ`, both
 `L̂ n a - L n a < log ((k + 1) / δ) / (2 γ)` for every arm `a` and
 `∑ a, (L̂ n a - L n a) < log ((k + 1) / δ) / (2 γ)`, with `L̂ n` the cumulative loss estimates,
-`L n a = ∑ t < n, (1 - x t a)` and `k` the number of arms. -/
+`L n a = ∑ t < n, (1 - m_t(a))` for the conditional means `m_t(a) = env.means O A Y a t` of the
+rewards, and `k` the number of arms. -/
 theorem measure_exists_le_exp4IXSum_sub_union_le (hγ : 0 < γ)
-    (hY : ∀ t < n, Y t =ᵐ[P] x t ∘ A t) (hx : ∀ t < n, ∀ a, x t a ∈ Set.Icc 0 1)
-    (h : IsAlgEnvSeq O A Y (exp3IX η γ) env P) (hδ : 0 < δ) :
+    (hY : ∀ᵐ ω ∂P, ∀ t < n, Y t ω ∈ Set.Icc 0 1) (h : IsAlgEnvSeq O A Y (exp3IX η γ) env P)
+    (hδ : 0 < δ) :
     P ({ω | ∃ a, log ((Fintype.card α + 1) / δ) / (2 * γ) ≤
         exp4IXSum singleAdvice (fun _ ↦ η) (fun _ ↦ γ) n
-          (history O A Y n ω) a - ∑ t ∈ range n, (1 - x t a)} ∪
+          (history O A Y n ω) a - ∑ t ∈ range n, (1 - env.means O A Y a t ω)} ∪
       {ω | log ((Fintype.card α + 1) / δ) / (2 * γ) ≤
         ∑ a, (exp4IXSum singleAdvice (fun _ ↦ η) (fun _ ↦ γ)
-          n (history O A Y n ω) a - ∑ t ∈ range n, (1 - x t a))}) ≤
+          n (history O A Y n ω) a - ∑ t ∈ range n, (1 - env.means O A Y a t ω))}) ≤
       ENNReal.ofReal δ := by
   -- a union bound over `k + 1` events of probability at most `δ / (k + 1)`
   have hk : (0 : ℝ) < Fintype.card α + 1 := by positivity
@@ -274,18 +273,18 @@ theorem measure_exists_le_exp4IXSum_sub_union_le (hγ : 0 < γ)
     rw [one_div_div]
   calc _ ≤ P {ω | ∃ a, log ((Fintype.card α + 1) / δ) / (2 * γ) ≤
         exp4IXSum singleAdvice (fun _ ↦ η) (fun _ ↦ γ) n
-          (history O A Y n ω) a - ∑ t ∈ range n, (1 - x t a)} +
+          (history O A Y n ω) a - ∑ t ∈ range n, (1 - env.means O A Y a t ω)} +
       P {ω | log ((Fintype.card α + 1) / δ) / (2 * γ) ≤
         ∑ a, (exp4IXSum singleAdvice (fun _ ↦ η) (fun _ ↦ γ)
-          n (history O A Y n ω) a - ∑ t ∈ range n, (1 - x t a))} :=
+          n (history O A Y n ω) a - ∑ t ∈ range n, (1 - env.means O A Y a t ω))} :=
         measure_union_le _ _
     _ ≤ ∑ _a : α, ENNReal.ofReal (δ / (Fintype.card α + 1)) +
         ENNReal.ofReal (δ / (Fintype.card α + 1)) := by
       gcongr
       · rw [Set.ofPred_exists]
         refine (measure_iUnion_fintype_le _ _).trans (Finset.sum_le_sum fun a _ ↦ ?_)
-        simpa [hlog] using measure_le_exp4IXSum_sub_le hγ hY hx h hδ' a
-      · simpa [hlog] using measure_le_sum_exp4IXSum_sub_le hγ hY hx h hδ'
+        simpa [hlog] using measure_le_exp4IXSum_sub_le hγ hY h hδ' a
+      · simpa [hlog] using measure_le_sum_exp4IXSum_sub_le hγ hY h hδ'
     _ = ENNReal.ofReal δ := by
       rw [← ENNReal.ofReal_sum_of_nonneg fun _ _ ↦ hδ'.le, ← ENNReal.ofReal_add
         (Finset.sum_nonneg fun _ _ ↦ hδ'.le) hδ'.le]
@@ -301,41 +300,47 @@ section Regret
 
 variable [MeasurableSpace α] [MeasurableSingletonClass α] [MeasurableSpace 𝓞] [Nonempty α]
   {Ω : Type*} {mΩ : MeasurableSpace Ω} {P : Measure Ω} [IsProbabilityMeasure P]
-  {O : ℕ → Ω → 𝓞} {A : ℕ → Ω → α} {Y : ℕ → Ω → ℝ} {env : Environment 𝓞 α ℝ}
-  {x : ℕ → α → ℝ} {n : ℕ} {δ : ℝ}
+  {O : ℕ → Ω → 𝓞} {A : ℕ → Ω → α} {Y : ℕ → Ω → ℝ} {env : Environment 𝓞 α ℝ} {n : ℕ} {δ : ℝ}
 
 /-- **High-probability regret bound of Exp3-IX** [LS, proof of Theorem 12.1]. Along a run of
-Exp3-IX with `η, γ > 0` whose feedback at every round `t < n` is the reward `x t (A t) ∈ [0, 1]` of
-its action, for `δ > 0`, the probability that the random regret `∑ t < n, (x t a - x t (A t))`
-against some arm `a` is at least `log k / η + (γ + η / 2) (n k + c) + c` is at most `δ`, where
-`c = log ((k + 1) / δ) / (2 γ)` and `k` is the number of arms. -/
-theorem measure_exists_le_sum_sub_le (hη : 0 < η) (hγ : 0 < γ)
-    (hY : ∀ t < n, Y t =ᵐ[P] x t ∘ A t) (hx : ∀ t < n, ∀ a, x t a ∈ Set.Icc 0 1)
-    (h : IsAlgEnvSeq O A Y (exp3IX η γ) env P) (hδ : 0 < δ) :
-    P {ω | ∃ a, log (Fintype.card α) / η + (γ + η / 2) *
+Exp3-IX with `η, γ > 0` against any environment whose feedback at every round `t < n` is almost
+surely in `[0, 1]`, for `δ > 0`, the probability that the random regret
+`R̂_n = max_a ∑ t < n, (m_t(a) - Y t)` is at least
+`log k / η + (γ + η / 2) (n k + c) + c` is at most `δ`, where `c = log ((k + 1) / δ) / (2 γ)`,
+`m_t(a) = env.means O A Y a t` is the conditional mean of the reward of arm `a` at round `t` and
+`k` is the number of arms. -/
+theorem measure_le_randomRegret_le (hη : 0 < η) (hγ : 0 < γ)
+    (hY : ∀ᵐ ω ∂P, ∀ t < n, Y t ω ∈ Set.Icc 0 1) (h : IsAlgEnvSeq O A Y (exp3IX η γ) env P)
+    (hδ : 0 < δ) :
+    P {ω | log (Fintype.card α) / η + (γ + η / 2) *
         (n * Fintype.card α + log ((Fintype.card α + 1) / δ) / (2 * γ)) +
-          log ((Fintype.card α + 1) / δ) / (2 * γ) ≤ ∑ t ∈ range n, (x t a - x t (A t ω))} ≤
+          log ((Fintype.card α + 1) / δ) / (2 * γ) ≤ randomRegret env O A Y n ω} ≤
       ENNReal.ofReal δ := by
   set c := log ((Fintype.card α + 1) / δ) / (2 * γ)
-  refine le_trans (measure_mono_ae ?_) (measure_exists_le_exp4IXSum_sub_union_le hγ hY hx h hδ)
-  filter_upwards [ae_forall_feedback_eq hY, ae_feedback_mem_Icc hY hx] with ω hYω h01 ⟨a, ha⟩
+  refine le_trans (measure_mono_ae ?_) (measure_exists_le_exp4IXSum_sub_union_le hγ hY h hδ)
+  filter_upwards [hY, WeightAlgorithm.ae_forall_means_nonneg_of_weights_pos
+    (Exp4IX.isAlgEnvSeq_weightAlgorithm h) hY] with ω h01 hm0 hR
   by_contra hE
-  simp only [Set.mem_union, Set.mem_ofPred_eq, not_or, not_exists, not_le] at hE ha
+  simp only [Set.mem_union, Set.mem_ofPred_eq, not_or, not_exists, not_le] at hE hR
   obtain ⟨hEa, hEs⟩ := hE
+  -- the random regret is the regret against some arm `a`
+  obtain ⟨a, ha⟩ := exists_eq_ciSup_of_finite
+    (f := fun a ↦ ∑ t ∈ range n, (env.means O A Y a t ω - Y t ω))
+  rw [randomRegret_def, ← ha] at hR
   -- the estimated regret, the deviation of arm `a` and the sum of the estimates
   have hpath := sum_sub_exp4IXSum_le O A Y ω hη hγ.le h01 a
   set L := exp4IXSum singleAdvice (fun _ ↦ η) (fun _ ↦ γ) n
     (history O A Y n ω)
-  have hR : ∑ t ∈ range n, (x t a - x t (A t ω)) =
-      (∑ t ∈ range n, (1 - Y t ω) - L a) + (L a - ∑ t ∈ range n, (1 - x t a)) := by
+  have hsplit : ∑ t ∈ range n, (env.means O A Y a t ω - Y t ω) =
+      (∑ t ∈ range n, (1 - Y t ω) - L a) +
+        (L a - ∑ t ∈ range n, (1 - env.means O A Y a t ω)) := by
     rw [sub_add_sub_cancel, ← Finset.sum_sub_distrib]
-    refine Finset.sum_congr rfl fun t ht ↦ ?_
-    rw [hYω t (mem_range.1 ht)]
-    ring
-  have hL : ∑ b, ∑ t ∈ range n, (1 - x t b) ≤ n * Fintype.card α := by
-    calc ∑ b, ∑ t ∈ range n, (1 - x t b) ≤ ∑ _b : α, ∑ _t ∈ range n, (1 : ℝ) :=
+    exact Finset.sum_congr rfl fun t _ ↦ by ring
+  -- the conditional means are nonnegative, since every arm has positive weight
+  have hL : ∑ b, ∑ t ∈ range n, (1 - env.means O A Y b t ω) ≤ n * Fintype.card α := by
+    calc ∑ b, ∑ t ∈ range n, (1 - env.means O A Y b t ω) ≤ ∑ _b : α, ∑ _t ∈ range n, (1 : ℝ) :=
           Finset.sum_le_sum fun b _ ↦ Finset.sum_le_sum fun t ht ↦
-            sub_le_self _ (hx t (mem_range.1 ht) b).1
+            sub_le_self _ (hm0 t (mem_range.1 ht) b (exp4IXWeights_single_pos _ _ _ b))
       _ = n * Fintype.card α := by simp [mul_comm]
   have hS : ∑ b, L b ≤ n * Fintype.card α + c := by
     have := hEs.le
@@ -346,17 +351,18 @@ theorem measure_exists_le_sum_sub_le (hη : 0 < η) (hγ : 0 < γ)
 
 /-- **High-probability regret bound of Exp3-IX with `γ = η / 2`** [LS, proof of Theorem 12.1].
 Along a run of Exp3-IX with learning rate `η ≥ 0` and implicit-exploration parameter `γ = η / 2`
-whose feedback at every round `t < n` is the reward `x t (A t) ∈ [0, 1]` of its action, for
+against any environment whose feedback at every round `t < n` is almost surely in `[0, 1]`, for
 `δ > 0` and `L ≥ log k + log ((k + 1) / δ)` such that `η > 0` whenever `n` and `L` are positive,
-the probability that the random regret `∑ t < n, (x t a - x t (A t))` against some arm `a` is at
-least `L / η + η n k + log ((k + 1) / δ)` is at most `δ`, with `k` the number of arms. -/
-theorem measure_exists_div_add_mul_add_le_sum_sub_le {L : ℝ} (hη : 0 ≤ η)
+the probability that the random regret `R̂_n = max_a ∑ t < n, (m_t(a) - Y t)` is at least
+`L / η + η n k + log ((k + 1) / δ)` is at most `δ`, with `m_t(a) = env.means O A Y a t` and `k`
+the number of arms. -/
+theorem measure_div_add_mul_add_le_randomRegret_le {L : ℝ} (hη : 0 ≤ η)
     (hηL : 0 < n → 0 < L → 0 < η)
     (hL : log (Fintype.card α) + log ((Fintype.card α + 1) / δ) ≤ L)
-    (hY : ∀ t < n, Y t =ᵐ[P] x t ∘ A t) (hx : ∀ t < n, ∀ a, x t a ∈ Set.Icc 0 1)
+    (hY : ∀ᵐ ω ∂P, ∀ t < n, Y t ω ∈ Set.Icc 0 1)
     (h : IsAlgEnvSeq O A Y (exp3IX η (η / 2)) env P) (hδ : 0 < δ) :
-    P {ω | ∃ a, L / η + η * (n * Fintype.card α) + log ((Fintype.card α + 1) / δ) ≤
-      ∑ t ∈ range n, (x t a - x t (A t ω))} ≤ ENNReal.ofReal δ := by
+    P {ω | L / η + η * (n * Fintype.card α) + log ((Fintype.card α + 1) / δ) ≤
+      randomRegret env O A Y n ω} ≤ ENNReal.ofReal δ := by
   rcases le_or_gt 1 δ with hδ1 | hδ1
   · exact prob_le_one.trans (ENNReal.one_le_ofReal.2 hδ1)
   have hk0 : (0 : ℝ) < Fintype.card α := by exact_mod_cast Fintype.card_pos
@@ -366,15 +372,15 @@ theorem measure_exists_div_add_mul_add_le_sum_sub_le {L : ℝ} (hη : 0 ≤ η)
   -- with no round, the regret is zero
   rcases Nat.eq_zero_or_pos n with rfl | hn
   · refine (measure_mono_null (fun ω hω ↦ ?_) measure_empty).trans_le zero_le
-    obtain ⟨a, ha⟩ := hω
-    simp only [CharP.cast_eq_zero, zero_mul, mul_zero, add_zero, range_zero, sum_empty] at ha
+    simp only [Set.mem_ofPred_eq, randomRegret_def, CharP.cast_eq_zero, zero_mul, mul_zero,
+      add_zero, range_zero, sum_empty, ciSup_const] at hω
     linarith [div_nonneg hL0.le hη]
   have hη0 := hηL hn hL0
   refine (measure_mono fun ω hω ↦ ?_).trans
-    (measure_exists_le_sum_sub_le hη0 (half_pos hη0) hY hx h hδ)
-  obtain ⟨a, ha⟩ := hω
-  refine ⟨a, le_trans ?_ ha⟩
-  -- the bound of `measure_exists_le_sum_sub_le` for `γ = η / 2`
+    (measure_le_randomRegret_le hη0 (half_pos hη0) hY h hδ)
+  simp only [Set.mem_ofPred_eq] at hω ⊢
+  refine le_trans ?_ hω
+  -- the bound of `measure_le_randomRegret_le` for `γ = η / 2`
   have e1 : log (Fintype.card α) / η + (η / 2 + η / 2) * (n * Fintype.card α +
       log ((Fintype.card α + 1) / δ) / (2 * (η / 2))) +
         log ((Fintype.card α + 1) / δ) / (2 * (η / 2)) =
@@ -385,20 +391,20 @@ theorem measure_exists_div_add_mul_add_le_sum_sub_le {L : ℝ} (hη : 0 ≤ η)
   rw [e1]
   gcongr
 
-/-- **High-probability regret bound of Exp3-IX** [LS, Theorem 12.1, (12.5)]. Along a run of
-Exp3-IX with learning rate `η = √(2 log (k + 1) / (n k))` and implicit-exploration parameter
-`γ = η / 2` whose feedback at every round `t < n` is the reward `x t (A t) ∈ [0, 1]` of its action,
-for every `δ > 0`, the probability that the random regret `∑ t < n, (x t a - x t (A t))` against
-some arm `a` is at least
+/-- **High-probability regret bound of Exp3-IX** [LS, Theorem 12.1, (12.5)], against an adaptive
+adversary. Along a run of Exp3-IX with learning rate `η = √(2 log (k + 1) / (n k))` and
+implicit-exploration parameter `γ = η / 2` against any environment whose feedback at every round
+`t < n` is almost surely in `[0, 1]`, for every `δ > 0`, the probability that the random regret
+`R̂_n = max_a ∑ t < n, (m_t(a) - Y t)` is at least
 `√(8 n k log (k + 1)) + √(n k / (2 log (k + 1))) log (1 / δ) + log ((k + 1) / δ)` is at most `δ`,
-with `k` the number of arms. The learning rate does not depend on `δ`. -/
-theorem measure_exists_sqrt_le_sum_sub_le (hY : ∀ t < n, Y t =ᵐ[P] x t ∘ A t)
-    (hx : ∀ t < n, ∀ a, x t a ∈ Set.Icc 0 1)
+with `m_t(a) = env.means O A Y a t` and `k` the number of arms. The learning rate does not depend
+on `δ`. -/
+theorem measure_sqrt_add_le_randomRegret_le (hY : ∀ᵐ ω ∂P, ∀ t < n, Y t ω ∈ Set.Icc 0 1)
     (h : IsAlgEnvSeq O A Y (exp3IX √(2 * log (Fintype.card α + 1) / (n * Fintype.card α))
       (√(2 * log (Fintype.card α + 1) / (n * Fintype.card α)) / 2)) env P) (hδ : 0 < δ) :
-    P {ω | ∃ a, √(8 * n * Fintype.card α * log (Fintype.card α + 1)) +
+    P {ω | √(8 * n * Fintype.card α * log (Fintype.card α + 1)) +
         √(n * Fintype.card α / (2 * log (Fintype.card α + 1))) * log (1 / δ) +
-          log ((Fintype.card α + 1) / δ) ≤ ∑ t ∈ range n, (x t a - x t (A t ω))} ≤
+          log ((Fintype.card α + 1) / δ) ≤ randomRegret env O A Y n ω} ≤
       ENNReal.ofReal δ := by
   set k : ℝ := (Fintype.card α : ℝ) with hk
   have hk0 : 0 < k := by rw [hk]; exact_mod_cast Fintype.card_pos
@@ -406,18 +412,18 @@ theorem measure_exists_sqrt_le_sum_sub_le (hY : ∀ t < n, Y t =ᵐ[P] x t ∘ A
   set m : ℝ := n * k with hm
   have hm0 : 0 ≤ m := mul_nonneg n.cast_nonneg hk0.le
   set η := √(2 * log (k + 1) / m) with hη
-  -- `L = 2 log (k + 1) + log (1 / δ)` in `measure_exists_div_add_mul_add_le_sum_sub_le`
+  -- `L = 2 log (k + 1) + log (1 / δ)` in `measure_div_add_mul_add_le_randomRegret_le`
   have hlog : log ((k + 1) / δ) = log (k + 1) + log (1 / δ) := by
     rw [div_eq_mul_one_div, log_mul (by linarith) (by positivity)]
   have hLle : log k + log ((k + 1) / δ) ≤ 2 * log (k + 1) + log (1 / δ) := by
     rw [hlog]
     linarith [log_le_log hk0 (by linarith : k ≤ k + 1)]
   refine (measure_mono fun ω hω ↦ ?_).trans
-    (measure_exists_div_add_mul_add_le_sum_sub_le (sqrt_nonneg _)
+    (measure_div_add_mul_add_le_randomRegret_le (sqrt_nonneg _)
       (fun hn _ ↦ sqrt_pos.2 (div_pos (by positivity) (mul_pos (Nat.cast_pos.2 hn) hk0))) hLle
-      hY hx h hδ)
-  obtain ⟨a, ha⟩ := hω
-  refine ⟨a, le_trans (le_of_eq ?_) ha⟩
+      hY h hδ)
+  simp only [Set.mem_ofPred_eq] at hω ⊢
+  refine le_trans (le_of_eq ?_) hω
   have e2 : √(8 * n * k * log (k + 1)) = 2 * log (k + 1) / η + η * m := by
     have := div_sqrt_add_sqrt_mul_div_two (log (k + 1)) hm0
     rw [show (8 : ℝ) * n * k * log (k + 1) = 2 ^ 2 * (2 * m * log (k + 1)) by rw [hm]; ring,
@@ -429,20 +435,20 @@ theorem measure_exists_sqrt_le_sum_sub_le (hY : ∀ t < n, Y t =ᵐ[P] x t ∘ A
   ring
 
 /-- **High-probability regret bound of Exp3-IX for a fixed confidence level**
-[LS, Theorem 12.1, (12.6)]. Along a run of Exp3-IX with learning rate
-`η = √((log k + log ((k + 1) / δ)) / (n k))` and implicit-exploration parameter `γ = η / 2` whose
-feedback at every round `t < n` is the reward `x t (A t) ∈ [0, 1]` of its action, for `δ > 0`, the
-probability that the random regret `∑ t < n, (x t a - x t (A t))` against some arm `a` is at least
-`2 √((2 log (k + 1) + log (1 / δ)) n k) + log ((k + 1) / δ)` is at most `δ`, with `k` the number
-of arms. -/
-theorem measure_exists_two_mul_sqrt_le_sum_sub_le (hY : ∀ t < n, Y t =ᵐ[P] x t ∘ A t)
-    (hx : ∀ t < n, ∀ a, x t a ∈ Set.Icc 0 1)
+[LS, Theorem 12.1, (12.6)], against an adaptive adversary. Along a run of Exp3-IX with learning
+rate `η = √((log k + log ((k + 1) / δ)) / (n k))` and implicit-exploration parameter `γ = η / 2`
+against any environment whose feedback at every round `t < n` is almost surely in `[0, 1]`, for
+`δ > 0`, the probability that the random regret `R̂_n = max_a ∑ t < n, (m_t(a) - Y t)` is at least
+`2 √((2 log (k + 1) + log (1 / δ)) n k) + log ((k + 1) / δ)` is at most `δ`, with
+`m_t(a) = env.means O A Y a t` and `k` the number of arms. -/
+theorem measure_two_mul_sqrt_add_le_randomRegret_le
+    (hY : ∀ᵐ ω ∂P, ∀ t < n, Y t ω ∈ Set.Icc 0 1)
     (h : IsAlgEnvSeq O A Y (exp3IX
       √((log (Fintype.card α) + log ((Fintype.card α + 1) / δ)) / (n * Fintype.card α))
       (√((log (Fintype.card α) + log ((Fintype.card α + 1) / δ)) / (n * Fintype.card α)) / 2))
       env P) (hδ : 0 < δ) :
-    P {ω | ∃ a, 2 * √((2 * log (Fintype.card α + 1) + log (1 / δ)) * n * Fintype.card α) +
-          log ((Fintype.card α + 1) / δ) ≤ ∑ t ∈ range n, (x t a - x t (A t ω))} ≤
+    P {ω | 2 * √((2 * log (Fintype.card α + 1) + log (1 / δ)) * n * Fintype.card α) +
+          log ((Fintype.card α + 1) / δ) ≤ randomRegret env O A Y n ω} ≤
       ENNReal.ofReal δ := by
   set k : ℝ := (Fintype.card α : ℝ) with hk
   have hk0 : 0 < k := by rw [hk]; exact_mod_cast Fintype.card_pos
@@ -451,11 +457,11 @@ theorem measure_exists_two_mul_sqrt_le_sum_sub_le (hY : ∀ t < n, Y t =ᵐ[P] x
   set M := log k + log ((k + 1) / δ) with hM
   set η := √(M / m) with hη
   refine (measure_mono fun ω hω ↦ ?_).trans
-    (measure_exists_div_add_mul_add_le_sum_sub_le (L := M) (sqrt_nonneg _)
+    (measure_div_add_mul_add_le_randomRegret_le (L := M) (sqrt_nonneg _)
       (fun hn hM0 ↦ sqrt_pos.2 (div_pos hM0 (mul_pos (Nat.cast_pos.2 hn) hk0))) le_rfl
-      hY hx h hδ)
-  obtain ⟨a, ha⟩ := hω
-  refine ⟨a, le_trans ?_ ha⟩
+      hY h hδ)
+  simp only [Set.mem_ofPred_eq] at hω ⊢
+  refine le_trans ?_ hω
   -- the bound `M / η + η m + log ((k + 1) / δ)` is `2 √(M m) + log ((k + 1) / δ)`
   have hbal : M / η + η * m = 2 * √(M * m) := by
     have := div_sqrt_add_sqrt_mul_div_two (M / 2) hm0
@@ -500,7 +506,9 @@ theorem exp3IX_measure_exists_sqrt_le_sum_sub_le (hx : ∀ t < n, ∀ a, x t a �
         √(n * Fintype.card α / (2 * log (Fintype.card α + 1))) * log (1 / δ) +
           log ((Fintype.card α + 1) / δ) ≤ ∑ t ∈ range n, (x t a - x t (A t ω))} ≤
       ENNReal.ofReal δ :=
-  Exp3IX.measure_exists_sqrt_le_sum_sub_le (fun t _ ↦ h.feedback_ae_eq_evalSeq t) hx h hδ
+  (h.measure_exists_le_sum_sub_le_measure_le_randomRegret n _).trans
+    (Exp3IX.measure_sqrt_add_le_randomRegret_le
+      (ae_feedback_mem_Icc (fun t _ ↦ h.feedback_ae_eq_evalSeq t) hx) h hδ)
 
 /-- **High-probability regret bound of Exp3-IX for a fixed confidence level**
 [LS, Theorem 12.1, (12.6)] against an oblivious adversary: along a run of Exp3-IX with
@@ -517,7 +525,9 @@ theorem exp3IX_measure_exists_two_mul_sqrt_le_sum_sub_le (hx : ∀ t < n, ∀ a,
     P {ω | ∃ a, 2 * √((2 * log (Fintype.card α + 1) + log (1 / δ)) * n * Fintype.card α) +
           log ((Fintype.card α + 1) / δ) ≤ ∑ t ∈ range n, (x t a - x t (A t ω))} ≤
       ENNReal.ofReal δ :=
-  Exp3IX.measure_exists_two_mul_sqrt_le_sum_sub_le (fun t _ ↦ h.feedback_ae_eq_evalSeq t) hx h hδ
+  (h.measure_exists_le_sum_sub_le_measure_le_randomRegret n _).trans
+    (Exp3IX.measure_two_mul_sqrt_add_le_randomRegret_le
+      (ae_feedback_mem_Icc (fun t _ ↦ h.feedback_ae_eq_evalSeq t) hx) h hδ)
 
 end EvalSeq
 
