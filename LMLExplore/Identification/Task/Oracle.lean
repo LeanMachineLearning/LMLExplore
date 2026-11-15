@@ -45,6 +45,9 @@ defines `i_F(θ)` as the answers of value `D(θ)`; the two agree on admissible m
   answers are the answers `i` with `D(θ, ¬i) = D(θ)`.
 * `IdentTask.oracleAnswers_subset_correct`: on an admissible model with `D(θ) > 0`, the oracle
   answers are correct.
+* `IdentTask.inv_iInf_altCost_optAlloc_le_charTime`: on an admissible model, the optimal
+  allocations of an oracle answer `i` reach the characteristic time:
+  `(inf_{w ∈ w*(θ, ¬i)} D(θ, w, ¬i))⁻¹ ≤ T*(θ)`.
 * `IdentTask.mem_oracleAlloc_iff_isMaxOn`: for finitely many answers, the oracle allocations are the
   maximizers of `w ↦ max_i D(θ, w, ¬i)` on the simplex.
 * `IdentTask.iSup_altCost_eq_iSup_answerValue_of_mem_oracleAlloc`,
@@ -128,6 +131,15 @@ lemma oracleAnswers_subset_correct (hθ : θ ∈ task.M) (h : 0 < task.gameValue
   rw [task.mem_oracleAnswers_iff_answerValue_eq_gameValue hθ,
     task.answerValue_eq_zero_of_mem_alt (task.mem_alt_iff.2 ⟨hθ, hic⟩)] at hi
   exact h.ne hi
+
+/-- On an admissible model, the optimal allocations of an oracle answer `i` attain the value
+`D(θ, ¬i) = D(θ)` of the game, so that the inverse of the smallest cost of the alternatives to `i`
+over these allocations is at most the characteristic time `T*(θ) = D(θ)⁻¹`. This bounds the
+constant reached by the algorithms whose proportions of pulls approach `w*(θ, ¬i)`. -/
+lemma inv_iInf_altCost_optAlloc_le_charTime (hθ : θ ∈ task.M) (hi : i ∈ task.oracleAnswers θ) :
+    (⨅ w ∈ task.optAlloc θ i, task.altCost θ w i)⁻¹ ≤ task.charTime θ := by
+  rw [charTime_def, ← (task.mem_oracleAnswers_iff_answerValue_eq_gameValue hθ).1 hi]
+  exact ENNReal.inv_le_inv.2 (le_iInf₂ fun w hw ↦ (task.mem_optAlloc_iff.1 hw).2.ge)
 
 /-! ### Oracle allocations -/
 

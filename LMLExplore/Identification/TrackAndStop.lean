@@ -444,14 +444,15 @@ variable {𝓧 : Type*} {m𝓧 : MeasurableSpace 𝓧} {ρ : α → Measure 𝓧
 
 omit [Fintype α] [Nonempty α] [MeasurableSingletonClass α] in
 /-- The argument over the rounds shared by the analyses of Track-and-Stop with D-tracking and with
-C-tracking [GK16, proof of Theorem 14]. Let `μ` be a vector of means of the nondegenerate
+C-tracking [GK16, proof of Theorem 14], and of Sticky Track-and-Stop
+(`Identification/StickyTrackAndStop.lean`). Let `μ` be a vector of means of the nondegenerate
 exponential families `(ρ a, T a)`, and let the sampling rule explore enough: for all vectors of
 means `l < μ < u` of the families, the probabilities that the empirical mean of some arm `a` is
 outside `(l a, u a)` at some round `t ≥ t₀ T` have a finite sum over `T` (forced exploration,
 [GK16, Lemma 19]). Then for every neighbourhood `W` of `μ` and every property `G` of the runs that
 holds almost surely, there are events `E T` with `∑ T, P((E T)ᶜ) < ∞` on which `G` holds and the
 empirical means are in `W` at every round `k ≥ t₀ T`. -/
-private lemma exists_tsum_measure_compl_ne_top_forall_ge_empMean'_mem [Finite α] {Ω : Type*}
+lemma exists_tsum_measure_compl_ne_top_forall_ge_empMean'_mem [Finite α] {Ω : Type*}
     {mΩ : MeasurableSpace Ω} {P : Measure Ω} {O : ℕ → Ω → Unit} {A : ℕ → Ω → α}
     {Y : ℕ → Ω → ℝ} {t₀ : ℕ → ℕ} (hT : ∀ a c, ¬ T a =ᵐ[ρ a] fun _ ↦ c)
     (hμ : ∀ a, μ a ∈ (ρ a).expFamilyMeans (T a))
@@ -691,13 +692,14 @@ variable {w : (α → ℝ) → α → ℝ} {hw : ∀ n, Measurable fun h : Hist 
 
 omit [MeasurableSingletonClass α] in
 /-- The deterministic step of the analysis of Track-and-Stop with C-tracking [DK19, Lemma 6 and
-proof of Theorem 7]. Along a sequence of arms whose pull counts follow the cumulated targets `v s`
-up to `e` after `T` rounds, suppose that the targets are allocations, `ε`-close to the convex set
-`C` from round `t₀` on. Since averages of points close to `C` are close to `C`
-(`Convex.exists_mem_norm_sum_sub_smul_le`), if the elements of `C` have norm at most `B` and
-`e + (1 + B) t₀ + ε T < η T`, then the proportions of pulls after `T` rounds are `η`-close to
-`C`. -/
-private lemma pullCount_div_mem_thickening {Ω : Type*} {A : ℕ → Ω → α} {ω : Ω}
+proof of Theorem 7], also used for Sticky Track-and-Stop
+(`Identification/StickyTrackAndStop.lean`). Along a sequence of arms whose pull counts follow the
+cumulated targets `v s` up to `e` after `T` rounds, suppose that the targets are allocations,
+`ε`-close to the convex set `C` from round `t₀` on. Since averages of points close to `C` are
+close to `C` (`Convex.exists_mem_norm_sum_sub_smul_le`), if the elements of `C` have norm at most
+`B` and `e + (1 + B) t₀ + ε T < η T`, then the proportions of pulls after `T` rounds are `η`-close
+to `C`. -/
+lemma pullCount_div_mem_thickening {Ω : Type*} {A : ℕ → Ω → α} {ω : Ω}
     {v : ℕ → α → ℝ} {C : Set (α → ℝ)} {B e ε η : ℝ} {t₀ T : ℕ} (hv_mem : ∀ s, v s ∈ simplex α)
     (hC : Convex ℝ C) (hCB : ∀ c ∈ C, ‖c‖ ≤ B) (hv : ∀ k ≥ t₀, v k ∈ thickening ε C)
     (htrack : ∀ a, |(pullCount A a T ω : ℝ) - ∑ s ∈ range T, v s a| ≤ e) (hT : t₀ ≤ T)
@@ -738,6 +740,42 @@ private lemma pullCount_div_mem_thickening {Ω : Type*} {A : ℕ → Ω → α} 
   have hη : 0 < η := (abs_nonneg _).trans_lt (hq_dist (Classical.arbitrary α))
   exact mem_thickening_iff.2
     ⟨cbar, hcbar, (dist_pi_lt_iff hη).2 fun a ↦ Real.dist_eq _ _ ▸ hq_dist a⟩
+
+omit [MeasurableSingletonClass α] in
+/-- The deterministic step of the analysis of Track-and-Stop with C-tracking, for the tracking
+error `(K - 1) (1 + √T)` of C-tracking [GK16, Lemma 7]. Along a sequence of arms whose pull counts
+follow the cumulated targets `v s` up to `(K - 1) (1 + √T)` after `T > 0` rounds, suppose that the
+targets are allocations, `η / 4`-close to the convex set `C` from round `t₀` on. If the elements
+of `C` have norm at most `B ≥ 0`, `t₀ ≤ η T / (4 (1 + B))` and `(1 + √T) / T ≤ η / (4 K)`, then
+the proportions of pulls after `T` rounds are `η`-close to `C`. -/
+lemma pullCount_div_mem_thickening_of_le {Ω : Type*} {A : ℕ → Ω → α} {ω : Ω}
+    {v : ℕ → α → ℝ} {C : Set (α → ℝ)} {B η : ℝ} {t₀ T : ℕ} (hv_mem : ∀ s, v s ∈ simplex α)
+    (hC : Convex ℝ C) (hCB : ∀ c ∈ C, ‖c‖ ≤ B) (hB : 0 ≤ B)
+    (hv : ∀ k ≥ t₀, v k ∈ thickening (η / 4) C)
+    (htrack : ∀ a, |(pullCount A a T ω : ℝ) - ∑ s ∈ range T, v s a| ≤
+      (Fintype.card α - 1) * (1 + √(T : ℝ)))
+    (hT : t₀ ≤ T) (hT0 : 0 < T) (ht₀ : (t₀ : ℝ) ≤ η / (4 * (1 + B)) * T)
+    (h_sqrt : (1 + √(T : ℝ)) / T ≤ η / (4 * Fintype.card α)) :
+    (fun a ↦ (pullCount A a T ω : ℝ) / T) ∈ thickening η C := by
+  have hK : (0 : ℝ) < Fintype.card α := Nat.cast_pos.2 Fintype.card_pos
+  have hT' : (0 : ℝ) < T := Nat.cast_pos.2 hT0
+  -- `η > 0`, since the thickening of radius `η / 4` contains the target of round `t₀`.
+  have hη : 0 < η := by
+    obtain ⟨c, -, hc⟩ := mem_thickening_iff.1 (hv t₀ le_rfl)
+    linarith [dist_nonneg.trans_lt hc]
+  refine pullCount_div_mem_thickening hv_mem hC hCB hv htrack hT ?_
+  -- `(K - 1) (1 + √T) + (1 + B) t₀ + η T / 4 ≤ 3 η T / 4 < η T`.
+  rw [div_le_iff₀ hT'] at h_sqrt
+  have h1 : (Fintype.card α - 1 : ℝ) * (1 + √(T : ℝ)) ≤ η / 4 * T := by
+    calc (Fintype.card α - 1 : ℝ) * (1 + √(T : ℝ)) ≤ Fintype.card α * (1 + √(T : ℝ)) := by
+          gcongr; linarith
+    _ ≤ Fintype.card α * (η / (4 * Fintype.card α) * T) := by gcongr
+    _ = η / 4 * T := by field_simp
+  have h2 : (1 + B) * t₀ ≤ η / 4 * T := by
+    calc (1 + B) * t₀ ≤ (1 + B) * (η / (4 * (1 + B)) * T) := by gcongr
+    _ = η / 4 * T := by field_simp
+  have h3 : 0 < η * T := mul_pos hη hT'
+  linarith
 
 variable {𝓧 : Type*} {m𝓧 : MeasurableSpace 𝓧} {ρ : α → Measure 𝓧} {T : α → 𝓧 → ℝ} {μ : α → ℝ}
   {β : ℝ → (n : ℕ) → Hist Unit α ℝ n → ℝ≥0∞}
@@ -808,22 +846,8 @@ theorem eventually_expectedStoppingTime_cTrackAndStop_le (hT : ∀ a c, ¬ T a =
     with T h_t₀ hT_le h_sqrt_le hT0 ω hω
   obtain ⟨hω_track, hω_W⟩ := hE T ω hω
   have hT_le' : roundsAfter T ≤ T := by exact_mod_cast hT_le.trans_eq (one_mul _)
-  have hT' : (0 : ℝ) < T := Nat.cast_pos.2 hT0
-  refine ⟨(hω_W T hT_le').1, hηV (pullCount_div_mem_thickening (fun _ ↦ hw_mem _) hC_conv hCB
-    (fun k hk ↦ (hω_W k hk).2) (hω_track T) hT_le' ?_)⟩
-  -- `(K - 1) (1 + √T) + (1 + B) t₀(T) + ε T ≤ 3 η T / 4 < η T`.
-  rw [div_le_iff₀ hT'] at h_sqrt_le
-  have h1 : (K - 1) * (1 + √(T : ℝ)) ≤ η / 4 * T := by
-    have : (K - 1) * (1 + √(T : ℝ)) ≤ K * (1 + √(T : ℝ)) := by gcongr; linarith
-    refine this.trans ?_
-    calc K * (1 + √(T : ℝ)) ≤ K * (η / (4 * K) * T) := by gcongr
-    _ = η / 4 * T := by field_simp
-  have h2 : (1 + B) * roundsAfter T ≤ η / 4 * T := by
-    calc (1 + B) * roundsAfter T ≤ (1 + B) * (η / (4 * (1 + B)) * T) := by gcongr
-    _ = η / 4 * T := by field_simp
-  have h3 : 0 < η * T := mul_pos hη hT'
-  simp only [ε]
-  linarith
+  exact ⟨(hω_W T hT_le').1, hηV (pullCount_div_mem_thickening_of_le (fun _ ↦ hw_mem _) hC_conv
+    hCB hB.le (fun k hk ↦ (hω_W k hk).2) (hω_track T) hT_le' hT0 h_t₀ h_sqrt_le)⟩
 
 /-- **Sample complexity of Track-and-Stop with C-tracking at the characteristic time**
 [DK19, Theorem 7], the upper bound `𝔼[τ_δ] ≤ c log (1 / δ)` with `c > T*(μ)`, even when the
