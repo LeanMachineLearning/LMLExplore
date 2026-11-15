@@ -6,14 +6,16 @@ Authors: LMLExplore contributors
 module
 
 public import LeanMachineLearning.ForMathlib.Analysis.Convex.Bregman.Basic
+public import LeanMachineLearning.ForMathlib.Analysis.Convex.Subgradient.Deriv
 public import Mathlib.Analysis.Calculus.MeanValue
+import Mathlib.Algebra.QuadraticDiscriminant
 import Mathlib.Analysis.Calculus.Deriv.AffineMap
 import Mathlib.Analysis.Calculus.Deriv.Comp
 import Mathlib.Analysis.Calculus.Deriv.Pow
 import Mathlib.Analysis.Normed.Affine.AddTorsor
 
 /-!
-# Smooth functions and the descent lemma
+# Smooth functions, the descent lemma and self-bounded functions
 
 A function `f : E → F` on a real normed space is `s`-smooth on a set `V`, in the sense of convex
 optimization [Ora, Definition 4.22], if it is differentiable on an open set containing `V` and its
@@ -29,6 +31,13 @@ The bound is first proved for a derivative within the set at its points, with no
 it. This covers sets with empty interior, such as the simplex in `α → ℝ`, on which the inexact
 mirror descent analysis of [SSKM26, Lemma 22, Theorem 2] uses it.
 
+A function bounded below that is `s`-smooth on the whole space has small gradients near its
+infimum: `‖f' x‖ ^ 2 ≤ 2 * s * (f x - inf f)`.
+Functions with this property for all their subgradients within a set are called **self-bounded**
+[Ora, Definition 4.26]; for nonnegative losses it bounds the squared gradients by the losses
+themselves, which turns regret bounds in `∑ t, ‖g t‖ ^ 2` into `L⋆` bounds in the losses of the
+best comparator [Ora, Theorem 4.30].
+
 The proof of `Convex.norm_bregDiv_le_mul_norm_sub_sq` and its within-set form are adapted from the
 formalization in the paper project RemyDegenne/Schlisselberg2026Hidden
 (<https://github.com/RemyDegenne/Schlisselberg2026Hidden>, file
@@ -39,6 +48,8 @@ formalization in the paper project RemyDegenne/Schlisselberg2026Hidden
 
 * `LMLExplore.SmoothOn V s f`: `f` is differentiable on an open set containing `V` and
   `fderiv ℝ f` is `s`-Lipschitz on `V`.
+* `LMLExplore.SelfBoundedOn V s f`: `f` is bounded below on `V` and every subgradient `g` within
+  `V` at `x ∈ V` satisfies `‖g‖ ^ 2 ≤ 2 * s * (f x - inf_V f)`.
 
 ## Main statements
 
@@ -50,6 +61,11 @@ formalization in the paper project RemyDegenne/Schlisselberg2026Hidden
   `|D_f(y, x)| ≤ s / 2 * ‖y - x‖ ^ 2`.
 * `LMLExplore.SmoothOn.bregDiv_le_mul_norm_sub_sq`: the descent lemma for an `s`-smooth real
   function on a convex set.
+* `LMLExplore.SmoothOn.norm_fderiv_sq_le`: for `f` `s`-smooth on the whole space and bounded
+  below, `‖fderiv ℝ f x‖ ^ 2 ≤ 2 * s * (f x - ⨅ y, f y)`.
+* `LMLExplore.SmoothOn.selfBoundedOn_univ`: such a function is `s`-self-bounded.
+* `LMLExplore.SelfBoundedOn.norm_sq_le_of_nonneg`: a nonnegative `s`-self-bounded function has
+  `‖g‖ ^ 2 ≤ 2 * s * f x` for its subgradients `g` at `x`.
 
 ## References
 
@@ -195,6 +211,82 @@ theorem smoothOn_univ {f : E → F} :
   refine ⟨fun hf ↦ ⟨fun x ↦ hf.differentiableAt (mem_univ x),
     lipschitzOnWith_univ.mp hf.lipschitzOnWith⟩, fun ⟨hd, hl⟩ ↦ ⟨?_, hl.lipschitzOnWith⟩⟩
   exact ⟨univ, isOpen_univ, subset_rfl, hd.differentiableOn⟩
+
+/-- **The gradient of a smooth function bounded below.** If `f` is `s`-smooth
+on the whole space and bounded below, then `‖fderiv ℝ f x‖ ^ 2 ≤ 2 * s * (f x - ⨅ y, f y)` at
+every `x`, where `‖fderiv ℝ f x‖` is the dual norm. -/
+theorem SmoothOn.norm_fderiv_sq_le {f : E → ℝ} (hf : SmoothOn univ s f)
+    (hbdd : BddBelow (range f)) (x : E) :
+    ‖fderiv ℝ f x‖ ^ 2 ≤ 2 * s * (f x - ⨅ y, f y) := by
+  set c := 2 * s * (f x - ⨅ y, f y)
+  have hc : 0 ≤ c := by positivity [sub_nonneg.mpr (ciInf_le hbdd x)]
+  -- along each direction `v`, the descent lemma bounds `f` above by a quadratic in the step `r`,
+  -- which stays above the infimum of `f`: its discriminant is nonpositive
+  have h_dir (v : E) : (fderiv ℝ f x v) ^ 2 ≤ c * ‖v‖ ^ 2 := by
+    have h_quad (r : ℝ) : 0 ≤ s / 2 * ‖v‖ ^ 2 * (r * r) + fderiv ℝ f x v * r +
+        (f x - ⨅ y, f y) := by
+      have h_desc := hf.bregDiv_le_mul_norm_sub_sq convex_univ (mem_univ x) (mem_univ (x + r • v))
+      have h_inf := ciInf_le hbdd (x + r • v)
+      simp only [bregDiv, add_sub_cancel_left, map_smul, smul_eq_mul, norm_smul, Real.norm_eq_abs,
+        mul_pow, sq_abs] at h_desc
+      nlinarith
+    have := discrim_le_zero h_quad
+    simp only [discrim, c] at this ⊢
+    linarith
+  -- hence `|fderiv ℝ f x v| ≤ √c * ‖v‖` for every `v`, which bounds the operator norm
+  have h_norm : ‖fderiv ℝ f x‖ ≤ √c := by
+    refine ContinuousLinearMap.opNorm_le_bound _ (Real.sqrt_nonneg c) fun v ↦ ?_
+    rw [Real.norm_eq_abs, ← Real.sqrt_sq (norm_nonneg v), ← Real.sqrt_mul hc]
+    exact Real.abs_le_sqrt (h_dir v)
+  exact (Real.le_sqrt (norm_nonneg _) hc).mp h_norm
+
+/-- A function `f : E → ℝ` is **`s`-self-bounded within `V`** [Ora, Definition 4.26] if it is
+bounded below on `V` and every subgradient `g` of `f` within `V` at a point `x ∈ V` satisfies
+`‖g‖ ^ 2 ≤ 2 * s * (f x - inf_V f)`, where `‖g‖` is the dual norm and `inf_V f = sInf (f '' V)`.
+Subgradients are those of LML's `HasSubgradientWithinAt`. For a nonnegative function the bound
+gives `‖g‖ ^ 2 ≤ 2 * s * f x` (`SelfBoundedOn.norm_sq_le_of_nonneg`), which is how it enters the
+`L⋆` regret bounds of online learning [Ora, Theorem 4.30]. -/
+structure SelfBoundedOn (V : Set E) (s : ℝ≥0) (f : E → ℝ) : Prop where
+  /-- `f` is bounded below on `V`. -/
+  bddBelow : BddBelow (f '' V)
+  /-- The squared dual norm of every subgradient within `V` at `x ∈ V` is at most
+  `2 * s * (f x - inf_V f)`. -/
+  norm_sq_le : ∀ x ∈ V, ∀ g : E →L[ℝ] ℝ, HasSubgradientWithinAt f g V x →
+    ‖g‖ ^ 2 ≤ 2 * s * (f x - sInf (f '' V))
+
+namespace SelfBoundedOn
+
+variable {f : E → ℝ}
+
+/-- An `s`-self-bounded function within `V` is `t`-self-bounded for every `t ≥ s`. -/
+protected theorem weaken (hf : SelfBoundedOn V s f) (hst : s ≤ t) : SelfBoundedOn V t f where
+  bddBelow := hf.bddBelow
+  norm_sq_le x hx g hg := by
+    have h_inf : sInf (f '' V) ≤ f x := csInf_le hf.bddBelow (mem_image_of_mem f hx)
+    calc ‖g‖ ^ 2 ≤ 2 * s * (f x - sInf (f '' V)) := hf.norm_sq_le x hx g hg
+      _ ≤ 2 * t * (f x - sInf (f '' V)) := by gcongr
+
+/-- For an `s`-self-bounded function within `V` that is nonnegative on `V`, every subgradient `g`
+within `V` at `x ∈ V` satisfies `‖g‖ ^ 2 ≤ 2 * s * f x`. -/
+theorem norm_sq_le_of_nonneg (hf : SelfBoundedOn V s f) (hf0 : ∀ y ∈ V, 0 ≤ f y) (hx : x ∈ V)
+    {g : E →L[ℝ] ℝ} (hg : HasSubgradientWithinAt f g V x) : ‖g‖ ^ 2 ≤ 2 * s * f x := by
+  have h_inf : 0 ≤ sInf (f '' V) :=
+    le_csInf (image_nonempty.mpr ⟨x, hx⟩) (forall_mem_image.mpr hf0)
+  nlinarith [hf.norm_sq_le x hx g hg, mul_nonneg (NNReal.coe_nonneg s) h_inf]
+
+end SelfBoundedOn
+
+/-- **Smooth functions are self-bounded** [Ora, Remark 4.27]. If `f` is `s`-smooth
+on the whole space and bounded below, then it is `s`-self-bounded within the whole space: its only
+subgradient at `x` is its derivative, whose squared norm is at most `2 * s * (f x - ⨅ y, f y)`.
+No convexity is needed. -/
+theorem SmoothOn.selfBoundedOn_univ {f : E → ℝ} (hf : SmoothOn univ s f)
+    (hbdd : BddBelow (range f)) : SelfBoundedOn univ s f where
+  bddBelow := by rwa [image_univ]
+  norm_sq_le x _ g hg := by
+    rw [(hf.differentiableAt (mem_univ x)).hasFDerivAt.eq_of_hasSubgradientWithinAt
+      Filter.univ_mem hg, image_univ, sInf_range]
+    exact hf.norm_fderiv_sq_le hbdd x
 
 end LMLExplore
 

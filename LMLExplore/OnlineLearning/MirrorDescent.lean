@@ -46,6 +46,8 @@ of losses, in particular for losses chosen adaptively from the past plays.
 * `isMinOn_mul_apply_add_bregDiv_of_hasFDerivWithinAt`: the first stage [LS, (28.7), (28.9)].
   For `F` convex on `D`, a point `b ∈ D` where `F` has derivative `F' - η y` minimizes the
   objective of the step over `D`.
+* `isMirrorDescentStep_zero_iff`: a step for the zero loss is a Bregman projection of the
+  current play, whatever the learning rate.
 * `exists_isMirrorDescentStep`: on a nonempty compact set, with a potential continuous on it,
   mirror descent steps exist.
 * `exists_isMirrorDescentStep_of_strongConvexOn`: in finite dimension, on a nonempty closed set
@@ -150,6 +152,13 @@ theorem isMinOn_mul_apply_add_bregDiv_of_hasFDerivWithinAt (hG : G = F' - η •
   exact le_add_of_nonneg_right (hGb.hasSubgradientWithinAt hF hb c hc)
 
 end TwoStep
+
+/-- A mirror descent step for the zero loss is a Bregman projection of `a` onto `K`, whatever the
+learning rate: a point of `K` minimizing `b ↦ D_F(b, a)` over `K`. -/
+@[simp]
+theorem isMirrorDescentStep_zero_iff {a x : E} {F' : E →L[ℝ] ℝ} :
+    IsMirrorDescentStep K F η 0 a F' x ↔ x ∈ K ∧ IsMinOn (fun b ↦ bregDiv F b a F') K x :=
+  isMirrorDescentStep_iff_isMinOn_bregDiv (by simp) a a x
 
 /-- **The stability term is largest at the unconstrained step.** Let `F` be convex on `D`, let
 `η > 0`, and let `x ∈ D` be a point where `F` has derivative `J - η y` within `D`. Then for every
