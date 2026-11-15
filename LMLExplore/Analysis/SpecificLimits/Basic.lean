@@ -21,8 +21,8 @@ terms among the first `n`.
 
 * `LMLExplore.tendsto_div_natCast_of_abs_sub_mul_le`: if `|u n - n w| ≤ c` for every `n`, then
   `u n / n → w`.
-* `LMLExplore.tendsto_nat_div_div_atTop`: for `m ≠ 0`, the number `n / m` of complete blocks of
-  `m` among the first `n` natural numbers satisfies `(n / m) / n → 1 / m`.
+* `LMLExplore.tendsto_nat_div_div_atTop`: the number `n / m` of complete blocks of `m` among the
+  first `n` natural numbers satisfies `(n / m) / n → 1 / m` (both sides are `0` when `m = 0`).
 -/
 
 public section
@@ -44,10 +44,13 @@ theorem tendsto_div_natCast_of_abs_sub_mul_le {u : ℕ → ℝ} {w c : ℝ}
   filter_upwards [eventually_ne_atTop 0] with n hn
   rw [sub_div, mul_div_cancel_left₀ _ (Nat.cast_ne_zero.2 hn), sub_add_cancel]
 
-/-- The number of complete blocks of `m ≠ 0` terms among the first `n`, divided by `n`, tends to
-`1 / m`: `n / m` is within distance `1` of `n / m` computed in `ℝ`. -/
-theorem tendsto_nat_div_div_atTop {m : ℕ} (hm : m ≠ 0) :
+/-- The number of complete blocks of `m` terms among the first `n`, divided by `n`, tends to
+`1 / m`: for `m ≠ 0`, `n / m` is within distance `1` of `n / m` computed in `ℝ`, and for `m = 0`
+both sides are `0` (as `n / 0 = 0` and `0⁻¹ = 0`). -/
+theorem tendsto_nat_div_div_atTop {m : ℕ} :
     Tendsto (fun n : ℕ ↦ ((n / m : ℕ) : ℝ) / n) atTop (𝓝 (m : ℝ)⁻¹) := by
+  rcases eq_or_ne m 0 with rfl | hm
+  · simp
   refine tendsto_div_natCast_of_abs_sub_mul_le (c := 1) fun n ↦ ?_
   have hm' : (0 : ℝ) < m := by exact_mod_cast Nat.pos_of_ne_zero hm
   -- `(n / m) * m ≤ n < (n / m) * m + m`

@@ -170,14 +170,8 @@ theorem measurePreserving_seqBlock_infinitePi (μ : ℕ → Measure 𝓧)
   have hinj : Function.Injective fun p : ℕ × Fin m ↦ p.1 * m + (p.2 : ℕ) := by
     rcases Nat.eq_zero_or_pos m with rfl | hm
     · exact fun p ↦ p.2.elim0
-    · rintro ⟨j, i⟩ ⟨j', i'⟩ h
-      -- the quotient of `j * m + i` by `m` is `j`, since `i < m`
-      have hj : j = j' := by
-        have h' := congrArg (· / m) h
-        simpa only [Nat.add_comm (_ * m), Nat.add_mul_div_right _ _ hm, Nat.div_eq_of_lt i.2,
-          Nat.div_eq_of_lt i'.2, Nat.zero_add] using h'
-      subst hj
-      exact Prod.ext rfl (Fin.ext (Nat.add_left_cancel h))
+    · have : NeZero m := ⟨hm.ne'⟩
+      exact (Nat.divModEquiv m).symm.injective
   have h : (fun (ω : ℕ → 𝓧) j ↦ seqBlock m j ω) =
       MeasurableEquiv.curry ℕ (Fin m) 𝓧 ∘ fun ω p ↦ ω (p.1 * m + p.2) := by
     rw [MeasurableEquiv.coe_curry]
@@ -247,16 +241,18 @@ theorem strong_law_ae_seqBlock (Q : Measure 𝓧) {m : ℕ} {g : (Fin m → 𝓧
     (TauCeti.Probability.strong_law_ae_infinitePi _ hg)
 
 /-- **The strong law of large numbers along blocks, per observation.** Under the i.i.d. law of
-`Q`, the sum of an integrable function over the complete blocks of `m ≠ 0` terms among the first
-`n`, divided by `n`, tends almost surely to its expectation under the `m`-fold product of `Q`
-divided by `m`. -/
-theorem strong_law_ae_seqBlock_nat_div (Q : Measure 𝓧) {m : ℕ} (hm : m ≠ 0)
+`Q`, the sum of an integrable function over the complete blocks of `m` terms among the first `n`,
+divided by `n`, tends almost surely to its expectation under the `m`-fold product of `Q` divided
+by `m`. For `m = 0` both sides are `0`. -/
+theorem strong_law_ae_seqBlock_nat_div (Q : Measure 𝓧) {m : ℕ}
     {g : (Fin m → 𝓧) → E} (hg : Integrable g (Measure.pi fun _ : Fin m ↦ Q)) :
     ∀ᵐ ω ∂Measure.infinitePi (fun _ : ℕ ↦ Q),
       Tendsto (fun n : ℕ ↦ (n : ℝ)⁻¹ • ∑ j ∈ Finset.range (n / m), g (seqBlock m j ω)) atTop
         (𝓝 ((m : ℝ)⁻¹ • ∫ x, g x ∂Measure.pi fun _ : Fin m ↦ Q)) := by
+  rcases eq_or_ne m 0 with rfl | hm
+  · simp
   filter_upwards [strong_law_ae_seqBlock Q hg] with ω hω
-  refine ((LMLExplore.tendsto_nat_div_div_atTop hm).smul
+  refine ((LMLExplore.tendsto_nat_div_div_atTop (m := m)).smul
     (hω.comp (Nat.tendsto_div_const_atTop hm))).congr' ?_
   filter_upwards [eventually_ge_atTop m] with n hn
   have hnm : ((n / m : ℕ) : ℝ) ≠ 0 := by

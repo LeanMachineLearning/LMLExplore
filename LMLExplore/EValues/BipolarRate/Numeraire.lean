@@ -85,13 +85,6 @@ variable {𝓧 : Type*} {m𝓧 : MeasurableSpace 𝓧} {S₁ : Set (Measure 𝓧
 
 /-! ### Auxiliary inequalities -/
 
-/-- The `n`-fold products of the members of a set of finite measures are finite measures. -/
-private lemma isFiniteMeasure_of_mem_image_pi (hS₁ : ∀ P ∈ S₁, IsFiniteMeasure P) (n : ℕ) :
-    ∀ μ ∈ (fun P ↦ Measure.pi fun _ : Fin n ↦ P) '' S₁, IsFiniteMeasure μ := by
-  rintro _ ⟨P, hP, rfl⟩
-  have := hS₁ P hP
-  infer_instance
-
 /-- If `a ≤ x + c` and `b + c ≤ a` for reals `a, b, c`, then `b ≤ x`. -/
 private lemma coe_le_of_coe_le_add {a b c : ℝ} {x : EReal} (h : (a : EReal) ≤ x + c)
     (hab : b + c ≤ a) : (b : EReal) ≤ x := by
@@ -348,7 +341,7 @@ from above at a level where its mean still exceeds `m L`, and apply the strong l
 numbers along the blocks. If `Q₁` is not a probability measure, its i.i.d. law is `0` and the
 statement holds trivially. -/
 theorem exists_ae_eventually_mul_le_log_seqBlockProd_numeraire (Q₁ : Measure 𝓧)
-    (hS₁ : ∀ P ∈ S₁, IsProbabilityMeasure P) {L : ℝ} (hL : (L : EReal) < bipolarRate Q₁ S₁) :
+    (hS₁ : ∀ P ∈ S₁, IsFiniteMeasure P) {L : ℝ} (hL : (L : EReal) < bipolarRate Q₁ S₁) :
     ∃ m ≠ 0, ∀ᵐ ω ∂Measure.infinitePi (fun _ : ℕ ↦ Q₁), ∀ᶠ n : ℕ in atTop,
       ((n * L : ℝ) : EReal) ≤ ENNReal.log (seqBlockProd m
         (numeraire (Measure.pi fun _ : Fin m ↦ Q₁) ((fun P ↦ Measure.pi fun _ : Fin m ↦ P) '' S₁))
@@ -362,7 +355,7 @@ theorem exists_ae_eventually_mul_le_log_seqBlockProd_numeraire (Q₁ : Measure �
   set m := k + 1
   have hm : m ≠ 0 := k.succ_ne_zero
   have hm0 : (0 : ℝ) < m := by exact_mod_cast Nat.pos_of_ne_zero hm
-  have hfin := isFiniteMeasure_of_mem_image_pi (fun P hP ↦ have := hS₁ P hP; inferInstance) m
+  have hfin := isFiniteMeasure_of_mem_image_pi hS₁ m
   set Em := numeraire (Measure.pi fun _ : Fin m ↦ Q₁)
     ((fun P ↦ Measure.pi fun _ : Fin m ↦ P) '' S₁)
   have hnum : IsNumeraire Em ((fun P ↦ Measure.pi fun _ : Fin m ↦ P) '' S₁)
@@ -383,7 +376,7 @@ theorem exists_ae_eventually_mul_le_log_seqBlockProd_numeraire (Q₁ : Measure �
     rw [smul_eq_mul, ← div_eq_inv_mul, lt_div_iff₀ hm0]
     linarith
   -- the strong law along blocks, and the nonzero factors
-  have h1 := strong_law_ae_seqBlock_nat_div Q₁ hm hgi
+  have h1 := strong_law_ae_seqBlock_nat_div Q₁ hgi
   have h2 : ∀ᵐ ω ∂Measure.infinitePi (fun _ : ℕ ↦ Q₁), ∀ j, Em (seqBlock m j ω) ≠ 0 :=
     ae_all_iff.2 fun j ↦ (measurePreserving_seqBlock (fun _ ↦ Q₁) m j).quasiMeasurePreserving.ae
       hnum.ae_ne_zero
@@ -411,7 +404,8 @@ private lemma ae_eventually_mul_le_log_of_forall_ae_eventually_log_le (Q₁ : Me
     ∀ᵐ ω ∂Measure.infinitePi (fun _ : ℕ ↦ Q₁), ∀ᶠ n : ℕ in atTop,
       ((n * L : ℝ) : EReal) ≤ ENNReal.log (T n ω) := by
   obtain ⟨L', hLL', hL'⟩ := EReal.lt_iff_exists_real_btwn.1 hL
-  obtain ⟨m, -, h1⟩ := exists_ae_eventually_mul_le_log_seqBlockProd_numeraire Q₁ hS₁ hL'
+  obtain ⟨m, -, h1⟩ := exists_ae_eventually_mul_le_log_seqBlockProd_numeraire Q₁
+    (fun P hP ↦ have := hS₁ P hP; inferInstance) hL'
   set Em := numeraire (Measure.pi fun _ : Fin m ↦ Q₁)
     ((fun P ↦ Measure.pi fun _ : Fin m ↦ P) '' S₁)
   have hEm : Measurable Em := measurable_numeraire _ _
