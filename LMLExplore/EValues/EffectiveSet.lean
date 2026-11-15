@@ -269,7 +269,10 @@ theorem exists_powered_test_iff (hS : ∀ P ∈ S, IsProbabilityMeasure P) (Q : 
 
 /-- Under a probability measure `P` of the effective null of `S`, no e-variable for `S` has a
 positive expected logarithm, by Jensen's inequality: the maximal expected logarithm is `0`.
-Statlib's `maxUtility_eq_zero_of_mem` is the analogue for the members of `S`. -/
+Statlib's `maxUtility_eq_zero_of_mem` is the analogue for the members of `S`. Adapted from the
+helper `maxUtility_log_nonpos_of_forall_lintegral_le_one` of
+`EValuesResearch/Results/RateVersusKL.lean` (commit `dd4072f`) in the paper project
+`RemyDegenne/evalues_research` (same author). -/
 theorem maxUtility_eq_zero_of_mem_effectiveSet {P : Measure Ω} [IsProbabilityMeasure P]
     (hP : P ∈ effectiveSet S) : maxUtility P S logUtility = 0 := by
   refine le_antisymm (iSup₂_le fun X hX ↦ ?_) (maxUtility_nonneg P)

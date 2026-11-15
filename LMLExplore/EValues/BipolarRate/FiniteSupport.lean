@@ -50,8 +50,15 @@ over `m` independent points `y` of law `Q`, of the product of the `G (y (σ i))`
 `n`-sample null, and that fraction tends to `1` as `m → ∞`: `Q ^ n` is in the effective null of
 the `n`-sample null (`ProbabilityTheory.maxUtility_eq_zero_of_mem_effectiveSet`).
 
+The instance is [EVR26, Note 19]. Its statements and proofs are adapted from
+`EValuesResearch/Results/RateVersusKL.lean` (commit `dd4072f`) in the paper project
+`RemyDegenne/evalues_research` (same author), which states them on the circle only, with `F`
+carried by a `Finset`.
+
 ## References
 
+* [EVR26] *Answers to open questions in e-values and anytime-valid inference*, notes 01 to 34 and
+  the Lean library `EValuesResearch` of github.com/RemyDegenne/evalues_research, 2026.
 * [RR26] A. Ram and A. Ramdas, *The optimal betting wealth growth rate*, arXiv:2604.25280v1.
 -/
 
@@ -232,10 +239,11 @@ theorem iInf_klDiv_finitelySupported_mixtures (Q : Measure 𝓧) [IsProbabilityM
   obtain ⟨x⟩ := nonempty_of_isProbabilityMeasure Q
   have hx : ∃ s : Set 𝓧, s.Finite ∧ Measure.dirac x sᶜ = 0 :=
     ⟨{x}, Set.finite_singleton x, by simp⟩
+  -- the relative entropy is the same for every member of the null
   rw [← hkl (Measure.dirac x) hx]
   congr 1
-  refine le_antisymm (iInf₂_le _ ⟨_, inferInstance, hx, rfl⟩) (le_iInf₂ ?_)
+  refine (biInf_congr ?_).trans (biInf_const ⟨_, _, inferInstance, hx, rfl⟩)
   rintro _ ⟨F, hF, hFs, rfl⟩
-  exact (EReal.coe_ennreal_injective ((hkl F hFs).trans (hkl _ hx).symm)).ge
+  exact EReal.coe_ennreal_injective ((hkl F hFs).trans (hkl _ hx).symm)
 
 end ProbabilityTheory

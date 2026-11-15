@@ -12,7 +12,7 @@ import TauCeti.MeasureTheory.Constructions.Pi
 import TauCeti.MeasureTheory.Integral.Pi
 
 /-!
-# Product measures: laws of coordinatewise images, restricted factors and bounds by lines
+# Product measures: coordinatewise images, restricted factors, bounds by lines, mixtures, binds
 
 Under the product measure `Measure.pi μ`, the law of a function `f` of the coordinatewise images
 `X i (y i)` is the law of `f` under the product of the laws of the `X i`. For example, the law of
@@ -30,7 +30,11 @@ The product of finite mixtures of measures is the mixture, over the choices of o
 each coordinate, of the products of the components. For measurable maps `G i` to finite
 measures, the product `Measure.pi fun i ↦ G i (x i)` depends measurably on `x`, and binding a
 product measure along it gives the product of the binds: an independent sample from `μ i` followed
-by independent draws from the `G i (x i)` is an independent sample from the mixtures.
+by independent draws from the `G i (x i)` is an independent sample from the mixtures. These three
+lemmas are adapted from the helpers `pi_sum_ennreal_smul`, `measurable_pi_comp` and
+`lintegral_lintegral_pi_comp` of `EValuesResearch/Results/RateVersusKL.lean` (commit `dd4072f`)
+in the paper project `RemyDegenne/evalues_research` (same author), where all the coordinates
+share one mixture or one kernel.
 
 ## Main statements
 

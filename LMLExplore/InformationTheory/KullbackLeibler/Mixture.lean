@@ -7,6 +7,7 @@ module
 
 public import Mathlib.InformationTheory.KullbackLeibler.Basic
 public import Statlib.EValues.RIPr
+import LMLExplore.EValues.Utility.Basic
 
 /-!
 # The relative entropy to a mixture with a singular law
@@ -23,6 +24,13 @@ e-variable for the mixture.
 
 * `InformationTheory.klDiv_mixture_of_mutuallySingular`:
   `klDiv μ ((1 - ε) • ν + ε • μ) = log (1 / ε)` for `ν ⟂ₘ μ`.
+
+## Implementation notes
+
+The statement and its proof are adapted from the helper `klDiv_mixture_eq_log_inv` of
+`EValuesResearch/Results/RateVersusKL.lean` (commit `dd4072f`) in the paper project
+`RemyDegenne/evalues_research` (same author), with its separating set replaced by the
+hypothesis `ν ⟂ₘ μ`.
 -/
 
 public section
@@ -69,11 +77,7 @@ theorem klDiv_mixture_of_mutuallySingular {μ ν : Measure 𝓧} [IsProbabilityM
       _ = ε⁻¹ * (ε * μ t) := by simp [P, t, hνμ.measure_nullSet]
       _ ≤ ε⁻¹ * ε := by gcongr; exact mul_le_of_le_one_right' prob_le_one
       _ ≤ 1 := ENNReal.inv_mul_le_one ε
-    refine le_trans (le_of_eq ?_) (hX.eintegral_le_maxUtility μ logUtility)
-    have hae : ∀ᵐ x ∂μ, x ∈ t := by rw [ae_iff]; exact hνμ.measure_compl_nullSet
-    rw [eintegral_congr_ae (g := fun _ ↦ ENNReal.log ε⁻¹), eintegral_const, measure_univ,
-      EReal.coe_ennreal_one, mul_one]
-    filter_upwards [hae] with x hx
-    simp [logUtility_apply, hx]
+    exact (logUtility.eintegral_comp_indicator_const hνμ.measure_compl_nullSet ε⁻¹).symm.trans_le
+      (hX.eintegral_le_maxUtility μ logUtility)
 
 end InformationTheory

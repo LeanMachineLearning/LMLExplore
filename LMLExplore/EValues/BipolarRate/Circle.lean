@@ -9,6 +9,7 @@ public import LMLExplore.EValues.BipolarRate
 public import Mathlib.MeasureTheory.Integral.IntervalIntegral.Periodic
 public import Mathlib.Probability.UniformOn
 import LMLExplore.EValues.EffectiveSet
+import LMLExplore.EValues.Utility.Basic
 import LMLExplore.InformationTheory.KullbackLeibler.Mixture
 import LMLExplore.MeasureTheory.Integral.IntervalIntegral.Periodic
 import Statlib.ForMathlib.MeasureTheory.Constructions.Pi
@@ -54,8 +55,15 @@ coordinate in the coset: its probability is at most `n ε ^ (n - 1)`. The indica
 tuples divided by `n ε ^ (n - 1)` is an `n`-sample e-variable with expected logarithm
 `(n - 1) log (1 / ε) - log n`.
 
+The instance is [EVR26, Note 19]. Its statements and proofs are adapted from
+`EValuesResearch/Results/RateVersusKL.lean` (commit `dd4072f`) in the paper project
+`RemyDegenne/evalues_research` (same author), which defines the coset law and the null instead
+of writing them in the statements.
+
 ## References
 
+* [EVR26] *Answers to open questions in e-values and anytime-valid inference*, notes 01 to 34 and
+  the Lean library `EValuesResearch` of github.com/RemyDegenne/evalues_research, 2026.
 * [RR26] A. Ram and A. Ramdas, *The optimal betting wealth growth rate*, arXiv:2604.25280v1.
 -/
 
@@ -178,15 +186,8 @@ private lemma log_le_maxLogGrowth {S : Set (Measure UnitAddCircle)}
       _ ≤ c * (n * ε ^ (n - 1)) := by gcongr; exact measure_pi_pairwiseIrrational_le hPC hC hn
       _ ≤ 1 := ENNReal.inv_mul_le_one _
   rw [maxLogGrowth_def]
-  refine le_trans (le_of_eq ?_) (hX.eintegral_le_maxUtility _ logUtility)
-  have hae : ∀ᵐ x ∂(Measure.pi fun _ : Fin n ↦ (volume : Measure UnitAddCircle)),
-      x ∈ pairwiseIrrational n := by
-    rw [ae_iff]
-    exact volume_pi_compl_pairwiseIrrational n
-  rw [eintegral_congr_ae (g := fun _ ↦ ENNReal.log c), eintegral_const, measure_univ,
-    EReal.coe_ennreal_one, mul_one]
-  filter_upwards [hae] with x hx
-  simp [logUtility_apply, hx]
+  exact (logUtility.eintegral_comp_indicator_const (volume_pi_compl_pairwiseIrrational n)
+    c).symm.trans_le (hX.eintegral_le_maxUtility _ logUtility)
 
 /-- If the growth of `n` observations is at least `log (1 / (n ε ^ (n - 1)))` for every `n ≠ 0`,
 the bipolar rate is at least `log (1 / ε)`: the term `log n` is negligible against `n`. For
@@ -212,11 +213,16 @@ private lemma log_inv_le_bipolarRate {𝓧 : Type*} {m𝓧 : MeasurableSpace �
   rw [hlog]
   refine le_bipolarRate_of_tendsto (r := fun n ↦ n * Real.log e⁻¹ - Real.log (n + 1))
     (fun n ↦ le_trans (le_of_eq ?_) (h (n + 1) n.succ_ne_zero)) ?_
-  · rw [Nat.add_sub_cancel, hεe, ← ENNReal.ofReal_pow he0.le, ← ENNReal.ofReal_natCast,
-      ← ENNReal.ofReal_mul (by positivity), ← ENNReal.ofReal_inv_of_pos (by positivity),
-      ENNReal.log_ofReal_of_pos (by positivity), EReal.coe_eq_coe_iff, Real.log_inv (_ * _),
-      Real.log_mul (by positivity) (by positivity), Real.log_pow, Real.log_inv e]
-    push_cast
+  · -- move to `ℝ`, where the identity is `Real.log` of a product
+    have hpos : 0 < ((n : ℝ) + 1) * e ^ n := by positivity
+    have hcast : ((n + 1 : ℕ) : ℝ≥0∞) * ε ^ (n + 1 - 1) =
+        ENNReal.ofReal (((n : ℝ) + 1) * e ^ n) := by
+      rw [ENNReal.ofReal_mul (by positivity), ENNReal.ofReal_pow he0.le, ← hεe]
+      norm_cast
+    rw [hcast, ← ENNReal.ofReal_inv_of_pos hpos, ENNReal.log_ofReal_of_pos (inv_pos.2 hpos),
+      EReal.coe_eq_coe_iff]
+    simp only [Real.log_inv]
+    rw [Real.log_mul (by positivity) (by positivity), Real.log_pow]
     ring
   · have h1 : Tendsto (fun n : ℕ ↦ (n : ℝ) / (n + 1)) atTop (𝓝 1) :=
       tendsto_natCast_div_add_atTop 1
@@ -291,9 +297,8 @@ theorem maxLogGrowth_one_coset_mixtures_eq_zero (hε : ε ≤ 1) :
   have hx (x : UnitAddCircle) : (1 - ε) * X x + ε * c ≤ 1 := by
     have := isProbabilityMeasure_coset_mixture hε x 1
     have h := hX.lintegral_le_measure_univ _ ⟨x, 1, rfl⟩
-    rwa [uniformOn_coset_one, lintegral_add_measure, lintegral_smul_measure,
-      lintegral_smul_measure, lintegral_dirac, smul_eq_mul, smul_eq_mul, ← uniformOn_coset_one,
-      measure_univ] at h
+    rwa [measure_univ, uniformOn_coset_one, lintegral_add_measure, lintegral_smul_measure,
+      lintegral_smul_measure, lintegral_dirac, smul_eq_mul, smul_eq_mul] at h
   calc c
   _ = ((1 - ε) + ε) * c := by rw [tsub_add_cancel_of_le hε, one_mul]
   _ = ∫⁻ x, ((1 - ε) * X x + ε * c) ∂(volume : Measure UnitAddCircle) := by
@@ -319,11 +324,12 @@ theorem iInf_klDiv_coset_mixtures (hε : ε ≤ 1) :
     · exact (uniformOn_eq_zero_iff hfin).2 (Set.inter_compl_self _)
     · rw [compl_compl]
       exact hfin.measure_zero _
+  -- the relative entropy is the same for every member of the null
   rw [← hkl 0 0]
   congr 1
-  refine le_antisymm (iInf₂_le _ ⟨0, 0, rfl⟩) (le_iInf₂ ?_)
+  refine (biInf_congr ?_).trans (biInf_const ⟨_, 0, 0, rfl⟩)
   rintro _ ⟨x₀, N, rfl⟩
-  exact (EReal.coe_ennreal_injective ((hkl x₀ N).trans (hkl 0 0).symm)).ge
+  exact EReal.coe_ennreal_injective ((hkl x₀ N).trans (hkl 0 0).symm)
 
 /-- The bipolar rate of Lebesgue measure on the circle against the mixtures `(1 - ε) U + ε volume`,
 with `U` uniform on a coset `x₀ + (1 / N) ℤ`, is `log (1 / ε)`, the smallest relative entropy to
@@ -332,15 +338,12 @@ theorem bipolarRate_coset_mixtures (hε : ε ≤ 1) :
     bipolarRate volume {(1 - ε) • uniformOn {x | x - x₀ ∈ AddSubgroup.zmultiples
       (((N : ℝ)⁻¹ : ℝ) : UnitAddCircle)} + ε • volume |
       (x₀ : UnitAddCircle) (N : ℕ)} = ENNReal.log ε⁻¹ := by
-  have hS : ∀ P ∈ {(1 - ε) • uniformOn {x | x - x₀ ∈ AddSubgroup.zmultiples
-      (((N : ℝ)⁻¹ : ℝ) : UnitAddCircle)} + ε • volume |
-      (x₀ : UnitAddCircle) (N : ℕ)}, IsProbabilityMeasure P := by
+  set S := {(1 - ε) • uniformOn {x | x - x₀ ∈ AddSubgroup.zmultiples
+      (((N : ℝ)⁻¹ : ℝ) : UnitAddCircle)} + ε • volume | (x₀ : UnitAddCircle) (N : ℕ)}
+  have hS : ∀ P ∈ S, IsProbabilityMeasure P := by
     rintro _ ⟨x₀, N, rfl⟩
     exact isProbabilityMeasure_coset_mixture hε x₀ N
-  have hSC : ∀ P ∈ {(1 - ε) • uniformOn {x | x - x₀ ∈ AddSubgroup.zmultiples
-      (((N : ℝ)⁻¹ : ℝ) : UnitAddCircle)} + ε • volume |
-      (x₀ : UnitAddCircle) (N : ℕ)},
-      ∃ C, P Cᶜ ≤ ε ∧ ∀ a ∈ C, ∀ b ∈ C, a - b ∈ ratCircle := by
+  have hSC : ∀ P ∈ S, ∃ C, P Cᶜ ≤ ε ∧ ∀ a ∈ C, ∀ b ∈ C, a - b ∈ ratCircle := by
     rintro _ ⟨x₀, N, rfl⟩
     refine ⟨{x | x - x₀ ∈ AddSubgroup.zmultiples (((N : ℝ)⁻¹ : ℝ) : UnitAddCircle)}, ?_,
       fun a ha b hb ↦ zmultiples_subset_ratCircle N
