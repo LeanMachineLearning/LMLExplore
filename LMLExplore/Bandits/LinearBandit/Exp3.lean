@@ -39,10 +39,10 @@ with `k` the number of arms. With `γ = η g` and `η = √(log k / ((2 g + d) n
 most `2 √((2 g + d) n log k)`, and with an exploration distribution given by the Kiefer–Wolfowitz
 theorem, which has `g = d` when the features span `E`, at most `2 √(3 d n log k)`.
 
-As in `LMLExplore.Bandits.UnitBallFTRL`, the interaction is described round by round relative to
-σ-algebras `m t`, the information available before the arm of round `t` is drawn: the loss
-vector `y t` is `m t`-measurable (an adaptive adversary), and the arm `A t` has conditional law
-`P t` given `m t`. Losses fixed in advance by an oblivious adversary are the constant ones.
+As in `LMLExplore.Bandits.UnitBallFTRL.Basic`, the interaction is described round by round
+relative to σ-algebras `m t`, the information available before the arm of round `t` is drawn: the
+loss vector `y t` is `m t`-measurable (an adaptive adversary), and the arm `A t` has conditional
+law `P t` given `m t`. Losses fixed in advance by an oblivious adversary are the constant ones.
 
 ## Main definitions
 

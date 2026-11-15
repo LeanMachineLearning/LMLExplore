@@ -31,8 +31,8 @@ the base point needs neither.
 ## Main definitions
 
 * `unitBallPotential`: the potential `a ↦ -log (1 - ‖a‖) - ‖a‖`.
-* `unitBallFTRLPlay η r G`: the play of FTRL on the closed ball of radius `r` for the cumulative
-  loss `⟪G, ·⟫`, in closed form.
+* `unitBallFTRLPlay η r G`: a play of FTRL on the closed ball of radius `r` for the cumulative
+  loss `⟪G, ·⟫`, in closed form, for `0 ≤ η` and `0 ≤ r < 1`.
 
 ## Main statements
 
@@ -55,10 +55,10 @@ the base point needs neither.
   the proof of [LS, Theorem 28.11].
 * `exists_ftrl_unitBallPotential`: in finite dimension, FTRL with this potential on the closed
   ball of radius `r ∈ [0, 1)` has plays.
-* `isFTRLPlay_unitBallFTRLPlay`: these plays are given in closed form by `unitBallFTRLPlay`, which
-  points in the direction opposite to the cumulative loss, with norm
-  `min (η ‖G‖ / (1 + η ‖G‖)) r` (`norm_unitBallFTRLPlay`). An algorithm can thus compute them
-  measurably from its past estimates.
+* `isFTRLPlay_unitBallFTRLPlay`: for `0 ≤ η` and `0 ≤ r < 1`, a play of FTRL is given in closed
+  form by `unitBallFTRLPlay`, which points in the direction opposite to the cumulative loss, with
+  norm `min (η ‖G‖ / (1 + η ‖G‖)) r` for `0 ≤ η` and `0 ≤ r` (`norm_unitBallFTRLPlay`). An
+  algorithm can thus compute a play measurably from its past estimates.
 
 ## References
 
@@ -304,10 +304,11 @@ theorem exists_ftrl_unitBallPotential [ProperSpace E] (hr0 : 0 ≤ r) (hr : r < 
     (continuousOn_unitBallPotential.mono (closedBall_subset_ball hr)) η y
 
 
-/-- **The play of FTRL on the ball with the potential `unitBallPotential`.** For a learning rate
-`η` and a radius `r`, `unitBallFTRLPlay η r G` is the play of FTRL on the closed ball of radius
-`r` when the cumulative loss is `⟪G, ·⟫`: it points in the direction `-G`, with norm
-`min (η ‖G‖ / (1 + η ‖G‖)) r` (`norm_unitBallFTRLPlay`). Without the constraint, the minimizer of
+/-- **A play of FTRL on the ball with the potential `unitBallPotential`.** For a learning rate
+`η ≥ 0` and a radius `0 ≤ r < 1`, `unitBallFTRLPlay η r G` is a play of FTRL on the closed ball of
+radius `r` when the cumulative loss is `⟪G, ·⟫` (`isFTRLPlay_unitBallFTRLPlay`). It points in the
+direction `-G`, and for `0 ≤ η` and `0 ≤ r` its norm is `min (η ‖G‖ / (1 + η ‖G‖)) r`
+(`norm_unitBallFTRLPlay`). Without the constraint, the minimizer of
 `b ↦ η ⟪G, b⟫ + unitBallPotential b` is `-(η / (1 + η ‖G‖)) • G`, where the radial derivative
 `s / (1 - s)` of the potential equals `η ‖G‖`; the constraint scales it down to the radius `r`. -/
 noncomputable def unitBallFTRLPlay (η r : ℝ) (G : E) : E :=
@@ -320,7 +321,8 @@ lemma unitBallFTRLPlay_def (η r : ℝ) (G : E) :
 lemma unitBallFTRLPlay_zero (η r : ℝ) : unitBallFTRLPlay η r (0 : E) = 0 := by
   simp [unitBallFTRLPlay_def]
 
-/-- The norm of the FTRL play on the ball is `min (η ‖G‖ / (1 + η ‖G‖)) r`. -/
+/-- For `0 ≤ η` and `0 ≤ r`, the norm of `unitBallFTRLPlay η r G` is
+`min (η ‖G‖ / (1 + η ‖G‖)) r`. -/
 lemma norm_unitBallFTRLPlay (hη : 0 ≤ η) (hr0 : 0 ≤ r) (G : E) :
     ‖unitBallFTRLPlay η r G‖ = min (η * ‖G‖ / (1 + η * ‖G‖)) r := by
   rcases eq_or_ne G 0 with rfl | hG
@@ -329,12 +331,12 @@ lemma norm_unitBallFTRLPlay (hη : 0 ≤ η) (hr0 : 0 ≤ r) (G : E) :
   rw [unitBallFTRLPlay_def, norm_smul, norm_neg, Real.norm_of_nonneg (by positivity),
     min_mul_of_nonneg _ _ hG'.le, div_mul_cancel₀ r hG'.ne', div_mul_eq_mul_div]
 
-/-- The FTRL play on the ball lies in the closed ball of radius `r`. -/
+/-- For `0 ≤ η` and `0 ≤ r`, `unitBallFTRLPlay η r G` lies in the closed ball of radius `r`. -/
 lemma norm_unitBallFTRLPlay_le (hη : 0 ≤ η) (hr0 : 0 ≤ r) (G : E) :
     ‖unitBallFTRLPlay η r G‖ ≤ r :=
   (norm_unitBallFTRLPlay hη hr0 G).trans_le (min_le_right _ _)
 
-/-- The cumulative loss `⟪G, ·⟫` of the FTRL play on the ball is `-‖G‖` times its norm: the play
+/-- The cumulative loss `⟪G, ·⟫` of `unitBallFTRLPlay η r G` is `-‖G‖` times its norm: the play
 points in the direction `-G`. -/
 lemma inner_unitBallFTRLPlay (hη : 0 ≤ η) (hr0 : 0 ≤ r) (G : E) :
     ⟪G, unitBallFTRLPlay η r G⟫ = -(‖G‖ * ‖unitBallFTRLPlay η r G‖) := by
@@ -352,15 +354,16 @@ private lemma mul_sub_le_radial {s s₀ : ℝ} (hs0 : 0 ≤ s) (hs1 : s < 1) (hs
   have : 0 ≤ (s - s₀) ^ 2 / (2 * (1 - s₀)) := div_nonneg (sq_nonneg _) (by linarith)
   linarith
 
-/-- **The FTRL play on the ball in closed form.** For `η ≥ 0` and `0 ≤ r < 1`, if the losses of
+/-- **A play of FTRL on the ball in closed form.** For `η ≥ 0` and `0 ≤ r < 1`, if the losses of
 the first `t` rounds sum to `⟪G, ·⟫`, then `unitBallFTRLPlay η r G` is a play of FTRL on the
-closed ball of radius `r` with potential `unitBallPotential` and learning rate `η` at round `t`.
-The objective at `b` is at least `-η ‖G‖ ‖b‖ + φ ‖b‖`, with `φ s = -log (1 - s) - s` the radial
-profile of the potential, and the play attains the minimum of this convex function of the norm on
-`[0, r]`. -/
+closed ball of radius `r` with potential `unitBallPotential` and learning rate `η` at round
+`t`. -/
 theorem isFTRLPlay_unitBallFTRLPlay (hη : 0 ≤ η) (hr0 : 0 ≤ r) (hr : r < 1)
     {y : ℕ → E →L[ℝ] ℝ} {t : ℕ} {G : E} (hG : ∑ s ∈ range t, y s = innerSL ℝ G) :
     IsFTRLPlay (closedBall 0 r) unitBallPotential η y t (unitBallFTRLPlay η r G) := by
+  -- the objective at `b` is at least `-η ‖G‖ ‖b‖ + φ ‖b‖`, with `φ s = -log (1 - s) - s` the
+  -- radial profile of the potential, and the play attains the minimum of this convex function of
+  -- the norm on `[0, r]`
   have h_sum (b : E) : ∑ s ∈ range t, y s b = ⟪G, b⟫ := by
     rw [← _root_.sum_apply, hG, innerSL_apply_apply]
   refine ⟨mem_closedBall_zero_iff.2 (norm_unitBallFTRLPlay_le hη hr0 G), isMinOn_iff.2 ?_⟩

@@ -327,6 +327,7 @@ theorem condExp_indicator_outcome [IsFiniteMeasure P]
   have hind : ((fun ω ↦ (A n ω).2) ⁻¹' {o}).indicator (fun _ ↦ (1 : ℝ)) =
       fun ω ↦ f ((history O A Y n ω, O n ω), A n ω) := by
     funext ω
+    -- `f` unfolds, and `(fun _ ↦ 1) ∘ (fun ω ↦ (A n ω).2)` is `fun _ ↦ 1` by definition
     exact Set.indicator_comp_right (g := fun _ ↦ (1 : ℝ)) (fun ω ↦ (A n ω).2)
   have hint : Integrable (fun ω ↦ f ((history O A Y n ω, O n ω), A n ω)) P :=
     hind ▸ (integrable_const 1).indicator
@@ -425,28 +426,10 @@ theorem integral_regret_le_two_mul_sqrt (h : IsAlgEnvSeq O A Y (unitBallFTRL b �
     ∫ ω, ∑ t ∈ range n, (⟪(A t ω).1, ℓ t (history O A Y t ω, O t ω)⟫_ℝ -
       ⟪u, ℓ t (history O A Y t ω, O t ω)⟫_ℝ) ∂P ≤
       2 * √(3 * n * Fintype.card ι * log n) := by
-  have hpast (t : ℕ) : Measurable[h.filtrationObs t] fun ω ↦ (history O A Y t ω, O t ω) :=
-    (h.measurable_history_filtrationObs t).prodMk (h.adapted_obs_filtrationObs t)
-  have hr1 : r < 1 := by
-    have hn2 : (2 : ℝ) ≤ n := by exact_mod_cast hn
-    have : 0 < η := by
-      rw [hηn]
-      exact sqrt_pos.2 (div_pos (log_pos (by linarith)) (by positivity))
-    rw [hrn]
-    have : (0 : ℝ) < Fintype.card ι := Nat.cast_pos.2 Fintype.card_pos
-    nlinarith
-  rw [integral_regret_eq h u]
-  exact ftrl_integral_regret_le_two_mul_sqrt_of_unitBallEstimate b hn hηn hrn
-    (m := h.filtrationObs) (fun t _ ↦ h.filtrationObs.le t)
-    (fun t _ o ↦ (h.measurable_action t).snd (measurableSet_singleton o))
-    (fun t _ o ↦ condExp_indicator_outcome h t o)
-    (fun t _ ↦ ((measurable_unitBallFTRLPlay η r).comp
-      ((measurable_unitBallFTRLHistSum b η r t).comp
-        (h.measurable_history_filtrationObs t))).aestronglyMeasurable)
-    (fun t ht ↦ (innerSL ℝ).continuous.comp_aestronglyMeasurable
-      ((hℓ t ht).comp (hpast t)).aestronglyMeasurable)
-    (fun t ht ↦ ae_of_all _ fun ω ↦ by rw [innerSL_apply_norm]; exact hℓ1 t ht _)
-    (ae_isFTRLPlay h hr1 hY) hu
+  have hd : (1 : ℝ) ≤ Fintype.card ι := Nat.one_le_cast.2 Fintype.card_pos
+  obtain ⟨hη0, hr1⟩ := pos_and_lt_one_of_eq_sqrt_log_div hn hd hηn hrn
+  exact (integral_regret_le h hη0 hr1 hℓ hℓ1 hY hu).trans
+    (one_sub_mul_sub_log_div_add_le_two_mul_sqrt hn hd hηn hrn)
 
 /-- **Regret of FTRL with bandit feedback on the unit ball, for every run against an adaptive
 adversary** [LS, Theorem 28.11]. Let an adaptive adversary choose at round `t` the loss vector
