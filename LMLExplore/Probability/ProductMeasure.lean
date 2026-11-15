@@ -69,10 +69,8 @@ theorem infinitePi_fin_mem_and_forall_add_mem {X : Type*} [MeasurableSpace X] (�
   rw [h_set, h_ind.measure_inter_preimage_eq_mul _ _ (h_fin hB) (.univ_pi fun _ ↦ hC)]
   congr 1
   · -- The first `n` terms are `n` independent samples of `μ`.
-    have h_pi : (Measure.infinitePi fun _ : ℕ ↦ μ).map (fun z (i : Fin n) ↦ z i) =
-        Measure.pi fun _ : Fin n ↦ μ := by
-      rw [Measure.map_infinitePi_infinitePi_of_inj Fin.val_injective, Measure.infinitePi_eq_pi]
-    rw [← h_pi, Measure.map_apply (by fun_prop) hB, ← Set.preimage_comp]
+    rw [← (measurePreserving_initSeg μ n).map_eq, Measure.map_apply (measurable_initSeg n) hB,
+      ← Set.preimage_comp, initSeg_def]
     -- Both sides are the preimage of `B` under `z ↦ (z i)_{i : Fin n}`: the composite
     -- `(fun u i ↦ u ⟨i, _⟩) ∘ (fun z i ↦ z i)` unfolds to `fun z i ↦ z ↑⟨i, _⟩`, and
     -- `↑⟨i, _⟩ = i` is `Subtype.val` applied to a constructor.
