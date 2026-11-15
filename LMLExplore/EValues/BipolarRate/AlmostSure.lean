@@ -6,8 +6,6 @@ Authors: LMLExplore contributors
 module
 
 public import LMLExplore.EValues.BipolarRate.EProcess
-import Mathlib.Probability.Independence.Integration
-import TauCeti.Probability.Ergodic.BernoulliShift
 
 /-!
 # E-processes for an i.i.d. null grow at most at the bipolar rate, almost surely
@@ -23,7 +21,7 @@ or compactness. Since the bipolar rate is at most the smallest relative entropy 
 null (`ProbabilityTheory.bipolarRate_le_iInf_klDiv`), the bound by that relative entropy follows
 [WSJ26, Proposition 2.2, for portfolio nulls].
 
-The bound in expectation, `ProbabilityTheory.IsEProcess.limsup_eintegral_log_div_le_bipolarRate`
+The bound in expectation, `ProbabilityTheory.IsEProcess.eintegral_log_div_le_bipolarRate`
 [RR26, Lemma 3.3], holds for each `n` separately; the almost sure bound is about the whole
 trajectory.
 
@@ -59,6 +57,10 @@ Write `d` for the bipolar rate, assume it finite, and let `L > d`. The proof has
   `MeasureTheory.Measure.ergodic_shift_infinitePi_const`), so this event has probability one, and
   the covering step gives `L' ≤ d`, a contradiction.
 
+The statements and proofs are adapted from `EValuesResearch/Results/BipolarRate.lean`
+(commit `decbae4`) in the paper project `RemyDegenne/evalues_research` (same author), rewritten on
+the API of LMLExplore.
+
 ## References
 
 * [RR26] A. Ram and A. Ramdas, *The optimal betting wealth growth rate*, arXiv:2604.25280v1.
@@ -75,44 +77,6 @@ open scoped ENNReal
 namespace ProbabilityTheory
 
 variable {𝓧 : Type*} {m𝓧 : MeasurableSpace 𝓧}
-
-/-! ### Shifts of an i.i.d. sequence -/
-
-/-- The shift preserves the i.i.d. law. -/
-private lemma measurePreserving_shift (P : Measure 𝓧) [IsProbabilityMeasure P] :
-    MeasurePreserving (shift 𝓧) (Measure.infinitePi fun _ : ℕ ↦ P)
-      (Measure.infinitePi fun _ : ℕ ↦ P) :=
-  (Measure.ergodic_shift_infinitePi_const P).toMeasurePreserving
-
-/-- The iterates of the shift preserve the i.i.d. law. -/
-private lemma measurePreserving_shift_iterate (P : Measure 𝓧) [IsProbabilityMeasure P] (t : ℕ) :
-    MeasurePreserving (shift 𝓧)^[t] (Measure.infinitePi fun _ : ℕ ↦ P)
-      (Measure.infinitePi fun _ : ℕ ↦ P) :=
-  (measurePreserving_shift P).iterate t
-
-/-- Under an i.i.d. law, a function of the first `t` observations is independent of a function of
-the observations after them. -/
-private lemma lintegral_mul_comp_shift_iterate (P : Measure 𝓧) [IsProbabilityMeasure P]
-    {f g : (ℕ → 𝓧) → ℝ≥0∞} {t : ℕ} (hf : Measurable f) (hft : DependsOn f (Set.Iio t))
-    (hg : Measurable g) :
-    ∫⁻ ω, f ω * g ((shift 𝓧)^[t] ω) ∂Measure.infinitePi (fun _ : ℕ ↦ P) =
-      (∫⁻ ω, f ω ∂Measure.infinitePi (fun _ : ℕ ↦ P)) *
-        ∫⁻ ω, g ω ∂Measure.infinitePi (fun _ : ℕ ↦ P) := by
-  have := nonempty_of_isProbabilityMeasure P
-  obtain ⟨F, hF, rfl⟩ := exists_measurable_eq_comp_initSeg hf hft
-  -- the first `t` coordinates are independent of the later ones
-  have hind : IndepFun (initSeg t) (shift 𝓧)^[t] (Measure.infinitePi fun _ : ℕ ↦ P) := by
-    have h := (iIndepFun_infinitePi (P := fun _ : ℕ ↦ P) (X := fun _ x ↦ x)
-      fun _ ↦ measurable_id).indepFun_set (Set.Iio t) (Set.Ici t)
-      (Set.disjoint_left.2 fun i (hi : i < t) (hi' : t ≤ i) ↦ (not_lt.2 hi') hi)
-      fun i ↦ measurable_pi_apply i
-    rw [initSeg_def, TauCeti.Probability.shift_iterate_eq_reindex]
-    exact h.comp (φ := fun (y : Set.Iio t → 𝓧) (i : Fin t) ↦ y ⟨i, i.2⟩)
-      (ψ := fun (y : Set.Ici t → 𝓧) (i : ℕ) ↦ y ⟨i + t, Nat.le_add_left t i⟩)
-      (by fun_prop) (by fun_prop)
-  rw [← (measurePreserving_shift_iterate P t).lintegral_comp hg]
-  exact lintegral_mul_eq_lintegral_mul_lintegral_of_indepFun (hF.comp (measurable_initSeg t))
-    (hg.comp (measurable_shift_iterate t)) (hind.comp hF hg)
 
 /-! ### The covering mixture -/
 
@@ -157,6 +121,21 @@ private lemma exists_log_inv_coverWeight_le {ε : ℝ} (hε : 0 < ε) :
   _ ≤ Real.log (((k : ℝ) + 1) ^ 2) := Real.log_le_log (by positivity) (by nlinarith)
   _ = 2 * Real.log ((k : ℝ) + 1) := by rw [Real.log_pow]; push_cast; ring
   _ ≤ ε * k := by nlinarith
+
+/-- `2⁻¹ ^ n` is `exp (-(n log 2))`. -/
+private lemma inv_two_pow_eq_exp (n : ℕ) : (2⁻¹ : ℝ) ^ n = Real.exp (-(n * Real.log 2)) := by
+  rw [← Real.log_pow, Real.exp_neg, Real.exp_log (by positivity), inv_pow]
+
+/-- `2⁻¹ ^ n` is `exp (-(n log 2))`, in `ℝ≥0∞`. -/
+private lemma inv_two_pow_eq_ofReal_exp (n : ℕ) :
+    (2⁻¹ : ℝ≥0∞) ^ n = ENNReal.ofReal (Real.exp (-(n * Real.log 2))) := by
+  rw [← inv_two_pow_eq_exp, ENNReal.ofReal_pow (by norm_num), ENNReal.ofReal_inv_of_pos two_pos,
+    ENNReal.ofReal_ofNat]
+
+/-- A finite bipolar rate is the coercion of its real value. -/
+private lemma coe_toReal_bipolarRate {Q : Measure 𝓧} {S : Set (Measure 𝓧)}
+    (hd : bipolarRate Q S ≠ ⊤) : ((bipolarRate Q S).toReal : EReal) = bipolarRate Q S :=
+  EReal.coe_toReal hd (ne_bot_of_le_ne_bot EReal.zero_ne_bot (bipolarRate_nonneg Q S))
 
 variable {M : ℕ → (ℕ → 𝓧) → ℝ≥0∞}
 
@@ -351,6 +330,29 @@ private lemma integral_badCount (Q : Measure 𝓧) [IsProbabilityMeasure Q] {G :
   rw [integral_finsetSum _ fun s _ ↦ hi s, Finset.sum_congr rfl fun s _ ↦ he s]
   simp
 
+/-- The exponent of the pointwise covering bound at a good position: taking a block of length
+`k ≥ k₀`, of weight `exp (-w)` with `w ≤ ε k`, and of bet at least `exp (k L)`, with a factor
+`exp (-l)` for the choice of a block, loses no more than the bound allows. -/
+private lemma cover_exponent_le_of_good {L ε k k₀ K n C C' w l : ℝ} (hεL : ε ≤ L) (hl : 0 < l)
+    (hk₀ : 0 < k₀) (hkk₀ : k₀ ≤ k) (hw : w ≤ ε * k) (hC : C' ≤ C) :
+    (L - ε) * (n + k - K - C) - ((n + k) / k₀ + K + C) * l ≤
+      -l + -w + k * L + ((L - ε) * (n - K - C') - (n / k₀ + K + C') * l) := by
+  have hq : 1 ≤ k / k₀ := by rwa [le_div_iff₀ hk₀, one_mul]
+  have hsplit : (n + k) / k₀ = n / k₀ + k / k₀ := add_div _ _ _
+  rw [hsplit]
+  nlinarith [mul_nonneg (sub_nonneg.2 hεL) (sub_nonneg.2 hC), mul_nonneg hl.le (sub_nonneg.2 hq),
+    mul_nonneg hl.le (sub_nonneg.2 hC)]
+
+/-- The exponent of the pointwise covering bound at a bad position: skipping one observation, with
+a factor `exp (-l)`, loses no more than the bound allows. -/
+private lemma cover_exponent_le_of_bad {L ε k₀ K n C l : ℝ} (hl : 0 < l) (hk₀ : 0 < k₀) :
+    (L - ε) * (n + 1 - K - (1 + C)) - ((n + 1) / k₀ + K + (1 + C)) * l ≤
+      -l + ((L - ε) * (n - K - C) - (n / k₀ + K + C) * l) := by
+  have h : (n + 1) / k₀ = n / k₀ + 1 / k₀ := add_div _ _ _
+  have h1k : 0 ≤ 1 / k₀ := by positivity
+  rw [h]
+  nlinarith [mul_nonneg hl.le h1k]
+
 /-- **The covering argument, pointwise.** Parse the observations greedily: at a good position,
 take the block of a bet `M k ≥ exp (k L)`, `k₀ ≤ k ≤ K`; elsewhere skip one observation. Each
 block of length `k` multiplies the covering mixture by at least `exp (k (L - ε)) / 2`, each skip
@@ -361,17 +363,16 @@ private lemma ofReal_exp_le_coverMixture {L ε : ℝ} (hεL : ε ≤ L) {k₀ K 
       (N / k₀ + K + badCount (goodSet M L k₀ K) N ω) * Real.log 2)) ≤ coverMixture M N ω := by
   set G := goodSet M L k₀ K
   have hlog2 : 0 < Real.log 2 := Real.log_pos one_lt_two
-  have hk₀' : (1 : ℝ) ≤ k₀ := by exact_mod_cast hk₀
+  have hk₀' : (0 : ℝ) < k₀ := by exact_mod_cast hk₀
+  have hexp2 : Real.exp (-Real.log 2) = 2⁻¹ := by
+    rw [← pow_one (2⁻¹ : ℝ), inv_two_pow_eq_exp, Nat.cast_one, one_mul]
   induction N using Nat.strong_induction_on generalizing ω with
   | _ N ih =>
   have hC := badCount_nonneg G N ω
   by_cases hNK : N ≤ K
   · -- too few observations: the bound is below `2⁻¹ ^ N`
     refine le_trans ?_ (pow_le_coverMixture N ω)
-    have h2N : (2⁻¹ : ℝ≥0∞) ^ N = ENNReal.ofReal (Real.exp (-(N * Real.log 2))) := by
-      rw [← Real.log_pow, Real.exp_neg, Real.exp_log (by positivity), ← inv_pow,
-        ENNReal.ofReal_pow (by norm_num), ENNReal.ofReal_inv_of_pos two_pos, ENNReal.ofReal_ofNat]
-    rw [h2N]
+    rw [inv_two_pow_eq_ofReal_exp]
     refine ENNReal.ofReal_le_ofReal (Real.exp_le_exp.2 ?_)
     have hN : (N : ℝ) ≤ K := by exact_mod_cast hNK
     have h1 : (L - ε) * (N - K - badCount G N ω) ≤ 0 :=
@@ -383,10 +384,9 @@ private lemma ofReal_exp_le_coverMixture {L ε : ℝ} (hεL : ε ≤ L) {k₀ K 
   by_cases hω : ω ∈ G
   · -- a good position: take the block of a bet `M k ≥ exp (k L)`
     obtain ⟨k, hk₀k, hkK, hkM⟩ := hω
-    have hk1 : 1 ≤ k := hk₀.trans hk₀k
+    have hk1 : 0 < k := hk₀.trans hk₀k
     have hkN : k ≤ N' + 1 := hkK.trans hNK.le
     have hIH := ih (N' + 1 - k) (by omega) ((shift 𝓧)^[k] ω)
-    have hCle := badCount_shift_le G hkN ω
     set C := badCount G (N' + 1) ω
     set C' := badCount G (N' + 1 - k) ((shift 𝓧)^[k] ω)
     set B := (L - ε) * ((N' + 1 - k : ℕ) - K - C') -
@@ -396,27 +396,16 @@ private lemma ofReal_exp_le_coverMixture {L ε : ℝ} (hεL : ε ≤ L) {k₀ K 
         2⁻¹ * (coverWeight k * (Real.exp (k * L) * Real.exp B)) := by
       have hR : 2⁻¹ * (coverWeight k * (Real.exp (k * L) * Real.exp B)) =
           Real.exp (-Real.log 2 + -Real.log ((k : ℝ) * (k + 1)) + k * L + B) := by
-        have e1 : Real.exp (-Real.log 2) = 2⁻¹ := by rw [Real.exp_neg, Real.exp_log two_pos]
         have e2 : Real.exp (-Real.log ((k : ℝ) * (k + 1))) = coverWeight k := by
           rw [Real.exp_neg, Real.exp_log (by positivity), coverWeight, one_div]
-        rw [Real.exp_add, Real.exp_add, Real.exp_add, e1, e2]
-        ring
-      rw [hR]
-      refine Real.exp_le_exp.2 ?_
-      have hwk := hw k hk₀k
-      have hq : (1 : ℝ) ≤ k / k₀ := by
-        rw [le_div_iff₀ (by linarith), one_mul]
-        exact_mod_cast hk₀k
-      have hsplit : ((N' + 1 : ℕ) : ℝ) / k₀ = ((N' + 1 - k : ℕ) : ℝ) / k₀ + k / k₀ := by
-        rw [Nat.cast_sub hkN, ← add_div]
+        rw [Real.exp_add, Real.exp_add, Real.exp_add, hexp2, e2]
         ring
       have hcast : ((N' + 1 : ℕ) : ℝ) = ((N' + 1 - k : ℕ) : ℝ) + k := by
         rw [Nat.cast_sub hkN]
         ring
-      simp only [B]
-      rw [hsplit, hcast]
-      nlinarith [mul_nonneg (sub_nonneg.2 hεL) (sub_nonneg.2 hCle),
-        mul_nonneg hlog2.le (sub_nonneg.2 hq), mul_nonneg hlog2.le (sub_nonneg.2 hCle)]
+      rw [hR, hcast]
+      exact Real.exp_le_exp.2 (cover_exponent_le_of_good hεL hlog2 hk₀'
+        (by exact_mod_cast hk₀k) (hw k hk₀k) (badCount_shift_le G hkN ω))
     calc ENNReal.ofReal (Real.exp ((L - ε) * ((N' + 1 : ℕ) - K - C) -
           ((N' + 1 : ℕ) / k₀ + K + C) * Real.log 2))
     _ ≤ ENNReal.ofReal (2⁻¹ * (coverWeight k * (Real.exp (k * L) * Real.exp B))) :=
@@ -451,14 +440,8 @@ private lemma ofReal_exp_le_coverMixture {L ε : ℝ} (hεL : ε ≤ L) {k₀ K 
     have hreal : Real.exp ((L - ε) * ((N' + 1 : ℕ) - K - badCount G (N' + 1) ω) -
         ((N' + 1 : ℕ) / k₀ + K + badCount G (N' + 1) ω) * Real.log 2) ≤
         2⁻¹ * Real.exp ((L - ε) * (N' - K - C'') - (N' / k₀ + K + C'') * Real.log 2) := by
-      rw [show (2⁻¹ : ℝ) = Real.exp (-Real.log 2) by rw [Real.exp_neg, Real.exp_log two_pos],
-        ← Real.exp_add]
-      refine Real.exp_le_exp.2 ?_
-      rw [hCsucc]
-      push_cast
-      have : (N' : ℝ) / k₀ + 1 / k₀ = (N' + 1) / k₀ := by ring
-      have h1k : (0 : ℝ) ≤ 1 / k₀ := by positivity
-      nlinarith
+      rw [← hexp2, ← Real.exp_add, hCsucc, Nat.cast_succ]
+      exact Real.exp_le_exp.2 (cover_exponent_le_of_bad hlog2 hk₀')
     calc ENNReal.ofReal (Real.exp ((L - ε) * ((N' + 1 : ℕ) - K - badCount G (N' + 1) ω) -
           ((N' + 1 : ℕ) / k₀ + K + badCount G (N' + 1) ω) * Real.log 2))
     _ ≤ ENNReal.ofReal (2⁻¹ * Real.exp ((L - ε) * (N' - K - C'') -
@@ -471,6 +454,125 @@ private lemma ofReal_exp_le_coverMixture {L ε : ℝ} (hεL : ε ≤ L) {k₀ K 
     _ ≤ coverMixture M (N' + 1) ω := by
       rw [coverMixture_succ]
       exact le_self_add
+
+/-- **The covering argument, for fixed `N`.** Integrating the pointwise bound
+`ofReal_exp_le_coverMixture`, where the expected number of bad positions is `N q` with `q` the
+probability of the bad event, gives a lower bound on the expected logarithm of the covering
+mixture, which is at most `N` times the bipolar rate. -/
+private lemma cover_le_mul_toReal_bipolarRate (Q : Measure 𝓧) [IsProbabilityMeasure Q]
+    {S : Set (Measure 𝓧)} (hS : ∀ P ∈ S, IsProbabilityMeasure P)
+    (hMm : ∀ n, Measurable (M n)) (hMd : ∀ n, DependsOn (M n) (Set.Iio n))
+    (hMS : ∀ P ∈ S, ∀ n, ∫⁻ ω, M n ω ∂Measure.infinitePi (fun _ : ℕ ↦ P) ≤ 1)
+    (hd : bipolarRate Q S ≠ ⊤) {L ε : ℝ} (hεL : ε ≤ L) {k₀ : ℕ} (hk₀ : 1 ≤ k₀)
+    (hw : ∀ k : ℕ, k₀ ≤ k → Real.log ((k : ℝ) * (k + 1)) ≤ ε * k) (K : ℕ) {N : ℕ} (hN : 1 ≤ N) :
+    (L - ε) * (N - K - N * (Measure.infinitePi fun _ : ℕ ↦ Q).real (goodSet M L k₀ K)ᶜ) -
+      (N / k₀ + K + N * (Measure.infinitePi fun _ : ℕ ↦ Q).real (goodSet M L k₀ K)ᶜ) *
+        Real.log 2 ≤ N * (bipolarRate Q S).toReal := by
+  set μ := Measure.infinitePi (fun _ : ℕ ↦ Q)
+  set G := goodSet M L k₀ K
+  have hG := measurableSet_goodSet hMm L k₀ K
+  have hbi : Integrable (badCount G N) μ :=
+    .of_bound (measurable_badCount hG N).aestronglyMeasurable N (ae_of_all _ fun ω ↦ by
+      rw [Real.norm_eq_abs, abs_of_nonneg (badCount_nonneg G N ω)]
+      exact badCount_le G N ω)
+  have hA : Integrable (fun ω ↦ (L - ε) * (N - K - badCount G N ω)) μ :=
+    ((integrable_const _).sub hbi).const_mul _
+  have hB : Integrable (fun ω ↦ (N / k₀ + K + badCount G N ω) * Real.log 2) μ :=
+    ((integrable_const _).add hbi).mul_const _
+  have hAB : Integrable (fun ω ↦ (L - ε) * (N - K - badCount G N ω) -
+      (N / k₀ + K + badCount G N ω) * Real.log 2) μ := hA.sub hB
+  have hval : ∫ ω, ((L - ε) * (N - K - badCount G N ω) -
+      (N / k₀ + K + badCount G N ω) * Real.log 2) ∂μ =
+      (L - ε) * (N - K - N * μ.real Gᶜ) - (N / k₀ + K + N * μ.real Gᶜ) * Real.log 2 := by
+    rw [integral_sub hA hB, integral_const_mul, integral_mul_const,
+      integral_sub (integrable_const _) hbi, integral_add (integrable_const _) hbi,
+      integral_badCount Q hG N]
+    simp only [integral_const, probReal_univ, one_smul, μ, G]
+  have hle : (((L - ε) * (N - K - N * μ.real Gᶜ) - (N / k₀ + K + N * μ.real Gᶜ) * Real.log 2 :
+      ℝ) : EReal) ≤ N * bipolarRate Q S := by
+    rw [← hval, ← eintegral_eq_integral hAB]
+    calc ∫ᵉ ω, (((L - ε) * (N - K - badCount G N ω) -
+          (N / k₀ + K + badCount G N ω) * Real.log 2 : ℝ) : EReal) ∂μ
+    _ ≤ ∫ᵉ ω, ENNReal.log (coverMixture M N ω) ∂μ := eintegral_mono fun ω ↦ by
+      rw [← Real.log_exp ((L - ε) * (N - K - badCount G N ω) -
+        (N / k₀ + K + badCount G N ω) * Real.log 2),
+        ← ENNReal.log_ofReal_of_pos (Real.exp_pos _)]
+      exact ENNReal.log_le_log (ofReal_exp_le_coverMixture hεL hk₀ hw N ω)
+    _ ≤ maxLogGrowth Q S N :=
+      eintegral_log_le_maxLogGrowth_of_dependsOn Q hS (measurable_coverMixture hMm N)
+        (dependsOn_coverMixture hMd N) fun P hP ↦ by
+          have := hS P hP
+          exact lintegral_coverMixture_le_one P hMm hMd (hMS P hP) N
+    _ ≤ N * bipolarRate Q S := maxLogGrowth_le_mul_bipolarRate Q S (by omega)
+  rwa [← coe_toReal_bipolarRate hd, ← EReal.coe_natCast, ← EReal.coe_mul,
+    EReal.coe_le_coe_iff] at hle
+
+/-- If `N a - b ≤ N d` for every `N ≥ 1`, then `a ≤ d`. -/
+private lemma le_of_forall_mul_sub_le {a b d : ℝ} (h : ∀ N : ℕ, 1 ≤ N → N * a - b ≤ N * d) :
+    a ≤ d := by
+  by_contra hcon
+  rw [not_le] at hcon
+  obtain ⟨N, hN⟩ := exists_nat_gt (b / (a - d))
+  have h1 := h (N + 1) (by omega)
+  rw [div_lt_iff₀ (by linarith)] at hN
+  push_cast at h1
+  nlinarith
+
+/-- **The covering argument, for fixed `K`.** Letting `N → ∞` in
+`cover_le_mul_toReal_bipolarRate`. -/
+private lemma sub_le_toReal_bipolarRate_of_goodSet (Q : Measure 𝓧) [IsProbabilityMeasure Q]
+    {S : Set (Measure 𝓧)} (hS : ∀ P ∈ S, IsProbabilityMeasure P)
+    (hMm : ∀ n, Measurable (M n)) (hMd : ∀ n, DependsOn (M n) (Set.Iio n))
+    (hMS : ∀ P ∈ S, ∀ n, ∫⁻ ω, M n ω ∂Measure.infinitePi (fun _ : ℕ ↦ P) ≤ 1)
+    (hd : bipolarRate Q S ≠ ⊤) {L ε : ℝ} (hεL : ε ≤ L) {k₀ : ℕ} (hk₀ : 1 ≤ k₀)
+    (hw : ∀ k : ℕ, k₀ ≤ k → Real.log ((k : ℝ) * (k + 1)) ≤ ε * k) (K : ℕ) :
+    (L - ε) - Real.log 2 / k₀ -
+      (L - ε + Real.log 2) * (Measure.infinitePi fun _ : ℕ ↦ Q).real (goodSet M L k₀ K)ᶜ ≤
+        (bipolarRate Q S).toReal := by
+  refine le_of_forall_mul_sub_le (b := K * (L - ε + Real.log 2)) fun N hN ↦ ?_
+  refine le_of_eq_of_le ?_ (cover_le_mul_toReal_bipolarRate Q hS hMm hMd hMS hd hεL hk₀ hw K hN)
+  ring
+
+/-- As `K → ∞`, the probability that no bet `M k`, `k₀ ≤ k ≤ K`, exceeds `exp (k L)` tends to `0`
+when, almost surely, `M n ≥ exp (n L)` for infinitely many `n`. -/
+private lemma tendsto_measureReal_compl_goodSet {μ : Measure (ℕ → 𝓧)} [IsFiniteMeasure μ]
+    (hMm : ∀ n, Measurable (M n)) {L : ℝ}
+    (hL : ∀ᵐ ω ∂μ, ∃ᶠ n : ℕ in atTop, ENNReal.ofReal (Real.exp (n * L)) ≤ M n ω) (k₀ : ℕ) :
+    Tendsto (fun K : ℕ ↦ μ.real (goodSet M L k₀ K)ᶜ) atTop (nhds 0) := by
+  have hanti : Antitone fun K : ℕ ↦ (goodSet M L k₀ K)ᶜ := fun K K' hKK' ω hω hω' ↦ by
+    obtain ⟨k, hk₀k, hkK, hkM⟩ := hω'
+    exact hω ⟨k, hk₀k, hkK.trans hKK', hkM⟩
+  have hinter : μ (⋂ K : ℕ, (goodSet M L k₀ K)ᶜ) = 0 := by
+    refine measure_mono_null (fun ω hω ↦ ?_) (ae_iff.1 hL)
+    simp only [Set.mem_iInter, Set.mem_compl_iff] at hω
+    intro hfreq
+    obtain ⟨k, hk, hkM⟩ := (frequently_atTop.1 hfreq) k₀
+    exact hω k ⟨k, hk, le_rfl, hkM⟩
+  have h := tendsto_measure_iInter_atTop (μ := μ)
+    (fun K ↦ (measurableSet_goodSet hMm L k₀ K).compl.nullMeasurableSet) hanti
+    ⟨0, measure_ne_top _ _⟩
+  rw [hinter] at h
+  simpa [Function.comp_def, measureReal_def] using
+    (ENNReal.tendsto_toReal ENNReal.zero_ne_top).comp h
+
+/-- **The covering argument, for fixed `ε` and `k₀`.** Letting `K → ∞` in
+`sub_le_toReal_bipolarRate_of_goodSet`. -/
+private lemma sub_log_two_div_le_toReal_bipolarRate (Q : Measure 𝓧) [IsProbabilityMeasure Q]
+    {S : Set (Measure 𝓧)} (hS : ∀ P ∈ S, IsProbabilityMeasure P)
+    (hMm : ∀ n, Measurable (M n)) (hMd : ∀ n, DependsOn (M n) (Set.Iio n))
+    (hMS : ∀ P ∈ S, ∀ n, ∫⁻ ω, M n ω ∂Measure.infinitePi (fun _ : ℕ ↦ P) ≤ 1)
+    (hd : bipolarRate Q S ≠ ⊤) {L : ℝ}
+    (hL : ∀ᵐ ω ∂Measure.infinitePi (fun _ : ℕ ↦ Q),
+      ∃ᶠ n : ℕ in atTop, ENNReal.ofReal (Real.exp (n * L)) ≤ M n ω) {ε : ℝ} (hεL : ε ≤ L)
+    {k₀ : ℕ} (hk₀ : 1 ≤ k₀) (hw : ∀ k : ℕ, k₀ ≤ k → Real.log ((k : ℝ) * (k + 1)) ≤ ε * k) :
+    (L - ε) - Real.log 2 / k₀ ≤ (bipolarRate Q S).toReal := by
+  have hlim : Tendsto (fun K : ℕ ↦ (L - ε) - Real.log 2 / k₀ - (L - ε + Real.log 2) *
+      (Measure.infinitePi fun _ : ℕ ↦ Q).real (goodSet M L k₀ K)ᶜ) atTop
+      (nhds ((L - ε) - Real.log 2 / k₀ - (L - ε + Real.log 2) * 0)) :=
+    tendsto_const_nhds.sub (tendsto_const_nhds.mul (tendsto_measureReal_compl_goodSet hMm hL k₀))
+  rw [mul_zero, sub_zero] at hlim
+  exact le_of_tendsto' hlim
+    (sub_le_toReal_bipolarRate_of_goodSet Q hS hMm hMd hMS hd hεL hk₀ hw)
 
 /-- **The covering argument.** Let `M n` be functions of the first `n` observations with
 expectation at most `1` under the i.i.d. laws of the members of `S`. If, almost surely under the
@@ -485,110 +587,13 @@ private lemma coe_le_bipolarRate_of_ae_frequently (Q : Measure 𝓧) [IsProbabil
     (hL : ∀ᵐ ω ∂Measure.infinitePi (fun _ : ℕ ↦ Q),
       ∃ᶠ n : ℕ in atTop, ENNReal.ofReal (Real.exp (n * L)) ≤ M n ω) :
     (L : EReal) ≤ bipolarRate Q S := by
-  set μ := Measure.infinitePi (fun _ : ℕ ↦ Q)
   by_cases hd : bipolarRate Q S = ⊤
   · rw [hd]
     exact le_top
-  set d := (bipolarRate Q S).toReal
-  have hdeq : (d : EReal) = bipolarRate Q S :=
-    EReal.coe_toReal hd (ne_bot_of_le_ne_bot EReal.zero_ne_bot (bipolarRate_nonneg Q S))
-  rw [← hdeq, EReal.coe_le_coe_iff]
+  rw [← coe_toReal_bipolarRate hd, EReal.coe_le_coe_iff]
   by_cases hL0 : L ≤ 0
   · exact hL0.trans (EReal.toReal_nonneg (bipolarRate_nonneg Q S))
   rw [not_le] at hL0
-  have hlog2 : 0 < Real.log 2 := Real.log_pos one_lt_two
-  -- the bound for fixed `ε`, `k₀` and `K`
-  have step1 : ∀ ε : ℝ, 0 < ε → ε ≤ L → ∀ k₀ : ℕ, 1 ≤ k₀ →
-      (∀ k : ℕ, k₀ ≤ k → Real.log ((k : ℝ) * (k + 1)) ≤ ε * k) → ∀ K : ℕ,
-      (L - ε) - Real.log 2 / k₀ - (L - ε + Real.log 2) * μ.real (goodSet M L k₀ K)ᶜ ≤ d := by
-    intro ε hε hεL k₀ hk₀ hw K
-    set G := goodSet M L k₀ K
-    set q := μ.real Gᶜ
-    have hG := measurableSet_goodSet hMm L k₀ K
-    have hN : ∀ N : ℕ, 1 ≤ N →
-        (L - ε) * (N - K - N * q) - (N / k₀ + K + N * q) * Real.log 2 ≤ N * d := by
-      intro N hN1
-      have hbi : Integrable (badCount G N) μ :=
-        .of_bound (measurable_badCount hG N).aestronglyMeasurable N (ae_of_all _ fun ω ↦ by
-          rw [Real.norm_eq_abs, abs_of_nonneg (badCount_nonneg G N ω)]
-          exact badCount_le G N ω)
-      have hA : Integrable (fun ω ↦ (L - ε) * (N - K - badCount G N ω)) μ :=
-        ((integrable_const _).sub hbi).const_mul _
-      have hB : Integrable (fun ω ↦ (N / k₀ + K + badCount G N ω) * Real.log 2) μ :=
-        ((integrable_const _).add hbi).mul_const _
-      have hAB : Integrable (fun ω ↦ (L - ε) * (N - K - badCount G N ω) -
-          (N / k₀ + K + badCount G N ω) * Real.log 2) μ := hA.sub hB
-      have hval : ∫ ω, ((L - ε) * (N - K - badCount G N ω) -
-          (N / k₀ + K + badCount G N ω) * Real.log 2) ∂μ =
-          (L - ε) * (N - K - N * q) - (N / k₀ + K + N * q) * Real.log 2 := by
-        rw [integral_sub hA hB, integral_const_mul, integral_mul_const,
-          integral_sub (integrable_const _) hbi, integral_add (integrable_const _) hbi,
-          integral_badCount Q hG N]
-        simp only [integral_const, probReal_univ, one_smul]
-        rfl
-      have hle : (((L - ε) * (N - K - N * q) - (N / k₀ + K + N * q) * Real.log 2 : ℝ) :
-          EReal) ≤ N * bipolarRate Q S := by
-        rw [← hval, ← eintegral_eq_integral hAB]
-        calc ∫ᵉ ω, (((L - ε) * (N - K - badCount G N ω) -
-              (N / k₀ + K + badCount G N ω) * Real.log 2 : ℝ) : EReal) ∂μ
-        _ ≤ ∫ᵉ ω, ENNReal.log (coverMixture M N ω) ∂μ := eintegral_mono fun ω ↦ by
-          rw [← Real.log_exp ((L - ε) * (N - K - badCount G N ω) -
-            (N / k₀ + K + badCount G N ω) * Real.log 2),
-            ← ENNReal.log_ofReal_of_pos (Real.exp_pos _)]
-          exact ENNReal.log_le_log (ofReal_exp_le_coverMixture hεL hk₀ hw N ω)
-        _ ≤ maxLogGrowth Q S N :=
-          eintegral_log_le_maxLogGrowth_of_dependsOn Q hS (measurable_coverMixture hMm N)
-            (dependsOn_coverMixture hMd N) fun P hP ↦ by
-              have := hS P hP
-              exact lintegral_coverMixture_le_one P hMm hMd (hMS P hP) N
-        _ ≤ N * bipolarRate Q S := maxLogGrowth_le_mul_bipolarRate Q S (by omega)
-      rwa [← hdeq, ← EReal.coe_natCast, ← EReal.coe_mul, EReal.coe_le_coe_iff] at hle
-    -- let `N → ∞`
-    by_contra hcon
-    rw [not_le] at hcon
-    set δ := (L - ε) - Real.log 2 / k₀ - (L - ε + Real.log 2) * q - d with hδ
-    have hδ0 : 0 < δ := by linarith
-    obtain ⟨N, hN'⟩ := exists_nat_gt (K * (L - ε + Real.log 2) / δ)
-    have h := hN (N + 1) (by omega)
-    rw [div_lt_iff₀ hδ0] at hN'
-    have hk₀' : (0 : ℝ) < k₀ := by exact_mod_cast hk₀
-    have hsplit : (((N + 1 : ℕ) : ℝ)) / k₀ = ((N + 1 : ℕ) : ℝ) * (1 / k₀) := by ring
-    rw [hsplit] at h
-    have : ((N + 1 : ℕ) : ℝ) * δ ≤ K * (L - ε + Real.log 2) := by
-      rw [hδ]
-      have : Real.log 2 / k₀ = Real.log 2 * (1 / k₀) := by ring
-      rw [this]
-      nlinarith
-    push_cast at this
-    nlinarith
-  -- as `K → ∞`, the probability of the bad event tends to `0`
-  have step2 (k₀ : ℕ) : Tendsto (fun K : ℕ ↦ μ.real (goodSet M L k₀ K)ᶜ) atTop (nhds 0) := by
-    have hanti : Antitone fun K : ℕ ↦ (goodSet M L k₀ K)ᶜ := fun K K' hKK' ω hω hω' ↦ by
-      obtain ⟨k, hk₀k, hkK, hkM⟩ := hω'
-      exact hω ⟨k, hk₀k, hkK.trans hKK', hkM⟩
-    have hinter : μ (⋂ K : ℕ, (goodSet M L k₀ K)ᶜ) = 0 := by
-      refine measure_mono_null (fun ω hω ↦ ?_) (ae_iff.1 hL)
-      simp only [Set.mem_iInter, Set.mem_compl_iff] at hω
-      intro hfreq
-      obtain ⟨k, hk, hkM⟩ := (frequently_atTop.1 hfreq) k₀
-      exact hω k ⟨k, hk, le_rfl, hkM⟩
-    have h := tendsto_measure_iInter_atTop (μ := μ)
-      (fun K ↦ (measurableSet_goodSet hMm L k₀ K).compl.nullMeasurableSet) hanti
-      ⟨0, measure_ne_top _ _⟩
-    rw [hinter] at h
-    simpa [Function.comp_def, measureReal_def] using
-      (ENNReal.tendsto_toReal ENNReal.zero_ne_top).comp h
-  -- let `K → ∞`
-  have step3 : ∀ ε : ℝ, 0 < ε → ε ≤ L → ∀ k₀ : ℕ, 1 ≤ k₀ →
-      (∀ k : ℕ, k₀ ≤ k → Real.log ((k : ℝ) * (k + 1)) ≤ ε * k) →
-      (L - ε) - Real.log 2 / k₀ ≤ d := by
-    intro ε hε hεL k₀ hk₀ hw
-    have hlim : Tendsto (fun K : ℕ ↦ (L - ε) - Real.log 2 / k₀ -
-        (L - ε + Real.log 2) * μ.real (goodSet M L k₀ K)ᶜ) atTop
-        (nhds ((L - ε) - Real.log 2 / k₀ - (L - ε + Real.log 2) * 0)) :=
-      tendsto_const_nhds.sub (tendsto_const_nhds.mul (step2 k₀))
-    rw [mul_zero, sub_zero] at hlim
-    exact le_of_tendsto' hlim fun K ↦ step1 ε hε hεL k₀ hk₀ hw K
   -- let `ε → 0` and `k₀ → ∞`
   refine le_of_forall_pos_le_add fun η hη ↦ ?_
   set ε := min (η / 2) L
@@ -596,7 +601,7 @@ private lemma coe_le_bipolarRate_of_ae_frequently (Q : Measure 𝓧) [IsProbabil
   obtain ⟨k₀, hk₀, hw⟩ := exists_log_inv_coverWeight_le hε
   obtain ⟨k₁, hk₁⟩ := exists_nat_gt (Real.log 2 / (η / 2))
   have hk : 1 ≤ max k₀ k₁ := hk₀.trans (le_max_left _ _)
-  have h := step3 ε hε (min_le_right _ _) (max k₀ k₁) hk
+  have h := sub_log_two_div_le_toReal_bipolarRate Q hS hMm hMd hMS hd hL (min_le_right _ _) hk
     fun k hk' ↦ hw k ((le_max_left _ _).trans hk')
   have hk₁' : (k₁ : ℝ) ≤ max k₀ k₁ := by exact_mod_cast le_max_right k₀ k₁
   have hpos : (0 : ℝ) < max k₀ k₁ := by exact_mod_cast hk
@@ -669,20 +674,16 @@ private lemma frequently_le_shiftMixture {L L' : ℝ} (hLL' : L' < L) {s : ℕ} 
   obtain ⟨m, hm, hmL⟩ := h (max a m₀ + 1)
   refine ⟨m + s, by omega, ?_⟩
   have hm1 : (m₀ : ℝ) < m := by exact_mod_cast (by omega : m₀ < m)
-  have hreal : Real.exp (((m + s : ℕ) : ℝ) * L') ≤ (1 / 2) ^ (s + 1) * Real.exp (m * L) := by
-    rw [show ((1 : ℝ) / 2) ^ (s + 1) = Real.exp (-((s + 1) * Real.log 2)) by
-      rw [Real.exp_neg, show ((s : ℝ) + 1) * Real.log 2 = Real.log (2 ^ (s + 1)) by
-        rw [Real.log_pow]; push_cast; ring, Real.exp_log (by positivity), one_div, inv_pow],
-      ← Real.exp_add]
+  have hreal : Real.exp (((m + s : ℕ) : ℝ) * L') ≤ 2⁻¹ ^ (s + 1) * Real.exp (m * L) := by
+    rw [inv_two_pow_eq_exp, ← Real.exp_add]
     refine Real.exp_le_exp.2 ?_
     rw [div_lt_iff₀ (by linarith)] at hm₀
     push_cast
     nlinarith
   calc ENNReal.ofReal (Real.exp (((m + s : ℕ) : ℝ) * L'))
-  _ ≤ ENNReal.ofReal ((1 / 2) ^ (s + 1) * Real.exp (m * L)) := ENNReal.ofReal_le_ofReal hreal
+  _ ≤ ENNReal.ofReal (2⁻¹ ^ (s + 1) * Real.exp (m * L)) := ENNReal.ofReal_le_ofReal hreal
   _ = 2⁻¹ ^ (s + 1) * ENNReal.ofReal (Real.exp (m * L)) := by
-    rw [ENNReal.ofReal_mul (by positivity), ENNReal.ofReal_pow (by norm_num),
-      ENNReal.ofReal_div_of_pos zero_lt_two, ENNReal.ofReal_one, ENNReal.ofReal_ofNat, one_div]
+    rw [ENNReal.ofReal_mul (by positivity), inv_two_pow_eq_exp, ← inv_two_pow_eq_ofReal_exp]
   _ ≤ 2⁻¹ ^ (s + 1) * M m ((shift 𝓧)^[s] ω) := by gcongr
   _ = 2⁻¹ ^ (s + 1) * M (m + s - s) ((shift 𝓧)^[s] ω) := by rw [Nat.add_sub_cancel]
   _ ≤ shiftMixture M (m + s) ω :=
@@ -706,13 +707,12 @@ theorem ae_limsup_log_div_le_bipolarRate_of_dependsOn (Q₁ : Measure 𝓧)
       limsup (fun n : ℕ ↦ ENNReal.log (F n ω) / (n : EReal)) atTop ≤ bipolarRate Q₁ S₁ := by
   by_cases hQ : IsProbabilityMeasure Q₁
   swap
-  · simp [Measure.infinitePi, hQ]
+  · simp [Measure.infinitePi_eq_zero_of_not_isProbabilityMeasure (μ := fun _ : ℕ ↦ Q₁) (i := 0) hQ]
   set μ := Measure.infinitePi (fun _ : ℕ ↦ Q₁)
   by_cases hd : bipolarRate Q₁ S₁ = ⊤
   · simp [hd]
   set d := (bipolarRate Q₁ S₁).toReal
-  have hdeq : (d : EReal) = bipolarRate Q₁ S₁ :=
-    EReal.coe_toReal hd (ne_bot_of_le_ne_bot EReal.zero_ne_bot (bipolarRate_nonneg Q₁ S₁))
+  have hdeq : (d : EReal) = bipolarRate Q₁ S₁ := coe_toReal_bipolarRate hd
   -- for `L > d`, almost surely `F n < exp (n L)` eventually
   have key (L : ℝ) (hL : d < L) :
       ∀ᵐ ω ∂μ, ∀ᶠ n : ℕ in atTop, F n ω < ENNReal.ofReal (Real.exp (n * L)) := by
