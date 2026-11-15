@@ -22,8 +22,9 @@ e-variables for a null `S` are `Q`-almost surely finite [LRR25, Theorem 2.6].
 
 ## Main statements
 
-* `MeasureTheory.Measure.AbsolutelyContinuousSet.ae_of_forall_ae`: a property of the points of a
-  measurable set that holds almost surely under every member of `S` holds `Q`-almost surely.
+* `MeasureTheory.Measure.AbsolutelyContinuousSet.ae_of_forall_ae`: a property `p` with
+  `{ω | p ω}` measurable that holds almost surely under every member of `S` holds `Q`-almost
+  surely.
 * `MeasureTheory.Measure.AbsolutelyContinuousSet.absolutelyContinuous`: `Q` is absolutely
   continuous with respect to every measure that dominates all members of `S`.
 * `MeasureTheory.Measure.absolutelyContinuousSet_singleton_iff`: absolute continuity with respect
@@ -61,8 +62,8 @@ theorem AbsolutelyContinuousSet.measure_eq_zero (hQS : Q.AbsolutelyContinuousSet
     (hs : MeasurableSet s) (h : ∀ P ∈ S, P s = 0) : Q s = 0 :=
   hQS hs h
 
-/-- A property of the points of a measurable set that holds almost surely under every member
-of `S` holds almost surely under a measure absolutely continuous with respect to `S`. This is the
+/-- A property `p` with `{ω | p ω}` measurable that holds almost surely under every member of `S`
+holds almost surely under a measure absolutely continuous with respect to `S`. This is the
 counterpart of `MeasureTheory.Measure.AbsolutelyContinuous.ae_le`. -/
 theorem AbsolutelyContinuousSet.ae_of_forall_ae (hQS : Q.AbsolutelyContinuousSet S)
     {p : Ω → Prop} (hp : MeasurableSet {ω | p ω}) (h : ∀ P ∈ S, ∀ᵐ ω ∂P, p ω) :

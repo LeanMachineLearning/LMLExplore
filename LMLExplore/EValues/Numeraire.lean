@@ -31,10 +31,10 @@ surely finite [LRR25, Theorem 2.6].
 
 The verification theorem turns the search for the numeraire into checking one integral inequality
 per e-variable, or per member of the null. For a likelihood ratio `Q.rnDeriv R` against a member
-`R` of the effective null, it suffices that the likelihood ratio is an e-variable; with densities
-`q`, `p` and `r` with respect to a reference measure, this is the dominated criterion
-`∫⁻ p / r ∂Q ≤ 1` for every `P ∈ S` [LRR25, Theorem 4.7]; and for a null described by a
-generating family of e-variables, it suffices to check the generating family [LRR25,
+`R` of the effective null with `Q ≪ R`, it suffices that the likelihood ratio is an e-variable;
+with densities `q`, `p` and `r` with respect to a reference measure, this is the dominated
+criterion `∫⁻ p / r ∂Q ≤ 1` for every `P ∈ S` [LRR25, Theorem 4.7]; and for a null described by
+a generating family of e-variables, it suffices to check the generating family [LRR25,
 Corollary 4.2]. The simple null `{P}` with `Q ≪ P`, whose numeraire is the likelihood ratio
 `Q.rnDeriv P` [RW, Theorem 3.20], is the first instance. No dominating measure, convexity or
 topology is assumed, except in the dominated criterion, which names its reference measure.
