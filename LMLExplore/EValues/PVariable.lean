@@ -38,7 +38,8 @@ uniform law on `[0, 1]`.
   `ProbabilityTheory.volume_restrict_Icc_ofReal_lt`: the distribution function of the uniform law
   on `[0, 1]`.
 * `ProbabilityTheory.IsExactPVar.ae_le_one`: an exact p-variable is almost surely at most `1`
-  under every probability measure of the null.
+  under every probability measure of the null, and
+  `ProbabilityTheory.IsExactPVar.measure_le_eq_min`: its distribution function is `α ↦ min α 1`.
 * `ProbabilityTheory.IsPVar.lintegral_comp_le`: under a measure of mass at most `1`, the integral
   of an antitone function of a p-variable is at most its integral against the uniform law on
   `[0, 1]`: a p-variable is stochastically larger than the uniform law.
@@ -154,6 +155,18 @@ theorem IsExactPVar.ae_le_one (hp : IsExactPVar p S) (hP : P ∈ S) [IsProbabili
   rw [ae_iff_measure_eq (measurableSet_le hp.measurable measurable_const).nullMeasurableSet,
     hp.measure_le_eq P hP 1 le_rfl, measure_univ]
 
+/-- The distribution function of an exact p-variable under a probability measure of the null is
+that of the uniform law on `[0, 1]`: it gives mass `min α 1` to `{ω | p ω ≤ α}`. -/
+theorem IsExactPVar.measure_le_eq_min (hp : IsExactPVar p S) (hP : P ∈ S)
+    [IsProbabilityMeasure P] (α : ℝ≥0∞) :
+    P {ω | p ω ≤ α} = min α 1 := by
+  rcases le_total α 1 with hα | hα
+  · rw [hp.measure_le_eq P hP α hα, min_eq_left hα]
+  · rw [min_eq_right hα]
+    refine le_antisymm prob_le_one ?_
+    rw [← hp.measure_le_eq P hP 1 le_rfl]
+    exact measure_mono fun ω (hω : p ω ≤ 1) ↦ hω.trans hα
+
 /-! ### The uniform law on `[0, 1]` -/
 
 /-- The distribution function of the uniform law on `[0, 1]`: it gives mass `min α 1` to
@@ -189,6 +202,13 @@ theorem volume_restrict_Icc_ofReal_lt (a : ℝ≥0∞) :
   · have h_set : {x : ℝ | ENNReal.ofReal x < a} ∩ Icc 0 1 = Icc 0 1 :=
       inter_eq_right.2 fun x hx ↦ (ENNReal.ofReal_le_one.2 hx.2).trans_lt ha
     simp [h_set, min_eq_right ha.le]
+
+/-- A measure under which a real random variable has the uniform law on `[0, 1]` is a probability
+measure. -/
+theorem isProbabilityMeasure_of_map_eq_volume_restrict_Icc {U : Ω → ℝ} (hU : AEMeasurable U P)
+    (hU_law : P.map U = volume.restrict (Icc 0 1)) : IsProbabilityMeasure P := by
+  have : IsProbabilityMeasure (P.map U) := ⟨by simp [hU_law]⟩
+  exact Measure.isProbabilityMeasure_of_map hU
 
 /-- The identity of `[0, 1]`, under the Lebesgue measure on `[0, 1]`, is an exact p-variable. -/
 theorem isExactPVar_ofReal_volume :
