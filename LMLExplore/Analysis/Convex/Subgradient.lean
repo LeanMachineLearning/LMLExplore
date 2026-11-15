@@ -7,6 +7,7 @@ module
 
 public import LMLExplore.Analysis.Convex.FDeriv
 public import LMLExplore.Analysis.Normed.Operator.Basic
+public import Mathlib.Analysis.Convex.Extrema
 public import Mathlib.Analysis.InnerProductSpace.PiL2
 public import TauCeti.Analysis.Convex.SubgradientImage
 
@@ -81,19 +82,18 @@ of `f` within `s` at `x`. -/
 theorem hasSubgradientWithinAt_of_mem_nhdsWithin (hf : ConvexOn ℝ s f) (hx : x ∈ s)
     (ht : t ∈ 𝓝[s] x) (hg : HasSubgradientWithinAt f g t x) :
     HasSubgradientWithinAt f g s x := by
+  -- The subgradient inequality says that `x` minimizes the convex function `f - g` on `t`, hence
+  -- locally on `s`, hence globally on `s`.
+  have hmin : IsMinOn (f - ⇑g) s x := by
+    refine IsMinOn.of_isLocalMinOn_of_convexOn hx ?_ (hf.sub ((g : E →ₗ[ℝ] ℝ).concaveOn hf.1))
+    filter_upwards [ht] with y hy
+    have := hasSubgradientWithinAt_iff_le.1 hg y hy
+    simp only [Pi.sub_apply, map_sub] at this ⊢
+    linarith
   refine hasSubgradientWithinAt_iff_le.2 fun y hy ↦ ?_
-  obtain ⟨u, hu, hut⟩ := mem_nhdsWithin_iff_exists_mem_nhds_inter.1 ht
-  -- Some point `z = x + τ • (y - x)` with `τ ∈ (0, 1)` of the segment `[x, y]` lies in `u`.
-  obtain ⟨τ, hτu, hτ⟩ :=
-    ((eventually_add_smul_mem hu (y - x)).and (Ioo_mem_nhdsGT (zero_lt_one' ℝ))).exists
-  have hzs : x + τ • (y - x) ∈ s := hf.1.add_smul_sub_mem hx hy ⟨hτ.1.le, hτ.2.le⟩
-  -- The subgradient inequality at `z` and convexity along `[x, y]` give
-  -- `f x + τ * g (y - x) ≤ f z ≤ (1 - τ) * f x + τ * f y`.
-  have h₁ := hasSubgradientWithinAt_iff_le.1 hg _ (hut ⟨hτu, hzs⟩)
-  rw [add_sub_cancel_left, map_smul, smul_eq_mul] at h₁
-  have h₂ := hf.2 hx hy (sub_nonneg.2 hτ.2.le) hτ.1.le (sub_add_cancel 1 τ)
-  rw [show (1 - τ) • x + τ • y = x + τ • (y - x) by module, smul_eq_mul, smul_eq_mul] at h₂
-  refine le_of_mul_le_mul_left ?_ hτ.1
+  have := hmin hy
+  simp only [mem_ofPred_eq, Pi.sub_apply] at this
+  rw [map_sub]
   linarith
 
 /-- **Subgradients exist in the interior**. In a finite-dimensional real
