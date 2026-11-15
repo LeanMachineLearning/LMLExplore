@@ -10,7 +10,7 @@ public import Mathlib.Probability.ConditionalProbability
 import TauCeti.MeasureTheory.Constructions.Pi
 
 /-!
-# Product measures: laws of coordinatewise images, restricted factors and bounds by lines
+# Product measures: laws of coordinatewise images, restricted factors, mixtures and bounds by lines
 
 Under the product measure `Measure.pi μ`, the law of a function `f` of the coordinatewise images
 `X i (y i)` is the law of `f` under the product of the laws of the `X i`. For example, the law of
@@ -19,6 +19,10 @@ mean of independent samples of the law of `X`.
 
 Restricting every factor of a product of copies of `μ` to a set `B` of finite positive measure
 gives the product of the conditional measures `μ[|B]`, scaled by `μ(B)` to the number of factors.
+
+The product of copies of a multiple `s • ν` is `s ^ card ι` times the product of copies of `ν`, and
+the product of copies of a finite mixture `∑ k, w k • R k` is the mixture of the products
+`Measure.pi (fun i ↦ R (e i))` over the assignments `e : ι → κ`, with weights `∏ i, w (e i)`.
 
 Under a product of probability measures, a measurable set whose lines along one coordinate `i`
 all have `μ i`-measure at most `c` has product measure at most `c`, by resampling the coordinate
@@ -30,6 +34,11 @@ all have `μ i`-measure at most `c` has product measure at most `c`, by resampli
   `(Measure.pi μ).map (fun y ↦ f fun i ↦ X i (y i)) = (Measure.pi fun i ↦ (μ i).map (X i)).map f`.
 * `MeasureTheory.Measure.pi_restrict_eq_pow_smul_pi_cond`:
   `Measure.pi (fun _ ↦ μ.restrict B) = μ B ^ card ι • Measure.pi (fun _ ↦ μ[|B])`.
+* `MeasureTheory.Measure.pi_const_smul`:
+  `Measure.pi (fun _ ↦ s • ν) = s ^ card ι • Measure.pi (fun _ ↦ ν)`.
+* `MeasureTheory.Measure.pi_sum_smul`, `MeasureTheory.Measure.lintegral_pi_sum_smul`:
+  `Measure.pi (fun _ ↦ ∑ k, w k • R k) = ∑ e, (∏ i, w (e i)) • Measure.pi (fun i ↦ R (e i))`, and
+  the corresponding expansion of integrals.
 * `MeasureTheory.Measure.pi_eval_preimage_le`: for measures of mass at most `1`, the product
   measure of the cylinder `{y | y i ∈ s}` is at most `μ i s`, for every set `s`.
 * `MeasureTheory.Measure.pi_le_of_forall_measure_update_preimage_le`: under a product of
@@ -39,7 +48,7 @@ all have `μ i`-measure at most `c` has product measure at most `c`, by resampli
 
 public section
 
-open scoped ENNReal
+open scoped ENNReal NNReal
 
 namespace MeasureTheory.Measure
 
@@ -73,6 +82,36 @@ lemma pi_restrict_eq_pow_smul_pi_cond {α : Type*} {mα : MeasurableSpace α} {�
   refine Finset.prod_congr rfl fun i _ ↦ ?_
   rw [cond_apply' (hs i), Measure.restrict_apply (hs i), ← mul_assoc,
     ENNReal.mul_inv_cancel hB0 hB, one_mul, Set.inter_comm]
+
+/-- The product of copies of a multiple `s • ν` of a σ-finite measure is `s ^ card ι` times the
+product of copies of `ν`. -/
+lemma pi_const_smul {α : Type*} {mα : MeasurableSpace α} (ν : Measure α) [SigmaFinite ν]
+    (s : ℝ≥0) :
+    Measure.pi (fun _ : ι ↦ s • ν) = s ^ Fintype.card ι • Measure.pi (fun _ : ι ↦ ν) := by
+  refine Measure.pi_eq fun A hA ↦ ?_
+  simp only [smul_apply, Measure.pi_pi, Finset.prod_mul_distrib, Finset.prod_const,
+    Finset.card_univ, ENNReal.smul_def, smul_eq_mul, ENNReal.coe_pow]
+
+/-- **Product of copies of a mixture.** The product of copies of a finite mixture
+`∑ k, w k • R k` of finite measures is the mixture of the products `Measure.pi (fun i ↦ R (e i))`
+over the assignments `e : ι → κ`, with weights `∏ i, w (e i)`. -/
+lemma pi_sum_smul [DecidableEq ι] {α κ : Type*} {mα : MeasurableSpace α} [Fintype κ]
+    {R : κ → Measure α} [∀ k, IsFiniteMeasure (R k)] (w : κ → ℝ≥0) :
+    Measure.pi (fun _ : ι ↦ ∑ k, w k • R k) =
+      ∑ e : ι → κ, (∏ i, (w (e i) : ℝ≥0∞)) • Measure.pi (fun i ↦ R (e i)) := by
+  refine Measure.pi_eq fun A hA ↦ ?_
+  simp only [sum_apply, smul_apply, Measure.pi_pi, smul_eq_mul, Measure.nnreal_smul_coe_apply,
+    Fintype.prod_sum, Finset.prod_mul_distrib]
+
+/-- The integral under the product of copies of a finite mixture `∑ k, w k • R k` of finite
+measures is a polynomial in the weights: the sum over the assignments `e : ι → κ` of
+`∏ i, w (e i)` times the integral under `Measure.pi (fun i ↦ R (e i))`. -/
+lemma lintegral_pi_sum_smul [DecidableEq ι] {α κ : Type*} {mα : MeasurableSpace α} [Fintype κ]
+    {R : κ → Measure α} [∀ k, IsFiniteMeasure (R k)] (w : κ → ℝ≥0) (F : (ι → α) → ℝ≥0∞) :
+    ∫⁻ x, F x ∂Measure.pi (fun _ : ι ↦ ∑ k, w k • R k) =
+      ∑ e : ι → κ, (∏ i, (w (e i) : ℝ≥0∞)) * ∫⁻ x, F x ∂Measure.pi (fun i ↦ R (e i)) := by
+  rw [pi_sum_smul]
+  simp only [lintegral_finsetSum_measure, lintegral_smul_measure, smul_eq_mul]
 
 /-- For measures of mass at most `1`, the product measure of the cylinder `eval i ⁻¹' s` of a set
 `s`, measurable or not, is at most `μ i s`. -/
