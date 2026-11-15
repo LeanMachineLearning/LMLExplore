@@ -74,6 +74,9 @@ with a strongly convex potential exist on closed sets that need not be bounded.
   follow the regularized leader and mirror descent.
 * `LMLExplore.apply_sub_sub_mul_norm_sq_le`: its quadratic case
   `g (a - b) - lam / 2 * ‖a - b‖ ^ 2 ≤ ‖g‖ ^ 2 / (2 lam)` for `lam > 0`.
+* `LMLExplore.apply_sub_sub_mul_norm_sq_le_mul_min`: [Ora, Lemma 6.40] its refinement for short
+  steps, `g (a - b) - lam / 2 * ‖a - b‖ ^ 2 ≤ ‖g‖ * min ‖g‖ (2 c) / (2 lam)` when
+  `lam * ‖a - b‖ ≤ c`.
 
 ## References
 
@@ -451,5 +454,23 @@ lemma apply_sub_sub_mul_norm_sq_le {lam : ℝ} (hlam : 0 < lam) (g : E →L[ℝ]
   have h := apply_sub_sub_div_le_of_mul_norm_sq_le hlam one_pos g
     (le_of_eq (by rw [norm_sub_rev]) : lam / 2 * ‖b - a‖ ^ 2 ≤ lam / 2 * ‖a - b‖ ^ 2)
   rwa [div_one, one_div_mul_eq_div] at h
+
+/-- **The quadratic stability bound for short steps** [Ora, Lemma 6.40]. For `lam > 0` and a
+continuous linear functional `g`, if `lam * ‖a - b‖ ≤ c`, then
+`g (a - b) - lam / 2 * ‖a - b‖ ^ 2 ≤ ‖g‖ * min ‖g‖ (2 c) / (2 lam)`, where `‖g‖` is the dual norm.
+The bound `‖g‖ ^ 2 / (2 lam)` of `apply_sub_sub_mul_norm_sq_le` is the first term of the minimum;
+the second one is small when the step `a - b` is. [Ora] states the supremum over the steps of
+length at most `c / lam`, of which this is the upper bound. -/
+lemma apply_sub_sub_mul_norm_sq_le_mul_min {lam c : ℝ} (hlam : 0 < lam) (g : E →L[ℝ] ℝ)
+    {a b : E} (h : lam * ‖a - b‖ ≤ c) :
+    g (a - b) - lam / 2 * ‖a - b‖ ^ 2 ≤ ‖g‖ * min ‖g‖ (2 * c) / (2 * lam) := by
+  rw [mul_min_of_nonneg _ _ (norm_nonneg g), ← min_div_div_right (by positivity), le_min_iff,
+    ← sq]
+  refine ⟨apply_sub_sub_mul_norm_sq_le hlam g a b, ?_⟩
+  -- `g (a - b) ≤ ‖g‖ * ‖a - b‖ ≤ ‖g‖ * c / lam`, and the quadratic term is nonpositive
+  have h_op := g.apply_le_opNorm_mul_norm (a - b)
+  have h_c := mul_le_mul_of_nonneg_left h (norm_nonneg g)
+  rw [le_div_iff₀ (by positivity)]
+  nlinarith [sq_nonneg (lam * ‖a - b‖)]
 
 end LMLExplore
