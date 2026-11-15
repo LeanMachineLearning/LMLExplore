@@ -5,7 +5,8 @@ Authors: LMLExplore contributors
 -/
 module
 
-public import LMLExplore.Analysis.Convex.Strong
+public import LMLExplore.Analysis.Convex.FDeriv
+public import LMLExplore.Analysis.Normed.Operator.Basic
 public import Mathlib.Analysis.InnerProductSpace.PiL2
 public import TauCeti.Analysis.Convex.SubgradientImage
 
@@ -14,16 +15,15 @@ public import TauCeti.Analysis.Convex.SubgradientImage
 
 This file relates the subgradients within a set of LML's `HasSubgradientWithinAt` to convexity
 and to Lipschitz continuity, for real functions on a real normed space `E` with subgradients in
-the dual `E →L[ℝ] ℝ` [Ora, Theorems 2.21, 2.30 and 4.21, Lemma 4.20]:
+the dual `E →L[ℝ] ℝ` [Ora, Theorems 2.30 and 4.21, Lemma 4.20]:
 
-* a function that has a subgradient within a convex set `s` at every point of `s` is convex on
-  `s`;
 * for a function convex on `s`, a subgradient within a neighbourhood of `x` in `s` is a
   subgradient within all of `s`: convexity turns the local supporting inequality into a global
   one;
 * in finite dimension, a function convex on `s` has a subgradient within `s` at every interior
   point of `s`, so on an open convex set convexity is the existence of subgradients at every
-  point;
+  point (the converse direction is `Convex.convexOn_of_hasSubgradientWithinAt`, [Ora, Theorem
+  2.21]);
 * a function `L`-Lipschitz on a neighbourhood of `x` has only subgradients of dual norm at most
   `L` at `x`, and conversely a function with a subgradient of dual norm at most `L` at every
   point of `s` is `L`-Lipschitz on `s`. On an open set where subgradients exist, `L`-Lipschitz
@@ -38,7 +38,6 @@ a continuous linear equivalence with a Euclidean space.
 
 ## Main statements
 
-* `Convex.convexOn_of_forall_exists_hasSubgradientWithinAt`: convexity from subgradients.
 * `ConvexOn.hasSubgradientWithinAt_of_mem_nhdsWithin`: local subgradients of a convex function
   are global.
 * `ConvexOn.exists_hasSubgradientWithinAt_of_mem_interior`: in finite dimension, a convex function
@@ -55,7 +54,7 @@ a continuous linear equivalence with a Euclidean space.
 ## References
 
 * [Ora] F. Orabona, *Online Learning: A Modern Introduction Using Convex Optimization*,
-  arXiv:1912.13213v10, Theorems 2.21, 2.30 and 4.21, Lemma 4.20.
+  arXiv:1912.13213v10, Theorems 2.30 and 4.21, Lemma 4.20.
 -/
 
 public section
@@ -65,19 +64,6 @@ open scoped NNReal Topology
 
 variable {E : Type*} [NormedAddCommGroup E] [NormedSpace ℝ E] {s t : Set E} {f : E → ℝ}
   {g : E →L[ℝ] ℝ} {x : E} {L : ℝ≥0}
-
-namespace Convex
-
-/-- **Convexity from subgradients.** A function with a subgradient within a convex set `s` at
-every point of `s` is convex on `s`. -/
-theorem convexOn_of_forall_exists_hasSubgradientWithinAt (hs : Convex ℝ s)
-    (h : ∀ x ∈ s, ∃ g : E →L[ℝ] ℝ, HasSubgradientWithinAt f g s x) : ConvexOn ℝ s f := by
-  rw [← strongConvexOn_zero]
-  refine hs.strongConvexOn_of_forall_exists_add_add_le fun x hx ↦ ?_
-  obtain ⟨g, hg⟩ := h x hx
-  exact ⟨g, fun y hy ↦ by simpa using hasSubgradientWithinAt_iff_le.1 hg y hy⟩
-
-end Convex
 
 namespace ConvexOn
 
@@ -135,7 +121,7 @@ theorem Convex.convexOn_iff_forall_exists_hasSubgradientWithinAt [FiniteDimensio
     (hs : Convex ℝ s) (hs' : IsOpen s) :
     ConvexOn ℝ s f ↔ ∀ x ∈ s, ∃ g : E →L[ℝ] ℝ, HasSubgradientWithinAt f g s x :=
   ⟨fun hf _ hx ↦ hf.exists_hasSubgradientWithinAt_of_mem_interior (by rwa [hs'.interior_eq]),
-    hs.convexOn_of_forall_exists_hasSubgradientWithinAt⟩
+    hs.convexOn_of_hasSubgradientWithinAt⟩
 
 /-- **The subgradients of a Lipschitz function are bounded**. If `f` is
 `L`-Lipschitz on a neighbourhood `s` of `x`, then every subgradient of `f` within `s` at `x` has
