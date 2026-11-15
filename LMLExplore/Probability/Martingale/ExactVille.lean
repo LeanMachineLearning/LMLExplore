@@ -7,7 +7,7 @@ module
 
 public import LMLExplore.Probability.Martingale.Centering
 public import LMLExplore.Probability.Martingale.OptionalStopping
-public import Mathlib.Probability.Process.HittingTime
+public import LMLExplore.Probability.Process.HittingTime
 
 /-!
 # The exact Ville identity
@@ -180,11 +180,6 @@ private theorem isStoppingTime_hittingAfter_Ici (hM : IsENNSupermartingale M ℱ
     IsStoppingTime ℱ (hittingAfter M (Ici b) m) :=
   hM.adapted.isStoppingTime_hittingAfter measurableSet_Ici
 
-/-- A hitting time after `m` is at least `m`, at the cast `(m : WithTop ℕ)`. -/
-private theorem natCast_le_hittingAfter (t : Set ℝ≥0∞) (ω : Ω) :
-    (m : WithTop ℕ) ≤ hittingAfter M t m ω := by
-  simpa using le_hittingAfter (u := M) (s := t) (n := m) ω
-
 /-- On a set where the hitting time `T` of `[b, ∞]` is finite, `M` at `T` is `b` plus the
 overshoot `M T - b`. -/
 private theorem setLIntegral_stoppedValueLimsup_hittingAfter (b : ℝ≥0∞) {t : Set Ω}
@@ -218,7 +213,7 @@ theorem setLIntegral_eq_exact_ville_horizon (hM : IsENNSupermartingale M ℱ S) 
         (fun ω ↦ min (hittingAfter M (Ici b) m ω) N) ω ∂P +
       ∫⁻ ω in s ∩ {ω | (N : WithTop ℕ) < hittingAfter M (Ici b) m ω}, M N ω ∂P := by
   have hT := hM.isStoppingTime_hittingAfter_Ici (m := m) b
-  rw [hM.setLIntegral_eq_add_stoppedValueLimsup_min hP h0 hT (natCast_le_hittingAfter (Ici b))
+  rw [hM.setLIntegral_eq_add_stoppedValueLimsup_min hP h0 hT (natCast_le_hittingAfter)
     hmN hs,
     setLIntegral_stoppedValueLimsup_hittingAfter b
       ((ℱ.le m _ hs).inter (ℱ.le N _ (hT.measurableSet_le_natCast N)))
@@ -313,7 +308,7 @@ theorem setLIntegral_eq_exact_ville (hM : IsENNSupermartingale M ℱ S) (hP : P 
   have hT := hM.isStoppingTime_hittingAfter_Ici (m := m) b
   have hTtop : MeasurableSet {ω | hittingAfter M (Ici b) m ω ≠ ⊤} := by
     exact (hT.measurable' (measurableSet_singleton ⊤)).compl
-  rw [hM.setLIntegral_eq_add_stoppedValueLimsup_add_iInf hP h0 hT (natCast_le_hittingAfter (Ici b))
+  rw [hM.setLIntegral_eq_add_stoppedValueLimsup_add_iInf hP h0 hT (natCast_le_hittingAfter)
       hs,
     setLIntegral_stoppedValueLimsup_hittingAfter b ((ℱ.le m _ hs).inter hTtop)
       inter_subset_right]
@@ -365,51 +360,6 @@ private theorem mul_measure_inter_exists_le_le (hM : IsENNSupermartingale M ℱ 
   rw [hset, hM.setLIntegral_eq_exact_ville hP h0 b hs, add_assoc, add_assoc]
   exact le_self_add
 
-/-- Ville's maximal inequality from time `m` on an `ℱ m`-measurable set `u` on which `M m ≤ c`,
-for every `ℝ≥0∞`-valued supermartingale under a finite measure, with no integrability condition:
-the process equal to `c` before time `m` and to `M` on `u` from time `m` on has finite initial
-expectation. -/
-private theorem mul_measure_inter_exists_le_le_of_le (hM : IsENNSupermartingale M ℱ S)
-    (hP : P ∈ S) [IsFiniteMeasure P] {c : ℝ≥0∞} (hc : c ≠ ∞) {u : Set Ω}
-    (hu : MeasurableSet[ℱ m] u) (hMu : ∀ ω ∈ u, M m ω ≤ c) :
-    c * P (u ∩ {ω | ∃ n ≥ m, c ≤ M n ω}) ≤ ∫⁻ ω in u, M m ω ∂P := by
-  set M' : ℕ → Ω → ℝ≥0∞ := fun n ↦ if n < m then fun _ ↦ c else u.indicator (M n)
-  have hM'_le (n : ℕ) (hn : n ≤ m) (ω : Ω) : M' n ω ≤ c := by
-    rcases hn.lt_or_eq with hn | rfl
-    · simp [M', hn]
-    · by_cases hω : ω ∈ u
-      · simpa [M', indicator_of_mem hω] using hMu ω hω
-      · simp [M', indicator_of_notMem hω]
-  have hM' : IsENNSupermartingale M' ℱ {P} := by
-    refine ⟨fun n ↦ ?_, fun Q hQ n v hv ↦ ?_⟩
-    · by_cases hn : n < m
-      · simp [M', hn]
-      · simpa [M', hn] using (hM.adapted n).indicator (ℱ.mono (not_lt.1 hn) _ hu)
-    rw [mem_singleton_iff] at hQ
-    subst hQ
-    by_cases hnm : n < m
-    · calc ∫⁻ ω in v, M' (n + 1) ω ∂Q ≤ ∫⁻ ω in v, c ∂Q :=
-            lintegral_mono fun ω ↦ hM'_le (n + 1) hnm ω
-        _ = ∫⁻ ω in v, M' n ω ∂Q := by simp [M', hnm]
-    · have hn : ¬n + 1 < m := by omega
-      simp only [M', hn, hnm, ite_false]
-      rw [setLIntegral_indicator (ℱ.le m _ hu), setLIntegral_indicator (ℱ.le m _ hu)]
-      exact hM.setLIntegral_succ_le Q hP n _ ((ℱ.mono (not_lt.1 hnm) _ hu).inter hv)
-  have h0' : ∫⁻ ω, M' 0 ω ∂P ≠ ∞ := by
-    refine ((lintegral_mono (hM'_le 0 m.zero_le)).trans_lt ?_).ne
-    rw [lintegral_const]
-    exact ENNReal.mul_lt_top hc.lt_top (measure_lt_top P univ)
-  -- On `u`, `M'` agrees with `M` from time `m` on.
-  have hE : u ∩ {ω | ∃ n ≥ m, c ≤ M' n ω} = u ∩ {ω | ∃ n ≥ m, c ≤ M n ω} := by
-    ext ω
-    simp only [mem_inter_iff, mem_ofPred_eq]
-    refine and_congr_right fun hω ↦ exists_congr fun n ↦ and_congr_right fun hn ↦ ?_
-    simp [M', not_lt.2 hn, indicator_of_mem hω]
-  have hM'm : ∫⁻ ω in u, M' m ω ∂P = ∫⁻ ω in u, M m ω ∂P := by
-    simp only [M', lt_irrefl, ite_false]
-    rw [setLIntegral_indicator (ℱ.le m _ hu), inter_self]
-  simpa only [hE, hM'm] using hM'.mul_measure_inter_exists_le_le (mem_singleton P) h0' c hu
-
 /-- **The extended Ville inequality** [WR23, Theorem 4.1]. For every `ℝ≥0∞`-valued
 supermartingale under a finite measure, with no integrability condition, every time `m`, every
 `ℱ m`-measurable set `s` and every level `0 < c < ∞`,
@@ -417,27 +367,16 @@ supermartingale under a finite measure, with no integrability condition, every t
 theorem measure_inter_exists_le_le (hM : IsENNSupermartingale M ℱ S) (hP : P ∈ S)
     [IsFiniteMeasure P] {c : ℝ≥0∞} (hc0 : c ≠ 0) (hc : c ≠ ∞) (hs : MeasurableSet[ℱ m] s) :
     P (s ∩ {ω | ∃ n ≥ m, c ≤ M n ω}) ≤ (∫⁻ ω in s, min (M m ω) c ∂P) / c := by
+  -- `M` capped at `c` is a supermartingale with finite initial expectation reaching `c` exactly
+  -- when `M` does.
+  have hMc := hM.inf (M := M) (N := fun _ _ ↦ c) ⟨fun _ ↦ measurable_const, fun _ _ _ _ _ ↦ le_rfl⟩
+  have h0 : ∫⁻ ω, (M ⊓ fun _ _ ↦ c) 0 ω ∂P ≠ ∞ := by
+    refine ((lintegral_mono fun ω ↦ inf_le_right).trans_lt ?_).ne
+    rw [lintegral_const]
+    exact ENNReal.mul_lt_top hc.lt_top (measure_lt_top P univ)
   rw [ENNReal.le_div_iff_mul_le (.inl hc0) (.inl hc), mul_comm]
-  set E := {ω | ∃ n ≥ m, c ≤ M n ω}
-  set t := {ω | M m ω < c}
-  have ht : MeasurableSet[ℱ m] t := measurableSet_lt (hM.adapted m) measurable_const
-  have hmax := hM.mul_measure_inter_exists_le_le_of_le hP hc (hs.inter ht) fun ω hω ↦ hω.2.le
-  -- On `s \ t`, `c ≤ M m`, so that the event holds at time `m` and `min (M m) c = c`.
-  have hs' : MeasurableSet s := ℱ.le m _ hs
-  have ht' : MeasurableSet t := ℱ.le m _ ht
-  calc c * P (s ∩ E) ≤ c * (P (s ∩ t ∩ E) + P (s \ t)) := by
-        refine mul_le_mul_right ((measure_mono fun ω hω ↦ ?_).trans (measure_union_le _ _)) c
-        by_cases h : ω ∈ t
-        · exact Or.inl ⟨⟨hω.1, h⟩, hω.2⟩
-        · exact Or.inr ⟨hω.1, h⟩
-    _ = c * P (s ∩ t ∩ E) + ∫⁻ ω in s \ t, c ∂P := by rw [mul_add, setLIntegral_const, mul_comm]
-    _ ≤ ∫⁻ ω in s ∩ t, M m ω ∂P + ∫⁻ ω in s \ t, c ∂P := by gcongr
-    _ = ∫⁻ ω in s ∩ t, min (M m ω) c ∂P + ∫⁻ ω in s \ t, min (M m ω) c ∂P := by
-        congr 1
-        · exact setLIntegral_congr_fun (hs'.inter ht') fun ω hω ↦ (min_eq_left hω.2.le).symm
-        · exact setLIntegral_congr_fun (hs'.diff ht') fun ω hω ↦
-            (min_eq_right (not_lt.1 hω.2)).symm
-    _ = ∫⁻ ω in s, min (M m ω) c ∂P := lintegral_inter_add_sdiff _ s ht'
+  simpa only [Pi.inf_apply, le_inf_iff, le_refl, and_true] using
+    hMc.mul_measure_inter_exists_le_le hP h0 c hs
 
 /-- **Ville's inequality** [Vil39; RW, Fact 7.6]. For every `ℝ≥0∞`-valued supermartingale under a
 finite measure, with no integrability condition, and every level `0 < c < ∞`, the probability
