@@ -250,26 +250,6 @@ private theorem tendsto_setLIntegral_natCast_lt (hM : IsENNSupermartingale M ℱ
   refine tendsto_atTop_iInf (antitone_nat_of_succ_le fun k ↦ ?_)
   simpa [add_right_comm] using hr_succ (k + m) (Nat.le_add_left m k)
 
-/-- The integrals of `f` over `s ∩ {T ≤ N}` increase to its integral over `s ∩ {T ≠ ⊤}`. -/
-private theorem tendsto_setLIntegral_inter_le_natCast {T : Ω → WithTop ℕ} (f : Ω → ℝ≥0∞)
-    (hs : MeasurableSet s) (hT : Measurable T) :
-    Tendsto (fun N : ℕ ↦ ∫⁻ ω in s ∩ {ω | T ω ≤ N}, f ω ∂P) atTop
-      (𝓝 (∫⁻ ω in s ∩ {ω | T ω ≠ ⊤}, f ω ∂P)) := by
-  have hmeas (N : ℕ) : MeasurableSet (s ∩ {ω | T ω ≤ N}) := hs.inter (hT measurableSet_Iic)
-  have hU : ⋃ N : ℕ, s ∩ {ω | T ω ≤ N} = s ∩ {ω | T ω ≠ ⊤} := by
-    rw [← inter_iUnion]
-    congr 1
-    ext ω
-    simp only [mem_iUnion, mem_ofPred_eq]
-    refine ⟨fun ⟨N, hN⟩ ↦ ne_top_of_le_ne_top (WithTop.natCast_ne_top N) hN, fun h ↦ ?_⟩
-    obtain ⟨t, ht⟩ := WithTop.ne_top_iff_exists.1 h
-    exact ⟨t, by simp [← ht]⟩
-  -- The set integrals of `f` are the measures of the sets under `P.withDensity f`.
-  simp_rw [← withDensity_apply _ (hmeas _)]
-  rw [← withDensity_apply _ (hU ▸ MeasurableSet.iUnion hmeas), ← hU]
-  exact tendsto_measure_iUnion_atTop fun N N' h ↦
-    inter_subset_inter_right _ fun ω (hω : T ω ≤ N) ↦ hω.trans (by exact_mod_cast h)
-
 /-- Letting the horizon tend to infinity: for a stopping time `T ≥ m`, the integral of `M m` over
 `s` is that of `M` at `T` over `s ∩ {T ≠ ⊤}`, plus the decrease up to `T`, plus the limit of the
 remainders. -/
@@ -283,7 +263,7 @@ private theorem setLIntegral_eq_add_add_iInf (hM : IsENNSupermartingale M ℱ S)
       ⨅ N ≥ m, ∫⁻ ω in s ∩ {ω | (N : WithTop ℕ) < T ω}, M N ω ∂P := by
   set A := predictablePart (fun n ω ↦ (M n ω).toReal) ℱ P
   set D : ℕ → Ω → ℝ≥0∞ := fun n ω ↦ ENNReal.ofReal (A m ω - A n ω)
-  have ha := tendsto_setLIntegral_inter_le_natCast (P := P) (stoppedValueLimsup M T)
+  have ha := tendsto_setLIntegral_inter_le_natCast (μ := P) (stoppedValueLimsup M T)
     (ℱ.le m _ hs) hT.measurable'
   -- The decrease process is almost surely nondecreasing, and its values at `min T N` increase to
   -- its value at `T`.

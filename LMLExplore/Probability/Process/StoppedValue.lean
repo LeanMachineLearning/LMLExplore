@@ -38,6 +38,8 @@ optional stopping holds at every stopping time with this convention.
 * `MeasureTheory.tendsto_lintegral_stoppedValueLimsup_min`: for an almost everywhere nondecreasing
   `ℝ≥0∞`-valued process, the integrals at the truncated times `min τ N` converge to the integral
   at `τ`.
+* `MeasureTheory.tendsto_setLIntegral_inter_le_natCast`: the integrals of a function over
+  `s ∩ {τ ≤ N}` increase to its integral over `s ∩ {τ ≠ ⊤}`.
 
 ## References
 
@@ -161,5 +163,25 @@ theorem tendsto_lintegral_stoppedValueLimsup_min {mΩ : MeasurableSpace Ω} {μ 
     refine tendsto_stoppedValueLimsup_min ?_
     rw [(tendsto_atTop_iSup hω).limsup_eq]
     exact tendsto_atTop_iSup hω
+
+/-- The integrals of `f` over `s ∩ {τ ≤ N}` increase to its integral over `s ∩ {τ ≠ ⊤}`. -/
+theorem tendsto_setLIntegral_inter_le_natCast {mΩ : MeasurableSpace Ω} {μ : Measure Ω}
+    {s : Set Ω} (f : Ω → ℝ≥0∞) (hs : MeasurableSet s) (hτ : Measurable τ) :
+    Tendsto (fun N : ℕ ↦ ∫⁻ ω in s ∩ {ω | τ ω ≤ N}, f ω ∂μ) atTop
+      (𝓝 (∫⁻ ω in s ∩ {ω | τ ω ≠ ⊤}, f ω ∂μ)) := by
+  have hmeas (N : ℕ) : MeasurableSet (s ∩ {ω | τ ω ≤ N}) := hs.inter (hτ measurableSet_Iic)
+  have hU : ⋃ N : ℕ, s ∩ {ω | τ ω ≤ N} = s ∩ {ω | τ ω ≠ ⊤} := by
+    rw [← Set.inter_iUnion]
+    congr 1
+    ext ω
+    simp only [Set.mem_iUnion, Set.mem_ofPred_eq]
+    refine ⟨fun ⟨N, hN⟩ ↦ ne_top_of_le_ne_top (WithTop.natCast_ne_top N) hN, fun h ↦ ?_⟩
+    obtain ⟨t, ht⟩ := WithTop.ne_top_iff_exists.1 h
+    exact ⟨t, by simp [← ht]⟩
+  -- The set integrals of `f` are the measures of the sets under `μ.withDensity f`.
+  simp_rw [← withDensity_apply _ (hmeas _)]
+  rw [← withDensity_apply _ (hU ▸ MeasurableSet.iUnion hmeas), ← hU]
+  exact tendsto_measure_iUnion_atTop fun N N' h ↦
+    Set.inter_subset_inter_right _ fun ω (hω : τ ω ≤ N) ↦ hω.trans (by exact_mod_cast h)
 
 end MeasureTheory
