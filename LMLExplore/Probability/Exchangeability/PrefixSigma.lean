@@ -49,8 +49,9 @@ variable {α : Type*} [MeasurableSpace α]
 under the swaps of the coordinates `0` and `i ≤ n`. -/
 theorem measurableSet_prefixExchangeableSigma_iff {n : ℕ} {s : Set (ℕ → α)} :
     MeasurableSet[prefixExchangeableSigma α n] s ↔
-      ∀ i ≤ n, MeasurableSet s ∧ permReindex (Equiv.swap 0 i) ⁻¹' s = s := by
+      MeasurableSet s ∧ ∀ i ≤ n, permReindex (Equiv.swap 0 i) ⁻¹' s = s := by
   simp only [MeasurableSpace.measurableSet_iInf, MeasurableSpace.measurableSet_invariants]
+  exact ⟨fun h ↦ ⟨(h 0 n.zero_le).1, fun i hi ↦ (h i hi).2⟩, fun h i hi ↦ ⟨h.1, h.2 i hi⟩⟩
 
 variable (α) in
 /-- Fewer events are symmetric in more coordinates. -/

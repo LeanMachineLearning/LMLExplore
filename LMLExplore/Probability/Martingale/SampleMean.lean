@@ -125,9 +125,7 @@ theorem sampleMean_permReindex_swap {n i : ℕ} (hi : i ≤ n) (ω : ℕ → ℝ
 theorem measurable_prefixExchangeableSigma_sampleMean (n : ℕ) :
     Measurable[prefixExchangeableSigma ℝ n] (sampleMean n) := by
   intro t ht
-  rw [measurableSet_prefixExchangeableSigma_iff]
-  intro i hi
-  refine ⟨measurable_sampleMean n ht, ?_⟩
+  refine measurableSet_prefixExchangeableSigma_iff.2 ⟨measurable_sampleMean n ht, fun i hi ↦ ?_⟩
   ext ω
   simp only [Set.mem_preimage, sampleMean_permReindex_swap hi]
 
@@ -145,7 +143,7 @@ theorem setIntegral_sampleMean_eq (hμ : ExchangeableLaw μ) (hint : Integrable 
   rw [measurableSet_prefixExchangeableSigma_iff] at hs
   have h (i : ℕ) (hi : i ∈ Finset.range (m + 1)) : ∫ ω in s, ω i ∂μ = ∫ ω in s, ω 0 ∂μ :=
     hμ.setIntegral_comp_eval_eq_of_preimage_eq (fun x ↦ x)
-      (hs i ((Nat.lt_succ_iff.1 (Finset.mem_range.1 hi)).trans hmn)).2
+      (hs.2 i ((Nat.lt_succ_iff.1 (Finset.mem_range.1 hi)).trans hmn))
   have hint' (i : ℕ) : Integrable (fun ω : ℕ → ℝ ↦ ω i) (μ.restrict s) :=
     (hμ.integrable_comp_eval (f := fun x ↦ x) hint i).restrict
   simp only [sampleMean, integral_div, integral_finsetSum _ fun i _ ↦ hint' i,
