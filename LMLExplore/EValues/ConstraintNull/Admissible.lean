@@ -7,8 +7,7 @@ module
 
 public import LMLExplore.EValues.Admissible
 public import LMLExplore.EValues.ConstraintNull.CompleteClass
-import Mathlib.LinearAlgebra.FiniteDimensional.Lemmas
-import Mathlib.Topology.Algebra.Module.FiniteDimension
+import LMLExplore.LinearAlgebra.FiniteDimensional.Lemmas
 
 /-!
 # Admissible e-variables for finitely many constraints
@@ -40,12 +39,6 @@ that detect the combinations vanishing on `Y` gives an admissible bet.
 
 ## Main statements
 
-* `ProbabilityTheory.isCompact_nonredundantWeights_inter_nonneg`: without arbitrage on `Y`, the
-  nonredundant weights `π` with `1 + ∑ i, π i * a i` nonnegative on `Y` form a compact set
-  [LRR26, Lemma 7.2].
-* `ProbabilityTheory.forall_ae_iff_of_noArbitrageOn`: on a set without arbitrage that carries the
-  null, a property holds almost surely under every member of the null exactly when it holds on
-  the set.
 * `ProbabilityTheory.IsAdmissibleEVar.exists_mem_constraintBets_ae_eq`: every admissible
   e-variable is a bet [LRR26, Corollary 3.3].
 * `ProbabilityTheory.isAdmissibleEVar_ofReal_one_add_iff`: a bet is admissible exactly when no
@@ -69,76 +62,8 @@ open scoped ENNReal NNReal
 
 namespace ProbabilityTheory
 
-variable {𝓧 ι : Type*} [Fintype ι] {a : ι → 𝓧 → ℝ} {Y : Set 𝓧}
-
-/-! ### The nonredundant weights of the bets -/
-
-/-- Finitely many points of `Y` detect the combinations of the functions `a i` that vanish on
-`Y`. -/
-theorem exists_finset_forall_sum_mul_eq_zero (a : ι → 𝓧 → ℝ) (Y : Set 𝓧) :
-    ∃ F : Finset 𝓧, ↑F ⊆ Y ∧ ∀ ρ : ι → ℝ, (∀ x ∈ F, ∑ i, ρ i * a i x = 0) →
-      ∀ x ∈ Y, ∑ i, ρ i * a i x = 0 := by
-  classical
-  set v : 𝓧 → ι → ℝ := fun x i ↦ a i x
-  obtain ⟨b, hbY, hspan, hli⟩ := exists_linearIndependent ℝ (v '' Y)
-  have hbfin : b.Finite := hli.set_finite_of_isNoetherian
-  obtain ⟨F, hFY, hFb⟩ := Finset.subset_set_image_iff.1
-    (show ↑hbfin.toFinset ⊆ v '' Y by simpa using hbY)
-  refine ⟨F, hFY, fun ρ hρ x hx ↦ ?_⟩
-  let ℓ : (ι → ℝ) →ₗ[ℝ] ℝ := Fintype.linearCombination ℝ ρ
-  have hℓ : ∀ y, ℓ (v y) = ∑ i, ρ i * a i y := fun y ↦ by
-    simp [ℓ, Fintype.linearCombination_apply, v, mul_comm]
-  have hb : b ⊆ LinearMap.ker ℓ := by
-    intro w hw
-    have : w ∈ F.image v := by simpa [hFb] using hw
-    obtain ⟨y, hy, rfl⟩ := Finset.mem_image.1 this
-    simp [LinearMap.mem_ker, hℓ, hρ y hy]
-  have h1 : v x ∈ Submodule.span ℝ b := hspan ▸ Submodule.subset_span ⟨x, hx, rfl⟩
-  have := Submodule.span_le.2 hb h1
-  simpa [LinearMap.mem_ker, hℓ] using this
-
-/-- Without arbitrage on `Y`, the nonredundant weights `π` for which `1 + ∑ i, π i * a i` is
-nonnegative on `Y` form a compact set [LRR26, Lemma 7.2]. -/
-theorem isCompact_nonredundantWeights_inter_nonneg (h : NoArbitrageOn a Y) :
-    IsCompact (nonredundantWeights a Y ∩ {π | ∀ x ∈ Y, 0 ≤ 1 + ∑ i, π i * a i x}) := by
-  obtain ⟨F₀, hF₀, R, -, hbound⟩ := exists_finset_sum_le_of_noArbitrageOn h
-  refine isCompact_nonredundantWeights_inter ?_ (c := R * 1) fun π hπ ↦
-    hbound π hπ.1 1 zero_le_one fun x hx ↦ by linarith [hπ.2 x (hF₀ hx)]
-  simp only [ofPred_forall]
-  exact isClosed_biInter fun x _ ↦ isClosed_le continuous_const (by fun_prop)
-
-/-! ### Properties that hold under every member of the null -/
-
-variable [MeasurableSpace 𝓧] {g : ι → 𝓧 → ℝ} {E : 𝓧 → ℝ≥0∞} {π : ι → ℝ≥0}
-
-/-- Without arbitrage on `Y`, every point of `Y` is an atom of a member of the null. -/
-theorem exists_mem_constraintNull_measure_singleton_ne_zero (hg : ∀ i, Measurable (g i))
-    (hY : NoArbitrageOn g Y) {x₀ : 𝓧} (hx₀ : x₀ ∈ Y) :
-    ∃ μ ∈ constraintNull (range g), μ {x₀} ≠ 0 := by
-  obtain ⟨α, _, x, w, -, hw, hwg, k, hk, hwk⟩ := exists_charging_family_of_noArbitrageOn hY hx₀
-  rw [mem_simplex_iff] at hw
-  refine ⟨∑ k, ENNReal.ofReal (w k) • Measure.dirac (x k),
-    (sum_smul_dirac_mem_constraintNull_iff (forall_mem_range.2 hg) hw.1).2
-      ⟨hw.2, forall_mem_range.2 hwg⟩, fun h0 ↦ ?_⟩
-  have h1 : ENNReal.ofReal (w k) * Measure.dirac (x k) {x₀} ≤
-      (∑ k, ENNReal.ofReal (w k) • Measure.dirac (x k)) {x₀} := by
-    rw [sum_apply]
-    exact Finset.single_le_sum
-      (f := fun j ↦ (ENNReal.ofReal (w j) • Measure.dirac (x j)) {x₀}) (fun _ _ ↦ zero_le)
-      (Finset.mem_univ k)
-  rw [h0, hk, Measure.dirac_apply_of_mem (mem_singleton x₀), mul_one, nonpos_iff_eq_zero,
-    ENNReal.ofReal_eq_zero] at h1
-  exact hwk.not_ge h1
-
-/-- On a set `Y` without arbitrage that carries the null, a property holds almost surely under
-every member of the null exactly when it holds on `Y`. -/
-theorem forall_ae_iff_of_noArbitrageOn (hg : ∀ i, Measurable (g i)) (hY : NoArbitrageOn g Y)
-    (hYμ : ∀ μ ∈ constraintNull (range g), μ Yᶜ = 0) {p : 𝓧 → Prop} :
-    (∀ μ ∈ constraintNull (range g), ∀ᵐ x ∂μ, p x) ↔ ∀ x ∈ Y, p x := by
-  refine ⟨fun h x hx ↦ ?_, fun h μ hμ ↦ Filter.eventually_of_mem (mem_ae_iff.2 (hYμ μ hμ)) h⟩
-  by_contra hpx
-  obtain ⟨μ, hμ, hμx⟩ := exists_mem_constraintNull_measure_singleton_ne_zero hg hY hx
-  exact hμx (measure_mono_null (singleton_subset_iff.2 hpx) (ae_iff.1 (h μ hμ)))
+variable {𝓧 ι : Type*} [Fintype ι] [MeasurableSpace 𝓧] {g : ι → 𝓧 → ℝ} {E : 𝓧 → ℝ≥0∞}
+  {π : ι → ℝ≥0}
 
 /-! ### Admissible e-variables -/
 
@@ -246,7 +171,7 @@ theorem IsEVar.exists_mem_constraintBets_isAdmissibleEVar_ae_le (hg : ∀ i, Mea
     mem_constraintBets_iff.2 ((forall_ae_iff_of_noArbitrageOn hg hY hYμ).2 fun x hx ↦ by
       simpa only [hcoe] using hπ1 x hx)
   refine ⟨_, hbet, (isAdmissibleEVar_ofReal_one_add_iff hg hbet).2 fun π' hπ' hle ↦ ?_,
-    fun μ hμ ↦ Filter.eventually_of_mem (mem_ae_iff.2 (hYμ μ hμ)) fun x hx ↦ ?_⟩
+    (forall_ae_iff_of_noArbitrageOn hg hY hYμ).2 fun x hx ↦ ?_⟩
   · -- a bet that dominates on `Y` has, on `Y`, a combination with weights in `U`; by maximality
     -- the two combinations agree at the detecting points, hence on `Y`
     have hleY : ∀ x ∈ Y, ∑ i, π i * g i x ≤ ∑ i, (π' i : ℝ) * g i x := by
@@ -259,21 +184,10 @@ theorem IsEVar.exists_mem_constraintBets_isAdmissibleEVar_ae_le (hg : ∀ i, Mea
       (hleY x hx).trans_eq (hπ'' x hx).symm
     have hπ''U : π'' ∈ U := ⟨⟨hπ''K, fun x hx ↦ by rw [hπ'' x hx]; exact hπ'Y x hx⟩,
       fun x hx ↦ (hπ0 x hx).trans (h1 x hx)⟩
-    have h2 : ∑ x ∈ F, ∑ i, π'' i * g i x ≤ ∑ x ∈ F, ∑ i, π i * g i x := hπmax hπ''U
-    have hsum : ∑ x ∈ F, (∑ i, π'' i * g i x - ∑ i, π i * g i x) = 0 := by
-      refine le_antisymm ?_ (Finset.sum_nonneg fun x hx ↦ sub_nonneg.2 (h1 x (hFY hx)))
-      rw [Finset.sum_sub_distrib]
-      linarith
-    have h3 : ∀ x ∈ F, ∑ i, (π'' i - π i) * g i x = 0 := by
-      intro x hx
-      have := (Finset.sum_eq_zero_iff_of_nonneg
-        (fun y hy ↦ sub_nonneg.2 (h1 y (hFY hy)))).1 hsum x hx
-      simpa only [sub_mul, Finset.sum_sub_distrib] using this
+    have h2 := forall_sum_mul_eq_of_forall_le_of_sum_le hFY hF h1 (hπmax hπ''U)
     refine (forall_ae_iff_of_noArbitrageOn hg hY hYμ).2 fun x hx ↦ ?_
-    have h4 := hF _ h3 x hx
-    simp only [sub_mul, Finset.sum_sub_distrib, sub_eq_zero] at h4
     simp only [hcoe]
-    rw [← hπ'' x hx, h4]
+    rw [← hπ'' x hx, h2 x hx]
   · simp only [hcoe]
     rw [← ENNReal.ofReal_toReal (lt_top_of_isEVar_of_noArbitrageOn hg hY hE hx).ne]
     exact ENNReal.ofReal_le_ofReal ((hπ₀ x hx).trans (by linarith [hπ0 x hx]))
