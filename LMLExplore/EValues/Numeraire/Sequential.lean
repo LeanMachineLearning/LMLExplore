@@ -164,14 +164,6 @@ private lemma pi_singleton_eq_ofReal_piMass (μ : Measure α) [IsFiniteMeasure �
   rw [Measure.pi_singleton, piMass, ENNReal.ofReal_prod_of_nonneg fun _ _ ↦ measureReal_nonneg]
   simp
 
-omit [MeasurableSpace α] [MeasurableSingletonClass α] in
-/-- A sum over the samples of size `n` of a product is a power. -/
-private lemma sum_prod_eq_pow (f : α → ℝ) (n : ℕ) :
-    ∑ x : Fin n → α, ∏ i, f (x i) = (∑ y, f y) ^ n := by
-  classical
-  rw [← Fintype.prod_sum (fun _ : Fin n ↦ f), Finset.prod_const, Finset.card_univ,
-    Fintype.card_fin]
-
 /-- The real masses of a probability measure sum to `1`. -/
 private lemma sum_measureReal_singleton_eq_one (μ : Measure α) [IsProbabilityMeasure μ] :
     ∑ y, μ.real {y} = 1 := by
@@ -181,7 +173,7 @@ private lemma sum_measureReal_singleton_eq_one (μ : Measure α) [IsProbabilityM
 private lemma sum_piMass_eq_one (μ : Measure α) [IsProbabilityMeasure μ] (n : ℕ) :
     ∑ x : Fin n → α, piMass μ x = 1 := by
   simp only [piMass]
-  rw [sum_prod_eq_pow (fun y ↦ μ.real {y}), sum_measureReal_singleton_eq_one, one_pow]
+  rw [← Fintype.sum_pow (fun y ↦ μ.real {y}), sum_measureReal_singleton_eq_one, one_pow]
 
 /-- The expectation `E_Q[p₂ / p₁]`, as a real number. -/
 private lemma lintegral_div_eq_ofReal (hP₁ : ∀ x, P₁ {x} ≠ 0) :
@@ -202,7 +194,7 @@ omit [MeasurableSingletonClass α] [IsProbabilityMeasure Q] [IsProbabilityMeasur
 private lemma sum_piMass_mul_div (n : ℕ) :
     ∑ x : Fin n → α, piMass P₂ x * (piMass Q x / piMass P₁ x) =
       (∑ y, P₂.real {y} * (Q.real {y} / P₁.real {y})) ^ n := by
-  rw [← sum_prod_eq_pow]
+  rw [Fintype.sum_pow]
   refine Finset.sum_congr rfl fun x _ ↦ ?_
   rw [piMass, piMass, piMass, ← Finset.prod_div_distrib, ← Finset.prod_mul_distrib]
 
