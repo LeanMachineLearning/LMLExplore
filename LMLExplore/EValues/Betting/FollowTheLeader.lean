@@ -317,11 +317,9 @@ private lemma ae_ne_zero (hQ0 : Q {0} = 0) : ∀ᵐ e ∂Q, e ≠ 0 := by
 /-- The finiteness of the mean of `log (1 + E)` as integrability. -/
 private lemma integrable_log_one_add
     (hlog : ∫⁻ e, ENNReal.ofReal (Real.log (1 + (e : ℝ))) ∂Q ≠ ⊤) :
-    Integrable (fun e : ℝ≥0 ↦ Real.log (1 + (e : ℝ))) Q := by
-  refine ⟨(by fun_prop : Measurable fun e : ℝ≥0 ↦ Real.log (1 + (e : ℝ))).aestronglyMeasurable,
-    ?_⟩
-  rw [hasFiniteIntegral_iff_ofReal (ae_of_all _ fun e ↦ Real.log_nonneg (by simp))]
-  exact hlog.lt_top
+    Integrable (fun e : ℝ≥0 ↦ Real.log (1 + (e : ℝ))) Q :=
+  (lintegral_ofReal_ne_top_iff_integrable (by fun_prop : Measurable _).aestronglyMeasurable
+    (ae_of_all _ fun e ↦ Real.log_nonneg (by simp))).1 hlog
 
 /-- For a fraction in `[0, 1)`, the logarithm of one round is integrable. -/
 private lemma integrable_logBetFactor [IsFiniteMeasure Q]
