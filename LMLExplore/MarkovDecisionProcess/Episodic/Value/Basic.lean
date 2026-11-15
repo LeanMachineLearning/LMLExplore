@@ -7,6 +7,8 @@ module
 
 public import LMLExplore.MarkovDecisionProcess.Comparison
 public import LMLExplore.MarkovDecisionProcess.Episodic.Basic
+public import LMLExplore.Probability.Kernel.HorizonSum
+import LMLExplore.Analysis.Convex.Integral
 import Mathlib.Analysis.Convex.Integral
 
 /-!
@@ -19,7 +21,16 @@ backward induction from `V^π_H = 0`:
 * `Q^π_h (s, a) = r_h (s, a) + ∫ V^π_{h+1} dP_h (s, a)`;
 * `V^π_h s = ∫ Q^π_h (s, a) dπ_h(a | s)` for `h < H`, and `V^π_h = 0` for `h ≥ H`.
 
-These are the values of the remaining `H - h` steps of an episode started at the step `h`. The
+These are the values of the remaining `H - h` steps of an episode started at the step `h`.
+
+The state kernel `M.stateKernel π h = M.trans h ∘ₖ (Kernel.id ×ₖ π h)` of the step `h` draws an
+action from `π h s` and then the next state from `M.trans h`, and the policy reward
+`M.policyReward π h s` is the average of the mean rewards `r_h (s, a)` over the actions of
+`π h s`. For bounded rewards, the value of `π` is the finite-horizon sum of its rewards along its
+state kernels (`value_eq_horizonSum`):
+`V^π_h = horizonSum (M.stateKernel π) H (M.policyReward π) h`.
+
+The
 policy `π` is run in the time-augmented MDP `M.augmented` as the stationary policy
 `augMarkovPolicy π`, which plays `π h s` at the augmented state `(s, h)`. From an initial law
 concentrated on the step `h`, the expected sum of the rewards of the first `H - h` rounds of every
@@ -40,6 +51,8 @@ Apache 2.0), from deterministic to stochastic Markov policies.
 * `Learning.MDP.Episodic.EpisodicMDP.value M H π h s`: the value `V^π_h s` of `π` at the step `h`
   and the state `s`, with the horizon `H`.
 * `Learning.MDP.Episodic.EpisodicMDP.qValue M H π h s a`: the action value `Q^π_h (s, a)`.
+* `Learning.MDP.Episodic.EpisodicMDP.stateKernel M π h`: the state kernel of `π` at the step `h`.
+* `Learning.MDP.Episodic.EpisodicMDP.policyReward M π h`: the reward of `π` at the step `h`.
 
 ## Main statements
 
@@ -62,6 +75,8 @@ Apache 2.0), from deterministic to stochastic Markov policies.
   by the values of policies and the optimal values.
 * `Learning.MDP.Episodic.EpisodicMDP.value_deterministic_of_lt`: the value of a deterministic
   Markov policy is its action value at the action it plays.
+* `Learning.MDP.Episodic.EpisodicMDP.value_eq_horizonSum`: for bounded rewards, the value of `π`
+  is the finite-horizon sum of its rewards along its state kernels.
 * `Learning.MDP.Episodic.EpisodicMDP.hasCondDistrib_action_obs_fst_markov`: along a run of
   `augMarkovPolicy π` started at the step `h₀`, the action of round `n` has conditional law
   `π (h₀ + n)` given the state of round `n`.
@@ -227,6 +242,78 @@ theorem value_deterministic_of_lt {d : ℕ → 𝓢 → 𝓐} (hd : ∀ h, Measu
     (Measurable.stronglyMeasurable (f := M.qValue H _ h s)
       ((measurable_qValue h).comp measurable_prodMk_left))]
 
+/-! ### The state kernels and the rewards of a Markov policy -/
+
+section StateKernel
+
+variable (M π)
+
+/-- The state kernel of the Markov policy `π` at the step `h`: from the state `s`, draw an action
+`a` from `π h s`, then the next state from `M.trans h (s, a)`. -/
+noncomputable def stateKernel (h : ℕ) : Kernel 𝓢 𝓢 :=
+  M.trans h ∘ₖ (Kernel.id ×ₖ π h)
+
+lemma stateKernel_def (h : ℕ) : M.stateKernel π h = M.trans h ∘ₖ (Kernel.id ×ₖ π h) :=
+  (rfl)
+
+instance (h : ℕ) : IsSFiniteKernel (M.stateKernel π h) := by
+  rw [stateKernel_def]
+  infer_instance
+
+instance [∀ h, IsMarkovKernel (π h)] (h : ℕ) : IsMarkovKernel (M.stateKernel π h) := by
+  rw [stateKernel_def]
+  infer_instance
+
+/-- The reward `∫ a, r_h (s, a) ∂(π h s)` of the Markov policy `π` at the step `h` and the
+state `s`. -/
+noncomputable def policyReward (h : ℕ) (s : 𝓢) : ℝ :=
+  ∫ a, M.meanReward h s a ∂(π h s)
+
+lemma policyReward_def (h : ℕ) (s : 𝓢) :
+    M.policyReward π h s = ∫ a, M.meanReward h s a ∂(π h s) :=
+  (rfl)
+
+variable {M π}
+
+/-- Integrating against the state kernel of `π` at the step `h` from `s` averages over the
+actions `a` of `π h s` the integral against `M.trans h (s, a)`. -/
+lemma integral_stateKernel [∀ h, IsSFiniteKernel (π h)] {h : ℕ} {s : 𝓢} {v : 𝓢 → ℝ}
+    (hv : Integrable v (M.stateKernel π h s)) :
+    ∫ s', v s' ∂(M.stateKernel π h s) = ∫ a, ∫ s', v s' ∂(M.trans h (s, a)) ∂(π h s) :=
+  Kernel.integral_comp_id_prod_apply (M.trans h) (π h) hv
+
+/-- The state kernel of the deterministic Markov policy playing `d h s` draws the next state from
+`M.trans h (s, d h s)`. -/
+@[simp]
+lemma stateKernel_deterministic_apply {d : ℕ → 𝓢 → 𝓐} (hd : ∀ h, Measurable (d h)) (h : ℕ)
+    (s : 𝓢) :
+    M.stateKernel (fun h ↦ Kernel.deterministic (d h) (hd h)) h s = M.trans h (s, d h s) :=
+  Kernel.comp_id_prod_deterministic_apply (M.trans h) (hd h) s
+
+/-- The reward of `π` at every step is a measurable function of the state. -/
+lemma measurable_policyReward [∀ h, IsSFiniteKernel (π h)] (h : ℕ) :
+    Measurable (M.policyReward π h) :=
+  ((M.measurable_meanReward h).stronglyMeasurable.integral_kernel_prod_right'
+    (κ := π h)).measurable
+
+/-- For rewards in `[a, b]`, the reward of `π` lies in `[a, b]`. -/
+lemma policyReward_mem_Icc [∀ h, IsMarkovKernel (π h)] {a b : ℝ}
+    (hM : M.RewardsIn (Set.Icc a b)) (h : ℕ) (s : 𝓢) : M.policyReward π h s ∈ Set.Icc a b :=
+  integral_mem_Icc_of_ae_mem_Icc
+    ((M.measurable_meanReward h).comp measurable_prodMk_left).aemeasurable
+    (.of_forall fun a' ↦ meanReward_mem_Icc hM h s a')
+
+/-- The reward of the deterministic Markov policy playing `d h s` is the mean reward of this
+action. -/
+@[simp]
+lemma policyReward_deterministic {d : ℕ → 𝓢 → 𝓐} (hd : ∀ h, Measurable (d h)) (h : ℕ)
+    (s : 𝓢) :
+    M.policyReward (fun h ↦ Kernel.deterministic (d h) (hd h)) h s = M.meanReward h s (d h s) :=
+  Kernel.integral_deterministic' (hd h)
+    ((M.measurable_meanReward h).comp measurable_prodMk_left).stronglyMeasurable
+
+end StateKernel
+
 /-! ### Bounds -/
 
 variable [∀ h, IsMarkovKernel (π h)] {a b C : ℝ}
@@ -309,6 +396,29 @@ theorem abs_qValue_le_mul_abs (hM : M.RewardsIn (Set.Icc (-C) C)) {h : ℕ} (hh 
   calc |M.qValue H π h s a| ≤ (H - h : ℕ) * C := abs_le.2 hQ
     _ ≤ (H - h : ℕ) * |C| := mul_le_mul_of_nonneg_left (le_abs_self C) (Nat.cast_nonneg _)
     _ ≤ H * |C| := mul_le_mul_of_nonneg_right (by exact_mod_cast Nat.sub_le _ _) (abs_nonneg C)
+
+/-! ### Values as finite-horizon sums -/
+
+/-- **The value of a Markov policy is the finite-horizon sum of its rewards along its state
+kernels**: for bounded rewards, `V^π_h = horizonSum (M.stateKernel π) H (M.policyReward π) h`. -/
+theorem value_eq_horizonSum (hM : M.RewardsIn (Set.Icc a b)) (h : ℕ) :
+    M.value H π h = Kernel.horizonSum (M.stateKernel π) H (M.policyReward π) h := by
+  funext s
+  by_cases hh : h < H
+  · have hV := value_eq_horizonSum hM (h + 1)
+    have hVm := measurable_value (M := M) (H := H) (π := π) (h + 1)
+    have hVI := value_mem_Icc (H := H) (π := π) hM (h + 1)
+    rw [Kernel.horizonSum_of_lt hh, ← hV, integral_stateKernel (integrable_value hM (h + 1)),
+      value_of_lt hh, policyReward_def]
+    simp_rw [qValue_def]
+    exact integral_add (.of_mem_Icc a b
+      ((M.measurable_meanReward h).comp measurable_prodMk_left).aemeasurable
+      (.of_forall fun a' ↦ meanReward_mem_Icc hM h s a'))
+      (.of_mem_Icc _ _ (((hVm.stronglyMeasurable.integral_kernel
+        (κ := M.trans h)).measurable).comp measurable_prodMk_left).aemeasurable
+        (.of_forall fun a' ↦ integral_mem_Icc_of_ae_mem_Icc hVm.aemeasurable (.of_forall hVI)))
+  · rw [value_of_le (not_lt.1 hh), Kernel.horizonSum_of_le (not_lt.1 hh)]
+termination_by H - h
 
 /-! ### The values are the returns of the augmented MDP -/
 
