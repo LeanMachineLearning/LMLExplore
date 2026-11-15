@@ -60,6 +60,10 @@ the exponential of the mean of the exponents. This spreads a bound on a sum of d
 `∑ i D i` across the terms of a sum of Bretagnolle–Huber bounds `∑ i exp (-D i)`, in the minimax
 lower bound for linear bandits on the unit ball [LS, Theorem 24.2].
 
+Mathlib bounds a finite product `∏ i ∈ s, (1 + f i)` of factors with `f ≥ 0` by
+`exp (∑ i ∈ s, f i)`; for summable `f` this gives the uniform bound `exp (∑' i, f i)`, which
+bounds the running products `∏ k < n, (1 + a k)` of the Robbins–Siegmund theorem.
+
 ## Main statements
 
 * `Real.sum_range_exp_neg_mul_le`: `∑_{s < m} exp (-c (s + 1)) ≤ 1 / c` for `c > 0`.
@@ -87,6 +91,7 @@ lower bound for linear bandits on the unit ball [LS, Theorem 24.2].
 * `Real.exists_pos_le_mul_sqrt_add_sub_mul_exp_sub_one_sub`: the closed-form inversion of the
   sub-gamma bound, `L ≤ t (√(2 v L) + b L / 3) - v (exp (t b) - 1 - t b) / b ^ 2` for some `t > 0`.
 * `Real.exp_neg_le_one_sub_add_sq`: `exp (-x) ≤ 1 - x + x ^ 2` for `x ≥ -1`.
+* `Real.prod_one_add_le_exp_tsum`: `∏ i ∈ s, (1 + f i) ≤ exp (∑' i, f i)` for summable `f ≥ 0`.
 * `Real.card_mul_exp_sum_div_card_le_sum_exp`: `#s exp ((∑ i ∈ s, x i) / #s) ≤ ∑ i ∈ s, exp (x i)`.
 * `Real.one_add_sq_div_two_le_cosh`: `1 + v ^ 2 / 2 ≤ cosh v`.
 * `Real.sum_inv_two_pow_mul_exp_mul_sum_sign`: the moment generating function of a sum of `n`
@@ -400,6 +405,11 @@ theorem card_mul_exp_sum_div_card_le_sum_exp {ι : Type*} (s : Finset ι) (x : �
   calc (#s : ℝ) * exp ((∑ i ∈ s, x i) / #s) ≤ #s * ((∑ i ∈ s, exp (x i)) / #s) := by gcongr
     _ = ∑ i ∈ s, exp (x i) := by field_simp
 
+/-- A finite product `∏ i ∈ s, (1 + f i)` of factors with summable `f ≥ 0` is at most
+`exp (∑' i, f i)`, uniformly in `s`. -/
+theorem prod_one_add_le_exp_tsum {ι : Type*} (s : Finset ι) {f : ι → ℝ} (hf : ∀ i, 0 ≤ f i)
+    (hs : Summable f) : ∏ i ∈ s, (1 + f i) ≤ exp (∑' i, f i) :=
+  (prod_one_add_le_exp_sum s hf).trans (exp_le_exp.2 (hs.sum_le_tsum s fun i _ ↦ hf i))
 
 /-- `cosh v` is at least `1 + v ^ 2 / 2`. -/
 theorem one_add_sq_div_two_le_cosh (v : ℝ) : 1 + v ^ 2 / 2 ≤ cosh v := by
