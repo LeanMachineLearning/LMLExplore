@@ -5,7 +5,7 @@ Authors: LMLExplore contributors
 -/
 module
 
-public import LMLExplore.EValues.EProcess
+public import LMLExplore.EValues.EProcess.Basic
 
 /-!
 # Admissible e-processes
@@ -73,6 +73,17 @@ surely under every member of the null. -/
 theorem ae_eq (hE : IsAdmissibleEProcess E ℱ S) (hF : IsEProcess F ℱ S)
     (hEF : ∀ P ∈ S, ∀ n, E n ≤ᵐ[P] F n) (hP : P ∈ S) (n : ℕ) : F n =ᵐ[P] E n :=
   (hE.ae_le hF hEF hP n).antisymm (hEF P hP n)
+
+/-- An adapted process equal to an admissible e-process at every time, almost surely under every
+member of the null, is an admissible e-process. -/
+theorem congr (hE : IsAdmissibleEProcess E ℱ S) (hF : Adapted ℱ F)
+    (hEF : ∀ P ∈ S, ∀ n, E n =ᵐ[P] F n) : IsAdmissibleEProcess F ℱ S where
+  adapted := hF
+  isEVar_stoppedValue τ hτ := (hE.isEVar_stoppedValue τ hτ).congr
+    (hF.measurable_apply_stoppingTime hτ) fun P hP ↦ by
+      filter_upwards [ae_all_iff.2 (hEF P hP)] with ω hω using hω (τ ω)
+  ae_le_of_ae_le _ hG hFG P hP n :=
+    (hE.ae_le hG (fun P hP n ↦ (hEF P hP n).le.trans (hFG P hP n)) hP n).trans (hEF P hP n).le
 
 end IsAdmissibleEProcess
 

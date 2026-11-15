@@ -116,7 +116,7 @@ private lemma expProcess_eq_mul_prod (n : ℕ) (ω : ℕ → ℝ) :
     ring
   rw [expProcess, h, Real.exp_sum, ENNReal.ofReal_prod_of_nonneg fun _ _ ↦ (Real.exp_pos _).le,
     Finset.prod_range_succ', mul_comm]
-  rfl
+  simp only [expFactor]
 
 /-- The factor of the exponential process at the coordinate `k` is measurable with respect to the
 first `j + 1` coordinates for `k ≤ j`. -/
@@ -632,10 +632,7 @@ private lemma exists_coeffs_four {E : ℝ} (hE : E ≠ 0) (hE1 : E ≠ 1) (U₁ 
       - E * U₂ - 3 * E * U₃ + E * U₄ - 2 * U₄) / (E * (E - 1) ^ 3),
     (E ^ 2 * U₂ + 2 * E * U₁ - E * U₂ - 2 * E * U₃ + E * U₄ - U₄) / (E * (E - 1) ^ 3)],
     ?_, ?_, ?_, ?_⟩ <;>
-  · simp only [neg_sub, Fin.sum_univ_four, Fin.isValue, Matrix.cons_val_zero,
-      Fin.coe_ofNat_eq_mod, Nat.zero_mod, CharP.cast_eq_zero, mul_zero, pow_zero, mul_one,
-      Matrix.cons_val_one, Nat.one_mod, Nat.cast_one, pow_one, zero_add, Matrix.cons_val,
-      Nat.reduceMod, Nat.cast_ofNat, Nat.mod_succ]
+  · simp [Fin.sum_univ_four]
     field_simp
     ring
 
