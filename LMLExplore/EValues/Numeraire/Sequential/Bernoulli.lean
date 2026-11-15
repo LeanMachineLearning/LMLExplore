@@ -7,6 +7,7 @@ module
 
 public import LMLExplore.EValues.Numeraire.Sequential
 public import Mathlib.Probability.Distributions.Bernoulli
+import LMLExplore.Probability.Distributions.Bernoulli
 import all LMLExplore.EValues.Numeraire.Sequential
 
 /-!
@@ -60,15 +61,6 @@ section Bernoulli
 variable {Q P₁ P₂ : Measure Bool} [IsProbabilityMeasure Q] [IsProbabilityMeasure P₁]
   [IsProbabilityMeasure P₂] {X : (n : ℕ) → (Fin (n + 1) → Bool) → ℝ≥0∞}
 
-/-- The real masses of a Bernoulli law on `Bool`. -/
-private lemma measureReal_bernoulli_singleton (p : I) (b : Bool) :
-    Ber(true, false, p).real {b} = if b then (p : ℝ) else 1 - p := by
-  cases b
-  · exact bernoulliMeasure_real_apply_of_notMem_of_mem p (measurableSet_singleton _) (by simp)
-      (by simp)
-  · exact bernoulliMeasure_real_apply_of_mem_of_notMem p (measurableSet_singleton _) (by simp)
-      (by simp)
-
 /-- The real masses of `Ber(1/2)`, `Ber(1/5)` and `Ber(4/5)`. -/
 private lemma measureReal_bernoulli_counterexample :
     (∀ b, Ber(true, false, ⟨1 / 2, by norm_num⟩).real {b} = 1 / 2) ∧
@@ -77,7 +69,7 @@ private lemma measureReal_bernoulli_counterexample :
     ∀ b, Ber(true, false, ⟨4 / 5, by norm_num⟩).real {b} =
       if b then 4 / 5 else 1 / 5 := by
   refine ⟨fun b ↦ ?_, fun b ↦ ?_, fun b ↦ ?_⟩ <;>
-    cases b <;> simp only [measureReal_bernoulli_singleton] <;> norm_num
+    cases b <;> simp only [bernoulliMeasure_true_false_real_singleton] <;> norm_num
 
 /-- A point of positive real mass has nonzero mass. -/
 private lemma measure_singleton_ne_zero_of_pos {μ : Measure Bool} {b : Bool}
@@ -267,9 +259,8 @@ theorem isEProcess_half_numeraires_bernoulli {X : (n : ℕ) → (Fin (n + 1) →
       IsEProcess (fun n ω ↦ 2⁻¹ * X n fun i ↦ ω i) (Filtration.piLE (X := fun _ : ℕ ↦ Bool))
         {Measure.infinitePi fun _ : ℕ ↦ P} := by
     intro P _ hP hle
-    have hE := isEProcess_of_eq_prod (by simpa) (isEVar_div_singleton hP)
-      (X := fun n x ↦ ∏ i, Ber(true, false, ⟨1 / 2, by norm_num⟩) {x i} / P {x i})
-      fun _ _ ↦ rfl
+    have hE := (isEVar_div_singleton (Q := Ber(true, false, ⟨1 / 2, by norm_num⟩)) hP
+      ).isEProcess_prod_piLE (by simpa)
     rw [Set.image_singleton] at hE
     exact hE.mono (by simp only [Set.mem_singleton_iff, forall_eq]; infer_instance) hadapt
       fun n ω ↦ hle n _

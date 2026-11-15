@@ -9,6 +9,7 @@ public import LMLExplore.EValues.EProcess
 public import Mathlib.Probability.ProductMeasure
 public import Statlib.EValues.Numeraire
 import LMLExplore.EValues.Numeraire
+import LMLExplore.EValues.TestSupermartingale.IID
 import LMLExplore.Probability.ProductMeasure
 import Mathlib.Algebra.Polynomial.Roots
 import Mathlib.Logic.Equiv.Fin.Basic
@@ -27,7 +28,8 @@ is an e-process for the i.i.d. null [RGVS23, §8.2.4]. This file answers the que
 `{P₁, P₂}` on a finite space, with `Q₁`, `P₁` and `P₂` charging every point: the process is an
 e-process exactly when `∫⁻ x, P₂ {x} / P₁ {x} ∂Q₁ ≤ 1` or `∫⁻ x, P₁ {x} / P₂ {x} ∂Q₁ ≤ 1`. These
 are also exactly the cases in which the numeraires are products `∏ i, e (x i)` of copies of one
-function `e`, and products of copies of an e-variable form a test supermartingale. The module
+function `e`, and products of copies of an e-variable form a test supermartingale
+(`ProbabilityTheory.IsEVar.isTestSupermartingale_prod_piLE`). The module
 `LMLExplore.EValues.Numeraire.Sequential.Bernoulli` gives an explicit counterexample, the null
 `{Ber(1/5), Ber(4/5)}` under the alternative `Ber(1/2)`, and uses the private helpers of this file
 on masses and mixtures through `import all`.
@@ -93,38 +95,6 @@ private lemma lintegral_comp_fin (P : Measure 𝓧) [IsProbabilityMeasure P] {n 
     ∫⁻ ω : ℕ → 𝓧, f (fun i ↦ ω i) ∂(Measure.infinitePi fun _ ↦ P) =
       ∫⁻ x, f x ∂(Measure.pi fun _ : Fin n ↦ P) := by
   simpa only [initSeg_def] using (measurePreserving_initSeg P n).lintegral_comp hf
-
-/-- **Products of copies of an e-variable.** If each `X n` is the product `∏ i, e (x i)` of
-copies of an e-variable `e` for a null `S₁` of probability measures, the process
-`fun n ω ↦ X n fun i ↦ ω i` is a test supermartingale for the i.i.d. null and `Filtration.piLE`,
-hence an e-process. -/
-private lemma isEProcess_of_eq_prod {S₁ : Set (Measure 𝓧)}
-    (hS₁ : ∀ P ∈ S₁, IsProbabilityMeasure P) {e : 𝓧 → ℝ≥0∞} (he : IsEVar e S₁)
-    {X : (n : ℕ) → (Fin (n + 1) → 𝓧) → ℝ≥0∞} (hXe : ∀ n x, X n x = ∏ i, e (x i)) :
-    IsEProcess (fun n ω ↦ X n fun i ↦ ω i) (Filtration.piLE (X := fun _ : ℕ ↦ 𝓧))
-      ((fun P ↦ Measure.infinitePi fun _ : ℕ ↦ P) '' S₁) := by
-  set T := (fun P ↦ Measure.infinitePi fun _ : ℕ ↦ P) '' S₁
-  have hT : ∀ P ∈ T, IsProbabilityMeasure P := by
-    rintro _ ⟨P, hP, rfl⟩
-    have := hS₁ P hP
-    infer_instance
-  have h0 : ∀ P ∈ T, ∫⁻ ω, e (ω 0) ∂P ≤ 1 := by
-    rintro _ ⟨P, hP, rfl⟩
-    have := hS₁ P hP
-    rw [(measurePreserving_eval_infinitePi (fun _ ↦ P) 0).lintegral_comp he.measurable]
-    exact he.lintegral_le_one hP
-  have hF : ∀ k, IsCondEVar (fun ω : ℕ → 𝓧 ↦ e (ω (k + 1))) (Filtration.piLE k) T := by
-    refine fun k ↦ ⟨he.measurable.comp (measurable_pi_apply _), ?_⟩
-    rintro _ ⟨P, hP, rfl⟩ s hs
-    have := hS₁ P hP
-    rw [setLIntegral_comp_eval_succ P he.measurable k hs]
-    exact mul_le_of_le_one_right' (he.lintegral_le_one hP)
-  have hM := isTestSupermartingale_mul_prod (ℱ := Filtration.piLE (X := fun _ : ℕ ↦ 𝓧))
-    (he.measurable.comp (Filtration.measurable_piLE_apply le_rfl)) h0
-    (fun k ↦ he.measurable.comp (Filtration.measurable_piLE_apply le_rfl)) hF
-  convert hM.isEProcess hT using 3 with n ω
-  rw [hXe, Fin.prod_univ_eq_prod_range (fun i ↦ e (ω i)), Finset.prod_range_succ', mul_comm]
-  simp only [Function.comp_apply]
 
 end IID
 
@@ -836,10 +806,10 @@ theorem isEProcess_numeraires_pair_iff (hQ₁ : ∀ x, Q₁ {x} ≠ 0) (hP₁ : 
     exact not_isEProcess_of_one_lt hQ₁ hP₁ hP₂ hcon.1 hcon.2 hX h
   · rcases h with h | h
     · obtain ⟨he, hXe⟩ := isEVar_div_and_eq_prod_of_le hQ₁ hP₁ h hX
-      exact isEProcess_of_eq_prod hS he hXe
+      simpa only [hXe] using he.isEProcess_prod_piLE hS
     · simp_rw [Set.pair_comm P₁ P₂] at hX hS ⊢
       obtain ⟨he, hXe⟩ := isEVar_div_and_eq_prod_of_le hQ₁ hP₂ h hX
-      exact isEProcess_of_eq_prod hS he hXe
+      simpa only [hXe] using he.isEProcess_prod_piLE hS
 
 /-- **The numeraires of a two-point null are products exactly when they form an e-process.** On a
 finite space, let `P₁`, `P₂` and the alternative `Q₁` charge every point, and let `X n` be a
@@ -864,7 +834,8 @@ theorem exists_prod_eq_numeraires_pair_iff (hQ₁ : ∀ x, Q₁ {x} ≠ 0) (hP�
       rwa [lintegral_congr fun x ↦ (hXe 0 x).trans (Fin.prod_univ_one _),
         (measurePreserving_eval (fun _ : Fin 1 ↦ P) 0).lintegral_comp
           Measurable.of_discrete] at h0
-    exact (isEProcess_numeraires_pair_iff hQ₁ hP₁ hP₂ hX).1 (isEProcess_of_eq_prod hS he hXe)
+    exact (isEProcess_numeraires_pair_iff hQ₁ hP₁ hP₂ hX).1
+      (by simpa only [hXe] using he.isEProcess_prod_piLE hS)
   · rcases h with h | h
     · exact ⟨fun y ↦ Q₁ {y} / P₁ {y}, (isEVar_div_and_eq_prod_of_le hQ₁ hP₁ h hX).2⟩
     · simp_rw [Set.pair_comm P₁ P₂] at hX
