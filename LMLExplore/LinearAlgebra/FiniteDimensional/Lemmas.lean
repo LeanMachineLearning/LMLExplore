@@ -19,7 +19,7 @@ Let `a i : 𝓧 → K`, for `i` in a finite type, be functions on a type `𝓧` 
 subspace of `ι → K`, so finitely many of them already span it: a combination `∑ i, ρ i * a i`
 vanishing at finitely many well chosen points of `Y` vanishes on `Y`.
 
-In a linearly ordered field, two combinations, one at most the other on `Y`, whose sums over these
+In an ordered ring, two combinations, one at most the other on `Y`, whose sums over these
 finitely many points are in the opposite order, are then equal on `Y`.
 
 ## Main statements
@@ -31,6 +31,8 @@ finitely many points are in the opposite order, are then equal on `Y`.
 -/
 
 public section
+
+namespace LMLExplore
 
 variable {𝓧 ι K : Type*} [Fintype ι] {a : ι → 𝓧 → K} {Y : Set 𝓧}
 
@@ -58,8 +60,8 @@ theorem exists_finset_forall_sum_mul_eq_zero [Field K] (a : ι → 𝓧 → K) (
 /-- If finitely many points `F ⊆ Y` detect the combinations of the functions `a i` that vanish on
 `Y`, then two combinations, one at most the other on `Y`, whose sums over `F` are in the opposite
 order, are equal on `Y`. -/
-theorem forall_sum_mul_eq_of_forall_le_of_sum_le [Field K] [LinearOrder K]
-    [IsStrictOrderedRing K] {F : Finset 𝓧} (hFY : ↑F ⊆ Y)
+theorem forall_sum_mul_eq_of_forall_le_of_sum_le [Ring K] [PartialOrder K]
+    [IsOrderedAddMonoid K] {F : Finset 𝓧} (hFY : ↑F ⊆ Y)
     (hF : ∀ ρ : ι → K, (∀ x ∈ F, ∑ i, ρ i * a i x = 0) → ∀ x ∈ Y, ∑ i, ρ i * a i x = 0)
     {ρ ρ' : ι → K} (hle : ∀ x ∈ Y, ∑ i, ρ i * a i x ≤ ∑ i, ρ' i * a i x)
     (hsum : ∑ x ∈ F, ∑ i, ρ' i * a i x ≤ ∑ x ∈ F, ∑ i, ρ i * a i x) :
@@ -72,3 +74,5 @@ theorem forall_sum_mul_eq_of_forall_le_of_sum_le [Field K] [LinearOrder K]
     simp [sub_mul, Finset.sum_sub_distrib, hF0 y hy]) x hx
   simp only [Pi.sub_apply, sub_mul, Finset.sum_sub_distrib, sub_eq_zero] at this
   exact this.symm
+
+end LMLExplore
