@@ -13,11 +13,13 @@ import LMLExplore.MeasureTheory.Measure.Typeclasses.Probability
 import Mathlib.MeasureTheory.Function.FactorsThrough
 
 /-!
-# Infinite products of probability measures: the first terms and the next terms
+# Infinite products of probability measures: coordinatewise properties, first and next terms
 
 Under the infinite product `Measure.infinitePi` of copies of a probability measure `μ`, the first
 `n` coordinates have the product law `Measure.pi`, and they are independent of the next `m`
-coordinates. The product of a family that is not made of probability measures is zero.
+coordinates. Under a countable product, almost surely every coordinate has a property that almost
+every point of its factor has. The product of a family that is not made of probability measures is
+zero.
 
 If `Q + ∑ i, b i • P i = ∑ i, c i • P i` for a probability measure `Q` and probability measures
 `P i`, two functions of the first `N + 1` observations with equal integrals under the i.i.d. law of
@@ -30,6 +32,9 @@ the polarization step of [EVR26, Note 03, Theorem 1], adapted from
 
 * `MeasureTheory.measurePreserving_initSeg`: the first `n` terms `initSeg n` of an i.i.d. sequence
   have the product law.
+* `MeasureTheory.Measure.ae_forall_apply_infinitePi`: if, for each `i` of a countable index type,
+  `p i` holds almost everywhere under `μ i`, then almost surely under `Measure.infinitePi μ` every
+  coordinate `x i` satisfies `p i`.
 * `MeasureTheory.Measure.infinitePi_fin_mem_and_forall_add_mem`: for an i.i.d. sequence, the
   first `n` terms and the next `m` terms are independent.
 * `MeasureTheory.Measure.infinitePi_eq_zero_of_not_isProbabilityMeasure`: the product of a family
@@ -69,6 +74,14 @@ theorem infinitePi_eq_zero_of_not_isProbabilityMeasure {ι : Type*} {X : ι → 
     [∀ i, MeasurableSpace (X i)] {μ : (i : ι) → Measure (X i)}
     (hμ : ¬ ∀ i, IsProbabilityMeasure (μ i)) : Measure.infinitePi μ = 0 := by
   rw [Measure.infinitePi, dite_eq_right fun h ↦ (hμ h).elim]
+
+/-- Under a countable product of probability measures, if almost every point of each factor
+satisfies a property, then almost surely every coordinate does. -/
+theorem ae_forall_apply_infinitePi {ι : Type*} [Countable ι] {X : ι → Type*}
+    [∀ i, MeasurableSpace (X i)] (μ : ∀ i, Measure (X i)) [∀ i, IsProbabilityMeasure (μ i)]
+    {p : ∀ i, X i → Prop} (h : ∀ i, ∀ᵐ x ∂μ i, p i x) :
+    ∀ᵐ x ∂Measure.infinitePi μ, ∀ i, p i (x i) :=
+  ae_all_iff.2 fun i ↦ (measurePreserving_eval_infinitePi μ i).quasiMeasurePreserving.ae (h i)
 
 open ProbabilityTheory Finset in
 /-- **The first terms of an i.i.d. sequence and the next terms are independent.** For an i.i.d.
