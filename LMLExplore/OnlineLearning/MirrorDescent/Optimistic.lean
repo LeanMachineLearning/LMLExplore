@@ -15,18 +15,17 @@ Online linear optimization on a set `K` of a real normed space `E`, with losses
 descent** [Ora, §6.11, Algorithm 6.6] receives, before the loss `y t` of round `t` is revealed, a
 hint `h t : E →L[ℝ] ℝ` guessing it, with `h 0 = 0`. After the loss `y t` and the next hint
 `h (t + 1)`, it plays the mirror descent step from `a t` for the loss `y t - h t + h (t + 1)`: it
-removes the hint used for the current play and adds the hint for the next one. With the potential
-`‖·‖ ^ 2 / 2` on the whole space and a constant rate `η`, the plays are
-`a (t + 1) = a 0 - η (h (t + 1) + ∑ s ≤ t, y s)`, so that `h (t + 1)` stands in for the loss of
-round `t + 1`. How the hints are produced does not matter: they may be any sequence chosen from
-the past, and the statements hold for every sequence of losses.
+removes the hint used for the current play and adds the hint for the next one. How the hints are
+produced does not matter: they may be any sequence chosen from the past, and the statements hold
+for every sequence of losses.
 
 The algorithm is mirror descent with other losses, so its analysis is that of mirror descent: the
 regret against the true losses differs from the regret against the losses
 `y t - h t + h (t + 1)` by a telescoping sum (`sum_apply_sub_eq_optimistic`). The resulting bounds
 replace the loss `y t` in the stability term of round `t` by its prediction error `y t - h t`: the
-regret is small when the hints are good, and the worst-case bound of mirror descent is recovered,
-up to a constant, when they are not.
+regret is small when the hints are good. When the losses and the hints are all bounded in dual
+norm by `L`, so that `‖y t - h t‖ ≤ 2 L`, each stability term of the strongly convex bound is at
+most `4` times the worst-case term `η t / (2 m) * L ^ 2` of mirror descent.
 
 The hint `h n` of the last round only affects the analysis point `a n`. The bounds keep it in a
 boundary term `h n (u - a n)`, which vanishes for the book's choice `h n = 0`.
