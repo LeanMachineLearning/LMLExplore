@@ -28,12 +28,14 @@ namespace MeasureTheory.FiniteMeasure
 variable {Ω : Type*} [MeasurableSpace Ω]
 
 /-- The mass of a sum of finite measures is the sum of their masses. -/
+@[simp]
 theorem mass_add (μ ν : FiniteMeasure Ω) : (μ + ν).mass = μ.mass + ν.mass := by
   rw [← ENNReal.coe_inj]
   push_cast
   simp only [ennreal_mass, toMeasure_add, add_apply]
 
 /-- The mass of a nonnegative multiple of a finite measure. -/
+@[simp]
 theorem mass_smul (c : ℝ≥0) (μ : FiniteMeasure Ω) : (c • μ).mass = c * μ.mass := by
   rw [← ENNReal.coe_inj]
   push_cast

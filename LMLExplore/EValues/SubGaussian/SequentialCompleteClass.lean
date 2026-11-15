@@ -8,6 +8,7 @@ module
 public import LMLExplore.EValues.EProcess
 public import LMLExplore.Probability.Process.Filtration
 public import Mathlib.MeasureTheory.Constructions.BorelSpace.Real
+import LMLExplore.LinearAlgebra.Pi
 import LMLExplore.MeasureTheory.Integral.Lebesgue.Countable
 import LMLExplore.MeasureTheory.Measure.FiniteMeasure
 import LMLExplore.MeasureTheory.Measure.Weighted
@@ -332,10 +333,6 @@ private lemma continuous_expKernel (x : ℝ) : Continuous fun l ↦ expKernel l 
 private noncomputable def expBCF (x : ℝ) : EReal →ᵇ ℝ :=
   BoundedContinuousFunction.mkOfCompact ⟨fun l ↦ expKernel l x, continuous_expKernel x⟩
 
-/-- Evaluation of the exponential kernel as a bounded continuous function. -/
-private lemma expBCF_apply (x : ℝ) (l : EReal) : expBCF x l = expKernel l x :=
-  rfl
-
 /-- Each section of the exponential kernel is integrable against a finite measure. -/
 private lemma integrable_expKernel (π : FiniteMeasure EReal) (x : ℝ) :
     Integrable (fun l ↦ expKernel l x) (π : Measure EReal) :=
@@ -405,22 +402,6 @@ private lemma convex_setOf_le_expVec (F : Finset ℝ) :
   · rw [expVec_add_smul F π₁ π₂ ha hb]
     exact add_le_add (smul_le_smul_of_nonneg_left h₁ ha) (smul_le_smul_of_nonneg_left h₂ hb)
 
-/-- A continuous linear functional on `ι → ℝ` that is below `u` at every nonpositive vector is
-nonnegative at every basis vector. -/
-private lemma nonneg_apply_single_of_forall_nonpos_lt {ι : Type*} [DecidableEq ι]
-    (φ : (ι → ℝ) →L[ℝ] ℝ) {u : ℝ} (h : ∀ v : ι → ℝ, v ≤ 0 → φ v < u) (i : ι) :
-    0 ≤ φ (fun j ↦ if i = j then 1 else 0) := by
-  set e : ι → ℝ := fun j ↦ if i = j then 1 else 0
-  have hu0 : 0 < u := by simpa using h 0 le_rfl
-  by_contra hneg
-  have hneg' : φ e < 0 := lt_of_not_ge hneg
-  have hc : 0 ≤ u / -φ e := div_nonneg hu0.le (by linarith)
-  have := h ((u / -φ e) • -e) fun j ↦ by
-    simp only [Pi.smul_apply, Pi.neg_apply, Pi.zero_apply, smul_eq_mul, e]
-    exact mul_nonpos_of_nonneg_of_nonpos hc (by split_ifs <;> norm_num)
-  rw [map_smul, map_neg, smul_eq_mul, div_mul_cancel₀ _ (by linarith : -φ e ≠ 0)] at this
-  exact lt_irrefl _ this
-
 /-- One-step domination on a finite set of points: a function whose mean is at most `1` under
 every finitely supported one-sided `1`-sub-Gaussian law is dominated there by a mixture of
 exponentials with a mixing measure of mass at most `1`. Otherwise a separating functional gives a
@@ -442,8 +423,14 @@ private lemma exists_le_expVec {f : ℝ → ℝ≥0∞}
   set q : F → ℝ := fun i ↦ φ (fun j ↦ if i = j then 1 else 0) with hq
   have hφsum : ∀ v, φ v = ∑ i : F, v i * q i := fun v ↦ by
     simpa [smul_eq_mul] using LinearMap.pi_apply_eq_sum_univ (φ : (F → ℝ) →ₗ[ℝ] ℝ) v
-  have hq0 : ∀ i, 0 ≤ q i :=
-    nonneg_apply_single_of_forall_nonpos_lt φ fun v hv ↦ hφ v (hle0 v hv)
+  have hq0 : ∀ i, 0 ≤ q i := fun i ↦ by
+    have hi : (fun j ↦ if i = j then (1 : ℝ) else 0) = Pi.single i 1 :=
+      funext fun j ↦ by simp only [Pi.single_apply, @eq_comm _ j i]
+    rw [hq]
+    dsimp only
+    rw [hi]
+    exact LinearMap.apply_single_nonneg_of_forall_nonpos_lt (φ : (F → ℝ) →ₗ[ℝ] ℝ)
+      (fun v hv ↦ hφ v (hle0 v hv)) i
   have hexp : ∀ l : ℝ, 0 ≤ l → ∑ i : F, Real.exp (l * i - l ^ 2 / 2) * q i < u := by
     intro l hl
     have := hφ _ ⟨⟨Measure.dirac (l : EReal), inferInstance⟩, by simp [FiniteMeasure.mass],
@@ -538,39 +525,66 @@ theorem exists_le_lintegral_exp_of_forall_lintegral_le_one {f : ℝ → ℝ≥0�
 
 /-! ### The tree envelope -/
 
-/-- The laws on paths that agree almost surely with `ω` on the first `k` coordinates and satisfy
-the conditional one-sided sub-Gaussian constraint at every time `n ≥ k`. -/
-private def treeLaws (k : ℕ) (ω : ℕ → ℝ) : Set (Measure (ℕ → ℝ)) :=
-  {Q | IsProbabilityMeasure Q ∧ (∀ᵐ ω' ∂Q, ∀ i < k, ω' i = ω i) ∧
-    ∀ n, k ≤ n → ∀ l : ℝ, 0 ≤ l → ∀ s : Set (ℕ → ℝ),
-      MeasurableSet[Filtration.naturalLT (fun i (ω : ℕ → ℝ) ↦ ω i) measurable_pi_apply n] s →
-      ∫⁻ ω' in s, ENNReal.ofReal (Real.exp (l * ω' n - l ^ 2 / 2)) ∂Q ≤ Q s}
+/-- A law on paths after a history `ω` of length `k`: it agrees almost surely with `ω` on the
+first `k` coordinates and satisfies the conditional one-sided sub-Gaussian constraint at every
+time `n ≥ k`. -/
+private structure IsTreeLaw (k : ℕ) (ω : ℕ → ℝ) (Q : Measure (ℕ → ℝ)) : Prop where
+  /-- The law is a probability measure. -/
+  isProbabilityMeasure : IsProbabilityMeasure Q
+  /-- The law agrees almost surely with `ω` on the first `k` coordinates. -/
+  ae_prefix : ∀ᵐ ω' ∂Q, ∀ i < k, ω' i = ω i
+  /-- The conditional one-sided sub-Gaussian constraint at every time `n ≥ k`. -/
+  constraint : ∀ n, k ≤ n → ∀ l : ℝ, 0 ≤ l → ∀ s : Set (ℕ → ℝ),
+    MeasurableSet[Filtration.naturalLT (fun i (ω : ℕ → ℝ) ↦ ω i) measurable_pi_apply n] s →
+    ∫⁻ ω' in s, ENNReal.ofReal (Real.exp (l * ω' n - l ^ 2 / 2)) ∂Q ≤ Q s
 
-/-- The strategies after a history of length `k`: a finitely supported law of `treeLaws k ω` and
-a bounded stopping time that does not stop before time `k - 1`. -/
-private def strategies (k : ℕ) (ω : ℕ → ℝ) : Set (Measure (ℕ → ℝ) × ((ℕ → ℝ) → ℕ)) :=
-  {p | p.1 ∈ treeLaws k ω ∧
-    IsStoppingTime (Filtration.piLE (X := fun _ : ℕ ↦ ℝ)) (fun ω' ↦ (p.2 ω' : WithTop ℕ)) ∧
-    (∀ ω', k - 1 ≤ p.2 ω') ∧ (∃ T : Finset (ℕ → ℝ), p.1 (↑T)ᶜ = 0) ∧ ∃ N, ∀ ω', p.2 ω' ≤ N}
+/-- A strategy after a history `ω` of length `k`: a finitely supported law after `ω` and a bounded
+stopping time that does not stop before time `k - 1`. -/
+private structure IsStrategy (k : ℕ) (ω : ℕ → ℝ) (p : Measure (ℕ → ℝ) × ((ℕ → ℝ) → ℕ)) :
+    Prop where
+  /-- The law is a law after `ω`. -/
+  isTreeLaw : IsTreeLaw k ω p.1
+  /-- The time is a stopping time. -/
+  isStoppingTime :
+    IsStoppingTime (Filtration.piLE (X := fun _ : ℕ ↦ ℝ)) (fun ω' ↦ (p.2 ω' : WithTop ℕ))
+  /-- The time does not stop before time `k - 1`. -/
+  le_time : ∀ ω', k - 1 ≤ p.2 ω'
+  /-- The law is carried by a finite set. -/
+  exists_finset : ∃ T : Finset (ℕ → ℝ), p.1 (↑T)ᶜ = 0
+  /-- The time is bounded. -/
+  bddAbove : ∃ N, ∀ ω', p.2 ω' ≤ N
+
+/-- A strategy after `ω` is a strategy after every history with the same first `k`
+coordinates. -/
+private lemma IsStrategy.of_prefix {k : ℕ} {ω ω' : ℕ → ℝ} (h : ∀ i < k, ω i = ω' i)
+    {p : Measure (ℕ → ℝ) × ((ℕ → ℝ) → ℕ)} (hp : IsStrategy k ω p) : IsStrategy k ω' p :=
+  { hp with isTreeLaw := { hp.isTreeLaw with
+      ae_prefix := hp.isTreeLaw.ae_prefix.mono fun _ h' i hi ↦ (h' i hi).trans (h i hi) } }
 
 /-- The envelope of a process `E` after a history `ω` of length `k`: the best mean of `E` at a
 bounded stopping time under a finitely supported member of the null continuing that history. -/
 private noncomputable def envelope (E : ℕ → (ℕ → ℝ) → ℝ≥0∞) (k : ℕ) (ω : ℕ → ℝ) : ℝ≥0∞ :=
-  ⨆ p ∈ strategies k ω, ∫⁻ ω', E (p.2 ω') ω' ∂p.1
+  ⨆ (p) (_ : IsStrategy k ω p), ∫⁻ ω', E (p.2 ω') ω' ∂p.1
+
+/-- The mean of `E` under a strategy is at most the envelope. -/
+private lemma lintegral_le_envelope (E : ℕ → (ℕ → ℝ) → ℝ≥0∞) {k : ℕ} {ω : ℕ → ℝ}
+    {p : Measure (ℕ → ℝ) × ((ℕ → ℝ) → ℕ)} (hp : IsStrategy k ω p) :
+    ∫⁻ ω', E (p.2 ω') ω' ∂p.1 ≤ envelope E k ω :=
+  le_iSup₂ (f := fun p (_ : IsStrategy k ω p) ↦ ∫⁻ ω', E (p.2 ω') ω' ∂p.1) p hp
 
 /-- The envelope after a history only depends on its first `k` coordinates. -/
 private lemma envelope_congr (E : ℕ → (ℕ → ℝ) → ℝ≥0∞) {k : ℕ} {ω ω' : ℕ → ℝ}
     (h : ∀ i < k, ω i = ω' i) : envelope E k ω = envelope E k ω' := by
-  have : ∀ ω'' : ℕ → ℝ, (∀ i < k, ω'' i = ω i) ↔ (∀ i < k, ω'' i = ω' i) :=
-    fun ω'' ↦ forall₂_congr fun i hi ↦ by rw [h i hi]
-  simp only [envelope, strategies, treeLaws, this]
+  have : ∀ p, IsStrategy k ω p ↔ IsStrategy k ω' p := fun _ ↦
+    ⟨IsStrategy.of_prefix h, IsStrategy.of_prefix fun i hi ↦ (h i hi).symm⟩
+  simp only [envelope, this]
 
 /-- The path `ω` continued by zeros after time `k`. -/
 private def extendZero (k : ℕ) (ω : ℕ → ℝ) : ℕ → ℝ := fun i ↦ if i ≤ k then ω i else 0
 
 /-- Stopping at once under the Dirac mass at the history continued by zeros is a strategy. -/
-private lemma dirac_extendZero_mem_strategies (k : ℕ) (ω : ℕ → ℝ) :
-    (Measure.dirac (extendZero k ω), fun _ ↦ k) ∈ strategies (k + 1) ω := by
+private lemma isStrategy_dirac_extendZero (k : ℕ) (ω : ℕ → ℝ) :
+    IsStrategy (k + 1) ω (Measure.dirac (extendZero k ω), fun _ ↦ k) := by
   refine ⟨⟨inferInstance, ?_, fun n hn l _ s _ ↦ ?_⟩, isStoppingTime_const _ _, fun _ ↦ by simp,
     ⟨{extendZero k ω}, ?_⟩, ⟨k, fun _ ↦ le_rfl⟩⟩
   · rw [ae_dirac_eq, Filter.eventually_pure]
@@ -594,43 +608,15 @@ private lemma dirac_extendZero_mem_strategies (k : ℕ) (ω : ℕ → ℝ) :
 the coordinates up to `k`. -/
 private lemma le_envelope_succ {E : ℕ → (ℕ → ℝ) → ℝ≥0∞} (hE : ∀ n, DependsOn (E n) (Iic n))
     (k : ℕ) (ω : ℕ → ℝ) : E k ω ≤ envelope E (k + 1) ω := by
-  refine le_trans (le_of_eq ?_) (le_iSup₂ (f := fun p (_ : p ∈ strategies (k + 1) ω) ↦
-    ∫⁻ ω', E (p.2 ω') ω' ∂p.1) _ (dirac_extendZero_mem_strategies k ω))
+  refine le_trans (le_of_eq ?_) (lintegral_le_envelope E (isStrategy_dirac_extendZero k ω))
   simp only [lintegral_dirac]
   exact hE k fun i hi ↦ by simp [extendZero, Set.mem_Iic.1 hi]
 
-open scoped Classical in
-/-- Under a law that agrees almost surely with `ω` on the first `k` coordinates, a set that only
-depends on these coordinates is almost surely full or empty according to whether it contains
-`ω`. -/
-private lemma setLIntegral_of_ae_prefix {μ : Measure (ℕ → ℝ)} [IsProbabilityMeasure μ] {k : ℕ}
-    {ω : ℕ → ℝ} (hpre : ∀ᵐ ω' ∂μ, ∀ i < k, ω' i = ω i) {s : Set (ℕ → ℝ)}
-    (hs : MeasurableSet[MeasurableSpace.comap (fun (ω : ℕ → ℝ) (i : Fin k) ↦ ω i)
-      MeasurableSpace.pi] s) (G : (ℕ → ℝ) → ℝ≥0∞) :
-    (∫⁻ ω' in s, G ω' ∂μ = if ω ∈ s then ∫⁻ ω', G ω' ∂μ else 0) ∧
-      μ s = if ω ∈ s then 1 else 0 := by
-  obtain ⟨B, -, rfl⟩ := MeasurableSpace.measurableSet_comap.1 hs
-  have hae : ∀ᵐ ω' ∂μ, (ω' ∈ (fun (ω : ℕ → ℝ) (i : Fin k) ↦ ω i) ⁻¹' B ↔
-      ω ∈ (fun (ω : ℕ → ℝ) (i : Fin k) ↦ ω i) ⁻¹' B) := by
-    filter_upwards [hpre] with ω' h
-    have : (fun i : Fin k ↦ ω' i) = fun i : Fin k ↦ ω i := funext fun i ↦ h i i.2
-    simp only [Set.mem_preimage, this]
-  split_ifs with hω
-  · have hmem : ∀ᵐ ω' ∂μ, ω' ∈ (fun (ω : ℕ → ℝ) (i : Fin k) ↦ ω i) ⁻¹' B :=
-      hae.mono fun ω' h ↦ h.2 hω
-    refine ⟨by rw [Measure.restrict_eq_self_of_ae_mem hmem], ?_⟩
-    rw [measure_congr (ae_eq_univ.2 (measure_eq_zero_iff_ae_notMem.2 (hmem.mono fun _ h h' ↦
-      h' h))), measure_univ]
-  · have hnot : ∀ᵐ ω' ∂μ, ω' ∉ (fun (ω : ℕ → ℝ) (i : Fin k) ↦ ω i) ⁻¹' B :=
-      hae.mono fun ω' h h' ↦ hω (h.1 h')
-    have h0 := measure_eq_zero_iff_ae_notMem.2 hnot
-    exact ⟨by rw [Measure.restrict_eq_zero.2 h0, lintegral_zero_measure], h0⟩
-
 /-- Under a strategy after `update ω k y`, the coordinate `k` is almost surely `y`. -/
-private lemma ae_coord_eq_of_mem_strategies {k : ℕ} {ω : ℕ → ℝ} {y : ℝ}
+private lemma ae_coord_eq_of_isStrategy {k : ℕ} {ω : ℕ → ℝ} {y : ℝ}
     {p : Measure (ℕ → ℝ) × ((ℕ → ℝ) → ℕ)}
-    (hp : p ∈ strategies (k + 1) (Function.update ω k y)) : ∀ᵐ ω' ∂p.1, ω' k = y :=
-  hp.1.2.1.mono fun ω' h ↦ by rw [h k (Nat.lt_succ_self k), Function.update_self]
+    (hp : IsStrategy (k + 1) (Function.update ω k y) p) : ∀ᵐ ω' ∂p.1, ω' k = y :=
+  hp.isTreeLaw.ae_prefix.mono fun ω' h ↦ by rw [h k (Nat.lt_succ_self k), Function.update_self]
 
 /-- The grafted stopping time: on the paths whose coordinate `k` is a point `y ∈ S`, the stopping
 time `τ y`, and `k` elsewhere. -/
@@ -675,21 +661,30 @@ private lemma isStoppingTime_graftTime {k : ℕ} {S : Finset ℝ} {τ : ℝ → 
     rw [heq]
     exact @MeasurableSet.empty _ (Filtration.piLE (X := fun _ : ℕ ↦ ℝ) m)
 
+/-- The grafted law: the mixture of the laws `(g y).1`, for `y ∈ S`, with the weights `P {y}`. -/
+private noncomputable def graftLaw (S : Finset ℝ) (P : Measure ℝ)
+    (g : ℝ → Measure (ℕ → ℝ) × ((ℕ → ℝ) → ℕ)) : Measure (ℕ → ℝ) :=
+  ∑ y ∈ S, P {y} • (g y).1
+
+/-- The integral against the grafted law is the mixture of the integrals against the laws
+`(g y).1`. -/
+private lemma lintegral_graftLaw (S : Finset ℝ) (P : Measure ℝ)
+    (g : ℝ → Measure (ℕ → ℝ) × ((ℕ → ℝ) → ℕ)) (F : (ℕ → ℝ) → ℝ≥0∞) :
+    ∫⁻ ω', F ω' ∂graftLaw S P g = ∑ y ∈ S, P {y} * ∫⁻ ω', F ω' ∂(g y).1 := by
+  rw [graftLaw, lintegral_finsetSum_measure]
+  simp only [lintegral_smul_measure, smul_eq_mul]
+
 /-- Grafting: strategies after the histories `update ω k y`, for `y` in the support `S` of a
 finitely supported one-sided sub-Gaussian law `P`, combine into a strategy after `ω`. -/
-private lemma graft_mem_strategies {k : ℕ} {ω : ℕ → ℝ} {P : Measure ℝ}
+private lemma isStrategy_graft {k : ℕ} {ω : ℕ → ℝ} {P : Measure ℝ}
     (hP : P ∈ oneSidedSubgaussianNull) {S : Finset ℝ} (hS : P (↑S)ᶜ = 0)
     (g : ℝ → Measure (ℕ → ℝ) × ((ℕ → ℝ) → ℕ))
-    (hg : ∀ y, g y ∈ strategies (k + 1) (Function.update ω k y)) :
-    (∑ y ∈ S, P {y} • (g y).1, graftTime k S fun y ↦ (g y).2) ∈ strategies k ω := by
+    (hg : ∀ y, IsStrategy (k + 1) (Function.update ω k y) (g y)) :
+    IsStrategy k ω (graftLaw S P g, graftTime k S fun y ↦ (g y).2) := by
   have := hP.1
-  have hprob : ∀ y, IsProbabilityMeasure (g y).1 := fun y ↦ (hg y).1.1
-  set Q := ∑ y ∈ S, P {y} • (g y).1 with hQ
-  have hQint : ∀ F : (ℕ → ℝ) → ℝ≥0∞,
-      ∫⁻ ω', F ω' ∂Q = ∑ y ∈ S, P {y} * ∫⁻ ω', F ω' ∂(g y).1 := by
-    intro F
-    rw [hQ, lintegral_finsetSum_measure]
-    simp only [lintegral_smul_measure, smul_eq_mul]
+  have hprob : ∀ y, IsProbabilityMeasure (g y).1 := fun y ↦ (hg y).isTreeLaw.isProbabilityMeasure
+  set Q := graftLaw S P g with hQ
+  have hQint := lintegral_graftLaw S P g
   have hQprob : IsProbabilityMeasure Q := by
     constructor
     have h1 := hQint fun _ ↦ 1
@@ -698,15 +693,16 @@ private lemma graft_mem_strategies {k : ℕ} {ω : ℕ → ℝ} {P : Measure ℝ
     simp only [lintegral_const, measure_univ, one_mul] at h2
     rw [h1, ← h2]
   have hQpre : ∀ᵐ ω' ∂Q, ∀ i < k, ω' i = ω i := by
-    rw [hQ, ae_finsetSum_measure_iff]
+    rw [hQ, graftLaw, ae_finsetSum_measure_iff]
     intro y _
-    refine Measure.ae_smul_measure ((hg y).1.2.1.mono fun ω' h i hi ↦ ?_) _
+    refine Measure.ae_smul_measure ((hg y).isTreeLaw.ae_prefix.mono fun ω' h i hi ↦ ?_) _
     rw [h i (by omega), Function.update_of_ne (by omega)]
-  choose T hT using fun y ↦ (hg y).2.2.2.1
-  choose N hN using fun y ↦ (hg y).2.2.2.2
+  choose T hT using fun y ↦ (hg y).exists_finset
+  choose N hN using fun y ↦ (hg y).bddAbove
   classical
   refine ⟨⟨hQprob, hQpre, fun n hn l hl s hs ↦ ?_⟩,
-    isStoppingTime_graftTime (fun y ↦ (hg y).2.1) (fun y ω' ↦ by have := (hg y).2.2.1 ω'; omega),
+    isStoppingTime_graftTime (fun y ↦ (hg y).isStoppingTime)
+      (fun y ω' ↦ by have := (hg y).le_time ω'; omega),
     fun ω' ↦ ?_, ⟨S.biUnion T, ?_⟩, ⟨k + ∑ y ∈ S, N y, fun ω' ↦ ?_⟩⟩
   · have hs' : MeasurableSet s := (Filtration.naturalLT _ _).le n s hs
     rcases hn.lt_or_eq with hn | rfl
@@ -717,18 +713,18 @@ private lemma graft_mem_strategies {k : ℕ} {ω : ℕ → ℝ} {P : Measure ℝ
           ≤ ∑ y ∈ S, P {y} * (g y).1 s := by
             refine Finset.sum_le_sum fun y _ ↦ mul_le_mul_right ?_ _
             rw [lintegral_indicator hs']
-            exact (hg y).1.2.2 n hn l hl s hs
-        _ = Q s := by simp [hQ]
+            exact (hg y).isTreeLaw.constraint n hn l hl s hs
+        _ = Q s := by simp [hQ, graftLaw]
     · -- at the grafted round, the constraint is that of `P`
-      obtain ⟨h1, h2⟩ := setLIntegral_of_ae_prefix hQpre (Filtration.naturalLT_eval_le_comap k s hs)
-        (fun ω' ↦ ENNReal.ofReal (Real.exp (l * ω' k - l ^ 2 / 2)))
-      rw [h1, h2]
+      have hs' := Filtration.naturalLT_eval_le_comap k s hs
+      rw [setLIntegral_eq_ite_of_ae_prefix hQpre hs', measure_eq_ite_of_ae_prefix hQpre hs',
+        measure_univ]
       split_ifs
       · rw [hQint]
         calc ∑ y ∈ S, P {y} * ∫⁻ ω', ENNReal.ofReal (Real.exp (l * ω' k - l ^ 2 / 2)) ∂(g y).1
             = ∑ y ∈ S, ENNReal.ofReal (Real.exp (l * y - l ^ 2 / 2)) * P {y} := by
               refine Finset.sum_congr rfl fun y _ ↦ ?_
-              rw [lintegral_congr_ae ((ae_coord_eq_of_mem_strategies (hg y)).mono fun ω' h ↦
+              rw [lintegral_congr_ae ((ae_coord_eq_of_isStrategy (hg y)).mono fun ω' h ↦
                 by rw [h]), lintegral_const, measure_univ, mul_one, mul_comm]
           _ = ∫⁻ x, ENNReal.ofReal (Real.exp (l * x - l ^ 2 / 2)) ∂P :=
               (lintegral_eq_sum_of_measure_compl_eq_zero hS _).symm
@@ -736,10 +732,10 @@ private lemma graft_mem_strategies {k : ℕ} {ω : ℕ → ℝ} {P : Measure ℝ
       · exact le_rfl
   · dsimp only [graftTime]
     split_ifs
-    · have := (hg (ω' k)).2.2.1 ω'
+    · have := (hg (ω' k)).le_time ω'
       omega
     · omega
-  · simp only [hQ, sum_apply, smul_apply, smul_eq_mul]
+  · simp only [hQ, graftLaw, sum_apply, smul_apply, smul_eq_mul]
     refine Finset.sum_eq_zero fun y hy ↦ mul_eq_zero_of_right _ (measure_mono_null
       (Set.compl_subset_compl.2 (Finset.coe_subset.2 (Finset.subset_biUnion_of_mem T hy))) (hT y))
   · dsimp only [graftTime]
@@ -751,14 +747,13 @@ private lemma graft_mem_strategies {k : ℕ} {ω : ℕ → ℝ} {P : Measure ℝ
 /-- The mean of the process at the grafted stopping time under the grafted law. -/
 private lemma lintegral_graft {E : ℕ → (ℕ → ℝ) → ℝ≥0∞} {k : ℕ} {ω : ℕ → ℝ} {P : Measure ℝ}
     {S : Finset ℝ} (g : ℝ → Measure (ℕ → ℝ) × ((ℕ → ℝ) → ℕ))
-    (hg : ∀ y, g y ∈ strategies (k + 1) (Function.update ω k y)) :
-    ∫⁻ ω', E (graftTime k S (fun y ↦ (g y).2) ω') ω' ∂(∑ y ∈ S, P {y} • (g y).1) =
+    (hg : ∀ y, IsStrategy (k + 1) (Function.update ω k y) (g y)) :
+    ∫⁻ ω', E (graftTime k S (fun y ↦ (g y).2) ω') ω' ∂graftLaw S P g =
       ∑ y ∈ S, P {y} * ∫⁻ ω', E ((g y).2 ω') ω' ∂(g y).1 := by
-  rw [lintegral_finsetSum_measure]
-  simp only [lintegral_smul_measure, smul_eq_mul]
+  rw [lintegral_graftLaw]
   refine Finset.sum_congr rfl fun y hy ↦ ?_
   congr 1
-  refine lintegral_congr_ae ((ae_coord_eq_of_mem_strategies (hg y)).mono fun ω' h ↦ ?_)
+  refine lintegral_congr_ae ((ae_coord_eq_of_isStrategy (hg y)).mono fun ω' h ↦ ?_)
   simp only [graftTime, h, hy, ↓reduceIte]
 
 /-- Concatenation: the mean of the envelope after one more observation, under a finitely
@@ -768,9 +763,9 @@ private lemma lintegral_envelope_update_le (E : ℕ → (ℕ → ℝ) → ℝ≥
     ∫⁻ y, envelope E (k + 1) (Function.update ω k y) ∂P ≤ envelope E k ω := by
   classical
   rw [lintegral_eq_sum_of_measure_compl_eq_zero hS]
-  let St : ℝ → Type := fun y ↦ ↥(strategies (k + 1) (Function.update ω k y))
+  let St : ℝ → Type := fun y ↦ {p // IsStrategy (k + 1) (Function.update ω k y) p}
   have g₀ : ∀ y, St y := fun y ↦
-    ⟨_, dirac_extendZero_mem_strategies k (Function.update ω k y)⟩
+    ⟨_, isStrategy_dirac_extendZero k (Function.update ω k y)⟩
   let val : (y : ℝ) → St y → ℝ≥0∞ := fun y p ↦ ∫⁻ ω', E (p.1.2 ω') ω' ∂p.1.1
   have hW : ∀ y, envelope E (k + 1) (Function.update ω k y) * P {y} =
       ⨆ g : (∀ y, St y), val y (g y) * P {y} := by
@@ -787,13 +782,12 @@ private lemma lintegral_envelope_update_le (E : ℕ → (ℕ → ℝ) → ℝ≥
       · exact ⟨by gcongr, le_rfl⟩
       · exact ⟨le_rfl, by gcongr; exact le_of_not_ge h⟩⟩]
   refine iSup_le fun g ↦ ?_
-  have hmem := graft_mem_strategies hP hS (fun y ↦ (g y).1) (fun y ↦ (g y).2)
+  have hmem := isStrategy_graft hP hS (fun y ↦ (g y).1) (fun y ↦ (g y).2)
   calc ∑ y ∈ S, val y (g y) * P {y} = ∫⁻ ω', E (graftTime k S (fun y ↦ (g y).1.2) ω') ω'
-        ∂(∑ y ∈ S, P {y} • (g y).1.1) := by
+        ∂graftLaw S P (fun y ↦ (g y).1) := by
         rw [lintegral_graft (fun y ↦ (g y).1) (fun y ↦ (g y).2)]
         exact Finset.sum_congr rfl fun y _ ↦ mul_comm _ _
-    _ ≤ envelope E k ω := le_iSup₂ (f := fun p (_ : p ∈ strategies k ω) ↦
-        ∫⁻ ω', E (p.2 ω') ω' ∂p.1) _ hmem
+    _ ≤ envelope E k ω := lintegral_le_envelope E hmem
 
 /-- A mixture of the exponentials with a mixing measure of mass at most `1` is finite. -/
 private lemma lintegral_exp_ne_top {π : Measure ℝ≥0} (hπ : π univ ≤ 1) (y : ℝ) :
@@ -925,8 +919,9 @@ theorem exists_le_prod_lintegral_exp_of_forall_lintegral_le_one {E : ℕ → (�
       ∀ n ω, E n ω ≤ ∏ k ∈ Finset.range (n + 1),
         ∫⁻ l, ENNReal.ofReal (Real.exp ((l : ℝ) * ω k - (l : ℝ) ^ 2 / 2)) ∂π k ω :=
   exists_le_prod_of_envelope_le_one hadapt fun _ ↦ iSup₂_le fun p hp ↦
-    hE p.1 ⟨hp.1.1, fun n l hl s hs ↦ hp.1.2.2 n (Nat.zero_le n) l hl s hs⟩ hp.2.2.2.1 p.2
-      hp.2.1 hp.2.2.2.2
+    hE p.1 ⟨hp.isTreeLaw.isProbabilityMeasure, fun n l hl s hs ↦
+      hp.isTreeLaw.constraint n (Nat.zero_le n) l hl s hs⟩ hp.exists_finset p.2 hp.isStoppingTime
+      hp.bddAbove
 
 /-- **Domination of e-processes by predictable products of mixtures** [EVR26, Note 12,
 Theorem 4]. Every e-process for the one-sided conditionally `1`-sub-Gaussian null and the
