@@ -41,6 +41,8 @@ constraint holds for the gaps of `ν` whenever the optimal arm `a'` is unique.
 * `TsallisINF.integral_regret_le_log`: against a stochastic bandit with rewards in `[0, 1]` and a
   unique optimal arm `a'`, the expected regret is at most
   `144 (1 + log n) ∑ b ≠ a', 1 / gap ν b`.
+* `TsallisINF.integral_regret_le_sqrt`: against a stochastic bandit with rewards in `[0, 1]`, the
+  expected regret is also at most the minimax bound `12 √((k - 1) n)`, whatever the gaps.
 
 ## References
 
@@ -196,30 +198,44 @@ theorem pseudoRegret_le_log_of_selfBounding (h : IsAlgEnvSeq O A Y tsallisINF en
       gcongr
       exact Real.sum_range_inv_add_one_le n
 
+section Bandit
+
+variable {ν : Kernel α ℝ} [IsMarkovKernel ν] {O : ℕ → Ω → Unit}
+
 /-- **Logarithmic regret of Tsallis-INF in stochastic bandits** [ZS21],
 [Ora, Section 9.3]. Along a run of Tsallis-INF against a stochastic bandit
 `Environment.bandit ν` whose rewards are almost surely in `[0, 1]`, with a unique optimal arm
 `a'` (every other arm has a positive gap), the expected regret after `n` rounds is at most
 `144 (1 + log n) ∑ b ≠ a', 1 / gap ν b`. The algorithm is the one of the adversarial bound
 `pseudoRegret_le_sqrt`: it does not know whether the environment is stochastic. -/
-theorem integral_regret_le_log {ν : Kernel α ℝ} [IsMarkovKernel ν] {O : ℕ → Ω → Unit}
-    (h : IsAlgEnvSeq O A Y tsallisINF (Environment.bandit ν) P)
+theorem integral_regret_le_log (h : IsAlgEnvSeq O A Y tsallisINF (Environment.bandit ν) P)
     (hν : ∀ a, ∀ᵐ x ∂(ν a), x ∈ Set.Icc (0 : ℝ) 1) {a' : α}
     (hgap : ∀ b ≠ a', 0 < _root_.Bandits.gap ν b) (n : ℕ) :
     P[_root_.Bandits.regret ν A n] ≤
       144 * (1 + log n) * ∑ b ∈ univ.erase a', (_root_.Bandits.gap ν b)⁻¹ := by
-  have hY : ∀ᵐ ω ∂P, ∀ t < n, Y t ω ∈ Set.Icc 0 1 :=
-    (h.ae_forall_feedback_mem_bandit measurableSet_Icc hν).mono fun ω hω t _ ↦ hω t
   have hνi (a : α) : Integrable id (ν a) :=
     Integrable.of_mem_Icc 0 1 measurable_id.aemeasurable (hν a)
-  rw [← h.pseudoRegret_bandit hνi n]
-  refine pseudoRegret_le_log_of_selfBounding h hY hgap ?_
+  refine h.integral_regret_le_of_pseudoRegret_le hν fun hY ↦
+    pseudoRegret_le_log_of_selfBounding h hY hgap ?_
   -- the expected regret is the sum of the expected gaps under the weights, and `gap ν a' ≥ 0`
-  rw [h.pseudoRegret_bandit hνi n, WeightAlgorithm.integral_regret_eq
-    (isAlgEnvSeq_tsallisINF_iff.1 h) ν n]
+  rw [h.pseudoRegret_bandit hνi n,
+    WeightAlgorithm.integral_regret_eq (isAlgEnvSeq_tsallisINF_iff.1 h) ν n]
   refine sum_le_sum fun t _ ↦ sum_le_sum_of_subset_of_nonneg (erase_subset _ _) fun b _ _ ↦
     mul_nonneg _root_.Bandits.gap_nonneg
       (integral_nonneg fun ω ↦ (tsallisINFWeights_pos _ _ _).le)
+
+/-- **Minimax regret of Tsallis-INF in stochastic bandits**, of the order `√(k n)` of
+[ZS21, Theorem 1]: along a run of
+Tsallis-INF against a stochastic bandit `Environment.bandit ν` whose rewards are almost surely in
+`[0, 1]`, the expected regret after `n` rounds is at most `12 √((k - 1) n)`, with `k` the number
+of arms, whatever the gaps. With `integral_regret_le_log`, the same algorithm has both the minimax
+and the logarithmic regret of stochastic bandits. -/
+theorem integral_regret_le_sqrt (h : IsAlgEnvSeq O A Y tsallisINF (Environment.bandit ν) P)
+    (hν : ∀ a, ∀ᵐ x ∂(ν a), x ∈ Set.Icc (0 : ℝ) 1) (n : ℕ) :
+    P[_root_.Bandits.regret ν A n] ≤ 12 * √(((Fintype.card α : ℝ) - 1) * n) :=
+  h.integral_regret_le_of_pseudoRegret_le hν fun hY ↦ pseudoRegret_le_sqrt h hY
+
+end Bandit
 
 end TsallisINF
 

@@ -6,6 +6,7 @@ Authors: LMLExplore contributors
 module
 
 public import Mathlib.MeasureTheory.Measure.Decomposition.RadonNikodym
+public import LMLExplore.MeasureTheory.Measure.AbsolutelyContinuousSet
 public import LMLExplore.Probability.Independence.Integration
 public import Statlib.EValues.EVariable
 
@@ -21,6 +22,9 @@ under every probability measure of `S`. This file develops the first properties 
 that hypothesis testing uses:
 
 * the exact e-variables, with `∫⁻ E ∂P = P univ` for every `P ∈ S`;
+* the e-variable equal to `∞` on a set null for every member of `S`, and the measures under which
+  every e-variable for `S` is almost surely finite, which are those absolutely continuous with
+  respect to `S`;
 * Markov's inequality, which makes `{α⁻¹ ≤ E}` the rejection region of a level-`α` test, and its
   smoothed form `min (α * E) 1`;
 * products of e-variables from a family that is independent under every member of the null.
@@ -41,6 +45,11 @@ e-variables are `ℝ≥0∞`-valued.
   of probability measures, the e-variables and the exact e-variables in terms of `∫⁻`.
 * `ProbabilityTheory.isExactEVar_rnDeriv`: for a finite measure `P`, a likelihood ratio
   `Q.rnDeriv P` with `Q ≪ P` and `Q univ = P univ` is an exact e-variable for `{P}`.
+* `ProbabilityTheory.isEVar_piecewise_top`: the function equal to `∞` on a measurable set null
+  for every member of `S`, and to `1` elsewhere, is an e-variable for `S`.
+* `ProbabilityTheory.absolutelyContinuousSet_iff_forall_isEVar_ae_ne_top`: a measure `Q` is
+  absolutely continuous with respect to `S` (`MeasureTheory.Measure.AbsolutelyContinuousSet`)
+  exactly when every e-variable for `S` is `Q`-almost surely finite [LRR25, Theorem 2.6].
 * `ProbabilityTheory.IsEVar.measure_inv_le_le`: **Markov's inequality** for e-variables,
   `P {ω | α⁻¹ ≤ E ω} ≤ α`.
 * `ProbabilityTheory.IsEVar.lintegral_min_mul_le`: `∫⁻ ω, min (α * E ω) 1 ∂P ≤ α`.
@@ -51,6 +60,8 @@ e-variables are `ℝ≥0∞`-valued.
 
 ## References
 
+* [LRR25] M. Larsson, A. Ramdas and J. Ruf, *The numeraire e-variable and reverse information
+  projection*, Ann. Statist. 53 (2025), arXiv:2402.18810v4, Theorem 2.6.
 * A. Ramdas and R. Wang, *Hypothesis Testing with E-values*, Foundations and Trends in
   Statistics 1 (2025), arXiv:2410.23614v6: Definition 1.2, Fact 1.3 and Proposition 2.1.
 * V. Vovk and R. Wang, *E-values: calibration, combination and applications*, Ann. Statist. 49
@@ -142,6 +153,33 @@ theorem isExactEVar_rnDeriv {Q : Measure Ω} [IsFiniteMeasure P] [Q.HaveLebesgue
   toIsEVar := .of_lintegral_le_measure_univ (by simpa) (Measure.measurable_rnDeriv Q P)
     (by simp [Measure.lintegral_rnDeriv hQP, hQ])
   lintegral_eq_measure_univ := by simp [Measure.lintegral_rnDeriv hQP, hQ]
+
+/-! ### E-variables and null sets -/
+
+/-- For a measurable set `s` that is null for every member of `S`, the function equal to `∞` on
+`s` and to `1` elsewhere is an e-variable for `S`. -/
+theorem isEVar_piecewise_top {s : Set Ω} [DecidablePred (· ∈ s)] (hs : MeasurableSet s)
+    (hS : ∀ P ∈ S, P s = 0) : IsEVar (s.piecewise (fun _ ↦ ∞) 1) S :=
+  (isEVar_one S).congr (measurable_const.piecewise hs measurable_const) fun P hP ↦ by
+    filter_upwards [measure_eq_zero_iff_ae_notMem.mp (hS P hP)] with ω hω
+    simp [hω]
+
+/-- An e-variable for `S` is almost surely finite under a measure absolutely continuous with
+respect to `S` [LRR25, Theorem 2.6]. -/
+theorem _root_.MeasureTheory.Measure.AbsolutelyContinuousSet.ae_ne_top {Q : Measure Ω}
+    (hQS : Q.AbsolutelyContinuousSet S) (hE : IsEVar E S) : ∀ᵐ ω ∂Q, E ω ≠ ∞ :=
+  hQS.ae_of_forall_ae ((measurableSet_singleton ∞).compl.preimage hE.measurable)
+    fun _ hP ↦ hE.ae_ne_top hP
+
+/-- A measure is absolutely continuous with respect to `S` exactly when every e-variable for `S`
+is almost surely finite under it [LRR25, Theorem 2.6]. -/
+theorem absolutelyContinuousSet_iff_forall_isEVar_ae_ne_top {Q : Measure Ω} :
+    Q.AbsolutelyContinuousSet S ↔ ∀ E, IsEVar E S → ∀ᵐ ω ∂Q, E ω ≠ ∞ := by
+  classical
+  refine ⟨fun hQS _ hE ↦ hQS.ae_ne_top hE,
+    fun h ↦ Measure.absolutelyContinuousSet_iff.mpr fun s hs hS ↦ ?_⟩
+  refine measure_mono_null (fun ω hω ↦ ?_) (ae_iff.mp (h _ (isEVar_piecewise_top hs hS)))
+  simp [hω]
 
 /-! ### Markov's inequality -/
 

@@ -50,6 +50,8 @@ is `2 √(2 k n)`.
 * `TsallisMD.pseudoRegret_le`: the pseudo-regret against an adaptive adversary is at most
   `2 (√k - 1) / η + η √k n` [Ora, Theorem 9.2].
 * `TsallisMD.pseudoRegret_le_two_mul_sqrt`: for `η = √(2 / n)`, it is at most `2 √(2 k n)`.
+* `TsallisMD.integral_regret_le`, `TsallisMD.integral_regret_le_two_mul_sqrt`: the same bounds
+  for the expected regret on stochastic bandits with rewards in `[0, 1]`.
 
 ## References
 
@@ -450,6 +452,33 @@ theorem pseudoRegret_le_two_mul_sqrt (hη : 0 < η) (hηn : η = √(2 / n))
     _ = 2 * √(2 * Fintype.card α * n) := by
         rw [h_mul, h_div, ← two_mul, ← sqrt_mul (Nat.cast_nonneg _), ← mul_assoc,
           mul_comm (Fintype.card α : ℝ) 2]
+
+section Bandit
+
+variable {ν : Kernel α ℝ} [IsMarkovKernel ν] {O : ℕ → Ω → Unit}
+
+/-- **Regret of mirror descent with the ½-Tsallis potential on stochastic bandits**
+[Ora, Theorem 9.2]. For `η > 0`, along a run of `tsallisMD η _` against a stochastic bandit
+`Environment.bandit ν` whose rewards are almost surely in `[0, 1]`, the expected regret after `n`
+rounds is at most `2 (√k - 1) / η + η √k n`, with `k` the number of arms. -/
+theorem integral_regret_le (hη : 0 < η)
+    (h : IsAlgEnvSeq O A Y (tsallisMD η hη.ne') (Environment.bandit ν) P)
+    (hν : ∀ a, ∀ᵐ x ∂(ν a), x ∈ Set.Icc (0 : ℝ) 1) :
+    P[_root_.Bandits.regret ν A n] ≤
+      2 * (√(Fintype.card α) - 1) / η + η * √(Fintype.card α) * n :=
+  h.integral_regret_le_of_pseudoRegret_le hν fun hY ↦ pseudoRegret_le hη h hY
+
+/-- **Regret of mirror descent with the ½-Tsallis potential and the tuned learning rate on
+stochastic bandits** [Ora, Theorem 9.2]. Along a run of `tsallisMD η _` with `η = √(2 / n)`
+against a stochastic bandit `Environment.bandit ν` whose rewards are almost surely in `[0, 1]`,
+the expected regret after `n` rounds is at most `2 √(2 k n)`, with `k` the number of arms. -/
+theorem integral_regret_le_two_mul_sqrt (hη : 0 < η) (hηn : η = √(2 / n))
+    (h : IsAlgEnvSeq O A Y (tsallisMD η hη.ne') (Environment.bandit ν) P)
+    (hν : ∀ a, ∀ᵐ x ∂(ν a), x ∈ Set.Icc (0 : ℝ) 1) :
+    P[_root_.Bandits.regret ν A n] ≤ 2 * √(2 * Fintype.card α * n) :=
+  h.integral_regret_le_of_pseudoRegret_le hν fun hY ↦ pseudoRegret_le_two_mul_sqrt hη hηn h hY
+
+end Bandit
 
 end Expectation
 
