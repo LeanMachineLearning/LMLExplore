@@ -88,12 +88,22 @@ lower bound for linear bandits on the unit ball [LS, Theorem 24.2].
   sub-gamma bound, `L ≤ t (√(2 v L) + b L / 3) - v (exp (t b) - 1 - t b) / b ^ 2` for some `t > 0`.
 * `Real.exp_neg_le_one_sub_add_sq`: `exp (-x) ≤ 1 - x + x ^ 2` for `x ≥ -1`.
 * `Real.card_mul_exp_sum_div_card_le_sum_exp`: `#s exp ((∑ i ∈ s, x i) / #s) ≤ ∑ i ∈ s, exp (x i)`.
+* `Real.one_add_sq_div_two_le_cosh`: `1 + v ^ 2 / 2 ≤ cosh v`.
+* `Real.sum_inv_two_pow_mul_exp_mul_sum_sign`: the moment generating function of a sum of `n`
+  independent uniform signs is `cosh ^ n`.
+* `Real.tendsto_mul_sub_sq_div_two_atTop`: the exponent `t x - t ^ 2 / 2` of a sub-Gaussian
+  exponential tends to `-∞` as `t → ∞`.
 
 ## References
 
 * [LS] T. Lattimore and Cs. Szepesvári, *Bandit Algorithms*, Cambridge University Press, 2020.
 * [BLM13] S. Boucheron, G. Lugosi and P. Massart, *Concentration Inequalities*, Oxford University
   Press, 2013.
+* `Real.one_add_sq_div_two_le_cosh`, `Real.sum_inv_two_pow_mul_exp_mul_sum_sign` and
+  `Real.tendsto_mul_sub_sq_div_two_atTop` are adapted from the Lean proof in
+  `EValuesResearch/Results/SubGaussianCompleteClass.lean` and
+  `EValuesResearch/Results/SubGaussianCompleteClassAux.lean` (commit `dd4072f`) of the paper
+  project `RemyDegenne/evalues_research`.
 -/
 
 public section
@@ -389,5 +399,41 @@ theorem card_mul_exp_sum_div_card_le_sum_exp {ι : Type*} (s : Finset ι) (x : �
   rw [← mul_sum, ← mul_sum, one_div_mul_eq_div, one_div_mul_eq_div] at h
   calc (#s : ℝ) * exp ((∑ i ∈ s, x i) / #s) ≤ #s * ((∑ i ∈ s, exp (x i)) / #s) := by gcongr
     _ = ∑ i ∈ s, exp (x i) := by field_simp
+
+
+/-- `cosh v` is at least `1 + v ^ 2 / 2`. -/
+theorem one_add_sq_div_two_le_cosh (v : ℝ) : 1 + v ^ 2 / 2 ≤ cosh v := by
+  have h1 : cosh v = 2 * sinh (v / 2) ^ 2 + 1 := by
+    conv_lhs => rw [show v = 2 * (v / 2) by ring]
+    rw [cosh_two_mul, cosh_sq]
+    ring
+  have h2 : (v / 2) ^ 2 ≤ sinh (v / 2) ^ 2 := by
+    rcases le_total 0 (v / 2) with h | h
+    · nlinarith [self_le_sinh_iff.2 h]
+    · nlinarith [sinh_le_self_iff.2 h]
+  rw [h1]
+  nlinarith
+
+/-- The moment generating function of a sum of `n` independent uniform signs is `cosh ^ n`: the
+average of `exp (a * ∑ i, σ i)` over the `2 ^ n` sign vectors `σ` is `cosh a ^ n`. -/
+theorem sum_inv_two_pow_mul_exp_mul_sum_sign (n : ℕ) (a : ℝ) :
+    ∑ σ : Fin n → Bool, (2 ^ n : ℝ)⁻¹ * exp (a * ∑ i, if σ i then (1 : ℝ) else -1) =
+      cosh a ^ n := by
+  have h1 : ∀ σ : Fin n → Bool, exp (a * ∑ i, if σ i then (1 : ℝ) else -1) =
+      ∏ i, exp (a * if σ i then 1 else -1) := by
+    intro σ; rw [mul_sum, exp_sum]
+  simp_rw [h1]
+  rw [← mul_sum,
+    ← Fintype.prod_sum (fun (_ : Fin n) (b : Bool) ↦ exp (a * if b then 1 else -1))]
+  simp only [Fintype.sum_bool, ↓reduceIte, mul_one, Bool.false_eq_true, mul_neg,
+    prod_const, card_univ, Fintype.card_fin, cosh_eq]
+  rw [div_pow, inv_mul_eq_div]
+
+/-- The exponent `t x - t ^ 2 / 2` of a sub-Gaussian exponential tends to `-∞` as `t → ∞`. -/
+theorem tendsto_mul_sub_sq_div_two_atTop (x : ℝ) :
+    Tendsto (fun t : ℝ ↦ t * x - t ^ 2 / 2) atTop atBot := by
+  refine tendsto_atBot_mono' _ ?_ (tendsto_neg_atTop_atBot (G := ℝ))
+  filter_upwards [eventually_ge_atTop (2 * (|x| + 1))] with t ht
+  nlinarith [abs_nonneg x, le_abs_self x]
 
 end Real
