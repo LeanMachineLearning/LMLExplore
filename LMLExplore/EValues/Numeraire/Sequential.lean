@@ -12,7 +12,6 @@ import LMLExplore.EValues.Numeraire
 import LMLExplore.EValues.TestSupermartingale.IID
 import LMLExplore.Probability.ProductMeasure
 import Mathlib.Algebra.Polynomial.Roots
-import Mathlib.Logic.Equiv.Fin.Basic
 import Mathlib.Topology.Order.IntermediateValue
 
 /-!
@@ -202,6 +201,15 @@ private lemma isProbabilityMeasure_of_mem_pair {β : Type*} [MeasurableSpace β]
   simp only [Set.mem_insert_iff, Set.mem_singleton_iff]
   rintro μ (rfl | rfl) <;> infer_instance
 
+/-- Dividing by the likelihood ratio `ENNReal.ofReal (q / m)` and multiplying by the mass
+`ENNReal.ofReal q` multiplies by the mixture mass `ENNReal.ofReal m`. -/
+private lemma div_ofReal_div_mul_ofReal (y : ℝ≥0∞) {q m : ℝ} (hq : 0 < q) (hm : 0 < m) :
+    y / ENNReal.ofReal (q / m) * ENNReal.ofReal q = y * ENNReal.ofReal m := by
+  have hq0 : ENNReal.ofReal q ≠ 0 := (ENNReal.ofReal_pos.2 hq).ne'
+  rw [ENNReal.ofReal_div_of_pos hm, div_eq_mul_inv y,
+    ENNReal.inv_div (Or.inr ENNReal.ofReal_ne_top) (Or.inr hq0), mul_assoc,
+    ENNReal.div_mul_cancel hq0 ENNReal.ofReal_ne_top]
+
 /-- **The likelihood ratio against a mixture.** On a finite space, if the likelihood ratio of
 `Q` against the mixture `w P₁ + (1 - w) P₂` has expectation at most `1` under `P₁` and `P₂`, it is
 the numeraire for `{P₁, P₂}`: the expectation under `Q` of the ratio of an e-variable `Y` to it
@@ -246,10 +254,7 @@ private lemma isNumeraire_ofReal_div_mix {β : Type*} [MeasurableSpace β]
   calc ∑ x, Y x / ENNReal.ofReal (q x / m x) * Q {x}
       = ∑ x, (ENNReal.ofReal w * (Y x * P₁ {x}) + ENNReal.ofReal (1 - w) * (Y x * P₂ {x})) := by
         refine Finset.sum_congr rfl fun x _ ↦ ?_
-        have hq0 : ENNReal.ofReal (q x) ≠ 0 := (ENNReal.ofReal_pos.2 (hq x)).ne'
-        rw [hQ, ENNReal.ofReal_div_of_pos (hm x), div_eq_mul_inv (Y x),
-          ENNReal.inv_div (Or.inr ENNReal.ofReal_ne_top) (Or.inr hq0), mul_assoc,
-          ENNReal.div_mul_cancel hq0 ENNReal.ofReal_ne_top, hP₁, hP₂,
+        rw [hQ, div_ofReal_div_mul_ofReal _ (hq x) (hm x), hP₁, hP₂,
           ENNReal.ofReal_add (mul_nonneg hw0 (ha x)) (mul_nonneg (by linarith) (hb x)),
           ENNReal.ofReal_mul hw0, ENNReal.ofReal_mul (by linarith)]
         ring
@@ -629,6 +634,82 @@ private lemma injective_mul_pow {c a : ℝ} (hc : c ≠ 0) (ha0 : 0 < a) (ha1 : 
     Function.Injective fun j : Fin m ↦ c * a ^ (j : ℕ) :=
   fun _ _ h ↦ Fin.ext (pow_right_injective₀ ha0 ha1 (mul_left_cancel₀ hc h))
 
+omit [IsProbabilityMeasure Q] [IsProbabilityMeasure P₁] [IsProbabilityMeasure P₂] in
+/-- **The e-process property at a stopping time with two values.** Let the numeraires form an
+e-process, and let those of `k + 1` and `k + 2` observations be the likelihood ratios of the
+products of `Q` against the mixtures of weights `w` and `w'`. For a law `P` of the null that
+charges every point, under which the second likelihood ratio has expectation `1`, and a sample
+`x₀` of `k + 1` observations, stopping after `x₀` and after `k + 2` observations otherwise shows
+that the first ratio at `x₀` is at most the expectation under `P` of the second ratio at `x₀`
+extended by one observation. -/
+private lemma ratio_mix_le_sum_of_isEProcess {X : (n : ℕ) → (Fin (n + 1) → α) → ℝ≥0∞}
+    (hE : IsEProcess (fun n ω ↦ X n fun i ↦ ω i) (Filtration.piLE (X := fun _ : ℕ ↦ α))
+      ((fun P ↦ Measure.infinitePi fun _ : ℕ ↦ P) '' {P₁, P₂}))
+    {k : ℕ} {w w' : ℝ} (hm' : ∀ z : Fin (k + 2) → α, 0 < w' * piMass P₁ z + (1 - w') * piMass P₂ z)
+    (hN₁ : ∀ x : Fin (k + 1) → α,
+      X k x = ENNReal.ofReal (piMass Q x / (w * piMass P₁ x + (1 - w) * piMass P₂ x)))
+    (hN₂ : ∀ z : Fin (k + 2) → α,
+      X (k + 1) z = ENNReal.ofReal (piMass Q z / (w' * piMass P₁ z + (1 - w') * piMass P₂ z)))
+    {P : Measure α} [IsProbabilityMeasure P] (hPS : P ∈ ({P₁, P₂} : Set (Measure α)))
+    (hP : ∀ y, P {y} ≠ 0)
+    (hEP : ∑ z : Fin (k + 2) → α,
+      piMass P z * (piMass Q z / (w' * piMass P₁ z + (1 - w') * piMass P₂ z)) = 1)
+    (x₀ : Fin (k + 1) → α) :
+    piMass Q x₀ / (w * piMass P₁ x₀ + (1 - w) * piMass P₂ x₀) ≤
+      ∑ y, piMass Q x₀ * Q.real {y} / (w' * (piMass P₁ x₀ * P₁.real {y}) +
+        (1 - w') * (piMass P₂ x₀ * P₂.real {y})) * P.real {y} := by
+  classical
+  have hden : ∀ y, 0 ≤ w' * (piMass P₁ x₀ * P₁.real {y}) +
+      (1 - w') * (piMass P₂ x₀ * P₂.real {y}) := fun y ↦ by
+    rw [← piMass_snoc, ← piMass_snoc]
+    exact (hm' _).le
+  have hτ := Filtration.isStoppingTime_piLE_comp_initSeg
+    (T := fun x ↦ if x = x₀ then k else k + 1) Measurable.of_discrete
+    fun x ↦ by split_ifs <;> omega
+  simp only [initSeg_def] at hτ
+  have hle := hE.lintegral_le_one hτ ⟨P, hPS, rfl⟩
+  have hF₂ : ∫⁻ z, X (k + 1) z ∂(Measure.pi fun _ : Fin (k + 2) ↦ P) = 1 := by
+    rw [lintegral_fintype, ← ENNReal.ofReal_one, ← hEP,
+      ENNReal.ofReal_sum_of_nonneg fun z _ ↦ mul_nonneg (piMass_nonneg _ _)
+        (div_nonneg (piMass_nonneg _ _) (hm' z).le)]
+    refine Finset.sum_congr rfl fun z _ ↦ ?_
+    rw [hN₂, pi_singleton_eq_ofReal_piMass,
+      ← ENNReal.ofReal_mul (div_nonneg (piMass_nonneg _ _) (hm' z).le), mul_comm]
+  have h := le_sum_of_lintegral_stop_le_one hP (E := fun n ω ↦ X n fun i ↦ ω i)
+    (fun _ ↦ rfl) (fun _ ↦ rfl) hF₂ x₀ hle
+  have hy : ∀ y, X (k + 1) (Fin.snoc x₀ y) * P {y} =
+      ENNReal.ofReal (piMass Q x₀ * Q.real {y} / (w' * (piMass P₁ x₀ * P₁.real {y}) +
+        (1 - w') * (piMass P₂ x₀ * P₂.real {y})) * P.real {y}) := fun y ↦ by
+    rw [hN₂, piMass_snoc, piMass_snoc, piMass_snoc, ← ofReal_measureReal (μ := P),
+      ← ENNReal.ofReal_mul]
+    exact div_nonneg (mul_nonneg (piMass_nonneg _ _) measureReal_nonneg) (hden y)
+  have hnn : ∀ y, 0 ≤ piMass Q x₀ * Q.real {y} / (w' * (piMass P₁ x₀ * P₁.real {y}) +
+      (1 - w') * (piMass P₂ x₀ * P₂.real {y})) * P.real {y} := fun y ↦
+    mul_nonneg (div_nonneg (mul_nonneg (piMass_nonneg _ _) measureReal_nonneg) (hden y))
+      measureReal_nonneg
+  rwa [hN₁, Finset.sum_congr rfl fun y _ ↦ hy y,
+    ← ENNReal.ofReal_sum_of_nonneg fun y _ ↦ hnn y,
+    ENNReal.ofReal_le_ofReal_iff (Finset.sum_nonneg fun y _ ↦ hnn y)] at h
+
+omit [MeasurableSpace α] [MeasurableSingletonClass α] in
+/-- Dividing every denominator by `w' * A` turns the vanishing sum of
+`mixture_le_and_sum_eq_zero` into one of the form of `sum_div_eq_zero_of_injective`, with the
+root `(1 - w') * B / (w' * A)`. -/
+private lemma sum_div_eq_zero_of_sum_mix_eq_zero {A B w' : ℝ} {p₁ p₂ q : α → ℝ} (hA : 0 < A)
+    (hw0 : 0 < w')
+    (h : ∑ y, (p₁ y - p₂ y) * q y / (w' * (A * p₁ y) + (1 - w') * (B * p₂ y)) = 0) :
+    ∑ y, (p₁ y - p₂ y) * q y / (p₁ y + (1 - w') * B / (w' * A) * p₂ y) = 0 := by
+  have hwA : w' * A ≠ 0 := (mul_pos hw0 hA).ne'
+  have hden : ∀ y, w' * (A * p₁ y) + (1 - w') * (B * p₂ y) =
+      w' * A * (p₁ y + (1 - w') * B / (w' * A) * p₂ y) := fun y ↦ by
+    field_simp
+  calc ∑ y, (p₁ y - p₂ y) * q y / (p₁ y + (1 - w') * B / (w' * A) * p₂ y)
+      = w' * A * ∑ y, (p₁ y - p₂ y) * q y / (w' * (A * p₁ y) + (1 - w') * (B * p₂ y)) := by
+        rw [Finset.mul_sum]
+        refine Finset.sum_congr rfl fun y _ ↦ ?_
+        rw [hden y, mul_div_assoc', mul_div_mul_left _ _ hwA]
+    _ = 0 := by rw [h, mul_zero]
+
 /-- **The numeraires fail at a stopping time with two values.** On a finite space, for laws `P₁`,
 `P₂` and an alternative `Q` that charge every point, if `E_Q[p₂ / p₁] > 1` and
 `E_Q[p₁ / p₂] > 1`, the numeraires are not an e-process: the e-process property fails at a
@@ -657,51 +738,12 @@ private lemma not_isEProcess_of_one_lt (hQ : ∀ x, Q {x} ≠ 0) (hP₁ : ∀ x,
       0 < v * piMass P₁ x + (1 - v) * piMass P₂ x := fun hv0 hv1 x ↦ mix_pos hP₁ hv0 hv1.le x
   have hN₁ := eq_ofReal_div_mix hQ (hX k) hw0.le hw1.le (hmix hw0 hw1) hE₁.le hE₂.le
   have hN₂ := eq_ofReal_div_mix hQ (hX (k + 1)) hw0'.le hw1'.le (hmix hw0' hw1') hE₁'.le hE₂'.le
-  have hden : ∀ (x₀ : Fin (k + 1) → α) (y : α), 0 ≤ w' * (piMass P₁ x₀ * P₁.real {y}) +
-      (1 - w') * (piMass P₂ x₀ * P₂.real {y}) := fun x₀ y ↦ by
-    rw [← piMass_snoc, ← piMass_snoc]
-    exact (hmix hw0' hw1' _).le
   -- the e-process property at the stopping times with values in `{k, k + 1}`
-  have key : ∀ (P : Measure α) [IsProbabilityMeasure P], P ∈ ({P₁, P₂} : Set (Measure α)) →
-      (∀ y, P {y} ≠ 0) →
-      ∑ z : Fin (k + 2) → α,
-        piMass P z * (piMass Q z / (w' * piMass P₁ z + (1 - w') * piMass P₂ z)) = 1 →
-      ∀ x₀ : Fin (k + 1) → α,
-        piMass Q x₀ / (w * piMass P₁ x₀ + (1 - w) * piMass P₂ x₀) ≤
-          ∑ y, piMass Q x₀ * Q.real {y} / (w' * (piMass P₁ x₀ * P₁.real {y}) +
-            (1 - w') * (piMass P₂ x₀ * P₂.real {y})) * P.real {y} := by
-    intro P _ hPS hP hEP x₀
-    have hτ := Filtration.isStoppingTime_piLE_comp_initSeg
-      (T := fun x ↦ if x = x₀ then k else k + 1) Measurable.of_discrete
-      fun x ↦ by split_ifs <;> omega
-    simp only [initSeg_def] at hτ
-    have hle := hE.lintegral_le_one hτ ⟨P, hPS, rfl⟩
-    have hF₂ : ∫⁻ z, X (k + 1) z ∂(Measure.pi fun _ : Fin (k + 2) ↦ P) = 1 := by
-      rw [lintegral_fintype, ← ENNReal.ofReal_one, ← hEP,
-        ENNReal.ofReal_sum_of_nonneg fun z _ ↦ mul_nonneg (piMass_nonneg _ _)
-          (div_nonneg (piMass_nonneg _ _) (hmix hw0' hw1' z).le)]
-      refine Finset.sum_congr rfl fun z _ ↦ ?_
-      rw [hN₂, pi_singleton_eq_ofReal_piMass,
-        ← ENNReal.ofReal_mul (div_nonneg (piMass_nonneg _ _) (hmix hw0' hw1' z).le), mul_comm]
-    have h := le_sum_of_lintegral_stop_le_one hP (E := fun n ω ↦ X n fun i ↦ ω i)
-      (fun _ ↦ rfl) (fun _ ↦ rfl) hF₂ x₀ hle
-    have hy : ∀ y, X (k + 1) (Fin.snoc x₀ y) * P {y} =
-        ENNReal.ofReal (piMass Q x₀ * Q.real {y} / (w' * (piMass P₁ x₀ * P₁.real {y}) +
-          (1 - w') * (piMass P₂ x₀ * P₂.real {y})) * P.real {y}) := fun y ↦ by
-      rw [hN₂, piMass_snoc, piMass_snoc, piMass_snoc, ← ofReal_measureReal (μ := P),
-        ← ENNReal.ofReal_mul]
-      exact div_nonneg (mul_nonneg (piMass_nonneg _ _) measureReal_nonneg) (hden x₀ y)
-    have hnn : ∀ y, 0 ≤ piMass Q x₀ * Q.real {y} / (w' * (piMass P₁ x₀ * P₁.real {y}) +
-        (1 - w') * (piMass P₂ x₀ * P₂.real {y})) * P.real {y} := fun y ↦
-      mul_nonneg (div_nonneg (mul_nonneg (piMass_nonneg _ _) measureReal_nonneg) (hden x₀ y))
-        measureReal_nonneg
-    rwa [hN₁, Finset.sum_congr rfl fun y _ ↦ hy y,
-      ← ENNReal.ofReal_sum_of_nonneg fun y _ ↦ hnn y,
-      ENNReal.ofReal_le_ofReal_iff (Finset.sum_nonneg fun y _ ↦ hnn y)] at h
   have hstep := fun x₀ ↦ mixture_le_and_sum_eq_zero (piMass_pos hP₁ x₀) (piMass_pos hP₂ x₀)
     (piMass_pos hQ x₀) (hmix hw0 hw1 x₀) hw0' hw1' (measureReal_singleton_pos hP₁)
     (measureReal_singleton_pos hP₂) (sum_measureReal_singleton_eq_one Q)
-    (key P₁ (by simp) hP₁ hE₁' x₀) (key P₂ (by simp) hP₂ hE₂' x₀)
+    (ratio_mix_le_sum_of_isEProcess hE (hmix hw0' hw1') hN₁ hN₂ (by simp) hP₁ hE₁' x₀)
+    (ratio_mix_le_sum_of_isEProcess hE (hmix hw0' hw1') hN₁ hN₂ (by simp) hP₂ hE₂' x₀)
   -- the mixtures with weights `w` and `w'` coincide
   have heq : ∀ x₀ : Fin (k + 1) → α, w' * piMass P₁ x₀ + (1 - w') * piMass P₂ x₀ =
       w * piMass P₁ x₀ + (1 - w) * piMass P₂ x₀ := by
@@ -743,24 +785,8 @@ private lemma not_isEProcess_of_one_lt (hQ : ∀ x, Q {x} ≠ 0) (hP₁ : ∀ x,
   have hs0 : ∀ j, 0 ≤ s j := fun j ↦ div_nonneg
     (mul_nonneg (by linarith) (piMass_nonneg _ _)) (mul_nonneg hw0'.le (piMass_nonneg _ _))
   have hroot : ∀ j, ∑ y, (P₁.real {y} - P₂.real {y}) * Q.real {y} /
-      (P₁.real {y} + s j * P₂.real {y}) = 0 := by
-    intro j
-    have h0 := (hstep (x j)).2 (heq (x j))
-    have hA := piMass_pos hP₁ (x j)
-    have hwA : w' * piMass P₁ (x j) ≠ 0 := (mul_pos hw0' hA).ne'
-    have hden' : ∀ y, w' * (piMass P₁ (x j) * P₁.real {y}) +
-        (1 - w') * (piMass P₂ (x j) * P₂.real {y}) =
-        w' * piMass P₁ (x j) * (P₁.real {y} + s j * P₂.real {y}) := fun y ↦ by
-      simp only [hs]
-      field_simp
-    calc ∑ y, (P₁.real {y} - P₂.real {y}) * Q.real {y} / (P₁.real {y} + s j * P₂.real {y})
-        = w' * piMass P₁ (x j) * ∑ y, (P₁.real {y} - P₂.real {y}) * Q.real {y} /
-            (w' * (piMass P₁ (x j) * P₁.real {y}) +
-              (1 - w') * (piMass P₂ (x j) * P₂.real {y})) := by
-          rw [Finset.mul_sum]
-          refine Finset.sum_congr rfl fun y _ ↦ ?_
-          rw [hden' y, mul_div_assoc', mul_div_mul_left _ _ hwA]
-      _ = 0 := by rw [h0, mul_zero]
+      (P₁.real {y} + s j * P₂.real {y}) = 0 := fun j ↦
+    sum_div_eq_zero_of_sum_mix_eq_zero (piMass_pos hP₁ (x j)) hw0' ((hstep (x j)).2 (heq (x j)))
   have hzero := sum_div_eq_zero_of_injective (measureReal_singleton_pos hP₁)
     (measureReal_singleton_pos hP₂) (by rw [hk, Fintype.card_fin]) hinj hs0 hroot
   have h1 : ∑ y, (P₁.real {y} - P₂.real {y}) * Q.real {y} / P₁.real {y} =

@@ -8,6 +8,7 @@ module
 public import LMLExplore.EValues.Numeraire.Sequential
 public import Mathlib.Probability.Distributions.Bernoulli
 import LMLExplore.Probability.Distributions.Bernoulli
+import Mathlib.Logic.Equiv.Fin.Basic
 import all LMLExplore.EValues.Numeraire.Sequential
 
 /-!
