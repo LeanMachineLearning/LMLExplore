@@ -48,6 +48,8 @@ e-variables are `ℝ≥0∞`-valued.
 * `ProbabilityTheory.isEVar_div_singleton`: on a countable space, the likelihood ratio
   `x ↦ Q {x} / P {x}` against a probability measure `P` that charges every point is an
   e-variable for `{P}`.
+* `ProbabilityTheory.IsEVar.ofReal_one_sub_mul_add_ofReal`: for `ε ∈ [0, 1]`, the mixture
+  `(1 - ε) E + ε` of an e-variable with the constant `1` is an e-variable.
 * `ProbabilityTheory.isEVar_piecewise_top`: the function equal to `∞` on a measurable set null
   for every member of `S`, and to `1` elsewhere, is an e-variable for `S`.
 * `ProbabilityTheory.absolutelyContinuousSet_iff_forall_isEVar_ae_ne_top`: a measure `Q` is
@@ -167,6 +169,21 @@ theorem isEVar_div_singleton [MeasurableSingletonClass Ω] [Countable Ω] {Q : M
   rw [Set.mem_singleton_iff.1 h, lintegral_countable',
     tsum_congr fun ω ↦ ENNReal.div_mul_cancel (hP ω) (measure_ne_top _ _)]
   simpa using (lintegral_countable' (μ := Q) 1).symm.le
+
+/-! ### Mixing with a constant -/
+
+/-- **Mixing with a constant.** For `ε ∈ [0, 1]`, the mixture `(1 - ε) E + ε` of an e-variable
+`E` with the constant `1` is an e-variable. -/
+theorem IsEVar.ofReal_one_sub_mul_add_ofReal (hE : IsEVar E S) {ε : ℝ} (hε0 : 0 ≤ ε)
+    (hε1 : ε ≤ 1) :
+    IsEVar (fun x ↦ ENNReal.ofReal (1 - ε) * E x + ENNReal.ofReal ε) S := by
+  have h : IsEVar (ENNReal.ofReal (1 - ε) • E + ENNReal.ofReal ε • 1) S :=
+    convex_isEVar S hE (isEVar_one S) (zero_le : 0 ≤ ENNReal.ofReal (1 - ε))
+      (zero_le : 0 ≤ ENNReal.ofReal ε)
+      (by rw [← ENNReal.ofReal_add (by linarith) hε0, sub_add_cancel, ENNReal.ofReal_one])
+  convert h using 1
+  ext x
+  simp
 
 /-! ### E-variables and null sets -/
 

@@ -25,6 +25,13 @@ The bound in expectation, `ProbabilityTheory.IsEProcess.eintegral_log_div_le_bip
 [RR26, Lemma 3.3], holds for each `n` separately; the almost sure bound is about the whole
 trajectory.
 
+## Main definitions
+
+* `ProbabilityTheory.coverWeight`: the weight `1 / (k (k + 1))` of a block of `k` observations in
+  a mixture over block lengths; the weights of `1, 2, …` add up to at most `1`
+  (`ProbabilityTheory.sum_coverWeight_le_one`,
+  `ProbabilityTheory.tsum_ofReal_coverWeight_succ_le_one`).
+
 ## Main statements
 
 * `ProbabilityTheory.ae_limsup_log_div_le_bipolarRate_of_dependsOn`: the bound for functions `F n`
@@ -85,15 +92,18 @@ variable {𝓧 : Type*} {m𝓧 : MeasurableSpace 𝓧}
 
 /-- The weight `1 / (k (k + 1))` of a block of `k` observations in the covering mixture. These
 weights add up to at most `1`, and their logarithms are `o(k)`. -/
-private noncomputable def coverWeight (k : ℕ) : ℝ := 1 / ((k : ℝ) * (k + 1))
+noncomputable def coverWeight (k : ℕ) : ℝ := 1 / ((k : ℝ) * (k + 1))
+
+/-- The definition of the weights of the covering mixture. -/
+lemma coverWeight_def (k : ℕ) : coverWeight k = 1 / ((k : ℝ) * (k + 1)) := (rfl)
 
 /-- The weights of the covering mixture are nonnegative. -/
-private lemma coverWeight_nonneg (k : ℕ) : 0 ≤ coverWeight k := by
+lemma coverWeight_nonneg (k : ℕ) : 0 ≤ coverWeight k := by
   unfold coverWeight
   positivity
 
 /-- The weights of the blocks of lengths `1, …, n` add up to at most `1`. -/
-private lemma sum_coverWeight_le_one (n : ℕ) :
+lemma sum_coverWeight_le_one (n : ℕ) :
     ∑ j ∈ Finset.range n, coverWeight (j + 1) ≤ 1 := by
   have h (n : ℕ) : ∑ j ∈ Finset.range n, coverWeight (j + 1) = 1 - 1 / ((n : ℝ) + 1) := by
     induction n with
@@ -106,6 +116,18 @@ private lemma sum_coverWeight_le_one (n : ℕ) :
   rw [h]
   have : 0 ≤ 1 / ((n : ℝ) + 1) := by positivity
   linarith
+
+/-- The weights of the covering mixture of nonempty blocks are positive. -/
+lemma coverWeight_pos {k : ℕ} (hk : 0 < k) : 0 < coverWeight k := by
+  rw [coverWeight_def]
+  exact one_div_pos.2 (mul_pos (Nat.cast_pos.2 hk) (by positivity))
+
+/-- The weights of the blocks of all lengths `1, 2, …` add up to at most `1`. -/
+lemma tsum_ofReal_coverWeight_succ_le_one :
+    ∑' k : ℕ, ENNReal.ofReal (coverWeight (k + 1)) ≤ 1 := by
+  refine ENNReal.tsum_le_of_sum_range_le fun n ↦ ?_
+  rw [← ENNReal.ofReal_sum_of_nonneg fun k _ ↦ coverWeight_nonneg _]
+  exact ENNReal.ofReal_le_one.2 (sum_coverWeight_le_one n)
 
 /-- The logarithm of the inverse weight of a block is at most `ε` times its length, for long
 blocks. -/

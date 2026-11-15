@@ -20,8 +20,9 @@ independent of its strict past. For the coordinates of a product measure, this i
 with respect to which each coordinate is drawn independently of the previous ones.
 
 For Mathlib's filtration `Filtration.piLE` of the first coordinates of a sequence, whose time `n`
-has seen the coordinates `0, …, n`, functions of the first coordinates are adapted, and random
-times that are functions of the first `k + 1` coordinates and are at least `k` are stopping times.
+has seen the coordinates `0, …, n`, functions of the first coordinates are measurable and
+adapted, and random times that are functions of the first `k + 1` coordinates and are at least `k`
+are stopping times.
 
 ## Main definitions
 
@@ -41,6 +42,8 @@ times that are functions of the first `k + 1` coordinates and are at least `k` a
   at time `n` of `Filtration.piLE` for `k ≤ n + 1`, functions of the first `n + 1` terms form an
   adapted process, and a function of the first `k + 1` terms that is at least `k` is a stopping
   time.
+* `MeasureTheory.Filtration.measurable_piLE_of_dependsOn`: a measurable function that depends only
+  on the first `n + 1` terms is measurable at time `n` of `Filtration.piLE`.
 -/
 
 public section
@@ -106,6 +109,18 @@ lemma adapted_piLE_comp_initSeg {β : Type*} [MeasurableSpace β]
     {X : (n : ℕ) → (Fin (n + 1) → 𝓧) → β} (hX : ∀ n, Measurable (X n)) :
     Adapted (piLE (X := fun _ : ℕ ↦ 𝓧)) fun n ω ↦ X n (initSeg (n + 1) ω) :=
   fun n ↦ (hX n).comp (measurable_piLE_initSeg le_rfl)
+
+/-- A measurable function of the first `n + 1` terms of a sequence is measurable at time `n` of
+`Filtration.piLE`. -/
+lemma measurable_piLE_of_dependsOn {β : Type*} [MeasurableSpace β]
+    {f : (ℕ → 𝓧) → β} {n : ℕ} (hf : Measurable f) (hfn : DependsOn f (Set.Iio (n + 1))) :
+    Measurable[piLE n] f := by
+  -- `exists_measurable_eq_comp_initSeg` needs `[Nonempty 𝓧]`; the empty case is trivial
+  rcases isEmpty_or_nonempty 𝓧 with h𝓧 | h𝓧
+  · let : MeasurableSpace (ℕ → 𝓧) := piLE n
+    exact Subsingleton.measurable
+  obtain ⟨g, hg, rfl⟩ := exists_measurable_eq_comp_initSeg hf hfn
+  exact Measurable.comp (mα := piLE n) hg (measurable_piLE_initSeg le_rfl)
 
 /-- A random time that is a measurable function, at least `k`, of the first `k + 1` terms of a
 sequence is a stopping time of `Filtration.piLE`. -/

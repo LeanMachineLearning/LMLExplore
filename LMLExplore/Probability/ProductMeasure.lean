@@ -43,6 +43,8 @@ the polarization step of [EVR26, Note 03, Theorem 1], adapted from
   first `n` terms and the next `m` terms are independent.
 * `MeasureTheory.measurePreserving_shift`, `MeasureTheory.measurePreserving_shift_iterate`: the
   shift and its iterates preserve the i.i.d. law.
+* `MeasureTheory.dependsOn_comp_shift_iterate`: a function of the first `L` terms, read after
+  the shift by `a`, is a function of the first `a + L` terms.
 * `MeasureTheory.lintegral_mul_comp_shift_iterate`: under an i.i.d. law, a function of the first
   `t` terms is independent of a function of the terms after them.
 * `MeasureTheory.Measure.infinitePi_eq_zero_of_not_isProbabilityMeasure`: the infinite product
@@ -101,6 +103,16 @@ lemma measurePreserving_shift_iterate (P : Measure 𝓧) [IsProbabilityMeasure P
     MeasurePreserving (shift 𝓧)^[t] (Measure.infinitePi fun _ : ℕ ↦ P)
       (Measure.infinitePi fun _ : ℕ ↦ P) :=
   (measurePreserving_shift P).iterate t
+
+/-- A function of the first `L` terms, read on the sequence shifted by `a`, is a function of the
+first `a + L` terms. -/
+lemma dependsOn_comp_shift_iterate {β : Type*} {L : ℕ} {g : (ℕ → 𝓧) → β}
+    (hg : DependsOn g (Set.Iio L)) (a : ℕ) :
+    DependsOn (g ∘ (shift 𝓧)^[a]) (Set.Iio (a + L)) := by
+  intro ω ω' h
+  refine hg fun i hi ↦ ?_
+  simp only [TauCeti.Probability.shift_iterate_apply]
+  exact h _ (by simp only [Set.mem_Iio] at hi ⊢; omega)
 
 open ProbabilityTheory in
 /-- Under an i.i.d. law, a function of the first `t` terms is independent of a function of the
