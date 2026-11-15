@@ -52,7 +52,7 @@ else: no domination, convexity or compactness.
 * [RR26] A. Ram and A. Ramdas, *The optimal betting wealth growth rate*, arXiv:2604.25280v1.
 -/
 
-@[expose] public section
+public section
 
 open MeasureTheory Filter InformationTheory
 open scoped ENNReal Topology
@@ -76,11 +76,43 @@ and Ramdas show that it is the optimal growth rate of e-processes against the nu
 noncomputable def bipolarRate (Q₁ : Measure 𝓧) (S₁ : Set (Measure 𝓧)) : EReal :=
   ⨆ n : ℕ, maxLogGrowth Q₁ S₁ (n + 1) / ((n + 1 : ℕ) : EReal)
 
+lemma maxLogGrowth_def (Q₁ : Measure 𝓧) (S₁ : Set (Measure 𝓧)) (n : ℕ) :
+    maxLogGrowth Q₁ S₁ n = maxUtility (Measure.pi fun _ : Fin n ↦ Q₁)
+      ((fun P ↦ Measure.pi fun _ : Fin n ↦ P) '' S₁) logUtility :=
+  (rfl)
+
+lemma bipolarRate_def (Q₁ : Measure 𝓧) (S₁ : Set (Measure 𝓧)) :
+    bipolarRate Q₁ S₁ = ⨆ n : ℕ, maxLogGrowth Q₁ S₁ (n + 1) / ((n + 1 : ℕ) : EReal) :=
+  (rfl)
+
+/-- The maximal utility of e-variables under the zero measure vanishes. -/
+@[simp]
+lemma maxUtility_zero_measure {Ω : Type*} [MeasurableSpace Ω] (T : Set (Measure Ω))
+    (U : Utility) : maxUtility 0 T U = 0 :=
+  le_antisymm (iSup₂_le fun _ _ ↦ (eintegral_zero_measure _).le)
+    (le_iSup₂_of_le _ (isEVar_fun_one T) (eintegral_zero_measure _).ge)
+
 /-- The maximal expected logarithm of an `n`-sample e-variable is nonnegative, as the constant `1`
 is an e-variable. -/
 lemma maxLogGrowth_nonneg (Q₁ : Measure 𝓧) (S₁ : Set (Measure 𝓧)) (n : ℕ) :
     0 ≤ maxLogGrowth Q₁ S₁ n :=
   maxUtility_nonneg _
+
+/-- The normalized maximal expected logarithm of an `n`-sample e-variable is at most the bipolar
+rate, for `n ≠ 0`. -/
+lemma div_le_bipolarRate (Q₁ : Measure 𝓧) (S₁ : Set (Measure 𝓧)) (hn : n ≠ 0) :
+    maxLogGrowth Q₁ S₁ n / n ≤ bipolarRate Q₁ S₁ := by
+  obtain ⟨k, rfl⟩ := Nat.exists_eq_succ_of_ne_zero hn
+  exact le_iSup (fun k : ℕ ↦ maxLogGrowth Q₁ S₁ (k + 1) / ((k + 1 : ℕ) : EReal)) k
+
+/-- The bipolar rate is at most `c` if and only if `maxLogGrowth Q₁ S₁ n ≤ n * c` for every
+`n ≠ 0`. -/
+lemma bipolarRate_le_iff {c : EReal} :
+    bipolarRate Q₁ S₁ ≤ c ↔ ∀ n ≠ 0, maxLogGrowth Q₁ S₁ n ≤ n * c := by
+  have h (n : ℕ) (hn : n ≠ 0) : maxLogGrowth Q₁ S₁ n / n ≤ c ↔ maxLogGrowth Q₁ S₁ n ≤ n * c :=
+    EReal.div_le_iff_le_mul (by exact_mod_cast Nat.pos_of_ne_zero hn) (EReal.natCast_ne_top _)
+  refine ⟨fun hc n hn ↦ (h n hn).1 ((div_le_bipolarRate Q₁ S₁ hn).trans hc), fun hc ↦ ?_⟩
+  exact iSup_le fun n ↦ (h _ n.succ_ne_zero).2 (hc _ n.succ_ne_zero)
 
 /-- The maximal expected logarithm of an `n`-sample e-variable is antitone in the null. -/
 @[gcongr]
@@ -88,19 +120,17 @@ lemma maxLogGrowth_anti (h : S₁ ⊆ T₁) : maxLogGrowth Q₁ T₁ n ≤ maxLo
   maxUtility_anti (Set.image_mono h)
 
 /-- With one observation, `maxLogGrowth` is the maximal expected logarithm of an e-variable. -/
+@[simp]
 lemma maxLogGrowth_one (Q₁ : Measure 𝓧) (S₁ : Set (Measure 𝓧)) :
     maxLogGrowth Q₁ S₁ 1 = maxUtility Q₁ S₁ logUtility := by
   rcases isEmpty_or_nonempty 𝓧 with h𝓧 | h𝓧
   · -- on an empty space every measure is `0`, and both sides vanish
-    have h0 {Ω : Type _} [MeasurableSpace Ω] (T : Set (Measure Ω)) :
-        maxUtility 0 T logUtility = 0 :=
-      le_antisymm (iSup₂_le fun _ _ ↦ (eintegral_zero_measure _).le) (maxUtility_nonneg _)
-    rw [maxLogGrowth, Measure.eq_zero_of_isEmpty (Measure.pi fun _ : Fin 1 ↦ Q₁),
-      Measure.eq_zero_of_isEmpty Q₁, h0, h0]
+    rw [maxLogGrowth_def, Measure.eq_zero_of_isEmpty (Measure.pi fun _ : Fin 1 ↦ Q₁),
+      Measure.eq_zero_of_isEmpty Q₁, maxUtility_zero_measure, maxUtility_zero_measure]
   set e := (MeasurableEquiv.funUnique (Fin 1) 𝓧).symm
   have h_map (P : Measure 𝓧) : P.map e = Measure.pi fun _ : Fin 1 ↦ P :=
     (measurePreserving_funUnique P (Fin 1)).symm.map_eq
-  rw [← e.measurableEmbedding.maxUtility_map_eq, h_map, maxLogGrowth]
+  rw [← e.measurableEmbedding.maxUtility_map_eq, h_map, maxLogGrowth_def]
   congr 1
   ext μ
   simp only [Set.mem_image, Set.mem_ofPred_eq, h_map]
@@ -130,7 +160,7 @@ theorem maxLogGrowth_add_le (Q₁ : Measure 𝓧) [IsProbabilityMeasure Q₁]
   _ = maxUtility ((Measure.pi fun _ : Fin m ↦ Q₁).prod (Measure.pi fun _ : Fin n ↦ Q₁))
       (Set.image2 Measure.prod ((fun P ↦ Measure.pi fun _ : Fin m ↦ P) '' S₁)
         ((fun P ↦ Measure.pi fun _ : Fin n ↦ P) '' S₁)) logUtility :=
-    (maxUtility_prod_eq_add _ _ (h_fin m) (h_fin n)).symm
+    by rw [maxLogGrowth_def, maxLogGrowth_def, maxUtility_prod_eq_add _ _ (h_fin m) (h_fin n)]
   _ ≤ maxUtility ((Measure.pi fun _ : Fin (m + n) ↦ Q₁).map e)
       {μ.map e | μ ∈ (fun P ↦ Measure.pi fun _ : Fin (m + n) ↦ P) '' S₁} logUtility := by
     rw [h_map]
@@ -138,24 +168,24 @@ theorem maxLogGrowth_add_le (Q₁ : Measure 𝓧) [IsProbabilityMeasure Q₁]
     rintro _ ⟨_, ⟨P, hP, rfl⟩, rfl⟩
     have := hS₁ P hP
     exact ⟨_, ⟨P, hP, rfl⟩, _, ⟨P, hP, rfl⟩, (h_map P).symm⟩
-  _ ≤ maxLogGrowth Q₁ S₁ (m + n) := maxUtility_map_le _ e.measurable
+  _ ≤ maxLogGrowth Q₁ S₁ (m + n) := by rw [maxLogGrowth_def]; exact maxUtility_map_le _ e.measurable
 
 /-- The maximal expected logarithm of an `n`-sample e-variable is at most `n` times the bipolar
 rate, for `n ≠ 0`. -/
 lemma maxLogGrowth_le_mul_bipolarRate (Q₁ : Measure 𝓧) (S₁ : Set (Measure 𝓧)) (hn : n ≠ 0) :
-    maxLogGrowth Q₁ S₁ n ≤ n * bipolarRate Q₁ S₁ := by
-  obtain ⟨k, rfl⟩ := Nat.exists_eq_succ_of_ne_zero hn
-  have h := le_iSup (fun k : ℕ ↦ maxLogGrowth Q₁ S₁ (k + 1) / ((k + 1 : ℕ) : EReal)) k
-  rwa [EReal.div_le_iff_le_mul (by exact_mod_cast k.succ_pos) (EReal.natCast_ne_top _)] at h
+    maxLogGrowth Q₁ S₁ n ≤ n * bipolarRate Q₁ S₁ :=
+  bipolarRate_le_iff.1 le_rfl n hn
 
 /-- The bipolar rate is nonnegative. -/
 lemma bipolarRate_nonneg (Q₁ : Measure 𝓧) (S₁ : Set (Measure 𝓧)) : 0 ≤ bipolarRate Q₁ S₁ :=
-  le_iSup_of_le 0 (EReal.div_nonneg (maxLogGrowth_nonneg _ _ _) (by positivity))
+  (EReal.div_nonneg (maxLogGrowth_nonneg _ _ _) (by positivity)).trans
+    (div_le_bipolarRate Q₁ S₁ one_ne_zero)
 
 /-- The bipolar rate is antitone in the null. -/
 @[gcongr]
 lemma bipolarRate_anti (h : S₁ ⊆ T₁) : bipolarRate Q₁ T₁ ≤ bipolarRate Q₁ S₁ :=
-  iSup_mono fun _ ↦ EReal.div_le_div_right_of_nonneg (by positivity) (maxLogGrowth_anti h)
+  bipolarRate_le_iff.2 fun _ hn ↦ (maxLogGrowth_anti h).trans
+    (maxLogGrowth_le_mul_bipolarRate Q₁ S₁ hn)
 
 /-- **Fekete's lemma** for the maximal expected logarithm of e-variables for an i.i.d. null:
 `maxLogGrowth Q₁ S₁ n / n` tends to its supremum, the bipolar rate [RR26, Lemma 3.2]. The limit
@@ -163,7 +193,7 @@ may be `⊤`. -/
 theorem tendsto_maxLogGrowth_div_bipolarRate (Q₁ : Measure 𝓧) [IsProbabilityMeasure Q₁]
     (hS₁ : ∀ P ∈ S₁, IsFiniteMeasure P) :
     Tendsto (fun n : ℕ ↦ maxLogGrowth Q₁ S₁ n / n) atTop (𝓝 (bipolarRate Q₁ S₁)) :=
-  EReal.tendsto_div_iSup_of_superadditive
+  bipolarRate_def Q₁ S₁ ▸ EReal.tendsto_div_iSup_of_superadditive
     (fun _ _ ↦ ne_bot_of_le_ne_bot EReal.zero_ne_bot (maxLogGrowth_nonneg _ _ _))
     (maxLogGrowth_add_le Q₁ hS₁)
 
@@ -178,15 +208,14 @@ lemma maxLogGrowth_le_mul_klDiv (Q₁ : Measure 𝓧) [IsProbabilityMeasure Q₁
   _ ≤ maxUtility (Measure.pi fun _ : Fin n ↦ Q₁) {Measure.pi fun _ : Fin n ↦ P} logUtility :=
     maxUtility_anti (Set.singleton_subset_iff.2 ⟨P, hP, rfl⟩)
   _ = n * (klDiv Q₁ P : EReal) := by
-    rw [maxUtility_singleton_eq_klDiv, klDiv_pi_const, Fintype.card_fin, EReal.coe_ennreal_mul,
-      ENNReal.toEReal_natCast]
+    rw [maxUtility_singleton_eq_klDiv, klDiv_pi_const]
+    simp
 
 /-- The bipolar rate is at most the relative entropy from `Q₁` to any member of the null. -/
 lemma bipolarRate_le_klDiv (Q₁ : Measure 𝓧) [IsProbabilityMeasure Q₁] (hP : P ∈ S₁)
     [IsProbabilityMeasure P] :
     bipolarRate Q₁ S₁ ≤ klDiv Q₁ P :=
-  iSup_le fun n ↦ (EReal.div_le_iff_le_mul (by exact_mod_cast n.succ_pos)
-    (EReal.natCast_ne_top _)).2 (maxLogGrowth_le_mul_klDiv Q₁ hP (n + 1))
+  bipolarRate_le_iff.2 fun n _ ↦ maxLogGrowth_le_mul_klDiv Q₁ hP n
 
 /-- The bipolar rate is at most the smallest relative entropy from `Q₁` to the null,
 $\mathrm{KL}_{\inf}(Q_1,\mathcal P_1)$ [RR26, proof of Theorem 4.1]. The inequality can be
