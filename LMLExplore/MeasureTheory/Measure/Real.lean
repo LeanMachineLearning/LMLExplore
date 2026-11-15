@@ -15,7 +15,9 @@ finitely many indices and taking a union bound. This file records that step once
 events `s i`, `i : ι` with `ι` finite, has probability at most `δ / card ι`, then with probability
 at least `1 - δ` none of them happens. The events need not be measurable. It also records the
 intersection of two high-probability events: if `s` and `t` have probabilities at least `1 - a`
-and `1 - b`, then `s ∩ t` has probability at least `1 - a - b`.
+and `1 - b`, then `s ∩ t` has probability at least `1 - a - b`. Finally, it records that a set of
+nonzero finite mass has positive real mass, and that the real masses of the points of a finite
+space sum to `1` under a probability measure.
 
 ## Main statements
 
@@ -23,11 +25,16 @@ and `1 - b`, then `s ∩ t` has probability at least `1 - a - b`.
   confidence `δ / card ι` for each index.
 * `LMLExplore.one_sub_sub_le_measureReal_inter`: two events of probabilities at least `1 - a` and
   `1 - b` both happen with probability at least `1 - a - b`.
+* `MeasureTheory.measureReal_pos_of_ne_zero`: a set of nonzero finite mass has positive real mass.
+* `MeasureTheory.sum_measureReal_singleton_eq_one`: the real masses of the points of a finite
+  space sum to `1` under a probability measure.
 -/
 
 public section
 
 open MeasureTheory Set
+
+open scoped ENNReal
 
 namespace LMLExplore
 
@@ -60,3 +67,20 @@ lemma one_sub_sub_le_measureReal_inter [IsProbabilityMeasure μ] {s t : Set Ω} 
   linarith
 
 end LMLExplore
+
+namespace MeasureTheory
+
+variable {α : Type*} {mα : MeasurableSpace α} {μ : Measure α} {s : Set α}
+
+/-- A set of nonzero finite mass has positive real mass. -/
+lemma measureReal_pos_of_ne_zero (h₀ : μ s ≠ 0) (h : μ s ≠ ∞ := by finiteness) :
+    0 < μ.real s :=
+  ENNReal.toReal_pos h₀ h
+
+/-- The real masses of the points of a finite space sum to `1` under a probability measure. -/
+lemma sum_measureReal_singleton_eq_one [MeasurableSingletonClass α] [Fintype α]
+    (μ : Measure α) [IsProbabilityMeasure μ] :
+    ∑ y, μ.real {y} = 1 := by
+  rw [sum_measureReal_singleton, Finset.coe_univ, probReal_univ]
+
+end MeasureTheory
