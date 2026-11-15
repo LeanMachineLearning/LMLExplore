@@ -48,6 +48,7 @@ contraction of the oscillation of functions by a Markov kernel (Dobrushin's coef
   `|∫ f dμ - ∫ f dν| ≤ (b - a) / 2 * tvDist μ ν`, and
   `MeasureTheory.abs_integral_sub_integral_le_mul_tvDist_of_forall_sub_le` its form for `f` whose
   values differ by at most `c`.
+* `MeasureTheory.measure_le_add_etvDist`: `μ s ≤ ν s + etvDist μ ν` for every measurable `s`.
 * `MeasureTheory.abs_measureReal_sub_measureReal_le_tvDist_div_two`,
   `MeasureTheory.tvDist_le_two_mul_of_forall_measureReal_le_add`: for measures of the same mass,
   the total variation distance bounds the difference of the masses of every event, and eventwise
@@ -159,6 +160,20 @@ theorem abs_integral_sub_integral_le_mul_tvDist_of_forall_sub_le [IsFiniteMeasur
     (ae_of_all _ hmem) (ae_of_all _ hmem)
 
 /-! ### Eventwise bounds -/
+
+/-- **Events of measures close in total variation**, in `ℝ≥0∞`: every measurable event `s`
+satisfies `μ s ≤ ν s + etvDist μ ν`. No finiteness is assumed: the distance is `∞` unless both
+measures are finite. -/
+theorem measure_le_add_etvDist (μ ν : Measure 𝓧) {s : Set 𝓧} (hs : MeasurableSet s) :
+    μ s ≤ ν s + etvDist μ ν := by
+  by_cases h : IsFiniteMeasure μ ∧ IsFiniteMeasure ν
+  · obtain ⟨_, _⟩ := h
+    rw [etvDist_eq_iSup_sub_add_iSup_sub]
+    calc μ s ≤ ν s + (μ s - ν s) := le_add_tsub
+    _ ≤ _ := by
+      gcongr
+      exact le_add_right (le_iSup₂ (f := fun A (_ : MeasurableSet A) ↦ μ A - ν A) s hs)
+  · simp [etvDist_of_not_isFiniteMeasure h]
 
 /-- **Events of measures of the same mass close in total variation**: for finite measures `μ`
 and `ν` of the same mass, every measurable event `s` satisfies
