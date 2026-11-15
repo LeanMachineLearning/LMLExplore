@@ -5,7 +5,8 @@ Authors: LMLExplore contributors
 -/
 module
 
-public import LMLExplore.Analysis.Convex.Continuous
+public import LMLExplore.Analysis.Convex.Subgradient
+public import Mathlib.Analysis.Normed.Module.Basic
 public import Mathlib.Topology.MetricSpace.HausdorffDistance
 
 /-!
@@ -28,13 +29,14 @@ unconstrained one, through surrogate losses built from `‖y‖ * infDist · V` 
 
 * `Convex.convexOn_infDist`: the distance to a convex set is convex.
 * `Convex.exists_hasSubgradientWithinAt_infDist`: it has a subgradient at every point.
-* `hasSubgradientWithinAt_zero_infDist`: `0` is a subgradient at the points of the closure.
+* `LMLExplore.hasSubgradientWithinAt_zero_infDist`: `0` is a subgradient at the points of the
+  closure.
 * `HasSubgradientWithinAt.infDist_le_apply_sub`: a subgradient `q` at `x` satisfies
   `infDist x V ≤ q (x - v)` for every `v` in the closure of `V`.
 * `HasSubgradientWithinAt.apply_sub_eq_norm_of_infDist_eq`: a subgradient `q` at `x` satisfies
-  `q (x - p) = ‖x - p‖` at a nearest point `p` of the closure of `V`. With the previous item, the
-  distance has, at every point `x` with a nearest point `p`, a subgradient `q` with
-  `q (x - p) = ‖x - p‖`.
+  `q (x - p) = ‖x - p‖` at a nearest point `p` of the closure of `V`. With
+  `Convex.exists_hasSubgradientWithinAt_infDist`, the distance to a convex `V` has, at every point
+  `x` with a nearest point `p`, a subgradient `q` with `q (x - p) = ‖x - p‖`.
 
 ## References
 
@@ -46,7 +48,7 @@ public section
 
 open Set Metric
 
-variable {E : Type*} [NormedAddCommGroup E] [NormedSpace ℝ E] {V s : Set E} {x p v : E}
+variable {E : Type*} [SeminormedAddCommGroup E] [NormedSpace ℝ E] {V s : Set E} {x p v : E}
   {q : E →L[ℝ] ℝ}
 
 /-- The distance to a convex set is a convex function. -/
@@ -75,12 +77,16 @@ theorem Convex.exists_hasSubgradientWithinAt_infDist (hV : Convex ℝ V) (x : E)
     ∃ q : E →L[ℝ] ℝ, HasSubgradientWithinAt (infDist · V) q univ x :=
   hV.convexOn_infDist.exists_hasSubgradientWithinAt_univ (continuous_infDist_pt V) x
 
+namespace LMLExplore
+
 /-- At a point of the closure of `V`, the zero functional is a subgradient of the distance to `V`,
 which is minimal there. -/
 theorem hasSubgradientWithinAt_zero_infDist (hx : x ∈ closure V) :
     HasSubgradientWithinAt (infDist · V) (0 : E →L[ℝ] ℝ) s x :=
   hasSubgradientWithinAt_iff_le.2 fun _ _ ↦ by
     simpa [infDist_zero_of_mem_closure hx] using infDist_nonneg
+
+end LMLExplore
 
 /-- A subgradient `q` of the distance to `V` at `x` separates `x` from `V` by the distance:
 `infDist x V ≤ q (x - v)` for every point `v` of the closure of `V`. -/

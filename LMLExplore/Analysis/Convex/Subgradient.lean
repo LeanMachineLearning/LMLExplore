@@ -7,7 +7,7 @@ module
 
 public import LeanMachineLearning.ForMathlib.Analysis.Convex.Subgradient.Basic
 public import Mathlib.Analysis.Convex.Function
-public import Mathlib.Analysis.Normed.Module.Basic
+public import Mathlib.Topology.Algebra.Ring.Real
 import Mathlib.Analysis.LocallyConvex.Separation
 
 /-!
