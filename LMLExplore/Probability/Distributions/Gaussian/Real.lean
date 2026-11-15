@@ -28,6 +28,8 @@ Complements to Mathlib's `ProbabilityTheory.gaussianReal`:
   `LMLExplore.cgf_sub_sq_gaussianReal`: for `X ∼ 𝒩(μ, v)`, `exp (t (X - μ) ^ 2)` is integrable
   iff `2 v t < 1`, and then `𝔼[exp (t (X - μ) ^ 2)] = (√(1 - 2 v t))⁻¹`; for `v ≠ 0`, the set of
   these `t` is `(-∞, (2 v)⁻¹)`.
+* `LMLExplore.lintegral_ofReal_exp_mul_gaussianReal`: the moment generating function
+  `exp (μ t + v t ^ 2 / 2)` of `𝒩(μ, v)`, as a lower integral.
 * `LMLExplore.tilted_mul_sub_sq_gaussianReal`: for `2 v t < 1`, tilting `𝒩(μ, v)` by
   `x ↦ t (x - μ) ^ 2` gives `𝒩(μ, v / (1 - 2 v t))`.
 * `LMLExplore.integral_exp_neg_sq_div_two_gaussianReal`: for `X ∼ 𝒩(a, 1)`,
@@ -205,6 +207,15 @@ lemma cgf_sub_sq_gaussianReal (μ : ℝ) (v : ℝ≥0) {t : ℝ} (ht : 2 * v * t
     cgf (fun x ↦ (x - μ) ^ 2) (gaussianReal μ v) t = -log (1 - 2 * v * t) / 2 := by
   rw [cgf, mgf_sub_sq_gaussianReal μ v ht, log_inv, log_sqrt (by linarith)]
   ring
+
+/-- The moment generating function of `𝒩(μ, v)`, as a lower integral:
+`∫⁻ exp (t x) ∂𝒩(μ, v) = exp (μ t + v t ^ 2 / 2)`. -/
+lemma lintegral_ofReal_exp_mul_gaussianReal (μ : ℝ) (v : ℝ≥0) (t : ℝ) :
+    ∫⁻ x, ENNReal.ofReal (exp (t * x)) ∂gaussianReal μ v =
+      ENNReal.ofReal (exp (μ * t + v * t ^ 2 / 2)) := by
+  rw [← ofReal_integral_eq_lintegral_ofReal (integrable_exp_mul_gaussianReal t)
+    (ae_of_all _ fun _ ↦ (exp_pos _).le)]
+  exact congrArg ENNReal.ofReal (congrFun mgf_fun_id_gaussianReal t)
 
 /-- Tilting a Gaussian law by `x ↦ t (x - μ) ^ 2` rescales its variance and keeps its mean: for
 `2 v t < 1`, `𝒩(μ, v)` tilted by `x ↦ t (x - μ) ^ 2` is `𝒩(μ, v / (1 - 2 v t))`. For `v = 0`,

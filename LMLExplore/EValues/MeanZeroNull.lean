@@ -6,7 +6,7 @@ Authors: LMLExplore contributors
 module
 
 public import LMLExplore.EValues.EffectiveSet.TotalVariation
-public import LMLExplore.EValues.EProcess
+public import LMLExplore.EValues.EProcess.Basic
 public import Mathlib.Probability.Moments.Variance
 
 import LMLExplore.MeasureTheory.Constructions.BorelSpace.Metric

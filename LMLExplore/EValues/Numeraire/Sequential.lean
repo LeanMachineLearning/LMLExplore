@@ -5,7 +5,7 @@ Authors: LMLExplore contributors
 -/
 module
 
-public import LMLExplore.EValues.EProcess
+public import LMLExplore.EValues.EProcess.Basic
 public import Mathlib.Probability.ProductMeasure
 public import Statlib.EValues.Numeraire
 import LMLExplore.Algebra.Polynomial.Roots

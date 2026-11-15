@@ -6,7 +6,7 @@ Authors: LMLExplore contributors
 module
 
 public import LMLExplore.EValues.BipolarRate.Basic
-public import LMLExplore.EValues.EProcess
+public import LMLExplore.EValues.EProcess.Basic
 public import LMLExplore.Probability.ProductMeasure
 
 /-!
