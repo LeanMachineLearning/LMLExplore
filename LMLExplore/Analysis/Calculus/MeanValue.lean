@@ -55,11 +55,12 @@ theorem apply_le_apply_of_hasDerivAt_of_nonneg_of_nonpos {f f' : ℝ → ℝ} {x
     rw [interior_Icc]
     exact hpos
 
-/-- **Second-order lower bound.** If `c ≤ f''` on a convex set `I` containing `a`, then
+/-- **Second-order lower bound.** If `f` has derivative `f'` and `f'` has derivative `f''` at
+every point of a convex set `I` containing `a`, and `c ≤ f''` on `I`, then
 `f a + f' a * (x - a) + c / 2 * (x - a) ^ 2 ≤ f x` on `I`. -/
 theorem add_mul_add_mul_sq_le_of_le_deriv2 {f f' f'' : ℝ → ℝ} {I : Set ℝ} (hI : Convex ℝ I)
-    {a c : ℝ} (ha : a ∈ I) (hf : ∀ x, HasDerivAt f (f' x) x)
-    (hf' : ∀ x, HasDerivAt f' (f'' x) x) (hc : ∀ x ∈ I, c ≤ f'' x) {x : ℝ} (hx : x ∈ I) :
+    {a c : ℝ} (ha : a ∈ I) (hf : ∀ x ∈ I, HasDerivAt f (f' x) x)
+    (hf' : ∀ x ∈ I, HasDerivAt f' (f'' x) x) (hc : ∀ x ∈ I, c ≤ f'' x) {x : ℝ} (hx : x ∈ I) :
     f a + f' a * (x - a) + c / 2 * (x - a) ^ 2 ≤ f x := by
   set g := fun y ↦ f y - (f a + f' a * (y - a) + c / 2 * (y - a) ^ 2) with hg_def
   set g' := fun y ↦ f' y - (f' a + c * (y - a)) with hg'_def
@@ -68,13 +69,14 @@ theorem add_mul_add_mul_sq_le_of_le_deriv2 {f f' f'' : ℝ → ℝ} {I : Set ℝ
     have h := (hasDerivAt_id y).sub_const a
     exact (((h.const_mul (f' a)).const_add (f a)).add ((h.pow 2).const_mul (c / 2))).congr_deriv
       (by simp only [id, Nat.cast_ofNat]; ring)
-  have hg (y : ℝ) : HasDerivAt g (g' y) y := (hf y).sub (h1 y)
-  have hg' (y : ℝ) : HasDerivAt g' (f'' y - c) y :=
-    (hf' y).sub (((((hasDerivAt_id y).sub_const a).const_mul c).const_add (f' a)).congr_deriv
+  have hg (y : ℝ) (hy : y ∈ I) : HasDerivAt g (g' y) y := (hf y hy).sub (h1 y)
+  have hg' (y : ℝ) (hy : y ∈ I) : HasDerivAt g' (f'' y - c) y :=
+    (hf' y hy).sub (((((hasDerivAt_id y).sub_const a).const_mul c).const_add (f' a)).congr_deriv
       (by simp))
   have hmono : MonotoneOn g' I :=
     monotoneOn_of_hasDerivWithinAt_nonneg hI
-      (fun y _ ↦ (hg' y).continuousAt.continuousWithinAt) (fun y _ ↦ (hg' y).hasDerivWithinAt)
+      (fun y hy ↦ (hg' y hy).continuousAt.continuousWithinAt)
+      (fun y hy ↦ (hg' y (interior_subset hy)).hasDerivWithinAt)
       fun y hy ↦ sub_nonneg.2 (hc y (interior_subset hy))
   have hga : g a = 0 := by simp [g]
   have hg'a : g' a = 0 := by simp [g']
@@ -82,7 +84,8 @@ theorem add_mul_add_mul_sq_le_of_le_deriv2 {f f' f'' : ℝ → ℝ} {I : Set ℝ
   rcases le_total a x with hax | hxa
   · have h : MonotoneOn g (I ∩ Set.Ici a) :=
       monotoneOn_of_hasDerivWithinAt_nonneg (hI.inter (convex_Ici a))
-        (fun y _ ↦ (hg y).continuousAt.continuousWithinAt) (fun y _ ↦ (hg y).hasDerivWithinAt)
+        (fun y hy ↦ (hg y hy.1).continuousAt.continuousWithinAt)
+        (fun y hy ↦ (hg y (interior_subset hy).1).hasDerivWithinAt)
         fun y hy ↦ by
           have hy' := interior_subset hy
           rw [← hg'a]
@@ -91,7 +94,8 @@ theorem add_mul_add_mul_sq_le_of_le_deriv2 {f f' f'' : ℝ → ℝ} {I : Set ℝ
     exact h ⟨ha, Set.mem_Ici.2 le_rfl⟩ ⟨hx, hax⟩ hax
   · have h : AntitoneOn g (I ∩ Set.Iic a) :=
       antitoneOn_of_hasDerivWithinAt_nonpos (hI.inter (convex_Iic a))
-        (fun y _ ↦ (hg y).continuousAt.continuousWithinAt) (fun y _ ↦ (hg y).hasDerivWithinAt)
+        (fun y hy ↦ (hg y hy.1).continuousAt.continuousWithinAt)
+        (fun y hy ↦ (hg y (interior_subset hy).1).hasDerivWithinAt)
         fun y hy ↦ by
           have hy' := interior_subset hy
           rw [← hg'a]

@@ -141,7 +141,7 @@ private lemma isTestSupermartingale_expProcess {N : Set (Measure ℝ)}
     exact (hN μ hμ).2
   · rintro _ ⟨μ, hμ, rfl⟩ s hs
     have := (hN μ hμ).1
-    rw [setLIntegral_infinitePi_comp_eval_succ μ measurable_expFactor k hs]
+    rw [setLIntegral_infinitePi_comp_eval_of_lt (fun _ ↦ μ) k.lt_succ_self measurable_expFactor hs]
     exact mul_le_of_le_one_right' (hN μ hμ).2
 
 /-- For i.i.d. sampling from a probability law `ν` with `∫⁻ exp (x - 1 / 2) ∂ν = 1`, the
@@ -158,7 +158,8 @@ private lemma lintegral_expProcess_of_touching {ν : Measure ℝ} [IsProbability
     (fun k ↦ measurable_expFactor_apply le_rfl)
     fun k ↦ ⟨measurable_expFactor.comp (measurable_pi_apply _), by
       rintro _ rfl s hs
-      rw [setLIntegral_infinitePi_comp_eval_succ ν measurable_expFactor k hs, hν, mul_one]⟩
+      rw [setLIntegral_infinitePi_comp_eval_of_lt (fun _ ↦ ν) k.lt_succ_self measurable_expFactor
+        hs, hν, mul_one]⟩
   have := h.lintegral_eq (Set.mem_singleton _) n 0
   simp only [Finset.range_zero, Finset.prod_empty, mul_one] at this
   rw [← h0, this]
@@ -419,7 +420,8 @@ private lemma exists_mul_sq_le_ksGap_of_le :
   -- second-order Taylor bound at `1`, where the gap and its derivative vanish
   refine ⟨κ₀ / 4, by positivity, δ, hδpos, hδle, fun x hx ↦ ?_⟩
   have := LMLExplore.add_mul_add_mul_sq_le_of_le_deriv2 (convex_Ici (1 - δ)) (a := 1)
-    (Set.mem_Ici.2 (by linarith)) hasDerivAt_ksGap hasDerivAt_ksGap_deriv hG2ge
+    (Set.mem_Ici.2 (by linarith)) (fun x _ ↦ hasDerivAt_ksGap x)
+    (fun x _ ↦ hasDerivAt_ksGap_deriv x) hG2ge
     (Set.mem_Ici.2 hx)
   have hG1one : (1 - 2 * ksParam) * 1 + ksParam - ksSigmoid 1 = 0 := by
     rw [ksSigmoid_one]; ring
@@ -564,7 +566,7 @@ private lemma exists_exp_mul_le_mul_min {D D1 D2 : ℝ → ℝ} (hD : ∀ x, Has
       Set.Icc_subset_Icc (by linarith [ha.1]) (by linarith [ha.2])
     have := LMLExplore.add_mul_add_mul_sq_le_of_le_deriv2 (f := fun x ↦ -D x) (f' := fun x ↦ -D1 x)
       (f'' := fun x ↦ -D2 x) (convex_Icc _ _) (a := a) (c := -C)
-      ⟨by linarith, by linarith⟩ (fun x ↦ (hD x).neg) (fun x ↦ (hD1 x).neg)
+      ⟨by linarith, by linarith⟩ (fun x _ ↦ (hD x).neg) (fun x _ ↦ (hD1 x).neg)
       (fun x hx ↦ neg_le_neg ((le_abs_self _).trans (hC x (hsub hx)))) ht
     simp only [hDa, hD1a, neg_zero, zero_mul, add_zero, zero_add] at this
     linarith
@@ -730,12 +732,6 @@ section Perturbation
 
 variable {m : Measure ℝ} [IsFiniteMeasure m] {b : ℝ}
 
-/-- Under a finite measure carried by `[-b, b]`, `x ↦ exp (t x)` is integrable. -/
-private lemma integrable_exp_mul_of_measure_compl (hb : m (Set.Icc (-b) b)ᶜ = 0) (t : ℝ) :
-    Integrable (fun x ↦ Real.exp (t * x)) m := by
-  simpa using LMLExplore.integrable_pow_mul_exp_of_ae_abs_le measurable_id.aemeasurable
-    (ae_abs_le_of_measure_compl hb) 0 t
-
 /-- Under a finite measure carried by `[-b, b]`,
 `exp (-t ^ 2 / 2) ∫ exp (t x) ≤ exp (b ^ 2 / 2) m(ℝ)`. -/
 private lemma exp_neg_mul_integral_exp_le (hb : m (Set.Icc (-b) b)ᶜ = 0) (t : ℝ) :
@@ -743,8 +739,8 @@ private lemma exp_neg_mul_integral_exp_le (hb : m (Set.Icc (-b) b)ᶜ = 0) (t : 
       Real.exp (b ^ 2 / 2) * m.real Set.univ := by
   rw [← integral_const_mul]
   calc ∫ x, Real.exp (-(t ^ 2 / 2)) * Real.exp (t * x) ∂m ≤ ∫ _, Real.exp (b ^ 2 / 2) ∂m := by
-        refine integral_mono_ae
-          ((integrable_exp_mul_of_measure_compl hb t).const_mul _) (integrable_const _) ?_
+        refine integral_mono_ae ((integrable_exp_mul_of_mem_Icc aemeasurable_id'
+          (ae_mem_Icc_of_measure_compl hb)).const_mul _) (integrable_const _) ?_
         filter_upwards [ae_mem_Icc_of_measure_compl hb] with x hx
         rw [← Real.exp_add]
         refine Real.exp_le_exp.2 ?_
@@ -778,8 +774,8 @@ private lemma lintegral_ofReal_exp_mul_mixture {ι : Type*} [Fintype ι] {w : ι
   simp only [lintegral_add_measure, lintegral_finsetSum_measure, lintegral_smul_measure,
     LMLExplore.lintegral_ofReal_exp_mul_gaussianReal, smul_eq_mul]
   -- `ENNReal.ofReal` of the nonnegative real sum
-  rw [← ofReal_integral_eq_lintegral_ofReal (integrable_exp_mul_of_measure_compl hb t)
-      (ae_of_all _ fun _ ↦ (Real.exp_pos _).le),
+  rw [← ofReal_integral_eq_lintegral_ofReal (integrable_exp_mul_of_mem_Icc (t := t)
+      aemeasurable_id' (ae_mem_Icc_of_measure_compl hb)) (ae_of_all _ fun _ ↦ (Real.exp_pos _).le),
     ENNReal.ofReal_add (Finset.sum_nonneg fun j _ ↦ hw' j)
       (mul_nonneg hc₀ (integral_nonneg fun _ ↦ (Real.exp_pos _).le)),
     ENNReal.ofReal_sum_of_nonneg fun j _ ↦ hw' j]

@@ -6,6 +6,7 @@ Authors: LMLExplore contributors
 module
 
 public import LMLExplore.EValues.EProcess.Basic
+import LMLExplore.EValues.Admissible
 
 /-!
 # Admissible e-processes
@@ -109,14 +110,11 @@ theorem IsEProcess.isAdmissibleEProcess_of_exists_lintegral_eq
     IsAdmissibleEProcess E ℱ S := by
   refine isAdmissibleEProcess_iff_measure_lt_eq_zero.2 ⟨hE, fun F hF hEF P₀ hP₀ n ↦ ?_⟩
   by_contra hP₀A
-  -- under a member of the null that charges `{E n < F n}` and under which `E n` has expectation
-  -- `P univ`, the expectation of `F n` is at most that of `E n`
+  -- a member of the null that charges `{E n < F n}` and under which `E n` has expectation
+  -- `P univ` cannot charge it
   obtain ⟨P, hP, hPA, hPE⟩ := h n _
     (measurableSet_lt (hE.adapted n) (hF.adapted n)) ⟨P₀, hP₀, hP₀A⟩
   have := hS P hP
-  have h_eq : E n =ᵐ[P] F n := ae_eq_of_ae_le_of_lintegral_le (hEF P hP n)
-    (by rw [hPE]; exact measure_ne_top P univ) (hF.measurable n).aemeasurable
-    (by rw [hPE]; exact (hF.isEVar n).lintegral_le_measure_univ P hP)
-  exact hPA (measure_mono_null (fun ω hω ↦ (hω : E n ω < F n ω).ne) h_eq)
+  exact hPA ((hF.isEVar n).measure_lt_eq_zero_of_ae_le hP (hEF P hP n) hPE)
 
 end ProbabilityTheory
