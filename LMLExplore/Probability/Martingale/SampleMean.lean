@@ -6,12 +6,14 @@ Authors: LMLExplore contributors
 module
 
 public import Mathlib.Probability.Martingale.Upcrossing
+public import Mathlib.Probability.Process.Filtration
 public import TauCeti.Probability.Exchangeability.PathSpace.Law.Basic
 public import TauCeti.Probability.Martingale.Reverse
 import LMLExplore.MeasureTheory.Integral.Bochner.Basic
 import LMLExplore.Probability.Exchangeability.Law
 import LMLExplore.Probability.Martingale.Upcrossing
 import Mathlib.MeasureTheory.MeasurableSpace.Invariants
+import Statlib.ForMathlib.Probability.Process.Filtration
 import TauCeti.Probability.Martingale.Crossings.Pathwise
 import TauCeti.Probability.Martingale.MaximalInequality.Basic
 
@@ -49,8 +51,8 @@ with those of its negated time reversal.
 
 * `ProbabilityTheory.martingale_sampleMean_rev`: the sample means read backwards from a horizon
   form a martingale for the reverse filtration of the symmetric events.
-* `ProbabilityTheory.mul_measure_exists_le_abs_sum_div_sub_le`: the maximal inequality.
-* `ProbabilityTheory.mul_lintegral_upcrossings_sum_div_le`: the upcrossing inequality.
+* `ProbabilityTheory.mul_measure_exists_le_abs_sampleMean_sub_le`: the maximal inequality.
+* `ProbabilityTheory.mul_lintegral_upcrossings_sampleMean_le`: the upcrossing inequality.
 
 ## Implementation notes
 
@@ -123,6 +125,19 @@ theorem measurable_sampleMean (n : ℕ) : Measurable (sampleMean n) := by
   unfold sampleMean
   fun_prop
 
+/-- The mean of the coordinates `0, …, n` is measurable at time `n` for the canonical filtration
+of `ℕ → ℝ`. -/
+theorem measurable_piLE_sampleMean (n : ℕ) :
+    Measurable[Filtration.piLE (X := fun _ : ℕ ↦ ℝ) n] (sampleMean n) := by
+  simp only [funext (sampleMean_def n)]
+  refine Measurable.div_const (Finset.measurable_sum _ fun i hi ↦ ?_) _
+  exact Filtration.measurable_piLE_apply (Nat.lt_succ_iff.1 (Finset.mem_range.1 hi))
+
+/-- The sample means are adapted to the canonical filtration of `ℕ → ℝ`. -/
+theorem stronglyAdapted_piLE_sampleMean :
+    StronglyAdapted (Filtration.piLE (X := fun _ : ℕ ↦ ℝ)) sampleMean :=
+  fun n ↦ (measurable_piLE_sampleMean n).stronglyMeasurable
+
 /-- The mean of the coordinates `0, …, n` is invariant under the swap of the coordinates `0` and
 `i ≤ n`. -/
 theorem sampleMean_permReindex_swap {n i : ℕ} (hi : i ≤ n) (ω : ℕ → ℝ) :
@@ -157,12 +172,13 @@ theorem setIntegral_sampleMean_eq (hμ : ExchangeableLaw μ) (hint : Integrable 
     {n m : ℕ} (hmn : m ≤ n) {s : Set (ℕ → ℝ)} (hs : MeasurableSet[prefixExchangeableSigma ℝ n] s) :
     ∫ ω in s, sampleMean m ω ∂μ = ∫ ω in s, ω 0 ∂μ := by
   rw [measurableSet_prefixExchangeableSigma_iff] at hs
-  unfold sampleMean
-  rw [integral_div, integral_finsetSum _ fun i _ ↦
-      (hμ.integrable_comp_eval (f := fun x ↦ x) hint i).integrableOn,
-    Finset.sum_congr rfl fun i hi ↦ hμ.setIntegral_comp_eval_eq_of_preimage_eq (fun x ↦ x)
-      (hs i ((Nat.lt_succ_iff.1 (Finset.mem_range.1 hi)).trans hmn)).2,
-    Finset.sum_const, Finset.card_range, nsmul_eq_mul]
+  have h (i : ℕ) (hi : i ∈ Finset.range (m + 1)) : ∫ ω in s, ω i ∂μ = ∫ ω in s, ω 0 ∂μ :=
+    hμ.setIntegral_comp_eval_eq_of_preimage_eq (fun x ↦ x)
+      (hs i ((Nat.lt_succ_iff.1 (Finset.mem_range.1 hi)).trans hmn)).2
+  have hint' (i : ℕ) : Integrable (fun ω : ℕ → ℝ ↦ ω i) (μ.restrict s) :=
+    (hμ.integrable_comp_eval (f := fun x ↦ x) hint i).restrict
+  simp only [sampleMean, integral_div, integral_finsetSum _ fun i _ ↦ hint' i,
+    Finset.sum_congr rfl h, Finset.sum_const, Finset.card_range, nsmul_eq_mul]
   push_cast
   field_simp
 
@@ -194,11 +210,10 @@ theorem martingale_sampleMean_rev [IsFiniteMeasure μ] (hμ : ExchangeableLaw μ
 /-- **Maximal inequality for the sample means of an exchangeable sequence**: if the first
 coordinate is integrable, then for every `m : ℝ` the probability that some sample mean is at
 distance at least `L` from `m` is at most `∫ |X₀ - m| / L`. -/
-theorem mul_measure_exists_le_abs_sum_div_sub_le [IsFiniteMeasure μ] (hμ : ExchangeableLaw μ)
+theorem mul_measure_exists_le_abs_sampleMean_sub_le [IsFiniteMeasure μ] (hμ : ExchangeableLaw μ)
     (hint : Integrable (fun ω ↦ ω 0) μ) (m : ℝ) (L : ℝ≥0) :
-    L * μ {ω | ∃ n : ℕ, (L : ℝ) ≤ |(∑ i ∈ Finset.range (n + 1), ω i) / (n + 1) - m|} ≤
+    L * μ {ω | ∃ n : ℕ, (L : ℝ) ≤ |sampleMean n ω - m|} ≤
       ENNReal.ofReal (∫ ω, |ω 0 - m| ∂μ) := by
-  simp only [← sampleMean_def]
   -- the event is the increasing union of the events up to the horizons `N`
   have hset : {ω | ∃ n : ℕ, (L : ℝ) ≤ |sampleMean n ω - m|} =
       ⋃ N, {ω | ∃ n ≤ N, (L : ℝ) ≤ |sampleMean n ω - m|} := by
@@ -235,15 +250,13 @@ private lemma upcrossingsBefore_sampleMean_le {a b : ℝ} (hab : a < b) (N : ℕ
 /-- **Upcrossing inequality for the sample means of an exchangeable sequence**: if the first
 coordinate `X₀` is integrable, of mean `m`, the expected number of upcrossings of `[a, b]` by the
 sample means is at most `∫ |X₀ - m| / (b - a)`. -/
-theorem mul_lintegral_upcrossings_sum_div_le [IsProbabilityMeasure μ] (hμ : ExchangeableLaw μ)
+theorem mul_lintegral_upcrossings_sampleMean_le [IsProbabilityMeasure μ] (hμ : ExchangeableLaw μ)
     (hint : Integrable (fun ω ↦ ω 0) μ) (a b : ℝ) :
-    ENNReal.ofReal (b - a) *
-        ∫⁻ ω, upcrossings a b (fun n ω ↦ (∑ i ∈ Finset.range (n + 1), ω i) / (n + 1)) ω ∂μ ≤
+    ENNReal.ofReal (b - a) * ∫⁻ ω, upcrossings a b sampleMean ω ∂μ ≤
       ENNReal.ofReal (∫ ω, |ω 0 - ∫ ω', ω' 0 ∂μ| ∂μ) := by
   rcases le_or_gt b a with hba | hab
   · simp [ENNReal.ofReal_of_nonpos (sub_nonpos.2 hba)]
   set m := ∫ ω, ω 0 ∂μ
-  simp only [← sampleMean_def]
   -- monotone convergence in the horizon
   have hadapted : StronglyAdapted (Filtration.const ℕ MeasurableSpace.pi le_rfl) sampleMean :=
     fun n ↦ (measurable_sampleMean n).stronglyMeasurable

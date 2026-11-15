@@ -7,6 +7,7 @@ module
 
 public import Mathlib.Probability.ProductMeasure
 public import Mathlib.Probability.Process.Stopping
+import LMLExplore.Algebra.Order.Floor.Semifield
 import LMLExplore.MeasureTheory.Integral.Lebesgue.Markov
 import LMLExplore.Probability.Martingale.SampleMean
 import LMLExplore.Probability.Martingale.Upcrossing
@@ -48,8 +49,8 @@ at which `Aₙ₊₁` is at distance at least `2 L` from the first observation. 
 never stops has bounded sample means that cross each such interval finitely often, so its sample
 means converge (Mathlib's `MeasureTheory.tendsto_of_upcrossings_lt_top`). The probability of
 stopping under each member of the null is bounded by the upcrossing and maximal inequalities
-`ProbabilityTheory.mul_lintegral_upcrossings_sum_div_le` and
-`ProbabilityTheory.mul_measure_exists_le_abs_sum_div_sub_le`, which involve the law only through
+`ProbabilityTheory.mul_lintegral_upcrossings_sampleMean_le` and
+`ProbabilityTheory.mul_measure_exists_le_abs_sampleMean_sub_le`, which involve the law only through
 its centred first absolute moment. The thresholds `K (a, b)` come from summable positive weights
 on the rational pairs (`ENNReal.exists_pos_sum_of_countable`).
 
@@ -72,14 +73,6 @@ open scoped ENNReal NNReal Topology
 
 namespace ProbabilityTheory
 
-/-- The sample mean of the coordinates `0, …, n` is measurable at time `n` for the canonical
-filtration. -/
-private lemma measurable_piLE_sampleMean (n : ℕ) :
-    Measurable[Filtration.piLE (X := fun _ : ℕ ↦ ℝ) n] (sampleMean n) := by
-  simp only [funext (sampleMean_def n)]
-  refine Measurable.div_const (Finset.measurable_sum _ fun i hi ↦ ?_) _
-  exact Filtration.measurable_piLE_apply (Nat.lt_succ_iff.1 (Finset.mem_range.1 hi))
-
 /-- A sequence whose sample means stay at distance less than `L` from the first observation and
 make fewer than `K q` upcrossings of every interval with rational endpoints `q` has convergent
 sample means. -/
@@ -100,15 +93,6 @@ private lemma exists_tendsto_of_upcrossingsBefore_lt {ω : ℕ → ℝ} {L : ℝ
     upcrossings_lt_top_iff.2 ⟨K (a, b), fun N ↦ (hK (a, b) (by exact_mod_cast hab) N).le⟩
   refine ⟨l, (tendsto_add_atTop_iff_nat 1).1 ?_⟩
   simpa [sampleMean_def] using hl
-
-/-- If `y` is at distance at least `2 L` from `y₀`, then `y` or `y₀` is at distance at least `L`
-from `m`, by the triangle inequality. -/
-private lemma le_abs_sub_or_le_abs_sub_of_two_mul_le {y y₀ m L : ℝ} (h : 2 * L ≤ |y - y₀|) :
-    L ≤ |y - m| ∨ L ≤ |y₀ - m| := by
-  by_contra! h'
-  have := abs_sub_le y m y₀
-  rw [abs_sub_comm m] at this
-  linarith [h'.1, h'.2]
 
 /-- The events at which the stopping time of the composite strong law stops: at time `n`, the
 sample means of the coordinates `0, …, k`, `k ≤ n`, have completed `K q` upcrossings of some
@@ -131,8 +115,6 @@ private lemma stopTime_lt_top_iff {L : ℝ≥0} {K : ℚ × ℚ → ℕ} {ω : �
 /-- The event `stopEvent L K n` is determined by the first `n + 1` observations. -/
 private lemma measurableSet_stopEvent (L : ℝ≥0) (K : ℚ × ℚ → ℕ) (n : ℕ) :
     MeasurableSet[Filtration.piLE (X := fun _ : ℕ ↦ ℝ) n] (stopEvent L K n) := by
-  have hadapted : StronglyAdapted (Filtration.piLE (X := fun _ : ℕ ↦ ℝ)) sampleMean :=
-    fun n ↦ (measurable_piLE_sampleMean n).stronglyMeasurable
   simp only [stopEvent, Set.ofPred_or]
   refine MeasurableSet.union ?_ ?_
   · have : {ω | ∃ q : ℚ × ℚ, (q.1 : ℝ) < q.2 ∧ K q ≤ upcrossingsBefore q.1 q.2 sampleMean n ω} =
@@ -143,7 +125,8 @@ private lemma measurableSet_stopEvent (L : ℝ≥0) (K : ℚ × ℚ → ℕ) (n 
     refine MeasurableSet.iUnion fun q ↦ ?_
     by_cases hq : (q.1 : ℝ) < q.2
     · simp only [hq, true_and]
-      exact hadapted.adapted_upcrossingsBefore hq n (measurableSet_Ici (a := K q))
+      exact stronglyAdapted_piLE_sampleMean.adapted_upcrossingsBefore hq n
+        (measurableSet_Ici (a := K q))
     · simp [hq]
   · refine (continuous_abs.measurable.comp ?_) (measurableSet_Ici (a := 2 * (L : ℝ)))
     exact (measurable_piLE_sampleMean n).sub (Filtration.measurable_piLE_apply (Nat.zero_le n))
@@ -176,8 +159,6 @@ private lemma measure_stopTime_lt_top_le {μ : Measure (ℕ → ℝ)} [IsProbabi
     (hK : ∀ q : ℚ × ℚ, (q.1 : ℝ) < q.2 → (C : ℝ) ≤ ((q.2 : ℝ) - q.1) * K q * ε q) :
     μ {ω | stopTime L K ω < ⊤} ≤ ∑' q, (ε q : ℝ≥0∞) + η := by
   set m := ∫ ω, ω 0 ∂μ
-  have hadapted : StronglyAdapted (Filtration.piLE (X := fun _ : ℕ ↦ ℝ)) sampleMean :=
-    fun n ↦ (measurable_piLE_sampleMean n).stronglyMeasurable
   -- stopping means many upcrossings of some interval, or a sample mean far from `m`
   have hsub : {ω | stopTime L K ω < ⊤} ⊆
       (⋃ q : ℚ × ℚ, {ω | (q.1 : ℝ) < q.2 ∧ (K q : ℝ≥0∞) ≤ upcrossings q.1 q.2 sampleMean ω}) ∪
@@ -189,8 +170,15 @@ private lemma measure_stopTime_lt_top_le {μ : Measure (ℕ → ℝ)} [IsProbabi
     · refine Or.inl (Set.mem_iUnion.2 ⟨q, hq, ?_⟩)
       exact (Nat.cast_le.2 hKq).trans
         (le_iSup (fun N ↦ (upcrossingsBefore q.1 q.2 sampleMean N ω : ℝ≥0∞)) n)
-    · rcases le_abs_sub_or_le_abs_sub_of_two_mul_le (m := m) hfar with h | h
-      exacts [Or.inr ⟨n, h⟩, Or.inr ⟨0, by rwa [sampleMean_zero]⟩]
+    · -- by the triangle inequality, `A_n` or `X₀` is at distance at least `L` from `m`
+      refine Or.inr ?_
+      rcases le_or_gt (L : ℝ) |sampleMean n ω - m| with h | h
+      · exact ⟨n, h⟩
+      · refine ⟨0, ?_⟩
+        rw [sampleMean_zero]
+        have := abs_sub_le (sampleMean n ω) m (ω 0)
+        rw [abs_sub_comm m] at this
+        linarith
   -- many upcrossings of `[q.1, q.2]` have probability at most `ε q`
   have hq (q : ℚ × ℚ) :
       μ {ω | (q.1 : ℝ) < q.2 ∧ (K q : ℝ≥0∞) ≤ upcrossings q.1 q.2 sampleMean ω} ≤ ε q := by
@@ -199,15 +187,13 @@ private lemma measure_stopTime_lt_top_le {μ : Measure (ℕ → ℝ)} [IsProbabi
     · simp [hq]
     simp only [hq, true_and]
     refine measure_natCast_le_le_of_mul_lintegral_le
-      (hadapted.measurable_upcrossings hq).aemeasurable hq (hK0 q) ?_ (hK q hq)
-    simpa only [← sampleMean_def] using
-      (mul_lintegral_upcrossings_sum_div_le hμ hint q.1 q.2).trans hC
+      (stronglyAdapted_piLE_sampleMean.measurable_upcrossings hq).aemeasurable hq (hK0 q)
+      ((mul_lintegral_upcrossings_sampleMean_le hμ hint q.1 q.2).trans hC) (hK q hq)
   -- a sample mean at distance at least `L` from `m` has probability at most `η`
   have hfar : μ {ω | ∃ n, (L : ℝ) ≤ |sampleMean n ω - m|} ≤ η := by
     rw [← ENNReal.mul_le_mul_iff_right (ENNReal.coe_ne_zero.2 hL) ENNReal.coe_ne_top]
-    have h := mul_measure_exists_le_abs_sum_div_sub_le hμ hint m L
-    simp only [← sampleMean_def] at h
-    exact h.trans (hC.trans (by exact_mod_cast hLη))
+    exact (mul_measure_exists_le_abs_sampleMean_sub_le hμ hint m L).trans
+      (hC.trans (by exact_mod_cast hLη))
   calc μ {ω | stopTime L K ω < ⊤}
       ≤ ∑' q : ℚ × ℚ, μ {ω | (q.1 : ℝ) < q.2 ∧ (K q : ℝ≥0∞) ≤ upcrossings q.1 q.2 sampleMean ω} +
           μ {ω | ∃ n, (L : ℝ) ≤ |sampleMean n ω - m|} :=
@@ -244,11 +230,9 @@ theorem exists_isStoppingTime_lt_top_of_not_tendsto_mean {S : Set (Measure ℝ)}
   set K : ℚ × ℚ → ℕ := fun q ↦ ⌈(C : ℝ) / (((q.2 : ℝ) - q.1) * ε q)⌉₊ + 1 with hK
   have hKC (q : ℚ × ℚ) (hq : (q.1 : ℝ) < q.2) : (C : ℝ) ≤ ((q.2 : ℝ) - q.1) * K q * ε q := by
     have hd : 0 < ((q.2 : ℝ) - q.1) * ε q := mul_pos (sub_pos.2 hq) (hε0 q)
-    have hceil := Nat.le_ceil ((C : ℝ) / (((q.2 : ℝ) - q.1) * ε q))
-    have hKq : (C : ℝ) / (((q.2 : ℝ) - q.1) * ε q) ≤ K q := by
-      simp only [hK, Nat.cast_add, Nat.cast_one]
-      linarith
-    calc (C : ℝ) ≤ K q * (((q.2 : ℝ) - q.1) * ε q) := (div_le_iff₀ hd).1 hKq
+    calc (C : ℝ) ≤ ((q.2 : ℝ) - q.1) * ε q * ⌈(C : ℝ) / (((q.2 : ℝ) - q.1) * ε q)⌉₊ :=
+          Nat.le_mul_ceil_div hd
+      _ ≤ ((q.2 : ℝ) - q.1) * ε q * K q := by gcongr; simp [hK]
       _ = ((q.2 : ℝ) - q.1) * K q * ε q := by ring
   refine ⟨stopTime L K, isStoppingTime_stopTime L K, fun P hPS ↦ ?_,
     fun ω hω ↦ stopTime_lt_top_of_not_tendsto hω⟩
