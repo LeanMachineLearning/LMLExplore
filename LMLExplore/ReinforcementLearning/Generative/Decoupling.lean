@@ -104,31 +104,14 @@ theorem indepFun_comp_redirect_empirical (M : MDP 𝓢 𝓐 𝓡) (N : ℕ) [NeZ
     (c : 𝓡) {p : 𝓢 × 𝓐} (hp : p ∈ S) :
     IndepFun (fun ω ↦ F ((M.empirical N ω).redirect hS s c)) (fun ω i ↦ ω i p)
       (streamMeasure M.P) := by
-  classical
-  -- the sample sequences of the pairs outside `S` are independent of those of `p`
-  have h := (iIndepFun_arm_streamMeasure M.P).indepFun_set {q | q ∉ S} {p}
-    (Set.disjoint_singleton_right.2 fun h ↦ h hp) fun q ↦ by fun_prop
-  -- the array with the samples of the pairs outside `S`, and `s` at the pairs of `S`
-  let ext : ({q : 𝓢 × 𝓐 | q ∉ S} → ℕ → 𝓢) → ℕ → 𝓢 × 𝓐 → 𝓢 :=
-    fun x i q ↦ if hq : q ∉ S then x ⟨q, hq⟩ i else s
-  have h_ext : Measurable ext := by
-    refine Measurable.of_eval fun i ↦ Measurable.of_eval fun q ↦ ?_
-    by_cases hq : q ∉ S
-    · have h₁ : (fun x ↦ ext x i q) = fun x ↦ x ⟨q, hq⟩ i := funext fun x ↦ by simp [ext, hq]
-      rw [h₁]
-      fun_prop
-    · simp [ext, not_not.1 hq]
-  have h_eq : (fun ω ↦ F ((M.empirical N ω).redirect hS s c)) =
-      (fun x ↦ F ((M.empirical N (ext x)).redirect hS s c)) ∘ fun ω q i ↦ ω i q := by
-    ext ω
-    simp only [Function.comp_apply]
-    congr 1
-    refine redirect_congr hS c (fun q hq ↦ ?_) fun q _ ↦ by simp
-    simp only [empirical_P]
-    exact empiricalKernel_apply_congr fun i _ ↦ by simp [ext, hq]
-  rw [h_eq]
-  exact h.comp ((measurable_comp_empirical M N fun M' ↦ F (M'.redirect hS s c)).comp h_ext)
-    (measurable_pi_apply ⟨p, Set.mem_singleton _⟩)
+  -- the redirection only depends on the samples of the pairs outside `S`
+  refine indepFun_streamMeasure_of_forall_eq M.P (T := {q | q ∉ S})
+    (measurable_comp_empirical M N fun M' ↦ F (M'.redirect hS s c)) (fun ω ω' h ↦ ?_)
+    (not_not.2 hp)
+  congr 1
+  refine redirect_congr hS c (fun q hq ↦ ?_) fun q _ ↦ by simp
+  simp only [empirical_P]
+  exact empiricalKernel_apply_congr fun i _ ↦ h i q hq
 
 /-- **Decoupling** [AKY20, §4.2]. Under the generative model of `M`, every function of the
 `s`-absorbing modification of the empirical MDP is independent of the samples of the pair

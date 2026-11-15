@@ -690,8 +690,7 @@ private lemma sum_div_mul_toReal_le_one {E : ℝ → ℝ≥0∞}
   have hP1 : IsProbabilityMeasure P := LMLExplore.isProbabilityMeasure_sum_smul_dirac hw hsum1 _
   have hPsg : HasSubgaussianMGF id 1 P := hasSubgaussianMGF_sum_div_smul_dirac hq0 hQ0 hmean hker
   have hEP := hE P hP1 hPsg ⟨A, LMLExplore.sum_smul_dirac_compl_eq_zero fun i ↦ i.2⟩
-  rw [hP, lintegral_finsetSum_measure] at hEP
-  simp only [lintegral_smul_measure, lintegral_dirac, smul_eq_mul] at hEP
+  rw [hP, LMLExplore.lintegral_sum_smul_dirac] at hEP
   have hconv : ∑ i : A, ENNReal.ofReal (q i / Q) * E i =
       ENNReal.ofReal (∑ i : A, q i / Q * (E i).toReal) := by
     rw [ENNReal.ofReal_sum_of_nonneg fun i _ ↦ mul_nonneg (hw i) ENNReal.toReal_nonneg]

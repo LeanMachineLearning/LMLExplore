@@ -46,6 +46,9 @@ Apache 2.0), from deterministic to stochastic Markov policies.
 * `Learning.MDP.Episodic.EpisodicMDP.value_of_lt`, `Learning.MDP.Episodic.EpisodicMDP.value_of_le`:
   the backward recursion `V^π_h s = ∫ Q^π_h (s, a) dπ_h(a | s)` for `h < H`, and `V^π_h = 0`
   for `H ≤ h`.
+* `Learning.MDP.Episodic.EpisodicMDP.value_congr`,
+  `Learning.MDP.Episodic.EpisodicMDP.qValue_congr`: the values from a step on only depend on the
+  model and the policy from that step on.
 * `Learning.MDP.Episodic.EpisodicMDP.measurable_value`,
   `Learning.MDP.Episodic.EpisodicMDP.measurable_qValue`: the values are measurable.
 * `Learning.MDP.Episodic.EpisodicMDP.value_mem_Icc`: for rewards in `[a, b]`, the value at the
@@ -145,6 +148,32 @@ theorem value_of_le {h : ℕ} (hh : H ≤ h) (s : 𝓢) : M.value H π h s = 0 :
 @[simp]
 lemma value_self (s : 𝓢) : M.value H π H s = 0 :=
   value_of_le le_rfl s
+
+/-- The values from the step `h₀` on only depend on the transition kernels, the mean rewards and
+the policy from the step `h₀` on. -/
+theorem value_congr {M' : EpisodicMDP 𝓢 𝓐} {π' : ℕ → Kernel 𝓢 𝓐} {h₀ : ℕ}
+    (htrans : ∀ h, h₀ ≤ h → M.trans h = M'.trans h)
+    (hr : ∀ h, h₀ ≤ h → M.meanReward h = M'.meanReward h) (hπ : ∀ h, h₀ ≤ h → π h = π' h)
+    {h : ℕ} (hh : h₀ ≤ h) :
+    M.value H π h = M'.value H π' h := by
+  funext s
+  by_cases hH : h < H
+  · have hV : M.value H π (h + 1) = M'.value H π' (h + 1) :=
+      value_congr htrans hr hπ (hh.trans (Nat.le_succ h))
+    simp only [value_of_lt hH, qValue_def, hV, htrans h hh, hr h hh, hπ h hh]
+  · rw [value_of_le (not_lt.1 hH), value_of_le (not_lt.1 hH)]
+termination_by H - h
+
+/-- The action values from the step `h₀` on only depend on the transition kernels, the mean
+rewards and the policy from the step `h₀` on. -/
+theorem qValue_congr {M' : EpisodicMDP 𝓢 𝓐} {π' : ℕ → Kernel 𝓢 𝓐} {h₀ : ℕ}
+    (htrans : ∀ h, h₀ ≤ h → M.trans h = M'.trans h)
+    (hr : ∀ h, h₀ ≤ h → M.meanReward h = M'.meanReward h) (hπ : ∀ h, h₀ ≤ h → π h = π' h)
+    {h : ℕ} (hh : h₀ ≤ h) :
+    M.qValue H π h = M'.qValue H π' h := by
+  funext s a
+  rw [qValue_def, qValue_def, value_congr htrans hr hπ (hh.trans (Nat.le_succ h)), htrans h hh,
+    hr h hh]
 
 /-- For a measurable function `V` of the next state, the backup
 `(s, a) ↦ r_h (s, a) + ∫ V dP_h (s, a)` at the step `h` is measurable. -/

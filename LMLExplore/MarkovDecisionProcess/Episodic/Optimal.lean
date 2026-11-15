@@ -46,6 +46,11 @@ by Rémy Degenne, Apache 2.0), which is its entropic analogue.
 * `Learning.MDP.Episodic.EpisodicMDP.optValue_of_lt`,
   `Learning.MDP.Episodic.EpisodicMDP.optValue_of_le`: the optimality equation
   `V*_h s = ⨆ a, Q*_h (s, a)` for `h < H`, and `V*_h = 0` for `H ≤ h`.
+* `Learning.MDP.Episodic.EpisodicMDP.optValue_congr`,
+  `Learning.MDP.Episodic.EpisodicMDP.optQValue_congr`,
+  `Learning.MDP.Episodic.EpisodicMDP.optPolicy_congr`: the optimal values and the greedy optimal
+  policy from a step on only depend on the model from that step on, and so do the values in
+  another MDP of the greedy optimal policy (`value_optPolicy_congr`).
 * `Learning.MDP.Episodic.EpisodicMDP.measurable_optValue`,
   `Learning.MDP.Episodic.EpisodicMDP.measurable_optQValue`: for a countable action set, the
   optimal values are measurable.
@@ -121,6 +126,30 @@ theorem optValue_of_le (hh : H ≤ h) (s : 𝓢) : M.optValue H h s = 0 := by
 @[simp]
 lemma optValue_self (s : 𝓢) : M.optValue H H s = 0 :=
   optValue_of_le le_rfl s
+
+/-- The optimal values from the step `h₀` on only depend on the transition kernels and the mean
+rewards from the step `h₀` on. -/
+theorem optValue_congr {M' : EpisodicMDP 𝓢 𝓐} {h₀ : ℕ}
+    (htrans : ∀ h, h₀ ≤ h → M.trans h = M'.trans h)
+    (hr : ∀ h, h₀ ≤ h → M.meanReward h = M'.meanReward h) {h : ℕ} (hh : h₀ ≤ h) :
+    M.optValue H h = M'.optValue H h := by
+  funext s
+  by_cases hH : h < H
+  · have hV : M.optValue H (h + 1) = M'.optValue H (h + 1) :=
+      optValue_congr htrans hr (hh.trans (Nat.le_succ h))
+    simp only [optValue_of_lt hH, optQValue_def, hV, htrans h hh, hr h hh]
+  · rw [optValue_of_le (not_lt.1 hH), optValue_of_le (not_lt.1 hH)]
+termination_by H - h
+
+/-- The optimal action values from the step `h₀` on only depend on the transition kernels and
+the mean rewards from the step `h₀` on. -/
+theorem optQValue_congr {M' : EpisodicMDP 𝓢 𝓐} {h₀ : ℕ}
+    (htrans : ∀ h, h₀ ≤ h → M.trans h = M'.trans h)
+    (hr : ∀ h, h₀ ≤ h → M.meanReward h = M'.meanReward h) (hh : h₀ ≤ h) :
+    M.optQValue H h = M'.optQValue H h := by
+  funext s a
+  rw [optQValue_def, optQValue_def, optValue_congr htrans hr (hh.trans (Nat.le_succ h)),
+    htrans h hh, hr h hh]
 
 /-- At the last step before the horizon, the optimal action value is the mean reward. -/
 theorem optQValue_of_le_add_one (hh : H ≤ h + 1) (s : 𝓢) (a : 𝓐) :
@@ -284,6 +313,16 @@ lemma optPolicy_def (h : ℕ) (s : 𝓢) :
     M.optPolicy H h s = M.augmented.greedy 1 (fun q ↦ M.optValue H q.2 q.1) (s, h) :=
   (rfl)
 
+/-- The greedy optimal policy from the step `h₀` on only depends on the transition kernels and
+the mean rewards from the step `h₀` on. -/
+theorem optPolicy_congr {M' : EpisodicMDP 𝓢 𝓐} {h₀ : ℕ}
+    (htrans : ∀ h, h₀ ≤ h → M.trans h = M'.trans h)
+    (hr : ∀ h, h₀ ≤ h → M.meanReward h = M'.meanReward h) (hh : h₀ ≤ h) :
+    M.optPolicy H h = M'.optPolicy H h := by
+  funext s
+  simp only [optPolicy_def, MDP.greedy_def, lookahead_augmented_optValue,
+    optQValue_congr htrans hr hh]
+
 /-- The greedy optimal policy is measurable at every step. -/
 theorem measurable_optPolicy (h : ℕ) : Measurable (M.optPolicy H h) :=
   (MDP.measurable_greedy measurable_optValue_augmented).comp measurable_prodMk_right
@@ -314,6 +353,18 @@ theorem qValue_optPolicy (h : ℕ) (s : 𝓢) (a : 𝓐) :
     M.qValue H (fun h ↦ Kernel.deterministic (M.optPolicy H h) (measurable_optPolicy h)) h s a =
       M.optQValue H h s a := by
   rw [qValue_def, funext (value_optPolicy (h + 1)), optQValue_def]
+
+/-- The values in `M` from the step `h₀` on of the greedy optimal policy of an episodic MDP `M₁`
+only depend on the transition kernels and the mean rewards of `M₁` from the step `h₀` on. -/
+theorem value_optPolicy_congr {M₁ M₂ : EpisodicMDP 𝓢 𝓐} {h₀ : ℕ}
+    (htrans : ∀ h, h₀ ≤ h → M₁.trans h = M₂.trans h)
+    (hr : ∀ h, h₀ ≤ h → M₁.meanReward h = M₂.meanReward h) {h : ℕ} (hh : h₀ ≤ h) :
+    M.value H (fun h ↦ Kernel.deterministic (M₁.optPolicy H h) (measurable_optPolicy h)) h =
+      M.value H (fun h ↦ Kernel.deterministic (M₂.optPolicy H h) (measurable_optPolicy h)) h := by
+  refine value_congr (fun _ _ ↦ rfl) (fun _ _ ↦ rfl) (fun h' hh' ↦ ?_) hh
+  ext1 s
+  rw [Kernel.deterministic_apply, Kernel.deterministic_apply,
+    optPolicy_congr (h₀ := h₀) htrans hr hh']
 
 end Greedy
 
