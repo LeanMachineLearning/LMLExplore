@@ -37,10 +37,10 @@ are then the optimal allocations of the single answer `i_θ` at `θ̂`, which ap
 
 On the events on which the confidence regions contain `θ` and shrink to it, Sticky Track-and-Stop
 thus behaves as Track-and-Stop with C-tracking of the optimal allocations of the single answer
-`i_θ`, and its proportions of pulls approach `w*(θ, ¬i_θ)`, on which `D(θ, ·, ¬i_θ) = T*(θ)⁻¹`. For
-exponential-family arms, if these events have probabilities whose complements have a finite sum,
-the expected sample complexity is at most `c log (1 / δ)` for small `δ`, for every `c > T*(θ)`
-(`IdentTask.eventually_expectedStoppingTime_stickyTrackAndStop_le`, [DK19, Theorem 11]). The
+`i_θ`, and its proportions of pulls approach `w*(θ, ¬i_θ)`, on which `D(θ, ·, ¬i_θ) = T*(θ)⁻¹`.
+These two lemmas are the deterministic part of the proof of the asymptotic optimality of Sticky
+Track-and-Stop [DK19, Theorem 11]; this file does not prove that theorem, whose probabilistic part
+is the concentration of the confidence regions `IdentTask.confidenceRegion` around the model. The
 stopping rule is the GLRT, which is `δ`-PAC for every sampling rule and every recommendation rule
 ([DK19, Theorem 10], `IdentTask.isDeltaPAC_stickyTrackAndStop`).
 
@@ -75,10 +75,6 @@ stopping rule is the GLRT, which is `δ`-PAC for every sampling rule and every r
 * `IdentTask.isDeltaPAC_stickyTrackAndStop`: **Sticky Track-and-Stop is `δ`-PAC** [DK19,
   Theorem 10] when its thresholds control the deviations of the plug-in statistic and it stops
   almost surely.
-* `IdentTask.eventually_expectedStoppingTime_stickyTrackAndStop_le`: **sample complexity of
-  Sticky Track-and-Stop** [DK19, Theorem 11]: for exponential-family arms and confidence regions
-  that concentrate around the model `μ`, `𝔼[τ_δ] ≤ c log (1 / δ)` for all small enough `δ`, for
-  every `c > T*(μ)`, whatever the number of oracle answers of `μ`.
 
 ## References
 
@@ -446,173 +442,5 @@ theorem isDeltaPAC_stickyTrackAndStop {δ : ℝ} (hc : ∀ θ ∈ task.M, Measur
     task.IsDeltaPAC (task.stickyTrackAndStop est C w hw β rec hrec hstop) δ := by
   simp only [alg_stickyTrackAndStop] at hdev
   exact task.isDeltaPAC_glrt _ _ β rec hrec hstop hc hdev h_stops
-
-end LMLExplore.Identification.IdentTask
-
-/-! ### Sample complexity -/
-
-namespace LMLExplore.Identification.IdentTask
-
-open Metric Real
-
-open scoped NNReal
-
-variable {α ℐ : Type*} [Fintype α] [DecidableEq α] [Nonempty α] {mα : MeasurableSpace α}
-  [MeasurableSingletonClass α] {mℐ : MeasurableSpace ℐ} [LinearOrder ℐ] [Finite ℐ] [Nonempty ℐ]
-  (task : IdentTask α (α → ℝ) ℐ ℝ)
-  {C : (n : ℕ) → Hist Unit α ℝ n → Set (α → ℝ)} {w : ℐ → (α → ℝ) → α → ℝ}
-  {hw : ∀ n, Measurable fun h : Hist Unit α ℝ n ↦ w (task.stickyAnswer (C n h)) (empMean' n h)}
-  {rec : (n : ℕ) → Hist Unit α ℝ n → ℐ} {hrec : ∀ n, Measurable (rec n)}
-  {β : ℝ → (n : ℕ) → Hist Unit α ℝ n → ℝ≥0∞}
-  {hstop : ∀ δ n, MeasurableSet
-    {h | β δ n h < task.glr (task.plugInCost empMean') n h (rec n h)}}
-  {𝓧 : Type*} {m𝓧 : MeasurableSpace 𝓧} {ρ : α → Measure 𝓧} {T : α → 𝓧 → ℝ} {μ : α → ℝ}
-  {r : ℕ → ℝ} {p : ℝ} {n₀ : ℕ}
-
-/-- **Sample complexity of Sticky Track-and-Stop** [DK19, Theorem 11], for confidence regions that
-concentrate. Let the rewards of each arm `a` of the admissible model `μ` be dominated on
-`Set.univ` by the member of mean `μ a` of a nondegenerate exponential family `(ρ a, T a)`, and let
-`(μ', w') ↦ D(μ', w', ¬i)` be continuous at every `(μ, v)` with `v` in the simplex, on the
-allocations of the simplex, for every answer `i`. Let `i_μ` be the least oracle answer of `μ`. Let
-the targets be allocations, those of `i_μ` optimal allocations `w(i_μ, μ') ∈ w*(μ', ¬i_μ)` for `μ'`
-near `μ`, and let the GLR statistic of the recommendation be at least that of the sticky answer (as
-for the sticky answer itself, or an answer of largest GLR statistic). Let the confidence regions
-concentrate: for every neighbourhood `U` of `μ`, there are rounds `t₀(T)` with
-`log T = o(√t₀(T))` and `t₀(T) = o(T)` such that the probabilities that the confidence region of
-some round `t ≥ t₀(T)` does not contain `μ` or is not contained in `U` have a finite sum over `T`.
-Then for thresholds `β δ n h ≤ log (r n / δ)` (for `n ≥ n₀`) with `r n = O(n ^ p)`, Sticky
-Track-and-Stop with the empirical means as estimator satisfies `𝔼[τ_δ] ≤ c log (1 / δ)` for all
-small enough `δ`, for every `c > T*(μ)`: `limsup_{δ → 0} 𝔼[τ_δ] / log (1 / δ) ≤ T*(μ)`, even when
-`μ` has several oracle answers. -/
-theorem eventually_expectedStoppingTime_stickyTrackAndStop_le
-    (hT : ∀ a c, ¬ T a =ᵐ[ρ a] fun _ ↦ c) (hμ : ∀ a, μ a ∈ (ρ a).expFamilyMeans (T a))
-    (hν : ∀ a, MGFDominatedOn id (task.ν μ a) (T a)
-      ((ρ a).expFamily (T a) ((ρ a).natParam (T a) (μ a))) Set.univ)
-    (hμM : μ ∈ task.M)
-    (h_cont : ∀ i, ∀ v ∈ simplex α, ContinuousWithinAt
-      (fun q : (α → ℝ) × (α → ℝ) ↦ task.altCost q.1 q.2 i) (Set.univ ×ˢ simplex α) (μ, v))
-    (hw_mem : ∀ i μ', w i μ' ∈ simplex α)
-    (hw_opt : ∀ᶠ μ' in 𝓝 μ,
-      w (task.stickyAnswer {μ}) μ' ∈ task.optAlloc μ' (task.stickyAnswer {μ}))
-    (hrec_glr : ∀ n h, task.glr (task.plugInCost empMean') n h (task.stickyAnswer (C n h)) ≤
-      task.glr (task.plugInCost empMean') n h (rec n h))
-    (h_conf : ∀ U ∈ 𝓝 μ, ∃ t₀ : ℕ → ℕ,
-      Tendsto (fun T : ℕ ↦ √(t₀ T : ℝ) / log T) atTop atTop ∧
-      (∀ ε > 0, ∀ᶠ T : ℕ in atTop, (t₀ T : ℝ) ≤ ε * T) ∧
-      ∑' T, trajMeasure (cTracking (fun n h ↦ w (task.stickyAnswer (C n h)) (empMean' n h)) hw)
-        (Environment.bandit (task.ν μ)) {ω | ∃ t ≥ t₀ T,
-          μ ∉ C t (history IT.obs IT.action IT.feedback t ω) ∨
-            ¬ C t (history IT.obs IT.action IT.feedback t ω) ⊆ U} ≠ ∞)
-    {c : ℝ≥0} (hc : task.charTime μ < c) (hr : r =O[atTop] fun n ↦ (n : ℝ) ^ p)
-    (hβ : ∀ᶠ δ in 𝓝[>] 0, ∀ n ≥ n₀, ∀ h, β δ n h ≤ ENNReal.ofReal (log (r n / δ))) :
-    ∀ᶠ δ in 𝓝[>] 0, expectedStoppingTime
-      (task.stickyTrackAndStop empMean' C w hw (β δ) rec hrec (hstop δ))
-      (Environment.bandit (task.ν μ)) ≤ c * ENNReal.ofReal (log (1 / δ)) := by
-  -- On good events, from round `t₀(T)` on, the sticky answer is the least oracle answer `i₀` of
-  -- `μ` and the targets approach the convex compact set `W = w*(μ, ¬i₀)`, so that the proportions
-  -- of pulls of C-tracking approach it. The reduction
-  -- `IdentTask.eventually_expectedStoppingTime_glrt_le_of_isBigO` concludes, since
-  -- `D(μ, w, ¬i₀) = T*(μ)⁻¹` on `W`.
-  set i₀ := task.stickyAnswer {μ}
-  set v : (n : ℕ) → Hist Unit α ℝ n → α → ℝ :=
-    fun n h ↦ w (task.stickyAnswer (C n h)) (empMean' n h)
-  set alg := cTracking v hw
-  set P := trajMeasure alg (Environment.bandit (task.ν μ))
-  have hseq : IsAlgEnvSeq IT.obs IT.action IT.feedback alg (Environment.bandit (task.ν μ)) P :=
-    IT.isAlgEnvSeq_trajMeasure alg _
-  set K : ℝ := (Fintype.card α : ℝ)
-  have hv0 (n : ℕ) (h : Hist Unit α ℝ n) (a : α) : 0 ≤ v n h a :=
-    (mem_simplex_iff.1 (hw_mem _ _)).1 a
-  have hv1 (n : ℕ) (h : Hist Unit α ℝ n) : ∑ a, v n h a = 1 := (mem_simplex_iff.1 (hw_mem _ _)).2
-  -- The optimal allocations `W = w*(μ, ¬i₀)` form a convex compact set, on which
-  -- `D(μ, ·, ¬i₀) = T*(μ)⁻¹`.
-  set W := task.optAlloc μ i₀
-  have h_usc : UpperSemicontinuousOn (task.altCost μ · i₀) (simplex α) := fun v hv ↦
-    ((h_cont i₀ v hv).comp (Continuous.prodMk_right μ).continuousWithinAt
-      fun _ hv' ↦ ⟨Set.mem_univ _, hv'⟩).upperSemicontinuousWithinAt
-  have hW : IsCompact W := task.isCompact_optAlloc h_usc
-  have hc' : (⨅ v ∈ W, task.altCost μ v i₀)⁻¹ < c :=
-    (task.inv_iInf_altCost_optAlloc_le_charTime hμM
-      (task.stickyAnswer_singleton_mem_oracleAnswers μ)).trans_lt hc
-  obtain ⟨κ, hκ, hκc⟩ := ENNReal.exists_nnreal_lt_one_lt_mul_of_inv_lt hc'
-  -- The GLR statistic of `i₀` is at least `κ T` when the empirical means are in `U` and the
-  -- proportions of pulls are `η`-close to `W`.
-  obtain ⟨U, hU, V, hV, hUV⟩ := task.exists_mem_nhds_mul_le_glr_plugInCost empMean'
-    (rec := fun _ ↦ i₀) hW
-    (fun v hv ↦ (h_cont i₀ v (task.mem_optAlloc_iff.1 hv).1).lowerSemicontinuousWithinAt)
-    (fun v hv ↦ hκ.trans_le (iInf₂_le v hv)) (Eventually.of_forall fun _ ↦ rfl)
-  obtain ⟨η, hη, hηV⟩ := (hasBasis_nhdsSet_thickening hW).mem_iff.1 hV
-  obtain ⟨B, hB, hCB⟩ := hW.isBounded.exists_pos_norm_le
-  set ε := η / 4
-  have hε : 0 < ε := by positivity
-  -- Near `μ`, the sticky answer of the confidence regions is `i₀` and the targets are `ε`-close
-  -- to `W`.
-  have h_tgt := task.eventually_smallSets_prod_stickyTarget_mem (s := Set.univ) h_cont
-    (by rwa [nhdsWithin_univ]) (thickening_mem_nhdsSet W hε)
-  rw [nhdsWithin_univ] at h_tgt
-  obtain ⟨pa, hpa, pb, hpb, hpab⟩ := eventually_prod_iff.1 h_tgt
-  have h_stick := task.eventually_smallSets_stickyAnswer_eq (s := Set.univ)
-    fun i ↦ task.continuousWithinAt_answerValue (h_cont i)
-  rw [nhdsWithin_univ] at h_stick
-  obtain ⟨U₁, hU₁, hU₁pa⟩ := eventually_smallSets.1 (h_stick.and hpa)
-  obtain ⟨t₀, ht₀_sqrt, ht₀_le, ht₀_sum⟩ := h_conf U₁ hU₁
-  -- The good events of forced exploration: from round `t₀(T)` on, the empirical means are in
-  -- `U` and satisfy `pb`, and the pull counts follow the cumulated targets.
-  obtain ⟨E, hE_sum, hE⟩ := exists_tsum_measure_compl_ne_top_forall_ge_empMean'_mem
-    (O := IT.obs) (t₀ := t₀) hT hμ (fun l u hl hu hlμ hμu ↦
-      CTracking.tsum_measure_exists_ge_empMean_notMem_Ioo_ne_top hv0 hv1 hseq hν hμ hl hu hlμ hμu
-        ht₀_sqrt)
-    (CTracking.abs_pullCount_sub_sum_le_mul_one_add_sqrt hv0 hv1 hseq) (inter_mem hU hpb)
-  -- The good events of Sticky Track-and-Stop add the concentration of the confidence regions.
-  set F : ℕ → Set (ℕ → Round Unit α ℝ) := fun T ↦ E T ∩ {ω | ∀ t ≥ t₀ T,
-    μ ∈ C t (history IT.obs IT.action IT.feedback t ω) ∧
-      C t (history IT.obs IT.action IT.feedback t ω) ⊆ U₁}
-  have hF_sum : ∑' T, P (F T)ᶜ ≠ ∞ := by
-    have h_le (T : ℕ) : P (F T)ᶜ ≤ P (E T)ᶜ + P {ω | ∃ t ≥ t₀ T,
-        μ ∉ C t (history IT.obs IT.action IT.feedback t ω) ∨
-          ¬ C t (history IT.obs IT.action IT.feedback t ω) ⊆ U₁} := by
-      refine (measure_mono fun ω hω ↦ ?_).trans (measure_union_le _ _)
-      simp only [F, compl_inter, mem_union, mem_compl_iff, mem_ofPred_eq, not_forall,
-        not_and_or] at hω
-      obtain hω | ⟨t, ht, hω⟩ := hω
-      · exact Or.inl hω
-      · exact Or.inr ⟨t, ht, hω⟩
-    refine ne_top_of_le_ne_top ?_ (tsum_le_tsum h_le)
-    rw [tsum_add]
-    exact ENNReal.add_ne_top.2 ⟨hE_sum, ht₀_sum⟩
-  -- The tracking error `(K - 1) (1 + √T)` is `o(T)`.
-  have h_sqrt : Tendsto (fun T : ℕ ↦ (1 + √(T : ℝ)) / T) atTop (𝓝 0) :=
-    tendsto_one_add_sqrt_div_atTop.comp tendsto_natCast_atTop_atTop
-  obtain ⟨T₁, hT₁⟩ := eventually_atTop.1 ((ht₀_le _ (by positivity : 0 < η / (4 * (1 + B)))).and
-    ((ht₀_le 1 one_pos).and ((h_sqrt.eventually_le_const (by positivity : 0 < η / (4 * K))).and
-      (eventually_gt_atTop 0))))
-  have h := task.eventually_expectedStoppingTime_glrt_le_of_isBigO (task.plugInCost empMean') alg
-    rec hrec hstop hseq hF_sum hκc (T₀ := max n₀ T₁) ?_ hr
-    (by filter_upwards [hβ] with δ hδ T hT h using hδ T (le_of_max_le_left hT) h)
-  · simpa only [stickyTrackAndStop_def] using h
-  -- After `T` rounds, on the good event of round `T`, the GLR statistic of the recommendation is
-  -- at least that of `i₀`, which is at least `κ T`.
-  rintro T hT ω ⟨hωE, hωC⟩
-  obtain ⟨h_t₀, h_t₀1, h_sqrt_le, hT0⟩ := hT₁ T (le_of_max_le_right hT)
-  obtain ⟨hω_track, hω_W⟩ := hE T ω hωE
-  have hT_le : t₀ T ≤ T := by exact_mod_cast h_t₀1.trans_eq (one_mul _)
-  -- From round `t₀(T)` on, the targets are `ε`-close to `W`.
-  have hv_mem (k : ℕ) (hk : t₀ T ≤ k) :
-      v k (history IT.obs IT.action IT.feedback k ω) ∈ thickening ε W := by
-    obtain ⟨hμC, hCU⟩ := hωC k hk
-    exact hpab (hU₁pa _ hCU).2 (hω_W k hk).2 hμC
-  -- The proportions of pulls after `T` rounds are `η`-close to `W`.
-  have hN : (fun a ↦ (pullCount IT.action a T ω : ℝ) / T) ∈ thickening η W :=
-    pullCount_div_mem_thickening_of_le (fun _ ↦ hw_mem _ _) (task.convex_optAlloc μ i₀) hCB hB.le
-      hv_mem (hω_track T) hT_le hT0 h_t₀ h_sqrt_le
-  have h_sticky : task.stickyAnswer (C T (history IT.obs IT.action IT.feedback T ω)) = i₀ :=
-    (hU₁pa _ (hωC T hT_le).2).1 (hωC T hT_le).1
-  calc (κ : ℝ≥0∞) * T
-  _ ≤ task.glr (task.plugInCost empMean') T (history IT.obs IT.action IT.feedback T ω) i₀ :=
-    hUV T hT0.ne' _ (hω_W T hT_le).1 (hηV (by
-      simpa only [pullCount_eq_pullCount' (O := IT.obs) (R' := IT.feedback)] using hN))
-  _ = task.glr (task.plugInCost empMean') T (history IT.obs IT.action IT.feedback T ω)
-      (task.stickyAnswer (C T (history IT.obs IT.action IT.feedback T ω))) := by rw [h_sticky]
-  _ ≤ _ := hrec_glr _ _
 
 end LMLExplore.Identification.IdentTask
