@@ -463,8 +463,7 @@ private lemma exists_tsum_measure_compl_ne_top_forall_ge_empMean'_mem [Finite α
       ∀ T, ∀ ω ∈ E T, G ω ∧ ∀ k ≥ t₀ T, empMean' k (history O A Y k ω) ∈ W := by
   -- A box `∏ [l a, u a]` around `μ` of vectors of means of the families, inside `W`.
   have hW' : W ∩ {μ' | ∀ a, μ' a ∈ (ρ a).expFamilyMeans (T a)} ∈ 𝓝 μ :=
-    inter_mem hW (eventually_all.2 fun a ↦ (continuous_apply a).continuousAt.preimage_mem_nhds
-      (Measure.expFamilyMeans_mem_nhds (hT a) (hμ a)))
+    inter_mem hW (Measure.setOf_forall_mem_expFamilyMeans_mem_nhds hT hμ)
   obtain ⟨l, u, hlμ, hμu, h_box⟩ := exists_pi_Icc_subset_of_mem_nhds hW'
   have hlu : l ≤ u := fun a ↦ ((hlμ a).trans (hμu a)).le
   -- The good events: `G` holds and the empirical means stay in the box from round `t₀ T` on.
