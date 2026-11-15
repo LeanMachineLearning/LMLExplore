@@ -7,10 +7,11 @@ module
 
 public import LMLExplore.EValues.BipolarRate.Basic
 public import Mathlib.Probability.ProductMeasure
-public import TauCeti.Probability.Process.PathLaw.Shift
 import LMLExplore.EValues.BipolarRate.EProcess
 import LMLExplore.Probability.ProductMeasure
+import LMLExplore.Probability.Process.StoppedValue
 import Statlib.ForMathlib.MeasureTheory.Integral.EReal.Bochner
+import TauCeti.Probability.Process.PathLaw.Shift
 
 /-!
 # The Wald inequality at the bipolar rate for a round
@@ -153,14 +154,16 @@ private lemma measurable_restartTime (hσm : Measurable σ) (j : ℕ) :
     Measurable (restartTime σ j) := by
   induction j with
   | zero => exact measurable_const
-  | succ j ih => exact ih.add (measurable_comp_shift_iterate hσm ih)
+  | succ j ih =>
+    exact ih.add (measurable_apply_of_countable (fun t ↦ hσm.comp (measurable_shift_iterate t)) ih)
 
 /-- The products of the payoffs of the restarted rounds are measurable. -/
 private lemma measurable_restartPayoff (hσm : Measurable σ) (hVm : Measurable V) (j : ℕ) :
     Measurable (restartPayoff σ V j) := by
   induction j with
   | zero => exact measurable_const
-  | succ j ih => exact ih.mul (measurable_comp_shift_iterate hVm (measurable_restartTime hσm j))
+  | succ j ih => exact ih.mul (measurable_apply_of_countable
+      (fun t ↦ hVm.comp (measurable_shift_iterate t)) (measurable_restartTime hσm j))
 
 /-- If two sequences of observations agree on the first `t`, their shifts by `s` agree on the
 first `t - s`. -/
@@ -497,6 +500,10 @@ end Restart
 /-- The logarithm truncated above at `c`, as a real number. -/
 noncomputable def truncLog (c : ℝ) (x : ℝ≥0∞) : ℝ := (min (ENNReal.log x) c).toReal
 
+/-- The definition of the truncated logarithm, `truncLog c x = (min (log x) c).toReal`. -/
+lemma truncLog_def (c : ℝ) (x : ℝ≥0∞) : truncLog c x = (min (ENNReal.log x) c).toReal := by
+  rw [truncLog]
+
 /-- The truncated logarithm is measurable. -/
 lemma measurable_truncLog (c : ℝ) : Measurable (truncLog c) :=
   measurable_ereal_toReal.comp (ENNReal.measurable_log.min measurable_const)
@@ -508,7 +515,12 @@ lemma truncLog_of_ne {c : ℝ} {x : ℝ≥0∞} (h0 : x ≠ 0) (htop : x ≠ ∞
     EReal.toReal_coe]
 
 /-- The truncated logarithm of `∞` is the truncation level. -/
+@[simp]
 lemma truncLog_top (c : ℝ) : truncLog c ∞ = c := by simp [truncLog]
+
+/-- The truncated logarithm of `0` is `0`, the real part of `⊥ = log 0`. -/
+@[simp]
+lemma truncLog_zero (c : ℝ) : truncLog c 0 = 0 := by simp [truncLog]
 
 /-- The truncated logarithm is at most the truncation level. -/
 lemma truncLog_le {c : ℝ} {x : ℝ≥0∞} (h0 : x ≠ 0) : truncLog c x ≤ c := by
@@ -532,6 +544,16 @@ lemma abs_truncLog_le {c δ : ℝ} (hδ : 0 < δ) {x : ℝ≥0∞} (hx : ENNReal
     (hc : Real.log δ ≤ c) : |truncLog c x| ≤ max |Real.log δ| |c| :=
   abs_le_max_abs_abs (log_le_truncLog hδ hx hc)
     (truncLog_le (lt_of_lt_of_le (ENNReal.ofReal_pos.2 hδ) hx).ne')
+
+/-- The truncated logarithm of a measurable function bounded below by `δ > 0` is integrable
+under a finite measure. -/
+lemma integrable_truncLog_comp {Ω : Type*} {mΩ : MeasurableSpace Ω} {μ : Measure Ω}
+    [IsFiniteMeasure μ] {c δ : ℝ} (hδ : 0 < δ) {V : Ω → ℝ≥0∞} (hVm : Measurable V)
+    (hVδ : ∀ ω, ENNReal.ofReal δ ≤ V ω) (hc : Real.log δ ≤ c) :
+    Integrable (fun ω ↦ truncLog c (V ω)) μ :=
+  Integrable.of_bound ((measurable_truncLog c).comp hVm).aestronglyMeasurable
+    (max |Real.log δ| |c|) (ae_of_all _ fun ω ↦ (Real.norm_eq_abs _).trans_le
+      (abs_truncLog_le hδ (hVδ ω) hc))
 
 /-- The exponential of the truncated logarithm of `x` is at most `x`. -/
 lemma ofReal_exp_truncLog_le {c : ℝ} {x : ℝ≥0∞} (h0 : x ≠ 0) :
@@ -581,6 +603,13 @@ lemma min_log_le_truncLog_sub {ε : ℝ} (hε0 : 0 < ε) (hε1 : ε < 1) (c : �
 section Wald
 
 variable {σ : (ℕ → 𝓧) → ℕ} {V : (ℕ → 𝓧) → ℝ≥0∞}
+
+/-- A measurable bounded duration is integrable, as a real function, under a finite measure. -/
+private lemma integrable_natCast_of_le {μ : Measure (ℕ → 𝓧)} [IsFiniteMeasure μ]
+    {τ : (ℕ → 𝓧) → ℕ} (hτm : Measurable τ) {K : ℕ} (hτK : ∀ ω, τ ω ≤ K) :
+    Integrable (fun ω ↦ (τ ω : ℝ)) μ :=
+  Integrable.of_bound (measurable_from_top.comp hτm).aestronglyMeasurable K
+    (ae_of_all _ fun ω ↦ by simpa using hτK ω)
 
 /-- The logarithm of the mixture of restarted rounds is at least the logarithm of the weight of
 the completed rounds plus their truncated log-payoffs, hence at least the sum of the truncated
@@ -700,18 +729,11 @@ private lemma add_one_le_integral_mul_sum_measureReal (hσ : DependsOnBefore σ 
     rw [abs_of_nonneg (Nat.cast_nonneg _)]
     exact_mod_cast hσK ω
   have hT (i : ℕ) : Measurable (restartTime σ i) := measurable_restartTime hσm i
-  have hgm (i : ℕ) : Measurable fun ω ↦ {ω | restartTime σ i ω ≤ N}.indicator
-      (fun ω ↦ (σ ((shift 𝓧)^[restartTime σ i ω] ω) : ℝ)) ω :=
-    (measurable_comp_shift_iterate hσm' (hT i)).indicator (hT i measurableSet_Iic)
   have hgi (i : ℕ) : Integrable (fun ω ↦ {ω | restartTime σ i ω ≤ N}.indicator
-      (fun ω ↦ (σ ((shift 𝓧)^[restartTime σ i ω] ω) : ℝ)) ω) μ := by
-    refine Integrable.of_bound (hgm i).aestronglyMeasurable K (ae_of_all _ fun ω ↦ ?_)
-    rw [Real.norm_eq_abs]
-    by_cases h : restartTime σ i ω ≤ N
-    · rw [Set.indicator_of_mem h]
-      exact hσC _
-    · rw [Set.indicator_of_notMem h, abs_zero]
-      exact Nat.cast_nonneg _
+      (fun ω ↦ (σ ((shift 𝓧)^[restartTime σ i ω] ω) : ℝ)) ω) μ :=
+    (integrable_natCast_of_le (measurable_apply_of_countable
+      (fun t ↦ hσm.comp (measurable_shift_iterate t)) (hT i)) fun _ ↦ hσK _).indicator
+      (hT i measurableSet_Iic)
   calc (N + 1 : ℝ) = ∫ _, (N + 1 : ℝ) ∂μ := by simp
   _ ≤ ∫ ω, ∑ i ∈ Finset.range (N + 1), {ω | restartTime σ i ω ≤ N}.indicator
         (fun ω ↦ (σ ((shift 𝓧)^[restartTime σ i ω] ω) : ℝ)) ω ∂μ :=
@@ -744,24 +766,14 @@ private lemma add_integral_truncLog_mul_sum_measureReal_le (Q₁ : Measure 𝓧)
       N * (bipolarRate Q₁ S₁).toReal := by
   set μ := Measure.infinitePi (fun _ : ℕ ↦ Q₁)
   set A := ∫ ω, truncLog c (V ω) ∂μ
-  -- the truncated log-payoffs are bounded
-  set C := max |Real.log δ| |c|
   have hYm : Measurable fun ω ↦ truncLog c (V ω) := (measurable_truncLog c).comp hVm
   have hT (i : ℕ) : Measurable (restartTime σ i) := measurable_restartTime hσm i
-  have hfm (i : ℕ) : Measurable fun ω ↦ {ω | restartTime σ i ω ≤ N}.indicator
-      (fun ω ↦ truncLog c (V ((shift 𝓧)^[restartTime σ i ω] ω))) ω :=
-    (measurable_comp_shift_iterate hYm (hT i)).indicator (hT i measurableSet_Iic)
-  have hfC (i : ℕ) (ω : ℕ → 𝓧) : |{ω | restartTime σ i ω ≤ N}.indicator
-      (fun ω ↦ truncLog c (V ((shift 𝓧)^[restartTime σ i ω] ω))) ω| ≤ C := by
-    by_cases h : restartTime σ i ω ≤ N
-    · rw [Set.indicator_of_mem h]
-      exact abs_truncLog_le hδ (hVδ _) hc
-    · rw [Set.indicator_of_notMem h, abs_zero]
-      exact (abs_nonneg _).trans (le_max_left _ _)
+  -- the truncated log-payoffs are bounded, hence integrable
   have hfi (i : ℕ) : Integrable (fun ω ↦ {ω | restartTime σ i ω ≤ N}.indicator
       (fun ω ↦ truncLog c (V ((shift 𝓧)^[restartTime σ i ω] ω))) ω) μ :=
-    Integrable.of_bound (hfm i).aestronglyMeasurable C
-      (ae_of_all _ fun ω ↦ (Real.norm_eq_abs _).trans_le (hfC i ω))
+    (integrable_truncLog_comp hδ (measurable_apply_of_countable
+      (fun t ↦ hVm.comp (measurable_shift_iterate t)) (hT i)) (fun _ ↦ hVδ _) hc).indicator
+      (hT i measurableSet_Iic)
   set B := Real.log (1 - r) + N * Real.log r - c
   have hsum : Integrable (fun ω ↦ ∑ i ∈ Finset.range (N + 1),
       {ω | restartTime σ i ω ≤ N}.indicator
@@ -815,14 +827,9 @@ lemma integral_truncLog_le_bipolarRate_mul (Q₁ : Measure 𝓧) [IsProbabilityM
   set μ := Measure.infinitePi (fun _ : ℕ ↦ Q₁)
   set m := ∫ ω, (σ ω : ℝ) ∂μ
   have hd0 := bipolarRate_nonneg Q₁ S₁
-  have hσm' : Measurable fun ω ↦ (σ ω : ℝ) := measurable_from_top.comp hσm
-  have hσC (ω : ℕ → 𝓧) : |(σ ω : ℝ)| ≤ K := by
-    rw [abs_of_nonneg (Nat.cast_nonneg _)]
-    exact_mod_cast hσK ω
   have hm1 : 1 ≤ m := by
     calc (1 : ℝ) = ∫ _, (1 : ℝ) ∂μ := by simp
-    _ ≤ m := integral_mono (integrable_const _)
-      (Integrable.of_bound hσm'.aestronglyMeasurable K (ae_of_all _ fun ω ↦ hσC ω))
+    _ ≤ m := integral_mono (integrable_const _) (integrable_natCast_of_le hσm hσK)
       fun ω ↦ by exact_mod_cast hσ1 ω
   refine le_mul_of_forall_restart (c := c) (by linarith) (EReal.toReal_nonneg hd0)
     fun r hr0 hr1 N hN ↦ ⟨_, add_one_le_integral_mul_sum_measureReal hσ hσm hσ1 hσK Q₁ N,

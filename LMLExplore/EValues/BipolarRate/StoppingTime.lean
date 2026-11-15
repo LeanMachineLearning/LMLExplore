@@ -10,8 +10,8 @@ public import LMLExplore.EValues.EProcess
 public import Mathlib.Probability.ProductMeasure
 import LMLExplore.EValues.BipolarRate.Round
 import LMLExplore.MeasureTheory.Integral.EReal
+import LMLExplore.Probability.ProductMeasure
 import LMLExplore.Probability.Process.Stopping
-import LMLExplore.Probability.Process.StoppedValue
 import Statlib.ForMathlib.MeasureTheory.Integral.EReal.Bochner
 
 /-!
@@ -210,10 +210,8 @@ private lemma eintegral_log_stoppedValue_le_toReal_mul (Q₁ : Measure 𝓧) [Is
     set W : (ℕ → 𝓧) → ℝ≥0∞ := fun ω ↦ ENNReal.ofReal (1 - ε) * E (τ ω) ω + ENNReal.ofReal ε
     have hc : Real.log ε ≤ k := (Real.log_neg hε0 hε1).le.trans (Nat.cast_nonneg k)
     have hYi : Integrable (fun ω ↦ truncLog k (W ω)) μ :=
-      Integrable.of_bound ((measurable_truncLog _).comp
-        ((measurable_const.mul hEτm).add measurable_const)).aestronglyMeasurable
-        (max |Real.log ε| |(k : ℝ)|) (ae_of_all _ fun ω ↦ (Real.norm_eq_abs _).trans_le
-          (abs_truncLog_le hε0 le_add_self hc))
+      integrable_truncLog_comp hε0 ((measurable_const.mul hEτm).add measurable_const)
+        (fun _ ↦ le_add_self) hc
     calc ∫ᵉ ω, min (ENNReal.log (E (τ ω) ω)) k ∂μ
     _ ≤ ∫ᵉ ω, ((truncLog k (W ω) - Real.log (1 - ε) : ℝ) : EReal) ∂μ :=
       eintegral_mono fun ω ↦ by simpa using min_log_le_truncLog_sub hε0 hε1 k (E (τ ω) ω)
@@ -248,7 +246,7 @@ theorem IsEProcess.eintegral_log_stoppedValue_le_mul_bipolarRate (Q₁ : Measure
         bipolarRate Q₁ S₁ := by
   by_cases hQ : IsProbabilityMeasure Q₁
   swap
-  · simp [Measure.infinitePi, hQ]
+  · simp [Measure.infinitePi_of_not_isProbabilityMeasure (μ := fun _ : ℕ ↦ Q₁) fun h ↦ hQ (h 0)]
   set m := ∫⁻ ω, (τ ω : ℝ≥0∞) + 1 ∂Measure.infinitePi (fun _ : ℕ ↦ Q₁)
   have hm0 : (0 : EReal) < m := by
     have : (1 : ℝ≥0∞) ≤ m :=

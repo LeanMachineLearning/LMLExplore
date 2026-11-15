@@ -11,7 +11,6 @@ public import Mathlib.Probability.Process.Filtration
 public import TauCeti.Probability.Process.PathLaw.Shift
 import LMLExplore.MeasureTheory.Constructions.Pi
 import LMLExplore.MeasureTheory.Measure.Typeclasses.Probability
-import LMLExplore.Probability.Process.StoppedValue
 import Mathlib.MeasureTheory.Function.FactorsThrough
 import Mathlib.Probability.Independence.Integration
 
@@ -33,12 +32,12 @@ the polarization step of [EVR26, Note 03, Theorem 1], adapted from
 
 ## Main statements
 
+* `MeasureTheory.Measure.infinitePi_of_not_isProbabilityMeasure`: the infinite product of a family
+  of measures that are not all probability measures is `0`.
 * `MeasureTheory.measurePreserving_initSeg`: the first `n` terms `initSeg n` of an i.i.d. sequence
   have the product law.
 * `MeasureTheory.Measure.infinitePi_fin_mem_and_forall_add_mem`: for an i.i.d. sequence, the
   first `n` terms and the next `m` terms are independent.
-* `MeasureTheory.measurable_comp_shift_iterate`: a measurable function of the terms after a
-  measurable random number of them is measurable.
 * `MeasureTheory.measurePreserving_shift_iterate`: the shift by `t` terms preserves the i.i.d. law.
 * `MeasureTheory.indepFun_initSeg_shift_iterate`: the first `t` terms are independent of the
   terms after them.
@@ -63,6 +62,13 @@ namespace MeasureTheory
 
 variable {𝓧 : Type*} {m𝓧 : MeasurableSpace 𝓧}
 
+/-- The infinite product `Measure.infinitePi μ` is `0` unless every `μ i` is a probability
+measure. -/
+lemma Measure.infinitePi_of_not_isProbabilityMeasure {ι : Type*} {X : ι → Type*}
+    [∀ i, MeasurableSpace (X i)] {μ : (i : ι) → Measure (X i)}
+    (h : ¬ ∀ i, IsProbabilityMeasure (μ i)) : Measure.infinitePi μ = 0 :=
+  dite_eq_right h
+
 /-- The first `n` terms of an i.i.d. sequence have the product law. -/
 lemma measurePreserving_initSeg (P : Measure 𝓧) [IsProbabilityMeasure P] (n : ℕ) :
     MeasurePreserving (initSeg n) (Measure.infinitePi fun _ : ℕ ↦ P)
@@ -76,14 +82,6 @@ section Shift
 open ProbabilityTheory
 open scoped ENNReal
 open TauCeti.Probability (shift shift_iterate_eq_reindex measurable_shift_iterate)
-
-/-- A measurable function of the terms after a measurable random number `T` of them is
-measurable. -/
-lemma measurable_comp_shift_iterate {β : Type*} [MeasurableSpace β] {h : (ℕ → 𝓧) → β}
-    (hh : Measurable h) {T : (ℕ → 𝓧) → ℕ} (hT : Measurable T) :
-    Measurable fun ω ↦ h ((shift 𝓧)^[T ω] ω) :=
-  measurable_apply_of_countable (u := fun t ω ↦ h ((shift 𝓧)^[t] ω))
-    (fun t ↦ hh.comp (measurable_shift_iterate t)) hT
 
 /-- The shift by `t` terms preserves the i.i.d. law. -/
 lemma measurePreserving_shift_iterate (P : Measure 𝓧) [IsProbabilityMeasure P] (t : ℕ) :
