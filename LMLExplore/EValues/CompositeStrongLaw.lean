@@ -7,7 +7,6 @@ module
 
 public import Mathlib.Probability.ProductMeasure
 public import Mathlib.Probability.Process.Stopping
-import LMLExplore.Algebra.Order.Floor.Semifield
 import LMLExplore.MeasureTheory.Integral.Lebesgue.Markov
 import LMLExplore.Probability.Martingale.SampleMean
 import LMLExplore.Probability.Martingale.Upcrossing
@@ -232,7 +231,7 @@ theorem exists_isStoppingTime_lt_top_of_not_tendsto_mean {S : Set (Measure ℝ)}
   have hKC (q : ℚ × ℚ) (hq : (q.1 : ℝ) < q.2) : (C : ℝ) ≤ ((q.2 : ℝ) - q.1) * K q * ε q := by
     have hd : 0 < ((q.2 : ℝ) - q.1) * ε q := mul_pos (sub_pos.2 hq) (hε0 q)
     calc (C : ℝ) ≤ ((q.2 : ℝ) - q.1) * ε q * ⌈(C : ℝ) / (((q.2 : ℝ) - q.1) * ε q)⌉₊ :=
-          Nat.le_mul_ceil_div hd
+          (div_le_iff₀' hd).1 (Nat.le_ceil _)
       _ ≤ ((q.2 : ℝ) - q.1) * ε q * K q := by gcongr; simp [hK]
       _ = ((q.2 : ℝ) - q.1) * K q * ε q := by ring
   refine ⟨stopTime L K, isStoppingTime_stopTime L K, fun P hPS ↦ ?_,
