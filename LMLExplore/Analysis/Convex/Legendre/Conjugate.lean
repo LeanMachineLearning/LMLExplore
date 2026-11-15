@@ -6,7 +6,7 @@ Authors: LMLExplore contributors
 module
 
 public import LMLExplore.Analysis.Convex.Coercive
-public import LMLExplore.Analysis.Convex.Conjugate
+public import LMLExplore.Analysis.Convex.Conjugate.Basic
 public import LMLExplore.Analysis.Convex.FDeriv
 public import LMLExplore.Analysis.Convex.Legendre.Basic
 public import LMLExplore.Analysis.Normed.Module.DoubleDual
