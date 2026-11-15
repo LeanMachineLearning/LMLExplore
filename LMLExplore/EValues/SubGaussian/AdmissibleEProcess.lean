@@ -142,7 +142,7 @@ private lemma isTestSupermartingale_expProcess {N : Set (Measure ℝ)}
     exact (hN μ hμ).2
   · rintro _ ⟨μ, hμ, rfl⟩ s hs
     have := (hN μ hμ).1
-    rw [setLIntegral_infinitePi_comp_eval_of_lt (fun _ ↦ μ) k.lt_succ_self measurable_expFactor hs]
+    rw [setLIntegral_comp_eval_succ μ measurable_expFactor k hs]
     exact mul_le_of_le_one_right' (hN μ hμ).2
 
 /-- For i.i.d. sampling from a probability law `ν` with `∫⁻ exp (x - 1 / 2) ∂ν = 1`, the
@@ -159,8 +159,7 @@ private lemma lintegral_expProcess_of_touching {ν : Measure ℝ} [IsProbability
     (fun k ↦ measurable_expFactor_apply le_rfl)
     fun k ↦ ⟨measurable_expFactor.comp (measurable_pi_apply _), by
       rintro _ rfl s hs
-      rw [setLIntegral_infinitePi_comp_eval_of_lt (fun _ ↦ ν) k.lt_succ_self measurable_expFactor
-        hs, hν, mul_one]⟩
+      rw [setLIntegral_comp_eval_succ ν measurable_expFactor k hs, hν, mul_one]⟩
   have := h.lintegral_eq (Set.mem_singleton _) n 0
   simp only [Finset.range_zero, Finset.prod_empty, mul_one] at this
   rw [← h0, this]

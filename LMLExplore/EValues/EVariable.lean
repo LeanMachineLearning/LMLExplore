@@ -45,6 +45,9 @@ e-variables are `ℝ≥0∞`-valued.
   of probability measures, the e-variables and the exact e-variables in terms of `∫⁻`.
 * `ProbabilityTheory.isExactEVar_rnDeriv`: for a finite measure `P`, a likelihood ratio
   `Q.rnDeriv P` with `Q ≪ P` and `Q univ = P univ` is an exact e-variable for `{P}`.
+* `ProbabilityTheory.isEVar_div_singleton`: on a countable space, the likelihood ratio
+  `x ↦ Q {x} / P {x}` against a probability measure `P` that charges every point is an
+  e-variable for `{P}`.
 * `ProbabilityTheory.isEVar_piecewise_top`: the function equal to `∞` on a measurable set null
   for every member of `S`, and to `1` elsewhere, is an e-variable for `S`.
 * `ProbabilityTheory.absolutelyContinuousSet_iff_forall_isEVar_ae_ne_top`: a measure `Q` is
@@ -153,6 +156,17 @@ theorem isExactEVar_rnDeriv {Q : Measure Ω} [IsFiniteMeasure P] [Q.HaveLebesgue
   toIsEVar := .of_lintegral_le_measure_univ (by simpa) (Measure.measurable_rnDeriv Q P)
     (by simp [Measure.lintegral_rnDeriv hQP, hQ])
   lintegral_eq_measure_univ := by simp [Measure.lintegral_rnDeriv hQP, hQ]
+
+/-- On a countable space, the likelihood ratio `x ↦ Q {x} / P {x}` of a probability measure `Q`
+against a probability measure `P` that charges every point is an e-variable for `{P}`: its
+expectation under `P` is `1`. -/
+theorem isEVar_div_singleton [MeasurableSingletonClass Ω] [Countable Ω] {Q : Measure Ω}
+    [IsProbabilityMeasure Q] [IsProbabilityMeasure P] (hP : ∀ ω, P {ω} ≠ 0) :
+    IsEVar (fun ω ↦ Q {ω} / P {ω}) {P} := by
+  refine IsEVar.of_lintegral_le_one (by simpa) Measurable.of_discrete fun _ h ↦ ?_
+  rw [Set.mem_singleton_iff.1 h, lintegral_countable',
+    tsum_congr fun ω ↦ ENNReal.div_mul_cancel (hP ω) (measure_ne_top _ _)]
+  simpa using (lintegral_countable' (μ := Q) 1).symm.le
 
 /-! ### E-variables and null sets -/
 
