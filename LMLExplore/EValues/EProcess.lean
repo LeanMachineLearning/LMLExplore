@@ -37,6 +37,10 @@ almost surely smaller, and convex combinations.
   e-variable.
 * `ProbabilityTheory.IsEProcess.lintegral_le_one`: under every probability measure of the null, an
   e-process has expectation at most `1` at every stopping time with values in `ℕ`.
+* `ProbabilityTheory.isEProcess_iff_lintegral_le_one`,
+  `ProbabilityTheory.IsEProcess.of_lintegral_le_one`: for a null of probability measures, an
+  adapted process is an e-process exactly when it has expectation at most `1` at every stopping
+  time with values in `ℕ`, under every member of the null.
 * `ProbabilityTheory.IsEProcess.anti_set`, `ProbabilityTheory.isEProcess_iff_forall_singleton`: an
   e-process for `S` is one for every subset of `S`, and an adapted process is an e-process for `S`
   exactly when it is one for each simple null `{P}` with `P ∈ S`.
@@ -96,6 +100,20 @@ theorem lintegral_le_one (hE : IsEProcess E ℱ S)
     ∫⁻ ω, E (τ ω) ω ∂P ≤ 1 :=
   (hE.isEVar_stoppedValue τ hτ).lintegral_le_one hP
 
+/-- The value `fun ω ↦ E (τ ω) ω` of an e-process at a stopping time with values in `ℕ` is
+measurable. -/
+theorem measurable_stoppedValue (hE : IsEProcess E ℱ S)
+    (hτ : IsStoppingTime ℱ (fun ω ↦ (τ ω : WithTop ℕ))) : Measurable fun ω ↦ E (τ ω) ω :=
+  hE.adapted.measurable_apply_stoppingTime hτ
+
+/-- For a null of probability measures, an adapted process with expectation at most `1` at every
+stopping time with values in `ℕ`, under every member of the null, is an e-process. -/
+theorem of_lintegral_le_one (hS : ∀ P ∈ S, IsProbabilityMeasure P) (hE : Adapted ℱ E)
+    (h : ∀ τ : Ω → ℕ, IsStoppingTime ℱ (fun ω ↦ (τ ω : WithTop ℕ)) →
+      ∀ P ∈ S, ∫⁻ ω, E (τ ω) ω ∂P ≤ 1) :
+    IsEProcess E ℱ S :=
+  ⟨hE, fun τ hτ ↦ IsEVar.of_lintegral_le_one hS (hE.measurable_apply_stoppingTime hτ) (h τ hτ)⟩
+
 /-- An e-process for `T` is one for every subset of `T`. -/
 theorem anti_set (hST : S ⊆ T) (hE : IsEProcess E ℱ T) : IsEProcess E ℱ S :=
   ⟨hE.adapted, fun τ hτ ↦ (hE.isEVar_stoppedValue τ hτ).anti_set hST⟩
@@ -105,8 +123,7 @@ an e-process at every time, under every member of the null, is an e-process. -/
 theorem mono_ae (hS : ∀ P ∈ S, IsFiniteMeasure P) (hE : IsEProcess E ℱ S) (hF : Adapted ℱ F)
     (hFE : ∀ P ∈ S, ∀ n, F n ≤ᵐ[P] E n) : IsEProcess F ℱ S := by
   refine ⟨hF, fun τ hτ ↦ IsEVar.of_lintegral_le_measure_univ hS
-    (measurable_apply_of_countable (fun _ ↦ hF.measurable)
-      ((measurable_of_countable (WithTop.untopD 0)).comp hτ.measurable')) fun P hP ↦ ?_⟩
+    (hF.measurable_apply_stoppingTime hτ) fun P hP ↦ ?_⟩
   refine (lintegral_mono_ae ?_).trans
     ((hE.isEVar_stoppedValue τ hτ).lintegral_le_measure_univ P hP)
   filter_upwards [ae_all_iff.2 (hFE P hP)] with ω hω using hω (τ ω)
@@ -119,14 +136,22 @@ theorem mono (hS : ∀ P ∈ S, IsFiniteMeasure P) (hE : IsEProcess E ℱ S) (hF
 
 end IsEProcess
 
+/-- For a null of probability measures, a process is an e-process exactly when it is adapted and has
+expectation at most `1` at every stopping time with values in `ℕ`, under every member of the null.
+-/
+theorem isEProcess_iff_lintegral_le_one (hS : ∀ P ∈ S, IsProbabilityMeasure P) :
+    IsEProcess E ℱ S ↔ Adapted ℱ E ∧ ∀ τ : Ω → ℕ, IsStoppingTime ℱ (fun ω ↦ (τ ω : WithTop ℕ)) →
+      ∀ P ∈ S, ∫⁻ ω, E (τ ω) ω ∂P ≤ 1 := by
+  refine ⟨fun hE ↦ ⟨hE.adapted, fun τ hτ P hP ↦ ?_⟩, fun h ↦ .of_lintegral_le_one hS h.1 h.2⟩
+  have := hS P hP
+  exact hE.lintegral_le_one hτ hP
+
 /-- A process is an e-process for `S` exactly when it is adapted and an e-process for each simple
 null `{P}` with `P ∈ S`. Adaptedness is needed only when `S` is empty. -/
 theorem isEProcess_iff_forall_singleton :
     IsEProcess E ℱ S ↔ Adapted ℱ E ∧ ∀ P ∈ S, IsEProcess E ℱ {P} := by
   refine ⟨fun hE ↦ ⟨hE.adapted, fun P hP ↦ hE.anti_set (singleton_subset_iff.2 hP)⟩,
-    fun ⟨hE, h⟩ ↦ ⟨hE, fun τ hτ ↦ ⟨measurable_apply_of_countable
-      (fun _ ↦ hE.measurable)
-      ((measurable_of_countable (WithTop.untopD 0)).comp hτ.measurable'), fun P hP ↦ ?_,
+    fun ⟨hE, h⟩ ↦ ⟨hE, fun τ hτ ↦ ⟨hE.measurable_apply_stoppingTime hτ, fun P hP ↦ ?_,
       fun P hP ↦ ?_⟩⟩⟩
   · exact ((h P hP).isEVar_stoppedValue τ hτ).eintegral_ne_bot P (mem_singleton P)
   · exact ((h P hP).isEVar_stoppedValue τ hτ).eintegral_nonpos P (mem_singleton P)
