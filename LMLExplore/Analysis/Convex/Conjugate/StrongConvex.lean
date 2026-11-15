@@ -203,52 +203,27 @@ theorem smoothOn_toReal_fenchelConjugateOn (hf : StrongConvexOn D m F) (hm : 0 <
 lower semicontinuous (`F` is proper and lower semicontinuous), then `u - F` attains its maximum on
 `D` for every functional `u`. The set `D` need not be closed. By
 `StrictConvexOn.eq_of_hasSubgradientWithinAt` applied to `hf.strictConvexOn hm`, the maximizer is
-unique. -/
+unique. This is `StrongConvexOn.exists_isMinOn_of_lowerSemicontinuous` for `F - u`. -/
 theorem exists_hasSubgradientWithinAt [FiniteDimensional ℝ E] [DecidablePred (· ∈ D)]
     (hf : StrongConvexOn D m F) (hm : 0 < m) (hD_ne : D.Nonempty)
     (hf_lsc : LowerSemicontinuous fun x ↦ if x ∈ D then (F x : EReal) else ⊤)
     (u : E →L[ℝ] ℝ) :
     ∃ x ∈ D, HasSubgradientWithinAt F u D x := by
-  obtain ⟨x₀, hx₀⟩ := hD_ne
-  -- `F - u` extended by `⊤` off `D` is lower semicontinuous.
-  let G : E → EReal := fun x ↦ if x ∈ D then ((F x - u x : ℝ) : EReal) else ⊤
-  have hG_lsc : LowerSemicontinuous G := by
-    have hu : LowerSemicontinuous fun x ↦ ((-u x : ℝ) : EReal) :=
-      (continuous_coe_real_ereal.comp u.continuous.neg).lowerSemicontinuous
+  -- `F - u` extended by `⊤` off `D` is lower semicontinuous, so it has a minimizer on `D`.
+  have hG_lsc : LowerSemicontinuous fun x ↦ if x ∈ D then ((F x + (-u) x : ℝ) : EReal) else ⊤ := by
+    have hu : LowerSemicontinuous fun x ↦ (((-u) x : ℝ) : EReal) :=
+      (continuous_coe_real_ereal.comp (-u).continuous).lowerSemicontinuous
     convert hf_lsc.add' hu fun x ↦ EReal.continuousAt_add (.inr (EReal.coe_ne_bot _))
       (.inr (EReal.coe_ne_top _)) using 1 with x
     funext x
-    split_ifs <;> simp [G, *, sub_eq_add_neg]
-  -- Far from `x₀`, `F - u` exceeds its value at `x₀`.
-  have hlsc₀ : LowerSemicontinuousWithinAt (F + ⇑(-u)) D x₀ := fun y hy ↦ by
-    filter_upwards [eventually_nhdsWithin_of_eventually_nhds
-      (hG_lsc x₀ y (by
-        simp only [G, hx₀, ite_true, EReal.coe_lt_coe_iff]
-        simpa [sub_eq_add_neg] using hy)), self_mem_nhdsWithin]
-      with x hx hxD
-    simp only [G, hxD, ite_true, EReal.coe_lt_coe_iff] at hx
-    simpa [sub_eq_add_neg] using hx
-  obtain ⟨R, hfar⟩ :=
-    (hf.add_continuousLinearMap (-u)).exists_forall_lt_of_lowerSemicontinuousWithinAt hm hx₀ hlsc₀
-  have hR : 0 ≤ R := not_lt.1 fun hR ↦ (hfar x₀ hx₀ (by simpa using hR)).false
-  -- A minimizer of `G` on the compact ball `closedBall x₀ R` lies in `D` and minimizes `F - u`.
-  obtain ⟨a, -, hamin⟩ := (hG_lsc.lowerSemicontinuousOn _).exists_isMinOn
-    ⟨x₀, mem_closedBall_self hR⟩ (isCompact_closedBall x₀ R)
-  have hax₀ := isMinOn_iff.1 hamin x₀ (mem_closedBall_self hR)
-  have haD : a ∈ D := by
-    by_contra ha
-    simp only [G, ha, hx₀, ite_true, ite_false, top_le_iff] at hax₀
-    exact EReal.coe_ne_top _ hax₀
-  simp only [G, haD, hx₀, ite_true, EReal.coe_le_coe_iff] at hax₀
+    split_ifs <;> simp
+  obtain ⟨a, haD, hamin⟩ :=
+    (hf.add_continuousLinearMap (-u)).exists_isMinOn_of_lowerSemicontinuous hm hD_ne hG_lsc
   refine ⟨a, haD, fun y hy ↦ ?_⟩
+  have := isMinOn_iff.1 hamin y hy
+  simp only [neg_apply] at this
   simp only [bregDiv, map_sub]
-  by_cases hyR : ‖y - x₀‖ ≤ R
-  · have := isMinOn_iff.1 hamin y (mem_closedBall_iff_norm.2 hyR)
-    simp only [G, haD, hy, ite_true, EReal.coe_le_coe_iff] at this
-    linarith
-  · have := hfar y hy (not_le.1 hyR)
-    simp only [neg_apply] at this
-    linarith
+  linarith
 
 /-- **The duality of strong convexity and smoothness** [Ora, Theorem 6.26], in finite dimension:
 the conjugate of a proper lower semicontinuous function that is `m`-strongly convex with `m > 0` on
