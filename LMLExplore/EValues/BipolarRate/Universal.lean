@@ -222,6 +222,28 @@ private theorem eintegral_le_of_forall_min_le {Ω : Type*} [MeasurableSpace Ω] 
   exact EReal.coe_ennreal_le_coe_ennreal_iff.2
     (iSup_le fun k ↦ EReal.coe_ennreal_le_coe_ennreal_iff.1 (hk k))
 
+/-- Mixing with a constant, in expectation: the extended integral of the truncation at `k` of
+`log E` is at most the integral of the truncated logarithm of `(1 - ε) E + ε`, minus
+`log (1 - ε)`. -/
+private lemma eintegral_min_log_le_integral_truncLog_sub {Ω : Type*} [MeasurableSpace Ω]
+    {μ : Measure Ω} [IsProbabilityMeasure μ] {E : Ω → ℝ≥0∞} {ε : ℝ} (hε0 : 0 < ε) (hε1 : ε < 1)
+    (k : ℕ) (hint : Integrable
+      (fun x ↦ ENNReal.truncLog k (ENNReal.ofReal (1 - ε) * E x + ENNReal.ofReal ε)) μ) :
+    ∫ᵉ x, min (ENNReal.log (E x)) k ∂μ ≤
+      ((∫ x, ENNReal.truncLog k (ENNReal.ofReal (1 - ε) * E x + ENNReal.ofReal ε) ∂μ -
+        Real.log (1 - ε) : ℝ) : EReal) := by
+  calc ∫ᵉ x, min (ENNReal.log (E x)) k ∂μ
+  _ ≤ ∫ᵉ x, ((ENNReal.truncLog k (ENNReal.ofReal (1 - ε) * E x + ENNReal.ofReal ε) -
+      Real.log (1 - ε) : ℝ) : EReal) ∂μ := eintegral_mono fun x ↦ by
+    have := ENNReal.min_log_le_truncLog_sub hε0 hε1 (k : ℝ) (E x)
+    rwa [EReal.coe_natCast] at this
+  _ = ((∫ x, (ENNReal.truncLog k (ENNReal.ofReal (1 - ε) * E x + ENNReal.ofReal ε) -
+      Real.log (1 - ε)) ∂μ : ℝ) : EReal) :=
+    eintegral_eq_integral (hint.sub (integrable_const _))
+  _ = _ := by
+    rw [integral_sub hint (integrable_const _), integral_const]
+    simp
+
 /-! ### Observations and shifts -/
 
 variable {𝓧 : Type*} {m𝓧 : MeasurableSpace 𝓧}
@@ -302,6 +324,27 @@ private lemma exists_seq_boundedLogEVarSet [MeasurableSpace.CountablyGenerated �
   obtain ⟨i, hi⟩ := (hint.eventually (lt_mem_nhds hc)).exists
   exact ⟨_, hi⟩
 
+/-- **Mixing with a constant.** For `ε ∈ [0, 1]`, the mixture `(1 - ε) E + ε` of an e-variable
+`E` with the constant `1` is an e-variable. -/
+private lemma IsEVar.ofReal_one_sub_mul_add_ofReal {Ω : Type*} [MeasurableSpace Ω]
+    {S : Set (Measure Ω)} {E : Ω → ℝ≥0∞} (hE : IsEVar E S) {ε : ℝ} (hε0 : 0 ≤ ε) (hε1 : ε ≤ 1) :
+    IsEVar (fun x ↦ ENNReal.ofReal (1 - ε) * E x + ENNReal.ofReal ε) S := by
+  have h : IsEVar (ENNReal.ofReal (1 - ε) • E + ENNReal.ofReal ε • 1) S :=
+    convex_isEVar S hE (isEVar_one S) (zero_le : 0 ≤ ENNReal.ofReal (1 - ε))
+      (zero_le : 0 ≤ ENNReal.ofReal ε)
+      (by rw [← ENNReal.ofReal_add (by linarith) hε0, sub_add_cancel, ENNReal.ofReal_one])
+  convert h using 1
+  ext x
+  simp
+
+/-- For `a > 0`, some `ε ∈ (0, 1)` has `log (1 - ε) = -a`. -/
+private lemma exists_log_one_sub_eq_neg {a : ℝ} (ha : 0 < a) :
+    ∃ ε : ℝ, 0 < ε ∧ ε < 1 ∧ Real.log (1 - ε) = -a := by
+  refine ⟨1 - Real.exp (-a), ?_, by linarith [Real.exp_pos (-a)],
+    by rw [sub_sub_cancel, Real.log_exp]⟩
+  have : Real.exp (-a) < 1 := by simpa using Real.exp_lt_exp.2 (show -a < 0 by linarith)
+  linarith
+
 /-- **Truncation.** If an `m`-sample e-variable has expected logarithm larger than `c` under
 `Q ^ m`, so has the truncated logarithm of its mixture with a constant, which is bounded. -/
 private lemma exists_mem_boundedLogEVarSet_lt_integral (Q : Measure 𝓧) [IsProbabilityMeasure Q]
@@ -313,15 +356,7 @@ private lemma exists_mem_boundedLogEVarSet_lt_integral (Q : Measure 𝓧) [IsPro
   rw [EReal.coe_lt_coe_iff] at hcc'
   set η := c' - c with hη
   have hη0 : 0 < η := by linarith
-  set ε := 1 - Real.exp (-(η / 2)) with hε
-  have hε0 : 0 < ε := by
-    have : Real.exp (-(η / 2)) < 1 := by
-      simpa using Real.exp_lt_exp.2 (show -(η / 2) < 0 by linarith)
-    linarith
-  have hε1 : ε < 1 := by
-    have := Real.exp_pos (-(η / 2))
-    linarith
-  have hlogε : Real.log (1 - ε) = -(η / 2) := by rw [hε, sub_sub_cancel, Real.log_exp]
+  obtain ⟨ε, hε0, hε1, hlogε⟩ := exists_log_one_sub_eq_neg (half_pos hη0)
   set μ := Measure.pi (fun _ : Fin m ↦ Q)
   -- truncate the logarithm at a level `k`, by monotone convergence
   obtain ⟨k, hk⟩ : ∃ k : ℕ, ((c + η / 2 : ℝ) : EReal) < ∫ᵉ x, min (ENNReal.log (E x)) k ∂μ := by
@@ -355,26 +390,9 @@ private lemma exists_mem_boundedLogEVarSet_lt_integral (Q : Measure 𝓧) [IsPro
     calc ∫⁻ x, ENNReal.ofReal (Real.exp (f x)) ∂Measure.pi (fun _ : Fin m ↦ P)
     _ ≤ ∫⁻ x, F x ∂Measure.pi (fun _ : Fin m ↦ P) :=
       lintegral_mono fun x ↦ ENNReal.ofReal_exp_truncLog_le (hF0 x)
-    _ = ENNReal.ofReal (1 - ε) * ∫⁻ x, E x ∂Measure.pi (fun _ : Fin m ↦ P) +
-        ENNReal.ofReal ε := by
-      rw [lintegral_add_right _ measurable_const, lintegral_const_mul _ hE.measurable,
-        lintegral_const, measure_univ, mul_one]
-    _ ≤ ENNReal.ofReal (1 - ε) * 1 + ENNReal.ofReal ε := by
-      gcongr
-      simpa using hE.lintegral_le_measure_univ _ ⟨P, hP, rfl⟩
-    _ = 1 := by rw [mul_one, ← ENNReal.ofReal_add (by linarith) hε0.le]; simp
-  · have hle : ∫ᵉ x, min (ENNReal.log (E x)) k ∂μ ≤
-        ((∫ x, f x ∂μ - Real.log (1 - ε) : ℝ) : EReal) := by
-      calc ∫ᵉ x, min (ENNReal.log (E x)) k ∂μ
-      _ ≤ ∫ᵉ x, ((f x - Real.log (1 - ε) : ℝ) : EReal) ∂μ := eintegral_mono fun x ↦ by
-        have := ENNReal.min_log_le_truncLog_sub hε0 hε1 (k : ℝ) (E x)
-        rwa [EReal.coe_natCast] at this
-      _ = ((∫ x, (f x - Real.log (1 - ε)) ∂μ : ℝ) : EReal) :=
-        eintegral_eq_integral (hint.sub (integrable_const _))
-      _ = ((∫ x, f x ∂μ - Real.log (1 - ε) : ℝ) : EReal) := by
-        rw [integral_sub hint (integrable_const _), integral_const]
-        simp
-    have h := hk.trans_le hle
+    _ ≤ 1 := (hE.ofReal_one_sub_mul_add_ofReal hε0.le hε1.le).lintegral_le_one ⟨P, hP, rfl⟩
+  · have h : ((c + η / 2 : ℝ) : EReal) < ((∫ x, f x ∂μ - Real.log (1 - ε) : ℝ) : EReal) :=
+      hk.trans_le (eintegral_min_log_le_integral_truncLog_sub hε0 hε1 k hint)
     rw [EReal.coe_lt_coe_iff, hlogε] at h
     linarith
 

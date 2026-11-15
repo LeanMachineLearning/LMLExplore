@@ -115,8 +115,10 @@ lemma adapted_piLE_comp_initSeg {β : Type*} [MeasurableSpace β]
 lemma measurable_piLE_of_dependsOn {β : Type*} [MeasurableSpace β]
     {f : (ℕ → 𝓧) → β} {n : ℕ} (hf : Measurable f) (hfn : DependsOn f (Set.Iio (n + 1))) :
     Measurable[piLE n] f := by
+  -- `exists_measurable_eq_comp_initSeg` needs `[Nonempty 𝓧]`; the empty case is trivial
   rcases isEmpty_or_nonempty 𝓧 with h𝓧 | h𝓧
-  · exact @Subsingleton.measurable _ _ _ (piLE n) _ _
+  · let : MeasurableSpace (ℕ → 𝓧) := piLE n
+    exact Subsingleton.measurable
   obtain ⟨g, hg, rfl⟩ := exists_measurable_eq_comp_initSeg hf hfn
   exact Measurable.comp (mα := piLE n) hg (measurable_piLE_initSeg le_rfl)
 
