@@ -7,6 +7,7 @@ module
 
 public import Statlib.EValues.RIPr
 public import LMLExplore.EValues.EffectiveSet
+public import LMLExplore.MeasureTheory.Measure.WithDensity
 
 /-!
 # Identifying the numeraire through the effective null
@@ -75,13 +76,6 @@ variable {Ω : Type*} {mΩ : MeasurableSpace Ω} {S : Set (Measure Ω)} {Q P μ 
 
 /-! ### The numeraire through the effective null, for any alternative -/
 
-/-- The expectation of `Y` under the measure of density `X⁻¹` with respect to `Q` is the
-expectation of `Y / X` under `Q`. -/
-private theorem lintegral_withDensity_inv {Y : Ω → ℝ≥0∞} (hX : Measurable X) (hY : Measurable Y) :
-    ∫⁻ ω, Y ω ∂(Q.withDensity fun ω ↦ (X ω)⁻¹) = ∫⁻ ω, Y ω / X ω ∂Q := by
-  rw [lintegral_withDensity_eq_lintegral_mul _ (f := fun ω ↦ (X ω)⁻¹) hX.inv hY]
-  simp_rw [Pi.mul_apply, mul_comm _ (Y _), ← div_eq_mul_inv]
-
 /-- **The numeraire through the effective null.** For a finite measure `Q` and any null `S`, an
 e-variable `X` for `S` is the numeraire of `S` under `Q` exactly when the measure of density `X⁻¹`
 with respect to `Q`, divided by the mass `Q X.fsupport` of the set where `X` is positive and
@@ -96,7 +90,9 @@ theorem isNumeraire_iff_smul_withDensity_inv_mem_effectiveSet [IsFiniteMeasure Q
     have h_eq : ∫⁻ ω, Y ω ∂((Q X.fsupport)⁻¹ • Q.withDensity fun ω ↦ (X ω)⁻¹)
         = (∫⁻ ω, Y ω / X ω ∂Q) / Q X.fsupport := by
       rw [lintegral_smul_measure, smul_eq_mul,
-        lintegral_withDensity_inv hX.measurable hY.measurable, ENNReal.div_eq_inv_mul]
+        lintegral_withDensity_inv_eq_lintegral_div hX.measurable.aemeasurable
+          hY.measurable.aemeasurable,
+        ENNReal.div_eq_inv_mul]
     have h_iff : (∫⁻ ω, Y ω / X ω ∂Q) / Q X.fsupport ≤ 1 ↔ ∫⁻ ω, Y ω / X ω ∂Q ≤ Q X.fsupport := by
       rw [ENNReal.div_le_iff_le_mul (.inr ENNReal.one_ne_top) (.inr one_ne_zero), one_mul]
   · rw [h_eq, h_iff]
@@ -184,7 +180,7 @@ theorem IsNumeraire.eq_withDensity_inv_of_le [IsProbabilityMeasure Q]
   have : IsFiniteMeasure ν := isFiniteMeasure_of_le μ hle
   -- `X` has expectation `1` under `ν` and at most `1` under `μ = (μ - ν) + ν`
   have h_one : ∫⁻ ω, X ω ∂ν = 1 := by
-    rw [lintegral_withDensity_inv hX_meas hX_meas,
+    rw [lintegral_withDensity_inv_eq_lintegral_div hX_meas.aemeasurable hX_meas.aemeasurable,
       lintegral_div_self_eq_measure_fsupport hX_meas.aemeasurable,
       hX.isEVar.measure_fsupport_eq_measure_univ hQS hX.ae_ne_zero, measure_univ]
   have h_add : ∫⁻ ω, X ω ∂(μ - ν) + 1 ≤ 1 := by
@@ -246,7 +242,8 @@ private theorem withDensity_inv_mem_of_lintegral_div_le_one {𝓔₀ : Set (Ω �
     (h_le : ∀ Y ∈ 𝓔₀, ∫⁻ ω, Y ω / X ω ∂Q ≤ 1) :
     Q.withDensity (fun ω ↦ (X ω)⁻¹) ∈ S := by
   refine hS _ ⟨by rwa [withDensity_apply _ MeasurableSet.univ, setLIntegral_univ]⟩ fun Y hY ↦ ?_
-  exact (lintegral_withDensity_inv hX (h𝓔₀ Y hY)).trans_le (h_le Y hY)
+  exact (lintegral_withDensity_inv_eq_lintegral_div hX.aemeasurable
+    (h𝓔₀ Y hY).aemeasurable).trans_le (h_le Y hY)
 
 /-- **Generated nulls** [LRR25, Corollary 4.2]. Let `S` contain every probability measure under
 which each member of a family `𝓔₀` has expectation at most `1`, and let every measurable set
