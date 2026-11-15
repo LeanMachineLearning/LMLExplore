@@ -7,6 +7,7 @@ module
 
 public import LMLExplore.Analysis.InnerProductSpace.Positive
 public import LMLExplore.Analysis.InnerProductSpace.RankOne
+public import Mathlib.MeasureTheory.Constructions.BorelSpace.ContinuousLinearMap
 public import TauCeti.Analysis.InnerProductSpace.Frame
 public import TauCeti.Analysis.InnerProductSpace.Spectrum
 
@@ -59,6 +60,8 @@ eigenvalues. The ridge regularizer `λ • 1` is one for `λ > 0`
   [LS, Lemma 19.4]; for `V₀ = λ • 1` it is `LMLExplore.log_det_designOp_div_pow_le`,
   `log (det V_t(λ) / λ ^ d) ≤ d log (1 + t L² / (λ d))`, the logarithmic form of
   `LMLExplore.det_designOp_div_pow_le`: `det V_t(λ) / λ ^ d ≤ (1 + t L² / (λ d)) ^ d` [LS, (20.9)].
+* `Measurable.designOp`: in finite dimension, `V_t(V₀)` depends measurably on the vectors, so the
+  design operators of random vectors are random operators.
 
 The design operator, its determinant recursion `det_designOp_succ` and the bound
 `det_designOp_div_pow_le` follow the matrix versions `regGram`, `det_regGram_succ` and
@@ -359,6 +362,23 @@ theorem range_designOp_zero (x : ℕ → E) (t : ℕ) :
   simp only [ContinuousLinearMap.coe_coe, designOp_apply, zero_apply, zero_add]
   exact Submodule.sum_smul_mem _ _ fun s hs ↦
     Submodule.subset_span ⟨s, Set.mem_Iio.2 (mem_range.1 hs), rfl⟩
+
+section Measurable
+
+variable [MeasurableSpace E] [BorelSpace E] {β : Type*}
+  {mβ : MeasurableSpace β} {x : β → ℕ → E}
+
+/-- In finite dimension, the design operator `V_t(V₀)` of a measurable family of sequences of
+vectors is measurable. -/
+@[fun_prop]
+theorem _root_.Measurable.designOp (hx : Measurable x) (V₀ : E →L[ℝ] E) (t : ℕ) :
+    Measurable fun b ↦ designOp V₀ (x b) t := by
+  simp_rw [designOp_def]
+  refine measurable_const.add (Finset.measurable_sum _ fun s _ ↦ ?_)
+  have hc : Continuous fun u : E ↦ rankOne ℝ u u := (rankOne ℝ).continuous.clm_apply continuous_id
+  exact hc.measurable.comp ((measurable_pi_apply s).comp hx)
+
+end Measurable
 
 end FiniteDimensional
 

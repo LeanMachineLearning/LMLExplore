@@ -5,6 +5,7 @@ Authors: LMLExplore contributors
 -/
 module
 
+public import LeanMachineLearning.ForMathlib.MeasureTheory.Order.MeasurableArg
 public import LeanMachineLearning.SequentialLearning.Deterministic
 public import Mathlib.Algebra.Order.Chebyshev
 public import LMLExplore.Analysis.InnerProductSpace.EllipticalPotential
@@ -28,7 +29,8 @@ The algorithm `oful S` is the deterministic algorithm whose action at round `n` 
 `OptimisticSelection` `S`: a measurable choice, from the history and the context, of an action
 maximizing the optimistic index with radius `r n` among all actions. Such a measurable maximizer
 is a parameter of the algorithm, since an infinite action set has no canonical measurable choice
-of maximizers.
+of maximizers. For finitely many actions, `OptimisticSelection.ofFintype` plays the `argmax` of
+the optimistic index, which depends measurably on the history in finite dimension.
 
 The regret analysis [LS, Theorem 19.2] is pathwise. If `θ` lies in the confidence ellipsoids of
 the rounds `t < n` with radii `r t ≤ R`, and the gaps between the expected rewards of the actions
@@ -47,6 +49,8 @@ least `1 - δ` for the radii [LS, (19.8)]
 * `LMLExplore.Bandits.OptimisticSelection φ lam r`: a measurable choice of an action of maximal
   optimistic index at every round.
 * `LMLExplore.Bandits.oful S`: the OFUL algorithm.
+* `LMLExplore.Bandits.OptimisticSelection.ofFintype φ hφ lam r`: the optimistic selection of an
+  `argmax` of the optimistic index, for finitely many actions.
 
 ## Main statements
 
@@ -64,6 +68,11 @@ least `1 - δ` for the radii [LS, (19.8)]
   of OFUL is at most `n G δ + √(8 n R² d log (1 + n L² / (λ d)))`, and at most
   `G + √(8 n R² d log (1 + n L² / (λ d)))` for `δ = 1 / n` [LS, Corollary 19.3, with explicit
   constants].
+* `Measurable.ofulIndex`: in finite dimension, the optimistic index depends measurably on the
+  covariates, the responses and the feature vector.
+* `OFUL.integral_regret_le_add_sqrt`: on a stochastic bandit with `k` σ²-sub-Gaussian arms, seen
+  as a linear bandit with one-hot features, the expected regret of OFUL is at most
+  `G + √(8 n R² k log (1 + n / (λ k)))` for gaps at most `G`.
 
 ## References
 
@@ -75,7 +84,7 @@ least `1 - δ` for the radii [LS, (19.8)]
 
 public section
 
-open MeasureTheory ProbabilityTheory Finset Real Module Learning
+open MeasureTheory ProbabilityTheory Finset Real Module Learning Bandits
 open scoped ENNReal NNReal InnerProductSpace
 
 namespace LMLExplore.Bandits
@@ -145,6 +154,24 @@ theorem inner_sub_inner_le_of_ofulIndex_le (hlam : 0 < lam)
   linarith [inner_le_ofulIndex hlam hθ (f a), ofulIndex_le_inner_add hlam hθ (f b), hb a]
 
 end Index
+
+section MeasurableIndex
+
+variable [FiniteDimensional ℝ E] [MeasurableSpace E] [BorelSpace E] {β : Type*}
+  {mβ : MeasurableSpace β}
+
+/-- In finite dimension, the optimistic index of measurable families of covariates, responses and
+feature vectors is measurable. -/
+@[fun_prop]
+theorem _root_.Measurable.ofulIndex {x : β → ℕ → E} {y : β → ℕ → ℝ} {v : β → E}
+    (hx : Measurable x) (hy : Measurable y) (hv : Measurable v) (lam r : ℝ) (t : ℕ) :
+    Measurable fun b ↦ ofulIndex lam (x b) (y b) r t (v b) := by
+  simp_rw [ofulIndex_def]
+  refine ((hx.ridgeEstimate hy lam t).inner hv).add (measurable_const.mul ?_)
+  exact (hv.inner (isBoundedBilinearMap_apply.continuous.measurable2
+    (hx.designOp (lam • 1) t).ringInverse hv)).sqrt
+
+end MeasurableIndex
 
 section Pathwise
 
@@ -283,6 +310,29 @@ lemma oful_policy (n : ℕ) :
 
 instance : (oful S).IsDeterministic where
   exists_nextAction n := ⟨_, _, oful_policy n⟩
+
+/-- The **optimistic selection for finitely many actions**: at every round, the action of maximal
+optimistic index, ties being broken by LML's `argmax`. For finitely many actions, it makes `oful`
+an algorithm with no parameter beyond the features, the regularization and the radii. -/
+noncomputable def OptimisticSelection.ofFintype [Fintype 𝓐] [Nonempty 𝓐] [FiniteDimensional ℝ E]
+    [MeasurableSpace E] [BorelSpace E] (φ : 𝓞 → 𝓐 → E) (hφ : Measurable (Function.uncurry φ))
+    (lam : ℝ) (r : ℕ → ℝ) : OptimisticSelection φ lam r where
+  sel n x := argmax fun a ↦ ofulIndex lam (histFeature φ x.1) (histReward x.1) (r n) n (φ x.2 a)
+  measurable_sel n := measurable_argmax.comp <| Measurable.of_eval fun _ ↦
+    ((measurable_histFeature hφ n).comp measurable_fst).ofulIndex
+      ((measurable_histReward n).comp measurable_fst) (hφ.comp (measurable_snd.prodMk
+        measurable_const)) lam (r n) n
+  ofulIndex_le_ofulIndex_sel n h o a :=
+    isMaxOn_argmax (fun b ↦ ofulIndex lam (histFeature φ h) (histReward h) (r n) n (φ o b))
+      (Set.mem_univ a)
+
+@[simp]
+lemma OptimisticSelection.ofFintype_sel [Fintype 𝓐] [Nonempty 𝓐] [FiniteDimensional ℝ E]
+    [MeasurableSpace E] [BorelSpace E] {hφ : Measurable (Function.uncurry φ)} (n : ℕ)
+    (x : Hist 𝓞 𝓐 ℝ n × 𝓞) :
+    (OptimisticSelection.ofFintype φ hφ lam r).sel n x =
+      argmax fun a ↦ ofulIndex lam (histFeature φ x.1) (histReward x.1) (r n) n (φ x.2 a) := by
+  rfl
 
 namespace OFUL
 
@@ -443,5 +493,50 @@ theorem integral_linearRegret_le_add_sqrt (h : IsAlgEnvSeq O A Y (oful S) env P)
 end OFUL
 
 end Algorithm
+
+section Bandit
+
+/-! ### Finitely many arms
+
+A stochastic bandit with finitely many σ²-sub-Gaussian arms is a linear bandit with the one-hot
+features `a ↦ EuclideanSpace.single a 1` in dimension `k`, the number of arms
+(`isSubgaussianLinearEnv_bandit`), so the regret bound of OFUL applies to it. -/
+
+variable {α : Type*} [Fintype α] [DecidableEq α] [MeasurableSpace α] [MeasurableSingletonClass α]
+  {ν : Kernel α ℝ} [IsMarkovKernel ν] {r : ℕ → ℝ}
+  {S : OptimisticSelection (fun (_ : Unit) (a : α) ↦ EuclideanSpace.single a (1 : ℝ)) lam r}
+  [StandardBorelSpace Ω] {P : Measure Ω} [IsProbabilityMeasure P] {O : ℕ → Ω → Unit}
+  {A : ℕ → Ω → α} {Y : ℕ → Ω → ℝ} {σ2 : ℝ≥0} {m G R : ℝ} {n : ℕ}
+
+/-- **Expected regret of OFUL on finitely many arms** [LS, Corollary 19.3, with explicit
+constants]: let OFUL with the one-hot features run on a stochastic bandit `ν` with `k` arms that
+are σ²-sub-Gaussian, `σ² ≠ 0`, whose gaps are at most `G` and whose vector of means has
+Euclidean norm at most `m`. Let `λ > 0` and let the radii satisfy
+`√λ m + √(2σ² log n + σ² k log (1 + t / (λ k))) ≤ r t ≤ R` for `t < n`, with `G ≤ 2 R`. Then the
+expected regret after `n` rounds is at most `G + √(8 n R² k log (1 + n / (λ k)))`. -/
+theorem OFUL.integral_regret_le_add_sqrt
+    (h : IsAlgEnvSeq O A Y (oful S) (Environment.bandit ν) P)
+    (hν : ∀ a, HasSubgaussianMGF (fun x ↦ x - (ν a)[id]) σ2 (ν a)) (hσ : σ2 ≠ 0)
+    (hgap : ∀ a, gap ν a ≤ G) (hlam : 0 < lam) (hm : √(∑ a, (ν a)[id] ^ 2) ≤ m)
+    (hr : ∀ t < n, √lam * m + √(2 * σ2 * log n +
+      σ2 * Fintype.card α * log (1 + t / (lam * Fintype.card α))) ≤ r t)
+    (hG : G ≤ 2 * R) (hrR : ∀ t < n, r t ≤ R) :
+    P[regret ν A n] ≤
+      G + √(8 * n * R ^ 2 * (Fintype.card α * log (1 + n / (lam * Fintype.card α)))) := by
+  have hφ : Measurable (Function.uncurry fun (_ : Unit) (a : α) ↦
+      EuclideanSpace.single a (1 : ℝ)) := measurable_of_countable _
+  have hgap' (o : Unit) (a b : α) : ⟪WithLp.toLp 2 (fun a ↦ (ν a)[id]),
+      EuclideanSpace.single a (1 : ℝ)⟫_ℝ - ⟪WithLp.toLp 2 (fun a ↦ (ν a)[id]),
+        EuclideanSpace.single b (1 : ℝ)⟫_ℝ ≤ G := by
+    have : Nonempty α := ⟨a⟩
+    simp only [EuclideanSpace.inner_single_right, one_mul, conj_trivial]
+    linarith [hgap b, gap_eq_bestArm_sub (ν := ν) (a := b), le_bestArm (ν := ν) a]
+  have key := OFUL.integral_linearRegret_le_add_sqrt (L := 1) h (isSubgaussianLinearEnv_bandit hν)
+    hφ hσ hgap' (fun _ a ↦ by simp) hlam (by simpa [EuclideanSpace.norm_eq] using hm)
+    (by simpa [finrank_euclideanSpace] using hr) hG hrR
+  simp_rw [linearRegret_single_eq_regret] at key
+  simpa [finrank_euclideanSpace] using key
+
+end Bandit
 
 end LMLExplore.Bandits
