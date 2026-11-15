@@ -36,6 +36,12 @@ lower bound for e-BH on running maxima
   unions of fibers of `info t`.
 * `ProbabilityTheory.isTestMartingale_fiberAvg`: the fiber averages of `Z` form a test martingale
   for the filtration of the information.
+
+## Implementation notes
+
+The construction is adapted from the Doob-martingale step of the Lean proof in
+`EValuesResearch/Results/RunningMaxima.lean` (commit `ffba78a`) of the paper project
+`RemyDegenne/evalues_research`.
 -/
 
 public section

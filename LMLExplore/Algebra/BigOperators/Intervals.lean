@@ -34,6 +34,8 @@ the time-uniform deviation bounds of [LS, Lemma 33.8], thus spends at most `δ` 
   over a final block of indices.
 * `LMLExplore.sum_range_add_mod`: `∑ x < K, f ((z + x) % K) = ∑ x < K, f x`, a sum over a full
   period of residues does not depend on its starting point.
+* `LMLExplore.two_mul_sum_range_sub`: `2 * ∑ i < n + 1, (n + 1 - i) = (n + 1) * (n + 2)`, Gauss'
+  summation formula for the reflected indices `n + 1 - i`.
 
 ## References
 
@@ -94,5 +96,16 @@ theorem prod_range_add_mod {M : Type*} [CommMonoid M] (f : ℕ → M) (K z : ℕ
   rw [← Fin.prod_univ_eq_prod_range (fun x ↦ f ((z + x) % (K + 1))),
     ← Fin.prod_univ_eq_prod_range f]
   exact Fintype.prod_equiv (Equiv.addLeft (Fin.ofNat (K + 1) z)) _ _ fun x ↦ by simp [Fin.val_add]
+
+/-- Gauss' summation formula for the reflected indices `n + 1 - i`:
+`2 * ∑_{i < n + 1} (n + 1 - i) = (n + 1) * (n + 2)`. -/
+theorem two_mul_sum_range_sub (n : ℕ) :
+    2 * ∑ i ∈ range (n + 1), (n + 1 - i) = (n + 1) * (n + 2) := by
+  have h : ∑ i ∈ range (n + 1), (n + 1 - i) = ∑ i ∈ range (n + 1), (i + 1) := by
+    rw [← sum_range_reflect (fun i ↦ i + 1)]
+    exact sum_congr rfl fun i hi ↦ by have := mem_range.1 hi; omega
+  rw [h, sum_add_distrib, mul_add, mul_comm 2, sum_range_id_mul_two]
+  simp only [sum_const, card_range, smul_eq_mul, mul_one, Nat.add_sub_cancel]
+  ring
 
 end LMLExplore

@@ -586,16 +586,6 @@ private lemma card_noWin_last_le (j : Fin (n + 1)) :
   rw [pow_two, mul_assoc, ← hsum]
   exact card_noWin_le j j.is_lt.le
 
-/-- Twice the sum of `n + 1 - i` for `i ≤ n`. -/
-private lemma two_mul_sum_range_sub (n : ℕ) :
-    2 * ∑ i ∈ Finset.range (n + 1), (n + 1 - i) = (n + 1) * (n + 2) := by
-  have h : ∑ i ∈ Finset.range (n + 1), (n + 1 - i) = ∑ i ∈ Finset.range (n + 1), (i + 1) := by
-    rw [← Finset.sum_range_reflect (fun i ↦ i + 1)]
-    exact Finset.sum_congr rfl fun i hi ↦ by have := Finset.mem_range.1 hi; omega
-  rw [h, Finset.sum_add_distrib, mul_add, mul_comm 2, Finset.sum_range_id_mul_two]
-  simp only [Finset.sum_const, Finset.card_range, smul_eq_mul, mul_one, Nat.add_sub_cancel]
-  ring
-
 /-- The sum over the positions of the counts of `card_noWin_last_le`. -/
 private lemma two_mul_sum_card_noWin_last_le :
     2 * (n + 1) ^ 2 * ∑ j : Fin (n + 1), (Finset.univ.filter fun H : Fin (n + 1) → Fin (n + 1) ↦
