@@ -8,10 +8,11 @@ module
 public import Mathlib.Algebra.Order.Archimedean.Basic
 
 /-!
-# Inequalities up to `1 / (n + 1)` in Archimedean fields
+# Inequalities up to `1 / (n + 1)` in Archimedean semifields
 
-In an Archimedean linearly ordered field, an inequality that holds up to `1 / (n + 1)` for every
-natural number `n` holds exactly. This is the sequential form of `le_of_forall_pos_le_add`, for
+In an Archimedean linearly ordered semifield with `ExistsAddOfLE` (for instance, any Archimedean
+linearly ordered field), an inequality that holds up to `1 / (n + 1)` for every natural number `n`
+holds exactly. This is the sequential form of `le_of_forall_pos_le_add`, for
 arguments that index the error by `ℕ`, such as a finite intersection over countably many closed
 sets.
 
@@ -22,7 +23,8 @@ sets.
 
 public section
 
-variable {K : Type*} [Field K] [LinearOrder K] [IsStrictOrderedRing K] [Archimedean K] {a b : K}
+variable {K : Type*} [Semifield K] [LinearOrder K] [IsStrictOrderedRing K] [Archimedean K]
+  [ExistsAddOfLE K] {a b : K}
 
 /-- If `a ≤ b + 1 / (n + 1)` for every natural number `n`, then `a ≤ b`. -/
 theorem le_of_forall_nat_le_add_one_div (h : ∀ n : ℕ, a ≤ b + 1 / ((n : K) + 1)) : a ≤ b :=
