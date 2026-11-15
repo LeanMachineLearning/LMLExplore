@@ -102,6 +102,18 @@ private lemma not_ae_eq_zero_add_smul_dirac (ν : Measure ℝ) {c : ℝ≥0∞} 
   have h₃ : z + 1 = 0 := h₁.2
   linarith
 
+/-- The identity is integrable under two atoms at `z - 1` and `z + 1`. -/
+private lemma integrable_id_dirac_add_dirac (z : ℝ) :
+    Integrable (fun x : ℝ ↦ x) (Measure.dirac (z - 1) + Measure.dirac (z + 1)) :=
+  (integrable_dirac (by simp)).add_measure (integrable_dirac (by simp))
+
+/-- The mean of two atoms at `z - 1` and `z + 1` is `2 * z`. -/
+private lemma integral_id_dirac_add_dirac (z : ℝ) :
+    ∫ x, x ∂(Measure.dirac (z - 1) + Measure.dirac (z + 1)) = 2 * z := by
+  rw [integral_add_measure (integrable_dirac (by simp)) (integrable_dirac (by simp)),
+    integral_dirac, integral_dirac]
+  ring
+
 /-- **Completion to a law with mean zero.** A finite measure on `ℝ` of mass less than `1` carried
 by a bounded interval is below a member of `meanZeroPosVarNull`: add two atoms of mass
 `(1 - ν univ) / 2` at `z - 1` and `z + 1`, for the `z` that makes the mean `0`. -/
@@ -127,15 +139,13 @@ private lemma exists_mem_meanZeroPosVarNull_le (ν : Measure ℝ) [IsFiniteMeasu
     Integrable.of_bound measurable_id.aestronglyMeasurable K (by simpa using hK)
   have hPprob : IsProbabilityMeasure P := by
     rw [isProbabilityMeasure_iff_real, hP, measureReal_add_apply, measureReal_ennreal_smul_apply,
-      hD, measureReal_add_apply, hct, ← hb_def]
-    simp
+      hD, measureReal_add_apply, hct, ← hb_def, probReal_univ, probReal_univ]
     ring
   have hmean : ∫ x, x ∂P = 0 := by
-    have hDint : Integrable (fun x : ℝ ↦ x) D :=
-      (integrable_dirac (by simp)).add_measure (integrable_dirac (by simp))
-    rw [hP, integral_add_measure (hint hM) (hDint.smul_measure ENNReal.ofReal_ne_top),
-      integral_smul_measure, hD, integral_add_measure (integrable_dirac (by simp))
-        (integrable_dirac (by simp)), integral_dirac, integral_dirac, hct, hz, smul_eq_mul]
+    have hDint : Integrable (fun x : ℝ ↦ x) (c • D) :=
+      (integrable_id_dirac_add_dirac z).smul_measure ENNReal.ofReal_ne_top
+    rw [hP, integral_add_measure (hint hM) hDint,
+      integral_smul_measure, hD, integral_id_dirac_add_dirac, hct, hz, smul_eq_mul]
     field_simp
     ring
   have hmem : MemLp id 2 P := MemLp.of_bound measurable_id.aestronglyMeasurable (max M (|z| + 1))

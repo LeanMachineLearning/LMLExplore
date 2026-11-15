@@ -6,7 +6,7 @@ Authors: LMLExplore contributors
 module
 
 public import LMLExplore.EValues.BipolarRate.Basic
-public import LMLExplore.EValues.EffectiveSet
+public import LMLExplore.EValues.EffectiveSet.Basic
 public import Mathlib.MeasureTheory.Measure.TotalVariation.Defs
 public import Mathlib.Probability.ProductMeasure
 
@@ -110,9 +110,7 @@ theorem mem_effectiveSet_of_forall_exists_etvDist_lt
     (.of_forall fun ν ↦ ν.2) fun s hs ↦ ENNReal.le_of_forall_pos_le_add fun ε hε _ ↦ ?_
   have hev : ∀ᶠ ν : effectiveSet S in Filter.comap f (𝓝 0), μ s - ε ≤ (ν : Measure Ω) s := by
     filter_upwards [tendsto_comap.eventually (gt_mem_nhds (ENNReal.coe_pos.2 hε))] with ν hν
-    refine tsub_le_iff_right.2 ((measure_le_add_etvDist μ ν hs).trans ?_)
-    rw [etvDist_comm]
-    exact add_le_add le_rfl hν.le
+    exact tsub_le_iff_right.2 (measure_le_add_of_etvDist_le hs hν.le)
   exact tsub_le_iff_right.1 (le_liminf_of_le (by isBoundedDefault) hev)
 
 /-- A limit in total variation of members of a null `S` of measures of mass at most `1` belongs
@@ -260,13 +258,7 @@ theorem measure_pi_le_of_forall_exists_etvDist_lt (hS : ∀ P ∈ S, IsProbabili
   have := isProbabilityMeasure_of_forall_exists_etvDist_lt hS hQ
   refine ENNReal.le_of_forall_pos_le_add fun ε hε _ ↦ ?_
   obtain ⟨P, hP, hPQ⟩ := exists_etvDist_pi_lt (ι := ι) hS hQ (ENNReal.coe_pos.2 hε)
-  calc Measure.pi (fun _ : ι ↦ Q) R
-  _ ≤ Measure.pi (fun _ : ι ↦ P) R +
-      etvDist (Measure.pi fun _ : ι ↦ Q) (Measure.pi fun _ : ι ↦ P) :=
-      measure_le_add_etvDist _ _ hR
-  _ ≤ α + ε := by
-    rw [etvDist_comm]
-    exact add_le_add (hα P hP) hPQ.le
+  exact (measure_le_add_of_etvDist_le hR hPQ.le).trans (add_le_add (hα P hP) le_rfl)
 
 /-- **No growth against a limit in total variation.** If a probability measure `Q` is a limit in
 total variation of members of a null `S` of probability measures, the maximal expected logarithm
