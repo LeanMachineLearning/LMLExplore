@@ -715,15 +715,10 @@ private lemma perturbedMGF_le {m : Measure ℝ} {c : Fin 4 → ℝ} {c₀ κ L :
     nlinarith [hslack t, mul_le_mul_of_nonneg_left (hDL t) hc₀, mul_le_mul_of_nonneg_right hc₀L hρ]
   exact (mul_le_mul_of_nonneg_left key (Real.exp_pos _).le).trans_eq (mul_one _)
 
-/-- A measure carried by `[-b, b]` is almost surely in `[-b, b]`. -/
-private lemma ae_mem_Icc_of_measure_compl {m : Measure ℝ} {b : ℝ} (hb : m (Set.Icc (-b) b)ᶜ = 0) :
-    ∀ᵐ x ∂m, x ∈ Set.Icc (-b) b :=
-  ae_iff.2 hb
-
 /-- A measure carried by `[-b, b]` is almost surely of absolute value at most `b`. -/
 private lemma ae_abs_le_of_measure_compl {m : Measure ℝ} {b : ℝ} (hb : m (Set.Icc (-b) b)ᶜ = 0) :
     ∀ᵐ x ∂m, |x| ≤ b :=
-  (ae_mem_Icc_of_measure_compl hb).mono fun _ hx ↦ abs_le.2 hx
+  (ae_iff.2 hb).mono fun _ hx ↦ abs_le.2 hx
 
 /-- The variance of the Gaussian components of the base law is less than `1`. -/
 private lemma baseVar_lt_one : baseVar < 1 := by unfold baseVar; linarith [ksParam_lt_half]
@@ -740,8 +735,8 @@ private lemma exp_neg_mul_integral_exp_le (hb : m (Set.Icc (-b) b)ᶜ = 0) (t : 
   rw [← integral_const_mul]
   calc ∫ x, Real.exp (-(t ^ 2 / 2)) * Real.exp (t * x) ∂m ≤ ∫ _, Real.exp (b ^ 2 / 2) ∂m := by
         refine integral_mono_ae ((integrable_exp_mul_of_mem_Icc aemeasurable_id'
-          (ae_mem_Icc_of_measure_compl hb)).const_mul _) (integrable_const _) ?_
-        filter_upwards [ae_mem_Icc_of_measure_compl hb] with x hx
+          (ae_iff.2 hb)).const_mul _) (integrable_const _) ?_
+        filter_upwards [ae_iff.2 hb] with x hx
         rw [← Real.exp_add]
         refine Real.exp_le_exp.2 ?_
         nlinarith [sq_nonneg (t - x), mul_nonneg (sub_nonneg.2 hx.2)
@@ -775,7 +770,7 @@ private lemma lintegral_ofReal_exp_mul_mixture {ι : Type*} [Fintype ι] {w : ι
     LMLExplore.lintegral_ofReal_exp_mul_gaussianReal, smul_eq_mul]
   -- `ENNReal.ofReal` of the nonnegative real sum
   rw [← ofReal_integral_eq_lintegral_ofReal (integrable_exp_mul_of_mem_Icc (t := t)
-      aemeasurable_id' (ae_mem_Icc_of_measure_compl hb)) (ae_of_all _ fun _ ↦ (Real.exp_pos _).le),
+      aemeasurable_id' (ae_iff.2 hb)) (ae_of_all _ fun _ ↦ (Real.exp_pos _).le),
     ENNReal.ofReal_add (Finset.sum_nonneg fun j _ ↦ hw' j)
       (mul_nonneg hc₀ (integral_nonneg fun _ ↦ (Real.exp_pos _).le)),
     ENNReal.ofReal_sum_of_nonneg fun j _ ↦ hw' j]

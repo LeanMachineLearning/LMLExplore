@@ -7,6 +7,7 @@ module
 
 public import Mathlib.Analysis.Calculus.Deriv.MeanValue
 import Mathlib.Analysis.Calculus.Deriv.Pow
+import Mathlib.Analysis.Convex.Deriv
 
 /-!
 # Comparing values of a function through the sign of its derivative
@@ -62,45 +63,29 @@ theorem add_mul_add_mul_sq_le_of_le_deriv2 {f f' f'' : ℝ → ℝ} {I : Set ℝ
     {a c : ℝ} (ha : a ∈ I) (hf : ∀ x ∈ I, HasDerivAt f (f' x) x)
     (hf' : ∀ x ∈ I, HasDerivAt f' (f'' x) x) (hc : ∀ x ∈ I, c ≤ f'' x) {x : ℝ} (hx : x ∈ I) :
     f a + f' a * (x - a) + c / 2 * (x - a) ^ 2 ≤ f x := by
-  set g := fun y ↦ f y - (f a + f' a * (y - a) + c / 2 * (y - a) ^ 2) with hg_def
-  set g' := fun y ↦ f' y - (f' a + c * (y - a)) with hg'_def
-  have h1 (y : ℝ) : HasDerivAt (fun y ↦ f a + f' a * (y - a) + c / 2 * (y - a) ^ 2)
-      (f' a + c * (y - a)) y := by
-    have h := (hasDerivAt_id y).sub_const a
-    exact (((h.const_mul (f' a)).const_add (f a)).add ((h.pow 2).const_mul (c / 2))).congr_deriv
-      (by simp only [id, Nat.cast_ofNat]; ring)
-  have hg (y : ℝ) (hy : y ∈ I) : HasDerivAt g (g' y) y := (hf y hy).sub (h1 y)
-  have hg' (y : ℝ) (hy : y ∈ I) : HasDerivAt g' (f'' y - c) y :=
-    (hf' y hy).sub (((((hasDerivAt_id y).sub_const a).const_mul c).const_add (f' a)).congr_deriv
-      (by simp))
-  have hmono : MonotoneOn g' I :=
-    monotoneOn_of_hasDerivWithinAt_nonneg hI
-      (fun y hy ↦ (hg' y hy).continuousAt.continuousWithinAt)
-      (fun y hy ↦ (hg' y (interior_subset hy)).hasDerivWithinAt)
+  -- `h = f - c / 2 * (· - a) ^ 2` has second derivative `f'' - c ≥ 0`, so it is convex on `I`.
+  set h := fun y ↦ f y - c / 2 * (y - a) ^ 2 with h_def
+  have hh (y : ℝ) (hy : y ∈ I) : HasDerivAt h (f' y - c * (y - a)) y :=
+    (hf y hy).sub (((((hasDerivAt_id y).sub_const a).pow 2).const_mul (c / 2)).congr_deriv
+      (by simp only [id, Nat.cast_ofNat]; ring))
+  have hh' (y : ℝ) (hy : y ∈ I) : HasDerivAt (fun y ↦ f' y - c * (y - a)) (f'' y - c) y :=
+    (hf' y hy).sub ((((hasDerivAt_id y).sub_const a).const_mul c).congr_deriv (by simp))
+  have hconv : ConvexOn ℝ I h :=
+    convexOn_of_hasDerivWithinAt2_nonneg hI
+      (fun y hy ↦ (hh y hy).continuousAt.continuousWithinAt)
+      (fun y hy ↦ (hh y (interior_subset hy)).hasDerivWithinAt)
+      (fun y hy ↦ (hh' y (interior_subset hy)).hasDerivWithinAt)
       fun y hy ↦ sub_nonneg.2 (hc y (interior_subset hy))
-  have hga : g a = 0 := by simp [g]
-  have hg'a : g' a = 0 := by simp [g']
-  suffices 0 ≤ g x by simp only [g] at this; linarith
-  rcases le_total a x with hax | hxa
-  · have h : MonotoneOn g (I ∩ Set.Ici a) :=
-      monotoneOn_of_hasDerivWithinAt_nonneg (hI.inter (convex_Ici a))
-        (fun y hy ↦ (hg y hy.1).continuousAt.continuousWithinAt)
-        (fun y hy ↦ (hg y (interior_subset hy).1).hasDerivWithinAt)
-        fun y hy ↦ by
-          have hy' := interior_subset hy
-          rw [← hg'a]
-          exact hmono ha hy'.1 hy'.2
-    rw [← hga]
-    exact h ⟨ha, Set.mem_Ici.2 le_rfl⟩ ⟨hx, hax⟩ hax
-  · have h : AntitoneOn g (I ∩ Set.Iic a) :=
-      antitoneOn_of_hasDerivWithinAt_nonpos (hI.inter (convex_Iic a))
-        (fun y hy ↦ (hg y hy.1).continuousAt.continuousWithinAt)
-        (fun y hy ↦ (hg y (interior_subset hy).1).hasDerivWithinAt)
-        fun y hy ↦ by
-          have hy' := interior_subset hy
-          rw [← hg'a]
-          exact hmono hy'.1 ha hy'.2
-    rw [← hga]
-    exact h ⟨hx, hxa⟩ ⟨ha, Set.mem_Iic.2 le_rfl⟩ hxa
+  have hha : HasDerivAt h (f' a) a := by simpa using hh a ha
+  rcases lt_trichotomy a x with hax | rfl | hxa
+  · have := hconv.le_slope_of_hasDerivAt ha hx hax hha
+    rw [slope_def_field, le_div_iff₀ (sub_pos.2 hax)] at this
+    simp only [h] at this
+    linarith
+  · simp
+  · have := hconv.slope_le_of_hasDerivAt hx ha hxa hha
+    rw [slope_def_field, div_le_iff₀ (sub_pos.2 hxa)] at this
+    simp only [h] at this
+    nlinarith
 
 end LMLExplore
