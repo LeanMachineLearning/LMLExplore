@@ -55,10 +55,6 @@ logarithm of an e-variable, which Statlib's numeraire [LRR25] attains, and split
 * `ProbabilityTheory.iInf_klDiv_constraintNull_eq_maxUtility`: the smallest relative entropy to
   the null is the largest expected logarithm of an e-variable.
 * `ProbabilityTheory.iInf_klDiv_constraintNull_eq_iSup_eintegral_log`: **the dual formula**.
-* `ProbabilityTheory.exists_add_sum_smul_dirac_mem_constraintNull`: on a nonempty set without
-  arbitrage that carries the null, a finite measure carried by that set that integrates the
-  constraints and under which every e-variable has mean at most `c < 1` is completed into a member
-  of the null by a finitely supported measure.
 
 ## References
 
@@ -81,126 +77,6 @@ namespace ProbabilityTheory
 
 variable {𝓧 ι : Type*} [Fintype ι] [MeasurableSpace 𝓧] {g : ι → 𝓧 → ℝ} {Y : Set 𝓧}
   {Q : Measure 𝓧}
-
-/-! ### Completion into a member of the null -/
-
-/-- **The shifted constraints admit no arbitrage**: on a set `Y` without arbitrage that carries
-the null, let `μ` be a finite measure carried by `Y` that integrates the constraints and under
-which every e-variable has mean at most `c`, for some `c < 1`. Then the constraints shifted by
-their means under `μ` divided by the mass `1 - μ 𝓧` that `μ` lacks,
-`g i + (∫ g i ∂μ) / (1 - μ 𝓧)`, admit no arbitrage on `Y`. -/
-theorem noArbitrageOn_add_integral_div_of_lintegral_le (hg : ∀ i, Measurable (g i))
-    (hY : NoArbitrageOn g Y) (hYμ : ∀ ν ∈ constraintNull (range g), ν Yᶜ = 0)
-    {μ : Measure 𝓧} [IsFiniteMeasure μ] (hμY : μ Yᶜ = 0) (hgμ : ∀ i, Integrable (g i) μ)
-    {c : ℝ≥0∞} (hc : c < 1)
-    (hμE : ∀ E, IsEVar E (constraintNull (range g)) → ∫⁻ x, E x ∂μ ≤ c) :
-    NoArbitrageOn (fun i x ↦ g i x + (∫ y, g i y ∂μ) / (1 - μ.real univ)) Y := by
-  set m := 1 - μ.real univ with hm_def
-  refine noArbitrageOn_iff.2 fun π hπ hπY ↦ ?_
-  set σ := (∑ i, π i * ∫ x, g i x ∂μ) / m with hσ_def
-  have hσa : ∑ i, π i * ((∫ x, g i x ∂μ) / m) = σ := by
-    simp only [hσ_def, Finset.sum_div, mul_div_assoc]
-  have hπg : ∀ x ∈ Y, -σ ≤ ∑ i, π i * g i x := by
-    intro x hx
-    have := hπY x hx
-    simp only [mul_add, Finset.sum_add_distrib, hσa] at this
-    linarith
-  rcases lt_or_ge 0 σ with hσ | hσ
-  · -- a positive deficit would be paid by the mass that `μ` lacks: the bet with weights `π / σ`
-    -- would have mean `1` under `μ`
-    exfalso
-    have hsum : ∀ x, ∑ i, π i / σ * g i x = (∑ i, π i * g i x) / σ := fun x ↦ by
-      simp only [Finset.sum_div, div_mul_eq_mul_div]
-    have hEY : ∀ x ∈ Y, 0 ≤ 1 + ∑ i, π i / σ * g i x := by
-      intro x hx
-      rw [hsum]
-      have : -1 ≤ (∑ i, π i * g i x) / σ := by
-        rw [le_div_iff₀ hσ]
-        linarith [hπg x hx]
-      linarith
-    have hcoe : ∀ i, ((π i / σ).toNNReal : ℝ) = π i / σ := fun i ↦
-      Real.coe_toNNReal _ (div_nonneg (hπ i) hσ.le)
-    have h1 := hμE _ (isEVar_ofReal_one_add_of_mem_constraintBets hg
-      (toNNReal_mem_constraintBets hYμ (fun i ↦ div_nonneg (hπ i) hσ.le) hEY))
-    simp only [hcoe] at h1
-    rw [lintegral_ofReal_one_add_sum_mul hgμ _
-      (Filter.eventually_of_mem (mem_ae_iff.2 hμY) hEY)] at h1
-    have h2 : ∑ i, π i / σ * ∫ x, g i x ∂μ = m := by
-      have : ∑ i, π i / σ * ∫ x, g i x ∂μ = (∑ i, π i * ∫ x, g i x ∂μ) / σ := by
-        simp only [Finset.sum_div, div_mul_eq_mul_div]
-      rw [this, hσ_def, div_div_cancel₀ (by
-        intro h0
-        rw [h0, zero_div] at hσ_def
-        exact hσ.ne' hσ_def)]
-    rw [h2, hm_def, add_sub_cancel, ENNReal.ofReal_one] at h1
-    exact lt_irrefl _ (h1.trans_lt hc)
-  · -- no deficit: the combination is nonnegative, hence zero, on `Y`
-    have h0 : ∀ x ∈ Y, 0 ≤ ∑ i, π i * g i x := fun x hx ↦ by linarith [hπg x hx]
-    have hzero := noArbitrageOn_iff.1 hY π hπ h0
-    have hb : ∑ i, π i * ∫ x, g i x ∂μ = 0 := by
-      have hgi : ∀ i, Integrable (fun x ↦ π i * g i x) μ := fun i ↦ (hgμ i).const_mul (π i)
-      simp_rw [← integral_const_mul]
-      rw [← integral_finsetSum _ fun i _ ↦ hgi i]
-      exact integral_eq_zero_of_ae (Filter.eventually_of_mem (mem_ae_iff.2 hμY) hzero)
-    have hσ0 : σ = 0 := by rw [hσ_def, hb, zero_div]
-    intro x hx
-    simp only [mul_add, Finset.sum_add_distrib, hσa, hσ0, add_zero]
-    exact hzero x hx
-
-/-- **Completion by a finitely supported measure**: on a nonempty set `Y` without arbitrage that
-carries the null, a finite measure carried by `Y` that integrates the constraints and under which
-every e-variable has mean at most `c`, for some `c < 1`, becomes a member of the null once a
-finitely supported measure is added. It rests on the complete class theorem [LRR26, Theorem 3.1],
-and follows [EVR26, Note 20]. -/
-theorem exists_add_sum_smul_dirac_mem_constraintNull (hg : ∀ i, Measurable (g i))
-    (hY : NoArbitrageOn g Y) (hYμ : ∀ ν ∈ constraintNull (range g), ν Yᶜ = 0)
-    (hYne : Y.Nonempty) {μ : Measure 𝓧} [IsFiniteMeasure μ] (hμY : μ Yᶜ = 0)
-    (hgμ : ∀ i, Integrable (g i) μ) {c : ℝ≥0∞} (hc : c < 1)
-    (hμE : ∀ E, IsEVar E (constraintNull (range g)) → ∫⁻ x, E x ∂μ ≤ c) :
-    ∃ (α : Type) (_ : Fintype α) (x : α → 𝓧) (w : α → ℝ), (∀ k, 0 ≤ w k) ∧
-      μ + ∑ k, ENNReal.ofReal (w k) • Measure.dirac (x k) ∈ constraintNull (range g) := by
-  classical
-  set r := μ.real univ with hr_def
-  set m := 1 - r with hm_def
-  have hm0 : 0 < m := by
-    have h1 := hμE 1 (isEVar_one _)
-    simp only [Pi.one_apply, lintegral_one] at h1
-    have h2 : r < 1 := by
-      rw [hr_def, measureReal_def]
-      exact ENNReal.toReal_lt_of_lt_ofReal (by simpa using h1.trans_lt hc)
-    linarith
-  -- the complete class theorem, applied to the constraints shifted by multiples of their means
-  -- under `μ`, gives a finitely supported law under which the shifted constraints have
-  -- nonpositive means
-  obtain ⟨x₀, hx₀⟩ := hYne
-  obtain ⟨α, _, x, w, -, hw, hwz, -⟩ := exists_charging_family_of_noArbitrageOn
-    (noArbitrageOn_add_integral_div_of_lintegral_le hg hY hYμ hμY hgμ hc hμE) hx₀
-  obtain ⟨hw0, hw1⟩ := mem_simplex_iff.1 hw
-  refine ⟨α, inferInstance, x, fun k ↦ m * w k, fun k ↦ mul_nonneg hm0.le (hw0 k), ?_⟩
-  have hdirac : ∀ (f : 𝓧 → ℝ), Measurable f → ∀ k ∈ Finset.univ,
-      Integrable f (ENNReal.ofReal (m * w k) • Measure.dirac (x k)) := fun f hf k _ ↦
-    (integrable_dirac' hf.stronglyMeasurable (by simp)).smul_measure ENNReal.ofReal_ne_top
-  refine mem_constraintNull_range_iff.2 ⟨⟨?_⟩, fun i ↦ ?_⟩
-  · simp only [add_apply, sum_apply, smul_apply, measure_univ, smul_eq_mul, mul_one]
-    -- the added mass is `m = 1 - r`, the mass that `μ` lacks
-    have hmass : ∑ k, ENNReal.ofReal (m * w k) = ENNReal.ofReal m := by
-      rw [← ENNReal.ofReal_sum_of_nonneg fun k _ ↦ mul_nonneg hm0.le (hw0 k), ← Finset.mul_sum,
-        hw1, mul_one]
-    rw [hmass, ← ofReal_measureReal, ← hr_def, ← ENNReal.ofReal_add measureReal_nonneg hm0.le,
-      hm_def, add_sub_cancel, ENNReal.ofReal_one]
-  · refine ⟨(hgμ i).add_measure (integrable_finsetSum_measure.2 (hdirac _ (hg i))), ?_⟩
-    rw [integral_add_measure (hgμ i) (integrable_finsetSum_measure.2 (hdirac _ (hg i))),
-      integral_sum_smul_dirac (fun k ↦ mul_nonneg hm0.le (hw0 k)) (hg i).stronglyMeasurable]
-    simp_rw [smul_eq_mul]
-    have h1 := hwz i
-    simp only [mul_add, Finset.sum_add_distrib, ← Finset.sum_mul, hw1, one_mul] at h1
-    have h2 : ∑ k, m * w k * g i (x k) = m * ∑ k, w k * g i (x k) := by
-      rw [Finset.mul_sum]
-      exact Finset.sum_congr rfl fun k _ ↦ by ring
-    have h3 : m * ((∫ x, g i x ∂μ) / m) = ∫ x, g i x ∂μ := by
-      field_simp
-    rw [h2]
-    nlinarith
 
 /-! ### The damped reverse information projection -/
 
