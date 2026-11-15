@@ -9,6 +9,7 @@ public import Statlib.EValues.EVariable
 public import TauCeti.Probability.Exchangeability.Family
 import Mathlib.Data.Fintype.Perm
 import LMLExplore.Algebra.BigOperators.Perm
+import LMLExplore.Basic.ENNReal.Real
 
 /-!
 # Merging functions for exchangeable e-values
@@ -35,6 +36,8 @@ which dominates it and differs from it.
 
 * `ProbabilityTheory.IsExchangeableEMerging F`: `F` is a merging function for exchangeable
   e-values.
+* `ProbabilityTheory.RunningMeanReaches β e`: some running mean of the `K` e-values `e` reaches
+  `β`.
 * `ProbabilityTheory.runningMeanTest β`: the function `β * 𝟙{some running mean reaches β}` of
   `K` e-values.
 
@@ -101,9 +104,14 @@ structure IsExchangeableEMerging (F : (ι → ℝ≥0∞) → ℝ≥0∞) : Prop
     ∫⁻ e, F e ∂μ ≤ 1
 
 /-- A measurable function below a merging function for exchangeable e-values is one. -/
-theorem IsExchangeableEMerging.mono (hG : IsExchangeableEMerging G) (hF : Measurable F)
+theorem IsExchangeableEMerging.of_le (hG : IsExchangeableEMerging G) (hF : Measurable F)
     (hle : F ≤ G) : IsExchangeableEMerging F :=
   ⟨hF, fun μ _ hσ hμ ↦ (lintegral_mono hle).trans (hG.lintegral_le_one μ hσ hμ)⟩
+
+/-- A constant at most one is a merging function for exchangeable e-values. -/
+theorem isExchangeableEMerging_const {c : ℝ≥0∞} (hc : c ≤ 1) :
+    IsExchangeableEMerging fun _ : ι → ℝ≥0∞ ↦ c :=
+  ⟨measurable_const, fun μ _ _ _ ↦ by simpa using hc⟩
 
 /-- A merging function for exchangeable e-values, applied to e-variables that form an exchangeable
 family under every member of the null, is an e-variable. -/
@@ -154,13 +162,21 @@ private lemma map_orbitMeasure (E : Fin K → ℝ≥0∞) (τ : Equiv.Perm (Fin 
   rw [orbitMeasure, Measure.map_smul _ hτ.aemeasurable, Measure.map_finset_sum' hτ.aemeasurable]
   simp_rw [Measure.map_dirac]
   congr 1
-  exact Fintype.sum_equiv (Equiv.mulRight τ) _ _ fun σ ↦ rfl
+  exact Fintype.sum_equiv (Equiv.mulRight τ) _ _ fun σ ↦ by simp [Function.comp_def]
 
 /-- The coordinate means of the uniform law on the orbit of `E` are the mean of `E`. -/
 private lemma lintegral_apply_orbitMeasure (E : Fin K → ℝ≥0∞) (i : Fin K) :
     ∫⁻ x, x i ∂orbitMeasure E = (∑ j, E j) / K := by
   rw [lintegral_orbitMeasure E fun x ↦ x i]
   simpa [Fintype.card_perm] using ENNReal.sum_perm_apply_div_card E i
+
+/-- The integral against a mixture of the uniform laws on the orbits of `E` and `E'` is the
+mixture of the integrals. -/
+private lemma lintegral_mix_orbitMeasure (E E' : Fin K → ℝ≥0∞) (p q : ℝ≥0∞)
+    (g : (Fin K → ℝ≥0∞) → ℝ≥0∞) :
+    ∫⁻ x, g x ∂(p • orbitMeasure E + q • orbitMeasure E') =
+      p * ∫⁻ x, g x ∂orbitMeasure E + q * ∫⁻ x, g x ∂orbitMeasure E' := by
+  simp
 
 /-- If `F` is a merging function for exchangeable e-values, then for every mixture with weights
 `p` and `q` of the uniform laws on the orbits of `E` and `E'` whose coordinate means are at most
@@ -177,12 +193,8 @@ private lemma mix_le_one_of_isExchangeableEMerging {F : (Fin K → ℝ≥0∞) �
   have := hF.lintegral_le_one (p • orbitMeasure E + q • orbitMeasure E') (fun τ ↦ by
       rw [Measure.map_add _ _ (hτ τ), Measure.map_smul _ (hτ τ).aemeasurable,
         Measure.map_smul _ (hτ τ).aemeasurable, map_orbitMeasure, map_orbitMeasure])
-    (fun i ↦ by
-      rw [lintegral_add_measure, lintegral_smul_measure, lintegral_smul_measure,
-        lintegral_apply_orbitMeasure, lintegral_apply_orbitMeasure]
-      exact h)
-  rwa [lintegral_add_measure, lintegral_smul_measure, lintegral_smul_measure,
-    lintegral_orbitMeasure, lintegral_orbitMeasure] at this
+    (fun i ↦ by simpa only [lintegral_mix_orbitMeasure, lintegral_apply_orbitMeasure] using h)
+  simpa only [lintegral_mix_orbitMeasure, lintegral_orbitMeasure] using this
 
 /-- A real-valued version of the supporting-line argument: if every mixture of two points whose
 `m`-value is at most one has `a`-value at most one, and some point has `m`-value zero and
@@ -198,10 +210,11 @@ private lemma exists_le_one_sub_add_mul_of_mix {X : Type*} (m a : X → ℝ) (x�
       p * a x + q * a y ≤ p + q := by
     intro x y p q hp hq hpq h
     have hq' : 1 - p / (p + q) = q / (p + q) := by field_simp; ring
-    have := hmix x y (p / (p + q)) (div_nonneg hp hpq.le) (div_le_one_of_le₀ (by linarith) hpq.le)
-      (by rw [hq', div_mul_eq_mul_div, div_mul_eq_mul_div, ← add_div, div_le_one hpq]
-          exact h)
-    rwa [hq', div_mul_eq_mul_div, div_mul_eq_mul_div, ← add_div, div_le_one hpq] at this
+    -- the mixture with weights `p / (p + q)` and `q / (p + q)`, cleared of denominators
+    have key : ∀ u v : ℝ, p / (p + q) * u + (1 - p / (p + q)) * v ≤ 1 ↔ p * u + q * v ≤ p + q :=
+      fun u v ↦ by rw [hq', div_mul_eq_mul_div, div_mul_eq_mul_div, ← add_div, div_le_one hpq]
+    exact (key _ _).1 (hmix x y (p / (p + q)) (div_nonneg hp hpq.le)
+      (div_le_one_of_le₀ (by linarith) hpq.le) ((key _ _).2 h))
   -- the constant `l` is the smallest slope `(1 - a x) / (1 - m x)` over the points with `m x < 1`
   let S := {x // m x < 1}
   have hS : Nonempty S := ⟨⟨x₀, by simp [hm₀]⟩⟩
@@ -228,16 +241,6 @@ private lemma exists_le_one_sub_add_mul_of_mix {X : Type*} (m a : X → ℝ) (x�
       nlinarith
     rw [div_le_iff₀ (by linarith)] at key
     linarith
-
-/-- For finite `x` and `y` and `p ∈ [0, 1]`, the convex combination `p x + (1 - p) y` computed in
-`ℝ≥0∞` is the image under `ENNReal.ofReal` of the one computed in `ℝ`. -/
-private lemma ofReal_mul_add_ofReal_one_sub_mul {x y : ℝ≥0∞} (hx : x ≠ ⊤) (hy : y ≠ ⊤) {p : ℝ}
-    (hp₀ : 0 ≤ p) (hp₁ : p ≤ 1) :
-    ENNReal.ofReal p * x + ENNReal.ofReal (1 - p) * y =
-      ENNReal.ofReal (p * x.toReal + (1 - p) * y.toReal) := by
-  have hq : 0 ≤ 1 - p := by linarith
-  rw [ENNReal.ofReal_add (by positivity) (by positivity), ENNReal.ofReal_mul hp₀,
-    ENNReal.ofReal_mul hq, ENNReal.ofReal_toReal hx, ENNReal.ofReal_toReal hy]
 
 /-- The symmetrization of a merging function for exchangeable e-values is at most
 `(1 - l) + l * mean` at every point with finite coordinates, for some `l ≤ 1` [EVR26, Note 09]. -/
@@ -274,9 +277,9 @@ theorem IsExchangeableEMerging.exists_sum_perm_div_le {F : (Fin K → ℝ≥0∞
         rw [← ENNReal.ofReal_add hp₀ (by linarith)]
         simp
       have h' := hmix e e' _ _ hpq (by
-        rw [ofReal_mul_add_ofReal_one_sub_mul (hM_top e) (hM_top e') hp₀ hp₁]
+        rw [ENNReal.ofReal_mul_add_ofReal_one_sub_mul (hM_top e) (hM_top e') hp₀ hp₁]
         exact ENNReal.ofReal_le_one.mpr h)
-      rw [ofReal_mul_add_ofReal_one_sub_mul (hA_top e) (hA_top e') hp₀ hp₁] at h'
+      rw [ENNReal.ofReal_mul_add_ofReal_one_sub_mul (hA_top e) (hA_top e') hp₀ hp₁] at h'
       exact ENNReal.ofReal_le_one.mp h')
   refine ⟨ENNReal.ofReal l, ENNReal.ofReal_le_one.mpr hl₁, fun e ↦ ?_⟩
   calc A e = ENNReal.ofReal (A e).toReal := (ENNReal.ofReal_toReal (hA_top e)).symm
@@ -313,11 +316,9 @@ theorem isExchangeableEMerging_of_sum_perm_div_le {F : (Fin K → ℝ≥0∞) �
     Finset.measurable_sum _ fun i _ ↦ measurable_pi_apply i
   calc ∫⁻ e, F e ∂μ
       = ∫⁻ e, (K.factorial : ℝ≥0∞)⁻¹ * ∑ σ : Equiv.Perm (Fin K), F (fun i ↦ e (σ i)) ∂μ := by
-        rw [lintegral_const_mul _ (Finset.measurable_sum _ fun σ _ ↦ hFτ σ),
-          lintegral_finsetSum _ fun σ _ ↦ hFτ σ]
-        simp_rw [hinv]
-        rw [Finset.sum_const, Finset.card_univ, Fintype.card_perm, Fintype.card_fin, nsmul_eq_mul,
-          ← mul_assoc, ENNReal.inv_mul_cancel hK (by simp), one_mul]
+        simp [lintegral_const_mul _ (Finset.measurable_sum _ fun σ _ ↦ hFτ σ),
+          lintegral_finsetSum _ fun σ _ ↦ hFτ σ, hinv, Fintype.card_perm, ← mul_assoc,
+          ENNReal.inv_mul_cancel hK]
     _ ≤ ∫⁻ e, (1 - l) + l * ((∑ i, e i) * (K : ℝ≥0∞)⁻¹) ∂μ := by
         refine lintegral_mono_ae ?_
         filter_upwards [hfin] with e he
@@ -325,9 +326,9 @@ theorem isExchangeableEMerging_of_sum_perm_div_le {F : (Fin K → ℝ≥0∞) �
         simp only [ENNReal.coe_toNNReal (he _)] at this
         rwa [mul_comm, ← div_eq_mul_inv, ← div_eq_mul_inv]
     _ = (1 - l) + l * ((∑ i, ∫⁻ e, e i ∂μ) / K) := by
-        rw [lintegral_add_left measurable_const, lintegral_const, measure_univ, mul_one,
-          lintegral_const_mul _ (hsum.mul_const _), lintegral_mul_const _ hsum,
-          lintegral_finsetSum _ fun i _ ↦ measurable_pi_apply i, div_eq_mul_inv]
+        simp [lintegral_add_left measurable_const, lintegral_const_mul _ (hsum.mul_const _),
+          lintegral_mul_const _ hsum, lintegral_finsetSum _ fun i _ ↦ measurable_pi_apply i,
+          div_eq_mul_inv]
     _ ≤ (1 - l) + l * 1 := by
         gcongr
         refine ENNReal.div_le_of_le_mul ?_
@@ -347,42 +348,61 @@ theorem isExchangeableEMerging_iff (F : (Fin K → ℝ≥0∞) → ℝ≥0∞) :
 
 /-! ### The exchangeable Markov inequality -/
 
+/-- Some running mean of the `K` e-values `e` reaches `β`: for some `k`, the mean of the first
+`k + 1` e-values is at least `β`. -/
+def RunningMeanReaches (β : ℝ≥0∞) (e : Fin K → ℝ≥0∞) : Prop :=
+  ∃ k : Fin K, β * ((k : ℕ) + 1 : ℕ) ≤ ∑ j ∈ Finset.Iic k, e j
+
+/-- Unfolding `RunningMeanReaches`. -/
+theorem runningMeanReaches_iff {β : ℝ≥0∞} {e : Fin K → ℝ≥0∞} :
+    RunningMeanReaches β e ↔ ∃ k : Fin K, β * ((k : ℕ) + 1 : ℕ) ≤ ∑ j ∈ Finset.Iic k, e j :=
+  Iff.rfl
+
+/-- Whether some running mean reaches `β` is decided by the order on `ℝ≥0∞`. -/
+noncomputable instance (β : ℝ≥0∞) : DecidablePred (RunningMeanReaches (K := K) β) :=
+  fun _ ↦ decidable_of_iff _ runningMeanReaches_iff.symm
+
+/-- The set of e-values some running mean of which reaches `β` is measurable. -/
+theorem measurableSet_runningMeanReaches (β : ℝ≥0∞) :
+    MeasurableSet {e : Fin K → ℝ≥0∞ | RunningMeanReaches β e} := by
+  simp_rw [runningMeanReaches_iff, Set.ofPred_exists]
+  exact MeasurableSet.iUnion fun k ↦ measurableSet_le measurable_const
+    (Finset.measurable_sum _ fun j _ ↦ measurable_pi_apply j)
+
+/-- If some running mean of `e` reaches `β`, so does some running mean of every larger `e'`. -/
+theorem RunningMeanReaches.mono {β : ℝ≥0∞} {e e' : Fin K → ℝ≥0∞} (h : RunningMeanReaches β e)
+    (hle : e ≤ e') : RunningMeanReaches β e' :=
+  let ⟨k, hk⟩ := h
+  ⟨k, hk.trans (Finset.sum_le_sum fun j _ ↦ hle j)⟩
+
 /-- The function `β * 𝟙{some running mean reaches β}` of `K` e-values [RM26]: its value is `β`
 when, for some `k`, the mean of the first `k + 1` e-values is at least `β`, and `0` otherwise. -/
 noncomputable def runningMeanTest (β : ℝ≥0∞) (e : Fin K → ℝ≥0∞) : ℝ≥0∞ :=
-  Set.indicator {e : Fin K → ℝ≥0∞ | ∃ k : Fin K, β * ((k : ℕ) + 1 : ℕ) ≤ ∑ j ∈ Finset.Iic k, e j}
-    (fun _ ↦ β) e
+  Set.indicator {e : Fin K → ℝ≥0∞ | RunningMeanReaches β e} (fun _ ↦ β) e
 
-open Classical in
 /-- The value of `β * 𝟙{some running mean reaches β}`. -/
 theorem runningMeanTest_apply (β : ℝ≥0∞) (e : Fin K → ℝ≥0∞) :
-    runningMeanTest β e =
-      if ∃ k : Fin K, β * ((k : ℕ) + 1 : ℕ) ≤ ∑ j ∈ Finset.Iic k, e j then β else 0 := by
+    runningMeanTest β e = if RunningMeanReaches β e then β else 0 := by
   simp only [runningMeanTest, Set.indicator_apply, Set.mem_ofPred_eq]
 
 /-- `β * 𝟙{some running mean reaches β}` is `β` when some running mean reaches `β`. -/
-theorem runningMeanTest_of_exists {β : ℝ≥0∞} {e : Fin K → ℝ≥0∞}
-    (h : ∃ k : Fin K, β * ((k : ℕ) + 1 : ℕ) ≤ ∑ j ∈ Finset.Iic k, e j) :
-    runningMeanTest β e = β :=
+theorem runningMeanTest_of_runningMeanReaches {β : ℝ≥0∞} {e : Fin K → ℝ≥0∞}
+    (h : RunningMeanReaches β e) : runningMeanTest β e = β :=
   Set.indicator_of_mem h _
 
 /-- `β * 𝟙{some running mean reaches β}` is `0` when no running mean reaches `β`. -/
-theorem runningMeanTest_of_not_exists {β : ℝ≥0∞} {e : Fin K → ℝ≥0∞}
-    (h : ¬ ∃ k : Fin K, β * ((k : ℕ) + 1 : ℕ) ≤ ∑ j ∈ Finset.Iic k, e j) :
-    runningMeanTest β e = 0 :=
+theorem runningMeanTest_of_not_runningMeanReaches {β : ℝ≥0∞} {e : Fin K → ℝ≥0∞}
+    (h : ¬ RunningMeanReaches β e) : runningMeanTest β e = 0 :=
   Set.indicator_of_notMem h _
 
 /-- With no e-values, `β * 𝟙{some running mean reaches β}` is `0`. -/
 @[simp]
 theorem runningMeanTest_of_isEmpty [IsEmpty (Fin K)] (β : ℝ≥0∞) : runningMeanTest (K := K) β = 0 :=
-  funext fun _ ↦ runningMeanTest_of_not_exists fun ⟨k, _⟩ ↦ isEmptyElim k
+  funext fun _ ↦ runningMeanTest_of_not_runningMeanReaches fun ⟨k, _⟩ ↦ isEmptyElim k
 
 /-- The function `β * 𝟙{some running mean reaches β}` is measurable. -/
-theorem measurable_runningMeanTest (β : ℝ≥0∞) : Measurable (runningMeanTest (K := K) β) := by
-  refine measurable_const.indicator ?_
-  rw [Set.ofPred_exists]
-  exact MeasurableSet.iUnion fun k ↦ measurableSet_le measurable_const
-    (Finset.measurable_sum _ fun j _ ↦ measurable_pi_apply j)
+theorem measurable_runningMeanTest (β : ℝ≥0∞) : Measurable (runningMeanTest (K := K) β) :=
+  measurable_const.indicator (measurableSet_runningMeanReaches β)
 
 /-- The function `β * 𝟙{some running mean reaches β}` is monotone. -/
 theorem monotone_runningMeanTest (β : ℝ≥0∞) : Monotone (runningMeanTest (K := K) β) := by
@@ -390,26 +410,9 @@ theorem monotone_runningMeanTest (β : ℝ≥0∞) : Monotone (runningMeanTest (
   simp only [runningMeanTest_apply]
   split_ifs with he he'
   · exact le_rfl
-  · obtain ⟨k, hk⟩ := he
-    exact absurd ⟨k, hk.trans (Finset.sum_le_sum fun j _ ↦ h j)⟩ he'
+  · exact absurd (he.mono h) he'
   · exact zero_le
   · exact le_rfl
-
-open Finset in
-/-- Composing `σ` with the swap of `0` and an index `i ≤ j` does not change the sum of the first
-`j + 1` coordinates of `e ∘ σ`. -/
-private lemma sum_Iic_mul_swap [NeZero K] (e : Fin K → ℝ≥0∞) (σ : Equiv.Perm (Fin K))
-    {i j : Fin K} (hij : i ≤ j) :
-    ∑ l ∈ Iic j, e ((σ * Equiv.swap 0 i) l) = ∑ l ∈ Iic j, e (σ l) := by
-  refine Equiv.Perm.sum_comp (Equiv.swap 0 i) (Iic j) (fun l ↦ e (σ l)) fun a ha ↦ ?_
-  have : a = 0 ∨ a = i := by
-    by_contra h
-    push Not at h
-    exact ha (Equiv.swap_apply_of_ne_of_ne h.1 h.2)
-  rw [coe_Iic, Set.mem_Iic]
-  rcases this with rfl | rfl
-  · exact Fin.zero_le _
-  · exact hij
 
 open Finset in
 /-- If every ordering `σ ∈ B` has a mean of its first `k + 1` coordinates at least `β`, and `B` is
@@ -443,18 +446,17 @@ open Finset in
 permutations of the prefix, so on it the first coordinate has the same sum as the prefix mean. -/
 private lemma mul_card_le_sum_apply_zero_of_runningMean [NeZero K] (β : ℝ≥0∞)
     (e : Fin K → ℝ≥0∞) :
-    β * #{σ : Equiv.Perm (Fin K) | ∃ k : Fin K, β * ((k : ℕ) + 1 : ℕ) ≤ ∑ j ∈ Iic k, e (σ j)} ≤
-      ∑ σ : Equiv.Perm (Fin K) with ∃ k : Fin K, β * ((k : ℕ) + 1 : ℕ) ≤ ∑ j ∈ Iic k, e (σ j),
-        e (σ 0) := by
+    β * #{σ : Equiv.Perm (Fin K) | RunningMeanReaches β fun j ↦ e (σ j)} ≤
+      ∑ σ : Equiv.Perm (Fin K) with RunningMeanReaches β fun j ↦ e (σ j), e (σ 0) := by
   classical
   let P : Fin K → Equiv.Perm (Fin K) → Prop := fun k σ ↦
     β * ((k : ℕ) + 1 : ℕ) ≤ ∑ j ∈ Iic k, e (σ j)
   -- `B k` is the set of orderings for which `k` is the last prefix whose mean reaches `β`
   let B : Fin K → Finset (Equiv.Perm (Fin K)) := fun k ↦ {σ | P k σ ∧ ∀ j, k < j → ¬ P j σ}
-  have hunion : ({σ | ∃ k : Fin K, β * ((k : ℕ) + 1 : ℕ) ≤ ∑ j ∈ Iic k, e (σ j)} :
-      Finset (Equiv.Perm (Fin K))) = univ.biUnion B := by
+  have hunion : ({σ | RunningMeanReaches β fun j ↦ e (σ j)} : Finset (Equiv.Perm (Fin K))) =
+      univ.biUnion B := by
     ext σ
-    simp only [mem_filter, mem_univ, true_and, mem_biUnion, B]
+    simp only [mem_filter, mem_univ, true_and, mem_biUnion, B, runningMeanReaches_iff]
     refine ⟨fun ⟨k, hk⟩ ↦ ?_, fun ⟨k, hk, _⟩ ↦ ⟨k, hk⟩⟩
     have hne : ({j | P j σ} : Finset (Fin K)).Nonempty := ⟨k, by simpa [P] using hk⟩
     refine ⟨_, (mem_filter.mp (max'_mem _ hne)).2, fun j hj hPj ↦ ?_⟩
@@ -471,7 +473,8 @@ private lemma mul_card_le_sum_apply_zero_of_runningMean [NeZero K] (β : ℝ≥0
   have hswap : ∀ k i : Fin K, i ≤ k → ∀ σ ∈ B k, σ * Equiv.swap 0 i ∈ B k := by
     intro k i hi σ hσ
     have hP : ∀ j, k ≤ j → (P j (σ * Equiv.swap 0 i) ↔ P j σ) := fun j hj ↦ by
-      simp only [P, sum_Iic_mul_swap e σ (hi.trans hj)]
+      simp only [P, Equiv.Perm.mul_apply, Equiv.Perm.sum_comp_swap (mem_Iic.2 (Fin.zero_le j))
+        (mem_Iic.2 (hi.trans hj)) fun l ↦ e (σ l)]
     simp only [mem_filter, mem_univ, true_and, B] at hσ ⊢
     exact ⟨(hP k le_rfl).2 hσ.1, fun j hj ↦ by rw [hP j hj.le]; exact hσ.2 j hj⟩
   rw [hunion, card_biUnion hdisj, sum_biUnion hdisj, Nat.cast_sum, mul_sum]
@@ -487,20 +490,18 @@ private lemma sum_perm_max_runningMeanTest_iInf_le [NeZero K] (β : ℝ≥0∞) 
   classical
   have hc : ∀ σ : Equiv.Perm (Fin K), ⨅ k, e (σ k) = ⨅ k, e k := fun σ ↦ Equiv.iInf_comp σ
   simp_rw [hc]
-  rw [← sum_filter_add_sum_filter_not univ
-      (fun σ : Equiv.Perm (Fin K) ↦ ∃ k : Fin K, β * ((k : ℕ) + 1 : ℕ) ≤ ∑ j ∈ Iic k, e (σ j)),
-    ← sum_filter_add_sum_filter_not univ
-      (fun σ : Equiv.Perm (Fin K) ↦ ∃ k : Fin K, β * ((k : ℕ) + 1 : ℕ) ≤ ∑ j ∈ Iic k, e (σ j))
-      (fun σ ↦ e (σ 0))]
+  rw [← sum_filter_add_sum_filter_not univ fun σ ↦ RunningMeanReaches β fun j ↦ e (σ j),
+    ← sum_filter_add_sum_filter_not univ (fun σ ↦ RunningMeanReaches β fun j ↦ e (σ j))
+      fun σ : Equiv.Perm (Fin K) ↦ e (σ 0)]
   refine add_le_add ?_ (sum_le_sum fun σ hσ ↦ ?_)
   · rw [sum_congr rfl fun σ hσ ↦ by
-      rw [runningMeanTest_of_exists (mem_filter.mp hσ).2], sum_const, nsmul_eq_mul]
+      rw [runningMeanTest_of_runningMeanReaches (mem_filter.mp hσ).2], sum_const, nsmul_eq_mul]
     rcases le_total β (⨅ k, e k) with h | h
     · rw [max_eq_right h, ← nsmul_eq_mul, ← sum_const]
       exact sum_le_sum fun σ _ ↦ iInf_le _ _
     · rw [max_eq_left h, mul_comm]
       exact mul_card_le_sum_apply_zero_of_runningMean β e
-  · rw [runningMeanTest_of_not_exists (mem_filter.mp hσ).2, max_eq_right zero_le]
+  · rw [runningMeanTest_of_not_runningMeanReaches (mem_filter.mp hσ).2, max_eq_right zero_le]
     exact iInf_le _ _
 
 /-- The maximum of `β * 𝟙{some running mean reaches β}` and the smallest e-value is a merging
@@ -522,9 +523,9 @@ theorem isExchangeableEMerging_runningMeanTest (β : ℝ≥0∞) :
     IsExchangeableEMerging (runningMeanTest (K := K) β) := by
   rcases Nat.eq_zero_or_pos K with rfl | hK
   · rw [runningMeanTest_of_isEmpty]
-    exact ⟨measurable_const, fun μ _ _ _ ↦ by simp⟩
+    exact isExchangeableEMerging_const zero_le
   · have : NeZero K := ⟨hK.ne'⟩
-    exact (isExchangeableEMerging_max_runningMeanTest_iInf β).mono (measurable_runningMeanTest β)
+    exact (isExchangeableEMerging_max_runningMeanTest_iInf β).of_le (measurable_runningMeanTest β)
       fun e ↦ le_max_left _ _
 
 /-- **The function of the exchangeable Markov inequality is not admissible**: for every number
@@ -536,7 +537,7 @@ theorem exists_isExchangeableEMerging_monotone_runningMeanTest_lt (β : ℝ≥0�
     ∃ G : (Fin K → ℝ≥0∞) → ℝ≥0∞, IsExchangeableEMerging G ∧ Monotone G ∧
       runningMeanTest β ≤ G ∧ runningMeanTest β ≠ G := by
   rcases Nat.eq_zero_or_pos K with rfl | hK
-  · refine ⟨fun _ ↦ 1, ⟨measurable_const, fun μ _ _ _ ↦ by simp⟩, monotone_const,
+  · refine ⟨fun _ ↦ 1, isExchangeableEMerging_const le_rfl, monotone_const,
       fun e ↦ by simp, fun h ↦ ?_⟩
     simpa using congr_fun h 0
   have : NeZero K := ⟨hK.ne'⟩
@@ -555,7 +556,7 @@ theorem exists_isExchangeableEMerging_monotone_runningMeanTest_lt (β : ℝ≥0�
         _ = runningMeanTest β fun _ ↦ x := (congr_fun h fun _ ↦ x).symm
     rw [runningMeanTest_apply] at hx
     split_ifs at hx with hmem
-    · obtain ⟨k, hk⟩ := hmem
+    · obtain ⟨k, hk⟩ := runningMeanReaches_iff.1 hmem
       rw [Finset.sum_const, Fin.card_Iic, nsmul_eq_mul, mul_comm β] at hk
       exact hxβ (le_antisymm hx ((ENNReal.mul_le_mul_iff_right (by simp) (by simp)).mp hk))
     · exact hx₀ (nonpos_iff_eq_zero.mp hx)

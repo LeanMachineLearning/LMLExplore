@@ -25,6 +25,7 @@ semifield. This is how a weighting is symmetrized.
 * `Equiv.Perm.sum_apply_eq_sum_apply`: `∑ σ, w (σ j) = ∑ σ, w (σ k)`.
 * `Equiv.Perm.card_nsmul_sum_apply`: `K • ∑ σ, w (σ j) = card (Perm ι) • ∑ i, w i`.
 * `Equiv.Perm.sum_apply_div_card`: `(∑ σ, w (σ j)) / card (Perm ι) = (∑ i, w i) / K`.
+* `Equiv.Perm.sum_comp_swap`: `∑ x ∈ s, w (swap a b x) = ∑ x ∈ s, w x` for `a, b ∈ s`.
 * `ENNReal.sum_perm_apply_div_card`: the same identity in `ℝ≥0∞`.
 -/
 
@@ -61,6 +62,16 @@ theorem sum_apply_div_card [Semifield M] [CharZero M] (w : ι → M) (j : ι) :
   have h := card_nsmul_sum_apply w j
   rw [nsmul_eq_mul, nsmul_eq_mul] at h
   rw [div_eq_div_iff hN hK, mul_comm, h, mul_comm]
+
+/-- Composing with the swap of two elements of a finset does not change the sum over it. -/
+theorem sum_comp_swap [AddCommMonoid M] {α : Type*} [DecidableEq α] {s : Finset α} {a b : α}
+    (ha : a ∈ s) (hb : b ∈ s) (w : α → M) : ∑ x ∈ s, w (Equiv.swap a b x) = ∑ x ∈ s, w x := by
+  refine sum_comp (Equiv.swap a b) s w fun x hx ↦ ?_
+  rcases eq_or_ne x a with rfl | hxa
+  · exact ha
+  rcases eq_or_ne x b with rfl | hxb
+  · exact hb
+  exact absurd (Equiv.swap_apply_of_ne_of_ne hxa hxb) hx
 
 end Equiv.Perm
 
