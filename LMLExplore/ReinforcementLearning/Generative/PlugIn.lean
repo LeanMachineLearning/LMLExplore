@@ -263,10 +263,9 @@ private theorem le_streamMeasure_forall_optQValue_sub_le_qValue_and_optValue_sub
         ∫ s, (M.empirical N ω).value γ (Kernel.deterministic _ hg) s ∂((M.empirical N ω).P p)| ≤
       √(2 * L / N) * √Var[(M.empirical N ω).value γ (Kernel.deterministic _ hg); M.P p] +
         4 * γ * C * √(2 * L / N) + 5 * C * L / ((1 - γ) * N)}
-  have h_inter := measureReal_union_add_inter (μ := μ) (s := E₂) h_meas
-  have h_le : μ.real (E₂ ∪ E₁) ≤ 1 := measureReal_le_one
-  refine le_trans (by linarith) (measureReal_mono (s₁ := E₂ ∩ E₁)
-    (fun ω ⟨hω₂, hω₁⟩ π _ ε₀ hπ ↦ ?_) (measure_ne_top _ _))
+  have h_inter := one_sub_sub_le_measureReal_inter h_meas h₂ h₁
+  rw [sub_sub, add_halves] at h_inter
+  refine h_inter.trans (measureReal_mono (fun ω ⟨hω₂, hω₁⟩ π _ ε₀ hπ ↦ ?_) (measure_ne_top _ _))
   have hε₀ : 0 ≤ ε₀ := (abs_nonneg _).trans (hπ (Classical.arbitrary _))
   obtain ⟨hα, hbound⟩ := plugIn_bound_le hγ₀' hγ₁ hC hε hθε hε₀ hL₀ hN₀ hLN
   have hr : meanReward (M.empirical N ω).R = meanReward M.R := by rw [empirical_R]

@@ -301,9 +301,8 @@ theorem le_streamMeasure_forall_optValue_sub_value_le_of_separated {M : MDP 𝓢
       |M'.value γ (Kernel.deterministic (g M) hg) s - M.value γ (Kernel.deterministic (g M) hg) s| ≤
         3 * C * √(2 * log (4 * S * lg / (δ / 2)) / (N * (1 - γ) ^ 3)))
   have h_inter : 1 - δ ≤ μ.real (E₁ ∩ E₂) := by
-    have h := measureReal_union_add_inter (μ := μ) (s := E₁) hE₂
-    have h₃ : μ.real (E₁ ∪ E₂) ≤ 1 := measureReal_le_one
-    linarith
+    have h := one_sub_sub_le_measureReal_inter hE₂ h₁ h₂
+    rwa [sub_sub, add_halves] at h
   refine h_inter.trans (measureReal_mono (fun ω ⟨hω₁, hω₂⟩ hsep s ↦ ?_) (measure_ne_top _ _))
   have hv₁ := abs_le.1 (hω₁ hsep s)
   have hv₂ := abs_le.1 (hω₂ s)

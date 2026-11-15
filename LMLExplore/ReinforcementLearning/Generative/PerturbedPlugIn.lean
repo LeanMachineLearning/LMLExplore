@@ -9,6 +9,7 @@ public import LMLExplore.MarkovDecisionProcess.TieBreaking
 public import LMLExplore.ReinforcementLearning.Generative.LeaveOneOut
 import LMLExplore.MeasureTheory.MeasurableSpace.Constructions
 import LMLExplore.MeasureTheory.Measure.Prod
+import LMLExplore.MeasureTheory.Measure.Real
 
 /-!
 # Planning with a generative model: the perturbed plug-in policy
@@ -134,34 +135,10 @@ theorem optQValue_perturbedPlugIn (r : 𝓢 × 𝓐 → ℝ) (N : ℕ) [NeZero N
     (ω : ℕ → 𝓢 × 𝓐 → 𝓢) (ζ : 𝓢 × 𝓐 → ℝ) (s : 𝓢) :
     (ofDet (empiricalKernel N ω) (r + ζ) (measurable_of_finite _)).optQValue γ
         (s, perturbedPlugIn r N γ ω ζ s) =
-      (ofDet (empiricalKernel N ω) (r + ζ) (measurable_of_finite _)).optValue γ s := by
-  have hR := ae_abs_ofDet_R_le (empiricalKernel N ω) (measurable_of_finite (r + ζ))
+      (ofDet (empiricalKernel N ω) (r + ζ) (measurable_of_finite _)).optValue γ s :=
+  optQValue_greedy_optValue hγ (ae_abs_ofDet_R_le (empiricalKernel N ω) (measurable_of_finite _)
     fun p ↦ Finset.single_le_sum (f := fun q ↦ |(r + ζ) q|) (fun _ _ ↦ abs_nonneg _)
-      (Finset.mem_univ p)
-  rw [perturbedPlugIn_def, optQValue_eq_lookahead, lookahead_greedy, bellman_optValue hγ hR]
-
-omit [Fintype 𝓢] [Fintype 𝓐] in
-/-- Perturbing deterministic rewards by `ζ` with values in `[0, ξ]` does not lower the optimal
-value and changes the value of every stationary policy by at most `ξ / (1 - γ)`: a suboptimality
-bound `b` at `s` in the perturbed MDP gives the bound `b + ξ / (1 - γ)` in the unperturbed one. -/
-private lemma optValue_sub_le_value_of_perturbation [Finite 𝓢] [Finite 𝓐]
-    (P : Kernel (𝓢 × 𝓐) 𝓢) [IsMarkovKernel P] {r ζ : 𝓢 × 𝓐 → ℝ} {C ξ : ℝ}
-    (hr : ∀ p, |r p| ≤ C) (hζ : ∀ p, ζ p ∈ Icc 0 ξ) {γ : ℝ≥0} (hγ : γ < 1) (π : Kernel 𝓢 𝓐)
-    [IsMarkovKernel π] {b : ℝ} {s : 𝓢}
-    (h : (ofDet P (r + ζ) (measurable_of_finite _)).optValue γ s -
-      (ofDet P (r + ζ) (measurable_of_finite _)).value γ π s ≤ b) :
-    (ofDet P r (measurable_of_finite r)).optValue γ s - (b + ξ / (1 - γ)) ≤
-      (ofDet P r (measurable_of_finite r)).value γ π s := by
-  have hR := ae_abs_ofDet_R_le P (measurable_of_finite r) hr
-  have hR' := ae_abs_ofDet_R_le P (measurable_of_finite (r + ζ)) (C := C + ξ) fun p ↦
-    (abs_add_le (r p) (ζ p)).trans
-      (add_le_add (hr p) (abs_le.2 ⟨by linarith [(hζ p).1, (hζ p).2], (hζ p).2⟩))
-  have hv₁ := optValue_le_optValue_of_meanReward_le hγ hR hR' (by simp)
-    (fun q ↦ by simp [(hζ q).1]) s
-  have hv₂ := abs_value_sub_value_le (π := π) hγ hR' hR (δ := ξ) (ε := 0)
-    (fun q ↦ by simp [abs_of_nonneg (hζ q).1, (hζ q).2]) (fun q ↦ by simp) s
-  rw [mul_zero, zero_div, add_zero] at hv₂
-  linarith [(abs_le.1 hv₂).2]
+      (Finset.mem_univ p)) s
 
 /-- **Suboptimality of the perturbed plug-in policy**, with an explicit level [LWCGC24, proof of
 Theorem 1]. Let `P` be a transition kernel on `S` states and `A` actions, `r` deterministic
@@ -286,14 +263,11 @@ theorem le_streamMeasure_prod_forall_optValue_sub_sqrt_le_value_perturbedPlugIn
     exact optValue_sub_le_value_of_perturbation P (fun p ↦ abs_le.2 ⟨by linarith [(hr p).1],
       (hr p).2⟩) hζ hγ _ (hω hsep s)
   -- the two events
-  have hD' : 1 - δ / 2 ≤ (μ.prod ν).real D :=
-    (ENNReal.ofReal_le_iff_le_toReal (measure_ne_top _ _)).1 h₁
-  have hH' : 1 - δ / 2 ≤ (μ.prod ν).real H :=
-    (ENNReal.ofReal_le_iff_le_toReal (measure_ne_top _ _)).1 h₂
-  have h := measureReal_union_add_inter (μ := μ.prod ν) (s := D) hH
-  have h₃ : (μ.prod ν).real (D ∪ H) ≤ 1 := measureReal_le_one
-  exact le_trans (by linarith) (measureReal_mono (s₁ := D ∩ H) (fun x ⟨hx, hxH⟩ ↦ hxH hx)
-    (measure_ne_top _ _))
+  have h := one_sub_sub_le_measureReal_inter hH
+    ((ENNReal.ofReal_le_iff_le_toReal (measure_ne_top _ _)).1 h₁)
+    ((ENNReal.ofReal_le_iff_le_toReal (measure_ne_top _ _)).1 h₂)
+  rw [sub_sub, add_halves] at h
+  exact h.trans (measureReal_mono (fun x ⟨hx, hxH⟩ ↦ hxH hx) (measure_ne_top _ _))
 
 /-- The sample-size arithmetic of [LWCGC24, Theorem 1]: under its hypotheses, some size `K` of the
 grid of rewards satisfies the hypotheses of

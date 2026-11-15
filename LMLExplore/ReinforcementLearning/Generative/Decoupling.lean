@@ -361,10 +361,8 @@ private theorem le_streamMeasure_forall_abs_integral_sub_le_of_absorbing {M : MD
     measurableSet_setOfPred.2 (measurable_comp_empirical M N fun M' ↦ ∀ s, |G M s - G M' s| ≤ Δ)
   have h_inter :
       1 - δ ≤ μ.real ((⋃ i, bad i)ᶜ ∩ {ω | ∀ s, |G M s - G (M.empirical N ω) s| ≤ Δ}) := by
-    have h := measureReal_union_add_inter (μ := μ) (s := (⋃ i, bad i)ᶜ) h_meas
-    have h₁ : μ.real ((⋃ i, bad i)ᶜ ∪ {ω | ∀ s, |G M s - G (M.empirical N ω) s| ≤ Δ}) ≤ 1 :=
-      measureReal_le_one
-    linarith
+    have h := one_sub_sub_le_measureReal_inter h_meas h_good hcrude
+    rwa [sub_sub, add_halves] at h
   refine h_inter.trans (measureReal_mono (fun ω ⟨hω₁, hω₂⟩ ↦ ?_) (measure_ne_top _ _))
   rintro ⟨s, a⟩
   -- a point of the net within `2 Δ / K ≤ 2 γ C Λ` of `G (M.empirical N ω) s ∈ [-B, B]`

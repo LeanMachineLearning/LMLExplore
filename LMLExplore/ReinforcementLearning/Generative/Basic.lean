@@ -105,6 +105,7 @@ lemma empirical_R (M : MDP 𝓢 𝓐 𝓡) (N : ℕ) [NeZero N] (ω : ℕ → �
 
 /-- The empirical MDP of an MDP with deterministic rewards `r` is the MDP with the empirical
 kernel as transition kernel and the same deterministic rewards. -/
+@[simp]
 lemma ofDet_empirical (P : Kernel (𝓢 × 𝓐) 𝓢) [IsMarkovKernel P] (r : 𝓢 × 𝓐 → 𝓡)
     (hr : Measurable r) (N : ℕ) [NeZero N] (ω : ℕ → 𝓢 × 𝓐 → 𝓢) :
     (ofDet P r hr).empirical N ω = ofDet (empiricalKernel N ω) r hr :=

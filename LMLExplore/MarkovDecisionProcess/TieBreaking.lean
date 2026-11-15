@@ -66,6 +66,8 @@ which the perturbation is independent of.
   independent perturbations with densities bounded by `L`.
 * `Learning.MDP.le_measureReal_pi_cond_Icc_forall_lt_abs_optQValue_ofDet_sub`: **tie-breaking**
   for uniform perturbations on `[0, ξ]` [LWCGC24, Lemma 6].
+* `Learning.MDP.optValue_sub_le_value_of_perturbation`: perturbing deterministic rewards by `ζ`
+  with values in `[0, ξ]` changes suboptimality bounds by at most `ξ / (1 - γ)`.
 
 ## References
 
@@ -377,6 +379,28 @@ theorem le_measureReal_pi_cond_Icc_forall_lt_abs_optQValue_ofDet_sub [Fintype �
       ξ * δ * (1 - γ) / (2 * (Fintype.card 𝓢 * Fintype.card 𝓐 ^ 2)) := by
     field_simp
   simpa only [heq] using h
+
+/-- For finite state and action spaces and `γ < 1`, perturbing deterministic rewards `r` by `ζ`
+with values in `[0, ξ]` does not lower the optimal value and changes the value of every stationary
+policy by at most `ξ / (1 - γ)`: a suboptimality bound `b` at `s` in the MDP with transition kernel
+`P` and rewards `r + ζ` gives the bound `b + ξ / (1 - γ)` in the MDP with rewards `r`. -/
+theorem optValue_sub_le_value_of_perturbation [Finite 𝓢] [Finite 𝓐] [Nonempty 𝓢] [Nonempty 𝓐]
+    {r ζ : 𝓢 × 𝓐 → ℝ} {C ξ : ℝ} (hr : ∀ p, |r p| ≤ C) (hζ : ∀ p, ζ p ∈ Icc 0 ξ) (hγ : γ < 1)
+    (π : Kernel 𝓢 𝓐) [IsMarkovKernel π] {b : ℝ} {s : 𝓢}
+    (h : (ofDet P (r + ζ) (measurable_of_finite _)).optValue γ s -
+      (ofDet P (r + ζ) (measurable_of_finite _)).value γ π s ≤ b) :
+    (ofDet P r (measurable_of_finite r)).optValue γ s - (b + ξ / (1 - γ)) ≤
+      (ofDet P r (measurable_of_finite r)).value γ π s := by
+  have hR := ae_abs_ofDet_R_le P (measurable_of_finite r) hr
+  have hR' := ae_abs_ofDet_R_le P (measurable_of_finite (r + ζ)) (C := C + ξ) fun p ↦
+    (abs_add_le (r p) (ζ p)).trans
+      (add_le_add (hr p) (abs_le.2 ⟨by linarith [(hζ p).1, (hζ p).2], (hζ p).2⟩))
+  have hv₁ := optValue_le_optValue_of_meanReward_le hγ hR hR' (by simp)
+    (fun q ↦ by simp [(hζ q).1]) s
+  have hv₂ := abs_value_sub_value_le (π := π) hγ hR' hR (δ := ξ) (ε := 0)
+    (fun q ↦ by simp [abs_of_nonneg (hζ q).1, (hζ q).2]) (fun q ↦ by simp) s
+  rw [mul_zero, zero_div, add_zero] at hv₂
+  linarith [(abs_le.1 hv₂).2]
 
 end TieBreaking
 
