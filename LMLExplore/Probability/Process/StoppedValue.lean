@@ -35,6 +35,10 @@ optional stopping holds at every stopping time with this convention.
 * `MeasureTheory.tendsto_stoppedValueLimsup_min`: for a convergent process, the values at the
   truncated times `min τ N` converge to the value at `τ`.
 * `MeasureTheory.measurable_stoppedValueLimsup`: it is measurable for measurable `u n` and `τ`.
+* `MeasureTheory.measurable_apply_of_countable`: the value `fun ω ↦ u (σ ω) ω` of a process of
+  measurable functions, indexed by a countable type, at a measurable random time is measurable.
+* `MeasureTheory.Adapted.measurable_apply_stoppingTime`: the value of an adapted process at a
+  stopping time with values in `ℕ` is measurable.
 
 ## References
 
@@ -135,5 +139,23 @@ theorem measurable_stoppedValueLimsup [ConditionallyCompleteLinearOrder β] [Top
     | top => simpa using Measurable.limsup hu
     | coe n => simpa using hu n
   exact h.comp (measurable_id.prodMk hτ)
+
+/-- The value `fun ω ↦ u (σ ω) ω` of a process of measurable functions, indexed by a countable
+type, at a measurable random time is measurable. -/
+theorem measurable_apply_of_countable {ι : Type*} [Countable ι] [MeasurableSpace ι]
+    [MeasurableSingletonClass ι] [MeasurableSpace β] {mΩ : MeasurableSpace Ω} {u : ι → Ω → β}
+    {σ : Ω → ι} (hu : ∀ i, Measurable (u i)) (hσ : Measurable σ) :
+    Measurable fun ω ↦ u (σ ω) ω :=
+  (measurable_from_prod_countable_left (f := fun p : Ω × ι ↦ u p.2 p.1) hu).comp
+    (measurable_id.prodMk hσ)
+
+/-- The value `fun ω ↦ u (σ ω) ω` of an adapted process at a stopping time `σ` with values in `ℕ`
+is measurable. -/
+theorem Adapted.measurable_apply_stoppingTime [MeasurableSpace β]
+    {mΩ : MeasurableSpace Ω} {ℱ : Filtration ℕ mΩ} {u : ℕ → Ω → β} {σ : Ω → ℕ}
+    (hu : Adapted ℱ u) (hσ : IsStoppingTime ℱ (fun ω ↦ (σ ω : WithTop ℕ))) :
+    Measurable fun ω ↦ u (σ ω) ω :=
+  measurable_apply_of_countable (fun _ ↦ hu.measurable)
+    ((measurable_of_countable (WithTop.untopD 0)).comp hσ.measurable')
 
 end MeasureTheory
