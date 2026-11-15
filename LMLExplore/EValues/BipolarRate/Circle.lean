@@ -5,7 +5,7 @@ Authors: LMLExplore contributors
 -/
 module
 
-public import LMLExplore.EValues.BipolarRate
+public import LMLExplore.EValues.BipolarRate.Basic
 public import Mathlib.MeasureTheory.Integral.IntervalIntegral.Periodic
 public import Mathlib.Probability.UniformOn
 import LMLExplore.EValues.EffectiveSet
