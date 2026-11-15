@@ -41,6 +41,9 @@ Here `T` is the Bellman optimality operator `M.bellman γ` and `v*` the optimal 
 
 * `Learning.MDP.integral_lookahead`: along a run, the expected lookahead of `v` at round `n` is
   the expected reward of round `n` plus `γ` times the expectation of `v` at round `n + 1`.
+* `Learning.MDP.integral_lookahead_sub`, `Learning.MDP.integral_lookahead_sub_markov`: the same
+  for the expected difference between the lookahead of `v` and a bounded measurable `w`, and its
+  form for a Markov policy, against the laws of the states.
 * `Learning.MDP.runValue_eq_integral_add_tsum`: the telescoping identity above, along every run
   of every algorithm; `Learning.MDP.runValue_markov_const_eq_integral_add_tsum`: its form for a
   stationary policy `π`, in terms of the evaluation operator of `π` and the laws of the states.
@@ -105,6 +108,45 @@ theorem integral_lookahead (h : IsAlgEnvSeq S A Y alg (M.env μ) P)
     Kernel.integral_comp (integrable_of_abs_le hv hvB _), Kernel.const_apply,
     integral_map hm.aemeasurable hPv.aestronglyMeasurable]
 
+/-- Along a run in an MDP with bounded rewards, for bounded measurable `v` and `w`, the expected
+difference between the one-step lookahead of `v` at the state-action pair of round `n` and `w` at
+the state of round `n` is the expected mean reward of round `n`, plus `γ` times the expectation of
+`v` at the state of round `n + 1`, minus the expectation of `w` at the state of round `n`. -/
+theorem integral_lookahead_sub (h : IsAlgEnvSeq S A Y alg (M.env μ) P)
+    (hR : ∀ p, ∀ᵐ x ∂(M.R p), |x| ≤ C) (hv : Measurable v) (hvB : ∀ s, |v s| ≤ B)
+    {w : 𝓢 → ℝ} {B' : ℝ} (hw : Measurable w) (hwB : ∀ s, |w s| ≤ B') (n : ℕ) :
+    ∫ ω, (M.lookahead γ v (S n ω, A n ω) - w (S n ω)) ∂P =
+      ∫ ω, meanReward M.R (S n ω, A n ω) ∂P + γ * ∫ ω, v (S (n + 1) ω) ∂P -
+        ∫ ω, w (S n ω) ∂P := by
+  rw [integral_sub (integrable_of_abs_le (f := fun ω ↦ M.lookahead γ v (S n ω, A n ω))
+      ((measurable_lookahead hv).comp (h.measurable_obs_action n))
+      (fun _ ↦ abs_lookahead_le hR hvB _) P)
+      (integrable_of_abs_le (f := fun ω ↦ w (S n ω)) (hw.comp (h.measurable_obs n))
+        (fun _ ↦ hwB _) P),
+    integral_lookahead h hR hv hvB n]
+
+/-- Along a run of the Markov policy `π` in an MDP with bounded rewards, for bounded measurable `v`
+and `w`, the expected difference between the one-step lookahead of `v` at the state-action pair of
+round `n` and `w` at the state of round `n` is the integral of `T_{π n} v - w` against the law
+`stateMarginal (fun _ ↦ M.P) π μ n` of the state of round `n`, where `T_{π n}` is the evaluation
+operator of `π n`. -/
+theorem integral_lookahead_sub_markov {π : ℕ → Kernel 𝓢 𝓐} [∀ n, IsMarkovKernel (π n)]
+    [IsProbabilityMeasure μ] (h : IsAlgEnvSeq S A Y (Algorithm.markov π) (M.env μ) P)
+    (hR : ∀ p, ∀ᵐ x ∂(M.R p), |x| ≤ C) (hv : Measurable v) (hvB : ∀ s, |v s| ≤ B)
+    {w : 𝓢 → ℝ} {B' : ℝ} (hw : Measurable w) (hwB : ∀ s, |w s| ≤ B') (n : ℕ) :
+    ∫ ω, (M.lookahead γ v (S n ω, A n ω) - w (S n ω)) ∂P =
+      ∫ s, (M.bellmanEval γ (π n) v s - w s) ∂(stateMarginal (fun _ ↦ M.P) π μ n) := by
+  -- the state-action pair of round `n` has law `μₙ ⊗ₘ π n`
+  have hlaw := (hasLaw_obs_action_markov h n).integral_comp
+    (f := fun p ↦ M.lookahead γ v p - w p.1)
+    (integrable_lookahead_sub hR hv hvB hw hwB _).aestronglyMeasurable
+  simp only [Function.comp_def] at hlaw
+  rw [hlaw, Measure.integral_compProd (integrable_lookahead_sub hR hv hvB hw hwB _)]
+  refine integral_congr_ae (.of_forall fun s ↦ ?_)
+  dsimp only
+  rw [integral_sub (integrable_lookahead_prodMk_left hR hv hvB s _) (integrable_const _),
+    integral_const, probReal_univ, one_smul, bellmanEval_def]
+
 /-- **Telescoping identity**: along every run of `alg` in `M.env μ`, with bounded rewards, `γ < 1`
 and a bounded measurable `v`, the discounted value of `alg` is `∫ v dμ` plus the discounted sum of
 the expected differences between the one-step lookahead of `v` and `v` along the run. -/
@@ -129,11 +171,7 @@ theorem runValue_eq_integral_add_tsum [IsProbabilityMeasure μ]
   -- the terms of the series are `γ ^ n * r n + (γ ^ (n + 1) * a (n + 1) - γ ^ n * a n)`
   have hterm (n : ℕ) : (γ : ℝ) ^ n * ∫ ω, (M.lookahead γ v (S n ω, A n ω) - v (S n ω)) ∂P =
       (γ : ℝ) ^ n * r n + ((γ : ℝ) ^ (n + 1) * a (n + 1) - (γ : ℝ) ^ n * a n) := by
-    rw [integral_sub (integrable_of_abs_le (f := fun ω ↦ M.lookahead γ v (S n ω, A n ω))
-        ((measurable_lookahead hv).comp (hm n)) (fun _ ↦ abs_lookahead_le hR hvB _) P)
-        (integrable_of_abs_le (f := fun ω ↦ v (S n ω)) (hv.comp (h.measurable_obs n))
-          (fun _ ↦ hvB _) P),
-      integral_lookahead h hR hv hvB n]
+    rw [integral_lookahead_sub h hR hv hvB hv hvB n]
     ring
   have hr_eq : M.runValue γ alg μ = ∑' n, (γ : ℝ) ^ n * r n := by
     rw [runValue_eq_tsum h hγ hR]
@@ -161,18 +199,7 @@ theorem runValue_markov_const_eq_integral_add_tsum [IsProbabilityMeasure μ] {π
   rw [runValue_eq_integral_add_tsum h hγ hR hv hvB]
   congr 1
   refine tsum_congr fun n ↦ ?_
-  -- the state-action pair of round `n` has law `μₙ ⊗ₘ π`, with `μₙ = P_π ^ n ∘ₘ μ`
-  have hlaw := (hasLaw_obs_action_markov h n).integral_comp
-    (f := fun p ↦ M.lookahead γ v p - v p.1)
-    (integrable_lookahead_sub hR hv hvB _).aestronglyMeasurable
-  simp only [Function.comp_def] at hlaw
-  rw [hlaw, Measure.integral_compProd (integrable_lookahead_sub hR hv hvB _),
-    stateMarginal_const]
-  congr 1
-  refine integral_congr_ae (.of_forall fun s ↦ ?_)
-  dsimp only
-  rw [integral_sub (integrable_lookahead_prodMk_left hR hv hvB s _) (integrable_const _),
-    integral_const, probReal_univ, one_smul, bellmanEval_def]
+  rw [integral_lookahead_sub_markov h hR hv hvB hv hvB n, stateMarginal_const]
 
 end Runs
 

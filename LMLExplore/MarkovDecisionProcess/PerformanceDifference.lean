@@ -77,10 +77,10 @@ theorem runValue_sub_integral_eq_integral_occupancy (hγ : γ < 1)
   have h := IT.isAlgEnvSeq_trajMeasure alg (M.env μ)
   have h0 : (1 - γ : ℝ) ≠ 0 := sub_ne_zero.2 (by exact_mod_cast hγ.ne')
   rw [runValue_eq_integral_add_tsum h hγ hR hv hvB, add_sub_cancel_left,
-    integral_occupancy h hγ (integrable_lookahead_sub hR hv hvB _), inv_mul_cancel_left₀ h0]
+    integral_occupancy h hγ (integrable_lookahead_sub hR hv hvB hv hvB _), inv_mul_cancel_left₀ h0]
   refine tsum_congr fun n ↦ ?_
   rw [integral_map (h.measurable_obs_action n).aemeasurable
-    (integrable_lookahead_sub hR hv hvB _).aestronglyMeasurable]
+    (integrable_lookahead_sub hR hv hvB hv hvB _).aestronglyMeasurable]
 
 /-- **Performance difference lemma** [AJKS, Lemma 1.16]: with bounded rewards and `γ < 1`, for
 every algorithm `alg` and every stationary policy `π`, the discounted value of `alg` from the
