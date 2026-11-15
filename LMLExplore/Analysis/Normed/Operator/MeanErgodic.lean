@@ -9,6 +9,7 @@ public import Mathlib.Dynamics.BirkhoffSum.NormedSpace
 public import Mathlib.LinearAlgebra.FiniteDimensional.Lemmas
 public import Mathlib.Topology.MetricSpace.UniformConvergence
 public import LMLExplore.Analysis.Normed.Module.FiniteDimension
+public import LMLExplore.Topology.Algebra.Module.ContinuousLinearMap.Basic
 
 /-!
 # Yosida's mean ergodic theorem
@@ -68,21 +69,6 @@ public section
 open Filter Finset Function Module Topology
 
 namespace ContinuousLinearMap
-
-section Ring
-
-variable {R E : Type*} [Ring R] [AddCommGroup E] [Module R E] [TopologicalSpace E]
-  [IsTopologicalAddGroup E]
-
-/-- `(1 - T) x = x - T x`. -/
-lemma one_sub_apply (T : E →L[R] E) (x : E) : (1 - T) x = x - T x := by
-  rw [sub_apply, one_apply_eq_self]
-
-/-- The kernel of `1 - T` is the space of fixed points of `T`. -/
-lemma mem_ker_one_sub_iff {T : E →L[R] E} {x : E} : x ∈ (1 - T).ker ↔ T x = x := by
-  rw [LinearMap.mem_ker, coe_coe, one_sub_apply, sub_eq_zero, eq_comm]
-
-end Ring
 
 variable {𝕜 E : Type*} [RCLike 𝕜] [NormedAddCommGroup E] [NormedSpace 𝕜 E]
   {T : E →L[𝕜] E} {x y : E}
