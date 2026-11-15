@@ -151,6 +151,16 @@ lemma vecExpFamily_apply [SFinite ρ] (hη : η ∈ ρ.vecIntegrableExpSet T) (s
   rw [exp_sub, vecLogPartition_def,
     exp_log (integral_exp_pos (mem_vecIntegrableExpSet_iff.mp hη))]
 
+/-- Outside `ρ.vecIntegrableExpSet T`, the member of the exponential family is `0`. -/
+lemma vecExpFamily_of_notMem (hη : η ∉ ρ.vecIntegrableExpSet T) : ρ.vecExpFamily T η = 0 :=
+  tilted_of_not_integrable hη
+
+/-- Outside `ρ.vecIntegrableExpSet T`, the log-partition function is `0`, by the convention that a
+non-integrable function has integral `0`. -/
+lemma vecLogPartition_of_notMem (hη : η ∉ ρ.vecIntegrableExpSet T) :
+    ρ.vecLogPartition T η = 0 := by
+  rw [vecLogPartition_def, integral_undef hη, log_zero]
+
 instance (ρ : Measure 𝓧) (T : 𝓧 → E) (η : E) :
     IsZeroOrProbabilityMeasure (ρ.vecExpFamily T η) := by
   rw [vecExpFamily_def]
@@ -324,8 +334,7 @@ lemma llr_vecExpFamily (hη' : η' ∈ ρ.vecIntegrableExpSet T) :
     llr (ρ.vecExpFamily T η) (ρ.vecExpFamily T η') =ᵐ[ρ.vecExpFamily T η]
       fun x ↦ ⟪η - η', T x⟫ + ρ.vecLogPartition T η' - ρ.vecLogPartition T η := by
   obtain hη | hη := em' (η ∈ ρ.vecIntegrableExpSet T)
-  · have h_zero : ρ.vecExpFamily T η = 0 := tilted_of_not_integrable hη
-    simp [h_zero, Filter.EventuallyEq]
+  · simp [vecExpFamily_of_notMem hη, Filter.EventuallyEq]
   rcases eq_zero_or_neZero ρ with rfl | hρ
   · simp [Filter.EventuallyEq]
   have := isProbabilityMeasure_vecExpFamily hη
@@ -455,7 +464,7 @@ lemma exists_integrable_exp_inner_add_mul_norm (hη : η ∈ interior (ρ.vecInt
     _ ≤ exp ⟪η, T x⟫ *
         (1 + ∑ i, (exp (ε * d * ⟪b i, T x⟫) + exp (-(ε * d * ⟪b i, T x⟫)))) := by
       gcongr
-      exact b.exp_mul_norm_le hε.le (T x)
+      exact b.exp_mul_norm_le ε (T x)
     _ = _ := by
       simp only [inner_add_left, real_inner_smul_left, exp_add, Finset.mul_sum, mul_add, mul_one,
         neg_mul]

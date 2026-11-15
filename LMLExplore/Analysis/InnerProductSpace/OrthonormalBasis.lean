@@ -19,7 +19,7 @@ vector statistic `T` to the real exponential moments of its coordinates. It foll
 
 ## Main statements
 
-* `OrthonormalBasis.exp_mul_norm_le`: for `c ≥ 0`, with `n` the cardinality of the index type,
+* `OrthonormalBasis.exp_mul_norm_le`: for `c : ℝ`, with `n` the cardinality of the index type,
   `exp (c ‖y‖) ≤ 1 + ∑ i, (exp (c √n ⟪b i, y⟫) + exp (-(c √n ⟪b i, y⟫)))`.
 -/
 
@@ -33,12 +33,16 @@ namespace OrthonormalBasis
 
 variable {ι E : Type*} [Fintype ι] [NormedAddCommGroup E] [InnerProductSpace ℝ E]
 
-/-- The exponential of a nonnegative multiple `c ‖y‖` of the norm of a vector is at most
+/-- The exponential of a multiple `c ‖y‖` of the norm of a vector is at most
 `1 + ∑ i, (exp (c √n ⟪b i, y⟫) + exp (-(c √n ⟪b i, y⟫)))`, where `n` is the cardinality of the
 index type of the orthonormal basis `b`. -/
-lemma exp_mul_norm_le (b : OrthonormalBasis ι ℝ E) {c : ℝ} (hc : 0 ≤ c) (y : E) :
+lemma exp_mul_norm_le (b : OrthonormalBasis ι ℝ E) (c : ℝ) (y : E) :
     exp (c * ‖y‖) ≤ 1 + ∑ i, (exp (c * √(Fintype.card ι) * ⟪b i, y⟫) +
       exp (-(c * √(Fintype.card ι) * ⟪b i, y⟫))) := by
+  rcases lt_or_ge c 0 with hc | hc
+  · -- For `c < 0`, the left side is at most `1`.
+    calc exp (c * ‖y‖) ≤ 1 := exp_le_one_iff.mpr (mul_nonpos_of_nonpos_of_nonneg hc.le (by simp))
+    _ ≤ _ := le_add_of_nonneg_right (Finset.sum_nonneg fun i _ ↦ by positivity)
   have h_norm := b.norm_le_card_mul_iSup_norm_inner y
   rcases isEmpty_or_nonempty ι with hι | hι
   · simp only [Fintype.card_eq_zero, CharP.cast_eq_zero, sqrt_zero, zero_mul, norm_le_zero_iff]
