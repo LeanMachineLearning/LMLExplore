@@ -11,7 +11,7 @@ import Mathlib.Data.Fintype.Perm
 import LMLExplore.Algebra.BigOperators.Perm
 import LMLExplore.Basic.ENNReal.BigOperators
 import LMLExplore.EValues.Merging
-import LMLExplore.MeasureTheory.Integral.Lebesgue.Add
+import LMLExplore.MeasureTheory.Measure.Map
 
 /-!
 # Merging functions for exchangeable e-values
@@ -96,11 +96,6 @@ section Definition
 
 variable {ι : Type*} {F G : (ι → ℝ≥0∞) → ℝ≥0∞}
 
-/-- Permuting the coordinates is measurable. -/
-private lemma measurable_comp_perm (σ : Equiv.Perm ι) :
-    Measurable fun (e : ι → ℝ≥0∞) i ↦ e (σ i) :=
-  measurable_pi_iff.2 fun _ ↦ measurable_pi_apply _
-
 /-- A **merging function for exchangeable e-values** indexed by `ι`: a measurable
 `F : (ι → ℝ≥0∞) → ℝ≥0∞` with `∫⁻ e, F e ∂μ ≤ 1` for every probability measure `μ` on
 `ι → ℝ≥0∞` that is invariant under the permutations of the coordinates and whose coordinates have
@@ -133,7 +128,7 @@ theorem IsExchangeableEMerging.isEVar_comp [Countable ι] {Ω : Type*} {mΩ : Me
   rw [← lintegral_map hF.measurable hm]
   refine hF.lintegral_le_one _ (fun σ ↦ ?_) fun i ↦ ?_
   · -- the law of an exchangeable family is invariant under the permutations of the coordinates
-    rw [Measure.map_map (measurable_comp_perm σ) hm]
+    rw [Measure.map_map (by fun_prop) hm]
     exact (hexch P hP).map_eq_of_injective (fun i ↦ (hE i).measurable.aemeasurable) σ.injective
       Function.injective_id
   · rw [lintegral_map (measurable_pi_apply i) hm]
@@ -168,7 +163,7 @@ private lemma orbitMeasure_univ (E : ι → ℝ≥0∞) : orbitMeasure E Set.uni
 /-- The uniform law on an orbit is invariant under the permutations of the coordinates. -/
 private lemma map_orbitMeasure (E : ι → ℝ≥0∞) (τ : Equiv.Perm ι) :
     (orbitMeasure E).map (fun e i ↦ e (τ i)) = orbitMeasure E := by
-  have hτ := measurable_comp_perm τ
+  have hτ : Measurable fun (e : ι → ℝ≥0∞) i ↦ e (τ i) := by fun_prop
   rw [orbitMeasure, Measure.map_smul _ hτ.aemeasurable, Measure.map_finset_sum' hτ.aemeasurable]
   simp_rw [Measure.map_dirac]
   congr 1
@@ -179,17 +174,6 @@ private lemma lintegral_apply_orbitMeasure (E : ι → ℝ≥0∞) (i : ι) :
     ∫⁻ x, x i ∂orbitMeasure E = (∑ j, E j) / Fintype.card ι := by
   rw [lintegral_orbitMeasure E fun x ↦ x i]
   exact ENNReal.sum_perm_apply_div_card E i
-
-omit [Fintype ι] [DecidableEq ι] in
-/-- A mixture of measures that are invariant under the permutations of the coordinates is
-invariant under them. -/
-private lemma map_smul_add_smul {μ ν : Measure (ι → ℝ≥0∞)}
-    (hμ : ∀ σ : Equiv.Perm ι, μ.map (fun e i ↦ e (σ i)) = μ)
-    (hν : ∀ σ : Equiv.Perm ι, ν.map (fun e i ↦ e (σ i)) = ν) (p q : ℝ≥0∞) (σ : Equiv.Perm ι) :
-    (p • μ + q • ν).map (fun e i ↦ e (σ i)) = p • μ + q • ν := by
-  have hσ := measurable_comp_perm σ
-  rw [Measure.map_add _ _ hσ, Measure.map_smul _ hσ.aemeasurable,
-    Measure.map_smul _ hσ.aemeasurable, hμ, hν]
 
 /-- If `F` is a merging function for exchangeable e-values, then for every mixture with weights
 `p` and `q` of the uniform laws on the orbits of `E` and `E'` whose coordinate means are at most
@@ -202,7 +186,8 @@ private lemma mix_le_one_of_isExchangeableEMerging {F : (ι → ℝ≥0∞) → 
   have hprob : IsProbabilityMeasure (p • orbitMeasure E + q • orbitMeasure E') :=
     ⟨by simp [orbitMeasure_univ, hpq]⟩
   have := hF.lintegral_le_one (p • orbitMeasure E + q • orbitMeasure E')
-    (map_smul_add_smul (map_orbitMeasure E) (map_orbitMeasure E') p q)
+    (fun σ ↦ Measure.map_smul_add_smul_of_map_eq (by fun_prop) (map_orbitMeasure E σ)
+      (map_orbitMeasure E' σ) p q)
     (fun i ↦ by simpa [lintegral_apply_orbitMeasure] using h)
   simpa [lintegral_orbitMeasure] using this
 
@@ -236,17 +221,15 @@ theorem IsExchangeableEMerging.exists_sum_perm_div_le {F : (ι → ℝ≥0∞) �
     simp at h
   -- the program: maximize `∫⁻ F ∂μ` over the invariant probability measures `μ` on which `F` and
   -- the coordinates have finite integrals, under the constraints `∫⁻ e, e i ∂μ ≤ 1`
-  set C : Set (Measure (ι → ℝ≥0∞)) := {μ | IsProbabilityMeasure μ ∧
-    (∀ σ : Equiv.Perm ι, μ.map (fun e i ↦ e (σ i)) = μ) ∧ ∫⁻ e, F e ∂μ ≠ ∞ ∧
-      ∀ i, ∫⁻ e, e i ∂μ ≠ ∞}
+  let P : Measure (ι → ℝ≥0∞) → Prop := fun μ ↦ ∀ σ : Equiv.Perm ι, μ.map (fun e i ↦ e (σ i)) = μ
+  set C : Set (Measure (ι → ℝ≥0∞)) := {μ | IsProbabilityMeasure μ ∧ P μ ∧
+    ∫⁻ e, F e ∂μ ≠ ∞ ∧ ∀ i, ∫⁻ e, e i ∂μ ≠ ∞}
   have horbit (e : ι → ℝ≥0) : orbitMeasure (fun i ↦ (e i : ℝ≥0∞)) ∈ C :=
     ⟨⟨orbitMeasure_univ _⟩, map_orbitMeasure _, by rw [lintegral_orbitMeasure]; exact hA_top e,
       fun i ↦ by rw [lintegral_apply_orbitMeasure]; exact hM_top e⟩
-  have hconv := jointlyConvexLikeOn_lintegral F (C := C) (fun μ hμ ↦ hμ.2.2)
-    fun μ ⟨_, hμσ, hμF, hμe⟩ ν ⟨_, hνσ, hνF, hνe⟩ a b ha hb hab ↦
-      ⟨⟨by simp [← ENNReal.ofReal_add ha hb, hab]⟩, map_smul_add_smul hμσ hνσ _ _,
-        lintegral_ofReal_smul_add_smul_ne_top hμF hνF,
-        fun i ↦ lintegral_ofReal_smul_add_smul_ne_top (hμe i) (hνe i)⟩
+  -- a mixture of invariant measures is invariant
+  have hconv := jointlyConvexLikeOn_lintegral F (P := P) fun μ ν hμ hν p q σ ↦
+    Measure.map_smul_add_smul_of_map_eq (by fun_prop) (hμ σ) (hν σ) p q
   have hslater : ∃ μ ∈ C, ∀ i, (fun i μ ↦ (∫⁻ e, e i ∂μ).toReal - 1) i μ < 0 :=
     ⟨_, horbit 0, fun i ↦ by simp [lintegral_apply_orbitMeasure]⟩
   have hvalue : ∀ μ ∈ C, (∀ i, (∫⁻ e, e i ∂μ).toReal - 1 ≤ 0) →
@@ -288,8 +271,8 @@ theorem isExchangeableEMerging_of_sum_perm_div_le {F : (ι → ℝ≥0∞) → �
         (1 - l) + l * ((∑ i, (e i : ℝ≥0∞)) / (Fintype.card ι : ℝ≥0∞))) :
     IsExchangeableEMerging F := by
   refine ⟨hF, fun μ hμ hexch hmean ↦ ?_⟩
-  have hτ : ∀ τ : Equiv.Perm ι, Measurable fun (e : ι → ℝ≥0∞) i ↦ e (τ i) :=
-    measurable_comp_perm
+  have hτ : ∀ τ : Equiv.Perm ι, Measurable fun (e : ι → ℝ≥0∞) i ↦ e (τ i) := fun _ ↦ by
+    fun_prop
   have hFτ : ∀ τ : Equiv.Perm ι, Measurable fun e : ι → ℝ≥0∞ ↦ F fun i ↦ e (τ i) :=
     fun τ ↦ hF.comp (hτ τ)
   have hinv : ∀ τ : Equiv.Perm ι, ∫⁻ e, F (fun i ↦ e (τ i)) ∂μ = ∫⁻ e, F e ∂μ := by
@@ -357,6 +340,7 @@ noncomputable instance (β : ℝ≥0∞) : DecidablePred (RunningMeanReaches (K 
   fun _ ↦ decidable_of_iff _ runningMeanReaches_iff.symm
 
 /-- The set of e-values some running mean of which reaches `β` is measurable. -/
+@[measurability]
 theorem measurableSet_runningMeanReaches (β : ℝ≥0∞) :
     MeasurableSet {e : Fin K → ℝ≥0∞ | RunningMeanReaches β e} := by
   simp_rw [runningMeanReaches_iff, Set.ofPred_exists]
@@ -390,11 +374,11 @@ theorem runningMeanTest_of_not_runningMeanReaches {β : ℝ≥0∞} {e : Fin K �
   Set.indicator_of_notMem h _
 
 /-- With no e-values, `β * 𝟙{some running mean reaches β}` is `0`. -/
-@[simp]
 theorem runningMeanTest_of_isEmpty [IsEmpty (Fin K)] (β : ℝ≥0∞) : runningMeanTest (K := K) β = 0 :=
   funext fun _ ↦ runningMeanTest_of_not_runningMeanReaches fun ⟨k, _⟩ ↦ isEmptyElim k
 
 /-- The function `β * 𝟙{some running mean reaches β}` is measurable. -/
+@[fun_prop]
 theorem measurable_runningMeanTest (β : ℝ≥0∞) : Measurable (runningMeanTest (K := K) β) :=
   measurable_const.indicator (measurableSet_runningMeanReaches β)
 
@@ -531,8 +515,8 @@ theorem exists_isExchangeableEMerging_monotone_runningMeanTest_lt (β : ℝ≥0�
       runningMeanTest β < G := by
   rcases Nat.eq_zero_or_pos K with rfl | hK
   · refine ⟨fun _ ↦ 1, isExchangeableEMerging_const le_rfl, monotone_const,
-      lt_of_le_of_ne (fun e ↦ by simp) fun h ↦ ?_⟩
-    simpa using congr_fun h 0
+      lt_of_le_of_ne (fun e ↦ by simp [runningMeanTest_of_isEmpty]) fun h ↦ ?_⟩
+    simpa [runningMeanTest_of_isEmpty] using congr_fun h 0
   have : NeZero K := ⟨hK.ne'⟩
   refine ⟨fun e ↦ max (runningMeanTest β e) (⨅ k, e k),
     isExchangeableEMerging_max_runningMeanTest_iInf β, fun e e' h ↦ ?_,

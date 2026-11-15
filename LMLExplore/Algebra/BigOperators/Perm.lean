@@ -63,12 +63,8 @@ theorem sum_apply_div_card [Semifield M] [CharZero M] (w : ι → M) (j : ι) :
 @[to_additive /-- Composing with the swap of two elements of a finset does not change the sum
 over it. -/]
 theorem prod_comp_swap [CommMonoid M] {α : Type*} [DecidableEq α] {s : Finset α} {a b : α}
-    (ha : a ∈ s) (hb : b ∈ s) (w : α → M) : ∏ x ∈ s, w (Equiv.swap a b x) = ∏ x ∈ s, w x := by
-  refine prod_comp (Equiv.swap a b) s w fun x hx ↦ ?_
-  rcases eq_or_ne x a with rfl | hxa
-  · exact ha
-  rcases eq_or_ne x b with rfl | hxb
-  · exact hb
-  exact absurd (Equiv.swap_apply_of_ne_of_ne hxa hxb) hx
+    (ha : a ∈ s) (hb : b ∈ s) (w : α → M) : ∏ x ∈ s, w (Equiv.swap a b x) = ∏ x ∈ s, w x :=
+  prod_comp (Equiv.swap a b) s w fun x hx ↦ by
+    obtain ⟨_, rfl | rfl⟩ := Equiv.swap_apply_ne_self_iff.1 hx <;> assumption
 
 end Equiv.Perm
