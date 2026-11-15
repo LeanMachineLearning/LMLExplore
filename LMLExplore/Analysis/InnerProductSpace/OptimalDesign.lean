@@ -67,6 +67,10 @@ point `a` for each of them gives a design with the same design operator, hence t
 * `LMLExplore.designOperator w`: the design operator `V(w) = ∑_a w a • a ⊗ a` of `w`.
 * `LMLExplore.gValue 𝒜 w`: the G-value `g(w) = sup_{a ∈ 𝒜} ⟪a, V(w)⁺ a⟫` in `ℝ≥0∞`, where a point
   of `𝒜` outside the range of `V(w)` contributes `∞`.
+* `LMLExplore.spanFeatures φ`: the features `φ i`, as elements of the span of the features.
+* `LMLExplore.kieferWolfowitzDesign φ`: a Kiefer–Wolfowitz design on finitely many arms with
+  features `φ`, which need not span `E`: weights in the simplex whose design operator on the span
+  of the features is invertible, with G-value at most the dimension of the span.
 
 ## Main statements
 
@@ -75,7 +79,8 @@ point `a` for each of them gives a design with the same design operator, hence t
 * `LMLExplore.isPositive_sum_smul_rankOne`, `LMLExplore.smul_sum_smul_rankOne_le`,
   `LMLExplore.isUnit_sum_smul_rankOne_of_mul_le`: for a feature map `φ`, the weighted sum
   `∑ i ∈ s, w i • φ i ⊗ φ i` is positive for nonnegative weights (on a finite type, monotone in
-  the weights in the Loewner order, and invertible above an invertible one).
+  the weights in the Loewner order, and invertible above an invertible one), and
+  `LMLExplore.isSymmetric_sum_smul_rankOne`: it is symmetric for arbitrary real weights.
 * `LMLExplore.inner_sum_smul_rankOne_apply_self`: its quadratic form is
   `⟪v, (∑ i ∈ s, w i • φ i ⊗ φ i) v⟫ = ∑ i ∈ s, w i ⟪φ i, v⟫²`, and
   `LMLExplore.sum_smul_rankOne_apply_of_orthonormal`: for an orthonormal family `φ`, it maps `φ i`
@@ -90,6 +95,8 @@ point `a` for each of them gives a design with the same design operator, hence t
   support of the design.
 * `LMLExplore.designOperator_map_subtype_apply`: on a subspace `K`, the design operator on `E` of
   a design on `K` restricts to its design operator on `K`.
+* `LMLExplore.inner_moorePenroseInverse_of_apply_coe_eq`: if a symmetric operator `T` on `E` acts
+  on a subspace `K` as an invertible operator `T_K` on `K`, then `⟪a, T⁺ c⟫ = ⟪a, T_K⁻¹ c⟫` on `K`.
 * `LMLExplore.designOperator_convexCombPair`: `V(w)` is affine in `w`.
 * `LMLExplore.mem_convexHull_image_rankOne_iff`: the convex hull of `{a ⊗ a | a ∈ 𝒜}` is the set
   of design operators of the designs on `𝒜`.
@@ -114,8 +121,14 @@ point `a` for each of them gives a design with the same design operator, hence t
 * `LMLExplore.exists_mem_simplex_inner_ringInverse_le_finrank`: **Kiefer–Wolfowitz for finitely
   many arms**: if the features `φ i` of finitely many arms span `E`, some weights `w` in the
   simplex have `⟪φ i, V⁻¹ φ i⟫ ≤ d` for every arm, with `V = ∑ i, w i • φ i ⊗ φ i` invertible.
+* `LMLExplore.exists_mem_simplex_inner_ringInverse_spanFeatures_le_finrank`: **Kiefer–Wolfowitz
+  for finitely many arms on the span of the features** [LS, Exercise 21.6]: the same on the span `W`
+  of features that need not span `E`, with the dimension `m` of `W` in place of `d`.
 * `LMLExplore.inner_moorePenroseInverse_designOperator_map_subtype`: for a design on a subspace
-  `K` with invertible design operator `V_K(w)` on `K`, `⟪a, V(w)⁺ a⟫ = ⟪a, V_K(w)⁻¹ a⟫` on `K`.
+  `K` with invertible design operator `V_K(w)` on `K`, `⟪a, V(w)⁺ a⟫ = ⟪a, V_K(w)⁻¹ a⟫` on `K`;
+  `LMLExplore.inner_ringInverse_sum_smul_rankOne_spanFeatures`: the same for weights `p` on arms
+  with features `φ`, whose operator `V_W(p) = ∑ i, p i • φ i ⊗ φ i` on the span `W` of the features
+  is invertible: `⟪φ a, V_W(p)⁻¹ φ c⟫ = ⟪φ a, V(p)⁺ φ c⟫`.
 * `LMLExplore.exists_designOperator_eq_card_support_le`: a design with invertible design operator
   and `⟪a, V(w)⁻¹ a⟫ ≤ d` on its support has the design operator of a design supported in its
   support with at most `d (d + 1) / 2` points [LS, Theorem 21.1].
@@ -246,6 +259,14 @@ theorem isPositive_sum_smul_rankOne {ι : Type*} (s : Finset ι) (φ : ι → E)
     (hw : ∀ i ∈ s, 0 ≤ w i) : (∑ i ∈ s, w i • rankOne ℝ (φ i) (φ i)).IsPositive :=
   isPositive_sum _ fun i hi ↦ (isPositive_rankOne_self (φ i)).smul_of_nonneg (hw i hi)
 
+/-- For arbitrary real weights `w`, `∑ i ∈ s, w i • φ i ⊗ φ i` is symmetric. -/
+theorem isSymmetric_sum_smul_rankOne {ι : Type*} (s : Finset ι) (φ : ι → E) (w : ι → ℝ) :
+    ((∑ i ∈ s, w i • rankOne ℝ (φ i) (φ i) : E →L[ℝ] E) : E →ₗ[ℝ] E).IsSymmetric := by
+  rw [toLinearMap_sum]
+  exact LinearMap.isSymmetric_sum _ fun i _ ↦ by
+    rw [toLinearMap_smul]
+    exact (isSymmetric_rankOne_self (φ i)).smul (by simp)
+
 /-- The quadratic form of `∑ i ∈ s, w i • φ i ⊗ φ i`:
 `⟪v, (∑ i ∈ s, w i • φ i ⊗ φ i) v⟫ = ∑ i ∈ s, w i * ⟪φ i, v⟫²`. -/
 theorem inner_sum_smul_rankOne_apply_self {ι : Type*} (s : Finset ι) (φ : ι → E) (w : ι → ℝ)
@@ -319,6 +340,67 @@ theorem isUnit_sum_smul_rankOne_of_mul_le [FiniteDimensional ℝ E] {ι : Type*}
     simpa [Units.smul_def] using hvu.smul (Units.mk0 c hc.ne')
   have hvp := isPositive_sum_smul_rankOne Finset.univ φ fun i _ ↦ hv i
   exact (hvp.smul_of_nonneg hc.le).isUnit_of_le hcu (smul_sum_smul_rankOne_le h)
+
+section Restrict
+
+variable {K : Submodule ℝ E} {T : E →L[ℝ] E} {T_K : K →L[ℝ] K}
+
+/-- If an operator `T` on `E` acts on a subspace `K` as an invertible operator `T_K` on `K`, then
+`T` maps `T_K⁻¹ v` to `v` for `v ∈ K`. -/
+theorem apply_coe_ringInverse_of_apply_coe_eq (hT : ∀ v : K, T v = T_K v) (hu : IsUnit T_K)
+    (v : K) : T ↑(Ring.inverse T_K v) = v := by
+  rw [hT, apply_ringInverse_apply hu]
+
+/-- If an operator `T` on `E` acts on a subspace `K` as an invertible operator `T_K` on `K`, then
+`K` lies in the range of `T`. -/
+theorem le_range_of_apply_coe_eq (hT : ∀ v : K, T v = T_K v) (hu : IsUnit T_K) :
+    K ≤ LinearMap.range (T : E →ₗ[ℝ] E) := fun v hv ↦
+  ⟨_, apply_coe_ringInverse_of_apply_coe_eq hT hu ⟨v, hv⟩⟩
+
+/-- If a symmetric operator `T` on a finite-dimensional space `E` acts on a subspace `K` as an
+invertible operator `T_K` on `K`, then the Moore–Penrose inverse of `T` acts on `K` as the inverse
+of `T_K`, in the weak sense `⟪a, T⁺ c⟫ = ⟪a, T_K⁻¹ c⟫` for `a c ∈ K`. -/
+theorem inner_moorePenroseInverse_of_apply_coe_eq [FiniteDimensional ℝ E]
+    (hsym : (T : E →ₗ[ℝ] E).IsSymmetric) (hT : ∀ v : K, T v = T_K v) (hu : IsUnit T_K)
+    (a c : K) :
+    ⟪(a : E), (T : E →ₗ[ℝ] E).moorePenroseInverse c⟫_ℝ = ⟪a, Ring.inverse T_K c⟫_ℝ := by
+  have h := hsym.moorePenroseInverse_apply_apply_of_mem_range
+    (le_range_of_apply_coe_eq hT hu (Ring.inverse T_K c).2)
+  rw [coe_coe, apply_coe_ringInverse_of_apply_coe_eq hT hu] at h
+  rw [h, Submodule.coe_inner]
+
+end Restrict
+
+/-! ### Features in their span -/
+
+section SpanFeatures
+
+variable {ι : Type*} (φ : ι → E)
+
+/-- The features `φ i`, as elements of the span `Submodule.span ℝ (Set.range φ)` of the features.
+They span it (`span_range_spanFeatures`). -/
+def spanFeatures (i : ι) : Submodule.span ℝ (Set.range φ) :=
+  ⟨φ i, Submodule.subset_span (Set.mem_range_self i)⟩
+
+@[simp]
+theorem coe_spanFeatures (i : ι) : (spanFeatures φ i : E) = φ i := (rfl)
+
+/-- The features span their span. -/
+theorem span_range_spanFeatures : Submodule.span ℝ (Set.range (spanFeatures φ)) = ⊤ := by
+  have : Set.range (spanFeatures φ) = (↑) ⁻¹' Set.range φ := by
+    ext x
+    simp [Subtype.ext_iff]
+  rw [this, Submodule.span_span_coe_preimage]
+
+/-- The inner product of a feature with the orthogonal projection of a vector onto the span of the
+features is its inner product with the vector. -/
+theorem inner_spanFeatures_orthogonalProjectionOnto
+    [(Submodule.span ℝ (Set.range φ)).HasOrthogonalProjection] (i : ι) (v : E) :
+    ⟪spanFeatures φ i, (Submodule.span ℝ (Set.range φ)).orthogonalProjectionOnto v⟫_ℝ =
+      ⟪φ i, v⟫_ℝ := by
+  rw [Submodule.inner_orthogonalProjectionOnto_eq_of_mem_left, coe_spanFeatures]
+
+end SpanFeatures
 
 /-- The design operator on `E` of a design on a subspace `K` restricts on `K` to the design
 operator on `K`: `V(w) v = V_K(w) v` for `v ∈ K`. -/
@@ -605,25 +687,73 @@ theorem exists_mem_simplex_inner_ringInverse_le_finrank {ι : Type*} [Fintype ι
   rw [designOperator_map] at hu hle
   exact ⟨v.weights, v.weights_mem_simplex, hu, fun i ↦ hle _ ⟨i, rfl⟩⟩
 
+/-- **The Kiefer–Wolfowitz theorem for finitely many arms on the span of the features**
+[LS, Theorem 21.1, Exercise 21.6]. For features `φ i` of the elements of a nonempty finite type,
+which need not span `E`, some weights `w` in the simplex have an invertible design operator
+`V_W = ∑ i, w i • φ i ⊗ φ i` on the span `W` of the features, with `⟪φ i, V_W⁻¹ φ i⟫ ≤ m` for every
+`i`, where `m` is the dimension of `W`. -/
+theorem exists_mem_simplex_inner_ringInverse_spanFeatures_le_finrank {ι : Type*} [Fintype ι]
+    [Nonempty ι] (φ : ι → E) :
+    ∃ w ∈ LMLExplore.simplex ι,
+      IsUnit (∑ i, w i • rankOne ℝ (spanFeatures φ i) (spanFeatures φ i)) ∧
+      ∀ i, ⟪spanFeatures φ i, Ring.inverse (∑ i, w i • rankOne ℝ (spanFeatures φ i)
+          (spanFeatures φ i)) (spanFeatures φ i)⟫_ℝ ≤ finrank ℝ (Submodule.span ℝ (Set.range φ)) :=
+  exists_mem_simplex_inner_ringInverse_le_finrank (span_range_spanFeatures φ)
+
+section KieferWolfowitzDesign
+
+variable {ι : Type*} [Fintype ι] [Nonempty ι] (φ : ι → E)
+
+/-- The **Kiefer–Wolfowitz design** of the features `φ` on finitely many arms: weights `w` in the
+simplex whose design operator `V_W(w) = ∑ i, w i • φ i ⊗ φ i` on the span `W` of the features is
+invertible, with `⟪φ i, V_W(w)⁻¹ φ i⟫ ≤ m` for every arm `i`, where `m` is the dimension of `W`.
+They are chosen by `exists_mem_simplex_inner_ringInverse_spanFeatures_le_finrank`. -/
+noncomputable def kieferWolfowitzDesign : ι → ℝ :=
+  (exists_mem_simplex_inner_ringInverse_spanFeatures_le_finrank φ).choose
+
+/-- The Kiefer–Wolfowitz design is a probability vector. -/
+theorem kieferWolfowitzDesign_mem_simplex : kieferWolfowitzDesign φ ∈ LMLExplore.simplex ι :=
+  (exists_mem_simplex_inner_ringInverse_spanFeatures_le_finrank φ).choose_spec.1
+
+/-- The design operator of the Kiefer–Wolfowitz design is invertible on the span of the
+features. -/
+theorem isUnit_sum_smul_rankOne_kieferWolfowitzDesign :
+    IsUnit (∑ i, kieferWolfowitzDesign φ i • rankOne ℝ (spanFeatures φ i) (spanFeatures φ i)) :=
+  (exists_mem_simplex_inner_ringInverse_spanFeatures_le_finrank φ).choose_spec.2.1
+
+/-- The G-value of the Kiefer–Wolfowitz design is at most the dimension of the span of the
+features. -/
+theorem inner_ringInverse_sum_smul_rankOne_kieferWolfowitzDesign_le_finrank (i : ι) :
+    ⟪spanFeatures φ i, Ring.inverse (∑ i, kieferWolfowitzDesign φ i •
+        rankOne ℝ (spanFeatures φ i) (spanFeatures φ i)) (spanFeatures φ i)⟫_ℝ ≤
+      finrank ℝ (Submodule.span ℝ (Set.range φ)) :=
+  (exists_mem_simplex_inner_ringInverse_spanFeatures_le_finrank φ).choose_spec.2.2 i
+
+end KieferWolfowitzDesign
+
 /-- Let `w` be a design on a subspace `K` whose design operator `V_K(w)` on `K` is invertible. For
 `a ∈ K`, the weighted norm of `a` for the Moore–Penrose inverse of the design operator `V(w)` on
 `E` is its weighted norm for the inverse of `V_K(w)`: `⟪a, V(w)⁺ a⟫ = ⟪a, V_K(w)⁻¹ a⟫`. -/
 theorem inner_moorePenroseInverse_designOperator_map_subtype {K : Submodule ℝ E}
     {w : StdSimplex ℝ K} (hu : IsUnit (designOperator w)) (a : K) :
     ⟪(a : E), (designOperator (w.map ((↑) : K → E)) : E →ₗ[ℝ] E).moorePenroseInverse a⟫_ℝ =
-      ⟪a, Ring.inverse (designOperator w) a⟫_ℝ := by
-  set V := designOperator (w.map ((↑) : K → E))
-  -- `V` maps `V_K(w)⁻¹ v` to `v` for `v ∈ K`, so `K` lies in the range of `V`
-  have hV : ∀ v : K, V ↑(Ring.inverse (designOperator w) v) = v := fun v ↦ by
-    rw [designOperator_map_subtype_apply, apply_ringInverse_apply hu]
-  have hmem : ∀ v : K, (v : E) ∈ LinearMap.range (V : E →ₗ[ℝ] E) := fun v ↦
-    ⟨_, by rw [coe_coe, hV]⟩
-  calc ⟪(a : E), (V : E →ₗ[ℝ] E).moorePenroseInverse a⟫_ℝ
-      = ⟪(a : E), (V : E →ₗ[ℝ] E).moorePenroseInverse
-          ((V : E →ₗ[ℝ] E) ↑(Ring.inverse (designOperator w) a))⟫_ℝ := by rw [coe_coe, hV]
-    _ = ⟪a, Ring.inverse (designOperator w) a⟫_ℝ := by
-      rw [(isPositive_designOperator _).toLinearMap.isSymmetric
-        |>.moorePenroseInverse_apply_apply_of_mem_range (hmem _), Submodule.coe_inner]
+      ⟪a, Ring.inverse (designOperator w) a⟫_ℝ :=
+  inner_moorePenroseInverse_of_apply_coe_eq (isPositive_designOperator _).toLinearMap.isSymmetric
+    (designOperator_map_subtype_apply w) hu a a
+
+/-- **The inverse on the span is the Moore–Penrose inverse.** If the operator
+`V_W(p) = ∑ i, p i • φ i ⊗ φ i` on the span `W` of the features is invertible, then the weighted
+inner products of the features for its inverse are those for the Moore–Penrose inverse `V(p)⁺` of
+the operator `V(p) = ∑ i, p i • φ i ⊗ φ i` on `E`: `⟪φ a, V_W(p)⁻¹ φ c⟫ = ⟪φ a, V(p)⁺ φ c⟫`. -/
+theorem inner_ringInverse_sum_smul_rankOne_spanFeatures {ι : Type*} [Fintype ι] {φ : ι → E}
+    {p : ι → ℝ} (hu : IsUnit (∑ i, p i • rankOne ℝ (spanFeatures φ i) (spanFeatures φ i)))
+    (a c : ι) :
+    ⟪spanFeatures φ a, Ring.inverse (∑ i, p i • rankOne ℝ (spanFeatures φ i) (spanFeatures φ i))
+        (spanFeatures φ c)⟫_ℝ =
+      ⟪φ a, ((∑ i, p i • rankOne ℝ (φ i) (φ i) : E →L[ℝ] E) : E →ₗ[ℝ] E).moorePenroseInverse
+        (φ c)⟫_ℝ :=
+  (inner_moorePenroseInverse_of_apply_coe_eq (isSymmetric_sum_smul_rankOne _ φ p)
+    (fun v ↦ by simp) hu _ _).symm
 
 /-- **Support reduction of G-optimal designs** [LS, Theorem 21.1]. Let `w` be a design with
 invertible design operator `V(w)` on a nontrivial real inner product space of dimension `d`, with
