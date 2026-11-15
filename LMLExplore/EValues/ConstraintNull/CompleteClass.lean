@@ -67,7 +67,7 @@ supported member of the null, so that e-variables are finite on `Y`.
   theorem in finite-dimensional form, on a set without arbitrage.
 * `ProbabilityTheory.exists_measurableSet_noArbitrageOn`: a measurable set carrying the null, on
   which the constraints admit no arbitrage.
-* `ProbabilityTheory.exists_measurableSet_noArbitrageOn_or_exists_measure_ne_zero`: such a set
+* `ProbabilityTheory.exists_measurableSet_noArbitrageOn_or_exists_sum_mul_pos`: such a set
   that also carries a given measure `Q`, or a nonnegative combination of the constraints that is
   positive on a set of positive `Q`-measure.
 * `ProbabilityTheory.lt_top_of_isEVar_of_noArbitrageOn`: e-variables are finite on a set without
@@ -459,7 +459,7 @@ variable [MeasurableSpace 𝓧] {g : ι → 𝓧 → ℝ} {f : 𝓧 → ℝ} {E 
 constraints admit no arbitrage, or a nonnegative combination of the constraints that is
 nonnegative almost surely under every member of the null and under `Q`, and positive on a set of
 positive `Q`-measure. -/
-theorem exists_measurableSet_noArbitrageOn_or_exists_measure_ne_zero
+theorem exists_measurableSet_noArbitrageOn_or_exists_sum_mul_pos
     (hg : ∀ i, Measurable (g i)) (Q : Measure 𝓧) :
     (∃ Y : Set 𝓧, MeasurableSet Y ∧ (∀ μ ∈ constraintNull (range g), μ Yᶜ = 0) ∧ Q Yᶜ = 0 ∧
       NoArbitrageOn g Y) ∨
@@ -530,9 +530,9 @@ theorem exists_measurableSet_noArbitrageOn (hg : ∀ i, Measurable (g i)) :
     ∃ Y : Set 𝓧, MeasurableSet Y ∧ (∀ μ ∈ constraintNull (range g), μ Yᶜ = 0) ∧
       NoArbitrageOn g Y := by
   obtain ⟨Y, hY, hμY, -, hT⟩ | ⟨_, -, -, -, h⟩ :=
-    exists_measurableSet_noArbitrageOn_or_exists_measure_ne_zero hg 0
+    exists_measurableSet_noArbitrageOn_or_exists_sum_mul_pos hg 0
   · exact ⟨Y, hY, hμY, hT⟩
-  · exact absurd rfl h
+  · simp at h
 
 /-- On a set without arbitrage, an e-variable for the null is finite. -/
 theorem lt_top_of_isEVar_of_noArbitrageOn (hg : ∀ i, Measurable (g i)) (hY : NoArbitrageOn g Y)
