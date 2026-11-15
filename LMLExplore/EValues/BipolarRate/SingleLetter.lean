@@ -10,15 +10,15 @@ public import LMLExplore.EValues.BipolarRate.Basic
 /-!
 # When one observation attains the smallest relative entropy
 
-For a probability measure `Q₁` and a null `S₁` on a measurable space, the maximal expected
-logarithm `maxLogGrowth Q₁ S₁ n` of an `n`-sample e-variable is at least `n` times that of one
-observation, by superadditivity, and at most `n` times the smallest relative entropy from `Q₁` to
-the null. If one observation already attains the smallest relative entropy, that is, if
-`⨅ P ∈ S₁, klDiv Q₁ P ≤ maxLogGrowth Q₁ S₁ 1`, the three quantities agree: for every `n ≠ 0`,
-`n` observations are worth exactly `n` times one, and the bipolar rate is the smallest relative
-entropy [EVR26, Note 11, Theorem 9]. No semicontinuity, convexity or compactness of the null is
-assumed. The weaker hypothesis `bipolarRate Q₁ S₁ ≤ maxLogGrowth Q₁ S₁ 1` already gives
-`bipolarRate Q₁ S₁ = maxLogGrowth Q₁ S₁ 1` and, for a null of finite measures,
+For a probability measure `Q₁` and a null `S₁` of probability measures on a measurable space,
+the maximal expected logarithm `maxLogGrowth Q₁ S₁ n` of an `n`-sample e-variable is at least `n`
+times that of one observation, by superadditivity, and at most `n` times the smallest relative
+entropy from `Q₁` to the null. If one observation already attains the smallest relative entropy,
+that is, if `⨅ P ∈ S₁, klDiv Q₁ P ≤ maxLogGrowth Q₁ S₁ 1`, the three quantities agree: for every
+`n ≠ 0`, `n` observations are worth exactly `n` times one, and the bipolar rate is the smallest
+relative entropy [EVR26, Note 11, Theorem 9]. No semicontinuity, convexity or compactness of the
+null is assumed. The weaker hypothesis `bipolarRate Q₁ S₁ ≤ maxLogGrowth Q₁ S₁ 1` already gives
+`bipolarRate Q₁ S₁ = maxLogGrowth Q₁ S₁ 1` for any null and, for a null of finite measures,
 `maxLogGrowth Q₁ S₁ n = n * maxLogGrowth Q₁ S₁ 1` for `n ≠ 0`.
 
 For a weakly compact convex null the hypothesis holds [RR26, Proposition 4.5].
