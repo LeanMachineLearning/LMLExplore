@@ -18,13 +18,15 @@ operator norm.
 
 ## Main statements
 
-* `tendsto_clm_apply`: a family of continuous linear maps on a finite-dimensional space tends to
-  `g` iff its applications to every vector `y` tend to `g y`.
+* `LMLExplore.tendsto_clm_apply`: a family of continuous linear maps on a finite-dimensional
+  space tends to `g` iff its applications to every vector `y` tend to `g y`.
 -/
 
 public section
 
 open Filter Module Topology
+
+namespace LMLExplore
 
 variable {𝕜 E F ι : Type*} [NontriviallyNormedField 𝕜] [CompleteSpace 𝕜]
   [NormedAddCommGroup E] [NormedSpace 𝕜 E] [NormedAddCommGroup F] [NormedSpace 𝕜 F]
@@ -40,3 +42,5 @@ theorem tendsto_clm_apply {l : Filter ι} {f : ι → E →L[𝕜] F} {g : E →
       (1 : F ≃L[𝕜] F)).trans (ContinuousLinearEquiv.piRing _)
   rw [e.toHomeomorph.isInducing.tendsto_nhds_iff, tendsto_pi_nhds]
   exact fun i ↦ h _
+
+end LMLExplore

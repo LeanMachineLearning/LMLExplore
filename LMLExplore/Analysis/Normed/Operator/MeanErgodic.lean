@@ -5,7 +5,6 @@ Authors: LMLExplore contributors
 -/
 module
 
-public import Mathlib.Analysis.Normed.Operator.Banach
 public import Mathlib.Dynamics.BirkhoffSum.NormedSpace
 public import Mathlib.LinearAlgebra.FiniteDimensional.Lemmas
 public import Mathlib.Topology.MetricSpace.UniformConvergence
@@ -23,8 +22,9 @@ bounded projection `Π` onto the fixed points `ker (1 - T)` of `T`, along
 `closure (range (1 - T))`, and `Π T = T Π = Π ^ 2 = Π`. In finite dimension the decomposition is
 the whole space and the Cesàro means converge in operator norm.
 
-For the action of a Markov kernel on bounded measurable functions, `Π` maps a reward to the
-long-run average reward of the chain; for a stochastic matrix it is the limiting matrix.
+When the Cesàro means of a Markov kernel's action converge everywhere (for instance for a finite
+chain), `Π` maps a reward to the long-run average reward of the chain; for a stochastic matrix it
+is the limiting matrix.
 
 This is the Banach-space form of the von Neumann theorem
 `ContinuousLinearMap.tendsto_birkhoffAverage_orthogonalProjection`, whose contractions are power
@@ -50,7 +50,10 @@ proof of Mathlib's `LinearMap.tendsto_birkhoffAverage_of_ker_subset_closure`.
   `ker (1 - T)` and `0` exactly on `closure (range (1 - T))`.
 * `ContinuousLinearMap.IsPowerBounded.meanErgodicProj_mul`,
   `ContinuousLinearMap.IsPowerBounded.mul_meanErgodicProj`,
-  `ContinuousLinearMap.IsPowerBounded.isIdempotentElem_meanErgodicProj`: `Π T = T Π = Π ^ 2 = Π`.
+  `ContinuousLinearMap.IsPowerBounded.meanErgodicProj_mul_self`: `Π T = T Π = Π ^ 2 = Π`.
+* `ContinuousLinearMap.IsPowerBounded.meanErgodicProj_apply_eq_self_iff` and
+  `ContinuousLinearMap.IsPowerBounded.meanErgodicProj_apply_eq_zero_iff`: `Π x = x` exactly on
+  `ker (1 - T)` and `Π x = 0` exactly on `closure (range (1 - T))`.
 * `ContinuousLinearMap.IsPowerBounded.tendsto_cesaro_meanErgodicProj`: in finite dimension, the
   Cesàro means converge to `Π` in operator norm.
 
@@ -71,9 +74,13 @@ section Ring
 variable {R E : Type*} [Ring R] [AddCommGroup E] [Module R E] [TopologicalSpace E]
   [IsTopologicalAddGroup E]
 
+/-- `(1 - T) x = x - T x`. -/
+lemma one_sub_apply (T : E →L[R] E) (x : E) : (1 - T) x = x - T x := by
+  rw [sub_apply, one_apply_eq_self]
+
 /-- The kernel of `1 - T` is the space of fixed points of `T`. -/
 lemma mem_ker_one_sub_iff {T : E →L[R] E} {x : E} : x ∈ (1 - T).ker ↔ T x = x := by
-  rw [LinearMap.mem_ker, coe_coe, sub_apply, one_apply_eq_self, sub_eq_zero, eq_comm]
+  rw [LinearMap.mem_ker, coe_coe, one_sub_apply, sub_eq_zero, eq_comm]
 
 end Ring
 
@@ -107,8 +114,24 @@ lemma birkhoffAverage_eq_smul_sum_pow (T : E →L[𝕜] E) (N : ℕ) :
 /-- `T` commutes with its Birkhoff averages. -/
 lemma apply_birkhoffAverage (T : E →L[𝕜] E) (N : ℕ) (x : E) :
     T (birkhoffAverage 𝕜 T _root_.id N x) = birkhoffAverage 𝕜 T _root_.id N (T x) := by
-  rw [map_birkhoffAverage 𝕜 𝕜 T, ← birkhoffAverage_comp_apply]
-  rfl
+  rw [map_birkhoffAverage 𝕜 𝕜 T, ← birkhoffAverage_comp_apply, Function.comp_id, Function.id_comp]
+
+/-- The Birkhoff averages of `T` are additive in the point. -/
+lemma birkhoffAverage_apply_add (T : E →L[𝕜] E) (N : ℕ) (x y : E) :
+    birkhoffAverage 𝕜 T _root_.id N (x + y) =
+      birkhoffAverage 𝕜 T _root_.id N x + birkhoffAverage 𝕜 T _root_.id N y := by
+  rw [birkhoffAverage_eq_smul_sum_pow, map_add]
+
+/-- The Birkhoff averages of `T` commute with subtraction in the point. -/
+lemma birkhoffAverage_apply_sub (T : E →L[𝕜] E) (N : ℕ) (x y : E) :
+    birkhoffAverage 𝕜 T _root_.id N (x - y) =
+      birkhoffAverage 𝕜 T _root_.id N x - birkhoffAverage 𝕜 T _root_.id N y := by
+  rw [birkhoffAverage_eq_smul_sum_pow, map_sub]
+
+/-- The Birkhoff averages of `T` commute with scalar multiplication in the point. -/
+lemma birkhoffAverage_apply_smul (T : E →L[𝕜] E) (N : ℕ) (c : 𝕜) (x : E) :
+    birkhoffAverage 𝕜 T _root_.id N (c • x) = c • birkhoffAverage 𝕜 T _root_.id N x := by
+  rw [birkhoffAverage_eq_smul_sum_pow, map_smul]
 
 namespace IsPowerBounded
 
@@ -186,8 +209,7 @@ lemma sub_birkhoffAverage_mem_range {N : ℕ} (hN : N ≠ 0) (x : E) :
     simp_rw [mul_neg_geom_sum]
     rw [sum_sub_distrib, sum_const, card_range, ← Nat.cast_smul_eq_nsmul 𝕜, smul_sub,
       inv_smul_smul₀ hN']
-  rw [coe_coe, ← mul_apply_eq_comp (1 - T), key, birkhoffAverage_eq_smul_sum_pow, sub_apply,
-    one_apply_eq_self]
+  rw [coe_coe, ← mul_apply_eq_comp (1 - T), key, birkhoffAverage_eq_smul_sum_pow, one_sub_apply]
 
 /-- The difference between a point and the limit of its Cesàro means lies in the closure of the
 range of `1 - T`. -/
@@ -216,7 +238,7 @@ theorem tendsto_birkhoffAverage_of_mem_topologicalClosure_range (hT : T.IsPowerB
     (g := _root_.id) (hT.isBounded_range_iterate z)).neg
   simp only [neg_sub, neg_zero] at this
   refine this.congr fun N ↦ ?_
-  rw [coe_coe, sub_apply, one_apply_eq_self, birkhoffAverage_eq_smul_sum_pow, map_sub]
+  rw [coe_coe, one_sub_apply, birkhoffAverage_apply_sub]
 
 /-- **The sum `ker (1 - T) ⊕ closure (range (1 - T))` is direct** for a power-bounded `T`. -/
 theorem disjoint_ker_topologicalClosure_range (hT : T.IsPowerBounded) :
@@ -238,8 +260,8 @@ theorem exists_tendsto_birkhoffAverage_iff (hT : T.IsPowerBounded) :
   · intro hx
     obtain ⟨a, ha, b, hb, rfl⟩ := Submodule.mem_sup.1 hx
     refine ⟨a + 0, ((tendsto_birkhoffAverage_of_mem_ker ha).add
-      (hT.tendsto_birkhoffAverage_of_mem_topologicalClosure_range hb)).congr fun N ↦ ?_⟩
-    rw [birkhoffAverage_eq_smul_sum_pow, map_add]
+      (hT.tendsto_birkhoffAverage_of_mem_topologicalClosure_range hb)).congr fun N ↦
+      (birkhoffAverage_apply_add T N a b).symm⟩
 
 /-- The limit of the Cesàro means at `x` is `x` exactly when `x` is a fixed point of `T`. -/
 theorem tendsto_birkhoffAverage_self_iff (hT : T.IsPowerBounded) :
@@ -321,13 +343,13 @@ noncomputable def meanErgodicProj : E →L[𝕜] E :=
       map_add' x y := by
         refine tendsto_nhds_unique (hT.tendsto_birkhoffAverage_limUnder hF (x + y)) ?_
         refine ((hT.tendsto_birkhoffAverage_limUnder hF x).add
-          (hT.tendsto_birkhoffAverage_limUnder hF y)).congr fun N ↦ ?_
-        rw [birkhoffAverage_eq_smul_sum_pow, map_add]
+          (hT.tendsto_birkhoffAverage_limUnder hF y)).congr fun N ↦
+          (birkhoffAverage_apply_add T N x y).symm
       map_smul' c x := by
         rw [RingHom.id_apply]
         refine tendsto_nhds_unique (hT.tendsto_birkhoffAverage_limUnder hF (c • x)) ?_
-        refine ((hT.tendsto_birkhoffAverage_limUnder hF x).const_smul c).congr fun N ↦ ?_
-        rw [birkhoffAverage_eq_smul_sum_pow, map_smul] }
+        exact ((hT.tendsto_birkhoffAverage_limUnder hF x).const_smul c).congr fun N ↦
+          (birkhoffAverage_apply_smul T N c x).symm }
     (⨆ k, ‖T ^ k‖) fun x ↦
       hT.norm_le_of_tendsto_birkhoffAverage (hT.tendsto_birkhoffAverage_limUnder hF x)
 
@@ -368,12 +390,27 @@ theorem meanErgodicProj_meanErgodicProj_apply (x : E) :
     (tendsto_birkhoffAverage_of_mem_ker
       (mem_ker_one_sub_iff.2 (hT.apply_meanErgodicProj_apply hF x)))
 
+/-- `Π x = x` exactly when `x` is a fixed point of `T`. -/
+theorem meanErgodicProj_apply_eq_self_iff : hT.meanErgodicProj hF x = x ↔ x ∈ (1 - T).ker := by
+  rw [meanErgodicProj_apply_eq_iff, hT.tendsto_birkhoffAverage_self_iff]
+
+/-- `Π x = 0` exactly when `x` lies in the closure of the range of `1 - T`. -/
+theorem meanErgodicProj_apply_eq_zero_iff :
+    hT.meanErgodicProj hF x = 0 ↔ x ∈ (1 - T).range.topologicalClosure := by
+  rw [meanErgodicProj_apply_eq_iff, hT.tendsto_birkhoffAverage_zero_iff]
+
+/-- `Π` fixes the fixed points of `T`. -/
+theorem meanErgodicProj_apply_of_mem_ker (hx : x ∈ (1 - T).ker) : hT.meanErgodicProj hF x = x :=
+  (hT.meanErgodicProj_apply_eq_self_iff hF).2 hx
+
 /-- `Π T = Π`. -/
+@[simp]
 theorem meanErgodicProj_mul : hT.meanErgodicProj hF * T = hT.meanErgodicProj hF := by
   ext x
   exact hT.meanErgodicProj_apply_apply hF x
 
 /-- `T Π = Π`. -/
+@[simp]
 theorem mul_meanErgodicProj : T * hT.meanErgodicProj hF = hT.meanErgodicProj hF := by
   ext x
   exact hT.apply_meanErgodicProj_apply hF x
@@ -382,6 +419,12 @@ theorem mul_meanErgodicProj : T * hT.meanErgodicProj hF = hT.meanErgodicProj hF 
 theorem isIdempotentElem_meanErgodicProj : IsIdempotentElem (hT.meanErgodicProj hF) := by
   ext x
   exact hT.meanErgodicProj_meanErgodicProj_apply hF x
+
+/-- `Π * Π = Π`. -/
+@[simp]
+theorem meanErgodicProj_mul_self :
+    hT.meanErgodicProj hF * hT.meanErgodicProj hF = hT.meanErgodicProj hF :=
+  (hT.isIdempotentElem_meanErgodicProj hF).eq
 
 /-- The range of the mean ergodic projection is the space of fixed points of `T`. -/
 theorem range_meanErgodicProj :
@@ -396,8 +439,7 @@ theorem range_meanErgodicProj :
 theorem ker_meanErgodicProj :
     (hT.meanErgodicProj hF).ker = (1 - T).range.topologicalClosure := by
   ext x
-  rw [LinearMap.mem_ker, coe_coe, meanErgodicProj_apply_eq_iff,
-    hT.tendsto_birkhoffAverage_zero_iff]
+  rw [LinearMap.mem_ker, coe_coe, meanErgodicProj_apply_eq_zero_iff]
 
 end MeanErgodicProj
 
@@ -407,7 +449,7 @@ converge in operator norm to its mean ergodic projection. -/
 theorem tendsto_cesaro_meanErgodicProj [FiniteDimensional 𝕜 E] (hT : T.IsPowerBounded) :
     Tendsto (fun N : ℕ ↦ (N : 𝕜)⁻¹ • ∑ k ∈ range N, T ^ k) atTop
       (𝓝 (hT.meanErgodicProj hT.ker_sup_topologicalClosure_range_eq_top)) := by
-  refine tendsto_clm_apply.2 fun x ↦ ?_
+  refine LMLExplore.tendsto_clm_apply.2 fun x ↦ ?_
   simpa [birkhoffAverage_eq_smul_sum_pow] using
     hT.tendsto_birkhoffAverage_meanErgodicProj hT.ker_sup_topologicalClosure_range_eq_top x
 
