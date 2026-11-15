@@ -5,9 +5,9 @@ Authors: LMLExplore contributors
 -/
 module
 
+public import LMLExplore.Analysis.Convex.LagrangeDuality
 public import Statlib.EValues.EVariable
 import LMLExplore.Algebra.BigOperators.Perm
-import LMLExplore.Analysis.Convex.LagrangeDuality
 import LMLExplore.MeasureTheory.Integral.Lebesgue.Add
 import Mathlib.Algebra.BigOperators.Field
 
@@ -52,6 +52,9 @@ Proposition 8.3].
   weighted mean on finite arguments [Wan25, Theorem 1; Cle26], and
   `ProbabilityTheory.isEMerging_iff_exists_le_add_sum_mul`: this characterizes e-merging functions
   among measurable functions.
+* `ProbabilityTheory.jointlyConvexLikeOn_lintegral`: the integrals of `F` and of the coordinates
+  are jointly convex-like on every set of measures closed under mixtures, so Lagrange duality
+  applies to them.
 * `ProbabilityTheory.isAdmissibleEMerging_iff`: the admissible e-merging functions are the weighted
   means on finite arguments [Wan25, Theorem 1; RW, Theorem 8.4], and
   `ProbabilityTheory.IsEMerging.exists_isAdmissibleEMerging_le`: every e-merging function is
@@ -206,19 +209,18 @@ private lemma coe_add_sum_mul (w₀ : ℝ≥0) (w e : ι → ℝ≥0) :
 
 omit [Fintype ι] in
 /-- The objective `μ ↦ -∫⁻ F ∂μ` and the constraints `μ ↦ ∫⁻ e, e i ∂μ - 1` are jointly
-convex-like on the probability measures against which `F` and the coordinates have finite
-integrals: mixtures of measures mix the integrals. -/
-private lemma jointlyConvexLikeOn_lintegral (F : (ι → ℝ≥0∞) → ℝ≥0∞) :
-    LMLExplore.JointlyConvexLikeOn
-      {μ : Measure (ι → ℝ≥0∞) | IsProbabilityMeasure μ ∧ ∫⁻ e, F e ∂μ ≠ ∞ ∧
-        ∀ i, ∫⁻ e, e i ∂μ ≠ ∞}
+convex-like on every set `C` of measures that is closed under mixtures and against whose members
+`F` and the coordinates have finite integrals: mixtures of measures mix the integrals. -/
+theorem jointlyConvexLikeOn_lintegral (F : (ι → ℝ≥0∞) → ℝ≥0∞) {C : Set (Measure (ι → ℝ≥0∞))}
+    (hC : ∀ μ ∈ C, ∫⁻ e, F e ∂μ ≠ ∞ ∧ ∀ i, ∫⁻ e, e i ∂μ ≠ ∞)
+    (hmix : ∀ μ ∈ C, ∀ ν ∈ C, ∀ a b : ℝ, 0 ≤ a → 0 ≤ b → a + b = 1 →
+      ENNReal.ofReal a • μ + ENNReal.ofReal b • ν ∈ C) :
+    LMLExplore.JointlyConvexLikeOn C
       (fun μ ↦ -(∫⁻ e, F e ∂μ).toReal) (fun i μ ↦ (∫⁻ e, e i ∂μ).toReal - 1) := by
-  refine LMLExplore.jointlyConvexLikeOn_iff.2 ?_
-  rintro μ ⟨hμ, hμF, hμe⟩ ν ⟨hν, hνF, hνe⟩ a b ha hb hab
-  have hprob : IsProbabilityMeasure (ENNReal.ofReal a • μ + ENNReal.ofReal b • ν) :=
-    ⟨by simp [← ENNReal.ofReal_add ha hb, hab]⟩
-  refine ⟨_, ⟨hprob, lintegral_ofReal_smul_add_smul_ne_top hμF hνF,
-    fun i ↦ lintegral_ofReal_smul_add_smul_ne_top (hμe i) (hνe i)⟩,
+  refine LMLExplore.jointlyConvexLikeOn_iff.2 fun μ hμ ν hν a b ha hb hab ↦ ?_
+  obtain ⟨hμF, hμe⟩ := hC μ hμ
+  obtain ⟨hνF, hνe⟩ := hC ν hν
+  refine ⟨_, hmix μ hμ ν hν a b ha hb hab,
     by rw [toReal_lintegral_ofReal_smul_add_smul ha hb hμF hνF]; linarith, fun i ↦ ?_⟩
   rw [toReal_lintegral_ofReal_smul_add_smul ha hb (hμe i) (hνe i)]
   linear_combination hab
@@ -244,8 +246,11 @@ theorem IsEMerging.exists_le_add_sum_mul (hF : IsEMerging F) :
     have h1 : ∫⁻ e, F e ∂μ ≤ 1 := hF.lintegral_le_one μ fun i ↦
       (ENNReal.toReal_le_toReal (hμe i) ENNReal.one_ne_top).1 (by simpa using hle i)
     simpa using ENNReal.toReal_mono ENNReal.one_ne_top h1
-  obtain ⟨π, hπ⟩ := LMLExplore.exists_forall_le_add_sum_mul_of_convexLike
-    (jointlyConvexLikeOn_lintegral F) hslater hvalue
+  have hconv := jointlyConvexLikeOn_lintegral F (C := C) (fun μ hμ ↦ hμ.2)
+    fun μ ⟨_, hμF, hμe⟩ ν ⟨_, hνF, hνe⟩ a b ha hb hab ↦
+      ⟨⟨by simp [← ENNReal.ofReal_add ha hb, hab]⟩, lintegral_ofReal_smul_add_smul_ne_top hμF hνF,
+        fun i ↦ lintegral_ofReal_smul_add_smul_ne_top (hμe i) (hνe i)⟩
+  obtain ⟨π, hπ⟩ := LMLExplore.exists_forall_le_add_sum_mul_of_convexLike hconv hslater hvalue
   -- The Lagrangian at the Dirac mass at `e` bounds `F e`.
   have hbound (e : ι → ℝ≥0) :
       (F fun i ↦ e i).toReal ≤ 1 - ∑ i, (π i : ℝ) + ∑ i, (π i : ℝ) * e i := by

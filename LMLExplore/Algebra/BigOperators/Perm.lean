@@ -6,7 +6,6 @@ Authors: LMLExplore contributors
 module
 
 public import Mathlib.Algebra.BigOperators.Field
-public import Mathlib.Basic.ENNReal.Inv
 public import Mathlib.GroupTheory.Perm.Basic
 public import Mathlib.Algebra.BigOperators.Group.Finset.Sigma
 public import Mathlib.Data.Fintype.Perm
@@ -17,21 +16,18 @@ public import Mathlib.Data.Fintype.Perm
 For `w : ι → M` and `j : ι`, the sum `∑ σ : Perm ι, w (σ j)` over all permutations of a finite
 type does not depend on `j`, and `K` times it is `(K!)` times `∑ i, w i`, for `K` the cardinality
 of `ι`. In a semifield of characteristic zero: averaging the `w (σ j)` over the permutations `σ`
-gives the average `(∑ i, w i) / K` of the `w i`, and likewise in `ℝ≥0∞`, which is not a
-semifield. This is how a weighting is symmetrized.
+gives the average `(∑ i, w i) / K` of the `w i`. This is how a weighting is symmetrized.
 
 ## Main statements
 
 * `Equiv.Perm.sum_apply_eq_sum_apply`: `∑ σ, w (σ j) = ∑ σ, w (σ k)`.
 * `Equiv.Perm.card_nsmul_sum_apply`: `K • ∑ σ, w (σ j) = card (Perm ι) • ∑ i, w i`.
 * `Equiv.Perm.sum_apply_div_card`: `(∑ σ, w (σ j)) / card (Perm ι) = (∑ i, w i) / K`.
-* `Equiv.Perm.sum_comp_swap`: `∑ x ∈ s, w (swap a b x) = ∑ x ∈ s, w x` for `a, b ∈ s`.
-* `ENNReal.sum_perm_apply_div_card`: the same identity in `ℝ≥0∞`.
+* `Equiv.Perm.prod_comp_swap`, `Equiv.Perm.sum_comp_swap`:
+  `∏ x ∈ s, w (swap a b x) = ∏ x ∈ s, w x` for `a, b ∈ s`, and its additive version.
 -/
 
 public section
-
-open scoped ENNReal
 
 namespace Equiv.Perm
 
@@ -63,10 +59,12 @@ theorem sum_apply_div_card [Semifield M] [CharZero M] (w : ι → M) (j : ι) :
   rw [nsmul_eq_mul, nsmul_eq_mul] at h
   rw [div_eq_div_iff hN hK, mul_comm, h, mul_comm]
 
-/-- Composing with the swap of two elements of a finset does not change the sum over it. -/
-theorem sum_comp_swap [AddCommMonoid M] {α : Type*} [DecidableEq α] {s : Finset α} {a b : α}
-    (ha : a ∈ s) (hb : b ∈ s) (w : α → M) : ∑ x ∈ s, w (Equiv.swap a b x) = ∑ x ∈ s, w x := by
-  refine sum_comp (Equiv.swap a b) s w fun x hx ↦ ?_
+/-- Composing with the swap of two elements of a finset does not change the product over it. -/
+@[to_additive /-- Composing with the swap of two elements of a finset does not change the sum
+over it. -/]
+theorem prod_comp_swap [CommMonoid M] {α : Type*} [DecidableEq α] {s : Finset α} {a b : α}
+    (ha : a ∈ s) (hb : b ∈ s) (w : α → M) : ∏ x ∈ s, w (Equiv.swap a b x) = ∏ x ∈ s, w x := by
+  refine prod_comp (Equiv.swap a b) s w fun x hx ↦ ?_
   rcases eq_or_ne x a with rfl | hxa
   · exact ha
   rcases eq_or_ne x b with rfl | hxb
@@ -74,17 +72,3 @@ theorem sum_comp_swap [AddCommMonoid M] {α : Type*} [DecidableEq α] {s : Finse
   exact absurd (Equiv.swap_apply_of_ne_of_ne hxa hxb) hx
 
 end Equiv.Perm
-
-namespace ENNReal
-
-variable {ι : Type*} [Fintype ι] [DecidableEq ι]
-
-/-- **Averaging over all permutations** in `ℝ≥0∞`: the average of `w (σ j)` over the
-permutations `σ` is the average `(∑ i, w i) / K` of the `w i`, for `K` the cardinality of `ι`. -/
-theorem sum_perm_apply_div_card (w : ι → ℝ≥0∞) (j : ι) :
-    (∑ σ : Equiv.Perm ι, w (σ j)) / Fintype.card (Equiv.Perm ι) = (∑ i, w i) / Fintype.card ι := by
-  have hK : (Fintype.card ι : ℝ≥0∞) ≠ 0 := Nat.cast_ne_zero.2 (@Fintype.card_ne_zero ι _ ⟨j⟩)
-  rw [ENNReal.div_eq_div_iff hK (by simp) (Nat.cast_ne_zero.2 Fintype.card_ne_zero) (by simp)]
-  simpa [nsmul_eq_mul] using Equiv.Perm.card_nsmul_sum_apply w j
-
-end ENNReal
