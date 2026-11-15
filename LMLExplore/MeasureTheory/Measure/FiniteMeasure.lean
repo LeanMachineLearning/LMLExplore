@@ -10,18 +10,18 @@ public import Mathlib.MeasureTheory.Measure.FiniteMeasure
 /-!
 # The mass of sums and multiples of finite measures
 
-The total mass `MeasureTheory.FiniteMeasure.mass` is additive and commutes with multiplication by
-a nonnegative real.
+The total mass `MeasureTheory.FiniteMeasure.mass` is additive and commutes with scalar
+multiplication.
 
 ## Main statements
 
 * `MeasureTheory.FiniteMeasure.mass_add`: the mass of a sum is the sum of the masses.
-* `MeasureTheory.FiniteMeasure.mass_smul`: the mass of `c • μ` is `c * μ.mass`.
+* `MeasureTheory.FiniteMeasure.mass_smul`: the mass of `c • μ` is `c • μ.mass`.
 -/
 
 public section
 
-open scoped NNReal
+open scoped NNReal ENNReal
 
 namespace MeasureTheory.FiniteMeasure
 
@@ -34,11 +34,12 @@ theorem mass_add (μ ν : FiniteMeasure Ω) : (μ + ν).mass = μ.mass + ν.mass
   push_cast
   simp only [ennreal_mass, toMeasure_add, add_apply]
 
-/-- The mass of a nonnegative multiple of a finite measure. -/
+/-- The mass of a scalar multiple of a finite measure. -/
 @[simp]
-theorem mass_smul (c : ℝ≥0) (μ : FiniteMeasure Ω) : (c • μ).mass = c * μ.mass := by
-  rw [← ENNReal.coe_inj]
-  push_cast
-  simp only [ennreal_mass, toMeasure_smul, smul_apply, ENNReal.smul_def, smul_eq_mul]
+theorem mass_smul {R : Type*} [SMul R ℝ≥0] [SMul R ℝ≥0∞] [IsScalarTower R ℝ≥0 ℝ≥0]
+    [IsScalarTower R ℝ≥0 ℝ≥0∞] [IsScalarTower R ℝ≥0∞ ℝ≥0∞] (c : R) (μ : FiniteMeasure Ω) :
+    (c • μ).mass = c • μ.mass := by
+  rw [← ENNReal.coe_inj, ENNReal.coe_smul, ennreal_mass, ennreal_mass, toMeasure_smul,
+    smul_apply]
 
 end MeasureTheory.FiniteMeasure
