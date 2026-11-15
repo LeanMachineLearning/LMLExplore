@@ -7,6 +7,8 @@ module
 
 public import Statlib.EValues.RIPr
 public import LMLExplore.EValues.EffectiveSet
+public import LMLExplore.EValues.EVariable
+public import LMLExplore.MeasureTheory.Measure.AbsolutelyContinuousSet
 public import LMLExplore.MeasureTheory.Measure.WithDensity
 
 /-!
@@ -20,19 +22,25 @@ criteria of Larsson, Ramdas and Ruf: an e-variable `X` is the numeraire exactly 
 candidate numeraire is therefore checked against the null through one measure, with no
 optimization over the e-variables.
 
-Several statements assume that every measurable set charged by `Q` is charged by some member of
-`S`, the absolute continuity `Q ≪ S` of [LRR25]. Under it every e-variable is `Q`-almost surely
-finite, and the numeraire is the only e-variable that is a likelihood ratio of `Q` against an
-equivalent member of the effective null.
+Several statements assume that `Q` is absolutely continuous with respect to the null,
+`Q.AbsolutelyContinuousSet S` (the `Q ≪ S` of [LRR25]): every measurable set charged by `Q` is
+charged by some member of `S`. This holds exactly when every e-variable for `S` is `Q`-almost
+surely finite (`ProbabilityTheory.absolutelyContinuousSet_iff_forall_isEVar_ae_ne_top`, in
+`LMLExplore.EValues.EVariable`) [LRR25, Theorem 2.6], and the numeraire is then the only
+e-variable that is a likelihood ratio of `Q` against an equivalent member of the effective null.
+The verification theorem itself only needs the candidate numeraire to be `Q`-almost surely
+finite.
 
 ## Main statements
 
 * `ProbabilityTheory.isNumeraire_iff_smul_withDensity_inv_mem_effectiveSet`: for any finite `Q`
   and any null, an e-variable `X` is the numeraire exactly when `Q.withDensity X⁻¹`, divided by
   the mass under `Q` of the set where `X` is positive and finite, is in the effective null.
-* `ProbabilityTheory.isNumeraire_iff_withDensity_inv_mem_effectiveSet`: for `Q ≪ S` and a
-  `Q`-almost surely positive e-variable `X`, `X` is the numeraire exactly when
-  `Q.withDensity X⁻¹` is in the effective null [LRR25, Theorem 4.1].
+* `ProbabilityTheory.withDensity_inv_mem_effectiveSet_iff`: `Q.withDensity X⁻¹` is in the
+  effective null exactly when `∫⁻ Y / X ∂Q ≤ 1` for every e-variable `Y`.
+* `ProbabilityTheory.isNumeraire_iff_withDensity_inv_mem_effectiveSet`: a `Q`-almost surely
+  finite e-variable `X` is the numeraire exactly when `Q.withDensity X⁻¹` is in the effective
+  null [LRR25, Theorem 4.1].
 * `ProbabilityTheory.IsNumeraire.ripr_eq`, `ProbabilityTheory.absolutelyContinuous_ripr`,
   `ProbabilityTheory.IsNumeraire.eq_withDensity_inv_of_le`: that measure is then the reverse
   information projection, it is equivalent to `Q`, and it is maximal among the members of the
@@ -40,12 +48,21 @@ equivalent member of the effective null.
 * `ProbabilityTheory.isNumeraire_iff_exists_ae_eq_rnDeriv`: for `Q ≪ S`, the numeraire is the
   only e-variable that is a likelihood ratio `Q.rnDeriv μ` against a member `μ` of the effective
   null equivalent to `Q` [LRR25, Theorem 4.1; RW, Theorem 6.15].
+* `ProbabilityTheory.ripr_eq_of_isEVar_rnDeriv`, `ProbabilityTheory.ripr_singleton_eq`: a member
+  `R` of the effective null equivalent to `Q` whose likelihood ratio `Q.rnDeriv R` is an
+  e-variable is the reverse information projection; for a simple null `{P}` with `P` equivalent
+  to `Q`, the reverse information projection is `P`.
+* `ProbabilityTheory.isNumeraire_div_rnDeriv_iff`: **the dominated criterion** [LRR25,
+  Theorem 4.7]: for a null `S` of probability measures, with densities `q` of `Q` and `p` of
+  `P ∈ S` with respect to a σ-finite reference measure, and with `r` the density of a member `R`
+  of the effective null with `Q ≪ R`, `q / r` is the numeraire exactly when `∫⁻ p / r ∂Q ≤ 1` for
+  every `P ∈ S`.
 * `ProbabilityTheory.isNumeraire_of_lintegral_div_le_one`,
-  `ProbabilityTheory.ripr_mem_of_lintegral_div_le_one`: for `Q ≪ S` and a null `S` containing
-  every probability measure under which each member of a family `𝓔₀` has expectation at most
-  `1`, a `Q`-almost surely positive e-variable `X` with `∫⁻ X⁻¹ ∂Q = 1` and `∫⁻ Y / X ∂Q ≤ 1` for
-  every `Y ∈ 𝓔₀` is the numeraire, and the reverse information projection then belongs to `S`
-  [LRR25, Corollary 4.2].
+  `ProbabilityTheory.ripr_mem_of_lintegral_div_le_one`: for a null `S` containing every
+  probability measure under which each member of a family `𝓔₀` has expectation at most `1`, a
+  `Q`-almost surely finite e-variable `X` with `∫⁻ X⁻¹ ∂Q = 1` and `∫⁻ Y / X ∂Q ≤ 1` for every
+  `Y ∈ 𝓔₀` is the numeraire, and the reverse information projection then belongs to `S` [LRR25,
+  Corollary 4.2].
 * `ProbabilityTheory.isNumeraire_piecewise_rnDeriv_cond`: the numeraire of a simple null `{P}`
   with no absolute continuity: `∞` on a `P`-null set `N` off which `Q` is absolutely continuous
   with respect to `P`, and the likelihood ratio of `Q[|Nᶜ]` to `P` on `Nᶜ` [LRR25,
@@ -57,8 +74,8 @@ equivalent member of the effective null.
 ## References
 
 * [LRR25] M. Larsson, A. Ramdas and J. Ruf, *The numeraire e-variable and reverse information
-  projection*, Ann. Statist. 53 (2025), arXiv:2402.18810v4, Lemma 3.3, Theorem 3.13,
-  Corollary 3.15, Theorem 4.1 and Corollary 4.2.
+  projection*, Ann. Statist. 53 (2025), arXiv:2402.18810v4, Lemma 3.3, Theorem 2.6,
+  Theorem 3.13, Corollary 3.15, Theorem 4.1, Corollary 4.2 and Theorem 4.7.
 * [RW] A. Ramdas and R. Wang, *Hypothesis Testing with E-values*, Foundations and Trends in
   Statistics 1 (2025), arXiv:2410.23614v6, Theorems 3.20 and 6.15.
 -/
@@ -71,7 +88,7 @@ open scoped ENNReal
 
 namespace ProbabilityTheory
 
-variable {Ω : Type*} {mΩ : MeasurableSpace Ω} {S : Set (Measure Ω)} {Q P μ : Measure Ω}
+variable {Ω : Type*} {mΩ : MeasurableSpace Ω} {S : Set (Measure Ω)} {Q P R μ : Measure Ω}
   {X : Ω → ℝ≥0∞}
 
 /-! ### The numeraire through the effective null, for any alternative -/
@@ -119,36 +136,52 @@ theorem isNumeraire_of_smul_withDensity_inv_le [IsFiniteMeasure Q] (hX : IsEVar 
     IsNumeraire X S Q :=
   isNumeraire_iff_smul_withDensity_inv_mem_effectiveSet.mpr ⟨hX, mem_effectiveSet_of_le hμ hle⟩
 
-/-! ### Alternatives absolutely continuous with respect to the null -/
+/-! ### Almost surely finite e-variables -/
 
-/-- If every measurable set charged by `Q` is charged by some member of `S`, every e-variable for
-`S` is `Q`-almost surely finite. -/
-theorem IsEVar.ae_ne_top_of_forall_measure_eq_zero (hX : IsEVar X S)
-    (hQS : ∀ s, MeasurableSet s → (∀ P ∈ S, P s = 0) → Q s = 0) : ∀ᵐ ω ∂Q, X ω ≠ ∞ := by
-  refine ae_iff.mpr (hQS _ ?_ fun P hP ↦ ae_iff.mp (hX.ae_ne_top hP))
-  simp only [ne_eq, not_not]
-  exact measurableSet_eq_fun hX.measurable measurable_const
+/-- The finite support of a `Q`-almost surely positive and finite function has full measure under
+`Q`. -/
+theorem measure_fsupport_eq_measure_univ (hX_top : ∀ᵐ ω ∂Q, X ω ≠ ∞)
+    (hX₀ : ∀ᵐ ω ∂Q, X ω ≠ 0) : Q X.fsupport = Q univ :=
+  measure_congr <| ae_eq_univ.mpr <| mem_ae_iff.mp <| by
+    filter_upwards [hX_top, hX₀] with ω h_top h_zero using ⟨h_top, h_zero⟩
 
-/-- If every measurable set charged by `Q` is charged by some member of `S`, the finite support of
-a `Q`-almost surely positive e-variable for `S` has full measure under `Q`. -/
-theorem IsEVar.measure_fsupport_eq_measure_univ [IsFiniteMeasure Q] (hX : IsEVar X S)
-    (hQS : ∀ s, MeasurableSet s → (∀ P ∈ S, P s = 0) → Q s = 0) (hX₀ : ∀ᵐ ω ∂Q, X ω ≠ 0) :
-    Q X.fsupport = Q univ := by
-  refine (ae_iff_measure_eq hX.measurable_fsupport.nullMeasurableSet).mp ?_
-  filter_upwards [hX.ae_ne_top_of_forall_measure_eq_zero hQS, hX₀] with ω h_top h_zero
-  exact ⟨h_top, h_zero⟩
+/-- The measure `Q.withDensity X⁻¹` is in the effective null exactly when every e-variable `Y`
+has `∫⁻ Y / X ∂Q ≤ 1`: under `Q.withDensity X⁻¹`, `Y` has expectation `∫⁻ Y / X ∂Q`. -/
+theorem withDensity_inv_mem_effectiveSet_iff (hX : Measurable X) :
+    Q.withDensity (fun ω ↦ (X ω)⁻¹) ∈ effectiveSet S ↔
+      ∀ Y, IsEVar Y S → ∫⁻ ω, Y ω / X ω ∂Q ≤ 1 :=
+  forall₂_congr fun _ hY ↦ by
+    rw [lintegral_withDensity_inv_eq_lintegral_div hX.aemeasurable hY.measurable.aemeasurable]
 
-/-- **[LRR25, Theorem 4.1].** If every measurable set charged by the probability measure `Q` is
-charged by some member of `S`, a `Q`-almost surely positive e-variable `X` for `S` is the
-numeraire of `S` under `Q` exactly when the measure of density `X⁻¹` with respect to `Q` belongs
-to the effective null. -/
+/-- A `Q`-almost surely finite e-variable `X` for which `Q.withDensity X⁻¹` is in the effective
+null is the numeraire. -/
+theorem isNumeraire_of_withDensity_inv_mem_effectiveSet [IsProbabilityMeasure Q]
+    (hX : IsEVar X S) (hX_top : ∀ᵐ ω ∂Q, X ω ≠ ∞)
+    (h : Q.withDensity (fun ω ↦ (X ω)⁻¹) ∈ effectiveSet S) :
+    IsNumeraire X S Q := by
+  have h_div := (withDensity_inv_mem_effectiveSet_iff hX.measurable).mp h
+  -- The expectation of `X⁻¹` is finite, so that `X` is almost surely positive.
+  have hX_zero : ∀ᵐ ω ∂Q, X ω ≠ 0 := by
+    have h_inv : ∫⁻ ω, (X ω)⁻¹ ∂Q ≠ ∞ :=
+      ne_top_of_le_ne_top ENNReal.one_ne_top (by simpa using h_div 1 (isEVar_one S))
+    filter_upwards [ae_lt_top hX.measurable.inv h_inv] with ω hω
+    simpa using hω.ne
+  have h_supp : Q X.fsupport = 1 :=
+    (measure_fsupport_eq_measure_univ hX_top hX_zero).trans measure_univ
+  exact isNumeraire_of_lintegral_div_le hX (by simp [h_supp]) fun Y hY ↦ h_supp ▸ h_div Y hY
+
+/-- **[LRR25, Theorem 4.1].** A `Q`-almost surely finite e-variable `X` for `S` is the numeraire
+of `S` under the probability measure `Q` exactly when the measure of density `X⁻¹` with respect to
+`Q` belongs to the effective null. When `Q` is absolutely continuous with respect to `S`, every
+e-variable is `Q`-almost surely finite (`MeasureTheory.Measure.AbsolutelyContinuousSet.ae_ne_top`).
+-/
 theorem isNumeraire_iff_withDensity_inv_mem_effectiveSet [IsProbabilityMeasure Q]
-    (hQS : ∀ s, MeasurableSet s → (∀ P ∈ S, P s = 0) → Q s = 0) (hX : IsEVar X S)
-    (hX₀ : ∀ᵐ ω ∂Q, X ω ≠ 0) :
-    IsNumeraire X S Q ↔ Q.withDensity (fun ω ↦ (X ω)⁻¹) ∈ effectiveSet S := by
-  rw [isNumeraire_iff_smul_withDensity_inv_mem_effectiveSet,
-    hX.measure_fsupport_eq_measure_univ hQS hX₀, measure_univ, inv_one, one_smul,
-    and_iff_right hX]
+    (hX : IsEVar X S) (hX_top : ∀ᵐ ω ∂Q, X ω ≠ ∞) :
+    IsNumeraire X S Q ↔ Q.withDensity (fun ω ↦ (X ω)⁻¹) ∈ effectiveSet S :=
+  ⟨IsNumeraire.withDensity_inv_mem_effectiveSet,
+    isNumeraire_of_withDensity_inv_mem_effectiveSet hX hX_top⟩
+
+/-! ### Alternatives absolutely continuous with respect to the null -/
 
 /-- The reverse information projection is the measure of density `X⁻¹` with respect to `Q`, for
 the numeraire `X` [LRR25, Theorem 4.1]. -/
@@ -158,20 +191,18 @@ theorem IsNumeraire.ripr_eq [IsFiniteMeasure Q] (hS : ∀ P ∈ S, IsFiniteMeasu
   filter_upwards [(isNumeraire_numeraire Q hS).ae_unique hX] with ω hω
   rw [hω]
 
-/-- If every measurable set charged by `Q` is charged by some member of `S`, then `Q` is
-absolutely continuous with respect to its reverse information projection on `S`, so that the two
-are equivalent [LRR25, Theorem 4.1]. -/
-theorem absolutelyContinuous_ripr
-    (hQS : ∀ s, MeasurableSet s → (∀ P ∈ S, P s = 0) → Q s = 0) : Q ≪ ripr Q S :=
-  absolutelyContinuous_ripr_of_ae_ne_top
-    ((isEVar_numeraire Q S).ae_ne_top_of_forall_measure_eq_zero hQS)
+/-- If `Q` is absolutely continuous with respect to `S`, then `Q` is absolutely continuous with
+respect to its reverse information projection on `S`, so that the two are equivalent [LRR25,
+Theorem 4.1]. -/
+theorem absolutelyContinuous_ripr (hQS : Q.AbsolutelyContinuousSet S) : Q ≪ ripr Q S :=
+  absolutelyContinuous_ripr_of_ae_ne_top (hQS.ae_ne_top (isEVar_numeraire Q S))
 
-/-- **Maximality of the reverse information projection** [LRR25, Theorem 4.1]. If every measurable
-set charged by the probability measure `Q` is charged by some member of `S` and `X` is the
-numeraire, a member of the effective null that is absolutely continuous with respect to `Q` and
-setwise above `Q.withDensity X⁻¹` is equal to it. -/
+/-- **Maximality of the reverse information projection** [LRR25, Theorem 4.1]. If the probability
+measure `Q` is absolutely continuous with respect to `S` and `X` is the numeraire, a member of the
+effective null that is absolutely continuous with respect to `Q` and setwise above
+`Q.withDensity X⁻¹` is equal to it. -/
 theorem IsNumeraire.eq_withDensity_inv_of_le [IsProbabilityMeasure Q]
-    (hQS : ∀ s, MeasurableSet s → (∀ P ∈ S, P s = 0) → Q s = 0) (hX : IsNumeraire X S Q)
+    (hQS : Q.AbsolutelyContinuousSet S) (hX : IsNumeraire X S Q)
     (hμ : μ ∈ effectiveSet S) (hμQ : μ ≪ Q) (hle : Q.withDensity (fun ω ↦ (X ω)⁻¹) ≤ μ) :
     μ = Q.withDensity fun ω ↦ (X ω)⁻¹ := by
   set ν := Q.withDensity fun ω ↦ (X ω)⁻¹
@@ -182,7 +213,8 @@ theorem IsNumeraire.eq_withDensity_inv_of_le [IsProbabilityMeasure Q]
   have h_one : ∫⁻ ω, X ω ∂ν = 1 := by
     rw [lintegral_withDensity_inv_eq_lintegral_div hX_meas.aemeasurable hX_meas.aemeasurable,
       lintegral_div_self_eq_measure_fsupport hX_meas.aemeasurable,
-      hX.isEVar.measure_fsupport_eq_measure_univ hQS hX.ae_ne_zero, measure_univ]
+      measure_fsupport_eq_measure_univ (hQS.ae_ne_top hX.isEVar) hX.ae_ne_zero,
+      measure_univ]
   have h_add : ∫⁻ ω, X ω ∂(μ - ν) + 1 ≤ 1 := by
     have h_le := hμ X hX.isEVar
     rwa [← Measure.sub_add_cancel_of_le hle, lintegral_add_measure, h_one] at h_le
@@ -195,6 +227,8 @@ theorem IsNumeraire.eq_withDensity_inv_of_le [IsProbabilityMeasure Q]
     filter_upwards [(lintegral_eq_zero_iff hX_meas).mp h_zero, h_ac.ae_le hX.ae_ne_zero]
       with ω h₀ h_ne using h_ne h₀
   rw [← Measure.sub_add_cancel_of_le hle, h_sub, zero_add]
+
+/-! ### Likelihood ratios against the effective null -/
 
 /-- A likelihood ratio `Q.rnDeriv μ` against a member `μ` of the effective null with `Q ≪ μ` is
 the numeraire, as soon as it is an e-variable [LRR25, Theorem 4.1; RW, Theorem 6.15]. -/
@@ -215,20 +249,57 @@ theorem isNumeraire_of_ae_eq_rnDeriv [IsProbabilityMeasure Q] (hX : IsEVar X S)
     withDensity_congr_ae ((hXμ.fun_comp (·⁻¹)).trans (Measure.inv_rnDeriv hQμ))
   _ ≤ μ := Measure.withDensity_rnDeriv_le μ Q
 
-/-- **[LRR25, Theorem 4.1; RW, Theorem 6.15].** If every measurable set charged by the probability
-measure `Q` is charged by some member of a null `S` of finite measures, an e-variable for `S` is
-the numeraire exactly when it is the likelihood ratio of `Q` against a member of the effective
-null equivalent to `Q`. -/
+/-- **[LRR25, Theorem 4.1; RW, Theorem 6.15].** If the probability measure `Q` is absolutely
+continuous with respect to a null `S` of finite measures, an e-variable for `S` is the numeraire
+exactly when it is the likelihood ratio of `Q` against a member of the effective null equivalent
+to `Q`. -/
 theorem isNumeraire_iff_exists_ae_eq_rnDeriv [IsProbabilityMeasure Q]
-    (hS : ∀ P ∈ S, IsFiniteMeasure P)
-    (hQS : ∀ s, MeasurableSet s → (∀ P ∈ S, P s = 0) → Q s = 0) (hX : IsEVar X S) :
+    (hS : ∀ P ∈ S, IsFiniteMeasure P) (hQS : Q.AbsolutelyContinuousSet S) (hX : IsEVar X S) :
     IsNumeraire X S Q ↔
       ∃ μ ∈ effectiveSet S, Q ≪ μ ∧ μ ≪ Q ∧ X =ᵐ[Q] Q.rnDeriv μ := by
   refine ⟨fun hXn ↦ ⟨ripr Q S, ripr_mem_effectiveSet Q hS, absolutelyContinuous_ripr hQS,
     withDensity_absolutelyContinuous _ _, ?_⟩,
     fun ⟨μ, hμ, hQμ, _, hXμ⟩ ↦ isNumeraire_of_ae_eq_rnDeriv hX hμ hQμ hXμ⟩
   exact (hXn.ae_unique (isNumeraire_numeraire Q hS)).trans
-    (rnDeriv_ripr hS ((isEVar_numeraire Q S).ae_ne_top_of_forall_measure_eq_zero hQS)).symm
+    (rnDeriv_ripr hS (hQS.ae_ne_top (isEVar_numeraire Q S))).symm
+
+/-- For a null `S` of finite measures and a member `R` of the effective null equivalent to the
+probability measure `Q`, if the likelihood ratio `Q.rnDeriv R` is an e-variable, then `R` is the
+reverse information projection of `Q` onto `S`. -/
+theorem ripr_eq_of_isEVar_rnDeriv [IsProbabilityMeasure Q] (hS : ∀ P ∈ S, IsFiniteMeasure P)
+    (hR : R ∈ effectiveSet S) (hQR : Q ≪ R) (hRQ : R ≪ Q) (hX : IsEVar (Q.rnDeriv R) S) :
+    ripr Q S = R := by
+  have := isFiniteMeasure_of_mem_effectiveSet hR
+  rw [(isNumeraire_of_ae_eq_rnDeriv hX hR hQR .rfl).ripr_eq hS]
+  calc Q.withDensity (fun ω ↦ (Q.rnDeriv R ω)⁻¹)
+  _ = Q.withDensity (R.rnDeriv Q) := withDensity_congr_ae (Measure.inv_rnDeriv hQR)
+  _ = R := Measure.withDensity_rnDeriv_eq R Q hRQ
+
+/-- **The dominated criterion** [LRR25, Theorem 4.7]. Let `Q` and the members of a null `S` of
+probability measures be absolutely continuous with respect to a σ-finite measure `μ`, with
+densities `q` and `p`, and let `R` be a member of the effective null with density `r` and
+`Q ≪ R`. Then `q / r` is the numeraire exactly when `∫⁻ p / r ∂Q ≤ 1` for every `P ∈ S`. -/
+theorem isNumeraire_div_rnDeriv_iff [IsProbabilityMeasure Q] [SigmaFinite μ]
+    (hS : ∀ P ∈ S, IsProbabilityMeasure P) (hSμ : ∀ P ∈ S, P ≪ μ) (hQμ : Q ≪ μ)
+    (hR : R ∈ effectiveSet S) (hQR : Q ≪ R) :
+    IsNumeraire (fun ω ↦ Q.rnDeriv μ ω / R.rnDeriv μ ω) S Q ↔
+      ∀ P ∈ S, ∫⁻ ω, P.rnDeriv μ ω / R.rnDeriv μ ω ∂Q ≤ 1 := by
+  have := isFiniteMeasure_of_mem_effectiveSet hR
+  have hRμ : R ≪ μ := absolutelyContinuous_of_mem_effectiveSet hR hSμ
+  have hX_meas : Measurable fun ω ↦ Q.rnDeriv μ ω / R.rnDeriv μ ω := by fun_prop
+  -- `q / r` is `Q`-almost surely the likelihood ratio `Q.rnDeriv R`.
+  have h_eq : (fun ω ↦ Q.rnDeriv μ ω / R.rnDeriv μ ω) =ᵐ[Q] Q.rnDeriv R :=
+    hQR.ae_le (Measure.rnDeriv_eq_div hQμ hRμ).symm
+  rw [show IsNumeraire _ S Q ↔ _ from
+      ⟨IsNumeraire.isEVar, fun hX ↦ isNumeraire_of_ae_eq_rnDeriv hX hR hQR h_eq⟩,
+    isEVar_iff_lintegral_le_one hS, and_iff_right hX_meas]
+  refine forall₂_congr fun P hP ↦ ?_
+  have := hS P hP
+  -- `∫⁻ q / r ∂P = ∫⁻ p * (q / r) ∂μ = ∫⁻ q * (p / r) ∂μ = ∫⁻ p / r ∂Q`.
+  rw [← lintegral_rnDeriv_mul (hSμ P hP) hX_meas.aemeasurable,
+    ← lintegral_rnDeriv_mul hQμ
+      (by fun_prop : Measurable fun ω ↦ P.rnDeriv μ ω / R.rnDeriv μ ω).aemeasurable]
+  simp_rw [div_eq_mul_inv, mul_left_comm (P.rnDeriv μ _)]
 
 /-! ### Generated nulls -/
 
@@ -246,21 +317,18 @@ private theorem withDensity_inv_mem_of_lintegral_div_le_one {𝓔₀ : Set (Ω �
     (h𝓔₀ Y hY).aemeasurable).trans_le (h_le Y hY)
 
 /-- **Generated nulls** [LRR25, Corollary 4.2]. Let `S` contain every probability measure under
-which each member of a family `𝓔₀` has expectation at most `1`, and let every measurable set
-charged by the probability measure `Q` be charged by some member of `S`. An e-variable `X` for
-`S` with `∫⁻ X⁻¹ ∂Q = 1` and `∫⁻ Y / X ∂Q ≤ 1` for every `Y ∈ 𝓔₀` is the numeraire of `S`
-under `Q`; the first condition forces `X` to be `Q`-almost surely positive. -/
+which each member of a family `𝓔₀` has expectation at most `1`. A `Q`-almost surely finite
+e-variable `X` for `S` with `∫⁻ X⁻¹ ∂Q = 1` and `∫⁻ Y / X ∂Q ≤ 1` for every `Y ∈ 𝓔₀` is the
+numeraire of `S` under the probability measure `Q`. The finiteness holds when `Q` is absolutely
+continuous with respect to `S` (`MeasureTheory.Measure.AbsolutelyContinuousSet.ae_ne_top`). -/
 theorem isNumeraire_of_lintegral_div_le_one [IsProbabilityMeasure Q] {𝓔₀ : Set (Ω → ℝ≥0∞)}
     (h𝓔₀ : ∀ Y ∈ 𝓔₀, Measurable Y)
     (hS : ∀ P : Measure Ω, IsProbabilityMeasure P → (∀ Y ∈ 𝓔₀, ∫⁻ ω, Y ω ∂P ≤ 1) → P ∈ S)
-    (hQS : ∀ s, MeasurableSet s → (∀ P ∈ S, P s = 0) → Q s = 0) (hX : IsEVar X S)
+    (hX : IsEVar X S) (hX_top : ∀ᵐ ω ∂Q, X ω ≠ ∞)
     (h_one : ∫⁻ ω, (X ω)⁻¹ ∂Q = 1) (h_le : ∀ Y ∈ 𝓔₀, ∫⁻ ω, Y ω / X ω ∂Q ≤ 1) :
     IsNumeraire X S Q := by
-  have hX₀ : ∀ᵐ ω ∂Q, X ω ≠ 0 :=
-    (ae_lt_top hX.measurable.inv (h_one ▸ ENNReal.one_ne_top)).mono
-      fun ω h ↦ (ENNReal.inv_lt_top.mp h).ne'
   have hmem := withDensity_inv_mem_of_lintegral_div_le_one h𝓔₀ hS hX.measurable h_one h_le
-  refine (isNumeraire_iff_withDensity_inv_mem_effectiveSet hQS hX hX₀).mpr fun Y hY ↦ ?_
+  refine isNumeraire_of_withDensity_inv_mem_effectiveSet hX hX_top fun Y hY ↦ ?_
   refine (hY.lintegral_le_measure_univ _ hmem).trans_eq ?_
   rw [withDensity_apply _ MeasurableSet.univ, setLIntegral_univ, h_one]
 
@@ -270,11 +338,10 @@ information projection of `Q` on `S` belongs to `S`. -/
 theorem ripr_mem_of_lintegral_div_le_one [IsProbabilityMeasure Q] {𝓔₀ : Set (Ω → ℝ≥0∞)}
     (h𝓔₀ : ∀ Y ∈ 𝓔₀, Measurable Y)
     (hS : ∀ P : Measure Ω, IsProbabilityMeasure P → (∀ Y ∈ 𝓔₀, ∫⁻ ω, Y ω ∂P ≤ 1) → P ∈ S)
-    (hS_fin : ∀ P ∈ S, IsFiniteMeasure P)
-    (hQS : ∀ s, MeasurableSet s → (∀ P ∈ S, P s = 0) → Q s = 0) (hX : IsEVar X S)
+    (hS_fin : ∀ P ∈ S, IsFiniteMeasure P) (hX : IsEVar X S) (hX_top : ∀ᵐ ω ∂Q, X ω ≠ ∞)
     (h_one : ∫⁻ ω, (X ω)⁻¹ ∂Q = 1) (h_le : ∀ Y ∈ 𝓔₀, ∫⁻ ω, Y ω / X ω ∂Q ≤ 1) :
     ripr Q S ∈ S := by
-  rw [(isNumeraire_of_lintegral_div_le_one h𝓔₀ hS hQS hX h_one h_le).ripr_eq hS_fin]
+  rw [(isNumeraire_of_lintegral_div_le_one h𝓔₀ hS hX hX_top h_one h_le).ripr_eq hS_fin]
   exact withDensity_inv_mem_of_lintegral_div_le_one h𝓔₀ hS hX.measurable h_one h_le
 
 /-! ### Simple nulls: likelihood ratios -/
@@ -338,5 +405,12 @@ theorem isNumeraire_rnDeriv [IsProbabilityMeasure Q] [IsProbabilityMeasure P] (h
   classical
   simpa using isNumeraire_piecewise_rnDeriv_cond (Q := Q) MeasurableSet.empty measure_empty
     (by simpa using hQP)
+
+/-- For equivalent probability measures `Q` and `P`, the reverse information projection of `Q`
+onto the simple null `{P}` is `P`. -/
+theorem ripr_singleton_eq [IsProbabilityMeasure Q] [IsProbabilityMeasure P] (hQP : Q ≪ P)
+    (hPQ : P ≪ Q) : ripr Q {P} = P :=
+  ripr_eq_of_isEVar_rnDeriv (by rintro _ rfl; infer_instance)
+    (subset_effectiveSet (by simp) rfl) hQP hPQ (isNumeraire_rnDeriv hQP).isEVar
 
 end ProbabilityTheory

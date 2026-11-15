@@ -20,6 +20,9 @@ public import Mathlib.Basic.ENNReal.BigOperators
 * `ENNReal.sum_perm_apply_div_card`: the average of `w (σ j)` over all permutations `σ` of a
   finite type is the average `(∑ i, w i) / K` of the `w i`, as `Equiv.Perm.sum_apply_div_card`
   says in a semifield of characteristic zero.
+* `ENNReal.ofReal_sum_mul_add`: an affine form `∑ x ∈ s, f x * g x + c` with nonnegative real
+  coefficients, evaluated at a point with nonnegative real coordinates and mapped to `ℝ≥0∞`, is
+  the same affine form of the images in `ℝ≥0∞`.
 -/
 
 public section
@@ -44,5 +47,16 @@ theorem sum_perm_apply_div_card {ι : Type*} [Fintype ι] [DecidableEq ι] (w : 
   have hK : (Fintype.card ι : ℝ≥0∞) ≠ 0 := Nat.cast_ne_zero.2 (@Fintype.card_ne_zero ι _ ⟨j⟩)
   rw [ENNReal.div_eq_div_iff hK (by simp) (Nat.cast_ne_zero.2 Fintype.card_ne_zero) (by simp)]
   simpa [nsmul_eq_mul] using Equiv.Perm.card_nsmul_sum_apply w j
+
+/-- An affine form `∑ x ∈ s, f x * g x + c` with nonnegative real coefficients `f x`, `c`,
+evaluated at a point with nonnegative real coordinates `g x`, commutes with `ENNReal.ofReal`. -/
+lemma ofReal_sum_mul_add {ι : Type*} {s : Finset ι} {f g : ι → ℝ} {c : ℝ}
+    (hf : ∀ x ∈ s, 0 ≤ f x) (hg : ∀ x ∈ s, 0 ≤ g x) (hc : 0 ≤ c) :
+    ENNReal.ofReal (∑ x ∈ s, f x * g x + c) =
+      ∑ x ∈ s, ENNReal.ofReal (f x) * ENNReal.ofReal (g x) + ENNReal.ofReal c := by
+  have h : ∀ x ∈ s, 0 ≤ f x * g x := fun x hx ↦ mul_nonneg (hf x hx) (hg x hx)
+  rw [ofReal_add (Finset.sum_nonneg h) hc, ofReal_sum_of_nonneg h]
+  refine congrArg (· + _) (Finset.sum_congr rfl fun x hx ↦ ?_)
+  rw [ofReal_mul (hf x hx)]
 
 end ENNReal
