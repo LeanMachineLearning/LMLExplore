@@ -7,6 +7,7 @@ module
 
 public import Mathlib.Probability.Distributions.Exponential
 public import TauCeti.Probability.Distributions.Hypoexponential.Basic
+public import LMLExplore.Probability.Kernel.SegmentUniform
 public import TauCeti.Probability.Distributions.Uniform.Basic
 import LMLExplore.Probability.Distributions.Gamma
 import LMLExplore.Probability.Distributions.Uniform
@@ -24,7 +25,8 @@ positive rates are equivalent. The sum of two independent exponential variables 
 `l₂` has Tau Ceti's hypoexponential law, which is `Gamma(2, l)` when `l₁ = l₂ = l` and has the
 density `l₁ l₂ (exp (- l₁ x) - exp (- l₂ x)) / (l₂ - l₁)` on `(0, ∞)` when `l₁ ≠ l₂`. In the
 second case it is the mixture of the laws `Gamma(2, 1 / m)` over the mean `m` uniform between
-`1 / l₁` and `1 / l₂`.
+`1 / l₁` and `1 / l₂`. In the first case, given the sum `s`, the first variable is uniform on
+`[0, s]`: `Exp(l) ⊗ Exp(l)` is `ProbabilityTheory.Kernel.segmentUniform ∘ₘ Gamma(2, l)`.
 
 ## Main statements
 
@@ -33,6 +35,8 @@ second case it is the mixture of the laws `Gamma(2, 1 / m)` over the mean `m` un
   `ProbabilityTheory.prod_expMeasure_absolutelyContinuous`: exponential laws, and their products,
   with positive rates are equivalent.
 * `ProbabilityTheory.map_add_prod_expMeasure_self`: `Exp(l) + Exp(l)` has the law `Gamma(2, l)`.
+* `ProbabilityTheory.segmentUniform_comp_gammaMeasure`: given the sum `s`, two independent
+  `Exp(l)` variables are uniform on the segment of the pairs with sum `s`.
 * `ProbabilityTheory.map_add_prod_expMeasure_eq_hypoexponentialMeasure`: `Exp(l₁) + Exp(l₂)` has
   the hypoexponential law of rates `l₁, l₂`.
 * `ProbabilityTheory.map_add_prod_expMeasure_eq_withDensity`: its density for `l₁ ≠ l₂`.
@@ -80,6 +84,21 @@ theorem map_add_prod_expMeasure_self (hl : 0 < l) :
   rw [Measure.map_map measurable_snd (by fun_prop), Measure.map_snd_prod, measure_univ,
     one_smul, one_add_one_eq_two] at h
   exact h
+
+/-- **The conditional law given the sum under the null**: two independent `Exp(l)` variables are
+`(u * s, (1 - u) * s)` for a sum `s` of law `Gamma(2, l)` and an independent uniform `u`. -/
+theorem segmentUniform_comp_gammaMeasure (hl : 0 < l) :
+    Kernel.segmentUniform ∘ₘ gammaMeasure 2 l = (expMeasure l).prod (expMeasure l) := by
+  have h := map_div_add_prod_gammaMeasure one_pos one_pos hl
+  rw [betaMeasure_one_one, one_add_one_eq_two] at h
+  rw [Kernel.segmentUniform_comp, ← h, Measure.map_map (by fun_prop) (by fun_prop)]
+  conv_rhs => rw [← Measure.map_id (μ := (expMeasure l).prod (expMeasure l))]
+  refine Measure.map_congr ?_
+  filter_upwards [ae_mem_prod_Ioi_gammaMeasure (a := 1) (r := l) (b := 1) (s := l)] with z hz
+  have hz0 : z.1 + z.2 ≠ 0 := (add_pos hz.1 hz.2).ne'
+  refine Prod.ext ?_ ?_
+  · simp [field]
+  · simp [field]
 
 /-- **The sum of two independent exponential variables is hypoexponential**: for positive rates
 `l₁, l₂`, the law of the sum under `Exp(l₁) ⊗ Exp(l₂)` is `hypoexponentialMeasure ![l₁, l₂]`. -/

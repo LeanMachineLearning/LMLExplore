@@ -5,13 +5,14 @@ Authors: LMLExplore contributors
 -/
 module
 
-public import LMLExplore.EValues.Numeraire.Conditional
+public import LMLExplore.EValues.EVariable.Conditional
+public import LMLExplore.EValues.Numeraire
 public import LMLExplore.Probability.Distributions.Exponential
+public import LMLExplore.Probability.Kernel.SegmentUniform
 public import TauCeti.Probability.Distributions.Uniform.Basic
 import LMLExplore.Probability.Distributions.Gamma
 import LMLExplore.Probability.Kernel.Composition.MeasureComp
-import TauCeti.Probability.Distributions.Beta.Uniform
-import TauCeti.Probability.Distributions.Gamma.Beta
+import TauCeti.Probability.Distributions.Gamma.Basic
 import TauCeti.Probability.Distributions.Gamma.Measurability
 import TauCeti.Probability.Distributions.Gamma.PDF
 
@@ -39,11 +40,6 @@ which the sum has its law under `Q` and, given the sum `s`, the first observatio
 
 These identifications, the mixture and the failure of finite combinations are [EVR26, Note 28].
 
-## Main definitions
-
-* `ProbabilityTheory.Kernel.segmentUniform`: the law of `(u * s, (1 - u) * s)` for `u` uniform
-  on `[0, 1]`.
-
 ## Main statements
 
 * `ProbabilityTheory.isNumeraire_rnDeriv_segmentUniform_comp`: the likelihood ratio of `Q` to
@@ -57,11 +53,12 @@ These identifications, the mixture and the failure of finite combinations are [E
 ## Implementation notes
 
 That the law of the sum and the conditional law given the sum are as described under the null is
-the beta–gamma algebra of Tau Ceti (`TauCeti.Probability.map_div_add_prod_gammaMeasure`). The law
-of the sum under `Q` is Tau Ceti's hypoexponential law
-(`ProbabilityTheory.map_add_prod_expMeasure_eq_withDensity`), with density
-`l₁ l₂ (exp (- l₁ x) - exp (- l₂ x)) / (l₂ - l₁)` on `(0, ∞)`, which is also the density of the
-mixture of the laws `Gamma(2, 1 / m)` over the uniform mean `m`
+the beta–gamma algebra of Tau Ceti (`TauCeti.Probability.map_div_add_prod_gammaMeasure`), through
+`ProbabilityTheory.map_add_prod_expMeasure_self` and
+`ProbabilityTheory.segmentUniform_comp_gammaMeasure`. The law of the sum under `Q` is
+Tau Ceti's hypoexponential law (`ProbabilityTheory.map_add_prod_expMeasure_eq_withDensity`), with
+density `l₁ l₂ (exp (- l₁ x) - exp (- l₂ x)) / (l₂ - l₁)` on `(0, ∞)`, which is also the
+density of the mixture of the laws `Gamma(2, 1 / m)` over the uniform mean `m`
 (`ProbabilityTheory.map_add_prod_expMeasure_eq_bind`). The numeraire is then identified
 through the effective null: the likelihood ratio is an e-variable by
 `ProbabilityTheory.isEVar_rnDeriv_comp_map`, and `Qᶜ` is a mixture of members of the null, so
@@ -88,63 +85,11 @@ open scoped ENNReal Topology
 
 namespace ProbabilityTheory
 
-/-! ### The uniform law on a segment -/
-
-/-- **The uniform law on a segment**: for `s : ℝ`, the law of `(u * s, (1 - u) * s)` for `u`
-uniform on `[0, 1]`. For `s ≥ 0`, its first coordinate is uniform on `[0, s]` and the two
-coordinates add up to `s`. -/
-noncomputable def Kernel.segmentUniform : Kernel ℝ (ℝ × ℝ) :=
-  (Kernel.id ×ₖ Kernel.const ℝ (uniformMeasure 0 1)).map fun p ↦ (p.2 * p.1, (1 - p.2) * p.1)
-
-/-- The uniform law on a segment is a Markov kernel. -/
-instance Kernel.isMarkovKernel_segmentUniform : IsMarkovKernel Kernel.segmentUniform := by
-  unfold Kernel.segmentUniform
-  exact Kernel.IsMarkovKernel.map _ (by fun_prop)
-
-/-- The uniform law on the segment of the pairs with sum `s`. -/
-@[simp]
-theorem Kernel.segmentUniform_apply (s : ℝ) :
-    Kernel.segmentUniform s = (uniformMeasure 0 1).map fun u ↦ (u * s, (1 - u) * s) := by
-  rw [Kernel.segmentUniform, Kernel.map_apply _ (by fun_prop), Kernel.prod_apply, Kernel.id_apply,
-    Kernel.const_apply, Measure.dirac_prod, Measure.map_map (by fun_prop) (by fun_prop)]
-  rfl
-
-/-- The mixture of the uniform laws on the segments against a law `ν` of the sum is the image of
-`uniformMeasure 0 1 ⊗ ν` under `(u, s) ↦ (u * s, (1 - u) * s)`. -/
-theorem Kernel.segmentUniform_comp (ν : Measure ℝ) [SFinite ν] :
-    Kernel.segmentUniform ∘ₘ ν =
-      ((uniformMeasure 0 1).prod ν).map fun p ↦ (p.1 * p.2, (1 - p.1) * p.2) := by
-  rw [Kernel.segmentUniform, ← Measure.map_comp _ _ (by fun_prop), ← Measure.compProd_eq_comp_prod,
-    Measure.compProd_const, ← Measure.prod_swap, Measure.map_map (by fun_prop) measurable_swap]
-  rfl
-
-/-- Under the uniform law on the segment of the pairs with sum `s`, the coordinates add up to
-`s`. -/
-theorem Kernel.ae_add_segmentUniform (s : ℝ) : ∀ᵐ x ∂Kernel.segmentUniform s, x.1 + x.2 = s := by
-  rw [Kernel.segmentUniform_apply,
-    ae_map_iff (by fun_prop) (measurableSet_eq_fun (by fun_prop) measurable_const)]
-  exact ae_of_all _ fun u ↦ by ring
-
 /-! ### The null of two exponential observations with a common rate -/
 
 section Null
 
 variable {l l₁ l₂ : ℝ}
-
-/-- **The conditional law given the sum under the null**: two independent `Exp(l)` variables are
-`(u * s, (1 - u) * s)` for a sum `s` of law `Gamma(2, l)` and an independent uniform `u`. -/
-private lemma segmentUniform_comp_gammaMeasure (hl : 0 < l) :
-    Kernel.segmentUniform ∘ₘ gammaMeasure 2 l = (expMeasure l).prod (expMeasure l) := by
-  have h := map_div_add_prod_gammaMeasure one_pos one_pos hl
-  rw [betaMeasure_one_one, one_add_one_eq_two] at h
-  rw [Kernel.segmentUniform_comp, ← h, Measure.map_map (by fun_prop) (by fun_prop)]
-  conv_rhs => rw [← Measure.map_id (μ := (expMeasure l).prod (expMeasure l))]
-  refine Measure.map_congr ?_
-  filter_upwards [ae_mem_prod_Ioi_gammaMeasure (a := 1) (r := l) (b := 1) (s := l)] with z hz
-  have hz0 : z.1 + z.2 ≠ 0 := (add_pos hz.1 hz.2).ne'
-  refine Prod.ext ?_ ?_
-  · simp [field]
-  · simp [field]
 
 /-- Every member of the null is its own `Qᶜ`. -/
 private lemma segmentUniform_comp_map_add_prod_expMeasure_self (hl : 0 < l) :

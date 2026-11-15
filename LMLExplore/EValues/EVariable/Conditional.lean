@@ -5,7 +5,7 @@ Authors: LMLExplore contributors
 -/
 module
 
-public import LMLExplore.EValues.Numeraire
+public import LMLExplore.EValues.EVariable
 
 /-!
 # Numeraires of nulls with a common conditional law given a statistic
