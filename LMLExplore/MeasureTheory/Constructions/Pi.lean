@@ -29,8 +29,8 @@ all have `μ i`-measure at most `c` has product measure at most `c`, by resampli
 `i` and integrating the measures of the lines.
 
 An integral against a product of two σ-finite measures indexed by `Fin 2` is an iterated
-integral, and the integral of a function of the images of the two coordinates under a map to a
-finite type is a double sum over the masses of the fibres.
+integral. Against a product of finitely many σ-finite measures, the integral of a function of the
+images of the coordinates under maps to finite types is a sum over the masses of the fibres.
 
 ## Main statements
 
@@ -47,8 +47,8 @@ finite type is a double sum over the masses of the fibres.
   `∫⁻ e, F e ∂Measure.pi μ = ∫⁻ x, ∫⁻ y, F ![x, y] ∂μ 1 ∂μ 0` for `μ : Fin 2 → Measure α`.
 * `MeasureTheory.lintegral_pi_fin_two_mul`: the integral of `u (e 0) * v (e 1)` is the product of
   the integrals of `u` and `v`.
-* `MeasureTheory.lintegral_pi_fin_two_comp_eq_sum`: the integral of `f (φ (e 0)) (φ (e 1))`, for a
-  map `φ` to a finite type, is `∑ i, ∑ j, f i j * μ 0 (φ ⁻¹' {i}) * μ 1 (φ ⁻¹' {j})`.
+* `MeasureTheory.lintegral_pi_comp_eq_sum`: the integral of `g fun i ↦ φ i (e i)`, for maps `φ i`
+  to finite types, is `∑ k, g k * ∏ i, μ i (φ i ⁻¹' {k i})`.
 -/
 
 public section
@@ -136,28 +136,30 @@ lemma lintegral_pi_fin_two_mul (μ : Fin 2 → Measure α) [∀ i, SigmaFinite (
   simpa [Fin.prod_univ_two] using
     TauCeti.lintegral_fintype_prod_eq_prod₀ μ (f := ![u, v]) (Fin.forall_fin_two.2 ⟨hu, hv⟩)
 
-/-- A function `f (φ (e 0)) (φ (e 1))` of the images of the two coordinates under a measurable map
-`φ` to a finite type is measurable. -/
-lemma measurable_pi_fin_two_comp {κ β : Type*} [Finite κ] [MeasurableSpace κ]
-    [MeasurableSingletonClass κ] [MeasurableSpace β] {φ : α → κ} (hφ : Measurable φ)
-    (f : κ → κ → β) : Measurable fun e : Fin 2 → α ↦ f (φ (e 0)) (φ (e 1)) :=
-  (measurable_of_finite (Function.uncurry f)).comp
-    ((hφ.comp (measurable_pi_apply 0)).prodMk (hφ.comp (measurable_pi_apply 1)))
+/-- A function `g fun i ↦ φ i (e i)` of the images of the coordinates under measurable maps `φ i`
+to finite types is measurable. -/
+lemma measurable_pi_comp_of_finite {ι : Type*} [Countable ι] {Ω κ : ι → Type*}
+    [∀ i, MeasurableSpace (Ω i)] [Finite (∀ i, κ i)] [∀ i, MeasurableSpace (κ i)]
+    [∀ i, MeasurableSingletonClass (κ i)] {β : Type*} [MeasurableSpace β] {φ : ∀ i, Ω i → κ i}
+    (hφ : ∀ i, Measurable (φ i)) (g : (∀ i, κ i) → β) :
+    Measurable fun e : ∀ i, Ω i ↦ g fun i ↦ φ i (e i) :=
+  (measurable_of_finite g).comp (.of_eval fun i ↦ (hφ i).comp (measurable_pi_apply i))
 
-/-- The integral of `f (φ (e 0)) (φ (e 1))` against a product of two σ-finite measures, where `φ`
-takes values in a finite type, in terms of the masses of the fibres of `φ`. -/
-lemma lintegral_pi_fin_two_comp_eq_sum {κ : Type*} [Fintype κ] [MeasurableSpace κ]
-    [MeasurableSingletonClass κ] (μ : Fin 2 → Measure α) [∀ i, SigmaFinite (μ i)]
-    {φ : α → κ} (hφ : Measurable φ) (f : κ → κ → ℝ≥0∞) :
-    ∫⁻ e, f (φ (e 0)) (φ (e 1)) ∂Measure.pi μ =
-      ∑ i, ∑ j, f i j * μ 0 (φ ⁻¹' {i}) * μ 1 (φ ⁻¹' {j}) := by
-  rw [lintegral_pi_fin_two μ (measurable_pi_fin_two_comp hφ f).aemeasurable]
-  simp only [Matrix.cons_val_zero, Matrix.cons_val_one]
-  simp_rw [lintegral_comp_eq_sum_measure_preimage_singleton hφ.aemeasurable (f _)]
-  rw [lintegral_comp_eq_sum_measure_preimage_singleton hφ.aemeasurable
-    (fun i ↦ ∑ j, f i j * μ 1 (φ ⁻¹' {j}))]
-  simp_rw [Finset.sum_mul]
-  refine Finset.sum_congr rfl fun i _ ↦ Finset.sum_congr rfl fun j _ ↦ ?_
-  ring
+/-- The integral of `g fun i ↦ φ i (e i)` against a product of finitely many σ-finite measures,
+where the maps `φ i` take values in finite types, in terms of the masses of the fibres of the
+`φ i`. -/
+lemma lintegral_pi_comp_eq_sum {ι : Type*} [Fintype ι] [DecidableEq ι] {Ω κ : ι → Type*}
+    [∀ i, MeasurableSpace (Ω i)] [∀ i, Fintype (κ i)] [∀ i, MeasurableSpace (κ i)]
+    [∀ i, MeasurableSingletonClass (κ i)] (μ : ∀ i, Measure (Ω i)) [∀ i, SigmaFinite (μ i)]
+    {φ : ∀ i, Ω i → κ i} (hφ : ∀ i, Measurable (φ i)) (g : (∀ i, κ i) → ℝ≥0∞) :
+    ∫⁻ e, g (fun i ↦ φ i (e i)) ∂Measure.pi μ = ∑ k, g k * ∏ i, μ i (φ i ⁻¹' {k i}) := by
+  have hΦ : Measurable fun (e : ∀ i, Ω i) i ↦ φ i (e i) :=
+    .of_eval fun i ↦ (hφ i).comp (measurable_pi_apply i)
+  rw [lintegral_comp_eq_sum_measure_preimage_singleton hΦ.aemeasurable g]
+  refine Finset.sum_congr rfl fun k _ ↦ ?_
+  have hpre : (fun (e : ∀ i, Ω i) i ↦ φ i (e i)) ⁻¹' {k} = Set.univ.pi fun i ↦ φ i ⁻¹' {k i} := by
+    ext e
+    simp [funext_iff]
+  rw [hpre, Measure.pi_pi]
 
 end MeasureTheory

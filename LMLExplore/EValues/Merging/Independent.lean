@@ -200,7 +200,8 @@ private lemma isIEMerging_of_step {n : ℕ} {φ : ℝ≥0∞ → Fin n} (hφ : M
       (∀ j, 0 ≤ Q j) → ∑ j, Q j = 1 → ∑ j, (γ j).toReal * Q j ≤ 1 →
       ∑ i, ∑ j, (f i j).toReal * P i * Q j ≤ 1) :
     IsIEMerging fun e : Fin 2 → ℝ≥0∞ ↦ f (φ (e 0)) (φ (e 1)) := by
-  refine ⟨measurable_pi_fin_two_comp hφ f, fun μ _ hmean ↦ ?_⟩
+  refine ⟨measurable_pi_comp_of_finite (φ := fun _ ↦ φ) (fun _ ↦ hφ) fun k ↦ f (k 0) (k 1),
+    fun μ _ hmean ↦ ?_⟩
   have hmass : ∀ k, (∀ i, 0 ≤ (μ k (φ ⁻¹' {i})).toReal) ∧ ∑ i, (μ k (φ ⁻¹' {i})).toReal = 1 ∧
       ∑ i, (γ i).toReal * (μ k (φ ⁻¹' {i})).toReal ≤ 1 := by
     intro k
@@ -220,7 +221,12 @@ private lemma isIEMerging_of_step {n : ℕ} {φ : ℝ≥0∞ → Fin n} (hφ : M
   have hterm : ∀ i j, f i j * μ 0 (φ ⁻¹' {i}) * μ 1 (φ ⁻¹' {j}) ≠ ∞ := fun i j ↦ by
     have := hf i j
     finiteness
-  rw [lintegral_pi_fin_two_comp_eq_sum μ hφ f,
+  have hint : ∫⁻ e, f (φ (e 0)) (φ (e 1)) ∂Measure.pi μ =
+      ∑ i, ∑ j, f i j * μ 0 (φ ⁻¹' {i}) * μ 1 (φ ⁻¹' {j}) := by
+    rw [lintegral_pi_comp_eq_sum μ (φ := fun _ ↦ φ) (fun _ ↦ hφ) fun k ↦ f (k 0) (k 1),
+      ← (finTwoArrowEquiv _).symm.sum_comp, Fintype.sum_prod_type]
+    simp [Fin.prod_univ_two, mul_assoc]
+  rw [hint,
     ← ENNReal.ofReal_toReal (ENNReal.sum_ne_top.2 fun i _ ↦ ENNReal.sum_ne_top.2 fun j _ ↦
       hterm i j), ENNReal.ofReal_le_one,
     ENNReal.toReal_sum fun i _ ↦ ENNReal.sum_ne_top.2 fun j _ ↦ hterm i j]
