@@ -48,7 +48,8 @@ The proof here is finite-dimensional, in three steps.
 
 The finite-dimensional theorem only uses the finitely supported members of the null. Applied to
 multiples of the indicator of a point, it shows that every point of `Y` is charged by a finitely
-supported member of the null, so that e-variables are finite on `Y`.
+supported member of the null, so that e-variables are finite on `Y`, and that a property holds
+almost surely under every member of the null exactly when it holds on `Y`.
 
 ## Main definitions
 
@@ -63,6 +64,9 @@ supported member of the null, so that e-variables are finite on `Y`.
   on `Y`, a combination with nonredundant weights [LRR26, Lemma 3.2].
 * `ProbabilityTheory.exists_finset_sum_le_of_noArbitrageOn`: without arbitrage, the total mass of
   nonredundant weights is controlled at finitely many points [LRR26, proof of Lemma 7.2].
+* `ProbabilityTheory.isCompact_nonredundantWeights_inter_nonneg`: without arbitrage on `Y`, the
+  nonredundant weights `π` with `1 + ∑ i, π i * a i` nonnegative on `Y` form a compact set
+  [LRR26, Lemma 7.2].
 * `ProbabilityTheory.exists_mem_nonredundantWeights_le_of_noArbitrageOn`: the complete class
   theorem in finite-dimensional form, on a set without arbitrage.
 * `ProbabilityTheory.exists_measurableSet_noArbitrageOn`: a measurable set carrying the null, on
@@ -72,6 +76,9 @@ supported member of the null, so that e-variables are finite on `Y`.
   positive on a set of positive `Q`-measure.
 * `ProbabilityTheory.lt_top_of_isEVar_of_noArbitrageOn`: e-variables are finite on a set without
   arbitrage.
+* `ProbabilityTheory.forall_ae_iff_of_noArbitrageOn`: on a set without arbitrage that carries the
+  null, a property holds almost surely under every member of the null exactly when it holds on
+  the set.
 * `ProbabilityTheory.forall_integral_nonpos_iff_exists_ae_le`: **the complete class theorem**
   [LRR26, Theorem 3.1].
 * `ProbabilityTheory.IsEVar.exists_mem_constraintBets_ae_le`,
@@ -267,6 +274,16 @@ theorem exists_finset_sum_le_of_noArbitrageOn (h : NoArbitrageOn a Y) :
   have : s * (1 / ((N : ℝ) + 1)) < c := by linarith [mul_le_mul_of_nonneg_left hN hs.le]
   rw [mul_one_div, div_lt_iff₀ (by positivity)] at this
   linarith
+
+/-- Without arbitrage on `Y`, the nonredundant weights `π` for which `1 + ∑ i, π i * a i` is
+nonnegative on `Y` form a compact set [LRR26, Lemma 7.2]. -/
+theorem isCompact_nonredundantWeights_inter_nonneg (h : NoArbitrageOn a Y) :
+    IsCompact (nonredundantWeights a Y ∩ {π | ∀ x ∈ Y, 0 ≤ 1 + ∑ i, π i * a i x}) := by
+  obtain ⟨F₀, hF₀, R, -, hbound⟩ := exists_finset_sum_le_of_noArbitrageOn h
+  refine isCompact_nonredundantWeights_inter ?_ (c := R * 1) fun π hπ ↦
+    hbound π hπ.1 1 zero_le_one fun x hx ↦ by linarith [hπ.2 x (hF₀ hx)]
+  simp only [ofPred_forall]
+  exact isClosed_biInter fun x _ ↦ isClosed_le continuous_const (by fun_prop)
 
 /-- The finite step of the complete class theorem, up to `δ`: if `f` has a nonpositive mean under
 every finitely supported law on `Y` under which the functions `a i` have nonpositive means, then on
@@ -546,6 +563,35 @@ theorem lt_top_of_isEVar_of_noArbitrageOn (hg : ∀ i, Measurable (g i)) (hY : N
   rw [not_lt, top_le_iff] at htop
   rw [htop, ENNReal.mul_top (by simpa using hwk)] at h2
   exact ENNReal.one_ne_top (top_le_iff.1 h2)
+
+/-- Without arbitrage on `Y`, every point of `Y` is an atom of a member of the null. -/
+theorem exists_mem_constraintNull_measure_singleton_ne_zero (hg : ∀ i, Measurable (g i))
+    (hY : NoArbitrageOn g Y) {x₀ : 𝓧} (hx₀ : x₀ ∈ Y) :
+    ∃ μ ∈ constraintNull (range g), μ {x₀} ≠ 0 := by
+  obtain ⟨α, _, x, w, -, hw, hwg, k, hk, hwk⟩ := exists_charging_family_of_noArbitrageOn hY hx₀
+  rw [mem_simplex_iff] at hw
+  refine ⟨∑ k, ENNReal.ofReal (w k) • Measure.dirac (x k),
+    (sum_smul_dirac_mem_constraintNull_iff (forall_mem_range.2 hg) hw.1).2
+      ⟨hw.2, forall_mem_range.2 hwg⟩, fun h0 ↦ ?_⟩
+  have h1 : ENNReal.ofReal (w k) * Measure.dirac (x k) {x₀} ≤
+      (∑ k, ENNReal.ofReal (w k) • Measure.dirac (x k)) {x₀} := by
+    rw [sum_apply]
+    exact Finset.single_le_sum
+      (f := fun j ↦ (ENNReal.ofReal (w j) • Measure.dirac (x j)) {x₀}) (fun _ _ ↦ zero_le)
+      (Finset.mem_univ k)
+  rw [h0, hk, Measure.dirac_apply_of_mem (mem_singleton x₀), mul_one, nonpos_iff_eq_zero,
+    ENNReal.ofReal_eq_zero] at h1
+  exact hwk.not_ge h1
+
+/-- On a set `Y` without arbitrage that carries the null, a property holds almost surely under
+every member of the null exactly when it holds on `Y`. -/
+theorem forall_ae_iff_of_noArbitrageOn (hg : ∀ i, Measurable (g i)) (hY : NoArbitrageOn g Y)
+    (hYμ : ∀ μ ∈ constraintNull (range g), μ Yᶜ = 0) {p : 𝓧 → Prop} :
+    (∀ μ ∈ constraintNull (range g), ∀ᵐ x ∂μ, p x) ↔ ∀ x ∈ Y, p x := by
+  refine ⟨fun h x hx ↦ ?_, fun h μ hμ ↦ Filter.eventually_of_mem (mem_ae_iff.2 (hYμ μ hμ)) h⟩
+  by_contra hpx
+  obtain ⟨μ, hμ, hμx⟩ := exists_mem_constraintNull_measure_singleton_ne_zero hg hY hx
+  exact hμx (measure_mono_null (singleton_subset_iff.2 hpx) (ae_iff.1 (h μ hμ)))
 
 /-! ### The complete class theorem -/
 

@@ -278,7 +278,7 @@ theorem exists_eventually_le_streamMeasure_forall_mean_mem
           Metric.isOpen_ball.measurableSet) Metric.isClosed_closedBall.measurableSet]
     congr 1
     ext z
-    simp only [E, Set.mem_ofPred_eq, Set.mem_preimage,
+    simp only [E, Set.mem_ofPred_eq, Set.mem_preimage, initSeg_apply,
       Fin.sum_univ_eq_sum_range (fun i ↦ z i)]
   rw [streamMeasure_forall_arm_mem ν hE, Finset.prod_congr rfl fun a _ ↦ hE_eq a,
     Finset.prod_mul_distrib, mul_comm]

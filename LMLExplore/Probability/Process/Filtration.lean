@@ -27,6 +27,8 @@ with respect to which each coordinate is drawn independently of the previous one
   `naturalLT u hu i`.
 * `MeasureTheory.Filtration.indep_naturalLT`: if the `u i` are independent, `u i` is independent
   of `naturalLT u hu i`.
+* `MeasureTheory.Filtration.naturalLT_eval_le_comap`: for the coordinates of `ℕ → β`, the strict
+  past at time `k` is at most the σ-algebra of the restriction to the first `k` coordinates.
 -/
 
 public section
@@ -62,5 +64,15 @@ theorem indep_naturalLT (hu : ∀ i, Measurable (u i)) {μ : Measure Ω} (h_inde
   have h := indep_iSup_of_disjoint (fun j ↦ (hu j).comap_le)
     ((iIndepFun_iff_iIndep _ _ _).1 h_indep) (S := {i}) (T := Set.Iio i) (by simp)
   simpa only [Set.mem_singleton_iff, iSup_iSup_eq_left, Set.mem_Iio, naturalLT_apply] using h
+
+/-- For the coordinates of `ℕ → β`, the strict past at time `k` is at most the σ-algebra of the
+restriction to the first `k` coordinates. -/
+theorem naturalLT_eval_le_comap {β : Type*} [MeasurableSpace β] (k : ℕ) :
+    naturalLT (fun i (ω : ℕ → β) ↦ ω i) measurable_pi_apply k ≤
+      MeasurableSpace.comap (fun (ω : ℕ → β) (i : Fin k) ↦ ω i) MeasurableSpace.pi := by
+  rw [naturalLT_apply]
+  refine iSup₂_le fun j hj ↦ Measurable.comap_le ?_
+  exact (measurable_pi_apply (⟨j, hj⟩ : Fin k)).comp
+    (comap_measurable (fun (ω : ℕ → β) (i : Fin k) ↦ ω i))
 
 end MeasureTheory.Filtration
