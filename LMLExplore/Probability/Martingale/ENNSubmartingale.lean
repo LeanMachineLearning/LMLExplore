@@ -6,6 +6,7 @@ Authors: LMLExplore contributors
 module
 
 public import LMLExplore.EValues.TestSupermartingale
+public import Mathlib.Probability.Process.HittingTime
 
 /-!
 # Submartingales in `ℝ≥0∞` and Doob's maximal inequality with no integrability
@@ -102,51 +103,36 @@ theorem lintegral_le (hM : IsENNSubmartingale M ℱ S) (hP : P ∈ S) {i j : ℕ
 
 /-- **Doob's maximal inequality with no integrability**: for an `ℝ≥0∞`-valued submartingale `M`,
 times `m` and `N`, a level `C`, the event `A` that `M n` reaches `C` for some `n` between `m` and
-`N`, and an `ℱ m`-measurable set `G`, `C * P (A ∩ G) ≤ ∫⁻ ω in A ∩ G, M N ω ∂P`. The proof splits
-`A` according to the first time from `m` on at which `M` reaches `C`. -/
+`N`, and an `ℱ m`-measurable set `G`, `C * P (A ∩ G) ≤ ∫⁻ ω in A ∩ G, M N ω ∂P`. -/
 theorem mul_measure_inter_le_setLIntegral (hM : IsENNSubmartingale M ℱ S) (hP : P ∈ S)
     (m N : ℕ) (C : ℝ≥0∞) {G : Set Ω} (hG : MeasurableSet[ℱ m] G) :
     C * P ({ω | ∃ n ∈ Finset.Icc m N, C ≤ M n ω} ∩ G) ≤
       ∫⁻ ω in {ω | ∃ n ∈ Finset.Icc m N, C ≤ M n ω} ∩ G, M N ω ∂P := by
-  -- `B k`: the first time from `m` on at which `M` reaches `C` is `k`
-  set B : ℕ → Set Ω := fun k ↦
-    (M k ⁻¹' Set.Ici C) ∩ ⋂ j ∈ Finset.Ico m k, M j ⁻¹' Set.Iio C
-  have hB_meas : ∀ k, MeasurableSet[ℱ k] (B k) := fun k ↦
-    (hM.adapted k measurableSet_Ici).inter (Finset.measurableSet_biInter _ fun j hj ↦
-      ℱ.mono (Finset.mem_Ico.1 hj).2.le _ (hM.adapted j measurableSet_Iio))
-  have hBG : ∀ k ∈ Finset.Icc m N, MeasurableSet[ℱ k] (B k ∩ G) := fun k hk ↦
-    (hB_meas k).inter (ℱ.mono (Finset.mem_Icc.1 hk).1 _ hG)
-  have hmeas : ∀ k ∈ Finset.Icc m N, MeasurableSet (B k ∩ G) := fun k hk ↦
-    ℱ.le k _ (hBG k hk)
-  have hunion : {ω | ∃ n ∈ Finset.Icc m N, C ≤ M n ω} ∩ G = ⋃ k ∈ Finset.Icc m N, B k ∩ G := by
+  -- split `A` according to the first time `τ` from `m` on at which `M` reaches `C`
+  set τ : Ω → ℕ := hittingBtwn M (Set.Ici C) m N
+  set B : ℕ → Set Ω := fun k ↦ τ ⁻¹' {k} ∩ ({ω | C ≤ M k ω} ∩ G)
+  have hBG : ∀ k ∈ Finset.Icc m N, MeasurableSet[ℱ k] (B k) := fun k hk ↦ by
+    have hτ := (Adapted.isStoppingTime_hittingBtwn (s := Set.Ici C) (n := m) (n' := N)
+      hM.adapted measurableSet_Ici).measurableSet_eq k
+    simp only [WithTop.coe_inj] at hτ
+    exact hτ.inter ((hM.adapted k measurableSet_Ici).inter (ℱ.mono (Finset.mem_Icc.1 hk).1 _ hG))
+  have hmeas : ∀ k ∈ Finset.Icc m N, MeasurableSet (B k) := fun k hk ↦ ℱ.le k _ (hBG k hk)
+  have hunion : {ω | ∃ n ∈ Finset.Icc m N, C ≤ M n ω} ∩ G = ⋃ k ∈ Finset.Icc m N, B k := by
     ext ω
-    simp only [Set.mem_inter_iff, Set.mem_ofPred_eq, Set.mem_iUnion, exists_prop]
-    refine ⟨fun ⟨⟨n, hn, hCn⟩, hωG⟩ ↦ ?_, fun ⟨k, hk, ⟨hCk, _⟩, hωG⟩ ↦ ⟨⟨k, hk, hCk⟩, hωG⟩⟩
-    have hex : ∃ k, m ≤ k ∧ C ≤ M k ω := ⟨n, (Finset.mem_Icc.1 hn).1, hCn⟩
-    classical
-    refine ⟨Nat.find hex, Finset.mem_Icc.2 ⟨(Nat.find_spec hex).1,
-      (Nat.find_min' hex ⟨(Finset.mem_Icc.1 hn).1, hCn⟩).trans (Finset.mem_Icc.1 hn).2⟩,
-      ⟨(Nat.find_spec hex).2, Set.mem_iInter₂.2 fun j hj ↦ ?_⟩, hωG⟩
-    by_contra hlt
-    exact Nat.find_min hex (Finset.mem_Ico.1 hj).2 ⟨(Finset.mem_Ico.1 hj).1, not_lt.1 hlt⟩
-  have hdisj : Set.PairwiseDisjoint (↑(Finset.Icc m N)) fun k ↦ B k ∩ G := by
-    intro k hk k' hk' hkk'
-    refine Set.disjoint_left.2 fun ω hω hω' ↦ ?_
-    rcases lt_or_gt_of_ne hkk' with h | h
-    · have h1 : C ≤ M k ω := hω.1.1
-      have h2 : M k ω < C :=
-        Set.mem_iInter₂.1 hω'.1.2 k (Finset.mem_Ico.2 ⟨(Finset.mem_Icc.1 hk).1, h⟩)
-      exact absurd h1 (not_le.2 h2)
-    · have h1 : C ≤ M k' ω := hω'.1.1
-      have h2 : M k' ω < C :=
-        Set.mem_iInter₂.1 hω.1.2 k' (Finset.mem_Ico.2 ⟨(Finset.mem_Icc.1 hk').1, h⟩)
-      exact absurd h1 (not_le.2 h2)
+    simp only [B, Set.mem_inter_iff, Set.mem_ofPred_eq, Set.mem_iUnion, Set.mem_preimage,
+      Set.mem_singleton_iff, exists_prop]
+    refine ⟨fun ⟨⟨n, hn, hCn⟩, hωG⟩ ↦ ?_, fun ⟨k, hk, _, hCk, hωG⟩ ↦ ⟨⟨k, hk, hCk⟩, hωG⟩⟩
+    have hn' := Finset.mem_Icc.1 hn
+    exact ⟨τ ω, Finset.mem_Icc.2 (hittingBtwn_mem_Icc (hn'.1.trans hn'.2) ω), rfl,
+      hittingBtwn_mem_set (s := Set.Ici C) ⟨n, hn', hCn⟩, hωG⟩
+  have hdisj : Set.PairwiseDisjoint (↑(Finset.Icc m N)) B :=
+    (Set.pairwiseDisjoint_fiber τ _).mono fun _ ↦ Set.inter_subset_left
   rw [hunion, measure_biUnion_finset hdisj hmeas, lintegral_biUnion_finset hdisj hmeas,
     Finset.mul_sum]
   refine Finset.sum_le_sum fun k hk ↦ ?_
-  calc C * P (B k ∩ G) = ∫⁻ _ in B k ∩ G, C ∂P := by rw [setLIntegral_const]
-    _ ≤ ∫⁻ ω in B k ∩ G, M k ω ∂P := setLIntegral_mono' (hmeas k hk) fun ω hω ↦ hω.1.1
-    _ ≤ ∫⁻ ω in B k ∩ G, M N ω ∂P := hM.setLIntegral_le hP (Finset.mem_Icc.1 hk).2 (hBG k hk)
+  calc C * P (B k) = ∫⁻ _ in B k, C ∂P := by rw [setLIntegral_const]
+    _ ≤ ∫⁻ ω in B k, M k ω ∂P := setLIntegral_mono' (hmeas k hk) fun ω hω ↦ hω.2.1
+    _ ≤ ∫⁻ ω in B k, M N ω ∂P := hM.setLIntegral_le hP (Finset.mem_Icc.1 hk).2 (hBG k hk)
 
 /-- **Doob's maximal inequality** for an `ℝ≥0∞`-valued submartingale: the probability that `M`
 reaches the level `C` by time `N` is at most the mean of `M N` divided by `C`. -/
