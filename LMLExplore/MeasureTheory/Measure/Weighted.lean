@@ -42,7 +42,11 @@ LMLPapers project.
   `weightedMeasure p` are weighted sums;
 * `measurable_weightedMeasure`: `p ↦ weightedMeasure p` is measurable;
 * `integral_sum_smul_dirac`: the integral against a finite sum `∑ k, w k • δ_{x k}` of weighted
-  Dirac measures at points of any measurable space is the weighted sum `∑ k, w k • f (x k)`.
+  Dirac measures at points of any measurable space is the weighted sum `∑ k, w k • f (x k)`;
+* `isProbabilityMeasure_sum_smul_dirac`: such a sum is a probability measure when the weights are
+  nonnegative and sum to `1`;
+* `sum_smul_dirac_compl_eq_zero`: such a sum gives no mass outside a finite set containing the
+  points `x k`.
 -/
 
 public section
@@ -156,5 +160,21 @@ lemma integral_sum_smul_dirac {α 𝓧 E : Type*} [Fintype α] [MeasurableSpace 
     (integrable_dirac' hf (by simp)).smul_measure ENNReal.ofReal_ne_top
   rw [integral_finsetSum_measure hint]
   simp_rw [integral_smul_measure, integral_dirac' _ _ hf, ENNReal.toReal_ofReal (hw _)]
+
+
+/-- A finite sum `∑ k, w k • δ_{x k}` of weighted Dirac measures with nonnegative weights summing
+to `1` is a probability measure. -/
+lemma isProbabilityMeasure_sum_smul_dirac {α 𝓧 : Type*} [Fintype α] [MeasurableSpace 𝓧]
+    {w : α → ℝ} (hw : ∀ k, 0 ≤ w k) (hw1 : ∑ k, w k = 1) (x : α → 𝓧) :
+    IsProbabilityMeasure (∑ k, ENNReal.ofReal (w k) • Measure.dirac (x k)) := by
+  constructor
+  simp [← ENNReal.ofReal_sum_of_nonneg fun k _ ↦ hw k, hw1]
+
+/-- A finite sum `∑ k, w k • δ_{x k}` of weighted Dirac measures at points of a finite set `s`
+gives no mass to the complement of `s`. -/
+lemma sum_smul_dirac_compl_eq_zero {α 𝓧 : Type*} [Fintype α] [MeasurableSpace 𝓧]
+    [MeasurableSingletonClass 𝓧] {w : α → ℝ} {x : α → 𝓧} {s : Finset 𝓧} (hs : ∀ k, x k ∈ s) :
+    (∑ k, ENNReal.ofReal (w k) • Measure.dirac (x k)) (↑s)ᶜ = 0 := by
+  simp [Measure.dirac_apply' _ s.measurableSet.compl, hs]
 
 end LMLExplore

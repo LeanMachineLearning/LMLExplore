@@ -9,6 +9,9 @@ public import Mathlib.Probability.ConditionalExpectation
 public import Mathlib.Probability.Moments.SubGaussian
 public import LeanMachineLearning.ForMathlib.Probability.HasCondDistrib
 public import LMLExplore.Probability.Moments.MGF.Bound
+import LMLExplore.Analysis.SpecialFunctions.Exp
+import LMLExplore.MeasureTheory.Measure.Weighted
+import Mathlib.Analysis.SpecialFunctions.Trigonometric.Series
 
 /-!
 # Conditionally sub-Gaussian variables
@@ -37,6 +40,12 @@ martingale bounds.
 * `ProbabilityTheory.HasCondDistrib.hasCondSubgaussianMGF_sub`: if `Y` has conditional
   distribution `κ` given `X` and almost every `κ x` is `c`-sub-Gaussian around `g x`, then
   `Y - g ∘ X` is conditionally `c`-sub-Gaussian given `X`.
+* `ProbabilityTheory.HasSubgaussianMGF.integral_sq_le`: a `c`-sub-Gaussian variable under a
+  probability measure has second moment at most `c`.
+* `ProbabilityTheory.hasSubgaussianMGF_sum_smul_dirac`: a finitely supported law whose moment
+  generating function is at most `exp (c t ^ 2 / 2)` is `c`-sub-Gaussian.
+* `ProbabilityTheory.exists_hasSubgaussianMGF_measure_singleton_pos`: every point of `ℝ` is charged
+  by a finitely supported `c`-sub-Gaussian probability law, for `c > 0`.
 
 ## References
 
@@ -46,7 +55,7 @@ martingale bounds.
 
 public section
 
-open MeasureTheory
+open MeasureTheory Filter Topology
 open scoped ENNReal NNReal
 
 namespace ProbabilityTheory
@@ -130,5 +139,98 @@ theorem HasCondDistrib.hasCondSubgaussianMGF_sub [StandardBorelSpace Ω] [IsFini
     rwa [mgf] at h_mgf
   exact (StronglyMeasurable.ae_eq_trim_of_stronglyMeasurable hm stronglyMeasurable_condExp (hF q)
     h_condExp).trans_le h_le
+
+
+/-- A `c`-sub-Gaussian variable under a probability measure has second moment at most `c`, since
+`t ^ 2 ∫ X ^ 2 ≤ 2 (exp (c t ^ 2 / 2) - 1) ≤ c t ^ 2 exp (c t ^ 2 / 2)` for every real `t`. -/
+theorem HasSubgaussianMGF.integral_sq_le [IsProbabilityMeasure μ] (h : HasSubgaussianMGF X c μ) :
+    ∫ ω, X ω ^ 2 ∂μ ≤ c := by
+  have hx2 : Integrable (fun ω ↦ X ω ^ 2) μ := (h.memLp 2).integrable_sq
+  have he := h.integrable_exp_mul
+  have hmgf (t : ℝ) : ∫ ω, Real.exp (t * X ω) ∂μ ≤ Real.exp (c * t ^ 2 / 2) := by
+    simpa [mgf] using h.mgf_le t
+  have key : ∀ s : ℝ, 0 < s → ∫ ω, X ω ^ 2 ∂μ ≤ c * Real.exp (c * s ^ 2 / 2) := by
+    intro s hs
+    have hint : Integrable (fun ω ↦ Real.exp (s * X ω) + Real.exp ((-s) * X ω)) μ :=
+      (he s).add (he (-s))
+    have h1 : s ^ 2 * ∫ ω, X ω ^ 2 ∂μ ≤ 2 * Real.exp (c * s ^ 2 / 2) - 2 := by
+      rw [← integral_const_mul]
+      calc ∫ ω, s ^ 2 * X ω ^ 2 ∂μ
+          ≤ ∫ ω, (Real.exp (s * X ω) + Real.exp ((-s) * X ω) - 2) ∂μ := by
+            refine integral_mono (hx2.const_mul _) (hint.sub (integrable_const 2)) fun ω ↦ ?_
+            have h' := Real.one_add_sq_div_two_le_cosh (s * X ω)
+            rw [Real.cosh_eq] at h'
+            simp only [neg_mul]
+            nlinarith
+        _ ≤ 2 * Real.exp (c * s ^ 2 / 2) - 2 := by
+            rw [integral_sub hint (integrable_const 2), integral_add (he s) (he (-s))]
+            have := hmgf s
+            have := hmgf (-s)
+            simp only [integral_const, probReal_univ, smul_eq_mul, one_mul, neg_sq] at *
+            linarith
+    have h3 : Real.exp (c * s ^ 2 / 2) - 1 ≤ c * s ^ 2 / 2 * Real.exp (c * s ^ 2 / 2) := by
+      nlinarith [Real.add_one_le_exp (-(c * s ^ 2 / 2)), Real.exp_pos (c * s ^ 2 / 2),
+        show Real.exp (-(c * s ^ 2 / 2)) * Real.exp (c * s ^ 2 / 2) = 1 by
+          rw [← Real.exp_add]; simp]
+    have hs2 : 0 < s ^ 2 := by positivity
+    refine le_of_mul_le_mul_left ?_ hs2
+    nlinarith
+  have hlim : Tendsto (fun s : ℝ ↦ c * Real.exp (c * s ^ 2 / 2)) (𝓝[>] 0) (𝓝 c) := by
+    have : Continuous (fun s : ℝ ↦ c * Real.exp (c * s ^ 2 / 2)) := by fun_prop
+    simpa using tendsto_nhdsWithin_of_tendsto_nhds (this.tendsto 0)
+  exact ge_of_tendsto hlim (eventually_nhdsWithin_of_forall fun s hs ↦ key s hs)
+
+/-- A finitely supported law `∑ k, w k • δ_{y k}` on `ℝ`, with nonnegative weights, whose moment
+generating function is at most `exp (c t ^ 2 / 2)` at every `t` is `c`-sub-Gaussian. -/
+theorem hasSubgaussianMGF_sum_smul_dirac {α : Type*} [Fintype α] {w : α → ℝ} (hw : ∀ k, 0 ≤ w k)
+    (y : α → ℝ) (h : ∀ t, ∑ k, w k * Real.exp (t * y k) ≤ Real.exp (c * t ^ 2 / 2)) :
+    HasSubgaussianMGF id c (∑ k, ENNReal.ofReal (w k) • Measure.dirac (y k)) where
+  integrable_exp_mul t := integrable_finsetSum_measure.2 fun k _ ↦
+    (integrable_dirac' (by fun_prop : Measurable fun x : ℝ ↦ Real.exp (t * id x)).stronglyMeasurable
+      (by simp)).smul_measure ENNReal.ofReal_ne_top
+  mgf_le t := by
+    rw [mgf, LMLExplore.integral_sum_smul_dirac hw
+      (by fun_prop : Measurable fun x : ℝ ↦ Real.exp (t * id x)).stronglyMeasurable]
+    simpa using h t
+
+/-- For `c > 0`, every point `y` of `ℝ` is charged by a finitely supported `c`-sub-Gaussian
+probability law: the law of `y / n` times a sum of `n ≥ y ^ 2 / c` independent uniform signs. -/
+theorem exists_hasSubgaussianMGF_measure_singleton_pos (hc : 0 < c) (y : ℝ) :
+    ∃ μ : Measure ℝ, IsProbabilityMeasure μ ∧ HasSubgaussianMGF id c μ ∧
+      (∃ s : Finset ℝ, μ (↑s)ᶜ = 0) ∧ 0 < μ {y} := by
+  have hc' : (0 : ℝ) < c := hc
+  set n : ℕ := ⌈y ^ 2 / c⌉₊ + 1 with hn
+  have hn0 : (0 : ℝ) < n := by positivity
+  have hny : y ^ 2 / n ≤ c := by
+    rw [div_le_iff₀ hn0, mul_comm, ← div_le_iff₀ hc', hn]
+    push_cast
+    linarith [Nat.le_ceil (y ^ 2 / c)]
+  set a : ℝ := y / n with ha
+  set x : (Fin n → Bool) → ℝ := fun σ ↦ a * ∑ i, if σ i then (1 : ℝ) else -1 with hx
+  have hw : ∀ σ : Fin n → Bool, 0 ≤ (2 ^ n : ℝ)⁻¹ := fun _ ↦ by positivity
+  refine ⟨∑ σ, ENNReal.ofReal (2 ^ n : ℝ)⁻¹ • Measure.dirac (x σ),
+    LMLExplore.isProbabilityMeasure_sum_smul_dirac hw ?_ x, hasSubgaussianMGF_sum_smul_dirac hw x
+      fun t ↦ ?_, ⟨Finset.univ.image x, LMLExplore.sum_smul_dirac_compl_eq_zero fun σ ↦
+        Finset.mem_image_of_mem _ (Finset.mem_univ σ)⟩, ?_⟩
+  · simp [Finset.card_univ]
+  · simp_rw [hx, ← mul_assoc]
+    rw [Real.sum_inv_two_pow_mul_exp_mul_sum_sign]
+    calc Real.cosh (t * a) ^ n ≤ Real.exp ((t * a) ^ 2 / 2) ^ n := by
+          gcongr
+          exact Real.cosh_le_exp_half_sq _
+      _ = Real.exp (n * ((t * a) ^ 2 / 2)) := (Real.exp_nat_mul _ _).symm
+      _ ≤ Real.exp (c * t ^ 2 / 2) := by
+          gcongr
+          have h1 : (n : ℝ) * ((t * a) ^ 2 / 2) = t ^ 2 / 2 * (y ^ 2 / n) := by
+            rw [ha]; field_simp
+          rw [h1]
+          nlinarith [sq_nonneg t]
+  · have hy : x (fun _ ↦ true) = y := by simp [hx, ha]
+    calc (0 : ℝ≥0∞) < ENNReal.ofReal (2 ^ n : ℝ)⁻¹ * Measure.dirac (x fun _ ↦ true) {y} := by
+          simp [hy]
+      _ ≤ ∑ σ, ENNReal.ofReal (2 ^ n : ℝ)⁻¹ * Measure.dirac (x σ) {y} :=
+          Finset.single_le_sum (f := fun σ ↦ ENNReal.ofReal (2 ^ n : ℝ)⁻¹ *
+            Measure.dirac (x σ) {y}) (fun _ _ ↦ bot_le) (Finset.mem_univ _)
+      _ = _ := by simp
 
 end ProbabilityTheory
