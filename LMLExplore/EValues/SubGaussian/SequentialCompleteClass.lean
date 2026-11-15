@@ -6,7 +6,7 @@ Authors: LMLExplore contributors
 module
 
 public import LMLExplore.EValues.ConstraintNull.Basic
-public import LMLExplore.EValues.EProcess
+public import LMLExplore.EValues.EProcess.Basic
 public import LMLExplore.Probability.Process.Filtration
 public import Mathlib.MeasureTheory.Constructions.BorelSpace.Real
 import LMLExplore.LinearAlgebra.Pi
