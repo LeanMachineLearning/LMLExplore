@@ -65,6 +65,14 @@ open scoped NNReal Topology
 variable {E : Type*} [NormedAddCommGroup E] [NormedSpace ℝ E] {s t : Set E} {f : E → ℝ}
   {g : E →L[ℝ] ℝ} {x : E} {L : ℝ≥0}
 
+/-- The points `x + τ • v` lie in a neighbourhood `u` of `x` for all small enough `τ > 0`. -/
+private theorem eventually_add_smul_mem {u : Set E} (hu : u ∈ 𝓝 x) (v : E) :
+    ∀ᶠ τ in 𝓝[>] (0 : ℝ), x + τ • v ∈ u := by
+  have hlim : Tendsto (fun τ : ℝ ↦ x + τ • v) (𝓝[>] 0) (𝓝 x) := by
+    simpa using ((by fun_prop : Continuous fun τ : ℝ ↦ x + τ • v).tendsto 0).mono_left
+      nhdsWithin_le_nhds
+  exact hlim.eventually hu
+
 namespace ConvexOn
 
 /-- **Local subgradients of a convex function are global.** If `f` is convex on `s` and `g` is a
@@ -76,10 +84,8 @@ theorem hasSubgradientWithinAt_of_mem_nhdsWithin (hf : ConvexOn ℝ s f) (hx : x
   refine hasSubgradientWithinAt_iff_le.2 fun y hy ↦ ?_
   obtain ⟨u, hu, hut⟩ := mem_nhdsWithin_iff_exists_mem_nhds_inter.1 ht
   -- Some point `z = x + τ • (y - x)` with `τ ∈ (0, 1)` of the segment `[x, y]` lies in `u`.
-  have hlim : Tendsto (fun τ : ℝ ↦ x + τ • (y - x)) (𝓝[>] 0) (𝓝 x) := by
-    simpa using ((by fun_prop : Continuous fun τ : ℝ ↦ x + τ • (y - x)).tendsto 0).mono_left
-      nhdsWithin_le_nhds
-  obtain ⟨τ, hτu, hτ⟩ := ((hlim.eventually hu).and (Ioo_mem_nhdsGT (zero_lt_one' ℝ))).exists
+  obtain ⟨τ, hτu, hτ⟩ :=
+    ((eventually_add_smul_mem hu (y - x)).and (Ioo_mem_nhdsGT (zero_lt_one' ℝ))).exists
   have hzs : x + τ • (y - x) ∈ s := hf.1.add_smul_sub_mem hx hy ⟨hτ.1.le, hτ.2.le⟩
   -- The subgradient inequality at `z` and convexity along `[x, y]` give
   -- `f x + τ * g (y - x) ≤ f z ≤ (1 - τ) * f x + τ * f y`.
@@ -131,15 +137,13 @@ theorem HasSubgradientWithinAt.norm_le_of_lipschitzOnWith (hg : HasSubgradientWi
   -- In each direction `v`, compare the subgradient inequality with the Lipschitz bound at a point
   -- `x + τ • v` of `s` with `τ > 0`.
   have key (v : E) : g v ≤ L * ‖v‖ := by
-    have hlim : Tendsto (fun τ : ℝ ↦ x + τ • v) (𝓝[>] 0) (𝓝 x) := by
-      simpa using ((by fun_prop : Continuous fun τ : ℝ ↦ x + τ • v).tendsto 0).mono_left
-        nhdsWithin_le_nhds
-    obtain ⟨τ, hτs, hτ⟩ := ((hlim.eventually hs).and self_mem_nhdsWithin).exists
+    obtain ⟨τ, hτs, hτ⟩ := ((eventually_add_smul_mem hs v).and self_mem_nhdsWithin).exists
+    have hτ : 0 < τ := Set.mem_Ioi.1 hτ
     have h₁ := hasSubgradientWithinAt_iff_le.1 hg _ hτs
     have h₂ := hf.le_add_mul hτs (mem_of_mem_nhds hs)
     rw [add_sub_cancel_left, map_smul, smul_eq_mul] at h₁
-    rw [dist_self_add_left, norm_smul, Real.norm_of_nonneg (le_of_lt hτ)] at h₂
-    refine le_of_mul_le_mul_left ?_ (show (0 : ℝ) < τ from hτ)
+    rw [dist_self_add_left, norm_smul, Real.norm_of_nonneg hτ.le] at h₂
+    refine le_of_mul_le_mul_left ?_ hτ
     linarith
   refine ContinuousLinearMap.opNorm_le_bound _ L.2 fun v ↦ abs_le.2 ⟨?_, key v⟩
   have := key (-v)
