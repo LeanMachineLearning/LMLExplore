@@ -471,26 +471,22 @@ theorem IsStaticProportions.neg_iInf_cost_le_liminf_log_errorProb_div
     (hopen : IsOpen (mean '' task.alternatives θ)) :
     -((⨅ θ' ∈ task.alternatives θ, task.cost w θ' θ : ℝ≥0∞) : EReal) ≤
       liminf (fun T : ℕ ↦ ENNReal.log (task.errorProb 𝒜 θ T) / T) atTop := by
-  have h := (h𝒜.hasLDP_empMean_expFamilyRate hθ (hmean θ hθ) (hν θ hθ)).neg_iInf_interior_le_liminf
-    (mean '' task.alternatives θ)
-  simp_rw [EReal.coe_nnreal_inv_natCast_mul] at h
-  have h_eq : ⨅ x ∈ mean '' task.alternatives θ,
-      ∑ a, ENNReal.ofReal (w a) * (ρ a).expFamilyRate id (x a) (mean θ a) =
-      ⨅ θ' ∈ task.alternatives θ, task.cost w θ' θ := by
-    rw [iInf_image]
-    exact iInf_congr fun θ' ↦ iInf_congr fun hθ' ↦
-      sum_expFamilyRate_mean_eq_cost hmean hν hθ (task.alternatives_subset_M θ hθ') w
-  rw [hopen.interior_eq, h_eq] at h
-  refine h.trans (liminf_le_liminf (Eventually.of_forall fun T ↦ ?_))
-  refine EReal.div_le_div_right_of_nonneg (by positivity) (ENNReal.log_monotone ?_)
+  have hν0 (a : α) : 0 ∈ interior (integrableExpSet id (task.ν θ a)) := by
+    rw [hν θ hθ a]
+    exact Measure.zero_mem_interior_integrableExpSet_expFamily
+      (Measure.natParam_mem_interior_integrableExpSet (hmean θ hθ a))
   -- At the means of an alternative `θ'`, the recommendation is correct for `θ'`, hence not for `θ`.
-  rw [h𝒜.errorProb_eq hcorrect, Measure.map_apply
-    (measurable_empMean_pi IT.measurable_action IT.measurable_feedback T) hopen.measurableSet]
-  refine measure_mono fun h hh ↦ ?_
-  obtain ⟨θ', hθ', hθ'h⟩ := hh
-  beta_reduce at hθ'h
-  rw [Set.mem_ofPred_eq, ← hθ'h]
-  exact Set.disjoint_right.1 (task.mem_alternatives_iff.1 hθ').2 (hrec θ' hθ')
+  have hsub : mean '' task.alternatives θ ⊆ interior {x | rec x ∉ task.correct θ} := by
+    refine hopen.subset_interior_iff.2 ?_
+    rintro _ ⟨θ', hθ', rfl⟩
+    exact Set.disjoint_right.1 (task.mem_alternatives_iff.1 hθ').2 (hrec θ' hθ')
+  refine (h𝒜.neg_le_liminf_log_errorProb_div hθ hcorrect hν0).trans'
+    (EReal.neg_le_neg_iff.2 (EReal.coe_ennreal_le_coe_ennreal_iff.2 ((biInf_mono hsub).trans ?_)))
+  -- On the means of the alternatives, the Cramér rate function is the cost.
+  rw [iInf_image]
+  refine (iInf_congr fun θ' ↦ iInf_congr fun hθ' ↦ ?_).le
+  rw [← sum_expFamilyRate_mean_eq_cost hmean hν hθ (task.alternatives_subset_M θ hθ') w]
+  simp only [Measure.expFamilyRate_def, ← hν θ hθ]
 
 /-- **Upper bound on the error exponent of static proportions for arms in exponential families**
 [D23, proof of Theorem 1]. Let the arms of the admissible models be the members of exponential
