@@ -5,6 +5,7 @@ Authors: LMLExplore contributors
 -/
 module
 
+public import LMLExplore.MeasureTheory.MeasurableSpace.Constructions
 public import Mathlib.Probability.Independence.InfinitePi
 
 /-!
@@ -14,16 +15,10 @@ Under the infinite product `Measure.infinitePi` of copies of a probability measu
 `n` coordinates have the product law `Measure.pi`, and they are independent of the next `m`
 coordinates.
 
-## Main definitions
-
-* `MeasureTheory.initSeg n`: the first `n` terms of a sequence, as a function on `Fin n`.
-
 ## Main statements
 
-* `MeasureTheory.exists_measurable_eq_comp_initSeg`: a measurable function of the first `n` terms
-  of a sequence factors measurably through `initSeg n`.
-* `MeasureTheory.measurePreserving_initSeg`: the first `n` terms of an i.i.d. sequence have the
-  product law.
+* `MeasureTheory.measurePreserving_initSeg`: the first `n` terms `initSeg n` of an i.i.d. sequence
+  have the product law.
 * `MeasureTheory.Measure.infinitePi_fin_mem_and_forall_add_mem`: for an i.i.d. sequence, the
   first `n` terms and the next `m` terms are independent.
 -/
@@ -34,46 +29,12 @@ namespace MeasureTheory
 
 variable {𝓧 : Type*} {m𝓧 : MeasurableSpace 𝓧}
 
-/-! ### The first terms of a sequence -/
-
-/-- The first `n` terms of a sequence. -/
-def initSeg (n : ℕ) (ω : ℕ → 𝓧) : Fin n → 𝓧 := fun i ↦ ω i
-
-/-- The coordinates of the initial segment are the first coordinates of the sequence. -/
-@[simp]
-lemma initSeg_apply (n : ℕ) (ω : ℕ → 𝓧) (i : Fin n) : initSeg n ω i = ω i := (rfl)
-
-/-- The initial segment is a measurable function of the sequence. -/
-@[fun_prop]
-lemma measurable_initSeg (n : ℕ) : Measurable (initSeg (𝓧 := 𝓧) n) :=
-  Measurable.of_eval fun _ ↦ measurable_pi_apply _
-
-/-- A measurable function of the first `n` terms of a sequence is a measurable function of the
-initial segment of length `n`. -/
-lemma exists_measurable_eq_comp_initSeg [Nonempty 𝓧] {β : Type*} [MeasurableSpace β]
-    {f : (ℕ → 𝓧) → β} {n : ℕ} (hf : Measurable f) (hfn : DependsOn f (Set.Iio n)) :
-    ∃ g : (Fin n → 𝓧) → β, Measurable g ∧ f = g ∘ initSeg n := by
-  classical
-  -- extend a finite sequence by a constant
-  let x₀ : 𝓧 := Classical.arbitrary 𝓧
-  let ext : (Fin n → 𝓧) → ℕ → 𝓧 := fun y i ↦ if h : i < n then y ⟨i, h⟩ else x₀
-  have hext : Measurable ext := by
-    refine Measurable.of_eval fun i ↦ ?_
-    by_cases h : i < n
-    · simp only [ext, h, ↓reduceDIte]
-      exact measurable_pi_apply _
-    · simp only [ext, h, ↓reduceDIte]
-      exact measurable_const
-  refine ⟨f ∘ ext, hf.comp hext, funext fun ω ↦ hfn fun i hi ↦ ?_⟩
-  simp only [Set.mem_Iio] at hi
-  simp [ext, hi]
-
 /-- The first `n` terms of an i.i.d. sequence have the product law. -/
 lemma measurePreserving_initSeg (P : Measure 𝓧) [IsProbabilityMeasure P] (n : ℕ) :
     MeasurePreserving (initSeg n) (Measure.infinitePi fun _ : ℕ ↦ P)
       (Measure.pi fun _ : Fin n ↦ P) := by
   refine ⟨measurable_initSeg n, ?_⟩
-  rw [← Measure.infinitePi_eq_pi]
+  rw [initSeg_def, ← Measure.infinitePi_eq_pi]
   exact Measure.map_infinitePi_infinitePi_of_inj Fin.val_injective
 
 end MeasureTheory
@@ -87,7 +48,7 @@ in `C` with probability `μ^⊗n(B) μ(C)^m`. -/
 theorem infinitePi_fin_mem_and_forall_add_mem {X : Type*} [MeasurableSpace X] (μ : Measure X)
     [IsProbabilityMeasure μ] (n m : ℕ) {B : Set (Fin n → X)} {C : Set X} (hB : MeasurableSet B)
     (hC : MeasurableSet C) :
-    (Measure.infinitePi fun _ : ℕ ↦ μ) {z | (fun i : Fin n ↦ z i) ∈ B ∧ ∀ j < m, z (n + j) ∈ C} =
+    (Measure.infinitePi fun _ : ℕ ↦ μ) {z | initSeg n z ∈ B ∧ ∀ j < m, z (n + j) ∈ C} =
       Measure.pi (fun _ : Fin n ↦ μ) B * μ C ^ m := by
   -- The first `n` terms and the next `m` terms are independent.
   have h_ind := (iIndepFun_infinitePi (P := fun _ : ℕ ↦ μ) (X := fun _ ↦ id)
@@ -96,11 +57,11 @@ theorem infinitePi_fin_mem_and_forall_add_mem {X : Type*} [MeasurableSpace X] (�
   simp only [id] at h_ind
   have h_fin : Measurable fun (u : {i // i ∈ range n} → X) (i : Fin n) ↦
       u ⟨i, mem_range.2 i.2⟩ := by fun_prop
-  have h_set : {z : ℕ → X | (fun i : Fin n ↦ z i) ∈ B ∧ ∀ j < m, z (n + j) ∈ C} =
+  have h_set : {z : ℕ → X | initSeg n z ∈ B ∧ ∀ j < m, z (n + j) ∈ C} =
       (fun z (i : range n) ↦ z i) ⁻¹' ((fun u (i : Fin n) ↦ u ⟨i, mem_range.2 i.2⟩) ⁻¹' B) ∩
         (fun z (i : Ico n (n + m)) ↦ z i) ⁻¹' (Set.univ.pi fun _ ↦ C) := by
     ext z
-    simp only [Set.mem_ofPred_eq, Set.mem_inter_iff, Set.mem_preimage, Set.mem_pi,
+    simp only [initSeg_def, Set.mem_ofPred_eq, Set.mem_inter_iff, Set.mem_preimage, Set.mem_pi,
       Set.mem_univ, true_implies, Subtype.forall, mem_Ico]
     refine and_congr Iff.rfl ⟨fun h i hi ↦ ?_, fun h j hj ↦ h _ ⟨by omega, by omega⟩⟩
     obtain ⟨j, rfl⟩ := Nat.exists_eq_add_of_le hi.1

@@ -11,6 +11,10 @@ public import Mathlib.MeasureTheory.Group.Arithmetic
 /-!
 # Measurability of evaluations, initial segments of tuples and finite dependence
 
+## Main definitions
+
+* `MeasureTheory.initSeg n`: the first `n` terms of a sequence, as a function on `Fin n`.
+
 ## Main statements
 
 * `MeasureTheory.measurable_div_apply`: for a finite type `α` with measurable singletons and
@@ -19,6 +23,8 @@ public import Mathlib.MeasureTheory.Group.Arithmetic
   evaluating row `i` of a table `x : ι → α → β` at `a : α` is measurable in the pair `(x, a)`.
 * `MeasureTheory.measurable_finInit`: the map `Fin.init` dropping the last entry of a tuple of
   length `n + 1` is measurable.
+* `MeasureTheory.exists_measurable_eq_comp_initSeg`: a measurable function of the first `n` terms
+  of a sequence factors measurably through the initial segment `initSeg n`.
 * `DependsOn.measurable_of_countable`: a function of a family of countable variables with
   measurable singletons that only depends on finitely many of them is measurable.
 -/
@@ -68,5 +74,48 @@ lemma _root_.DependsOn.measurable_of_countable {ι : Type*} {X : ι → Type*}
   have : Finite s := hs.to_subtype
   obtain ⟨g, rfl⟩ := dependsOn_iff_exists_comp.1 hf
   exact (_root_.measurable_of_countable g).comp (Measurable.of_eval fun i ↦ measurable_pi_apply _)
+
+/-! ### The first terms of a sequence -/
+
+section InitSeg
+
+variable {𝓧 : Type*} {m𝓧 : MeasurableSpace 𝓧}
+
+/-- The first `n` terms of a sequence. -/
+def initSeg (n : ℕ) (ω : ℕ → 𝓧) : Fin n → 𝓧 := fun i ↦ ω i
+
+/-- The initial segment of length `n` restricts a sequence to its first `n` indices. -/
+lemma initSeg_def (n : ℕ) : initSeg (𝓧 := 𝓧) n = fun ω i ↦ ω i := (rfl)
+
+/-- The coordinates of the initial segment are the first coordinates of the sequence. -/
+@[simp]
+lemma initSeg_apply (n : ℕ) (ω : ℕ → 𝓧) (i : Fin n) : initSeg n ω i = ω i := (rfl)
+
+/-- The initial segment is a measurable function of the sequence. -/
+@[fun_prop]
+lemma measurable_initSeg (n : ℕ) : Measurable (initSeg (𝓧 := 𝓧) n) :=
+  Measurable.of_eval fun _ ↦ measurable_pi_apply _
+
+/-- A measurable function of the first `n` terms of a sequence is a measurable function of the
+initial segment of length `n`. -/
+lemma exists_measurable_eq_comp_initSeg [Nonempty 𝓧] {β : Type*} [MeasurableSpace β]
+    {f : (ℕ → 𝓧) → β} {n : ℕ} (hf : Measurable f) (hfn : DependsOn f (Set.Iio n)) :
+    ∃ g : (Fin n → 𝓧) → β, Measurable g ∧ f = g ∘ initSeg n := by
+  classical
+  -- extend a finite sequence by a constant
+  let x₀ : 𝓧 := Classical.arbitrary 𝓧
+  let ext : (Fin n → 𝓧) → ℕ → 𝓧 := fun y i ↦ if h : i < n then y ⟨i, h⟩ else x₀
+  have hext : Measurable ext := by
+    refine Measurable.of_eval fun i ↦ ?_
+    by_cases h : i < n
+    · simp only [ext, h, ↓reduceDIte]
+      exact measurable_pi_apply _
+    · simp only [ext, h, ↓reduceDIte]
+      exact measurable_const
+  refine ⟨f ∘ ext, hf.comp hext, funext fun ω ↦ hfn fun i hi ↦ ?_⟩
+  simp only [Set.mem_Iio] at hi
+  simp [ext, hi]
+
+end InitSeg
 
 end MeasureTheory
