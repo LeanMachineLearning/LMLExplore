@@ -199,7 +199,7 @@ lemma stickyAnswer_eq_iff (h : (task.candidateAnswers C).Nonempty) :
     fun ⟨hi, hle⟩ ↦ (task.stickyAnswer_le hi).antisymm
       (hle _ (task.stickyAnswer_mem_candidateAnswers h))⟩
 
-/-- The sticky answer of a single model is its least oracle answer. -/
+/-- The sticky answer of a single model is at most each of its oracle answers. -/
 lemma stickyAnswer_singleton_le (hi : i ∈ task.oracleAnswers θ) : task.stickyAnswer {θ} ≤ i :=
   task.stickyAnswer_le (by rwa [candidateAnswers_singleton])
 
@@ -233,14 +233,13 @@ lemma stickyAnswer_eq_stickyAnswer_singleton (hθ : θ ∈ C)
 
 /-! ### Measurability -/
 
-/-- For finitely many answers, the sticky answer of a family `C x` of sets of models is
+/-- For countably many answers, the sticky answer of a family `C x` of sets of models is
 measurable, for every σ-algebra on the answers, when membership of each answer in the candidate
 answers of `C x` is a measurable property of `x`. -/
-theorem measurable_stickyAnswer [Finite ℐ] {mℐ : MeasurableSpace ℐ} {β : Type*}
+theorem measurable_stickyAnswer [Countable ℐ] {mℐ : MeasurableSpace ℐ} {β : Type*}
     {mβ : MeasurableSpace β} {C : β → Set Θ}
     (hC : ∀ i, Measurable fun x ↦ i ∈ task.candidateAnswers (C x)) :
     Measurable fun x ↦ task.stickyAnswer (C x) := by
-  have : Countable ℐ := Finite.to_countable
   refine measurable_to_countable' fun i ↦ ?_
   -- The sticky answer is `i` iff `i` is the least candidate, or there is no candidate and `i` is
   -- the least answer.
@@ -267,14 +266,13 @@ theorem measurable_stickyAnswer [Finite ℐ] {mℐ : MeasurableSpace ℐ} {β : 
 
 /-- The targets `w(i, x)` of the sticky answer `i` of a family of sets of models `C x` are
 measurable when membership in the candidate answers and each `w(i, ·)` are measurable, for
-finitely many answers. -/
-theorem measurable_stickyTarget [Finite ℐ] {β γ : Type*} {mβ : MeasurableSpace β}
+countably many answers. -/
+theorem measurable_stickyTarget [Countable ℐ] {β γ : Type*} {mβ : MeasurableSpace β}
     {mγ : MeasurableSpace γ} {C : β → Set Θ} {w : ℐ → β → γ}
     (hC : ∀ i, Measurable fun x ↦ i ∈ task.candidateAnswers (C x)) (hw : ∀ i, Measurable (w i)) :
     Measurable fun x ↦ w (task.stickyAnswer (C x)) x := by
   let mℐ : MeasurableSpace ℐ := ⊤
   have : MeasurableSingletonClass ℐ := ⟨fun _ ↦ MeasurableSpace.measurableSet_top⟩
-  have : Countable ℐ := Finite.to_countable
   exact (measurable_from_prod_countable_left (f := fun p : β × ℐ ↦ w p.2 p.1) hw).comp
     (measurable_id.prodMk (task.measurable_stickyAnswer hC))
 
