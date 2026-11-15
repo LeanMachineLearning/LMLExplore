@@ -7,13 +7,19 @@ module
 
 public import LMLExplore.MeasureTheory.MeasurableSpace.Constructions
 public import Mathlib.Probability.Independence.InfinitePi
+public import Mathlib.Probability.Process.Stopping
+public import Statlib.ForMathlib.Probability.Process.Filtration
+import Mathlib.Probability.Independence.Integration
 
 /-!
 # Infinite products of probability measures: the first terms and the next terms
 
 Under the infinite product `Measure.infinitePi` of copies of a probability measure `μ`, the first
 `n` coordinates have the product law `Measure.pi`, and they are independent of the next `m`
-coordinates.
+coordinates. With the filtration `Filtration.piLE` of the first coordinates, whose time `n` has seen
+the coordinates `0, …, n`, the coordinate `n + 1` is independent of time `n`; functions of the first
+coordinates are adapted, and random times that are functions of the first coordinates are stopping
+times.
 
 ## Main statements
 
@@ -21,9 +27,21 @@ coordinates.
   have the product law.
 * `MeasureTheory.Measure.infinitePi_fin_mem_and_forall_add_mem`: for an i.i.d. sequence, the
   first `n` terms and the next `m` terms are independent.
+* `MeasureTheory.Filtration.measurable_piLE_initSeg`,
+  `MeasureTheory.Filtration.adapted_piLE_comp_initSeg`,
+  `MeasureTheory.Filtration.isStoppingTime_piLE_comp_initSeg`: the first `k` terms are measurable
+  at time `n` of `Filtration.piLE` for `k ≤ n + 1`, functions of the first `n + 1` terms form an
+  adapted process, and a function of the first `k + 1` terms that is at least `k` is a stopping
+  time.
+* `ProbabilityTheory.indep_piLE_comap_eval_succ`: for an i.i.d. sequence, the term `n + 1` is
+  independent of `Filtration.piLE n`.
+* `ProbabilityTheory.setLIntegral_comp_eval_succ`: for an event `s` of `Filtration.piLE n`,
+  `∫⁻ ω in s, f (ω (n + 1)) = P^ℕ s * ∫⁻ f ∂P` under an i.i.d. law.
 -/
 
 public section
+
+open scoped ENNReal
 
 namespace MeasureTheory
 
@@ -83,3 +101,85 @@ theorem infinitePi_fin_mem_and_forall_add_mem {X : Type*} [MeasurableSpace X] (�
       Nat.add_sub_cancel_left]
 
 end MeasureTheory.Measure
+
+namespace MeasureTheory.Filtration
+
+variable {𝓧 : Type*} {m𝓧 : MeasurableSpace 𝓧}
+
+/-- For `k ≤ n + 1`, the first `k` terms of a sequence are measurable at time `n` of
+`Filtration.piLE`. -/
+lemma measurable_piLE_initSeg {k n : ℕ} (hk : k ≤ n + 1) :
+    Measurable[piLE (X := fun _ : ℕ ↦ 𝓧) n] (initSeg k) := by
+  rw [initSeg_def]
+  exact @Measurable.of_eval _ _ _ (piLE n) _ _ fun i ↦ measurable_piLE_apply (by have := i.2; omega)
+
+/-- The process of the values of measurable functions `X n` of the first `n + 1` terms of a
+sequence is adapted to `Filtration.piLE`. -/
+lemma adapted_piLE_comp_initSeg {β : Type*} [MeasurableSpace β]
+    {X : (n : ℕ) → (Fin (n + 1) → 𝓧) → β} (hX : ∀ n, Measurable (X n)) :
+    Adapted (piLE (X := fun _ : ℕ ↦ 𝓧)) fun n ω ↦ X n (initSeg (n + 1) ω) :=
+  fun n ↦ (hX n).comp (measurable_piLE_initSeg le_rfl)
+
+/-- A random time that is a measurable function, at least `k`, of the first `k + 1` terms of a
+sequence is a stopping time of `Filtration.piLE`. -/
+lemma isStoppingTime_piLE_comp_initSeg {k : ℕ} {T : (Fin (k + 1) → 𝓧) → ℕ}
+    (hT : Measurable T) (hTk : ∀ x, k ≤ T x) :
+    IsStoppingTime (piLE (X := fun _ : ℕ ↦ 𝓧)) fun ω ↦ (T (initSeg (k + 1) ω) : WithTop ℕ) := by
+  intro i
+  by_cases hi : k ≤ i
+  · exact measurable_piLE_initSeg (by omega)
+      (hT (MeasurableSet.of_discrete (s := {m : ℕ | (m : WithTop ℕ) ≤ i})))
+  · -- before time `k` the random time has not stopped yet
+    convert @MeasurableSet.empty _ (piLE (X := fun _ : ℕ ↦ 𝓧) i) using 1
+    ext ω
+    simp only [Set.mem_ofPred_eq, Set.mem_empty_iff_false, iff_false, not_le]
+    exact Nat.cast_lt.2 (lt_of_lt_of_le (by omega) (hTk _))
+
+end MeasureTheory.Filtration
+
+namespace ProbabilityTheory
+
+open MeasureTheory
+
+variable {𝓧 : Type*} {m𝓧 : MeasurableSpace 𝓧}
+
+/-- Under an i.i.d. law, the term `n + 1` of a sequence is independent of its first `n + 1`
+terms, that is, of time `n` of `Filtration.piLE`. -/
+lemma indep_piLE_comap_eval_succ (μ : Measure 𝓧) [IsProbabilityMeasure μ] (n : ℕ) :
+    Indep (Filtration.piLE (X := fun _ : ℕ ↦ 𝓧) n) (m𝓧.comap fun ω : ℕ → 𝓧 ↦ ω (n + 1))
+      (Measure.infinitePi fun _ ↦ μ) := by
+  have h := (iIndepFun_infinitePi (P := fun _ : ℕ ↦ μ) (X := fun _ ↦ id)
+    fun _ ↦ measurable_id).indepFun_finset (Finset.Iic n) {n + 1} (by simp)
+    fun i ↦ measurable_pi_apply i
+  have h' : (fun ω : ℕ → 𝓧 ↦ Preorder.frestrictLe n ω)
+      ⟂ᵢ[Measure.infinitePi fun _ ↦ μ] fun ω ↦ ω (n + 1) := by
+    exact h.comp measurable_id (measurable_pi_apply ⟨n + 1, by simp⟩)
+  rw [Filtration.piLE_eq_comap_frestrictLe]
+  exact (IndepFun_iff_Indep _ _ _).mp h'
+
+/-- For an event `s` determined by the first `n + 1` terms of an i.i.d. sequence of law `μ`,
+`∫⁻ ω in s, f (ω (n + 1)) ∂μ^ℕ = μ^ℕ s * ∫⁻ f ∂μ`. -/
+lemma setLIntegral_comp_eval_succ (μ : Measure 𝓧) [IsProbabilityMeasure μ]
+    {f : 𝓧 → ℝ≥0∞} (hf : Measurable f) (n : ℕ) {s : Set (ℕ → 𝓧)}
+    (hs : MeasurableSet[Filtration.piLE (X := fun _ : ℕ ↦ 𝓧) n] s) :
+    ∫⁻ ω in s, f (ω (n + 1)) ∂(Measure.infinitePi fun _ ↦ μ) =
+      (Measure.infinitePi fun _ ↦ μ) s * ∫⁻ x, f x ∂μ := by
+  have hs' : MeasurableSet s := Filtration.le _ n _ hs
+  have h1 : Measurable[Filtration.piLE (X := fun _ : ℕ ↦ 𝓧) n]
+      (s.indicator (1 : (ℕ → 𝓧) → ℝ≥0∞)) :=
+    Measurable.indicator (m := Filtration.piLE (X := fun _ : ℕ ↦ 𝓧) n) measurable_const hs
+  calc ∫⁻ ω in s, f (ω (n + 1)) ∂(Measure.infinitePi fun _ ↦ μ)
+      = ∫⁻ ω, s.indicator 1 ω * f (ω (n + 1)) ∂(Measure.infinitePi fun _ ↦ μ) := by
+        rw [← lintegral_indicator hs']
+        congr 1 with ω
+        by_cases h : ω ∈ s <;> simp [h]
+    _ = (∫⁻ ω, s.indicator 1 ω ∂(Measure.infinitePi fun _ ↦ μ)) *
+          ∫⁻ ω, f (ω (n + 1)) ∂(Measure.infinitePi fun _ ↦ μ) :=
+        lintegral_mul_eq_lintegral_mul_lintegral_of_independent_measurableSpace
+          (Filtration.le _ n) (measurable_pi_apply (n + 1)).comap_le
+          (indep_piLE_comap_eval_succ μ n) h1 (hf.comp (comap_measurable _))
+    _ = (Measure.infinitePi fun _ ↦ μ) s * ∫⁻ x, f x ∂μ := by
+        rw [lintegral_indicator_one hs',
+          (measurePreserving_eval_infinitePi (fun _ ↦ μ) (n + 1)).lintegral_comp hf]
+
+end ProbabilityTheory

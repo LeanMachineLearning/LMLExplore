@@ -6,15 +6,13 @@ Authors: LMLExplore contributors
 module
 
 public import LMLExplore.EValues.EProcess
-public import Mathlib.Probability.Distributions.Bernoulli
 public import Mathlib.Probability.ProductMeasure
 public import Statlib.EValues.Numeraire
+import LMLExplore.EValues.Numeraire
+import LMLExplore.Probability.ProductMeasure
 import Mathlib.Algebra.Polynomial.Roots
 import Mathlib.Logic.Equiv.Fin.Basic
-import Mathlib.Probability.Independence.InfinitePi
-import Mathlib.Probability.Independence.Integration
 import Mathlib.Topology.Order.IntermediateValue
-import Statlib.ForMathlib.Probability.Process.Filtration
 
 /-!
 # The numeraires of the sample sizes, as a process
@@ -25,19 +23,19 @@ number `n + 1` of observations, the numeraire of the `(n + 1)`-sample null
 (Statlib's `ProbabilityTheory.IsNumeraire`). Evaluated at the first `n + 1` coordinates of a
 sequence `ω : ℕ → 𝓧`, these numeraires form a process adapted to `Filtration.piLE`, whose time `n`
 has seen the observations `ω 0, …, ω n`. Ramdas, Grünwald, Vovk and Shafer ask when this process
-is an e-process for the i.i.d. null [RGVS23, §8.2.4]. It is not in general:
+is an e-process for the i.i.d. null [RGVS23, §8.2.4]. This file answers the question for a null
+`{P₁, P₂}` on a finite space, with `Q₁`, `P₁` and `P₂` charging every point: the process is an
+e-process exactly when `∫⁻ x, P₂ {x} / P₁ {x} ∂Q₁ ≤ 1` or `∫⁻ x, P₁ {x} / P₂ {x} ∂Q₁ ≤ 1`. These
+are also exactly the cases in which the numeraires are products `∏ i, e (x i)` of copies of one
+function `e`, and products of copies of an e-variable form a test supermartingale. The module
+`LMLExplore.EValues.Numeraire.Sequential.Bernoulli` gives an explicit counterexample, the null
+`{Ber(1/5), Ber(4/5)}` under the alternative `Ber(1/2)`, and uses the private helpers of this file
+on masses and mixtures through `import all`.
 
-* For the null `{Ber(1/5), Ber(4/5)}` on `Bool` and the alternative `Ber(1/2)`, the numeraire of
-  `n` observations is the likelihood ratio of `Ber(1/2) ^ n` against the equal mixture of
-  `Ber(1/5) ^ n` and `Ber(4/5) ^ n`. The stopping time that stops after the first observation
-  when it is `false` and after the second one otherwise gives the process the mean
-  `367 / 340 > 1` under the i.i.d. law of `Ber(1/5)`. Half of the process is an e-process: half
-  the numeraire is at most the likelihood ratio against each of the two null laws.
-* For a null `{P₁, P₂}` on a finite space, with `Q₁`, `P₁` and `P₂` charging every point, the
-  process is an e-process exactly when `∫⁻ x, P₂ {x} / P₁ {x} ∂Q₁ ≤ 1` or
-  `∫⁻ x, P₁ {x} / P₂ {x} ∂Q₁ ≤ 1`. These are also exactly the cases in which the numeraires are
-  products `∏ i, e (x i)` of copies of one function `e`, and products of copies of an e-variable
-  form a test supermartingale.
+These answers are those of the research note [EVR26, Note 23], Theorems (1) to (3). The
+statements and proofs are adapted from their formalization in
+`EValuesResearch/Results/SequentialNumeraire.lean` (commit `dd4072f`) in the paper project
+`RemyDegenne/evalues_research`.
 
 A numeraire is unique only almost surely under `Q₁ ^ (n + 1)`, and when `Q₁` does not charge
 every point whether the process is an e-process can depend on the version. The statements take
@@ -47,12 +45,6 @@ versions agree everywhere.
 
 ## Main statements
 
-* `ProbabilityTheory.lintegral_numeraires_bernoulli_stop_eq`: for every family of numeraires of
-  the null `{Ber(1/5), Ber(4/5)}` under `Ber(1/2)`, the mean `367 / 340` at the stopping time
-  above, under the i.i.d. law of `Ber(1/5)`.
-* `ProbabilityTheory.not_isEProcess_numeraires_bernoulli`: these numeraires do not form an
-  e-process.
-* `ProbabilityTheory.isEProcess_half_numeraires_bernoulli`: half of them do.
 * `ProbabilityTheory.isEProcess_numeraires_pair_iff`: for a null `{P₁, P₂}` on a finite space,
   with `Q₁`, `P₁` and `P₂` charging every point, the numeraires form an e-process exactly when
   `∫⁻ x, P₂ {x} / P₁ {x} ∂Q₁ ≤ 1` or `∫⁻ x, P₁ {x} / P₂ {x} ∂Q₁ ≤ 1`.
@@ -77,6 +69,8 @@ observations, and a rational function whose numerator has degree at most `k + 1`
 
 * [RGVS23] A. Ramdas, P. Grünwald, V. Vovk and G. Shafer, *Game-theoretic statistics and safe
   anytime-valid inference*, Statist. Sci. 38 (2023), arXiv:2210.01948, §8.2.4.
+* [EVR26] the research notes of the paper project `RemyDegenne/evalues_research`: Note 23,
+  `results/23-per-sample-numeraires-not-eprocess.md`.
 -/
 
 public section
@@ -92,66 +86,13 @@ section IID
 
 variable {𝓧 : Type*} {m𝓧 : MeasurableSpace 𝓧}
 
-/-- The first `n` coordinates of an i.i.d. sequence have the product law. -/
-private lemma measurePreserving_fin (P : Measure 𝓧) [IsProbabilityMeasure P] (n : ℕ) :
-    MeasurePreserving (fun (ω : ℕ → 𝓧) (i : Fin n) ↦ ω i) (Measure.infinitePi fun _ ↦ P)
-      (Measure.pi fun _ : Fin n ↦ P) := by
-  refine ⟨by fun_prop, ?_⟩
-  rw [← Measure.infinitePi_eq_pi]
-  exact Measure.map_infinitePi_infinitePi_of_inj Fin.val_injective
-
-/-- For `k ≤ n + 1`, the first `k` coordinates are measurable at time `n` of
-`Filtration.piLE`. -/
-private lemma measurable_piLE_fin {k n : ℕ} (hk : k ≤ n + 1) :
-    Measurable[Filtration.piLE (X := fun _ : ℕ ↦ 𝓧) n] fun (ω : ℕ → 𝓧) (i : Fin k) ↦ ω i :=
-  @Measurable.of_eval _ _ _ (Filtration.piLE n) _ _ fun i ↦
-    Filtration.measurable_piLE_apply (by have := i.2; omega)
-
-/-- The process of the values of functions `X n` of the first `n + 1` coordinates is adapted to
-`Filtration.piLE`. -/
-private lemma adapted_comp_fin {X : (n : ℕ) → (Fin (n + 1) → 𝓧) → ℝ≥0∞}
-    (hX : ∀ n, Measurable (X n)) :
-    Adapted (Filtration.piLE (X := fun _ : ℕ ↦ 𝓧)) fun n ω ↦ X n fun i ↦ ω i :=
-  fun n ↦ (hX n).comp (measurable_piLE_fin le_rfl)
-
-/-- Under an i.i.d. law, the coordinate `n + 1` is independent of the first `n + 1`
-coordinates. -/
-private lemma indep_piLE_comap_eval_succ (μ : Measure 𝓧) [IsProbabilityMeasure μ] (n : ℕ) :
-    Indep (Filtration.piLE (X := fun _ : ℕ ↦ 𝓧) n) (m𝓧.comap fun ω : ℕ → 𝓧 ↦ ω (n + 1))
-      (Measure.infinitePi fun _ ↦ μ) := by
-  have h := (iIndepFun_infinitePi (P := fun _ : ℕ ↦ μ) (X := fun _ ↦ id)
-    fun _ ↦ measurable_id).indepFun_finset (Finset.Iic n) {n + 1} (by simp)
-    fun i ↦ measurable_pi_apply i
-  have h' : (fun ω : ℕ → 𝓧 ↦ Preorder.frestrictLe n ω)
-      ⟂ᵢ[Measure.infinitePi fun _ ↦ μ] fun ω ↦ ω (n + 1) := by
-    exact h.comp measurable_id (measurable_pi_apply ⟨n + 1, by simp⟩)
-  rw [Filtration.piLE_eq_comap_frestrictLe]
-  exact (IndepFun_iff_Indep _ _ _).mp h'
-
-/-- For an event `s` determined by the first `n + 1` coordinates of an i.i.d. sequence,
-`∫⁻ ω in s, f (ω (n + 1)) ∂μ^ℕ = μ^ℕ s * ∫⁻ f ∂μ`. -/
-private lemma setLIntegral_comp_eval_succ (μ : Measure 𝓧) [IsProbabilityMeasure μ]
-    {f : 𝓧 → ℝ≥0∞} (hf : Measurable f) (n : ℕ) {s : Set (ℕ → 𝓧)}
-    (hs : MeasurableSet[Filtration.piLE (X := fun _ : ℕ ↦ 𝓧) n] s) :
-    ∫⁻ ω in s, f (ω (n + 1)) ∂(Measure.infinitePi fun _ ↦ μ) =
-      (Measure.infinitePi fun _ ↦ μ) s * ∫⁻ x, f x ∂μ := by
-  have hs' : MeasurableSet s := Filtration.le _ n _ hs
-  have h1 : Measurable[Filtration.piLE (X := fun _ : ℕ ↦ 𝓧) n]
-      (s.indicator (1 : (ℕ → 𝓧) → ℝ≥0∞)) :=
-    Measurable.indicator (m := Filtration.piLE (X := fun _ : ℕ ↦ 𝓧) n) measurable_const hs
-  calc ∫⁻ ω in s, f (ω (n + 1)) ∂(Measure.infinitePi fun _ ↦ μ)
-      = ∫⁻ ω, s.indicator 1 ω * f (ω (n + 1)) ∂(Measure.infinitePi fun _ ↦ μ) := by
-        rw [← lintegral_indicator hs']
-        congr 1 with ω
-        by_cases h : ω ∈ s <;> simp [h]
-    _ = (∫⁻ ω, s.indicator 1 ω ∂(Measure.infinitePi fun _ ↦ μ)) *
-          ∫⁻ ω, f (ω (n + 1)) ∂(Measure.infinitePi fun _ ↦ μ) :=
-        lintegral_mul_eq_lintegral_mul_lintegral_of_independent_measurableSpace
-          (Filtration.le _ n) (measurable_pi_apply (n + 1)).comap_le
-          (indep_piLE_comap_eval_succ μ n) h1 (hf.comp (comap_measurable _))
-    _ = (Measure.infinitePi fun _ ↦ μ) s * ∫⁻ x, f x ∂μ := by
-        rw [lintegral_indicator_one hs',
-          (measurePreserving_eval_infinitePi (fun _ ↦ μ) (n + 1)).lintegral_comp hf]
+/-- The first `n` coordinates of an i.i.d. sequence have the product law: the form of
+`measurePreserving_initSeg` for an integrand written with `fun i ↦ ω i`. -/
+private lemma lintegral_comp_fin (P : Measure 𝓧) [IsProbabilityMeasure P] {n : ℕ}
+    {f : (Fin n → 𝓧) → ℝ≥0∞} (hf : Measurable f) :
+    ∫⁻ ω : ℕ → 𝓧, f (fun i ↦ ω i) ∂(Measure.infinitePi fun _ ↦ P) =
+      ∫⁻ x, f x ∂(Measure.pi fun _ : Fin n ↦ P) := by
+  simpa only [initSeg_def] using (measurePreserving_initSeg P n).lintegral_comp hf
 
 /-- **Products of copies of an e-variable.** If each `X n` is the product `∏ i, e (x i)` of
 copies of an e-variable `e` for a null `S₁` of probability measures, the process
@@ -183,17 +124,9 @@ private lemma isEProcess_of_eq_prod {S₁ : Set (Measure 𝓧)}
     (fun k ↦ he.measurable.comp (Filtration.measurable_piLE_apply le_rfl)) hF
   convert hM.isEProcess hT using 3 with n ω
   rw [hXe, Fin.prod_univ_eq_prod_range (fun i ↦ e (ω i)), Finset.prod_range_succ', mul_comm]
-  rfl
+  simp only [Function.comp_apply]
 
 end IID
-
-/-! ### Numeraires on a countable space -/
-
-/-- On a countable space where `Q` charges every point, two numeraires agree everywhere. -/
-private lemma eq_of_isNumeraire {β : Type*} [MeasurableSpace β] [Countable β]
-    {S : Set (Measure β)} {Q : Measure β} {X Y : β → ℝ≥0∞} (hX : IsNumeraire X S Q)
-    (hY : IsNumeraire Y S Q) (hQ : ∀ x, Q {x} ≠ 0) : X = Y :=
-  funext fun x ↦ ae_iff_of_countable.1 (hX.ae_unique hY) x (hQ x)
 
 /-! ### Masses and mixtures on a finite space -/
 
@@ -247,8 +180,8 @@ private lemma sum_measureReal_singleton_eq_one (μ : Measure α) [IsProbabilityM
 /-- The masses of the product of a probability measure sum to `1`. -/
 private lemma sum_piMass_eq_one (μ : Measure α) [IsProbabilityMeasure μ] (n : ℕ) :
     ∑ x : Fin n → α, piMass μ x = 1 := by
-  rw [show (fun x : Fin n → α ↦ piMass μ x) = fun x ↦ ∏ i, μ.real {x i} from rfl,
-    sum_prod_eq_pow (fun y ↦ μ.real {y}), sum_measureReal_singleton_eq_one, one_pow]
+  simp only [piMass]
+  rw [sum_prod_eq_pow (fun y ↦ μ.real {y}), sum_measureReal_singleton_eq_one, one_pow]
 
 /-- The expectation `E_Q[p₂ / p₁]`, as a real number. -/
 private lemma lintegral_div_eq_ofReal (hP₁ : ∀ x, P₁ {x} ≠ 0) :
@@ -287,11 +220,25 @@ omit [MeasurableSingletonClass α] [Fintype α] in
 /-- The mass of a sample extended by one observation. -/
 private lemma piMass_snoc (μ : Measure α) {k : ℕ} (x : Fin (k + 1) → α) (y : α) :
     piMass μ (Fin.snoc (α := fun _ ↦ α) x y) = piMass μ x * μ.real {y} := by
-  rw [piMass, Fin.prod_univ_castSucc]
+  rw [piMass, piMass, Fin.prod_univ_castSucc]
   simp only [Fin.snoc_castSucc, Fin.snoc_last]
-  rfl
+
+omit [MeasurableSingletonClass α] [Fintype α] [IsProbabilityMeasure P₂] in
+/-- A mixture, with a positive weight on the products of a law `P₁` that charges every point, of
+the masses of products of `P₁` and of `P₂` is positive. -/
+private lemma mix_pos (hP₁ : ∀ x, P₁ {x} ≠ 0) {w : ℝ} (hw0 : 0 < w) (hw1 : w ≤ 1) {n : ℕ}
+    (x : Fin n → α) : 0 < w * piMass P₁ x + (1 - w) * piMass P₂ x :=
+  add_pos_of_pos_of_nonneg (mul_pos hw0 (piMass_pos hP₁ x))
+    (mul_nonneg (by linarith) (piMass_nonneg P₂ x))
 
 /-! ### Likelihood ratios against mixtures -/
+
+/-- The members of a pair of probability measures are probability measures. -/
+private lemma isProbabilityMeasure_of_mem_pair {β : Type*} [MeasurableSpace β]
+    {μ₁ μ₂ : Measure β} [IsProbabilityMeasure μ₁] [IsProbabilityMeasure μ₂] :
+    ∀ μ ∈ ({μ₁, μ₂} : Set (Measure β)), IsProbabilityMeasure μ := by
+  simp only [Set.mem_insert_iff, Set.mem_singleton_iff]
+  rintro μ (rfl | rfl) <;> infer_instance
 
 /-- **The likelihood ratio against a mixture.** On a finite space, if the likelihood ratio of
 `Q` against the mixture `w P₁ + (1 - w) P₂` has expectation at most `1` under `P₁` and `P₂`, it is
@@ -307,9 +254,8 @@ private lemma isNumeraire_ofReal_div_mix {β : Type*} [MeasurableSpace β]
     (hE₂ : ∑ x, b x * (q x / (w * a x + (1 - w) * b x)) ≤ 1) :
     IsNumeraire (fun x ↦ ENNReal.ofReal (q x / (w * a x + (1 - w) * b x))) {P₁, P₂} Q := by
   set m : β → ℝ := fun x ↦ w * a x + (1 - w) * b x with hm_def
-  have hS : ∀ μ ∈ ({P₁, P₂} : Set (Measure β)), IsProbabilityMeasure μ := by
-    simp only [Set.mem_insert_iff, Set.mem_singleton_iff]
-    rintro μ (rfl | rfl) <;> infer_instance
+  have hS : ∀ μ ∈ ({P₁, P₂} : Set (Measure β)), IsProbabilityMeasure μ :=
+    isProbabilityMeasure_of_mem_pair
   have hint : ∀ (c : β → ℝ), (∀ x, 0 ≤ c x) → ∀ (μ : Measure β),
       (∀ x, μ {x} = ENNReal.ofReal (c x)) →
       ∫⁻ x, ENNReal.ofReal (q x / m x) ∂μ = ENNReal.ofReal (∑ x, c x * (q x / m x)) := by
@@ -371,7 +317,7 @@ private lemma eq_ofReal_div_mix (hQ : ∀ x, Q {x} ≠ 0) {n : ℕ} {X : (Fin n 
     (piMass_pos hQ) (piMass_nonneg P₁) (piMass_nonneg P₂) (pi_singleton_eq_ofReal_piMass Q)
     (pi_singleton_eq_ofReal_piMass P₁) (pi_singleton_eq_ofReal_piMass P₂) hw0 hw1 hm hE₁ hE₂
   rw [Set.image_pair] at hX
-  refine congrFun (eq_of_isNumeraire hX hN fun y ↦ ?_) x
+  refine congrFun (hX.eq_of_countable hN fun y ↦ ?_) x
   rw [pi_singleton_eq_ofReal_piMass]
   exact (ENNReal.ofReal_pos.2 (piMass_pos hQ y)).ne'
 
@@ -424,9 +370,7 @@ private lemma isEVar_div_and_eq_prod_of_le [Finite α] (hQ : ∀ x, Q {x} ≠ 0)
     IsEVar (fun y ↦ Q {y} / P₁ {y}) {P₁, P₂} ∧ ∀ n x, X n x = ∏ i, Q {x i} / P₁ {x i} := by
   have := Fintype.ofFinite α
   refine ⟨?_, fun n x ↦ ?_⟩
-  · refine IsEVar.of_lintegral_le_one (by
-      simp only [Set.mem_insert_iff, Set.mem_singleton_iff]
-      rintro μ (rfl | rfl) <;> infer_instance) Measurable.of_discrete ?_
+  · refine IsEVar.of_lintegral_le_one isProbabilityMeasure_of_mem_pair Measurable.of_discrete ?_
     simp only [Set.mem_insert_iff, Set.mem_singleton_iff]
     rintro μ (rfl | rfl)
     · exact (lintegral_div_eq_one hP₁).le
@@ -452,8 +396,7 @@ private lemma mul_ofReal_div_mix_le (hP₁ : ∀ x, P₁ {x} ≠ 0) {n : ℕ} {w
   refine ENNReal.ofReal_le_ofReal ?_
   have hB := piMass_nonneg P₂ x
   have hq := piMass_nonneg Q x
-  have hmix : 0 < w * piMass P₁ x + (1 - w) * piMass P₂ x :=
-    add_pos_of_pos_of_nonneg (mul_pos hw0 hA) (mul_nonneg (by linarith) hB)
+  have hmix := mix_pos (P₂ := P₂) hP₁ hw0 hw1 x
   rw [mul_div_assoc', div_le_div_iff₀ hmix hA]
   nlinarith [mul_nonneg (mul_nonneg hq (sub_nonneg.2 hw1)) hB]
 
@@ -476,8 +419,7 @@ private lemma exists_weight_interior (hP₁ : ∀ x, P₁ {x} ≠ 0) (hP₂ : �
     rintro w ⟨h0, h1⟩ x
     rcases eq_or_lt_of_le h0 with rfl | h0'
     · simpa using piMass_pos hP₂ x
-    · exact add_pos_of_pos_of_nonneg (mul_pos h0' (piMass_pos hP₁ x))
-        (mul_nonneg (by linarith) (piMass_nonneg P₂ x))
+    · exact mix_pos hP₁ h0' h1 x
   set g : ℝ → ℝ := fun w ↦ ∑ x : Fin n → α, (piMass P₁ x - piMass P₂ x) *
     (piMass Q x / (w * piMass P₁ x + (1 - w) * piMass P₂ x)) with hg
   have hcont : ContinuousOn g (Set.Icc 0 1) :=
@@ -515,26 +457,6 @@ private lemma exists_weight_interior (hP₁ : ∀ x, P₁ {x} ≠ 0) (hP₂ : �
 
 /-! ### Stopping times with two values -/
 
-omit [Fintype α] in
-/-- A random time that is a function, at least `k`, of the first `k + 1` observations is a
-stopping time of the data filtration. -/
-private lemma isStoppingTime_comp_fin [Finite α] {k : ℕ} (T : (Fin (k + 1) → α) → ℕ)
-    (hT : ∀ x, k ≤ T x) :
-    IsStoppingTime (Filtration.piLE (X := fun _ : ℕ ↦ α))
-      (fun ω ↦ (T fun i ↦ ω i : WithTop ℕ)) := by
-  intro i
-  by_cases hi : k ≤ i
-  · exact measurable_piLE_fin (by omega) (MeasurableSet.of_discrete :
-      MeasurableSet {x : Fin (k + 1) → α | (T x : WithTop ℕ) ≤ i})
-  · change MeasurableSet[Filtration.piLE i]
-      {ω : ℕ → α | (T (fun j ↦ ω j) : WithTop ℕ) ≤ i}
-    have h : {ω : ℕ → α | (T (fun j ↦ ω j) : WithTop ℕ) ≤ i} = ∅ := by
-      ext ω
-      simp only [Set.mem_ofPred_eq, Set.mem_empty_iff_false, iff_false, Nat.cast_le, not_le]
-      exact lt_of_lt_of_le (by omega) (hT _)
-    rw [h]
-    exact @MeasurableSet.empty _ (Filtration.piLE i)
-
 /-- **The stopping time with two values.** Let `E` be a process whose values at times `k` and
 `k + 1` are functions `F₁` and `F₂` of the first `k + 1` and `k + 2` observations, with
 `E_P[F₂] = 1` under the i.i.d. law of a law `P` that charges every point. If stopping at `k` when
@@ -553,6 +475,7 @@ private lemma le_sum_of_lintegral_stop_le_one [DecidableEq α] {P : Measure α}
   have hEG : ∀ ω, E (if (fun i : Fin (k + 1) ↦ ω i) = x₀ then k else k + 1) ω =
       G fun i ↦ ω i := by
     intro ω
+    -- `Fin.init` drops the last coordinate, and `Fin.castSucc i` has the value of `i`
     have hinit : Fin.init (fun i : Fin (k + 2) ↦ ω i) = fun i : Fin (k + 1) ↦ ω i := rfl
     simp only [hG, hinit]
     split_ifs
@@ -573,8 +496,7 @@ private lemma le_sum_of_lintegral_stop_le_one [DecidableEq α] {P : Measure α}
   have hx₀ : (Measure.pi fun _ : Fin (k + 1) ↦ P) {x₀} ≠ 0 := by
     rw [Measure.pi_singleton]
     exact Finset.prod_ne_zero_iff.2 fun i _ ↦ hP _
-  rw [lintegral_congr hEG, (measurePreserving_fin P (k + 2)).lintegral_comp
-    Measurable.of_discrete, hsplit] at hτ
+  rw [lintegral_congr hEG, lintegral_comp_fin P Measurable.of_discrete, hsplit] at hτ
   rw [hsplit] at hF₂
   set c : (Fin (k + 1) → α) → ℝ≥0∞ := fun x ↦ ∑ y, F₂ (Fin.snoc x y) * P {y} with hc
   have hsum : ∀ x, ∑ y, G (Fin.snoc x y) * P {y} = if x = x₀ then F₁ x else c x := by
@@ -694,6 +616,57 @@ private lemma sum_div_eq_zero_of_injective {p₁ p₂ c : α → ℝ} (hp₁ : �
 
 /-! ### The numeraires fail at a stopping time with two values -/
 
+/-- If `E_Q[p₂ / p₁] > 1`, the likelihood ratio `p₂ / p₁` is not constant: otherwise it would be
+`1`, and so would `E_Q[p₂ / p₁]`. -/
+private lemma exists_ratio_lt_of_one_lt (hP₁ : ∀ x, P₁ {x} ≠ 0)
+    (h₁ : 1 < ∑ y, P₂.real {y} * (Q.real {y} / P₁.real {y})) :
+    ∃ y₁ y₂, P₂.real {y₁} / P₁.real {y₁} < P₂.real {y₂} / P₁.real {y₂} := by
+  by_contra hcon
+  push Not at hcon
+  obtain ⟨y₀⟩ := nonempty_of_isProbabilityMeasure Q
+  set c := P₂.real {y₀} / P₁.real {y₀}
+  have hP₂c : ∀ y, P₂.real {y} = c * P₁.real {y} := fun y ↦ by
+    rw [← div_eq_iff (measureReal_singleton_pos hP₁ y).ne']
+    exact le_antisymm (hcon y₀ y) (hcon y y₀)
+  have hc : c = 1 := by
+    have h := sum_measureReal_singleton_eq_one P₂
+    rwa [Finset.sum_congr rfl fun y _ ↦ hP₂c y, ← Finset.mul_sum,
+      sum_measureReal_singleton_eq_one, mul_one] at h
+  have h1 : ∑ y, P₂.real {y} * (Q.real {y} / P₁.real {y}) = 1 := by
+    rw [← sum_measureReal_singleton_eq_one Q]
+    refine Finset.sum_congr rfl fun y _ ↦ ?_
+    rw [hP₂c y, hc, one_mul, mul_div_cancel₀ _ (measureReal_singleton_pos hP₁ y).ne']
+  linarith
+
+omit [MeasurableSpace α] [MeasurableSingletonClass α] [Fintype α] in
+/-- **Samples with geometric ratios.** The product of `f` over the sample of `k + 1`
+observations made of `j` copies of `y₁` followed by copies of `y₂` is
+`f y₂ ^ (k + 1) * (f y₁ / f y₂) ^ j`. -/
+private lemma prod_ite_lt_eq {f : α → ℝ} {y₂ : α} (hf : f y₂ ≠ 0) (y₁ : α) {k : ℕ}
+    (j : Fin (k + 2)) :
+    ∏ i : Fin (k + 1), f (if (i : ℕ) < j then y₁ else y₂) =
+      f y₂ ^ (k + 1) * (f y₁ / f y₂) ^ (j : ℕ) := by
+  have hj := j.2
+  rw [Fin.prod_univ_eq_prod_range (fun i ↦ f (if i < (j : ℕ) then y₁ else y₂))]
+  simp only [apply_ite f]
+  rw [Finset.prod_ite, Finset.prod_const, Finset.prod_const]
+  have hc₁ : ((Finset.range (k + 1)).filter (· < (j : ℕ))).card = j := by
+    rw [Finset.range_eq_Ico, Finset.Ico_filter_lt]
+    simp [show (j : ℕ) ≤ k + 1 by omega]
+  have hc₂ : ((Finset.range (k + 1)).filter (fun i ↦ ¬ i < (j : ℕ))).card = k + 1 - j := by
+    simp only [not_lt]
+    rw [Finset.range_eq_Ico, Finset.Ico_filter_le]
+    simp
+  rw [hc₁, hc₂, div_pow, show f y₂ ^ (k + 1) = f y₂ ^ (k + 1 - j) * f y₂ ^ (j : ℕ) by
+    rw [← pow_add]
+    congr 1
+    omega, mul_assoc, mul_div_assoc', mul_div_cancel_left₀ _ (pow_ne_zero _ hf), mul_comm]
+
+/-- The geometric sequence `j ↦ c * a ^ j` of ratio `0 < a ≠ 1` is injective. -/
+private lemma injective_mul_pow {c a : ℝ} (hc : c ≠ 0) (ha0 : 0 < a) (ha1 : a ≠ 1) {m : ℕ} :
+    Function.Injective fun j : Fin m ↦ c * a ^ (j : ℕ) :=
+  fun _ _ h ↦ Fin.ext (pow_right_injective₀ ha0 ha1 (mul_left_cancel₀ hc h))
+
 /-- **The numeraires fail at a stopping time with two values.** On a finite space, for laws `P₁`,
 `P₂` and an alternative `Q` that charge every point, if `E_Q[p₂ / p₁] > 1` and
 `E_Q[p₁ / p₂] > 1`, the numeraires are not an e-process: the e-process property fails at a
@@ -710,24 +683,7 @@ private lemma not_isEProcess_of_one_lt (hQ : ∀ x, Q {x} ≠ 0) (hP₁ : ∀ x,
   intro hE
   set r : α → ℝ := fun y ↦ P₂.real {y} / P₁.real {y} with hr
   -- two points with different likelihood ratios
-  obtain ⟨y₁, y₂, hy⟩ : ∃ y₁ y₂, r y₁ < r y₂ := by
-    by_contra hcon
-    push Not at hcon
-    obtain ⟨y₀⟩ := nonempty_of_isProbabilityMeasure Q
-    have hP₂r : ∀ y, P₂.real {y} = r y₀ * P₁.real {y} := fun y ↦ by
-      have h := le_antisymm (hcon y₀ y) (hcon y y₀)
-      simp only [hr] at h
-      rwa [div_eq_iff (measureReal_singleton_pos hP₁ y).ne'] at h
-    have hr₀ : r y₀ = 1 := by
-      have h := sum_measureReal_singleton_eq_one P₂
-      rw [Finset.sum_congr rfl fun y _ ↦ hP₂r y, ← Finset.mul_sum,
-        sum_measureReal_singleton_eq_one, mul_one] at h
-      exact h
-    have h1 : ∑ y, P₂.real {y} * (Q.real {y} / P₁.real {y}) = 1 := by
-      rw [← sum_measureReal_singleton_eq_one Q]
-      refine Finset.sum_congr rfl fun y _ ↦ ?_
-      rw [hP₂r y, hr₀, one_mul, mul_div_cancel₀ _ (measureReal_singleton_pos hP₁ y).ne']
-    linarith
+  obtain ⟨y₁, y₂, hy⟩ : ∃ y₁ y₂, r y₁ < r y₂ := exists_ratio_lt_of_one_lt hP₁ h₁
   have hy₁₂ : y₁ ≠ y₂ := fun h ↦ lt_irrefl _ (h ▸ hy)
   have hcard : 1 < Fintype.card α := Fintype.one_lt_card_iff.2 ⟨y₁, y₂, hy₁₂⟩
   obtain ⟨k, hk⟩ : ∃ k, Fintype.card α = k + 2 := ⟨Fintype.card α - 2, by omega⟩
@@ -736,8 +692,7 @@ private lemma not_isEProcess_of_one_lt (hQ : ∀ x, Q {x} ≠ 0) (hP₁ : ∀ x,
   obtain ⟨w', hw0', hw1', hE₁', hE₂'⟩ :=
     exists_weight_interior hP₁ hP₂ h₁ h₂ (n := k + 2) (by omega)
   have hmix : ∀ {n : ℕ} {v : ℝ}, 0 < v → v < 1 → ∀ x : Fin n → α,
-      0 < v * piMass P₁ x + (1 - v) * piMass P₂ x := fun hv0 hv1 x ↦
-    add_pos (mul_pos hv0 (piMass_pos hP₁ x)) (mul_pos (by linarith) (piMass_pos hP₂ x))
+      0 < v * piMass P₁ x + (1 - v) * piMass P₂ x := fun hv0 hv1 x ↦ mix_pos hP₁ hv0 hv1.le x
   have hN₁ := eq_ofReal_div_mix hQ (hX k) hw0.le hw1.le (hmix hw0 hw1) hE₁.le hE₂.le
   have hN₂ := eq_ofReal_div_mix hQ (hX (k + 1)) hw0'.le hw1'.le (hmix hw0' hw1') hE₁'.le hE₂'.le
   have hden : ∀ (x₀ : Fin (k + 1) → α) (y : α), 0 ≤ w' * (piMass P₁ x₀ * P₁.real {y}) +
@@ -754,8 +709,10 @@ private lemma not_isEProcess_of_one_lt (hQ : ∀ x, Q {x} ≠ 0) (hP₁ : ∀ x,
           ∑ y, piMass Q x₀ * Q.real {y} / (w' * (piMass P₁ x₀ * P₁.real {y}) +
             (1 - w') * (piMass P₂ x₀ * P₂.real {y})) * P.real {y} := by
     intro P _ hPS hP hEP x₀
-    have hτ := isStoppingTime_comp_fin (fun x ↦ if x = x₀ then k else k + 1)
+    have hτ := Filtration.isStoppingTime_piLE_comp_initSeg
+      (T := fun x ↦ if x = x₀ then k else k + 1) Measurable.of_discrete
       fun x ↦ by split_ifs <;> omega
+    simp only [initSeg_def] at hτ
     have hle := hE.lintegral_le_one hτ ⟨P, hPS, rfl⟩
     have hF₂ : ∫⁻ z, X (k + 1) z ∂(Measure.pi fun _ : Fin (k + 2) ↦ P) = 1 := by
       rw [lintegral_fintype, ← ENNReal.ofReal_one, ← hEP,
@@ -803,46 +760,24 @@ private lemma not_isEProcess_of_one_lt (hQ : ∀ x, Q {x} ≠ 0) (hP₁ : ∀ x,
     div_pos (measureReal_singleton_pos hP₂ _) (measureReal_singleton_pos hP₁ _)
   set x : Fin (k + 2) → Fin (k + 1) → α := fun j i ↦ if (i : ℕ) < j then y₁ else y₂ with hx
   have hratio : ∀ j : Fin (k + 2),
-      piMass P₂ (x j) / piMass P₁ (x j) = r y₂ ^ (k + 1) * (r y₁ / r y₂) ^ (j : ℕ) := by
-    intro j
-    have hj := j.2
-    have hfac : ∀ i : Fin (k + 1), P₂.real {x j i} / P₁.real {x j i} =
-        if (i : ℕ) < j then r y₁ else r y₂ := fun i ↦ by
-      simp only [hx]
-      split_ifs <;> rfl
-    rw [piMass, piMass, ← Finset.prod_div_distrib, Finset.prod_congr rfl fun i _ ↦ hfac i,
-      Fin.prod_univ_eq_prod_range (fun i ↦ if i < (j : ℕ) then r y₁ else r y₂),
-      Finset.prod_ite, Finset.prod_const, Finset.prod_const]
-    have hc₁ : ((Finset.range (k + 1)).filter (· < (j : ℕ))).card = j := by
-      rw [Finset.range_eq_Ico, Finset.Ico_filter_lt]
-      simp [show (j : ℕ) ≤ k + 1 by omega]
-    have hc₂ : ((Finset.range (k + 1)).filter (fun i ↦ ¬ i < (j : ℕ))).card = k + 1 - j := by
-      simp only [not_lt]
-      rw [Finset.range_eq_Ico, Finset.Ico_filter_le]
-      simp
-    rw [hc₁, hc₂, div_pow (r y₁) (r y₂),
-      show r y₂ ^ (k + 1) = r y₂ ^ (k + 1 - j) * r y₂ ^ (j : ℕ) by
-      rw [← pow_add]
-      congr 1
-      omega, mul_assoc, mul_div_assoc', mul_div_cancel_left₀ _ (pow_ne_zero _ hr₂.ne'),
-      mul_comm]
+      piMass P₂ (x j) / piMass P₁ (x j) = r y₂ ^ (k + 1) * (r y₁ / r y₂) ^ (j : ℕ) := fun j ↦ by
+    rw [piMass, piMass, ← Finset.prod_div_distrib]
+    -- the factors are `r (x j i)`, with `x j i = if i < j then y₁ else y₂`
+    exact prod_ite_lt_eq hr₂.ne' y₁ j
   set s : Fin (k + 2) → ℝ := fun j ↦ (1 - w') * piMass P₂ (x j) / (w' * piMass P₁ (x j))
     with hs
   have hs' : ∀ j, s j = (1 - w') / w' * (r y₂ ^ (k + 1) * (r y₁ / r y₂) ^ (j : ℕ)) := fun j ↦ by
     rw [hs, ← hratio j]
     field_simp
   have hinj : Function.Injective s := by
-    intro j j' hjj
-    rw [hs', hs'] at hjj
     have hK : (1 - w') / w' * r y₂ ^ (k + 1) ≠ 0 := by
       have : 0 < 1 - w' := by linarith
       positivity
-    have h' : (1 - w') / w' * r y₂ ^ (k + 1) * (r y₁ / r y₂) ^ (j : ℕ) =
-        (1 - w') / w' * r y₂ ^ (k + 1) * (r y₁ / r y₂) ^ (j' : ℕ) := by
-      rw [mul_assoc, mul_assoc]
-      exact hjj
-    exact Fin.ext (pow_right_injective₀ (div_pos hr₁ hr₂)
-      (ne_of_lt ((div_lt_one hr₂).2 hy)) (mul_left_cancel₀ hK h'))
+    have hs'' : s = fun j : Fin (k + 2) ↦
+        (1 - w') / w' * r y₂ ^ (k + 1) * (r y₁ / r y₂) ^ (j : ℕ) :=
+      funext fun j ↦ by rw [hs', mul_assoc]
+    rw [hs'']
+    exact injective_mul_pow hK (div_pos hr₁ hr₂) (ne_of_lt ((div_lt_one hr₂).2 hy))
   have hs0 : ∀ j, 0 ≤ s j := fun j ↦ div_nonneg
     (mul_nonneg (by linarith) (piMass_nonneg _ _)) (mul_nonneg hw0'.le (piMass_nonneg _ _))
   have hroot : ∀ j, ∑ y, (P₁.real {y} - P₂.real {y}) * Q.real {y} /
@@ -889,9 +824,8 @@ nulls of two laws on a finite space. Let `P₁`, `P₂` and the alternative `Q�
 and let `X n` be a numeraire of `n + 1` observations for the i.i.d. null `{P₁, P₂}` under
 `Q₁ ^ (n + 1)` for every `n`, for instance Statlib's `numeraire`. The process of the numeraires at
 the first observations, `fun n ω ↦ X n fun i ↦ ω i`, is an e-process for the i.i.d. null and
-`Filtration.piLE` exactly when `E_{Q₁}[p₂ / p₁] ≤ 1` or `E_{Q₁}[p₁ / p₂] ≤ 1`. When both
-expectations exceed `1`, the proof finds the failure at a stopping time that stops after
-`|α| - 1` observations on one sample and after `|α|` otherwise. -/
+`Filtration.piLE` exactly when `E_{Q₁}[p₂ / p₁] ≤ 1` or `E_{Q₁}[p₁ / p₂] ≤ 1`
+[EVR26, Note 23, Theorem (3)]. -/
 theorem isEProcess_numeraires_pair_iff (hQ₁ : ∀ x, Q₁ {x} ≠ 0) (hP₁ : ∀ x, P₁ {x} ≠ 0)
     (hP₂ : ∀ x, P₂ {x} ≠ 0)
     (hX : ∀ n, IsNumeraire (X n) ((fun P ↦ Measure.pi fun _ : Fin (n + 1) ↦ P) '' {P₁, P₂})
@@ -900,9 +834,8 @@ theorem isEProcess_numeraires_pair_iff (hQ₁ : ∀ x, Q₁ {x} ≠ 0) (hP₁ : 
         ((fun P ↦ Measure.infinitePi fun _ : ℕ ↦ P) '' {P₁, P₂}) ↔
       ∫⁻ x, P₂ {x} / P₁ {x} ∂Q₁ ≤ 1 ∨ ∫⁻ x, P₁ {x} / P₂ {x} ∂Q₁ ≤ 1 := by
   have := Fintype.ofFinite α
-  have hS : ∀ P ∈ ({P₁, P₂} : Set (Measure α)), IsProbabilityMeasure P := by
-    simp only [Set.mem_insert_iff, Set.mem_singleton_iff]
-    rintro P (rfl | rfl) <;> infer_instance
+  have hS : ∀ P ∈ ({P₁, P₂} : Set (Measure α)), IsProbabilityMeasure P :=
+    isProbabilityMeasure_of_mem_pair
   refine ⟨fun h ↦ ?_, fun h ↦ ?_⟩
   · by_contra hcon
     push Not at hcon
@@ -920,8 +853,7 @@ theorem isEProcess_numeraires_pair_iff (hQ₁ : ∀ x, Q₁ {x} ≠ 0) (hP₁ : 
 finite space, let `P₁`, `P₂` and the alternative `Q₁` charge every point, and let `X n` be a
 numeraire of `n + 1` observations for the i.i.d. null `{P₁, P₂}` under `Q₁ ^ (n + 1)` for every
 `n`. The numeraires are products `X n x = ∏ i, e (x i)` of copies of one function `e` exactly
-when `E_{Q₁}[p₂ / p₁] ≤ 1` or `E_{Q₁}[p₁ / p₂] ≤ 1`. When the condition holds, the likelihood
-ratio of `Q₁` against `P₁`, or against `P₂`, is such a function. -/
+when `E_{Q₁}[p₂ / p₁] ≤ 1` or `E_{Q₁}[p₁ / p₂] ≤ 1` [EVR26, Note 23, Theorem (3)]. -/
 theorem exists_prod_eq_numeraires_pair_iff (hQ₁ : ∀ x, Q₁ {x} ≠ 0) (hP₁ : ∀ x, P₁ {x} ≠ 0)
     (hP₂ : ∀ x, P₂ {x} ≠ 0)
     (hX : ∀ n, IsNumeraire (X n) ((fun P ↦ Measure.pi fun _ : Fin (n + 1) ↦ P) '' {P₁, P₂})
@@ -930,9 +862,8 @@ theorem exists_prod_eq_numeraires_pair_iff (hQ₁ : ∀ x, Q₁ {x} ≠ 0) (hP�
       ∫⁻ x, P₂ {x} / P₁ {x} ∂Q₁ ≤ 1 ∨ ∫⁻ x, P₁ {x} / P₂ {x} ∂Q₁ ≤ 1 := by
   have := Fintype.ofFinite α
   refine ⟨fun ⟨e, hXe⟩ ↦ ?_, fun h ↦ ?_⟩
-  · have hS : ∀ P ∈ ({P₁, P₂} : Set (Measure α)), IsProbabilityMeasure P := by
-      simp only [Set.mem_insert_iff, Set.mem_singleton_iff]
-      rintro P (rfl | rfl) <;> infer_instance
+  · have hS : ∀ P ∈ ({P₁, P₂} : Set (Measure α)), IsProbabilityMeasure P :=
+      isProbabilityMeasure_of_mem_pair
     -- `e` is an e-variable: it is the numeraire of one observation
     have he : IsEVar e {P₁, P₂} := by
       refine IsEVar.of_lintegral_le_one hS Measurable.of_discrete fun P hP ↦ ?_
@@ -948,231 +879,5 @@ theorem exists_prod_eq_numeraires_pair_iff (hQ₁ : ∀ x, Q₁ {x} ≠ 0) (hP�
       exact ⟨fun y ↦ Q₁ {y} / P₂ {y}, (isEVar_div_and_eq_prod_of_le hQ₁ hP₂ h hX).2⟩
 
 end TwoPoint
-
-/-! ### The Bernoulli counterexample -/
-
-section Bernoulli
-
-variable {Q P₁ P₂ : Measure Bool} [IsProbabilityMeasure Q] [IsProbabilityMeasure P₁]
-  [IsProbabilityMeasure P₂] {X : (n : ℕ) → (Fin (n + 1) → Bool) → ℝ≥0∞}
-
-/-- The real masses of a Bernoulli law on `Bool`. -/
-private lemma measureReal_bernoulli_singleton (p : I) (b : Bool) :
-    Ber(true, false, p).real {b} = if b then (p : ℝ) else 1 - p := by
-  cases b
-  · exact bernoulliMeasure_real_apply_of_notMem_of_mem p (measurableSet_singleton _) (by simp)
-      (by simp)
-  · exact bernoulliMeasure_real_apply_of_mem_of_notMem p (measurableSet_singleton _) (by simp)
-      (by simp)
-
-/-- The real masses of `Ber(1/2)`, `Ber(1/5)` and `Ber(4/5)`. -/
-private lemma measureReal_bernoulli_counterexample :
-    (∀ b, Ber(true, false, ⟨1 / 2, by norm_num⟩).real {b} = 1 / 2) ∧
-    (∀ b, Ber(true, false, ⟨1 / 5, by norm_num⟩).real {b} =
-      if b then 1 / 5 else 4 / 5) ∧
-    ∀ b, Ber(true, false, ⟨4 / 5, by norm_num⟩).real {b} =
-      if b then 4 / 5 else 1 / 5 := by
-  refine ⟨fun b ↦ ?_, fun b ↦ ?_, fun b ↦ ?_⟩ <;>
-    cases b <;> simp only [measureReal_bernoulli_singleton] <;> norm_num
-
-/-- A point of positive real mass has nonzero mass. -/
-private lemma measure_singleton_ne_zero_of_pos {μ : Measure Bool} {b : Bool}
-    (h : 0 < μ.real {b}) : μ {b} ≠ 0 :=
-  fun h0 ↦ by simp [measureReal_def, h0] at h
-
-/-- **Symmetric pairs.** If a bijection `φ` fixes `q` and exchanges `a` and `b`, the ratio of `q`
-to the equal mixture of `a` and `b` has the same sum against `a` and against `b`, and these sums
-are `1` when `q` sums to `1`. -/
-private lemma sum_mul_div_mix_half_eq_one {β : Type*} [Fintype β] {q a b : β → ℝ}
-    (hm : ∀ x, 0 < 2⁻¹ * a x + (1 - 2⁻¹) * b x) (hq : ∑ x, q x = 1) (φ : β ≃ β)
-    (hqφ : ∀ x, q (φ x) = q x) (haφ : ∀ x, a (φ x) = b x) (hbφ : ∀ x, b (φ x) = a x) :
-    ∑ x, a x * (q x / (2⁻¹ * a x + (1 - 2⁻¹) * b x)) = 1 ∧
-      ∑ x, b x * (q x / (2⁻¹ * a x + (1 - 2⁻¹) * b x)) = 1 := by
-  have h2 : (1 - 2⁻¹ : ℝ) = 2⁻¹ := by norm_num
-  simp only [h2] at hm ⊢
-  have hmφ : ∀ x, 2⁻¹ * a (φ x) + 2⁻¹ * b (φ x) = 2⁻¹ * a x + 2⁻¹ * b x :=
-    fun x ↦ by rw [haφ, hbφ, add_comm]
-  have h12 : ∑ x, a x * (q x / (2⁻¹ * a x + 2⁻¹ * b x)) =
-      ∑ x, b x * (q x / (2⁻¹ * a x + 2⁻¹ * b x)) := by
-    rw [← φ.sum_comp]
-    exact Finset.sum_congr rfl fun x _ ↦ by rw [hmφ, haφ, hqφ]
-  have hsum : ∑ x, a x * (q x / (2⁻¹ * a x + 2⁻¹ * b x)) +
-      ∑ x, b x * (q x / (2⁻¹ * a x + 2⁻¹ * b x)) = 2 := by
-    calc _ = ∑ x, 2 * q x := by
-          rw [← Finset.sum_add_distrib]
-          refine Finset.sum_congr rfl fun x _ ↦ ?_
-          have hne : a x + b x ≠ 0 := fun h ↦ by linarith [hm x]
-          field_simp
-      _ = 2 := by rw [← Finset.mul_sum, hq, mul_one]
-  constructor <;> linarith
-
-/-- For the null `{Ber(1/5), Ber(4/5)}` and the alternative `Ber(1/2)` (given by their masses), a
-numeraire of `n` observations is the likelihood ratio of `Ber(1/2) ^ n` against the equal mixture
-of `Ber(1/5) ^ n` and `Ber(4/5) ^ n`: the negation of every observation fixes `Ber(1/2) ^ n` and
-exchanges the two null products, so that the ratio has expectation `1` under both. -/
-private lemma eq_ofReal_div_mix_half (hQ : ∀ b, Q.real {b} = 1 / 2)
-    (hP₁ : ∀ b, P₁.real {b} = if b then 1 / 5 else 4 / 5)
-    (hP₂ : ∀ b, P₂.real {b} = if b then 4 / 5 else 1 / 5) {n : ℕ}
-    {Y : (Fin n → Bool) → ℝ≥0∞}
-    (hY : IsNumeraire Y ((fun P ↦ Measure.pi fun _ : Fin n ↦ P) '' {P₁, P₂})
-      (Measure.pi fun _ ↦ Q)) (x : Fin n → Bool) :
-    Y x = ENNReal.ofReal (piMass Q x / (2⁻¹ * piMass P₁ x + (1 - 2⁻¹) * piMass P₂ x)) := by
-  have hQ0 : ∀ b, Q {b} ≠ 0 := fun b ↦ measure_singleton_ne_zero_of_pos (by rw [hQ]; norm_num)
-  have hP₁0 : ∀ b, P₁ {b} ≠ 0 := fun b ↦ measure_singleton_ne_zero_of_pos (by
-    rw [hP₁]; split_ifs <;> norm_num)
-  set φ : Equiv.Perm (Fin n → Bool) :=
-    Function.Involutive.toPerm (fun x i ↦ !x i) fun x ↦ funext fun i ↦ Bool.not_not _
-  have hφ : ∀ μ ν : Measure Bool, (∀ b, μ.real {!b} = ν.real {b}) →
-      ∀ x, piMass μ (φ x) = piMass ν x :=
-    fun μ ν h x ↦ Finset.prod_congr rfl fun i _ ↦ h (x i)
-  have hm : ∀ x : Fin n → Bool, 0 < 2⁻¹ * piMass P₁ x + (1 - 2⁻¹) * piMass P₂ x := fun x ↦ by
-    have := piMass_pos hP₁0 x
-    have := piMass_nonneg P₂ x
-    norm_num
-    positivity
-  obtain ⟨hE₁, hE₂⟩ := sum_mul_div_mix_half_eq_one hm (sum_piMass_eq_one Q n) φ
-    (hφ Q Q fun b ↦ by rw [hQ, hQ]) (hφ P₁ P₂ fun b ↦ by cases b <;> simp [hP₁, hP₂])
-    (hφ P₂ P₁ fun b ↦ by cases b <;> simp [hP₁, hP₂])
-  exact eq_ofReal_div_mix (fun b ↦ hQ0 b) hY (by norm_num) (by norm_num) hm hE₁.le hE₂.le x
-
-/-- The numeraires of one and two observations of the counterexample: `1`, and `25 / 34` or
-`25 / 16` according as the two observations are equal or not. -/
-private lemma numeraire_bernoulli_zero_one (hQ : ∀ b, Q.real {b} = 1 / 2)
-    (hP₁ : ∀ b, P₁.real {b} = if b then 1 / 5 else 4 / 5)
-    (hP₂ : ∀ b, P₂.real {b} = if b then 4 / 5 else 1 / 5)
-    (hX : ∀ n, IsNumeraire (X n) ((fun P ↦ Measure.pi fun _ : Fin (n + 1) ↦ P) '' {P₁, P₂})
-      (Measure.pi fun _ ↦ Q)) (ω : ℕ → Bool) :
-    X 0 (fun i ↦ ω i) = 1 ∧
-      X 1 (fun i ↦ ω i) = ENNReal.ofReal (if ω 0 = ω 1 then 25 / 34 else 25 / 16) := by
-  refine ⟨?_, ?_⟩
-  · rw [eq_ofReal_div_mix_half hQ hP₁ hP₂ (hX 0)]
-    simp only [piMass, Fin.prod_univ_succ, Fin.prod_univ_zero, mul_one, hQ, hP₁, hP₂,
-      Fin.val_zero]
-    rcases Bool.eq_false_or_eq_true (ω 0) with h | h <;> simp only [h] <;> norm_num
-  · rw [eq_ofReal_div_mix_half hQ hP₁ hP₂ (hX 1)]
-    simp only [piMass, Fin.prod_univ_succ, Fin.prod_univ_zero, mul_one, hQ, hP₁, hP₂]
-    simp only [Fin.val_zero, Fin.succ_zero_eq_one, Fin.val_one]
-    rcases Bool.eq_false_or_eq_true (ω 0) with h0 | h0 <;>
-      rcases Bool.eq_false_or_eq_true (ω 1) with h1 | h1 <;> simp only [h0, h1] <;> norm_num
-
-/-- **The numeraires of the counterexample at the stopping time.** For the null
-`{Ber(1/5), Ber(4/5)}` on `Bool` and the alternative `Ber(1/2)`, let `X n` be a numeraire of
-`n + 1` observations for every `n`, for instance Statlib's `numeraire`. The stopping time that
-stops after the first observation when it is `false` and after the second one otherwise (with
-`Filtration.piLE`, stopping after one observation is stopping at time `0`) gives the numeraires
-the mean `367 / 340 > 1` under the i.i.d. law of `Ber(1/5)`. -/
-theorem lintegral_numeraires_bernoulli_stop_eq
-    {X : (n : ℕ) → (Fin (n + 1) → Bool) → ℝ≥0∞}
-    (hX : ∀ n, IsNumeraire (X n)
-      ((fun P ↦ Measure.pi fun _ : Fin (n + 1) ↦ P) ''
-        {Ber(true, false, ⟨1 / 5, by norm_num⟩), Ber(true, false, ⟨4 / 5, by norm_num⟩)})
-      (Measure.pi fun _ ↦ Ber(true, false, ⟨1 / 2, by norm_num⟩))) :
-    IsStoppingTime (Filtration.piLE (X := fun _ : ℕ ↦ Bool))
-        (fun ω ↦ ((if ω 0 then 1 else 0 : ℕ) : WithTop ℕ)) ∧
-      ∫⁻ ω, X (if ω 0 then 1 else 0) (fun i ↦ ω i)
-          ∂Measure.infinitePi (fun _ : ℕ ↦ Ber(true, false, ⟨1 / 5, by norm_num⟩)) =
-        367 / 340 := by
-  obtain ⟨hQ, hP₁, hP₂⟩ := measureReal_bernoulli_counterexample
-  refine ⟨isStoppingTime_comp_fin (k := 0) (fun x : Fin 1 → Bool ↦ if x 0 then 1 else 0)
-    fun _ ↦ Nat.zero_le _, ?_⟩
-  set g : (Fin 2 → Bool) → ℝ := fun y ↦ if y 0 then (if y 0 = y 1 then 25 / 34 else 25 / 16)
-    else 1 with hg
-  have hg0 : ∀ y, 0 ≤ g y := fun y ↦ by simp only [hg]; split_ifs <;> norm_num
-  set G : (Fin 2 → Bool) → ℝ≥0∞ := fun y ↦ ENNReal.ofReal (g y) with hG
-  have hval : ∀ ω : ℕ → Bool, X (if ω 0 then 1 else 0) (fun i ↦ ω i) = G fun i ↦ ω i := by
-    intro ω
-    obtain ⟨h0, h1⟩ := numeraire_bernoulli_zero_one hQ hP₁ hP₂ hX ω
-    cases hω : ω 0
-    · change X 0 (fun i ↦ ω i) = _
-      rw [h0]
-      simp [hG, hg, hω]
-    · change X 1 (fun i ↦ ω i) = _
-      rw [h1]
-      simp [hG, hg, hω]
-  rw [lintegral_congr hval, (measurePreserving_fin _ 2).lintegral_comp Measurable.of_discrete,
-    lintegral_fintype, Finset.sum_congr rfl fun y _ ↦ by
-      rw [hG, pi_singleton_eq_ofReal_piMass, ← ENNReal.ofReal_mul (hg0 y)],
-    ← ENNReal.ofReal_sum_of_nonneg fun y _ ↦ mul_nonneg (hg0 y) (piMass_nonneg _ _),
-    ← (finTwoArrowEquiv Bool).symm.sum_comp, Fintype.sum_prod_type, Fintype.sum_bool,
-    Fintype.sum_bool, Fintype.sum_bool]
-  simp only [hg, piMass, Fin.prod_univ_two, finTwoArrowEquiv_symm_apply, Matrix.cons_val_zero,
-    Matrix.cons_val_one, hP₁]
-  rw [show (367 / 340 : ℝ≥0∞) = ENNReal.ofReal (367 / 340) by
-    rw [ENNReal.ofReal_div_of_pos (by norm_num)]; simp]
-  norm_num
-
-/-- **The numeraires need not form an e-process**, which answers the question of
-[RGVS23, §8.2.4] in the negative. For the i.i.d. null `{Ber(1/5), Ber(4/5)}` on `Bool` and the
-alternative `Ber(1/2)`, the numeraires of `n + 1` observations, evaluated at the first `n + 1`
-observations, do not form an e-process for `Filtration.piLE`, whatever numeraires `X n` are
-chosen. -/
-theorem not_isEProcess_numeraires_bernoulli {X : (n : ℕ) → (Fin (n + 1) → Bool) → ℝ≥0∞}
-    (hX : ∀ n, IsNumeraire (X n)
-      ((fun P ↦ Measure.pi fun _ : Fin (n + 1) ↦ P) ''
-        {Ber(true, false, ⟨1 / 5, by norm_num⟩), Ber(true, false, ⟨4 / 5, by norm_num⟩)})
-      (Measure.pi fun _ ↦ Ber(true, false, ⟨1 / 2, by norm_num⟩))) :
-    ¬ IsEProcess (fun n ω ↦ X n fun i ↦ ω i) (Filtration.piLE (X := fun _ : ℕ ↦ Bool))
-      ((fun P ↦ Measure.infinitePi fun _ : ℕ ↦ P) ''
-        {Ber(true, false, ⟨1 / 5, by norm_num⟩), Ber(true, false, ⟨4 / 5, by norm_num⟩)}) := by
-  intro h
-  obtain ⟨hτ, hint⟩ := lintegral_numeraires_bernoulli_stop_eq hX
-  have hle : ∫⁻ ω, X (if ω 0 then 1 else 0) (fun i ↦ ω i)
-      ∂Measure.infinitePi (fun _ : ℕ ↦ Ber(true, false, ⟨1 / 5, by norm_num⟩)) ≤ 1 :=
-    h.lintegral_le_one hτ ⟨_, Set.mem_insert _ _, rfl⟩
-  rw [hint, ENNReal.div_le_iff (by norm_num) (by norm_num)] at hle
-  norm_num at hle
-
-/-- **Half of the numeraires form an e-process.** For the i.i.d. null `{Ber(1/5), Ber(4/5)}` on
-`Bool` and the alternative `Ber(1/2)`, half of the numeraires of `n + 1` observations, evaluated
-at the first `n + 1` observations, form an e-process for `Filtration.piLE`, whatever numeraires
-`X n` are chosen: half the likelihood ratio against the equal mixture of the two null products is
-at most the likelihood ratio against each of them, a test supermartingale under that law. -/
-theorem isEProcess_half_numeraires_bernoulli {X : (n : ℕ) → (Fin (n + 1) → Bool) → ℝ≥0∞}
-    (hX : ∀ n, IsNumeraire (X n)
-      ((fun P ↦ Measure.pi fun _ : Fin (n + 1) ↦ P) ''
-        {Ber(true, false, ⟨1 / 5, by norm_num⟩), Ber(true, false, ⟨4 / 5, by norm_num⟩)})
-      (Measure.pi fun _ ↦ Ber(true, false, ⟨1 / 2, by norm_num⟩))) :
-    IsEProcess (fun n ω ↦ 2⁻¹ * X n fun i ↦ ω i) (Filtration.piLE (X := fun _ : ℕ ↦ Bool))
-      ((fun P ↦ Measure.infinitePi fun _ : ℕ ↦ P) ''
-        {Ber(true, false, ⟨1 / 5, by norm_num⟩), Ber(true, false, ⟨4 / 5, by norm_num⟩)}) := by
-  obtain ⟨hQ, hP₁, hP₂⟩ := measureReal_bernoulli_counterexample
-  have hadapt : Adapted (Filtration.piLE (X := fun _ : ℕ ↦ Bool))
-      fun n ω ↦ 2⁻¹ * X n fun i ↦ ω i :=
-    fun n ↦ (adapted_comp_fin (fun n ↦ (hX n).measurable) n).const_mul _
-  have hhalf : (2⁻¹ : ℝ≥0∞) = ENNReal.ofReal 2⁻¹ := by
-    rw [ENNReal.ofReal_inv_of_pos two_pos, ENNReal.ofReal_ofNat]
-  -- half of the numeraire is at most the likelihood ratio against each null law
-  have key : ∀ (P : Measure Bool) [IsProbabilityMeasure P], (∀ b, P {b} ≠ 0) →
-      (∀ n x, 2⁻¹ * X n x ≤ ∏ i, Ber(true, false, ⟨1 / 2, by norm_num⟩) {x i} /
-        P {x i}) →
-      IsEProcess (fun n ω ↦ 2⁻¹ * X n fun i ↦ ω i) (Filtration.piLE (X := fun _ : ℕ ↦ Bool))
-        {Measure.infinitePi fun _ : ℕ ↦ P} := by
-    intro P _ hP hle
-    have hE := isEProcess_of_eq_prod (by simpa) (isEVar_div_singleton hP)
-      (X := fun n x ↦ ∏ i, Ber(true, false, ⟨1 / 2, by norm_num⟩) {x i} / P {x i})
-      fun _ _ ↦ rfl
-    rw [Set.image_singleton] at hE
-    exact hE.mono (by simp only [Set.mem_singleton_iff, forall_eq]; infer_instance) hadapt
-      fun n ω ↦ hle n _
-  rw [isEProcess_iff_forall_singleton]
-  refine ⟨hadapt, ?_⟩
-  rintro _ ⟨P, hP, rfl⟩
-  have hP₁0 : ∀ b, Ber(true, false, ⟨1 / 5, by norm_num⟩) {b} ≠ 0 := fun b ↦
-    measure_singleton_ne_zero_of_pos (by rw [hP₁]; split_ifs <;> norm_num)
-  have hP₂0 : ∀ b, Ber(true, false, ⟨4 / 5, by norm_num⟩) {b} ≠ 0 := fun b ↦
-    measure_singleton_ne_zero_of_pos (by rw [hP₂]; split_ifs <;> norm_num)
-  rcases hP with rfl | rfl
-  · refine key _ hP₁0 fun n x ↦ ?_
-    rw [eq_ofReal_div_mix_half hQ hP₁ hP₂ (hX n), hhalf]
-    exact mul_ofReal_div_mix_le hP₁0 (by norm_num) (by norm_num) x
-  · refine key _ hP₂0 fun n x ↦ ?_
-    rw [eq_ofReal_div_mix_half hQ hP₁ hP₂ (hX n), hhalf,
-      show 2⁻¹ * piMass Ber(true, false, ⟨1 / 5, by norm_num⟩) x +
-          (1 - 2⁻¹) * piMass Ber(true, false, ⟨4 / 5, by norm_num⟩) x =
-        2⁻¹ * piMass Ber(true, false, ⟨4 / 5, by norm_num⟩) x +
-          (1 - 2⁻¹) * piMass Ber(true, false, ⟨1 / 5, by norm_num⟩) x by ring]
-    exact mul_ofReal_div_mix_le hP₂0 (by norm_num) (by norm_num) x
-
-end Bernoulli
 
 end ProbabilityTheory

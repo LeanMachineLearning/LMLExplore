@@ -70,6 +70,8 @@ finite.
 * `ProbabilityTheory.isNumeraire_rnDeriv`: for `Q ≪ P`, the likelihood ratio `Q.rnDeriv P` is the
   numeraire of `{P}` [RW, Theorem 3.20]; its expected logarithm is `klDiv Q P` by Statlib's
   `maxUtility_singleton_eq_klDiv`.
+* `ProbabilityTheory.IsNumeraire.eq_of_countable`: on a countable space where `Q` charges every
+  point, numeraires are unique everywhere.
 
 ## References
 
@@ -412,5 +414,13 @@ theorem ripr_singleton_eq [IsProbabilityMeasure Q] [IsProbabilityMeasure P] (hQP
     (hPQ : P ≪ Q) : ripr Q {P} = P :=
   ripr_eq_of_isEVar_rnDeriv (by rintro _ rfl; infer_instance)
     (subset_effectiveSet (by simp) rfl) hQP hPQ (isNumeraire_rnDeriv hQP).isEVar
+
+/-! ### Uniqueness on a countable space -/
+
+/-- On a countable space where `Q` charges every point, two numeraires of the same null under `Q`
+are equal everywhere, not only `Q`-almost surely. -/
+theorem IsNumeraire.eq_of_countable [Countable Ω] {Y : Ω → ℝ≥0∞} (hX : IsNumeraire X S Q)
+    (hY : IsNumeraire Y S Q) (hQ : ∀ ω, Q {ω} ≠ 0) : X = Y :=
+  funext fun ω ↦ ae_iff_of_countable.1 (hX.ae_unique hY) ω (hQ ω)
 
 end ProbabilityTheory
