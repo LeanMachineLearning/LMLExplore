@@ -5,7 +5,7 @@ Authors: LMLExplore contributors
 -/
 module
 
-public import Mathlib.MeasureTheory.Integral.Lebesgue.Countable
+public import Mathlib.MeasureTheory.Integral.Lebesgue.Add
 public import Mathlib.Order.Filter.ENNReal
 public import TauCeti.Topology.Instances.ENNReal
 
@@ -17,8 +17,6 @@ public import TauCeti.Topology.Instances.ENNReal
 * `MeasureTheory.lintegral_finsetSum_indicator_one`: the Lebesgue integral of a finite sum of
   indicators of measurable sets is the sum of their measures, and
   `MeasureTheory.lintegral_finsetSum_indicator_one₀`, its version for null measurable sets.
-* `MeasureTheory.lintegral_comp_eq_sum_measure_preimage_singleton`: the integral of `g ∘ φ`, for a
-  map `φ` to a finite type, is `∑ i, g i * μ (φ ⁻¹' {i})`.
 * `MeasureTheory.lintegral_ofReal_smul_add_smul_ne_top` and
   `MeasureTheory.toReal_lintegral_ofReal_smul_add_smul`: against the mixture
   `ofReal a • μ + ofReal b • ν` of two measures, a function with finite integrals against `μ` and
@@ -59,15 +57,6 @@ measures. -/
 lemma lintegral_finsetSum_indicator_one (hS : ∀ i ∈ s, MeasurableSet (S i)) :
     ∫⁻ a, ∑ i ∈ s, (S i).indicator 1 a ∂μ = ∑ i ∈ s, μ (S i) :=
   lintegral_finsetSum_indicator_one₀ fun i hi ↦ (hS i hi).nullMeasurableSet
-
-/-- The integral of a function of a map `φ` with values in a finite type is the sum, over the
-values `i`, of the value at `i` times the mass of the fibre of `i`. -/
-lemma lintegral_comp_eq_sum_measure_preimage_singleton {κ : Type*} [Fintype κ]
-    [MeasurableSpace κ] [MeasurableSingletonClass κ] {φ : α → κ} (hφ : AEMeasurable φ μ)
-    (g : κ → ℝ≥0∞) :
-    ∫⁻ x, g (φ x) ∂μ = ∑ i, g i * μ (φ ⁻¹' {i}) := by
-  rw [← lintegral_map' (measurable_of_finite g).aemeasurable hφ, lintegral_fintype]
-  simp_rw [Measure.map_apply_of_aemeasurable hφ (measurableSet_singleton _)]
 
 section Mixture
 

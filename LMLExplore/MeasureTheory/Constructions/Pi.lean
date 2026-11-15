@@ -8,7 +8,7 @@ module
 public import Mathlib.MeasureTheory.Constructions.Pi
 public import Mathlib.Probability.ConditionalProbability
 public import Mathlib.MeasureTheory.Measure.Prod
-import LMLExplore.MeasureTheory.Integral.Lebesgue.Add
+import LMLExplore.MeasureTheory.Integral.Lebesgue.Countable
 import Mathlib.Algebra.BigOperators.Fin
 import TauCeti.MeasureTheory.Constructions.Pi
 import TauCeti.MeasureTheory.Integral.Pi
