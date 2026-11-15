@@ -8,7 +8,7 @@ module
 public import Mathlib.MeasureTheory.Integral.Bochner.Basic
 
 /-!
-# Expectations of finite suprema, of finite sums and of shifts by constants
+# Expectations of finite suprema, of finite sums, of shifts by constants and of positive parts
 
 ## Main statements
 
@@ -27,6 +27,10 @@ public import Mathlib.MeasureTheory.Integral.Bochner.Basic
 * `MeasureTheory.integral_sum_le_add_mul_of_ae_le`: under a probability measure, an almost sure
   bound `∑ i ∈ s, Z i ≤ B + c ∑ i ∈ s, V i` with `c ≥ 0` gives `∫ ∑ i ∈ s, Z i ∂P ≤ B + c C` when
   the expectations of the `V i` sum to at most `C`.
+* `MeasureTheory.posPart_integral_le_integral_posPart`: the positive part of an integral is at
+  most the integral of the positive part.
+* `MeasureTheory.integral_posPart_sub_posPart_le`: under a probability measure,
+  `𝔼 f⁺ - c⁺ ≤ 𝔼 |f - c|`, the positive part being `1`-Lipschitz.
 -/
 
 public section
@@ -60,6 +64,22 @@ lemma iSup_integral_le (hf : ∀ i, Integrable (f i) μ) :
     le_ciSup (Set.finite_range fun i ↦ f i ω).bddAbove i
 
 end Supremum
+
+section PositivePart
+
+variable {Ω : Type*} {mΩ : MeasurableSpace Ω} {μ : Measure Ω}
+
+/-- The positive part of an integral is at most the integral of the positive part. -/
+lemma posPart_integral_le_integral_posPart (f : Ω → ℝ) :
+    (∫ ω, f ω ∂μ)⁺ ≤ ∫ ω, (f ω)⁺ ∂μ := by
+  rw [posPart_def]
+  refine sup_le ?_ (integral_nonneg fun ω ↦ posPart_nonneg _)
+  by_cases hf : Integrable f μ
+  · exact integral_mono hf hf.pos_part fun ω ↦ le_posPart _
+  · rw [integral_undef hf]
+    exact integral_nonneg fun ω ↦ posPart_nonneg _
+
+end PositivePart
 
 variable {Ω ι : Type*} {mΩ : MeasurableSpace Ω} {P : Measure Ω} [IsProbabilityMeasure P]
   {s : Finset ι}
@@ -121,5 +141,15 @@ lemma integral_sum_le_add_mul_of_ae_le {Z V : ι → Ω → ℝ} {B c C : ℝ} (
       rw [integral_add (integrable_const _) ((integrable_finsetSum _ hV).const_mul _),
         integral_const_mul, integral_finsetSum _ hV, integral_const, probReal_univ, one_smul]
   _ ≤ B + c * C := by gcongr
+
+/-- Under a probability measure, `𝔼 f⁺ - c⁺ ≤ 𝔼 |f - c|` for an integrable real function `f`,
+since the positive part is `1`-Lipschitz. -/
+lemma integral_posPart_sub_posPart_le {f : Ω → ℝ} (hf : Integrable f P) (c : ℝ) :
+    ∫ ω, (f ω)⁺ ∂P - c⁺ ≤ ∫ ω, |f ω - c| ∂P := by
+  have hf' : Integrable (fun ω ↦ (f ω)⁺) P := hf.pos_part
+  rw [← integral_sub_const hf']
+  refine integral_mono (hf'.sub (integrable_const _)) (hf.sub (integrable_const c)).abs
+    fun ω ↦ (le_abs_self _).trans ?_
+  simpa [← Real.dist_eq] using lipschitzWith_posPart.dist_le_mul (f ω) c
 
 end MeasureTheory

@@ -129,8 +129,7 @@ lemma stateKernel_apply (s : 𝓢) : M.stateKernel π s = M.P ∘ₘ (Measure.di
 @[simp]
 lemma stateKernel_deterministic_apply {d : 𝓢 → 𝓐} (hd : Measurable d) (s : 𝓢) :
     M.stateKernel (Kernel.deterministic d hd) s = M.P (s, d s) := by
-  rw [stateKernel_apply, Measure.compProd_deterministic, Measure.map_dirac' (by fun_prop),
-    Measure.dirac_bind M.P.measurable]
+  rw [stateKernel_def, Kernel.comp_id_prod_deterministic_apply]
 
 /-- Composing a measure `ν` on state-action pairs with the state-action kernel of `π` draws a
 next state from `M.P ∘ₘ ν`, then an action from `π`. -/
@@ -142,12 +141,8 @@ variable {M π} in
 /-- Integrating against the state kernel of `π` from `s` averages over the actions `a` of `π s`
 the integral against `M.P (s, a)`. -/
 lemma integral_stateKernel {s : 𝓢} {v : 𝓢 → ℝ} (hv : Integrable v (M.stateKernel π s)) :
-    ∫ s', v s' ∂(M.stateKernel π s) = ∫ a, ∫ s', v s' ∂(M.P (s, a)) ∂(π s) := by
-  rw [stateKernel_def] at hv ⊢
-  have h := hv.integral_comp.aestronglyMeasurable
-  rw [Kernel.prod_apply, Kernel.id_apply, Measure.dirac_prod] at h
-  rw [Kernel.integral_comp hv, Kernel.prod_apply, Kernel.id_apply, Measure.dirac_prod,
-    integral_map measurable_prodMk_left.aemeasurable h]
+    ∫ s', v s' ∂(M.stateKernel π s) = ∫ a, ∫ s', v s' ∂(M.P (s, a)) ∂(π s) :=
+  Kernel.integral_comp_id_prod_apply M.P π hv
 
 omit [IsSFiniteKernel π] in
 variable {M π} in

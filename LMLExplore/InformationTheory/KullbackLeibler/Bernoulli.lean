@@ -124,6 +124,8 @@ smallest `q ∈ [0, p]` with `d(p, q) ≤ c`; together they are the confidence b
 * `LMLExplore.klUpper_le_min`: `U(p, c) ≤ min 1 (p + √(c / 2))`, by Pinsker's inequality.
 * `LMLExplore.klUpper_zero`, `LMLExplore.klUpper_one_left`, `LMLExplore.tendsto_klUpper_nhds_top`:
   `U(p, 0) = p`, `U(1, c) = 1` and `U(p, c) → 1` as `c → ∞`.
+* `LMLExplore.klBer_zero_left`, `LMLExplore.klUpper_zero_left`: `d(0, q) = -log (1 - q)` for
+  `q < 1`, and `U(0, c) = 1 - exp (-c)` for finite `c`.
 * `LMLExplore.klLower_le_iff`: for `q ∈ [0, p]`, `L(p, c) ≤ q` if and only if `d(p, q) ≤ c`;
   `LMLExplore.klLower_mem_Icc` and `LMLExplore.klBer_klLower_le` say that the minimum is attained.
 
@@ -385,6 +387,16 @@ theorem klBer_one_sub_mul_add_div_two_le {t : ℝ} (hp : p ∈ Set.Icc 0 1) (ht 
 theorem klBer_projIcc (p q : ℝ) :
     klBer (Set.projIcc 0 1 zero_le_one p) (Set.projIcc 0 1 zero_le_one q) = klBer p q := by
   simp only [klBer_def, Set.projIcc_val]
+
+/-- The relative entropy from the Dirac mass at `0` to the Bernoulli law of mean `q < 1` is
+`d(0, q) = -log (1 - q)`. For `q < 0`, both sides vanish: `q` is clamped to `0`. -/
+theorem klBer_zero_left (hq : q < 1) : klBer 0 q = ENNReal.ofReal (-log (1 - q)) := by
+  rcases lt_or_ge q 0 with hq0 | hq0
+  · rw [← klBer_projIcc, Set.projIcc_of_le_left _ hq0.le, Set.projIcc_left, klBer_self,
+      ENNReal.ofReal_of_nonpos (neg_nonpos.2 (log_nonneg (by linarith)))]
+  rw [klBer_eq_ofReal_klBerReal ⟨le_rfl, zero_le_one⟩ ⟨hq0, hq.le⟩
+    ((klBer_ne_top_iff ⟨le_rfl, zero_le_one⟩ ⟨hq0, hq.le⟩).2 ⟨fun _ ↦ rfl, fun h ↦ (hq.ne h).elim⟩),
+    klBerReal_zero_left]
 
 /-- If the binary relative entropies `d(z, a)` and `d(z, b)` to two distinct points
 `a, b ∈ [0, 1]` are equal, they do not vanish: `d(z, ·)` vanishes on `[0, 1]` only at the clamp
@@ -1123,6 +1135,20 @@ theorem klUpper_zero (hp : p ∈ Set.Icc 0 1) : klUpper p 0 = p := by
 @[simp]
 theorem klUpper_one_left (c : ℝ≥0∞) : klUpper 1 c = 1 :=
   le_antisymm (klUpper_mem_Icc le_rfl c).2 (klUpper_mem_Icc le_rfl c).1
+
+/-- **Upper confidence level at the empirical mean `0`**: `U(0, c) = 1 - exp (-c)` for finite
+`c`, since `d(0, q) = -log (1 - q)` for `q < 1`. -/
+@[simp]
+theorem klUpper_zero_left (c : ℝ≥0) : klUpper 0 c = 1 - exp (-(c : ℝ)) := by
+  have hu : 1 - exp (-(c : ℝ)) ∈ Set.Icc 0 1 :=
+    ⟨sub_nonneg.2 (exp_le_one_iff.2 (neg_nonpos.2 c.2)), sub_le_self _ (exp_pos _).le⟩
+  have hklu : klBer 0 (1 - exp (-(c : ℝ))) = c := by
+    rw [klBer_zero_left (sub_lt_self _ (exp_pos _)), sub_sub_cancel, log_exp, neg_neg,
+      ENNReal.ofReal_coe_nnreal]
+  refine le_antisymm ?_ ((le_klUpper_iff hu).2 hklu.le)
+  rw [← (strictMonoOn_klBer ⟨le_rfl, zero_le_one⟩).le_iff_le (klUpper_mem_Icc zero_le_one _) hu,
+    hklu]
+  exact klBer_klUpper_le zero_le_one _
 
 /-- `U(p, ∞) = 1` for `p ≤ 1`. -/
 @[simp]
