@@ -17,6 +17,7 @@ import LMLExplore.Probability.ProductMeasure
 import Mathlib.Analysis.Complex.ExponentialBounds
 import Mathlib.Analysis.Convex.Deriv
 import Mathlib.Analysis.SpecialFunctions.Log.Deriv
+import Mathlib.Analysis.SpecialFunctions.Sigmoid
 import Statlib.ForMathlib.MeasureTheory.Measure.Decomposition.RNDerivProd
 import Statlib.ForMathlib.Probability.Process.Filtration
 
@@ -214,10 +215,10 @@ For `p < 1 / 2`, the centred Bernoulli law of parameter `p` is sub-Gaussian with
 /-- The parameter `p = 1 / (1 + √e)` of the Bernoulli law in the base law. -/
 private noncomputable def ksParam : ℝ := 1 / (1 + Real.exp (1 / 2))
 
-/-- The mean `p e^t / (p e^t + 1 - p)` of the exponential tilt by `t` of the Bernoulli law of
-parameter `p = ksParam`. -/
-private noncomputable def ksSigmoid (t : ℝ) : ℝ :=
-  ksParam * Real.exp t / (ksParam * Real.exp t + (1 - ksParam))
+/-- The shifted logistic function `σ (t - 1 / 2)`, which is the mean `p e^t / (p e^t + 1 - p)` of
+the exponential tilt by `t` of the Bernoulli law of parameter `p = ksParam`
+(see `ksSigmoid_eq_div`). -/
+private noncomputable def ksSigmoid (t : ℝ) : ℝ := Real.sigmoid (t - 1 / 2)
 
 /-- The gap `(1 - 2 p) t ^ 2 / 2 + p t - log (p e^t + 1 - p)` between the sub-Gaussian bound with
 variance proxy `1 - 2 p` and the cumulant generating function of the centred Bernoulli law of
@@ -280,13 +281,20 @@ private lemma ksCurv_pos : 0 < 1 - 2 * ksParam - ksParam * (1 - ksParam) := by
   rw [← key] at this
   exact pos_of_mul_pos_left this (by positivity)
 
+/-- `ksSigmoid t = p e^t / (p e^t + 1 - p)` for `p = ksParam`. -/
+private lemma ksSigmoid_eq_div (t : ℝ) :
+    ksSigmoid t = ksParam * Real.exp t / (ksParam * Real.exp t + (1 - ksParam)) := by
+  have h : Real.exp (-(t - 1 / 2)) * Real.exp t = Real.exp (1 / 2) := by
+    rw [← Real.exp_add]; ring_nf
+  have := (ksDen_pos t).ne'
+  rw [ksSigmoid, Real.sigmoid_def, eq_div_iff this, one_sub_ksParam, ← h]
+  field_simp
+
 /-- The derivative of `ksSigmoid` is `ksSigmoid (1 - ksSigmoid)`. -/
 private lemma hasDerivAt_ksSigmoid (t : ℝ) :
-    HasDerivAt ksSigmoid (ksSigmoid t * (1 - ksSigmoid t)) t := by
-  have h1 := (Real.hasDerivAt_exp t).const_mul ksParam
-  have h2 := h1.add_const (1 - ksParam)
-  have := (ksDen_pos t).ne'
-  exact (h1.div h2 this).congr_deriv (by unfold ksSigmoid; field_simp)
+    HasDerivAt ksSigmoid (ksSigmoid t * (1 - ksSigmoid t)) t :=
+  (Real.hasDerivAt_sigmoid (t - 1 / 2)).comp t ((hasDerivAt_id t).sub_const _) |>.congr_deriv
+    (mul_one _)
 
 /-- The derivative of the Kearns–Saul gap. -/
 private lemma hasDerivAt_ksGap (t : ℝ) :
@@ -298,7 +306,7 @@ private lemma hasDerivAt_ksGap (t : ℝ) :
       ((1 - 2 * ksParam) * t + ksParam) t := by
     exact ((((hasDerivAt_pow 2 t).const_mul (1 - 2 * ksParam)).div_const 2).add
       ((hasDerivAt_id t).const_mul ksParam)).congr_deriv (by simp only [Nat.cast_ofNat]; ring)
-  exact h3.sub h2
+  exact (h3.sub h2).congr_deriv (by rw [ksSigmoid_eq_div])
 
 /-- The second derivative of the Kearns–Saul gap. -/
 private lemma hasDerivAt_ksGap_deriv (t : ℝ) :
@@ -309,23 +317,15 @@ private lemma hasDerivAt_ksGap_deriv (t : ℝ) :
 
 /-- `ksSigmoid` is continuous. -/
 private lemma continuous_ksSigmoid : Continuous ksSigmoid :=
-  continuous_iff_continuousAt.2 fun t ↦ (hasDerivAt_ksSigmoid t).continuousAt
+  continuous_sigmoid.comp (continuous_sub_right _)
 
 /-- `ksSigmoid` is monotone. -/
-private lemma ksSigmoid_mono {x y : ℝ} (hxy : x ≤ y) : ksSigmoid x ≤ ksSigmoid y := by
-  unfold ksSigmoid
-  rw [div_le_div_iff₀ (ksDen_pos x) (ksDen_pos y)]
-  have h := Real.exp_le_exp.2 hxy
-  have hp : 0 ≤ ksParam * (1 - ksParam) :=
-    mul_nonneg ksParam_pos.le (by linarith [ksParam_lt_half])
-  nlinarith [mul_le_mul_of_nonneg_left h hp]
+private lemma ksSigmoid_mono {x y : ℝ} (hxy : x ≤ y) : ksSigmoid x ≤ ksSigmoid y :=
+  Real.sigmoid_le (by linarith)
 
 /-- `ksSigmoid (1 / 2) = 1 / 2`. -/
 private lemma ksSigmoid_half : ksSigmoid (1 / 2) = 1 / 2 := by
-  have := (ksDen_pos (1 / 2)).ne'
-  unfold ksSigmoid
-  rw [div_eq_iff this, ← one_sub_ksParam]
-  ring
+  simp [ksSigmoid, Real.sigmoid_zero]
 
 /-- `p e + 1 - p = √e` for `p = ksParam`. -/
 private lemma ksDen_one : ksParam * Real.exp 1 + (1 - ksParam) = Real.exp (1 / 2) := by
@@ -334,7 +334,7 @@ private lemma ksDen_one : ksParam * Real.exp 1 + (1 - ksParam) = Real.exp (1 / 2
 
 /-- `ksSigmoid 1 = 1 - p` for `p = ksParam`. -/
 private lemma ksSigmoid_one : ksSigmoid 1 = 1 - ksParam := by
-  rw [ksSigmoid, ksDen_one, one_sub_ksParam, ← exp_half_sq]
+  rw [ksSigmoid_eq_div, ksDen_one, one_sub_ksParam, ← exp_half_sq]
   field_simp
 
 /-- The Kearns–Saul gap vanishes at `0`. -/
