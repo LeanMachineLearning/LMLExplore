@@ -6,7 +6,7 @@ Authors: LMLExplore contributors
 module
 
 public import LMLExplore.EValues.BipolarRate.Basic
-import LMLExplore.EValues.EffectiveSet
+import LMLExplore.EValues.EffectiveSet.Basic
 import LMLExplore.InformationTheory.KullbackLeibler.Mixture
 import LMLExplore.MeasureTheory.Constructions.Pi
 import Mathlib.Analysis.SpecialFunctions.Choose

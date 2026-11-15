@@ -8,7 +8,7 @@ module
 public import LMLExplore.EValues.BipolarRate.Basic
 public import Mathlib.MeasureTheory.Integral.IntervalIntegral.Periodic
 public import Mathlib.Probability.UniformOn
-import LMLExplore.EValues.EffectiveSet
+import LMLExplore.EValues.EffectiveSet.Basic
 import LMLExplore.EValues.Utility.Basic
 import LMLExplore.InformationTheory.KullbackLeibler.Mixture
 import LMLExplore.MeasureTheory.Integral.IntervalIntegral.Periodic
