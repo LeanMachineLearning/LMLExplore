@@ -53,8 +53,10 @@ finite.
   e-variable is the reverse information projection; for a simple null `{P}` with `P` equivalent
   to `Q`, the reverse information projection is `P`.
 * `ProbabilityTheory.isNumeraire_div_rnDeriv_iff`: **the dominated criterion** [LRR25,
-  Theorem 4.7]: with densities `q`, `p` and `r` with respect to a σ-finite reference measure,
-  `q / r` is the numeraire exactly when `∫⁻ p / r ∂Q ≤ 1` for every `P ∈ S`.
+  Theorem 4.7]: for a null `S` of probability measures, with densities `q` of `Q` and `p` of
+  `P ∈ S` with respect to a σ-finite reference measure, and with `r` the density of a member `R`
+  of the effective null with `Q ≪ R`, `q / r` is the numeraire exactly when `∫⁻ p / r ∂Q ≤ 1` for
+  every `P ∈ S`.
 * `ProbabilityTheory.isNumeraire_of_lintegral_div_le_one`,
   `ProbabilityTheory.ripr_mem_of_lintegral_div_le_one`: for a null `S` containing every
   probability measure under which each member of a family `𝓔₀` has expectation at most `1`, a
@@ -136,6 +138,13 @@ theorem isNumeraire_of_smul_withDensity_inv_le [IsFiniteMeasure Q] (hX : IsEVar 
 
 /-! ### Almost surely finite e-variables -/
 
+/-- The finite support of a `Q`-almost surely positive and finite function has full measure under
+`Q`. -/
+theorem measure_fsupport_eq_measure_univ (hX_top : ∀ᵐ ω ∂Q, X ω ≠ ∞)
+    (hX₀ : ∀ᵐ ω ∂Q, X ω ≠ 0) : Q X.fsupport = Q univ :=
+  measure_congr <| ae_eq_univ.mpr <| mem_ae_iff.mp <| by
+    filter_upwards [hX_top, hX₀] with ω h_top h_zero using ⟨h_top, h_zero⟩
+
 /-- The measure `Q.withDensity X⁻¹` is in the effective null exactly when every e-variable `Y`
 has `∫⁻ Y / X ∂Q ≤ 1`: under `Q.withDensity X⁻¹`, `Y` has expectation `∫⁻ Y / X ∂Q`. -/
 theorem withDensity_inv_mem_effectiveSet_iff (hX : Measurable X) :
@@ -157,11 +166,8 @@ theorem isNumeraire_of_withDensity_inv_mem_effectiveSet [IsProbabilityMeasure Q]
       ne_top_of_le_ne_top ENNReal.one_ne_top (by simpa using h_div 1 (isEVar_one S))
     filter_upwards [ae_lt_top hX.measurable.inv h_inv] with ω hω
     simpa using hω.ne
-  have h_supp : Q X.fsupport = 1 := by
-    rw [← measure_univ (μ := Q)]
-    refine (ae_iff_measure_eq hX.measurable_fsupport.nullMeasurableSet).mp ?_
-    filter_upwards [hX_top, hX_zero] with ω h_top h_zero
-    exact ⟨h_top, h_zero⟩
+  have h_supp : Q X.fsupport = 1 :=
+    (measure_fsupport_eq_measure_univ hX_top hX_zero).trans measure_univ
   exact isNumeraire_of_lintegral_div_le hX (by simp [h_supp]) fun Y hY ↦ h_supp ▸ h_div Y hY
 
 /-- **[LRR25, Theorem 4.1].** A `Q`-almost surely finite e-variable `X` for `S` is the numeraire
@@ -176,15 +182,6 @@ theorem isNumeraire_iff_withDensity_inv_mem_effectiveSet [IsProbabilityMeasure Q
     isNumeraire_of_withDensity_inv_mem_effectiveSet hX hX_top⟩
 
 /-! ### Alternatives absolutely continuous with respect to the null -/
-
-/-- If `Q` is absolutely continuous with respect to `S`, the finite support of a `Q`-almost surely
-positive e-variable for `S` has full measure under `Q`. -/
-theorem IsEVar.measure_fsupport_eq_measure_univ [IsFiniteMeasure Q] (hX : IsEVar X S)
-    (hQS : Q.AbsolutelyContinuousSet S) (hX₀ : ∀ᵐ ω ∂Q, X ω ≠ 0) :
-    Q X.fsupport = Q univ := by
-  refine (ae_iff_measure_eq hX.measurable_fsupport.nullMeasurableSet).mp ?_
-  filter_upwards [hQS.ae_ne_top hX, hX₀] with ω h_top h_zero
-  exact ⟨h_top, h_zero⟩
 
 /-- The reverse information projection is the measure of density `X⁻¹` with respect to `Q`, for
 the numeraire `X` [LRR25, Theorem 4.1]. -/
@@ -216,7 +213,8 @@ theorem IsNumeraire.eq_withDensity_inv_of_le [IsProbabilityMeasure Q]
   have h_one : ∫⁻ ω, X ω ∂ν = 1 := by
     rw [lintegral_withDensity_inv_eq_lintegral_div hX_meas.aemeasurable hX_meas.aemeasurable,
       lintegral_div_self_eq_measure_fsupport hX_meas.aemeasurable,
-      hX.isEVar.measure_fsupport_eq_measure_univ hQS hX.ae_ne_zero, measure_univ]
+      measure_fsupport_eq_measure_univ (hQS.ae_ne_top hX.isEVar) hX.ae_ne_zero,
+      measure_univ]
   have h_add : ∫⁻ ω, X ω ∂(μ - ν) + 1 ≤ 1 := by
     have h_le := hμ X hX.isEVar
     rwa [← Measure.sub_add_cancel_of_le hle, lintegral_add_measure, h_one] at h_le
