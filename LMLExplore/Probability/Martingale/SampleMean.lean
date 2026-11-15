@@ -227,11 +227,10 @@ theorem mul_lintegral_upcrossings_sampleMean_le [IsProbabilityMeasure μ] (hμ :
   · simp [ENNReal.ofReal_of_nonpos (sub_nonpos.2 hba)]
   set m := ∫ ω, ω 0 ∂μ
   -- monotone convergence in the horizon
-  have hadapted : StronglyAdapted (Filtration.const ℕ MeasurableSpace.pi le_rfl) sampleMean :=
-    fun n ↦ (measurable_sampleMean n).stronglyMeasurable
   simp only [upcrossings]
   rw [lintegral_iSup (f := fun N ω ↦ (upcrossingsBefore a b sampleMean N ω : ℝ≥0∞))
-    (fun N ↦ measurable_from_top.comp (hadapted.measurable_upcrossingsBefore hab))
+    (fun N ↦ measurable_from_top.comp
+      (stronglyAdapted_piLE_sampleMean.measurable_upcrossingsBefore hab))
     (fun _ _ h ω ↦ Nat.cast_le.2 (upcrossingsBefore_mono hab h ω)), ENNReal.mul_iSup]
   refine iSup_le fun N ↦ ?_
   -- Doob's upcrossing inequality for the negated reversed means
