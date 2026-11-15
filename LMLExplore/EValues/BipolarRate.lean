@@ -47,6 +47,8 @@ else: no domination, convexity or compactness.
 * `ProbabilityTheory.maxLogGrowth_le_mul_klDiv`, `ProbabilityTheory.bipolarRate_le_iInf_klDiv`:
   the bipolar rate is at most the smallest relative entropy from `Q₁` to the null
   [RR26, proof of Theorem 4.1].
+* `ProbabilityTheory.le_bipolarRate_of_tendsto`: a lower bound on the bipolar rate from real lower
+  bounds on `maxLogGrowth Q₁ S₁ (n + 1)` whose quotients by `n + 1` converge.
 
 ## References
 
@@ -223,5 +225,20 @@ theorem bipolarRate_le_iInf_klDiv (Q₁ : Measure 𝓧) [IsProbabilityMeasure Q�
   have := hS₁ P hP
   rw [← EReal.toENNReal_coe (x := klDiv Q₁ P)]
   exact EReal.toENNReal_le_toENNReal (bipolarRate_le_klDiv Q₁ hP)
+
+/-- A real lower bound on the growth of `n + 1` observations, divided by `n + 1`, that converges
+to `L` gives the lower bound `L` on the bipolar rate. -/
+lemma le_bipolarRate_of_tendsto {r : ℕ → ℝ} {L : ℝ}
+    (hr : ∀ n, (r n : EReal) ≤ maxLogGrowth Q₁ S₁ (n + 1))
+    (hlim : Tendsto (fun n : ℕ ↦ r n / (n + 1)) atTop (𝓝 L)) :
+    (L : EReal) ≤ bipolarRate Q₁ S₁ := by
+  rw [bipolarRate_def]
+  refine le_of_tendsto' (EReal.tendsto_coe.2 hlim) fun n ↦ ?_
+  refine le_trans ?_ (le_iSup _ n)
+  have h : ((r n / (n + 1) : ℝ) : EReal) = (r n : EReal) / ((n + 1 : ℕ) : EReal) := by
+    rw [EReal.coe_div]
+    norm_cast
+  rw [h]
+  exact EReal.div_le_div_right_of_nonneg (by positivity) (hr n)
 
 end ProbabilityTheory
