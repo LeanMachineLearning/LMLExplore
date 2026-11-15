@@ -503,7 +503,9 @@ theorem IsTestSupermartingale.exists_isTestMartingale_ge [SigmaFiniteFiltration 
       ← lintegral_add_right _ hA']
     refine lintegral_congr_ae (ae_restrict_of_ae ?_)
     filter_upwards [hC] with ω hω
-    rw [sum_range_succ, add_left_comm, hD_def, add_tsub_cancel_of_le hω, add_comm]
+    have h : P⁻[M (n + 1)|ℱ n] ω + D n ω = M n ω := add_tsub_cancel_of_le hω
+    rw [sum_range_succ, ← h]
+    ring
 
 /-! ### Pulling a known factor out of a supermartingale step -/
 

@@ -65,6 +65,10 @@ e-processes, so that thresholding an e-process at `α⁻¹` is a level-`α` sequ
 * `ProbabilityTheory.IsTestSupermartingale.isEProcess`: a test supermartingale for a null of
   probability measures is an e-process [RW, Fact 7.5].
 * `ProbabilityTheory.isEProcess_tfae`: the characterization of e-processes [RRLK, Lemma 6].
+* `ProbabilityTheory.isEProcess_iff_forall_exists_isTestSupermartingale`,
+  `ProbabilityTheory.isEProcess_iff_forall_exists_isTestMartingale`: for a null of probability
+  measures, an adapted process is an e-process exactly when it is dominated by a test
+  supermartingale, or by a test martingale, under each member of the null.
 * `ProbabilityTheory.IsEProcess.exists_isTestSupermartingale_ae_le`,
   `ProbabilityTheory.IsEProcess.exists_isTestMartingale_ae_le`,
   `ProbabilityTheory.IsEProcess.of_ae_le_isTestSupermartingale`: an e-process is dominated by a
@@ -293,9 +297,7 @@ theorem isEProcess_tfae (hS : ∀ P ∈ S, IsProbabilityMeasure P) (hE : Adapted
     · rw [ite_eq_right hτω, stoppedValueLimsup_eq_stoppedValue hτω]
   tfae_have 4 → 1 := fun h ↦ .of_lintegral_le_one hS hE fun τ hτ P hP ↦ by
     refine le_of_eq_of_le (lintegral_congr fun ω ↦ ?_) (h _ hτ P hP)
-    rw [ite_eq_right (WithTop.natCast_ne_top _), ← stoppedValueLimsup_eq_stoppedValue
-      (τ := fun ω ↦ (τ ω : WithTop ℕ)) (WithTop.natCast_ne_top _)]
-    exact (stoppedValueLimsup_of_eq_natCast (τ := fun ω ↦ (τ ω : WithTop ℕ)) rfl).symm
+    exact (ite_eq_right (WithTop.natCast_ne_top _)).symm
   tfae_finish
 
 /-- For a null of probability measures, an adapted process that is, under every member `P` of the
@@ -306,6 +308,22 @@ theorem IsEProcess.of_ae_le_isTestSupermartingale (hS : ∀ P ∈ S, IsProbabili
     (h : ∀ P ∈ S, ∃ M, IsTestSupermartingale M ℱ {P} ∧ ∀ n, E n ≤ᵐ[P] M n) :
     IsEProcess E ℱ S :=
   ((isEProcess_tfae hS hE).out 5 1).1 h
+
+/-- **The characterization of e-processes by test supermartingales** [RRLK, Lemma 6]. For a null
+of probability measures, an adapted process is an e-process exactly when, under every member `P`
+of the null, it is `P`-almost surely dominated by a test supermartingale for `P`. -/
+theorem isEProcess_iff_forall_exists_isTestSupermartingale (hS : ∀ P ∈ S, IsProbabilityMeasure P)
+    (hE : Adapted ℱ E) :
+    IsEProcess E ℱ S ↔ ∀ P ∈ S, ∃ M, IsTestSupermartingale M ℱ {P} ∧ ∀ n, E n ≤ᵐ[P] M n :=
+  (isEProcess_tfae hS hE).out 1 5
+
+/-- **The characterization of e-processes by test martingales** [RRLK, Lemma 6]. For a null of
+probability measures, an adapted process is an e-process exactly when, under every member `P` of
+the null, it is `P`-almost surely dominated by a test martingale for `P`. -/
+theorem isEProcess_iff_forall_exists_isTestMartingale (hS : ∀ P ∈ S, IsProbabilityMeasure P)
+    (hE : Adapted ℱ E) :
+    IsEProcess E ℱ S ↔ ∀ P ∈ S, ∃ M, IsTestMartingale M ℱ {P} ∧ ∀ n, E n ≤ᵐ[P] M n :=
+  (isEProcess_tfae hS hE).out 1 6
 
 /-- The value at every stopping time with values in `WithTop ℕ` of an e-process for a null of
 probability measures is an e-variable, with the value `stoppedValueLimsup E τ`, the `limsup` of
@@ -318,37 +336,30 @@ theorem IsEProcess.isEVar_stoppedValueLimsup (hS : ∀ P ∈ S, IsProbabilityMea
       have h := ((isEProcess_tfae hS hE.adapted).out 1 3).1 hE
       exact h τ hτ P hP
 
-/-- **Ville's inequality for e-processes** [RW, Fact 7.6]. Under every probability measure of the
-null, the probability that an e-process ever reaches a level `c ≠ 0` is at most `c⁻¹`. -/
-theorem IsEProcess.measure_exists_le_le (hE : IsEProcess E ℱ S) (hP : P ∈ S)
-    [IsProbabilityMeasure P] {c : ℝ≥0∞} (hc0 : c ≠ 0) :
-    P {ω | ∃ n, c ≤ E n ω} ≤ c⁻¹ := by
-  obtain ⟨M, hM, hEM⟩ := hE.exists_isTestSupermartingale_ae_le hP
-  calc P {ω | ∃ n, c ≤ E n ω} ≤ P {ω | ∃ n, c ≤ M n ω} := by
-        refine measure_mono_ae ?_
-        filter_upwards [ae_all_iff.2 hEM] with ω hω ⟨n, hn⟩ using ⟨n, hn.trans (hω n)⟩
-    _ ≤ (∫⁻ ω, M 0 ω ∂P) / c := hM.measure_exists_le_le (mem_singleton P) hc0
-    _ ≤ c⁻¹ := by
-        rw [div_eq_mul_inv]
-        exact mul_le_of_le_one_left zero_le (hM.lintegral_zero_le P (mem_singleton P))
-
 /-- **Ville's inequality for e-processes**, at level `α` [RW, Fact 7.6]. Under every probability
 measure of the null, the sequential test that rejects as soon as an e-process reaches `α⁻¹` has
 type I error at most `α`, uniformly over time. -/
 theorem IsEProcess.measure_exists_inv_le_le (hE : IsEProcess E ℱ S) (hP : P ∈ S)
     [IsProbabilityMeasure P] (α : ℝ≥0∞) : P {ω | ∃ n, α⁻¹ ≤ E n ω} ≤ α := by
-  rcases eq_or_ne α ∞ with rfl | hα
-  · exact le_top
-  simpa using hE.measure_exists_le_le hP (ENNReal.inv_ne_zero.2 hα)
+  obtain ⟨M, hM, hEM⟩ := hE.exists_isTestSupermartingale_ae_le hP
+  refine (measure_mono_ae ?_).trans (hM.measure_exists_inv_le_le (mem_singleton P) α)
+  filter_upwards [ae_all_iff.2 hEM] with ω hω ⟨n, hn⟩ using ⟨n, hn.trans (hω n)⟩
 
-/-- **Ville's inequality for e-processes at a stopping time.** Under every probability measure of
-the null, the probability that an e-process is at least `α⁻¹` at a stopping time with values in
+/-- **Ville's inequality for e-processes** [RW, Fact 7.6]. Under every probability measure of the
+null, the probability that an e-process ever reaches a level `c` is at most `c⁻¹`. -/
+theorem IsEProcess.measure_exists_le_le (hE : IsEProcess E ℱ S) (hP : P ∈ S)
+    [IsProbabilityMeasure P] (c : ℝ≥0∞) :
+    P {ω | ∃ n, c ≤ E n ω} ≤ c⁻¹ := by
+  simpa using hE.measure_exists_inv_le_le hP c⁻¹
+
+/-- **Ville's inequality for e-processes at a stopping time.** Under every probability measure `P`
+of the null, the probability that an e-process is at least `α⁻¹` at a stopping time with values in
 `WithTop ℕ` is at most `α`, with the value `stoppedValueLimsup E τ`, the `limsup` of `E`, where
 the stopping time is infinite. -/
-theorem IsEProcess.measure_inv_le_stoppedValueLimsup_le (hS : ∀ P ∈ S, IsProbabilityMeasure P)
-    (hE : IsEProcess E ℱ S) {τ : Ω → WithTop ℕ} (hτ : IsStoppingTime ℱ τ) (hP : P ∈ S)
-    (α : ℝ≥0∞) : P {ω | α⁻¹ ≤ stoppedValueLimsup E τ ω} ≤ α :=
-  have := hS P hP
-  (hE.isEVar_stoppedValueLimsup hS hτ).measure_inv_le_le hP α
+theorem IsEProcess.measure_inv_le_stoppedValueLimsup_le (hE : IsEProcess E ℱ S) (hP : P ∈ S)
+    [IsProbabilityMeasure P] {τ : Ω → WithTop ℕ} (hτ : IsStoppingTime ℱ τ) (α : ℝ≥0∞) :
+    P {ω | α⁻¹ ≤ stoppedValueLimsup E τ ω} ≤ α :=
+  ((hE.anti_set (singleton_subset_iff.2 hP)).isEVar_stoppedValueLimsup
+    (fun _ hQ ↦ (mem_singleton_iff.1 hQ) ▸ ‹_›) hτ).measure_inv_le_le (mem_singleton P) α
 
 end ProbabilityTheory
