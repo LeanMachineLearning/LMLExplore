@@ -230,8 +230,7 @@ theorem ofReal_log_card_div_le_maxRatio_charTime_baiTask_gaussianBandit (hσ2 : 
     (fun j _ b hb ↦ by simp [task, lam, hb, μ])
     (fun j hj ↦ charTime_baiTask_gaussianBandit_ne_zero hσ2 (Finset.ne_of_mem_erase hj).symm
       (hlam_lt j (Finset.ne_of_mem_erase hj)))
-    (fun j hj ↦ charTime_baiTask_gaussianBandit_ne_top hσ2 (Finset.ne_of_mem_erase hj).symm
-      (hlam_lt j (Finset.ne_of_mem_erase hj)))
+    (fun j hj ↦ charTime_baiTask_gaussianBandit_ne_top hσ2 (hlam_lt j (Finset.ne_of_mem_erase hj)))
   calc ENNReal.ofReal (Real.log (Fintype.card α) / 24)
       ≤ ENNReal.ofReal (∑ j ∈ s, (24 * ((e j : ℕ) : ℝ))⁻¹) := by
         refine ENNReal.ofReal_le_ofReal ?_

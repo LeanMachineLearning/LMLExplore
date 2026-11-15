@@ -133,7 +133,10 @@ point `a` for each of them gives a design with the same design operator, hence t
   the span of `𝒜`, with `⟪a, V(w)⁺ a⟫ ≤ dim (span 𝒜)` for every `a ∈ 𝒜`.
 * `LMLExplore.exists_design_map_inner_moorePenroseInverse_le_finrank`: the same for a design on a
   nonempty finite set `S` of arms with features `φ`: the features of `S` lie in the range of the
-  design operator `V` of the image design, and `⟪φ i, V⁺ φ i⟫ ≤ dim (span (φ '' S))` on `S`.
+  design operator `V` of the image design, and `⟪φ i, V⁺ φ i⟫ ≤ dim (span (φ '' S))` on `S`;
+  `LMLExplore.exists_design_map_inner_moorePenroseInverse_le_finrank_and_card_support_le`: if
+  `m = dim (span (φ '' S)) ≥ 1`, the design on the arms can be chosen with at most `m (m + 1) / 2`
+  support points.
 * `LMLExplore.finrank_le_gValue`: if `𝒜` spans `E`, every design on `𝒜` has `d ≤ g(w)`;
   `LMLExplore.exists_gValue_eq_finrank`: on a nonempty compact spanning set, `g(w) = d` is
   attained.
@@ -761,25 +764,37 @@ theorem exists_design_map_inner_moorePenroseInverse_le_finrank {ι : Type*} (φ 
       (∀ i ∈ S, φ i ∈ LinearMap.range (designOperator (w.map φ) : E →ₗ[ℝ] E)) ∧
       ∀ i ∈ S, ⟪φ i, (designOperator (w.map φ) : E →ₗ[ℝ] E).moorePenroseInverse (φ i)⟫_ℝ ≤
         finrank ℝ (Submodule.span ℝ (φ '' S)) := by
-  classical
   obtain ⟨π, hπ, hspan, hle⟩ := exists_design_inner_moorePenroseInverse_le_finrank
     (S.finite_toSet.image φ).isCompact ((Finset.coe_nonempty.2 hS).image φ)
-  have : Nonempty ι := ⟨hS.choose⟩
-  -- an arm of `S` above each feature of `S`
-  have hsec : ∀ v ∈ φ '' S, ∃ i ∈ S, φ i = v := fun v ⟨i, hi, hv⟩ ↦ ⟨i, hi, hv⟩
-  choose! g hgS hgφ using hsec
-  -- the design `π.map g` on the arms has image `π`
-  have hmap : (π.map g).map φ = π := by
-    rw [← StdSimplex.weights_inj, StdSimplex.map_map, StdSimplex.weights_map,
-      Finsupp.mapDomain_congr fun v hv ↦ hgφ v (hπ hv)]
-    exact Finsupp.mapDomain_id
-  refine ⟨π.map g, fun i hi ↦ ?_, fun i hi ↦ ?_, fun i hi ↦ ?_⟩
-  · obtain ⟨v, hv, rfl⟩ := Finset.mem_image.1 (Finsupp.mapDomain_support hi)
-    exact hgS v (hπ hv)
-  · rw [hmap, range_designOperator, hspan]
-    exact Submodule.subset_span ⟨i, hi, rfl⟩
-  · rw [hmap]
-    exact hle _ ⟨i, hi, rfl⟩
+  -- `π` is the image of a design on the arms of `S`
+  obtain ⟨w, hwS, rfl, -⟩ := StdSimplex.exists_map_eq_of_support_subset_image hπ
+  refine ⟨w, Finset.coe_subset.1 hwS, fun i hi ↦ ?_, fun i hi ↦ hle _ ⟨i, hi, rfl⟩⟩
+  rw [range_designOperator, hspan]
+  exact Submodule.subset_span ⟨i, hi, rfl⟩
+
+/-- **The Kiefer–Wolfowitz theorem for finitely many arms, with the support bound**
+[LS, Theorem 21.1, Exercise 21.6]. Let `φ : ι → E` be a feature map and `S` a finite set of arms
+whose features span a subspace of dimension `m ≥ 1`. Some design `w` on the arms, supported in `S`
+with at most `m (m + 1) / 2` support points, has an image design `w.map φ` whose design operator
+`V` has the features of `S` in its range and satisfies `⟪φ i, V⁺ φ i⟫ ≤ m` for every `i ∈ S`. -/
+theorem exists_design_map_inner_moorePenroseInverse_le_finrank_and_card_support_le {ι : Type*}
+    (φ : ι → E) {S : Finset ι} (h0 : Submodule.span ℝ (φ '' S) ≠ ⊥) :
+    ∃ w : StdSimplex ℝ ι, w.weights.support ⊆ S ∧
+      (∀ i ∈ S, φ i ∈ LinearMap.range (designOperator (w.map φ) : E →ₗ[ℝ] E)) ∧
+      (∀ i ∈ S, ⟪φ i, (designOperator (w.map φ) : E →ₗ[ℝ] E).moorePenroseInverse (φ i)⟫_ℝ ≤
+        finrank ℝ (Submodule.span ℝ (φ '' S))) ∧
+      #w.weights.support ≤
+        finrank ℝ (Submodule.span ℝ (φ '' S)) *
+          (finrank ℝ (Submodule.span ℝ (φ '' S)) + 1) / 2 := by
+  obtain ⟨π, hπ, hspan, hle, -, hcard⟩ :=
+    exists_design_inner_moorePenroseInverse_le_finrank_and_card_support_le
+      (S.finite_toSet.image φ).isCompact h0
+  -- `π` is the image of a design on the arms of `S` with at most as many support points
+  obtain ⟨w, hwS, rfl, hw⟩ := StdSimplex.exists_map_eq_of_support_subset_image hπ
+  refine ⟨w, Finset.coe_subset.1 hwS, fun i hi ↦ ?_, fun i hi ↦ hle _ ⟨i, hi, rfl⟩,
+    hw.trans hcard⟩
+  rw [range_designOperator, hspan]
+  exact Submodule.subset_span ⟨i, hi, rfl⟩
 
 /-! ### The G-value and the equivalence theorem -/
 

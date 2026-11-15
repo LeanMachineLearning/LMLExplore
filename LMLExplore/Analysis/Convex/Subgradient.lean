@@ -5,26 +5,39 @@ Authors: LMLExplore contributors
 -/
 module
 
+public import LeanMachineLearning.ForMathlib.Analysis.Convex.Subgradient.Basic
 public import LMLExplore.Analysis.Convex.FDeriv
 public import LMLExplore.Analysis.Normed.Operator.Basic
 public import Mathlib.Analysis.Convex.Extrema
-public import Mathlib.Analysis.InnerProductSpace.PiL2
-public import TauCeti.Analysis.Convex.SubgradientImage
+public import Mathlib.Analysis.Convex.Function
+public import Mathlib.Topology.Algebra.Ring.Real
+import Mathlib.Analysis.Convex.Continuous
+import Mathlib.Analysis.LocallyConvex.Separation
 
 /-!
-# Subgradients within a set: convexity, existence and Lipschitz functions
+# Subgradients within a set: existence, convexity and Lipschitz functions
 
-This file relates the subgradients within a set of LML's `HasSubgradientWithinAt` to convexity
-and to Lipschitz continuity, for real functions on a real normed space `E` with subgradients in
-the dual `E →L[ℝ] ℝ` [Ora, Theorems 2.30 and 4.21, Lemma 4.20]:
+This file relates the subgradients within a set of LML's `HasSubgradientWithinAt` to continuity,
+convexity and Lipschitz continuity, for real functions with subgradients in the dual `E →L[ℝ] ℝ`.
+
+A real function that is convex and continuous on an open set `s` of a real topological vector space
+(for instance a real normed space) has a subgradient within `s` at every point of `s`. No finite
+dimension and no local convexity are needed: the proof separates the point `(x, f x)` from the
+strict epigraph `{(y, t) | y ∈ s, f y < t}`, which is open by continuity and convex by convexity,
+with the geometric Hahn–Banach theorem `geometric_hahn_banach_open_point`, and reads the
+subgradient off the separating functional [ET, Chapter I, Section 5]. This applies to functions
+that are continuous on a normed space of any dimension, such as the distance to a convex set
+[Ora, Section 12.1].
+
+On a real normed space `E` [Ora, Theorems 2.30 and 4.21, Lemma 4.20]:
 
 * for a function convex on `s`, a subgradient within a neighbourhood of `x` in `s` is a
   subgradient within all of `s`: convexity turns the local supporting inequality into a global
   one;
-* in finite dimension, a function convex on `s` has a subgradient within `s` at every interior
-  point of `s`, so on an open convex set convexity is the existence of subgradients at every
-  point (the converse direction is `Convex.convexOn_of_hasSubgradientWithinAt`, [Ora, Theorem
-  2.21]);
+* in finite dimension, a function convex on `s` is continuous on the interior of `s`, so has a
+  subgradient within `s` at every interior point of `s`; on an open convex set convexity is thus
+  the existence of subgradients at every point (the converse direction is
+  `Convex.convexOn_of_hasSubgradientWithinAt`, [Ora, Theorem 2.21]);
 * a function `L`-Lipschitz on a neighbourhood of `x` has only subgradients of dual norm at most
   `L` at `x`, and conversely a function with a subgradient of dual norm at most `L` at every
   point of `s` is `L`-Lipschitz on `s`. On an open set where subgradients exist, `L`-Lipschitz
@@ -33,12 +46,14 @@ the dual `E →L[ℝ] ℝ` [Ora, Theorems 2.30 and 4.21, Lemma 4.20]:
 The Lipschitz characterization is how bounds on the losses of online convex optimization become
 bounds `‖g_t‖ ≤ L` on the subgradients that enter the regret bounds, and the existence of
 subgradients is what lets a convex loss be linearized at every play in the interior of the
-feasible set. The existence statement is transferred from Tau Ceti's
-`ConvexOn.exists_forall_add_inner_le`, stated in finite-dimensional inner product spaces, through
-a continuous linear equivalence with a Euclidean space.
+feasible set.
 
 ## Main statements
 
+* `ConvexOn.exists_hasSubgradientWithinAt_of_continuousOn`: a function convex and continuous on an
+  open set `s` has a subgradient within `s` at every point of `s`.
+* `ConvexOn.exists_hasSubgradientWithinAt_univ`: a continuous convex function on the whole space
+  has a subgradient at every point.
 * `ConvexOn.hasSubgradientWithinAt_of_mem_nhdsWithin`: local subgradients of a convex function
   are global.
 * `ConvexOn.exists_hasSubgradientWithinAt_of_mem_interior`: in finite dimension, a convex function
@@ -54,14 +69,68 @@ a continuous linear equivalence with a Euclidean space.
 
 ## References
 
+* [ET] I. Ekeland and R. Témam, *Convex Analysis and Variational Problems*, North-Holland, 1976,
+  Chapter I, Section 5.
 * [Ora] F. Orabona, *Online Learning: A Modern Introduction Using Convex Optimization*,
-  arXiv:1912.13213v10, Theorems 2.30 and 4.21, Lemma 4.20.
+  arXiv:1912.13213v10, Section 12.1, Theorems 2.30 and 4.21, Lemma 4.20.
 -/
 
 public section
 
 open Filter Metric Set
 open scoped NNReal Topology
+
+section TopologicalVectorSpace
+
+variable {E : Type*} [AddCommGroup E] [Module ℝ E] [TopologicalSpace E] [IsTopologicalAddGroup E]
+  [ContinuousSMul ℝ E] {s : Set E} {f : E → ℝ} {x : E}
+
+/-- **Subgradients of continuous convex functions.** A real function that is convex and continuous
+on an open set `s` of a real topological vector space has a subgradient within `s` at every point of
+`s`. -/
+theorem ConvexOn.exists_hasSubgradientWithinAt_of_continuousOn (hf : ConvexOn ℝ s f)
+    (hs : IsOpen s) (hfc : ContinuousOn f s) (hx : x ∈ s) :
+    ∃ g : E →L[ℝ] ℝ, HasSubgradientWithinAt f g s x := by
+  -- The strict epigraph `A` of `f` on `s` is open and convex, and does not contain `(x, f x)`.
+  set A : Set (E × ℝ) := {p | p.1 ∈ s ∧ f p.1 < p.2}
+  have hAo : IsOpen A := by
+    have hcont : ContinuousOn (fun p : E × ℝ ↦ (f p.1, p.2)) (Prod.fst ⁻¹' s) :=
+      (hfc.comp continuousOn_fst fun _ hp ↦ hp).prodMk continuousOn_snd
+    exact hcont.isOpen_inter_preimage (hs.preimage continuous_fst)
+      (isOpen_lt continuous_fst continuous_snd)
+  obtain ⟨φ, hφ⟩ := geometric_hahn_banach_open_point (x := (x, f x)) hf.convex_strict_epigraph hAo
+    fun h ↦ lt_irrefl _ h.2
+  -- Write the separating functional as `(y, t) ↦ ℓ y + t * c`.
+  set ℓ : E →L[ℝ] ℝ := φ.comp (ContinuousLinearMap.inl ℝ E ℝ)
+  set c : ℝ := φ (0, 1)
+  have hφ_apply (y : E) (t : ℝ) : φ (y, t) = ℓ y + t * c := by
+    have : ((y, t) : E × ℝ) = (y, 0) + t • ((0, 1) : E × ℝ) := by ext <;> simp
+    rw [this, map_add, map_smul, smul_eq_mul, ContinuousLinearMap.comp_apply,
+      ContinuousLinearMap.inl_apply]
+  -- The vertical coefficient is negative, since `(x, f x + 1)` lies in `A`.
+  have hc : 0 < -c := by
+    have := hφ (x, f x + 1) ⟨hx, by linarith⟩
+    rw [hφ_apply, hφ_apply] at this
+    linarith
+  refine ⟨(-c)⁻¹ • ℓ, hasSubgradientWithinAt_iff_le.2 fun y hy ↦ ?_⟩
+  rw [FunLike.coe_smul, Pi.smul_apply, map_sub, smul_eq_mul]
+  refine le_of_forall_gt_imp_ge_of_dense fun t ht ↦ ?_
+  have := hφ (y, t) ⟨hy, ht⟩
+  rw [hφ_apply, hφ_apply] at this
+  have : (-c)⁻¹ * (ℓ y - ℓ x) < t - f x := by
+    rw [inv_mul_lt_iff₀ hc]
+    linarith
+  linarith
+
+/-- **Subgradients of continuous convex functions on the whole space.** A continuous convex
+function on a real topological vector space has a subgradient at every point. -/
+theorem ConvexOn.exists_hasSubgradientWithinAt_univ (hf : ConvexOn ℝ univ f) (hfc : Continuous f)
+    (x : E) : ∃ g : E →L[ℝ] ℝ, HasSubgradientWithinAt f g univ x :=
+  hf.exists_hasSubgradientWithinAt_of_continuousOn isOpen_univ hfc.continuousOn (mem_univ x)
+
+end TopologicalVectorSpace
+
+section NormedSpace
 
 variable {E : Type*} [NormedAddCommGroup E] [NormedSpace ℝ E] {s t : Set E} {f : E → ℝ}
   {g : E →L[ℝ] ℝ} {x : E} {L : ℝ≥0}
@@ -94,21 +163,12 @@ normed space, a function convex on `s` has a subgradient within `s` at every int
 theorem exists_hasSubgradientWithinAt_of_mem_interior [FiniteDimensional ℝ E]
     (hf : ConvexOn ℝ s f) (hx : x ∈ interior s) :
     ∃ g : E →L[ℝ] ℝ, HasSubgradientWithinAt f g s x := by
-  -- Transport `f` to a Euclidean space, where Tau Ceti's supporting hyperplane theorem applies on
-  -- the open set corresponding to `interior s`.
-  let e : E ≃L[ℝ] EuclideanSpace ℝ (Fin (Module.finrank ℝ E)) :=
-    ContinuousLinearEquiv.ofFinrankEq finrank_euclideanSpace_fin.symm
-  have hΩ : IsOpen (e.symm ⁻¹' interior s) := isOpen_interior.preimage e.symm.continuous
-  have hu : ConvexOn ℝ (e.symm ⁻¹' interior s) (f ∘ e.symm) :=
-    (hf.subset interior_subset hf.1.interior).comp_linearMap
-      (e.symm : EuclideanSpace ℝ (Fin (Module.finrank ℝ E)) →ₗ[ℝ] E)
-  obtain ⟨p, hp⟩ := hu.exists_forall_add_inner_le hΩ (x := e x) (by simpa using hx)
-  -- The supporting slope `p` gives a subgradient within `interior s`, hence within `s`.
-  refine ⟨(innerSL ℝ p).comp (e : E →L[ℝ] EuclideanSpace ℝ (Fin (Module.finrank ℝ E))),
-    hf.hasSubgradientWithinAt_of_mem_nhdsWithin (interior_subset hx)
-      (mem_nhdsWithin_of_mem_nhds (isOpen_interior.mem_nhds hx)) ?_⟩
-  refine hasSubgradientWithinAt_iff_le.2 fun z hz ↦ ?_
-  simpa [real_inner_comm] using hp (e z) (by simpa using hz)
+  -- `f` is continuous on the open set `interior s`, so has a subgradient within `interior s`,
+  -- which is a neighbourhood of `x` in `s`.
+  obtain ⟨g, hg⟩ := (hf.subset interior_subset hf.1.interior)
+    |>.exists_hasSubgradientWithinAt_of_continuousOn isOpen_interior hf.continuousOn_interior hx
+  exact ⟨g, hf.hasSubgradientWithinAt_of_mem_nhdsWithin (interior_subset hx)
+    (mem_nhdsWithin_of_mem_nhds (isOpen_interior.mem_nhds hx)) hg⟩
 
 end ConvexOn
 
@@ -179,3 +239,5 @@ theorem ConvexOn.lipschitzOnWith_iff_forall_norm_le [FiniteDimensional ℝ E] (h
       ∀ x ∈ s, ∀ g : E →L[ℝ] ℝ, HasSubgradientWithinAt f g s x → ‖g‖ ≤ L :=
   hs.lipschitzOnWith_iff_forall_norm_le fun _ hx ↦
     hf.exists_hasSubgradientWithinAt_of_mem_interior (by rwa [hs.interior_eq])
+
+end NormedSpace

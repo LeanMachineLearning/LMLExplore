@@ -35,6 +35,10 @@ on the rewards of the rounds `s < n`.
 * `LMLExplore.Bandits.DesignSelection φ`: a choice, for every nonempty set `S` of arms, of a
   design on `S` whose image design has the features of `S` in the range of its design operator
   and G-value at most `d`; `Nonempty (DesignSelection φ)` holds by the Kiefer–Wolfowitz theorem.
+* `LMLExplore.Bandits.DesignSelection.kieferWolfowitz φ`: on a nontrivial space, a design
+  selection whose designs have at most `d (d + 1) / 2` support points
+  (`DesignSelection.card_support_design_kieferWolfowitz_le`), by the Kiefer–Wolfowitz theorem with
+  the support bound on the span of the features of each set of survivors.
 * `LMLExplore.Bandits.PhasedElimination.phaseDesign D S`: the design `D.design S` of a nonempty
   set of survivors `S`.
 * `LMLExplore.Bandits.PhasedElimination.allocation c w`, `PhasedElimination.schedule T`: the
@@ -118,17 +122,74 @@ structure DesignSelection (φ : α → E) where
     ⟪φ b, (designOperator ((design S hS).map φ) : E →ₗ[ℝ] E).moorePenroseInverse (φ b)⟫_ℝ ≤
       finrank ℝ E
 
+/-- To build a design selection whose designs satisfy a property `P`, it suffices to choose, for
+every nonempty set `S` of arms, a design supported in `S` with the features of `S` in the range of
+its design operator, G-value at most the dimension, and the property `P`. -/
+theorem DesignSelection.exists_forall_design_of_forall_exists
+    {P : (S : Finset α) → S.Nonempty → StdSimplex ℝ α → Prop}
+    (h : ∀ S hS, ∃ w : StdSimplex ℝ α, w.weights.support ⊆ S ∧
+      (∀ b ∈ S, φ b ∈ LinearMap.range (designOperator (w.map φ) : E →ₗ[ℝ] E)) ∧
+      (∀ b ∈ S, ⟪φ b, (designOperator (w.map φ) : E →ₗ[ℝ] E).moorePenroseInverse (φ b)⟫_ℝ ≤
+        finrank ℝ E) ∧ P S hS w) :
+    ∃ D : DesignSelection φ, ∀ S hS, P S hS (D.design S hS) := by
+  choose w hw using h
+  exact ⟨⟨w, fun S hS ↦ (hw S hS).1, fun S hS ↦ (hw S hS).2.1, fun S hS ↦ (hw S hS).2.2.1⟩,
+    fun S hS ↦ (hw S hS).2.2.2⟩
+
 /-- Design selections exist, by the Kiefer–Wolfowitz theorem for finitely many arms
 (`exists_design_map_inner_moorePenroseInverse_le_finrank`). -/
 instance DesignSelection.instNonempty : Nonempty (DesignSelection φ) := by
-  have h (S : Finset α) (hS : S.Nonempty) : ∃ w : StdSimplex ℝ α, w.weights.support ⊆ S ∧
-      (∀ b ∈ S, φ b ∈ LinearMap.range (designOperator (w.map φ) : E →ₗ[ℝ] E)) ∧
-      ∀ b ∈ S, ⟪φ b, (designOperator (w.map φ) : E →ₗ[ℝ] E).moorePenroseInverse (φ b)⟫_ℝ ≤
-        finrank ℝ E := by
-    obtain ⟨w, hw, hr, hle⟩ := exists_design_map_inner_moorePenroseInverse_le_finrank φ hS
-    exact ⟨w, hw, hr, fun b hb ↦ (hle b hb).trans (Nat.cast_le.2 (Submodule.finrank_le _))⟩
-  choose w hw using h
-  exact ⟨⟨w, fun S hS ↦ (hw S hS).1, fun S hS ↦ (hw S hS).2.1, fun S hS ↦ (hw S hS).2.2⟩⟩
+  obtain ⟨D, -⟩ := DesignSelection.exists_forall_design_of_forall_exists (φ := φ)
+    (P := fun _ _ _ ↦ True) fun S hS ↦ by
+      obtain ⟨w, hw, hr, hle⟩ := exists_design_map_inner_moorePenroseInverse_le_finrank φ hS
+      exact ⟨w, hw, hr, fun b hb ↦ (hle b hb).trans (Nat.cast_le.2 (Submodule.finrank_le _)),
+        trivial⟩
+  exact ⟨D⟩
+
+/-- On a nontrivial space of dimension `d`, some design selection chooses designs with at most
+`d (d + 1) / 2` support points: by the Kiefer–Wolfowitz theorem with the support bound on the span
+of the features of each set of arms
+(`exists_design_map_inner_moorePenroseInverse_le_finrank_and_card_support_le`), whose dimension is
+at most `d`. -/
+theorem DesignSelection.exists_card_support_le [Nontrivial E] :
+    ∃ D : DesignSelection φ, ∀ S hS,
+      #(D.design S hS).weights.support ≤ finrank ℝ E * (finrank ℝ E + 1) / 2 := by
+  classical
+  have hd : 1 ≤ finrank ℝ E * (finrank ℝ E + 1) / 2 := by
+    have h1 : 1 ≤ finrank ℝ E := finrank_pos
+    rw [Nat.le_div_iff_mul_le two_pos]
+    exact Nat.mul_le_mul h1 (Nat.add_le_add_right h1 1)
+  refine DesignSelection.exists_forall_design_of_forall_exists (φ := φ)
+    (P := fun _ _ w ↦ #w.weights.support ≤ finrank ℝ E * (finrank ℝ E + 1) / 2) fun S hS ↦ ?_
+  by_cases h0 : Submodule.span ℝ (φ '' S) = ⊥
+  · -- the features of `S` vanish, and the Dirac mass at an arm of `S` has one support point
+    obtain ⟨a, ha⟩ := hS
+    have hφ : ∀ b ∈ S, φ b = 0 := fun b hb ↦ Submodule.span_eq_bot.1 h0 _ ⟨b, hb, rfl⟩
+    have hsupp : (StdSimplex.single a : StdSimplex ℝ α).weights.support = {a} :=
+      StdSimplex.support_weights_eq_singleton.2 rfl
+    refine ⟨.single a, by simp [ha], fun b hb ↦ by simp [hφ b hb],
+      fun b hb ↦ by simp [hφ b hb], by simpa [hsupp] using hd⟩
+  · obtain ⟨w, hw, hr, hle, hcard⟩ :=
+      exists_design_map_inner_moorePenroseInverse_le_finrank_and_card_support_le φ h0
+    have hm := Submodule.finrank_le (Submodule.span ℝ (φ '' ↑S))
+    exact ⟨w, hw, hr, fun b hb ↦ (hle b hb).trans (Nat.cast_le.2 hm),
+      hcard.trans (Nat.div_le_div_right (Nat.mul_le_mul hm (Nat.add_le_add_right hm 1)))⟩
+
+/-- The **Kiefer–Wolfowitz design selection** on a nontrivial space of dimension `d`: a design
+selection whose designs have at most `d (d + 1) / 2` support points
+(`DesignSelection.card_support_design_kieferWolfowitz_le`), chosen by
+`DesignSelection.exists_card_support_le`. With it, the length of a phase of phased elimination
+exceeds its sample scale by at most `d (d + 1) / 2`, whatever the number of arms. -/
+noncomputable def DesignSelection.kieferWolfowitz [Nontrivial E] (φ : α → E) : DesignSelection φ :=
+  (DesignSelection.exists_card_support_le (φ := φ)).choose
+
+/-- The designs of the Kiefer–Wolfowitz design selection have at most `d (d + 1) / 2` support
+points. -/
+theorem DesignSelection.card_support_design_kieferWolfowitz_le [Nontrivial E] (S : Finset α)
+    (hS : S.Nonempty) :
+    #((DesignSelection.kieferWolfowitz φ).design S hS).weights.support ≤
+      finrank ℝ E * (finrank ℝ E + 1) / 2 :=
+  (DesignSelection.exists_card_support_le (φ := φ)).choose_spec S hS
 
 namespace PhasedElimination
 

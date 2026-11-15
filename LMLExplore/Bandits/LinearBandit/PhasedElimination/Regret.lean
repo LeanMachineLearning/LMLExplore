@@ -48,6 +48,12 @@ bounds the probability that some estimate is inaccurate by `2 δ`.
   `PhasedElimination.integral_linearRegret_le_add_sqrt`: the expected regret is at most
   `2 n δ + 32 √(σ² d n log (k n (n + 1) / δ)) + 8 s`, and
   `2 + 32 √(σ² d n log (k n² (n + 1))) + 8 s` for `δ = 1 / n`.
+* `PhasedElimination.le_measureReal_linearRegret_le_kieferWolfowitz`,
+  `PhasedElimination.integral_linearRegret_le_kieferWolfowitz`,
+  `PhasedElimination.integral_linearRegret_le_add_sqrt_kieferWolfowitz`: the same bounds with
+  `8 s` replaced by `4 d (d + 1)` for the designs of `DesignSelection.kieferWolfowitz φ`, which
+  have at most `d (d + 1) / 2` support points; the expected regret for `δ = 1 / n` is at most
+  `2 + 32 √(σ² d n log (k n² (n + 1))) + 4 d (d + 1)`.
 
 ## Implementation notes
 
@@ -58,9 +64,11 @@ given the past and the action. The union bound runs over the phases `ℓ < n`, w
 rounds before `n` since every phase has a round; this gives the logarithmic factor
 `log (k n (n + 1) / δ)`, which is of order `log (k n)` for `δ = 1 / n`. A union bound over the
 `O(log n)` phases that can start before round `n` would give a smaller factor of the same
-order. With a design selection whose designs have at most `d (d + 1) / 2` support points
-[LS, Theorem 21.1], `s` does not depend on the number of arms; every design selection satisfies
-the bound with `s = k`.
+order. Every design selection satisfies the bound with `s = k`. The design selection
+`DesignSelection.kieferWolfowitz φ` has designs with at most `d (d + 1) / 2` support points, by the
+Kiefer–Wolfowitz theorem with the support bound [LS, Theorem 21.1, Exercise 21.6] applied on the
+span of the features of the survivors, which need not span `E`; then `s` does not depend on the
+number of arms.
 
 ## References
 
@@ -680,6 +688,73 @@ theorem integral_linearRegret_le_add_sqrt [StandardBorelSpace Ω] [IsProbability
   have h1 := integral_linearRegret_le h henv hσ hgap (by positivity)
     ((div_le_one (by positivity)).2 hn') hs n
   rw [one_div, div_inv_eq_mul, mul_inv_cancel_right₀ (by positivity : (n : ℝ) ≠ 0)] at h1
+  linarith
+
+/-! ### The Kiefer–Wolfowitz design selection -/
+
+/-- The support term `8 s` of the regret bounds for `s = d (d + 1) / 2` is at most
+`4 d (d + 1)`. -/
+private lemma eight_mul_cast_div_two_le (d : ℕ) :
+    8 * ((d * (d + 1) / 2 : ℕ) : ℝ) ≤ 4 * d * (d + 1) := by
+  have := Nat.cast_div_le (α := ℝ) (m := d * (d + 1)) (n := 2)
+  push_cast at this
+  linarith
+
+/-- **The regret of phased elimination with the Kiefer–Wolfowitz designs, with high probability**
+[LS, Theorem 22.1]. Under the assumptions of `le_measureReal_linearRegret_le` on a nontrivial space
+of dimension `d`, with the designs of `DesignSelection.kieferWolfowitz φ`, which have at most
+`d (d + 1) / 2` support points, the random regret after `n` rounds is at most
+`32 √(σ² d n log (k n (n + 1) / δ)) + 4 d (d + 1)` with probability at least `1 - 2 δ`: the number
+`k` of arms only enters through the logarithm. -/
+theorem le_measureReal_linearRegret_le_kieferWolfowitz [Nontrivial E] [StandardBorelSpace Ω]
+    [IsProbabilityMeasure P]
+    (h : IsAlgEnvSeq O A Y (phasedElimination (DesignSelection.kieferWolfowitz φ) σ2 δ) env P)
+    (henv : IsSubgaussianLinearEnv (fun _ : 𝓞 ↦ φ) θ σ2 env) (hσ : σ2 ≠ 0)
+    (hgap : ∀ a b, ⟪θ, φ a⟫_ℝ - ⟪θ, φ b⟫_ℝ ≤ 1) (hδ : 0 < δ) (hδ1 : δ ≤ 1) (n : ℕ) :
+    1 - 2 * δ ≤ P.real {ω | linearRegret (fun _ ↦ φ) θ O A n ω ≤
+      32 * √(σ2 * finrank ℝ E * n * log (Fintype.card α * (n * (n + 1)) / δ)) +
+        4 * finrank ℝ E * (finrank ℝ E + 1)} := by
+  refine (le_measureReal_linearRegret_le h henv hσ hgap hδ hδ1
+    DesignSelection.card_support_design_kieferWolfowitz_le n).trans
+    (measureReal_mono fun ω hω ↦ ?_)
+  have := eight_mul_cast_div_two_le (finrank ℝ E)
+  simp only [Set.mem_ofPred_eq] at hω ⊢
+  linarith
+
+/-- **The expected regret of phased elimination with the Kiefer–Wolfowitz designs**
+[LS, Theorem 22.1]. Under the assumptions of `le_measureReal_linearRegret_le_kieferWolfowitz`, the
+expected regret after `n` rounds is at most
+`2 n δ + 32 √(σ² d n log (k n (n + 1) / δ)) + 4 d (d + 1)`. -/
+theorem integral_linearRegret_le_kieferWolfowitz [Nontrivial E] [StandardBorelSpace Ω]
+    [IsProbabilityMeasure P]
+    (h : IsAlgEnvSeq O A Y (phasedElimination (DesignSelection.kieferWolfowitz φ) σ2 δ) env P)
+    (henv : IsSubgaussianLinearEnv (fun _ : 𝓞 ↦ φ) θ σ2 env) (hσ : σ2 ≠ 0)
+    (hgap : ∀ a b, ⟪θ, φ a⟫_ℝ - ⟪θ, φ b⟫_ℝ ≤ 1) (hδ : 0 < δ) (hδ1 : δ ≤ 1) (n : ℕ) :
+    P[linearRegret (fun _ ↦ φ) θ O A n] ≤ 2 * n * δ +
+      (32 * √(σ2 * finrank ℝ E * n * log (Fintype.card α * (n * (n + 1)) / δ)) +
+        4 * finrank ℝ E * (finrank ℝ E + 1)) := by
+  have := integral_linearRegret_le h henv hσ hgap hδ hδ1
+    DesignSelection.card_support_design_kieferWolfowitz_le n
+  have := eight_mul_cast_div_two_le (finrank ℝ E)
+  linarith
+
+/-- **The expected regret of phased elimination with the Kiefer–Wolfowitz designs for
+`δ = 1 / n`** [LS, Theorem 22.1]. Under the assumptions of
+`integral_linearRegret_le_kieferWolfowitz` with the confidence level `δ = 1 / n`, the expected
+regret after `n` rounds is at most `2 + 32 √(σ² d n log (k n² (n + 1))) + 4 d (d + 1)`, of order
+`√(σ² d n log (k n)) + d²`. -/
+theorem integral_linearRegret_le_add_sqrt_kieferWolfowitz [Nontrivial E] [StandardBorelSpace Ω]
+    [IsProbabilityMeasure P] {n : ℕ}
+    (h : IsAlgEnvSeq O A Y (phasedElimination (DesignSelection.kieferWolfowitz φ) σ2 (1 / n))
+      env P)
+    (henv : IsSubgaussianLinearEnv (fun _ : 𝓞 ↦ φ) θ σ2 env) (hσ : σ2 ≠ 0)
+    (hgap : ∀ a b, ⟪θ, φ a⟫_ℝ - ⟪θ, φ b⟫_ℝ ≤ 1) :
+    P[linearRegret (fun _ ↦ φ) θ O A n] ≤
+      2 + 32 * √(σ2 * finrank ℝ E * n * log (Fintype.card α * (n * (n + 1)) * n)) +
+        4 * finrank ℝ E * (finrank ℝ E + 1) := by
+  have := integral_linearRegret_le_add_sqrt h henv hσ hgap
+    DesignSelection.card_support_design_kieferWolfowitz_le
+  have := eight_mul_cast_div_two_le (finrank ℝ E)
   linarith
 
 end Run
