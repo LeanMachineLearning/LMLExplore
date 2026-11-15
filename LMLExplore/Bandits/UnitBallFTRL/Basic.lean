@@ -9,6 +9,7 @@ public import LMLExplore.Analysis.InnerProductSpace.Dual
 public import LMLExplore.Analysis.Normed.Operator.Basic
 public import LMLExplore.Bandits.StochasticMirrorDescent
 public import LMLExplore.MeasureTheory.Function.ConditionalExpectation.FiniteValued
+public import LMLExplore.MeasureTheory.MeasurableSpace.Option
 public import LMLExplore.OnlineLearning.UnitBallPotential
 public import Mathlib.Analysis.InnerProductSpace.Dual
 
@@ -58,6 +59,8 @@ losses.
   the action is the play and the mean of the estimate is the loss.
 * `sum_unitBallProb_mul_one_sub_norm_mul_norm_unitBallEstimate_sq`: the mean of
   `(1 - ‖a‖) * ‖unitBallEstimate b a y o‖ ^ 2` is `d * ‖y‖ ^ 2`.
+* `measurable_unitBallProb`, `measurable_unitBallAction`: the probabilities of the outcomes and
+  the action are measurable functions of the play.
 * `isUnbiasedRound_unitBall`: a round of the algorithm is unbiased (`IsUnbiasedRound`).
 * `integral_one_sub_norm_mul_norm_unitBallEstimate_sq`: the expected variance term of a round.
 * `ftrl_integral_regret_le_of_unitBallEstimate`: the expected regret against every `u` of the unit
@@ -219,6 +222,32 @@ lemma norm_unitBallEstimate_le (ha : ‖a‖ < 1) :
       Real.norm_of_nonneg (by positivity)]
     gcongr
     simpa [b.norm_eq_one] using y.le_opNorm (b i)
+
+section Measurable
+
+variable [MeasurableSpace E] [BorelSpace E]
+
+omit [InnerProductSpace ℝ E] in
+/-- The probability of each outcome is a measurable function of the play. -/
+lemma measurable_unitBallProb (o : Option (ι × Bool)) :
+    Measurable fun a : E ↦ unitBallProb a o := by
+  rcases o with _ | p
+  · simpa using measurable_norm
+  · simp only [unitBallProb_some]
+    fun_prop
+
+/-- The action is a measurable function of the play and the outcome. -/
+lemma measurable_unitBallAction [MeasurableSpace ι] [MeasurableSingletonClass ι]
+    (b : OrthonormalBasis ι ℝ E) :
+    Measurable fun z : E × Option (ι × Bool) ↦ unitBallAction b z.1 z.2 := by
+  refine measurable_from_prod_countable_left fun o ↦ ?_
+  rcases o with _ | ⟨i, s⟩
+  · simp only [unitBallAction_none]
+    fun_prop
+  · simp only [unitBallAction_some]
+    exact measurable_const
+
+end Measurable
 
 section Measurability
 
