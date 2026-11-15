@@ -5,6 +5,7 @@ Authors: LMLExplore contributors
 -/
 module
 
+public import LMLExplore.Logic.Function.Iterate
 public import LMLExplore.MarkovDecisionProcess.Comparison
 
 /-!
@@ -97,11 +98,7 @@ theorem runReturn_eq_integral_add_sum {Ω : Type*} {mΩ : MeasurableSpace Ω} {P
   have hterm (n : ℕ) : (γ : ℝ) ^ n *
       ∫ ω, (M.lookahead γ (w (n + 1)) (S n ω, A n ω) - w n (S n ω)) ∂P =
         (γ : ℝ) ^ n * r n + ((γ : ℝ) ^ (n + 1) * a (n + 1) - (γ : ℝ) ^ n * a n) := by
-    rw [integral_sub (integrable_of_abs_le (f := fun ω ↦ M.lookahead γ (w (n + 1)) (S n ω, A n ω))
-        ((measurable_lookahead (hw _)).comp (hm n)) (fun _ ↦ abs_lookahead_le hR (hwK _) _) P)
-        (integrable_of_abs_le (f := fun ω ↦ w n (S n ω)) ((hw n).comp (h.measurable_obs n))
-          (fun _ ↦ hwK n _) P),
-      integral_lookahead h hR (hw _) (hwK _) n]
+    rw [integral_lookahead_sub h hR (hw _) (hwK _) (hw n) (hwK n) n]
     ring
   have hret : M.runReturn γ N (w N) alg μ =
       ∑ n ∈ range N, (γ : ℝ) ^ n * r n + (γ : ℝ) ^ N * a N := by
@@ -150,19 +147,7 @@ theorem runReturn_markov_eq_integral_add_sum (hR : ∀ p, ∀ᵐ x ∂(M.R p), |
   rw [runReturn_eq_integral_add_sum h hR hw hwK N]
   congr 1
   refine sum_congr rfl fun n _ ↦ ?_
-  congr 1
-  have hint : Integrable (fun p ↦ M.lookahead γ (w (n + 1)) p - w n p.1)
-      (stateMarginal (fun _ ↦ M.P) π μ n ⊗ₘ π n) :=
-    integrable_of_abs_le ((measurable_lookahead (hw _)).sub ((hw n).comp measurable_fst))
-      (fun p ↦ (abs_sub _ _).trans (add_le_add (abs_lookahead_le hR (hwK _) p) (hwK n _))) _
-  -- the state-action pair of round `n` has law `μₙ ⊗ₘ π n`
-  have hlaw := (hasLaw_obs_action_markov h n).integral_comp hint.aestronglyMeasurable
-  simp only [Function.comp_def] at hlaw
-  rw [hlaw, Measure.integral_compProd hint]
-  refine integral_congr_ae (.of_forall fun s ↦ ?_)
-  dsimp only
-  rw [integral_sub (integrable_lookahead_prodMk_left hR (hw _) (hwK _) s _) (integrable_const _),
-    integral_const, probReal_univ, one_smul, bellmanEval_def]
+  rw [integral_lookahead_sub_markov h hR (hw _) (hwK _) (hw n) (hwK n) n]
 
 /-- With bounded rewards, if bounded measurable `w n` satisfy `w n - ε n ≤ T_{π n} (w (n + 1))` for
 all `n < N`, where `T_{π n}` is the evaluation operator of `π n`, then the `N`-step return with
@@ -194,19 +179,6 @@ theorem runReturn_markov_eq_integral_of_bellmanEval_eq (hR : ∀ p, ∀ᵐ x ∂
   rw [runReturn_markov_eq_integral_add_sum hR hw hwK N, add_eq_left]
   exact sum_eq_zero fun n hn ↦ by simp [hev n (mem_range.1 hn)]
 
-omit [Nonempty 𝓢] [IsProbabilityMeasure μ] in
-/-- With bounded rewards, the composition of the evaluation operators `T_{π n}` along a list of
-indices, applied to a bounded measurable `u`, is bounded and measurable. -/
-private lemma measurable_foldr_bellmanEval (hR : ∀ p, ∀ᵐ x ∂(M.R p), |x| ≤ C)
-    (hu : Measurable u) (huB : ∀ s, |u s| ≤ B) (l : List ℕ) :
-    Measurable (l.foldr (fun n v ↦ M.bellmanEval γ (π n) v) u) ∧
-      ∃ K, ∀ s, |l.foldr (fun n v ↦ M.bellmanEval γ (π n) v) u s| ≤ K := by
-  induction l with
-  | nil => exact ⟨hu, B, huB⟩
-  | cons n l ih =>
-    obtain ⟨hm, K, hK⟩ := ih
-    exact ⟨measurable_bellmanEval hm, C + γ * K, abs_bellmanEval_le hR hK⟩
-
 /-- **Policy evaluation in finite horizon** [P, §4.2]: with bounded rewards and a bounded
 measurable terminal value `u`, the `N`-step return of the Markov policy `π` from `μ` is
 `∫ T_{π 0} (T_{π 1} (⋯ (T_{π (N - 1)} u))) dμ`, where `T_{π n}` is the evaluation operator of
@@ -218,12 +190,12 @@ theorem runReturn_markov_eq_integral_foldr (hR : ∀ p, ∀ᵐ x ∂(M.R p), |x|
   -- `W n = T_{π n} (⋯ (T_{π (N - 1)} u))` satisfies the backward recursion of the evaluation
   set W : ℕ → 𝓢 → ℝ := fun n ↦
     (List.range' n (N - n)).foldr (fun n v ↦ M.bellmanEval γ (π n) v) u with hW
-  have hWm (n : ℕ) := measurable_foldr_bellmanEval (π := π) (γ := γ) hR hu huB
-    (List.range' n (N - n))
+  choose K hK using fun n ↦
+    exists_abs_foldr_bellmanEval_le (M := M) (γ := γ) (π := π) hR huB (List.range' n (N - n))
   have hev (n : ℕ) (hn : n < N) : M.bellmanEval γ (π n) (W (n + 1)) = W n := by
     simp only [hW, show N - n = N - (n + 1) + 1 by omega, List.range'_succ, List.foldr_cons]
-  have h := runReturn_markov_eq_integral_of_bellmanEval_eq (μ := μ) hR (fun n ↦ (hWm n).1)
-    (fun n ↦ (hWm n).2.choose_spec) hev
+  have h := runReturn_markov_eq_integral_of_bellmanEval_eq (μ := μ) hR
+    (fun n ↦ measurable_foldr_bellmanEval hu (List.range' n (N - n))) hK hev
   rwa [Nat.sub_self, List.range'_zero, List.foldr_nil, Nat.sub_zero,
     ← List.range_eq_range'] at h
 
@@ -237,8 +209,7 @@ theorem runReturn_markov_const {π : Kernel 𝓢 𝓐} [IsMarkovKernel π]
   have h := runReturn_markov_eq_integral_of_bellmanEval_eq (π := fun _ ↦ π) (μ := μ)
     (w := fun n ↦ (M.bellmanEval γ π)^[N - n] u) hR
     (fun n ↦ measurable_bellmanEval_iterate hu (N - n)) (fun n ↦ hK (N - n)) (N := N)
-    fun n hn ↦ by
-      rw [show N - n = N - (n + 1) + 1 by omega, Function.iterate_succ_apply']
+    fun n hn ↦ (Function.iterate_sub_eq_apply _ _ hn).symm
   simpa only [Nat.sub_self, Function.iterate_zero, id_eq, Nat.sub_zero] using h
 
 end Markov
@@ -262,7 +233,7 @@ theorem runReturn_le_integral_bellman_iterate [IsProbabilityMeasure μ]
     (w := fun n ↦ (M.bellman γ)^[N - n] u) hR (fun n ↦ measurable_bellman_iterate hu (N - n))
     (fun n ↦ hK (N - n)) (fun n hn ⟨s, a⟩ ↦ by
       dsimp only
-      rw [show N - n = N - (n + 1) + 1 by omega, Function.iterate_succ_apply']
+      rw [Function.iterate_sub_eq_apply _ _ hn]
       exact lookahead_le_bellman (bddAbove_range_lookahead hR (hK _) s) a) alg
   simpa only [Nat.sub_self, Function.iterate_zero, id_eq, Nat.sub_zero] using h
 
@@ -282,7 +253,7 @@ theorem integral_bellman_iterate_sub_sum_le_runReturn [IsProbabilityMeasure μ]
     (π := fun n ↦ Kernel.deterministic (d n) (hd n)) (w := fun n ↦ (M.bellman γ)^[N - n] u) hR
     (fun n ↦ measurable_bellman_iterate hu (N - n)) (fun n ↦ hK (N - n)) fun n hn s ↦ by
       rw [bellmanEval_deterministic (measurable_bellman_iterate hu _) (hd n),
-        show N - n = N - n - 1 + 1 by omega, Function.iterate_succ_apply', Nat.sub_sub]
+        Function.iterate_sub_eq_apply _ _ hn]
       simpa only [Nat.sub_sub] using (isApproxGreedy_def M γ _ _ _).1 (hg n hn) s
   simpa only [Nat.sub_self, Function.iterate_zero, id_eq, Nat.sub_zero] using h
 

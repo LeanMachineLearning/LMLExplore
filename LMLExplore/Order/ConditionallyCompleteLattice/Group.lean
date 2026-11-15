@@ -17,6 +17,8 @@ public import Mathlib.Order.ConditionallyCompleteLattice.Indexed
   every `i` of a nonempty index type, then `|⨆ i, f i| ≤ B`.
 * `abs_ciSup_sub_ciSup_le`: if `g` is bounded above over a nonempty index type and
   `|f i - g i| ≤ c` for every `i`, then `|⨆ i, f i - ⨆ i, g i| ≤ c`.
+* `exists_iSup_sub_lt`: for `ε > 0`, some value of a family over a nonempty index type exceeds its
+  supremum minus `ε`, whether or not the family is bounded above.
 * `mem_Icc_ciInf_of_forall_sub_le`: if `f i - f j ≤ c` for all `i` and `j`, then the values of `f`
   lie in `[⨅ j, f j, ⨅ j, f j + c]`.
 -/
@@ -49,6 +51,16 @@ theorem abs_ciSup_sub_ciSup_le [Nonempty ι] {f g : ι → α} {c : α} (hg : Bd
       _ ≤ c + ⨆ i, g i := by gcongr; exact le_ciSup hg i
   · calc g i ≤ c + f i := sub_le_iff_le_add.1 (abs_sub_le_iff.1 (h i)).2
       _ ≤ c + ⨆ i, f i := by gcongr; exact le_ciSup hf i
+
+/-- For `ε > 0`, some value of a family over a nonempty index type exceeds its supremum minus `ε`.
+If the family is bounded above, this is the approximation property of the supremum; otherwise its
+values exceed every bound. -/
+theorem exists_iSup_sub_lt [Nonempty ι] (f : ι → α) {ε : α} (hε : 0 < ε) :
+    ∃ i, (⨆ j, f j) - ε < f i := by
+  by_cases hf : BddAbove (range f)
+  · exact exists_lt_of_lt_ciSup (sub_lt_self _ hε)
+  · obtain ⟨_, ⟨i, rfl⟩, hi⟩ := not_bddAbove_iff.1 hf ((⨆ j, f j) - ε)
+    exact ⟨i, hi⟩
 
 /-- If the values of `f` differ by at most `c`, they lie in `[a, a + c]` for `a = ⨅ j, f j`. -/
 theorem mem_Icc_ciInf_of_forall_sub_le {f : ι → α} {c : α} (h : ∀ i j, f i - f j ≤ c) (i : ι) :

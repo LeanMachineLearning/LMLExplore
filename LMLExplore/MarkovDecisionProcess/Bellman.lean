@@ -76,7 +76,9 @@ actions give both, and so do bounded rewards and a bounded measurable value func
   `Learning.MDP.measurable_bellmanEval`, `Learning.MDP.abs_bellmanEval_le`: the operators preserve
   bounded measurable functions, and so do their iterates (`Learning.MDP.measurable_bellman_iterate`,
   `Learning.MDP.exists_abs_bellman_iterate_le`, `Learning.MDP.measurable_bellmanEval_iterate`,
-  `Learning.MDP.exists_abs_bellmanEval_iterate_le`); `Learning.MDP.measurable_greedy`: the greedy
+  `Learning.MDP.exists_abs_bellmanEval_iterate_le`), as do the compositions of the evaluation
+  operators of several policies (`Learning.MDP.measurable_foldr_bellmanEval`,
+  `Learning.MDP.exists_abs_foldr_bellmanEval_le`); `Learning.MDP.measurable_greedy`: the greedy
   policy of a measurable function is measurable.
 * `Learning.MDP.isApproxGreedy_approxGreedy`, `Learning.MDP.measurable_approxGreedy`: for
   countably many actions and `ε > 0`, `M.approxGreedy γ ε v` is `ε`-greedy for `v`, and measurable
@@ -166,13 +168,15 @@ lemma integrable_lookahead_prodMk_left (hR : ∀ p, ∀ᵐ x ∂(M.R p), |x| ≤
   integrable_of_abs_le ((measurable_lookahead hv).comp measurable_prodMk_left)
     (fun a ↦ abs_lookahead_le hR hvB (s, a)) ν
 
-/-- With bounded rewards, the Bellman residual `r (s, a) + γ * ∫ v dP (s, a) - v s` of a bounded
-measurable function is integrable for every finite measure on the state-action pairs. -/
+/-- With bounded rewards, for bounded measurable `v` and `w`, the difference
+`r (s, a) + γ * ∫ v dP (s, a) - w s` is integrable for every finite measure on the state-action
+pairs. For `w = v`, it is the Bellman residual of `v`. -/
 lemma integrable_lookahead_sub (hR : ∀ p, ∀ᵐ x ∂(M.R p), |x| ≤ C) (hv : Measurable v)
-    (hvB : ∀ s, |v s| ≤ B) (ν : Measure (𝓢 × 𝓐)) [IsFiniteMeasure ν] :
-    Integrable (fun p ↦ M.lookahead γ v p - v p.1) ν :=
-  integrable_of_abs_le ((measurable_lookahead hv).sub (hv.comp measurable_fst))
-    (fun p ↦ (abs_sub _ _).trans (add_le_add (abs_lookahead_le hR hvB p) (hvB _))) ν
+    (hvB : ∀ s, |v s| ≤ B) (hw : Measurable w) (hwB : ∀ s, |w s| ≤ B') (ν : Measure (𝓢 × 𝓐))
+    [IsFiniteMeasure ν] :
+    Integrable (fun p ↦ M.lookahead γ v p - w p.1) ν :=
+  integrable_of_abs_le ((measurable_lookahead hv).sub (hw.comp measurable_fst))
+    (fun p ↦ (abs_sub _ _).trans (add_le_add (abs_lookahead_le hR hvB p) (hwB _))) ν
 
 /-! ### The optimality operator -/
 
@@ -457,6 +461,26 @@ theorem exists_abs_bellmanEval_iterate_le [IsMarkovKernel π] (hR : ∀ p, ∀�
     obtain ⟨B', hB'⟩ := ih
     exact ⟨C + γ * B', fun s ↦ by
       rw [Function.iterate_succ_apply']; exact abs_bellmanEval_le hR hB' s⟩
+
+/-- The composition of the evaluation operators of the stationary policies `π i` along a list `l`
+of indices, applied to a measurable `v`, is measurable. -/
+theorem measurable_foldr_bellmanEval {ι : Type*} {π : ι → Kernel 𝓢 𝓐}
+    [∀ i, IsSFiniteKernel (π i)] (hv : Measurable v) (l : List ι) :
+    Measurable (l.foldr (fun i v ↦ M.bellmanEval γ (π i) v) v) := by
+  induction l with
+  | nil => exact hv
+  | cons i l ih => exact measurable_bellmanEval ih
+
+/-- With bounded rewards, the composition of the evaluation operators of the stationary policies
+`π i` along a list `l` of indices, applied to a bounded `v`, is bounded. -/
+theorem exists_abs_foldr_bellmanEval_le {ι : Type*} {π : ι → Kernel 𝓢 𝓐}
+    [∀ i, IsMarkovKernel (π i)] (hR : ∀ p, ∀ᵐ x ∂(M.R p), |x| ≤ C) (hvB : ∀ s, |v s| ≤ B)
+    (l : List ι) : ∃ B', ∀ s, |l.foldr (fun i v ↦ M.bellmanEval γ (π i) v) v s| ≤ B' := by
+  induction l with
+  | nil => exact ⟨B, hvB⟩
+  | cons i l ih =>
+    obtain ⟨B', hB'⟩ := ih
+    exact ⟨C + γ * B', abs_bellmanEval_le hR hB'⟩
 
 /-! ### The optimality operator as the maximum of the evaluation operators -/
 

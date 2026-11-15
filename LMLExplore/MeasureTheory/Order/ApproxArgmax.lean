@@ -5,6 +5,7 @@ Authors: LMLExplore contributors
 -/
 module
 
+public import LMLExplore.Order.ConditionallyCompleteLattice.Group
 public import Mathlib.MeasureTheory.Constructions.BorelSpace.Order
 
 /-!
@@ -22,7 +23,7 @@ maximum. In dynamic programming over countably many actions, they give measurabl
 policies, whose values come within `ε` of the optimality operator at every state.
 
 When the family is not bounded above, `⨆ j, f j = 0` in `ℝ`, and the statements still hold: some
-value then exceeds every bound, in particular `-ε`.
+value then exceeds every bound, in particular `-ε` (`exists_iSup_sub_lt`).
 
 ## Main definitions
 
@@ -33,8 +34,6 @@ value then exceeds every bound, in particular `-ε`.
 
 ## Main statements
 
-* `LMLExplore.exists_iSup_sub_lt`: for `ε > 0`, some value of a real family over a nonempty index
-  type exceeds its supremum minus `ε`.
 * `LMLExplore.isLeast_approxArgmaxNat`: `approxArgmaxNat ε f` is the least index whose value
   exceeds `(⨆ j, f j) - ε`.
 * `LMLExplore.measurable_approxArgmaxNat`, `LMLExplore.measurable_approxArgmax`: the approximate
@@ -50,16 +49,6 @@ open MeasureTheory Set
 namespace LMLExplore
 
 variable {ε : ℝ}
-
-/-- For `ε > 0`, some value of a real family over a nonempty index type exceeds its supremum minus
-`ε`. If the family is bounded above, this is the approximation property of the supremum;
-otherwise its values exceed every bound. -/
-theorem exists_iSup_sub_lt {ι : Sort*} [Nonempty ι] (f : ι → ℝ) (hε : 0 < ε) :
-    ∃ i, (⨆ j, f j) - ε < f i := by
-  by_cases hf : BddAbove (range f)
-  · exact exists_lt_of_lt_ciSup (sub_lt_self _ hε)
-  · obtain ⟨_, ⟨i, rfl⟩, hi⟩ := not_bddAbove_iff.1 hf ((⨆ j, f j) - ε)
-    exact ⟨i, hi⟩
 
 /-! ### Approximate maximizers over `ℕ` -/
 
