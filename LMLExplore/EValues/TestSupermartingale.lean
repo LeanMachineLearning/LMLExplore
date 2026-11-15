@@ -62,6 +62,9 @@ stopping time `τ` is multiplied by a new supermartingale `B` that equals `1` up
   `ProbabilityTheory.IsTestSupermartingale.ae_eq_mul_prod_div`: conversely, every test
   supermartingale is almost surely the wealth `M 0 * ∏ k < n, M (k + 1) / M k` of its successive
   ratios, which are conditional e-variables [WSR24, Proposition 3].
+* `ProbabilityTheory.IsTestSupermartingale.exists_isTestMartingale_ge`: a test supermartingale for
+  `P` is below a test martingale for `P` with the same initial value, the martingale part of its
+  Doob decomposition.
 * `ProbabilityTheory.IsTestSupermartingale.stoppedProcess_mul`,
   `ProbabilityTheory.IsTestMartingale.stoppedProcess_mul`: optional continuation
   [RW, Proposition 7.9].
@@ -467,6 +470,40 @@ theorem IsTestSupermartingale.ae_eq_mul_prod_div (hM : IsTestSupermartingale M �
     ∀ᵐ ω ∂P, ∀ n, M n ω = M 0 ω * ∏ k ∈ range n, M (k + 1) ω / M k ω :=
   hM.toIsENNSupermartingale.ae_eq_mul_prod_div hP
     (hM.lintegral_zero_ne_top hP)
+
+/-! ### Domination by a test martingale -/
+
+/-- **Test supermartingales are dominated by test martingales.** For a member `P` of the null on
+which the filtration is σ-finite, a test supermartingale `M` is below the test martingale for `P`
+obtained by adding back its predictable decreases,
+`M n + ∑ k < n, (M k - P⁻[M (k + 1)|ℱ k])`, which has the same initial value. This is the
+martingale part of the Doob decomposition of `M`, computed in `ℝ≥0∞` with no integrability. -/
+theorem IsTestSupermartingale.exists_isTestMartingale_ge [SigmaFiniteFiltration P ℱ]
+    (hM : IsTestSupermartingale M ℱ S) (hP : P ∈ S) :
+    ∃ M' : ℕ → Ω → ℝ≥0∞, IsTestMartingale M' ℱ {P} ∧ M' 0 = M 0 ∧ M ≤ M' := by
+  -- the predictable decrease of round `k`, known at time `k`
+  set D : ℕ → Ω → ℝ≥0∞ := fun k ω ↦ M k ω - P⁻[M (k + 1)|ℱ k] ω with hD_def
+  have hD (k : ℕ) : Measurable[ℱ k] (D k) := (hM.adapted k).sub (measurable_condLExp _ _ _)
+  have hA (n : ℕ) : Measurable[ℱ n] fun ω ↦ ∑ k ∈ range n, D k ω :=
+    Finset.measurable_sum _ fun k hk ↦ (hD k).mono (ℱ.mono (mem_range.1 hk).le) le_rfl
+  refine ⟨fun n ω ↦ M n ω + ∑ k ∈ range n, D k ω,
+    ⟨fun n ↦ (hM.adapted n).add (hA n), ?_, ?_⟩, by simp, fun n ω ↦ le_self_add⟩
+  · intro Q hQ
+    rw [mem_singleton_iff.1 hQ]
+    simpa using hM.lintegral_zero_le P hP
+  · intro Q hQ n s hs
+    rw [mem_singleton_iff.1 hQ]
+    -- the conditional expectation of `M (n + 1)` given `ℱ n` is below `M n`
+    have hC : P⁻[M (n + 1)|ℱ n] ≤ᵐ[P] M n :=
+      (condLExp_ae_le_iff_forall_setLIntegral_le (ℱ.le n) (hM.adapted n)).2
+        (hM.setLIntegral_succ_le P hP n)
+    have hA' : Measurable fun ω ↦ ∑ k ∈ range (n + 1), D k ω :=
+      (hA (n + 1)).mono (ℱ.le (n + 1)) le_rfl
+    rw [lintegral_add_right _ hA', ← setLIntegral_condLExp (ℱ.le n) P (M (n + 1)) hs,
+      ← lintegral_add_right _ hA']
+    refine lintegral_congr_ae (ae_restrict_of_ae ?_)
+    filter_upwards [hC] with ω hω
+    rw [sum_range_succ, add_left_comm, hD_def, add_tsub_cancel_of_le hω, add_comm]
 
 /-! ### Pulling a known factor out of a supermartingale step -/
 
