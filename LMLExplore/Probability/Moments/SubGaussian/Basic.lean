@@ -14,7 +14,7 @@ import LMLExplore.MeasureTheory.Measure.Weighted
 import Mathlib.Analysis.SpecialFunctions.Trigonometric.Series
 
 /-!
-# Conditionally sub-Gaussian variables
+# Sub-Gaussian variables: conditional sub-Gaussianity and finitely supported laws
 
 A real random variable `X` is conditionally `c`-sub-Gaussian given a sub-σ-algebra `m` if
 `E[exp (t X) | m] ≤ exp (c t² / 2)` for every `t`; it suffices to check it at rational `t`.
@@ -26,6 +26,11 @@ sub-Gaussian variables. More generally, if `Y` has conditional distribution `κ`
 variable `Y - g ∘ X` is conditionally `c`-sub-Gaussian given `X`. This is how the noise of a
 feedback whose conditional law given the past is sub-Gaussian around a prediction enters the
 martingale bounds.
+
+The file also holds unconditional facts: a `c`-sub-Gaussian variable under a probability measure
+has second moment at most `c`, and a finitely supported law is `c`-sub-Gaussian as soon as its
+moment generating function is at most `exp (c t ^ 2 / 2)`. For `c > 0`, any given point of `ℝ` is
+charged by such a finitely supported `c`-sub-Gaussian probability law.
 
 ## Main statements
 

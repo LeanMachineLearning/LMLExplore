@@ -369,10 +369,10 @@ private lemma integral_exp_mul_sub_sq_div_two_le_one (hμ : HasSubgaussianMGF id
     _ ≤ exp (-(t ^ 2 / 2)) * exp (t ^ 2 / 2) := by gcongr
     _ = 1 := by rw [← exp_add]; simp
 
-/-- Under a `1`-sub-Gaussian probability law, `x` has mean `0`. A `1`-sub-Gaussian variable is
-sub-exponential with variance proxy `1`, and LML's `HasSubexponentialMGF.integral_eq_zero` gives
-its mean. Tau Ceti's `HasSubgaussianMGF.integral_eq_zero` states this directly, but its module
-cannot be imported next to LML's sub-Gaussian file (both declare `HasSubgaussianMGF.mono`). -/
+-- Tau Ceti's `HasSubgaussianMGF.integral_eq_zero` states this lemma, but at the pinned versions
+-- its module and LML's sub-Gaussian file both declare `HasSubgaussianMGF.mono`, so the mean is
+-- obtained here through LML's `HasSubexponentialMGF.integral_eq_zero`.
+/-- Under a `1`-sub-Gaussian probability law, `x` has mean `0`. -/
 private lemma integral_id_eq_zero [IsProbabilityMeasure μ] (hμ : HasSubgaussianMGF id 1 μ) :
     ∫ x, x ∂μ = 0 := by
   simpa using (hμ.hasSubexponentialMGF 0).integral_eq_zero
