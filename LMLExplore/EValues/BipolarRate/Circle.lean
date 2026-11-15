@@ -69,8 +69,8 @@ of writing them in the statements.
 
 public section
 
-open MeasureTheory InformationTheory Filter
-open scoped ENNReal Topology
+open MeasureTheory InformationTheory
+open scoped ENNReal
 
 namespace ProbabilityTheory
 
@@ -189,51 +189,6 @@ private lemma log_le_maxLogGrowth {S : Set (Measure UnitAddCircle)}
   exact (logUtility.eintegral_comp_indicator_const (volume_pi_compl_pairwiseIrrational n)
     c).symm.trans_le (hX.eintegral_le_maxUtility _ logUtility)
 
-/-- If the growth of `n` observations is at least `log (1 / (n ε ^ (n - 1)))` for every `n ≠ 0`,
-the bipolar rate is at least `log (1 / ε)`: the term `log n` is negligible against `n`. For
-`ε = 0`, two observations already give infinite growth. -/
-private lemma log_inv_le_bipolarRate {𝓧 : Type*} {m𝓧 : MeasurableSpace 𝓧} {Q : Measure 𝓧}
-    {S : Set (Measure 𝓧)} (hε : ε ≤ 1)
-    (h : ∀ n : ℕ, n ≠ 0 → ENNReal.log (((n : ℝ≥0∞) * ε ^ (n - 1))⁻¹) ≤ maxLogGrowth Q S n) :
-    ENNReal.log ε⁻¹ ≤ bipolarRate Q S := by
-  rcases eq_or_ne ε 0 with rfl | hε0
-  · have h2 := h 2 two_ne_zero
-    simp only [Nat.add_one_sub_one, pow_one, mul_zero, ENNReal.inv_zero, ENNReal.log_top,
-      top_le_iff] at h2
-    refine le_trans ?_ (maxLogGrowth_div_le_bipolarRate _ _ two_ne_zero)
-    rw [h2, ENNReal.inv_zero, ENNReal.log_top,
-      EReal.top_div_of_pos_ne_top (by norm_num) (EReal.natCast_ne_top 2)]
-  -- for `ε > 0`, the growth of `n + 1` observations is at least `n log (1 / ε) - log (n + 1)`
-  set e := ε.toReal
-  have hε_top : ε ≠ ⊤ := ne_top_of_le_ne_top ENNReal.one_ne_top hε
-  have he0 : 0 < e := ENNReal.toReal_pos hε0 hε_top
-  have hεe : ε = ENNReal.ofReal e := (ENNReal.ofReal_toReal hε_top).symm
-  have hlog : ENNReal.log ε⁻¹ = (Real.log e⁻¹ : EReal) := by
-    rw [hεe, ← ENNReal.ofReal_inv_of_pos he0, ENNReal.log_ofReal_of_pos (inv_pos.2 he0)]
-  rw [hlog]
-  refine le_bipolarRate_of_tendsto (r := fun n ↦ n * Real.log e⁻¹ - Real.log (n + 1))
-    (fun n ↦ le_trans (le_of_eq ?_) (h (n + 1) n.succ_ne_zero)) ?_
-  · -- move to `ℝ`, where the identity is `Real.log` of a product
-    have hpos : 0 < ((n : ℝ) + 1) * e ^ n := by positivity
-    have hcast : ((n + 1 : ℕ) : ℝ≥0∞) * ε ^ (n + 1 - 1) =
-        ENNReal.ofReal (((n : ℝ) + 1) * e ^ n) := by
-      rw [ENNReal.ofReal_mul (by positivity), ENNReal.ofReal_pow he0.le, ← hεe]
-      norm_cast
-    rw [hcast, ← ENNReal.ofReal_inv_of_pos hpos, ENNReal.log_ofReal_of_pos (inv_pos.2 hpos),
-      EReal.coe_eq_coe_iff]
-    simp only [Real.log_inv]
-    rw [Real.log_mul (by positivity) (by positivity), Real.log_pow]
-    ring
-  · have h1 : Tendsto (fun n : ℕ ↦ (n : ℝ) / (n + 1)) atTop (𝓝 1) :=
-      tendsto_natCast_div_add_atTop 1
-    have h2 : Tendsto (fun n : ℕ ↦ Real.log ((n : ℝ) + 1) / ((n : ℝ) + 1)) atTop (𝓝 0) := by
-      have := (Real.tendsto_pow_log_div_mul_add_atTop 1 0 1 one_ne_zero).comp
-        (tendsto_atTop_add_const_right atTop (1 : ℝ) tendsto_natCast_atTop_atTop)
-      simpa [Function.comp_def] using this
-    convert (h1.const_mul (Real.log e⁻¹)).sub h2 using 2 with n
-    · field_simp
-    · simp
-
 /-! ### The cosets -/
 
 /-- The subgroup `(1 / N) ℤ` of the circle is contained in the image of the rationals. -/
@@ -343,7 +298,7 @@ theorem bipolarRate_coset_mixtures (hε : ε ≤ 1) :
       (uniformOn_eq_zero_iff (finite_coset x₀ N)).2 (Set.inter_compl_self _), mul_zero, zero_add]
     exact mul_le_of_le_one_right' prob_le_one
   exact le_antisymm ((bipolarRate_le_iInf_klDiv volume hS).trans_eq
-    (iInf_klDiv_coset_mixtures hε)) (log_inv_le_bipolarRate hε fun n hn ↦
-      log_le_maxLogGrowth hS hSC hn)
+    (iInf_klDiv_coset_mixtures hε))
+    (log_inv_le_bipolarRate_of_forall_le_maxLogGrowth hε fun n hn ↦ log_le_maxLogGrowth hS hSC hn)
 
 end ProbabilityTheory
