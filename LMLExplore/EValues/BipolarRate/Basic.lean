@@ -229,6 +229,12 @@ theorem bipolarRate_le_iInf_klDiv (Q₁ : Measure 𝓧) [IsProbabilityMeasure Q�
   rw [← EReal.toENNReal_coe (x := klDiv Q₁ P)]
   exact EReal.toENNReal_le_toENNReal (bipolarRate_le_klDiv Q₁ hP)
 
+/-- A finite bipolar rate is the real number `(bipolarRate Q₁ S₁).toReal`, since it is
+nonnegative. -/
+lemma coe_toReal_bipolarRate (hd : bipolarRate Q₁ S₁ ≠ ⊤) :
+    ((bipolarRate Q₁ S₁).toReal : EReal) = bipolarRate Q₁ S₁ :=
+  EReal.coe_toReal hd (ne_bot_of_le_ne_bot EReal.zero_ne_bot (bipolarRate_nonneg Q₁ S₁))
+
 /-- A real lower bound on the growth of `n + 1` observations, divided by `n + 1`, that converges
 to `L` gives the lower bound `L` on the bipolar rate. -/
 lemma le_bipolarRate_of_tendsto {r : ℕ → ℝ} {L : ℝ}

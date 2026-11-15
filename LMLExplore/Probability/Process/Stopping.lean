@@ -7,6 +7,7 @@ module
 
 public import Mathlib.MeasureTheory.MeasurableSpace.Instances
 public import Mathlib.Probability.Process.Stopping
+import Mathlib.MeasureTheory.Function.FactorsThrough
 
 /-!
 # Stopping times valued in `WithTop ℕ` and stopped adapted processes
@@ -30,6 +31,11 @@ processes.
   `MeasureTheory.IsStoppingTime.measurableSet_natCast_lt`, `MeasureTheory.isStoppingTime_natCast`,
   `MeasureTheory.IsStoppingTime.min_natCast`: Mathlib's stopping-time API for `WithTop ℕ`-valued
   times, stated at the cast `(n : WithTop ℕ)` rather than the coercion `WithTop.some n`.
+* `MeasureTheory.IsStoppingTime.measurable_nat`, `MeasureTheory.IsStoppingTime.natCast_min`: a
+  stopping time with values in `ℕ` is measurable, and so is its minimum with a constant a stopping
+  time.
+* `MeasureTheory.IsStoppingTime.eq_of_forall_le`: a stopping time of the coordinate filtration
+  `Filtration.piLE` with values in `ℕ` is determined by the coordinates up to it.
 * `MeasureTheory.Adapted.stoppedProcess_of_discrete`: a stopped adapted process is adapted.
 -/
 
@@ -104,5 +110,41 @@ theorem IsStoppingTime.min_natCast (hτ : IsStoppingTime ℱ τ) (n : ℕ) :
   exact hτ.min_const n
 
 end NatCast
+
+/-! ### Stopping times with values in `ℕ` -/
+
+section Nat
+
+variable {ℱ : Filtration ℕ mΩ} {τ : Ω → ℕ}
+
+/-- A stopping time with values in `ℕ` is measurable. -/
+theorem IsStoppingTime.measurable_nat (hτ : IsStoppingTime ℱ fun ω ↦ (τ ω : WithTop ℕ)) :
+    Measurable τ := by
+  convert (measurable_of_countable (WithTop.untopD 0)).comp hτ.measurable' using 1
+  exact funext fun ω ↦ (WithTop.untopD_coe 0 (τ ω)).symm
+
+/-- The minimum of a stopping time with values in `ℕ` and a constant is a stopping time. -/
+theorem IsStoppingTime.natCast_min (hτ : IsStoppingTime ℱ fun ω ↦ (τ ω : WithTop ℕ)) (n : ℕ) :
+    IsStoppingTime ℱ fun ω ↦ ((min (τ ω) n : ℕ) : WithTop ℕ) := by
+  have h : (fun ω ↦ ((min (τ ω) n : ℕ) : WithTop ℕ)) = fun ω ↦ min (τ ω : WithTop ℕ) n :=
+    funext fun ω ↦ WithTop.coe_min _ _
+  rw [h]
+  exact hτ.min_natCast n
+
+/-- A stopping time with values in `ℕ` of the coordinate filtration `Filtration.piLE` is
+determined by the coordinates up to it: if `ω'` agrees with `ω` up to `τ ω`, then
+`τ ω' = τ ω`. -/
+theorem IsStoppingTime.eq_of_forall_le {X : ℕ → Type*} [∀ i, MeasurableSpace (X i)]
+    {τ : (∀ i, X i) → ℕ} (hτ : IsStoppingTime Filtration.piLE fun ω ↦ (τ ω : WithTop ℕ))
+    {ω ω' : ∀ i, X i} (h : ∀ i ≤ τ ω, ω i = ω' i) : τ ω' = τ ω := by
+  have hm : MeasurableSet[Filtration.piLE (τ ω)] {ω' | τ ω' = τ ω} := by
+    simpa using hτ.measurableSet_eq (τ ω)
+  have hd : DependsOn ({ω' | τ ω' = τ ω}.indicator fun _ ↦ (1 : ℕ)) (Set.Iic (τ ω)) :=
+    (measurable_const.indicator hm).dependsOn_of_piLE
+  have h1 := hd fun i hi ↦ h i hi
+  by_contra hne
+  simp [Set.indicator, hne] at h1
+
+end Nat
 
 end MeasureTheory
