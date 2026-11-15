@@ -49,9 +49,9 @@ topology is assumed, except in the dominated criterion, which names its referenc
 * `ProbabilityTheory.isNumeraire_iff_withDensity_inv_mem_effectiveSet`: **the verification
   theorem** [LRR25, Theorem 4.1]: a `Q`-almost surely finite e-variable `X` is the numeraire
   exactly when `Q.withDensity X⁻¹` is in the effective null.
-* `ProbabilityTheory.IsNumeraire.ripr_eq_withDensity`: for a null of finite measures, the reverse
-  information projection is then `Q.withDensity X⁻¹`, and, for `Q` absolutely continuous with
-  respect to the null, `Q` is absolutely continuous with respect to it
+* `ProbabilityTheory.IsNumeraire.ripr_eq_withDensity`: for a finite `Q` and a null of finite
+  measures, the reverse information projection is then `Q.withDensity X⁻¹`, and, for `Q`
+  absolutely continuous with respect to the null, `Q` is absolutely continuous with respect to it
   (`MeasureTheory.Measure.AbsolutelyContinuousSet.absolutelyContinuous_ripr`).
 * `ProbabilityTheory.isNumeraire_iff_exists_ae_eq_rnDeriv`: for `Q` absolutely continuous with
   respect to a null of finite measures, the numeraire is the only e-variable that is `Q`-almost
@@ -61,7 +61,7 @@ topology is assumed, except in the dominated criterion, which names its referenc
   `ProbabilityTheory.isNumeraire_rnDeriv_iff`, `ProbabilityTheory.ripr_eq_of_isEVar_rnDeriv`:
   for `R` in the effective null with `Q ≪ R`, a function `Q`-almost surely equal to the likelihood
   ratio `Q.rnDeriv R` is the numeraire as soon as it is an e-variable, and `R` is then the reverse
-  information projection when `R ≪ Q`.
+  information projection when `R ≪ Q` and the members of `S` are finite measures.
 * `ProbabilityTheory.isNumeraire_rnDeriv_singleton`: the likelihood ratio `Q.rnDeriv P` is the
   numeraire of the simple null `{P}` when `Q ≪ P` [RW, Theorem 3.20]. Its expected logarithm is
   Statlib's `maxUtility_singleton_eq_klDiv`.
@@ -161,8 +161,8 @@ theorem isNumeraire_iff_isEVar_of_withDensity_inv_le [IsProbabilityMeasure Q]
   ⟨IsNumeraire.isEVar, fun hX ↦ isNumeraire_of_withDensity_inv_mem_effectiveSet hX hX_top
     (mem_effectiveSet_of_le hR h)⟩
 
-/-- The reverse information projection of `Q` onto `S` is `Q.withDensity X⁻¹` for the numeraire
-`X` [LRR25, Theorem 4.1]. -/
+/-- For a finite measure `Q` and a null `S` of finite measures, the reverse information
+projection of `Q` onto `S` is `Q.withDensity X⁻¹` for the numeraire `X` [LRR25, Theorem 4.1]. -/
 theorem IsNumeraire.ripr_eq_withDensity [IsFiniteMeasure Q] (hS : ∀ P ∈ S, IsFiniteMeasure P)
     (hX : IsNumeraire X S Q) : ripr Q S = Q.withDensity X⁻¹ := by
   rw [ripr]
@@ -196,8 +196,9 @@ theorem isNumeraire_rnDeriv_iff [IsProbabilityMeasure Q] (hR : R ∈ effectiveSe
     (hQR : Q ≪ R) : IsNumeraire (Q.rnDeriv R) S Q ↔ IsEVar (Q.rnDeriv R) S :=
   isNumeraire_iff_isEVar_of_ae_eq_rnDeriv hR hQR .rfl
 
-/-- For `R` in the effective null equivalent to `Q`, if the likelihood ratio `Q.rnDeriv R` is an
-e-variable, then `R` is the reverse information projection of `Q` onto `S`. -/
+/-- For a null `S` of finite measures and `R` in the effective null equivalent to `Q`, if the
+likelihood ratio `Q.rnDeriv R` is an e-variable, then `R` is the reverse information projection
+of `Q` onto `S`. -/
 theorem ripr_eq_of_isEVar_rnDeriv [IsProbabilityMeasure Q] (hS : ∀ P ∈ S, IsFiniteMeasure P)
     (hR : R ∈ effectiveSet S) (hQR : Q ≪ R) (hRQ : R ≪ Q) (hX : IsEVar (Q.rnDeriv R) S) :
     ripr Q S = R := by
