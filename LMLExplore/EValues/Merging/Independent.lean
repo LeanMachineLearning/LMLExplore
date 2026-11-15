@@ -8,8 +8,9 @@ module
 public import Mathlib.MeasureTheory.Constructions.Pi
 public import Mathlib.Probability.Independence.Basic
 public import Statlib.EValues.EVariable
+import LMLExplore.MeasureTheory.Constructions.Pi
+import LMLExplore.MeasureTheory.Integral.Lebesgue.Add
 import Mathlib.Algebra.BigOperators.Fin
-import TauCeti.MeasureTheory.Integral.Pi
 
 /-!
 # Merging functions for independent e-values
@@ -32,7 +33,8 @@ fraction `a₁ ∈ [0, 1]` of the capital is bet on `e 0`, then a fraction `g₁
 `e 1` first, with bets `a₂` and `g₂ (e 1)`. Vovk and Wang ask whether every increasing merging
 function for independent e-values is dominated by such a function, and whether every precise one
 is such a function [VW24, Section 7]. Both answers are negative, already for two e-values, and
-the precise merging functions do not dominate every increasing one either:
+the precise merging functions do not dominate every increasing one either
+[EVR26, Notes 08 and 17]:
 
 * the increasing function `𝟙{1 ≤ e 0} + 𝟙{e 0 < 1, 2 ≤ e 1} + 𝟙{2 ≤ e 0, 1 ≤ e 1}` is a merging
   function for independent e-values that no generalized martingale merging function dominates;
@@ -65,6 +67,13 @@ the precise merging functions do not dominate every increasing one either:
 
 ## Implementation notes
 
+The three functions and the proofs that no generalized martingale or precise merging function
+dominates them are adapted from `EValuesResearch/Results/IEMerging.lean` (commit `9d33415`) in the
+paper project `RemyDegenne/evalues_research` (same author). There, the mixtures are parametrized
+by an initial capital `c` and a weight `β` instead of the weights `w₁ = c * β` and
+`w₂ = c * (1 - β)`, the bets `g₁`, `g₂` are assumed measurable, and domination is required at
+every argument rather than at finite arguments.
+
 The generalized martingale merging functions of two e-values are written out in the statements,
 in the normal form above. The bets `g₁`, `g₂` are not assumed measurable, and the mixtures are
 not assumed to be merging functions, which only strengthens the statements.
@@ -83,6 +92,9 @@ against which the third function integrates to `47 / 43`.
 * [VW24] V. Vovk and R. Wang, *Merging sequential e-values via martingales*, Electron. J.
   Statist. 18 (2024), arXiv:2007.06382v3: Section 2 (merging functions for independent e-values),
   Section 6 (generalized martingale merging functions), Section 7 (the questions answered here).
+* [EVR26] *Answers to open questions in e-values and anytime-valid inference*, notes and the Lean
+  library `EValuesResearch` of github.com/RemyDegenne/evalues_research, 2026: Note 08 (the first
+  two functions) and Note 17 (the third function).
 -/
 
 public section
@@ -173,54 +185,9 @@ theorem isIEMerging_iff_forall_isEVar {ι : Type u} [Fintype ι] {F : (ι → �
 
 end Definition
 
-/-! ### Integrals against products of two laws on `ℝ≥0∞` -/
+/-! ### Step functions of two e-values -/
 
 section FinTwo
-
-/-- The integral against a product of two σ-finite measures on `ℝ≥0∞`, indexed by `Fin 2`, is an
-iterated integral. -/
-private lemma lintegral_pi_fin_two (μ : Fin 2 → Measure ℝ≥0∞) [∀ i, SigmaFinite (μ i)]
-    {F : (Fin 2 → ℝ≥0∞) → ℝ≥0∞} (hF : AEMeasurable F (Measure.pi μ)) :
-    ∫⁻ e, F e ∂Measure.pi μ = ∫⁻ x, ∫⁻ y, F ![x, y] ∂μ 1 ∂μ 0 := by
-  have h := (measurePreserving_piFinTwo μ).symm
-  rw [← h.lintegral_comp_emb (MeasurableEquiv.measurableEmbedding _), lintegral_prod]
-  · rfl
-  · exact (h.aemeasurable_comp_iff (MeasurableEquiv.measurableEmbedding _)).2 hF
-
-/-- The integral of `u (e 0) * v (e 1)` against a product of two σ-finite measures is the
-product of the integrals. -/
-private lemma lintegral_pi_fin_two_mul (μ : Fin 2 → Measure ℝ≥0∞) [∀ i, SigmaFinite (μ i)]
-    {u v : ℝ≥0∞ → ℝ≥0∞} (hu : AEMeasurable u (μ 0)) (hv : AEMeasurable v (μ 1)) :
-    ∫⁻ e, u (e 0) * v (e 1) ∂Measure.pi μ = (∫⁻ x, u x ∂μ 0) * ∫⁻ y, v y ∂μ 1 := by
-  simpa [Fin.prod_univ_two] using
-    TauCeti.lintegral_fintype_prod_eq_prod₀ μ (f := ![u, v]) (Fin.forall_fin_two.2 ⟨hu, hv⟩)
-
-/-- The integral of a function of a map `φ` with values in a finite type is the sum, over the
-values `i`, of the value at `i` times the mass of the fibre of `i`. -/
-private lemma lintegral_comp_eq_sum {α ι : Type*} [MeasurableSpace α] [Fintype ι]
-    [MeasurableSpace ι] [MeasurableSingletonClass ι] {μ : Measure α} {φ : α → ι}
-    (hφ : AEMeasurable φ μ) (g : ι → ℝ≥0∞) :
-    ∫⁻ x, g (φ x) ∂μ = ∑ i, g i * μ (φ ⁻¹' {i}) := by
-  rw [← lintegral_map' (measurable_of_finite g).aemeasurable hφ, lintegral_fintype]
-  simp_rw [Measure.map_apply_of_aemeasurable hφ (measurableSet_singleton _)]
-
-/-- The integral of a step function `f (φ (e 0)) (φ (e 1))` against a product of two σ-finite
-measures, where `φ` takes values in a finite type, in terms of the masses of the steps. -/
-private lemma lintegral_pi_fin_two_comp_eq_sum {ι : Type*} [Fintype ι] [MeasurableSpace ι]
-    [MeasurableSingletonClass ι] (μ : Fin 2 → Measure ℝ≥0∞) [∀ i, SigmaFinite (μ i)]
-    {φ : ℝ≥0∞ → ι} (hφ : Measurable φ) (f : ι → ι → ℝ≥0∞) :
-    ∫⁻ e, f (φ (e 0)) (φ (e 1)) ∂Measure.pi μ =
-      ∑ i, ∑ j, f i j * μ 0 (φ ⁻¹' {i}) * μ 1 (φ ⁻¹' {j}) := by
-  have hF : Measurable fun e : Fin 2 → ℝ≥0∞ ↦ f (φ (e 0)) (φ (e 1)) :=
-    (measurable_of_finite (Function.uncurry f)).comp
-      ((hφ.comp (measurable_pi_apply 0)).prodMk (hφ.comp (measurable_pi_apply 1)))
-  rw [lintegral_pi_fin_two μ hF.aemeasurable]
-  simp only [Matrix.cons_val_zero, Matrix.cons_val_one]
-  simp_rw [lintegral_comp_eq_sum hφ.aemeasurable (f _)]
-  rw [lintegral_comp_eq_sum hφ.aemeasurable (fun i ↦ ∑ j, f i j * μ 1 (φ ⁻¹' {j}))]
-  simp_rw [Finset.sum_mul]
-  refine Finset.sum_congr rfl fun i _ ↦ Finset.sum_congr rfl fun j _ ↦ ?_
-  ring
 
 /-- A step function `f (φ (e 0)) (φ (e 1))` of two e-values, constant on the fibres of a map `φ`
 to `Fin n`, is a merging function for independent e-values as soon as a real inequality holds on
@@ -233,9 +200,7 @@ private lemma isIEMerging_of_step {n : ℕ} {φ : ℝ≥0∞ → Fin n} (hφ : M
       (∀ j, 0 ≤ Q j) → ∑ j, Q j = 1 → ∑ j, (γ j).toReal * Q j ≤ 1 →
       ∑ i, ∑ j, (f i j).toReal * P i * Q j ≤ 1) :
     IsIEMerging fun e : Fin 2 → ℝ≥0∞ ↦ f (φ (e 0)) (φ (e 1)) := by
-  refine ⟨(measurable_of_finite (Function.uncurry f)).comp
-      ((hφ.comp (measurable_pi_apply 0)).prodMk (hφ.comp (measurable_pi_apply 1))),
-    fun μ _ hmean ↦ ?_⟩
+  refine ⟨measurable_pi_fin_two_comp hφ f, fun μ _ hmean ↦ ?_⟩
   have hmass : ∀ k, (∀ i, 0 ≤ (μ k (φ ⁻¹' {i})).toReal) ∧ ∑ i, (μ k (φ ⁻¹' {i})).toReal = 1 ∧
       ∑ i, (γ i).toReal * (μ k (φ ⁻¹' {i})).toReal ≤ 1 := by
     intro k
@@ -244,7 +209,7 @@ private lemma isIEMerging_of_step {n : ℕ} {φ : ℝ≥0∞ → Fin n} (hφ : M
         sum_measure_preimage_singleton _ fun i _ ↦ hφ (measurableSet_singleton i)]
       simp
     · have hle : ∑ i, γ i * μ k (φ ⁻¹' {i}) ≤ 1 := by
-        rw [← lintegral_comp_eq_sum hφ.aemeasurable]
+        rw [← lintegral_comp_eq_sum_measure_preimage_singleton hφ.aemeasurable]
         exact (lintegral_mono hγ).trans (hmean k)
       have hterm : ∀ i, γ i * μ k (φ ⁻¹' {i}) ≠ ∞ := fun i ↦ ne_top_of_le_ne_top
         ENNReal.one_ne_top ((Finset.single_le_sum (fun j _ ↦ zero_le) (Finset.mem_univ i)).trans
@@ -373,19 +338,16 @@ private lemma isIEMerging_threeCellMerging : IsIEMerging threeCellMerging := by
     unfold threeCell
     split_ifs with h1 h2 <;> simp_all [not_lt]
   · intro P Q hP hPs hPm hQ hQs hQm
-    simp only [Fin.sum_univ_three, Fin.isValue, Matrix.cons_val_zero, ENNReal.toReal_zero,
-      zero_mul, Matrix.cons_val_one, ENNReal.toReal_one, one_mul, zero_add, Matrix.cons_val,
-      ENNReal.toReal_ofNat, threeCellTable, ENNReal.toReal_natCast, CharP.cast_eq_zero, add_zero,
-      Nat.cast_one, Nat.cast_ofNat] at hPs hPm hQs hQm ⊢
-    have h1 : (P 0 + P 1 + P 2) * (Q 0 + Q 1 + Q 2) = 1 := by rw [hPs, hQs, one_mul]
+    simp [threeCellTable, Fin.sum_univ_three] at hPs hPm hQs hQm ⊢
     nlinarith [mul_nonneg (by linarith : 0 ≤ P 0 - P 2) (add_nonneg (hQ 1) (hQ 2)),
-      mul_nonneg (hP 0) (by linarith : 0 ≤ Q 0 - Q 2)]
+      mul_nonneg (hP 0) (by linarith : 0 ≤ Q 0 - Q 2), congrArg₂ (· * ·) hPs hQs]
 
 /-- There is an increasing merging function for two independent e-values that no generalized
 martingale merging function dominates: no mixture `w₁ * M₁ + w₂ * M₂`, `w₁ + w₂ ≤ 1`, of
 martingale merging functions `M₁`, `M₂` reading the two e-values in either order, with bets in
 `[0, 1]`, is above it at every pair of finite arguments. This answers a question of
-[VW24, Section 7]. The function is `𝟙{1 ≤ e 0} + 𝟙{e 0 < 1, 2 ≤ e 1} + 𝟙{2 ≤ e 0, 1 ≤ e 1}`. -/
+[VW24, Section 7], following [EVR26, Note 08]. The function is
+`𝟙{1 ≤ e 0} + 𝟙{e 0 < 1, 2 ≤ e 1} + 𝟙{2 ≤ e 0, 1 ≤ e 1}`. -/
 theorem exists_isIEMerging_monotone_not_le_mixture_martingale :
     ∃ F : (Fin 2 → ℝ≥0∞) → ℝ≥0∞, IsIEMerging F ∧ Monotone F ∧
       ∀ (w₁ w₂ a₁ a₂ : ℝ≥0∞) (g₁ g₂ : ℝ≥0∞ → ℝ≥0∞), w₁ + w₂ ≤ 1 → a₁ ≤ 1 → a₂ ≤ 1 →
@@ -396,7 +358,8 @@ theorem exists_isIEMerging_monotone_not_le_mixture_martingale :
   refine ⟨threeCellMerging, isIEMerging_threeCellMerging, monotone_threeCellMerging,
     fun w₁ w₂ a₁ a₂ g₁ g₂ hw ha₁ ha₂ hg₁ hg₂ hle ↦ ?_⟩
   obtain ⟨w₁, w₂, a₁, a₂, g₁, g₂, hw₁, hw₂, hw, ha₁0, ha₁1, ha₂0, ha₂1, hg₁, hg₂, key⟩ :=
-    exists_toReal_le_of_le_mixMartingale (F := threeCellMerging) hw ha₁ ha₂ hg₁ hg₂ hle
+    exists_toReal_le_of_le_mixMartingale (F := threeCellMerging) hw ha₁ ha₂ hg₁ hg₂
+      (by simpa only [mixMartingale] using hle)
   have h0 : threeCell 0 = 0 := by norm_num [threeCell]
   have h1 : threeCell 1 = 1 := by norm_num [threeCell]
   have h2 : threeCell 2 = 2 := by norm_num [threeCell]
@@ -405,10 +368,10 @@ theorem exists_isIEMerging_monotone_not_le_mixture_martingale :
   have h10 := (key 1 0 (by simp) (by simp)).2
   have h02 := (key 0 2 (by simp) (by simp)).2
   have h22 := (key 2 2 (by simp) (by simp)).2
-  rw [threeCellMerging_apply h2 h1, show threeCellTable 2 1 = 2 from rfl] at h21
-  rw [threeCellMerging_apply h1 h0, show threeCellTable 1 0 = 1 from rfl] at h10
-  rw [threeCellMerging_apply h0 h2, show threeCellTable 0 2 = 1 from rfl] at h02
-  rw [threeCellMerging_apply h2 h2, show threeCellTable 2 2 = 2 from rfl] at h22
+  rw [threeCellMerging_apply h2 h1, (by simp [threeCellTable] : threeCellTable 2 1 = 2)] at h21
+  rw [threeCellMerging_apply h1 h0, (by simp [threeCellTable] : threeCellTable 1 0 = 1)] at h10
+  rw [threeCellMerging_apply h0 h2, (by simp [threeCellTable] : threeCellTable 0 2 = 1)] at h02
+  rw [threeCellMerging_apply h2 h2, (by simp [threeCellTable] : threeCellTable 2 2 = 2)] at h22
   simp only [ENNReal.toReal_ofNat, ENNReal.toReal_one, ENNReal.toReal_zero, Nat.cast_ofNat,
     Nat.cast_one] at h21 h10 h02 h22
   have h1a₁ : 0 ≤ 1 - a₁ := by linarith
@@ -451,10 +414,7 @@ private lemma kinkMerging_add (e : Fin 2 → ℝ≥0∞) :
         (Set.Iio 2)ᶜ.indicator 1 (e 0) * (Set.Iio 1).indicator 1 (e 1) := by
   rcases lt_or_ge (e 0) 2 with h0 | h0 <;> rcases lt_or_ge (e 1) 1 with h1 | h1
   · simp [kinkMerging, h0, h1]
-  · simp only [kinkMerging, Fin.isValue, h0, ↓reduceIte, h1.not_gt, Set.mem_Iio,
-      Set.indicator_of_mem, Pi.one_apply, Set.compl_Iio, Set.mem_Ici, h1, mul_one, one_mul, not_le,
-      Set.indicator_of_notMem, not_false_eq_true, mul_zero, add_zero]
-    rw [tsub_add_cancel_of_le (h1.trans le_add_self), add_comm]
+  · simp [kinkMerging, h0, h1, h1.not_gt, tsub_add_cancel_of_le (h1.trans le_add_self), add_comm]
   · simp [kinkMerging, Set.indicator_apply, h0.not_gt, h1]
   · simp [kinkMerging, Set.indicator_apply, h0.not_gt, h1.not_gt]
 
@@ -527,7 +487,8 @@ martingale merging function dominates: no mixture `w₁ * M₁ + w₂ * M₂`, `
 martingale merging functions `M₁`, `M₂` reading the two e-values in either order, with bets in
 `[0, 1]`, is above it at every pair of finite arguments. In particular, not every precise merging
 function is a generalized martingale merging function, which answers a question of
-[VW24, Section 7]. The function is `1 + 𝟙{e 0 < 2} * (e 1 - 1) + 𝟙{1 ≤ e 1} * (e 0 - 1)`. -/
+[VW24, Section 7], following [EVR26, Note 08]. The function is
+`1 + 𝟙{e 0 < 2} * (e 1 - 1) + 𝟙{1 ≤ e 1} * (e 0 - 1)`. -/
 theorem exists_isPreciseIEMerging_not_le_mixture_martingale :
     ∃ F : (Fin 2 → ℝ≥0∞) → ℝ≥0∞, IsPreciseIEMerging F ∧
       ∀ (w₁ w₂ a₁ a₂ : ℝ≥0∞) (g₁ g₂ : ℝ≥0∞ → ℝ≥0∞), w₁ + w₂ ≤ 1 → a₁ ≤ 1 → a₂ ≤ 1 →
@@ -538,7 +499,8 @@ theorem exists_isPreciseIEMerging_not_le_mixture_martingale :
   refine ⟨kinkMerging, isPreciseIEMerging_kinkMerging,
     fun w₁ w₂ a₁ a₂ g₁ g₂ hw ha₁ ha₂ hg₁ hg₂ hle ↦ ?_⟩
   obtain ⟨w₁, w₂, a₁, a₂, g₁, g₂, hw₁, hw₂, hw, ha₁0, ha₁1, ha₂0, ha₂1, hg₁, hg₂, key⟩ :=
-    exists_toReal_le_of_le_mixMartingale (F := kinkMerging) hw ha₁ ha₂ hg₁ hg₂ hle
+    exists_toReal_le_of_le_mixMartingale (F := kinkMerging) hw ha₁ ha₂ hg₁ hg₂
+      (by simpa only [mixMartingale] using hle)
   obtain ⟨v11, v21, v12, v0h, v20, v02, v22⟩ := kinkMerging_values
   have k11 := (key 1 1 (by simp) (by simp)).2
   have k21 := (key 2 1 (by simp) (by simp)).2
@@ -682,11 +644,7 @@ private lemma isIEMerging_fourCellMerging : IsIEMerging fourCellMerging := by
     unfold fourCell
     split_ifs with h1 h2 h3 <;> simp_all [not_lt]
   · intro P Q hP hPs hPm hQ hQs hQm
-    simp only [Fin.sum_univ_four, Fin.isValue, Matrix.cons_val_zero, ENNReal.toReal_zero, zero_mul,
-      Matrix.cons_val_one, ENNReal.toReal_inv, ENNReal.toReal_ofNat, zero_add, Matrix.cons_val,
-      fourCellTable, ENNReal.toReal_div, ENNReal.toReal_natCast, CharP.cast_eq_zero, zero_div,
-      add_zero, Nat.cast_ofNat, ne_eq, OfNat.ofNat_ne_zero, not_false_eq_true, div_self, one_mul]
-      at hPs hPm hQs hQm ⊢
+    simp [fourCellTable, Fin.sum_univ_four] at hPs hPm hQs hQm ⊢
     linarith [fourCellTable_bilinear_le (hP 0) (hP 1) (hP 2) (hP 3) hPs (by linarith) (hQ 0)
       (hQ 1) (hQ 2) (hQ 3) hQs (by linarith)]
 
@@ -777,8 +735,8 @@ private lemma div_five_le_toReal_of_fourCellMerging_le {G : (Fin 2 → ℝ≥0�
   simpa [fourCellMerging, hxi, hyj, ENNReal.toReal_div] using this
 
 /-- There is an increasing merging function for two independent e-values that no precise merging
-function for independent e-values dominates on finite arguments. The function is constant on the
-cells `[0, 1/2), [1/2, 2), [2, 3), [3, ∞]` of each e-value, with values
+function for independent e-values dominates on finite arguments [EVR26, Note 17]. The function is
+constant on the cells `[0, 1/2), [1/2, 2), [2, 3), [3, ∞]` of each e-value, with values
 `0, 0, 3/5, 3/5`; `0, 3/5, 3/5, 7/5`; `0, 1, 17/5, 17/5`; `1, 1, 17/5, 29/5` (rows for the first
 e-value). -/
 theorem exists_isIEMerging_monotone_not_le_isPreciseIEMerging :
