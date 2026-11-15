@@ -7,6 +7,7 @@ module
 
 public import TauCeti.Analysis.Convex.Conjugate
 import Statlib.ForMathlib.EReal
+import LMLExplore.Data.EReal.Operations
 
 /-!
 # Conjugates of scaled, translated and tilted functions
@@ -56,17 +57,12 @@ theorem fenchelConjugate_add_linear (f : E → EReal) (y₀ y : F) :
   simp only [sub_eq_add_neg]
   ac_rfl
 
-/-- Adding a real constant commutes with a supremum in `EReal`. -/
-private lemma iSup_add_coe {ι : Sort*} (g : ι → EReal) (c : ℝ) :
-    ⨆ i, (g i + (c : EReal)) = (⨆ i, g i) + (c : EReal) := by
-  simpa [sub_eq_add_neg] using EReal.iSup_sub_coe g (-c)
-
 /-- **Translating the argument** [Ora, Lemma 6.22]: the conjugate of `f (· - x₀)` is
 `y ↦ f⋆ y + B x₀ y`. -/
 @[simp]
 theorem fenchelConjugate_comp_sub (f : E → EReal) (x₀ : E) (y : F) :
     fenchelConjugate B (fun x ↦ f (x - x₀)) y = fenchelConjugate B f y + (B x₀ y : EReal) := by
-  simp only [fenchelConjugate_apply, ← iSup_add_coe]
+  simp only [fenchelConjugate_apply, ← EReal.iSup_add_coe]
   rw [← (Equiv.addRight x₀).iSup_comp]
   refine iSup_congr fun z ↦ ?_
   simp only [Equiv.coe_addRight, add_sub_cancel_right, map_add, LinearMap.add_apply,
