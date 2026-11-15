@@ -42,6 +42,8 @@ here on a general measurable state space.
   and integrable for every finite measure.
 * `Learning.MDP.value_greedy_optValue`: the greedy policy for `v*` has value `v*`
   [P, Theorem 6.2.7 (b)].
+* `Learning.MDP.optQValue_greedy_optValue`: the action of the greedy policy for `v*` attains
+  `Q*`.
 * `Learning.MDP.optValueBM`, `Learning.MDP.isFixedPt_bellmanOp_optValueBM`: `v*` is the fixed point
   of the optimality operator on the bounded measurable functions.
 * `Learning.MDP.abs_sub_optValue_le_of_bellman_le_succ`: a sequence of bounded measurable
@@ -180,6 +182,12 @@ theorem value_greedy_optValue (hγ : γ < 1) (hR : ∀ p, ∀ᵐ x ∂(M.R p), |
   refine (eq_value_of_bellmanEval_eq hγ hR (measurable_optValue hγ hR) (abs_optValue_le hγ hR)
     ?_).symm
   rw [bellmanEval_greedy (measurable_optValue hγ hR), bellman_optValue hγ hR]
+
+/-- With finitely many actions, bounded rewards and `γ < 1`, the action of the greedy policy for
+`v*` at every state `s` has optimal action value `v* s`. -/
+theorem optQValue_greedy_optValue (hγ : γ < 1) (hR : ∀ p, ∀ᵐ x ∂(M.R p), |x| ≤ C) (s : 𝓢) :
+    M.optQValue γ (s, M.greedy γ (M.optValue γ) s) = M.optValue γ s := by
+  rw [optQValue_eq_lookahead, lookahead_greedy, bellman_optValue hγ hR]
 
 /-- With finitely many actions, bounded rewards and `γ < 1`, the discounted value of the runs of
 the deterministic stationary policy greedy for `v*` from the probability measure `μ` is
@@ -353,9 +361,7 @@ theorem greedy_optValue_eq_of_forall_optQValue_lt (hγ : γ < 1)
   ext s
   by_contra h
   -- the greedy action attains `v* s ≥ Q* (s, d s)`
-  have hg : M.optQValue γ (s, M.greedy γ (M.optValue γ) s) = M.optValue γ s := by
-    rw [optQValue_eq_lookahead, lookahead_greedy, bellman_optValue hγ hR]
-  linarith [hd s _ h, optQValue_le_optValue hγ hR s (d s)]
+  linarith [hd s _ h, optQValue_le_optValue hγ hR s (d s), optQValue_greedy_optValue hγ hR s]
 
 end Greedy
 

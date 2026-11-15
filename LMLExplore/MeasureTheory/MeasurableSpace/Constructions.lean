@@ -21,6 +21,9 @@ public import Mathlib.MeasureTheory.Group.Arithmetic
   length `n + 1` is measurable.
 * `DependsOn.measurable_of_countable`: a function of a family of countable variables with
   measurable singletons that only depends on finitely many of them is measurable.
+* `measurable_from_prod_of_dependsOn`: a function on a product whose first factor is a family of
+  countable variables with measurable singletons is measurable if it only depends on finitely
+  many of these variables and is measurable in the second factor.
 -/
 
 public section
@@ -68,5 +71,33 @@ lemma _root_.DependsOn.measurable_of_countable {ι : Type*} {X : ι → Type*}
   have : Finite s := hs.to_subtype
   obtain ⟨g, rfl⟩ := dependsOn_iff_exists_comp.1 hf
   exact (_root_.measurable_of_countable g).comp (Measurable.of_eval fun i ↦ measurable_pi_apply _)
+
+/-- A function `f` on a product `(Π i, X i) × β`, where the `X i` are countable with measurable
+singletons, is measurable if it only depends on finitely many coordinates of its first argument
+and is measurable in its second argument. It factors through the restriction of the first argument
+to these coordinates, whose domain is countable. This extends `measurable_from_prod_countable_right`
+to such families: for example, a function of the first `N` rows of an array of samples with
+finitely many keys and countably many values, and of an independent real parameter. -/
+lemma _root_.measurable_from_prod_of_dependsOn {ι : Type*} {X : ι → Type*}
+    [∀ i, MeasurableSpace (X i)] [∀ i, Countable (X i)] [∀ i, MeasurableSingletonClass (X i)]
+    {β γ : Type*} [MeasurableSpace β] [MeasurableSpace γ] {f : (Π i, X i) × β → γ} {s : Set ι}
+    (hs : s.Finite) (hf : ∀ y, DependsOn (fun x ↦ f (x, y)) s)
+    (hf' : ∀ x, Measurable fun y ↦ f (x, y)) : Measurable f := by
+  classical
+  rcases isEmpty_or_nonempty (Π i, X i) with h | ⟨⟨x₀⟩⟩
+  · have : IsEmpty ((Π i, X i) × β) := Prod.isEmpty_left
+    exact Subsingleton.measurable
+  have : Finite s := hs.to_subtype
+  -- `f` factors through the restriction of the first argument to `s`, whose domain is countable
+  set e : (Π i : s, X i) → Π i, X i := fun u i ↦ if h : i ∈ s then u ⟨i, h⟩ else x₀ i
+  have h : f = (fun z : (Π i : s, X i) × β ↦ f (e z.1, z.2)) ∘
+      fun z ↦ (fun i : s ↦ z.1 i, z.2) := by
+    ext z
+    exact (hf z.2 fun i hi ↦ by simp [e, hi]).symm
+  rw [h]
+  exact (measurable_from_prod_countable_right (f := fun z : (Π i : s, X i) × β ↦ f (e z.1, z.2))
+    fun u ↦ hf' (e u)).comp
+    ((measurable_pi_iff.2 fun i ↦ (measurable_pi_apply _).comp measurable_fst).prodMk
+      measurable_snd)
 
 end MeasureTheory
