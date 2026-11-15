@@ -182,11 +182,12 @@ theorem exists_add_sum_smul_dirac_mem_constraintNull (hg : ∀ i, Measurable (g 
     (integrable_dirac' hf.stronglyMeasurable (by simp)).smul_measure ENNReal.ofReal_ne_top
   refine mem_constraintNull_range_iff.2 ⟨⟨?_⟩, fun i ↦ ?_⟩
   · simp only [add_apply, sum_apply, smul_apply, measure_univ, smul_eq_mul, mul_one]
-    rw [← ENNReal.ofReal_sum_of_nonneg fun k _ ↦ mul_nonneg hm0.le (hw0 k), ← Finset.mul_sum,
-      hw1, mul_one, ← ENNReal.ofReal_toReal (measure_ne_top μ univ),
-      ← ENNReal.ofReal_add ENNReal.toReal_nonneg hm0.le]
-    rw [← measureReal_def, ← hr_def, hm_def]
-    simp
+    -- the added mass is `m = 1 - r`, the mass that `μ` lacks
+    have hmass : ∑ k, ENNReal.ofReal (m * w k) = ENNReal.ofReal m := by
+      rw [← ENNReal.ofReal_sum_of_nonneg fun k _ ↦ mul_nonneg hm0.le (hw0 k), ← Finset.mul_sum,
+        hw1, mul_one]
+    rw [hmass, ← ofReal_measureReal, ← hr_def, ← ENNReal.ofReal_add measureReal_nonneg hm0.le,
+      hm_def, add_sub_cancel, ENNReal.ofReal_one]
   · refine ⟨(hgμ i).add_measure (integrable_finsetSum_measure.2 (hdirac _ (hg i))), ?_⟩
     rw [integral_add_measure (hgμ i) (integrable_finsetSum_measure.2 (hdirac _ (hg i))),
       integral_finsetSum_measure (hdirac _ (hg i))]
@@ -204,17 +205,34 @@ theorem exists_add_sum_smul_dirac_mem_constraintNull (hg : ∀ i, Measurable (g 
 
 /-! ### The damped reverse information projection -/
 
+/-- The density with respect to `Q` of the reverse information projection `Q / E` damped by
+`1 + δ ∑ i, |g i|` and scaled by `1 - ε`: `x ↦ (1 - ε) / (E x * (1 + δ ∑ i, |g i x|))`. -/
+private noncomputable def dampedDensity (E : 𝓧 → ℝ≥0∞) (g : ι → 𝓧 → ℝ) (δ ε : ℝ) (x : 𝓧) :
+    ℝ≥0∞ :=
+  (E x)⁻¹ * ENNReal.ofReal ((1 - ε) / (1 + δ * ∑ j, |g j x|))
+
+private lemma measurable_dampedDensity {E : 𝓧 → ℝ≥0∞} (hE : Measurable E)
+    (hg : ∀ i, Measurable (g i)) (δ ε : ℝ) : Measurable (dampedDensity E g δ ε) := by
+  unfold dampedDensity
+  fun_prop
+
+omit [MeasurableSpace 𝓧] in
+private lemma dampedDensity_ne_zero {E : 𝓧 → ℝ≥0∞} {δ ε : ℝ} (hδ : 0 ≤ δ) (hε1 : ε < 1) {x : 𝓧}
+    (hx : E x ≠ ∞) : dampedDensity E g δ ε x ≠ 0 := by
+  simp only [dampedDensity, ne_eq, mul_eq_zero, ENNReal.inv_eq_zero, hx, ENNReal.ofReal_eq_zero,
+    not_le, false_or]
+  exact div_pos (by linarith) (by positivity)
+
 /-- The reverse information projection `Q / E` damped by `1 + δ ∑ i, |g i|` and scaled by `1 - ε`
 integrates the constraints, as soon as `∫ 1 / E ∂Q` is finite. -/
 private lemma integrable_withDensity_inv_mul_ofReal_div {E : 𝓧 → ℝ≥0∞} (hE : Measurable E)
     (hg : ∀ i, Measurable (g i)) (hEinv : ∫⁻ x, (E x)⁻¹ ∂Q ≠ ∞) {δ ε : ℝ} (hδ : 0 < δ)
     (hε : 0 ≤ ε) (hε1 : ε ≤ 1) (i : ι) :
-    Integrable (g i)
-      (Q.withDensity fun x ↦ (E x)⁻¹ * ENNReal.ofReal ((1 - ε) / (1 + δ * ∑ j, |g j x|))) := by
+    Integrable (g i) (Q.withDensity (dampedDensity E g δ ε)) := by
   refine ⟨(hg i).aestronglyMeasurable, ?_⟩
-  rw [HasFiniteIntegral, lintegral_withDensity_eq_lintegral_mul _ (by fun_prop) (by fun_prop)]
-  calc ∫⁻ x, ((fun x ↦ (E x)⁻¹ * ENNReal.ofReal ((1 - ε) / (1 + δ * ∑ j, |g j x|))) *
-          fun x ↦ ‖g i x‖ₑ) x ∂Q
+  rw [HasFiniteIntegral, lintegral_withDensity_eq_lintegral_mul _
+    (measurable_dampedDensity hE hg δ ε) (by fun_prop)]
+  calc ∫⁻ x, (dampedDensity E g δ ε * fun x ↦ ‖g i x‖ₑ) x ∂Q
       ≤ ∫⁻ x, ENNReal.ofReal (1 / δ) * (E x)⁻¹ ∂Q := by
         refine lintegral_mono fun x ↦ ?_
         have hh0 : 0 < 1 + δ * ∑ j, |g j x| := by positivity
@@ -227,10 +245,9 @@ private lemma integrable_withDensity_inv_mul_ofReal_div {E : 𝓧 → ℝ≥0∞
             nlinarith [mul_nonneg (mul_nonneg hε hδ.le) (abs_nonneg (g i x))]
           have h3 : δ * |g i x| ≤ δ * ∑ j, |g j x| := mul_le_mul_of_nonneg_left hgi hδ.le
           linarith
-        calc ((fun x ↦ (E x)⁻¹ * ENNReal.ofReal ((1 - ε) / (1 + δ * ∑ j, |g j x|))) *
-                fun x ↦ ‖g i x‖ₑ) x
+        calc (dampedDensity E g δ ε * fun x ↦ ‖g i x‖ₑ) x
             = (E x)⁻¹ * (ENNReal.ofReal ((1 - ε) / (1 + δ * ∑ j, |g j x|)) * ‖g i x‖ₑ) := by
-              simp only [Pi.mul_apply, mul_assoc]
+              simp only [Pi.mul_apply, dampedDensity, mul_assoc]
           _ = (E x)⁻¹ * ENNReal.ofReal ((1 - ε) / (1 + δ * ∑ j, |g j x|) * |g i x|) := by
               rw [Real.eNorm_eq_ofReal_abs, ← ENNReal.ofReal_mul
                 (div_nonneg (by linarith) hh0.le)]
@@ -244,15 +261,16 @@ private lemma integrable_withDensity_inv_mul_ofReal_div {E : 𝓧 → ℝ≥0∞
 `1 - ε` times its mean divided by `E` under `Q`. -/
 private lemma lintegral_withDensity_inv_mul_ofReal_div_le {E F : 𝓧 → ℝ≥0∞} (hE : Measurable E)
     (hF : Measurable F) (hg : ∀ i, Measurable (g i)) {δ ε : ℝ} (hδ : 0 ≤ δ) (hε1 : ε ≤ 1) :
-    ∫⁻ x, F x ∂(Q.withDensity fun x ↦ (E x)⁻¹ * ENNReal.ofReal ((1 - ε) / (1 + δ * ∑ j, |g j x|)))
+    ∫⁻ x, F x ∂(Q.withDensity (dampedDensity E g δ ε))
       ≤ ENNReal.ofReal (1 - ε) * ∫⁻ x, F x / E x ∂Q := by
-  rw [lintegral_withDensity_eq_lintegral_mul _ (by fun_prop) hF,
+  rw [lintegral_withDensity_eq_lintegral_mul _ (measurable_dampedDensity hE hg δ ε) hF,
     ← lintegral_const_mul' _ _ ENNReal.ofReal_ne_top]
   refine lintegral_mono fun x ↦ ?_
   have : ENNReal.ofReal ((1 - ε) / (1 + δ * ∑ j, |g j x|)) ≤ ENNReal.ofReal (1 - ε) :=
     ENNReal.ofReal_le_ofReal (div_le_self (by linarith) (le_add_of_nonneg_right (by positivity)))
-  calc ((fun x ↦ (E x)⁻¹ * ENNReal.ofReal ((1 - ε) / (1 + δ * ∑ j, |g j x|))) * F) x
-      = (E x)⁻¹ * ENNReal.ofReal ((1 - ε) / (1 + δ * ∑ j, |g j x|)) * F x := rfl
+  calc (dampedDensity E g δ ε * F) x
+      = (E x)⁻¹ * ENNReal.ofReal ((1 - ε) / (1 + δ * ∑ j, |g j x|)) * F x := by
+        simp only [Pi.mul_apply, dampedDensity]
     _ ≤ (E x)⁻¹ * ENNReal.ofReal (1 - ε) * F x := by gcongr
     _ = ENNReal.ofReal (1 - ε) * (F x / E x) := by rw [div_eq_mul_inv]; ring
 
@@ -261,18 +279,19 @@ projection is `log E + log (1 + δ ∑ i, |g i|) - log (1 - ε)`, `Q`-almost eve
 private lemma log_inv_rnDeriv_withDensity_inv_mul_ofReal_div [SigmaFinite Q] {E : 𝓧 → ℝ≥0∞}
     (hE : Measurable E) (hg : ∀ i, Measurable (g i)) {δ ε : ℝ}
     (hδ : 0 ≤ δ) (hε1 : ε < 1) :
-    ∀ᵐ x ∂Q, ENNReal.log (((Q.withDensity fun x ↦
-        (E x)⁻¹ * ENNReal.ofReal ((1 - ε) / (1 + δ * ∑ j, |g j x|))).rnDeriv Q)⁻¹ x) =
+    ∀ᵐ x ∂Q, ENNReal.log (((Q.withDensity (dampedDensity E g δ ε)).rnDeriv Q)⁻¹ x) =
       ENNReal.log (E x) +
         ((Real.log (1 + δ * ∑ j, |g j x|) - Real.log (1 - ε) : ℝ) : EReal) := by
-  filter_upwards [Measure.rnDeriv_withDensity Q (by fun_prop : Measurable fun x ↦
-    (E x)⁻¹ * ENNReal.ofReal ((1 - ε) / (1 + δ * ∑ j, |g j x|)))] with x hx
+  filter_upwards [Measure.rnDeriv_withDensity Q (measurable_dampedDensity hE hg δ ε)] with x hx
   have hh0 : 0 < 1 + δ * ∑ j, |g j x| := by positivity
   have hpos : 0 < (1 - ε) / (1 + δ * ∑ j, |g j x|) := div_pos (by linarith) hh0
-  rw [Pi.inv_apply, hx]
-  rw [ENNReal.mul_inv (Or.inr ENNReal.ofReal_ne_top) (Or.inr (ENNReal.ofReal_pos.2 hpos).ne'),
-    inv_inv, ENNReal.log_mul_add, ← ENNReal.ofReal_inv_of_pos hpos,
-    ENNReal.log_ofReal_of_pos (inv_pos.2 hpos), inv_div, Real.log_div hh0.ne' (by linarith)]
+  -- the likelihood ratio is `E x * (1 + δ ∑ j, |g j x|) / (1 - ε)`
+  have hinv : (dampedDensity E g δ ε x)⁻¹ =
+      E x * ENNReal.ofReal ((1 + δ * ∑ j, |g j x|) / (1 - ε)) := by
+    rw [dampedDensity, ENNReal.mul_inv (.inr ENNReal.ofReal_ne_top)
+      (.inr (ENNReal.ofReal_pos.2 hpos).ne'), inv_inv, ← ENNReal.ofReal_inv_of_pos hpos, inv_div]
+  rw [Pi.inv_apply, hx, hinv, ENNReal.log_mul_add,
+    ENNReal.log_ofReal_of_pos (div_pos hh0 (by linarith)), Real.log_div hh0.ne' (by linarith)]
 
 /-- **Completion of the damped reverse information projection**: when `Q` is carried by a set `Y`
 without arbitrage that carries the null, and `E` is such that `∫ F / E ∂Q ≤ 1` for every
@@ -286,14 +305,14 @@ private lemma exists_withDensity_inv_mul_ofReal_div_add_sum_smul_dirac_mem_const
     (hEF : ∀ F, IsEVar F (constraintNull (range g)) → ∫⁻ x, F x / E x ∂Q ≤ 1) {δ ε : ℝ}
     (hδ : 0 < δ) (hε : 0 < ε) (hε1 : ε < 1) :
     ∃ (α : Type) (_ : Fintype α) (x : α → 𝓧) (w : α → ℝ),
-      Q.withDensity (fun x ↦ (E x)⁻¹ * ENNReal.ofReal ((1 - ε) / (1 + δ * ∑ i, |g i x|))) +
+      Q.withDensity (dampedDensity E g δ ε) +
         ∑ k, ENNReal.ofReal (w k) • Measure.dirac (x k) ∈ constraintNull (range g) := by
   have hYne : Y.Nonempty := by
     by_contra h
     rw [not_nonempty_iff_eq_empty] at h
     simp [h] at hQY
   have hEinv : ∫⁻ x, (E x)⁻¹ ∂Q ≤ 1 := by simpa using hEF 1 (isEVar_one _)
-  set μ := Q.withDensity fun x ↦ (E x)⁻¹ * ENNReal.ofReal ((1 - ε) / (1 + δ * ∑ i, |g i x|))
+  set μ := Q.withDensity (dampedDensity E g δ ε)
   have hμE : ∀ F, IsEVar F (constraintNull (range g)) →
       ∫⁻ x, F x ∂μ ≤ ENNReal.ofReal (1 - ε) := fun F hF ↦
     (lintegral_withDensity_inv_mul_ofReal_div_le hE hF.measurable hg hδ.le hε1.le).trans
@@ -306,14 +325,14 @@ private lemma exists_withDensity_inv_mul_ofReal_div_add_sum_smul_dirac_mem_const
       hε.le hε1.le) (ENNReal.ofReal_lt_one.2 (by linarith)) hμE
   exact ⟨α, inferInstance, x, w, hP⟩
 
-/-! ### Strong duality on a set without arbitrage -/
+/-! ### The nontrivial inequality of the dual formula, on a set without arbitrage -/
 
-/-- The bound of strong duality for a damping `δ` and a slack `ε`: when `Q` is carried by a set
-`Y` without arbitrage that carries the null, and the largest expected logarithm `s` of an
-e-variable is finite, the reverse information projection `Q / E`, for the numeraire `E`, damped by
-`1 + δ ∑ i, |g i|` so that it integrates the constraints, and scaled by `1 - ε`, is completed into
-a member of the null by a finitely supported measure, at a relative entropy at most
-`s + E_Q[log (1 + δ ∑ i, |g i|)] - log (1 - ε)`. -/
+/-- The nontrivial inequality of the dual formula, up to a damping `δ` and a slack `ε`: when `Q`
+is carried by a set `Y` without arbitrage that carries the null, and the largest expected
+logarithm `s` of an e-variable is finite, the reverse information projection `Q / E`, for the
+numeraire `E`, damped by `1 + δ ∑ i, |g i|` so that it integrates the constraints, and scaled by
+`1 - ε`, is completed into a member of the null by a finitely supported measure, at a relative
+entropy at most `s + E_Q[log (1 + δ ∑ i, |g i|)] - log (1 - ε)`. -/
 private lemma iInf_klDiv_constraintNull_le_maxUtility_add (hg : ∀ i, Measurable (g i))
     (hY : NoArbitrageOn g Y) (hYμ : ∀ ν ∈ constraintNull (range g), ν Yᶜ = 0)
     [IsProbabilityMeasure Q] (hQY : Q Yᶜ = 0)
@@ -339,10 +358,7 @@ private lemma iInf_klDiv_constraintNull_le_maxUtility_add (hg : ∀ i, Measurabl
   obtain ⟨α, _, x, w, hP⟩ :=
     exists_withDensity_inv_mul_ofReal_div_add_sum_smul_dirac_mem_constraintNull hg hY hYμ hQY hEm
       (fun F hF ↦ hEnum.lintegral_div_le_one hF) hδ hε hε1
-  set d : 𝓧 → ℝ≥0∞ := fun x ↦ (E x)⁻¹ * ENNReal.ofReal ((1 - ε) / (1 + δ * ∑ i, |g i x|))
-    with hd_def
-  have hd : Measurable d := by fun_prop
-  set μ := Q.withDensity d with hμ_def
+  set μ := Q.withDensity (dampedDensity E g δ ε) with hμ_def
   set P := μ + ∑ k, ENNReal.ofReal (w k) • Measure.dirac (x k) with hP_def
   have := isProbabilityMeasure_of_mem_constraintNull hP
   have hμP : μ ≤ P := Measure.le_add_right le_rfl
@@ -353,12 +369,9 @@ private lemma iInf_klDiv_constraintNull_le_maxUtility_add (hg : ∀ i, Measurabl
     calc ∫⁻ x, X x ∂μ ≤ ∫⁻ x, X x ∂P := lintegral_mono' hμP le_rfl
       _ ≤ P univ := hX.lintegral_le_measure_univ P rfl
       _ = 1 := measure_univ
-  have hdpos : ∀ x, E x ≠ ∞ → d x ≠ 0 := fun x hx ↦ by
-    simp only [d, ne_eq, mul_eq_zero, ENNReal.inv_eq_zero, hx, ENNReal.ofReal_eq_zero,
-      not_le, false_or]
-    exact div_pos (by linarith) (by positivity)
-  have hac : Q ≪ μ := withDensity_absolutelyContinuous' hd.aemeasurable
-    (by filter_upwards [hE_top] with x hx using hdpos x hx)
+  have hac : Q ≪ μ := withDensity_absolutelyContinuous'
+    (measurable_dampedDensity hEm hg δ ε).aemeasurable
+    (by filter_upwards [hE_top] with x hx using dampedDensity_ne_zero hδ.le hε1 hx)
   have hlogh0 : Integrable (fun x ↦ Real.log (1 + δ * ∑ i, |g i x|)) Q :=
     hQ.log_one_add_const_mul (by fun_prop) (fun x ↦ by positivity) hδ.le hδ1
   have hlogh : Integrable
@@ -380,7 +393,8 @@ private lemma iInf_klDiv_constraintNull_le_maxUtility_add (hg : ∀ i, Measurabl
       (.inr hI_top) (.inr hI_bot), hI, ← hsE, integral_sub hlogh0 (integrable_const _)]
   simp
 
-/-- **Strong duality on a set without arbitrage**: when `Q` is carried by a set `Y` without
+/-- **The smallest relative entropy is at most the largest expected logarithm, on a set without
+arbitrage**: when `Q` is carried by a set `Y` without
 arbitrage that carries the null, and `log (1 + ∑ i, |g i|)` is `Q`-integrable, the smallest
 relative entropy from `Q` to the null is at most the largest expected logarithm of an
 e-variable. -/
@@ -493,9 +507,10 @@ theorem iSup_eintegral_log_ofReal_one_add_eq_top (hg : ∀ i, Measurable (g i))
           have h1 : 0 < 1 + t * ∑ i, ρ i * g i x := by nlinarith
           rw [ENNReal.log_ofReal_of_pos h1]
           by_cases hxA : x ∈ A
-          · rw [indicator_of_mem hxA, EReal.coe_ennreal_ofReal, max_eq_left hlc,
+          · have hcx : c ≤ ∑ i, ρ i * g i x := by simpa [hA_def] using hxA
+            rw [indicator_of_mem hxA, EReal.coe_ennreal_ofReal, max_eq_left hlc,
               EReal.coe_le_coe_iff]
-            exact Real.log_le_log (by nlinarith) (by nlinarith [show c ≤ _ from hxA])
+            exact Real.log_le_log (by nlinarith) (by nlinarith [hcx])
           · rw [indicator_of_notMem hxA, EReal.coe_ennreal_zero, ← EReal.coe_zero,
               EReal.coe_le_coe_iff]
             exact Real.log_nonneg (by nlinarith)
