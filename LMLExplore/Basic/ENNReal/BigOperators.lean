@@ -9,7 +9,7 @@ public import LMLExplore.Algebra.BigOperators.Perm
 public import Mathlib.Basic.ENNReal.BigOperators
 
 /-!
-# Sums of extended nonnegative reals
+# Sums and products of extended nonnegative reals
 
 ## Main statements
 
@@ -23,6 +23,10 @@ public import Mathlib.Basic.ENNReal.BigOperators
 * `ENNReal.ofReal_sum_mul_add`: an affine form `∑ x ∈ s, f x * g x + c` with nonnegative real
   coefficients, evaluated at a point with nonnegative real coordinates and mapped to `ℝ≥0∞`, is
   the same affine form of the images in `ℝ≥0∞`.
+* `ENNReal.one_sub_mul_le_one_sub_add_one_sub`: `1 - a * b ≤ (1 - a) + (1 - b)`, the union
+  bound for two independent events.
+* `ENNReal.one_sub_prod_le_sum_one_sub`: `1 - ∏ i ∈ s, m i ≤ ∑ i ∈ s, (1 - m i)`, the union
+  bound for independent events of probabilities `1 - m i`.
 -/
 
 public section
@@ -58,5 +62,31 @@ lemma ofReal_sum_mul_add {ι : Type*} {s : Finset ι} {f g : ι → ℝ} {c : �
   rw [ofReal_add (Finset.sum_nonneg h) hc, ofReal_sum_of_nonneg h]
   refine congrArg (· + _) (Finset.sum_congr rfl fun x hx ↦ ?_)
   rw [ofReal_mul (hf x hx)]
+
+/-- One minus a product of two extended nonnegative reals is at most the sum of the numbers
+`1 - a` and `1 - b`: the union bound for two independent events of probabilities `1 - a` and
+`1 - b`. -/
+lemma one_sub_mul_le_one_sub_add_one_sub (a b : ℝ≥0∞) : 1 - a * b ≤ (1 - a) + (1 - b) := by
+  rcases le_total 1 a with ha | ha
+  · exact (tsub_le_tsub_left (le_mul_of_one_le_left' ha) 1).trans le_add_self
+  rcases le_total 1 b with hb | hb
+  · exact (tsub_le_tsub_left (le_mul_of_one_le_right' hb) 1).trans le_self_add
+  -- For `a, b ≤ 1`: `1 = (1 - a) + a` and `a = a * (1 - b) + a * b ≤ (1 - b) + a * b`.
+  refine tsub_le_iff_right.2 ?_
+  calc (1 : ℝ≥0∞) = (1 - a) + (a * (1 - b) + a * b) := by
+        rw [← mul_add, tsub_add_cancel_of_le hb, mul_one, tsub_add_cancel_of_le ha]
+  _ ≤ (1 - a) + ((1 - b) + a * b) := by gcongr; exact mul_le_of_le_one_left' ha
+  _ = (1 - a) + (1 - b) + a * b := (add_assoc _ _ _).symm
+
+/-- One minus a product of extended nonnegative reals is at most the sum of the numbers
+`1 - m i`: the union bound for independent events of probabilities `1 - m i`. -/
+lemma one_sub_prod_le_sum_one_sub {ι : Type*} (s : Finset ι) (m : ι → ℝ≥0∞) :
+    1 - ∏ i ∈ s, m i ≤ ∑ i ∈ s, (1 - m i) := by
+  classical
+  induction s using Finset.induction with
+  | empty => simp
+  | insert j s hj ih =>
+    rw [Finset.prod_insert hj, Finset.sum_insert hj]
+    exact (one_sub_mul_le_one_sub_add_one_sub _ _).trans (by gcongr)
 
 end ENNReal
