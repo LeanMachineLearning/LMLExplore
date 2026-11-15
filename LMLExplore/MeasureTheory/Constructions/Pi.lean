@@ -14,8 +14,7 @@ import TauCeti.MeasureTheory.Constructions.Pi
 import TauCeti.MeasureTheory.Integral.Pi
 
 /-!
-# Product measures: laws of coordinatewise images, restricted factors, bounds by lines and
-integrals over two factors
+# Product measures: coordinatewise images, restricted factors, bounds by lines, `Fin 2` integrals
 
 Under the product measure `Measure.pi μ`, the law of a function `f` of the coordinatewise images
 `X i (y i)` is the law of `f` under the product of the laws of the `X i`. For example, the law of
