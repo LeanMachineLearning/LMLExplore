@@ -90,7 +90,7 @@ theorem exists_map_eq_of_support_subset_image {f : X → Y} {S : Set X} {π : St
     exact ⟨x⟩
   choose! g hgS hgf using hsec
   refine ⟨π.map g, fun x hx ↦ ?_, ?_, ?_⟩
-  · obtain ⟨y, hy, rfl⟩ := Finset.mem_image.1 (Finsupp.mapDomain_support hx)
+  · obtain ⟨y, hy, rfl⟩ := support_weights_map_subset g π hx
     exact hgS y (hπ hy)
   · rw [← weights_inj, map_map, weights_map,
       Finsupp.mapDomain_congr fun y hy ↦ hgf y (hπ hy)]
