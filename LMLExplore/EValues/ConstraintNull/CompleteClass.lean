@@ -9,7 +9,6 @@ public import LMLExplore.EValues.ConstraintNull.Basic
 import LMLExplore.Algebra.Order.Archimedean.Basic
 import LMLExplore.Algebra.Order.Field.Basic
 import LMLExplore.LinearAlgebra.Pi
-import LMLExplore.MeasureTheory.OuterMeasure.AE
 import Mathlib.Analysis.Convex.Combination
 import Mathlib.Analysis.Convex.Topology
 import Mathlib.Analysis.LocallyConvex.Separation
@@ -481,7 +480,7 @@ theorem exists_measurableSet_noArbitrageOn (hg : ∀ i, Measurable (g i)) :
     intro μ hμ
     have hint := integrable_sum_mul_of_mem_constraintNull hμ ρ
     have hnn : 0 ≤ᵐ[μ] fun x ↦ ∑ i, ρ i * g i x :=
-      ae_of_forall_mem_of_measure_compl_eq_zero (hμY μ hμ) hρY
+      Filter.eventually_of_mem (mem_ae_iff.2 (hμY μ hμ)) hρY
     have h0 := (integral_eq_zero_iff_of_nonneg_ae hnn hint).1
       (le_antisymm (integral_sum_mul_nonpos_of_mem_constraintNull hμ hρ0)
         (integral_nonneg_of_ae hnn))
@@ -560,7 +559,7 @@ theorem forall_integral_nonpos_iff_exists_ae_le (hg : ∀ i, Measurable (g i))
   · obtain ⟨Y, -, hYμ, hY⟩ := exists_measurableSet_noArbitrageOn hg
     obtain ⟨π, hπK, hπ⟩ := exists_mem_nonredundantWeights_le_of_forall_integral_nonpos hg hY hf h
     refine ⟨fun i ↦ (π i).toNNReal, fun μ hμ ↦
-      ae_of_forall_mem_of_measure_compl_eq_zero (hYμ μ hμ) fun x hx ↦ ?_⟩
+      Filter.eventually_of_mem (mem_ae_iff.2 (hYμ μ hμ)) fun x hx ↦ ?_⟩
     simpa only [Real.coe_toNNReal _ (hπK.1 _)] using hπ x hx
   · by_cases hfi : Integrable f μ
     · exact (integral_mono_ae hfi (integrable_sum_mul_of_mem_constraintNull hμ _)
@@ -580,9 +579,9 @@ theorem IsEVar.exists_mem_constraintBets_ae_le (hg : ∀ i, Measurable (g i))
   have hπY : ∀ x ∈ Y, (E x).toReal ≤ 1 + ∑ i, ((π i).toNNReal : ℝ) * g i x := fun x hx ↦ by
     simpa only [Real.coe_toNNReal _ (hπK.1 _)] using hπ x hx
   refine ⟨fun i ↦ (π i).toNNReal, mem_constraintBets_iff.2 fun μ hμ ↦
-    ae_of_forall_mem_of_measure_compl_eq_zero (hYμ μ hμ) fun x hx ↦
+    Filter.eventually_of_mem (mem_ae_iff.2 (hYμ μ hμ)) fun x hx ↦
       ENNReal.toReal_nonneg.trans (hπY x hx), fun μ hμ ↦
-    ae_of_forall_mem_of_measure_compl_eq_zero (hYμ μ hμ) fun x hx ↦ ?_⟩
+    Filter.eventually_of_mem (mem_ae_iff.2 (hYμ μ hμ)) fun x hx ↦ ?_⟩
   rw [← ENNReal.ofReal_toReal (lt_top_of_isEVar_of_noArbitrageOn hg hY hE hx).ne]
   exact ENNReal.ofReal_le_ofReal (hπY x hx)
 
