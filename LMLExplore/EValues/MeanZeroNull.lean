@@ -9,7 +9,7 @@ public import LMLExplore.EValues.EffectiveSet.TotalVariation
 public import LMLExplore.EValues.EProcess
 public import Mathlib.Probability.Moments.Variance
 
-import LMLExplore.MeasureTheory.Constructions.BorelSpace.Real
+import LMLExplore.MeasureTheory.Constructions.BorelSpace.Metric
 
 /-!
 # The mean-zero null: e-variables without power
@@ -181,7 +181,8 @@ theorem exists_mem_meanZeroPosVarNull_etvDist_lt (Q : Measure ℝ) [IsProbabilit
   have hδ2 : 2 * (2 * δ) < ε := by
     calc 2 * (2 * δ) = δ * 4 := by ring
     _ < ε := hδ'
-  obtain ⟨M, hM⟩ := exists_one_sub_lt_measure_Icc Q hδ0
+  obtain ⟨M, hM⟩ := exists_measure_univ_lt_measure_closedBall_add Q 0 hδ0
+  rw [measure_univ, Real.closedBall_eq_Icc, zero_sub, zero_add] at hM
   set I := Icc (-(M : ℝ)) M
   set η := min δ 2⁻¹
   have hη0 : η ≠ 0 := by simp [η, hδ0]
@@ -204,7 +205,7 @@ theorem exists_mem_meanZeroPosVarNull_etvDist_lt (Q : Measure ℝ) [IsProbabilit
   -- `ν` misses a mass less than `2 δ` of `Q`.
   have hmiss : 1 - ν univ ≤ 2 * δ := by
     refine tsub_le_iff_left.2 ?_
-    calc (1 : ℝ≥0∞) ≤ Q I + δ := tsub_le_iff_right.1 hM.le
+    calc (1 : ℝ≥0∞) ≤ Q I + δ := hM.le
     _ = (1 - η) * Q I + η * Q I + δ := by rw [← add_mul, tsub_add_cancel_of_le hη1, one_mul]
     _ ≤ ν univ + 2 * δ := by
       rw [hνuniv, two_mul, add_assoc]
