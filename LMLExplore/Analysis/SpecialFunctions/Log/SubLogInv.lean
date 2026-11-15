@@ -28,7 +28,8 @@ several arms; it grows like `x + log x`:
 
 ## Main statements
 
-* `Real.strictMonoOn_sub_log`: `h` is strictly increasing on `[1, ∞)`.
+* `Real.strictMonoOn_sub_log`, `Real.monotoneOn_sub_log`, `Real.one_le_sub_log`: `h` is strictly
+  increasing on `[1, ∞)`, and `1 ≤ h(u)` for `u > 0`.
 * `Real.subLogInv_sub_log_subLogInv`, `Real.subLogInv_sub_log`, `Real.subLogInv_eq_iff`: `subLogInv`
   is the inverse of `h` on `[1, ∞)`; `Real.subLogInv_le_iff`, `Real.lt_subLogInv_iff` compare it
   with a point of `[1, ∞)`.
@@ -71,8 +72,12 @@ theorem strictMonoOn_sub_log : StrictMonoOn (fun u : ℝ ↦ u - log u) (Ici 1) 
     nlinarith
   linarith
 
+/-- `u ↦ u - log u` is monotone on `[1, ∞)`. -/
+theorem monotoneOn_sub_log : MonotoneOn (fun u : ℝ ↦ u - log u) (Ici 1) :=
+  strictMonoOn_sub_log.monotoneOn
+
 /-- `1 ≤ u - log u` for `u > 0`. -/
-private theorem one_le_sub_log {u : ℝ} (hu : 0 < u) : 1 ≤ u - log u := by
+theorem one_le_sub_log {u : ℝ} (hu : 0 < u) : 1 ≤ u - log u := by
   linarith [log_le_sub_one_of_pos hu]
 
 /-- Every `x ≥ 1` is `u - log u` for some `u ≥ 1`. -/
@@ -106,6 +111,7 @@ theorem one_le_subLogInv (x : ℝ) : 1 ≤ subLogInv x :=
 theorem subLogInv_pos (x : ℝ) : 0 < subLogInv x :=
   zero_lt_one.trans_le (one_le_subLogInv x)
 
+@[simp]
 theorem subLogInv_sub_log_subLogInv_eq_max (x : ℝ) :
     subLogInv x - log (subLogInv x) = max x 1 :=
   (subLogInv_spec x).2
@@ -120,6 +126,7 @@ theorem subLogInv_eq_add_log {x : ℝ} (hx : 1 ≤ x) : subLogInv x = x + log (s
   linarith [subLogInv_sub_log_subLogInv hx]
 
 /-- `subLogInv` is a left inverse of `u ↦ u - log u` on `[1, ∞)`. -/
+@[simp]
 theorem subLogInv_sub_log {u : ℝ} (hu : 1 ≤ u) : subLogInv (u - log u) = u :=
   strictMonoOn_sub_log.injOn (one_le_subLogInv _) hu
     (by simpa using subLogInv_sub_log_subLogInv (one_le_sub_log (by linarith)))
@@ -143,7 +150,7 @@ theorem subLogInv_one : subLogInv 1 = 1 :=
 theorem subLogInv_le_iff {x u : ℝ} (hu : 1 ≤ u) : subLogInv x ≤ u ↔ x ≤ u - log u := by
   constructor
   · intro h
-    have h' := strictMonoOn_sub_log.monotoneOn (one_le_subLogInv x) hu h
+    have h' := monotoneOn_sub_log (one_le_subLogInv x) hu h
     beta_reduce at h'
     rw [subLogInv_sub_log_subLogInv_eq_max] at h'
     exact (le_max_left x 1).trans h'
