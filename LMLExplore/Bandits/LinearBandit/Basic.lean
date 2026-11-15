@@ -138,6 +138,19 @@ lemma histReward_def {n : ℕ} (h : Hist 𝓞 𝓐 ℝ n) (s : ℕ) :
     histReward h s = if hs : s < n then (h ⟨s, hs⟩).feedback else 0 :=
   (rfl)
 
+omit [InnerProductSpace ℝ E] in
+/-- The features of a history depend measurably on the history, for jointly measurable
+features. -/
+lemma measurable_histFeature [MeasurableSpace 𝓞] [MeasurableSpace 𝓐] [MeasurableSpace E]
+    (hφ : Measurable (Function.uncurry φ)) (n : ℕ) :
+    Measurable (histFeature φ : Hist 𝓞 𝓐 ℝ n → ℕ → E) := by
+  refine Measurable.of_eval fun s ↦ ?_
+  by_cases hs : s < n
+  · simp only [histFeature_def, hs, ↓reduceDIte]
+    exact hφ.comp ((Round.measurable_obs.comp (measurable_pi_apply _)).prodMk
+      (Round.measurable_action.comp (measurable_pi_apply _)))
+  · simp [histFeature_def, hs]
+
 /-- The rewards of a history depend measurably on the history. -/
 lemma measurable_histReward [MeasurableSpace 𝓞] [MeasurableSpace 𝓐] (n : ℕ) :
     Measurable (histReward : Hist 𝓞 𝓐 ℝ n → ℕ → ℝ) := by

@@ -57,6 +57,9 @@ C-tracking [DK19, Theorem 7]
 * `IdentTask.eventually_mul_ofReal_log_le_expectedStoppingTime`: the asymptotic lower bound
   `c log (1 / δ) ≤ E_θ[τ_δ]` for all small enough `δ`, for every `c < T*(θ)`, for a family of
   `δ`-correct algorithms.
+* `LMLExplore.Identification.limsup_expectedStoppingTime_div_log_le`: if
+  `E[τ_δ] ≤ c log (1 / δ)` for small `δ`, for every `c > x`, then
+  `limsup_{δ → 0} E[τ_δ] / log (1 / δ) ≤ x`.
 * `IdentTask.tendsto_expectedStoppingTime_div_log`: a family of `δ`-correct algorithms with
   `E_θ[τ_δ] ≤ c log (1 / δ)` for small `δ`, for every `c > T*(θ)`, has
   `E_θ[τ_δ] / log (1 / δ) → T*(θ)`.
@@ -90,6 +93,22 @@ lemma expectedPullProportion_mem_simplex {𝓞 𝓓 : Type*} {m𝓞 : Measurable
     (h0 : expectedStoppingTime A env ≠ 0) (h : expectedStoppingTime A env ≠ ∞) :
     expectedPullProportion A env ∈ simplex α :=
   mem_simplex_iff.2 ⟨expectedPullProportion_nonneg A env, sum_expectedPullProportion h0 h⟩
+
+open Filter Topology in
+omit [Fintype α] [DecidableEq α] [MeasurableSingletonClass α] in
+/-- **Upper bound on the asymptotic sample complexity.** If, for every `c > x`, the algorithms
+`A δ` satisfy `E[τ_δ] ≤ c log (1 / δ)` in the environment `env` for all small enough `δ`, then
+`limsup_{δ → 0} E[τ_δ] / log (1 / δ) ≤ x`. -/
+theorem limsup_expectedStoppingTime_div_log_le {𝓞 𝓓 : Type*} {m𝓞 : MeasurableSpace 𝓞}
+    {m𝓓 : MeasurableSpace 𝓓} {A : ℝ → IdentAlg 𝓞 α 𝓨 𝓓} {env : Environment 𝓞 α 𝓨} {x : ℝ≥0∞}
+    (h_upper : ∀ c : ℝ≥0, x < c → ∀ᶠ δ in 𝓝[>] 0,
+      expectedStoppingTime (A δ) env ≤ c * ENNReal.ofReal (Real.log (1 / δ))) :
+    limsup (fun δ ↦ expectedStoppingTime (A δ) env / ENNReal.ofReal (Real.log (1 / δ)))
+      (𝓝[>] 0) ≤ x := by
+  refine (limsup_le_iff' (by isBoundedDefault) (by isBoundedDefault)).2 fun y hy ↦ ?_
+  obtain ⟨c, hxc, hcy⟩ := ENNReal.lt_iff_exists_nnreal_btwn.1 hy
+  filter_upwards [h_upper c hxc] with δ hδ
+  exact (ENNReal.div_le_of_le_mul hδ).trans hcy.le
 
 namespace IdentTask
 
@@ -288,9 +307,7 @@ theorem tendsto_expectedStoppingTime_div_log [Nonempty α] {A : ℝ → IdentAlg
     exact hac.trans_le ((ENNReal.le_div_iff_mul_le (Or.inl (ENNReal.ofReal_pos.2 hLδ).ne')
       (Or.inl ENNReal.ofReal_ne_top)).2 hδ)
   · -- Above `T*(θ)`: the upper bound.
-    obtain ⟨c, hc, hca⟩ := ENNReal.lt_iff_exists_nnreal_btwn.1 ha
-    filter_upwards [h_upper c hc] with δ hδ
-    exact (ENNReal.div_le_of_le_mul hδ).trans_lt hca
+    exact eventually_lt_of_limsup_lt ((limsup_expectedStoppingTime_div_log_le h_upper).trans_lt ha)
 
 end IdentTask
 

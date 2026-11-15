@@ -426,6 +426,15 @@ lemma expFamilyMeans_mem_nhds (hT : ∀ c, ¬ T =ᵐ[ρ] fun _ ↦ c) (hμ : μ 
     ρ.expFamilyMeans T ∈ 𝓝 μ :=
   (isOpen_expFamilyMeans hT).mem_nhds hμ
 
+/-- For finitely many arms in nondegenerate exponential families `(ρ a, T a)`, the vectors of means
+of the families form a neighbourhood of each of them. -/
+lemma setOf_forall_mem_expFamilyMeans_mem_nhds {α : Type*} [Finite α] {ρ : α → Measure 𝓧}
+    {T : α → 𝓧 → ℝ} (hT : ∀ a c, ¬ T a =ᵐ[ρ a] fun _ ↦ c) {μ : α → ℝ}
+    (hμ : ∀ a, μ a ∈ (ρ a).expFamilyMeans (T a)) :
+    {μ' : α → ℝ | ∀ a, μ' a ∈ (ρ a).expFamilyMeans (T a)} ∈ 𝓝 μ :=
+  eventually_all.2 fun a ↦ (continuous_apply a).continuousAt.preimage_mem_nhds
+    (expFamilyMeans_mem_nhds (hT a) (hμ a))
+
 /-- The natural parameter is strictly increasing in the mean. -/
 theorem strictMonoOn_natParam (hT : ∀ c, ¬ T =ᵐ[ρ] fun _ ↦ c) :
     StrictMonoOn (ρ.natParam T) (ρ.expFamilyMeans T) := fun x hx y hy hxy ↦ by
