@@ -11,7 +11,6 @@ import Mathlib.Data.Fintype.Perm
 import LMLExplore.Algebra.BigOperators.Perm
 import LMLExplore.Basic.ENNReal.BigOperators
 import LMLExplore.EValues.Merging
-import LMLExplore.MeasureTheory.Measure.Map
 
 /-!
 # Merging functions for exchangeable e-values
@@ -186,8 +185,8 @@ private lemma mix_le_one_of_isExchangeableEMerging {F : (ι → ℝ≥0∞) → 
   have hprob : IsProbabilityMeasure (p • orbitMeasure E + q • orbitMeasure E') :=
     ⟨by simp [orbitMeasure_univ, hpq]⟩
   have := hF.lintegral_le_one (p • orbitMeasure E + q • orbitMeasure E')
-    (fun σ ↦ Measure.map_smul_add_smul_of_map_eq (by fun_prop) (map_orbitMeasure E σ)
-      (map_orbitMeasure E' σ) p q)
+    (fun σ ↦ ((MeasurePreserving.smul_measure ⟨by fun_prop, map_orbitMeasure E σ⟩ p).add_measure
+      (MeasurePreserving.smul_measure ⟨by fun_prop, map_orbitMeasure E' σ⟩ q)).map_eq)
     (fun i ↦ by simpa [lintegral_apply_orbitMeasure] using h)
   simpa [lintegral_orbitMeasure] using this
 
@@ -229,7 +228,8 @@ theorem IsExchangeableEMerging.exists_sum_perm_div_le {F : (ι → ℝ≥0∞) �
       fun i ↦ by rw [lintegral_apply_orbitMeasure]; exact hM_top e⟩
   -- a mixture of invariant measures is invariant
   have hconv := jointlyConvexLikeOn_lintegral F (P := P) fun μ ν hμ hν p q σ ↦
-    Measure.map_smul_add_smul_of_map_eq (by fun_prop) (hμ σ) (hν σ) p q
+    ((MeasurePreserving.smul_measure ⟨by fun_prop, hμ σ⟩ p).add_measure
+      (MeasurePreserving.smul_measure ⟨by fun_prop, hν σ⟩ q)).map_eq
   have hslater : ∃ μ ∈ C, ∀ i, (fun i μ ↦ (∫⁻ e, e i ∂μ).toReal - 1) i μ < 0 :=
     ⟨_, horbit 0, fun i ↦ by simp [lintegral_apply_orbitMeasure]⟩
   have hvalue : ∀ μ ∈ C, (∀ i, (∫⁻ e, e i ∂μ).toReal - 1 ≤ 0) →
