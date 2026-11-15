@@ -6,6 +6,7 @@ Authors: LMLExplore contributors
 module
 
 public import LMLExplore.EValues.BipolarRate.EProcess
+import LMLExplore.Analysis.SpecialFunctions.Log.ENNRealLog
 import LMLExplore.EValues.BipolarRate.AlmostSure
 import LMLExplore.Probability.ProductMeasure.Blocks
 import Statlib.ForMathlib.MeasureTheory.Integral.EReal.Bochner
@@ -18,9 +19,9 @@ alternative). The observations are the coordinates of `ℕ → 𝓧`, with the i
 `Measure.infinitePi fun _ ↦ P`. Write `X* n` for Statlib's `numeraire` of the `n`-sample null
 `{P ^ n | P ∈ S₁}` under `Q₁ ^ n`, the log-optimal `n`-sample e-variable, and `d` for the bipolar
 rate `bipolarRate Q₁ S₁`. Almost surely under the i.i.d. law of `Q₁`, `(1/n) log (X* n)`, at the
-first `n` observations, tends to `d`, also when `d = ∞`. Nothing is assumed on `S₁` or `Q₁`
-besides that the members of `S₁` are probability measures: no domination, convexity or
-compactness.
+first `n` observations, tends to `d`, also when `d = ∞` [EVR26, Note 01]. Nothing is assumed on
+`S₁` or `Q₁` besides that the members of `S₁` are probability measures: no domination, convexity
+or compactness.
 
 The upper bound `limsup (1/n) log (X* n) ≤ d` holds for every sequence of `n`-sample e-variables
 (`ProbabilityTheory.ae_limsup_log_div_le_bipolarRate`). The lower bound has two steps.
@@ -28,7 +29,8 @@ The upper bound `limsup (1/n) log (X* n) ≤ d` holds for every sequence of `n`-
 * **Comparison with the numeraire.** For every sequence of `n`-sample e-variables `M n` and every
   `ε > 0`, almost surely `log (M n) ≤ log (X* n) + n ε` for all large `n`: the ratio
   `M n / X* n` has mean at most `1` under `Q₁ ^ n`, so Markov's inequality bounds the probability
-  that it exceeds `exp (n ε)` by `exp (- n ε)`, and the Borel–Cantelli lemma applies.
+  that it exceeds `exp (n ε)` by `exp (- n ε)`, and the Borel–Cantelli lemma applies
+  [EVR26, Note 01].
 * **Products over blocks.** For `L < d` there is a block length `m` with
   `maxLogGrowth Q₁ S₁ m > m L`. The product of `X* m` over the successive blocks of `m`
   observations is a function of the first `n` observations with mean at most `1` under the null,
@@ -58,11 +60,15 @@ The truncated logarithm `min (log x) c`, as a real number, and the monotone conv
 extended integrals of the truncations `min f k` are private helpers. The statements and proofs
 are adapted from `EValuesResearch/Results/Numeraire.lean` and
 `EValuesResearch/Results/NumeraireAux.lean` (commit `dd4072f`) in the paper project
-`RemyDegenne/evalues_research`, rewritten on the API of LMLExplore.
+`RemyDegenne/evalues_research`, which formalize [EVR26, Note 01], rewritten on the API of
+LMLExplore.
 
 ## References
 
 * [RR26] A. Ram and A. Ramdas, *The optimal betting wealth growth rate*, arXiv:2604.25280v1.
+* [EVR26] *Answers to open questions in e-values and anytime-valid inference*, notes 01 to 34 and
+  the Lean library `EValuesResearch` of github.com/RemyDegenne/evalues_research, 2026; written and
+  refereed by AI agents.
 -/
 
 public section
@@ -82,21 +88,6 @@ private lemma isFiniteMeasure_of_mem_image_pi (hS₁ : ∀ P ∈ S₁, IsFiniteM
   rintro _ ⟨P, hP, rfl⟩
   have := hS₁ P hP
   infer_instance
-
-/-- If `x / y < exp c`, then `log x ≤ log y + c`. -/
-private lemma log_le_log_add_of_div_lt {x y : ℝ≥0∞} {c : ℝ}
-    (h : x / y < ENNReal.ofReal (Real.exp c)) : ENNReal.log x ≤ ENNReal.log y + c := by
-  rcases eq_or_ne y ∞ with rfl | hy
-  · simp
-  rcases eq_or_ne y 0 with rfl | hy0
-  · rcases eq_or_ne x 0 with rfl | hx0
-    · simp
-    · simp [ENNReal.div_zero hx0] at h
-  have hlt : x < ENNReal.ofReal (Real.exp c) * y :=
-    (ENNReal.div_lt_iff (Or.inl hy0) (Or.inl hy)).1 h
-  calc ENNReal.log x ≤ ENNReal.log (ENNReal.ofReal (Real.exp c) * y) := ENNReal.log_le_log hlt.le
-  _ = ENNReal.log y + c := by
-    rw [ENNReal.log_mul_add, ENNReal.log_ofReal_of_pos (Real.exp_pos c), Real.log_exp, add_comm]
 
 /-- If `a ≤ x + c` and `b + c ≤ a` for reals `a, b, c`, then `b ≤ x`. -/
 private lemma coe_le_of_coe_le_add {a b c : ℝ} {x : EReal} (h : (a : EReal) ≤ x + c)
@@ -232,6 +223,28 @@ private theorem eintegral_le_of_forall_min_le {Ω : Type*} [MeasurableSpace Ω] 
   exact EReal.coe_ennreal_le_coe_ennreal_iff.2
     (iSup_le fun k ↦ EReal.coe_ennreal_le_coe_ennreal_iff.1 (hk k))
 
+/-- **Truncation of an expected logarithm.** Let `f` be measurable and almost everywhere nonzero,
+with a logarithm whose negative part has a finite mean under a finite measure. If the extended
+mean of `log f` exceeds `a`, then for some level `c` the logarithm truncated at `c` is integrable
+with mean above `a`: the truncations at the levels `0, 1, 2, …` increase to `log f`. -/
+private lemma exists_integrable_truncLog_lt_integral {Ω : Type*} {mΩ : MeasurableSpace Ω}
+    {μ : Measure Ω} [IsFiniteMeasure μ] {f : Ω → ℝ≥0∞} (hf : Measurable f)
+    (hf0 : ∀ᵐ x ∂μ, f x ≠ 0) (hneg : ∫⁻ x, (-ENNReal.log (f x)).toENNReal ∂μ ≠ ∞) {a : ℝ}
+    (ha : (a : EReal) < ∫ᵉ x, ENNReal.log (f x) ∂μ) :
+    ∃ c : ℝ, Integrable (fun x ↦ truncLog c (f x)) μ ∧ a < ∫ x, truncLog c (f x) ∂μ := by
+  obtain ⟨c, hc⟩ : ∃ c : ℕ, (a : EReal) < ∫ᵉ x, min (ENNReal.log (f x)) (c : EReal) ∂μ := by
+    by_contra! h
+    exact absurd (eintegral_le_of_forall_min_le (ENNReal.measurable_log.comp hf) h) (not_le.2 ha)
+  have hi := integrable_truncLog_comp_of_lintegral_ne_top hf hneg c
+  refine ⟨c, hi, ?_⟩
+  have heq : ∫ᵉ x, min (ENNReal.log (f x)) (c : EReal) ∂μ =
+      ∫ᵉ x, (truncLog c (f x) : EReal) ∂μ := by
+    refine eintegral_congr_ae ?_
+    filter_upwards [hf0] with x hx
+    rw [coe_truncLog hx, EReal.coe_natCast]
+  rw [heq, eintegral_eq_integral hi] at hc
+  exact_mod_cast hc
+
 /-- The sum of the truncated logarithms of nonzero factors over blocks is at most the logarithm of
 their product. -/
 private lemma sum_truncLog_le_log_seqBlockProd {m : ℕ} {V : (Fin m → 𝓧) → ℝ≥0∞} (c : ℝ) (k : ℕ)
@@ -251,8 +264,8 @@ e-variables `M n` for the `n`-fold products of the members of `S₁` and every `
 surely under the i.i.d. law of `Q₁`, eventually `log (M n) ≤ log (X* n) + n ε` at the first `n`
 observations, where `X* n` is Statlib's `numeraire` of the `n`-sample null under `Q₁ ^ n`. The
 ratio `M n / X* n` has mean at most `1` under `Q₁ ^ n`, so this is Markov's inequality and the
-Borel–Cantelli lemma. The members of `S₁` need only be finite measures. If `Q₁` is not a
-probability measure, its i.i.d. law is `0` and the statement holds trivially. -/
+Borel–Cantelli lemma [EVR26, Note 01]. The members of `S₁` need only be finite measures. If `Q₁`
+is not a probability measure, its i.i.d. law is `0` and the statement holds trivially. -/
 theorem ae_eventually_log_le_log_numeraire_add (Q₁ : Measure 𝓧)
     (hS₁ : ∀ P ∈ S₁, IsFiniteMeasure P) {M : (n : ℕ) → (Fin n → 𝓧) → ℝ≥0∞}
     (hM : ∀ n, IsEVar (M n) ((fun P ↦ Measure.pi fun _ : Fin n ↦ P) '' S₁)) {ε : ℝ}
@@ -262,7 +275,7 @@ theorem ae_eventually_log_le_log_numeraire_add (Q₁ : Measure 𝓧)
         ((fun P ↦ Measure.pi fun _ : Fin n ↦ P) '' S₁) (initSeg n ω)) + ((n * ε : ℝ) : EReal) := by
   by_cases hQ : IsProbabilityMeasure Q₁
   swap
-  · simp [Measure.infinitePi_eq_zero_of_not_isProbabilityMeasure (μ := fun _ : ℕ ↦ Q₁) (i := 0) hQ]
+  · exact Measure.ae_infinitePi_of_not_isProbabilityMeasure (i := 0) hQ
   set μ := Measure.infinitePi (fun _ : ℕ ↦ Q₁)
   set E : (n : ℕ) → (Fin n → 𝓧) → ℝ≥0∞ := fun n ↦ numeraire (Measure.pi fun _ : Fin n ↦ Q₁)
     ((fun P ↦ Measure.pi fun _ : Fin n ↦ P) '' S₁)
@@ -294,7 +307,7 @@ theorem ae_eventually_log_le_log_numeraire_add (Q₁ : Measure 𝓧)
   filter_upwards [ae_eventually_notMem hsum] with ω hω
   filter_upwards [hω] with n hn
   simp only [A, Set.mem_ofPred_eq, not_le] at hn
-  exact log_le_log_add_of_div_lt hn
+  exact ENNReal.log_le_log_add_of_div_lt hn
 
 /-- **Comparison of a function of the first observations with the numeraire.** Let `F n` be
 measurable functions of the first `n` observations with expectation at most `1` under the i.i.d.
@@ -311,7 +324,7 @@ theorem ae_eventually_log_le_log_numeraire_add_of_dependsOn (Q₁ : Measure 𝓧
         ((fun P ↦ Measure.pi fun _ : Fin n ↦ P) '' S₁) (initSeg n ω)) + ((n * ε : ℝ) : EReal) := by
   by_cases hQ : IsProbabilityMeasure Q₁
   swap
-  · simp [Measure.infinitePi_eq_zero_of_not_isProbabilityMeasure (μ := fun _ : ℕ ↦ Q₁) (i := 0) hQ]
+  · exact Measure.ae_infinitePi_of_not_isProbabilityMeasure (i := 0) hQ
   have := nonempty_of_isProbabilityMeasure Q₁
   choose G hG hFG using fun n ↦
     exists_isEVar_eq_comp_initSeg hS₁ (hF n) (hFn n) fun P hP ↦ h_null P hP n
@@ -357,24 +370,10 @@ private lemma ae_eventually_mul_le_log_of_forall_ae_eventually_log_le (Q₁ : Me
     rw [EReal.lt_div_iff (by exact_mod_cast hm0) (EReal.natCast_ne_top _)] at hk
     rw [EReal.coe_mul, mul_comm, EReal.coe_natCast]
     exact hk
-  -- so does the expected truncated logarithm, for a large truncation level `c`
-  obtain ⟨c, hc⟩ : ∃ c : ℕ, ((m * L : ℝ) : EReal) <
-      ∫ᵉ x, min (ENNReal.log (Em x)) (c : EReal) ∂Measure.pi fun _ : Fin m ↦ Q₁ := by
-    by_contra! h
-    exact absurd (eintegral_le_of_forall_min_le (ENNReal.measurable_log.comp hEm) h)
-      (not_le.2 hmL)
+  -- so does the expected logarithm truncated at a level `c`, which is integrable
+  obtain ⟨c, hgi, hgint⟩ := exists_integrable_truncLog_lt_integral hEm hnum.ae_ne_zero
+    (lintegral_toENNReal_neg_ne_top_of_eintegral_ne_bot hnum.eintegral_log_ne_bot) hmL
   set g : (Fin m → 𝓧) → ℝ := fun x ↦ truncLog c (Em x)
-  have hgi : Integrable g (Measure.pi fun _ : Fin m ↦ Q₁) :=
-    integrable_truncLog_comp_of_lintegral_ne_top hEm
-      (lintegral_toENNReal_neg_ne_top_of_eintegral_ne_bot hnum.eintegral_log_ne_bot) _
-  have hgint : m * L < ∫ x, g x ∂Measure.pi fun _ : Fin m ↦ Q₁ := by
-    have heq : ∫ᵉ x, min (ENNReal.log (Em x)) (c : EReal) ∂(Measure.pi fun _ : Fin m ↦ Q₁) =
-        ∫ᵉ x, (g x : EReal) ∂(Measure.pi fun _ : Fin m ↦ Q₁) := by
-      refine eintegral_congr_ae ?_
-      filter_upwards [hnum.ae_ne_zero] with x hx
-      rw [coe_truncLog hx, EReal.coe_natCast]
-    rw [heq, eintegral_eq_integral hgi] at hc
-    exact_mod_cast hc
   set ε := (((m : ℝ)⁻¹ * ∫ x, g x ∂Measure.pi fun _ : Fin m ↦ Q₁) - L) / 2 with hε_def
   have hlt : L < (m : ℝ)⁻¹ * ∫ x, g x ∂Measure.pi fun _ : Fin m ↦ Q₁ := by
     rw [← div_eq_inv_mul, lt_div_iff₀ hm0]
@@ -410,7 +409,8 @@ private lemma ae_eventually_mul_le_log_of_forall_ae_eventually_log_le (Q₁ : Me
 Let `T n` be functions of the observations such that, for every sequence of measurable functions
 `F n` of the first `n` observations with expectation at most `1` under the i.i.d. laws of the
 members of `S₁` and every `ε > 0`, almost surely under the i.i.d. law of `Q₁`, eventually
-`log (F n) ≤ log (T n) + n ε`. Then almost surely `liminf (1/n) log (T n) ≥ bipolarRate Q₁ S₁`.
+`log (F n) ≤ log (T n) + n ε`. Then almost surely `liminf (1/n) log (T n) ≥ bipolarRate Q₁ S₁`
+[EVR26, Note 01].
 The products over blocks of length `m` of the numeraire of the `m`-sample null attain every rate
 below the bipolar rate [RR26, Theorem 3.5], almost surely by the strong law of large numbers along
 the blocks. If `Q₁` is not a probability measure, its i.i.d. law is `0` and the statement holds
@@ -426,7 +426,7 @@ theorem ae_bipolarRate_le_liminf_log_div_of_forall_ae_eventually_log_le (Q₁ : 
       bipolarRate Q₁ S₁ ≤ liminf (fun n : ℕ ↦ ENNReal.log (T n ω) / (n : EReal)) atTop := by
   by_cases hQ : IsProbabilityMeasure Q₁
   swap
-  · simp [Measure.infinitePi_eq_zero_of_not_isProbabilityMeasure (μ := fun _ : ℕ ↦ Q₁) (i := 0) hQ]
+  · exact Measure.ae_infinitePi_of_not_isProbabilityMeasure (i := 0) hQ
   -- the bound for every rational below the bipolar rate
   have h (q : ℚ) : ∀ᵐ ω ∂Measure.infinitePi (fun _ : ℕ ↦ Q₁),
       ((q : ℝ) : EReal) < bipolarRate Q₁ S₁ → ∀ᶠ n : ℕ in atTop,
@@ -449,7 +449,7 @@ theorem ae_bipolarRate_le_liminf_log_div_of_forall_ae_eventually_log_le (Q₁ : 
 /-- **The numeraires grow at the bipolar rate, almost surely.** Almost surely under the i.i.d.
 law of `Q₁`, the logarithm of the numeraire of the `n`-sample null under `Q₁ ^ n`, at the first
 `n` observations, divided by `n`, tends to `bipolarRate Q₁ S₁`, also when the bipolar rate is
-infinite. The upper bound holds for every sequence of `n`-sample e-variables
+infinite [EVR26, Note 01]. The upper bound holds for every sequence of `n`-sample e-variables
 (`ProbabilityTheory.ae_limsup_log_div_le_bipolarRate`), and the lower bound follows from the
 comparison with the numeraire and the products of the numeraires over blocks
 [RR26, Theorem 3.5]. If `Q₁` is not a probability measure, its i.i.d. law is `0` and the

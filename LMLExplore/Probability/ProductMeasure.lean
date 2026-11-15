@@ -125,6 +125,14 @@ lemma infinitePi_eq_zero_of_not_isProbabilityMeasure {ι : Type*} {X : ι → Ty
   have h' : ¬ ∀ j, IsProbabilityMeasure (μ j) := fun h' ↦ h (h' i)
   simp [Measure.infinitePi, h']
 
+/-- If one factor is not a probability measure, every property holds almost surely under the
+infinite product, which is `0`. -/
+lemma ae_infinitePi_of_not_isProbabilityMeasure {ι : Type*} {X : ι → Type*}
+    [∀ i, MeasurableSpace (X i)] {μ : (i : ι) → Measure (X i)} {i : ι}
+    (h : ¬ IsProbabilityMeasure (μ i)) {p : ((i : ι) → X i) → Prop} :
+    ∀ᵐ x ∂Measure.infinitePi μ, p x := by
+  simp [infinitePi_eq_zero_of_not_isProbabilityMeasure h]
+
 /-- Under a countable product of probability measures, if almost every point of each factor
 satisfies a property, then almost surely every coordinate does. -/
 theorem ae_forall_apply_infinitePi {ι : Type*} [Countable ι] {X : ι → Type*}

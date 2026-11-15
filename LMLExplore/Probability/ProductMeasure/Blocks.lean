@@ -9,9 +9,8 @@ public import LMLExplore.MeasureTheory.MeasurableSpace.Constructions
 public import Mathlib.Probability.Independence.InfinitePi
 public import Mathlib.Probability.ProductMeasure
 public import TauCeti.Probability.Process.PathLaw.Shift
+import LMLExplore.Analysis.SpecificLimits.Basic
 import LMLExplore.Probability.ProductMeasure
-import Mathlib.Algebra.Order.Floor.Semifield
-import Mathlib.Analysis.SpecificLimits.Basic
 import Mathlib.Probability.Independence.Integration
 import TauCeti.Probability.StrongLaw
 
@@ -171,10 +170,19 @@ theorem measurePreserving_seqBlock_infinitePi (μ : ℕ → Measure 𝓧)
   have hinj : Function.Injective fun p : ℕ × Fin m ↦ p.1 * m + (p.2 : ℕ) := by
     rcases Nat.eq_zero_or_pos m with rfl | hm
     · exact fun p ↦ p.2.elim0
-    · have : NeZero m := ⟨hm.ne'⟩
-      exact (Nat.divModEquiv m).symm.injective
+    · rintro ⟨j, i⟩ ⟨j', i'⟩ h
+      -- the quotient of `j * m + i` by `m` is `j`, since `i < m`
+      have hj : j = j' := by
+        have h' := congrArg (· / m) h
+        simpa only [Nat.add_comm (_ * m), Nat.add_mul_div_right _ _ hm, Nat.div_eq_of_lt i.2,
+          Nat.div_eq_of_lt i'.2, Nat.zero_add] using h'
+      subst hj
+      exact Prod.ext rfl (Fin.ext (Nat.add_left_cancel h))
   have h : (fun (ω : ℕ → 𝓧) j ↦ seqBlock m j ω) =
-      MeasurableEquiv.curry ℕ (Fin m) 𝓧 ∘ fun ω p ↦ ω (p.1 * m + p.2) := (rfl)
+      MeasurableEquiv.curry ℕ (Fin m) 𝓧 ∘ fun ω p ↦ ω (p.1 * m + p.2) := by
+    rw [MeasurableEquiv.coe_curry]
+    funext ω j i
+    rw [Function.comp_apply, Function.curry_apply, seqBlock_apply]
   have hm : Measurable fun (ω : ℕ → 𝓧) (p : ℕ × Fin m) ↦ ω (p.1 * m + p.2) :=
     Measurable.of_eval fun _ ↦ measurable_pi_apply _
   rw [h, ← Measure.map_map (MeasurableEquiv.measurable _) hm,
@@ -234,23 +242,9 @@ theorem strong_law_ae_seqBlock (Q : Measure 𝓧) {m : ℕ} {g : (Fin m → 𝓧
         (𝓝 (∫ x, g x ∂Measure.pi fun _ : Fin m ↦ Q)) := by
   by_cases hQ : IsProbabilityMeasure Q
   swap
-  · simp [Measure.infinitePi_eq_zero_of_not_isProbabilityMeasure (μ := fun _ : ℕ ↦ Q) (i := 0) hQ]
+  · exact Measure.ae_infinitePi_of_not_isProbabilityMeasure (i := 0) hQ
   exact (measurePreserving_seqBlock_infinitePi (fun _ ↦ Q) m).quasiMeasurePreserving.ae
     (TauCeti.Probability.strong_law_ae_infinitePi _ hg)
-
-/-- The number of complete blocks of `m` terms among the first `n`, divided by `n`, tends to
-`1 / m`. -/
-private lemma tendsto_nat_div_div_atTop {m : ℕ} (hm : m ≠ 0) :
-    Tendsto (fun n : ℕ ↦ ((n / m : ℕ) : ℝ) / n) atTop (𝓝 (m : ℝ)⁻¹) := by
-  have hm' : (0 : ℝ) < m := by exact_mod_cast Nat.pos_of_ne_zero hm
-  have h := ((tendsto_nat_floor_div_atTop (R := ℝ)).comp
-    (tendsto_natCast_atTop_atTop.atTop_div_const hm')).mul_const (m : ℝ)⁻¹
-  rw [one_mul] at h
-  refine h.congr fun n ↦ ?_
-  simp only [Function.comp_apply, Nat.floor_div_eq_div (K := ℝ)]
-  rcases eq_or_ne (n : ℝ) 0 with hn | hn
-  · simp [hn]
-  · field_simp
 
 /-- **The strong law of large numbers along blocks, per observation.** Under the i.i.d. law of
 `Q`, the sum of an integrable function over the complete blocks of `m ≠ 0` terms among the first
@@ -262,8 +256,8 @@ theorem strong_law_ae_seqBlock_nat_div (Q : Measure 𝓧) {m : ℕ} (hm : m ≠ 
       Tendsto (fun n : ℕ ↦ (n : ℝ)⁻¹ • ∑ j ∈ Finset.range (n / m), g (seqBlock m j ω)) atTop
         (𝓝 ((m : ℝ)⁻¹ • ∫ x, g x ∂Measure.pi fun _ : Fin m ↦ Q)) := by
   filter_upwards [strong_law_ae_seqBlock Q hg] with ω hω
-  refine ((tendsto_nat_div_div_atTop hm).smul (hω.comp (Nat.tendsto_div_const_atTop hm))).congr'
-    ?_
+  refine ((LMLExplore.tendsto_nat_div_div_atTop hm).smul
+    (hω.comp (Nat.tendsto_div_const_atTop hm))).congr' ?_
   filter_upwards [eventually_ge_atTop m] with n hn
   have hnm : ((n / m : ℕ) : ℝ) ≠ 0 := by
     exact_mod_cast (Nat.div_pos hn (Nat.pos_of_ne_zero hm)).ne'
