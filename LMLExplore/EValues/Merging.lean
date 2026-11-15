@@ -6,6 +6,7 @@ Authors: LMLExplore contributors
 module
 
 public import Statlib.EValues.EVariable
+import LMLExplore.Algebra.BigOperators.Perm
 import LMLExplore.Analysis.Convex.LagrangeDuality
 import Mathlib.Algebra.BigOperators.Field
 
@@ -372,25 +373,6 @@ private lemma coe_add_mul_sum_div_card (lam : ℝ≥0) (e : ι → ℝ≥0) :
       lam + (1 - lam) * ((∑ i, (e i : ℝ≥0∞)) / Fintype.card ι) := by
   rw [ENNReal.coe_add, ENNReal.coe_mul, ENNReal.coe_sub, ENNReal.coe_one, coe_sum_div_card]
 
-/-- Averaging weights over all permutations makes them equal, with the same total: the average of
-the `w (σ⁻¹ j)` over the permutations `σ` is `(∑ i, w i) / K` for every `j`. -/
-private lemma sum_perm_inv_apply_div_card [DecidableEq ι] (w : ι → ℝ≥0) (j : ι) :
-    (∑ σ : Equiv.Perm ι, w (σ⁻¹ j)) / Fintype.card (Equiv.Perm ι) =
-      (∑ i, w i) / Fintype.card ι := by
-  have hN : (Fintype.card (Equiv.Perm ι) : ℝ≥0) ≠ 0 := by simp [Fintype.card_ne_zero]
-  have hK : (Fintype.card ι : ℝ≥0) ≠ 0 := Nat.cast_ne_zero.2 (@Fintype.card_ne_zero ι _ ⟨j⟩)
-  -- Swapping `k` and `j` permutes the permutations, so the sums at `k` and at `j` agree.
-  have hk (k : ι) : ∑ σ : Equiv.Perm ι, w (σ⁻¹ k) = ∑ σ : Equiv.Perm ι, w (σ⁻¹ j) := by
-    refine Fintype.sum_equiv (Equiv.mulLeft (Equiv.swap k j)) _ _ fun σ ↦ ?_
-    simp [mul_inv_rev, Equiv.swap_inv, Equiv.Perm.mul_apply]
-  have hsum : ∑ k, ∑ σ : Equiv.Perm ι, w (σ⁻¹ k) =
-      Fintype.card (Equiv.Perm ι) * ∑ i, w i := by
-    rw [Finset.sum_comm]
-    simp_rw [fun σ : Equiv.Perm ι ↦ Equiv.sum_comp σ⁻¹ w]
-    rw [Finset.sum_const, Finset.card_univ, nsmul_eq_mul]
-  simp_rw [hk, Finset.sum_const, Finset.card_univ, nsmul_eq_mul] at hsum
-  rw [div_eq_div_iff hN hK, mul_comm, hsum, mul_comm]
-
 /-- **A symmetric e-merging function is dominated by a mixture of `1` and the arithmetic mean**
 [VW21, Theorem 3.2]: for some `λ ∈ [0, 1]`, `F e ≤ λ + (1 - λ) * (∑ i, e i) / K` at every finite
 argument `e`, with `K` the number of e-values. Symmetry is needed only at finite arguments. -/
@@ -431,7 +413,8 @@ theorem IsEMerging.exists_le_add_mul_sum_div_card (hF : IsEMerging F)
   -- The averaged weights are all equal to `(1 - w₀) / K`.
   have hc (j : ι) : v j = (1 - w₀) / Fintype.card ι := by
     simp only [v, N]
-    rw [sum_perm_inv_apply_div_card, ← hw, add_tsub_cancel_left]
+    rw [Fintype.sum_equiv (Equiv.inv (Equiv.Perm ι)) (fun σ ↦ w (σ⁻¹ j)) (fun σ ↦ w (σ j))
+      fun _ ↦ rfl, Equiv.Perm.sum_apply_div_card, ← hw, add_tsub_cancel_left]
   rw [mul_sum_div_card_eq_sum_mul]
   simp_rw [hc]
 
