@@ -90,7 +90,8 @@ section Definition
 variable {ι : Type*} {F G : (ι → ℝ≥0∞) → ℝ≥0∞}
 
 /-- Permuting the coordinates is measurable. -/
-private lemma measurable_comp_perm (σ : Equiv.Perm ι) : Measurable fun e : ι → ℝ≥0∞ ↦ e ∘ σ :=
+private lemma measurable_comp_perm (σ : Equiv.Perm ι) :
+    Measurable fun (e : ι → ℝ≥0∞) i ↦ e (σ i) :=
   measurable_pi_iff.2 fun _ ↦ measurable_pi_apply _
 
 /-- A **merging function for exchangeable e-values** indexed by `ι`: a measurable
@@ -100,7 +101,7 @@ expectation at most `1`. It is not required to be monotone. -/
 structure IsExchangeableEMerging (F : (ι → ℝ≥0∞) → ℝ≥0∞) : Prop where
   measurable : Measurable F
   lintegral_le_one : ∀ (μ : Measure (ι → ℝ≥0∞)) [IsProbabilityMeasure μ],
-    (∀ σ : Equiv.Perm ι, μ.map (fun e ↦ e ∘ σ) = μ) → (∀ i, ∫⁻ e, e i ∂μ ≤ 1) →
+    (∀ σ : Equiv.Perm ι, μ.map (fun e i ↦ e (σ i)) = μ) → (∀ i, ∫⁻ e, e i ∂μ ≤ 1) →
     ∫⁻ e, F e ∂μ ≤ 1
 
 /-- A measurable function below a merging function for exchangeable e-values is one. -/
@@ -157,12 +158,12 @@ private lemma orbitMeasure_univ (E : Fin K → ℝ≥0∞) : orbitMeasure E Set.
 
 /-- The uniform law on an orbit is invariant under the permutations of the coordinates. -/
 private lemma map_orbitMeasure (E : Fin K → ℝ≥0∞) (τ : Equiv.Perm (Fin K)) :
-    (orbitMeasure E).map (fun e ↦ e ∘ τ) = orbitMeasure E := by
+    (orbitMeasure E).map (fun e i ↦ e (τ i)) = orbitMeasure E := by
   have hτ := measurable_comp_perm (ι := Fin K) τ
   rw [orbitMeasure, Measure.map_smul _ hτ.aemeasurable, Measure.map_finset_sum' hτ.aemeasurable]
   simp_rw [Measure.map_dirac]
   congr 1
-  exact Fintype.sum_equiv (Equiv.mulRight τ) _ _ fun σ ↦ by simp [Function.comp_def]
+  exact Fintype.sum_equiv (Equiv.mulRight τ) _ _ fun σ ↦ by simp
 
 /-- The coordinate means of the uniform law on the orbit of `E` are the mean of `E`. -/
 private lemma lintegral_apply_orbitMeasure (E : Fin K → ℝ≥0∞) (i : Fin K) :
@@ -186,7 +187,7 @@ private lemma mix_le_one_of_isExchangeableEMerging {F : (Fin K → ℝ≥0∞) �
     (h : p * ((∑ i, E i) / K) + q * ((∑ i, E' i) / K) ≤ 1) :
     p * ((∑ σ : Equiv.Perm (Fin K), F fun i ↦ E (σ i)) / K.factorial) +
       q * ((∑ σ : Equiv.Perm (Fin K), F fun i ↦ E' (σ i)) / K.factorial) ≤ 1 := by
-  have hτ : ∀ τ : Equiv.Perm (Fin K), Measurable fun e : Fin K → ℝ≥0∞ ↦ e ∘ τ :=
+  have hτ : ∀ τ : Equiv.Perm (Fin K), Measurable fun (e : Fin K → ℝ≥0∞) i ↦ e (τ i) :=
     measurable_comp_perm
   have hprob : IsProbabilityMeasure (p • orbitMeasure E + q • orbitMeasure E') :=
     ⟨by simp [orbitMeasure_univ, hpq]⟩
@@ -285,8 +286,8 @@ theorem IsExchangeableEMerging.exists_sum_perm_div_le {F : (Fin K → ℝ≥0∞
   calc A e = ENNReal.ofReal (A e).toReal := (ENNReal.ofReal_toReal (hA_top e)).symm
     _ ≤ ENNReal.ofReal (1 - l + l * (M e).toReal) := ENNReal.ofReal_le_ofReal (hl e)
     _ = (1 - ENNReal.ofReal l) + ENNReal.ofReal l * M e := by
-      rw [ENNReal.ofReal_add (by linarith) (by positivity), ENNReal.ofReal_sub _ hl₀,
-        ENNReal.ofReal_one, ENNReal.ofReal_mul hl₀, ENNReal.ofReal_toReal (hM_top e)]
+      rw [ENNReal.ofReal_add (by linarith) (by positivity)]
+      simp [ENNReal.ofReal_sub _ hl₀, ENNReal.ofReal_mul hl₀, hM_top e]
 
 /-- A measurable function whose symmetrization is at most `(1 - l) + l * mean` at every point
 with finite coordinates, for some `l ≤ 1`, is a merging function for exchangeable e-values
@@ -298,7 +299,7 @@ theorem isExchangeableEMerging_of_sum_perm_div_le {F : (Fin K → ℝ≥0∞) �
         (1 - l) + l * ((∑ i, (e i : ℝ≥0∞)) / (K : ℝ≥0∞))) :
     IsExchangeableEMerging F := by
   refine ⟨hF, fun μ hμ hexch hmean ↦ ?_⟩
-  have hτ : ∀ τ : Equiv.Perm (Fin K), Measurable fun e : Fin K → ℝ≥0∞ ↦ fun i ↦ e (τ i) :=
+  have hτ : ∀ τ : Equiv.Perm (Fin K), Measurable fun (e : Fin K → ℝ≥0∞) i ↦ e (τ i) :=
     measurable_comp_perm
   have hFτ : ∀ τ : Equiv.Perm (Fin K), Measurable fun e : Fin K → ℝ≥0∞ ↦ F fun i ↦ e (τ i) :=
     fun τ ↦ hF.comp (hτ τ)
@@ -483,7 +484,7 @@ private lemma mul_card_le_sum_apply_zero_of_runningMean [NeZero K] (β : ℝ≥0
 
 open Finset in
 /-- The symmetrization of `max (runningMeanTest β) (min_k e_k)` at `e` is at most the mean of
-`e`, in the form `∑ σ, G (e ∘ σ) ≤ ∑ σ, e (σ 0)`. -/
+`e`, in the form `∑ σ, G (fun i ↦ e (σ i)) ≤ ∑ σ, e (σ 0)`. -/
 private lemma sum_perm_max_runningMeanTest_iInf_le [NeZero K] (β : ℝ≥0∞) (e : Fin K → ℝ≥0∞) :
     ∑ σ : Equiv.Perm (Fin K), max (runningMeanTest β fun i ↦ e (σ i)) (⨅ k, e (σ k)) ≤
       ∑ σ : Equiv.Perm (Fin K), e (σ 0) := by

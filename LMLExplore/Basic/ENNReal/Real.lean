@@ -30,8 +30,7 @@ theorem ofReal_mul_add_ofReal_one_sub_mul {x y : ℝ≥0∞} (hx : x ≠ ⊤) (h
     ENNReal.ofReal p * x + ENNReal.ofReal (1 - p) * y =
       ENNReal.ofReal (p * x.toReal + (1 - p) * y.toReal) := by
   have hq : 0 ≤ 1 - p := sub_nonneg.2 hp₁
-  rw [ENNReal.ofReal_add (mul_nonneg hp₀ toReal_nonneg) (mul_nonneg hq toReal_nonneg),
-    ENNReal.ofReal_mul hp₀,
-    ENNReal.ofReal_mul hq, ENNReal.ofReal_toReal hx, ENNReal.ofReal_toReal hy]
+  rw [ENNReal.ofReal_add (mul_nonneg hp₀ toReal_nonneg) (mul_nonneg hq toReal_nonneg)]
+  simp [ENNReal.ofReal_mul, hp₀, hq, hx, hy]
 
 end ENNReal
