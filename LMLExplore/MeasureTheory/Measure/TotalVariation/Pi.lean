@@ -8,7 +8,6 @@ module
 public import Mathlib.MeasureTheory.Constructions.Pi
 public import Mathlib.MeasureTheory.Measure.TotalVariation.Defs
 
-import Mathlib.MeasureTheory.Measure.TotalVariation.Basic
 import LMLExplore.Basic.ENNReal.BigOperators
 import LMLExplore.MeasureTheory.Constructions.Pi
 import LMLExplore.MeasureTheory.Measure.TotalVariation.Basic

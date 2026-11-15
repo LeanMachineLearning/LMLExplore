@@ -138,16 +138,24 @@ private lemma exists_mem_meanZeroPosVarNull_le (ν : Measure ℝ) [IsFiniteMeasu
       Integrable (fun x : ℝ ↦ x) μ :=
     Integrable.of_bound measurable_id.aestronglyMeasurable K (by simpa using hK)
   have hPprob : IsProbabilityMeasure P := by
-    rw [isProbabilityMeasure_iff_real, hP, measureReal_add_apply, measureReal_ennreal_smul_apply,
-      hD, measureReal_add_apply, hct, ← hb_def, probReal_univ, probReal_univ]
-    ring
+    have hDuniv : D.real univ = 2 := by
+      rw [measureReal_add_apply]
+      norm_num
+    rw [isProbabilityMeasure_iff_real]
+    calc P.real univ = b + c.toReal * D.real univ := by
+          rw [measureReal_add_apply]
+          simp [b]
+    _ = 1 := by rw [hct, hDuniv]; ring
   have hmean : ∫ x, x ∂P = 0 := by
     have hDint : Integrable (fun x : ℝ ↦ x) (c • D) :=
       (integrable_id_dirac_add_dirac z).smul_measure ENNReal.ofReal_ne_top
-    rw [hP, integral_add_measure (hint hM) hDint,
-      integral_smul_measure, hD, integral_id_dirac_add_dirac, hct, hz, smul_eq_mul]
-    field_simp
-    ring
+    calc ∫ x, x ∂P = ∫ x, x ∂ν + c.toReal * ∫ x, x ∂D := by
+          rw [integral_add_measure (hint hM) hDint, integral_smul_measure, smul_eq_mul]
+    _ = ∫ x, x ∂ν + (1 - b) / 2 * (2 * z) := by rw [hct, integral_id_dirac_add_dirac]
+    _ = 0 := by
+          rw [hz]
+          field_simp
+          ring
   have hmem : MemLp id 2 P := MemLp.of_bound measurable_id.aestronglyMeasurable (max M (|z| + 1))
     (hPb.mono fun x hx ↦ by simpa [Real.norm_eq_abs] using hx)
   have hvar : 0 < variance id P := by
