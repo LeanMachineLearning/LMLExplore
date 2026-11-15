@@ -12,8 +12,9 @@ public import Mathlib.Analysis.Normed.Module.FiniteDimension
 
 On a finite-dimensional normed space over a complete field, a family of continuous linear maps
 converges in operator norm exactly when it converges at every point. This is the `Tendsto` form of
-Mathlib's `continuousAt_clm_apply`, and it upgrades pointwise limit theorems for operators, such as
-the mean ergodic theorem, to limits in operator norm.
+Mathlib's `continuousAt_clm_apply`, and its proof is that of `continuousWithinAt_clm_apply`. It
+upgrades pointwise limit theorems for operators, such as the mean ergodic theorem, to limits in
+operator norm.
 
 ## Main statements
 

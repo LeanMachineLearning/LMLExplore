@@ -28,7 +28,9 @@ long-run average reward of the chain; for a stochastic matrix it is the limiting
 
 This is the Banach-space form of the von Neumann theorem
 `ContinuousLinearMap.tendsto_birkhoffAverage_orthogonalProjection`, whose contractions are power
-bounded (`ContinuousLinearMap.IsPowerBounded.of_norm_le_one`).
+bounded (`ContinuousLinearMap.IsPowerBounded.of_norm_le_one`). The convergence to `0` on
+`closure (range (1 - T))`, by equicontinuity from the telescoping on `range (1 - T)`, follows the
+proof of Mathlib's `LinearMap.tendsto_birkhoffAverage_of_ker_subset_closure`.
 
 ## Main definitions
 
