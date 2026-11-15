@@ -289,11 +289,16 @@ private lemma compensatedExpBCF_apply (x : ℝ) (l : EReal) :
     compensatedExpBCF x l = subgaussianCompensatedExp l x :=
   rfl
 
+/-- The compensated kernel as a bounded continuous function is the section `l ↦ k (l, x)`. -/
+private lemma coe_compensatedExpBCF (x : ℝ) :
+    ⇑(compensatedExpBCF x) = fun l ↦ subgaussianCompensatedExp l x :=
+  funext (compensatedExpBCF_apply x)
+
 /-- Each section `l ↦ k (l, x)` of the compensated kernel is integrable against a finite measure
 on the extended line. -/
 theorem integrable_subgaussianCompensatedExp_left {ν : Measure EReal} [IsFiniteMeasure ν] (x : ℝ) :
-    Integrable (fun l ↦ subgaussianCompensatedExp l x) ν :=
-  (compensatedExpBCF x).integrable ν
+    Integrable (fun l ↦ subgaussianCompensatedExp l x) ν := by
+  simpa only [coe_compensatedExpBCF] using (compensatedExpBCF x).integrable ν
 
 /-- The compensated kernel is jointly measurable. -/
 theorem measurable_subgaussianCompensatedExp :
@@ -548,10 +553,12 @@ private noncomputable def compensatedExpVec (A : Finset ℝ) (θ : ℝ × Finite
   fun y ↦ θ.1 * y + ∫ l, subgaussianCompensatedExp l y ∂(θ.2 : Measure EReal)
 
 /-- The vector of the parameters depends continuously on them. -/
-private lemma continuous_compensatedExpVec (A : Finset ℝ) : Continuous (compensatedExpVec A) :=
-  continuous_pi fun y ↦ (continuous_fst.mul continuous_const).add
-    ((FiniteMeasure.continuous_integral_boundedContinuousFunction
-      (compensatedExpBCF y)).comp continuous_snd)
+private lemma continuous_compensatedExpVec (A : Finset ℝ) :
+    Continuous (compensatedExpVec A) := by
+  refine continuous_pi fun y ↦ (continuous_fst.mul continuous_const).add ?_
+  have h := FiniteMeasure.continuous_integral_boundedContinuousFunction (compensatedExpBCF y)
+  simp only [coe_compensatedExpBCF] at h
+  exact h.comp continuous_snd
 
 /-- The vector of a nonnegative combination of parameters. -/
 private lemma compensatedExpVec_add_smul (A : Finset ℝ) (θ₁ θ₂ : ℝ × FiniteMeasure EReal)
@@ -773,10 +780,11 @@ theorem exists_le_ofReal_one_add_integral_subgaussianCompensatedExp {E : ℝ →
     isCompact_Icc.prod (isCompact_setOfPred_finiteMeasure_le_of_compactSpace EReal 2)
   set t : ℝ → Set (ℝ × FiniteMeasure EReal) := fun x ↦
     {θ | (E x).toReal ≤ 1 + θ.1 * x + ∫ l, subgaussianCompensatedExp l x ∂(θ.2 : Measure EReal)}
-  have ht : ∀ x, IsClosed (t x) := fun x ↦ isClosed_le continuous_const
-    ((continuous_const.add (continuous_fst.mul continuous_const)).add
-      ((FiniteMeasure.continuous_integral_boundedContinuousFunction (compensatedExpBCF x)).comp
-        continuous_snd))
+  have ht : ∀ x, IsClosed (t x) := fun x ↦ by
+    have h := FiniteMeasure.continuous_integral_boundedContinuousFunction (compensatedExpBCF x)
+    simp only [coe_compensatedExpBCF] at h
+    exact isClosed_le continuous_const
+      ((continuous_const.add (continuous_fst.mul continuous_const)).add (h.comp continuous_snd))
   have hfip : ∀ u : Finset ℝ, (K ∩ ⋂ i ∈ u, t i).Nonempty := by
     intro u
     set A : Finset ℝ := insert 0 (insert 1 (insert (-1) u)) with hA
