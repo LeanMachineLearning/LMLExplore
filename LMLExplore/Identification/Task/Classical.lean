@@ -110,14 +110,11 @@ section BestArm
 
 variable (ν : Θ → Kernel α 𝓨) [∀ θ, IsMarkovKernel (ν θ)] (mean : Θ → ι → ℝ) {θ : Θ}
 
-/-- *Best arm identification* [GK16] on a type `Θ` of models with the mean functional
-`mean : Θ → α → ℝ`: the correct answer of a model `θ` is its arm with the largest mean
-`mean θ a`, and the admissible models are those with a unique best arm. The task on vectors of
-means is `baiTask ν id`.
-
-More generally, the answers form any type `ι`, with the value `mean θ a` of the answer `a` under
-`θ`, and the correct answer is the one with the largest value. Best arm identification is the case
-`ι = α`. -/
+/-- *Best arm identification* [GK16] on a type `Θ` of models with answers in a type `ι` and the
+mean functional `mean : Θ → ι → ℝ`: the correct answer of a model `θ` is the answer `a` with the
+largest value `mean θ a`, and the admissible models are those with a unique best answer.
+Classical best arm identification is the case `ι = α`, where `mean θ a` is the mean of the arm
+`a`; the task on vectors of means is then `baiTask ν id`. -/
 noncomputable def baiTask : IdentTask α Θ ι 𝓨 where
   M := {θ | ∃ a, ∀ b ≠ a, mean θ b < mean θ a}
   ν := ν
