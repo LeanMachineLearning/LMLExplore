@@ -5,7 +5,7 @@ Authors: LMLExplore contributors
 -/
 module
 
-public import LMLExplore.EValues.BipolarRate
+public import LMLExplore.EValues.BipolarRate.Basic
 public import LMLExplore.Probability.LargeDeviations.EmpiricalAverage
 
 /-!
