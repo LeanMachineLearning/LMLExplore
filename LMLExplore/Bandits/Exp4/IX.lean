@@ -51,6 +51,8 @@ implicit-exploration estimates [LS, Lemma 12.4] bounds the estimated regret agai
 * `LMLExplore.Bandits.exp4IXWeights adv η γ n h o`: the weights `P n = ∑ m, Q n m • adv o m` of
   Exp4-IX on the arms at round `n`, for the observation `o` of round `n`.
 * `LMLExplore.Bandits.exp4IX adv hadv η γ`: the Exp4-IX algorithm.
+* `LMLExplore.Bandits.singleAdvice`: the advice of the experts `α` that each recommend one arm,
+  expert `b` advising the Dirac mass at `b` at every observation, which gives Exp3 and Exp3-IX.
 
 ## Main statements
 
@@ -61,6 +63,10 @@ implicit-exploration estimates [LS, Lemma 12.4] bounds the estimated regret agai
 * `exp4IX_eq_of_subsingleton`: with a single expert, Exp4-IX does not depend on its parameters.
 * `Exp4IX.isAlgEnvSeq_weightAlgorithm`: a run of Exp4-IX is a run of the weight-based algorithm
   with its weights on the arms.
+* `Exp4IX.sum_exp4IXExpertWeights_mul_dotProduct_lossIwEstimator`: the `Q t`-average of the
+  estimated rewards `X̂ᴱ t` of the experts is the observed reward `Y t`.
+* `Exp4IX.sum_mul_one_sub_sq_le`: the second-order term of the estimated rewards satisfies
+  `⟨Q t, (1 - X̂ᴱ t) ^ 2⟩ ≤ (1 - Y t) ^ 2 / P t (A t)`.
 * `Exp4IX.sum_sum_mul_sub_le`: the local-norm bound of the weights of Exp4-IX on the experts,
   [LS, Lemma 18.2] for a constant rate, with nonincreasing learning rates as in
   [Ora, Section 7.5; BCB12, proof of Theorem 3.1].
@@ -88,6 +94,23 @@ namespace LMLExplore.Bandits
 
 variable {α β 𝓞 : Type*} [Fintype α] [DecidableEq α] [Fintype β] {adv : 𝓞 → β → simplex α}
   {η γ : ℕ → ℝ}
+
+section SingleAdvice
+
+/-- The advice of the experts `α` that each recommend one arm: at every observation, expert `b`
+advises the Dirac mass at `b`. Exp3 and Exp3-IX are the instances of Exp4-IX with this advice. -/
+noncomputable def singleAdvice : 𝓞 → α → simplex α :=
+  fun _ b ↦ ⟨Pi.single b 1, single_mem_simplex b⟩
+
+@[simp]
+lemma coe_singleAdvice (o : 𝓞) (b : α) : (singleAdvice o b : α → ℝ) = Pi.single b 1 := (rfl)
+
+@[fun_prop]
+lemma measurable_singleAdvice [MeasurableSpace 𝓞] :
+    Measurable (singleAdvice : 𝓞 → α → simplex α) :=
+  measurable_const
+
+end SingleAdvice
 
 section Weights
 
@@ -310,6 +333,14 @@ lemma exp4IXExpertWeights_history_eq (n : ℕ) (ω : Ω) :
 
 end History
 
+omit [Fintype β] in
+/-- The estimate `e m ⬝ᵥ X̂` of the reward of an expert `m` whose advice `e m` sums to `1`, from the
+loss-based importance-weighted estimates `X̂` of the rewards of the arms. -/
+lemma dotProduct_lossIwEstimator_advice (e : β → simplex α) (m : β) (p : α → ℝ) (b : α)
+    (y : ℝ) :
+    (e m : α → ℝ) ⬝ᵥ lossIwEstimator p b y = 1 - (e m : α → ℝ) b * (1 - y) / p b :=
+  dotProduct_lossIwEstimator (mem_simplex_iff.1 (e m).2).2
+
 namespace Exp4IX
 
 /-- A run of Exp4-IX is a run of the weight-based algorithm with the weights of Exp4-IX. -/
@@ -348,6 +379,40 @@ lemma sum_exp4IXExpertWeights_mul_dotProduct_sq_le (n : ℕ) (h : Hist 𝓞 α �
         (sq_dotProduct_le_dotProduct_sq_of_mem_simplex (adv o m).2 v) (softmax_nonneg _ m)
   _ = ∑ a, exp4IXWeights adv η γ n h o a * v a ^ 2 := by
       simp only [sum_exp4IXExpertWeights_mul_dotProduct, Pi.pow_apply]
+
+/-- The `Q`-average of the estimated rewards `adv o m ⬝ᵥ X̂` of the experts, with `Q` the weights
+of Exp4-IX on the experts and `X̂` the loss-based importance-weighted estimates of the weights `P`
+of Exp4-IX on the arms for the observation `o`, is the observed reward `y` of an arm `b` with
+`P b ≠ 0`, since it is the `P`-average of `X̂`. -/
+lemma sum_exp4IXExpertWeights_mul_dotProduct_lossIwEstimator [Nonempty β] (n : ℕ)
+    (h : Hist 𝓞 α ℝ n) (o : 𝓞) {b : α} (y : ℝ) (hb : exp4IXWeights adv η γ n h o b ≠ 0) :
+    ∑ m, exp4IXExpertWeights adv η γ n h m *
+      (adv o m : α → ℝ) ⬝ᵥ lossIwEstimator (exp4IXWeights adv η γ n h o) b y = y := by
+  rw [sum_exp4IXExpertWeights_mul_dotProduct]
+  exact sum_mul_lossIwEstimator (mem_simplex_iff.1 (exp4IXWeights_mem_simplex _ _ _)).2 hb
+
+/-- **The second-order term of the estimated rewards in Exp4-IX.** Along every sequence of
+observations `O`, actions `A` and feedbacks `Y`, with `Q t` and `P t` the weights of Exp4-IX on
+the experts and on the arms at round `t` and `X̂ᴱ t m = adv (O t) m ⬝ᵥ X̂ t` the estimated reward of
+expert `m`, for the loss-based importance-weighted estimates `X̂ t` of the weights `P t`,
+`∑ m', Q t m' * (1 - X̂ᴱ t m') ^ 2 ≤ (1 - Y t) ^ 2 / P t (A t)`. -/
+lemma sum_mul_one_sub_sq_le (t : ℕ) :
+    ∑ m', exp4IXExpertWeights adv η γ t (history O A Y t ω) m' *
+        (1 - (adv (O t ω) m' : α → ℝ) ⬝ᵥ lossIwEstimator
+          (exp4IXWeights adv η γ t (history O A Y t ω) (O t ω)) (A t ω) (Y t ω)) ^ 2 ≤
+      (1 - Y t ω) ^ 2 / exp4IXWeights adv η γ t (history O A Y t ω) (O t ω) (A t ω) := by
+  -- `1 - X̂ᴱ t m'` is the estimated loss of expert `m'` for the estimates of the losses `1 - Y t`
+  calc ∑ m', exp4IXExpertWeights adv η γ t (history O A Y t ω) m' *
+        (1 - (adv (O t ω) m' : α → ℝ) ⬝ᵥ lossIwEstimator
+          (exp4IXWeights adv η γ t (history O A Y t ω) (O t ω)) (A t ω) (Y t ω)) ^ 2
+  _ = ∑ m', exp4IXExpertWeights adv η γ t (history O A Y t ω) m' *
+        ((adv (O t ω) m' : α → ℝ) ⬝ᵥ iwEstimator
+          (exp4IXWeights adv η γ t (history O A Y t ω) (O t ω)) (A t ω) (1 - Y t ω)) ^ 2 := by
+      simp only [dotProduct_lossIwEstimator_advice, sub_sub_cancel, dotProduct_iwEstimator]
+  _ ≤ ∑ a, exp4IXWeights adv η γ t (history O A Y t ω) (O t ω) a * iwEstimator
+          (exp4IXWeights adv η γ t (history O A Y t ω) (O t ω)) (A t ω) (1 - Y t ω) a ^ 2 :=
+      sum_exp4IXExpertWeights_mul_dotProduct_sq_le _ _ _ _
+  _ = _ := sum_mul_iwEstimator_sq
 
 /-- **Pathwise regret of the weights of Exp4-IX on the experts** [LS, Lemma 18.2] for a constant
 rate; [Ora, Section 7.5; BCB12, proof of Theorem 3.1] for nonincreasing rates. Along every

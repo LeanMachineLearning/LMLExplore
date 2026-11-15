@@ -35,8 +35,6 @@ estimates `X̂ s = 1 - Ŷ s` are conditionally unbiased, and the second-order t
 
 ## Main definitions
 
-* `LMLExplore.Bandits.singleAdvice`: the advice of the experts `α` that each recommend one arm,
-  expert `b` advising the Dirac mass at `b` at every observation.
 * `LMLExplore.Bandits.exp3 η`: the Exp3 algorithm with learning rate `η`, the instance of Exp4-IX
   with one expert per arm, the constant learning rate `η` and `γ = 0`.
 
@@ -76,19 +74,6 @@ variable {α 𝓞 : Type*} [Fintype α] [DecidableEq α]
 
 section Single
 
-/-- The advice of the experts `α` that each recommend one arm: at every observation, expert `b`
-advises the Dirac mass at `b`. Exp3 and Exp3-IX are the instances of Exp4-IX with this advice. -/
-noncomputable def singleAdvice : 𝓞 → α → simplex α :=
-  fun _ b ↦ ⟨Pi.single b 1, single_mem_simplex b⟩
-
-@[simp]
-lemma coe_singleAdvice (o : 𝓞) (b : α) : (singleAdvice o b : α → ℝ) = Pi.single b 1 := (rfl)
-
-@[fun_prop]
-lemma measurable_singleAdvice [MeasurableSpace 𝓞] :
-    Measurable (singleAdvice : 𝓞 → α → simplex α) :=
-  measurable_const
-
 variable {η γ : ℕ → ℝ}
 
 /-- With the experts `α` that each recommend one arm (expert `b` advises the Dirac mass at `b`),
@@ -96,7 +81,7 @@ the weights of Exp4-IX on the arms are its weights on the experts, at every obse
 @[simp]
 lemma exp4IXWeights_single (n : ℕ) (h : Hist 𝓞 α ℝ n) (o : 𝓞) :
     exp4IXWeights singleAdvice η γ n h o = exp4IXExpertWeights singleAdvice η γ n h := by
-  rw [exp4IXWeights_def]
+  simp only [exp4IXWeights_def, coe_singleAdvice]
   exact (pi_eq_sum_univ' _).symm
 
 /-- With the experts `α` that each recommend one arm, every arm has positive weight in Exp4-IX. -/
