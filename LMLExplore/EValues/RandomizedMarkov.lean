@@ -37,7 +37,7 @@ in `ℝ≥0∞`, with `p / 0 = ∞` for `p ≠ 0` and `p / ∞ = 0`.
 * `ProbabilityTheory.IsPVar.measure_le_le_lintegral_min`,
   `ProbabilityTheory.IsExactPVar.measure_le_eq_lintegral_min`: for `Z` independent of a
   p-variable `p`, `P {p ≤ Z} ≤ ∫⁻ min Z 1 ∂P`, with equality when `p` is exact.
-* `ProbabilityTheory.measure_le_mul_eq_lintegral_min`: for `U` uniform on `[0, 1]` and
+* `ProbabilityTheory.measure_ofReal_le_mul_eq_lintegral_min`: for `U` uniform on `[0, 1]` and
   independent of `Y`, `P {U ≤ α * Y} = ∫⁻ min (α * Y) 1 ∂P` [RW, Theorem 2.9].
 * `ProbabilityTheory.IsPVar.measure_le_mul_le_mul_lintegral`: **the randomized Markov
   inequality**, `P {p ≤ α * Y} ≤ α * ∫⁻ Y ∂P` for `Y` independent of a p-variable `p`, in
@@ -69,10 +69,10 @@ variable {Ω : Type*} {mΩ : MeasurableSpace Ω} {S : Set (Measure Ω)} {P : Mea
 private theorem measure_le_eq_lintegral_of_indepFun [IsFiniteMeasure P] (hp : Measurable p)
     (hZ : Measurable Z) (hpZ : IndepFun p Z P) :
     P {ω | p ω ≤ Z ω} = ∫⁻ ω, P {ω' | p ω' ≤ Z ω} ∂P :=
-  hpZ.measure_prodMk_mem_eq_lintegral hp hZ (s := {x | x.1 ≤ x.2})
+  hpZ.measure_prodMk_mem_eq_lintegral hp.aemeasurable hZ.aemeasurable (s := {x | x.1 ≤ x.2})
     (measurableSet_le measurable_fst measurable_snd)
 
-/-- A p-variable `p` exceeds an independent threshold `Z` with probability at most
+/-- A p-variable `p` is at most an independent threshold `Z` with probability at most
 `∫⁻ min Z 1 ∂P`: the randomized test that rejects when `p ≤ Z` has the size of the
 `[0, 1]`-valued test `min Z 1`. -/
 theorem IsPVar.measure_le_le_lintegral_min (hp : IsPVar p S) (hP : P ∈ S)
@@ -92,7 +92,7 @@ theorem IsExactPVar.measure_le_eq_lintegral_min (hp : IsExactPVar p S) (hP : P �
 independent of a measurable `Y : Ω → ℝ≥0∞`, the randomized test that rejects when `U ≤ α * Y` has
 rejection probability `∫⁻ min (α * Y) 1 ∂P`, the expectation of the `[0, 1]`-valued test
 `min (α * Y) 1`. -/
-theorem measure_le_mul_eq_lintegral_min (hY : Measurable Y) {U : Ω → ℝ} (hU : Measurable U)
+theorem measure_ofReal_le_mul_eq_lintegral_min (hY : Measurable Y) {U : Ω → ℝ} (hU : Measurable U)
     (hU_law : P.map U = volume.restrict (Icc 0 1)) (hUY : IndepFun U Y P) (α : ℝ≥0∞) :
     P {ω | ENNReal.ofReal (U ω) ≤ α * Y ω} = ∫⁻ ω, min (α * Y ω) 1 ∂P := by
   have := isProbabilityMeasure_of_map_eq_volume_restrict_Icc hU.aemeasurable hU_law
