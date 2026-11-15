@@ -250,16 +250,18 @@ private theorem withDensity_inv_mem_of_lintegral_div_le_one {𝓔₀ : Set (Ω �
 
 /-- **Generated nulls** [LRR25, Corollary 4.2]. Let `S` contain every probability measure under
 which each member of a family `𝓔₀` has expectation at most `1`, and let every measurable set
-charged by the probability measure `Q` be charged by some member of `S`. A `Q`-almost surely
-positive e-variable `X` for `S` with `∫⁻ X⁻¹ ∂Q = 1` and `∫⁻ Y / X ∂Q ≤ 1` for every `Y ∈ 𝓔₀` is
-the numeraire of `S` under `Q`. -/
+charged by the probability measure `Q` be charged by some member of `S`. An e-variable `X` for
+`S` with `∫⁻ X⁻¹ ∂Q = 1` and `∫⁻ Y / X ∂Q ≤ 1` for every `Y ∈ 𝓔₀` is the numeraire of `S`
+under `Q`; the first condition forces `X` to be `Q`-almost surely positive. -/
 theorem isNumeraire_of_lintegral_div_le_one [IsProbabilityMeasure Q] {𝓔₀ : Set (Ω → ℝ≥0∞)}
     (h𝓔₀ : ∀ Y ∈ 𝓔₀, Measurable Y)
     (hS : ∀ P : Measure Ω, IsProbabilityMeasure P → (∀ Y ∈ 𝓔₀, ∫⁻ ω, Y ω ∂P ≤ 1) → P ∈ S)
     (hQS : ∀ s, MeasurableSet s → (∀ P ∈ S, P s = 0) → Q s = 0) (hX : IsEVar X S)
-    (hX₀ : ∀ᵐ ω ∂Q, X ω ≠ 0) (h_one : ∫⁻ ω, (X ω)⁻¹ ∂Q = 1)
-    (h_le : ∀ Y ∈ 𝓔₀, ∫⁻ ω, Y ω / X ω ∂Q ≤ 1) :
+    (h_one : ∫⁻ ω, (X ω)⁻¹ ∂Q = 1) (h_le : ∀ Y ∈ 𝓔₀, ∫⁻ ω, Y ω / X ω ∂Q ≤ 1) :
     IsNumeraire X S Q := by
+  have hX₀ : ∀ᵐ ω ∂Q, X ω ≠ 0 :=
+    (ae_lt_top hX.measurable.inv (h_one ▸ ENNReal.one_ne_top)).mono
+      fun ω h ↦ (ENNReal.inv_lt_top.mp h).ne'
   have hmem := withDensity_inv_mem_of_lintegral_div_le_one h𝓔₀ hS hX.measurable h_one h_le
   refine (isNumeraire_iff_withDensity_inv_mem_effectiveSet hQS hX hX₀).mpr fun Y hY ↦ ?_
   refine (hY.lintegral_le_measure_univ _ hmem).trans_eq ?_
@@ -273,10 +275,9 @@ theorem ripr_mem_of_lintegral_div_le_one [IsProbabilityMeasure Q] {𝓔₀ : Set
     (hS : ∀ P : Measure Ω, IsProbabilityMeasure P → (∀ Y ∈ 𝓔₀, ∫⁻ ω, Y ω ∂P ≤ 1) → P ∈ S)
     (hS_fin : ∀ P ∈ S, IsFiniteMeasure P)
     (hQS : ∀ s, MeasurableSet s → (∀ P ∈ S, P s = 0) → Q s = 0) (hX : IsEVar X S)
-    (hX₀ : ∀ᵐ ω ∂Q, X ω ≠ 0) (h_one : ∫⁻ ω, (X ω)⁻¹ ∂Q = 1)
-    (h_le : ∀ Y ∈ 𝓔₀, ∫⁻ ω, Y ω / X ω ∂Q ≤ 1) :
+    (h_one : ∫⁻ ω, (X ω)⁻¹ ∂Q = 1) (h_le : ∀ Y ∈ 𝓔₀, ∫⁻ ω, Y ω / X ω ∂Q ≤ 1) :
     ripr Q S ∈ S := by
-  rw [(isNumeraire_of_lintegral_div_le_one h𝓔₀ hS hQS hX hX₀ h_one h_le).ripr_eq hS_fin]
+  rw [(isNumeraire_of_lintegral_div_le_one h𝓔₀ hS hQS hX h_one h_le).ripr_eq hS_fin]
   exact withDensity_inv_mem_of_lintegral_div_le_one h𝓔₀ hS hX.measurable h_one h_le
 
 /-! ### Simple nulls: likelihood ratios -/
