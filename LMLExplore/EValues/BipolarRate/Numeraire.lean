@@ -6,9 +6,9 @@ Authors: LMLExplore contributors
 module
 
 public import LMLExplore.EValues.BipolarRate.EProcess
+public import LMLExplore.Probability.ProductMeasure.Blocks
 import LMLExplore.Analysis.SpecialFunctions.Log.ENNRealLog
 import LMLExplore.EValues.BipolarRate.AlmostSure
-import LMLExplore.Probability.ProductMeasure.Blocks
 import Statlib.ForMathlib.MeasureTheory.Integral.EReal.Bochner
 
 /-!
@@ -50,6 +50,9 @@ The upper bound `limsup (1/n) log (X* n) ≤ d` holds for every sequence of `n`-
   `ProbabilityTheory.ae_eventually_log_le_log_numeraire_add_of_dependsOn`: the comparison of
   `n`-sample e-variables, and of functions of the first `n` observations with mean at most `1`
   under the null, with the numeraire.
+* `ProbabilityTheory.exists_ae_eventually_mul_le_log_seqBlockProd_numeraire`: the products over
+  blocks of length `m` of the numeraire of the `m`-sample null attain every rate below the bipolar
+  rate almost surely [RR26, Theorem 3.5].
 * `ProbabilityTheory.ae_bipolarRate_le_liminf_log_div_of_forall_ae_eventually_log_le`: a sequence
   that keeps up with every such sequence, up to a factor `exp (n ε)` for every `ε > 0`, has
   `liminf (1/n) log ≥ d` almost surely.
@@ -336,24 +339,26 @@ theorem ae_eventually_log_le_log_numeraire_add_of_dependsOn (Q₁ : Measure 𝓧
 
 /-! ### The almost sure lower bound -/
 
-/-- The almost sure lower bound for a fixed real `L` below the bipolar rate: almost surely,
-eventually `n L ≤ log (T n)`. Pick `m` with `maxLogGrowth Q₁ S₁ m > m L`, truncate the logarithm
-of the numeraire of `m` observations from above at a level where its mean still exceeds `m L`,
-and apply the strong law of large numbers along the blocks of `m` observations to the product of
-the numeraire over the blocks, which `T` keeps up with. -/
-private lemma ae_eventually_mul_le_log_of_forall_ae_eventually_log_le (Q₁ : Measure 𝓧)
-    [IsProbabilityMeasure Q₁] (hS₁ : ∀ P ∈ S₁, IsProbabilityMeasure P)
-    {T : ℕ → (ℕ → 𝓧) → ℝ≥0∞}
-    (hT : ∀ F : ℕ → (ℕ → 𝓧) → ℝ≥0∞, (∀ n, Measurable (F n)) →
-      (∀ n, DependsOn (F n) (Set.Iio n)) →
-      (∀ P ∈ S₁, ∀ n, ∫⁻ ω, F n ω ∂Measure.infinitePi (fun _ : ℕ ↦ P) ≤ 1) →
-      ∀ ε : ℝ, 0 < ε → ∀ᵐ ω ∂Measure.infinitePi (fun _ : ℕ ↦ Q₁), ∀ᶠ n : ℕ in atTop,
-        ENNReal.log (F n ω) ≤ ENNReal.log (T n ω) + ((n * ε : ℝ) : EReal))
-    {L : ℝ} (hL : (L : EReal) < bipolarRate Q₁ S₁) :
-    ∀ᵐ ω ∂Measure.infinitePi (fun _ : ℕ ↦ Q₁), ∀ᶠ n : ℕ in atTop,
-      ((n * L : ℝ) : EReal) ≤ ENNReal.log (T n ω) := by
+/-- **Products over blocks of the numeraires attain every rate below the bipolar rate.** For a
+real `L` below `bipolarRate Q₁ S₁` there is a block length `m ≠ 0` such that, almost surely under
+the i.i.d. law of `Q₁`, eventually `n L ≤ log` of the product of the numeraire `X* m` of the
+`m`-sample null under `Q₁ ^ m` over the `n / m` complete blocks among the first `n` observations
+[RR26, Theorem 3.5]. Pick `m` with `maxLogGrowth Q₁ S₁ m > m L`, truncate the logarithm of `X* m`
+from above at a level where its mean still exceeds `m L`, and apply the strong law of large
+numbers along the blocks. If `Q₁` is not a probability measure, its i.i.d. law is `0` and the
+statement holds trivially. -/
+theorem exists_ae_eventually_mul_le_log_seqBlockProd_numeraire (Q₁ : Measure 𝓧)
+    (hS₁ : ∀ P ∈ S₁, IsProbabilityMeasure P) {L : ℝ} (hL : (L : EReal) < bipolarRate Q₁ S₁) :
+    ∃ m ≠ 0, ∀ᵐ ω ∂Measure.infinitePi (fun _ : ℕ ↦ Q₁), ∀ᶠ n : ℕ in atTop,
+      ((n * L : ℝ) : EReal) ≤ ENNReal.log (seqBlockProd m
+        (numeraire (Measure.pi fun _ : Fin m ↦ Q₁) ((fun P ↦ Measure.pi fun _ : Fin m ↦ P) '' S₁))
+        (n / m) ω) := by
   rw [bipolarRate_def] at hL
   obtain ⟨k, hk⟩ := lt_iSup_iff.1 hL
+  refine ⟨k + 1, k.succ_ne_zero, ?_⟩
+  by_cases hQ : IsProbabilityMeasure Q₁
+  swap
+  · exact Measure.ae_infinitePi_of_not_isProbabilityMeasure (i := 0) hQ
   set m := k + 1
   have hm : m ≠ 0 := k.succ_ne_zero
   have hm0 : (0 : ℝ) < m := by exact_mod_cast Nat.pos_of_ne_zero hm
@@ -374,36 +379,53 @@ private lemma ae_eventually_mul_le_log_of_forall_ae_eventually_log_le (Q₁ : Me
   obtain ⟨c, hgi, hgint⟩ := exists_integrable_truncLog_lt_integral hEm hnum.ae_ne_zero
     (lintegral_toENNReal_neg_ne_top_of_eintegral_ne_bot hnum.eintegral_log_ne_bot) hmL
   set g : (Fin m → 𝓧) → ℝ := fun x ↦ truncLog c (Em x)
-  set ε := (((m : ℝ)⁻¹ * ∫ x, g x ∂Measure.pi fun _ : Fin m ↦ Q₁) - L) / 2 with hε_def
-  have hlt : L < (m : ℝ)⁻¹ * ∫ x, g x ∂Measure.pi fun _ : Fin m ↦ Q₁ := by
-    rw [← div_eq_inv_mul, lt_div_iff₀ hm0]
+  have hlt : L < (m : ℝ)⁻¹ • ∫ x, g x ∂Measure.pi fun _ : Fin m ↦ Q₁ := by
+    rw [smul_eq_mul, ← div_eq_inv_mul, lt_div_iff₀ hm0]
     linarith
-  have hε : 0 < ε := by
-    rw [hε_def]
-    linarith
-  -- the three almost sure events: the strong law along blocks, the comparison of `T` with the
-  -- product of the numeraire over blocks, and the nonzero factors
+  -- the strong law along blocks, and the nonzero factors
   have h1 := strong_law_ae_seqBlock_nat_div Q₁ hm hgi
+  have h2 : ∀ᵐ ω ∂Measure.infinitePi (fun _ : ℕ ↦ Q₁), ∀ j, Em (seqBlock m j ω) ≠ 0 :=
+    ae_all_iff.2 fun j ↦ (measurePreserving_seqBlock (fun _ ↦ Q₁) m j).quasiMeasurePreserving.ae
+      hnum.ae_ne_zero
+  filter_upwards [h1, h2] with ω hω1 hω2
+  filter_upwards [hω1.eventually (lt_mem_nhds hlt), eventually_ge_atTop 1] with n hn1 hn
+  have hn0 : (0 : ℝ) < n := by exact_mod_cast hn
+  rw [smul_eq_mul, ← div_eq_inv_mul, lt_div_iff₀ hn0] at hn1
+  refine le_trans ?_ (sum_truncLog_le_log_seqBlockProd c (n / m) hω2)
+  exact EReal.coe_le_coe_iff.2 (by linarith)
+
+/-- The almost sure lower bound for a fixed real `L` below the bipolar rate: almost surely,
+eventually `n L ≤ log (T n)`. For a real `L'` between `L` and the bipolar rate, the products over
+blocks of the numeraire grow at least at the rate `L'`
+(`exists_ae_eventually_mul_le_log_seqBlockProd_numeraire`), and `T` keeps up with them up to a
+factor `exp (n (L' - L))`. -/
+private lemma ae_eventually_mul_le_log_of_forall_ae_eventually_log_le (Q₁ : Measure 𝓧)
+    (hS₁ : ∀ P ∈ S₁, IsProbabilityMeasure P)
+    {T : ℕ → (ℕ → 𝓧) → ℝ≥0∞}
+    (hT : ∀ F : ℕ → (ℕ → 𝓧) → ℝ≥0∞, (∀ n, Measurable (F n)) →
+      (∀ n, DependsOn (F n) (Set.Iio n)) →
+      (∀ P ∈ S₁, ∀ n, ∫⁻ ω, F n ω ∂Measure.infinitePi (fun _ : ℕ ↦ P) ≤ 1) →
+      ∀ ε : ℝ, 0 < ε → ∀ᵐ ω ∂Measure.infinitePi (fun _ : ℕ ↦ Q₁), ∀ᶠ n : ℕ in atTop,
+        ENNReal.log (F n ω) ≤ ENNReal.log (T n ω) + ((n * ε : ℝ) : EReal))
+    {L : ℝ} (hL : (L : EReal) < bipolarRate Q₁ S₁) :
+    ∀ᵐ ω ∂Measure.infinitePi (fun _ : ℕ ↦ Q₁), ∀ᶠ n : ℕ in atTop,
+      ((n * L : ℝ) : EReal) ≤ ENNReal.log (T n ω) := by
+  obtain ⟨L', hLL', hL'⟩ := EReal.lt_iff_exists_real_btwn.1 hL
+  obtain ⟨m, -, h1⟩ := exists_ae_eventually_mul_le_log_seqBlockProd_numeraire Q₁ hS₁ hL'
+  set Em := numeraire (Measure.pi fun _ : Fin m ↦ Q₁)
+    ((fun P ↦ Measure.pi fun _ : Fin m ↦ P) '' S₁)
+  have hEm : Measurable Em := measurable_numeraire _ _
+  -- `T` keeps up with the product of the numeraire over blocks
   have h2 := hT (fun n ↦ seqBlockProd m Em (n / m)) (fun n ↦ measurable_seqBlockProd hEm _)
     (fun n ↦ (dependsOn_seqBlockProd Em _).mono (Set.Iio_subset_Iio (Nat.div_mul_le_self n m)))
     (fun P hP n ↦ by
       have := hS₁ P hP
       rw [lintegral_seqBlockProd P hEm]
       exact pow_le_one₀ (by positivity) ((isEVar_numeraire _ _).lintegral_le_one ⟨P, hP, rfl⟩))
-    ε hε
-  have h3 : ∀ᵐ ω ∂Measure.infinitePi (fun _ : ℕ ↦ Q₁), ∀ j, Em (seqBlock m j ω) ≠ 0 :=
-    ae_all_iff.2 fun j ↦ (measurePreserving_seqBlock (fun _ ↦ Q₁) m j).quasiMeasurePreserving.ae
-      hnum.ae_ne_zero
-  filter_upwards [h1, h2, h3] with ω hω1 hω2 hω3
-  have hlim : L + ε < (m : ℝ)⁻¹ • ∫ x, g x ∂Measure.pi fun _ : Fin m ↦ Q₁ := by
-    rw [smul_eq_mul, hε_def]
-    linarith
-  filter_upwards [hω2, hω1.eventually (lt_mem_nhds hlim), eventually_ge_atTop 1]
-    with n hn2 hn1 hn
-  have hn0 : (0 : ℝ) < n := by exact_mod_cast hn
-  rw [smul_eq_mul, ← div_eq_inv_mul, lt_div_iff₀ hn0] at hn1
-  refine coe_le_of_coe_le_add ((sum_truncLog_le_log_seqBlockProd c (n / m) hω3).trans hn2) ?_
-  nlinarith
+    (L' - L) (sub_pos.2 (EReal.coe_lt_coe_iff.1 hLL'))
+  filter_upwards [h1, h2] with ω hω1 hω2
+  filter_upwards [hω1, hω2] with n hn1 hn2
+  exact coe_le_of_coe_le_add (hn1.trans hn2) (le_of_eq (by ring))
 
 /-- **A sequence that keeps up with every sequence of bets grows at least at the bipolar rate.**
 Let `T n` be functions of the observations such that, for every sequence of measurable functions
