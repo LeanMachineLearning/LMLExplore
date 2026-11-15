@@ -9,6 +9,8 @@ public import LMLExplore.EValues.EffectiveSet.TotalVariation
 public import LMLExplore.EValues.EProcess
 public import Mathlib.Probability.Moments.Variance
 
+import LMLExplore.MeasureTheory.Constructions.BorelSpace.Real
+
 /-!
 # The mean-zero null: e-variables without power
 
@@ -165,17 +167,6 @@ private lemma exists_mem_meanZeroPosVarNull_le (ν : Measure ℝ) [IsFiniteMeasu
     simp only [id_eq, hmean] at h
     exact h
   exact ⟨P, ⟨hPprob, hmem, hmean, hvar⟩, Measure.le_add_right le_rfl⟩
-
-/-- A probability measure on `ℝ` gives a mass more than `1 - δ` to some interval `[-M, M]`. -/
-private lemma exists_one_sub_lt_measure_Icc (Q : Measure ℝ) [IsProbabilityMeasure Q] {δ : ℝ≥0∞}
-    (hδ : δ ≠ 0) : ∃ M : ℕ, 1 - δ < Q (Icc (-(M : ℝ)) M) := by
-  have hU : (⋃ M : ℕ, Icc (-(M : ℝ)) M) = univ :=
-    eq_univ_of_forall fun x ↦ mem_iUnion.2 ⟨⌈|x|⌉₊, abs_le.1 (Nat.le_ceil _)⟩
-  have htend := tendsto_measure_iUnion_atTop (μ := Q) (s := fun M : ℕ ↦ Icc (-(M : ℝ)) M)
-    fun m n hmn ↦ Icc_subset_Icc (by simpa using hmn) (by simpa using hmn)
-  rw [hU, measure_univ] at htend
-  exact (htend.eventually (lt_mem_nhds
-    (ENNReal.sub_lt_self ENNReal.one_ne_top one_ne_zero hδ))).exists
 
 /-- **The null `meanZeroPosVarNull` is dense in total variation**: every probability measure on
 `ℝ` is a limit in total variation of laws with mean `0` and a finite, positive variance. -/

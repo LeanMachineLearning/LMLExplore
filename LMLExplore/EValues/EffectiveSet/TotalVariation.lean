@@ -201,6 +201,14 @@ theorem isEVar_infinitePi_iff_of_forall_exists_etvDist_dirac_lt {ι : Type*} [Co
 
 variable {ι : Type*} [Fintype ι] {Q : Measure 𝓧}
 
+/-- The i.i.d. laws `P ^ ι` of the members `P` of a null of probability measures are probability
+measures. -/
+private lemma isProbabilityMeasure_of_mem_image_pi (hS : ∀ P ∈ S, IsProbabilityMeasure P) :
+    ∀ R ∈ (fun P ↦ Measure.pi fun _ : ι ↦ P) '' S, IsProbabilityMeasure R := by
+  rintro _ ⟨P, hP, rfl⟩
+  have := hS P hP
+  infer_instance
+
 /-- If `Q` is a limit in total variation of members of a null `S` of probability measures, then
 `Q ^ ι` is a limit in total variation of the products `P ^ ι` of members of `S`. -/
 private lemma exists_etvDist_pi_lt (hS : ∀ P ∈ S, IsProbabilityMeasure P)
@@ -209,8 +217,8 @@ private lemma exists_etvDist_pi_lt (hS : ∀ P ∈ S, IsProbabilityMeasure P)
   obtain ⟨P, hP, hPQ⟩ := hQ (ε / Fintype.card ι)
     (ENNReal.div_pos hε.ne' (ENNReal.natCast_ne_top _))
   have := hS P hP
-  refine ⟨P, hP, (etvDist_pi_le_sum _ _).trans_lt ?_⟩
-  rw [Finset.sum_const, Finset.card_univ, nsmul_eq_mul, mul_comm]
+  refine ⟨P, hP, (etvDist_pi_const_le_card_mul P Q).trans_lt ?_⟩
+  rw [mul_comm]
   exact (ENNReal.lt_div_iff_mul_lt (.inr (etvDist_ne_top _ _))
     (.inl (ENNReal.natCast_ne_top _))).1 hPQ
 
@@ -222,10 +230,9 @@ theorem pi_mem_effectiveSet_of_forall_exists_etvDist_lt (hS : ∀ P ∈ S, IsPro
     (hQ : ∀ ε > 0, ∃ P ∈ S, etvDist P Q < ε) :
     Measure.pi (fun _ : ι ↦ Q) ∈ effectiveSet ((fun P ↦ Measure.pi fun _ : ι ↦ P) '' S) := by
   have := isProbabilityMeasure_of_forall_exists_etvDist_lt hS hQ
-  refine mem_effectiveSet_of_forall_exists_mem_etvDist_lt ?_ fun ε hε ↦ ?_
-  · rintro _ ⟨P, hP, rfl⟩
-    have := hS P hP
-    simp
+  refine mem_effectiveSet_of_forall_exists_mem_etvDist_lt (fun R hR ↦ ?_) fun ε hε ↦ ?_
+  · have := isProbabilityMeasure_of_mem_image_pi hS R hR
+    exact prob_le_one
   · obtain ⟨P, hP, hPQ⟩ := exists_etvDist_pi_lt (ι := ι) hS hQ hε
     exact ⟨_, ⟨P, hP, rfl⟩, hPQ⟩
 
@@ -238,14 +245,11 @@ theorem isEVar_pi_iff_of_forall_exists_etvDist_lt (hS : ∀ P ∈ S, IsProbabili
     {X : (ι → 𝓧) → ℝ≥0∞} :
     IsEVar X ((fun P ↦ Measure.pi fun _ : ι ↦ P) '' S) ↔
       IsEVar X ((fun P ↦ Measure.pi fun _ : ι ↦ P) '' {P | IsProbabilityMeasure P}) := by
-  refine ⟨fun hX ↦ .of_lintegral_le_one ?_ hX.measurable ?_,
-    fun hX ↦ hX.anti_set (image_mono fun P hP ↦ hS P hP)⟩
-  · rintro _ ⟨Q, hQ, rfl⟩
-    have : IsProbabilityMeasure Q := hQ
-    infer_instance
-  · rintro _ ⟨Q, hQ, rfl⟩
-    have : IsProbabilityMeasure Q := hQ
-    exact pi_mem_effectiveSet_of_forall_exists_etvDist_lt hS (hdense Q hQ) X hX
+  refine ⟨fun hX ↦ .of_lintegral_le_one (isProbabilityMeasure_of_mem_image_pi fun _ hP ↦ hP)
+    hX.measurable ?_, fun hX ↦ hX.anti_set (image_mono fun P hP ↦ hS P hP)⟩
+  rintro _ ⟨Q, hQ, rfl⟩
+  have : IsProbabilityMeasure Q := hQ
+  exact pi_mem_effectiveSet_of_forall_exists_etvDist_lt hS (hdense Q hQ) X hX
 
 /-- **No power against a limit in total variation.** If a probability measure `Q` is a limit in
 total variation of members of a null `S` of probability measures, a measurable set of `ι`
@@ -269,12 +273,10 @@ theorem maxLogGrowth_eq_zero_of_forall_exists_etvDist_lt (hS : ∀ P ∈ S, IsPr
   have := isProbabilityMeasure_of_forall_exists_etvDist_lt hS hQ
   refine le_antisymm ?_ (maxLogGrowth_nonneg _ _ _)
   rw [maxLogGrowth_def]
-  refine (maxUtility_le_klIntegral_of_mem_effectiveSet ?_
+  refine (maxUtility_le_klIntegral_of_mem_effectiveSet
+    (fun R hR ↦ have := isProbabilityMeasure_of_mem_image_pi hS R hR; inferInstance)
     (pi_mem_effectiveSet_of_forall_exists_etvDist_lt hS hQ)).trans_eq ?_
-  · rintro _ ⟨P, hP, rfl⟩
-    have := hS P hP
-    infer_instance
-  · rw [klIntegral_eq_klDiv rfl, klDiv_self, EReal.coe_ennreal_zero]
+  rw [klIntegral_eq_klDiv rfl, klDiv_self, EReal.coe_ennreal_zero]
 
 /-- **The bipolar rate against a limit in total variation is zero.** If a probability measure `Q`
 is a limit in total variation of members of a null `S` of probability measures, the optimal growth

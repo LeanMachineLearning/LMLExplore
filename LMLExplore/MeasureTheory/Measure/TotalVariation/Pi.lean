@@ -30,6 +30,8 @@ total variation converge to the `n`-fold product of `ν`.
 
 * `MeasureTheory.etvDist_pi_le_sum`: the total variation distance between products of
   probability measures is at most the sum of the distances between the factors.
+* `MeasureTheory.etvDist_pi_const_le_card_mul`: the distance between the `ι`-fold products of two
+  probability measures is at most `Fintype.card ι` times the distance between them.
 
 ## Implementation notes
 
@@ -68,7 +70,6 @@ theorem etvDist_pi_le_sum (μ ν : ∀ i, Measure (X i)) [∀ i, IsProbabilityMe
     etvDist (Measure.pi μ) (Measure.pi ν) ≤ ∑ i, etvDist (μ i) (ν i) := by
   choose ρ hρμ hρν hρ using fun i ↦ exists_le_le_add_etvDist (μ i) (ν i)
   have (i : ι) : IsFiniteMeasure (ρ i) := isFiniteMeasure_of_le (μ i) (hρμ i)
-  have hm (i : ι) : ρ i univ ≤ 1 := (hρμ i univ).trans prob_le_one
   calc etvDist (Measure.pi μ) (Measure.pi ν)
   _ ≤ etvDist (Measure.pi μ) (Measure.pi ρ) + etvDist (Measure.pi ρ) (Measure.pi ν) :=
     etvDist_triangle _ _ _
@@ -76,11 +77,19 @@ theorem etvDist_pi_le_sum (μ ν : ∀ i, Measure (X i)) [∀ i, IsProbabilityMe
     rw [etvDist_of_ge (Measure.pi_mono hρμ), etvDist_of_le (Measure.pi_mono hρν)]
     simp [Measure.pi_univ, two_mul]
   _ ≤ 2 * ∑ i, (1 - ρ i univ) := by
-    gcongr; exact ENNReal.one_sub_prod_le_sum_one_sub _ fun i _ ↦ hm i
+    gcongr; exact ENNReal.one_sub_prod_le_sum_one_sub _ _
   _ = ∑ i, 2 * (1 - ρ i univ) := Finset.mul_sum _ _ _
   _ ≤ ∑ i, etvDist (μ i) (ν i) := by
     gcongr with i
     rw [ENNReal.mul_sub fun _ _ ↦ ENNReal.ofNat_ne_top, mul_one, tsub_le_iff_left]
     simpa [one_add_one_eq_two] using (hρ i).le
+
+/-- **Total variation distance between i.i.d. products.** The distance between the `ι`-fold
+products of two probability measures `μ` and `ν` is at most `Fintype.card ι * etvDist μ ν`. -/
+theorem etvDist_pi_const_le_card_mul {Y : Type*} {mY : MeasurableSpace Y} (μ ν : Measure Y)
+    [IsProbabilityMeasure μ] [IsProbabilityMeasure ν] :
+    etvDist (Measure.pi fun _ : ι ↦ μ) (Measure.pi fun _ : ι ↦ ν) ≤
+      Fintype.card ι * etvDist μ ν :=
+  (etvDist_pi_le_sum _ _).trans_eq (by simp)
 
 end MeasureTheory
