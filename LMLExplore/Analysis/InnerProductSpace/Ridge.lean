@@ -6,6 +6,7 @@ Authors: LMLExplore contributors
 module
 
 public import LMLExplore.Analysis.InnerProductSpace.DesignOperator
+public import LMLExplore.MeasureTheory.Constructions.BorelSpace.RingInverse
 
 /-!
 # Regularized least squares
@@ -201,5 +202,22 @@ theorem abs_inner_ridgeEstimate_sub_le (hlam : 0 < lam) (x : ℕ → E) (y : ℕ
   ((isPositive_designOp_smul_one hlam.le x t).abs_inner_le_sqrt_mul_sqrt_ringInverse
     (isUnit_designOp_smul_one hlam x t) _ v).trans
       (mul_le_mul_of_nonneg_right hθ (Real.sqrt_nonneg _))
+
+section Measurable
+
+variable [FiniteDimensional ℝ E] [MeasurableSpace E] [BorelSpace E] {β : Type*}
+  {mβ : MeasurableSpace β} {x : β → ℕ → E} {y : β → ℕ → ℝ}
+
+/-- In finite dimension, the ridge estimate `θ̂_t` of measurable families of covariates and
+responses is measurable. -/
+@[fun_prop]
+theorem _root_.Measurable.ridgeEstimate (hx : Measurable x) (hy : Measurable y) (lam : ℝ)
+    (t : ℕ) : Measurable fun b ↦ ridgeEstimate lam (x b) (y b) t := by
+  simp_rw [ridgeEstimate_def]
+  refine isBoundedBilinearMap_apply.continuous.measurable2 (hx.designOp (lam • 1) t).ringInverse
+    (Finset.measurable_sum _ fun s _ ↦ ?_)
+  exact ((measurable_pi_apply s).comp hy).smul ((measurable_pi_apply s).comp hx)
+
+end Measurable
 
 end LMLExplore

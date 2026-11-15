@@ -156,9 +156,9 @@ within a factor `2` of the complexity `H(μ) = ∑ c, 2 σ2 / Δ_c²`, where `Δ
 * `LMLExplore.Identification.le_charTime_baiTask_gaussianBandit`,
   `LMLExplore.Identification.charTime_baiTask_gaussianBandit_le`: for Gaussian arms with variance
   `σ2 ≠ 0` and a unique best arm, `H(μ) ≤ T*(μ) ≤ 2 H(μ)` [GK16, Section 2.2].
-* `LMLExplore.Identification.charTime_baiTask_gaussianBandit_ne_zero`,
-  `LMLExplore.Identification.charTime_baiTask_gaussianBandit_ne_top`: for Gaussian arms with
-  variance `σ2 ≠ 0`, a unique best arm and at least two arms, `0 < T*(μ) < ∞`.
+* `LMLExplore.Identification.charTime_baiTask_gaussianBandit_ne_top`,
+  `LMLExplore.Identification.charTime_baiTask_gaussianBandit_ne_zero`: for Gaussian arms with
+  variance `σ2 ≠ 0` and a unique best arm, `T*(μ) < ∞`, and `0 < T*(μ)` with at least two arms.
 * `LMLExplore.Identification.le_answerValue_baiTask_gaussianBandit`,
   `LMLExplore.Identification.answerValue_baiTask_gaussianBandit_le`: the same bounds on the value,
   `1 / (2 H(μ)) ≤ D(μ, ¬a) ≤ 1 / H(μ)`.
@@ -650,8 +650,7 @@ theorem continuousWithinAt_altCost_baiTask_restrict (hT : ∀ c, ¬ T =ᵐ[ρ] f
   have h_best : (baiTask ν id).answerSet a ∈ 𝓝 μ :=
     (isOpen_answerSet_baiTask ν a).mem_nhds ((mem_answerSet_baiTask_iff ν id).2 ha)
   have h_nhds : {μ' : α → ℝ | (∀ c, μ' c ∈ ρ.expFamilyMeans T) ∧ ∀ b, μ' b ≤ μ' a} ∈ 𝓝 μ :=
-    (eventually_all.2 fun c ↦ (continuous_apply c).continuousAt.preimage_mem_nhds
-      (expFamilyMeans_mem_nhds hT (hμ c))).and
+    Eventually.and (Measure.setOf_forall_mem_expFamilyMeans_mem_nhds (fun _ ↦ hT) hμ)
       (mem_of_superset h_best fun _ hμ' ↦
         apply_le_of_forall_ne_lt ((mem_answerSet_baiTask_iff ν id).1 hμ'))
   have h_mem : {μ' : α → ℝ | (∀ c, μ' c ∈ ρ.expFamilyMeans T) ∧ ∀ b, μ' b ≤ μ' a} ×ˢ Set.Ici 0 ∈
@@ -1216,6 +1215,24 @@ section Gaussian
 
 variable [MeasurableSingletonClass α] {μ w : α → ℝ} {σ2 : ℝ≥0}
 
+omit [Fintype α] in
+/-- Gaussian best arm identification is unchanged by restriction to the means of `𝒩(0, σ2)`. -/
+theorem restrict_baiTask_gaussianBandit [Finite α] (hσ2 : σ2 ≠ 0) :
+    (baiTask (Bandits.gaussianBandit · σ2) id).restrict
+        {μ' : α → ℝ | ∀ c, μ' c ∈ (gaussianReal 0 σ2).expFamilyMeans id} =
+      baiTask (Bandits.gaussianBandit · σ2) id := by
+  rw [setOf_forall_mem_expFamilyMeans_gaussianReal 0 (fun _ ↦ hσ2), IdentTask.restrict_univ]
+
+/-- For Gaussian arms with a common variance `σ2 ≠ 0` and a unique best arm `a` of `μ`, the
+characteristic time `T*(μ) = D(μ, ¬a)⁻¹` is finite, since the value of the game is positive. -/
+theorem charTime_baiTask_gaussianBandit_ne_top (hσ2 : σ2 ≠ 0) (ha : ∀ b ≠ a, μ b < μ a) :
+    (baiTask (Bandits.gaussianBandit · σ2) id).charTime μ ≠ ∞ := by
+  rw [charTime_baiTask_eq_inv_answerValue _ id ha, ne_eq, ENNReal.inv_eq_top,
+    ← restrict_baiTask_gaussianBandit hσ2]
+  exact (answerValue_baiTask_restrict_pos _ (not_ae_eq_const_gaussianReal 0 hσ2)
+    (fun c ↦ mem_expFamilyMeans_gaussianReal 0 hσ2 (μ c))
+    (fun μ' _ ↦ Bandits.klDiv_gaussianBandit_eq_ofReal_expFamilyDiv hσ2 μ μ') ha).ne'
+
 /-- **The cost of the alternatives in Gaussian best arm identification** [GK16, Section 2.2]. For
 Gaussian arms with a common variance `σ2 ≠ 0`, a best arm `a` of `μ` and a nonnegative allocation
 `w`, `D(μ, w, ¬a) = min_{b ≠ a} (w a w b / (w a + w b)) (μ a - μ b)² / (2 σ2)`. -/
@@ -1223,8 +1240,7 @@ theorem altCost_baiTask_gaussianBandit (hσ2 : σ2 ≠ 0) (ha : ∀ b, μ b ≤ 
     (baiTask (Bandits.gaussianBandit · σ2) id).altCost μ w a =
       ⨅ (b) (_ : b ≠ a),
         ENNReal.ofReal (w a * w b / (w a + w b) * (μ a - μ b) ^ 2 / (2 * σ2)) := by
-  rw [← (baiTask (Bandits.gaussianBandit · σ2) id).restrict_univ,
-    ← setOf_forall_mem_expFamilyMeans_gaussianReal 0 (fun _ ↦ hσ2),
+  rw [← restrict_baiTask_gaussianBandit hσ2,
     altCost_baiTask_restrict_eq_iInf_expFamilyPairCost _ (not_ae_eq_const_gaussianReal 0 hσ2)
       (fun c ↦ mem_expFamilyMeans_gaussianReal 0 hσ2 (μ c))
       (fun μ' _ ↦ Bandits.klDiv_gaussianBandit_eq_ofReal_expFamilyDiv hσ2 μ μ') ha hw]
@@ -1251,8 +1267,7 @@ theorem answerValue_baiTask_gaussianBandit_of_forall_eq_or_eq (hσ2 : σ2 ≠ 0)
     (baiTask (Bandits.gaussianBandit · σ2) id).answerValue μ a =
       ENNReal.ofReal ((μ a - μ b) ^ 2 / (8 * σ2)) := by
   have hσ2' : (σ2 : ℝ) ≠ 0 := NNReal.coe_ne_zero.2 hσ2
-  rw [← (baiTask (Bandits.gaussianBandit · σ2) id).restrict_univ,
-    ← setOf_forall_mem_expFamilyMeans_gaussianReal 0 (fun _ ↦ hσ2),
+  rw [← restrict_baiTask_gaussianBandit hσ2,
     answerValue_baiTask_restrict_eq_expFamilyDiv_of_forall_eq_or_eq _
       (not_ae_eq_const_gaussianReal 0 hσ2) (fun c ↦ mem_expFamilyMeans_gaussianReal 0 hσ2 (μ c))
       (fun μ' _ ↦ Bandits.klDiv_gaussianBandit_eq_ofReal_expFamilyDiv hσ2 μ μ') hba hα hμ
@@ -1476,20 +1491,6 @@ theorem charTime_baiTask_gaussianBandit_ne_zero (hσ2 : σ2 ≠ 0) (hb₀a : b�
   classical
   exact ((ENNReal.ofReal_pos.2 (sum_div_sq_pos hσ2 hb₀a ha)).trans_le
       (le_charTime_baiTask_gaussianBandit hσ2 hb₀a ha)).ne'
-
-omit [DecidableEq α] in
-/-- For Gaussian arms with a common variance `σ2 ≠ 0`, a unique best arm `a` of `μ` and another arm
-`b₀ ≠ a`, the characteristic time `T*(μ)` is finite: it is at most `2 H(μ)` for a second best
-arm. -/
-theorem charTime_baiTask_gaussianBandit_ne_top (hσ2 : σ2 ≠ 0) (hb₀a : b₀ ≠ a)
-    (ha : ∀ b ≠ a, μ b < μ a) :
-    (baiTask (Bandits.gaussianBandit · σ2) id).charTime μ ≠ ∞ := by
-  classical
-  obtain ⟨b₁, hb₁, hb₁max⟩ :=
-    (Finset.univ.erase a).exists_max_image μ ⟨b₀, Finset.mem_erase.2 ⟨hb₀a, Finset.mem_univ _⟩⟩
-  exact ne_top_of_le_ne_top ENNReal.ofReal_ne_top (charTime_baiTask_gaussianBandit_le hσ2
-    (Finset.ne_of_mem_erase hb₁) ha fun b hb ↦
-      hb₁max b (Finset.mem_erase.2 ⟨hb, Finset.mem_univ _⟩))
 
 end Gaussian
 

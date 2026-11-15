@@ -34,6 +34,7 @@ optional stopping holds at every stopping time with this convention.
   that time.
 * `MeasureTheory.stoppedValueLimsup_eq_stoppedValue`: where `τ` is finite it agrees with Mathlib's
   `stoppedValue`.
+* `MeasureTheory.stoppedValueLimsup_mono`: it is monotone in the process.
 * `MeasureTheory.tendsto_stoppedValueLimsup_min`: for a convergent process, the values at the
   truncated times `min τ N` converge to the value at `τ`.
 * `MeasureTheory.measurable_stoppedValueLimsup`: it is measurable for measurable `u n` and `τ`.
@@ -137,6 +138,15 @@ theorem tendsto_stoppedValueLimsup_min [TopologicalSpace β]
     rw [hτω, min_eq_left (by exact_mod_cast hN)]
 
 end ConditionallyCompleteLattice
+
+/-- The value at a random time is monotone in the process: if `u n ω ≤ v n ω` at every time `n`,
+then the value of `u` at `ω` at every random time is at most that of `v`. -/
+theorem stoppedValueLimsup_mono [CompleteLattice β] {u v : ℕ → Ω → β}
+    (h : ∀ n, u n ω ≤ v n ω) : stoppedValueLimsup u τ ω ≤ stoppedValueLimsup v τ ω := by
+  unfold stoppedValueLimsup
+  split_ifs
+  · exact limsup_le_limsup (Eventually.of_forall h)
+  · exact h _
 
 /-- The value of a process of measurable functions at a measurable random time is measurable. -/
 theorem measurable_stoppedValueLimsup [ConditionallyCompleteLinearOrder β] [TopologicalSpace β]
