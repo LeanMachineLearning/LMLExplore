@@ -7,6 +7,8 @@ module
 
 public import Mathlib.MeasureTheory.Measure.Prod
 public import Mathlib.Probability.Process.Adapted
+public import Mathlib.Algebra.Order.SuccPred.PartialSups
+public import Mathlib.MeasureTheory.Order.Lattice
 
 /-!
 # Adapted products and mixtures
@@ -15,12 +17,14 @@ A product `M₀ * ∏ k < n, F k` is adapted to a filtration `ℱ` indexed by `�
 `ℱ 0`-measurable and each factor `F k` is `ℱ (k + 1)`-measurable. Such products are the wealth
 processes of a gambler who reinvests at every round. A mixture `∫⁻ θ, M θ i ω ∂π` of a family of
 `ℝ≥0∞`-valued processes over an s-finite measure is adapted when the family is jointly measurable
-in `(θ, ω)` for `ℱ i` at every time `i`.
+in `(θ, ω)` for `ℱ i` at every time `i`. The running suprema `partialSups X` of an adapted process
+`X` with values in a lattice with a measurable supremum are adapted.
 
 ## Main statements
 
 * `MeasureTheory.adapted_mul_prod_range`: the process `n ↦ M₀ * ∏ k < n, F k` is adapted.
 * `MeasureTheory.adapted_lintegral`: the mixture `i ↦ ∫⁻ θ, M θ i · ∂π` is adapted.
+* `MeasureTheory.Adapted.partialSups`: the running suprema of an adapted process are adapted.
 -/
 
 public section
@@ -50,5 +54,16 @@ theorem adapted_lintegral {ι Θ : Type*} [Preorder ι] {mΘ : MeasurableSpace �
     Adapted f (fun i ω ↦ ∫⁻ θ, M θ i ω ∂π) := fun i ↦
   -- the measurable space on `Ω` is `f i`, not the ambient `mΩ`, hence the explicit instances
   @Measurable.lintegral_prod_left' Θ Ω mΘ (f i) π _ _ (hM i)
+
+/-- The running suprema `partialSups X`, `n ↦ X 0 ⊔ ⋯ ⊔ X n`, of an adapted process with values in
+a lattice with a measurable supremum are adapted. -/
+theorem Adapted.partialSups {γ : Type*} [MeasurableSpace γ] [SemilatticeSup γ] [MeasurableSup₂ γ]
+    {X : ℕ → Ω → γ} (hX : Adapted ℱ X) : Adapted ℱ (partialSups X) := by
+  intro n
+  induction n with
+  | zero => simpa only [partialSups_zero] using hX 0
+  | succ n ih =>
+    rw [partialSups_add_one]
+    exact (ih.mono (ℱ.mono n.le_succ) le_rfl).sup (hX (n + 1))
 
 end MeasureTheory

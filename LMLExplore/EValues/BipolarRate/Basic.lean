@@ -42,6 +42,9 @@ else: no domination, convexity or compactness.
   the bipolar rate [RR26, Lemma 3.2].
 * `ProbabilityTheory.maxLogGrowth_le_mul_bipolarRate`:
   `maxLogGrowth Q₁ S₁ n ≤ n * bipolarRate Q₁ S₁` for `n ≠ 0`.
+* `ProbabilityTheory.mul_maxLogGrowth_one_le`: `n * maxLogGrowth Q₁ S₁ 1 ≤ maxLogGrowth Q₁ S₁ n`.
+* `ProbabilityTheory.maxLogGrowth_one_le_bipolarRate`: the growth of one observation is at most
+  the bipolar rate.
 * `ProbabilityTheory.maxLogGrowth_anti`, `ProbabilityTheory.bipolarRate_anti`: both are antitone
   in the null.
 * `ProbabilityTheory.maxLogGrowth_le_mul_klDiv`, `ProbabilityTheory.bipolarRate_le_iInf_klDiv`:
@@ -175,6 +178,23 @@ rate, for `n ≠ 0`. -/
 lemma maxLogGrowth_le_mul_bipolarRate (Q₁ : Measure 𝓧) (S₁ : Set (Measure 𝓧)) (hn : n ≠ 0) :
     maxLogGrowth Q₁ S₁ n ≤ n * bipolarRate Q₁ S₁ :=
   bipolarRate_le_iff.1 le_rfl n hn
+
+/-- The maximal expected logarithm of an `n`-sample e-variable is at least `n` times that of one
+observation: superadditivity, iterated. -/
+theorem mul_maxLogGrowth_one_le (Q₁ : Measure 𝓧) [IsProbabilityMeasure Q₁]
+    (hS₁ : ∀ P ∈ S₁, IsFiniteMeasure P) (n : ℕ) :
+    n * maxLogGrowth Q₁ S₁ 1 ≤ maxLogGrowth Q₁ S₁ n := by
+  cases n with
+  | zero => simpa using maxLogGrowth_nonneg Q₁ S₁ 0
+  | succ q =>
+    simpa [EReal.nsmul_eq_mul] using
+      EReal.nsmul_le_of_superadditive (maxLogGrowth_add_le Q₁ hS₁) 1 q
+
+/-- The maximal expected logarithm of a one-observation e-variable is at most the bipolar
+rate. -/
+theorem maxLogGrowth_one_le_bipolarRate (Q₁ : Measure 𝓧) (S₁ : Set (Measure 𝓧)) :
+    maxLogGrowth Q₁ S₁ 1 ≤ bipolarRate Q₁ S₁ := by
+  simpa using maxLogGrowth_div_le_bipolarRate Q₁ S₁ one_ne_zero
 
 /-- The bipolar rate is nonnegative. -/
 lemma bipolarRate_nonneg (Q₁ : Measure 𝓧) (S₁ : Set (Measure 𝓧)) : 0 ≤ bipolarRate Q₁ S₁ :=
