@@ -650,8 +650,7 @@ theorem continuousWithinAt_altCost_baiTask_restrict (hT : ∀ c, ¬ T =ᵐ[ρ] f
   have h_best : (baiTask ν id).answerSet a ∈ 𝓝 μ :=
     (isOpen_answerSet_baiTask ν a).mem_nhds ((mem_answerSet_baiTask_iff ν id).2 ha)
   have h_nhds : {μ' : α → ℝ | (∀ c, μ' c ∈ ρ.expFamilyMeans T) ∧ ∀ b, μ' b ≤ μ' a} ∈ 𝓝 μ :=
-    (eventually_all.2 fun c ↦ (continuous_apply c).continuousAt.preimage_mem_nhds
-      (expFamilyMeans_mem_nhds hT (hμ c))).and
+    Eventually.and (Measure.setOf_forall_mem_expFamilyMeans_mem_nhds (fun _ ↦ hT) hμ)
       (mem_of_superset h_best fun _ hμ' ↦
         apply_le_of_forall_ne_lt ((mem_answerSet_baiTask_iff ν id).1 hμ'))
   have h_mem : {μ' : α → ℝ | (∀ c, μ' c ∈ ρ.expFamilyMeans T) ∧ ∀ b, μ' b ≤ μ' a} ×ˢ Set.Ici 0 ∈

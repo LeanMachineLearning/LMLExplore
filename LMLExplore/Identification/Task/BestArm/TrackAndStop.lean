@@ -6,7 +6,7 @@ Authors: LMLExplore contributors
 module
 
 public import LMLExplore.Identification.GaussianThreshold
-public import LMLExplore.Identification.Task.BestArm.Basic
+public import LMLExplore.Identification.Task.BestArm.Recommendation
 
 /-!
 # Track-and-Stop on best arm identification
@@ -25,7 +25,8 @@ admissible models are those with a unique best arm `a`.
 
 * The recommendation `rec` of a best arm of every admissible model, typically the empirical best
   arm `rec(μ̂)`, is `a` near `μ`, since the models with unique best arm `a` form an open set
-  (`eventually_eq_of_forall_mem_correct_baiTask_restrict`).
+  (`eventually_eq_of_forall_mem_correct_baiTask_restrict`, in
+  `Task/BestArm/Recommendation.lean`).
 * Targets `w(μ') ∈ w*(μ', ¬a)` that are optimal allocations near `μ` are continuous at `μ`, since
   the optimal allocation is unique [GK16, Proposition 6]
   (`continuousAt_of_mem_optAlloc_baiTask_restrict`).
@@ -48,8 +49,6 @@ are optimal allocations at every admissible model, Track-and-Stop with the thres
 
 ## Main statements
 
-* `eventually_eq_of_forall_mem_correct_baiTask_restrict`: a recommendation that answers a best
-  arm of every admissible model is locally constant at every model with a unique best arm.
 * `limsup_expectedStoppingTime_trackAndStop_baiTask_restrict_div_log_le`,
   `limsup_expectedStoppingTime_cTrackAndStop_baiTask_restrict_div_log_le`:
   for arms in an exponential family, `limsup_{δ → 0} 𝔼_μ[τ_δ] / log (1 / δ) ≤ T*(μ)` for
@@ -81,34 +80,6 @@ open MeasureTheory ProbabilityTheory InformationTheory Learning Real Filter Topo
 open scoped ENNReal NNReal
 
 namespace LMLExplore.Identification
-
-/-! ### The recommendation of a best arm -/
-
-section Recommendation
-
-variable {α Θ ι 𝓨 : Type*} [Finite ι] {mα : MeasurableSpace α} {m𝓨 : MeasurableSpace 𝓨}
-  [TopologicalSpace Θ] (ν : Θ → Kernel α 𝓨) [∀ θ, IsMarkovKernel (ν θ)] {mean : Θ → ι → ℝ}
-  {S : Set Θ} {θ : Θ} {a : ι}
-
-/-- **The recommendation of a best arm is locally constant** at the models with a unique best arm.
-For means continuous in the model, a recommendation `rec` that answers a best arm of every
-admissible model of best arm identification restricted to a neighbourhood `S` of `θ` is the unique
-best arm `a` of `θ` at every model near `θ`. The empirical best arm `μ ↦ rec μ` on vectors of means
-is such a recommendation, with `S` the vectors of means of the arm families. -/
-theorem eventually_eq_of_forall_mem_correct_baiTask_restrict
-    (hmean : ∀ b, Continuous fun θ ↦ mean θ b) (hS : S ∈ 𝓝 θ) {rec : Θ → ι}
-    (hrec : ∀ θ' ∈ ((baiTask ν mean).restrict S).M,
-      rec θ' ∈ ((baiTask ν mean).restrict S).correct θ')
-    (ha : ∀ b ≠ a, mean θ b < mean θ a) :
-    ∀ᶠ θ' in 𝓝 θ, rec θ' = a := by
-  filter_upwards [(isOpen_answerSet_baiTask_of_continuous ν mean hmean a).mem_nhds
-    ((mem_answerSet_baiTask_iff ν mean).2 ha), hS] with θ' hθ' hθ'S
-  rw [IdentTask.mem_answerSet_iff] at hθ'
-  have h := hrec θ' (by rw [IdentTask.M_restrict]; exact ⟨hθ'.1, hθ'S⟩)
-  rw [IdentTask.correct_restrict] at h
-  exact subsingleton_correct_baiTask ν mean θ' h hθ'.2
-
-end Recommendation
 
 /-! ### Arms in an exponential family -/
 
@@ -236,29 +207,6 @@ private lemma continuousWithinAt_altCost_baiTask_gaussianBandit (hσ2 : σ2 ≠ 
     (fun c ↦ mem_expFamilyMeans_gaussianReal 0 hσ2 (μ c)) ha hv
   simpa only [restrict_baiTask_gaussianBandit hσ2] using h
 
-omit [DecidableEq α] [Nonempty α] [MeasurableSingletonClass α] in
-/-- A recommendation of the best arm of every admissible model of best arm identification is
-locally constant at every admissible model, and targets that are optimal allocations at every
-admissible model are, near an admissible model `θ`, optimal allocations for the answer `rec θ`. -/
-private lemma eventually_mem_optAlloc_baiTask {ν : (α → ℝ) → Kernel α ℝ}
-    [∀ μ, IsMarkovKernel (ν μ)]
-    (hrec_correct : ∀ θ ∈ (baiTask ν id).M, rec θ ∈ (baiTask ν id).correct θ)
-    (hw_opt : ∀ θ ∈ (baiTask ν id).M, w θ ∈ (baiTask ν id).optAlloc θ (rec θ))
-    {θ : α → ℝ} (hθ : θ ∈ (baiTask ν id).M) :
-    (∀ᶠ θ' in 𝓝 θ, rec θ' = rec θ) ∧ ∀ᶠ θ' in 𝓝 θ, w θ' ∈ (baiTask ν id).optAlloc θ' (rec θ) := by
-  have ha : ∀ b ≠ rec θ, θ b < θ (rec θ) := by simpa using hrec_correct θ hθ
-  have hrec_eq : ∀ᶠ θ' in 𝓝 θ, rec θ' = rec θ :=
-    eventually_eq_of_forall_mem_correct_baiTask_restrict _ continuous_apply Filter.univ_mem
-      (fun θ' hθ' ↦ by
-        rw [IdentTask.M_restrict] at hθ'
-        rw [IdentTask.correct_restrict]
-        exact hrec_correct θ' hθ'.1) ha
-  refine ⟨hrec_eq, ?_⟩
-  filter_upwards [hrec_eq, (isOpen_answerSet_baiTask ν (rec θ)).mem_nhds
-    ((mem_answerSet_baiTask_iff ν id).2 ha)] with θ' h_eq hθ'
-  rw [IdentTask.mem_answerSet_iff] at hθ'
-  exact h_eq ▸ hw_opt θ' hθ'.1
-
 omit [DecidableEq α] [Nonempty α] in
 /-- For Gaussian arms with a common variance `σ2 ≠ 0`, targets that are optimal allocations at
 every admissible model are continuous at every admissible model, for a recommendation of the best
@@ -270,7 +218,7 @@ private lemma continuousAt_of_forall_mem_optAlloc_baiTask_gaussianBandit (hσ2 :
       w θ ∈ (baiTask (Bandits.gaussianBandit · σ2) id).optAlloc θ (rec θ))
     {θ : α → ℝ} (hθ : θ ∈ (baiTask (Bandits.gaussianBandit · σ2) id).M) :
     ContinuousAt w θ := by
-  have hf := (eventually_mem_optAlloc_baiTask hrec_correct hw_opt hθ).2
+  have hf := eventually_mem_optAlloc_baiTask (mean := id) _ continuous_apply hrec_correct hw_opt hθ
   rw [← restrict_baiTask_gaussianBandit hσ2] at hf
   exact continuousAt_of_mem_optAlloc_baiTask_restrict _ (not_ae_eq_const_gaussianReal 0 hσ2)
     (fun μ μ' _ _ ↦ Bandits.klDiv_gaussianBandit_eq_ofReal_expFamilyDiv hσ2 μ μ')
@@ -312,7 +260,7 @@ theorem isDeltaPAC_trackAndStop_baiTask_gaussianBandit (hσ2 : σ2 ≠ 0)
     (fun _ hθ ↦ (isSingleAnswer_baiTask _ id).correct_eq_singleton_of_mem hθ (hrec_correct _ hθ))
     hw_opt
     (fun _ ↦ continuousAt_of_forall_mem_optAlloc_baiTask_gaussianBandit hσ2 hrec_correct hw_opt)
-    (fun _ hθ ↦ (eventually_mem_optAlloc_baiTask hrec_correct hw_opt hθ).1)
+    (fun _ ↦ eventually_eq_of_forall_mem_correct_baiTask _ continuous_apply hrec_correct)
     (fun _ ↦ lowerSemicontinuousWithinAt_altCost_baiTask_gaussianBandit hσ2 hrec_correct hw_opt)
     (fun _ hθ ↦ charTime_baiTask_gaussianBandit_ne_top hσ2 (by simpa using hrec_correct _ hθ))
     hδ hδ1
@@ -339,7 +287,7 @@ theorem tendsto_expectedStoppingTime_trackAndStop_baiTask_gaussianBandit_div_log
     (fun _ hθ ↦ (isSingleAnswer_baiTask _ id).correct_eq_singleton_of_mem hθ (hrec_correct _ hθ))
     hw_opt
     (fun _ ↦ continuousAt_of_forall_mem_optAlloc_baiTask_gaussianBandit hσ2 hrec_correct hw_opt)
-    (fun _ hθ ↦ (eventually_mem_optAlloc_baiTask hrec_correct hw_opt hθ).1)
+    (fun _ ↦ eventually_eq_of_forall_mem_correct_baiTask _ continuous_apply hrec_correct)
     (fun _ ↦ lowerSemicontinuousWithinAt_altCost_baiTask_gaussianBandit hσ2 hrec_correct hw_opt)
     (fun _ hθ ↦ charTime_baiTask_gaussianBandit_ne_top hσ2 (by simpa using hrec_correct _ hθ))
     hμ
@@ -384,8 +332,8 @@ theorem isDeltaPAC_cTrackAndStop_baiTask_gaussianBandit (hσ2 : σ2 ≠ 0)
   IdentTask.isDeltaPAC_cTrackAndStop_unionBoundThreshold_of_mem_optAlloc (ν_baiTask _ id) hσ2
     (fun _ hθ ↦ (isSingleAnswer_baiTask _ id).correct_eq_singleton_of_mem hθ (hrec_correct _ hθ))
     hw_mem
-    (fun _ hθ ↦ (eventually_mem_optAlloc_baiTask hrec_correct hw_opt hθ).2)
-    (fun _ hθ ↦ (eventually_mem_optAlloc_baiTask hrec_correct hw_opt hθ).1)
+    (fun _ ↦ eventually_mem_optAlloc_baiTask _ continuous_apply hrec_correct hw_opt)
+    (fun _ ↦ eventually_eq_of_forall_mem_correct_baiTask _ continuous_apply hrec_correct)
     (fun _ hθ _ hv ↦ continuousWithinAt_altCost_baiTask_gaussianBandit hσ2
       (by simpa using hrec_correct _ hθ) hv)
     (fun _ hθ ↦ charTime_baiTask_gaussianBandit_ne_top hσ2 (by simpa using hrec_correct _ hθ))
@@ -414,8 +362,8 @@ theorem tendsto_expectedStoppingTime_cTrackAndStop_baiTask_gaussianBandit_div_lo
     (hrec := hrec) (hstop := hstop) (ν_baiTask _ id) hσ2
     (fun _ hθ ↦ (isSingleAnswer_baiTask _ id).correct_eq_singleton_of_mem hθ (hrec_correct _ hθ))
     hw_mem
-    (fun _ hθ ↦ (eventually_mem_optAlloc_baiTask hrec_correct hw_opt hθ).2)
-    (fun _ hθ ↦ (eventually_mem_optAlloc_baiTask hrec_correct hw_opt hθ).1)
+    (fun _ ↦ eventually_mem_optAlloc_baiTask _ continuous_apply hrec_correct hw_opt)
+    (fun _ ↦ eventually_eq_of_forall_mem_correct_baiTask _ continuous_apply hrec_correct)
     (fun _ hθ _ hv ↦ continuousWithinAt_altCost_baiTask_gaussianBandit hσ2
       (by simpa using hrec_correct _ hθ) hv)
     (fun _ hθ ↦ charTime_baiTask_gaussianBandit_ne_top hσ2 (by simpa using hrec_correct _ hθ))
