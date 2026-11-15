@@ -62,6 +62,9 @@ by Rémy Degenne, Apache 2.0), which is its entropic analogue.
 * `Learning.MDP.Episodic.EpisodicMDP.value_le_optValue`,
   `Learning.MDP.Episodic.EpisodicMDP.qValue_le_optQValue`: for bounded rewards and a nonempty
   countable action set, the values of every Markov policy are at most the optimal values.
+* `Learning.MDP.Episodic.EpisodicMDP.optQValue_sub_le_qValue_of_forall_optValue_sub_le`: values
+  within `c` of the optimal values at every step give action values within `c` of the optimal
+  ones.
 * `Learning.MDP.Episodic.EpisodicMDP.optQValue_optPolicy`: for a finite action set, the greedy
   action attains the optimal value.
 * `Learning.MDP.Episodic.EpisodicMDP.value_optPolicy`,
@@ -292,6 +295,21 @@ policy is at most the optimal action value: `Q^π_h ≤ Q*_h`. -/
 theorem qValue_le_optQValue (hM : M.RewardsIn (Set.Icc a b)) (h : ℕ) (s : 𝓢) (a' : 𝓐) :
     M.qValue H π h s a' ≤ M.optQValue H h s a' :=
   qValue_le_optQValue_of hM (value_le_optValue hM (h + 1)) s a'
+
+/-- If the values of a Markov policy `π` are within `c` of the optimal values at every step, then
+so are its action values: `V*_h - c ≤ V^π_h` for every `h` gives `Q*_h - c ≤ Q^π_h`. -/
+theorem optQValue_sub_le_qValue_of_forall_optValue_sub_le (hM : M.RewardsIn (Set.Icc a b))
+    {c : ℝ} (hV : ∀ h s, M.optValue H h s - c ≤ M.value H π h s) (h : ℕ) (s : 𝓢) (a' : 𝓐) :
+    M.optQValue H h s a' - c ≤ M.qValue H π h s a' := by
+  have hc := integrable_const (μ := M.trans h (s, a')) c
+  have h₁ : ∫ s', (M.optValue H (h + 1) s' - c) ∂(M.trans h (s, a')) ≤
+      ∫ s', M.value H π (h + 1) s' ∂(M.trans h (s, a')) :=
+    integral_mono ((integrable_optValue hM (h + 1)).sub hc) (integrable_value hM (h + 1))
+      fun s' ↦ hV (h + 1) s'
+  rw [integral_sub (integrable_optValue hM (h + 1)) hc, integral_const, probReal_univ,
+    one_smul] at h₁
+  rw [optQValue_def, qValue_def]
+  linarith
 
 end Countable
 

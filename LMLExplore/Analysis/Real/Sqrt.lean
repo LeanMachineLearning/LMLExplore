@@ -23,6 +23,9 @@ import TauCeti.Analysis.SpecialFunctions.Sqrt
 * `Real.div_sqrt_add_sqrt_mul_div_two`: `a / η + η b / 2 = √(2 b a)` for `η = √(2 a / b)` and
   `b ≥ 0`. It is the tuning of the learning rate `η` in regret bounds of the form
   `log k / η + η n / 2`, as for exponential weights, Exp3 and Exp4.
+* `Real.sqrt_add_sqrt_mul_le`: `√a + √(k b) ≤ √((k + 1) (a + b))` for `a, b, k ≥ 0`, the
+  Cauchy–Schwarz inequality for two terms. It bounds finite-horizon sums of standard deviations
+  step by step.
 * `Real.sqrt_mul_sqrt_add_one_le`: `√x √(x + 1) ≤ x + 1 / 2` for `x ≥ 0`, the inequality between
   the geometric and arithmetic means of `x` and `x + 1`.
 * `Real.one_div_two_mul_sqrt_add_one_le_sqrt_add_one_sub_sqrt`,
@@ -96,6 +99,17 @@ theorem div_sqrt_add_sqrt_mul_div_two (a : ℝ) {b : ℝ} (hb : 0 ≤ b) :
     field_simp
   rw [h, mul_right_comm 2 b a, ← mul_sqrt_div_eq_sqrt_mul _ hb.le]
   ring
+
+/-- A form of the Cauchy–Schwarz inequality for two terms: `√a + √(k b) ≤ √((k + 1) (a + b))` for
+`a, b, k ≥ 0`. Iterated, it bounds a sum of `n` square roots `∑ √aᵢ` by `√(n ∑ aᵢ)`. -/
+theorem sqrt_add_sqrt_mul_le {a b k : ℝ} (ha : 0 ≤ a) (hb : 0 ≤ b) (hk : 0 ≤ k) :
+    √a + √(k * b) ≤ √((k + 1) * (a + b)) := by
+  rw [sqrt_mul hk]
+  refine le_sqrt_of_sq_le ?_
+  have hsa := sq_sqrt ha
+  have hsb := sq_sqrt hb
+  have hsk := sq_sqrt hk
+  nlinarith [sq_nonneg (√k * √a - √b), sqrt_nonneg a, sqrt_nonneg b, sqrt_nonneg k]
 
 /-- The inequality between the geometric and arithmetic means of `x` and `x + 1`:
 `√x √(x + 1) ≤ x + 1 / 2` for `x ≥ 0`. -/
