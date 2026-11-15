@@ -21,6 +21,9 @@ public import Mathlib.MeasureTheory.Measure.Prod
   set has measure at least `c`, then the set has product measure at least `c` times the mass of
   the other factor. For probability measures, a high-probability event given each value of one
   coordinate is a high-probability event of the pair.
+* `MeasureTheory.Measure.prod_apply_ne_zero_iff`,
+  `MeasureTheory.Measure.prod_apply_ne_zero_iff_symm`: a product measure charges a measurable set
+  exactly when the set of points whose slice of it is charged is charged.
 -/
 
 public section
@@ -60,5 +63,21 @@ lemma le_prod_apply_of_ae_le_symm {μ : Measure α} {ν : Measure β} [SFinite �
     (h : ∀ᵐ y ∂ν, c ≤ μ ((fun x ↦ (x, y)) ⁻¹' s)) : c * ν univ ≤ μ.prod ν s := by
   rw [prod_apply_symm hs, ← lintegral_const]
   exact lintegral_mono_ae h
+
+/-- A product measure charges a measurable set `s` exactly when `μ` charges the set of points `x`
+whose slice `Prod.mk x ⁻¹' s` is charged by `ν`. -/
+lemma prod_apply_ne_zero_iff {μ : Measure α} {ν : Measure β} [SFinite ν] {s : Set (α × β)}
+    (hs : MeasurableSet s) :
+    μ.prod ν s ≠ 0 ↔ μ (Function.support fun x ↦ ν (Prod.mk x ⁻¹' s)) ≠ 0 := by
+  rw [← pos_iff_ne_zero, ← pos_iff_ne_zero, prod_apply hs,
+    lintegral_pos_iff_support (measurable_measure_prodMk_left hs)]
+
+/-- A product measure charges a measurable set `s` exactly when `ν` charges the set of points `y`
+whose slice `(·, y) ⁻¹' s` is charged by `μ`. -/
+lemma prod_apply_ne_zero_iff_symm {μ : Measure α} {ν : Measure β} [SFinite μ] [SFinite ν]
+    {s : Set (α × β)} (hs : MeasurableSet s) :
+    μ.prod ν s ≠ 0 ↔ ν (Function.support fun y ↦ μ ((fun x ↦ (x, y)) ⁻¹' s)) ≠ 0 := by
+  rw [← pos_iff_ne_zero, ← pos_iff_ne_zero, prod_apply_symm hs,
+    lintegral_pos_iff_support (measurable_measure_prodMk_right hs)]
 
 end MeasureTheory.Measure
