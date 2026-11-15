@@ -23,8 +23,10 @@ public import Mathlib.MeasureTheory.Group.Arithmetic
   evaluating row `i` of a table `x : ι → α → β` at `a : α` is measurable in the pair `(x, a)`.
 * `MeasureTheory.measurable_finInit`: the map `Fin.init` dropping the last entry of a tuple of
   length `n + 1` is measurable.
-* `MeasureTheory.exists_measurable_eq_comp_initSeg`: a measurable function of the first `n` terms
-  of a sequence factors measurably through the initial segment `initSeg n`.
+* `MeasureTheory.dependsOn_initSeg`, `MeasureTheory.dependsOn_comp_initSeg`: the initial segment
+  `initSeg n`, and any function of it, only depend on the first `n` terms of a sequence.
+* `MeasureTheory.exists_measurable_eq_comp_initSeg`: conversely, a measurable function of the first
+  `n` terms of a sequence factors measurably through the initial segment `initSeg n`.
 * `DependsOn.measurable_of_countable`: a function of a family of countable variables with
   measurable singletons that only depends on finitely many of them is measurable.
 * `measurable_from_prod_of_dependsOn`: a function on a product whose first factor is a family of
@@ -126,6 +128,16 @@ lemma initSeg_apply (n : ℕ) (ω : ℕ → 𝓧) (i : Fin n) : initSeg n ω i =
 @[fun_prop]
 lemma measurable_initSeg (n : ℕ) : Measurable (initSeg (𝓧 := 𝓧) n) :=
   Measurable.of_eval fun _ ↦ measurable_pi_apply _
+
+/-- The initial segment of length `n` only depends on the first `n` terms of the sequence. -/
+lemma dependsOn_initSeg (n : ℕ) : DependsOn (initSeg (𝓧 := 𝓧) n) (Set.Iio n) :=
+  fun _ _ h ↦ funext fun i ↦ h i i.isLt
+
+/-- A function of the initial segment of length `n` only depends on the first `n` terms of the
+sequence. -/
+lemma dependsOn_comp_initSeg {β : Type*} {n : ℕ} (g : (Fin n → 𝓧) → β) :
+    DependsOn (g ∘ initSeg n) (Set.Iio n) :=
+  fun _ _ h ↦ congrArg g (dependsOn_initSeg n h)
 
 /-- A measurable function of the first `n` terms of a sequence is a measurable function of the
 initial segment of length `n`. -/
