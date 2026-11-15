@@ -17,8 +17,10 @@ An e-merging function of finitely many e-values, indexed by a finite type `ι`, 
 It is defined here through laws: `∫⁻ e, F e ∂μ ≤ 1` for every probability measure `μ` on
 `ι → ℝ≥0∞` whose coordinates have expectation at most `1`. This is equivalent to the definition
 through random variables, `F ∘ E` being an e-variable for every null hypothesis on every measurable
-space and all e-variables `E i` (`ProbabilityTheory.isEMerging_iff_forall_isEVar`), since the law
-of `E` under each member of the null is such a `μ`. No monotonicity is assumed, as in [Cle26].
+space in the universe of `ι` and all e-variables `E i`
+(`ProbabilityTheory.isEMerging_iff_forall_isEVar`), since the law of `E` under each member of the
+null is such a `μ`; the forward direction holds on measurable spaces in any universe
+(`ProbabilityTheory.IsEMerging.isEVar_comp`). No monotonicity is assumed, as in [Cle26].
 
 The weighted means `e ↦ w₀ + ∑ i, w i * e i`, with nonnegative weights summing to `1`, are
 e-merging, and every e-merging function is dominated by one of them on finite arguments
@@ -77,7 +79,7 @@ envelope of `F`, stated on measures.
   Statistics 1 (2025), arXiv:2410.23614v6: Definition 8.1, Propositions 8.3 and A.3,
   Theorem 8.4.
 * [VW21] V. Vovk and R. Wang, *E-values: calibration, combination and applications*, Ann. Statist.
-  49 (2021), arXiv:1912.06116v4: Proposition 3.1, Theorem 3.2.
+  49 (2021), arXiv:1912.06116v4: Proposition 3.1, Theorem 3.2, Proposition E.5.
 * [Wan25] R. Wang, *The only admissible way of merging arbitrary e-values*, Biometrika (2025),
   arXiv:2409.19888v2: Theorem 1.
 * [Cle26] E. Clerico, *A simple geometric proof for the characterisation of e-merging functions*,
@@ -101,7 +103,7 @@ measure `μ` on `ι → ℝ≥0∞` whose coordinates have expectation at most `
 monotone. -/
 structure IsEMerging (F : (ι → ℝ≥0∞) → ℝ≥0∞) : Prop where
   measurable : Measurable F
-  lintegral_le_one : ∀ μ : Measure (ι → ℝ≥0∞), IsProbabilityMeasure μ →
+  lintegral_le_one : ∀ (μ : Measure (ι → ℝ≥0∞)) [IsProbabilityMeasure μ],
     (∀ i, ∫⁻ e, e i ∂μ ≤ 1) → ∫⁻ e, F e ∂μ ≤ 1
 
 omit [Fintype ι] in
@@ -114,12 +116,14 @@ theorem IsEMerging.isEVar_comp {Ω : Type*} {mΩ : MeasurableSpace Ω} {S : Set 
   refine IsEVar.of_lintegral_le_one hS (hF.measurable.comp hm) fun P hP ↦ ?_
   have := hS P hP
   rw [← lintegral_map hF.measurable hm]
-  refine hF.lintegral_le_one _ inferInstance fun i ↦ ?_
+  refine hF.lintegral_le_one _ fun i ↦ ?_
   rw [lintegral_map (measurable_pi_apply i) hm]
   simpa using (hE i).lintegral_le_measure_univ P hP
 
 /-- A function of e-values is e-merging exactly when it turns e-variables into an e-variable, for
-every null hypothesis of probability measures on every measurable space. -/
+every null hypothesis of probability measures on every measurable space in the universe of `ι`.
+The forward direction holds on measurable spaces in any universe
+(`ProbabilityTheory.IsEMerging.isEVar_comp`). -/
 theorem isEMerging_iff_forall_isEVar {ι : Type u} {F : (ι → ℝ≥0∞) → ℝ≥0∞} :
     IsEMerging F ↔ ∀ (Ω : Type u) [MeasurableSpace Ω] (S : Set (Measure Ω)),
       (∀ P ∈ S, IsProbabilityMeasure P) → ∀ E : ι → Ω → ℝ≥0∞, (∀ i, IsEVar (E i) S) →
@@ -130,8 +134,8 @@ theorem isEMerging_iff_forall_isEVar {ι : Type u} {F : (ι → ℝ≥0∞) → 
   have hS : ∀ μ ∈ S, IsProbabilityMeasure μ := fun μ hμ ↦ hμ.1
   have hF := h (ι → ℝ≥0∞) S hS (fun i e ↦ e i)
     fun i ↦ IsEVar.of_lintegral_le_one hS (measurable_pi_apply i) fun μ hμ ↦ hμ.2 i
-  refine ⟨hF.measurable, fun μ hμ hle ↦ ?_⟩
-  simpa using hF.lintegral_le_measure_univ μ ⟨hμ, hle⟩
+  refine ⟨hF.measurable, fun μ _ hle ↦ ?_⟩
+  simpa using hF.lintegral_le_measure_univ μ ⟨‹_›, hle⟩
 
 omit [Fintype ι] in
 /-- An e-merging function of finitely many e-values is finite at finite arguments. -/
@@ -148,7 +152,7 @@ theorem IsEMerging.lt_top [Finite ι] (hF : IsEMerging F) (e : ι → ℝ≥0) :
   set μ : Measure (ι → ℝ≥0∞) :=
     (1 - p) • Measure.dirac (0 : ι → ℝ≥0∞) + p • Measure.dirac (fun i ↦ (e i : ℝ≥0∞)) with hμ_def
   have hμ : IsProbabilityMeasure μ := ⟨by simp [μ, tsub_add_cancel_of_le hp1]⟩
-  have hle := hF.lintegral_le_one μ hμ fun i ↦ by
+  have hle := hF.lintegral_le_one μ fun i ↦ by
     simp only [hμ_def, lintegral_add_measure, lintegral_smul_measure, lintegral_dirac,
       smul_eq_mul]
     calc (1 - p) * (0 : ι → ℝ≥0∞) i + p * e i ≤ p * s := by
@@ -169,7 +173,7 @@ the values of an e-merging function at infinite arguments are irrelevant, since 
 coordinates of `μ` are `μ`-almost surely finite. -/
 theorem IsEMerging.of_le [Countable ι] (hG : IsEMerging G) (hF : Measurable F)
     (hle : ∀ e : ι → ℝ≥0, F (fun i ↦ e i) ≤ G (fun i ↦ e i)) : IsEMerging F := by
-  refine ⟨hF, fun μ hμ he ↦ (lintegral_mono_ae ?_).trans (hG.lintegral_le_one μ hμ he)⟩
+  refine ⟨hF, fun μ _ he ↦ (lintegral_mono_ae ?_).trans (hG.lintegral_le_one μ he)⟩
   have hfin : ∀ᵐ e ∂μ, ∀ i, e i ≠ ∞ := ae_all_iff.2 fun i ↦
     (ae_lt_top (measurable_pi_apply i) ((he i).trans_lt ENNReal.one_lt_top).ne).mono
       fun _ h ↦ h.ne
@@ -182,7 +186,7 @@ theorem IsEMerging.of_le [Countable ι] (hG : IsEMerging G) (hF : Measurable F)
 most `1`, are e-merging. -/
 theorem isEMerging_add_sum_mul {w₀ : ℝ≥0} {w : ι → ℝ≥0} (hw : w₀ + ∑ i, w i ≤ 1) :
     IsEMerging fun e : ι → ℝ≥0∞ ↦ (w₀ : ℝ≥0∞) + ∑ i, (w i : ℝ≥0∞) * e i := by
-  refine ⟨by fun_prop, fun μ hμ he ↦ ?_⟩
+  refine ⟨by fun_prop, fun μ _ he ↦ ?_⟩
   rw [lintegral_add_left measurable_const, lintegral_const, measure_univ, mul_one,
     lintegral_finsetSum _ fun i _ ↦ (measurable_pi_apply i).const_mul _]
   rw [Finset.sum_congr rfl fun i _ ↦
@@ -192,12 +196,52 @@ theorem isEMerging_add_sum_mul {w₀ : ℝ≥0} {w : ι → ℝ≥0} (hw : w₀ 
         exact he i
     _ ≤ 1 := by simp only [mul_one]; exact_mod_cast hw
 
+/-- The weighted mean of finite arguments has the same value computed in `ℝ≥0` and in `ℝ≥0∞`. -/
+private lemma coe_add_sum_mul (w₀ : ℝ≥0) (w e : ι → ℝ≥0) :
+    ((w₀ + ∑ i, w i * e i : ℝ≥0) : ℝ≥0∞) = w₀ + ∑ i, (w i : ℝ≥0∞) * e i := by
+  rw [ENNReal.coe_add, ENNReal.ofNNReal_finsetSum]
+  simp only [ENNReal.coe_mul]
+
+/-- Integrals against the mixture `ofReal a • μ + ofReal b • ν` of two measures, for `a, b ≥ 0`,
+are finite and the mixtures of the integrals against `μ` and `ν`, when these are finite. -/
+private lemma lintegral_ofReal_smul_add_smul {α : Type*} [MeasurableSpace α] (μ ν : Measure α)
+    {a b : ℝ} (ha : 0 ≤ a) (hb : 0 ≤ b) (g : α → ℝ≥0∞) (hμ : ∫⁻ x, g x ∂μ ≠ ∞)
+    (hν : ∫⁻ x, g x ∂ν ≠ ∞) :
+    ∫⁻ x, g x ∂(ENNReal.ofReal a • μ + ENNReal.ofReal b • ν) ≠ ∞ ∧
+      (∫⁻ x, g x ∂(ENNReal.ofReal a • μ + ENNReal.ofReal b • ν)).toReal =
+        a * (∫⁻ x, g x ∂μ).toReal + b * (∫⁻ x, g x ∂ν).toReal := by
+  simp only [lintegral_add_measure, lintegral_smul_measure, smul_eq_mul]
+  have h₁ := ENNReal.mul_ne_top (ENNReal.ofReal_ne_top : ENNReal.ofReal a ≠ ∞) hμ
+  have h₂ := ENNReal.mul_ne_top (ENNReal.ofReal_ne_top : ENNReal.ofReal b ≠ ∞) hν
+  refine ⟨ENNReal.add_ne_top.2 ⟨h₁, h₂⟩, ?_⟩
+  rw [ENNReal.toReal_add h₁ h₂, ENNReal.toReal_mul, ENNReal.toReal_mul,
+    ENNReal.toReal_ofReal ha, ENNReal.toReal_ofReal hb]
+
+omit [Fintype ι] in
+/-- The objective `μ ↦ -∫⁻ F ∂μ` and the constraints `μ ↦ ∫⁻ e, e i ∂μ - 1` are jointly
+convex-like on the probability measures against which `F` and the coordinates have finite
+integrals: mixtures of measures mix the integrals. -/
+private lemma jointlyConvexLikeOn_lintegral (F : (ι → ℝ≥0∞) → ℝ≥0∞) :
+    LMLExplore.JointlyConvexLikeOn
+      {μ : Measure (ι → ℝ≥0∞) | IsProbabilityMeasure μ ∧ ∫⁻ e, F e ∂μ ≠ ∞ ∧
+        ∀ i, ∫⁻ e, e i ∂μ ≠ ∞}
+      (fun μ ↦ -(∫⁻ e, F e ∂μ).toReal) (fun i μ ↦ (∫⁻ e, e i ∂μ).toReal - 1) := by
+  refine LMLExplore.jointlyConvexLikeOn_iff.2 ?_
+  rintro μ ⟨hμ, hμF, hμe⟩ ν ⟨hν, hνF, hνe⟩ a b ha hb hab
+  have hprob : IsProbabilityMeasure (ENNReal.ofReal a • μ + ENNReal.ofReal b • ν) :=
+    ⟨by simp [← ENNReal.ofReal_add ha hb, hab]⟩
+  have hFmix := lintegral_ofReal_smul_add_smul μ ν ha hb F hμF hνF
+  have hemix i := lintegral_ofReal_smul_add_smul μ ν ha hb (fun e ↦ e i) (hμe i) (hνe i)
+  refine ⟨_, ⟨hprob, hFmix.1, fun i ↦ (hemix i).1⟩, by rw [hFmix.2]; linarith, fun i ↦ ?_⟩
+  rw [(hemix i).2]
+  linear_combination hab
+
 /-- **Every e-merging function is dominated by a weighted mean** [Wan25, Theorem 1; Cle26; RW,
 Theorem 8.4]: for some nonnegative weights `w₀` and `w i` summing to `1`,
 `F e ≤ w₀ + ∑ i, w i * e i` at every finite argument `e`. No monotonicity of `F` is assumed. -/
 theorem IsEMerging.exists_le_add_sum_mul (hF : IsEMerging F) :
     ∃ (w₀ : ℝ≥0) (w : ι → ℝ≥0), w₀ + ∑ i, w i = 1 ∧
-      ∀ e : ι → ℝ≥0, F (fun i ↦ e i) ≤ ↑(w₀ + ∑ i, w i * e i) := by
+      ∀ e : ι → ℝ≥0, F (fun i ↦ e i) ≤ w₀ + ∑ i, (w i : ℝ≥0∞) * e i := by
   -- The program: maximize `∫⁻ F ∂μ` over the probability measures `μ` on which `F` and the
   -- coordinates have finite integrals, under the constraints `∫⁻ e, e i ∂μ ≤ 1`.
   set C : Set (Measure (ι → ℝ≥0∞)) :=
@@ -205,39 +249,16 @@ theorem IsEMerging.exists_le_add_sum_mul (hF : IsEMerging F) :
   have hdirac (e : ι → ℝ≥0) : Measure.dirac (fun i ↦ (e i : ℝ≥0∞)) ∈ C :=
     ⟨inferInstance, by rw [lintegral_dirac]; exact (hF.lt_top e).ne,
       fun i ↦ by rw [lintegral_dirac]; exact ENNReal.coe_ne_top⟩
-  -- Integrals against a mixture of two measures of `C` are the mixtures of the integrals.
-  have hmix (μ ν : Measure (ι → ℝ≥0∞)) {a b : ℝ} (ha : 0 ≤ a) (hb : 0 ≤ b)
-      (g : (ι → ℝ≥0∞) → ℝ≥0∞) (hμ : ∫⁻ e, g e ∂μ ≠ ∞) (hν : ∫⁻ e, g e ∂ν ≠ ∞) :
-      ∫⁻ e, g e ∂(ENNReal.ofReal a • μ + ENNReal.ofReal b • ν) ≠ ∞ ∧
-        (∫⁻ e, g e ∂(ENNReal.ofReal a • μ + ENNReal.ofReal b • ν)).toReal =
-          a * (∫⁻ e, g e ∂μ).toReal + b * (∫⁻ e, g e ∂ν).toReal := by
-    simp only [lintegral_add_measure, lintegral_smul_measure, smul_eq_mul]
-    have h₁ := ENNReal.mul_ne_top (ENNReal.ofReal_ne_top : ENNReal.ofReal a ≠ ∞) hμ
-    have h₂ := ENNReal.mul_ne_top (ENNReal.ofReal_ne_top : ENNReal.ofReal b ≠ ∞) hν
-    refine ⟨ENNReal.add_ne_top.2 ⟨h₁, h₂⟩, ?_⟩
-    rw [ENNReal.toReal_add h₁ h₂, ENNReal.toReal_mul, ENNReal.toReal_mul,
-      ENNReal.toReal_ofReal ha, ENNReal.toReal_ofReal hb]
-  have hconv : LMLExplore.JointlyConvexLikeOn C (fun μ ↦ -(∫⁻ e, F e ∂μ).toReal)
-      (fun i μ ↦ (∫⁻ e, e i ∂μ).toReal - 1) := by
-    refine LMLExplore.jointlyConvexLikeOn_iff.2 ?_
-    rintro μ ⟨hμ, hμF, hμe⟩ ν ⟨hν, hνF, hνe⟩ a b ha hb hab
-    have hprob : IsProbabilityMeasure (ENNReal.ofReal a • μ + ENNReal.ofReal b • ν) :=
-      ⟨by simp [← ENNReal.ofReal_add ha hb, hab]⟩
-    have hFmix := hmix μ ν ha hb F hμF hνF
-    have hemix i := hmix μ ν ha hb (fun e ↦ e i) (hμe i) (hνe i)
-    refine ⟨_, ⟨hprob, hFmix.1, fun i ↦ (hemix i).1⟩, by rw [hFmix.2]; linarith, fun i ↦ ?_⟩
-    rw [(hemix i).2]
-    linear_combination hab
   have hslater : ∃ μ ∈ C, ∀ i, (fun i μ ↦ (∫⁻ e, e i ∂μ).toReal - 1) i μ < 0 :=
     ⟨_, hdirac 0, fun i ↦ by simp [lintegral_dirac]⟩
   have hvalue : ∀ μ ∈ C, (∀ i, (∫⁻ e, e i ∂μ).toReal - 1 ≤ 0) →
       -1 ≤ -(∫⁻ e, F e ∂μ).toReal := by
     rintro μ ⟨hμ, -, hμe⟩ hle
-    have h1 : ∫⁻ e, F e ∂μ ≤ 1 := hF.lintegral_le_one μ hμ fun i ↦
+    have h1 : ∫⁻ e, F e ∂μ ≤ 1 := hF.lintegral_le_one μ fun i ↦
       (ENNReal.toReal_le_toReal (hμe i) ENNReal.one_ne_top).1 (by simpa using hle i)
     simpa using ENNReal.toReal_mono ENNReal.one_ne_top h1
-  obtain ⟨π, hπ⟩ :=
-    LMLExplore.exists_forall_le_add_sum_mul_of_convexLike hconv hslater hvalue
+  obtain ⟨π, hπ⟩ := LMLExplore.exists_forall_le_add_sum_mul_of_convexLike
+    (jointlyConvexLikeOn_lintegral F) hslater hvalue
   -- The Lagrangian at the Dirac mass at `e` bounds `F e`.
   have hbound (e : ι → ℝ≥0) :
       (F fun i ↦ e i).toReal ≤ 1 - ∑ i, (π i : ℝ) + ∑ i, (π i : ℝ) * e i := by
@@ -251,20 +272,21 @@ theorem IsEMerging.exists_le_add_sum_mul (hF : IsEMerging F) :
       sub_nonneg] at this
     exact_mod_cast this
   refine ⟨1 - ∑ i, π i, π, tsub_add_cancel_of_le hsum, fun e ↦ ?_⟩
-  rw [← ENNReal.ofReal_toReal (hF.lt_top e).ne, ← ENNReal.ofReal_coe_nnreal]
+  rw [← coe_add_sum_mul, ← ENNReal.ofReal_toReal (hF.lt_top e).ne,
+    ← ENNReal.ofReal_coe_nnreal]
   refine ENNReal.ofReal_le_ofReal ((hbound e).trans_eq ?_)
-  push_cast [NNReal.coe_sub hsum]
-  rfl
+  rw [NNReal.coe_add, NNReal.coe_sub hsum, NNReal.coe_one, NNReal.coe_sum, NNReal.coe_sum]
+  simp only [NNReal.coe_mul]
 
 /-- **E-merging functions are the functions dominated by weighted means**: a measurable function
 is e-merging exactly when it is dominated, at finite arguments, by `e ↦ w₀ + ∑ i, w i * e i` for
 some nonnegative weights summing to `1`. -/
 theorem isEMerging_iff_exists_le_add_sum_mul :
     IsEMerging F ↔ Measurable F ∧ ∃ (w₀ : ℝ≥0) (w : ι → ℝ≥0), w₀ + ∑ i, w i = 1 ∧
-      ∀ e : ι → ℝ≥0, F (fun i ↦ e i) ≤ ↑(w₀ + ∑ i, w i * e i) := by
+      ∀ e : ι → ℝ≥0, F (fun i ↦ e i) ≤ w₀ + ∑ i, (w i : ℝ≥0∞) * e i := by
   refine ⟨fun hF ↦ ⟨hF.measurable, hF.exists_le_add_sum_mul⟩, ?_⟩
   rintro ⟨hF, w₀, w, hw, hle⟩
-  exact (isEMerging_add_sum_mul hw.le).of_le hF fun e ↦ (hle e).trans_eq (by push_cast; rfl)
+  exact (isEMerging_add_sum_mul hw.le).of_le hF hle
 
 /-- An **admissible** e-merging function [VW21, §3]: an e-merging function `F`
 such that every e-merging function dominating `F` at finite arguments equals `F` there. Values
@@ -281,27 +303,22 @@ equal, at finite arguments, to `e ↦ w₀ + ∑ i, w i * e i` for some nonnegat
 to `1`. -/
 theorem isAdmissibleEMerging_iff :
     IsAdmissibleEMerging F ↔ Measurable F ∧ ∃ (w₀ : ℝ≥0) (w : ι → ℝ≥0), w₀ + ∑ i, w i = 1 ∧
-      ∀ e : ι → ℝ≥0, F (fun i ↦ e i) = ↑(w₀ + ∑ i, w i * e i) := by
+      ∀ e : ι → ℝ≥0, F (fun i ↦ e i) = w₀ + ∑ i, (w i : ℝ≥0∞) * e i := by
   classical
-  have hmean (w₀ : ℝ≥0) (w : ι → ℝ≥0) (e : ι → ℝ≥0) :
-      (w₀ : ℝ≥0∞) + ∑ i, (w i : ℝ≥0∞) * e i = ↑(w₀ + ∑ i, w i * e i) := by push_cast; rfl
   constructor
   · intro hF
     obtain ⟨w₀, w, hw, hle⟩ := hF.exists_le_add_sum_mul
-    refine ⟨hF.measurable, w₀, w, hw, fun e ↦ ?_⟩
-    rw [← hmean]
-    exact (hF.eq_of_le _ (isEMerging_add_sum_mul hw.le)
-      (fun e ↦ (hle e).trans_eq (hmean w₀ w e).symm) e).symm
+    exact ⟨hF.measurable, w₀, w, hw,
+      fun e ↦ (hF.eq_of_le _ (isEMerging_add_sum_mul hw.le) hle e).symm⟩
   · rintro ⟨hF, w₀, w, hw, heq⟩
-    have hFm : IsEMerging F :=
-      (isEMerging_add_sum_mul hw.le).of_le hF fun e ↦ (heq e).trans_le (hmean w₀ w e).ge
+    have hFm : IsEMerging F := (isEMerging_add_sum_mul hw.le).of_le hF fun e ↦ (heq e).le
     refine ⟨hFm, fun G hG hle e ↦ le_antisymm ?_ (hle e)⟩
     -- `G` is dominated by a weighted mean `v`, which dominates the weighted mean `w`; the two
     -- weight vectors are then equal.
     obtain ⟨v₀, v, hv, hGv⟩ := hG.exists_le_add_sum_mul
     have hwv (e : ι → ℝ≥0) : w₀ + ∑ i, w i * e i ≤ v₀ + ∑ i, v i * e i := by
       have := ((heq e).symm.trans_le (hle e)).trans (hGv e)
-      exact_mod_cast this
+      rwa [← coe_add_sum_mul, ← coe_add_sum_mul, ENNReal.coe_le_coe] at this
     have hw₀ : w₀ ≤ v₀ := by simpa using hwv 0
     have hwi (i : ι) : w i ≤ v i := by
       refine le_of_not_gt fun hlt ↦ ?_
@@ -328,10 +345,8 @@ theorem IsEMerging.exists_isAdmissibleEMerging_le [Finite ι] (hF : IsEMerging F
     ∃ G, IsAdmissibleEMerging G ∧ ∀ e : ι → ℝ≥0, F (fun i ↦ e i) ≤ G (fun i ↦ e i) := by
   have := Fintype.ofFinite ι
   obtain ⟨w₀, w, hw, hle⟩ := hF.exists_le_add_sum_mul
-  refine ⟨fun e ↦ (w₀ : ℝ≥0∞) + ∑ i, (w i : ℝ≥0∞) * e i, isAdmissibleEMerging_iff.2
-    ⟨by fun_prop, w₀, w, hw, fun e ↦ by push_cast; rfl⟩, fun e ↦ (hle e).trans_eq ?_⟩
-  push_cast
-  rfl
+  exact ⟨fun e ↦ (w₀ : ℝ≥0∞) + ∑ i, (w i : ℝ≥0∞) * e i, isAdmissibleEMerging_iff.2
+    ⟨by fun_prop, w₀, w, hw, fun e ↦ rfl⟩, hle⟩
 
 /-! ### Symmetric e-merging functions -/
 
@@ -341,22 +356,58 @@ private lemma mul_sum_div_card_eq_sum_mul (lam : ℝ≥0) (e : ι → ℝ≥0) :
     (1 - lam) * ((∑ i, e i) / Fintype.card ι) = ∑ i, (1 - lam) / Fintype.card ι * e i := by
   rw [← Finset.mul_sum, div_mul_eq_mul_div, mul_div_assoc]
 
+/-- The arithmetic mean of finite arguments has the same value computed in `ℝ≥0` and in
+`ℝ≥0∞`. -/
+private lemma coe_sum_div_card (e : ι → ℝ≥0) :
+    (((∑ i, e i) / Fintype.card ι : ℝ≥0) : ℝ≥0∞) = (∑ i, (e i : ℝ≥0∞)) / Fintype.card ι := by
+  rcases isEmpty_or_nonempty ι with hι | hι
+  · simp
+  · rw [ENNReal.coe_div (by simp [Fintype.card_ne_zero]), ENNReal.ofNNReal_finsetSum,
+      ENNReal.coe_natCast]
+
+/-- `λ + (1 - λ) M`, for the arithmetic mean `M` of finite arguments, has the same value computed
+in `ℝ≥0` and in `ℝ≥0∞`. -/
+private lemma coe_add_mul_sum_div_card (lam : ℝ≥0) (e : ι → ℝ≥0) :
+    ((lam + (1 - lam) * ((∑ i, e i) / Fintype.card ι) : ℝ≥0) : ℝ≥0∞) =
+      lam + (1 - lam) * ((∑ i, (e i : ℝ≥0∞)) / Fintype.card ι) := by
+  rw [ENNReal.coe_add, ENNReal.coe_mul, ENNReal.coe_sub, ENNReal.coe_one, coe_sum_div_card]
+
+/-- Averaging weights over all permutations makes them equal, with the same total: the average of
+the `w (σ⁻¹ j)` over the permutations `σ` is `(∑ i, w i) / K` for every `j`. -/
+private lemma sum_perm_inv_apply_div_card [DecidableEq ι] (w : ι → ℝ≥0) (j : ι) :
+    (∑ σ : Equiv.Perm ι, w (σ⁻¹ j)) / Fintype.card (Equiv.Perm ι) =
+      (∑ i, w i) / Fintype.card ι := by
+  have hN : (Fintype.card (Equiv.Perm ι) : ℝ≥0) ≠ 0 := by simp [Fintype.card_ne_zero]
+  have hK : (Fintype.card ι : ℝ≥0) ≠ 0 := Nat.cast_ne_zero.2 (@Fintype.card_ne_zero ι _ ⟨j⟩)
+  -- Swapping `k` and `j` permutes the permutations, so the sums at `k` and at `j` agree.
+  have hk (k : ι) : ∑ σ : Equiv.Perm ι, w (σ⁻¹ k) = ∑ σ : Equiv.Perm ι, w (σ⁻¹ j) := by
+    refine Fintype.sum_equiv (Equiv.mulLeft (Equiv.swap k j)) _ _ fun σ ↦ ?_
+    simp [mul_inv_rev, Equiv.swap_inv, Equiv.Perm.mul_apply]
+  have hsum : ∑ k, ∑ σ : Equiv.Perm ι, w (σ⁻¹ k) =
+      Fintype.card (Equiv.Perm ι) * ∑ i, w i := by
+    rw [Finset.sum_comm]
+    simp_rw [fun σ : Equiv.Perm ι ↦ Equiv.sum_comp σ⁻¹ w]
+    rw [Finset.sum_const, Finset.card_univ, nsmul_eq_mul]
+  simp_rw [hk, Finset.sum_const, Finset.card_univ, nsmul_eq_mul] at hsum
+  rw [div_eq_div_iff hN hK, mul_comm, hsum, mul_comm]
+
 /-- **A symmetric e-merging function is dominated by a mixture of `1` and the arithmetic mean**
 [VW21, Theorem 3.2]: for some `λ ∈ [0, 1]`, `F e ≤ λ + (1 - λ) * (∑ i, e i) / K` at every finite
-argument `e`, with `K` the number of e-values. -/
+argument `e`, with `K` the number of e-values. Symmetry is needed only at finite arguments. -/
 theorem IsEMerging.exists_le_add_mul_sum_div_card (hF : IsEMerging F)
-    (hsymm : ∀ (σ : Equiv.Perm ι) (e : ι → ℝ≥0∞), F (e ∘ σ) = F e) :
-    ∃ lam ≤ 1, ∀ e : ι → ℝ≥0,
-      F (fun i ↦ e i) ≤ ↑(lam + (1 - lam) * ((∑ i, e i) / Fintype.card ι)) := by
+    (hsymm : ∀ (σ : Equiv.Perm ι) (e : ι → ℝ≥0), F (fun i ↦ e (σ i)) = F (fun i ↦ e i)) :
+    ∃ lam ≤ (1 : ℝ≥0), ∀ e : ι → ℝ≥0,
+      F (fun i ↦ e i) ≤ lam + (1 - lam) * ((∑ i, (e i : ℝ≥0∞)) / Fintype.card ι) := by
   classical
   obtain ⟨w₀, w, hw, hle⟩ := hF.exists_le_add_sum_mul
   refine ⟨w₀, hw ▸ le_self_add, fun e ↦ ?_⟩
+  rw [← coe_add_mul_sum_div_card]
   -- Average the domination by `w ∘ σ⁻¹` over all permutations `σ`.
   set N : ℝ≥0 := (Fintype.card (Equiv.Perm ι) : ℝ≥0)
   have hN : N ≠ 0 := by simp [N, Fintype.card_ne_zero]
   set v : ι → ℝ≥0 := fun j ↦ (∑ σ : Equiv.Perm ι, w (σ⁻¹ j)) / N
   have hσ (σ : Equiv.Perm ι) : F (fun i ↦ e i) ≤ ↑(w₀ + ∑ j, w (σ⁻¹ j) * e j) := by
-    have h := (hsymm σ fun i ↦ (e i : ℝ≥0∞)).symm.trans_le (hle (e ∘ σ))
+    have h := ((hsymm σ e).symm.trans_le (hle (e ∘ σ))).trans_eq (coe_add_sum_mul _ _ _).symm
     refine h.trans_eq ?_
     congr 2
     rw [← Equiv.sum_comp σ fun j ↦ w (σ⁻¹ j) * e j]
@@ -377,66 +428,53 @@ theorem IsEMerging.exists_le_add_mul_sum_div_card (hF : IsEMerging F)
     rw [mul_comm]
     exact hsum
   refine havg.trans_eq ?_
-  rcases isEmpty_or_nonempty ι with hι | ⟨⟨j₀⟩⟩
-  · simp
-  -- The averaged weights are equal: swapping `j` and `j'` permutes the permutations.
-  have hv (j : ι) : v j = v j₀ := by
-    simp only [v]
-    congr 1
-    refine Fintype.sum_equiv (Equiv.mulLeft (Equiv.swap j j₀)) _ _ fun σ ↦ ?_
-    simp [mul_inv_rev, Equiv.swap_inv, Equiv.Perm.mul_apply]
-  have hsumv : ∑ j, v j = ∑ i, w i := by
-    simp only [v, ← Finset.sum_div]
-    rw [Finset.sum_comm]
-    simp_rw [fun σ : Equiv.Perm ι ↦ Equiv.sum_comp σ⁻¹ w]
-    rw [Finset.sum_const, Finset.card_univ, nsmul_eq_mul, mul_div_cancel_left₀ _ hN]
-  have hcard : (Fintype.card ι : ℝ≥0) ≠ 0 :=
-    Nat.cast_ne_zero.2 (@Fintype.card_ne_zero ι _ ⟨j₀⟩)
-  have hc : v j₀ = (1 - w₀) / Fintype.card ι := by
-    rw [eq_div_iff hcard, ← hw, add_tsub_cancel_left, ← hsumv]
-    simp [hv, mul_comm]
+  -- The averaged weights are all equal to `(1 - w₀) / K`.
+  have hc (j : ι) : v j = (1 - w₀) / Fintype.card ι := by
+    simp only [v, N]
+    rw [sum_perm_inv_apply_div_card, ← hw, add_tsub_cancel_left]
   rw [mul_sum_div_card_eq_sum_mul]
-  simp_rw [hv, hc]
+  simp_rw [hc]
 
-/-- **The admissible symmetric e-merging functions** [VW21, Theorem 3.2]: a symmetric function of
-at least one e-value is an admissible e-merging function exactly when it is measurable and equal,
-at finite arguments, to `λ + (1 - λ) * (∑ i, e i) / K` for some `λ ∈ [0, 1]`. -/
+/-- **The admissible symmetric e-merging functions** [VW21, Theorem 3.2]: a function of at least
+one e-value, symmetric at finite arguments, is an admissible e-merging function exactly when it is
+measurable and equal, at finite arguments, to `λ + (1 - λ) * (∑ i, e i) / K` for some
+`λ ∈ [0, 1]`. -/
 theorem isAdmissibleEMerging_iff_of_symmetric [Nonempty ι]
-    (hsymm : ∀ (σ : Equiv.Perm ι) (e : ι → ℝ≥0∞), F (e ∘ σ) = F e) :
-    IsAdmissibleEMerging F ↔ Measurable F ∧ ∃ lam ≤ 1, ∀ e : ι → ℝ≥0,
-      F (fun i ↦ e i) = ↑(lam + (1 - lam) * ((∑ i, e i) / Fintype.card ι)) := by
+    (hsymm : ∀ (σ : Equiv.Perm ι) (e : ι → ℝ≥0), F (fun i ↦ e (σ i)) = F (fun i ↦ e i)) :
+    IsAdmissibleEMerging F ↔ Measurable F ∧ ∃ lam ≤ (1 : ℝ≥0), ∀ e : ι → ℝ≥0,
+      F (fun i ↦ e i) = lam + (1 - lam) * ((∑ i, (e i : ℝ≥0∞)) / Fintype.card ι) := by
   have hcard : (Fintype.card ι : ℝ≥0) ≠ 0 := by simp [Fintype.card_ne_zero]
   have hweights (lam : ℝ≥0) (hlam : lam ≤ 1) :
       lam + ∑ _i : ι, (1 - lam) / Fintype.card ι = 1 := by
     rw [Finset.sum_const, Finset.card_univ, nsmul_eq_mul, mul_div_cancel₀ _ hcard,
       add_tsub_cancel_of_le hlam]
+  -- `λ + (1 - λ) M` is the weighted mean with the weight `(1 - λ) / K` on each coordinate.
+  have hGe (lam : ℝ≥0) (e : ι → ℝ≥0) :
+      (lam : ℝ≥0∞) + ∑ i, (((1 - lam) / Fintype.card ι : ℝ≥0) : ℝ≥0∞) * e i =
+        lam + (1 - lam) * ((∑ i, (e i : ℝ≥0∞)) / Fintype.card ι) := by
+    rw [← coe_add_mul_sum_div_card, mul_sum_div_card_eq_sum_mul, coe_add_sum_mul]
   constructor
   · intro hF
     obtain ⟨lam, hlam, hle⟩ := hF.toIsEMerging.exists_le_add_mul_sum_div_card hsymm
     refine ⟨hF.measurable, lam, hlam, fun e ↦ ?_⟩
     have hG := isEMerging_add_sum_mul (hweights lam hlam).le
-    have hGe (e : ι → ℝ≥0) :
-        (lam : ℝ≥0∞) + ∑ i, (((1 - lam) / Fintype.card ι : ℝ≥0) : ℝ≥0∞) * (e i : ℝ≥0∞) =
-        ↑(lam + (1 - lam) * ((∑ i, e i) / Fintype.card ι)) := by
-      rw [mul_sum_div_card_eq_sum_mul]
-      push_cast
-      rfl
     rw [← hGe]
-    exact (hF.eq_of_le _ hG (fun e ↦ (hle e).trans_eq (hGe e).symm) e).symm
+    exact (hF.eq_of_le _ hG (fun e ↦ (hle e).trans_eq (hGe lam e).symm) e).symm
   · rintro ⟨hF, lam, hlam, heq⟩
-    refine isAdmissibleEMerging_iff.2 ⟨hF, lam, fun _ ↦ (1 - lam) / Fintype.card ι,
-      hweights lam hlam, fun e ↦ ?_⟩
-    rw [heq, mul_sum_div_card_eq_sum_mul]
+    exact isAdmissibleEMerging_iff.2 ⟨hF, lam, fun _ ↦ (1 - lam) / Fintype.card ι,
+      hweights lam hlam, fun e ↦ (heq e).trans (hGe lam e).symm⟩
 
 /-- **The arithmetic mean essentially dominates every symmetric e-merging function** [VW21,
-Proposition 3.1; RW, Proposition 8.3]: wherever a symmetric e-merging function exceeds `1`, it is
-at most the arithmetic mean `(∑ i, e i) / K`. -/
+Proposition 3.1; RW, Proposition 8.3]: wherever an e-merging function symmetric at finite
+arguments exceeds `1`, it is at most the arithmetic mean `(∑ i, e i) / K`. -/
 theorem IsEMerging.le_sum_div_card_of_symmetric (hF : IsEMerging F)
-    (hsymm : ∀ (σ : Equiv.Perm ι) (e : ι → ℝ≥0∞), F (e ∘ σ) = F e) {e : ι → ℝ≥0}
-    (he : 1 < F (fun i ↦ e i)) : F (fun i ↦ e i) ≤ ↑((∑ i, e i) / Fintype.card ι) := by
+    (hsymm : ∀ (σ : Equiv.Perm ι) (e : ι → ℝ≥0), F (fun i ↦ e (σ i)) = F (fun i ↦ e i))
+    {e : ι → ℝ≥0} (he : 1 < F (fun i ↦ e i)) :
+    F (fun i ↦ e i) ≤ (∑ i, (e i : ℝ≥0∞)) / Fintype.card ι := by
   obtain ⟨lam, hlam, hle⟩ := hF.exists_le_add_mul_sum_div_card hsymm
+  have hle' := (hle e).trans_eq (coe_add_mul_sum_div_card lam e).symm
+  rw [← coe_sum_div_card]
   set m := (∑ i, e i) / (Fintype.card ι : ℝ≥0)
-  have hle' := hle e
   refine hle'.trans (ENNReal.coe_le_coe.2 ?_)
   -- If `m ≤ 1`, the bound `λ + (1 - λ) m` is at most `1`, which `F e` exceeds.
   have hm : 1 ≤ m := by
