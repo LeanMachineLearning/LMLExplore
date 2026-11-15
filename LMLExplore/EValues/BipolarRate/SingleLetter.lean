@@ -25,9 +25,6 @@ For a weakly compact convex null the hypothesis holds [RR26, Proposition 4.5].
 
 ## Main statements
 
-* `ProbabilityTheory.mul_maxLogGrowth_one_le`: `n * maxLogGrowth Q₁ S₁ 1 ≤ maxLogGrowth Q₁ S₁ n`.
-* `ProbabilityTheory.maxLogGrowth_one_le_bipolarRate`: the growth of one observation is at most
-  the bipolar rate.
 * `ProbabilityTheory.bipolarRate_eq_maxLogGrowth_one_of_le`: if the bipolar rate is at most the
   growth of one observation, the two are equal.
 * `ProbabilityTheory.maxLogGrowth_eq_mul_of_bipolarRate_le`: if the bipolar rate is at most the
@@ -53,23 +50,6 @@ open scoped ENNReal
 namespace ProbabilityTheory
 
 variable {𝓧 : Type*} {m𝓧 : MeasurableSpace 𝓧} {Q₁ : Measure 𝓧} {S₁ : Set (Measure 𝓧)} {n : ℕ}
-
-/-- The maximal expected logarithm of an `n`-sample e-variable is at least `n` times that of one
-observation: superadditivity, iterated. -/
-theorem mul_maxLogGrowth_one_le (Q₁ : Measure 𝓧) [IsProbabilityMeasure Q₁]
-    (hS₁ : ∀ P ∈ S₁, IsFiniteMeasure P) (n : ℕ) :
-    n * maxLogGrowth Q₁ S₁ 1 ≤ maxLogGrowth Q₁ S₁ n := by
-  cases n with
-  | zero => simpa using maxLogGrowth_nonneg Q₁ S₁ 0
-  | succ q =>
-    simpa [EReal.nsmul_eq_mul] using
-      EReal.nsmul_le_of_superadditive (maxLogGrowth_add_le Q₁ hS₁) 1 q
-
-/-- The maximal expected logarithm of a one-observation e-variable is at most the bipolar
-rate. -/
-theorem maxLogGrowth_one_le_bipolarRate (Q₁ : Measure 𝓧) (S₁ : Set (Measure 𝓧)) :
-    maxLogGrowth Q₁ S₁ 1 ≤ bipolarRate Q₁ S₁ := by
-  simpa using maxLogGrowth_div_le_bipolarRate Q₁ S₁ one_ne_zero
 
 /-- If the bipolar rate is at most the maximal expected logarithm of a one-observation
 e-variable, the two are equal. -/
