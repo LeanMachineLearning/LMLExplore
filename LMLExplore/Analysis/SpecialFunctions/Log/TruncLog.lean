@@ -72,31 +72,38 @@ lemma truncLog_le {c : ℝ} {x : ℝ≥0∞} (h0 : x ≠ 0) : truncLog c x ≤ c
   · rw [truncLog_of_ne h0 htop]
     exact min_le_right _ _
 
-/-- The truncated logarithm of `x ≥ δ` is at least `log δ`, if `log δ ≤ c`. -/
-lemma log_le_truncLog {c δ : ℝ} (hδ : 0 < δ) {x : ℝ≥0∞} (hx : ENNReal.ofReal δ ≤ x)
-    (hc : Real.log δ ≤ c) : Real.log δ ≤ truncLog c x := by
+/-- The truncated logarithm of `x ≥ δ` is at least `min (log δ) c`. -/
+lemma min_log_le_truncLog {c δ : ℝ} (hδ : 0 < δ) {x : ℝ≥0∞} (hx : ENNReal.ofReal δ ≤ x) :
+    min (Real.log δ) c ≤ truncLog c x := by
   have h0 : x ≠ 0 := (lt_of_lt_of_le (ENNReal.ofReal_pos.2 hδ) hx).ne'
   by_cases htop : x = ∞
   · rw [htop, truncLog_top]
-    exact hc
+    exact min_le_right _ _
   · rw [truncLog_of_ne h0 htop]
-    exact le_min (Real.log_le_log hδ ((ENNReal.ofReal_le_iff_le_toReal htop).1 hx)) hc
+    exact min_le_min_right c (Real.log_le_log hδ ((ENNReal.ofReal_le_iff_le_toReal htop).1 hx))
 
-/-- The truncated logarithm of `x ≥ δ` is bounded in absolute value, if `log δ ≤ c`. -/
-lemma abs_truncLog_le {c δ : ℝ} (hδ : 0 < δ) {x : ℝ≥0∞} (hx : ENNReal.ofReal δ ≤ x)
-    (hc : Real.log δ ≤ c) : |truncLog c x| ≤ max |Real.log δ| |c| :=
-  abs_le_max_abs_abs (log_le_truncLog hδ hx hc)
-    (truncLog_le (lt_of_lt_of_le (ENNReal.ofReal_pos.2 hδ) hx).ne')
+/-- The truncated logarithm of `x ≥ δ` is at least `log δ`, if `log δ ≤ c`. -/
+lemma log_le_truncLog {c δ : ℝ} (hδ : 0 < δ) {x : ℝ≥0∞} (hx : ENNReal.ofReal δ ≤ x)
+    (hc : Real.log δ ≤ c) : Real.log δ ≤ truncLog c x :=
+  (min_eq_left hc).symm.le.trans (min_log_le_truncLog hδ hx)
+
+/-- The truncated logarithm of `x ≥ δ` is bounded in absolute value. -/
+lemma abs_truncLog_le {c δ : ℝ} (hδ : 0 < δ) {x : ℝ≥0∞} (hx : ENNReal.ofReal δ ≤ x) :
+    |truncLog c x| ≤ max |Real.log δ| |c| :=
+  abs_le.2 ⟨(le_min ((neg_le_neg (le_max_left _ _)).trans (neg_abs_le _))
+      ((neg_le_neg (le_max_right _ _)).trans (neg_abs_le _))).trans (min_log_le_truncLog hδ hx),
+    (truncLog_le (lt_of_lt_of_le (ENNReal.ofReal_pos.2 hδ) hx).ne').trans
+      ((le_abs_self c).trans (le_max_right _ _))⟩
 
 /-- The truncated logarithm of a measurable function bounded below by `δ > 0` is integrable
 under a finite measure. -/
 lemma integrable_truncLog_comp {Ω : Type*} {mΩ : MeasurableSpace Ω} {μ : Measure Ω}
     [IsFiniteMeasure μ] {c δ : ℝ} (hδ : 0 < δ) {V : Ω → ℝ≥0∞} (hVm : Measurable V)
-    (hVδ : ∀ ω, ENNReal.ofReal δ ≤ V ω) (hc : Real.log δ ≤ c) :
+    (hVδ : ∀ ω, ENNReal.ofReal δ ≤ V ω) :
     Integrable (fun ω ↦ truncLog c (V ω)) μ :=
   Integrable.of_bound ((measurable_truncLog c).comp hVm).aestronglyMeasurable
     (max |Real.log δ| |c|) (ae_of_all _ fun ω ↦ (Real.norm_eq_abs _).trans_le
-      (abs_truncLog_le hδ (hVδ ω) hc))
+      (abs_truncLog_le hδ (hVδ ω)))
 
 /-- The exponential of the truncated logarithm of `x` is at most `x`. -/
 lemma ofReal_exp_truncLog_le {c : ℝ} {x : ℝ≥0∞} (h0 : x ≠ 0) :

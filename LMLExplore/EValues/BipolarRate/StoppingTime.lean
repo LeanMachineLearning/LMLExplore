@@ -143,7 +143,7 @@ private lemma integral_truncLog_stoppedValue_le (Q₁ : Measure 𝓧) [IsProbabi
     (hE : IsEProcess E (Filtration.piLE (X := fun _ : ℕ ↦ 𝓧))
       ((fun P ↦ Measure.infinitePi fun _ : ℕ ↦ P) '' S₁))
     (hτ : IsStoppingTime (Filtration.piLE (X := fun _ : ℕ ↦ 𝓧)) fun ω ↦ (τ ω : WithTop ℕ))
-    {ε : ℝ} (hε0 : 0 < ε) (hε1 : ε < 1) {c : ℝ} (hc : Real.log ε ≤ c)
+    {ε : ℝ} (hε0 : 0 < ε) (hε1 : ε < 1) {c : ℝ}
     (hd : bipolarRate Q₁ S₁ ≠ ⊤) {D : ℝ}
     (hD : ∀ k : ℕ, (bipolarRate Q₁ S₁).toReal *
       ∫ ω, ((min (τ ω) k + 1 : ℕ) : ℝ) ∂Measure.infinitePi (fun _ : ℕ ↦ Q₁) ≤ D) :
@@ -160,7 +160,7 @@ private lemma integral_truncLog_stoppedValue_le (Q₁ : Measure 𝓧) [IsProbabi
   have hk (k : ℕ) : ∫ ω, truncLog c (V k ω) ∂μ ≤ D := by
     refine (integral_truncLog_le_bipolarRate_mul (σ := fun ω ↦ min (τ ω) k + 1) Q₁ hS₁ ?_ ?_
       (((hτk k).measurable_nat).add_const 1) (hVm k) (fun _ ↦ le_add_self)
-      (K := k + 1) (fun ω ↦ by simp) ?_ hε0 (hVε k) hc hd).trans ?_
+      (K := k + 1) (fun ω ↦ by simp) ?_ hε0 (hVε k) hd).trans ?_
     · refine dependsOnBefore_iff.2 fun u ω ω' h hle ↦ ?_
       rw [(hτk k).eq_of_forall_le fun i hi ↦ h i (by omega)]
     · refine dependsOnBefore_iff.2 fun u ω ω' h hle ↦ ?_
@@ -174,7 +174,7 @@ private lemma integral_truncLog_stoppedValue_le (Q₁ : Measure 𝓧) [IsProbabi
     (fun k ↦ ((ENNReal.measurable_truncLog c).comp (hVm k)).aestronglyMeasurable)
     (integrable_const _)
     (fun k ↦ ae_of_all _ fun ω ↦ (Real.norm_eq_abs _).trans_le
-      (ENNReal.abs_truncLog_le hε0 (hVε k ω) hc)) (ae_of_all _ fun ω ↦ ?_)) hk
+      (ENNReal.abs_truncLog_le hε0 (hVε k ω))) (ae_of_all _ fun ω ↦ ?_)) hk
   exact tendsto_atTop_of_eventually_const (i₀ := τ ω) fun k hk ↦ by simp [V, min_eq_left hk]
 
 /-- The Wald inequality when the bipolar rate is finite and either it is `0` or the expected
@@ -210,10 +210,9 @@ private lemma eintegral_log_stoppedValue_le_toReal_mul (Q₁ : Measure 𝓧) [Is
   have step (ε : ℝ) (hε0 : 0 < ε) (hε1 : ε < 1) (k : ℕ) :
       ∫ᵉ ω, min (ENNReal.log (E (τ ω) ω)) k ∂μ ≤ ((D - Real.log (1 - ε) : ℝ) : EReal) := by
     set W : (ℕ → 𝓧) → ℝ≥0∞ := fun ω ↦ ENNReal.ofReal (1 - ε) * E (τ ω) ω + ENNReal.ofReal ε
-    have hc : Real.log ε ≤ k := (Real.log_neg hε0 hε1).le.trans (Nat.cast_nonneg k)
     have hYi : Integrable (fun ω ↦ truncLog k (W ω)) μ :=
       ENNReal.integrable_truncLog_comp hε0 ((measurable_const.mul hEτm).add measurable_const)
-        (fun _ ↦ le_add_self) hc
+        (fun _ ↦ le_add_self)
     calc ∫ᵉ ω, min (ENNReal.log (E (τ ω) ω)) k ∂μ
     _ ≤ ∫ᵉ ω, ((truncLog k (W ω) - Real.log (1 - ε) : ℝ) : EReal) ∂μ :=
       eintegral_mono fun ω ↦ by simpa using ENNReal.min_log_le_truncLog_sub hε0 hε1 k (E (τ ω) ω)
@@ -223,7 +222,7 @@ private lemma eintegral_log_stoppedValue_le_toReal_mul (Q₁ : Measure 𝓧) [Is
       rw [eintegral_eq_integral hYi',
         integral_sub hYi (integrable_const _), integral_const, probReal_univ, one_smul]
     _ ≤ ((D - Real.log (1 - ε) : ℝ) : EReal) := EReal.coe_le_coe_iff.2 (by
-      linarith [integral_truncLog_stoppedValue_le Q₁ hS₁ hE hτ hε0 hε1 hc hd hD])
+      linarith [integral_truncLog_stoppedValue_le Q₁ hS₁ hE hτ hε0 hε1 (c := k) hd hD])
   exact eintegral_le_of_forall_min_le (ENNReal.measurable_log.comp hEτm) fun k ↦
     le_of_forall_le_sub_log_one_sub fun ε hε0 hε1 ↦ step ε hε0 hε1 k
 

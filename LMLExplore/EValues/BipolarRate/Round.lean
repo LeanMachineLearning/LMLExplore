@@ -631,7 +631,7 @@ private lemma add_integral_truncLog_mul_sum_measureReal_le (Q₁ : Measure 𝓧)
     (hVm : Measurable V)
     (h_null : ∀ P ∈ S₁, ∀ n : ℕ,
       ∫⁻ ω, {ω | σ ω ≤ n}.indicator V ω ∂Measure.infinitePi (fun _ : ℕ ↦ P) ≤ 1)
-    {δ : ℝ} (hδ : 0 < δ) (hVδ : ∀ ω, ENNReal.ofReal δ ≤ V ω) {c : ℝ} (hc : Real.log δ ≤ c)
+    {δ : ℝ} (hδ : 0 < δ) (hVδ : ∀ ω, ENNReal.ofReal δ ≤ V ω) {c : ℝ}
     (hd : bipolarRate Q₁ S₁ ≠ ⊤) {r : ℝ} (hr0 : 0 < r) (hr1 : r < 1) {N : ℕ} (hN : 1 ≤ N) :
     Real.log (1 - r) + N * Real.log r - c +
         (∫ ω, truncLog c (V ω) ∂Measure.infinitePi (fun _ : ℕ ↦ Q₁)) *
@@ -646,7 +646,7 @@ private lemma add_integral_truncLog_mul_sum_measureReal_le (Q₁ : Measure 𝓧)
   have hfi (i : ℕ) : Integrable (fun ω ↦ {ω | restartTime σ i ω ≤ N}.indicator
       (fun ω ↦ truncLog c (V ((shift 𝓧)^[restartTime σ i ω] ω))) ω) μ :=
     (ENNReal.integrable_truncLog_comp hδ (measurable_apply_of_countable
-      (fun t ↦ hVm.comp (measurable_shift_iterate t)) (hT i)) (fun _ ↦ hVδ _) hc).indicator
+      (fun t ↦ hVm.comp (measurable_shift_iterate t)) (hT i)) (fun _ ↦ hVδ _)).indicator
       (hT i measurableSet_Iic)
   set B := Real.log (1 - r) + N * Real.log r - c
   have hsum : Integrable (fun ω ↦ ∑ i ∈ Finset.range (N + 1),
@@ -665,7 +665,7 @@ private lemma add_integral_truncLog_mul_sum_measureReal_le (Q₁ : Measure 𝓧)
     simp only [integral_const, probReal_univ, one_smul]
     congr 1
     exact Finset.sum_congr rfl fun i _ ↦ (integral_indicator_comp_shift_restartTime hσ hσm Q₁
-      hYm (fun ω ↦ ENNReal.abs_truncLog_le hδ (hVδ ω) hc) i N).trans (mul_comm _ _)
+      hYm (fun ω ↦ ENNReal.abs_truncLog_le hδ (hVδ ω)) i N).trans (mul_comm _ _)
   have hle : ((B + A * ∑ i ∈ Finset.range (N + 1), μ.real {ω | restartTime σ i ω ≤ N} : ℝ) :
       EReal) ≤ (N : EReal) * bipolarRate Q₁ S₁ := by
     rw [← hval, ← eintegral_eq_integral hint]
@@ -694,7 +694,7 @@ lemma integral_truncLog_le_bipolarRate_mul (Q₁ : Measure 𝓧) [IsProbabilityM
     {K : ℕ} (hσK : ∀ ω, σ ω ≤ K)
     (h_null : ∀ P ∈ S₁, ∀ n : ℕ,
       ∫⁻ ω, {ω | σ ω ≤ n}.indicator V ω ∂Measure.infinitePi (fun _ : ℕ ↦ P) ≤ 1)
-    {δ : ℝ} (hδ : 0 < δ) (hVδ : ∀ ω, ENNReal.ofReal δ ≤ V ω) {c : ℝ} (hc : Real.log δ ≤ c)
+    {δ : ℝ} (hδ : 0 < δ) (hVδ : ∀ ω, ENNReal.ofReal δ ≤ V ω) {c : ℝ}
     (hd : bipolarRate Q₁ S₁ ≠ ⊤) :
     ∫ ω, truncLog c (V ω) ∂Measure.infinitePi (fun _ : ℕ ↦ Q₁) ≤
       (bipolarRate Q₁ S₁).toReal * ∫ ω, (σ ω : ℝ) ∂Measure.infinitePi (fun _ : ℕ ↦ Q₁) := by
@@ -707,7 +707,7 @@ lemma integral_truncLog_le_bipolarRate_mul (Q₁ : Measure 𝓧) [IsProbabilityM
       fun ω ↦ by exact_mod_cast hσ1 ω
   refine le_mul_of_forall_restart (c := c) (by linarith) (EReal.toReal_nonneg hd0)
     fun r hr0 hr1 N hN ↦ ⟨_, add_one_le_integral_mul_sum_measureReal hσ hσm hσ1 hσK Q₁ N,
-      add_integral_truncLog_mul_sum_measureReal_le Q₁ hS₁ hσ hV hσm hVm h_null hδ hVδ hc hd hr0
+      add_integral_truncLog_mul_sum_measureReal_le Q₁ hS₁ hσ hV hσm hVm h_null hδ hVδ hd hr0
         hr1 hN⟩
 
 end Wald
