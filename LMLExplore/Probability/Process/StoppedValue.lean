@@ -35,6 +35,9 @@ optional stopping holds at every stopping time with this convention.
 * `MeasureTheory.tendsto_stoppedValueLimsup_min`: for a convergent process, the values at the
   truncated times `min τ N` converge to the value at `τ`.
 * `MeasureTheory.measurable_stoppedValueLimsup`: it is measurable for measurable `u n` and `τ`.
+* `MeasureTheory.tendsto_lintegral_stoppedValueLimsup_min`: for an almost everywhere nondecreasing
+  `ℝ≥0∞`-valued process, the integrals at the truncated times `min τ N` converge to the integral
+  at `τ`.
 
 ## References
 
@@ -47,6 +50,7 @@ optional stopping holds at every stopping time with this convention.
 public section
 
 open Filter Topology
+open scoped ENNReal
 
 namespace MeasureTheory
 
@@ -135,5 +139,27 @@ theorem measurable_stoppedValueLimsup [ConditionallyCompleteLinearOrder β] [Top
     | top => simpa using Measurable.limsup hu
     | coe n => simpa using hu n
   exact h.comp (measurable_id.prodMk hτ)
+
+/-- **Monotone convergence at truncated times.** For an almost everywhere nondecreasing process
+of measurable `ℝ≥0∞`-valued functions and a measurable random time `τ`, the integrals of its
+values at the truncated times `min τ N` increase to the integral of its value at `τ`. -/
+theorem tendsto_lintegral_stoppedValueLimsup_min {mΩ : MeasurableSpace Ω} {μ : Measure Ω}
+    {u : ℕ → Ω → ℝ≥0∞} (hu : ∀ n, Measurable (u n)) (hmono : ∀ᵐ ω ∂μ, Monotone (u · ω))
+    (hτ : Measurable τ) :
+    Tendsto (fun N : ℕ ↦ ∫⁻ ω, stoppedValueLimsup u (fun ω ↦ min (τ ω) N) ω ∂μ) atTop
+      (𝓝 (∫⁻ ω, stoppedValueLimsup u τ ω ∂μ)) := by
+  have hmin_top (ω : Ω) (N : ℕ) : min (τ ω) N ≠ ⊤ :=
+    ne_top_of_le_ne_top (WithTop.natCast_ne_top N) (min_le_right _ _)
+  refine lintegral_tendsto_of_tendsto_of_monotone (fun N ↦ (measurable_stoppedValueLimsup hu
+    ((measurable_of_countable fun t : WithTop ℕ ↦ min t N).comp hτ)).aemeasurable) ?_ ?_
+  · filter_upwards [hmono] with ω hω N N' h
+    dsimp only
+    rw [stoppedValueLimsup_eq_stoppedValue (τ := fun ω ↦ min (τ ω) N) (hmin_top ω N),
+      stoppedValueLimsup_eq_stoppedValue (τ := fun ω ↦ min (τ ω) N') (hmin_top ω N')]
+    exact hω (WithTop.untopA_mono (hmin_top ω N') (min_le_min_left _ (by exact_mod_cast h)))
+  · filter_upwards [hmono] with ω hω
+    refine tendsto_stoppedValueLimsup_min ?_
+    rw [(tendsto_atTop_iSup hω).limsup_eq]
+    exact tendsto_atTop_iSup hω
 
 end MeasureTheory

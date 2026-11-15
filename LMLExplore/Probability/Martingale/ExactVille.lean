@@ -57,7 +57,7 @@ rejects the null as soon as the evidence exceeds `α⁻¹`.
 ## References
 
 * [dlP+26] V. H. de la Peña, M. J. Klass, V. H. de la Peña, A. Ly, A. Neishloss and Y. Lin, *The
-  exact Ville identity*, 2026.
+  exact Ville identity with applications to e-values*, arXiv:2607.04620v2.
 * [RW] A. Ramdas and R. Wang, *Hypothesis Testing with E-values*, Foundations and Trends in
   Statistics 1 (2025), arXiv:2410.23614.
 * [Vil39] J. Ville, *Étude critique de la notion de collectif*, Gauthier-Villars, 1939.
@@ -94,16 +94,15 @@ theorem setLIntegral_eq_add_stoppedValueLimsup (hM : IsENNSupermartingale M ℱ 
   have hsup : Supermartingale g ℱ P := hM.supermartingale_toReal hP h0
   have hA_int (n : ℕ) : Integrable (A n) P :=
     integrable_finsetSum' _ fun _ _ ↦ integrable_condExp
-  have hτN' (ω : Ω) : τ ω ≤ (N : ℕ) := by simpa using hτN ω
-  have hτ_top (ω : Ω) : τ ω ≠ ⊤ := ne_top_of_le_ne_top WithTop.coe_ne_top (hτN' ω)
+  have hτ_top (ω : Ω) : τ ω ≠ ⊤ := ne_top_of_le_ne_top (WithTop.natCast_ne_top N) (hτN ω)
   -- The untopped value of `τ` is between `m` and `N`.
   have hτ_ge (ω : Ω) : m ≤ (τ ω).untopA :=
     (WithTop.le_untopA_iff (hτ_top ω)).2 (by simpa using hmτ ω)
-  have hint_g : Integrable (stoppedValue g τ) P := integrable_stoppedValue ℕ hτ hsup.integrable hτN'
-  have hint_A : Integrable (stoppedValue A τ) P := integrable_stoppedValue ℕ hτ hA_int hτN'
+  have hint_g : Integrable (stoppedValue g τ) P := integrable_stoppedValue ℕ hτ hsup.integrable hτN
+  have hint_A : Integrable (stoppedValue A τ) P := integrable_stoppedValue ℕ hτ hA_int hτN
   -- The real identity of the Doob decomposition between the constant time `m` and `τ`.
   have hreal := setIntegral_stoppedValue_sub_eq_predictablePart hsup.integrable
-    (isStoppingTime_const ℱ m) hτ (fun ω ↦ by simpa using hmτ ω) hτN'
+    (isStoppingTime_const ℱ m) hτ (fun ω ↦ by simpa using hmτ ω) hτN
     (by rwa [IsStoppingTime.measurableSpace_const])
   simp only [stoppedValue_const] at hreal
   rw [integral_sub hint_g.integrableOn (hsup.integrable m).integrableOn,
@@ -113,17 +112,15 @@ theorem setLIntegral_eq_add_stoppedValueLimsup (hM : IsENNSupermartingale M ℱ 
   have h₁ : ∫⁻ ω in s, M m ω ∂P = ENNReal.ofReal (∫ ω in s, g m ω ∂P) := by
     rw [ofReal_integral_eq_lintegral_ofReal (hsup.integrable m).integrableOn
       (ae_of_all _ fun _ ↦ ENNReal.toReal_nonneg)]
-    refine lintegral_congr_ae (ae_restrict_of_ae ?_)
-    filter_upwards [hfin] with ω hω using (ENNReal.ofReal_toReal (hω m).ne).symm
+    exact lintegral_congr_ae
+      (ae_restrict_of_ae (ofReal_toReal_ae_eq (hfin.mono fun _ h ↦ h m)).symm)
   have h₂ : ∫⁻ ω in s, stoppedValueLimsup M τ ω ∂P =
       ENNReal.ofReal (∫ ω in s, stoppedValue g τ ω ∂P) := by
     rw [ofReal_integral_eq_lintegral_ofReal hint_g.integrableOn
       (ae_of_all _ fun _ ↦ by simp [stoppedValue, g])]
-    refine lintegral_congr_ae (ae_restrict_of_ae ?_)
-    filter_upwards [hfin] with ω hω
-    rw [stoppedValueLimsup_eq_stoppedValue (hτ_top ω)]
-    simp only [stoppedValue, g]
-    exact (ENNReal.ofReal_toReal (hω _).ne).symm
+    rw [funext fun ω ↦ stoppedValueLimsup_eq_stoppedValue (hτ_top ω)]
+    exact lintegral_congr_ae
+      (ae_restrict_of_ae (ofReal_toReal_ae_eq (hfin.mono fun _ h ↦ h _)).symm)
   -- The predictable part of a supermartingale is antitone, and `m ≤ τ`.
   have hnonneg : 0 ≤ᵐ[P.restrict s] fun ω ↦ A m ω - stoppedValue A τ ω := by
     refine ae_restrict_of_ae ?_
@@ -169,6 +166,12 @@ private theorem setLIntegral_eq_add_add_of_le (hM : IsENNSupermartingale M ℱ S
       (hs'.inter hNT) (fun ω hω ↦ stoppedValueLimsup_of_eq_natCast (min_eq_right hω.2.le)),
     add_right_comm]
 
+/-- The hitting time after `m` of `[b, ∞]` by an `ℝ≥0∞`-valued supermartingale is a stopping
+time. -/
+private theorem isStoppingTime_hittingAfter_Ici (hM : IsENNSupermartingale M ℱ S) (b : ℝ≥0∞) :
+    IsStoppingTime ℱ (hittingAfter M (Ici b) m) :=
+  hM.adapted.isStoppingTime_hittingAfter measurableSet_Ici
+
 /-- A hitting time after `m` is at least `m`, at the cast `(m : WithTop ℕ)`. -/
 private theorem natCast_le_hittingAfter (t : Set ℝ≥0∞) (ω : Ω) :
     (m : WithTop ℕ) ≤ hittingAfter M t m ω := by
@@ -206,8 +209,7 @@ theorem setLIntegral_eq_exact_ville_horizon (hM : IsENNSupermartingale M ℱ S) 
           predictablePart (fun n ω ↦ (M n ω).toReal) ℱ P n ω))
         (fun ω ↦ min (hittingAfter M (Ici b) m ω) N) ω ∂P +
       ∫⁻ ω in s ∩ {ω | (N : WithTop ℕ) < hittingAfter M (Ici b) m ω}, M N ω ∂P := by
-  have hT : IsStoppingTime ℱ (hittingAfter M (Ici b) m) :=
-    hM.adapted.isStoppingTime_hittingAfter measurableSet_Ici
+  have hT := hM.isStoppingTime_hittingAfter_Ici (m := m) b
   rw [hM.setLIntegral_eq_add_add_of_le hP h0 hT (natCast_le_hittingAfter (Ici b))
     hmN hs,
     setLIntegral_stoppedValueLimsup_hittingAfter b
@@ -248,6 +250,26 @@ private theorem tendsto_setLIntegral_natCast_lt (hM : IsENNSupermartingale M ℱ
   refine tendsto_atTop_iInf (antitone_nat_of_succ_le fun k ↦ ?_)
   simpa [add_right_comm] using hr_succ (k + m) (Nat.le_add_left m k)
 
+/-- The integrals of `f` over `s ∩ {T ≤ N}` increase to its integral over `s ∩ {T ≠ ⊤}`. -/
+private theorem tendsto_setLIntegral_inter_le_natCast {T : Ω → WithTop ℕ} (f : Ω → ℝ≥0∞)
+    (hs : MeasurableSet s) (hT : Measurable T) :
+    Tendsto (fun N : ℕ ↦ ∫⁻ ω in s ∩ {ω | T ω ≤ N}, f ω ∂P) atTop
+      (𝓝 (∫⁻ ω in s ∩ {ω | T ω ≠ ⊤}, f ω ∂P)) := by
+  have hmeas (N : ℕ) : MeasurableSet (s ∩ {ω | T ω ≤ N}) := hs.inter (hT measurableSet_Iic)
+  have hU : ⋃ N : ℕ, s ∩ {ω | T ω ≤ N} = s ∩ {ω | T ω ≠ ⊤} := by
+    rw [← inter_iUnion]
+    congr 1
+    ext ω
+    simp only [mem_iUnion, mem_ofPred_eq]
+    refine ⟨fun ⟨N, hN⟩ ↦ ne_top_of_le_ne_top (WithTop.natCast_ne_top N) hN, fun h ↦ ?_⟩
+    obtain ⟨t, ht⟩ := WithTop.ne_top_iff_exists.1 h
+    exact ⟨t, by simp [← ht]⟩
+  -- The set integrals of `f` are the measures of the sets under `P.withDensity f`.
+  simp_rw [← withDensity_apply _ (hmeas _)]
+  rw [← withDensity_apply _ (hU ▸ MeasurableSet.iUnion hmeas), ← hU]
+  exact tendsto_measure_iUnion_atTop fun N N' h ↦
+    inter_subset_inter_right _ fun ω (hω : T ω ≤ N) ↦ hω.trans (by exact_mod_cast h)
+
 /-- Letting the horizon tend to infinity: for a stopping time `T ≥ m`, the integral of `M m` over
 `s` is that of `M` at `T` over `s ∩ {T ≠ ⊤}`, plus the decrease up to `T`, plus the limit of the
 remainders. -/
@@ -261,24 +283,8 @@ private theorem setLIntegral_eq_add_add_iInf (hM : IsENNSupermartingale M ℱ S)
       ⨅ N ≥ m, ∫⁻ ω in s ∩ {ω | (N : WithTop ℕ) < T ω}, M N ω ∂P := by
   set A := predictablePart (fun n ω ↦ (M n ω).toReal) ℱ P
   set D : ℕ → Ω → ℝ≥0∞ := fun n ω ↦ ENNReal.ofReal (A m ω - A n ω)
-  have hs' : MeasurableSet s := ℱ.le m _ hs
-  -- The integrals of `M T` over `s ∩ {T ≤ N}` increase to its integral over `s ∩ {T ≠ ⊤}`.
-  have ha : Tendsto (fun N : ℕ ↦ ∫⁻ ω in s ∩ {ω | T ω ≤ N}, stoppedValueLimsup M T ω ∂P) atTop
-      (𝓝 (∫⁻ ω in s ∩ {ω | T ω ≠ ⊤}, stoppedValueLimsup M T ω ∂P)) := by
-    have hmeas (N : ℕ) : MeasurableSet (s ∩ {ω | T ω ≤ N}) :=
-      hs'.inter (ℱ.le N _ (hT.measurableSet_le_natCast N))
-    have hU : ⋃ N : ℕ, s ∩ {ω | T ω ≤ N} = s ∩ {ω | T ω ≠ ⊤} := by
-      rw [← inter_iUnion]
-      congr 1
-      ext ω
-      simp only [mem_iUnion, mem_ofPred_eq]
-      refine ⟨fun ⟨N, hN⟩ ↦ ne_top_of_le_ne_top (WithTop.natCast_ne_top N) hN, fun h ↦ ?_⟩
-      obtain ⟨t, ht⟩ := WithTop.ne_top_iff_exists.1 h
-      exact ⟨t, by simp [← ht]⟩
-    simp_rw [← withDensity_apply _ (hmeas _)]
-    rw [← withDensity_apply _ (hU ▸ MeasurableSet.iUnion hmeas), ← hU]
-    exact tendsto_measure_iUnion_atTop fun N N' h ↦
-      inter_subset_inter_right _ fun ω (hω : T ω ≤ N) ↦ hω.trans (by exact_mod_cast h)
+  have ha := tendsto_setLIntegral_inter_le_natCast (P := P) (stoppedValueLimsup M T)
+    (ℱ.le m _ hs) hT.measurable'
   -- The decrease process is almost surely nondecreasing, and its values at `min T N` increase to
   -- its value at `T`.
   have hDmeas (n : ℕ) : Measurable (D n) :=
@@ -288,21 +294,8 @@ private theorem setLIntegral_eq_add_add_iInf (hM : IsENNSupermartingale M ℱ S)
   have hDmono : ∀ᵐ ω ∂P, Monotone (D · ω) := by
     filter_upwards [(hM.supermartingale_toReal hP h0).antitone_predictablePart] with ω hω
     exact fun n n' h ↦ ENNReal.ofReal_le_ofReal (sub_le_sub_left (hω h) _)
-  have hd : Tendsto (fun N : ℕ ↦ ∫⁻ ω in s, stoppedValueLimsup D (fun ω ↦ min (T ω) N) ω ∂P)
-      atTop (𝓝 (∫⁻ ω in s, stoppedValueLimsup D T ω ∂P)) := by
-    have hmin_top (ω : Ω) (N : ℕ) : min (T ω) N ≠ ⊤ :=
-      ne_top_of_le_ne_top (WithTop.natCast_ne_top N) (min_le_right _ _)
-    refine lintegral_tendsto_of_tendsto_of_monotone (fun N ↦ (measurable_stoppedValueLimsup hDmeas
-      (hT.min_natCast N).measurable').aemeasurable) (ae_restrict_of_ae ?_) (ae_restrict_of_ae ?_)
-    · filter_upwards [hDmono] with ω hω N N' h
-      dsimp only
-      rw [stoppedValueLimsup_eq_stoppedValue (τ := fun ω ↦ min (T ω) N) (hmin_top ω N),
-        stoppedValueLimsup_eq_stoppedValue (τ := fun ω ↦ min (T ω) N') (hmin_top ω N')]
-      exact hω (WithTop.untopA_mono (hmin_top ω N') (min_le_min_left _ (by exact_mod_cast h)))
-    · filter_upwards [hDmono] with ω hω
-      refine tendsto_stoppedValueLimsup_min ?_
-      have h := tendsto_atTop_iSup hω
-      rwa [h.limsup_eq]
+  have hd := tendsto_lintegral_stoppedValueLimsup_min (μ := P.restrict s) hDmeas
+    (ae_restrict_of_ae hDmono) hT.measurable'
   have hr := hM.tendsto_setLIntegral_natCast_lt hP hT hs
   -- The finite-horizon identities pass to the limit.
   refine tendsto_nhds_unique (tendsto_const_nhds.congr' ?_) ((ha.add hd).add hr)
@@ -325,8 +318,7 @@ theorem setLIntegral_eq_exact_ville (hM : IsENNSupermartingale M ℱ S) (hP : P 
         (predictablePart (fun n ω ↦ (M n ω).toReal) ℱ P m ω -
           predictablePart (fun n ω ↦ (M n ω).toReal) ℱ P n ω)) (hittingAfter M (Ici b) m) ω ∂P +
       ⨅ N ≥ m, ∫⁻ ω in s ∩ {ω | (N : WithTop ℕ) < hittingAfter M (Ici b) m ω}, M N ω ∂P := by
-  have hT : IsStoppingTime ℱ (hittingAfter M (Ici b) m) :=
-    hM.adapted.isStoppingTime_hittingAfter measurableSet_Ici
+  have hT := hM.isStoppingTime_hittingAfter_Ici (m := m) b
   have hTtop : MeasurableSet {ω | hittingAfter M (Ici b) m ω ≠ ⊤} := by
     exact (hT.measurable' (measurableSet_singleton ⊤)).compl
   rw [hM.setLIntegral_eq_add_add_iInf hP h0 hT (natCast_le_hittingAfter (Ici b)) hs,

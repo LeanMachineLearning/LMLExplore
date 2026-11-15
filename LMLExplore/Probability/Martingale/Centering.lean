@@ -51,16 +51,13 @@ theorem setIntegral_stoppedValue_sub_eq_predictablePart [SigmaFiniteFiltration �
       ∫ ω in s, stoppedValue (predictablePart f ℱ μ) τ ω -
         stoppedValue (predictablePart f ℱ μ) σ ω ∂μ := by
   -- The set `{σ ≤ k < τ}`, and its intersection with `s`, are `ℱ k`-measurable.
+  have hgt (k : ℕ) : MeasurableSet[ℱ k] {ω | k < τ ω} := by simpa using hτ.measurableSet_gt k
   have hmeas' (k : ℕ) : MeasurableSet[ℱ k] {ω | σ ω ≤ k ∧ k < τ ω} := by
     rw [ofPred_and]
-    have h₁ : MeasurableSet[ℱ k] {ω | σ ω ≤ k} := by simpa using hσ.measurableSet_le k
-    have h₂ : MeasurableSet[ℱ k] {ω | k < τ ω} := by simpa using hτ.measurableSet_gt k
-    exact h₁.inter h₂
+    exact (by simpa using hσ.measurableSet_le k : MeasurableSet[ℱ k] {ω | σ ω ≤ k}).inter (hgt k)
   have hmeas (k : ℕ) : MeasurableSet[ℱ k] (s ∩ {ω | σ ω ≤ k ∧ k < τ ω}) := by
-    have h₁ : MeasurableSet[ℱ k] (s ∩ {ω | σ ω ≤ k}) := by simpa using hs.2 k
-    have h₂ : MeasurableSet[ℱ k] {ω | k < τ ω} := by simpa using hτ.measurableSet_gt k
     rw [ofPred_and, ← Set.inter_assoc]
-    exact h₁.inter h₂
+    exact (by simpa using hs.2 k : MeasurableSet[ℱ k] (s ∩ {ω | σ ω ≤ k})).inter (hgt k)
   -- Both increments are sums over `k ≤ N` of the increments from `k` to `k + 1` on `{σ ≤ k < τ}`.
   have hsum (g : ℕ → Ω → E) (ω : Ω) : stoppedValue g τ ω - stoppedValue g σ ω =
       ∑ k ∈ range (N + 1), {ω | σ ω ≤ k ∧ k < τ ω}.indicator (g (k + 1) - g k) ω := by
