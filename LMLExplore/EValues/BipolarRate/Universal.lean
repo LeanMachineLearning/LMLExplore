@@ -93,34 +93,6 @@ open MeasureTheory Filter
 open TauCeti.Probability (shift measurable_shift_iterate)
 open scoped ENNReal Topology
 
-/-! ### Mixing with a constant, in expectation -/
-
-namespace MeasureTheory
-
-/-- Mixing with a constant, in expectation: the extended integral of the truncation at `k` of
-`log E` is at most the integral of the truncated logarithm of `(1 - ε) E + ε`, minus
-`log (1 - ε)`. -/
-private lemma eintegral_min_log_le_integral_truncLog_sub {Ω : Type*} [MeasurableSpace Ω]
-    {μ : Measure Ω} [IsProbabilityMeasure μ] {E : Ω → ℝ≥0∞} {ε : ℝ} (hε0 : 0 < ε) (hε1 : ε < 1)
-    (k : ℕ) (hint : Integrable
-      (fun x ↦ ENNReal.truncLog k (ENNReal.ofReal (1 - ε) * E x + ENNReal.ofReal ε)) μ) :
-    ∫ᵉ x, min (ENNReal.log (E x)) k ∂μ ≤
-      ((∫ x, ENNReal.truncLog k (ENNReal.ofReal (1 - ε) * E x + ENNReal.ofReal ε) ∂μ -
-        Real.log (1 - ε) : ℝ) : EReal) := by
-  calc ∫ᵉ x, min (ENNReal.log (E x)) k ∂μ
-  _ ≤ ∫ᵉ x, ((ENNReal.truncLog k (ENNReal.ofReal (1 - ε) * E x + ENNReal.ofReal ε) -
-      Real.log (1 - ε) : ℝ) : EReal) ∂μ := eintegral_mono fun x ↦ by
-    have := ENNReal.min_log_le_truncLog_sub hε0 hε1 (k : ℝ) (E x)
-    rwa [EReal.coe_natCast] at this
-  _ = ((∫ x, (ENNReal.truncLog k (ENNReal.ofReal (1 - ε) * E x + ENNReal.ofReal ε) -
-      Real.log (1 - ε)) ∂μ : ℝ) : EReal) :=
-    eintegral_eq_integral (hint.sub (integrable_const _))
-  _ = _ := by
-    rw [integral_sub hint (integrable_const _), integral_const]
-    simp
-
-end MeasureTheory
-
 namespace ProbabilityTheory
 
 variable {𝓧 : Type*} {m𝓧 : MeasurableSpace 𝓧} {S₁ : Set (Measure 𝓧)}

@@ -213,16 +213,9 @@ private lemma eintegral_log_stoppedValue_le_toReal_mul (Q₁ : Measure 𝓧) [Is
     have hYi : Integrable (fun ω ↦ truncLog k (W ω)) μ :=
       ENNReal.integrable_truncLog_comp hε0 ((measurable_const.mul hEτm).add measurable_const)
         (fun _ ↦ le_add_self)
-    calc ∫ᵉ ω, min (ENNReal.log (E (τ ω) ω)) k ∂μ
-    _ ≤ ∫ᵉ ω, ((truncLog k (W ω) - Real.log (1 - ε) : ℝ) : EReal) ∂μ :=
-      eintegral_mono fun ω ↦ by simpa using ENNReal.min_log_le_truncLog_sub hε0 hε1 k (E (τ ω) ω)
-    _ = ((∫ ω, truncLog k (W ω) ∂μ - Real.log (1 - ε) : ℝ) : EReal) := by
-      have hYi' : Integrable (fun ω ↦ truncLog k (W ω) - Real.log (1 - ε)) μ :=
-        hYi.sub (integrable_const _)
-      rw [eintegral_eq_integral hYi',
-        integral_sub hYi (integrable_const _), integral_const, probReal_univ, one_smul]
-    _ ≤ ((D - Real.log (1 - ε) : ℝ) : EReal) := EReal.coe_le_coe_iff.2 (by
-      linarith [integral_truncLog_stoppedValue_le Q₁ hS₁ hE hτ hε0 hε1 (c := k) hd hD])
+    exact (eintegral_min_log_le_integral_truncLog_sub hε0 hε1 k hYi).trans
+      (EReal.coe_le_coe_iff.2 (by
+        linarith [integral_truncLog_stoppedValue_le Q₁ hS₁ hE hτ hε0 hε1 (c := k) hd hD]))
   exact eintegral_le_of_forall_min_le (ENNReal.measurable_log.comp hEτm) fun k ↦
     le_of_forall_le_sub_log_one_sub fun ε hε0 hε1 ↦ step ε hε0 hε1 k
 

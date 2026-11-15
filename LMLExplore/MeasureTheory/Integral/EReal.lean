@@ -5,7 +5,10 @@ Authors: LMLExplore contributors
 -/
 module
 
+public import LMLExplore.Analysis.SpecialFunctions.Log.TruncLog
+public import Mathlib.MeasureTheory.Integral.Bochner.Basic
 public import Statlib.ForMathlib.MeasureTheory.Integral.EReal.EIntegral
+import Statlib.ForMathlib.MeasureTheory.Integral.EReal.Bochner
 
 /-!
 # Monotone convergence for the truncations of an extended integral
@@ -16,10 +19,16 @@ above at `k` leaves its negative part unchanged, and the positive parts of the t
 `min f k` increase to that of `f`, so a bound on the extended integrals of the truncations is a
 bound on the extended integral of `f`.
 
+For `f = log E` with `E` nonnegative, the truncations are bounded by real integrals: mixing `E`
+with a constant `ε ∈ (0, 1)` bounds its logarithm below, at a cost of at most `- log (1 - ε)`.
+
 ## Main statements
 
 * `MeasureTheory.eintegral_le_of_forall_min_le`: if the extended integrals of the truncations
   `min f k`, `k ∈ ℕ`, are at most `D`, so is the extended integral of `f`.
+* `MeasureTheory.eintegral_min_log_le_integral_truncLog_sub`: under a probability measure, the
+  extended integral of `min (log E) k` is at most the integral of the truncated logarithm
+  `ENNReal.truncLog k ((1 - ε) E + ε)`, minus `log (1 - ε)`.
 -/
 
 public section
@@ -73,5 +82,27 @@ theorem eintegral_le_of_forall_min_le {Ω : Type*} [MeasurableSpace Ω] {μ : Me
   rw [← EReal.coe_toENNReal hD] at hk ⊢
   exact EReal.coe_ennreal_le_coe_ennreal_iff.2
     (iSup_le fun k ↦ EReal.coe_ennreal_le_coe_ennreal_iff.1 (hk k))
+
+/-- Mixing with a constant, in expectation: the extended integral of the truncation at `k` of
+`log E` is at most the integral of the truncated logarithm of `(1 - ε) E + ε`, minus
+`log (1 - ε)`. -/
+theorem eintegral_min_log_le_integral_truncLog_sub {Ω : Type*} [MeasurableSpace Ω]
+    {μ : Measure Ω} [IsProbabilityMeasure μ] {E : Ω → ℝ≥0∞} {ε : ℝ} (hε0 : 0 < ε) (hε1 : ε < 1)
+    (k : ℕ) (hint : Integrable
+      (fun x ↦ ENNReal.truncLog k (ENNReal.ofReal (1 - ε) * E x + ENNReal.ofReal ε)) μ) :
+    ∫ᵉ x, min (ENNReal.log (E x)) k ∂μ ≤
+      ((∫ x, ENNReal.truncLog k (ENNReal.ofReal (1 - ε) * E x + ENNReal.ofReal ε) ∂μ -
+        Real.log (1 - ε) : ℝ) : EReal) := by
+  calc ∫ᵉ x, min (ENNReal.log (E x)) k ∂μ
+  _ ≤ ∫ᵉ x, ((ENNReal.truncLog k (ENNReal.ofReal (1 - ε) * E x + ENNReal.ofReal ε) -
+      Real.log (1 - ε) : ℝ) : EReal) ∂μ := eintegral_mono fun x ↦ by
+    have := ENNReal.min_log_le_truncLog_sub hε0 hε1 (k : ℝ) (E x)
+    rwa [EReal.coe_natCast] at this
+  _ = ((∫ x, (ENNReal.truncLog k (ENNReal.ofReal (1 - ε) * E x + ENNReal.ofReal ε) -
+      Real.log (1 - ε)) ∂μ : ℝ) : EReal) :=
+    eintegral_eq_integral (hint.sub (integrable_const _))
+  _ = _ := by
+    rw [integral_sub hint (integrable_const _), integral_const]
+    simp
 
 end MeasureTheory
