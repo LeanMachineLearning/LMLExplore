@@ -441,7 +441,7 @@ private lemma exists_integral_logBetFactor_neg [IsFiniteMeasure Q] (hQ0 : Q {0} 
     ∃ c, 0 ≤ c ∧ c < 1 ∧ ∀ l ∈ Ico c 1, ∫ e, logBetFactor l e ∂Q < 0 := by
   have hbot := eintegral_log_ofReal_eq_bot hQ0 hlog hint
   have htop : ∫⁻ e, ENNReal.ofReal (-logBetFactor 1 e) ∂Q = ⊤ := by
-    have h := not_not.1 (mt eintegral_ne_bot_iff_lintegral_ne_top.2 (not_not.2 hbot))
+    have h := not_ne_iff.1 fun h ↦ eintegral_ne_bot_iff_lintegral_ne_top.2 h hbot
     rw [← h]
     refine lintegral_congr_ae ?_
     filter_upwards [ae_ne_zero hQ0] with e he
@@ -465,7 +465,7 @@ private lemma exists_integral_logBetFactor_neg [IsFiniteMeasure Q] (hQ0 : Q {0} 
   refine ⟨l k, hl0 k, hl1 k, fun l' hl' ↦ ?_⟩
   have hl'0 : 0 ≤ l' := (hl0 k).trans hl'.1
   have hint' := integrable_logBetFactor hlog hl'0 hl'.2
-  rw [integral_eq_lintegral_pos_part_sub_lintegral_neg_part hint', sub_neg]
+  refine (integral_neg_iff_lintegral_ofReal_lt hint').2 ?_
   have hP : ∫⁻ e, ENNReal.ofReal (logBetFactor l' e) ∂Q ≤
       ∫⁻ e, ENNReal.ofReal (Real.log (1 + (e : ℝ))) ∂Q :=
     lintegral_mono fun e ↦ ENNReal.ofReal_le_ofReal
@@ -475,8 +475,7 @@ private lemma exists_integral_logBetFactor_neg [IsFiniteMeasure Q] (hQ0 : Q {0} 
     refine lintegral_mono_ae ?_
     filter_upwards [ae_ne_zero hQ0] with e he
     exact ofReal_neg_logBetFactor_le (hl0 k) hl'.1 hl'.2.le he
-  exact (ENNReal.toReal_lt_toReal hint'.lintegral_lt_top.ne
-    hint'.neg.lintegral_lt_top.ne).2 (hP.trans_lt (hk.trans_le hN))
+  exact hP.trans_lt (hk.trans_le hN)
 
 /-- The expected logarithm of one round has a maximizer `l₀` on `[0, 1]`, at which it is
 finite. -/
@@ -574,9 +573,41 @@ private lemma integrable_logBetFactor_sub_one_half [IsFiniteMeasure Q] {l : ℝ}
 private lemma lintegral_ofReal_logBetFactor_one_half_eq_top [IsFiniteMeasure Q]
     (hlog : ∫⁻ e, ENNReal.ofReal (Real.log (1 + (e : ℝ))) ∂Q = ⊤) :
     ∫⁻ e, ENNReal.ofReal (logBetFactor (1 / 2) e) ∂Q = ⊤ :=
-  lintegral_ofReal_eq_top_of_le_add (ENNReal.ofReal_ne_top (r := Real.log 2)) (fun e ↦
+  lintegral_eq_top_of_le_add (ENNReal.ofReal_ne_top (r := Real.log 2)) (ae_of_all _ fun e ↦
     (ENNReal.ofReal_le_ofReal (by rw [logBetFactor_one_half]; linarith)).trans
       ENNReal.ofReal_add_le) hlog
+
+/-- If `log (1 + E)` has an infinite mean, so does the extended logarithm of the round with
+fraction `1 / 2`, whose negative part is bounded by `log 2`. -/
+private lemma eintegral_log_ofReal_one_half_eq_top [IsFiniteMeasure Q]
+    (hlog : ∫⁻ e, ENNReal.ofReal (Real.log (1 + (e : ℝ))) ∂Q = ⊤) :
+    ∫ᵉ e, ENNReal.log (ENNReal.ofReal (1 + 1 / 2 * ((e : ℝ) - 1))) ∂Q = ⊤ := by
+  rw [eintegral_congr fun e : ℝ≥0 ↦ ENNReal.log_ofReal_of_pos (by linarith [e.coe_nonneg] :
+    (0 : ℝ) < 1 + 1 / 2 * ((e : ℝ) - 1))]
+  have hneg : ∫⁻ e, ENNReal.ofReal (-logBetFactor (1 / 2) e) ∂Q ≠ ⊤ := by
+    refine ne_top_of_le_ne_top (b := ∫⁻ _, ENNReal.ofReal (Real.log 2) ∂Q)
+      (by rw [lintegral_const]; exact ENNReal.mul_ne_top ENNReal.ofReal_ne_top (measure_ne_top _ _))
+      (lintegral_mono fun e ↦ ENNReal.ofReal_le_ofReal ?_)
+    linarith [logBetFactor_one_half e, Real.log_nonneg (by simp : (1 : ℝ) ≤ 1 + e)]
+  by_contra h
+  refine lintegral_toENNReal_ne_top_of_eintegral_ne_top
+    (Or.inr (by simp only [← EReal.coe_neg, EReal.real_coe_toENNReal]; exact hneg)) h ?_
+  simp only [EReal.real_coe_toENNReal]
+  exact lintegral_ofReal_logBetFactor_one_half_eq_top hlog
+
+/-- If `log (1 + E)` has an infinite mean, so does the positive part of `log E`, since
+`log (1 + e) ≤ log e + log 2` for `e ≥ 1`. -/
+private lemma lintegral_ofReal_logBetFactor_one_eq_top [IsFiniteMeasure Q]
+    (hlog : ∫⁻ e, ENNReal.ofReal (Real.log (1 + (e : ℝ))) ∂Q = ⊤) :
+    ∫⁻ e, ENNReal.ofReal (logBetFactor 1 e) ∂Q = ⊤ := by
+  refine lintegral_eq_top_of_le_add (ENNReal.ofReal_ne_top (r := Real.log 2))
+    (ae_of_all _ fun e ↦ ?_) hlog
+  rcases le_total (e : ℝ) 1 with he | he
+  · exact (ENNReal.ofReal_le_ofReal (Real.log_le_log (by positivity) (by linarith))).trans
+      le_add_self
+  · rw [← ENNReal.ofReal_add (logBetFactor_nonneg zero_le_one he) (Real.log_nonneg one_le_two),
+      logBetFactor_one, ← Real.log_mul (by positivity) two_ne_zero]
+    exact ENNReal.ofReal_le_ofReal (Real.log_le_log (by positivity) (by linarith))
 
 /-- If `log (1 + E)` has an infinite mean, some small fraction does worse than `1 / 2`. -/
 private lemma exists_integral_logBetFactor_sub_one_half_neg_of_lt [IsFiniteMeasure Q]
@@ -588,7 +619,7 @@ private lemma exists_integral_logBetFactor_sub_one_half_neg_of_lt [IsFiniteMeasu
     (f := fun k e ↦ logBetFactor (a k) e - logBetFactor (1 / 2) e)
     (F := fun e ↦ logBetFactor 0 e - logBetFactor (1 / 2) e) (C := Real.log 2)
     (fun k ↦ integrable_logBetFactor_sub_one_half (ha k).1 (ha1 k))
-    (fun k e ↦ logBetFactor_sub_one_half_le ⟨(ha k).1.le, (ha1 k).le⟩ e)
+    (fun k ↦ ae_of_all _ fun e ↦ logBetFactor_sub_one_half_le ⟨(ha k).1.le, (ha1 k).le⟩ e)
     (ae_of_all _ fun e ↦ ((continuousAt_logBetFactor (by simp)).tendsto.comp hlim).sub_const _)
     (by simpa [logBetFactor_zero] using lintegral_ofReal_logBetFactor_one_half_eq_top hlog)
   exact ⟨a k, (ha k).1, (ha k).2, hk⟩
@@ -604,11 +635,11 @@ private lemma exists_integral_logBetFactor_sub_one_half_neg_of_gt [IsFiniteMeasu
     (f := fun k e ↦ logBetFactor (b k) e - logBetFactor (1 / 2) e)
     (F := fun e ↦ logBetFactor 1 e - logBetFactor (1 / 2) e) (C := Real.log 2)
     (fun k ↦ integrable_logBetFactor_sub_one_half (hb0 k) (hb k).2)
-    (fun k e ↦ logBetFactor_sub_one_half_le ⟨(hb0 k).le, (hb k).2.le⟩ e)
+    (fun k ↦ ae_of_all _ fun e ↦ logBetFactor_sub_one_half_le ⟨(hb0 k).le, (hb k).2.le⟩ e)
     (by
       filter_upwards [ae_ne_zero hQ0] with e he
       exact ((continuousAt_logBetFactor (by simpa using he)).tendsto.comp hlim).sub_const _)
-    (lintegral_ofReal_eq_top_of_le_add (ENNReal.ofReal_ne_top (r := Real.log 2)) (fun e ↦
+    (lintegral_eq_top_of_le_add (ENNReal.ofReal_ne_top (r := Real.log 2)) (ae_of_all _ fun e ↦
       (ENNReal.ofReal_le_ofReal (by
         linarith [logBetFactor_one_half e, Real.log_nonneg (by simp : (1 : ℝ) ≤ 1 + e)])).trans
         ENNReal.ofReal_add_le) hlog1)
@@ -811,18 +842,8 @@ private lemma ae_tendsto_average_of_lintegral_eq_top [IsProbabilityMeasure Q] (h
           atTop := by
   have hhalf : (1 / 2 : ℝ) ∈ Icc (0 : ℝ) 1 := ⟨by norm_num, by norm_num⟩
   have hχ0 : ∀ e : ℝ≥0, 0 ≤ Real.log (1 + (e : ℝ)) := fun e ↦ Real.log_nonneg (by simp)
-  refine ⟨eq_top_iff.2 (le_iSup₂_of_le (1 / 2) hhalf ?_), ?_⟩
-  · have hneg : ∫⁻ e, ENNReal.ofReal (-logBetFactor (1 / 2) e) ∂Q ≠ ⊤ := by
-      refine ne_top_of_le_ne_top (b := ∫⁻ _, ENNReal.ofReal (Real.log 2) ∂Q)
-        (by simp [lintegral_const]) (lintegral_mono fun e ↦ ?_)
-      refine ENNReal.ofReal_le_ofReal ?_
-      linarith [logBetFactor_one_half e, hχ0 e]
-    rw [eintegral_congr fun e : ℝ≥0 ↦ ENNReal.log_ofReal_of_pos (by linarith [e.coe_nonneg] :
-      (0 : ℝ) < 1 + 1 / 2 * ((e : ℝ) - 1)), eintegral]
-    simp only [EReal.real_coe_toENNReal, ← EReal.coe_neg]
-    rw [show ∫⁻ e, ENNReal.ofReal (Real.log (1 + 1 / 2 * ((e : ℝ) - 1))) ∂Q = ⊤ from
-      lintegral_ofReal_logBetFactor_one_half_eq_top hlog, EReal.coe_ennreal_top]
-    exact (EReal.top_sub (EReal.coe_ennreal_eq_top_iff.not.2 hneg)).ge
+  refine ⟨eq_top_iff.2 (le_iSup₂_of_le (1 / 2) hhalf
+    (eintegral_log_ofReal_one_half_eq_top hlog).ge), ?_⟩
   obtain ⟨a, ha0, ha2, hda⟩ := exists_integral_logBetFactor_sub_one_half_neg_of_lt hlog
   have hinta := integrable_logBetFactor_sub_one_half (Q := Q) ha0 (ha2.trans (by norm_num))
   have hχm : Measurable fun e : ℝ≥0 ↦ Real.log (1 + (e : ℝ)) := by fun_prop
@@ -843,18 +864,10 @@ private lemma ae_tendsto_average_of_lintegral_eq_top [IsProbabilityMeasure Q] (h
       ((min_le_right _ _).trans (by linarith)) (x i)
   · -- the fractions eventually stay in `[a, 1]`, and `log E` has a positive part of infinite
     -- mean and a negative part of finite mean
-    have hpos : ∫⁻ e, ENNReal.ofReal (logBetFactor 1 e) ∂Q = ⊤ := by
-      refine lintegral_ofReal_eq_top_of_le_add (ENNReal.ofReal_ne_top (r := Real.log 2))
-        (fun e ↦ ?_) hlog
-      rcases le_total (e : ℝ) 1 with he | he
-      · exact (ENNReal.ofReal_le_ofReal (Real.log_le_log (by positivity) (by linarith))).trans
-          le_add_self
-      · rw [← ENNReal.ofReal_add (logBetFactor_nonneg zero_le_one he) (Real.log_nonneg one_le_two),
-          logBetFactor_one, ← Real.log_mul (by positivity) two_ne_zero]
-        exact ENNReal.ofReal_le_ofReal (Real.log_le_log (by positivity) (by linarith))
     filter_upwards [Measure.ae_forall_apply_infinitePi _ fun _ ↦ ae_ne_zero hQ0,
       ae_tendsto_average hinta, ae_tendsto_average_add_atTop_infinitePi
-        (integrable_const (Real.log a)) (measurable_logBetFactor 1) hlog1 hpos]
+        (integrable_const (Real.log a)) (measurable_logBetFactor 1) hlog1
+        (lintegral_ofReal_logBetFactor_one_eq_top hlog)]
       with x hx hA hT l hl hmax
     refine LMLExplore.tendsto_average_atTop_of_eventually_le ?_ hT
     filter_upwards [eventually_le_of_lt hx hl hmax hhalf hA hda ha2] with i ha'

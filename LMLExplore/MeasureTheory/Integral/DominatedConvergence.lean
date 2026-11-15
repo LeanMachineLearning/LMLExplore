@@ -17,12 +17,15 @@ be integrated term by term. This is the form in which discounted sums of bounded
 
 Against a finite measure, Fatou's lemma applied to negative parts shows that integrable functions
 bounded above by a constant, converging almost everywhere to a function whose negative part has an
-infinite integral, eventually have negative integrals.
+infinite integral, include one with a negative integral.
 
 ## Main statements
 
 * `MeasureTheory.integral_tsum_smul_of_norm_le`:
   `∫ a, ∑' i, c i • X i a ∂μ = ∑' i, c i • ∫ a, X i a ∂μ`.
+* `MeasureTheory.integral_neg_iff_lintegral_ofReal_lt`: an integrable real function has a
+  negative integral if and only if its positive part has a smaller integral than its negative
+  part.
 * `MeasureTheory.exists_integral_neg_of_tendsto`: if integrable functions bounded above by a
   constant converge almost everywhere to a function whose negative part has an infinite integral
   against a finite measure, one of them has a negative integral.
@@ -57,12 +60,19 @@ theorem integral_tsum_smul_of_norm_le [IsFiniteMeasure μ] {c : ι → ℝ} (hc 
   rw [← integral_tsum_of_summable_integral_norm h_int h_sum]
   simp_rw [integral_smul]
 
+/-- An integrable real function has a negative integral if and only if its positive part has a
+smaller integral than its negative part. -/
+theorem integral_neg_iff_lintegral_ofReal_lt {f : α → ℝ} (hf : Integrable f μ) :
+    ∫ a, f a ∂μ < 0 ↔ ∫⁻ a, ENNReal.ofReal (f a) ∂μ < ∫⁻ a, ENNReal.ofReal (-f a) ∂μ := by
+  rw [integral_eq_lintegral_pos_part_sub_lintegral_neg_part hf, sub_neg]
+  exact ENNReal.toReal_lt_toReal hf.lintegral_lt_top.ne hf.neg.lintegral_lt_top.ne
+
 open Filter Topology in
 /-- **A reverse Fatou argument.** If integrable functions bounded above by a constant converge
 almost everywhere to a function whose negative part has an infinite integral against a finite
 measure, one of them has a negative integral. -/
 theorem exists_integral_neg_of_tendsto [IsFiniteMeasure μ] {f : ℕ → α → ℝ} {F : α → ℝ} {C : ℝ}
-    (hf : ∀ k, Integrable (f k) μ) (hfC : ∀ k a, f k a ≤ C)
+    (hf : ∀ k, Integrable (f k) μ) (hfC : ∀ k, ∀ᵐ a ∂μ, f k a ≤ C)
     (hlim : ∀ᵐ a ∂μ, Tendsto (fun k ↦ f k a) atTop (𝓝 (F a)))
     (hF : ∫⁻ a, ENNReal.ofReal (-F a) ∂μ = ⊤) : ∃ k, ∫ a, f k a ∂μ < 0 := by
   have hfatou := lintegral_liminf_le' (μ := μ) (u := atTop)
@@ -78,12 +88,8 @@ theorem exists_integral_neg_of_tendsto [IsFiniteMeasure μ] {f : ℕ → α → 
     ENNReal.mul_lt_top ENNReal.ofReal_lt_top (measure_lt_top _ _)
   rw [← hfatou] at hB
   obtain ⟨k, hk⟩ := (eventually_lt_of_lt_liminf hB).exists
-  refine ⟨k, ?_⟩
-  rw [integral_eq_lintegral_pos_part_sub_lintegral_neg_part (hf k), sub_neg]
-  have hP : ∫⁻ a, ENNReal.ofReal (f k a) ∂μ ≤ ENNReal.ofReal C * μ univ := by
-    rw [← lintegral_const]
-    exact lintegral_mono fun a ↦ ENNReal.ofReal_le_ofReal (hfC k a)
-  exact (ENNReal.toReal_lt_toReal (hf k).lintegral_lt_top.ne
-    (hf k).neg.lintegral_lt_top.ne).2 (hP.trans_lt hk)
+  refine ⟨k, (integral_neg_iff_lintegral_ofReal_lt (hf k)).2 (lt_of_le_of_lt ?_ hk)⟩
+  rw [← lintegral_const]
+  exact lintegral_mono_ae ((hfC k).mono fun a ha ↦ ENNReal.ofReal_le_ofReal ha)
 
 end MeasureTheory
