@@ -402,6 +402,41 @@ private lemma convex_setOf_le_expVec (F : Finset ℝ) :
   · rw [expVec_add_smul F π₁ π₂ ha hb]
     exact add_le_add (smul_le_smul_of_nonneg_left h₁ ha) (smul_le_smul_of_nonneg_left h₂ hb)
 
+/-- The completion step on a finite set of points: a function whose mean is at most `1` under
+every finitely supported one-sided `1`-sub-Gaussian law has mean at most `1` under every
+nonnegative weighting `w` of the points whose exponential means are all below `1`. Otherwise, for
+`η := (S - 1) / (2 S)` with `S` the mean of `f`, completing `(1 - η) w` into a member of the
+one-step null gives a law under which `f` has mean at least `(1 - η) S > 1`. -/
+private lemma not_one_lt_sum_mul_toReal_of_forall_lintegral_le_one {f : ℝ → ℝ≥0∞}
+    (hf : ∀ μ ∈ oneSidedSubgaussianNull, ∀ S : Finset ℝ, μ (↑S)ᶜ = 0 → ∫⁻ x, f x ∂μ ≤ 1)
+    (hfin : ∀ x, f x ≠ ⊤) {F : Finset ℝ} {w : F → ℝ} (hw : ∀ i, 0 ≤ w i)
+    (hW : ∀ l : ℝ, 0 ≤ l → ∑ i : F, w i * Real.exp (l * i - l ^ 2 / 2) < 1) :
+    ¬ 1 < ∑ i : F, w i * (f i).toReal := by
+  set Sf := ∑ i : F, w i * (f i).toReal with hSfdef
+  intro hSf
+  set η := (Sf - 1) / (2 * Sf) with hηdef
+  have hη0 : 0 < η := div_pos (by linarith) (by linarith)
+  have hη1 : η < 1 := by rw [hηdef, div_lt_one (by linarith)]; linarith
+  have hηS : 1 < (1 - η) * Sf := by
+    have : (1 - η) * Sf = (Sf + 1) / 2 := by rw [hηdef]; field_simp; ring
+    rw [this]; linarith
+  obtain ⟨z, hPmem, hPsupp⟩ :=
+    exists_mem_oneSidedSubgaussianNull_of_lt_one hw (fun i : F ↦ (i : ℝ)) hW hη0 hη1
+  have hfP := hf _ hPmem _ hPsupp
+  have hcw : ∀ i, 0 ≤ (1 - η) * w i := fun i ↦ mul_nonneg (by linarith) (hw i)
+  have hlow : ENNReal.ofReal ((1 - η) * Sf) ≤ ∫⁻ x, f x ∂(∑ i : F,
+      ENNReal.ofReal ((1 - η) * w i) • Measure.dirac (i : ℝ) +
+      ENNReal.ofReal (1 - (1 - η) * ∑ i : F, w i) • Measure.dirac z) := by
+    rw [lintegral_add_measure, LMLExplore.lintegral_sum_smul_dirac]
+    refine le_trans ?_ le_self_add
+    rw [hSfdef, Finset.mul_sum, ENNReal.ofReal_sum_of_nonneg fun i _ ↦
+      mul_nonneg (by linarith) (mul_nonneg (hw i) ENNReal.toReal_nonneg)]
+    refine le_of_eq (Finset.sum_congr rfl fun i _ ↦ ?_)
+    rw [← mul_assoc, ENNReal.ofReal_mul (hcw i), ENNReal.ofReal_toReal (hfin i)]
+  have := hlow.trans hfP
+  rw [ENNReal.ofReal_le_one] at this
+  linarith
+
 /-- One-step domination on a finite set of points: a function whose mean is at most `1` under
 every finitely supported one-sided `1`-sub-Gaussian law is dominated there by a mixture of
 exponentials with a mixing measure of mass at most `1`. Otherwise a separating functional gives a
@@ -438,45 +473,13 @@ private lemma exists_le_expVec {f : ℝ → ℝ≥0∞}
     rwa [hφsum] at this
   have hpos : u < ∑ i : F, (f i).toReal * q i := by rw [← hφsum]; exact hu
   -- the separating functional, divided by `u`, is a measure with exponential means below `1`
-  set w : F → ℝ := fun i ↦ q i / u with hwdef
-  have hw : ∀ i, 0 ≤ w i := fun i ↦ div_nonneg (hq0 i) hu0.le
-  have hW : ∀ l : ℝ, 0 ≤ l → ∑ i : F, w i * Real.exp (l * i - l ^ 2 / 2) < 1 := by
-    intro l hl
-    have : ∑ i : F, w i * Real.exp (l * i - l ^ 2 / 2) =
-        (∑ i : F, Real.exp (l * i - l ^ 2 / 2) * q i) / u := by
-      rw [Finset.sum_div]
-      exact Finset.sum_congr rfl fun i _ ↦ by rw [hwdef]; ring
-    rw [this, div_lt_one hu0]
-    exact hexp l hl
-  set Sf := ∑ i : F, w i * (f i).toReal with hSfdef
-  have hSf : 1 < Sf := by
-    have : Sf = (∑ i : F, (f i).toReal * q i) / u := by
-      rw [hSfdef, Finset.sum_div]
-      exact Finset.sum_congr rfl fun i _ ↦ by rw [hwdef]; ring
-    rw [this, one_lt_div hu0]
-    exact hpos
-  set η := (Sf - 1) / (2 * Sf) with hηdef
-  have hη0 : 0 < η := div_pos (by linarith) (by linarith)
-  have hη1 : η < 1 := by rw [hηdef, div_lt_one (by linarith)]; linarith
-  have hηS : 1 < (1 - η) * Sf := by
-    have : (1 - η) * Sf = (Sf + 1) / 2 := by rw [hηdef]; field_simp; ring
-    rw [this]; linarith
-  obtain ⟨z, hPmem, hPsupp⟩ :=
-    exists_mem_oneSidedSubgaussianNull_of_lt_one hw (fun i : F ↦ (i : ℝ)) hW hη0 hη1
-  have hfP := hf _ hPmem _ hPsupp
-  have hcw : ∀ i, 0 ≤ (1 - η) * w i := fun i ↦ mul_nonneg (by linarith) (hw i)
-  have hlow : ENNReal.ofReal ((1 - η) * Sf) ≤ ∫⁻ x, f x ∂(∑ i : F,
-      ENNReal.ofReal ((1 - η) * w i) • Measure.dirac (i : ℝ) +
-      ENNReal.ofReal (1 - (1 - η) * ∑ i : F, w i) • Measure.dirac z) := by
-    rw [lintegral_add_measure, LMLExplore.lintegral_sum_smul_dirac]
-    refine le_trans ?_ le_self_add
-    rw [hSfdef, Finset.mul_sum, ENNReal.ofReal_sum_of_nonneg fun i _ ↦
-      mul_nonneg (by linarith) (mul_nonneg (hw i) ENNReal.toReal_nonneg)]
-    refine le_of_eq (Finset.sum_congr rfl fun i _ ↦ ?_)
-    rw [← mul_assoc, ENNReal.ofReal_mul (hcw i), ENNReal.ofReal_toReal (hfin i)]
-  have := hlow.trans hfP
-  rw [ENNReal.ofReal_le_one] at this
-  linarith
+  -- under which `f` has mean above `1`, which the completion step rules out
+  refine not_one_lt_sum_mul_toReal_of_forall_lintegral_le_one hf hfin
+    (w := fun i ↦ q i / u) (fun i ↦ div_nonneg (hq0 i) hu0.le) (fun l hl ↦ ?_) ?_
+  · simp_rw [div_mul_eq_mul_div, ← Finset.sum_div, mul_comm (q _)]
+    exact (div_lt_one hu0).2 (hexp l hl)
+  · simp_rw [div_mul_eq_mul_div, ← Finset.sum_div, mul_comm (q _)]
+    exact (one_lt_div hu0).2 hpos
 
 /-- **One-step domination** for the one-sided `1`-sub-Gaussian null: a function `f : ℝ → ℝ≥0∞`,
 measurable or not, whose mean is at most `1` under every finitely supported member of
