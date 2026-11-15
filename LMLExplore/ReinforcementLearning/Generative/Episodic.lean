@@ -180,7 +180,6 @@ theorem indepFun_comp_empirical (M : EpisodicMDP 𝓢 𝓐) (H N : ℕ) [NeZero 
       (∀ h, (k : ℕ) < h → M₁.trans h = M₂.trans h) → F M₁ = F M₂) (p : 𝓢 × 𝓐) :
     IndepFun (fun ω ↦ F (M.empirical H N ω)) (fun ω i ↦ ω i (k, p))
       (streamMeasure (M.generativeKernel H)) := by
-  have : Nonempty 𝓢 := ⟨p.1⟩
   have : Countable 𝓢 := Finite.to_countable
   have : Countable 𝓐 := Finite.to_countable
   -- the function only depends on the samples of the keys of the steps after `k`

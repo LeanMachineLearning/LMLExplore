@@ -104,7 +104,6 @@ theorem indepFun_comp_redirect_empirical (M : MDP 𝓢 𝓐 𝓡) (N : ℕ) [NeZ
     (c : 𝓡) {p : 𝓢 × 𝓐} (hp : p ∈ S) :
     IndepFun (fun ω ↦ F ((M.empirical N ω).redirect hS s c)) (fun ω i ↦ ω i p)
       (streamMeasure M.P) := by
-  have : Nonempty 𝓢 := ⟨s⟩
   -- the redirection only depends on the samples of the pairs outside `S`
   refine indepFun_streamMeasure_of_forall_eq M.P (T := {q | q ∉ S})
     (measurable_comp_empirical M N fun M' ↦ F (M'.redirect hS s c)) (fun ω ω' h ↦ ?_)

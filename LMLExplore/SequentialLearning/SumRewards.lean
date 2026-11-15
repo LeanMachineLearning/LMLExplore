@@ -339,12 +339,13 @@ omit [DecidableEq α] [Countable α] [MeasurableSingletonClass α] in
 /-- **Decoupling in the stream model.** In LML's reward stream model, a measurable function `W` of
 the array that only depends on the reward sequences of the arms of a set `T` is independent of the
 reward sequence `(ω i a)_i` of every arm `a ∉ T`. -/
-theorem indepFun_streamMeasure_of_forall_eq {𝓡 β : Type*} [MeasurableSpace 𝓡] [Nonempty 𝓡]
+theorem indepFun_streamMeasure_of_forall_eq {𝓡 β : Type*} [MeasurableSpace 𝓡]
     [MeasurableSpace β] (ν : Kernel α 𝓡) [IsMarkovKernel ν] {T : Set α} {W : (ℕ → α → 𝓡) → β}
     (hW : Measurable W) (hWT : ∀ ω ω', (∀ i, ∀ b ∈ T, ω i b = ω' i b) → W ω = W ω') {a : α}
     (ha : a ∉ T) :
     IndepFun W (fun ω i ↦ ω i a) (streamMeasure ν) := by
   classical
+  have := nonempty_of_isProbabilityMeasure (ν a)
   -- the reward sequences of the arms of `T` are independent of those of `a`
   have h := (iIndepFun_arm_streamMeasure ν).indepFun_set T {a}
     (Set.disjoint_singleton_right.2 ha) fun b ↦ by fun_prop
