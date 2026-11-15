@@ -127,9 +127,8 @@ lemma measurable_linearExp3HistSum (n : ℕ) :
     have hS := ih.comp (measurable_finInit (β := fun _ ↦ _))
     have hlast : Measurable fun h : Hist 𝓞 α ℝ (n + 1) ↦ h (Fin.last n) := measurable_pi_apply _
     rw [funext (linearExp3HistSum_succ φ π η γ n)]
-    exact hS.add ((measurable_linearExp3Estimate φ).comp
-      (((measurable_linearExp3Weights π η γ).comp hS).prodMk
-        ((Round.measurable_action.comp hlast).prodMk (Round.measurable_feedback.comp hlast))))
+    exact hS.add (measurable_linearExp3Estimate φ ((measurable_linearExp3Weights π η γ).comp hS)
+      (Round.measurable_action.comp hlast) (Round.measurable_feedback.comp hlast))
 
 end HistSum
 
@@ -192,7 +191,8 @@ theorem condExp_indicator_action [IsFiniteMeasure P]
   have hind : (A n ⁻¹' {c}).indicator (fun _ ↦ (1 : ℝ)) =
       fun ω ↦ f ((history O A Y n ω, O n ω), A n ω) := by
     funext ω
-    rfl
+    simp only [f]
+    exact Set.indicator_comp_right (g := fun _ ↦ (1 : ℝ)) (A n)
   have hint : Integrable (fun ω ↦ f ((history O A Y n ω, O n ω), A n ω)) P :=
     hind ▸ (integrable_const 1).indicator (h.measurable_action n (measurableSet_singleton c))
   -- view the run as a run of a weight-based algorithm
@@ -225,6 +225,31 @@ theorem condExp_indicator_action_of_feedback_ae_eq [IsFiniteMeasure P]
 
 variable [MeasurableSpace E] [BorelSpace E]
 
+/-- Along a run of Exp3 for linear bandits whose feedbacks before round `n` are the losses
+`⟪φ (A t), y t (h, o)⟫` of the arms played, for measurable loss vectors `y t` with
+`|⟪φ c, y t (h, o)⟫| ≤ 1`, the round-wise hypotheses of `linearExp3_integral_regret_le` hold at
+the σ-algebras `h.filtrationObs t` of the history and the observation of round `t`: these
+σ-algebras are sub-σ-algebras, the arms are measurable, the arm of round `t` has conditional law
+the weights of Exp3 for linear bandits, and the loss vectors are measurable and bounded. -/
+private lemma regret_hypotheses [IsFiniteMeasure P]
+    (h : IsAlgEnvSeq O A Y (linearExp3 φ π η γ hπ hγ) env P)
+    (hy : ∀ t < n, Measurable (y t)) (hy1 : ∀ t < n, ∀ x c, |⟪φ c, y t x⟫_ℝ| ≤ 1)
+    (hY : ∀ t < n, Y t =ᵐ[P] fun ω ↦ ⟪φ (A t ω), y t (history O A Y t ω, O t ω)⟫_ℝ) :
+    (∀ t < n, h.filtrationObs t ≤ mΩ) ∧ (∀ t < n, ∀ c, MeasurableSet (A t ⁻¹' {c})) ∧
+    (∀ t < n, ∀ c, P⟦A t ⁻¹' {c} | h.filtrationObs t⟧ =ᵐ[P] fun ω ↦ linearExp3Weights π η γ
+      (linearExp3Sum φ π η γ (A · ω) (fun s ↦ ⟪φ (A s ω), y s (history O A Y s ω, O s ω)⟫_ℝ)
+        t) c) ∧
+    (∀ t < n, AEStronglyMeasurable[h.filtrationObs t]
+      (fun ω ↦ y t (history O A Y t ω, O t ω)) P) ∧
+    (∀ t < n, ∀ᵐ ω ∂P, ∀ c, |⟪φ c, y t (history O A Y t ω, O t ω)⟫_ℝ| ≤ 1) :=
+  ⟨fun t _ ↦ h.filtrationObs.le t,
+    fun t _ c ↦ h.measurable_action t (measurableSet_singleton c),
+    fun _ ht ↦ condExp_indicator_action_of_feedback_ae_eq h fun s hs ↦ hY s (hs.trans ht),
+    fun t ht ↦ by
+      rw [h.filtrationObs_eq_comap]
+      exact ((hy t ht).comp (measurable_iff_comap_le.2 le_rfl)).aestronglyMeasurable,
+    fun t ht ↦ ae_of_all _ fun _ c ↦ hy1 t ht _ c⟩
+
 include hγ in
 /-- **Regret of Exp3 for adversarial linear bandits against an adaptive adversary**
 [LS, Theorem 27.1], for arbitrary rates. Let `π` be an exploration distribution with invertible
@@ -239,20 +264,14 @@ theorem integral_regret_le [IsProbabilityMeasure P]
     (h : IsAlgEnvSeq O A Y (linearExp3 φ π η γ hπ hγ) env P)
     (hπu : IsUnit (∑ b, π b • rankOne ℝ (φ b) (φ b)))
     (hg : ∀ b, ⟪φ b, Ring.inverse (∑ b, π b • rankOne ℝ (φ b) (φ b)) (φ b)⟫_ℝ ≤ g)
-    (hη : 0 < η) (hγ0 : 0 < γ) (hηγ : η * g ≤ γ) (hy : ∀ t, Measurable (y t))
-    (hy1 : ∀ t x c, |⟪φ c, y t x⟫_ℝ| ≤ 1)
+    (hη : 0 < η) (hγ0 : 0 < γ) (hηγ : η * g ≤ γ) (hy : ∀ t < n, Measurable (y t))
+    (hy1 : ∀ t < n, ∀ x c, |⟪φ c, y t x⟫_ℝ| ≤ 1)
     (hY : ∀ t < n, Y t =ᵐ[P] fun ω ↦ ⟪φ (A t ω), y t (history O A Y t ω, O t ω)⟫_ℝ) (b : α) :
     ∫ ω, ∑ t ∈ range n, (⟪φ (A t ω), y t (history O A Y t ω, O t ω)⟫_ℝ -
       ⟪φ b, y t (history O A Y t ω, O t ω)⟫_ℝ) ∂P ≤
       Real.log (Fintype.card α) / η + η * finrank ℝ E * n + 2 * γ * n :=
-  linearExp3_integral_regret_le hπ hπu hg hη hγ0 hγ.2 hηγ (m := h.filtrationObs)
-    (fun t _ ↦ h.filtrationObs.le t)
-    (fun t _ c ↦ h.measurable_action t (measurableSet_singleton c))
-    (fun _ ht ↦ condExp_indicator_action_of_feedback_ae_eq h fun s hs ↦ hY s (hs.trans ht))
-    (fun t _ ↦ by
-      rw [h.filtrationObs_eq_comap]
-      exact ((hy t).comp (measurable_iff_comap_le.2 le_rfl)).aestronglyMeasurable)
-    (fun t _ ↦ ae_of_all _ fun _ c ↦ hy1 t _ c) b
+  have ⟨hm, hA, hAW, hy', hy1'⟩ := regret_hypotheses h hy hy1 hY
+  linearExp3_integral_regret_le hπ hπu hg hη hγ0 hγ.2 hηγ hm hA hAW hy' hy1' b
 
 include hγ in
 /-- **Regret of Exp3 for adversarial linear bandits with tuned rates against an adaptive
@@ -266,19 +285,13 @@ theorem integral_regret_le_two_mul_sqrt [Nontrivial E] [IsProbabilityMeasure P]
     (hg : ∀ b, ⟪φ b, Ring.inverse (∑ b, π b • rankOne ℝ (φ b) (φ b)) (φ b)⟫_ℝ ≤ g)
     (hk : 1 < Fintype.card α) (hn : 0 < n)
     (hη : η = √(Real.log (Fintype.card α) / ((2 * g + finrank ℝ E) * n))) (hγg : γ = η * g)
-    (hy : ∀ t, Measurable (y t)) (hy1 : ∀ t x c, |⟪φ c, y t x⟫_ℝ| ≤ 1)
+    (hy : ∀ t < n, Measurable (y t)) (hy1 : ∀ t < n, ∀ x c, |⟪φ c, y t x⟫_ℝ| ≤ 1)
     (hY : ∀ t < n, Y t =ᵐ[P] fun ω ↦ ⟪φ (A t ω), y t (history O A Y t ω, O t ω)⟫_ℝ) (b : α) :
     ∫ ω, ∑ t ∈ range n, (⟪φ (A t ω), y t (history O A Y t ω, O t ω)⟫_ℝ -
       ⟪φ b, y t (history O A Y t ω, O t ω)⟫_ℝ) ∂P ≤
       2 * √((2 * g + finrank ℝ E) * n * Real.log (Fintype.card α)) :=
-  linearExp3_integral_regret_le_two_mul_sqrt hπ hπu hg hk hn hη hγg hγ.2 (m := h.filtrationObs)
-    (fun t _ ↦ h.filtrationObs.le t)
-    (fun t _ c ↦ h.measurable_action t (measurableSet_singleton c))
-    (fun _ ht ↦ condExp_indicator_action_of_feedback_ae_eq h fun s hs ↦ hY s (hs.trans ht))
-    (fun t _ ↦ by
-      rw [h.filtrationObs_eq_comap]
-      exact ((hy t).comp (measurable_iff_comap_le.2 le_rfl)).aestronglyMeasurable)
-    (fun t _ ↦ ae_of_all _ fun _ c ↦ hy1 t _ c) b
+  have ⟨hm, hA, hAW, hy', hy1'⟩ := regret_hypotheses h hy hy1 hY
+  linearExp3_integral_regret_le_two_mul_sqrt hπ hπu hg hk hn hη hγg hγ.2 hm hA hAW hy' hy1' b
 
 include hγ in
 /-- **Regret of Exp3 for adversarial linear bandits with the Kiefer–Wolfowitz exploration against
@@ -294,8 +307,8 @@ theorem integral_regret_le_two_mul_sqrt_three [Nontrivial E] [IsProbabilityMeasu
     (hg : ∀ b, ⟪φ b, Ring.inverse (∑ b, π b • rankOne ℝ (φ b) (φ b)) (φ b)⟫_ℝ ≤ finrank ℝ E)
     (hk : 1 < Fintype.card α) (hn : 0 < n)
     (hη : η = √(Real.log (Fintype.card α) / (3 * finrank ℝ E * n)))
-    (hγd : γ = η * finrank ℝ E) (hy : ∀ t, Measurable (y t))
-    (hy1 : ∀ t x c, |⟪φ c, y t x⟫_ℝ| ≤ 1)
+    (hγd : γ = η * finrank ℝ E) (hy : ∀ t < n, Measurable (y t))
+    (hy1 : ∀ t < n, ∀ x c, |⟪φ c, y t x⟫_ℝ| ≤ 1)
     (hY : ∀ t < n, Y t =ᵐ[P] fun ω ↦ ⟪φ (A t ω), y t (history O A Y t ω, O t ω)⟫_ℝ) (b : α) :
     ∫ ω, ∑ t ∈ range n, (⟪φ (A t ω), y t (history O A Y t ω, O t ω)⟫_ℝ -
       ⟪φ b, y t (history O A Y t ω, O t ω)⟫_ℝ) ∂P ≤
@@ -323,8 +336,8 @@ theorem integral_regret_detFeedback_le_two_mul_sqrt_three [Nontrivial E] [IsProb
     (hg : ∀ b, ⟪φ b, Ring.inverse (∑ b, π b • rankOne ℝ (φ b) (φ b)) (φ b)⟫_ℝ ≤ finrank ℝ E)
     (hk : 1 < Fintype.card α) (hn : 0 < n)
     (hη : η = √(Real.log (Fintype.card α) / (3 * finrank ℝ E * n)))
-    (hγd : γ = η * finrank ℝ E) (hy : ∀ t, Measurable (y t))
-    (hy1 : ∀ t x c, |⟪φ c, y t x⟫_ℝ| ≤ 1) (b : α) :
+    (hγd : γ = η * finrank ℝ E) (hy : ∀ t < n, Measurable (y t))
+    (hy1 : ∀ t < n, ∀ x c, |⟪φ c, y t x⟫_ℝ| ≤ 1) (b : α) :
     ∫ ω, ∑ t ∈ range n, (⟪φ (A t ω), y t (history O A Y t ω, O t ω)⟫_ℝ -
       ⟪φ b, y t (history O A Y t ω, O t ω)⟫_ℝ) ∂P ≤
       2 * √(3 * finrank ℝ E * n * Real.log (Fintype.card α)) :=

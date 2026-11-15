@@ -233,6 +233,7 @@ lemma sum_linearExp3Weights_mul_sub_le (hπ : π ∈ simplex α) (hγ0 : 0 ≤ �
     (show ∑ c, π c * ℓ c - ℓ b ≤ 2 by linarith [(abs_le.1 (hℓ b)).1]) hγ0
   linarith
 
+@[fun_prop]
 lemma measurable_linearExp3Weights (π : α → ℝ) (η γ : ℝ) :
     Measurable (linearExp3Weights π η γ) := by
   refine measurable_pi_iff.2 fun a ↦ ?_
@@ -334,16 +335,17 @@ lemma measurable_inner_ringInverse_sum_smul_rankOne [FiniteDimensional ℝ E] (�
     (measurable_ringInverse.comp hV.measurable)
 
 /-- The loss estimate depends measurably on the weights, the played arm and the observed loss. -/
+@[fun_prop]
 lemma measurable_linearExp3Estimate [FiniteDimensional ℝ E] [MeasurableSpace α]
-    [MeasurableSingletonClass α] (φ : α → E) :
-    Measurable fun x : (α → ℝ) × α × ℝ ↦ linearExp3Estimate φ x.1 x.2.1 x.2.2 := by
-  refine measurable_pi_iff.2 fun a ↦ ?_
+    [MeasurableSingletonClass α] (φ : α → E) {β : Type*} [MeasurableSpace β] {q : β → α → ℝ}
+    {a : β → α} {ℓ : β → ℝ} (hq : Measurable q) (ha : Measurable a) (hℓ : Measurable ℓ) :
+    Measurable fun x ↦ linearExp3Estimate φ (q x) (a x) (ℓ x) := by
+  refine measurable_pi_iff.2 fun b ↦ ?_
   simp_rw [linearExp3Estimate_apply]
-  exact ((measurable_from_prod_countable_left (measurable_inner_ringInverse_sum_smul_rankOne φ a)
+  exact ((measurable_from_prod_countable_left (measurable_inner_ringInverse_sum_smul_rankOne φ b)
     (f := fun z : (α → ℝ) × α ↦
-      ⟪φ a, Ring.inverse (∑ b, z.1 b • rankOne ℝ (φ b) (φ b)) (φ z.2)⟫_ℝ)).comp
-    (measurable_fst.prodMk (measurable_fst.comp measurable_snd))).mul
-    (measurable_snd.comp measurable_snd)
+      ⟪φ b, Ring.inverse (∑ c, z.1 c • rankOne ℝ (φ c) (φ c)) (φ z.2)⟫_ℝ)).comp
+    (hq.prodMk ha)).mul hℓ
 
 end Estimate
 
