@@ -8,6 +8,7 @@ module
 public import LeanMachineLearning.ForMathlib.MeasureTheory.Order.MeasurableArg
 public import LMLExplore.Analysis.FixedPoint.OrderUnit
 public import LMLExplore.MarkovDecisionProcess.Basic
+public import LMLExplore.MeasureTheory.Order.ApproxArgmax
 public import LMLExplore.MeasureTheory.Integral.BoundedMeasurable
 public import LMLExplore.Order.ConditionallyCompleteLattice.Group
 public import Mathlib.Probability.Kernel.Integral
@@ -26,7 +27,9 @@ let `γ ≥ 0` be a discount factor. For a value function `v : 𝓢 → ℝ`, th
   `M.bellman γ v s = ⨆ a, M.lookahead γ v (s, a)`;
 * the greedy policy `M.greedy γ v`, which picks at every state an action attaining that maximum
   (for finitely many actions), and the predicate `M.IsApproxGreedy γ ε v d` that the deterministic
-  policy `d` comes within `ε` of the maximum at every state.
+  policy `d` comes within `ε` of the maximum at every state;
+* for countably many actions and `ε > 0`, the measurable `ε`-greedy policy `M.approxGreedy γ ε v`,
+  which picks at every state an action within `ε` of the supremum, which need not be attained.
 
 These operators are monotone and adding a constant `c` to their argument adds `γ * c` to their
 value. As in Blackwell's sufficient conditions, they are therefore `γ`-contractions for the sup
@@ -57,6 +60,8 @@ actions give both, and so do bounded rewards and a bounded measurable value func
 * `Learning.MDP.greedy M γ v`: the greedy deterministic policy for `v`.
 * `Learning.MDP.IsApproxGreedy M γ ε v d`: the deterministic policy `d` is `ε`-greedy for `v`;
   greedy for `ε = 0`.
+* `Learning.MDP.approxGreedy M γ ε v`: an `ε`-greedy deterministic policy for `v`, for countably
+  many actions.
 
 ## Main statements
 
@@ -73,6 +78,9 @@ actions give both, and so do bounded rewards and a bounded measurable value func
   `Learning.MDP.exists_abs_bellman_iterate_le`, `Learning.MDP.measurable_bellmanEval_iterate`,
   `Learning.MDP.exists_abs_bellmanEval_iterate_le`); `Learning.MDP.measurable_greedy`: the greedy
   policy of a measurable function is measurable.
+* `Learning.MDP.isApproxGreedy_approxGreedy`, `Learning.MDP.measurable_approxGreedy`: for
+  countably many actions and `ε > 0`, `M.approxGreedy γ ε v` is `ε`-greedy for `v`, and measurable
+  when `v` is.
 * `Learning.MDP.bellmanEval_le_bellman`: randomizing does not increase the supremum
   [P, Proposition 6.2.1]; `Learning.MDP.bellmanEval_greedy`: the greedy policy attains it, so the
   optimality operator is the maximum of the evaluation operators of measurable deterministic
@@ -335,6 +343,29 @@ theorem isApproxGreedy_greedy [Fintype 𝓐] [Nonempty 𝓐] (v : 𝓢 → ℝ) 
 theorem measurable_greedy [Fintype 𝓐] [Nonempty 𝓐] (hv : Measurable v) :
     Measurable (M.greedy γ v) :=
   measurable_argmax.comp <| measurable_pi_iff.2 fun _ ↦
+    (measurable_lookahead hv).comp measurable_prodMk_right
+
+variable (M γ) in
+/-- For countably many actions and `ε > 0`, an `ε`-greedy deterministic policy for `v`: at every
+state, an action whose lookahead `r (s, a) + γ * ∫ v dP (s, a)` exceeds the optimality operator
+minus `ε`, chosen by the measurable `ε`-maximizer `LMLExplore.approxArgmax`. -/
+noncomputable def approxGreedy [Countable 𝓐] [Nonempty 𝓐] (ε : ℝ) (v : 𝓢 → ℝ) (s : 𝓢) : 𝓐 :=
+  approxArgmax ε fun a ↦ M.lookahead γ v (s, a)
+
+variable (M γ) in
+lemma approxGreedy_def [Countable 𝓐] [Nonempty 𝓐] (ε : ℝ) (v : 𝓢 → ℝ) (s : 𝓢) :
+    M.approxGreedy γ ε v s = approxArgmax ε fun a ↦ M.lookahead γ v (s, a) :=
+  (rfl)
+
+/-- For `ε > 0`, the policy `M.approxGreedy γ ε v` is `ε`-greedy for `v`. -/
+theorem isApproxGreedy_approxGreedy [Countable 𝓐] [Nonempty 𝓐] {ε : ℝ} (hε : 0 < ε)
+    (v : 𝓢 → ℝ) : M.IsApproxGreedy γ ε v (M.approxGreedy γ ε v) :=
+  fun s ↦ (iSup_sub_lt_apply_approxArgmax hε fun a ↦ M.lookahead γ v (s, a)).le
+
+/-- The `ε`-greedy policy of a measurable function is measurable. -/
+theorem measurable_approxGreedy [Countable 𝓐] [Nonempty 𝓐] {ε : ℝ} (hv : Measurable v) :
+    Measurable (M.approxGreedy γ ε v) :=
+  (measurable_approxArgmax ε).comp <| measurable_pi_iff.2 fun _ ↦
     (measurable_lookahead hv).comp measurable_prodMk_right
 
 /-! ### The evaluation operator of a stationary policy -/
