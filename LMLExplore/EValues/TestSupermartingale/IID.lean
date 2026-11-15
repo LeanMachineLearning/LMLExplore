@@ -9,6 +9,7 @@ public import LMLExplore.EValues.EProcess
 public import LMLExplore.EValues.TestSupermartingale
 public import Mathlib.Probability.ProductMeasure
 import LMLExplore.Probability.ProductMeasure
+import Statlib.ForMathlib.Probability.Process.Filtration
 
 /-!
 # Products of i.i.d. copies of an e-variable

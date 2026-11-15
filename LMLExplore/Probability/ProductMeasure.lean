@@ -7,8 +7,7 @@ module
 
 public import LMLExplore.MeasureTheory.MeasurableSpace.Constructions
 public import Mathlib.Probability.Independence.InfinitePi
-public import Mathlib.Probability.Process.Stopping
-public import Statlib.ForMathlib.Probability.Process.Filtration
+public import Mathlib.Probability.Process.Filtration
 public import TauCeti.Probability.Ergodic.BernoulliShift
 import LMLExplore.MeasureTheory.Constructions.Pi
 import LMLExplore.MeasureTheory.Measure.Typeclasses.Probability
@@ -24,9 +23,7 @@ coordinates. The shift of an i.i.d. sequence is again i.i.d. with the same law, 
 the first `t` terms is independent of a function of the terms after them. Under a countable
 product, almost surely every coordinate has a property that almost every point of its factor has.
 With the filtration `Filtration.piLE` of the first coordinates, whose time `n` has seen the
-coordinates `0, …, n`, the coordinate `n + 1` is independent of time `n`; functions of the first
-coordinates are adapted, and random times that are functions of the first `k + 1` coordinates and
-are at least `k` are stopping times.
+coordinates `0, …, n`, the coordinate `n + 1` is independent of time `n`.
 
 If `Q + ∑ i, b i • P i = ∑ i, c i • P i` for a probability measure `Q` and probability measures
 `P i`, two functions of the first `N + 1` observations with equal integrals under the i.i.d. law of
@@ -53,12 +50,6 @@ the polarization step of [EVR26, Note 03, Theorem 1], adapted from
 * `MeasureTheory.Measure.lintegral_infinitePi_eq_of_add_sum_eq_sum`: polarization for i.i.d. laws,
   from the convex combinations of finitely many probability measures to every probability measure
   in their linear span.
-* `MeasureTheory.Filtration.measurable_piLE_initSeg`,
-  `MeasureTheory.Filtration.adapted_piLE_comp_initSeg`,
-  `MeasureTheory.Filtration.isStoppingTime_piLE_comp_initSeg`: the first `k` terms are measurable
-  at time `n` of `Filtration.piLE` for `k ≤ n + 1`, functions of the first `n + 1` terms form an
-  adapted process, and a function of the first `k + 1` terms that is at least `k` is a stopping
-  time.
 * `ProbabilityTheory.indep_piLE_comap_eval_succ`: for an i.i.d. sequence, the term `n + 1` is
   independent of `Filtration.piLE n`.
 * `ProbabilityTheory.setLIntegral_comp_eval_succ`: for an event `s` of `Filtration.piLE n`,
@@ -232,41 +223,6 @@ lemma lintegral_infinitePi_eq_of_add_sum_eq_sum {𝓧 ι : Type*} {m𝓧 : Measu
     exact hf_ne w hw
 
 end MeasureTheory.Measure
-
-namespace MeasureTheory.Filtration
-
-variable {𝓧 : Type*} {m𝓧 : MeasurableSpace 𝓧}
-
-/-- For `k ≤ n + 1`, the first `k` terms of a sequence are measurable at time `n` of
-`Filtration.piLE`. -/
-lemma measurable_piLE_initSeg {k n : ℕ} (hk : k ≤ n + 1) :
-    Measurable[piLE (X := fun _ : ℕ ↦ 𝓧) n] (initSeg k) := by
-  rw [initSeg_def]
-  exact @Measurable.of_eval _ _ _ (piLE n) _ _ fun i ↦ measurable_piLE_apply (by have := i.2; omega)
-
-/-- The process of the values of measurable functions `X n` of the first `n + 1` terms of a
-sequence is adapted to `Filtration.piLE`. -/
-lemma adapted_piLE_comp_initSeg {β : Type*} [MeasurableSpace β]
-    {X : (n : ℕ) → (Fin (n + 1) → 𝓧) → β} (hX : ∀ n, Measurable (X n)) :
-    Adapted (piLE (X := fun _ : ℕ ↦ 𝓧)) fun n ω ↦ X n (initSeg (n + 1) ω) :=
-  fun n ↦ (hX n).comp (measurable_piLE_initSeg le_rfl)
-
-/-- A random time that is a measurable function, at least `k`, of the first `k + 1` terms of a
-sequence is a stopping time of `Filtration.piLE`. -/
-lemma isStoppingTime_piLE_comp_initSeg {k : ℕ} {T : (Fin (k + 1) → 𝓧) → ℕ}
-    (hT : Measurable T) (hTk : ∀ x, k ≤ T x) :
-    IsStoppingTime (piLE (X := fun _ : ℕ ↦ 𝓧)) fun ω ↦ (T (initSeg (k + 1) ω) : WithTop ℕ) := by
-  intro i
-  by_cases hi : k ≤ i
-  · exact measurable_piLE_initSeg (by omega)
-      (hT (MeasurableSet.of_discrete (s := {m : ℕ | (m : WithTop ℕ) ≤ i})))
-  · -- before time `k` the random time has not stopped yet
-    convert @MeasurableSet.empty _ (piLE (X := fun _ : ℕ ↦ 𝓧) i) using 1
-    ext ω
-    simp only [Set.mem_ofPred_eq, Set.mem_empty_iff_false, iff_false, not_le]
-    exact Nat.cast_lt.2 (lt_of_lt_of_le (by omega) (hTk _))
-
-end MeasureTheory.Filtration
 
 namespace ProbabilityTheory
 

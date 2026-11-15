@@ -70,8 +70,6 @@ finite.
 * `ProbabilityTheory.isNumeraire_rnDeriv`: for `Q ≪ P`, the likelihood ratio `Q.rnDeriv P` is the
   numeraire of `{P}` [RW, Theorem 3.20]; its expected logarithm is `klDiv Q P` by Statlib's
   `maxUtility_singleton_eq_klDiv`.
-* `ProbabilityTheory.isEVar_div_singleton`: on a finite space, the likelihood ratio
-  `x ↦ Q {x} / P {x}` against a law `P` that charges every point is an e-variable for `{P}`.
 * `ProbabilityTheory.IsNumeraire.eq_of_countable`: on a countable space where `Q` charges every
   point, numeraires are unique everywhere.
 
@@ -416,20 +414,6 @@ theorem ripr_singleton_eq [IsProbabilityMeasure Q] [IsProbabilityMeasure P] (hQP
     (hPQ : P ≪ Q) : ripr Q {P} = P :=
   ripr_eq_of_isEVar_rnDeriv (by rintro _ rfl; infer_instance)
     (subset_effectiveSet (by simp) rfl) hQP hPQ (isNumeraire_rnDeriv hQP).isEVar
-
-/-! ### Likelihood ratios on a finite space -/
-
-/-- On a finite space, the likelihood ratio `x ↦ Q {x} / P {x}` of a probability measure `Q`
-against a probability measure `P` that charges every point is an e-variable for `{P}`: its
-expectation under `P` is `1`. -/
-theorem isEVar_div_singleton [MeasurableSingletonClass Ω] [Finite Ω] [IsProbabilityMeasure Q]
-    [IsProbabilityMeasure P] (hP : ∀ ω, P {ω} ≠ 0) :
-    IsEVar (fun ω ↦ Q {ω} / P {ω}) {P} := by
-  have := Fintype.ofFinite Ω
-  refine IsEVar.of_lintegral_le_one (by simpa) Measurable.of_discrete fun _ h ↦ ?_
-  rw [Set.mem_singleton_iff.1 h, lintegral_fintype, Finset.sum_congr rfl fun ω _ ↦
-    ENNReal.div_mul_cancel (hP ω) (measure_ne_top _ _), sum_measure_singleton, Finset.coe_univ,
-    measure_univ]
 
 /-! ### Uniqueness on a countable space -/
 

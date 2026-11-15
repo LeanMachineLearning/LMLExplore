@@ -13,6 +13,7 @@ import LMLExplore.EValues.Numeraire
 import LMLExplore.EValues.TestSupermartingale.IID
 import LMLExplore.MeasureTheory.Measure.Real
 import LMLExplore.Probability.ProductMeasure
+import LMLExplore.Probability.Process.Filtration
 import Mathlib.Topology.Order.IntermediateValue
 
 /-!
@@ -698,8 +699,9 @@ private lemma not_isEProcess_of_one_lt (hQ : ∀ x, Q {x} ≠ 0) (hP₁ : ∀ x,
       (P₁.real {y} + s j * P₂.real {y}) = 0 := fun j ↦
     sum_div_eq_zero_of_sum_mix_eq_zero (piMass_pos hP₁ (x j)) hw0' ((hstep (x j)).2 (heq (x j)))
   have hzero := LMLExplore.sum_div_eq_zero_of_injective
-    (fun y ↦ measureReal_pos_of_ne_zero (hP₁ y)) (fun y ↦ measureReal_pos_of_ne_zero (hP₂ y))
-    (by rw [hk, Fintype.card_fin]) hinj hs0 hroot
+    (fun y ↦ (measureReal_pos_of_ne_zero (hP₁ y)).ne') (by rw [hk, Fintype.card_fin]) hinj
+    (fun j y ↦ (add_pos_of_pos_of_nonneg (measureReal_pos_of_ne_zero (hP₁ y))
+      (mul_nonneg (hs0 j) measureReal_nonneg)).ne') hroot
   have h1 : ∑ y, (P₁.real {y} - P₂.real {y}) * Q.real {y} / P₁.real {y} =
       1 - ∑ y, P₂.real {y} * (Q.real {y} / P₁.real {y}) := by
     rw [← sum_measureReal_singleton_eq_one Q, ← Finset.sum_sub_distrib]
