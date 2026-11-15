@@ -9,6 +9,7 @@ public import Mathlib.MeasureTheory.Constructions.Pi
 public import Mathlib.Probability.Independence.Basic
 public import Statlib.EValues.EVariable
 import LMLExplore.MeasureTheory.Constructions.Pi
+import LMLExplore.MeasureTheory.Integral.Pi
 import LMLExplore.MeasureTheory.Integral.Lebesgue.Countable
 import Mathlib.Algebra.BigOperators.Fin
 
