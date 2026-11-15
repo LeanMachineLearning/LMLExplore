@@ -17,18 +17,17 @@ null `S`, in the sense that `P = κ ∘ₘ P.map T`. For an alternative `Q`, the
 
 The likelihood ratio of `Q` to `κ ∘ₘ Q.map T` integrates to one against `κ y` for `Q.map T`-almost
 every `y`: its conditional expectation given `T` is one. So it is an e-variable for `S`, with
-expectation exactly `1` under every member `P` of `S` such that the law of `T` under `P` is
-absolutely continuous with respect to its law under `Q`. This is the conditional e-variable of
-[HGLLA24]. When moreover `κ ∘ₘ Q.map T` belongs to the effective null of `S` (for example when it
-is a mixture of members of `S`, by `ProbabilityTheory.comp_mem_effectiveSet`), this likelihood
-ratio is the numeraire of `S` under `Q` by the criterion of [LRR25, Theorem 4.1]
-(`ProbabilityTheory.isNumeraire_of_ae_eq_rnDeriv`), and `κ ∘ₘ Q.map T` is the reverse information
-projection of `Q` on `S` when it is equivalent to `Q`
-(`ProbabilityTheory.ripr_eq_of_isEVar_rnDeriv`).
+expectation exactly the mass `P univ` (one for probability measures) under every member `P` of `S`
+such that the law of `T` under `P` is absolutely continuous with respect to its law under `Q`. This
+is the conditional e-variable of [HGLLA24]. When moreover `κ ∘ₘ Q.map T` belongs to the effective
+null of `S` (for example when it is a mixture of members of `S`, by
+`ProbabilityTheory.comp_mem_effectiveSet`), this likelihood ratio is the numeraire of `S` under
+`Q` by the criterion of [LRR25, Theorem 4.1] (`ProbabilityTheory.isNumeraire_of_ae_eq_rnDeriv`),
+and `κ ∘ₘ Q.map T` is the reverse information projection of `Q` on `S` when it is equivalent to
+`Q` (`ProbabilityTheory.ripr_eq_of_isEVar_rnDeriv`).
 
 ## Main statements
 
-* `ProbabilityTheory.map_comp_eq_of_ae_eq`: `κ ∘ₘ ν` has law `ν` for `T`.
 * `ProbabilityTheory.ae_lintegral_rnDeriv_comp_map_eq_one`: the likelihood ratio of `Q` to
   `κ ∘ₘ Q.map T` has conditional expectation one given `T`.
 * `ProbabilityTheory.lintegral_rnDeriv_comp_map`, `ProbabilityTheory.isEVar_rnDeriv_comp_map`: it
@@ -52,25 +51,6 @@ namespace ProbabilityTheory
 
 variable {Ω 𝓨 : Type*} {mΩ : MeasurableSpace Ω} {m𝓨 : MeasurableSpace 𝓨} {T : Ω → 𝓨}
   {κ : Kernel 𝓨 Ω} {S : Set (Measure Ω)} {Q P : Measure Ω}
-
-/-- If `κ y` is a probability measure carried by the fiber `T ⁻¹' {y}` for `ν`-almost every `y`,
-the law of `T` under `κ ∘ₘ ν` is `ν`. -/
-theorem map_comp_eq_of_ae_eq [IsMarkovKernel κ] (hT : Measurable T) {ν : Measure 𝓨}
-    (hκ : ∀ᵐ y ∂ν, ∀ᵐ x ∂κ y, T x = y) : (κ ∘ₘ ν).map T = ν := by
-  ext A hA
-  rw [Measure.map_apply hT hA, Measure.bind_apply (hT hA) κ.aemeasurable,
-    ← lintegral_indicator_one hA]
-  refine lintegral_congr_ae ?_
-  filter_upwards [hκ] with y hκ
-  by_cases hy : y ∈ A
-  · rw [indicator_of_mem hy, Pi.one_apply, ← measure_univ (μ := κ y)]
-    refine measure_congr ?_
-    filter_upwards [hκ] with x hx
-    simp [hx, hy]
-  · rw [indicator_of_notMem hy]
-    refine measure_eq_zero_iff_ae_notMem.mpr ?_
-    filter_upwards [hκ] with x hx
-    simpa [hx] using hy
 
 /-- **The conditional expectation of the likelihood ratio given the statistic is one.** If `κ y`
 is carried by the fiber `T ⁻¹' {y}` for `Q.map T`-almost every `y` and the finite measure `Q` is
