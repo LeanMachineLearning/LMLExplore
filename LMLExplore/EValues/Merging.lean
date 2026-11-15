@@ -53,8 +53,8 @@ Proposition 8.3].
   `ProbabilityTheory.isEMerging_iff_exists_le_add_sum_mul`: this characterizes e-merging functions
   among measurable functions.
 * `ProbabilityTheory.jointlyConvexLikeOn_lintegral`: the integrals of `F` and of the coordinates
-  are jointly convex-like on the probability measures with a property closed under mixtures, so
-  Lagrange duality applies to them, and
+  are jointly convex-like on the probability measures with a property closed under all
+  nonnegative combinations `p • μ + q • ν`, so Lagrange duality applies to them, and
   `ProbabilityTheory.exists_forall_toReal_lintegral_le_add_sum_mul`: the resulting Lagrange
   multipliers for the program of maximizing `∫⁻ F ∂μ` under the constraints `∫⁻ e, e i ∂μ ≤ 1`.
 * `ProbabilityTheory.isAdmissibleEMerging_iff`: the admissible e-merging functions are the weighted
@@ -218,9 +218,9 @@ private lemma coe_add_sum_mul (w₀ : ℝ≥0) (w e : ι → ℝ≥0) :
 
 omit [Fintype ι] in
 /-- The objective `μ ↦ -∫⁻ F ∂μ` and the constraints `μ ↦ ∫⁻ e, e i ∂μ - 1` are jointly
-convex-like on the probability measures that satisfy a property `P` closed under mixtures and
-against which `F` and the coordinates have finite integrals: mixtures of measures mix the
-integrals. -/
+convex-like on the probability measures that satisfy a property `P` closed under all nonnegative
+combinations `p • μ + q • ν` (for any `p q : ℝ≥0∞`) and against which `F` and the coordinates have
+finite integrals: mixtures of measures mix the integrals. -/
 theorem jointlyConvexLikeOn_lintegral (F : (ι → ℝ≥0∞) → ℝ≥0∞) {P : Measure (ι → ℝ≥0∞) → Prop}
     (hP : ∀ μ ν, P μ → P ν → ∀ p q : ℝ≥0∞, P (p • μ + q • ν)) :
     LMLExplore.JointlyConvexLikeOn
@@ -238,7 +238,8 @@ theorem jointlyConvexLikeOn_lintegral (F : (ι → ℝ≥0∞) → ℝ≥0∞) {
 
 omit [Fintype ι] in
 /-- **Lagrange multipliers for the e-merging program** over the probability measures that satisfy
-a property `P` closed under mixtures. If `∫⁻ F ∂μ ≤ 1` for every such `μ` whose coordinates have
+a property `P` closed under all nonnegative combinations `p • μ + q • ν` (for any `p q : ℝ≥0∞`).
+If `∫⁻ F ∂μ ≤ 1` for every such `μ` whose coordinates have
 expectation at most `1`, and some such `μ` against which `F` has a finite integral has all
 coordinate expectations `< 1`, then some multipliers `π : ι → ℝ≥0` bound `∫⁻ F ∂μ` by the
 Lagrangian `1 + ∑ i, π i * (∫⁻ e, e i ∂μ - 1)` at every such `μ` against which `F` and the

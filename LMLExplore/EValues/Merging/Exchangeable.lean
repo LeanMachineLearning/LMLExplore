@@ -175,8 +175,8 @@ private lemma lintegral_apply_orbitMeasure (E : ι → ℝ≥0∞) (i : ι) :
   exact ENNReal.sum_perm_apply_div_card E i
 
 omit [Fintype ι] [DecidableEq ι] in
-/-- A mixture of measures that are invariant under the permutations of the coordinates is
-invariant. -/
+/-- A nonnegative combination `p • μ + q • ν` of measures that are invariant under the permutations
+of the coordinates is invariant. -/
 private lemma map_perm_smul_add_smul {μ ν : Measure (ι → ℝ≥0∞)}
     (hμ : ∀ σ : Equiv.Perm ι, μ.map (fun e i ↦ e (σ i)) = μ)
     (hν : ∀ σ : Equiv.Perm ι, ν.map (fun e i ↦ e (σ i)) = ν) (p q : ℝ≥0∞) (σ : Equiv.Perm ι) :
