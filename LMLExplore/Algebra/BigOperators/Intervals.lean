@@ -5,6 +5,8 @@ Authors: LMLExplore contributors
 -/
 module
 
+public import Mathlib.Algebra.BigOperators.Fin
+import Mathlib.Algebra.Group.Fin.Basic
 public import Mathlib.Algebra.BigOperators.Intervals
 public import Mathlib.Algebra.Order.Field.Basic
 public import Mathlib.Tactic.FieldSimp
@@ -12,7 +14,7 @@ public import Mathlib.Tactic.Positivity
 public import Mathlib.Tactic.Ring
 
 /-!
-# The telescoping series `∑ 1 / ((i + 1) (i + 2))` and sums of clipped indices
+# The telescoping series `∑ 1 / ((i + 1) (i + 2))` and sums of clipped and shifted indices
 
 Since `1 / ((i + 1) (i + 2)) = 1 / (i + 1) - 1 / (i + 2)`, the partial sums of the series
 `∑ 1 / ((i + 1) (i + 2))` telescope to `1 - 1 / (n + 1)`, so they are at most `1`. A union bound
@@ -30,6 +32,8 @@ the time-uniform deviation bounds of [LS, Lemma 33.8], thus spends at most `δ` 
 * `LMLExplore.sum_range_add_ite`:
   `∑ k < m + L, (if m ≤ k ∧ k < m + L then F k else 0) = ∑ j < L, F (m + j)`, reindexing a sum
   over a final block of indices.
+* `LMLExplore.sum_range_add_mod`: `∑ x < K, f ((z + x) % K) = ∑ x < K, f x`, a sum over a full
+  period of residues does not depend on its starting point.
 
 ## References
 
@@ -78,5 +82,17 @@ theorem sum_range_add_ite {M : Type*} [AddCommMonoid M] (m L : ℕ) (F : ℕ →
     ∑ k ∈ range (m + L), (if m ≤ k ∧ k < m + L then F k else 0) = ∑ j ∈ range L, F (m + j) := by
   rw [sum_range_add, sum_eq_zero fun k hk ↦ ite_eq_right fun h ↦ by simp at hk; lia, zero_add]
   exact sum_congr rfl fun j hj ↦ ite_eq_left ⟨by lia, by simp at hj; lia⟩
+
+/-- A product over a full period of residues modulo `K` does not depend on its starting point `z`:
+`∏_{x < K} f ((z + x) % K) = ∏_{x < K} f x`. -/
+@[to_additive /-- A sum over a full period of residues modulo `K` does not depend on its starting
+point `z`: `∑_{x < K} f ((z + x) % K) = ∑_{x < K} f x`. -/]
+theorem prod_range_add_mod {M : Type*} [CommMonoid M] (f : ℕ → M) (K z : ℕ) :
+    ∏ x ∈ range K, f ((z + x) % K) = ∏ x ∈ range K, f x := by
+  rcases K with _ | K
+  · simp
+  rw [← Fin.prod_univ_eq_prod_range (fun x ↦ f ((z + x) % (K + 1))),
+    ← Fin.prod_univ_eq_prod_range f]
+  exact Fintype.prod_equiv (Equiv.addLeft (Fin.ofNat (K + 1) z)) _ _ fun x ↦ by simp [Fin.val_add]
 
 end LMLExplore
