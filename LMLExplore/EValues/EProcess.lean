@@ -48,6 +48,13 @@ almost surely smaller, and convex combinations.
 * `ProbabilityTheory.IsTestSupermartingale.isEProcess`: a test supermartingale for a null of
   probability measures is an e-process [RW, Fact 7.5].
 
+## Implementation notes
+
+The definition and its closure properties are adapted from
+`EValuesResearch/ForLMLExplore/EValues/EProcess.lean` (commit `d2da7b7`) in the paper project
+`RemyDegenne/evalues_research` (same author), which also fixes the field name
+`isEVar_stoppedValue`.
+
 ## References
 
 * [RW] A. Ramdas and R. Wang, *Hypothesis Testing with E-values*, Foundations and Trends in
@@ -71,12 +78,6 @@ structure IsEProcess (E : ℕ → Ω → ℝ≥0∞) (ℱ : Filtration ℕ mΩ) 
   adapted : Adapted ℱ E
   isEVar_stoppedValue : ∀ τ : Ω → ℕ, IsStoppingTime ℱ (fun ω ↦ (τ ω : WithTop ℕ)) →
     IsEVar (fun ω ↦ E (τ ω) ω) S
-
-/-- The value of an adapted `ℝ≥0∞`-valued process at a stopping time with values in `ℕ` is
-measurable. -/
-private lemma measurable_apply_of_isStoppingTime (hE : Adapted ℱ E)
-    (hτ : IsStoppingTime ℱ (fun ω ↦ (τ ω : WithTop ℕ))) : Measurable fun ω ↦ E (τ ω) ω := by
-  simpa using measurable_stoppedValueLimsup (fun n ↦ hE.measurable (i := n)) hτ.measurable'
 
 namespace IsEProcess
 
@@ -104,7 +105,8 @@ an e-process at every time, under every member of the null, is an e-process. -/
 theorem mono_ae (hS : ∀ P ∈ S, IsFiniteMeasure P) (hE : IsEProcess E ℱ S) (hF : Adapted ℱ F)
     (hFE : ∀ P ∈ S, ∀ n, F n ≤ᵐ[P] E n) : IsEProcess F ℱ S := by
   refine ⟨hF, fun τ hτ ↦ IsEVar.of_lintegral_le_measure_univ hS
-    (measurable_apply_of_isStoppingTime hF hτ) fun P hP ↦ ?_⟩
+    (measurable_apply_of_countable (fun _ ↦ hF.measurable)
+      ((measurable_of_countable (WithTop.untopD 0)).comp hτ.measurable')) fun P hP ↦ ?_⟩
   refine (lintegral_mono_ae ?_).trans
     ((hE.isEVar_stoppedValue τ hτ).lintegral_le_measure_univ P hP)
   filter_upwards [ae_all_iff.2 (hFE P hP)] with ω hω using hω (τ ω)
@@ -122,7 +124,9 @@ null `{P}` with `P ∈ S`. Adaptedness is needed only when `S` is empty. -/
 theorem isEProcess_iff_forall_singleton :
     IsEProcess E ℱ S ↔ Adapted ℱ E ∧ ∀ P ∈ S, IsEProcess E ℱ {P} := by
   refine ⟨fun hE ↦ ⟨hE.adapted, fun P hP ↦ hE.anti_set (singleton_subset_iff.2 hP)⟩,
-    fun ⟨hE, h⟩ ↦ ⟨hE, fun τ hτ ↦ ⟨measurable_apply_of_isStoppingTime hE hτ, fun P hP ↦ ?_,
+    fun ⟨hE, h⟩ ↦ ⟨hE, fun τ hτ ↦ ⟨measurable_apply_of_countable
+      (fun _ ↦ hE.measurable)
+      ((measurable_of_countable (WithTop.untopD 0)).comp hτ.measurable'), fun P hP ↦ ?_,
       fun P hP ↦ ?_⟩⟩⟩
   · exact ((h P hP).isEVar_stoppedValue τ hτ).eintegral_ne_bot P (mem_singleton P)
   · exact ((h P hP).isEVar_stoppedValue τ hτ).eintegral_nonpos P (mem_singleton P)
