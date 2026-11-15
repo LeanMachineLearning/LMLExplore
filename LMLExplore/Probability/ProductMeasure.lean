@@ -11,15 +11,72 @@ public import Mathlib.Probability.Independence.InfinitePi
 # Infinite products of probability measures: the first terms and the next terms
 
 Under the infinite product `Measure.infinitePi` of copies of a probability measure `μ`, the first
-`n` coordinates and the next `m` coordinates are independent.
+`n` coordinates have the product law `Measure.pi`, and they are independent of the next `m`
+coordinates.
+
+## Main definitions
+
+* `MeasureTheory.initSeg n`: the first `n` terms of a sequence, as a function on `Fin n`.
 
 ## Main statements
 
+* `MeasureTheory.exists_measurable_eq_comp_initSeg`: a measurable function of the first `n` terms
+  of a sequence factors measurably through `initSeg n`.
+* `MeasureTheory.measurePreserving_initSeg`: the first `n` terms of an i.i.d. sequence have the
+  product law.
 * `MeasureTheory.Measure.infinitePi_fin_mem_and_forall_add_mem`: for an i.i.d. sequence, the
   first `n` terms and the next `m` terms are independent.
 -/
 
 public section
+
+namespace MeasureTheory
+
+variable {𝓧 : Type*} {m𝓧 : MeasurableSpace 𝓧}
+
+/-! ### The first terms of a sequence -/
+
+/-- The first `n` terms of a sequence. -/
+def initSeg (n : ℕ) (ω : ℕ → 𝓧) : Fin n → 𝓧 := fun i ↦ ω i
+
+/-- The coordinates of the initial segment are the first coordinates of the sequence. -/
+@[simp]
+lemma initSeg_apply (n : ℕ) (ω : ℕ → 𝓧) (i : Fin n) : initSeg n ω i = ω i := (rfl)
+
+/-- The initial segment is a measurable function of the sequence. -/
+@[fun_prop]
+lemma measurable_initSeg (n : ℕ) : Measurable (initSeg (𝓧 := 𝓧) n) :=
+  Measurable.of_eval fun _ ↦ measurable_pi_apply _
+
+/-- A measurable function of the first `n` terms of a sequence is a measurable function of the
+initial segment of length `n`. -/
+lemma exists_measurable_eq_comp_initSeg [Nonempty 𝓧] {β : Type*} [MeasurableSpace β]
+    {f : (ℕ → 𝓧) → β} {n : ℕ} (hf : Measurable f) (hfn : DependsOn f (Set.Iio n)) :
+    ∃ g : (Fin n → 𝓧) → β, Measurable g ∧ f = g ∘ initSeg n := by
+  classical
+  -- extend a finite sequence by a constant
+  let x₀ : 𝓧 := Classical.arbitrary 𝓧
+  let ext : (Fin n → 𝓧) → ℕ → 𝓧 := fun y i ↦ if h : i < n then y ⟨i, h⟩ else x₀
+  have hext : Measurable ext := by
+    refine Measurable.of_eval fun i ↦ ?_
+    by_cases h : i < n
+    · simp only [ext, h, ↓reduceDIte]
+      exact measurable_pi_apply _
+    · simp only [ext, h, ↓reduceDIte]
+      exact measurable_const
+  refine ⟨f ∘ ext, hf.comp hext, funext fun ω ↦ hfn fun i hi ↦ ?_⟩
+  simp only [Set.mem_Iio] at hi
+  simp [ext, hi]
+
+/-- The first `n` terms of an i.i.d. sequence have the product law. -/
+lemma measurePreserving_initSeg (P : Measure 𝓧) [IsProbabilityMeasure P] (n : ℕ) :
+    MeasurePreserving (initSeg n) (Measure.infinitePi fun _ : ℕ ↦ P)
+      (Measure.pi fun _ : Fin n ↦ P) := by
+  refine ⟨measurable_initSeg n, ?_⟩
+  rw [← Measure.infinitePi_eq_pi]
+  exact Measure.map_infinitePi_infinitePi_of_inj Fin.val_injective
+
+end MeasureTheory
 
 namespace MeasureTheory.Measure
 

@@ -7,8 +7,7 @@ module
 
 public import LMLExplore.EValues.BipolarRate
 public import LMLExplore.EValues.EProcess
-public import Mathlib.MeasureTheory.Function.FactorsThrough
-public import Mathlib.Probability.Independence.InfinitePi
+public import LMLExplore.Probability.ProductMeasure
 
 /-!
 # E-processes for an i.i.d. null grow at most at the bipolar rate, in expectation
@@ -22,15 +21,11 @@ null, that is, an `n + 1`-sample e-variable. So its expected logarithm under the
 is at most `maxLogGrowth Q₁ S₁ (n + 1)`, hence at most `(n + 1) * bipolarRate Q₁ S₁`: no e-process
 grows faster than the bipolar rate, in expectation [RR26, Lemma 3.3].
 
-## Main definitions
-
-* `ProbabilityTheory.initSeg n`: the first `n` observations of a sequence, as a function on
-  `Fin n`.
+The first `n` observations are `MeasureTheory.initSeg n`, whose law under an i.i.d. sequence is the
+product law (`MeasureTheory.measurePreserving_initSeg`).
 
 ## Main statements
 
-* `ProbabilityTheory.measurePreserving_initSeg`: the first `n` observations of an i.i.d. sequence
-  have the product law.
 * `ProbabilityTheory.eintegral_log_le_maxLogGrowth_of_dependsOn`: a function of the first `n`
   observations with expectation at most one under the i.i.d. laws of the null has expected
   logarithm at most `maxLogGrowth Q₁ S₁ n` under the i.i.d. law of `Q₁`.
@@ -55,48 +50,6 @@ open scoped ENNReal Topology
 namespace ProbabilityTheory
 
 variable {𝓧 : Type*} {m𝓧 : MeasurableSpace 𝓧} {Q₁ : Measure 𝓧} {S₁ : Set (Measure 𝓧)}
-
-/-! ### The first observations of a sequence -/
-
-/-- The first `n` observations of a sequence. -/
-def initSeg (n : ℕ) (ω : ℕ → 𝓧) : Fin n → 𝓧 := fun i ↦ ω i
-
-/-- The coordinates of the initial segment are the first coordinates of the sequence. -/
-@[simp]
-lemma initSeg_apply (n : ℕ) (ω : ℕ → 𝓧) (i : Fin n) : initSeg n ω i = ω i := (rfl)
-
-/-- The initial segment is a measurable function of the sequence. -/
-@[fun_prop]
-lemma measurable_initSeg (n : ℕ) : Measurable (initSeg (𝓧 := 𝓧) n) :=
-  Measurable.of_eval fun _ ↦ measurable_pi_apply _
-
-/-- A measurable function of the first `n` observations is a measurable function of the initial
-segment of length `n`. -/
-lemma exists_measurable_eq_comp_initSeg [Nonempty 𝓧] {β : Type*} [MeasurableSpace β]
-    {f : (ℕ → 𝓧) → β} {n : ℕ} (hf : Measurable f) (hfn : DependsOn f (Set.Iio n)) :
-    ∃ g : (Fin n → 𝓧) → β, Measurable g ∧ f = g ∘ initSeg n := by
-  classical
-  -- extend a finite sequence by a constant
-  let x₀ : 𝓧 := Classical.arbitrary 𝓧
-  let ext : (Fin n → 𝓧) → ℕ → 𝓧 := fun y i ↦ if h : i < n then y ⟨i, h⟩ else x₀
-  have hext : Measurable ext := by
-    refine Measurable.of_eval fun i ↦ ?_
-    by_cases h : i < n
-    · simp only [ext, h, ↓reduceDIte]
-      exact measurable_pi_apply _
-    · simp only [ext, h, ↓reduceDIte]
-      exact measurable_const
-  refine ⟨f ∘ ext, hf.comp hext, funext fun ω ↦ hfn fun i hi ↦ ?_⟩
-  simp only [Set.mem_Iio] at hi
-  simp [ext, hi]
-
-/-- The first `n` observations of an i.i.d. sequence have the product law. -/
-lemma measurePreserving_initSeg (P : Measure 𝓧) [IsProbabilityMeasure P] (n : ℕ) :
-    MeasurePreserving (initSeg n) (Measure.infinitePi fun _ : ℕ ↦ P)
-      (Measure.pi fun _ : Fin n ↦ P) := by
-  refine ⟨measurable_initSeg n, ?_⟩
-  rw [← Measure.infinitePi_eq_pi]
-  exact Measure.map_infinitePi_infinitePi_of_inj Fin.val_injective
 
 /-! ### Functions of the first observations as e-variables of a sample -/
 
@@ -131,7 +84,7 @@ theorem eintegral_log_le_maxLogGrowth_of_dependsOn (Q₁ : Measure 𝓧) [IsProb
   _ = ∫ᵉ x, (logUtility ∘ G) x ∂Measure.pi (fun _ : Fin n ↦ Q₁) := by
     rw [← (measurePreserving_initSeg Q₁ n).map_eq,
       eintegral_map (logUtility.measurable.comp hGe.measurable) (measurable_initSeg n)]
-    rfl
+    simp only [Function.comp_apply, logUtility_apply]
   _ ≤ maxLogGrowth Q₁ S₁ n := by
     rw [maxLogGrowth_def]
     exact hGe.eintegral_le_maxUtility _ _
