@@ -218,7 +218,9 @@ lemma indep_piLE_comap_eval_succ (μ : Measure 𝓧) [IsProbabilityMeasure μ] (
     fun i ↦ measurable_pi_apply i
   have h' : (fun ω : ℕ → 𝓧 ↦ Preorder.frestrictLe n ω)
       ⟂ᵢ[Measure.infinitePi fun _ ↦ μ] fun ω ↦ ω (n + 1) := by
-    exact h.comp measurable_id (measurable_pi_apply ⟨n + 1, by simp⟩)
+    -- the second family is read off at the only point `n + 1` of `{n + 1}`
+    simpa [Function.comp_def, Preorder.frestrictLe, Finset.restrict_def] using
+      h.comp measurable_id (measurable_pi_apply ⟨n + 1, Finset.mem_singleton_self _⟩)
   rw [Filtration.piLE_eq_comap_frestrictLe]
   exact (IndepFun_iff_Indep _ _ _).mp h'
 
