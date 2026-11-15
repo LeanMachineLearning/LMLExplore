@@ -9,14 +9,15 @@ public import Mathlib.Dynamics.BirkhoffSum.NormedSpace
 public import Mathlib.LinearAlgebra.FiniteDimensional.Lemmas
 public import Mathlib.Topology.MetricSpace.UniformConvergence
 public import LMLExplore.Analysis.Normed.Module.FiniteDimension
+public import LMLExplore.Analysis.Normed.Ring.PowerBounded
 public import LMLExplore.Topology.Algebra.Module.ContinuousLinearMap.Basic
 
 /-!
 # Yosida's mean ergodic theorem
 
 Let `T` be a continuous linear operator on a normed space `E` over `ℝ` or `ℂ` that is *power
-bounded*: `sup_n ‖T ^ n‖ < ∞`. Its Cesàro means
-`(N : 𝕜)⁻¹ • ∑ k ∈ range N, T ^ k x`, which are Mathlib's Birkhoff averages
+bounded*: `sup_n ‖T ^ n‖ < ∞` (`LMLExplore.IsPowerBounded`, a predicate on any seminormed ring).
+Its Cesàro means `(N : 𝕜)⁻¹ • ∑ k ∈ range N, T ^ k x`, which are Mathlib's Birkhoff averages
 `birkhoffAverage 𝕜 T id N x`, converge exactly on the subspace
 `ker (1 - T) ⊕ closure (range (1 - T))`, which is closed when `E` is complete. The limit is a
 bounded projection `Π` onto the fixed points `ker (1 - T)` of `T`, along
@@ -29,33 +30,32 @@ is the limiting matrix.
 
 This is the Banach-space form of the von Neumann theorem
 `ContinuousLinearMap.tendsto_birkhoffAverage_orthogonalProjection`, whose contractions are power
-bounded (`ContinuousLinearMap.IsPowerBounded.of_norm_le_one`). The convergence to `0` on
+bounded (`LMLExplore.IsPowerBounded.of_norm_le_one`). The convergence to `0` on
 `closure (range (1 - T))`, by equicontinuity from the telescoping on `range (1 - T)`, follows the
 proof of Mathlib's `LinearMap.tendsto_birkhoffAverage_of_ker_subset_closure`.
 
 ## Main definitions
 
-* `ContinuousLinearMap.IsPowerBounded`: the operator norms of the powers of `T` are bounded.
-* `ContinuousLinearMap.IsPowerBounded.meanErgodicProj`: the limit `Π` of the Cesàro means, as a
+* `LMLExplore.IsPowerBounded.meanErgodicProj`: the limit `Π` of the Cesàro means, as a
   continuous linear map, when `ker (1 - T) ⊔ closure (range (1 - T))` is the whole space.
 
 ## Main statements
 
-* `ContinuousLinearMap.IsPowerBounded.exists_tendsto_birkhoffAverage_iff`: the Cesàro means at
+* `LMLExplore.IsPowerBounded.exists_tendsto_birkhoffAverage_iff`: the Cesàro means at
   `x` converge iff `x ∈ ker (1 - T) ⊔ closure (range (1 - T))`.
-* `ContinuousLinearMap.IsPowerBounded.disjoint_ker_topologicalClosure_range`: the sum is direct.
-* `ContinuousLinearMap.IsPowerBounded.isClosed_ker_sup_topologicalClosure_range`: the sum is closed
+* `LMLExplore.IsPowerBounded.disjoint_ker_topologicalClosure_range`: the sum is direct.
+* `LMLExplore.IsPowerBounded.isClosed_ker_sup_topologicalClosure_range`: the sum is closed
   in a Banach space.
-* `ContinuousLinearMap.IsPowerBounded.tendsto_birkhoffAverage_self_iff` and
-  `ContinuousLinearMap.IsPowerBounded.tendsto_birkhoffAverage_zero_iff`: the limit is `x` exactly on
+* `LMLExplore.IsPowerBounded.tendsto_birkhoffAverage_self_iff` and
+  `LMLExplore.IsPowerBounded.tendsto_birkhoffAverage_zero_iff`: the limit is `x` exactly on
   `ker (1 - T)` and `0` exactly on `closure (range (1 - T))`.
-* `ContinuousLinearMap.IsPowerBounded.meanErgodicProj_mul`,
-  `ContinuousLinearMap.IsPowerBounded.mul_meanErgodicProj`,
-  `ContinuousLinearMap.IsPowerBounded.meanErgodicProj_mul_self`: `Π T = T Π = Π ^ 2 = Π`.
-* `ContinuousLinearMap.IsPowerBounded.meanErgodicProj_apply_eq_self_iff` and
-  `ContinuousLinearMap.IsPowerBounded.meanErgodicProj_apply_eq_zero_iff`: `Π x = x` exactly on
+* `LMLExplore.IsPowerBounded.meanErgodicProj_mul`,
+  `LMLExplore.IsPowerBounded.mul_meanErgodicProj`,
+  `LMLExplore.IsPowerBounded.meanErgodicProj_mul_self`: `Π T = T Π = Π ^ 2 = Π`.
+* `LMLExplore.IsPowerBounded.meanErgodicProj_apply_eq_self_iff` and
+  `LMLExplore.IsPowerBounded.meanErgodicProj_apply_eq_zero_iff`: `Π x = x` exactly on
   `ker (1 - T)` and `Π x = 0` exactly on `closure (range (1 - T))`.
-* `ContinuousLinearMap.IsPowerBounded.tendsto_cesaro_meanErgodicProj`: in finite dimension, the
+* `LMLExplore.IsPowerBounded.tendsto_cesaro_meanErgodicProj`: in finite dimension, the
   Cesàro means converge to `Π` in operator norm.
 
 ## References
@@ -72,24 +72,6 @@ namespace ContinuousLinearMap
 
 variable {𝕜 E : Type*} [RCLike 𝕜] [NormedAddCommGroup E] [NormedSpace 𝕜 E]
   {T : E →L[𝕜] E} {x y : E}
-
-/-- A continuous linear operator is *power bounded* when the operator norms of its powers are
-bounded. -/
-def IsPowerBounded (T : E →L[𝕜] E) : Prop :=
-  BddAbove (Set.range fun n : ℕ ↦ ‖T ^ n‖)
-
-/-- `T` is power bounded iff some constant bounds the operator norms of all its powers. -/
-lemma isPowerBounded_iff : T.IsPowerBounded ↔ ∃ C, ∀ n, ‖T ^ n‖ ≤ C := by
-  simp [IsPowerBounded, bddAbove_def]
-
-/-- A contraction is power bounded. -/
-lemma IsPowerBounded.of_norm_le_one (h : ‖T‖ ≤ 1) : T.IsPowerBounded := by
-  refine isPowerBounded_iff.2 ⟨1, fun n ↦ opNorm_le_bound _ zero_le_one fun x ↦ ?_⟩
-  induction n with
-  | zero => simp
-  | succ n ih =>
-    rw [pow_succ', mul_apply_eq_comp]
-    exact (T.le_of_opNorm_le h _).trans (by simpa using ih)
 
 /-- The Birkhoff averages of `T` are its Cesàro means `(N : 𝕜)⁻¹ • ∑ k ∈ range N, T ^ k`. -/
 lemma birkhoffAverage_eq_smul_sum_pow (T : E →L[𝕜] E) (N : ℕ) :
@@ -119,66 +101,6 @@ lemma birkhoffAverage_apply_smul (T : E →L[𝕜] E) (N : ℕ) (c : 𝕜) (x : 
     birkhoffAverage 𝕜 T _root_.id N (c • x) = c • birkhoffAverage 𝕜 T _root_.id N x := by
   rw [birkhoffAverage_eq_smul_sum_pow, map_smul]
 
-namespace IsPowerBounded
-
-/-- `⨆ k, ‖T ^ k‖` bounds the operator norm of every power of a power-bounded `T`. -/
-lemma norm_pow_le (hT : T.IsPowerBounded) (n : ℕ) : ‖T ^ n‖ ≤ ⨆ k, ‖T ^ k‖ :=
-  le_ciSup hT n
-
-lemma iSup_norm_pow_nonneg (hT : T.IsPowerBounded) : 0 ≤ ⨆ k, ‖T ^ k‖ :=
-  (norm_nonneg _).trans (hT.norm_pow_le 0)
-
-/-- The Cesàro means of a power-bounded operator are bounded by `⨆ k, ‖T ^ k‖`. -/
-lemma norm_smul_sum_pow_le (hT : T.IsPowerBounded) (N : ℕ) :
-    ‖(N : 𝕜)⁻¹ • ∑ k ∈ range N, T ^ k‖ ≤ ⨆ k, ‖T ^ k‖ := by
-  rcases eq_or_ne N 0 with rfl | hN
-  · simpa using hT.iSup_norm_pow_nonneg
-  calc ‖(N : 𝕜)⁻¹ • ∑ k ∈ range N, T ^ k‖
-      ≤ (N : ℝ)⁻¹ * ∑ _k ∈ range N, ⨆ k, ‖T ^ k‖ := by
-        rw [norm_smul, norm_inv, RCLike.norm_natCast]
-        gcongr
-        exact (norm_sum_le _ _).trans (sum_le_sum fun k _ ↦ hT.norm_pow_le k)
-    _ = ⨆ k, ‖T ^ k‖ := by simp [hN]
-
-/-- The Cesàro means of a power-bounded operator at `x` are bounded by `⨆ k, ‖T ^ k‖ * ‖x‖`. -/
-lemma norm_birkhoffAverage_le (hT : T.IsPowerBounded) (N : ℕ) (x : E) :
-    ‖birkhoffAverage 𝕜 T _root_.id N x‖ ≤ (⨆ k, ‖T ^ k‖) * ‖x‖ := by
-  rw [birkhoffAverage_eq_smul_sum_pow]
-  exact le_of_opNorm_le _ (hT.norm_smul_sum_pow_le N) x
-
-/-- The Cesàro means of a power-bounded operator are uniformly Lipschitz. -/
-lemma lipschitzWith_birkhoffAverage (hT : T.IsPowerBounded) (N : ℕ) :
-    LipschitzWith (⨆ k, ‖T ^ k‖).toNNReal (birkhoffAverage 𝕜 T _root_.id N) := by
-  rw [birkhoffAverage_eq_smul_sum_pow]
-  refine (ContinuousLinearMap.lipschitzWith _).weaken ?_
-  rw [← NNReal.coe_le_coe, coe_nnNorm, Real.coe_toNNReal _ hT.iSup_norm_pow_nonneg]
-  exact hT.norm_smul_sum_pow_le N
-
-/-- The orbit of a point under a power-bounded operator is bounded. -/
-lemma isBounded_range_iterate (hT : T.IsPowerBounded) (x : E) :
-    Bornology.IsBounded (Set.range fun n : ℕ ↦ (⇑T)^[n] x) :=
-  isBounded_iff_forall_norm_le.2 ⟨(⨆ k, ‖T ^ k‖) * ‖x‖, Set.forall_mem_range.2 fun n ↦ by
-    rw [← FunLike.coe_pow_eq_iterate]
-    exact le_of_opNorm_le _ (hT.norm_pow_le n) x⟩
-
-/-- **The Cesàro limit is invariant under `T`**: if the Cesàro means at `x` converge to `y`, so do
-the Cesàro means at `T x`. In operator form, `Π T = Π`. -/
-theorem tendsto_birkhoffAverage_apply (hT : T.IsPowerBounded)
-    (h : Tendsto (birkhoffAverage 𝕜 T _root_.id · x) atTop (𝓝 y)) :
-    Tendsto (birkhoffAverage 𝕜 T _root_.id · (T x)) atTop (𝓝 y) := by
-  have := (tendsto_birkhoffAverage_apply_sub_birkhoffAverage 𝕜
-    (g := _root_.id) (hT.isBounded_range_iterate x)).add h
-  simpa using this
-
-/-- **The Cesàro limit is a fixed point**: if the Cesàro means at `x` converge to `y`, then
-`T y = y`. In operator form, `T Π = Π`. -/
-theorem apply_eq_of_tendsto_birkhoffAverage (hT : T.IsPowerBounded)
-    (h : Tendsto (birkhoffAverage 𝕜 T _root_.id · x) atTop (𝓝 y)) : T y = y := by
-  refine tendsto_nhds_unique ?_ (hT.tendsto_birkhoffAverage_apply h)
-  simpa [Function.comp_def, apply_birkhoffAverage] using (T.continuous.tendsto y).comp h
-
-end IsPowerBounded
-
 /-- The Cesàro means at a fixed point of `T` converge to it. -/
 lemma tendsto_birkhoffAverage_of_mem_ker (hx : x ∈ (1 - T).ker) :
     Tendsto (birkhoffAverage 𝕜 T _root_.id · x) atTop (𝓝 x) :=
@@ -206,11 +128,74 @@ lemma sub_mem_topologicalClosure_range_of_tendsto
   exact mem_closure_of_tendsto (tendsto_const_nhds.sub h)
     ((eventually_ne_atTop 0).mono fun N hN ↦ sub_birkhoffAverage_mem_range hN x)
 
-namespace IsPowerBounded
+end ContinuousLinearMap
+
+namespace LMLExplore.IsPowerBounded
+
+open ContinuousLinearMap
+
+section NontriviallyNormedField
+
+variable {𝕜 E : Type*} [NontriviallyNormedField 𝕜] [NormedAddCommGroup E] [NormedSpace 𝕜 E]
+  {T : E →L[𝕜] E}
+
+/-- The orbit of a point under a power-bounded operator is bounded. -/
+lemma isBounded_range_iterate (hT : IsPowerBounded T) (x : E) :
+    Bornology.IsBounded (Set.range fun n : ℕ ↦ (⇑T)^[n] x) :=
+  isBounded_iff_forall_norm_le.2 ⟨(⨆ k, ‖T ^ k‖) * ‖x‖, Set.forall_mem_range.2 fun n ↦ by
+    rw [← FunLike.coe_pow_eq_iterate]
+    exact le_of_opNorm_le _ (hT.norm_pow_le n) x⟩
+
+end NontriviallyNormedField
+
+variable {𝕜 E : Type*} [RCLike 𝕜] [NormedAddCommGroup E] [NormedSpace 𝕜 E]
+  {T : E →L[𝕜] E} {x y : E}
+
+/-- The Cesàro means of a power-bounded operator are bounded by `⨆ k, ‖T ^ k‖`. -/
+lemma norm_smul_sum_pow_le (hT : IsPowerBounded T) (N : ℕ) :
+    ‖(N : 𝕜)⁻¹ • ∑ k ∈ range N, T ^ k‖ ≤ ⨆ k, ‖T ^ k‖ := by
+  rcases eq_or_ne N 0 with rfl | hN
+  · simpa using hT.iSup_norm_pow_nonneg
+  calc ‖(N : 𝕜)⁻¹ • ∑ k ∈ range N, T ^ k‖
+      ≤ (N : ℝ)⁻¹ * ∑ _k ∈ range N, ⨆ k, ‖T ^ k‖ := by
+        rw [norm_smul, norm_inv, RCLike.norm_natCast]
+        gcongr
+        exact (norm_sum_le _ _).trans (sum_le_sum fun k _ ↦ hT.norm_pow_le k)
+    _ = ⨆ k, ‖T ^ k‖ := by simp [hN]
+
+/-- The Cesàro means of a power-bounded operator at `x` are bounded by `⨆ k, ‖T ^ k‖ * ‖x‖`. -/
+lemma norm_birkhoffAverage_le (hT : IsPowerBounded T) (N : ℕ) (x : E) :
+    ‖birkhoffAverage 𝕜 T _root_.id N x‖ ≤ (⨆ k, ‖T ^ k‖) * ‖x‖ := by
+  rw [birkhoffAverage_eq_smul_sum_pow]
+  exact le_of_opNorm_le _ (hT.norm_smul_sum_pow_le N) x
+
+/-- The Cesàro means of a power-bounded operator are uniformly Lipschitz. -/
+lemma lipschitzWith_birkhoffAverage (hT : IsPowerBounded T) (N : ℕ) :
+    LipschitzWith (⨆ k, ‖T ^ k‖).toNNReal (birkhoffAverage 𝕜 T _root_.id N) := by
+  rw [birkhoffAverage_eq_smul_sum_pow]
+  refine (ContinuousLinearMap.lipschitzWith _).weaken ?_
+  rw [← NNReal.coe_le_coe, coe_nnNorm, Real.coe_toNNReal _ hT.iSup_norm_pow_nonneg]
+  exact hT.norm_smul_sum_pow_le N
+
+/-- **The Cesàro limit is invariant under `T`**: if the Cesàro means at `x` converge to `y`, so do
+the Cesàro means at `T x`. In operator form, `Π T = Π`. -/
+theorem tendsto_birkhoffAverage_apply (hT : IsPowerBounded T)
+    (h : Tendsto (birkhoffAverage 𝕜 T _root_.id · x) atTop (𝓝 y)) :
+    Tendsto (birkhoffAverage 𝕜 T _root_.id · (T x)) atTop (𝓝 y) := by
+  have := (tendsto_birkhoffAverage_apply_sub_birkhoffAverage 𝕜
+    (g := _root_.id) (hT.isBounded_range_iterate x)).add h
+  simpa using this
+
+/-- **The Cesàro limit is a fixed point**: if the Cesàro means at `x` converge to `y`, then
+`T y = y`. In operator form, `T Π = Π`. -/
+theorem apply_eq_of_tendsto_birkhoffAverage (hT : IsPowerBounded T)
+    (h : Tendsto (birkhoffAverage 𝕜 T _root_.id · x) atTop (𝓝 y)) : T y = y := by
+  refine tendsto_nhds_unique ?_ (hT.tendsto_birkhoffAverage_apply h)
+  simpa [Function.comp_def, apply_birkhoffAverage] using (T.continuous.tendsto y).comp h
 
 /-- The Cesàro means of a power-bounded operator converge to `0` on the closure of the range of
 `1 - T`. -/
-theorem tendsto_birkhoffAverage_of_mem_topologicalClosure_range (hT : T.IsPowerBounded)
+theorem tendsto_birkhoffAverage_of_mem_topologicalClosure_range (hT : IsPowerBounded T)
     (hx : x ∈ (1 - T).range.topologicalClosure) :
     Tendsto (birkhoffAverage 𝕜 T _root_.id · x) atTop (𝓝 0) := by
   have hclosed : IsClosed {x : E | Tendsto (birkhoffAverage 𝕜 T _root_.id · x) atTop (𝓝 0)} :=
@@ -227,7 +212,7 @@ theorem tendsto_birkhoffAverage_of_mem_topologicalClosure_range (hT : T.IsPowerB
   rw [coe_coe, one_sub_apply, birkhoffAverage_apply_sub]
 
 /-- **The sum `ker (1 - T) ⊕ closure (range (1 - T))` is direct** for a power-bounded `T`. -/
-theorem disjoint_ker_topologicalClosure_range (hT : T.IsPowerBounded) :
+theorem disjoint_ker_topologicalClosure_range (hT : IsPowerBounded T) :
     Disjoint ((1 - T).ker) (1 - T).range.topologicalClosure := by
   rw [Submodule.disjoint_def]
   exact fun x hx hx' ↦ tendsto_nhds_unique (tendsto_birkhoffAverage_of_mem_ker hx)
@@ -235,7 +220,7 @@ theorem disjoint_ker_topologicalClosure_range (hT : T.IsPowerBounded) :
 
 /-- **Yosida's mean ergodic theorem**: the Cesàro means of a power-bounded operator `T` at `x`
 converge iff `x ∈ ker (1 - T) ⊕ closure (range (1 - T))`. -/
-theorem exists_tendsto_birkhoffAverage_iff (hT : T.IsPowerBounded) :
+theorem exists_tendsto_birkhoffAverage_iff (hT : IsPowerBounded T) :
     (∃ y, Tendsto (birkhoffAverage 𝕜 T _root_.id · x) atTop (𝓝 y)) ↔
       x ∈ (1 - T).ker ⊔ (1 - T).range.topologicalClosure := by
   constructor
@@ -250,28 +235,28 @@ theorem exists_tendsto_birkhoffAverage_iff (hT : T.IsPowerBounded) :
       (birkhoffAverage_apply_add T N a b).symm⟩
 
 /-- The limit of the Cesàro means at `x` is `x` exactly when `x` is a fixed point of `T`. -/
-theorem tendsto_birkhoffAverage_self_iff (hT : T.IsPowerBounded) :
+theorem tendsto_birkhoffAverage_self_iff (hT : IsPowerBounded T) :
     Tendsto (birkhoffAverage 𝕜 T _root_.id · x) atTop (𝓝 x) ↔ x ∈ (1 - T).ker :=
   ⟨fun h ↦ mem_ker_one_sub_iff.2 (hT.apply_eq_of_tendsto_birkhoffAverage h),
     tendsto_birkhoffAverage_of_mem_ker⟩
 
 /-- The limit of the Cesàro means at `x` is `0` exactly when `x` lies in the closure of the range
 of `1 - T`. -/
-theorem tendsto_birkhoffAverage_zero_iff (hT : T.IsPowerBounded) :
+theorem tendsto_birkhoffAverage_zero_iff (hT : IsPowerBounded T) :
     Tendsto (birkhoffAverage 𝕜 T _root_.id · x) atTop (𝓝 0) ↔
       x ∈ (1 - T).range.topologicalClosure :=
   ⟨fun h ↦ by simpa using sub_mem_topologicalClosure_range_of_tendsto h,
     hT.tendsto_birkhoffAverage_of_mem_topologicalClosure_range⟩
 
 /-- The limit of the Cesàro means is bounded by `⨆ k, ‖T ^ k‖` times the norm of the point. -/
-theorem norm_le_of_tendsto_birkhoffAverage (hT : T.IsPowerBounded)
+theorem norm_le_of_tendsto_birkhoffAverage (hT : IsPowerBounded T)
     (h : Tendsto (birkhoffAverage 𝕜 T _root_.id · x) atTop (𝓝 y)) :
     ‖y‖ ≤ (⨆ k, ‖T ^ k‖) * ‖x‖ :=
   le_of_tendsto h.norm (Eventually.of_forall fun N ↦ hT.norm_birkhoffAverage_le N x)
 
 /-- In a Banach space, the subspace `ker (1 - T) ⊕ closure (range (1 - T))` on which the Cesàro
 means of a power-bounded operator converge is closed. -/
-theorem isClosed_ker_sup_topologicalClosure_range [CompleteSpace E] (hT : T.IsPowerBounded) :
+theorem isClosed_ker_sup_topologicalClosure_range [CompleteSpace E] (hT : IsPowerBounded T) :
     IsClosed (((1 - T).ker ⊔ (1 - T).range.topologicalClosure : Submodule 𝕜 E) : Set E) := by
   -- In a complete space this is the set of points with Cauchy Cesàro means, a closed set because
   -- the differences of Cesàro means are uniformly Lipschitz.
@@ -293,7 +278,7 @@ theorem isClosed_ker_sup_topologicalClosure_range [CompleteSpace E] (hT : T.IsPo
 /-- In finite dimension, the Cesàro means of a power-bounded operator converge everywhere:
 `ker (1 - T) ⊕ closure (range (1 - T))` is the whole space. -/
 theorem ker_sup_topologicalClosure_range_eq_top [FiniteDimensional 𝕜 E]
-    (hT : T.IsPowerBounded) :
+    (hT : IsPowerBounded T) :
     (1 - T).ker ⊔ (1 - T).range.topologicalClosure = ⊤ := by
   have hdisj := hT.disjoint_ker_topologicalClosure_range
   rw [(Submodule.isClosed_of_finiteDimensional _).submodule_topologicalClosure_eq] at hdisj ⊢
@@ -303,14 +288,14 @@ theorem ker_sup_topologicalClosure_range_eq_top [FiniteDimensional 𝕜 E]
 
 /-- When `ker (1 - T) ⊔ closure (range (1 - T))` is the whole space, the fixed points of a
 power-bounded `T` and the closure of the range of `1 - T` are complementary. -/
-theorem isCompl_ker_topologicalClosure_range (hT : T.IsPowerBounded)
+theorem isCompl_ker_topologicalClosure_range (hT : IsPowerBounded T)
     (hF : (1 - T).ker ⊔ (1 - T).range.topologicalClosure = ⊤) :
     IsCompl ((1 - T).ker) (1 - T).range.topologicalClosure :=
   ⟨hT.disjoint_ker_topologicalClosure_range, codisjoint_iff.2 hF⟩
 
 section MeanErgodicProj
 
-variable (hT : T.IsPowerBounded)
+variable (hT : IsPowerBounded T)
   (hF : (1 - T).ker ⊔ (1 - T).range.topologicalClosure = ⊤)
 include hT hF
 
@@ -432,13 +417,11 @@ end MeanErgodicProj
 /-- **Uniform mean ergodic theorem in finite dimension**: the Cesàro means
 `(N : 𝕜)⁻¹ • ∑ k ∈ range N, T ^ k` of a power-bounded operator on a finite-dimensional space
 converge in operator norm to its mean ergodic projection. -/
-theorem tendsto_cesaro_meanErgodicProj [FiniteDimensional 𝕜 E] (hT : T.IsPowerBounded) :
+theorem tendsto_cesaro_meanErgodicProj [FiniteDimensional 𝕜 E] (hT : IsPowerBounded T) :
     Tendsto (fun N : ℕ ↦ (N : 𝕜)⁻¹ • ∑ k ∈ range N, T ^ k) atTop
       (𝓝 (hT.meanErgodicProj hT.ker_sup_topologicalClosure_range_eq_top)) := by
   refine LMLExplore.tendsto_clm_apply.2 fun x ↦ ?_
   simpa [birkhoffAverage_eq_smul_sum_pow] using
     hT.tendsto_birkhoffAverage_meanErgodicProj hT.ker_sup_topologicalClosure_range_eq_top x
 
-end IsPowerBounded
-
-end ContinuousLinearMap
+end LMLExplore.IsPowerBounded
