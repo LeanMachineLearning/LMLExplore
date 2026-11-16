@@ -58,8 +58,6 @@ these bounds for an oblivious reward table `x`, where `m t a = x t a` and the ra
 * `exp3IX_eq_exp3`: Exp3-IX with a constant learning rate and `γ = 0` is Exp3.
 * `Exp3IX.sum_sub_sum_mul_eq_sum_mul_sum`: [LS, Lemma 12.4], the bias of the loss estimates.
 * `Exp3IX.sum_sub_exp4IXSum_le`: the pathwise bound on the estimated regret of Exp3-IX.
-* `Exp3IX.mul_sum_mul_exp4IXSum_sub_eq`: the weighted deviations of the loss estimates from the
-  losses, written as the sum to which the concentration of [LS, Lemma 12.2] applies.
 * `Exp3IX.measure_le_sum_mul_sum_mul_iwEstimator_sub_le`: the concentration of the deviations
   of the loss estimates from the losses of the conditional means, weighted by `v a ∈ [0, 1]` on
   the arms and `w t ∈ [0, 1]` on the rounds.
@@ -157,28 +155,6 @@ theorem sum_sub_exp4IXSum_le (hη : ∀ t, 0 < η t) (hη_anti : Antitone η) (h
     (fun t _ ↦ (add_pos_of_pos_of_nonneg (exp4IXWeights_single_pos _ _ _ _) (hγ t)).ne') a
   simp only [coe_singleAdvice, single_dotProduct, one_mul] at key
   rwa [exp4IXSum_single_history, ← Finset.sum_sub_distrib]
-
-/-- Along every sequence of observations `O`, actions `A` and feedbacks `Y`, with `P t` the weights
-of Exp3-IX at round `t` and `L̂ n` its cumulative loss estimates, the weighted deviations
-`c ∑ a, v a * (L̂ n a - L n a)` from the cumulative losses `L n a = ∑ t < n, (1 - x t a)` are the
-sums over the rounds `t < n` and the arms of `c v a` times the deviations of the importance-weighted
-estimates for the weights `P t`, discounted by `1 + γ t / P t a` as in [LS, Lemma 12.2], from the
-losses `1 - x t a`. -/
-lemma mul_sum_mul_exp4IXSum_sub_eq (c : ℝ) (v : α → ℝ) (x : ℕ → α → ℝ) :
-    c * ∑ a, v a * (exp4IXSum singleAdvice η γ n (history O A Y n ω) a -
-      ∑ t ∈ range n, (1 - x t a)) =
-      ∑ t ∈ range n, ∑ a, c * v a *
-        (iwEstimator (exp4IXWeights singleAdvice η γ t (history O A Y t ω) (O t ω)) (A t ω)
-          (1 - Y t ω) a /
-          (1 + γ t / exp4IXWeights singleAdvice η γ t (history O A Y t ω) (O t ω) a) -
-            (1 - x t a)) := by
-  simp only [exp4IXSum_single_history]
-  rw [Finset.mul_sum, Finset.sum_comm]
-  refine Finset.sum_congr rfl fun a _ ↦ ?_
-  rw [← Finset.sum_sub_distrib, Finset.mul_sum, Finset.mul_sum]
-  refine Finset.sum_congr rfl fun t _ ↦ ?_
-  rw [iwEstimator_div_one_add_div (exp4IXWeights_single_pos _ _ _ a)]
-  ring
 
 end Pathwise
 
