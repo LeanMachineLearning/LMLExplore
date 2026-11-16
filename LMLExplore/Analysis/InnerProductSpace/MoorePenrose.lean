@@ -18,8 +18,8 @@ singular, as for the Gram operator of unregularized least squares or of a design
 * for every Moore–Penrose pair `(A, B)`, the composition `A B` is the orthogonal projection onto
   the range of `A`;
 * the Moore–Penrose inverse of an invertible operator is its inverse;
-* if an operator acts on a subspace as an invertible operator of that subspace, its Moore–Penrose
-  inverse acts there as the inverse of that restriction;
+* if a symmetric operator acts on a subspace as an invertible operator of that subspace, its
+  Moore–Penrose inverse acts there as the inverse of that restriction;
 * the Moore–Penrose inverse of a symmetric operator `V` is symmetric, has the same range as `V`,
   and inverts `V` on that range; that of a positive operator is positive.
 
