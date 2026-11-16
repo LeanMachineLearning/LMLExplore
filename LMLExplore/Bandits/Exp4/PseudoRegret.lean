@@ -163,71 +163,6 @@ private lemma integrable_adv_action_mul_div (h : IsAlgEnvSeq O A Y (exp4IX adv h
   rw [abs_of_nonneg this.1]
   exact this.2
 
-/-- Along a run of Exp4-IX, let `μ (past) b` be a conditional mean of the reward of arm `b`: the
-loss `1 - Y t` has conditional expectation `1 - μ (past) (A t)` given the past (history and
-observation) and the action of round `t`. Then the importance-weighted estimate
-`adv (O t) m ⬝ᵥ Ŷ t` of the loss of expert `m` has conditional expectation
-`∑ a, adv (O t) m a * (1 - μ (past) a)` given the past. -/
-private lemma condExp_dotProduct_iwEstimator_of_condExp
-    (h : IsAlgEnvSeq O A Y (exp4IX adv hadv η γ) env P) (m : β)
-    {μ : Hist 𝓞 α ℝ t × 𝓞 → α → ℝ} (hμ : ∀ b, Measurable fun x ↦ μ x b)
-    (hZ : Integrable (fun ω ↦ 1 - Y t ω) P)
-    (hZm : P[fun ω ↦ 1 - Y t ω | h.filtrationAction t] =ᵐ[P]
-      fun ω ↦ 1 - μ (history O A Y t ω, O t ω) (A t ω))
-    (hint : Integrable (fun ω ↦ (adv (O t ω) m : α → ℝ) (A t ω) /
-      exp4IXWeights adv η γ t (history O A Y t ω) (O t ω) (A t ω) * (1 - Y t ω)) P) :
-    P[fun ω ↦ (adv (O t ω) m : α → ℝ) ⬝ᵥ
-        iwEstimator (exp4IXWeights adv η γ t (history O A Y t ω) (O t ω)) (A t ω) (1 - Y t ω)
-      | h.filtrationObs t] =ᵐ[P]
-      fun ω ↦ ∑ a, (adv (O t ω) m : α → ℝ) a * (1 - μ (history O A Y t ω, O t ω) a) := by
-  have hfun : (fun ω ↦ (adv (O t ω) m : α → ℝ) ⬝ᵥ
-      iwEstimator (exp4IXWeights adv η γ t (history O A Y t ω) (O t ω)) (A t ω) (1 - Y t ω)) =
-      fun ω ↦ (adv (O t ω) m : α → ℝ) (A t ω) /
-        exp4IXWeights adv η γ t (history O A Y t ω) (O t ω) (A t ω) * (1 - Y t ω) := by
-    funext ω
-    rw [dotProduct_iwEstimator, div_mul_eq_mul_div]
-  rw [hfun]
-  -- view the run as a run of a weight-based algorithm
-  have halg := exp4IX_def adv hadv η γ
-  generalize exp4IX adv hadv η γ = alg at h halg hZm ⊢
-  subst halg
-  have hf : ∀ b, Measurable fun x : Hist 𝓞 α ℝ t × 𝓞 ↦
-      (adv x.2 m : α → ℝ) b / exp4IXWeights adv η γ t x.1 x.2 b := fun b ↦
-    ((measurable_pi_apply b).comp (measurable_subtype_coe.comp
-      ((measurable_pi_apply m).comp (hadv.comp measurable_snd)))).div
-      ((measurable_pi_apply b).comp (measurable_exp4IXWeights hadv η γ t))
-  filter_upwards [WeightAlgorithm.condExp_comp_action_mul h t hf (m := fun x b ↦ 1 - μ x b)
-    (fun b ↦ measurable_const.sub (hμ b)) hZ hZm hint] with ω hω
-  rw [hω]
-  refine Finset.sum_congr rfl fun b _ ↦ ?_
-  rcases eq_or_ne (exp4IXWeights adv η γ t (history O A Y t ω) (O t ω) b) 0 with hb | hb
-  · simp [hb, adv_apply_eq_zero_of_exp4IXWeights_eq_zero hb m]
-  · field_simp
-
-/-- Along a run of Exp4-IX whose feedback at round `t` is integrable, the importance-weighted
-estimate `adv (O t) m ⬝ᵥ Ŷ t` of the loss of expert `m` has conditional expectation
-`∑ a, adv (O t) m a * (1 - m_t(a))` given the past, with `m_t(a) = env.means O A Y a t`, provided
-the estimate is integrable. -/
-private lemma condExp_dotProduct_iwEstimator_of_integrable
-    (h : IsAlgEnvSeq O A Y (exp4IX adv hadv η γ) env P) (m : β) (hYint : Integrable (Y t) P)
-    (hint : Integrable (fun ω ↦ (adv (O t ω) m : α → ℝ) (A t ω) /
-      exp4IXWeights adv η γ t (history O A Y t ω) (O t ω) (A t ω) * (1 - Y t ω)) P) :
-    P[fun ω ↦ (adv (O t ω) m : α → ℝ) ⬝ᵥ
-        iwEstimator (exp4IXWeights adv η γ t (history O A Y t ω) (O t ω)) (A t ω) (1 - Y t ω)
-      | h.filtrationObs t] =ᵐ[P]
-      fun ω ↦ ∑ a, (adv (O t ω) m : α → ℝ) a * (1 - env.means O A Y a t ω) := by
-  -- given the past and the action, the loss `1 - Y t` has mean `1 - m_t(A t)`
-  have hZm : P[fun ω ↦ 1 - Y t ω | h.filtrationAction t] =ᵐ[P]
-      fun ω ↦ 1 - ∫ y, y ∂env.feedback t ((history O A Y t ω, O t ω), A t ω) := by
-    filter_upwards [condExp_const_sub (h.filtrationAction.le t) hYint 1,
-      h.condExp_feedback t hYint] with ω h1 h2
-    rw [h1, h2, Environment.means_eq_integral]
-  filter_upwards [condExp_dotProduct_iwEstimator_of_condExp h m
-    (μ := fun x b ↦ ∫ y, y ∂env.feedback t (x, b))
-    (fun b ↦ (stronglyMeasurable_id.integral_kernel (κ := env.feedback t)).measurable.comp
-      measurable_prodMk_right) ((integrable_const 1).sub hYint) hZm hint] with ω hω
-  simp only [hω, Environment.means_eq_integral]
-
 /-- **Conditional unbiasedness of the estimated losses of the experts** [LS, (18.10)] against any
 environment: along a run of Exp4-IX whose feedback at round `t` is almost surely in `[0, 1]`, the
 importance-weighted estimate `adv (O t) m ⬝ᵥ Ŷ t` of the loss of expert `m`, with the estimates
@@ -239,11 +174,47 @@ theorem condExp_dotProduct_iwEstimator (h : IsAlgEnvSeq O A Y (exp4IX adv hadv �
     P[fun ω ↦ (adv (O t ω) m : α → ℝ) ⬝ᵥ
         iwEstimator (exp4IXWeights adv η γ t (history O A Y t ω) (O t ω)) (A t ω) (1 - Y t ω)
       | h.filtrationObs t] =ᵐ[P]
-      fun ω ↦ ∑ a, (adv (O t ω) m : α → ℝ) a * (1 - env.means O A Y a t ω) :=
-  condExp_dotProduct_iwEstimator_of_integrable h m
-    (Integrable.of_mem_Icc 0 1 (h.measurable_feedback t).aemeasurable hY)
-    ((integrable_adv_action_mul_div h hY m le_rfl).congr
-      (ae_of_all _ fun ω ↦ by simp only [add_zero]; ring))
+      fun ω ↦ ∑ a, (adv (O t ω) m : α → ℝ) a * (1 - env.means O A Y a t ω) := by
+  have hYint : Integrable (Y t) P :=
+    Integrable.of_mem_Icc 0 1 (h.measurable_feedback t).aemeasurable hY
+  have hint : Integrable (fun ω ↦ (adv (O t ω) m : α → ℝ) (A t ω) /
+      exp4IXWeights adv η γ t (history O A Y t ω) (O t ω) (A t ω) * (1 - Y t ω)) P :=
+    (integrable_adv_action_mul_div h hY m le_rfl).congr
+      (ae_of_all _ fun ω ↦ by simp only [add_zero]; ring)
+  -- view the run as a run of a weight-based algorithm
+  have halg := exp4IX_def adv hadv η γ
+  generalize exp4IX adv hadv η γ = alg at h halg
+  subst halg
+  have hf : ∀ b, Measurable fun x : Hist 𝓞 α ℝ t × 𝓞 ↦
+      (adv x.2 m : α → ℝ) b / exp4IXWeights adv η γ t x.1 x.2 b := fun b ↦
+    ((measurable_pi_apply b).comp (measurable_subtype_coe.comp
+      ((measurable_pi_apply m).comp (hadv.comp measurable_snd)))).div
+      ((measurable_pi_apply b).comp (measurable_exp4IXWeights hadv η γ t))
+  have hmean : ∀ b, Measurable fun x : Hist 𝓞 α ℝ t × 𝓞 ↦ 1 - ∫ y, y ∂env.feedback t (x, b) :=
+    fun b ↦ measurable_const.sub
+      ((stronglyMeasurable_id.integral_kernel (κ := env.feedback t)).measurable.comp
+        measurable_prodMk_right)
+  -- given the past and the action, the loss `1 - Y t` has mean `1 - m_t(A t)`
+  have hZm : P[fun ω ↦ 1 - Y t ω | h.filtrationAction t] =ᵐ[P]
+      fun ω ↦ 1 - ∫ y, y ∂env.feedback t ((history O A Y t ω, O t ω), A t ω) := by
+    filter_upwards [condExp_const_sub (h.filtrationAction.le t) hYint 1,
+      h.condExp_feedback t hYint] with ω h1 h2
+    rw [h1, h2, Environment.means_eq_integral]
+  have hfun : (fun ω ↦ (adv (O t ω) m : α → ℝ) ⬝ᵥ
+      iwEstimator (exp4IXWeights adv η γ t (history O A Y t ω) (O t ω)) (A t ω) (1 - Y t ω)) =
+      fun ω ↦ (adv (O t ω) m : α → ℝ) (A t ω) /
+        exp4IXWeights adv η γ t (history O A Y t ω) (O t ω) (A t ω) * (1 - Y t ω) := by
+    funext ω
+    rw [dotProduct_iwEstimator, div_mul_eq_mul_div]
+  rw [hfun]
+  filter_upwards [WeightAlgorithm.condExp_comp_action_mul h t hf hmean
+    (Z := fun ω ↦ 1 - Y t ω) ((integrable_const 1).sub hYint) hZm hint] with ω hω
+  rw [hω]
+  refine Finset.sum_congr rfl fun b _ ↦ ?_
+  rw [Environment.means_eq_integral]
+  rcases eq_or_ne (exp4IXWeights adv η γ t (history O A Y t ω) (O t ω) b) 0 with hb | hb
+  · simp [hb, adv_apply_eq_zero_of_exp4IXWeights_eq_zero hb m]
+  · field_simp
 
 /-- **The mean rewards of the experts against an oblivious table.** Along a run of Exp4-IX against
 any environment whose feedback at round `t` is almost surely the reward `x t (A t)` of the action,
@@ -255,32 +226,12 @@ theorem sum_mul_means_ae_eq (h : IsAlgEnvSeq O A Y (exp4IX adv hadv η γ) env P
     (hY : Y t =ᵐ[P] x t ∘ A t) (m : β) :
     (fun ω ↦ ∑ a, (adv (O t ω) m : α → ℝ) a * env.means O A Y a t ω) =ᵐ[P]
       fun ω ↦ ∑ a, (adv (O t ω) m : α → ℝ) a * x t a := by
-  have hYint : Integrable (Y t) P := h.integrable_feedback_of_ae_eq hY
-  -- the estimate of the loss of `m` is at most `|1 - x t (A t)|` over the weight of the action
-  have hint : Integrable (fun ω ↦ (adv (O t ω) m : α → ℝ) (A t ω) /
-      exp4IXWeights adv η γ t (history O A Y t ω) (O t ω) (A t ω) * (1 - Y t ω)) P := by
-    refine (WeightAlgorithm.integrable_div_weights (isAlgEnvSeq_weightAlgorithm h) t
-      fun b ↦ |1 - x t b|).mono' (((measurable_adv_action h m).div
-        (measurable_exp4IXWeights_action h)).mul
-          (measurable_const.sub (h.measurable_feedback t))).aestronglyMeasurable ?_
-    filter_upwards [hY, WeightAlgorithm.ae_weights_action_pos (isAlgEnvSeq_weightAlgorithm h) t]
-      with ω hω hw
-    have hadv01 := simplex_subset_Icc (adv (O t ω) m).2
-    rw [hω, Function.comp_apply, norm_mul, Real.norm_of_nonneg (div_nonneg (hadv01.1 _) hw.le),
-      Real.norm_eq_abs, div_mul_eq_mul_div]
-    exact div_le_div_of_nonneg_right
-      (mul_le_of_le_one_left (abs_nonneg _) (hadv01.2 _)) hw.le
-  -- given the past and the action, the loss `1 - Y t` has mean `1 - x t (A t)`
-  have hZm : P[fun ω ↦ 1 - Y t ω | h.filtrationAction t] =ᵐ[P] fun ω ↦ 1 - x t (A t ω) := by
-    filter_upwards [condExp_const_sub (h.filtrationAction.le t) hYint 1,
-      h.condExp_feedback_ae_eq_of_ae_eq hY] with ω h1 h2
-    rw [h1, h2]
-  -- the two expressions of the conditional expectation of the estimate agree
-  filter_upwards [(condExp_dotProduct_iwEstimator_of_integrable h m hYint hint).symm.trans
-    (condExp_dotProduct_iwEstimator_of_condExp h m (μ := fun _ b ↦ x t b)
-      (fun _ ↦ measurable_const) ((integrable_const 1).sub hYint) hZm hint)] with ω hω
-  simp only [mul_sub, mul_one, sum_sub_distrib, (mem_simplex_iff.1 (adv (O t ω) m).2).2] at hω
-  linarith
+  filter_upwards [WeightAlgorithm.ae_means_eq_of_weights_pos (isAlgEnvSeq_weightAlgorithm h) hY]
+    with ω hω
+  refine Finset.sum_congr rfl fun b _ ↦ ?_
+  rcases eq_or_ne (exp4IXWeights adv η γ t (history O A Y t ω) (O t ω) b) 0 with hb | hb
+  · simp [adv_apply_eq_zero_of_exp4IXWeights_eq_zero hb m]
+  · rw [hω b (lt_of_le_of_ne (exp4IXWeights_nonneg ..) hb.symm)]
 
 /-- Along a run of Exp4-IX whose feedback at round `t` is almost surely in `[0, 1]`, the expected
 loss `∑ a, adv (O t) m a * (1 - m_t(a))` of an expert `m` at round `t` is integrable, with
@@ -617,19 +568,6 @@ fixed in advance, the expected regret against an expert is the regret against it
 table, whatever the environment: `sum_mul_means_ae_eq` replaces the conditional means by the
 table. -/
 
-/-- Along a run of Exp4-IX whose feedback at every round `t < n` is almost surely the reward
-`x t (A t)` of the action, the expected regret `E[∑_{t < n} (⟨adv (O t) m, m_t⟩ - Y t)]` against
-an expert `m` is `E[∑_{t < n} (⟨adv (O t) m, x t⟩ - x t (A t))]`. -/
-private lemma integral_sum_sub_eq_of_ae_eq (h : IsAlgEnvSeq O A Y (exp4IX adv hadv η γ) env P)
-    (hY : ∀ t < n, Y t =ᵐ[P] x t ∘ A t) (m : β) :
-    P[fun ω ↦ ∑ t ∈ range n, (∑ a, (adv (O t ω) m : α → ℝ) a * env.means O A Y a t ω -
-        Y t ω)] =
-      P[fun ω ↦ ∑ t ∈ range n, (∑ a, (adv (O t ω) m : α → ℝ) a * x t a - x t (A t ω))] := by
-  refine integral_congr_ae ?_
-  filter_upwards [(Filter.eventually_all_finset (range n)).2 fun t ht ↦
-    (sum_mul_means_ae_eq h (hY t (mem_range.1 ht)) m).and (hY t (mem_range.1 ht))] with ω hω
-  exact Finset.sum_congr rfl fun t ht ↦ by rw [(hω t ht).1, (hω t ht).2, Function.comp_apply]
-
 /-- **The expert pseudo-regret against an oblivious table is the regret against the advice.**
 Along a run of Exp4-IX against any environment whose observation and feedback at every round
 `t < n` are almost surely `o t` and the reward `x t (A t)` of the action, the expert pseudo-regret
@@ -638,21 +576,9 @@ theorem expertPseudoRegret_eq_expertRegret (h : IsAlgEnvSeq O A Y (exp4IX adv ha
     {o : ℕ → 𝓞} (hO : ∀ t < n, O t =ᵐ[P] fun _ ↦ o t) (hY : ∀ t < n, Y t =ᵐ[P] x t ∘ A t) :
     expertPseudoRegret env (fun o m ↦ (adv o m : α → ℝ)) O A Y P n =
       expertRegret (fun t m ↦ (adv (o t) m : α → ℝ)) x A P n := by
-  have hint (t : ℕ) : Integrable (fun ω ↦ x t (A t ω)) P :=
-    Integrable.of_finite.comp_measurable (h.measurable_action t)
-  rw [expertPseudoRegret_def, expertRegret_def, ciSup_sub (Finite.bddAbove_range _)]
-  refine iSup_congr fun m ↦ ?_
-  rw [integral_sum_sub_eq_of_ae_eq h hY m]
-  calc P[fun ω ↦ ∑ t ∈ range n, (∑ a, (adv (O t ω) m : α → ℝ) a * x t a - x t (A t ω))]
-    _ = P[fun ω ↦ ∑ t ∈ range n, (∑ a, (adv (o t) m : α → ℝ) a * x t a - x t (A t ω))] := by
-      refine integral_congr_ae ?_
-      filter_upwards [(Filter.eventually_all_finset (range n)).2 fun t ht ↦ hO t (mem_range.1 ht)]
-        with ω hω
-      exact Finset.sum_congr rfl fun t ht ↦ by rw [hω t ht]
-    _ = ∑ t ∈ range n, ∑ a, (adv (o t) m : α → ℝ) a * x t a -
-        P[fun ω ↦ ∑ t ∈ range n, x t (A t ω)] := by
-      simp_rw [sum_sub_distrib]
-      rw [integral_const_sub_sum _ fun t _ ↦ hint t, integral_finsetSum _ fun t _ ↦ hint t]
+  refine expertPseudoRegret_eq_expertRegret_of_ae h.measurable_action (fun m t ht ↦ ?_) hY
+  filter_upwards [sum_mul_means_ae_eq h (hY t ht) m, hO t ht] with ω hω hωO
+  rw [hω, hωO]
 
 end Exp4IX
 
@@ -667,15 +593,10 @@ theorem pseudoRegret_eq_advRegret
     (h : IsAlgEnvSeq O A Y (exp4IX singleAdvice measurable_singleAdvice η γ) env P)
     (hY : ∀ t < n, Y t =ᵐ[P] x t ∘ A t) :
     pseudoRegret env O A Y P n = advRegret x A P n := by
-  have hint (t : ℕ) : Integrable (fun ω ↦ x t (A t ω)) P :=
-    Integrable.of_finite.comp_measurable (h.measurable_action t)
-  rw [pseudoRegret_def, advRegret_def, ciSup_sub (Finite.bddAbove_range _)]
-  refine iSup_congr fun a ↦ ?_
-  have key := Exp4IX.integral_sum_sub_eq_of_ae_eq h hY a
-  simp only [coe_singleAdvice, Pi.single_apply, ite_mul, one_mul, zero_mul, sum_ite_eq',
-    mem_univ, ite_true] at key
-  simp_rw [key, sum_sub_distrib]
-  rw [integral_const_sub_sum _ fun t _ ↦ hint t, integral_finsetSum _ fun t _ ↦ hint t]
+  rw [← expertPseudoRegret_single, ← expertRegret_single]
+  refine expertPseudoRegret_eq_expertRegret_of_ae h.measurable_action (fun a t ht ↦ ?_) hY
+  filter_upwards [Exp4IX.sum_mul_means_ae_eq h (hY t ht) a] with ω hω
+  simpa using hω
 
 /-- **Pseudo-regret of Exp3** against an adaptive adversary: along a run of Exp3 with learning rate
 `η > 0` against any environment whose feedbacks of the rounds `t < n` are almost surely in
