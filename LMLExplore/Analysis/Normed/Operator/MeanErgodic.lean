@@ -10,6 +10,7 @@ public import Mathlib.LinearAlgebra.FiniteDimensional.Lemmas
 public import Mathlib.Topology.MetricSpace.UniformConvergence
 public import LMLExplore.Analysis.Normed.Module.FiniteDimension
 public import LMLExplore.Analysis.Normed.Ring.PowerBounded
+public import LMLExplore.Topology.Algebra.Module.Basic
 public import LMLExplore.Topology.Algebra.Module.ContinuousLinearMap.Basic
 
 /-!
@@ -59,6 +60,11 @@ proof of Mathlib's `LinearMap.tendsto_birkhoffAverage_of_ker_subset_closure`.
   `ker (1 - T)` and `Π x = 0` exactly on `closure (range (1 - T))`.
 * `LMLExplore.IsPowerBounded.tendsto_cesaro_meanErgodicProj`: in finite dimension, the
   Cesàro means converge to `Π` in operator norm.
+* `LMLExplore.IsPowerBounded.isClosed_range`, `LMLExplore.IsPowerBounded.isCompl_ker_range`: under
+  `ker (1 - T) ⊔ range (1 - T) = ⊤`, the range of `1 - T` is closed and complementary to
+  `ker (1 - T)` (the converse is `IsCompl.sup_eq_top`).
+* `LMLExplore.IsPowerBounded.ker_sup_range_eq_top`: in finite dimension,
+  `ker (1 - T) ⊔ range (1 - T) = ⊤`.
 
 ## References
 
@@ -295,6 +301,19 @@ theorem isCompl_ker_topologicalClosure_range (hT : IsPowerBounded T)
     IsCompl ((1 - T).ker) (1 - T).range.topologicalClosure :=
   ⟨hT.disjoint_ker_topologicalClosure_range, codisjoint_iff.2 hF⟩
 
+/-- In finite dimension, the fixed points and the range of `1 - T` span the space when `T` is
+power bounded. -/
+theorem ker_sup_range_eq_top [FiniteDimensional 𝕜 E] (hT : IsPowerBounded T) :
+    (1 - T).ker ⊔ (1 - T).range = ⊤ := by
+  simpa [(Submodule.isClosed_of_finiteDimensional _).submodule_topologicalClosure_eq] using
+    hT.ker_sup_topologicalClosure_range_eq_top
+
+/-- When the fixed points and the range of `1 - T` span the space, they are complementary. -/
+theorem isCompl_ker_range (hT : IsPowerBounded T) (hR : (1 - T).ker ⊔ (1 - T).range = ⊤) :
+    IsCompl (1 - T).ker (1 - T).range :=
+  ⟨hT.disjoint_ker_topologicalClosure_range.mono_right (Submodule.le_topologicalClosure _),
+    codisjoint_iff.2 hR⟩
+
 section MeanErgodicProj
 
 variable (hT : IsPowerBounded T)
@@ -441,6 +460,20 @@ theorem ker_meanErgodicProj :
   rw [LinearMap.mem_ker, coe_coe, meanErgodicProj_apply_eq_zero_iff]
 
 end MeanErgodicProj
+
+/-- When the fixed points and the range of `1 - T` span the space, the range of `1 - T` is
+closed. -/
+theorem isClosed_range (hT : IsPowerBounded T) (hR : (1 - T).ker ⊔ (1 - T).range = ⊤) :
+    IsClosed ((1 - T).range : Set E) := by
+  refine isClosed_of_closure_subset fun y hy ↦ ?_
+  rw [← Submodule.topologicalClosure_coe, SetLike.mem_coe,
+    ← hT.meanErgodicProj_apply_eq_zero_iff (Submodule.sup_topologicalClosure_eq_top hR)] at hy
+  obtain ⟨k, hk, r, hr, rfl⟩ :=
+    Submodule.mem_sup.1 (hR ▸ Submodule.mem_top : y ∈ (1 - T).ker ⊔ (1 - T).range)
+  have hr' : hT.meanErgodicProj (Submodule.sup_topologicalClosure_eq_top hR) r = 0 :=
+    (hT.meanErgodicProj_apply_eq_zero_iff _).2 (Submodule.le_topologicalClosure _ hr)
+  rw [map_add, hT.meanErgodicProj_apply_of_mem_ker _ hk, hr', add_zero] at hy
+  simpa [hy] using hr
 
 /-- **Uniform mean ergodic theorem in finite dimension**: the Cesàro means
 `(N : 𝕜)⁻¹ • ∑ k ∈ range N, T ^ k` of a power-bounded operator on a finite-dimensional space

@@ -16,9 +16,10 @@ public import LMLExplore.Topology.Algebra.Module.Basic
 
 Let `T` be a power-bounded continuous linear operator on a Banach space `E` over `ℝ` or `ℂ`, such
 that the fixed points `ker (1 - T)` and the range of `1 - T` span `E`. Then the range of `1 - T`
-is closed and complementary to `ker (1 - T)`, the Cesàro means of `T` converge everywhere, and
+is closed and complementary to `ker (1 - T)` (`LMLExplore.IsPowerBounded.isClosed_range`,
+`LMLExplore.IsPowerBounded.isCompl_ker_range`), the Cesàro means of `T` converge everywhere, and
 their limit is the mean ergodic projection `Π` (`LMLExplore.IsPowerBounded.meanErgodicProj`). In
-finite dimension the hypothesis always holds.
+finite dimension the hypothesis always holds (`LMLExplore.IsPowerBounded.ker_sup_range_eq_top`).
 
 The operator `1 - T + Π` is then invertible, and the *deviation operator*
 `D = (1 - T + Π)⁻¹ - Π` is the group inverse of `1 - T`:
@@ -39,27 +40,27 @@ the resolvent `ProbabilityTheory.Kernel.ringInverse_one_sub_smul_integralCLM` of
 
 ## Main statements
 
-* `LMLExplore.IsPowerBounded.isCompl_ker_range`, `LMLExplore.IsPowerBounded.isClosed_range`: the
-  hypothesis is that `ker (1 - T)` and the closed range of `1 - T` are complementary.
-* `LMLExplore.IsPowerBounded.ker_sup_range_eq_top`: the hypothesis holds in finite dimension.
 * `LMLExplore.IsPowerBounded.isUnit_one_sub_add_meanErgodicProj`: `1 - T + Π` is invertible.
 * `LMLExplore.IsPowerBounded.one_sub_mul_deviation`,
   `LMLExplore.IsPowerBounded.deviation_mul_one_sub`,
   `LMLExplore.IsPowerBounded.deviation_mul_meanErgodicProj`,
   `LMLExplore.IsPowerBounded.meanErgodicProj_mul_deviation`: `(1 - T) D = D (1 - T) = 1 - Π` and
-  `D Π = Π D = 0`.
+  `D Π = Π D = 0`; pointwise, `LMLExplore.IsPowerBounded.one_sub_deviation_apply`,
+  `LMLExplore.IsPowerBounded.deviation_one_sub_apply`,
+  `LMLExplore.IsPowerBounded.deviation_meanErgodicProj_apply` and
+  `LMLExplore.IsPowerBounded.meanErgodicProj_deviation_apply`.
 * `LMLExplore.IsPowerBounded.eq_deviation_of_mul_one_sub`,
   `LMLExplore.IsPowerBounded.eq_deviation_of_one_sub_mul`: these identities characterize `D`.
 * `LMLExplore.IsPowerBounded.tendsto_cesaro_sum_pow_sub_meanErgodicProj_apply`: `D x` is the
   Cesàro limit of the partial sums `∑ k < n, (T ^ k x - Π x)`; in operator norm in finite
   dimension (`LMLExplore.IsPowerBounded.tendsto_cesaro_sum_pow_sub_meanErgodicProj`).
 * `LMLExplore.IsPowerBounded.eq_meanErgodicProj_and_eq_deviation_iff`: `(g, h) = (Π r, D r)` is the
-  unique solution of `(1 - T) g = 0`, `g + (1 - T) h = r`, `Π h = 0`.
-* `LMLExplore.IsPowerBounded.isUnit_one_sub_smul`,
-  `LMLExplore.IsPowerBounded.ringInverse_one_sub_smul_eq_laurent`: the Laurent expansion of the
-  resolvent.
+  unique solution of `(1 - T) g = 0`, `g + (1 - T) h = r`, `Π h = 0` [P, Theorem 8.2.6].
+* `LMLExplore.IsPowerBounded.ringInverse_one_sub_smul_eq_laurent`: the Laurent expansion of the
+  resolvent [P, Theorem 8.2.3]. The resolvent `1 - γ T` is invertible for every `‖γ‖ < 1`
+  (`LMLExplore.IsPowerBounded.isUnit_one_sub_smul`).
 * `LMLExplore.IsPowerBounded.tendsto_ringInverse_one_sub_smul_sub`:
-  `(1 - γ T)⁻¹ = (1 - γ)⁻¹ Π + D + o(1)` as `γ ↑ 1`.
+  `(1 - γ T)⁻¹ = (1 - γ)⁻¹ Π + D + o(1)` as `γ ↑ 1` [P, Corollary 8.2.4].
 * `LMLExplore.IsPowerBounded.tendsto_one_sub_smul_ringInverse_one_sub_smul` and
   `LMLExplore.IsPowerBounded.tendsto_inv_smul_one_sub_smul_ringInverse_one_sub_smul_sub`:
   `(1 - γ) (1 - γ T)⁻¹ → Π` and `((1 - γ) (1 - γ T)⁻¹ - Π) / (1 - γ) → D` as `γ ↑ 1`, in
@@ -67,7 +68,8 @@ the resolvent `ProbabilityTheory.Kernel.ringInverse_one_sub_smul_integralCLM` of
 
 ## References
 
-* M. L. Puterman, *Markov Decision Processes*, Wiley, 1994, Appendix A.5, Theorems A.7–A.8.
+* [P] M. L. Puterman, *Markov Decision Processes*, Wiley, 1994, Appendix A.5, Theorems A.7–A.8,
+  and Section 8.2, Theorems 8.2.3 and 8.2.6 and Corollary 8.2.4.
 * T. Lattimore and C. Szepesvári, *Bandit Algorithms*, Cambridge University Press, 2020,
   Exercises 38.7 and 38.9.
 -/
@@ -82,33 +84,10 @@ namespace LMLExplore.IsPowerBounded
 variable {𝕜 E : Type*} [RCLike 𝕜] [NormedAddCommGroup E] [NormedSpace 𝕜 E]
   {T : E →L[𝕜] E}
 
-/-- In finite dimension, the fixed points and the range of `1 - T` span the space when `T` is
-power bounded. -/
-theorem ker_sup_range_eq_top [FiniteDimensional 𝕜 E] (hT : IsPowerBounded T) :
-    (1 - T).ker ⊔ (1 - T).range = ⊤ := by
-  simpa [(Submodule.isClosed_of_finiteDimensional _).submodule_topologicalClosure_eq] using
-    hT.ker_sup_topologicalClosure_range_eq_top
-
 section Deviation
 
 variable (hT : IsPowerBounded T) (hR : (1 - T).ker ⊔ (1 - T).range = ⊤)
 include hT hR
-
-/-- The range of `1 - T` is closed. -/
-theorem isClosed_range : IsClosed ((1 - T).range : Set E) := by
-  refine isClosed_of_closure_subset fun y hy ↦ ?_
-  rw [← topologicalClosure_coe, SetLike.mem_coe,
-    ← hT.meanErgodicProj_apply_eq_zero_iff (sup_topologicalClosure_eq_top hR)] at hy
-  obtain ⟨k, hk, r, hr, rfl⟩ := mem_sup.1 (hR ▸ mem_top : y ∈ (1 - T).ker ⊔ (1 - T).range)
-  have hr' : hT.meanErgodicProj (sup_topologicalClosure_eq_top hR) r = 0 :=
-    (hT.meanErgodicProj_apply_eq_zero_iff _).2 (le_topologicalClosure _ hr)
-  rw [map_add, hT.meanErgodicProj_apply_of_mem_ker _ hk, hr', add_zero] at hy
-  simpa [hy] using hr
-
-/-- The fixed points and the range of `1 - T` are complementary. -/
-theorem isCompl_ker_range : IsCompl (1 - T).ker (1 - T).range :=
-  ⟨hT.disjoint_ker_topologicalClosure_range.mono_right (le_topologicalClosure _),
-    codisjoint_iff.2 hR⟩
 
 /-- `(1 - T + Π) Π = Π`. -/
 private lemma one_sub_add_meanErgodicProj_mul :
@@ -142,8 +121,7 @@ theorem isUnit_one_sub_add_meanErgodicProj [CompleteSpace E] :
     obtain ⟨k, hk, r, ⟨z, rfl⟩, rfl⟩ := mem_sup.1 (hR ▸ mem_top : y ∈ (1 - T).ker ⊔ (1 - T).range)
     refine ⟨k + (z - P z), ?_⟩
     have hk' : (1 - T) k = 0 := LinearMap.mem_ker.1 hk
-    have h1 : (1 - T) (P z) = 0 := by
-      rw [← mul_apply_eq_comp, one_sub_mul_meanErgodicProj, zero_apply]
+    have h1 : (1 - T) (P z) = 0 := by simp [P]
     have h2 : P (P z) = P z := hT.meanErgodicProj_meanErgodicProj_apply _ z
     have h3 : P k = k := hT.meanErgodicProj_apply_of_mem_ker _ hk
     simp only [add_apply, map_add, map_sub, hk', h1, h2, h3]
@@ -227,6 +205,28 @@ theorem deviation_mul_one_sub :
         rw [mul_sub, hT.deviation_mul_meanErgodicProj hR, sub_zero, deviation, sub_mul,
           Ring.inverse_mul_cancel _ hS, hT.meanErgodicProj_mul_one_sub_add hR]
 
+/-- `D (Π x) = 0`. -/
+@[simp]
+theorem deviation_meanErgodicProj_apply (x : E) :
+    hT.deviation hR (hT.meanErgodicProj (sup_topologicalClosure_eq_top hR) x) = 0 := by
+  rw [← mul_apply_eq_comp, hT.deviation_mul_meanErgodicProj hR, zero_apply]
+
+/-- `Π (D x) = 0`. -/
+@[simp]
+theorem meanErgodicProj_deviation_apply (x : E) :
+    hT.meanErgodicProj (sup_topologicalClosure_eq_top hR) (hT.deviation hR x) = 0 := by
+  rw [← mul_apply_eq_comp, hT.meanErgodicProj_mul_deviation hR, zero_apply]
+
+/-- `(1 - T) (D x) = x - Π x`. -/
+theorem one_sub_deviation_apply (x : E) :
+    (1 - T) (hT.deviation hR x) = x - hT.meanErgodicProj (sup_topologicalClosure_eq_top hR) x := by
+  rw [← mul_apply_eq_comp, hT.one_sub_mul_deviation hR, sub_apply, one_apply_eq_self]
+
+/-- `D ((1 - T) x) = x - Π x`. -/
+theorem deviation_one_sub_apply (x : E) :
+    hT.deviation hR ((1 - T) x) = x - hT.meanErgodicProj (sup_topologicalClosure_eq_top hR) x := by
+  rw [← mul_apply_eq_comp, hT.deviation_mul_one_sub hR, sub_apply, one_apply_eq_self]
+
 /-- `D` is the only operator `X` with `X (1 - T) = 1 - Π` and `X Π = 0`. -/
 theorem eq_deviation_of_mul_one_sub {X : E →L[𝕜] E}
     (h₁ : X * (1 - T) = 1 - hT.meanErgodicProj (sup_topologicalClosure_eq_top hR))
@@ -281,9 +281,7 @@ theorem tendsto_cesaro_sum_pow_sub_meanErgodicProj_apply (x : E) :
       (𝓝 (D x - D (P x))) :=
     tendsto_const_nhds.sub ((D.continuous.tendsto _).comp
       (hT.tendsto_birkhoffAverage_meanErgodicProj _ x))
-  have hDP : D (P x) = 0 := by
-    rw [← mul_apply_eq_comp, hT.deviation_mul_meanErgodicProj hR, zero_apply]
-  rw [hDP, sub_zero] at hlim
+  rw [hT.deviation_meanErgodicProj_apply hR, sub_zero] at hlim
   refine hlim.congr' (eventually_atTop.2 ⟨1, fun N hN ↦ ?_⟩)
   have hinner : ∀ n, ∑ k ∈ range n, ((T ^ k) x - P x) = D x - D ((T ^ n) x) := fun n ↦ by
     have := congr($(hT.sum_range_pow_sub_meanErgodicProj hR n) x)
@@ -304,43 +302,30 @@ theorem tendsto_cesaro_sum_pow_sub_meanErgodicProj [FiniteDimensional 𝕜 E] :
   simpa [sum_apply] using
     hT.tendsto_cesaro_sum_pow_sub_meanErgodicProj_apply hR x
 
-/-- **The evaluation equations.** `(g, h) = (Π r, D r)` is the unique solution of
-`(1 - T) g = 0`, `g + (1 - T) h = r` and `Π h = 0`. For the action of a stochastic matrix and a
+/-- **The evaluation equations** [P, Theorem 8.2.6]. `(g, h) = (Π r, D r)` is the unique solution
+of `(1 - T) g = 0`, `g + (1 - T) h = r` and `Π h = 0`. For the action of a stochastic matrix and a
 reward `r`, these are the equations of the gain `g` and the bias `h`. -/
 theorem eq_meanErgodicProj_and_eq_deviation_iff {g h r : E} :
     g = hT.meanErgodicProj (sup_topologicalClosure_eq_top hR) r ∧ h = hT.deviation hR r ↔
       (1 - T) g = 0 ∧ g + (1 - T) h = r ∧
         hT.meanErgodicProj (sup_topologicalClosure_eq_top hR) h = 0 := by
   set P := hT.meanErgodicProj (sup_topologicalClosure_eq_top hR)
-  set D := hT.deviation hR
-  have hNP : ∀ x, (1 - T) (P x) = 0 := fun x ↦ by
-    rw [← mul_apply_eq_comp, one_sub_mul_meanErgodicProj, zero_apply]
-  have hPN : ∀ x, P ((1 - T) x) = 0 := fun x ↦ by
-    rw [← mul_apply_eq_comp, meanErgodicProj_mul_one_sub, zero_apply]
-  have hND : ∀ x, (1 - T) (D x) = x - P x := fun x ↦ by
-    rw [← mul_apply_eq_comp, hT.one_sub_mul_deviation hR]
-    simp [P]
-  have hDN : ∀ x, D ((1 - T) x) = x - P x := fun x ↦ by
-    rw [← mul_apply_eq_comp, hT.deviation_mul_one_sub hR]
-    simp [P]
-  have hPD : ∀ x, P (D x) = 0 := fun x ↦ by
-    rw [← mul_apply_eq_comp, hT.meanErgodicProj_mul_deviation hR, zero_apply]
-  have hDP : ∀ x, D (P x) = 0 := fun x ↦ by
-    rw [← mul_apply_eq_comp, hT.deviation_mul_meanErgodicProj hR, zero_apply]
   constructor
   · rintro ⟨rfl, rfl⟩
-    exact ⟨hNP r, by rw [hND, add_sub_cancel], hPD r⟩
+    exact ⟨by simp [P], by rw [hT.one_sub_deviation_apply hR, add_sub_cancel],
+      hT.meanErgodicProj_deviation_apply hR r⟩
   · rintro ⟨hg, hgh, hh⟩
     -- Applying `Π` to `g + (1 - T) h = r` gives `g = Π g = Π r`.
     have hPg : P g = g := hT.meanErgodicProj_apply_of_mem_ker _ hg
     have hgr : g = P r := by
-      rw [← hgh, map_add, hPN, add_zero, hPg]
+      rw [← hgh, map_add, hPg]
+      simp [P]
     refine ⟨hgr, ?_⟩
     -- Applying `D` to `(1 - T) h = r - g` gives `h = h - Π h = D r - D (Π r) = D r`.
     have hNh : (1 - T) h = r - P r := by
       rw [← hgr, ← hgh, add_sub_cancel_left]
-    have := hDN h
-    rw [hNh, hh, sub_zero, map_sub, hDP, sub_zero] at this
+    have := hT.deviation_one_sub_apply hR h
+    rw [hNh, hh, sub_zero, map_sub, hT.deviation_meanErgodicProj_apply hR, sub_zero] at this
     exact this.symm
 
 /-! ### The Laurent expansion of the resolvent -/
@@ -371,11 +356,9 @@ private lemma smul_one_add_one_sub_mul_eq_one {u : 𝕜} (hu : u ≠ 0)
   have hQP : Q * P = P := by simp [Q, add_mul, hDP]
   have hPV : P * V = P := by rw [← hPQ, mul_assoc, hQV, mul_one, hPQ]
   have hVP : V * P = P := by rw [← hQP, ← mul_assoc, hVQ, one_mul, hQP]
-  have hDQ : D * Q = Q * D := by simp [Q, mul_add, add_mul]
-  have hDV : D * V = V * D := by
-    calc D * V = V * Q * D * V := by rw [hVQ, one_mul]
-      _ = V * D * (Q * V) := by rw [mul_assoc V Q D, ← hDQ]; noncomm_ring
-      _ = V * D := by rw [hQV, mul_one]
+  have hDQ : Commute D Q := by simp [Commute, SemiconjBy, Q, mul_add, add_mul]
+  have hDV : Commute D V := by
+    simpa [V, ← Ring.inverse_unit] using hDQ.units_inv_right (u := hQ.unit)
   have hVDV : V + u • (D * V) = 1 := by
     rw [← hQV, add_mul, one_mul, smul_mul_assoc]
   constructor
@@ -390,7 +373,7 @@ private lemma smul_one_add_one_sub_mul_eq_one {u : 𝕜} (hu : u ≠ 0)
           abel
   · calc (u⁻¹ • P + D * V) * (u • 1 + (1 - T))
         = (u * u⁻¹) • P + u • (D * V) + u⁻¹ • (P * (1 - T)) + V * (D * (1 - T)) := by
-          rw [← mul_assoc V, ← hDV]
+          rw [← mul_assoc V, ← hDV.eq]
           simp only [add_mul, mul_add, smul_add, smul_mul_assoc, mul_one, mul_smul_comm, smul_smul,
             mul_assoc]
           abel
@@ -424,12 +407,6 @@ private lemma one_sub_smul_mul_eq_one {γ u : ℝ} (hγ₀ : 0 < γ) (hγ₁ : �
     h₁, h₂, one_smul]
   exact ⟨rfl, rfl⟩
 
-/-- For `0 < γ < 1` with `(1 - γ) / γ * ‖D‖ < 1`, the operator `1 - γ T` is invertible. -/
-theorem isUnit_one_sub_smul {γ : ℝ} (hγ₀ : 0 < γ) (hγ₁ : γ < 1)
-    (hD : (1 - γ) / γ * ‖hT.deviation hR‖ < 1) :
-    IsUnit (1 - (γ : 𝕜) • T) :=
-  isUnit_iff_exists.2 ⟨_, hT.one_sub_smul_mul_eq_one hR hγ₀ hγ₁ rfl hD⟩
-
 /-- The closed form `(1 - γ T)⁻¹ = γ⁻¹ (u⁻¹ Π + D (1 + u D)⁻¹)` of the resolvent. -/
 private lemma ringInverse_one_sub_smul_eq {γ u : ℝ} (hγ₀ : 0 < γ) (hγ₁ : γ < 1)
     (hu : u = (1 - γ) / γ) (hD : u * ‖hT.deviation hR‖ < 1) :
@@ -439,8 +416,8 @@ private lemma ringInverse_one_sub_smul_eq {γ u : ℝ} (hγ₀ : 0 < γ) (hγ₁
   Ring.inverse_unit ⟨_, _, (hT.one_sub_smul_mul_eq_one hR hγ₀ hγ₁ hu hD).1,
     (hT.one_sub_smul_mul_eq_one hR hγ₀ hγ₁ hu hD).2⟩
 
-/-- **Laurent expansion of the resolvent.** For `0 < γ < 1` and `u = (1 - γ) / γ` with
-`u ‖D‖ < 1`,
+/-- **Laurent expansion of the resolvent** [P, Theorem 8.2.3]. For `0 < γ < 1` and
+`u = (1 - γ) / γ` with `u ‖D‖ < 1`,
 `(1 - γ T)⁻¹ = (1 + u) (u⁻¹ Π + ∑ₙ (-u) ^ n D ^ (n + 1))`. -/
 theorem ringInverse_one_sub_smul_eq_laurent {γ u : ℝ} (hγ₀ : 0 < γ) (hγ₁ : γ < 1)
     (hu : u = (1 - γ) / γ) (hD : u * ‖hT.deviation hR‖ < 1) :
@@ -476,8 +453,8 @@ private lemma eventually_ringInverse_one_sub_smul_sub :
   rw [hT.ringInverse_one_sub_smul_eq hR hγ₀ hγ₁ rfl hD, smul_add, smul_smul, hγu,
     add_sub_cancel_left]
 
-/-- **Laurent expansion to first order**: `(1 - γ T)⁻¹ = (1 - γ)⁻¹ Π + D + o(1)` as `γ ↑ 1`, in
-operator norm. -/
+/-- **Laurent expansion to first order** [P, Corollary 8.2.4]:
+`(1 - γ T)⁻¹ = (1 - γ)⁻¹ Π + D + o(1)` as `γ ↑ 1`, in operator norm. -/
 theorem tendsto_ringInverse_one_sub_smul_sub :
     Tendsto (fun γ : ℝ ↦ (1 - (γ : 𝕜) • T)⁻¹ʳ -
       (1 - (γ : 𝕜))⁻¹ • hT.meanErgodicProj (sup_topologicalClosure_eq_top hR)) (𝓝[<] 1)
