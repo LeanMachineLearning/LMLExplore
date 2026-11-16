@@ -18,8 +18,8 @@ Facts about LML's `gap` and `regret` of a bandit `ν : Kernel α ℝ` that hold 
 actions `A : ℕ → Ω → α`.
 
 The first part gives lower bounds on the gaps, identifies the best arm when a single arm has the
-largest mean, computes the gaps of a bandit with two arms of different means, and gives lower
-bounds on the expected regret in terms of the expected numbers of pulls.
+largest mean, computes the gaps of a bandit with one arm and with two arms of different means, and
+gives lower bounds on the expected regret in terms of the expected numbers of pulls.
 
 The second part turns gap-dependent regret bounds into gap-free ones. The analysis of an algorithm
 for stochastic bandits with finitely many arms typically bounds the expected number of pulls of
@@ -48,6 +48,8 @@ for `trajMeasure`, such as lower bounds, apply to every run.
 * `LMLExplore.Bandits.bestArm_eq_of_forall_lt`: an arm whose mean is larger than the means of all
   the other arms is the best arm, and `LMLExplore.Bandits.gap_pos_of_forall_lt`: the other arms
   then have positive gaps.
+* `LMLExplore.Bandits.gap_of_subsingleton`, `LMLExplore.Bandits.regret_of_subsingleton`: in a
+  bandit with a single arm, the gap is `0` and every sequence of actions has zero regret.
 * `LMLExplore.Bandits.bestArm_eq_of_card_eq_two`, `LMLExplore.Bandits.gap_eq_sub_of_card_eq_two`,
   `LMLExplore.Bandits.filter_gap_pos_eq_singleton_of_card_eq_two`,
   `LMLExplore.Bandits.sum_gap_mul_eq_of_card_eq_two`,
@@ -130,6 +132,25 @@ theorem iSup_integral_eq_integral_bestArm [Fintype α] [Nonempty α] (ν : Kerne
 theorem integral_lt_integral_bestArm_of_gap_pos [Fintype α] [Nonempty α] {ν : Kernel α ℝ} {a : α}
     (ha : 0 < gap ν a) : (ν a)[id] < (ν (bestArm ν))[id] := by
   linarith [gap_eq_bestArm_sub (ν := ν) (a := a)]
+
+section OneArm
+
+variable [Subsingleton α] {ν : Kernel α ℝ}
+
+/-- In a bandit with a single arm, the gap of that arm is `0`. -/
+@[simp]
+theorem gap_of_subsingleton (a : α) : gap ν a = 0 := by
+  have : Unique α := uniqueOfSubsingleton a
+  rw [gap, ciSup_unique, Subsingleton.elim a default, sub_self]
+
+/-- **A one-armed bandit has zero regret**: in a bandit with a single arm, the regret of every
+sequence of actions is `0` at every horizon. -/
+@[simp]
+theorem regret_of_subsingleton {Ω : Type*} (A : ℕ → Ω → α) (n : ℕ) (ω : Ω) :
+    regret ν A n ω = 0 := by
+  simp [regret_eq_sum_gap]
+
+end OneArm
 
 section TwoArms
 
