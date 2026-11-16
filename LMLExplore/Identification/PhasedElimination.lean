@@ -7,7 +7,7 @@ module
 
 public import LMLExplore.Identification.FixedBudget
 public import LMLExplore.SequentialLearning.StoppedHistory
-public import Mathlib.Data.List.GetD
+public import LMLExplore.Data.List.GetD
 
 /-!
 # Phased elimination
@@ -59,7 +59,7 @@ In the namespace `LMLExplore.Identification`:
 
 * `PhasedElimination.armAt_phaseStart_add`: round `j` of phase `r` plays the `j`-th arm of the
   list `pulls r S_r`.
-* `PhasedElimination.action_ae_eq_armAt`, `PhasedElimination.pullCount_phaseStart_succ`: along
+* `PhasedElimination.action_ae_all_eq_armAt`, `PhasedElimination.pullCount_phaseStart_succ`: along
   every run of the sampling rule, the arm played at round `t` is `armAt` for the history of the
   run, and phase `r` pulls the arm `a` exactly `(pulls r S_r).count a` times.
 * `stoppingTime_phasedElimination_eq`, `stoppingTime_phasedElimination_eq_top`: the stopping time
@@ -263,6 +263,30 @@ lemma phaseOf_eq {t r : ℕ} (h₁ : phaseStart S₀ pulls elim H r ≤ t)
   push Not
   exact ⟨(monotone_phaseStart (Nat.succ_le_of_lt hj)).trans h₁, r, h₂⟩
 
+/-- If some phase starts after round `t`, the phase after the one containing `t` starts after
+`t`. -/
+lemma lt_phaseStart_phaseOf_succ {t : ℕ} (h : ∃ r, t < phaseStart S₀ pulls elim H r) :
+    t < phaseStart S₀ pulls elim H (phaseOf S₀ pulls elim H t + 1) := by
+  classical
+  obtain ⟨r, hr⟩ := h
+  rw [phaseOf]
+  refine (Nat.find_spec (p := fun r ↦ t < phaseStart S₀ pulls elim H (r + 1) ∨
+    ∀ j, phaseStart S₀ pulls elim H (j + 1) ≤ t) _).resolve_right fun hall ↦ ?_
+  cases r with
+  | zero => exact Nat.not_lt_zero t hr
+  | succ r => exact (hall r).not_gt hr
+
+/-- If some phase starts after round `t`, the phase containing `t` is the phase `r` with
+`S_r ≤ t < S_{r+1}`, for the starts `S_r` of the phases. -/
+lemma phaseOf_eq_iff {t : ℕ} (h : ∃ r, t < phaseStart S₀ pulls elim H r) {r : ℕ} :
+    phaseOf S₀ pulls elim H t = r ↔
+      phaseStart S₀ pulls elim H r ≤ t ∧ t < phaseStart S₀ pulls elim H (r + 1) := by
+  constructor
+  · rintro rfl
+    exact ⟨phaseStart_phaseOf_le S₀ pulls elim H t, lt_phaseStart_phaseOf_succ h⟩
+  · rintro ⟨h₁, h₂⟩
+    exact phaseOf_eq h₁ h₂
+
 /-- The phase containing the round `t` only depends on the histories of the first `m ≤ t`
 rounds. -/
 lemma phaseOf_congr {t : ℕ} (hH : ∀ m ≤ t, H m = H' m) :
@@ -365,6 +389,16 @@ lemma exists_lt_mem_activeSet_notMem_activeSet_succ {i : ℐ} (hi : i ∈ S₀) 
     · obtain ⟨r, hr, h⟩ := ih hk'
       exact ⟨r, hr.trans (Nat.lt_succ_self k), h⟩
 
+/-- If `out` chooses an element of every nonempty set, an answer `i ∈ S₀` that is not the output
+`out S_k` of an active set `S_k` with at most one element is eliminated at the end of some phase
+`r < k`. -/
+lemma exists_lt_mem_activeSet_notMem_activeSet_succ_of_out_ne {out : Finset ℐ → ℐ}
+    (hout : ∀ S : Finset ℐ, S.Nonempty → out S ∈ S) {i : ℐ} (hi : i ∈ S₀) {k : ℕ}
+    (hk : #(activeSet S₀ pulls elim H k) ≤ 1) (hne : out (activeSet S₀ pulls elim H k) ≠ i) :
+    ∃ r < k, i ∈ activeSet S₀ pulls elim H r ∧ i ∉ activeSet S₀ pulls elim H (r + 1) :=
+  exists_lt_mem_activeSet_notMem_activeSet_succ hi fun hi' ↦
+    hne (card_le_one.1 hk _ (hout _ ⟨i, hi'⟩) _ hi')
+
 /-! ### Stopping rules -/
 
 variable (S₀ pulls elim) in
@@ -386,8 +420,8 @@ lemma stopRule_congr {t : ℕ} (hH : ∀ m ≤ t, H m = H' m) :
     exact ⟨r, (phaseStart_eq_congr hH).1 hr, activeSet_congr hH hr.le ▸ hcard⟩
   exact ⟨h H H' hH, h H' H fun m hm ↦ (hH m hm).symm⟩
 
-/-- The first round at which the stopping rule holds is the start of the first phase with at most
-one active answer. -/
+/-- Every round at which the stopping rule holds is at least the start of the first phase with at
+most one active answer. -/
 lemma phaseStart_finalPhase_le_of_stopRule {t : ℕ} (hstop : StopRule S₀ pulls elim H t) :
     phaseStart S₀ pulls elim H (finalPhase S₀ pulls elim H) ≤ t := by
   obtain ⟨r, rfl, hr⟩ := hstop
@@ -527,7 +561,7 @@ variable [MeasurableEq α] {Ω : Type*} {mΩ : MeasurableSpace Ω}
 
 /-- Along every run of the sampling rule of phased elimination, the arm played at round `t` is
 `armAt` for the histories of the run. -/
-lemma action_ae_eq_armAt (hseq : IsAlgEnvSeq O X Y (samplingRule S₀ pulls elim helim) env P) :
+lemma action_ae_all_eq_armAt (hseq : IsAlgEnvSeq O X Y (samplingRule S₀ pulls elim helim) env P) :
     ∀ᵐ ω ∂P, ∀ t, X t ω = armAt S₀ pulls elim (fun m ↦ sigmaHistory O X Y m ω) t := by
   filter_upwards [hseq.action_ae_all_eq_deterministic] with ω hω t
   rw [hω t]
@@ -541,16 +575,8 @@ lemma pullCount_phaseStart_succ [DecidableEq α] {H : ℕ → Σ m, Hist 𝓞 α
     pullCount X a (phaseStart S₀ pulls elim H (r + 1)) ω =
       pullCount X a (phaseStart S₀ pulls elim H r) ω +
         (pulls r (activeSet S₀ pulls elim H r)).count a := by
-  -- The number of indices of a list `l` at which `a` appears is `l.count a`.
-  have h_count (l : List α) (d : α) :
-      (∑ j ∈ range l.length, if l.getD j d = a then 1 else 0) = l.count a := by
-    induction l with
-    | nil => simp
-    | cons x l ih =>
-      rw [List.length_cons, sum_range_succ', List.count_cons]
-      simp only [List.getD_cons_succ, List.getD_cons_zero, ih, beq_iff_eq]
   rw [phaseStart_succ, pullCount_eq_sum, pullCount_eq_sum, sum_range_add, Nat.add_left_cancel_iff,
-    ← h_count _ (Classical.arbitrary α)]
+    List.count_eq_sum_range_getD _ _ (Classical.arbitrary α)]
   refine sum_congr rfl fun j hj ↦ ?_
   rw [hω, armAt_phaseStart_add (mem_range.1 hj), List.getD_eq_getElem _ _ (mem_range.1 hj)]
 
@@ -683,8 +709,8 @@ theorem measure_histOutputMeasure_phasedElimination_le
   rw [activeSet_congr hH ((monotone_phaseStart (finalPhase_le hcard)).trans hr.le),
     finalPhase_congr hH hr.le hcard] at hne
   have hcard' := activeSet_congr hH hr.le ▸ hcard
-  obtain ⟨r', hr', h_elim⟩ := exists_lt_mem_activeSet_notMem_activeSet_succ hi fun hi' ↦
-    hne (card_le_one.1 (card_activeSet_finalPhase_le ⟨r, hcard'⟩) _ (hout _ ⟨i, hi'⟩) _ hi')
+  obtain ⟨r', hr', h_elim⟩ := exists_lt_mem_activeSet_notMem_activeSet_succ_of_out_ne hout hi
+    (card_activeSet_finalPhase_le ⟨r, hcard'⟩) hne
   exact Set.mem_iUnion.2 ⟨r', one_lt_card_activeSet_of_lt_finalPhase ⟨r, hcard'⟩ hr', h_elim⟩
 
 end Survival
@@ -748,15 +774,37 @@ lemma stoppingTime_phasedEliminationFixedBudget :
   exact ⟨rfl, fun j hj hstop ↦ hj.ne' (mem_stopSet_phasedEliminationFixedBudget_history.1 hstop)⟩
 
 /-- **The fixed-budget version is a fixed-budget algorithm** when the number of pulls `L r` of each
-phase `r` does not depend on its active set: its budget is `∑ r < R, L r`. -/
+phase `r < R` does not depend on its active set: its budget is `∑ r < R, L r`. -/
 theorem isFixedBudget_phasedEliminationFixedBudget {L : ℕ → ℕ}
-    (hL : ∀ (H : ℕ → Σ m, Hist 𝓞 α 𝓨 m) r, (pulls r (activeSet S₀ pulls elim H r)).length = L r) :
+    (hL : ∀ (H : ℕ → Σ m, Hist 𝓞 α 𝓨 m), ∀ r < R,
+      (pulls r (activeSet S₀ pulls elim H r)).length = L r) :
     IsFixedBudget (phasedEliminationFixedBudget S₀ pulls elim helim out R)
       (∑ r ∈ range R, L r) := by
   rw [isFixedBudget_iff]
   ext h
-  simp only [mem_stopSet_phasedEliminationFixedBudget, phaseStart_eq_sum, hL, Set.mem_ofPred_eq]
+  simp only [mem_stopSet_phasedEliminationFixedBudget, phaseStart_eq_sum, Set.mem_ofPred_eq]
+  rw [sum_congr rfl fun r hr ↦ hL _ r (mem_range.1 hr)]
   exact eq_comm
+
+omit [MeasurableSpace 𝓞] [MeasurableSpace α] [MeasurableSpace 𝓨] [Nonempty α] [Countable ℐ]
+  [MeasurableSpace ℐ] in
+/-- Along a trajectory on which at most one answer is active after `R` phases, if the fixed-budget
+version does not stop with the output `i ∈ S₀` (it never stops, or it stops with another output),
+then `i` is eliminated at the end of some phase `r < R`, provided `out` chooses an element of every
+nonempty set. -/
+lemma exists_lt_mem_activeSet_notMem_activeSet_succ_of_fixedBudget
+    (hout : ∀ S : Finset ℐ, S.Nonempty → out S ∈ S) {i : ℐ} (hi : i ∈ S₀)
+    (hR : #(activeSet S₀ pulls elim (fun m ↦ sigmaHistory O X Y m ω) R) ≤ 1)
+    (hbad : (∀ t, phaseStart S₀ pulls elim (fun m ↦ truncHist m ⟨t, history O X Y t ω⟩) R ≠ t) ∨
+      ∃ t, phaseStart S₀ pulls elim (fun m ↦ truncHist m ⟨t, history O X Y t ω⟩) R = t ∧
+        out (activeSet S₀ pulls elim (fun m ↦ truncHist m ⟨t, history O X Y t ω⟩) R) ≠ i) :
+    ∃ r < R, i ∈ activeSet S₀ pulls elim (fun m ↦ sigmaHistory O X Y m ω) r ∧
+      i ∉ activeSet S₀ pulls elim (fun m ↦ sigmaHistory O X Y m ω) (r + 1) := by
+  refine exists_lt_mem_activeSet_notMem_activeSet_succ_of_out_ne hout hi hR ?_
+  rcases hbad with hbad | ⟨t, ht, hne⟩
+  · exact absurd ((phaseStart_eq_congr fun m hm ↦ truncHist_mk_history_of_le hm ω).2 rfl)
+      (hbad _)
+  · rwa [activeSet_congr (fun m hm ↦ truncHist_mk_history_of_le hm ω) ht.le] at hne
 
 variable [MeasurableSingletonClass ℐ] {P : Measure Ω} [IsProbabilityMeasure P]
   {env : Environment 𝓞 α 𝓨}
@@ -799,21 +847,8 @@ theorem measure_outputMeasure_phasedEliminationFixedBudget_le
         i ∉ activeSet S₀ pulls elim (fun m ↦ sigmaHistory O X Y m ω) (r + 1)}) := by
     refine measure_mono_ae ?_
     filter_upwards [hR] with ω hω hbad
-    -- The fixed-budget version stops at the start of phase `R`, with output `out S_R`.
-    set t := phaseStart S₀ pulls elim (fun m ↦ sigmaHistory O X Y m ω) R
-    have hH (m : ℕ) (hm : m ≤ t) : truncHist m ⟨t, history O X Y t ω⟩ = sigmaHistory O X Y m ω :=
-    truncHist_mk_history_of_le hm ω
-    have h_start : phaseStart S₀ pulls elim (fun m ↦ truncHist m ⟨t, history O X Y t ω⟩) R = t :=
-      (phaseStart_eq_congr hH).2 rfl
-    have hne : out (activeSet S₀ pulls elim (fun m ↦ sigmaHistory O X Y m ω) R) ≠ i := by
-      rcases hbad with hbad | ⟨t', ht', hne⟩
-      · exact absurd h_start (hbad t)
-      · have hH' (m : ℕ) (hm : m ≤ t') :
-            truncHist m ⟨t', history O X Y t' ω⟩ = sigmaHistory O X Y m ω :=
-          truncHist_mk_history_of_le hm ω
-        rwa [activeSet_congr hH' ht'.le] at hne
-    obtain ⟨r, hr, h_elim⟩ := exists_lt_mem_activeSet_notMem_activeSet_succ hi fun hi' ↦
-      hne (card_le_one.1 hω _ (hout _ ⟨i, hi'⟩) _ hi')
+    obtain ⟨r, hr, h_elim⟩ :=
+      exists_lt_mem_activeSet_notMem_activeSet_succ_of_fixedBudget hout hi hω hbad
     exact Set.mem_biUnion (mem_range.2 hr) h_elim
   _ ≤ ∑ r ∈ range R, P {ω | i ∈ activeSet S₀ pulls elim (fun m ↦ sigmaHistory O X Y m ω) r ∧
         i ∉ activeSet S₀ pulls elim (fun m ↦ sigmaHistory O X Y m ω) (r + 1)} :=
