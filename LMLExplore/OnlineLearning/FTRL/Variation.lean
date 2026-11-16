@@ -26,8 +26,8 @@ ones, with `m 0 = 0`. The running means are follow-the-leader on the squared dis
 `∑ t < n, ‖m t - g t‖ ^ 2 ≤ 4 G ^ 2 (1 + log n) + ∑ t < n, ‖w - g t‖ ^ 2` for every `w`. The sum
 on the right is smallest at the mean of the `g t`, where it is `n` times their empirical
 variance. Optimistic FTRL with these hints and a fixed `λ`-strongly convex regularizer `ψ` has
-regret at most `ψ u - ψ (x 0) + (4 G ^ 2 (1 + log n) + ∑ t < n, ‖g t - w‖ ^ 2) / (2 λ)`; it is
-small when the subgradients vary little, whatever their size.
+regret at most `ψ u - ψ (x 0) + (4 G ^ 2 (1 + log n) + ∑ t < n, ‖g t - w‖ ^ 2) / (2 λ)`: the
+variance term replaces the term `n G ^ 2` of plain FTRL, up to a term `G ^ 2 log n`.
 
 **Gradual variations** [CYLMLJZ12; Ora, Section 7.15, Corollary 7.52]. In a real normed space,
 predict the loss of round `t + 1` by the linearization `ℓ' t (x t)` of the loss of round `t` at
@@ -344,32 +344,6 @@ private lemma sqrt_add_sum_div_le {δ : ℕ → ℝ} {M α : ℝ} (hα : 0 ≤ �
   div_le_div_of_nonneg_right (Real.sqrt_le_sqrt (add_le_add_right
     (sum_le_sum_of_subset_of_nonneg (range_mono hkl) fun _ _ _ ↦ sq_nonneg _) M)) hα
 
-/-- The gradient variations with the adaptive rates of Corollary 7.52: if `δ t ^ 2 ≤ M` for
-`t < N`, then `∑ t < N, 2 δ t ^ 2 / (√(M + ∑ s < t, δ s ^ 2) / α) ≤ 4 α √(∑ t < N, δ t ^ 2)`. -/
-private lemma sum_mul_sq_div_sqrt_le {δ : ℕ → ℝ} {M α : ℝ} {N : ℕ} (hα : 0 < α)
-    (hδ : ∀ t < N, δ t ^ 2 ≤ M) :
-    ∑ t ∈ range N, 2 * δ t ^ 2 / (√(M + ∑ s ∈ range t, δ s ^ 2) / α) ≤
-      4 * α * √(∑ t ∈ range N, δ t ^ 2) := by
-  -- since `δ t ^ 2 ≤ M`, each denominator is at least `√(∑ s ≤ t, δ s ^ 2)`
-  have h_term : ∀ t ∈ range N, 2 * δ t ^ 2 / (√(M + ∑ s ∈ range t, δ s ^ 2) / α) ≤
-      2 * α * (δ t ^ 2 / √(∑ s ∈ range (t + 1), δ s ^ 2)) := by
-    intro t ht
-    have hS : 0 ≤ ∑ s ∈ range t, δ s ^ 2 := sum_nonneg fun _ _ ↦ sq_nonneg _
-    rw [div_div_eq_mul_div, show 2 * δ t ^ 2 * α = 2 * α * δ t ^ 2 by ring, mul_div_assoc]
-    gcongr 2 * α * ?_
-    rcases (sq_nonneg (δ t)).eq_or_lt with h0 | h0
-    · simp [← h0]
-    rw [sum_range_succ]
-    exact div_le_div_of_nonneg_left h0.le (Real.sqrt_pos.mpr (by linarith))
-      (Real.sqrt_le_sqrt (by linarith [hδ t (mem_range.mp ht)]))
-  calc _ ≤ ∑ t ∈ range N, 2 * α * (δ t ^ 2 / √(∑ s ∈ range (t + 1), δ s ^ 2)) :=
-        sum_le_sum h_term
-    _ = 2 * α * ∑ t ∈ range N, δ t ^ 2 / √(∑ s ∈ range (t + 1), δ s ^ 2) := (mul_sum ..).symm
-    _ ≤ 2 * α * (2 * √(∑ t ∈ range N, δ t ^ 2)) := by
-        gcongr
-        exact Real.sum_div_sqrt_le_two_mul_sqrt fun _ _ ↦ sq_nonneg _
-    _ = 4 * α * √(∑ t ∈ range N, δ t ^ 2) := by ring
-
 /-- **Optimistic FTRL with gradual variations and adaptive rates** [CYLMLJZ12; Ora,
 Corollary 7.52, second bound]. Under the hypotheses of `regret_le_optimistic_ftrl_gradual`, with
 `α > 0` and `L > 0`, let the gradients at the queried points be bounded,
@@ -444,19 +418,24 @@ theorem regret_le_optimistic_ftrl_gradual_mul_sqrt (ψ : E → ℝ) (ℓ : ℕ �
   -- the gradient variations: `∑ 2 δ t ^ 2 / lam (t + 1) ≤ 4 α √(∑ δ t ^ 2) ≤ 4 α R`
   have h_var : ∑ t ∈ range (n - 1), 2 * ‖ℓ' (t + 1) (x t) - ℓ' t (x t)‖ ^ 2 / lam (t + 1) ≤
       4 * α * √(∑ t ∈ range (n - 1), ‖ℓ' (t + 1) (x t) - ℓ' t (x t)‖ ^ 2) := by
-    have h_eq : ∑ t ∈ range (n - 1), 2 * ‖ℓ' (t + 1) (x t) - ℓ' t (x t)‖ ^ 2 / lam (t + 1) =
-        ∑ t ∈ range (n - 1), 2 * ‖ℓ' (t + 1) (x t) - ℓ' t (x t)‖ ^ 2 /
-          (√(M + ∑ s ∈ range t, ‖ℓ' (s + 1) (x s) - ℓ' s (x s)‖ ^ 2) / α) :=
-      sum_congr rfl fun t ht ↦ by
-        rw [hlam (t + 1) (by have := mem_range.mp ht; omega), Nat.add_sub_cancel]
-    rw [h_eq]
-    refine sum_mul_sq_div_sqrt_le (δ := fun s ↦ ‖ℓ' (s + 1) (x s) - ℓ' s (x s)‖) hα fun t ht ↦ ?_
-    -- `δ t ≤ ‖ℓ' (t + 1) (x t)‖ + ‖ℓ' t (x t)‖ ≤ 2 L`
-    have h_norm : ‖ℓ' (t + 1) (x t) - ℓ' t (x t)‖ ≤ 2 * L := by
-      linarith [norm_sub_le (ℓ' (t + 1) (x t)) (ℓ' t (x t)), hL₁ t (by omega),
-        hL₀ t (by omega)]
-    have := pow_le_pow_left₀ (norm_nonneg _) h_norm 2
-    linarith
+    -- `δ t ≤ ‖ℓ' (t + 1) (x t)‖ + ‖ℓ' t (x t)‖ ≤ 2 L`, so `δ t ^ 2 ≤ M`
+    have hδ (t : ℕ) (ht : t < n - 1) : ‖ℓ' (t + 1) (x t) - ℓ' t (x t)‖ ^ 2 ≤ M := by
+      have h_norm : ‖ℓ' (t + 1) (x t) - ℓ' t (x t)‖ ≤ 2 * L := by
+        linarith [norm_sub_le (ℓ' (t + 1) (x t)) (ℓ' t (x t)), hL₁ t (by omega),
+          hL₀ t (by omega)]
+      have := pow_le_pow_left₀ (norm_nonneg _) h_norm 2
+      linarith
+    calc _ = 2 * α * ∑ t ∈ range (n - 1), ‖ℓ' (t + 1) (x t) - ℓ' t (x t)‖ ^ 2 /
+          √(M + ∑ s ∈ range t, ‖ℓ' (s + 1) (x s) - ℓ' s (x s)‖ ^ 2) := by
+          rw [mul_sum]
+          refine sum_congr rfl fun t ht ↦ ?_
+          rw [hlam (t + 1) (by have := mem_range.mp ht; omega), Nat.add_sub_cancel,
+            div_div_eq_mul_div]
+          ring
+      _ ≤ 2 * α * (2 * √(∑ t ∈ range (n - 1), ‖ℓ' (t + 1) (x t) - ℓ' t (x t)‖ ^ 2)) := by
+          gcongr
+          exact Real.sum_div_sqrt_add_le_two_mul_sqrt (fun _ _ ↦ sq_nonneg _) hδ
+      _ = 4 * α * √(∑ t ∈ range (n - 1), ‖ℓ' (t + 1) (x t) - ℓ' t (x t)‖ ^ 2) := by ring
   have h_sqrt : √(∑ t ∈ range (n - 1), ‖ℓ' (t + 1) (x t) - ℓ' t (x t)‖ ^ 2) ≤ R :=
     Real.sqrt_le_sqrt (by linarith)
   have h_sqrt' := mul_le_mul_of_nonneg_left h_sqrt (by positivity : (0 : ℝ) ≤ 4 * α)

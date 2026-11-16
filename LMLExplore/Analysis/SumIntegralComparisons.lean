@@ -18,13 +18,16 @@ nonnegative sequence: for `f` antitone on `(c, c + ∑_{t < n} a t]` and integra
 
 Adaptive learning rates of online learning are of the form `η_t ∝ f (∑_{s ≤ t} a s)`, where
 `a s` is the squared norm of the subgradient of round `s` (as in AdaGrad), and the regret bounds
-sum the terms `a t f (∑_{s ≤ t} a s)`. The two instances below are the ones these bounds use.
+sum the terms `a t f (∑_{s ≤ t} a s)`. The two instances below, and an offset form of the
+first for rates that only use the past rounds, are the ones these bounds use.
 
 ## Main statements
 
 * `AntitoneOn.sum_mul_le_integral_of_integrableOn`: the weighted comparison [Ora, Lemma 4.13].
 * `Real.sum_div_sqrt_le_two_mul_sqrt`: `∑_{t < n} a t / √(∑_{s ≤ t} a s) ≤ 2 √(∑_{t < n} a t)`
   for `a t ≥ 0`, the case `f x = 1 / √x`.
+* `Real.sum_div_sqrt_add_le_two_mul_sqrt`: the same bound with the denominators
+  `√(M + ∑_{s < t} a s)`, for `0 ≤ a t ≤ M`.
 * `Real.sum_div_add_le_log_div`: `∑_{t < n} a t / (c + ∑_{s ≤ t} a s) ≤ log ((c + ∑_t a t) / c)`
   for `a t ≥ 0` and `c > 0`, the case `f x = 1 / x`.
 
@@ -108,6 +111,25 @@ theorem sum_div_sqrt_le_two_mul_sqrt (ha : ∀ t < n, 0 ≤ a t) :
   refine h.trans_eq ?_
   rw [show (-1 / 2 : ℝ) + 1 = 1 / 2 by norm_num, zero_rpow (by norm_num), sqrt_eq_rpow]
   ring
+
+/-- **The square-root sum, offset** [Ora, Lemma 4.13]: for `0 ≤ a t ≤ M`,
+`∑_{t < n} a t / √(M + ∑_{s < t} a s) ≤ 2 √(∑_{t < n} a t)`.
+
+The denominators only use the terms before `t`, as for adaptive rates computed from the past
+rounds; the offset `M` makes each at least `√(∑_{s ≤ t} a s)`, which reduces it to
+`Real.sum_div_sqrt_le_two_mul_sqrt`. -/
+theorem sum_div_sqrt_add_le_two_mul_sqrt {M : ℝ} (ha : ∀ t < n, 0 ≤ a t)
+    (hM : ∀ t < n, a t ≤ M) :
+    ∑ t ∈ range n, a t / √(M + ∑ s ∈ range t, a s) ≤ 2 * √(∑ t ∈ range n, a t) := by
+  refine (sum_le_sum fun t ht ↦ ?_).trans (sum_div_sqrt_le_two_mul_sqrt ha)
+  have ht := mem_range.1 ht
+  -- since `a t ≤ M`, the denominator is at least `√(∑_{s ≤ t} a s)`
+  rcases (ha t ht).eq_or_lt with h0 | h0
+  · simp [← h0]
+  have hS : 0 ≤ ∑ s ∈ range t, a s := sum_nonneg fun s hs ↦ ha s ((mem_range.1 hs).trans ht)
+  rw [sum_range_succ]
+  exact div_le_div_of_nonneg_left h0.le (sqrt_pos.2 (by linarith))
+    (sqrt_le_sqrt (by linarith [hM t ht]))
 
 /-- **The logarithmic sum** [Ora, Lemma 4.13]: for `a t ≥ 0` and `c > 0`,
 `∑_{t < n} a t / (c + ∑_{s ≤ t} a s) ≤ log ((c + ∑_{t < n} a t) / c)`.
