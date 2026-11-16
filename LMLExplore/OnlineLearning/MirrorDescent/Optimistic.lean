@@ -28,7 +28,11 @@ norm by `L`, so that `‖y t - h t‖ ≤ 2 L`, each stability term of the stron
 most `4` times the worst-case term `η t / (2 m) * L ^ 2` of mirror descent.
 
 The hint `h n` of the last round only affects the analysis point `a n`. The bounds keep it in a
-boundary term `h n (u - a n)`, which vanishes for the book's choice `h n = 0`.
+boundary term `h n (u - a n)`, which vanishes for the book's choice `h n = 0`. Alternatively, for a
+strongly convex potential, the last play needs no step after it at all: over the rounds
+`0, …, n`, with steps only up to `a n`, the last round costs at most `η n / (2 m) * ‖y n - h n‖ ^ 2`
+(`sum_apply_sub_le_optimisticMirrorDescent`). This is the form that delayed feedback uses, where
+the hint `h (n + 1)` that would produce a step after `a n` is not the book's `0`.
 
 ## Main statements
 
@@ -48,6 +52,11 @@ boundary term `h n (u - a n)`, which vanishes for the book's choice `h n = 0`.
   `optimisticMirrorDescent_regret_le_of_strongConvexOn`: the resulting bounds
   `D / η (n - 1) + h n (u - a n) + ∑ t < n, η t / (2 m) * ‖y t - h t‖ * min ‖y t - h t‖
     (2 ‖y t - h t + h (t + 1)‖)` and its constant-rate form.
+* `sum_apply_sub_le_optimisticMirrorDescent`: for an `m`-strongly convex potential and any
+  positive learning rates, the regret over the rounds `0, …, n`, with steps up to `a n` only, is at
+  most `D_F(u, a 0) / η 0 + ∑ t < n, (1 / η (t + 1) - 1 / η t) * D_F(u, a (t + 1))
+    + ∑ t < n, η t / (2 m) * ‖y t - h t‖ * min ‖y t - h t‖ (2 ‖y t - h t + h (t + 1)‖)
+    + η n / (2 m) * ‖y n - h n‖ ^ 2`.
 
 ## References
 
@@ -220,5 +229,66 @@ theorem optimisticMirrorDescent_regret_le_of_strongConvexOn {m : ℝ} (hF : Stro
   have h_mem := mem_of_isMirrorDescentStep ha0K ha
   exact (ha t ht).apply_sub_sub_bregDiv_div_le_mul_min hF hm hη (h_mem t ht.le)
     ((hF' t ht.le).hasSubgradientWithinAt hF_cvx (h_mem t ht.le)) (y t - h t)
+
+/-- **Regret of optimistic mirror descent with no step after the last play** [Ora, Theorem 6.38].
+Let `F` be `m`-strongly convex on `K`, with `m > 0`, and let the learning rates satisfy `η t > 0`
+for `t ≤ n`. Let the hints satisfy `h 0 = 0`, let `a 0 ∈ K`, and let each `a (t + 1)`, for
+`t < n`, be a mirror descent step on `K` from `a t` with derivative `F' t` and learning rate `η t`,
+for the loss `y t - h t + h (t + 1)`, where `F` has derivative `F' t` within `K` at `a t` for
+`t ≤ n`. Then over the `n + 1` rounds `0, …, n`, for every `u ∈ K`,
+`∑ t < n + 1, y t (a t - u) ≤ D_F(u, a 0) / η 0
+  + ∑ t < n, (1 / η (t + 1) - 1 / η t) * D_F(u, a (t + 1))
+  + ∑ t < n, η t / (2 m) * (‖y t - h t‖ * min ‖y t - h t‖ (2 ‖y t - h t + h (t + 1)‖))
+  + η n / (2 m) * ‖y n - h n‖ ^ 2`,
+where the norms are dual norms. Neither the hint `h (n + 1)` nor a step after the last play `a n`
+enters: this is the bound of [Ora] with the hint of round `n + 1` set to `0`, which the book
+obtains from a step after `a n` for that hint. For a constant learning rate the second sum
+vanishes, and for nonincreasing rates `div_add_sum_inv_sub_inv_mul_le_div` bounds the first two
+terms by `D / η n` when `D` bounds the divergences `D_F(u, a t)` for `t ≤ n`. -/
+theorem sum_apply_sub_le_optimisticMirrorDescent {η : ℕ → ℝ} {m : ℝ} (hF : StrongConvexOn K m F)
+    (hm : 0 < m) (hη : ∀ t ≤ n, 0 < η t) (y h : ℕ → E →L[ℝ] ℝ) (hh0 : h 0 = 0) (a : ℕ → E)
+    (F' : ℕ → E →L[ℝ] ℝ) (ha0K : a 0 ∈ K)
+    (ha : ∀ t < n,
+      IsMirrorDescentStep K F (η t) (y t - h t + h (t + 1)) (a t) (F' t) (a (t + 1)))
+    (hF' : ∀ t ≤ n, HasFDerivWithinAt F (F' t) K (a t)) (hu : u ∈ K) :
+    ∑ t ∈ range (n + 1), y t (a t - u) ≤ bregDiv F u (a 0) (F' 0) / η 0 +
+      ∑ t ∈ range n, ((η (t + 1))⁻¹ - (η t)⁻¹) * bregDiv F u (a (t + 1)) (F' (t + 1)) +
+      ∑ t ∈ range n,
+        η t / (2 * m) * (‖y t - h t‖ * min ‖y t - h t‖ (2 * ‖y t - h t + h (t + 1)‖)) +
+      η n / (2 * m) * ‖y n - h n‖ ^ 2 := by
+  have hF_cvx := strongConvexOn_zero.mp (hF.mono hm.le)
+  have h_mem := mem_of_isMirrorDescentStep ha0K ha
+  -- mirror descent on the losses `y t - h t + h (t + 1)` over the first `n` rounds
+  have h_md := sum_apply_sub_le_mirrorDescent hF.1 (fun t ht ↦ hη t ht.le)
+    (fun t ↦ y t - h t + h (t + 1)) a F' ha (fun t ht ↦ hF' (t + 1) ht) hu
+  have h_id := sum_apply_sub_eq_optimistic y h a u n
+  have h_stab_eq := sum_apply_sub_sub_add_sum_eq y h a
+    (fun t ↦ bregDiv F (a (t + 1)) (a t) (F' t) / η t) n
+  have h_stab : ∑ t ∈ range n,
+      ((y t - h t) (a t - a (t + 1)) - bregDiv F (a (t + 1)) (a t) (F' t) / η t) ≤
+        ∑ t ∈ range n,
+          η t / (2 * m) * (‖y t - h t‖ * min ‖y t - h t‖ (2 * ‖y t - h t + h (t + 1)‖)) :=
+    sum_le_sum fun t ht ↦ by
+      have ht := mem_range.mp ht
+      exact (ha t ht).apply_sub_sub_bregDiv_div_le_mul_min hF hm (hη t ht.le) (h_mem t ht.le)
+        ((hF' t ht.le).hasSubgradientWithinAt hF_cvx (h_mem t ht.le)) (y t - h t)
+  -- the last round, against the divergence `D_F(u, a n)`, which dominates `m / 2 * ‖u - a n‖ ^ 2`
+  have h_last := apply_sub_sub_div_le_of_mul_norm_sq_le hm (hη n le_rfl) (y n - h n)
+    (hF.mul_norm_sub_sq_le_bregDiv (h_mem n le_rfl) hu (hF' n le_rfl))
+  rw [sub_apply] at h_last
+  -- the divergence `D_F(u, a n)` dropped by mirror descent is the one the last round needs
+  have h_parts : bregDiv F u (a 0) (F' 0) / η 0 +
+      ∑ t ∈ range (n - 1), ((η (t + 1))⁻¹ - (η t)⁻¹) * bregDiv F u (a (t + 1)) (F' (t + 1)) -
+      bregDiv F u (a n) (F' n) / η (n - 1) + bregDiv F u (a n) (F' n) / η n =
+        bregDiv F u (a 0) (F' 0) / η 0 +
+          ∑ t ∈ range n, ((η (t + 1))⁻¹ - (η t)⁻¹) * bregDiv F u (a (t + 1)) (F' (t + 1)) := by
+    rcases n with _ | n
+    · simp
+    · rw [Nat.add_sub_cancel, sum_range_succ (n := n)]
+      simp only [div_eq_mul_inv]
+      ring
+  rw [hh0, zero_apply, add_zero] at h_id
+  rw [sum_range_succ, h_id]
+  linarith
 
 end LMLExplore.OnlineLearning

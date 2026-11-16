@@ -47,7 +47,8 @@ of losses, in particular for losses chosen adaptively from the past plays.
   For `F` convex on `D`, a point `b ∈ D` where `F` has derivative `F' - η y` minimizes the
   objective of the step over `D`.
 * `isMirrorDescentStep_zero_iff`: a step for the zero loss is a Bregman projection of the
-  current play, whatever the learning rate.
+  current play, whatever the learning rate, and `isMirrorDescentStep_zero_self`: the current play
+  is one.
 * `exists_isMirrorDescentStep`: on a nonempty compact set, with a potential continuous on it,
   mirror descent steps exist.
 * `exists_isMirrorDescentStep_of_strongConvexOn`: in finite dimension, on a nonempty closed set
@@ -161,6 +162,13 @@ learning rate: a point of `K` minimizing `b ↦ D_F(b, a)` over `K`. -/
 theorem isMirrorDescentStep_zero_iff {a x : E} {F' : E →L[ℝ] ℝ} :
     IsMirrorDescentStep K F η 0 a F' x ↔ x ∈ K ∧ IsMinOn (fun b ↦ bregDiv F b a F') K x :=
   isMirrorDescentStep_iff_isMinOn_bregDiv (by simp) a a x
+
+/-- **A step for the zero loss may stay put.** If `a ∈ K` and `F'` is a subgradient of `F` within
+`K` at `a`, then `a` is a mirror descent step from itself for the zero loss, whatever the learning
+rate: this is how an algorithm that receives no feedback in a round keeps its play. -/
+theorem isMirrorDescentStep_zero_self {a : E} {F' : E →L[ℝ] ℝ} (ha : a ∈ K)
+    (hF' : HasSubgradientWithinAt F F' K a) : IsMirrorDescentStep K F η 0 a F' a :=
+  isMirrorDescentStep_zero_iff.mpr ⟨ha, isMinOn_iff.mpr fun b hb ↦ by simpa using hF' b hb⟩
 
 /-- **The stability term is largest at the unconstrained step.** Let `F` be convex on `D`, let
 `η > 0`, and let `x ∈ D` be a point where `F` has derivative `J - η y` within `D`. Then for every
@@ -469,18 +477,8 @@ theorem sum_apply_sub_le_mirrorDescent_of_antitone (hK : Convex ℝ K) (hη : �
     ∑ t ∈ range n, y t (a t - u) ≤ (D - bregDiv F u (a n) (F' n)) / η (n - 1) +
       ∑ t ∈ range n, (y t (a t - a (t + 1)) - bregDiv F (a (t + 1)) (a t) (F' t) / η t) := by
   have h := sum_apply_sub_le_mirrorDescent hK (fun t _ ↦ hη t) y a F' ha hF' hu
-  -- with nonincreasing rates, the coefficients `1 / η (t + 1) - 1 / η t` are nonnegative, and the
-  -- divergences they weigh are at most `D`
-  have h_sum : ∑ t ∈ range (n - 1), ((η (t + 1))⁻¹ - (η t)⁻¹) * bregDiv F u (a (t + 1)) (F' (t + 1))
-      ≤ D * ((η (n - 1))⁻¹ - (η 0)⁻¹) := by
-    rw [← sum_range_sub (fun t ↦ (η t)⁻¹), mul_sum]
-    refine sum_le_sum fun t ht ↦ ?_
-    rw [mul_comm D]
-    exact mul_le_mul_of_nonneg_left (hDu (t + 1) (by have := mem_range.mp ht; omega))
-      (sub_nonneg.mpr (inv_anti₀ (hη (t + 1)) (hη_anti t.le_succ)))
-  have h_init : bregDiv F u (a 0) (F' 0) / η 0 ≤ D / η 0 :=
-    div_le_div_of_nonneg_right (hDu 0 hn) (hη 0).le
-  have h_eq : D / η 0 + D * ((η (n - 1))⁻¹ - (η 0)⁻¹) = D / η (n - 1) := by ring
+  have h_parts := div_add_sum_inv_sub_inv_mul_le_div (n := n - 1) hη hη_anti
+    (d := fun t ↦ bregDiv F u (a t) (F' t)) fun t ht ↦ hDu t (by omega)
   rw [sub_div]
   linarith
 
