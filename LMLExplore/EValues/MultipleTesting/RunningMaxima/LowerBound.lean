@@ -193,20 +193,16 @@ private lemma ladderInfo_climb_iff (ω ω' : LadderΩ n) (l : Fin (n + 1)) :
   have h2 := (ω'.2.2 l').is_lt
   have h3 := (ω.2.2 l).is_lt
   rw [Fin.ext_iff, Fin.ext_iff, Fin.le_def]
-  rcases lt_trichotomy (l' : ℕ) l with hlt | heq | hgt
-  · have : (n + 1) * l' + (n + 1) ≤ (n + 1) * l := by
-      rw [← Nat.mul_succ]; exact Nat.mul_le_mul_left _ hlt
-    generalize (n + 1) * (l' : ℕ) = A at *
-    generalize (n + 1) * (l : ℕ) = B at *
-    omega
-  · obtain rfl : l' = l := Fin.ext heq
-    generalize (n + 1) * (l' : ℕ) = B at *
-    omega
-  · have : (n + 1) * l + (n + 1) ≤ (n + 1) * l' := by
-      rw [← Nat.mul_succ]; exact Nat.mul_le_mul_left _ hgt
-    generalize (n + 1) * (l' : ℕ) = A at *
-    generalize (n + 1) * (l : ℕ) = B at *
-    omega
+  -- distinct positions occupy disjoint blocks of `n + 1` times
+  have hsep {a b : ℕ} (h : a < b) : (n + 1) * a + (n + 1) ≤ (n + 1) * b := by
+    rw [← Nat.mul_succ]; exact Nat.mul_le_mul_left _ h
+  have hlt := imp_iff_not_or.1 (@hsep l' l)
+  have hgt := imp_iff_not_or.1 (@hsep l l')
+  have heq := imp_iff_not_or.1 (congrArg ((n + 1) * ·) : (l' : ℕ) = l → _)
+  clear hsep
+  generalize (n + 1) * (l' : ℕ) = A at *
+  generalize (n + 1) * (l : ℕ) = B at *
+  rcases lt_trichotomy l' l with h | rfl | h <;> omega
 
 /-- A sum over the fiber of the information of the ladder at the time `(n + 1) l + H l`, for the
 coin `true` and the shift `s`: a sum over the heights `H'` that agree with `H` before the
@@ -267,9 +263,7 @@ private lemma sum_ladderWeight_mul_ladderValue_climb (p a : ℝ≥0∞) (i s : F
         ⟨fun h ↦ (h l).2 rfl, fun h l' ↦ ⟨hR l', fun hl ↦ hl ▸ h⟩⟩
       rw [ite_eq_left hR, if_congr hiff rfl rfl]
       simp only [ladderWeight, ladderValue, ite_true, true_and, hl, hnw]
-      by_cases hl : H' l = Fin.last n
-      · simp [hl]
-      · simp [hl]
+      by_cases htop : H' l = Fin.last n <;> simp [htop]
     · have : ¬ ∀ l', Q l' (H' l') ∧ (l' = l → H' l' = Fin.last n) :=
         fun h ↦ hR fun l' ↦ (h l').1
       simp [hR, this]
@@ -387,11 +381,14 @@ private lemma exists_selfConsistent_ladder_iff {α p : ℝ≥0∞} (hα0 : α �
     obtain ⟨b, s, H⟩ := ω
     simp only at hb
     subst hb
+    -- the first prefix `J` of the positions with a win: some threshold `m` has at least
+    -- `n + 1 - m` players of height at least `m` before `J`, and no prefix before `J` has a win
     have hex : ∃ j, ¬ NoWin H j := ⟨n + 1, not_noWin_succ H⟩
     obtain ⟨J, hJ, hlt⟩ : ∃ J, ¬ NoWin H J ∧ ∀ l < J, NoWin H l :=
       ⟨Nat.find hex, Nat.find_spec hex, fun l hl ↦ not_not.1 (Nat.find_min hex hl)⟩
     simp only [NoWin, not_forall, not_lt] at hJ
     obtain ⟨m, hm, hcard⟩ := hJ
+    -- reject the processes whose players reach the threshold `m` before `J`
     set S := Finset.univ.filter fun i : Fin (n + 1) ↦
       ((i + s : Fin (n + 1)) : ℕ) < J ∧ m ≤ (H (i + s) : ℕ)
     have hS : S.card = (Finset.univ.filter fun l : Fin (n + 1) ↦
@@ -400,19 +397,19 @@ private lemma exists_selfConsistent_ladder_iff {α p : ℝ≥0∞} (hα0 : α �
     refine ⟨S, ?_, fun i hi ↦ ?_⟩
     · rw [← Finset.card_pos, hS]
       omega
-    · simp only [S, Finset.mem_filter, Finset.mem_univ, true_and] at hi
+    · -- the player of `i` climbs before `J`, so the running maximum of `i` is
+      -- `(n + 1) / α / (n + 1 - H (i + s))`, and `n + 1 - H (i + s) ≤ n + 1 - m ≤ #S`
+      simp only [S, Finset.mem_filter, Finset.mem_univ, true_and] at hi
       have hclimb := ladder_climb (a := ((n + 1 : ℕ) : ℝ≥0∞) / α) hp0 hp i (ω := (true, s, H))
         rfl (hlt _ hi.1)
       set x : ℕ := n + 1 - H (i + s)
       have hx0 : (x : ℝ≥0∞) ≠ 0 := Nat.cast_ne_zero.2 (by have := (H (i + s)).is_lt; omega)
       have hxS : x ≤ S.card := by rw [hS]; omega
       calc ((n + 1 : ℕ) : ℝ≥0∞)
-          = ((n + 1 : ℕ) : ℝ≥0∞) * (α * α⁻¹) * (x * (x : ℝ≥0∞)⁻¹) := by
-            rw [ENNReal.mul_inv_cancel hα0 hαtop,
-              ENNReal.mul_inv_cancel hx0 (ENNReal.natCast_ne_top _), mul_one, mul_one]
-        _ = α * x * (((n + 1 : ℕ) : ℝ≥0∞) / α / x) := by
-            rw [div_eq_mul_inv, div_eq_mul_inv]
-            ring
+          = α * (x * (((n + 1 : ℕ) : ℝ≥0∞) / α / x)) := by
+            rw [ENNReal.mul_div_cancel hx0 (ENNReal.natCast_ne_top _),
+              ENNReal.mul_div_cancel hα0 hαtop]
+        _ = α * x * (((n + 1 : ℕ) : ℝ≥0∞) / α / x) := (mul_assoc _ _ _).symm
         _ ≤ α * S.card * ⨆ t, ladder n p ((n + 1 : ℕ) / α) i t (true, s, H) :=
             mul_le_mul' (mul_le_mul_right (Nat.cast_le.2 hxS) α) (le_iSup_of_le _ hclimb.ge)
 
@@ -738,7 +735,9 @@ theorem exists_isTestMartingale_measure_exists_selfConsistent_iSup_eq_of_card_eq
         ∀ i ∈ R, (Fintype.card ι : ℝ≥0∞) ≤ α * R.card * ⨆ n, M i n ω} = 4 * α / 3 := by
   obtain ⟨Ω, mΩ, P, ℱ, M, hP, hM, hEq⟩ :=
     exists_isTestMartingale_measure_exists_selfConsistent_iSup_eq ι (α := α)
-      (by rw [hι]; norm_num; exact hα)
+      (by rwa [hι, show (((2 : ℕ) : ℝ≥0∞) + 1) / (2 * ((2 : ℕ) : ℝ≥0∞)) = 3 / 4 by
+        rw [ENNReal.div_eq_div_iff (by norm_num) (by norm_num) (by norm_num) (by norm_num)]
+        norm_num])
   refine ⟨Ω, mΩ, P, ℱ, M, hP, hM, hEq.trans ?_⟩
   rw [hι]
   norm_num
