@@ -38,9 +38,9 @@ increase of the function from `a` to `b` is then at least `D_F(b, a)`, as for di
 
 ## Main statements
 
-* `LMLExplore.HasLineDerivWithinAt.dirBregDiv_eq`: if `F` has the directional derivative `d` at
+* `HasLineDerivWithinAt.dirBregDiv_eq`: if `F` has the directional derivative `d` at
   `y` towards `x`, then `D_F(x, y) = F x - F y - d`.
-* `LMLExplore.HasFDerivWithinAt.dirBregDiv_eq_bregDiv`: for `F` with derivative `F'` within a
+* `HasFDerivWithinAt.dirBregDiv_eq_bregDiv`: for `F` with derivative `F'` within a
   set containing `[y, x]`, `D_F(x, y) = bregDiv F x y F'`.
 * `LMLExplore.dirBregDiv_self`: `D_F(x, x) = 0`.
 * `ConvexOn.dirBregDiv_nonneg`: the divergence of a convex function is nonnegative where the
@@ -85,11 +85,6 @@ private lemma Icc_subset_preimage_segment (x y : E) :
     Icc (0 : ℝ) 1 ⊆ (fun t : ℝ ↦ y + t • (x - y)) ⁻¹' segment ℝ y x := fun t ht ↦ by
   simpa [AffineMap.lineMap_apply_module', add_comm] using lineMap_mem_segment ℝ y x ht
 
-/-- The Bregman divergence of `F` from a point to itself is `0`. -/
-@[simp]
-lemma dirBregDiv_self (F : E → ℝ) (x : E) : dirBregDiv F x x = 0 := by
-  simp [dirBregDiv_def, lineDerivWithin]
-
 /-- If `F` has the directional derivative `d` at `y` towards `x` within the segment `[y, x]`, then
 `D_F(x, y) = F x - F y - d`. -/
 lemma _root_.HasLineDerivWithinAt.dirBregDiv_eq {d : ℝ}
@@ -99,6 +94,14 @@ lemma _root_.HasLineDerivWithinAt.dirBregDiv_eq {d : ℝ}
     (uniqueDiffOn_Icc zero_lt_one 0 (left_mem_Icc.2 zero_le_one)).mono
       (Icc_subset_preimage_segment x y)
   rw [dirBregDiv_def, h.lineDerivWithin hu]
+
+/-- The Bregman divergence of `F` from a point to itself is `0`. -/
+@[simp]
+lemma dirBregDiv_self (F : E → ℝ) (x : E) : dirBregDiv F x x = 0 := by
+  have h : HasLineDerivWithinAt ℝ F 0 (segment ℝ x x) x (x - x) := by
+    rw [sub_self]
+    exact hasLineDerivWithinAt_zero
+  rw [h.dirBregDiv_eq, sub_self, sub_zero]
 
 /-- **Nonnegativity of the Bregman divergence of a convex function.** Let `F` be convex on `K`,
 with `[y, x] ⊆ K`, and let `F` have a directional derivative at `y` towards `x`. Then

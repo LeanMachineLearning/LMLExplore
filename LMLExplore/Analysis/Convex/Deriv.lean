@@ -76,9 +76,8 @@ theorem ConvexOn.exists_le_hasLineDerivWithinAt_segment (hF : ConvexOn ℝ K F)
     · have := hc (1 / 2) ⟨by norm_num, by norm_num⟩
       simp only [sub_self, smul_zero, add_zero] at this
       linarith
-    · rw [LMLExplore.hasLineDerivWithinAt_iff_hasDerivWithinAt]
-      simp only [sub_self, smul_zero, add_zero]
-      exact hasDerivWithinAt_const _ _ _
+    · rw [sub_self]
+      exact hasLineDerivWithinAt_zero
   -- the slopes of `g` at `0` on `(0, 1)` are at least `c`
   have h_slope : ∀ s ∈ slope g 0 '' Ioo 0 1, c ≤ s := by
     rintro _ ⟨t, ht, rfl⟩
