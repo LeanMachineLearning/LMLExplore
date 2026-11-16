@@ -7,7 +7,7 @@ module
 
 public import LMLExplore.InformationTheory.KullbackLeibler.Bernoulli
 public import LMLExplore.MarkovDecisionProcess.Optimality
-public import LMLExplore.SequentialLearning.DivergenceDecomposition
+public import LMLExplore.SequentialLearning.ChangeOfMeasure
 
 /-!
 # A lower bound for planning with a generative model
@@ -31,35 +31,38 @@ independence claim of its proof fails. We use the product family instead: the se
 probability at each pair is chosen independently in `{p, p + α}`. An algorithm querying the
 generative model is a run of an algorithm against the stationary environment
 `Environment.bandit M.P` whose actions are the state-action pairs and whose feedback is the next
-state. The change of measure, `Learning.IsAlgEnvSeq.klDiv_map_history_eq_sum_pullCount` with the
-data processing inequality `LMLExplore.klBer_measureReal_le_klDiv`, shows that an estimate
-which separates `p` from `p + α` at the pair `(x, a)` with probability `1 - δ` needs
+state. The change of measure for two stationary bandits,
+`Learning.IsAlgEnvSeq.ofReal_log_le_sum_lintegral_pullCount_mul_klDiv_of_two_mul_lt`, with the
+divergence decomposition `Learning.IsAlgEnvSeq.klDiv_map_history_eq_sum_pullCount`, shows that an
+estimate which separates `p` from `p + α` at the pair `(x, a)` with probability `1 - δ` needs
 `log (1 / (2.4 δ)) / d(p, p + α)` expected queries of the state `loop (x, a)`. With
 `p = (4γ - 1) / (3γ)` and `α = 2 (1 - γ p)² ε / γ²`, the separation is more than `2 ε` and
 `d(p, p + α) ≤ 2400 (1 - γ)³ ε²`. Summing over the `K A` pairs gives the bound.
 
 ## Main definitions
 
-* `LMLExplore.ReinforcementLearning.SelfLoopState 𝓚 𝓐`: the states of the hard MDPs.
-* `LMLExplore.ReinforcementLearning.selfLoopMDP θ`: the hard MDP with self-loop probabilities `θ`.
+All the declarations are in the namespace `LMLExplore.ReinforcementLearning`.
+
+* `SelfLoopState 𝓚 𝓐`: the states of the hard MDPs.
+* `selfLoopMDP θ`: the hard MDP with self-loop probabilities `θ`.
 
 ## Main statements
 
-* `LMLExplore.ReinforcementLearning.card_selfLoopState`: there are `S = K (1 + 2 A)` states.
-* `LMLExplore.ReinforcementLearning.optQValue_selfLoopMDP_start`: the optimal action values
+* `card_selfLoopState`: there are `S = K (1 + 2 A)` states.
+* `optQValue_selfLoopMDP_start`: the optimal action values
   `Q* (start x, a) = γ / (1 - γ θ (x, a))`.
-* `LMLExplore.ReinforcementLearning.klDiv_map_history_eq_sum_lintegral_pullCount_mul_klBer`: the
-  divergence decomposition for two self-loop MDPs that differ at one pair.
-* `LMLExplore.ReinforcementLearning.ofReal_log_le_sum_lintegral_pullCount_mul_klBer`: the change
-  of measure at one pair.
-* `LMLExplore.ReinforcementLearning.ofReal_log_le_sum_lintegral_pullCount_mul_klBer_of_two_mul_lt`:
+* `klDiv_map_history_selfLoopMDP_eq_sum_lintegral_pullCount_mul_klBer`: the divergence
+  decomposition for two self-loop MDPs that differ at one pair.
+* `ofReal_log_le_sum_lintegral_pullCount_selfLoopMDP_mul_klBer`: the change of measure at one
+  pair.
+* `ofReal_log_le_sum_lintegral_pullCount_selfLoopMDP_mul_klBer_of_two_mul_lt`:
   the two-point lower bound at one pair, for estimates of optimal action values more than `2 ε`
   apart.
-* `LMLExplore.ReinforcementLearning.card_mul_card_mul_log_le_of_forall_abs_sub_optQValue_le`:
-  the lower bound with explicit constants, `K A log (1 / (2.4 δ)) ≤ 2400 (1 - γ)³ ε² T`.
-* `LMLExplore.ReinforcementLearning.exists_const_le_of_forall_abs_sub_optQValue_le`: the lower
-  bound [AMK13, Theorem 3], corrected: `T ≥ K A log (K A / (C δ)) / (C (1 - γ)³ ε²)` for
-  `γ ≥ 2 / 5`, `ε ≤ ε₀` and `δ < δ₀ / (K A)`.
+* `card_mul_card_mul_log_le_of_forall_abs_sub_optQValue_selfLoopMDP_le`: the lower bound with
+  explicit constants, `K A log (1 / (2.4 δ)) ≤ 2400 (1 - γ)³ ε² T`.
+* `exists_const_le_of_forall_abs_sub_optQValue_selfLoopMDP_le`: the lower bound [AMK13,
+  Theorem 3], corrected: `T ≥ K A log (K A / (C δ)) / (C (1 - γ)³ ε²)` for `γ ≥ 2 / 5`,
+  `ε ≤ ε₀` and `δ < δ₀ / (K A)`.
 
 ## References
 
@@ -203,6 +206,11 @@ section OptValue
 
 variable {γ : ℝ≥0}
 
+/-- For `γ < 1` and `q ∈ [0, 1]`, `0 < 1 - γ q`. -/
+private lemma one_sub_mul_pos (hγ : γ < 1) (q : I) : 0 < 1 - (γ : ℝ) * q :=
+  sub_pos.2 ((mul_le_of_le_one_right γ.coe_nonneg (unitInterval.le_one q)).trans_lt
+    (by exact_mod_cast hγ))
+
 /-- The optimal value of the self-loop MDP, in closed form. -/
 private noncomputable def selfLoopValue (γ : ℝ≥0) : SelfLoopState 𝓚 𝓐 → ℝ
   | start x => ⨆ a, γ / (1 - γ * θ (x, a))
@@ -214,8 +222,7 @@ variable [Nonempty 𝓚] [Nonempty 𝓐]
 private lemma optValue_selfLoopMDP (hγ : γ < 1) :
     (selfLoopMDP θ).optValue γ = selfLoopValue θ γ := by
   have hγ' : (γ : ℝ) < 1 := by exact_mod_cast hγ
-  have h0 (q : I) : 0 < 1 - (γ : ℝ) * q :=
-    sub_pos.2 ((mul_le_of_le_one_right γ.coe_nonneg (unitInterval.le_one q)).trans_lt hγ')
+  have h0 := one_sub_mul_pos hγ
   have hB (q : I) : (γ : ℝ) / (1 - γ * q) ≤ 1 / (1 - γ) := by
     rw [div_le_div_iff₀ (h0 q) (by linarith)]
     nlinarith [mul_le_of_le_one_right γ.coe_nonneg (unitInterval.le_one q), γ.coe_nonneg]
@@ -270,9 +277,7 @@ theorem optQValue_selfLoopMDP_loop (hγ : γ < 1) (z : 𝓚 × 𝓐) (a : 𝓐) 
   simp only [MDP.optQValue_def, selfLoopMDP_R, MDP.meanReward_deterministic, selfLoopReward_loop,
     selfLoopMDP_P, selfLoopKernel_loop, integral_bernoulliMeasure, optValue_selfLoopMDP_loop θ hγ,
     optValue_selfLoopMDP_sink θ hγ, smul_eq_mul, mul_zero, add_zero]
-  have hγ' : (γ : ℝ) < 1 := by exact_mod_cast hγ
-  field_simp [(sub_pos.2 ((mul_le_of_le_one_right γ.coe_nonneg
-    (unitInterval.le_one (θ z))).trans_lt hγ')).ne']
+  field_simp [(one_sub_mul_pos hγ (θ z)).ne']
   ring
 
 /-- The optimal action value of every action in a sink is `0`. -/
@@ -304,7 +309,8 @@ variable [DecidableEq 𝓚] [DecidableEq 𝓐]
 probabilities agree outside `j`: the relative entropy between the laws of the histories of the
 first `T` queries of an algorithm is the expected number of queries of the self-loop state
 `loop j`, with any action, times `d(θ j, θ' j)`. -/
-theorem klDiv_map_history_eq_sum_lintegral_pullCount_mul_klBer (hθ : ∀ z ≠ j, θ z = θ' z) (T : ℕ) :
+theorem klDiv_map_history_selfLoopMDP_eq_sum_lintegral_pullCount_mul_klBer
+    (hθ : ∀ z ≠ j, θ z = θ' z) (T : ℕ) :
     klDiv ((trajMeasure alg (Environment.bandit (selfLoopMDP θ).P)).map
         (history IT.obs IT.action IT.feedback T))
       ((trajMeasure alg (Environment.bandit (selfLoopMDP θ').P)).map
@@ -324,8 +330,8 @@ outside `j`, and let `E` be a set of histories of `T` queries that has probabili
 `1 - δ` under the generative model of `θ` and at most `δ` under that of `θ'`. Then the expected
 number of queries of the self-loop state `loop j` under `θ` is at least
 `log (1 / (2.4 δ)) / d(θ j, θ' j)`. -/
-theorem ofReal_log_le_sum_lintegral_pullCount_mul_klBer (hθ : ∀ z ≠ j, θ z = θ' z) {T : ℕ}
-    {E : Set (Hist Unit (SelfLoopState 𝓚 𝓐 × 𝓐) (SelfLoopState 𝓚 𝓐) T)} {δ : ℝ}
+theorem ofReal_log_le_sum_lintegral_pullCount_selfLoopMDP_mul_klBer (hθ : ∀ z ≠ j, θ z = θ' z)
+    {T : ℕ} {E : Set (Hist Unit (SelfLoopState 𝓚 𝓐 × 𝓐) (SelfLoopState 𝓚 𝓐) T)} {δ : ℝ}
     (hE : 1 - δ ≤ (trajMeasure alg (Environment.bandit (selfLoopMDP θ).P)).real
       (history IT.obs IT.action IT.feedback T ⁻¹' E))
     (hE' : (trajMeasure alg (Environment.bandit (selfLoopMDP θ').P)).real
@@ -333,18 +339,11 @@ theorem ofReal_log_le_sum_lintegral_pullCount_mul_klBer (hθ : ∀ z ≠ j, θ z
     ENNReal.ofReal (Real.log (1 / (2.4 * δ))) ≤
       (∑ b, ∫⁻ ω, (pullCount IT.action (loop j, b) T ω : ℝ≥0∞)
         ∂(trajMeasure alg (Environment.bandit (selfLoopMDP θ).P))) * klBer (θ j) (θ' j) := by
-  rw [← klDiv_map_history_eq_sum_lintegral_pullCount_mul_klBer hθ T, ← one_mul (ENNReal.ofReal _)]
-  refine mul_ofReal_log_le_of_mul_klBer_le le_rfl fun hδ ↦ ?_
-  have hm := (IT.isAlgEnvSeq_trajMeasure alg
-    (Environment.bandit (selfLoopMDP θ).P)).measurable_history T
-  have hm' := (IT.isAlgEnvSeq_trajMeasure alg
-    (Environment.bandit (selfLoopMDP θ').P)).measurable_history T
-  have hE_meas : MeasurableSet E := .of_discrete
-  -- The data processing inequality for the indicator of `E`.
-  refine (one_mul _).trans_le (le_trans ?_ (klBer_measureReal_le_klDiv hE_meas))
-  rw [map_measureReal_apply hm hE_meas, map_measureReal_apply hm' hE_meas]
-  calc klBer δ (1 - δ) = klBer (1 - δ) δ := by rw [← klBer_one_sub_one_sub, sub_sub_cancel]
-    _ ≤ _ := klBer_le_klBer hE' (by linarith) hE
+  have h := IT.isAlgEnvSeq_trajMeasure alg (Environment.bandit (selfLoopMDP θ).P)
+  have h' := IT.isAlgEnvSeq_trajMeasure alg (Environment.bandit (selfLoopMDP θ').P)
+  rw [← klDiv_map_history_selfLoopMDP_eq_sum_lintegral_pullCount_mul_klBer hθ T,
+    h.klDiv_map_history_eq_sum_pullCount h' T]
+  exact h.ofReal_log_le_sum_lintegral_pullCount_mul_klDiv h' .of_discrete hE hE'
 
 /-- **Two-point lower bound at one pair.** Let the self-loop probabilities `θ` and `θ'` agree
 outside `j = (x, a)`, with optimal action values at `(start x, a)` more than `2 ε` apart. If an
@@ -352,7 +351,7 @@ estimate computed from the history of `T` queries is within `ε` of the optimal 
 `(start x, a)` with probability at least `1 - δ` under both generative models, then the expected
 number of queries of the self-loop state `loop j` under `θ` is at least
 `log (1 / (2.4 δ)) / d(θ j, θ' j)`. -/
-theorem ofReal_log_le_sum_lintegral_pullCount_mul_klBer_of_two_mul_lt [Nonempty 𝓚]
+theorem ofReal_log_le_sum_lintegral_pullCount_selfLoopMDP_mul_klBer_of_two_mul_lt [Nonempty 𝓚]
     (hθ : ∀ z ≠ j, θ z = θ' z) {γ : ℝ≥0} {ε : ℝ}
     (hgap : 2 * ε < |(selfLoopMDP θ').optQValue γ (start j.1, j.2) -
       (selfLoopMDP θ).optQValue γ (start j.1, j.2)|) {T : ℕ}
@@ -366,24 +365,11 @@ theorem ofReal_log_le_sum_lintegral_pullCount_mul_klBer_of_two_mul_lt [Nonempty 
     ENNReal.ofReal (Real.log (1 / (2.4 * δ))) ≤
       (∑ b, ∫⁻ ω, (pullCount IT.action (loop j, b) T ω : ℝ≥0∞)
         ∂(trajMeasure alg (Environment.bandit (selfLoopMDP θ).P))) * klBer (θ j) (θ' j) := by
-  set Q := (selfLoopMDP θ).optQValue γ (start j.1, j.2)
-  set Q' := (selfLoopMDP θ').optQValue γ (start j.1, j.2)
-  refine ofReal_log_le_sum_lintegral_pullCount_mul_klBer hθ (E := {hh | |est hh - Q| ≤ ε}) h ?_
-  -- The estimate cannot be within `ε` of both `Q` and `Q'`.
-  have hsub : history IT.obs IT.action IT.feedback T ⁻¹' {hh | |est hh - Q| ≤ ε} ⊆
-      {ω | |est (history IT.obs IT.action IT.feedback T ω) - Q'| ≤ ε}ᶜ := fun ω hE hE' ↦ by
-    have h1 : |est (history IT.obs IT.action IT.feedback T ω) - Q| ≤ ε := hE
-    have h2 : |est (history IT.obs IT.action IT.feedback T ω) - Q'| ≤ ε := hE'
-    have := abs_sub_le Q' (est (history IT.obs IT.action IT.feedback T ω)) Q
-    rw [abs_sub_comm] at h2
-    linarith
-  have hm := (IT.isAlgEnvSeq_trajMeasure alg
-    (Environment.bandit (selfLoopMDP θ').P)).measurable_history T
-  calc _ ≤ _ := measureReal_mono hsub
-    _ = 1 - (trajMeasure alg (Environment.bandit (selfLoopMDP θ').P)).real
-        {ω | |est (history IT.obs IT.action IT.feedback T ω) - Q'| ≤ ε} :=
-        probReal_compl_eq_one_sub (hm (.of_discrete (s := {hh | |est hh - Q'| ≤ ε})))
-    _ ≤ δ := by linarith
+  have hA := IT.isAlgEnvSeq_trajMeasure alg (Environment.bandit (selfLoopMDP θ).P)
+  have hA' := IT.isAlgEnvSeq_trajMeasure alg (Environment.bandit (selfLoopMDP θ').P)
+  rw [← klDiv_map_history_selfLoopMDP_eq_sum_lintegral_pullCount_mul_klBer hθ T,
+    hA.klDiv_map_history_eq_sum_pullCount hA' T]
+  exact hA.ofReal_log_le_sum_lintegral_pullCount_mul_klDiv_of_two_mul_lt hA' .of_discrete hgap h h'
 
 end ChangeOfMeasure
 
@@ -412,16 +398,29 @@ private lemma le_one_sub_selfLoopProb : (1 - g) / (6 * g) ≤ 1 - q := by
   have : (1 - g) / (3 * g) = 2 * ((1 - g) / (6 * g)) := by field_simp; ring
   linarith
 
+include hq in
+private lemma sub_selfLoopProb_eq : q - p = 32 * (1 - g) ^ 2 * ε / (9 * g ^ 2) := by
+  rw [hq]; ring
+
+include hε hq in
+private lemma selfLoopProb_le : p ≤ q := by
+  have : 0 ≤ q - p := by rw [sub_selfLoopProb_eq hq]; positivity
+  linarith
+
+include hg hg1 hε hε1 hp hq in
+private lemma selfLoopProb_lt_one : q < 1 := by
+  have := le_one_sub_selfLoopProb hg hg1 hε hε1 hp hq
+  have : 0 < (1 - g) / (6 * g) := div_pos (by linarith) (by linarith)
+  linarith
+
 include hg hg1 hε hε1 hp hq in
 private lemma sq_sub_div_le : (q - p) ^ 2 / (q * (1 - q)) ≤ 2400 * (1 - g) ^ 3 * ε ^ 2 := by
   have hg0 : 0 < g := by linarith
   have h1g : 0 < 1 - g := by linarith
   have hp2 := half_le_selfLoopProb hg hp
   have h1q := le_one_sub_selfLoopProb hg hg1 hε hε1 hp hq
-  have hqp : q - p = 32 * (1 - g) ^ 2 * ε / (9 * g ^ 2) := by rw [hq]; ring
-  have hpq : p ≤ q := by
-    have : 0 ≤ q - p := by rw [hqp]; positivity
-    linarith
+  have hqp := sub_selfLoopProb_eq hq
+  have hpq := selfLoopProb_le hε hq
   calc (q - p) ^ 2 / (q * (1 - q)) ≤ (q - p) ^ 2 / (1 / 2 * ((1 - g) / (6 * g))) :=
         div_le_div_of_nonneg_left (sq_nonneg _) (by positivity)
           (mul_le_mul (by linarith) h1q (by positivity) (by linarith))
@@ -439,11 +438,10 @@ private lemma two_mul_lt_div_sub_div : 2 * ε < g / (1 - g * q) - g / (1 - g * p
   have h1g : 0 < 1 - g := by linarith
   have h1q := le_one_sub_selfLoopProb hg hg1 hε hε1 hp hq
   have h1p : 1 - g * p = 4 * (1 - g) / 3 := by rw [hp]; field_simp; ring
-  have hqp : q - p = 32 * (1 - g) ^ 2 * ε / (9 * g ^ 2) := by rw [hq]; ring
+  have hqp := sub_selfLoopProb_eq hq
   have hα : 0 < q - p := by rw [hqp]; positivity
   have hq1 : 0 < 1 - g * q := by
-    have : 0 < (1 - g) / (6 * g) := by positivity
-    nlinarith
+    nlinarith [selfLoopProb_lt_one hg hg1 hε hε1 hp hq, half_le_selfLoopProb hg hp]
   have hp1 : 0 < 1 - g * p := by rw [h1p]; linarith
   have hlt : 1 - g * q < 1 - g * p := by nlinarith
   calc 2 * ε = g ^ 2 * (q - p) / ((1 - g * p) * (1 - g * p)) := by
@@ -505,17 +503,8 @@ private lemma ofReal_log_le_sum_lintegral_pullCount_loop_mul [DecidableEq 𝓚] 
   have hγ1' : (γ : ℝ) < 1 := by exact_mod_cast hγ1
   have hp2 := half_le_selfLoopProb hγ' hp
   have h1q := le_one_sub_selfLoopProb hγ' hγ1' hε hε1 hp hq
-  have hpq : p ≤ q := by
-    have : 0 ≤ 32 * (1 - (γ : ℝ)) ^ 2 * ε / (9 * γ ^ 2) := by
-      have : (0 : ℝ) ≤ 1 - γ := by linarith
-      positivity
-    linarith
-  have hq1 : q < 1 := by
-    have : 0 < (1 - (γ : ℝ)) / (6 * γ) := by
-      have : (0 : ℝ) < 1 - γ := by linarith
-      have : (0 : ℝ) < γ := by linarith
-      positivity
-    linarith
+  have hpq := selfLoopProb_le hε hq
+  have hq1 := selfLoopProb_lt_one hγ' hγ1' hε hε1 hp hq
   let θ₁ := Function.update θ₀ z ⟨q, by linarith, hq1.le⟩
   have hQ₀ : (selfLoopMDP θ₀).optQValue γ (start z.1, z.2) = γ / (1 - γ * p) := by
     rw [optQValue_selfLoopMDP_start θ₀ hγ1, hθ₀]
@@ -531,7 +520,7 @@ private lemma ofReal_log_le_sum_lintegral_pullCount_loop_mul [DecidableEq 𝓚] 
     rw [hQ₀, hQ₁]
     exact (two_mul_lt_div_sub_div hγ' hγ1' hε hε1 hp hq).trans_le (le_abs_self _)
   -- The two-point bound at `z`, with `d(p, p + α) ≤ 2400 (1 - γ)³ ε²`.
-  refine (ofReal_log_le_sum_lintegral_pullCount_mul_klBer_of_two_mul_lt (alg := alg)
+  refine (ofReal_log_le_sum_lintegral_pullCount_selfLoopMDP_mul_klBer_of_two_mul_lt (alg := alg)
     (θ := θ₀) (θ' := θ₁) (j := z) (fun y hy ↦ by simp [θ₁, hy]) hgap
     (fun hh ↦ est hh (start z.1, z.2))
     ((h θ₀ fun y ↦ Or.inl (hθ₀ y)).trans (measureReal_mono fun ω hω ↦ hω z.1 z.2))
@@ -551,8 +540,8 @@ all the pairs `(start x, a)` with probability at least `1 - δ`, for every self-
 self-loop probabilities lie in `{p, p + α}`. Then
 `K A log (1 / (2.4 δ)) ≤ 2400 (1 - γ)³ ε² T`, where `K` and `A` are the numbers of start states
 and of actions. -/
-theorem card_mul_card_mul_log_le_of_forall_abs_sub_optQValue_le (hγ : 2 / 5 ≤ γ) (hγ1 : γ < 1)
-    (hε : 0 < ε) (hε1 : ε ≤ 1 / 32)
+theorem card_mul_card_mul_log_le_of_forall_abs_sub_optQValue_selfLoopMDP_le (hγ : 2 / 5 ≤ γ)
+    (hγ1 : γ < 1) (hε : 0 < ε) (hε1 : ε ≤ 1 / 32)
     (est : Hist Unit (SelfLoopState 𝓚 𝓐 × 𝓐) (SelfLoopState 𝓚 𝓐) T → SelfLoopState 𝓚 𝓐 × 𝓐 → ℝ)
     (h : ∀ θ : 𝓚 × 𝓐 → I, (∀ z, (θ z : ℝ) = (4 * γ - 1) / (3 * γ) ∨
         (θ z : ℝ) = (4 * γ - 1) / (3 * γ) + 32 * (1 - γ) ^ 2 * ε / (9 * γ ^ 2)) →
@@ -608,7 +597,7 @@ start states, `A` actions and self-loop probabilities in `{p, p + α}` makes
 `T ≥ K A log (K A / (C δ)) / (C (1 - γ)³ ε²)` queries. Here `p = (4γ - 1) / (3γ)` and
 `α = 32 (1 - γ)² ε / (9 γ²)` are the parameters of [AMK13]. The constants are `C = 4800`,
 `ε₀ = 1 / 32` and `δ₀ = 5 / 24`. -/
-theorem exists_const_le_of_forall_abs_sub_optQValue_le :
+theorem exists_const_le_of_forall_abs_sub_optQValue_selfLoopMDP_le :
     ∃ C > 0, ∃ ε₀ > 0, ∃ δ₀ > 0, ∀ (𝓚 : Type u) (𝓐 : Type v) [Fintype 𝓚] [Nonempty 𝓚]
       [Fintype 𝓐] [Nonempty 𝓐] [MeasurableSpace 𝓐] [MeasurableSingletonClass 𝓐] (γ : ℝ≥0),
       2 / 5 ≤ γ → γ < 1 → ∀ ε : ℝ, 0 < ε → ε ≤ ε₀ → ∀ δ : ℝ, 0 < δ →
@@ -626,14 +615,14 @@ theorem exists_const_le_of_forall_abs_sub_optQValue_le :
         T := by
   refine ⟨4800, by norm_num, 1 / 32, by norm_num, 5 / 24, by norm_num,
     fun 𝓚 𝓐 _ _ _ _ _ _ γ hγ hγ1 ε hε hε1 δ hδ hδ₀ alg T est h ↦ ?_⟩
-  have hb := card_mul_card_mul_log_le_of_forall_abs_sub_optQValue_le hγ hγ1 hε hε1 est
+  have hb := card_mul_card_mul_log_le_of_forall_abs_sub_optQValue_selfLoopMDP_le hγ hγ1 hε hε1 est
     fun θ hθ ↦ (h θ hθ).trans (measureReal_mono fun ω hω x a ↦ hω (start x, a))
   set n : ℝ := Fintype.card 𝓚 * Fintype.card 𝓐 with hn
   have hn1 : 1 ≤ n := by
     rw [hn]
     have h1 : (1 : ℝ) ≤ Fintype.card 𝓚 := by exact_mod_cast Fintype.card_pos
     have h2 : (1 : ℝ) ≤ Fintype.card 𝓐 := by exact_mod_cast Fintype.card_pos
-    nlinarith
+    exact one_le_mul_of_one_le_of_one_le h1 h2
   have hγ1' : (γ : ℝ) < 1 := by exact_mod_cast hγ1
   have hpos : 0 < 4800 * (1 - (γ : ℝ)) ^ 3 * ε ^ 2 := by
     have : (0 : ℝ) < 1 - γ := by linarith
@@ -642,17 +631,20 @@ theorem exists_const_le_of_forall_abs_sub_optQValue_le :
   have hu : n ≤ 1 / (2.4 * δ) := by
     rw [lt_div_iff₀ (by positivity)] at hδ₀
     rw [le_div_iff₀ (by positivity)]
-    nlinarith
+    linarith
   have hlog : Real.log (n / (4800 * δ)) ≤ 2 * Real.log (1 / (2.4 * δ)) := by
     rw [show 2 * Real.log (1 / (2.4 * δ)) = Real.log ((1 / (2.4 * δ)) ^ 2) by
       rw [Real.log_pow]; norm_num]
     refine Real.log_le_log (by positivity) ?_
-    calc n / (4800 * δ) ≤ n * (1 / (2.4 * δ)) := by
-          rw [div_le_iff₀ (by positivity)]
-          field_simp
-          nlinarith
+    calc n / (4800 * δ) = n * (1 / (2.4 * δ)) / 2000 := by field_simp; norm_num
+      _ ≤ n * (1 / (2.4 * δ)) := div_le_self (by positivity) (by norm_num)
       _ ≤ (1 / (2.4 * δ)) ^ 2 := by rw [sq]; gcongr
+  -- `n log (n / (4800 δ)) ≤ 2 n log (1 / (2.4 δ)) ≤ 2 · 2400 (1 - γ)³ ε² T`.
   rw [div_le_iff₀ hpos]
-  nlinarith
+  calc n * Real.log (n / (4800 * δ)) ≤ n * (2 * Real.log (1 / (2.4 * δ))) :=
+        mul_le_mul_of_nonneg_left hlog (by linarith)
+    _ = 2 * (n * Real.log (1 / (2.4 * δ))) := by ring
+    _ ≤ 2 * (2400 * (1 - γ) ^ 3 * ε ^ 2 * T) := by gcongr
+    _ = T * (4800 * (1 - γ) ^ 3 * ε ^ 2) := by ring
 
 end LMLExplore.ReinforcementLearning
