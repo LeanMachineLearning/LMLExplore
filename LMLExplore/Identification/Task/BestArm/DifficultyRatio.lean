@@ -69,7 +69,7 @@ variable {α : Type*} [Fintype α] {mα : MeasurableSpace α}
   [MeasurableSingletonClass α] {σ2 : ℝ≥0}
 
 /-- For a numbering `e` of the arms, `∑_{b} 1 / (m + e b)² ≤ 2 / m` for every integer `m ≥ 1`. -/
-private lemma sum_inv_sq_add_le (e : α ≃ Fin (Fintype.card α)) {m : ℕ} (hm : 1 ≤ m) :
+lemma sum_inv_sq_add_numbering_le (e : α ≃ Fin (Fintype.card α)) {m : ℕ} (hm : 1 ≤ m) :
     ∑ b, (((m : ℝ) + (e b : ℕ)) ^ 2)⁻¹ ≤ 2 / m := by
   obtain ⟨k, rfl⟩ : ∃ k, m = k + 1 := ⟨m - 1, by omega⟩
   calc ∑ b, ((((k + 1 : ℕ) : ℝ) + (e b : ℕ)) ^ 2)⁻¹
@@ -143,7 +143,7 @@ private lemma charTime_update_mul_klDiv_le [DecidableEq α] (hσ2 : σ2 ≠ 0)
         _ ≤ 2 * σ2 * (2 / m) := by
             rw [← Finset.mul_sum]
             gcongr
-            exact sum_inv_sq_add_le e hm
+            exact sum_inv_sq_add_numbering_le e hm
     calc _ ≤ 2 * (σ2 : ℝ) / m + 2 * σ2 * (2 / m) := add_le_add h1 h2
       _ = 6 * σ2 / m := by ring
   have hT : (baiTask (Bandits.gaussianBandit · σ2) id).charTime lam ≤
@@ -168,7 +168,7 @@ private lemma charTime_update_mul_klDiv_le [DecidableEq α] (hσ2 : σ2 ≠ 0)
 
 /-- For a numbering `e` of the `K` arms and an arm `a₀` of number `0`,
 `log K ≤ ∑_{j ≠ a₀} 1 / e j`, the harmonic number `H_{K - 1}`. -/
-private lemma log_card_le_sum_inv [DecidableEq α] (e : α ≃ Fin (Fintype.card α)) {a₀ : α}
+lemma log_card_le_sum_inv_numbering [DecidableEq α] (e : α ≃ Fin (Fintype.card α)) {a₀ : α}
     (ha₀ : (e a₀ : ℕ) = 0) :
     Real.log (Fintype.card α) ≤ ∑ j ∈ Finset.univ.erase a₀, (((e j : ℕ) : ℝ))⁻¹ := by
   rw [Finset.sum_erase _ (by simp [ha₀])]
@@ -235,7 +235,7 @@ theorem ofReal_log_card_div_le_maxRatio_charTime_baiTask_gaussianBandit (hσ2 : 
       ≤ ENNReal.ofReal (∑ j ∈ s, (24 * ((e j : ℕ) : ℝ))⁻¹) := by
         refine ENNReal.ofReal_le_ofReal ?_
         simp_rw [mul_inv, ← Finset.mul_sum]
-        linarith [log_card_le_sum_inv e ha₀]
+        linarith [log_card_le_sum_inv_numbering e ha₀]
     _ = ∑ j ∈ s, (ENNReal.ofReal (24 * (e j : ℕ)))⁻¹ := by
         rw [ENNReal.ofReal_sum_of_nonneg fun _ _ ↦ by positivity]
         refine Finset.sum_congr rfl fun j hj ↦ ?_
