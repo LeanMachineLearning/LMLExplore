@@ -6,6 +6,7 @@ Authors: LMLExplore contributors
 module
 
 public import Mathlib.Analysis.Real.Sqrt
+public import LMLExplore.Data.Fintype.Card
 public import LMLExplore.SequentialLearning.FiniteActions
 public import LeanMachineLearning.Online.Bandit.Regret
 public import LeanMachineLearning.SequentialLearning.IonescuTulceaSpace
@@ -134,17 +135,11 @@ section TwoArms
 
 variable [Fintype α] {ν : Kernel α ℝ} {a b : α}
 
-omit [MeasurableSpace α] in
-/-- In a type with two elements `a ≠ b`, every element other than `b` is `a`. -/
-private theorem eq_of_ne_of_card_eq_two (hα : Fintype.card α = 2) (hab : a ≠ b) {c : α}
-    (hc : c ≠ b) : c = a :=
-  ((Nat.card_eq_two_iff' b).mp (Nat.card_eq_fintype_card.trans hα)).unique hc hab
-
 /-- In a bandit with two arms `a` and `b` of means `μ_a < μ_b`, the arm `b` is the best arm. -/
 theorem bestArm_eq_of_card_eq_two [Nonempty α] (hα : Fintype.card α = 2)
     (hab : (ν a)[id] < (ν b)[id]) : bestArm ν = b :=
   bestArm_eq_of_forall_lt fun c hc ↦ by
-    rwa [eq_of_ne_of_card_eq_two hα (ne_of_apply_ne (fun c ↦ (ν c)[id]) hab.ne) hc]
+    rwa [Fintype.eq_of_ne_of_card_eq_two hα (ne_of_apply_ne (fun c ↦ (ν c)[id]) hab.ne) hc]
 
 /-- In a bandit with two arms `a` and `b` of means `μ_a < μ_b`, the gap of every arm `c` is
 `μ_b - μ_c`. -/
@@ -161,7 +156,7 @@ theorem filter_gap_pos_eq_singleton_of_card_eq_two (hα : Fintype.card α = 2)
   simp only [mem_filter, mem_univ, true_and, mem_singleton, gap_eq_sub_of_card_eq_two hα hab,
     sub_pos]
   refine ⟨fun hc ↦ ?_, fun hc ↦ hc ▸ hab⟩
-  exact eq_of_ne_of_card_eq_two hα (ne_of_apply_ne (fun c ↦ (ν c)[id]) hab.ne)
+  exact Fintype.eq_of_ne_of_card_eq_two hα (ne_of_apply_ne (fun c ↦ (ν c)[id]) hab.ne)
     (ne_of_apply_ne (fun c ↦ (ν c)[id]) hc.ne)
 
 /-- In a bandit with two arms `a` and `b` of means `μ_a < μ_b`, a gap-weighted sum
