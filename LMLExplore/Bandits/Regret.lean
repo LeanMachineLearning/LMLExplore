@@ -46,8 +46,9 @@ for `trajMeasure`, such as lower bounds, apply to every run.
 * `LMLExplore.Bandits.sub_le_gap`: the gap of an arm is at least its difference of mean with any
   other arm.
 * `LMLExplore.Bandits.bestArm_eq_of_forall_lt`: an arm whose mean is larger than the means of all
-  the other arms is the best arm, and `LMLExplore.Bandits.gap_pos_of_forall_lt`: the other arms
-  then have positive gaps.
+  the other arms is the best arm, `LMLExplore.Bandits.gap_eq_sub_of_forall_lt`: the gap of an arm
+  `b` is then `μ_a - μ_b`, and `LMLExplore.Bandits.gap_pos_of_forall_lt`: the other arms have
+  positive gaps.
 * `LMLExplore.Bandits.gap_of_subsingleton`, `LMLExplore.Bandits.regret_of_subsingleton`: in a
   bandit with a single arm, the gap is `0` and every sequence of actions has zero regret.
 * `LMLExplore.Bandits.bestArm_eq_of_card_eq_two`, `LMLExplore.Bandits.gap_eq_sub_of_card_eq_two`,
@@ -121,6 +122,14 @@ theorem bestArm_eq_of_forall_lt [Fintype α] [Nonempty α] {ν : Kernel α ℝ} 
     (ha : ∀ b ≠ a, (ν b)[id] < (ν a)[id]) : bestArm ν = a := by
   by_contra hne
   exact (ha _ hne).not_ge (le_bestArm a)
+
+/-- If the mean of `a` is larger than the means of all the other arms, the gap of every arm `b` is
+`μ_a - μ_b`. -/
+theorem gap_eq_sub_of_forall_lt [Finite α] {ν : Kernel α ℝ} {a : α}
+    (ha : ∀ b ≠ a, (ν b)[id] < (ν a)[id]) (b : α) : gap ν b = (ν a)[id] - (ν b)[id] := by
+  have := Fintype.ofFinite α
+  have : Nonempty α := ⟨a⟩
+  rw [gap_eq_bestArm_sub, bestArm_eq_of_forall_lt ha]
 
 /-- The largest mean of a bandit is the mean of its best arm. -/
 theorem iSup_integral_eq_integral_bestArm [Fintype α] [Nonempty α] (ν : Kernel α ℝ) :

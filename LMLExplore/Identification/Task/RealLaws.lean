@@ -5,6 +5,7 @@ Authors: LMLExplore contributors
 -/
 module
 
+public import LMLExplore.Bandits.Regret
 public import LMLExplore.Identification.Task.ProductModel
 public import LMLExplore.InformationTheory.KullbackLeibler.Bernoulli
 public import LMLExplore.Probability.Moments.SubGaussian.Bounded
@@ -40,6 +41,8 @@ equality at the Bernoulli laws [AJG20].
 * `LMLExplore.Identification.subgaussianLaws σ2`: the laws `P` on `ℝ` that are σ²-sub-Gaussian
   around their mean, `P[exp (t (X - ∫ x ∂P))] ≤ exp (σ² t² / 2)`.
 * `LMLExplore.Identification.unitIntervalLaws`: the laws on `[0, 1]`.
+* `LMLExplore.Identification.bernoulliModel p`: the Bernoulli model with success probabilities
+  `p`, whose bandit is the Bernoulli bandit `Bandits.bernoulliBandit p`.
 
 ## Main statements
 
@@ -54,6 +57,11 @@ equality at the Bernoulli laws [AJG20].
 * `LMLExplore.Identification.kInfUpper_unitIntervalLaws_bernoulliMeasure`,
   `LMLExplore.Identification.kInfLower_unitIntervalLaws_bernoulliMeasure`: over the class of all
   laws on `[0, 1]`, these bounds are equalities at the Bernoulli laws, for levels `u ∈ [0, 1]`.
+* `LMLExplore.Identification.mem_M_bernoulliModel`,
+  `LMLExplore.Identification.correct_bernoulliModel`,
+  `LMLExplore.Identification.gap_lawBandit_bernoulliModel`: a Bernoulli model whose arm `a` has
+  the largest success probability is a model of best arm identification with laws on `[0, 1]`,
+  with correct answer `a` and gaps `p a - p b`.
 
 ## References
 
@@ -180,6 +188,82 @@ lemma mem_pi_unitIntervalLaws_iff [Countable α] [MeasurableSingletonClass α]
     {θ : α → ProbabilityMeasure ℝ} :
     θ ∈ univ.pi (fun _ ↦ unitIntervalLaws) ↔ ∀ a, ∀ᵐ x ∂(lawBandit θ a), x ∈ Icc 0 1 := by
   simp
+
+/-! ### Bernoulli models -/
+
+section Bernoulli
+
+/-- The Bernoulli model with success probabilities `p`: arm `a` has law `Ber(1, 0, p a)`. Its
+bandit is the Bernoulli bandit `Bandits.bernoulliBandit p` (`lawBandit_bernoulliModel`). -/
+noncomputable def bernoulliModel (p : α → I) : α → ProbabilityMeasure ℝ :=
+  fun a ↦ ⟨Ber((1 : ℝ), 0, p a), inferInstance⟩
+
+@[simp]
+lemma bernoulliModel_apply (p : α → I) (a : α) :
+    (bernoulliModel p a : Measure ℝ) = Ber((1 : ℝ), 0, p a) :=
+  (rfl)
+
+@[simp]
+lemma lawMean_bernoulliModel (p : α → I) (b : α) : lawMean (bernoulliModel p) b = p b := by
+  simp [lawMean_def]
+
+/-- The Bernoulli models are models with laws on `[0, 1]`. -/
+lemma bernoulliModel_mem_pi_unitIntervalLaws (p : α → I) :
+    bernoulliModel p ∈ univ.pi fun _ ↦ unitIntervalLaws :=
+  fun b _ ↦ bernoulliMeasure_mem_unitIntervalLaws (p b)
+
+variable [Countable α] [MeasurableSingletonClass α] {p : α → I} {a : α}
+
+@[simp]
+lemma lawBandit_bernoulliModel (p : α → I) :
+    lawBandit (bernoulliModel p) = Bandits.bernoulliBandit p :=
+  lawBandit_eq_iff.2 fun b ↦ by simp
+
+/-- The arm `b` of the Bernoulli model with success probabilities `p` has the law `Ber(p b)` in
+best arm identification. -/
+lemma ν_baiTask_bernoulliModel (p : α → I) (b : α) :
+    (baiTask lawBandit lawMean).ν (bernoulliModel p) b = Ber((1 : ℝ), 0, p b) := by
+  rw [ν_baiTask, lawBandit_bernoulliModel, Bandits.bernoulliBandit_apply]
+
+/-- A Bernoulli model whose arm `a` has the largest success probability is a model of best arm
+identification with laws on `[0, 1]`, with best arm `a`. -/
+lemma mem_M_bernoulliModel (ha : ∀ b ≠ a, (p b : ℝ) < p a) :
+    bernoulliModel p ∈ ((baiTask (lawBandit (α := α)) lawMean).restrict
+      (univ.pi fun _ ↦ unitIntervalLaws)).M := by
+  rw [IdentTask.M_restrict, M_baiTask]
+  exact ⟨⟨a, fun b hb ↦ by simpa using ha b hb⟩, bernoulliModel_mem_pi_unitIntervalLaws p⟩
+
+/-- The correct answer of best arm identification at a Bernoulli model whose arm `a` has the
+largest success probability is `a`. -/
+lemma correct_bernoulliModel (ha : ∀ b ≠ a, (p b : ℝ) < p a) :
+    (baiTask (lawBandit (α := α)) lawMean).correct (bernoulliModel p) = {a} :=
+  (correct_baiTask_eq_singleton_iff _ _).2 fun b hb ↦ by simpa using ha b hb
+
+/-- The gap of the arm `b` of a Bernoulli model whose arm `a` has the largest success probability
+is `p a - p b`. -/
+lemma gap_lawBandit_bernoulliModel [Finite α] (ha : ∀ b ≠ a, (p b : ℝ) < p a) (b : α) :
+    Bandits.gap (lawBandit (bernoulliModel p)) b = p a - p b := by
+  rw [lawBandit_bernoulliModel, Bandits.gap_eq_sub_of_forall_lt (by simpa using ha),
+    Bandits.integral_id_bernoulliBandit, Bandits.integral_id_bernoulliBandit]
+
+variable [Fintype α]
+
+/-- The complexity `∑_b Δ_b⁻²` of a Bernoulli model whose arm `a` has the largest success
+probability. -/
+lemma sum_inv_sq_gap_bernoulliModel (ha : ∀ b ≠ a, (p b : ℝ) < p a) :
+    ∑ b, (Bandits.gap (lawBandit (bernoulliModel p)) b ^ 2)⁻¹ = ∑ b, (((p a : ℝ) - p b) ^ 2)⁻¹ := by
+  simp_rw [gap_lawBandit_bernoulliModel ha]
+
+/-- The complexity `∑_b Δ_b⁻²` of a Bernoulli model whose arm `a` has the largest success
+probability is positive when there is another arm `b`. -/
+lemma sum_inv_sq_gap_bernoulliModel_pos {b : α} (ha : ∀ b ≠ a, (p b : ℝ) < p a) (hb : b ≠ a) :
+    0 < ∑ c, (Bandits.gap (lawBandit (bernoulliModel p)) c ^ 2)⁻¹ := by
+  rw [sum_inv_sq_gap_bernoulliModel ha]
+  refine lt_of_lt_of_le ?_ (Finset.single_le_sum (fun c _ ↦ by positivity) (Finset.mem_univ b))
+  have := sub_pos.2 (ha b hb)
+  positivity
+
+end Bernoulli
 
 /-! ### The transportation costs of the laws on `[0, 1]` -/
 

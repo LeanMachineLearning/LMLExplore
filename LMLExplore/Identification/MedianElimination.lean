@@ -902,8 +902,6 @@ lemma measure_notMem_halve_streamStats_le {ν : Kernel α ℝ} [IsMarkovKernel �
     (Bandits.gap ν) (s := S.erase a') (j := #S - 1 - #S / 4)
     (by rw [card_erase_of_mem ha'S]; omega)
   have hS_pos : 0 < #S := card_pos.2 ⟨a', ha'S⟩
-  have h_gap_eq (c : α) : Bandits.gap ν c = (ν a')[id] - (ν c)[id] := by
-    rw [Bandits.gap_eq_bestArm_sub, Bandits.bestArm_eq_of_forall_lt ha']
   refine measure_notMem_halve_le (fun a ↦ measurable_streamStats_apply t j a) ha'S hS'_sub
     (by omega) fun b hb ↦ ?_
   have hba' : b ≠ a' := (mem_erase.1 (hS'_sub hb)).1
@@ -915,7 +913,7 @@ lemma measure_notMem_halve_streamStats_le {ν : Kernel α ℝ} [IsMarkovKernel �
       rcases mem_insert.1 hc with rfl | hc
       · exact le_rfl
       rcases eq_or_ne c a' with hca | hca
-      · rw [hca, h_gap_eq a', sub_self]
+      · rw [hca, Bandits.gap_eq_sub_of_forall_lt ha' a', sub_self]
         exact hΔ.le
       · exact hS'_top b hb c (mem_sdiff.2 ⟨mem_erase.2 ⟨hca, (mem_sdiff.1 hc).1⟩,
           (mem_sdiff.1 hc).2⟩)
@@ -928,8 +926,9 @@ lemma measure_notMem_halve_streamStats_le {ν : Kernel α ℝ} [IsMarkovKernel �
     exact complexityTwo_nonneg ν
   refine (measure_streamStats_le_streamStats_le hν t j hba'.symm (ha' b hba').le).trans
     (ENNReal.ofReal_le_ofReal (exp_le_exp.2 ?_))
-  rw [← h_gap_eq, show -(t j * ((#S / 4 + 2 : ℕ) : ℝ)) / (4 * σ2 * complexityTwo ν) =
-    -(t j * (((#S / 4 + 2 : ℕ) : ℝ) / complexityTwo ν)) / (4 * σ2) by ring]
+  rw [← Bandits.gap_eq_sub_of_forall_lt ha',
+    show -(t j * ((#S / 4 + 2 : ℕ) : ℝ)) / (4 * σ2 * complexityTwo ν) =
+      -(t j * (((#S / 4 + 2 : ℕ) : ℝ) / complexityTwo ν)) / (4 * σ2) by ring]
   gcongr
 
 /-- **Sequential halving on the reward stream** [KKS13, Lemma 4.3, Theorem 4.1]. For
