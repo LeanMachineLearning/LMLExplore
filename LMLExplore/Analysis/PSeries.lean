@@ -16,6 +16,7 @@ import Mathlib.Analysis.SpecialFunctions.Integrals.Basic
 import Mathlib.NumberTheory.Harmonic.Bounds
 import Mathlib.NumberTheory.ZetaValues
 import LMLExplore.Analysis.SpecialFunctions.Log.Basic
+import LMLExplore.Logic.Equiv.Fin
 
 /-!
 # Explicit bounds on the sums of `1 / n ^ p` and `log n / n ^ p`
@@ -215,24 +216,15 @@ end Real
 
 namespace Equiv
 
-variable {α : Type*}
-
-/-- In a numbering `e` of `α`, every element other than the element `a₀` of number `0` has a
-positive number. -/
-theorem one_le_numbering {n : ℕ} (e : α ≃ Fin n) {a₀ a : α} (ha₀ : (e a₀ : ℕ) = 0)
-    (ha : a ≠ a₀) : 1 ≤ (e a : ℕ) :=
-  Nat.one_le_iff_ne_zero.2 fun h ↦ ha (e.injective (Fin.ext (h.trans ha₀.symm)))
-
-variable [Fintype α]
+variable {α : Type*} [Fintype α]
 
 /-- For a numbering `e` of `α`, `∑_{b} 1 / (m + e b)² ≤ 2 / m` for every integer `m ≥ 1`. -/
 theorem sum_inv_sq_add_numbering_le (e : α ≃ Fin (Fintype.card α)) {m : ℕ} (hm : 1 ≤ m) :
     ∑ b, (((m : ℝ) + (e b : ℕ)) ^ 2)⁻¹ ≤ 2 / m := by
   obtain ⟨k, rfl⟩ : ∃ k, m = k + 1 := ⟨m - 1, by omega⟩
   calc ∑ b, ((((k + 1 : ℕ) : ℝ) + (e b : ℕ)) ^ 2)⁻¹
-      = ∑ i ∈ Finset.range (Fintype.card α), ((((k + 1 : ℕ) : ℝ) + i) ^ 2)⁻¹ := by
-        rw [← Fin.sum_univ_eq_sum_range]
-        exact Fintype.sum_equiv e _ _ fun _ ↦ rfl
+      = ∑ i ∈ Finset.range (Fintype.card α), ((((k + 1 : ℕ) : ℝ) + i) ^ 2)⁻¹ :=
+        e.sum_numbering_eq_sum_range fun i ↦ ((((k + 1 : ℕ) : ℝ) + i) ^ 2)⁻¹
     _ = ∑ i ∈ Finset.Ioo k (k + 1 + Fintype.card α), ((i : ℝ) ^ 2)⁻¹ := by
         rw [← Finset.Ico_add_one_left_eq_Ioo, Finset.sum_Ico_eq_sum_range,
           Nat.add_sub_cancel_left]
@@ -246,11 +238,7 @@ theorem log_card_le_sum_inv_numbering [DecidableEq α] (e : α ≃ Fin (Fintype.
     (ha₀ : (e a₀ : ℕ) = 0) :
     Real.log (Fintype.card α) ≤ ∑ j ∈ Finset.univ.erase a₀, (((e j : ℕ) : ℝ))⁻¹ := by
   rw [Finset.sum_erase _ (by simp [ha₀])]
-  have hsum : ∑ j, (((e j : ℕ) : ℝ))⁻¹ =
-      ∑ i ∈ Finset.range (Fintype.card α), ((i : ℝ))⁻¹ := by
-    rw [← Fin.sum_univ_eq_sum_range]
-    exact Fintype.sum_equiv e _ _ fun _ ↦ rfl
-  rw [hsum]
+  rw [e.sum_numbering_eq_sum_range fun i ↦ ((i : ℝ))⁻¹]
   rcases Nat.eq_zero_or_eq_succ_pred (Fintype.card α) with hK | hK
   · simp [hK]
   rw [hK, Finset.sum_range_succ', Nat.cast_zero, inv_zero, add_zero]

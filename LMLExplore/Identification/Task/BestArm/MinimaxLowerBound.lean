@@ -9,6 +9,7 @@ public import LMLExplore.Bandits.Regret
 public import LMLExplore.Identification.MinimaxLowerBound
 public import LMLExplore.Identification.Task.RealLaws
 import LMLExplore.Analysis.PSeries
+import LMLExplore.Logic.Equiv.Fin
 import Mathlib.Analysis.Real.Pi.Bounds
 
 /-!
@@ -218,10 +219,7 @@ private lemma sum_inv_sq_gap_clBase_le {a₀ : α} (ha₀ : (e a₀ : ℕ) = 0) 
   simp_rw [coe_clBase, clGap_eq_zero ha₀, sub_zero, sub_sub_cancel, inv_sq_clGap, ← mul_sum]
   refine le_trans ?_ (five_mul_div_two_sq_mul_le _)
   gcongr
-  have : ∑ b, ((((e b : ℕ) : ℝ)) ^ 2)⁻¹ = ∑ i ∈ range (Fintype.card α), ((i : ℝ) ^ 2)⁻¹ := by
-    rw [← Fin.sum_univ_eq_sum_range]
-    exact Fintype.sum_equiv e _ _ fun _ ↦ rfl
-  rw [this]
+  rw [e.sum_numbering_eq_sum_range fun i ↦ ((i : ℝ) ^ 2)⁻¹]
   exact sum_range_inv_sq_le _
 
 /-- The complexity of `λ j` is at most `(5 K / 2)² ∑_b 1 / (e j + e b)²`. -/
@@ -275,9 +273,8 @@ private lemma sum_inv_sq_gap_clAlt_le_mul_sq [DecidableEq α] {a₀ : α} (ha₀
       ≤ ∑ b, ((((e b : ℕ) : ℝ) + 1) ^ 2)⁻¹ :=
         sum_le_sum fun b _ ↦ inv_anti₀ (by positivity)
           (pow_le_pow_left₀ (by positivity) (by linarith) 2)
-    _ = ∑ i ∈ range (Fintype.card α), (((i : ℝ) + 1) ^ 2)⁻¹ := by
-        rw [← Fin.sum_univ_eq_sum_range (fun i ↦ (((i : ℝ) + 1) ^ 2)⁻¹)]
-        exact Fintype.sum_equiv e _ _ fun _ ↦ rfl
+    _ = ∑ i ∈ range (Fintype.card α), (((i : ℝ) + 1) ^ 2)⁻¹ :=
+        e.sum_numbering_eq_sum_range fun i ↦ (((i : ℝ) + 1) ^ 2)⁻¹
     _ = ∑ i ∈ range (Fintype.card α + 1), ((i : ℝ) ^ 2)⁻¹ := by
         rw [sum_range_succ']
         simp
@@ -319,10 +316,7 @@ theorem exists_exp_neg_div_four_le_measureReal_unitIntervalLaws (hK : 2 ≤ Fint
   have ha₀ : (e a₀ : ℕ) = 0 := by simp [a₀]
   set s := univ.erase a₀
   have hs : s.Nonempty := by
-    obtain ⟨b, hb⟩ : ∃ b, b ≠ a₀ := by
-      by_contra! h
-      have : Fintype.card α ≤ 1 := Fintype.card_le_one_iff.2 fun x y ↦ (h x).trans (h y).symm
-      omega
+    obtain ⟨b, hb⟩ := Fintype.exists_ne_of_one_lt_card (by omega) a₀
     exact ⟨b, mem_erase.2 ⟨hb, mem_univ b⟩⟩
   obtain ⟨b₁, hb₁⟩ := hs
   have hb₁a : b₁ ≠ a₀ := ne_of_mem_erase hb₁

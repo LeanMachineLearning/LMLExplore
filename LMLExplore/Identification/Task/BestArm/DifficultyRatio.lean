@@ -8,6 +8,7 @@ module
 public import LMLExplore.Identification.DifficultyRatio
 public import LMLExplore.Identification.Task.BestArm.Basic
 import LMLExplore.Analysis.PSeries
+import LMLExplore.Logic.Equiv.Fin
 
 /-!
 # Difficulty ratios of Gaussian best arm identification with many arms
