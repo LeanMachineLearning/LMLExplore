@@ -48,8 +48,8 @@ With the difficulty function `1`, the same change of measure bounds the error ex
 consistent family [KCG16, Theorem 12]: at every model `μ`,
 `limsup_T -(1 / T) log p_{μ,T}(𝒜) ≤ inf_{λ ∈ Alt(μ)} max_a KL(ν_a(λ), ν_a(μ))`, with the
 alternative first, and `inf_{λ ∈ Alt(μ)} ∑ a, w a KL(ν_a(λ), ν_a(μ))` in place of the largest
-divergence when the proportions of pulls at the alternatives converge to `w`, as for uniform
-sampling.
+divergence when the proportions of pulls at the alternatives converge to an allocation `w` with
+positive entries, as for uniform sampling.
 
 ## Main definitions
 
