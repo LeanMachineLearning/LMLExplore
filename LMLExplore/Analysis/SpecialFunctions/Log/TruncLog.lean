@@ -27,7 +27,7 @@ composed with a measurable function bounded below by `δ`.
 * `ENNReal.truncLog_of_ne`: `truncLog c x = min (Real.log x.toReal) c` for `x ≠ 0, ∞`.
 * `ENNReal.abs_truncLog_le`, `ENNReal.integrable_truncLog_comp`: on `{x | δ ≤ x}`, the truncated
   logarithm is bounded, hence integrable under a finite measure.
-* `ENNReal.ofReal_exp_truncLog_le`: `exp (truncLog c x) ≤ x`.
+* `ENNReal.ofReal_exp_truncLog_le`: `exp (truncLog c x) ≤ x` for `x ≠ 0`.
 * `ENNReal.min_log_le_truncLog_sub`: mixing `x` with a constant `ε` costs at most `- log (1 - ε)`
   in truncated logarithm.
 -/
@@ -65,7 +65,7 @@ lemma truncLog_top (c : ℝ) : truncLog c ∞ = c := by simp [truncLog]
 @[simp]
 lemma truncLog_zero (c : ℝ) : truncLog c 0 = 0 := by simp [truncLog]
 
-/-- The truncated logarithm is at most the truncation level. -/
+/-- The truncated logarithm of a nonzero `x` is at most the truncation level. -/
 lemma truncLog_le {c : ℝ} {x : ℝ≥0∞} (h0 : x ≠ 0) : truncLog c x ≤ c := by
   by_cases htop : x = ∞
   · rw [htop, truncLog_top]
@@ -105,7 +105,7 @@ lemma integrable_truncLog_comp {Ω : Type*} {mΩ : MeasurableSpace Ω} {μ : Mea
     (max |Real.log δ| |c|) (ae_of_all _ fun ω ↦ (Real.norm_eq_abs _).trans_le
       (abs_truncLog_le hδ (hVδ ω)))
 
-/-- The exponential of the truncated logarithm of `x` is at most `x`. -/
+/-- The exponential of the truncated logarithm of a nonzero `x` is at most `x`. -/
 lemma ofReal_exp_truncLog_le {c : ℝ} {x : ℝ≥0∞} (h0 : x ≠ 0) :
     ENNReal.ofReal (Real.exp (truncLog c x)) ≤ x := by
   by_cases htop : x = ∞
