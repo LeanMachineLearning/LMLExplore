@@ -70,6 +70,9 @@ theorem iIndepFun.lintegral_hittingAfter_sum_le (hX : iIndepFun X μ)
   have hNA (j : ℕ) : {ω | (j : ℕ∞) < N ω} = A j := by
     ext ω
     rw [Set.mem_ofPred_eq, lt_iff_not_ge]
+    -- `hittingAfter` takes values in `WithTop ℕ`, and `N ω ≤ j` compares them in `ℕ∞`, its
+    -- definitional synonym; restating the inequality in `WithTop ℕ` lets `hittingAfter_le_iff`
+    -- apply (no `rw` with a cast lemma can, since the goal mixes the two types)
     change ¬ hittingAfter S (Set.Ici b) 0 ω ≤ WithTop.some j ↔ _
     rw [hittingAfter_le_iff]
     simp [A]

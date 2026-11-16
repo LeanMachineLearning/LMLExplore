@@ -9,9 +9,11 @@ public import LMLExplore.EValues.BipolarRate.Basic
 public import Mathlib.Probability.Process.Stopping
 public import Mathlib.Probability.ProductMeasure
 import LMLExplore.EValues.TestSupermartingale.IID
+import LMLExplore.MeasureTheory.Integral.EReal
 import LMLExplore.Probability.Independence.Wald
 import LMLExplore.Probability.ProductMeasure
 import LMLExplore.Probability.Process.Filtration
+import LMLExplore.Probability.Process.HittingTime
 import Statlib.ForMathlib.MeasureTheory.Integral.EReal.Bochner
 
 /-!
@@ -54,8 +56,8 @@ complete blocks reaches `α⁻¹`.
 
 ## Implementation notes
 
-The monotone convergence of the extended integrals of the truncations `min f k` is a private
-helper, as in `LMLExplore.EValues.BipolarRate.Numeraire`. The statements and proofs are adapted
+The monotone convergence of the extended integrals of the truncations `min f k` is
+`MeasureTheory.eintegral_le_of_forall_min_le`. The statements and proofs are adapted
 from `EValuesResearch/Results/Numeraire.lean` and `EValuesResearch/Results/NumeraireAux.lean`
 (commit `dd4072f`) in the paper project `RemyDegenne/evalues_research`, which formalize
 [EVR26, Note 01], rewritten on the API of LMLExplore: the tests are Mathlib's hitting times
@@ -79,52 +81,6 @@ namespace ProbabilityTheory
 variable {𝓧 : Type*} {m𝓧 : MeasurableSpace 𝓧} {S₁ : Set (Measure 𝓧)}
 
 /-! ### A bounded bet on a block of observations -/
-
-/-- **Monotone convergence for truncations.** If the extended integrals of the truncations
-`min f k`, `k ∈ ℕ`, are at most `D`, so is the extended integral of `f`. -/
-private theorem eintegral_le_of_forall_min_le {Ω : Type*} [MeasurableSpace Ω] {μ : Measure Ω}
-    {f : Ω → EReal} (hf : Measurable f) {D : EReal}
-    (h : ∀ k : ℕ, ∫ᵉ x, min (f x) k ∂μ ≤ D) : ∫ᵉ x, f x ∂μ ≤ D := by
-  have hmono : Monotone EReal.toENNReal := fun _ _ h ↦ EReal.toENNReal_le_toENNReal h
-  have hpos (k : ℕ) (x : Ω) : (min (f x) k).toENNReal = min (f x).toENNReal k := by
-    rw [hmono.map_min, show ((k : EReal)) = ((k : ℝ≥0∞) : EReal) by simp, EReal.toENNReal_coe]
-  have hneg (k : ℕ) (x : Ω) : (-min (f x) k).toENNReal = (-f x).toENNReal := by
-    by_cases hk : f x ≤ k
-    · rw [min_eq_left hk]
-    · rw [not_le] at hk
-      have hk0 : (0 : EReal) ≤ k := by exact_mod_cast Nat.zero_le k
-      rw [min_eq_right hk.le, EReal.toENNReal_of_nonpos (by simp),
-        EReal.toENNReal_of_nonpos (by simpa using hk0.trans hk.le)]
-  have h' (k : ℕ) : ((∫⁻ x, min (f x).toENNReal k ∂μ : ℝ≥0∞) : EReal) -
-      ((∫⁻ x, (-f x).toENNReal ∂μ : ℝ≥0∞) : EReal) ≤ D := by
-    have := h k
-    simp only [eintegral, hpos, hneg] at this
-    exact this
-  have hm (k : ℕ) : Measurable fun x ↦ min (f x).toENNReal (k : ℝ≥0∞) :=
-    (measurable_ereal_toENNReal.comp hf).min measurable_const
-  have hmono' : Monotone fun (k : ℕ) x ↦ min (f x).toENNReal (k : ℝ≥0∞) :=
-    fun k k' hkk' x ↦ min_le_min_left _ (by exact_mod_cast hkk')
-  have hsup : ∫⁻ x, (f x).toENNReal ∂μ = ⨆ k : ℕ, ∫⁻ x, min (f x).toENNReal k ∂μ := by
-    rw [← lintegral_iSup hm hmono']
-    refine lintegral_congr fun x ↦ le_antisymm ?_ (iSup_le fun k ↦ min_le_left _ _)
-    by_cases hx : (f x).toENNReal = ∞
-    · simp [hx, ENNReal.iSup_natCast]
-    · obtain ⟨k, hk⟩ := ENNReal.exists_nat_gt hx
-      exact le_iSup_of_le k (min_eq_left hk.le).ge
-  rw [eintegral, hsup]
-  set b := ∫⁻ x, (-f x).toENNReal ∂μ
-  by_cases hb : b = ∞
-  · rw [hb, EReal.coe_ennreal_top, EReal.sub_top]
-    exact bot_le
-  have hb' : (b : EReal) ≠ ⊤ := by simpa using hb
-  have hb'' : (b : EReal) ≠ ⊥ := by simp
-  rw [EReal.sub_le_iff_le_add (.inl hb'') (.inl hb')]
-  have hk (k : ℕ) : ((∫⁻ x, min (f x).toENNReal k ∂μ : ℝ≥0∞) : EReal) ≤ D + b :=
-    (EReal.sub_le_iff_le_add (.inl hb'') (.inl hb')).1 (h' k)
-  have hD : 0 ≤ D + b := (EReal.coe_ennreal_nonneg _).trans (hk 0)
-  rw [← EReal.coe_toENNReal hD] at hk ⊢
-  exact EReal.coe_ennreal_le_coe_ennreal_iff.2
-    (iSup_le fun k ↦ EReal.coe_ennreal_le_coe_ennreal_iff.1 (hk k))
 
 /-- **A bounded bet with a large expected logarithm.** For a real `L` below the bipolar rate there
 are a block length `m ≠ 0` and a measurable `v` on `m` observations, bounded above, such that the
@@ -271,6 +227,51 @@ private lemma toENNReal_hittingAfter_add_one_le {m : ℕ} (hm : m ≠ 0) (V : (F
   _ = ((m * k - 1 + 1 : ℕ) : ℝ≥0∞) := by rw [Nat.cast_add, Nat.cast_one]
   _ = m * k := by rw [Nat.sub_add_cancel hmk, Nat.cast_mul]
 
+/-- **Expected number of observations of a block test.** Let `v` be a measurable function on `m`
+observations, bounded above by `C`, of mean `a > 0` under `Q₁ ^ m`. Under the i.i.d. law of
+`Q₁`, the test that stops when the product of the bets `exp v` over the complete blocks reaches
+`c = exp b > 1` makes at most `m (b + C) / a` observations in expectation: by Wald's bound, the
+sum of the values of `v` over the blocks reaches `b` after at most `(b + C) / a` blocks in
+expectation. -/
+private lemma lintegral_hittingAfter_add_one_le (Q₁ : Measure 𝓧) [IsProbabilityMeasure Q₁]
+    {m : ℕ} (hm : m ≠ 0) {v : (Fin m → 𝓧) → ℝ} (hv : Measurable v) {C : ℝ} (hvC : ∀ x, v x ≤ C)
+    (ha : 0 < ∫ x, v x ∂Measure.pi fun _ : Fin m ↦ Q₁) {c : ℝ≥0∞} (hc : 1 < c) {b : ℝ}
+    (hcb : ENNReal.log c = b) :
+    ∫⁻ ω, ENat.toENNReal (hittingAfter (fun n ω ↦ seqBlockProd m
+        (fun x ↦ ENNReal.ofReal (Real.exp (v x))) ((n + 1) / m) ω) (Set.Ici c) 0 ω) + 1
+        ∂Measure.infinitePi (fun _ : ℕ ↦ Q₁) ≤
+      m * ENNReal.ofReal ((b + C) / ∫ x, v x ∂Measure.pi fun _ : Fin m ↦ Q₁) := by
+  set μ := Measure.infinitePi (fun _ : ℕ ↦ Q₁)
+  set V : (Fin m → 𝓧) → ℝ≥0∞ := fun x ↦ ENNReal.ofReal (Real.exp (v x))
+  -- the sums of the values of `v` over blocks
+  set S : ℕ → (ℕ → 𝓧) → ℝ := fun k ω ↦ ∑ j ∈ Finset.range k, v (seqBlock m j ω)
+  -- the product of the bets over `k` blocks reaches `c` when the sum of `v` reaches `b`
+  have hN (ω : ℕ → 𝓧) : hittingAfter (seqBlockProd m V) (Set.Ici c) 0 ω =
+      hittingAfter S (Set.Ici b) 0 ω := by
+    refine hittingAfter_apply_congr fun k _ ↦ ?_
+    rw [Set.mem_Ici, Set.mem_Ici, ← ENNReal.log_le_log_iff, seqBlockProd_def,
+      ← ENNReal.ofReal_prod_of_nonneg fun _ _ ↦ (Real.exp_pos _).le, ← Real.exp_sum,
+      ENNReal.log_ofReal_of_pos (Real.exp_pos _), Real.log_exp, hcb, EReal.coe_le_coe_iff]
+  -- Wald's bound for the number of blocks over which the sum of `v` reaches `b`
+  have hWald := iIndepFun.lintegral_hittingAfter_sum_le (μ := μ)
+    (X := fun j ω ↦ v (seqBlock m j ω))
+    ((iIndepFun_seqBlock (fun _ ↦ Q₁) m).comp (fun _ ↦ v) fun _ ↦ hv)
+    (fun j ↦ hv.comp (measurable_seqBlock m j)) ha (fun j ↦ ?_)
+    (fun j ↦ ae_of_all _ fun ω ↦ hvC _) b
+  swap
+  · have h := measurePreserving_seqBlock (fun _ : ℕ ↦ Q₁) m j
+    refine le_of_eq ?_
+    rw [← integral_map (measurable_seqBlock m j).aemeasurable
+      (by rw [h.map_eq]; exact hv.aestronglyMeasurable), h.map_eq]
+  calc ∫⁻ ω, ENat.toENNReal (hittingAfter (fun n ω ↦ seqBlockProd m V ((n + 1) / m) ω)
+      (Set.Ici c) 0 ω) + 1 ∂μ
+  _ ≤ ∫⁻ ω, m * ENat.toENNReal (hittingAfter (seqBlockProd m V) (Set.Ici c) 0 ω) ∂μ :=
+    lintegral_mono fun ω ↦ toENNReal_hittingAfter_add_one_le hm V hc ω
+  _ = m * ∫⁻ ω, ENat.toENNReal (hittingAfter S (Set.Ici b) 0 ω) ∂μ := by
+    simp_rw [hN]
+    rw [lintegral_const_mul' _ _ (ENNReal.natCast_ne_top m)]
+  _ ≤ m * ENNReal.ofReal ((b + C) / ∫ x, v x ∂Measure.pi fun _ : Fin m ↦ Q₁) := by gcongr
+
 /-- **Sequential tests attain the bipolar rate to first order.** For every real `d' > 0` below the
 bipolar rate of `Q₁` against `S₁`, there are sequential tests `τ α`, stopping times of
 `Filtration.piLE` with `P^ℕ (τ α < ∞) ≤ α` for every member `P` of the null and every level `α`,
@@ -301,13 +302,6 @@ theorem exists_isStoppingTime_limsup_lintegral_div_log_le (Q₁ : Measure 𝓧) 
   have ha : 0 < a := (mul_pos (by exact_mod_cast Nat.pos_of_ne_zero hm) hd').trans hmv
   set V : (Fin m → 𝓧) → ℝ≥0∞ := fun x ↦ ENNReal.ofReal (Real.exp (v x))
   have hVm : Measurable V := ENNReal.measurable_ofReal.comp (Real.measurable_exp.comp hv)
-  -- the sums of the values of `v` over blocks, and the products of the bets
-  set S : ℕ → (ℕ → 𝓧) → ℝ := fun k ω ↦ ∑ j ∈ Finset.range k, v (seqBlock m j ω)
-  have hVS (c : ℝ≥0∞) (k : ℕ) (ω : ℕ → 𝓧) :
-      c ≤ seqBlockProd m V k ω ↔ ENNReal.log c ≤ (S k ω : EReal) := by
-    rw [← ENNReal.log_le_log_iff, seqBlockProd_def, ← ENNReal.ofReal_prod_of_nonneg
-      fun _ _ ↦ (Real.exp_pos _).le, ← Real.exp_sum, ENNReal.log_ofReal_of_pos (Real.exp_pos _),
-      Real.log_exp]
   -- the product of the bets over the complete blocks among the first `n + 1` observations
   set E : ℕ → (ℕ → 𝓧) → ℝ≥0∞ := fun n ω ↦ seqBlockProd m V ((n + 1) / m) ω
   have hE : Adapted (Filtration.piLE (X := fun _ : ℕ ↦ 𝓧)) E := fun n ↦
@@ -339,35 +333,8 @@ theorem exists_isStoppingTime_limsup_lintegral_div_log_le (Q₁ : Measure 𝓧) 
       rw [← EReal.coe_lt_coe_iff, hb, EReal.coe_zero, ENNReal.zero_lt_log_iff]
       exact ENNReal.one_lt_inv.2 hα1
     have hBb : B α = ENNReal.ofReal b := EReal.toENNReal_of_ne_top hlog_top
-    -- Wald's bound for the number of blocks over which the sum of `v` reaches `b`
-    have hWald := iIndepFun.lintegral_hittingAfter_sum_le (X := fun j ω ↦ v (seqBlock m j ω))
-      ((iIndepFun_seqBlock (fun _ ↦ Q₁) m).comp (fun _ ↦ v) fun _ ↦ hv)
-      (fun j ↦ hv.comp (measurable_seqBlock m j)) ha (fun j ↦ ?_)
-      (fun j ↦ ae_of_all _ fun ω ↦ hvC _) b
-    swap
-    · have h := measurePreserving_seqBlock (fun _ : ℕ ↦ Q₁) m j
-      refine le_of_eq ?_
-      rw [← integral_map (measurable_seqBlock m j).aemeasurable
-        (by rw [h.map_eq]; exact hv.aestronglyMeasurable), h.map_eq]
-    have hN : hittingAfter (seqBlockProd m V) (Set.Ici α⁻¹) 0 =
-        hittingAfter S (Set.Ici b) 0 := by
-      ext ω : 1
-      have hiff (j : ℕ) : seqBlockProd m V j ω ∈ Set.Ici α⁻¹ ↔ S j ω ∈ Set.Ici b := by
-        rw [Set.mem_Ici, Set.mem_Ici, hVS, ← hb, EReal.coe_le_coe_iff]
-      have hex : (∃ j, 0 ≤ j ∧ seqBlockProd m V j ω ∈ Set.Ici α⁻¹) ↔
-          ∃ j, 0 ≤ j ∧ S j ω ∈ Set.Ici b := by
-        simp only [hiff]
-      rw [hittingAfter_def, hittingAfter_def]
-      simp only [hiff]
-      rw [propext hex]
-    have hexp : ∫⁻ ω, ENat.toENNReal (hittingAfter E (Set.Ici α⁻¹) 0 ω) + 1 ∂μ ≤
-        m * ENNReal.ofReal ((b + C) / a) := by
-      calc ∫⁻ ω, ENat.toENNReal (hittingAfter E (Set.Ici α⁻¹) 0 ω) + 1 ∂μ
-      _ ≤ ∫⁻ ω, m * ENat.toENNReal (hittingAfter (seqBlockProd m V) (Set.Ici α⁻¹) 0 ω) ∂μ :=
-        lintegral_mono fun ω ↦ toENNReal_hittingAfter_add_one_le hm V (ENNReal.one_lt_inv.2 hα1) ω
-      _ = m * ∫⁻ ω, ENat.toENNReal (hittingAfter S (Set.Ici b) 0 ω) ∂μ := by
-        rw [lintegral_const_mul' _ _ (ENNReal.natCast_ne_top m), hN]
-      _ ≤ m * ENNReal.ofReal ((b + C) / a) := by gcongr
+    have hexp := lintegral_hittingAfter_add_one_le Q₁ hm hv hvC ha (ENNReal.one_lt_inv.2 hα1)
+      hb.symm
     have hB0 : B α ≠ 0 := by rw [hBb]; exact (ENNReal.ofReal_pos.2 hb0).ne'
     have hBtop : B α ≠ ⊤ := by rw [hBb]; exact ENNReal.ofReal_ne_top
     calc (∫⁻ ω, ENat.toENNReal (hittingAfter E (Set.Ici α⁻¹) 0 ω) + 1 ∂μ) / B α
