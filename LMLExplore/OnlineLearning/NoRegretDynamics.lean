@@ -113,18 +113,19 @@ variable {C D : Type*} {A : OnlineLearner C F E} {B : OnlineLearner D E F} (c : 
 `A` and `B`, let `A` play in `X`, with the regret guarantee `BA` for the losses `f · y` against
 plays `y` of the opponent in `Y`, and let `B` play in `Y`, with the regret guarantee `BB` for the
 losses `-f x ·` against plays `x` in `X`. Then the average plays `xa`, `ya` of their game satisfy
-`f xa y - f x ya ≤ (BA n c ys x + BB n d xs y) / n` for all `x ∈ X` and `y ∈ Y`. -/
-theorem sub_le_div_of_hasRegretBound (hfx : ∀ y ∈ Y, ConvexOn ℝ X fun x ↦ f x y)
-    (hfy : ∀ x ∈ X, ConcaveOn ℝ Y (f x)) (hxs : ∀ t < n, (A.gameRun B c d t).1 ∈ X)
+`f xa y - f x ya ≤ (BA n c ys x + BB n d xs y) / n` for `x ∈ X` and `y ∈ Y` such that `f · y` is
+convex on `X` and `f x` is concave on `Y`. -/
+theorem sub_le_div_of_hasRegretBound {x : E} {y : F} (hfx : ConvexOn ℝ X fun x ↦ f x y)
+    (hfy : ConcaveOn ℝ Y (f x)) (hxs : ∀ t < n, (A.gameRun B c d t).1 ∈ X)
     (hys : ∀ t < n, (A.gameRun B c d t).2 ∈ Y)
     (hA : A.HasRegretBound (fun y x ↦ f x y) (fun _ y ↦ y ∈ Y) X BA)
-    (hB : B.HasRegretBound (fun x y ↦ -f x y) (fun _ x ↦ x ∈ X) Y BB) (hn : 0 < n) {x : E}
-    (hx : x ∈ X) {y : F} (hy : y ∈ Y) :
+    (hB : B.HasRegretBound (fun x y ↦ -f x y) (fun _ x ↦ x ∈ X) Y BB) (hn : 0 < n)
+    (hx : x ∈ X) (hy : y ∈ Y) :
     f ((n : ℝ)⁻¹ • ∑ t ∈ range n, (A.gameRun B c d t).1) y -
         f x ((n : ℝ)⁻¹ • ∑ t ∈ range n, (A.gameRun B c d t).2) ≤
       (BA n c (fun t ↦ (A.gameRun B c d t).2) x + BB n d (fun t ↦ (A.gameRun B c d t).1) y) /
         n := by
-  refine (sub_le_regret_add_regret_div (hfx y hy) (hfy x hx) hxs hys hn).trans ?_
+  refine (sub_le_regret_add_regret_div hfx hfy hxs hys hn).trans ?_
   have hrA := hA.regret_le (c := c) hys hx
   have hrB := hB.regret_le (c := d) hxs hy
   rw [← funext (fst_gameRun A B c d)] at hrA
@@ -142,8 +143,8 @@ theorem dualityGap_le_of_hasRegretBound (hfx : ∀ y ∈ Y, ConvexOn ℝ X fun x
     (hn : 0 < n) :
     dualityGap X Y f ((n : ℝ)⁻¹ • ∑ t ∈ range n, (A.gameRun B c d t).1)
         ((n : ℝ)⁻¹ • ∑ t ∈ range n, (A.gameRun B c d t).2) ≤ ((RA n + RB n) / n : ℝ) :=
-  dualityGap_le_coe_iff.2 fun _ hx _ hy ↦
-    sub_le_div_of_hasRegretBound c d hfx hfy hxs hys hA hB hn hx hy
+  dualityGap_le_coe_iff.2 fun x hx y hy ↦
+    sub_le_div_of_hasRegretBound c d (hfx y hy) (hfy x hx) hxs hys hA hB hn hx hy
 
 end OnlineLearner
 
