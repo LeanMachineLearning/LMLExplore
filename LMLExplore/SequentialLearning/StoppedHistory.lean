@@ -423,6 +423,18 @@ lemma truncHist_sigmaHistory (M n : ℕ) (ω : Ω) :
   funext i
   simp [Fin.take_apply, history_apply]
 
+/-- For `M ≤ n`, truncating the history of the first `n` rounds to at most `M` rounds gives the
+history of the first `M` rounds. -/
+lemma truncHist_mk_history_of_le {M n : ℕ} (hM : M ≤ n) (ω : Ω) :
+    truncHist M ⟨n, history O X Y n ω⟩ = sigmaHistory O X Y M ω := by
+  rw [← sigmaHistory_apply, truncHist_sigmaHistory, min_eq_left hM]
+
+/-- The truncation to at most `M` rounds of a history of `n` rounds is measurable in the
+history. -/
+lemma measurable_truncHist_mk (n M : ℕ) :
+    Measurable fun h : Hist 𝓞 𝓐 𝓨 n ↦ truncHist M ⟨n, h⟩ :=
+  (measurable_truncHist M).comp (measurable_sigmaMk n)
+
 /-- Truncating the history stopped at a finite time `τ` to at most `M` rounds gives the history
 stopped at the time `M`. -/
 lemma truncHist_stoppedValue_sigmaHistory {τ : Ω → WithTop ℕ} (hτ : τ ω ≠ ⊤) (M : ℕ) :
