@@ -49,9 +49,11 @@ for `trajMeasure`, such as lower bounds, apply to every run.
   then have positive gaps.
 * `LMLExplore.Bandits.bestArm_eq_of_card_eq_two`, `LMLExplore.Bandits.gap_eq_sub_of_card_eq_two`,
   `LMLExplore.Bandits.filter_gap_pos_eq_singleton_of_card_eq_two`,
+  `LMLExplore.Bandits.sum_gap_mul_eq_of_card_eq_two`,
   `LMLExplore.Bandits.sum_gap_eq_of_card_eq_two`: in a bandit with two arms `a` and `b` of means
   `μ_a < μ_b`, the best arm is `b`, the gap of an arm `c` is `μ_b - μ_c`, `a` is the only arm with
-  positive gap, and the sum of the gaps is `μ_b - μ_a`.
+  positive gap, a gap-weighted sum `∑ c, Δ_c f(c)` is `Δ_a f(a)`, and the sum of the gaps is
+  `μ_b - μ_a`.
 * `LMLExplore.Bandits.gap_pos_of_lt_mul_gap_sq`: an arm with `x < y Δ_a²` for some `x ≥ 0` has
   positive gap.
 * `LMLExplore.Bandits.mul_sub_integral_pullCount_le_integral_regret`: if every arm other than `a₁`
@@ -132,13 +134,17 @@ section TwoArms
 
 variable [Fintype α] {ν : Kernel α ℝ} {a b : α}
 
+omit [MeasurableSpace α] in
+/-- In a type with two elements `a ≠ b`, every element other than `b` is `a`. -/
+private theorem eq_of_ne_of_card_eq_two (hα : Fintype.card α = 2) (hab : a ≠ b) {c : α}
+    (hc : c ≠ b) : c = a :=
+  ((Nat.card_eq_two_iff' b).mp (Nat.card_eq_fintype_card.trans hα)).unique hc hab
+
 /-- In a bandit with two arms `a` and `b` of means `μ_a < μ_b`, the arm `b` is the best arm. -/
 theorem bestArm_eq_of_card_eq_two [Nonempty α] (hα : Fintype.card α = 2)
     (hab : (ν a)[id] < (ν b)[id]) : bestArm ν = b :=
-  -- The arm `a` is the only arm other than `b`.
   bestArm_eq_of_forall_lt fun c hc ↦ by
-    rwa [((Nat.card_eq_two_iff' b).mp (Nat.card_eq_fintype_card.trans hα)).unique hc
-      (ne_of_apply_ne (fun c ↦ (ν c)[id]) hab.ne)]
+    rwa [eq_of_ne_of_card_eq_two hα (ne_of_apply_ne (fun c ↦ (ν c)[id]) hab.ne) hc]
 
 /-- In a bandit with two arms `a` and `b` of means `μ_a < μ_b`, the gap of every arm `c` is
 `μ_b - μ_c`. -/
@@ -155,16 +161,22 @@ theorem filter_gap_pos_eq_singleton_of_card_eq_two (hα : Fintype.card α = 2)
   simp only [mem_filter, mem_univ, true_and, mem_singleton, gap_eq_sub_of_card_eq_two hα hab,
     sub_pos]
   refine ⟨fun hc ↦ ?_, fun hc ↦ hc ▸ hab⟩
-  exact ((Nat.card_eq_two_iff' b).mp (Nat.card_eq_fintype_card.trans hα)).unique
-    (ne_of_apply_ne (fun c ↦ (ν c)[id]) hc.ne) (ne_of_apply_ne (fun c ↦ (ν c)[id]) hab.ne)
+  exact eq_of_ne_of_card_eq_two hα (ne_of_apply_ne (fun c ↦ (ν c)[id]) hab.ne)
+    (ne_of_apply_ne (fun c ↦ (ν c)[id]) hc.ne)
+
+/-- In a bandit with two arms `a` and `b` of means `μ_a < μ_b`, a gap-weighted sum
+`∑ c, Δ_c f(c)` is `Δ_a f(a)`. -/
+theorem sum_gap_mul_eq_of_card_eq_two (hα : Fintype.card α = 2)
+    (hab : (ν a)[id] < (ν b)[id]) (f : α → ℝ) : ∑ c, gap ν c * f c = gap ν a * f a := by
+  rw [← sum_filter_of_ne fun c _ hc ↦ gap_nonneg.lt_of_ne' (left_ne_zero_of_mul hc),
+    filter_gap_pos_eq_singleton_of_card_eq_two hα hab, sum_singleton]
 
 /-- In a bandit with two arms `a` and `b` of means `μ_a < μ_b`, the sum of the gaps is
 `μ_b - μ_a`. -/
 theorem sum_gap_eq_of_card_eq_two (hα : Fintype.card α = 2)
     (hab : (ν a)[id] < (ν b)[id]) : ∑ c, gap ν c = (ν b)[id] - (ν a)[id] := by
-  rw [← sum_filter_of_ne fun c _ hc ↦ gap_nonneg.lt_of_ne' hc,
-    filter_gap_pos_eq_singleton_of_card_eq_two hα hab, sum_singleton,
-    gap_eq_sub_of_card_eq_two hα hab]
+  simpa only [mul_one, gap_eq_sub_of_card_eq_two hα hab a] using
+    sum_gap_mul_eq_of_card_eq_two hα hab fun _ ↦ 1
 
 end TwoArms
 

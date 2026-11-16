@@ -280,8 +280,7 @@ theorem ucbF_regret_le_of_card_eq_two (hα : Fintype.card α = 2) {a b : α}
         ((ν b)[id] - (ν a)[id] - ε) ^ 2) := by
   rw [← gap_eq_sub_of_card_eq_two hα hab] at hεΔ ⊢
   rw [integral_regret_eq_sum_gap_mul_integral_pullCount h.measurable_action,
-    ← sum_filter_of_ne fun a _ ha ↦ gap_nonneg.lt_of_ne' (left_ne_zero_of_mul ha),
-    filter_gap_pos_eq_singleton_of_card_eq_two hα hab, sum_singleton]
+    sum_gap_mul_eq_of_card_eq_two hα hab]
   exact mul_le_mul_of_nonneg_left (UCBF.integral_pullCount_le h hν hσ2 a hε hεΔ n) gap_nonneg
 
 /-- **[LS, Theorem 8.1] for two arms, at `ε = Δ / 2`.** In a bandit with two σ²-sub-Gaussian arms
