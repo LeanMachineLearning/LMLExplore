@@ -11,7 +11,7 @@ public import LMLExplore.MarkovDecisionProcess.ValueIteration.Basic
 /-!
 # The optimality equation of a discounted MDP
 
-Let `M : MDP 𝓢 𝓐 ℝ` be an MDP on a measurable state space `𝓢` with finitely many actions and
+Let `M : MDP 𝓢 𝓐 ℝ` be an MDP on a measurable state space `𝓢` with countably many actions and
 bounded rewards, and let `0 ≤ γ < 1`. Write `T` for the Bellman optimality operator
 `M.bellman γ`, `v*` for the optimal value `M.optValue γ` (the supremum of the discounted values of
 all history-dependent policies) and `Q* = r + γ P v*` for the optimal action value
@@ -24,16 +24,18 @@ bounded measurable solution is `v*`, by comparison with sub- and supersolutions
 the policies of `M`:
 * `v*` is measurable and solves the optimality equation, so it is the unique bounded measurable
   fixed point of `T`;
-* the deterministic stationary policy greedy for `v*` has value `v*`; its runs from every initial
-  law `μ` have discounted value `∫ v* dμ`, the largest value of all algorithms from `μ`;
-* `v*` is the largest value of a measurable deterministic stationary policy, attained by the
-  greedy policy;
 * a stationary policy is optimal if and only if its value solves the optimality equation;
 * `v* s = ⨆ a, Q* (s, a)`, and `Q*` is the unique bounded measurable solution of
-  `Q = r + γ P (s' ↦ ⨆ a, Q (s', a))`.
+  `Q = r + γ P (s' ↦ ⨆ a, Q (s', a))`;
+* for finitely many actions, the deterministic stationary policy greedy for `v*` has value `v*`;
+  its runs from every initial law `μ` have discounted value `∫ v* dμ`, the largest value of all
+  algorithms from `μ`, and `v*` is the largest value of a measurable deterministic stationary
+  policy, attained by the greedy policy.
 
-These are the statements of [P, §6.2] for finitely many actions, there for a countable state space,
-here on a general measurable state space.
+For countably many actions the supremum over the actions need not be attained, and the comparison
+of a subsolution with `v*` goes through measurable `ε`-greedy policies
+(`Learning.MDP.le_optValue_of_le_bellman`). These are the statements of [P, §6.2], there for a
+countable state space, here on a general measurable state space.
 
 ## Main statements
 
@@ -83,11 +85,11 @@ variable {𝓢 𝓐 : Type*} {m𝓢 : MeasurableSpace 𝓢} {m𝓐 : MeasurableS
 
 /-! ### The optimal value solves the optimality equation -/
 
-section Finite
+section Countable
 
-variable [Finite 𝓐]
+variable [Countable 𝓐]
 
-/-- **The optimality equation** [P, Theorem 6.2.5 (a)]: with finitely many actions, bounded
+/-- **The optimality equation** [P, Theorem 6.2.5 (a)]: with countably many actions, bounded
 rewards and `γ < 1`, the optimal value is a fixed point of the Bellman optimality operator. By
 `Learning.MDP.eq_optValue_of_bellman_eq`, it is its only bounded measurable fixed point. -/
 theorem bellman_optValue (hγ : γ < 1) (hR : ∀ p, ∀ᵐ x ∂(M.R p), |x| ≤ C) :
@@ -95,31 +97,31 @@ theorem bellman_optValue (hγ : γ < 1) (hR : ∀ p, ∀ᵐ x ∂(M.R p), |x| �
   obtain ⟨u, hu, huB, hu_eq⟩ := exists_bellman_eq (M := M) hγ hR
   rwa [← eq_optValue_of_bellman_eq hγ hR hu huB hu_eq]
 
-/-- With finitely many actions, bounded rewards and `γ < 1`, the optimal value is measurable. -/
+/-- With countably many actions, bounded rewards and `γ < 1`, the optimal value is measurable. -/
 theorem measurable_optValue (hγ : γ < 1) (hR : ∀ p, ∀ᵐ x ∂(M.R p), |x| ≤ C) :
     Measurable (M.optValue γ) := by
   obtain ⟨u, hu, huB, hu_eq⟩ := exists_bellman_eq (M := M) hγ hR
   rwa [← eq_optValue_of_bellman_eq hγ hR hu huB hu_eq]
 
-/-- With finitely many actions, bounded rewards and `γ < 1`, the optimal value is integrable for
+/-- With countably many actions, bounded rewards and `γ < 1`, the optimal value is integrable for
 every finite measure on the states. -/
 theorem integrable_optValue (hγ : γ < 1) (hR : ∀ p, ∀ᵐ x ∂(M.R p), |x| ≤ C) (μ : Measure 𝓢)
     [IsFiniteMeasure μ] : Integrable (M.optValue γ) μ :=
   integrable_of_abs_le (measurable_optValue hγ hR) (abs_optValue_le hγ hR) μ
 
-/-- With finitely many actions, bounded rewards and `γ < 1`, the discounted value of every
+/-- With countably many actions, bounded rewards and `γ < 1`, the discounted value of every
 algorithm from the probability measure `μ` is at most `∫ v* dμ`. -/
 theorem runValue_le_integral_optValue {μ : Measure 𝓢} [IsProbabilityMeasure μ] (hγ : γ < 1)
     (hR : ∀ p, ∀ᵐ x ∂(M.R p), |x| ≤ C) (alg : Algorithm 𝓢 𝓐 ℝ) :
     M.runValue γ alg μ ≤ ∫ s, M.optValue γ s ∂μ :=
   runValue_le_integral_of_lookahead_le hγ hR (measurable_optValue hγ hR) (abs_optValue_le hγ hR)
-    (fun p ↦ (lookahead_le_bellman (Finite.bddAbove_range _) p.2).trans_eq
-      (congrFun (bellman_optValue hγ hR) p.1)) alg
+    (fun p ↦ (lookahead_le_bellman (bddAbove_range_lookahead hR (abs_optValue_le hγ hR) p.1)
+      p.2).trans_eq (congrFun (bellman_optValue hγ hR) p.1)) alg
 
 /-! ### The optimal value as a bounded measurable function -/
 
 variable (M γ) in
-/-- With finitely many actions, rewards bounded by `C` and `γ < 1`, the optimal value as an element
+/-- With countably many actions, rewards bounded by `C` and `γ < 1`, the optimal value as an element
 of `boundedMeasurable 𝓢`. It is the fixed point of the optimality operator
 (`Learning.MDP.isFixedPt_bellmanOp_optValueBM`). -/
 noncomputable def optValueBM (hγ : γ < 1) (hR : ∀ p, ∀ᵐ x ∂(M.R p), |x| ≤ C) :
@@ -132,8 +134,8 @@ lemma coeFn_optValueBM (hγ : γ < 1) (hR : ∀ p, ∀ᵐ x ∂(M.R p), |x| ≤ 
     ⇑(M.optValueBM γ hγ hR : ℓ^∞(𝓢, ℝ)) = M.optValue γ :=
   boundedMeasurable.coeFn_mk ..
 
-/-- With finitely many actions, bounded rewards and `γ < 1`, the optimal value is the fixed point of
-the optimality operator on the bounded measurable functions. -/
+/-- With countably many actions, bounded rewards and `γ < 1`, the optimal value is the fixed point
+of the optimality operator on the bounded measurable functions. -/
 lemma isFixedPt_bellmanOp_optValueBM (hγ : γ < 1) (hR : ∀ p, ∀ᵐ x ∂(M.R p), |x| ≤ C) :
     Function.IsFixedPt (M.bellmanOp γ hR) (M.optValueBM γ hγ hR) :=
   isFixedPt_bellmanOp_mk (measurable_optValue hγ hR) (abs_optValue_le hγ hR)
@@ -141,7 +143,7 @@ lemma isFixedPt_bellmanOp_optValueBM (hγ : γ < 1) (hR : ∀ p, ∀ᵐ x ∂(M.
 
 /-! ### Sequences dominating value iteration -/
 
-/-- **Geometric convergence of sequences dominating value iteration**: with finitely many actions,
+/-- **Geometric convergence of sequences dominating value iteration**: with countably many actions,
 bounded rewards and `γ < 1`, let `u` be a sequence of bounded measurable functions below the
 optimal value with `T (u k) ≤ u (k + 1)` for all `k`, where `T` is the Bellman optimality operator.
 If `u 0` is within `D` of the optimal value, then `u k` is within `γ ^ k * D` of it. -/
@@ -165,7 +167,7 @@ theorem abs_sub_optValue_le_of_bellman_le_succ (hγ : γ < 1) (hR : ∀ p, ∀�
     boundedMeasurable.abs_sub_apply_le_mul_of_norm_sub_le (pow_nonneg γ.coe_nonneg k) hnorm
       (by simpa only [hU, coeFn_optValueBM] using hD) s
 
-end Finite
+end Countable
 
 /-! ### The greedy policy for the optimal value -/
 
@@ -199,11 +201,11 @@ theorem runValue_policyAlg_greedy {μ : Measure 𝓢} [IsProbabilityMeasure μ] 
 
 end Greedy
 
+/-! ### Optimal policies -/
+
 section Finite
 
 variable [Finite 𝓐]
-
-/-! ### Optimal policies -/
 
 /-- **Optimality from every initial law**: with finitely many actions, bounded rewards and
 `γ < 1`, from every probability measure `μ` the largest discounted value of an algorithm is
@@ -228,8 +230,14 @@ theorem isGreatest_value (hγ : γ < 1) (hR : ∀ p, ∀ᵐ x ∂(M.R p), |x| �
   exact ⟨⟨⟨_, measurable_greedy (measurable_optValue hγ hR)⟩, value_greedy_optValue hγ hR _⟩,
     forall_mem_range.2 fun _ ↦ value_le_optValue hγ hR⟩
 
+end Finite
+
+section Countable
+
+variable [Countable 𝓐]
+
 /-- **A stationary policy is optimal if and only if its value solves the optimality equation**
-([P, Theorem 6.2.6], for stationary policies): with finitely many actions, bounded rewards and
+([P, Theorem 6.2.6], for stationary policies): with countably many actions, bounded rewards and
 `γ < 1`, the value of a stationary policy `π` is the optimal value if and only if it is a fixed
 point of the Bellman optimality operator. -/
 theorem value_eq_optValue_iff {π : Kernel 𝓢 𝓐} [IsMarkovKernel π] (hγ : γ < 1)
@@ -241,41 +249,41 @@ theorem value_eq_optValue_iff {π : Kernel 𝓢 𝓐} [IsMarkovKernel π] (hγ :
 
 /-! ### The optimality equation for action values -/
 
-/-- With finitely many actions, bounded rewards and `γ < 1`, the optimal action value is
+/-- With countably many actions, bounded rewards and `γ < 1`, the optimal action value is
 measurable. -/
 theorem measurable_optQValue (hγ : γ < 1) (hR : ∀ p, ∀ᵐ x ∂(M.R p), |x| ≤ C) :
     Measurable (M.optQValue γ) := by
   rw [optQValue_eq_lookahead]
   exact measurable_lookahead (measurable_optValue hγ hR)
 
-/-- With finitely many actions, bounded rewards and `γ < 1`, the section `a ↦ Q* (s, a)` of the
+/-- With countably many actions, bounded rewards and `γ < 1`, the section `a ↦ Q* (s, a)` of the
 optimal action value is integrable for every finite measure on actions. -/
 theorem integrable_optQValue_prodMk_left (hγ : γ < 1) (hR : ∀ p, ∀ᵐ x ∂(M.R p), |x| ≤ C) (s : 𝓢)
     (μ : Measure 𝓐) [IsFiniteMeasure μ] : Integrable (fun a ↦ M.optQValue γ (s, a)) μ :=
   integrable_of_abs_le ((measurable_optQValue hγ hR).comp measurable_prodMk_left)
     (fun a ↦ abs_optQValue_le hγ hR (s, a)) μ
 
-/-- With finitely many actions, bounded rewards and `γ < 1`, the optimal action value is at most
+/-- With countably many actions, bounded rewards and `γ < 1`, the optimal action value is at most
 the optimal value: `Q* (s, a) ≤ v* s`. -/
 theorem optQValue_le_optValue (hγ : γ < 1) (hR : ∀ p, ∀ᵐ x ∂(M.R p), |x| ≤ C) (s : 𝓢) (a : 𝓐) :
     M.optQValue γ (s, a) ≤ M.optValue γ s := by
   rw [optQValue_eq_lookahead]
-  exact (lookahead_le_bellman (Finite.bddAbove_range _) a).trans_eq
+  exact (lookahead_le_bellman (bddAbove_range_lookahead hR (abs_optValue_le hγ hR) s) a).trans_eq
     (congrFun (bellman_optValue hγ hR) s)
 
-/-- With finitely many actions, bounded rewards and `γ < 1`, the optimal value at `s` is the
+/-- With countably many actions, bounded rewards and `γ < 1`, the optimal value at `s` is the
 largest optimal action value at `s`: `v* s = ⨆ a, Q* (s, a)`. -/
 theorem iSup_optQValue (hγ : γ < 1) (hR : ∀ p, ∀ᵐ x ∂(M.R p), |x| ≤ C) (s : 𝓢) :
     ⨆ a, M.optQValue γ (s, a) = M.optValue γ s := by
   rw [optQValue_eq_lookahead, ← bellman_def, bellman_optValue hγ hR]
 
-/-- **The optimality equation for action values**: with finitely many actions, bounded rewards and
+/-- **The optimality equation for action values**: with countably many actions, bounded rewards and
 `γ < 1`, the optimal action value satisfies `Q* = r + γ P (s' ↦ ⨆ a, Q* (s', a))`. -/
 theorem lookahead_iSup_optQValue (hγ : γ < 1) (hR : ∀ p, ∀ᵐ x ∂(M.R p), |x| ≤ C) :
     M.lookahead γ (fun s ↦ ⨆ a, M.optQValue γ (s, a)) = M.optQValue γ := by
   rw [funext (iSup_optQValue hγ hR), optQValue_eq_lookahead]
 
-/-- **Uniqueness in the optimality equation for action values**: with finitely many actions,
+/-- **Uniqueness in the optimality equation for action values**: with countably many actions,
 bounded rewards and `γ < 1`, a bounded measurable solution `Q` of
 `Q = r + γ P (s' ↦ ⨆ a, Q (s', a))` is the optimal action value. -/
 theorem eq_optQValue_of_lookahead_iSup_eq (hγ : γ < 1) (hR : ∀ p, ∀ᵐ x ∂(M.R p), |x| ≤ C)
@@ -297,7 +305,7 @@ section Stationary
 
 variable {π : Kernel 𝓢 𝓐} [IsMarkovKernel π]
 
-/-- With finitely many actions, bounded rewards and `γ < 1`, the action value of every stationary
+/-- With countably many actions, bounded rewards and `γ < 1`, the action value of every stationary
 policy is at most the optimal action value: `Q^π ≤ Q*`. -/
 theorem qValue_le_optQValue (hγ : γ < 1) (hR : ∀ p, ∀ᵐ x ∂(M.R p), |x| ≤ C) :
     M.qValue γ π ≤ M.optQValue γ := fun p ↦ by
@@ -305,7 +313,7 @@ theorem qValue_le_optQValue (hγ : γ < 1) (hR : ∀ p, ∀ᵐ x ∂(M.R p), |x|
   exact lookahead_mono (integrable_of_abs_le (measurable_value hγ hR) (abs_value_le hγ hR) _)
     (integrable_optValue hγ hR _) (value_le_optValue hγ hR)
 
-/-- With finitely many actions, bounded rewards and `γ < 1`, a stationary policy whose value is
+/-- With countably many actions, bounded rewards and `γ < 1`, a stationary policy whose value is
 within `ε` of the optimal value, `v* - v^π ≤ ε`, has action values within `γ ε` of the optimal
 action values: `Q* - Q^π ≤ γ ε`. -/
 theorem optQValue_sub_qValue_le_of_optValue_sub_value_le (hγ : γ < 1)
@@ -319,7 +327,7 @@ theorem optQValue_sub_qValue_le_of_optValue_sub_value_le (hγ : γ < 1)
   gcongr
   exact (integral_mono (hv.sub hv') (integrable_const ε) hπ).trans_eq (by simp)
 
-/-- With finitely many actions, bounded rewards and `γ < 1`, the optimal action value integrated
+/-- With countably many actions, bounded rewards and `γ < 1`, the optimal action value integrated
 against the state-action kernel of a stationary policy `π` built on the transition kernel of any
 MDP `M'` is at most the optimal value integrated against that transition kernel:
 `P'^π_SA Q* ≤ P' v*`. This is the inequality counterpart of `integral_qValue_saKernel`. -/
@@ -335,7 +343,7 @@ theorem integral_optQValue_saKernel_le {𝓡 : Type*} {m𝓡 : MeasurableSpace �
           hint fun q ↦ optQValue_le_optValue hγ hR q.1 q.2
     _ = ∫ s, M.optValue γ s ∂(M'.P p) := by rw [integral_saKernel hint]; simp
 
-omit [Finite 𝓐] [Nonempty 𝓐] [IsMarkovKernel π] in
+omit [Countable 𝓐] [Nonempty 𝓐] [IsMarkovKernel π] in
 /-- The action value of an optimal stationary policy is the optimal action value: if
 `v^π = v*`, then `Q^π = Q*`. -/
 theorem qValue_eq_optQValue (h : M.value γ π = M.optValue γ) : M.qValue γ π = M.optQValue γ := by
@@ -343,7 +351,7 @@ theorem qValue_eq_optQValue (h : M.value γ π = M.optValue γ) : M.qValue γ π
 
 end Stationary
 
-end Finite
+end Countable
 
 /-! ### Uniqueness of the optimal action -/
 

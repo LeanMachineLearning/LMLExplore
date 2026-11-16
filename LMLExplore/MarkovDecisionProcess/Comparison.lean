@@ -26,8 +26,11 @@ policies, and gives:
   the value of every algorithm from `μ` is at most `∫ v dμ`, hence `v* ≤ v`;
 * if `v` is a *subsolution* of the evaluation equation of a stationary policy `π`,
   `v ≤ r_π + γ P_π v`, then `v ≤ v^π`;
+* if `v` is an approximate subsolution, `v - ε ≤ r_π + γ P_π v`, then `v - ε / (1 - γ) ≤ v^π`;
+  in particular, if `v ≤ T v`, every measurable deterministic policy `ε`-greedy for `v` has value
+  at least `v - ε / (1 - γ)`;
 * if `v` is a subsolution of the optimality equation, `v ≤ T v`, then `v ≤ v*`, through the
-  policy greedy for `v` (for finitely many actions);
+  measurable `ε`-greedy policies for `v` as `ε → 0` (for countably many actions);
 * hence a bounded measurable solution of the optimality equation `T v = v` is `v*`.
 
 For a stationary policy `π` and `v = v^π`, the lookahead is the action value of `π` and the
@@ -59,6 +62,9 @@ Here `T` is the Bellman optimality operator `M.bellman γ` and `v*` the optimal 
   `v^π = v + ∑ n, γ ^ n P_π ^ n (T_π v - v)`, where `T_π` is the evaluation operator of `π`.
 * `Learning.MDP.le_value_of_le_bellmanEval`, `Learning.MDP.le_optValue_of_le_bellman`: a
   subsolution is a lower bound of `v^π`, respectively of `v*` [P, Theorem 6.2.2 (b)];
+  `Learning.MDP.sub_div_le_value_of_sub_le_bellmanEval`: `v - ε ≤ T_π v → v - ε / (1 - γ) ≤ v^π`;
+  `Learning.MDP.sub_div_le_value_of_isApproxGreedy`: if `v ≤ T v`, a policy `ε`-greedy for `v`
+  has value at least `v - ε / (1 - γ)`;
   `Learning.MDP.bellmanEval_le_value`: policy improvement, `v ≤ T_π v → T_π v ≤ v^π`.
 * `Learning.MDP.eq_optValue_of_bellman_eq`: a bounded measurable solution of the optimality
   equation is the optimal value [P, Theorem 6.2.2 (c)].
@@ -354,22 +360,58 @@ theorem bellmanEval_le_value (hγ : γ < 1) (hR : ∀ p, ∀ᵐ x ∂(M.R p), |x
   (bellmanEval_mono hR hv hvB (measurable_value hγ hR) (abs_value_le hγ hR)
     (le_value_of_le_bellmanEval hγ hR hv hvB hle)).trans_eq (bellmanEval_value hγ hR)
 
-/-- **Comparison with a subsolution** [P, Theorem 6.2.2 (b)]: with finitely many actions, bounded
+/-- **Comparison with an approximate subsolution**: with bounded rewards and `γ < 1`, a bounded
+measurable `v` with `v - ε ≤ r_π + γ P_π v` is at most `ε / (1 - γ)` above the value of the
+stationary policy `π`: `v - ε / (1 - γ) ≤ v^π`. This is the pointwise analogue, for the evaluation
+operator, of `LMLExplore.IsBlackwell.sub_smul_le_of_sub_smul_le_map`, without its sign condition on
+`ε`; the case `ε = 0` is `Learning.MDP.le_value_of_le_bellmanEval`. -/
+theorem sub_div_le_value_of_sub_le_bellmanEval (hγ : γ < 1) (hR : ∀ p, ∀ᵐ x ∂(M.R p), |x| ≤ C)
+    (hv : Measurable v) (hvB : ∀ s, |v s| ≤ B) {ε : ℝ}
+    (hle : ∀ s, v s - ε ≤ M.bellmanEval γ π v s) (s : 𝓢) :
+    v s - ε / (1 - γ) ≤ M.value γ π s := by
+  have h1γ : (1 - γ : ℝ) ≠ 0 := (sub_pos.2 (NNReal.coe_lt_one.2 hγ)).ne'
+  set c := ε / (1 - γ)
+  have hc : ε + γ * c = c := by simp only [c]; field_simp; ring
+  -- `v - c` is a subsolution: `T_π (v - c) = T_π v - γ * c ≥ v - ε - γ * c = v - c`
+  have h := le_value_of_le_bellmanEval (π := π) hγ hR (hv.add measurable_const)
+    (B := B + |-c|) (fun s ↦ (abs_add_le _ _).trans (add_le_add_left (hvB s) _)) (fun s ↦ by
+      rw [bellmanEval_add_const hR hv hvB]
+      simp only [Pi.add_apply]
+      linarith [hle s]) s
+  simpa only [Pi.add_apply, ← sub_eq_add_neg] using h
+
+/-- **`ε`-greedy policies for a subsolution**: with bounded rewards and `γ < 1`, let a bounded
+measurable `v` satisfy `v ≤ T v`, where `T` is the Bellman optimality operator. A measurable
+deterministic policy `d` that is `ε`-greedy for `v` has value at least `v - ε / (1 - γ)`. -/
+theorem sub_div_le_value_of_isApproxGreedy (hγ : γ < 1) (hR : ∀ p, ∀ᵐ x ∂(M.R p), |x| ≤ C)
+    (hv : Measurable v) (hvB : ∀ s, |v s| ≤ B) (hle : v ≤ M.bellman γ v) {ε : ℝ} {d : 𝓢 → 𝓐}
+    (hd : Measurable d) (hg : M.IsApproxGreedy γ ε v d) (s : 𝓢) :
+    v s - ε / (1 - γ) ≤ M.value γ (Kernel.deterministic d hd) s :=
+  sub_div_le_value_of_sub_le_bellmanEval hγ hR hv hvB (fun s ↦
+    (sub_le_sub_right (hle s) ε).trans
+      ((isApproxGreedy_iff_bellman_sub_le_bellmanEval hv hd).1 hg s)) s
+
+/-- **Comparison with a subsolution** [P, Theorem 6.2.2 (b)]: with countably many actions, bounded
 rewards and `γ < 1`, a bounded measurable `v` with `v ≤ T v` is at most the optimal value, where
-`T` is the Bellman optimality operator. The value of the policy greedy for `v` already
-dominates `v`. -/
-theorem le_optValue_of_le_bellman [Finite 𝓐] [Nonempty 𝓐] (hγ : γ < 1)
+`T` is the Bellman optimality operator. For every `ε > 0`, the value of the measurable `ε`-greedy
+policy `M.approxGreedy γ ε v` is at least `v - ε / (1 - γ)`. -/
+theorem le_optValue_of_le_bellman [Countable 𝓐] [Nonempty 𝓐] (hγ : γ < 1)
     (hR : ∀ p, ∀ᵐ x ∂(M.R p), |x| ≤ C) (hv : Measurable v) (hvB : ∀ s, |v s| ≤ B)
     (hle : v ≤ M.bellman γ v) :
     v ≤ M.optValue γ := fun s ↦ by
-  have := Fintype.ofFinite 𝓐
-  rw [← bellmanEval_greedy hv] at hle
-  exact (le_value_of_le_bellmanEval hγ hR hv hvB hle s).trans (value_le_optValue hγ hR s)
+  have h1γ : (0 : ℝ) < 1 - γ := sub_pos.2 (NNReal.coe_lt_one.2 hγ)
+  refine le_of_forall_pos_le_add fun δ hδ ↦ ?_
+  have hε : 0 < δ * (1 - γ) := mul_pos hδ h1γ
+  have hd := measurable_approxGreedy (M := M) (γ := γ) (ε := δ * (1 - γ)) hv
+  have h := sub_div_le_value_of_isApproxGreedy hγ hR hv hvB hle hd
+    (isApproxGreedy_approxGreedy hε v) s
+  rw [mul_div_cancel_right₀ _ h1γ.ne'] at h
+  linarith [value_le_optValue (π := Kernel.deterministic _ hd) hγ hR s]
 
-/-- **Uniqueness in the optimality equation** [P, Theorem 6.2.2 (c)]: with finitely many actions,
+/-- **Uniqueness in the optimality equation** [P, Theorem 6.2.2 (c)]: with countably many actions,
 bounded rewards and `γ < 1`, a bounded measurable solution `v` of `T v = v` is the optimal value,
 where `T` is the Bellman optimality operator. -/
-theorem eq_optValue_of_bellman_eq [Finite 𝓐] [Nonempty 𝓐] (hγ : γ < 1)
+theorem eq_optValue_of_bellman_eq [Countable 𝓐] [Nonempty 𝓐] (hγ : γ < 1)
     (hR : ∀ p, ∀ᵐ x ∂(M.R p), |x| ≤ C) (hv : Measurable v) (hvB : ∀ s, |v s| ≤ B)
     (h : M.bellman γ v = v) :
     v = M.optValue γ :=
