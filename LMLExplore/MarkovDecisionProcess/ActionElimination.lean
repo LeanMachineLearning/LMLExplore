@@ -11,7 +11,7 @@ public import LMLExplore.MarkovDecisionProcess.ValueIteration.Bounds
 /-!
 # Action elimination in discounted MDPs
 
-Let `M : MDP 𝓢 𝓐 ℝ` be an MDP on a measurable state space `𝓢` with finitely many actions and
+Let `M : MDP 𝓢 𝓐 ℝ` be an MDP on a measurable state space `𝓢` with countably many actions and
 bounded rewards, and let `0 ≤ γ < 1`. Write `T` for the Bellman optimality operator
 `M.bellman γ`, `v*` for the optimal value `M.optValue γ`, `Q* = r + γ P v*` for the optimal action
 value `M.optQValue γ` and `v^π` for the value of a stationary policy `π`.
@@ -61,7 +61,7 @@ open scoped NNReal
 namespace Learning.MDP
 
 variable {𝓢 𝓐 : Type*} {m𝓢 : MeasurableSpace 𝓢} {m𝓐 : MeasurableSpace 𝓐} [Nonempty 𝓢]
-  [Nonempty 𝓐] [Finite 𝓐] {M : MDP 𝓢 𝓐 ℝ} {γ : ℝ≥0} {C : ℝ}
+  [Nonempty 𝓐] [Countable 𝓐] {M : MDP 𝓢 𝓐 ℝ} {γ : ℝ≥0} {C : ℝ}
 
 /-! ### Suboptimal actions and stationary policies -/
 
@@ -69,7 +69,7 @@ section Stationary
 
 variable {π : Kernel 𝓢 𝓐} [IsMarkovKernel π]
 
-/-- With finitely many actions, bounded rewards and `γ < 1`, the value of a stationary policy `π`
+/-- With countably many actions, bounded rewards and `γ < 1`, the value of a stationary policy `π`
 in the state `s` is at most the mean under `π s` of the optimal action value:
 `v^π s ≤ ∫ a, Q* (s, a) ∂(π s)`. -/
 theorem value_le_integral_optQValue (hγ : γ < 1) (hR : ∀ p, ∀ᵐ x ∂(M.R p), |x| ≤ C) (s : 𝓢) :
@@ -88,7 +88,7 @@ private lemma integral_optValue_sub_optQValue (hγ : γ < 1) (hR : ∀ p, ∀ᵐ
     integral_const, probReal_univ, one_smul]
 
 /-- **Elimination of suboptimal actions** ([P, Proposition 6.7.1, Corollary 6.7.2], for
-stationary randomized policies): with finitely many actions, bounded rewards and `γ < 1`, if a
+stationary randomized policies): with countably many actions, bounded rewards and `γ < 1`, if a
 stationary policy `π` gives positive probability in the state `s` to the actions `a` with
 `Q* (s, a) < v* s`, then `π` is not optimal in `s`: `v^π s < v* s`. -/
 theorem value_lt_optValue_of_measure_ne_zero (hγ : γ < 1) (hR : ∀ p, ∀ᵐ x ∂(M.R p), |x| ≤ C)
@@ -108,7 +108,7 @@ theorem value_lt_optValue_of_measure_ne_zero (hγ : γ < 1) (hR : ∀ p, ∀ᵐ 
   rw [integral_optValue_sub_optQValue hγ hR] at hpos
   linarith [value_le_integral_optQValue (π := π) hγ hR s]
 
-/-- **Optimal stationary policies play optimal actions**: with finitely many actions, bounded
+/-- **Optimal stationary policies play optimal actions**: with countably many actions, bounded
 rewards and `γ < 1`, a stationary policy `π` is optimal if and only if, in every state `s`, it
 plays almost surely actions `a` with `Q* (s, a) = v* s`. -/
 theorem value_eq_optValue_iff_ae_optQValue_eq (hγ : γ < 1)
@@ -128,7 +128,7 @@ theorem value_eq_optValue_iff_ae_optQValue_eq (hγ : γ < 1)
       probReal_univ, one_smul]
 
 /-- **Elimination of suboptimal actions** for deterministic policies [P, Proposition 6.7.1,
-Corollary 6.7.2]: with finitely many actions, bounded rewards and `γ < 1`, if the action `d s` of
+Corollary 6.7.2]: with countably many actions, bounded rewards and `γ < 1`, if the action `d s` of
 a measurable deterministic stationary policy `d` has `Q* (s, d s) < v* s`, then `d` is not optimal
 in `s`: `v^d s < v* s`. -/
 theorem value_deterministic_lt_optValue (hγ : γ < 1) (hR : ∀ p, ∀ᵐ x ∂(M.R p), |x| ≤ C)
@@ -142,7 +142,7 @@ end Stationary
 
 /-! ### Elimination tests from bounds on the optimal value -/
 
-/-- **The action elimination test** [P, Proposition 6.7.3]: with finitely many actions, bounded
+/-- **The action elimination test** [P, Proposition 6.7.3]: with countably many actions, bounded
 rewards and `γ < 1`, let `vU` be an upper bound of `v*`, integrable for `P (s, a)`, and let `vL s`
 be a lower bound of `v* s`. If `r (s, a) + γ ∫ vU dP (s, a) < vL s`, then the action `a` is
 suboptimal in `s`: `Q* (s, a) < v* s`. -/
@@ -154,7 +154,7 @@ theorem optQValue_lt_optValue_of_lookahead_lt (hγ : γ < 1) (hR : ∀ p, ∀ᵐ
   exact ((lookahead_mono (integrable_optValue hγ hR _) hU_int hU).trans_lt h).trans_le hL
 
 /-- **The action elimination test** for deterministic policies [P, Proposition 6.7.3]: with
-finitely many actions, bounded rewards and `γ < 1`, let `vU` be an upper bound of `v*`, integrable
+countably many actions, bounded rewards and `γ < 1`, let `vU` be an upper bound of `v*`, integrable
 for `P (s, d s)`, and let `vL s` be a lower bound of `v* s`. If a measurable deterministic
 stationary policy `d` has `r (s, d s) + γ ∫ vU dP (s, d s) < vL s`, then `d` is not optimal in `s`:
 `v^d s < v* s`. -/
@@ -166,7 +166,7 @@ theorem value_deterministic_lt_optValue_of_lookahead_lt (hγ : γ < 1)
   value_deterministic_lt_optValue hγ hR hd
     (optQValue_lt_optValue_of_lookahead_lt hγ hR hU hU_int hL h)
 
-/-- **The action elimination test after one step of value iteration**: with finitely many actions,
+/-- **The action elimination test after one step of value iteration**: with countably many actions,
 bounded rewards and `γ < 1`, let `v` be a bounded measurable function with `α ≤ T v - v ≤ β`.
 The bounds `T v + γ α / (1 - γ) ≤ v* ≤ T v + γ β / (1 - γ)` of [P, Corollary 6.6.4] in the test
 `Learning.MDP.optQValue_lt_optValue_of_lookahead_lt` show that, if

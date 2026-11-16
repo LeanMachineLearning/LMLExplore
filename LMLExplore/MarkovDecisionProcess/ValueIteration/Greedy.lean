@@ -14,7 +14,7 @@ Let `M : MDP 𝓢 𝓐 ℝ` be an MDP on a measurable state space `𝓢` with bo
 `0 ≤ γ < 1`. Write `T` for the Bellman optimality operator `M.bellman γ`, `T_π` for the evaluation
 operator `M.bellmanEval γ π` of a stationary policy `π`, `v^π` for its value `M.value γ π` and `v*`
 for the optimal value `M.optValue γ`. Value iteration computes the iterates `v n = T^[n] v₀` of a
-bounded measurable `v₀`; they converge to `v*` (`Learning.MDP.abs_bellman_iterate_sub_le`).
+bounded measurable `v₀`; they converge to `v*` (`Learning.MDP.abs_bellman_iterate_sub_optValue_le`).
 
 This file turns value iteration into an algorithm returning a policy. A stationary policy `π` is
 greedy for `w` when `T_π w = T w`; the deterministic policy `M.greedy γ w` is one
@@ -31,11 +31,14 @@ greedy for `w` when `T_π w = T w`; the deterministic policy `M.greedy γ w` is 
 
 Puterman states these bounds with the sup norm on a countable state space. Here they are
 pointwise, with an explicit bound `D` or `δ` on the sup norm, on a general measurable state space.
-The bounds involving `v*` assume finitely many actions, and the a posteriori bound for policy
-evaluation none.
+The bounds involving `v*` assume countably many actions, and the a posteriori bound for policy
+evaluation none. For countably many actions a policy greedy for `w` need not exist; the bounds
+hold for every one that does.
 
 ## Main statements
 
+* `Learning.MDP.abs_bellman_iterate_sub_optValue_le`: value iteration converges to `v*` at the
+  geometric rate `|T^[n] v - v*| ≤ γ ^ n * D / (1 - γ)` [P, Theorem 6.3.3 (d)].
 * `Learning.MDP.abs_value_sub_le`, `Learning.MDP.abs_optValue_sub_le`: the a posteriori bounds.
 * `Learning.MDP.abs_value_sub_optValue_le_of_bellmanEval_eq`: the policies greedy for `w` are
   `2 D / (1 - γ)`-optimal.
@@ -89,19 +92,28 @@ theorem abs_value_sub_le {π : Kernel 𝓢 𝓐} [IsMarkovKernel π] (hγ : γ <
 
 section OptimalValue
 
-variable [Nonempty 𝓢] [Finite 𝓐] [Nonempty 𝓐]
+variable [Nonempty 𝓢] [Countable 𝓐] [Nonempty 𝓐]
 
-/-- **A posteriori bound for the optimal value**: with finitely many actions, rewards bounded by
+/-- **Value iteration converges to the optimal value** [P, Theorem 6.3.3 (d)]: with countably many
+actions, rewards bounded by `C` and `γ < 1`, if a bounded measurable `v` moves by at most `D` under
+the Bellman optimality operator, `|T v - v| ≤ D`, then the iterate `T^[n] v` is within
+`γ ^ n * D / (1 - γ)` of the optimal value. -/
+theorem abs_bellman_iterate_sub_optValue_le (hγ : γ < 1) (hR : ∀ p, ∀ᵐ x ∂(M.R p), |x| ≤ C)
+    (hv : Measurable v) (hvB : ∀ s, |v s| ≤ B) (hD : ∀ s, |M.bellman γ v s - v s| ≤ D) (n : ℕ)
+    (s : 𝓢) : |(M.bellman γ)^[n] v s - M.optValue γ s| ≤ γ ^ n * D / (1 - γ) :=
+  abs_bellman_iterate_sub_le hγ hR hv hvB (measurable_optValue hγ hR) (abs_optValue_le hγ hR)
+    (bellman_optValue hγ hR) hD n s
+
+/-- **A posteriori bound for the optimal value**: with countably many actions, rewards bounded by
 `C` and `γ < 1`, if a bounded measurable `w` moves by at most `D` under the Bellman optimality
 operator, `|T w - w| ≤ D`, then `w` is within `D / (1 - γ)` of the optimal value. -/
 theorem abs_optValue_sub_le (hγ : γ < 1) (hR : ∀ p, ∀ᵐ x ∂(M.R p), |x| ≤ C) (hw : Measurable w)
     (hwB : ∀ s, |w s| ≤ B) (hD : ∀ s, |M.bellman γ w s - w s| ≤ D) (s : 𝓢) :
     |M.optValue γ s - w s| ≤ D / (1 - γ) := by
   rw [abs_sub_comm]
-  simpa using abs_bellman_iterate_sub_le hγ hR hw hwB (measurable_optValue hγ hR)
-    (abs_optValue_le hγ hR) (bellman_optValue hγ hR) hD 0 s
+  simpa using abs_bellman_iterate_sub_optValue_le hγ hR hw hwB hD 0 s
 
-/-- **Greedy policies are nearly optimal**: with finitely many actions, rewards bounded by `C` and
+/-- **Greedy policies are nearly optimal**: with countably many actions, rewards bounded by `C` and
 `γ < 1`, if a bounded measurable `w` satisfies `|T w - w| ≤ D`, then every stationary policy `π`
 greedy for `w`, `T_π w = T w`, has a value within `2 D / (1 - γ)` of the optimal value. -/
 theorem abs_value_sub_optValue_le_of_bellmanEval_eq {π : Kernel 𝓢 𝓐} [IsMarkovKernel π]
@@ -119,7 +131,7 @@ theorem abs_value_sub_optValue_le_of_bellmanEval_eq {π : Kernel 𝓢 𝓐} [IsM
 
 /-! ### Greedy policies for the iterates -/
 
-/-- **Greedy policies for the iterates of value iteration** ([P, Theorem 6.3.3 (e)]): with finitely
+/-- **Greedy policies for the iterates of value iteration** ([P, Theorem 6.3.3 (e)]): with countably
 many actions, rewards bounded by `C` and `γ < 1`, if a bounded measurable `v` satisfies
 `|T v - v| ≤ D`, then every stationary policy `π` greedy for the iterate `T^[n] v` has a value
 within `2 * γ ^ n * D / (1 - γ)` of the optimal value. -/
@@ -139,16 +151,15 @@ theorem abs_value_sub_optValue_le_of_bellmanEval_iterate_eq {π : Kernel 𝓢 �
 
 /-! ### The stopping rule of value iteration -/
 
-/-- With finitely many actions, rewards bounded by `C` and `γ < 1`, if a bounded measurable `v`
+/-- With countably many actions, rewards bounded by `C` and `γ < 1`, if a bounded measurable `v`
 satisfies `|T v - v| ≤ δ`, then `T v` is within `γ * δ / (1 - γ)` of the optimal value. -/
 theorem abs_bellman_sub_optValue_le (hγ : γ < 1) (hR : ∀ p, ∀ᵐ x ∂(M.R p), |x| ≤ C)
     (hv : Measurable v) (hvB : ∀ s, |v s| ≤ B) (hδ : ∀ s, |M.bellman γ v s - v s| ≤ δ) (s : 𝓢) :
     |M.bellman γ v s - M.optValue γ s| ≤ γ * δ / (1 - γ) := by
-  simpa using abs_bellman_iterate_sub_le hγ hR hv hvB (measurable_optValue hγ hR)
-    (abs_optValue_le hγ hR) (bellman_optValue hγ hR) hδ 1 s
+  simpa using abs_bellman_iterate_sub_optValue_le hγ hR hv hvB hδ 1 s
 
 /-- **The stopping rule of value iteration**, its bound on the iterate
-([P, Theorem 6.3.1 (d)]): with finitely many actions, rewards bounded by `C` and `γ < 1`, if a
+([P, Theorem 6.3.1 (d)]): with countably many actions, rewards bounded by `C` and `γ < 1`, if a
 bounded measurable `v` satisfies `|T v - v| ≤ δ` with `2 * γ * δ < ε * (1 - γ)`, then `T v` is
 within `ε / 2` of the optimal value. -/
 theorem abs_bellman_sub_optValue_lt (hγ : γ < 1) (hR : ∀ p, ∀ᵐ x ∂(M.R p), |x| ≤ C)
@@ -160,7 +171,7 @@ theorem abs_bellman_sub_optValue_lt (hγ : γ < 1) (hR : ∀ p, ∀ᵐ x ∂(M.R
   rw [div_lt_iff₀ h1γ]
   linarith
 
-/-- **The stopping rule of value iteration**, its policy ([P, Theorem 6.3.1 (c)]): with finitely
+/-- **The stopping rule of value iteration**, its policy ([P, Theorem 6.3.1 (c)]): with countably
 many actions, rewards bounded by `C` and `γ < 1`, if a bounded measurable `v` satisfies
 `|T v - v| ≤ δ` with `2 * γ * δ < ε * (1 - γ)`, then every stationary policy `π` greedy for `T v`
 is `ε`-optimal: its value is within `ε` of the optimal value. -/

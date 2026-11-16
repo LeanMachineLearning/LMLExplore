@@ -217,9 +217,13 @@ theorem abs_value_saAbsorbing_sub_value_saAbsorbing_le [IsMarkovKernel π] (hγ 
 
 section Optimal
 
-variable [Nonempty 𝓢] [Nonempty 𝓐] [Finite 𝓐]
+variable [Nonempty 𝓢] [Nonempty 𝓐]
 
-/-- **The modification at the optimal value** [LWCGC24, Lemma 3]: with finitely many actions,
+section Countable
+
+variable [Countable 𝓐]
+
+/-- **The modification at the optimal value** [LWCGC24, Lemma 3]: with countably many actions,
 bounded rewards and `γ < 1`, the `p`-absorbing modification of `M` with reward `Q* p - γ v* s`,
 for `p = (s, a)`, has the same optimal value `v*` as `M`. -/
 theorem optValue_saAbsorbing_optQValue (hγ : γ < 1) (hR : ∀ p, ∀ᵐ x ∂(M.R p), |x| ≤ C) :
@@ -232,13 +236,17 @@ theorem optValue_saAbsorbing_optQValue (hγ : γ < 1) (hR : ∀ p, ∀ᵐ x ∂(
   simp only [bellman_def, h]
   rw [← bellman_def, bellman_optValue hγ hR]
 
-/-- **The modification at the optimal value** [LWCGC24, Lemma 3]: with finitely many actions,
+/-- **The modification at the optimal value** [LWCGC24, Lemma 3]: with countably many actions,
 bounded rewards and `γ < 1`, the `p`-absorbing modification of `M` with reward `Q* p - γ v* s`,
 for `p = (s, a)`, has the same optimal action value `Q*` as `M`. -/
 theorem optQValue_saAbsorbing_optQValue (hγ : γ < 1) (hR : ∀ p, ∀ᵐ x ∂(M.R p), |x| ≤ C) :
     (M.saAbsorbing p (M.optQValue γ p - γ * M.optValue γ p.1)).optQValue γ = M.optQValue γ := by
   rw [optQValue_eq_lookahead, optValue_saAbsorbing_optQValue hγ hR, optQValue_eq_lookahead,
     lookahead_saAbsorbing_of_eq (sub_add_cancel _ _)]
+
+end Countable
+
+variable [Finite 𝓐]
 
 /-- **The optimal action values are Lipschitz in the absorbing reward** [LWCGC24, (88)]: with
 finitely many actions, bounded rewards and `γ < 1`, the optimal action values of the
