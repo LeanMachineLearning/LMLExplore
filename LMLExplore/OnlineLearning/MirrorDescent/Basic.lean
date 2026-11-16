@@ -59,6 +59,8 @@ of losses, in particular for losses chosen adaptively from the past plays.
 * `IsMirrorDescentStep.mul_apply_sub_le`: the one-step inequality
   `η y (x - u) ≤ D_F(u, a) - D_F(u, x) - D_F(x, a)`, and its form
   `IsMirrorDescentStep.apply_sub_le` for `η > 0`, which splits `y (a - u)` at `x`.
+* `IsMirrorDescentStep.mul_norm_sub_le`: [Ora, Lemma 6.39] for an `m`-strongly convex potential,
+  the step is short, `m * ‖x - a‖ ≤ η * ‖y‖`.
 * `mem_of_isMirrorDescentStep`: plays of mirror descent started in `K` stay in `K`.
 * `sum_apply_sub_le_mirrorDescent`: for any learning rates `η t > 0` and any initial play, with
   `d t = D_F(u, a t)`, the regret against `u` is at most
@@ -254,6 +256,28 @@ theorem IsMirrorDescentStep.apply_sub_le {y F' G : E →L[ℝ] ℝ} {a x : E}
   have h_split : y (a - u) = y (a - x) + y (x - u) := by rw [← map_add, sub_add_sub_cancel]
   rw [h_split, add_le_add_iff_left, le_div_iff₀ hη, mul_comm]
   exact h.mul_apply_sub_le hK hG hu
+
+/-- **The step of mirror descent is short** [Ora, Lemma 6.39]. Let `F` be `m`-strongly convex on
+`K`, let `F'` be a subgradient of `F` within `K` at `a ∈ K` (a derivative of `F` within `K` at `a`,
+for convex `F`), let `η ≥ 0`, and let `x` be a mirror descent step on `K` from `a` with `F'`, for
+the loss `y`. Then `m * ‖x - a‖ ≤ η * ‖y‖`, where `‖y‖` is the dual norm. For `m > 0`, the step is
+thus at most `η / m * ‖y‖` long. [Ora] assumes `F` differentiable at both points; no derivative at
+`x` is needed. -/
+theorem IsMirrorDescentStep.mul_norm_sub_le {m : ℝ} {y F' : E →L[ℝ] ℝ} {a x : E}
+    (h : IsMirrorDescentStep K F η y a F' x) (hF : StrongConvexOn K m F) (hη : 0 ≤ η)
+    (ha : a ∈ K) (hF'a : HasSubgradientWithinAt F F' K a) :
+    m * ‖x - a‖ ≤ η * ‖y‖ := by
+  -- `x` and `a` minimize on `K` the perturbations of `F` by `η y - F'` and by `-F'`
+  have hx : IsMinOn (fun b ↦ F b + (η • y - F') b) K x := isMinOn_iff.mpr fun b hb ↦ by
+    have := isMinOn_iff.mp h.isMinOn b hb
+    simp only [bregDiv, map_sub, sub_apply, smul_apply, smul_eq_mul] at this ⊢
+    linarith
+  have ha_min : IsMinOn (fun b ↦ F b + (-F') b) K a := isMinOn_iff.mpr fun b hb ↦ by
+    have := hF'a b hb
+    simp only [bregDiv, map_sub, neg_apply] at this ⊢
+    linarith
+  have h_le := hF.mul_norm_sub_le_norm_sub_of_isMinOn_add h.mem ha hx ha_min
+  rwa [sub_neg_eq_add, sub_add_cancel, norm_smul, Real.norm_of_nonneg hη] at h_le
 
 /-- **Regret of mirror descent from any initial play.** Let `K` be convex and let the learning
 rates satisfy `η t > 0` for `t < n`. Let each `a (t + 1)`, for `t < n`, be a mirror descent step on
