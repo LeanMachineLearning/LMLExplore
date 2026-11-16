@@ -23,7 +23,8 @@ probability, absolute continuity, lower integrals and measurability) are adapted
 LMLPapers project. `isProbabilityMeasure_sum_smul_dirac` and `sum_smul_dirac_compl_eq_zero` are
 adapted from the Lean proof in `EValuesResearch/Results/SubGaussianCompleteClass.lean` and
 `EValuesResearch/Results/SubGaussianCompleteClassAux.lean` (commit `dd4072f`) of the paper project
-`RemyDegenne/evalues_research`.
+`RemyDegenne/evalues_research`, and `setLIntegral_sum_smul_dirac` from
+`EValuesResearch/Results/RunningMaximaAux.lean` (commit `ffba78a`) of the same project.
 
 ## Main definitions
 
@@ -48,6 +49,8 @@ adapted from the Lean proof in `EValuesResearch/Results/SubGaussianCompleteClass
   Dirac measures at points of any measurable space is the weighted sum `∑ k, w k • f (x k)`;
 * `lintegral_sum_smul_dirac`: the same for lower integrals of any function, measurable or not,
   in a space with measurable singletons;
+* `setLIntegral_sum_smul_dirac`: the same for lower integrals over any set, with weights in
+  `ℝ≥0∞`;
 * `isProbabilityMeasure_sum_smul_dirac`: such a sum is a probability measure when the weights are
   nonnegative and sum to `1`;
 * `sum_smul_dirac_compl_eq_zero`: such a sum gives no mass outside a finite set containing the
@@ -174,6 +177,20 @@ lemma lintegral_sum_smul_dirac {α 𝓧 : Type*} [Fintype α] [MeasurableSpace �
       ∑ k, ENNReal.ofReal (w k) * f (x k) := by
   rw [lintegral_finsetSum_measure]
   simp [lintegral_smul_measure, lintegral_dirac]
+
+/-- In a space with measurable singletons, the lower integral of any function over any set `s`
+against a finite sum `∑ k, w k • δ_{x k}` of Dirac measures with weights `w k : ℝ≥0∞` is the
+weighted sum of `f (x k)` over the points `x k ∈ s`. -/
+lemma setLIntegral_sum_smul_dirac {α 𝓧 : Type*} [Fintype α] [MeasurableSpace 𝓧]
+    [MeasurableSingletonClass 𝓧] (w : α → ℝ≥0∞) (x : α → 𝓧) (f : 𝓧 → ℝ≥0∞) (s : Set 𝓧)
+    [DecidablePred (· ∈ s)] :
+    ∫⁻ y in s, f y ∂(∑ k, w k • Measure.dirac (x k)) =
+      ∑ k, if x k ∈ s then w k * f (x k) else 0 := by
+  rw [← Measure.sum_fintype, Measure.restrict_sum_of_countable, lintegral_sum_measure,
+    tsum_fintype]
+  refine Finset.sum_congr rfl fun k _ ↦ ?_
+  rw [Measure.restrict_smul, lintegral_smul_measure, setLIntegral_dirac]
+  split_ifs <;> simp
 
 /-- A finite sum `∑ k, w k • δ_{x k}` of weighted Dirac measures with nonnegative weights summing
 to `1` is a probability measure. -/

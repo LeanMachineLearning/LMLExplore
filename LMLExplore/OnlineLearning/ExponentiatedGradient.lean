@@ -7,7 +7,7 @@ module
 
 public import LMLExplore.Analysis.Convex.NegEntropy
 public import LMLExplore.OnlineLearning.ExponentialWeights
-public import LMLExplore.OnlineLearning.MirrorDescent
+public import LMLExplore.OnlineLearning.MirrorDescent.Basic
 
 /-!
 # Exponentiated gradient: mirror descent with the negative entropy on the simplex

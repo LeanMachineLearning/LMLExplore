@@ -18,6 +18,8 @@ singular, as for the Gram operator of unregularized least squares or of a design
 * for every Moore–Penrose pair `(A, B)`, the composition `A B` is the orthogonal projection onto
   the range of `A`;
 * the Moore–Penrose inverse of an invertible operator is its inverse;
+* if a symmetric operator acts on a subspace as an invertible operator of that subspace, its
+  Moore–Penrose inverse acts there as the inverse of that restriction;
 * the Moore–Penrose inverse of a symmetric operator `V` is symmetric, has the same range as `V`,
   and inverts `V` on that range; that of a positive operator is positive.
 
@@ -27,6 +29,11 @@ singular, as for the Gram operator of unregularized least squares or of a design
   inverse of `A`, then `A B` is the orthogonal projection onto the range of `A`.
 * `ContinuousLinearMap.moorePenroseInverse_eq_ringInverse`: `V⁺ = V⁻¹` for an invertible
   operator `V`.
+* `LinearMap.IsSymmetric.moorePenroseInverse_apply_coe_of_apply_coe_eq`: if a symmetric operator
+  `T` on `E` acts on a subspace `K` as an invertible operator `T_K` on `K`, then `T⁺ c = T_K⁻¹ c`
+  for `c ∈ K`, and `LinearMap.IsSymmetric.inner_moorePenroseInverse_of_apply_coe_eq`:
+  `⟪a, T⁺ c⟫ = ⟪a, T_K⁻¹ c⟫` for `a c ∈ K`; `ContinuousLinearMap.le_range_of_apply_coe_eq`: then
+  `K` lies in the range of `T`.
 * `LinearMap.IsSymmetric.moorePenroseInverse`, `LinearMap.IsPositive.moorePenroseInverse`: the
   Moore–Penrose inverse of a symmetric (positive) operator is symmetric (positive).
 * `LinearMap.IsSymmetric.range_moorePenroseInverse`: `V⁺` and a symmetric `V` have the same
@@ -138,7 +145,26 @@ end LinearMap
 namespace ContinuousLinearMap
 
 variable {𝕜 E : Type*} [RCLike 𝕜] [NormedAddCommGroup E] [InnerProductSpace 𝕜 E]
-  [FiniteDimensional 𝕜 E]
+
+section Restrict
+
+variable {K : Submodule 𝕜 E} {T : E →L[𝕜] E} {T_K : K →L[𝕜] K}
+
+/-- If an operator `T` on `E` acts on a subspace `K` as an invertible operator `T_K` on `K`, then
+`T` maps `T_K⁻¹ v` to `v` for `v ∈ K`. -/
+theorem apply_coe_ringInverse_of_apply_coe_eq (hT : ∀ v : K, T v = T_K v) (hu : IsUnit T_K)
+    (v : K) : T ↑(Ring.inverse T_K v) = v := by
+  rw [hT, apply_ringInverse_apply hu]
+
+/-- If an operator `T` on `E` acts on a subspace `K` as an invertible operator `T_K` on `K`, then
+`K` lies in the range of `T`. -/
+theorem le_range_of_apply_coe_eq (hT : ∀ v : K, T v = T_K v) (hu : IsUnit T_K) :
+    K ≤ LinearMap.range (T : E →ₗ[𝕜] E) := fun v hv ↦
+  ⟨_, apply_coe_ringInverse_of_apply_coe_eq hT hu ⟨v, hv⟩⟩
+
+end Restrict
+
+variable [FiniteDimensional 𝕜 E]
 
 /-- The Moore–Penrose inverse of an invertible operator is its inverse: `V⁺ = V⁻¹`. -/
 theorem moorePenroseInverse_eq_ringInverse {V : E →L[𝕜] E} (hV : IsUnit V) :
@@ -148,3 +174,31 @@ theorem moorePenroseInverse_eq_ringInverse {V : E →L[𝕜] E} (hV : IsUnit V) 
       (LinearMap.ext (apply_ringInverse_apply hV)))).symm
 
 end ContinuousLinearMap
+
+namespace LinearMap.IsSymmetric
+
+variable {𝕜 E : Type*} [RCLike 𝕜] [NormedAddCommGroup E] [InnerProductSpace 𝕜 E]
+  [FiniteDimensional 𝕜 E]
+
+/-- If a symmetric operator `T` on a finite-dimensional space `E` acts on a subspace `K` as an
+invertible operator `T_K` on `K`, then the Moore–Penrose inverse of `T` acts on `K` as the inverse
+of `T_K`: `T⁺ c = T_K⁻¹ c` for `c ∈ K`. -/
+theorem moorePenroseInverse_apply_coe_of_apply_coe_eq {K : Submodule 𝕜 E} {T : E →L[𝕜] E}
+    {T_K : K →L[𝕜] K} (hsym : (T : E →ₗ[𝕜] E).IsSymmetric) (hT : ∀ v : K, T v = T_K v)
+    (hu : IsUnit T_K) (c : K) :
+    (T : E →ₗ[𝕜] E).moorePenroseInverse c = Ring.inverse T_K c := by
+  have h := hsym.moorePenroseInverse_apply_apply_of_mem_range
+    (ContinuousLinearMap.le_range_of_apply_coe_eq hT hu (Ring.inverse T_K c).2)
+  rwa [ContinuousLinearMap.coe_coe,
+    ContinuousLinearMap.apply_coe_ringInverse_of_apply_coe_eq hT hu] at h
+
+/-- If a symmetric operator `T` on a finite-dimensional space `E` acts on a subspace `K` as an
+invertible operator `T_K` on `K`, then `⟪a, T⁺ c⟫ = ⟪a, T_K⁻¹ c⟫` for `a c ∈ K`, the inner products
+on the right being those of `K`. -/
+theorem inner_moorePenroseInverse_of_apply_coe_eq {K : Submodule 𝕜 E} {T : E →L[𝕜] E}
+    {T_K : K →L[𝕜] K} (hsym : (T : E →ₗ[𝕜] E).IsSymmetric) (hT : ∀ v : K, T v = T_K v)
+    (hu : IsUnit T_K) (a c : K) :
+    ⟪(a : E), (T : E →ₗ[𝕜] E).moorePenroseInverse c⟫_𝕜 = ⟪a, Ring.inverse T_K c⟫_𝕜 := by
+  rw [hsym.moorePenroseInverse_apply_coe_of_apply_coe_eq hT hu, Submodule.coe_inner]
+
+end LinearMap.IsSymmetric

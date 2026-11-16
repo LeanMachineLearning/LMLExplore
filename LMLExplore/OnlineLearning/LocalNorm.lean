@@ -6,14 +6,14 @@ Authors: LMLExplore contributors
 module
 
 public import LMLExplore.Analysis.Convex.Bregman.Taylor
-public import LMLExplore.OnlineLearning.MirrorDescent
+public import LMLExplore.OnlineLearning.MirrorDescent.Basic
 
 /-!
 # Local-norm regret bounds through the unconstrained step
 
 The regret bounds of follow the regularized leader and of mirror descent with a potential `F`
-(`LMLExplore.OnlineLearning.FTRL.Basic`, `LMLExplore.OnlineLearning.MirrorDescent`) are sums of
-stability terms `y (a - b) - D_F(b, a) / η`, where `a` is the play of a round, `y` its loss, `η`
+(`LMLExplore.OnlineLearning.FTRL.Basic`, `LMLExplore.OnlineLearning.MirrorDescent.Basic`) are sums
+of stability terms `y (a - b) - D_F(b, a) / η`, where `a` is the play of a round, `y` its loss, `η`
 its learning rate and `b` the next play (or the comparator). Strong convexity bounds such a term
 by `η / (2 m) * ‖y‖ ^ 2`, which is useless for losses with a large dual norm, such as the
 importance-weighted estimates of bandit algorithms. The local-norm bounds measure `y` instead
@@ -25,7 +25,7 @@ Lemma 7.15, second forms]. Let `F` be convex on a set `D`, and at every point `z
 `x ∈ U` be the unconstrained step from `a ∈ U`: the point with `F' x = F' a - η y`. Then `x`
 minimizes `b ↦ η y b + D_F(b, a)` over `D`, so the stability term at every `b ∈ D` is at most its
 value at `x` (`apply_sub_sub_bregDiv_div_le_of_hasFDerivWithinAt`, in
-`LMLExplore.OnlineLearning.MirrorDescent`). Taylor's theorem along the segment `[a, x]` bounds
+`LMLExplore.OnlineLearning.MirrorDescent.Basic`). Taylor's theorem along the segment `[a, x]` bounds
 the latter by `η / 2 * c` for every `c ≥ 0` with `y (x - a) ^ 2 ≤ c * F'' z (x - a) (x - a)`, at
 some `z ∈ [a, x]`. Any `c` bounding the squared dual local norm of `y` for the quadratic form
 `F'' z` qualifies.

@@ -13,17 +13,18 @@ import LMLExplore.MeasureTheory.Constructions.Pi
 import LMLExplore.MeasureTheory.Measure.Typeclasses.Probability
 import Mathlib.MeasureTheory.Function.FactorsThrough
 import Mathlib.Probability.Independence.Integration
+import TauCeti.Probability.Process.PathLaw.Shift
 
 /-!
 # Infinite products of probability measures: coordinatewise properties, first and next terms
 
 Under the infinite product `Measure.infinitePi` of copies of a probability measure `μ`, the first
 `n` coordinates have the product law `Measure.pi`, and they are independent of the next `m`
-coordinates. The shift of an i.i.d. sequence is again i.i.d. with the same law, and a function of
-the first `t` terms is independent of a function of the terms after them. Under a countable
-product, almost surely every coordinate has a property that almost every point of its factor has.
-With the filtration `Filtration.piLE` of the first coordinates, whose time `n` has seen the
-coordinates `0, …, n`, the coordinate `n + 1` is independent of time `n`.
+coordinates. The shift of an i.i.d. sequence is again i.i.d. with the same law, and the first `t`
+terms are independent of the terms after them. Under a countable product, almost surely every
+coordinate has a property that almost every point of its factor has. With the filtration
+`Filtration.piLE` of the first coordinates, whose time `n` has seen the coordinates `0, …, n`, the
+coordinate `n + 1` is independent of time `n`.
 
 If `Q + ∑ i, b i • P i = ∑ i, c i • P i` for a probability measure `Q` and probability measures
 `P i`, two functions of the first `N + 1` observations with equal integrals under the i.i.d. law of
@@ -43,10 +44,15 @@ the polarization step of [EVR26, Note 03, Theorem 1], adapted from
   first `n` terms and the next `m` terms are independent.
 * `MeasureTheory.measurePreserving_shift`, `MeasureTheory.measurePreserving_shift_iterate`: the
   shift and its iterates preserve the i.i.d. law.
+* `MeasureTheory.shift_iterate_eqOn`: two sequences that agree on the first `t` terms have shifts
+  by `s` that agree on the first `t - s` terms.
 * `MeasureTheory.dependsOn_comp_shift_iterate`: a function of the first `L` terms, read after
   the shift by `a`, is a function of the first `a + L` terms.
-* `MeasureTheory.lintegral_mul_comp_shift_iterate`: under an i.i.d. law, a function of the first
-  `t` terms is independent of a function of the terms after them.
+* `MeasureTheory.indepFun_initSeg_shift_iterate`: the first `t` terms are independent of the
+  terms after them.
+* `MeasureTheory.lintegral_mul_comp_shift_iterate`, `MeasureTheory.integral_mul_comp_shift_iterate`:
+  the expectation of the product of a function of the first `t` terms and a function of the terms
+  after them is the product of the expectations.
 * `MeasureTheory.Measure.infinitePi_eq_zero_of_not_isProbabilityMeasure`: the infinite product
   is `0` as soon as one factor is not a probability measure.
 * `MeasureTheory.Measure.lintegral_infinitePi_eq_of_add_sum_eq_sum`: polarization for i.i.d. laws,
@@ -90,7 +96,16 @@ lemma lintegral_comp_initSeg_infinitePi (P : Measure 𝓧) [IsProbabilityMeasure
       ∫⁻ x, f x ∂(Measure.pi fun _ : Fin n ↦ P) := by
   simpa only [initSeg_def] using (measurePreserving_initSeg P n).lintegral_comp hf
 
-open TauCeti.Probability (shift measurable_shift_iterate)
+open ProbabilityTheory
+open TauCeti.Probability (shift shift_iterate_apply shift_iterate_eq_reindex
+  measurable_shift_iterate)
+
+/-- If two sequences agree on the first `t` terms, their shifts by `s` agree on the first `t - s`
+terms. -/
+lemma shift_iterate_eqOn {t : ℕ} {ω ω' : ℕ → 𝓧} (h : ∀ i < t, ω i = ω' i) (s : ℕ) :
+    ∀ i < t - s, (shift 𝓧)^[s] ω i = (shift 𝓧)^[s] ω' i := fun i hi ↦ by
+  simp only [shift_iterate_apply]
+  exact h _ (by omega)
 
 /-- The shift preserves the i.i.d. law. -/
 lemma measurePreserving_shift (P : Measure 𝓧) [IsProbabilityMeasure P] :
@@ -114,7 +129,18 @@ lemma dependsOn_comp_shift_iterate {β : Type*} {L : ℕ} {g : (ℕ → 𝓧) �
   simp only [TauCeti.Probability.shift_iterate_apply]
   exact h _ (by simp only [Set.mem_Iio] at hi ⊢; omega)
 
-open ProbabilityTheory in
+/-- Under an i.i.d. law, the first `t` terms are independent of the terms after them. -/
+lemma indepFun_initSeg_shift_iterate (P : Measure 𝓧) [IsProbabilityMeasure P] (t : ℕ) :
+    IndepFun (initSeg t) ((shift 𝓧)^[t]) (Measure.infinitePi fun _ : ℕ ↦ P) := by
+  have h := (iIndepFun_infinitePi (P := fun _ : ℕ ↦ P) (X := fun _ x ↦ x)
+    (fun _ ↦ measurable_id)).indepFun_set (Set.Iio t) (Set.Ici t)
+    (Set.disjoint_left.2 fun i (hi : i < t) (hi' : t ≤ i) ↦ (not_lt.2 hi') hi)
+    (fun i ↦ measurable_pi_apply i)
+  rw [shift_iterate_eq_reindex, initSeg_def]
+  exact h.comp (φ := fun (y : Set.Iio t → 𝓧) (i : Fin t) ↦ y ⟨i, i.2⟩)
+    (ψ := fun (y : Set.Ici t → 𝓧) (i : ℕ) ↦ y ⟨i + t, Nat.le_add_left t i⟩)
+    (by fun_prop) (by fun_prop)
+
 /-- Under an i.i.d. law, a function of the first `t` terms is independent of a function of the
 terms after them: the expectation of their product is the product of their expectations. -/
 lemma lintegral_mul_comp_shift_iterate (P : Measure 𝓧) [IsProbabilityMeasure P]
@@ -125,19 +151,29 @@ lemma lintegral_mul_comp_shift_iterate (P : Measure 𝓧) [IsProbabilityMeasure 
         ∫⁻ ω, g ω ∂Measure.infinitePi (fun _ : ℕ ↦ P) := by
   have := nonempty_of_isProbabilityMeasure P
   obtain ⟨F, hF, rfl⟩ := exists_measurable_eq_comp_initSeg hf hft
-  -- the first `t` coordinates are independent of the later ones
-  have hind : IndepFun (initSeg t) (shift 𝓧)^[t] (Measure.infinitePi fun _ : ℕ ↦ P) := by
-    have h := (iIndepFun_infinitePi (P := fun _ : ℕ ↦ P) (X := fun _ x ↦ x)
-      fun _ ↦ measurable_id).indepFun_set (Set.Iio t) (Set.Ici t)
-      (Set.disjoint_left.2 fun i (hi : i < t) (hi' : t ≤ i) ↦ (not_lt.2 hi') hi)
-      fun i ↦ measurable_pi_apply i
-    rw [initSeg_def, TauCeti.Probability.shift_iterate_eq_reindex]
-    exact h.comp (φ := fun (y : Set.Iio t → 𝓧) (i : Fin t) ↦ y ⟨i, i.2⟩)
-      (ψ := fun (y : Set.Ici t → 𝓧) (i : ℕ) ↦ y ⟨i + t, Nat.le_add_left t i⟩)
-      (by fun_prop) (by fun_prop)
   rw [← (measurePreserving_shift_iterate P t).lintegral_comp hg]
   exact lintegral_mul_eq_lintegral_mul_lintegral_of_indepFun (hF.comp (measurable_initSeg t))
-    (hg.comp (measurable_shift_iterate t)) (hind.comp hF hg)
+    (hg.comp (measurable_shift_iterate t)) ((indepFun_initSeg_shift_iterate P t).comp hF hg)
+
+/-- Under an i.i.d. law, the expectation of the product of a real function of the first `t` terms
+and a real function of the terms after them is the product of their expectations. -/
+lemma integral_mul_comp_shift_iterate (P : Measure 𝓧) [IsProbabilityMeasure P]
+    {f g : (ℕ → 𝓧) → ℝ} {t : ℕ} (hf : Measurable f) (hft : DependsOn f (Set.Iio t))
+    (hg : Measurable g) :
+    ∫ ω, f ω * g ((shift 𝓧)^[t] ω) ∂Measure.infinitePi (fun _ : ℕ ↦ P) =
+      (∫ ω, f ω ∂Measure.infinitePi (fun _ : ℕ ↦ P)) *
+        ∫ ω, g ω ∂Measure.infinitePi (fun _ : ℕ ↦ P) := by
+  have := nonempty_of_isProbabilityMeasure P
+  obtain ⟨F, hF, rfl⟩ := exists_measurable_eq_comp_initSeg hf hft
+  have hmap : ∫ ω, g ((shift 𝓧)^[t] ω) ∂Measure.infinitePi (fun _ : ℕ ↦ P) =
+      ∫ ω, g ω ∂Measure.infinitePi (fun _ : ℕ ↦ P) := by
+    rw [← integral_map (measurable_shift_iterate t).aemeasurable
+      (by rw [(measurePreserving_shift_iterate P t).map_eq]; exact hg.aestronglyMeasurable),
+      (measurePreserving_shift_iterate P t).map_eq]
+  rw [← hmap]
+  exact ((indepFun_initSeg_shift_iterate P t).comp hF hg).integral_fun_mul_eq_mul_integral
+    (hF.comp (measurable_initSeg t)).aestronglyMeasurable
+    (hg.comp (measurable_shift_iterate t)).aestronglyMeasurable
 
 end MeasureTheory
 
