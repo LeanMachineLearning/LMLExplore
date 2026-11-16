@@ -9,6 +9,7 @@ public import LMLExplore.EValues.BipolarRate.Basic
 public import Mathlib.Probability.Process.Stopping
 public import Mathlib.Probability.ProductMeasure
 import LMLExplore.Analysis.SpecialFunctions.Log.ENNRealLog
+import LMLExplore.Data.EReal.Inv
 import LMLExplore.EValues.TestSupermartingale.IID
 import LMLExplore.MeasureTheory.Integral.EReal
 import LMLExplore.Probability.Independence.Wald
@@ -98,13 +99,10 @@ private lemma exists_bounded_bet (Q₁ : Measure 𝓧) [IsProbabilityMeasure Q�
   rw [bipolarRate_def] at hL
   obtain ⟨k, hk⟩ := lt_iSup_iff.1 hL
   set m := k + 1
-  have hm0 : (0 : ℝ) < m := by positivity
   refine ⟨m, k.succ_ne_zero, ?_⟩
   set μQ := Measure.pi fun _ : Fin m ↦ Q₁
-  rw [EReal.lt_div_iff (by exact_mod_cast hm0) (EReal.natCast_ne_top _)] at hk
-  have hk' : ((m * L : ℝ) : EReal) < maxLogGrowth Q₁ S₁ m := by
-    rw [EReal.coe_mul, mul_comm, EReal.coe_natCast]
-    exact hk
+  have hk' : ((m * L : ℝ) : EReal) < maxLogGrowth Q₁ S₁ m :=
+    (EReal.coe_lt_div_natCast_iff k.succ_pos).1 hk
   -- an `m`-sample e-variable `Y` with expected logarithm above a real `L' > m L`
   obtain ⟨L', hL'1, hL'2⟩ := EReal.lt_iff_exists_real_btwn.1 hk'
   rw [maxLogGrowth_def] at hL'2

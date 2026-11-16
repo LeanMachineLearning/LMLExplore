@@ -298,9 +298,7 @@ theorem exists_ae_eventually_mul_le_log_seqBlockProd_numeraire (Q₁ : Measure �
   have hmL : ((m * L : ℝ) : EReal) <
       ∫ᵉ x, ENNReal.log (Em x) ∂Measure.pi fun _ : Fin m ↦ Q₁ := by
     rw [← maxUtility_eq_eintegral_numeraire _ hfin, ← maxLogGrowth_def]
-    rw [EReal.lt_div_iff (by exact_mod_cast hm0) (EReal.natCast_ne_top _)] at hk
-    rw [EReal.coe_mul, mul_comm, EReal.coe_natCast]
-    exact hk
+    exact (EReal.coe_lt_div_natCast_iff (Nat.pos_of_ne_zero hm)).1 hk
   -- so does the expected logarithm truncated at a level `c`, which is integrable
   obtain ⟨c, hgi, hgint⟩ := exists_integrable_truncLog_lt_integral hEm hnum.ae_ne_zero
     (lintegral_toENNReal_neg_ne_top_of_eintegral_ne_bot hnum.eintegral_log_ne_bot) hmL
