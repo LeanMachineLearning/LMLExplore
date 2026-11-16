@@ -133,8 +133,9 @@ lemma regret_smul (c : ℝ) (ℓ : ℕ → α → ℝ) (x : ℕ → α) (u : α)
 `ε t`-approximate minimizers of the loss of their own round, have regret at most `∑ t < n, ε t`
 against it. -/
 lemma regret_le_sum_of_le_add {ε : ℕ → ℝ} (h : ∀ t < n, ℓ t (x t) ≤ ℓ t u + ε t) :
-    regret ℓ x u n ≤ ∑ t ∈ range n, ε t :=
-  sum_le_sum fun t ht ↦ by linarith [h t (mem_range.mp ht)]
+    regret ℓ x u n ≤ ∑ t ∈ range n, ε t := by
+  rw [regret_def]
+  exact sum_le_sum fun t ht ↦ by linarith [h t (mem_range.mp ht)]
 
 /-- For linear losses `y t`, the regret is `∑ t < n, y t (x t - u)`. -/
 lemma regret_eq_sum_apply_sub {E F : Type*} [AddCommGroup E] [FunLike F E ℝ]
