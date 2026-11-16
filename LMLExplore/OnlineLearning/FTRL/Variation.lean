@@ -125,11 +125,14 @@ theorem sum_norm_inv_smul_sum_sub_sq_le (g : ℕ → E) {G : ℝ} {n : ℕ} (hg 
     have ht := mem_range.mp ht
     have h_norm : ‖x t - g t‖ ≤ 2 * G := by
       linarith [norm_sub_le (x t) (g t), hx t ht, hg t ht]
-    have h_sq : ‖x t - g t‖ ^ 2 ≤ (2 * G) ^ 2 := pow_le_pow_left₀ (norm_nonneg _) h_norm 2
-    rw [innerSL_apply_norm, norm_smul, sum_const, card_range, nsmul_eq_mul, Real.norm_two,
-      Nat.cast_add, Nat.cast_one, ← div_eq_mul_inv, div_le_div_iff₀ (by positivity)
-        (by positivity)]
-    nlinarith
+    calc ‖innerSL ℝ ((2 : ℝ) • (x t - g t))‖ ^ 2 / (2 * ∑ s ∈ range (t + 1), (2 : ℝ))
+        = ‖x t - g t‖ ^ 2 / ((t : ℝ) + 1) := by
+          simp only [innerSL_apply_norm, norm_smul, Real.norm_ofNat, sum_const, card_range,
+            nsmul_eq_mul]
+          push_cast
+          field_simp
+      _ ≤ (2 * G) ^ 2 / ((t : ℝ) + 1) := by gcongr
+      _ = 4 * G ^ 2 * ((t : ℝ) + 1)⁻¹ := by ring
   have h_log : ∑ t ∈ range n, 4 * G ^ 2 * ((t : ℝ) + 1)⁻¹ ≤ 4 * G ^ 2 * (1 + Real.log n) := by
     rw [← mul_sum]
     exact mul_le_mul_of_nonneg_left (Real.sum_range_inv_add_one_le n) (by positivity)
