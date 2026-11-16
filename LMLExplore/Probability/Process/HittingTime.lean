@@ -16,12 +16,25 @@ the indicators of the events. It is finite exactly when some event `E i` with `n
 More generally, the hitting time after `n` at `ω` of a set `s` by a process `u` depends only on the
 sequence of events `u i ω ∈ s`, `i ≥ n`.
 
+Stopping at the first of the events `A 0, …, A N` that occurs shows that the probability that
+some event of an adapted sequence occurs is the supremum, over the stopping times `τ`, of the
+probability of the event `A τ` read at `τ` [RRLK, Lemma 2]. A bound on the probability of the
+event read at every stopping time is therefore a bound uniform in time.
+
 ## Main statements
 
 * `MeasureTheory.hittingAfter_indicator_lt_top_iff`: the hitting time of the indicators of a
   sequence of events is finite exactly on the union of the events after the starting time.
 * `MeasureTheory.hittingAfter_apply_congr`: two hitting times agree at `ω` when the two processes
   lie in their sets at the same times.
+* `MeasureTheory.measure_iUnion_eq_iSup_isStoppingTime`: the measure of the union of an adapted
+  sequence of events is the supremum of the measures of the events read at the stopping times with
+  values in `ℕ` [RRLK, Lemma 2].
+
+## References
+
+* [RRLK] A. Ramdas, J. Ruf, M. Larsson and W. M. Koolen, *Admissible anytime-valid sequential
+  inference must rely on nonnegative martingales*, arXiv:2009.03167v3, Lemma 2.
 -/
 
 public section
@@ -53,5 +66,28 @@ theorem hittingAfter_apply_congr [WellFoundedLT ι] {β β' : Type*} {u : ι →
   | coe k =>
     rw [hittingAfter_le_iff, hittingAfter_le_iff]
     exact exists_congr fun i ↦ and_congr_right fun hi ↦ h i hi.1
+
+/-- **The events of an adapted sequence read at stopping times**, the form of [RRLK, Lemma 2] for
+one measure and the stopping times with values in `ℕ`. For a sequence of events `A n` adapted to a
+filtration indexed by `ℕ`, the measure of the event that some `A n` occurs is the supremum, over
+the stopping times `τ` with values in `ℕ`, of the measure of the event `A (τ ω)` read at `τ`. The
+measure need not be finite and the events need not be nested. -/
+theorem measure_iUnion_eq_iSup_isStoppingTime {mΩ : MeasurableSpace Ω} {μ : Measure Ω}
+    {ℱ : Filtration ℕ mΩ} {A : ℕ → Set Ω} (hA : ∀ n, MeasurableSet[ℱ n] (A n)) :
+    μ (⋃ n, A n) = ⨆ (τ : Ω → ℕ) (_ : IsStoppingTime ℱ (fun ω ↦ (τ ω : WithTop ℕ))),
+      μ {ω | ω ∈ A (τ ω)} := by
+  refine le_antisymm ?_ (iSup₂_le fun τ _ ↦ measure_mono fun ω hω ↦ Set.mem_iUnion.2 ⟨τ ω, hω⟩)
+  -- by continuity from below, it suffices to bound the probability that one of `A 0, …, A N`
+  -- occurs, and the first of them that occurs, or `N`, is a stopping time
+  rw [measure_iUnion_eq_iSup_accumulate]
+  refine iSup_le fun N ↦ ?_
+  set u : ℕ → Ω → ℝ := fun n ↦ (A n).indicator fun _ ↦ 1
+  have hu : Adapted ℱ u := fun n ↦ measurable_const.indicator (hA n)
+  refine le_iSup₂_of_le (fun ω ↦ hittingBtwn u {1} 0 N ω)
+    (hu.isStoppingTime_hittingBtwn (measurableSet_singleton 1)) (measure_mono fun ω hω ↦ ?_)
+  obtain ⟨k, hk, hωk⟩ := Set.mem_accumulate.1 hω
+  have h := hittingBtwn_mem_set (u := u) (s := {1}) (n := 0) (m := N) (ω := ω)
+    ⟨k, ⟨zero_le, hk⟩, by simp [u, hωk]⟩
+  simpa [u] using h
 
 end MeasureTheory
