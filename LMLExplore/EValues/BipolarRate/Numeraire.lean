@@ -272,37 +272,14 @@ theorem ae_eventually_log_le_log_numeraire_add (Q₁ : Measure 𝓧)
   by_cases hQ : IsProbabilityMeasure Q₁
   swap
   · exact Measure.ae_infinitePi_of_not_isProbabilityMeasure (i := 0) hQ
-  set μ := Measure.infinitePi (fun _ : ℕ ↦ Q₁)
   set E : (n : ℕ) → (Fin n → 𝓧) → ℝ≥0∞ := fun n ↦ numeraire (Measure.pi fun _ : Fin n ↦ Q₁)
     ((fun P ↦ Measure.pi fun _ : Fin n ↦ P) '' S₁)
-  set A : ℕ → Set (ℕ → 𝓧) := fun n ↦
-    {ω | ENNReal.ofReal (Real.exp (n * ε)) ≤ M n (initSeg n ω) / E n (initSeg n ω)}
-  -- Markov's inequality for the ratio to the numeraire
-  have hA (n : ℕ) : μ (A n) ≤ ENNReal.ofReal (Real.exp (-ε)) ^ n := by
-    have hmeas : Measurable fun x ↦ M n x / E n x :=
-      (hM n).measurable.div (measurable_numeraire _ _)
-    have hint : ∫⁻ ω, M n (initSeg n ω) / E n (initSeg n ω) ∂μ ≤ 1 := by
-      rw [(measurePreserving_initSeg Q₁ n).lintegral_comp hmeas]
-      exact lintegral_div_numeraire_le_one _ (isFiniteMeasure_of_mem_image_pi hS₁ n) (hM n)
-    calc μ (A n) ≤ (∫⁻ ω, M n (initSeg n ω) / E n (initSeg n ω) ∂μ) /
-          ENNReal.ofReal (Real.exp (n * ε)) :=
-        meas_ge_le_lintegral_div (hmeas.comp (measurable_initSeg n)).aemeasurable
-          (by simp [Real.exp_pos]) ENNReal.ofReal_ne_top
-    _ ≤ 1 / ENNReal.ofReal (Real.exp (n * ε)) := by gcongr
-    _ = ENNReal.ofReal (Real.exp (-ε)) ^ n := by
-      rw [← ENNReal.ofReal_pow (Real.exp_pos _).le, ← Real.exp_nat_mul, one_div,
-        ← ENNReal.ofReal_inv_of_pos (Real.exp_pos _), ← Real.exp_neg]
-      ring_nf
-  -- the Borel–Cantelli lemma
-  have hsum : ∑' n, μ (A n) ≠ ∞ := by
-    refine ne_top_of_le_ne_top ?_ (tsum_le_tsum hA)
-    rw [ENNReal.tsum_geometric]
-    refine ENNReal.inv_ne_top.2 (tsub_pos_iff_lt.2 ?_).ne'
-    rw [ENNReal.ofReal_lt_one]
-    exact Real.exp_lt_one_iff.2 (neg_lt_zero.2 hε)
-  filter_upwards [ae_eventually_notMem hsum] with ω hω
+  -- Markov's inequality and the Borel–Cantelli lemma for the ratio to the numeraire
+  filter_upwards [ae_eventually_lt_exp_of_lintegral_le Q₁ (F := fun n x ↦ M n x / E n x)
+    (fun n ↦ ((hM n).measurable.div (measurable_numeraire _ _)).aemeasurable) ENNReal.one_ne_top
+    (fun n ↦ lintegral_div_numeraire_le_one _ (isFiniteMeasure_of_mem_image_pi hS₁ n) (hM n))
+    hε] with ω hω
   filter_upwards [hω] with n hn
-  simp only [A, Set.mem_ofPred_eq, not_le] at hn
   exact ENNReal.log_le_log_add_of_div_le hn.le
 
 /-- **Comparison of a function of the first observations with the numeraire.** Let `F n` be

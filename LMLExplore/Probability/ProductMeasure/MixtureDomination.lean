@@ -305,43 +305,21 @@ private lemma ae_eventually_le_exp_of_lintegral_bind_le_of_countablyGenerated
       ψ n (initSeg n ω) ≤ ENNReal.ofReal (Real.exp (n * ε)) := by
   obtain ⟨c, hc, g, hgm, hgi, hgε, hdom⟩ :=
     exists_lintegral_mul_le_lintegral_bind Q ν hν hν_supp (by positivity : (0 : ℝ) < ε / 4)
-  set μ := Measure.infinitePi (fun _ : ℕ ↦ Q)
   set h : (n : ℕ) → (Fin n → 𝓨) → ℝ≥0∞ := fun n y ↦
     ENNReal.ofReal (c * Real.exp (∑ i, g (y i)))
   have hhm (n : ℕ) : Measurable (h n) := ENNReal.measurable_ofReal.comp
     (measurable_const.mul (Real.measurable_exp.comp
       (Finset.measurable_sum _ fun i _ ↦ hgm.comp (measurable_pi_apply i))))
-  -- Markov's inequality and the Borel–Cantelli lemma for `ψ n * h n`
-  set A : ℕ → Set (ℕ → 𝓨) := fun n ↦
-    {ω | ENNReal.ofReal (Real.exp (n * (ε / 2))) ≤ ψ n (initSeg n ω) * h n (initSeg n ω)}
-  have hA (n : ℕ) : μ (A n) ≤ C * ENNReal.ofReal (Real.exp (-(ε / 2))) ^ n := by
-    have hm : Measurable fun y ↦ ψ n y * h n y := (hψ n).mul (hhm n)
-    calc μ (A n) ≤ (∫⁻ ω, ψ n (initSeg n ω) * h n (initSeg n ω) ∂μ) /
-          ENNReal.ofReal (Real.exp (n * (ε / 2))) :=
-        meas_ge_le_lintegral_div (hm.comp (measurable_initSeg n)).aemeasurable
-          (by simp [Real.exp_pos]) ENNReal.ofReal_ne_top
-    _ ≤ C / ENNReal.ofReal (Real.exp (n * (ε / 2))) := by
-      gcongr
-      rw [(measurePreserving_initSeg Q n).lintegral_comp hm]
-      exact (hdom n (ψ n) (hψ n)).trans (hψC n)
-    _ = C * ENNReal.ofReal (Real.exp (-(ε / 2))) ^ n := by
-      rw [div_eq_mul_inv, ← ENNReal.ofReal_pow (Real.exp_pos _).le, ← Real.exp_nat_mul,
-        ← ENNReal.ofReal_inv_of_pos (Real.exp_pos _), ← Real.exp_neg]
-      ring_nf
-  have hsum : ∑' n, μ (A n) ≠ ∞ := by
-    refine ne_top_of_le_ne_top ?_ (tsum_le_tsum hA)
-    rw [ENNReal.tsum_mul_left, ENNReal.tsum_geometric]
-    refine ENNReal.mul_ne_top hC (ENNReal.inv_ne_top.2 (tsub_pos_iff_lt.2 ?_).ne')
-    rw [ENNReal.ofReal_lt_one]
-    exact Real.exp_lt_one_iff.2 (neg_lt_zero.2 (half_pos hε))
   -- the strong law of large numbers for `g`
   have hlt : -(3 * ε / 8) < ∫ y, g y ∂Q := by linarith
   obtain ⟨N, hN⟩ := exists_nat_gt (8 * |Real.log c| / ε)
-  filter_upwards [ae_eventually_notMem hsum, TauCeti.Probability.strong_law_ae_infinitePi Q hgi]
-    with ω hω1 hω2
+  -- Markov's inequality and the Borel–Cantelli lemma for `ψ n * h n`
+  filter_upwards [ae_eventually_lt_exp_of_lintegral_le Q (F := fun n y ↦ ψ n y * h n y)
+      (fun n ↦ ((hψ n).mul (hhm n)).aemeasurable) hC
+      (fun n ↦ (hdom n (ψ n) (hψ n)).trans (hψC n)) (half_pos hε),
+    TauCeti.Probability.strong_law_ae_infinitePi Q hgi] with ω hω1 hω2
   filter_upwards [hω1, hω2.eventually (lt_mem_nhds hlt), eventually_ge_atTop (N + 1)]
     with n hn1 hn2 hn3
-  simp only [A, Set.mem_ofPred_eq, not_le] at hn1
   have hn0 : (0 : ℝ) < n := by exact_mod_cast (Nat.succ_pos N).trans_le hn3
   rw [smul_eq_mul, lt_inv_mul_iff₀ hn0] at hn2
   -- `h n ≥ exp (-n ε / 2)` at the first `n` observations

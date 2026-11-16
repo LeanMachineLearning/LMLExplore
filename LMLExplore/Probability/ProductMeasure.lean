@@ -36,6 +36,9 @@ the polarization step of [EVR26, Note 03, Theorem 1], adapted from
 
 * `MeasureTheory.measurePreserving_initSeg`, `MeasureTheory.lintegral_comp_initSeg_infinitePi`:
   the first `n` terms `initSeg n` of an i.i.d. sequence have the product law.
+* `MeasureTheory.ae_eventually_lt_exp_of_lintegral_le`: functions of the first `n` terms with
+  bounded mean under the product law are eventually below `exp (n ε)` almost surely, by Markov's
+  inequality and the Borel–Cantelli lemma.
 * `MeasureTheory.Measure.ae_forall_apply_infinitePi`: if, for each `i` of a countable index type,
   `p i` holds almost everywhere under `μ i`, then almost surely under `Measure.infinitePi μ` every
   coordinate `x i` satisfies `p i`.
@@ -243,6 +246,56 @@ lemma lintegral_infinitePi_eq_of_add_sum_eq_sum {𝓧 ι : Type*} {m𝓧 : Measu
     exact hf_ne w hw
 
 end MeasureTheory.Measure
+
+namespace MeasureTheory
+
+variable {𝓧 : Type*} {m𝓧 : MeasurableSpace 𝓧}
+
+open Filter in
+/-- **Functions of bounded mean are eventually below every exponential.** If the functions `F n`
+of `n` observations have mean at most `C < ∞` under the product law `P ^ n`, then for every
+`ε > 0`, almost surely under the i.i.d. law of `P`, `F n < exp (n ε)` at the first `n`
+observations for all large `n`. Markov's inequality bounds the probability that
+`exp (n ε) ≤ F n` by `C exp (- n ε)`, and the Borel–Cantelli lemma applies. If `P` is not a
+probability measure, its i.i.d. law is `0` and the statement holds trivially. -/
+lemma ae_eventually_lt_exp_of_lintegral_le (P : Measure 𝓧) {F : (n : ℕ) → (Fin n → 𝓧) → ℝ≥0∞}
+    (hF : ∀ n, AEMeasurable (F n) (Measure.pi fun _ : Fin n ↦ P)) {C : ℝ≥0∞} (hC : C ≠ ∞)
+    (hFC : ∀ n, ∫⁻ x, F n x ∂(Measure.pi fun _ : Fin n ↦ P) ≤ C) {ε : ℝ} (hε : 0 < ε) :
+    ∀ᵐ ω ∂Measure.infinitePi (fun _ : ℕ ↦ P), ∀ᶠ n : ℕ in atTop,
+      F n (initSeg n ω) < ENNReal.ofReal (Real.exp (n * ε)) := by
+  by_cases hP : IsProbabilityMeasure P
+  swap
+  · exact Measure.ae_infinitePi_of_not_isProbabilityMeasure (i := 0) hP
+  set μ := Measure.infinitePi (fun _ : ℕ ↦ P)
+  set A : ℕ → Set (ℕ → 𝓧) := fun n ↦
+    {ω | ENNReal.ofReal (Real.exp (n * ε)) ≤ F n (initSeg n ω)}
+  -- Markov's inequality
+  have hA (n : ℕ) : μ (A n) ≤ C * ENNReal.ofReal (Real.exp (-ε)) ^ n := by
+    have hmap := (measurePreserving_initSeg P n).map_eq
+    have hFm : AEMeasurable (F n) (μ.map (initSeg n)) := hmap ▸ hF n
+    calc μ (A n) ≤ (∫⁻ ω, F n (initSeg n ω) ∂μ) / ENNReal.ofReal (Real.exp (n * ε)) :=
+        meas_ge_le_lintegral_div (hFm.comp_measurable (measurable_initSeg n))
+          (by simp [Real.exp_pos]) ENNReal.ofReal_ne_top
+    _ ≤ C / ENNReal.ofReal (Real.exp (n * ε)) := by
+      gcongr
+      rw [← lintegral_map' hFm (measurable_initSeg n).aemeasurable, hmap]
+      exact hFC n
+    _ = C * ENNReal.ofReal (Real.exp (-ε)) ^ n := by
+      rw [div_eq_mul_inv, ← ENNReal.ofReal_pow (Real.exp_pos _).le, ← Real.exp_nat_mul,
+        ← ENNReal.ofReal_inv_of_pos (Real.exp_pos _), ← Real.exp_neg]
+      ring_nf
+  -- the Borel–Cantelli lemma
+  have hsum : ∑' n, μ (A n) ≠ ∞ := by
+    refine ne_top_of_le_ne_top ?_ (tsum_le_tsum hA)
+    rw [ENNReal.tsum_mul_left, ENNReal.tsum_geometric]
+    refine ENNReal.mul_ne_top hC (ENNReal.inv_ne_top.2 (tsub_pos_iff_lt.2 ?_).ne')
+    rw [ENNReal.ofReal_lt_one]
+    exact Real.exp_lt_one_iff.2 (neg_lt_zero.2 hε)
+  filter_upwards [ae_eventually_notMem hsum] with ω hω
+  filter_upwards [hω] with n hn
+  simpa only [A, Set.mem_ofPred_eq, not_le] using hn
+
+end MeasureTheory
 
 namespace ProbabilityTheory
 
