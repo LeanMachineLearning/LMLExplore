@@ -7,6 +7,7 @@ module
 
 public import LMLExplore.InformationTheory.KullbackLeibler.Bernoulli
 public import LMLExplore.MarkovDecisionProcess.Optimality
+public import LMLExplore.Probability.Kernel.Basic
 public import LMLExplore.SequentialLearning.ChangeOfMeasure
 
 /-!
@@ -162,18 +163,18 @@ variable (θ : 𝓚 × 𝓐 → I)
 
 @[simp]
 lemma selfLoopKernel_start (x : 𝓚) (a : 𝓐) :
-    selfLoopKernel θ (start x, a) = Measure.dirac (loop (x, a)) :=
-  (rfl)
+    selfLoopKernel θ (start x, a) = Measure.dirac (loop (x, a)) := by
+  rw [selfLoopKernel, Kernel.ofFunOfCountable_apply]
 
 @[simp]
 lemma selfLoopKernel_loop (z : 𝓚 × 𝓐) (a : 𝓐) :
-    selfLoopKernel θ (loop z, a) = Ber(loop z, sink z, θ z) :=
-  (rfl)
+    selfLoopKernel θ (loop z, a) = Ber(loop z, sink z, θ z) := by
+  rw [selfLoopKernel, Kernel.ofFunOfCountable_apply]
 
 @[simp]
 lemma selfLoopKernel_sink (z : 𝓚 × 𝓐) (a : 𝓐) :
-    selfLoopKernel θ (sink z, a) = Measure.dirac (sink z) :=
-  (rfl)
+    selfLoopKernel θ (sink z, a) = Measure.dirac (sink z) := by
+  rw [selfLoopKernel, Kernel.ofFunOfCountable_apply]
 
 instance : IsMarkovKernel (selfLoopKernel θ) :=
   ⟨fun p ↦ by
