@@ -35,8 +35,11 @@ at `λ 0 = λ 1 = x(w) = ψ'(w 0 η₀ + w 1 η₁)`. It is at most the Chernoff
 `d(x*, μ 0) = d(x*, μ 1)` of the two arms, at the slope `x* = (ψ(η₀) - ψ(η₁)) / (η₀ - η₁)`, with
 equality at the allocation `w*` with `w* 0 = (η(x*) - η₁) / (η₀ - η₁)`, for which `x(w*) = x*`.
 Hence the static-proportions difficulty is `H^{sp}(μ)⁻¹ = d(x*, μ 0)` [D23, Lemma 19]: the best
-error exponent of a static allocation is the Chernoff information of the two arms, the rate of the
-lower bound of [KCG16, Theorems 12–13] for consistent algorithms. When the members
+error exponent of a static allocation is the Chernoff information of the two arms. It is also the
+smallest largest divergence `inf_{λ ∈ Alt(μ)} max_a d(λ a, μ a)` of an alternative, the rate `c*`
+of the lower bound of [KCG16, Theorem 12] for consistent algorithms: every consistent fixed-budget
+family has error complexity at least `H^{sp}(μ)`, so no consistent family has a better error
+exponent than the best static proportions [KCG16, Section 5.1]. When the members
 of means `μ 0` and `μ 1` are `c`-sub-Gaussian,
 `H^{sp}(μ)⁻¹ ≥ max (d(μ 0, μ 1)², d(μ 1, μ 0)²) / (2 c (η₀ - η₁)²)` [D23, Lemma 20].
 
@@ -59,6 +62,13 @@ Bernoulli arms, `H^{sp}(μ)⁻¹ = kl(z, μ 0) = kl(z, μ 1)` at the explicit Ch
   Gaussian arms.
 * `LMLExplore.Identification.inv_staticDifficulty_baiTask_bernoulliBandit_two`: [D23, Lemma 9],
   two Bernoulli arms.
+* `LMLExplore.Identification.iInf_iSup_klDiv_baiTask_two`: [KCG16, Section 5.1], the rate `c*` of
+  two arms is their Chernoff information.
+* `LMLExplore.Identification.staticDifficulty_le_liminf_errorComplexity_baiTask_two`:
+  [KCG16, Theorem 12], consistent families have error complexity at least `H^{sp}`, with the
+  Gaussian and Bernoulli instances
+  `LMLExplore.Identification.ofReal_le_liminf_errorComplexity_baiTask_gaussianBandit_two` and
+  `LMLExplore.Identification.inv_klBer_le_liminf_errorComplexity_baiTask_bernoulliBandit_two`.
 * `LMLExplore.Identification.oracleDifficulty_staticClass_baiTask_restrict`: [D23, Theorem 1],
   the oracle difficulty of static proportions in best arm identification with any number of
   arms.
@@ -76,7 +86,7 @@ Bernoulli arms, `H^{sp}(μ)⁻¹ = kl(z, μ 0) = kl(z, μ 1)` at the explicit Ch
 
 public section
 
-open MeasureTheory ProbabilityTheory Measure Filter Topology Set
+open MeasureTheory ProbabilityTheory Measure Filter Topology Set InformationTheory Learning
 
 open scoped ENNReal NNReal
 
@@ -114,6 +124,30 @@ private lemma cost_baiTask_two
       (mul_nonneg (hw 1) (expFamilyDiv_nonneg (hμ' 1) (hμ 1)))]
   rw [hν _ _ (hμ' c), hν _ _ (hμ'' c), klDiv_expFamily_natParam (hμ' c) (hμ'' c)]
 
+/-- In two-armed best arm identification on the vectors of means of an exponential family, every
+diagonal point `(x, x)` with `x` a mean is a limit of alternatives to a vector of means `μ` with
+`μ 0 ≠ μ 1`: the alternatives `(x + t (μ 1 - μ 0), x + t (μ 0 - μ 1))` for small `t > 0`. -/
+private lemma exists_tendsto_alternatives_baiTask_two (hT : ∀ c, ¬ T =ᵐ[ρ] fun _ ↦ c)
+    (hμ01 : μ 0 ≠ μ 1) {x : ℝ} (hx : x ∈ ρ.expFamilyMeans T) :
+    ∃ μ' : ℝ → Fin 2 → ℝ, (∀ a, Tendsto (fun t ↦ μ' t a) (𝓝[>] 0) (𝓝 x)) ∧
+      ∀ᶠ t in 𝓝[>] 0,
+        μ' t ∈ ((baiTask ν id).restrict {μ | ∀ a, μ a ∈ ρ.expFamilyMeans T}).alternatives μ := by
+  set μ' : ℝ → Fin 2 → ℝ := fun t ↦ ![x + t * (μ 1 - μ 0), x + t * (μ 0 - μ 1)]
+  have h_cont (a : Fin 2) : Continuous fun t ↦ μ' t a := by
+    fin_cases a <;> simp only [μ'] <;> fun_prop
+  have h0 (a : Fin 2) : μ' 0 a = x := by fin_cases a <;> simp [μ']
+  have h_tendsto (a : Fin 2) : Tendsto (fun t ↦ μ' t a) (𝓝 0) (𝓝 x) :=
+    (h_cont a).tendsto' 0 x (h0 a)
+  refine ⟨μ', fun a ↦ (h_tendsto a).mono_left nhdsWithin_le_nhds, ?_⟩
+  have h_means : ∀ᶠ t in 𝓝 (0 : ℝ), ∀ a, μ' t a ∈ ρ.expFamilyMeans T :=
+    Filter.eventually_all.2 fun a ↦ (h_tendsto a).eventually (expFamilyMeans_mem_nhds hT hx)
+  filter_upwards [self_mem_nhdsWithin, nhdsWithin_le_nhds h_means] with t ht h_mem
+  rw [IdentTask.alternatives_restrict]
+  refine ⟨(mem_alternatives_baiTask_two_iff ν id hμ01).2 ?_, h_mem⟩
+  have h_sq : 0 < (μ 0 - μ 1) ^ 2 := by have := sub_ne_zero.2 hμ01; positivity
+  simp only [id, μ', Matrix.cons_val_zero, Matrix.cons_val_one]
+  nlinarith [mem_Ioi.1 ht]
+
 /-- **The infimum of the cost of the alternatives** [D23, Lemma 19]. For two-armed best arm
 identification with arms in the exponential family of `ρ` and `T`, on the vectors of means of the
 family, a vector of means `μ` with `μ 0 ≠ μ 1` and an allocation `w` of the simplex, the infimum
@@ -135,38 +169,21 @@ theorem iInf_cost_baiTask_two (hT : ∀ c, ¬ T =ᵐ[ρ] fun _ ↦ c)
   have hx : x ∈ ρ.expFamilyMeans T := deriv_cgf_mem_expFamilyMeans
     (mul_natParam_add_mul_natParam_mem_interior (hμ 0) (hμ 1) (hw_nonneg 0) (hw_nonneg 1) hw_sum)
   have hw0 : 0 ≤ w := hw_nonneg
-  rw [IdentTask.alternatives_restrict, IdentTask.cost_restrict]
+  rw [IdentTask.cost_restrict]
   refine le_antisymm ?_ (le_iInf₂ fun μ' hμ' ↦ ?_)
-  · -- the alternatives `(x + t (μ 1 - μ 0), x + t (μ 0 - μ 1))`, `t > 0`, tend to `(x, x)`
-    set μ' : ℝ → Fin 2 → ℝ := fun t ↦ ![x + t * (μ 1 - μ 0), x + t * (μ 0 - μ 1)]
-    have h_cont (a : Fin 2) : ContinuousAt (fun t ↦ μ' t a) 0 := by
-      fin_cases a <;> simp only [μ'] <;> fun_prop
-    have h0 (a : Fin 2) : μ' 0 a = x := by fin_cases a <;> simp [μ']
-    have h_means : ∀ᶠ t in 𝓝 (0 : ℝ), ∀ a, μ' t a ∈ ρ.expFamilyMeans T := by
-      refine Filter.eventually_all.2 fun a ↦ (h_cont a).eventually ?_
-      simp only [h0]
-      exact expFamilyMeans_mem_nhds hT hx
-    have h_alt : ∀ t > 0, μ' t ∈ (baiTask ν id).alternatives μ := fun t ht ↦ by
-      rw [mem_alternatives_baiTask_two_iff ν id hμ01]
-      have h_sq : 0 < (μ 0 - μ 1) ^ 2 := by have := sub_ne_zero.2 hμ01; positivity
-      simp only [id, μ', Matrix.cons_val_zero, Matrix.cons_val_one]
-      nlinarith
-    have h_tendsto : Tendsto (fun t ↦ ENNReal.ofReal (w 0 * ρ.expFamilyDiv T (μ' t 0) (μ 0) +
-        w 1 * ρ.expFamilyDiv T (μ' t 1) (μ 1))) (𝓝[>] 0)
-        (𝓝 (ENNReal.ofReal (w 0 * ρ.expFamilyDiv T x (μ 0) +
-          w 1 * ρ.expFamilyDiv T x (μ 1)))) := by
-      refine (ENNReal.continuous_ofReal.tendsto _).comp (Tendsto.mono_left ?_ nhdsWithin_le_nhds)
-      have h_div (a : Fin 2) :
-          ContinuousAt (fun t ↦ ρ.expFamilyDiv T (μ' t a) (μ a)) 0 :=
-        ContinuousAt.comp_of_eq (hasDerivAt_expFamilyDiv_left hT hx (μ a)).continuousAt
-          (h_cont a) (h0 a)
-      have := ((h_div 0).tendsto.const_mul (w 0)).add ((h_div 1).tendsto.const_mul (w 1))
-      simpa only [h0] using this
-    refine ge_of_tendsto h_tendsto ?_
-    filter_upwards [self_mem_nhdsWithin, nhdsWithin_le_nhds h_means] with t ht h_mem
-    rw [← cost_baiTask_two ν hν hμ h_mem hw0]
-    exact iInf₂_le (μ' t) ⟨h_alt t ht, h_mem⟩
+  · obtain ⟨μ', h_tendsto, h_alt⟩ := exists_tendsto_alternatives_baiTask_two ν hT hμ01 hx
+    have h_div (a : Fin 2) : Tendsto (fun t ↦ ρ.expFamilyDiv T (μ' t a) (μ a)) (𝓝[>] 0)
+        (𝓝 (ρ.expFamilyDiv T x (μ a))) :=
+      (hasDerivAt_expFamilyDiv_left hT hx (μ a)).continuousAt.tendsto.comp (h_tendsto a)
+    refine ge_of_tendsto ((ENNReal.continuous_ofReal.tendsto _).comp
+      (((h_div 0).const_mul (w 0)).add ((h_div 1).const_mul (w 1)))) ?_
+    filter_upwards [h_alt] with t ht
+    have h_mem := ht
+    rw [IdentTask.alternatives_restrict] at h_mem
+    rw [Function.comp_apply, ← cost_baiTask_two ν hν hμ h_mem.2 hw0]
+    exact iInf₂_le (μ' t) ht
   · -- every alternative costs at least the cost of some point of the diagonal
+    rw [IdentTask.alternatives_restrict] at hμ'
     obtain ⟨hμ'_alt, hμ'_mem⟩ := hμ'
     have h_prod := (mem_alternatives_baiTask_two_iff ν id hμ01).1 hμ'_alt
     obtain ⟨z, hz, hz0, hz1⟩ := exists_expFamilyDiv_le_and_expFamilyDiv_le hT (hμ'_mem 0)
@@ -299,6 +316,73 @@ theorem ofReal_div_le_inv_staticDifficulty_baiTask_two (hT : ∀ c, ¬ T =ᵐ[ρ
     _ ≤ _ := sq_div_le_expFamilyDiv_of_hasSubgaussianMGF hx (hμ 1) (hsub 1)
     _ = _ := (expFamilyDiv_slope_eq hη).symm
 
+/-! ### The error exponent of consistent families on two arms -/
+
+/-- **The information quantity `c*` of two arms is their Chernoff information**
+[KCG16, Section 5.1].
+For two-armed best arm identification with arms in the exponential family of `ρ` and `T`, on the
+vectors of means of the family, and a vector of means `μ` with `μ 0 ≠ μ 1`, the smallest largest
+divergence of an alternative, `inf_{λ ∈ Alt(μ)} max_a KL(ν_a(λ), ν_a(μ))`, is the Chernoff
+information `d(x*, μ 0) = d(x*, μ 1)` of the two arms, at
+`x* = (ψ(η(μ 0)) - ψ(η(μ 1))) / (η(μ 0) - η(μ 1))`. It is approached, but not attained, by the
+alternatives near `(x*, x*)`. -/
+theorem iInf_iSup_klDiv_baiTask_two (hT : ∀ c, ¬ T =ᵐ[ρ] fun _ ↦ c)
+    (hν : ∀ μ a, μ a ∈ ρ.expFamilyMeans T → ν μ a = ρ.expFamily T (ρ.natParam T (μ a)))
+    (hμ : ∀ a, μ a ∈ ρ.expFamilyMeans T) (hμ01 : μ 0 ≠ μ 1) :
+    ⨅ μ' ∈ ((baiTask ν id).restrict {μ | ∀ a, μ a ∈ ρ.expFamilyMeans T}).alternatives μ,
+        ⨆ a, klDiv (ν μ' a) (ν μ a) =
+      ENNReal.ofReal (ρ.expFamilyDiv T ((cgf T ρ (ρ.natParam T (μ 0)) -
+        cgf T ρ (ρ.natParam T (μ 1))) / (ρ.natParam T (μ 0) - ρ.natParam T (μ 1))) (μ 0)) := by
+  have hη : ρ.natParam T (μ 0) ≠ ρ.natParam T (μ 1) := natParam_ne_natParam hT (hμ 0) (hμ 1) hμ01
+  have hx := slope_cgf_natParam_mem_expFamilyMeans hT (hμ 0) (hμ 1) hμ01
+  set x := (cgf T ρ (ρ.natParam T (μ 0)) - cgf T ρ (ρ.natParam T (μ 1))) /
+    (ρ.natParam T (μ 0) - ρ.natParam T (μ 1))
+  refine le_antisymm ?_ (le_iInf₂ fun μ' hμ' ↦ ?_)
+  · -- the alternatives near `(x*, x*)` have largest divergence near `d(x*, μ 0) = d(x*, μ 1)`
+    obtain ⟨μ', h_tendsto, h_alt⟩ := exists_tendsto_alternatives_baiTask_two ν hT hμ01 hx
+    have h_div (a : Fin 2) : Tendsto (fun t ↦ ρ.expFamilyDiv T (μ' t a) (μ a)) (𝓝[>] 0)
+        (𝓝 (ρ.expFamilyDiv T x (μ a))) :=
+      (hasDerivAt_expFamilyDiv_left hT hx (μ a)).continuousAt.tendsto.comp (h_tendsto a)
+    have h_lim := (ENNReal.continuous_ofReal.tendsto _).comp ((h_div 0).max (h_div 1))
+    rw [← expFamilyDiv_slope_eq hη, max_self] at h_lim
+    refine ge_of_tendsto h_lim ?_
+    filter_upwards [h_alt] with t ht
+    have h_mem := ht
+    rw [IdentTask.alternatives_restrict] at h_mem
+    refine iInf₂_le_of_le (μ' t) ht (iSup_le fun a ↦ ?_)
+    rw [hν _ _ (h_mem.2 a), hν _ _ (hμ a), klDiv_expFamily_natParam (h_mem.2 a) (hμ a),
+      Function.comp_apply]
+    refine ENNReal.ofReal_le_ofReal ?_
+    fin_cases a
+    exacts [le_max_left _ _, le_max_right _ _]
+  · -- the largest divergence is at least the cost at the optimal static proportions
+    obtain ⟨hw, h_eq⟩ := iInf_cost_baiTask_two_of_eq ν hT hν hμ hμ01 rfl
+    rw [← h_eq]
+    refine (iInf₂_le μ' hμ').trans ?_
+    simpa only [IdentTask.ν_restrict, ν_baiTask] using
+      ((baiTask ν id).restrict {μ | ∀ a, μ a ∈ ρ.expFamilyMeans T}).cost_le_iSup_klDiv hw μ' μ
+
+/-- **The complexity of consistent families on two arms** [KCG16, Theorem 12 and Section 5.1].
+For two-armed best arm identification with arms in the exponential family of `ρ` and `T`, on the
+vectors of means of the family, every consistent fixed-budget algorithm family `𝒜` has, at every
+vector of means `μ` with `μ 0 ≠ μ 1`, error complexity at least the static-proportions difficulty:
+`H^{sp}(μ) ≤ liminf_T h_{μ,T}(𝒜)`. Equivalently,
+`limsup_T -(1 / T) log p_{μ,T}(𝒜) ≤ d(x*, μ 0)`, the Chernoff information of the two arms: no
+consistent family has a better error exponent than the best static proportions. -/
+theorem staticDifficulty_le_liminf_errorComplexity_baiTask_two
+    [MeasurableSpace.CountablyGenerated 𝓧] (hT : ∀ c, ¬ T =ᵐ[ρ] fun _ ↦ c)
+    (hν : ∀ μ a, μ a ∈ ρ.expFamilyMeans T → ν μ a = ρ.expFamily T (ρ.natParam T (μ a)))
+    (hμ : ∀ a, μ a ∈ ρ.expFamilyMeans T) (hμ01 : μ 0 ≠ μ 1)
+    {𝒜 : ℕ → IdentAlg Unit (Fin 2) 𝓧 (Fin 2)} (h𝒜 : IsFixedBudgetFamily 𝒜)
+    (hcons : ((baiTask ν id).restrict {μ | ∀ a, μ a ∈ ρ.expFamilyMeans T}).IsConsistent 𝒜) :
+    ((baiTask ν id).restrict {μ | ∀ a, μ a ∈ ρ.expFamilyMeans T}).staticDifficulty μ ≤
+      liminf (((baiTask ν id).restrict {μ | ∀ a, μ a ∈ ρ.expFamilyMeans T}).errorComplexity 𝒜 μ)
+        atTop := by
+  rw [← ENNReal.inv_le_inv, inv_staticDifficulty_baiTask_two ν hT hν hμ hμ01,
+    IdentTask.inv_liminf_errorComplexity, ← iInf_iSup_klDiv_baiTask_two ν hT hν hμ hμ01]
+  simpa only [IdentTask.ν_restrict, ν_baiTask] using
+    IdentTask.limsup_neg_log_errorProb_div_le_iInf_iSup_klDiv _ h𝒜 hcons μ
+
 /-! ### Gaussian and Bernoulli arms -/
 
 /-- **Two Gaussian arms** [D23, Lemma 20]. For best arm identification with two Gaussian arms of
@@ -387,6 +471,54 @@ theorem inv_staticDifficulty_baiTask_bernoulliBandit_two (hμ : ∀ a, μ a ∈ 
   refine ⟨?_, ?_⟩
   · rw [h, hx, h_kl]
   · rw [h, expFamilyDiv_slope_eq hη, hx, h_kl]
+
+/-- **The complexity of consistent families on two Gaussian arms** [KCG16, Section 5.1]. For best
+arm identification with two Gaussian arms of variance `σ2 ≠ 0`, every consistent fixed-budget
+algorithm family has, at every vector of means `μ` with `μ 0 ≠ μ 1`, error complexity at least
+`8 σ2 / (μ 0 - μ 1)²`: `liminf_T h_{μ,T}(𝒜) ≥ 8 σ2 / (μ 0 - μ 1)²`, the static-proportions
+difficulty, which is also the characteristic time of fixed-confidence identification. -/
+theorem ofReal_le_liminf_errorComplexity_baiTask_gaussianBandit_two {σ2 : ℝ≥0} (hσ2 : σ2 ≠ 0)
+    (hμ01 : μ 0 ≠ μ 1) {𝒜 : ℕ → IdentAlg Unit (Fin 2) ℝ (Fin 2)} (h𝒜 : IsFixedBudgetFamily 𝒜)
+    (hcons : (baiTask (Bandits.gaussianBandit · σ2) id).IsConsistent 𝒜) :
+    ENNReal.ofReal (8 * σ2 / (μ 0 - μ 1) ^ 2) ≤
+      liminf ((baiTask (Bandits.gaussianBandit · σ2) id).errorComplexity 𝒜 μ) atTop := by
+  have hS := setOf_forall_mem_expFamilyMeans_gaussianReal (ι := Fin 2) 0 (fun _ ↦ hσ2)
+  have h := staticDifficulty_le_liminf_errorComplexity_baiTask_two (Bandits.gaussianBandit · σ2)
+    (not_ae_eq_const_gaussianReal 0 hσ2)
+    (fun μ a _ ↦ by rw [Bandits.gaussianBandit_apply, expFamily_natParam_gaussianReal 0 hσ2])
+    (fun a ↦ mem_expFamilyMeans_gaussianReal 0 hσ2 (μ a)) hμ01 h𝒜
+    (by rwa [hS, IdentTask.restrict_univ])
+  rwa [hS, IdentTask.restrict_univ, staticDifficulty_baiTask_gaussianBandit_two hσ2 hμ01] at h
+
+/-- **The complexity of consistent families on two Bernoulli arms** [KCG16, Section 5.1]. For best
+arm identification on the Bernoulli bandits with two arms and means in `(0, 1)`, every consistent
+fixed-budget algorithm family has, at every vector of means `μ` with `μ 0 ≠ μ 1`, error
+complexity at least `kl(z, μ 0)⁻¹`, the inverse of the Chernoff information of the two Bernoulli
+laws, at `z = log ((1 - μ 1) / (1 - μ 0)) / log (μ 0 (1 - μ 1) / ((1 - μ 0) μ 1))`. -/
+theorem inv_klBer_le_liminf_errorComplexity_baiTask_bernoulliBandit_two
+    (hμ : ∀ a, μ a ∈ Ioo 0 1) (hμ01 : μ 0 ≠ μ 1) {z : ℝ}
+    (hz : z = Real.log ((1 - μ 1) / (1 - μ 0)) / Real.log (μ 0 * (1 - μ 1) / ((1 - μ 0) * μ 1)))
+    {𝒜 : ℕ → IdentAlg Unit (Fin 2) ℝ (Fin 2)} (h𝒜 : IsFixedBudgetFamily 𝒜)
+    (hcons : ((baiTask (fun μ : Fin 2 → ℝ ↦ Bandits.bernoulliBandit fun c ↦
+        projIcc 0 1 zero_le_one (μ c)) id).restrict {μ | ∀ c, μ c ∈ Ioo 0 1}).IsConsistent 𝒜) :
+    (klBer z (μ 0))⁻¹ ≤
+      liminf (((baiTask (fun μ : Fin 2 → ℝ ↦ Bandits.bernoulliBandit fun c ↦
+        projIcc 0 1 zero_le_one (μ c)) id).restrict {μ | ∀ c, μ c ∈ Ioo 0 1}).errorComplexity
+          𝒜 μ) atTop := by
+  rw [← (inv_staticDifficulty_baiTask_bernoulliBandit_two hμ hμ01 hz).1, inv_inv]
+  -- the Bernoulli laws of means in `(0, 1)` are the exponential family of `Ber(1/2)`
+  set ρ := Ber((1 : ℝ), 0, unitInterval.sigmoid 0)
+  have hmeans : ρ.expFamilyMeans id = Ioo 0 1 := expFamilyMeans_bernoulliMeasure_sigmoid 0
+  have hT : ∀ c, ¬ id =ᵐ[ρ] fun _ ↦ c := not_ae_eq_const_bernoulliMeasure
+    (by simp only [unitInterval.coe_sigmoid, Real.sigmoid_zero]; norm_num)
+  have h := staticDifficulty_le_liminf_errorComplexity_baiTask_two
+    (fun μ : Fin 2 → ℝ ↦ Bandits.bernoulliBandit fun c ↦ projIcc 0 1 zero_le_one (μ c)) hT
+    (fun μ a ha ↦ by
+      rw [hmeans] at ha
+      rw [Bandits.bernoulliBandit_apply, expFamily_natParam_bernoulliMeasure_sigmoid 0 ha,
+        projIcc_of_mem _ (Ioo_subset_Icc_self ha)]) (by rwa [hmeans]) hμ01 h𝒜
+    (by simpa only [hmeans] using hcons)
+  simpa only [hmeans] using h
 
 
 /-! ### Any number of arms -/

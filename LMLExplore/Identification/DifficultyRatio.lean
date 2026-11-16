@@ -8,6 +8,7 @@ module
 public import LMLExplore.Identification.ErrorLowerBound
 public import LMLExplore.InformationTheory.KullbackLeibler.Bernoulli
 import Statlib.ForMathlib.EReal
+import TauCeti.Order.Filter.ENNReal
 
 /-!
 # Difficulty ratios and complexity of fixed-budget identification, and their lower bounds
@@ -42,6 +43,13 @@ bounded on `D` (Theorem 13). When the alternatives `λ⁽ʲ⁾` differ from `μ`
 right-hand side is at most `(∑_j 1 / (H(λ⁽ʲ⁾) KL(ν_j(μ), ν_j(λ⁽ʲ⁾))))⁻¹` (Corollary 4). These bounds
 are the starting point of the results of [D23] on the existence of a complexity in fixed-budget
 identification.
+
+With the difficulty function `1`, the same change of measure bounds the error exponent of a
+consistent family [KCG16, Theorem 12]: at every model `μ`,
+`limsup_T -(1 / T) log p_{μ,T}(𝒜) ≤ inf_{λ ∈ Alt(μ)} max_a KL(ν_a(λ), ν_a(μ))`, with the
+alternative first, and `inf_{λ ∈ Alt(μ)} ∑ a, w a KL(ν_a(λ), ν_a(μ))` in place of the largest
+divergence when the proportions of pulls at the alternatives converge to `w`, as for uniform
+sampling.
 
 ## Main definitions
 
@@ -80,11 +88,21 @@ In the namespace `LMLExplore.Identification.IdentTask`:
 * `IdentTask.sum_inv_le_iSup_asymptoticRatio`: [D23, Corollary 4].
 * `IdentTask.inv_liminf_iSup_difficultyRatio_le`: [D23, Theorem 13].
 * `IdentTask.inv_liminf_iSup_difficultyRatio_le_liminf`: [D23, Corollary 14].
+* `IdentTask.inv_liminf_errorComplexity`: `(liminf_T h_{θ,T}(𝒜))⁻¹` is the `limsup` of the error
+  exponent `-(1 / T) log p_{θ,T}(𝒜)`.
+* `IdentTask.limsup_neg_log_errorProb_div_le_limsup_cost`,
+  `IdentTask.limsup_neg_log_errorProb_div_le_iSup_klDiv`: the error exponent at `μ` of a family
+  whose probability of error at an alternative `λ` tends to `0` is at most the cost of its
+  proportions of pulls at `λ`, and at most `max_a KL(ν_a(λ), ν_a(μ))`.
+* `IdentTask.limsup_neg_log_errorProb_div_le_iInf_iSup_klDiv`,
+  `IdentTask.limsup_neg_log_errorProb_div_le_iInf_cost`: [KCG16, Theorem 12].
 
 ## References
 
 * [D23] R. Degenne, *On the existence of a complexity in fixed budget bandit identification*,
   COLT 2023, arXiv:2303.09468v2.
+* [KCG16] E. Kaufmann, O. Cappé and A. Garivier, *On the complexity of best-arm identification in
+  multi-armed bandit models*, JMLR 17, 2016.
 * Adapted from the formalization of [D23] in the project `RemyDegenne/Degenne2023Existence`
   (same author).
 -/
@@ -256,6 +274,15 @@ lemma inv_le_liminf_errorComplexity_of_neg_le_liminf {c : ℝ≥0∞}
       hg.map_liminf_of_continuousAt _ hgc.continuousAt
     _ = liminf (task.errorComplexity 𝒜 θ) atTop :=
       liminf_congr ((eventually_ne_atTop 0).mono fun T hT ↦ (errorComplexity_eq_inv hT).symm)
+
+/-- The inverse of the `liminf` of the error complexity is the `limsup` of the error exponent:
+`(liminf_T h_{θ,T}(𝒜))⁻¹ = limsup_T -(1 / T) log p_{θ,T}(𝒜)`, with the exponent in `ℝ≥0∞`. -/
+lemma inv_liminf_errorComplexity :
+    (liminf (task.errorComplexity 𝒜 θ) atTop)⁻¹ =
+      limsup (fun T : ℕ ↦ (-(ENNReal.log (task.errorProb 𝒜 θ T) / T)).toENNReal) atTop := by
+  rw [ENNReal.inv_liminf]
+  exact limsup_congr ((eventually_ne_atTop 0).mono fun T hT ↦ by
+    rw [errorComplexity_eq_inv hT, inv_inv])
 
 variable (task)
 
@@ -716,5 +743,101 @@ theorem inv_liminf_iSup_difficultyRatio_le_liminf (task : IdentTask α Θ ℐ �
   rw [ENNReal.inv_le_inv]
   exact liminf_le_liminf (Eventually.of_forall fun T ↦ iSup₂_mono' fun μ' h ↦
     ⟨μ', task.alternatives_subset_M μ h.1, le_rfl⟩)
+
+/-! ### The lower bound on the error exponent of consistent families -/
+
+/-- **The error exponent against an alternative** [KCG16, proof of Theorem 12]. Let `𝒜` be a
+fixed-budget algorithm family, and `μ`, `λ` two models without a common correct answer such that
+the probability of error of `𝒜` at `λ` tends to `0`. Then the error exponent of `𝒜` at `μ` is at
+most the cost of the expected proportions of pulls `w_T` of `𝒜 T` at `λ`, with the alternative
+first: `limsup_T -(1 / T) log p_{μ,T}(𝒜) ≤ limsup_T ∑ a, w_T a KL(ν_a(λ), ν_a(μ))`. -/
+theorem limsup_neg_log_errorProb_div_le_limsup_cost (task : IdentTask α Θ ℐ 𝓨)
+    {𝒜 : ℕ → IdentAlg Unit α 𝓨 ℐ} (h𝒜 : IsFixedBudgetFamily 𝒜) {μ μ' : Θ}
+    (hμ' : Tendsto (task.errorProb 𝒜 μ') atTop (𝓝 0))
+    (hμμ' : Disjoint (task.correct μ) (task.correct μ')) :
+    limsup (fun T : ℕ ↦ (-(ENNReal.log (task.errorProb 𝒜 μ T) / T)).toENNReal) atTop ≤
+      limsup (fun T ↦ task.cost (expectedPullProportion (𝒜 T)
+        (Environment.bandit (task.ν μ'))) μ' μ) atTop := by
+  have hlog : Tendsto (fun T : ℕ ↦ ENNReal.ofReal (Real.log 2 / √T)) atTop (𝓝 0) := by
+    rw [← ENNReal.ofReal_zero]
+    exact ENNReal.tendsto_ofReal (tendsto_const_nhds.div_atTop
+      (Real.tendsto_sqrt_atTop.comp tendsto_natCast_atTop_atTop))
+  refine ENNReal.le_of_forall_lt_one_mul_le fun c hc ↦ ?_
+  rw [← ENNReal.limsup_const_mul_of_ne_top (ne_top_of_lt hc)]
+  -- Theorem 2 of [D23] with the difficulty function `1`, the roles of `μ` and `λ` exchanged.
+  have hev : ∀ᶠ T : ℕ in atTop, c * (-(ENNReal.log (task.errorProb 𝒜 μ T) / T)).toENNReal ≤
+      task.cost (expectedPullProportion (𝒜 T) (Environment.bandit (task.ν μ'))) μ' μ +
+        ENNReal.ofReal (Real.log 2 / √T) := by
+    filter_upwards [eventually_mul_inv_difficultyRatio_le task (fun _ ↦ 1) h𝒜 hμ' hc
+      ENNReal.one_ne_top, eventually_ne_atTop 0] with T hT hT0
+    have h := hT μ hμμ'.symm one_ne_zero le_rfl
+    rwa [difficultyRatio_def, div_one, errorComplexity_eq_inv hT0, inv_inv, one_mul] at h
+  refine (limsup_le_limsup hev).trans ?_
+  refine (ENNReal.limsup_add_le' (fun T ↦ task.cost (expectedPullProportion (𝒜 T)
+    (Environment.bandit (task.ν μ'))) μ' μ)
+    (fun T : ℕ ↦ ENNReal.ofReal (Real.log 2 / √T))).trans_eq ?_
+  rw [hlog.limsup_eq, add_zero]
+
+omit [Fintype α] [DecidableEq α] in
+/-- **The error exponent against an alternative, with the largest divergence**
+[KCG16, proof of Theorem 12]. Let `𝒜` be a fixed-budget algorithm family, and `μ`, `λ` two models
+without a common correct answer such that the probability of error of `𝒜` at `λ` tends to `0`.
+Then `limsup_T -(1 / T) log p_{μ,T}(𝒜) ≤ max_a KL(ν_a(λ), ν_a(μ))`. -/
+theorem limsup_neg_log_errorProb_div_le_iSup_klDiv [Finite α] (task : IdentTask α Θ ℐ 𝓨)
+    {𝒜 : ℕ → IdentAlg Unit α 𝓨 ℐ} (h𝒜 : IsFixedBudgetFamily 𝒜) {μ μ' : Θ}
+    (hμ' : Tendsto (task.errorProb 𝒜 μ') atTop (𝓝 0))
+    (hμμ' : Disjoint (task.correct μ) (task.correct μ')) :
+    limsup (fun T : ℕ ↦ (-(ENNReal.log (task.errorProb 𝒜 μ T) / T)).toENNReal) atTop ≤
+      ⨆ a, klDiv (task.ν μ' a) (task.ν μ a) := by
+  have := Fintype.ofFinite α
+  classical
+  exact (limsup_neg_log_errorProb_div_le_limsup_cost task h𝒜 hμ' hμμ').trans
+    (limsup_le_of_le (by isBoundedDefault) ((eventually_ne_atTop 0).mono fun T hT ↦
+        task.cost_le_iSup_klDiv
+          ((h𝒜.isFixedBudget T).expectedPullProportion_mem_simplex hT _) μ' μ))
+
+omit [Fintype α] [DecidableEq α] in
+/-- **The error exponent of a consistent family** [KCG16, Theorem 12]. Every consistent
+fixed-budget algorithm family `𝒜` satisfies, at every model `μ`,
+`limsup_T -(1 / T) log p_{μ,T}(𝒜) ≤ inf_{λ ∈ Alt(μ)} max_a KL(ν_a(λ), ν_a(μ))`.
+
+The paper states it for best arm identification with two arms; the proof applies to every task. -/
+theorem limsup_neg_log_errorProb_div_le_iInf_iSup_klDiv [Finite α] (task : IdentTask α Θ ℐ 𝓨)
+    {𝒜 : ℕ → IdentAlg Unit α 𝓨 ℐ} (h𝒜 : IsFixedBudgetFamily 𝒜) (hcons : task.IsConsistent 𝒜)
+    (μ : Θ) :
+    limsup (fun T : ℕ ↦ (-(ENNReal.log (task.errorProb 𝒜 μ T) / T)).toENNReal) atTop ≤
+      ⨅ μ' ∈ task.alternatives μ, ⨆ a, klDiv (task.ν μ' a) (task.ν μ a) :=
+  le_iInf₂ fun μ' hμ' ↦ limsup_neg_log_errorProb_div_le_iSup_klDiv task h𝒜
+    (hcons μ' (task.mem_alternatives_iff.1 hμ').1) (task.mem_alternatives_iff.1 hμ').2
+
+/-- **The error exponent of a consistent family with converging proportions** [KCG16, Theorem 12].
+Let `𝒜` be a consistent fixed-budget algorithm family whose expected proportions of pulls at every
+alternative `λ` to the model `μ` converge to an allocation `w` with positive entries, as for the
+uniform sampling of the arms. Then
+`limsup_T -(1 / T) log p_{μ,T}(𝒜) ≤ inf_{λ ∈ Alt(μ)} ∑ a, w a KL(ν_a(λ), ν_a(μ))`.
+
+The paper states it for best arm identification with two arms and uniform sampling,
+`w = (1 / 2, 1 / 2)`. -/
+theorem limsup_neg_log_errorProb_div_le_iInf_cost (task : IdentTask α Θ ℐ 𝓨)
+    {𝒜 : ℕ → IdentAlg Unit α 𝓨 ℐ} (h𝒜 : IsFixedBudgetFamily 𝒜) (hcons : task.IsConsistent 𝒜)
+    {w : α → ℝ} (hw : ∀ a, 0 < w a) {μ : Θ}
+    (hlim : ∀ μ' ∈ task.alternatives μ, Tendsto (fun T ↦ expectedPullProportion (𝒜 T)
+      (Environment.bandit (task.ν μ'))) atTop (𝓝 w)) :
+    limsup (fun T : ℕ ↦ (-(ENNReal.log (task.errorProb 𝒜 μ T) / T)).toENNReal) atTop ≤
+      ⨅ μ' ∈ task.alternatives μ, task.cost w μ' μ := by
+  refine le_iInf₂ fun μ' hμ' ↦ (limsup_neg_log_errorProb_div_le_limsup_cost task h𝒜
+    (hcons μ' (task.mem_alternatives_iff.1 hμ').1) (task.mem_alternatives_iff.1 hμ').2).trans ?_
+  by_cases hfin : ∀ a, klDiv (task.ν μ' a) (task.ν μ a) ≠ ∞
+  · -- At finite divergences, the cost is continuous in the allocation.
+    refine (Tendsto.limsup_eq ?_).le
+    simp_rw [cost_def]
+    exact tendsto_finsetSum _ fun a _ ↦ ENNReal.Tendsto.mul_const
+      (ENNReal.tendsto_ofReal (((continuous_apply a).tendsto w).comp (hlim μ' hμ')))
+      (Or.inr (hfin a))
+  · -- At an infinite divergence on the arm `a`, `w a > 0` makes the cost infinite.
+    push Not at hfin
+    obtain ⟨a, ha⟩ := hfin
+    rw [task.cost_eq_top_of_klDiv_eq_top (hw a) ha]
+    exact le_top
 
 end LMLExplore.Identification.IdentTask
