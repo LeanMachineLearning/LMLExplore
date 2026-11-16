@@ -40,7 +40,7 @@ condition reads `γ * sp (T v - v) < (1 - γ) * ε`, where `sp` is the span semi
 Puterman states these results on a finite state space. Here they hold on a general measurable
 state space, with explicit bounds `a ≤ T v - v ≤ b` in place of the infimum and the supremum. The
 lower bounds hold for every stationary policy `π` with `a ≤ T_π v - v`, and the bounds involving
-`v*` assume countably many actions, finitely many for the bound through the greedy policy.
+`v*` assume countably many actions.
 
 ## Main statements
 
@@ -178,18 +178,28 @@ theorem optValue_le_bellman_add (hγ : γ < 1) (hR : ∀ p, ∀ᵐ x ∂(M.R p),
     M.optValue γ s ≤ M.bellman γ v s + γ * b / (1 - γ) := by
   simpa only [iterate_one, pow_one] using optValue_le_bellman_iterate_add hγ hR hv hvB hb 1 s
 
-omit [Countable 𝓐] in
 /-- **Lower bound on the optimal value after one step of value iteration**
-([P, Corollary 6.6.4], the case `m = 0`): with finitely many actions, bounded rewards and `γ < 1`,
-if a bounded measurable `v` satisfies `a ≤ T v - v`, then `T v + γ * a / (1 - γ) ≤ v*`, through
-the value of the greedy policy for `v`. -/
-theorem bellman_add_le_optValue [Finite 𝓐] (hγ : γ < 1) (hR : ∀ p, ∀ᵐ x ∂(M.R p), |x| ≤ C)
+([P, Corollary 6.6.4], the case `m = 0`): with countably many actions, bounded rewards and
+`γ < 1`, if a bounded measurable `v` satisfies `a ≤ T v - v`, then `T v + γ * a / (1 - γ) ≤ v*`.
+For every `δ > 0`, the measurable `δ (1 - γ)`-greedy policy `M.approxGreedy γ (δ * (1 - γ)) v`
+has value at least `T v + γ * a / (1 - γ) - δ`. -/
+theorem bellman_add_le_optValue (hγ : γ < 1) (hR : ∀ p, ∀ᵐ x ∂(M.R p), |x| ≤ C)
     (hv : Measurable v) (hvB : ∀ s, |v s| ≤ B) (ha : ∀ s, a ≤ M.bellman γ v s - v s) (s : 𝓢) :
     M.bellman γ v s + γ * a / (1 - γ) ≤ M.optValue γ s := by
-  have := Fintype.ofFinite 𝓐
-  exact (bellman_add_le_value hγ hR hv hvB (bellmanEval_greedy hv) ha s).trans
-    (value_le_optValue (π := Kernel.deterministic _ (measurable_greedy (M := M) (γ := γ) hv))
-      hγ hR s)
+  have h1γ : (0 : ℝ) < 1 - γ := sub_pos.2 (NNReal.coe_lt_one.2 hγ)
+  refine le_of_forall_pos_le_add fun δ hδ ↦ ?_
+  have hd := measurable_approxGreedy (M := M) (γ := γ) (ε := δ * (1 - γ)) hv
+  -- the `δ (1 - γ)`-greedy policy `d` has `T v - δ (1 - γ) ≤ T_d v`
+  have hg (s : 𝓢) : M.bellman γ v s - δ * (1 - γ) ≤
+      M.bellmanEval γ (Kernel.deterministic _ hd) v s :=
+    (isApproxGreedy_iff_bellman_sub_le_bellmanEval hv hd).1
+      (isApproxGreedy_approxGreedy (mul_pos hδ h1γ) v) s
+  have h := bellmanEval_iterate_add_le_value hγ hR hv hvB (a := a - δ * (1 - γ))
+    (fun s ↦ by linarith [hg s, ha s]) 1 s
+  have he : (γ : ℝ) * (a - δ * (1 - γ)) / (1 - γ) = γ * a / (1 - γ) - γ * δ := by
+    field_simp
+  rw [iterate_one, pow_one, he] at h
+  linarith [hg s, value_le_optValue (π := Kernel.deterministic _ hd) hγ hR s]
 
 /-! ### The span stopping rule -/
 
@@ -200,10 +210,10 @@ private lemma sub_lt_of_mul_sub_lt (hγ : γ < 1) (hε : γ * (b - a) < (1 - γ)
   linarith
 
 /-- **The span stopping rule**, its bound on the optimal value [P, Proposition 6.6.5]: with
-finitely many actions, bounded rewards and `γ < 1`, if a bounded measurable `v` satisfies
+countably many actions, bounded rewards and `γ < 1`, if a bounded measurable `v` satisfies
 `a ≤ T v - v ≤ b` with `γ * (b - a) < (1 - γ) * ε`, then `T v + γ * a / (1 - γ)` is within `ε` of
 the optimal value. -/
-theorem abs_bellman_add_sub_optValue_lt [Finite 𝓐] (hγ : γ < 1)
+theorem abs_bellman_add_sub_optValue_lt (hγ : γ < 1)
     (hR : ∀ p, ∀ᵐ x ∂(M.R p), |x| ≤ C) (hv : Measurable v) (hvB : ∀ s, |v s| ≤ B)
     (ha : ∀ s, a ≤ M.bellman γ v s - v s) (hb : ∀ s, M.bellman γ v s - v s ≤ b)
     (hε : γ * (b - a) < (1 - γ) * ε) (s : 𝓢) :

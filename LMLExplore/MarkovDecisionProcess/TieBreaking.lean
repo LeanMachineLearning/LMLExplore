@@ -100,11 +100,12 @@ private lemma meanReward_le_of_eq_of_ne (hr : ∀ q ≠ p, meanReward M'.R q = m
     meanReward M.R q ≤ meanReward M'.R q :=
   (eq_or_ne q p).elim (· ▸ hp) fun hq ↦ (hr q hq).ge
 
-/-- If two MDPs have the same transition kernel and the same mean reward at `q`, their optimal
-action values at `q` differ by `γ` times the one-step prediction of the difference of their
-optimal values. -/
-lemma optQValue_sub_optQValue_eq_mul_integral (hγ : γ < 1) (hR : ∀ p, ∀ᵐ x ∂(M.R p), |x| ≤ C)
-    (hR' : ∀ p, ∀ᵐ x ∂(M'.R p), |x| ≤ C') (hP : M'.P = M.P)
+omit [Finite 𝓐] in
+/-- If two MDPs with countably many actions have the same transition kernel and the same mean
+reward at `q`, their optimal action values at `q` differ by `γ` times the one-step prediction of
+the difference of their optimal values. -/
+lemma optQValue_sub_optQValue_eq_mul_integral [Countable 𝓐] (hγ : γ < 1)
+    (hR : ∀ p, ∀ᵐ x ∂(M.R p), |x| ≤ C) (hR' : ∀ p, ∀ᵐ x ∂(M'.R p), |x| ≤ C') (hP : M'.P = M.P)
     (hq : meanReward M'.R q = meanReward M.R q) :
     M'.optQValue γ q - M.optQValue γ q =
       γ * ∫ s, (M'.optValue γ s - M.optValue γ s) ∂(M.P q) := by
@@ -196,10 +197,12 @@ theorem mul_meanReward_sub_le_optQValue_sub_sub_optQValue_sub (hγ : γ < 1)
 
 /-! ### Separated optimal action values -/
 
-/-- If the optimal action values of any two distinct actions at `s` differ by more than `ω`, then
-for an optimal action `a` at `s`, with `Q* (s, a) = v* s`, every other action `a'` satisfies
-`Q* (s, a') + ω < v* s`. If moreover `0 ≤ ω`, then `a` is the only optimal action at `s`. -/
-theorem optQValue_add_lt_optValue_of_forall_lt_abs_optQValue_sub (hγ : γ < 1)
+omit [Finite 𝓐] in
+/-- With countably many actions, if the optimal action values of any two distinct actions at `s`
+differ by more than `ω`, then for an optimal action `a` at `s`, with `Q* (s, a) = v* s`, every
+other action `a'` satisfies `Q* (s, a') + ω < v* s`. If moreover `0 ≤ ω`, then `a` is the only
+optimal action at `s`. -/
+theorem optQValue_add_lt_optValue_of_forall_lt_abs_optQValue_sub [Countable 𝓐] (hγ : γ < 1)
     (hR : ∀ p, ∀ᵐ x ∂(M.R p), |x| ≤ C) {s : 𝓢} {ω : ℝ}
     (hω : ∀ a₁ a₂, a₁ ≠ a₂ → ω < |M.optQValue γ (s, a₁) - M.optQValue γ (s, a₂)|) {a a' : 𝓐}
     (ha : M.optQValue γ (s, a) = M.optValue γ s) (ha' : a' ≠ a) :
