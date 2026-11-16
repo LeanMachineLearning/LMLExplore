@@ -88,6 +88,8 @@ transfers lower bounds on the stochastic regret to the adversarial regret.
   advice is the adversarial regret.
 * `pseudoRegret_le_integral_randomRegret`, `expertPseudoRegret_le_integral_expertRandomRegret`: the
   pseudo-regret is at most the expected random regret.
+* `Learning.IsAlgEnvSeq.pseudoRegret_of_subsingleton`: with a single arm, the pseudo-regret of
+  every run against every environment with integrable rewards is `0`.
 * `expertPseudoRegret_single`, `expertRandomRegret_single`: with the experts that each recommend
   one arm, the expert regrets are the pseudo-regret and the random regret.
 * `Learning.IsAlgEnvSeq.expertPseudoRegret_ofSeq`, `Learning.IsAlgEnvSeq.pseudoRegret_evalSeq`: the
@@ -318,6 +320,27 @@ lemma pseudoRegret_le_integral_randomRegret [Finite α]
     (hm : ∀ a t, Integrable (fun ω ↦ env.means O A Y a t ω) P) (hY : ∀ t, Integrable (Y t) P) :
     pseudoRegret env O A Y P n ≤ P[randomRegret env O A Y n] :=
   iSup_integral_le fun a ↦ integrable_finsetSum _ fun t _ ↦ (hm a t).sub (hY t)
+
+/-- With a single arm, the pseudo-regret of every run of every algorithm against every environment
+is `0`, when the rewards of the rounds `t < n` are integrable: the mean `m_t(a)` of the only arm
+`a` is the conditional mean of the reward of round `t`. -/
+lemma _root_.Learning.IsAlgEnvSeq.pseudoRegret_of_subsingleton [Subsingleton α]
+    [IsFiniteMeasure P] {alg : Algorithm 𝓞 α ℝ} (h : IsAlgEnvSeq O A Y alg env P)
+    (hY : ∀ t < n, Integrable (Y t) P) :
+    pseudoRegret env O A Y P n = 0 := by
+  -- the expected regret against the only arm `a` is `∑_{t < n} (E[m_t(A_t)] - E[Y_t]) = 0`
+  have h0 (a : α) : ∫ ω, ∑ t ∈ range n, (env.means O A Y a t ω - Y t ω) ∂P = 0 := by
+    have hA (t : ℕ) (ω : Ω) : env.means O A Y a t ω = env.means O A Y (A t ω) t ω := by
+      rw [Subsingleton.elim (A t ω) a]
+    simp_rw [hA]
+    rw [integral_finsetSum (f := fun t ω ↦ env.means O A Y (A t ω) t ω - Y t ω) _ fun t ht ↦
+      (h.integrable_means_action (hY t (mem_range.1 ht))).sub (hY t (mem_range.1 ht))]
+    refine sum_eq_zero fun t ht ↦ ?_
+    have hYt := hY t (mem_range.1 ht)
+    simpa [integral_sub (h.integrable_means_action hYt) hYt, sub_eq_zero] using
+      (h.setIntegral_feedback hYt MeasurableSet.univ).symm
+  rw [pseudoRegret_def]
+  simp only [h0, Real.iSup_const_zero]
 
 section Expert
 
