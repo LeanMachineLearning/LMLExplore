@@ -9,7 +9,7 @@ public import Mathlib.Analysis.InnerProductSpace.PiL2
 public import Mathlib.Basic.Real.Sign
 public import TauCeti.Analysis.GradientFlow.MoreauYosida.Basic
 import LMLExplore.Analysis.Convex.Bregman.Euclidean
-import Mathlib.Analysis.InnerProductSpace.Projection.Minimal
+import LMLExplore.Analysis.InnerProductSpace.Projection.Minimal
 
 /-!
 # Proximal operators and soft thresholding
@@ -148,10 +148,7 @@ of `z` onto `K`, the point of `K` nearest to `z` (`mem_moreauYosidaResolvent_ite
 theorem exists_moreauYosidaResolvent_ite_zero_eq_singleton (hη : 0 < η) (hK : K.Nonempty)
     (hKc : IsComplete K) (hKconv : Convex ℝ K) (z : E) :
     ∃ p, TauCeti.moreauYosidaResolvent (fun x ↦ if x ∈ K then (0 : EReal) else ⊤) η z = {p} := by
-  obtain ⟨p, hpK, hp⟩ := exists_norm_eq_iInf_of_complete_convex hK hKc hKconv z
-  have hpmin : IsMinOn (fun x ↦ ‖x - z‖) K p := isMinOn_iff.2 fun w hw ↦ by
-    rw [norm_sub_rev, hp, norm_sub_rev]
-    exact ciInf_le ⟨0, forall_mem_range.2 fun _ ↦ norm_nonneg _⟩ (⟨w, hw⟩ : K)
+  obtain ⟨p, hpK, hpmin⟩ := exists_isMinOn_norm_sub_of_complete_convex hK hKc hKconv z
   -- the nearest points minimize the strictly convex function `‖· - z‖ ^ 2 / 2` on `K`
   have h_sq {q : E} (hq : IsMinOn (fun x ↦ ‖x - z‖) K q) :
       IsMinOn (fun x ↦ 1 / 2 * ‖x - z‖ ^ 2) K q := isMinOn_iff.2 fun w hw ↦ by

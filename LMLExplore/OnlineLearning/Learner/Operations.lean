@@ -6,14 +6,16 @@ Authors: LMLExplore contributors
 module
 
 public import LMLExplore.OnlineLearning.Learner.Basic
+public import LMLExplore.Data.Nat.Nth
 
 /-!
 # Operations on online learners
 
 The reductions of online learning [Ora, Chapters 12–14] build learners from other learners: they
-restart copies of a learner, run learners coordinatewise, add the plays of several learners, and
-transform the plays of a learner. This file defines these operations on `OnlineLearner`, computes
-their runs, and transfers regret guarantees (`OnlineLearner.HasRegretBound`) through them.
+restart copies of a learner, run learners coordinatewise, add the plays of several learners,
+transform the plays of a learner, and hide from a learner the rounds without feedback. This file
+defines these operations on `OnlineLearner`, computes their runs, and transfers regret guarantees
+(`OnlineLearner.HasRegretBound`) through them.
 
 * `A.restart s` plays from round `s` on as a fresh copy of `A` started at round `s`: its play of
   round `s + t` is the play of round `t` of `A` against the contexts and feedback shifted by `s`
@@ -35,6 +37,12 @@ their runs, and transfers regret guarantees (`OnlineLearner.HasRegretBound`) thr
 * `A.map f` plays the images by `f` of the plays of `A` (`run_map`). For a translation
   `f = (x₀ + ·)` and linear losses, the regret against `u` is the regret of `A` against `u - x₀`
   (`regret_run_map_add_left`, `HasRegretBound.map_add_left`) [Ora, Proposition 13.10].
+* `A.skipZero`, for feedback in a type with a zero, plays as `A` run on the rounds of nonzero
+  feedback only: its play of round `t` is the play of `A` from the `count (g · ≠ 0) t` rounds of
+  nonzero feedback before `t`, the `i`-th of which is `nth (g · ≠ 0) i` (`run_skipZero`). For
+  losses that vanish for the zero feedback, its regret is the regret of `A` on this subsequence of
+  rounds (`regret_run_skipZero`), so a regret guarantee of `A` in the horizon becomes one in the
+  number of rounds of nonzero feedback (`HasRegretBound.skipZero`) [Ora, Section 13.2.1].
 
 ## Main definitions
 
@@ -44,6 +52,8 @@ their runs, and transfers regret guarantees (`OnlineLearner.HasRegretBound`) thr
 * `LMLExplore.OnlineLearning.OnlineLearner.sum A`: the sum of the plays of a finite family of
   learners.
 * `LMLExplore.OnlineLearning.OnlineLearner.map A f`: the images by `f` of the plays of `A`.
+* `LMLExplore.OnlineLearning.OnlineLearner.skipZero A`: `A` skipping the rounds with zero
+  feedback.
 
 ## Main statements
 
@@ -53,6 +63,8 @@ their runs, and transfers regret guarantees (`OnlineLearner.HasRegretBound`) thr
 * `OnlineLearner.regret_run_sum_le`: the regret of a sum of learners is at most the sum of their
   regret bounds, for every decomposition of the comparator.
 * `OnlineLearner.HasRegretBound.map_add_left`: the regret guarantee of a translated learner.
+* `OnlineLearner.HasRegretBound.skipZero`: the regret guarantee of a learner skipping the rounds
+  with zero feedback.
 
 ## References
 
@@ -311,6 +323,92 @@ theorem HasRegretBound.map_add_left (hA : A.HasRegretBound (fun y x ↦ y x) adm
   exact hA.regret_le hy hu
 
 end Map
+
+section SkipZero
+
+open Nat
+
+variable [Zero G] [DecidableEq G] (A : OnlineLearner C G X)
+
+/-- The feedback of a history of `t` rounds as a sequence, extended by `0` after round `t`. -/
+private noncomputable def histFeedback {t : ℕ} (h : Fin t → C × G) (s : ℕ) : G :=
+  if hs : s < t then (h ⟨s, hs⟩).2 else 0
+
+/-- The learner `A` **skipping the rounds with zero feedback** [Ora, Section 13.2.1]: it plays as
+`A` run on the rounds whose feedback is nonzero only. At round `t`, with `k` rounds of nonzero
+feedback before `t`, it plays the play of round `k` of `A` from the contexts and feedback of these
+`k` rounds and the current context (`run_skipZero`). The rounds with zero feedback are invisible
+to `A`: for linear losses, they contribute nothing to the regret, and the regret of `A.skipZero`
+is the regret of `A` on the subsequence of rounds of nonzero feedback (`regret_run_skipZero`,
+`HasRegretBound.skipZero`). -/
+noncomputable def skipZero : OnlineLearner C G X where
+  play t h c := A.play (count (histFeedback h · ≠ 0) t)
+    (fun i ↦ h ⟨nth (histFeedback h · ≠ 0) i, nth_lt_of_lt_count i.2⟩) c
+
+/-- **The plays of the learner skipping the rounds with zero feedback.** Its play of round `t` is
+the play of `A` from the contexts and feedback of the `count (g · ≠ 0) t` rounds `s < t` of
+nonzero feedback, the `i`-th of which is `nth (g · ≠ 0) i`, and from the context of round `t`. -/
+lemma run_skipZero (c : ℕ → C) (g : ℕ → G) (t : ℕ) :
+    A.skipZero.run c g t = A.play (count (g · ≠ 0) t)
+      (fun i ↦ (c (nth (g · ≠ 0) i), g (nth (g · ≠ 0) i))) (c t) := by
+  -- before round `t`, the feedback of the history is `g`
+  have h_eq : ∀ s < t, histFeedback (fun s : Fin t ↦ (c s, g s)) s ≠ 0 ↔ g s ≠ 0 := fun s hs ↦ by
+    simp [histFeedback, hs]
+  have h_count := count_eq_count_of_forall_lt_iff h_eq
+  rw [run_def]
+  exact A.play_congr h_count
+    (fun i hi ↦ by simp [nth_eq_nth_of_forall_lt_iff h_eq (h_count ▸ hi)]) (c t)
+
+/-- At its `k`-th round of nonzero feedback, the learner skipping the rounds with zero feedback
+plays the play of round `k` of `A` against the subsequences of the contexts and feedback of the
+rounds of nonzero feedback. -/
+lemma run_skipZero_nth (c : ℕ → C) (g : ℕ → G) {k n : ℕ} (hk : k < count (g · ≠ 0) n) :
+    A.skipZero.run c g (nth (g · ≠ 0) k) =
+      A.run (fun i ↦ c (nth (g · ≠ 0) i)) (fun i ↦ g (nth (g · ≠ 0) i)) k := by
+  rw [run_skipZero, run_def]
+  exact A.play_congr (count_nth_of_lt_count hk) (fun _ _ ↦ rfl) _
+
+variable (L : G → X → ℝ)
+
+/-- **Regret of the learner skipping the rounds with zero feedback.** For losses `L` that vanish
+for the zero feedback, such as linear losses, the regret of `A.skipZero` after `n` rounds is the
+regret of `A` after the `count (g · ≠ 0) n` rounds of nonzero feedback before `n`, against the
+subsequences of the contexts and feedback of these rounds. -/
+lemma regret_run_skipZero (hL : ∀ x, L 0 x = 0) (c : ℕ → C) (g : ℕ → G) (u : X) (n : ℕ) :
+    regret (fun t ↦ L (g t)) (A.skipZero.run c g) u n =
+      regret (fun k ↦ L (g (nth (g · ≠ 0) k)))
+        (A.run (fun i ↦ c (nth (g · ≠ 0) i)) (fun i ↦ g (nth (g · ≠ 0) i))) u
+        (count (g · ≠ 0) n) := by
+  simp only [regret_def]
+  -- the rounds of zero feedback contribute nothing, and the others are indexed by `nth`
+  rw [← sum_filter_of_ne (p := fun t ↦ g t ≠ 0) fun t _ ht h0 ↦ ht (by simp [h0, hL])]
+  refine sum_bij' (fun t _ ↦ count (g · ≠ 0) t) (fun k _ ↦ nth (g · ≠ 0) k) (fun t ht ↦ ?_)
+    (fun k hk ↦ ?_) (fun t ht ↦ ?_) (fun k hk ↦ ?_) fun t ht ↦ ?_
+  · obtain ⟨htn, hgt⟩ := mem_filter.mp ht
+    exact mem_range.mpr (count_strict_mono hgt (mem_range.mp htn))
+  · have hk := mem_range.mp hk
+    exact mem_filter.mpr ⟨mem_range.mpr (nth_lt_of_lt_count hk), nth_mem_of_lt_count hk⟩
+  · exact nth_count (mem_filter.mp ht).2
+  · exact count_nth_of_lt_count (mem_range.mp hk)
+  · obtain ⟨htn, hgt⟩ := mem_filter.mp ht
+    rw [← run_skipZero_nth A c g (count_strict_mono hgt (mem_range.mp htn)), nth_count hgt]
+
+variable {A L} {adm : C → G → Prop} {U : Set X} {B : ℕ → (ℕ → C) → (ℕ → G) → X → ℝ}
+
+/-- **Regret guarantee of the learner skipping the rounds with zero feedback** [Ora,
+Section 13.2.1]. For losses `L` that vanish for the zero feedback, if `A` has the regret bound `B`,
+then `A.skipZero` has the regret bound `B` evaluated at the number `count (g · ≠ 0) n` of rounds of
+nonzero feedback before `n`, and at the subsequences of the contexts and feedback of these rounds.
+For a bound in the horizon, this replaces the horizon by the number of rounds of nonzero
+feedback. -/
+theorem HasRegretBound.skipZero (hA : A.HasRegretBound L adm U B) (hL : ∀ x, L 0 x = 0) :
+    A.skipZero.HasRegretBound L adm U (fun n c g u ↦ B (count (g · ≠ 0) n)
+      (fun i ↦ c (nth (g · ≠ 0) i)) (fun i ↦ g (nth (g · ≠ 0) i)) u) := by
+  refine hasRegretBound_iff.mpr fun c g n hg u hu ↦ ?_
+  rw [regret_run_skipZero A L hL]
+  exact hA.regret_le (fun k hk ↦ hg _ (nth_lt_of_lt_count hk)) hu
+
+end SkipZero
 
 end OnlineLearner
 

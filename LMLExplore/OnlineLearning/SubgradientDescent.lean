@@ -8,7 +8,8 @@ module
 public import LMLExplore.Analysis.Convex.Bregman.Euclidean
 public import LMLExplore.Analysis.Real.Sqrt
 public import LMLExplore.NumberTheory.Harmonic.Bounds
-public import LMLExplore.OnlineLearning.MirrorDescent.Basic
+public import LMLExplore.Analysis.InnerProductSpace.Projection.Minimal
+public import LMLExplore.OnlineLearning.MirrorDescent.Learner
 public import LMLExplore.OnlineLearning.Regret
 
 /-!
@@ -40,6 +41,17 @@ to the gradient step `a t - η t • g t`. Each such step satisfies
   guessing game of the squared losses `(a - y t) ^ 2` on `[0, 1]`, this is `1 + log n`
   [Ora, Example 4.11].
 
+The learner `OnlineLearner.onlineSubgradientDescent K η x₀` runs the algorithm: it is the mirror
+descent learner of `LMLExplore.OnlineLearning.MirrorDescent.Learner` for the potential
+`‖b‖ ^ 2 / 2`, fed the vectors `g t`. Its plays are the projections of the gradient steps onto a
+nonempty complete convex set `K`, and it has the regret guarantees of [Ora, Theorem 2.13] with a
+constant and with nonincreasing learning rates.
+
+## Main definitions
+
+* `LMLExplore.OnlineLearning.OnlineLearner.onlineSubgradientDescent K η x₀`: the projected online
+  subgradient descent learner.
+
 ## Main statements
 
 * `sum_sub_le_sum_apply_sub_of_hasSubgradientWithinAt`: the regret of losses with subgradients
@@ -63,6 +75,11 @@ to the gradient step `a t - η t • g t`. Each such step satisfies
 * `onlineSubgradientDescent_regret_le_mul_one_add_log`: [Ora, Corollary 4.8] logarithmic regret
   for `μ`-strongly convex losses with bounded subgradients.
 * `onlineSubgradientDescent_regret_sq_sub_le_one_add_log`: [Ora, Example 4.11] the guessing game.
+* `OnlineLearner.isMinOn_run_onlineSubgradientDescent_of_complete_convex`: the plays of the
+  learner are the projections of the gradient steps.
+* `OnlineLearner.hasRegretBound_onlineSubgradientDescent`,
+  `OnlineLearner.hasRegretBound_onlineSubgradientDescent_of_antitone`: the regret guarantees of
+  the learner [Ora, Theorem 2.13].
 
 ## References
 
@@ -453,6 +470,106 @@ theorem onlineSubgradientDescent_regret_sq_sub_le_one_add_log (x y : ℕ → ℝ
     (fun t _ ↦ hasSubgradientWithinAt_sq_sub _ (x t) (y t)) hgL hx0 ha hu
   norm_num at h
   exact h
+
+namespace OnlineLearner
+
+variable {C : Type*} {η : ℕ → ℝ} {x₀ : E}
+
+/-- The **projected online subgradient descent learner** on `K` with learning rates `η` and first
+play `x₀` [Zin03; Ora, Section 2.2]. Its feedback at round `t` is a vector `g t`: the gradient of
+the linear loss `⟪g t, ·⟫`, or a subgradient of a convex loss at the play. At round `t + 1` it
+plays a point of `K` nearest to the gradient step `x t - η t • g t` from its play `x t` of round
+`t` when there is one (`isMinOn_run_onlineSubgradientDescent`), and `x t` otherwise. It is the
+mirror descent learner for the potential `‖b‖ ^ 2 / 2`, whose mirror descent steps are these
+nearest points (`isMirrorDescentStep_norm_sq_div_two_iff`), fed the losses `⟪g t, ·⟫`. It ignores
+the contexts. -/
+noncomputable def onlineSubgradientDescent (K : Set E) (η : ℕ → ℝ) (x₀ : E) :
+    OnlineLearner C E E :=
+  ofUpdate x₀ fun t g a ↦
+    mirrorDescentStep K (fun b ↦ ‖b‖ ^ 2 / 2) (η t) (innerSL ℝ g) a (innerSL ℝ a)
+
+/-- The first play of the projected online subgradient descent learner is `x₀`. -/
+@[simp]
+lemma run_onlineSubgradientDescent_zero (c : ℕ → C) (g : ℕ → E) :
+    (onlineSubgradientDescent K η x₀).run c g 0 = x₀ :=
+  run_ofUpdate_zero c g
+
+/-- The plays of the projected online subgradient descent learner started in `K` lie in `K`. -/
+lemma run_onlineSubgradientDescent_mem (hx₀ : x₀ ∈ K) (c : ℕ → C) (g : ℕ → E) (t : ℕ) :
+    (onlineSubgradientDescent K η x₀).run c g t ∈ K := by
+  induction t with
+  | zero => rwa [run_onlineSubgradientDescent_zero]
+  | succ t ih =>
+    rw [onlineSubgradientDescent, run_ofUpdate_succ]
+    exact mirrorDescentStep_mem ih
+
+/-- **The projected online subgradient descent learner projects the gradient steps.** At every
+round `t` where `K` has a point nearest to the gradient step `x t - η t • g t` from the play `x t`
+of the learner, its next play is such a point. -/
+theorem isMinOn_run_onlineSubgradientDescent (c : ℕ → C) (g : ℕ → E) {t : ℕ}
+    (h : ∃ x ∈ K, IsMinOn
+      (fun b ↦ ‖b - ((onlineSubgradientDescent K η x₀).run c g t - η t • g t)‖) K x) :
+    IsMinOn (fun b ↦ ‖b - ((onlineSubgradientDescent K η x₀).run c g t - η t • g t)‖) K
+      ((onlineSubgradientDescent K η x₀).run c g (t + 1)) := by
+  obtain ⟨x, hx, hmin⟩ := h
+  rw [onlineSubgradientDescent, run_ofUpdate_succ]
+  exact (isMirrorDescentStep_norm_sq_div_two_iff.mp (isMirrorDescentStep_mirrorDescentStep
+    ⟨x, isMirrorDescentStep_norm_sq_div_two_iff.mpr ⟨hx, hmin⟩⟩)).2
+
+/-- On a nonempty complete convex set `K`, for instance a nonempty closed convex set of a Hilbert
+space, each play of the projected online subgradient descent learner after the first is the point
+of `K` nearest to the gradient step from the previous play. -/
+theorem isMinOn_run_onlineSubgradientDescent_of_complete_convex (hK_ne : K.Nonempty)
+    (hKc : IsComplete K) (hK : Convex ℝ K) (c : ℕ → C) (g : ℕ → E) (t : ℕ) :
+    IsMinOn (fun b ↦ ‖b - ((onlineSubgradientDescent K η x₀).run c g t - η t • g t)‖) K
+      ((onlineSubgradientDescent K η x₀).run c g (t + 1)) :=
+  isMinOn_run_onlineSubgradientDescent c g <|
+    exists_isMinOn_norm_sub_of_complete_convex hK_ne hKc hK _
+
+/-- **Regret guarantee of the projected online subgradient descent learner with a constant learning
+rate** [Ora, Theorem 2.13]. Let `K` be a complete convex set, for instance a closed convex set of
+a Hilbert space, let `x₀ ∈ K` and `η > 0`. For every sequence of vectors `g` and every horizon `n`,
+the regret of the linear losses `⟪g t, ·⟫` of the plays `x` of the learner with the constant
+learning rate `η` against every `u ∈ K` is at most
+`(‖u - x₀‖ ^ 2 - ‖u - x n‖ ^ 2) / (2 η) + η / 2 * ∑ t < n, ‖g t‖ ^ 2`.
+No bound on the diameter of `K` is needed, so this applies on unbounded sets. -/
+theorem hasRegretBound_onlineSubgradientDescent (hKc : IsComplete K) (hK : Convex ℝ K)
+    (hx₀ : x₀ ∈ K) {η : ℝ} (hη : 0 < η) :
+    (onlineSubgradientDescent (C := C) K (fun _ ↦ η) x₀).HasRegretBound (fun g x ↦ ⟪g, x⟫)
+      (fun _ _ ↦ True) K (fun n c g u ↦
+        (‖u - x₀‖ ^ 2 - ‖u - (onlineSubgradientDescent K (fun _ ↦ η) x₀).run c g n‖ ^ 2) /
+          (2 * η) + η / 2 * ∑ t ∈ range n, ‖g t‖ ^ 2) := by
+  refine hasRegretBound_iff.mpr fun c g n _ u hu ↦ ?_
+  have h := onlineSubgradientDescent_regret_le_norm_sub_sq_div (n := n) hK hη
+    (fun t ↦ innerSL ℝ (g t)) g
+    ((onlineSubgradientDescent K (fun _ ↦ η) x₀).run c g)
+    (fun t _ ↦ hasSubgradientWithinAt_linear _)
+    (fun t _ ↦ ⟨run_onlineSubgradientDescent_mem hx₀ c g (t + 1),
+      isMinOn_run_onlineSubgradientDescent_of_complete_convex ⟨x₀, hx₀⟩ hKc hK c g t⟩) hu
+  rw [run_onlineSubgradientDescent_zero] at h
+  simpa only [regret_def, innerSL_apply_apply] using h
+
+/-- **Anytime regret guarantee of the projected online subgradient descent learner**
+[Ora, Theorem 2.13]. Let `K` be a complete convex set with `‖x - y‖ ≤ D` for `x, y ∈ K`, let
+`x₀ ∈ K`, and let the learning rates `η t > 0` be nonincreasing. For every sequence of vectors `g`
+and every horizon `n`, the regret of the linear losses `⟪g t, ·⟫` of the plays of the learner
+against every `u ∈ K` is at most `D ^ 2 / (2 η (n - 1)) + ∑ t < n, η t / 2 * ‖g t‖ ^ 2`. -/
+theorem hasRegretBound_onlineSubgradientDescent_of_antitone (hKc : IsComplete K)
+    (hK : Convex ℝ K) (hx₀ : x₀ ∈ K) (hη : ∀ t, 0 < η t) (hη_anti : Antitone η) {D : ℝ}
+    (hKD : ∀ x ∈ K, ∀ y ∈ K, ‖x - y‖ ≤ D) :
+    (onlineSubgradientDescent (C := C) K η x₀).HasRegretBound (fun g x ↦ ⟪g, x⟫)
+      (fun _ _ ↦ True) K
+      (fun n _ g _ ↦ D ^ 2 / (2 * η (n - 1)) + ∑ t ∈ range n, η t / 2 * ‖g t‖ ^ 2) := by
+  refine hasRegretBound_iff.mpr fun c g n _ u hu ↦ ?_
+  have h := onlineSubgradientDescent_regret_le (n := n) hK hη hη_anti hKD
+    (fun t ↦ innerSL ℝ (g t)) g
+    ((onlineSubgradientDescent K η x₀).run c g) (fun t _ ↦ hasSubgradientWithinAt_linear _)
+    (run_onlineSubgradientDescent_mem hx₀ c g 0)
+    (fun t _ ↦ ⟨run_onlineSubgradientDescent_mem hx₀ c g (t + 1),
+      isMinOn_run_onlineSubgradientDescent_of_complete_convex ⟨x₀, hx₀⟩ hKc hK c g t⟩) hu
+  simpa only [regret_def, innerSL_apply_apply] using h
+
+end OnlineLearner
 
 end InnerProductSpace
 

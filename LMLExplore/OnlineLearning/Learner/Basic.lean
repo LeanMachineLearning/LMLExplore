@@ -35,6 +35,9 @@ predicate for their regret guarantees [Ora, Chapter 1]. The structures of the re
   `B n c g u` (`HasRegretBound.regret_le`). Since the bound holds for every sequence of feedback,
   it holds in particular for the feedback `A.closedLoopFeedback c φ` of the closed-loop runs, that
   is, against adaptive adversaries.
+* A learner **defined by an update rule** `OnlineLearner.ofUpdate x₀ f` plays `x₀` first and then
+  updates its play by the feedback of each round: `x (t + 1) = f t (g t) (x t)`. Mirror descent and
+  projected online subgradient descent are of this form.
 
 The learners of this file are deterministic and use no measurability: LML's
 `Learning.Algorithm.deterministic` is the measurable counterpart, used for stochastic environments.
@@ -47,6 +50,8 @@ The learners of this file are deterministic and use no measurability: LML's
 * `LMLExplore.OnlineLearning.OnlineLearner.closedLoopFeedback A c φ`: the feedback of the
   closed-loop run, in which the feedback of round `t` is `φ t` of the play of round `t`.
 * `LMLExplore.OnlineLearning.OnlineLearner.HasRegretBound A L adm U B`: the regret guarantee.
+* `LMLExplore.OnlineLearning.OnlineLearner.ofUpdate x₀ f`: the learner defined by the update rule
+  `f` from the first play `x₀`.
 
 ## Main statements
 
@@ -216,5 +221,41 @@ lemma HasRegretBound.mono (hA : A.HasRegretBound L adm U B)
 end HasRegretBound
 
 end OnlineLearner
+
+section OfUpdate
+
+variable {G X : Type*}
+
+/-- The play of round `t` of `OnlineLearner.ofUpdate x₀ f` from the feedback of the rounds
+`s < t`, by recursion on `t`. -/
+private def ofUpdatePlay (x₀ : X) (f : ℕ → G → X → X) : (t : ℕ) → (Fin t → G) → X
+  | 0, _ => x₀
+  | t + 1, g => f t (g (Fin.last t)) (ofUpdatePlay x₀ f t fun s ↦ g s.castSucc)
+
+namespace OnlineLearner
+
+variable {C : Type*} {x₀ : X} {f : ℕ → G → X → X}
+
+/-- The learner **defined by the update rule** `f` from the first play `x₀`: it plays `x₀` at
+round `0`, and at round `t + 1` the update `f t (g t) (x t)` of its play `x t` of round `t` by the
+feedback `g t` of that round (`run_ofUpdate_zero`, `run_ofUpdate_succ`). It ignores the contexts.
+Mirror descent and projected online subgradient descent are learners of this form, whose update
+is a step from the current play for the last loss. -/
+def ofUpdate (x₀ : X) (f : ℕ → G → X → X) : OnlineLearner C G X where
+  play t h _ := ofUpdatePlay x₀ f t fun s ↦ (h s).2
+
+/-- The first play of the learner defined by an update rule is its initial play. -/
+@[simp]
+lemma run_ofUpdate_zero (c : ℕ → C) (g : ℕ → G) : (ofUpdate x₀ f).run c g 0 = x₀ := (rfl)
+
+/-- The play of round `t + 1` of the learner defined by the update rule `f` is the update of its
+play of round `t` by the feedback of round `t`. -/
+@[simp]
+lemma run_ofUpdate_succ (c : ℕ → C) (g : ℕ → G) (t : ℕ) :
+    (ofUpdate x₀ f).run c g (t + 1) = f t (g t) ((ofUpdate x₀ f).run c g t) := (rfl)
+
+end OnlineLearner
+
+end OfUpdate
 
 end LMLExplore.OnlineLearning
