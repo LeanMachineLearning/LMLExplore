@@ -5,6 +5,7 @@ Authors: LMLExplore contributors
 -/
 module
 
+public import LMLExplore.Analysis.Convex.Bregman.Directional
 public import LMLExplore.Analysis.Convex.Bregman.Euclidean
 public import LMLExplore.Analysis.Convex.Bregman.Projection
 public import LMLExplore.Analysis.Convex.Bregman.StrongConvex
@@ -52,11 +53,18 @@ for strongly convex potentials through the stability bounds of
   regularizers that may change over the rounds: the regret is at most `ψ n u - ψ 0 (a 0)` plus
   the sum of the stability terms `y t (a t) - (m (t + 1) - m t)`, where `m t` is the value of the
   objective of round `t` at its play.
+* `ftrl_regret_le_of_le_sub`: the FTRL lemma with a lower bound `D t` on the increase of the
+  objective of round `t` from `a t` to `a (t + 1)`, the regret is at most
+  `ψ n u - ψ 0 (a 0) - ∑ t < n, (ψ (t + 1) - ψ t) (a (t + 1))
+    + ∑ t < n, (y t (a t - a (t + 1)) - D t)`. The Bregman divergences below are such bounds.
 * `ftrl_regret_le_of_isMinOn`: for a convex `K` and regularizers `ψ t` with derivatives `ψ' t`
   within `K` at the plays, the regret is at most
   `ψ n u - ψ 0 (a 0) - ∑ t < n, (ψ (t + 1) - ψ t) (a (t + 1))
     + ∑ t < n, (y t (a t - a (t + 1)) - D_{ψ t}(a (t + 1), a t))`, with `D_ψ` the Bregman
   divergence [Ora, Lemma 7.1].
+* `ftrl_regret_le_of_isMinOn_of_convexOn`: the same bound for regularizers `ψ t` convex on `K`,
+  with no derivatives, with the Bregman divergences `dirBregDiv (ψ t)` with directional
+  derivatives of `LMLExplore.Analysis.Convex.Bregman.Directional`.
 * `ftrl_regret_le_of_monotone`: its case of regularizers `ψ t` nondecreasing in `t` on `K`, with
   the bound `ψ n u - ψ 0 (a 0) + ∑ t < n, (y t (a t - a (t + 1)) - D_{ψ t}(a (t + 1), a t))`.
 * `ftrl_regret_le_of_antitone`: the anytime form of [LS, Theorem 28.5]. With nonincreasing
@@ -65,6 +73,10 @@ for strongly convex potentials through the stability bounds of
   `(F u - F (a 0)) / η n + ∑ t < n, (y t (a t - a (t + 1)) - D_F(a (t + 1), a t) / η t)`.
   The potential need not be convex.
 * `ftrl_regret_le`: [LS, Theorem 28.5], its case of a constant learning rate `η`.
+* `ftrl_regret_le_of_antitone_of_convexOn`, `ftrl_regret_le_of_convexOn`: the same two bounds for
+  a potential `F` convex on `K`, with no derivative, with the Bregman divergence `dirBregDiv F`
+  with directional derivatives. The second is [LS, Theorem 28.5] as stated there, for convex
+  potentials.
 * `ftrl_regret_succ_le_sum_inv_sub_inv`: for positive learning rates, not necessarily monotone,
   the regret after `n + 1` rounds with the penalty of each change of rate at the play of its
   round, `(F u - F (a 0)) / η 0 + ∑ t < n, (1 / η (t + 1) - 1 / η t) (F u - F (a (t + 1)))`, the
@@ -142,6 +154,36 @@ theorem sum_apply_sub_le_ftrl (ψ : ℕ → E → ℝ) (y : ℕ → E →L[ℝ] 
   refine h.trans_eq (congrArg (_ + ·) (sum_congr rfl fun t _ ↦ ?_))
   ring
 
+/-- **Regret of FTRL from lower bounds on the increases of the objectives** [Ora, Lemma 7.1]. For
+`t < n`, let `D t` be at most the increase of the objective `b ↦ ∑ s < t, y s b + ψ t b` of round
+`t` from `a t` to `a (t + 1)`, and let `a n` do at least as well as `u` on the objective of round
+`n`. Then
+`∑ t < n, y t (a t - u) ≤ ψ n u - ψ 0 (a 0) - ∑ t < n, (ψ (t + 1) (a (t + 1)) - ψ t (a (t + 1)))
+  + ∑ t < n, (y t (a t - a (t + 1)) - D t)`.
+When `a t` minimizes the objective of round `t` over a convex set, such bounds are the Bregman
+divergences `D_{ψ t}(a (t + 1), a t)`: with the derivative of `ψ t`
+(`ftrl_regret_le_of_isMinOn`), or with its directional derivative when `ψ t` is convex
+(`ftrl_regret_le_of_isMinOn_of_convexOn`). -/
+theorem ftrl_regret_le_of_le_sub (ψ : ℕ → E → ℝ) (y : ℕ → E →L[ℝ] ℝ) (a : ℕ → E) (D : ℕ → ℝ)
+    (hD : ∀ t < n, D t ≤ (∑ s ∈ range t, y s (a (t + 1)) + ψ t (a (t + 1))) -
+      (∑ s ∈ range t, y s (a t) + ψ t (a t)))
+    (han : ∑ s ∈ range n, y s (a n) + ψ n (a n) ≤ ∑ s ∈ range n, y s u + ψ n u) :
+    ∑ t ∈ range n, y t (a t - u) ≤ ψ n u - ψ 0 (a 0) -
+      ∑ t ∈ range n, (ψ (t + 1) (a (t + 1)) - ψ t (a (t + 1))) +
+      ∑ t ∈ range n, (y t (a t - a (t + 1)) - D t) := by
+  have h_term : ∑ t ∈ range n, (y t (a t) -
+      ((∑ s ∈ range (t + 1), y s (a (t + 1)) + ψ (t + 1) (a (t + 1))) -
+        (∑ s ∈ range t, y s (a t) + ψ t (a t)))) ≤
+      ∑ t ∈ range n, ((y t (a t - a (t + 1)) - D t) -
+        (ψ (t + 1) (a (t + 1)) - ψ t (a (t + 1)))) := by
+    refine sum_le_sum fun t ht ↦ ?_
+    have := hD t (mem_range.mp ht)
+    rw [sum_range_succ, map_sub]
+    linarith
+  have e := sum_sub_distrib (s := range n) (fun t ↦ y t (a t - a (t + 1)) - D t)
+    (fun t ↦ ψ (t + 1) (a (t + 1)) - ψ t (a (t + 1)))
+  linarith [sum_apply_sub_le_ftrl ψ y a han]
+
 /-- **Regret of FTRL with the penalties of the changes of regularizer** [Ora, Lemma 7.1]. Let `K`
 be convex. Let each `a t`, for `t < n`, minimize over `K` the objective
 `b ↦ ∑ s < t, y s b + ψ t b`, where `ψ t` has derivative `ψ' t` within `K` at `a t`, and let
@@ -162,24 +204,36 @@ theorem ftrl_regret_le_of_isMinOn (hK : Convex ℝ K) (ψ : ℕ → E → ℝ) (
       ∑ t ∈ range n, (y t (a t - a (t + 1)) - bregDiv (ψ t) (a (t + 1)) (a t) (ψ' t)) := by
   -- the objective of round `t` increases from `a t` to `a (t + 1)` by at least the Bregman
   -- divergence of `ψ t`
-  have h_term : ∑ t ∈ range n, (y t (a t) -
-      ((∑ s ∈ range (t + 1), y s (a (t + 1)) + ψ (t + 1) (a (t + 1))) -
-        (∑ s ∈ range t, y s (a t) + ψ t (a t)))) ≤
-      ∑ t ∈ range n, ((y t (a t - a (t + 1)) - bregDiv (ψ t) (a (t + 1)) (a t) (ψ' t)) -
-        (ψ (t + 1) (a (t + 1)) - ψ t (a (t + 1)))) := by
-    refine sum_le_sum fun t ht ↦ ?_
-    have ht' := mem_range.mp ht
-    have h_min : IsMinOn (fun c ↦ (∑ s ∈ range t, y s) c + ψ t c) K (a t) := by
-      simpa using ha t ht'
-    have h_breg := bregDiv_le_sub_of_isMinOn
-      (hK.segment_subset (haK t ht'.le) (haK (t + 1) ht')) h_min (hψ' t ht')
-    simp only [FunLike.coe_sum, Finset.sum_apply] at h_breg
-    rw [sum_range_succ, map_sub]
-    linarith
-  have e := sum_sub_distrib (s := range n)
-    (fun t ↦ y t (a t - a (t + 1)) - bregDiv (ψ t) (a (t + 1)) (a t) (ψ' t))
-    (fun t ↦ ψ (t + 1) (a (t + 1)) - ψ t (a (t + 1)))
-  linarith [sum_apply_sub_le_ftrl ψ y a han]
+  refine ftrl_regret_le_of_le_sub ψ y a _ (fun t ht ↦ ?_) han
+  have h_min : IsMinOn (fun c ↦ (∑ s ∈ range t, y s) c + ψ t c) K (a t) := by
+    simpa using ha t ht
+  have h_breg := bregDiv_le_sub_of_isMinOn
+    (hK.segment_subset (haK t ht.le) (haK (t + 1) ht)) h_min (hψ' t ht)
+  simpa only [FunLike.coe_sum, Finset.sum_apply] using h_breg
+
+/-- **Regret of FTRL with convex regularizers, with the penalties of the changes of regularizer**
+[Ora, Lemma 7.1; LS, Theorem 28.5]. Let each `a t`, for `t < n`, minimize over `K` the objective
+`b ↦ ∑ s < t, y s b + ψ t b`, where `ψ t` is convex on `K`, and let `a n ∈ K` do at least as well
+as `u` on the objective of round `n`. Then, with `D_ψ` the Bregman divergence with the directional
+derivatives of `ψ` (`dirBregDiv`),
+`∑ t < n, y t (a t - u) ≤ ψ n u - ψ 0 (a 0) - ∑ t < n, (ψ (t + 1) (a (t + 1)) - ψ t (a (t + 1)))
+  + ∑ t < n, (y t (a t - a (t + 1)) - D_{ψ t}(a (t + 1), a t))`.
+No derivative of the regularizers is assumed. -/
+theorem ftrl_regret_le_of_isMinOn_of_convexOn (ψ : ℕ → E → ℝ) (y : ℕ → E →L[ℝ] ℝ)
+    (a : ℕ → E) (ha : ∀ t < n, IsMinOn (fun b ↦ ∑ s ∈ range t, y s b + ψ t b) K (a t))
+    (haK : ∀ t ≤ n, a t ∈ K)
+    (han : ∑ s ∈ range n, y s (a n) + ψ n (a n) ≤ ∑ s ∈ range n, y s u + ψ n u)
+    (hψ : ∀ t < n, ConvexOn ℝ K (ψ t)) :
+    ∑ t ∈ range n, y t (a t - u) ≤ ψ n u - ψ 0 (a 0) -
+      ∑ t ∈ range n, (ψ (t + 1) (a (t + 1)) - ψ t (a (t + 1))) +
+      ∑ t ∈ range n, (y t (a t - a (t + 1)) - dirBregDiv (ψ t) (a (t + 1)) (a t)) := by
+  refine ftrl_regret_le_of_le_sub ψ y a _ (fun t ht ↦ ?_) han
+  have h_min : IsMinOn (fun c ↦ ((∑ s ∈ range t, y s : E →L[ℝ] ℝ) : E →ₗ[ℝ] ℝ) c + ψ t c) K
+      (a t) := by
+    simpa using ha t ht
+  have h_breg := (hψ t ht).dirBregDiv_le_sub_of_isMinOn _
+    ((hψ t ht).1.segment_subset (haK t ht.le) (haK (t + 1) ht)) h_min
+  simpa only [ContinuousLinearMap.coe_coe, FunLike.coe_sum, Finset.sum_apply] using h_breg
 
 /-- **Regret of FTRL with time-varying regularizers** [Ora, Lemma 7.1]. Let `K` be convex and let
 the regularizers `ψ t` be nondecreasing in `t` on `K`. Let each `a t`, for `t < n`, minimize over
@@ -224,28 +278,61 @@ lemma IsFTRLPlay.isMinOn_zero {F : E → ℝ} {η : ℝ} {y : ℕ → E →L[ℝ
   simpa using h.isMinOn
 
 /-- FTRL with nonincreasing learning rates `η t` is FTRL with the nondecreasing regularizers
-`(F - c) / η t`, for any `c ≤ F` on `K`: `ftrl_regret_le_of_monotone` for these regularizers, with
-a last point `a n ∈ K` that only needs to do at least as well as `u`. -/
-private lemma ftrl_regret_le_of_antitone_aux {F : E → ℝ} (hK : Convex ℝ K) {η : ℕ → ℝ}
+`(F - c) / η t`, for any `c ≤ F` on `K`: `ftrl_regret_le_of_le_sub` for these regularizers, with
+lower bounds `D t` on the increases of the objectives `b ↦ η t ∑ s < t, y s b + F b` from `a t` to
+`a (t + 1)` and a last point `a n ∈ K` that only needs to do at least as well as `u`. -/
+private lemma ftrl_regret_le_of_antitone_aux {F : E → ℝ} {η : ℕ → ℝ}
     (hη : ∀ t, 0 < η t) (hη_anti : Antitone η) {c : ℝ} (hc : ∀ b ∈ K, c ≤ F b)
     (y : ℕ → E →L[ℝ] ℝ) (a : ℕ → E) (ha : ∀ t < n, IsFTRLPlay K F (η t) y t (a t))
     (haK : a n ∈ K)
     (han : ∑ s ∈ range n, y s (a n) + (F (a n) - c) / η n ≤
       ∑ s ∈ range n, y s u + (F u - c) / η n)
-    (F' : ℕ → E →L[ℝ] ℝ) (hF' : ∀ t < n, HasFDerivWithinAt F (F' t) K (a t)) :
+    (D : ℕ → ℝ) (hD : ∀ t < n, D t ≤ (η t * ∑ s ∈ range t, y s (a (t + 1)) + F (a (t + 1))) -
+      (η t * ∑ s ∈ range t, y s (a t) + F (a t))) :
     ∑ t ∈ range n, y t (a t - u) ≤ (F u - c) / η n - (F (a 0) - c) / η 0 +
-      ∑ t ∈ range n, (y t (a t - a (t + 1)) - bregDiv F (a (t + 1)) (a t) (F' t) / η t) := by
-  have h := ftrl_regret_le_of_monotone hK (fun t b ↦ (F b - c) / η t) y a
-    (fun t ht ↦ (ha t ht).isMinOn_sum_add_sub_div (hη t) c)
-    (fun t ht ↦ by rcases ht.lt_or_eq with ht | rfl; exacts [(ha t ht).mem, haK]) han
-    (fun b hb t₁ t₂ ht ↦ div_le_div_of_nonneg_left (sub_nonneg.mpr (hc b hb)) (hη t₂) (hη_anti ht))
-    (fun t ↦ (η t)⁻¹ • F' t) fun t ht ↦ by
-      simpa only [div_eq_mul_inv] using ((hF' t ht).sub_const c).mul_const (η t)⁻¹
-  have h_breg (t : ℕ) : bregDiv (fun b ↦ (F b - c) / η t) (a (t + 1)) (a t) ((η t)⁻¹ • F' t) =
-      bregDiv F (a (t + 1)) (a t) (F' t) / η t := by
-    simp only [bregDiv, smul_apply, smul_eq_mul]
-    ring
-  simpa only [h_breg] using h
+      ∑ t ∈ range n, (y t (a t - a (t + 1)) - D t / η t) := by
+  have h := ftrl_regret_le_of_le_sub (fun t b ↦ (F b - c) / η t) y a (fun t ↦ D t / η t)
+    (fun t ht ↦ by
+      have h_obj : (∑ s ∈ range t, y s (a (t + 1)) + (F (a (t + 1)) - c) / η t) -
+          (∑ s ∈ range t, y s (a t) + (F (a t) - c) / η t) =
+          ((η t * ∑ s ∈ range t, y s (a (t + 1)) + F (a (t + 1))) -
+            (η t * ∑ s ∈ range t, y s (a t) + F (a t))) / η t := by
+        field_simp [(hη t).ne']
+        ring
+      rw [h_obj]
+      exact div_le_div_of_nonneg_right (hD t ht) (hη t).le) han
+  -- the regularizers grow with `t` on `K`, so the penalties of the changes of rate are
+  -- nonnegative
+  have h_pen : 0 ≤ ∑ t ∈ range n,
+      ((F (a (t + 1)) - c) / η (t + 1) - (F (a (t + 1)) - c) / η t) := by
+    refine sum_nonneg fun t ht ↦ sub_nonneg.mpr ?_
+    have h_mem : a (t + 1) ∈ K := by
+      rcases (Order.add_one_le_of_lt (mem_range.mp ht)).lt_or_eq with ht' | rfl
+      exacts [(ha _ ht').mem, haK]
+    exact div_le_div_of_nonneg_left (sub_nonneg.mpr (hc _ h_mem)) (hη _) (hη_anti t.le_succ)
+  linarith
+
+/-- The increase of the FTRL objective of round `t`, with potential `F` and learning rate `η`,
+from a play `a` of that round to a point `b` with `[a, b] ⊆ K` is at least the Bregman divergence
+`D_F(b, a)`, for a derivative `F'` of `F` within `K` at `a`. -/
+private lemma IsFTRLPlay.bregDiv_le_sub {F : E → ℝ} {η : ℝ} {y : ℕ → E →L[ℝ] ℝ} {t : ℕ}
+    {a b : E} {F' : E →L[ℝ] ℝ} (h : IsFTRLPlay K F η y t a) (h_seg : segment ℝ a b ⊆ K)
+    (hF' : HasFDerivWithinAt F F' K a) :
+    bregDiv F b a F' ≤ (η * ∑ s ∈ range t, y s b + F b) - (η * ∑ s ∈ range t, y s a + F a) := by
+  have h_min : IsMinOn (fun c ↦ (η • ∑ s ∈ range t, y s) c + F c) K a := by
+    simpa using h.isMinOn
+  simpa using bregDiv_le_sub_of_isMinOn h_seg h_min hF'
+
+/-- The increase of the FTRL objective of round `t`, with a potential `F` convex on `K` and a
+learning rate `η`, from a play `a` of that round to a point `b` with `[a, b] ⊆ K` is at least the
+Bregman divergence `D_F(b, a)` with the directional derivative of `F`. -/
+private lemma IsFTRLPlay.dirBregDiv_le_sub {F : E → ℝ} {η : ℝ} {y : ℕ → E →L[ℝ] ℝ} {t : ℕ}
+    {a b : E} (h : IsFTRLPlay K F η y t a) (hF : ConvexOn ℝ K F) (h_seg : segment ℝ a b ⊆ K) :
+    dirBregDiv F b a ≤ (η * ∑ s ∈ range t, y s b + F b) - (η * ∑ s ∈ range t, y s a + F a) := by
+  have h_min : IsMinOn
+      (fun c ↦ ((η • ∑ s ∈ range t, y s : E →L[ℝ] ℝ) : E →ₗ[ℝ] ℝ) c + F c) K a := by
+    simpa using h.isMinOn
+  simpa using hF.dirBregDiv_le_sub_of_isMinOn _ h_seg h_min
 
 /-- **Regret of FTRL with nonincreasing learning rates**, the anytime form of
 [LS, Theorem 28.5]. Let `K` be convex and let the learning rates `η t > 0` be nonincreasing. Let
@@ -263,9 +350,33 @@ theorem ftrl_regret_le_of_antitone {F : E → ℝ} (hK : Convex ℝ K) {η : ℕ
     (F' : ℕ → E →L[ℝ] ℝ) (hF' : ∀ t < n, HasFDerivWithinAt F (F' t) K (a t)) (hu : u ∈ K) :
     ∑ t ∈ range n, y t (a t - u) ≤ (F u - F (a 0)) / η n +
       ∑ t ∈ range n, (y t (a t - a (t + 1)) - bregDiv F (a (t + 1)) (a t) (F' t) / η t) := by
-  have h := ftrl_regret_le_of_antitone_aux hK hη hη_anti
+  have h := ftrl_regret_le_of_antitone_aux hη hη_anti
     (fun b hb ↦ isMinOn_iff.mp (ha 0 n.zero_le).isMinOn_zero b hb) y a (fun t ht ↦ ha t ht.le)
-    (ha n le_rfl).mem (isMinOn_iff.mp ((ha n le_rfl).isMinOn_sum_add_sub_div (hη n) _) u hu) F' hF'
+    (ha n le_rfl).mem (isMinOn_iff.mp ((ha n le_rfl).isMinOn_sum_add_sub_div (hη n) _) u hu) _
+    fun t ht ↦ (ha t ht.le).bregDiv_le_sub
+      (hK.segment_subset (ha t ht.le).mem (ha (t + 1) ht).mem) (hF' t ht)
+  rwa [sub_self, zero_div, sub_zero] at h
+
+/-- **Regret of FTRL with a convex potential and nonincreasing learning rates**, the anytime form
+of [LS, Theorem 28.5] for convex potentials with directional derivatives. Let the potential `F` be
+convex on `K` and let the learning rates `η t > 0` be nonincreasing. Let each `a t`, for `t ≤ n`,
+be a play of FTRL on `K` with potential `F` and learning rate `η t` (`IsFTRLPlay`). Then for every
+`u ∈ K`, with `D_F` the Bregman divergence with the directional derivatives of `F`
+(`dirBregDiv`),
+`∑ t < n, y t (a t - u)
+  ≤ (F u - F (a 0)) / η n + ∑ t < n, (y t (a t - a (t + 1)) - D_F(a (t + 1), a t) / η t)`.
+No derivative of `F` is assumed; where `F` has a derivative within `K`, `D_F` is the Bregman
+divergence of `ftrl_regret_le_of_antitone` (`HasFDerivWithinAt.dirBregDiv_eq_bregDiv`). -/
+theorem ftrl_regret_le_of_antitone_of_convexOn {F : E → ℝ} (hF : ConvexOn ℝ K F) {η : ℕ → ℝ}
+    (hη : ∀ t, 0 < η t) (hη_anti : Antitone η) (y : ℕ → E →L[ℝ] ℝ) (a : ℕ → E)
+    (ha : ∀ t ≤ n, IsFTRLPlay K F (η t) y t (a t)) (hu : u ∈ K) :
+    ∑ t ∈ range n, y t (a t - u) ≤ (F u - F (a 0)) / η n +
+      ∑ t ∈ range n, (y t (a t - a (t + 1)) - dirBregDiv F (a (t + 1)) (a t) / η t) := by
+  have h := ftrl_regret_le_of_antitone_aux hη hη_anti
+    (fun b hb ↦ isMinOn_iff.mp (ha 0 n.zero_le).isMinOn_zero b hb) y a (fun t ht ↦ ha t ht.le)
+    (ha n le_rfl).mem (isMinOn_iff.mp ((ha n le_rfl).isMinOn_sum_add_sub_div (hη n) _) u hu) _
+    fun t ht ↦ (ha t ht.le).dirBregDiv_le_sub hF
+      (hF.1.segment_subset (ha t ht.le).mem (ha (t + 1) ht).mem)
   rwa [sub_self, zero_div, sub_zero] at h
 
 /-- **Regret of FTRL with changing learning rates, with the penalties of the changes of rate.**
@@ -407,6 +518,22 @@ theorem ftrl_regret_le {F : E → ℝ} (hK : Convex ℝ K) {η : ℝ} (hη : 0 <
       ∑ t ∈ range n, y t (a t - a (t + 1)) -
         (∑ t ∈ range n, bregDiv F (a (t + 1)) (a t) (F' t)) / η := by
   have h := ftrl_regret_le_of_antitone hK (fun _ ↦ hη) antitone_const y a ha F' hF' hu
+  rwa [sum_sub_distrib, ← sum_div, ← add_sub_assoc] at h
+
+/-- **Regret of follow the regularized leader with a convex potential** [LS, Theorem 28.5]. Let
+the potential `F` be convex on `K` and `η > 0`. Let each `a t`, for `t ≤ n`, be a play of FTRL on
+`K` with potential `F` and learning rate `η` (`IsFTRLPlay`). Then for every `u ∈ K`, with `D_F`
+the Bregman divergence with the directional derivatives of `F` (`dirBregDiv`),
+`∑ t < n, y t (a t - u) ≤ (F u - F (a 0)) / η + ∑ t < n, y t (a t - a (t + 1))
+  - (∑ t < n, D_F(a (t + 1), a t)) / η`.
+No derivative of `F` is assumed, as in [LS]. This is the case of constant learning rates of
+`ftrl_regret_le_of_antitone_of_convexOn`. -/
+theorem ftrl_regret_le_of_convexOn {F : E → ℝ} (hF : ConvexOn ℝ K F) {η : ℝ} (hη : 0 < η)
+    (y : ℕ → E →L[ℝ] ℝ) (a : ℕ → E) (ha : ∀ t ≤ n, IsFTRLPlay K F η y t (a t)) (hu : u ∈ K) :
+    ∑ t ∈ range n, y t (a t - u) ≤ (F u - F (a 0)) / η +
+      ∑ t ∈ range n, y t (a t - a (t + 1)) -
+        (∑ t ∈ range n, dirBregDiv F (a (t + 1)) (a t)) / η := by
+  have h := ftrl_regret_le_of_antitone_of_convexOn hF (fun _ ↦ hη) antitone_const y a ha hu
   rwa [sum_sub_distrib, ← sum_div, ← add_sub_assoc] at h
 
 /-- **Stability terms for a local strong convexity modulus.** Let `η > 0` and, for `t < n`, let
