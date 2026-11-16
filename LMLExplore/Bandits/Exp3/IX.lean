@@ -60,8 +60,9 @@ these bounds for an oblivious reward table `x`, where `m t a = x t a` and the ra
 * `Exp3IX.sum_sub_exp4IXSum_le`: the pathwise bound on the estimated regret of Exp3-IX.
 * `Exp3IX.mul_sum_mul_exp4IXSum_sub_eq`: the weighted deviations of the loss estimates from the
   losses, written as the sum to which the concentration of [LS, Lemma 12.2] applies.
-* `Exp3IX.measure_le_sum_mul_exp4IXSum_sub_le`: the concentration of a weighted sum of the
-  deviations `L̂ n a - L n a` of the loss estimates from the losses of the conditional means.
+* `Exp3IX.measure_le_sum_mul_sum_mul_iwEstimator_sub_le`: the concentration of the deviations
+  of the loss estimates from the losses of the conditional means, weighted by `v a ∈ [0, 1]` on
+  the arms and `w t ∈ [0, 1]` on the rounds.
 * `Exp3IX.measure_le_exp4IXSum_sub_le`, `Exp3IX.measure_le_sum_exp4IXSum_sub_le`: the
   deviations of the loss estimates of one arm and of their sum over the arms [LS, (12.9), (12.8)].
 * `Exp3IX.measure_le_sum_mul_sum_iwEstimator_sub_le`: the deviations of the sums of the estimates
@@ -192,29 +193,35 @@ variable [MeasurableSpace α] [MeasurableSingletonClass α] [MeasurableSpace �
 
 /-- **Concentration of the loss estimates of Exp3-IX** [LS, proof of Lemma 12.3]. Along a run of
 Exp3-IX against any environment whose feedback at every round `t < n` is almost surely in
-`[0, 1]`, for `0 ≤ c ≤ γ t` at the rounds `t < n`, weights `v a ∈ [0, 1]` on the arms and `δ > 0`,
-the probability that `log (1 / δ) ≤ 2 c ∑ a, v a * (L̂ n a - L n a)` is at most `δ`, with `L̂ n`
-the cumulative loss estimates and `L n a = ∑ t < n, (1 - m_t(a))` the cumulative losses of the
-conditional means `m_t(a) = env.means O A Y a t` of the rewards. This is the instance of
+`[0, 1]`, for `0 ≤ c ≤ γ t` at the rounds `t < n`, weights `v a ∈ [0, 1]` on the arms, weights
+`w t ∈ [0, 1]` on the rounds `t < n` and `δ > 0`, the probability that
+`log (1 / δ) ≤ 2 c ∑ t < n, w t * ∑ a, v a * (Ŷ t a - (1 - m_t(a)))` is at most `δ`, with `Ŷ t`
+the implicit-exploration loss estimates and `m_t(a) = env.means O A Y a t` the conditional means
+of the rewards. This is the instance of
 `WeightAlgorithm.measure_log_one_div_le_sum_sum_mul_iwEstimator_add_sub_le` with the coefficients
-`2 c v a`. -/
-theorem measure_le_sum_mul_exp4IXSum_sub_le {v : α → ℝ} (hv : ∀ a, v a ∈ Set.Icc 0 1) {c : ℝ}
-    (hc : 0 ≤ c) (hcγ : ∀ t < n, c ≤ γ t) (hY : ∀ᵐ ω ∂P, ∀ t < n, Y t ω ∈ Set.Icc 0 1)
-    (h : IsAlgEnvSeq O A Y (exp3IX η γ) env P) (hδ : 0 < δ) :
-    P {ω | log (1 / δ) ≤ 2 * c * ∑ a, v a *
-      (exp4IXSum singleAdvice η γ n (history O A Y n ω) a -
-        ∑ t ∈ range n, (1 - env.means O A Y a t ω))} ≤ ENNReal.ofReal δ := by
+`2 c w t v a`. -/
+theorem measure_le_sum_mul_sum_mul_iwEstimator_sub_le {v : α → ℝ} (hv : ∀ a, v a ∈ Set.Icc 0 1)
+    {w : ℕ → ℝ} (hw : ∀ t < n, w t ∈ Set.Icc 0 1) {c : ℝ} (hc : 0 ≤ c) (hcγ : ∀ t < n, c ≤ γ t)
+    (hY : ∀ᵐ ω ∂P, ∀ t < n, Y t ω ∈ Set.Icc 0 1) (h : IsAlgEnvSeq O A Y (exp3IX η γ) env P)
+    (hδ : 0 < δ) :
+    P {ω | log (1 / δ) ≤ 2 * c * ∑ t ∈ range n, w t * ∑ a, v a *
+      (iwEstimator (fun b ↦ exp4IXWeights singleAdvice η γ t (history O A Y t ω) (O t ω) b + γ t)
+        (A t ω) (1 - Y t ω) a - (1 - env.means O A Y a t ω))} ≤ ENNReal.ofReal δ := by
   refine le_trans (measure_mono fun ω hω ↦ ?_)
     (WeightAlgorithm.measure_log_one_div_le_sum_sum_mul_iwEstimator_add_sub_le
-      (Exp4IX.isAlgEnvSeq_weightAlgorithm h) hY (γ := γ) (c := fun _ a _ ↦ 2 * c * v a)
-      (fun _ _ _ ↦ measurable_const) (fun _ _ a _ ↦ mul_nonneg (by positivity) (hv a).1)
-      (fun t ht a _ ↦ (mul_le_of_le_one_right (by positivity) (hv a).2).trans (by
-        linarith [hcγ t ht]))
+      (Exp4IX.isAlgEnvSeq_weightAlgorithm h) hY (γ := γ)
+      (c := fun t a _ ↦ 2 * c * w t * v a) (fun _ _ _ ↦ measurable_const)
+      (fun t ht a _ ↦ mul_nonneg (mul_nonneg (by positivity) (hw t ht).1) (hv a).1)
+      (fun t ht a _ ↦ (mul_le_of_le_one_right (mul_nonneg (by positivity) (hw t ht).1)
+        (hv a).2).trans ((mul_le_of_le_one_right (by positivity) (hw t ht).2).trans (by
+          linarith [hcγ t ht])))
       (fun t _ a _ ha ↦ absurd ha (exp4IXWeights_single_pos t _ _ a).ne') hδ)
   simp only [Set.mem_ofPred_eq] at hω ⊢
-  rw [mul_sum_mul_exp4IXSum_sub_eq O A Y ω _ _ fun t a ↦ env.means O A Y a t ω] at hω
-  refine hω.trans_eq (Finset.sum_congr rfl fun t _ ↦ Finset.sum_congr rfl fun a _ ↦ ?_)
-  rw [iwEstimator_div_one_add_div (exp4IXWeights_single_pos _ _ _ a)]
+  refine hω.trans_eq ?_
+  rw [Finset.mul_sum]
+  refine Finset.sum_congr rfl fun t _ ↦ ?_
+  rw [Finset.mul_sum, Finset.mul_sum]
+  exact Finset.sum_congr rfl fun a _ ↦ by ring
 
 /-- **Concentration of the loss estimates of one arm** [LS, (12.9)]. Along a run of Exp3-IX with
 nonincreasing `γ` and `γ (n - 1) > 0` against any environment whose feedback at every round
@@ -228,12 +235,16 @@ theorem measure_le_exp4IXSum_sub_le (hγ_anti : Antitone γ) (hγn : 0 < γ (n -
       exp4IXSum singleAdvice η γ n (history O A Y n ω) a -
         ∑ t ∈ range n, (1 - env.means O A Y a t ω)} ≤ ENNReal.ofReal δ := by
   refine le_trans (measure_mono fun ω hω ↦ ?_)
-    (measure_le_sum_mul_exp4IXSum_sub_le (v := Pi.single a 1) (fun b ↦ ?_) hγn.le
+    (measure_le_sum_mul_sum_mul_iwEstimator_sub_le (v := Pi.single a 1) (w := fun _ ↦ 1)
+      (fun b ↦ ?_) (fun _ _ ↦ ⟨zero_le_one, le_rfl⟩) hγn.le
       (fun t ht ↦ hγ_anti (Nat.le_sub_one_of_lt ht)) hY h hδ)
   · simp only [Set.mem_ofPred_eq] at hω ⊢
-    rw [Finset.sum_eq_single a (fun b _ hb ↦ by simp [hb]) (by simp), Pi.single_eq_same, one_mul,
-      ← div_le_iff₀' (by positivity)]
-    exact hω
+    rw [← div_le_iff₀' (by positivity)]
+    refine hω.trans_eq ?_
+    rw [exp4IXSum_single_history, ← Finset.sum_sub_distrib]
+    refine Finset.sum_congr rfl fun t _ ↦ ?_
+    rw [one_mul, Finset.sum_eq_single a (fun b _ hb ↦ by simp [hb]) (by simp), Pi.single_eq_same,
+      one_mul]
   · rw [Pi.single_apply]
     split_ifs <;> simp
 
@@ -243,8 +254,7 @@ nonincreasing `γ` and `γ (n - 1) > 0` against any environment whose feedback a
 `δ > 0`, the probability that
 `log (1 / δ) / (2 γ (n - 1)) ≤ ∑ t < n, w t * ∑ a, (Ŷ t a - (1 - m_t(a)))` is at most `δ`, with
 `Ŷ t` the implicit-exploration loss estimates and `m_t(a) = env.means O A Y a t`. This is the
-instance of `WeightAlgorithm.measure_log_one_div_le_sum_sum_mul_iwEstimator_add_sub_le` with the
-coefficients `2 γ (n - 1) w t`. -/
+case `v = 1`, `c = γ (n - 1)` of `measure_le_sum_mul_sum_mul_iwEstimator_sub_le`. -/
 theorem measure_le_sum_mul_sum_iwEstimator_sub_le (hγ_anti : Antitone γ) (hγn : 0 < γ (n - 1))
     {w : ℕ → ℝ} (hw : ∀ t < n, w t ∈ Set.Icc 0 1) (hY : ∀ᵐ ω ∂P, ∀ t < n, Y t ω ∈ Set.Icc 0 1)
     (h : IsAlgEnvSeq O A Y (exp3IX η γ) env P) (hδ : 0 < δ) :
@@ -252,18 +262,11 @@ theorem measure_le_sum_mul_sum_iwEstimator_sub_le (hγ_anti : Antitone γ) (hγn
       (iwEstimator (fun b ↦ exp4IXWeights singleAdvice η γ t (history O A Y t ω) (O t ω) b + γ t)
         (A t ω) (1 - Y t ω) a - (1 - env.means O A Y a t ω))} ≤ ENNReal.ofReal δ := by
   refine le_trans (measure_mono fun ω hω ↦ ?_)
-    (WeightAlgorithm.measure_log_one_div_le_sum_sum_mul_iwEstimator_add_sub_le
-      (Exp4IX.isAlgEnvSeq_weightAlgorithm h) hY (γ := γ)
-      (c := fun t _ _ ↦ 2 * γ (n - 1) * w t) (fun _ _ _ ↦ measurable_const)
-      (fun t ht _ _ ↦ mul_nonneg (by positivity) (hw t ht).1)
-      (fun t ht _ _ ↦ (mul_le_of_le_one_right (by positivity) (hw t ht).2).trans (by
-        linarith [hγ_anti (Nat.le_sub_one_of_lt ht)]))
-      (fun t _ a _ ha ↦ absurd ha (exp4IXWeights_single_pos t _ _ a).ne') hδ)
-  simp only [Set.mem_ofPred_eq] at hω ⊢
-  rw [div_le_iff₀' (by positivity), Finset.mul_sum] at hω
-  refine hω.trans_eq (Finset.sum_congr rfl fun t _ ↦ ?_)
-  rw [Finset.mul_sum, Finset.mul_sum]
-  exact Finset.sum_congr rfl fun a _ ↦ by ring
+    (measure_le_sum_mul_sum_mul_iwEstimator_sub_le (v := fun _ ↦ 1)
+      (fun _ ↦ ⟨zero_le_one, le_rfl⟩) hw hγn.le (fun t ht ↦ hγ_anti (Nat.le_sub_one_of_lt ht))
+      hY h hδ)
+  simp only [Set.mem_ofPred_eq, one_mul] at hω ⊢
+  rwa [div_le_iff₀' (by positivity)] at hω
 
 /-- **Concentration of the sum of the loss estimates** [LS, (12.8)]. Along a run of Exp3-IX with
 nonincreasing `γ` and `γ (n - 1) > 0` against any environment whose feedback at every round
