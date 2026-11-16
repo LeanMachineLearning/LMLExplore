@@ -9,6 +9,7 @@ public import LMLExplore.Bandits.Regret
 public import LMLExplore.Identification.MinimaxLowerBound
 public import LMLExplore.Identification.Task.RealLaws
 import LMLExplore.Analysis.PSeries
+import LMLExplore.Data.Fintype.BigOperators
 import LMLExplore.Logic.Equiv.Fin
 import Mathlib.Analysis.Real.Pi.Bounds
 

@@ -16,7 +16,7 @@ import Mathlib.Analysis.SpecialFunctions.Integrals.Basic
 import Mathlib.NumberTheory.Harmonic.Bounds
 import Mathlib.NumberTheory.ZetaValues
 import LMLExplore.Analysis.SpecialFunctions.Log.Basic
-import LMLExplore.Logic.Equiv.Fin
+import LMLExplore.Data.Fintype.BigOperators
 
 /-!
 # Explicit bounds on the sums of `1 / n ^ p` and `log n / n ^ p`
