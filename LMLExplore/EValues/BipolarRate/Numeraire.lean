@@ -9,6 +9,7 @@ public import LMLExplore.EValues.BipolarRate.EProcess
 public import LMLExplore.Probability.ProductMeasure.Blocks
 import LMLExplore.Analysis.SpecialFunctions.Log.ENNRealLog
 import LMLExplore.EValues.BipolarRate.AlmostSure
+import LMLExplore.MeasureTheory.Integral.EReal
 import Statlib.ForMathlib.MeasureTheory.Integral.EReal.Bochner
 
 /-!
@@ -59,12 +60,12 @@ The upper bound `limsup (1/n) log (X* n) ≤ d` holds for every sequence of `n`-
 
 ## Implementation notes
 
-The truncated logarithm `min (log x) c`, as a real number, and the monotone convergence of the
-extended integrals of the truncations `min f k` are private helpers. The statements and proofs
-are adapted from `EValuesResearch/Results/Numeraire.lean` and
-`EValuesResearch/Results/NumeraireAux.lean` (commit `dd4072f`) in the paper project
-`RemyDegenne/evalues_research`, which formalize [EVR26, Note 01], rewritten on the API of
-LMLExplore.
+The truncated logarithm `min (log x) c`, as a real number, is a private helper; the monotone
+convergence of the extended integrals of the truncations `min f k` is
+`MeasureTheory.eintegral_le_of_forall_min_le`. The statements and proofs are adapted from
+`EValuesResearch/Results/Numeraire.lean` and `EValuesResearch/Results/NumeraireAux.lean` (commit
+`dd4072f`) in the paper project `RemyDegenne/evalues_research`, which formalize [EVR26, Note 01],
+rewritten on the API of LMLExplore.
 
 ## References
 
@@ -172,52 +173,6 @@ private lemma integrable_truncLog_comp_of_lintegral_ne_top {Ω : Type*} {mΩ : M
     (ae_of_all _ fun x ↦ ?_)
   rw [Real.norm_eq_abs]
   exact abs_truncLog_le_abs_add c (f x)
-
-/-- **Monotone convergence for truncations.** If the extended integrals of the truncations
-`min f k`, `k ∈ ℕ`, are at most `D`, so is the extended integral of `f`. -/
-private theorem eintegral_le_of_forall_min_le {Ω : Type*} [MeasurableSpace Ω] {μ : Measure Ω}
-    {f : Ω → EReal} (hf : Measurable f) {D : EReal}
-    (h : ∀ k : ℕ, ∫ᵉ x, min (f x) k ∂μ ≤ D) : ∫ᵉ x, f x ∂μ ≤ D := by
-  have hmono : Monotone EReal.toENNReal := fun _ _ h ↦ EReal.toENNReal_le_toENNReal h
-  have hpos (k : ℕ) (x : Ω) : (min (f x) k).toENNReal = min (f x).toENNReal k := by
-    rw [hmono.map_min, show ((k : EReal)) = ((k : ℝ≥0∞) : EReal) by simp, EReal.toENNReal_coe]
-  have hneg (k : ℕ) (x : Ω) : (-min (f x) k).toENNReal = (-f x).toENNReal := by
-    by_cases hk : f x ≤ k
-    · rw [min_eq_left hk]
-    · rw [not_le] at hk
-      have hk0 : (0 : EReal) ≤ k := by exact_mod_cast Nat.zero_le k
-      rw [min_eq_right hk.le, EReal.toENNReal_of_nonpos (by simp),
-        EReal.toENNReal_of_nonpos (by simpa using hk0.trans hk.le)]
-  have h' (k : ℕ) : ((∫⁻ x, min (f x).toENNReal k ∂μ : ℝ≥0∞) : EReal) -
-      ((∫⁻ x, (-f x).toENNReal ∂μ : ℝ≥0∞) : EReal) ≤ D := by
-    have := h k
-    simp only [eintegral, hpos, hneg] at this
-    exact this
-  have hm (k : ℕ) : Measurable fun x ↦ min (f x).toENNReal (k : ℝ≥0∞) :=
-    (measurable_ereal_toENNReal.comp hf).min measurable_const
-  have hmono' : Monotone fun (k : ℕ) x ↦ min (f x).toENNReal (k : ℝ≥0∞) :=
-    fun k k' hkk' x ↦ min_le_min_left _ (by exact_mod_cast hkk')
-  have hsup : ∫⁻ x, (f x).toENNReal ∂μ = ⨆ k : ℕ, ∫⁻ x, min (f x).toENNReal k ∂μ := by
-    rw [← lintegral_iSup hm hmono']
-    refine lintegral_congr fun x ↦ le_antisymm ?_ (iSup_le fun k ↦ min_le_left _ _)
-    by_cases hx : (f x).toENNReal = ∞
-    · simp [hx, ENNReal.iSup_natCast]
-    · obtain ⟨k, hk⟩ := ENNReal.exists_nat_gt hx
-      exact le_iSup_of_le k (min_eq_left hk.le).ge
-  rw [eintegral, hsup]
-  set b := ∫⁻ x, (-f x).toENNReal ∂μ
-  by_cases hb : b = ∞
-  · rw [hb, EReal.coe_ennreal_top, EReal.sub_top]
-    exact bot_le
-  have hb' : (b : EReal) ≠ ⊤ := by simpa using hb
-  have hb'' : (b : EReal) ≠ ⊥ := by simp
-  rw [EReal.sub_le_iff_le_add (.inl hb'') (.inl hb')]
-  have hk (k : ℕ) : ((∫⁻ x, min (f x).toENNReal k ∂μ : ℝ≥0∞) : EReal) ≤ D + b :=
-    (EReal.sub_le_iff_le_add (.inl hb'') (.inl hb')).1 (h' k)
-  have hD : 0 ≤ D + b := (EReal.coe_ennreal_nonneg _).trans (hk 0)
-  rw [← EReal.coe_toENNReal hD] at hk ⊢
-  exact EReal.coe_ennreal_le_coe_ennreal_iff.2
-    (iSup_le fun k ↦ EReal.coe_ennreal_le_coe_ennreal_iff.1 (hk k))
 
 /-- **Truncation of an expected logarithm.** Let `f` be measurable and almost everywhere nonzero,
 with a logarithm whose negative part has a finite mean under a finite measure. If the extended
