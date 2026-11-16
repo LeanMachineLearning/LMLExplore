@@ -10,6 +10,7 @@ public import LMLExplore.InformationTheory.KullbackLeibler.Pi
 public import Mathlib.Probability.Moments.Variance
 public import Statlib.Divergence.KullbackLeibler.Basic
 public import Statlib.ForMathlib.MeasureTheory.Integral.Pi
+import LMLExplore.Analysis.SpecialFunctions.Log.ENNRealLog
 
 /-!
 # Empirical averages of functions under product laws
@@ -155,7 +156,7 @@ lemma ofReal_exp_mul_measure_pi_le_one {k : ℕ} {f : Fin k → 𝓧 → ℝ} (h
     _ ≤ ENNReal.log (Pm A)⁻¹ := klDiv_cond_le h0
   -- take exponentials
   refine ENNReal.le_inv_iff_mul_le.1 (ENNReal.log_le_log_iff.1 ?_)
-  simpa [ENNReal.log_ofReal_of_pos (Real.exp_pos _)] using h2
+  rwa [ENNReal.log_ofReal_exp]
 
 /-- **Weak law of large numbers**, by Chebyshev's inequality: the probability that the empirical
 average of a square-integrable function `g` deviates by more than `ε` from its mean is at most

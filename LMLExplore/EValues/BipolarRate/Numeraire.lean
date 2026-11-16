@@ -8,6 +8,7 @@ module
 public import LMLExplore.EValues.BipolarRate.EProcess
 public import LMLExplore.Probability.ProductMeasure.Blocks
 import LMLExplore.Analysis.SpecialFunctions.Log.ENNRealLog
+import LMLExplore.Data.EReal.Inv
 import LMLExplore.EValues.BipolarRate.AlmostSure
 import LMLExplore.MeasureTheory.Integral.EReal
 import Statlib.ForMathlib.MeasureTheory.Integral.EReal.Bochner
@@ -202,8 +203,8 @@ private lemma sum_truncLog_le_log_seqBlockProd {m : ℕ} {V : (Fin m → 𝓧) �
     {ω : ℕ → 𝓧} (h : ∀ j, V (seqBlock m j ω) ≠ 0) :
     ((∑ j ∈ Finset.range k, truncLog c (V (seqBlock m j ω)) : ℝ) : EReal) ≤
       ENNReal.log (seqBlockProd m V k ω) := by
-  rw [← Real.log_exp (∑ j ∈ Finset.range k, truncLog c (V (seqBlock m j ω))),
-    ← ENNReal.log_ofReal_of_pos (Real.exp_pos _), seqBlockProd_def]
+  rw [← ENNReal.log_ofReal_exp (∑ j ∈ Finset.range k, truncLog c (V (seqBlock m j ω))),
+    seqBlockProd_def]
   refine ENNReal.log_le_log ?_
   rw [Real.exp_sum, ENNReal.ofReal_prod_of_nonneg fun _ _ ↦ (Real.exp_pos _).le]
   exact Finset.prod_le_prod fun j _ ↦ ofReal_exp_truncLog_le (h j)
@@ -297,9 +298,7 @@ theorem exists_ae_eventually_mul_le_log_seqBlockProd_numeraire (Q₁ : Measure �
   have hmL : ((m * L : ℝ) : EReal) <
       ∫ᵉ x, ENNReal.log (Em x) ∂Measure.pi fun _ : Fin m ↦ Q₁ := by
     rw [← maxUtility_eq_eintegral_numeraire _ hfin, ← maxLogGrowth_def]
-    rw [EReal.lt_div_iff (by exact_mod_cast hm0) (EReal.natCast_ne_top _)] at hk
-    rw [EReal.coe_mul, mul_comm, EReal.coe_natCast]
-    exact hk
+    exact (EReal.coe_lt_div_natCast_iff (Nat.pos_of_ne_zero hm)).1 hk
   -- so does the expected logarithm truncated at a level `c`, which is integrable
   obtain ⟨c, hgi, hgint⟩ := exists_integrable_truncLog_lt_integral hEm hnum.ae_ne_zero
     (lintegral_toENNReal_neg_ne_top_of_eintegral_ne_bot hnum.eintegral_log_ne_bot) hmL
@@ -388,9 +387,7 @@ theorem ae_bipolarRate_le_liminf_log_div_of_forall_ae_eventually_log_le (Q₁ : 
   obtain ⟨q, haq, hqd⟩ := EReal.lt_iff_exists_rat_btwn.1 ha
   refine haq.le.trans (le_liminf_of_le (by isBoundedDefault) ?_)
   filter_upwards [hω q hqd, eventually_ge_atTop 1] with n hn hn1
-  rw [EReal.le_div_iff_mul_le (by exact_mod_cast hn1) (EReal.natCast_ne_top n), mul_comm,
-    ← EReal.coe_natCast, ← EReal.coe_mul]
-  exact hn
+  exact (EReal.coe_le_div_natCast_iff hn1).2 hn
 
 /-! ### The numeraires grow at the bipolar rate -/
 

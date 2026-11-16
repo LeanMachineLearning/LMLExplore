@@ -10,6 +10,7 @@ public import LMLExplore.EValues.DPI
 public import Statlib.Divergence.KullbackLeibler.CondKL
 public import Statlib.EValues.Product
 public import Statlib.EValues.RIPr
+import LMLExplore.Analysis.SpecialFunctions.Log.ENNRealLog
 
 /-!
 # The optimal growth rate of e-variables against an i.i.d. null
@@ -50,6 +51,8 @@ else: no domination, convexity or compactness.
 * `ProbabilityTheory.maxLogGrowth_le_mul_klDiv`, `ProbabilityTheory.bipolarRate_le_iInf_klDiv`:
   the bipolar rate is at most the smallest relative entropy from `Q₁` to the null
   [RR26, proof of Theorem 4.1].
+* `ProbabilityTheory.bipolarRate_singleton`: for a simple null `{P}`, the bipolar rate is
+  `klDiv Q₁ P`.
 * `ProbabilityTheory.le_bipolarRate_of_tendsto`: a lower bound on the bipolar rate from real lower
   bounds on `maxLogGrowth Q₁ S₁ (n + 1)` whose quotients by `n + 1` converge.
 * `ProbabilityTheory.log_inv_le_bipolarRate_of_forall_le_maxLogGrowth`: for `ε ≤ 1`, the lower
@@ -260,6 +263,15 @@ theorem bipolarRate_le_iInf_klDiv (Q₁ : Measure 𝓧) [IsProbabilityMeasure Q�
   rw [← EReal.toENNReal_coe (x := klDiv Q₁ P)]
   exact EReal.toENNReal_le_toENNReal (bipolarRate_le_klDiv Q₁ hP)
 
+/-- The bipolar rate against a simple null `{P}` is the relative entropy `klDiv Q₁ P`. -/
+@[simp]
+theorem bipolarRate_singleton (Q₁ P : Measure 𝓧) [IsProbabilityMeasure Q₁]
+    [IsProbabilityMeasure P] :
+    bipolarRate Q₁ {P} = klDiv Q₁ P := by
+  refine le_antisymm (bipolarRate_le_klDiv Q₁ (Set.mem_singleton P)) ?_
+  rw [← maxUtility_singleton_eq_klDiv, ← maxLogGrowth_one]
+  exact maxLogGrowth_one_le_bipolarRate Q₁ {P}
+
 /-- A real lower bound on the growth of `n + 1` observations, divided by `n + 1`, that converges
 to `L` gives the lower bound `L` on the bipolar rate. -/
 lemma le_bipolarRate_of_tendsto {r : ℕ → ℝ} {L : ℝ}
@@ -364,7 +376,7 @@ lemma le_maxLogGrowth_of_ofReal_exp_mul_le_one (Q : Measure 𝓧) [IsProbability
   _ ≤ ∫ᵉ x, (logUtility ∘ X) x ∂Qm := eintegral_mono fun x ↦ by
     calc (g x : EReal)
     _ = ENNReal.log (ENNReal.ofReal (Real.exp (g x))) := by
-      rw [ENNReal.log_ofReal_of_pos (Real.exp_pos _), Real.log_exp]
+      rw [ENNReal.log_ofReal_exp]
     _ ≤ (logUtility ∘ X) x := ENNReal.log_monotone (hg x)
   _ ≤ maxLogGrowth Q S m := by
     rw [maxLogGrowth_def]

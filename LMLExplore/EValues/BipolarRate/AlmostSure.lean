@@ -6,6 +6,7 @@ Authors: LMLExplore contributors
 module
 
 public import LMLExplore.EValues.BipolarRate.EProcess
+import LMLExplore.Analysis.SpecialFunctions.Log.ENNRealLog
 
 /-!
 # E-processes for an i.i.d. null grow at most at the bipolar rate, almost surely
@@ -504,9 +505,8 @@ private lemma cover_le_mul_toReal_bipolarRate (Q : Measure 𝓧) [IsProbabilityM
     calc ∫ᵉ ω, (((L - ε) * (N - K - badCount G N ω) -
           (N / k₀ + K + badCount G N ω) * Real.log 2 : ℝ) : EReal) ∂μ
     _ ≤ ∫ᵉ ω, ENNReal.log (coverMixture M N ω) ∂μ := eintegral_mono fun ω ↦ by
-      rw [← Real.log_exp ((L - ε) * (N - K - badCount G N ω) -
-        (N / k₀ + K + badCount G N ω) * Real.log 2),
-        ← ENNReal.log_ofReal_of_pos (Real.exp_pos _)]
+      rw [← ENNReal.log_ofReal_exp ((L - ε) * (N - K - badCount G N ω) -
+        (N / k₀ + K + badCount G N ω) * Real.log 2)]
       exact ENNReal.log_le_log (ofReal_exp_le_coverMixture hεL hk₀ hw N ω)
     _ ≤ maxLogGrowth Q S N :=
       eintegral_log_le_maxLogGrowth_of_dependsOn Q hS (measurable_coverMixture hMm N)
@@ -787,7 +787,7 @@ theorem ae_limsup_log_div_le_bipolarRate_of_dependsOn (Q₁ : Measure 𝓧)
     _ ≤ ENNReal.log (ENNReal.ofReal (Real.exp (n * (d + 1 / ((k : ℝ) + 1))))) :=
       ENNReal.log_le_log hn.le
     _ = ((n * (d + 1 / ((k : ℝ) + 1)) : ℝ) : EReal) := by
-      rw [ENNReal.log_ofReal_of_pos (Real.exp_pos _), Real.log_exp]
+      rw [ENNReal.log_ofReal_exp]
     _ ≤ n * c := by
       rw [← EReal.coe_natCast, ← EReal.coe_mul, EReal.coe_le_coe_iff]
       exact mul_le_mul_of_nonneg_left (by linarith) (Nat.cast_nonneg n)

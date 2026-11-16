@@ -15,6 +15,7 @@ public import TauCeti.Probability.LargeDeviations.Basic
 public import LMLExplore.Data.EReal.Basic
 public import LMLExplore.Data.EReal.Inv
 public import LMLExplore.Topology.Semicontinuity.ENNReal
+import LMLExplore.Analysis.SpecialFunctions.Log.ENNRealLog
 
 /-!
 # Large deviation principles
@@ -89,8 +90,7 @@ namespace LMLExplore
 /-- The logarithm of `exp (-(n r))` is `-r n`, as an extended real. -/
 private lemma log_ofReal_exp (n : ℕ) (r : ℝ) :
     ENNReal.log (ENNReal.ofReal (Real.exp (-(n * r)))) = ((-r : ℝ) : EReal) * n := by
-  rw [ENNReal.log_ofReal_of_pos (Real.exp_pos _), Real.log_exp, ← EReal.coe_natCast,
-    ← EReal.coe_mul, neg_mul, mul_comm]
+  rw [ENNReal.log_ofReal_exp, ← EReal.coe_natCast, ← EReal.coe_mul, neg_mul, mul_comm]
 
 /-- `log C / n - r` tends to `-r`, as an extended real. -/
 private lemma tendsto_coe_div_sub (C r : ℝ) :
