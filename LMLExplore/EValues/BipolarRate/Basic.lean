@@ -10,6 +10,7 @@ public import LMLExplore.EValues.DPI
 public import Statlib.Divergence.KullbackLeibler.CondKL
 public import Statlib.EValues.Product
 public import Statlib.EValues.RIPr
+import LMLExplore.Analysis.SpecialFunctions.Log.ENNRealLog
 
 /-!
 # The optimal growth rate of e-variables against an i.i.d. null
@@ -262,9 +263,8 @@ theorem bipolarRate_le_iInf_klDiv (Q₁ : Measure 𝓧) [IsProbabilityMeasure Q�
   rw [← EReal.toENNReal_coe (x := klDiv Q₁ P)]
   exact EReal.toENNReal_le_toENNReal (bipolarRate_le_klDiv Q₁ hP)
 
-/-- The bipolar rate against a simple null `{P}` is the relative entropy from `Q₁` to `P`: it is at
-most `klDiv Q₁ P`, and at least the growth of one observation, which is `klDiv Q₁ P` by Statlib's
-`maxUtility_singleton_eq_klDiv`. -/
+/-- The bipolar rate against a simple null `{P}` is the relative entropy `klDiv Q₁ P`. -/
+@[simp]
 theorem bipolarRate_singleton (Q₁ P : Measure 𝓧) [IsProbabilityMeasure Q₁]
     [IsProbabilityMeasure P] :
     bipolarRate Q₁ {P} = klDiv Q₁ P := by
@@ -376,7 +376,7 @@ lemma le_maxLogGrowth_of_ofReal_exp_mul_le_one (Q : Measure 𝓧) [IsProbability
   _ ≤ ∫ᵉ x, (logUtility ∘ X) x ∂Qm := eintegral_mono fun x ↦ by
     calc (g x : EReal)
     _ = ENNReal.log (ENNReal.ofReal (Real.exp (g x))) := by
-      rw [ENNReal.log_ofReal_of_pos (Real.exp_pos _), Real.log_exp]
+      rw [ENNReal.log_ofReal_exp]
     _ ≤ (logUtility ∘ X) x := ENNReal.log_monotone (hg x)
   _ ≤ maxLogGrowth Q S m := by
     rw [maxLogGrowth_def]

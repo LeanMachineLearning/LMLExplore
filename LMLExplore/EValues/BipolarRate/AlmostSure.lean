@@ -6,6 +6,7 @@ Authors: LMLExplore contributors
 module
 
 public import LMLExplore.EValues.BipolarRate.EProcess
+import LMLExplore.Analysis.SpecialFunctions.Log.ENNRealLog
 
 /-!
 # E-processes for an i.i.d. null grow at most at the bipolar rate, almost surely
@@ -787,7 +788,7 @@ theorem ae_limsup_log_div_le_bipolarRate_of_dependsOn (Q₁ : Measure 𝓧)
     _ ≤ ENNReal.log (ENNReal.ofReal (Real.exp (n * (d + 1 / ((k : ℝ) + 1))))) :=
       ENNReal.log_le_log hn.le
     _ = ((n * (d + 1 / ((k : ℝ) + 1)) : ℝ) : EReal) := by
-      rw [ENNReal.log_ofReal_of_pos (Real.exp_pos _), Real.log_exp]
+      rw [ENNReal.log_ofReal_exp]
     _ ≤ n * c := by
       rw [← EReal.coe_natCast, ← EReal.coe_mul, EReal.coe_le_coe_iff]
       exact mul_le_mul_of_nonneg_left (by linarith) (Nat.cast_nonneg n)

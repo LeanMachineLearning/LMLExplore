@@ -9,6 +9,7 @@ public import LMLExplore.EValues.BipolarRate.Basic
 public import LMLExplore.EValues.EProcess.Basic
 public import Mathlib.MeasureTheory.MeasurableSpace.CountablyGenerated
 public import Mathlib.Probability.ProductMeasure
+import LMLExplore.Analysis.SpecialFunctions.Log.ENNRealLog
 import LMLExplore.EValues.BipolarRate.AlmostSure
 import LMLExplore.MeasureTheory.MeasurableSpace.CountablyGenerated
 import LMLExplore.Probability.ProductMeasure
@@ -749,7 +750,7 @@ private lemma le_liminf_log_blockMixture (Q : Measure 𝓧) [IsProbabilityMeasur
     rw [EReal.coe_div, EReal.coe_natCast]
     refine EReal.div_le_div_right_of_nonneg (by exact_mod_cast Nat.zero_le n) ?_
     calc (r n : EReal) = ENNReal.log (ENNReal.ofReal (Real.exp (r n))) := by
-          rw [ENNReal.log_ofReal_of_pos (Real.exp_pos _), Real.log_exp]
+          rw [ENNReal.log_ofReal_exp]
     _ ≤ ENNReal.log (blockMixture len g n ω) := ENNReal.log_le_log (hbound n)
   -- `r n / n` tends to `∫ g i / L`, by the strong law along blocks
   have hlim := tendsto_add_log_coverWeight_div hlen (by positivity : (0 : ℝ) < 2⁻¹ ^ (i + 1)) hω
