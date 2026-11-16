@@ -7,8 +7,7 @@ module
 
 public import LMLExplore.Identification.DifficultyRatio
 public import LMLExplore.Identification.Task.BestArm.Basic
-import Mathlib.Analysis.PSeries
-import Mathlib.NumberTheory.Harmonic.Bounds
+import LMLExplore.Analysis.PSeries
 
 /-!
 # Difficulty ratios of Gaussian best arm identification with many arms
@@ -68,28 +67,6 @@ namespace LMLExplore.Identification
 variable {α : Type*} [Fintype α] {mα : MeasurableSpace α}
   [MeasurableSingletonClass α] {σ2 : ℝ≥0}
 
-/-- For a numbering `e` of the arms, `∑_{b} 1 / (m + e b)² ≤ 2 / m` for every integer `m ≥ 1`. -/
-lemma sum_inv_sq_add_numbering_le (e : α ≃ Fin (Fintype.card α)) {m : ℕ} (hm : 1 ≤ m) :
-    ∑ b, (((m : ℝ) + (e b : ℕ)) ^ 2)⁻¹ ≤ 2 / m := by
-  obtain ⟨k, rfl⟩ : ∃ k, m = k + 1 := ⟨m - 1, by omega⟩
-  calc ∑ b, ((((k + 1 : ℕ) : ℝ) + (e b : ℕ)) ^ 2)⁻¹
-      = ∑ i ∈ Finset.range (Fintype.card α), ((((k + 1 : ℕ) : ℝ) + i) ^ 2)⁻¹ := by
-        rw [← Fin.sum_univ_eq_sum_range]
-        exact Fintype.sum_equiv e _ _ fun _ ↦ rfl
-    _ = ∑ i ∈ Finset.Ioo k (k + 1 + Fintype.card α), ((i : ℝ) ^ 2)⁻¹ := by
-        rw [← Finset.Ico_add_one_left_eq_Ioo, Finset.sum_Ico_eq_sum_range,
-          Nat.add_sub_cancel_left]
-        exact Finset.sum_congr rfl fun i _ ↦ by push_cast; ring
-    _ ≤ 2 / (k + 1) := sum_Ioo_inv_sq_le k _
-    _ = 2 / ((k + 1 : ℕ) : ℝ) := by push_cast; ring
-
-omit [Fintype α] [MeasurableSingletonClass α] in
-/-- In a numbering `e` of the arms, every arm other than the arm `a₀` of number `0` has a positive
-number. -/
-private lemma one_le_rank {n : ℕ} (e : α ≃ Fin n) {a₀ a : α} (ha₀ : (e a₀ : ℕ) = 0)
-    (ha : a ≠ a₀) : 1 ≤ (e a : ℕ) :=
-  Nat.one_le_iff_ne_zero.2 fun h ↦ ha (e.injective (Fin.ext (h.trans ha₀.symm)))
-
 omit [Fintype α] [MeasurableSingletonClass α] in
 /-- Let `μ` have the means `μ a = -e a` for a numbering `e` of the arms, and let `j` be an arm other
 than the arm `a₀` of number `0`. Moving the arm `j` to the mean `e j` makes it the unique best arm,
@@ -98,7 +75,7 @@ private lemma update_rank_lt_and_le [DecidableEq α] {n : ℕ} (e : α ≃ Fin n
     (hμ : ∀ a, μ a = -((e a : ℕ) : ℝ)) {a₀ j : α} (ha₀ : (e a₀ : ℕ) = 0) (hj : j ≠ a₀) :
     (∀ b ≠ j, Function.update μ j (e j : ℕ) b < Function.update μ j (e j : ℕ) j) ∧
       ∀ b ≠ j, Function.update μ j (e j : ℕ) b ≤ Function.update μ j (e j : ℕ) a₀ := by
-  have hj' : (1 : ℝ) ≤ (e j : ℕ) := by exact_mod_cast one_le_rank e ha₀ hj
+  have hj' : (1 : ℝ) ≤ (e j : ℕ) := by exact_mod_cast e.one_le_numbering ha₀ hj
   refine ⟨fun b hb ↦ ?_, fun b hb ↦ ?_⟩
   · simp only [Function.update_self, Function.update_of_ne hb, hμ]
     linarith [(Nat.cast_nonneg (e b : ℕ) : (0 : ℝ) ≤ (e b : ℕ))]
@@ -117,7 +94,7 @@ private lemma charTime_update_mul_klDiv_le [DecidableEq α] (hσ2 : σ2 ≠ 0)
       ENNReal.ofReal (24 * (e j : ℕ)) := by
   obtain ⟨hlam_lt, hlam_le⟩ := update_rank_lt_and_le e hμ ha₀ hj
   set m : ℕ := (e j : ℕ)
-  have hm : 1 ≤ m := one_le_rank e ha₀ hj
+  have hm : 1 ≤ m := e.one_le_numbering ha₀ hj
   have hm' : (0 : ℝ) < m := by exact_mod_cast hm
   have hσ2' : (0 : ℝ) < σ2 := NNReal.coe_pos.2 (pos_iff_ne_zero.2 hσ2)
   set lam := Function.update μ j (m : ℝ) with hlam_def
@@ -143,7 +120,7 @@ private lemma charTime_update_mul_klDiv_le [DecidableEq α] (hσ2 : σ2 ≠ 0)
         _ ≤ 2 * σ2 * (2 / m) := by
             rw [← Finset.mul_sum]
             gcongr
-            exact sum_inv_sq_add_numbering_le e hm
+            exact e.sum_inv_sq_add_numbering_le hm
     calc _ ≤ 2 * (σ2 : ℝ) / m + 2 * σ2 * (2 / m) := add_le_add h1 h2
       _ = 6 * σ2 / m := by ring
   have hT : (baiTask (Bandits.gaussianBandit · σ2) id).charTime lam ≤
@@ -165,24 +142,6 @@ private lemma charTime_update_mul_klDiv_le [DecidableEq α] (hσ2 : σ2 ≠ 0)
         congr 1
         field_simp
         ring
-
-/-- For a numbering `e` of the `K` arms and an arm `a₀` of number `0`,
-`log K ≤ ∑_{j ≠ a₀} 1 / e j`, the harmonic number `H_{K - 1}`. -/
-lemma log_card_le_sum_inv_numbering [DecidableEq α] (e : α ≃ Fin (Fintype.card α)) {a₀ : α}
-    (ha₀ : (e a₀ : ℕ) = 0) :
-    Real.log (Fintype.card α) ≤ ∑ j ∈ Finset.univ.erase a₀, (((e j : ℕ) : ℝ))⁻¹ := by
-  rw [Finset.sum_erase _ (by simp [ha₀])]
-  have hsum : ∑ j, (((e j : ℕ) : ℝ))⁻¹ =
-      ∑ i ∈ Finset.range (Fintype.card α), ((i : ℝ))⁻¹ := by
-    rw [← Fin.sum_univ_eq_sum_range]
-    exact Fintype.sum_equiv e _ _ fun _ ↦ rfl
-  rw [hsum]
-  rcases Nat.eq_zero_or_eq_succ_pred (Fintype.card α) with hK | hK
-  · simp [hK]
-  rw [hK, Finset.sum_range_succ', Nat.cast_zero, inv_zero, add_zero]
-  calc Real.log ((Fintype.card α).pred.succ : ℝ)
-      ≤ harmonic (Fintype.card α).pred := log_add_one_le_harmonic _
-    _ = _ := by simp [harmonic]
 
 /-- **Lower bound on the difficulty ratio in Gaussian best arm identification**
 [D23, proof of Theorem 8]. For best arm identification with Gaussian arms of common variance
@@ -210,7 +169,7 @@ theorem ofReal_log_card_div_le_maxRatio_charTime_baiTask_gaussianBandit (hσ2 : 
   set μ : α → ℝ := fun a ↦ -((e a : ℕ) : ℝ)
   set lam : α → α → ℝ := fun j ↦ Function.update μ j (e j : ℕ)
   have hμ_lt (b : α) (hb : b ≠ a₀) : μ b < μ a₀ := by
-    have : (1 : ℝ) ≤ (e b : ℕ) := by exact_mod_cast one_le_rank e ha₀ hb
+    have : (1 : ℝ) ≤ (e b : ℕ) := by exact_mod_cast e.one_le_numbering ha₀ hb
     simp only [μ, ha₀, Nat.cast_zero, neg_zero]
     linarith
   have hlam_lt (j : α) (hj : j ≠ a₀) := (update_rank_lt_and_le e (fun _ ↦ rfl) ha₀ hj).1
@@ -235,12 +194,12 @@ theorem ofReal_log_card_div_le_maxRatio_charTime_baiTask_gaussianBandit (hσ2 : 
       ≤ ENNReal.ofReal (∑ j ∈ s, (24 * ((e j : ℕ) : ℝ))⁻¹) := by
         refine ENNReal.ofReal_le_ofReal ?_
         simp_rw [mul_inv, ← Finset.mul_sum]
-        linarith [log_card_le_sum_inv_numbering e ha₀]
+        linarith [e.log_card_le_sum_inv_numbering ha₀]
     _ = ∑ j ∈ s, (ENNReal.ofReal (24 * (e j : ℕ)))⁻¹ := by
         rw [ENNReal.ofReal_sum_of_nonneg fun _ _ ↦ by positivity]
         refine Finset.sum_congr rfl fun j hj ↦ ?_
         have : (0 : ℝ) < (e j : ℕ) := by
-          exact_mod_cast one_le_rank e ha₀ (Finset.ne_of_mem_erase hj)
+          exact_mod_cast e.one_le_numbering ha₀ (Finset.ne_of_mem_erase hj)
         rw [ENNReal.ofReal_inv_of_pos (by positivity)]
     _ ≤ ∑ j ∈ s, (task.charTime (lam j) * klDiv (task.ν μ j) (task.ν (lam j) j))⁻¹ := by
         refine Finset.sum_le_sum fun j hj ↦ ENNReal.inv_le_inv.2 ?_

@@ -8,15 +8,14 @@ module
 public import LMLExplore.Bandits.Regret
 public import LMLExplore.Identification.MinimaxLowerBound
 public import LMLExplore.Identification.Task.RealLaws
-import LMLExplore.Identification.Task.BestArm.DifficultyRatio
+import LMLExplore.Analysis.PSeries
 import Mathlib.Analysis.Real.Pi.Bounds
-import Mathlib.NumberTheory.ZetaValues
 
 /-!
 # The minimax lower bound of fixed-budget best arm identification
 
 For best arm identification with `K ≥ 2` arms with laws on `[0, 1]`, every algorithm with budget
-`T` errs, on some Bernoulli bandit `θ` with a unique best arm and complexity
+`T` errs, on some bandit `θ` with laws on `[0, 1]`, a unique best arm and complexity
 `H(θ) = ∑_b Δ_b⁻² ≤ 11 K²`, with probability at least
 `exp(-400 T / (log K · H(θ))) / 6` [CL16, Theorem 1]; the proof gives
 `exp(-(1600 / 9) T / (log K · H(θ))) / 4`. Here `Δ_b` is the gap of the arm `b` and the sum runs
@@ -46,7 +45,8 @@ the complexities are at most `(25 K² / 4) (π² / 6) ≤ 11 K²`.
 ## Main statements
 
 * `LMLExplore.Identification.exists_exp_neg_div_four_le_measureReal_unitIntervalLaws`: some
-  Bernoulli bandit `θ` with a unique best arm and `H(θ) ≤ 11 K²` has probability of error at least
+  bandit `θ` with laws on `[0, 1]`, a unique best arm and `H(θ) ≤ 11 K²` has probability of error
+  at least
   `exp(-(1600 / 9) T / (log K · H(θ))) / 4`.
 * `LMLExplore.Identification.exists_exp_neg_div_six_le_measureReal_unitIntervalLaws`: the same with
   the bound `exp(-400 T / (log K · H(θ))) / 6` of [CL16, Theorem 1].
@@ -76,10 +76,6 @@ variable {α : Type*} [Fintype α] {mα : MeasurableSpace α} [MeasurableSinglet
 
 /-! ### Auxiliary bounds -/
 
-/-- `∑_{i < n} 1 / i² ≤ π² / 6`, the term `i = 0` being `0`. -/
-private lemma sum_range_inv_sq_le (n : ℕ) : ∑ i ∈ range n, ((i : ℝ) ^ 2)⁻¹ ≤ π ^ 2 / 6 :=
-  sum_le_hasSum (range n) (fun _ _ ↦ by positivity) (by simpa [one_div] using hasSum_zeta_two)
-
 /-- `(5 K / 2)² (π² / 6) ≤ 11 K²`. -/
 private lemma five_mul_div_two_sq_mul_le (K : ℝ) : (5 * K / 2) ^ 2 * (π ^ 2 / 6) ≤ 11 * K ^ 2 := by
   have hπ : π ^ 2 ≤ 10 := by nlinarith [Real.pi_lt_d2, Real.pi_pos]
@@ -95,16 +91,6 @@ private lemma klBer_one_half_sub_one_half_add_le {d : ℝ} (h0 : 0 ≤ d) (h1 : 
   rw [div_le_iff₀ (by nlinarith)]
   nlinarith [mul_nonneg (sq_nonneg d) (by linarith : (0 : ℝ) ≤ 4 / 25 - d ^ 2)]
 
-omit [Fintype α] in
-/-- In a Bernoulli bandit whose arm `a` has the largest success probability, the gap of the arm
-`b` is the difference of their success probabilities. -/
-private lemma gap_bernoulliBandit [Finite α] {p : α → I} {a : α} (ha : ∀ b ≠ a, (p b : ℝ) < p a)
-    (b : α) : Bandits.gap (Bandits.bernoulliBandit p) b = p a - p b := by
-  have := Fintype.ofFinite α
-  have : Nonempty α := ⟨a⟩
-  rw [Bandits.gap_eq_bestArm_sub, Bandits.bestArm_eq_of_forall_lt (by simpa using ha)]
-  simp
-
 /-! ### Bernoulli models -/
 
 /-- The model of the Bernoulli bandit with success probabilities `p`. -/
@@ -118,6 +104,11 @@ private lemma lawBandit_bernoulliModel (p : α → I) :
 private lemma lawMean_bernoulliModel (p : α → I) (b : α) : lawMean (bernoulliModel p) b = p b := by
   rw [lawMean_eq_integral_lawBandit, lawBandit_bernoulliModel,
     Bandits.integral_id_bernoulliBandit]
+
+/-- The arm `b` of the Bernoulli model with success probabilities `p` has the law `Ber(p b)`. -/
+private lemma ν_baiTask_bernoulliModel (p : α → I) (b : α) :
+    (baiTask lawBandit lawMean).ν (bernoulliModel p) b = Ber((1 : ℝ), 0, p b) := by
+  rw [ν_baiTask, lawBandit_bernoulliModel, Bandits.bernoulliBandit_apply]
 
 /-- A Bernoulli model whose arm `a` has the largest success probability is a model of best arm
 identification with laws on `[0, 1]`, with best arm `a`. -/
@@ -142,7 +133,14 @@ probability. -/
 private lemma sum_inv_sq_gap_bernoulliModel {p : α → I} {a : α}
     (ha : ∀ b ≠ a, (p b : ℝ) < p a) :
     ∑ b, (Bandits.gap (lawBandit (bernoulliModel p)) b ^ 2)⁻¹ = ∑ b, (((p a : ℝ) - p b) ^ 2)⁻¹ := by
-  simp_rw [lawBandit_bernoulliModel, gap_bernoulliBandit ha]
+  simp_rw [lawBandit_bernoulliModel, Bandits.gap_eq_sub_of_forall_lt
+    (ν := Bandits.bernoulliBandit p) (a := a) (by simpa using ha),
+    Bandits.integral_id_bernoulliBandit]
+
+/-- `((2 / (5 K)) x)⁻² = (5 K / 2)² x⁻²`, the inverse square of a gap of the bandits of [CL16]. -/
+private lemma inv_sq_two_div_mul (K x : ℝ) :
+    ((2 / (5 * K) * x) ^ 2)⁻¹ = (5 * K / 2) ^ 2 * (x ^ 2)⁻¹ := by
+  rw [mul_pow, mul_inv, ← inv_pow, inv_div]
 
 /-! ### The bandits of [CL16] -/
 
@@ -170,21 +168,15 @@ private lemma clGap_lt (b : α) : clGap e b < 2 / 5 := by
 private lemma clGap_eq_zero {a₀ : α} (ha₀ : (e a₀ : ℕ) = 0) : clGap e a₀ = 0 := by
   simp [clGap, ha₀]
 
-private lemma one_le_numbering {a₀ b : α} (ha₀ : (e a₀ : ℕ) = 0) (hb : b ≠ a₀) :
-    1 ≤ (e b : ℕ) :=
-  Nat.one_le_iff_ne_zero.2 fun h ↦ hb (e.injective (Fin.ext (h.trans ha₀.symm)))
-
 private lemma clGap_pos {a₀ b : α} (ha₀ : (e a₀ : ℕ) = 0) (hb : b ≠ a₀) : 0 < clGap e b := by
   have hK : (0 : ℝ) < Fintype.card α := by exact_mod_cast Fintype.card_pos_iff.2 ⟨b⟩
-  have : (0 : ℝ) < (e b : ℕ) := by exact_mod_cast one_le_numbering ha₀ hb
+  have : (0 : ℝ) < (e b : ℕ) := by exact_mod_cast e.one_le_numbering ha₀ hb
   unfold clGap
   positivity
 
 private lemma inv_sq_clGap (b : α) :
     (clGap e b ^ 2)⁻¹ = (5 * Fintype.card α / 2) ^ 2 * ((((e b : ℕ) : ℝ)) ^ 2)⁻¹ := by
-  rw [clGap, mul_pow, mul_inv]
-  congr 1
-  rw [← inv_pow, inv_div]
+  rw [clGap, inv_sq_two_div_mul]
 
 variable (e)
 
@@ -248,9 +240,7 @@ private lemma sum_inv_sq_gap_clAlt_le [DecidableEq α] {a₀ : α} (ha₀ : (e a
     show 1 / 2 + 2 / (5 * (Fintype.card α : ℝ)) * (e j : ℕ) -
       (1 / 2 - 2 / (5 * Fintype.card α) * (e b : ℕ)) =
         2 / (5 * Fintype.card α) * ((e j : ℕ) + (e b : ℕ)) by ring,
-    mul_pow, mul_inv]
-  congr 1
-  rw [← inv_pow, inv_div]
+    inv_sq_two_div_mul]
 
 /-- The complexity of `λ j` times the bound `(400 / 9) (d j)²` on its divergence from `μ` is at
 most `(800 / 9) e j`. -/
@@ -258,7 +248,7 @@ private lemma sum_inv_sq_gap_clAlt_mul_le [DecidableEq α] {a₀ : α} (ha₀ : 
     (hj : j ≠ a₀) :
     (∑ b, (Bandits.gap (lawBandit (bernoulliModel (clAlt e j))) b ^ 2)⁻¹) *
       (400 / 9 * clGap e j ^ 2) ≤ 800 / 9 * ((e j : ℕ) : ℝ) := by
-  have hm : (1 : ℝ) ≤ (e j : ℕ) := by exact_mod_cast one_le_numbering ha₀ hj
+  have hm : (1 : ℝ) ≤ (e j : ℕ) := by exact_mod_cast e.one_le_numbering ha₀ hj
   have hK0 : (Fintype.card α : ℝ) ≠ 0 := by
     have : (0 : ℝ) < Fintype.card α := by exact_mod_cast Fintype.card_pos_iff.2 ⟨j⟩
     positivity
@@ -267,7 +257,7 @@ private lemma sum_inv_sq_gap_clAlt_mul_le [DecidableEq α] {a₀ : α} (ha₀ : 
       ≤ (5 * Fintype.card α / 2) ^ 2 * (2 / ((e j : ℕ) : ℝ)) * (400 / 9 * clGap e j ^ 2) := by
         gcongr
         exact (sum_inv_sq_gap_clAlt_le ha₀ hj).trans (mul_le_mul_of_nonneg_left
-          (sum_inv_sq_add_numbering_le e (one_le_numbering ha₀ hj)) (by positivity))
+          (e.sum_inv_sq_add_numbering_le (e.one_le_numbering ha₀ hj)) (by positivity))
     _ = 800 / 9 * ((e j : ℕ) : ℝ) := by
         simp only [clGap]
         field_simp
@@ -280,7 +270,7 @@ private lemma sum_inv_sq_gap_clAlt_le_mul_sq [DecidableEq α] {a₀ : α} (ha₀
       11 * Fintype.card α ^ 2 := by
   refine (sum_inv_sq_gap_clAlt_le ha₀ hj).trans (le_trans ?_ (five_mul_div_two_sq_mul_le _))
   gcongr
-  have hj1 : (1 : ℝ) ≤ (e j : ℕ) := by exact_mod_cast one_le_numbering ha₀ hj
+  have hj1 : (1 : ℝ) ≤ (e j : ℕ) := by exact_mod_cast e.one_le_numbering ha₀ hj
   calc ∑ b, ((((e j : ℕ) : ℝ) + (e b : ℕ)) ^ 2)⁻¹
       ≤ ∑ b, ((((e b : ℕ) : ℝ) + 1) ^ 2)⁻¹ :=
         sum_le_sum fun b _ ↦ inv_anti₀ (by positivity)
@@ -308,8 +298,8 @@ end Family
 /-! ### The minimax lower bound -/
 
 /-- **Minimax lower bound of fixed-budget best arm identification** [CL16, Theorem 1]. Let `α`
-have `K ≥ 2` arms. For every algorithm `A` with budget `T`, some Bernoulli bandit `θ` with a unique
-best arm, whose complexity `H(θ) = ∑_b Δ_b⁻²` is at most `11 K²`, satisfies
+have `K ≥ 2` arms. For every algorithm `A` with budget `T`, some bandit `θ` with laws on `[0, 1]`
+and a unique best arm, whose complexity `H(θ) = ∑_b Δ_b⁻²` is at most `11 K²`, satisfies
 `exp(-(1600 / 9) T / (log K · H(θ))) / 4 ≤ P_θ(error)`. -/
 theorem exists_exp_neg_div_four_le_measureReal_unitIntervalLaws (hK : 2 ≤ Fintype.card α)
     {A : IdentAlg Unit α ℝ α} {T : ℕ} (hA : IsFixedBudget A T) :
@@ -350,24 +340,19 @@ theorem exists_exp_neg_div_four_le_measureReal_unitIntervalLaws (hK : 2 ≤ Fint
         correct_bernoulliModel (p := clAlt e j) (a := j)
           fun _ hb ↦ clAlt_lt ha₀ (ne_of_mem_erase hj) hb]
       exact Set.disjoint_singleton.2 (ne_of_mem_erase hj).symm)
-    (fun j _ b hb ↦ by
-      simp only [ν_baiTask, lam]
-      rw [lawBandit_bernoulliModel, lawBandit_bernoulliModel, Bandits.bernoulliBandit_apply,
-        Bandits.bernoulliBandit_apply, clAlt_of_ne hb])
+    (fun j _ b hb ↦ by rw [ν_baiTask_bernoulliModel, ν_baiTask_bernoulliModel, clAlt_of_ne hb])
     (H := H) (sum_nonneg fun _ _ ↦ by positivity) (fun j hj ↦ hHl_pos j (ne_of_mem_erase hj))
     (k := k) (fun j hj ↦ by have := clGap_pos ha₀ (ne_of_mem_erase hj); positivity)
     (fun j _ ↦ by
-      simp only [ν_baiTask, lam]
-      rw [lawBandit_bernoulliModel, lawBandit_bernoulliModel, Bandits.bernoulliBandit_apply,
-        Bandits.bernoulliBandit_apply, klDiv_bernoulliMeasure one_ne_zero, coe_clBase,
-        coe_clAlt_self]
+      rw [ν_baiTask_bernoulliModel, ν_baiTask_bernoulliModel, klDiv_bernoulliMeasure one_ne_zero,
+        coe_clBase, coe_clAlt_self]
       exact klBer_one_half_sub_one_half_add_le (clGap_nonneg j) (clGap_lt j))
   -- `h = ∑_{j ≠ a₀} 1 / (H(λ j) k j) ≥ (9 / 800) log K`, since `H(λ j) k j ≤ (800 / 9) e j`.
   have hh : 9 / 800 * Real.log (Fintype.card α) ≤ ∑ j ∈ s, (H (lam j) * k j)⁻¹ := by
     calc 9 / 800 * Real.log (Fintype.card α) ≤ ∑ j ∈ s, (800 / 9 * ((e j : ℕ) : ℝ))⁻¹ := by
           simp_rw [mul_inv, ← mul_sum, inv_div]
           gcongr
-          exact log_card_le_sum_inv_numbering e ha₀
+          exact e.log_card_le_sum_inv_numbering ha₀
       _ ≤ ∑ j ∈ s, (H (lam j) * k j)⁻¹ := by
           refine sum_le_sum fun j hj ↦ ?_
           have hj' := ne_of_mem_erase hj
@@ -400,8 +385,8 @@ theorem exists_exp_neg_div_four_le_measureReal_unitIntervalLaws (hK : 2 ≤ Fint
 
 /-- **Minimax lower bound of fixed-budget best arm identification, with the constants of [CL16]**
 [CL16, Theorem 1]. Let `α` have `K ≥ 2` arms. For every algorithm `A` with budget `T`, some
-Bernoulli bandit `θ` with a unique best arm, whose complexity `H(θ) = ∑_b Δ_b⁻²` is at most
-`11 K²`, satisfies `exp(-400 T / (log K · H(θ))) / 6 ≤ P_θ(error)`. -/
+bandit `θ` with laws on `[0, 1]` and a unique best arm, whose complexity `H(θ) = ∑_b Δ_b⁻²` is at
+most `11 K²`, satisfies `exp(-400 T / (log K · H(θ))) / 6 ≤ P_θ(error)`. -/
 theorem exists_exp_neg_div_six_le_measureReal_unitIntervalLaws (hK : 2 ≤ Fintype.card α)
     {A : IdentAlg Unit α ℝ α} {T : ℕ} (hA : IsFixedBudget A T) :
     ∃ θ ∈ ((baiTask (lawBandit (α := α)) lawMean).restrict

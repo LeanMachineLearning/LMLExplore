@@ -8,10 +8,13 @@ module
 public import Mathlib.Analysis.PSeries
 public import Mathlib.Analysis.SpecialFunctions.Log.Monotone
 public import Mathlib.Analysis.SpecialFunctions.Pow.Deriv
+public import Mathlib.Analysis.SpecialFunctions.Trigonometric.Basic
 public import Mathlib.Analysis.SumIntegralComparisons
 public import Mathlib.MeasureTheory.Integral.IntervalIntegral.FundThmCalculus
 import Mathlib.Analysis.Complex.ExponentialBounds
 import Mathlib.Analysis.SpecialFunctions.Integrals.Basic
+import Mathlib.NumberTheory.Harmonic.Bounds
+import Mathlib.NumberTheory.ZetaValues
 import LMLExplore.Analysis.SpecialFunctions.Log.Basic
 
 /-!
@@ -27,6 +30,12 @@ exploration rates of [KK13, Theorem 1], is summed.
 
 The terms of index `0` vanish, since `log 0 = 0` and `1 / 0 ^ p = 0`, so the sums are over `ℕ`.
 
+For `p = 2`, the partial sums are at most `π² / 6`. For a numbering `e : α ≃ Fin K` of a finite
+type, the sums `∑_b 1 / (m + e b)²` and `∑_{b ≠ a₀} 1 / e b`, with `e a₀ = 0`, are sums over
+`{0, …, K - 1}`, at most `2 / m` and at least `log K` respectively. These are the bounds on the
+complexities of the bandits with the means in arithmetic progression of the lower bounds of
+[D23, Theorem 8] and [CL16, Theorem 1].
+
 ## Main statements
 
 * `Real.hasDerivAt_neg_log_mul_rpow_div`: the antiderivative
@@ -38,11 +47,20 @@ The terms of index `0` vanish, since `log 0 = 0` and `1 / 0 ^ p = 0`, so the sum
 * `Real.tsum_one_div_nat_rpow_le`: `∑ 1 / n ^ p ≤ 1 + 1 / (p - 1)` for `p > 1`.
 * `Real.summable_log_div_nat_rpow`: `∑ log n / n ^ p` converges for `p > 1`.
 * `Real.tsum_log_div_nat_rpow_le`: `∑ log n / n ^ p ≤ 1 + 1 / (p - 1) ^ 2` for `p > 1`.
+* `Real.sum_range_inv_sq_le`: `∑_{i < n} 1 / i² ≤ π² / 6`.
+* `Equiv.sum_inv_sq_add_numbering_le`: `∑_b 1 / (m + e b)² ≤ 2 / m` for a numbering `e` and
+  `m ≥ 1`.
+* `Equiv.log_card_le_sum_inv_numbering`: `log K ≤ ∑_{b ≠ a₀} 1 / e b` for a numbering `e` of a
+  type with `K` elements and `e a₀ = 0`.
 
 ## References
 
 * [KK13] E. Kaufmann and S. Kalyanakrishnan, *Information complexity in bandit subset selection*,
   COLT 2013, proof of Theorem 1 (Appendix A).
+* [D23] R. Degenne, *On the existence of a complexity in fixed budget bandit identification*,
+  COLT 2023, arXiv:2303.09468v2.
+* [CL16] A. Carpentier and A. Locatelli, *Tight (lower) bounds for the fixed budget best arm
+  identification bandit problem*, COLT 2016.
 -/
 
 public section
@@ -187,4 +205,57 @@ theorem tsum_log_div_nat_rpow_le (hp : 1 < p) :
   tsum_le_of_sum_range_le (fun n ↦ div_nonneg (log_natCast_nonneg n) (by positivity))
     (sum_range_log_div_nat_rpow_le hp)
 
+/-- `∑_{i < n} 1 / i² ≤ π² / 6`, the term `i = 0` being `0`. -/
+theorem sum_range_inv_sq_le (n : ℕ) : ∑ i ∈ range n, ((i : ℝ) ^ 2)⁻¹ ≤ π ^ 2 / 6 :=
+  sum_le_hasSum (range n) (fun _ _ ↦ by positivity) (by simpa [one_div] using hasSum_zeta_two)
+
 end Real
+
+/-! ### Sums over a numbering of a finite type -/
+
+namespace Equiv
+
+variable {α : Type*}
+
+/-- In a numbering `e` of `α`, every element other than the element `a₀` of number `0` has a
+positive number. -/
+theorem one_le_numbering {n : ℕ} (e : α ≃ Fin n) {a₀ a : α} (ha₀ : (e a₀ : ℕ) = 0)
+    (ha : a ≠ a₀) : 1 ≤ (e a : ℕ) :=
+  Nat.one_le_iff_ne_zero.2 fun h ↦ ha (e.injective (Fin.ext (h.trans ha₀.symm)))
+
+variable [Fintype α]
+
+/-- For a numbering `e` of `α`, `∑_{b} 1 / (m + e b)² ≤ 2 / m` for every integer `m ≥ 1`. -/
+theorem sum_inv_sq_add_numbering_le (e : α ≃ Fin (Fintype.card α)) {m : ℕ} (hm : 1 ≤ m) :
+    ∑ b, (((m : ℝ) + (e b : ℕ)) ^ 2)⁻¹ ≤ 2 / m := by
+  obtain ⟨k, rfl⟩ : ∃ k, m = k + 1 := ⟨m - 1, by omega⟩
+  calc ∑ b, ((((k + 1 : ℕ) : ℝ) + (e b : ℕ)) ^ 2)⁻¹
+      = ∑ i ∈ Finset.range (Fintype.card α), ((((k + 1 : ℕ) : ℝ) + i) ^ 2)⁻¹ := by
+        rw [← Fin.sum_univ_eq_sum_range]
+        exact Fintype.sum_equiv e _ _ fun _ ↦ rfl
+    _ = ∑ i ∈ Finset.Ioo k (k + 1 + Fintype.card α), ((i : ℝ) ^ 2)⁻¹ := by
+        rw [← Finset.Ico_add_one_left_eq_Ioo, Finset.sum_Ico_eq_sum_range,
+          Nat.add_sub_cancel_left]
+        exact Finset.sum_congr rfl fun i _ ↦ by push_cast; ring
+    _ ≤ 2 / (k + 1) := sum_Ioo_inv_sq_le k _
+    _ = 2 / ((k + 1 : ℕ) : ℝ) := by push_cast; ring
+
+/-- For a numbering `e` of a type `α` with `K` elements and the element `a₀` of number `0`,
+`log K ≤ ∑_{j ≠ a₀} 1 / e j`, the harmonic number `H_{K - 1}`. -/
+theorem log_card_le_sum_inv_numbering [DecidableEq α] (e : α ≃ Fin (Fintype.card α)) {a₀ : α}
+    (ha₀ : (e a₀ : ℕ) = 0) :
+    Real.log (Fintype.card α) ≤ ∑ j ∈ Finset.univ.erase a₀, (((e j : ℕ) : ℝ))⁻¹ := by
+  rw [Finset.sum_erase _ (by simp [ha₀])]
+  have hsum : ∑ j, (((e j : ℕ) : ℝ))⁻¹ =
+      ∑ i ∈ Finset.range (Fintype.card α), ((i : ℝ))⁻¹ := by
+    rw [← Fin.sum_univ_eq_sum_range]
+    exact Fintype.sum_equiv e _ _ fun _ ↦ rfl
+  rw [hsum]
+  rcases Nat.eq_zero_or_eq_succ_pred (Fintype.card α) with hK | hK
+  · simp [hK]
+  rw [hK, Finset.sum_range_succ', Nat.cast_zero, inv_zero, add_zero]
+  calc Real.log ((Fintype.card α).pred.succ : ℝ)
+      ≤ harmonic (Fintype.card α).pred := log_add_one_le_harmonic _
+    _ = _ := by simp [harmonic]
+
+end Equiv
