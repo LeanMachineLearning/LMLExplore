@@ -26,9 +26,10 @@ is one, and the default point `x₀` when there is none.
 * With a strongly convex potential and positive nonincreasing learning rates, it has the anytime
   regret bound of [Ora, Corollary 7.6]
   `(F u - F (x 0)) / η (n - 1) + ∑ t < n, η t / (2 m) * ‖y t‖ ^ 2` against every `u ∈ K`, for every
-  sequence of linear losses, on compact sets (`hasRegretBound_ftrl_of_strongConvexOn`) and, in
-  finite dimension, on closed sets that need not be bounded
-  (`hasRegretBound_ftrl_of_strongConvexOn_of_isClosed`).
+  sequence of linear losses, whenever FTRL plays exist
+  (`hasRegretBound_ftrl_of_strongConvexOn_of_exists`), in particular on compact sets
+  (`hasRegretBound_ftrl_of_strongConvexOn`) and, in finite dimension, on closed sets that need not
+  be bounded (`hasRegretBound_ftrl_of_strongConvexOn_of_isClosed`).
 
 ## Main definitions
 
@@ -37,7 +38,8 @@ is one, and the default point `x₀` when there is none.
 ## Main statements
 
 * `OnlineLearner.isFTRLPlay_run_ftrl`: the plays of the FTRL learner are FTRL plays.
-* `OnlineLearner.hasRegretBound_ftrl_of_strongConvexOn`,
+* `OnlineLearner.hasRegretBound_ftrl_of_strongConvexOn_of_exists`,
+  `OnlineLearner.hasRegretBound_ftrl_of_strongConvexOn`,
   `OnlineLearner.hasRegretBound_ftrl_of_strongConvexOn_of_isClosed`: the regret guarantees of the
   FTRL learner with a strongly convex potential.
 
@@ -127,23 +129,42 @@ theorem isFTRLPlay_run_ftrl_of_strongConvexOn [FiniteDimensional ℝ E] {m : ℝ
     obtain ⟨a, ha⟩ := exists_ftrl_of_strongConvexOn hK hK_ne hF hm hF_lsc (η t) y
     exact ⟨a t, ha t⟩
 
-/-- **Regret guarantee of the FTRL learner** [Ora, Corollary 7.6]. Let `K` be compact, let the
-potential `F` be continuous on `K` and `m`-strongly convex on `K` (so that `K` is convex) for the
-norm of `E` with `m > 0`, and let the learning rates `η t > 0` be nonincreasing. Then for every
-sequence of linear losses `y`, every horizon `n` and every `u ∈ K`, the plays `x` of the FTRL
+/-- **Regret guarantee of the FTRL learner** [Ora, Corollary 7.6]. Let the potential `F` be
+`m`-strongly convex on `K` (so that `K` is convex) for the norm of `E` with `m > 0`, let FTRL plays
+exist on `K` for every learning rate, every sequence of linear losses and every round when `K` is
+nonempty (for instance by `exists_ftrl` on a compact set, or by `exists_ftrl_of_strongConvexOn` on
+a closed set in finite dimension), and let the learning rates `η t > 0` be nonincreasing. Then for
+every sequence of linear losses `y`, every horizon `n` and every `u ∈ K`, the plays `x` of the FTRL
 learner satisfy
+`∑ t < n, y t (x t - u) ≤ (F u - F (x 0)) / η (n - 1) + ∑ t < n, η t / (2 m) * ‖y t‖ ^ 2`,
+where `x 0` minimizes `F` over `K` and `‖y t‖` is the dual norm. -/
+theorem hasRegretBound_ftrl_of_strongConvexOn_of_exists {m : ℝ} (hF : StrongConvexOn K m F)
+    (hm : 0 < m) (hη : ∀ t, 0 < η t) (hη_anti : Antitone η)
+    (hex : K.Nonempty → ∀ (η : ℝ) (y : ℕ → E →L[ℝ] ℝ) (t : ℕ), ∃ x, IsFTRLPlay K F η y t x) :
+    (ftrl (C := C) K F η x₀).HasRegretBound (fun y x ↦ y x) (fun _ _ ↦ True) K
+      (fun n c y u ↦ (F u - F ((ftrl K F η x₀).run c y 0)) / η (n - 1) +
+        ∑ t ∈ range n, η t / (2 * m) * ‖y t‖ ^ 2) := by
+  refine hasRegretBound_iff.mpr fun c y n _ u hu ↦ ?_
+  have ha (t : ℕ) := isFTRLPlay_run_ftrl (x₀ := x₀) c y (hex ⟨u, hu⟩ (η t) y t)
+  rw [regret_eq_sum_apply_sub]
+  exact ftrl_regret_le_of_strongConvexOn_of_antitone hF hm hη hη_anti y _ (ha 0)
+    (fun t _ ↦ ha t) hu
+
+/-- **Regret guarantee of the FTRL learner on compact sets** [Ora, Corollary 7.6]. Let `K` be
+compact, let the potential `F` be continuous on `K` and `m`-strongly convex on `K` (so that `K` is
+convex) for the norm of `E` with `m > 0`, and let the learning rates `η t > 0` be nonincreasing.
+Then for every sequence of linear losses `y`, every horizon `n` and every `u ∈ K`, the plays `x` of
+the FTRL learner satisfy
 `∑ t < n, y t (x t - u) ≤ (F u - F (x 0)) / η (n - 1) + ∑ t < n, η t / (2 m) * ‖y t‖ ^ 2`,
 where `x 0` minimizes `F` over `K` and `‖y t‖` is the dual norm. -/
 theorem hasRegretBound_ftrl_of_strongConvexOn (hK : IsCompact K) (hF_cont : ContinuousOn F K)
     {m : ℝ} (hF : StrongConvexOn K m F) (hm : 0 < m) (hη : ∀ t, 0 < η t) (hη_anti : Antitone η) :
     (ftrl (C := C) K F η x₀).HasRegretBound (fun y x ↦ y x) (fun _ _ ↦ True) K
       (fun n c y u ↦ (F u - F ((ftrl K F η x₀).run c y 0)) / η (n - 1) +
-        ∑ t ∈ range n, η t / (2 * m) * ‖y t‖ ^ 2) := by
-  refine hasRegretBound_iff.mpr fun c y n _ u hu ↦ ?_
-  have ha (t : ℕ) := isFTRLPlay_run_ftrl_of_isCompact (η := η) (x₀ := x₀) hK ⟨u, hu⟩ hF_cont c y t
-  rw [regret_eq_sum_apply_sub]
-  exact ftrl_regret_le_of_strongConvexOn_of_antitone hF hm hη hη_anti y _ (ha 0)
-    (fun t _ ↦ ha t) hu
+        ∑ t ∈ range n, η t / (2 * m) * ‖y t‖ ^ 2) :=
+  hasRegretBound_ftrl_of_strongConvexOn_of_exists hF hm hη hη_anti fun hK_ne η y t ↦
+    let ⟨a, ha⟩ := exists_ftrl hK hK_ne hF_cont η y
+    ⟨a t, ha t⟩
 
 /-- **Regret guarantee of the FTRL learner on unbounded sets** [Ora, Corollary 7.6]. In finite
 dimension, let `K` be closed, let the potential `F` be lower semicontinuous on `K` and
@@ -158,13 +179,10 @@ theorem hasRegretBound_ftrl_of_strongConvexOn_of_isClosed [FiniteDimensional ℝ
     (hm : 0 < m) (hη : ∀ t, 0 < η t) (hη_anti : Antitone η) :
     (ftrl (C := C) K F η x₀).HasRegretBound (fun y x ↦ y x) (fun _ _ ↦ True) K
       (fun n c y u ↦ (F u - F ((ftrl K F η x₀).run c y 0)) / η (n - 1) +
-        ∑ t ∈ range n, η t / (2 * m) * ‖y t‖ ^ 2) := by
-  refine hasRegretBound_iff.mpr fun c y n _ u hu ↦ ?_
-  have ha (t : ℕ) :=
-    isFTRLPlay_run_ftrl_of_strongConvexOn (η := η) (x₀ := x₀) hK ⟨u, hu⟩ hF hm hF_lsc c y t
-  rw [regret_eq_sum_apply_sub]
-  exact ftrl_regret_le_of_strongConvexOn_of_antitone hF hm hη hη_anti y _ (ha 0)
-    (fun t _ ↦ ha t) hu
+        ∑ t ∈ range n, η t / (2 * m) * ‖y t‖ ^ 2) :=
+  hasRegretBound_ftrl_of_strongConvexOn_of_exists hF hm hη hη_anti fun hK_ne η y t ↦
+    let ⟨a, ha⟩ := exists_ftrl_of_strongConvexOn hK hK_ne hF hm hF_lsc η y
+    ⟨a t, ha t⟩
 
 end OnlineLearner
 

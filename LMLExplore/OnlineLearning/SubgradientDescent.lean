@@ -494,14 +494,21 @@ lemma run_onlineSubgradientDescent_zero (c : ℕ → C) (g : ℕ → E) :
     (onlineSubgradientDescent K η x₀).run c g 0 = x₀ :=
   run_ofUpdate_zero c g
 
+/-- The play of round `t + 1` of the projected online subgradient descent learner is the chosen
+mirror descent step from its play of round `t` for the potential `‖b‖ ^ 2 / 2` and the loss
+`⟪g t, ·⟫`. -/
+@[simp]
+lemma run_onlineSubgradientDescent_succ (c : ℕ → C) (g : ℕ → E) (t : ℕ) :
+    (onlineSubgradientDescent K η x₀).run c g (t + 1) =
+      mirrorDescentStep K (fun b ↦ ‖b‖ ^ 2 / 2) (η t) (innerSL ℝ (g t))
+        ((onlineSubgradientDescent K η x₀).run c g t)
+        (innerSL ℝ ((onlineSubgradientDescent K η x₀).run c g t)) :=
+  run_ofUpdate_succ c g t
+
 /-- The plays of the projected online subgradient descent learner started in `K` lie in `K`. -/
 lemma run_onlineSubgradientDescent_mem (hx₀ : x₀ ∈ K) (c : ℕ → C) (g : ℕ → E) (t : ℕ) :
-    (onlineSubgradientDescent K η x₀).run c g t ∈ K := by
-  induction t with
-  | zero => rwa [run_onlineSubgradientDescent_zero]
-  | succ t ih =>
-    rw [onlineSubgradientDescent, run_ofUpdate_succ]
-    exact mirrorDescentStep_mem ih
+    (onlineSubgradientDescent K η x₀).run c g t ∈ K :=
+  run_ofUpdate_mem hx₀ (fun _ _ _ ↦ mirrorDescentStep_mem) c g t
 
 /-- **The projected online subgradient descent learner projects the gradient steps.** At every
 round `t` where `K` has a point nearest to the gradient step `x t - η t • g t` from the play `x t`
@@ -512,7 +519,7 @@ theorem isMinOn_run_onlineSubgradientDescent (c : ℕ → C) (g : ℕ → E) {t 
     IsMinOn (fun b ↦ ‖b - ((onlineSubgradientDescent K η x₀).run c g t - η t • g t)‖) K
       ((onlineSubgradientDescent K η x₀).run c g (t + 1)) := by
   obtain ⟨x, hx, hmin⟩ := h
-  rw [onlineSubgradientDescent, run_ofUpdate_succ]
+  rw [run_onlineSubgradientDescent_succ]
   exact (isMirrorDescentStep_norm_sq_div_two_iff.mp (isMirrorDescentStep_mirrorDescentStep
     ⟨x, isMirrorDescentStep_norm_sq_div_two_iff.mpr ⟨hx, hmin⟩⟩)).2
 

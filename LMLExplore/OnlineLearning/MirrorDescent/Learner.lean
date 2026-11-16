@@ -117,6 +117,7 @@ lemma run_mirrorDescent_zero (c : ℕ → C) (y : ℕ → E →L[ℝ] ℝ) :
 
 /-- The play of round `t + 1` of the mirror descent learner is the chosen mirror descent step from
 its play of round `t`, for the loss of round `t`. -/
+@[simp]
 lemma run_mirrorDescent_succ (c : ℕ → C) (y : ℕ → E →L[ℝ] ℝ) (t : ℕ) :
     (mirrorDescent K F F' η x₀).run c y (t + 1) =
       mirrorDescentStep K F (η t) (y t) ((mirrorDescent K F F' η x₀).run c y t)
@@ -125,12 +126,8 @@ lemma run_mirrorDescent_succ (c : ℕ → C) (y : ℕ → E →L[ℝ] ℝ) (t : 
 
 /-- The plays of the mirror descent learner started in `K` lie in `K`. -/
 lemma run_mirrorDescent_mem (hx₀ : x₀ ∈ K) (c : ℕ → C) (y : ℕ → E →L[ℝ] ℝ) (t : ℕ) :
-    (mirrorDescent K F F' η x₀).run c y t ∈ K := by
-  induction t with
-  | zero => rwa [run_mirrorDescent_zero]
-  | succ t ih =>
-    rw [run_mirrorDescent_succ]
-    exact mirrorDescentStep_mem ih
+    (mirrorDescent K F F' η x₀).run c y t ∈ K :=
+  run_ofUpdate_mem hx₀ (fun _ _ _ ↦ mirrorDescentStep_mem) c y t
 
 /-- **The mirror descent learner plays mirror descent.** At every round where a mirror descent
 step exists from the play of the learner, its next play is one (`IsMirrorDescentStep`), with the

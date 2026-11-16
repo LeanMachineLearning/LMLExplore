@@ -254,6 +254,14 @@ play of round `t` by the feedback of round `t`. -/
 lemma run_ofUpdate_succ (c : ℕ → C) (g : ℕ → G) (t : ℕ) :
     (ofUpdate x₀ f).run c g (t + 1) = f t (g t) ((ofUpdate x₀ f).run c g t) := (rfl)
 
+/-- The plays of the learner defined by an update rule stay in a set `S` containing the initial
+play and preserved by every update. -/
+lemma run_ofUpdate_mem {S : Set X} (hx₀ : x₀ ∈ S) (hf : ∀ t g, ∀ a ∈ S, f t g a ∈ S)
+    (c : ℕ → C) (g : ℕ → G) (t : ℕ) : (ofUpdate x₀ f).run c g t ∈ S := by
+  induction t with
+  | zero => exact hx₀
+  | succ t ih => exact hf t (g t) _ ih
+
 end OnlineLearner
 
 end OfUpdate
