@@ -97,7 +97,6 @@ theorem bellmanEval_iterate_add_le_value (hγ : γ < 1) (hR : ∀ p, ∀ᵐ x �
   have hm := measurable_bellmanEval_iterate (M := M) (γ := γ) (π := π) hv n
   obtain ⟨K, hB'⟩ := exists_abs_bellmanEval_iterate_le (M := M) (γ := γ) (π := π) hR hvB n
   set u := (M.bellmanEval γ π)^[n] v
-  set c := (γ : ℝ) ^ n * a / (1 - γ)
   -- the increment `T_π u - u = γ ^ n P_π ^ n (T_π v - v)` is at least `γ ^ n * a`
   have hinc (s : 𝓢) : u s + (γ : ℝ) ^ n * a ≤ M.bellmanEval γ π u s := by
     have h := bellmanEval_iterate_succ_sub (M := M) (γ := γ) (π := π) hR hv hvB n s
@@ -108,13 +107,9 @@ theorem bellmanEval_iterate_add_le_value (hγ : γ < 1) (hR : ∀ p, ∀ᵐ x �
             ((integrable_of_abs_le (measurable_bellmanEval hv) (abs_bellmanEval_le hR hvB) _).sub
               (integrable_of_abs_le hv hvB _)) ha
     linarith [mul_le_mul_of_nonneg_left hint (pow_nonneg γ.coe_nonneg n)]
-  -- so `u + c` is a subsolution of the evaluation equation of `π`
-  have hle : (u + fun _ ↦ c) ≤ M.bellmanEval γ π (u + fun _ ↦ c) := fun s ↦ by
-    rw [bellmanEval_add_const hR hm hB' c, Pi.add_apply, Pi.add_apply,
-      add_div_one_sub_eq hγ (u s) n]
-    linarith [hinc s]
-  exact le_value_of_le_bellmanEval hγ hR (hm.add measurable_const)
-    (fun s ↦ (abs_add_le _ _).trans (add_le_add (hB' s) le_rfl)) hle s
+  -- so `u` is a `-γ ^ n * a`-subsolution of the evaluation equation of `π`
+  simpa only [neg_div, sub_neg_eq_add] using sub_div_le_value_of_sub_le_bellmanEval hγ hR hm hB'
+    (ε := -((γ : ℝ) ^ n * a)) (fun s ↦ by linarith [hinc s]) s
 
 /-- **Lower bound on the value** [P, Theorem 6.6.3], in Puterman's form: with bounded rewards and
 `γ < 1`, if a bounded measurable `v` satisfies `a ≤ T_π v - v`, where `T_π` is the evaluation

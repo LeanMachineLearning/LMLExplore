@@ -431,9 +431,13 @@ theorem abs_value_sub_value_absorbing_le [IsMarkovKernel π] (hγ : γ < 1)
 
 section Optimal
 
-variable [Nonempty 𝓢] [Nonempty 𝓐] [Finite 𝓐]
+variable [Nonempty 𝓢] [Nonempty 𝓐]
 
-/-- With finitely many actions, bounded rewards and `γ < 1`, the optimal value of
+section Countable
+
+variable [Countable 𝓐]
+
+/-- With countably many actions, bounded rewards and `γ < 1`, the optimal value of
 `M.absorbing s c` at the absorbing state is `c / (1 - γ)`. -/
 theorem optValue_absorbing_self (hγ : γ < 1) (hR : ∀ p, ∀ᵐ x ∂(M.R p), |x| ≤ C) :
     (M.absorbing s c).optValue γ s = c / (1 - γ) := by
@@ -443,7 +447,7 @@ theorem optValue_absorbing_self (hγ : γ < 1) (hR : ∀ p, ∀ᵐ x ∂(M.R p),
   rw [eq_div_iff (sub_pos.2 (NNReal.coe_lt_one.2 hγ)).ne']
   linarith
 
-/-- With finitely many actions, bounded rewards and `γ < 1`, the optimal action value of
+/-- With countably many actions, bounded rewards and `γ < 1`, the optimal action value of
 `M.absorbing s c` at the absorbing state is `c / (1 - γ)`, for every action. -/
 theorem optQValue_absorbing_self (hγ : γ < 1) (hR : ∀ p, ∀ᵐ x ∂(M.R p), |x| ≤ C) (a : 𝓐) :
     (M.absorbing s c).optQValue γ (s, a) = c / (1 - γ) := by
@@ -452,7 +456,7 @@ theorem optQValue_absorbing_self (hγ : γ < 1) (hR : ∀ p, ∀ᵐ x ∂(M.R p)
   field_simp
   ring
 
-/-- **The modification at the optimal value** [AKY20, Lemma 7]: with finitely many actions,
+/-- **The modification at the optimal value** [AKY20, Lemma 7]: with countably many actions,
 bounded rewards and `γ < 1`, the `s`-absorbing modification of `M` with reward `(1 - γ) v* s`
 has the same optimal value `v*` as `M`. -/
 theorem optValue_absorbing_optValue (hγ : γ < 1) (hR : ∀ p, ∀ᵐ x ∂(M.R p), |x| ≤ C) :
@@ -466,7 +470,7 @@ theorem optValue_absorbing_optValue (hγ : γ < 1) (hR : ∀ p, ∀ᵐ x ∂(M.R
     ring
   · rw [bellman_absorbing_of_ne hs', bellman_optValue hγ hR]
 
-/-- With finitely many actions, bounded rewards and `γ < 1`, outside the absorbing state, the
+/-- With countably many actions, bounded rewards and `γ < 1`, outside the absorbing state, the
 `s`-absorbing modification of `M` with reward `(1 - γ) v* s` has the same optimal action values
 as `M`. -/
 theorem optQValue_absorbing_optValue_of_ne (hγ : γ < 1) (hR : ∀ p, ∀ᵐ x ∂(M.R p), |x| ≤ C)
@@ -474,6 +478,10 @@ theorem optQValue_absorbing_optValue_of_ne (hγ : γ < 1) (hR : ∀ p, ∀ᵐ x 
     (M.absorbing s ((1 - γ) * M.optValue γ s)).optQValue γ p = M.optQValue γ p := by
   rw [optQValue_eq_lookahead, optQValue_eq_lookahead, optValue_absorbing_optValue hγ hR,
     lookahead_absorbing_of_ne hp]
+
+end Countable
+
+variable [Finite 𝓐]
 
 /-- **The optimal action values are Lipschitz in the absorbing reward** [AKY20, Lemma 8]: with
 finitely many actions, bounded rewards and `γ < 1`, the optimal action values of the `s`-absorbing

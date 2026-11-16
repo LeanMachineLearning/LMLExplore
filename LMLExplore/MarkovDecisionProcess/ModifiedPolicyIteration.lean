@@ -225,7 +225,7 @@ theorem bellman_iterate_le (h₀ : v 0 ≤ M.bellman γ (v 0)) (k : ℕ) :
 
 end Countable
 
-variable [Finite 𝓐] [Nonempty 𝓐] [Nonempty 𝓢]
+variable [Countable 𝓐] [Nonempty 𝓐] [Nonempty 𝓢]
 
 /-- The values of modified policy iteration started below their image by the optimality operator
 are below the optimal value. -/

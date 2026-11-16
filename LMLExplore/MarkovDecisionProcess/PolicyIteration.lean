@@ -22,8 +22,8 @@ stationary policy `d 0` and alternates
 This file proves that policy iteration improves monotonically and converges to the optimal value
 at the geometric rate `γ ^ k`, on a general measurable state space, and that it terminates on a
 finite state space. The improvement holds for every action set, the comparison with value
-iteration for countably many actions, and the statements about the optimal value for finitely
-many actions.
+iteration, the geometric rate and the stopping rules for countably many actions, and the finite
+termination for finitely many actions.
 
 The basic step is *policy improvement*, `LMLExplore.map_le_of_le_map` on the bounded measurable
 functions: if `v ≤ B v` for a map `B`, and `d` is a policy whose evaluation operator `T_d`
@@ -37,9 +37,9 @@ The comparison with value iteration, the geometric rate and the finite terminati
 of the abstract policy iteration `LMLExplore.IsPolicyIteration`, with the evaluation operators of
 the measurable deterministic stationary policies as decisions. On the bounded measurable
 functions, for countably many actions, it gives `T^[k] v 0 ≤ v k ≤ v*`
-(`LMLExplore.IsPolicyIteration.iterate_le`), and for finitely many actions Blackwell's conditions
-for `T` give `‖v k - v*‖ ≤ γ ^ k * ‖v 0 - v*‖` (`LMLExplore.IsPolicyIteration.norm_sub_le`),
-stated here pointwise. These comparisons use the closedness of the pointwise order of the bounded
+(`LMLExplore.IsPolicyIteration.iterate_le`), and Blackwell's conditions for `T` give
+`‖v k - v*‖ ≤ γ ^ k * ‖v 0 - v*‖` (`LMLExplore.IsPolicyIteration.norm_sub_le`), stated here
+pointwise. These comparisons use the closedness of the pointwise order of the bounded
 measurable functions. On a finite state space there are finitely many deterministic policies, and
 `LMLExplore.IsPolicyIteration.exists_le_card_eq`, applied on the functions `𝓢 → ℝ`, shows that
 the optimal value is reached after at most `|𝓐| ^ |𝓢|` improvements. When the improvement keeps
@@ -182,7 +182,7 @@ theorem value_succ_eq_add_tsum [Nonempty 𝓢] (k : ℕ) (s : 𝓢) :
 
 /-- **Stopping rule**: the value of policy iteration does not change at step `k` if and only if
 the value of `d k` is the optimal value. -/
-theorem value_succ_eq_iff [Nonempty 𝓢] [Finite 𝓐] [Nonempty 𝓐] (k : ℕ) :
+theorem value_succ_eq_iff [Nonempty 𝓢] [Countable 𝓐] [Nonempty 𝓐] (k : ℕ) :
     M.value γ (Kernel.deterministic (d (k + 1)) (h.measurable (k + 1))) =
         M.value γ (Kernel.deterministic (d k) (h.measurable k)) ↔
       M.value γ (Kernel.deterministic (d k) (h.measurable k)) = M.optValue γ := by
@@ -196,7 +196,7 @@ theorem value_succ_eq_iff [Nonempty 𝓢] [Finite 𝓐] [Nonempty 𝓐] (k : ℕ
 /-- **Stopping rule with ties kept**: if policy iteration keeps the current policy whenever it is
 greedy for its own value, as in Puterman's algorithm, then the policy does not change at step `k`
 if and only if `d k` is optimal. -/
-theorem succ_eq_iff [Nonempty 𝓢] [Finite 𝓐] [Nonempty 𝓐] (hkeep : h.KeepsGreedy) (k : ℕ) :
+theorem succ_eq_iff [Nonempty 𝓢] [Countable 𝓐] [Nonempty 𝓐] (hkeep : h.KeepsGreedy) (k : ℕ) :
     d (k + 1) = d k ↔
       M.value γ (Kernel.deterministic (d k) (h.measurable k)) = M.optValue γ := by
   rw [← h.value_succ_eq_iff hγ hR k]
@@ -246,7 +246,7 @@ end Convergence
 /-- **Convergence of policy iteration at a geometric rate** (the norm convergence of
 [P, Theorem 6.4.6], with its rate): if the value of `d 0` is within `D` of the optimal value, then
 the value of `d k` is within `γ ^ k * D` of it. -/
-theorem abs_value_sub_optValue_le [Nonempty 𝓢] [Finite 𝓐] [Nonempty 𝓐]
+theorem abs_value_sub_optValue_le [Nonempty 𝓢] [Countable 𝓐] [Nonempty 𝓐]
     (hD : ∀ s, |M.value γ (Kernel.deterministic (d 0) (h.measurable 0)) s - M.optValue γ s| ≤ D)
     (k : ℕ) (s : 𝓢) :
     |M.value γ (Kernel.deterministic (d k) (h.measurable k)) s - M.optValue γ s| ≤ γ ^ k * D := by
