@@ -8,6 +8,7 @@ module
 public import LMLExplore.EValues.BipolarRate.EProcess
 public import LMLExplore.Probability.ProductMeasure.Blocks
 import LMLExplore.Analysis.SpecialFunctions.Log.ENNRealLog
+import LMLExplore.Data.EReal.Inv
 import LMLExplore.EValues.BipolarRate.AlmostSure
 import LMLExplore.MeasureTheory.Integral.EReal
 import Statlib.ForMathlib.MeasureTheory.Integral.EReal.Bochner
@@ -388,9 +389,7 @@ theorem ae_bipolarRate_le_liminf_log_div_of_forall_ae_eventually_log_le (Q₁ : 
   obtain ⟨q, haq, hqd⟩ := EReal.lt_iff_exists_rat_btwn.1 ha
   refine haq.le.trans (le_liminf_of_le (by isBoundedDefault) ?_)
   filter_upwards [hω q hqd, eventually_ge_atTop 1] with n hn hn1
-  rw [EReal.le_div_iff_mul_le (by exact_mod_cast hn1) (EReal.natCast_ne_top n), mul_comm,
-    ← EReal.coe_natCast, ← EReal.coe_mul]
-  exact hn
+  exact (EReal.coe_le_div_natCast_iff hn1).2 hn
 
 /-! ### The numeraires grow at the bipolar rate -/
 

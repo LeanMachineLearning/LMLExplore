@@ -7,6 +7,7 @@ module
 
 public import LMLExplore.EValues.BipolarRate.Basic
 import LMLExplore.Analysis.SpecialFunctions.Log.ENNRealLog
+import LMLExplore.Data.EReal.Inv
 import LMLExplore.EValues.BipolarRate.AlmostSure
 import LMLExplore.EValues.BipolarRate.Numeraire
 import LMLExplore.Probability.ProductMeasure
@@ -138,25 +139,6 @@ end MinTestSize
 
 variable {𝓧 : Type*} {m𝓧 : MeasurableSpace 𝓧} {S₁ : Set (Measure 𝓧)} {β : ℝ≥0∞}
 
-/-- For `n ≥ 1`, a size `x` at most `exp (- n r)` has `r ≤ -(1/n) log x`. -/
-private lemma le_neg_log_div_of_le_ofReal_exp {x : ℝ≥0∞} {n : ℕ} {r : ℝ} (hn : 1 ≤ n)
-    (h : x ≤ ENNReal.ofReal (Real.exp (-(n * r)))) :
-    (r : EReal) ≤ -ENNReal.log x / (n : EReal) := by
-  have hlog := ENNReal.log_le_log h
-  rw [ENNReal.log_ofReal_exp, EReal.coe_neg] at hlog
-  rw [EReal.le_div_iff_mul_le (by exact_mod_cast hn) (EReal.natCast_ne_top n), mul_comm,
-    ← EReal.coe_natCast, ← EReal.coe_mul]
-  exact EReal.le_neg_of_le_neg hlog
-
-/-- For `n ≥ 1`, a size `x` at least `exp (- n r)` has `-(1/n) log x ≤ r`. -/
-private lemma neg_log_div_le_of_ofReal_exp_le {x : ℝ≥0∞} {n : ℕ} {r : ℝ} (hn : 1 ≤ n)
-    (h : ENNReal.ofReal (Real.exp (-(n * r))) ≤ x) : -ENNReal.log x / (n : EReal) ≤ r := by
-  have hlog := ENNReal.log_le_log h
-  rw [ENNReal.log_ofReal_exp, EReal.coe_neg] at hlog
-  rw [EReal.div_le_iff_le_mul (by exact_mod_cast hn) (EReal.natCast_ne_top n),
-    ← EReal.coe_natCast, ← EReal.coe_mul]
-  exact EReal.neg_le_of_neg_le hlog
-
 /-- For a real `r` below the bipolar rate and `β < 1`, eventually some test of `n` observations of
 power at least `β` has size at most `exp (- n r)`: the event where the numeraire of the `n`-sample
 null exceeds `exp (n r)`. -/
@@ -185,11 +167,9 @@ private lemma eventually_minTestSize_le (Q₁ : Measure 𝓧) [IsProbabilityMeas
     filter_upwards [ae_tendsto_log_numeraire_div_bipolarRate Q₁ hS₁] with ω hω
     filter_upwards [hω.eventually (lt_mem_nhds hr), eventually_ge_atTop 1] with n hn hn1
     simp only [C, Set.mem_ofPred_eq]
-    rw [EReal.lt_div_iff (by exact_mod_cast hn1) (EReal.natCast_ne_top n)] at hn
     rw [← ENNReal.ofReal_inv_of_pos (Real.exp_pos _), ← Real.exp_neg, neg_neg,
-      ← ENNReal.log_le_log_iff, ENNReal.log_ofReal_exp, EReal.coe_mul, EReal.coe_natCast,
-      mul_comm]
-    exact hn.le
+      ← ENNReal.log_le_log_iff, ENNReal.log_ofReal_exp]
+    exact ((EReal.coe_lt_div_natCast_iff hn1).1 hn).le
   filter_upwards [(tendsto_order.1 (tendsto_measure_pi_one_of_ae_eventually_mem Q₁ hCm hae)).1 β
     hβ] with n hn
   exact (minTestSize_le (hCm n) hn.le).trans (hnull n)
@@ -233,8 +213,8 @@ private lemma eventually_le_minTestSize (Q₁ : Measure 𝓧) [IsProbabilityMeas
         gcongr
         exact (le_biSup (fun μ : Measure (Fin n → 𝓧) ↦ μ (C n)) hμ).trans (hC n).2
       _ = 1 := by
-        rw [← ENNReal.ofReal_mul (Real.exp_pos _).le, ← Real.exp_add, add_neg_cancel,
-          Real.exp_zero, ENNReal.ofReal_one]
+        rw [← ENNReal.ofReal_mul (Real.exp_pos _).le, ← Real.exp_add]
+        simp
   -- almost surely, the first `n` observations are eventually outside `C n`
   have hae : ∀ᵐ ω ∂Measure.infinitePi (fun _ : ℕ ↦ Q₁), ∀ᶠ n : ℕ in atTop,
       initSeg n ω ∉ C n := by
@@ -244,8 +224,7 @@ private lemma eventually_le_minTestSize (Q₁ : Measure 𝓧) [IsProbabilityMeas
     intro hmem
     rw [show M n (initSeg n ω) = ENNReal.ofReal (Real.exp (n * r)) from
         Set.indicator_of_mem hmem _, ENNReal.log_ofReal_exp,
-      EReal.div_lt_iff (by exact_mod_cast hn1) (EReal.natCast_ne_top n), ← EReal.coe_natCast,
-      ← EReal.coe_mul, EReal.coe_lt_coe_iff, mul_comm] at hn
+      EReal.div_natCast_lt_coe_iff hn1] at hn
     exact lt_irrefl _ hn
   filter_upwards [(tendsto_order.1 (tendsto_measure_pi_zero_of_ae_eventually_notMem Q₁
     (fun n ↦ (hC n).1) hae)).2 β hβ] with n hn
@@ -264,7 +243,7 @@ theorem bipolarRate_le_liminf_neg_log_minTestSize_div (Q₁ : Measure 𝓧) [IsP
   obtain ⟨r, har, hrd⟩ := EReal.lt_iff_exists_real_btwn.1 ha
   refine har.le.trans (le_liminf_of_le (by isBoundedDefault) ?_)
   filter_upwards [eventually_minTestSize_le Q₁ hS₁ hβ hrd, eventually_ge_atTop 1] with n hn hn1
-  exact le_neg_log_div_of_le_ofReal_exp hn1 hn
+  exact ENNReal.le_neg_log_div_of_le_ofReal_exp hn1 hn
 
 /-- **The strong converse of the Stein lemma for composite nulls.** For `0 < β`, the smallest
 size `α*_n(β)` of a test of `n` observations of the i.i.d. null `S₁` with power at least `β`
@@ -279,7 +258,7 @@ theorem limsup_neg_log_minTestSize_div_le_bipolarRate (Q₁ : Measure 𝓧) [IsP
   obtain ⟨r, hdr, hra⟩ := EReal.lt_iff_exists_real_btwn.1 ha
   refine (limsup_le_of_le (by isBoundedDefault) ?_).trans hra.le
   filter_upwards [eventually_le_minTestSize Q₁ hS₁ hβ hdr, eventually_ge_atTop 1] with n hn hn1
-  exact neg_log_div_le_of_ofReal_exp_le hn1 hn
+  exact ENNReal.neg_log_div_le_of_ofReal_exp_le hn1 hn
 
 /-- **A Stein lemma for composite nulls, with strong converse.** For `β ∈ (0, 1)`, the smallest
 size `α*_n(β)` of a test of `n` observations of the i.i.d. null `S₁` with power at least `β`
