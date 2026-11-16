@@ -12,6 +12,7 @@ public import TauCeti.Probability.Ergodic.BernoulliShift
 import LMLExplore.MeasureTheory.Constructions.Pi
 import LMLExplore.MeasureTheory.Measure.Typeclasses.Probability
 import Mathlib.MeasureTheory.Function.FactorsThrough
+import Mathlib.MeasureTheory.Integral.Indicator
 import Mathlib.Probability.Independence.Integration
 import TauCeti.Probability.Process.PathLaw.Shift
 
@@ -37,6 +38,11 @@ the polarization step of [EVR26, Note 03, Theorem 1], adapted from
 
 * `MeasureTheory.measurePreserving_initSeg`, `MeasureTheory.lintegral_comp_initSeg_infinitePi`:
   the first `n` terms `initSeg n` of an i.i.d. sequence have the product law.
+* `MeasureTheory.tendsto_measure_pi_of_ae_eventually_iff`: if almost surely, eventually, the
+  first `n` terms of an i.i.d. sequence are in `C n` exactly when the sequence is in `A`, then the
+  probability of `C n` under the product law tends to that of `A`; the special cases
+  `MeasureTheory.tendsto_measure_pi_one_of_ae_eventually_mem` and
+  `MeasureTheory.tendsto_measure_pi_zero_of_ae_eventually_notMem` have limits `1` and `0`.
 * `MeasureTheory.Measure.ae_forall_apply_infinitePi`: if, for each `i` of a countable index type,
   `p i` holds almost everywhere under `μ i`, then almost surely under `Measure.infinitePi μ` every
   coordinate `x i` satisfies `p i`.
@@ -95,6 +101,39 @@ lemma lintegral_comp_initSeg_infinitePi (P : Measure 𝓧) [IsProbabilityMeasure
     ∫⁻ ω : ℕ → 𝓧, f (fun i ↦ ω i) ∂(Measure.infinitePi fun _ ↦ P) =
       ∫⁻ x, f x ∂(Measure.pi fun _ : Fin n ↦ P) := by
   simpa only [initSeg_def] using (measurePreserving_initSeg P n).lintegral_comp hf
+
+open Filter Topology in
+/-- If almost surely under the i.i.d. law of `P`, eventually, the first `n` terms are in `C n`
+exactly when the sequence is in `A`, then the probability of `C n` under the product law tends to
+that of `A`. -/
+lemma tendsto_measure_pi_of_ae_eventually_iff (P : Measure 𝓧) [IsProbabilityMeasure P]
+    {C : (n : ℕ) → Set (Fin n → 𝓧)} (hC : ∀ n, MeasurableSet (C n)) {A : Set (ℕ → 𝓧)}
+    (hA : MeasurableSet A)
+    (h : ∀ᵐ ω ∂Measure.infinitePi (fun _ : ℕ ↦ P),
+      ∀ᶠ n : ℕ in atTop, initSeg n ω ∈ C n ↔ ω ∈ A) :
+    Tendsto (fun n : ℕ ↦ Measure.pi (fun _ : Fin n ↦ P) (C n)) atTop
+      (𝓝 (Measure.infinitePi (fun _ : ℕ ↦ P) A)) := by
+  refine (tendsto_measure_of_ae_tendsto_indicator_of_isFiniteMeasure atTop hA
+    (fun n ↦ measurable_initSeg n (hC n)) h).congr fun n ↦ ?_
+  exact (measurePreserving_initSeg P n).measure_preimage (hC n).nullMeasurableSet
+
+open Filter Topology in
+/-- If almost surely under the i.i.d. law of `P` the first `n` terms are eventually in `C n`, then
+the probability of `C n` under the product law tends to `1`. -/
+lemma tendsto_measure_pi_one_of_ae_eventually_mem (P : Measure 𝓧) [IsProbabilityMeasure P]
+    {C : (n : ℕ) → Set (Fin n → 𝓧)} (hC : ∀ n, MeasurableSet (C n))
+    (h : ∀ᵐ ω ∂Measure.infinitePi (fun _ : ℕ ↦ P), ∀ᶠ n : ℕ in atTop, initSeg n ω ∈ C n) :
+    Tendsto (fun n : ℕ ↦ Measure.pi (fun _ : Fin n ↦ P) (C n)) atTop (𝓝 1) := by
+  simpa using tendsto_measure_pi_of_ae_eventually_iff P hC MeasurableSet.univ (by simpa using h)
+
+open Filter Topology in
+/-- If almost surely under the i.i.d. law of `P` the first `n` terms are eventually outside
+`C n`, then the probability of `C n` under the product law tends to `0`. -/
+lemma tendsto_measure_pi_zero_of_ae_eventually_notMem (P : Measure 𝓧) [IsProbabilityMeasure P]
+    {C : (n : ℕ) → Set (Fin n → 𝓧)} (hC : ∀ n, MeasurableSet (C n))
+    (h : ∀ᵐ ω ∂Measure.infinitePi (fun _ : ℕ ↦ P), ∀ᶠ n : ℕ in atTop, initSeg n ω ∉ C n) :
+    Tendsto (fun n : ℕ ↦ Measure.pi (fun _ : Fin n ↦ P) (C n)) atTop (𝓝 0) := by
+  simpa using tendsto_measure_pi_of_ae_eventually_iff P hC MeasurableSet.empty (by simpa using h)
 
 open ProbabilityTheory
 open TauCeti.Probability (shift shift_iterate_apply shift_iterate_eq_reindex

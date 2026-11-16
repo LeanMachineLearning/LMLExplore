@@ -9,7 +9,7 @@ public import LMLExplore.EValues.BipolarRate.Basic
 import LMLExplore.Analysis.SpecialFunctions.Log.ENNRealLog
 import LMLExplore.EValues.BipolarRate.AlmostSure
 import LMLExplore.EValues.BipolarRate.Numeraire
-import Mathlib.MeasureTheory.Integral.Indicator
+import LMLExplore.Probability.ProductMeasure
 
 /-!
 # A Stein lemma for composite nulls, with the bipolar rate as exponent
@@ -74,8 +74,9 @@ The statements and proofs are adapted from `EValuesResearch/Results/Numeraire.le
 (commit `dd4072f`) in the paper project `RemyDegenne/evalues_research`, which formalizes
 [EVR26, Note 01], rewritten on the API of LMLExplore. The probabilities of the events under
 `Q₁ ^ n` are those of their preimages under the initial segments of the i.i.d. sequence
-(`MeasureTheory.measurePreserving_initSeg`), and their limits come from Mathlib's
-`MeasureTheory.tendsto_measure_of_ae_tendsto_indicator_of_isFiniteMeasure`.
+(`MeasureTheory.measurePreserving_initSeg`), and their limits come from
+`MeasureTheory.tendsto_measure_pi_one_of_ae_eventually_mem` and
+`MeasureTheory.tendsto_measure_pi_zero_of_ae_eventually_notMem`.
 
 ## References
 
@@ -136,36 +137,6 @@ end MinTestSize
 /-! ### The Stein lemma -/
 
 variable {𝓧 : Type*} {m𝓧 : MeasurableSpace 𝓧} {S₁ : Set (Measure 𝓧)} {β : ℝ≥0∞}
-
-/-- If almost surely under the i.i.d. law of `Q₁`, eventually, the first `n` observations are in
-`C n` exactly when the sequence is in `A`, then the probability of `C n` under `Q₁ ^ n` tends to
-that of `A`. -/
-private lemma tendsto_measure_pi_of_ae_eventually_iff (Q₁ : Measure 𝓧) [IsProbabilityMeasure Q₁]
-    {C : (n : ℕ) → Set (Fin n → 𝓧)} (hC : ∀ n, MeasurableSet (C n)) {A : Set (ℕ → 𝓧)}
-    (hA : MeasurableSet A)
-    (h : ∀ᵐ ω ∂Measure.infinitePi (fun _ : ℕ ↦ Q₁),
-      ∀ᶠ n : ℕ in atTop, initSeg n ω ∈ C n ↔ ω ∈ A) :
-    Tendsto (fun n : ℕ ↦ Measure.pi (fun _ : Fin n ↦ Q₁) (C n)) atTop
-      (𝓝 (Measure.infinitePi (fun _ : ℕ ↦ Q₁) A)) := by
-  refine (tendsto_measure_of_ae_tendsto_indicator_of_isFiniteMeasure atTop hA
-    (fun n ↦ measurable_initSeg n (hC n)) h).congr fun n ↦ ?_
-  exact (measurePreserving_initSeg Q₁ n).measure_preimage (hC n).nullMeasurableSet
-
-/-- If almost surely under the i.i.d. law of `Q₁` the first `n` observations are eventually in
-`C n`, then the probability of `C n` under `Q₁ ^ n` tends to `1`. -/
-private lemma tendsto_measure_pi_one_of_ae_eventually_mem (Q₁ : Measure 𝓧)
-    [IsProbabilityMeasure Q₁] {C : (n : ℕ) → Set (Fin n → 𝓧)} (hC : ∀ n, MeasurableSet (C n))
-    (h : ∀ᵐ ω ∂Measure.infinitePi (fun _ : ℕ ↦ Q₁), ∀ᶠ n : ℕ in atTop, initSeg n ω ∈ C n) :
-    Tendsto (fun n : ℕ ↦ Measure.pi (fun _ : Fin n ↦ Q₁) (C n)) atTop (𝓝 1) := by
-  simpa using tendsto_measure_pi_of_ae_eventually_iff Q₁ hC MeasurableSet.univ (by simpa using h)
-
-/-- If almost surely under the i.i.d. law of `Q₁` the first `n` observations are eventually
-outside `C n`, then the probability of `C n` under `Q₁ ^ n` tends to `0`. -/
-private lemma tendsto_measure_pi_zero_of_ae_eventually_notMem (Q₁ : Measure 𝓧)
-    [IsProbabilityMeasure Q₁] {C : (n : ℕ) → Set (Fin n → 𝓧)} (hC : ∀ n, MeasurableSet (C n))
-    (h : ∀ᵐ ω ∂Measure.infinitePi (fun _ : ℕ ↦ Q₁), ∀ᶠ n : ℕ in atTop, initSeg n ω ∉ C n) :
-    Tendsto (fun n : ℕ ↦ Measure.pi (fun _ : Fin n ↦ Q₁) (C n)) atTop (𝓝 0) := by
-  simpa using tendsto_measure_pi_of_ae_eventually_iff Q₁ hC MeasurableSet.empty (by simpa using h)
 
 /-- For `n ≥ 1`, a size `x` at most `exp (- n r)` has `r ≤ -(1/n) log x`. -/
 private lemma le_neg_log_div_of_le_ofReal_exp {x : ℝ≥0∞} {n : ℕ} {r : ℝ} (hn : 1 ≤ n)
