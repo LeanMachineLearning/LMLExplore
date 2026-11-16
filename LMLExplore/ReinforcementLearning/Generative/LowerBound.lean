@@ -54,8 +54,6 @@ All the declarations are in the namespace `LMLExplore.ReinforcementLearning`.
   `Q* (start x, a) = γ / (1 - γ θ (x, a))`.
 * `klDiv_map_history_selfLoopMDP_eq_sum_lintegral_pullCount_mul_klBer`: the divergence
   decomposition for two self-loop MDPs that differ at one pair.
-* `ofReal_log_le_sum_lintegral_pullCount_selfLoopMDP_mul_klBer`: the change of measure at one
-  pair.
 * `ofReal_log_le_sum_lintegral_pullCount_selfLoopMDP_mul_klBer_of_two_mul_lt`:
   the two-point lower bound at one pair, for estimates of optimal action values more than `2 ε`
   apart.
@@ -207,11 +205,6 @@ section OptValue
 
 variable {γ : ℝ≥0}
 
-/-- For `γ < 1` and `q ∈ [0, 1]`, `0 < 1 - γ q`. -/
-private lemma one_sub_mul_pos (hγ : γ < 1) (q : I) : 0 < 1 - (γ : ℝ) * q :=
-  sub_pos.2 ((mul_le_of_le_one_right γ.coe_nonneg (unitInterval.le_one q)).trans_lt
-    (by exact_mod_cast hγ))
-
 /-- The optimal value of the self-loop MDP, in closed form. -/
 private noncomputable def selfLoopValue (γ : ℝ≥0) : SelfLoopState 𝓚 𝓐 → ℝ
   | start x => ⨆ a, γ / (1 - γ * θ (x, a))
@@ -223,7 +216,8 @@ variable [Nonempty 𝓚] [Nonempty 𝓐]
 private lemma optValue_selfLoopMDP (hγ : γ < 1) :
     (selfLoopMDP θ).optValue γ = selfLoopValue θ γ := by
   have hγ' : (γ : ℝ) < 1 := by exact_mod_cast hγ
-  have h0 := one_sub_mul_pos hγ
+  have h0 (q : I) : 0 < 1 - (γ : ℝ) * q :=
+    sub_pos.2 ((mul_le_of_le_one_right γ.coe_nonneg (unitInterval.le_one q)).trans_lt hγ')
   have hB (q : I) : (γ : ℝ) / (1 - γ * q) ≤ 1 / (1 - γ) := by
     rw [div_le_div_iff₀ (h0 q) (by linarith)]
     nlinarith [mul_le_of_le_one_right γ.coe_nonneg (unitInterval.le_one q), γ.coe_nonneg]
@@ -278,7 +272,9 @@ theorem optQValue_selfLoopMDP_loop (hγ : γ < 1) (z : 𝓚 × 𝓐) (a : 𝓐) 
   simp only [MDP.optQValue_def, selfLoopMDP_R, MDP.meanReward_deterministic, selfLoopReward_loop,
     selfLoopMDP_P, selfLoopKernel_loop, integral_bernoulliMeasure, optValue_selfLoopMDP_loop θ hγ,
     optValue_selfLoopMDP_sink θ hγ, smul_eq_mul, mul_zero, add_zero]
-  field_simp [(one_sub_mul_pos hγ (θ z)).ne']
+  have h0 : 0 < 1 - (γ : ℝ) * θ z := sub_pos.2 ((mul_le_of_le_one_right γ.coe_nonneg
+    (unitInterval.le_one (θ z))).trans_lt (by exact_mod_cast hγ))
+  field_simp [h0.ne']
   ring
 
 /-- The optimal action value of every action in a sink is `0`. -/
@@ -325,26 +321,6 @@ theorem klDiv_map_history_selfLoopMDP_eq_sum_lintegral_pullCount_mul_klBer
         simpa using selfLoopKernel_eq_of_ne hθ hs a, klDiv_self, mul_zero])
       (fun h ↦ absurd (Finset.mem_univ _) h), Finset.sum_mul]
   simp [klDiv_bernoulliMeasure (show (loop j : SelfLoopState 𝓚 𝓐) ≠ sink j by simp)]
-
-/-- **Change of measure at one pair.** Let the self-loop probabilities `θ` and `θ'` agree
-outside `j`, and let `E` be a set of histories of `T` queries that has probability at least
-`1 - δ` under the generative model of `θ` and at most `δ` under that of `θ'`. Then the expected
-number of queries of the self-loop state `loop j` under `θ` is at least
-`log (1 / (2.4 δ)) / d(θ j, θ' j)`. -/
-theorem ofReal_log_le_sum_lintegral_pullCount_selfLoopMDP_mul_klBer (hθ : ∀ z ≠ j, θ z = θ' z)
-    {T : ℕ} {E : Set (Hist Unit (SelfLoopState 𝓚 𝓐 × 𝓐) (SelfLoopState 𝓚 𝓐) T)} {δ : ℝ}
-    (hE : 1 - δ ≤ (trajMeasure alg (Environment.bandit (selfLoopMDP θ).P)).real
-      (history IT.obs IT.action IT.feedback T ⁻¹' E))
-    (hE' : (trajMeasure alg (Environment.bandit (selfLoopMDP θ').P)).real
-      (history IT.obs IT.action IT.feedback T ⁻¹' E) ≤ δ) :
-    ENNReal.ofReal (Real.log (1 / (2.4 * δ))) ≤
-      (∑ b, ∫⁻ ω, (pullCount IT.action (loop j, b) T ω : ℝ≥0∞)
-        ∂(trajMeasure alg (Environment.bandit (selfLoopMDP θ).P))) * klBer (θ j) (θ' j) := by
-  have h := IT.isAlgEnvSeq_trajMeasure alg (Environment.bandit (selfLoopMDP θ).P)
-  have h' := IT.isAlgEnvSeq_trajMeasure alg (Environment.bandit (selfLoopMDP θ').P)
-  rw [← klDiv_map_history_selfLoopMDP_eq_sum_lintegral_pullCount_mul_klBer hθ T,
-    h.klDiv_map_history_eq_sum_pullCount h' T]
-  exact h.ofReal_log_le_sum_lintegral_pullCount_mul_klDiv h' .of_discrete hE hE'
 
 /-- **Two-point lower bound at one pair.** Let the self-loop probabilities `θ` and `θ'` agree
 outside `j = (x, a)`, with optimal action values at `(start x, a)` more than `2 ε` apart. If an
