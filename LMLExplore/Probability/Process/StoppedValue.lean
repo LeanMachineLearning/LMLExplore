@@ -8,6 +8,7 @@ module
 public import Mathlib.MeasureTheory.Constructions.BorelSpace.Order
 public import Mathlib.MeasureTheory.Integral.Lebesgue.Add
 public import Mathlib.Probability.Process.Stopping
+import LMLExplore.Probability.Process.Stopping
 
 /-!
 # The value of a process at a possibly infinite time
@@ -233,7 +234,6 @@ theorem Adapted.measurable_apply_stoppingTime [MeasurableSpace β]
     {mΩ : MeasurableSpace Ω} {ℱ : Filtration ℕ mΩ} {u : ℕ → Ω → β} {σ : Ω → ℕ}
     (hu : Adapted ℱ u) (hσ : IsStoppingTime ℱ (fun ω ↦ (σ ω : WithTop ℕ))) :
     Measurable fun ω ↦ u (σ ω) ω :=
-  measurable_apply_of_countable (fun _ ↦ hu.measurable)
-    ((measurable_of_countable (WithTop.untopD 0)).comp hσ.measurable')
+  measurable_apply_of_countable (fun _ ↦ hu.measurable) hσ.measurable_nat
 
 end MeasureTheory
