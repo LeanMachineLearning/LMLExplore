@@ -7,6 +7,7 @@ module
 
 public import Mathlib.MeasureTheory.Constructions.Pi
 public import Mathlib.MeasureTheory.Measure.GiryMonad
+public import Mathlib.MeasureTheory.Measure.WithDensity
 public import Mathlib.Probability.ConditionalProbability
 import LMLExplore.Algebra.BigOperators.Field
 import Mathlib.Analysis.Analytic.Constructions
@@ -14,12 +15,15 @@ import Mathlib.Analysis.Analytic.Uniqueness
 import Statlib.ForMathlib.MeasureTheory.Measure.Decomposition.RNDerivProd
 import TauCeti.MeasureTheory.Constructions.Pi
 import TauCeti.MeasureTheory.Integral.Pi
+import TauCeti.MeasureTheory.Measure.PiWithDensity
 
 /-!
 # Measures on products: monotonicity, laws of coordinatewise images, restricted factors, mixtures,
 bounds by lines, binds and fixed prefixes
 
-The product of finite measures is monotone in its factors.
+The product of finite measures is monotone in its factors. In particular, if each `μ i` with
+density `f i` lies below a finite `ν i`, the product `Measure.pi μ` with density
+`x ↦ ∏ i, f i (x i)` lies below `Measure.pi ν`.
 
 Under the product measure `Measure.pi μ`, the law of a function `f` of the coordinatewise images
 `X i (y i)` is the law of `f` under the product of the laws of the `X i`. For example, the law of
@@ -57,7 +61,8 @@ share one mixture or one kernel. For measurable maps `κ i` whose values are alm
 finite, `b ↦ Measure.pi fun i ↦ κ i b` is almost everywhere measurable: for a measure `ν` that
 charges only finite measures, `ν.bind fun μ ↦ Measure.pi fun _ ↦ μ` is then the mixture of the
 powers of the members of `ν` (`Measure.bind` along a map that is not almost everywhere
-measurable is `0`).
+measurable is `0`). In particular `μ ↦ Measure.pi fun _ ↦ μ` is almost everywhere measurable for
+a measure on the measures that charges only finite ones.
 
 Under a measure on `ℕ → β` that agrees almost surely with a path `ω` on the first `k` coordinates,
 a set that only depends on these coordinates is almost surely full or empty according to whether
@@ -69,6 +74,8 @@ A function of the images of the coordinates under measurable maps to finite type
 
 * `MeasureTheory.Measure.pi_mono`: if `μ i ≤ ν i` for every `i`, with every `ν i` finite, then
   `Measure.pi μ ≤ Measure.pi ν`.
+* `MeasureTheory.Measure.withDensity_prod_le_pi`: if `(μ i).withDensity (f i) ≤ ν i` for every
+  `i`, then `(Measure.pi μ).withDensity (fun x ↦ ∏ i, f i (x i)) ≤ Measure.pi ν`.
 * `MeasureTheory.Measure.map_pi_comp_eq_map_pi_map`:
   `(Measure.pi μ).map (fun y ↦ f fun i ↦ X i (y i)) = (Measure.pi fun i ↦ (μ i).map (X i)).map f`.
 * `MeasureTheory.Measure.pi_restrict_eq_pow_smul_pi_cond`:
@@ -92,6 +99,8 @@ A function of the images of the coordinates under measurable maps to finite type
 * `MeasureTheory.Measure.measurable_pi_comp`: `x ↦ Measure.pi fun i ↦ G i (x i)` is measurable.
 * `MeasureTheory.Measure.aemeasurable_pi`: `b ↦ Measure.pi fun i ↦ κ i b` is almost everywhere
   measurable where the `κ i b` are almost everywhere finite.
+* `MeasureTheory.Measure.aemeasurable_pi_self`: `μ ↦ Measure.pi fun _ ↦ μ` is almost everywhere
+  measurable for a measure on the measures that charges only finite ones.
 * `MeasureTheory.Measure.pi_bind_pi`: binding `Measure.pi μ` along
   `x ↦ Measure.pi fun i ↦ G i (x i)` gives `Measure.pi fun i ↦ (μ i).bind (G i)`.
 * `MeasureTheory.measurable_pi_comp_of_finite`: `fun e ↦ g fun i ↦ φ i (e i)` is measurable for
@@ -130,6 +139,17 @@ lemma pi_mono {μ ν : ∀ i, Measure (Ω i)} [∀ i, IsFiniteMeasure (ν i)] (h
     filter_upwards [ae_le_pi fun i ↦ rnDeriv_le_one_of_le (h i)] with x hx
     exact Finset.prod_le_one fun i _ ↦ hx i
   _ = Measure.pi ν := withDensity_one
+
+/-- **Domination of a product by a product density.** If each `μ i` with density `f i` lies below
+a finite measure `ν i`, then `Measure.pi μ` with the product density `x ↦ ∏ i, f i (x i)` lies
+below `Measure.pi ν`. -/
+lemma withDensity_prod_le_pi {μ ν : ∀ i, Measure (Ω i)} [∀ i, SigmaFinite (μ i)]
+    [∀ i, IsFiniteMeasure (ν i)] {f : ∀ i, Ω i → ℝ≥0∞} (hf : ∀ i, Measurable (f i))
+    (h : ∀ i, (μ i).withDensity (f i) ≤ ν i) :
+    (Measure.pi μ).withDensity (fun x ↦ ∏ i, f i (x i)) ≤ Measure.pi ν := by
+  have (i : ι) : IsFiniteMeasure ((μ i).withDensity (f i)) := isFiniteMeasure_of_le (ν i) (h i)
+  rw [← TauCeti.pi_withDensity μ hf]
+  exact pi_mono h
 
 /-- The law under a product measure of a function `f` of the coordinatewise images `X i (y i)` is
 the law of `f` under the product of the laws of the `X i`. -/
@@ -364,6 +384,12 @@ lemma aemeasurable_pi {κ : ∀ i, β → Measure (𝓨 i)} (hκ : ∀ i, Measur
     ?_⟩
   filter_upwards [ae_all_iff.2 hfin] with b hb
   simp only [G, measure_lt_top, ite_true]
+
+/-- The power `Measure.pi fun _ ↦ μ` depends almost everywhere measurably on `μ` for a measure `ν`
+on the measures that charges only finite ones. -/
+lemma aemeasurable_pi_self {α : Type*} [MeasurableSpace α] {ν : Measure (Measure α)}
+    (h : ∀ᵐ μ ∂ν, IsFiniteMeasure μ) : AEMeasurable (fun μ ↦ Measure.pi fun _ : ι ↦ μ) ν :=
+  aemeasurable_pi (𝓨 := fun _ ↦ α) (κ := fun _ μ ↦ μ) (fun _ ↦ measurable_id) fun _ ↦ h
 
 /-- **Binding a product measure coordinatewise.** Binding `Measure.pi μ` along the products of
 the finite measures `G i (x i)` gives the product of the binds `(μ i).bind (G i)`: for probability

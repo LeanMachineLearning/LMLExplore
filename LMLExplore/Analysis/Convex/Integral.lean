@@ -7,9 +7,11 @@ module
 
 public import Mathlib.Analysis.Convex.Integral
 public import Mathlib.Analysis.Convex.SpecificFunctions.Pow
+import TauCeti.MeasureTheory.Integral.Bochner.Basic
 
 /-!
 # The mean of a function with values in an interval, and Jensen's inequality for the square root
+and the exponential
 
 ## Main statements
 
@@ -20,6 +22,9 @@ public import Mathlib.Analysis.Convex.SpecificFunctions.Pow
 * `MeasureTheory.integral_sqrt_le_sqrt_measureReal_mul_integral`: Jensen's inequality for the
   square root, `∫ √g ∂μ ≤ √(μ(univ) ∫ g ∂μ)` for a finite measure `μ` and an integrable `g ≥ 0`,
   by `ConcaveOn.le_map_average`.
+* `MeasureTheory.ofReal_measureReal_mul_exp_average_le_lintegral`: Jensen's inequality for the
+  exponential, `μ(univ) exp (⨍ f ∂μ) ≤ ∫⁻ exp f ∂μ` for a finite measure `μ` and an integrable
+  `f`, with no integrability assumption on `exp f`, by `exp t ≥ exp a (1 + t - a)`.
 -/
 
 public section
@@ -64,5 +69,38 @@ theorem integral_sqrt_le_sqrt_measureReal_mul_integral {α : Type*} {mα : Measu
         rw [← Real.sqrt_sq hm.le, ← Real.sqrt_mul (sq_nonneg _), Real.sqrt_sq hm.le]
         congr 1
         field_simp
+
+/-- **Jensen's inequality for the exponential**, in the form of a lower integral: for a finite
+measure `μ` and an integrable function `f`, `μ(univ) exp (⨍ f ∂μ) ≤ ∫⁻ exp f ∂μ`. The function
+`exp f` need not be integrable. The proof integrates `exp a (1 + (f - a)) ≤ exp f` for the mean
+`a` of `f`. -/
+theorem ofReal_measureReal_mul_exp_average_le_lintegral {α : Type*} {mα : MeasurableSpace α}
+    {μ : Measure α} [IsFiniteMeasure μ] {f : α → ℝ} (hf : Integrable f μ) :
+    ENNReal.ofReal (μ.real Set.univ * Real.exp (⨍ x, f x ∂μ)) ≤
+      ∫⁻ x, ENNReal.ofReal (Real.exp (f x)) ∂μ := by
+  rcases eq_zero_or_neZero μ with rfl | hμ
+  · simp
+  have hc : 0 < μ.real Set.univ := measureReal_univ_pos
+  set a := ⨍ x, f x ∂μ
+  have ha : ∫ x, f x ∂μ = μ.real Set.univ * a := by
+    simp only [a, average_eq, smul_eq_mul]
+    field_simp
+  calc ENNReal.ofReal (μ.real Set.univ * Real.exp a)
+  _ = ENNReal.ofReal (∫ x, Real.exp a * (1 + (f x - a)) ∂μ) := by
+    have h : ∫ x, (1 + (f x - a)) ∂μ = μ.real Set.univ := by
+      have h' : ∫ x, (1 + (f x - a)) ∂μ = ∫ _, (1 - a) ∂μ + ∫ x, f x ∂μ := by
+        rw [← integral_add (integrable_const _) hf]
+        exact integral_congr_ae (ae_of_all _ fun x ↦ by ring)
+      rw [h', integral_const, ha, smul_eq_mul]
+      ring
+    rw [integral_const_mul, h, mul_comm]
+  _ ≤ ∫⁻ x, ENNReal.ofReal (Real.exp a * (1 + (f x - a))) ∂μ :=
+    TauCeti.MeasureTheory.ofReal_integral_le_lintegral_ofReal
+  _ ≤ ∫⁻ x, ENNReal.ofReal (Real.exp (f x)) ∂μ := lintegral_mono fun x ↦ by
+    refine ENNReal.ofReal_le_ofReal ?_
+    calc Real.exp a * (1 + (f x - a)) ≤ Real.exp a * Real.exp (f x - a) := by
+          gcongr
+          linarith [Real.add_one_le_exp (f x - a)]
+    _ = Real.exp (f x) := by rw [← Real.exp_add, add_sub_cancel]
 
 end MeasureTheory
