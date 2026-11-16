@@ -53,7 +53,11 @@ independent sample from the mixtures. These two lemmas, and the per-coordinate f
 `pi_sum_smul`, are adapted from the helpers `pi_sum_ennreal_smul`, `measurable_pi_comp` and
 `lintegral_lintegral_pi_comp` of `EValuesResearch/Results/RateVersusKL.lean` (commit `dd4072f`)
 in the paper project `RemyDegenne/evalues_research` (same author), where all the coordinates
-share one mixture or one kernel.
+share one mixture or one kernel. For measurable maps `κ i` whose values are almost everywhere
+finite, `b ↦ Measure.pi fun i ↦ κ i b` is almost everywhere measurable: for a measure `ν` that
+charges only finite measures, `ν.bind fun μ ↦ Measure.pi fun _ ↦ μ` is then the mixture of the
+powers of the members of `ν` (`Measure.bind` along a map that is not almost everywhere
+measurable is `0`).
 
 Under a measure on `ℕ → β` that agrees almost surely with a path `ω` on the first `k` coordinates,
 a set that only depends on these coordinates is almost surely full or empty according to whether
@@ -86,6 +90,8 @@ A function of the images of the coordinates under measurable maps to finite type
   probability measures, a measurable set whose lines `{t | update x i t ∈ E}` along one coordinate
   `i` all have `μ i`-measure at most `c` has product measure at most `c`.
 * `MeasureTheory.Measure.measurable_pi_comp`: `x ↦ Measure.pi fun i ↦ G i (x i)` is measurable.
+* `MeasureTheory.Measure.aemeasurable_pi`: `b ↦ Measure.pi fun i ↦ κ i b` is almost everywhere
+  measurable where the `κ i b` are almost everywhere finite.
 * `MeasureTheory.Measure.pi_bind_pi`: binding `Measure.pi μ` along
   `x ↦ Measure.pi fun i ↦ G i (x i)` gives `Measure.pi fun i ↦ (μ i).bind (G i)`.
 * `MeasureTheory.measurable_pi_comp_of_finite`: `fun e ↦ g fun i ↦ φ i (e i)` is measurable for
@@ -335,6 +341,29 @@ lemma measurable_pi_comp {G : ∀ i, Ω i → Measure (𝓨 i)} [∀ i x, IsFini
   · rintro _ ⟨s, hs, rfl⟩
     exact h_box s fun i ↦ hs i (Set.mem_univ i)
   · simpa using h_box (fun _ ↦ Set.univ) fun _ ↦ .univ
+
+/-- The product of the measures `κ i b` depends almost everywhere measurably on `b` when each `κ i`
+is measurable and almost every `κ i b` is finite. For instance, `μ ↦ Measure.pi fun _ ↦ μ` is
+almost everywhere measurable for a measure on the measures that charges only finite ones. -/
+lemma aemeasurable_pi {κ : ∀ i, β → Measure (𝓨 i)} (hκ : ∀ i, Measurable (κ i)) {ν : Measure β}
+    (hfin : ∀ i, ∀ᵐ b ∂ν, IsFiniteMeasure (κ i b)) :
+    AEMeasurable (fun b ↦ Measure.pi fun i ↦ κ i b) ν := by
+  classical
+  -- replace the infinite values by `0`
+  set G : ∀ i, β → Measure (𝓨 i) := fun i b ↦ if κ i b .univ < ∞ then κ i b else 0
+  have hG (i : ι) : Measurable (G i) :=
+    Measurable.ite (measurableSet_lt ((measurable_coe .univ).comp (hκ i)) measurable_const) (hκ i)
+      measurable_const
+  have (i : ι) (b : β) : IsFiniteMeasure (G i b) := by
+    by_cases h : κ i b .univ < ∞
+    · simpa only [G, h, ite_true] using (⟨h⟩ : IsFiniteMeasure (κ i b))
+    · simp only [G, h, ite_false]
+      infer_instance
+  refine ⟨fun b ↦ Measure.pi fun i ↦ G i b,
+    (measurable_pi_comp (Ω := fun _ ↦ β) hG).comp (.of_eval fun _ ↦ measurable_id),
+    ?_⟩
+  filter_upwards [ae_all_iff.2 hfin] with b hb
+  simp only [G, measure_lt_top, ite_true]
 
 /-- **Binding a product measure coordinatewise.** Binding `Measure.pi μ` along the products of
 the finite measures `G i (x i)` gives the product of the binds `(μ i).bind (G i)`: for probability
