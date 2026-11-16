@@ -32,8 +32,9 @@ of the two players [Ora, Chapter 15]:
 * `OnlineLearner.sub_le_div_of_hasRegretBound` and `OnlineLearner.dualityGap_le_of_hasRegretBound`
   [Ora, Chapter 15]: if two online learners have regret guarantees, the averages of their
   plays against each other (`OnlineLearner.gameRun`) satisfy the bounds above with the
-  guarantees in place of the regrets. For learners whose regret grows sublinearly, the averages
-  are approximate saddle points (`LMLExplore.isApproxSaddlePointOn_of_dualityGap_le`) of
+  guarantees in place of the regrets. For learners whose regret grows sublinearly, the duality
+  gap of the averages vanishes; when `X` and `Y` are convex, the averages lie in `X × Y` and are
+  then approximate saddle points (`LMLExplore.isApproxSaddlePointOn_of_dualityGap_le`) of
   vanishing gap.
 
 ## References
@@ -133,18 +134,24 @@ theorem sub_le_div_of_hasRegretBound {x : E} {y : F} (hfx : ConvexOn ℝ X fun x
   gcongr
 
 /-- **The duality gap of two no-regret learners against each other** [Ora, Chapter 15]. If
-the learners `A` and `B` have the worst-case regret guarantees `RA n` and `RB n` after `n` rounds,
-the average plays of their game have duality gap at most `(RA n + RB n) / n`. -/
+the learners `A` and `B` have the regret guarantees `BA` and `BB`, and on the run of their game
+these guarantees are at most `RA` against every comparator in `X` and `RB` against every
+comparator in `Y` after `n` rounds, then the average plays of the game have duality gap at most
+`(RA + RB) / n`. For worst-case guarantees `BA = fun n _ _ _ ↦ R n`, take
+`hRA := fun _ _ ↦ le_rfl`. -/
 theorem dualityGap_le_of_hasRegretBound (hfx : ∀ y ∈ Y, ConvexOn ℝ X fun x ↦ f x y)
     (hfy : ∀ x ∈ X, ConcaveOn ℝ Y (f x)) (hxs : ∀ t < n, (A.gameRun B c d t).1 ∈ X)
-    (hys : ∀ t < n, (A.gameRun B c d t).2 ∈ Y) {RA RB : ℕ → ℝ}
-    (hA : A.HasRegretBound (fun y x ↦ f x y) (fun _ y ↦ y ∈ Y) X fun n _ _ _ ↦ RA n)
-    (hB : B.HasRegretBound (fun x y ↦ -f x y) (fun _ x ↦ x ∈ X) Y fun n _ _ _ ↦ RB n)
-    (hn : 0 < n) :
+    (hys : ∀ t < n, (A.gameRun B c d t).2 ∈ Y)
+    (hA : A.HasRegretBound (fun y x ↦ f x y) (fun _ y ↦ y ∈ Y) X BA)
+    (hB : B.HasRegretBound (fun x y ↦ -f x y) (fun _ x ↦ x ∈ X) Y BB) (hn : 0 < n)
+    {RA RB : ℝ} (hRA : ∀ x ∈ X, BA n c (fun t ↦ (A.gameRun B c d t).2) x ≤ RA)
+    (hRB : ∀ y ∈ Y, BB n d (fun t ↦ (A.gameRun B c d t).1) y ≤ RB) :
     dualityGap X Y f ((n : ℝ)⁻¹ • ∑ t ∈ range n, (A.gameRun B c d t).1)
-        ((n : ℝ)⁻¹ • ∑ t ∈ range n, (A.gameRun B c d t).2) ≤ ((RA n + RB n) / n : ℝ) :=
-  dualityGap_le_coe_iff.2 fun x hx y hy ↦
-    sub_le_div_of_hasRegretBound c d (hfx y hy) (hfy x hx) hxs hys hA hB hn hx hy
+        ((n : ℝ)⁻¹ • ∑ t ∈ range n, (A.gameRun B c d t).2) ≤ ((RA + RB) / n : ℝ) := by
+  refine dualityGap_le_coe_iff.2 fun x hx y hy ↦
+    (sub_le_div_of_hasRegretBound c d (hfx y hy) (hfy x hx) hxs hys hA hB hn hx hy).trans ?_
+  gcongr
+  exacts [hRA x hx, hRB y hy]
 
 end OnlineLearner
 
