@@ -33,7 +33,7 @@ bounded conditional second moments.
 
 ## Main statements
 
-* `LMLExplore.ae_tendsto_of_robbinsMonro`: the Robbins–Monro theorem.
+* `LMLExplore.ae_tendsto_of_not_summable_of_summable_sq`: the Robbins–Monro theorem.
 * `LMLExplore.strong_law_ae_of_condExp_eq`: the running means of random variables with conditional
   mean `z` and bounded conditional second moments converge to `z` almost surely.
 
@@ -100,6 +100,16 @@ private lemma norm_sq_le (hh_le : ∀ y, ‖h y‖ ≤ C * (1 + ‖y - z‖)) (y
   have h0 : 0 ≤ C * (1 + ‖y - z‖) := (norm_nonneg _).trans h1
   nlinarith [norm_nonneg (h y), sq_nonneg (‖y - z‖ - 1), pow_le_pow_left₀ (norm_nonneg _) h1 2]
 
+/-- Every interval `[s, t]` with `0 < s` and `0 < t` lies in an annulus `[ε, ε⁻¹]` with
+`0 < ε < 1`. -/
+private lemma exists_annulus {s t : ℝ} (hs : 0 < s) (ht : 0 < t) :
+    ∃ ε ∈ Set.Ioo (0 : ℝ) 1, ε ≤ s ∧ t ≤ ε⁻¹ := by
+  have hε : 0 < min (min s t⁻¹) (1 / 2) := lt_min (lt_min hs (inv_pos.2 ht)) one_half_pos
+  refine ⟨_, ⟨hε, (min_le_right _ _).trans_lt one_half_lt_one⟩,
+    (min_le_left _ _).trans (min_le_left _ _), ?_⟩
+  rw [le_inv_comm₀ ht hε]
+  exact (min_le_left _ _).trans (min_le_right _ _)
+
 omit [SecondCountableTopology E] [MeasurableSpace E] [BorelSpace E] in
 /-- A field pointing towards `z` uniformly on annuli points towards `z` everywhere. -/
 private lemma inner_nonneg
@@ -108,14 +118,18 @@ private lemma inner_nonneg
     0 ≤ ⟪y - z, h y⟫ := by
   rcases eq_or_ne y z with rfl | hy
   · simp
-  set r := ‖y - z‖
-  have hr : 0 < r := norm_pos_iff.2 (sub_ne_zero.2 hy)
-  set ε := min (min r r⁻¹) (1 / 2)
-  have hε : 0 < ε := lt_min (lt_min hr (inv_pos.2 hr)) one_half_pos
-  obtain ⟨c, hc, hcy⟩ := hh_inner ε ⟨hε, (min_le_right _ _).trans_lt one_half_lt_one⟩
-  refine hc.le.trans (hcy y ((min_le_left _ _).trans (min_le_left _ _)) ?_)
-  rw [le_inv_comm₀ hr hε]
-  exact (min_le_left _ _).trans (min_le_right _ _)
+  have hr : 0 < ‖y - z‖ := norm_pos_iff.2 (sub_ne_zero.2 hy)
+  obtain ⟨ε, hε, hεs, hεt⟩ := exists_annulus hr hr
+  obtain ⟨c, hc, hcy⟩ := hh_inner ε hε
+  exact hc.le.trans (hcy y hεs hεt)
+
+omit [SecondCountableTopology E] [MeasurableSpace E] [BorelSpace E] in
+/-- The drift term `2 a ⟪y - z, h y⟫` of a step is nonnegative. -/
+private lemma drift_nonneg
+    (hh_inner : ∀ ε ∈ Set.Ioo (0 : ℝ) 1, ∃ c > 0, ∀ y, ε ≤ ‖y - z‖ → ‖y - z‖ ≤ ε⁻¹ →
+      c ≤ ⟪y - z, h y⟫) (a : ℝ≥0) (y : E) :
+    0 ≤ 2 * (a : ℝ) * ⟪y - z, h y⟫ :=
+  mul_nonneg (by positivity) (inner_nonneg hh_inner y)
 
 /-- The iterates are adapted. -/
 private lemma measurable_iterate
@@ -130,6 +144,22 @@ private lemma measurable_iterate
     rw [funext (hx n)]
     exact ih'.sub (((hh.comp ih').add (hξ n)).const_smul _)
 
+omit [InnerProductSpace ℝ E] [SecondCountableTopology E] [MeasurableSpace E] [BorelSpace E] in
+/-- The noise has a finite second moment when the current iterate does. -/
+private lemma lintegral_enorm_noise_sq_lt_top [IsFiniteMeasure P]
+    (hξ_var : ∀ n, P⁻[fun ω ↦ ‖ξ (n + 1) ω‖ₑ ^ 2 | ℱ n] ≤ᵐ[P] fun ω ↦ A + B * ‖x n ω - z‖ₑ ^ 2)
+    {n : ℕ} (hxn : Integrable (fun ω ↦ ‖x n ω - z‖ ^ 2) P) :
+    ∫⁻ ω, ‖ξ (n + 1) ω‖ₑ ^ 2 ∂P < ∞ := by
+  have hfin := hasFiniteIntegral_iff_eNorm.1 hxn.2
+  simp only [eNorm_pow, eNorm_norm] at hfin
+  calc ∫⁻ ω, ‖ξ (n + 1) ω‖ₑ ^ 2 ∂P
+      = ∫⁻ ω, P⁻[fun ω ↦ ‖ξ (n + 1) ω‖ₑ ^ 2 | ℱ n] ω ∂P := (lintegral_condLExp (ℱ.le n) _ _).symm
+    _ ≤ ∫⁻ ω, (A + B * ‖x n ω - z‖ₑ ^ 2) ∂P := lintegral_mono_ae (hξ_var n)
+    _ < ∞ := by
+      rw [lintegral_add_left measurable_const, lintegral_const_mul' _ _ ENNReal.coe_ne_top]
+      exact ENNReal.add_lt_top.2 ⟨by simp [ENNReal.mul_lt_top_iff, measure_lt_top],
+        ENNReal.mul_lt_top ENNReal.coe_lt_top hfin⟩
+
 omit [InnerProductSpace ℝ E] [SecondCountableTopology E] in
 /-- The noise is square-integrable when the current iterate is. -/
 private lemma integrable_norm_noise_sq [IsFiniteMeasure P]
@@ -138,16 +168,8 @@ private lemma integrable_norm_noise_sq [IsFiniteMeasure P]
     {n : ℕ} (hxn : Integrable (fun ω ↦ ‖x n ω - z‖ ^ 2) P) :
     Integrable (fun ω ↦ ‖ξ (n + 1) ω‖ ^ 2) P := by
   refine ⟨((hξ n).mono (ℱ.le _) le_rfl).norm.pow_const 2 |>.aestronglyMeasurable, ?_⟩
-  have hfin : ∫⁻ ω, ‖x n ω - z‖ₑ ^ 2 ∂P < ∞ := by
-    simpa [HasFiniteIntegral, eNorm_pow] using hxn.2
-  simp only [HasFiniteIntegral, eNorm_pow, eNorm_norm]
-  calc ∫⁻ ω, ‖ξ (n + 1) ω‖ₑ ^ 2 ∂P
-      = ∫⁻ ω, P⁻[fun ω ↦ ‖ξ (n + 1) ω‖ₑ ^ 2 | ℱ n] ω ∂P := (lintegral_condLExp (ℱ.le n) _ _).symm
-    _ ≤ ∫⁻ ω, (A + B * ‖x n ω - z‖ₑ ^ 2) ∂P := lintegral_mono_ae (hξ_var n)
-    _ < ∞ := by
-      rw [lintegral_add_left measurable_const, lintegral_const_mul' _ _ ENNReal.coe_ne_top]
-      exact ENNReal.add_lt_top.2 ⟨by simp [ENNReal.mul_lt_top_iff, measure_lt_top],
-        ENNReal.mul_lt_top ENNReal.coe_lt_top hfin⟩
+  rw [hasFiniteIntegral_iff_eNorm]
+  simpa only [eNorm_pow, eNorm_norm] using lintegral_enorm_noise_sq_lt_top hξ_var hxn
 
 /-- The noise is integrable, and so is the cross term `⟪x n - z, ξ (n + 1)⟫`, whose conditional
 expectation given `ℱ n` vanishes. -/
@@ -185,10 +207,8 @@ private lemma condExp_norm_noise_sq_le [IsFiniteMeasure P]
     {n : ℕ} (hxn : Integrable (fun ω ↦ ‖x n ω - z‖ ^ 2) P) :
     P[fun ω ↦ ‖ξ (n + 1) ω‖ ^ 2 | ℱ n] ≤ᵐ[P] fun ω ↦ A + B * ‖x n ω - z‖ ^ 2 := by
   have hξn : Measurable (ξ (n + 1)) := (hξ n).mono (ℱ.le _) le_rfl
-  have hfin : ∫⁻ ω, ‖ξ (n + 1) ω‖ₑ ^ 2 ∂P ≠ ∞ := by
-    simpa [HasFiniteIntegral, eNorm_pow, eNorm_norm] using
-      (integrable_norm_noise_sq hξ hξ_var hxn).2.ne
-  filter_upwards [toReal_condLExp (ℱ n) (by fun_prop) hfin, hξ_var n] with ω e1 e2
+  filter_upwards [toReal_condLExp (ℱ n) (by fun_prop)
+    (lintegral_enorm_noise_sq_lt_top hξ_var hxn).ne, hξ_var n] with ω e1 e2
   have e3 : (fun ω ↦ ‖ξ (n + 1) ω‖ ^ 2) = fun ω ↦ (‖ξ (n + 1) ω‖ₑ ^ 2).toReal := by
     funext ω
     simp [ENNReal.toReal_pow]
@@ -254,7 +274,7 @@ private lemma condExp_step_le [IsFiniteMeasure P] [CompleteSpace E]
     simp only [Z, W, G, N, Pi.add_apply, Pi.smul_apply, smul_eq_mul, hx']
     linarith
   have hR0 : ∀ ω, 0 ≤ ‖x (n + 1) ω - z‖ ^ 2 + 2 * α n * ⟪x n ω - z, h (x n ω)⟫ := fun ω ↦
-    add_nonneg (sq_nonneg _) (mul_nonneg (by positivity) (inner_nonneg hh_inner _))
+    add_nonneg (sq_nonneg _) (drift_nonneg hh_inner _ _)
   have hR : Integrable (fun ω ↦ ‖x (n + 1) ω - z‖ ^ 2 + 2 * α n * ⟪x n ω - z, h (x n ω)⟫) P :=
     hZ.mono' ((((hxm (n + 1)).mono (ℱ.le _) le_rfl).sub_const z).norm.pow_const 2 |>.add
       (((hxn'.sub_const z).inner (hh.comp hxn')).const_mul _)).aestronglyMeasurable
@@ -284,19 +304,15 @@ private lemma tendsto_of_tendsto_norm_sq (hα : ¬ Summable α)
   -- a positive limit keeps `u n` in an annulus, where the drift is bounded below
   set r : ℝ := (NNReal.sqrt l : ℝ)
   have hr0 : 0 < r := NNReal.coe_pos.2 (NNReal.sqrt_pos.2 (pos_iff_ne_zero.2 hl))
-  set ε := min (min (r / 2) (2 * r)⁻¹) (1 / 2)
-  have hε : 0 < ε := lt_min (lt_min (by positivity) (by positivity)) one_half_pos
-  obtain ⟨c, hc0, hcy⟩ := hh_inner ε ⟨hε, (min_le_right _ _).trans_lt one_half_lt_one⟩
+  obtain ⟨ε, hε, hεs, hεt⟩ := exists_annulus (s := r / 2) (t := 2 * r) (by positivity)
+    (by positivity)
+  obtain ⟨c, hc0, hcy⟩ := hh_inner ε hε
   have hev : ∀ᶠ n in atTop, ‖u n - z‖ ∈ Set.Ioo (r / 2) (2 * r) :=
     hr (Ioo_mem_nhds (by linarith) (by linarith))
   refine absurd ?_ hα
   refine NNReal.summable_coe.1 <| Summable.of_norm_bounded_eventually_nat
     ((NNReal.summable_coe.2 hc).mul_left (2 * c)⁻¹) (hev.mono fun n hn ↦ ?_)
-  have hcn : c ≤ ⟪u n - z, h (u n)⟫ := by
-    refine hcy _ ((min_le_left _ _).trans ((min_le_left _ _).trans hn.1.le)) ?_
-    refine hn.2.le.trans ?_
-    rw [le_inv_comm₀ (by positivity) hε]
-    exact (min_le_left _ _).trans (min_le_right _ _)
+  have hcn : c ≤ ⟪u n - z, h (u n)⟫ := hcy _ (hεs.trans hn.1.le) (hn.2.le.trans hεt)
   rw [Real.norm_of_nonneg (NNReal.coe_nonneg _)]
   push_cast
   rw [Real.coe_toNNReal _ (hc0.le.trans hcn), ← mul_assoc, ← mul_assoc]
@@ -328,8 +344,7 @@ private lemma condLExp_step_le [IsFiniteMeasure P] [CompleteSpace E]
     push_cast
     rw [Real.coe_toNNReal _ (inner_nonneg hh_inner _)]
   have hR0 : 0 ≤ᵐ[P] fun ω ↦ ‖x (n + 1) ω - z‖ ^ 2 + 2 * α n * ⟪x n ω - z, h (x n ω)⟫ :=
-    ae_of_all _ fun ω ↦
-      add_nonneg (sq_nonneg _) (mul_nonneg (by positivity) (inner_nonneg hh_inner _))
+    ae_of_all _ fun ω ↦ add_nonneg (sq_nonneg _) (drift_nonneg hh_inner _ _)
   filter_upwards [condLExp_add_right (fun ω ↦ ((‖x (n + 1) ω - z‖₊ ^ 2 : ℝ≥0) : ℝ≥0∞))
       (hY.mono (ℱ.le n) le_rfl).aemeasurable (mΩ := ℱ n) (P := P),
     condLExp_ofReal (ℱ n) hR hR0, hRc] with ω e1 e2 e3
@@ -351,7 +366,7 @@ pointing towards `z` uniformly on annuli: on each annulus `ε ≤ ‖y - z‖ �
 `ℱ (n + 1)`, `E[ξ (n + 1) | ℱ n] = 0` and `E[‖ξ (n + 1)‖² | ℱ n] ≤ A + B ‖x n - z‖²`, the latter
 in the sense of `condLExp`. If the deterministic step sizes satisfy `∑ α n = ∞` and
 `∑ α n ^ 2 < ∞`, then `x n` converges to `z` almost surely. -/
-theorem ae_tendsto_of_robbinsMonro [IsFiniteMeasure P] [CompleteSpace E]
+theorem ae_tendsto_of_not_summable_of_summable_sq [IsFiniteMeasure P] [CompleteSpace E]
     (hx : ∀ n ω, x (n + 1) ω = x n ω - α n • (h (x n ω) + ξ (n + 1) ω))
     (hx0 : Measurable[ℱ 0] (x 0)) (hx0_int : Integrable (fun ω ↦ ‖x 0 ω - z‖ ^ 2) P)
     (hh : Measurable h) (hh_le : ∀ y, ‖h y‖ ≤ C * (1 + ‖y - z‖))
@@ -373,7 +388,7 @@ theorem ae_tendsto_of_robbinsMonro [IsFiniteMeasure P] [CompleteSpace E]
           (((hxm (n + 1)).mono (ℱ.le _) le_rfl).sub_const z)).aestronglyMeasurable
         (ae_of_all _ fun ω ↦ ?_)
       rw [Real.norm_of_nonneg (sq_nonneg _)]
-      exact le_add_of_nonneg_right (mul_nonneg (by positivity) (inner_nonneg hh_inner _))
+      exact le_add_of_nonneg_right (drift_nonneg hh_inner _ _)
   have hRS := ae_exists_tendsto_and_summable_of_condLExp_add_le (P := P) (ℱ := ℱ)
     (V := fun n ω ↦ ‖x n ω - z‖₊ ^ 2) (a := fun n _ ↦ α n ^ 2 * (4 * C ^ 2 + 2 * B))
     (b := fun n _ ↦ α n ^ 2 * (4 * C ^ 2 + 2 * A))
@@ -411,7 +426,7 @@ theorem strong_law_ae_of_condExp_eq [IsFiniteMeasure P] [CompleteSpace E] {Y : �
       h2).integrable one_le_two
     refine ((integrable_const z).sub h1).congr (ae_of_all _ fun ω ↦ ?_)
     simp
-  refine ae_tendsto_of_robbinsMonro
+  refine ae_tendsto_of_not_summable_of_summable_sq
     (x := fun (n : ℕ) ω ↦ (n : ℝ)⁻¹ • ∑ k ∈ Finset.range n, Y (k + 1) ω) (ξ := fun n ω ↦ z - Y n ω)
     (h := fun y ↦ y - z) (α := fun n ↦ ((n : ℝ≥0) + 1)⁻¹) (C := 1) (B := 0) (ℱ := ℱ)
     (fun n ω ↦ ?_) (by simp [measurable_const]) (by simp) (by fun_prop) (fun y ↦ by simp)
