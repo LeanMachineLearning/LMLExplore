@@ -202,8 +202,8 @@ private lemma sum_truncLog_le_log_seqBlockProd {m : ℕ} {V : (Fin m → 𝓧) �
     {ω : ℕ → 𝓧} (h : ∀ j, V (seqBlock m j ω) ≠ 0) :
     ((∑ j ∈ Finset.range k, truncLog c (V (seqBlock m j ω)) : ℝ) : EReal) ≤
       ENNReal.log (seqBlockProd m V k ω) := by
-  rw [← Real.log_exp (∑ j ∈ Finset.range k, truncLog c (V (seqBlock m j ω))),
-    ← ENNReal.log_ofReal_of_pos (Real.exp_pos _), seqBlockProd_def]
+  rw [← ENNReal.log_ofReal_exp (∑ j ∈ Finset.range k, truncLog c (V (seqBlock m j ω))),
+    seqBlockProd_def]
   refine ENNReal.log_le_log ?_
   rw [Real.exp_sum, ENNReal.ofReal_prod_of_nonneg fun _ _ ↦ (Real.exp_pos _).le]
   exact Finset.prod_le_prod fun j _ ↦ ofReal_exp_truncLog_le (h j)

@@ -505,9 +505,8 @@ private lemma cover_le_mul_toReal_bipolarRate (Q : Measure 𝓧) [IsProbabilityM
     calc ∫ᵉ ω, (((L - ε) * (N - K - badCount G N ω) -
           (N / k₀ + K + badCount G N ω) * Real.log 2 : ℝ) : EReal) ∂μ
     _ ≤ ∫ᵉ ω, ENNReal.log (coverMixture M N ω) ∂μ := eintegral_mono fun ω ↦ by
-      rw [← Real.log_exp ((L - ε) * (N - K - badCount G N ω) -
-        (N / k₀ + K + badCount G N ω) * Real.log 2),
-        ← ENNReal.log_ofReal_of_pos (Real.exp_pos _)]
+      rw [← ENNReal.log_ofReal_exp ((L - ε) * (N - K - badCount G N ω) -
+        (N / k₀ + K + badCount G N ω) * Real.log 2)]
       exact ENNReal.log_le_log (ofReal_exp_le_coverMixture hεL hk₀ hw N ω)
     _ ≤ maxLogGrowth Q S N :=
       eintegral_log_le_maxLogGrowth_of_dependsOn Q hS (measurable_coverMixture hMm N)
