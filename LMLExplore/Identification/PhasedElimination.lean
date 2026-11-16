@@ -253,8 +253,8 @@ lemma phaseStart_phaseOf_le (H : ℕ → Σ m, Hist 𝓞 α 𝓨 m) (t : ℕ) :
     push Not at h_min
     exact h_min.1
 
-/-- The phase containing a round `t` with `S_r ≤ t < S_{r+1}`, for the starts `S_r` of the phases,
-is `r`. -/
+/-- The phase containing a round `t` with `T_r ≤ t < T_{r+1}`, for the starts
+`T_r = phaseStart S₀ pulls elim H r` of the phases, is `r`. -/
 lemma phaseOf_eq {t r : ℕ} (h₁ : phaseStart S₀ pulls elim H r ≤ t)
     (h₂ : t < phaseStart S₀ pulls elim H (r + 1)) : phaseOf S₀ pulls elim H t = r := by
   classical
@@ -277,7 +277,7 @@ lemma lt_phaseStart_phaseOf_succ {t : ℕ} (h : ∃ r, t < phaseStart S₀ pulls
   | succ r => exact (hall r).not_gt hr
 
 /-- If some phase starts after round `t`, the phase containing `t` is the phase `r` with
-`S_r ≤ t < S_{r+1}`, for the starts `S_r` of the phases. -/
+`T_r ≤ t < T_{r+1}`, for the starts `T_r = phaseStart S₀ pulls elim H r` of the phases. -/
 lemma phaseOf_eq_iff {t : ℕ} (h : ∃ r, t < phaseStart S₀ pulls elim H r) {r : ℕ} :
     phaseOf S₀ pulls elim H t = r ↔
       phaseStart S₀ pulls elim H r ≤ t ∧ t < phaseStart S₀ pulls elim H (r + 1) := by
@@ -297,9 +297,10 @@ lemma phaseOf_congr {t : ℕ} (hH : ∀ m ≤ t, H m = H' m) :
 section Arm
 
 variable (S₀ pulls elim) in
-/-- The arm played at round `t` by phased elimination: in phase `r`, which starts at round `S_r`,
-the round `t` plays the arm of index `t - S_r` of the list `pulls r S_r`. The rounds that are in no
-phase, which only exist when all the phases from some point on are empty, play an arbitrary arm. -/
+/-- The arm played at round `t` by phased elimination: in phase `r`, which starts at round
+`T_r = phaseStart S₀ pulls elim H r` with active set `S_r`, the round `t` plays the arm of index
+`t - T_r` of the list `pulls r S_r`. The rounds that are in no phase, which only exist when all the
+phases from some point on are empty, play an arbitrary arm. -/
 noncomputable def armAt [Nonempty α] (H : ℕ → Σ m, Hist 𝓞 α 𝓨 m) (t : ℕ) : α :=
   (pulls (phaseOf S₀ pulls elim H t) (activeSet S₀ pulls elim H (phaseOf S₀ pulls elim H t))).getD
     (t - phaseStart S₀ pulls elim H (phaseOf S₀ pulls elim H t)) (Classical.arbitrary α)
@@ -792,7 +793,7 @@ omit [MeasurableSpace 𝓞] [MeasurableSpace α] [MeasurableSpace 𝓨] [Nonempt
 version does not stop with the output `i ∈ S₀` (it never stops, or it stops with another output),
 then `i` is eliminated at the end of some phase `r < R`, provided `out` chooses an element of every
 nonempty set. -/
-lemma exists_lt_mem_activeSet_notMem_activeSet_succ_of_fixedBudget
+private lemma exists_lt_mem_activeSet_notMem_activeSet_succ_of_fixedBudget
     (hout : ∀ S : Finset ℐ, S.Nonempty → out S ∈ S) {i : ℐ} (hi : i ∈ S₀)
     (hR : #(activeSet S₀ pulls elim (fun m ↦ sigmaHistory O X Y m ω) R) ≤ 1)
     (hbad : (∀ t, phaseStart S₀ pulls elim (fun m ↦ truncHist m ⟨t, history O X Y t ω⟩) R ≠ t) ∨
