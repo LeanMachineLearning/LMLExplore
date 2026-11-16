@@ -52,6 +52,8 @@ proof of Mathlib's `LinearMap.tendsto_birkhoffAverage_of_ker_subset_closure`.
 * `LMLExplore.IsPowerBounded.meanErgodicProj_mul`,
   `LMLExplore.IsPowerBounded.mul_meanErgodicProj`,
   `LMLExplore.IsPowerBounded.meanErgodicProj_mul_self`: `Π T = T Π = Π ^ 2 = Π`.
+* `LMLExplore.IsPowerBounded.meanErgodicProj_mul_one_sub`,
+  `LMLExplore.IsPowerBounded.one_sub_mul_meanErgodicProj`: `Π (1 - T) = (1 - T) Π = 0`.
 * `LMLExplore.IsPowerBounded.meanErgodicProj_apply_eq_self_iff` and
   `LMLExplore.IsPowerBounded.meanErgodicProj_apply_eq_zero_iff`: `Π x = x` exactly on
   `ker (1 - T)` and `Π x = 0` exactly on `closure (range (1 - T))`.
@@ -385,6 +387,32 @@ theorem meanErgodicProj_mul : hT.meanErgodicProj hF * T = hT.meanErgodicProj hF 
 theorem mul_meanErgodicProj : T * hT.meanErgodicProj hF = hT.meanErgodicProj hF := by
   ext x
   exact hT.apply_meanErgodicProj_apply hF x
+
+/-- `Π T ^ n = Π`. -/
+@[simp]
+theorem meanErgodicProj_mul_pow (n : ℕ) :
+    hT.meanErgodicProj hF * T ^ n = hT.meanErgodicProj hF := by
+  induction n with
+  | zero => rw [pow_zero, mul_one]
+  | succ n ih => rw [pow_succ, ← mul_assoc, ih, meanErgodicProj_mul]
+
+/-- `T ^ n Π = Π`. -/
+@[simp]
+theorem pow_mul_meanErgodicProj (n : ℕ) :
+    T ^ n * hT.meanErgodicProj hF = hT.meanErgodicProj hF := by
+  induction n with
+  | zero => rw [pow_zero, one_mul]
+  | succ n ih => rw [pow_succ', mul_assoc, ih, mul_meanErgodicProj]
+
+/-- `Π (1 - T) = 0`. -/
+@[simp]
+theorem meanErgodicProj_mul_one_sub : hT.meanErgodicProj hF * (1 - T) = 0 := by
+  rw [mul_sub, mul_one, meanErgodicProj_mul, sub_self]
+
+/-- `(1 - T) Π = 0`. -/
+@[simp]
+theorem one_sub_mul_meanErgodicProj : (1 - T) * hT.meanErgodicProj hF = 0 := by
+  rw [sub_mul, one_mul, mul_meanErgodicProj, sub_self]
 
 /-- `Π ^ 2 = Π`: the mean ergodic projection is a projection. -/
 theorem isIdempotentElem_meanErgodicProj : IsIdempotentElem (hT.meanErgodicProj hF) := by

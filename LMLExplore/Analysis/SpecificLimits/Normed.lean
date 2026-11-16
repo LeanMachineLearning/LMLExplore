@@ -22,11 +22,14 @@ length `m`, such as the Dobrushin coefficients `δ(κ ^ n) ≤ δ(κ ^ m) ^ (n /
   `∑ j ∈ range n, j * r ^ j ≤ r / (1 - r) ^ 2`.
 * `LMLExplore.hasSum_pow_div_of_lt_one`: for `0 ≤ r < 1` and `m ≠ 0`,
   `∑ n, r ^ (n / m) = m / (1 - r)`.
+* `LMLExplore.tsum_neg_pow_smul_pow_succ`: in a normed algebra with summable geometric series,
+  `∑ n, (-u) ^ n • a ^ (n + 1) = a * (1 + u • a)⁻¹` for `‖u‖ * ‖a‖ < 1`.
 -/
 
 public section
 
 open Finset
+open scoped Ring
 
 namespace LMLExplore
 
@@ -56,5 +59,19 @@ theorem hasSum_pow_div_of_lt_one {r : ℝ} (hr0 : 0 ≤ r) (hr1 : r < 1) {m : �
       zero_add]
   rw [div_eq_inv_mul]
   exact (Nat.divModEquiv m).symm.hasSum_iff.1 (hprod.congr_fun fun p ↦ (he p).symm)
+
+/-- In a normed algebra with summable geometric series, `a` times the Neumann series of
+`(1 + u • a)⁻¹` is `∑ n, (-u) ^ n • a ^ (n + 1) = a * (1 + u • a)⁻¹` for `‖u‖ * ‖a‖ < 1`. -/
+theorem tsum_neg_pow_smul_pow_succ {𝕜 R : Type*} [NormedField 𝕜] [NormedRing R]
+    [NormedAlgebra 𝕜 R] [HasSummableGeomSeries R] {a : R} {u : 𝕜} (h : ‖u‖ * ‖a‖ < 1) :
+    ∑' n : ℕ, (-u) ^ n • a ^ (n + 1) = a * (1 + u • a)⁻¹ʳ := by
+  have hx : ‖-(u • a)‖ < 1 := by
+    rw [norm_neg]
+    exact (norm_smul_le u a).trans_lt h
+  rw [← sub_neg_eq_add, ← geom_series_eq_inverse _ hx,
+    ← (summable_geometric_of_norm_lt_one hx).tsum_mul_left]
+  congr 1
+  ext1 n
+  rw [← neg_smul, smul_pow, mul_smul_comm, pow_succ']
 
 end LMLExplore
