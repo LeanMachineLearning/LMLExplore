@@ -22,7 +22,7 @@ about the real Rademacher sums `∑ i ∈ s, ε i` that the lower bounds of onli
   (`expect_sum_units_apply_mul_eq_zero`): the signs are the increments of a martingale, and
   `a` is predictable. This is why an adversary playing random signs makes the expected loss of
   every learner vanish.
-* The second and fourth moments: `𝔼 (∑ i ∈ s, ε i) ^ 2 = #s` and
+* The first, second and fourth moments: `𝔼 ∑ i ∈ s, ε i = 0`, `𝔼 (∑ i ∈ s, ε i) ^ 2 = #s` and
   `𝔼 (∑ i ∈ s, ε i) ^ 4 = 3 #s ^ 2 - 2 #s`.
 * The lower Khintchine inequality in `L¹` with the constant `1 / √3`:
   `√(#s / 3) ≤ 𝔼 |∑ i ∈ s, ε i|` [Ora, Theorem A.14]. It follows from the two moments through the
@@ -34,8 +34,9 @@ about the real Rademacher sums `∑ i ∈ s, ε i` that the lower bounds of onli
 * `LMLExplore.expect_units_apply_mul_eq_zero`: `𝔼 ε i * f ε = 0` when `f` does not depend on
   `ε i`.
 * `LMLExplore.expect_sum_units_apply_mul_eq_zero`: `𝔼 ∑ i, ε i * a ε i = 0` for predictable `a`.
-* `LMLExplore.expect_sum_units_sq`, `LMLExplore.expect_sum_units_pow_four`: the second and fourth
-  moments of `∑ i ∈ s, ε i`.
+* `LMLExplore.expect_sum_units_eq_zero`, `LMLExplore.expect_sum_units_sq`,
+  `LMLExplore.expect_sum_units_pow_four`: the first, second and fourth moments of
+  `∑ i ∈ s, ε i`.
 * `LMLExplore.sqrt_card_div_three_le_expect_abs_sum_units`: `√(#s / 3) ≤ 𝔼 |∑ i ∈ s, ε i|`.
 
 ## References
@@ -73,8 +74,16 @@ theorem expect_units_apply_mul_eq_zero (i : ι) {f : (ι → ℤˣ) → ℝ}
   linarith
 
 /-- A Rademacher sign has mean zero. -/
-theorem expect_units_apply (i : ι) : 𝔼 ε : ι → ℤˣ, ((ε i : ℤ) : ℝ) = 0 := by
+@[simp]
+theorem expect_units_apply_eq_zero (i : ι) : 𝔼 ε : ι → ℤˣ, ((ε i : ℤ) : ℝ) = 0 := by
   simpa using expect_units_apply_mul_eq_zero i (f := fun _ ↦ 1) fun _ _ _ ↦ rfl
+
+/-- The **first moment** of a Rademacher sum: `𝔼 ∑ i ∈ s, ε i = 0`. -/
+@[simp]
+theorem expect_sum_units_eq_zero (s : Finset ι) :
+    𝔼 ε : ι → ℤˣ, ∑ i ∈ s, ((ε i : ℤ) : ℝ) = 0 := by
+  rw [expect_sum_comm]
+  exact sum_eq_zero fun i _ ↦ expect_units_apply_eq_zero i
 
 /-- **Predictable sums of signs have mean zero.** If the weight `a ε i` of the sign `ε i`
 depends only on the signs `ε j` of the indices `j < i`, then `∑ i, ε i * a ε i` averages to zero
@@ -87,15 +96,14 @@ theorem expect_sum_units_apply_mul_eq_zero [Preorder ι] {a : (ι → ℤˣ) →
     ha ε ε' i fun j hj ↦ h j hj.ne
 
 /-- The **second moment** of a Rademacher sum: `𝔼 (∑ i ∈ s, ε i) ^ 2 = #s`. -/
+@[simp]
 theorem expect_sum_units_sq (s : Finset ι) :
     𝔼 ε : ι → ℤˣ, (∑ i ∈ s, ((ε i : ℤ) : ℝ)) ^ 2 = #s := by
   have h := TauCeti.expect_norm_sum_units_smul_sq ℝ fun i : ι ↦ if i ∈ s then (1 : ℝ) else 0
-  simp only [smul_ite, smul_zero, Units.smul_def, zsmul_eq_mul, mul_one, sum_ite_mem, univ_inter,
-    Real.norm_eq_abs, sq_abs, ite_pow, one_pow, ne_eq, OfNat.ofNat_ne_zero, not_false_eq_true,
-    zero_pow] at h
-  simpa using h
+  simpa [Units.smul_def, sum_ite_mem, sq_abs] using h
 
 /-- The **fourth moment** of a Rademacher sum: `𝔼 (∑ i ∈ s, ε i) ^ 4 = 3 #s ^ 2 - 2 #s`. -/
+@[simp]
 theorem expect_sum_units_pow_four (s : Finset ι) :
     𝔼 ε : ι → ℤˣ, (∑ i ∈ s, ((ε i : ℤ) : ℝ)) ^ 4 = 3 * (#s : ℝ) ^ 2 - 2 * #s := by
   induction s using Finset.induction_on with
@@ -109,7 +117,7 @@ theorem expect_sum_units_pow_four (s : Finset ι) :
           ((ε a : ℤ) : ℝ) *
             (4 * ∑ i ∈ s, ((ε i : ℤ) : ℝ) + 4 * (∑ i ∈ s, ((ε i : ℤ) : ℝ)) ^ 3) := by
       have he : ((ε a : ℤ) : ℝ) ^ 2 = 1 := by
-        rw [← Int.cast_pow, ← Units.val_pow_eq_pow_val, Int.units_sq, Units.val_one, Int.cast_one]
+        rw [← sq_abs, abs_unit_intCast, one_pow]
       rw [sum_insert ha]
       linear_combination (((ε a : ℤ) : ℝ) ^ 2 + 1 + 4 * (∑ i ∈ s, ((ε i : ℤ) : ℝ)) * (ε a : ℤ) +
         6 * (∑ i ∈ s, ((ε i : ℤ) : ℝ)) ^ 2) * he

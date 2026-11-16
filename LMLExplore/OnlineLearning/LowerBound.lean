@@ -78,10 +78,7 @@ private lemma norm_signedLosses_le (hL : 0 ≤ L) (hz : ‖z‖ ≤ 1) (ε : Fin
     ‖signedLosses L z ε t‖ ≤ L := by
   unfold signedLosses
   split_ifs with h
-  · have hε : |((ε ⟨t, h⟩ : ℤ) : ℝ)| = 1 := by
-      rw [← Int.cast_abs, Int.abs_eq_natAbs, Int.natAbs_of_isUnit (ε _).isUnit]
-      simp
-    rw [norm_smul, Real.norm_eq_abs, abs_mul, abs_of_nonneg hL, hε, mul_one]
+  · rw [norm_smul, Real.norm_eq_abs, abs_mul, abs_of_nonneg hL, abs_unit_intCast, mul_one]
     exact mul_le_of_le_one_right hL hz
   · simpa using hL
 
@@ -114,9 +111,6 @@ private lemma exists_mul_expect_abs_sum_le {v w : E} (hz : z (v - w) = ‖v - w�
     ∃ ε, ∃ u ∈ ({v, w} : Set E),
       L / 2 * ‖v - w‖ * 𝔼 ε : Fin n → ℤˣ, |∑ t, ((ε t : ℤ) : ℝ)| ≤ R ε u := by
   have hzvw : ‖v - w‖ = z v - z w := by rw [← hz, map_sub]
-  have hS : 𝔼 ε : Fin n → ℤˣ, ∑ t, ((ε t : ℤ) : ℝ) = 0 := by
-    rw [expect_sum_comm]
-    exact sum_eq_zero fun t _ ↦ expect_units_apply t
   -- pointwise, the better comparator gains at least
   -- `L * ∑ t, ε t * a ε t - L (z v + z w) / 2 * S + L / 2 * ‖v - w‖ * |S|`, with `S = ∑ t, ε t`
   have key (ε : Fin n → ℤˣ) : L * ∑ t, ((ε t : ℤ) : ℝ) * a ε t -
@@ -137,7 +131,7 @@ private lemma exists_mul_expect_abs_sum_le {v w : E} (hz : z (v - w) = ‖v - w�
       𝔼 ε : Fin n → ℤˣ, max (R ε v) (R ε w) := by
     refine le_trans (le_of_eq ?_) (expect_le_expect fun ε _ ↦ key ε)
     rw [expect_add_distrib, expect_sub_distrib, ← mul_expect, ← mul_expect, ← mul_expect,
-      expect_sum_units_apply_mul_eq_zero ha, hS]
+      expect_sum_units_apply_mul_eq_zero ha, expect_sum_units_eq_zero]
     ring
   obtain ⟨ε, -, hε⟩ := exists_le_of_le_expect univ_nonempty hmean
   rcases le_total (R ε v) (R ε w) with h | h
@@ -221,6 +215,18 @@ section Randomized
 
 variable {Ω : Type*} [MeasurableSpace Ω] {P : Measure Ω} [IsProbabilityMeasure P]
 
+/-- The expected regret for the signed losses of a family of plays `x ω` with integrable rounds. -/
+private lemma integral_regret_signedLosses {L : ℝ} {z : E →L[ℝ] ℝ} {n : ℕ} (ε : Fin n → ℤˣ)
+    {x : Ω → ℕ → E} (hx : ∀ t, Integrable (fun ω ↦ x ω t) P) (u : E) :
+    ∫ ω, regret (fun t ↦ signedLosses L z ε t) (x ω) u n ∂P =
+      L * ∑ t : Fin n, ((ε t : ℤ) : ℝ) * ((∫ ω, z (x ω t) ∂P) - z u) := by
+  have hzx (t : ℕ) : Integrable (fun ω ↦ z (x ω t)) P := z.integrable_comp (hx t)
+  have hint (t : Fin n) : Integrable (fun ω ↦ ((ε t : ℤ) : ℝ) * (z (x ω t) - z u)) P :=
+    ((hzx t).sub (integrable_const _)).const_mul _
+  simp_rw [regret_signedLosses, integral_const_mul, integral_finsetSum _ fun t _ ↦ hint t,
+    integral_const_mul, integral_sub (hzx _) (integrable_const _), integral_const, probReal_univ,
+    one_smul]
+
 /-- **The lower bound of bounded online linear optimization for randomized learners**
 [Ora, Theorem 5.1, Remark 5.3]. For a randomized learner, a family of learners `A ω` indexed by
 its internal randomness `ω ∼ P`, whose plays are integrable, there are linear losses of dual norm
@@ -241,14 +247,7 @@ theorem exists_mul_expect_abs_sum_le_integral_regret_run (A : Ω → OnlineLearn
       rw [(A ω).run_congr_feedback c fun s hs ↦ signedLosses_congr h hs]))
     (R := fun ε u ↦ ∫ ω, regret (fun t ↦ signedLosses L z ε t)
       ((A ω).run c (signedLosses L z ε)) u n ∂P)
-    fun ε u ↦ by
-      have hint (t : Fin n) : Integrable (fun ω ↦ ((ε t : ℤ) : ℝ) *
-          (z ((A ω).run c (signedLosses L z ε) t) - z u)) P :=
-        ((z.integrable_comp (hA _ t)).sub (integrable_const _)).const_mul _
-      simp_rw [regret_signedLosses, integral_const_mul, integral_finsetSum _ fun t _ ↦ hint t,
-        integral_const_mul,
-        integral_sub (z.integrable_comp (hA _ _)) (integrable_const _), integral_const,
-        probReal_univ, one_smul]
+    fun ε u ↦ integral_regret_signedLosses ε (hA _) u
   exact ⟨signedLosses L z ε, norm_signedLosses_le hL hz1 ε, u, hu, h⟩
 
 /-- **The lower bound of bounded online linear optimization for randomized learners**, with
