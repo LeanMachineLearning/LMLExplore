@@ -51,8 +51,8 @@ complexities of the bandits with the means in arithmetic progression of the lowe
 * `Real.sum_range_inv_sq_le`: `∑_{i < n} 1 / i² ≤ π² / 6`.
 * `Equiv.sum_inv_sq_add_numbering_le`: `∑_b 1 / (m + e b)² ≤ 2 / m` for a numbering `e` and
   `m ≥ 1`.
-* `Equiv.log_card_le_sum_inv_numbering`: `log K ≤ ∑_{b ≠ a₀} 1 / e b` for a numbering `e` of a
-  type with `K` elements and `e a₀ = 0`.
+* `Equiv.log_card_le_sum_inv_numbering`: `log K ≤ ∑_{b ≠ a₀} 1 / e b` for a numbering
+  `e : α ≃ Fin K` and `e a₀ = 0`.
 
 ## References
 
@@ -216,34 +216,34 @@ end Real
 
 namespace Equiv
 
-variable {α : Type*} [Fintype α]
+variable {α : Type*} [Fintype α] {n : ℕ}
 
 /-- For a numbering `e` of `α`, `∑_{b} 1 / (m + e b)² ≤ 2 / m` for every integer `m ≥ 1`. -/
-theorem sum_inv_sq_add_numbering_le (e : α ≃ Fin (Fintype.card α)) {m : ℕ} (hm : 1 ≤ m) :
+theorem sum_inv_sq_add_numbering_le (e : α ≃ Fin n) {m : ℕ} (hm : 1 ≤ m) :
     ∑ b, (((m : ℝ) + (e b : ℕ)) ^ 2)⁻¹ ≤ 2 / m := by
   obtain ⟨k, rfl⟩ : ∃ k, m = k + 1 := ⟨m - 1, by omega⟩
   calc ∑ b, ((((k + 1 : ℕ) : ℝ) + (e b : ℕ)) ^ 2)⁻¹
-      = ∑ i ∈ Finset.range (Fintype.card α), ((((k + 1 : ℕ) : ℝ) + i) ^ 2)⁻¹ :=
+      = ∑ i ∈ Finset.range n, ((((k + 1 : ℕ) : ℝ) + i) ^ 2)⁻¹ :=
         e.sum_numbering_eq_sum_range fun i ↦ ((((k + 1 : ℕ) : ℝ) + i) ^ 2)⁻¹
-    _ = ∑ i ∈ Finset.Ioo k (k + 1 + Fintype.card α), ((i : ℝ) ^ 2)⁻¹ := by
+    _ = ∑ i ∈ Finset.Ioo k (k + 1 + n), ((i : ℝ) ^ 2)⁻¹ := by
         rw [← Finset.Ico_add_one_left_eq_Ioo, Finset.sum_Ico_eq_sum_range,
           Nat.add_sub_cancel_left]
         exact Finset.sum_congr rfl fun i _ ↦ by push_cast; ring
     _ ≤ 2 / (k + 1) := sum_Ioo_inv_sq_le k _
     _ = 2 / ((k + 1 : ℕ) : ℝ) := by push_cast; ring
 
-/-- For a numbering `e` of a type `α` with `K` elements and the element `a₀` of number `0`,
-`log K ≤ ∑_{j ≠ a₀} 1 / e j`, the harmonic number `H_{K - 1}`. -/
-theorem log_card_le_sum_inv_numbering [DecidableEq α] (e : α ≃ Fin (Fintype.card α)) {a₀ : α}
+/-- For a numbering `e : α ≃ Fin n` and the element `a₀` of number `0`,
+`log n ≤ ∑_{j ≠ a₀} 1 / e j`, the harmonic number `H_{n - 1}`. -/
+theorem log_card_le_sum_inv_numbering [DecidableEq α] (e : α ≃ Fin n) {a₀ : α}
     (ha₀ : (e a₀ : ℕ) = 0) :
-    Real.log (Fintype.card α) ≤ ∑ j ∈ Finset.univ.erase a₀, (((e j : ℕ) : ℝ))⁻¹ := by
+    Real.log n ≤ ∑ j ∈ Finset.univ.erase a₀, (((e j : ℕ) : ℝ))⁻¹ := by
   rw [Finset.sum_erase _ (by simp [ha₀])]
   rw [e.sum_numbering_eq_sum_range fun i ↦ ((i : ℝ))⁻¹]
-  rcases Nat.eq_zero_or_eq_succ_pred (Fintype.card α) with hK | hK
+  rcases Nat.eq_zero_or_eq_succ_pred n with hK | hK
   · simp [hK]
   rw [hK, Finset.sum_range_succ', Nat.cast_zero, inv_zero, add_zero]
-  calc Real.log ((Fintype.card α).pred.succ : ℝ)
-      ≤ harmonic (Fintype.card α).pred := log_add_one_le_harmonic _
+  calc Real.log (n.pred.succ : ℝ)
+      ≤ harmonic n.pred := log_add_one_le_harmonic _
     _ = _ := by simp [harmonic]
 
 end Equiv

@@ -93,52 +93,6 @@ private lemma klBer_one_half_sub_one_half_add_le {d : ℝ} (h0 : 0 ≤ d) (h1 : 
   rw [div_le_iff₀ (by nlinarith)]
   nlinarith [mul_nonneg (sq_nonneg d) (by linarith : (0 : ℝ) ≤ 4 / 25 - d ^ 2)]
 
-/-! ### Bernoulli models -/
-
-/-- The model of the Bernoulli bandit with success probabilities `p`. -/
-private noncomputable def bernoulliModel (p : α → I) : α → ProbabilityMeasure ℝ :=
-  (exists_lawBandit_eq (Bandits.bernoulliBandit p)).choose
-
-private lemma lawBandit_bernoulliModel (p : α → I) :
-    lawBandit (bernoulliModel p) = Bandits.bernoulliBandit p :=
-  (exists_lawBandit_eq (Bandits.bernoulliBandit p)).choose_spec
-
-private lemma lawMean_bernoulliModel (p : α → I) (b : α) : lawMean (bernoulliModel p) b = p b := by
-  rw [lawMean_eq_integral_lawBandit, lawBandit_bernoulliModel,
-    Bandits.integral_id_bernoulliBandit]
-
-/-- The arm `b` of the Bernoulli model with success probabilities `p` has the law `Ber(p b)`. -/
-private lemma ν_baiTask_bernoulliModel (p : α → I) (b : α) :
-    (baiTask lawBandit lawMean).ν (bernoulliModel p) b = Ber((1 : ℝ), 0, p b) := by
-  rw [ν_baiTask, lawBandit_bernoulliModel, Bandits.bernoulliBandit_apply]
-
-/-- A Bernoulli model whose arm `a` has the largest success probability is a model of best arm
-identification with laws on `[0, 1]`, with best arm `a`. -/
-private lemma mem_M_bernoulliModel {p : α → I} {a : α} (ha : ∀ b ≠ a, (p b : ℝ) < p a) :
-    bernoulliModel p ∈ ((baiTask (lawBandit (α := α)) lawMean).restrict
-      (Set.univ.pi fun _ ↦ unitIntervalLaws)).M := by
-  rw [IdentTask.M_restrict]
-  refine ⟨?_, mem_pi_unitIntervalLaws_iff.2 fun b ↦ ?_⟩
-  · rw [M_baiTask]
-    exact ⟨a, fun b hb ↦ by rw [lawMean_bernoulliModel, lawMean_bernoulliModel]; exact ha b hb⟩
-  · rw [lawBandit_bernoulliModel]
-    exact Bandits.ae_mem_Icc_bernoulliBandit p b
-
-private lemma correct_bernoulliModel {p : α → I} {a : α} (ha : ∀ b ≠ a, (p b : ℝ) < p a) :
-    (baiTask (lawBandit (α := α)) lawMean).correct (bernoulliModel p) = {a} :=
-  (correct_baiTask_eq_singleton_iff _ _).2 fun b hb ↦ by
-    rw [lawMean_bernoulliModel, lawMean_bernoulliModel]
-    exact ha b hb
-
-/-- The complexity `∑_b Δ_b⁻²` of a Bernoulli model whose arm `a` has the largest success
-probability. -/
-private lemma sum_inv_sq_gap_bernoulliModel {p : α → I} {a : α}
-    (ha : ∀ b ≠ a, (p b : ℝ) < p a) :
-    ∑ b, (Bandits.gap (lawBandit (bernoulliModel p)) b ^ 2)⁻¹ = ∑ b, (((p a : ℝ) - p b) ^ 2)⁻¹ := by
-  simp_rw [lawBandit_bernoulliModel, Bandits.gap_eq_sub_of_forall_lt
-    (ν := Bandits.bernoulliBandit p) (a := a) (by simpa using ha),
-    Bandits.integral_id_bernoulliBandit]
-
 /-- `((2 / (5 K)) x)⁻² = (5 K / 2)² x⁻²`, the inverse square of a gap of the bandits of [CL16]. -/
 private lemma inv_sq_two_div_mul (K x : ℝ) :
     ((2 / (5 * K) * x) ^ 2)⁻¹ = (5 * K / 2) ^ 2 * (x ^ 2)⁻¹ := by
@@ -280,16 +234,6 @@ private lemma sum_inv_sq_gap_clAlt_le_mul_sq [DecidableEq α] {a₀ : α} (ha₀
         rw [sum_range_succ']
         simp
     _ ≤ π ^ 2 / 6 := sum_range_inv_sq_le _
-
-/-- The complexity of a model whose arm `a` has the largest success probability is positive when
-there is another arm. -/
-private lemma sum_inv_sq_gap_bernoulliModel_pos {p : α → I} {a b : α}
-    (ha : ∀ b ≠ a, (p b : ℝ) < p a) (hb : b ≠ a) :
-    0 < ∑ c, (Bandits.gap (lawBandit (bernoulliModel p)) c ^ 2)⁻¹ := by
-  rw [sum_inv_sq_gap_bernoulliModel ha]
-  refine lt_of_lt_of_le ?_ (single_le_sum (fun c _ ↦ by positivity) (mem_univ b))
-  have := sub_pos.2 (ha b hb)
-  positivity
 
 end Family
 
