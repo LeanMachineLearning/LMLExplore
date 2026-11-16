@@ -6,6 +6,7 @@ Authors: LMLExplore contributors
 module
 
 public import LMLExplore.OnlineLearning.MirrorDescent.Optimistic
+public import LMLExplore.Analysis.Normed.Group.Basic
 public import LMLExplore.Analysis.Real.Sqrt
 
 /-!
@@ -94,8 +95,7 @@ theorem delayHint_apply_zero (τ : ℕ) (y : ℕ → M) : delayHint τ y 0 = 0 :
 not observed before round `t` and of the loss of round `t`. -/
 theorem sub_delayHint (τ : ℕ) (y : ℕ → M) (t : ℕ) :
     y t - delayHint τ y t = ∑ s ∈ Icc (t - τ) t, y s := by
-  rw [delayHint_def, sub_neg_eq_add, ← Ico_add_one_right_eq_Icc, sum_Ico_succ_top (t.sub_le τ),
-    add_comm]
+  rw [delayHint_def, sub_neg_eq_add, add_sum_Ico_eq_sum_Icc (t.sub_le τ)]
 
 /-- **Delayed feedback is optimism** [Ora, §6.12]. With the hints `delayHint τ y`, the loss
 `y t - h t + h (t + 1)` of optimistic mirror descent at round `t` is the loss `y (t - τ)` that
@@ -241,14 +241,6 @@ theorem delayedMirrorDescent_regret_le_of_norm_le {η m L : ℝ} (hF : StrongCon
   have hL : 0 ≤ L := (norm_nonneg _).trans (hy 0 n.zero_le)
   have h := delayedMirrorDescent_regret_le_of_strongConvexOn hF hm hη y a F' ha0K ha_wait ha hF'
     hu
-  have h_card (s : Finset ℕ) (hs : ∀ t ∈ s, t ≤ n) : ‖∑ t ∈ s, y t‖ ≤ #s * L :=
-    (norm_sum_le_of_le s fun t ht ↦ hy t (hs t ht)).trans_eq (by rw [sum_const, nsmul_eq_mul])
-  -- a prediction error `∑ t - τ ≤ s ≤ t, y s` is a sum of at most `τ + 1` losses
-  have h_err (t : ℕ) (ht : t ≤ n) : ‖∑ s ∈ Icc (t - τ) t, y s‖ ≤ (τ + 1) * L := by
-    refine (h_card _ fun s hs ↦ (mem_Icc.mp hs).2.trans ht).trans ?_
-    gcongr
-    rw [Nat.card_Icc]
-    exact_mod_cast (by omega : t + 1 - (t - τ) ≤ τ + 1)
   -- each of the at most `n` rounds `τ ≤ t < n` costs at most `2 (τ + 1) L ^ 2`
   have h_sum : ∑ t ∈ Ico τ n,
       ‖∑ s ∈ Icc (t - τ) t, y s‖ * min ‖∑ s ∈ Icc (t - τ) t, y s‖ (2 * ‖y (t - τ)‖) ≤
@@ -259,15 +251,15 @@ theorem delayedMirrorDescent_regret_le_of_norm_le {η m L : ℝ} (hF : StrongCon
         (min_le_right _ _).trans (by linarith [hy (t - τ) (by omega)])
       calc ‖∑ s ∈ Icc (t - τ) t, y s‖ * min ‖∑ s ∈ Icc (t - τ) t, y s‖ (2 * ‖y (t - τ)‖)
           ≤ ((τ + 1) * L) * (2 * L) :=
-            mul_le_mul (h_err t ht.2.le) h_min (le_min (norm_nonneg _) (by positivity))
-              (by positivity)
+            mul_le_mul (norm_sum_Icc_sub_le t τ fun s hs ↦ hy s (hs.trans ht.2.le)) h_min
+              (le_min (norm_nonneg _) (by positivity)) (by positivity)
         _ = 2 * (τ + 1) * L ^ 2 := by ring
     · rw [nsmul_eq_mul, Nat.card_Ico]
       gcongr
       exact_mod_cast n.sub_le τ
   -- the last prediction error is a sum of at most `min (τ + 1) (n + 1)` losses
   have h_last : ‖∑ s ∈ Icc (n - τ) n, y s‖ ^ 2 ≤ (τ + 1) * (n + 1) * L ^ 2 := by
-    have h_bd := h_card (Icc (n - τ) n) fun s hs ↦ (mem_Icc.mp hs).2
+    have h_bd := norm_sum_le_card_mul (Icc (n - τ) n) fun s hs ↦ hy s (mem_Icc.mp hs).2
     rw [Nat.card_Icc] at h_bd
     have h1 : ((n + 1 - (n - τ) : ℕ) : ℝ) ≤ τ + 1 := by exact_mod_cast (by omega)
     have h2 : ((n + 1 - (n - τ) : ℕ) : ℝ) ≤ n + 1 := by exact_mod_cast (by omega)

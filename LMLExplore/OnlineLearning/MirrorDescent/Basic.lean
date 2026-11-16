@@ -68,8 +68,6 @@ of losses, in particular for losses chosen adaptively from the past plays.
   `d 0 / η 0 + ∑ t < n - 1, (1 / η (t + 1) - 1 / η t) * d (t + 1) - d n / η (n - 1)
     + ∑ t < n, (y t (a t - a (t + 1)) - D_F(a (t + 1), a t) / η t)`.
   Every regret bound below is derived from it.
-* `div_add_sum_inv_sub_inv_mul_le_div`: for nonincreasing learning rates, the divergence terms
-  summed by parts are at most `D / η n` when the divergences are at most `D`.
 * `sum_apply_sub_le_mirrorDescent_of_antitone`: with nonincreasing learning rates `η t` and
   divergences `D_F(u, a t) ≤ D` for `t < n`, the regret is at most
   `(D - D_F(u, a n)) / η (n - 1) + ∑ t < n, (y t (a t - a (t + 1)) - D_F(a (t + 1), a t) / η t)`,
@@ -462,25 +460,6 @@ theorem mirrorDescent_regret_le_of_strongConvexOn {m : ℝ} (hF : StrongConvexOn
 section Antitone
 
 variable {η : ℕ → ℝ}
-
-/-- **The divergence terms of mirror descent for nonincreasing learning rates.** If the learning
-rates `η t > 0` are nonincreasing and `d t ≤ D` for `t ≤ n`, then
-`d 0 / η 0 + ∑ t < n, (1 / η (t + 1) - 1 / η t) * d (t + 1) ≤ D / η n`. These are the terms of
-the divergences to the comparator, summed by parts, in the regret bounds of mirror descent. -/
-theorem div_add_sum_inv_sub_inv_mul_le_div (hη : ∀ t, 0 < η t) (hη_anti : Antitone η)
-    {d : ℕ → ℝ} {D : ℝ} (hd : ∀ t ≤ n, d t ≤ D) :
-    d 0 / η 0 + ∑ t ∈ range n, ((η (t + 1))⁻¹ - (η t)⁻¹) * d (t + 1) ≤ D / η n := by
-  -- the coefficients `1 / η (t + 1) - 1 / η t` are nonnegative and telescope
-  have h_sum : ∑ t ∈ range n, ((η (t + 1))⁻¹ - (η t)⁻¹) * d (t + 1) ≤
-      D * ((η n)⁻¹ - (η 0)⁻¹) := by
-    rw [← sum_range_sub (fun t ↦ (η t)⁻¹), mul_sum]
-    refine sum_le_sum fun t ht ↦ ?_
-    rw [mul_comm D]
-    exact mul_le_mul_of_nonneg_left (hd (t + 1) (mem_range.mp ht))
-      (sub_nonneg.mpr (inv_anti₀ (hη (t + 1)) (hη_anti t.le_succ)))
-  have h_init : d 0 / η 0 ≤ D / η 0 := div_le_div_of_nonneg_right (hd 0 n.zero_le) (hη 0).le
-  have h_eq : D / η 0 + D * ((η n)⁻¹ - (η 0)⁻¹) = D / η n := by ring
-  linarith
 
 /-- **Regret of mirror descent with nonincreasing learning rates, keeping the last divergence.**
 Let `K` be convex and let the learning rates `η t > 0` be nonincreasing. Let each `a (t + 1)`, for

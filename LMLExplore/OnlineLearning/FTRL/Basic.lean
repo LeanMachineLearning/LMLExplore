@@ -70,7 +70,9 @@ for strongly convex potentials through the stability bounds of
   round, `(F u - F (a 0)) / η 0 + ∑ t < n, (1 / η (t + 1) - 1 / η t) (F u - F (a (t + 1)))`, the
   comparator `u` taking the place of a play of round `n + 1` in the last stability term.
 * `ftrl_regret_succ_le_of_antitone`: its case of nonincreasing learning rates, with the penalty
-  `(F u - F (a 0)) / η n` of the rate `η n` of the last play.
+  `(F u - F (a 0)) / η n` of the rate `η n` of the last play, by
+  `div_add_sum_inv_sub_inv_mul_le_div`: for nonincreasing learning rates, terms `d t ≤ D` summed
+  by parts, `d 0 / η 0 + ∑ t < n, (1 / η (t + 1) - 1 / η t) * d (t + 1)`, are at most `D / η n`.
 * `ftrl_regret_le_of_strongConvexOn_of_antitone`: [Ora, Corollary 7.6]. For an `m`-strongly
   convex potential with respect to the norm of `E` and nonincreasing learning rates, the regret is
   at most `(F u - F (a 0)) / η (n - 1) + ∑ t < n, η t / (2 m) * ‖y t‖ ^ 2`, with no derivative of
@@ -345,6 +347,26 @@ theorem ftrl_regret_succ_le_sum_inv_sub_inv {F : E → ℝ} (hK : Convex ℝ K) 
   simp only [div_eq_mul_inv] at h ⊢
   linarith
 
+/-- **Summation by parts for nonincreasing learning rates.** If the learning rates `η t > 0` are
+nonincreasing and `d t ≤ D` for `t ≤ n`, then
+`d 0 / η 0 + ∑ t < n, (1 / η (t + 1) - 1 / η t) * d (t + 1) ≤ D / η n`. These are the penalty
+terms of FTRL and the terms of the divergences to the comparator of mirror descent, summed by
+parts, in their regret bounds for nonincreasing learning rates. -/
+theorem div_add_sum_inv_sub_inv_mul_le_div {η : ℕ → ℝ} (hη : ∀ t, 0 < η t)
+    (hη_anti : Antitone η) {d : ℕ → ℝ} {D : ℝ} (hd : ∀ t ≤ n, d t ≤ D) :
+    d 0 / η 0 + ∑ t ∈ range n, ((η (t + 1))⁻¹ - (η t)⁻¹) * d (t + 1) ≤ D / η n := by
+  -- the coefficients `1 / η (t + 1) - 1 / η t` are nonnegative and telescope
+  have h_sum : ∑ t ∈ range n, ((η (t + 1))⁻¹ - (η t)⁻¹) * d (t + 1) ≤
+      D * ((η n)⁻¹ - (η 0)⁻¹) := by
+    rw [← sum_range_sub (fun t ↦ (η t)⁻¹), mul_sum]
+    refine sum_le_sum fun t ht ↦ ?_
+    rw [mul_comm D]
+    exact mul_le_mul_of_nonneg_left (hd (t + 1) (mem_range.mp ht))
+      (sub_nonneg.mpr (inv_anti₀ (hη (t + 1)) (hη_anti t.le_succ)))
+  have h_init : d 0 / η 0 ≤ D / η 0 := div_le_div_of_nonneg_right (hd 0 n.zero_le) (hη 0).le
+  have h_eq : D / η 0 + D * ((η n)⁻¹ - (η 0)⁻¹) = D / η n := by ring
+  linarith
+
 /-- **Regret of FTRL with nonincreasing learning rates, with the rate of the last play.** Let `K`
 be convex and let the learning rates `η t > 0` be nonincreasing. Let each `a t`, for `t ≤ n`, be a
 play of FTRL on `K` with potential `F` and learning rate `η t` (`IsFTRLPlay`), where `F` has
@@ -363,19 +385,11 @@ theorem ftrl_regret_succ_le_of_antitone {F : E → ℝ} (hK : Convex ℝ K) {η 
       ∑ t ∈ range n, (y t (a t - a (t + 1)) - bregDiv F (a (t + 1)) (a t) (F' t) / η t) +
       (y n (a n - u) - bregDiv F u (a n) (F' n) / η n) := by
   refine (ftrl_regret_succ_le_sum_inv_sub_inv hK hη y a ha F' hF' hu).trans ?_
-  -- the inverse rates grow and `a 0` minimizes `F` over `K`, so each penalty is at most
-  -- `(1 / η (t + 1) - 1 / η t) * (F u - F (a 0))`, and these telescope
-  have h_pen : ∑ t ∈ range n, ((η (t + 1))⁻¹ - (η t)⁻¹) * (F u - F (a (t + 1))) ≤
-      ((η n)⁻¹ - (η 0)⁻¹) * (F u - F (a 0)) := by
-    rw [← sum_range_sub (fun t ↦ (η t)⁻¹), sum_mul]
-    refine sum_le_sum fun t ht ↦ mul_le_mul_of_nonneg_left ?_
-      (sub_nonneg.mpr (inv_anti₀ (hη _) (hη_anti t.le_succ)))
-    have := isMinOn_iff.mp (ha 0 n.zero_le).isMinOn_zero (a (t + 1))
-      (ha (t + 1) (mem_range.mp ht)).mem
-    linarith
-  have h_eq : (F u - F (a 0)) / η 0 + ((η n)⁻¹ - (η 0)⁻¹) * (F u - F (a 0)) =
-      (F u - F (a 0)) / η n := by
-    ring
+  -- `a 0` minimizes `F` over `K`, so each penalty `F u - F (a t)` is at most `F u - F (a 0)`
+  have h_pen := div_add_sum_inv_sub_inv_mul_le_div hη hη_anti (d := fun t ↦ F u - F (a t))
+    (D := F u - F (a 0)) fun t ht ↦ by
+      have := isMinOn_iff.mp (ha 0 n.zero_le).isMinOn_zero (a t) (ha t ht).mem
+      linarith
   linarith
 
 /-- **Regret of follow the regularized leader** [LS, Theorem 28.5]. Let `K` be convex and

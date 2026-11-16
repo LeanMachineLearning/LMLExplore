@@ -50,6 +50,27 @@ namespace LMLExplore.OnlineLearning
 
 variable {E : Type*} [NormedAddCommGroup E] [NormedSpace ℝ E] {V : Set E}
 
+/-- The objective of the observed losses is that of optimistic FTRL with the hint
+`-∑ s ∈ M, g s`, which removes the missing losses. -/
+private theorem ftrl_missing_objective_eq (ψ : E → ℝ) (g : ℕ → E →L[ℝ] ℝ) {M : Finset ℕ}
+    {t : ℕ} (hM : M ⊆ range t) :
+    (fun a ↦ ψ a + ∑ s ∈ range t, g s a + (-∑ s ∈ M, g s) a) =
+      fun a ↦ ψ a + ∑ s ∈ range t \ M, g s a := by
+  ext a
+  rw [← sum_sdiff hM]
+  simp only [neg_apply, sum_apply]
+  ring
+
+/-- The bound of optimistic FTRL for the hints `-∑ s ∈ M t, g s` and the auxiliary hints `g t` is
+the bound for missing feedback. -/
+private theorem sum_optimistic_ftrl_missing_eq (g : ℕ → E →L[ℝ] ℝ) (M : ℕ → Finset ℕ)
+    (lam : ℕ → ℝ) (n : ℕ) :
+    ∑ t ∈ range n, (‖g t - g t‖ ^ 2 / (2 * lam t) + ‖g t‖ * ‖-∑ s ∈ M t, g s - g t‖ / lam t) =
+      ∑ t ∈ range n, ‖g t‖ * ‖g t + ∑ s ∈ M t, g s‖ / lam t :=
+  sum_congr rfl fun t _ ↦ by
+    rw [sub_self, norm_zero, ← norm_neg (-∑ s ∈ M t, g s - g t), neg_sub, sub_neg_eq_add]
+    ring
+
 /-- **FTRL with missing feedback**, for given leaders [Ora, Theorem 7.48, §7.13]. Let the losses
 `g t` be linear, and the regularizers `ψ t` be `lam t`-strongly convex on `V`, with `lam t > 0`,
 and nondecreasing in `t` on `V`, with `c ≤ ψ 0` on `V`. For `t < n`, let `M t ⊆ range t` be the
@@ -58,7 +79,7 @@ rounds whose losses are missing at round `t`, let `x t ∈ V` minimize over `V` 
 objective `ψ t + ∑ s ≤ t, g s` of the leader. Then for every `u ∈ V`,
 `∑ t < n, g t (x t - u) ≤ ψ (n - 1) u - c + ∑ t < n, ‖g t‖ * ‖g t + ∑ s ∈ M t, g s‖ / lam t`,
 where the norms are dual norms. The leaders enter only the proof;
-`sum_apply_sub_le_ftrl_of_missing_of_isClosed` proves their existence in finite dimension. -/
+`sum_apply_sub_le_ftrl_of_missing_of_isClosed` does without them in finite dimension. -/
 theorem sum_apply_sub_le_ftrl_of_missing (ψ : ℕ → E → ℝ) (g : ℕ → E →L[ℝ] ℝ) (M : ℕ → Finset ℕ)
     (x y : ℕ → E) {lam : ℕ → ℝ} {c : ℝ} {u : E} {n : ℕ} (hlam : ∀ t < n, 0 < lam t)
     (hψ : ∀ t < n, StrongConvexOn V (lam t) (ψ t))
@@ -70,21 +91,13 @@ theorem sum_apply_sub_le_ftrl_of_missing (ψ : ℕ → E → ℝ) (g : ℕ → E
     (hu : u ∈ V) :
     ∑ t ∈ range n, g t (x t - u) ≤
       ψ (n - 1) u - c + ∑ t ∈ range n, ‖g t‖ * ‖g t + ∑ s ∈ M t, g s‖ / lam t := by
-  -- the objective of the observed losses is that of optimistic FTRL with the hint
-  -- `-∑ s ∈ M t, g s`, and the leaders are the plays of the auxiliary hints `g t`
-  have h_obj (t : ℕ) (ht : t < n) :
-      (fun a ↦ ψ t a + ∑ s ∈ range t, g s a + (-∑ s ∈ M t, g s) a) =
-        fun a ↦ ψ t a + ∑ s ∈ range t \ M t, g s a := by
-    ext a
-    rw [← sum_sdiff (hM t ht)]
-    simp only [neg_apply, sum_apply]
-    ring
+  -- optimistic FTRL with the hints `-∑ s ∈ M t, g s`, whose auxiliary plays for the hints `g t`
+  -- are the leaders
   have h := sum_apply_sub_le_optimistic_ftrl ψ g (fun t ↦ -∑ s ∈ M t, g s) g x y hlam hψ
-    hψ_mono hc hx (fun t ht ↦ by rw [h_obj t ht]; exact hmin t ht) hy
+    hψ_mono hc hx
+    (fun t ht ↦ by rw [ftrl_missing_objective_eq (ψ t) g (hM t ht)]; exact hmin t ht) hy
     (fun t ht ↦ by simpa only [sum_range_succ, add_assoc] using hymin t ht) hu
-  refine h.trans_eq (congrArg _ (sum_congr rfl fun t _ ↦ ?_))
-  rw [sub_self, norm_zero, ← norm_neg (-∑ s ∈ M t, g s - g t), neg_sub, sub_neg_eq_add]
-  ring
+  exact h.trans_eq (congrArg _ (sum_optimistic_ftrl_missing_eq g M lam n))
 
 /-- **FTRL with missing feedback** [Ora, Theorem 7.48, §7.13]. In finite dimension, let `V` be
 closed, let the losses `g t` be linear, and let the regularizers `ψ t` be lower semicontinuous and
@@ -105,20 +118,11 @@ theorem sum_apply_sub_le_ftrl_of_missing_of_isClosed [FiniteDimensional ℝ E] (
     (hu : u ∈ V) :
     ∑ t ∈ range n, g t (x t - u) ≤
       ψ (n - 1) u - c + ∑ t ∈ range n, ‖g t‖ * ‖g t + ∑ s ∈ M t, g s‖ / lam t := by
-  -- the leaders exist, as minimizers of strongly convex lower semicontinuous functions
-  have h_ex (t : ℕ) : ∃ y, t < n → y ∈ V ∧
-      IsMinOn (fun a ↦ ψ t a + ∑ s ∈ range (t + 1), g s a) V y := by
-    by_cases ht : t < n
-    · obtain ⟨y, hy, hymin⟩ := (hψ t ht).exists_isMinOn_add_continuousLinearMap (hlam t ht) hV
-        ⟨u, hu⟩ (hψ_lsc t ht) (∑ s ∈ range (t + 1), g s)
-      refine ⟨y, fun _ ↦ ⟨hy, ?_⟩⟩
-      convert hymin using 1
-      ext a
-      simp
-    · exact ⟨0, fun h ↦ absurd h ht⟩
-  choose y hy using h_ex
-  exact sum_apply_sub_le_ftrl_of_missing ψ g M x y hlam hψ hψ_mono hc hM hx hmin
-    (fun t ht ↦ (hy t ht).1) (fun t ht ↦ (hy t ht).2) hu
+  -- optimistic FTRL with the hints `-∑ s ∈ M t, g s` and the auxiliary hints `g t`
+  have h := sum_apply_sub_le_optimistic_ftrl_of_isClosed hV ψ g (fun t ↦ -∑ s ∈ M t, g s) g x
+    hlam hψ hψ_lsc hψ_mono hc hx
+    (fun t ht ↦ by rw [ftrl_missing_objective_eq (ψ t) g (hM t ht)]; exact hmin t ht) hu
+  exact h.trans_eq (congrArg _ (sum_optimistic_ftrl_missing_eq g M lam n))
 
 /-- **FTRL with delayed feedback** [Ora, (7.13)]. In finite dimension, let `V` be closed, let the
 losses `g t` be linear, and let the regularizers `ψ t` be lower semicontinuous and
@@ -144,8 +148,8 @@ theorem sum_apply_sub_le_ftrl_of_delay_of_isClosed [FiniteDimensional ℝ E] (hV
     ext s
     simp only [mem_sdiff, mem_range, mem_Ico]
     omega
-  have h_err (t : ℕ) : g t + ∑ s ∈ Ico (t - τ) t, g s = ∑ s ∈ Icc (t - τ) t, g s := by
-    rw [← Ico_add_one_right_eq_Icc, sum_Ico_succ_top (t.sub_le τ), add_comm]
+  have h_err (t : ℕ) : g t + ∑ s ∈ Ico (t - τ) t, g s = ∑ s ∈ Icc (t - τ) t, g s :=
+    add_sum_Ico_eq_sum_Icc (t.sub_le τ)
   have h := sum_apply_sub_le_ftrl_of_missing_of_isClosed hV ψ g (fun t ↦ Ico (t - τ) t) x hlam
     hψ hψ_lsc hψ_mono hc (fun t _ s hs ↦ mem_range.mpr (mem_Ico.mp hs).2) hx
     (fun t ht ↦ by rw [h_obs]; exact hmin t ht) hu
