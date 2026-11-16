@@ -7,6 +7,7 @@ module
 
 public import LMLExplore.EValues.EProcess.Basic
 public import LMLExplore.EValues.TestSupermartingale
+public import LMLExplore.Probability.ProductMeasure.Blocks
 public import Mathlib.Probability.ProductMeasure
 import LMLExplore.Probability.ProductMeasure
 import Statlib.ForMathlib.Probability.Process.Filtration
@@ -21,11 +22,27 @@ supermartingale, hence an e-process, for the i.i.d. null `{P ^ ℕ | P ∈ S}` a
 instance of the wealth processes `ProbabilityTheory.isTestSupermartingale_mul_prod`: under
 `P ^ ℕ`, the factor `e (ω (n + 1))` is independent of the past and has expectation at most `1`.
 
+The blocks of `m` observations of an i.i.d. sequence are i.i.d., of law the `m`-fold product
+(`MeasureTheory.measurePreserving_seqBlock_infinitePi`). Applied to them, Ville's inequality for
+these e-processes bounds the probability that the product `seqBlockProd m V k` of a function `V`
+of `m` observations over the first `k` blocks ever reaches a level `c` by `c⁻¹`, when `V` has
+expectation at most `1` under the `m`-fold product of `P`.
+
 ## Main statements
 
 * `ProbabilityTheory.IsEVar.isTestSupermartingale_prod_piLE`: the products of copies of an
   e-variable form a test supermartingale for the i.i.d. null.
 * `ProbabilityTheory.IsEVar.isEProcess_prod_piLE`: they form an e-process for the i.i.d. null.
+* `ProbabilityTheory.measure_exists_le_seqBlockProd_le`: Ville's inequality for products over
+  blocks.
+
+## Implementation notes
+
+The statement of `ProbabilityTheory.measure_exists_le_seqBlockProd_le` is adapted from
+`EValuesResearch/Results/NumeraireAux.lean` (commit `dd4072f`) in the paper project
+`RemyDegenne/evalues_research`, where it is proved by optional stopping for the product stopped
+when it reaches `c`; here it is Ville's inequality for the e-process
+`ProbabilityTheory.IsEVar.isEProcess_prod_piLE` along the blocks.
 -/
 
 public section
@@ -73,5 +90,38 @@ theorem IsEVar.isEProcess_prod_piLE (hS : ∀ P ∈ S, IsProbabilityMeasure P) (
     rintro _ ⟨P, hP, rfl⟩
     have := hS P hP
     infer_instance
+
+/-- **Ville's inequality for products over blocks.** If a function `V` of `m` observations has
+expectation at most `1` under the `m`-fold product of `P`, then under the i.i.d. law of `P` the
+product of `V` over the first `k` blocks of `m` observations reaches `c` for some `k` with
+probability at most `c⁻¹`. If `P` is not a probability measure, its i.i.d. law is `0`. -/
+theorem measure_exists_le_seqBlockProd_le (P : Measure 𝓧) {m : ℕ} {V : (Fin m → 𝓧) → ℝ≥0∞}
+    (hV : Measurable V) (hVP : ∫⁻ x, V x ∂Measure.pi (fun _ : Fin m ↦ P) ≤ 1) (c : ℝ≥0∞) :
+    Measure.infinitePi (fun _ : ℕ ↦ P) {ω | ∃ k, c ≤ seqBlockProd m V k ω} ≤ c⁻¹ := by
+  by_cases hP : IsProbabilityMeasure P
+  swap
+  · simp [Measure.infinitePi_eq_zero_of_not_isProbabilityMeasure (μ := fun _ : ℕ ↦ P) (i := 0) hP]
+  rcases le_or_gt c 1 with hc | hc
+  · exact prob_le_one.trans (ENNReal.one_le_inv.2 hc)
+  -- the products of copies of `V` along the sequence of the blocks
+  have hE := (IsEVar.of_lintegral_le_one (S := {Measure.pi fun _ : Fin m ↦ P})
+    (fun _ h ↦ h ▸ inferInstance) hV fun _ h ↦ h ▸ hVP).isEProcess_prod_piLE
+    (fun _ h ↦ h ▸ inferInstance)
+  have hblocks := measurePreserving_seqBlock_infinitePi (fun _ ↦ P) m
+  have hset : {ω | ∃ k, c ≤ seqBlockProd m V k ω} = (fun ω j ↦ seqBlock m j ω) ⁻¹'
+      {y | ∃ n, c ≤ ∏ i : Fin (n + 1), V (y i)} := by
+    ext ω
+    simp only [Set.mem_ofPred_eq, Set.mem_preimage,
+      Fin.prod_univ_eq_prod_range (fun i ↦ V (seqBlock m i ω)), ← seqBlockProd_def]
+    refine ⟨fun ⟨k, hk⟩ ↦ ?_, fun ⟨n, hn⟩ ↦ ⟨n + 1, hn⟩⟩
+    obtain _ | n := k
+    · exact absurd (hk.trans_eq (seqBlockProd_zero m V ω)) (not_le.2 hc)
+    · exact ⟨n, hk⟩
+  have hmeas : MeasurableSet {y : ℕ → Fin m → 𝓧 | ∃ n, c ≤ ∏ i : Fin (n + 1), V (y i)} := by
+    simp only [Set.ofPred_exists]
+    exact MeasurableSet.iUnion fun n ↦ measurableSet_le measurable_const
+      (Finset.measurable_prod _ fun i _ ↦ hV.comp (measurable_pi_apply _))
+  rw [hset, hblocks.measure_preimage hmeas.nullMeasurableSet]
+  exact hE.measure_exists_le_le ⟨_, rfl, rfl⟩ c
 
 end ProbabilityTheory
