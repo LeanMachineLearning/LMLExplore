@@ -17,8 +17,8 @@ Facts about LML's `gap` and `regret` of a bandit `ν : Kernel α ℝ` that hold 
 actions `A : ℕ → Ω → α`.
 
 The first part gives lower bounds on the gaps, identifies the best arm when a single arm has the
-largest mean, and gives lower bounds on the expected regret in terms of the expected numbers of
-pulls.
+largest mean, computes the gaps of a bandit with two arms of different means, and gives lower
+bounds on the expected regret in terms of the expected numbers of pulls.
 
 The second part turns gap-dependent regret bounds into gap-free ones. The analysis of an algorithm
 for stochastic bandits with finitely many arms typically bounds the expected number of pulls of
@@ -47,6 +47,11 @@ for `trajMeasure`, such as lower bounds, apply to every run.
 * `LMLExplore.Bandits.bestArm_eq_of_forall_lt`: an arm whose mean is larger than the means of all
   the other arms is the best arm, and `LMLExplore.Bandits.gap_pos_of_forall_lt`: the other arms
   then have positive gaps.
+* `LMLExplore.Bandits.bestArm_eq_of_card_eq_two`, `LMLExplore.Bandits.gap_eq_sub_of_card_eq_two`,
+  `LMLExplore.Bandits.filter_gap_pos_eq_singleton_of_card_eq_two`,
+  `LMLExplore.Bandits.sum_gap_eq_of_card_eq_two`: in a bandit with two arms `a` and `b` of means
+  `μ_a < μ_b`, the best arm is `b`, the gap of an arm `c` is `μ_b - μ_c`, `a` is the only arm with
+  positive gap, and the sum of the gaps is `μ_b - μ_a`.
 * `LMLExplore.Bandits.gap_pos_of_lt_mul_gap_sq`: an arm with `x < y Δ_a²` for some `x ≥ 0` has
   positive gap.
 * `LMLExplore.Bandits.mul_sub_integral_pullCount_le_integral_regret`: if every arm other than `a₁`
@@ -122,6 +127,46 @@ theorem iSup_integral_eq_integral_bestArm [Fintype α] [Nonempty α] (ν : Kerne
 theorem integral_lt_integral_bestArm_of_gap_pos [Fintype α] [Nonempty α] {ν : Kernel α ℝ} {a : α}
     (ha : 0 < gap ν a) : (ν a)[id] < (ν (bestArm ν))[id] := by
   linarith [gap_eq_bestArm_sub (ν := ν) (a := a)]
+
+section TwoArms
+
+variable [Fintype α] {ν : Kernel α ℝ} {a b : α}
+
+/-- In a bandit with two arms `a` and `b` of means `μ_a < μ_b`, the arm `b` is the best arm. -/
+theorem bestArm_eq_of_card_eq_two [Nonempty α] (hα : Fintype.card α = 2)
+    (hab : (ν a)[id] < (ν b)[id]) : bestArm ν = b :=
+  -- The arm `a` is the only arm other than `b`.
+  bestArm_eq_of_forall_lt fun c hc ↦ by
+    rwa [((Nat.card_eq_two_iff' b).mp (Nat.card_eq_fintype_card.trans hα)).unique hc
+      (ne_of_apply_ne (fun c ↦ (ν c)[id]) hab.ne)]
+
+/-- In a bandit with two arms `a` and `b` of means `μ_a < μ_b`, the gap of every arm `c` is
+`μ_b - μ_c`. -/
+theorem gap_eq_sub_of_card_eq_two (hα : Fintype.card α = 2) (hab : (ν a)[id] < (ν b)[id])
+    (c : α) : gap ν c = (ν b)[id] - (ν c)[id] := by
+  have : Nonempty α := ⟨a⟩
+  rw [gap_eq_bestArm_sub, bestArm_eq_of_card_eq_two hα hab]
+
+/-- In a bandit with two arms `a` and `b` of means `μ_a < μ_b`, the arm `a` is the only arm with
+positive gap. -/
+theorem filter_gap_pos_eq_singleton_of_card_eq_two (hα : Fintype.card α = 2)
+    (hab : (ν a)[id] < (ν b)[id]) : univ.filter (fun c ↦ 0 < gap ν c) = {a} := by
+  ext c
+  simp only [mem_filter, mem_univ, true_and, mem_singleton, gap_eq_sub_of_card_eq_two hα hab,
+    sub_pos]
+  refine ⟨fun hc ↦ ?_, fun hc ↦ hc ▸ hab⟩
+  exact ((Nat.card_eq_two_iff' b).mp (Nat.card_eq_fintype_card.trans hα)).unique
+    (ne_of_apply_ne (fun c ↦ (ν c)[id]) hc.ne) (ne_of_apply_ne (fun c ↦ (ν c)[id]) hab.ne)
+
+/-- In a bandit with two arms `a` and `b` of means `μ_a < μ_b`, the sum of the gaps is
+`μ_b - μ_a`. -/
+theorem sum_gap_eq_of_card_eq_two (hα : Fintype.card α = 2)
+    (hab : (ν a)[id] < (ν b)[id]) : ∑ c, gap ν c = (ν b)[id] - (ν a)[id] := by
+  rw [← sum_filter_of_ne fun c _ hc ↦ gap_nonneg.lt_of_ne' hc,
+    filter_gap_pos_eq_singleton_of_card_eq_two hα hab, sum_singleton,
+    gap_eq_sub_of_card_eq_two hα hab]
+
+end TwoArms
 
 variable [StandardBorelSpace α] {Ω : Type*} {mΩ : MeasurableSpace Ω} {P : Measure Ω}
   [IsProbabilityMeasure P] {A : ℕ → Ω → α} {ν : Kernel α ℝ}

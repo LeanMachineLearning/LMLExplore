@@ -59,6 +59,9 @@ an instance, on the Bernoulli bandits with means in `(0, 1)`.
   expected regret of `ucbF σ2` satisfies `E[R_n] / log n → ∑_{a : Δ_a > 0} 2 σ² / Δ_a`.
 * `isLittleO_ucbF_regret_sub_mul_log_gaussianBandit`: the same statement in the form
   `E[R_n] = c* log n + o(log n)`.
+* `tendsto_ucbF_regret_div_log_gaussianBandit_of_card_eq_two`: on a two-armed Gaussian bandit with
+  variance `σ²` and means `μ_a < μ_b`, the expected regret of `ucbF σ2` satisfies
+  `E[R_n] / log n → 2 σ² / (μ_b - μ_a)`.
 * `GaussianTS.isConsistent_gaussianBandit`: `gaussianTS σ2` is consistent over the Gaussian bandits
   with variance `σ²`.
 * `tendsto_gaussianTS_regret_div_log_gaussianBandit`: [LS, Theorem 36.3], asymptotic part: on a
@@ -207,6 +210,23 @@ theorem isLittleO_ucbF_regret_sub_mul_log_gaussianBandit (hσ2 : σ2 ≠ 0)
     ((eventually_gt_atTop 1).mono fun n hn ↦ (log_pos (by exact_mod_cast hn)).ne')
     (tendsto_ucbF_regret_div_log_gaussianBandit hσ2 h)
 
+/-- **Asymptotically optimal UCB on two Gaussian arms.** On a Gaussian bandit with variance
+`σ² ≠ 0` and two arms `a` and `b` of means `μ_a < μ_b`, the expected regret of the asymptotically
+optimal UCB algorithm `ucbF σ2` satisfies `E[R_n] / log n → 2 σ² / Δ`, where `Δ = μ_b - μ_a` is the
+gap of `a`: this is the Lai–Robbins constant of this bandit. -/
+theorem tendsto_ucbF_regret_div_log_gaussianBandit_of_card_eq_two (hσ2 : σ2 ≠ 0)
+    (hα : Fintype.card α = 2) {a b : α} (hab : μ a < μ b)
+    (h : IsAlgEnvSeq O A R (ucbF σ2) (Environment.bandit (gaussianBandit μ σ2)) P) :
+    Tendsto (fun n : ℕ ↦ P[regret (gaussianBandit μ σ2) A n] / log n) atTop
+      (𝓝 (2 * σ2 / (μ b - μ a))) := by
+  -- `a` is the only arm with a gap, and its gap is `μ_b - μ_a`.
+  have hab' : (gaussianBandit μ σ2 a)[id] < (gaussianBandit μ σ2 b)[id] := by
+    simpa [integral_id_gaussianBandit] using hab
+  have := tendsto_ucbF_regret_div_log_gaussianBandit hσ2 h
+  rwa [filter_gap_pos_eq_singleton_of_card_eq_two hα hab', sum_singleton,
+    gap_eq_sub_of_card_eq_two hα hab', integral_id_gaussianBandit,
+    integral_id_gaussianBandit] at this
+
 /-- **[LS, Theorem 36.3], asymptotic part: asymptotic optimality of Gaussian Thompson sampling.**
 On a Gaussian bandit with variance `σ² ≠ 0`, the expected regret of Gaussian Thompson sampling
 `gaussianTS σ2` with a flat prior satisfies `E[R_n] / log n → ∑_{a : Δ_a > 0} 2 σ² / Δ_a`, the
@@ -292,25 +312,17 @@ theorem tendsto_klucb_regret_div_log_bernoulliBandit_of_card_eq_two (hα : Finty
     (h : IsAlgEnvSeq O A R klucb (Environment.bandit (bernoulliBandit p)) P) :
     Tendsto (fun n : ℕ ↦ P[regret (bernoulliBandit p) A n] / log n) atTop
       (𝓝 ((p b - p a) / (klBer (p a) (p b)).toReal)) := by
-  -- Every arm is `a` or `b`, so the largest mean is `p_b` and `a` is the only arm with a gap.
-  have hab' : a ≠ b := fun h ↦ hab.ne (by rw [h])
-  have hmem (c : α) : c = a ∨ c = b := by
-    have hc := mem_univ c
-    rw [← Finset.eq_univ_of_card {a, b} (by rw [card_pair hab', hα])] at hc
-    simpa using hc
-  have hsup : ⨆ c, (p c : ℝ) = p b := le_antisymm
-    (ciSup_le fun c ↦ by rcases hmem c with rfl | rfl <;> [exact hab.le; exact le_rfl])
-    (le_ciSup (Finite.bddAbove_range fun c ↦ (p c : ℝ)) b)
-  have hgap (c : α) : gap (bernoulliBandit p) c = p b - p c := by
-    rw [gap, ← hsup]
+  -- `a` is the only arm with a gap, and the largest mean is `p_b`.
+  have hab' : (bernoulliBandit p a)[id] < (bernoulliBandit p b)[id] := by
+    simpa [integral_id_bernoulliBandit] using hab
+  have hsup : ⨆ c, (p c : ℝ) = p b := by
+    rw [← integral_id_bernoulliBandit p b, ← bestArm_eq_of_card_eq_two hα hab',
+      ← iSup_integral_eq_integral_bestArm]
     simp_rw [integral_id_bernoulliBandit]
-  have hfilter : univ.filter (fun c ↦ 0 < gap (bernoulliBandit p) c) = {a} := by
-    ext c
-    rcases hmem c with rfl | rfl
-    · simpa [hgap] using hab
-    · simp [hgap, hab'.symm]
   have := tendsto_klucb_regret_div_log_bernoulliBandit h
-  rwa [hfilter, sum_singleton, hgap, hsup] at this
+  rwa [filter_gap_pos_eq_singleton_of_card_eq_two hα hab', sum_singleton,
+    gap_eq_sub_of_card_eq_two hα hab', hsup, integral_id_bernoulliBandit,
+    integral_id_bernoulliBandit] at this
 
 section ExpFamily
 

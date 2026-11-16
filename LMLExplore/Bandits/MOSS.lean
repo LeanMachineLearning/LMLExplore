@@ -11,6 +11,7 @@ public import LeanMachineLearning.Online.Bandit.Regret
 public import LeanMachineLearning.SequentialLearning.SumRewards
 public import LMLExplore.Bandits.Concentration
 public import LMLExplore.Bandits.IndexAlgorithm
+public import LMLExplore.Bandits.Regret
 public import LMLExplore.MeasureTheory.Integral.Bochner.Set
 public import LMLExplore.MeasureTheory.Integral.Layercake
 public import LMLExplore.Probability.Martingale.SubGaussian
@@ -61,6 +62,8 @@ removes the logarithmic factor from the minimax bound `E[R_N] ≤ 39 √(σ² k 
   [LS, Theorem 9.1].
 * `moss_regret_le`: **[LS, Theorem 9.1]** for σ²-sub-Gaussian rewards, the expected regret of MOSS
   at the horizon `N` is at most `39 √(σ² k N) + ∑_a Δ_a`.
+* `moss_regret_le_of_card_eq_two`: for two σ²-sub-Gaussian arms whose means differ by `Δ > 0`
+  (for instance two Gaussian arms of variance `σ²`), the bound is `39 √(2 σ² N) + Δ`.
 
 ## Implementation notes
 
@@ -645,6 +648,17 @@ theorem moss_regret_le [Nonempty α] (n : ℕ)
   _ ≤ 39 * √(σ2 * Fintype.card α * n) + ∑ a, gap ν a := by
     rw [sum_add_distrib, sum_const, card_univ, nsmul_eq_mul, hθ_def]
     linarith [mul_add_mul_sqrt_le_mul_sqrt σ2 hk hN]
+
+/-- **[LS, Theorem 9.1] for two arms.** In a bandit with two σ²-sub-Gaussian arms `a` and `b` of
+means `μ_a < μ_b`, the expected regret of the MOSS algorithm for the horizon `n` is at most
+`39 √(2 σ² n) + Δ` at that horizon, where `Δ = μ_b - μ_a` is the gap of `a`. -/
+theorem moss_regret_le_of_card_eq_two [Nonempty α] (hα : Fintype.card α = 2) {b : α}
+    (hab : (ν a)[id] < (ν b)[id]) (n : ℕ)
+    (h : IsAlgEnvSeq O A R (moss σ2 n) (Environment.bandit ν) P)
+    (hν : ∀ a, HasSubgaussianMGF (fun x ↦ x - (ν a)[id]) σ2 (ν a)) :
+    P[regret ν A n] ≤ 39 * √(2 * σ2 * n) + ((ν b)[id] - (ν a)[id]) := by
+  have := moss_regret_le n h hν
+  rwa [sum_gap_eq_of_card_eq_two hα hab, hα, Nat.cast_ofNat, mul_comm (σ2 : ℝ) 2] at this
 
 end Regret
 

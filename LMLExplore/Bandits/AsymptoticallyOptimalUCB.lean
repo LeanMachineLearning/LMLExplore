@@ -9,6 +9,7 @@ public import LeanMachineLearning.Online.Bandit.Regret
 public import LMLExplore.Analysis.SpecialFunctions.Log.Basic
 public import LMLExplore.Bandits.Concentration
 public import LMLExplore.Bandits.IndexAlgorithm
+public import LMLExplore.Bandits.Regret
 
 /-!
 # Asymptotically optimal UCB
@@ -47,6 +48,10 @@ Lean round `n` uses `log f(n + 1)`.
   `1 + 5 σ² / ε² + 2 σ² (log f(n) + √(π log f(n)) + 1) / (Δ_a - ε)²` on the expected number of
   pulls of an arm `a` with gap `Δ_a`, for every `ε ∈ (0, Δ_a)`.
 * `ucbF_regret_le`: [LS, Theorem 8.1], the finite-time bound on the expected regret.
+* `ucbF_regret_le_of_card_eq_two`, `ucbF_regret_le_add_div_of_card_eq_two`: for two
+  σ²-sub-Gaussian arms whose means differ by `Δ > 0` (for instance two Gaussian arms of variance
+  `σ²`), the bound is `Δ (1 + 5 σ² / ε² + 2 σ² (log f(n) + √(π log f(n)) + 1) / (Δ - ε)²)` for
+  every `ε ∈ (0, Δ)`, and at `ε = Δ / 2` it is `Δ + σ² (28 + 8 log f(n) + 8 √(π log f(n))) / Δ`.
 
 The asymptotic part of [LS, Theorem 8.1], `limsup_n E[R_n] / log n ≤ ∑_{a : Δ_a > 0} 2 σ² / Δ_a`,
 and its form `limsup_n E[T_a(n)] / log n ≤ 2 σ² / Δ_a²` for the number of pulls, are the Gaussian
@@ -259,6 +264,42 @@ theorem ucbF_regret_le
   have : Nonempty (Set.Ioo 0 (gap ν a)) := (Set.nonempty_Ioo.mpr (mem_filter.mp ha).2).to_subtype
   exact le_ciInf fun ε ↦ mul_le_mul_of_nonneg_left
     (UCBF.integral_pullCount_le h hν hσ2 a ε.2.1 ε.2.2 n) gap_nonneg
+
+/-- **[LS, Theorem 8.1] for two arms.** In a bandit with two σ²-sub-Gaussian arms `a` and `b` of
+means `μ_a < μ_b`, with `σ² ≠ 0`, the expected regret of the asymptotically optimal UCB algorithm
+at horizon `n` is at most
+`Δ (1 + 5 σ² / ε² + 2 σ² (log f(n) + √(π log f(n)) + 1) / (Δ - ε)²)` for every `ε ∈ (0, Δ)`, where
+`Δ = μ_b - μ_a` is the gap of `a` and `f(n) = 1 + n log² n`. -/
+theorem ucbF_regret_le_of_card_eq_two (hα : Fintype.card α = 2) {a b : α}
+    (hab : (ν a)[id] < (ν b)[id])
+    (h : IsAlgEnvSeq O A R (ucbF σ2) (Environment.bandit ν) P)
+    (hν : ∀ a, HasSubgaussianMGF (fun x ↦ x - (ν a)[id]) σ2 (ν a)) (hσ2 : σ2 ≠ 0) (n : ℕ)
+    {ε : ℝ} (hε : 0 < ε) (hεΔ : ε < (ν b)[id] - (ν a)[id]) :
+    P[regret ν A n] ≤ ((ν b)[id] - (ν a)[id]) * (1 + 5 * σ2 / ε ^ 2 +
+      2 * σ2 * (log (1 + n * log n ^ 2) + √(π * log (1 + n * log n ^ 2)) + 1) /
+        ((ν b)[id] - (ν a)[id] - ε) ^ 2) := by
+  rw [← gap_eq_sub_of_card_eq_two hα hab] at hεΔ ⊢
+  rw [integral_regret_eq_sum_gap_mul_integral_pullCount h.measurable_action,
+    ← sum_filter_of_ne fun a _ ha ↦ gap_nonneg.lt_of_ne' (left_ne_zero_of_mul ha),
+    filter_gap_pos_eq_singleton_of_card_eq_two hα hab, sum_singleton]
+  exact mul_le_mul_of_nonneg_left (UCBF.integral_pullCount_le h hν hσ2 a hε hεΔ n) gap_nonneg
+
+/-- **[LS, Theorem 8.1] for two arms, at `ε = Δ / 2`.** In a bandit with two σ²-sub-Gaussian arms
+`a` and `b` of means `μ_a < μ_b`, with `σ² ≠ 0`, the expected regret of the asymptotically optimal
+UCB algorithm at horizon `n` is at most
+`Δ + σ² (28 + 8 log f(n) + 8 √(π log f(n))) / Δ`, where `Δ = μ_b - μ_a` is the gap of `a` and
+`f(n) = 1 + n log² n`. -/
+theorem ucbF_regret_le_add_div_of_card_eq_two (hα : Fintype.card α = 2) {a b : α}
+    (hab : (ν a)[id] < (ν b)[id])
+    (h : IsAlgEnvSeq O A R (ucbF σ2) (Environment.bandit ν) P)
+    (hν : ∀ a, HasSubgaussianMGF (fun x ↦ x - (ν a)[id]) σ2 (ν a)) (hσ2 : σ2 ≠ 0) (n : ℕ) :
+    P[regret ν A n] ≤ (ν b)[id] - (ν a)[id] + σ2 * (28 + 8 * log (1 + n * log n ^ 2) +
+      8 * √(π * log (1 + n * log n ^ 2))) / ((ν b)[id] - (ν a)[id]) := by
+  have hΔ : 0 < (ν b)[id] - (ν a)[id] := sub_pos.mpr hab
+  refine (ucbF_regret_le_of_card_eq_two hα hab h hν hσ2 n (half_pos hΔ) (half_lt_self hΔ)).trans
+    (le_of_eq ?_)
+  field_simp
+  ring
 
 end Regret
 
