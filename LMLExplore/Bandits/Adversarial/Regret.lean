@@ -92,6 +92,9 @@ transfers lower bounds on the stochastic regret to the adversarial regret.
   every run against every environment with integrable rewards is `0`.
 * `expertPseudoRegret_single`, `expertRandomRegret_single`: with the experts that each recommend
   one arm, the expert regrets are the pseudo-regret and the random regret.
+* `expertPseudoRegret_eq_expertRegret_of_ae`: when the expected rewards of the experts and the
+  feedback are almost surely those of a table `x` and an advice `E` fixed in advance, the expert
+  pseudo-regret is the regret against the advice `E`.
 * `Learning.IsAlgEnvSeq.expertPseudoRegret_ofSeq`, `Learning.IsAlgEnvSeq.pseudoRegret_evalSeq`: the
   regret against expert advice and the adversarial regret are the pseudo-regrets against
   `Environment.ofSeq o x _` and `Environment.evalSeq x _`.
@@ -430,6 +433,30 @@ lemma expertRandomRegret_single [DecidableEq α] :
     expertRandomRegret env (fun _ m ↦ Pi.single m 1) O A Y n ω = randomRegret env O A Y n ω := by
   simp [expertRandomRegret_def, randomRegret_def, Pi.single_apply]
 
+/-- When almost surely, at every round `t < n`, the expected reward `∑ a, adv (O t) m a * m_t(a)` of
+every expert `m` is its reward `∑ a, E t m a * x t a` on the table `x` and the feedback is the
+reward `x t (A t)` of the action, the expert pseudo-regret for the advice `adv` is the regret
+against the advice `E`. -/
+lemma expertPseudoRegret_eq_expertRegret_of_ae [Finite β] [Nonempty β] [MeasurableSingletonClass α]
+    [IsProbabilityMeasure P] (hA : ∀ t, Measurable (A t)) {E : ℕ → β → α → ℝ}
+    (hm : ∀ m, ∀ t < n, (fun ω ↦ ∑ a, adv (O t ω) m a * env.means O A Y a t ω) =ᵐ[P]
+      fun _ ↦ ∑ a, E t m a * x t a)
+    (hY : ∀ t < n, Y t =ᵐ[P] x t ∘ A t) :
+    expertPseudoRegret env adv O A Y P n = expertRegret E x A P n := by
+  have hint (t : ℕ) : Integrable (fun ω ↦ x t (A t ω)) P :=
+    Integrable.of_finite.comp_measurable (hA t)
+  rw [expertPseudoRegret_def, expertRegret_def, ciSup_sub (Finite.bddAbove_range _)]
+  refine iSup_congr fun m ↦ ?_
+  calc P[fun ω ↦ ∑ t ∈ range n, (∑ a, adv (O t ω) m a * env.means O A Y a t ω - Y t ω)]
+    _ = P[fun ω ↦ ∑ t ∈ range n, (∑ a, E t m a * x t a - x t (A t ω))] := by
+      refine integral_congr_ae ?_
+      filter_upwards [(Filter.eventually_all_finset (range n)).2 fun t ht ↦
+        (hm m t (mem_range.1 ht)).and (hY t (mem_range.1 ht))] with ω hω
+      exact Finset.sum_congr rfl fun t ht ↦ by rw [(hω t ht).1, (hω t ht).2, Function.comp_apply]
+    _ = ∑ t ∈ range n, ∑ a, E t m a * x t a - P[fun ω ↦ ∑ t ∈ range n, x t (A t ω)] := by
+      simp_rw [sum_sub_distrib]
+      rw [integral_const_sub_sum _ fun t _ ↦ hint t, integral_finsetSum _ fun t _ ↦ hint t]
+
 /-- Along a run against `Environment.ofSeq o x _`, whose observations are `o` and whose rewards are
 the table `x`, the expert pseudo-regret for the advice `adv` is the regret against the expert
 advice `adv (o t)` fixed in advance. With the advice as observations (`adv = id`), it is the
@@ -440,19 +467,10 @@ lemma _root_.Learning.IsAlgEnvSeq.expertPseudoRegret_ofSeq [Finite β] [Nonempty
     (h : IsAlgEnvSeq O A Y alg (Environment.ofSeq o x hx) P) (adv : 𝓞 → β → α → ℝ) (n : ℕ) :
     expertPseudoRegret (Environment.ofSeq o x hx) adv O A Y P n =
       expertRegret (fun t ↦ adv (o t)) x A P n := by
-  have hint (t : ℕ) : Integrable (fun ω ↦ x t (A t ω)) P :=
-    Integrable.of_finite.comp_measurable (h.measurable_action t)
-  rw [expertPseudoRegret_def, expertRegret_def, ciSup_sub (Finite.bddAbove_range _)]
-  refine iSup_congr fun m ↦ ?_
-  calc P[fun ω ↦ ∑ t ∈ range n,
-        (∑ a, adv (O t ω) m a * (Environment.ofSeq o x hx).means O A Y a t ω - Y t ω)]
-    _ = P[fun ω ↦ ∑ t ∈ range n, (∑ a, adv (o t) m a * x t a - x t (A t ω))] := by
-      refine integral_congr_ae ?_
-      filter_upwards [h.obs_ofSeq_ae_all_eq, h.feedback_ofSeq_ae_all_eq] with ω hO hY
-      simp [hO, hY, Kernel.deterministic_apply]
-    _ = ∑ t ∈ range n, ∑ a, adv (o t) m a * x t a - P[fun ω ↦ ∑ t ∈ range n, x t (A t ω)] := by
-      simp_rw [sum_sub_distrib]
-      rw [integral_const_sub_sum _ fun t _ ↦ hint t, integral_finsetSum _ fun t _ ↦ hint t]
+  refine expertPseudoRegret_eq_expertRegret_of_ae h.measurable_action (fun m t _ ↦ ?_)
+    fun t _ ↦ h.feedback_ofSeq_ae_eq t
+  filter_upwards [h.obs_ofSeq_ae_eq t] with ω hO
+  simp [hO, Kernel.deterministic_apply]
 
 end Expert
 

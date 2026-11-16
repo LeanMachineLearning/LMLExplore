@@ -34,6 +34,13 @@ The learning rates `η = √(2 log M / (n k))` tuned for the horizon `n` give
 [LS, Theorem 11.2]. The anytime rates `η t = √(log M / (k (t + 1)))` give `2 √(n k log M)`, the
 bound `2 √(n k log k)` of Exp3 with anytime rates [BCB12, Theorem 3.1].
 
+Against an environment whose feedback is almost surely the reward `x t (A t)` of a table `x` fixed
+in advance, the conditional means `m_t(a)` can differ from `x t a` only on the arms of weight zero,
+on which the advice of every expert vanishes. So the expert pseudo-regret is the regret against
+the advice on the table, and the pseudo-regret of Exp3 is the adversarial regret `R_n(x)`: the
+bounds of this file give those against oblivious adversaries
+(`LMLExplore/Bandits/Exp4/Oblivious.lean`).
+
 ## Main statements
 
 * `Exp4IX.condExp_dotProduct_iwEstimator`: conditional unbiasedness of the importance-weighted
@@ -41,15 +48,21 @@ bound `2 √(n k log k)` of Exp3 with anytime rates [BCB12, Theorem 3.1].
 * `Exp4IX.integral_dotProduct_iwEstimator_le`, `Exp4IX.integral_sum_iwEstimator_le`: the expected
   implicit-exploration estimate of the loss of an expert is at most its expected loss, and the
   expected sum of the estimates of the arms is at most `k`.
+* `Exp4IX.sum_mul_means_ae_eq`: against a table `x` fixed in advance, the expected reward
+  `⟨adv (O t) m, m_t⟩` of an expert is almost surely its reward `⟨adv (O t) m, x t⟩` on the table.
 * `Exp4IX.integral_sum_sub_le_integral_sum_sub_dotProduct`: the expected regret against an expert
   is at most the expected estimated regret, which the pathwise bound controls.
 * `Exp4IX.expertPseudoRegret_le`: the expert pseudo-regret of Exp4-IX against an adaptive
   adversary.
+* `Exp4IX.expertPseudoRegret_eq_expertRegret`: against an oblivious table and advice, the expert
+  pseudo-regret is the regret against the advice.
 * `Exp4IX.expertPseudoRegret_nonpos_of_subsingleton`: with a single expert, the expert
   pseudo-regret is nonpositive.
 * `Exp4IX.expertPseudoRegret_le_sqrt`, `Exp4IX.expertPseudoRegret_le_two_mul_sqrt`: the bounds
   `√(2 n k log M)` for the rate tuned for the horizon [LS, Theorem 18.1] and `2 √(n k log M)` for
   the anytime rates.
+* `Exp3.pseudoRegret_eq_advRegret`: against an oblivious table, the pseudo-regret of Exp3 is the
+  adversarial regret.
 * `Exp3.pseudoRegret_le`, `Exp3.pseudoRegret_le_sqrt`: the pseudo-regret of Exp3 with a constant
   learning rate against an adaptive adversary, and [LS, Theorem 11.2].
 * `Exp3.pseudoRegret_le_two_mul_sqrt`: the pseudo-regret of Exp3 with anytime learning rates
@@ -76,6 +89,7 @@ variable {α β 𝓞 Ω : Type*} [Fintype α] [DecidableEq α] [Nonempty α] [Me
   {adv : 𝓞 → β → simplex α} {hadv : Measurable adv} {η γ : ℕ → ℝ}
   {mΩ : MeasurableSpace Ω} {P : Measure Ω} [IsProbabilityMeasure P]
   {O : ℕ → Ω → 𝓞} {A : ℕ → Ω → α} {Y : ℕ → Ω → ℝ} {env : Environment 𝓞 α ℝ} {n t : ℕ}
+  {x : ℕ → α → ℝ}
 
 namespace Exp4IX
 
@@ -201,6 +215,23 @@ theorem condExp_dotProduct_iwEstimator (h : IsAlgEnvSeq O A Y (exp4IX adv hadv �
   rcases eq_or_ne (exp4IXWeights adv η γ t (history O A Y t ω) (O t ω) b) 0 with hb | hb
   · simp [hb, adv_apply_eq_zero_of_exp4IXWeights_eq_zero hb m]
   · field_simp
+
+/-- **The mean rewards of the experts against an oblivious table.** Along a run of Exp4-IX against
+any environment whose feedback at round `t` is almost surely the reward `x t (A t)` of the action,
+the expected reward `∑ a, adv (O t) m a * m_t(a)` of expert `m` at round `t` is almost surely
+`∑ a, adv (O t) m a * x t a`, with `m_t(a) = env.means O A Y a t` the mean reward of arm `a` at
+round `t`. The conditional means `m_t(a)` need not be `x t a` on the arms of weight zero, but the
+advice of every expert vanishes there. -/
+theorem sum_mul_means_ae_eq (h : IsAlgEnvSeq O A Y (exp4IX adv hadv η γ) env P)
+    (hY : Y t =ᵐ[P] x t ∘ A t) (m : β) :
+    (fun ω ↦ ∑ a, (adv (O t ω) m : α → ℝ) a * env.means O A Y a t ω) =ᵐ[P]
+      fun ω ↦ ∑ a, (adv (O t ω) m : α → ℝ) a * x t a := by
+  filter_upwards [WeightAlgorithm.ae_means_eq_of_weights_pos (isAlgEnvSeq_weightAlgorithm h) hY]
+    with ω hω
+  refine Finset.sum_congr rfl fun b _ ↦ ?_
+  rcases eq_or_ne (exp4IXWeights adv η γ t (history O A Y t ω) (O t ω) b) 0 with hb | hb
+  · simp [adv_apply_eq_zero_of_exp4IXWeights_eq_zero hb m]
+  · rw [hω b (lt_of_le_of_ne (exp4IXWeights_nonneg ..) hb.symm)]
 
 /-- Along a run of Exp4-IX whose feedback at round `t` is almost surely in `[0, 1]`, the expected
 loss `∑ a, adv (O t) m a * (1 - m_t(a))` of an expert `m` at round `t` is integrable, with
@@ -530,9 +561,42 @@ theorem expertPseudoRegret_le_two_mul_sqrt
       rw [← sqrt_mul hL0.le, ← sqrt_mul (by positivity)]
       ring_nf
 
+/-! ### Oblivious tables
+
+When the feedback of every round `t < n` is almost surely the reward `x t (A t)` of a table `x`
+fixed in advance, the expected regret against an expert is the regret against its advice on the
+table, whatever the environment: `sum_mul_means_ae_eq` replaces the conditional means by the
+table. -/
+
+/-- **The expert pseudo-regret against an oblivious table is the regret against the advice.**
+Along a run of Exp4-IX against any environment whose observation and feedback at every round
+`t < n` are almost surely `o t` and the reward `x t (A t)` of the action, the expert pseudo-regret
+for the advice `adv` is the regret against the expert advice `adv (o t)` on the table `x`. -/
+theorem expertPseudoRegret_eq_expertRegret (h : IsAlgEnvSeq O A Y (exp4IX adv hadv η γ) env P)
+    {o : ℕ → 𝓞} (hO : ∀ t < n, O t =ᵐ[P] fun _ ↦ o t) (hY : ∀ t < n, Y t =ᵐ[P] x t ∘ A t) :
+    expertPseudoRegret env (fun o m ↦ (adv o m : α → ℝ)) O A Y P n =
+      expertRegret (fun t m ↦ (adv (o t) m : α → ℝ)) x A P n := by
+  refine expertPseudoRegret_eq_expertRegret_of_ae h.measurable_action (fun m t ht ↦ ?_) hY
+  filter_upwards [sum_mul_means_ae_eq h (hY t ht) m, hO t ht] with ω hω hωO
+  rw [hω, hωO]
+
 end Exp4IX
 
 namespace Exp3
+
+/-- **The pseudo-regret against an oblivious table is the adversarial regret.** Along a run of
+Exp4-IX with the experts `α`, expert `b` advising the Dirac mass at `b` (Exp3 and Exp3-IX, with
+any learning rates and implicit-exploration parameters), against any environment whose feedback at
+every round `t < n` is almost surely the reward `x t (A t)` of the action, the pseudo-regret is the
+adversarial regret `R_n(x)`. -/
+theorem pseudoRegret_eq_advRegret
+    (h : IsAlgEnvSeq O A Y (exp4IX singleAdvice measurable_singleAdvice η γ) env P)
+    (hY : ∀ t < n, Y t =ᵐ[P] x t ∘ A t) :
+    pseudoRegret env O A Y P n = advRegret x A P n := by
+  rw [← expertPseudoRegret_single, ← expertRegret_single]
+  refine expertPseudoRegret_eq_expertRegret_of_ae h.measurable_action (fun a t ht ↦ ?_) hY
+  filter_upwards [Exp4IX.sum_mul_means_ae_eq h (hY t ht) a] with ω hω
+  simpa using hω
 
 /-- **Pseudo-regret of Exp3** against an adaptive adversary: along a run of Exp3 with learning rate
 `η > 0` against any environment whose feedbacks of the rounds `t < n` are almost surely in

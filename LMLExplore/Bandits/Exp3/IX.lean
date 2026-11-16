@@ -5,6 +5,8 @@ Authors: LMLExplore contributors
 -/
 module
 
+public import LMLExplore.Analysis.Real.Sqrt
+public import LMLExplore.Bandits.Adversarial.Regret
 public import LMLExplore.Bandits.Exp3.Basic
 
 /-!
