@@ -9,7 +9,7 @@ public import Mathlib.Logic.Function.DependsOn
 public import Mathlib.MeasureTheory.Group.Arithmetic
 
 /-!
-# Measurability of evaluations, initial segments of tuples and finite dependence
+# Measurability of evaluations, initial segments of tuples, finite dependence and fibers
 
 ## Main definitions
 
@@ -27,6 +27,8 @@ public import Mathlib.MeasureTheory.Group.Arithmetic
   `initSeg n`, and any function of it, only depend on the first `n` terms of a sequence.
 * `MeasureTheory.exists_measurable_eq_comp_initSeg`: conversely, a measurable function of the first
   `n` terms of a sequence factors measurably through the initial segment `initSeg n`.
+* `MeasurableSpace.measurableSet_comap_top_iff`: the measurable sets of the σ-algebra
+  `MeasurableSpace.comap f ⊤` are the unions of fibers of `f`.
 * `DependsOn.measurable_of_countable`: a function of a family of countable variables with
   measurable singletons that only depends on finitely many of them is measurable.
 * `measurable_from_prod_of_dependsOn`: a function on a product whose first factor is a family of
@@ -107,6 +109,15 @@ lemma _root_.measurable_from_prod_of_dependsOn {ι : Type*} {X : ι → Type*}
     fun u ↦ hf' (e u)).comp
     ((measurable_pi_iff.2 fun i ↦ (measurable_pi_apply _).comp measurable_fst).prodMk
       measurable_snd)
+
+/-- The sets that are measurable for the σ-algebra `MeasurableSpace.comap f ⊤` pulled back by a
+map `f` are the unions of fibers of `f`: the sets that contain, with each point, every point with
+the same image. -/
+lemma _root_.MeasurableSpace.measurableSet_comap_top_iff {α β : Type*} {f : α → β} {s : Set α} :
+    MeasurableSet[MeasurableSpace.comap f ⊤] s ↔ ∀ a a', f a = f a' → (a ∈ s ↔ a' ∈ s) := by
+  refine ⟨fun ⟨u, _, hu⟩ a a' h ↦ by simp [← hu, h], fun h ↦ ⟨f '' s, trivial, ?_⟩⟩
+  ext a
+  exact ⟨fun ⟨a', ha', he⟩ ↦ (h a' a he).1 ha', fun ha ↦ ⟨a, ha, rfl⟩⟩
 
 /-! ### The first terms of a sequence -/
 
