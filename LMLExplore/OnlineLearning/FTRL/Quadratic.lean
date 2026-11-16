@@ -42,6 +42,8 @@ bound `4 + 4 log n` of [Ora, Theorem 1.3].
   `⟪v i, ·⟫ + μ i / 2 * ‖· - x i‖ ^ 2` with positive total weight are the nearest points to an
   explicit center; in particular the plays of follow-the-leader on the quadratized losses
   [Ora, (7.9)].
+* `isMinOn_sum_norm_sub_sq_inv_smul_sum`: the mean of finitely many points minimizes the sum
+  of the squared distances to them.
 * `regret_sq_sub_le_one_add_log`: [Ora, Example 7.26] the regret of follow-the-leader on the
   guessing game.
 
@@ -167,6 +169,27 @@ theorem isMinOn_sum_inner_add_div_two_mul_norm_sub_sq_iff {ι : Type*} (t : Fins
   simp only [isMinOn_iff, h_sq, add_le_add_iff_right]
   refine forall₂_congr fun b _ ↦ ?_
   rw [mul_le_mul_iff_of_pos_left (half_pos hμ), sq_le_sq₀ (norm_nonneg _) (norm_nonneg _)]
+
+/-- **The mean minimizes the sum of squared distances.** For points `y i`, `i ∈ t`, of a real
+inner product space, their mean `(#t)⁻¹ • ∑ i ∈ t, y i` minimizes `∑ i ∈ t, ‖b - y i‖ ^ 2` over
+the whole space. For `t = ∅` the mean is `0` and the objective is constant. The running means
+`(t)⁻¹ • ∑ s < t, y s` are thus the plays of follow-the-leader on the squared distances
+`‖b - y t‖ ^ 2`. -/
+theorem isMinOn_sum_norm_sub_sq_inv_smul_sum {ι : Type*} (t : Finset ι) (y : ι → E) :
+    IsMinOn (fun b ↦ ∑ i ∈ t, ‖b - y i‖ ^ 2) Set.univ ((#t : ℝ)⁻¹ • ∑ i ∈ t, y i) := by
+  rcases t.eq_empty_or_nonempty with rfl | ht
+  · exact fun _ _ ↦ by simp
+  -- the sum of the quadratics `2 / 2 * ‖b - y i‖ ^ 2` is minimized at the nearest point to its
+  -- center, which is the mean
+  have hc : (∑ i ∈ t, (2 : ℝ))⁻¹ • ∑ i ∈ t, ((2 : ℝ) • y i - (0 : ι → E) i) =
+      (#t : ℝ)⁻¹ • ∑ i ∈ t, y i := by
+    simp only [Pi.zero_apply, sub_zero, ← smul_sum, smul_smul, sum_const, nsmul_eq_mul]
+    rw [mul_inv, mul_assoc, inv_mul_cancel₀ two_ne_zero, mul_one]
+  have h := (isMinOn_sum_inner_add_div_two_mul_norm_sub_sq_iff t 0 y (μ := fun _ ↦ 2)
+    (by simp [ht.card_pos]) Set.univ ((#t : ℝ)⁻¹ • ∑ i ∈ t, y i)).mpr (by
+      rw [hc]
+      exact fun b _ ↦ by simp)
+  simpa using h
 
 /-- **Follow-the-leader on the guessing game** [Ora, Example 7.26]. Let the outcomes `y t` and the
 plays `x t` lie in `[0, 1]`, and let `x t` minimize over `[0, 1]` the cumulative squared loss
