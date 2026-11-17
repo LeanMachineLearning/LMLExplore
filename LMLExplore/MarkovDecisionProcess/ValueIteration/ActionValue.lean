@@ -336,9 +336,7 @@ lemma isFixedPt_qBellmanEval_qValueBM (hγ : γ < 1) (hR : ∀ p, ∀ᵐ x ∂(M
 theorem ringInverse_apply_meanRewardBM (hγ : γ < 1) (hR : ∀ p, ∀ᵐ x ∂(M.R p), |x| ≤ C) :
     Ring.inverse (1 - (γ : ℝ) • (M.saKernel π).integralCLM) (M.meanRewardBM hR) =
       M.qValueBM γ π hγ hR := by
-  have := Kernel.isFiniteKernel_resolvent (κ := M.saKernel π) hγ
-  rw [Kernel.ringInverse_one_sub_smul_integralCLM, eq_comm, Kernel.eq_integralCLM_resolvent_iff,
-    ← qBellmanEval_def]
+  rw [Kernel.ringInverse_one_sub_smul_integralCLM_apply_eq_iff hγ, ← qBellmanEval_def]
   exact (isFixedPt_qBellmanEval_qValueBM hγ hR).symm
 
 /-- **Evaluation of action values**: with bounded rewards and `γ < 1`, a bounded measurable action
@@ -347,9 +345,9 @@ and only if it is the action value `Q^π` of `π`. -/
 theorem isFixedPt_qBellmanEval_iff (hγ : γ < 1) (hR : ∀ p, ∀ᵐ x ∂(M.R p), |x| ≤ C)
     {Q : boundedMeasurable (𝓢 × 𝓐)} :
     IsFixedPt (M.qBellmanEval γ π hR) Q ↔ Q = M.qValueBM γ π hγ hR := by
-  have := Kernel.isFiniteKernel_resolvent (κ := M.saKernel π) hγ
-  rw [← ringInverse_apply_meanRewardBM hγ hR, Kernel.ringInverse_one_sub_smul_integralCLM,
-    Kernel.eq_integralCLM_resolvent_iff, IsFixedPt, qBellmanEval_def, eq_comm]
+  rw [← ringInverse_apply_meanRewardBM hγ hR, eq_comm,
+    Kernel.ringInverse_one_sub_smul_integralCLM_apply_eq_iff hγ, IsFixedPt, qBellmanEval_def,
+    eq_comm]
 
 end Evaluation
 

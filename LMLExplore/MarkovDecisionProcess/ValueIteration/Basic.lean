@@ -440,9 +440,7 @@ continuous linear maps of `boundedMeasurable 𝓢`. -/
 theorem ringInverse_apply_policyRewardBM (hγ : γ < 1) (hR : ∀ p, ∀ᵐ x ∂(M.R p), |x| ≤ C) :
     Ring.inverse (1 - (γ : ℝ) • (M.stateKernel π).integralCLM) (M.policyRewardBM π hR) =
       M.valueBM γ π hγ hR := by
-  have := Kernel.isFiniteKernel_resolvent (κ := M.stateKernel π) hγ
-  rw [Kernel.ringInverse_one_sub_smul_integralCLM, eq_comm, Kernel.eq_integralCLM_resolvent_iff,
-    ← bellmanEvalOp_def]
+  rw [Kernel.ringInverse_one_sub_smul_integralCLM_apply_eq_iff hγ, ← bellmanEvalOp_def]
   exact (isFixedPt_bellmanEvalOp_valueBM hγ hR).symm
 
 /-- **Policy evaluation** [P, Theorem 6.1.1]: with bounded rewards and `γ < 1`, a bounded
@@ -451,9 +449,9 @@ only if it is the value `v^π` of `π`. -/
 theorem isFixedPt_bellmanEvalOp_iff (hγ : γ < 1) (hR : ∀ p, ∀ᵐ x ∂(M.R p), |x| ≤ C)
     {v : boundedMeasurable 𝓢} :
     IsFixedPt (M.bellmanEvalOp γ π hR) v ↔ v = M.valueBM γ π hγ hR := by
-  have := Kernel.isFiniteKernel_resolvent (κ := M.stateKernel π) hγ
-  rw [← ringInverse_apply_policyRewardBM hγ hR, Kernel.ringInverse_one_sub_smul_integralCLM,
-    Kernel.eq_integralCLM_resolvent_iff, IsFixedPt, bellmanEvalOp_def, eq_comm]
+  rw [← ringInverse_apply_policyRewardBM hγ hR, eq_comm,
+    Kernel.ringInverse_one_sub_smul_integralCLM_apply_eq_iff hγ, IsFixedPt, bellmanEvalOp_def,
+    eq_comm]
 
 end Value
 
