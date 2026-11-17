@@ -20,9 +20,13 @@ samples are written.
 * `Finset.sum_div_card_mem_Icc`: if `f i ∈ [a, b]` for every `i ∈ s`, with `s` nonempty, then
   `(∑ i ∈ s, f i) / #s ∈ [a, b]`.
 * `Finset.sum_one_sub_div_card`: the mean of the `1 - f i` is `1` minus the mean of the `f i`.
+* `Finset.le_add_of_sum_div_card_le`: an entry within `D` of every entry is at most `D` plus any
+  upper bound of the mean.
 -/
 
 public section
+
+open scoped BigOperators
 
 namespace Finset
 
@@ -34,6 +38,16 @@ theorem sum_div_card_mem_Icc {s : Finset ι} (hs : s.Nonempty) {f : ι → K} {a
     (hf : ∀ i ∈ s, f i ∈ Set.Icc a b) : (∑ i ∈ s, f i) / #s ∈ Set.Icc a b := by
   rw [← expect_eq_sum_div_card]
   exact ⟨le_expect hs fun i hi ↦ (hf i hi).1, expect_le hs fun i hi ↦ (hf i hi).2⟩
+
+/-- If `f j ≤ f i + D` for every `i ∈ s`, where `j ∈ s`, and the mean of the `f i` over `s` is at
+most `B`, then `f j ≤ B + D`: an entry that is smallest up to `D` is at most the mean up to `D`. -/
+theorem le_add_of_sum_div_card_le {s : Finset ι} {f : ι → K} {j : ι} (hj : j ∈ s) {B D : K}
+    (hf : ∀ i ∈ s, f j ≤ f i + D) (hB : (∑ i ∈ s, f i) / #s ≤ B) : f j ≤ B + D :=
+  calc f j = 𝔼 _i ∈ s, f j := (expect_const ⟨j, hj⟩ _).symm
+    _ ≤ 𝔼 i ∈ s, (f i + D) := expect_le_expect hf
+    _ = (∑ i ∈ s, f i) / #s + D := by
+      rw [expect_add_distrib, expect_const ⟨j, hj⟩, expect_eq_sum_div_card]
+    _ ≤ B + D := by gcongr
 
 /-- The mean of the `1 - f i` over a nonempty finite set is `1` minus the mean of the `f i`. -/
 theorem sum_one_sub_div_card {R : Type*} [DivisionRing R] [CharZero R] {s : Finset ι}

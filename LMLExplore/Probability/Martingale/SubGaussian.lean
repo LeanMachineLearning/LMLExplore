@@ -298,8 +298,7 @@ theorem measure_exists_sum_div_add_sqrt_add_le_zero_le_of_iIndepFun [IsProbabili
         Measure.infinitePi_map_eval]
       exact (HasSubgaussianMGF.id_map_iff (hX_meas n)).2 (hX n)
     exact h_sub.hasCondSubgaussianMGF_of_indep (measurable_pi_apply n)
-      (Filtration.indep_naturalLT measurable_pi_apply (iIndepFun_infinitePi (X := fun _ ↦ id)
-        fun _ ↦ measurable_id) n)
+      (Filtration.indep_naturalLT_infinitePi _ n)
   set E : Set (ℕ → ℝ) := {x | ∃ s : ℕ, 0 < s ∧
     (∑ k ∈ range s, x k) / s + √(4 * c / s * log⁺ (1 / (s * δ))) + Δ ≤ 0}
   have h_map := Measure.le_map_apply (aemeasurable_pi_iff.2 hX_meas) E

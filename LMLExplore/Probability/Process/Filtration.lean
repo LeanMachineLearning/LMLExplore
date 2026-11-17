@@ -7,6 +7,7 @@ module
 
 public import LMLExplore.MeasureTheory.MeasurableSpace.Constructions
 public import Mathlib.Probability.Independence.Basic
+public import Mathlib.Probability.Independence.InfinitePi
 public import Mathlib.Probability.Process.Stopping
 public import Statlib.ForMathlib.Probability.Process.Filtration
 
@@ -34,6 +35,8 @@ are stopping times.
   `naturalLT u hu i`.
 * `MeasureTheory.Filtration.indep_naturalLT`: if the `u i` are independent, `u i` is independent
   of `naturalLT u hu i`.
+* `MeasureTheory.Filtration.indep_naturalLT_infinitePi`: under a product measure
+  `Measure.infinitePi P`, each coordinate is independent of the strict past of the coordinates.
 * `MeasureTheory.Filtration.naturalLT_eval_le_comap`: for the coordinates of `ℕ → β`, the strict
   past at time `k` is at most the σ-algebra of the restriction to the first `k` coordinates.
 * `MeasureTheory.Filtration.measurable_piLE_initSeg`,
@@ -79,6 +82,17 @@ theorem indep_naturalLT (hu : ∀ i, Measurable (u i)) {μ : Measure Ω} (h_inde
   have h := indep_iSup_of_disjoint (fun j ↦ (hu j).comap_le)
     ((iIndepFun_iff_iIndep _ _ _).1 h_indep) (S := {i}) (T := Set.Iio i) (by simp)
   simpa only [Set.mem_singleton_iff, iSup_iSup_eq_left, Set.mem_Iio, naturalLT_apply] using h
+
+/-- Under a product measure `Measure.infinitePi P`, the coordinate `ω i` is independent of the
+strict past `naturalLT` of the coordinates at time `i`: each coordinate is drawn independently of
+the previous ones. -/
+theorem indep_naturalLT_infinitePi {X : ι → Type*} [∀ i, MeasurableSpace (X i)]
+    (P : (i : ι) → Measure (X i)) [∀ i, IsProbabilityMeasure (P i)] (i : ι) :
+    Indep (MeasurableSpace.comap (fun ω : (j : ι) → X j ↦ ω i) inferInstance)
+      (naturalLT (fun j (ω : (j : ι) → X j) ↦ ω j) measurable_pi_apply i)
+      (Measure.infinitePi P) :=
+  indep_naturalLT measurable_pi_apply
+    (iIndepFun_infinitePi (X := fun _ ↦ id) fun _ ↦ measurable_id) i
 
 /-- For the coordinates of `ℕ → β`, the strict past at time `k` is at most the σ-algebra of the
 restriction to the first `k` coordinates. -/

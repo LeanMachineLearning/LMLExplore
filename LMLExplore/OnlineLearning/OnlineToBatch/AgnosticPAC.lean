@@ -10,10 +10,10 @@ public import LMLExplore.OnlineLearning.Learner.Basic
 public import LMLExplore.OnlineLearning.OnlineToBatch.Validation
 public import LeanMachineLearning.ForMathlib.MeasureTheory.Order.MeasurableArg
 public import Mathlib.MeasureTheory.Constructions.Pi
+import LMLExplore.Algebra.Order.BigOperators.Expect
 import LMLExplore.Probability.ProductMeasure
 import LMLExplore.Probability.Process.Filtration
 import Mathlib.MeasureTheory.Integral.Prod
-import Mathlib.Probability.Independence.InfinitePi
 
 /-!
 # Agnostic PAC learning from online learning
@@ -253,38 +253,12 @@ private lemma eventually_sqrt_lt (c a : ℝ) (ha : 0 < a) {ε : ℝ} (hε : 0 < 
   rw [← add_div, ← mul_div_assoc] at h₂
   rwa [log_mul ha.ne' (by positivity)]
 
-/-- On the sequence space `ℕ → Z` with the product law `Measure.infinitePi fun _ ↦ ρ` and the
-filtration of the strict past of the coordinates, the coordinate `ω t` is measurable at time
-`t + 1`, is independent of the past at time `t`, and has law `ρ`. -/
-private lemma infinitePi_naturalLT (ρ : Measure Z) [IsProbabilityMeasure ρ] :
-    (∀ t, Measurable[Filtration.naturalLT (fun t (ω : ℕ → Z) ↦ ω t) measurable_pi_apply (t + 1)]
-      fun ω ↦ ω t) ∧
-    (∀ t, Indep (MeasurableSpace.comap (fun ω : ℕ → Z ↦ ω t) inferInstance)
-      (Filtration.naturalLT (fun t (ω : ℕ → Z) ↦ ω t) measurable_pi_apply t)
-      (Measure.infinitePi fun _ ↦ ρ)) ∧
-    ∀ t, (Measure.infinitePi fun _ ↦ ρ).map (fun ω : ℕ → Z ↦ ω t) = ρ :=
-  ⟨fun t ↦ Filtration.measurable_naturalLT measurable_pi_apply t.lt_succ_self,
-    fun t ↦ Filtration.indep_naturalLT measurable_pi_apply
-      (iIndepFun_infinitePi (X := fun _ ↦ id) fun _ ↦ measurable_id) t,
-    fun t ↦ Measure.infinitePi_map_eval _ t⟩
-
 /-- For a jointly measurable loss `f`, the risk `∫ z, f (g s) z ∂ρ` of a measurable choice `g s` is
 a measurable function of `s`. -/
 private lemma measurable_integral_comp {β : Type*} [MeasurableSpace β]
     (hf : Measurable (Function.uncurry f)) (ρ : Measure Z) [SFinite ρ] {g : β → α}
     (hg : Measurable g) : Measurable fun s ↦ ∫ z, f (g s) z ∂ρ :=
   (hf.stronglyMeasurable.integral_prod_right (ν := ρ)).measurable.comp hg
-
-/-- If `r j ≤ r i + D` for every `i < k`, and the average of the `r i` is at most `B`, then
-`r j ≤ B + D`: a nearly smallest term is nearly at most the average. -/
-private lemma le_add_of_sum_div_le {k : ℕ} {r : Fin k → ℝ} {j : Fin k} {B D : ℝ}
-    (hr : ∀ i, r j ≤ r i + D) (hB : (∑ i, r i) / k ≤ B) : r j ≤ B + D := by
-  have hk : (0 : ℝ) < k := by have := j.pos; positivity
-  have hsum := card_nsmul_le_sum univ r (r j - D) fun i _ ↦ sub_le_iff_le_add.2 (hr i)
-  rw [card_univ, Fintype.card_fin, nsmul_eq_mul] at hsum
-  rw [div_le_iff₀ hk] at hB
-  have h := (mul_le_mul_iff_of_pos_left hk).1 (hsum.trans (hB.trans_eq (mul_comm _ _)))
-  linarith
 
 namespace OnlineLearner.HasRegretBound
 
@@ -326,7 +300,10 @@ theorem measureReal_lt_integral_validationPlay_le
     simp only [run_def]
     exact (hA t).comp (@Measurable.of_eval _ _ _ (ℱ t) _ _ fun r ↦ measurable_const.prodMk
       (Filtration.measurable_naturalLT measurable_pi_apply r.2))
-  obtain ⟨hξ, hindep, hlaw⟩ := infinitePi_naturalLT ρ
+  have hξ (t : ℕ) : Measurable[ℱ (t + 1)] fun ω : ℕ → Z ↦ ω t :=
+    Filtration.measurable_naturalLT measurable_pi_apply t.lt_succ_self
+  have hindep := Filtration.indep_naturalLT_infinitePi fun _ : ℕ ↦ ρ
+  have hlaw := Measure.infinitePi_map_eval fun _ : ℕ ↦ ρ
   -- The average risk of the training plays is controlled by their regret [Ora, Theorem 3.10].
   have h1 := measureReal_add_div_add_sqrt_lt_sum_div_le_of_indep (ℱ := ℱ) (μ := P)
     (x := fun t ω ↦ A.run (fun _ ↦ ()) ω t) (ξ := fun t ω ↦ ω t) (n := n / 2) hf hf01 hx hξ
@@ -359,8 +336,9 @@ theorem measureReal_lt_integral_validationPlay_le
   by_contra! h
   obtain ⟨h1', h2'⟩ := h
   rw [← Fin.sum_univ_eq_sum_range (fun t ↦ ∫ z, f (A.run (fun _ ↦ ()) ω t) z ∂ρ)] at h1'
-  linarith [le_add_of_sum_div_le
-    (r := fun i : Fin (n / 2) ↦ ∫ z, f (A.run (fun _ ↦ ()) ω i) z ∂ρ) h2' h1']
+  linarith [le_add_of_sum_div_card_le
+    (f := fun i : Fin (n / 2) ↦ ∫ z, f (A.run (fun _ ↦ ()) ω i) z ∂ρ) (mem_univ _)
+    (fun i _ ↦ h2' i) (Eq.trans_le (by rw [card_fin]) h1')]
 
 /-- **Sublinear regret gives agnostic PAC learnability** [Ora, §3.2]. Let `A` be an online learner
 with data in `Z` as feedback and plays in `V`, measurable functions of the past data, whose regret
@@ -443,13 +421,14 @@ theorem Set.Finite.agnosticPACLearnable {α Z : Type*} [MeasurableSpace α] [Mea
   · obtain ⟨u, hu, hus⟩ := hs
     exact ⟨⟨u, hu⟩, by linarith⟩
   rw [← (measurePreserving_initSeg ρ n).measureReal_preimage hmeas.nullMeasurableSet]
-  obtain ⟨hξ, hindep, hlaw⟩ := infinitePi_naturalLT ρ
   refine measureReal_exists_add_sqrt_lt_le_of_indep
     (ℱ := Filtration.naturalLT (fun t (ω : ℕ → Z) ↦ ω t) measurable_pi_apply) (ρ := ρ) (m := n)
     (c := fun (v : V) _ ↦ (v : α)) (ξ := fun t ω ↦ ω t)
     (k := fun ω ↦ argmin fun v : V ↦ ∑ j, f v (initSeg n ω j)) hf hf01
-    (fun _ ↦ measurable_const) hξ (fun t _ ↦ hindep t) (fun t _ ↦ hlaw t) (fun ω v ↦ ?_)
-    (by omega) hδ
+    (fun _ ↦ measurable_const)
+    (fun t ↦ Filtration.measurable_naturalLT measurable_pi_apply t.lt_succ_self)
+    (fun t _ ↦ Filtration.indep_naturalLT_infinitePi (fun _ ↦ ρ) t)
+    (fun t _ ↦ Measure.infinitePi_map_eval (fun _ ↦ ρ) t) (fun ω v ↦ ?_) (by omega) hδ
   have h := isMinOn_univ_iff.1 (isMinOn_argmin fun v : V ↦ ∑ j, f v (initSeg n ω j)) v
   simp only [Finset.sum_range]
   simpa only [initSeg_def] using h
