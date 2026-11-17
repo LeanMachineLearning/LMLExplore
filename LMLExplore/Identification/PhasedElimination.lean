@@ -8,6 +8,7 @@ module
 public import LMLExplore.Identification.FixedBudget
 public import LMLExplore.SequentialLearning.StoppedHistory
 public import LMLExplore.Data.List.GetD
+public import LMLExplore.SequentialLearning.BanditFeedback
 
 /-!
 # Phased elimination
@@ -76,6 +77,14 @@ In the namespace `LMLExplore.Identification`:
 * `measure_outputMeasure_phasedEliminationFixedBudget_le`: the survival bound of the fixed-budget
   version: if at most one answer is active after `R` phases, the probability of an output other
   than `i ∈ S₀` is at most `∑_{r < R} P(i ∈ S_r, i ∉ S_{r+1})`.
+* `PhasedElimination.isStoppingTime_phaseStart`: along a run of any algorithm, the start of phase
+  `r` is a stopping time of the filtration `IsAlgEnvSeq.filtrationAction`.
+* `PhasedElimination.measure_inter_forall_feedback_phaseStart_add_mem`,
+  `PhasedElimination.hasLaw_pi_feedback_phaseStart_add_cond`: along a run of the sampling rule
+  against a stochastic bandit `Environment.bandit ν`, conditionally on an event known at the start
+  of phase `r` and on the active set `S_r = S`, the observations of phase `r` are independent, the
+  `j`-th one having law `ν (pulls r S)[j]`. In particular the arm `a` contributes
+  `(pulls r S).count a` observations of law `ν a`.
 
 ## References
 
@@ -856,3 +865,187 @@ theorem measure_outputMeasure_phasedEliminationFixedBudget_le
     measure_biUnion_finset_le _ _
 
 end LMLExplore.Identification
+
+/-! ### The phases along a run -/
+
+namespace LMLExplore.Identification.PhasedElimination
+
+variable {α 𝓨 ℐ : Type*} [MeasurableSpace α] [MeasurableSpace 𝓨] [DecidableEq ℐ] [Countable ℐ]
+  {Ω : Type*} {mΩ : MeasurableSpace Ω} {P : Measure Ω}
+
+section StoppingTime
+
+variable {𝓞 : Type*} [MeasurableSpace 𝓞] {S₀ : Finset ℐ} {pulls : ℕ → Finset ℐ → List α}
+  {elim : ℕ → Finset ℐ → (Σ m, Hist 𝓞 α 𝓨 m) → Finset ℐ} {O : ℕ → Ω → 𝓞} {X : ℕ → Ω → α}
+  {Y : ℕ → Ω → 𝓨} {alg : Algorithm 𝓞 α 𝓨} {env : Environment 𝓞 α 𝓨}
+
+variable (S₀ pulls) in
+/-- Along a run of any algorithm, the event that phase `r` starts at round `n` with an active set
+in `T` is known when the action of round `n` is chosen: it is an event of the history of the first
+`n` rounds. -/
+lemma measurableSet_phaseStart_eq_and_activeSet_mem (hseq : IsAlgEnvSeq O X Y alg env P)
+    (helim : ∀ r S, Measurable (elim r S)) (r n : ℕ) (T : Set (Finset ℐ)) :
+    MeasurableSet[hseq.filtrationAction n]
+      {ω | phaseStart S₀ pulls elim (fun m ↦ sigmaHistory O X Y m ω) r = n ∧
+        activeSet S₀ pulls elim (fun m ↦ sigmaHistory O X Y m ω) r ∈ T} := by
+  have h_eq : {ω | phaseStart S₀ pulls elim (fun m ↦ sigmaHistory O X Y m ω) r = n ∧
+        activeSet S₀ pulls elim (fun m ↦ sigmaHistory O X Y m ω) r ∈ T} =
+      history O X Y n ⁻¹' ((fun h : Hist 𝓞 α 𝓨 n ↦
+        phaseState S₀ pulls elim (fun m ↦ truncHist m ⟨n, h⟩) r) ⁻¹' {p | p.1 = n ∧ p.2 ∈ T}) := by
+    ext ω
+    have hH (m : ℕ) (hm : m ≤ n) :
+        truncHist m ⟨n, history O X Y n ω⟩ = sigmaHistory O X Y m ω :=
+      truncHist_mk_history_of_le hm ω
+    simp only [Set.mem_ofPred_eq, Set.mem_preimage, phaseState_eq]
+    constructor
+    · rintro ⟨h_start, h_mem⟩
+      have h_state := phaseState_congr (fun m hm ↦ (hH m hm).symm) h_start.le
+      rw [phaseState_eq, phaseState_eq, Prod.mk.injEq] at h_state
+      exact ⟨h_state.1 ▸ h_start, h_state.2 ▸ h_mem⟩
+    · rintro ⟨h_start, h_mem⟩
+      have h_state := phaseState_congr hH h_start.le
+      rw [phaseState_eq, phaseState_eq, Prod.mk.injEq] at h_state
+      exact ⟨h_state.1 ▸ h_start, h_state.2 ▸ h_mem⟩
+  rw [h_eq]
+  exact ((Set.to_countable _).measurableSet.preimage
+    (measurable_phaseState helim (measurable_truncHist_mk n) r)).preimage
+      (hseq.measurable_history_filtrationAction n)
+
+variable (S₀ pulls) in
+/-- **The start of a phase is a stopping time.** Along a run of any algorithm, the round at which
+phase `r` starts is a stopping time of the filtration `hseq.filtrationAction`: whether phase `r`
+has started by round `n` is known when the action of round `n` is chosen. -/
+lemma isStoppingTime_phaseStart (hseq : IsAlgEnvSeq O X Y alg env P)
+    (helim : ∀ r S, Measurable (elim r S)) (r : ℕ) :
+    IsStoppingTime hseq.filtrationAction
+      fun ω ↦ (phaseStart S₀ pulls elim (fun m ↦ sigmaHistory O X Y m ω) r : WithTop ℕ) := by
+  refine isStoppingTime_of_measurableSet_eq fun n ↦ ?_
+  have h_eq : {ω | (phaseStart S₀ pulls elim (fun m ↦ sigmaHistory O X Y m ω) r : WithTop ℕ) =
+        WithTop.some n} =
+      {ω | phaseStart S₀ pulls elim (fun m ↦ sigmaHistory O X Y m ω) r = n ∧
+        activeSet S₀ pulls elim (fun m ↦ sigmaHistory O X Y m ω) r ∈ Set.univ} := by
+    ext ω
+    rw [Set.mem_ofPred_eq, Set.mem_ofPred_eq, Nat.cast_withTop, WithTop.coe_inj]
+    exact (and_iff_left (Set.mem_univ _)).symm
+  rw [h_eq]
+  exact measurableSet_phaseStart_eq_and_activeSet_mem S₀ pulls hseq helim r n Set.univ
+
+variable (S₀ pulls) in
+/-- Along a run of any algorithm, an event `E` known at the start of phase `r`, intersected with
+the event that phase `r` starts at round `n` with an active set in `T`, is known when the action of
+round `n` is chosen. -/
+lemma measurableSet_inter_phaseStart_eq_and_activeSet_mem (hseq : IsAlgEnvSeq O X Y alg env P)
+    (helim : ∀ r S, Measurable (elim r S)) {r : ℕ} {E : Set Ω}
+    (hE : MeasurableSet[(isStoppingTime_phaseStart S₀ pulls hseq helim r).measurableSpace] E)
+    (n : ℕ) (T : Set (Finset ℐ)) :
+    MeasurableSet[hseq.filtrationAction n]
+      (E ∩ {ω | phaseStart S₀ pulls elim (fun m ↦ sigmaHistory O X Y m ω) r = n ∧
+        activeSet S₀ pulls elim (fun m ↦ sigmaHistory O X Y m ω) r ∈ T}) := by
+  have h_eq : E ∩ {ω | phaseStart S₀ pulls elim (fun m ↦ sigmaHistory O X Y m ω) r = n ∧
+        activeSet S₀ pulls elim (fun m ↦ sigmaHistory O X Y m ω) r ∈ T} =
+      (E ∩ {ω | (phaseStart S₀ pulls elim (fun m ↦ sigmaHistory O X Y m ω) r : WithTop ℕ) ≤
+        WithTop.some n}) ∩ {ω | phaseStart S₀ pulls elim (fun m ↦ sigmaHistory O X Y m ω) r = n ∧
+          activeSet S₀ pulls elim (fun m ↦ sigmaHistory O X Y m ω) r ∈ T} := by
+    ext ω
+    simp only [Set.mem_inter_iff, Set.mem_ofPred_eq, Nat.cast_withTop, WithTop.coe_le_coe]
+    exact ⟨fun h ↦ ⟨⟨h.1, h.2.1.le⟩, h.2⟩, fun h ↦ ⟨h.1.1, h.2⟩⟩
+  rw [h_eq]
+  exact (hE.2 n).inter (measurableSet_phaseStart_eq_and_activeSet_mem S₀ pulls hseq helim r n T)
+
+end StoppingTime
+
+section Bandit
+
+variable [Nonempty α] [MeasurableEq α] {S₀ : Finset ℐ} {pulls : ℕ → Finset ℐ → List α}
+  {elim : ℕ → Finset ℐ → (Σ m, Hist Unit α 𝓨 m) → Finset ℐ} {helim : ∀ r S, Measurable (elim r S)}
+  {ν : Kernel α 𝓨} [IsMarkovKernel ν] {O : ℕ → Ω → Unit} {X : ℕ → Ω → α} {Y : ℕ → Ω → 𝓨}
+
+/-- **The observations of a phase.** Along a run of phased elimination against the stochastic
+bandit `Environment.bandit ν`, let `E` be an event known at the start of phase `r` (an event of the
+σ-algebra of the stopping time `isStoppingTime_phaseStart`) and `S` an active set. Then the
+probability that `E` holds, that the active set of phase `r` is `S`, and that the `j`-th
+observation of the phase lies in `B j` for every `j` is the probability of the first two events
+times `∏_j ν (pulls r S)[j] (B j)`. -/
+theorem measure_inter_forall_feedback_phaseStart_add_mem [SFinite P]
+    (hseq : IsAlgEnvSeq O X Y (samplingRule S₀ pulls elim helim) (Environment.bandit ν) P)
+    (r : ℕ) {E : Set Ω}
+    (hE : MeasurableSet[(isStoppingTime_phaseStart S₀ pulls hseq helim r).measurableSpace] E)
+    (S : Finset ℐ) {B : Fin (pulls r S).length → Set 𝓨} (hB : ∀ j, MeasurableSet (B j)) :
+    P (E ∩ {ω | activeSet S₀ pulls elim (fun m ↦ sigmaHistory O X Y m ω) r = S} ∩
+        {ω | ∀ j : Fin (pulls r S).length,
+          Y (phaseStart S₀ pulls elim (fun m ↦ sigmaHistory O X Y m ω) r + j) ω ∈ B j}) =
+      P (E ∩ {ω | activeSet S₀ pulls elim (fun m ↦ sigmaHistory O X Y m ω) r = S}) *
+        ∏ j, ν (pulls r S)[j] (B j) := by
+  -- The event `E`, with phase `r` starting at round `n` with active set `S`.
+  set F : ℕ → Set Ω := fun n ↦ E ∩
+    {ω | phaseStart S₀ pulls elim (fun m ↦ sigmaHistory O X Y m ω) r = n ∧
+      activeSet S₀ pulls elim (fun m ↦ sigmaHistory O X Y m ω) r ∈ ({S} : Set (Finset ℐ))}
+    with hF_def
+  have hF (n : ℕ) : MeasurableSet[hseq.filtrationAction n] (F n) :=
+    measurableSet_inter_phaseStart_eq_and_activeSet_mem S₀ pulls hseq helim hE n {S}
+  have hF_meas (n : ℕ) : MeasurableSet (F n) := hseq.filtrationAction.le n _ (hF n)
+  -- On `F n`, the rounds `n + j` of the phase play the arms of the list `pulls r S`.
+  have h_act (n : ℕ) (j : Fin (pulls r S).length) :
+      ∀ᵐ ω ∂P, ω ∈ F n → X (n + j) ω = (pulls r S)[j] := by
+    filter_upwards [action_ae_all_eq_armAt hseq] with ω hω hωF
+    obtain ⟨-, h_start, h_set⟩ := hωF
+    rw [Set.mem_singleton_iff] at h_set
+    rw [hω, ← h_start, armAt_phaseStart_add (by rw [h_set]; exact j.isLt)]
+    simp only [h_set, Fin.getElem_fin]
+  have h_feedback (n : ℕ) :
+      MeasurableSet {ω | ∀ j : Fin (pulls r S).length, Y (n + j) ω ∈ B j} := by
+    simp only [Set.ofPred_forall]
+    exact .iInter fun j ↦ hseq.measurable_feedback _ (hB j)
+  have h_disj : Pairwise (Function.onFun Disjoint F) := fun i k hik ↦
+    Set.disjoint_left.2 fun ω hi hk ↦ hik (hi.2.1.symm.trans hk.2.1)
+  -- Both events are the disjoint unions over the start `n` of phase `r`.
+  have h_left : E ∩ {ω | activeSet S₀ pulls elim (fun m ↦ sigmaHistory O X Y m ω) r = S} ∩
+      {ω | ∀ j : Fin (pulls r S).length,
+        Y (phaseStart S₀ pulls elim (fun m ↦ sigmaHistory O X Y m ω) r + j) ω ∈ B j} =
+      ⋃ n, F n ∩ {ω | ∀ j : Fin (pulls r S).length, Y (n + j) ω ∈ B j} := by
+    ext ω
+    simp only [hF_def, Set.mem_inter_iff, Set.mem_ofPred_eq, Set.mem_iUnion,
+      Set.mem_singleton_iff]
+    exact ⟨fun h ↦ ⟨_, ⟨h.1.1, rfl, h.1.2⟩, h.2⟩,
+      fun ⟨n, ⟨hE, h_start, h_set⟩, hY⟩ ↦ ⟨⟨hE, h_set⟩, h_start ▸ hY⟩⟩
+  have h_right : E ∩ {ω | activeSet S₀ pulls elim (fun m ↦ sigmaHistory O X Y m ω) r = S} =
+      ⋃ n, F n := by
+    ext ω
+    simp only [hF_def, Set.mem_inter_iff, Set.mem_ofPred_eq, Set.mem_iUnion,
+      Set.mem_singleton_iff]
+    exact ⟨fun h ↦ ⟨_, h.1, rfl, h.2⟩, fun ⟨n, hE, _, h_set⟩ ↦ ⟨hE, h_set⟩⟩
+  rw [h_left, h_right,
+    measure_iUnion (h_disj.mono fun i k h ↦ h.mono Set.inter_subset_left Set.inter_subset_left)
+      fun n ↦ (hF_meas n).inter (h_feedback n),
+    measure_iUnion h_disj hF_meas, ← ENNReal.tsum_mul_right]
+  exact tsum_congr fun n ↦ hseq.measure_inter_forall_feedback_mem_bandit (hF n) (h_act n) hB
+
+/-- **The observations of a phase**, law form. Along a run of phased elimination against the
+stochastic bandit `Environment.bandit ν`, conditionally on an event `E` known at the start of
+phase `r` and on the active set of phase `r` being `S`, the observations of phase `r` are
+independent, the `j`-th one having law `ν (pulls r S)[j]`. -/
+theorem hasLaw_pi_feedback_phaseStart_add_cond [IsFiniteMeasure P]
+    (hseq : IsAlgEnvSeq O X Y (samplingRule S₀ pulls elim helim) (Environment.bandit ν) P)
+    (r : ℕ) {E : Set Ω}
+    (hE : MeasurableSet[(isStoppingTime_phaseStart S₀ pulls hseq helim r).measurableSpace] E)
+    (S : Finset ℐ)
+    (hP : P (E ∩ {ω | activeSet S₀ pulls elim (fun m ↦ sigmaHistory O X Y m ω) r = S}) ≠ 0) :
+    HasLaw (fun ω (j : Fin (pulls r S).length) ↦
+        Y (phaseStart S₀ pulls elim (fun m ↦ sigmaHistory O X Y m ω) r + j) ω)
+      (Measure.pi fun j ↦ ν (pulls r S)[j])
+      P[|E ∩ {ω | activeSet S₀ pulls elim (fun m ↦ sigmaHistory O X Y m ω) r = S}] := by
+  have hH (m : ℕ) : Measurable (sigmaHistory O X Y m) :=
+    measurable_sigmaHistory hseq.measurable_obs hseq.measurable_action hseq.measurable_feedback m
+  have hτ : Measurable fun ω ↦ phaseStart S₀ pulls elim (fun m ↦ sigmaHistory O X Y m ω) r :=
+    measurable_phaseStart helim hH r
+  have hYm : Measurable fun ω (j : Fin (pulls r S).length) ↦
+      Y (phaseStart S₀ pulls elim (fun m ↦ sigmaHistory O X Y m ω) r + j) ω :=
+    Measurable.of_eval fun j ↦ (measurable_from_prod_countable_right
+      (f := fun p : ℕ × Ω ↦ Y (p.1 + j) p.2) fun n ↦ hseq.measurable_feedback (n + j)).comp
+        (hτ.prodMk measurable_id)
+  exact hasLaw_pi_cond_of_measure_inter_forall_mem hYm hP (measure_ne_top P _)
+    fun _ hB ↦ measure_inter_forall_feedback_phaseStart_add_mem hseq r hE S hB
+
+end Bandit
+
+end LMLExplore.Identification.PhasedElimination
