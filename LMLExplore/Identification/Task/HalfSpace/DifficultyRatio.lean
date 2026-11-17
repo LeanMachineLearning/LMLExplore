@@ -8,6 +8,7 @@ module
 public import LMLExplore.Identification.StaticProportions
 public import LMLExplore.Identification.Task.HalfSpace.Basic
 public import LMLExplore.LinearAlgebra.Matrix.DotProduct
+import Mathlib.Algebra.Order.Star.Real
 
 /-!
 # Difficulty ratios of tasks with a flat boundary
@@ -398,10 +399,7 @@ private lemma inv_maxRatio_staticDifficulty_le_of_hyperplane {task : IdentTask �
     (task.maxRatio task.staticDifficulty 𝒜)⁻¹ ≤ ENNReal.ofReal ((1 - t⁻¹)⁻¹ ^ 3) := by
   obtain ⟨d, hd, hdw⟩ := exists_dotProduct_eq_one_sum_le hv hu
   have hL := sum_abs_mul_sqrt_pos hv hu
-  have hq : 0 < u ⬝ᵥ u := by
-    have h0 : u ⬝ᵥ u ≠ 0 := by simpa [dotProduct_self_eq_zero] using hu
-    exact h0.lt_or_gt.resolve_left fun h ↦
-      (Finset.sum_nonneg fun a _ ↦ mul_self_nonneg (u a)).not_gt h
+  have hq : 0 < u ⬝ᵥ u := by simpa [star_trivial] using Matrix.dotProduct_star_self_pos_iff.2 hu
   have hc0 : 0 < 1 - t⁻¹ := by have : t⁻¹ < 1 := inv_lt_one_of_one_lt₀ ht; linarith
   have hc1 : 1 - t⁻¹ < 1 := by have : 0 < t⁻¹ := inv_pos.2 (by linarith); linarith
   obtain ⟨ρ, hρ, hρr, hH⟩ :=
