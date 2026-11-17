@@ -56,7 +56,7 @@ contraction of the oscillation of functions by a Markov kernel (Dobrushin's coef
   probability measures is a probability measure.
 * `MeasureTheory.exists_le_le_add_etvDist`: two finite measures have a common minorant `ρ` with
   `μ univ + ν univ = 2 * ρ univ + etvDist μ ν`.
-* `MeasureTheory.tvDist_le_two_mul_iff`: for measures of the same mass and `0 ≤ c`,
+* `MeasureTheory.tvDist_le_two_mul_iff`: for measures of the same mass and any real `c`,
   `tvDist μ ν ≤ 2 * c` if and only if `μ s ≤ ν s + c` for every measurable `s`.
 * `MeasureTheory.abs_measureReal_sub_measureReal_le_tvDist_div_two`,
   `MeasureTheory.tvDist_le_two_mul_of_forall_measureReal_le_add`: for measures of the same mass,
@@ -278,11 +278,18 @@ theorem exists_le_le_add_etvDist (μ ν : Measure 𝓧) [IsFiniteMeasure μ] [Is
     _ = 2 * (μ.restrict s + ν.restrict sᶜ) univ + etvDist μ ν := by simp [hs.etvDist_eq]
 
 /-- **Eventwise characterization of total variation**: for finite measures `μ` and `ν` of the
-same mass and `0 ≤ c`, `tvDist μ ν ≤ 2 * c` if and only if every measurable event `s` satisfies
-`μ s ≤ ν s + c`. This is Tau Ceti's `etvDist_le_two_mul_iff` for the real distance `tvDist`. -/
+same mass and any real `c`, `tvDist μ ν ≤ 2 * c` if and only if every measurable event `s`
+satisfies `μ s ≤ ν s + c`. This is Tau Ceti's `etvDist_le_two_mul_iff` for the real distance
+`tvDist`. -/
 theorem tvDist_le_two_mul_iff [IsFiniteMeasure μ] [IsFiniteMeasure ν]
-    (hμν : μ univ = ν univ) {c : ℝ} (hc : 0 ≤ c) :
+    (hμν : μ univ = ν univ) {c : ℝ} :
     tvDist μ ν ≤ 2 * c ↔ ∀ s, MeasurableSet s → μ.real s ≤ ν.real s + c := by
+  by_cases hc : 0 ≤ c
+  swap
+  -- for `c < 0` both sides fail: `tvDist` is nonnegative and the empty event forces `0 ≤ c`
+  · refine iff_of_false (fun h ↦ hc ?_) fun h ↦ hc ?_
+    · linarith [tvDist_nonneg (μ := μ) (ν := ν)]
+    · simpa using h ∅ MeasurableSet.empty
   rw [← ENNReal.ofReal_le_ofReal_iff (by positivity), ofReal_tvDist,
     ENNReal.ofReal_mul zero_le_two, ENNReal.ofReal_ofNat, etvDist_le_two_mul_iff hμν]
   refine forall₂_congr fun s _ ↦ ?_
@@ -299,7 +306,7 @@ theorem abs_measureReal_sub_measureReal_le_tvDist_div_two [IsFiniteMeasure μ]
   -- the eventwise characterization at `c = tvDist μ ν / 2`, in either order
   have h (μ ν : Measure 𝓧) [IsFiniteMeasure μ] [IsFiniteMeasure ν] (hμν : μ univ = ν univ) :
       μ.real s ≤ ν.real s + tvDist μ ν / 2 :=
-    (tvDist_le_two_mul_iff hμν (div_nonneg tvDist_nonneg zero_le_two)).1
+    (tvDist_le_two_mul_iff hμν).1
       (mul_div_cancel₀ _ two_ne_zero).ge s hs
   have h₁ := h μ ν hμν
   have h₂ := h ν μ hμν.symm
@@ -311,7 +318,7 @@ if every measurable event `s` satisfies `μ s ≤ ν s + c`, then `tvDist μ ν 
 theorem tvDist_le_two_mul_of_forall_measureReal_le_add [IsFiniteMeasure μ] [IsFiniteMeasure ν]
     (hμν : μ univ = ν univ) {c : ℝ} (h : ∀ s, MeasurableSet s → μ.real s ≤ ν.real s + c) :
     tvDist μ ν ≤ 2 * c :=
-  (tvDist_le_two_mul_iff hμν (by simpa using h ∅ MeasurableSet.empty)).2 h
+  (tvDist_le_two_mul_iff hμν).2 h
 
 /-- **Total variation and overlap on a finite type**: for finite measures `μ` and `ν` on a finite
 type with measurable singletons,
