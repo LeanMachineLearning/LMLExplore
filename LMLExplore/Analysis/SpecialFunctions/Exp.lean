@@ -57,8 +57,7 @@ which inverts in closed form at Chernoff's choice of parameter.
 
 By the convexity of the exponential, a sum of exponentials is at least its number of terms times
 the exponential of the mean of the exponents. This spreads a bound on a sum of divergences
-`∑ i D i` across the terms of a sum of Bretagnolle–Huber bounds `∑ i exp (-D i)`, in the minimax
-lower bound for linear bandits on the unit ball [LS, Theorem 24.2].
+`∑ i D i` across the terms of a sum of Bretagnolle–Huber bounds `∑ i exp (-D i)`.
 
 Mathlib bounds a finite product `∏ i ∈ s, (1 + f i)` of factors with `f ≥ 0` by
 `exp (∑ i ∈ s, f i)`; for summable `f` this gives the uniform bound `exp (∑' i, f i)`, which

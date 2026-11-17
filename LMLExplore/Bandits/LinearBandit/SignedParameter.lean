@@ -12,9 +12,10 @@ public import LMLExplore.MeasureTheory.Function.SpecialFunctions.Inner
 # Parameters with signed coordinates, for the lower bounds of linear bandits
 
 The minimax lower bounds for linear bandits [LS, Theorems 24.1 and 24.2] compare the parameters
-`θ` whose coordinates in an orthonormal basis `b` are `Δ * s i`, for signs `s i = ±1`, and count
+`θ` whose coordinates in an orthonormal basis `b` are `Δ * s i`, for signs `s i = ±1`. This file
+collects the inner-product facts about these parameters, which both bounds use, and the counts of
 the rounds at which the `i`-th coordinate `⟪b i, x⟫` of the feature `x` played does not have the
-sign `s i`. This file collects the facts about these parameters and counts that both bounds use.
+sign `s i`, which the hypercube bound [LS, Theorem 24.1] uses.
 
 ## Main statements
 
