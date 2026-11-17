@@ -280,9 +280,7 @@ variable {F : Type*} [NormedAddCommGroup F] [InnerProductSpace ℝ F] {V : Set F
 
 /-- **The fourth surrogate is not larger than the loss in an inner product space**
 [Ora, Remark 12.6]. If `x` is a nearest point of the closure of `V` to `z` and `q` is a subgradient
-of the distance to `V` at `z`, then `q` is the inner product with the unit vector from `x` to
-`z`, and the fourth surrogate `y + surrogateCoeff y x z • q` removes from `y` its component in that
-direction when it is negative, so that `‖y + surrogateCoeff y x z • q‖ ≤ ‖y‖`. -/
+of the distance to `V` at `z` within `univ`, then `‖y + surrogateCoeff y x z • q‖ ≤ ‖y‖`. -/
 theorem norm_add_surrogateCoeff_smul_le_norm (hq : HasSubgradientWithinAt (infDist · V) q univ z)
     (hx : x ∈ closure V) (hxz : infDist z V = dist z x) :
     ‖y + surrogateCoeff y x z • q‖ ≤ ‖y‖ := by
@@ -446,7 +444,8 @@ theorem HasRegretBound.constrain (hA : A.HasRegretBound (fun y x ↦ y x) adm U 
 /-- **Regret guarantee of the constrained learner for bounded losses** [Ora, Theorem 12.5]. If `A`
 has the regret bound `B` for linear losses of dual norm at most `2 L` against the comparators of
 `U ⊇ V`, then the constrained learner has the regret bound `B` at the surrogate losses for linear
-losses of dual norm at most `L`, against the comparators of `V`. -/
+losses of dual norm at most `L`, against the comparators of `V`, for nearest points `p z` of `V`
+and subgradients `q z` of the distance to `V` at `z` within `univ`. -/
 theorem HasRegretBound.constrain_of_norm_le {L : ℝ}
     (hA : A.HasRegretBound (fun y x ↦ y x) (fun _ y ↦ ‖y‖ ≤ 2 * L) U B) (hVU : V ⊆ U)
     (hp : ∀ z, infDist z V = dist z (p z))
@@ -470,7 +469,7 @@ variable {F : Type*} [NormedAddCommGroup F] [InnerProductSpace ℝ F] {V U : Set
 [Ora, Theorem 12.5, Remark 12.6]. If `A` has the regret bound `B` for linear losses of dual norm
 at most `L` against the comparators of `U ⊇ V`, then so does the constrained learner, at the
 surrogate losses, against the comparators of `V`, for nearest points `p z` in the closure of
-`V`. -/
+`V` and subgradients `q z` of the distance to `V` at `z` within `univ`. -/
 theorem HasRegretBound.constrain_of_norm_le_of_inner {L : ℝ}
     (hA : A.HasRegretBound (fun y x ↦ y x) (fun _ y ↦ ‖y‖ ≤ L) U B) (hVU : V ⊆ U)
     (hpV : ∀ z, p z ∈ closure V) (hp : ∀ z, infDist z V = dist z (p z))
