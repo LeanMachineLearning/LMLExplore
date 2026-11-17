@@ -7,6 +7,7 @@ module
 
 public import LMLExplore.Identification.StaticProportions
 public import LMLExplore.Identification.Task.HalfSpace.Basic
+public import LMLExplore.LinearAlgebra.Matrix.DotProduct
 
 /-!
 # Difficulty ratios of tasks with a flat boundary
@@ -14,8 +15,9 @@ public import LMLExplore.Identification.Task.HalfSpace.Basic
 Let the arm `a` of the vector of means `μ` have the Gaussian law of mean `μ a` and known variance
 `v a ≠ 0`. A task has a *flat boundary* at `η` if, in a ball around `η`, its admissible models are
 the vectors off a hyperplane through `η`, with one single correct answer on each side. For such a
-task, no fixed-budget algorithm family beats the static-proportions difficulty `H^{sp}` everywhere:
-the infimum over the families of the maximal difficulty ratio to `H^{sp}` is at least `1`
+task, every fixed-budget algorithm family has supremum over the admissible models of its
+asymptotic ratio to the static-proportions difficulty `H^{sp}` at least `1`: the infimum over the
+families of the maximal difficulty ratio to `H^{sp}` is at least `1`
 [D23, Theorem 7]. Half-space identification (`halfSpaceTask ν id u`), whose boundary is the
 hyperplane `u ⬝ᵥ μ = 0` everywhere, is the basic example [D23, Lemma 16]. Best arm
 identification has a flat boundary at the vectors of means with exactly two best arms,
@@ -224,19 +226,6 @@ private lemma exists_mem_simplex_mul_le_and_le (hv : ∀ a, v a ≠ 0) (hu : u �
   · rw [div_eq_mul_inv]
     exact le_add_of_nonneg_left (mul_nonneg hc0 (by positivity))
 
-/-- A vector with coordinates at most `ρ` in absolute value has
-`(u ⬝ᵥ x)² ≤ (∑ a, |u a|)² ρ²`. -/
-private lemma sq_dotProduct_le {x : α → ℝ} {ρ : ℝ} (hx : ∀ a, |x a| ≤ ρ) :
-    (u ⬝ᵥ x) ^ 2 ≤ (∑ a, |u a|) ^ 2 * ρ ^ 2 := by
-  have : |u ⬝ᵥ x| ≤ (∑ a, |u a|) * ρ :=
-    calc |u ⬝ᵥ x| ≤ ∑ a, |u a * x a| := Finset.abs_sum_le_sum_abs _ _
-      _ ≤ ∑ a, |u a| * ρ := Finset.sum_le_sum fun a _ ↦ by
-          rw [abs_mul]
-          exact mul_le_mul_of_nonneg_left (hx a) (abs_nonneg _)
-      _ = (∑ a, |u a|) * ρ := by rw [Finset.sum_mul]
-  rw [← mul_pow, ← sq_abs]
-  exact pow_le_pow_left₀ (abs_nonneg _) this 2
-
 /-- A radius `ρ ∈ (0, r / 2]` with `A ρ² ≤ B`, for `A ≥ 0` and `B > 0`. -/
 private lemma exists_pos_le_and_mul_sq_le {A B r : ℝ} (hA : 0 ≤ A) (hB : 0 < B) (hr : 0 < r) :
     ∃ ρ > 0, ρ ≤ r / 2 ∧ A * ρ ^ 2 ≤ B := by
@@ -325,7 +314,10 @@ private lemma exists_ofReal_le_inv_staticDifficulty_of_hyperplane
       have := abs_sub_abs_le_abs_sub (μ' a - η a) (μ a - η a)
       rw [sub_sub_sub_cancel_right, abs_sub_comm (μ' a) (μ a)] at this
       linarith
-    have h2 := sq_dotProduct_le (u := u) (x := μ - η) fun a ↦ (hμa a).le
+    have h2 : (u ⬝ᵥ (μ - η)) ^ 2 ≤ (∑ a, |u a|) ^ 2 * ρ ^ 2 := by
+      rw [← mul_pow, ← sq_abs]
+      exact pow_le_pow_left₀ (abs_nonneg _)
+        (abs_dotProduct_le_sum_abs_mul u fun a ↦ (hμa a).le) 2
     calc c * ((u ⬝ᵥ (μ - η)) ^ 2 / (2 * L ^ 2))
         ≤ (u ⬝ᵥ (μ - η)) ^ 2 / (2 * L ^ 2) := by
           have : 0 ≤ (u ⬝ᵥ (μ - η)) ^ 2 / (2 * L ^ 2) := by positivity
@@ -462,8 +454,8 @@ Gaussian law of mean `μ a` and variance `v a ≠ 0`. Suppose that in the ball o
 radius `r > 0`, the admissible models are the vectors off the hyperplane through `η` orthogonal to
 `u ≠ 0`, with the single correct answer `i` on one side and `j ≠ i` on the other. Then the
 infimum over the fixed-budget algorithm families of the maximal difficulty ratio to the
-static-proportions difficulty is at least `1`: no family has error complexity asymptotically
-below `H^{sp}` at every admissible model.
+static-proportions difficulty is at least `1`: every fixed-budget family has supremum over the
+admissible models of its asymptotic ratio to `H^{sp}` at least `1`.
 
 The paper also assumes the regularity assumption of [D23, Theorem 1], which the statement does not
 need. -/
@@ -483,7 +475,7 @@ theorem one_le_iInf_maxRatio_staticDifficulty_of_hyperplane {task : IdentTask α
   exact ge_of_tendsto hlim ((eventually_gt_atTop 1).mono fun t ht ↦
     inv_maxRatio_staticDifficulty_le_of_hyperplane hv hν hu hr hij hball h𝒜 ht)
 
-/-- **No family beats static proportions in Gaussian half-space identification**
+/-- **Maximal difficulty ratio to `H^{sp}` at least `1` in Gaussian half-space identification**
 [D23, Lemma 16]. For Gaussian arms with variances `v a ≠ 0` and the half-space task with normal
 vector `u ≠ 0`, the infimum over the fixed-budget algorithm families of the maximal difficulty
 ratio to the static-proportions difficulty is at least `1`. The boundary of half-space
