@@ -86,8 +86,8 @@ private lemma norm_sub_smul_sq_add_le (u v w : E) (a : ℝ) :
     ‖u - a • (v + w)‖ ^ 2 + 2 * a * ⟪u, v⟫
       ≤ ‖u‖ ^ 2 + -(2 * a) * ⟪u, w⟫ + 2 * a ^ 2 * ‖v‖ ^ 2 + 2 * a ^ 2 * ‖w‖ ^ 2 := by
   have hvw : ‖v + w‖ ^ 2 ≤ 2 * ‖v‖ ^ 2 + 2 * ‖w‖ ^ 2 := by
-    have := norm_add_le v w
-    nlinarith [norm_nonneg (v + w), norm_nonneg v, norm_nonneg w, sq_nonneg (‖v‖ - ‖w‖)]
+    rw [← mul_add]
+    exact (pow_le_pow_left₀ (norm_nonneg _) (norm_add_le v w) 2).trans add_sq_le
   rw [norm_sub_sq_real, inner_smul_right, inner_add_right, norm_smul, mul_pow, Real.norm_eq_abs,
     sq_abs]
   nlinarith [sq_nonneg a]
@@ -96,9 +96,10 @@ omit [InnerProductSpace ℝ E] [SecondCountableTopology E] [MeasurableSpace E] [
 /-- The linear growth bound, squared. -/
 private lemma norm_sq_le (hh_le : ∀ y, ‖h y‖ ≤ C * (1 + ‖y - z‖)) (y : E) :
     ‖h y‖ ^ 2 ≤ 2 * C ^ 2 * (1 + ‖y - z‖ ^ 2) := by
-  have h1 := hh_le y
-  have h0 : 0 ≤ C * (1 + ‖y - z‖) := (norm_nonneg _).trans h1
-  nlinarith [norm_nonneg (h y), sq_nonneg (‖y - z‖ - 1), pow_le_pow_left₀ (norm_nonneg _) h1 2]
+  calc ‖h y‖ ^ 2 ≤ (C * (1 + ‖y - z‖)) ^ 2 := pow_le_pow_left₀ (norm_nonneg _) (hh_le y) 2
+    _ = C ^ 2 * (1 + ‖y - z‖) ^ 2 := mul_pow _ _ _
+    _ ≤ C ^ 2 * (2 * (1 ^ 2 + ‖y - z‖ ^ 2)) := by gcongr; exact add_sq_le
+    _ = 2 * C ^ 2 * (1 + ‖y - z‖ ^ 2) := by rw [one_pow]; ring
 
 /-- Every interval `[s, t]` with `0 < s` and `0 < t` lies in an annulus `[ε, ε⁻¹]` with
 `0 < ε < 1`. -/
@@ -130,6 +131,14 @@ private lemma drift_nonneg
       c ≤ ⟪y - z, h y⟫) (a : ℝ≥0) (y : E) :
     0 ≤ 2 * (a : ℝ) * ⟪y - z, h y⟫ :=
   mul_nonneg (by positivity) (inner_nonneg hh_inner y)
+
+omit [SecondCountableTopology E] [MeasurableSpace E] [BorelSpace E] in
+/-- The squared distance after a step plus the drift term `2 a ⟪y - z, h y⟫` is nonnegative. -/
+private lemma step_nonneg
+    (hh_inner : ∀ ε ∈ Set.Ioo (0 : ℝ) 1, ∃ c > 0, ∀ y, ε ≤ ‖y - z‖ → ‖y - z‖ ≤ ε⁻¹ →
+      c ≤ ⟪y - z, h y⟫) (a : ℝ≥0) (w y : E) :
+    0 ≤ ‖w‖ ^ 2 + 2 * (a : ℝ) * ⟪y - z, h y⟫ :=
+  add_nonneg (sq_nonneg _) (drift_nonneg hh_inner a y)
 
 /-- The iterates are adapted. -/
 private lemma measurable_iterate
@@ -274,7 +283,7 @@ private lemma condExp_step_le [IsFiniteMeasure P] [CompleteSpace E]
     simp only [Z, W, G, N, Pi.add_apply, Pi.smul_apply, smul_eq_mul, hx']
     linarith
   have hR0 : ∀ ω, 0 ≤ ‖x (n + 1) ω - z‖ ^ 2 + 2 * α n * ⟪x n ω - z, h (x n ω)⟫ := fun ω ↦
-    add_nonneg (sq_nonneg _) (drift_nonneg hh_inner _ _)
+    step_nonneg hh_inner _ _ _
   have hR : Integrable (fun ω ↦ ‖x (n + 1) ω - z‖ ^ 2 + 2 * α n * ⟪x n ω - z, h (x n ω)⟫) P :=
     hZ.mono' ((((hxm (n + 1)).mono (ℱ.le _) le_rfl).sub_const z).norm.pow_const 2 |>.add
       (((hxn'.sub_const z).inner (hh.comp hxn')).const_mul _)).aestronglyMeasurable
@@ -344,7 +353,7 @@ private lemma condLExp_step_le [IsFiniteMeasure P] [CompleteSpace E]
     push_cast
     rw [Real.coe_toNNReal _ (inner_nonneg hh_inner _)]
   have hR0 : 0 ≤ᵐ[P] fun ω ↦ ‖x (n + 1) ω - z‖ ^ 2 + 2 * α n * ⟪x n ω - z, h (x n ω)⟫ :=
-    ae_of_all _ fun ω ↦ add_nonneg (sq_nonneg _) (drift_nonneg hh_inner _ _)
+    ae_of_all _ fun ω ↦ step_nonneg hh_inner _ _ _
   filter_upwards [condLExp_add_right (fun ω ↦ ((‖x (n + 1) ω - z‖₊ ^ 2 : ℝ≥0) : ℝ≥0∞))
       (hY.mono (ℱ.le n) le_rfl).aemeasurable (mΩ := ℱ n) (P := P),
     condLExp_ofReal (ℱ n) hR hR0, hRc] with ω e1 e2 e3
