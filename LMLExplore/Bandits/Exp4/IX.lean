@@ -31,10 +31,11 @@ constant rates, and which are defined as its instances: `exp4` [LS, Algorithm 11
 (`Bandits/Exp4/Basic.lean`) is the case `γ = 0` with the advice observed directly (`adv = id`),
 and `exp3IX` [LS, Algorithm 10] (`Bandits/Exp3/IX.lean`) and `exp3` [LS, Algorithm 9]
 (`Bandits/Exp3/Basic.lean`) are the cases with the experts `α`, expert `b` advising the Dirac mass
-at `b` at every observation, with any constant `γ` and with `γ = 0`. Along every run,
-the weights `Q t` are the exponential weights of the nonnegative estimated losses of the experts,
-so the local-norm bound of exponential weights with nonincreasing learning rates holds pathwise:
-against every expert `m`, with `M` the number of experts,
+at `b` at every observation, with any sequences `η` and `γ` and with a constant `η` and
+`γ = 0`. Along every run, the weights `Q t` are the exponential weights of the nonnegative
+estimated losses of the experts, so the local-norm bound of exponential weights with
+nonincreasing learning rates holds pathwise: against every expert `m`, with `M` the number of
+experts,
 `∑ t < n, (⟨Q t, E t Ŷ t⟩ - E t m ⬝ᵥ Ŷ t) ≤
   log M / η (n - 1) + ∑ t < n, η t / 2 * ⟨Q t, (E t Ŷ t) ^ 2⟩`,
 which is [LS, Lemma 18.2] for a constant rate, and follows [Ora, Section 7.5; BCB12, proof of
