@@ -67,11 +67,13 @@ In the namespace `LMLExplore.Identification.IdentTask`:
 ## Main statements
 
 * `IdentTask.inv_difficultyRatio`: `R_{H,T}(𝒜, θ)⁻¹ = H(θ) log (1 / p_{θ,T}(𝒜)) / T`.
-* `IdentTask.asymptoticRatio_eq_top`: a family whose probability of error at `θ` does not tend to
-  `0` has an infinite asymptotic difficulty ratio at `θ`, for `H(θ) < ∞`.
+* `IdentTask.asymptoticRatio_eq_top`, `IdentTask.maxRatio_eq_top`: a family whose probability of
+  error at `θ` does not tend to `0` has an infinite asymptotic difficulty ratio at `θ`, for
+  `H(θ) < ∞`, hence an infinite maximal difficulty ratio if `θ` is admissible.
 * `IdentTask.tendsto_errorComplexity_of_tendsto_log_div`: `(1 / T) log p_{θ,T}(𝒜) → -c` gives
-  `h_{θ,T}(𝒜) → c⁻¹`, and `IdentTask.inv_le_liminf_errorComplexity_of_neg_le_liminf` its
-  one-sided form for the `liminf`.
+  `h_{θ,T}(𝒜) → c⁻¹`, and `IdentTask.inv_le_liminf_errorComplexity_of_neg_le_liminf`,
+  `IdentTask.limsup_errorComplexity_le_inv_of_limsup_le_neg` its one-sided forms for the
+  `liminf` and the `limsup`.
 * `IdentTask.oracleDifficulty_anti`, `IdentTask.maxRatio_anti`: the oracle difficulty is antitone
   in the class, and the maximal difficulty ratio in the difficulty function.
 * `IdentTask.admitsComplexity_iff_exists_maxRatio_le_one`: a class whose oracle difficulty is
@@ -193,6 +195,13 @@ lemma iSup_asymptoticRatio_le_maxRatio {D : Set Θ} (hD : D ⊆ task.M) :
     ⨆ θ ∈ D, task.asymptoticRatio H 𝒜 θ ≤ task.maxRatio H 𝒜 :=
   iSup₂_mono' fun θ hθ ↦ ⟨θ, hD hθ, le_rfl⟩
 
+/-- The asymptotic difficulty ratio at an admissible model is at most the maximal difficulty
+ratio. -/
+lemma asymptoticRatio_le_maxRatio (hθ : θ ∈ task.M) :
+    task.asymptoticRatio H 𝒜 θ ≤ task.maxRatio H 𝒜 := by
+  rw [maxRatio_def]
+  exact le_iSup₂ (f := fun θ (_ : θ ∈ task.M) ↦ task.asymptoticRatio H 𝒜 θ) θ hθ
+
 
 /-- If the probability of error at `θ` does not tend to `0` and the difficulty `H θ` is finite,
 the asymptotic difficulty ratio at `θ` is infinite. -/
@@ -221,6 +230,12 @@ lemma asymptoticRatio_eq_top (hH : H θ ≠ ∞) (hp : ¬ Tendsto (task.errorPro
   rw [ENNReal.le_div_iff_mul_le (Or.inr (by simp [ENNReal.div_eq_zero_iff, hT0, hL]))
       (Or.inl hH), ENNReal.le_div_iff_mul_le (Or.inr hT0) (Or.inl hL)]
   exact hrT.le
+
+/-- If the probability of error at an admissible model `θ` does not tend to `0` and the difficulty
+`H θ` is finite, the maximal difficulty ratio is infinite. -/
+lemma maxRatio_eq_top (hθ : θ ∈ task.M) (hH : H θ ≠ ∞)
+    (hp : ¬ Tendsto (task.errorProb 𝒜 θ) atTop (𝓝 0)) : task.maxRatio H 𝒜 = ∞ :=
+  top_unique ((asymptoticRatio_eq_top hH hp).symm.trans_le (asymptoticRatio_le_maxRatio hθ))
 
 /-- For a positive difficulty `H θ`, the asymptotic difficulty ratio at `θ` is the asymptotic
 error complexity divided by the difficulty: `R_{H,∞}(𝒜, θ) = limsup_T h_{θ,T}(𝒜) / H(θ)`. -/
@@ -274,6 +289,35 @@ lemma inv_le_liminf_errorComplexity_of_neg_le_liminf {c : ℝ≥0∞}
       hg.map_liminf_of_continuousAt _ hgc.continuousAt
     _ = liminf (task.errorComplexity 𝒜 θ) atTop :=
       liminf_congr ((eventually_ne_atTop 0).mono fun T hT ↦ (errorComplexity_eq_inv hT).symm)
+
+/-- **An upper bound on the error complexity from an upper bound on the probability of error.**
+If `limsup_T (1 / T) log p_{θ,T}(𝒜) ≤ -c` for some `c ∈ [0, ∞]`, then
+`limsup_T h_{θ,T}(𝒜) ≤ c⁻¹`. -/
+lemma limsup_errorComplexity_le_inv_of_limsup_le_neg {c : ℝ≥0∞}
+    (h : limsup (fun T : ℕ ↦ ENNReal.log (task.errorProb 𝒜 θ T) / T) atTop ≤ -(c : EReal)) :
+    limsup (task.errorComplexity 𝒜 θ) atTop ≤ c⁻¹ := by
+  -- The error complexity is `g ((1 / T) log p_{θ,T}(𝒜))` for the nondecreasing continuous
+  -- `g x = ((-x)⁺)⁻¹`, which commutes with the `limsup`.
+  set g : EReal → ℝ≥0∞ := fun x ↦ (-x).toENNReal⁻¹
+  have hg : Monotone g := fun x y hxy ↦
+    ENNReal.inv_le_inv.2 (EReal.toENNReal_le_toENNReal (EReal.neg_le_neg_iff.2 hxy))
+  have hgc : Continuous g := continuous_inv.comp (EReal.continuous_toENNReal.comp continuous_neg)
+  calc limsup (task.errorComplexity 𝒜 θ) atTop
+      = limsup (g ∘ fun T : ℕ ↦ ENNReal.log (task.errorProb 𝒜 θ T) / T) atTop :=
+        limsup_congr ((eventually_ne_atTop 0).mono fun T hT ↦ errorComplexity_eq_inv hT)
+    _ = g (limsup (fun T : ℕ ↦ ENNReal.log (task.errorProb 𝒜 θ T) / T) atTop) :=
+        (hg.map_limsup_of_continuousAt _ hgc.continuousAt).symm
+    _ ≤ g (-(c : EReal)) := hg h
+    _ = c⁻¹ := by simp [g, EReal.toENNReal_coe]
+
+/-- A family whose probability of error at `θ` vanishes for all large budgets has asymptotic
+difficulty ratio `0` at `θ`, against every difficulty function: its error complexity is
+eventually `0`. -/
+lemma asymptoticRatio_eq_zero_of_eventually_errorProb_eq_zero
+    (h : ∀ᶠ T in atTop, task.errorProb 𝒜 θ T = 0) : task.asymptoticRatio H 𝒜 θ = 0 := by
+  have hev : ∀ᶠ T in atTop, task.difficultyRatio H 𝒜 θ T = 0 := h.mono fun T hT ↦ by
+    simp [difficultyRatio_def, errorComplexity_def, hT]
+  rw [asymptoticRatio_def, limsup_congr hev, limsup_const]
 
 /-- The inverse of the `liminf` of the error complexity is the `limsup` of the error exponent:
 `(liminf_T h_{θ,T}(𝒜))⁻¹ = limsup_T -(1 / T) log p_{θ,T}(𝒜)`, with the exponent in `ℝ≥0∞`. -/

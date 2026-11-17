@@ -34,7 +34,12 @@ recommends `rec μ̂_T` for a recommendation rule `rec` applied to the vector `�
 means. Cumulative tracking with constant targets realizes one for every positive allocation and
 every measurable rule. The static proportions families whose rule is correct at the means of the
 admissible models form the class `𝒞^{sp}` of [D23], whose oracle difficulty is `H^{sp}` for arms
-in exponential families and a regular task [D23, Theorem 1].
+in exponential families and a regular task [D23, Theorem 1]. For arms in exponential families and
+a regular task (samples in the closure of the means, a rule correct at the means of the admissible
+models and away from the closure of the means of their alternatives, measurable sets of correct
+answers and open sets of means of alternatives), a single static proportions family with
+proportions `w` has, at every admissible model, asymptotic error complexity at most
+`(min_a w a)⁻¹ H^{sp}(θ)`, hence at most `K H^{sp}(θ)` for uniform sampling [D23, Theorem 5].
 
 ## Main definitions
 
@@ -89,6 +94,17 @@ in exponential families and a regular task [D23, Theorem 1].
   have open means, disjoint from the means of their alternatives, with closures covering the
   vectors of means of the families, the oracle difficulty of the class `𝒞^{sp}` is the
   static-proportions difficulty `H^{sp}` [D23, Theorem 1].
+* `LMLExplore.Identification.IdentTask.asymptoticRatio_staticDifficulty_le_of_limsup_le`: a family
+  whose error complexity at `θ` is asymptotically at most the inverse of the cost of the
+  alternatives with `w` has asymptotic difficulty ratio at most `(min_a w a)⁻¹` to `H^{sp}` at `θ`.
+* `IsStaticProportions.maxRatio_staticDifficulty_le`,
+  `IsStaticProportions.maxRatio_staticDifficulty_le_card` (in
+  `LMLExplore.Identification.IdentTask`): for arms in exponential families and a regular task
+  (samples in the closure of the means, a rule correct at the means of the admissible models and
+  away from the closure of the means of their alternatives, measurable sets of correct answers,
+  open sets of means of alternatives), a static proportions family with proportions `w` has
+  maximal difficulty ratio at most `(min_a w a)⁻¹` to `H^{sp}`, and uniform sampling at most `K`
+  [D23, Theorem 5].
 
 ## Implementation notes
 
@@ -164,6 +180,50 @@ lemma staticDifficulty_eq_charTime {θ : Θ} {i : ℐ} (hi : task.correct θ = {
   refine congrArg _ (iSup_congr fun w ↦ iSup_congr fun _ ↦
     iInf_congr fun θ' ↦ iInf_congr fun hθ' ↦ ?_)
   simp only [cost_def, hsymm θ' hθ']
+
+/-- An alternative to `θ` at finite divergence from `θ` on every arm makes the static-proportions
+difficulty of `θ` positive: every allocation pays a finite cost to this alternative. -/
+lemma staticDifficulty_ne_zero_of_mem_alternatives {θ θ₀ : Θ} (h₀ : θ₀ ∈ task.alternatives θ)
+    (h : ∀ a, InformationTheory.klDiv (task.ν θ₀ a) (task.ν θ a) ≠ ∞) :
+    task.staticDifficulty θ ≠ 0 := by
+  rw [staticDifficulty_def, ENNReal.inv_ne_zero]
+  exact ne_top_of_le_ne_top (iSup_ne_top h)
+    (iSup₂_le fun w hw ↦ (iInf₂_le θ₀ h₀).trans (task.cost_le_iSup_klDiv hw θ₀ θ))
+
+/-- **The difficulty ratio to the static-proportions difficulty** [D23, proof of Theorem 5]. Let
+the model `θ` have a positive static-proportions difficulty, and let the error complexity of the
+family `𝒜` at `θ` be asymptotically at most `L_w⁻¹`, for the cost
+`L_w = inf_{λ ∈ Alt(θ)} ∑ a, w a KL(ν_a(λ), ν_a(θ))` of the alternatives with the vector `w`, as
+for static proportions `w` (`IsStaticProportions.tendsto_errorComplexity_inv_iInf_cost`). Then
+the asymptotic difficulty ratio of `𝒜` at `θ` to the static-proportions difficulty is at most
+`(min_a w a)⁻¹`: every allocation `w'` has `(min_a w a) L_{w'} ≤ L_w`. -/
+theorem asymptoticRatio_staticDifficulty_le_of_limsup_le {mℐ : MeasurableSpace ℐ}
+    {𝒜 : ℕ → IdentAlg Unit α 𝓨 ℐ} {θ : Θ} {w : α → ℝ} (hθ : task.staticDifficulty θ ≠ 0)
+    (h : limsup (task.errorComplexity 𝒜 θ) atTop ≤
+      (⨅ θ' ∈ task.alternatives θ, task.cost w θ' θ)⁻¹) :
+    task.asymptoticRatio task.staticDifficulty 𝒜 θ ≤ (⨅ a, ENNReal.ofReal (w a))⁻¹ := by
+  set m := ⨅ a, ENNReal.ofReal (w a)
+  set L := ⨅ θ' ∈ task.alternatives θ, task.cost w θ' θ
+  set V := ⨆ w' ∈ simplex α, ⨅ θ' ∈ task.alternatives θ, task.cost w' θ' θ with hV_def
+  have hV : V ≠ ∞ := by rwa [staticDifficulty_def, ENNReal.inv_ne_zero] at hθ
+  -- `m V ≤ L`: each allocation `w'` costs at most `m⁻¹` times as much as `w`.
+  have hmV : m * V ≤ L := by
+    simp only [hV_def, ENNReal.mul_iSup]
+    refine iSup₂_le fun w' hw' ↦ le_iInf₂ fun θ' hθ' ↦ ?_
+    calc m * ⨅ θ'' ∈ task.alternatives θ, task.cost w' θ'' θ ≤ m * task.cost w' θ' θ := by
+          gcongr
+          exact iInf₂_le θ' hθ'
+      _ ≤ task.cost w θ' θ := task.iInf_ofReal_mul_cost_le w hw' θ' θ
+  rw [asymptoticRatio_eq_limsup_div hθ, staticDifficulty_def, ENNReal.div_eq_inv_mul, inv_inv,
+    ← hV_def]
+  rcases eq_or_ne V 0 with hV0 | hV0
+  · rw [hV0, zero_mul]
+    exact zero_le
+  calc V * limsup (task.errorComplexity 𝒜 θ) atTop ≤ V * L⁻¹ := by gcongr
+    _ ≤ V * (m * V)⁻¹ := by gcongr
+    _ = m⁻¹ := by
+      rw [ENNReal.mul_inv (Or.inr hV) (Or.inr hV0), mul_comm m⁻¹, ← mul_assoc,
+        ENNReal.mul_inv_cancel hV0 hV, one_mul]
 
 end LMLExplore.Identification.IdentTask
 
@@ -654,5 +714,92 @@ theorem oracleDifficulty_staticClass_eq_staticDifficulty [Finite ℐ]
     _ = _ := (h𝒜.tendsto_errorComplexity_inv_iInf_cost hρ hρ_closure hmean hν
         (fun θ' hθ' ↦ hrec_M θ' (task.alternatives_subset_M θ hθ')) hrec_θ hθ hcorrect
         hopen_alt).limsup_eq
+
+/-! ### The difficulty ratio of static proportions -/
+
+/-- **The difficulty ratio of static proportions at a model** [D23, Theorem 5]. Under the
+hypotheses of `IsStaticProportions.tendsto_errorComplexity_inv_iInf_cost` at the admissible model
+`θ`, the asymptotic difficulty ratio at `θ` of a static proportions family with proportions `w` to
+the static-proportions difficulty is at most `(min_a w a)⁻¹`. At a model without alternatives, the
+family eventually never errs, and the ratio is `0`. -/
+theorem IsStaticProportions.asymptoticRatio_staticDifficulty_le
+    (h𝒜 : task.IsStaticProportions rec 𝒜 w) (hρ : ∀ a c, ¬ id =ᵐ[ρ a] fun _ ↦ c)
+    (hρ_closure : ∀ a, ∀ᵐ x ∂(ρ a), x ∈ closure ((ρ a).expFamilyMeans id))
+    (hmean : ∀ θ ∈ task.M, ∀ a, mean θ a ∈ (ρ a).expFamilyMeans id)
+    (hν : ∀ θ ∈ task.M, ∀ a, task.ν θ a = (ρ a).expFamily id ((ρ a).natParam id (mean θ a)))
+    (hrec_alt : ∀ θ' ∈ task.alternatives θ, rec (mean θ') ∈ task.correct θ')
+    (hrec : ∀ x : α → ℝ, (∀ a, x a ∈ closure ((ρ a).expFamilyMeans id)) →
+      x ∉ closure (mean '' task.alternatives θ) → rec x ∈ task.correct θ)
+    (hθ : θ ∈ task.M) (hcorrect : MeasurableSet (task.correct θ))
+    (hopen : IsOpen (mean '' task.alternatives θ)) :
+    task.asymptoticRatio task.staticDifficulty 𝒜 θ ≤ (⨅ a, ENNReal.ofReal (w a))⁻¹ := by
+  rcases (task.alternatives θ).eq_empty_or_nonempty with hemp | ⟨θ₀, hθ₀⟩
+  · -- Without alternatives, `rec` is correct on the closure of the means, where the empirical
+    -- means eventually lie.
+    refine (asymptoticRatio_eq_zero_of_eventually_errorProb_eq_zero ?_).trans_le zero_le
+    have hC (a : α) : ∀ᵐ x ∂(task.ν θ a), x ∈ closure ((ρ a).expFamilyMeans id) := by
+      rw [hν θ hθ a]
+      exact (Measure.expFamily_absolutelyContinuous (ρ a) id _).ae_le (hρ_closure a)
+    filter_upwards [h𝒜.eventually_ae_empMean_mem hθ
+      (fun a ↦ Measure.convex_expFamilyMeans.closure) hC] with T hT
+    rw [h𝒜.errorProb_eq hcorrect]
+    exact ae_iff.1 (hT.mono fun h hh ↦ hrec _ hh (by simp [hemp]))
+  · -- An alternative at finite divergence makes the static-proportions difficulty positive.
+    have hθ₀M := task.alternatives_subset_M θ hθ₀
+    refine task.asymptoticRatio_staticDifficulty_le_of_limsup_le
+      (task.staticDifficulty_ne_zero_of_mem_alternatives hθ₀ fun a ↦ ?_)
+      (h𝒜.tendsto_errorComplexity_inv_iInf_cost hρ hρ_closure hmean hν hrec_alt hrec hθ hcorrect
+        hopen).limsup_eq.le
+    rw [hν θ₀ hθ₀M a, hν θ hθ a, Measure.klDiv_expFamily_natParam (hmean θ₀ hθ₀M a) (hmean θ hθ a)]
+    exact ENNReal.ofReal_ne_top
+
+/-- **The maximal difficulty ratio of static proportions** [D23, Theorem 5]. Consider a task
+asking about the means `mean θ` of its models, whose arms are the members of exponential families
+with these means, generated by laws `ρ a` with samples in the closure of their means under which
+`id` is not almost everywhere constant. Let `𝒜` be a static proportions family with proportions
+`w` whose recommendation rule is correct at the means of the admissible models and, for each
+admissible model `θ`, at the vectors of the closure of the means that are not limits of means of
+alternatives to `θ`. If the sets of correct answers are measurable and the means of the
+alternatives to each admissible model form an open set, then the maximal difficulty ratio of `𝒜`
+to the static-proportions difficulty is at most `(min_a w a)⁻¹`, which is finite.
+
+Under the hypotheses of `oracleDifficulty_staticClass_eq_staticDifficulty`, the
+static-proportions difficulty is the oracle difficulty of the class of static proportions
+families, against which [D23] states this bound. -/
+theorem IsStaticProportions.maxRatio_staticDifficulty_le
+    (h𝒜 : task.IsStaticProportions rec 𝒜 w) (hρ : ∀ a c, ¬ id =ᵐ[ρ a] fun _ ↦ c)
+    (hρ_closure : ∀ a, ∀ᵐ x ∂(ρ a), x ∈ closure ((ρ a).expFamilyMeans id))
+    (hmean : ∀ θ ∈ task.M, ∀ a, mean θ a ∈ (ρ a).expFamilyMeans id)
+    (hν : ∀ θ ∈ task.M, ∀ a, task.ν θ a = (ρ a).expFamily id ((ρ a).natParam id (mean θ a)))
+    (hrec_M : ∀ θ ∈ task.M, rec (mean θ) ∈ task.correct θ)
+    (hrec : ∀ θ ∈ task.M, ∀ x : α → ℝ, (∀ a, x a ∈ closure ((ρ a).expFamilyMeans id)) →
+      x ∉ closure (mean '' task.alternatives θ) → rec x ∈ task.correct θ)
+    (hcorrect : ∀ θ ∈ task.M, MeasurableSet (task.correct θ))
+    (hopen : ∀ θ ∈ task.M, IsOpen (mean '' task.alternatives θ)) :
+    task.maxRatio task.staticDifficulty 𝒜 ≤ (⨅ a, ENNReal.ofReal (w a))⁻¹ := by
+  rw [maxRatio_def]
+  exact iSup₂_le fun θ hθ ↦ h𝒜.asymptoticRatio_staticDifficulty_le hρ hρ_closure hmean hν
+    (fun θ' hθ' ↦ hrec_M θ' (task.alternatives_subset_M θ hθ')) (hrec θ hθ) hθ (hcorrect θ hθ)
+    (hopen θ hθ)
+
+/-- **The maximal difficulty ratio of uniform sampling** [D23, Theorem 5]. Under the hypotheses of
+`IsStaticProportions.maxRatio_staticDifficulty_le`, a static proportions family with the uniform
+proportions `1 / K` has maximal difficulty ratio at most `K` to the static-proportions
+difficulty. -/
+theorem IsStaticProportions.maxRatio_staticDifficulty_le_card
+    (h𝒜 : task.IsStaticProportions rec 𝒜 fun _ ↦ (Fintype.card α : ℝ)⁻¹)
+    (hρ : ∀ a c, ¬ id =ᵐ[ρ a] fun _ ↦ c)
+    (hρ_closure : ∀ a, ∀ᵐ x ∂(ρ a), x ∈ closure ((ρ a).expFamilyMeans id))
+    (hmean : ∀ θ ∈ task.M, ∀ a, mean θ a ∈ (ρ a).expFamilyMeans id)
+    (hν : ∀ θ ∈ task.M, ∀ a, task.ν θ a = (ρ a).expFamily id ((ρ a).natParam id (mean θ a)))
+    (hrec_M : ∀ θ ∈ task.M, rec (mean θ) ∈ task.correct θ)
+    (hrec : ∀ θ ∈ task.M, ∀ x : α → ℝ, (∀ a, x a ∈ closure ((ρ a).expFamilyMeans id)) →
+      x ∉ closure (mean '' task.alternatives θ) → rec x ∈ task.correct θ)
+    (hcorrect : ∀ θ ∈ task.M, MeasurableSet (task.correct θ))
+    (hopen : ∀ θ ∈ task.M, IsOpen (mean '' task.alternatives θ)) :
+    task.maxRatio task.staticDifficulty 𝒜 ≤ Fintype.card α := by
+  have : Nonempty α := nonempty_of_mem_simplex h𝒜.mem_simplex
+  exact (h𝒜.maxRatio_staticDifficulty_le hρ hρ_closure hmean hν hrec_M hrec hcorrect
+    hopen).trans_eq (inv_iInf_ofReal_uniform α)
 
 end LMLExplore.Identification.IdentTask

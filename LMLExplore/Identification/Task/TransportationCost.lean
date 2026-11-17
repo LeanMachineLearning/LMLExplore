@@ -48,6 +48,8 @@ treatment, and a negative entry of `w` counts as `0`.
   alternatives.
 * `IdentTask.cost_le_iSup_klDiv`: for an allocation, the transportation cost is at most the
   largest divergence between the arm laws.
+* `IdentTask.iInf_ofReal_mul_cost_le`: every allocation costs at most `(min_a w a)⁻¹` times as
+  much as the vector `w`.
 * `IdentTask.exists_pos_mem_simplex_mul_cost_le`: mixing an allocation with the uniform one gives
   an allocation with positive entries that keeps a fraction `c < 1` of every transportation cost.
 * `IdentTask.iSup_pos_iInf_cost_eq`: the supremum over the positive allocations of the cost of a
@@ -213,6 +215,19 @@ lemma iSup_pos_iInf_cost_eq (s : Set Θ) (θ : Θ) :
         gcongr
         exact iInf₂_le θ' hθ'
     _ ≤ task.cost w' θ' θ := hle θ' θ
+
+/-- Every allocation `w'` costs at most `(min_a w a)⁻¹` times as much as the vector `w`:
+`(min_a w a) ∑ a, w' a KL(ν_a(θ), ν_a(θ')) ≤ ∑ a, w a KL(ν_a(θ), ν_a(θ'))`, as `w' a ≤ 1`. -/
+lemma iInf_ofReal_mul_cost_le (w : α → ℝ) {w' : α → ℝ} (hw' : w' ∈ simplex α) (θ θ' : Θ) :
+    (⨅ a, ENNReal.ofReal (w a)) * task.cost w' θ θ' ≤ task.cost w θ θ' := by
+  rw [cost_def, cost_def, Finset.mul_sum]
+  refine Finset.sum_le_sum fun a _ ↦ ?_
+  rw [← mul_assoc]
+  gcongr
+  calc (⨅ b, ENNReal.ofReal (w b)) * ENNReal.ofReal (w' a) ≤ (⨅ b, ENNReal.ofReal (w b)) * 1 := by
+        gcongr
+        exact ENNReal.ofReal_le_one.2 ((simplex_subset_Icc hw').2 a)
+    _ ≤ ENNReal.ofReal (w a) := (mul_one _).trans_le (iInf_le _ a)
 
 /-- For an allocation `w`, the transportation cost from `θ` to `θ'` is at most the largest
 divergence `max_a KL(ν_a(θ), ν_a(θ'))` between the arm laws. -/
