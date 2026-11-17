@@ -71,6 +71,9 @@ smallest `q ∈ [0, p]` with `d(p, q) ≤ c`; together they are the confidence b
   inequality `2 (p - q)² ≤ d(p, q)` for `p, q ∈ [0, 1]`.
 * `LMLExplore.klBer_le_ofReal_sq_sub_div`, `LMLExplore.klBerReal_le_sq_sub_div`: the reverse
   bound `d(p, q) ≤ (p - q)² / (q (1 - q))` for `p ∈ [0, 1]` and `q ∈ (0, 1)`.
+* `LMLExplore.klBerReal_one_div_two_add_le`: the reverse bound near `1 / 2`,
+  `d(1 / 2 + x, 1 / 2) ≤ 2 x² + 8 x⁴ / 3` for `8 x² ≤ 1`, matching Pinsker's inequality to second
+  order.
 * `LMLExplore.klBer_one_sub_mul_add_div_two_le`: `d(p, (1 - t) p + t / 2) ≤ t` for `p ∈ [0, 1]`
   and `t ∈ (0, 1]`.
 * `LMLExplore.pow_mul_one_sub_pow_le_div_pow_mul_div_pow`: the maximum likelihood of `k` ones and
@@ -380,28 +383,13 @@ open Set
 private lemma hasDerivAt_mul_log_add_mul_log {y : ℝ} (h1 : 0 < 1 + 2 * y) (h2 : 0 < 1 - 2 * y) :
     HasDerivAt (fun y ↦ (1 / 2 + y) * log (1 + 2 * y) + (1 / 2 - y) * log (1 - 2 * y))
       (log (1 + 2 * y) - log (1 - 2 * y)) y := by
-  have ha : HasDerivAt (fun y : ℝ ↦ 1 + 2 * y) 2 y := by
-    simpa using ((hasDerivAt_id' y).const_mul 2).const_add 1
-  have hb : HasDerivAt (fun y : ℝ ↦ 1 - 2 * y) (-2) y := by
-    simpa using ((hasDerivAt_id' y).const_mul 2).const_sub 1
   have hc : HasDerivAt (fun y : ℝ ↦ 1 / 2 + y) 1 y := (hasDerivAt_id' y).const_add _
   have hd : HasDerivAt (fun y : ℝ ↦ 1 / 2 - y) (-1) y := (hasDerivAt_id' y).const_sub _
-  have h := (hc.mul (ha.log h1.ne')).add (hd.mul (hb.log h2.ne'))
+  have h := (hc.mul (hasDerivAt_log_one_add_mul h1.ne')).add
+    (hd.mul (hasDerivAt_log_one_sub_mul h2.ne'))
   convert h using 1
   field_simp
   ring
-
-/-- For `0 ≤ x` with `8 x² ≤ 1`, the points `y ∈ [0, x]` have `0 < 1 + 2 y` and `0 < 1 - 2 y`, so
-`y ↦ log (1 ± 2 y)` is continuous on `[0, x]`. -/
-private lemma continuousOn_log_one_add_two_mul_and {x : ℝ} (hx : 8 * x ^ 2 ≤ 1) :
-    ContinuousOn (fun y : ℝ ↦ log (1 + 2 * y)) (Icc 0 x) ∧
-      ContinuousOn (fun y : ℝ ↦ log (1 - 2 * y)) (Icc 0 x) ∧
-      ∀ y ∈ interior (Icc 0 x), 0 < 1 + 2 * y ∧ 0 < 1 - 2 * y := by
-  have hlt {y : ℝ} (hy : y ∈ Icc 0 x) : 2 * y < 1 := by nlinarith [hy.1, hy.2]
-  refine ⟨ContinuousOn.log (by fun_prop) fun y hy ↦ by linarith [hy.1],
-    ContinuousOn.log (by fun_prop) fun y hy ↦ by linarith [hlt hy], fun y hy ↦ ?_⟩
-  rw [interior_Icc] at hy
-  exact ⟨by linarith [hy.1], by linarith [hlt (Ioo_subset_Icc_self hy)]⟩
 
 /-- **The binary relative entropy to `1 / 2` near `1 / 2`**: for `8 x² ≤ 1`,
 `klBerReal (1 / 2 + x) (1 / 2) ≤ 2 x² + 8 x⁴ / 3`. The leading term `2 x²` is that of Pinsker's
@@ -414,26 +402,25 @@ theorem klBerReal_one_div_two_add_le {x : ℝ} (hx : 8 * x ^ 2 ≤ 1) :
     rw [← klBerReal_one_sub, show 1 - (1 / 2 + -x) = 1 / 2 + x by ring,
       show (1 : ℝ) - 1 / 2 = 1 / 2 by norm_num, neg_sq, (by decide : Even 4).neg_pow] at h
     exact h
-  obtain ⟨hc₁, hc₂, hpos⟩ := continuousOn_log_one_add_two_mul_and hx
   -- `2 y ^ 2 + 8 y ^ 4 / 3 - klBerReal (1 / 2 + y) (1 / 2)` vanishes at `0` and is monotone on
   -- `[0, x]`, since its derivative is nonnegative there
+  have hd : ∀ y ∈ Icc 0 x, HasDerivAt (fun y ↦ 2 * y ^ 2 + 8 / 3 * y ^ 4 -
+      ((1 / 2 + y) * log (1 + 2 * y) + (1 / 2 - y) * log (1 - 2 * y)))
+        (4 * y + 32 / 3 * y ^ 3 - (log (1 + 2 * y) - log (1 - 2 * y))) y := fun y hy ↦ by
+    have h := (((hasDerivAt_pow 2 y).const_mul 2).add ((hasDerivAt_pow 4 y).const_mul
+      (8 / 3))).sub (hasDerivAt_mul_log_add_mul_log (by linarith [hy.1])
+        (one_sub_two_mul_pos_of_eight_mul_sq_le hx hy.2))
+    refine h.congr_deriv ?_
+    push_cast
+    ring
   have hmono : MonotoneOn (fun y ↦ 2 * y ^ 2 + 8 / 3 * y ^ 4 -
       ((1 / 2 + y) * log (1 + 2 * y) + (1 / 2 - y) * log (1 - 2 * y))) (Icc 0 x) := by
-    refine monotoneOn_of_hasDerivWithinAt_nonneg
-      (f' := fun y ↦ 4 * y + 32 / 3 * y ^ 3 - (log (1 + 2 * y) - log (1 - 2 * y))) (convex_Icc 0 x)
-      ((by fun_prop : ContinuousOn (fun y : ℝ ↦ 2 * y ^ 2 + 8 / 3 * y ^ 4) _).sub
-        (((by fun_prop : ContinuousOn (fun y : ℝ ↦ 1 / 2 + y) _).mul hc₁).add
-          ((by fun_prop : ContinuousOn (fun y : ℝ ↦ 1 / 2 - y) _).mul hc₂)))
-      (fun y hy ↦ ?_) fun y hy ↦ ?_
-    · obtain ⟨h1, h2⟩ := hpos y hy
-      have h := (((hasDerivAt_pow 2 y).const_mul 2).add ((hasDerivAt_pow 4 y).const_mul
-        (8 / 3))).sub (hasDerivAt_mul_log_add_mul_log h1 h2)
-      refine HasDerivAt.hasDerivWithinAt (h.congr_deriv ?_)
-      push_cast
-      ring
-    · have hy := interior_subset hy
-      exact sub_nonneg.2
-        (log_one_add_two_mul_sub_log_one_sub_two_mul_le (by nlinarith [hy.1, hy.2]) hy.1)
+    refine monotoneOn_of_hasDerivWithinAt_nonneg (convex_Icc 0 x)
+      (fun y hy ↦ (hd y hy).continuousAt.continuousWithinAt)
+      (fun y hy ↦ (hd y (interior_subset hy)).hasDerivWithinAt) fun y hy ↦ ?_
+    have hy := interior_subset hy
+    exact sub_nonneg.2
+      (log_one_add_two_mul_sub_log_one_sub_two_mul_le (by nlinarith [hy.1, hy.2]) hy.1)
   have h := hmono ⟨le_rfl, hx0⟩ ⟨hx0, le_rfl⟩ hx0
   have hg : klBerReal (1 / 2 + x) (1 / 2) =
       (1 / 2 + x) * log (1 + 2 * x) + (1 / 2 - x) * log (1 - 2 * x) := by

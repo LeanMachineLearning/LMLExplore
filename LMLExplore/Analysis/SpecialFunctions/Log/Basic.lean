@@ -5,6 +5,7 @@ Authors: LMLExplore contributors
 -/
 module
 
+public import Mathlib.Analysis.Calculus.Deriv.Basic
 public import Mathlib.Analysis.SpecialFunctions.Log.Basic
 public import Mathlib.Analysis.SpecialFunctions.Pow.Real
 import LMLExplore.Analysis.Calculus.MeanValue
@@ -68,6 +69,9 @@ import Mathlib.Analysis.SpecialFunctions.Log.Deriv
 * `Real.sum_div_max_one_le_four_mul_log`: the form of [MDJKLV21, Lemma 9], for `u k ∈ [0, 1]`
   and with the constant `4`.
 * `Real.abs_log_one_add_mul_le`: `|log (1 + δ t)| ≤ log (1 + t)` for `t ≥ 0` and `δ ∈ [0, 1]`.
+* `Real.hasDerivAt_log_one_add_mul`, `Real.hasDerivAt_log_one_sub_mul`: the derivatives
+  `c / (1 + c y)` and `-c / (1 - c y)` of `y ↦ log (1 ± c y)`.
+* `Real.one_sub_two_mul_pos_of_eight_mul_sq_le`: `0 < 1 - 2 y` for `y ≤ x` with `8 x² ≤ 1`.
 * `Real.log_one_add_two_mul_sub_log_one_sub_two_mul_le`:
   `log (1 + 2 x) - log (1 - 2 x) ≤ 4 x + 32 x³ / 3` for `0 ≤ x` with `8 x² ≤ 1`. It bounds the
   binary relative entropy near `1 / 2`.
@@ -686,39 +690,47 @@ theorem abs_log_one_add_mul_le {δ t : ℝ} (hδ : 0 ≤ δ) (hδ1 : δ ≤ 1) (
   rw [abs_of_nonneg (log_nonneg (by linarith))]
   exact log_le_log (by linarith) (by nlinarith)
 
+/-- `y ↦ log (1 + c y)` has derivative `c / (1 + c y)` wherever `1 + c y ≠ 0`. -/
+theorem hasDerivAt_log_one_add_mul {c y : ℝ} (h : 1 + c * y ≠ 0) :
+    HasDerivAt (fun y ↦ log (1 + c * y)) (c / (1 + c * y)) y := by
+  simpa using (((hasDerivAt_id' y).const_mul c).const_add 1).log h
+
+/-- `y ↦ log (1 - c y)` has derivative `-c / (1 - c y)` wherever `1 - c y ≠ 0`. -/
+theorem hasDerivAt_log_one_sub_mul {c y : ℝ} (h : 1 - c * y ≠ 0) :
+    HasDerivAt (fun y ↦ log (1 - c * y)) (-c / (1 - c * y)) y := by
+  simpa [neg_div] using (((hasDerivAt_id' y).const_mul c).const_sub 1).log h
+
+/-- If `8 x² ≤ 1`, then `2 x < 1`, so `0 < 1 - 2 y` for every `y ≤ x`. -/
+theorem one_sub_two_mul_pos_of_eight_mul_sq_le {x y : ℝ} (hx : 8 * x ^ 2 ≤ 1) (hy : y ≤ x) :
+    0 < 1 - 2 * y := by
+  nlinarith
+
 /-- For `0 ≤ x` with `8 x² ≤ 1`, `log (1 + 2 x) - log (1 - 2 x) ≤ 4 x + 32 x³ / 3`. It bounds the
 binary relative entropy near `1 / 2` (`LMLExplore.klBerReal_one_div_two_add_le`). -/
 theorem log_one_add_two_mul_sub_log_one_sub_two_mul_le {x : ℝ} (hx : 8 * x ^ 2 ≤ 1)
     (hx0 : 0 ≤ x) : log (1 + 2 * x) - log (1 - 2 * x) ≤ 4 * x + 32 / 3 * x ^ 3 := by
   -- the difference vanishes at `0` and its derivative `4 + 32 y² - 4 / (1 - 4 y²)` is
   -- nonnegative on `[0, x]`
-  have hlt {y : ℝ} (hy : y ∈ Set.Icc 0 x) : 2 * y < 1 := by nlinarith [hy.1, hy.2]
-  have hc₁ : ContinuousOn (fun y : ℝ ↦ log (1 + 2 * y)) (Set.Icc 0 x) :=
-    ContinuousOn.log (by fun_prop) fun y hy ↦ by linarith [hy.1]
-  have hc₂ : ContinuousOn (fun y : ℝ ↦ log (1 - 2 * y)) (Set.Icc 0 x) :=
-    ContinuousOn.log (by fun_prop) fun y hy ↦ by linarith [hlt hy]
+  have hd : ∀ y ∈ Set.Icc 0 x,
+      HasDerivAt (fun y ↦ 4 * y + 32 / 3 * y ^ 3 - (log (1 + 2 * y) - log (1 - 2 * y)))
+        (4 + 32 * y ^ 2 - (2 / (1 + 2 * y) + 2 / (1 - 2 * y))) y := fun y hy ↦ by
+    have h := (((hasDerivAt_id' y).const_mul 4).add (((hasDerivAt_pow 3 y).const_mul
+      (32 / 3)))).sub ((hasDerivAt_log_one_add_mul (c := 2) (by linarith [hy.1])).sub
+        (hasDerivAt_log_one_sub_mul (c := 2) (one_sub_two_mul_pos_of_eight_mul_sq_le hx hy.2).ne'))
+    refine h.congr_deriv ?_
+    push_cast
+    ring
   have hmono : MonotoneOn
       (fun y ↦ 4 * y + 32 / 3 * y ^ 3 - (log (1 + 2 * y) - log (1 - 2 * y))) (Set.Icc 0 x) := by
-    refine monotoneOn_of_hasDerivWithinAt_nonneg (f' := fun y ↦
-      4 + 32 * y ^ 2 - (2 / (1 + 2 * y) + 2 / (1 - 2 * y))) (convex_Icc 0 x)
-      ((by fun_prop : ContinuousOn (fun y : ℝ ↦ 4 * y + 32 / 3 * y ^ 3) _).sub (hc₁.sub hc₂))
-      (fun y hy ↦ ?_) fun y hy ↦ ?_
-    · have hy' := interior_subset hy
-      have ha : HasDerivAt (fun y : ℝ ↦ 1 + 2 * y) 2 y := by
-        simpa using ((hasDerivAt_id' y).const_mul 2).const_add 1
-      have hb : HasDerivAt (fun y : ℝ ↦ 1 - 2 * y) (-2) y := by
-        simpa using ((hasDerivAt_id' y).const_mul 2).const_sub 1
-      have h := (((hasDerivAt_id' y).const_mul 4).add (((hasDerivAt_pow 3 y).const_mul
-        (32 / 3)))).sub ((ha.log (by linarith [hy'.1])).sub (hb.log (by linarith [hlt hy'])))
-      refine HasDerivAt.hasDerivWithinAt (h.congr_deriv ?_)
-      push_cast
-      ring
-    · have hy' := interior_subset hy
-      have h1 : 0 < 1 + 2 * y := by linarith [hy'.1]
-      have h2 : 0 < 1 - 2 * y := by linarith [hlt hy']
-      have hy8 : 8 * y ^ 2 ≤ 1 := by nlinarith [hy'.1, hy'.2]
-      rw [div_add_div _ _ h1.ne' h2.ne', sub_nonneg, div_le_iff₀ (mul_pos h1 h2)]
-      nlinarith [mul_nonneg (sq_nonneg y) (sub_nonneg.2 hy8)]
+    refine monotoneOn_of_hasDerivWithinAt_nonneg (convex_Icc 0 x)
+      (fun y hy ↦ (hd y hy).continuousAt.continuousWithinAt)
+      (fun y hy ↦ (hd y (interior_subset hy)).hasDerivWithinAt) fun y hy ↦ ?_
+    have hy' := interior_subset hy
+    have h1 : 0 < 1 + 2 * y := by linarith [hy'.1]
+    have h2 := one_sub_two_mul_pos_of_eight_mul_sq_le hx hy'.2
+    have hy8 : 8 * y ^ 2 ≤ 1 := by nlinarith [hy'.1, hy'.2]
+    rw [div_add_div _ _ h1.ne' h2.ne', sub_nonneg, div_le_iff₀ (mul_pos h1 h2)]
+    nlinarith [mul_nonneg (sq_nonneg y) (sub_nonneg.2 hy8)]
   have h := hmono ⟨le_rfl, hx0⟩ ⟨hx0, le_rfl⟩ hx0
   norm_num at h
   linarith
