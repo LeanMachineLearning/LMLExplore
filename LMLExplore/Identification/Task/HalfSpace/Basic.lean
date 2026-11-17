@@ -33,10 +33,11 @@ has a closed form [DK19, Lemma 36]. Write `L = ∑ a, |u a| √(v a)`.
 
 These values are the divergences of [DK19, Lemma 36], stated there for the hyperplane, which is
 the boundary of the set of alternatives. Under the normalization `L = 1`, [D23, Lemma 15] finds
-the value `2 / (u ⬝ᵥ μ)²` for the static-proportions difficulty, which this file does not define;
-this matches `T*(μ)` here. The cost in that difficulty has the alternative first, which does not
-matter since the Gaussian cost is symmetric
-(`LMLExplore.Identification.IdentTask.cost_comm_gaussianReal`).
+the value `2 / (u ⬝ᵥ μ)²` for the static-proportions difficulty; this matches `T*(μ)` here. The
+cost in that difficulty has the alternative first, which does not matter since the Gaussian cost
+is symmetric (`LMLExplore.Identification.IdentTask.cost_comm_gaussianReal`), and
+`LMLExplore.Identification.staticDifficulty_halfSpaceTask_gaussianReal` deduces it from
+`T*(μ)`.
 
 The Cauchy–Schwarz lower bound `le_cost_halfSpaceTask_gaussianReal` and the bound
 `altCost_halfSpaceTask_gaussianReal_le` obtained by moving along a direction are adapted from the
@@ -260,9 +261,10 @@ private lemma mul_sqrt_ne_zero (hv : ∀ a, v a ≠ 0) (hu : u ≠ 0) :
     (fun a ↦ u a * √(v a : ℝ)) ≠ 0 := fun h ↦
   hu (funext fun a ↦ (mul_sqrt_eq_zero hv).1 (congrFun h a))
 
-/-- For variances `v a ≠ 0` and `u ≠ 0`, `L = ∑ a, |u a| √(v a)` is nonzero. -/
-private lemma sum_abs_mul_sqrt_ne_zero (hv : ∀ a, v a ≠ 0) (hu : u ≠ 0) :
-    ∑ a, |u a| * √(v a : ℝ) ≠ 0 := by
+/-- For variances `v a ≠ 0` and `u ≠ 0`, `L = ∑ a, |u a| √(v a)` is positive. -/
+lemma sum_abs_mul_sqrt_pos (hv : ∀ a, v a ≠ 0) (hu : u ≠ 0) :
+    0 < ∑ a, |u a| * √(v a : ℝ) := by
+  refine (Finset.sum_nonneg fun a _ ↦ by positivity).lt_of_ne' ?_
   simpa only [abs_mul_sqrt] using sum_abs_ne_zero (mul_sqrt_ne_zero hv hu)
 
 /-- The allocation `|u a| √(v a) / L` is the normalized absolute value of `(u a √(v a))_a`. -/
@@ -273,7 +275,7 @@ private lemma abs_mul_sqrt_div_eq :
 
 /-- For variances `v a ≠ 0` and `u ≠ 0`, the allocation `|u a| √(v a) / L` belongs to the
 simplex. -/
-private lemma abs_mul_sqrt_div_mem_simplex (hv : ∀ a, v a ≠ 0) (hu : u ≠ 0) :
+lemma abs_mul_sqrt_div_mem_simplex (hv : ∀ a, v a ≠ 0) (hu : u ≠ 0) :
     (fun a ↦ |u a| * √(v a : ℝ) / ∑ b, |u b| * √(v b : ℝ)) ∈ simplex α := by
   rw [abs_mul_sqrt_div_eq]
   exact abs_div_sum_abs_mem_simplex (mul_sqrt_ne_zero hv hu)
@@ -287,7 +289,7 @@ private lemma altCost_halfSpaceTask_gaussianReal_abs_mul_sqrt_div (hv : ∀ a, v
         (fun a ↦ |u a| * √(v a : ℝ) / ∑ b, |u b| * √(v b : ℝ)) i =
       ENNReal.ofReal ((u ⬝ᵥ μ) ^ 2 / (2 * (∑ a, |u a| * √(v a : ℝ)) ^ 2)) := by
   have hu : u ≠ 0 := fun h ↦ hμ (by simp [h])
-  have hL := sum_abs_mul_sqrt_ne_zero hv hu
+  have hL := (sum_abs_mul_sqrt_pos hv hu).ne'
   have hw := abs_mul_sqrt_div_mem_simplex hv hu
   rw [altCost_halfSpaceTask_gaussianReal hv hν hμ hi (mem_simplex_iff.1 hw).1 fun a ha ↦
     (mul_sqrt_eq_zero hv).1 (abs_eq_zero.1 (by
@@ -313,7 +315,7 @@ private lemma altCost_halfSpaceTask_gaussianReal_lt (hv : ∀ a, v a ≠ 0)
     (halfSpaceTask ν id u).altCost μ w i <
       ENNReal.ofReal ((u ⬝ᵥ μ) ^ 2 / (2 * (∑ a, |u a| * √(v a : ℝ)) ^ 2)) := by
   have hu : u ≠ 0 := fun h ↦ hμ (by simp [h])
-  have hL := sum_abs_mul_sqrt_ne_zero hv hu
+  have hL := (sum_abs_mul_sqrt_pos hv hu).ne'
   have hpos : 0 < (u ⬝ᵥ μ) ^ 2 / (2 * (∑ a, |u a| * √(v a : ℝ)) ^ 2) := by positivity
   by_cases h0 : ∃ a, u a ≠ 0 ∧ w a = 0
   · -- Some arm with `u a ≠ 0` is not sampled: the alternatives are free.
@@ -378,7 +380,7 @@ theorem charTime_halfSpaceTask_gaussianReal (hv : ∀ a, v a ≠ 0)
     (halfSpaceTask ν id u).charTime μ =
       ENNReal.ofReal (2 * (∑ a, |u a| * √(v a : ℝ)) ^ 2 / (u ⬝ᵥ μ) ^ 2) := by
   have hu : u ≠ 0 := fun h ↦ hμ (by simp [h])
-  have hL := sum_abs_mul_sqrt_ne_zero hv hu
+  have hL := (sum_abs_mul_sqrt_pos hv hu).ne'
   rw [IdentTask.charTime_eq_inv_answerValue _ (correct_halfSpaceTask_eq_singleton _ _),
     answerValue_halfSpaceTask_gaussianReal hv hν hμ (by simp),
     ← ENNReal.ofReal_inv_of_pos (by positivity), inv_div]
