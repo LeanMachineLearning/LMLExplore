@@ -294,8 +294,7 @@ theorem _root_.ProbabilityTheory.iIndepFun.measure_exists_le_mul_klDiv_empirical
   exact LMLExplore.measure_exists_le_mul_klDiv_empiricalFiniteMeasure_le
     (ξ := fun k (x : ℕ → α) ↦ x k) (ℱ := Filtration.naturalLT _ measurable_pi_apply)
     (fun n ↦ Filtration.measurable_naturalLT measurable_pi_apply n.lt_succ_self)
-    (Filtration.indep_naturalLT measurable_pi_apply
-      (iIndepFun_infinitePi (X := fun _ ↦ id) fun _ ↦ measurable_id))
+    (Filtration.indep_naturalLT_infinitePi _)
     (fun n ↦ (measurePreserving_eval_infinitePi (fun _ ↦ ν) n).hasLaw) hδ
 
 end LMLExplore
