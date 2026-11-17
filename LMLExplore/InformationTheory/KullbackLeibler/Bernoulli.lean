@@ -96,6 +96,9 @@ smallest `q ∈ [0, p]` with `d(p, q) ≤ c`; together they are the confidence b
 * `LMLExplore.klBerReal_one_sub_right`, `LMLExplore.klBer_one_sub_right`:
   `d(p, 1 - p) = (1 - 2p) log ((1 - p) / p)` for `p ∈ (0, 1)`;
   `LMLExplore.klBer_one_sub_right_eq_top`: `d(p, 1 - p) = ∞` otherwise.
+* `LMLExplore.mul_klBerReal_div_one_div_two`: `n d(k / n, 1 / 2) = k log (2 k / n) +
+  (n - k) log (2 (n - k) / n)`, the exponent of the probability of a word with `k` heads among `n`
+  fair coin tosses against its maximum likelihood.
 * `LMLExplore.log_one_div_le_klBerReal`, `LMLExplore.ofReal_log_one_div_le_klBer`: the bound
   `log (1 / (2.4 p)) ≤ d(p, 1 - p)`, which turns the lower bounds of fixed-confidence
   identification stated with `d(δ, 1 - δ)` into bounds in `log (1 / δ)`.
@@ -890,6 +893,17 @@ theorem klBer_one_sub_right_eq_top (hp : p ∉ Set.Ioo 0 1) : klBer p (1 - p) = 
   rcases hp with h0 | h1
   · exact key p h0
   · simpa only [klBer_one_sub_one_sub] using key (1 - p) (by linarith)
+
+/-- The binary relative entropy from `1 / 2` at a frequency `k / n`, scaled by `n`:
+`n d(k / n, 1 / 2) = k log (2 k / n) + (n - k) log (2 (n - k) / n)`. It is the log-ratio
+`log (k ^ k (n - k) ^ (n - k) / n ^ n) + n log 2` of the maximum likelihood of a word with `k`
+heads among `n` tosses to its probability under a fair coin. -/
+theorem mul_klBerReal_div_one_div_two {n k : ℝ} (hn : n ≠ 0) :
+    n * klBerReal (k / n) (1 / 2) = k * log (2 * k / n) + (n - k) * log (2 * (n - k) / n) := by
+  have h₁ : k / n / (1 / 2) = 2 * k / n := by field_simp
+  have h₂ : (1 - k / n) / (1 - 1 / 2) = 2 * (n - k) / n := by field_simp; ring
+  rw [klBerReal_apply, h₁, h₂]
+  field_simp
 
 /-- The tangent lines of the convex function `p ↦ 2p log p + (1 - 2p) log (1 - p)` on `(0, 1)`
 lie below it. -/
