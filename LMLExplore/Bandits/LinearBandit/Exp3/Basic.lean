@@ -9,6 +9,7 @@ public import LMLExplore.Analysis.InnerProductSpace.OptimalDesign
 public import LMLExplore.MeasureTheory.Constructions.BorelSpace.RingInverse
 public import LMLExplore.MeasureTheory.Function.ConditionalExpectation.FiniteValued
 public import LMLExplore.OnlineLearning.Simplex
+import Mathlib.MeasureTheory.Constructions.BorelSpace.ContinuousLinearMap
 
 /-!
 # Exp3 with exploration for adversarial linear bandits

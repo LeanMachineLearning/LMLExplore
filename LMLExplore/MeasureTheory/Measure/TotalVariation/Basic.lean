@@ -8,7 +8,6 @@ module
 public import Mathlib.MeasureTheory.Integral.Bochner.Basic
 public import Mathlib.MeasureTheory.Measure.TotalVariation.Defs
 
-import Mathlib.MeasureTheory.Integral.Bochner.Set
 import Mathlib.MeasureTheory.Integral.IntegrableOn
 import Mathlib.MeasureTheory.Measure.TotalVariation.Basic
 import Mathlib.MeasureTheory.VectorMeasure.Integral
@@ -57,6 +56,8 @@ contraction of the oscillation of functions by a Markov kernel (Dobrushin's coef
   probability measures is a probability measure.
 * `MeasureTheory.exists_le_le_add_etvDist`: two finite measures have a common minorant `ρ` with
   `μ univ + ν univ = 2 * ρ univ + etvDist μ ν`.
+* `MeasureTheory.tvDist_le_two_mul_iff`: for measures of the same mass and any real `c`,
+  `tvDist μ ν ≤ 2 * c` if and only if `μ s ≤ ν s + c` for every measurable `s`.
 * `MeasureTheory.abs_measureReal_sub_measureReal_le_tvDist_div_two`,
   `MeasureTheory.tvDist_le_two_mul_of_forall_measureReal_le_add`: for measures of the same mass,
   the total variation distance bounds the difference of the masses of every event, and eventwise
@@ -73,12 +74,13 @@ contraction of the oscillation of functions by a Markov kernel (Dobrushin's coef
 
 The first bound is the bound `MeasureTheory.VectorMeasure.norm_integral_le_of_norm_le_const` on
 integrals against the signed measure `μ - ν`, whose variation has mass `tvDist μ ν`. The eventwise
-characterization is Tau Ceti's `MeasureTheory.etvDist_le_two_mul_iff`, transferred to the real
-distance `tvDist`. The overlap form on a finite type is read off Tau Ceti's `ℓ¹` formula
-`MeasureTheory.tvDist_eq_tsum_abs_singleton`, `tvDist μ ν = ∑' x, |μ {x} - ν {x}|` on a countable
-type. The behaviour under sums and scalings is read off the supremum over finite
-measurable partitions, `MeasureTheory.tvDist_eq_iSup_finPartition_abs`, so it needs no assumption
-on the masses.
+characterization `MeasureTheory.tvDist_le_two_mul_iff` is Tau Ceti's
+`MeasureTheory.etvDist_le_two_mul_iff`, transferred to the real distance `tvDist`, and both
+eventwise bounds are its two directions. The overlap form on a finite type is read off Tau
+Ceti's `ℓ¹` formula `MeasureTheory.tvDist_eq_tsum_abs_singleton`,
+`tvDist μ ν = ∑' x, |μ {x} - ν {x}|` on a countable type. The behaviour under sums and scalings is
+read off the supremum over finite measurable partitions,
+`MeasureTheory.tvDist_eq_iSup_finPartition_abs`, so it needs no assumption on the masses.
 -/
 
 public section
@@ -275,33 +277,48 @@ theorem exists_le_le_add_etvDist (μ ν : Measure 𝓧) [IsFiniteMeasure μ] [Is
     _ = 2 * (μ s + ν sᶜ) + ((ν s - μ s) + (μ sᶜ - ν sᶜ)) := by ring
     _ = 2 * (μ.restrict s + ν.restrict sᶜ) univ + etvDist μ ν := by simp [hs.etvDist_eq]
 
+/-- **Eventwise characterization of total variation**: for finite measures `μ` and `ν` of the
+same mass and any real `c`, `tvDist μ ν ≤ 2 * c` if and only if every measurable event `s`
+satisfies `μ s ≤ ν s + c`. This is Tau Ceti's `etvDist_le_two_mul_iff` for the real distance
+`tvDist`. -/
+theorem tvDist_le_two_mul_iff [IsFiniteMeasure μ] [IsFiniteMeasure ν]
+    (hμν : μ univ = ν univ) {c : ℝ} :
+    tvDist μ ν ≤ 2 * c ↔ ∀ s, MeasurableSet s → μ.real s ≤ ν.real s + c := by
+  by_cases hc : 0 ≤ c
+  swap
+  -- for `c < 0` both sides fail: `tvDist` is nonnegative and the empty event forces `0 ≤ c`
+  · refine iff_of_false (fun h ↦ hc ?_) fun h ↦ hc ?_
+    · linarith [tvDist_nonneg (μ := μ) (ν := ν)]
+    · simpa using h ∅ MeasurableSet.empty
+  rw [← ENNReal.ofReal_le_ofReal_iff (by positivity), ofReal_tvDist,
+    ENNReal.ofReal_mul zero_le_two, ENNReal.ofReal_ofNat, etvDist_le_two_mul_iff hμν]
+  refine forall₂_congr fun s _ ↦ ?_
+  rw [← ofReal_measureReal (μ := μ), ← ofReal_measureReal (μ := ν),
+    ← ENNReal.ofReal_add measureReal_nonneg hc,
+    ENNReal.ofReal_le_ofReal_iff (add_nonneg measureReal_nonneg hc)]
+
 /-- **Events of measures of the same mass close in total variation**: for finite measures `μ`
 and `ν` of the same mass, every measurable event `s` satisfies
 `|μ s - ν s| ≤ tvDist μ ν / 2`. -/
 theorem abs_measureReal_sub_measureReal_le_tvDist_div_two [IsFiniteMeasure μ]
     [IsFiniteMeasure ν] (hμν : μ univ = ν univ) {s : Set 𝓧} (hs : MeasurableSet s) :
     |μ.real s - ν.real s| ≤ tvDist μ ν / 2 := by
-  have h := abs_integral_sub_integral_le_mul_tvDist_of_mem_Icc hμν (f := s.indicator 1)
-    (a := 0) (b := 1) (by fun_prop (disch := exact hs)) (by fun_prop (disch := exact hs))
-    (ae_of_all _ fun x ↦ by by_cases hx : x ∈ s <;> simp [hx])
-    (ae_of_all _ fun x ↦ by by_cases hx : x ∈ s <;> simp [hx])
-  rw [integral_indicator_one hs, integral_indicator_one hs] at h
-  exact h.trans_eq (by ring)
+  -- the eventwise characterization at `c = tvDist μ ν / 2`, in either order
+  have h (μ ν : Measure 𝓧) [IsFiniteMeasure μ] [IsFiniteMeasure ν] (hμν : μ univ = ν univ) :
+      μ.real s ≤ ν.real s + tvDist μ ν / 2 :=
+    (tvDist_le_two_mul_iff hμν).1
+      (mul_div_cancel₀ _ two_ne_zero).ge s hs
+  have h₁ := h μ ν hμν
+  have h₂ := h ν μ hμν.symm
+  rw [tvDist_comm ν μ] at h₂
+  exact abs_sub_le_iff.2 ⟨by linarith, by linarith⟩
 
 /-- **Total variation from eventwise bounds**: for finite measures `μ` and `ν` of the same mass,
 if every measurable event `s` satisfies `μ s ≤ ν s + c`, then `tvDist μ ν ≤ 2 * c`. -/
 theorem tvDist_le_two_mul_of_forall_measureReal_le_add [IsFiniteMeasure μ] [IsFiniteMeasure ν]
     (hμν : μ univ = ν univ) {c : ℝ} (h : ∀ s, MeasurableSet s → μ.real s ≤ ν.real s + c) :
-    tvDist μ ν ≤ 2 * c := by
-  have hc : 0 ≤ c := by simpa using h ∅ MeasurableSet.empty
-  have he : etvDist μ ν ≤ 2 * ENNReal.ofReal c := by
-    refine (etvDist_le_two_mul_iff hμν).2 fun s hs ↦ ?_
-    rw [← ofReal_measureReal (μ := μ), ← ofReal_measureReal (μ := ν),
-      ← ENNReal.ofReal_add measureReal_nonneg hc]
-    exact ENNReal.ofReal_le_ofReal (h s hs)
-  rw [← ENNReal.ofReal_le_ofReal_iff (by positivity), ofReal_tvDist,
-    ENNReal.ofReal_mul zero_le_two, ENNReal.ofReal_ofNat]
-  exact he
+    tvDist μ ν ≤ 2 * c :=
+  (tvDist_le_two_mul_iff hμν).2 h
 
 /-- **Total variation and overlap on a finite type**: for finite measures `μ` and `ν` on a finite
 type with measurable singletons,

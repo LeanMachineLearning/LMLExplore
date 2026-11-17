@@ -16,10 +16,9 @@ For nonnegative numbers `x i` and `z i` indexed by a finite set `s`, with `x i =
 `z i = 0`, the **log-sum inequality** states
 `(∑ i ∈ s, x i) * log ((∑ i ∈ s, x i) / ∑ i ∈ s, z i) ≤ ∑ i ∈ s, x i * log (x i / z i)`.
 It is Jensen's inequality for the convex function `t ↦ t log t` (`Real.convexOn_mul_log`), with
-the weights `z i / ∑ j ∈ s, z j` at the points `x i / z i`. Applied to the two blocks of a
-partition of a finite set, it bounds the relative entropy between two probability vectors from
-below by the binary relative entropy of the masses of one block, which is how Pinsker's inequality
-for probability vectors follows from its binary case.
+the weights `z i / ∑ j ∈ s, z j` at the points `x i / z i`. Applied to the whole index set, it
+gives Gibbs' inequality `LMLExplore.sum_mul_log_div_nonneg`: the relative entropy of `x` with
+respect to `z` is nonnegative as soon as `∑ i, z i ≤ ∑ i, x i`.
 
 ## Main statements
 
