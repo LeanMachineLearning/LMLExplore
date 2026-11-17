@@ -298,9 +298,8 @@ theorem norm_add_surrogateCoeff_smul_le_norm (hq : HasSubgradientWithinAt (infDi
     (hq.norm_le_one_of_infDist Filter.univ_mem) he hqe
   -- The weight is `-y e`, so the surrogate maps `v` to `y (v - ⟪e, v⟫ • e)`.
   have hcoeff : surrogateCoeff y x z = -y e := by
-    rw [surrogateCoeff_def, max_eq_left hyxz.le, ← neg_sub z x, map_neg, norm_neg, he_def,
-      map_smul, smul_eq_mul]
-    ring
+    rw [surrogateCoeff_def, max_eq_left hyxz.le, norm_sub_rev]
+    simp [he_def, div_eq_inv_mul, ← mul_neg]
   refine ContinuousLinearMap.opNorm_le_bound _ (norm_nonneg _) fun v ↦ ?_
   have happ : (y + surrogateCoeff y x z • q) v = y (v - ⟪e, v⟫ • e) := by
     simp only [hcoeff, hq_eq, add_apply, smul_apply,

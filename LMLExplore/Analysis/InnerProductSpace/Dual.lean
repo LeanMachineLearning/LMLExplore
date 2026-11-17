@@ -91,8 +91,8 @@ theorem eq_innerSL_of_norm_le_one {q : E →L[ℝ] ℝ} {e : E} (hq : ‖q‖ �
       (le_abs_self _).trans ((q.le_opNorm _).trans (mul_le_of_le_one_left (norm_nonneg _) hq))
     have h₂ : ‖e + t • w‖ ^ 2 = 1 + t ^ 2 * ‖w‖ ^ 2 := by
       have hetw : ⟪e, t • w⟫ = 0 := by rw [real_inner_smul_right, hew, mul_zero]
-      rw [sq, norm_add_sq_eq_norm_sq_add_norm_sq_real hetw, ← sq, ← sq, norm_smul, mul_pow,
-        Real.norm_eq_abs, sq_abs, he, one_pow]
+      rw [sq, norm_add_sq_eq_norm_sq_add_norm_sq_real hetw]
+      simp [← sq, norm_smul, mul_pow, he]
     rw [map_add, map_smul, hqe, smul_eq_mul] at h₁
     nlinarith [sq_nonneg (‖e + t • w‖ - 1)]
   have hqw : q w = 0 := by
