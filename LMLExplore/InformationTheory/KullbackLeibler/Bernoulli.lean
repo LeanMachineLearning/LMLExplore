@@ -16,6 +16,7 @@ public import Statlib.ForMathlib.InformationTheory.KullbackLeibler.ChainRule
 public import LeanMachineLearning.ForMathlib.InformationTheory.KullbackLeibler.DataProcessing
 public import TauCeti.InformationTheory.KullbackLeibler.Variational
 import Mathlib.Analysis.Complex.ExponentialBounds
+import Mathlib.Analysis.SpecialFunctions.Log.Deriv
 import Statlib.Divergence.KullbackLeibler.Basic
 
 /-!
@@ -368,6 +369,109 @@ theorem klBer_le_ofReal_sq_sub_div (hp : p ∈ Set.Icc 0 1) (hq : q ∈ Set.Ioo 
     klBer p q ≤ ENNReal.ofReal ((p - q) ^ 2 / (q * (1 - q))) := by
   rw [klBer_eq_ofReal_klBerReal hp (Set.Ioo_subset_Icc_self hq) (klBer_ne_top hq)]
   exact ENNReal.ofReal_le_ofReal (klBerReal_le_sq_sub_div hp hq)
+
+section NearOneHalf
+
+open Set
+
+/-- The derivative of `y ↦ (1 / 2 + y) * log (1 + 2 y) + (1 / 2 - y) * log (1 - 2 y)`, which is
+`klBerReal (1 / 2 + y) (1 / 2)`. -/
+private lemma hasDerivAt_mul_log_add_mul_log {y : ℝ} (h1 : 0 < 1 + 2 * y) (h2 : 0 < 1 - 2 * y) :
+    HasDerivAt (fun y ↦ (1 / 2 + y) * log (1 + 2 * y) + (1 / 2 - y) * log (1 - 2 * y))
+      (log (1 + 2 * y) - log (1 - 2 * y)) y := by
+  have ha : HasDerivAt (fun y : ℝ ↦ 1 + 2 * y) 2 y := by
+    simpa using ((hasDerivAt_id' y).const_mul 2).const_add 1
+  have hb : HasDerivAt (fun y : ℝ ↦ 1 - 2 * y) (-2) y := by
+    simpa using ((hasDerivAt_id' y).const_mul 2).const_sub 1
+  have hc : HasDerivAt (fun y : ℝ ↦ 1 / 2 + y) 1 y := (hasDerivAt_id' y).const_add _
+  have hd : HasDerivAt (fun y : ℝ ↦ 1 / 2 - y) (-1) y := (hasDerivAt_id' y).const_sub _
+  have h := (hc.mul (ha.log h1.ne')).add (hd.mul (hb.log h2.ne'))
+  convert h using 1
+  field_simp
+  ring
+
+/-- For `0 ≤ x` with `8 x² ≤ 1`, the points `y ∈ [0, x]` have `0 < 1 + 2 y` and `0 < 1 - 2 y`, so
+`y ↦ log (1 ± 2 y)` is continuous on `[0, x]`. -/
+private lemma continuousOn_log_one_add_two_mul_and {x : ℝ} (hx : 8 * x ^ 2 ≤ 1) :
+    ContinuousOn (fun y : ℝ ↦ log (1 + 2 * y)) (Icc 0 x) ∧
+      ContinuousOn (fun y : ℝ ↦ log (1 - 2 * y)) (Icc 0 x) ∧
+      ∀ y ∈ interior (Icc 0 x), 0 < 1 + 2 * y ∧ 0 < 1 - 2 * y := by
+  have hlt {y : ℝ} (hy : y ∈ Icc 0 x) : 2 * y < 1 := by nlinarith [hy.1, hy.2]
+  refine ⟨ContinuousOn.log (by fun_prop) fun y hy ↦ by linarith [hy.1],
+    ContinuousOn.log (by fun_prop) fun y hy ↦ by linarith [hlt hy], fun y hy ↦ ?_⟩
+  rw [interior_Icc] at hy
+  exact ⟨by linarith [hy.1], by linarith [hlt (Ioo_subset_Icc_self hy)]⟩
+
+/-- For `0 ≤ x` with `8 x² ≤ 1`, `log (1 + 2 x) - log (1 - 2 x) ≤ 4 x + 32 x³ / 3`: the difference
+vanishes at `0` and its derivative `4 + 32 y² - 4 / (1 - 4 y²)` is nonnegative on `[0, x]`. -/
+private lemma log_one_add_two_mul_sub_log_le {x : ℝ} (hx : 8 * x ^ 2 ≤ 1) (hx0 : 0 ≤ x) :
+    log (1 + 2 * x) - log (1 - 2 * x) ≤ 4 * x + 32 / 3 * x ^ 3 := by
+  obtain ⟨hc₁, hc₂, hpos⟩ := continuousOn_log_one_add_two_mul_and hx
+  have hmono : MonotoneOn
+      (fun y ↦ 4 * y + 32 / 3 * y ^ 3 - (log (1 + 2 * y) - log (1 - 2 * y))) (Icc 0 x) := by
+    refine monotoneOn_of_hasDerivWithinAt_nonneg (f' := fun y ↦
+      4 + 32 * y ^ 2 - (2 / (1 + 2 * y) + 2 / (1 - 2 * y))) (convex_Icc 0 x)
+      ((by fun_prop : ContinuousOn (fun y : ℝ ↦ 4 * y + 32 / 3 * y ^ 3) _).sub (hc₁.sub hc₂))
+      (fun y hy ↦ ?_) fun y hy ↦ ?_
+    · obtain ⟨h1, h2⟩ := hpos y hy
+      have ha : HasDerivAt (fun y : ℝ ↦ 1 + 2 * y) 2 y := by
+        simpa using ((hasDerivAt_id' y).const_mul 2).const_add 1
+      have hb : HasDerivAt (fun y : ℝ ↦ 1 - 2 * y) (-2) y := by
+        simpa using ((hasDerivAt_id' y).const_mul 2).const_sub 1
+      have h := (((hasDerivAt_id' y).const_mul 4).add (((hasDerivAt_pow 3 y).const_mul
+        (32 / 3)))).sub ((ha.log h1.ne').sub (hb.log h2.ne'))
+      refine HasDerivAt.hasDerivWithinAt (h.congr_deriv ?_)
+      push_cast
+      ring
+    · obtain ⟨h1, h2⟩ := hpos y hy
+      have hy8 : 8 * y ^ 2 ≤ 1 := by
+        rw [interior_Icc] at hy
+        nlinarith [hy.1, hy.2]
+      rw [div_add_div _ _ h1.ne' h2.ne', sub_nonneg, div_le_iff₀ (mul_pos h1 h2)]
+      nlinarith [mul_nonneg (sq_nonneg y) (sub_nonneg.2 hy8)]
+  have h := hmono ⟨le_rfl, hx0⟩ ⟨hx0, le_rfl⟩ hx0
+  norm_num at h
+  linarith
+
+/-- **The binary relative entropy to `1 / 2` near `1 / 2`**: for `8 x² ≤ 1`,
+`klBerReal (1 / 2 + x) (1 / 2) ≤ 2 x² + 8 x⁴ / 3`. The leading term `2 x²` is that of Pinsker's
+inequality `two_mul_sq_le_klBerReal`, so the two bounds match to second order. -/
+theorem klBerReal_one_div_two_add_le {x : ℝ} (hx : 8 * x ^ 2 ≤ 1) :
+    klBerReal (1 / 2 + x) (1 / 2) ≤ 2 * x ^ 2 + 8 / 3 * x ^ 4 := by
+  -- by symmetry, `x ≥ 0`
+  wlog hx0 : 0 ≤ x generalizing x
+  · have h := this (x := -x) (by simpa using hx) (by linarith)
+    rw [← klBerReal_one_sub, show 1 - (1 / 2 + -x) = 1 / 2 + x by ring,
+      show (1 : ℝ) - 1 / 2 = 1 / 2 by norm_num, neg_sq, (by decide : Even 4).neg_pow] at h
+    exact h
+  obtain ⟨hc₁, hc₂, hpos⟩ := continuousOn_log_one_add_two_mul_and hx
+  -- `2 y ^ 2 + 8 y ^ 4 / 3 - klBerReal (1 / 2 + y) (1 / 2)` vanishes at `0` and is monotone on
+  -- `[0, x]`, since its derivative is nonnegative there
+  have hmono : MonotoneOn (fun y ↦ 2 * y ^ 2 + 8 / 3 * y ^ 4 -
+      ((1 / 2 + y) * log (1 + 2 * y) + (1 / 2 - y) * log (1 - 2 * y))) (Icc 0 x) := by
+    refine monotoneOn_of_hasDerivWithinAt_nonneg
+      (f' := fun y ↦ 4 * y + 32 / 3 * y ^ 3 - (log (1 + 2 * y) - log (1 - 2 * y))) (convex_Icc 0 x)
+      ((by fun_prop : ContinuousOn (fun y : ℝ ↦ 2 * y ^ 2 + 8 / 3 * y ^ 4) _).sub
+        (((by fun_prop : ContinuousOn (fun y : ℝ ↦ 1 / 2 + y) _).mul hc₁).add
+          ((by fun_prop : ContinuousOn (fun y : ℝ ↦ 1 / 2 - y) _).mul hc₂)))
+      (fun y hy ↦ ?_) fun y hy ↦ ?_
+    · obtain ⟨h1, h2⟩ := hpos y hy
+      have h := (((hasDerivAt_pow 2 y).const_mul 2).add ((hasDerivAt_pow 4 y).const_mul
+        (8 / 3))).sub (hasDerivAt_mul_log_add_mul_log h1 h2)
+      refine HasDerivAt.hasDerivWithinAt (h.congr_deriv ?_)
+      push_cast
+      ring
+    · have hy := interior_subset hy
+      exact sub_nonneg.2 (log_one_add_two_mul_sub_log_le (by nlinarith [hy.1, hy.2]) hy.1)
+  have h := hmono ⟨le_rfl, hx0⟩ ⟨hx0, le_rfl⟩ hx0
+  have hg : klBerReal (1 / 2 + x) (1 / 2) =
+      (1 / 2 + x) * log (1 + 2 * x) + (1 / 2 - x) * log (1 - 2 * x) := by
+    rw [klBerReal_apply]
+    congr 2 <;> ring_nf
+  norm_num at h
+  linarith
+
+end NearOneHalf
 
 /-- Moving `p ∈ [0, 1]` a fraction `t ∈ (0, 1]` of the way to `1 / 2` lands in `(0, 1)`. -/
 theorem one_sub_mul_add_div_two_mem_Ioo {t : ℝ} (hp : p ∈ Set.Icc 0 1) (ht : t ∈ Set.Ioc 0 1) :
