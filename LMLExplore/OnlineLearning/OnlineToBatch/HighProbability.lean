@@ -9,6 +9,7 @@ public import Mathlib.Analysis.Convex.Jensen
 public import Mathlib.Analysis.SpecialFunctions.Pow.Real
 public import Mathlib.Probability.Independence.Basic
 public import Mathlib.Probability.Process.Filtration
+import LMLExplore.MeasureTheory.Measure.Real
 import LMLExplore.Probability.Martingale.Hoeffding
 import TauCeti.Probability.Independence.CondExp
 
@@ -100,10 +101,6 @@ private lemma exp_neg_two_mul_sq_mul_sqrt_div_eq {c : ℝ} (hc : 0 < c) (hn : n 
   rw [mul_pow, sq_sqrt (by positivity), one_div, log_inv]
   field_simp
   exact exp_log hδ
-
-/-- `μ.real` is monotone under almost-everywhere inclusion; `μ.real s` is `(μ s).toReal`. -/
-private lemma measureReal_mono_ae {s t : Set Ω} (h : s ≤ᵐ[μ] t) : μ.real s ≤ μ.real t :=
-  ENNReal.toReal_mono (measure_ne_top μ _) (measure_mono_ae h)
 
 /-- **Azuma–Hoeffding bound for the risks of the plays.** For a loss `f` with values in `[0, 1]`
 whose conditional mean at the play `x t` given `ℱ t` is the risk `F (x t)`, and `ε ≥ 0`,

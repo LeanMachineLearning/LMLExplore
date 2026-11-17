@@ -16,8 +16,9 @@ events `s i`, `i : ι` with `ι` finite, has probability at most `δ / card ι`,
 at least `1 - δ` none of them happens. The events need not be measurable. It also records the
 intersection of two high-probability events: if `s` and `t` have probabilities at least `1 - a`
 and `1 - b`, then `s ∩ t` has probability at least `1 - a - b`. Finally, it records that a set of
-nonzero finite mass has positive real mass, and that the real masses of the points of a finite
-space sum to `1` under a probability measure.
+nonzero finite mass has positive real mass, that the real masses of the points of a finite
+space sum to `1` under a probability measure, and that the real mass is monotone under
+almost-everywhere inclusion.
 
 ## Main statements
 
@@ -28,6 +29,8 @@ space sum to `1` under a probability measure.
 * `MeasureTheory.measureReal_pos_of_ne_zero`: a set of nonzero finite mass has positive real mass.
 * `MeasureTheory.sum_measureReal_singleton_eq_one`: the real masses of the points of a finite
   space sum to `1` under a probability measure.
+* `MeasureTheory.measureReal_mono_ae`: the real mass is monotone under almost-everywhere
+  inclusion.
 -/
 
 public section
@@ -70,7 +73,7 @@ end LMLExplore
 
 namespace MeasureTheory
 
-variable {α : Type*} {mα : MeasurableSpace α} {μ : Measure α} {s : Set α}
+variable {α : Type*} {mα : MeasurableSpace α} {μ : Measure α} {s t : Set α}
 
 /-- A set of nonzero finite mass has positive real mass. -/
 lemma measureReal_pos_of_ne_zero (h₀ : μ s ≠ 0) (h : μ s ≠ ∞ := by finiteness) :
@@ -82,5 +85,10 @@ lemma sum_measureReal_singleton_eq_one [MeasurableSingletonClass α] [Fintype α
     (μ : Measure α) [IsProbabilityMeasure μ] :
     ∑ y, μ.real {y} = 1 := by
   rw [sum_measureReal_singleton, Finset.coe_univ, probReal_univ]
+
+/-- The real mass is monotone under almost-everywhere inclusion of sets of finite mass. -/
+lemma measureReal_mono_ae (h : s ≤ᵐ[μ] t) (h₂ : μ t ≠ ∞ := by finiteness) :
+    μ.real s ≤ μ.real t :=
+  ENNReal.toReal_mono h₂ (measure_mono_ae h)
 
 end MeasureTheory
