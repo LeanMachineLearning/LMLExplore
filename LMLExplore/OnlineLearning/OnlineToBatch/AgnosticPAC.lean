@@ -105,6 +105,7 @@ lemma validationLoss_def {n : ℕ} (s : Fin n → Z) (y : α) :
 
 /-- On the first `n` terms of a sequence `ω`, the validation loss is the cumulative loss on the
 terms `ω (n / 2 + j)`, `j < n / 2`. -/
+@[simp]
 lemma validationLoss_initSeg {n : ℕ} (ω : ℕ → Z) (y : α) :
     validationLoss f (initSeg n ω) y = ∑ j ∈ range (n / 2), f y (ω (n / 2 + j)) := by
   rw [validationLoss_def, ← Fin.sum_univ_eq_sum_range]
@@ -127,6 +128,7 @@ lemma trainingPlay_def (s : Fin n → Z) (t : Fin (n / 2)) :
 
 /-- On the first `n` terms of a sequence `ω`, the training plays are the plays of the run of `A`
 against the feedback `ω`. -/
+@[simp]
 lemma trainingPlay_initSeg (ω : ℕ → Z) (t : Fin (n / 2)) :
     A.trainingPlay (initSeg n ω) t = A.run (fun _ ↦ ()) ω t := by
   simp [trainingPlay_def, run_def]
@@ -139,6 +141,12 @@ noncomputable def validationPlay (f : α → Z → ℝ) (s : Fin n → Z) : α :
   if h : n / 2 = 0 then A.play 0 Fin.elim0 () else
     haveI : Nonempty (Fin (n / 2)) := ⟨⟨0, Nat.pos_of_ne_zero h⟩⟩
     A.trainingPlay s (argmin fun t ↦ validationLoss f s (A.trainingPlay s t))
+
+/-- For `n < 2` there is no training play, and the validation-selected play is the first play of
+`A`. -/
+lemma validationPlay_of_div_two_eq_zero (h : n / 2 = 0) (s : Fin n → Z) :
+    A.validationPlay f s = A.play 0 Fin.elim0 () := by
+  simp only [validationPlay, h, ↓reduceDIte]
 
 lemma validationPlay_eq [Nonempty (Fin (n / 2))] (s : Fin n → Z) :
     A.validationPlay f s =
@@ -155,10 +163,12 @@ lemma validationLoss_validationPlay_le [Nonempty (Fin (n / 2))] (s : Fin n → Z
 /-- The validation-selected play is a play of `A`, hence lies in every set containing them. -/
 lemma validationPlay_mem (hAV : ∀ t h, A.play t h () ∈ V) (s : Fin n → Z) :
     A.validationPlay f s ∈ V := by
-  rw [validationPlay]
-  split_ifs
-  · exact hAV _ _
-  · exact hAV _ _
+  rcases eq_or_ne (n / 2) 0 with h | h
+  · rw [A.validationPlay_of_div_two_eq_zero h]
+    exact hAV _ _
+  · have : Nonempty (Fin (n / 2)) := ⟨⟨0, Nat.pos_of_ne_zero h⟩⟩
+    rw [validationPlay_eq]
+    exact hAV _ _
 
 end OnlineLearner
 
@@ -184,8 +194,7 @@ theorem measurable_validationPlay (hf : Measurable (Function.uncurry f))
     (hA : ∀ t, Measurable fun h : Fin t → Unit × Z ↦ A.play t h ()) :
     Measurable (A.validationPlay f (n := n)) := by
   rcases eq_or_ne (n / 2) 0 with h | h
-  · rw [show A.validationPlay f (n := n) = fun _ ↦ A.play 0 Fin.elim0 () from
-      funext fun s ↦ by simp [validationPlay, h]]
+  · rw [funext (A.validationPlay_of_div_two_eq_zero (f := f) h)]
     exact measurable_const
   have : Nonempty (Fin (n / 2)) := ⟨⟨0, Nat.pos_of_ne_zero h⟩⟩
   have hk : Measurable fun s : Fin n → Z ↦
@@ -244,6 +253,39 @@ private lemma eventually_sqrt_lt (c a : ℝ) (ha : 0 < a) {ε : ℝ} (hε : 0 < 
   rw [← add_div, ← mul_div_assoc] at h₂
   rwa [log_mul ha.ne' (by positivity)]
 
+/-- On the sequence space `ℕ → Z` with the product law `Measure.infinitePi fun _ ↦ ρ` and the
+filtration of the strict past of the coordinates, the coordinate `ω t` is measurable at time
+`t + 1`, is independent of the past at time `t`, and has law `ρ`. -/
+private lemma infinitePi_naturalLT (ρ : Measure Z) [IsProbabilityMeasure ρ] :
+    (∀ t, Measurable[Filtration.naturalLT (fun t (ω : ℕ → Z) ↦ ω t) measurable_pi_apply (t + 1)]
+      fun ω ↦ ω t) ∧
+    (∀ t, Indep (MeasurableSpace.comap (fun ω : ℕ → Z ↦ ω t) inferInstance)
+      (Filtration.naturalLT (fun t (ω : ℕ → Z) ↦ ω t) measurable_pi_apply t)
+      (Measure.infinitePi fun _ ↦ ρ)) ∧
+    ∀ t, (Measure.infinitePi fun _ ↦ ρ).map (fun ω : ℕ → Z ↦ ω t) = ρ :=
+  ⟨fun t ↦ Filtration.measurable_naturalLT measurable_pi_apply t.lt_succ_self,
+    fun t ↦ Filtration.indep_naturalLT measurable_pi_apply
+      (iIndepFun_infinitePi (X := fun _ ↦ id) fun _ ↦ measurable_id) t,
+    fun t ↦ Measure.infinitePi_map_eval _ t⟩
+
+/-- For a jointly measurable loss `f`, the risk `∫ z, f (g s) z ∂ρ` of a measurable choice `g s` is
+a measurable function of `s`. -/
+private lemma measurable_integral_comp {β : Type*} [MeasurableSpace β]
+    (hf : Measurable (Function.uncurry f)) (ρ : Measure Z) [SFinite ρ] {g : β → α}
+    (hg : Measurable g) : Measurable fun s ↦ ∫ z, f (g s) z ∂ρ :=
+  (hf.stronglyMeasurable.integral_prod_right (ν := ρ)).measurable.comp hg
+
+/-- If `r j ≤ r i + D` for every `i < k`, and the average of the `r i` is at most `B`, then
+`r j ≤ B + D`: a nearly smallest term is nearly at most the average. -/
+private lemma le_add_of_sum_div_le {k : ℕ} {r : Fin k → ℝ} {j : Fin k} {B D : ℝ}
+    (hr : ∀ i, r j ≤ r i + D) (hB : (∑ i, r i) / k ≤ B) : r j ≤ B + D := by
+  have hk : (0 : ℝ) < k := by have := j.pos; positivity
+  have hsum := card_nsmul_le_sum univ r (r j - D) fun i _ ↦ sub_le_iff_le_add.2 (hr i)
+  rw [card_univ, Fintype.card_fin, nsmul_eq_mul] at hsum
+  rw [div_le_iff₀ hk] at hB
+  have h := (mul_le_mul_iff_of_pos_left hk).1 (hsum.trans (hB.trans_eq (mul_comm _ _)))
+  linarith
+
 namespace OnlineLearner.HasRegretBound
 
 variable {A : OnlineLearner Unit Z α} {R : α → ℕ → ℝ}
@@ -276,8 +318,7 @@ theorem measureReal_lt_integral_validationPlay_le
       √(2 * log (1 / δ) / (n / 2 : ℕ)) + √(2 * log (2 * (n / 2 : ℕ) / δ) / (n / 2 : ℕ)) <
         ∫ z, f (A.validationPlay f s) z ∂ρ} :=
     measurableSet_lt measurable_const
-      ((hf.stronglyMeasurable.integral_prod_right (ν := ρ)).measurable.comp
-        (A.measurable_validationPlay hf hA))
+      (measurable_integral_comp hf ρ (A.measurable_validationPlay hf hA))
   rw [← (measurePreserving_initSeg ρ n).measureReal_preimage hmeas.nullMeasurableSet]
   set P := Measure.infinitePi fun _ : ℕ ↦ ρ
   let ℱ := Filtration.naturalLT (fun t (ω : ℕ → Z) ↦ ω t) measurable_pi_apply
@@ -285,13 +326,7 @@ theorem measureReal_lt_integral_validationPlay_le
     simp only [run_def]
     exact (hA t).comp (@Measurable.of_eval _ _ _ (ℱ t) _ _ fun r ↦ measurable_const.prodMk
       (Filtration.measurable_naturalLT measurable_pi_apply r.2))
-  have hξ (t : ℕ) : Measurable[ℱ (t + 1)] fun ω : ℕ → Z ↦ ω t :=
-    Filtration.measurable_naturalLT measurable_pi_apply t.lt_succ_self
-  have hindep (t : ℕ) :
-      Indep (MeasurableSpace.comap (fun ω : ℕ → Z ↦ ω t) inferInstance) (ℱ t) P :=
-    Filtration.indep_naturalLT measurable_pi_apply
-      (iIndepFun_infinitePi (X := fun _ ↦ id) fun _ ↦ measurable_id) t
-  have hlaw (t : ℕ) : P.map (fun ω ↦ ω t) = ρ := Measure.infinitePi_map_eval _ t
+  obtain ⟨hξ, hindep, hlaw⟩ := infinitePi_naturalLT ρ
   -- The average risk of the training plays is controlled by their regret [Ora, Theorem 3.10].
   have h1 := measureReal_add_div_add_sqrt_lt_sum_div_le_of_indep (ℱ := ℱ) (μ := P)
     (x := fun t ω ↦ A.run (fun _ ↦ ()) ω t) (ξ := fun t ω ↦ ω t) (n := n / 2) hf hf01 hx hξ
@@ -323,15 +358,9 @@ theorem measureReal_lt_integral_validationPlay_le
   rw [A.validationPlay_eq, A.trainingPlay_initSeg] at hω
   by_contra! h
   obtain ⟨h1', h2'⟩ := h
-  have hk' : (0 : ℝ) < (n / 2 : ℕ) := by positivity
-  have hsum := card_nsmul_le_sum univ
-    (fun i : Fin (n / 2) ↦ ∫ z, f (A.run (fun _ ↦ ()) ω i) z ∂ρ) _ fun i _ ↦
-      sub_le_iff_le_add.2 (h2' i)
-  rw [Fin.sum_univ_eq_sum_range (fun t ↦ ∫ z, f (A.run (fun _ ↦ ()) ω t) z ∂ρ), card_univ,
-    Fintype.card_fin, nsmul_eq_mul] at hsum
-  rw [div_le_iff₀ hk'] at h1'
-  have h := (mul_le_mul_iff_of_pos_left hk').1 (hsum.trans (h1'.trans_eq (mul_comm _ _)))
-  linarith
+  rw [← Fin.sum_univ_eq_sum_range (fun t ↦ ∫ z, f (A.run (fun _ ↦ ()) ω t) z ∂ρ)] at h1'
+  linarith [le_add_of_sum_div_le
+    (r := fun i : Fin (n / 2) ↦ ∫ z, f (A.run (fun _ ↦ ()) ω i) z ∂ρ) h2' h1']
 
 /-- **Sublinear regret gives agnostic PAC learnability** [Ora, §3.2]. Let `A` be an online learner
 with data in `Z` as feedback and plays in `V`, measurable functions of the past data, whose regret
@@ -379,8 +408,11 @@ end LMLExplore.OnlineLearning
 open LMLExplore.OnlineLearning in
 /-- **Finite classes are agnostic PAC learnable** [Ora, Theorem 3.17], by empirical risk
 minimization: for a jointly measurable loss `f` with values in `[0, 1]` and a finite nonempty set
-`V`, the point of `V` with the smallest cumulative loss on the sample has, with probability at
-least `1 - δ`, a risk within `√(2 log (2 |V| / δ) / n)` of the smallest risk over `V`. -/
+`V`, the class `{f x · | x ∈ V}` is agnostic PAC learnable by the algorithm returning the point of
+`V` with the smallest cumulative loss on the sample. The proof applies the selection bound
+`measureReal_exists_add_sqrt_lt_le_of_indep` on the whole sample: for a sample size `n ≠ 0`, with
+probability at least `1 - δ`, the risk of that point is within `√(2 log (2 |V| / δ) / n)` of the
+smallest risk over `V`. -/
 theorem Set.Finite.agnosticPACLearnable {α Z : Type*} [MeasurableSpace α] [MeasurableSpace Z]
     {f : α → Z → ℝ} {V : Set α} (hV : V.Finite) (hVne : V.Nonempty)
     (hf : Measurable (Function.uncurry f)) (hf01 : ∀ y z, f y z ∈ Set.Icc 0 1) :
@@ -406,21 +438,18 @@ theorem Set.Finite.agnosticPACLearnable {α Z : Type*} [MeasurableSpace α] [Mea
   have hmeas : MeasurableSet E := by
     simp only [hE, Set.ofPred_exists]
     exact MeasurableSet.iUnion fun _ ↦ measurableSet_lt measurable_const
-      ((hf.stronglyMeasurable.integral_prod_right (ν := ρ)).measurable.comp
-        (measurable_subtype_coe.comp (measurable_argmin.comp (hL n))))
+      (measurable_integral_comp hf ρ (measurable_subtype_coe.comp (measurable_argmin.comp (hL n))))
   refine (measureReal_mono (s₂ := E) fun s hs ↦ ?_).trans ?_
   · obtain ⟨u, hu, hus⟩ := hs
     exact ⟨⟨u, hu⟩, by linarith⟩
   rw [← (measurePreserving_initSeg ρ n).measureReal_preimage hmeas.nullMeasurableSet]
-  let ℱ := Filtration.naturalLT (fun t (ω : ℕ → Z) ↦ ω t) measurable_pi_apply
-  refine measureReal_exists_add_sqrt_lt_le_of_indep (ℱ := ℱ) (ρ := ρ) (m := n)
+  obtain ⟨hξ, hindep, hlaw⟩ := infinitePi_naturalLT ρ
+  refine measureReal_exists_add_sqrt_lt_le_of_indep
+    (ℱ := Filtration.naturalLT (fun t (ω : ℕ → Z) ↦ ω t) measurable_pi_apply) (ρ := ρ) (m := n)
     (c := fun (v : V) _ ↦ (v : α)) (ξ := fun t ω ↦ ω t)
     (k := fun ω ↦ argmin fun v : V ↦ ∑ j, f v (initSeg n ω j)) hf hf01
-    (fun _ ↦ measurable_const)
-    (fun t ↦ Filtration.measurable_naturalLT measurable_pi_apply t.lt_succ_self)
-    (fun t _ ↦ Filtration.indep_naturalLT measurable_pi_apply
-      (iIndepFun_infinitePi (X := fun _ ↦ id) fun _ ↦ measurable_id) t)
-    (fun t _ ↦ Measure.infinitePi_map_eval _ t) (fun ω v ↦ ?_) (by omega) hδ
+    (fun _ ↦ measurable_const) hξ (fun t _ ↦ hindep t) (fun t _ ↦ hlaw t) (fun ω v ↦ ?_)
+    (by omega) hδ
   have h := isMinOn_univ_iff.1 (isMinOn_argmin fun v : V ↦ ∑ j, f v (initSeg n ω j)) v
   simp only [Finset.sum_range]
   simpa only [initSeg_def] using h
