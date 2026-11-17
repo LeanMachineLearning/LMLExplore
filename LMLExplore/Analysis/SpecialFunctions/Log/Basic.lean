@@ -71,7 +71,6 @@ import Mathlib.Analysis.SpecialFunctions.Log.Deriv
 * `Real.abs_log_one_add_mul_le`: `|log (1 + δ t)| ≤ log (1 + t)` for `t ≥ 0` and `δ ∈ [0, 1]`.
 * `Real.hasDerivAt_log_one_add_mul`, `Real.hasDerivAt_log_one_sub_mul`: the derivatives
   `c / (1 + c y)` and `-c / (1 - c y)` of `y ↦ log (1 ± c y)`.
-* `Real.one_sub_two_mul_pos_of_eight_mul_sq_le`: `0 < 1 - 2 y` for `y ≤ x` with `8 x² ≤ 1`.
 * `Real.log_one_add_two_mul_sub_log_one_sub_two_mul_le`:
   `log (1 + 2 x) - log (1 - 2 x) ≤ 4 x + 32 x³ / 3` for `0 ≤ x` with `8 x² ≤ 1`. It bounds the
   binary relative entropy near `1 / 2`.
@@ -700,11 +699,6 @@ theorem hasDerivAt_log_one_sub_mul {c y : ℝ} (h : 1 - c * y ≠ 0) :
     HasDerivAt (fun y ↦ log (1 - c * y)) (-c / (1 - c * y)) y := by
   simpa [neg_div] using (((hasDerivAt_id' y).const_mul c).const_sub 1).log h
 
-/-- If `8 x² ≤ 1`, then `2 x < 1`, so `0 < 1 - 2 y` for every `y ≤ x`. -/
-theorem one_sub_two_mul_pos_of_eight_mul_sq_le {x y : ℝ} (hx : 8 * x ^ 2 ≤ 1) (hy : y ≤ x) :
-    0 < 1 - 2 * y := by
-  nlinarith
-
 /-- For `0 ≤ x` with `8 x² ≤ 1`, `log (1 + 2 x) - log (1 - 2 x) ≤ 4 x + 32 x³ / 3`. It bounds the
 binary relative entropy near `1 / 2` (`LMLExplore.klBerReal_one_div_two_add_le`). -/
 theorem log_one_add_two_mul_sub_log_one_sub_two_mul_le {x : ℝ} (hx : 8 * x ^ 2 ≤ 1)
@@ -716,7 +710,8 @@ theorem log_one_add_two_mul_sub_log_one_sub_two_mul_le {x : ℝ} (hx : 8 * x ^ 2
         (4 + 32 * y ^ 2 - (2 / (1 + 2 * y) + 2 / (1 - 2 * y))) y := fun y hy ↦ by
     have h := (((hasDerivAt_id' y).const_mul 4).add (((hasDerivAt_pow 3 y).const_mul
       (32 / 3)))).sub ((hasDerivAt_log_one_add_mul (c := 2) (by linarith [hy.1])).sub
-        (hasDerivAt_log_one_sub_mul (c := 2) (one_sub_two_mul_pos_of_eight_mul_sq_le hx hy.2).ne'))
+        (hasDerivAt_log_one_sub_mul (c := 2)
+          (by nlinarith [hy.2] : (0 : ℝ) < 1 - 2 * y).ne'))
     refine h.congr_deriv ?_
     push_cast
     ring
@@ -726,7 +721,7 @@ theorem log_one_add_two_mul_sub_log_one_sub_two_mul_le {x : ℝ} (hx : 8 * x ^ 2
       (by rwa [min_eq_left hx0, max_eq_right hx0] at hy)))
     (fun y hy ↦ by
       have h1 : 0 < 1 + 2 * y := by linarith [hy.1]
-      have h2 := one_sub_two_mul_pos_of_eight_mul_sq_le hx hy.2.le
+      have h2 : 0 < 1 - 2 * y := by nlinarith [hy.2]
       have hy8 : 8 * y ^ 2 ≤ 1 := by nlinarith [hy.1, hy.2]
       rw [div_add_div _ _ h1.ne' h2.ne', sub_nonneg, div_le_iff₀ (mul_pos h1 h2)]
       nlinarith [mul_nonneg (sq_nonneg y) (sub_nonneg.2 hy8)])

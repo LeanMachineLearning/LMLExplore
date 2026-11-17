@@ -256,75 +256,81 @@ section Asymptotics
 
 variable {L U K₁ K₂ : ℝ} {ε : ℕ → ℝ}
 
-/-- Bounds `K₁ ≤ ε n ≤ K₂` with `K₁ > 0` make `K₂` and every `ε n` positive. -/
-private lemma pos_of_le_of_le (hK₁ : 0 < K₁) (hε₁ : ∀ n, K₁ ≤ ε n) (hε₂ : ∀ n, ε n ≤ K₂) :
-    0 < K₂ ∧ ∀ n, 0 < ε n :=
-  ⟨hK₁.trans_le ((hε₁ 0).trans (hε₂ 0)), fun n ↦ hK₁.trans_le (hε₁ n)⟩
+/-- Eventual bounds `K₁ ≤ ε n ≤ K₂` with `K₁ > 0` make `K₂` positive. -/
+private lemma pos_of_eventually_le_of_le (hK₁ : 0 < K₁) (hε₁ : ∀ᶠ n in atTop, K₁ ≤ ε n)
+    (hε₂ : ∀ᶠ n in atTop, ε n ≤ K₂) : 0 < K₂ := by
+  obtain ⟨n, h₁, h₂⟩ := (hε₁.and hε₂).exists
+  exact hK₁.trans_le (h₁.trans h₂)
 
 /-- For losses of size `L > 0`, a comparator norm `U > 0` and regret bounds `ε n` against `0`
 bounded away from `0` and `∞`, the hypotheses `1 ≤ W ≤ √n / 2` on
 `W = lambertW (√(e n) U L / (8 ε n))` of `exists_mul_sqrt_two_mul_lambertW_le_regret_run` hold for
-all large `n`. -/
+all large `n`. The bounds `K₁ ≤ ε n ≤ K₂` are only needed for large `n`. -/
 theorem eventually_one_le_lambertW_and_le (hL : 0 < L) (hU : 0 < U) (hK₁ : 0 < K₁)
-    (hε₁ : ∀ n, K₁ ≤ ε n) (hε₂ : ∀ n, ε n ≤ K₂) :
+    (hε₁ : ∀ᶠ n in atTop, K₁ ≤ ε n) (hε₂ : ∀ᶠ n in atTop, ε n ≤ K₂) :
     ∀ᶠ n : ℕ in atTop, 1 ≤ lambertW (√(exp 1 * n) * U * L / (8 * ε n)) ∧
       lambertW (√(exp 1 * n) * U * L / (8 * ε n)) ≤ √n / 2 := by
-  obtain ⟨hK₂, hε⟩ := pos_of_le_of_le hK₁ hε₁ hε₂
+  have hK₂ := pos_of_eventually_le_of_le hK₁ hε₁ hε₂
   -- the argument of `lambertW` is between `a₁ √n` and `a₂ √n`
   set a₁ := √(exp 1) * U * L / (8 * K₂)
   set a₂ := √(exp 1) * U * L / (8 * K₁)
   have hx (n : ℕ) : √(exp 1 * n) * U * L / (8 * ε n) = √n * (√(exp 1) * U * L / (8 * ε n)) := by
     rw [Real.sqrt_mul (exp_pos 1).le]
     ring
-  have hlow (n : ℕ) : √n * a₁ ≤ √(exp 1 * n) * U * L / (8 * ε n) := by
+  have hlow (n : ℕ) (h₁ : K₁ ≤ ε n) (h₂ : ε n ≤ K₂) :
+      √n * a₁ ≤ √(exp 1 * n) * U * L / (8 * ε n) := by
     rw [hx]
     exact mul_le_mul_of_nonneg_left (div_le_div_of_nonneg_left (by positivity)
-      (by linarith [hε n]) (by linarith [hε₂ n])) (Real.sqrt_nonneg _)
-  have hup (n : ℕ) : √(exp 1 * n) * U * L / (8 * ε n) ≤ √n * a₂ := by
+      (by linarith) (by linarith)) (Real.sqrt_nonneg _)
+  have hup (n : ℕ) (h₁ : K₁ ≤ ε n) : √(exp 1 * n) * U * L / (8 * ε n) ≤ √n * a₂ := by
     rw [hx]
     exact mul_le_mul_of_nonneg_left (div_le_div_of_nonneg_left (by positivity)
-      (by linarith) (by linarith [hε₁ n])) (Real.sqrt_nonneg _)
+      (by linarith) (by linarith)) (Real.sqrt_nonneg _)
   have hsqrt : Tendsto (fun n : ℕ ↦ √(n : ℝ)) atTop atTop :=
     tendsto_sqrt_atTop.comp tendsto_natCast_atTop_atTop
   have ha₁ : 0 < a₁ := by positivity
   filter_upwards [(hsqrt.atTop_mul_const ha₁).eventually_ge_atTop (exp 1),
-    hsqrt.eventually_ge_atTop (4 * a₂)] with n h₁ h₂
-  refine ⟨one_le_lambertW_iff.2 (h₁.trans (hlow n)), ?_⟩
+    hsqrt.eventually_ge_atTop (4 * a₂), hε₁, hε₂] with n h₁ h₂ hn₁ hn₂
+  refine ⟨one_le_lambertW_iff.2 (h₁.trans (hlow n hn₁ hn₂)), ?_⟩
   -- `lambertW x ≤ √x ≤ √(√n a₂) ≤ √n / 2`
   refine (lambertW_le_sqrt _).trans (Real.sqrt_le_iff.2 ⟨by positivity, ?_⟩)
   rw [div_pow, Real.sq_sqrt n.cast_nonneg]
-  calc √(exp 1 * n) * U * L / (8 * ε n) ≤ √n * a₂ := hup n
+  calc √(exp 1 * n) * U * L / (8 * ε n) ≤ √n * a₂ := hup n hn₁
     _ ≤ √n * (√n / 4) := by gcongr; linarith
     _ = n / 2 ^ 2 := by rw [← mul_div_assoc, Real.mul_self_sqrt n.cast_nonneg]; norm_num
 
-/-- For `ε n` bounded away from `0` and `∞`, `lambertW (√n U L / (5 ε n))` is asymptotic to
-`log n / 2`: `2 lambertW (√n U L / (5 ε n)) / log n → 1`. -/
+/-- For `ε n` eventually bounded away from `0` and `∞`, `lambertW (√n U L / (5 ε n))` is
+asymptotic to `log n / 2`: `2 lambertW (√n U L / (5 ε n)) / log n → 1`. -/
 private lemma tendsto_two_mul_lambertW_div_log (hL : 0 < L) (hU : 0 < U) (hK₁ : 0 < K₁)
-    (hε₁ : ∀ n, K₁ ≤ ε n) (hε₂ : ∀ n, ε n ≤ K₂) :
+    (hε₁ : ∀ᶠ n in atTop, K₁ ≤ ε n) (hε₂ : ∀ᶠ n in atTop, ε n ≤ K₂) :
     Tendsto (fun n : ℕ ↦ 2 * lambertW (√n * U * L / (5 * ε n)) / log n) atTop (𝓝 1) := by
-  obtain ⟨hK₂, hε⟩ := pos_of_le_of_le hK₁ hε₁ hε₂
+  have hK₂ := pos_of_eventually_le_of_le hK₁ hε₁ hε₂
   have hℓ : Tendsto (fun n : ℕ ↦ log n) atTop atTop :=
     tendsto_log_atTop.comp tendsto_natCast_atTop_atTop
   -- the argument is `√n * c n` with `c n ∈ [U L / (5 K₂), U L / (5 K₁)]`
   set c : ℕ → ℝ := fun n ↦ U * L / (5 * ε n)
   have hb (n : ℕ) : √n * U * L / (5 * ε n) = √n * c n := by simp only [c]; ring
-  have hc₁ (n : ℕ) : U * L / (5 * K₂) ≤ c n :=
-    div_le_div_of_nonneg_left (by positivity) (by linarith [hε n]) (by linarith [hε₂ n])
-  have hc₂ (n : ℕ) : c n ≤ U * L / (5 * K₁) :=
-    div_le_div_of_nonneg_left (by positivity) (by linarith) (by linarith [hε₁ n])
-  have hc0 (n : ℕ) : 0 < c n := (by positivity : (0 : ℝ) < U * L / (5 * K₂)).trans_le (hc₁ n)
-  have hbtop : Tendsto (fun n : ℕ ↦ √n * c n) atTop atTop :=
-    tendsto_atTop_mono (fun n ↦ mul_le_mul_of_nonneg_left (hc₁ n) (Real.sqrt_nonneg _))
-      ((tendsto_sqrt_atTop.comp tendsto_natCast_atTop_atTop).atTop_mul_const (by positivity))
+  have hc₁ (n : ℕ) (h₁ : K₁ ≤ ε n) (h₂ : ε n ≤ K₂) : U * L / (5 * K₂) ≤ c n :=
+    div_le_div_of_nonneg_left (by positivity) (by linarith) (by linarith)
+  have hc₂ (n : ℕ) (h₁ : K₁ ≤ ε n) : c n ≤ U * L / (5 * K₁) :=
+    div_le_div_of_nonneg_left (by positivity) (by linarith) (by linarith)
+  have hc0 (n : ℕ) (h₁ : K₁ ≤ ε n) (h₂ : ε n ≤ K₂) : 0 < c n :=
+    (by positivity : (0 : ℝ) < U * L / (5 * K₂)).trans_le (hc₁ n h₁ h₂)
+  have hbtop : Tendsto (fun n : ℕ ↦ √n * c n) atTop atTop := by
+    refine tendsto_atTop_mono' atTop ?_
+      ((tendsto_sqrt_atTop.comp tendsto_natCast_atTop_atTop).atTop_mul_const
+        (by positivity : 0 < U * L / (5 * K₂)))
+    filter_upwards [hε₁, hε₂] with n h₁ h₂
+    exact mul_le_mul_of_nonneg_left (hc₁ n h₁ h₂) (Real.sqrt_nonneg _)
   -- `log (√n c n) / log n = 1 / 2 + log (c n) / log n → 1 / 2`, as `log (c n)` is bounded
   set M := |log (U * L / (5 * K₂))| + |log (U * L / (5 * K₁))|
   have hlogc : Tendsto (fun n ↦ log (c n) / log n) atTop (𝓝 0) := by
     refine squeeze_zero_norm' ?_ ((tendsto_const_nhds (x := M)).div_atTop hℓ)
-    filter_upwards [hℓ.eventually_gt_atTop 0] with n hn
+    filter_upwards [hℓ.eventually_gt_atTop 0, hε₁, hε₂] with n hn hn₁ hn₂
     rw [Real.norm_eq_abs, abs_div, abs_of_pos hn]
     gcongr
-    have h₁ := log_le_log (by positivity) (hc₁ n)
-    have h₂ := log_le_log (hc0 n) (hc₂ n)
+    have h₁ := log_le_log (by positivity) (hc₁ n hn₁ hn₂)
+    have h₂ := log_le_log (hc0 n hn₁ hn₂) (hc₂ n hn₁)
     rw [abs_le]
     constructor <;> linarith [neg_abs_le (log (U * L / (5 * K₂))), le_abs_self
       (log (U * L / (5 * K₁))), abs_nonneg (log (U * L / (5 * K₂))),
@@ -333,9 +339,10 @@ private lemma tendsto_two_mul_lambertW_div_log (hL : 0 < L) (hU : 0 < U) (hK₁ 
     have h : Tendsto (fun n ↦ 1 / 2 + log (c n) / log n) atTop (𝓝 (1 / 2)) := by
       simpa using tendsto_const_nhds.add hlogc
     refine h.congr' ?_
-    filter_upwards [hℓ.eventually_gt_atTop 0, eventually_gt_atTop 0] with n hn hn0
+    filter_upwards [hℓ.eventually_gt_atTop 0, eventually_gt_atTop 0, hε₁, hε₂] with n hn hn0 hn₁
+      hn₂
     have hn0 : (0 : ℝ) < n := Nat.cast_pos.2 hn0
-    rw [log_mul (Real.sqrt_pos.2 hn0).ne' (hc0 n).ne', log_sqrt hn0.le]
+    rw [log_mul (Real.sqrt_pos.2 hn0).ne' (hc0 n hn₁ hn₂).ne', log_sqrt hn0.le]
     field_simp
   -- `lambertW x / log x → 1` gives the limit
   have h := ((tendsto_lambertW_div_log.comp hbtop).mul hlogb).const_mul 2
@@ -348,11 +355,11 @@ private lemma tendsto_two_mul_lambertW_div_log (hL : 0 < L) (hU : 0 < U) (hK₁ 
 
 /-- **The lower bound of unconstrained online linear optimization grows as `√(n log n)`**
 [Ora, Theorem 5.8]: for losses of size `L > 0`, a comparator norm `U > 0` and regret bounds
-`ε n` against `0` bounded away from `0` and `∞`, the lower bound
+`ε n` against `0` eventually bounded away from `0` and `∞`, the lower bound
 `U L √n (√(2 lambertW (√n U L / (5 ε n))) - 1) - 2 U L + ε n` of
 `exists_mul_sqrt_two_mul_lambertW_div_five_le_regret_run` is asymptotic to `U L √(n log n)`. -/
 theorem tendsto_mul_sqrt_two_mul_lambertW_div_sqrt_mul_log (hL : 0 < L) (hU : 0 < U)
-    (hK₁ : 0 < K₁) (hε₁ : ∀ n, K₁ ≤ ε n) (hε₂ : ∀ n, ε n ≤ K₂) :
+    (hK₁ : 0 < K₁) (hε₁ : ∀ᶠ n in atTop, K₁ ≤ ε n) (hε₂ : ∀ᶠ n in atTop, ε n ≤ K₂) :
     Tendsto (fun n : ℕ ↦ (U * L * √n * (√(2 * lambertW (√n * U * L / (5 * ε n))) - 1) -
       2 * U * L + ε n) / (U * L * √(n * log n))) atTop (𝓝 1) := by
   have hℓ : Tendsto (fun n : ℕ ↦ log n) atTop atTop :=
@@ -367,11 +374,11 @@ theorem tendsto_mul_sqrt_two_mul_lambertW_div_sqrt_mul_log (hL : 0 < L) (hU : 0 
     tendsto_const_nhds.div_atTop hsℓ
   have h₃ : Tendsto (fun n ↦ (ε n - 2 * U * L) / (U * L * (√n * √(log n)))) atTop (𝓝 0) := by
     refine squeeze_zero_norm' ?_ ((tendsto_const_nhds (x := K₂ + 2 * U * L)).div_atTop hX)
-    filter_upwards [hX.eventually_gt_atTop 0] with n hn
+    filter_upwards [hX.eventually_gt_atTop 0, hε₁, hε₂] with n hn hn₁ hn₂
     rw [Real.norm_eq_abs, abs_div, abs_of_pos hn]
     gcongr
     rw [abs_le]
-    constructor <;> linarith [hε₁ n, hε₂ n, mul_pos hU hL]
+    constructor <;> linarith [mul_pos hU hL]
   have h := (h₁.sub h₂).add h₃
   rw [Real.sqrt_one, sub_zero, add_zero] at h
   refine h.congr' ?_
@@ -385,21 +392,22 @@ theorem tendsto_mul_sqrt_two_mul_lambertW_div_sqrt_mul_log (hL : 0 < L) (hU : 0 
 
 /-- **The `√(n log n)` lower bound of unconstrained online linear optimization**
 [Ora, Theorem 5.8]. Let the learner `A` on `ℝ` have regret at most `ε n` against `0` after `n`
-rounds for all linear losses `x ↦ g t * x` with `|g t| ≤ L`, where `ε n` is bounded away from `0`
-and `∞`. Then for every `U > 0` and all large even `n`, some such losses force a regret against `U`
-or `-U` of at least `R n = U L √n (√(2 lambertW (√n U L / (5 ε n))) - 1) - 2 U L + ε n`, and
+rounds for all linear losses `x ↦ g t * x` with `|g t| ≤ L`, where `ε n` is eventually bounded
+away from `0` and `∞`. Then for every `U > 0` and all large even `n`, some such losses force a
+regret against `U` or `-U` of at least
+`R n = U L √n (√(2 lambertW (√n U L / (5 ε n))) - 1) - 2 U L + ε n`, and
 `R n / (U L √(n log n)) → 1` (`tendsto_mul_sqrt_two_mul_lambertW_div_sqrt_mul_log`). -/
 theorem OnlineLearner.HasRegretBound.eventually_exists_mul_sqrt_two_mul_lambertW_le_regret_run
     {C : Type*} {A : OnlineLearner C ℝ ℝ}
     (hA : A.HasRegretBound (fun g x ↦ g * x) (fun _ g ↦ |g| ≤ L) {0} fun n _ _ _ ↦ ε n)
-    (hL : 0 < L) (hU : 0 < U) (hK₁ : 0 < K₁) (hε₁ : ∀ n, K₁ ≤ ε n) (hε₂ : ∀ n, ε n ≤ K₂)
-    (c : ℕ → C) :
+    (hL : 0 < L) (hU : 0 < U) (hK₁ : 0 < K₁) (hε₁ : ∀ᶠ n in atTop, K₁ ≤ ε n)
+    (hε₂ : ∀ᶠ n in atTop, ε n ≤ K₂) (c : ℕ → C) :
     ∀ᶠ n : ℕ in atTop, Even n → ∃ g : ℕ → ℝ, (∀ t < n, |g t| ≤ L) ∧ ∃ u ∈ ({U, -U} : Set ℝ),
       U * L * √n * (√(2 * lambertW (√n * U * L / (5 * ε n))) - 1) - 2 * U * L + ε n ≤
         regret (fun t x ↦ g t * x) (A.run c g) u n := by
-  filter_upwards [eventually_one_le_lambertW_and_le hL hU hK₁ hε₁ hε₂] with n hn heven
+  filter_upwards [eventually_one_le_lambertW_and_le hL hU hK₁ hε₁ hε₂, hε₁] with n hn hn₁ heven
   exact A.exists_mul_sqrt_two_mul_lambertW_div_five_le_regret_run c heven hL
-    (hK₁.trans_le (hε₁ n)) hU (fun g hg ↦ hA.regret_le hg rfl) hn.1 hn.2
+    (hK₁.trans_le hn₁) hU (fun g hg ↦ hA.regret_le hg rfl) hn.1 hn.2
 
 end Asymptotics
 

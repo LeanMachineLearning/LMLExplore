@@ -189,9 +189,12 @@ theorem le_lambertW_iff (hx : -exp (-1) ≤ x) (hw : -1 ≤ w) :
   conv_rhs => rw [← lambertW_mul_exp_lambertW hx]
   exact (strictMonoOn_mul_exp.le_iff_le hw (neg_one_le_lambertW x)).symm
 
-/-- For `x ≥ -exp (-1)` and `w ≥ -1`, `lambertW x ≤ w` iff `x ≤ w * exp w`. -/
-theorem lambertW_le_iff (hx : -exp (-1) ≤ x) (hw : -1 ≤ w) :
-    lambertW x ≤ w ↔ x ≤ w * exp w := by
+/-- For `w ≥ -1`, `lambertW x ≤ w` iff `x ≤ w * exp w`. -/
+theorem lambertW_le_iff (hw : -1 ≤ w) : lambertW x ≤ w ↔ x ≤ w * exp w := by
+  -- below `-exp (-1)`, both sides hold
+  rcases le_total x (-exp (-1)) with hx | hx
+  · rw [lambertW_eq_neg_one_of_le hx]
+    exact iff_of_true hw (hx.trans (neg_exp_neg_one_le_mul_exp hw))
   conv_rhs => rw [← lambertW_mul_exp_lambertW hx]
   exact (strictMonoOn_mul_exp.le_iff_le (neg_one_le_lambertW x) hw).symm
 
@@ -210,7 +213,7 @@ theorem lambertW_pos_iff : 0 < lambertW x ↔ 0 < x := by
   rcases le_total x (-exp (-1)) with hx | hx
   · rw [lambertW_eq_neg_one_of_le hx]
     exact iff_of_true (by norm_num) (hx.trans neg_exp_neg_one_lt_zero.le)
-  · simpa using lambertW_le_iff hx (w := 0) (by norm_num)
+  · simpa using lambertW_le_iff (x := x) (w := 0) (by norm_num)
 
 theorem lambertW_nonneg (hx : 0 ≤ x) : 0 ≤ lambertW x := lambertW_nonneg_iff.2 hx
 
@@ -259,7 +262,7 @@ theorem lambertW_le_log_one_add (hx : -exp (-1) ≤ x) : lambertW x ≤ log (1 +
   have hlog : -1 ≤ log (1 + x) := by
     rw [le_log_iff_exp_le h1x]
     linarith
-  rw [lambertW_le_iff hx hlog, exp_log h1x]
+  rw [lambertW_le_iff hlog, exp_log h1x]
   -- `x / (1 + x) = 1 - (1 + x)⁻¹ ≤ log (1 + x)`
   have h := one_sub_inv_le_log_of_pos h1x
   have : 1 - (1 + x)⁻¹ = x / (1 + x) := by field_simp; ring
@@ -285,7 +288,7 @@ theorem lambertW_le_sqrt (x : ℝ) : lambertW x ≤ √x := by
 theorem lambertW_le_log (hx : exp 1 ≤ x) : lambertW x ≤ log x := by
   have hx0 : 0 < x := (exp_pos 1).trans_le hx
   have hlog : 1 ≤ log x := by rwa [le_log_iff_exp_le hx0]
-  rw [lambertW_le_iff (neg_exp_neg_one_le_of_nonneg hx0.le) (by linarith), exp_log hx0]
+  rw [lambertW_le_iff (by linarith), exp_log hx0]
   exact le_mul_of_one_le_left hx0.le hlog
 
 /-- For `x ≥ e`, `log x - log (log x) ≤ lambertW x`. -/

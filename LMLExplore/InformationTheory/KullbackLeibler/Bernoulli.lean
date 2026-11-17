@@ -410,7 +410,7 @@ theorem klBerReal_one_div_two_add_le {x : ℝ} (hx : 8 * x ^ 2 ≤ 1) :
         (4 * y + 32 / 3 * y ^ 3 - (log (1 + 2 * y) - log (1 - 2 * y))) y := fun y hy ↦ by
     have h := (((hasDerivAt_pow 2 y).const_mul 2).add ((hasDerivAt_pow 4 y).const_mul
       (8 / 3))).sub (hasDerivAt_mul_log_add_mul_log (by linarith [hy.1])
-        (one_sub_two_mul_pos_of_eight_mul_sq_le hx hy.2))
+        (by nlinarith [hy.2]))
     refine h.congr_deriv ?_
     push_cast
     ring
