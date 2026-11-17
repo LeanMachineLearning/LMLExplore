@@ -19,8 +19,10 @@ Median elimination [EMM02, EMM06] is the algorithm for `ε`-best arm identificat
 in phases, `K` being the number of arms. Phase `j` pulls each of the arms that survive the first
 `j` phases `t j` times, then eliminates the half of them with the smallest empirical means, computed
 from the samples of phase `j` only. After `⌈log₂ K⌉` phases a single arm survives, and it is
-recommended. Since the number of arms of each phase is deterministic, so is the number of rounds:
-median elimination is a fixed-budget algorithm.
+recommended. It is a phased-elimination algorithm, built with the fixed-budget constructor
+`phasedEliminationFixedBudget` of `LMLExplore.Identification.PhasedElimination`. Since the number of
+arms of each phase is deterministic, so is the number of rounds: median elimination is a
+fixed-budget algorithm.
 
 In phase `j`, let `a'` be a best arm among the survivors of the first `j` phases. Every arm that
 survives phase `j` has a mean more than `ε_j` below that of `a'` only if the empirical mean of `a'`
@@ -50,10 +52,11 @@ In the namespace `LMLExplore.Identification`:
   arms with the smallest values `x`.
 * `MedianElimination.survivors g j`: the arms that survive the first `j` phases, when `g i` gives
   the statistics of the arms in phase `i`.
-* `MedianElimination.samplingRule t`: the sampling rule of median elimination with numbers of pulls
-  `t`, which pulls the surviving arms in a round robin.
+* `MedianElimination.pulls t`, `MedianElimination.elim t`: the pull schedule and the elimination
+  maps of median elimination with numbers of pulls `t`: phase `j` pulls each active arm `t j` times
+  in a round robin, then halves the active set by the sums of rewards of the phase.
 * `medianElimination t`: median elimination with numbers of pulls `t`, as a fixed-budget
-  identification algorithm.
+  phased-elimination algorithm.
 * `MedianElimination.pullSchedule σ2 ε δ`: the numbers of pulls for `σ2`-sub-Gaussian arms and the
   tolerances and confidences of [EMM02].
 
@@ -61,6 +64,13 @@ In the namespace `LMLExplore.Identification`:
 
 In the namespace `LMLExplore.Identification`:
 
+* `MedianElimination.activeSet_eq_survivors`, `MedianElimination.card_activeSet`,
+  `MedianElimination.phaseStart_eq_phaseEnd`: along every history, the active sets of median
+  elimination are the survivors of the statistics of the phases, phase `j` has `⌈K / 2 ^ j⌉`
+  active arms and starts at round `phaseEnd K t j`.
+* `MedianElimination.pullCount_phaseEnd`: along a run, every arm active in phase `j` has been
+  pulled `∑ i < j, t i` times at its start, by the pull counts of the phased-elimination
+  constructor.
 * `MedianElimination.measure_exists_forall_mem_halve_add_lt_le`: one phase loses more than `ε` on
   the best mean with probability at most `3 η`, if each sum deviates by `n ε / 2` with probability
   at most `η`.
@@ -92,7 +102,10 @@ In the namespace `LMLExplore.Identification`:
 All the arms of a phase are pulled the same number of times during the phase, so the eliminations
 compare the sums of rewards during the phase. Ties are broken by LML's `argmin`, through
 `SuccessiveRejects.eliminated`. The surviving arms are pulled in the round robin
-`Finset.roundRobinOn`.
+`Finset.roundRobinOn`, and the output rule is `roundRobinOn · 0`, the only element of the final
+active set. The length `#S * t j` of phase `j` only depends on its index, since its active set `S`
+has `armsCount K j` arms, so that the phases start at the same rounds `phaseEnd K t j` along every
+history.
 
 The correctness is proved in the array model of LML (`Bandits.ArrayModel`), in which the `k`-th
 pull of the arm `a` returns the entry `z k a` of an array `z` of independent rewards. Along a run,
@@ -120,7 +133,8 @@ open scoped ENNReal NNReal
 
 namespace LMLExplore.Identification.MedianElimination
 
-open SuccessiveRejects
+open SuccessiveRejects (eliminated eliminated_mem eliminated_congr
+  le_of_mem_of_notMem_erase_eliminated measurable_eliminated)
 
 variable {α : Type*} [Fintype α] [DecidableEq α] [Nonempty α]
 
@@ -283,24 +297,6 @@ lemma phaseEnd_eq_sum (K : ℕ) (t : ℕ → ℕ) (j : ℕ) :
   | zero => simp
   | succ j ih => rw [phaseEnd_succ, ih, sum_range_succ]
 
-/-- The number of phases of median elimination completed before round `r`, at most the number
-`⌈log₂ K⌉` of phases. -/
-def phaseOf (K : ℕ) (t : ℕ → ℕ) (r : ℕ) : ℕ :=
-  Nat.findGreatest (fun j ↦ phaseEnd K t j ≤ r) (numPhases K)
-
-lemma phaseOf_def (K : ℕ) (t : ℕ → ℕ) (r : ℕ) :
-    phaseOf K t r = Nat.findGreatest (fun j ↦ phaseEnd K t j ≤ r) (numPhases K) := (rfl)
-
-lemma phaseEnd_phaseOf_le (K : ℕ) (t : ℕ → ℕ) (r : ℕ) : phaseEnd K t (phaseOf K t r) ≤ r :=
-  Nat.findGreatest_spec (P := fun j ↦ phaseEnd K t j ≤ r) (Nat.zero_le _) (by simp)
-
-/-- A round of the phase `j < ⌈log₂ K⌉` comes after `j` completed phases. -/
-lemma phaseOf_eq {K : ℕ} {t : ℕ → ℕ} {j r : ℕ} (hj : j < numPhases K) (h₁ : phaseEnd K t j ≤ r)
-    (h₂ : r < phaseEnd K t (j + 1)) : phaseOf K t r = j := by
-  refine le_antisymm ?_ (Nat.le_findGreatest hj.le h₁)
-  by_contra! h
-  exact h₂.not_ge ((monotone_phaseEnd K t h).trans (phaseEnd_phaseOf_le K t r))
-
 /-! ### Survivors -/
 
 /-- The arms that survive the first `j` phases of median elimination, when `g i` gives the
@@ -370,34 +366,6 @@ lemma measurable_survivors [MeasurableSpace α] [MeasurableSingletonClass α] (j
     exact (measurable_from_prod_countable_right (f := fun p : Finset α × (α → ℝ) ↦
       halve p.1 p.2) fun S ↦ measurable_halve S).comp (ih.prodMk (measurable_pi_apply j))
 
-/-- The arm played by median elimination at round `r`, when each arm that survives the first `j`
-phases is pulled `t j` times during phase `j` and `g i` gives the statistics of the arms in phase
-`i`: after `j` completed phases, the round robin over the arms that survive them, started at
-round `phaseEnd K t j`. After the last phase, the only surviving arm is played. -/
-noncomputable def armAt (t : ℕ → ℕ) (g : ℕ → α → ℝ) (r : ℕ) : α :=
-  roundRobinOn (survivors g (phaseOf (Fintype.card α) t r))
-    (r - phaseEnd (Fintype.card α) t (phaseOf (Fintype.card α) t r))
-
-lemma armAt_def (t : ℕ → ℕ) (g : ℕ → α → ℝ) (r : ℕ) :
-    armAt t g r = roundRobinOn (survivors g (phaseOf (Fintype.card α) t r))
-      (r - phaseEnd (Fintype.card α) t (phaseOf (Fintype.card α) t r)) := (rfl)
-
-/-- The arm played at round `r` only depends on the statistics of the phases completed before
-`r`. -/
-lemma armAt_congr {t : ℕ → ℕ} {g g' : ℕ → α → ℝ} {r : ℕ}
-    (h : ∀ i, phaseEnd (Fintype.card α) t (i + 1) ≤ r → g i = g' i) :
-    armAt t g r = armAt t g' r := by
-  rw [armAt, armAt, survivors_congr fun i hi a _ ↦ by
-    rw [h i ((monotone_phaseEnd _ t hi).trans (phaseEnd_phaseOf_le _ t r))]]
-
-/-- During phase `j`, the arm played `r` rounds after the start of the phase is the round robin
-over the survivors of the first `j` phases, at offset `r`. -/
-lemma armAt_phaseEnd_add (t : ℕ → ℕ) (g : ℕ → α → ℝ) {j r : ℕ}
-    (hj : j < numPhases (Fintype.card α)) (hr : r < armsCount (Fintype.card α) j * t j) :
-    armAt t g (phaseEnd (Fintype.card α) t j + r) = roundRobinOn (survivors g j) r := by
-  rw [armAt, phaseOf_eq hj (Nat.le_add_right _ _) (by rw [phaseEnd_succ]; omega),
-    Nat.add_sub_cancel_left]
-
 /-! ### The algorithm -/
 
 /-- The sum of the rewards of the arm `a` in the first `t` rounds of the history `h`. -/
@@ -431,22 +399,6 @@ lemma histStats_def (t : ℕ → ℕ) {m : ℕ} (h : Hist Unit α ℝ m) (j : �
       histSum h (phaseEnd (Fintype.card α) t (j + 1)) a -
         histSum h (phaseEnd (Fintype.card α) t j) a := (rfl)
 
-/-- The arm played by median elimination after `r` rounds with history `h`. -/
-noncomputable def nextArm (t : ℕ → ℕ) (r : ℕ) (h : Hist Unit α ℝ r) : α :=
-  armAt t (histStats t h) r
-
-lemma nextArm_def (t : ℕ → ℕ) (r : ℕ) (h : Hist Unit α ℝ r) :
-    nextArm t r h = armAt t (histStats t h) r := (rfl)
-
-/-- The arm recommended by median elimination after the history `h`: the arm that survives the
-`⌈log₂ K⌉` phases. -/
-noncomputable def recommendation (t : ℕ → ℕ) {T : ℕ} (h : Hist Unit α ℝ T) : α :=
-  roundRobinOn (survivors (histStats t h) (numPhases (Fintype.card α))) 0
-
-lemma recommendation_def (t : ℕ → ℕ) {T : ℕ} (h : Hist Unit α ℝ T) :
-    recommendation t h =
-      roundRobinOn (survivors (histStats t h) (numPhases (Fintype.card α))) 0 := (rfl)
-
 section Measurability
 
 variable [MeasurableSpace α] [MeasurableSingletonClass α]
@@ -460,32 +412,88 @@ lemma measurable_histSum (m t : ℕ) (a : α) :
     exact (measurable_snd.fst.comp (measurable_pi_apply s)) (measurableSet_singleton a)
   · exact measurable_snd.snd.comp (measurable_pi_apply s)
 
-
-lemma measurable_survivors_histStats (t : ℕ → ℕ) (m j : ℕ) :
-    Measurable fun h : Hist Unit α ℝ m ↦ survivors (histStats t h) j :=
-  (measurable_survivors j).comp (Measurable.of_eval fun _ ↦ Measurable.of_eval fun a ↦
-    (measurable_histSum m _ a).sub (measurable_histSum m _ a))
-
-lemma measurable_nextArm (t : ℕ → ℕ) (r : ℕ) : Measurable (nextArm (α := α) t r) :=
-  (measurable_of_countable fun S : Finset α ↦ roundRobinOn S _).comp
-    (measurable_survivors_histStats t r _)
-
-lemma measurable_recommendation (t : ℕ → ℕ) (T : ℕ) :
-    Measurable (recommendation (α := α) t (T := T)) :=
-  (measurable_of_countable fun S : Finset α ↦ roundRobinOn S 0).comp
-    (measurable_survivors_histStats t T _)
-
-/-- The sampling rule of median elimination in which each arm that survives the first `j` phases
-is pulled `t j` times during phase `j`: the deterministic algorithm that plays `nextArm t`. -/
-noncomputable def samplingRule (t : ℕ → ℕ) : Algorithm Unit α ℝ :=
-  Algorithm.deterministic (fun r p ↦ nextArm t r p.1)
-    fun r ↦ (measurable_nextArm t r).comp measurable_fst
-
-lemma samplingRule_def (t : ℕ → ℕ) :
-    samplingRule (α := α) t = Algorithm.deterministic (fun r p ↦ nextArm t r p.1)
-      (fun r ↦ (measurable_nextArm t r).comp measurable_fst) := (rfl)
+omit [Nonempty α] in
+lemma measurable_histStats (t : ℕ → ℕ) (m j : ℕ) :
+    Measurable fun h : Hist Unit α ℝ m ↦ histStats t h j :=
+  Measurable.of_eval fun a ↦ (measurable_histSum m _ a).sub (measurable_histSum m _ a)
 
 end Measurability
+
+/-! ### The pull schedule and the elimination maps -/
+
+omit [Fintype α] [DecidableEq α] in
+/-- The pull schedule of median elimination with numbers of pulls `t`: phase `r` pulls each arm of
+its active set `S` `t r` times, in a round robin over `S`. -/
+noncomputable def pulls (t : ℕ → ℕ) (r : ℕ) (S : Finset α) : List α :=
+  (List.range (#S * t r)).map (roundRobinOn S)
+
+omit [Fintype α] [DecidableEq α] in
+lemma pulls_def (t : ℕ → ℕ) (r : ℕ) (S : Finset α) :
+    pulls t r S = (List.range (#S * t r)).map (roundRobinOn S) := (rfl)
+
+omit [Fintype α] [DecidableEq α] in
+@[simp]
+lemma length_pulls (t : ℕ → ℕ) (r : ℕ) (S : Finset α) : (pulls t r S).length = #S * t r := by
+  simp [pulls]
+
+omit [Fintype α] in
+/-- Phase `r` pulls each arm of its active set `S` `t r` times, and no other arm. -/
+lemma count_pulls (t : ℕ → ℕ) (r : ℕ) (S : Finset α) (a : α) :
+    (pulls t r S).count a = if a ∈ S then t r else 0 := by
+  rw [List.count_eq_sum_range_getD _ a a, ← card_filter_roundRobinOn_eq S (t r) a, card_filter,
+    length_pulls]
+  refine sum_congr rfl fun j hj ↦ ?_
+  rw [List.getD_eq_getElem _ _ (by rw [length_pulls]; exact mem_range.1 hj)]
+  simp [pulls]
+
+/-- The elimination maps of median elimination with numbers of pulls `t`: at the end of phase `r`,
+the active set `S` is halved by the sums of rewards of the arms during phase `r` in the history
+`h`, which are the statistics `histStats t h.2 r`. -/
+noncomputable def elim (t : ℕ → ℕ) (r : ℕ) (S : Finset α) (h : Σ m, Hist Unit α ℝ m) :
+    Finset α :=
+  halve S (histStats t h.2 r)
+
+lemma elim_def (t : ℕ → ℕ) (r : ℕ) (S : Finset α) (h : Σ m, Hist Unit α ℝ m) :
+    elim t r S h = halve S (histStats t h.2 r) := (rfl)
+
+lemma measurable_elim [MeasurableSpace α] [MeasurableSingletonClass α] (t : ℕ → ℕ) (r : ℕ)
+    (S : Finset α) : Measurable (elim t r S) :=
+  measurable_sigma fun m ↦ (measurable_halve S).comp (measurable_histStats t m r)
+
+/-! ### The phases along a history -/
+
+open PhasedElimination
+
+variable {t : ℕ → ℕ} {H : ℕ → Σ m, Hist Unit α ℝ m}
+
+/-- Each phase halves the active set by the statistics of the phase in the history at its end. -/
+lemma activeSet_succ_eq_halve (r : ℕ) :
+    activeSet univ (pulls t) (elim t) H (r + 1) = halve (activeSet univ (pulls t) (elim t) H r)
+      (histStats t (H (phaseStart univ (pulls t) (elim t) H (r + 1))).2 r) := by
+  rw [activeSet_succ, elim, inter_eq_right.2 (halve_subset _ _)]
+
+/-- `armsCount K r` arms are active in phase `r`, along every history. -/
+@[simp]
+lemma card_activeSet (r : ℕ) :
+    #(activeSet univ (pulls t) (elim t) H r) = armsCount (Fintype.card α) r := by
+  induction r with
+  | zero => simp
+  | succ r ih => rw [activeSet_succ_eq_halve, card_halve, ih, armsCount_succ]
+
+/-- Phase `r` starts at round `phaseEnd K t r`, along every history. -/
+@[simp]
+lemma phaseStart_eq_phaseEnd (r : ℕ) :
+    phaseStart univ (pulls t) (elim t) H r = phaseEnd (Fintype.card α) t r := by
+  simp [phaseStart_eq_sum, phaseEnd_eq_sum]
+
+/-- The active sets of median elimination are the survivors of the statistics of the phases, each
+computed from the history at the end of its phase. -/
+lemma activeSet_eq_survivors (r : ℕ) :
+    activeSet univ (pulls t) (elim t) H r =
+      survivors (fun j ↦ histStats t (H (phaseEnd (Fintype.card α) t (j + 1))).2 j) r := by
+  induction r with
+  | zero => simp
+  | succ r ih => rw [activeSet_succ_eq_halve, ih, phaseStart_eq_phaseEnd, survivors_succ]
 
 /-! ### Runs -/
 
@@ -501,7 +509,7 @@ lemma runStats_def {Ω : Type*} (t : ℕ → ℕ) (A : ℕ → Ω → α) (R : �
     (a : α) : runStats t A R ω j a = sumRewards A R a (phaseEnd (Fintype.card α) t (j + 1)) ω -
       sumRewards A R a (phaseEnd (Fintype.card α) t j) ω := (rfl)
 
-variable {Ω : Type*} {A : ℕ → Ω → α} {R : ℕ → Ω → ℝ} {t : ℕ → ℕ} {ω : Ω}
+variable {Ω : Type*} {O : ℕ → Ω → Unit} {A : ℕ → Ω → α} {R : ℕ → Ω → ℝ} {ω : Ω}
 
 omit [Nonempty α] in
 /-- The statistics of phase `j` computed from the history of the first `m` rounds, once phase `j`
@@ -513,43 +521,36 @@ lemma histStats_history (O : ℕ → Ω → Unit) (A : ℕ → Ω → α) (R : �
   rw [histStats, runStats, histSum_history O A R hj ω a,
     histSum_history O A R ((monotone_phaseEnd _ t (Nat.le_succ j)).trans hj) ω a]
 
-/-- Along a run of the sampling rule of median elimination, the arm played at every round is
-`armAt t` for the sums of rewards of the arms in the phases. -/
-lemma action_ae_eq [MeasurableSpace α] [MeasurableSingletonClass α]
-    {mΩ : MeasurableSpace Ω} {P : Measure Ω} [SFinite P] {O : ℕ → Ω → Unit} {ν : Kernel α ℝ}
-    [IsMarkovKernel ν] (h : IsAlgEnvSeq O A R (samplingRule t) (Environment.bandit ν) P) :
-    ∀ᵐ ω ∂P, ∀ r, A r ω = armAt t (runStats t A R ω) r := by
-  filter_upwards [h.action_ae_all_eq_deterministic] with ω hω r
-  rw [hω r, nextArm]
-  exact armAt_congr fun i hi ↦ histStats_history O A R hi ω
+/-- Along a trajectory, the active sets of median elimination are the survivors of the statistics
+of the phases of the run. -/
+lemma activeSet_sigmaHistory_eq_survivors (O : ℕ → Ω → Unit) (A : ℕ → Ω → α) (R : ℕ → Ω → ℝ)
+    (ω : Ω) (r : ℕ) :
+    activeSet univ (pulls t) (elim t) (fun m ↦ sigmaHistory O A R m ω) r =
+      survivors (runStats t A R ω) r := by
+  rw [activeSet_eq_survivors]
+  congr 1
+  funext j
+  rw [sigmaHistory_apply, histStats_history O A R le_rfl ω]
 
-/-- If the actions follow median elimination, then during phase `j`, every arm that survives the
-first `j` phases is pulled `t j` times. -/
-lemma pullCount_phaseEnd_succ_eq_add (hω : ∀ r, A r ω = armAt t (runStats t A R ω) r) {j : ℕ}
-    (hj : j < numPhases (Fintype.card α)) {a : α} (ha : a ∈ survivors (runStats t A R ω) j) :
+/-- If the actions follow median elimination, then during phase `j`, every arm active in it is
+pulled `t j` times. -/
+lemma pullCount_phaseEnd_succ_eq_add (hω : ∀ s, A s ω = armAt univ (pulls t) (elim t) H s)
+    {j : ℕ} {a : α} (ha : a ∈ activeSet univ (pulls t) (elim t) H j) :
     pullCount A a (phaseEnd (Fintype.card α) t (j + 1)) ω =
       pullCount A a (phaseEnd (Fintype.card α) t j) ω + t j := by
-  set K := Fintype.card α
-  set S := survivors (runStats t A R ω) j
-  have hS : #S = armsCount K j := card_survivors _ j
-  rw [phaseEnd_succ, ← hS, pullCount_eq_sum, pullCount_eq_sum, sum_range_add]
-  simp only [sum_boole, Nat.cast_id, Nat.add_left_cancel_iff]
-  calc #{r ∈ range (#S * t j) | A (phaseEnd K t j + r) ω = a}
-  _ = #{r ∈ range (#S * t j) | roundRobinOn S r = a} := by
-    refine congrArg card (filter_congr fun r hr ↦ ?_)
-    rw [hω, armAt_phaseEnd_add t _ hj (hS ▸ mem_range.1 hr)]
-  _ = t j := by simp [card_filter_roundRobinOn_eq, ha]
+  have h := pullCount_phaseStart_succ hω a j
+  simpa only [phaseStart_eq_phaseEnd, count_pulls, ha, ite_true] using h
 
-/-- If the actions follow median elimination, then after the first `j` phases, every arm that
-survives them has been pulled `∑ i < j, t i` times. -/
-lemma pullCount_phaseEnd (hω : ∀ r, A r ω = armAt t (runStats t A R ω) r) {j : ℕ}
-    (hj : j ≤ numPhases (Fintype.card α)) {a : α} (ha : a ∈ survivors (runStats t A R ω) j) :
+/-- If the actions follow median elimination, then after the first `j` phases, every arm active in
+phase `j` has been pulled `∑ i < j, t i` times. -/
+lemma pullCount_phaseEnd (hω : ∀ s, A s ω = armAt univ (pulls t) (elim t) H s) {j : ℕ} {a : α}
+    (ha : a ∈ activeSet univ (pulls t) (elim t) H j) :
     pullCount A a (phaseEnd (Fintype.card α) t j) ω = ∑ i ∈ range j, t i := by
   induction j with
   | zero => simp
   | succ j ih =>
-    have ha' := survivors_succ_subset _ j ha
-    rw [pullCount_phaseEnd_succ_eq_add hω (by omega) ha', ih (by omega) ha', sum_range_succ]
+    have ha' := activeSet_succ_subset j ha
+    rw [pullCount_phaseEnd_succ_eq_add hω ha', ih ha', sum_range_succ]
 
 /-! ### Phases of the reward stream -/
 
@@ -566,14 +567,14 @@ lemma streamStats_def (t : ℕ → ℕ) (z : ℕ → α → ℝ) (j : ℕ) (a : 
 /-- If the actions follow median elimination and the sums of rewards are sums of entries of a
 reward stream `z`, then the survivors of the run are those of the phase statistics of the
 stream. -/
-lemma survivors_runStats_eq_streamStats (hω : ∀ r, A r ω = armAt t (runStats t A R ω) r)
+lemma survivors_runStats_eq_streamStats
+    (hω : ∀ s, A s ω = armAt univ (pulls t) (elim t) (fun m ↦ sigmaHistory O A R m ω) s)
     {z : ℕ → α → ℝ} (hR : ∀ a n, sumRewards A R a n ω = ∑ k ∈ range (pullCount A a n ω), z k a)
-    {j : ℕ} (hj : j ≤ numPhases (Fintype.card α)) :
-    survivors (runStats t A R ω) j = survivors (streamStats t z) j := by
-  refine survivors_congr fun i hi a ha ↦ ?_
-  rw [runStats, hR, hR, pullCount_phaseEnd_succ_eq_add hω (by omega) ha,
-    pullCount_phaseEnd hω (by omega) ha, streamStats, sum_range_succ,
-    sum_Ico_eq_sub _ (Nat.le_add_right _ _)]
+    (j : ℕ) : survivors (runStats t A R ω) j = survivors (streamStats t z) j := by
+  refine survivors_congr fun i _ a ha ↦ ?_
+  rw [← activeSet_sigmaHistory_eq_survivors O A R ω] at ha
+  rw [runStats, hR, hR, pullCount_phaseEnd_succ_eq_add hω ha, pullCount_phaseEnd hω ha,
+    streamStats, sum_range_succ, sum_Ico_eq_sub _ (Nat.le_add_right _ _)]
 
 /-! ### One phase -/
 
@@ -991,41 +992,40 @@ theorem measure_roundRobinOn_survivors_streamStats_ne_le {ν : Kernel α ℝ} [I
   · simp [Bad, ha'S]
 
 /-- Along every run of the sampling rule of median elimination in a stochastic bandit, the law of
-the survivors of the `⌈log₂ K⌉` phases is that of the survivors computed from the phases of the
+the survivors of the first `j` phases is that of the survivors computed from the phases of the
 reward stream. -/
 lemma measure_survivors_runStats_mem_eq {Ω : Type*} {mΩ : MeasurableSpace Ω} {P : Measure Ω}
     [IsProbabilityMeasure P] {O : ℕ → Ω → Unit} {A : ℕ → Ω → α} {R : ℕ → Ω → ℝ} {t : ℕ → ℕ}
     {ν : Kernel α ℝ} [IsMarkovKernel ν]
-    (h : IsAlgEnvSeq O A R (samplingRule t) (Environment.bandit ν) P) (B : Set (Finset α)) :
-    P {ω | survivors (runStats t A R ω) (numPhases (Fintype.card α)) ∈ B} =
-      Bandits.streamMeasure ν
-        {z | survivors (streamStats t z) (numPhases (Fintype.card α)) ∈ B} := by
+    (h : IsAlgEnvSeq O A R (samplingRule univ (pulls t) (elim t) (measurable_elim (α := α) t))
+      (Environment.bandit ν) P) (j : ℕ) (B : Set (Finset α)) :
+    P {ω | survivors (runStats t A R ω) j ∈ B} =
+      Bandits.streamMeasure ν {z | survivors (streamStats t z) j ∈ B} := by
   set K := Fintype.card α
-  set L := numPhases K
-  have h_arr := Bandits.ArrayModel.isAlgEnvSeq_arrayMeasure (samplingRule t) ν
+  set alg := samplingRule univ (pulls t) (elim t) (measurable_elim (α := α) t)
+  have h_arr := Bandits.ArrayModel.isAlgEnvSeq_arrayMeasure alg ν
   -- The survivors are a function of the numbers of pulls and the sums of rewards.
   set F : (ℕ → α → ℕ × ℝ) → Finset α := fun p ↦
-    survivors (fun j a ↦ (p (phaseEnd K t (j + 1)) a).2 - (p (phaseEnd K t j) a).2) L
-  have hF : Measurable F := (measurable_survivors L).comp
-    (Measurable.of_eval fun j ↦ Measurable.of_eval fun a ↦ by fun_prop)
-  calc P {ω | survivors (runStats t A R ω) L ∈ B}
+    survivors (fun i a ↦ (p (phaseEnd K t (i + 1)) a).2 - (p (phaseEnd K t i) a).2) j
+  have hF : Measurable F := (measurable_survivors j).comp
+    (Measurable.of_eval fun i ↦ Measurable.of_eval fun a ↦ by fun_prop)
+  calc P {ω | survivors (runStats t A R ω) j ∈ B}
   _ = Bandits.ArrayModel.arrayMeasure ν {ω | survivors (runStats t
-      (Bandits.ArrayModel.action (samplingRule t)) (Bandits.ArrayModel.reward (samplingRule t)) ω)
-        L ∈ B} := by
-    have h_id : IdentDistrib (fun ω ↦ survivors (runStats t A R ω) L)
-        (fun ω ↦ survivors (runStats t (Bandits.ArrayModel.action (samplingRule t))
-          (Bandits.ArrayModel.reward (samplingRule t)) ω) L)
+      (Bandits.ArrayModel.action alg) (Bandits.ArrayModel.reward alg) ω) j ∈ B} := by
+    have h_id : IdentDistrib (fun ω ↦ survivors (runStats t A R ω) j)
+        (fun ω ↦ survivors (runStats t (Bandits.ArrayModel.action alg)
+          (Bandits.ArrayModel.reward alg) ω) j)
         P (Bandits.ArrayModel.arrayMeasure ν) :=
       (h.identDistrib_pullCount_sumRewards h_arr).comp hF
     exact h_id.measure_mem_eq MeasurableSet.of_discrete
-  _ = Bandits.ArrayModel.arrayMeasure ν {ω | survivors (streamStats t ω.2) L ∈ B} := by
+  _ = Bandits.ArrayModel.arrayMeasure ν {ω | survivors (streamStats t ω.2) j ∈ B} := by
     refine measure_congr ?_
-    filter_upwards [action_ae_eq h_arr] with ω hω
+    filter_upwards [action_ae_all_eq_armAt h_arr] with ω hω
     rw [survivors_runStats_eq_streamStats hω
-      (fun a n ↦ Bandits.ArrayModel.sumRewards_eq (samplingRule t) a n ω) le_rfl]
-  _ = Bandits.streamMeasure ν {z | survivors (streamStats t z) L ∈ B} := by
+      (fun a n ↦ Bandits.ArrayModel.sumRewards_eq alg a n ω) j]
+  _ = Bandits.streamMeasure ν {z | survivors (streamStats t z) j ∈ B} := by
     rw [Bandits.ArrayModel.arrayMeasure, show {ω : Bandits.ArrayModel.ProbSpace α ℝ |
-        survivors (streamStats t ω.2) L ∈ B} = Set.univ ×ˢ {z | survivors (streamStats t z) L ∈ B}
+        survivors (streamStats t ω.2) j ∈ B} = Set.univ ×ˢ {z | survivors (streamStats t z) j ∈ B}
       by ext; simp, Measure.prod_prod]
     simp
 
@@ -1035,37 +1035,42 @@ end LMLExplore.Identification.MedianElimination
 
 namespace LMLExplore.Identification
 
-open MedianElimination
+open MedianElimination PhasedElimination
 
 variable {α : Type*} [Fintype α] [DecidableEq α] [Nonempty α] [MeasurableSpace α]
   [MeasurableSingletonClass α]
 
 /-- **Median elimination** [EMM02, EMM06] in which each surviving arm is pulled `t j` times during
-phase `j`, as a fixed-budget identification algorithm. With `K` arms, it proceeds in `⌈log₂ K⌉`
-phases: phase `j` pulls each of the arms that survive the first `j` phases `t j` times, in a round
-robin, then keeps the half of them (rounded up) with the largest sums of rewards during phase `j`,
-which are the arms with the largest empirical means computed from the samples of phase `j` only.
-The arm that survives the `⌈log₂ K⌉` phases is recommended at the end of the last phase. -/
+phase `j`, as a fixed-budget phased-elimination algorithm. With `K` arms, it proceeds in
+`⌈log₂ K⌉` phases: phase `j` pulls each of the arms that survive the first `j` phases `t j` times,
+in a round robin, then keeps the half of them (rounded up) with the largest sums of rewards during
+phase `j`, which are the arms with the largest empirical means computed from the samples of phase
+`j` only. The arm that survives the `⌈log₂ K⌉` phases is recommended at the end of the last
+phase. -/
 noncomputable def medianElimination (t : ℕ → ℕ) : IdentAlg Unit α ℝ α :=
-  fixedBudget (samplingRule t) (phaseEnd (Fintype.card α) t (numPhases (Fintype.card α)))
-    (Kernel.deterministic (recommendation t) (measurable_recommendation t _))
+  phasedEliminationFixedBudget univ (pulls t) (elim t) (measurable_elim t) (roundRobinOn · 0)
+    (numPhases (Fintype.card α))
 
 variable {t : ℕ → ℕ}
 
+lemma medianElimination_def :
+    medianElimination (α := α) t = phasedEliminationFixedBudget univ (pulls t) (elim t)
+      (measurable_elim t) (roundRobinOn · 0) (numPhases (Fintype.card α)) := (rfl)
+
 @[simp]
-lemma alg_medianElimination : (medianElimination (α := α) t).alg = samplingRule t :=
-  alg_fixedBudget _ _ _
+lemma alg_medianElimination :
+    (medianElimination (α := α) t).alg = samplingRule univ (pulls t) (elim t) (measurable_elim t) :=
+  alg_phasedEliminationFixedBudget
 
-lemma outputAt_medianElimination :
-    outputAt (medianElimination (α := α) t)
-        (phaseEnd (Fintype.card α) t (numPhases (Fintype.card α))) =
-      Kernel.deterministic (recommendation t) (measurable_recommendation t _) :=
-  outputAt_fixedBudget _ _ _
-
+/-- Median elimination stops at the end of its `⌈log₂ K⌉` phases. -/
 lemma isFixedBudget_medianElimination :
     IsFixedBudget (medianElimination (α := α) t)
-      (phaseEnd (Fintype.card α) t (numPhases (Fintype.card α))) :=
-  isFixedBudget_fixedBudget _ _ _
+      (phaseEnd (Fintype.card α) t (numPhases (Fintype.card α))) := by
+  have h := isFixedBudget_phasedEliminationFixedBudget (S₀ := univ) (pulls := pulls (α := α) t)
+    (elim := elim t) (helim := measurable_elim t) (out := (roundRobinOn · 0))
+    (R := numPhases (Fintype.card α)) (L := fun r ↦ armsCount (Fintype.card α) r * t r)
+    fun _ r _ ↦ by simp
+  rwa [← phaseEnd_eq_sum] at h
 
 variable {Ω : Type*} {mΩ : MeasurableSpace Ω} {P : Measure Ω} [IsProbabilityMeasure P]
   {O : ℕ → Ω → Unit} {A : ℕ → Ω → α} {R : ℕ → Ω → ℝ} {out : Ω → α} {ν : Kernel α ℝ}
@@ -1073,15 +1078,15 @@ variable {Ω : Type*} {mΩ : MeasurableSpace Ω} {P : Measure Ω} [IsProbability
 
 /-- Along a run of median elimination, the output is the arm that survives the `⌈log₂ K⌉`
 phases. -/
-lemma MedianElimination.output_ae_eq
-    (h : (medianElimination t).IsRun (Environment.bandit ν) O A R out P) :
+lemma MedianElimination.output_ae_eq {env : Environment Unit α ℝ}
+    (h : (medianElimination t).IsRun env O A R out P) :
     out =ᵐ[P] fun ω ↦
       roundRobinOn (survivors (runStats t A R ω) (numPhases (Fintype.card α))) 0 := by
   filter_upwards [h.output_ae_eq_of_outputAt_eq_deterministic isFixedBudget_medianElimination
-    (measurable_recommendation t _) outputAt_medianElimination] with ω hω
-  rw [hω, recommendation]
-  refine congrArg (roundRobinOn · 0) (survivors_congr fun j hj a _ ↦ ?_)
-  rw [histStats_history O A R (monotone_phaseEnd _ t hj) ω]
+    (measurable_out_activeSet univ (pulls t) (roundRobinOn · 0) (measurable_elim t) _ _)
+    (by rw [medianElimination_def, phasedEliminationFixedBudget_def, outputAt_ofStop])] with ω hω
+  rw [hω, ← activeSet_sigmaHistory_eq_survivors O A R ω,
+    activeSet_congr (fun m hm ↦ truncHist_mk_history_of_le hm ω) (by simp)]
 
 /-- **Correctness of median elimination**, for any numbers of pulls [EMM02, proof of Theorem 4].
 Let the arms be `σ2`-sub-Gaussian and let `ε j ≥ 0` be tolerances for the phases. Along every run
@@ -1095,7 +1100,8 @@ theorem MedianElimination.measureReal_exists_output_add_lt_le {σ2 : ℝ≥0}
         (ν b)[id]} ≤
       ∑ j ∈ range (numPhases (Fintype.card α)), 3 * exp (-(t j * ε j ^ 2) / (8 * σ2)) := by
   set L := numPhases (Fintype.card α)
-  have h_alg : IsAlgEnvSeq O A R (samplingRule t) (Environment.bandit ν) P := by
+  have h_alg : IsAlgEnvSeq O A R (samplingRule univ (pulls t) (elim t) (measurable_elim t))
+      (Environment.bandit ν) P := by
     simpa using h.isAlgEnvSeq
   set B : Set (Finset α) :=
     {S | ∃ b, (ν (roundRobinOn S 0))[id] + ∑ j ∈ range L, ε j < (ν b)[id]}
@@ -1105,7 +1111,7 @@ theorem MedianElimination.measureReal_exists_output_add_lt_le {σ2 : ℝ≥0}
     filter_upwards [output_ae_eq h] with ω hω
     simp [B, hω, L]
   _ = (Bandits.streamMeasure ν).real {z | survivors (streamStats t z) L ∈ B} := by
-    rw [measureReal_def, measureReal_def, measure_survivors_runStats_mem_eq h_alg B]
+    rw [measureReal_def, measureReal_def, measure_survivors_runStats_mem_eq h_alg L B]
   _ ≤ (∑ j ∈ range L, 3 * ENNReal.ofReal (exp (-(t j * ε j ^ 2) / (8 * σ2)))).toReal :=
     ENNReal.toReal_mono (ENNReal.sum_ne_top.2 fun _ _ ↦ ENNReal.mul_ne_top (by simp)
       ENNReal.ofReal_ne_top) (measure_exists_add_lt_streamStats_le hν t hε)
@@ -1127,7 +1133,8 @@ theorem MedianElimination.measureReal_output_ne_le_sum {σ2 : ℝ≥0}
       3 * exp (-(t j * (armsCount (Fintype.card α) j / 4 + 2 : ℕ)) /
         (4 * σ2 * complexityTwo ν)) := by
   set L := numPhases (Fintype.card α)
-  have h_alg : IsAlgEnvSeq O A R (samplingRule t) (Environment.bandit ν) P := by
+  have h_alg : IsAlgEnvSeq O A R (samplingRule univ (pulls t) (elim t) (measurable_elim t))
+      (Environment.bandit ν) P := by
     simpa using h.isAlgEnvSeq
   set B : Set (Finset α) := {S | roundRobinOn S 0 ≠ a'}
   calc P.real {ω | out ω ≠ a'}
@@ -1136,7 +1143,7 @@ theorem MedianElimination.measureReal_output_ne_le_sum {σ2 : ℝ≥0}
     filter_upwards [output_ae_eq h] with ω hω
     simp [B, hω, L]
   _ = (Bandits.streamMeasure ν).real {z | survivors (streamStats t z) L ∈ B} := by
-    rw [measureReal_def, measureReal_def, measure_survivors_runStats_mem_eq h_alg B]
+    rw [measureReal_def, measureReal_def, measure_survivors_runStats_mem_eq h_alg L B]
   _ ≤ (∑ j ∈ range L, 3 * ENNReal.ofReal (exp (-(t j * (armsCount (Fintype.card α) j / 4 + 2 : ℕ))
       / (4 * σ2 * complexityTwo ν)))).toReal :=
     ENNReal.toReal_mono (ENNReal.sum_ne_top.2 fun _ _ ↦ ENNReal.mul_ne_top (by simp)

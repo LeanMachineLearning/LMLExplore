@@ -187,7 +187,9 @@ variable {T : ℕ}
 
 @[simp]
 lemma alg_sequentialHalving :
-    (sequentialHalving (α := α) T).alg = samplingRule (pullSchedule (Fintype.card α) T) := by
+    (sequentialHalving (α := α) T).alg = PhasedElimination.samplingRule univ
+      (pulls (pullSchedule (Fintype.card α) T)) (elim (pullSchedule (Fintype.card α) T))
+      (measurable_elim _) := by
   rw [sequentialHalving_def, alg_medianElimination]
 
 lemma isFixedBudget_sequentialHalving :
