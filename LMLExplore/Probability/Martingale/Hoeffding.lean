@@ -50,6 +50,8 @@ standard Borel space.
   `∑ k < n, (X k - μ[X k | ℱ k])` is sub-Gaussian with the sum of the Hoeffding variance proxies.
 * `LMLExplore.measureReal_le_sum_condExp_sub_le`: the Azuma–Hoeffding inequality
   `P(ε ≤ ∑ k < n, (μ[X k | ℱ k] - X k)) ≤ exp (-2 ε ^ 2 / ∑ k < n, (b k - a k) ^ 2)`.
+* `LMLExplore.measureReal_le_abs_sum_condExp_sub_le`: its two-sided form, with the bound
+  `2 exp (-2 ε ^ 2 / ∑ k < n, (b k - a k) ^ 2)`.
 
 ## References
 
@@ -249,5 +251,32 @@ theorem measureReal_le_sum_condExp_sub_le (hX : ∀ k, Measurable[ℱ (k + 1)] (
   push_cast
   simp_rw [Real.norm_eq_abs, div_pow, sq_abs, ← sum_div]
   ring
+
+/-- **Two-sided Azuma–Hoeffding inequality around conditional means.** If `X k` is
+`ℱ (k + 1)`-measurable with values in `[a k, b k]` almost everywhere, then for `ε ≥ 0`,
+`P(ε ≤ |∑ k < n, (μ[X k | ℱ k] - X k)|) ≤ 2 exp (-2 ε ^ 2 / ∑ k < n, (b k - a k) ^ 2)`. -/
+theorem measureReal_le_abs_sum_condExp_sub_le (hX : ∀ k, Measurable[ℱ (k + 1)] (X k)) (n : ℕ)
+    (hbound : ∀ k < n, ∀ᵐ ω ∂μ, X k ω ∈ Set.Icc (a k) (b k)) {ε : ℝ} (hε : 0 ≤ ε) :
+    μ.real {ω | ε ≤ |∑ k ∈ range n, (μ[X k | ℱ k] ω - X k ω)|} ≤
+      2 * exp (-2 * ε ^ 2 / ∑ k ∈ range n, (b k - a k) ^ 2) := by
+  -- The lower tail is the upper tail of `-X k`, with values in `[-b k, -a k]`.
+  have hlow := measureReal_le_sum_condExp_sub_le (μ := μ) (X := fun k ω ↦ -X k ω)
+    (a := fun k ↦ -b k) (b := fun k ↦ -a k) (fun k ↦ (hX k).neg) n
+    (fun k hk ↦ (hbound k hk).mono fun _ hω ↦ ⟨neg_le_neg hω.2, neg_le_neg hω.1⟩) hε
+  simp only [neg_sub_neg] at hlow
+  have hset : {ω | ε ≤ ∑ k ∈ range n, (μ[fun ω ↦ -X k ω | ℱ k] ω - -X k ω)} =ᵐ[μ]
+      {ω | ε ≤ -∑ k ∈ range n, (μ[X k | ℱ k] ω - X k ω)} := by
+    filter_upwards [(Filter.eventually_all_finset _).2 fun k _ ↦ condExp_neg (X k) (ℱ k)]
+      with ω hω
+    simp only [Pi.neg_def] at hω
+    rw [sum_congr rfl fun k hk ↦ congrArg (· - -X k ω) (hω k hk), ← sum_neg_distrib]
+    simp only [neg_sub, sub_neg_eq_add, neg_add_eq_sub]
+  refine (measureReal_mono fun ω hω ↦ ?_).trans ((measureReal_union_le
+    {ω | ε ≤ ∑ k ∈ range n, (μ[X k | ℱ k] ω - X k ω)}
+    {ω | ε ≤ -∑ k ∈ range n, (μ[X k | ℱ k] ω - X k ω)}).trans ?_)
+  · simp only [Set.mem_ofPred_eq, Set.mem_union] at hω ⊢
+    exact le_abs.1 hω
+  · rw [two_mul, ← measureReal_congr hset]
+    exact add_le_add (measureReal_le_sum_condExp_sub_le hX n hbound hε) hlow
 
 end LMLExplore

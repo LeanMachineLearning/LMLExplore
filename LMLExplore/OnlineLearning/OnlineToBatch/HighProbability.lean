@@ -36,7 +36,8 @@ The hypothesis on the risk is a statement about the conditional mean at the play
 play is random: a conditional mean `μ[f y (ξ t) | ℱ t] = F y` for each fixed `y` has a null set
 depending on `y`, and does not determine the conditional mean at `x t`. When `ξ t` is independent
 of `ℱ t` with law `ρ`, the risk is `F y = ∫ z, f y z ∂ρ` and the hypothesis holds by freezing the
-play (`TauCeti.Probability.condExp_comp_prodMk_ae_eq_integral_of_indep`); this is the setting of
+play (`condExp_ae_eq_integral_of_indep`, from
+`TauCeti.Probability.condExp_comp_prodMk_ae_eq_integral_of_indep`); this is the setting of
 [Ora, Theorem 3.10].
 
 The concentration step is the Azuma–Hoeffding inequality around conditional means,
@@ -50,6 +51,10 @@ The concentration step is the Azuma–Hoeffding inequality around conditional me
 
 * `LMLExplore.OnlineLearning.measureReal_le_sum_sub_le`: the Azuma–Hoeffding bound
   `P(ε ≤ ∑ t < n, (F (x t) - f (x t) (ξ t))) ≤ exp (-2 ε ^ 2 / n)`.
+* `LMLExplore.OnlineLearning.measureReal_le_abs_sum_sub_le`: its two-sided form
+  `P(ε ≤ |∑ t < n, (F (x t) - f (x t) (ξ t))|) ≤ 2 exp (-2 ε ^ 2 / n)`.
+* `LMLExplore.OnlineLearning.condExp_ae_eq_integral_of_indep`: for a datum independent of the past
+  with law `ρ`, the conditional mean of the loss at a known play is `∫ z, f (x t) z ∂ρ`.
 * `LMLExplore.OnlineLearning.measureReal_sum_div_add_sqrt_lt_sum_div_le`: with probability at least
   `1 - δ`, `(∑ t < n, F (x t)) / n ≤ (∑ t < n, f (x t) (ξ t)) / n + √(log (1 / δ) / (2 n))`.
 * `LMLExplore.OnlineLearning.measureReal_add_div_add_sqrt_lt_sum_div_le`: with probability at
@@ -102,6 +107,18 @@ private lemma exp_neg_two_mul_sq_mul_sqrt_div_eq {c : ℝ} (hc : 0 < c) (hn : n 
   field_simp
   exact exp_log hδ
 
+/-- **Freezing a known play.** If the datum `ξ t` is independent of `ℱ t` with law `ρ`, then given
+`ℱ t` the conditional mean of the loss at an `ℱ t`-measurable play `y` is the risk
+`∫ z, f (y ω) z ∂ρ` at the play: the play is frozen and the datum keeps its law. -/
+theorem condExp_ae_eq_integral_of_indep {ρ : Measure Z} (hf : Measurable (Function.uncurry f))
+    (hf01 : ∀ y z, f y z ∈ Set.Icc 0 1) {t : ℕ} {y : Ω → α} (hy : Measurable[ℱ t] y)
+    (hξ : ∀ t, Measurable[ℱ (t + 1)] (ξ t)) (hindep : Indep (mZ.comap (ξ t)) (ℱ t) μ)
+    (hρ : μ.map (ξ t) = ρ) :
+    μ[fun ω ↦ f (y ω) (ξ t ω) | ℱ t] =ᵐ[μ] fun ω ↦ ∫ z, f (y ω) z ∂ρ := by
+  have h := TauCeti.Probability.condExp_comp_prodMk_ae_eq_integral_of_indep (ℱ.le t) hy
+    ((hξ t).mono (ℱ.le _) le_rfl) hindep hf.stronglyMeasurable (integrable_loss hf hf01 hy hξ)
+  simpa only [Function.uncurry_apply_pair, hρ] using h
+
 /-- **Azuma–Hoeffding bound for the risks of the plays.** For a loss `f` with values in `[0, 1]`
 whose conditional mean at the play `x t` given `ℱ t` is the risk `F (x t)`, and `ε ≥ 0`,
 `P(ε ≤ ∑ t < n, (F (x t) - f (x t) (ξ t))) ≤ exp (-2 ε ^ 2 / n)`. -/
@@ -113,6 +130,24 @@ theorem measureReal_le_sum_sub_le (hf : Measurable (Function.uncurry f))
     μ.real {ω | ε ≤ ∑ t ∈ range n, (F (x t ω) - f (x t ω) (ξ t ω))} ≤
       exp (-2 * ε ^ 2 / n) := by
   have h := measureReal_le_sum_condExp_sub_le (ℱ := ℱ) (μ := μ)
+    (X := fun t ω ↦ f (x t ω) (ξ t ω)) (a := fun _ ↦ 0) (b := fun _ ↦ 1)
+    (fun t ↦ measurable_loss hf (hx t) hξ) n (fun t _ ↦ ae_of_all _ fun ω ↦ hf01 _ _) hε
+  simp only [sub_zero, one_pow, sum_const, card_range, nsmul_eq_mul, mul_one] at h
+  refine (measureReal_congr ?_).trans_le h
+  filter_upwards [(Filter.eventually_all_finset _).2 fun t ht ↦ hF t (mem_range.1 ht)] with ω hω
+  simp only [sum_congr rfl fun t ht ↦ congrArg (· - f (x t ω) (ξ t ω)) (hω t ht)]
+
+/-- **Two-sided Azuma–Hoeffding bound for the risks of the plays.** For a loss `f` with values in
+`[0, 1]` whose conditional mean at the play `x t` given `ℱ t` is the risk `F (x t)`, and `ε ≥ 0`,
+`P(ε ≤ |∑ t < n, (F (x t) - f (x t) (ξ t))|) ≤ 2 exp (-2 ε ^ 2 / n)`. -/
+theorem measureReal_le_abs_sum_sub_le (hf : Measurable (Function.uncurry f))
+    (hf01 : ∀ y z, f y z ∈ Set.Icc 0 1) (hx : ∀ t, Measurable[ℱ t] (x t))
+    (hξ : ∀ t, Measurable[ℱ (t + 1)] (ξ t))
+    (hF : ∀ t < n, μ[fun ω ↦ f (x t ω) (ξ t ω) | ℱ t] =ᵐ[μ] fun ω ↦ F (x t ω))
+    (hε : 0 ≤ ε) :
+    μ.real {ω | ε ≤ |∑ t ∈ range n, (F (x t ω) - f (x t ω) (ξ t ω))|} ≤
+      2 * exp (-2 * ε ^ 2 / n) := by
+  have h := measureReal_le_abs_sum_condExp_sub_le (ℱ := ℱ) (μ := μ)
     (X := fun t ω ↦ f (x t ω) (ξ t ω)) (a := fun _ ↦ 0) (b := fun _ ↦ 1)
     (fun t ↦ measurable_loss hf (hx t) hξ) n (fun t _ ↦ ae_of_all _ fun ω ↦ hf01 _ _) hε
   simp only [sub_zero, one_pow, sum_const, card_range, nsmul_eq_mul, mul_one] at h
@@ -228,16 +263,10 @@ theorem measureReal_add_div_add_sqrt_lt_sum_div_le_of_indep {ρ : Measure Z}
     (hR : ∀ᵐ ω ∂μ, ∑ t ∈ range n, (f (x t ω) (ξ t ω) - f u (ξ t ω)) ≤ R) (hn : n ≠ 0)
     (hδ : 0 < δ) :
     μ.real {ω | (∫ z, f u z ∂ρ) + R / n + √(2 * log (1 / δ) / n) <
-      (∑ t ∈ range n, ∫ z, f (x t ω) z ∂ρ) / n} ≤ δ := by
-  -- Given `ℱ t`, the known comparator `y` is frozen and the datum keeps its law `ρ`.
-  have hfreeze (t : ℕ) (y : Ω → α) (hy : Measurable[ℱ t] y) :
-      μ[fun ω ↦ f (y ω) (ξ t ω) | ℱ t] =ᵐ[μ] fun ω ↦ ∫ z, f (y ω) z ∂ρ := by
-    have hξt : Measurable (ξ t) := (hξ t).mono (ℱ.le _) le_rfl
-    have h := TauCeti.Probability.condExp_comp_prodMk_ae_eq_integral_of_indep (ℱ.le t) hy hξt
-      (hindep t) hf.stronglyMeasurable (integrable_loss hf hf01 hy hξ)
-    simpa only [Function.uncurry_apply_pair, hρ t] using h
-  exact measureReal_add_div_add_sqrt_lt_sum_div_le (F := fun y ↦ ∫ z, f y z ∂ρ) hf hf01 hx hξ
-    (fun t _ ↦ hfreeze t (x t) (hx t)) u (fun t _ ↦ hfreeze t (fun _ ↦ u) measurable_const) hR
+      (∑ t ∈ range n, ∫ z, f (x t ω) z ∂ρ) / n} ≤ δ :=
+  measureReal_add_div_add_sqrt_lt_sum_div_le (F := fun y ↦ ∫ z, f y z ∂ρ) hf hf01 hx hξ
+    (fun t _ ↦ condExp_ae_eq_integral_of_indep hf hf01 (hx t) hξ (hindep t) (hρ t)) u
+    (fun t _ ↦ condExp_ae_eq_integral_of_indep hf hf01 measurable_const hξ (hindep t) (hρ t)) hR
     hn hδ
 
 end LMLExplore.OnlineLearning
