@@ -21,8 +21,9 @@ the statistics are compound e-variables [XSF+26, Proposition 24], so that the pr
 file are instances of the e-Closure Principle of `LMLExplore.EValues.MultipleTesting.EClosure`.
 
 A set `R` of hypotheses is self-consistent at level `α` for realized values `e : ι → ℝ≥0∞`
-(`ProbabilityTheory.IsSelfConsistent`) when `K ≤ α * #R * e i` for every `i ∈ R`, that is, every
-rejected e-value is at least `K / (α * #R)` [WR22, §5; RW, Definition 9.9]. Every self-consistent
+(`ProbabilityTheory.IsSelfConsistent`) when `K ≤ α * #R * e i` for every `i ∈ R`; for a level
+`α ∉ {0, ∞}`, this says that every rejected e-value is at least `K / (α * #R)` [WR22, §5; RW,
+Definition 9.9]. Every self-consistent
 set belongs to the e-closure of the mean e-collection for the false discovery proportion. Hence
 every self-consistent rejection procedure has false discovery rate at most
 `α * (∑ i ∈ N, ∫⁻ E i) / K` for the true nulls `N`, so at most `α` for compound e-variables and at
@@ -30,11 +31,12 @@ most `α * #N / K` for e-variables, whatever their dependence; the bound holds p
 over the levels [RW, Theorem 9.11; WR22, Proposition 2; IWR, Theorem 4.3].
 
 The e-BH procedure (`ProbabilityTheory.eBH`) [WR22, (5); RW, Definition 9.8] rejects the
-hypotheses whose e-values are at least `K / (α * k*)`, for the largest `k* ≤ K` such that at
-least `k*` e-values are at least `K / (α * k*)`. It rejects `k*` hypotheses, and it is the largest
-self-consistent set and the union of all of them. Conversely, every measurable rejection procedure
-`R` that controls the false discovery rate at a level `α ∉ {0, ∞}` is the e-BH procedure applied
-to its universal compound e-values `K * 𝟙{i ∈ R} / (α * max #R 1)` [IWR, Theorem 4.4; RW,
+hypotheses `i` with `K ≤ α * k* * e i`, for the largest `k* ≤ K` such that at least `k*`
+hypotheses `j` satisfy `K ≤ α * k* * e j`; for a level `α ∉ {0, ∞}` and `k* ≠ 0`, these are the
+hypotheses whose e-values are at least `K / (α * k*)`. It rejects `k*` hypotheses, and it is the
+largest self-consistent set and the union of all of them. Conversely, every measurable rejection
+procedure `R` that controls the false discovery rate at a level `α ∉ {0, ∞}` is the e-BH procedure
+applied to its universal compound e-values `K * 𝟙{i ∈ R} / (α * max #R 1)` [IWR, Theorem 4.4; RW,
 Theorems 9.18–9.19].
 
 ## Main definitions
@@ -100,6 +102,11 @@ namespace ProbabilityTheory
 
 variable {Ω ι κ : Type*} {mΩ : MeasurableSpace Ω} [Fintype ι]
 
+/-- The number of hypotheses is nonzero as soon as there is one. -/
+private lemma natCast_card_ne_zero (i : ι) : (Fintype.card ι : ℝ≥0∞) ≠ 0 :=
+  haveI : Nonempty ι := ⟨i⟩
+  Nat.cast_ne_zero.2 Fintype.card_ne_zero
+
 /-! ### Self-consistent rejection sets -/
 
 section SelfConsistent
@@ -107,8 +114,8 @@ section SelfConsistent
 variable {e e' : ι → ℝ≥0∞} {α α' : ℝ≥0∞} {R R' : Finset ι}
 
 /-- A rejection set `R` is **self-consistent** at level `α` for the e-values `e` [WR22, §5; RW,
-Definition 9.9] when every rejected e-value is at least `K / (α * #R)`, with `K` the number of
-hypotheses: `K ≤ α * #R * e i` for every `i ∈ R`. -/
+Definition 9.9] when `K ≤ α * #R * e i` for every `i ∈ R`, with `K` the number of hypotheses. For
+a level `α ∉ {0, ∞}`, this says that every rejected e-value is at least `K / (α * #R)`. -/
 def IsSelfConsistent (e : ι → ℝ≥0∞) (α : ℝ≥0∞) (R : Finset ι) : Prop :=
   ∀ i ∈ R, (Fintype.card ι : ℝ≥0∞) ≤ α * #R * e i
 
@@ -141,13 +148,15 @@ theorem IsSelfConsistent.fdp_le [DecidableEq ι] (h : IsSelfConsistent e α R) (
   rcases R.eq_empty_or_nonempty with rfl | hR
   · simp
   obtain ⟨j, hj⟩ := hR
-  have hK : (Fintype.card ι : ℝ≥0∞) ≠ 0 := by
-    simpa using (Fintype.card_pos_iff.2 ⟨j⟩).ne'
   have hR0 : (#R : ℝ≥0∞) ≠ 0 := Nat.cast_ne_zero.2 (card_ne_zero_of_mem hj)
-  have hi : ∀ i ∈ R, (#R : ℝ≥0∞)⁻¹ ≤ α * (e i / Fintype.card ι) := fun i hi ↦ by
-    rw [← mul_div_assoc, ENNReal.le_div_iff_mul_le (.inl hK) (.inl (ENNReal.natCast_ne_top _)),
-      ENNReal.inv_mul_le_iff hR0 (ENNReal.natCast_ne_top _), ← mul_assoc, mul_comm (#R : ℝ≥0∞)]
-    exact h i hi
+  -- Each rejected hypothesis contributes `1 / #R`, at most `α * e i / K` by self-consistency.
+  have hi : ∀ i ∈ R, (#R : ℝ≥0∞)⁻¹ ≤ α * (e i / Fintype.card ι) := fun i hi ↦
+    calc (#R : ℝ≥0∞)⁻¹ = (#R : ℝ≥0∞)⁻¹ * Fintype.card ι / Fintype.card ι :=
+          (ENNReal.mul_div_cancel_right (natCast_card_ne_zero j) (ENNReal.natCast_ne_top _)).symm
+      _ ≤ (#R : ℝ≥0∞)⁻¹ * (α * #R * e i) / Fintype.card ι := by gcongr; exact h i hi
+      _ = (#R : ℝ≥0∞)⁻¹ * #R * (α * e i) / Fintype.card ι := by ac_rfl
+      _ = α * (e i / Fintype.card ι) := by
+          rw [ENNReal.inv_mul_cancel hR0 (ENNReal.natCast_ne_top _), one_mul, mul_div_assoc]
   calc fdp N R = ∑ _ ∈ R ∩ N, (#R : ℝ≥0∞)⁻¹ := by
         rw [fdp_def, max_eq_left (Nat.one_le_cast.2 (card_pos.2 ⟨j, hj⟩)), sum_const, nsmul_eq_mul,
           div_eq_mul_inv]
@@ -173,10 +182,12 @@ section EBH
 variable {e : ι → ℝ≥0∞} {α : ℝ≥0∞} {R : Finset ι} {i : ι}
 
 /-- **The e-BH procedure** at level `α` for the e-values `e` [WR22, (5); RW, Definition 9.8]:
-with `K` the number of hypotheses and `k*` the largest `k ≤ K` such that at least `k` e-values are
-at least `K / (α * k)`, it rejects the hypotheses whose e-values are at least `K / (α * k*)`.
-The condition on `k` is the condition `k * e[k] / K ≥ 1 / α` of [WR22, (5)] on the `k`-th largest
-e-value `e[k]`, written without order statistics. e-BH rejects `k*` hypotheses (`card_eBH`). -/
+with `K` the number of hypotheses and `k*` the largest `k ≤ K` such that at least `k` hypotheses
+`j` satisfy `K ≤ α * k * e j`, it rejects the hypotheses `i` with `K ≤ α * k* * e i`. For a level
+`α ∉ {0, ∞}` and `k* ≠ 0`, these are the hypotheses whose e-values are at least `K / (α * k*)`,
+and the condition on `k ≠ 0` is the condition `k * e[k] / K ≥ 1 / α` of [WR22, (5)] on the
+`k`-th largest e-value `e[k]`, written without order statistics. e-BH rejects `k*` hypotheses
+(`card_eBH`). -/
 noncomputable def eBH (e : ι → ℝ≥0∞) (α : ℝ≥0∞) : Finset ι :=
   ({i | (Fintype.card ι : ℝ≥0∞) ≤ α * (Nat.findGreatest
     (fun k ↦ k ≤ #{j | (Fintype.card ι : ℝ≥0∞) ≤ α * k * e j}) (Fintype.card ι) : ℕ) * e i} :
@@ -188,13 +199,22 @@ theorem eBH_def (e : ι → ℝ≥0∞) (α : ℝ≥0∞) :
       Finset ι) :=
   (rfl)
 
-/-- The number `k*` of rejections of e-BH bounds every self-consistent set: a self-consistent `R`
-has at least `#R` e-values above `K / (α * #R)`. -/
+/-- The number `k*` of rejections of e-BH bounds every self-consistent set: at least `#R`
+hypotheses `j` of a self-consistent `R` satisfy `K ≤ α * #R * e j`. -/
 private lemma card_le_findGreatest (h : IsSelfConsistent e α R) :
     #R ≤ Nat.findGreatest
       (fun k ↦ k ≤ #{j | (Fintype.card ι : ℝ≥0∞) ≤ α * k * e j}) (Fintype.card ι) :=
   Nat.le_findGreatest (card_le_univ R)
     (card_le_card fun j hj ↦ mem_filter.2 ⟨mem_univ j, h j hj⟩)
+
+/-- At least `k*` hypotheses `j` satisfy `K ≤ α * k* * e j`, for the number `k*` of rejections of
+e-BH. -/
+private lemma findGreatest_le_card_filter :
+    Nat.findGreatest (fun k ↦ k ≤ #{j | (Fintype.card ι : ℝ≥0∞) ≤ α * k * e j}) (Fintype.card ι) ≤
+      #{j | (Fintype.card ι : ℝ≥0∞) ≤ α * (Nat.findGreatest
+        (fun k ↦ k ≤ #{j | (Fintype.card ι : ℝ≥0∞) ≤ α * k * e j}) (Fintype.card ι) : ℕ) * e j} :=
+  Nat.findGreatest_spec (P := fun k ↦ k ≤ #{j | (Fintype.card ι : ℝ≥0∞) ≤ α * k * e j})
+    (Nat.zero_le _) (Nat.zero_le _)
 
 /-- A self-consistent set is contained in the e-BH rejection set. -/
 theorem IsSelfConsistent.subset_eBH (h : IsSelfConsistent e α R) : R ⊆ eBH e α := by
@@ -208,9 +228,7 @@ theorem isSelfConsistent_eBH : IsSelfConsistent e α (eBH e α) := by
   rw [eBH_def, mem_filter] at hi
   refine hi.2.trans ?_
   gcongr
-  -- At least `k*` e-values are above the threshold `K / (α * k*)`.
-  exact Nat.findGreatest_spec (P := fun k ↦ k ≤ #{j | (Fintype.card ι : ℝ≥0∞) ≤ α * k * e j})
-    (Nat.zero_le _) (Nat.zero_le _)
+  exact findGreatest_le_card_filter
 
 /-- **e-BH is the largest self-consistent set** [WR22, §5; RW, Definition 9.9]. -/
 theorem isGreatest_eBH : IsGreatest {R | IsSelfConsistent e α R} (eBH e α) :=
@@ -222,24 +240,24 @@ theorem mem_eBH_iff_exists : i ∈ eBH e α ↔ ∃ R, IsSelfConsistent e α R �
   ⟨fun hi ↦ ⟨_, isSelfConsistent_eBH, hi⟩, fun ⟨_, h, hi⟩ ↦ h.subset_eBH hi⟩
 
 /-- **The number of rejections of e-BH** is `k*`, the largest `k ≤ K` such that at least `k`
-e-values are at least `K / (α * k)`. -/
+hypotheses `j` satisfy `K ≤ α * k * e j`. -/
 theorem card_eBH : #(eBH e α) = Nat.findGreatest
     (fun k ↦ k ≤ #{j | (Fintype.card ι : ℝ≥0∞) ≤ α * k * e j}) (Fintype.card ι) := by
   refine le_antisymm (card_le_findGreatest isSelfConsistent_eBH) ?_
   rw [eBH_def]
-  exact Nat.findGreatest_spec (P := fun k ↦ k ≤ #{j | (Fintype.card ι : ℝ≥0∞) ≤ α * k * e j})
-    (Nat.zero_le _) (Nat.zero_le _)
+  exact findGreatest_le_card_filter
 
-/-- **The threshold form of e-BH** [WR22, Proposition 1]: e-BH rejects `i` exactly when `e i` is
-at least `K / (α * R)`, with `R` its number of rejections. -/
+/-- **The threshold form of e-BH** [WR22, Proposition 1]: e-BH rejects `i` exactly when
+`K ≤ α * #(eBH e α) * e i`. For a level `α ∉ {0, ∞}` and a nonempty rejection set, this says that
+`e i` is at least `K / (α * #(eBH e α))`. -/
 theorem mem_eBH_iff_le_mul_card :
     i ∈ eBH e α ↔ (Fintype.card ι : ℝ≥0∞) ≤ α * #(eBH e α) * e i := by
   conv_lhs => rw [eBH_def]
   rw [mem_filter, card_eBH]
   exact and_iff_right (mem_univ i)
 
-/-- **e-BH for one hypothesis is the e-test**: it rejects exactly when `1 ≤ α * e i`, that is,
-when the e-value is at least `α⁻¹`. -/
+/-- **e-BH for one hypothesis is the e-test**: it rejects exactly when `1 ≤ α * e i`. For a
+level `α ∉ {0, ∞}`, this says that the e-value is at least `α⁻¹`. -/
 theorem mem_eBH_iff_one_le_mul [Unique ι] : i ∈ eBH e α ↔ 1 ≤ α * e i := by
   have hR (R : Finset ι) (hi : i ∈ R) : R = {i} :=
     eq_singleton_iff_unique_mem.2 ⟨hi, fun j _ ↦ Subsingleton.elim j i⟩
@@ -313,15 +331,13 @@ theorem IsCompoundEVar.of_le (hE : IsCompoundEVar E H) (hE' : ∀ i, Measurable 
 compound e-variables. -/
 theorem isECollection_sum_div_iff :
     IsECollection (fun S ω ↦ ∑ i ∈ S, E i ω / Fintype.card ι) H ↔ IsCompoundEVar E H := by
-  have hK (i : ι) : (Fintype.card ι : ℝ≥0∞) ≠ 0 := by
-    simpa using (Fintype.card_pos_iff.2 ⟨i⟩).ne'
   have hle (hE : ∀ i, Measurable (E i)) (P : Measure Ω) :
       ∫⁻ ω, ∑ i ∈ trueNulls H P, E i ω / Fintype.card ι ∂P ≤ 1 ↔
         ∑ i ∈ trueNulls H P, ∫⁻ ω, E i ω ∂P ≤ Fintype.card ι := by
-    rw [lintegral_finsetSum_div (fun i _ ↦ hE i)]
+    rw [lintegral_finsetSum_div fun i _ ↦ (hE i).aemeasurable]
     rcases isEmpty_or_nonempty ι with hι | ⟨⟨i⟩⟩
     · simp [Finset.eq_empty_of_isEmpty (trueNulls H P)]
-    rw [ENNReal.div_le_iff (hK i) (ENNReal.natCast_ne_top _), one_mul]
+    rw [ENNReal.div_le_iff (natCast_card_ne_zero i) (ENNReal.natCast_ne_top _), one_mul]
   refine ⟨fun h ↦ ?_, fun h ↦ ⟨fun S ↦ Finset.measurable_sum S fun i _ ↦
     (h.measurable i).div_const _, funext fun _ ↦ sum_empty,
     fun P _ ↦ (hle h.measurable P).2 (h.sum_lintegral_le P)⟩⟩
@@ -329,7 +345,7 @@ theorem isECollection_sum_div_iff :
   have hE (i : ι) : Measurable (E i) := by
     have := (h.measurable {i}).mul_const (Fintype.card ι : ℝ≥0∞)
     simp only [sum_singleton] at this
-    simpa [ENNReal.div_mul_cancel (hK i) (ENNReal.natCast_ne_top _)] using this
+    simpa [ENNReal.div_mul_cancel (natCast_card_ne_zero i) (ENNReal.natCast_ne_top _)] using this
   exact ⟨hE, fun P _ ↦ (hle hE P).1 (h.lintegral_le_one P)⟩
 
 /-- **Statistics dominated by an e-collection are compound e-variables** [XSF+26,
@@ -365,28 +381,28 @@ variable [DecidableEq ι] {H : ι → Set (Measure Ω)} {E : ι → Ω → ℝ�
   {D : Ω → Finset ι}
 
 /-- **The post-hoc false discovery rate of self-consistent procedures** [RW, Theorem 9.11]: for
-rejection sets `D k ω` self-consistent at levels `α k` for measurable statistics `E i`, every set
-`N` of hypotheses and every measure, the expected largest ratio of the false discovery proportion
-to the level is at most `(∑ i ∈ N, ∫⁻ E i) / K`. The level may thus be chosen after seeing the
-data. -/
-theorem lintegral_iSup_fdp_div_le_of_isSelfConsistent (hE : ∀ i, Measurable (E i))
-    {α : κ → ℝ≥0∞} {D : κ → Ω → Finset ι} (hD : ∀ k ω, IsSelfConsistent (E · ω) (α k) (D k ω))
-    (N : Finset ι) (P : Measure Ω) :
+statistics `E i` almost everywhere measurable for a measure `P`, rejection sets `D k ω`
+self-consistent at levels `α k` and every set `N` of hypotheses, the expected largest ratio of the
+false discovery proportion to the level is at most `(∑ i ∈ N, ∫⁻ E i) / K`. The level may thus be
+chosen after seeing the data. -/
+theorem lintegral_iSup_fdp_div_le_of_isSelfConsistent {P : Measure Ω}
+    (hE : ∀ i, AEMeasurable (E i) P) {α : κ → ℝ≥0∞} {D : κ → Ω → Finset ι}
+    (hD : ∀ k ω, IsSelfConsistent (E · ω) (α k) (D k ω)) (N : Finset ι) :
     ∫⁻ ω, ⨆ k, fdp N (D k ω) / α k ∂P ≤ (∑ i ∈ N, ∫⁻ ω, E i ω ∂P) / Fintype.card ι :=
   (lintegral_mono fun ω ↦ iSup_le fun k ↦ ENNReal.div_le_of_le_mul' ((hD k ω).fdp_le N)).trans_eq
     (lintegral_finsetSum_div (fun i _ ↦ hE i) _)
 
 /-- **The false discovery rate of a self-consistent procedure** [WR22, Proposition 2; RW,
-Theorem 9.11]: for rejection sets `D ω` self-consistent at level `α` for measurable statistics
-`E i`, every set `N` of hypotheses and every measure, the expected false discovery proportion is
-at most `α * (∑ i ∈ N, ∫⁻ E i) / K`. -/
-theorem lintegral_fdp_le_of_isSelfConsistent (hE : ∀ i, Measurable (E i))
-    (hD : ∀ ω, IsSelfConsistent (E · ω) α (D ω)) (N : Finset ι) (P : Measure Ω) :
+Theorem 9.11]: for statistics `E i` almost everywhere measurable for a measure `P`, rejection sets
+`D ω` self-consistent at level `α` and every set `N` of hypotheses, the expected false discovery
+proportion is at most `α * (∑ i ∈ N, ∫⁻ E i) / K`. -/
+theorem lintegral_fdp_le_of_isSelfConsistent {P : Measure Ω} (hE : ∀ i, AEMeasurable (E i) P)
+    (hD : ∀ ω, IsSelfConsistent (E · ω) α (D ω)) (N : Finset ι) :
     ∫⁻ ω, fdp N (D ω) ∂P ≤ α * (∑ i ∈ N, ∫⁻ ω, E i ω ∂P) / Fintype.card ι := by
   calc ∫⁻ ω, fdp N (D ω) ∂P ≤ ∫⁻ ω, α * ∑ i ∈ N, E i ω / Fintype.card ι ∂P :=
         lintegral_mono fun ω ↦ (hD ω).fdp_le N
     _ = α * (∑ i ∈ N, ∫⁻ ω, E i ω ∂P) / Fintype.card ι := by
-        rw [lintegral_const_mul _ (Finset.measurable_sum N fun i _ ↦ (hE i).div_const _),
+        rw [lintegral_const_mul'' _ (Finset.aemeasurable_fun_sum N fun i _ ↦ (hE i).div_const _),
           lintegral_finsetSum_div fun i _ ↦ hE i, mul_div_assoc]
 
 /-- **Post-hoc false discovery rate control with compound e-variables** [RW, Theorem 9.11]: for
@@ -419,7 +435,7 @@ e-variables. -/
 theorem lintegral_fdp_le_of_isEVar (hE : ∀ i, IsEVar (E i) (H i))
     (hD : ∀ ω, IsSelfConsistent (E · ω) α (D ω)) (P : Measure Ω) [IsProbabilityMeasure P] :
     ∫⁻ ω, fdp (trueNulls H P) (D ω) ∂P ≤ α * #(trueNulls H P) / Fintype.card ι :=
-  (lintegral_fdp_le_of_isSelfConsistent (fun i ↦ (hE i).measurable) hD _ P).trans
+  (lintegral_fdp_le_of_isSelfConsistent (fun i ↦ (hE i).measurable.aemeasurable) hD _).trans
     (by gcongr; exact sum_lintegral_le_card_trueNulls hE P)
 
 /-- **Post-hoc false discovery rate control with e-variables** [RW, Theorem 9.11]: for rejection
@@ -430,7 +446,8 @@ theorem lintegral_iSup_fdp_div_le_of_isEVar (hE : ∀ i, IsEVar (E i) (H i)) {α
     (P : Measure Ω) [IsProbabilityMeasure P] :
     ∫⁻ ω, ⨆ k, fdp (trueNulls H P) (D k ω) / α k ∂P ≤
       #(trueNulls H P) / Fintype.card ι :=
-  (lintegral_iSup_fdp_div_le_of_isSelfConsistent (fun i ↦ (hE i).measurable) hD _ P).trans
+  (lintegral_iSup_fdp_div_le_of_isSelfConsistent (fun i ↦ (hE i).measurable.aemeasurable) hD
+    _).trans
     (by gcongr; exact sum_lintegral_le_card_trueNulls hE P)
 
 /-- **False discovery rate control by e-BH with compound e-variables** [IWR, Theorem 4.3; RW,
@@ -479,10 +496,8 @@ theorem universalEValue_of_notMem (hi : i ∉ R) : universalEValue α R i = 0 :=
 discovery proportion of `R` when the set of true nulls is `S`. -/
 theorem sum_universalEValue (α : ℝ≥0∞) (R S : Finset ι) :
     ∑ i ∈ S, universalEValue α R i = Fintype.card ι / α * fdp S R := by
-  simp_rw [universalEValue_def]
-  rw [sum_ite_mem, sum_const, nsmul_eq_mul, fdp_def, inter_comm, div_eq_mul_inv,
-    ENNReal.mul_inv (.inr (by simp)) (.inr (by simp)), div_eq_mul_inv, div_eq_mul_inv]
-  ring
+  simp [universalEValue_def, fdp_def, sum_ite_mem, div_eq_mul_inv, ENNReal.mul_inv, inter_comm,
+    mul_assoc, mul_left_comm]
 
 /-- The universal compound e-values of a measurable rejection procedure are measurable. -/
 theorem measurable_universalEValue {R : Ω → Finset ι} (hR : Measurable R) (α : ℝ≥0∞) (i : ι) :
@@ -496,8 +511,7 @@ theorem eBH_universalEValue (hα₀ : α ≠ 0) (hα : α ≠ ∞) (R : Finset �
   refine subset_antisymm (fun i hi ↦ ?_) (IsSelfConsistent.subset_eBH fun i hi ↦ ?_)
   · -- A hypothesis outside `R` has e-value `0`, below every positive threshold.
     by_contra hiR
-    have hK : (Fintype.card ι : ℝ≥0∞) ≠ 0 := by simpa using (Fintype.card_pos_iff.2 ⟨i⟩).ne'
-    exact hK (by simpa [hiR] using mem_eBH_iff_le_mul_card.1 hi)
+    exact natCast_card_ne_zero i (by simpa [hiR] using mem_eBH_iff_le_mul_card.1 hi)
   · have hR0 : α * (#R : ℝ≥0∞) ≠ 0 :=
       mul_ne_zero hα₀ (Nat.cast_ne_zero.2 (card_ne_zero_of_mem hi))
     rw [universalEValue_of_mem hi, ENNReal.mul_div_cancel hR0
