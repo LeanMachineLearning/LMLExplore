@@ -6,7 +6,7 @@ Authors: LMLExplore contributors
 module
 
 public import Mathlib.Probability.Moments.SubGaussian
-import LMLExplore.MeasureTheory.Function.ConditionalExpectation.Real
+import Mathlib.MeasureTheory.Function.ConditionalExpectation.CondJensen
 import LMLExplore.Probability.Moments.SubGaussian.Basic
 import TauCeti.Analysis.SpecialFunctions.Exp.Chord
 import TauCeti.MeasureTheory.Function.ConditionalExpectation
@@ -20,8 +20,9 @@ variable `X` keeps its range `[a, b]` and has mean `μ[X | m]`, so Hoeffding's l
 conditionally to the centred variable `X - μ[X | m]`:
 `E[exp (t (X - μ[X | m])) | m] ≤ exp ((b - a) ^ 2 t ^ 2 / 8)`.
 The range of the centred variable, `[a - μ[X | m], b - μ[X | m]]`, is random but known given `m`,
-and its width is `b - a`. Centring at a deterministic point instead would only give the range
-`[a - b, b - a]`, of width `2 (b - a)`, and lose a factor `4` in the variance proxy.
+and its width is `b - a`. A deterministic interval containing `X - μ[X | m]` is only
+`[a - b, b - a]`, of width `2 (b - a)`, and using it (as in the deterministic-range Azuma lemmas)
+loses a factor `4` in the variance proxy.
 
 Summing along a filtration `ℱ`, a process `X k` that is `ℱ (k + 1)`-measurable with values in
 `[a k, b k]` gives the Azuma–Hoeffding inequality
@@ -82,8 +83,8 @@ private lemma coe_nnnorm_sub_div_two_sq :
 private lemma ae_sub_condExp_mem_Icc (hm : m ≤ mΩ) (hX : AEMeasurable X μ)
     (hbound : ∀ᵐ ω ∂μ, X ω ∈ Set.Icc a b) :
     ∀ᵐ ω ∂μ, X ω - μ[X | m] ω ∈ Set.Icc (a - b) (b - a) := by
-  filter_upwards [hbound, ae_condExp_mem_Icc hm (Integrable.of_mem_Icc a b hX hbound) hbound]
-    with ω h1 h2
+  filter_upwards [hbound, (convex_Icc a b).condExp_mem hm (Integrable.of_mem_Icc a b hX hbound)
+    isClosed_Icc hbound] with ω h1 h2
   exact ⟨by linarith [h1.1, h2.2], by linarith [h1.2, h2.1]⟩
 
 /-- The exponential moments of a variable with values in `[a, b]`, centred at its conditional
@@ -95,6 +96,25 @@ private lemma integrable_exp_mul_sub_condExp (hm : m ≤ mΩ) (hX : AEMeasurable
     (hX.sub (stronglyMeasurable_condExp.mono hm).measurable.aemeasurable)
     (ae_sub_condExp_mem_Icc hm hX hbound)
 
+/-- Hoeffding's chord bound at a mean `M ∈ [a, b]`: for the chord `c₀ + c₁ y` of `y ↦ exp (t y)`
+over `[a, b]`, `exp (-t M) (c₀ + c₁ M) ≤ exp ((b - a) ^ 2 t ^ 2 / 8)`. -/
+private lemma exp_neg_mul_mul_chord_le (hab : a < b) {M : ℝ} (hM : M ∈ Set.Icc a b) (t : ℝ) :
+    exp (-t * M) * ((b * exp (t * a) - a * exp (t * b)) / (b - a) +
+      (exp (t * b) - exp (t * a)) / (b - a) * M) ≤ exp ((b - a) ^ 2 * t ^ 2 / 8) := by
+  have hbM : b - M - (a - M) = b - a := by ring
+  calc _ = ((b - M) * exp (t * (a - M)) - (a - M) * exp (t * (b - M))) / (b - M - (a - M)) := by
+        rw [hbM, show t * (a - M) = t * a + -t * M by ring,
+          show t * (b - M) = t * b + -t * M by ring, exp_add, exp_add]
+        field_simp
+        ring
+    _ ≤ exp ((‖b - M - (a - M)‖₊ / 2) ^ 2 * t ^ 2 / 2) :=
+        TauCeti.Probability.chord_le_exp (by linarith [hM.1]) (by linarith [hM.2]) (by linarith) t
+    _ = exp ((b - a) ^ 2 * t ^ 2 / 8) := by
+        have h := coe_nnnorm_sub_div_two_sq (a := a) (b := b)
+        push_cast at h
+        rw [hbM, coe_nnNorm, h]
+        ring_nf
+
 /-- **Conditional Hoeffding lemma, centred at the conditional mean.** If `X` has values in
 `[a, b]` almost everywhere, then for every `t`,
 `μ[exp (t (X - μ[X | m])) | m] ≤ exp ((b - a) ^ 2 t ^ 2 / 8)` almost everywhere.
@@ -104,7 +124,7 @@ theorem condExp_exp_mul_sub_condExp_le (hm : m ≤ mΩ) (hX : AEMeasurable X μ)
     μ[fun ω ↦ exp (t * (X ω - μ[X | m] ω)) | m] ≤ᵐ[μ]
       fun _ ↦ exp ((b - a) ^ 2 * t ^ 2 / 8) := by
   have hXint : Integrable X μ := Integrable.of_mem_Icc a b hX hbound
-  have hM := ae_condExp_mem_Icc hm hXint hbound
+  have hM := (convex_Icc a b).condExp_mem hm hXint isClosed_Icc hbound
   obtain ⟨ω₀, hω₀⟩ := hbound.exists
   rcases (hω₀.1.trans hω₀.2).eq_or_lt with hab | hab
   · -- A degenerate interval: `X = μ[X | m]` almost everywhere.
@@ -136,26 +156,12 @@ theorem condExp_exp_mul_sub_condExp_le (hm : m ≤ mΩ) (hX : AEMeasurable X μ)
   rw [condExp_const hm] at hlin
   rw [hprod]
   filter_upwards [hpull, hchord, hlin, hsmul, hM] with ω hp hc hl hs hMω
-  have hs' : μ[fun ω ↦ c₁ * X ω | m] ω = c₁ * μ[X | m] ω := hs
+  have hs' : μ[fun ω ↦ c₁ * X ω | m] ω = c₁ * μ[X | m] ω := by
+    simpa only [Pi.smul_def, Pi.smul_apply, smul_eq_mul] using hs
   rw [hp, Pi.mul_apply]
-  set M := μ[X | m] ω
-  have hbM : b - M - (a - M) = b - a := by ring
-  calc exp (-t * M) * μ[fun ω ↦ exp (t * X ω) | m] ω ≤ exp (-t * M) * (c₀ + c₁ * M) := by
-        gcongr
-        rw [← hs']
-        exact hc.trans_eq hl
-    _ = ((b - M) * exp (t * (a - M)) - (a - M) * exp (t * (b - M))) / (b - M - (a - M)) := by
-        rw [hbM, show t * (a - M) = t * a + -t * M by ring,
-          show t * (b - M) = t * b + -t * M by ring, exp_add, exp_add]
-        simp only [c₀, c₁]
-        field_simp
-        ring
-    _ ≤ exp ((‖b - M - (a - M)‖₊ / 2) ^ 2 * t ^ 2 / 2) :=
-        TauCeti.Probability.chord_le_exp (by linarith [hMω.1]) (by linarith [hMω.2])
-          (by linarith) t
-    _ = exp ((b - a) ^ 2 * t ^ 2 / 8) := by
-        rw [hbM, coe_nnNorm, Real.norm_eq_abs, div_pow, sq_abs]
-        ring_nf
+  refine (mul_le_mul_of_nonneg_left ?_ (exp_pos _).le).trans (exp_neg_mul_mul_chord_le hab hMω t)
+  rw [← hs']
+  exact hc.trans_eq hl
 
 /-- **Conditional Hoeffding lemma.** A random variable `X` with values in `[a, b]` almost
 everywhere, centred at its conditional mean given `m`, is conditionally

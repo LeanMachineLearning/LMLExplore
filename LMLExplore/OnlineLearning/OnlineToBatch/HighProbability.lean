@@ -84,12 +84,26 @@ private lemma measurable_loss (hf : Measurable (Function.uncurry f)) {t : ℕ} {
     Measurable[ℱ (t + 1)] fun ω ↦ f (y ω) (ξ t ω) :=
   hf.comp ((hy.mono (ℱ.mono t.le_succ) le_rfl).prodMk (hξ t))
 
-/-- The real number `n * √(c / n)`, whose square is `n c`. -/
-private lemma sq_mul_sqrt_div {c : ℝ} (hc : 0 ≤ c) (hn : n ≠ 0) :
-    ((n : ℝ) * √(c / n)) ^ 2 = n * c := by
+/-- A loss at a comparator `y` known at time `t` is integrable. -/
+private lemma integrable_loss (hf : Measurable (Function.uncurry f))
+    (hf01 : ∀ y z, f y z ∈ Set.Icc 0 1) {t : ℕ} {y : Ω → α} (hy : Measurable[ℱ t] y)
+    (hξ : ∀ t, Measurable[ℱ (t + 1)] (ξ t)) : Integrable (fun ω ↦ f (y ω) (ξ t ω)) μ :=
+  Integrable.of_mem_Icc 0 1 ((measurable_loss hf hy hξ).mono (ℱ.le _) le_rfl).aemeasurable
+    (ae_of_all _ fun _ ↦ hf01 _ _)
+
+/-- For the deviation `ε = n √(c log (1 / δ) / n)`, the Azuma–Hoeffding bound
+`exp (-2 ε ^ 2 / (n (2 c)))` is `δ`. -/
+private lemma exp_neg_two_mul_sq_mul_sqrt_div_eq {c : ℝ} (hc : 0 < c) (hn : n ≠ 0) (hδ : 0 < δ)
+    (hδ1 : δ < 1) : exp (-2 * ((n : ℝ) * √(c * log (1 / δ) / n)) ^ 2 / (n * (2 * c))) = δ := by
+  have hL : 0 ≤ log (1 / δ) := log_nonneg (one_le_one_div hδ hδ1.le)
   have hn' : (0 : ℝ) < n := by positivity
-  rw [mul_pow, sq_sqrt (by positivity)]
+  rw [mul_pow, sq_sqrt (by positivity), one_div, log_inv]
   field_simp
+  exact exp_log hδ
+
+/-- `μ.real` is monotone under almost-everywhere inclusion; `μ.real s` is `(μ s).toReal`. -/
+private lemma measureReal_mono_ae {s t : Set Ω} (h : s ≤ᵐ[μ] t) : μ.real s ≤ μ.real t :=
+  ENNReal.toReal_mono (measure_ne_top μ _) (measure_mono_ae h)
 
 /-- **Azuma–Hoeffding bound for the risks of the plays.** For a loss `f` with values in `[0, 1]`
 whose conditional mean at the play `x t` given `ℱ t` is the risk `F (x t)`, and `ε ≥ 0`,
@@ -124,20 +138,16 @@ theorem measureReal_sum_div_add_sqrt_lt_sum_div_le (hf : Measurable (Function.un
   · simp [hδ.le]
   rcases le_or_gt 1 δ with hδ1 | hδ1
   · exact measureReal_le_one.trans hδ1
-  have hL : 0 ≤ log (1 / δ) := log_nonneg (by rw [le_div_iff₀ hδ]; linarith)
   have hn' : (0 : ℝ) < n := by positivity
-  have hε : ((n : ℝ) * √(log (1 / δ) / 2 / n)) ^ 2 = n * (log (1 / δ) / 2) :=
-    sq_mul_sqrt_div (by positivity) hn
-  rw [show log (1 / δ) / (2 * n) = log (1 / δ) / 2 / n by ring]
+  rw [show log (1 / δ) / (2 * n) = 2⁻¹ * log (1 / δ) / n by ring]
   refine (measureReal_mono fun ω hω ↦ ?_).trans
-    ((measureReal_le_sum_sub_le hf hf01 hx hξ hF (ε := n * √(log (1 / δ) / 2 / n))
+    ((measureReal_le_sum_sub_le hf hf01 hx hξ hF (ε := n * √(2⁻¹ * log (1 / δ) / n))
       (by positivity)).trans_eq ?_)
   · simp only [Set.mem_ofPred_eq, sum_sub_distrib] at hω ⊢
     rw [← lt_sub_iff_add_lt', ← sub_div, lt_div_iff₀ hn'] at hω
     linarith
-  · rw [hε, show -2 * (n * (log (1 / δ) / 2)) / n = log δ by
-        field_simp; rw [one_div, log_inv, neg_neg],
-      exp_log hδ]
+  · simpa only [mul_inv_cancel₀ (two_ne_zero (α := ℝ)), mul_one] using
+      exp_neg_two_mul_sq_mul_sqrt_div_eq (c := 2⁻¹) (by norm_num) hn hδ hδ1
 
 /-- **Online-to-batch with high probability** [Ora, Theorem 3.10]. Let `f` be a loss with values
 in `[0, 1]`, `F` its conditional mean given the past at the plays `x t` and at a fixed comparator
@@ -157,19 +167,14 @@ theorem measureReal_add_div_add_sqrt_lt_sum_div_le (hf : Measurable (Function.un
     μ.real {ω | F u + R / n + √(2 * log (1 / δ) / n) < (∑ t ∈ range n, F (x t ω)) / n} ≤ δ := by
   rcases le_or_gt 1 δ with hδ1 | hδ1
   · exact measureReal_le_one.trans hδ1
-  have hL : 0 ≤ log (1 / δ) := log_nonneg (by rw [le_div_iff₀ hδ]; linarith)
   have hn' : (0 : ℝ) < n := by positivity
   -- The excess loss over the comparator, with values in `[-1, 1]`, and its conditional mean.
   set X : ℕ → Ω → ℝ := fun t ω ↦ f (x t ω) (ξ t ω) - f u (ξ t ω)
-  have hXint (y : Ω → α) (hy : Measurable y) (t : ℕ) :
-      Integrable (fun ω ↦ f (y ω) (ξ t ω)) μ :=
-    Integrable.of_mem_Icc 0 1
-      (hf.comp (hy.prodMk ((hξ t).mono (ℱ.le _) le_rfl))).aemeasurable
-      (ae_of_all _ fun _ ↦ hf01 _ _)
   have hmean (t : ℕ) (ht : t < n) : μ[X t | ℱ t] =ᵐ[μ] fun ω ↦ F (x t ω) - F u := by
-    have hXt : X t = (fun ω ↦ f (x t ω) (ξ t ω)) - fun ω ↦ f u (ξ t ω) := rfl
-    filter_upwards [condExp_sub (m := ℱ t) (hXint _ ((hx t).mono (ℱ.le t) le_rfl) t)
-      (hXint _ measurable_const t), hF t ht, hu t ht] with ω h1 h2 h3
+    have hXt : X t = (fun ω ↦ f (x t ω) (ξ t ω)) - fun ω ↦ f u (ξ t ω) := by
+      simp only [X, Pi.sub_def]
+    filter_upwards [condExp_sub (m := ℱ t) (integrable_loss hf hf01 (hx t) hξ)
+      (integrable_loss hf hf01 measurable_const hξ), hF t ht, hu t ht] with ω h1 h2 h3
     rw [hXt, h1, Pi.sub_apply, h2, h3]
   have h := measureReal_le_sum_condExp_sub_le (ℱ := ℱ) (μ := μ) (X := X) (a := fun _ ↦ -1)
     (b := fun _ ↦ 1)
@@ -177,20 +182,17 @@ theorem measureReal_add_div_add_sqrt_lt_sum_div_le (hf : Measurable (Function.un
     (fun t _ ↦ ae_of_all _ fun ω ↦ ⟨by linarith [(hf01 (x t ω) (ξ t ω)).1, (hf01 u (ξ t ω)).2],
       by linarith [(hf01 (x t ω) (ξ t ω)).2, (hf01 u (ξ t ω)).1]⟩)
     (ε := n * √(2 * log (1 / δ) / n)) (by positivity)
-  -- Mathlib has no `μ.real` form of `measure_mono_ae`; `μ.real s` is `(μ s).toReal`.
-  refine (ENNReal.toReal_mono (measure_ne_top μ _) (measure_mono_ae ?_)).trans (h.trans_eq ?_)
+  refine (measureReal_mono_ae ?_).trans (h.trans_eq ?_)
   · filter_upwards [hR, (Filter.eventually_all_finset _).2 fun t ht ↦ hmean t (mem_range.1 ht)]
       with ω hRω hω hbad
     rw [sum_sub_distrib, sum_congr rfl hω, sum_sub_distrib, sum_const, card_range, nsmul_eq_mul]
     rw [lt_div_iff₀ hn'] at hbad
     have hRn : R / n * n = R := div_mul_cancel₀ _ hn'.ne'
-    have hX : ∑ t ∈ range n, X t ω ≤ R := hRω
+    have hX : ∑ t ∈ range n, X t ω ≤ R := by simpa only [X] using hRω
     linarith
   · simp only [sum_const, card_range, nsmul_eq_mul]
-    rw [sq_mul_sqrt_div (by positivity) hn,
-      show -2 * (n * (2 * log (1 / δ))) / (n * (1 - -1) ^ 2) = log δ by
-        field_simp; rw [one_div, log_inv]; ring,
-      exp_log hδ]
+    rw [show ((1 : ℝ) - -1) ^ 2 = 2 * 2 by norm_num]
+    exact exp_neg_two_mul_sq_mul_sqrt_div_eq two_pos hn hδ hδ1
 
 /-- **Online-to-batch with high probability, for the average play** [Ora, Theorem 3.10]. Under
 the hypotheses of `measureReal_add_div_add_sqrt_lt_sum_div_le`, if moreover the plays lie in a
@@ -207,8 +209,7 @@ theorem measureReal_add_div_add_sqrt_lt_apply_smul_sum_le {E : Type*} [AddCommGr
     (hFV : ConvexOn ℝ V F) (hxV : ∀ᵐ ω ∂μ, ∀ t < n, x t ω ∈ V) (hn : n ≠ 0) (hδ : 0 < δ) :
     μ.real {ω | F u + R / n + √(2 * log (1 / δ) / n) <
       F ((n : ℝ)⁻¹ • ∑ t ∈ range n, x t ω)} ≤ δ := by
-  -- `μ.real s` is `(μ s).toReal`, as in `measureReal_add_div_add_sqrt_lt_sum_div_le`.
-  refine (ENNReal.toReal_mono (measure_ne_top μ _) (measure_mono_ae ?_)).trans
+  refine (measureReal_mono_ae ?_).trans
     (measureReal_add_div_add_sqrt_lt_sum_div_le hf hf01 hx hξ hF u hu hR hn hδ)
   filter_upwards [hxV] with ω hω hbad
   refine hbad.trans_le ?_
@@ -236,9 +237,7 @@ theorem measureReal_add_div_add_sqrt_lt_sum_div_le_of_indep {ρ : Measure Z}
       μ[fun ω ↦ f (y ω) (ξ t ω) | ℱ t] =ᵐ[μ] fun ω ↦ ∫ z, f (y ω) z ∂ρ := by
     have hξt : Measurable (ξ t) := (hξ t).mono (ℱ.le _) le_rfl
     have h := TauCeti.Probability.condExp_comp_prodMk_ae_eq_integral_of_indep (ℱ.le t) hy hξt
-      (hindep t) hf.stronglyMeasurable <| Integrable.of_mem_Icc 0 1
-        (hf.comp ((hy.mono (ℱ.le t) le_rfl).prodMk hξt)).aemeasurable
-        (ae_of_all _ fun _ ↦ hf01 _ _)
+      (hindep t) hf.stronglyMeasurable (integrable_loss hf hf01 hy hξ)
     simpa only [Function.uncurry_apply_pair, hρ t] using h
   exact measureReal_add_div_add_sqrt_lt_sum_div_le (F := fun y ↦ ∫ z, f y z ∂ρ) hf hf01 hx hξ
     (fun t _ ↦ hfreeze t (x t) (hx t)) u (fun t _ ↦ hfreeze t (fun _ ↦ u) measurable_const) hR
