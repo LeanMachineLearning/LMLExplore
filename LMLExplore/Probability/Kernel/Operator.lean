@@ -10,6 +10,7 @@ public import LMLExplore.Probability.Kernel.Composition.Comp
 public import Mathlib.Probability.Kernel.Composition.IntegralCompProd
 public import Mathlib.Probability.Kernel.MeasurableIntegral
 
+import Mathlib.Probability.Moments.Variance
 import TauCeti.MeasureTheory.Integral.Bind
 
 /-!
@@ -44,6 +45,9 @@ Kernels act on functions contravariantly: `η ∘ₖ κ` acts as the action of `
 * `ProbabilityTheory.Kernel.integralCLM_one`: a Markov kernel preserves constants.
 * `ProbabilityTheory.Kernel.Invariant.integral_integralCLM`: integrating `κ u` against an invariant
   measure of `κ` gives the integral of `u`.
+* `ProbabilityTheory.Kernel.Invariant.integral_sq_integral_le`: a Markov kernel does not increase
+  the norm of `L²(π)` for an invariant measure `π`, and
+  `ProbabilityTheory.Kernel.Invariant.integral_mul_integral_le`: `∫ f (κ f) dπ ≤ ∫ f² dπ`.
 * `ProbabilityTheory.Kernel.norm_integralCLM_apply_le`,
   `ProbabilityTheory.Kernel.opNorm_integralCLM_le`: a Markov kernel does not increase the sup
   norm.
@@ -51,6 +55,8 @@ Kernels act on functions contravariantly: `η ∘ₖ κ` acts as the action of `
 ## References
 
 * D. Revuz, *Markov chains*, North-Holland, 2nd edition, 1984, Chapter 1
+* [J. N. Tsitsiklis and B. Van Roy, *An analysis of temporal-difference learning with function
+  approximation*, 1997][TVR97], Lemma 1
 -/
 
 public section
@@ -165,6 +171,68 @@ theorem Invariant.integral_integralCLM {π : Measure α} [IsFiniteMeasure π] (h
   simp only [integralCLM_apply]
 
 end Invariant
+
+section InvariantL2
+
+variable {κ : Kernel α α} [IsMarkovKernel κ] {π : Measure α} {f : α → ℝ}
+
+/-- Jensen's inequality `(∫ f d(κ x))² ≤ ∫ f² d(κ x)` holds `π`-almost everywhere, and the right
+side is `π`-integrable, when `π` is invariant and `∫ f² dπ < ∞`. -/
+private lemma Invariant.ae_sq_integral_le (hπ : κ.Invariant π) (hf : Measurable f)
+    (hf2 : Integrable (fun x ↦ f x ^ 2) π) :
+    Integrable (fun x ↦ ∫ y, f y ^ 2 ∂κ x) π ∧
+      ∀ᵐ x ∂π, (∫ y, f y ∂κ x) ^ 2 ≤ ∫ y, f y ^ 2 ∂κ x := by
+  have hb : Integrable (fun x ↦ f x ^ 2) (π.bind κ) := by rwa [hπ.def]
+  refine ⟨Measure.integrable_integral_bind κ.measurable hb, ?_⟩
+  filter_upwards [((Measure.integrable_bind_iff κ.measurable
+    (hf.pow_const 2).aestronglyMeasurable).1 hb).1] with x hx
+  -- the nonnegativity of the variance under `κ x`
+  have h := variance_nonneg f (κ x)
+  rw [variance_eq_sub ((memLp_two_iff_integrable_sq hf.aestronglyMeasurable).2 hx)] at h
+  simpa using h
+
+/-- For an invariant measure `π` of a Markov kernel `κ` and `∫ f² dπ < ∞`, the function
+`x ↦ (∫ f d(κ x))²` is `π`-integrable. -/
+theorem Invariant.integrable_sq_integral (hπ : κ.Invariant π) (hf : Measurable f)
+    (hf2 : Integrable (fun x ↦ f x ^ 2) π) :
+    Integrable (fun x ↦ (∫ y, f y ∂κ x) ^ 2) π := by
+  obtain ⟨hint, hle⟩ := hπ.ae_sq_integral_le hf hf2
+  refine hint.mono' (hf.stronglyMeasurable.integral_kernel.pow 2).aestronglyMeasurable ?_
+  filter_upwards [hle] with x hx
+  rwa [Real.norm_of_nonneg (sq_nonneg _)]
+
+/-- **A Markov kernel is a nonexpansion of `L²(π)` for an invariant measure `π`**
+[TVR97, Lemma 1]: `∫ (∫ f d(κ x))² dπ ≤ ∫ f² dπ` for every measurable `f` with `∫ f² dπ < ∞`. -/
+theorem Invariant.integral_sq_integral_le (hπ : κ.Invariant π) (hf : Measurable f)
+    (hf2 : Integrable (fun x ↦ f x ^ 2) π) :
+    ∫ x, (∫ y, f y ∂κ x) ^ 2 ∂π ≤ ∫ x, f x ^ 2 ∂π := by
+  obtain ⟨hint, hle⟩ := hπ.ae_sq_integral_le hf hf2
+  have hb : Integrable (fun x ↦ f x ^ 2) (π.bind κ) := by rwa [hπ.def]
+  calc ∫ x, (∫ y, f y ∂κ x) ^ 2 ∂π ≤ ∫ x, ∫ y, f y ^ 2 ∂κ x ∂π :=
+        integral_mono_ae (hπ.integrable_sq_integral hf hf2) hint hle
+    _ = ∫ x, f x ^ 2 ∂π := by rw [← Measure.integral_bind κ.aemeasurable hb, hπ.def]
+
+/-- For an invariant measure `π` of a Markov kernel `κ`, the `L²(π)` inner product of `f` with
+`κ f` is at most `∫ f² dπ`: `∫ f (∫ f d(κ x)) dπ ≤ ∫ f² dπ`. -/
+theorem Invariant.integral_mul_integral_le (hπ : κ.Invariant π) (hf : Measurable f)
+    (hf2 : Integrable (fun x ↦ f x ^ 2) π) :
+    ∫ x, f x * ∫ y, f y ∂κ x ∂π ≤ ∫ x, f x ^ 2 ∂π := by
+  have hg2 := hπ.integrable_sq_integral hf hf2
+  have hsum : Integrable (fun x ↦ (f x ^ 2 + (∫ y, f y ∂κ x) ^ 2) / 2) π :=
+    (hf2.add hg2).div_const 2
+  have hle : ∀ a b : ℝ, a * b ≤ (a ^ 2 + b ^ 2) / 2 := fun a b ↦ by nlinarith [sq_nonneg (a - b)]
+  have hint : Integrable (fun x ↦ f x * ∫ y, f y ∂κ x) π := by
+    refine hsum.mono' (hf.stronglyMeasurable.mul hf.stronglyMeasurable.integral_kernel
+      ).aestronglyMeasurable (Filter.Eventually.of_forall fun x ↦ ?_)
+    rw [Real.norm_eq_abs, abs_mul]
+    simpa [sq_abs] using hle |f x| |∫ y, f y ∂κ x|
+  calc ∫ x, f x * ∫ y, f y ∂κ x ∂π ≤ ∫ x, (f x ^ 2 + (∫ y, f y ∂κ x) ^ 2) / 2 ∂π :=
+        integral_mono hint hsum fun x ↦ hle _ _
+    _ = (∫ x, f x ^ 2 ∂π + ∫ x, (∫ y, f y ∂κ x) ^ 2 ∂π) / 2 := by
+        rw [integral_div, integral_add hf2 hg2]
+    _ ≤ ∫ x, f x ^ 2 ∂π := by linarith [hπ.integral_sq_integral_le hf hf2]
+
+end InvariantL2
 
 section Markov
 
