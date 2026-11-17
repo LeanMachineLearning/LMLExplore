@@ -42,6 +42,7 @@ Apache 2.0).
 ## Main statements
 
 * `Measurable.variance_kernel`: `b ↦ Var[X; η b]` is measurable.
+* `ProbabilityTheory.sq_integral_le_integral_sq`: Jensen's inequality `(∫ X dμ) ^ 2 ≤ ∫ X ^ 2 dμ`.
 * `ProbabilityTheory.variance_le_sq_of_abs_le`: `|X| ≤ B` almost surely gives `Var[X; μ] ≤ B ^ 2`.
 * `ProbabilityTheory.sqrt_variance_le_of_abs_le`: `|X| ≤ B` almost surely gives `√Var[X; μ] ≤ B`.
 * `ProbabilityTheory.sq_covariance_le_variance_mul_variance`: the Cauchy–Schwarz inequality
@@ -117,6 +118,13 @@ theorem sqrt_variance_add_le (hX : MemLp X 2 μ) (hY : MemLp Y 2 μ) :
 end FiniteMeasure
 
 variable {μ : Measure β} [IsProbabilityMeasure μ] {X Y : β → ℝ} {B : ℝ}
+
+/-- **Jensen's inequality for the square**: `(∫ X dμ) ^ 2 ≤ ∫ X ^ 2 dμ` for a square-integrable
+real random variable under a probability measure, the nonnegativity of its variance. -/
+theorem sq_integral_le_integral_sq (hX : MemLp X 2 μ) : (∫ b, X b ∂μ) ^ 2 ≤ ∫ b, X b ^ 2 ∂μ := by
+  have h := variance_nonneg X μ
+  rw [variance_eq_sub hX] at h
+  simpa using h
 
 /-- A real random variable bounded by `B` in absolute value almost surely has variance at most
 `B ^ 2`. -/
