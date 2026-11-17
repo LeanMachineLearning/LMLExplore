@@ -47,7 +47,8 @@ weighted sup norm `⨆ i, |x i| / w i`, and the oscillation for `1` is `max x - 
 
 * `LMLExplore.orderUnitNorm_smul`, `LMLExplore.orderUnitNorm_add_le`: the order-unit norm of an
   order unit is a seminorm.
-* `LMLExplore.IsOrderUnit.nonneg`: an order unit is nonnegative.
+* `LMLExplore.IsOrderUnit.nonneg`, `LMLExplore.IsOrderUnit.ne_zero`: an order unit is
+  nonnegative, and nonzero in a nontrivial space.
 * `LMLExplore.norm_smul_of_forall_orderUnitNorm_eq_norm`: when the order-unit norm is the norm,
   `‖r • x‖ = |r| * ‖x‖`.
 * `LMLExplore.le_of_forall_sub_smul_le`: when the order-unit norm is the norm and the lower
@@ -210,8 +211,10 @@ theorem iterate_eq_add_smul (hT : IsTopical e T) {h : E} {g : ℝ}
   induction n with
   | zero => simp
   | succ n ih =>
-    rw [Function.iterate_succ_apply', ih, hT.map_add_smul, hh, Nat.cast_succ, add_one_mul,
-      add_smul, add_assoc, add_comm (g • e)]
+    rw [Function.iterate_succ_apply', ih, hT.map_add_smul, hh, add_assoc, ← add_smul]
+    congr 2
+    push_cast
+    ring
 
 end IsTopical
 
@@ -272,6 +275,15 @@ lemma IsOrderUnit.nonneg [PosSMulMono ℝ E] (he : IsOrderUnit e) : 0 ≤ e := b
     exact neg_le_iff_add_nonneg.1 hce
   simpa [smul_smul, inv_mul_cancel₀ (by positivity : (1 + c : ℝ) ≠ 0)] using
     smul_nonneg (inv_nonneg.2 (by positivity : (0 : ℝ) ≤ 1 + c)) h
+
+omit [IsOrderedAddMonoid E] in
+/-- An order unit of a nontrivial ordered vector space is nonzero: if `e = 0`, every element would
+lie in `[0, 0]`. -/
+lemma IsOrderUnit.ne_zero [Nontrivial E] (he : IsOrderUnit e) : e ≠ 0 := by
+  rintro rfl
+  obtain ⟨x, hx⟩ := exists_ne (0 : E)
+  obtain ⟨c, -, hx₁, hx₂⟩ := isOrderUnit_def.1 he x
+  exact hx (le_antisymm (by simpa using hx₂) (by simpa using hx₁))
 
 /-- The triangle inequality for the order-unit norm of an order unit. -/
 lemma orderUnitNorm_add_le (he : IsOrderUnit e) (x y : E) :

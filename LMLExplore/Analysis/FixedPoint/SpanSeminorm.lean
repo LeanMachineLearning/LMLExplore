@@ -140,6 +140,10 @@ variable [NormedAddCommGroup E] [PartialOrder E] [NormedSpace ℝ E] {e : E} {T 
 
 variable [IsOrderedAddMonoid E]
 
+/-- The line `ℝ ∙ e` is closed, being finite-dimensional, so `E ⧸ ℝ ∙ e` is a normed group. -/
+local instance isClosed_span_singleton : IsClosed ((ℝ ∙ e : Submodule ℝ E) : Set E) :=
+  (ℝ ∙ e).isClosed_of_finiteDimensional
+
 /-- When the order-unit norm of `e` is the norm, the quotient norm of `E ⧸ ℝ ∙ e` is half the
 oscillation: `‖[x]‖ = osc_e x / 2`. For `e = 1` on bounded functions, this is the distance
 `(sup x - inf x) / 2` from `x` to the constants. -/
@@ -204,7 +208,6 @@ variable {α : NNReal} {J : ℕ}
 private lemma contractingWith_quotientMap_iterate (hnorm : ∀ x, orderUnitNorm e x = ‖x‖)
     (hT : IsTopical e T) (hα : α < 1)
     (hJ : ∀ x y, orderUnitOsc e (T^[J] x - T^[J] y) ≤ α * orderUnitOsc e (x - y)) :
-    letI : IsClosed ((ℝ ∙ e : Submodule ℝ E) : Set E) := (ℝ ∙ e).isClosed_of_finiteDimensional
     ContractingWith α hT.quotientMap^[J] :=
   ⟨hα, hT.lipschitzWith_quotientMap_iterate hnorm hJ⟩
 
@@ -217,7 +220,6 @@ theorem exists_map_eq_add_smul [CompleteSpace E] (hnorm : ∀ x, orderUnitNorm e
     (hT : IsTopical e T) (hα : α < 1)
     (hJ : ∀ x y, orderUnitOsc e (T^[J] x - T^[J] y) ≤ α * orderUnitOsc e (x - y)) :
     ∃ (g : ℝ) (h : E), T h = h + g • e := by
-  have : IsClosed ((ℝ ∙ e : Submodule ℝ E) : Set E) := (ℝ ∙ e).isClosed_of_finiteDimensional
   have hc := hT.contractingWith_quotientMap_iterate hnorm hα hJ
   -- The fixed point of the contraction `T^[J]` of the quotient is fixed by `T`.
   obtain ⟨h, hh⟩ := Submodule.Quotient.mk_surjective _ (hc.fixedPoint _)
@@ -233,7 +235,6 @@ theorem exists_eq_add_smul_of_map_eq_add_smul (hnorm : ∀ x, orderUnitNorm e x 
     (hT : IsTopical e T) (hα : α < 1)
     (hJ : ∀ x y, orderUnitOsc e (T^[J] x - T^[J] y) ≤ α * orderUnitOsc e (x - y)) {g g' : ℝ}
     {h h' : E} (hh : T h = h + g • e) (hh' : T h' = h' + g' • e) : ∃ c : ℝ, h' = h + c • e := by
-  have : IsClosed ((ℝ ∙ e : Submodule ℝ E) : Set E) := (ℝ ∙ e).isClosed_of_finiteDimensional
   have hc := hT.contractingWith_quotientMap_iterate hnorm hα hJ
   -- `[h]` and `[h']` are fixed points of `T` on the quotient, hence of its contraction `T^[J]`.
   have hfix {k : E} {b : ℝ} (hk : T k = k + b • e) :
@@ -252,15 +253,9 @@ theorem eq_of_map_eq_add_smul [Nontrivial E] (hnorm : ∀ x, orderUnitNorm e x =
     (hT : IsTopical e T) {g g' : ℝ} {h h' : E} (hh : T h = h + g • e)
     (hh' : T h' = h' + g' • e) : g' = g := by
   have he := isOrderUnit_of_forall_orderUnitNorm_eq_norm hnorm
-  -- The order unit is nonzero, since every element lies in `[-c • e, c • e]`.
-  have he0 : e ≠ 0 := by
-    rintro rfl
-    obtain ⟨x, hx⟩ := exists_ne (0 : E)
-    obtain ⟨c, -, hx₁, hx₂⟩ := isOrderUnit_def.1 he x
-    exact hx (le_antisymm (by simpa using hx₂) (by simpa using hx₁))
   by_contra hne
   have hpos : 0 < |g - g'| * ‖e‖ :=
-    mul_pos (abs_pos.2 (sub_ne_zero.2 (Ne.symm hne))) (norm_pos_iff.2 he0)
+    mul_pos (abs_pos.2 (sub_ne_zero.2 (Ne.symm hne))) (norm_pos_iff.2 he.ne_zero)
   obtain ⟨n, hn⟩ := exists_nat_gt (2 * ‖h - h'‖ / (|g - g'| * ‖e‖))
   rw [div_lt_iff₀ hpos] at hn
   -- `T^[n]` is nonexpansive, so `‖(n * (g - g')) • e‖ ≤ 2 * ‖h - h'‖`.
