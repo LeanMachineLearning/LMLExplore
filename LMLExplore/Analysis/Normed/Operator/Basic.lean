@@ -22,7 +22,8 @@ enters the lower bounds of online linear optimization.
 
 ## Main statements
 
-* `ContinuousLinearMap.apply_le_opNorm_mul_norm`: `f x ≤ ‖f‖ * ‖x‖` for `f : E →L[ℝ] ℝ`.
+* `ContinuousLinearMap.apply_le_opNorm_mul_norm`: `f x ≤ ‖f‖ * ‖x‖` for `f : E →L[ℝ] ℝ`, and
+  `ContinuousLinearMap.max_apply_zero_le_opNorm_mul_norm`: the same bound for the positive part.
 * `ContinuousLinearMap.sSup_image_sphere_eq_mul_norm`: the supremum of `f` on the sphere of
   radius `r ≥ 0` about `0` is `r * ‖f‖`.
 * `ContinuousLinearMap.isGreatest_image_sphere`: in a nontrivial proper (for instance
@@ -50,6 +51,11 @@ variable {E : Type*} [SeminormedAddCommGroup E] [NormedSpace ℝ E]
 its argument: `f x ≤ ‖f‖ * ‖x‖`. -/
 theorem apply_le_opNorm_mul_norm (f : E →L[ℝ] ℝ) (x : E) : f x ≤ ‖f‖ * ‖x‖ :=
   (Real.le_norm_self _).trans (f.le_opNorm x)
+
+/-- The positive part of a real continuous linear functional is bounded by its operator norm times
+the norm of its argument: `max (f x) 0 ≤ ‖f‖ * ‖x‖`. -/
+theorem max_apply_zero_le_opNorm_mul_norm (f : E →L[ℝ] ℝ) (x : E) : max (f x) 0 ≤ ‖f‖ * ‖x‖ :=
+  max_le (f.apply_le_opNorm_mul_norm x) (by positivity)
 
 end Seminormed
 

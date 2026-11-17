@@ -31,6 +31,8 @@ unconstrained one, through surrogate losses built from `‖y‖ * infDist · V` 
 * `Convex.exists_hasSubgradientWithinAt_infDist`: it has a subgradient at every point.
 * `LMLExplore.hasSubgradientWithinAt_zero_infDist`: `0` is a subgradient at the points of the
   closure.
+* `HasSubgradientWithinAt.norm_le_one_of_infDist`: the subgradients within a neighbourhood of the
+  point have dual norm at most `1`, as the distance is `1`-Lipschitz.
 * `HasSubgradientWithinAt.infDist_le_apply_sub`: a subgradient `q` at `x` satisfies
   `infDist x V ≤ q (x - v)` for every `v` in the closure of `V`.
 * `HasSubgradientWithinAt.apply_sub_eq_norm_of_infDist_eq`: a subgradient `q` at `x` satisfies
@@ -46,7 +48,7 @@ unconstrained one, through surrogate losses built from `‖y‖ * infDist · V` 
 
 public section
 
-open Set Metric
+open Set Metric Topology
 
 variable {E : Type*} [SeminormedAddCommGroup E] [NormedSpace ℝ E] {V s : Set E} {x p v : E}
   {q : E →L[ℝ] ℝ}
@@ -116,3 +118,10 @@ theorem HasSubgradientWithinAt.apply_sub_eq_norm_of_infDist_eq
             Real.norm_two]
   rw [add_sub_cancel_left, hpx] at hle
   linarith
+
+/-- A subgradient of the distance to a set `W` within a neighbourhood `t` of `w` has dual norm at
+most `1`, since the distance is `1`-Lipschitz. -/
+theorem HasSubgradientWithinAt.norm_le_one_of_infDist {F : Type*} [NormedAddCommGroup F]
+    [NormedSpace ℝ F] {W t : Set F} {w : F} {r : F →L[ℝ] ℝ}
+    (hr : HasSubgradientWithinAt (infDist · W) r t w) (ht : t ∈ 𝓝 w) : ‖r‖ ≤ 1 := by
+  simpa using hr.norm_le_of_lipschitzOnWith ht (lipschitz_infDist_pt W).lipschitzOnWith
