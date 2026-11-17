@@ -209,7 +209,8 @@ theorem IsEProcess.isCondEVar_of_one_le (hS : ∀ P ∈ S, IsFiniteMeasure P)
 
 /-- **Optional continuation of e-processes** [RW, Proposition 7.9]. For a null of finite measures,
 e-processes `A` and `B` and a stopping time `τ` such that `1 ≤ B n` whenever `n ≤ τ`, the process
-`stoppedProcess A τ * B`, equal to `A` up to `τ` and to `A τ * B` after it, is an e-process. -/
+`stoppedProcess A τ * B`, equal to `A n * B n` (so at least `A n`) up to `τ` and to `A τ * B n`
+after it, is an e-process. -/
 theorem IsEProcess.stoppedProcess_mul (hS : ∀ P ∈ S, IsFiniteMeasure P)
     {A B : ℕ → Ω → ℝ≥0∞} (hA : IsEProcess A ℱ S) {τ : Ω → WithTop ℕ} (hτ : IsStoppingTime ℱ τ)
     (hB : IsEProcess B ℱ S) (hB1 : ∀ (n : ℕ) ω, (n : WithTop ℕ) ≤ τ ω → 1 ≤ B n ω) :
