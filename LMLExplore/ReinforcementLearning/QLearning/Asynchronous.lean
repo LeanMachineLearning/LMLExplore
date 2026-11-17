@@ -6,6 +6,7 @@ Authors: LMLExplore contributors
 module
 
 public import LMLExplore.MarkovDecisionProcess.ValueIteration.ActionValue
+public import LMLExplore.MeasureTheory.MeasurableSpace.Constructions
 public import LMLExplore.Probability.StochasticApproximation.Asynchronous
 
 /-!
@@ -38,6 +39,8 @@ noise and the transition noise. The source minimizes costs; we maximize rewards.
 * `LMLExplore.ReinforcementLearning.qLearning_succ_apply_self`,
   `LMLExplore.ReinforcementLearning.qLearning_succ_apply_of_ne`: the update of the visited pair,
   and the other pairs are not updated.
+* `LMLExplore.ReinforcementLearning.abs_qLearning_target_le`: the target of a round is bounded by
+  `B` when the reward is bounded by `C`, the action values by `B`, and `C + γ B ≤ B`.
 * `LMLExplore.ReinforcementLearning.abs_qLearning_le`: the iterates stay in `[-B, B]` when the
   rewards are bounded by `C` and `C + γ B ≤ B`;
   `LMLExplore.ReinforcementLearning.ae_abs_qLearning_le`: along a run in an MDP with rewards
@@ -107,6 +110,15 @@ lemma qLearning_succ_apply_of_ne {t : ℕ} {ω : Ω} {p : 𝓢 × 𝓐} (hp : p 
     qLearning γ Q₀ O A Y α (t + 1) ω p = qLearning γ Q₀ O A Y α t ω p := by
   rw [qLearning_succ, Function.update_of_ne hp]
 
+/-- With a reward bounded by `C` and action values bounded by `B`, where `C + γ * B ≤ B`, the
+target `Y t + γ * ⨆ a, Q t (O (t + 1), a)` of round `t` is bounded by `B`. -/
+lemma abs_qLearning_target_le [Nonempty 𝓐] {ω : Ω} {B C : ℝ} {t : ℕ} (hY : |Y t ω| ≤ C)
+    (hQ : ∀ p, |qLearning γ Q₀ O A Y α t ω p| ≤ B) (hB : C + γ * B ≤ B) :
+    |Y t ω + γ * ⨆ a, qLearning γ Q₀ O A Y α t ω (O (t + 1) ω, a)| ≤ B := by
+  refine (abs_add_le _ _).trans (le_trans ?_ hB)
+  rw [abs_mul, NNReal.abs_eq]
+  exact add_le_add hY (mul_le_mul_of_nonneg_left (abs_ciSup_le fun a ↦ hQ _) γ.2)
+
 /-- With learning rates in `[0, 1]` at the visited pairs, rewards bounded by `C` and an initial
 action value bounded by `B`, where `C + γ * B ≤ B`, the iterates of Q-learning stay bounded by
 `B`: each update is a convex combination of the current action value and a target bounded by
@@ -121,12 +133,7 @@ theorem abs_qLearning_le [Nonempty 𝓐] {ω : Ω} {B C : ℝ}
     by_cases hp : p = (O t ω, A t ω)
     · subst hp
       rw [qLearning_succ_apply_self]
-      have htarget : |Y t ω + γ * ⨆ a, qLearning γ Q₀ O A Y α t ω (O (t + 1) ω, a)| ≤ B := by
-        refine (abs_add_le _ _).trans (le_trans ?_ hB)
-        rw [abs_mul, NNReal.abs_eq]
-        gcongr
-        · exact hY t
-        · exact abs_ciSup_le fun a ↦ ih _
+      have htarget := abs_qLearning_target_le (hY t) ih hB
       obtain ⟨h0, h1⟩ := hα t
       calc _ ≤ |1 - α t ω (O t ω, A t ω)| * |qLearning γ Q₀ O A Y α t ω (O t ω, A t ω)| +
             |α t ω (O t ω, A t ω)| *
@@ -140,15 +147,6 @@ theorem abs_qLearning_le [Nonempty 𝓐] {ω : Ω} {B C : ℝ}
         _ = B := by ring
     · rw [qLearning_succ_apply_of_ne hp]
       exact ih p
-
-omit [DecidableEq 𝓢] [DecidableEq 𝓐] in
-/-- The largest action value `⨆ a, q ω (o ω, a)` at a random state `o ω`, for random action
-values `q ω`, is measurable when `q` and `o` are. -/
-private lemma measurable_iSup_apply [Countable 𝓢] [MeasurableSingletonClass 𝓢] [Countable 𝓐]
-    {m : MeasurableSpace Ω} {q : Ω → 𝓢 × 𝓐 → ℝ} {o : Ω → 𝓢} (hq : Measurable[m] q)
-    (ho : Measurable[m] o) : Measurable[m] fun ω ↦ ⨆ a, q ω (o ω, a) :=
-  (measurable_from_prod_countable_left (f := fun z : (𝓢 × 𝓐 → ℝ) × 𝓢 ↦ ⨆ a, z.1 (z.2, a))
-    fun s ↦ Measurable.iSup fun a ↦ measurable_pi_apply (s, a)).comp (hq.prodMk ho)
 
 /-- Along a run of any algorithm in any environment, the iterates of Q-learning with learning
 rates known at the action of each round are known at the action of each round: `Q t` is
@@ -168,13 +166,11 @@ theorem adapted_qLearning [Countable 𝓢] [MeasurableSingletonClass 𝓢] [Coun
     have hpair : Measurable[ℱ (t + 1)] fun ω ↦ (O t ω, A t ω) :=
       ((h.adapted_obs_filtrationAction t).prodMk (h.adapted_action_filtrationAction t)).mono hle
         le_rfl
-    have heval : Measurable fun z : (𝓢 × 𝓐 → ℝ) × (𝓢 × 𝓐) ↦ z.1 z.2 :=
-      measurable_from_prod_countable_left fun p ↦ measurable_pi_apply p
     have hQpair : Measurable[ℱ (t + 1)] fun ω ↦ qLearning γ Q₀ O A Y α t ω (O t ω, A t ω) :=
-      heval.comp (hQ.prodMk hpair)
+      @Measurable.eval_index _ _ _ (ℱ (t + 1)) _ _ _ _ _ _ hQ hpair
     have hαpair : Measurable[ℱ (t + 1)] fun ω ↦ α t ω (O t ω, A t ω) :=
-      heval.comp (((hα t).mono hle le_rfl).prodMk hpair)
-    have hmax := measurable_iSup_apply hQ (h.adapted_obs_filtrationAction (t + 1))
+      @Measurable.eval_index _ _ _ (ℱ (t + 1)) _ _ _ _ _ _ ((hα t).mono hle le_rfl) hpair
+    have hmax := hQ.iSup_apply_prodMk (h.adapted_obs_filtrationAction (t + 1))
     have hY : Measurable[ℱ (t + 1)] (Y t) :=
       h.measurable_feedback_filtrationAction_of_lt t.lt_succ_self
     refine @Measurable.of_eval _ _ _ (ℱ (t + 1)) _ _ fun p ↦ ?_
@@ -223,8 +219,8 @@ private lemma measurable_qLearning_target [Countable 𝓢] [MeasurableSingletonC
     Measurable[h.filtrationAction (t + 1)]
       fun ω ↦ Y t ω + γ * ⨆ a, qLearning γ Q₀ O A Y α t ω (O (t + 1) ω, a) :=
   (h.measurable_feedback_filtrationAction_of_lt t.lt_succ_self).add
-    (measurable_const.mul (measurable_iSup_apply ((adapted_qLearning h hαm t).mono
-      (h.filtrationAction.mono t.le_succ) le_rfl) (h.adapted_obs_filtrationAction (t + 1))))
+    (measurable_const.mul (((adapted_qLearning h hαm t).mono (h.filtrationAction.mono t.le_succ)
+      le_rfl).iSup_apply_prodMk (h.adapted_obs_filtrationAction (t + 1))))
 
 /-- The target of round `t` is almost surely bounded by `max ‖Q₀‖ (|C| / (1 - γ))`, the bound
 of the iterates. -/
@@ -236,10 +232,7 @@ private lemma ae_abs_qLearning_target_le [Fintype 𝓢] [Fintype 𝓐] [Nonempty
   have hB := abs_add_mul_max_le (b := ‖Q₀‖) (C := C) hγ
   filter_upwards [ae_all_iff.2 (MDP.ae_abs_feedback_le h hR), ae_abs_qLearning_le h hγ hR hα]
     with ω hY hQ t
-  refine (abs_add_le _ _).trans (le_trans ?_ hB)
-  rw [abs_mul, NNReal.abs_eq]
-  exact add_le_add ((hY t).trans (le_abs_self C))
-    (mul_le_mul_of_nonneg_left (abs_ciSup_le fun a ↦ hQ t _) γ.2)
+  exact abs_qLearning_target_le ((hY t).trans (le_abs_self C)) (hQ t) hB
 
 /-- **The target of Q-learning is unbiased for the optimality operator.** Along a run in the
 environment of an MDP with bounded rewards, given the history before round `t`, the state and the
@@ -261,7 +254,7 @@ theorem condExp_feedback_add_mul_iSup_qLearning [Finite 𝓢] [MeasurableSinglet
     (@Measurable.of_eval _ _ _ (h.filtrationAction t) _ _ fun s ↦
       Measurable.iSup fun a ↦ (measurable_pi_apply (s, a)).comp hQ) ?_
   -- the largest next action value is bounded by the bound of the iterates
-  refine .of_bound ((measurable_iSup_apply (hQ.mono (h.filtrationAction.le _) le_rfl)
+  refine .of_bound (((hQ.mono (h.filtrationAction.le _) le_rfl).iSup_apply_prodMk
     (h.measurable_obs (t + 1))).aestronglyMeasurable) (max ‖Q₀‖ (|C| / (1 - γ)))
     ((ae_abs_qLearning_le (Q₀ := Q₀) h hγ hR hα).mono fun ω hω ↦ ?_)
   simpa [Real.norm_eq_abs] using abs_ciSup_le fun a ↦ hω t (O (t + 1) ω, a)
@@ -299,9 +292,7 @@ theorem ae_tendsto_qLearning_optQValue [Finite 𝓢] [MeasurableSingletonClass �
   have hpair (t : ℕ) : Measurable[ℱ t] fun ω ↦ (O t ω, A t ω) :=
     (h.adapted_obs_filtrationAction t).prodMk (h.adapted_action_filtrationAction t)
   have hGm (t : ℕ) : Measurable[ℱ t] (G t) :=
-    (measurable_from_prod_countable_left (f := fun z : (𝓢 × 𝓐 → ℝ) × (𝓢 × 𝓐) ↦ F z.1 z.2)
-      fun p ↦ (measurable_pi_apply p).comp hF.continuous.measurable).comp
-        ((hQm t).prodMk (hpair t))
+    @Measurable.eval_index _ _ _ (ℱ t) _ _ _ _ _ _ (hF.continuous.measurable.comp (hQm t)) (hpair t)
   have hGB : ∀ᵐ ω ∂P, ∀ t, |G t ω| ≤ B := (ae_abs_qLearning_le h hγ hR hα).mono fun ω hω t ↦
     (MDP.abs_lookahead_le hR (fun s ↦ abs_ciSup_le fun a ↦ hω t (s, a)) _).trans <|
       (add_le_add_left (le_abs_self C) _).trans (abs_add_mul_max_le hγ)
