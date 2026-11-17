@@ -13,7 +13,8 @@ public import LMLExplore.Data.Nat.Nth
 
 The reductions of online learning [Ora, Chapters 12–14] build learners from other learners: they
 restart copies of a learner, run learners coordinatewise, add the plays of several learners,
-transform the plays of a learner, and hide from a learner the rounds without feedback. This file
+transform the plays of a learner, feed a learner surrogate losses computed from its own plays,
+and hide from a learner the rounds without feedback. This file
 defines these operations on `OnlineLearner`, computes their runs, and transfers regret guarantees
 (`OnlineLearner.HasRegretBound`) through them.
 
@@ -37,6 +38,12 @@ defines these operations on `OnlineLearner`, computes their runs, and transfers 
 * `A.map f` plays the images by `f` of the plays of `A` (`run_map`). For a translation
   `f = (x₀ + ·)` and linear losses, the regret against `u` is the regret of `A` against `u - x₀`
   (`regret_run_map_add_left`, `HasRegretBound.map_add_left`) [Ora, Proposition 13.10].
+* `A.reduce f φ`, the **black-box reduction** to `A` with the output map `f` and the surrogate
+  feedback `φ`, plays `f (z t)` when `A` plays `z t`, and feeds `A` the surrogate `φ (z t) (g t)`
+  of its own feedback `g t`. The plays of `A` are those of its closed-loop run
+  (`run_reduce`), so a per-round comparison of the losses of `f z` and of the surrogate losses of
+  `z` transfers the regret guarantees of `A` to the reduction (`regret_run_reduce_le`,
+  `HasRegretBound.reduce`). The constrained learners of [Ora, Section 12.1] are of this form.
 * `A.skipZero`, for feedback in a type with a zero, plays as `A` run on the rounds of nonzero
   feedback only: its play of round `t` is the play of `A` from the `count (g · ≠ 0) t` rounds of
   nonzero feedback before `t`, the `i`-th of which is `nth (g · ≠ 0) i` (`run_skipZero`). For
@@ -52,6 +59,8 @@ defines these operations on `OnlineLearner`, computes their runs, and transfers 
 * `LMLExplore.OnlineLearning.OnlineLearner.sum A`: the sum of the plays of a finite family of
   learners.
 * `LMLExplore.OnlineLearning.OnlineLearner.map A f`: the images by `f` of the plays of `A`.
+* `LMLExplore.OnlineLearning.OnlineLearner.reduce A f φ`: the black-box reduction to `A` with the
+  output map `f` and the surrogate feedback `φ`.
 * `LMLExplore.OnlineLearning.OnlineLearner.skipZero A`: `A` skipping the rounds with zero
   feedback.
 
@@ -63,6 +72,7 @@ defines these operations on `OnlineLearner`, computes their runs, and transfers 
 * `OnlineLearner.regret_run_sum_le`: the regret of a sum of learners is at most the sum of their
   regret bounds, for every decomposition of the comparator.
 * `OnlineLearner.HasRegretBound.map_add_left`: the regret guarantee of a translated learner.
+* `OnlineLearner.HasRegretBound.reduce`: the regret guarantee of a reduction.
 * `OnlineLearner.HasRegretBound.skipZero`: the regret guarantee of a learner skipping the rounds
   with zero feedback.
 
@@ -323,6 +333,86 @@ theorem HasRegretBound.map_add_left (hA : A.HasRegretBound (fun y x ↦ y x) adm
   exact hA.regret_le hy hu
 
 end Map
+
+section Reduce
+
+variable {G' : Type*} (A : OnlineLearner C G X)
+
+/-- The play of round `t` of `A` inside `A.reduce f φ`, from the history `h` of the contexts and
+outer feedback of the rounds `s < t` and the context `c` of round `t`: `A` receives at each round
+`s < t` the feedback `φ z (h s).2`, for its own play `z` of round `s`. By recursion on `t`. -/
+private def reducePlay (φ : X → G' → G) (t : ℕ) (h : Fin t → C × G') (c : C) : X :=
+  A.play t (fun s ↦ ((h s).1, φ (reducePlay φ s (fun r ↦ h (Fin.castLE s.2.le r)) (h s).1)
+    (h s).2)) c
+termination_by t
+decreasing_by exact s.isLt
+
+/-- The **black-box reduction** to the learner `A` with the output map `f` and the surrogate
+feedback `φ` [Ora, Chapter 12]: the learner `A` plays `z t`, the reduction plays `f (z t)`, receives
+the feedback `g t` of its play, and feeds `A` the surrogate feedback `φ (z t) (g t)`. The
+surrogate may depend on the play of `A`, so the plays of `A` are those of its closed-loop run for
+the feedback functions `z ↦ φ z (g t)` (`run_reduce`). The constrained learners of
+[Ora, Section 12.1] are of this form, with `f` a projection onto the feasible set. -/
+def reduce (f : X → Y) (φ : X → G' → G) : OnlineLearner C G' Y where
+  play t h c := f (reducePlay A φ t h c)
+
+/-- The plays of `A` inside the reduction, from the history of a run, are the closed-loop plays
+of `A`. -/
+private lemma reducePlay_eq_run (φ : X → G' → G) (c : ℕ → C) (g : ℕ → G') (t : ℕ) :
+    reducePlay A φ t (fun s ↦ (c s, g s)) (c t) =
+      A.run c (A.closedLoopFeedback c fun s z ↦ φ z (g s)) t := by
+  induction t using Nat.strong_induction_on with
+  | _ t ih =>
+    rw [reducePlay, run_def]
+    congr 1
+    funext s
+    rw [closedLoopFeedback_eq, ← ih s s.2]
+    rfl
+
+/-- The plays of the reduction `A.reduce f φ` are the images by `f` of the plays of the closed-loop
+run of `A` in which the feedback of round `t` is `φ z (g t)` for the play `z` of round `t`. -/
+lemma run_reduce (f : X → Y) (φ : X → G' → G) (c : ℕ → C) (g : ℕ → G') (t : ℕ) :
+    (A.reduce f φ).run c g t = f (A.run c (A.closedLoopFeedback c fun s z ↦ φ z (g s)) t) := by
+  rw [run_def, ← reducePlay_eq_run]
+  rfl
+
+/-- **Regret of a reduction.** If at every round `t < n` and for every play `z` of `A`, the regret
+increment of `f z` for the loss `L' (g t)` against `u` is at most the regret increment of `z` for
+the surrogate loss `L (φ z (g t))` against `u`, then the regret of the reduction against `u` is at
+most the regret of the closed-loop run of `A` on the surrogate feedback. -/
+lemma regret_run_reduce_le (L : G → X → ℝ) (L' : G' → X → ℝ) (f : X → X) (φ : X → G' → G)
+    (c : ℕ → C) (g : ℕ → G') (u : X) (n : ℕ)
+    (hφ : ∀ t < n, ∀ z, L' (g t) (f z) - L' (g t) u ≤ L (φ z (g t)) z - L (φ z (g t)) u) :
+    regret (fun t ↦ L' (g t)) ((A.reduce f φ).run c g) u n ≤
+      regret (fun t ↦ L (A.closedLoopFeedback c (fun s z ↦ φ z (g s)) t))
+        (A.run c (A.closedLoopFeedback c fun s z ↦ φ z (g s))) u n := by
+  simp only [regret_def, run_reduce]
+  refine sum_le_sum fun t ht ↦ ?_
+  rw [closedLoopFeedback_eq]
+  exact hφ t (mem_range.mp ht) _
+
+variable {A} {L : G → X → ℝ} {adm : C → G → Prop} {U : Set X}
+  {B : ℕ → (ℕ → C) → (ℕ → G) → X → ℝ}
+
+/-- **Regret guarantee of a reduction.** Let `A` have the regret bound `B` for the losses `L`, the
+admissible feedback `adm` and the comparators `U`. Let the surrogate feedback of every admissible
+outer feedback be admissible, and let the regret increment of `f z` for the outer loss be at most
+the regret increment of `z` for the surrogate loss, against every comparator of `U' ⊆ U`. Then the
+reduction has the regret bound `B` at the surrogate feedback of its closed-loop run, against the
+comparators of `U'`. -/
+theorem HasRegretBound.reduce (hA : A.HasRegretBound L adm U B) {L' : G' → X → ℝ}
+    {adm' : C → G' → Prop} {U' : Set X} {f : X → X} {φ : X → G' → G} (hU : U' ⊆ U)
+    (hadm : ∀ c g z, adm' c g → adm c (φ z g))
+    (hφ : ∀ c g z, adm' c g → ∀ u ∈ U', L' g (f z) - L' g u ≤ L (φ z g) z - L (φ z g) u) :
+    (A.reduce f φ).HasRegretBound L' adm' U'
+      (fun n c g u ↦ B n c (A.closedLoopFeedback c fun s z ↦ φ z (g s)) u) := by
+  refine hasRegretBound_iff.mpr fun c g n hg u hu ↦ ?_
+  refine (A.regret_run_reduce_le L L' f φ c g u n fun t ht z ↦ hφ _ _ z (hg t ht) u hu).trans ?_
+  refine hA.regret_le (fun t ht ↦ ?_) (hU hu)
+  rw [closedLoopFeedback_eq]
+  exact hadm _ _ _ (hg t ht)
+
+end Reduce
 
 section SkipZero
 
