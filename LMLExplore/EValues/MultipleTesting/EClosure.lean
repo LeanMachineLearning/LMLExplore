@@ -57,11 +57,11 @@ rejection set [XSF+26, Lemma 4], through a measurable selection of a maximizer.
 * `ProbabilityTheory.IsECollection.lintegral_iSup_div_le_one`,
   `ProbabilityTheory.exists_isECollection_of_lintegral_iSup_div_le_one`: the post-hoc
   e-Closure Principle [XSF+26, Theorem 48].
-* `ProbabilityTheory.forall_lintegral_iSup_le_iff_exists_isECollection`: the e-Closure
+* `ProbabilityTheory.forall_lintegral_biSup_le_iff_exists_isECollection`: the e-Closure
   Principle [XSF+26, Theorem 6].
 * `ProbabilityTheory.forall_lintegral_le_iff_exists_isECollection`: its form for a single
   rejection set [XSF+26, Corollary 7].
-* `ProbabilityTheory.forall_lintegral_iSup_le_iff_forall_lintegral_le`: simultaneous control is
+* `ProbabilityTheory.forall_lintegral_biSup_le_iff_forall_lintegral_le`: simultaneous control is
   control at every measurable data-dependent choice [XSF+26, Lemma 4].
 * `ProbabilityTheory.forall_measure_exists_not_disjoint_le_iff_exists_isECollection`: the
   e-Closure Principle for the family-wise error rate, with e-collections valued in `{0, α⁻¹}`
@@ -70,7 +70,7 @@ rejection set [XSF+26, Lemma 4], through a measurable selection of a maximizer.
   largest member of an e-closure for the family-wise loss [XSF+26, Corollary 13].
 * `ProbabilityTheory.measure_not_disjoint_closedTesting_le`: the classical closure principle
   [XSF+26, Corollary 13].
-* `ProbabilityTheory.forall_lintegral_iSup_fdp_le_iff_exists_isECollection`: the e-Closure
+* `ProbabilityTheory.forall_lintegral_biSup_fdp_le_iff_exists_isECollection`: the e-Closure
   Principle for the false discovery rate [XSF+26, Theorem 14].
 
 ## References
@@ -142,7 +142,7 @@ theorem fwerLoss_empty_right (N : Finset ι) : fwerLoss N ∅ = 0 :=
 
 /-- The expected largest family-wise loss of a measurable candidate family is the probability
 that some candidate contains a true null of `N`. -/
-theorem lintegral_iSup_fwerLoss [Countable ι] {𝓡 : Ω → Set (Finset ι)} (h𝓡 : Measurable 𝓡)
+theorem lintegral_biSup_fwerLoss [Countable ι] {𝓡 : Ω → Set (Finset ι)} (h𝓡 : Measurable 𝓡)
     (N : Finset ι) (P : Measure Ω) :
     ∫⁻ ω, ⨆ R ∈ 𝓡 ω, fwerLoss N R ∂P = P {ω | ∃ R ∈ 𝓡 ω, ¬Disjoint R N} := by
   have hmeas : MeasurableSet {ω | ∃ R ∈ 𝓡 ω, ¬Disjoint R N} :=
@@ -287,7 +287,7 @@ theorem exists_isECollection_of_lintegral_iSup_div_le_one [Countable κ]
 
 /-- **The e-Closure Principle**, validity [XSF+26, Theorem 6]: the e-closure of an e-collection
 controls the loss simultaneously at level `α`, for every level `α`. -/
-theorem IsECollection.lintegral_iSup_eClosure_le (he : IsECollection e H)
+theorem IsECollection.lintegral_biSup_eClosure_le (he : IsECollection e H)
     (f : Finset ι → Finset ι → ℝ≥0∞) (α : ℝ≥0∞) (P : Measure Ω) [IsProbabilityMeasure P] :
     ∫⁻ ω, ⨆ R ∈ eClosure f α e ω, f (trueNulls H P) R ∂P ≤ α := by
   calc ∫⁻ ω, ⨆ R ∈ eClosure f α e ω, f (trueNulls H P) R ∂P
@@ -300,13 +300,13 @@ theorem IsECollection.lintegral_iSup_eClosure_le (he : IsECollection e H)
 nulls and a level `α ∉ {0, ∞}`, a measurable candidate family controls the loss simultaneously at
 level `α`, under every probability measure, exactly when it is contained in the e-closure of some
 e-collection. -/
-theorem forall_lintegral_iSup_le_iff_exists_isECollection {𝓡 : Ω → Set (Finset ι)}
+theorem forall_lintegral_biSup_le_iff_exists_isECollection {𝓡 : Ω → Set (Finset ι)}
     (hα₀ : α ≠ 0) (hα : α ≠ ∞) (hf : ∀ R, f ∅ R = 0) (h𝓡 : Measurable 𝓡) :
     (∀ (P : Measure Ω) [IsProbabilityMeasure P],
         ∫⁻ ω, ⨆ R ∈ 𝓡 ω, f (trueNulls H P) R ∂P ≤ α) ↔
       ∃ e, IsECollection e H ∧ ∀ ω, 𝓡 ω ⊆ eClosure f α e ω := by
   refine ⟨fun hcontrol ↦ ?_, fun ⟨e, he, h𝓡e⟩ P _ ↦ (lintegral_mono fun ω ↦
-    biSup_mono fun R hR ↦ h𝓡e ω hR).trans (he.lintegral_iSup_eClosure_le f α P)⟩
+    biSup_mono fun R hR ↦ h𝓡e ω hR).trans (he.lintegral_biSup_eClosure_le f α P)⟩
   -- The case of a single loss and a single level of the post-hoc principle.
   have hcontrol' (P : Measure Ω) [IsProbabilityMeasure P] :
       ∫⁻ ω, ⨆ _ : Unit, ⨆ R ∈ 𝓡 ω, f (trueNulls H P) R / α ∂P ≤ 1 := calc
@@ -332,14 +332,14 @@ theorem forall_lintegral_le_iff_exists_isECollection {R : Ω → Finset ι} (hα
     (∀ (P : Measure Ω) [IsProbabilityMeasure P], ∫⁻ ω, f (trueNulls H P) (R ω) ∂P ≤ α) ↔
       ∃ e, IsECollection e H ∧ ∀ ω, R ω ∈ eClosure f α e ω := by
   -- The candidate family `{R ω}`; a function of the finite set `R ω` is measurable.
-  simpa using forall_lintegral_iSup_le_iff_exists_isECollection (H := H) hα₀ hα hf
+  simpa using forall_lintegral_biSup_le_iff_exists_isECollection (H := H) hα₀ hα hf
     ((Measurable.of_discrete (f := fun R : Finset ι ↦ ({R} : Set (Finset ι)))).comp hR)
 
 /-- **Simultaneous control is post-hoc control** [XSF+26, Lemma 4]: a measurable candidate family
 with nonempty values controls a loss simultaneously at level `α`, under every probability measure,
 exactly when every measurable data-dependent choice of one of its members controls it at level
 `α`. -/
-theorem forall_lintegral_iSup_le_iff_forall_lintegral_le {𝓡 : Ω → Set (Finset ι)}
+theorem forall_lintegral_biSup_le_iff_forall_lintegral_le {𝓡 : Ω → Set (Finset ι)}
     (h𝓡 : Measurable 𝓡) (hne : ∀ ω, (𝓡 ω).Nonempty) (f : Finset ι → Finset ι → ℝ≥0∞)
     (α : ℝ≥0∞) :
     (∀ (P : Measure Ω) [IsProbabilityMeasure P],
@@ -407,7 +407,7 @@ theorem forall_measure_exists_not_disjoint_le_iff_exists_isECollection
       ∃ e, IsECollection e H ∧ (∀ S ω, e S ω = 0 ∨ e S ω = α⁻¹) ∧
         ∀ ω, ∀ R ∈ 𝓡 ω, R ⊆ closedTesting (fun S ↦ {ω | α⁻¹ ≤ e S ω}) ω := by
   classical
-  simp_rw [← lintegral_iSup_fwerLoss h𝓡, forall_lintegral_iSup_le_iff_exists_isECollection hα₀ hα
+  simp_rw [← lintegral_biSup_fwerLoss h𝓡, forall_lintegral_biSup_le_iff_exists_isECollection hα₀ hα
     fwerLoss_empty_left h𝓡, Set.subset_def, mem_eClosure_fwerLoss_iff hα₀ hα]
   refine ⟨fun ⟨e, he, h𝓡e⟩ ↦ ?_, fun ⟨e, he, _, h𝓡e⟩ ↦ ⟨e, he, h𝓡e⟩⟩
   -- Thresholding `e S` at `α⁻¹` keeps the closed testing rejection set.
@@ -486,11 +486,11 @@ end FamilyWise
 `α ∉ {0, ∞}`, a measurable candidate family controls the false discovery rate simultaneously at
 level `α`, under every probability measure, exactly when it is contained in the e-closure of some
 e-collection for the false discovery proportion. -/
-theorem forall_lintegral_iSup_fdp_le_iff_exists_isECollection [DecidableEq ι]
+theorem forall_lintegral_biSup_fdp_le_iff_exists_isECollection [DecidableEq ι]
     {𝓡 : Ω → Set (Finset ι)} (hα₀ : α ≠ 0) (hα : α ≠ ∞) (h𝓡 : Measurable 𝓡) :
     (∀ (P : Measure Ω) [IsProbabilityMeasure P],
         ∫⁻ ω, ⨆ R ∈ 𝓡 ω, fdp (trueNulls H P) R ∂P ≤ α) ↔
       ∃ e, IsECollection e H ∧ ∀ ω, 𝓡 ω ⊆ eClosure fdp α e ω :=
-  forall_lintegral_iSup_le_iff_exists_isECollection hα₀ hα fdp_empty_left h𝓡
+  forall_lintegral_biSup_le_iff_exists_isECollection hα₀ hα fdp_empty_left h𝓡
 
 end ProbabilityTheory
