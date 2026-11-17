@@ -37,6 +37,8 @@ the time-uniform deviation bounds of [LS, Lemma 33.8], thus spends at most `δ` 
   on its starting point.
 * `LMLExplore.two_mul_sum_range_sub`: `2 * ∑ i < n, (n - i) = n * (n + 1)`, Gauss' summation
   formula for the reflected indices `n - i`.
+* `LMLExplore.two_mul_sum_range_cast_add_one`: `2 * ∑ i < n, (i + 1) = n * (n + 1)` in a
+  commutative semiring, Gauss' summation formula for the weights `i + 1`.
 
 ## Implementation notes
 
@@ -111,5 +113,16 @@ theorem two_mul_sum_range_sub (n : ℕ) : 2 * ∑ i ∈ range n, (n - i) = n * (
     rw [sum_range_succ', add_zero, ← sum_range_reflect (fun i ↦ i + 1)]
     exact sum_congr rfl fun i hi ↦ by have := mem_range.1 hi; omega
   rw [h, mul_comm 2, sum_range_id_mul_two, Nat.add_sub_cancel, mul_comm]
+
+/-- Gauss' summation formula for the weights `i + 1`, in a commutative semiring:
+`2 * ∑_{i < n} (i + 1) = n * (n + 1)`. -/
+theorem two_mul_sum_range_cast_add_one [CommSemiring α] (n : ℕ) :
+    2 * ∑ i ∈ range n, ((i : α) + 1) = n * (n + 1) := by
+  induction n with
+  | zero => simp
+  | succ n ih =>
+    rw [sum_range_succ, mul_add, ih]
+    push_cast
+    ring
 
 end LMLExplore
