@@ -134,15 +134,18 @@ end Order
 
 /-! ### The quotient by the multiples of the order unit -/
 
+/-- A line `𝕜 ∙ e` in a normed space over a complete field is closed, being
+finite-dimensional. As an instance, it makes `E ⧸ 𝕜 ∙ e` a normed group, so that the quotient
+norm and metric of `E ⧸ ℝ ∙ e` are available wherever the results below are used. -/
+instance isClosed_span_singleton {𝕜 : Type*} [NontriviallyNormedField 𝕜] [CompleteSpace 𝕜]
+    [NormedAddCommGroup E] [NormedSpace 𝕜 E] (e : E) : IsClosed ((𝕜 ∙ e : Submodule 𝕜 E) : Set E) :=
+  (𝕜 ∙ e).isClosed_of_finiteDimensional
+
 section Quotient
 
 variable [NormedAddCommGroup E] [PartialOrder E] [NormedSpace ℝ E] {e : E} {T : E → E}
 
 variable [IsOrderedAddMonoid E]
-
-/-- The line `ℝ ∙ e` is closed, being finite-dimensional, so `E ⧸ ℝ ∙ e` is a normed group. -/
-local instance isClosed_span_singleton : IsClosed ((ℝ ∙ e : Submodule ℝ E) : Set E) :=
-  (ℝ ∙ e).isClosed_of_finiteDimensional
 
 /-- When the order-unit norm of `e` is the norm, the quotient norm of `E ⧸ ℝ ∙ e` is half the
 oscillation: `‖[x]‖ = osc_e x / 2`. For `e = 1` on bounded functions, this is the distance
