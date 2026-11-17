@@ -174,15 +174,11 @@ theorem hasSubgradientWithinAt_penalizedLoss
 /-- The penalized loss is `(‖y‖ + a)`-Lipschitz for a nonnegative weight. -/
 lemma lipschitzWith_penalizedLoss (ha : 0 ≤ a) :
     LipschitzWith (‖y‖ + a).toNNReal (penalizedLoss V y a) := by
-  refine LipschitzWith.of_le_add_mul' _ fun w₁ w₂ ↦ ?_
-  have h₁ : y w₁ ≤ y w₂ + ‖y‖ * dist w₁ w₂ := by
-    have h := (le_abs_self _).trans (y.le_opNorm (w₁ - w₂))
-    rw [map_sub, ← dist_eq_norm] at h
-    linarith
-  have h₂ := mul_le_mul_of_nonneg_left (infDist_le_infDist_add_dist (x := w₁) (y := w₂) (s := V))
-    ha
-  rw [penalizedLoss_def, penalizedLoss_def]
-  nlinarith
+  convert y.lipschitzWith.add ((lipschitzWith_smul a).comp (lipschitz_infDist_pt V)) using 1
+  · ext
+    simp [Real.coe_toNNReal _ (by positivity : 0 ≤ ‖y‖ + a), abs_of_nonneg ha]
+  · ext w
+    simp [penalizedLoss_def]
 
 /-- **The subgradients of the first and third surrogates are bounded** [Ora, Theorem 12.5]: every
 subgradient of the penalized loss within a neighbourhood of a point has dual norm at most
@@ -306,9 +302,10 @@ theorem norm_add_surrogateCoeff_smul_le_norm (hq : HasSubgradientWithinAt (infDi
       innerSL_apply_apply, map_sub, map_smul, smul_eq_mul]
     ring
   -- The component of `v` orthogonal to `e` is not longer than `v`.
-  rw [happ]
+  rw [happ, ← Submodule.starProjection_unit_singleton ℝ he v,
+    ← Submodule.starProjection_orthogonal_val]
   exact (y.le_opNorm _).trans
-    (mul_le_mul_of_nonneg_left (norm_sub_inner_smul_self_le he v) (norm_nonneg _))
+    (mul_le_mul_of_nonneg_left ((ℝ ∙ e)ᗮ.norm_starProjection_apply_le v) (norm_nonneg _))
 
 /-- **The third surrogate is not larger than the loss in an inner product space**
 [Ora, Remark 12.6]. If `x` is a nearest point of the closure of `V` to `z`, then every subgradient
