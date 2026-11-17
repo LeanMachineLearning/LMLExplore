@@ -15,7 +15,9 @@ measure `μ`, then its conditional expectation given a sub-σ-algebra `m` is at 
 everywhere, so an almost sure constant upper bound `μ[f | m] ≤ c` forces `a ≤ c`. Symmetrically,
 if `f ≤ b` almost everywhere, an almost sure constant lower bound `c ≤ μ[f | m]` forces `c ≤ b`.
 For instance, the conditional mean of a variable with values in `[0, 1]` cannot be bounded above
-by a negative constant, nor below by a constant larger than `1`.
+by a negative constant, nor below by a constant larger than `1`. Under any finite measure, the
+conditional expectation of an integrable function with values in `[a, b]` almost everywhere has
+values in `[a, b]` almost everywhere.
 
 ## Main statements
 
@@ -23,6 +25,8 @@ by a negative constant, nor below by a constant larger than `1`.
   `a ≤ c`.
 * `LMLExplore.le_of_le_condExp_of_ae_le`: if `c ≤ μ[f | m]` and `f ≤ b` almost everywhere, then
   `c ≤ b`.
+* `LMLExplore.ae_condExp_mem_Icc`: if `f ∈ [a, b]` almost everywhere, then `μ[f | m] ∈ [a, b]`
+  almost everywhere.
 -/
 
 public section
@@ -51,5 +55,15 @@ lemma le_of_le_condExp_of_ae_le (hm : m ≤ mΩ) (hf : Integrable f μ)
   rw [condExp_const hm] at h
   obtain ⟨_, h1, h2⟩ := (hc.and h).exists
   exact h1.trans h2
+
+omit [NeZero μ] in
+/-- The conditional expectation of an integrable function with values in `[a, b]` almost
+everywhere has values in `[a, b]` almost everywhere, under a finite measure. -/
+lemma ae_condExp_mem_Icc (hm : m ≤ mΩ) (hf : Integrable f μ)
+    (hab : ∀ᵐ ω ∂μ, f ω ∈ Set.Icc a b) : ∀ᵐ ω ∂μ, μ[f | m] ω ∈ Set.Icc a b := by
+  have ha := condExp_mono (m := m) (integrable_const a) hf (hab.mono fun _ h ↦ h.1)
+  have hb := condExp_mono (m := m) hf (integrable_const b) (hab.mono fun _ h ↦ h.2)
+  rw [condExp_const hm] at ha hb
+  filter_upwards [ha, hb] with ω h1 h2 using ⟨h1, h2⟩
 
 end LMLExplore
