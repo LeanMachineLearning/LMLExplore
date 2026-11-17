@@ -99,9 +99,12 @@ proportions `w` has, at every admissible model, asymptotic error complexity at m
   alternatives with `w` has asymptotic difficulty ratio at most `(min_a w a)⁻¹` to `H^{sp}` at `θ`.
 * `IsStaticProportions.maxRatio_staticDifficulty_le`,
   `IsStaticProportions.maxRatio_staticDifficulty_le_card` (in
-  `LMLExplore.Identification.IdentTask`): for arms in exponential families, a static proportions
-  family with proportions `w` has maximal difficulty ratio at most `(min_a w a)⁻¹` to `H^{sp}`, and
-  uniform sampling at most `K` [D23, Theorem 5].
+  `LMLExplore.Identification.IdentTask`): for arms in exponential families and a regular task
+  (samples in the closure of the means, a rule correct at the means of the admissible models and
+  away from the closure of the means of their alternatives, measurable sets of correct answers,
+  open sets of means of alternatives), a static proportions family with proportions `w` has
+  maximal difficulty ratio at most `(min_a w a)⁻¹` to `H^{sp}`, and uniform sampling at most `K`
+  [D23, Theorem 5].
 
 ## Implementation notes
 
