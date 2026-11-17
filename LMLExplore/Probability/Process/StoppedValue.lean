@@ -83,10 +83,7 @@ noncomputable def stoppedValueLimsup (u : ℕ → Ω → β) (τ : Ω → WithTo
 /-- Where the random time is finite, `stoppedValueLimsup` reads the process at that time. -/
 theorem stoppedValueLimsup_of_eq_natCast {n : ℕ} (h : τ ω = n) :
     stoppedValueLimsup u τ ω = u n ω := by
-  simp only [stoppedValueLimsup, h, WithTop.natCast_ne_top, ↓reduceIte]
-  -- `Nat.cast` into `WithTop ℕ` is `WithTop.some`, which `untop` inverts.
-  rw [WithTop.untopA_eq_untop (WithTop.natCast_ne_top n),
-    (WithTop.untop_eq_iff _).2 (Nat.cast_withTop n)]
+  simp only [stoppedValueLimsup, h, WithTop.natCast_ne_top, ↓reduceIte, WithTop.untopA_natCast]
 
 /-- Where the random time is infinite, `stoppedValueLimsup` is the `limsup` of the process. -/
 theorem stoppedValueLimsup_of_eq_top (h : τ ω = ⊤) :
@@ -240,16 +237,17 @@ theorem Adapted.measurable_apply_stoppingTime [MeasurableSpace β]
 
 /-- The value `fun ω ↦ u (σ ω) ω` of an adapted process at a stopping time `σ` with values in `ℕ`
 is measurable for the σ-algebra at `σ`. -/
-theorem Adapted.measurable_measurableSpace_apply_stoppingTime [TopologicalSpace β]
-    [TopologicalSpace.PseudoMetrizableSpace β] [SecondCountableTopology β] [MeasurableSpace β]
-    [BorelSpace β]
+theorem Adapted.measurable_measurableSpace_apply_stoppingTime [MeasurableSpace β]
     {mΩ : MeasurableSpace Ω} {ℱ : Filtration ℕ mΩ} {u : ℕ → Ω → β} {σ : Ω → ℕ}
     (hu : Adapted ℱ u) (hσ : IsStoppingTime ℱ (fun ω ↦ (σ ω : WithTop ℕ))) :
     Measurable[hσ.measurableSpace] fun ω ↦ u (σ ω) ω := by
-  convert measurable_stoppedValue hu.stronglyAdapted.isStronglyProgressive_of_discrete hσ using 1
-  ext ω
-  -- `Nat.cast` into `WithTop ℕ` is `WithTop.some`, which `untop` inverts.
-  rw [stoppedValue, WithTop.untopA_eq_untop (WithTop.natCast_ne_top _),
-    (WithTop.untop_eq_iff _).2 (Nat.cast_withTop _)]
+  intro A hA
+  -- the preimage is the union over `k` of its parts on `{σ = k}`, each known at time `k`
+  have h_eq : (fun ω ↦ u (σ ω) ω) ⁻¹' A = ⋃ k : ℕ, u k ⁻¹' A ∩ {ω | (σ ω : WithTop ℕ) = k} := by
+    ext ω
+    simp
+  rw [h_eq]
+  exact .iUnion fun k ↦
+    (hσ.measurableSet_inter_eq_iff _ k).2 ((hu k hA).inter (hσ.measurableSet_eq k))
 
 end MeasureTheory
