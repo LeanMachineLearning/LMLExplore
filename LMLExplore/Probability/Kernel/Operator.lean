@@ -10,7 +10,7 @@ public import LMLExplore.Probability.Kernel.Composition.Comp
 public import Mathlib.Probability.Kernel.Composition.IntegralCompProd
 public import Mathlib.Probability.Kernel.MeasurableIntegral
 
-import Mathlib.Probability.Moments.Variance
+import LMLExplore.Probability.Moments.Variance
 import TauCeti.MeasureTheory.Integral.Bind
 
 /-!
@@ -186,10 +186,7 @@ private lemma Invariant.ae_sq_integral_le (hπ : κ.Invariant π) (hf : Measurab
   refine ⟨Measure.integrable_integral_bind κ.measurable hb, ?_⟩
   filter_upwards [((Measure.integrable_bind_iff κ.measurable
     (hf.pow_const 2).aestronglyMeasurable).1 hb).1] with x hx
-  -- the nonnegativity of the variance under `κ x`
-  have h := variance_nonneg f (κ x)
-  rw [variance_eq_sub ((memLp_two_iff_integrable_sq hf.aestronglyMeasurable).2 hx)] at h
-  simpa using h
+  exact sq_integral_le_integral_sq ((memLp_two_iff_integrable_sq hf.aestronglyMeasurable).2 hx)
 
 /-- For an invariant measure `π` of a Markov kernel `κ` and `∫ f² dπ < ∞`, the function
 `x ↦ (∫ f d(κ x))²` is `π`-integrable. -/

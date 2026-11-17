@@ -11,8 +11,8 @@ public import Mathlib.MeasureTheory.Integral.Bochner.ContinuousLinearMap
 public import Mathlib.Topology.Algebra.Module.ContinuousLinearMap.Invertible
 import LMLExplore.Analysis.InnerProductSpace.LaxMilgram
 import LMLExplore.Probability.Kernel.Operator
+import LMLExplore.Probability.Moments.Variance
 import Mathlib.MeasureTheory.Function.L2Space
-import Mathlib.Probability.Moments.Variance
 
 /-!
 # The projected Bellman equation of linear temporal-difference learning
@@ -28,8 +28,9 @@ geometry is that of `L²(ν)`, with the squared norm `‖v‖²_ν = ∫ v² dν
 * the `ν`-orthogonal projection `Π` on the span of the features is a nonexpansion, so the projected
   Bellman operator `Π T` is a `γ`-contraction;
 * the fixed points of `Π T` are the functions `s ↦ ⟪φ s, θ⟫` for the zeros `θ` of the mean-path
-  TD(0) update `g θ = ∫ (r s + γ ∫ ⟪φ s', θ⟫ d(P s) - ⟪φ s, θ⟫) φ s dν`, and when the features
-  are linearly independent in `L²(ν)` there is exactly one such zero `θ*`;
+  TD(0) update `g θ = ∫ (r s + γ ∫ ⟪φ s', θ⟫ d(P s) - ⟪φ s, θ⟫) φ s dν`, and when `ν` is
+  invariant, `γ < 1` and the features are linearly independent in `L²(ν)` there is exactly one
+  such zero `θ*`, the unique solution of the linear system `A θ = ∫ r φ dν` of TD;
 * the TD fixed point approximates `v` within `(1 - γ²)^(-1/2)` times the best approximation error
   `‖Π v - v‖_ν`.
 
@@ -44,14 +45,16 @@ independence of the features is the invertibility of `Σ_ν`, which holds when
 * `LMLExplore.ReinforcementLearning.featureCoeff ν φ`: the coefficients `Σ_ν⁻¹ ∫ f φ dν` of the
   projection of `f` on the features.
 * `LMLExplore.ReinforcementLearning.featureProj ν φ`: the `ν`-orthogonal projection `Π` on the
-  span of the features.
+  span of the features (and `0` if `Σ_ν` is not invertible).
 * `LMLExplore.ReinforcementLearning.projBellman ν φ P r γ`: the projected Bellman operator
   `Π T`, with `T v = r + γ P v`.
 * `LMLExplore.ReinforcementLearning.meanTDUpdate ν φ P r γ`: the mean-path TD(0) update `g`.
+* `LMLExplore.ReinforcementLearning.tdOperator ν φ P γ`: the operator `A` of the linear system
+  `A θ = ∫ r φ dν` of TD, with `g θ = ∫ r φ dν - A θ`.
 
 ## Main statements
 
-* `LMLExplore.ReinforcementLearning.integral_sub_featureProj_mul_inner`: `f - Π f` is
+* `LMLExplore.ReinforcementLearning.integral_sub_featureProj_mul_inner_eq_zero`: `f - Π f` is
   `ν`-orthogonal to the features, and
   `LMLExplore.ReinforcementLearning.integral_sq_sub_inner_eq`: the Pythagorean identity
   `‖f - ⟪φ, θ⟫‖²_ν = ‖f - Π f‖²_ν + ‖Π f - ⟪φ, θ⟫‖²_ν`.
@@ -60,8 +63,13 @@ independence of the features is the invertibility of `Σ_ν`, which holds when
   [TVR97, Lemmas 4 and 6].
 * `LMLExplore.ReinforcementLearning.projBellman_eq_self_iff`: the fixed points of `Π T` are the
   `⟪φ, θ⟫` with `g θ = 0`, and
-  `LMLExplore.ReinforcementLearning.existsUnique_meanTDUpdate_eq_zero`: for `γ < 1` and linearly
-  independent features, `g` has a unique zero [TVR97, Lemma 6].
+  `LMLExplore.ReinforcementLearning.existsUnique_meanTDUpdate_eq_zero`: for an invariant `ν`,
+  `γ < 1` and linearly independent features, `g` has a unique zero [TVR97, Lemma 6], and
+  `LMLExplore.ReinforcementLearning.existsUnique_projBellman_eq_self`: `Π T` has a unique fixed
+  point.
+* `LMLExplore.ReinforcementLearning.meanTDUpdate_sub`: `g` is affine, `g θ - g θ' = A (θ' - θ)`,
+  and `LMLExplore.ReinforcementLearning.isInvertible_tdOperator`: `A` is invertible under the
+  same hypotheses.
 * `LMLExplore.ReinforcementLearning.one_sub_sq_mul_integral_sq_sub_inner_le`: the approximation
   bound `(1 - γ²) ‖v - ⟪φ, θ*⟫‖²_ν ≤ ‖v - Π v‖²_ν` [TVR97, Theorem 1 and footnote 1],
   [BRS18, (5)], and `Learning.MDP.one_sub_sq_mul_integral_sq_value_sub_inner_le`: its instance for
@@ -107,11 +115,17 @@ theorem featureGram_apply (θ : E) : featureGram ν φ θ = ∫ s, ⟪φ s, θ�
   rw [featureGram_def, ContinuousLinearMap.integral_apply Integrable.of_finite]
   simp
 
+/-- The inner product of a weighted integral of the features with `θ`:
+`⟪∫ c φ dν, θ⟫ = ∫ c ⟪φ, θ⟫ dν`. -/
+private lemma inner_integral_smul [CompleteSpace E] (c : 𝓢 → ℝ) (θ : E) :
+    ⟪∫ s, c s • φ s ∂ν, θ⟫_ℝ = ∫ s, c s * ⟪φ s, θ⟫_ℝ ∂ν := by
+  rw [real_inner_comm, ← integral_inner Integrable.of_finite]
+  simp [real_inner_smul_right, real_inner_comm]
+
 /-- The quadratic form of the Gram operator: `⟪Σ_ν θ, θ'⟫ = ∫ ⟪φ s, θ⟫ ⟪φ s, θ'⟫ dν`. -/
 theorem inner_featureGram_apply [CompleteSpace E] (θ θ' : E) :
     ⟪featureGram ν φ θ, θ'⟫_ℝ = ∫ s, ⟪φ s, θ⟫_ℝ * ⟪φ s, θ'⟫_ℝ ∂ν := by
-  rw [featureGram_apply, real_inner_comm, ← integral_inner Integrable.of_finite]
-  simp [real_inner_smul_right, real_inner_comm]
+  rw [featureGram_apply, inner_integral_smul]
 
 /-- The Gram operator only depends on the values of the linear functions `s ↦ ⟪φ s, θ⟫`. -/
 theorem featureGram_eq_of_forall_inner_eq {θ θ' : E} (h : ∀ s, ⟪φ s, θ⟫_ℝ = ⟪φ s, θ'⟫_ℝ) :
@@ -127,8 +141,8 @@ theorem isInvertible_featureGram [CompleteSpace E] {ω : ℝ} (hω : 0 < ω)
 
 /-- For an invertible Gram operator, a linear function of the features determines its
 coefficients. -/
-theorem eq_of_forall_inner_eq (hG : (featureGram ν φ).IsInvertible) {θ θ' : E}
-    (h : ∀ s, ⟪φ s, θ⟫_ℝ = ⟪φ s, θ'⟫_ℝ) : θ = θ' :=
+theorem eq_of_isInvertible_featureGram_of_forall_inner_eq (hG : (featureGram ν φ).IsInvertible)
+    {θ θ' : E} (h : ∀ s, ⟪φ s, θ⟫_ℝ = ⟪φ s, θ'⟫_ℝ) : θ = θ' :=
   hG.bijective.1 (featureGram_eq_of_forall_inner_eq h)
 
 end Gram
@@ -152,8 +166,13 @@ noncomputable def featureCoeff (ν : Measure 𝓢) [IsFiniteMeasure ν] (φ : �
 theorem featureCoeff_apply (f : 𝓢 → ℝ) :
     featureCoeff ν φ f = (featureGram ν φ).inverse (∫ s, f s • φ s ∂ν) := (rfl)
 
+/-- Without an invertible Gram operator, the coefficients of the projection are `0`. -/
+theorem featureCoeff_of_not_isInvertible (hG : ¬(featureGram ν φ).IsInvertible) (f : 𝓢 → ℝ) :
+    featureCoeff ν φ f = 0 := by
+  simp [featureCoeff_apply, hG]
+
 /-- The **`ν`-orthogonal projection** `Π f = ⟪φ, Σ_ν⁻¹ ∫ f φ dν⟫` of `f` on the span of the
-features. -/
+features (and `0` if `Σ_ν` is not invertible). -/
 noncomputable def featureProj (ν : Measure 𝓢) [IsFiniteMeasure ν] (φ : 𝓢 → E) :
     (𝓢 → ℝ) →ₗ[ℝ] 𝓢 → ℝ where
   toFun f s := ⟪φ s, featureCoeff ν φ f⟫_ℝ
@@ -167,7 +186,7 @@ theorem featureProj_apply (f : 𝓢 → ℝ) (s : 𝓢) :
 theorem featureProj_of_not_isInvertible (hG : ¬(featureGram ν φ).IsInvertible) (f : 𝓢 → ℝ) :
     featureProj ν φ f = 0 := by
   ext s
-  simp [featureProj_apply, featureCoeff_apply, hG]
+  simp [featureProj_apply, featureCoeff_of_not_isInvertible hG]
 
 /-- The coefficients of the projection solve the **normal equations** `Σ_ν θ = ∫ f φ dν`. -/
 theorem featureGram_featureCoeff (hG : (featureGram ν φ).IsInvertible) (f : 𝓢 → ℝ) :
@@ -198,7 +217,7 @@ theorem featureProj_inner (hG : (featureGram ν φ).IsInvertible) (θ : E) :
 the projection. -/
 theorem featureProj_eq_inner_iff (hG : (featureGram ν φ).IsInvertible) {f : 𝓢 → ℝ} {θ : E} :
     featureProj ν φ f = (fun s ↦ ⟪φ s, θ⟫_ℝ) ↔ featureCoeff ν φ f = θ := by
-  refine ⟨fun h ↦ eq_of_forall_inner_eq hG fun s ↦ ?_, fun h ↦ ?_⟩
+  refine ⟨fun h ↦ eq_of_isInvertible_featureGram_of_forall_inner_eq hG fun s ↦ ?_, fun h ↦ ?_⟩
   · rw [← featureProj_apply, h]
   · ext s
     rw [featureProj_apply, h]
@@ -210,12 +229,10 @@ theorem featureProj_featureProj (hG : (featureGram ν φ).IsInvertible) (f : �
   featureProj_inner hG _
 
 /-- **Orthogonality**: the residual `f - Π f` is `ν`-orthogonal to the span of the features. -/
-theorem integral_sub_featureProj_mul_inner [CompleteSpace E] (hG : (featureGram ν φ).IsInvertible)
-    (f : 𝓢 → ℝ) (θ : E) :
+theorem integral_sub_featureProj_mul_inner_eq_zero [CompleteSpace E]
+    (hG : (featureGram ν φ).IsInvertible) (f : 𝓢 → ℝ) (θ : E) :
     ∫ s, (f s - featureProj ν φ f s) * ⟪φ s, θ⟫_ℝ ∂ν = 0 := by
-  have h₁ : ∫ s, f s * ⟪φ s, θ⟫_ℝ ∂ν = ⟪∫ s, f s • φ s ∂ν, θ⟫_ℝ := by
-    rw [real_inner_comm, ← integral_inner Integrable.of_finite]
-    simp [real_inner_smul_right, real_inner_comm]
+  have h₁ : ∫ s, f s * ⟪φ s, θ⟫_ℝ ∂ν = ⟪∫ s, f s • φ s ∂ν, θ⟫_ℝ := (inner_integral_smul f θ).symm
   have h₂ : ∫ s, featureProj ν φ f s * ⟪φ s, θ⟫_ℝ ∂ν =
       ⟪featureGram ν φ (featureCoeff ν φ f), θ⟫_ℝ := by
     simp [inner_featureGram_apply, featureProj_apply]
@@ -232,7 +249,7 @@ theorem integral_sq_sub_inner_eq [CompleteSpace E] (hG : (featureGram ν φ).IsI
         ∫ s, (featureProj ν φ f s - ⟪φ s, θ⟫_ℝ) ^ 2 ∂ν := by
   have hc : ∀ s, featureProj ν φ f s - ⟪φ s, θ⟫_ℝ = ⟪φ s, featureCoeff ν φ f - θ⟫_ℝ := by
     simp [featureProj_apply, inner_sub_right]
-  have h := integral_sub_featureProj_mul_inner hG f (featureCoeff ν φ f - θ)
+  have h := integral_sub_featureProj_mul_inner_eq_zero hG f (featureCoeff ν φ f - θ)
   simp_rw [← hc] at h
   rw [← integral_add Integrable.of_finite Integrable.of_finite]
   calc ∫ s, (f s - ⟪φ s, θ⟫_ℝ) ^ 2 ∂ν
@@ -325,7 +342,7 @@ theorem meanTDUpdate_eq_sub_featureGram (θ : E) :
 
 /-- **The fixed points of the projected Bellman operator in the span of the features are the
 zeros of the mean-path TD update**. -/
-theorem projBellman_inner_eq_iff (hG : (featureGram ν φ).IsInvertible) {θ : E} :
+theorem projBellman_inner_eq_self_iff (hG : (featureGram ν φ).IsInvertible) {θ : E} :
     projBellman ν φ P r γ (fun s ↦ ⟪φ s, θ⟫_ℝ) = (fun s ↦ ⟪φ s, θ⟫_ℝ) ↔
       meanTDUpdate ν φ P r γ θ = 0 := by
   rw [projBellman_def, featureProj_eq_inner_iff hG, featureCoeff_eq_iff hG,
@@ -341,27 +358,33 @@ theorem projBellman_eq_self_iff (hG : (featureGram ν φ).IsInvertible) {v : �
       conv_lhs => rw [← h]
       ext s
       rw [projBellman_def, featureProj_apply]
-    refine ⟨_, hv, (projBellman_inner_eq_iff hG).1 ?_⟩
+    refine ⟨_, hv, (projBellman_inner_eq_self_iff hG).1 ?_⟩
     rw [← hv, h]
   · rintro ⟨θ, rfl, hθ⟩
-    exact (projBellman_inner_eq_iff hG).2 hθ
+    exact (projBellman_inner_eq_self_iff hG).2 hθ
 
-/-- The operator `A θ = ∫ (⟪φ s, θ⟫ - γ ⟪∫ φ d(P s), θ⟫) φ s dν` of the linear system
-`A θ = ∫ r φ dν` whose solutions are the zeros of the mean-path TD update. -/
-private noncomputable def tdOperator (ν : Measure 𝓢) (φ : 𝓢 → E) (P : Kernel 𝓢 𝓢) (γ : ℝ≥0) :
+/-- The **TD operator** `A θ = ∫ (⟪φ s, θ⟫ - γ ⟪∫ φ d(P s), θ⟫) φ s dν` of the linear system
+`A θ = ∫ r φ dν` whose solutions are the zeros of the mean-path TD update [TVR97]. -/
+noncomputable def tdOperator (ν : Measure 𝓢) (φ : 𝓢 → E) (P : Kernel 𝓢 𝓢) (γ : ℝ≥0) :
     E →L[ℝ] E :=
   ∫ s, rankOne ℝ (φ s) (φ s - (γ : ℝ) • ∫ s', φ s' ∂(P s)) ∂ν
 
-private lemma tdOperator_apply [CompleteSpace E] [IsMarkovKernel P] (θ : E) :
+omit [Finite 𝓢] [MeasurableSingletonClass 𝓢] [IsFiniteMeasure ν] in
+theorem tdOperator_def (ν : Measure 𝓢) (φ : 𝓢 → E) (P : Kernel 𝓢 𝓢) (γ : ℝ≥0) :
+    tdOperator ν φ P γ = ∫ s, rankOne ℝ (φ s) (φ s - (γ : ℝ) • ∫ s', φ s' ∂(P s)) ∂ν := (rfl)
+
+theorem tdOperator_apply [CompleteSpace E] [IsMarkovKernel P] (θ : E) :
     tdOperator ν φ P γ θ = ∫ s, (⟪φ s, θ⟫_ℝ - γ * ∫ s', ⟪φ s', θ⟫_ℝ ∂(P s)) • φ s ∂ν := by
-  rw [tdOperator, ContinuousLinearMap.integral_apply Integrable.of_finite]
+  rw [tdOperator_def, ContinuousLinearMap.integral_apply Integrable.of_finite]
   congr 1
   ext s
   rw [rankOne_apply, inner_sub_left, real_inner_smul_left, real_inner_comm θ (∫ s', φ s' ∂(P s)),
     ← integral_inner Integrable.of_finite]
   simp_rw [real_inner_comm θ]
 
-private lemma meanTDUpdate_eq_sub_tdOperator [CompleteSpace E] [IsMarkovKernel P] (θ : E) :
+/-- The mean-path TD update is the residual of the linear system of TD:
+`g θ = ∫ r φ dν - A θ`. -/
+theorem meanTDUpdate_eq_sub_tdOperator [CompleteSpace E] [IsMarkovKernel P] (θ : E) :
     meanTDUpdate ν φ P r γ θ = (∫ s, r s • φ s ∂ν) - tdOperator ν φ P γ θ := by
   rw [meanTDUpdate_def, tdOperator_apply, ← integral_sub Integrable.of_finite Integrable.of_finite]
   congr 1
@@ -371,22 +394,27 @@ private lemma meanTDUpdate_eq_sub_tdOperator [CompleteSpace E] [IsMarkovKernel P
 
 /-- The difference of two values of the mean-path TD update is the value of `A`:
 `g θ - g θ' = A (θ' - θ)`. -/
-private lemma meanTDUpdate_sub [CompleteSpace E] [IsMarkovKernel P] (θ θ' : E) :
+theorem meanTDUpdate_sub [CompleteSpace E] [IsMarkovKernel P] (θ θ' : E) :
     meanTDUpdate ν φ P r γ θ - meanTDUpdate ν φ P r γ θ' = tdOperator ν φ P γ (θ' - θ) := by
   rw [meanTDUpdate_eq_sub_tdOperator, meanTDUpdate_eq_sub_tdOperator, map_sub]
   abel
 
+/-- At a zero `θ*` of the mean-path TD update, `g θ = A (θ* - θ)`. -/
+private lemma meanTDUpdate_eq_tdOperator_of_eq_zero [CompleteSpace E] [IsMarkovKernel P]
+    {θ' : E} (hθ' : meanTDUpdate ν φ P r γ θ' = 0) (θ : E) :
+    meanTDUpdate ν φ P r γ θ = tdOperator ν φ P γ (θ' - θ) := by
+  rw [← meanTDUpdate_sub, hθ', sub_zero]
+
 /-- The coercivity of `A`: `(1 - γ) ∫ ⟪φ s, θ⟫² dν ≤ ⟪A θ, θ⟫`, from the nonexpansion of `P` in
 `L²(ν)`. -/
-private lemma one_sub_mul_integral_sq_le_inner_tdOperator [CompleteSpace E] [IsMarkovKernel P]
+theorem one_sub_mul_integral_sq_le_inner_tdOperator [CompleteSpace E] [IsMarkovKernel P]
     (hP : P.Invariant ν) (θ : E) :
     (1 - γ) * ∫ s, ⟪φ s, θ⟫_ℝ ^ 2 ∂ν ≤ ⟪tdOperator ν φ P γ θ, θ⟫_ℝ := by
   have h := hP.integral_mul_integral_le (f := fun s ↦ ⟪φ s, θ⟫_ℝ) (measurable_of_finite _)
     Integrable.of_finite
   have hA : ⟪tdOperator ν φ P γ θ, θ⟫_ℝ =
       ∫ s, (⟪φ s, θ⟫_ℝ - γ * ∫ s', ⟪φ s', θ⟫_ℝ ∂(P s)) * ⟪φ s, θ⟫_ℝ ∂ν := by
-    rw [tdOperator_apply, real_inner_comm, ← integral_inner Integrable.of_finite]
-    simp_rw [real_inner_smul_right, real_inner_comm θ]
+    rw [tdOperator_apply, inner_integral_smul]
   have hsplit : ∫ s, (⟪φ s, θ⟫_ℝ - γ * ∫ s', ⟪φ s', θ⟫_ℝ ∂(P s)) * ⟪φ s, θ⟫_ℝ ∂ν =
       ∫ s, ⟪φ s, θ⟫_ℝ ^ 2 ∂ν - γ * ∫ s, ⟪φ s, θ⟫_ℝ * ∫ s', ⟪φ s', θ⟫_ℝ ∂(P s) ∂ν := by
     rw [← integral_const_mul, ← integral_sub Integrable.of_finite Integrable.of_finite]
@@ -396,20 +424,28 @@ private lemma one_sub_mul_integral_sq_le_inner_tdOperator [CompleteSpace E] [IsM
   rw [hA, hsplit]
   nlinarith [mul_le_mul_of_nonneg_left h γ.coe_nonneg]
 
-/-- **The mean-path TD update has a unique zero** `θ*` [TVR97, Lemma 6], when `ν` is invariant,
-`γ < 1` and the features are linearly independent in `L²(ν)` in the quantitative sense
-`ω ‖θ‖² ≤ ∫ ⟪φ s, θ⟫² dν` with `ω > 0`. By `projBellman_eq_self_iff`, `⟪φ, θ*⟫` is then the
-unique fixed point of the projected Bellman operator. -/
+/-- **The TD operator is invertible** when `ν` is invariant, `γ < 1` and the features are
+linearly independent in `L²(ν)` in the quantitative sense `ω ‖θ‖² ≤ ∫ ⟪φ s, θ⟫² dν` with
+`ω > 0`. -/
+theorem isInvertible_tdOperator [CompleteSpace E] [IsMarkovKernel P]
+    (hP : P.Invariant ν) (hγ : γ < 1) {ω : ℝ} (hω : 0 < ω)
+    (h : ∀ θ, ω * ‖θ‖ ^ 2 ≤ ∫ s, ⟪φ s, θ⟫_ℝ ^ 2 ∂ν) :
+    (tdOperator ν φ P γ).IsInvertible := by
+  have hγ' : (0 : ℝ) < 1 - γ := sub_pos.2 (by exact_mod_cast hγ)
+  exact ContinuousLinearMap.isInvertible_of_mul_norm_sq_le_inner (mul_pos hγ' hω) fun θ ↦ by
+    rw [mul_assoc]
+    exact (mul_le_mul_of_nonneg_left (h θ) hγ'.le).trans
+      (one_sub_mul_integral_sq_le_inner_tdOperator hP θ)
+
+/-- **The mean-path TD update has a unique zero** `θ* = A⁻¹ ∫ r φ dν` [TVR97, Lemma 6], when `ν`
+is invariant, `γ < 1` and the features are linearly independent in `L²(ν)` in the quantitative
+sense `ω ‖θ‖² ≤ ∫ ⟪φ s, θ⟫² dν` with `ω > 0`. By `existsUnique_projBellman_eq_self`, `⟪φ, θ*⟫` is
+then the unique fixed point of the projected Bellman operator. -/
 theorem existsUnique_meanTDUpdate_eq_zero [CompleteSpace E] [IsMarkovKernel P]
     (hP : P.Invariant ν) (hγ : γ < 1) {ω : ℝ} (hω : 0 < ω)
     (h : ∀ θ, ω * ‖θ‖ ^ 2 ≤ ∫ s, ⟪φ s, θ⟫_ℝ ^ 2 ∂ν) :
     ∃! θ, meanTDUpdate ν φ P r γ θ = 0 := by
-  have hγ' : (0 : ℝ) < 1 - γ := sub_pos.2 (by exact_mod_cast hγ)
-  have hA : (tdOperator ν φ P γ).IsInvertible :=
-    ContinuousLinearMap.isInvertible_of_mul_norm_sq_le_inner (mul_pos hγ' hω) fun θ ↦ by
-      rw [mul_assoc]
-      exact (mul_le_mul_of_nonneg_left (h θ) hγ'.le).trans
-        (one_sub_mul_integral_sq_le_inner_tdOperator hP θ)
+  have hA := isInvertible_tdOperator hP hγ hω h
   refine ⟨(tdOperator ν φ P γ).inverse (∫ s, r s • φ s ∂ν), ?_, fun θ hθ ↦ ?_⟩
   · dsimp only
     rw [meanTDUpdate_eq_sub_tdOperator, hA.self_apply_inverse, sub_self]
@@ -417,14 +453,25 @@ theorem existsUnique_meanTDUpdate_eq_zero [CompleteSpace E] [IsMarkovKernel P]
     rw [meanTDUpdate_eq_sub_tdOperator, sub_eq_zero] at hθ
     rw [hθ, hA.inverse_apply_self]
 
+/-- **The projected Bellman operator has a unique fixed point** [TVR97, Lemma 6], the linear
+function `⟪φ, θ*⟫` of the unique zero `θ*` of the mean-path TD update, when `ν` is invariant,
+`γ < 1` and `ω ‖θ‖² ≤ ∫ ⟪φ s, θ⟫² dν` with `ω > 0`. -/
+theorem existsUnique_projBellman_eq_self [CompleteSpace E] [IsMarkovKernel P]
+    (hP : P.Invariant ν) (hγ : γ < 1) {ω : ℝ} (hω : 0 < ω)
+    (h : ∀ θ, ω * ‖θ‖ ^ 2 ≤ ∫ s, ⟪φ s, θ⟫_ℝ ^ 2 ∂ν) :
+    ∃! v, projBellman ν φ P r γ v = v := by
+  have hG := isInvertible_featureGram hω h
+  obtain ⟨θ, hθ, huniq⟩ := existsUnique_meanTDUpdate_eq_zero (r := r) hP hγ hω h
+  refine ⟨fun s ↦ ⟪φ s, θ⟫_ℝ, (projBellman_inner_eq_self_iff hG).2 hθ, fun v hv ↦ ?_⟩
+  obtain ⟨θ', rfl, hθ'⟩ := (projBellman_eq_self_iff hG).1 hv
+  rw [huniq θ' hθ']
+
 /-- **The mean-path TD update points towards its zero** [BRS18, Lemma 3]: if `ν` is invariant and
 `g θ* = 0`, then `(1 - γ) ‖⟪φ, θ* - θ⟫‖²_ν ≤ ⟪θ* - θ, g θ⟫`. -/
 theorem one_sub_mul_integral_sq_le_inner_meanTDUpdate [CompleteSpace E] [IsMarkovKernel P]
     (hP : P.Invariant ν) {θ' : E} (hθ' : meanTDUpdate ν φ P r γ θ' = 0) (θ : E) :
     (1 - γ) * ∫ s, ⟪φ s, θ' - θ⟫_ℝ ^ 2 ∂ν ≤ ⟪θ' - θ, meanTDUpdate ν φ P r γ θ⟫_ℝ := by
-  have h := meanTDUpdate_sub (ν := ν) (φ := φ) (P := P) (r := r) (γ := γ) θ θ'
-  rw [hθ', sub_zero] at h
-  rw [h, real_inner_comm]
+  rw [meanTDUpdate_eq_tdOperator_of_eq_zero hθ', real_inner_comm]
   exact one_sub_mul_integral_sq_le_inner_tdOperator hP _
 
 /-- **The norm of the mean-path TD update** [BRS18, Lemma 4]: if `ν` is an invariant probability
@@ -437,9 +484,7 @@ theorem norm_meanTDUpdate_le [CompleteSpace E] [IsProbabilityMeasure ν] [IsMark
   set x : 𝓢 → ℝ := fun s ↦ ⟪φ s, θ' - θ⟫_ℝ with hx
   set h : 𝓢 → ℝ := fun s ↦ x s - γ * ∫ s', x s' ∂(P s) with hh
   have hg : meanTDUpdate ν φ P r γ θ = ∫ s, h s • φ s ∂ν := by
-    have := meanTDUpdate_sub (ν := ν) (φ := φ) (P := P) (r := r) (γ := γ) θ θ'
-    rw [hθ', sub_zero] at this
-    rw [this, tdOperator_apply]
+    rw [meanTDUpdate_eq_tdOperator_of_eq_zero hθ', tdOperator_apply]
   -- `‖g θ‖ ≤ ∫ |h| dν`, since `‖φ‖ ≤ 1`
   have h₁ : ‖meanTDUpdate ν φ P r γ θ‖ ≤ ∫ s, |h s| ∂ν := by
     rw [hg]
@@ -449,10 +494,9 @@ theorem norm_meanTDUpdate_le [CompleteSpace E] [IsProbabilityMeasure ν] [IsMark
     exact mul_le_of_le_one_right (abs_nonneg _) (hφ s)
   -- Jensen's inequality `(∫ |h| dν)² ≤ ∫ h² dν`
   have h₂ : (∫ s, |h s| ∂ν) ^ 2 ≤ ∫ s, h s ^ 2 ∂ν := by
-    have hv := variance_nonneg (fun s ↦ |h s|) ν
-    rw [variance_eq_sub ((memLp_two_iff_integrable_sq
-      (measurable_of_finite _).aestronglyMeasurable).2 Integrable.of_finite)] at hv
-    simpa [sq_abs] using hv
+    simpa [sq_abs] using sq_integral_le_integral_sq (μ := ν) (X := fun s ↦ |h s|)
+      ((memLp_two_iff_integrable_sq (measurable_of_finite _).aestronglyMeasurable).2
+        Integrable.of_finite)
   -- `h² ≤ (1 + γ) (x² + γ (P x)²)` pointwise, and `P` is a nonexpansion of `L²(ν)`
   have h₃ : ∫ s, h s ^ 2 ∂ν ≤ (1 + γ) ^ 2 * ∫ s, x s ^ 2 ∂ν := by
     have hγ : (0 : ℝ) ≤ γ := γ.coe_nonneg
@@ -483,7 +527,7 @@ theorem one_sub_sq_mul_integral_sq_sub_inner_le [CompleteSpace E] [IsMarkovKerne
     (hθ : meanTDUpdate ν φ P r γ θ = 0) :
     (1 - (γ : ℝ) ^ 2) * ∫ s, (v s - ⟪φ s, θ⟫_ℝ) ^ 2 ∂ν ≤
       ∫ s, (v s - featureProj ν φ v s) ^ 2 ∂ν := by
-  have hfix := (projBellman_inner_eq_iff hG).2 hθ
+  have hfix := (projBellman_inner_eq_self_iff hG).2 hθ
   have hTv : projBellman ν φ P r γ v = featureProj ν φ v := by
     rw [projBellman_def]
     congr 1

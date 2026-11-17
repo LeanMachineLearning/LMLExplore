@@ -31,7 +31,8 @@ for the iterates.
 ## Main statements
 
 * `LMLExplore.ReinforcementLearning.norm_sub_add_smul_meanTDUpdate_sq_le`: one step of size
-  `α ≥ 0` decreases `‖θ* - θ‖²` by `α (2 (1 - γ) - α (1 + γ)²) ‖⟪φ, θ* - θ⟫‖²_ν`.
+  `α ≥ 0` satisfies
+  `‖θ* - (θ + α g θ)‖² ≤ ‖θ* - θ‖² - α (2 (1 - γ) - α (1 + γ)²) ‖⟪φ, θ* - θ⟫‖²_ν`.
 * `LMLExplore.ReinforcementLearning.mul_sum_integral_sq_inner_sub_le`: with step `(1 - γ) / 4`,
   `(1 - γ)² / 4 ∑_{t < T} ‖⟪φ, θ* - θ t⟫‖²_ν ≤ ‖θ* - θ 0‖² - ‖θ* - θ T‖²`.
 * `LMLExplore.ReinforcementLearning.integral_sq_inner_sub_average_le`: with step `(1 - γ) / 4`,
