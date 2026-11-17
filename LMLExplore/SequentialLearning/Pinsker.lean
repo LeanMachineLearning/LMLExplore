@@ -9,8 +9,8 @@ public import LeanMachineLearning.SequentialLearning.Algorithm
 public import Mathlib.InformationTheory.KullbackLeibler.Basic
 public import Mathlib.MeasureTheory.Measure.TotalVariation.Defs
 
+import LMLExplore.InformationTheory.KullbackLeibler.Pinsker
 import LMLExplore.MeasureTheory.Measure.TotalVariation.Basic
-import TauCeti.InformationTheory.KullbackLeibler.Pinsker
 
 /-!
 # Pinsker's inequality for the actions of sequential algorithms
@@ -19,8 +19,9 @@ For two sequences of rounds `(O, A, Y)` under `P` and `(O', A', Y')` under `P'` 
 runs of an algorithm against two environments), let `KL` be the relative entropy between the laws
 of the histories of the first `M` rounds. For a round `t < M` and nonnegative measurable losses
 `f` and `g` on the actions with `0 ≤ c ≤ f a + g a` for every action `a`, Pinsker's inequality
-`tvDist ≤ √(2 KL)` bounds from below the expected loss `f` of the action of round `t` under `P`
-plus the expected loss `g` of the action of round `t` under `P'`:
+`tvDist ≤ √(2 KL)` (`LMLExplore.tvDist_div_two_le_sqrt_toReal_klDiv_div_two`) bounds from below
+the expected loss `f` of the action of round `t` under `P` plus the expected loss `g` of the
+action of round `t` under `P'`:
 `E_P[f (A t)] + E_{P'}[g (A' t)] ≥ c (1 - √(KL / 2))`.
 
 For the losses `f = 1_s` and `g = 1_{sᶜ}` of a measurable set `s` of actions, this is the
@@ -87,14 +88,7 @@ lemma mul_one_sub_sqrt_klDiv_map_history_le (hH : Measurable (history O A Y M))
     hFi hGi (fun h ↦ hf0 _) (fun h ↦ hg0 _) (c := c) fun h ↦ hc _
   rw [hF, hG, probReal_univ] at htv
   -- Pinsker's inequality `tvDist μ ν ≤ √(2 KL)`
-  have hpinsker : tvDist μ ν / 2 ≤ √((klDiv μ ν).toReal / 2) := by
-    have hsq : tvDist μ ν ^ 2 ≤ 2 * (klDiv μ ν).toReal := by
-      have h2 := TauCeti.etvDist_sq_le_two_mul_klDiv (μ := μ) (ν := ν)
-      rw [← ENNReal.ofReal_toReal h, ← ofReal_tvDist, ← ENNReal.ofReal_pow tvDist_nonneg,
-        ← ENNReal.ofReal_ofNat 2, ← ENNReal.ofReal_mul zero_le_two] at h2
-      exact (ENNReal.ofReal_le_ofReal_iff (by positivity)).1 h2
-    refine Real.le_sqrt_of_sq_le ?_
-    nlinarith
+  have hpinsker := tvDist_div_two_le_sqrt_toReal_klDiv_div_two h
   exact htv.trans' (mul_le_mul_of_nonneg_left (by linarith) hc0)
 
 /-- **Pinsker's inequality for the actions**, summed over the rounds: if the laws of the histories
