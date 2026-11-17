@@ -7,8 +7,11 @@ module
 
 public import LMLExplore.Analysis.Convex.Simplex
 public import LMLExplore.Analysis.SpecialFunctions.Log.NegMulLog
-public import LMLExplore.InformationTheory.KullbackLeibler.Bernoulli
+public import Mathlib.InformationTheory.KullbackLeibler.Basic
 public import TauCeti.MeasureTheory.Measure.Decomposition.Lebesgue
+import LMLExplore.MeasureTheory.Measure.Weighted
+import TauCeti.InformationTheory.KullbackLeibler.Pinsker
+import TauCeti.MeasureTheory.Measure.TotalVariation.Countable
 
 /-!
 # The relative entropy of vectors on a finite type
@@ -22,9 +25,12 @@ correction `ν.real univ - μ.real univ`.
 
 **Gibbs' inequality** states that it is nonnegative as soon as `∑ a, z a ≤ ∑ a, x a`; it follows
 from the log-sum inequality. **Pinsker's inequality** for probability vectors reads
-`(∑ a, |x a - z a|) ^ 2 ≤ 2 ∑ a, x a * log (x a / z a)`, and is deduced from the binary case
-`LMLExplore.two_mul_sq_le_klBerReal` by the log-sum inequality on two blocks [CT, Lemma 11.6.1].
-In particular, the relative entropy of two probability vectors vanishes only when they are equal.
+`(∑ a, |x a - z a|) ^ 2 ≤ 2 ∑ a, x a * log (x a / z a)` [CT, Lemma 11.6.1]. It is Tau Ceti's
+Pinsker inequality `TauCeti.etvDist_sq_le_two_mul_klDiv` for the laws on `α` of masses `x` and `z`
+(`LMLExplore.weightedMeasure`), whose total variation distance is the `ℓ¹` distance of `x` and
+`z` (`MeasureTheory.tvDist_eq_tsum_abs_singleton`) and whose Kullback–Leibler divergence is the
+relative entropy of `x` with respect to `z`. In particular, the relative entropy of two
+probability vectors vanishes only when they are equal.
 
 The **Gibbs variational principle** describes the log-partition function of a vector `v` under a
 probability vector `p` with positive coordinates as a maximum over probability vectors `q`:
@@ -82,56 +88,51 @@ theorem sum_mul_log_div_nonneg {x z : α → ℝ} (hx : ∀ a, 0 ≤ x a) (hz : 
   · rw [← hZ, div_zero, log_zero, mul_zero]
   · exact mul_nonneg (sum_nonneg fun a _ ↦ hx a) (log_nonneg ((one_le_div hZ).2 hsum))
 
+/-- The Kullback–Leibler divergence of finite measures `μ ≪ ν` on a finite type with measurable
+singletons is the relative entropy `∑ a, μ{a} log (μ{a} / ν{a})` of their vectors of masses, plus
+the mass correction `ν(univ) - μ(univ)`, which vanishes for probability measures. Unlike Tau Ceti's
+`TauCeti.klDiv_eq_ofReal_sum_log_singleton`, `ν` may have atoms of mass zero. -/
+theorem toReal_klDiv_eq_sum_mul_log_div [MeasurableSpace α] [MeasurableSingletonClass α]
+    {μ ν : Measure α} [IsFiniteMeasure μ] [IsFiniteMeasure ν] (hμν : μ ≪ ν) :
+    (klDiv μ ν).toReal = ∑ a, μ.real {a} * log (μ.real {a} / ν.real {a}) + ν.real Set.univ
+      - μ.real Set.univ := by
+  rw [toReal_klDiv hμν Integrable.of_finite, integral_fintype Integrable.of_finite]
+  congr 2
+  refine sum_congr rfl fun a _ ↦ ?_
+  rw [smul_eq_mul]
+  by_cases hμa : μ {a} = 0
+  · simp [measureReal_def, hμa]
+  rw [llr, Measure.rnDeriv_eq_measure_singleton_div (fun h ↦ hμa (hμν h)) (measure_ne_top ν _),
+    ENNReal.toReal_div, measureReal_def, measureReal_def]
+
 /-- **Pinsker's inequality** for probability vectors: if `x` and `z` lie in the simplex and
 `x a = 0` whenever `z a = 0`, then `(∑ a, |x a - z a|) ^ 2 ≤ 2 ∑ a, x a * log (x a / z a)`.
-The sum on the right is the relative entropy of `x` with respect to `z`. The proof follows
-[CT, Lemma 11.6.1]: the log-sum inequality on the set where `x` is above `z` and on its complement
-reduces it to the binary case `two_mul_sq_le_klBerReal`. -/
+The sum on the right is the relative entropy of `x` with respect to `z`, and the sum on the left
+the total variation distance of the laws on `α` of masses `x` and `z`. This is Tau Ceti's
+`TauCeti.etvDist_sq_le_two_mul_klDiv` for these laws. -/
 theorem sq_sum_abs_sub_le_two_mul_sum_mul_log_div {x z : α → ℝ} (hx : x ∈ simplex α)
     (hz : z ∈ simplex α) (hxz : ∀ a, z a = 0 → x a = 0) :
     (∑ a, |x a - z a|) ^ 2 ≤ 2 * ∑ a, x a * log (x a / z a) := by
-  classical
-  obtain ⟨hx0, hx1⟩ := mem_simplex_iff.1 hx
-  obtain ⟨hz0, hz1⟩ := mem_simplex_iff.1 hz
-  -- the masses `p` and `q` of `x` and `z` on the set where `x` is above `z`
-  set p := ∑ a with z a ≤ x a, x a
-  set q := ∑ a with z a ≤ x a, z a
-  have hpc : ∑ a with ¬z a ≤ x a, x a = 1 - p := by
-    rw [← hx1, ← sum_filter_add_sum_filter_not univ (fun a ↦ z a ≤ x a)]
-    ring
-  have hqc : ∑ a with ¬z a ≤ x a, z a = 1 - q := by
-    rw [← hz1, ← sum_filter_add_sum_filter_not univ (fun a ↦ z a ≤ x a)]
-    ring
-  have hp0 : 0 ≤ p := sum_nonneg fun a _ ↦ hx0 a
-  have hq0 : 0 ≤ q := sum_nonneg fun a _ ↦ hz0 a
-  have hp1 : 0 ≤ 1 - p := hpc ▸ sum_nonneg fun a _ ↦ hx0 a
-  have hq1 : 0 ≤ 1 - q := hqc ▸ sum_nonneg fun a _ ↦ hz0 a
-  -- the `ℓ¹` distance is `2 (p - q)`
-  have h_abs : ∑ a, |x a - z a| = 2 * (p - q) := by
-    rw [← sum_filter_add_sum_filter_not univ (fun a ↦ z a ≤ x a),
-      sum_congr rfl fun a ha ↦ abs_of_nonneg (sub_nonneg.2 (mem_filter.1 ha).2),
-      sum_congr rfl fun a ha ↦ abs_of_neg (sub_neg.2 (not_le.1 (mem_filter.1 ha).2)),
-      sum_sub_distrib, sum_neg_distrib, sum_sub_distrib, hpc, hqc]
-    ring
-  -- the log-sum inequality on both blocks bounds the relative entropy below by `d(p, q)`
-  have h_blocks : klBerReal p q ≤ ∑ a, x a * log (x a / z a) := by
-    rw [← sum_filter_add_sum_filter_not univ (fun a ↦ z a ≤ x a), klBerReal_apply, ← hpc, ← hqc]
-    exact add_le_add
-      (sum_mul_log_div_sum_le_sum_mul_log_div _ (fun a _ ↦ hx0 a) (fun a _ ↦ hz0 a)
-        fun a _ ↦ hxz a)
-      (sum_mul_log_div_sum_le_sum_mul_log_div _ (fun a _ ↦ hx0 a) (fun a _ ↦ hz0 a)
-        fun a _ ↦ hxz a)
-  -- `d(p, q)` is finite, since `q = 0` forces `p = 0` and `q = 1` forces `p = 1`
-  have h_fin : klBer p q ≠ ∞ := by
-    rw [klBer_ne_top_iff ⟨hp0, by linarith⟩ ⟨hq0, by linarith⟩]
-    refine ⟨fun hq ↦ sum_eq_zero fun a ha ↦ hxz a ?_, fun hq ↦ ?_⟩
-    · exact (sum_eq_zero_iff_of_nonneg fun b _ ↦ hz0 b).1 hq a ha
-    · have h0 : ∑ a with ¬z a ≤ x a, x a = 0 := sum_eq_zero fun a ha ↦ hxz a
-        ((sum_eq_zero_iff_of_nonneg fun b _ ↦ hz0 b).1 (by rw [hqc, hq, sub_self]) a ha)
-      linarith
-  have h_pinsker := two_mul_sq_le_klBerReal ⟨hp0, by linarith⟩ ⟨hq0, by linarith⟩ h_fin
-  rw [h_abs]
-  nlinarith
+  -- the laws `μ` and `ν` on `α`, with the discrete σ-algebra, of masses `x` and `z`
+  let _ : MeasurableSpace α := ⊤
+  set μ := weightedMeasure x
+  set ν := weightedMeasure z
+  have := isProbabilityMeasure_weightedMeasure hx
+  have := isProbabilityMeasure_weightedMeasure hz
+  have hμν : μ ≪ ν := weightedMeasure_absolutelyContinuous fun a ha ↦
+    ((mem_simplex_iff.1 hz).1 a).lt_of_ne' fun h ↦ ha.ne' (hxz a h)
+  have hμ (a : α) : μ.real {a} = x a := measureReal_weightedMeasure_singleton_of_mem_simplex hx a
+  have hν (a : α) : ν.real {a} = z a := measureReal_weightedMeasure_singleton_of_mem_simplex hz a
+  -- the relative entropy is `KL(μ, ν)` and the `ℓ¹` distance is `tvDist μ ν`
+  have h_kl : (klDiv μ ν).toReal = ∑ a, x a * log (x a / z a) := by
+    simp [toReal_klDiv_eq_sum_mul_log_div hμν, hμ, hν]
+  have h_tv : tvDist μ ν = ∑ a, |x a - z a| := by
+    simp [tvDist_eq_tsum_abs_singleton, hμ, hν]
+  have h_fin : klDiv μ ν ≠ ∞ := klDiv_ne_top_iff.2 ⟨hμν, Integrable.of_finite⟩
+  rw [← h_kl, ← h_tv, tvDist, ← ENNReal.toReal_pow, ← ENNReal.toReal_ofNat 2,
+    ← ENNReal.toReal_mul]
+  exact ENNReal.toReal_mono (ENNReal.mul_ne_top ENNReal.ofNat_ne_top h_fin)
+    (TauCeti.etvDist_sq_le_two_mul_klDiv (μ := μ) (ν := ν))
 
 /-- The relative entropy of two probability vectors `x` and `z`, with `x a = 0` whenever
 `z a = 0`, vanishes if and only if `x = z`. The forward direction follows from Pinsker's
@@ -212,22 +213,5 @@ theorem isGreatest_sum_mul_sub_sum_mul_log_div {p : α → ℝ} (hp : p ∈ simp
     linarith
   · rintro _ ⟨q, hq, rfl⟩
     exact sum_mul_sub_sum_mul_log_div_le_log_sum_mul_exp hp hq (fun a h ↦ absurd h (hp0 a).ne') v
-
-/-- The Kullback–Leibler divergence of finite measures `μ ≪ ν` on a finite type with measurable
-singletons is the relative entropy `∑ a, μ{a} log (μ{a} / ν{a})` of their vectors of masses, plus
-the mass correction `ν(univ) - μ(univ)`, which vanishes for probability measures. Unlike Tau Ceti's
-`TauCeti.klDiv_eq_ofReal_sum_log_singleton`, `ν` may have atoms of mass zero. -/
-theorem toReal_klDiv_eq_sum_mul_log_div [MeasurableSpace α] [MeasurableSingletonClass α]
-    {μ ν : Measure α} [IsFiniteMeasure μ] [IsFiniteMeasure ν] (hμν : μ ≪ ν) :
-    (klDiv μ ν).toReal = ∑ a, μ.real {a} * log (μ.real {a} / ν.real {a}) + ν.real Set.univ
-      - μ.real Set.univ := by
-  rw [toReal_klDiv hμν Integrable.of_finite, integral_fintype Integrable.of_finite]
-  congr 2
-  refine sum_congr rfl fun a _ ↦ ?_
-  rw [smul_eq_mul]
-  by_cases hμa : μ {a} = 0
-  · simp [measureReal_def, hμa]
-  rw [llr, Measure.rnDeriv_eq_measure_singleton_div (fun h ↦ hμa (hμν h)) (measure_ne_top ν _),
-    ENNReal.toReal_div, measureReal_def, measureReal_def]
 
 end LMLExplore

@@ -8,7 +8,6 @@ module
 public import Mathlib.MeasureTheory.Integral.Bochner.Basic
 public import Mathlib.MeasureTheory.Measure.TotalVariation.Defs
 
-import Mathlib.MeasureTheory.Integral.Bochner.Set
 import Mathlib.MeasureTheory.Integral.IntegrableOn
 import Mathlib.MeasureTheory.Measure.TotalVariation.Basic
 import Mathlib.MeasureTheory.VectorMeasure.Integral
@@ -72,13 +71,13 @@ contraction of the oscillation of functions by a Markov kernel (Dobrushin's coef
 ## Implementation notes
 
 The first bound is the bound `MeasureTheory.VectorMeasure.norm_integral_le_of_norm_le_const` on
-integrals against the signed measure `μ - ν`, whose variation has mass `tvDist μ ν`. The eventwise
-characterization is Tau Ceti's `MeasureTheory.etvDist_le_two_mul_iff`, transferred to the real
-distance `tvDist`. The overlap form on a finite type is read off Tau Ceti's `ℓ¹` formula
-`MeasureTheory.tvDist_eq_tsum_abs_singleton`, `tvDist μ ν = ∑' x, |μ {x} - ν {x}|` on a countable
-type. The behaviour under sums and scalings is read off the supremum over finite
-measurable partitions, `MeasureTheory.tvDist_eq_iSup_finPartition_abs`, so it needs no assumption
-on the masses.
+integrals against the signed measure `μ - ν`, whose variation has mass `tvDist μ ν`. Both eventwise
+bounds are the two directions of Tau Ceti's characterization
+`MeasureTheory.etvDist_le_two_mul_iff`, transferred to the real distance `tvDist`. The overlap form
+on a finite type is read off Tau Ceti's `ℓ¹` formula `MeasureTheory.tvDist_eq_tsum_abs_singleton`,
+`tvDist μ ν = ∑' x, |μ {x} - ν {x}|` on a countable type. The behaviour under sums and scalings is
+read off the supremum over finite measurable partitions,
+`MeasureTheory.tvDist_eq_iSup_finPartition_abs`, so it needs no assumption on the masses.
 -/
 
 public section
@@ -281,12 +280,20 @@ and `ν` of the same mass, every measurable event `s` satisfies
 theorem abs_measureReal_sub_measureReal_le_tvDist_div_two [IsFiniteMeasure μ]
     [IsFiniteMeasure ν] (hμν : μ univ = ν univ) {s : Set 𝓧} (hs : MeasurableSet s) :
     |μ.real s - ν.real s| ≤ tvDist μ ν / 2 := by
-  have h := abs_integral_sub_integral_le_mul_tvDist_of_mem_Icc hμν (f := s.indicator 1)
-    (a := 0) (b := 1) (by fun_prop (disch := exact hs)) (by fun_prop (disch := exact hs))
-    (ae_of_all _ fun x ↦ by by_cases hx : x ∈ s <;> simp [hx])
-    (ae_of_all _ fun x ↦ by by_cases hx : x ∈ s <;> simp [hx])
-  rw [integral_indicator_one hs, integral_indicator_one hs] at h
-  exact h.trans_eq (by ring)
+  -- Tau Ceti's eventwise characterization at `c = etvDist μ ν / 2`, in either order
+  have h (μ ν : Measure 𝓧) [IsFiniteMeasure μ] [IsFiniteMeasure ν] (hμν : μ univ = ν univ) :
+      μ.real s ≤ ν.real s + tvDist μ ν / 2 := by
+    have he := (etvDist_le_two_mul_iff hμν (c := etvDist μ ν / 2)).1
+      (ENNReal.mul_div_cancel two_ne_zero ENNReal.ofNat_ne_top).ge s hs
+    have hc : 0 ≤ tvDist μ ν / 2 := div_nonneg tvDist_nonneg zero_le_two
+    rw [← ENNReal.ofReal_le_ofReal_iff (add_nonneg measureReal_nonneg hc),
+      ENNReal.ofReal_add measureReal_nonneg hc, ENNReal.ofReal_div_of_pos two_pos, ofReal_tvDist,
+      ENNReal.ofReal_ofNat, ofReal_measureReal, ofReal_measureReal]
+    exact he
+  have h₁ := h μ ν hμν
+  have h₂ := h ν μ hμν.symm
+  rw [tvDist_comm ν μ] at h₂
+  exact abs_sub_le_iff.2 ⟨by linarith, by linarith⟩
 
 /-- **Total variation from eventwise bounds**: for finite measures `μ` and `ν` of the same mass,
 if every measurable event `s` satisfies `μ s ≤ ν s + c`, then `tvDist μ ν ≤ 2 * c`. -/
