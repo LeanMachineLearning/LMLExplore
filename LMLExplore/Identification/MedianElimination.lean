@@ -425,11 +425,11 @@ omit [Fintype α] [DecidableEq α] in
 /-- The pull schedule of median elimination with numbers of pulls `t`: phase `r` pulls each arm of
 its active set `S` `t r` times, in a round robin over `S`. -/
 noncomputable def pulls (t : ℕ → ℕ) (r : ℕ) (S : Finset α) : List α :=
-  (List.range (#S * t r)).map (roundRobinOn S)
+  S.roundRobinList (#S * t r)
 
 omit [Fintype α] [DecidableEq α] in
-lemma pulls_def (t : ℕ → ℕ) (r : ℕ) (S : Finset α) :
-    pulls t r S = (List.range (#S * t r)).map (roundRobinOn S) := (rfl)
+lemma pulls_def (t : ℕ → ℕ) (r : ℕ) (S : Finset α) : pulls t r S = S.roundRobinList (#S * t r) :=
+  (rfl)
 
 omit [Fintype α] [DecidableEq α] in
 @[simp]
@@ -440,11 +440,7 @@ omit [Fintype α] in
 /-- Phase `r` pulls each arm of its active set `S` `t r` times, and no other arm. -/
 lemma count_pulls (t : ℕ → ℕ) (r : ℕ) (S : Finset α) (a : α) :
     (pulls t r S).count a = if a ∈ S then t r else 0 := by
-  rw [List.count_eq_sum_range_getD _ a a, ← card_filter_roundRobinOn_eq S (t r) a, card_filter,
-    length_pulls]
-  refine sum_congr rfl fun j hj ↦ ?_
-  rw [List.getD_eq_getElem _ _ (by rw [length_pulls]; exact mem_range.1 hj)]
-  simp [pulls]
+  rw [pulls, count_roundRobinList_card_mul]
 
 /-- The elimination maps of median elimination with numbers of pulls `t`: at the end of phase `r`,
 the active set `S` is halved by the sums of rewards of the arms during phase `r` in the history
@@ -1084,7 +1080,7 @@ lemma MedianElimination.output_ae_eq {env : Environment Unit α ℝ}
       roundRobinOn (survivors (runStats t A R ω) (numPhases (Fintype.card α))) 0 := by
   filter_upwards [h.output_ae_eq_of_outputAt_eq_deterministic isFixedBudget_medianElimination
     (measurable_out_activeSet univ (pulls t) (roundRobinOn · 0) (measurable_elim t) _ _)
-    (by rw [medianElimination_def, phasedEliminationFixedBudget_def, outputAt_ofStop])] with ω hω
+    (by rw [medianElimination_def, outputAt_phasedEliminationFixedBudget])] with ω hω
   rw [hω, ← activeSet_sigmaHistory_eq_survivors O A R ω,
     activeSet_congr (fun m hm ↦ truncHist_mk_history_of_le hm ω) (by simp)]
 

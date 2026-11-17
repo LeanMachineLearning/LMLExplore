@@ -221,13 +221,14 @@ omit [DecidableEq α] in
 pulls the arms of its active set `S` in a round robin, from round `cappedPhaseEnd K n T r` to round
 `cappedPhaseEnd K n T (r + 1)`. -/
 noncomputable def pulls (n : ℕ → ℕ) (T r : ℕ) (S : Finset α) : List α :=
-  (List.range (cappedPhaseEnd (Fintype.card α) n T (r + 1) -
-    cappedPhaseEnd (Fintype.card α) n T r)).map (roundRobinOn S)
+  S.roundRobinList
+    (cappedPhaseEnd (Fintype.card α) n T (r + 1) - cappedPhaseEnd (Fintype.card α) n T r)
 
 omit [DecidableEq α] in
 lemma pulls_def (n : ℕ → ℕ) (T r : ℕ) (S : Finset α) :
-    pulls n T r S = (List.range (cappedPhaseEnd (Fintype.card α) n T (r + 1) -
-      cappedPhaseEnd (Fintype.card α) n T r)).map (roundRobinOn S) := (rfl)
+    pulls n T r S = S.roundRobinList
+      (cappedPhaseEnd (Fintype.card α) n T (r + 1) - cappedPhaseEnd (Fintype.card α) n T r) :=
+  (rfl)
 
 omit [DecidableEq α] in
 @[simp]
@@ -241,10 +242,7 @@ during the phase. -/
 lemma count_pulls (n : ℕ → ℕ) (T r : ℕ) (S : Finset α) (a : α) :
     (pulls n T r S).count a = #{j ∈ range (cappedPhaseEnd (Fintype.card α) n T (r + 1) -
       cappedPhaseEnd (Fintype.card α) n T r) | roundRobinOn S j = a} := by
-  rw [List.count_eq_sum_range_getD _ a a, card_filter, length_pulls]
-  refine sum_congr rfl fun j hj ↦ ?_
-  rw [List.getD_eq_getElem _ _ (by rw [length_pulls]; exact mem_range.1 hj)]
-  simp [pulls]
+  rw [pulls, count_roundRobinList]
 
 /-- If the elimination phases end within the budget, phase `r < K - 1`, with an active set `S` of
 `K - r` arms, pulls each arm of `S` `n (r + 1) - n r` times. -/
