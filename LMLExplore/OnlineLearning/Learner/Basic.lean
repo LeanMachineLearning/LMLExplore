@@ -38,6 +38,10 @@ predicate for their regret guarantees [Ora, Chapter 1]. The structures of the re
 * A learner **defined by an update rule** `OnlineLearner.ofUpdate x₀ f` plays `x₀` first and then
   updates its play by the feedback of each round: `x (t + 1) = f t (g t) (x t)`. Mirror descent and
   projected online subgradient descent are of this form.
+* In the **game** `A.gameRun B c d` of two learners against each other, each learner receives the
+  play of the other as feedback, as the two players of a saddle-point problem
+  [Ora, Chapter 15]. Its plays are the unique pair of sequences each of which is the run of its
+  learner against the other (`fst_gameRun`, `snd_gameRun`, `gameRun_eq_of_forall_eq_run`).
 
 The learners of this file are deterministic and use no measurability: LML's
 `Learning.Algorithm.deterministic` is the measurable counterpart, used for stochastic environments.
@@ -52,6 +56,8 @@ The learners of this file are deterministic and use no measurability: LML's
 * `LMLExplore.OnlineLearning.OnlineLearner.HasRegretBound A L adm U B`: the regret guarantee.
 * `LMLExplore.OnlineLearning.OnlineLearner.ofUpdate x₀ f`: the learner defined by the update rule
   `f` from the first play `x₀`.
+* `LMLExplore.OnlineLearning.OnlineLearner.gameRun A B c d`: the plays of the learners `A` and `B`
+  against each other.
 
 ## Main statements
 
@@ -60,6 +66,8 @@ The learners of this file are deterministic and use no measurability: LML's
 * `OnlineLearner.closedLoopFeedback_eq`, `OnlineLearner.eq_closedLoopFeedback_of_forall_lt`,
   `OnlineLearner.closedLoopFeedback_unique`: the closed-loop feedback is the unique fixed point of
   `g ↦ fun t ↦ φ t (A.run c g t)`, also on a finite horizon.
+* `OnlineLearner.gameRun_eq_of_forall_eq_run`: uniqueness of the plays of two learners against
+  each other.
 
 ## References
 
@@ -265,5 +273,50 @@ lemma run_ofUpdate_mem {S : Set X} (hx₀ : x₀ ∈ S) (hf : ∀ t g, ∀ a ∈
 end OnlineLearner
 
 end OfUpdate
+
+section GameRun
+
+variable {C D X Y : Type*}
+
+namespace OnlineLearner
+
+/-- The **plays of two online learners against each other**: at round `t`, the learner `A` plays
+from the contexts `c` and the plays of `B` of the rounds `s < t`, and the learner `B` plays from
+the contexts `d` and the plays of `A` of the rounds `s < t`. The first components form the run of
+`A` against the second ones, and conversely (`fst_gameRun`, `snd_gameRun`); they are determined by
+this property (`gameRun_eq_of_forall_eq_run`). -/
+def gameRun (A : OnlineLearner C Y X) (B : OnlineLearner D X Y) (c : ℕ → C) (d : ℕ → D)
+    (t : ℕ) : X × Y :=
+  (A.play t (fun s ↦ (c s, (gameRun A B c d s).2)) (c t),
+    B.play t (fun s ↦ (d s, (gameRun A B c d s).1)) (d t))
+termination_by t
+decreasing_by all_goals exact s.isLt
+
+variable (A : OnlineLearner C Y X) (B : OnlineLearner D X Y) (c : ℕ → C) (d : ℕ → D)
+
+/-- The plays of `A` in the game against `B` are the run of `A` against the plays of `B`. -/
+lemma fst_gameRun (t : ℕ) :
+    (A.gameRun B c d t).1 = A.run c (fun s ↦ (A.gameRun B c d s).2) t := by
+  rw [gameRun, run_def]
+
+/-- The plays of `B` in the game against `A` are the run of `B` against the plays of `A`. -/
+lemma snd_gameRun (t : ℕ) :
+    (A.gameRun B c d t).2 = B.run d (fun s ↦ (A.gameRun B c d s).1) t := by
+  rw [gameRun, run_def]
+
+/-- **Uniqueness of the plays of two learners against each other.** Sequences `xs` and `ys` such
+that `xs` is the run of `A` against `ys` and `ys` the run of `B` against `xs` are the plays of the
+game of `A` against `B`. -/
+lemma gameRun_eq_of_forall_eq_run {xs : ℕ → X} {ys : ℕ → Y} (hxs : ∀ t, xs t = A.run c ys t)
+    (hys : ∀ t, ys t = B.run d xs t) (t : ℕ) : A.gameRun B c d t = (xs t, ys t) := by
+  induction t using Nat.strong_induction_on with
+  | _ t ih =>
+    refine Prod.ext ?_ ?_
+    · rw [fst_gameRun, hxs, A.run_congr_feedback c fun s hs ↦ by rw [ih s hs]]
+    · rw [snd_gameRun, hys, B.run_congr_feedback d fun s hs ↦ by rw [ih s hs]]
+
+end OnlineLearner
+
+end GameRun
 
 end LMLExplore.OnlineLearning
