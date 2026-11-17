@@ -400,6 +400,26 @@ lemma armAt_phaseEnd_add (t : ℕ → ℕ) (g : ℕ → α → ℝ) {j r : ℕ}
 
 /-! ### The algorithm -/
 
+/-- The sum of the rewards of the arm `a` in the first `t` rounds of the history `h`. -/
+noncomputable def histSum {m : ℕ} (h : Hist Unit α ℝ m) (t : ℕ) (a : α) : ℝ :=
+  ∑ s : Fin m, if (s : ℕ) < t ∧ (h s).action = a then (h s).feedback else 0
+
+omit [Fintype α] [Nonempty α] in
+lemma histSum_def {m : ℕ} (h : Hist Unit α ℝ m) (t : ℕ) (a : α) :
+    histSum h t a = ∑ s : Fin m, if (s : ℕ) < t ∧ (h s).action = a then (h s).feedback else 0 :=
+  (rfl)
+
+omit [Fintype α] [Nonempty α] in
+/-- The sum of the rewards of an arm in the first `t` rounds of the history of the first `m ≥ t`
+rounds is its sum of rewards before round `t`. -/
+lemma histSum_history {Ω : Type*} (O : ℕ → Ω → Unit) (A : ℕ → Ω → α) (R : ℕ → Ω → ℝ) {m t : ℕ}
+    (ht : t ≤ m) (ω : Ω) (a : α) : histSum (history O A R m ω) t a = sumRewards A R a t ω := by
+  rw [histSum_def, sum_fin_eq_sum_range, sumRewards, ← sum_range_add_sum_Ico _ ht]
+  -- The rounds `s ≥ t` do not count, and the rounds `s < t ≤ m` are those of the history.
+  rw [sum_eq_zero (s := Ico t m) fun s hs ↦ by simp [(mem_Ico.1 hs).1.not_gt], add_zero]
+  exact sum_congr rfl fun s hs ↦ by
+    simp [mem_range.1 hs, (mem_range.1 hs).trans_le ht, history_apply]
+
 /-- The statistics of the arms in each phase `j` of median elimination, computed from a history
 `h`: the sum of the rewards of each arm during phase `j`. -/
 noncomputable def histStats (t : ℕ → ℕ) {m : ℕ} (h : Hist Unit α ℝ m) (j : ℕ) (a : α) : ℝ :=
@@ -430,6 +450,16 @@ lemma recommendation_def (t : ℕ → ℕ) {T : ℕ} (h : Hist Unit α ℝ T) :
 section Measurability
 
 variable [MeasurableSpace α] [MeasurableSingletonClass α]
+
+omit [Fintype α] [Nonempty α] in
+lemma measurable_histSum (m t : ℕ) (a : α) :
+    Measurable fun h : Hist Unit α ℝ m ↦ histSum h t a := by
+  refine Finset.measurable_sum _ fun s _ ↦ Measurable.ite ?_ ?_ measurable_const
+  · rw [Set.ofPred_and]
+    refine MeasurableSet.inter (MeasurableSet.const _) ?_
+    exact (measurable_snd.fst.comp (measurable_pi_apply s)) (measurableSet_singleton a)
+  · exact measurable_snd.snd.comp (measurable_pi_apply s)
+
 
 lemma measurable_survivors_histStats (t : ℕ → ℕ) (m j : ℕ) :
     Measurable fun h : Hist Unit α ℝ m ↦ survivors (histStats t h) j :=
