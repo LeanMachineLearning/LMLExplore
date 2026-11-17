@@ -200,6 +200,10 @@ lemma iterate (hT : IsTopical e T) (n : ℕ) : IsTopical e T^[n] := by
   | zero => exact IsTopical.id e
   | succ n ih => rw [Function.iterate_succ]; exact ih.comp hT
 
+/-- A topical map commutes with subtracting multiples of `e`. -/
+lemma map_sub_smul (hT : IsTopical e T) (x : E) (c : ℝ) : T (x - c • e) = T x - c • e := by
+  rw [sub_eq_add_neg, ← neg_smul, hT.map_add_smul, neg_smul, ← sub_eq_add_neg]
+
 end IsTopical
 
 /-! ### Blackwell's conditions -/
@@ -389,17 +393,22 @@ theorem orderUnitNorm_sub_le (hT : IsTopical e T) (he : IsOrderUnit e) (x y : E)
   simpa using orderUnitNorm_sub_le_of_monotone_of_add_smul_le zero_le_one he hT.monotone
     (fun x c _ ↦ by rw [one_mul, hT.map_add_smul]) x y
 
+/-- If `x - y` lies between `a • e` and `(a + d) • e`, so does `T x - T y` for a topical `T`. -/
+lemma sub_mem_Icc_smul (hT : IsTopical e T) {x y : E} {a d : ℝ}
+    (h : x - y ∈ Icc (a • e) ((a + d) • e)) : T x - T y ∈ Icc (a • e) ((a + d) • e) := by
+  -- `y + a • e ≤ x ≤ y + (a + d) • e` is preserved by `T`.
+  refine ⟨?_, ?_⟩
+  · rw [le_sub_iff_add_le', ← hT.map_add_smul]
+    exact hT.monotone (le_sub_iff_add_le'.1 h.1)
+  · rw [sub_le_iff_le_add', ← hT.map_add_smul]
+    exact hT.monotone (sub_le_iff_le_add'.1 h.2)
+
 /-- A topical map is nonexpansive for the oscillation. -/
 theorem orderUnitOsc_sub_le (hT : IsTopical e T) (he : IsOrderUnit e) (x y : E) :
     orderUnitOsc e (T x - T y) ≤ orderUnitOsc e (x - y) := by
   refine csInf_le_csInf ⟨0, fun _ hd ↦ hd.1⟩ (he.exists_mem_Icc_smul _) ?_
-  rintro d ⟨hd, a, h₁, h₂⟩
-  -- `y + a • e ≤ x ≤ y + (a + d) • e` is preserved by `T`.
-  refine ⟨hd, a, ?_, ?_⟩
-  · rw [le_sub_iff_add_le', ← hT.map_add_smul]
-    exact hT.monotone (le_sub_iff_add_le'.1 h₁)
-  · rw [sub_le_iff_le_add', ← hT.map_add_smul]
-    exact hT.monotone (sub_le_iff_le_add'.1 h₂)
+  rintro d ⟨hd, a, h⟩
+  exact ⟨hd, a, hT.sub_mem_Icc_smul h⟩
 
 end IsTopical
 
