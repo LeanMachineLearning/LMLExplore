@@ -16,6 +16,7 @@ public import Statlib.ForMathlib.InformationTheory.KullbackLeibler.ChainRule
 public import LeanMachineLearning.ForMathlib.InformationTheory.KullbackLeibler.DataProcessing
 public import TauCeti.InformationTheory.KullbackLeibler.Variational
 import Mathlib.Analysis.Complex.ExponentialBounds
+import LMLExplore.Analysis.Calculus.MeanValue
 import LMLExplore.Analysis.SpecialFunctions.Log.Basic
 import Mathlib.Analysis.SpecialFunctions.Log.Deriv
 import Statlib.Divergence.KullbackLeibler.Basic
@@ -413,15 +414,12 @@ theorem klBerReal_one_div_two_add_le {x : ℝ} (hx : 8 * x ^ 2 ≤ 1) :
     refine h.congr_deriv ?_
     push_cast
     ring
-  have hmono : MonotoneOn (fun y ↦ 2 * y ^ 2 + 8 / 3 * y ^ 4 -
-      ((1 / 2 + y) * log (1 + 2 * y) + (1 / 2 - y) * log (1 - 2 * y))) (Icc 0 x) := by
-    refine monotoneOn_of_hasDerivWithinAt_nonneg (convex_Icc 0 x)
-      (fun y hy ↦ (hd y hy).continuousAt.continuousWithinAt)
-      (fun y hy ↦ (hd y (interior_subset hy)).hasDerivWithinAt) fun y hy ↦ ?_
-    have hy := interior_subset hy
-    exact sub_nonneg.2
-      (log_one_add_two_mul_sub_log_one_sub_two_mul_le (by nlinarith [hy.1, hy.2]) hy.1)
-  have h := hmono ⟨le_rfl, hx0⟩ ⟨hx0, le_rfl⟩ hx0
+  have h := LMLExplore.apply_le_apply_of_hasDerivAt_of_nonneg_of_nonpos (x := 0) (x₀ := x)
+    (fun y hy ↦ (hd y (by rwa [uIcc_of_le hx0] at hy)).continuousAt.continuousWithinAt)
+    (fun y hy ↦ hd y (Ioo_subset_Icc_self (by rwa [min_eq_left hx0, max_eq_right hx0] at hy)))
+    (fun y hy ↦ sub_nonneg.2
+      (log_one_add_two_mul_sub_log_one_sub_two_mul_le (by nlinarith [hy.1, hy.2]) hy.1.le))
+    (fun y hy ↦ absurd (hy.1.trans hy.2) hx0.not_gt)
   have hg : klBerReal (1 / 2 + x) (1 / 2) =
       (1 / 2 + x) * log (1 + 2 * x) + (1 / 2 - x) * log (1 - 2 * x) := by
     rw [klBerReal_apply]

@@ -720,18 +720,17 @@ theorem log_one_add_two_mul_sub_log_one_sub_two_mul_le {x : ℝ} (hx : 8 * x ^ 2
     refine h.congr_deriv ?_
     push_cast
     ring
-  have hmono : MonotoneOn
-      (fun y ↦ 4 * y + 32 / 3 * y ^ 3 - (log (1 + 2 * y) - log (1 - 2 * y))) (Set.Icc 0 x) := by
-    refine monotoneOn_of_hasDerivWithinAt_nonneg (convex_Icc 0 x)
-      (fun y hy ↦ (hd y hy).continuousAt.continuousWithinAt)
-      (fun y hy ↦ (hd y (interior_subset hy)).hasDerivWithinAt) fun y hy ↦ ?_
-    have hy' := interior_subset hy
-    have h1 : 0 < 1 + 2 * y := by linarith [hy'.1]
-    have h2 := one_sub_two_mul_pos_of_eight_mul_sq_le hx hy'.2
-    have hy8 : 8 * y ^ 2 ≤ 1 := by nlinarith [hy'.1, hy'.2]
-    rw [div_add_div _ _ h1.ne' h2.ne', sub_nonneg, div_le_iff₀ (mul_pos h1 h2)]
-    nlinarith [mul_nonneg (sq_nonneg y) (sub_nonneg.2 hy8)]
-  have h := hmono ⟨le_rfl, hx0⟩ ⟨hx0, le_rfl⟩ hx0
+  have h := LMLExplore.apply_le_apply_of_hasDerivAt_of_nonneg_of_nonpos (x := 0) (x₀ := x)
+    (fun y hy ↦ (hd y (by rwa [Set.uIcc_of_le hx0] at hy)).continuousAt.continuousWithinAt)
+    (fun y hy ↦ hd y (Set.Ioo_subset_Icc_self
+      (by rwa [min_eq_left hx0, max_eq_right hx0] at hy)))
+    (fun y hy ↦ by
+      have h1 : 0 < 1 + 2 * y := by linarith [hy.1]
+      have h2 := one_sub_two_mul_pos_of_eight_mul_sq_le hx hy.2.le
+      have hy8 : 8 * y ^ 2 ≤ 1 := by nlinarith [hy.1, hy.2]
+      rw [div_add_div _ _ h1.ne' h2.ne', sub_nonneg, div_le_iff₀ (mul_pos h1 h2)]
+      nlinarith [mul_nonneg (sq_nonneg y) (sub_nonneg.2 hy8)])
+    (fun y hy ↦ absurd (hy.1.trans hy.2) hx0.not_gt)
   norm_num at h
   linarith
 
