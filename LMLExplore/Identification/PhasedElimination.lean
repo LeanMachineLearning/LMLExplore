@@ -971,8 +971,8 @@ theorem measure_inter_forall_feedback_phaseStart_add_mem [SFinite P]
     (r : ℕ) {E : Set Ω}
     (hE : MeasurableSet[(isStoppingTime_phaseStart S₀ pulls hseq helim r).measurableSpace] E)
     (S : Finset ℐ) {B : Fin (pulls r S).length → Set 𝓨} (hB : ∀ j, MeasurableSet (B j)) :
-    P (E ∩ {ω | activeSet S₀ pulls elim (fun m ↦ sigmaHistory O X Y m ω) r = S ∧
-        ∀ j : Fin (pulls r S).length,
+    P (E ∩ {ω | activeSet S₀ pulls elim (fun m ↦ sigmaHistory O X Y m ω) r = S} ∩
+        {ω | ∀ j : Fin (pulls r S).length,
           Y (phaseStart S₀ pulls elim (fun m ↦ sigmaHistory O X Y m ω) r + j) ω ∈ B j}) =
       P (E ∩ {ω | activeSet S₀ pulls elim (fun m ↦ sigmaHistory O X Y m ω) r = S}) *
         ∏ j, ν (pulls r S)[j] (B j) := by
@@ -999,15 +999,15 @@ theorem measure_inter_forall_feedback_phaseStart_add_mem [SFinite P]
   have h_disj : Pairwise (Function.onFun Disjoint F) := fun i k hik ↦
     Set.disjoint_left.2 fun ω hi hk ↦ hik (hi.2.1.symm.trans hk.2.1)
   -- Both events are the disjoint unions over the start `n` of phase `r`.
-  have h_left : E ∩ {ω | activeSet S₀ pulls elim (fun m ↦ sigmaHistory O X Y m ω) r = S ∧
-        ∀ j : Fin (pulls r S).length,
-          Y (phaseStart S₀ pulls elim (fun m ↦ sigmaHistory O X Y m ω) r + j) ω ∈ B j} =
+  have h_left : E ∩ {ω | activeSet S₀ pulls elim (fun m ↦ sigmaHistory O X Y m ω) r = S} ∩
+      {ω | ∀ j : Fin (pulls r S).length,
+        Y (phaseStart S₀ pulls elim (fun m ↦ sigmaHistory O X Y m ω) r + j) ω ∈ B j} =
       ⋃ n, F n ∩ {ω | ∀ j : Fin (pulls r S).length, Y (n + j) ω ∈ B j} := by
     ext ω
     simp only [hF_def, Set.mem_inter_iff, Set.mem_ofPred_eq, Set.mem_iUnion,
       Set.mem_singleton_iff]
-    exact ⟨fun h ↦ ⟨_, ⟨h.1, rfl, h.2.1⟩, h.2.2⟩,
-      fun ⟨n, ⟨hE, h_start, h_set⟩, hY⟩ ↦ ⟨hE, h_set, h_start ▸ hY⟩⟩
+    exact ⟨fun h ↦ ⟨_, ⟨h.1.1, rfl, h.1.2⟩, h.2⟩,
+      fun ⟨n, ⟨hE, h_start, h_set⟩, hY⟩ ↦ ⟨⟨hE, h_set⟩, h_start ▸ hY⟩⟩
   have h_right : E ∩ {ω | activeSet S₀ pulls elim (fun m ↦ sigmaHistory O X Y m ω) r = S} =
       ⋃ n, F n := by
     ext ω
@@ -1043,23 +1043,8 @@ theorem hasLaw_pi_feedback_phaseStart_add_cond [IsFiniteMeasure P]
     Measurable.of_eval fun j ↦ (measurable_from_prod_countable_right
       (f := fun p : ℕ × Ω ↦ Y (p.1 + j) p.2) fun n ↦ hseq.measurable_feedback (n + j)).comp
         (hτ.prodMk measurable_id)
-  have hS : MeasurableSet
-      (E ∩ {ω | activeSet S₀ pulls elim (fun m ↦ sigmaHistory O X Y m ω) r = S}) :=
-    ((isStoppingTime_phaseStart S₀ pulls hseq helim r).measurableSpace_le _ hE).inter
-      (measurableSet_eq_fun (measurable_activeSet helim hH r) measurable_const)
-  refine ⟨hYm.aemeasurable, (Measure.pi_eq fun B hB ↦ ?_).symm⟩
-  rw [Measure.map_apply hYm (.univ_pi hB), cond_apply hS]
-  have h_pre : E ∩ {ω | activeSet S₀ pulls elim (fun m ↦ sigmaHistory O X Y m ω) r = S} ∩
-      (fun ω (j : Fin (pulls r S).length) ↦
-        Y (phaseStart S₀ pulls elim (fun m ↦ sigmaHistory O X Y m ω) r + j) ω) ⁻¹'
-          Set.univ.pi B =
-      E ∩ {ω | activeSet S₀ pulls elim (fun m ↦ sigmaHistory O X Y m ω) r = S ∧
-        ∀ j : Fin (pulls r S).length,
-          Y (phaseStart S₀ pulls elim (fun m ↦ sigmaHistory O X Y m ω) r + j) ω ∈ B j} := by
-    ext ω
-    simp [Set.mem_pi, and_assoc]
-  rw [h_pre, measure_inter_forall_feedback_phaseStart_add_mem hseq r hE S hB, ← mul_assoc,
-    ENNReal.inv_mul_cancel hP (measure_ne_top P _), one_mul]
+  exact hasLaw_pi_cond_of_measure_inter_forall_mem hYm hP (measure_ne_top P _)
+    fun _ hB ↦ measure_inter_forall_feedback_phaseStart_add_mem hseq r hE S hB
 
 end Bandit
 

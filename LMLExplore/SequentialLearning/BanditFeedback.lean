@@ -5,9 +5,8 @@ Authors: LMLExplore contributors
 -/
 module
 
+public import LMLExplore.Probability.ConditionalProbability
 public import LMLExplore.SequentialLearning.Algorithm
-public import Mathlib.MeasureTheory.Constructions.Pi
-public import Mathlib.Probability.ConditionalProbability
 
 /-!
 # Feedbacks of a block of rounds with predetermined actions
@@ -103,16 +102,9 @@ theorem IsAlgEnvSeq.hasLaw_pi_feedback_cond_bandit [IsFiniteMeasure P]
     (h : IsAlgEnvSeq O A Y alg (Environment.bandit ν) P) {n L : ℕ} {F : Set Ω}
     (hF : MeasurableSet[h.filtrationAction n] F) (hPF : P F ≠ 0) {a : Fin L → 𝓐}
     (ha : ∀ j : Fin L, ∀ᵐ ω ∂P, ω ∈ F → A (n + j) ω = a j) :
-    HasLaw (fun ω (j : Fin L) ↦ Y (n + j) ω) (Measure.pi fun j ↦ ν (a j)) P[|F] := by
-  have hYm : Measurable fun ω (j : Fin L) ↦ Y (n + j) ω :=
-    Measurable.of_eval fun j ↦ h.measurable_feedback (n + j)
-  refine ⟨hYm.aemeasurable, (Measure.pi_eq fun B hB ↦ ?_).symm⟩
-  rw [Measure.map_apply hYm (.univ_pi hB), cond_apply (h.filtrationAction.le _ _ hF)]
-  have h_pre : (fun ω (j : Fin L) ↦ Y (n + j) ω) ⁻¹' Set.univ.pi B =
-      {ω | ∀ j, Y (n + j) ω ∈ B j} := by
-    ext ω
-    simp [Set.mem_pi]
-  rw [h_pre, h.measure_inter_forall_feedback_mem_bandit hF ha hB, ← mul_assoc,
-    ENNReal.inv_mul_cancel hPF (measure_ne_top P F), one_mul]
+    HasLaw (fun ω (j : Fin L) ↦ Y (n + j) ω) (Measure.pi fun j ↦ ν (a j)) P[|F] :=
+  hasLaw_pi_cond_of_measure_inter_forall_mem (Z := fun ω (j : Fin L) ↦ Y (n + j) ω)
+    (Measurable.of_eval fun j ↦ h.measurable_feedback (n + j)) hPF (measure_ne_top P F)
+    fun _ hB ↦ h.measure_inter_forall_feedback_mem_bandit hF ha hB
 
 end Learning
