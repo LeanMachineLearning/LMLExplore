@@ -8,11 +8,12 @@ module
 public import Mathlib.MeasureTheory.Function.ConditionalLExpectation
 public import Mathlib.Probability.Martingale.Basic
 public import Mathlib.Analysis.Normed.Ring.Lemmas
-import Mathlib.Probability.Martingale.Convergence
 import Mathlib.MeasureTheory.Function.ConditionalExpectation.PullOut
-import Mathlib.MeasureTheory.Function.L2Space
 import Mathlib.Analysis.SpecialFunctions.Exp
 import TauCeti.MeasureTheory.Function.ConditionalLExpectation
+import LMLExplore.Analysis.Normed.Group.Basic
+import LMLExplore.Analysis.Normed.Ring.Pi
+import LMLExplore.Probability.Martingale.L2Convergence
 
 /-!
 # Asynchronous stochastic approximation
@@ -34,13 +35,13 @@ The step sizes are adapted, with `∑ t, α t i ^ 2 ≤ C` almost surely for a d
 
 ## Main statements
 
-* `LMLExplore.ae_exists_tendsto_sum_mul_of_condExp_eq_zero`: the weighted noise
-  `∑ t, α t * ξ t` of a stochastic approximation converges almost surely, when `ξ` is a
-  martingale difference with bounded conditional second moment.
 * `LMLExplore.le_add_two_mul_of_le_one_sub_mul_add`,
   `LMLExplore.eventually_le_add_of_le_one_sub_mul_add`: deterministic comparisons for the
   averaging recursion `u (t + 1) ≤ (1 - α t) * u t + α t * (c + ξ t)`, on a finite window and
   asymptotically.
+* `LMLExplore.abs_le_add_two_mul_of_eq_one_sub_mul_add`,
+  `LMLExplore.eventually_abs_le_add_of_eq_one_sub_mul_add`: their two-sided forms, for the
+  recursion `u (t + 1) = (1 - α t) * u t + α t * (f t + ξ t)` with `|f t| ≤ c`.
 * `LMLExplore.ae_bddAbove_range_norm_of_norm_div_le_mul_add`: the iterates are bounded.
 * `LMLExplore.ae_tendsto_of_norm_sub_div_le_mul`: the iterates converge to the fixed point.
 * `LMLExplore.ae_tendsto_of_averaging`: with `F` constant, the coordinates are independent
@@ -53,16 +54,17 @@ coordinatewise quotient. The conditional second moment of the noise is the condi
 expectation `condLExp` of `‖w t i‖ₑ ^ 2`, bounded by `A + B * ⨆ τ ≤ t, ‖x τ‖ₑ ^ 2`; the noise is
 also assumed integrable, so that the condition `E[w t i | ℱ t] = 0` is meaningful.
 
-The noise lemma follows from the martingale convergence theorem: the partial sums of
-`α t * ξ t` form a martingale with orthogonal increments, bounded in `L²` by `K * C`. The
-boundedness theorem rescales the noise by a scale of the iterates, an adapted nondecreasing
-process that stays put as long as the weighted norm of the iterates is at most `q` times the
-scale and jumps to that norm otherwise, as in the proof of [Tsi94, Theorem 1]. The rescaled noise
-has a bounded conditional second moment, so its weighted sums converge; once their tails are
-below `(q - 1) / 2` and the scale has jumped, the comparison on finite windows keeps the iterates
-below `q` times the scale forever, so the scale stops moving. For the convergence theorem, the
-noise is truncated where the bounded iterates would leave a ball, and the asymptotic comparison
-turns an eventual bound `D` on the weighted distance to `x'` into the eventual bound `β * D + η`.
+The weighted noise sums converge by
+`LMLExplore.ae_exists_tendsto_sum_mul_of_condExp_eq_zero`, applied to the noise multiplied by
+bounded adapted factors. The boundedness theorem rescales the noise by a scale of the iterates,
+an adapted nondecreasing process that stays put as long as the weighted norm of the iterates is
+at most `q` times the scale and jumps to that norm otherwise, as in the proof of
+[Tsi94, Theorem 1]. The rescaled noise has a bounded conditional second moment, so its weighted
+sums converge; once their tails are below `(q - 1) / 2` and the scale has jumped, the comparison
+on finite windows keeps the iterates below `q` times the scale forever, so the scale stops moving.
+For the convergence theorem, the noise is truncated where the bounded iterates would leave a ball,
+and the asymptotic comparison turns an eventual bound `D` on the weighted distance to `x'` into
+the eventual bound `β * D + η`.
 
 ## References
 
@@ -154,8 +156,8 @@ theorem eventually_le_add_of_le_one_sub_mul_add (hα : ∀ t, α t ∈ Set.Icc (
   linarith
 
 /-- Two-sided form of `le_add_two_mul_of_le_one_sub_mul_add`, for the recursion
-`u (t + 1) = (1 - α t) * u t + α t * (f t + ξ t)` with `|f t| ≤ c`. -/
-private lemma abs_le_add_two_mul {f : ℕ → ℝ} {δ : ℝ} {t₀ T : ℕ}
+`u (t + 1) = (1 - α t) * u t + α t * (f t + ξ t)` with `|f t| ≤ c` on the window. -/
+theorem abs_le_add_two_mul_of_eq_one_sub_mul_add {f : ℕ → ℝ} {δ : ℝ} {t₀ T : ℕ}
     (hα : ∀ t, t₀ ≤ t → t < T → α t ∈ Set.Icc (0 : ℝ) 1)
     (hS : ∀ t, t₀ ≤ t → t ≤ T → |∑ τ ∈ range t, α τ * ξ τ - s| ≤ δ) (hu₀ : |u t₀| ≤ c)
     (hu : ∀ t, t₀ ≤ t → t < T → u (t + 1) = (1 - α t) * u t + α t * (f t + ξ t))
@@ -177,7 +179,7 @@ private lemma abs_le_add_two_mul {f : ℕ → ℝ} {δ : ℝ} {t₀ T : ℕ}
 
 /-- Two-sided form of `eventually_le_add_of_le_one_sub_mul_add`, for the recursion
 `u (t + 1) = (1 - α t) * u t + α t * (f t + ξ t)` with eventually `|f t| ≤ c`. -/
-private lemma eventually_abs_le_add {f : ℕ → ℝ} (hα : ∀ t, α t ∈ Set.Icc (0 : ℝ) 1)
+theorem eventually_abs_le_add_of_eq_one_sub_mul_add {f : ℕ → ℝ} (hα : ∀ t, α t ∈ Set.Icc (0 : ℝ) 1)
     (hα_sum : Tendsto (fun T ↦ ∑ t ∈ range T, α t) atTop atTop)
     (hS : Tendsto (fun T ↦ ∑ t ∈ range T, α t * ξ t) atTop (𝓝 s))
     (hu : ∀ t, u (t + 1) = (1 - α t) * u t + α t * (f t + ξ t))
@@ -199,163 +201,6 @@ private lemma eventually_abs_le_add {f : ℕ → ℝ} (hα : ∀ t, α t ∈ Set
   exact abs_le.2 ⟨by linarith, h1⟩
 
 end Deterministic
-
-/-! ### The noise of a stochastic approximation -/
-
-section Noise
-
-variable {Ω : Type*} {mΩ : MeasurableSpace Ω} {P : Measure Ω} {ℱ : Filtration ℕ mΩ}
-
-/-- A real number squared, as an extended nonnegative real. -/
-private lemma enorm_sq_eq_ofReal (a : ℝ) : ‖a‖ₑ ^ 2 = ENNReal.ofReal (a ^ 2) := by
-  rw [Real.eNorm_eq_ofReal_abs, ← ENNReal.ofReal_pow (abs_nonneg a), sq_abs]
-
-/-- **The noise of a stochastic approximation converges.** Let `α t` be measurable for `ℱ t`,
-with `∑ t < T, α t ^ 2 ≤ C` almost surely for every `T`. Let `ξ t` be measurable for `ℱ (t + 1)`,
-with `E[ξ t | ℱ t] = 0` and `E[ξ t ^ 2 | ℱ t] ≤ K`, the latter in the sense of `condLExp`. Then the
-partial sums of `α t * ξ t` converge almost surely: they form a martingale bounded in `L²`. -/
-theorem ae_exists_tendsto_sum_mul_of_condExp_eq_zero [IsFiniteMeasure P] {α ξ : ℕ → Ω → ℝ}
-    {K : ℝ≥0} {C : ℝ} (hα : Adapted ℱ α) (hξ : ∀ t, Measurable[ℱ (t + 1)] (ξ t))
-    (hξ_mean : ∀ t, P[ξ t | ℱ t] =ᵐ[P] 0)
-    (hξ_var : ∀ t, P⁻[fun ω ↦ ‖ξ t ω‖ₑ ^ 2 | ℱ t] ≤ᵐ[P] fun _ ↦ K)
-    (hα_sq : ∀ᵐ ω ∂P, ∀ T, ∑ t ∈ range T, α t ω ^ 2 ≤ C) :
-    ∀ᵐ ω ∂P, ∃ s, Tendsto (fun T ↦ ∑ t ∈ range T, α t ω * ξ t ω) atTop (𝓝 s) := by
-  have hαm (t : ℕ) : Measurable (α t) := (hα t).mono (ℱ.le t) le_rfl
-  have hξm (t : ℕ) : Measurable (ξ t) := (hξ t).mono (ℱ.le _) le_rfl
-  -- second moments of the steps and of the noise
-  have hα_lint (T : ℕ) :
-      ∫⁻ ω, ∑ t ∈ range T, ‖α t ω‖ₑ ^ 2 ∂P ≤ ENNReal.ofReal C * P Set.univ := by
-    rw [← lintegral_const]
-    refine lintegral_mono_ae (hα_sq.mono fun ω hω ↦ ?_)
-    simp_rw [enorm_sq_eq_ofReal]
-    rw [← ENNReal.ofReal_sum_of_nonneg fun t _ ↦ sq_nonneg _]
-    exact ENNReal.ofReal_le_ofReal (hω T)
-  have hα_lt (t : ℕ) : ∫⁻ ω, ‖α t ω‖ₑ ^ 2 ∂P < ∞ := by
-    refine lt_of_le_of_lt (lintegral_mono fun ω ↦ ?_) ((hα_lint (t + 1)).trans_lt (by finiteness))
-    exact single_le_sum (f := fun t ↦ ‖α t ω‖ₑ ^ 2) (fun _ _ ↦ bot_le) (self_mem_range_succ t)
-  have hζ_lint (t : ℕ) :
-      ∫⁻ ω, ‖α t ω * ξ t ω‖ₑ ^ 2 ∂P ≤ K * ∫⁻ ω, ‖α t ω‖ₑ ^ 2 ∂P := by
-    simp_rw [eNorm_mul, mul_pow]
-    have hG : Measurable[ℱ t] fun ω ↦ ‖α t ω‖ₑ ^ 2 := (measurable_eNorm.pow_const 2).comp (hα t)
-    have hZ : AEMeasurable (fun ω ↦ ‖ξ t ω‖ₑ ^ 2) P := ((hξm t).eNorm.pow_const 2).aemeasurable
-    rw [← TauCeti.MeasureTheory.lintegral_mul_condLExp (ℱ.le t) hZ hG,
-      ← lintegral_const_mul' _ _ ENNReal.coe_ne_top]
-    exact lintegral_mono_ae ((hξ_var t).mono fun ω hω ↦ by
-      rw [mul_comm (K : ℝ≥0∞)]
-      exact mul_le_mul_right hω _)
-  have hξ_lt (t : ℕ) : ∫⁻ ω, ‖ξ t ω‖ₑ ^ 2 ∂P < ∞ := by
-    rw [← lintegral_condLExp (ℱ.le t)]
-    exact (lintegral_mono_ae (hξ_var t)).trans_lt
-      (by simpa using ENNReal.mul_lt_top ENNReal.coe_lt_top (measure_lt_top P Set.univ))
-  have memLp_two {f : Ω → ℝ} (hf : Measurable f) (h : ∫⁻ ω, ‖f ω‖ₑ ^ 2 ∂P < ∞) : MemLp f 2 P := by
-    refine (memLp_two_iff_integrable_sq hf.aestronglyMeasurable).2
-      ⟨(hf.pow_const 2).aestronglyMeasurable, ?_⟩
-    rw [hasFiniteIntegral_iff_eNorm]
-    simpa only [eNorm_pow] using h
-  -- the martingale transform `S T = ∑ t < T, α t ξ t`
-  set ζ : ℕ → Ω → ℝ := fun t ↦ α t * ξ t
-  set S : ℕ → Ω → ℝ := fun T ↦ ∑ t ∈ range T, ζ t
-  have hζm (t : ℕ) : Measurable[ℱ (t + 1)] (ζ t) :=
-    ((hα t).mono (ℱ.mono t.le_succ) le_rfl).mul (hξ t)
-  have hζ2 (t : ℕ) : MemLp (ζ t) 2 P :=
-    memLp_two ((hαm t).mul (hξm t)) ((hζ_lint t).trans_lt (by finiteness [hα_lt t]))
-  have hξ2 (t : ℕ) : MemLp (ξ t) 2 P := memLp_two (hξm t) (hξ_lt t)
-  have hSm (T : ℕ) : Measurable[ℱ T] (S T) := by
-    have : S T = fun ω ↦ ∑ t ∈ range T, ζ t ω := by
-      ext ω
-      simp [S, Finset.sum_apply]
-    rw [this]
-    exact Finset.measurable_sum _ fun t ht ↦ (hζm t).mono (ℱ.mono (mem_range.1 ht)) le_rfl
-  have hS2 (T : ℕ) : MemLp (S T) 2 P := memLp_finsetSum' _ fun t _ ↦ hζ2 t
-  have hS_succ (T : ℕ) : S (T + 1) = S T + ζ T := sum_range_succ _ _
-  have hζ_mean (T : ℕ) : P[ζ T | ℱ T] =ᵐ[P] 0 := by
-    filter_upwards [condExp_mul_of_stronglyMeasurable_left (hα T).stronglyMeasurable
-      ((hζ2 T).integrable one_le_two) ((hξ2 T).integrable one_le_two), hξ_mean T] with ω h1 h2
-    simp [ζ, h1, h2]
-  -- the increments are orthogonal, so `E[S T ^ 2] = ∑ t < T, E[ζ t ^ 2]`
-  have horth (T : ℕ) : ∫ ω, (S T * ζ T) ω ∂P = 0 := by
-    have hST : S T * ζ T = (S T * α T) * ξ T := by simp only [ζ, mul_assoc]
-    have hint : Integrable ((S T * α T) * ξ T) P := hST ▸ (hS2 T).integrable_mul (hζ2 T)
-    rw [← integral_condExp (ℱ.le T)]
-    refine integral_eq_zero_of_ae ?_
-    filter_upwards [condExp_mul_of_stronglyMeasurable_left
-      ((hSm T).mul (hα T)).stronglyMeasurable hint ((hξ2 T).integrable one_le_two),
-      hξ_mean T] with ω h1 h2
-    rw [hST, h1]
-    simp [h2]
-  have hsq (T : ℕ) : ∫ ω, S T ω ^ 2 ∂P = ∑ t ∈ range T, ∫ ω, ζ t ω ^ 2 ∂P := by
-    induction T with
-    | zero => simp [S]
-    | succ T ih =>
-      have h1 := (hS2 T).integrable_sq
-      have h2 := (hζ2 T).integrable_sq
-      have h3 := ((hS2 T).integrable_mul (hζ2 T)).const_mul 2
-      have : (fun ω ↦ S (T + 1) ω ^ 2)
-          = fun ω ↦ (S T ω ^ 2 + 2 * (S T * ζ T) ω) + ζ T ω ^ 2 := by
-        funext ω
-        rw [hS_succ]
-        simp only [Pi.add_apply, Pi.mul_apply]
-        ring
-      have h13 : Integrable (fun ω ↦ S T ω ^ 2 + 2 * (S T * ζ T) ω) P := h1.add h3
-      rw [this, integral_add h13 h2, integral_add h1 h3, integral_const_mul, horth T,
-        sum_range_succ, ih]
-      ring
-  -- hence the martingale is bounded in `L¹`
-  have hbdd (T : ℕ) : ∫⁻ ω, ‖S T ω‖ₑ ^ 2 ∂P ≤ K * (ENNReal.ofReal C * P Set.univ) := by
-    have hS_int := (hS2 T).integrable_sq
-    simp_rw [enorm_sq_eq_ofReal]
-    rw [← ofReal_integral_eq_lintegral_ofReal hS_int (ae_of_all _ fun _ ↦ sq_nonneg _), hsq T,
-      ENNReal.ofReal_sum_of_nonneg fun t _ ↦ integral_nonneg fun _ ↦ sq_nonneg _]
-    calc ∑ t ∈ range T, ENNReal.ofReal (∫ ω, ζ t ω ^ 2 ∂P)
-        = ∑ t ∈ range T, ∫⁻ ω, ‖ζ t ω‖ₑ ^ 2 ∂P := by
-          refine sum_congr rfl fun t _ ↦ ?_
-          simp_rw [enorm_sq_eq_ofReal]
-          exact ofReal_integral_eq_lintegral_ofReal (hζ2 t).integrable_sq
-            (ae_of_all _ fun _ ↦ sq_nonneg _)
-      _ ≤ ∑ t ∈ range T, K * ∫⁻ ω, ‖α t ω‖ₑ ^ 2 ∂P := sum_le_sum fun t _ ↦ hζ_lint t
-      _ = K * ∫⁻ ω, ∑ t ∈ range T, ‖α t ω‖ₑ ^ 2 ∂P := by
-          rw [← mul_sum, lintegral_finsetSum _ fun t _ ↦ (hαm t).eNorm.pow_const 2]
-      _ ≤ K * (ENNReal.ofReal C * P Set.univ) := mul_le_mul_right (hα_lint T) _
-  have hmart : Martingale S ℱ P :=
-    martingale_of_condExp_sub_eq_zero_nat (fun T ↦ (hSm T).stronglyMeasurable)
-      (fun T ↦ (hS2 T).integrable one_le_two) fun T ↦ by
-        simpa [hS_succ] using hζ_mean T
-  have hL1 : ⨆ T, eLpNorm (S T) 1 P < ∞ := by
-    refine lt_of_le_of_lt (iSup_le fun T ↦ ?_)
-      (by finiteness : P Set.univ + K * (ENNReal.ofReal C * P Set.univ) < ∞)
-    rw [eLpNorm_one_eq_lintegral_eNorm (hS2 T).aestronglyMeasurable]
-    calc ∫⁻ ω, ‖S T ω‖ₑ ∂P ≤ ∫⁻ ω, (1 + ‖S T ω‖ₑ ^ 2) ∂P := lintegral_mono fun ω ↦ by
-          rcases le_total ‖S T ω‖ₑ 1 with h | h
-          · exact h.trans le_self_add
-          · exact (le_self_pow₀ h two_ne_zero).trans le_add_self
-      _ = P Set.univ + ∫⁻ ω, ‖S T ω‖ₑ ^ 2 ∂P := by
-          rw [lintegral_add_left measurable_const, lintegral_const, one_mul]
-      _ ≤ _ := add_le_add_right (hbdd T) _
-  filter_upwards [hmart.submartingale.exists_ae_tendsto_of_bdd hL1] with ω hω
-  simpa [S, ζ, Finset.sum_apply] using hω
-
-end Noise
-
-/-! ### Weighted maximum norms -/
-
-section WeightedNorm
-
-variable {ι : Type*} [Fintype ι]
-
-/-- A coordinate of `y / v` is bounded by the weighted maximum norm `‖y / v‖`. -/
-private lemma abs_div_le_norm_div (y v : ι → ℝ) (i : ι) : |y i / v i| ≤ ‖y / v‖ := by
-  simpa [abs_div] using norm_le_pi_norm (y / v) i
-
-/-- The maximum norm is bounded by the weighted maximum norm. -/
-private lemma norm_le_norm_mul_norm_div {v : ι → ℝ} (hv : ∀ i, 0 < v i) (y : ι → ℝ) :
-    ‖y‖ ≤ ‖v‖ * ‖y / v‖ := by
-  have : y = v * (y / v) := by
-    ext i
-    simp [mul_div_cancel₀ _ (hv i).ne']
-  calc ‖y‖ = ‖v * (y / v)‖ := congrArg _ this
-    _ ≤ ‖v‖ * ‖y / v‖ := norm_mul_le _ _
-
-end WeightedNorm
 
 /-! ### The scale of the iterates -/
 
@@ -448,7 +293,8 @@ private lemma ae_exists_tendsto_sum_mul_mul [IsFiniteMeasure P] (hαm : Adapted 
     (hφx : ∀ t ω τ, τ ≤ t → |φ t ω| * ‖x τ ω‖ ≤ c) (i : ι) :
     ∀ᵐ ω ∂P, ∃ s, Tendsto (fun T ↦ ∑ t ∈ range T, α t ω i * (φ t ω * w t ω i)) atTop (𝓝 s) := by
   refine ae_exists_tendsto_sum_mul_of_condExp_eq_zero (ℱ := ℱ) (α := fun t ω ↦ α t ω i)
-    (ξ := fun t ω ↦ φ t ω * w t ω i) (K := b.toNNReal ^ 2 * A + B * c.toNNReal ^ 2)
+    (ξ := fun t ω ↦ φ t ω * w t ω i)
+    (K := (ENNReal.ofReal b ^ 2 * A + B * ENNReal.ofReal c ^ 2).toNNReal)
     (fun t ↦ (measurable_pi_apply i).comp (hαm t)) (fun t ↦ ?_) (fun t ↦ ?_) (fun t ↦ ?_)
     (hα_sq.mono fun ω hω T ↦ hω i T)
   · exact ((hφ t).mono (ℱ.mono t.le_succ) le_rfl).mul ((measurable_pi_apply i).comp (hwm t))
@@ -482,7 +328,7 @@ private lemma ae_exists_tendsto_sum_mul_mul [IsFiniteMeasure P] (hαm : Adapted 
         ≤ ‖φ t ω‖ₑ ^ 2 * (A + B * ⨆ τ ≤ t, ‖x τ ω‖ₑ ^ 2) := mul_le_mul_right h2 _
       _ = ‖φ t ω‖ₑ ^ 2 * A + B * (‖φ t ω‖ₑ ^ 2 * ⨆ τ ≤ t, ‖x τ ω‖ₑ ^ 2) := by ring
       _ ≤ ENNReal.ofReal b ^ 2 * A + B * ENNReal.ofReal c ^ 2 := by gcongr
-      _ = _ := by simp [ENNReal.ofReal]
+      _ = _ := (ENNReal.coe_toNNReal (by finiteness)).symm
 
 /-- The deterministic part of the boundedness theorem, along one trajectory: if the noise
 rescaled by the scale of the iterates has convergent weighted partial sums, the scale is
@@ -532,7 +378,7 @@ private lemma exists_scale_le {F : (ι → ℝ) → ι → ℝ} {v : ι → ℝ}
       refine (pi_norm_le_iff_of_nonneg (by positivity)).2 fun i ↦ ?_
       -- the coordinate `i`, rescaled by `v i * g`, follows the averaging recursion
       have hvg : 0 < v i * g := mul_pos (hv i) hg
-      have hcmp := abs_le_add_two_mul (α := fun τ ↦ α τ i)
+      have hcmp := abs_le_add_two_mul_of_eq_one_sub_mul_add (α := fun τ ↦ α τ i)
         (ξ := fun τ ↦ (v i * G τ)⁻¹ * w τ i) (u := fun τ ↦ x τ i / (v i * g))
         (f := fun τ ↦ F (x τ) i / (v i * g)) (s := s i) (c := 1) (t₀ := t₀) (T := t₀ + n + 1)
         (fun τ _ _ ↦ hα τ i) (fun τ hτ _ ↦ hT₀ τ (hT.trans hτ) i) ?_ ?_ ?_ (by omega) le_rfl
@@ -693,9 +539,9 @@ private lemma tendsto_of_norm_sub_div_le_mul {F : (ι → ℝ) → ι → ℝ} {
       obtain ⟨t, ht⟩ := hD.exists
       exact (norm_nonneg _).trans ht
     have hi (i : ι) : ∀ᶠ t in atTop, |(x t i - x' i) / v i| ≤ β * D + η := by
-      refine eventually_abs_le_add (α := fun t ↦ α t i) (ξ := fun t ↦ (v i)⁻¹ * w t i)
-        (f := fun t ↦ (F (x t) i - x' i) / v i) (hα · i) (hα_sum i) (hs i) (fun t ↦ ?_)
-        (hD.mono fun t ht ↦ ?_) hη
+      refine eventually_abs_le_add_of_eq_one_sub_mul_add (α := fun t ↦ α t i)
+        (ξ := fun t ↦ (v i)⁻¹ * w t i) (f := fun t ↦ (F (x t) i - x' i) / v i) (hα · i)
+        (hα_sum i) (hs i) (fun t ↦ ?_) (hD.mono fun t ht ↦ ?_) hη
       · simp only [hx t i]
         field_simp [(hv i).ne']
         ring
@@ -708,9 +554,11 @@ private lemma tendsto_of_norm_sub_div_le_mul {F : (ι → ℝ) → ι → ℝ} {
   -- iterating the rounds with the contraction factor `β₁ = (1 + β) / 2`
   obtain ⟨R, hR⟩ := hbdd
   set D₀ := (R + ‖x'‖) * ‖v⁻¹‖
-  have he0 (t : ℕ) : e t ≤ D₀ := (div_eq_mul_inv (x t - x') v ▸ norm_mul_le _ _).trans
-    (mul_le_mul_of_nonneg_right
-    ((norm_sub_le _ _).trans (add_le_add_left (hR ⟨t, rfl⟩) _)) (norm_nonneg _))
+  have he0 (t : ℕ) : e t ≤ D₀ :=
+    calc e t = ‖(x t - x') * v⁻¹‖ := by simp only [e, div_eq_mul_inv]
+      _ ≤ ‖x t - x'‖ * ‖v⁻¹‖ := norm_mul_le _ _
+      _ ≤ D₀ := mul_le_mul_of_nonneg_right
+          ((norm_sub_le _ _).trans (add_le_add_left (hR ⟨t, rfl⟩) _)) (norm_nonneg _)
   have hD₀ : 0 ≤ D₀ := (norm_nonneg _).trans (he0 0)
   set β₁ := (1 + β) / 2
   have hβ₁ : β₁ < 1 := by simp only [β₁]; linarith
@@ -773,17 +621,11 @@ theorem ae_tendsto_of_norm_sub_div_le_mul [IsFiniteMeasure P]
   -- the iterates are bounded
   have hbdd := ae_bddAbove_range_norm_of_norm_div_le_mul_add (D := (1 + β') * ‖x' / v‖) hx hxm
     hαm hα hα_sq hwm hw_int hw_mean hw_var hv (max_lt hβ one_pos) fun y ↦ by
-      have h1 : F y / v = (F y - x') / v + x' / v := by
+      have hsub (z : ι → ℝ) : (z - x') / v = z / v - x' / v := by
         ext i
         simp [sub_div]
-      have h2 : (y - x') / v = y / v - x' / v := by
-        ext i
-        simp [sub_div]
-      rw [h1]
-      refine (norm_add_le _ _).trans ?_
-      have := hF' y
-      rw [h2] at this
-      nlinarith [norm_sub_le (y / v) (x' / v), le_max_right β 0]
+      refine norm_le_mul_norm_add_mul_norm_of_norm_sub_le_mul (le_max_right β 0) ?_
+      simpa only [hsub] using hF' y
   -- the noise, truncated where the iterates leave the ball of radius `m`, converges
   have htrunc (m : ℕ) (i : ι) : ∀ᵐ ω ∂P, ∃ s, Tendsto (fun T ↦ ∑ t ∈ range T, α t ω i *
       ((if ∀ τ ≤ t, ‖x τ ω‖ ≤ m then (v i)⁻¹ else 0) * w t ω i)) atTop (𝓝 s) := by
