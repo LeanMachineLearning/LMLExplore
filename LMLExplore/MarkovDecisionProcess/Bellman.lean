@@ -13,6 +13,8 @@ public import LMLExplore.MeasureTheory.Integral.BoundedMeasurable
 public import LMLExplore.Order.ConditionallyCompleteLattice.Group
 public import Mathlib.Probability.Kernel.Integral
 public import Mathlib.Topology.MetricSpace.Contracting
+import Mathlib.MeasureTheory.Function.FactorsThrough
+import Mathlib.MeasureTheory.Integral.Prod
 
 /-!
 # Bellman operators of a discounted Markov decision process
@@ -94,6 +96,10 @@ actions give both, and so do bounded rewards and a bounded measurable value func
   `Learning.MDP.isBlackwell_bellmanEval`, `Learning.MDP.contractingWith_bellmanEval`: on a finite
   state space, the operators satisfy Blackwell's conditions and are `γ`-contractions of `𝓢 → ℝ`
   with the sup norm.
+* `Learning.MDP.condExp_feedback_add_mul_obs_add_one`: along a run in the environment of `M`,
+  the lookahead `M.lookahead γ V (O n, A n)` is the conditional expectation of the one-step target
+  `Y n + γ * V (O (n + 1))` given the history up to the action of round `n`, for a finite state
+  space and a value function `V` known at that action.
 
 ## References
 
@@ -563,5 +569,61 @@ theorem contractingWith_bellmanEval [Fintype 𝓢] [IsMarkovKernel π]
   ⟨hγ, lipschitzWith_bellmanEval hR⟩
 
 end Finite
+
+/-! ### The lookahead along runs -/
+
+section Runs
+
+variable {Ω : Type*} {mΩ : MeasurableSpace Ω} {P : Measure Ω} [IsFiniteMeasure P] [Nonempty 𝓢]
+  {O : ℕ → Ω → 𝓢} {A : ℕ → Ω → 𝓐} {Y : ℕ → Ω → ℝ} {alg : Algorithm 𝓢 𝓐 ℝ} {μ : Measure 𝓢}
+
+/-- **The lookahead is the conditional mean of the one-step target.** Along a run in the
+environment of an MDP with bounded rewards and a finite state space, let `V ω` be a value function
+known at the action of round `n`, that is measurable for the history before round `n`, the state
+and the action of round `n`. Given that history, the target `Y n + γ * V (O (n + 1))` has
+conditional expectation `M.lookahead γ V (O n, A n) = r (O n, A n) + γ * ∫ V dP (O n, A n)`. -/
+theorem condExp_feedback_add_mul_obs_add_one [Finite 𝓢] [MeasurableSingletonClass 𝓢]
+    (h : IsAlgEnvSeq O A Y alg (M.env μ) P) (hR : ∀ p, ∀ᵐ x ∂(M.R p), |x| ≤ C) (n : ℕ)
+    {V : Ω → 𝓢 → ℝ} (hV : Measurable[h.filtrationAction n] V)
+    (hV_int : Integrable (fun ω ↦ V ω (O (n + 1) ω)) P) :
+    P[fun ω ↦ Y n ω + γ * V ω (O (n + 1) ω) | h.filtrationAction n] =ᵐ[P]
+      fun ω ↦ M.lookahead γ (V ω) (O n ω, A n ω) := by
+  have hX : Measurable fun ω ↦ ((history O A Y n ω, O n ω), A n ω) :=
+    ((h.measurable_history n).prodMk (h.measurable_obs n)).prodMk (h.measurable_action n)
+  -- `V` is a function of the history before round `n`, the state and the action of round `n`
+  rw [h.filtrationAction_eq_comap] at hV ⊢
+  obtain ⟨v, hv, rfl⟩ := hV.exists_eq_measurable_comp
+  have hv' : Measurable fun z : ((Hist 𝓢 𝓐 ℝ n × 𝓢) × 𝓐) × 𝓢 ↦ v z.1 z.2 :=
+    measurable_from_prod_countable_left fun s ↦ (measurable_pi_apply s).comp hv
+  set g : ((Hist 𝓢 𝓐 ℝ n × 𝓢) × 𝓐) × (ℝ × 𝓢) → ℝ := fun z ↦ z.2.1 + γ * v z.1 z.2.2
+  have hg : Measurable g :=
+    measurable_snd.fst.add
+      (measurable_const.mul (hv'.comp (measurable_fst.prodMk measurable_snd.snd)))
+  -- the reward and the next state have conditional law `M.R (s, a) ⊗ M.P (s, a)`
+  have hcd := hasCondDistrib_feedback_obs_add_one h n
+  have hY_int : Integrable (Y n) P :=
+    .of_bound (h.measurable_feedback n).aestronglyMeasurable C (by
+      simpa [Real.norm_eq_abs] using ae_abs_feedback_le h hR n)
+  have hint : Integrable g (P.map (fun ω ↦ ((history O A Y n ω, O n ω), A n ω)) ⊗ₘ
+      ((M.R ×ₖ M.P).comap (fun p ↦ (p.1.2, p.2)) (by fun_prop))) :=
+    (hcd.integrable_comp_prodMk_iff hg.aestronglyMeasurable).1 (hY_int.add (hV_int.const_mul _))
+  filter_upwards [hcd.condExp_prod_ae_eq_integral hX hint] with ω hω
+  refine hω.trans ?_
+  -- the conditional mean is the integral against the product law
+  set p := (O n ω, A n ω)
+  have hR_int : Integrable (fun z : ℝ × 𝓢 ↦ z.1) ((M.R p).prod (M.P p)) :=
+    Integrable.comp_fst (Integrable.of_bound aestronglyMeasurable_id C
+      (by simpa [Real.norm_eq_abs] using hR p)) _
+  have hP_int : Integrable (fun z : ℝ × 𝓢 ↦ (γ : ℝ) * v ((history O A Y n ω, O n ω), A n ω) z.2)
+      ((M.R p).prod (M.P p)) :=
+    Integrable.comp_snd (f := fun s ↦ (γ : ℝ) * v ((history O A Y n ω, O n ω), A n ω) s)
+      .of_finite _
+  simp only [g, Kernel.comap_apply, Kernel.prod_apply, Function.comp_apply]
+  rw [integral_add hR_int hP_int, integral_fun_fst (fun y : ℝ ↦ y),
+    integral_fun_snd (fun s ↦ (γ : ℝ) * v ((history O A Y n ω, O n ω), A n ω) s), lookahead_def,
+    meanReward_def, integral_const_mul]
+  simp
+
+end Runs
 
 end Learning.MDP

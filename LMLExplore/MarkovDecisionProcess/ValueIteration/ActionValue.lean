@@ -59,7 +59,8 @@ which the convergence of Q-learning rests [Tsi94].
   operators satisfy Blackwell's conditions and are `γ`-contractions of
   `boundedMeasurable (𝓢 × 𝓐)`.
 * `Learning.MDP.abs_lookahead_iSup_sub_le`: the contraction of the optimality operator, stated
-  pointwise for bounded measurable action values.
+  pointwise for bounded measurable action values; `Learning.MDP.lipschitzWith_lookahead_iSup`: on
+  finite state and action spaces, it is `γ`-Lipschitz for the sup norm of `𝓢 × 𝓐 → ℝ`.
 * `Learning.MDP.isFixedPt_qBellman_iff`: `Q*` is the unique fixed point of the optimality
   operator.
 * `Learning.MDP.isFixedPt_qBellmanEval_iff`, `Learning.MDP.ringInverse_apply_meanRewardBM`: `Q^π`
@@ -217,6 +218,20 @@ theorem abs_lookahead_iSup_sub_le (hR : ∀ p, ∀ᵐ x ∂(M.R p), |x| ≤ C) {
       γ * D :=
   boundedMeasurable.abs_sub_apply_le_of_isBlackwell_of_coeFn_eq (isBlackwell_qBellman hR)
     (t := fun Q ↦ M.lookahead γ fun s ↦ ⨆ a, Q (s, a)) (coeFn_qBellman hR) hQ hQB hQ' hQ'B hD p
+
+/-- With bounded rewards and finite state and action spaces, the optimality operator on action
+values, `Q ↦ r + γ P (s' ↦ ⨆ a', Q (s', a'))`, is `γ`-Lipschitz for the sup norm of
+`𝓢 × 𝓐 → ℝ`. -/
+theorem lipschitzWith_lookahead_iSup [Fintype 𝓢] [MeasurableSingletonClass 𝓢] [Fintype 𝓐]
+    [MeasurableSingletonClass 𝓐] (hR : ∀ p, ∀ᵐ x ∂(M.R p), |x| ≤ C) :
+    LipschitzWith γ fun Q : 𝓢 × 𝓐 → ℝ ↦ M.lookahead γ fun s ↦ ⨆ a, Q (s, a) :=
+  LipschitzWith.of_dist_le_mul fun Q Q' ↦ (dist_pi_le_iff (by positivity)).2 fun p ↦ by
+    rw [Real.dist_eq]
+    refine abs_lookahead_iSup_sub_le hR (B := ‖Q‖) (B' := ‖Q'‖) (measurable_of_countable Q)
+      (fun p ↦ ?_) (measurable_of_countable Q') (fun p ↦ ?_) (fun p ↦ ?_) p
+    · simpa [Real.norm_eq_abs] using norm_le_pi_norm Q p
+    · simpa [Real.norm_eq_abs] using norm_le_pi_norm Q' p
+    · simpa [Real.dist_eq] using dist_le_pi_dist Q Q' p
 
 /-! ### The optimal action value is the fixed point -/
 
