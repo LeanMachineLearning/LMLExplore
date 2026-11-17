@@ -28,8 +28,8 @@ quotient, whose fixed point is fixed by `T`: there are `g : ℝ` and `h : E` wit
 `T h = h + g • e` (`LMLExplore.IsTopical.exists_map_eq_add_smul`). This is the *average-reward
 optimality equation* when `T` is the undiscounted Bellman operator of an MDP: `g` is the optimal
 gain and `h` a bias (relative value) [P, §8.5]. The pair is unique up to adding a multiple
-of `e` to `h` (`LMLExplore.IsTopical.eq_add_smul_of_map_eq_add_smul`,
-`LMLExplore.IsTopical.eq_of_map_eq_add_smul`).
+of `e` to `h` (`LMLExplore.IsTopical.exists_eq_add_smul_of_map_eq_add_smul`); the gain is unique
+even without the contraction (`LMLExplore.IsTopical.eq_of_map_eq_add_smul`).
 
 *Relative value iteration* [P, §8.5] computes such a pair. Fix a normalisation `N : E → ℝ` that
 is monotone with `N (x + c • e) = N x + c`, such as the evaluation at a reference state `s₀`, and
@@ -40,8 +40,8 @@ for every `n`
 * `‖x (n + 1) - h‖ ≤ α ^ ((n + 1) / J) * osc (x₀ - h)`, and
 * `‖T (x n) - x n - g • e‖ ≤ α ^ (n / J) * osc (x₀ - h)`.
 
-So the iterates converge geometrically to the bias normalised by `N`, and `T (x n) - x n` to the
-gain.
+So, for `α < 1`, the iterates converge geometrically to the bias normalised by `N`, and
+`T (x n) - x n` to the gain.
 
 ## Main definitions
 
@@ -57,10 +57,11 @@ gain.
 * `LMLExplore.IsTopical.orderUnitOsc_iterate_sub_le`: then
   `osc (T^[n] x - T^[n] y) ≤ α ^ (n / J) * osc (x - y)`.
 * `LMLExplore.IsTopical.exists_map_eq_add_smul`: existence of `g` and `h` with `T h = h + g • e`,
-  and `LMLExplore.IsTopical.eq_add_smul_of_map_eq_add_smul` their uniqueness.
+  and `LMLExplore.IsTopical.exists_eq_add_smul_of_map_eq_add_smul`,
+  `LMLExplore.IsTopical.eq_of_map_eq_add_smul` their uniqueness.
 * `LMLExplore.norm_relativeValueIteration_succ_sub_le` and
-  `LMLExplore.norm_map_relativeValueIteration_sub_sub_le`: the convergence of relative value
-  iteration to `h` and of its increments to `g`.
+  `LMLExplore.norm_map_relativeValueIteration_sub_sub_le`: geometric error bounds for relative
+  value iteration towards `h` and for its increments towards `g • e`.
 
 ## References
 
@@ -81,16 +82,6 @@ section Order
 
 variable [AddCommGroup E] [PartialOrder E] [Module ℝ E] {e : E} {T : E → E}
 
-/-- If `T h = h + g • e`, then the iterates of a topical map `T` are `T^[n] h = h + (n * g) • e`. -/
-theorem IsTopical.iterate_eq_add_smul (hT : IsTopical e T) {h : E} {g : ℝ}
-    (hh : T h = h + g • e) (n : ℕ) : T^[n] h = h + ((n : ℝ) * g) • e := by
-  induction n with
-  | zero => simp
-  | succ n ih =>
-    rw [iterate_succ_apply', ih, hT.map_add_smul, hh, add_assoc, ← add_smul]
-    push_cast
-    ring_nf
-
 namespace IsTopical
 
 /-- A topical map `T` descends to the quotient `E ⧸ ℝ ∙ e` by the multiples of `e`:
@@ -107,6 +98,7 @@ lemma quotientMap_mk (hT : IsTopical e T) (x : E) :
     hT.quotientMap (Submodule.Quotient.mk x) = Submodule.Quotient.mk (T x) :=
   (rfl)
 
+@[simp]
 lemma quotientMap_iterate_mk (hT : IsTopical e T) (n : ℕ) (x : E) :
     hT.quotientMap^[n] (Submodule.Quotient.mk x) = Submodule.Quotient.mk (T^[n] x) := by
   induction n with
@@ -115,45 +107,7 @@ lemma quotientMap_iterate_mk (hT : IsTopical e T) (n : ℕ) (x : E) :
 
 end IsTopical
 
-variable [IsOrderedAddMonoid E]
-
-/-- A topical map changes a difference by at most its oscillation:
-`‖(T x - T y) - (x - y)‖_e ≤ osc_e (x - y)`. -/
-theorem IsTopical.orderUnitNorm_sub_sub_le (hT : IsTopical e T) (he : IsOrderUnit e) (x y : E) :
-    orderUnitNorm e (T x - T y - (x - y)) ≤ orderUnitOsc e (x - y) := by
-  refine le_orderUnitOsc he fun d hd a h ↦ orderUnitNorm_le hd ⟨?_, ?_⟩
-  -- Both `T x - T y` and `x - y` lie in `[a • e, (a + d) • e]`.
-  · rw [neg_le_sub_iff_le_add, ← sub_le_iff_le_add]
-    calc x - y - d • e ≤ (a + d) • e - d • e := sub_le_sub_right h.2 _
-      _ = a • e := by rw [add_smul, add_sub_cancel_right]
-      _ ≤ T x - T y := (hT.sub_mem_Icc_smul h).1
-  · rw [sub_le_iff_le_add]
-    calc T x - T y ≤ (a + d) • e := (hT.sub_mem_Icc_smul h).2
-      _ = d • e + a • e := by rw [add_smul, add_comm]
-      _ ≤ d • e + (x - y) := add_le_add_right h.1 _
-
-/-- If a monotone normalisation `N` with `N (x + c • e) = N x + c` takes the same value at `x` and
-`y`, then the order-unit norm of `x - y` is at most its oscillation. -/
-theorem orderUnitNorm_sub_le_orderUnitOsc_of_eq [PosSMulMono ℝ E] {N : E → ℝ} (hN : Monotone N)
-    (hN_add : ∀ x (c : ℝ), N (x + c • e) = N x + c) (he : IsOrderUnit e) {x y : E}
-    (hxy : N x = N y) : orderUnitNorm e (x - y) ≤ orderUnitOsc e (x - y) := by
-  have hmono {b c : ℝ} (hbc : b ≤ c) : b • e ≤ c • e :=
-    sub_nonneg.1 (by rw [← sub_smul]; exact smul_nonneg (sub_nonneg.2 hbc) he.nonneg)
-  refine le_orderUnitOsc he fun d hd a h ↦ orderUnitNorm_le hd ?_
-  -- Applying `N` to `y + a • e ≤ x ≤ y + (a + d) • e` gives `a ≤ 0 ≤ a + d`.
-  have ha : a ≤ 0 := by
-    have := hN (le_sub_iff_add_le'.1 h.1)
-    rw [hN_add, hxy] at this
-    linarith
-  have had : 0 ≤ a + d := by
-    have := hN (sub_le_iff_le_add'.1 h.2)
-    rw [hN_add, hxy] at this
-    linarith
-  refine ⟨h.1.trans' ?_, h.2.trans (hmono (by linarith))⟩
-  rw [← neg_smul]
-  exact hmono (by linarith)
-
-variable {α : NNReal} {J : ℕ}
+variable [IsOrderedAddMonoid E] {α : NNReal} {J : ℕ}
 
 /-- If `T` is topical and its iterate `T^[J]` contracts the oscillation at rate `α`, then
 `osc (T^[n] x - T^[n] y) ≤ α ^ (n / J) * osc (x - y)` for every `n`. -/
@@ -275,7 +229,7 @@ theorem exists_map_eq_add_smul [CompleteSpace E] (hnorm : ∀ x, orderUnitNorm e
 /-- **Uniqueness of the bias up to constants**: under the contraction hypothesis of
 `exists_map_eq_add_smul`, if `T h = h + g • e` and `T h' = h' + g' • e`, then `h'` differs from
 `h` by a multiple of `e`. -/
-theorem eq_add_smul_of_map_eq_add_smul (hnorm : ∀ x, orderUnitNorm e x = ‖x‖)
+theorem exists_eq_add_smul_of_map_eq_add_smul (hnorm : ∀ x, orderUnitNorm e x = ‖x‖)
     (hT : IsTopical e T) (hα : α < 1)
     (hJ : ∀ x y, orderUnitOsc e (T^[J] x - T^[J] y) ≤ α * orderUnitOsc e (x - y)) {g g' : ℝ}
     {h h' : E} (hh : T h = h + g • e) (hh' : T h' = h' + g' • e) : ∃ c : ℝ, h' = h + c • e := by
@@ -291,23 +245,34 @@ theorem eq_add_smul_of_map_eq_add_smul (hnorm : ∀ x, orderUnitNorm e x = ‖x�
   obtain ⟨c, hc⟩ := mem_span_singleton.1 ((Submodule.Quotient.eq _).1 this)
   exact ⟨c, eq_add_of_sub_eq' hc.symm⟩
 
-/-- **Uniqueness of the gain**: under the contraction hypothesis of `exists_map_eq_add_smul`, in a
-nontrivial space, if `T h = h + g • e` and `T h' = h' + g' • e`, then `g' = g`. -/
+/-- **Uniqueness of the gain**: in a nontrivial ordered normed space whose norm is the order-unit
+norm of `e`, if a topical map satisfies `T h = h + g • e` and `T h' = h' + g' • e`, then `g' = g`.
+No contraction is needed: `T^[n] h - T^[n] h' = h - h' + (n * (g - g')) • e` stays bounded. -/
 theorem eq_of_map_eq_add_smul [Nontrivial E] (hnorm : ∀ x, orderUnitNorm e x = ‖x‖)
-    (hT : IsTopical e T) (hα : α < 1)
-    (hJ : ∀ x y, orderUnitOsc e (T^[J] x - T^[J] y) ≤ α * orderUnitOsc e (x - y)) {g g' : ℝ}
-    {h h' : E} (hh : T h = h + g • e) (hh' : T h' = h' + g' • e) : g' = g := by
+    (hT : IsTopical e T) {g g' : ℝ} {h h' : E} (hh : T h = h + g • e)
+    (hh' : T h' = h' + g' • e) : g' = g := by
+  have he := isOrderUnit_of_forall_orderUnitNorm_eq_norm hnorm
   -- The order unit is nonzero, since every element lies in `[-c • e, c • e]`.
-  have he : e ≠ 0 := by
+  have he0 : e ≠ 0 := by
     rintro rfl
     obtain ⟨x, hx⟩ := exists_ne (0 : E)
-    obtain ⟨c, -, hx₁, hx₂⟩ :=
-      isOrderUnit_def.1 (isOrderUnit_of_forall_orderUnitNorm_eq_norm hnorm) x
+    obtain ⟨c, -, hx₁, hx₂⟩ := isOrderUnit_def.1 he x
     exact hx (le_antisymm (by simpa using hx₂) (by simpa using hx₁))
-  obtain ⟨c, rfl⟩ := hT.eq_add_smul_of_map_eq_add_smul hnorm hα hJ hh hh'
-  rw [hT.map_add_smul, hh, add_right_comm, add_assoc, add_assoc, ← add_smul, ← add_smul,
-    add_right_inj] at hh'
-  have := smul_left_injective ℝ he hh'
+  by_contra hne
+  have hpos : 0 < |g - g'| * ‖e‖ :=
+    mul_pos (abs_pos.2 (sub_ne_zero.2 (Ne.symm hne))) (norm_pos_iff.2 he0)
+  obtain ⟨n, hn⟩ := exists_nat_gt (2 * ‖h - h'‖ / (|g - g'| * ‖e‖))
+  rw [div_lt_iff₀ hpos] at hn
+  -- `T^[n]` is nonexpansive, so `‖(n * (g - g')) • e‖ ≤ 2 * ‖h - h'‖`.
+  have key := (hT.iterate n).orderUnitNorm_sub_le he h h'
+  rw [hT.iterate_eq_add_smul hh n, hT.iterate_eq_add_smul hh' n, hnorm, hnorm] at key
+  have hle : ‖((n : ℝ) * (g - g')) • e‖ ≤ 2 * ‖h - h'‖ :=
+    calc ‖((n : ℝ) * (g - g')) • e‖
+        = ‖(h + ((n : ℝ) * g) • e - (h' + ((n : ℝ) * g') • e)) - (h - h')‖ := by
+          congr 1; module
+      _ ≤ _ := norm_sub_le _ _
+      _ ≤ 2 * ‖h - h'‖ := by linarith
+  rw [norm_smul, Real.norm_eq_abs, abs_mul, Nat.abs_cast, mul_assoc] at hle
   linarith
 
 end IsTopical
@@ -340,11 +305,16 @@ lemma relativeValueIteration_succ (n : ℕ) :
       T (relativeValueIteration e T N x₀ n) - N (T (relativeValueIteration e T N x₀ n)) • e := by
   rw [relativeValueIteration]
 
+/-- A normalisation with `N (x + c • e) = N x + c` satisfies `N (x - c • e) = N x - c`. -/
+private lemma apply_sub_smul (hN_add : ∀ x (c : ℝ), N (x + c • e) = N x + c) (x : E) (c : ℝ) :
+    N (x - c • e) = N x - c := by
+  rw [sub_eq_add_neg, ← neg_smul, hN_add, ← sub_eq_add_neg]
+
 /-- The iterates of relative value iteration are normalised: `N (x (n + 1)) = 0`, when
 `N (x + c • e) = N x + c`. -/
 lemma apply_relativeValueIteration_succ_eq_zero (hN_add : ∀ x (c : ℝ), N (x + c • e) = N x + c)
     (n : ℕ) : N (relativeValueIteration e T N x₀ (n + 1)) = 0 := by
-  rw [relativeValueIteration_succ, sub_eq_add_neg, ← neg_smul, hN_add, add_neg_cancel]
+  rw [relativeValueIteration_succ, apply_sub_smul hN_add, sub_self]
 
 variable [PartialOrder E]
 
@@ -356,10 +326,9 @@ theorem relativeValueIteration_succ_eq_iterate (hT : IsTopical e T)
   induction n with
   | zero => rw [relativeValueIteration_succ, relativeValueIteration_zero, iterate_one]
   | succ n ih =>
-    rw [relativeValueIteration_succ, ih, hT.map_sub_smul, sub_eq_add_neg (T _), ← neg_smul,
-      hN_add, iterate_succ_apply' T (n + 1), neg_smul, ← sub_eq_add_neg, sub_sub, ← add_smul]
-    congr 2
-    ring
+    rw [relativeValueIteration_succ, ih, hT.map_sub_smul, ← iterate_succ_apply' T (n + 1),
+      apply_sub_smul hN_add]
+    module
 
 /-- For a topical map, the iterates of relative value iteration differ from those of value
 iteration by multiples of `e`. -/
@@ -372,10 +341,7 @@ theorem exists_relativeValueIteration_eq_iterate_add_smul (hT : IsTopical e T)
     exact ⟨-N (T^[n + 1] x₀), by
       rw [relativeValueIteration_succ_eq_iterate hT hN_add, neg_smul, sub_eq_add_neg]⟩
 
-end Defs
-
-variable [NormedAddCommGroup E] [PartialOrder E] [IsOrderedAddMonoid E] [NormedSpace ℝ E]
-  {e : E} {T : E → E} {N : E → ℝ} {x₀ h : E} {g : ℝ} {α : NNReal} {J : ℕ}
+variable [IsOrderedAddMonoid E] {h : E} {g : ℝ} {α : NNReal} {J : ℕ}
 
 /-- If `T^[J]` contracts the oscillation at rate `α` and `T h = h + g • e`, the iterates of relative
 value iteration satisfy `osc (x n - h) ≤ α ^ (n / J) * osc (x₀ - h)`. -/
@@ -394,11 +360,16 @@ theorem orderUnitOsc_relativeValueIteration_sub_le (hT : IsTopical e T) (he : Is
   rw [hsub, orderUnitOsc_add_smul]
   exact hT.orderUnitOsc_iterate_sub_le he hJ n x₀ h
 
-/-- **Convergence of relative value iteration** [P, §8.5]: let `T` be a topical map whose
+end Defs
+
+variable [NormedAddCommGroup E] [PartialOrder E] [IsOrderedAddMonoid E] [NormedSpace ℝ E]
+  {e : E} {T : E → E} {N : E → ℝ} {x₀ h : E} {g : ℝ} {α : NNReal} {J : ℕ}
+
+/-- **Geometric error bound for relative value iteration** [P, §8.5]: let `T` be a topical map whose
 iterate `T^[J]` contracts the oscillation at rate `α`, in an ordered normed space whose norm is the
 order-unit norm of `e`. Let `N` be a monotone normalisation with `N (x + c • e) = N x + c`, and let
 `T h = h + g • e` with `N h = 0`. Then the iterates of relative value iteration satisfy
-`‖x (n + 1) - h‖ ≤ α ^ ((n + 1) / J) * osc (x₀ - h)`. -/
+`‖x (n + 1) - h‖ ≤ α ^ ((n + 1) / J) * osc (x₀ - h)`, so for `α < 1` they converge to `h`. -/
 theorem norm_relativeValueIteration_succ_sub_le [PosSMulMono ℝ E]
     (hnorm : ∀ x, orderUnitNorm e x = ‖x‖) (hT : IsTopical e T) (hN : Monotone N)
     (hN_add : ∀ x (c : ℝ), N (x + c • e) = N x + c)
@@ -412,10 +383,10 @@ theorem norm_relativeValueIteration_succ_sub_le [PosSMulMono ℝ E]
     (orderUnitOsc_relativeValueIteration_sub_le hT he hN_add hJ hh (n + 1))
   rw [apply_relativeValueIteration_succ_eq_zero hN_add, hNh]
 
-/-- **Convergence of the increments of relative value iteration** [P, §8.5]: under the
+/-- **Geometric error bound for the increments of relative value iteration** [P, §8.5]: under the
 hypotheses of `norm_relativeValueIteration_succ_sub_le`, without monotonicity of `N` or `N h = 0`,
-`‖T (x n) - x n - g • e‖ ≤ α ^ (n / J) * osc (x₀ - h)` for every `n`. So `T (x n) - x n` converges
-to the gain `g • e`. -/
+`‖T (x n) - x n - g • e‖ ≤ α ^ (n / J) * osc (x₀ - h)` for every `n`. So, for `α < 1`,
+`T (x n) - x n` converges to `g • e`. -/
 theorem norm_map_relativeValueIteration_sub_sub_le (hnorm : ∀ x, orderUnitNorm e x = ‖x‖)
     (hT : IsTopical e T) (hN_add : ∀ x (c : ℝ), N (x + c • e) = N x + c)
     (hJ : ∀ x y, orderUnitOsc e (T^[J] x - T^[J] y) ≤ α * orderUnitOsc e (x - y))
