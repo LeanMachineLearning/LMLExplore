@@ -75,7 +75,8 @@ In the namespace `LMLExplore.Identification.IdentTask`:
   `IdentTask.limsup_errorComplexity_le_inv_of_limsup_le_neg` its one-sided forms for the
   `liminf` and the `limsup`.
 * `IdentTask.oracleDifficulty_anti`, `IdentTask.maxRatio_anti`: the oracle difficulty is antitone
-  in the class, and the maximal difficulty ratio in the difficulty function.
+  in the class, and the maximal difficulty ratio in the difficulty function;
+  `IdentTask.maxRatio_le_of_le` compares the difficulties at the admissible models only.
 * `IdentTask.admitsComplexity_iff_exists_maxRatio_le_one`: a class whose oracle difficulty is
   positive admits a complexity if and only if one of its families has maximal difficulty ratio at
   most `1` against it [D23, Section 1].
@@ -335,15 +336,27 @@ lemma difficultyRatio_anti (𝒜 : ℕ → IdentAlg Unit α 𝓨 ℐ) (θ : Θ) 
     Antitone fun H ↦ task.difficultyRatio H 𝒜 θ T :=
   fun _ _ h ↦ ENNReal.div_le_div_left (h θ) _
 
+/-- The asymptotic difficulty ratio at `θ` is antitone in the difficulty at `θ`: if
+`H θ ≤ H' θ`, then `R_{H',∞}(𝒜, θ) ≤ R_{H,∞}(𝒜, θ)`. -/
+lemma asymptoticRatio_le_of_le (𝒜 : ℕ → IdentAlg Unit α 𝓨 ℐ) {H' : Θ → ℝ≥0∞}
+    (h : H θ ≤ H' θ) : task.asymptoticRatio H' 𝒜 θ ≤ task.asymptoticRatio H 𝒜 θ :=
+  limsup_le_limsup (.of_forall fun _ ↦ ENNReal.div_le_div_left h _)
+
 /-- The asymptotic difficulty ratio is antitone in the difficulty function. -/
 lemma asymptoticRatio_anti (𝒜 : ℕ → IdentAlg Unit α 𝓨 ℐ) (θ : Θ) :
     Antitone fun H ↦ task.asymptoticRatio H 𝒜 θ :=
-  fun _ _ h ↦ limsup_le_limsup (.of_forall fun T ↦ task.difficultyRatio_anti 𝒜 θ T h)
+  fun _ _ h ↦ task.asymptoticRatio_le_of_le 𝒜 (h θ)
+
+/-- The maximal difficulty ratio is antitone in the difficulty at the admissible models: if
+`H θ ≤ H' θ` for every `θ ∈ M`, then `sup_{θ ∈ M} R_{H',∞}(𝒜, θ) ≤ sup_{θ ∈ M} R_{H,∞}(𝒜, θ)`. -/
+lemma maxRatio_le_of_le (𝒜 : ℕ → IdentAlg Unit α 𝓨 ℐ) {H' : Θ → ℝ≥0∞}
+    (h : ∀ θ ∈ task.M, H θ ≤ H' θ) : task.maxRatio H' 𝒜 ≤ task.maxRatio H 𝒜 :=
+  iSup₂_mono fun θ hθ ↦ task.asymptoticRatio_le_of_le 𝒜 (h θ hθ)
 
 /-- The maximal difficulty ratio is antitone in the difficulty function: against the oracle
 difficulty of a larger class, it is larger (`oracleDifficulty_anti`). -/
 lemma maxRatio_anti (𝒜 : ℕ → IdentAlg Unit α 𝓨 ℐ) : Antitone fun H ↦ task.maxRatio H 𝒜 :=
-  fun _ _ h ↦ iSup₂_mono fun θ _ ↦ task.asymptoticRatio_anti 𝒜 θ h
+  fun _ _ h ↦ task.maxRatio_le_of_le 𝒜 fun θ _ ↦ h θ
 
 end Definitions
 
