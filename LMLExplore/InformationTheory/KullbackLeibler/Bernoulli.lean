@@ -75,6 +75,10 @@ smallest `q ∈ [0, p]` with `d(p, q) ≤ c`; together they are the confidence b
   `m` zeros among the Bernoulli laws is `(k / n) ^ k (m / n) ^ m`, and
   `LMLExplore.mul_klBerReal_div_eq_log`: `n d(k / n, p)` is the log-likelihood ratio of the
   maximum likelihood against the Bernoulli law of mean `p`.
+* `LMLExplore.exp_mul_klBerReal_div_one_div_two`,
+  `LMLExplore.one_add_pow_mul_one_sub_pow_le_exp_mul_klBerReal`: for `n = k + m`,
+  `exp (n d(k / n, 1 / 2)) = 2 ^ n (k / n) ^ k (m / n) ^ m`, and it bounds the gain
+  `(1 + β) ^ k (1 - β) ^ m` of every fraction `β ∈ [-1, 1]` in the coin-betting game.
 * `LMLExplore.continuousOn_klBer`: `d` is continuous on `[0, 1] × (0, 1)`.
 * `LMLExplore.tendsto_klBer_nhdsGT`: for `p ∈ [0, 1]`, `q ↦ d(p, q)` is right-continuous on
   `[p, 1)`.
@@ -96,6 +100,9 @@ smallest `q ∈ [0, p]` with `d(p, q) ≤ c`; together they are the confidence b
 * `LMLExplore.klBerReal_one_sub_right`, `LMLExplore.klBer_one_sub_right`:
   `d(p, 1 - p) = (1 - 2p) log ((1 - p) / p)` for `p ∈ (0, 1)`;
   `LMLExplore.klBer_one_sub_right_eq_top`: `d(p, 1 - p) = ∞` otherwise.
+* `LMLExplore.mul_klBerReal_div_one_div_two`: `n d(k / n, 1 / 2) = k log (2 k / n) +
+  (n - k) log (2 (n - k) / n)`, the exponent of the probability of a word with `k` heads among `n`
+  fair coin tosses against its maximum likelihood.
 * `LMLExplore.log_one_div_le_klBerReal`, `LMLExplore.ofReal_log_one_div_le_klBer`: the bound
   `log (1 / (2.4 p)) ≤ d(p, 1 - p)`, which turns the lower bounds of fixed-confidence
   identification stated with `d(δ, 1 - δ)` into bounds in `log (1 / δ)`.
@@ -486,6 +493,34 @@ theorem pow_mul_one_sub_pow_le_div_pow_mul_div_pow {k m n : ℕ} (hkm : k + m = 
     rw [← mul_klBerReal_div_eq_log hkm hn ⟨hu0, hu1⟩]
     exact mul_nonneg hn'.le (klBerReal_nonneg_of_klBer_ne_top hkn hu (klBer_ne_top ⟨hu0, hu1⟩))
   rwa [log_nonneg_iff (div_pos hR hq), one_le_div hq] at hlog
+
+/-- The maximum likelihood of a sample of `n = k + m` observations with `k` ones and `m` zeros
+against its probability `1 / 2 ^ n` under a fair coin:
+`exp (n d(k / n, 1 / 2)) = 2 ^ n (k / n) ^ k (m / n) ^ m`. -/
+theorem exp_mul_klBerReal_div_one_div_two {k m n : ℕ} (hkm : k + m = n) :
+    exp (n * klBerReal (k / n) (1 / 2)) = 2 ^ n * (((k : ℝ) / n) ^ k * ((m : ℝ) / n) ^ m) := by
+  rcases Nat.eq_zero_or_pos n with rfl | hn
+  · obtain ⟨rfl, rfl⟩ : k = 0 ∧ m = 0 := by omega
+    simp
+  rw [mul_klBerReal_div_eq_log hkm hn ⟨by norm_num, by norm_num⟩,
+    exp_log (div_pos (div_pow_mul_div_pow_pos k m hn) (by positivity)),
+    show (1 : ℝ) - 1 / 2 = 1 / 2 by norm_num, ← pow_add, hkm, one_div, inv_pow, div_inv_eq_mul,
+    mul_comm]
+
+/-- **The gain of a constant fraction**: `(1 + β) ^ k (1 - β) ^ m ≤ exp (n d(k / n, 1 / 2))` for
+`β ∈ [-1, 1]` and `n = k + m`. It is the wealth factor of betting the fraction `β` of the wealth on
+`k` winning and `m` losing rounds of a coin-betting game at even odds; by
+`exp_mul_klBerReal_div_one_div_two`, equality holds at `β = (k - m) / n`. -/
+theorem one_add_pow_mul_one_sub_pow_le_exp_mul_klBerReal {k m n : ℕ} (hkm : k + m = n) {β : ℝ}
+    (hβ : |β| ≤ 1) : (1 + β) ^ k * (1 - β) ^ m ≤ exp (n * klBerReal (k / n) (1 / 2)) := by
+  have hu : (1 + β) / 2 ∈ Set.Icc 0 1 := by
+    constructor <;> linarith [abs_le.1 hβ]
+  have h := pow_mul_one_sub_pow_le_div_pow_mul_div_pow hkm hu
+  rw [exp_mul_klBerReal_div_one_div_two hkm]
+  calc (1 + β) ^ k * (1 - β) ^ m = 2 ^ n * (((1 + β) / 2) ^ k * (1 - (1 + β) / 2) ^ m) := by
+        rw [show 1 - (1 + β) / 2 = (1 - β) / 2 by ring, div_pow, div_pow, ← hkm, pow_add]
+        field_simp
+    _ ≤ 2 ^ n * (((k : ℝ) / n) ^ k * ((m : ℝ) / n) ^ m) := by gcongr
 
 /-! ### Continuity and monotonicity -/
 
@@ -890,6 +925,19 @@ theorem klBer_one_sub_right_eq_top (hp : p ∉ Set.Ioo 0 1) : klBer p (1 - p) = 
   rcases hp with h0 | h1
   · exact key p h0
   · simpa only [klBer_one_sub_one_sub] using key (1 - p) (by linarith)
+
+/-- The binary relative entropy from `1 / 2` at a frequency `k / n`, scaled by `n`:
+`n d(k / n, 1 / 2) = k log (2 k / n) + (n - k) log (2 (n - k) / n)`. It is the log-ratio
+`log (k ^ k (n - k) ^ (n - k) / n ^ n) + n log 2` of the maximum likelihood of a word with `k`
+heads among `n` tosses to its probability under a fair coin. -/
+theorem mul_klBerReal_div_one_div_two (n k : ℝ) :
+    n * klBerReal (k / n) (1 / 2) = k * log (2 * k / n) + (n - k) * log (2 * (n - k) / n) := by
+  rcases eq_or_ne n 0 with rfl | hn
+  · simp
+  have h₁ : k / n / (1 / 2) = 2 * k / n := by field_simp
+  have h₂ : (1 - k / n) / (1 - 1 / 2) = 2 * (n - k) / n := by field_simp; ring
+  rw [klBerReal_apply, h₁, h₂]
+  field_simp
 
 /-- The tangent lines of the convex function `p ↦ 2p log p + (1 - 2p) log (1 - p)` on `(0, 1)`
 lie below it. -/

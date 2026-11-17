@@ -7,6 +7,7 @@ module
 
 public import Mathlib.Algebra.Order.BigOperators.Expect
 public import Mathlib.Analysis.Real.Sqrt
+public import Mathlib.Data.Nat.Choose.Sum
 public import TauCeti.Analysis.Normed.Module.RademacherSum.Basic
 
 /-!
@@ -28,6 +29,11 @@ about the real Rademacher sums `∑ i ∈ s, ε i` that the lower bounds of onli
   `√(#s / 3) ≤ 𝔼 |∑ i ∈ s, ε i|` [Ora, Theorem A.14]. It follows from the two moments through the
   pointwise inequality `3 c ^ 2 x ^ 2 - x ^ 4 ≤ 2 c ^ 3 |x|` with `c = √(3 #s)`, a form of Hölder's
   inequality `(𝔼 S ^ 2) ^ 3 ≤ (𝔼 |S|) ^ 2 𝔼 S ^ 4`. The sharp constant `1 / √2` is Szarek's.
+* The law of `∑ i, ε i`: it is `2 X - card ι` for `X` binomial with parameters `card ι` and `1 / 2`
+  (`card_filter_le_sum_units_eq_sum_Icc_choose`), and it is symmetric
+  (`card_filter_le_abs_sum_units_eq_two_mul`). The first counts the signs through
+  `sum_eq_two_mul_card_filter_sub_card`: a `±1`-valued function sums to
+  `2 #{i ∈ s | f i = 1} - #s`.
 
 ## Main statements
 
@@ -38,6 +44,9 @@ about the real Rademacher sums `∑ i ∈ s, ε i` that the lower bounds of onli
   `LMLExplore.expect_sum_units_pow_four`: the first, second and fourth moments of
   `∑ i ∈ s, ε i`.
 * `LMLExplore.sqrt_card_div_three_le_expect_abs_sum_units`: `√(#s / 3) ≤ 𝔼 |∑ i ∈ s, ε i|`.
+* `LMLExplore.card_filter_le_sum_units_eq_sum_Icc_choose`,
+  `LMLExplore.card_filter_le_abs_sum_units_eq_two_mul`: the number of signs with
+  `∑ i, ε i ≥ 2 k - card ι`, and with `|∑ i, ε i| ≥ d`.
 
 ## References
 
@@ -167,5 +176,98 @@ theorem sqrt_card_div_three_le_expect_abs_sum_units (s : Finset ι) :
     nlinarith [mul_le_mul hcm hcm hn.le (by positivity)]
   rw [Real.sqrt_le_left hm, div_le_iff₀ (by norm_num : (0 : ℝ) < 3)]
   nlinarith
+
+/-! ### The law of a Rademacher sum -/
+
+/-- **The sum of a `±1`-valued function** is `2 #{i ∈ s | f i = 1} - #s`. -/
+theorem sum_eq_two_mul_card_filter_sub_card {α : Type*} {s : Finset α} {f : α → ℝ}
+    (hf : ∀ i ∈ s, f i = 1 ∨ f i = -1) :
+    ∑ i ∈ s, f i = 2 * #{i ∈ s | f i = 1} - #s := by
+  have h₁ : ∀ i ∈ {i ∈ s | f i = 1}, f i = 1 := fun i hi ↦ (mem_filter.1 hi).2
+  have h₂ : ∀ i ∈ {i ∈ s | ¬f i = 1}, f i = -1 := fun i hi ↦ by
+    rw [mem_filter] at hi
+    exact (hf i hi.1).resolve_left hi.2
+  have hcard := card_filter_add_card_filter_not (s := s) (fun i ↦ f i = 1)
+  rw [← sum_filter_add_sum_filter_not s (fun i ↦ f i = 1), sum_congr rfl h₁,
+    sum_congr rfl h₂, ← hcard]
+  simp only [sum_const, nsmul_eq_mul, mul_one, mul_neg]
+  push_cast
+  ring
+
+omit [DecidableEq ι] in
+/-- The sum of the signs is `2 #{i | ε i = 1} - card ι`. -/
+theorem sum_units_eq_two_mul_card_sub (ε : ι → ℤˣ) :
+    ∑ i, ((ε i : ℤ) : ℝ) = 2 * #{i | ε i = 1} - Fintype.card ι := by
+  rw [sum_eq_two_mul_card_filter_sub_card fun i _ ↦ ?_, card_univ]
+  · simp only [Int.cast_eq_one, Units.val_eq_one]
+  · rcases Int.units_eq_one_or (ε i) with h | h <;> simp [h]
+
+/-- **The law of a Rademacher sum is a shifted binomial law**: the number of signs `ε` with
+`∑ i, ε i ≥ 2 k - card ι` is `∑ i ∈ Icc k (card ι), (card ι).choose i`, the number of subsets of
+`ι` with at least `k` elements. -/
+theorem card_filter_le_sum_units_eq_sum_Icc_choose (k : ℕ) :
+    #{ε : ι → ℤˣ | 2 * k - Fintype.card ι ≤ ∑ i, ((ε i : ℤ) : ℝ)} =
+      ∑ i ∈ Icc k (Fintype.card ι), (Fintype.card ι).choose i := by
+  have hiff (ε : ι → ℤˣ) :
+      (2 * k - Fintype.card ι ≤ ∑ i, ((ε i : ℤ) : ℝ)) ↔ k ≤ #{i | ε i = 1} := by
+    rw [sum_units_eq_two_mul_card_sub]
+    constructor <;> intro h
+    · exact_mod_cast (by linarith : (k : ℝ) ≤ #{i | ε i = 1})
+    · have : (k : ℝ) ≤ #{i | ε i = 1} := by exact_mod_cast h
+      linarith
+  simp_rw [hiff]
+  -- the signs `ε` correspond to the sets `{i | ε i = 1}`
+  have hbij : #{ε : ι → ℤˣ | k ≤ #{i | ε i = 1}} = #{s : Finset ι | k ≤ #s} := by
+    refine card_nbij' (fun ε ↦ ({i | ε i = 1} : Finset ι)) (fun s i ↦ if i ∈ s then 1 else -1)
+      ?_ ?_ ?_ ?_
+    · intro ε hε
+      simpa using hε
+    · intro s hs
+      simp only [coe_filter, mem_univ, true_and, Set.mem_ofPred_eq] at hs ⊢
+      convert hs using 2
+      ext i
+      by_cases h : i ∈ s <;> simp [h]
+    · intro ε _
+      funext i
+      rcases Int.units_eq_one_or (ε i) with h | h <;> simp [h]
+    · intro s _
+      ext i
+      by_cases h : i ∈ s <;> simp [h]
+  rw [hbij, card_filter, ← powerset_univ,
+    sum_powerset_apply_card (fun m ↦ if k ≤ m then 1 else 0), card_univ]
+  simp only [smul_eq_mul, mul_ite, mul_one, mul_zero]
+  rw [← sum_filter]
+  congr 1
+  ext i
+  simp only [mem_filter, mem_range, mem_Icc]
+  omega
+
+/-- **A Rademacher sum is symmetric**: for `d > 0`, the signs `ε` with `|∑ i, ε i| ≥ d` are twice
+as many as those with `∑ i, ε i ≥ d`. -/
+theorem card_filter_le_abs_sum_units_eq_two_mul {d : ℝ} (hd : 0 < d) :
+    #{ε : ι → ℤˣ | d ≤ |∑ i, ((ε i : ℤ) : ℝ)|} =
+      2 * #{ε : ι → ℤˣ | d ≤ ∑ i, ((ε i : ℤ) : ℝ)} := by
+  set P := univ.filter fun ε : ι → ℤˣ ↦ d ≤ ∑ i, ((ε i : ℤ) : ℝ)
+  set N := univ.filter fun ε : ι → ℤˣ ↦ ∑ i, ((ε i : ℤ) : ℝ) ≤ -d
+  have hunion : univ.filter (fun ε : ι → ℤˣ ↦ d ≤ |∑ i, ((ε i : ℤ) : ℝ)|) = P ∪ N := by
+    ext ε
+    simp only [P, N, mem_filter, mem_univ, true_and, mem_union, le_abs']
+    tauto
+  have hdisj : Disjoint P N := by
+    rw [disjoint_filter]
+    intro ε _ h h'
+    linarith
+  -- flipping all the signs exchanges the two tails
+  have hneg : #N = #P := by
+    refine card_nbij' (fun ε ↦ -ε) (fun ε ↦ -ε) ?_ ?_ ?_ ?_ <;> intro ε hε
+    · simp only [P, N, coe_filter, mem_univ, true_and, Set.mem_ofPred_eq, Pi.neg_apply,
+        Units.val_neg, Int.cast_neg, sum_neg_distrib] at hε ⊢
+      linarith
+    · simp only [P, N, coe_filter, mem_univ, true_and, Set.mem_ofPred_eq, Pi.neg_apply,
+        Units.val_neg, Int.cast_neg, sum_neg_distrib] at hε ⊢
+      linarith
+    · exact neg_neg ε
+    · exact neg_neg ε
+  rw [hunion, card_union_of_disjoint hdisj, hneg, two_mul]
 
 end LMLExplore
