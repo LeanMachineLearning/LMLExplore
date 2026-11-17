@@ -56,6 +56,8 @@ contraction of the oscillation of functions by a Markov kernel (Dobrushin's coef
   probability measures is a probability measure.
 * `MeasureTheory.exists_le_le_add_etvDist`: two finite measures have a common minorant `ρ` with
   `μ univ + ν univ = 2 * ρ univ + etvDist μ ν`.
+* `MeasureTheory.tvDist_le_two_mul_iff`: for measures of the same mass and `0 ≤ c`,
+  `tvDist μ ν ≤ 2 * c` if and only if `μ s ≤ ν s + c` for every measurable `s`.
 * `MeasureTheory.abs_measureReal_sub_measureReal_le_tvDist_div_two`,
   `MeasureTheory.tvDist_le_two_mul_of_forall_measureReal_le_add`: for measures of the same mass,
   the total variation distance bounds the difference of the masses of every event, and eventwise
@@ -71,10 +73,11 @@ contraction of the oscillation of functions by a Markov kernel (Dobrushin's coef
 ## Implementation notes
 
 The first bound is the bound `MeasureTheory.VectorMeasure.norm_integral_le_of_norm_le_const` on
-integrals against the signed measure `μ - ν`, whose variation has mass `tvDist μ ν`. Both eventwise
-bounds are the two directions of Tau Ceti's characterization
-`MeasureTheory.etvDist_le_two_mul_iff`, transferred to the real distance `tvDist`. The overlap form
-on a finite type is read off Tau Ceti's `ℓ¹` formula `MeasureTheory.tvDist_eq_tsum_abs_singleton`,
+integrals against the signed measure `μ - ν`, whose variation has mass `tvDist μ ν`. The eventwise
+characterization `MeasureTheory.tvDist_le_two_mul_iff` is Tau Ceti's
+`MeasureTheory.etvDist_le_two_mul_iff`, transferred to the real distance `tvDist`, and both
+eventwise bounds are its two directions. The overlap form on a finite type is read off Tau
+Ceti's `ℓ¹` formula `MeasureTheory.tvDist_eq_tsum_abs_singleton`,
 `tvDist μ ν = ∑' x, |μ {x} - ν {x}|` on a countable type. The behaviour under sums and scalings is
 read off the supremum over finite measurable partitions,
 `MeasureTheory.tvDist_eq_iSup_finPartition_abs`, so it needs no assumption on the masses.
@@ -274,10 +277,10 @@ theorem exists_le_le_add_etvDist (μ ν : Measure 𝓧) [IsFiniteMeasure μ] [Is
     _ = 2 * (μ s + ν sᶜ) + ((ν s - μ s) + (μ sᶜ - ν sᶜ)) := by ring
     _ = 2 * (μ.restrict s + ν.restrict sᶜ) univ + etvDist μ ν := by simp [hs.etvDist_eq]
 
-/-- Tau Ceti's eventwise characterization `etvDist_le_two_mul_iff` for the real distance `tvDist`:
-for finite measures `μ` and `ν` of the same mass and `0 ≤ c`, `tvDist μ ν ≤ 2 * c` if and only if
-every measurable event `s` satisfies `μ s ≤ ν s + c`. -/
-private theorem tvDist_le_two_mul_iff [IsFiniteMeasure μ] [IsFiniteMeasure ν]
+/-- **Eventwise characterization of total variation**: for finite measures `μ` and `ν` of the
+same mass and `0 ≤ c`, `tvDist μ ν ≤ 2 * c` if and only if every measurable event `s` satisfies
+`μ s ≤ ν s + c`. This is Tau Ceti's `etvDist_le_two_mul_iff` for the real distance `tvDist`. -/
+theorem tvDist_le_two_mul_iff [IsFiniteMeasure μ] [IsFiniteMeasure ν]
     (hμν : μ univ = ν univ) {c : ℝ} (hc : 0 ≤ c) :
     tvDist μ ν ≤ 2 * c ↔ ∀ s, MeasurableSet s → μ.real s ≤ ν.real s + c := by
   rw [← ENNReal.ofReal_le_ofReal_iff (by positivity), ofReal_tvDist,
