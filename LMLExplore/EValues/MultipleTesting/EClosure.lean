@@ -25,15 +25,17 @@ the sets of hypotheses, with `e ∅ = 0`, such that `e (trueNulls H P)` has expe
 under every probability measure `P` [XSF+26, Definition 5]; statistics `e S` that are e-variables
 for the intersections `⋂ i ∈ S, H i` are one. Its e-closure at level `α` is the candidate family
 of the sets `R` with `f S R ≤ α * e S ω` for every `S` (`ProbabilityTheory.eClosure`). The
-e-Closure Principle [XSF+26, Theorem 6] states that a candidate family controls `f`
+e-Closure Principle [XSF+26, Theorem 6] states that, for every loss vanishing when there are no
+true nulls and every level `α ∉ {0, ∞}`, a measurable candidate family controls `f`
 simultaneously at level `α` exactly when it is contained in the e-closure of some e-collection:
-the e-closures form a complete class of multiple testing procedures, for every loss, under
-arbitrary dependence and with no dominating measure.
+the e-closures form a complete class of multiple testing procedures, under arbitrary dependence
+and with no dominating measure.
 
 The principle is proved in its post-hoc form [XSF+26, Theorem 48]: an e-collection controls, at
 once, every loss of a family and every level, chosen after seeing the data, in the sense that
 `∫⁻ ω, ⨆ k, ⨆ R ∈ eClosure (f k) (α k) e ω, f k (trueNulls H P) R / α k ∂P ≤ 1`; and conversely
-every countable family of candidate families with this guarantee is contained in the e-closures
+every countable family of measurable candidate families with this guarantee, for losses `f k`
+vanishing when there are no true nulls and levels `α k ∉ {0, ∞}`, is contained in the e-closures
 of one e-collection. The single loss and level of the e-Closure Principle, the single rejection
 sets [XSF+26, Corollary 7], the family-wise error rate [XSF+26, Theorem 12] with the classical
 closure principle [XSF+26, Corollary 13], and the false discovery rate [XSF+26, Theorem 14] are
@@ -183,6 +185,13 @@ theorem measurable_eClosure [Countable ι] (he : ∀ S, Measurable (e S)) :
     Measurable (eClosure f α e) :=
   measurable_set_iff.2 fun _ ↦ Measurable.forall fun S ↦
     measurableSet_setOfPred.1 (measurableSet_le measurable_const ((he S).const_mul α))
+
+/-- The e-closure grows with the level `α` and the statistics `e`, and as the loss `f`
+decreases. -/
+theorem eClosure_mono {f' : Finset ι → Finset ι → ℝ≥0∞} {α' : ℝ≥0∞} {e' : Finset ι → Ω → ℝ≥0∞}
+    (hf : ∀ S R, f' S R ≤ f S R) (hα : α ≤ α') (he : ∀ S, e S ω ≤ e' S ω) :
+    eClosure f α e ω ⊆ eClosure f' α' e' ω :=
+  fun R hR S ↦ (hf S R).trans ((hR S).trans (mul_le_mul' hα (he S)))
 
 variable [Fintype ι] {H : ι → Set (Measure Ω)} {P : Measure Ω}
 
@@ -453,30 +462,22 @@ theorem mem_eClosure_fwerLoss_indicator_iff {A : Finset ι → Set Ω} (hα₀ :
   by_cases h : ω ∈ A S <;> simp [hS.ne_empty, h, hα']
 
 omit [DecidableEq ι] in
-/-- **The classical closure principle** [MPG76; XSF+26, Corollary 13]: for measurable rejection
-events `A S` of level `α` for the true nulls, the closed testing rejection set rejects a true null
-with probability at most `α`, under every probability measure. It is the largest member of the
-e-closure, for the family-wise loss, of the e-collection `α⁻¹ * 𝟙 (A S)`. -/
-theorem measure_not_disjoint_closedTesting_le {A : Finset ι → Set Ω} (hα₀ : α ≠ 0)
-    (hα : α ≠ ∞) (hA : ∀ S, MeasurableSet (A S))
+/-- **The classical closure principle** [MPG76; XSF+26, Corollary 13]: for rejection events `A S`
+of level `α` for the true nulls, the closed testing rejection set rejects a true null with
+probability at most `α`, under every probability measure. For measurable events and a level
+`α ∉ {0, ∞}`, it is the largest member of the e-closure, for the family-wise loss, of the
+e-collection `α⁻¹ * 𝟙 (A S)` (`mem_eClosure_fwerLoss_indicator_iff`). -/
+theorem measure_not_disjoint_closedTesting_le {A : Finset ι → Set Ω}
     (hlevel : ∀ (P : Measure Ω) [IsProbabilityMeasure P],
       (trueNulls H P).Nonempty → P (A (trueNulls H P)) ≤ α)
     (P : Measure Ω) [IsProbabilityMeasure P] :
     P {ω | ¬Disjoint (closedTesting A ω) (trueNulls H P)} ≤ α := by
-  classical
-  -- The candidate family of the subsets of the closed testing rejection set is contained in the
-  -- e-closure of the e-collection `α⁻¹ * 𝟙 (A S)`.
-  have h𝓡 : Measurable fun ω ↦ {R : Finset ι | R ⊆ closedTesting A ω} :=
-    (Measurable.of_discrete (f := fun T : Finset ι ↦ {R : Finset ι | R ⊆ T})).comp
-      (measurable_closedTesting hA)
-  calc P {ω | ¬Disjoint (closedTesting A ω) (trueNulls H P)}
-      ≤ P {ω | ∃ R ∈ {R : Finset ι | R ⊆ closedTesting A ω}, ¬Disjoint R (trueNulls H P)} :=
-        measure_mono fun ω hω ↦ ⟨_, by simp, hω⟩
-    _ = ∫⁻ ω, ⨆ R ∈ {R : Finset ι | R ⊆ closedTesting A ω}, fwerLoss (trueNulls H P) R ∂P :=
-        (lintegral_iSup_fwerLoss h𝓡 _ P).symm
-    _ ≤ α := (lintegral_mono fun ω ↦ biSup_mono fun R hR ↦
-        (mem_eClosure_fwerLoss_indicator_iff hα₀ hα).2 hR).trans
-          ((isECollection_indicator hA hlevel).lintegral_iSup_eClosure_le fwerLoss α P)
+  rcases (trueNulls H P).eq_empty_or_nonempty with hN | hN
+  · simp [hN]
+  -- Closed testing rejects a true null only when the rejection event of the true nulls occurs.
+  refine (measure_mono fun ω hω ↦ ?_).trans (hlevel P hN)
+  obtain ⟨i, hi, hiN⟩ := not_disjoint_iff.1 hω
+  exact mem_closedTesting.1 hi _ hiN
 
 end FamilyWise
 
