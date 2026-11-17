@@ -222,7 +222,7 @@ theorem two_pow_mul_exp_neg_mul_klBerReal_mul_sqrt_div_le_choose (n k : ℕ) :
     ring
   have hkl : (n : ℝ) * klBerReal (k / n) (1 / 2) =
       n * Real.log 2 + k * Real.log k + (n - k) * Real.log (n - k) - n * Real.log n := by
-    rw [LMLExplore.mul_klBerReal_div_one_div_two hnR.ne', Real.log_div (by positivity) hnR.ne',
+    rw [LMLExplore.mul_klBerReal_div_one_div_two, Real.log_div (by positivity) hnR.ne',
       Real.log_div (by positivity) hnR.ne', Real.log_mul two_ne_zero hkR.ne',
       Real.log_mul two_ne_zero hnkR.ne']
     ring
@@ -236,6 +236,22 @@ theorem two_pow_mul_exp_neg_mul_klBerReal_mul_sqrt_div_le_choose (n k : ℕ) :
   linarith
 
 end Stirling
+
+/-- `e ^ 2 ≤ 3 √(2 π)`, that is `e ^ 4 ≤ 18 π`: the constant `1 / 3` of [Ora, Lemma A.17]. -/
+private lemma exp_two_le_three_mul_sqrt_two_pi : exp 2 ≤ 3 * √(2 * π) := by
+  have h4 : exp 2 ^ 2 ≤ 18 * π := by
+    have : exp 2 ^ 2 = exp 1 ^ 4 := by
+      rw [← Real.exp_nat_mul, ← Real.exp_nat_mul]
+      norm_num
+    rw [this]
+    have := exp_one_lt_d9
+    have := pi_gt_d2
+    have : exp 1 ^ 4 < 2.7182818286 ^ 4 := by gcongr
+    nlinarith
+  have : exp 2 / 3 ≤ √(2 * π) := by
+    rw [Real.le_sqrt (by positivity) (by positivity)]
+    nlinarith
+  linarith
 
 /-- **A lower bound on the upper tail of the binomial law of parameter `1 / 2`**
 [Ora, Lemma A.17]: for `n / 2 ≤ k ≤ n`,
@@ -288,22 +304,10 @@ theorem exp_neg_mul_klBerReal_le_sum_Icc_choose_div_two_pow (hnk : n ≤ 2 * k) 
       rw [show (k : ℝ) ^ 2 * (2 * π * n / (k * (n - k))) = 2 * π * n * (k / (n - k)) by
         field_simp]
       exact le_mul_of_one_le_right (by positivity) ((one_le_div hnkR).2 hnkk)
-    have he : exp 2 ≤ 3 * √(2 * π) := by
-      have h4 : exp 2 ^ 2 ≤ 18 * π := by
-        have : exp 2 ^ 2 = exp 1 ^ 4 := by
-          rw [← Real.exp_nat_mul, ← Real.exp_nat_mul]
-          norm_num
-        rw [this]
-        have := exp_one_lt_d9
-        have := pi_gt_d2
-        have : exp 1 ^ 4 < 2.7182818286 ^ 4 := by gcongr
-        nlinarith
-      have : exp 2 / 3 ≤ √(2 * π) := by
-        rw [Real.le_sqrt (by positivity) (by positivity)]
-        nlinarith
-      linarith
     rw [le_div_iff₀ (exp_pos 2)]
-    calc √(n : ℝ) / 3 * exp 2 ≤ √n / 3 * (3 * √(2 * π)) := by gcongr
+    calc √(n : ℝ) / 3 * exp 2 ≤ √n / 3 * (3 * √(2 * π)) := by
+          gcongr
+          exact exp_two_le_three_mul_sqrt_two_pi
       _ = √(2 * π * n) := by rw [Real.sqrt_mul (by positivity) (n : ℝ)]; ring
       _ ≤ k * r := hkr
   -- combine: `√n / 3 * (2 ^ n * E) ≤ k * n.choose k ≤ (2 k - n + √n) * S`

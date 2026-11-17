@@ -157,59 +157,6 @@ section ConstantFraction
 
 variable {c : ℕ → ℝ} {n : ℕ}
 
-/-- `a ^ j = exp (j log a)`, for `a > 0` or `j = 0`. -/
-private lemma pow_eq_exp_mul_log {a : ℝ} {j : ℕ} (h : j = 0 ∨ 0 < a) :
-    a ^ j = exp (j * log a) := by
-  rcases h with rfl | ha
-  · simp
-  · rw [exp_nat_mul, exp_log ha]
-
-/-- For a nonnegative `a`, positive unless `k = 0`, `k log a - k log (2 k / n) ≤ a n / 2 - k`,
-from `log y ≤ y - 1` at `y = a n / (2 k)`. -/
-private lemma mul_log_sub_mul_log_le {a k N : ℝ} (ha : 0 ≤ a) (hka : k = 0 ∨ 0 < a) (hk : 0 ≤ k)
-    (hN : 0 < N) : k * log a - k * log (2 * k / N) ≤ a * N / 2 - k := by
-  rcases hk.eq_or_lt with rfl | hk
-  · simp only [zero_mul, sub_zero]
-    positivity
-  have ha := hka.resolve_left hk.ne'
-  have h := log_le_sub_one_of_pos (by positivity : 0 < a * N / (2 * k))
-  rw [log_div (by positivity) (by positivity), log_mul ha.ne' hN.ne'] at h
-  rw [log_div (by positivity) hN.ne']
-  have : k * (a * N / (2 * k) - 1) = a * N / 2 - k := by field_simp
-  nlinarith [mul_le_mul_of_nonneg_left h hk.le]
-
-/-- `(1 + β) ^ k (1 - β) ^ (n - k) ≤ exp (n d(k / n, 1 / 2))` for `β ∈ [-1, 1]`. -/
-private lemma one_add_pow_mul_one_sub_pow_le {β : ℝ} (hβ : |β| ≤ 1) {k : ℕ} (hk : k ≤ n) :
-    (1 + β) ^ k * (1 - β) ^ (n - k) ≤ exp (n * klBerReal (k / n) (1 / 2)) := by
-  rcases Nat.eq_zero_or_pos n with rfl | hn
-  · simp_all
-  have hnR : (0 : ℝ) < n := by exact_mod_cast hn
-  have hkR : (k : ℝ) ≤ n := by exact_mod_cast hk
-  have h₁ : 0 ≤ 1 + β := by linarith [neg_abs_le β]
-  have h₂ : 0 ≤ 1 - β := by linarith [le_abs_self β]
-  -- if a base with a positive exponent vanishes, the product vanishes
-  by_cases h0 : (k ≠ 0 ∧ 1 + β = 0) ∨ (n - k ≠ 0 ∧ 1 - β = 0)
-  · rcases h0 with ⟨hk0, h⟩ | ⟨hk0, h⟩
-    · rw [h, zero_pow hk0, zero_mul]
-      positivity
-    · rw [h, zero_pow hk0, mul_zero]
-      positivity
-  -- otherwise both powers are exponentials, and the bound is `log y ≤ y - 1` twice
-  have hk₁ : k = 0 ∨ 0 < 1 + β := by
-    by_cases hk0 : k = 0
-    · exact .inl hk0
-    · exact .inr (lt_of_le_of_ne h₁ fun h ↦ h0 (.inl ⟨hk0, h.symm⟩))
-  have hk₂ : n - k = 0 ∨ 0 < 1 - β := by
-    by_cases hk0 : n - k = 0
-    · exact .inl hk0
-    · exact .inr (lt_of_le_of_ne h₂ fun h ↦ h0 (.inr ⟨hk0, h.symm⟩))
-  rw [pow_eq_exp_mul_log hk₁, pow_eq_exp_mul_log hk₂, ← exp_add, exp_le_exp,
-    mul_klBerReal_div_one_div_two hnR.ne', Nat.cast_sub hk]
-  have e₁ := mul_log_sub_mul_log_le h₁ (hk₁.imp_left fun h ↦ by simp [h]) (Nat.cast_nonneg k) hnR
-  have e₂ := mul_log_sub_mul_log_le h₂
-    (hk₂.imp_left fun h ↦ by rw [← Nat.cast_sub hk, h, Nat.cast_zero]) (sub_nonneg.2 hkR) hnR
-  linarith
-
 /-- For coins in `{-1, 1}`, `∏ t < n, (1 + β * c t) = (1 + β) ^ k * (1 - β) ^ (n - k)` and
 `∑ t < n, c t = 2 k - n`, where `k` is the number of heads `c t = 1`. -/
 private lemma prod_one_add_mul_eq (hc : ∀ t < n, c t = 1 ∨ c t = -1) (β : ℝ) :
@@ -231,11 +178,7 @@ private lemma prod_one_add_mul_eq (hc : ∀ t < n, c t = 1 ∨ c t = -1) (β : �
         (1 - β) ^ #{t ∈ range n | ¬c t = 1} := by
       rw [prod_congr rfl fun t ht ↦ by rw [hneg t ht, mul_neg_one, ← sub_eq_add_neg], prod_const]
     rw [← prod_filter_mul_prod_filter_not (range n) (fun t ↦ c t = 1), e₁, e₂, hsub]
-  · have hcardR : (n : ℝ) = #{t ∈ range n | c t = 1} + #{t ∈ range n | ¬c t = 1} := by
-      exact_mod_cast hcard.symm
-    rw [← sum_filter_add_sum_filter_not (range n) (fun t ↦ c t = 1), sum_congr rfl hpos,
-      sum_congr rfl hneg, sum_const, sum_const, nsmul_eq_mul, nsmul_eq_mul, hcardR]
-    ring
+  · rw [sum_eq_two_mul_card_filter_sub_card fun t ht ↦ hc t (mem_range.1 ht), card_range]
 
 /-- For coins in `{-1, 1}`, the fraction `(∑ t < n, c t) / n` is in `[-1, 1]`. -/
 lemma abs_sum_div_le_one (hc : ∀ t < n, c t = 1 ∨ c t = -1) :
@@ -265,7 +208,8 @@ theorem prod_one_add_mul_le_exp (hc : ∀ t < n, c t = 1 ∨ c t = -1) {β : ℝ
   rcases Nat.eq_zero_or_pos n with rfl | hn
   · simp
   rw [one_div_two_add_sum_div hc hn, (prod_one_add_mul_eq hc β).1]
-  exact one_add_pow_mul_one_sub_pow_le hβ (card_filter_le _ _ |>.trans_eq (card_range n))
+  exact one_add_pow_mul_one_sub_pow_le_exp_mul_klBerReal
+    (Nat.add_sub_cancel' (card_filter_le _ _ |>.trans_eq (card_range n))) hβ
 
 /-- **The best constant fraction** [Ora, Remark 5.6]: for coins in `{-1, 1}`, the fraction
 `β = S / n`, with `S = ∑ t < n, c t`, has `∏ t < n, (1 + β * c t) = exp (n d(1 / 2 + S / (2 n),
@@ -278,26 +222,17 @@ theorem prod_one_add_sum_div_mul_eq_exp (hc : ∀ t < n, c t = 1 ∨ c t = -1) :
   have hnR : (0 : ℝ) < n := by exact_mod_cast hn
   obtain ⟨hprod, hsum⟩ := prod_one_add_mul_eq hc ((∑ s ∈ range n, c s) / n)
   have hk : #{t ∈ range n | c t = 1} ≤ n := card_filter_le _ _ |>.trans_eq (card_range n)
-  rw [one_div_two_add_sum_div hc hn, hprod, hsum, mul_klBerReal_div_one_div_two hnR.ne',
-    exp_add]
+  rw [one_div_two_add_sum_div hc hn, hprod, hsum,
+    exp_mul_klBerReal_div_one_div_two (Nat.add_sub_cancel' hk)]
   generalize #{t ∈ range n | c t = 1} = k at hk ⊢
-  have hkR : (k : ℝ) ≤ n := by exact_mod_cast hk
-  have e₁ : 1 + (2 * (k : ℝ) - n) / n = 2 * k / n := by field_simp; ring
-  have e₂ : 1 - (2 * (k : ℝ) - n) / n = 2 * (n - k) / n := by field_simp; ring
-  rw [e₁, e₂]
-  have h₁ : (2 * k / n : ℝ) ^ k = exp (k * log (2 * k / n)) := by
-    refine pow_eq_exp_mul_log ?_
-    rcases Nat.eq_zero_or_pos k with h | h
-    · exact .inl h
-    · exact .inr (by positivity)
-  have h₂ : (2 * (n - k) / n : ℝ) ^ (n - k) =
-      exp (((n - k : ℕ) : ℝ) * log (2 * (n - k) / n)) := by
-    refine pow_eq_exp_mul_log ?_
-    rcases Nat.eq_zero_or_pos (n - k) with h | h
-    · exact .inl h
-    · have : (k : ℝ) < n := by exact_mod_cast Nat.lt_of_sub_pos h
-      exact .inr (div_pos (by linarith) hnR)
-  rw [h₁, h₂, Nat.cast_sub hk]
+  have e₁ : 1 + (2 * (k : ℝ) - n) / n = 2 * (k / n) := by field_simp; ring
+  have e₂ : 1 - (2 * (k : ℝ) - n) / n = 2 * (((n - k : ℕ) : ℝ) / n) := by
+    rw [Nat.cast_sub hk]
+    field_simp
+    ring
+  have e₃ : (2 : ℝ) ^ n = 2 ^ k * 2 ^ (n - k) := by rw [← pow_add, Nat.add_sub_cancel' hk]
+  rw [e₁, e₂, mul_pow, mul_pow, e₃]
+  ring
 
 /-- **The wealth of the best constant fraction** [Ora, Remark 5.6]: for coins in `{-1, 1}`, with
 `S = ∑ t < n, c t`, the largest value of `∏ t < n, (1 + β * c t)` over the fractions
@@ -331,7 +266,7 @@ theorem HasRegretBound.mul_norm_run_le
     L * ‖A.run c y t‖ ≤ B (t + 1) - ∑ s ∈ range t, y s (A.run c y s) := by
   classical
   obtain ⟨z, hz1, hz⟩ := exists_dual_vector'' ℝ (A.run c y t)
-  replace hz : z (A.run c y t) = ‖A.run c y t‖ := hz
+  rw [RCLike.ofReal_real_eq_id, id_eq] at hz
   set y' := Function.update y t (L • z)
   have hy't : y' t = L • z := Function.update_self _ _ _
   have hy's : ∀ s ≠ t, y' s = y s := fun s hs ↦ Function.update_of_ne hs _ _
@@ -394,6 +329,42 @@ private lemma sum_signCoins {n : ℕ} (σ : Fin n → ℤˣ) :
   rw [← Fin.sum_univ_eq_sum_range]
   exact sum_congr rfl fun t _ ↦ by simp [signCoins]
 
+/-- The bets are predictable, so the wealth on the coins of the signs `σ` has mean `ε`: its sum over
+the sign cube is `2 ^ n ε`. -/
+private lemma sum_wealth_signCoins (A : OnlineLearner C ℝ ℝ) (c : ℕ → C) (ε : ℝ) (n : ℕ) :
+    ∑ σ : Fin n → ℤˣ, wealth ε (signCoins σ) (A.run c (signCoins σ)) n = 2 ^ n * ε := by
+  have hpred : 𝔼 σ : Fin n → ℤˣ, ∑ t, ((σ t : ℤ) : ℝ) * A.run c (signCoins σ) t = 0 :=
+    expect_sum_units_apply_mul_eq_zero fun σ σ' t h ↦ by
+      refine A.run_congr_feedback c fun s hs ↦ ?_
+      have hsn : s < n := hs.trans t.isLt
+      simp only [signCoins, hsn, ↓reduceDIte]
+      rw [h ⟨s, hsn⟩ (Fin.lt_def.2 hs)]
+  have hW (σ : Fin n → ℤˣ) : wealth ε (signCoins σ) (A.run c (signCoins σ)) n =
+      ε + ∑ t, ((σ t : ℤ) : ℝ) * A.run c (signCoins σ) t := by
+    simp only [wealth_def, ← Fin.sum_univ_eq_sum_range]
+    exact congrArg (ε + ·) (sum_congr rfl fun t _ ↦ by simp [signCoins])
+  rw [Fintype.expect_eq_sum_div_card, div_eq_zero_iff] at hpred
+  simp only [hW, sum_add_distrib, sum_const, card_univ, Fintype.card_fun, Fintype.card_units_int,
+    Fintype.card_fin, nsmul_eq_mul]
+  rcases hpred with h | h
+  · rw [h]
+    push_cast
+    ring
+  · simp at h
+
+/-- For `2 k - n > 0`, the signs `σ : Fin n → ℤˣ` with `|∑ t, σ t| ≥ 2 k - n` are
+`2 ∑ i ∈ Icc k n, n.choose i`. -/
+private lemma card_filter_le_abs_sum_eq_two_mul_sum_choose {n k : ℕ} (hd : (0 : ℝ) < 2 * k - n) :
+    (#{σ : Fin n → ℤˣ | (2 * k - n : ℝ) ≤ |∑ t, ((σ t : ℤ) : ℝ)|} : ℝ) =
+      2 * ∑ i ∈ Icc k n, (n.choose i : ℝ) := by
+  have h := card_filter_le_abs_sum_units_eq_two_mul (ι := Fin n) hd
+  have h₂ := card_filter_le_sum_units_eq_sum_Icc_choose (ι := Fin n) k
+  rw [Fintype.card_fin] at h₂
+  rw [h₂] at h
+  rw [h]
+  push_cast
+  ring
+
 /-- **No bettor gets rich on all biased sequences** [Ora, Theorem 5.5]. Let `n / 2 < k ≤ n`. For
 every bettor `A` whose wealth from `ε` after `n` rounds is nonnegative on all sequences of coins
 in `{-1, 1}`, there is such a sequence with `|∑ t < n, c t| ≥ 2 k - n` on which its wealth is
@@ -414,25 +385,7 @@ theorem exists_wealth_run_le (A : OnlineLearner C ℝ ℝ) (c : ℕ → C) {ε :
   set W : (Fin n → ℤˣ) → ℝ := fun σ ↦ wealth ε (signCoins σ) (A.run c (signCoins σ)) n
   have hW0 (σ : Fin n → ℤˣ) : 0 ≤ W σ := hA _ fun t ht ↦ signCoins_mem σ ht
   -- the bets are predictable, so the wealth has mean `ε`
-  have hmean : ∑ σ, W σ = 2 ^ n * ε := by
-    have hpred : 𝔼 σ : Fin n → ℤˣ, ∑ t, ((σ t : ℤ) : ℝ) * A.run c (signCoins σ) t = 0 :=
-      expect_sum_units_apply_mul_eq_zero fun σ σ' t h ↦ by
-        refine A.run_congr_feedback c fun s hs ↦ ?_
-        have hsn : s < n := hs.trans t.isLt
-        simp only [signCoins, hsn, ↓reduceDIte]
-        rw [h ⟨s, hsn⟩ (Fin.lt_def.2 hs)]
-    have hW (σ : Fin n → ℤˣ) :
-        W σ = ε + ∑ t, ((σ t : ℤ) : ℝ) * A.run c (signCoins σ) t := by
-      simp only [W, wealth_def, ← Fin.sum_univ_eq_sum_range]
-      exact congrArg (ε + ·) (sum_congr rfl fun t _ ↦ by simp [signCoins])
-    rw [Fintype.expect_eq_sum_div_card, div_eq_zero_iff] at hpred
-    simp only [hW, sum_add_distrib, sum_const, card_univ, Fintype.card_fun, Fintype.card_units_int,
-      Fintype.card_fin, nsmul_eq_mul]
-    rcases hpred with h | h
-    · rw [h]
-      push_cast
-      ring
-    · simp at h
+  have hmean : ∑ σ, W σ = 2 ^ n * ε := sum_wealth_signCoins A c ε n
   -- in particular the initial wealth is nonnegative
   have hε : 0 ≤ ε := by
     have h := sum_nonneg fun σ (_ : σ ∈ univ) ↦ hW0 σ
@@ -441,15 +394,7 @@ theorem exists_wealth_run_le (A : OnlineLearner C ℝ ℝ) (c : ℕ → C) {ε :
   -- the event `|∑ t, σ t| ≥ 2 k - n` and its size
   set G := univ.filter fun σ : Fin n → ℤˣ ↦ (2 * k - n : ℝ) ≤ |∑ t, ((σ t : ℤ) : ℝ)|
   set T := ∑ i ∈ Icc k n, (n.choose i : ℝ)
-  have hG : (#G : ℝ) = 2 * T := by
-    have h := card_filter_le_abs_sum_units (ι := Fin n) hd
-    have h₂ := card_filter_le_sum_units (ι := Fin n) k
-    rw [Fintype.card_fin] at h₂
-    rw [h₂] at h
-    simp only [G, T] at h ⊢
-    rw [h]
-    push_cast
-    ring
+  have hG : (#G : ℝ) = 2 * T := card_filter_le_abs_sum_eq_two_mul_sum_choose hd
   have htail := Nat.exp_neg_mul_klBerReal_le_sum_Icc_choose_div_two_pow hnk.le hk
   have hT : 0 < T := by
     refine lt_of_lt_of_le ?_ ((le_div_iff₀ (by positivity)).1 htail)
