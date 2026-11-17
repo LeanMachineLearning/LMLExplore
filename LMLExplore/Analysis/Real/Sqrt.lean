@@ -43,6 +43,8 @@ import TauCeti.Analysis.SpecialFunctions.Sqrt
   implicit bound solved [Ora, Lemma 4.29]. For `a ≥ 0`, `x - √(a x + b) ≤ c` forces
   `x ≤ a / 2 + c + √(a² / 4 + b + a c) ≤ a + c + √(b + a c)`. It turns regret bounds in which the
   losses of the algorithm appear on both sides, as the `L⋆` bounds, into explicit ones.
+* `Real.sqrt_two_mul_sub_one_le`: `√(2 A) - 1 ≤ √(2 A - 1) (1 - 1 / (2 A))` for `A ≥ 1`, the last
+  step of the lower bound of unconstrained online linear optimization [Ora, Theorem 5.8].
 * `Real.sum_range_inv_sqrt_add_one_le`: `∑_{j < n} 1 / √(j + 1) ≤ 2 √n`.
 * `Real.sum_range_inv_sqrt_max_one_le`: `∑_{j < n} 1 / √(max 1 j) ≤ 2 √n + 1`, the same sum with
   the index clipped at `1`.
@@ -192,6 +194,23 @@ theorem le_add_add_sqrt_of_sub_sqrt_le {x a b c : ℝ} (ha : 0 ≤ a) (h : x - �
   have := sqrt_add_le_add_sqrt (a ^ 2 / 4) (b + a * c)
   rw [← add_assoc] at this
   linarith [le_div_two_add_add_sqrt_of_sub_sqrt_le ha h]
+
+/-- For `A ≥ 1`, `√(2 A) - 1 ≤ √(2 A - 1) * (1 - 1 / (2 A))`. It is the last step of the lower
+bound of unconstrained online linear optimization [Ora, Theorem 5.8], where [Ora] uses it without
+proof. -/
+theorem sqrt_two_mul_sub_one_le {A : ℝ} (hA : 1 ≤ A) :
+    √(2 * A) - 1 ≤ √(2 * A - 1) * (1 - 1 / (2 * A)) := by
+  set r := √(2 * A - 1)
+  have hr : 1 ≤ r := by rw [show (1 : ℝ) = √1 by simp]; exact sqrt_le_sqrt (by linarith)
+  have hr2 : r ^ 2 = 2 * A - 1 := sq_sqrt (by linarith)
+  have h2A : 2 * A = r ^ 2 + 1 := by linarith
+  have hr0 : 0 < r := zero_lt_one.trans_le hr
+  rw [h2A, sub_le_iff_le_add, show r * (1 - 1 / (r ^ 2 + 1)) = r ^ 3 / (r ^ 2 + 1) by
+    field_simp; ring]
+  refine sqrt_le_iff.2 ⟨by positivity, ?_⟩
+  rw [div_add_one (by positivity), div_pow, le_div_iff₀ (by positivity)]
+  have hr1 : 0 ≤ r - 1 := by linarith
+  nlinarith [mul_nonneg (mul_nonneg hr0.le hr0.le) (mul_nonneg hr1 (sq_nonneg r))]
 
 /-- `∑_{j < n} 1 / √(j + 1) ≤ 2 √n`. -/
 theorem sum_range_inv_sqrt_add_one_le (n : ℕ) :

@@ -19,7 +19,8 @@ The map `w ↦ w * exp w` is strictly increasing on `[-1, ∞)`, from `-exp (-1)
 `lambertW x * exp (lambertW x) = x` and `-1 ≤ lambertW x` for `x ≥ -exp (-1)`. Below `-exp (-1)`
 it is `-1`, so that it is monotone and continuous on all of `ℝ`. It maps `[0, ∞)` onto `[0, ∞)`.
 
-The Lambert function solves the equations `y = a * exp y`, which appear when optimizing
+The Lambert function solves the equations `y * exp y = a` (equivalently `y = a * exp (-y)`), which
+appear when optimizing
 expressions such as `a * y - y * exp (y ^ 2 / 2)`: the regret bounds of parameter-free online
 learning and the lower bounds that match them are stated through it [Ora, Appendix A.2.1].
 This file proves the API that these bounds use:
@@ -32,8 +33,8 @@ This file proves the API that these bounds use:
 * `exp_lambertW`, `exp_lambertW_div_two`, `lambertW_eq_log_sub_log`:
   `exp (lambertW x) = x / lambertW x`, `exp (lambertW x / 2) = √(x / lambertW x)` and
   `lambertW x = log x - log (lambertW x)` for `x > 0`;
-* `lambertW_le_log_one_add`, `lambertW_le_sqrt`: `lambertW x ≤ log (1 + x)` and
-  `lambertW x ≤ √x` for `x ≥ 0` [Ora, Theorem A.6];
+* `lambertW_le_log_one_add`, `lambertW_le_sqrt`: `lambertW x ≤ log (1 + x)` for
+  `x ≥ -exp (-1)` [Ora, Theorem A.6] and `lambertW x ≤ √x` for every `x`;
 * `log_sub_log_log_le_lambertW`, `lambertW_le_log`: `log x - log (log x) ≤ lambertW x ≤ log x`
   for `x ≥ e`;
 * `tendsto_lambertW_div_log`: `lambertW x / log x → 1` as `x → ∞` [Ora, Theorem A.4].
@@ -106,6 +107,19 @@ lemma lambertW_def (x : ℝ) :
     lambertW x = mulExpOrderIso.symm (projIci (-exp (-1)) x) := (rfl)
 
 variable {x w : ℝ}
+
+/-- The inverse of `mulExpOrderIso` is the Lambert function. -/
+@[simp]
+lemma coe_mulExpOrderIso_symm_apply (x : Ici (-exp (-1))) :
+    (mulExpOrderIso.symm x : ℝ) = lambertW x := by
+  rw [lambertW_def, projIci_coe]
+
+/-- The minimum `-exp (-1)` of `w ↦ w * exp w` is negative. -/
+lemma neg_exp_neg_one_lt_zero : -exp (-1) < 0 := neg_neg_of_pos (exp_pos _)
+
+/-- Every `x ≥ 0` lies in the domain `[-exp (-1), ∞)` of the principal branch. -/
+lemma neg_exp_neg_one_le_of_nonneg (hx : 0 ≤ x) : -exp (-1) ≤ x :=
+  neg_exp_neg_one_lt_zero.le.trans hx
 
 /-- The Lambert function takes values in `[-1, ∞)`. -/
 lemma neg_one_le_lambertW (x : ℝ) : -1 ≤ lambertW x :=
@@ -186,7 +200,7 @@ theorem lambertW_le_iff (hx : -exp (-1) ≤ x) (hw : -1 ≤ w) :
 theorem lambertW_nonneg_iff : 0 ≤ lambertW x ↔ 0 ≤ x := by
   rcases le_total x (-exp (-1)) with hx | hx
   · rw [lambertW_eq_neg_one_of_le hx]
-    exact iff_of_false (by norm_num) (hx.trans_lt (neg_neg_of_pos (exp_pos _))).not_ge
+    exact iff_of_false (by norm_num) (hx.trans_lt neg_exp_neg_one_lt_zero).not_ge
   · simpa using le_lambertW_iff hx (w := 0) (by norm_num)
 
 /-- The Lambert function is positive exactly on `(0, ∞)`. -/
@@ -195,7 +209,7 @@ theorem lambertW_pos_iff : 0 < lambertW x ↔ 0 < x := by
   rw [← not_le, ← not_le, not_iff_not]
   rcases le_total x (-exp (-1)) with hx | hx
   · rw [lambertW_eq_neg_one_of_le hx]
-    exact iff_of_true (by norm_num) (hx.trans (neg_nonpos.2 (exp_pos _).le))
+    exact iff_of_true (by norm_num) (hx.trans neg_exp_neg_one_lt_zero.le)
   · simpa using lambertW_le_iff hx (w := 0) (by norm_num)
 
 theorem lambertW_nonneg (hx : 0 ≤ x) : 0 ≤ lambertW x := lambertW_nonneg_iff.2 hx
@@ -220,12 +234,11 @@ theorem tendsto_lambertW_atTop : Tendsto lambertW atTop atTop := by
 /-- For `x > 0`, `exp (lambertW x) = x / lambertW x`. -/
 theorem exp_lambertW (hx : 0 < x) : exp (lambertW x) = x / lambertW x := by
   rw [eq_div_iff (lambertW_pos hx).ne', mul_comm,
-    lambertW_mul_exp_lambertW ((neg_neg_of_pos (exp_pos _)).le.trans hx.le)]
+    lambertW_mul_exp_lambertW (neg_exp_neg_one_le_of_nonneg hx.le)]
 
 /-- For `x > 0`, `lambertW x = log x - log (lambertW x)`. -/
 theorem lambertW_eq_log_sub_log (hx : 0 < x) : lambertW x = log x - log (lambertW x) := by
-  have h := congrArg log
-    (lambertW_mul_exp_lambertW ((neg_nonpos.2 (exp_pos (-1)).le).trans hx.le))
+  have h := congrArg log (lambertW_mul_exp_lambertW (neg_exp_neg_one_le_of_nonneg hx.le))
   rw [log_mul (lambertW_pos hx).ne' (exp_pos _).ne', log_exp] at h
   linarith
 
@@ -236,32 +249,43 @@ theorem exp_lambertW_div_two (hx : 0 < x) : exp (lambertW x / 2) = √(x / lambe
   push_cast
   ring
 
-/-- For `x ≥ 0`, `lambertW x ≤ log (1 + x)` [Ora, Theorem A.6]. -/
-theorem lambertW_le_log_one_add (hx : 0 ≤ x) : lambertW x ≤ log (1 + x) := by
-  have h1x : 0 < 1 + x := by linarith
-  have hlog : 0 ≤ log (1 + x) := log_nonneg (by linarith)
-  rw [lambertW_le_iff ((neg_nonpos.2 (exp_pos _).le).trans hx) (by linarith), exp_log h1x]
+/-- For `x ≥ -exp (-1)`, `lambertW x ≤ log (1 + x)` [Ora, Theorem A.6]. -/
+theorem lambertW_le_log_one_add (hx : -exp (-1) ≤ x) : lambertW x ≤ log (1 + x) := by
+  -- `exp (-1) ≤ 1 / 2 ≤ 1 - exp (-1) ≤ 1 + x`, as `2 ≤ e`
+  have he : exp (-1) ≤ 1 / 2 := by
+    rw [exp_neg, inv_le_comm₀ (exp_pos 1) one_half_pos]
+    linarith [add_one_le_exp (1 : ℝ)]
+  have h1x : 0 < 1 + x := by linarith [exp_pos (-1)]
+  have hlog : -1 ≤ log (1 + x) := by
+    rw [le_log_iff_exp_le h1x]
+    linarith
+  rw [lambertW_le_iff hx hlog, exp_log h1x]
   -- `x / (1 + x) = 1 - (1 + x)⁻¹ ≤ log (1 + x)`
   have h := one_sub_inv_le_log_of_pos h1x
   have : 1 - (1 + x)⁻¹ = x / (1 + x) := by field_simp; ring
   rw [this, div_le_iff₀ h1x] at h
   linarith
 
-/-- For `x ≥ 0`, `lambertW x ≤ √x`: `lambertW x ^ 2 ≤ lambertW x * exp (lambertW x) = x`. -/
-theorem lambertW_le_sqrt (hx : 0 ≤ x) : lambertW x ≤ √x := by
+/-- The Lambert function is at most the square root: `lambertW x ≤ √x`. -/
+theorem lambertW_le_sqrt (x : ℝ) : lambertW x ≤ √x := by
+  -- for `x < 0`, `lambertW x ≤ 0 = √x`; for `x ≥ 0`,
+  -- `lambertW x ^ 2 ≤ lambertW x * exp (lambertW x) = x`
+  rcases lt_or_ge x 0 with hx | hx
+  · rw [sqrt_eq_zero'.2 hx.le]
+    exact not_lt.1 (mt lambertW_pos_iff.1 hx.not_gt)
   have hW := lambertW_nonneg hx
   refine le_sqrt_of_sq_le ?_
   calc lambertW x ^ 2 = lambertW x * lambertW x := sq _
     _ ≤ lambertW x * exp (lambertW x) := by
         gcongr
         linarith [add_one_le_exp (lambertW x)]
-    _ = x := lambertW_mul_exp_lambertW ((neg_nonpos.2 (exp_pos _).le).trans hx)
+    _ = x := lambertW_mul_exp_lambertW (neg_exp_neg_one_le_of_nonneg hx)
 
 /-- For `x ≥ e`, `lambertW x ≤ log x`. -/
 theorem lambertW_le_log (hx : exp 1 ≤ x) : lambertW x ≤ log x := by
   have hx0 : 0 < x := (exp_pos 1).trans_le hx
   have hlog : 1 ≤ log x := by rwa [le_log_iff_exp_le hx0]
-  rw [lambertW_le_iff ((neg_nonpos.2 (exp_pos _).le).trans hx0.le) (by linarith), exp_log hx0]
+  rw [lambertW_le_iff (neg_exp_neg_one_le_of_nonneg hx0.le) (by linarith), exp_log hx0]
   exact le_mul_of_one_le_left hx0.le hlog
 
 /-- For `x ≥ e`, `log x - log (log x) ≤ lambertW x`. -/
@@ -271,7 +295,7 @@ theorem log_sub_log_log_le_lambertW (hx : exp 1 ≤ x) : log x - log (log x) ≤
   have hloglog : 0 ≤ log (log x) := log_nonneg hlog
   have hw : -1 ≤ log x - log (log x) := by
     linarith [log_le_sub_one_of_pos (zero_lt_one.trans_le hlog)]
-  rw [le_lambertW_iff ((neg_nonpos.2 (exp_pos _).le).trans hx0.le) hw, exp_sub, exp_log hx0,
+  rw [le_lambertW_iff (neg_exp_neg_one_le_of_nonneg hx0.le) hw, exp_sub, exp_log hx0,
     exp_log (zero_lt_one.trans_le hlog), mul_div_assoc', div_le_iff₀ (zero_lt_one.trans_le hlog)]
   nlinarith
 
@@ -285,15 +309,14 @@ theorem tendsto_lambertW_div_log : Tendsto (fun x ↦ lambertW x / log x) atTop 
     simp
   have hlow : Tendsto (fun x ↦ 1 - log (log x) / log x) atTop (𝓝 1) := by
     simpa using tendsto_const_nhds.sub h0
+  have hev : ∀ᶠ x in atTop, exp 1 ≤ x ∧ 0 < log x := by
+    filter_upwards [eventually_ge_atTop (exp 1)] with x hx
+    exact ⟨hx, zero_lt_one.trans_le (by rwa [le_log_iff_exp_le ((exp_pos 1).trans_le hx)])⟩
   refine tendsto_of_tendsto_of_tendsto_of_le_of_le' hlow tendsto_const_nhds ?_ ?_
-  · filter_upwards [eventually_ge_atTop (exp 1)] with x hx
-    have hlog : 0 < log x := zero_lt_one.trans_le (by
-      rwa [le_log_iff_exp_le ((exp_pos 1).trans_le hx)])
+  · filter_upwards [hev] with x ⟨hx, hlog⟩
     rw [one_sub_div hlog.ne', div_le_div_iff_of_pos_right hlog]
     exact log_sub_log_log_le_lambertW hx
-  · filter_upwards [eventually_ge_atTop (exp 1)] with x hx
-    have hlog : 0 < log x := zero_lt_one.trans_le (by
-      rwa [le_log_iff_exp_le ((exp_pos 1).trans_le hx)])
+  · filter_upwards [hev] with x ⟨hx, hlog⟩
     rw [div_le_one hlog]
     exact lambertW_le_log hx
 

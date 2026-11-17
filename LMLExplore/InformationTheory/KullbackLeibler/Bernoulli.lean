@@ -16,6 +16,7 @@ public import Statlib.ForMathlib.InformationTheory.KullbackLeibler.ChainRule
 public import LeanMachineLearning.ForMathlib.InformationTheory.KullbackLeibler.DataProcessing
 public import TauCeti.InformationTheory.KullbackLeibler.Variational
 import Mathlib.Analysis.Complex.ExponentialBounds
+import LMLExplore.Analysis.SpecialFunctions.Log.Basic
 import Mathlib.Analysis.SpecialFunctions.Log.Deriv
 import Statlib.Divergence.KullbackLeibler.Basic
 
@@ -402,37 +403,6 @@ private lemma continuousOn_log_one_add_two_mul_and {x : ℝ} (hx : 8 * x ^ 2 ≤
   rw [interior_Icc] at hy
   exact ⟨by linarith [hy.1], by linarith [hlt (Ioo_subset_Icc_self hy)]⟩
 
-/-- For `0 ≤ x` with `8 x² ≤ 1`, `log (1 + 2 x) - log (1 - 2 x) ≤ 4 x + 32 x³ / 3`: the difference
-vanishes at `0` and its derivative `4 + 32 y² - 4 / (1 - 4 y²)` is nonnegative on `[0, x]`. -/
-private lemma log_one_add_two_mul_sub_log_le {x : ℝ} (hx : 8 * x ^ 2 ≤ 1) (hx0 : 0 ≤ x) :
-    log (1 + 2 * x) - log (1 - 2 * x) ≤ 4 * x + 32 / 3 * x ^ 3 := by
-  obtain ⟨hc₁, hc₂, hpos⟩ := continuousOn_log_one_add_two_mul_and hx
-  have hmono : MonotoneOn
-      (fun y ↦ 4 * y + 32 / 3 * y ^ 3 - (log (1 + 2 * y) - log (1 - 2 * y))) (Icc 0 x) := by
-    refine monotoneOn_of_hasDerivWithinAt_nonneg (f' := fun y ↦
-      4 + 32 * y ^ 2 - (2 / (1 + 2 * y) + 2 / (1 - 2 * y))) (convex_Icc 0 x)
-      ((by fun_prop : ContinuousOn (fun y : ℝ ↦ 4 * y + 32 / 3 * y ^ 3) _).sub (hc₁.sub hc₂))
-      (fun y hy ↦ ?_) fun y hy ↦ ?_
-    · obtain ⟨h1, h2⟩ := hpos y hy
-      have ha : HasDerivAt (fun y : ℝ ↦ 1 + 2 * y) 2 y := by
-        simpa using ((hasDerivAt_id' y).const_mul 2).const_add 1
-      have hb : HasDerivAt (fun y : ℝ ↦ 1 - 2 * y) (-2) y := by
-        simpa using ((hasDerivAt_id' y).const_mul 2).const_sub 1
-      have h := (((hasDerivAt_id' y).const_mul 4).add (((hasDerivAt_pow 3 y).const_mul
-        (32 / 3)))).sub ((ha.log h1.ne').sub (hb.log h2.ne'))
-      refine HasDerivAt.hasDerivWithinAt (h.congr_deriv ?_)
-      push_cast
-      ring
-    · obtain ⟨h1, h2⟩ := hpos y hy
-      have hy8 : 8 * y ^ 2 ≤ 1 := by
-        rw [interior_Icc] at hy
-        nlinarith [hy.1, hy.2]
-      rw [div_add_div _ _ h1.ne' h2.ne', sub_nonneg, div_le_iff₀ (mul_pos h1 h2)]
-      nlinarith [mul_nonneg (sq_nonneg y) (sub_nonneg.2 hy8)]
-  have h := hmono ⟨le_rfl, hx0⟩ ⟨hx0, le_rfl⟩ hx0
-  norm_num at h
-  linarith
-
 /-- **The binary relative entropy to `1 / 2` near `1 / 2`**: for `8 x² ≤ 1`,
 `klBerReal (1 / 2 + x) (1 / 2) ≤ 2 x² + 8 x⁴ / 3`. The leading term `2 x²` is that of Pinsker's
 inequality `two_mul_sq_le_klBerReal`, so the two bounds match to second order. -/
@@ -462,7 +432,8 @@ theorem klBerReal_one_div_two_add_le {x : ℝ} (hx : 8 * x ^ 2 ≤ 1) :
       push_cast
       ring
     · have hy := interior_subset hy
-      exact sub_nonneg.2 (log_one_add_two_mul_sub_log_le (by nlinarith [hy.1, hy.2]) hy.1)
+      exact sub_nonneg.2
+        (log_one_add_two_mul_sub_log_one_sub_two_mul_le (by nlinarith [hy.1, hy.2]) hy.1)
   have h := hmono ⟨le_rfl, hx0⟩ ⟨hx0, le_rfl⟩ hx0
   have hg : klBerReal (1 / 2 + x) (1 / 2) =
       (1 / 2 + x) * log (1 + 2 * x) + (1 / 2 - x) * log (1 - 2 * x) := by

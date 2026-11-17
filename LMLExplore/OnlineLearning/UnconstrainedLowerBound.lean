@@ -7,6 +7,7 @@ module
 
 public import LMLExplore.Analysis.SpecialFunctions.Lambert
 public import LMLExplore.OnlineLearning.CoinBetting
+import LMLExplore.Analysis.Real.Sqrt
 import LMLExplore.InformationTheory.KullbackLeibler.Bernoulli
 import LMLExplore.OnlineLearning.Learner.Operations
 import Mathlib.Analysis.Complex.ExponentialBounds
@@ -27,8 +28,9 @@ bound [Ora, Theorem 5.8]: some losses force a regret of at least
 For regret bounds `ε n` against `0` bounded away from `0` and `∞`, the hypotheses on `W` hold for
 all large `n` (`eventually_one_le_lambertW_and_le`), and the lower bound is asymptotic to
 `U L √(n log n)` (`tendsto_mul_sqrt_two_mul_lambertW_div_sqrt_mul_log`). A learner that has a
-constant regret against `0` therefore has a regret of order `U L √(n log n)` against comparators
-of norm `U`, a factor `√(log n)` above the minimax rate `U L √n` of a known comparator norm.
+constant regret against `0` therefore has, for large even `n`, a regret of at least order
+`U L √(n log n)` against `U` or `-U`, a factor `√(log n)` above the minimax rate `U L √n` of a
+known comparator norm.
 
 The proof chooses the bias `2 q` of the coins, `q = ⌊√n √(2 W - 1) / 2⌋`, to maximize the bound,
 and bounds the binary relative entropy near `1 / 2` by `LMLExplore.klBerReal_one_div_two_add_le`.
@@ -55,21 +57,6 @@ public section
 open Finset Real InformationTheory Filter Topology
 
 namespace LMLExplore.OnlineLearning
-
-/-- For `A ≥ 1`, `√(2 A) - 1 ≤ √(2 A - 1) * (1 - 1 / (2 A))`. -/
-private lemma sqrt_two_mul_sub_one_le {A : ℝ} (hA : 1 ≤ A) :
-    √(2 * A) - 1 ≤ √(2 * A - 1) * (1 - 1 / (2 * A)) := by
-  set r := √(2 * A - 1)
-  have hr : 1 ≤ r := by rw [show (1 : ℝ) = √1 by simp]; exact Real.sqrt_le_sqrt (by linarith)
-  have hr2 : r ^ 2 = 2 * A - 1 := Real.sq_sqrt (by linarith)
-  have h2A : 2 * A = r ^ 2 + 1 := by linarith
-  have hr0 : 0 < r := zero_lt_one.trans_le hr
-  rw [h2A, sub_le_iff_le_add, show r * (1 - 1 / (r ^ 2 + 1)) = r ^ 3 / (r ^ 2 + 1) by
-    field_simp; ring]
-  refine Real.sqrt_le_iff.2 ⟨by positivity, ?_⟩
-  rw [div_add_one (by positivity), div_pow, le_div_iff₀ (by positivity)]
-  have hr1 : 0 ≤ r - 1 := by linarith
-  nlinarith [mul_nonneg (mul_nonneg hr0.le hr0.le) (mul_nonneg hr1 (sq_nonneg r))]
 
 /-- For `N ≥ 4`, `1 ≤ y` with `y ^ 2 ≤ √N` and `0 ≤ q ≤ √N y / 2`, the bound
 `3 ε / 2 * (2 q / √N + 1) * exp (N d(1 / 2 + q / N, 1 / 2))` on the wealth of a bettor on the
@@ -128,7 +115,7 @@ private lemma mul_sqrt_two_mul_sub_one_le {N W E ε U L S w : ℝ} (hW₁ : 1 �
     rw [show E = √N * U * L / (8 * ε) / W by rw [← hWE]; field_simp]
     field_simp
     ring
-  have hfin := sqrt_two_mul_sub_one_le hW₁
+  have hfin := Real.sqrt_two_mul_sub_one_le hW₁
   have hUL : 0 ≤ U * L * √N := by positivity
   calc U * L * √N * (√(2 * W) - 1) - 2 * U * L + ε
       ≤ U * L * √N * (√(2 * W - 1) * (1 - 1 / (2 * W))) - 2 * U * L + ε := by gcongr
@@ -227,7 +214,7 @@ theorem exists_mul_sqrt_two_mul_lambertW_le_regret_run (A : OnlineLearner C ℝ 
   -- `W * exp (y ^ 2 / 2) = √n U L / (8 ε)`, by definition of `W`
   have hWE : W * exp (y ^ 2 / 2) = √n * U * L / (8 * ε) := by
     have h := lambertW_mul_exp_lambertW (x := √(exp 1 * n) * U * L / (8 * ε))
-      ((neg_nonpos.2 (exp_pos _).le).trans (by positivity))
+      (neg_exp_neg_one_le_of_nonneg (by positivity))
     rw [← hW, Real.sqrt_mul (exp_pos 1).le, ← exp_half] at h
     rw [show y ^ 2 / 2 = W - 1 / 2 by rw [hy2]; ring, exp_sub, ← mul_div_assoc, h]
     field_simp
@@ -269,6 +256,11 @@ section Asymptotics
 
 variable {L U K₁ K₂ : ℝ} {ε : ℕ → ℝ}
 
+/-- Bounds `K₁ ≤ ε n ≤ K₂` with `K₁ > 0` make `K₂` and every `ε n` positive. -/
+private lemma pos_of_le_of_le (hK₁ : 0 < K₁) (hε₁ : ∀ n, K₁ ≤ ε n) (hε₂ : ∀ n, ε n ≤ K₂) :
+    0 < K₂ ∧ ∀ n, 0 < ε n :=
+  ⟨hK₁.trans_le ((hε₁ 0).trans (hε₂ 0)), fun n ↦ hK₁.trans_le (hε₁ n)⟩
+
 /-- For losses of size `L > 0`, a comparator norm `U > 0` and regret bounds `ε n` against `0`
 bounded away from `0` and `∞`, the hypotheses `1 ≤ W ≤ √n / 2` on
 `W = lambertW (√(e n) U L / (8 ε n))` of `exists_mul_sqrt_two_mul_lambertW_le_regret_run` hold for
@@ -277,8 +269,7 @@ theorem eventually_one_le_lambertW_and_le (hL : 0 < L) (hU : 0 < U) (hK₁ : 0 <
     (hε₁ : ∀ n, K₁ ≤ ε n) (hε₂ : ∀ n, ε n ≤ K₂) :
     ∀ᶠ n : ℕ in atTop, 1 ≤ lambertW (√(exp 1 * n) * U * L / (8 * ε n)) ∧
       lambertW (√(exp 1 * n) * U * L / (8 * ε n)) ≤ √n / 2 := by
-  have hK₂ : 0 < K₂ := hK₁.trans_le ((hε₁ 0).trans (hε₂ 0))
-  have hε (n : ℕ) : 0 < ε n := hK₁.trans_le (hε₁ n)
+  obtain ⟨hK₂, hε⟩ := pos_of_le_of_le hK₁ hε₁ hε₂
   -- the argument of `lambertW` is between `a₁ √n` and `a₂ √n`
   set a₁ := √(exp 1) * U * L / (8 * K₂)
   set a₂ := √(exp 1) * U * L / (8 * K₁)
@@ -300,10 +291,7 @@ theorem eventually_one_le_lambertW_and_le (hL : 0 < L) (hU : 0 < U) (hK₁ : 0 <
     hsqrt.eventually_ge_atTop (4 * a₂)] with n h₁ h₂
   refine ⟨one_le_lambertW_iff.2 (h₁.trans (hlow n)), ?_⟩
   -- `lambertW x ≤ √x ≤ √(√n a₂) ≤ √n / 2`
-  have hx0 : 0 ≤ √(exp 1 * n) * U * L / (8 * ε n) := by
-    have := hε n
-    positivity
-  refine (lambertW_le_sqrt hx0).trans (Real.sqrt_le_iff.2 ⟨by positivity, ?_⟩)
+  refine (lambertW_le_sqrt _).trans (Real.sqrt_le_iff.2 ⟨by positivity, ?_⟩)
   rw [div_pow, Real.sq_sqrt n.cast_nonneg]
   calc √(exp 1 * n) * U * L / (8 * ε n) ≤ √n * a₂ := hup n
     _ ≤ √n * (√n / 4) := by gcongr; linarith
@@ -314,8 +302,7 @@ theorem eventually_one_le_lambertW_and_le (hL : 0 < L) (hU : 0 < U) (hK₁ : 0 <
 private lemma tendsto_two_mul_lambertW_div_log (hL : 0 < L) (hU : 0 < U) (hK₁ : 0 < K₁)
     (hε₁ : ∀ n, K₁ ≤ ε n) (hε₂ : ∀ n, ε n ≤ K₂) :
     Tendsto (fun n : ℕ ↦ 2 * lambertW (√n * U * L / (5 * ε n)) / log n) atTop (𝓝 1) := by
-  have hK₂ : 0 < K₂ := hK₁.trans_le ((hε₁ 0).trans (hε₂ 0))
-  have hε (n : ℕ) : 0 < ε n := hK₁.trans_le (hε₁ n)
+  obtain ⟨hK₂, hε⟩ := pos_of_le_of_le hK₁ hε₁ hε₂
   have hℓ : Tendsto (fun n : ℕ ↦ log n) atTop atTop :=
     tendsto_log_atTop.comp tendsto_natCast_atTop_atTop
   -- the argument is `√n * c n` with `c n ∈ [U L / (5 K₂), U L / (5 K₁)]`
