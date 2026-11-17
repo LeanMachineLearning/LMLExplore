@@ -22,7 +22,8 @@ the cast `(n : WithTop ℕ)` of a natural number.
 
 A process that is adapted, in the sense of measurability, to a filtration indexed by a discrete
 order stays adapted when it is stopped at a stopping time; Mathlib states this for strongly adapted
-processes.
+processes. Finally, two stopping times can be glued along an event known at an earlier stopping
+time, which is how a statistician switches between two stopping rules after seeing the data.
 
 ## Main statements
 
@@ -40,6 +41,8 @@ processes.
 * `MeasureTheory.IsStoppingTime.eq_of_forall_le`: a stopping time of the coordinate filtration
   `Filtration.piLE` with values in `ℕ` is determined by the coordinates up to it.
 * `MeasureTheory.Adapted.stoppedProcess_of_discrete`: a stopped adapted process is adapted.
+* `MeasureTheory.IsStoppingTime.piecewise_of_stoppingTime_le`: two stopping times at least a
+  stopping time `ρ`, glued along a set of the σ-algebra at `ρ`, form a stopping time.
 -/
 
 public section
@@ -157,5 +160,31 @@ theorem IsStoppingTime.eq_of_forall_le {X : ℕ → Type*} [∀ i, MeasurableSpa
   simp [Set.indicator, hne] at h1
 
 end Nat
+
+/-! ### Piecewise stopping times -/
+
+section Piecewise
+
+variable {ι : Type*} [Preorder ι] {𝒢 : Filtration ι mΩ} {τ η ρ : Ω → WithTop ι} {s : Set Ω}
+  [DecidablePred (· ∈ s)]
+
+/-- For stopping times `τ` and `η` that are at least a stopping time `ρ`, and a set `s` of the
+σ-algebra at `ρ`, the time equal to `τ` on `s` and to `η` off `s` is a stopping time. Mathlib's
+`IsStoppingTime.piecewise_of_le` is the case of a constant `ρ`. -/
+theorem IsStoppingTime.piecewise_of_stoppingTime_le (hτ_st : IsStoppingTime 𝒢 τ)
+    (hη_st : IsStoppingTime 𝒢 η) (hρ_st : IsStoppingTime 𝒢 ρ) (hτ : ∀ ω, ρ ω ≤ τ ω)
+    (hη : ∀ ω, ρ ω ≤ η ω) (hs : MeasurableSet[hρ_st.measurableSpace] s) :
+    IsStoppingTime 𝒢 (s.piecewise τ η) := by
+  intro n
+  have h_eq : {ω | s.piecewise τ η ω ≤ n} =
+      (s ∩ {ω | ρ ω ≤ n}) ∩ {ω | τ ω ≤ n} ∪ (sᶜ ∩ {ω | ρ ω ≤ n}) ∩ {ω | η ω ≤ n} := by
+    ext ω
+    by_cases hω : ω ∈ s
+    · simpa [hω] using fun h ↦ (hτ ω).trans h
+    · simpa [hω] using fun h ↦ (hη ω).trans h
+  rw [h_eq]
+  exact ((hs.2 n).inter (hτ_st n)).union ((hs.compl.2 n).inter (hη_st n))
+
+end Piecewise
 
 end MeasureTheory
