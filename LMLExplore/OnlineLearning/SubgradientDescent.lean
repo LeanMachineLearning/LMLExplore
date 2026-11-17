@@ -74,6 +74,9 @@ constant and with nonincreasing learning rates.
   its form for strongly convex losses.
 * `onlineSubgradientDescent_regret_le_mul_one_add_log`: [Ora, Corollary 4.8] logarithmic regret
   for `μ`-strongly convex losses with bounded subgradients.
+* `onlineSubgradientDescent_regret_add_one_mul_le_sum_norm_sq_div`: [Ora, Theorem 4.7] with the
+  weights `t + 1` and the learning rates `2 / ((t + 2) μ)`, the regret of the weighted losses
+  `(t + 1) * f t` is at most `∑ t < n, ‖g t‖ ^ 2 / μ`, as in [Ora, Example 4.12].
 * `onlineSubgradientDescent_regret_sq_sub_le_one_add_log`: [Ora, Example 4.11] the guessing game.
 * `OnlineLearner.isMinOn_run_onlineSubgradientDescent_of_complete_convex`: the plays of the
   learner are the projections of the gradient steps.
@@ -421,6 +424,48 @@ theorem onlineSubgradientDescent_regret_le_mul_one_add_log (hK : Convex ℝ K) (
   refine (sum_le_sum h_term).trans ?_
   rw [← mul_sum]
   exact mul_le_mul_of_nonneg_left (Real.sum_range_inv_add_one_le n) (by positivity)
+
+/-- **Projected online subgradient descent with the weights `t + 1`** [Ora, Theorem 4.7,
+Example 4.12]. Let `K` be convex and `μ > 0`, and let each loss `f t` lie above the paraboloid
+`f t (a t) + ⟪g t, · - a t⟫ + μ / 2 * ‖· - a t‖ ^ 2` on `K`, for `t < n`. Let `a (t + 1)` be a
+point of `K` nearest to `a t - (2 / ((t + 2) μ)) • g t`, for `t < n`. Then for every `u ∈ K`, the
+weighted losses `(t + 1) * f t` have regret at most `∑ t < n, ‖g t‖ ^ 2 / μ`. These weighted
+losses are `(t + 1) μ`-strongly convex at the plays, with the subgradients `(t + 1) • g t`, and the
+steps are those of `onlineSubgradientDescent_regret_le_sum_norm_sq_div` for them. -/
+theorem onlineSubgradientDescent_regret_add_one_mul_le_sum_norm_sq_div (hK : Convex ℝ K)
+    (f : ℕ → E → ℝ) (g a : ℕ → E) {μ : ℝ} (hμ : 0 < μ)
+    (hf : ∀ t < n, ∀ v ∈ K, f t (a t) + ⟪g t, v - a t⟫ + μ / 2 * ‖v - a t‖ ^ 2 ≤ f t v)
+    (ha : ∀ t < n, a (t + 1) ∈ K ∧
+      IsMinOn (fun b ↦ ‖b - (a t - (2 / (((t : ℝ) + 2) * μ)) • g t)‖) K (a (t + 1)))
+    (hu : u ∈ K) :
+    regret (fun t y ↦ ((t : ℝ) + 1) * f t y) a u n ≤ ∑ t ∈ range n, ‖g t‖ ^ 2 / μ := by
+  -- the partial sums of the moduli `(s + 1) μ` of the weighted losses
+  have h_sum (t : ℕ) : ∑ s ∈ range (t + 1), ((s : ℝ) + 1) * μ = (t + 1) * (t + 2) / 2 * μ := by
+    have h := two_mul_sum_range_cast_add_one (α := ℝ) (t + 1)
+    push_cast at h
+    rw [← sum_mul]
+    linear_combination μ / 2 * h
+  have h_osd := onlineSubgradientDescent_regret_le_sum_norm_sq_div hK
+    (fun t y ↦ ((t : ℝ) + 1) * f t y) (fun t ↦ ((t : ℝ) + 1) • g t) a
+    (μ := fun t ↦ ((t : ℝ) + 1) * μ) (fun t _ ↦ by rw [h_sum]; positivity)
+    (fun t ht v hv ↦ by
+      have := mul_le_mul_of_nonneg_left (hf t ht v hv) (by positivity : (0 : ℝ) ≤ t + 1)
+      rw [real_inner_smul_left]
+      linarith)
+    (fun t ht ↦ by
+      have h_rate : (∑ s ∈ range (t + 1), ((s : ℝ) + 1) * μ)⁻¹ • ((t : ℝ) + 1) • g t =
+          (2 / (((t : ℝ) + 2) * μ)) • g t := by
+        rw [h_sum, smul_smul]
+        congr 1
+        field_simp
+      rw [h_rate]
+      exact ha t ht)
+    hu
+  refine h_osd.trans (sum_le_sum fun t _ ↦ ?_)
+  rw [h_sum, norm_smul, Real.norm_of_nonneg (by positivity : (0 : ℝ) ≤ t + 1),
+    div_le_div_iff₀ (by positivity) hμ]
+  have h0 : 0 ≤ ‖g t‖ ^ 2 * μ * ((t : ℝ) + 1) := by positivity
+  nlinarith [h0]
 
 /-- **Online subgradient descent on the guessing game** [Ora, Example 4.11]. Let the outcomes
 `y t` lie in `[0, 1]`, and let the plays start at `x 0 ∈ [0, 1]` and follow
