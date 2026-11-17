@@ -17,6 +17,9 @@ public import TauCeti.Topology.Instances.ENNReal
 * `MeasureTheory.lintegral_finsetSum_indicator_one`: the Lebesgue integral of a finite sum of
   indicators of measurable sets is the sum of their measures, and
   `MeasureTheory.lintegral_finsetSum_indicator_one₀`, its version for null measurable sets.
+* `MeasureTheory.lintegral_finsetSum_div`: the Lebesgue integral of a finite sum of almost
+  everywhere measurable functions divided by a constant is the sum of their integrals divided by
+  the constant.
 * `MeasureTheory.lintegral_ofReal_smul_add_smul_ne_top` and
   `MeasureTheory.toReal_lintegral_ofReal_smul_add_smul`: against the mixture
   `ofReal a • μ + ofReal b • ν` of two measures, a function with finite integrals against `μ` and
@@ -59,6 +62,13 @@ measures. -/
 lemma lintegral_finsetSum_indicator_one (hS : ∀ i ∈ s, MeasurableSet (S i)) :
     ∫⁻ a, ∑ i ∈ s, (S i).indicator 1 a ∂μ = ∑ i ∈ s, μ (S i) :=
   lintegral_finsetSum_indicator_one₀ fun i hi ↦ (hS i hi).nullMeasurableSet
+
+/-- The Lebesgue integral of a finite sum of almost everywhere measurable functions divided by a
+constant is the sum of their integrals divided by the constant. -/
+lemma lintegral_finsetSum_div {f : ι → α → ℝ≥0∞} (hf : ∀ i ∈ s, AEMeasurable (f i) μ)
+    (c : ℝ≥0∞) : ∫⁻ a, ∑ i ∈ s, f i a / c ∂μ = (∑ i ∈ s, ∫⁻ a, f i a ∂μ) / c := by
+  simp_rw [div_eq_mul_inv, ← Finset.sum_mul]
+  rw [lintegral_mul_const'' _ (Finset.aemeasurable_fun_sum s hf), lintegral_finsetSum' s hf]
 
 section Mixture
 
