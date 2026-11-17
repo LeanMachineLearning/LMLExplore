@@ -794,6 +794,14 @@ lemma output_phasedEliminationFixedBudget (h : Σ t, Hist 𝓞 α 𝓨 t) :
   rw [phasedEliminationFixedBudget_def, output_ofStop, Kernel.sigma_apply,
     Kernel.deterministic_apply]
 
+/-- At round `t`, the fixed-budget version outputs `out` of the active set of phase `R` of the
+history. -/
+@[simp]
+lemma outputAt_phasedEliminationFixedBudget (t : ℕ) :
+    outputAt (phasedEliminationFixedBudget S₀ pulls elim helim out R) t =
+      Kernel.deterministic _ (measurable_out_activeSet S₀ pulls out helim R t) := by
+  rw [phasedEliminationFixedBudget_def, outputAt_ofStop]
+
 /-- Along a trajectory, the fixed-budget version stops at round `t` iff phase `R` of the
 trajectory starts at round `t`. -/
 lemma mem_stopSet_phasedEliminationFixedBudget_history {t : ℕ} :
