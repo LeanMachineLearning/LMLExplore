@@ -147,6 +147,13 @@ lemma monotone_cappedPhaseEnd (K : ℕ) (n : ℕ → ℕ) (T : ℕ) : Monotone (
   · omega
   · exact le_rfl
 
+/-- The lengths of the first `R` phases add up to the round `cappedPhaseEnd K n T R` at which
+phase `R` starts. -/
+lemma sum_range_cappedPhaseEnd_sub {K : ℕ} (hK : 0 < K) (n : ℕ → ℕ) (T R : ℕ) :
+    ∑ r ∈ range R, (cappedPhaseEnd K n T (r + 1) - cappedPhaseEnd K n T r) =
+      cappedPhaseEnd K n T R := by
+  rw [sum_range_tsub (monotone_cappedPhaseEnd K n T), cappedPhaseEnd_zero hK, tsub_zero]
+
 /-- If the elimination phases end within the budget, each phase `r < K` starts at the end
 `phaseEnd K n r` of the first `r` elimination phases. -/
 lemma cappedPhaseEnd_eq_phaseEnd {K : ℕ} {n : ℕ → ℕ} {T : ℕ} (hT : phaseEnd K n (K - 1) ≤ T)
@@ -239,6 +246,15 @@ lemma count_pulls (n : ℕ → ℕ) (T r : ℕ) (S : Finset α) (a : α) :
   rw [List.getD_eq_getElem _ _ (by rw [length_pulls]; exact mem_range.1 hj)]
   simp [pulls]
 
+/-- If the elimination phases end within the budget, phase `r < K - 1`, with an active set `S` of
+`K - r` arms, pulls each arm of `S` `n (r + 1) - n r` times. -/
+lemma count_pulls_of_mem {n : ℕ → ℕ} {T : ℕ}
+    (hT : phaseEnd (Fintype.card α) n (Fintype.card α - 1) ≤ T) {r : ℕ}
+    (hr : r + 1 < Fintype.card α) {S : Finset α} (hS : #S = Fintype.card α - r) {a : α}
+    (ha : a ∈ S) : (pulls n T r S).count a = n (r + 1) - n r := by
+  rw [count_pulls, cappedPhaseEnd_eq_phaseEnd hT hr, cappedPhaseEnd_eq_phaseEnd hT (by omega),
+    phaseEnd_succ, Nat.add_sub_cancel_left, ← hS, card_filter_roundRobinOn_eq, ite_eq_left ha]
+
 /-- The elimination maps of successive rejects: at the end of each phase `r < K - 1`, the active
 arm with the smallest sum of rewards in the history `h` is removed from the active set `S`. The
 last phase `K - 1`, and the phases after it, remove no arm. -/
@@ -267,12 +283,20 @@ variable {n : ℕ → ℕ} {T : ℕ} {H : ℕ → Σ m, Hist Unit α ℝ m}
 
 /-- Phase `r` of successive rejects starts at round `cappedPhaseEnd K n T r`, along every
 history. -/
+@[simp]
 lemma phaseStart_eq_cappedPhaseEnd (r : ℕ) :
     phaseStart univ (pulls n T) elim H r = cappedPhaseEnd (Fintype.card α) n T r := by
   rw [phaseStart_eq_sum]
   simp only [length_pulls]
-  rw [sum_range_tsub (monotone_cappedPhaseEnd _ n T), cappedPhaseEnd_zero Fintype.card_pos,
-    tsub_zero]
+  exact sum_range_cappedPhaseEnd_sub Fintype.card_pos n T r
+
+/-- Each phase `r < K - 1` removes from the active set the active arm with the smallest sum of
+rewards in the history at the end of the phase. -/
+lemma activeSet_succ_of_lt {r : ℕ} (hr : r + 1 < Fintype.card α) :
+    activeSet univ (pulls n T) elim H (r + 1) = (activeSet univ (pulls n T) elim H r).erase
+      (eliminated (activeSet univ (pulls n T) elim H r)
+        (sumRewards' _ (H (phaseStart univ (pulls n T) elim H (r + 1))).2)) := by
+  rw [activeSet_succ, elim, ite_eq_left hr, inter_erase, inter_self]
 
 /-- Each phase `r < K - 1` eliminates one arm, so that `K - r` arms are active in phase `r < K`. -/
 lemma card_activeSet {r : ℕ} (hr : r < Fintype.card α) :
@@ -282,8 +306,7 @@ lemma card_activeSet {r : ℕ} (hr : r < Fintype.card α) :
   | succ r ih =>
     have ih := ih (by omega)
     have hne : (activeSet univ (pulls n T) elim H r).Nonempty := card_pos.1 (by omega)
-    rw [activeSet_succ, elim, ite_eq_left hr, inter_erase, inter_self,
-      card_erase_of_mem (eliminated_mem hne _), ih]
+    rw [activeSet_succ_of_lt hr, card_erase_of_mem (eliminated_mem hne _), ih]
     omega
 
 /-- The phases from phase `K - 1` on eliminate no arm. -/
@@ -316,7 +339,7 @@ lemma sumRewards'_le_of_mem_activeSet_of_notMem_activeSet_succ {r : ℕ} {a b : 
     sumRewards' _ (H (phaseStart univ (pulls n T) elim H (r + 1))).2 a ≤
       sumRewards' _ (H (phaseStart univ (pulls n T) elim H (r + 1))).2 b := by
   have hr := lt_card_of_mem_activeSet_of_notMem_activeSet_succ ha ha'
-  rw [activeSet_succ, elim, ite_eq_left hr, inter_erase, inter_self] at ha'
+  rw [activeSet_succ_of_lt hr] at ha'
   exact le_of_mem_of_notMem_erase_eliminated ha ha' hb
 
 /-! ### Runs -/
@@ -324,23 +347,22 @@ lemma sumRewards'_le_of_mem_activeSet_of_notMem_activeSet_succ {r : ℕ} {a b : 
 variable {Ω : Type*} {O : ℕ → Ω → Unit} {A : ℕ → Ω → α} {R : ℕ → Ω → ℝ} {ω : Ω}
 
 /-- If the actions follow successive rejects and the elimination phases end within the budget,
-then during the elimination phase `r < K - 1`, every arm active in it is pulled `n (r + 1) - n r`
-times. -/
+then during phase `r < K - 1`, the elimination phase `r + 1` of [ABM10], every arm active in it is
+pulled `n (r + 1) - n r` times. -/
 lemma pullCount_phaseEnd_succ_eq_add (hT : phaseEnd (Fintype.card α) n (Fintype.card α - 1) ≤ T)
     (hω : ∀ t, A t ω = armAt univ (pulls n T) elim H t) {r : ℕ} (hr : r + 1 < Fintype.card α)
     {a : α} (ha : a ∈ activeSet univ (pulls n T) elim H r) :
     pullCount A a (phaseEnd (Fintype.card α) n (r + 1)) ω =
       pullCount A a (phaseEnd (Fintype.card α) n r) ω + (n (r + 1) - n r) := by
   have h := pullCount_phaseStart_succ hω a r
-  rw [phaseStart_eq_cappedPhaseEnd, phaseStart_eq_cappedPhaseEnd, count_pulls,
-    cappedPhaseEnd_eq_phaseEnd hT hr, cappedPhaseEnd_eq_phaseEnd hT (by omega), phaseEnd_succ,
-    Nat.add_sub_cancel_left, ← card_activeSet (n := n) (T := T) (H := H) (by omega),
-    card_filter_roundRobinOn_eq, ite_eq_left ha] at h
-  rwa [phaseEnd_succ, ← card_activeSet (n := n) (T := T) (H := H) (by omega)]
+  rwa [phaseStart_eq_cappedPhaseEnd, phaseStart_eq_cappedPhaseEnd,
+    cappedPhaseEnd_eq_phaseEnd hT hr, cappedPhaseEnd_eq_phaseEnd hT (by omega),
+    count_pulls_of_mem hT hr (card_activeSet (by omega)) ha] at h
 
 /-- If the actions follow successive rejects with nondecreasing numbers of pulls `n` with
-`n 0 = 0`, and the elimination phases end within the budget, then at the end of the elimination
-phase `r < K - 1`, every arm active in it has been pulled `n (r + 1)` times. -/
+`n 0 = 0`, and the elimination phases end within the budget, then at the end of phase `r < K - 1`,
+the elimination phase `r + 1` of [ABM10], every arm active in it has been pulled `n (r + 1)`
+times. -/
 lemma pullCount_phaseEnd_succ (hn0 : n 0 = 0) (hn : MonotoneOn n (Set.Iic (Fintype.card α - 1)))
     (hT : phaseEnd (Fintype.card α) n (Fintype.card α - 1) ≤ T)
     (hω : ∀ t, A t ω = armAt univ (pulls n T) elim H t) {r : ℕ} (hr : r + 1 < Fintype.card α)
@@ -463,8 +485,7 @@ lemma isFixedBudget_successiveRejects : IsFixedBudget (successiveRejects (α := 
     (elim := elim) (helim := measurable_elim) (out := (roundRobinOn · 0)) (R := Fintype.card α)
     (L := fun r ↦ cappedPhaseEnd (Fintype.card α) n T (r + 1) -
       cappedPhaseEnd (Fintype.card α) n T r) fun _ r _ ↦ length_pulls n T r _
-  rwa [sum_range_tsub (monotone_cappedPhaseEnd _ n T), cappedPhaseEnd_zero Fintype.card_pos,
-    cappedPhaseEnd_of_le _ _ le_rfl, tsub_zero] at h
+  rwa [sum_range_cappedPhaseEnd_sub Fintype.card_pos, cappedPhaseEnd_of_le _ _ le_rfl] at h
 
 variable {Ω : Type*} {mΩ : MeasurableSpace Ω} {P : Measure Ω} [IsProbabilityMeasure P]
   {O : ℕ → Ω → Unit} {A : ℕ → Ω → α} {R : ℕ → Ω → ℝ} {out : Ω → α} {ν : Kernel α ℝ}
@@ -475,9 +496,7 @@ arms be `σ2`-sub-Gaussian with a unique best arm `a'`, let the numbers of pulls
 nondecreasing with `n 0 = 0` and the phases end within the budget, and for each phase `k + 1` let
 `B k` be any set of at least `k + 1` arms other than `a'`. Then the probability that successive
 rejects does not recommend `a'` is at most
-`∑_{k < K - 1} ∑_{b ∈ B k} exp(-n (k + 1) Δ_b² / (4 σ2))`, where `Δ_b` is the gap of `b`. The proof
-goes through the survival bound of phased elimination: `a'` is eliminated at the end of some phase
-`k + 1`, where it has a sum of rewards at most that of some arm of `B k`. -/
+`∑_{k < K - 1} ∑_{b ∈ B k} exp(-n (k + 1) Δ_b² / (4 σ2))`, where `Δ_b` is the gap of `b`. -/
 theorem SuccessiveRejects.measureReal_output_ne_le_sum (hn0 : n 0 = 0)
     (hn : MonotoneOn n (Set.Iic (Fintype.card α - 1)))
     (hT : phaseEnd (Fintype.card α) n (Fintype.card α - 1) ≤ T) {σ2 : ℝ≥0}
