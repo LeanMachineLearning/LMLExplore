@@ -8,7 +8,7 @@ module
 public import Mathlib.Analysis.Normed.Module.FiniteDimension
 
 /-!
-# Pointwise and operator-norm convergence in finite dimension
+# Finite-dimensional normed spaces: closed lines and operator-norm convergence
 
 On a finite-dimensional normed space over a complete field, a family of continuous linear maps
 converges in operator norm exactly when it converges at every point. This is the `Tendsto` form of
@@ -16,10 +16,14 @@ Mathlib's `continuousAt_clm_apply`, and its proof is that of `continuousWithinAt
 upgrades pointwise limit theorems for operators, such as the mean ergodic theorem, to limits in
 operator norm.
 
+A line `𝕜 ∙ e` is finite-dimensional, hence closed. This is registered as an instance, so that
+the quotient `E ⧸ 𝕜 ∙ e` by a line is a normed group, with Mathlib's quotient norm and metric.
+
 ## Main statements
 
 * `LMLExplore.tendsto_clm_apply`: a family of continuous linear maps on a finite-dimensional
   space tends to `g` iff its applications to every vector `y` tend to `g y`.
+* `LMLExplore.isClosed_span_singleton`: the instance stating that a line `𝕜 ∙ e` is closed.
 -/
 
 public section
@@ -27,6 +31,14 @@ public section
 open Filter Module Topology
 
 namespace LMLExplore
+
+/-- A line `𝕜 ∙ e` in a normed space over a complete field is closed, being
+finite-dimensional. As an instance, it makes `E ⧸ 𝕜 ∙ e` a normed group, so that the quotient
+norm and metric of `E ⧸ 𝕜 ∙ e` are available in any file that imports this one. -/
+instance isClosed_span_singleton {𝕜 E : Type*} [NontriviallyNormedField 𝕜] [CompleteSpace 𝕜]
+    [NormedAddCommGroup E] [NormedSpace 𝕜 E] (e : E) :
+    IsClosed ((𝕜 ∙ e : Submodule 𝕜 E) : Set E) :=
+  (𝕜 ∙ e).isClosed_of_finiteDimensional
 
 variable {𝕜 E F ι : Type*} [NontriviallyNormedField 𝕜] [CompleteSpace 𝕜]
   [NormedAddCommGroup E] [NormedSpace 𝕜 E] [NormedAddCommGroup F] [NormedSpace 𝕜 F]

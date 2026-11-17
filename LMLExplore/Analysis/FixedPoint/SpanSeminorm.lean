@@ -6,8 +6,8 @@ Authors: LMLExplore contributors
 module
 
 public import LMLExplore.Analysis.FixedPoint.OrderUnit
+public import LMLExplore.Analysis.Normed.Module.FiniteDimension
 public import Mathlib.Analysis.Normed.Group.Quotient
-public import Mathlib.Topology.Algebra.Module.FiniteDimension
 public import Mathlib.Topology.MetricSpace.Contracting
 
 /-!
@@ -133,13 +133,6 @@ theorem IsTopical.orderUnitOsc_iterate_sub_le (hT : IsTopical e T) (he : IsOrder
 end Order
 
 /-! ### The quotient by the multiples of the order unit -/
-
-/-- A line `𝕜 ∙ e` in a normed space over a complete field is closed, being
-finite-dimensional. As an instance, it makes `E ⧸ 𝕜 ∙ e` a normed group, so that the quotient
-norm and metric of `E ⧸ ℝ ∙ e` are available wherever the results below are used. -/
-instance isClosed_span_singleton {𝕜 : Type*} [NontriviallyNormedField 𝕜] [CompleteSpace 𝕜]
-    [NormedAddCommGroup E] [NormedSpace 𝕜 E] (e : E) : IsClosed ((𝕜 ∙ e : Submodule 𝕜 E) : Set E) :=
-  (𝕜 ∙ e).isClosed_of_finiteDimensional
 
 section Quotient
 
