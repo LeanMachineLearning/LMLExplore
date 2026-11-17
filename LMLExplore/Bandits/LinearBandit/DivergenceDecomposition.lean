@@ -11,6 +11,8 @@ public import LMLExplore.SequentialLearning.BretagnolleHuber
 public import LMLExplore.SequentialLearning.Environments.Stationary
 public import LeanMachineLearning.SequentialLearning.DivergenceDecomposition
 
+import LMLExplore.SequentialLearning.Pinsker
+
 /-!
 # Divergence decomposition for linear bandits with Gaussian noise
 
@@ -21,8 +23,8 @@ environment is a stochastic bandit, so LML's divergence decomposition
 laws of the histories of the first `n` rounds of an algorithm against the parameters `θ` and `θ'`
 is the expected sum over the rounds of the relative entropies `⟪θ - θ', X_t⟫² / (2σ²)` between
 the reward laws of the features `X_t` played [LS, Lemma 15.1]. Combined with the
-Bretagnolle–Huber inequality, this is the information-theoretic step of the minimax lower bounds
-for linear bandits [LS, Theorems 24.1 and 24.2].
+Bretagnolle–Huber inequality or with Pinsker's inequality, this is the information-theoretic step
+of the minimax lower bounds for linear bandits [LS, Theorems 24.1 and 24.2].
 
 ## Main statements
 
@@ -38,6 +40,10 @@ for linear bandits [LS, Theorems 24.1 and 24.2].
   `Learning.IsAlgEnvSeq.mul_exp_neg_sum_integral_div_two_le_sum_gaussianLinearEnv`: the
   Bretagnolle–Huber inequality, summed over the rounds, for two such parameters, with the uniform
   bound and with the expected divergence.
+* `Learning.IsAlgEnvSeq.mul_one_sub_sqrt_le_sum_gaussianLinearEnv`: Pinsker's inequality, summed
+  over the rounds, for two such parameters and two nonnegative losses `f` and `g` on the actions
+  with `c ≤ f + g`: the expected losses add up to at least
+  `n c (1 - √(∑_{t < n} E[⟪θ - θ', φ (A t)⟫²] / (4σ²)))`.
 
 ## References
 
@@ -162,5 +168,31 @@ theorem mul_exp_neg_sum_integral_div_two_le_sum_gaussianLinearEnv
   rw [hkl, ENNReal.toReal_ofReal (div_nonneg (sum_nonneg fun t _ ↦
     integral_nonneg fun ω ↦ sq_nonneg _) (by positivity))] at hbh
   exact le_of_eq_of_le (mul_div_assoc _ _ _) hbh
+
+/-- **Pinsker's inequality for linear bandits with Gaussian noise.** Let the squared differences
+`⟪θ - θ', φ (A t)⟫²` of the mean rewards of the actions played be integrable, and let `f` and `g`
+be nonnegative measurable losses on the actions with `0 ≤ c ≤ f a + g a` for every action `a`,
+integrable along both runs. Then the expected loss `f` of the actions of the rounds `t < n` in the
+run against `θ`, plus the expected loss `g` of the actions of the rounds `t < n` in the run against
+`θ'`, is at least `n c (1 - √(∑_{t < n} E[⟪θ - θ', φ (A t)⟫²] / (4σ²)))`, the expectations in the
+square root being under the run against `θ`. -/
+theorem mul_one_sub_sqrt_le_sum_gaussianLinearEnv
+    (h : IsAlgEnvSeq O A Y alg (gaussianLinearEnv (Measure.dirac ()) (fun _ ↦ φ) θ σ2 hθ) P)
+    (h' : IsAlgEnvSeq O' A' Y' alg (gaussianLinearEnv (Measure.dirac ()) (fun _ ↦ φ) θ' σ2 hθ')
+      P')
+    (hσ2 : σ2 ≠ 0) (hint : ∀ t, Integrable (fun ω ↦ ⟪θ - θ', φ (A t ω)⟫_ℝ ^ 2) P) (n : ℕ)
+    {f g : 𝓐 → ℝ} (hf : Measurable f) (hg : Measurable g)
+    (hfi : ∀ t, Integrable (fun ω ↦ f (A t ω)) P) (hgi : ∀ t, Integrable (fun ω ↦ g (A' t ω)) P')
+    (hf0 : 0 ≤ f) (hg0 : 0 ≤ g) {c : ℝ} (hc0 : 0 ≤ c) (hc : ∀ a, c ≤ f a + g a) :
+    n * c * (1 - √((∑ t ∈ range n, ∫ ω, ⟪θ - θ', φ (A t ω)⟫_ℝ ^ 2 ∂P) / (4 * σ2))) ≤
+      ∑ t ∈ range n, ∫ ω, f (A t ω) ∂P + ∑ t ∈ range n, ∫ ω, g (A' t ω) ∂P' := by
+  have hkl := h.klDiv_map_history_gaussianLinearEnv_eq_ofReal h' hσ2 hint n
+  have hp := mul_one_sub_sqrt_klDiv_map_history_le_sum (h.measurable_history n)
+    (h'.measurable_history n) hf hg hfi hgi hf0 hg0 hc0 hc
+    (by rw [hkl]; exact ENNReal.ofReal_ne_top)
+  rw [hkl, ENNReal.toReal_ofReal (div_nonneg (sum_nonneg fun t _ ↦
+    integral_nonneg fun ω ↦ sq_nonneg _) (by positivity)), div_div,
+    show (2 : ℝ) * σ2 * 2 = 4 * σ2 by ring] at hp
+  exact le_of_eq_of_le (mul_assoc _ _ _) hp
 
 end Learning.IsAlgEnvSeq

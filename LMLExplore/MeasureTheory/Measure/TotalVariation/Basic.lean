@@ -49,6 +49,8 @@ contraction of the oscillation of functions by a Markov kernel (Dobrushin's coef
   `|∫ f dμ - ∫ f dν| ≤ (b - a) / 2 * tvDist μ ν`, and
   `MeasureTheory.abs_integral_sub_integral_le_mul_tvDist_of_forall_sub_le` its form for `f` whose
   values differ by at most `c`.
+* `MeasureTheory.mul_sub_tvDist_div_two_le_integral_add_integral`: for measures of the same mass
+  and nonnegative `f`, `g` with `c ≤ f + g`, `c * (μ univ - tvDist μ ν / 2) ≤ ∫ f dμ + ∫ g dν`.
 * `MeasureTheory.measure_le_add_etvDist`: `μ s ≤ ν s + etvDist μ ν` for every measurable `s`, and
   `MeasureTheory.measure_le_add_of_etvDist_le` its form `μ s ≤ ν s + ε` when `etvDist ν μ ≤ ε`.
 * `MeasureTheory.isProbabilityMeasure_of_forall_exists_etvDist_lt`: a limit in total variation of
@@ -164,6 +166,56 @@ theorem abs_integral_sub_integral_le_mul_tvDist_of_forall_sub_le [IsFiniteMeasur
   have hmem := mem_Icc_ciInf_of_forall_sub_le hf
   simpa using abs_integral_sub_integral_le_mul_tvDist_of_mem_Icc hμν hfμ hfν
     (ae_of_all _ hmem) (ae_of_all _ hmem)
+
+/-- **Two losses against measures close in total variation**: for finite measures `μ` and `ν` of
+the same mass and nonnegative functions `f` and `g` with `c ≤ f x + g x` everywhere,
+`c * (μ univ - tvDist μ ν / 2) ≤ ∫ f dμ + ∫ g dν`. For probability measures and the indicators
+`f = 1_s` and `g = 1_{sᶜ}` this is `μ s + ν sᶜ ≥ 1 - tvDist μ ν / 2`; for general losses it bounds
+from below the sum of the expected losses of any decision made from a sample of `μ` or of `ν`,
+when the losses of the two hypotheses add up to at least `c` at every decision. -/
+theorem mul_sub_tvDist_div_two_le_integral_add_integral [IsFiniteMeasure μ] [IsFiniteMeasure ν]
+    (hμν : μ univ = ν univ) {f g : 𝓧 → ℝ} (hfm : Measurable f) (hgm : Measurable g)
+    (hf : Integrable f μ) (hg : Integrable g ν) (hf0 : 0 ≤ f) (hg0 : 0 ≤ g) {c : ℝ}
+    (hc : ∀ x, c ≤ f x + g x) :
+    c * (μ.real univ - tvDist μ ν / 2) ≤ ∫ x, f x ∂μ + ∫ x, g x ∂ν := by
+  have hreal : ν.real univ = μ.real univ := by simp [measureReal_def, hμν]
+  have hint0 : 0 ≤ ∫ x, f x ∂μ + ∫ x, g x ∂ν :=
+    add_nonneg (integral_nonneg hf0) (integral_nonneg hg0)
+  rcases le_or_gt c 0 with hc0 | hc0
+  · have htv : 0 ≤ μ.real univ - tvDist μ ν / 2 := by
+      linarith [tvDist_le_add (μ := μ) (ν := ν)]
+    exact (mul_nonpos_of_nonpos_of_nonneg hc0 htv).trans hint0
+  -- the weight `u = f / (f + g)`, with values in `[0, 1]`, splits `c` between `f` and `g`
+  have hpos (x : 𝓧) : 0 < f x + g x := hc0.trans_le (hc x)
+  set u : 𝓧 → ℝ := fun x ↦ f x / (f x + g x) with hu_def
+  have hu (x : 𝓧) : u x ∈ Icc 0 1 :=
+    ⟨div_nonneg (hf0 x) (hpos x).le, div_le_one_of_le₀ (le_add_of_nonneg_right (hg0 x))
+      (hpos x).le⟩
+  have hum : Measurable u := hfm.div (hfm.add hgm)
+  have hint (ρ : Measure 𝓧) [IsFiniteMeasure ρ] : Integrable u ρ :=
+    Integrable.of_bound hum.aestronglyMeasurable 1 (ae_of_all _ fun x ↦ by
+      rw [Real.norm_eq_abs, abs_of_nonneg (hu x).1]
+      exact (hu x).2)
+  have hfu : c * ∫ x, u x ∂μ ≤ ∫ x, f x ∂μ := by
+    rw [← integral_const_mul]
+    refine integral_mono ((hint μ).const_mul c) hf fun x ↦ ?_
+    calc c * u x ≤ (f x + g x) * u x := mul_le_mul_of_nonneg_right (hc x) (hu x).1
+      _ = f x := by rw [hu_def]; field_simp [(hpos x).ne']
+  have hgu : c * (μ.real univ - ∫ x, u x ∂ν) ≤ ∫ x, g x ∂ν := by
+    have h1 : ∫ x, c * (1 - u x) ∂ν = c * (μ.real univ - ∫ x, u x ∂ν) := by
+      rw [integral_const_mul, integral_sub (integrable_const 1) (hint ν), integral_const,
+        smul_eq_mul, mul_one, hreal]
+    rw [← h1]
+    refine integral_mono (((integrable_const 1).sub (hint ν)).const_mul c) hg fun x ↦ ?_
+    calc c * (1 - u x) ≤ (f x + g x) * (1 - u x) :=
+          mul_le_mul_of_nonneg_right (hc x) (sub_nonneg.2 (hu x).2)
+      _ = g x := by rw [hu_def]; field_simp [(hpos x).ne']; ring
+  have hdiff := abs_integral_sub_integral_le_mul_tvDist_of_mem_Icc hμν hum.aestronglyMeasurable
+    hum.aestronglyMeasurable (ae_of_all _ hu) (ae_of_all _ hu)
+  have hle : ∫ x, u x ∂ν - ∫ x, u x ∂μ ≤ tvDist μ ν / 2 := by
+    have := (abs_le.1 hdiff).1
+    linarith
+  nlinarith
 
 /-! ### Eventwise bounds -/
 
