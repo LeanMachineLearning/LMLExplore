@@ -9,8 +9,8 @@ public import LMLExplore.Analysis.Convex.Simplex
 public import LMLExplore.Analysis.SpecialFunctions.Log.NegMulLog
 public import Mathlib.InformationTheory.KullbackLeibler.Basic
 public import TauCeti.MeasureTheory.Measure.Decomposition.Lebesgue
+import LMLExplore.InformationTheory.KullbackLeibler.Pinsker
 import LMLExplore.MeasureTheory.Measure.Weighted
-import TauCeti.InformationTheory.KullbackLeibler.Pinsker
 import TauCeti.MeasureTheory.Measure.TotalVariation.Countable
 
 /-!
@@ -26,7 +26,8 @@ correction `ν.real univ - μ.real univ`.
 **Gibbs' inequality** states that it is nonnegative as soon as `∑ a, z a ≤ ∑ a, x a`; it follows
 from the log-sum inequality. **Pinsker's inequality** for probability vectors reads
 `(∑ a, |x a - z a|) ^ 2 ≤ 2 ∑ a, x a * log (x a / z a)` [CT, Lemma 11.6.1]. It is Tau Ceti's
-Pinsker inequality `TauCeti.etvDist_sq_le_two_mul_klDiv` for the laws on `α` of masses `x` and `z`
+Pinsker inequality `TauCeti.etvDist_sq_le_two_mul_klDiv`, in its real form
+`LMLExplore.tvDist_sq_le_two_mul_toReal_klDiv`, for the laws on `α` of masses `x` and `z`
 (`LMLExplore.weightedMeasure`), whose total variation distance is the `ℓ¹` distance of `x` and
 `z` (`MeasureTheory.tvDist_eq_tsum_abs_singleton`) and whose Kullback–Leibler divergence is the
 relative entropy of `x` with respect to `z`. In particular, the relative entropy of two
@@ -109,7 +110,8 @@ theorem toReal_klDiv_eq_sum_mul_log_div [MeasurableSpace α] [MeasurableSingleto
 `x a = 0` whenever `z a = 0`, then `(∑ a, |x a - z a|) ^ 2 ≤ 2 ∑ a, x a * log (x a / z a)`.
 The sum on the right is the relative entropy of `x` with respect to `z`, and the sum on the left
 the total variation distance of the laws on `α` of masses `x` and `z`. This is Tau Ceti's
-`TauCeti.etvDist_sq_le_two_mul_klDiv` for these laws. -/
+`TauCeti.etvDist_sq_le_two_mul_klDiv`, in its real form `tvDist_sq_le_two_mul_toReal_klDiv`, for
+these laws. -/
 theorem sq_sum_abs_sub_le_two_mul_sum_mul_log_div {x z : α → ℝ} (hx : x ∈ simplex α)
     (hz : z ∈ simplex α) (hxz : ∀ a, z a = 0 → x a = 0) :
     (∑ a, |x a - z a|) ^ 2 ≤ 2 * ∑ a, x a * log (x a / z a) := by
@@ -129,10 +131,8 @@ theorem sq_sum_abs_sub_le_two_mul_sum_mul_log_div {x z : α → ℝ} (hx : x ∈
   have h_tv : tvDist μ ν = ∑ a, |x a - z a| := by
     simp [tvDist_eq_tsum_abs_singleton, hμ, hν]
   have h_fin : klDiv μ ν ≠ ∞ := klDiv_ne_top_iff.2 ⟨hμν, Integrable.of_finite⟩
-  rw [← h_kl, ← h_tv, tvDist, ← ENNReal.toReal_pow, ← ENNReal.toReal_ofNat 2,
-    ← ENNReal.toReal_mul]
-  exact ENNReal.toReal_mono (ENNReal.mul_ne_top ENNReal.ofNat_ne_top h_fin)
-    (TauCeti.etvDist_sq_le_two_mul_klDiv (μ := μ) (ν := ν))
+  rw [← h_kl, ← h_tv]
+  exact tvDist_sq_le_two_mul_toReal_klDiv h_fin
 
 /-- The relative entropy of two probability vectors `x` and `z`, with `x a = 0` whenever
 `z a = 0`, vanishes if and only if `x = z`. The forward direction follows from Pinsker's

@@ -274,22 +274,30 @@ theorem exists_le_le_add_etvDist (μ ν : Measure 𝓧) [IsFiniteMeasure μ] [Is
     _ = 2 * (μ s + ν sᶜ) + ((ν s - μ s) + (μ sᶜ - ν sᶜ)) := by ring
     _ = 2 * (μ.restrict s + ν.restrict sᶜ) univ + etvDist μ ν := by simp [hs.etvDist_eq]
 
+/-- Tau Ceti's eventwise characterization `etvDist_le_two_mul_iff` for the real distance `tvDist`:
+for finite measures `μ` and `ν` of the same mass and `0 ≤ c`, `tvDist μ ν ≤ 2 * c` if and only if
+every measurable event `s` satisfies `μ s ≤ ν s + c`. -/
+private theorem tvDist_le_two_mul_iff [IsFiniteMeasure μ] [IsFiniteMeasure ν]
+    (hμν : μ univ = ν univ) {c : ℝ} (hc : 0 ≤ c) :
+    tvDist μ ν ≤ 2 * c ↔ ∀ s, MeasurableSet s → μ.real s ≤ ν.real s + c := by
+  rw [← ENNReal.ofReal_le_ofReal_iff (by positivity), ofReal_tvDist,
+    ENNReal.ofReal_mul zero_le_two, ENNReal.ofReal_ofNat, etvDist_le_two_mul_iff hμν]
+  refine forall₂_congr fun s _ ↦ ?_
+  rw [← ofReal_measureReal (μ := μ), ← ofReal_measureReal (μ := ν),
+    ← ENNReal.ofReal_add measureReal_nonneg hc,
+    ENNReal.ofReal_le_ofReal_iff (add_nonneg measureReal_nonneg hc)]
+
 /-- **Events of measures of the same mass close in total variation**: for finite measures `μ`
 and `ν` of the same mass, every measurable event `s` satisfies
 `|μ s - ν s| ≤ tvDist μ ν / 2`. -/
 theorem abs_measureReal_sub_measureReal_le_tvDist_div_two [IsFiniteMeasure μ]
     [IsFiniteMeasure ν] (hμν : μ univ = ν univ) {s : Set 𝓧} (hs : MeasurableSet s) :
     |μ.real s - ν.real s| ≤ tvDist μ ν / 2 := by
-  -- Tau Ceti's eventwise characterization at `c = etvDist μ ν / 2`, in either order
+  -- the eventwise characterization at `c = tvDist μ ν / 2`, in either order
   have h (μ ν : Measure 𝓧) [IsFiniteMeasure μ] [IsFiniteMeasure ν] (hμν : μ univ = ν univ) :
-      μ.real s ≤ ν.real s + tvDist μ ν / 2 := by
-    have he := (etvDist_le_two_mul_iff hμν (c := etvDist μ ν / 2)).1
-      (ENNReal.mul_div_cancel two_ne_zero ENNReal.ofNat_ne_top).ge s hs
-    have hc : 0 ≤ tvDist μ ν / 2 := div_nonneg tvDist_nonneg zero_le_two
-    rw [← ENNReal.ofReal_le_ofReal_iff (add_nonneg measureReal_nonneg hc),
-      ENNReal.ofReal_add measureReal_nonneg hc, ENNReal.ofReal_div_of_pos two_pos, ofReal_tvDist,
-      ENNReal.ofReal_ofNat, ofReal_measureReal, ofReal_measureReal]
-    exact he
+      μ.real s ≤ ν.real s + tvDist μ ν / 2 :=
+    (tvDist_le_two_mul_iff hμν (div_nonneg tvDist_nonneg zero_le_two)).1
+      (mul_div_cancel₀ _ two_ne_zero).ge s hs
   have h₁ := h μ ν hμν
   have h₂ := h ν μ hμν.symm
   rw [tvDist_comm ν μ] at h₂
@@ -299,16 +307,8 @@ theorem abs_measureReal_sub_measureReal_le_tvDist_div_two [IsFiniteMeasure μ]
 if every measurable event `s` satisfies `μ s ≤ ν s + c`, then `tvDist μ ν ≤ 2 * c`. -/
 theorem tvDist_le_two_mul_of_forall_measureReal_le_add [IsFiniteMeasure μ] [IsFiniteMeasure ν]
     (hμν : μ univ = ν univ) {c : ℝ} (h : ∀ s, MeasurableSet s → μ.real s ≤ ν.real s + c) :
-    tvDist μ ν ≤ 2 * c := by
-  have hc : 0 ≤ c := by simpa using h ∅ MeasurableSet.empty
-  have he : etvDist μ ν ≤ 2 * ENNReal.ofReal c := by
-    refine (etvDist_le_two_mul_iff hμν).2 fun s hs ↦ ?_
-    rw [← ofReal_measureReal (μ := μ), ← ofReal_measureReal (μ := ν),
-      ← ENNReal.ofReal_add measureReal_nonneg hc]
-    exact ENNReal.ofReal_le_ofReal (h s hs)
-  rw [← ENNReal.ofReal_le_ofReal_iff (by positivity), ofReal_tvDist,
-    ENNReal.ofReal_mul zero_le_two, ENNReal.ofReal_ofNat]
-  exact he
+    tvDist μ ν ≤ 2 * c :=
+  (tvDist_le_two_mul_iff hμν (by simpa using h ∅ MeasurableSet.empty)).2 h
 
 /-- **Total variation and overlap on a finite type**: for finite measures `μ` and `ν` on a finite
 type with measurable singletons,
