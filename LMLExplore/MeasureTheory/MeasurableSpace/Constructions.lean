@@ -6,7 +6,9 @@ Authors: LMLExplore contributors
 module
 
 public import Mathlib.Logic.Function.DependsOn
+public import Mathlib.MeasureTheory.Constructions.BorelSpace.Order
 public import Mathlib.MeasureTheory.Group.Arithmetic
+public import TauCeti.MeasureTheory.MeasurableSpace.Eval
 
 /-!
 # Measurability of evaluations, initial segments of tuples, finite dependence and fibers
@@ -58,6 +60,17 @@ stochastic bandit, it reads the reward of the action of round `i` from row `i` o
 lemma measurable_eval_apply [Countable α] {ι β : Type*} [MeasurableSpace β] (i : ι) :
     Measurable fun p : (ι → α → β) × α ↦ p.1 i p.2 :=
   measurable_from_prod_countable_left fun a ↦ (measurable_pi_apply a).comp (measurable_pi_apply i)
+
+omit [Finite α] in
+/-- For countable types `α`, `β` with measurable singletons on `α`, the supremum
+`⨆ b, q x (o x, b)` of a measurable family `q x : α × β → γ` at a measurable first coordinate
+`o x` is measurable in `x`. For random action values `q x` and a random state `o x`, it is the
+largest action value at that state. -/
+lemma _root_.Measurable.iSup_apply_prodMk [Countable α] {δ β γ : Type*} {mδ : MeasurableSpace δ}
+    [Countable β] [MeasurableSpace γ] [TopologicalSpace γ] [ConditionallyCompleteLinearOrder γ]
+    [OrderTopology γ] [SecondCountableTopology γ] [BorelSpace γ] {q : δ → α × β → γ} {o : δ → α}
+    (hq : Measurable q) (ho : Measurable o) : Measurable fun x ↦ ⨆ b, q x (o x, b) :=
+  (Measurable.of_eval fun a ↦ .iSup fun b ↦ (measurable_pi_apply (a, b)).comp hq).eval_index ho
 
 /-- The map `Fin.init` dropping the last entry of a tuple of length `n + 1` is measurable. On the
 histories of a sequential learning problem, it maps the history of the first `n + 1` rounds to
