@@ -40,7 +40,7 @@ defines these operations on `OnlineLearner`, computes their runs, and transfers 
   (`regret_run_map_add_left`, `HasRegretBound.map_add_left`) [Ora, Proposition 13.10].
 * `A.reduce f φ`, the **black-box reduction** to `A` with the output map `f` and the surrogate
   feedback `φ`, plays `f (z t)` when `A` plays `z t`, and feeds `A` the surrogate `φ (z t) (g t)`
-  of its own feedback `g t`. The plays of `A` are those of its closed-loop run
+  of its own feedback `g t` (`play_reduce`). The plays of `A` are those of its closed-loop run
   (`run_reduce`), so a per-round comparison of the losses of `f z` and of the surrogate losses of
   `z` transfers the regret guarantees of `A` to the reduction (`regret_run_reduce_le`,
   `HasRegretBound.reduce`). The constrained learners of [Ora, Section 12.1] are of this form.
@@ -356,6 +356,19 @@ the feedback functions `z ↦ φ z (g t)` (`run_reduce`). The constrained learne
 def reduce (f : X → Y) (φ : X → G' → G) : OnlineLearner C G' Y where
   play t h c := f (reducePlay A φ t h c)
 
+private lemma play_reduce_eq_reducePlay (f : X → Y) (φ : X → G' → G) (t : ℕ)
+    (h : Fin t → C × G') (c : C) : (A.reduce f φ).play t h c = f (reducePlay A φ t h c) := (rfl)
+
+/-- The play of the reduction from the history `h` and the context `c` of round `t` is the image
+by `f` of the play of `A` from the contexts of `h` and the surrogate feedback of the rounds
+`s < t`, computed from the plays of `A` inside the reduction, which are those of `A.reduce id φ`
+on the truncated histories. -/
+lemma play_reduce (f : X → Y) (φ : X → G' → G) (t : ℕ) (h : Fin t → C × G') (c : C) :
+    (A.reduce f φ).play t h c = f (A.play t (fun s ↦ ((h s).1,
+      φ ((A.reduce id φ).play s (fun r ↦ h (Fin.castLE s.2.le r)) (h s).1) (h s).2)) c) := by
+  simp only [play_reduce_eq_reducePlay, id]
+  rw [reducePlay]
+
 /-- The plays of `A` inside the reduction, from the history of a run, are the closed-loop plays
 of `A`. -/
 private lemma reducePlay_eq_run (φ : X → G' → G) (c : ℕ → C) (g : ℕ → G') (t : ℕ) :
@@ -367,14 +380,14 @@ private lemma reducePlay_eq_run (φ : X → G' → G) (c : ℕ → C) (g : ℕ �
     congr 1
     funext s
     rw [closedLoopFeedback_eq, ← ih s s.2]
-    rfl
+    simp only [Fin.val_castLE]
 
 /-- The plays of the reduction `A.reduce f φ` are the images by `f` of the plays of the closed-loop
 run of `A` in which the feedback of round `t` is `φ z (g t)` for the play `z` of round `t`. -/
+@[simp]
 lemma run_reduce (f : X → Y) (φ : X → G' → G) (c : ℕ → C) (g : ℕ → G') (t : ℕ) :
     (A.reduce f φ).run c g t = f (A.run c (A.closedLoopFeedback c fun s z ↦ φ z (g s)) t) := by
-  rw [run_def, ← reducePlay_eq_run]
-  rfl
+  rw [run_def, play_reduce_eq_reducePlay, reducePlay_eq_run]
 
 /-- **Regret of a reduction.** If at every round `t < n` and for every play `z` of `A`, the regret
 increment of `f z` for the loss `L' (g t)` against `u` is at most the regret increment of `z` for

@@ -18,8 +18,11 @@ functional from its values in the directions of a basis.
 
 On a real inner product space, complete or not, the norm is smooth away from `0`, so a unit vector
 `e` has a unique norming functional: a functional `q` of norm at most `1` with `q e = 1` is the
-inner product `⟪e, ·⟫`. For instance, the subgradients of the distance to a convex set at a point
-outside the set are the inner products with the unit vector pointing away from a nearest point.
+inner product `⟪e, ·⟫`. For instance, if `x` is a nearest point of the closure of a set `V` to a
+point `z` outside this closure, a subgradient of the distance to `V` at `z` within the whole space
+has norm at most `1` and takes the value `‖z - x‖` at `z - x`
+(`HasSubgradientWithinAt.apply_sub_eq_norm_of_infDist_eq`), so it is the inner product
+`⟪(z - x) / ‖z - x‖, ·⟫` with the unit vector from `x` to `z`.
 
 ## Main statements
 
@@ -65,8 +68,8 @@ theorem eq_innerSL_of_norm_le_one {q : E →L[ℝ] ℝ} {e : E} (hq : ‖q‖ �
     have h₁ : q (e + t • w) ≤ ‖e + t • w‖ :=
       (le_abs_self _).trans ((q.le_opNorm _).trans (mul_le_of_le_one_left (norm_nonneg _) hq))
     have h₂ : ‖e + t • w‖ ^ 2 = 1 + t ^ 2 * ‖w‖ ^ 2 := by
-      rw [norm_add_sq_real, inner_smul_right, hew, norm_smul, he, mul_pow, Real.norm_eq_abs,
-        sq_abs]
+      simp only [norm_add_sq_real, inner_smul_right, hew, norm_smul, he, mul_pow,
+        Real.norm_eq_abs, sq_abs]
       ring
     rw [map_add, map_smul, hqe, smul_eq_mul] at h₁
     nlinarith [sq_nonneg (‖e + t • w‖ - 1)]
@@ -80,8 +83,7 @@ theorem eq_innerSL_of_norm_le_one {q : E →L[ℝ] ℝ} {e : E} (hq : ‖q‖ �
     rw [e₁, e₂, hs] at h
     nlinarith [sq_nonneg (q w), mul_nonneg (sq_nonneg (q w)) (sq_nonneg ‖w‖)]
   have hv : v = w + ⟪e, v⟫ • e := by rw [hw_def, sub_add_cancel]
-  rw [hv, map_add, map_smul, hqw, hqe, innerSL_apply_apply, inner_add_right, inner_smul_right,
-    hew, real_inner_self_eq_norm_sq, he]
-  simp
+  rw [hv]
+  simp [hqw, hqe, inner_add_right, inner_smul_right, hew, he]
 
 end ContinuousLinearMap

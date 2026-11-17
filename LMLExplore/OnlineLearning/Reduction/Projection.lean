@@ -32,9 +32,14 @@ most the surrogate loss of `z t` relative to `u` (`apply_sub_le_penalizedLoss_su
 plays `x t` against `u ∈ V` for convex losses is at most the regret of the plays `z t` of `A` for
 the surrogate losses (`regret_le_regret_penalizedLoss`,
 `regret_le_regret_add_smul`). The surrogates have subgradients of dual norm at most `2 ‖y t‖`, and
-in an inner product space the fourth surrogate has dual norm at most `‖y t‖`
-[Ora, Remark 12.6] (`norm_add_surrogateCoeff_smul_le_norm`), so a guarantee of `A` for losses of
-bounded norm transfers to the reduction for the same bound.
+in an inner product space the subgradients of the third surrogate and the fourth surrogate have
+dual norm at most `‖y t‖` [Ora, Remark 12.6]
+(`HasSubgradientWithinAt.norm_le_of_penalizedLoss_surrogateCoeff`,
+`norm_add_surrogateCoeff_smul_le_norm`). So a guarantee of `A` for losses of dual norm at most
+`2 L` transfers to the reduction for losses of dual norm at most `L`
+(`OnlineLearner.HasRegretBound.constrain_of_norm_le`), and in an inner product space a guarantee
+of `A` for losses of dual norm at most `L` transfers for the same `L`
+(`OnlineLearner.HasRegretBound.constrain_of_norm_le_of_inner`).
 
 The learner `A.constrain p q` runs the reduction with the fourth surrogate, for a choice `p z` of
 nearest points of `V` and `q z` of subgradients of the distance (both exist when `V` is closed and
@@ -58,11 +63,12 @@ clipping a learner on `ℝ` to `[0, ∞)` plays `max (z t) 0` and feeds `A` the 
 
 * `regret_le_regret_penalizedLoss`, `regret_le_regret_add_smul` [Ora, Theorem 12.5]: the regret of
   the projected plays is at most the regret of the unconstrained plays for the surrogate losses.
-* `norm_le_of_hasSubgradientWithinAt_penalizedLoss`, `norm_add_norm_smul_le`,
+* `HasSubgradientWithinAt.norm_le_of_penalizedLoss`, `norm_add_norm_smul_le`,
   `norm_add_surrogateCoeff_smul_le` [Ora, Theorem 12.5]: the subgradients of the surrogates have
   dual norm at most `‖y‖ + a`, hence at most `2 ‖y‖` for both weights.
-* `norm_add_surrogateCoeff_smul_le_norm` [Ora, Remark 12.6]: in an inner product space, the fourth
-  surrogate has dual norm at most `‖y‖`.
+* `HasSubgradientWithinAt.norm_le_of_penalizedLoss_surrogateCoeff`,
+  `norm_add_surrogateCoeff_smul_le_norm` [Ora, Remark 12.6]: in an inner product space, the
+  subgradients of the third surrogate and the fourth surrogate have dual norm at most `‖y‖`.
 * `OnlineLearner.HasRegretBound.constrain`, `OnlineLearner.HasRegretBound.constrain_of_norm_le`,
   `OnlineLearner.HasRegretBound.constrain_of_norm_le_of_inner`: regret guarantees of the
   constrained learner.
@@ -135,11 +141,14 @@ lemma surrogateCoeff_mul_norm_sub : surrogateCoeff y x z * ‖x - z‖ = max (y 
   · simp
   rw [surrogateCoeff_def, div_mul_cancel₀ _ (norm_ne_zero_iff.mpr (sub_ne_zero.mpr hxz))]
 
+/-- The positive part of `y v` is at most `‖y‖ * ‖v‖`. -/
+private lemma max_apply_zero_le_norm_mul (y : E →L[ℝ] ℝ) (v : E) : max (y v) 0 ≤ ‖y‖ * ‖v‖ :=
+  max_le ((le_abs_self _).trans (y.le_opNorm _)) (by positivity)
+
 /-- The weight is at most the dual norm of the loss. -/
 lemma surrogateCoeff_le_norm : surrogateCoeff y x z ≤ ‖y‖ := by
   rw [surrogateCoeff_def]
-  refine div_le_of_le_mul₀ (norm_nonneg _) (norm_nonneg _) (max_le ?_ (by positivity))
-  exact (le_abs_self _).trans (y.le_opNorm _)
+  exact div_le_of_le_mul₀ (norm_nonneg _) (norm_nonneg _) (max_apply_zero_le_norm_mul y _)
 
 /-- The penalized loss is convex for a convex `V` and a nonnegative weight. -/
 theorem convexOn_penalizedLoss (hV : Convex ℝ V) (ha : 0 ≤ a) :
@@ -175,7 +184,7 @@ lemma lipschitzWith_penalizedLoss (ha : 0 ≤ a) :
 /-- **The subgradients of the first and third surrogates are bounded** [Ora, Theorem 12.5]: every
 subgradient of the penalized loss within a neighbourhood of a point has dual norm at most
 `‖y‖ + a`, hence at most `2 ‖y‖` for the weights `‖y‖` and `surrogateCoeff y x z`. -/
-theorem norm_le_of_hasSubgradientWithinAt_penalizedLoss
+theorem _root_.HasSubgradientWithinAt.norm_le_of_penalizedLoss
     (hg : HasSubgradientWithinAt (penalizedLoss V y a) g s w) (hs : s ∈ 𝓝 w) (ha : 0 ≤ a) :
     ‖g‖ ≤ ‖y‖ + a := by
   have h := hg.norm_le_of_lipschitzOnWith hs (lipschitzWith_penalizedLoss ha).lipschitzOnWith
@@ -219,8 +228,7 @@ theorem apply_sub_le_penalizedLoss_sub (hx : infDist z V = dist z x)
 [CO18, Ora, Theorem 12.5]. -/
 theorem apply_sub_le_penalizedLoss_norm_sub (hx : infDist z V = dist z x) (hu : u ∈ closure V) :
     y (x - u) ≤ penalizedLoss V y ‖y‖ z - penalizedLoss V y ‖y‖ u :=
-  apply_sub_le_penalizedLoss_sub hx
-    (max_le ((le_abs_self _).trans (y.le_opNorm _)) (by positivity)) hu
+  apply_sub_le_penalizedLoss_sub hx (max_apply_zero_le_norm_mul y _) hu
 
 /-- The surrogate inequality for the third surrogate
 `w ↦ y w + surrogateCoeff y x z * infDist w V` [Cut20, Ora, Theorem 12.5]. -/
@@ -240,15 +248,14 @@ theorem apply_sub_le_add_smul_apply_sub (hx : infDist z V = dist z x)
     y (x - u) ≤ (y + a • q) (z - u) := by
   have h := hasSubgradientWithinAt_iff_le.mp
     (hasSubgradientWithinAt_penalizedLoss (y := y) hq ha₀) u hus
-  have h' : (y + a • q) (u - z) = -((y + a • q) (z - u)) := by rw [← map_neg, neg_sub]
-  linarith [apply_sub_le_penalizedLoss_sub hx ha hu]
+  linarith [apply_sub_le_penalizedLoss_sub hx ha hu, map_sub (y + a • q) u z,
+    map_sub (y + a • q) z u]
 
 /-- The surrogate inequality for the second surrogate `y + ‖y‖ • q` [Ora, Theorem 12.5]. -/
 theorem apply_sub_le_add_norm_smul_apply_sub (hx : infDist z V = dist z x)
     (hq : HasSubgradientWithinAt (infDist · V) q s z) (hus : u ∈ s) (hu : u ∈ closure V) :
     y (x - u) ≤ (y + ‖y‖ • q) (z - u) :=
-  apply_sub_le_add_smul_apply_sub hx
-    (max_le ((le_abs_self _).trans (y.le_opNorm _)) (by positivity)) (norm_nonneg _) hq hus hu
+  apply_sub_le_add_smul_apply_sub hx (max_apply_zero_le_norm_mul y _) (norm_nonneg _) hq hus hu
 
 /-- The surrogate inequality for the fourth surrogate `y + surrogateCoeff y x z • q`
 [Ora, Theorem 12.5]. -/
@@ -286,30 +293,69 @@ theorem norm_add_surrogateCoeff_smul_le_norm (hq : HasSubgradientWithinAt (infDi
     (hq.norm_le_one_of_infDist Filter.univ_mem) he hqe
   -- The weight is `-y e`, so the surrogate maps `v` to `y (v - ⟪e, v⟫ • e)`.
   have hcoeff : surrogateCoeff y x z = -y e := by
-    have hxz' : x - z = -(z - x) := (neg_sub z x).symm
-    rw [surrogateCoeff_def, max_eq_left hyxz.le, hxz', norm_neg, he_def, map_smul, map_neg,
-      smul_eq_mul, div_eq_inv_mul, mul_neg]
+    rw [surrogateCoeff_def, max_eq_left hyxz.le, ← neg_sub z x, map_neg, norm_neg, he_def,
+      map_smul, smul_eq_mul]
+    ring
   refine ContinuousLinearMap.opNorm_le_bound _ (norm_nonneg _) fun v ↦ ?_
   have happ : (y + surrogateCoeff y x z • q) v = y (v - ⟪e, v⟫ • e) := by
-    rw [hcoeff, hq_eq]
-    simp [innerSL_apply_apply, map_sub, map_smul]
+    simp only [hcoeff, hq_eq, add_apply, smul_apply,
+      innerSL_apply_apply, map_sub, map_smul, smul_eq_mul]
     ring
   -- The component of `v` orthogonal to `e` is not longer than `v`.
   have horth : ‖v - ⟪e, v⟫ • e‖ ≤ ‖v‖ := by
     have h : ‖v - ⟪e, v⟫ • e‖ ^ 2 = ‖v‖ ^ 2 - ⟪e, v⟫ ^ 2 := by
-      rw [norm_sub_sq_real, inner_smul_right, norm_smul, he, real_inner_comm, Real.norm_eq_abs,
-        mul_one, sq_abs]
+      simp only [norm_sub_sq_real, inner_smul_right, norm_smul, he, real_inner_comm,
+        Real.norm_eq_abs, mul_one, sq_abs]
       ring
     exact (pow_le_pow_iff_left₀ (norm_nonneg _) (norm_nonneg _) two_ne_zero).mp
       (by nlinarith [sq_nonneg ⟪e, v⟫])
   rw [happ]
   exact (y.le_opNorm _).trans (mul_le_mul_of_nonneg_left horth (norm_nonneg _))
 
+/-- **The third surrogate is not larger than the loss in an inner product space**
+[Ora, Remark 12.6]. If `x` is a nearest point of the closure of `V` to `z`, then every subgradient
+`g` of the third surrogate `penalizedLoss V y (surrogateCoeff y x z)` at `z` has dual norm at most
+`‖y‖`. When the weight `a = surrogateCoeff y x z` is positive, `a⁻¹ • (g - y)` is a subgradient of
+the distance to `V`, so that `g` is a fourth surrogate (`norm_add_surrogateCoeff_smul_le_norm`);
+otherwise the bound is `HasSubgradientWithinAt.norm_le_of_penalizedLoss`. -/
+theorem _root_.HasSubgradientWithinAt.norm_le_of_penalizedLoss_surrogateCoeff {g : F →L[ℝ] ℝ}
+    (hg : HasSubgradientWithinAt (penalizedLoss V y (surrogateCoeff y x z)) g univ z)
+    (hx : x ∈ closure V) (hxz : infDist z V = dist z x) : ‖g‖ ≤ ‖y‖ := by
+  rcases (surrogateCoeff_nonneg (y := y) (x := x) (z := z)).eq_or_lt with ha | ha
+  · have h := hg.norm_le_of_penalizedLoss Filter.univ_mem surrogateCoeff_nonneg
+    rwa [← ha, add_zero] at h
+  set a := surrogateCoeff y x z
+  -- `a⁻¹ • (g - y)` is a subgradient of the distance to `V` at `z`.
+  have hq : HasSubgradientWithinAt (infDist · V) (a⁻¹ • (g - y)) univ z := by
+    refine hasSubgradientWithinAt_iff_le.2 fun w hw ↦ ?_
+    have h := hasSubgradientWithinAt_iff_le.1 hg w hw
+    rw [penalizedLoss_def, penalizedLoss_def] at h
+    have h' : g (w - z) - y (w - z) ≤ a * (infDist w V - infDist z V) := by
+      linarith [map_sub y w z]
+    have h'' := mul_le_mul_of_nonneg_left h' (inv_nonneg.2 ha.le)
+    rw [inv_mul_cancel_left₀ ha.ne'] at h''
+    simp only [smul_apply, sub_apply, smul_eq_mul]
+    linarith
+  have hg_eq : g = y + a • a⁻¹ • (g - y) := by rw [smul_inv_smul₀ ha.ne', add_sub_cancel]
+  rw [hg_eq]
+  exact norm_add_surrogateCoeff_smul_le_norm hq hx hxz
+
 end InnerProductSpace
 
 section Regret
 
 variable {ℓ : ℕ → E → ℝ} {y q : ℕ → E →L[ℝ] ℝ} {a : ℕ → ℝ} {x z : ℕ → E}
+
+/-- The per-round step of the regret transfers: for subgradients `y t` of `ℓ t` within `V` at
+`x t` and `u ∈ V`, a bound `b t` on each `y t (x t - u)` bounds the regret of the plays `x t`. -/
+private lemma regret_le_sum_of_apply_sub_le {b : ℕ → ℝ}
+    (hy : ∀ t < n, HasSubgradientWithinAt (ℓ t) (y t) V (x t)) (hu : u ∈ V)
+    (hb : ∀ t < n, y t (x t - u) ≤ b t) : regret ℓ x u n ≤ ∑ t ∈ range n, b t := by
+  rw [regret_def]
+  refine sum_le_sum fun t ht ↦ ?_
+  have ht := mem_range.mp ht
+  have h := hasSubgradientWithinAt_iff_le.mp (hy t ht) u hu
+  linarith [hb t ht, map_sub (y t) u (x t), map_sub (y t) (x t) u]
 
 /-- **Constrained online convex optimization through projections, with the penalized surrogates**
 [Ora, Theorem 12.5]. Let `x t` be a nearest point of `V` to `z t`, let `y t` be a subgradient
@@ -322,12 +368,9 @@ theorem regret_le_regret_penalizedLoss
     (hx : ∀ t < n, infDist (z t) V = dist (z t) (x t))
     (ha : ∀ t < n, max (y t (x t - z t)) 0 ≤ a t * ‖x t - z t‖) (hu : u ∈ V) :
     regret ℓ x u n ≤ regret (fun t ↦ penalizedLoss V (y t) (a t)) z u n := by
-  rw [regret_def, regret_def]
-  refine sum_le_sum fun t ht ↦ ?_
-  have ht := mem_range.mp ht
-  have h := hasSubgradientWithinAt_iff_le.mp (hy t ht) u hu
-  have h' : (y t) (u - x t) = -(y t (x t - u)) := by rw [← map_neg, neg_sub]
-  linarith [apply_sub_le_penalizedLoss_sub (hx t ht) (ha t ht) (subset_closure hu)]
+  rw [regret_def (fun t ↦ penalizedLoss V (y t) (a t))]
+  exact regret_le_sum_of_apply_sub_le hy hu fun t ht ↦
+    apply_sub_le_penalizedLoss_sub (hx t ht) (ha t ht) (subset_closure hu)
 
 /-- **Constrained online convex optimization through projections, with the linearized
 surrogates** [Ora, Theorem 12.5]. Under the hypotheses of `regret_le_regret_penalizedLoss`, with
@@ -341,13 +384,10 @@ theorem regret_le_regret_add_smul
     (hq : ∀ t < n, HasSubgradientWithinAt (infDist · V) (q t) s (z t)) (hus : u ∈ s)
     (hu : u ∈ V) :
     regret ℓ x u n ≤ regret (fun t ↦ y t + a t • q t) z u n := by
-  rw [regret_def, regret_eq_sum_apply_sub]
-  refine sum_le_sum fun t ht ↦ ?_
-  have ht := mem_range.mp ht
-  have h := hasSubgradientWithinAt_iff_le.mp (hy t ht) u hu
-  have h' : (y t) (u - x t) = -(y t (x t - u)) := by rw [← map_neg, neg_sub]
-  linarith [apply_sub_le_add_smul_apply_sub (hx t ht) (ha t ht) (ha₀ t ht) (hq t ht) hus
-    (subset_closure hu)]
+  rw [regret_eq_sum_apply_sub]
+  exact regret_le_sum_of_apply_sub_le hy hu fun t ht ↦
+    apply_sub_le_add_smul_apply_sub (hx t ht) (ha t ht) (ha₀ t ht) (hq t ht) hus
+      (subset_closure hu)
 
 end Regret
 
@@ -373,6 +413,7 @@ noncomputable def constrain : OnlineLearner C (E →L[ℝ] ℝ) E :=
 
 /-- The plays of the constrained learner are the projections of the plays of the closed-loop run of
 `A` fed the surrogate losses. -/
+@[simp]
 lemma run_constrain (c : ℕ → C) (y : ℕ → E →L[ℝ] ℝ) (t : ℕ) :
     (A.constrain p q).run c y t =
       p (A.run c (A.closedLoopFeedback c fun s z ↦ constrainSurrogate p q z (y s)) t) :=
@@ -491,6 +532,7 @@ noncomputable def clipNonneg : OnlineLearner C ℝ ℝ :=
 
 /-- The plays of the clipped learner are the positive parts of the plays of the closed-loop run of
 `A` fed the surrogate losses. -/
+@[simp]
 lemma run_clipNonneg (c : ℕ → C) (g : ℕ → ℝ) (t : ℕ) :
     A.clipNonneg.run c g t =
       max (A.run c (A.closedLoopFeedback c fun s z ↦ clipSurrogate z (g s)) t) 0 :=
