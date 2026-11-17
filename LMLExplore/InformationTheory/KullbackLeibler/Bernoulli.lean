@@ -16,6 +16,9 @@ public import Statlib.ForMathlib.InformationTheory.KullbackLeibler.ChainRule
 public import LeanMachineLearning.ForMathlib.InformationTheory.KullbackLeibler.DataProcessing
 public import TauCeti.InformationTheory.KullbackLeibler.Variational
 import Mathlib.Analysis.Complex.ExponentialBounds
+import LMLExplore.Analysis.Calculus.MeanValue
+import LMLExplore.Analysis.SpecialFunctions.Log.Basic
+import Mathlib.Analysis.SpecialFunctions.Log.Deriv
 import Statlib.Divergence.KullbackLeibler.Basic
 
 /-!
@@ -69,6 +72,9 @@ smallest `q ∈ [0, p]` with `d(p, q) ≤ c`; together they are the confidence b
   inequality `2 (p - q)² ≤ d(p, q)` for `p, q ∈ [0, 1]`.
 * `LMLExplore.klBer_le_ofReal_sq_sub_div`, `LMLExplore.klBerReal_le_sq_sub_div`: the reverse
   bound `d(p, q) ≤ (p - q)² / (q (1 - q))` for `p ∈ [0, 1]` and `q ∈ (0, 1)`.
+* `LMLExplore.klBerReal_one_div_two_add_le`: the reverse bound near `1 / 2`,
+  `d(1 / 2 + x, 1 / 2) ≤ 2 x² + 8 x⁴ / 3` for `8 x² ≤ 1`, matching Pinsker's inequality to second
+  order.
 * `LMLExplore.klBer_one_sub_mul_add_div_two_le`: `d(p, (1 - t) p + t / 2) ≤ t` for `p ∈ [0, 1]`
   and `t ∈ (0, 1]`.
 * `LMLExplore.pow_mul_one_sub_pow_le_div_pow_mul_div_pow`: the maximum likelihood of `k` ones and
@@ -368,6 +374,60 @@ theorem klBer_le_ofReal_sq_sub_div (hp : p ∈ Set.Icc 0 1) (hq : q ∈ Set.Ioo 
     klBer p q ≤ ENNReal.ofReal ((p - q) ^ 2 / (q * (1 - q))) := by
   rw [klBer_eq_ofReal_klBerReal hp (Set.Ioo_subset_Icc_self hq) (klBer_ne_top hq)]
   exact ENNReal.ofReal_le_ofReal (klBerReal_le_sq_sub_div hp hq)
+
+section NearOneHalf
+
+open Set
+
+/-- The derivative of `y ↦ (1 / 2 + y) * log (1 + 2 y) + (1 / 2 - y) * log (1 - 2 y)`, which is
+`klBerReal (1 / 2 + y) (1 / 2)`. -/
+private lemma hasDerivAt_mul_log_add_mul_log {y : ℝ} (h1 : 0 < 1 + 2 * y) (h2 : 0 < 1 - 2 * y) :
+    HasDerivAt (fun y ↦ (1 / 2 + y) * log (1 + 2 * y) + (1 / 2 - y) * log (1 - 2 * y))
+      (log (1 + 2 * y) - log (1 - 2 * y)) y := by
+  have hc : HasDerivAt (fun y : ℝ ↦ 1 / 2 + y) 1 y := (hasDerivAt_id' y).const_add _
+  have hd : HasDerivAt (fun y : ℝ ↦ 1 / 2 - y) (-1) y := (hasDerivAt_id' y).const_sub _
+  have h := (hc.mul (hasDerivAt_log_one_add_mul h1.ne')).add
+    (hd.mul (hasDerivAt_log_one_sub_mul h2.ne'))
+  convert h using 1
+  field_simp
+  ring
+
+/-- **The binary relative entropy to `1 / 2` near `1 / 2`**: for `8 x² ≤ 1`,
+`klBerReal (1 / 2 + x) (1 / 2) ≤ 2 x² + 8 x⁴ / 3`. The leading term `2 x²` is that of Pinsker's
+inequality `two_mul_sq_le_klBerReal`, so the two bounds match to second order. -/
+theorem klBerReal_one_div_two_add_le {x : ℝ} (hx : 8 * x ^ 2 ≤ 1) :
+    klBerReal (1 / 2 + x) (1 / 2) ≤ 2 * x ^ 2 + 8 / 3 * x ^ 4 := by
+  -- by symmetry, `x ≥ 0`
+  wlog hx0 : 0 ≤ x generalizing x
+  · have h := this (x := -x) (by simpa using hx) (by linarith)
+    rw [← klBerReal_one_sub, show 1 - (1 / 2 + -x) = 1 / 2 + x by ring,
+      show (1 : ℝ) - 1 / 2 = 1 / 2 by norm_num, neg_sq, (by decide : Even 4).neg_pow] at h
+    exact h
+  -- `2 y ^ 2 + 8 y ^ 4 / 3 - klBerReal (1 / 2 + y) (1 / 2)` vanishes at `0` and is monotone on
+  -- `[0, x]`, since its derivative is nonnegative there
+  have hd : ∀ y ∈ Icc 0 x, HasDerivAt (fun y ↦ 2 * y ^ 2 + 8 / 3 * y ^ 4 -
+      ((1 / 2 + y) * log (1 + 2 * y) + (1 / 2 - y) * log (1 - 2 * y)))
+        (4 * y + 32 / 3 * y ^ 3 - (log (1 + 2 * y) - log (1 - 2 * y))) y := fun y hy ↦ by
+    have h := (((hasDerivAt_pow 2 y).const_mul 2).add ((hasDerivAt_pow 4 y).const_mul
+      (8 / 3))).sub (hasDerivAt_mul_log_add_mul_log (by linarith [hy.1])
+        (by nlinarith [hy.2]))
+    refine h.congr_deriv ?_
+    push_cast
+    ring
+  have h := LMLExplore.apply_le_apply_of_hasDerivAt_of_nonneg_of_nonpos (x := 0) (x₀ := x)
+    (fun y hy ↦ (hd y (by rwa [uIcc_of_le hx0] at hy)).continuousAt.continuousWithinAt)
+    (fun y hy ↦ hd y (Ioo_subset_Icc_self (by rwa [min_eq_left hx0, max_eq_right hx0] at hy)))
+    (fun y hy ↦ sub_nonneg.2
+      (log_one_add_two_mul_sub_log_one_sub_two_mul_le (by nlinarith [hy.1, hy.2]) hy.1.le))
+    (fun y hy ↦ absurd (hy.1.trans hy.2) hx0.not_gt)
+  have hg : klBerReal (1 / 2 + x) (1 / 2) =
+      (1 / 2 + x) * log (1 + 2 * x) + (1 / 2 - x) * log (1 - 2 * x) := by
+    rw [klBerReal_apply]
+    congr 2 <;> ring_nf
+  norm_num at h
+  linarith
+
+end NearOneHalf
 
 /-- Moving `p ∈ [0, 1]` a fraction `t ∈ (0, 1]` of the way to `1 / 2` lands in `(0, 1)`. -/
 theorem one_sub_mul_add_div_two_mem_Ioo {t : ℝ} (hp : p ∈ Set.Icc 0 1) (ht : t ∈ Set.Ioc 0 1) :

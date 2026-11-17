@@ -5,6 +5,7 @@ Authors: LMLExplore contributors
 -/
 module
 
+public import Mathlib.Analysis.Calculus.Deriv.Basic
 public import Mathlib.Analysis.SpecialFunctions.Log.Basic
 public import Mathlib.Analysis.SpecialFunctions.Pow.Real
 import LMLExplore.Analysis.Calculus.MeanValue
@@ -68,6 +69,11 @@ import Mathlib.Analysis.SpecialFunctions.Log.Deriv
 * `Real.sum_div_max_one_le_four_mul_log`: the form of [MDJKLV21, Lemma 9], for `u k ∈ [0, 1]`
   and with the constant `4`.
 * `Real.abs_log_one_add_mul_le`: `|log (1 + δ t)| ≤ log (1 + t)` for `t ≥ 0` and `δ ∈ [0, 1]`.
+* `Real.hasDerivAt_log_one_add_mul`, `Real.hasDerivAt_log_one_sub_mul`: the derivatives
+  `c / (1 + c y)` and `-c / (1 - c y)` of `y ↦ log (1 ± c y)`.
+* `Real.log_one_add_two_mul_sub_log_one_sub_two_mul_le`:
+  `log (1 + 2 x) - log (1 - 2 x) ≤ 4 x + 32 x³ / 3` for `0 ≤ x` with `8 x² ≤ 1`. It bounds the
+  binary relative entropy near `1 / 2`.
 * `Real.tendsto_sub_one_sub_log_atTop`, `Real.tendsto_sub_one_sub_log_nhdsGT_zero`:
   `t - 1 - log t → ∞` as `t → ∞` and as `t → 0⁺`. The divergences of the Poisson and gamma
   families are multiples of this function of a ratio of means.
@@ -682,5 +688,45 @@ theorem abs_log_one_add_mul_le {δ t : ℝ} (hδ : 0 ≤ δ) (hδ1 : δ ≤ 1) (
   have h0 : 0 ≤ δ * t := mul_nonneg hδ ht
   rw [abs_of_nonneg (log_nonneg (by linarith))]
   exact log_le_log (by linarith) (by nlinarith)
+
+/-- `y ↦ log (1 + c y)` has derivative `c / (1 + c y)` wherever `1 + c y ≠ 0`. -/
+theorem hasDerivAt_log_one_add_mul {c y : ℝ} (h : 1 + c * y ≠ 0) :
+    HasDerivAt (fun y ↦ log (1 + c * y)) (c / (1 + c * y)) y := by
+  simpa using (((hasDerivAt_id' y).const_mul c).const_add 1).log h
+
+/-- `y ↦ log (1 - c y)` has derivative `-c / (1 - c y)` wherever `1 - c y ≠ 0`. -/
+theorem hasDerivAt_log_one_sub_mul {c y : ℝ} (h : 1 - c * y ≠ 0) :
+    HasDerivAt (fun y ↦ log (1 - c * y)) (-c / (1 - c * y)) y := by
+  simpa [neg_div] using (((hasDerivAt_id' y).const_mul c).const_sub 1).log h
+
+/-- For `0 ≤ x` with `8 x² ≤ 1`, `log (1 + 2 x) - log (1 - 2 x) ≤ 4 x + 32 x³ / 3`. It bounds the
+binary relative entropy near `1 / 2` (`LMLExplore.klBerReal_one_div_two_add_le`). -/
+theorem log_one_add_two_mul_sub_log_one_sub_two_mul_le {x : ℝ} (hx : 8 * x ^ 2 ≤ 1)
+    (hx0 : 0 ≤ x) : log (1 + 2 * x) - log (1 - 2 * x) ≤ 4 * x + 32 / 3 * x ^ 3 := by
+  -- the difference vanishes at `0` and its derivative `4 + 32 y² - 4 / (1 - 4 y²)` is
+  -- nonnegative on `[0, x]`
+  have hd : ∀ y ∈ Set.Icc 0 x,
+      HasDerivAt (fun y ↦ 4 * y + 32 / 3 * y ^ 3 - (log (1 + 2 * y) - log (1 - 2 * y)))
+        (4 + 32 * y ^ 2 - (2 / (1 + 2 * y) + 2 / (1 - 2 * y))) y := fun y hy ↦ by
+    have h := (((hasDerivAt_id' y).const_mul 4).add (((hasDerivAt_pow 3 y).const_mul
+      (32 / 3)))).sub ((hasDerivAt_log_one_add_mul (c := 2) (by linarith [hy.1])).sub
+        (hasDerivAt_log_one_sub_mul (c := 2)
+          (by nlinarith [hy.2] : (0 : ℝ) < 1 - 2 * y).ne'))
+    refine h.congr_deriv ?_
+    push_cast
+    ring
+  have h := LMLExplore.apply_le_apply_of_hasDerivAt_of_nonneg_of_nonpos (x := 0) (x₀ := x)
+    (fun y hy ↦ (hd y (by rwa [Set.uIcc_of_le hx0] at hy)).continuousAt.continuousWithinAt)
+    (fun y hy ↦ hd y (Set.Ioo_subset_Icc_self
+      (by rwa [min_eq_left hx0, max_eq_right hx0] at hy)))
+    (fun y hy ↦ by
+      have h1 : 0 < 1 + 2 * y := by linarith [hy.1]
+      have h2 : 0 < 1 - 2 * y := by nlinarith [hy.2]
+      have hy8 : 8 * y ^ 2 ≤ 1 := by nlinarith [hy.1, hy.2]
+      rw [div_add_div _ _ h1.ne' h2.ne', sub_nonneg, div_le_iff₀ (mul_pos h1 h2)]
+      nlinarith [mul_nonneg (sq_nonneg y) (sub_nonneg.2 hy8)])
+    (fun y hy ↦ absurd (hy.1.trans hy.2) hx0.not_gt)
+  norm_num at h
+  linarith
 
 end Real
