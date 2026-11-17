@@ -462,20 +462,19 @@ theorem mem_eClosure_fwerLoss_indicator_iff {A : Finset ι → Set Ω} (hα₀ :
   by_cases h : ω ∈ A S <;> simp [hS.ne_empty, h, hα']
 
 omit [DecidableEq ι] in
-/-- **The classical closure principle** [MPG76; XSF+26, Corollary 13]: for rejection events `A S`
-of level `α` for the true nulls, the closed testing rejection set rejects a true null with
-probability at most `α`, under every probability measure. For measurable events and a level
-`α ∉ {0, ∞}`, it is the largest member of the e-closure, for the family-wise loss, of the
-e-collection `α⁻¹ * 𝟙 (A S)` (`mem_eClosure_fwerLoss_indicator_iff`). -/
-theorem measure_not_disjoint_closedTesting_le {A : Finset ι → Set Ω}
-    (hlevel : ∀ (P : Measure Ω) [IsProbabilityMeasure P],
-      (trueNulls H P).Nonempty → P (A (trueNulls H P)) ≤ α)
-    (P : Measure Ω) [IsProbabilityMeasure P] :
+/-- **The classical closure principle** [MPG76; XSF+26, Corollary 13]: if, under a measure `P`,
+the rejection event `A` of the true nulls of `P` has measure at most `α` (when there is a true
+null), then the closed testing rejection set rejects a true null with `P`-probability at most `α`.
+For measurable events and a level `α ∉ {0, ∞}`, it is the largest member of the e-closure, for
+the family-wise loss, of the e-collection `α⁻¹ * 𝟙 (A S)` (`mem_eClosure_fwerLoss_indicator_iff`).
+-/
+theorem measure_not_disjoint_closedTesting_le {A : Finset ι → Set Ω} (P : Measure Ω)
+    (hlevel : (trueNulls H P).Nonempty → P (A (trueNulls H P)) ≤ α) :
     P {ω | ¬Disjoint (closedTesting A ω) (trueNulls H P)} ≤ α := by
   rcases (trueNulls H P).eq_empty_or_nonempty with hN | hN
   · simp [hN]
   -- Closed testing rejects a true null only when the rejection event of the true nulls occurs.
-  refine (measure_mono fun ω hω ↦ ?_).trans (hlevel P hN)
+  refine (measure_mono fun ω hω ↦ ?_).trans (hlevel hN)
   obtain ⟨i, hi, hiN⟩ := not_disjoint_iff.1 hω
   exact mem_closedTesting.1 hi _ hiN
 
