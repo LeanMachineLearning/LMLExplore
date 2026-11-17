@@ -55,6 +55,8 @@ constrains all `y` at once, rules this out.
 
 ## Main statements
 
+* `integral_regret_eq_sum_mul_integral_sub_integral`: the expected regret of the losses
+  `α t * f · (ξ t)` is `∑ t < n, α t * (𝔼[f (x t) (ξ t)] - 𝔼[f u (ξ t)])`.
 * `integral_regret_eq_sum_mul_integral_sub` [Ora, Theorem 3.1, (3.1)]: the expected regret is
   `∑ t < n, α t * (𝔼[F (x t)] - 𝔼[F u])`.
 * `integral_apply_centerMass_le_integral_add_integral_regret_div` [Ora, Theorem 3.1]: the
@@ -93,7 +95,9 @@ variable {Ω E Z : Type*} {mΩ : MeasurableSpace Ω} {P : Measure Ω} {mZ : Meas
 
 /-- The loss at a point `φ X` chosen before the datum has the mean of the risk: if the datum `Y`
 has conditional law `κ` given `X`, of risk `F (φ (X ω))` at `φ (X ω)` for almost every `ω`, and the
-loss `f (φ X) Y` is integrable, then so is the risk `F (φ X)`, with the same mean. -/
+loss `f (φ X) Y` is integrable, then so is the risk `F (φ X)`, with the same mean. This is
+`HasCondDistrib.integrable_and_integral_comp_prodMk_eq_of_ae_integral_eq` for the loss
+`(a, z) ↦ f (φ a) z`. -/
 private lemma integrable_and_integral_eq_of_risk_comp [SFinite P] {𝓧 : Type*}
     {m𝓧 : MeasurableSpace 𝓧} {X : Ω → 𝓧} {Y : Ω → Z} {κ : Kernel 𝓧 Z} [IsSFiniteKernel κ]
     (h : HasCondDistrib Y X κ P)
@@ -101,12 +105,10 @@ private lemma integrable_and_integral_eq_of_risk_comp [SFinite P] {𝓧 : Type*}
     {F : E → ℝ} (hF : ∀ᵐ ω ∂P, ∫ z, f (φ (X ω)) z ∂(κ (X ω)) = F (φ (X ω)))
     (hint : Integrable (fun ω ↦ f (φ (X ω)) (Y ω)) P) :
     Integrable (fun ω ↦ F (φ (X ω))) P ∧
-      ∫ ω, f (φ (X ω)) (Y ω) ∂P = ∫ ω, F (φ (X ω)) ∂P := by
-  have hg : AEStronglyMeasurable (fun p : 𝓧 × Z ↦ f (φ p.1) p.2) (P.map X ⊗ₘ κ) :=
-    (hf.comp ((hφ.comp measurable_fst).prodMk measurable_snd)).aestronglyMeasurable
-  refine ⟨(h.integrable_integral_comp_prodMk hg hint).congr hF, ?_⟩
-  rw [h.integral_comp_prodMk_eq_integral_integral ((h.integrable_comp_prodMk_iff hg).1 hint)]
-  exact integral_congr_ae hF
+      ∫ ω, f (φ (X ω)) (Y ω) ∂P = ∫ ω, F (φ (X ω)) ∂P :=
+  h.integrable_and_integral_comp_prodMk_eq_of_ae_integral_eq (g := fun p ↦ f (φ p.1) p.2)
+    (G := fun a ↦ F (φ a))
+    (hf.comp ((hφ.comp measurable_fst).prodMk measurable_snd)).aestronglyMeasurable hF hint
 
 /-- The regret of the weighted losses `α t * f · (ξ t)` is integrable when each loss is integrable
 at the plays and at the comparator. -/
@@ -143,6 +145,24 @@ private lemma mem_of_step {V : Set E} {x : ℕ → Ω → E} (hx₀ : ∀ ω, x 
   · exact hx₀ ω
   · exact hstep t (by omega) ω
 
+/-- **The expected regret of weighted losses.** If each loss `f · (ξ t)` is integrable at the
+plays and at the comparator, the expected regret of the losses `α t * f · (ξ t)` against `u` is
+`∑ t < n, α t * (𝔼[f (x t) (ξ t)] - 𝔼[f u (ξ t)])`. -/
+theorem integral_regret_eq_sum_mul_integral_sub_integral {f : E → Z → ℝ} (α : ℕ → ℝ)
+    (x : ℕ → Ω → E) (u : Ω → E) (ξ : ℕ → Ω → Z)
+    (hfx : ∀ t < n, Integrable (fun ω ↦ f (x t ω) (ξ t ω)) P)
+    (hfu : ∀ t < n, Integrable (fun ω ↦ f (u ω) (ξ t ω)) P) :
+    ∫ ω, regret (fun t y ↦ α t * f y (ξ t ω)) (fun t ↦ x t ω) (u ω) n ∂P =
+      ∑ t ∈ range n, α t * (∫ ω, f (x t ω) (ξ t ω) ∂P - ∫ ω, f (u ω) (ξ t ω) ∂P) := by
+  simp only [regret_def]
+  rw [integral_finsetSum (f := fun t ω ↦ α t * f (x t ω) (ξ t ω) - α t * f (u ω) (ξ t ω)) _
+    fun t ht ↦
+      ((hfx t (mem_range.mp ht)).const_mul _).sub ((hfu t (mem_range.mp ht)).const_mul _)]
+  refine sum_congr rfl fun t ht ↦ ?_
+  have ht' := mem_range.mp ht
+  rw [integral_sub ((hfx t ht').const_mul _) ((hfu t ht').const_mul _), integral_const_mul,
+    integral_const_mul, mul_sub]
+
 /-- **The expected regret is the regret of the risk** [Ora, Theorem 3.1, (3.1)]. Let the datum
 `ξ t` have conditional law `κ t (x t, u)` given the play `x t` and the comparator `u`, of risk `F`
 on a set `V` containing the plays and the comparator: `∫ z, f y z ∂κ t (x t ω, u ω) = F y` for
@@ -158,15 +178,10 @@ theorem integral_regret_eq_sum_mul_integral_sub [SFinite P] {V : Set E} {f : E �
     (hfu : ∀ t < n, Integrable (fun ω ↦ f (u ω) (ξ t ω)) P) :
     ∫ ω, regret (fun t y ↦ α t * f y (ξ t ω)) (fun t ↦ x t ω) (u ω) n ∂P =
       ∑ t ∈ range n, α t * (∫ ω, F (x t ω) ∂P - ∫ ω, F (u ω) ∂P) := by
-  simp only [regret_def]
-  rw [integral_finsetSum (f := fun t ω ↦ α t * f (x t ω) (ξ t ω) - α t * f (u ω) (ξ t ω)) _
-    fun t ht ↦
-      ((hfx t (mem_range.mp ht)).const_mul _).sub ((hfu t (mem_range.mp ht)).const_mul _)]
+  rw [integral_regret_eq_sum_mul_integral_sub_integral α x u ξ hfx hfu]
   refine sum_congr rfl fun t ht ↦ ?_
-  have ht' := mem_range.mp ht
-  have h := integrable_and_integral_eq_of_risk hf hκ hF hxV huV hfx hfu ht'
-  rw [integral_sub ((hfx t ht').const_mul _) ((hfu t ht').const_mul _), integral_const_mul,
-    integral_const_mul, h.1.2, h.2.2, mul_sub]
+  have h := integrable_and_integral_eq_of_risk hf hκ hF hxV huV hfx hfu (mem_range.mp ht)
+  rw [h.1.2, h.2.2]
 
 section NormedSpace
 
@@ -235,9 +250,10 @@ theorem integral_apply_centerMass_le_add_integral_regret_div [IsProbabilityMeasu
   -- condition on the pair `(x t, u)`, whose second coordinate is constant
   have h := integral_apply_centerMass_le_integral_add_integral_regret_div hf hFV hα hαn x
     (fun _ ↦ u) ξ (κ := fun t ↦ (κ t).prodMkRight E)
-    (fun t ht ↦ (hκ t ht).prod_right measurable_const) hF hxV (ae_of_all _ fun _ ↦ hu) hfx hfu
-    hint
-  simpa using h
+    (fun t ht ↦ (hκ t ht).prod_right measurable_const)
+    (fun t ht ↦ (hF t ht).mono fun ω h y hy ↦ by rw [Kernel.prodMkRight_apply]; exact h y hy)
+    hxV (ae_of_all _ fun _ ↦ hu) hfx hfu hint
+  rwa [integral_const, probReal_univ, one_smul] at h
 
 /-- **Online-to-batch conversion for independent data** [Ora, Theorem 3.1], as [Ora] states it.
 Let the datum `ξ t` have law `ρ` and be independent of the play `x t` and the comparator `u`, for
@@ -497,15 +513,8 @@ theorem integral_apply_centerMass_le_of_onlineSubgradientDescent_of_strongConvex
   have h_reg_int : ∫ ω, regret (fun t y ↦ ((t : ℝ) + 1) * f y (ξ t ω)) (fun t ↦ x t ω) u n ∂P ≤
       n * G ^ 2 / μ := by
     calc ∫ ω, regret (fun t y ↦ ((t : ℝ) + 1) * f y (ξ t ω)) (fun t ↦ x t ω) u n ∂P
-        = ∑ t ∈ range n, ((t : ℝ) + 1) * (∫ ω, f (x t ω) (ξ t ω) ∂P - ∫ ω, f u (ξ t ω) ∂P) := by
-          simp only [regret_def]
-          rw [integral_finsetSum (f := fun (t : ℕ) ω ↦
-            ((t : ℝ) + 1) * f (x t ω) (ξ t ω) - ((t : ℝ) + 1) * f u (ξ t ω)) _ fun t ht ↦
-              ((hfx t (mem_range.mp ht)).const_mul _).sub ((hfu t (mem_range.mp ht)).const_mul _)]
-          refine sum_congr rfl fun t ht ↦ ?_
-          rw [integral_sub ((hfx t (mem_range.mp ht)).const_mul _)
-            ((hfu t (mem_range.mp ht)).const_mul _), integral_const_mul, integral_const_mul,
-            mul_sub]
+        = ∑ t ∈ range n, ((t : ℝ) + 1) * (∫ ω, f (x t ω) (ξ t ω) ∂P - ∫ ω, f u (ξ t ω) ∂P) :=
+          integral_regret_eq_sum_mul_integral_sub_integral _ x (fun _ ↦ u) ξ hfx hfu
       _ ≤ ∑ t ∈ range n, ((t : ℝ) + 1) *
           ∫ ω, -(⟪g t ω, u - x t ω⟫ + μ / 2 * ‖u - x t ω‖ ^ 2) ∂P := by
           refine sum_le_sum fun t ht ↦ mul_le_mul_of_nonneg_left ?_ (by positivity)

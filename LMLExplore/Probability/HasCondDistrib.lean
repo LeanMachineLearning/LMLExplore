@@ -40,6 +40,9 @@ coordinate, and conditional distributions under each `κ a` glue into one under 
   only if `g` is integrable for the joint law `P.map X ⊗ₘ κ`.
 * `ProbabilityTheory.HasCondDistrib.integrable_integral_comp_prodMk`: if `g (X, Y)` is
   integrable, so is the conditional mean `∫ y, g (X, y) ∂(κ X)`.
+* `ProbabilityTheory.HasCondDistrib.integrable_and_integral_comp_prodMk_eq_of_ae_integral_eq`:
+  if the conditional mean `∫ y, g (X, y) ∂(κ X)` is `G (X)` almost surely and `g (X, Y)` is
+  integrable, then so is `G (X)`, with the same mean.
 * `ProbabilityTheory.HasCondDistrib.condExp_prod_ae_eq_integral`:
   `P[g (X, Y) | σ(X)] = ∫ y, g (X, y) ∂(κ X)` almost everywhere, for integrable `g`.
 * `ProbabilityTheory.HasCondDistrib.restrict_preimage`: `κ` is still the conditional
@@ -167,6 +170,20 @@ lemma HasCondDistrib.integrable_integral_comp_prodMk {E : Type*} [NormedAddCommG
     Integrable (fun ω ↦ ∫ y, g (X ω, y) ∂(κ (X ω))) P :=
   ((h.integrable_comp_prodMk_iff hg).1 hint).integral_measure_compProd.comp_aemeasurable
     h.aemeasurable_fst
+
+/-- If `κ` is the conditional distribution of `Y` given `X`, the conditional mean
+`∫ y, g (X ω, y) ∂(κ (X ω))` equals `G (X ω)` for almost every `ω`, and `g (X, Y)` is integrable,
+for a function `g` of both that is a.e.-strongly measurable for the joint law `P.map X ⊗ₘ κ`, then
+`G (X)` is integrable, with the same mean as `g (X, Y)`. -/
+lemma HasCondDistrib.integrable_and_integral_comp_prodMk_eq_of_ae_integral_eq {E : Type*}
+    [NormedAddCommGroup E] [NormedSpace ℝ E] (h : HasCondDistrib Y X κ P) {g : 𝓧 × 𝓨 → E}
+    (hg : AEStronglyMeasurable g (P.map X ⊗ₘ κ)) {G : 𝓧 → E}
+    (hG : ∀ᵐ ω ∂P, ∫ y, g (X ω, y) ∂(κ (X ω)) = G (X ω))
+    (hint : Integrable (fun ω ↦ g (X ω, Y ω)) P) :
+    Integrable (fun ω ↦ G (X ω)) P ∧ ∫ ω, g (X ω, Y ω) ∂P = ∫ ω, G (X ω) ∂P := by
+  refine ⟨(h.integrable_integral_comp_prodMk hg hint).congr hG, ?_⟩
+  rw [h.integral_comp_prodMk_eq_integral_integral ((h.integrable_comp_prodMk_iff hg).1 hint)]
+  exact integral_congr_ae hG
 
 omit [IsSFiniteKernel κ] in
 /-- If `κ` is the conditional distribution of `Y` given `X` under `P`, it is also the conditional
