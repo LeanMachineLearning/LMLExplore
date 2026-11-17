@@ -90,6 +90,8 @@ equation of these objects.
   `ProbabilityTheory.Kernel.ringInverse_one_sub_smul_integralCLM`: `1 - γ κ` is invertible, with
   inverse `R_γ = (1 - γ κ)⁻¹`; `ProbabilityTheory.Kernel.eq_integralCLM_resolvent_iff`: `R_γ f` is
   the only bounded measurable solution of `u = f + γ κ u`.
+* `ProbabilityTheory.Kernel.ringInverse_one_sub_smul_integralCLM_apply_eq_iff`: for a Markov
+  kernel and `γ < 1`, `(1 - γ κ)⁻¹ f = u` if and only if `u = f + γ κ u`.
 * `ProbabilityTheory.Kernel.integral_resolvent_eq_add`,
   `ProbabilityTheory.Kernel.eq_integral_resolvent_of_eq_add`: for a Markov kernel and `γ < 1`,
   `R_γ f` is the unique bounded measurable solution of `u = f + γ κ u`.
@@ -342,6 +344,15 @@ lemma isFiniteKernel_resolvent (hγ : γ < 1) : IsFiniteKernel (resolvent γ κ)
 lemma measureReal_resolvent_univ (hγ : γ < 1) (x : α) :
     (resolvent γ κ x).real univ = (1 - (γ : ℝ))⁻¹ := by
   simp [measureReal_def, ENNReal.toReal_inv, ENNReal.toReal_sub_of_le, hγ.le]
+
+/-- **The fixed-point characterisation of `(1 - γ κ)⁻¹`**: for a Markov kernel and `γ < 1`, the
+inverse of `1 - γ κ` sends a bounded measurable `f` to `u` if and only if `u` solves
+`u = f + γ κ u`. -/
+theorem ringInverse_one_sub_smul_integralCLM_apply_eq_iff (hγ : γ < 1)
+    {f u : boundedMeasurable α} :
+    Ring.inverse (1 - (γ : ℝ) • κ.integralCLM) f = u ↔ u = f + (γ : ℝ) • κ.integralCLM u := by
+  have := isFiniteKernel_resolvent (κ := κ) hγ
+  rw [ringInverse_one_sub_smul_integralCLM, eq_comm, eq_integralCLM_resolvent_iff]
 
 /-! ### The resolvent acting on bounded functions -/
 

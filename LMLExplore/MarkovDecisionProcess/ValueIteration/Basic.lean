@@ -58,6 +58,10 @@ operators an instance of the abstract dynamic programming of `LMLExplore.IsPolic
   `Learning.MDP.isBlackwell_bellmanEvalOp`, `Learning.MDP.contractingWith_bellmanEvalOp`: the
   operators satisfy Blackwell's conditions and are `γ`-contractions of `boundedMeasurable 𝓢`;
   `Learning.MDP.coeFn_bellmanEvalOp`: pointwise, the evaluation operator is `M.bellmanEval γ π`.
+* `Learning.MDP.isFixedPt_bellmanEvalOp_iff`, `Learning.MDP.ringInverse_apply_policyRewardBM`:
+  the value `v^π` of `π` is the unique fixed point of its evaluation operator, and
+  `v^π = (1 - γ P_π)⁻¹ r_π` in the Banach algebra of continuous linear maps of
+  `boundedMeasurable 𝓢` [P, Theorem 6.1.1].
 * `Learning.MDP.abs_bellman_sub_le`, `Learning.MDP.abs_bellmanEval_sub_le`: the contraction
   bounds, stated pointwise for bounded measurable value functions.
 * `Learning.MDP.bellmanEvalOp_le_bellmanOp`, `Learning.MDP.bellmanEvalOp_greedy`: the evaluation
@@ -411,7 +415,8 @@ variable {π : Kernel 𝓢 𝓐} [IsMarkovKernel π]
 variable (M γ π) in
 /-- With rewards bounded by `C` and `γ < 1`, the value `v^π` of the stationary policy `π`
 (`Learning.MDP.value`) as an element of `boundedMeasurable 𝓢`. It is the fixed point of the
-evaluation operator of `π` (`Learning.MDP.isFixedPt_bellmanEvalOp_valueBM`). -/
+evaluation operator of `π` (`Learning.MDP.isFixedPt_bellmanEvalOp_valueBM`), and its only one
+(`Learning.MDP.isFixedPt_bellmanEvalOp_iff`). -/
 noncomputable def valueBM (hγ : γ < 1) (hR : ∀ p, ∀ᵐ x ∂(M.R p), |x| ≤ C) :
     boundedMeasurable 𝓢 :=
   boundedMeasurable.mk (M.value γ π) (measurable_value hγ hR)
@@ -428,6 +433,25 @@ lemma isFixedPt_bellmanEvalOp_valueBM (hγ : γ < 1) (hR : ∀ p, ∀ᵐ x ∂(M
     IsFixedPt (M.bellmanEvalOp γ π hR) (M.valueBM γ π hγ hR) :=
   isFixedPt_bellmanEvalOp_mk (measurable_value hγ hR) (abs_value_le hγ hR)
     (bellmanEval_value hγ hR)
+
+/-- **The value is the resolvent of the reward** [P, Theorem 6.1.1]: with bounded rewards and
+`γ < 1`, the value of a stationary policy is `v^π = (1 - γ P_π)⁻¹ r_π` in the Banach algebra of
+continuous linear maps of `boundedMeasurable 𝓢`. -/
+theorem ringInverse_apply_policyRewardBM (hγ : γ < 1) (hR : ∀ p, ∀ᵐ x ∂(M.R p), |x| ≤ C) :
+    Ring.inverse (1 - (γ : ℝ) • (M.stateKernel π).integralCLM) (M.policyRewardBM π hR) =
+      M.valueBM γ π hγ hR := by
+  rw [Kernel.ringInverse_one_sub_smul_integralCLM_apply_eq_iff hγ, ← bellmanEvalOp_def]
+  exact (isFixedPt_bellmanEvalOp_valueBM hγ hR).symm
+
+/-- **Policy evaluation** [P, Theorem 6.1.1]: with bounded rewards and `γ < 1`, a bounded
+measurable function is a fixed point of the evaluation operator of a stationary policy `π` if and
+only if it is the value `v^π` of `π`. -/
+theorem isFixedPt_bellmanEvalOp_iff (hγ : γ < 1) (hR : ∀ p, ∀ᵐ x ∂(M.R p), |x| ≤ C)
+    {v : boundedMeasurable 𝓢} :
+    IsFixedPt (M.bellmanEvalOp γ π hR) v ↔ v = M.valueBM γ π hγ hR := by
+  rw [← ringInverse_apply_policyRewardBM hγ hR, eq_comm,
+    Kernel.ringInverse_one_sub_smul_integralCLM_apply_eq_iff hγ, IsFixedPt, bellmanEvalOp_def,
+    eq_comm]
 
 end Value
 
