@@ -27,6 +27,9 @@ has norm at most `1` and takes the value `‖z - x‖` at `z - x`
 ## Main statements
 
 * `OrthonormalBasis.sum_apply_smul_innerSL`: `∑ i, y (b i) • innerSL 𝕜 (b i) = y`.
+* `LMLExplore.inner_sub_inner_smul_self_eq_zero`, `LMLExplore.norm_sub_inner_smul_self_le`: for a
+  unit vector `e`, the component `v - ⟪e, v⟫ • e` of `v` is orthogonal to `e` and not longer
+  than `v`.
 * `ContinuousLinearMap.eq_innerSL_of_norm_le_one`: a functional of norm at most `1` taking the
   value `1` at a unit vector `e` is `innerSL ℝ e`.
 -/
@@ -47,11 +50,31 @@ lemma sum_apply_smul_innerSL (b : OrthonormalBasis ι 𝕜 E) (y : E →L[𝕜] 
 
 end OrthonormalBasis
 
+open scoped RealInnerProductSpace
+
+namespace LMLExplore
+
+variable {E : Type*} [NormedAddCommGroup E] [InnerProductSpace ℝ E] {e : E}
+
+/-- For a unit vector `e`, the component `v - ⟪e, v⟫ • e` of `v` is orthogonal to `e`. -/
+lemma inner_sub_inner_smul_self_eq_zero (he : ‖e‖ = 1) (v : E) : ⟪e, v - ⟪e, v⟫ • e⟫ = 0 := by
+  simp [inner_sub_right, inner_smul_right, he]
+
+/-- For a unit vector `e`, the component `v - ⟪e, v⟫ • e` of `v` orthogonal to `e` is not longer
+than `v`. -/
+lemma norm_sub_inner_smul_self_le (he : ‖e‖ = 1) (v : E) : ‖v - ⟪e, v⟫ • e‖ ≤ ‖v‖ := by
+  have h := norm_add_sq_eq_norm_sq_add_norm_sq_real (x := v - ⟪e, v⟫ • e) (y := ⟪e, v⟫ • e)
+    (by rw [real_inner_smul_right, real_inner_comm e, inner_sub_inner_smul_self_eq_zero he,
+      mul_zero])
+  rw [sub_add_cancel] at h
+  exact (sq_le_sq₀ (norm_nonneg _) (norm_nonneg _)).mp
+    (by nlinarith [mul_self_nonneg ‖⟪e, v⟫ • e‖])
+
+end LMLExplore
+
 namespace ContinuousLinearMap
 
 variable {E : Type*} [NormedAddCommGroup E] [InnerProductSpace ℝ E]
-
-open scoped RealInnerProductSpace
 
 /-- **Uniqueness of norming functionals** in a real inner product space: a continuous linear
 functional `q` of norm at most `1` that takes the value `1` at a unit vector `e` is the inner
@@ -61,16 +84,15 @@ theorem eq_innerSL_of_norm_le_one {q : E →L[ℝ] ℝ} {e : E} (hq : ‖q‖ �
   ext v
   -- Decompose `v` along `e` and its orthogonal complement, and show that `q` vanishes on `w`.
   set w := v - ⟪e, v⟫ • e with hw_def
-  have hew : ⟪e, w⟫ = 0 := by
-    simp [hw_def, inner_sub_right, inner_smul_right, he]
+  have hew : ⟪e, w⟫ = 0 := LMLExplore.inner_sub_inner_smul_self_eq_zero he v
   -- `1 + t q w = q (e + t w) ≤ ‖e + t w‖ ≤ (1 + ‖e + t w‖ ^ 2) / 2 = 1 + t ^ 2 ‖w‖ ^ 2 / 2`.
   have key (t : ℝ) : t * q w ≤ t ^ 2 * ‖w‖ ^ 2 / 2 := by
     have h₁ : q (e + t • w) ≤ ‖e + t • w‖ :=
       (le_abs_self _).trans ((q.le_opNorm _).trans (mul_le_of_le_one_left (norm_nonneg _) hq))
     have h₂ : ‖e + t • w‖ ^ 2 = 1 + t ^ 2 * ‖w‖ ^ 2 := by
-      simp only [norm_add_sq_real, inner_smul_right, hew, norm_smul, he, mul_pow,
-        Real.norm_eq_abs, sq_abs]
-      ring
+      have hetw : ⟪e, t • w⟫ = 0 := by rw [real_inner_smul_right, hew, mul_zero]
+      rw [sq, norm_add_sq_eq_norm_sq_add_norm_sq_real hetw, ← sq, ← sq, norm_smul, mul_pow,
+        Real.norm_eq_abs, sq_abs, he, one_pow]
     rw [map_add, map_smul, hqe, smul_eq_mul] at h₁
     nlinarith [sq_nonneg (‖e + t • w‖ - 1)]
   have hqw : q w = 0 := by
