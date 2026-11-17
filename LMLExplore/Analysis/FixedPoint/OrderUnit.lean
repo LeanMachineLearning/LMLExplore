@@ -47,7 +47,8 @@ weighted sup norm `⨆ i, |x i| / w i`, and the oscillation for `1` is `max x - 
 
 * `LMLExplore.orderUnitNorm_smul`, `LMLExplore.orderUnitNorm_add_le`: the order-unit norm of an
   order unit is a seminorm.
-* `LMLExplore.IsOrderUnit.nonneg`: an order unit is nonnegative.
+* `LMLExplore.IsOrderUnit.nonneg`, `LMLExplore.IsOrderUnit.ne_zero`: an order unit is
+  nonnegative, and nonzero in a nontrivial space.
 * `LMLExplore.norm_smul_of_forall_orderUnitNorm_eq_norm`: when the order-unit norm is the norm,
   `‖r • x‖ = |r| * ‖x‖`.
 * `LMLExplore.le_of_forall_sub_smul_le`: when the order-unit norm is the norm and the lower
@@ -200,6 +201,21 @@ lemma iterate (hT : IsTopical e T) (n : ℕ) : IsTopical e T^[n] := by
   | zero => exact IsTopical.id e
   | succ n ih => rw [Function.iterate_succ]; exact ih.comp hT
 
+/-- A topical map commutes with subtracting multiples of `e`. -/
+lemma map_sub_smul (hT : IsTopical e T) (x : E) (c : ℝ) : T (x - c • e) = T x - c • e := by
+  rw [sub_eq_add_neg, ← neg_smul, hT.map_add_smul, neg_smul, ← sub_eq_add_neg]
+
+/-- If `T h = h + g • e`, then the iterates of a topical map `T` are `T^[n] h = h + (n * g) • e`. -/
+theorem iterate_eq_add_smul (hT : IsTopical e T) {h : E} {g : ℝ}
+    (hh : T h = h + g • e) (n : ℕ) : T^[n] h = h + ((n : ℝ) * g) • e := by
+  induction n with
+  | zero => simp
+  | succ n ih =>
+    rw [Function.iterate_succ_apply', ih, hT.map_add_smul, hh, add_assoc, ← add_smul]
+    congr 2
+    push_cast
+    ring
+
 end IsTopical
 
 /-! ### Blackwell's conditions -/
@@ -260,6 +276,15 @@ lemma IsOrderUnit.nonneg [PosSMulMono ℝ E] (he : IsOrderUnit e) : 0 ≤ e := b
   simpa [smul_smul, inv_mul_cancel₀ (by positivity : (1 + c : ℝ) ≠ 0)] using
     smul_nonneg (inv_nonneg.2 (by positivity : (0 : ℝ) ≤ 1 + c)) h
 
+omit [IsOrderedAddMonoid E] in
+/-- An order unit of a nontrivial ordered vector space is nonzero: if `e = 0`, every element would
+lie in `[0, 0]`. -/
+lemma IsOrderUnit.ne_zero [Nontrivial E] (he : IsOrderUnit e) : e ≠ 0 := by
+  rintro rfl
+  obtain ⟨x, hx⟩ := exists_ne (0 : E)
+  obtain ⟨c, -, hx₁, hx₂⟩ := isOrderUnit_def.1 he x
+  exact hx (le_antisymm (by simpa using hx₂) (by simpa using hx₁))
+
 /-- The triangle inequality for the order-unit norm of an order unit. -/
 lemma orderUnitNorm_add_le (he : IsOrderUnit e) (x y : E) :
     orderUnitNorm e (x + y) ≤ orderUnitNorm e x + orderUnitNorm e y := by
@@ -315,6 +340,25 @@ lemma orderUnitOsc_neg (e x : E) : orderUnitOsc e (-x) = orderUnitOsc e x := by
     exact neg_le_neg h₂
   · rw [show -(a + d) + d = -a by ring, neg_smul]
     exact neg_le_neg h₁
+
+/-- If a monotone normalisation `N` with `N (x + c • e) = N x + c` takes the same value at `x` and
+`y`, then the order-unit norm of `x - y` is at most its oscillation. -/
+theorem orderUnitNorm_sub_le_orderUnitOsc_of_eq [PosSMulMono ℝ E] {N : E → ℝ} (hN : Monotone N)
+    (hN_add : ∀ x (c : ℝ), N (x + c • e) = N x + c) (he : IsOrderUnit e) (hxy : N x = N y) :
+    orderUnitNorm e (x - y) ≤ orderUnitOsc e (x - y) := by
+  refine le_orderUnitOsc he fun d hd a h ↦ orderUnitNorm_le hd ?_
+  -- Applying `N` to `y + a • e ≤ x ≤ y + (a + d) • e` gives `a ≤ 0 ≤ a + d`.
+  have ha : a ≤ 0 := by
+    have := hN (le_sub_iff_add_le'.1 h.1)
+    rw [hN_add, hxy] at this
+    linarith
+  have had : 0 ≤ a + d := by
+    have := hN (sub_le_iff_le_add'.1 h.2)
+    rw [hN_add, hxy] at this
+    linarith
+  refine ⟨h.1.trans' ?_, h.2.trans (smul_le_smul_of_nonneg_right (by linarith) he.nonneg)⟩
+  rw [← neg_smul]
+  exact smul_le_smul_of_nonneg_right (by linarith) he.nonneg
 
 /-! ### Blackwell's sufficient conditions -/
 
@@ -389,17 +433,37 @@ theorem orderUnitNorm_sub_le (hT : IsTopical e T) (he : IsOrderUnit e) (x y : E)
   simpa using orderUnitNorm_sub_le_of_monotone_of_add_smul_le zero_le_one he hT.monotone
     (fun x c _ ↦ by rw [one_mul, hT.map_add_smul]) x y
 
+/-- If `x - y` lies between `a • e` and `(a + d) • e`, so does `T x - T y` for a topical `T`. -/
+lemma sub_mem_Icc_smul (hT : IsTopical e T) {x y : E} {a d : ℝ}
+    (h : x - y ∈ Icc (a • e) ((a + d) • e)) : T x - T y ∈ Icc (a • e) ((a + d) • e) := by
+  -- `y + a • e ≤ x ≤ y + (a + d) • e` is preserved by `T`.
+  refine ⟨?_, ?_⟩
+  · rw [le_sub_iff_add_le', ← hT.map_add_smul]
+    exact hT.monotone (le_sub_iff_add_le'.1 h.1)
+  · rw [sub_le_iff_le_add', ← hT.map_add_smul]
+    exact hT.monotone (sub_le_iff_le_add'.1 h.2)
+
 /-- A topical map is nonexpansive for the oscillation. -/
 theorem orderUnitOsc_sub_le (hT : IsTopical e T) (he : IsOrderUnit e) (x y : E) :
     orderUnitOsc e (T x - T y) ≤ orderUnitOsc e (x - y) := by
   refine csInf_le_csInf ⟨0, fun _ hd ↦ hd.1⟩ (he.exists_mem_Icc_smul _) ?_
-  rintro d ⟨hd, a, h₁, h₂⟩
-  -- `y + a • e ≤ x ≤ y + (a + d) • e` is preserved by `T`.
-  refine ⟨hd, a, ?_, ?_⟩
-  · rw [le_sub_iff_add_le', ← hT.map_add_smul]
-    exact hT.monotone (le_sub_iff_add_le'.1 h₁)
-  · rw [sub_le_iff_le_add', ← hT.map_add_smul]
-    exact hT.monotone (sub_le_iff_le_add'.1 h₂)
+  rintro d ⟨hd, a, h⟩
+  exact ⟨hd, a, hT.sub_mem_Icc_smul h⟩
+
+/-- A topical map changes a difference by at most its oscillation:
+`‖(T x - T y) - (x - y)‖_e ≤ osc_e (x - y)`. -/
+theorem orderUnitNorm_sub_sub_le (hT : IsTopical e T) (he : IsOrderUnit e) (x y : E) :
+    orderUnitNorm e (T x - T y - (x - y)) ≤ orderUnitOsc e (x - y) := by
+  refine le_orderUnitOsc he fun d hd a h ↦ orderUnitNorm_le hd ⟨?_, ?_⟩
+  -- Both `T x - T y` and `x - y` lie in `[a • e, (a + d) • e]`.
+  · rw [neg_le_sub_iff_le_add, ← sub_le_iff_le_add]
+    calc x - y - d • e ≤ (a + d) • e - d • e := sub_le_sub_right h.2 _
+      _ = a • e := by rw [add_smul, add_sub_cancel_right]
+      _ ≤ T x - T y := (hT.sub_mem_Icc_smul h).1
+  · rw [sub_le_iff_le_add]
+    calc T x - T y ≤ (a + d) • e := (hT.sub_mem_Icc_smul h).2
+      _ = d • e + a • e := by rw [add_smul, add_comm]
+      _ ≤ d • e + (x - y) := add_le_add_right h.1 _
 
 end IsTopical
 
