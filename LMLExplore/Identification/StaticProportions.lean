@@ -34,10 +34,12 @@ recommends `rec μ̂_T` for a recommendation rule `rec` applied to the vector `�
 means. Cumulative tracking with constant targets realizes one for every positive allocation and
 every measurable rule. The static proportions families whose rule is correct at the means of the
 admissible models form the class `𝒞^{sp}` of [D23], whose oracle difficulty is `H^{sp}` for arms
-in exponential families and a regular task [D23, Theorem 1]. For arms in exponential families, a
-single static proportions family with proportions `w` has, at every admissible model, asymptotic
-error complexity at most `(min_a w a)⁻¹ H^{sp}(θ)`, hence at most `K H^{sp}(θ)` for uniform
-sampling [D23, Theorem 5].
+in exponential families and a regular task [D23, Theorem 1]. For arms in exponential families and
+a regular task (samples in the closure of the means, a rule correct at the means of the admissible
+models and away from the closure of the means of their alternatives, measurable sets of correct
+answers and open sets of means of alternatives), a single static proportions family with
+proportions `w` has, at every admissible model, asymptotic error complexity at most
+`(min_a w a)⁻¹ H^{sp}(θ)`, hence at most `K H^{sp}(θ)` for uniform sampling [D23, Theorem 5].
 
 ## Main definitions
 
@@ -794,9 +796,7 @@ theorem IsStaticProportions.maxRatio_staticDifficulty_le_card
     (hopen : ∀ θ ∈ task.M, IsOpen (mean '' task.alternatives θ)) :
     task.maxRatio task.staticDifficulty 𝒜 ≤ Fintype.card α := by
   have : Nonempty α := nonempty_of_mem_simplex h𝒜.mem_simplex
-  refine (h𝒜.maxRatio_staticDifficulty_le hρ hρ_closure hmean hν hrec_M hrec hcorrect
-    hopen).trans_eq ?_
-  rw [iInf_const, ENNReal.ofReal_inv_of_pos (by exact_mod_cast Fintype.card_pos),
-    ENNReal.ofReal_natCast, inv_inv]
+  exact (h𝒜.maxRatio_staticDifficulty_le hρ hρ_closure hmean hν hrec_M hrec hcorrect
+    hopen).trans_eq (inv_iInf_ofReal_uniform α)
 
 end LMLExplore.Identification.IdentTask

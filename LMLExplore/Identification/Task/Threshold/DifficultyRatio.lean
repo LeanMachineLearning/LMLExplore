@@ -5,6 +5,7 @@ Authors: LMLExplore contributors
 -/
 module
 
+public import LMLExplore.Basic.ENNReal.Inv
 public import LMLExplore.Identification.Task.Threshold.StaticProportions
 
 /-!
@@ -13,7 +14,7 @@ public import LMLExplore.Identification.Task.Threshold.StaticProportions
 The minimum threshold task (*positivity* in [D23]) asks whether some arm has a mean below the
 threshold `γ`. Against the static-proportions difficulty `H^{sp}`, the smallest maximal difficulty
 ratio of a fixed-budget algorithm family for positivity is `K`, the number of arms
-[D23, Theorem 6]. So the bound `K` of uniform sampling for every task
+[D23, Theorem 6]. So the bound `K` of uniform sampling for regular tasks
 (`LMLExplore.Identification.IdentTask.IsStaticProportions.maxRatio_staticDifficulty_le_card`,
 [D23, Theorem 5]) cannot be improved, by uniform sampling or by any other family.
 
@@ -28,7 +29,7 @@ ratio of a fixed-budget algorithm family for positivity is `K`, the number of ar
   mean is below `γ` errs only when the empirical means lie in a closed set on which the rate
   function `x ↦ ∑ a, w a dbar_a(x a, μ a)` is at least the cost of the alternatives. Its error
   exponent is then at least this cost, and its maximal ratio at most `(min_a w a)⁻¹`. This needs no
-  assumption on the location of the samples, unlike the bound for every task.
+  assumption on the location of the samples, unlike the bound for regular tasks.
 
 ## Main statements
 
@@ -88,14 +89,14 @@ private lemma tendsto_sum_div_nhdsGT (hd : ∀ a, IsDivergenceOn (d a) (S a))
     (Continuous.prodMk_left ℓ).continuousAt).tendsto
 
 omit [Fintype α] [MeasurableSingletonClass α] in
-/-- A vector of means in `S` with some mean below `γ` or all its means above `γ` is an admissible
-model of minimum threshold on the vectors of means in `S`. -/
-private lemma mem_M_minThresholdTask_restrict (ν : (α → ℝ) → Kernel α 𝓨)
-    [∀ μ, IsMarkovKernel (ν μ)] {μ : α → ℝ} (hμ : ∀ c, μ c ∈ S c)
-    (h : (∃ a, μ a < γ) ∨ ∀ a, γ < μ a) :
-    μ ∈ ((minThresholdTask ν id γ).restrict {μ | ∀ c, μ c ∈ S c}).M := by
+/-- The admissible models of minimum threshold on the vectors of means in `S` are the vectors of
+means in `S` with some mean below `γ` or all their means above `γ`. -/
+private lemma mem_M_minThresholdTask_restrict_iff (ν : (α → ℝ) → Kernel α 𝓨)
+    [∀ μ, IsMarkovKernel (ν μ)] {μ : α → ℝ} :
+    μ ∈ ((minThresholdTask ν id γ).restrict {μ | ∀ c, μ c ∈ S c}).M ↔
+      ((∃ a, μ a < γ) ∨ ∀ a, γ < μ a) ∧ ∀ c, μ c ∈ S c := by
   rw [IdentTask.M_restrict, M_minThresholdTask]
-  exact ⟨h, hμ⟩
+  rfl
 
 omit [Fintype α] [MeasurableSingletonClass α] in
 /-- Two vectors of means in `S` with the same mean at the arm `c` have the same law at `c`: their
@@ -107,13 +108,6 @@ private lemma apply_eq_of_apply_eq (ν : (α → ℝ) → Kernel α 𝓨) [∀ �
     {μ μ' : α → ℝ} (hμ : ∀ c, μ c ∈ S c) (hμ' : ∀ c, μ' c ∈ S c) {c : α} (hc : μ' c = μ c) :
     ν μ' c = ν μ c :=
   klDiv_eq_zero_iff.1 (by rw [hν μ hμ μ' hμ' c, hc, (hd c).apply_self (hμ c), ENNReal.ofReal_zero])
-
-/-- `x / y ≤ (H y)⁻¹` in `ℝ≥0∞` for `y > 0` and `H ≤ x⁻¹`. -/
-private lemma ofReal_div_le_inv_mul {x y : ℝ} {H : ℝ≥0∞} (hy : 0 < y)
-    (hH : H ≤ (ENNReal.ofReal x)⁻¹) : ENNReal.ofReal (x / y) ≤ (H * ENNReal.ofReal y)⁻¹ := by
-  rw [ENNReal.ofReal_div_of_pos hy, div_eq_mul_inv, ← inv_inv (ENNReal.ofReal x),
-    ← ENNReal.mul_inv (Or.inr ENNReal.ofReal_ne_top) (Or.inr (ENNReal.ofReal_pos.2 hy).ne')]
-  exact ENNReal.inv_le_inv.2 (by gcongr)
 
 /-- The lower bound of positivity at fixed means `ℓ < γ < m`: the maximal difficulty ratio of
 every fixed-budget family is at least `∑ j, d_j(γ, ℓ) / d_j(m, ℓ)`, by Corollary 4 of [D23] at the
@@ -144,9 +138,9 @@ private lemma ofReal_sum_div_le_maxRatio [MeasurableSpace.CountablyGenerated �
   have hlam_ne {j c : α} (hc : c ≠ j) : lam j c = m := Function.update_of_ne hc ..
   have hlamS (j : α) : ∀ c, lam j c ∈ S c :=
     (Function.forall_update_iff μ fun c y ↦ y ∈ S c).2 ⟨hℓ j, fun c _ ↦ hm c⟩
-  have hμM : μ ∈ task.M := mem_M_minThresholdTask_restrict ν hm (Or.inr fun _ ↦ hγm)
+  have hμM : μ ∈ task.M := (mem_M_minThresholdTask_restrict_iff ν).2 ⟨Or.inr fun _ ↦ hγm, hm⟩
   have hlamM (j : α) : lam j ∈ task.M :=
-    mem_M_minThresholdTask_restrict ν (hlamS j) (Or.inl ⟨j, (hlam_self j).trans_lt hℓγ⟩)
+    (mem_M_minThresholdTask_restrict_iff ν).2 ⟨Or.inl ⟨j, (hlam_self j).trans_lt hℓγ⟩, hlamS j⟩
   have hcorr_μ : task.correct μ = {false} := by
     rw [htask, IdentTask.correct_restrict, correct_minThresholdTask_eq_singleton, id_eq,
       decide_eq_false (not_exists.2 fun a ha ↦ lt_asymm ha hγm)]
@@ -155,6 +149,10 @@ private lemma ofReal_sum_div_le_maxRatio [MeasurableSpace.CountablyGenerated �
       decide_eq_true ⟨j, (hlam_self j).trans_lt hℓγ⟩]
   have hdγ (j : α) : 0 < d j γ ℓ := (hd j).pos (hγ j) (hℓ j) hℓγ.ne'
   have hdm (j : α) : 0 < d j m ℓ := (hd j).pos (hm j) (hℓ j) (hℓγ.trans hγm).ne'
+  have hH (j : α) : task.staticDifficulty (lam j) ≤ (ENNReal.ofReal (d j γ ℓ))⁻¹ := by
+    have h := staticDifficulty_minThresholdTask_restrict_le_of_lt ν hd hγ (hlamS j)
+      (hν (lam j) (hlamS j)) (j := j) ((hlam_self j).trans_lt hℓγ)
+    rwa [hlam_self j] at h
   by_cases hp : Tendsto (task.errorProb 𝒜 μ) atTop (𝓝 0)
   swap
   · -- If the probability of error at `μ` does not tend to `0`, the ratio at `μ` is infinite, as
@@ -178,18 +176,14 @@ private lemma ofReal_sum_div_le_maxRatio [MeasurableSpace.CountablyGenerated �
       rw [hνt, hν (lam j) (hlamS j) μ hm c]
       exact ENNReal.ofReal_ne_top)
     (fun j _ ↦ ne_top_of_le_ne_top (ENNReal.inv_ne_top.2 (ENNReal.ofReal_pos.2 (hdγ j)).ne')
-      (hlam_self j ▸ staticDifficulty_minThresholdTask_restrict_le_of_lt ν hd hγ (hlamS j)
-        (hν (lam j) (hlamS j)) (j := j) ((hlam_self j).trans_lt hℓγ)))
+      (hH j))
   calc ENNReal.ofReal (∑ a, d a γ ℓ / d a m ℓ) = ∑ j, ENNReal.ofReal (d j γ ℓ / d j m ℓ) :=
         ENNReal.ofReal_sum_of_nonneg fun j _ ↦ (div_pos (hdγ j) (hdm j)).le
     _ ≤ ∑ j, (task.staticDifficulty (lam j) * klDiv (task.ν μ j) (task.ν (lam j) j))⁻¹ := by
         -- `H^{sp}(λ j) ≤ d_j(γ, ℓ)⁻¹` and `KL(ν_j(μ), ν_j(λ j)) = d_j(m, ℓ)`.
         refine Finset.sum_le_sum fun j _ ↦ ?_
-        rw [hνt, hν (lam j) (hlamS j) μ hm j, hlam_self j, hμc j]
-        refine ofReal_div_le_inv_mul (hdm j) ?_
-        have h := staticDifficulty_minThresholdTask_restrict_le_of_lt ν hd hγ (hlamS j)
-          (hν (lam j) (hlamS j)) (j := j) ((hlam_self j).trans_lt hℓγ)
-        rwa [hlam_self j] at h
+        rw [hνt, hν (lam j) (hlamS j) μ hm j, hlam_self j, hμc j, ENNReal.ofReal_div_of_pos (hdm j)]
+        exact ENNReal.div_le_inv_mul_of_le_inv (hH j)
     _ ≤ ⨆ j ∈ Finset.univ, task.asymptoticRatio task.staticDifficulty 𝒜 (lam j) := hcor
     _ ≤ task.maxRatio task.staticDifficulty 𝒜 :=
         iSup₂_le fun j _ ↦ IdentTask.asymptoticRatio_le_maxRatio (hlamM j)
@@ -256,17 +250,6 @@ private lemma iInf_ofReal_mul_expFamilyDiv_le (hγ : ∀ a, γ ∈ (ρ a).expFam
   gcongr
   exact Measure.antitoneOn_expFamilyRate_left (hμ a) (ha.trans (hgt a).le) (hgt a).le ha
 
-omit [Fintype α] [MeasurableSingletonClass α] in
-/-- For arms in exponential families in the mean parametrization, the divergence between the arms
-of two vectors of means is the divergence `d` of the families. -/
-private lemma klDiv_eq_ofReal_expFamilyDiv {ν : (α → ℝ) → Kernel α ℝ}
-    (hν : ∀ μ : α → ℝ, (∀ a, μ a ∈ (ρ a).expFamilyMeans id) →
-      ∀ a, ν μ a = (ρ a).expFamily id ((ρ a).natParam id (μ a)))
-    (μ : α → ℝ) (hμ : ∀ c, μ c ∈ (ρ c).expFamilyMeans id)
-    (μ' : α → ℝ) (hμ' : ∀ c, μ' c ∈ (ρ c).expFamilyMeans id) (c : α) :
-    klDiv (ν μ' c) (ν μ c) = ENNReal.ofReal ((ρ c).expFamilyDiv id (μ' c) (μ c)) := by
-  rw [hν μ' hμ' c, hν μ hμ c, Measure.klDiv_expFamily_natParam (hμ' c) (hμ c)]
-
 /-- **The error exponent of static proportions for positivity** [D23, proof of Theorem 6]. Let the
 arm `a` be in the exponential family generated by `ρ a` with the statistic `id`, not almost
 everywhere constant, in the mean parametrization, and let the threshold `γ` be a mean of every
@@ -296,10 +279,7 @@ theorem limsup_log_errorProb_div_le_neg_iInf_cost_minThresholdTask_restrict [Dec
   set task := (minThresholdTask ν id γ).restrict {μ : α → ℝ | ∀ a, μ a ∈ (ρ a).expFamilyMeans id}
     with htask
   have hνt : task.ν = ν := by simp [htask]
-  have hμ' := hμ
-  simp only [htask, IdentTask.M_restrict, M_minThresholdTask, Set.mem_inter_iff,
-    Set.mem_ofPred_eq, id_eq] at hμ'
-  obtain ⟨hμM, hμS⟩ := hμ'
+  obtain ⟨hμM, hμS⟩ := (mem_M_minThresholdTask_restrict_iff ν).1 hμ
   have hd (a : α) := isDivergenceOn_expFamilyDiv (hρ a)
   have hw : 0 ≤ w := fun a ↦ (h𝒜.pos a).le
   have hi : task.correct μ = {rec μ} := by
@@ -372,9 +352,7 @@ theorem maxRatio_staticDifficulty_minThresholdTask_restrict_le [DecidableEq α]
       (limsup_log_errorProb_div_le_neg_iInf_cost_minThresholdTask_restrict ν hρ hν hγ hrec h𝒜
         hμ))
   -- The static-proportions difficulty of `μ` is positive, by its closed form.
-  simp only [IdentTask.M_restrict, M_minThresholdTask, Set.mem_inter_iff, Set.mem_ofPred_eq,
-    id_eq] at hμ
-  obtain ⟨hμM, hμS⟩ := hμ
+  obtain ⟨hμM, hμS⟩ := (mem_M_minThresholdTask_restrict_iff ν).1 hμ
   have hd (a : α) := isDivergenceOn_expFamilyDiv (hρ a)
   rcases hμM with h | h
   · rw [staticDifficulty_minThresholdTask_restrict_true ν hd hγ hμS
@@ -418,8 +396,7 @@ theorem iInf_maxRatio_staticDifficulty_minThresholdTask_restrict [Nonempty α]
     (w := fun _ ↦ (Fintype.card α : ℝ)⁻¹) (fun _ ↦ by positivity)
     (mem_simplex_iff.1 (uniform_mem_simplex α)).2
   refine (iInf₂_le 𝒜 h𝒜.isFixedBudgetFamily).trans
-    ((maxRatio_staticDifficulty_minThresholdTask_restrict_le ν hρ hν hγ hrec h𝒜).trans_eq ?_)
-  rw [iInf_const, ENNReal.ofReal_inv_of_pos (by exact_mod_cast Fintype.card_pos),
-    ENNReal.ofReal_natCast, inv_inv]
+    ((maxRatio_staticDifficulty_minThresholdTask_restrict_le ν hρ hν hγ hrec h𝒜).trans_eq
+      (inv_iInf_ofReal_uniform α))
 
 end LMLExplore.Identification

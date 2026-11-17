@@ -45,6 +45,8 @@ supported distributions, not a subset of `α → ℝ`.
 * `LMLExplore.not_convex_image_single`: a set of vertices with two distinct elements is not
   convex.
 * `LMLExplore.uniform_mem_simplex`: the uniform distribution lies in the simplex.
+* `LMLExplore.inv_iInf_ofReal_uniform`: the inverse of the smallest entry of the uniform
+  distribution is the number of elements.
 * `LMLExplore.simplex_nonempty`: the simplex of a nonempty type is nonempty.
 * `LMLExplore.eq_one_of_mem_simplex`: on a type with at most one element, the simplex is the
   single point `fun _ ↦ 1`.
@@ -120,6 +122,14 @@ variable (α) in
 /-- The uniform distribution `fun _ ↦ (card α)⁻¹` on a nonempty type lies in the simplex. -/
 lemma uniform_mem_simplex [Nonempty α] : (fun _ ↦ (Fintype.card α : ℝ)⁻¹) ∈ simplex α :=
   ⟨fun _ ↦ by positivity, by simp⟩
+
+variable (α) in
+/-- The inverse of the smallest entry `(card α)⁻¹` of the uniform distribution, in `ℝ≥0∞`, is the
+number `card α` of elements. -/
+lemma inv_iInf_ofReal_uniform [Nonempty α] :
+    (⨅ _ : α, ENNReal.ofReal (Fintype.card α : ℝ)⁻¹)⁻¹ = Fintype.card α := by
+  rw [iInf_const, ENNReal.ofReal_inv_of_pos (by exact_mod_cast Fintype.card_pos),
+    ENNReal.ofReal_natCast, inv_inv]
 
 variable (α) in
 lemma simplex_nonempty [Nonempty α] : (simplex α).Nonempty :=

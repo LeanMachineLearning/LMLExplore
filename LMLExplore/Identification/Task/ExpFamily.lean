@@ -49,6 +49,9 @@ both endpoints of the means (`tendsto_expFamilyDiv_gaussianReal_atBot`,
 
 * `LMLExplore.Identification.isDivergenceOn_expFamilyDiv`: the divergence `d(μ, μ')` of an
   exponential family in the mean parametrization is a divergence on its means.
+* `LMLExplore.Identification.klDiv_eq_ofReal_expFamilyDiv`: for arms in exponential families in
+  the mean parametrization, the divergence between the arms of two vectors of means is the
+  divergence of the families.
 * `LMLExplore.Identification.IsDivergenceOn.exists_mem_nhds_forall_exists_isCompact`: a
   divergence on an interval that is unbounded on each side of every point has, near every point,
   sublevel sets contained in compact subsets of the interval.
@@ -268,6 +271,19 @@ theorem isDivergenceOn_expFamilyDiv {𝓧 : Type*} {m𝓧 : MeasurableSpace 𝓧
   antitoneOn_right x _ := (strictAntiOn_expFamilyDiv_right hT x).antitoneOn
   monotoneOn_left _ hy := (strictMonoOn_expFamilyDiv_left hT hy).monotoneOn
   antitoneOn_left _ hy := (strictAntiOn_expFamilyDiv_left hT hy).antitoneOn
+
+/-- For arms in exponential families in the mean parametrization, the divergence between the arms
+of two vectors of means is the divergence `d` of the families:
+`KL(ν_c(μ'), ν_c(μ)) = d_c(μ' c, μ c)`. This is the hypothesis on the arm laws of the bounds on
+transportation costs of this file, for the divergences `isDivergenceOn_expFamilyDiv`. -/
+theorem klDiv_eq_ofReal_expFamilyDiv {α : Type*} {mα : MeasurableSpace α} {ρ : α → Measure ℝ}
+    {T : α → ℝ → ℝ} {ν : (α → ℝ) → Kernel α ℝ}
+    (hν : ∀ μ : α → ℝ, (∀ a, μ a ∈ (ρ a).expFamilyMeans (T a)) →
+      ∀ a, ν μ a = (ρ a).expFamily (T a) ((ρ a).natParam (T a) (μ a)))
+    (μ : α → ℝ) (hμ : ∀ c, μ c ∈ (ρ c).expFamilyMeans (T c))
+    (μ' : α → ℝ) (hμ' : ∀ c, μ' c ∈ (ρ c).expFamilyMeans (T c)) (c : α) :
+    klDiv (ν μ' c) (ν μ c) = ENNReal.ofReal ((ρ c).expFamilyDiv (T c) (μ' c) (μ c)) := by
+  rw [hν μ' hμ' c, hν μ hμ c, klDiv_expFamily_natParam (hμ' c) (hμ c)]
 
 namespace IdentTask
 

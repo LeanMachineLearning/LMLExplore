@@ -316,8 +316,7 @@ eventually `0`. -/
 lemma asymptoticRatio_eq_zero_of_eventually_errorProb_eq_zero
     (h : ∀ᶠ T in atTop, task.errorProb 𝒜 θ T = 0) : task.asymptoticRatio H 𝒜 θ = 0 := by
   have hev : ∀ᶠ T in atTop, task.difficultyRatio H 𝒜 θ T = 0 := h.mono fun T hT ↦ by
-    rw [difficultyRatio_def, errorComplexity_def, hT, ENNReal.log_zero, EReal.neg_bot,
-      EReal.toENNReal_top, ENNReal.div_top, ENNReal.zero_div]
+    simp [difficultyRatio_def, errorComplexity_def, hT]
   rw [asymptoticRatio_def, limsup_congr hev, limsup_const]
 
 /-- The inverse of the `liminf` of the error complexity is the `limsup` of the error exponent:
