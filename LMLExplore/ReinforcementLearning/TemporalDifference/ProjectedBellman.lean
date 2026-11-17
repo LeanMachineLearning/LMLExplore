@@ -54,6 +54,8 @@ independence of the features is the invertibility of `Σ_ν`, which holds when
 
 ## Main statements
 
+* `LMLExplore.ReinforcementLearning.integral_sq_inner_le_norm_sq`: `‖⟪φ, θ⟫‖²_ν ≤ ‖θ‖²` for
+  features with `‖φ s‖ ≤ 1`.
 * `LMLExplore.ReinforcementLearning.integral_sub_featureProj_mul_inner_eq_zero`: `f - Π f` is
   `ν`-orthogonal to the features, and
   `LMLExplore.ReinforcementLearning.integral_sq_sub_inner_eq`: the Pythagorean identity
@@ -144,6 +146,17 @@ coefficients. -/
 theorem eq_of_isInvertible_featureGram_of_forall_inner_eq (hG : (featureGram ν φ).IsInvertible)
     {θ θ' : E} (h : ∀ s, ⟪φ s, θ⟫_ℝ = ⟪φ s, θ'⟫_ℝ) : θ = θ' :=
   hG.bijective.1 (featureGram_eq_of_forall_inner_eq h)
+
+omit [IsFiniteMeasure ν] in
+/-- For features with `‖φ s‖ ≤ 1`, `‖⟪φ, θ⟫‖²_ν ≤ ‖θ‖²`. -/
+theorem integral_sq_inner_le_norm_sq [IsProbabilityMeasure ν] (hφ : ∀ s, ‖φ s‖ ≤ 1) (θ : E) :
+    ∫ s, ⟪φ s, θ⟫_ℝ ^ 2 ∂ν ≤ ‖θ‖ ^ 2 := by
+  calc ∫ s, ⟪φ s, θ⟫_ℝ ^ 2 ∂ν ≤ ∫ _, ‖θ‖ ^ 2 ∂ν := by
+        refine integral_mono Integrable.of_finite (integrable_const _) fun s ↦ ?_
+        rw [← sq_abs]
+        gcongr
+        exact (abs_real_inner_le_norm _ _).trans (mul_le_of_le_one_left (norm_nonneg _) (hφ _))
+    _ = ‖θ‖ ^ 2 := by simp
 
 end Gram
 
