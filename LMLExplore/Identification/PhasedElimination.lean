@@ -669,6 +669,37 @@ lemma stoppingTime_phasedElimination_le {r : ℕ}
   rw [stoppingTime_phasedElimination_eq ⟨r, hr⟩]
   exact WithTop.coe_le_coe.2 (monotone_phaseStart (finalPhase_le hr))
 
+omit [MeasurableSpace 𝓞] [MeasurableSpace α] [MeasurableSpace 𝓨] [Nonempty α] [Countable ℐ]
+  [MeasurableSpace ℐ] in
+/-- At a round `t` at which phased elimination stops, the final active set of the histories
+truncated at `t` is the final active set of the run. -/
+lemma activeSet_finalPhase_truncHist_eq {t : ℕ}
+    (hstop : StopRule S₀ pulls elim (fun m ↦ truncHist m ⟨t, history O X Y t ω⟩) t) :
+    activeSet S₀ pulls elim (fun m ↦ truncHist m ⟨t, history O X Y t ω⟩)
+        (finalPhase S₀ pulls elim (fun m ↦ truncHist m ⟨t, history O X Y t ω⟩)) =
+      activeSet S₀ pulls elim (fun m ↦ sigmaHistory O X Y m ω)
+        (finalPhase S₀ pulls elim (fun m ↦ sigmaHistory O X Y m ω)) := by
+  have hH (m : ℕ) (hm : m ≤ t) : truncHist m ⟨t, history O X Y t ω⟩ = sigmaHistory O X Y m ω :=
+    truncHist_mk_history_of_le hm ω
+  obtain ⟨r, hr, hcard⟩ := stopRule_iff.1 hstop
+  rw [activeSet_congr hH ((monotone_phaseStart (finalPhase_le hcard)).trans hr.le),
+    finalPhase_congr hH hr.le hcard]
+
+omit [MeasurableSpace 𝓞] [MeasurableSpace α] [MeasurableSpace 𝓨] [Nonempty α] [Countable ℐ]
+  [MeasurableSpace ℐ] in
+/-- Let `out` choose an element of every nonempty set. At a round `t` at which phased elimination
+stops, its output `out` of the final active set is every answer `i` that is active in every phase
+of the run. -/
+lemma out_activeSet_finalPhase_truncHist_eq (hout : ∀ S : Finset ℐ, S.Nonempty → out S ∈ S)
+    {t : ℕ} (hstop : StopRule S₀ pulls elim (fun m ↦ truncHist m ⟨t, history O X Y t ω⟩) t)
+    {i : ℐ} (hi : ∀ r, i ∈ activeSet S₀ pulls elim (fun m ↦ sigmaHistory O X Y m ω) r) :
+    out (activeSet S₀ pulls elim (fun m ↦ truncHist m ⟨t, history O X Y t ω⟩)
+      (finalPhase S₀ pulls elim (fun m ↦ truncHist m ⟨t, history O X Y t ω⟩))) = i := by
+  obtain ⟨r, -, hcard⟩ :=
+    (stopRule_congr fun m hm ↦ truncHist_mk_history_of_le hm ω).1 hstop
+  rw [activeSet_finalPhase_truncHist_eq hstop]
+  exact card_le_one.1 (card_activeSet_finalPhase_le ⟨r, hcard⟩) _ (hout _ ⟨i, hi _⟩) i (hi _)
+
 section Survival
 
 variable [MeasurableSingletonClass ℐ] {P : Measure Ω} [IsProbabilityMeasure P]
@@ -704,15 +735,11 @@ theorem measure_histOutputMeasure_phasedElimination_le
       fun ω hω ↦ ?_).trans (measure_iUnion_le _)
   obtain ⟨t, hstop, hne⟩ := hω
   -- At a round `t` at which it stops, the output is `out` of the final active set of the run.
-  have hH (m : ℕ) (hm : m ≤ t) : truncHist m ⟨t, history O X Y t ω⟩ = sigmaHistory O X Y m ω :=
-    truncHist_mk_history_of_le hm ω
-  obtain ⟨r, hr, hcard⟩ := hstop
-  rw [activeSet_congr hH ((monotone_phaseStart (finalPhase_le hcard)).trans hr.le),
-    finalPhase_congr hH hr.le hcard] at hne
-  have hcard' := activeSet_congr hH hr.le ▸ hcard
+  rw [activeSet_finalPhase_truncHist_eq hstop] at hne
+  obtain ⟨r, -, hcard⟩ := (stopRule_congr fun m hm ↦ truncHist_mk_history_of_le hm ω).1 hstop
   obtain ⟨r', hr', h_elim⟩ := exists_lt_mem_activeSet_notMem_activeSet_succ_of_out_ne hout hi
-    (card_activeSet_finalPhase_le ⟨r, hcard'⟩) hne
-  exact Set.mem_iUnion.2 ⟨r', one_lt_card_activeSet_of_lt_finalPhase ⟨r, hcard'⟩ hr', h_elim⟩
+    (card_activeSet_finalPhase_le ⟨r, hcard⟩) hne
+  exact Set.mem_iUnion.2 ⟨r', one_lt_card_activeSet_of_lt_finalPhase ⟨r, hcard⟩ hr', h_elim⟩
 
 end Survival
 

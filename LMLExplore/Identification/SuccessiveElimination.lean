@@ -276,23 +276,6 @@ lemma activeSet_eq_singleton
   by_contra hba
   exact notMem_activeSet_of_two_mul_lt hX ha hmem hw hu0 (hu b hba) hb
 
-/-- At a round `n` at which successive elimination stops, its output is an arm that is active in
-every phase. -/
-private lemma roundRobinOn_activeSet_finalPhase_eq {n : ℕ} {a : α}
-    (hstop : StopRule univ pulls (elim lcb ucb) (fun m ↦ truncHist m ⟨n, history O X Y n ω⟩) n)
-    (ha : ∀ r, a ∈ activeSet univ pulls (elim lcb ucb) (fun m ↦ sigmaHistory O X Y m ω) r) :
-    roundRobinOn (activeSet univ pulls (elim lcb ucb) (fun m ↦ truncHist m ⟨n, history O X Y n ω⟩)
-      (finalPhase univ pulls (elim lcb ucb) (fun m ↦ truncHist m ⟨n, history O X Y n ω⟩))) 0 =
-      a := by
-  have hH (m : ℕ) (hm : m ≤ n) : truncHist m ⟨n, history O X Y n ω⟩ = sigmaHistory O X Y m ω :=
-    truncHist_mk_history_of_le hm ω
-  obtain ⟨r, hr, hcard⟩ := stopRule_iff.1 hstop
-  rw [activeSet_congr hH ((monotone_phaseStart (finalPhase_le hcard)).trans hr.le),
-    finalPhase_congr hH hr.le hcard]
-  have hcard' := activeSet_congr hH hr.le ▸ hcard
-  exact card_le_one.1 (card_activeSet_finalPhase_le ⟨r, hcard'⟩) _
-    (roundRobinOn_mem ⟨a, ha _⟩ 0) a (ha _)
-
 end SuccessiveElimination
 
 /-! ### Successive elimination -/
@@ -347,7 +330,8 @@ theorem measureReal_histOutputMeasure_successiveElimination_le [IsProbabilityMea
   -- Otherwise, `a` is active in every phase, and it is the output.
   by_contra h_con
   simp only [not_exists, not_and, not_or, not_lt] at h_con
-  exact hn_wrong (roundRobinOn_activeSet_finalPhase_eq hn_stop
+  exact hn_wrong (out_activeSet_finalPhase_truncHist_eq (out := fun S ↦ roundRobinOn S 0)
+    (fun _ hS ↦ roundRobinOn_mem hS 0) hn_stop
     (mem_activeSet_of_forall_le hX ha fun m b hb ↦ (h_con m b hb).symm))
 
 omit [MeasurableSingletonClass α] in
@@ -622,7 +606,8 @@ theorem measureReal_histOutputMeasure_successiveEliminationOfRate_notMem_or_le (
       ⟨_, by rw [h_single, card_singleton]⟩
     exact h_never _ ((stopRule_congr fun m hm ↦ truncHist_mk_history_of_le hm ω).2
       (stopRule_phaseStart_finalPhase h_card))
-  · exact h_wrong (roundRobinOn_activeSet_finalPhase_eq h_stop h_act)
+  · exact h_wrong (out_activeSet_finalPhase_truncHist_eq (out := fun S ↦ roundRobinOn S 0)
+      (fun _ hS ↦ roundRobinOn_mem hS 0) h_stop h_act)
 
 /-- **Successive elimination is `δ`-correct** for best arm identification with σ²-sub-Gaussian
 arms [EMM02, Theorem 3; EMM06, Theorem 8]. For `σ² ≠ 0` and `0 < δ ≤ K`, on every bandit whose
