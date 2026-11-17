@@ -11,6 +11,7 @@ public import LMLExplore.Bandits.KLUCB
 public import LMLExplore.Bandits.LaiRobbins
 public import LMLExplore.Bandits.ThompsonSampling.Gaussian
 public import LMLExplore.Bandits.ThompsonSampling.Optimality
+import TauCeti.Analysis.Asymptotics.Lemmas
 
 /-!
 # Consistency and asymptotic optimality of UCB-type algorithms and Thompson sampling
@@ -206,8 +207,8 @@ theorem isLittleO_ucbF_regret_sub_mul_log_gaussianBandit (hσ2 : σ2 ≠ 0)
     (fun n : ℕ ↦ P[regret (gaussianBandit μ σ2) A n] -
       (∑ a ∈ univ.filter (fun a ↦ 0 < gap (gaussianBandit μ σ2) a),
         2 * σ2 / gap (gaussianBandit μ σ2) a) * log n) =o[atTop] fun n : ℕ ↦ log n :=
-  isLittleO_sub_mul_of_tendsto_div
-    ((eventually_gt_atTop 1).mono fun n hn ↦ (log_pos (by exact_mod_cast hn)).ne')
+  (isLittleO_sub_mul_iff_tendsto_div
+    ((eventually_gt_atTop 1).mono fun n hn ↦ (log_pos (by exact_mod_cast hn)).ne')).mpr
     (tendsto_ucbF_regret_div_log_gaussianBandit hσ2 h)
 
 /-- **Asymptotically optimal UCB on two Gaussian arms.** On a Gaussian bandit with variance
@@ -254,8 +255,8 @@ theorem isLittleO_gaussianTS_regret_sub_mul_log_gaussianBandit (hσ2 : σ2 ≠ 0
     (fun n : ℕ ↦ P[regret (gaussianBandit μ σ2) A n] -
       (∑ a ∈ univ.filter (fun a ↦ 0 < gap (gaussianBandit μ σ2) a),
         2 * σ2 / gap (gaussianBandit μ σ2) a) * log n) =o[atTop] fun n : ℕ ↦ log n :=
-  isLittleO_sub_mul_of_tendsto_div
-    ((eventually_gt_atTop 1).mono fun n hn ↦ (log_pos (by exact_mod_cast hn)).ne')
+  (isLittleO_sub_mul_iff_tendsto_div
+    ((eventually_gt_atTop 1).mono fun n hn ↦ (log_pos (by exact_mod_cast hn)).ne')).mpr
     (tendsto_gaussianTS_regret_div_log_gaussianBandit hσ2 h)
 
 /-- **Asymptotic optimality of KL-UCB for Bernoulli bandits** [LS, §16.2]. On a Bernoulli bandit
@@ -298,8 +299,8 @@ theorem isLittleO_klucb_regret_sub_mul_log_bernoulliBandit
       (∑ a ∈ univ.filter (fun a ↦ 0 < gap (bernoulliBandit p) a),
         gap (bernoulliBandit p) a / (klBer (p a) (⨆ b, (p b : ℝ))).toReal) * log n)
       =o[atTop] fun n : ℕ ↦ log n :=
-  isLittleO_sub_mul_of_tendsto_div
-    ((eventually_gt_atTop 1).mono fun n hn ↦ (log_pos (by exact_mod_cast hn)).ne')
+  (isLittleO_sub_mul_iff_tendsto_div
+    ((eventually_gt_atTop 1).mono fun n hn ↦ (log_pos (by exact_mod_cast hn)).ne')).mpr
     (tendsto_klucb_regret_div_log_bernoulliBandit h)
 
 /-- **KL-UCB on a two-armed Bernoulli bandit.** On a Bernoulli bandit with two arms `a` and `b` of
@@ -415,8 +416,8 @@ theorem isLittleO_klucbFam_regret_sub_mul_log
     (fun n : ℕ ↦ P[regret ν A n] - (∑ a ∈ univ.filter (fun a ↦ 0 < gap ν a),
         gap ν a / (ρ a).expFamilyDiv id (ν a)[id] (ν (bestArm ν))[id]) * log n)
       =o[atTop] fun n : ℕ ↦ log n :=
-  isLittleO_sub_mul_of_tendsto_div
-    ((eventually_gt_atTop 1).mono fun n hn ↦ (log_pos (by exact_mod_cast hn)).ne')
+  (isLittleO_sub_mul_iff_tendsto_div
+    ((eventually_gt_atTop 1).mono fun n hn ↦ (log_pos (by exact_mod_cast hn)).ne')).mpr
     (tendsto_klucbFam_regret_div_log hM hν h)
 
 /-- **Asymptotic optimality of KL-UCB for Gaussian arms with known variances.** Let the law of
@@ -454,8 +455,8 @@ theorem isLittleO_klucbFam_gaussianReal_regret_sub_mul_log (m : α → ℝ) {σ2
     (fun n : ℕ ↦ P[regret ν A n] -
       (∑ a ∈ univ.filter (fun a ↦ 0 < gap ν a), 2 * σ2 a / gap ν a) * log n)
       =o[atTop] fun n : ℕ ↦ log n :=
-  isLittleO_sub_mul_of_tendsto_div
-    ((eventually_gt_atTop 1).mono fun n hn ↦ (log_pos (by exact_mod_cast hn)).ne')
+  (isLittleO_sub_mul_iff_tendsto_div
+    ((eventually_gt_atTop 1).mono fun n hn ↦ (log_pos (by exact_mod_cast hn)).ne')).mpr
     (tendsto_klucbFam_gaussianReal_regret_div_log m hσ2 hν h)
 
 /-- **Asymptotic optimality of KL-UCB for gamma arms with known shapes.** Let the law of every arm
@@ -501,8 +502,8 @@ theorem isLittleO_klucbFam_gammaMeasure_regret_sub_mul_log {κ r : α → ℝ} (
     (fun n : ℕ ↦ P[regret ν A n] - (∑ a ∈ univ.filter (fun a ↦ 0 < gap ν a), gap ν a / (κ a *
         ((ν a)[id] / (ν (bestArm ν))[id] - 1 - log ((ν a)[id] / (ν (bestArm ν))[id])))) * log n)
       =o[atTop] fun n : ℕ ↦ log n :=
-  isLittleO_sub_mul_of_tendsto_div
-    ((eventually_gt_atTop 1).mono fun n hn ↦ (log_pos (by exact_mod_cast hn)).ne')
+  (isLittleO_sub_mul_iff_tendsto_div
+    ((eventually_gt_atTop 1).mono fun n hn ↦ (log_pos (by exact_mod_cast hn)).ne')).mpr
     (tendsto_klucbFam_gammaMeasure_regret_div_log s hκ hs hr hν h)
 
 /-- **Asymptotic optimality of KL-UCB for exponential arms.** Let the law of every arm `a` be the
@@ -534,8 +535,8 @@ theorem isLittleO_klucbFam_expMeasure_regret_sub_mul_log {r : α → ℝ} (s : �
     (fun n : ℕ ↦ P[regret ν A n] - (∑ a ∈ univ.filter (fun a ↦ 0 < gap ν a), gap ν a /
         ((ν a)[id] / (ν (bestArm ν))[id] - 1 - log ((ν a)[id] / (ν (bestArm ν))[id]))) * log n)
       =o[atTop] fun n : ℕ ↦ log n :=
-  isLittleO_sub_mul_of_tendsto_div
-    ((eventually_gt_atTop 1).mono fun n hn ↦ (log_pos (by exact_mod_cast hn)).ne')
+  (isLittleO_sub_mul_iff_tendsto_div
+    ((eventually_gt_atTop 1).mono fun n hn ↦ (log_pos (by exact_mod_cast hn)).ne')).mpr
     (tendsto_klucbFam_expMeasure_regret_div_log s hs hr hν h)
 
 end ExpFamily
@@ -675,8 +676,8 @@ theorem isLittleO_expFamilyTS_jeffreysPrior_regret_sub_mul_log
     (fun n : ℕ ↦ P[regret ν A n] - (∑ a ∈ univ.filter (fun a ↦ 0 < gap ν a),
         gap ν a / (ρ a).expFamilyDiv id (ν a)[id] (ν (bestArm ν))[id]) * log n)
       =o[atTop] fun n : ℕ ↦ log n :=
-  isLittleO_sub_mul_of_tendsto_div
-    ((eventually_gt_atTop 1).mono fun n hn ↦ (log_pos (by exact_mod_cast hn)).ne')
+  (isLittleO_sub_mul_iff_tendsto_div
+    ((eventually_gt_atTop 1).mono fun n hn ↦ (log_pos (by exact_mod_cast hn)).ne')).mpr
     (tendsto_expFamilyTS_jeffreysPrior_regret_div_log hM hprop hπ hν h)
 
 end ExpFamilyTS
@@ -738,8 +739,8 @@ theorem isLittleO_expFamilyTS_jeffreysPrior_regret_sub_mul_log_bernoulliBandit
       (∑ a ∈ univ.filter (fun a ↦ 0 < gap (bernoulliBandit p) a),
         gap (bernoulliBandit p) a / (klBer (p a) (⨆ b, (p b : ℝ))).toReal) * log n)
       =o[atTop] fun n : ℕ ↦ log n :=
-  isLittleO_sub_mul_of_tendsto_div
-    ((eventually_gt_atTop 1).mono fun n hn ↦ (log_pos (by exact_mod_cast hn)).ne')
+  (isLittleO_sub_mul_iff_tendsto_div
+    ((eventually_gt_atTop 1).mono fun n hn ↦ (log_pos (by exact_mod_cast hn)).ne')).mpr
     (tendsto_expFamilyTS_jeffreysPrior_regret_div_log_bernoulliBandit η₀ hp h)
 
 end BernoulliTS
