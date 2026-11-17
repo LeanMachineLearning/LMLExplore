@@ -47,8 +47,10 @@ optional stopping holds at every stopping time with this convention.
   `s ∩ {τ ≤ N}` increase to its integral over `s ∩ {τ ≠ ⊤}`.
 * `MeasureTheory.measurable_apply_of_countable`: the value `fun ω ↦ u (σ ω) ω` of a process of
   measurable functions, indexed by a countable type, at a measurable random time is measurable.
-* `MeasureTheory.Adapted.measurable_apply_stoppingTime`: the value of an adapted process at a
-  stopping time with values in `ℕ` is measurable.
+* `MeasureTheory.Adapted.measurable_apply_stoppingTime`,
+  `MeasureTheory.Adapted.measurable_measurableSpace_apply_stoppingTime`: the value of an adapted
+  process at a stopping time `σ` with values in `ℕ` is measurable, and measurable for the
+  σ-algebra at `σ`.
 
 ## References
 
@@ -235,5 +237,19 @@ theorem Adapted.measurable_apply_stoppingTime [MeasurableSpace β]
     (hu : Adapted ℱ u) (hσ : IsStoppingTime ℱ (fun ω ↦ (σ ω : WithTop ℕ))) :
     Measurable fun ω ↦ u (σ ω) ω :=
   measurable_apply_of_countable (fun _ ↦ hu.measurable) hσ.measurable_nat
+
+/-- The value `fun ω ↦ u (σ ω) ω` of an adapted process at a stopping time `σ` with values in `ℕ`
+is measurable for the σ-algebra at `σ`. -/
+theorem Adapted.measurable_measurableSpace_apply_stoppingTime [TopologicalSpace β]
+    [TopologicalSpace.PseudoMetrizableSpace β] [SecondCountableTopology β] [MeasurableSpace β]
+    [BorelSpace β]
+    {mΩ : MeasurableSpace Ω} {ℱ : Filtration ℕ mΩ} {u : ℕ → Ω → β} {σ : Ω → ℕ}
+    (hu : Adapted ℱ u) (hσ : IsStoppingTime ℱ (fun ω ↦ (σ ω : WithTop ℕ))) :
+    Measurable[hσ.measurableSpace] fun ω ↦ u (σ ω) ω := by
+  convert measurable_stoppedValue hu.stronglyAdapted.isStronglyProgressive_of_discrete hσ using 1
+  ext ω
+  -- `Nat.cast` into `WithTop ℕ` is `WithTop.some`, which `untop` inverts.
+  rw [stoppedValue, WithTop.untopA_eq_untop (WithTop.natCast_ne_top _),
+    (WithTop.untop_eq_iff _).2 (Nat.cast_withTop _)]
 
 end MeasureTheory

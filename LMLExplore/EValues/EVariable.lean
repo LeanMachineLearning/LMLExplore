@@ -50,6 +50,8 @@ e-variables are `ℝ≥0∞`-valued.
   e-variable for `{P}`.
 * `ProbabilityTheory.IsEVar.ofReal_one_sub_mul_add_ofReal`: for `ε ∈ [0, 1]`, the mixture
   `(1 - ε) E + ε` of an e-variable with the constant `1` is an e-variable.
+* `ProbabilityTheory.isEVar_tsum_mul`: a countable mixture `∑' i, w i * E i` of e-variables, with
+  weights of sum at most `1`, is an e-variable.
 * `ProbabilityTheory.isEVar_piecewise_top`: the function equal to `∞` on a measurable set null
   for every member of `S`, and to `1` elsewhere, is an e-variable for `S`.
 * `ProbabilityTheory.absolutelyContinuousSet_iff_forall_isEVar_ae_ne_top`: a measure `Q` is
@@ -255,6 +257,23 @@ theorem IsEVar.lintegral_min_mul_le (hE : IsEVar E S) (hP : P ∈ S) [IsProbabil
     gcongr
     exact hE.lintegral_le_one hP
   _ = α := mul_one α
+
+/-- **Countable mixtures of e-variables.** For a null of finite measures, a countable family of
+e-variables `E i` and weights `w i` with `∑' i, w i ≤ 1`, the mixture `∑' i, w i * E i` is an
+e-variable. -/
+theorem isEVar_tsum_mul {ι : Type*} [Countable ι] (hS : ∀ P ∈ S, IsFiniteMeasure P)
+    {E : ι → Ω → ℝ≥0∞} (hE : ∀ i, IsEVar (E i) S) {w : ι → ℝ≥0∞} (hw : ∑' i, w i ≤ 1) :
+    IsEVar (fun ω ↦ ∑' i, w i * E i ω) S := by
+  refine .of_lintegral_le_measure_univ hS
+    (Measurable.tsum fun i ↦ (hE i).measurable.const_mul (w i)) fun P hP ↦ ?_
+  rw [lintegral_tsum fun i ↦ ((hE i).measurable.const_mul (w i)).aemeasurable]
+  calc ∑' i, ∫⁻ ω, w i * E i ω ∂P
+  _ = ∑' i, w i * ∫⁻ ω, E i ω ∂P := by simp_rw [lintegral_const_mul _ (hE _).measurable]
+  _ ≤ ∑' i, w i * P univ := by
+    gcongr with i
+    exact (hE i).lintegral_le_measure_univ P hP
+  _ = (∑' i, w i) * P univ := ENNReal.tsum_mul_right
+  _ ≤ P univ := by simpa using mul_le_mul_left hw (P univ)
 
 /-! ### Products of independent e-variables -/
 
