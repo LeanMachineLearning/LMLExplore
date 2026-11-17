@@ -9,15 +9,18 @@ public import Mathlib.Analysis.Normed.Group.Basic
 public import Mathlib.Order.Interval.Finset.Nat
 
 /-!
-# Norms of finite sums of bounded terms
+# Norm bounds in seminormed groups
 
-Bounds on the norm of a finite sum in a seminormed group whose terms have norm at most `L`.
+Bounds on the norm of a finite sum in a seminormed group whose terms have norm at most `L`, and
+the affine bound satisfied by a point that is a `β`-contraction of another towards a center.
 
 ## Main statements
 
 * `norm_sum_le_card_mul`: a sum over `s` of terms of norm at most `L` has norm at most `#s * L`.
 * `norm_sum_Icc_sub_le`: the sum `∑ t - τ ≤ s ≤ t, f s` of the last `τ + 1` terms of a sequence
   whose terms of index at most `t` have norm at most `L` has norm at most `(τ + 1) * L`.
+* `norm_le_mul_norm_add_mul_norm_of_norm_sub_le_mul`: if `‖a - c‖ ≤ β * ‖b - c‖` with `0 ≤ β`,
+  then `‖a‖ ≤ β * ‖b‖ + (1 + β) * ‖c‖`.
 -/
 
 public section
@@ -42,5 +45,14 @@ theorem norm_sum_Icc_sub_le {f : ℕ → E} {L : ℝ} (t τ : ℕ) (h : ∀ s �
   gcongr
   rw [Nat.card_Icc]
   exact_mod_cast (by omega : t + 1 - (t - τ) ≤ τ + 1)
+
+/-- If `a` is closer to the center `c` than `b`, up to a factor `β ≥ 0`, then
+`‖a‖ ≤ β * ‖b‖ + (1 + β) * ‖c‖`. This turns a pseudo-contraction towards `c` into an affine bound
+on the norm. -/
+theorem norm_le_mul_norm_add_mul_norm_of_norm_sub_le_mul {a b c : E} {β : ℝ} (hβ : 0 ≤ β)
+    (h : ‖a - c‖ ≤ β * ‖b - c‖) : ‖a‖ ≤ β * ‖b‖ + (1 + β) * ‖c‖ := by
+  have h1 := norm_sub_norm_le a c
+  have h2 := mul_le_mul_of_nonneg_left (norm_sub_le b c) hβ
+  linarith
 
 end LMLExplore
