@@ -43,6 +43,8 @@ some coordinate of `μ` is too close to that of `c`.
 ## Main statements
 
 * `LMLExplore.Identification.mem_alt_sphereTask_iff`: the alternatives of sphere identification.
+* `LMLExplore.Identification.comap_sphereTask`: the pullback of sphere identification along a map
+  of models is sphere identification for the composed bandits and mean functional.
 * `LMLExplore.Identification.sphereShift_pos_iff`, `LMLExplore.Identification.sphereShift_ne_zero`,
   `LMLExplore.Identification.sum_sq_abs_add_sphereShift`: the sign of `sphereShift c ρ μ`, and
   the equation `∑ a, (|μ a - c a| + r)² = ρ²` defining it.
@@ -67,7 +69,7 @@ open scoped ENNReal NNReal
 
 namespace LMLExplore.Identification
 
-variable {α Θ 𝓨 : Type*} {mα : MeasurableSpace α} {m𝓨 : MeasurableSpace 𝓨} [Fintype α]
+variable {α Θ Θ' 𝓨 : Type*} {mα : MeasurableSpace α} {m𝓨 : MeasurableSpace 𝓨} [Fintype α]
   {c μ : α → ℝ} {ρ : ℝ} {i : Bool}
 
 section Task
@@ -97,6 +99,15 @@ lemma ν_sphereTask : (sphereTask ν mean c ρ).ν = ν := (rfl)
 lemma correct_sphereTask (θ : Θ) :
     (sphereTask ν mean c ρ).correct θ = {i | i = true ↔ ∑ a, (mean θ a - c a) ^ 2 < ρ ^ 2} :=
   (rfl)
+
+/-- The pullback of sphere identification along a map `f` of models is sphere identification for
+the bandits and the mean functional composed with `f`. In particular sphere identification with
+bandits depending on the means only, `sphereTask (fun θ ↦ ν' (mean θ)) mean c ρ`, is the pullback
+`(sphereTask ν' id c ρ).comap mean` of the task on vectors of means. -/
+@[simp]
+lemma comap_sphereTask (f : Θ' → Θ) :
+    (sphereTask ν mean c ρ).comap f = sphereTask (fun θ ↦ ν (f θ)) (fun θ ↦ mean (f θ)) c ρ := by
+  ext <;> simp
 
 /-- The unique correct answer of every model `θ` is `true` iff `mean θ` lies inside the
 sphere. -/
