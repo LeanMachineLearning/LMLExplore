@@ -12,15 +12,16 @@ public import LMLExplore.OnlineLearning.Learner.Basic
 # Learning the magnitude and the direction separately
 
 An online learner for linear losses on a real normed space `E` can be built from a learner `A` on
-`ℝ`, which learns a magnitude, and a learner `B` on the unit ball of `E`, which learns a direction
+`ℝ`, which learns a magnitude, and a learner `B` on `E`, which learns a direction
 [CO18], [Ora, Section 12.3, Algorithm 12.3]. At each round, `A` plays `z t`, `B` plays `x t`, and
 the reduction plays `z t • x t`. After the linear loss `y t` is revealed, `B` receives `y t`, and
 `A` receives the coefficient `y t (x t)` of the one-dimensional linear loss `r ↦ y t (x t) * r`.
-Since `‖x t‖ ≤ 1`, this coefficient is at most `‖y t‖` in absolute value.
+If `B` plays in the unit ball, this coefficient is at most `‖y t‖` in absolute value.
 
-The regret of the reduction is the sum of the regrets of the two learners: for linear losses, the
-loss of the play `z • x` relative to a comparator `U • v` is
-`(z - U) * y x + U * y (x - v)` (`apply_smul_sub_smul`). Summed over the rounds, for comparators
+The regret of the reduction against comparators of norm at most `U` is the regret of the
+magnitude learner plus `U` times the regret of the direction learner: for linear losses, the loss
+of the play `z • x` relative to a comparator `U • v` is `(z - U) * y x + U * y (x - v)`
+(`apply_smul_sub_smul`). Summed over the rounds, for comparators
 `u t` of norm at most `U`, the dynamic regret of the plays `z t • x t` is the regret of the
 magnitudes `z t` against `U` plus `U` times the dynamic regret of the directions `x t` against the
 comparators `U⁻¹ • u t` of the unit ball (`dynRegret_smul_eq_of_norm_le`) [JC22],
@@ -33,8 +34,9 @@ The learner `A.magnitudeDirection B` runs the reduction (`run_magnitudeDirection
 guarantee is the sum of a guarantee of `A` at `‖u‖` and `‖u‖` times a guarantee of `B` on the
 unit sphere at `‖u‖⁻¹ • u` (`OnlineLearner.HasRegretBound.magnitudeDirection`); for losses of
 dual norm at most `L`, the learner `A` must only handle coefficients of absolute value at most `L`
-(`OnlineLearner.HasRegretBound.magnitudeDirection_of_norm_le`). A parameter-free learner on `ℝ`
-thus gives a parameter-free learner on `E` for any norm.
+(`OnlineLearner.HasRegretBound.magnitudeDirection_of_norm_le`). Combined with a learner `B` on
+the unit ball of `E`, a parameter-free learner on `ℝ` thus gives a regret bound on `E` that
+scales with `‖u‖`.
 
 ## Main definitions
 
