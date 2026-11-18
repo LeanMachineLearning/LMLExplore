@@ -93,7 +93,7 @@ include hP
 
 /-- The actions of the Cesàro means of `P` converge to the mean ergodic projection. -/
 private lemma tendsto_toContinuousLinAlgEquiv'_cesaro :
-    Tendsto (fun n : ℕ ↦ toContinuousLinAlgEquiv' ((n : ℝ)⁻¹ • ∑ k ∈ range n, P ^ k)) atTop
+    Tendsto (fun n : ℕ ↦ toContinuousLinAlgEquiv' ℝ ((n : ℝ)⁻¹ • ∑ k ∈ range n, P ^ k)) atTop
       (𝓝 ((isPowerBounded_toContinuousLinAlgEquiv' hP).meanErgodicProj
         (isPowerBounded_toContinuousLinAlgEquiv' hP).ker_sup_topologicalClosure_range_eq_top)) := by
   simpa [map_sum, map_pow] using
@@ -103,7 +103,7 @@ private lemma tendsto_toContinuousLinAlgEquiv'_cesaro :
 matrix. -/
 theorem tendsto_cesaro_limitingMatrix :
     Tendsto (fun n : ℕ ↦ (n : ℝ)⁻¹ • ∑ k ∈ range n, P ^ k) atTop (𝓝 P.limitingMatrix) := by
-  refine tendsto_nhds_limUnder ⟨toContinuousLinAlgEquiv'.symm
+  refine tendsto_nhds_limUnder ⟨(toContinuousLinAlgEquiv' ℝ).symm
     ((isPowerBounded_toContinuousLinAlgEquiv' hP).meanErgodicProj
       (isPowerBounded_toContinuousLinAlgEquiv' hP).ker_sup_topologicalClosure_range_eq_top), ?_⟩
   rw [← tendsto_toContinuousLinAlgEquiv'_iff, AlgEquiv.apply_symm_apply]
@@ -111,7 +111,7 @@ theorem tendsto_cesaro_limitingMatrix :
 
 /-- The limiting matrix of `P` acts as the mean ergodic projection of the action of `P`. -/
 theorem toContinuousLinAlgEquiv'_limitingMatrix :
-    toContinuousLinAlgEquiv' P.limitingMatrix =
+    toContinuousLinAlgEquiv' ℝ P.limitingMatrix =
       (isPowerBounded_toContinuousLinAlgEquiv' hP).meanErgodicProj
         (isPowerBounded_toContinuousLinAlgEquiv' hP).ker_sup_topologicalClosure_range_eq_top :=
   tendsto_nhds_unique (tendsto_toContinuousLinAlgEquiv'_iff.2 (tendsto_cesaro_limitingMatrix hP))
@@ -119,29 +119,29 @@ theorem toContinuousLinAlgEquiv'_limitingMatrix :
 
 /-- `P P* = P*`. -/
 theorem mul_limitingMatrix : P * P.limitingMatrix = P.limitingMatrix :=
-  toContinuousLinAlgEquiv'.injective <| by
+  (toContinuousLinAlgEquiv' ℝ).injective <| by
     rw [map_mul, toContinuousLinAlgEquiv'_limitingMatrix hP, IsPowerBounded.mul_meanErgodicProj]
 
 /-- `P* P = P*`. -/
 theorem limitingMatrix_mul : P.limitingMatrix * P = P.limitingMatrix :=
-  toContinuousLinAlgEquiv'.injective <| by
+  (toContinuousLinAlgEquiv' ℝ).injective <| by
     rw [map_mul, toContinuousLinAlgEquiv'_limitingMatrix hP, IsPowerBounded.meanErgodicProj_mul]
 
 /-- `P ^ n P* = P*`. -/
 theorem pow_mul_limitingMatrix (n : ℕ) : P ^ n * P.limitingMatrix = P.limitingMatrix :=
-  toContinuousLinAlgEquiv'.injective <| by
+  (toContinuousLinAlgEquiv' ℝ).injective <| by
     rw [map_mul, map_pow, toContinuousLinAlgEquiv'_limitingMatrix hP,
       IsPowerBounded.pow_mul_meanErgodicProj]
 
 /-- `P* P ^ n = P*`. -/
 theorem limitingMatrix_mul_pow (n : ℕ) : P.limitingMatrix * P ^ n = P.limitingMatrix :=
-  toContinuousLinAlgEquiv'.injective <| by
+  (toContinuousLinAlgEquiv' ℝ).injective <| by
     rw [map_mul, map_pow, toContinuousLinAlgEquiv'_limitingMatrix hP,
       IsPowerBounded.meanErgodicProj_mul_pow]
 
 /-- `P* P* = P*`: the limiting matrix is idempotent. -/
 theorem limitingMatrix_mul_self : P.limitingMatrix * P.limitingMatrix = P.limitingMatrix :=
-  toContinuousLinAlgEquiv'.injective <| by
+  (toContinuousLinAlgEquiv' ℝ).injective <| by
     rw [map_mul, toContinuousLinAlgEquiv'_limitingMatrix hP,
       IsPowerBounded.meanErgodicProj_mul_self]
 
@@ -174,7 +174,7 @@ theorem exists_mem_simplex_vecMul_eq_self [Nonempty S] : ∃ π ∈ simplex S, �
 /-- If the powers of a stochastic matrix converge, their limit is the limiting matrix. -/
 theorem limitingMatrix_eq_of_tendsto_pow {L : Matrix S S ℝ}
     (h : Tendsto (fun n ↦ P ^ n) atTop (𝓝 L)) : P.limitingMatrix = L :=
-  toContinuousLinAlgEquiv'.injective <| by
+  (toContinuousLinAlgEquiv' ℝ).injective <| by
     have hL := Filter.Tendsto.cesaro_smul (tendsto_toContinuousLinAlgEquiv'_iff.2 h)
     simp only [map_pow] at hL
     rw [toContinuousLinAlgEquiv'_limitingMatrix hP]
@@ -187,8 +187,9 @@ theorem sub_limitingMatrix_pow_succ (n : ℕ) :
   induction n with
   | zero => rw [zero_add, pow_one, pow_one]
   | succ n ih =>
-    rw [pow_succ, ih, sub_mul, mul_sub, mul_sub, ← pow_succ, pow_mul_limitingMatrix hP,
-      limitingMatrix_mul hP, limitingMatrix_mul_self hP, sub_self, sub_zero]
+    rw [pow_succ, ih]
+    simp [sub_mul, mul_sub, ← pow_succ, pow_mul_limitingMatrix hP, limitingMatrix_mul hP,
+      limitingMatrix_mul_self hP]
 
 end Limiting
 
@@ -211,14 +212,14 @@ include hP
 
 /-- The matrix `1 - P + P*` of a stochastic matrix is invertible. -/
 theorem isUnit_one_sub_add_limitingMatrix : IsUnit (1 - P + P.limitingMatrix) := by
-  rw [← isUnit_map_iff (toContinuousLinAlgEquiv' : Matrix S S ℝ ≃ₐ[ℝ] _), map_add, map_sub,
+  rw [← isUnit_map_iff (toContinuousLinAlgEquiv' ℝ), map_add, map_sub,
     map_one, toContinuousLinAlgEquiv'_limitingMatrix hP]
   exact (isPowerBounded_toContinuousLinAlgEquiv' hP).isUnit_one_sub_add_meanErgodicProj
     (isPowerBounded_toContinuousLinAlgEquiv' hP).ker_sup_range_eq_top
 
 /-- The deviation matrix of `P` acts as the deviation operator of the action of `P`. -/
 theorem toContinuousLinAlgEquiv'_deviationMatrix :
-    toContinuousLinAlgEquiv' P.deviationMatrix =
+    toContinuousLinAlgEquiv' ℝ P.deviationMatrix =
       (isPowerBounded_toContinuousLinAlgEquiv' hP).deviation
         (isPowerBounded_toContinuousLinAlgEquiv' hP).ker_sup_range_eq_top := by
   rw [deviationMatrix_def, map_sub, toContinuousLinAlgEquiv'_inv, map_add, map_sub,
@@ -227,25 +228,25 @@ theorem toContinuousLinAlgEquiv'_deviationMatrix :
 
 /-- `(1 - P) D = 1 - P*`. -/
 theorem one_sub_mul_deviationMatrix : (1 - P) * P.deviationMatrix = 1 - P.limitingMatrix :=
-  toContinuousLinAlgEquiv'.injective <| by
+  (toContinuousLinAlgEquiv' ℝ).injective <| by
     rw [map_mul, map_sub, map_sub, map_one, toContinuousLinAlgEquiv'_deviationMatrix hP,
       toContinuousLinAlgEquiv'_limitingMatrix hP, IsPowerBounded.one_sub_mul_deviation]
 
 /-- `D (1 - P) = 1 - P*`. -/
 theorem deviationMatrix_mul_one_sub : P.deviationMatrix * (1 - P) = 1 - P.limitingMatrix :=
-  toContinuousLinAlgEquiv'.injective <| by
+  (toContinuousLinAlgEquiv' ℝ).injective <| by
     rw [map_mul, map_sub, map_sub, map_one, toContinuousLinAlgEquiv'_deviationMatrix hP,
       toContinuousLinAlgEquiv'_limitingMatrix hP, IsPowerBounded.deviation_mul_one_sub]
 
 /-- `D P* = 0`. -/
 theorem deviationMatrix_mul_limitingMatrix : P.deviationMatrix * P.limitingMatrix = 0 :=
-  toContinuousLinAlgEquiv'.injective <| by
+  (toContinuousLinAlgEquiv' ℝ).injective <| by
     rw [map_mul, map_zero, toContinuousLinAlgEquiv'_deviationMatrix hP,
       toContinuousLinAlgEquiv'_limitingMatrix hP, IsPowerBounded.deviation_mul_meanErgodicProj]
 
 /-- `P* D = 0`. -/
 theorem limitingMatrix_mul_deviationMatrix : P.limitingMatrix * P.deviationMatrix = 0 :=
-  toContinuousLinAlgEquiv'.injective <| by
+  (toContinuousLinAlgEquiv' ℝ).injective <| by
     rw [map_mul, map_zero, toContinuousLinAlgEquiv'_deviationMatrix hP,
       toContinuousLinAlgEquiv'_limitingMatrix hP, IsPowerBounded.meanErgodicProj_mul_deviation]
 
@@ -253,26 +254,26 @@ theorem limitingMatrix_mul_deviationMatrix : P.limitingMatrix * P.deviationMatri
 theorem eq_deviationMatrix_of_mul_one_sub {X : Matrix S S ℝ}
     (h₁ : X * (1 - P) = 1 - P.limitingMatrix) (h₂ : X * P.limitingMatrix = 0) :
     X = P.deviationMatrix :=
-  toContinuousLinAlgEquiv'.injective <| by
+  (toContinuousLinAlgEquiv' ℝ).injective <| by
     rw [toContinuousLinAlgEquiv'_deviationMatrix hP]
     refine IsPowerBounded.eq_deviation_of_mul_one_sub _ _ ?_ ?_
-    · simpa [toContinuousLinAlgEquiv'_limitingMatrix hP] using congr(toContinuousLinAlgEquiv' $h₁)
-    · simpa [toContinuousLinAlgEquiv'_limitingMatrix hP] using congr(toContinuousLinAlgEquiv' $h₂)
+    · simpa [toContinuousLinAlgEquiv'_limitingMatrix hP] using congr(toContinuousLinAlgEquiv' ℝ $h₁)
+    · simpa [toContinuousLinAlgEquiv'_limitingMatrix hP] using congr(toContinuousLinAlgEquiv' ℝ $h₂)
 
 /-- `D` is the only matrix `X` with `(1 - P) X = 1 - P*` and `P* X = 0`. -/
 theorem eq_deviationMatrix_of_one_sub_mul {X : Matrix S S ℝ}
     (h₁ : (1 - P) * X = 1 - P.limitingMatrix) (h₂ : P.limitingMatrix * X = 0) :
     X = P.deviationMatrix :=
-  toContinuousLinAlgEquiv'.injective <| by
+  (toContinuousLinAlgEquiv' ℝ).injective <| by
     rw [toContinuousLinAlgEquiv'_deviationMatrix hP]
     refine IsPowerBounded.eq_deviation_of_one_sub_mul _ _ ?_ ?_
-    · simpa [toContinuousLinAlgEquiv'_limitingMatrix hP] using congr(toContinuousLinAlgEquiv' $h₁)
-    · simpa [toContinuousLinAlgEquiv'_limitingMatrix hP] using congr(toContinuousLinAlgEquiv' $h₂)
+    · simpa [toContinuousLinAlgEquiv'_limitingMatrix hP] using congr(toContinuousLinAlgEquiv' ℝ $h₁)
+    · simpa [toContinuousLinAlgEquiv'_limitingMatrix hP] using congr(toContinuousLinAlgEquiv' ℝ $h₂)
 
 /-- The partial sums of the deviations are `∑ k < n, (P ^ k - P*) = D (1 - P ^ n)`. -/
 theorem sum_range_pow_sub_limitingMatrix (n : ℕ) :
     ∑ k ∈ range n, (P ^ k - P.limitingMatrix) = P.deviationMatrix * (1 - P ^ n) :=
-  toContinuousLinAlgEquiv'.injective <| by
+  (toContinuousLinAlgEquiv' ℝ).injective <| by
     simp only [map_sum, map_sub, map_mul, map_pow, map_one,
       toContinuousLinAlgEquiv'_deviationMatrix hP, toContinuousLinAlgEquiv'_limitingMatrix hP]
     exact IsPowerBounded.sum_range_pow_sub_meanErgodicProj _ _ n
@@ -294,12 +295,12 @@ theorem hasSum_pow_sub_limitingMatrix {L : Matrix S S ℝ}
   rw [← limitingMatrix_eq_of_tendsto_pow hP h] at h
   -- The powers of `Q = P - P*` are `P ^ n - P*` for `n ≥ 1`, so they tend to `0`, and the
   -- geometric series of `Q` acting on `S → ℝ` converges.
-  set Q := toContinuousLinAlgEquiv' (P - P.limitingMatrix)
-  have hQ : ∀ n, Q ^ (n + 1) = toContinuousLinAlgEquiv' (P ^ (n + 1) - P.limitingMatrix) :=
+  set Q := toContinuousLinAlgEquiv' ℝ (P - P.limitingMatrix)
+  have hQ : ∀ n, Q ^ (n + 1) = toContinuousLinAlgEquiv' ℝ (P ^ (n + 1) - P.limitingMatrix) :=
     fun n ↦ by rw [← map_pow, sub_limitingMatrix_pow_succ hP]
   have hQ₀ : Tendsto (fun n ↦ Q ^ n) atTop (𝓝 0) := by
     rw [← tendsto_add_atTop_iff_nat 1]
-    simp only [hQ, ← map_zero (toContinuousLinAlgEquiv' : Matrix S S ℝ ≃ₐ[ℝ] _)]
+    simp only [hQ, ← map_zero (toContinuousLinAlgEquiv' ℝ)]
     exact tendsto_toContinuousLinAlgEquiv'_iff.2
       (by simpa using ((tendsto_add_atTop_iff_nat 1).2 h).sub_const P.limitingMatrix)
   have hsum : Summable fun n ↦ P ^ n - P.limitingMatrix := by

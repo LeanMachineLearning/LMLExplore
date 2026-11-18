@@ -34,6 +34,10 @@ theorem isClosed_rowStochastic : IsClosed (rowStochastic R n : Set (Matrix n n R
     simp only [Set.ofPred_forall]
     exact isClosed_iInter fun i ↦ isClosed_iInter fun j ↦
       isClosed_le continuous_const (continuous_id.matrix_elem i j)
+  have : (rowStochastic R n : Set (Matrix n n R)) =
+      {M | ∀ i j, 0 ≤ M i j} ∩ {M | M *ᵥ 1 = 1} :=
+    Set.ext fun _ ↦ mem_rowStochastic
+  rw [this]
   exact h₁.inter (isClosed_eq (continuous_id.matrix_mulVec continuous_const) continuous_const)
 
 end Matrix

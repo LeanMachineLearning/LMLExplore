@@ -14,17 +14,17 @@ public import LMLExplore.Analysis.Normed.Ring.PowerBounded
 /-!
 # Square matrices as continuous linear operators
 
-A real square matrix indexed by a finite type `S` acts on functions `S → ℝ` by `mulVec`. In finite
-dimension every linear map is continuous, so this action is an algebra equivalence
-`Matrix.toContinuousLinAlgEquiv'` between matrices and continuous linear operators on `S → ℝ`,
-which is also a homeomorphism. It transfers results about operators on Banach spaces, such as the
-mean ergodic theorem, to matrices. With the sup norm on `S → ℝ`, a row-stochastic matrix acts as
-an operator of norm at most `1`, hence as a power-bounded operator.
+A square matrix over a complete nontrivially normed field `𝕜`, indexed by a finite type `S`,
+acts on functions `S → 𝕜` by `mulVec`. In finite dimension every linear map is continuous, so
+this action is an algebra equivalence `Matrix.toContinuousLinAlgEquiv'` between matrices and
+continuous linear operators on `S → 𝕜`, which is also a homeomorphism. It transfers results about
+operators on Banach spaces, such as the mean ergodic theorem, to matrices. With the sup norm on
+`S → ℝ`, a real row-stochastic matrix acts as an operator of norm at most `1`, hence as a
+power-bounded operator.
 
 ## Main definitions
 
-* `Matrix.toContinuousLinAlgEquiv'`: real square matrices as continuous linear operators on
-  `S → ℝ`.
+* `Matrix.toContinuousLinAlgEquiv'`: square matrices as continuous linear operators on `S → 𝕜`.
 
 ## Main statements
 
@@ -45,43 +45,59 @@ namespace Matrix
 
 variable {S : Type*} [Fintype S] [DecidableEq S]
 
-/-- Real square matrices acting on `S → ℝ` by `mulVec`, as continuous linear operators. This is
-the algebra equivalence `Matrix.toLinAlgEquiv'` followed by the automatic continuity of linear
-maps in finite dimension. -/
-noncomputable def toContinuousLinAlgEquiv' : Matrix S S ℝ ≃ₐ[ℝ] ((S → ℝ) →L[ℝ] (S → ℝ)) :=
-  toLinAlgEquiv'.trans (Module.End.toContinuousLinearMap (S → ℝ))
+section Field
+
+variable {𝕜 : Type*} [NontriviallyNormedField 𝕜] [CompleteSpace 𝕜]
+
+variable (𝕜) in
+/-- Square matrices over a complete nontrivially normed field `𝕜` acting on `S → 𝕜` by `mulVec`,
+as continuous linear operators. This is the algebra equivalence `Matrix.toLinAlgEquiv'` followed
+by the automatic continuity of linear maps in finite dimension. The field `𝕜` is explicit, since
+Lean cannot infer it when elaborating the coercion of `toContinuousLinAlgEquiv' 𝕜` to a
+function. -/
+noncomputable def toContinuousLinAlgEquiv' : Matrix S S 𝕜 ≃ₐ[𝕜] ((S → 𝕜) →L[𝕜] (S → 𝕜)) :=
+  toLinAlgEquiv'.trans (Module.End.toContinuousLinearMap (S → 𝕜))
 
 @[simp]
-theorem toContinuousLinAlgEquiv'_apply (M : Matrix S S ℝ) (v : S → ℝ) :
-    toContinuousLinAlgEquiv' M v = M *ᵥ v :=
+theorem toContinuousLinAlgEquiv'_apply (M : Matrix S S 𝕜) (v : S → 𝕜) :
+    toContinuousLinAlgEquiv' 𝕜 M v = M *ᵥ v :=
+  (rfl)
+
+/-- The matrix of a continuous linear operator on `S → 𝕜` is the matrix of the underlying linear
+map. -/
+@[simp]
+theorem toContinuousLinAlgEquiv'_symm_apply (f : (S → 𝕜) →L[𝕜] (S → 𝕜)) :
+    (toContinuousLinAlgEquiv' 𝕜).symm f = LinearMap.toMatrix' (f : (S → 𝕜) →ₗ[𝕜] (S → 𝕜)) :=
   (rfl)
 
 /-- The action of the inverse of a matrix is the inverse of its action (both are `0` for a
 singular matrix). -/
 @[simp]
-theorem toContinuousLinAlgEquiv'_inv (M : Matrix S S ℝ) :
-    toContinuousLinAlgEquiv' M⁻¹ = (toContinuousLinAlgEquiv' M)⁻¹ʳ := by
+theorem toContinuousLinAlgEquiv'_inv (M : Matrix S S 𝕜) :
+    toContinuousLinAlgEquiv' 𝕜 M⁻¹ = (toContinuousLinAlgEquiv' 𝕜 M)⁻¹ʳ := by
   rw [nonsing_inv_eq_ringInverse, map_ringInverse]
 
 /-- Convergence of matrices is convergence of their actions in operator norm. -/
-theorem tendsto_toContinuousLinAlgEquiv'_iff {α : Type*} {l : Filter α} {f : α → Matrix S S ℝ}
-    {M : Matrix S S ℝ} :
-    Tendsto (fun x ↦ toContinuousLinAlgEquiv' (f x)) l (𝓝 (toContinuousLinAlgEquiv' M)) ↔
+theorem tendsto_toContinuousLinAlgEquiv'_iff {α : Type*} {l : Filter α} {f : α → Matrix S S 𝕜}
+    {M : Matrix S S 𝕜} :
+    Tendsto (fun x ↦ toContinuousLinAlgEquiv' 𝕜 (f x)) l (𝓝 (toContinuousLinAlgEquiv' 𝕜 M)) ↔
       Tendsto f l (𝓝 M) :=
-  ((toContinuousLinAlgEquiv' : Matrix S S ℝ ≃ₐ[ℝ] _).toLinearEquiv.toContinuousLinearEquiv
+  ((toContinuousLinAlgEquiv' 𝕜).toLinearEquiv.toContinuousLinearEquiv
     |>.toHomeomorph.isInducing.tendsto_nhds_iff).symm
 
 /-- A sequence of matrices is summable exactly when their actions are. -/
-theorem summable_toContinuousLinAlgEquiv'_iff {ι : Type*} {f : ι → Matrix S S ℝ} :
-    Summable (fun i ↦ toContinuousLinAlgEquiv' (f i)) ↔ Summable f :=
-  ((toContinuousLinAlgEquiv' : Matrix S S ℝ ≃ₐ[ℝ] _).toLinearEquiv.toContinuousLinearEquiv
+theorem summable_toContinuousLinAlgEquiv'_iff {ι : Type*} {f : ι → Matrix S S 𝕜} :
+    Summable (fun i ↦ toContinuousLinAlgEquiv' 𝕜 (f i)) ↔ Summable f :=
+  ((toContinuousLinAlgEquiv' 𝕜).toLinearEquiv.toContinuousLinearEquiv
     |>.summable)
+
+end Field
 
 variable {P : Matrix S S ℝ}
 
 /-- A row-stochastic matrix acts on `S → ℝ` with operator norm at most `1` for the sup norm. -/
 theorem norm_toContinuousLinAlgEquiv'_le_one (hP : P ∈ rowStochastic ℝ S) :
-    ‖toContinuousLinAlgEquiv' P‖ ≤ 1 := by
+    ‖toContinuousLinAlgEquiv' ℝ P‖ ≤ 1 := by
   refine ContinuousLinearMap.opNorm_le_bound _ zero_le_one fun v ↦ ?_
   rw [one_mul, pi_norm_le_iff_of_nonneg (norm_nonneg v)]
   intro i
@@ -94,7 +110,7 @@ theorem norm_toContinuousLinAlgEquiv'_le_one (hP : P ∈ rowStochastic ℝ S) :
 
 /-- A row-stochastic matrix acts on `S → ℝ` as a power-bounded operator. -/
 theorem isPowerBounded_toContinuousLinAlgEquiv' (hP : P ∈ rowStochastic ℝ S) :
-    IsPowerBounded (toContinuousLinAlgEquiv' P) :=
+    IsPowerBounded (toContinuousLinAlgEquiv' ℝ P) :=
   .of_norm_le_one (norm_toContinuousLinAlgEquiv'_le_one hP)
 
 end Matrix
