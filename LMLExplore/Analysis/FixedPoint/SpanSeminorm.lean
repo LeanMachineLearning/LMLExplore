@@ -50,7 +50,9 @@ So, for `α < 1`, the iterates converge geometrically to the bias normalised by 
 
 ## Main statements
 
-* `LMLExplore.norm_mk_span_singleton`: the quotient norm of `E ⧸ ℝ ∙ e` is `osc / 2`.
+* `LMLExplore.norm_mk_span_singleton`: the quotient norm of `E ⧸ ℝ ∙ e` is `osc / 2`. Hence
+  `LMLExplore.exists_eq_add_smul_and_norm_lt`: every `x` is `m + c • e` with `‖m‖` arbitrarily
+  close to `osc x / 2`, and `LMLExplore.continuous_orderUnitOsc`: the oscillation is continuous.
 * `LMLExplore.IsTopical.lipschitzWith_quotientMap`: a topical map is nonexpansive on the quotient.
 * `LMLExplore.IsTopical.lipschitzWith_quotientMap_iterate`: if `T^[J]` contracts the span at rate
   `α`, it is `α`-Lipschitz on the quotient.
@@ -173,6 +175,29 @@ theorem norm_mk_span_singleton (hnorm : ∀ x, orderUnitNorm e x = ‖x‖) (x :
     have := orderUnitOsc_le_two_mul_orderUnitNorm he m
     rw [hnorm, ← orderUnitOsc_add_smul e m c, hc, add_sub_cancel] at this
     linarith
+
+/-- When the order-unit norm of `e` is the norm, every `x` is `m + c • e` with `‖m‖` as close as
+desired to `osc_e x / 2`: for every `ε > 0` there are such `m` and `c` with
+`‖m‖ < osc_e x / 2 + ε`. -/
+theorem exists_eq_add_smul_and_norm_lt (hnorm : ∀ x, orderUnitNorm e x = ‖x‖) (x : E) {ε : ℝ}
+    (hε : 0 < ε) : ∃ (m : E) (c : ℝ), x = m + c • e ∧ ‖m‖ < orderUnitOsc e x / 2 + ε := by
+  obtain ⟨m, hm, hm'⟩ := Submodule.Quotient.norm_mk_lt (Submodule.Quotient.mk x : E ⧸ ℝ ∙ e) hε
+  obtain ⟨c, hc⟩ := mem_span_singleton.1 ((Submodule.Quotient.eq _).1 hm.symm)
+  rw [norm_mk_span_singleton hnorm] at hm'
+  refine ⟨m, c, ?_, hm'⟩
+  rw [hc]
+  abel
+
+/-- When the order-unit norm of `e` is the norm, the oscillation `osc_e` is continuous: it is
+twice the quotient norm of `E ⧸ ℝ ∙ e`. -/
+theorem continuous_orderUnitOsc (hnorm : ∀ x, orderUnitNorm e x = ‖x‖) :
+    Continuous (orderUnitOsc e) := by
+  have h : orderUnitOsc e = fun x ↦ 2 * ‖(ℝ ∙ e).mkQ x‖ := by
+    funext x
+    rw [Submodule.mkQ_apply, norm_mk_span_singleton hnorm]
+    ring
+  rw [h]
+  fun_prop
 
 namespace IsTopical
 

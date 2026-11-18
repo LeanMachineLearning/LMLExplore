@@ -61,7 +61,8 @@ weighted sup norm `⨆ i, |x i| / w i`, and the oscillation for `1` is `max x - 
 * `LMLExplore.orderUnitNorm_one_eq_norm`: on `ι → ℝ`, the order-unit norm of `1` is the sup norm.
 * `LMLExplore.IsBlackwell.lipschitzWith`: Blackwell's conditions in a normed group whose norm is
   the order-unit norm, and `LMLExplore.lipschitzWith_of_monotone_of_add_const_le` their case
-  `ι → ℝ`. `LMLExplore.IsTopical.isBlackwell_comp_smul`: discounted topical maps satisfy them.
+  `ι → ℝ`. `LMLExplore.IsTopical.isBlackwell_comp_smul`: discounted topical maps satisfy them,
+  and `LMLExplore.IsTopical.lipschitzWith`: topical maps are nonexpansive.
 * `LMLExplore.orderUnitNorm_eq_iSup_abs_div`: the order-unit norm of a positive weight is the
   weighted sup norm, and `LMLExplore.iSup_abs_sub_div_le_of_monotone_of_add_smul_le` is
   Blackwell's bound for it.
@@ -420,6 +421,14 @@ theorem IsBlackwell.lipschitzWith {F : Type*} [NormedAddCommGroup F] [PartialOrd
     simpa only [dist_eq_norm, ← hnorm] using orderUnitNorm_sub_le_of_monotone_of_add_smul_le
       γ.coe_nonneg (isOrderUnit_of_forall_orderUnitNorm_eq_norm hnorm) hT.monotone
       hT.map_add_smul_le x y
+
+/-- A topical map is nonexpansive (`1`-Lipschitz) in a normed group whose norm is the order-unit
+norm of `u`. -/
+theorem IsTopical.lipschitzWith {F : Type*} [NormedAddCommGroup F] [PartialOrder F]
+    [IsOrderedAddMonoid F] [Module ℝ F] {u : F} {T : F → F}
+    (hnorm : ∀ x, orderUnitNorm u x = ‖x‖) (hT : IsTopical u T) : LipschitzWith 1 T :=
+  IsBlackwell.lipschitzWith hnorm
+    ⟨hT.monotone, fun x c _ ↦ by rw [NNReal.coe_one, one_mul, hT.map_add_smul]⟩
 
 /-! ### Nonexpansiveness of topical maps -/
 
