@@ -268,16 +268,19 @@ private theorem le_streamMeasure_forall_optQValue_sub_le_qValue_and_optValue_sub
   refine h_inter.trans (measureReal_mono (fun ω ⟨hω₂, hω₁⟩ π _ ε₀ hπ ↦ ?_) (measure_ne_top _ _))
   have hε₀ : 0 ≤ ε₀ := (abs_nonneg _).trans (hπ (Classical.arbitrary _))
   obtain ⟨hα, hbound⟩ := plugIn_bound_le hγ₀' hγ₁ hC hε hθε hε₀ hL₀ hN₀ hLN
-  have hr : meanReward (M.empirical N ω).R = meanReward M.R := by rw [empirical_R]
+  have hr (q : 𝓢 × 𝓐) : |meanReward M.R q - meanReward (M.empirical N ω).R q| ≤ 0 := by
+    rw [empirical_R, sub_self, abs_zero]
   have hε' (p : 𝓢 × 𝓐) := (hω₂ p).trans_eq (add_assoc _ _ _)
   have hε (p : 𝓢 × 𝓐) := (hω₁ p).trans_eq (add_assoc _ _ _)
   have hγε₀ : (γ : ℝ) * ε₀ ≤ ε₀ := mul_le_of_le_one_left hε₀ hγ₁.le
   refine ⟨fun p ↦ ?_, fun s ↦ ?_⟩
   · have h := optQValue_sub_qValue_le_of_le_sqrt_variance hγ hR (hR' ω) hr (Real.sqrt_nonneg _)
       hα hπ' hε' hε hπ p
+    simp only [mul_zero, zero_div, zero_add] at h
     linarith
   · have h := optValue_sub_value_le_of_le_sqrt_variance hγ hR (hR' ω) hr (Real.sqrt_nonneg _)
       hα hπ' hε' hε hπ s
+    simp only [mul_zero, zero_div, zero_add] at h
     linarith
 
 variable [Fintype 𝓢] [Fintype 𝓐] [Nonempty 𝓢] [Nonempty 𝓐]

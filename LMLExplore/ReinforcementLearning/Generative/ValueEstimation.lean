@@ -201,8 +201,10 @@ theorem le_streamMeasure_forall_abs_optQValue_sub_optQValue_empirical_le_sqrt_ad
       2 * L / N * Var[M.optValue γ; empiricalKernel N ω q] by ring,
       Real.sqrt_mul (by positivity), div_mul_eq_div_div]
     ring
-  exact (abs_optQValue_sub_optQValue_le_of_le_sqrt_variance hγ hR (hR' ω) (by simp)
-    (Real.sqrt_nonneg _) hε p).trans (value_estimation_bound_le γ.coe_nonneg hγ hC hL hN hLN)
+  have h := abs_optQValue_sub_optQValue_le_of_le_sqrt_variance (δ := 0) hγ hR (hR' ω)
+    (fun q ↦ by simp) (Real.sqrt_nonneg _) hε p
+  simp only [zero_div, zero_add] at h
+  exact h.trans (value_estimation_bound_le γ.coe_nonneg hγ hC hL hN hLN)
 
 end Generative
 

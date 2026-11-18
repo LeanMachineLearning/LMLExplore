@@ -55,15 +55,16 @@ model estimated from samples, whose kernels concentrate in total variation aroun
 Models with the true mean reward, such as the empirical MDP of a generative model, are the case
 `δ = 0`.
 
-A variance-aware version [AJKS, §2.4] holds for two MDPs with the same mean rewards and rewards
-bounded by `C`. If the one-step predictions of `v*` satisfy the Bernstein-type bound
+A variance-aware version [AJKS, §2.4] holds for two MDPs with rewards bounded by `C` and mean
+rewards within `δ`. If the one-step predictions of `v*` satisfy the Bernstein-type bound
 `|∫ v* dP q - ∫ v* dP' q| ≤ a √(Var_{P' q}(v*)) + b`, the componentwise bounds express
 `Q*_M - Q*_M'` through the resolvents `R_γ(P'^π_SA)` of an optimal policy `π` of `M` and of an
-optimal policy of `M'`, applied to these one-step errors. The standard deviation of `v*` is within
-`‖v* - v'^π‖` of the standard deviation of the value `v'^π` of `π` in `M'`, and the total-variance
-lemma (`Learning.MDP.integral_sqrt_variance_value_resolvent_le`) in `M'` bounds the resolvent of
-the latter by `C √(2 / (1 - γ) ^ 3)`. The leading term of the resulting bound on `|Q*_M - Q*_M'|`
-is `γ a C √(2 / (1 - γ) ^ 3)`, a factor `√(1 - γ)` better than the one given by the uniform bound
+optimal policy of `M'`, applied to the reward errors plus these one-step errors. The standard
+deviation of `v*` is within `‖v* - v'^π‖` of the standard deviation of the value `v'^π` of `π` in
+`M'`, and the total-variance lemma (`Learning.MDP.integral_sqrt_variance_value_resolvent_le`) in
+`M'` bounds the resolvent of the latter by `C √(2 / (1 - γ) ^ 3)`. Besides the term
+`δ / (1 - γ)` of the reward error, the leading term of the resulting bound on `|Q*_M - Q*_M'|` is
+`γ a C √(2 / (1 - γ) ^ 3)`, a factor `√(1 - γ)` better than the one given by the uniform bound
 `√(Var_{P' q}(v*)) ≤ C / (1 - γ)`.
 
 The same argument applies to the action values of a stationary policy `π` [AKY20, Lemma 10], with
@@ -71,13 +72,14 @@ the variances under the transitions `P` of `M`. If a function `u` within `ε` of
 `π` in `M'` satisfies `|∫ u dP q - ∫ u dP' q| ≤ a √(Var_{P q}(u)) + b`, the simulation lemma
 expresses `Q^π_M' - Q^π_M` through the resolvent of `P^π_SA` in `M`, the standard deviation of `u`
 is within `ε + ‖Q^π_M - Q^π_M'‖` of that of `v^π_M`, and the total-variance lemma in `M` applies.
-This bounds `‖Q^π_M - Q^π_M'‖` by a constant plus `α ‖Q^π_M - Q^π_M'‖`, with
-`α = γ a / (1 - γ)`, so that for `α < 1` it is at most
-`γ (a C √(2 / (1 - γ) ^ 3) + ((2 + a) ε + b) / (1 - γ)) / (1 - α)`. Applied to an optimal policy
-`π'` of `M`, with `u = v'^π'`, and to a policy `π` whose value in `M'` is within `ε` of the optimal
-value `v'*` of `M'`, with `u = v'*`, this shows that the near-optimal policies of `M'` are
-near-optimal in `M` [AKY20, Lemma 2]. This is the deterministic part of the analysis of the
-plug-in policy of a generative model.
+With mean rewards within `δ`, this bounds `‖Q^π_M - Q^π_M'‖` by a constant plus
+`α ‖Q^π_M - Q^π_M'‖`, with `α = γ a / (1 - γ)`, so that for `α < 1` it is at most
+`(δ / (1 - γ) + γ (a C √(2 / (1 - γ) ^ 3) + ((2 + a) ε + b) / (1 - γ))) / (1 - α)`. Applied to
+an optimal policy `π'` of `M`, with `u = v'^π'`, and to a policy `π` whose value in `M'` is within
+`ε` of the optimal value `v'*` of `M'`, with `u = v'*`, this shows that the near-optimal policies
+of `M'` are near-optimal in `M` [AKY20, Lemma 2]. This is the deterministic part of the analysis
+of the plug-in policy of a generative model, whose empirical MDP has the true mean rewards,
+`δ = 0`.
 
 ## Main statements
 
@@ -104,13 +106,13 @@ plug-in policy of a generative model.
   kernels are within `η` in total variation and `|r| ≤ C`, these four pairs differ by at most
   `δ / (1 - γ) + γ C η / (1 - γ) ^ 2`.
 * `Learning.MDP.abs_optQValue_sub_optQValue_le_of_le_sqrt_variance`: the variance-aware bound on
-  the optimal action values [AJKS, §2.4], for two MDPs with the same mean rewards.
+  the optimal action values [AJKS, §2.4], with a reward error.
 * `Learning.MDP.abs_qValue_sub_qValue_le_of_le_sqrt_variance`,
   `Learning.MDP.abs_value_sub_value_le_of_le_sqrt_variance`: the variance-aware bounds on the
-  action values and the values of a policy [AKY20, Lemma 10].
+  action values and the values of a policy [AKY20, Lemma 10], with a reward error.
 * `Learning.MDP.optQValue_sub_qValue_le_of_le_sqrt_variance`,
   `Learning.MDP.optValue_sub_value_le_of_le_sqrt_variance`: the near-optimal policies of `M'` are
-  near-optimal in `M` [AKY20, Lemmas 2 and 10].
+  near-optimal in `M` [AKY20, Lemmas 2 and 10], with a reward error.
 
 ## References
 
@@ -410,24 +412,27 @@ private lemma abs_integral_resolvent_le_of_abs_le_sqrt_variance (hγ : γ < 1)
     _ ≤ a * (C * √(2 / (1 - γ) ^ 3)) + c / (1 - γ) := by gcongr
     _ = a * C * √(2 / (1 - γ) ^ 3) + c / (1 - γ) := by ring
 
-/-- **Variance-aware accuracy of the action values of a policy** [AKY20, Lemma 10]: for two MDPs
-`M` and `M'` with the same mean rewards, bounded rewards, rewards of `M` bounded by `C`, `γ < 1`
-and a stationary policy `π`, let `u` be a measurable function within `ε` of the value `v'^π` of `π`
-in `M'` whose one-step predictions satisfy the Bernstein-type bound
+/-- **Variance-aware accuracy of the action values of a policy** [AKY20, Lemma 10], with a reward
+error: for two MDPs `M` and `M'` with mean rewards within `δ`, bounded rewards, rewards of `M`
+bounded by `C`, `γ < 1` and a stationary policy `π`, let `u` be a measurable function within `ε`
+of the value `v'^π` of `π` in `M'` whose one-step predictions satisfy the Bernstein-type bound
 `|∫ u dP q - ∫ u dP' q| ≤ a √(Var_{P q}(u)) + b`, with the variance under the transitions `P` of
 `M`, at every pair `q`. If `α = γ a / (1 - γ) < 1`, the action values of `π` in the two MDPs
-differ by at most `γ (a C √(2 / (1 - γ) ^ 3) + ((2 + a) ε + b) / (1 - γ)) / (1 - α)`.
+differ by at most
+`(δ / (1 - γ) + γ (a C √(2 / (1 - γ) ^ 3) + ((2 + a) ε + b) / (1 - γ))) / (1 - α)`.
 
-[AKY20] applies this with `u = v'^π` and `ε = 0`, for a policy `π` that does not depend on `M'`,
-and with `u` the optimal value of `M'`, for a policy `π` whose value in `M'` is `ε`-optimal. -/
+[AKY20] applies this with `δ = 0`, with `u = v'^π` and `ε = 0`, for a policy `π` that does not
+depend on `M'`, and with `u` the optimal value of `M'`, for a policy `π` whose value in `M'` is
+`ε`-optimal. -/
 theorem abs_qValue_sub_qValue_le_of_le_sqrt_variance (hγ : γ < 1)
     (hR : ∀ p, ∀ᵐ x ∂(M.R p), |x| ≤ C) (hR' : ∀ p, ∀ᵐ x ∂(M'.R p), |x| ≤ C')
-    (hr : meanReward M'.R = meanReward M.R) (ha : 0 ≤ a) (hα : γ * a / (1 - γ) < 1)
-    {u : 𝓢 → ℝ} (hu : Measurable u) (hπu : ∀ s, |M'.value γ π s - u s| ≤ ε)
+    (hδ : ∀ q, |meanReward M.R q - meanReward M'.R q| ≤ δ) (ha : 0 ≤ a)
+    (hα : γ * a / (1 - γ) < 1) {u : 𝓢 → ℝ} (hu : Measurable u)
+    (hπu : ∀ s, |M'.value γ π s - u s| ≤ ε)
     (hε : ∀ q, |∫ s, u s ∂(M.P q) - ∫ s, u s ∂(M'.P q)| ≤ a * √(Var[u; M.P q]) + b)
     (p : 𝓢 × 𝓐) :
     |M.qValue γ π p - M'.qValue γ π p| ≤
-      γ * (a * C * √(2 / (1 - γ) ^ 3) + ((2 + a) * ε + b) / (1 - γ)) /
+      (δ / (1 - γ) + γ * (a * C * √(2 / (1 - γ) ^ 3) + ((2 + a) * ε + b) / (1 - γ))) /
         (1 - γ * a / (1 - γ)) := by
   have : Nonempty (𝓢 × 𝓐) := ⟨p⟩
   have hv := measurable_value (π := π) hγ hR
@@ -465,17 +470,18 @@ theorem abs_qValue_sub_qValue_le_of_le_sqrt_variance (hγ : γ < 1)
       _ = a * √(Var[M.value γ π; M.P q]) + (a * Δ + ((2 + a) * ε + b)) := by ring
   -- every action value error is at most `K + α Δ`, by the simulation lemma and the
   -- total-variance lemma
-  have h_step (q : 𝓢 × 𝓐) : x q ≤ γ * (a * C * √(2 / (1 - γ) ^ 3) + ((2 + a) * ε + b) /
-      (1 - γ)) + γ * a / (1 - γ) * Δ := by
+  have h_step (q : 𝓢 × 𝓐) : x q ≤ (δ / (1 - γ) + γ * (a * C * √(2 / (1 - γ) ^ 3) +
+      ((2 + a) * ε + b) / (1 - γ))) + γ * a / (1 - γ) * Δ := by
     simp only [x]
     rw [abs_sub_comm, qValue_sub_qValue hγ hR' hR q]
-    simp only [hr, sub_self, zero_add]
-    rw [integral_const_mul, abs_mul, NNReal.abs_eq]
-    calc _ ≤ (γ : ℝ) * (a * C * √(2 / (1 - γ) ^ 3) + (a * Δ + ((2 + a) * ε + b)) / (1 - γ)) := by
+    refine (abs_integral_resolvent_le_of_abs_le_sqrt_variance hγ hR (mul_nonneg γ.coe_nonneg ha)
+      (c := δ + γ * (a * Δ + ((2 + a) * ε + b))) (fun q ↦ ?_) q).trans_eq (by ring)
+    refine (abs_add_le _ _).trans ?_
+    rw [abs_mul, NNReal.abs_eq, abs_sub_comm]
+    calc _ ≤ δ + γ * (a * √(Var[M.value γ π; M.P q]) + (a * Δ + ((2 + a) * ε + b))) := by
           gcongr
-          exact abs_integral_resolvent_le_of_abs_le_sqrt_variance hγ hR ha h_pt q
-      _ = γ * (a * C * √(2 / (1 - γ) ^ 3) + ((2 + a) * ε + b) / (1 - γ)) +
-          γ * a / (1 - γ) * Δ := by ring
+          exacts [hδ q, h_pt q]
+      _ = _ := by ring
   -- hence `Δ ≤ K + α Δ`, that is `Δ ≤ K / (1 - α)`
   have hΔ := ciSup_le h_step
   refine (hxΔ p).trans ?_
@@ -484,17 +490,19 @@ theorem abs_qValue_sub_qValue_le_of_le_sqrt_variance (hγ : γ < 1)
 
 /-- **Variance-aware accuracy of the values of a policy** [AKY20, Lemma 10]: under the hypotheses
 of `Learning.MDP.abs_qValue_sub_qValue_le_of_le_sqrt_variance`, the values of `π` in the two MDPs
-differ by at most `γ (a C √(2 / (1 - γ) ^ 3) + ((2 + a) ε + b) / (1 - γ)) / (1 - α)`. -/
+differ by at most
+`(δ / (1 - γ) + γ (a C √(2 / (1 - γ) ^ 3) + ((2 + a) ε + b) / (1 - γ))) / (1 - α)`. -/
 theorem abs_value_sub_value_le_of_le_sqrt_variance (hγ : γ < 1)
     (hR : ∀ p, ∀ᵐ x ∂(M.R p), |x| ≤ C) (hR' : ∀ p, ∀ᵐ x ∂(M'.R p), |x| ≤ C')
-    (hr : meanReward M'.R = meanReward M.R) (ha : 0 ≤ a) (hα : γ * a / (1 - γ) < 1)
-    {u : 𝓢 → ℝ} (hu : Measurable u) (hπu : ∀ s, |M'.value γ π s - u s| ≤ ε)
+    (hδ : ∀ q, |meanReward M.R q - meanReward M'.R q| ≤ δ) (ha : 0 ≤ a)
+    (hα : γ * a / (1 - γ) < 1) {u : 𝓢 → ℝ} (hu : Measurable u)
+    (hπu : ∀ s, |M'.value γ π s - u s| ≤ ε)
     (hε : ∀ q, |∫ s, u s ∂(M.P q) - ∫ s, u s ∂(M'.P q)| ≤ a * √(Var[u; M.P q]) + b) (s : 𝓢) :
     |M.value γ π s - M'.value γ π s| ≤
-      γ * (a * C * √(2 / (1 - γ) ^ 3) + ((2 + a) * ε + b) / (1 - γ)) /
+      (δ / (1 - γ) + γ * (a * C * √(2 / (1 - γ) ^ 3) + ((2 + a) * ε + b) / (1 - γ))) /
         (1 - γ * a / (1 - γ)) :=
   abs_value_sub_value_le_of_abs_qValue_sub_qValue_le hγ hR hR' fun a ↦
-    abs_qValue_sub_qValue_le_of_le_sqrt_variance hγ hR hR' hr ha hα hu hπu hε (s, a)
+    abs_qValue_sub_qValue_le_of_le_sqrt_variance hγ hR hR' hδ ha hα hu hπu hε (s, a)
 
 end PolicyVarianceAware
 
@@ -502,13 +510,14 @@ section VarianceAware
 
 variable [Nonempty 𝓢] [Nonempty 𝓐] [Finite 𝓐] {a b : ℝ}
 
-/-- For two MDPs with the same mean rewards and a one-step error of the optimal value `v*` of `M`
+/-- For two MDPs with mean rewards within `δ` and a one-step error of the optimal value `v*` of `M`
 bounded by `a √(Var_{P' q}(v*)) + b`, the resolvent of the state-action kernel in `M'` of a
 stationary policy `π` whose value in `M'` is within `D` of `v*` maps the right-hand side of the
-componentwise bounds to at most `γ (a C √(2 / (1 - γ) ^ 3) + (a D + b) / (1 - γ))`. -/
+componentwise bounds to at most `δ / (1 - γ) + γ (a C √(2 / (1 - γ) ^ 3) + (a D + b) / (1 - γ))`.
+-/
 private lemma abs_integral_resolvent_le_of_le_sqrt_variance (hγ : γ < 1)
     (hR : ∀ p, ∀ᵐ x ∂(M.R p), |x| ≤ C) (hR' : ∀ p, ∀ᵐ x ∂(M'.R p), |x| ≤ C)
-    (hr : meanReward M'.R = meanReward M.R) (ha : 0 ≤ a)
+    (hδ : ∀ q, |meanReward M.R q - meanReward M'.R q| ≤ δ) (ha : 0 ≤ a)
     (hε : ∀ q, |∫ s, M.optValue γ s ∂(M.P q) - ∫ s, M.optValue γ s ∂(M'.P q)| ≤
       a * √(Var[M.optValue γ; M'.P q]) + b)
     (π : Kernel 𝓢 𝓐) [IsMarkovKernel π] {D : ℝ}
@@ -516,7 +525,7 @@ private lemma abs_integral_resolvent_le_of_le_sqrt_variance (hγ : γ < 1)
     |∫ q, (meanReward M.R q - meanReward M'.R q +
         γ * (∫ s, M.optValue γ s ∂(M.P q) - ∫ s, M.optValue γ s ∂(M'.P q)))
         ∂(Kernel.resolvent γ (M'.saKernel π) p)| ≤
-      γ * (a * C * √(2 / (1 - γ) ^ 3) + (a * D + b) / (1 - γ)) := by
+      δ / (1 - γ) + γ * (a * C * √(2 / (1 - γ) ^ 3) + (a * D + b) / (1 - γ)) := by
   have hv := measurable_optValue hγ hR
   have hvB := abs_optValue_le hγ hR
   have hv' := measurable_value (π := π) hγ hR'
@@ -536,32 +545,35 @@ private lemma abs_integral_resolvent_le_of_le_sqrt_variance (hγ : γ < 1)
     calc _ ≤ a * √(Var[M.optValue γ; M'.P q]) + b := hε q
       _ ≤ a * (√(Var[M'.value γ π; M'.P q]) + D) + b := by gcongr
       _ = a * √(Var[M'.value γ π; M'.P q]) + (a * D + b) := by ring
-  simp only [hr, sub_self, zero_add]
-  rw [integral_const_mul, abs_mul, NNReal.abs_eq]
-  gcongr
-  exact abs_integral_resolvent_le_of_abs_le_sqrt_variance hγ hR' ha h_pt p
+  refine (abs_integral_resolvent_le_of_abs_le_sqrt_variance hγ hR' (mul_nonneg γ.coe_nonneg ha)
+    (c := δ + γ * (a * D + b)) (fun q ↦ ?_) p).trans_eq (by ring)
+  refine (abs_add_le _ _).trans ?_
+  rw [abs_mul, NNReal.abs_eq]
+  calc _ ≤ δ + γ * (a * √(Var[M'.value γ π; M'.P q]) + (a * D + b)) := by
+        gcongr
+        exacts [hδ q, h_pt q]
+    _ = _ := by ring
 
-/-- **Variance-aware accuracy of the optimal action values** [AJKS, §2.4]: for two MDPs `M` and
-`M'` with finitely many actions, the same mean rewards, rewards bounded by `C` and `γ < 1`, if the
-one-step predictions of the optimal value `v*` of `M` satisfy, for some `a ≥ 0` and `b`, the
-Bernstein-type bound `|∫ v* dP q - ∫ v* dP' q| ≤ a √(Var_{P' q}(v*)) + b` at every pair `q`, then
-the optimal action values satisfy
-`|Q*_M - Q*_M'| ≤ γ (a C √(2 / (1 - γ) ^ 3) + (a D + b) / (1 - γ))`, with
-`D = γ (a C / (1 - γ) + b) / (1 - γ)`. For a small `a`, the leading term `γ a C √(2 / (1 - γ) ^ 3)`
-is smaller by the factor `√(1 - γ)` than the bound `γ a C / (1 - γ) ^ 2` obtained from the
-uniform bound `√(Var_{P' q}(v*)) ≤ C / (1 - γ)`. -/
+/-- **Variance-aware accuracy of the optimal action values** [AJKS, §2.4], with a reward error: for
+two MDPs `M` and `M'` with finitely many actions, mean rewards within `δ`, rewards bounded by `C`
+and `γ < 1`, if the one-step predictions of the optimal value `v*` of `M` satisfy, for some
+`a ≥ 0` and `b`, the Bernstein-type bound `|∫ v* dP q - ∫ v* dP' q| ≤ a √(Var_{P' q}(v*)) + b` at
+every pair `q`, then the optimal action values satisfy
+`|Q*_M - Q*_M'| ≤ δ / (1 - γ) + γ (a C √(2 / (1 - γ) ^ 3) + (a D + b) / (1 - γ))`, with
+`D = δ / (1 - γ) + γ (a C / (1 - γ) + b) / (1 - γ)`. For a small `a`, the leading term
+`γ a C √(2 / (1 - γ) ^ 3)` is smaller by the factor `√(1 - γ)` than the bound
+`γ a C / (1 - γ) ^ 2` obtained from the uniform bound `√(Var_{P' q}(v*)) ≤ C / (1 - γ)`. -/
 theorem abs_optQValue_sub_optQValue_le_of_le_sqrt_variance (hγ : γ < 1)
     (hR : ∀ p, ∀ᵐ x ∂(M.R p), |x| ≤ C) (hR' : ∀ p, ∀ᵐ x ∂(M'.R p), |x| ≤ C)
-    (hr : meanReward M'.R = meanReward M.R) (ha : 0 ≤ a)
+    (hδ : ∀ q, |meanReward M.R q - meanReward M'.R q| ≤ δ) (ha : 0 ≤ a)
     (hε : ∀ q, |∫ s, M.optValue γ s ∂(M.P q) - ∫ s, M.optValue γ s ∂(M'.P q)| ≤
       a * √(Var[M.optValue γ; M'.P q]) + b) (p : 𝓢 × 𝓐) :
-    |M.optQValue γ p - M'.optQValue γ p| ≤ γ * (a * C * √(2 / (1 - γ) ^ 3) +
-      (a * (γ * (a * (C / (1 - γ)) + b) / (1 - γ)) + b) / (1 - γ)) := by
+    |M.optQValue γ p - M'.optQValue γ p| ≤ δ / (1 - γ) + γ * (a * C * √(2 / (1 - γ) ^ 3) +
+      (a * (δ / (1 - γ) + γ * (a * (C / (1 - γ)) + b) / (1 - γ)) + b) / (1 - γ)) := by
   have := Fintype.ofFinite 𝓐
   have hv := measurable_optValue hγ hR
   have hvB := abs_optValue_le hγ hR
   have hB : 0 ≤ C / (1 - γ) := (abs_nonneg _).trans (hvB (Classical.arbitrary 𝓢))
-  have hδ (q : 𝓢 × 𝓐) : |meanReward M.R q - meanReward M'.R q| ≤ 0 := by simp [hr]
   -- the uniform bound on the one-step error, from `√(Var_{P' q}(v*)) ≤ C / (1 - γ)`
   have hε' (q : 𝓢 × 𝓐) : |∫ s, M.optValue γ s ∂(M.P q) - ∫ s, M.optValue γ s ∂(M'.P q)| ≤
       a * (C / (1 - γ)) + b := by
@@ -575,16 +587,16 @@ theorem abs_optQValue_sub_optQValue_le_of_le_sqrt_variance (hγ : γ < 1)
   have hπ' := value_greedy_optValue hγ hR' hg'
   -- their values in `M'` are within `D` of `v*`, by the simulation bounds
   have hD (s : 𝓢) : |M.optValue γ s - M'.value γ (Kernel.deterministic _ hg) s| ≤
-      γ * (a * (C / (1 - γ)) + b) / (1 - γ) := by
+      δ / (1 - γ) + γ * (a * (C / (1 - γ)) + b) / (1 - γ) := by
     have h := abs_value_sub_value_le (π := Kernel.deterministic _ hg) hγ hR hR' hδ
       (fun q ↦ by rw [hπ]; exact hε' q) s
-    rwa [hπ, zero_div, zero_add] at h
+    rwa [hπ] at h
   have hD' (s : 𝓢) : |M.optValue γ s - M'.value γ (Kernel.deterministic _ hg') s| ≤
-      γ * (a * (C / (1 - γ)) + b) / (1 - γ) := by
+      δ / (1 - γ) + γ * (a * (C / (1 - γ)) + b) / (1 - γ) := by
     have h := abs_optValue_sub_optValue_le hγ hR hR' hδ hε' s
-    rwa [← hπ', zero_div, zero_add] at h
-  have h₁ := abs_integral_resolvent_le_of_le_sqrt_variance hγ hR hR' hr ha hε _ hD p
-  have h₂ := abs_integral_resolvent_le_of_le_sqrt_variance hγ hR hR' hr ha hε _ hD' p
+    rwa [← hπ'] at h
+  have h₁ := abs_integral_resolvent_le_of_le_sqrt_variance hγ hR hR' hδ ha hε _ hD p
+  have h₂ := abs_integral_resolvent_le_of_le_sqrt_variance hγ hR hR' hδ ha hε _ hD' p
   exact abs_le.2 ⟨(neg_le_of_abs_le h₂).trans (le_optQValue_sub_optQValue hγ hR hR' hπ' p),
     (optQValue_sub_optQValue_le hγ hR hR' hπ p).trans (le_of_abs_le h₁)⟩
 
@@ -593,59 +605,66 @@ theorem abs_optQValue_sub_optQValue_le_of_le_sqrt_variance (hγ : γ < 1)
 `π` and of an optimal policy `π'` of `M` are accurate in `M'`. -/
 private lemma abs_qValue_sub_qValue_add_abs_qValue_sub_qValue_le (hγ : γ < 1)
     (hR : ∀ p, ∀ᵐ x ∂(M.R p), |x| ≤ C) (hR' : ∀ p, ∀ᵐ x ∂(M'.R p), |x| ≤ C')
-    (hr : meanReward M'.R = meanReward M.R) (ha : 0 ≤ a) (hα : γ * a / (1 - γ) < 1)
-    {π' : Kernel 𝓢 𝓐} [IsMarkovKernel π']
+    (hδ : ∀ q, |meanReward M.R q - meanReward M'.R q| ≤ δ) (ha : 0 ≤ a)
+    (hα : γ * a / (1 - γ) < 1) {π' : Kernel 𝓢 𝓐} [IsMarkovKernel π']
     (hε' : ∀ q, |∫ s, M'.value γ π' s ∂(M.P q) - ∫ s, M'.value γ π' s ∂(M'.P q)| ≤
       a * √(Var[M'.value γ π'; M.P q]) + b)
     (hε : ∀ q, |∫ s, M'.optValue γ s ∂(M.P q) - ∫ s, M'.optValue γ s ∂(M'.P q)| ≤
       a * √(Var[M'.optValue γ; M.P q]) + b)
     (hπ : ∀ s, |M'.value γ π s - M'.optValue γ s| ≤ ε) :
     (∀ p, |M.qValue γ π' p - M'.qValue γ π' p| + |M'.qValue γ π p - M.qValue γ π p| ≤
-      (2 * γ * (a * C * √(2 / (1 - γ) ^ 3) + b / (1 - γ)) + γ * (2 + a) * ε / (1 - γ)) /
+      (2 * δ / (1 - γ) + 2 * γ * (a * C * √(2 / (1 - γ) ^ 3) + b / (1 - γ)) +
+        γ * (2 + a) * ε / (1 - γ)) /
         (1 - γ * a / (1 - γ))) ∧
     ∀ s, |M.value γ π' s - M'.value γ π' s| + |M'.value γ π s - M.value γ π s| ≤
-      (2 * γ * (a * C * √(2 / (1 - γ) ^ 3) + b / (1 - γ)) + γ * (2 + a) * ε / (1 - γ)) /
+      (2 * δ / (1 - γ) + 2 * γ * (a * C * √(2 / (1 - γ) ^ 3) + b / (1 - γ)) +
+        γ * (2 + a) * ε / (1 - γ)) /
         (1 - γ * a / (1 - γ)) := by
   have hv' := measurable_value (π := π') hγ hR'
   have h₀ (s : 𝓢) : |M'.value γ π' s - M'.value γ π' s| ≤ 0 := by simp
   have hu := measurable_optValue hγ hR'
-  have he : γ * (a * C * √(2 / (1 - γ) ^ 3) + ((2 + a) * 0 + b) / (1 - γ)) /
+  have he : (δ / (1 - γ) + γ * (a * C * √(2 / (1 - γ) ^ 3) + ((2 + a) * 0 + b) / (1 - γ))) /
         (1 - γ * a / (1 - γ)) +
-      γ * (a * C * √(2 / (1 - γ) ^ 3) + ((2 + a) * ε + b) / (1 - γ)) / (1 - γ * a / (1 - γ)) =
-      (2 * γ * (a * C * √(2 / (1 - γ) ^ 3) + b / (1 - γ)) + γ * (2 + a) * ε / (1 - γ)) /
+      (δ / (1 - γ) + γ * (a * C * √(2 / (1 - γ) ^ 3) + ((2 + a) * ε + b) / (1 - γ))) /
+        (1 - γ * a / (1 - γ)) =
+      (2 * δ / (1 - γ) + 2 * γ * (a * C * √(2 / (1 - γ) ^ 3) + b / (1 - γ)) +
+        γ * (2 + a) * ε / (1 - γ)) /
         (1 - γ * a / (1 - γ)) := by
     ring
   refine ⟨fun p ↦ ?_, fun s ↦ ?_⟩
   · rw [abs_sub_comm (M'.qValue γ π p), ← he]
     exact add_le_add
-      (abs_qValue_sub_qValue_le_of_le_sqrt_variance hγ hR hR' hr ha hα hv' h₀ hε' p)
-      (abs_qValue_sub_qValue_le_of_le_sqrt_variance hγ hR hR' hr ha hα hu hπ hε p)
+      (abs_qValue_sub_qValue_le_of_le_sqrt_variance hγ hR hR' hδ ha hα hv' h₀ hε' p)
+      (abs_qValue_sub_qValue_le_of_le_sqrt_variance hγ hR hR' hδ ha hα hu hπ hε p)
   · rw [abs_sub_comm (M'.value γ π s), ← he]
     exact add_le_add
-      (abs_value_sub_value_le_of_le_sqrt_variance hγ hR hR' hr ha hα hv' h₀ hε' s)
-      (abs_value_sub_value_le_of_le_sqrt_variance hγ hR hR' hr ha hα hu hπ hε s)
+      (abs_value_sub_value_le_of_le_sqrt_variance hγ hR hR' hδ ha hα hv' h₀ hε' s)
+      (abs_value_sub_value_le_of_le_sqrt_variance hγ hR hR' hδ ha hα hu hπ hε s)
 
 /-- **Accuracy of the action values of a near-optimal policy of a model** [AKY20, Lemmas 2 and
-10]: for two MDPs `M` and `M'` with finitely many actions, the same mean rewards, bounded rewards,
-rewards of `M` bounded by `C` and `γ < 1`, let `π'` be an optimal stationary policy of `M`, and
-assume that the values `v'^π'` of `π'` and `v'*` of `M'` satisfy the Bernstein-type bounds
-`|∫ v dP q - ∫ v dP' q| ≤ a √(Var_{P q}(v)) + b` at every pair `q`, with the variance under the
-transitions `P` of `M`. If `α = γ a / (1 - γ) < 1`, every stationary policy `π` whose value in `M'`
-is within `ε` of `v'*` has action values in `M` at least
-`Q*_M - (2 γ (a C √(2 / (1 - γ) ^ 3) + b / (1 - γ)) + γ (2 + a) ε / (1 - γ)) / (1 - α) - γ ε`. -/
+10], with a reward error: for two MDPs `M` and `M'` with finitely many actions, mean rewards within
+`δ`, bounded rewards, rewards of `M` bounded by `C` and `γ < 1`, let `π'` be an optimal stationary
+policy of `M`, and assume that the values `v'^π'` of `π'` and `v'*` of `M'` satisfy the
+Bernstein-type bounds `|∫ v dP q - ∫ v dP' q| ≤ a √(Var_{P q}(v)) + b` at every pair `q`, with the
+variance under the transitions `P` of `M`. If `α = γ a / (1 - γ) < 1`, every stationary policy
+`π` whose value in `M'` is within `ε` of `v'*` has action values in `M` at least
+`Q*_M - (2 δ / (1 - γ) + 2 γ (a C √(2 / (1 - γ) ^ 3) + b / (1 - γ)) + γ (2 + a) ε / (1 - γ)) /
+(1 - α) - γ ε`. -/
 theorem optQValue_sub_qValue_le_of_le_sqrt_variance (hγ : γ < 1)
     (hR : ∀ p, ∀ᵐ x ∂(M.R p), |x| ≤ C) (hR' : ∀ p, ∀ᵐ x ∂(M'.R p), |x| ≤ C')
-    (hr : meanReward M'.R = meanReward M.R) (ha : 0 ≤ a) (hα : γ * a / (1 - γ) < 1)
-    {π' : Kernel 𝓢 𝓐} [IsMarkovKernel π'] (hπ' : M.value γ π' = M.optValue γ)
+    (hδ : ∀ q, |meanReward M.R q - meanReward M'.R q| ≤ δ) (ha : 0 ≤ a)
+    (hα : γ * a / (1 - γ) < 1) {π' : Kernel 𝓢 𝓐} [IsMarkovKernel π']
+    (hπ' : M.value γ π' = M.optValue γ)
     (hε' : ∀ q, |∫ s, M'.value γ π' s ∂(M.P q) - ∫ s, M'.value γ π' s ∂(M'.P q)| ≤
       a * √(Var[M'.value γ π'; M.P q]) + b)
     (hε : ∀ q, |∫ s, M'.optValue γ s ∂(M.P q) - ∫ s, M'.optValue γ s ∂(M'.P q)| ≤
       a * √(Var[M'.optValue γ; M.P q]) + b)
     (hπ : ∀ s, |M'.value γ π s - M'.optValue γ s| ≤ ε) (p : 𝓢 × 𝓐) :
     M.optQValue γ p - M.qValue γ π p ≤
-      (2 * γ * (a * C * √(2 / (1 - γ) ^ 3) + b / (1 - γ)) + γ * (2 + a) * ε / (1 - γ)) /
+      (2 * δ / (1 - γ) + 2 * γ * (a * C * √(2 / (1 - γ) ^ 3) + b / (1 - γ)) +
+        γ * (2 + a) * ε / (1 - γ)) /
         (1 - γ * a / (1 - γ)) + γ * ε := by
-  have h := (abs_qValue_sub_qValue_add_abs_qValue_sub_qValue_le hγ hR hR' hr ha hα hε' hε hπ).1 p
+  have h := (abs_qValue_sub_qValue_add_abs_qValue_sub_qValue_le hγ hR hR' hδ ha hα hε' hε hπ).1 p
   -- `π'` is suboptimal in `M'`
   have h₁ := qValue_le_optQValue (π := π') hγ hR' p
   -- the action values of `π` in `M'` are `γ ε`-optimal
@@ -658,20 +677,23 @@ theorem optQValue_sub_qValue_le_of_le_sqrt_variance (hγ : γ < 1)
 /-- **Accuracy of the values of a near-optimal policy of a model** [AKY20, Lemmas 2 and 10]:
 under the hypotheses of `Learning.MDP.optQValue_sub_qValue_le_of_le_sqrt_variance`, every
 stationary policy `π` whose value in `M'` is within `ε` of `v'*` has values in `M` at least
-`v*_M - (2 γ (a C √(2 / (1 - γ) ^ 3) + b / (1 - γ)) + γ (2 + a) ε / (1 - γ)) / (1 - α) - ε`. -/
+`v*_M - (2 δ / (1 - γ) + 2 γ (a C √(2 / (1 - γ) ^ 3) + b / (1 - γ)) + γ (2 + a) ε / (1 - γ)) /
+(1 - α) - ε`. -/
 theorem optValue_sub_value_le_of_le_sqrt_variance (hγ : γ < 1)
     (hR : ∀ p, ∀ᵐ x ∂(M.R p), |x| ≤ C) (hR' : ∀ p, ∀ᵐ x ∂(M'.R p), |x| ≤ C')
-    (hr : meanReward M'.R = meanReward M.R) (ha : 0 ≤ a) (hα : γ * a / (1 - γ) < 1)
-    {π' : Kernel 𝓢 𝓐} [IsMarkovKernel π'] (hπ' : M.value γ π' = M.optValue γ)
+    (hδ : ∀ q, |meanReward M.R q - meanReward M'.R q| ≤ δ) (ha : 0 ≤ a)
+    (hα : γ * a / (1 - γ) < 1) {π' : Kernel 𝓢 𝓐} [IsMarkovKernel π']
+    (hπ' : M.value γ π' = M.optValue γ)
     (hε' : ∀ q, |∫ s, M'.value γ π' s ∂(M.P q) - ∫ s, M'.value γ π' s ∂(M'.P q)| ≤
       a * √(Var[M'.value γ π'; M.P q]) + b)
     (hε : ∀ q, |∫ s, M'.optValue γ s ∂(M.P q) - ∫ s, M'.optValue γ s ∂(M'.P q)| ≤
       a * √(Var[M'.optValue γ; M.P q]) + b)
     (hπ : ∀ s, |M'.value γ π s - M'.optValue γ s| ≤ ε) (s : 𝓢) :
     M.optValue γ s - M.value γ π s ≤
-      (2 * γ * (a * C * √(2 / (1 - γ) ^ 3) + b / (1 - γ)) + γ * (2 + a) * ε / (1 - γ)) /
+      (2 * δ / (1 - γ) + 2 * γ * (a * C * √(2 / (1 - γ) ^ 3) + b / (1 - γ)) +
+        γ * (2 + a) * ε / (1 - γ)) /
         (1 - γ * a / (1 - γ)) + ε := by
-  have h := (abs_qValue_sub_qValue_add_abs_qValue_sub_qValue_le hγ hR hR' hr ha hα hε' hε hπ).2 s
+  have h := (abs_qValue_sub_qValue_add_abs_qValue_sub_qValue_le hγ hR hR' hδ ha hα hε' hε hπ).2 s
   have h₁ := value_le_optValue (π := π') hγ hR' s
   rw [← hπ']
   linarith [le_abs_self (M.value γ π' s - M'.value γ π' s),
