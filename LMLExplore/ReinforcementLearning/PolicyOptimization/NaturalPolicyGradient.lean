@@ -29,10 +29,13 @@ state on the advantages, glued together by the performance difference lemma
   and since the state marginal of an occupancy measure from `μ` dominates `(1 - γ) • μ`, the
   values increase: `(1 - γ) / η * ∫ log Z_t dμ ≤ ∫ v^{π_{t+1}} dμ - ∫ v^{π_t} dμ`
   for every initial law `μ`;
-* for a comparison policy `π` with state occupancy measure `d` from the evaluation law `ρ`, the
-  logarithms of the weights telescope, so that
-  `∑ t < T, (∫ v^π dρ - ∫ v^{π_t} dρ) ≤ log |𝓐| / η + (1 - γ)⁻¹ ∑ t < T, ∫ log Z_t dd`, and the
-  improvement bound at `μ = d` bounds the last sum by `C / (1 - γ)` for rewards in `[0, C]`.
+* for a comparison policy `π` with state occupancy measure `d` from the evaluation law `ρ`: in
+  every state, NPG is exponential weights with learning rate `η / (1 - γ)` on the losses
+  `-A^{π_t} (s, ·)`, and its regret bound gives
+  `∑ t < T, (∫ v^π dρ - ∫ v^{π_t} dρ) ≤ log |𝓐| / η + η⁻¹ ∑ t < T, ∫ log Z_t dd`. For rewards
+  bounded by `C` with nonnegative means, the improvement bound at `μ = d` telescopes to
+  `(1 - γ) / η * ∑ t < T, ∫ log Z_t dd ≤ C / (1 - γ)`, so the last term is at most
+  `C / (1 - γ) ^ 2`.
 
 Since the values increase, this gives the convergence rate
 `∫ v* dρ - ∫ v^{π_T} dρ ≤ log |𝓐| / (η T) + 1 / ((1 - γ) ^ 2 T)` for rewards in `[0, 1]`, with
@@ -193,46 +196,60 @@ theorem npgLogPartition_le_mul_integral_advantage (t : ℕ) (s : 𝓢) :
   rw [integral_softmaxPolicy]
   simpa using h
 
-omit hγ hR in
-/-- **Mirror-descent identity** of natural policy gradient: for every probability measure `ν` on
-the actions, `η / (1 - γ) * ∫ A^{π_t} (s, ·) dν` is the increase
-`∫ log π_{t+1} (· | s) dν - ∫ log π_t (· | s) dν` plus `log Z_t s`. -/
-private lemma mul_integral_advantage_eq (t : ℕ) (s : 𝓢) (ν : Measure 𝓐) [IsProbabilityMeasure ν] :
-    η / (1 - γ) * ∫ a, M.advantage γ (softmaxPolicy (npgParam M γ η t)) (s, a) ∂ν =
-      ∫ a, (log (softmax (npgParam M γ η (t + 1) s) a) - log (softmax (npgParam M γ η t s) a)) ∂ν +
-        npgLogPartition M γ η t s := by
-  have h (a : 𝓐) : log (softmax (npgParam M γ η (t + 1) s) a) -
-      log (softmax (npgParam M γ η t s) a) =
-        η / (1 - γ) * M.advantage γ (softmaxPolicy (npgParam M γ η t)) (s, a) -
-          npgLogPartition M γ η t s := by
-    rw [log_softmax_npgParam_succ]
+omit [Nonempty 𝓐] [MeasurableSingletonClass 𝓐] hγ hR in
+/-- In every state, the parameters of natural policy gradient are those of exponential weights
+with learning rate `η / (1 - γ)` on the losses `-A^{π_r} (s, ·)`. -/
+private lemma npgParam_eq_neg_smul_sum (t : ℕ) (s : 𝓢) :
+    npgParam M γ η t s = -((η / (1 - γ)) • ∑ r ∈ range t,
+      fun a ↦ -M.advantage γ (softmaxPolicy (npgParam M γ η r)) (s, a)) := by
+  induction t with
+  | zero => simp
+  | succ t ih =>
+    ext a
+    rw [npgParam_succ]
+    simp only [ih, sum_range_succ, Pi.neg_apply, Pi.smul_apply, Pi.add_apply, Finset.sum_apply,
+      smul_eq_mul]
     ring
-  simp_rw [h]
-  rw [integral_sub (Integrable.of_finite.const_mul _) (integrable_const _), integral_const_mul,
-    integral_const, probReal_univ, one_smul, sub_add_cancel]
 
-omit hγ hR in
-/-- Summed over the rounds, the mirror-descent identities telescope: for every probability measure
-`ν` on the actions, `η / (1 - γ) * ∑ t < T, ∫ A^{π_t} (s, ·) dν ≤ log |𝓐| + ∑ t < T, log Z_t s`. -/
-private lemma mul_sum_integral_advantage_le (s : 𝓢) (ν : Measure 𝓐) [IsProbabilityMeasure ν]
-    (T : ℕ) :
+omit [Nonempty 𝓐] [MeasurableSingletonClass 𝓐] hγ hR in
+/-- The mix loss of the policy `π_t` on the losses `-A^{π_t} (s, ·)`, at the learning rate
+`η / (1 - γ)`, is `-(1 - γ) / η * log Z_t s`. -/
+private lemma mixLoss_softmax_npgParam (t : ℕ) (s : 𝓢) :
+    mixLoss (η / (1 - γ)) (softmax (npgParam M γ η t s))
+      (fun a ↦ -M.advantage γ (softmaxPolicy (npgParam M γ η t)) (s, a)) =
+        -(η / (1 - γ))⁻¹ * npgLogPartition M γ η t s := by
+  simp_rw [mixLoss_def, neg_mul_neg, npgLogPartition_def]
+
+omit hR in
+/-- **Regret of natural policy gradient in one state**: in the state `s`, natural policy gradient
+is exponential weights on the losses `-A^{π_t} (s, ·)`, so that its regret bound
+(`sum_mixLoss_softmax_le_of_antitone`, `hedgePotential_le_sum_mul`) gives, for every probability
+measure `ν` on the actions,
+`η / (1 - γ) * ∑ t < T, ∫ A^{π_t} (s, ·) dν ≤ log |𝓐| + ∑ t < T, log Z_t s`. -/
+private lemma mul_sum_integral_advantage_le (hη : 0 < η) (s : 𝓢) (ν : Measure 𝓐)
+    [IsProbabilityMeasure ν] (T : ℕ) :
     η / (1 - γ) * ∑ t ∈ range T, ∫ a, M.advantage γ (softmaxPolicy (npgParam M γ η t)) (s, a) ∂ν ≤
       log (Fintype.card 𝓐) + ∑ t ∈ range T, npgLogPartition M γ η t s := by
-  simp_rw [mul_sum, mul_integral_advantage_eq _ s ν, sum_add_distrib]
-  gcongr
-  rw [← integral_finsetSum _ fun _ _ ↦ Integrable.of_finite]
-  have h_tel (a : 𝓐) : ∑ t ∈ range T, (log (softmax (npgParam M γ η (t + 1) s) a) -
-      log (softmax (npgParam M γ η t s) a)) =
-        log (softmax (npgParam M γ η T s) a) - log (softmax (npgParam M γ η 0 s) a) :=
-    sum_range_sub (fun t ↦ log (softmax (npgParam M γ η t s) a)) T
-  simp_rw [h_tel, softmax_npgParam_zero, Real.log_inv]
-  -- `log π_T (a | s) ≤ 0`
-  refine (integral_mono Integrable.of_finite (integrable_const _) fun a ↦ ?_).trans_eq
-    (by rw [integral_const, probReal_univ, one_smul])
-  have h := Real.log_nonpos (softmax_nonneg (npgParam M γ η T s) a)
-    ((simplex_subset_Icc (softmax_mem_simplex _)).2 a)
-  dsimp only
-  linarith
+  have hη' : 0 < η / (1 - γ) := div_pos hη (sub_pos.2 (by exact_mod_cast hγ))
+  have hν : (fun a ↦ ν.real {a}) ∈ simplex 𝓐 :=
+    mem_simplex_iff.2 ⟨fun _ ↦ measureReal_nonneg, by simp⟩
+  -- the mix losses of exponential weights telescope into the potential
+  have h_tel := sum_mixLoss_softmax_le_of_antitone (fun _ ↦ hη') antitone_const
+    (fun r a ↦ -M.advantage γ (softmaxPolicy (npgParam M γ η r)) (s, a)) T
+  simp_rw [← npgParam_eq_neg_smul_sum, mixLoss_softmax_npgParam, ← mul_sum] at h_tel
+  -- the potential is at most the cumulative loss of `ν` plus `log |𝓐| / (η / (1 - γ))`
+  have h_pot := hedgePotential_le_sum_mul hη'
+    (∑ t ∈ range T, fun a ↦ -M.advantage γ (softmaxPolicy (npgParam M γ η t)) (s, a)) hν
+  have h_ν : ∑ a, ν.real {a} * (∑ t ∈ range T,
+      fun a ↦ -M.advantage γ (softmaxPolicy (npgParam M γ η t)) (s, a)) a =
+        -∑ t ∈ range T, ∫ a, M.advantage γ (softmaxPolicy (npgParam M γ η t)) (s, a) ∂ν := by
+    simp_rw [integral_fintype Integrable.of_finite, smul_eq_mul, Finset.sum_apply, mul_sum,
+      mul_neg, sum_neg_distrib, sum_comm (s := univ)]
+  have h := h_tel.trans h_pot
+  rw [h_ν, div_eq_inv_mul] at h
+  linear_combination η / (1 - γ) * h +
+    (log (Fintype.card 𝓐) + ∑ t ∈ range T, npgLogPartition M γ η t s) *
+      mul_inv_cancel₀ hη'.ne'
 
 end OneState
 
@@ -357,7 +374,7 @@ theorem sum_integral_value_sub_integral_value_npg_le (hr : ∀ p, 0 ≤ meanRewa
         fun t _ ↦ integrable_integral_advantage hγ hR t π d).const_mul _)
       ((integrable_const _).add (integrable_finsetSum _
         fun t _ ↦ integrable_npgLogPartition hγ hR hη t d))
-      fun s ↦ mul_sum_integral_advantage_le s (π s) T).trans_eq ?_
+      fun s ↦ mul_sum_integral_advantage_le hγ hη s (π s) T).trans_eq ?_
     rw [integral_add' (integrable_const _) (integrable_finsetSum _
         fun t _ ↦ integrable_npgLogPartition hγ hR hη t d), integral_const, probReal_univ,
       one_smul]

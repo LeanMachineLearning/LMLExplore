@@ -43,9 +43,9 @@ characterizes the largest such value.
 * `Learning.MDP.value_eq_integral_resolvent`: `v^π = R_γ(P_π) r_π`, the resolvent
   `∑ n, γ ^ n P_π ^ n` of the state kernel applied to the reward.
 * `Learning.MDP.abs_value_le`, `Learning.MDP.measurable_value`: `v^π` is measurable and
-  `|v^π| ≤ C / (1 - γ)`, and `Learning.MDP.value_nonneg`: it is nonnegative for nonnegative mean
-  rewards; the same holds for `Q^π` (`Learning.MDP.abs_qValue_le`,
-  `Learning.MDP.measurable_qValue`).
+  `|v^π| ≤ C / (1 - γ)`; the same holds for `Q^π` (`Learning.MDP.abs_qValue_le`,
+  `Learning.MDP.measurable_qValue`). `Learning.MDP.value_nonneg`: `v^π` is nonnegative for
+  nonnegative mean rewards.
 * `Learning.MDP.value_eq_policyReward_add`: the evaluation equation `v^π = r_π + γ P_π v^π`.
 * `Learning.MDP.integral_qValue`: `v^π s = ∫ a, Q^π (s, a) ∂(π s)`, and
   `Learning.MDP.integral_advantage`: the advantage has mean zero under `π`.
