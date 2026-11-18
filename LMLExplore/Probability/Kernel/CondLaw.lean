@@ -91,7 +91,7 @@ theorem HasCondLaw.measure_inter_preimage (h : HasCondLaw X κ m P) (hm : m ≤ 
   simp_rw [lintegral_indicator_one ht] at h'
   rw [← h', inter_comm, ← Measure.restrict_apply' (hm s hs),
     ← lintegral_indicator_one₀ (hX.restrict.nullMeasurableSet_preimage ht)]
-  rfl
+  simp only [← indicator_comp_right, Pi.one_comp]
 
 /-- **A conditional law from its values on rectangles.** If `η` is an `m`-measurable s-finite
 kernel and `P (s ∩ X ⁻¹' t) = ∫⁻ ω in s, η ω t ∂P` for every `m`-measurable `s` and measurable
@@ -117,7 +117,7 @@ theorem hasCondLaw_of_measure_inter_preimage [IsFiniteMeasure P] (hm : m ≤ mΩ
         (lintegral_map' hg.aemeasurable hΦ).symm
     _ = ∫⁻ ω, ∫⁻ x, g ω x ∂(η ω) ∂(P.trim hm) := by
         rw [hmap, Measure.lintegral_compProd hg]
-        rfl
+        simp only [Function.uncurry_apply_pair]
     _ = ∫⁻ ω, ∫⁻ x, g ω x ∂(η ω) ∂P :=
         lintegral_trim hm (hg.lintegral_kernel_prod_right' (κ := η))
 
