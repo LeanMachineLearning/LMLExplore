@@ -48,8 +48,9 @@ stopping time `τ` is multiplied by a new supermartingale `B` that equals `1` up
 ## Main statements
 
 * `MeasureTheory.Supermartingale.isTestSupermartingale_ofReal`,
-  `ProbabilityTheory.IsTestSupermartingale.supermartingale_toReal`: the bridges with Mathlib's
-  real supermartingales.
+  `ProbabilityTheory.IsTestSupermartingale.supermartingale_toReal`,
+  `ProbabilityTheory.IsTestMartingale.martingale_toReal`: the bridges with Mathlib's real
+  supermartingales and martingales.
 * `ProbabilityTheory.IsTestSupermartingale.ae_lt_top`: a test supermartingale is almost surely
   finite.
 * `ProbabilityTheory.isTestSupermartingale_mul_prod`, `ProbabilityTheory.isTestMartingale_mul_prod`:
@@ -287,6 +288,24 @@ theorem lintegral_eq (hM : IsTestMartingale M ℱ S) (hP : P ∈ S) (i j : ℕ) 
   have h (n : ℕ) : ∫⁻ ω, M n ω ∂P = ∫⁻ ω, M 0 ω ∂P := by
     simpa using hM.setLIntegral_eq hP n.zero_le MeasurableSet.univ
   rw [h j, h i]
+
+/-- The real values of a test martingale form a real martingale under every finite member of the
+null. -/
+theorem martingale_toReal (hM : IsTestMartingale M ℱ S) (hP : P ∈ S) [IsFiniteMeasure P] :
+    Martingale (fun n ω ↦ (M n ω).toReal) ℱ P := by
+  have hfin (n : ℕ) : ∫⁻ ω, M n ω ∂P ≠ ∞ := by
+    rw [hM.lintegral_eq hP 0 n]
+    exact hM.isTestSupermartingale.lintegral_zero_ne_top hP
+  have hlt := hM.isTestSupermartingale.ae_lt_top hP
+  refine martingale_of_setIntegral_eq_succ
+    (fun n ↦ (hM.adapted n).ennreal_toReal.stronglyMeasurable)
+    (fun n ↦ integrable_toReal_of_lintegral_ne_top (hM.measurable n).aemeasurable (hfin n))
+    fun n s hs ↦ ?_
+  rw [integral_toReal (hM.measurable n).aemeasurable.restrict
+      (ae_restrict_of_ae (hlt.mono fun ω hω ↦ hω n)),
+    integral_toReal (hM.measurable (n + 1)).aemeasurable.restrict
+      (ae_restrict_of_ae (hlt.mono fun ω hω ↦ hω (n + 1))),
+    hM.setLIntegral_succ_eq P hP n s hs]
 
 end IsTestMartingale
 
