@@ -17,8 +17,9 @@ public import Mathlib.MeasureTheory.Measure.Real
 Facts about measures read off their masses on points: a measure that charges every point
 dominates every measure; on a countable additive monoid with an antidiagonal (such as `ℕ`), the
 law of the sum of the coordinates of a measure on pairs gives a point `s` the total mass of the
-pairs with sum `s`; and on a finite type, `a ↦ p a / ν{a}` is a density of the vector `p` with
-respect to a finite measure `ν`, of total `ν`-integral `∑ a, p a` when `ν` charges every point.
+pairs with sum `s`; and on a finite type, for a finite measure `ν`, `a ↦ p a / ν{a}` has
+`ν`-integral at most `∑ a, p a`, and is a density of the vector `p` with respect to `ν`, of total
+`ν`-integral `∑ a, p a`, when `ν` charges every point.
 
 ## Main statements
 
@@ -27,8 +28,8 @@ respect to a finite measure `ν`, of total `ν`-integral `∑ a, p a` when `ν` 
 * `MeasureTheory.Measure.map_add_singleton_eq_sum_antidiagonal`: the mass of `{s}` under the law of
   `x.1 + x.2` is `∑ x ∈ antidiagonal s, μ {x}`.
 * `MeasureTheory.lintegral_ofReal_div_measureReal_le`,
-  `MeasureTheory.lintegral_ofReal_div_measureReal_eq`: the density `p a / ν{a}` of a nonnegative
-  vector `p` has `ν`-integral at most `∑ a, p a`, with equality if `ν` charges every point.
+  `MeasureTheory.lintegral_ofReal_div_measureReal_eq`: for a nonnegative vector `p`,
+  `a ↦ p a / ν{a}` has `ν`-integral at most `∑ a, p a`, with equality if `ν` charges every point.
 -/
 
 public section
@@ -71,7 +72,7 @@ theorem ofReal_div_measureReal_mul {a : α} (ha : ν {a} ≠ 0) (x : ℝ) :
 
 variable [Fintype α] [MeasurableSingletonClass α]
 
-/-- The density `p a / ν{a}` of a nonnegative vector `p` has `ν`-integral at most `∑ a, p a`. -/
+/-- For a nonnegative vector `p`, `a ↦ p a / ν{a}` has `ν`-integral at most `∑ a, p a`. -/
 theorem lintegral_ofReal_div_measureReal_le {p : α → ℝ} (hp : ∀ a, 0 ≤ p a) :
     ∫⁻ a, ENNReal.ofReal (p a / ν.real {a}) ∂ν ≤ ENNReal.ofReal (∑ a, p a) := by
   rw [lintegral_fintype, ENNReal.ofReal_sum_of_nonneg fun a _ ↦ hp a]
@@ -80,7 +81,7 @@ theorem lintegral_ofReal_div_measureReal_le {p : α → ℝ} (hp : ∀ a, 0 ≤ 
   · simp [ha]
   · rw [ofReal_div_measureReal_mul ha]
 
-/-- If `ν` is finite and charges every point, the density `p a / ν{a}` has `ν`-integral
+/-- If `ν` is finite and charges every point, `a ↦ p a / ν{a}` has `ν`-integral
 `∑ a, p a`. -/
 theorem lintegral_ofReal_div_measureReal_eq (hν : ∀ a, ν {a} ≠ 0) {p : α → ℝ}
     (hp : ∀ a, 0 ≤ p a) :
