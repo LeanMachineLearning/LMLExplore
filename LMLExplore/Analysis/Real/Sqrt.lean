@@ -52,8 +52,6 @@ import TauCeti.Analysis.SpecialFunctions.Sqrt
   [JOA10, Lemma 19]. If `0 ≤ z k ≤ max 1 (Z k)` for every `k < n`, where `Z k = ∑_{i < k} z i`,
   then `∑_{k < n} z k / √(max 1 (Z k)) ≤ (√2 + 1) √(Z n)`. It sums confidence widths over the
   epochs of algorithms that restart an epoch when some count doubles, as UCRL2.
-* `Real.sum_sqrt_le_sqrt_card_mul_sum`: the Cauchy–Schwarz inequality
-  `∑_{i ∈ s} √(x i) ≤ √(#s ∑_{i ∈ s} x i)` for nonnegative `x i`.
 
 ## References
 
@@ -270,15 +268,5 @@ theorem sum_div_sqrt_max_one_le {z : ℕ → ℝ} {n : ℕ} (hz : ∀ k < n, 0 �
     have ih' := ih (fun k hk ↦ hz k (by omega)) (fun k hk ↦ hzZ k (by omega))
     rw [Finset.sum_range_succ, Finset.sum_range_succ]
     linarith
-
-/-- **Cauchy–Schwarz for square roots**: for nonnegative `x i`,
-`∑_{i ∈ s} √(x i) ≤ √(#s ∑_{i ∈ s} x i)`. It is the unnormalized form of
-`LMLExplore.sum_sqrt_le_sqrt_card`, and sums per-arm `√` bounds over the arms. -/
-theorem sum_sqrt_le_sqrt_card_mul_sum {ι : Type*} (s : Finset ι) {x : ι → ℝ}
-    (hx : ∀ i ∈ s, 0 ≤ x i) : ∑ i ∈ s, √(x i) ≤ √(s.card * ∑ i ∈ s, x i) := by
-  refine le_sqrt_of_sq_le ?_
-  have h := Finset.sum_mul_sq_le_sq_mul_sq s (fun _ ↦ (1 : ℝ)) fun i ↦ √(x i)
-  rw [Finset.sum_congr rfl fun i hi ↦ sq_sqrt (hx i hi)] at h
-  simpa using h
 
 end Real

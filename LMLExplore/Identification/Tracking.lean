@@ -909,9 +909,12 @@ sum to at most `√(K n)`. -/
 private lemma sum_sqrt_sum_le_sqrt_card_mul (p : ℕ → α → ℝ) (hp0 : ∀ k a, 0 ≤ p k a)
     (hp1 : ∀ k, ∑ a, p k a = 1) (n : ℕ) :
     ∑ a, √(∑ s ∈ range n, p s a) ≤ √(Fintype.card α * n) := by
-  have h := Real.sum_sqrt_le_sqrt_card_mul_sum univ (x := fun a ↦ ∑ s ∈ range n, p s a)
-    fun a _ ↦ sum_nonneg fun s _ ↦ hp0 s a
-  rwa [sum_sum_eq_of_sum_eq_one p hp1 n, card_univ] at h
+  have h := Real.sum_sqrt_mul_sqrt_le univ (f := fun _ : α ↦ (1 : ℝ))
+    (g := fun a ↦ ∑ s ∈ range n, p s a) (fun _ ↦ zero_le_one)
+    fun a ↦ sum_nonneg fun s _ ↦ hp0 s a
+  simp only [Real.sqrt_one, one_mul, sum_const, card_univ, nsmul_eq_mul, mul_one,
+    sum_sum_eq_of_sum_eq_one p hp1 n] at h
+  rwa [Real.sqrt_mul (Nat.cast_nonneg _)]
 
 /-- **Sums over the pull counts of cumulative tracking** [DKM19, Lemma 9]. Under the assumptions
 of `pullCount_le_sum_add_one_of_cumulativeTracking`, after every number `n` of rounds,
