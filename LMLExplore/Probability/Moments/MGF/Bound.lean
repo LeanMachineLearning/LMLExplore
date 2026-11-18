@@ -55,6 +55,10 @@ weights of an exponential supermartingale.
   `LMLExplore.HasCondMGFBound.add_const`: monotonicity in `Λ` and `ψ`, negation, and translation;
   likewise for the kernel and unconditional versions, together with measurability
   (`aestronglyMeasurable`) and the bound on the cumulant generating function (`cgf_le`).
+* `LMLExplore.HasCondMGFBound.neg_Ici_of_Iic`: a conditional bound by the cumulant generating
+  function of `Y` on the nonpositive parameters is a bound for `-X` by that of `-Y` on the
+  nonnegative parameters; likewise for the unconditional version
+  (`LMLExplore.HasMGFBound.neg_Ici_of_Iic`).
 * `LMLExplore.HasMGFBound.hasCondMGFBound_of_indep`: for a variable independent of `m`, the
   unconditional bound gives the conditional one.
 * `LMLExplore.hasCondMGFBound_iff_hasCondSubgaussianMGF`,
@@ -257,6 +261,15 @@ lemma neg (h : HasCondMGFBound m hm X ψ Λ μ) :
     HasCondMGFBound m hm (-X) (fun t ↦ ψ (-t)) (-Λ) μ :=
   hasCondMGFBound_iff_kernel.2 (hasCondMGFBound_iff_kernel.1 h).neg
 
+/-- A conditional bound on the moment generating function of `X` by that of `Y` on the nonpositive
+parameters is a bound on that of `-X` by that of `-Y` on the nonnegative parameters: the
+deviations of `X` below the mean of `Y` are those of `-X` above the mean of `-Y`. -/
+lemma neg_Ici_of_Iic {Ω' : Type*} {mΩ' : MeasurableSpace Ω'} {Q : Measure Ω'} {Y : Ω' → ℝ}
+    (h : HasCondMGFBound m hm X (cgf Y Q) (Set.Iic 0 ∩ integrableExpSet Y Q) μ) :
+    HasCondMGFBound m hm (-X) (cgf (-Y) Q) (Set.Ici 0 ∩ integrableExpSet (-Y) Q) μ := by
+  refine h.neg.mono (fun t ⟨ht0, ht⟩ ↦ ⟨neg_nonpos.2 ht0, ?_⟩) fun t _ ↦ cgf_neg.ge
+  simpa [integrableExpSet] using ht
+
 /-- If the conditional moment generating function of `X` is bounded by `exp ψ` on `Λ`, that of
 `X + a` is bounded by `exp (ψ t + t a)`. -/
 lemma add_const (h : HasCondMGFBound m hm X ψ Λ μ) (a : ℝ) :
@@ -365,6 +378,14 @@ lemma mono (h : HasMGFBound X ψ Λ μ) (hΛ : Λ' ⊆ Λ) (hψ : ∀ t ∈ Λ',
 bounded by `exp (ψ ∘ Neg.neg)` on `-Λ`. -/
 lemma neg (h : HasMGFBound X ψ Λ μ) : HasMGFBound (-X) (fun t ↦ ψ (-t)) (-Λ) μ :=
   hasMGFBound_iff_kernel.2 (hasMGFBound_iff_kernel.1 h).neg
+
+/-- A bound on the moment generating function of `X` by that of `Y` on the nonpositive parameters
+is a bound on that of `-X` by that of `-Y` on the nonnegative parameters. -/
+lemma neg_Ici_of_Iic {Q : Measure Ω'} {Y : Ω' → ℝ}
+    (h : HasMGFBound X (cgf Y Q) (Set.Iic 0 ∩ integrableExpSet Y Q) μ) :
+    HasMGFBound (-X) (cgf (-Y) Q) (Set.Ici 0 ∩ integrableExpSet (-Y) Q) μ := by
+  refine h.neg.mono (fun t ⟨ht0, ht⟩ ↦ ⟨neg_nonpos.2 ht0, ?_⟩) fun t _ ↦ cgf_neg.ge
+  simpa [integrableExpSet] using ht
 
 /-- If the moment generating function of `X` is bounded by `exp ψ` on `Λ`, that of `X + a` is
 bounded by `exp (ψ t + t a)`. -/

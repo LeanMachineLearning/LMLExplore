@@ -5,6 +5,7 @@ Authors: LMLExplore contributors
 -/
 module
 
+public import LMLExplore.Basic.ENNReal.Real
 public import LMLExplore.Probability.Martingale.MGFBound
 public import LMLExplore.Probability.Moments.RateFunction
 public import LMLExplore.Probability.Process.Filtration
@@ -158,28 +159,6 @@ theorem measure_exists_le_sum_and_gt_and_lt_rateFunction_le
   _ = ⨆ q, P (G q) := h_dir.measure_iUnion
   _ ≤ ENNReal.ofReal (exp (-(a * r))) := iSup_le h_G
 
-/-- If `θ ≤ N I` with `0 < θ` and `0 ≤ N < b`, then `θ / b < I`: a deviation `θ` reached with
-fewer than `b` selected variables forces a rate above `θ / b`. -/
-theorem ofReal_div_lt_of_ofReal_le_ofReal_mul {N θ b : ℝ} {I : ℝ≥0∞} (hN : 0 ≤ N) (hθ : 0 < θ)
-    (hb : N < b) (h : ENNReal.ofReal θ ≤ ENNReal.ofReal N * I) : ENNReal.ofReal (θ / b) < I := by
-  by_contra! h'
-  have hb0 : 0 < b := hN.trans_lt hb
-  have hlt : N * (θ / b) < θ :=
-    (mul_lt_mul_of_pos_right hb (div_pos hθ hb0)).trans_eq (mul_div_cancel₀ θ hb0.ne')
-  refine (h.trans (mul_le_mul_right h' _)).not_gt ?_
-  rw [← ENNReal.ofReal_mul hN]
-  exact (ENNReal.ofReal_lt_ofReal_iff hθ).2 hlt
-
-omit [IsProbabilityMeasure Q] in
-/-- A conditional bound on the moment generating function of `Z` by that of `Y` on the nonpositive
-parameters is a bound on that of `-Z` by that of `-Y` on the nonnegative parameters: the
-deviations of `Z` below the mean of `Y` are those of `-Z` above the mean of `-Y`. -/
-lemma HasCondMGFBound.neg_Ici_of_Iic {m : MeasurableSpace Ω} {hm : m ≤ mΩ} {Z : Ω → ℝ}
-    (h : HasCondMGFBound m hm Z (cgf Y Q) (Iic 0 ∩ integrableExpSet Y Q) P) :
-    HasCondMGFBound m hm (-Z) (cgf (-Y) Q) (Ici 0 ∩ integrableExpSet (-Y) Q) P := by
-  refine h.neg.mono (fun t ⟨ht0, ht⟩ ↦ ⟨neg_nonpos.2 ht0, ?_⟩) fun t _ ↦ cgf_neg.ge
-  simpa [integrableExpSet] using ht
-
 /-- **Peeling bound for the self-normalized deviations above the mean.** Let `X k` be
 `ℱ (k + 1)`-measurable with moment generating function conditionally bounded by that of `Y` on
 the nonnegative parameters given `ℱ k`, and let the selection indicators `w` be adapted with values
@@ -217,7 +196,7 @@ theorem measure_exists_gt_and_le_mul_rateFunction_le_mul
       rw [le_div_iff₀ (log_pos hc), ← log_pow]
       exact log_le_log (pow_pos hc0 k) (hk.trans hn)
     · -- `x ≤ N t I(μ̂ t)` with `N t < c ^ (k + 1)` forces `x / c ^ (k + 1) < I(μ̂ t)`
-      exact ofReal_div_lt_of_ofReal_le_ofReal_mul (zero_le_one.trans h1) hx hk' hrate
+      exact ENNReal.ofReal_div_lt_of_ofReal_le_ofReal_mul (zero_le_one.trans h1) hx hk' hrate
   calc _ ≤ P (⋃ k ∈ range (⌊log n / log c⌋₊ + 1), E k) := measure_mono h_sub
   _ ≤ ∑ k ∈ range (⌊log n / log c⌋₊ + 1), P (E k) := measure_biUnion_finset_le _ _
   _ ≤ ∑ k ∈ range (⌊log n / log c⌋₊ + 1), ENNReal.ofReal (exp (-(x / c))) := by

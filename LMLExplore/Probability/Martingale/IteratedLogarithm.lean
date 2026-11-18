@@ -169,7 +169,7 @@ theorem measure_exists_gt_and_add_mul_log_le_mul_rateFunction_le
       have hpos : 0 < κ * ((k : ℝ) + 1) ^ 2 := by positivity
       gcongr
     -- `θ k ≤ N t I(μ̂ t)` with `N t < c ^ (k + 1)` forces `θ k / c ^ (k + 1) < I(μ̂ t)`
-    exact ofReal_div_lt_of_ofReal_le_ofReal_mul (zero_le_one.trans h1) (hθ k) hk'
+    exact ENNReal.ofReal_div_lt_of_ofReal_le_ofReal_mul (zero_le_one.trans h1) (hθ k) hk'
       ((ENNReal.ofReal_le_ofReal hθ_le).trans hrate)
   have h_sum := hasSum_exp_neg_add_mul_log_div hc0 (zero_lt_one.trans_le hκ) x
   calc _ ≤ P (⋃ k, E k) := measure_mono h_sub
