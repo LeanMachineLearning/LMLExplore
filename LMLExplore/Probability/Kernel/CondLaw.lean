@@ -8,6 +8,7 @@ module
 public import Mathlib.MeasureTheory.Measure.Prod
 public import Mathlib.Probability.HasLaw
 public import Mathlib.Probability.Independence.Basic
+public import Mathlib.Probability.Kernel.Composition.MeasureCompProd
 
 /-!
 # Conditional laws given a σ-algebra
@@ -25,6 +26,10 @@ than on a σ-algebra.
 ## Main statements
 
 * `ProbabilityTheory.HasCondLaw.setLIntegral_comp`: the identity on every `m`-measurable set.
+* `ProbabilityTheory.HasCondLaw.measure_inter_preimage`: the identity on `m`-measurable
+  rectangles, `P (s ∩ X ⁻¹' t) = ∫⁻ ω in s, κ ω t ∂P`.
+* `ProbabilityTheory.hasCondLaw_of_measure_inter_preimage`: conversely, an `m`-measurable s-finite
+  kernel satisfying the identity on rectangles is a conditional law of `X` given `m`.
 * `ProbabilityTheory.hasCondLaw_of_indep`: a random variable independent of `m`, of law `ν`, has
   the constant conditional law `ν` given `m`.
 -/
@@ -73,6 +78,49 @@ theorem HasCondLaw.setLIntegral_comp (h : HasCondLaw X κ m P) (hm : m ≤ mΩ)
         refine lintegral_congr fun ω ↦ ?_
         by_cases hω : ω ∈ s <;> simp [hω]
 
+/-- The identity defining a conditional law given `m`, on `m`-measurable rectangles:
+`P (s ∩ X ⁻¹' t) = ∫⁻ ω in s, κ ω t ∂P`. -/
+theorem HasCondLaw.measure_inter_preimage (h : HasCondLaw X κ m P) (hm : m ≤ mΩ)
+    (hX : AEMeasurable X P) {s : Set Ω} (hs : MeasurableSet[m] s) {t : Set 𝓧}
+    (ht : MeasurableSet t) :
+    P (s ∩ X ⁻¹' t) = ∫⁻ ω in s, κ ω t ∂P := by
+  have hg : Measurable[m.prod m𝓧]
+      (Function.uncurry fun (_ : Ω) x ↦ t.indicator (1 : 𝓧 → ℝ≥0∞) x) :=
+    (measurable_one.indicator ht).comp measurable_snd
+  have h' := h.setLIntegral_comp hm hg hs
+  simp_rw [lintegral_indicator_one ht] at h'
+  rw [← h', inter_comm, ← Measure.restrict_apply' (hm s hs),
+    ← lintegral_indicator_one₀ (hX.restrict.nullMeasurableSet_preimage ht)]
+  rfl
+
+/-- **A conditional law from its values on rectangles.** If `η` is an `m`-measurable s-finite
+kernel and `P (s ∩ X ⁻¹' t) = ∫⁻ ω in s, η ω t ∂P` for every `m`-measurable `s` and measurable
+`t`, then `η` is a conditional law of `X` given `m` under the finite measure `P`. -/
+theorem hasCondLaw_of_measure_inter_preimage [IsFiniteMeasure P] (hm : m ≤ mΩ)
+    (hX : AEMeasurable X P) {η : Kernel[m] Ω 𝓧} [IsSFiniteKernel η]
+    (h : ∀ s t, MeasurableSet[m] s → MeasurableSet t → P (s ∩ X ⁻¹' t) = ∫⁻ ω in s, η ω t ∂P) :
+    HasCondLaw X η m P := by
+  -- the product σ-algebra on `Ω × 𝓧` is the one built from `m`, not from `mΩ`
+  let : MeasurableSpace (Ω × 𝓧) := m.prod m𝓧
+  have hΦ : AEMeasurable (fun ω ↦ (ω, X ω)) P :=
+    ⟨fun ω ↦ (ω, hX.mk X ω), (measurable_id'' hm).prodMk hX.measurable_mk,
+      hX.ae_eq_mk.mono fun ω hω ↦ by simp only [hω]⟩
+  -- the joint law of the information in `m` and of `X` is `P.trim hm ⊗ₘ η`
+  have hmap : P.map (fun ω ↦ (ω, X ω)) = P.trim hm ⊗ₘ η := by
+    refine Measure.ext_prod fun {s t} hs ht ↦ ?_
+    rw [Measure.map_apply_of_aemeasurable hΦ (hs.prod ht), Measure.compProd_apply_prod hs ht,
+      mk_preimage_prod, preimage_id', h s t hs ht,
+      setLIntegral_trim hm (η.measurable_coe ht) hs]
+  refine ⟨fun g hg ↦ ?_⟩
+  calc ∫⁻ ω, g ω (X ω) ∂P
+      = ∫⁻ p, Function.uncurry g p ∂(P.map fun ω ↦ (ω, X ω)) :=
+        (lintegral_map' hg.aemeasurable hΦ).symm
+    _ = ∫⁻ ω, ∫⁻ x, g ω x ∂(η ω) ∂(P.trim hm) := by
+        rw [hmap, Measure.lintegral_compProd hg]
+        rfl
+    _ = ∫⁻ ω, ∫⁻ x, g ω x ∂(η ω) ∂P :=
+        lintegral_trim hm (hg.lintegral_kernel_prod_right' (κ := η))
+
 /-- **A random variable independent of `m` has its law as conditional law given `m`.** If `X` is
 independent of the sub-σ-algebra `m` under a finite measure `P` and has law `ν`, then the constant
 family `ν` is a conditional law of `X` given `m`. -/
@@ -82,27 +130,12 @@ theorem hasCondLaw_of_indep [IsFiniteMeasure P] (hm : m ≤ mΩ)
   have hν : IsFiniteMeasure ν := by
     rw [← hlaw.map_eq]
     infer_instance
-  -- `id` is measurable from `mΩ` to `m`; the σ-algebra on its codomain is `m`, not `mΩ`
-  have hid : @AEMeasurable Ω Ω m mΩ id P := ⟨id, measurable_id'' hm, ae_eq_refl _⟩
-  have hΦ : @AEMeasurable Ω (Ω × 𝓧) (m.prod m𝓧) mΩ (fun ω ↦ (ω, X ω)) P :=
-    @AEMeasurable.prodMk Ω Ω 𝓧 mΩ m m𝓧 P id X hid hlaw.aemeasurable
-  -- the joint law of the information in `m` and of `X` is the product of their laws
-  have hmap : @Measure.map Ω (Ω × 𝓧) mΩ (m.prod m𝓧) (fun ω ↦ (ω, X ω)) P =
-      @Measure.prod Ω 𝓧 m m𝓧 (P.trim hm) ν := by
-    refine (@Measure.prod_eq Ω 𝓧 m m𝓧 (P.trim hm) _ ν _ _ fun s t hs ht ↦ ?_).symm
-    rw [@Measure.map_apply_of_aemeasurable Ω (Ω × 𝓧) mΩ (m.prod m𝓧) _ _ hΦ _ (hs.prod ht),
-      mk_preimage_prod, preimage_id', trim_measurableSet_eq hm hs, ← hlaw.map_eq,
-      Measure.map_apply_of_aemeasurable hlaw.aemeasurable ht]
-    exact (Indep_iff _ _ _).1 hind.symm s (X ⁻¹' t) hs ⟨t, ht, rfl⟩
-  refine ⟨fun g hg ↦ ?_⟩
-  calc ∫⁻ ω, g ω (X ω) ∂P
-      = ∫⁻ p, Function.uncurry g p ∂(@Measure.map Ω (Ω × 𝓧) mΩ (m.prod m𝓧)
-          (fun ω ↦ (ω, X ω)) P) :=
-        (@lintegral_map' Ω (Ω × 𝓧) mΩ (m.prod m𝓧) P _ _ hg.aemeasurable hΦ).symm
-    _ = ∫⁻ ω, ∫⁻ x, g ω x ∂ν ∂(P.trim hm) := by
-        rw [hmap]
-        exact @lintegral_prod Ω 𝓧 m m𝓧 (P.trim hm) ν _ _ hg.aemeasurable
-    _ = ∫⁻ ω, ∫⁻ x, g ω x ∂ν ∂P :=
-        lintegral_trim hm (@Measurable.lintegral_prod_right' Ω 𝓧 m m𝓧 ν _ _ hg)
+  refine hasCondLaw_of_measure_inter_preimage (η := @Kernel.const _ _ m _ ν) hm hlaw.aemeasurable
+    fun s t hs ht ↦ ?_
+  calc P (s ∩ X ⁻¹' t)
+      = P s * ν t := by
+        rw [(Indep_iff _ _ _).1 hind.symm s (X ⁻¹' t) hs ⟨t, ht, rfl⟩, ← hlaw.map_eq,
+          Measure.map_apply_of_aemeasurable hlaw.aemeasurable ht]
+    _ = ∫⁻ _ in s, ν t ∂P := by rw [setLIntegral_const, mul_comm]
 
 end ProbabilityTheory

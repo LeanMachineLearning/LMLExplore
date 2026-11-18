@@ -102,7 +102,7 @@ variable {ℱ : Filtration ℕ mΩ} {X : ℕ → Ω → 𝓧} {κ : ℕ → Ω �
 private lemma measurable_succ_comp (hX : ∀ k, Measurable[ℱ (k + 1)] (X k))
     (hr : ∀ k, Measurable[(ℱ k).prod m𝓧] (Function.uncurry (r k))) (k : ℕ) :
     Measurable[ℱ (k + 1)] fun ω ↦ r k ω (X k ω) :=
-  @measurable_comp_prodMk Ω 𝓧 (ℱ k) (ℱ (k + 1)) m𝓧 (X k) (r k) (ℱ.mono k.le_succ) (hX k) (hr k)
+  measurable_comp_prodMk (m := ℱ k) (mΩ := ℱ (k + 1)) (ℱ.mono k.le_succ) (hX k) (hr k)
 
 /-- **The likelihood ratio of a sequential predictor is a test supermartingale** [RW, §7.5]. Let
 `X k` be `ℱ (k + 1)`-measurable with conditional law `κ k` given `ℱ k` under the probability
