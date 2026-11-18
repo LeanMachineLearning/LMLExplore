@@ -35,6 +35,9 @@ for the iterates.
   `‖θ* - (θ + α g θ)‖² ≤ ‖θ* - θ‖² - α (2 (1 - γ) - α (1 + γ)²) ‖⟪φ, θ* - θ⟫‖²_ν`.
 * `LMLExplore.ReinforcementLearning.mul_sum_integral_sq_inner_sub_le`: with step `(1 - γ) / 4`,
   `(1 - γ)² / 4 ∑_{t < T} ‖⟪φ, θ* - θ t⟫‖²_ν ≤ ‖θ* - θ 0‖² - ‖θ* - θ T‖²`.
+* `LMLExplore.ReinforcementLearning.integral_sq_inner_sub_smul_sum_le`: Jensen's inequality
+  `‖⟪φ, θ* - θ_avg⟫‖²_ν ≤ T⁻¹ ∑_{t < T} ‖⟪φ, θ* - θ t⟫‖²_ν` for the average `θ_avg` of `T`
+  parameters.
 * `LMLExplore.ReinforcementLearning.integral_sq_inner_sub_average_le`: with step `(1 - γ) / 4`,
   the average `θ_avg` of the first `T` iterates satisfies
   `‖⟪φ, θ* - θ_avg⟫‖²_ν ≤ 4 ‖θ* - θ 0‖² / (T (1 - γ)²)` [BRS18, Theorem 1 (a)].
@@ -112,19 +115,14 @@ theorem mul_sum_integral_sq_inner_sub_le (hP : P.Invariant ν) (hφ : ∀ s, ‖
     rw [sum_range_succ, mul_add]
     linarith
 
-/-- **The `1 / T` rate of mean-path TD** [BRS18, Theorem 1 (a)]: if `ν` is invariant, `γ < 1`,
-`‖φ s‖ ≤ 1` and `g θ* = 0`, then the average `θ_avg = T⁻¹ ∑_{t < T} θ t` of the first `T ≥ 1`
-iterates of mean-path TD with step `(1 - γ) / 4` satisfies
-`‖⟪φ, θ* - θ_avg⟫‖²_ν ≤ 4 ‖θ* - θ 0‖² / (T (1 - γ)²)`. -/
-theorem integral_sq_inner_sub_average_le (hP : P.Invariant ν) (hφ : ∀ s, ‖φ s‖ ≤ 1)
-    (hγ : γ < 1) (hθ' : meanTDUpdate ν φ P r γ θ' = 0)
-    (hθ : ∀ t, θ (t + 1) = θ t + ((1 - γ) / 4 : ℝ) • meanTDUpdate ν φ P r γ (θ t)) {T : ℕ}
-    (hT : 0 < T) :
+omit [CompleteSpace E] [IsProbabilityMeasure ν] in
+/-- **Jensen's inequality for the value of an average**: for `T ≥ 1` parameters `θ t`, the
+squared `L²(ν)` distance between `⟪φ, θ*⟫` and the value of the average `T⁻¹ ∑_{t < T} θ t` is at
+most the average of the squared distances to the values `⟪φ, θ t⟫`. -/
+theorem integral_sq_inner_sub_smul_sum_le [IsFiniteMeasure ν] (θ : ℕ → E) {T : ℕ} (hT : 0 < T) :
     ∫ s, ⟪φ s, θ' - (T : ℝ)⁻¹ • ∑ t ∈ range T, θ t⟫_ℝ ^ 2 ∂ν ≤
-      4 * ‖θ' - θ 0‖ ^ 2 / (T * (1 - γ) ^ 2) := by
+      (T : ℝ)⁻¹ * ∑ t ∈ range T, ∫ s, ⟪φ s, θ' - θ t⟫_ℝ ^ 2 ∂ν := by
   have hT' : (0 : ℝ) < T := by exact_mod_cast hT
-  have hγ' : (0 : ℝ) < 1 - γ := sub_pos.2 (by exact_mod_cast hγ)
-  have hsum := mul_sum_integral_sq_inner_sub_le hP hφ hγ.le hθ' hθ T
   -- the value of the average is the average of the values
   have havg : ∀ s, ⟪φ s, θ' - (T : ℝ)⁻¹ • ∑ t ∈ range T, θ t⟫_ℝ =
       (T : ℝ)⁻¹ * ∑ t ∈ range T, ⟪φ s, θ' - θ t⟫_ℝ := by
@@ -149,6 +147,23 @@ theorem integral_sq_inner_sub_average_le (hP : P.Invariant ν) (hφ : ∀ s, ‖
         exact hjensen s
     _ = (T : ℝ)⁻¹ * ∑ t ∈ range T, ∫ s, ⟪φ s, θ' - θ t⟫_ℝ ^ 2 ∂ν := by
         rw [integral_const_mul, integral_finsetSum _ fun _ _ ↦ Integrable.of_finite]
+
+/-- **The `1 / T` rate of mean-path TD** [BRS18, Theorem 1 (a)]: if `ν` is invariant, `γ < 1`,
+`‖φ s‖ ≤ 1` and `g θ* = 0`, then the average `θ_avg = T⁻¹ ∑_{t < T} θ t` of the first `T ≥ 1`
+iterates of mean-path TD with step `(1 - γ) / 4` satisfies
+`‖⟪φ, θ* - θ_avg⟫‖²_ν ≤ 4 ‖θ* - θ 0‖² / (T (1 - γ)²)`. -/
+theorem integral_sq_inner_sub_average_le (hP : P.Invariant ν) (hφ : ∀ s, ‖φ s‖ ≤ 1)
+    (hγ : γ < 1) (hθ' : meanTDUpdate ν φ P r γ θ' = 0)
+    (hθ : ∀ t, θ (t + 1) = θ t + ((1 - γ) / 4 : ℝ) • meanTDUpdate ν φ P r γ (θ t)) {T : ℕ}
+    (hT : 0 < T) :
+    ∫ s, ⟪φ s, θ' - (T : ℝ)⁻¹ • ∑ t ∈ range T, θ t⟫_ℝ ^ 2 ∂ν ≤
+      4 * ‖θ' - θ 0‖ ^ 2 / (T * (1 - γ) ^ 2) := by
+  have hT' : (0 : ℝ) < T := by exact_mod_cast hT
+  have hγ' : (0 : ℝ) < 1 - γ := sub_pos.2 (by exact_mod_cast hγ)
+  have hsum := mul_sum_integral_sq_inner_sub_le hP hφ hγ.le hθ' hθ T
+  calc ∫ s, ⟪φ s, θ' - (T : ℝ)⁻¹ • ∑ t ∈ range T, θ t⟫_ℝ ^ 2 ∂ν
+      ≤ (T : ℝ)⁻¹ * ∑ t ∈ range T, ∫ s, ⟪φ s, θ' - θ t⟫_ℝ ^ 2 ∂ν :=
+        integral_sq_inner_sub_smul_sum_le θ hT
     _ ≤ 4 * ‖θ' - θ 0‖ ^ 2 / (T * (1 - γ) ^ 2) := by
         rw [inv_mul_le_iff₀ hT', mul_div_assoc', le_div_iff₀ (by positivity)]
         nlinarith [sq_nonneg ‖θ' - θ T‖]

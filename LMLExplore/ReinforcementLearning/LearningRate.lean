@@ -56,11 +56,15 @@ The first bound only needs `H ≥ 0`, and the partial sums `∑_{t=i}^T α^i_t` 
 * `LMLExplore.learningRateWeight_qLearningRate_le_two_mul_div`: `α^i_t ≤ 2 H / t`.
 * `LMLExplore.sum_learningRateWeight_qLearningRate_sq_le`: `∑_{i=1}^t (α^i_t) ^ 2 ≤ 2 H / t`.
 * `LMLExplore.hasSum_learningRateWeight_qLearningRate`: `∑_{t ≥ i} α^i_t = 1 + 1 / H`.
+* `LMLExplore.le_div_add_one_of_le_one_sub_two_div_mul_add`: the induction step of the `1 / T`
+  rate of steps of order `1 / t` [BCN18].
 
 ## References
 
 * [JABJ18] C. Jin, Z. Allen-Zhu, S. Bubeck and M. I. Jordan, *Is Q-learning provably efficient?*,
   NeurIPS 2018, arXiv:1807.03765.
+* [BCN18] L. Bottou, F. E. Curtis and J. Nocedal, *Optimization methods for large-scale machine
+  learning*, SIAM Review 60(2), 2018.
 -/
 
 public section
@@ -374,5 +378,26 @@ theorem hasSum_learningRateWeight_qLearningRate (hH : 1 ≤ H) (i : ℕ) :
   rwa [sub_zero, mul_one] at h
 
 end QLearning
+
+section DecayingStep
+
+/-- **The induction step of the `1 / T` rate of decaying steps** [BCN18]: stochastic
+approximation with steps of order `1 / t` contracts its error by a factor `1 - 2 / u` at the step
+with index `u`, up to a noise term `K / u²`, and an error of at most `κ / u` then stays below
+`κ / (u + 1)`. Precisely, if `x ≤ κ / u` and `y ≤ (1 - 2 / u) x + K / u²` with `u ≥ 2` and
+`0 ≤ K ≤ κ`, then `y ≤ κ / (u + 1)`. -/
+theorem le_div_add_one_of_le_one_sub_two_div_mul_add {u κ K x y : ℝ} (hu : 2 ≤ u)
+    (hK : K ≤ κ) (hκ : 0 ≤ κ) (hx : x ≤ κ / u) (hy : y ≤ (1 - 2 / u) * x + K / u ^ 2) :
+    y ≤ κ / (u + 1) := by
+  have hu0 : 0 < u := by linarith
+  have hq0 : 0 ≤ 1 - 2 / u := by rw [sub_nonneg, div_le_one hu0]; linarith
+  calc y ≤ (1 - 2 / u) * (κ / u) + κ / u ^ 2 :=
+        hy.trans (add_le_add (mul_le_mul_of_nonneg_left hx hq0) (by gcongr))
+    _ = (u - 1) * κ / u ^ 2 := by field_simp; ring
+    _ ≤ κ / (u + 1) := by
+        rw [div_le_div_iff₀ (by positivity) (by positivity)]
+        nlinarith [mul_nonneg hκ (sq_nonneg u)]
+
+end DecayingStep
 
 end LMLExplore
