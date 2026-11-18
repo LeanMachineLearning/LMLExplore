@@ -35,7 +35,7 @@ The function `t ↦ √(t log t)` is not Mathlib's `x ↦ √x * log x`, whose s
 * `Real.le_add_mul_sqrt_mul_log_div_of_sub_le` [DKM19, Lemma 2]: if `C ≥ 0`, `T > 1`,
   `κ = C (1 + log T) / (2 √(T log T)) < 1` and `t - C √(t log t) ≤ T`, then
   `t ≤ T + C √(T log T) / (1 - κ)`.
-* `Real.isLittleO_mul_sqrt_mul_log_div_atTop`: the excess `C √(T log T) / (1 - κ)` of this bound
+* `Real.isLittleO_mul_sqrt_mul_log_div_id_atTop`: the excess `C √(T log T) / (1 - κ)` of this bound
   over `T` is `o(T)` as `T → ∞`.
 
 ## References
@@ -110,7 +110,7 @@ theorem le_add_mul_sqrt_mul_log_div_of_sub_le {C T t : ℝ} (hC : 0 ≤ C) (hT :
   linarith
 
 /-- `√(T log T) = o(T)` as `T → ∞`. -/
-theorem isLittleO_sqrt_mul_log_atTop : (fun T ↦ √(T * log T)) =o[atTop] id := by
+theorem isLittleO_sqrt_mul_log_id_atTop : (fun T ↦ √(T * log T)) =o[atTop] id := by
   refine isLittleO_iff.2 fun c hc ↦ ?_
   filter_upwards [isLittleO_iff.1 isLittleO_log_id_atTop (pow_pos hc 2), eventually_ge_atTop 1]
     with T hT hT1
@@ -126,7 +126,7 @@ theorem tendsto_one_add_log_div_two_mul_sqrt_mul_log_atTop :
     Tendsto (fun T ↦ (1 + log T) / (2 * √(T * log T))) atTop (nhds 0) := by
   -- for `T ≥ e`, `(1 + log T) / (2 √(T log T)) ≤ log T / √(T log T) = √(T log T) / T`
   have hlim : Tendsto (fun T ↦ √(T * log T) / T) atTop (nhds 0) := by
-    simpa using isLittleO_sqrt_mul_log_atTop.tendsto_div_nhds_zero
+    simpa using isLittleO_sqrt_mul_log_id_atTop.tendsto_div_nhds_zero
   refine tendsto_of_tendsto_of_tendsto_of_le_of_le' tendsto_const_nhds hlim ?_ ?_
   · filter_upwards [eventually_ge_atTop 1] with T hT
     exact div_nonneg (by linarith [log_nonneg hT]) (by positivity)
@@ -143,7 +143,7 @@ theorem tendsto_one_add_log_div_two_mul_sqrt_mul_log_atTop :
 /-- **The bound of [DKM19, Lemma 2] is `T (1 + o(1))`.** For every `C`, the excess
 `C √(T log T) / (1 - κ)`, with `κ = C (1 + log T) / (2 √(T log T))`, of the bound of
 `Real.le_add_mul_sqrt_mul_log_div_of_sub_le` over `T` is `o(T)` as `T → ∞`. -/
-theorem isLittleO_mul_sqrt_mul_log_div_atTop (C : ℝ) :
+theorem isLittleO_mul_sqrt_mul_log_div_id_atTop (C : ℝ) :
     (fun T ↦ C * √(T * log T) / (1 - C * (1 + log T) / (2 * √(T * log T)))) =o[atTop] id := by
   have hκ : Tendsto (fun T ↦ 1 - C * (1 + log T) / (2 * √(T * log T))) atTop (nhds 1) := by
     simpa [mul_div_assoc] using
@@ -151,7 +151,7 @@ theorem isLittleO_mul_sqrt_mul_log_div_atTop (C : ℝ) :
   have hinv : (fun T ↦ (1 - C * (1 + log T) / (2 * √(T * log T)))⁻¹) =O[atTop]
       (fun _ ↦ (1 : ℝ)) := by
     simpa using (hκ.inv₀ one_ne_zero).isBigO_one ℝ
-  exact ((isLittleO_sqrt_mul_log_atTop.const_mul_left C).mul_isBigO hinv).congr
+  exact ((isLittleO_sqrt_mul_log_id_atTop.const_mul_left C).mul_isBigO hinv).congr
     (fun T ↦ (div_eq_mul_inv _ _).symm) fun T ↦ mul_one _
 
 end Real

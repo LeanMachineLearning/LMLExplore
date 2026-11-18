@@ -485,7 +485,7 @@ inequality `T - C √(T log T) ≤ x`. Then, with `T₀ = max T₁ (⌊x + C √
 `𝔼[τ] ≤ T₀ + ∑_{T ≥ T₀} P((E T)ᶜ)`.
 
 In [DKM19], `x = log (1 / δ) / D` for the value `D` of the pure exploration game, so that
-`T₀ = log (1 / δ) / D (1 + o(1))` as `δ → 0` (`Real.isLittleO_mul_sqrt_mul_log_div_atTop`). -/
+`T₀ = log (1 / δ) / D (1 + o(1))` as `δ → 0` (`Real.isLittleO_mul_sqrt_mul_log_div_id_atTop`). -/
 theorem expectedStoppingTime_glrt_le_add_tsum_of_sub_mul_sqrt_mul_log_le
     {env : Environment Unit α 𝓨} (hseq : IsAlgEnvSeq O X Y alg env P) {E : ℕ → Set Ω} {T₁ : ℕ}
     {C x : ℝ} (hC : 0 ≤ C) (hx : 1 < x) (hκ : C * (1 + Real.log x) / (2 * √(x * Real.log x)) < 1)
