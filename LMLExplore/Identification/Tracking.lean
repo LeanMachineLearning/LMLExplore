@@ -899,6 +899,16 @@ private lemma sum_sum_eq_of_sum_eq_one (p : ℕ → α → ℝ) (hp1 : ∀ k, �
   simp [hp1]
 
 omit [DecidableEq α] in
+/-- By Cauchy–Schwarz, the square roots of the cumulated proportions of the arms sum to at most
+`√(K n)`. -/
+private lemma sum_sqrt_sum_le_sqrt_card_mul (p : ℕ → α → ℝ) (hp0 : ∀ k a, 0 ≤ p k a)
+    (hp1 : ∀ k, ∑ a, p k a = 1) (n : ℕ) :
+    ∑ a, √(∑ s ∈ range n, p s a) ≤ √(Fintype.card α * n) := by
+  have h := Real.sum_sqrt_le_sqrt_card_mul_sum (s := univ)
+    fun a _ ↦ sum_nonneg fun s (_ : s ∈ range n) ↦ hp0 s a
+  rwa [sum_sum_eq_of_sum_eq_one p hp1 n, card_univ] at h
+
+omit [DecidableEq α] in
 /-- With at least one arm, the number of arms minus one is nonnegative. -/
 private lemma card_sub_one_nonneg (a : α) : (0 : ℝ) ≤ Fintype.card α - 1 :=
   sub_nonneg.2 <| Nat.one_le_cast.2 <| Fintype.card_pos_iff.2 ⟨a⟩
@@ -922,9 +932,7 @@ theorem sum_sum_div_sqrt_pullCount_succ_le_of_cumulativeTracking (p : ℕ → α
       rw [sum_add_distrib, ← mul_sum]
       simp only [sum_const, card_univ, nsmul_eq_mul]
       gcongr
-      simpa [sum_sum_eq_of_sum_eq_one p hp1 n] using
-        Real.sum_sqrt_le_sqrt_card_mul_sum (s := univ)
-          fun a _ ↦ sum_nonneg fun s (_ : s ∈ range n) ↦ hp0 s a
+      exact sum_sqrt_sum_le_sqrt_card_mul p hp0 hp1 n
 
 /-- **Sums over the pull counts of cumulative tracking, before each round** [DKM19, Lemma 9].
 Under the assumptions of `pullCount_le_sum_add_one_of_cumulativeTracking`, after every number `n`
@@ -948,9 +956,7 @@ theorem sum_sum_div_sqrt_pullCount_le_of_cumulativeTracking (p : ℕ → α → 
       rw [sum_add_distrib, ← mul_sum]
       simp only [sum_const, card_univ, nsmul_eq_mul]
       gcongr
-      simpa [sum_sum_eq_of_sum_eq_one p hp1 n] using
-        Real.sum_sqrt_le_sqrt_card_mul_sum (s := univ)
-          fun a _ ↦ sum_nonneg fun s (_ : s ∈ range n) ↦ hp0 s a
+      exact sum_sqrt_sum_le_sqrt_card_mul p hp0 hp1 n
 
 /-- **Sums of the inverse pull counts of cumulative tracking** [DKM19, Lemma 16]. Under the
 assumptions of `pullCount_le_sum_add_one_of_cumulativeTracking`, after every number `n` of rounds,
