@@ -59,6 +59,8 @@ countable state space, here on a general measurable state space.
 * `Learning.MDP.iSup_optQValue`, `Learning.MDP.lookahead_iSup_optQValue`,
   `Learning.MDP.eq_optQValue_of_lookahead_iSup_eq`: the optimality equation for action values and
   the uniqueness of its bounded measurable solution.
+* `Learning.MDP.optValue_nonneg`, `Learning.MDP.optQValue_nonneg`: with nonnegative mean rewards,
+  `v*` and `Q*` are nonnegative.
 * `Learning.MDP.qValue_le_optQValue`, `Learning.MDP.qValue_eq_optQValue`: the action value of a
   stationary policy is at most `Q*`, with equality for an optimal policy.
 * `Learning.MDP.optQValue_sub_qValue_le_of_optValue_sub_value_le`: if `v* - v^π ≤ ε`, then
@@ -276,6 +278,25 @@ largest optimal action value at `s`: `v* s = ⨆ a, Q* (s, a)`. -/
 theorem iSup_optQValue (hγ : γ < 1) (hR : ∀ p, ∀ᵐ x ∂(M.R p), |x| ≤ C) (s : 𝓢) :
     ⨆ a, M.optQValue γ (s, a) = M.optValue γ s := by
   rw [optQValue_eq_lookahead, ← bellman_def, bellman_optValue hγ hR]
+
+/-- With countably many actions, bounded nonnegative mean rewards and `γ < 1`, the optimal value
+is nonnegative: `0` is a subsolution of the optimality equation. -/
+theorem optValue_nonneg (hγ : γ < 1) (hR : ∀ p, ∀ᵐ x ∂(M.R p), |x| ≤ C)
+    (hr : ∀ p, 0 ≤ meanReward M.R p) (s : 𝓢) : 0 ≤ M.optValue γ s := by
+  refine le_optValue_of_le_bellman (v := 0) hγ hR measurable_const (B := 0) (fun _ ↦ by simp)
+    (fun s ↦ ?_) s
+  obtain ⟨a⟩ := ‹Nonempty 𝓐›
+  rw [bellman_def]
+  refine le_trans ?_ (le_ciSup (bddAbove_range_lookahead (v := 0) hR (B := 0) (fun _ ↦ by simp)
+    s) a)
+  simpa [lookahead_def] using hr (s, a)
+
+/-- With countably many actions, bounded nonnegative mean rewards and `γ < 1`, the optimal action
+value is nonnegative. -/
+theorem optQValue_nonneg (hγ : γ < 1) (hR : ∀ p, ∀ᵐ x ∂(M.R p), |x| ≤ C)
+    (hr : ∀ p, 0 ≤ meanReward M.R p) (p : 𝓢 × 𝓐) : 0 ≤ M.optQValue γ p := by
+  rw [optQValue_def]
+  exact add_nonneg (hr p) (mul_nonneg γ.2 (integral_nonneg (optValue_nonneg hγ hR hr)))
 
 /-- **The optimality equation for action values**: with countably many actions, bounded rewards and
 `γ < 1`, the optimal action value satisfies `Q* = r + γ P (s' ↦ ⨆ a, Q* (s', a))`. -/
