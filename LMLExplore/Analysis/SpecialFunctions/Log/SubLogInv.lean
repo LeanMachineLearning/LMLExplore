@@ -35,6 +35,7 @@ several arms; it grows like `x + log x`:
   is the inverse of `h` on `[1, ∞)`; `Real.subLogInv_le_iff`, `Real.lt_subLogInv_iff` compare it
   with a point of `[1, ∞)`.
 * `Real.monotone_subLogInv`, `Real.strictMonoOn_subLogInv`, `Real.continuous_subLogInv`.
+* `Real.subLogInv_mul_exp_neg_subLogInv_le`: `h⁻¹(x) e^{-h⁻¹(x)} ≤ e^{-x}`.
 * `Real.add_log_le_subLogInv`, `Real.subLogInv_le_add_log_add_sqrt`
   [KK21, Proposition 8], `Real.subLogInv_le_add_log_two_mul`: `x + log x ≤ h⁻¹(x)` and
   `h⁻¹(x) ≤ x + log (x + √(2 (x - 1))) ≤ x + log (2 x)` for `x ≥ 1`.
@@ -194,6 +195,17 @@ theorem self_le_subLogInv (x : ℝ) : x ≤ subLogInv x := by
   have h := subLogInv_sub_log_subLogInv_eq_max x
   have hlog := log_nonneg (one_le_subLogInv x)
   linarith [le_max_left x 1]
+
+/-- `h⁻¹(x) e^{-h⁻¹(x)} ≤ e^{-x}`, with equality for `x ≥ 1`: `h⁻¹(x)` solves `u e^{-u} = e^{-x}`
+there. -/
+theorem subLogInv_mul_exp_neg_subLogInv_le (x : ℝ) :
+    subLogInv x * exp (-subLogInv x) ≤ exp (-x) := by
+  calc subLogInv x * exp (-subLogInv x) = exp (-(subLogInv x - log (subLogInv x))) := by
+        rw [neg_sub, exp_sub, exp_log (subLogInv_pos x), exp_neg, div_eq_mul_inv]
+  _ ≤ exp (-x) := by
+        rw [subLogInv_sub_log_subLogInv_eq_max]
+        gcongr
+        exact le_max_left _ _
 
 /-- `x + log x ≤ h⁻¹(x)` for `x > 0`. -/
 theorem add_log_le_subLogInv {x : ℝ} (hx : 0 < x) : x + log x ≤ subLogInv x := by
