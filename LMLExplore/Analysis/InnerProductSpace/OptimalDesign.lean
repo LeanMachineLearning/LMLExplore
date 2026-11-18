@@ -148,6 +148,9 @@ point `a` for each of them gives a design with the same design operator, hence t
   `LMLExplore.exists_design_map_inner_moorePenroseInverse_le_finrank_and_card_support_le`: if
   `m = dim (span (φ '' S)) ≥ 1`, the design on the arms can be chosen with at most `m (m + 1) / 2`
   support points.
+* `LMLExplore.exists_mem_simplex_invNormSq_le_finrank`: for features `φ` of finitely many arms,
+  some weights `w` in the simplex have `‖φ i‖²_{V⁻¹} ≤ dim (span (range φ))` for every arm, with
+  `V = ∑ i, w i • φ i ⊗ φ i` and the squared norm `LMLExplore.invNormSq`.
 * `LMLExplore.finrank_le_gValue`: if `𝒜` spans `E`, every design on `𝒜` has `d ≤ g(w)`;
   `LMLExplore.exists_gValue_eq_finrank`: on a nonempty compact spanning set, `g(w) = d` is
   attained.
@@ -893,6 +896,25 @@ theorem exists_design_map_inner_moorePenroseInverse_le_finrank_and_card_support_
     hw.trans hcard⟩
   rw [range_designOperator, hspan]
   exact Submodule.subset_span ⟨i, hi, rfl⟩
+
+/-- **The Kiefer–Wolfowitz theorem for finitely many arms, with `‖·‖²_{V⁻¹}`**
+[LS, Theorem 21.1, Exercise 21.6]. For features `φ i` of the elements of a nonempty finite type,
+which need not span `E`, some weights `w` in the simplex have a design operator
+`V = ∑ i, w i • φ i ⊗ φ i` with `‖φ i‖²_{V⁻¹} ≤ m` for every arm `i`, where `m` is the dimension
+of the span of the features. -/
+theorem exists_mem_simplex_invNormSq_le_finrank {ι : Type*} [Fintype ι] [Nonempty ι]
+    (φ : ι → E) :
+    ∃ w ∈ LMLExplore.simplex ι, ∀ i,
+      invNormSq (∑ i, w i • rankOne ℝ (φ i) (φ i) : E →L[ℝ] E) (φ i) ≤
+        finrank ℝ (Submodule.span ℝ (Set.range φ)) := by
+  obtain ⟨w, -, hrange, hle⟩ :=
+    exists_design_map_inner_moorePenroseInverse_le_finrank φ Finset.univ_nonempty
+  refine ⟨w.weights, w.weights_mem_simplex, fun i ↦ ?_⟩
+  rw [← designOperator_map, invNormSq_eq_ofReal_inner_moorePenroseInverse
+    (isPositive_designOperator _).toLinearMap (hrange i (Finset.mem_univ i)),
+    ← ENNReal.ofReal_natCast]
+  refine ENNReal.ofReal_le_ofReal ((hle i (Finset.mem_univ i)).trans_eq ?_)
+  rw [Finset.coe_univ, Set.image_univ]
 
 /-! ### The G-value and the equivalence theorem -/
 
