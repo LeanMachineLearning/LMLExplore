@@ -47,8 +47,9 @@ In the namespace `LMLExplore.Identification`:
 
 ## Main statements
 
-* `topArms_mem_correct_epsTopMTask`: for `ε ≥ 0`, the `m` arms with the largest values of `μ`
-  (`topArms μ m`) are a correct answer of top-`m` identification with tolerance `ε`.
+* `topArms_mem_epsTopMSets`: for `ε ≥ 0`, the `m` arms with the largest values of `μ`
+  (`topArms μ m`) are `(ε, m)`-optimal (`epsTopMSets μ m ε`), a correct answer of top-`m`
+  identification with tolerance `ε`.
 * `LUCB.exists_ucb_lt_or_lt_lcb_of_stopRule`: if LUCB stops with a wrong answer, an arm of a set
   `t` of `m` arms with the largest means has an upper bound below its mean or an arm outside `t`
   has a lower bound above its mean.
@@ -93,11 +94,11 @@ variable {α : Type*}
 variable [Fintype α] [DecidableEq α] [Nonempty α]
 
 /-- For `ε ≥ 0` and `m` at most the number of arms, the `m` arms with the largest values of `μ`
-are a correct answer of top-`m` identification with tolerance `ε` for the means `μ`. -/
-lemma topArms_mem_correct_epsTopMTask [MeasurableSpace α] {𝓨 : Type*} {m𝓨 : MeasurableSpace 𝓨}
-    (ν : (α → ℝ) → Kernel α 𝓨) [∀ μ, IsMarkovKernel (ν μ)] {ε : ℝ} {m : ℕ} (hε : 0 ≤ ε)
-    (hm : m ≤ Fintype.card α) (μ : α → ℝ) : topArms μ m ∈ (epsTopMTask ν id m ε).correct μ :=
-  mem_correct_epsTopMTask_of_forall_le ν id hε (card_topArms μ hm)
+are `(ε, m)`-optimal for `μ`: a correct answer of top-`m` identification with tolerance `ε` for
+the means `μ`. -/
+lemma topArms_mem_epsTopMSets {ε : ℝ} {m : ℕ} (hε : 0 ≤ ε) (hm : m ≤ Fintype.card α)
+    (μ : α → ℝ) : topArms μ m ∈ epsTopMSets μ m ε :=
+  mem_epsTopMSets_of_forall_le hε (card_topArms μ hm)
     fun _ ha _ hc ↦ le_of_mem_topArms_of_notMem_topArms μ ha hc
 
 namespace LUCB
@@ -188,8 +189,8 @@ end Algorithm
 
 /-! ### Correctness of the stopping rule -/
 
-variable [MeasurableSpace α] {ν : (α → ℝ) → Kernel α ℝ} [∀ μ, IsMarkovKernel (ν μ)]
-  {lcb ucb : (n : ℕ) → Hist Unit α ℝ n → α → ℝ} {ε : ℝ} {m : ℕ} {μ : α → ℝ} {t : Finset α}
+variable {lcb ucb : (n : ℕ) → Hist Unit α ℝ n → α → ℝ} {ε : ℝ} {m : ℕ} {μ : α → ℝ}
+  {t : Finset α}
 
 /-- **A wrong answer of LUCB violates a confidence bound** [KTAS12, proof of Theorem 1]. Let
 `ε ≥ 0`, `m ≤ K`, and let `t` be a set of `m` arms with the largest means `μ`. If the stopping rule
@@ -199,20 +200,20 @@ upper bound is less than `μ a`, or `a ∉ t` and its lower bound is more than `
 lemma LUCB.exists_ucb_lt_or_lt_lcb_of_stopRule (hε : 0 ≤ ε) (hm : m ≤ Fintype.card α)
     (ht : #t = m) (ht' : ∀ a ∈ t, ∀ c ∉ t, μ c ≤ μ a) {n : ℕ} {h : Hist Unit α ℝ n}
     (hstop : StopRule lcb ucb ε m n h)
-    (hbad : topArms (empMean' n h) m ∉ (epsTopMTask ν id m ε).correct μ) :
+    (hbad : topArms (empMean' n h) m ∉ epsTopMSets μ m ε) :
     ∃ a, pullCount' n h a ≠ 0 ∧ (a ∈ t ∧ ucb n h a < μ a ∨ a ∉ t ∧ μ a < lcb n h a) := by
   obtain ⟨hpull, hsep⟩ := hstop
   -- An arm `b` of the answer outside `t`, and an arm `i ∈ t` outside the answer, with
   -- `μ b + ε < μ i`.
   obtain ⟨b, hbS, hbt, i, hit, hiS, hlt : μ b + ε < μ i⟩ :=
-    exists_add_lt_of_notMem_correct_epsTopMTask ν id hε (card_topArms _ hm) hbad ht ht'
+    exists_add_lt_of_notMem_epsTopMSets hε (card_topArms _ hm) hbad ht ht'
   -- The stopping rule gives `ucb i < lcb b + ε`.
   have hib := hsep b hbS i hiS
   by_cases hi : ucb n h i < μ i
   · exact ⟨i, hpull i, Or.inl ⟨hit, hi⟩⟩
   · exact ⟨b, hpull b, Or.inr ⟨hbt, by linarith⟩⟩
 
-variable [MeasurableSingletonClass α] {alg : Algorithm Unit α ℝ}
+variable [MeasurableSpace α] [MeasurableSingletonClass α] {alg : Algorithm Unit α ℝ}
   {hlcb : ∀ n a, Measurable fun h ↦ lcb n h a} {hucb : ∀ n a, Measurable fun h ↦ ucb n h a}
   {Ω : Type*} {mΩ : MeasurableSpace Ω} {P : Measure Ω} [IsProbabilityMeasure P]
   {O : ℕ → Ω → Unit} {X : ℕ → Ω → α} {Y : ℕ → Ω → ℝ}
@@ -228,13 +229,13 @@ theorem measureReal_histOutputMeasure_lucb_le {env : Environment Unit α ℝ}
     (ht' : ∀ a ∈ t, ∀ c ∉ t, μ c ≤ μ a) :
     (histOutputMeasure (lucb alg lcb ucb hlcb hucb ε m) env).real
         {p | p.1 ∈ (lucb alg lcb ucb hlcb hucb ε m).stopSet ∧
-          p.2 ∉ (epsTopMTask ν id m ε).correct μ} ≤
+          p.2 ∉ epsTopMSets μ m ε} ≤
       P.real {ω | ∃ n a, pullCount X a n ω ≠ 0 ∧
         (a ∈ t ∧ ucb n (history O X Y n ω) a < μ a ∨
           a ∉ t ∧ μ a < lcb n (history O X Y n ω) a)} := by
   rw [lucb_def]
   refine (measureReal_histOutputMeasure_ofStop_deterministic_le hseq
-    (Set.to_countable ((epsTopMTask ν id m ε).correct μ)).measurableSet).trans
+    (Set.to_countable (epsTopMSets μ m ε)).measurableSet).trans
     (measureReal_mono fun ω ⟨n, hn_stop, hn_wrong⟩ ↦ ?_)
   obtain ⟨a, ha, h⟩ := LUCB.exists_ucb_lt_or_lt_lcb_of_stopRule hε hm ht ht' hn_stop hn_wrong
   exact ⟨n, a, by rwa [pullCount_eq_pullCount' (O := O) (R' := Y)], h⟩
@@ -253,7 +254,7 @@ theorem measureReal_histOutputMeasure_lucb_le_card_mul {env : Environment Unit �
       μ a < lcb n (history O X Y n ω) a} ≤ S) :
     (histOutputMeasure (lucb alg lcb ucb hlcb hucb ε m) env).real
         {p | p.1 ∈ (lucb alg lcb ucb hlcb hucb ε m).stopSet ∧
-          p.2 ∉ (epsTopMTask ν id m ε).correct μ} ≤ Fintype.card α * S := by
+          p.2 ∉ epsTopMSets μ m ε} ≤ Fintype.card α * S := by
   -- A set `t` of `m` arms with the largest means.
   obtain ⟨t, -, ht, ht'⟩ := exists_subset_card_eq_forall_le μ (s := univ) (j := m)
     (by rwa [card_univ])
@@ -312,7 +313,7 @@ theorem measureReal_histOutputMeasure_lucbOfRate_le_of_hasSubgaussianMGF
     (hε : 0 ≤ ε) (hm : m ≤ Fintype.card α) :
     (histOutputMeasure (lucbOfRate alg β ε m) (Environment.bandit ν₀)).real
         {p | p.1 ∈ (lucbOfRate alg β ε m).stopSet ∧
-          p.2 ∉ (epsTopMTask ν id m ε).correct fun a ↦ (ν₀ a)[id]} ≤ δ := by
+          p.2 ∉ epsTopMSets (fun a ↦ (ν₀ a)[id]) m ε} ≤ δ := by
   rw [lucbOfRate_def]
   have hseq := IT.isAlgEnvSeq_trajMeasure alg (Environment.bandit ν₀)
   have hP : IsProbabilityMeasure (trajMeasure alg (Environment.bandit ν₀)) :=
@@ -345,7 +346,7 @@ theorem measureReal_histOutputMeasure_lucbOfRate_le_of_mem_Icc
     (hε : 0 ≤ ε) (hm : m ≤ Fintype.card α) :
     (histOutputMeasure (lucbOfRate alg β ε m) (Environment.bandit ν₀)).real
         {p | p.1 ∈ (lucbOfRate alg β ε m).stopSet ∧
-          p.2 ∉ (epsTopMTask ν id m ε).correct fun a ↦ (ν₀ a)[id]} ≤ δ := by
+          p.2 ∉ epsTopMSets (fun a ↦ (ν₀ a)[id]) m ε} ≤ δ := by
   have h_sub (a : α) : HasSubgaussianMGF (fun x ↦ x - (ν₀ a)[id]) (1 / 4) (ν₀ a) :=
     hasSubgaussianMGF_of_mem_Icc_zero_one aemeasurable_id (hν a)
   -- For `σ² = 1 / 4`, the terms `exp (-u β(u, n)² / (2 σ²))` are `exp (-2 u β(u, n)²)`.
@@ -370,7 +371,7 @@ theorem measureReal_stoppingTime_ne_top_and_notMem_le_of_isRun_lucbOfRate {out :
     (hδ : ∑' n, ∑ u ∈ Icc 1 n, exp (-(u * β u n ^ 2 / (2 * σ2))) ≤ δ / Fintype.card α)
     (hε : 0 ≤ ε) (hm : m ≤ Fintype.card α) :
     P.real {ω | (lucbOfRate alg β ε m).stoppingTime O X Y ω ≠ ⊤ ∧
-        out ω ∉ (epsTopMTask ν id m ε).correct fun a ↦ (ν₀ a)[id]} ≤ δ := by
+        out ω ∉ epsTopMSets (fun a ↦ (ν₀ a)[id]) m ε} ≤ δ := by
   rw [hrun.measureReal_stoppingTime_ne_top_and_notMem_eq (Set.to_countable _).measurableSet]
   exact measureReal_histOutputMeasure_lucbOfRate_le_of_hasSubgaussianMGF hν hβ hsum hδ hε hm
 
@@ -397,9 +398,9 @@ theorem isDeltaPAC_lucbOfRate {S : Set (α → ProbabilityMeasure ℝ)}
     fun θ hθ ↦ by simpa only [IdentTask.ν_restrict, ν_epsTopMTask] using h_stops θ (hS' θ hθ)
   have hν (a : α) : HasSubgaussianMGF (fun x ↦ x - (lawBandit θ a)[id]) σ2 (lawBandit θ a) := by
     simpa only [lawMean_eq_integral_lawBandit] using mem_pi_subgaussianLaws_iff.1 (hS (hS' θ hθ)) a
-  have h := measureReal_histOutputMeasure_lucbOfRate_le_of_hasSubgaussianMGF (alg := alg)
-    (ν := fun _ ↦ lawBandit θ) hν hβ hsum hδ hε hm
   simpa only [IdentTask.ν_restrict, IdentTask.correct_restrict, ν_epsTopMTask, correct_epsTopMTask,
-    id, lawMean_eq_integral_lawBandit] using h
+    ← lawMean_eq_integral_lawBandit] using
+      measureReal_histOutputMeasure_lucbOfRate_le_of_hasSubgaussianMGF (alg := alg) hν hβ hsum hδ
+        hε hm
 
 end LMLExplore.Identification
