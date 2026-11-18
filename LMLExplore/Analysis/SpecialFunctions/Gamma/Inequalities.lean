@@ -40,7 +40,8 @@ parameter-free and universal online algorithms use [Ora, Appendix A.2.2].
 * `Real.mul_Gamma_le_rpow_mul_Gamma_add`, `Real.Gamma_add_le_rpow_mul_Gamma`: Wendel's inequality.
 * `Real.convexOn_mul_log_sub_log_Gamma_add_half`: the convexity of `x log x - log Γ(x + 1 / 2)`.
 * `Real.mul_log_add_mul_log_sub_log_Gamma_add_half_le`: the vertex lemma for two coordinates.
-* `Real.sqrt_pi_mul_Gamma_add_one_le`: [Ora, Lemma A.12] for `d = 2`.
+* `Real.sqrt_pi_mul_Gamma_add_one_le`: [Ora, Lemma A.12] for `d = 2`, and its logarithmic form
+  `Real.log_pi_div_two_add_log_Gamma_add_one_sub_log_Gamma_add_half_le`.
 
 ## References
 
@@ -240,6 +241,19 @@ theorem sqrt_pi_mul_Gamma_add_one_le {t : ℝ} (ht : 1 ≤ t) :
     _ = √π * √(t + 1 / 2) * Gamma (t + 1 / 2) := by ring
     _ ≤ exp 1 * √t * Gamma (t + 1 / 2) :=
         mul_le_mul_of_nonneg_right hkey (Gamma_pos_of_pos ht').le
+
+/-- **The logarithmic form of [Ora, Lemma A.12] for `d = 2`**: for `t ≥ 1`,
+`log π / 2 + log Γ(t + 1) - log Γ(t + 1 / 2) ≤ log t / 2 + 1`, the logarithm of
+`Real.sqrt_pi_mul_Gamma_add_one_le`. -/
+theorem log_pi_div_two_add_log_Gamma_add_one_sub_log_Gamma_add_half_le {t : ℝ} (ht : 1 ≤ t) :
+    log π / 2 + log (Gamma (t + 1)) - log (Gamma (t + 1 / 2)) ≤ log t / 2 + 1 := by
+  have h₁ := Gamma_pos_of_pos (show 0 < t + 1 by linarith)
+  have h₂ := Gamma_pos_of_pos (show 0 < t + 1 / 2 by linarith)
+  have h := log_le_log (by positivity) (sqrt_pi_mul_Gamma_add_one_le ht)
+  rw [log_mul (by positivity) h₁.ne', log_mul (by positivity) h₂.ne',
+    log_mul (by positivity) (by positivity), log_exp, log_sqrt pi_pos.le,
+    log_sqrt (by linarith)] at h
+  linarith
 
 end Convexity
 

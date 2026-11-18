@@ -9,7 +9,9 @@ public import LMLExplore.OnlineLearning.CoinBetting
 public import LMLExplore.OnlineLearning.Learner.Operations
 public import Mathlib.Analysis.SpecialFunctions.Gamma.Basic
 import LMLExplore.Analysis.Convex.Conjugate.ExpSq
+import LMLExplore.Analysis.Normed.Group.Basic
 import LMLExplore.Analysis.SpecialFunctions.Gamma.Inequalities
+import LMLExplore.Analysis.SpecialFunctions.Log.Basic
 import LMLExplore.InformationTheory.KullbackLeibler.Bernoulli
 import Mathlib.Analysis.SpecialFunctions.Gaussian.GaussianIntegral
 
@@ -32,7 +34,8 @@ rounds and of the sum `x` of the coins.
 
 * For coins in `{-1, 1}`, the potential satisfies the recursion
   `ktPotential (t + 1) (x ± 1) = (1 ± x / (t + 1)) ktPotential t x` [Ora, Problem 13.1]
-  (`ktPotential_succ_add_one`, `ktPotential_succ_sub_one`), from `Γ(y + 1) = y Γ(y)`.
+  (`ktPotential_succ_add_one`, `ktPotential_succ_sub_one`), from `Γ(y + 1) = y Γ(y)` and the
+  symmetry `ktPotential t (-x) = ktPotential t x` (`ktPotential_neg`).
 * For coins in `[-1, 1]`, the recursion becomes an inequality (`ktPotential_succ_add_le`), by
   Wendel's inequality `Γ(y + s) ≤ y ^ s Γ(y)` and the weighted inequality of arithmetic and
   geometric means. [Ora] proves it by the log-convexity of `Γ` in `c`; both are the same Hölder
@@ -111,6 +114,23 @@ lemma ktPotential_pos (hx : |x| < t + 1) : 0 < ktPotential t x := by
   have := pi_pos
   positivity
 
+/-- The potential is symmetric: heads and tails play the same role. -/
+lemma ktPotential_neg (t : ℕ) (x : ℝ) : ktPotential t (-x) = ktPotential t x := by
+  rw [ktPotential_def, ktPotential_def, sub_neg_eq_add, ← sub_eq_add_neg]
+  ring
+
+/-- The logarithm of the potential on `(-(t + 1), t + 1)`. -/
+lemma log_ktPotential (hx : |x| < t + 1) :
+    log (ktPotential t x) = t * log 2 + log (Gamma ((t + 1 + x) / 2)) +
+      log (Gamma ((t + 1 - x) / 2)) - log π - log t.factorial := by
+  obtain ⟨hx₁, hx₂⟩ := abs_lt.1 hx
+  have h₁ := Gamma_pos_of_pos (show 0 < ((t : ℝ) + 1 + x) / 2 by linarith)
+  have h₂ := Gamma_pos_of_pos (show 0 < ((t : ℝ) + 1 - x) / 2 by linarith)
+  have := pi_pos
+  rw [ktPotential_def, log_div (by positivity) (by positivity), log_mul (by positivity) h₂.ne',
+    log_mul (by positivity) h₁.ne', log_pow, log_mul pi_pos.ne' (by positivity)]
+  ring
+
 /-- **The recursion of the potential for a head** [Ora, Problem 13.1]: the coin `1` multiplies the
 potential by `1 + x / (t + 1)`. -/
 lemma ktPotential_succ_add_one (hx : (t : ℝ) + 1 + x ≠ 0) :
@@ -125,17 +145,13 @@ lemma ktPotential_succ_add_one (hx : (t : ℝ) + 1 + x ≠ 0) :
   field_simp
 
 /-- **The recursion of the potential for a tail** [Ora, Problem 13.1]: the coin `-1` multiplies
-the potential by `1 - x / (t + 1)`. -/
+the potential by `1 - x / (t + 1)`. It is the recursion for a head at `-x`, by the symmetry
+`ktPotential_neg`. -/
 lemma ktPotential_succ_sub_one (hx : (t : ℝ) + 1 - x ≠ 0) :
     ktPotential (t + 1) (x - 1) = (1 - x / (t + 1)) * ktPotential t x := by
-  have e₁ : (((t + 1 : ℕ) : ℝ) + 1 + (x - 1)) / 2 = (t + 1 + x) / 2 := by push_cast; ring
-  have e₂ : (((t + 1 : ℕ) : ℝ) + 1 - (x - 1)) / 2 = (t + 1 - x) / 2 + 1 := by push_cast; ring
-  have ht : (t : ℝ) + 1 ≠ 0 := by positivity
-  rw [ktPotential_def, ktPotential_def, e₁, e₂, Gamma_add_one (div_ne_zero hx two_ne_zero),
-    Nat.factorial_succ, Nat.cast_mul, Nat.cast_succ, pow_succ]
-  have := pi_pos.ne'
-  have := (Nat.cast_pos.2 (Nat.factorial_pos t) : (0 : ℝ) < t.factorial).ne'
-  field_simp
+  have h := ktPotential_succ_add_one (t := t) (x := -x) (by rwa [← sub_eq_add_neg])
+  rwa [neg_add_eq_sub, ← neg_sub, ktPotential_neg, ktPotential_neg, neg_div,
+    ← sub_eq_add_neg] at h
 
 /-- **The potential inequality of the Krichevsky–Trofimov bettor** [Ora, (13.1)]: for
 `|x| < t + 1` and a coin `c ∈ [-1, 1]`,
@@ -190,7 +206,8 @@ Theorem 13.4]: for `t ≥ 1` and `|x| ≤ t`,
 `exp (t d(1 / 2 + x / (2 t), 1 / 2) - log t / 2 - 1) ≤ ktPotential t x`, where `d` is the binary
 relative entropy. This combines the vertex lemma
 `Real.mul_log_add_mul_log_sub_log_Gamma_add_half_le` at `((t + x) / 2, (t - x) / 2)` [Ora,
-Lemma A.13] with `Real.sqrt_pi_mul_Gamma_add_one_le` [Ora, Lemma A.12]. -/
+Lemma A.13] with the logarithmic form
+`Real.log_pi_div_two_add_log_Gamma_add_one_sub_log_Gamma_add_half_le` of [Ora, Lemma A.12]. -/
 theorem exp_mul_klBerReal_sub_le_ktPotential (ht : 1 ≤ t) (hx : |x| ≤ t) :
     exp (t * klBerReal (1 / 2 + x / (2 * t)) (1 / 2) - log t / 2 - 1) ≤ ktPotential t x := by
   obtain ⟨hx₁, hx₂⟩ := abs_le.1 hx
@@ -201,26 +218,17 @@ theorem exp_mul_klBerReal_sub_le_ktPotential (ht : 1 ≤ t) (hx : |x| ≤ t) :
   have ha : 0 ≤ a := by linarith
   have hb : 0 ≤ b := by linarith
   have hab : a + b = t := by rw [ha_def, hb_def]; ring
-  have hGa := Gamma_pos_of_pos (show 0 < a + 1 / 2 by linarith)
-  have hGb := Gamma_pos_of_pos (show 0 < b + 1 / 2 by linarith)
-  have hfact : (0 : ℝ) < t.factorial := Nat.cast_pos.2 (Nat.factorial_pos t)
-  have hpos : 0 < ktPotential t x := ktPotential_pos (by rw [abs_lt]; constructor <;> linarith)
+  have hlt : |x| < t + 1 := by rw [abs_lt]; constructor <;> linarith
+  have hpos : 0 < ktPotential t x := ktPotential_pos hlt
   -- the logarithm of the potential
-  have hlog : log (ktPotential t x) =
-      t * log 2 + log (Gamma (a + 1 / 2)) + log (Gamma (b + 1 / 2)) - log π -
-        log t.factorial := by
-    have eP : ((t : ℝ) + 1 + x) / 2 = a + 1 / 2 := by rw [ha_def]; ring
-    have eQ : ((t : ℝ) + 1 - x) / 2 = b + 1 / 2 := by rw [hb_def]; ring
-    rw [ktPotential_def, eP, eQ, log_div (by positivity) (by positivity), log_mul (by positivity)
-      hGb.ne', log_mul (by positivity) hGa.ne', log_pow, log_mul pi_pos.ne' hfact.ne']
-    ring
+  have hlog := log_ktPotential hlt
+  rw [show ((t : ℝ) + 1 + x) / 2 = a + 1 / 2 by rw [ha_def]; ring,
+    show ((t : ℝ) + 1 - x) / 2 = b + 1 / 2 by rw [hb_def]; ring] at hlog
   -- the vertex lemma and Lemma A.12
   have hvertex := Real.mul_log_add_mul_log_sub_log_Gamma_add_half_le ha hb
   rw [hab, Gamma_one_half_eq, log_sqrt pi_pos.le] at hvertex
-  have hA := log_le_log (by positivity) (Real.sqrt_pi_mul_Gamma_add_one_le htR)
-  rw [Gamma_nat_eq_factorial, log_mul (by positivity) (by positivity), log_sqrt pi_pos.le,
-    log_mul (by positivity) (Gamma_pos_of_pos (by linarith)).ne',
-    log_mul (exp_pos 1).ne' (by positivity), log_exp, log_sqrt htpos.le] at hA
+  have hA := Real.log_pi_div_two_add_log_Gamma_add_one_sub_log_Gamma_add_half_le htR
+  rw [Gamma_nat_eq_factorial] at hA
   have hp : 1 / 2 + x / (2 * t) = a / t := by rw [ha_def]; field_simp
   -- `y log (2 y / t) = y log 2 + y log y - y log t` for `y ≥ 0`, with `0 log 0 = 0`
   have hexpand {y : ℝ} (hy : 0 ≤ y) : y * log (2 * y / t) = y * log 2 + y * log y - y * log t := by
@@ -260,13 +268,6 @@ section Wealth
 
 variable {ε : ℝ} {c x : ℕ → ℝ} {n : ℕ}
 
-/-- The sum of `n` coins in `[-1, 1]` is in `[-n, n]`. -/
-private lemma abs_sum_le (hc : ∀ t < n, |c t| ≤ 1) : |∑ t ∈ range n, c t| ≤ n := by
-  refine (abs_sum_le_sum_abs _ _).trans ?_
-  calc ∑ t ∈ range n, |c t| ≤ ∑ t ∈ range n, (1 : ℝ) :=
-        sum_le_sum fun t ht ↦ hc t (mem_range.1 ht)
-    _ = n := by simp
-
 /-- **The wealth of the Krichevsky–Trofimov bettor is at least its potential** [Ora, proof of
 Theorem 13.4]: if the bets `x` are the KT bets `x t = (∑ s < t, c s) / (t + 1) * W t` on coins
 in `[-1, 1]` from the initial wealth `ε ≥ 0`, then `ε * ktPotential n (∑ t < n, c t)` is at most
@@ -279,7 +280,9 @@ theorem mul_ktPotential_le_wealth (hε : 0 ≤ ε) (hc : ∀ t < n, |c t| ≤ 1)
   | zero => simp
   | succ n ih =>
     have ih := ih (fun t ht ↦ hc t (by omega)) fun t ht ↦ hx t (by omega)
-    have hS := abs_sum_le fun t (ht : t < n) ↦ hc t (by omega)
+    have hS : |∑ t ∈ range n, c t| ≤ n := by
+      simpa using norm_sum_le_card_mul (range n) (L := 1) fun t ht ↦
+        (norm_eq_abs (c t)).trans_le (hc t (by simp at ht; omega))
     have hcn := hc n n.lt_succ_self
     set S := ∑ t ∈ range n, c t
     -- the factor `1 + c n * S / (n + 1)` of the round is nonnegative
@@ -304,7 +307,9 @@ least `ε exp ((∑ t < n, c t) ^ 2 / (2 n) - log n / 2 - 1)`. -/
 theorem mul_exp_sq_div_sub_le_wealth (hε : 0 ≤ ε) (hn : 1 ≤ n) (hc : ∀ t < n, |c t| ≤ 1)
     (hx : ∀ t < n, x t = (∑ s ∈ range t, c s) / (t + 1) * wealth ε c x t) :
     ε * exp ((∑ t ∈ range n, c t) ^ 2 / (2 * n) - log n / 2 - 1) ≤ wealth ε c x n :=
-  (mul_le_mul_of_nonneg_left (exp_sq_div_sub_le_ktPotential hn (abs_sum_le hc)) hε).trans
+  (mul_le_mul_of_nonneg_left (exp_sq_div_sub_le_ktPotential hn (by
+    simpa using norm_sum_le_card_mul (range n) (L := 1) fun t ht ↦
+      (norm_eq_abs (c t)).trans_le (hc t (mem_range.1 ht)))) hε).trans
     (mul_ktPotential_le_wealth hε hc hx)
 
 /-- **The Krichevsky–Trofimov bettor against constant fractions** [Ora, Theorem 13.2]: for coins
@@ -332,7 +337,9 @@ theorem mul_prod_one_add_mul_le_mul_wealth (hε : 0 ≤ ε) (hn : 1 ≤ n)
     _ = exp 1 * √n * (ε * exp (K - log n / 2 - 1)) := by rw [hK]; ring
     _ ≤ exp 1 * √n * (ε * ktPotential n S) := by
         gcongr
-        exact exp_mul_klBerReal_sub_le_ktPotential hn (abs_sum_le hc')
+        exact exp_mul_klBerReal_sub_le_ktPotential hn
+          (by simpa using norm_sum_le_card_mul (range n) (L := 1) fun t ht ↦
+            (norm_eq_abs (c t)).trans_le (hc' t (mem_range.1 ht)))
     _ ≤ exp 1 * √n * wealth ε c x n := by
         gcongr
         exact mul_ktPotential_le_wealth hε hc' hx
@@ -394,11 +401,8 @@ theorem krichevskyTrofimov_regret_le (hε : 0 < ε) (hL : 0 < L) (hg : ∀ t < n
     field_simp
   rw [hβsq] at hconj
   -- `log (1 + z ^ 2) ≤ 2 log (z + 1)` for `z = e |u| n / ε ≥ 0`
-  have hlog : log (1 + (exp 1 * |u| * n / ε) ^ 2) ≤ 2 * log (exp 1 * |u| * n / ε + 1) := by
-    have hz : 0 ≤ exp 1 * |u| * n / ε := by positivity
-    calc log (1 + (exp 1 * |u| * n / ε) ^ 2) ≤ log ((exp 1 * |u| * n / ε + 1) ^ 2) :=
-          log_le_log (by positivity) (by nlinarith)
-      _ = 2 * log (exp 1 * |u| * n / ε + 1) := by rw [log_pow]; norm_num
+  have hlog := Real.log_one_add_sq_le_two_mul_log_add_one
+    (show 0 ≤ exp 1 * |u| * n / ε by positivity)
   have hsqrt : √(n * log (1 + (exp 1 * |u| * n / ε) ^ 2)) ≤
       √(2 * n * log (exp 1 * |u| * n / ε + 1)) := by
     refine sqrt_le_sqrt ?_

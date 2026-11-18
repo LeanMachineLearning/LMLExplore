@@ -45,6 +45,7 @@ import Mathlib.Analysis.SpecialFunctions.Log.Deriv
 * `Real.tendsto_natCeil_sub_div_log`: if `f n / log n → ∞`, then `⌈f n - c⌉₊ / log n → ∞`.
 * `Real.mul_log_add_lt`: `a log x + b < x` as soon as `x ≥ 2 a log (2 a) + 2 b`, for `a, x > 0`.
 * `Real.log_one_add_div`: `log (1 + y / x) = log (x + y) - log x` for `x ≠ 0` and `x + y ≠ 0`.
+* `Real.log_one_add_sq_le_two_mul_log_add_one`: `log (1 + z²) ≤ 2 log (z + 1)` for `z ≥ 0`.
 * `Real.one_le_add_half_mul_log_one_add_inv`: `1 ≤ (x + 1 / 2) log (1 + 1 / x)` for `x > 0`.
 * `Real.one_add_mul_log_one_add_sub_sub_mul_log_nonpos`:
   `(1 + t) log (1 + t) - t - t log (1 + t / 2) ≤ 0` for `t ≥ 0`.
@@ -531,6 +532,12 @@ lemma eventually_exists_add_le_mul_and_forall_ofReal_add_lt_mul {κ c : ℝ≥0}
 theorem log_one_add_div {x y : ℝ} (hx : x ≠ 0) (hxy : x + y ≠ 0) :
     log (1 + y / x) = log (x + y) - log x := by
   rw [← log_div hxy hx, one_add_div hx]
+
+/-- `log (1 + z ^ 2) ≤ 2 log (z + 1)` for `z ≥ 0`, since `1 + z ^ 2 ≤ (z + 1) ^ 2`. -/
+theorem log_one_add_sq_le_two_mul_log_add_one {z : ℝ} (hz : 0 ≤ z) :
+    log (1 + z ^ 2) ≤ 2 * log (z + 1) := by
+  calc log (1 + z ^ 2) ≤ log ((z + 1) ^ 2) := log_le_log (by positivity) (by nlinarith)
+    _ = 2 * log (z + 1) := by rw [log_pow, Nat.cast_ofNat]
 
 /-- `1 ≤ (x + 1 / 2) log (1 + x⁻¹)` for `x > 0`: the first term of the series of
 `log (1 + 1 / x)` in powers of `1 / (2 x + 1)` (`Real.hasSum_log_one_add_inv`). -/
