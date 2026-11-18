@@ -8,7 +8,7 @@ module
 public import LMLExplore.OnlineLearning.CoinBetting
 public import LMLExplore.OnlineLearning.Learner.Operations
 public import Mathlib.Analysis.SpecialFunctions.Gamma.Basic
-import LMLExplore.Analysis.Convex.Conjugate.ExpSq
+import LMLExplore.Analysis.Normed.Group.Basic
 import LMLExplore.Analysis.SpecialFunctions.Gamma.Inequalities
 import LMLExplore.Analysis.SpecialFunctions.Log.Basic
 import LMLExplore.InformationTheory.KullbackLeibler.Bernoulli
@@ -21,7 +21,8 @@ The **Krichevsky–Trofimov (KT) bettor** [Ora, Algorithm 13.1] plays the coin-b
 `LMLExplore.OnlineLearning.CoinBetting` by betting at round `t` the fraction
 `β t = (∑ s < t, c s) / (t + 1)` of its current wealth: the running mean of the past coins, shrunk
 towards `0`. It has no parameter besides its initial wealth `ε`. Through the regret–reward duality
-[Ora, Theorem 13.5] and the conjugate bound `Real.mul_sub_mul_exp_sq_div_le` [Ora, Lemma 13.6],
+`regret_mul_le_of_mul_exp_sq_div_le_wealth` [Ora, Theorem 13.5], which rests on the conjugate
+bound `Real.mul_sub_mul_exp_sq_div_le` [Ora, Lemma 13.6],
 it is a **parameter-free** algorithm for one-dimensional online linear
 optimization [Ora, Algorithm 13.2]: for losses `g t` with `|g t| ≤ L`, its regret against every
 `u ∈ ℝ` is at most `|u| L √(2 n log (e |u| n / ε + 1)) + ε L`, with no learning rate to tune and no
@@ -348,9 +349,8 @@ variable {ε L : ℝ} {g x : ℕ → ℝ} {n : ℕ}
 optimization [Ora, §13.2]. Let `|g t| ≤ L` for the rounds `t < n`, and let `x` be the KT bets
 from the initial wealth `ε > 0` on the coins `-g t / L`. Then for every `u ∈ ℝ`,
 `∑ t < n, g t (x t - u) ≤ |u| L √(2 n log (e |u| n / ε + 1)) + ε L`.
-It is the regret–reward duality [Ora, Theorem 13.5] for the wealth bound
-`mul_exp_sq_div_sub_le_wealth`, whose conjugate is bounded by `Real.mul_sub_mul_exp_sq_div_le`
-[Ora, Lemma 13.6]. -/
+It is the regret–reward duality `regret_mul_le_of_mul_exp_sq_div_le_wealth` [Ora, Theorem 13.5]
+for the wealth bound `mul_exp_sq_div_sub_le_wealth`. -/
 theorem krichevskyTrofimov_regret_le (hε : 0 < ε) (hL : 0 < L) (hg : ∀ t < n, |g t| ≤ L)
     (hx : ∀ t < n, x t = (∑ s ∈ range t, -g s / L) / (t + 1) * wealth ε (fun s ↦ -g s / L) x t)
     (u : ℝ) :
@@ -365,16 +365,12 @@ theorem krichevskyTrofimov_regret_le (hε : 0 < ε) (hL : 0 < L) (hg : ∀ t < n
   set S := ∑ t ∈ range n, c t with hS
   set β := ε * exp (-(log n / 2) - 1) with hβ_def
   have hβ : 0 < β := by positivity
-  -- the regret is `L * (ε - W) + L * (u * S)`
-  have hregret : regret (fun t y ↦ g t * y) x u n =
-      L * (ε - wealth ε c x n) + L * (S * u) :=
-    regret_mul_eq_mul_sub_wealth_add_mul ε hL.ne' g x u n
   -- the wealth is at least `β * exp (S ^ 2 / (2 n))`
   have hW : β * exp (S ^ 2 / (2 * n)) ≤ wealth ε c x n := by
     refine le_of_eq_of_le ?_ (mul_exp_sq_div_sub_le_wealth hε.le hn hc hx)
     rw [hβ_def, mul_assoc, ← exp_add, hS]
     ring_nf
-  have hconj := Real.mul_sub_mul_exp_sq_div_le hnR hβ S u
+  have hdual := regret_mul_le_of_mul_exp_sq_div_le_wealth hL hnR hβ hW u
   -- `n * u ^ 2 / β ^ 2 = (e |u| n / ε) ^ 2`
   have hβsq : (n : ℝ) * u ^ 2 / β ^ 2 = (exp 1 * |u| * n / ε) ^ 2 := by
     rw [hβ_def, mul_pow, ← exp_nat_mul]
@@ -382,7 +378,7 @@ theorem krichevskyTrofimov_regret_le (hε : 0 < ε) (hL : 0 < L) (hg : ∀ t < n
     rw [this, exp_sub, exp_neg, exp_log hnR, div_pow, mul_pow, mul_pow, sq_abs,
       show exp 2 = exp 1 ^ 2 by rw [← exp_nat_mul]; norm_num]
     field_simp
-  rw [hβsq] at hconj
+  rw [hβsq] at hdual
   -- `log (1 + z ^ 2) ≤ 2 log (z + 1)` for `z = e |u| n / ε ≥ 0`
   have hlog := Real.log_one_add_sq_le_two_mul_log_add_one
     (show 0 ≤ exp 1 * |u| * n / ε by positivity)
@@ -390,10 +386,7 @@ theorem krichevskyTrofimov_regret_le (hε : 0 < ε) (hL : 0 < L) (hg : ∀ t < n
       √(2 * n * log (exp 1 * |u| * n / ε + 1)) := by
     refine sqrt_le_sqrt ?_
     nlinarith
-  have h1 : S * u - wealth ε c x n ≤ |u| * √(2 * n * log (exp 1 * |u| * n / ε + 1)) := by
-    nlinarith [mul_le_mul_of_nonneg_left hsqrt (abs_nonneg u)]
-  rw [hregret]
-  nlinarith [mul_le_mul_of_nonneg_left h1 hL.le]
+  nlinarith [mul_le_mul_of_nonneg_left hsqrt (mul_nonneg (abs_nonneg u) hL.le)]
 
 end Regret
 

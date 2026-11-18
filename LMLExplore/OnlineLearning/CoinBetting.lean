@@ -9,7 +9,7 @@ public import LMLExplore.OnlineLearning.Learner.Operations
 public import Mathlib.Analysis.Normed.Module.HahnBanach
 public import Mathlib.Analysis.SpecialFunctions.Sqrt
 public import Statlib.ForMathlib.InformationTheory.KullbackLeibler.Bernoulli
-import LMLExplore.Analysis.Normed.Group.Basic
+import LMLExplore.Analysis.Convex.Conjugate.ExpSq
 import LMLExplore.Analysis.Normed.Module.RademacherSum
 import LMLExplore.Data.Nat.Choose.Tail
 import LMLExplore.InformationTheory.KullbackLeibler.Bernoulli
@@ -33,7 +33,10 @@ optimization.
   regret against `0` of the bets is `L * (ε - wealth ε c x n)` (`regret_neg_mul_eq_mul_sub_wealth`):
   a small regret against `0` is a large wealth.
   For general comparators `u`, the regret on the losses `y ↦ g t * y` is expressed through the
-  wealth of the bets on the coins `-g t / L` (`regret_mul_eq_mul_sub_wealth_add_mul`).
+  wealth of the bets on the coins `-g t / L` (`regret_mul_eq_mul_sub_wealth_add_mul`), and a
+  wealth of at least `β * exp (S ^ 2 / (2 * α))` in the sum `S` of the coins bounds the regret
+  against every `u` (`regret_mul_le_of_mul_exp_sq_div_le_wealth`), the regret–reward duality
+  [Ora, Theorem 13.5].
 * **Bettors with a fraction rule.** A rule `frac t c` depending only on the past coins defines the
   bettor `OnlineLearner.fractionBettor frac ε`, which bets the fraction `frac t c` of its wealth
   (`OnlineLearner.run_fractionBettor`), and its reduction `OnlineLearner.fractionBettorOCO` to
@@ -79,6 +82,8 @@ probability below. The coins are averaged uniformly over the sign cube `Fin n �
 * `LMLExplore.OnlineLearning.regret_neg_mul_eq_mul_sub_wealth`,
   `LMLExplore.OnlineLearning.regret_mul_eq_mul_sub_wealth_add_mul`: online linear optimization on
   `ℝ` is betting.
+* `LMLExplore.OnlineLearning.regret_mul_le_of_mul_exp_sq_div_le_wealth`: the regret–reward
+  duality.
 * `LMLExplore.OnlineLearning.OnlineLearner.run_fractionBettor`,
   `LMLExplore.OnlineLearning.OnlineLearner.run_fractionBettorOCO_eq_mul_wealth`: the bets of the
   bettor with a fraction rule.
@@ -189,10 +194,20 @@ lemma abs_neg_div_le_one {g L : ℝ} (hL : 0 < L) (hg : |g| ≤ L) : |-g / L| �
   rw [abs_div, abs_neg, abs_of_pos hL, div_le_one hL]
   exact hg
 
-/-- Coins in `[-1, 1]` sum to at most the number of rounds in absolute value. -/
-lemma abs_sum_le_of_abs_le_one (hc : ∀ s < t, |c s| ≤ 1) : |∑ s ∈ range t, c s| ≤ t := by
-  simpa using norm_sum_le_card_mul (range t) (L := 1) fun s hs ↦
-    (norm_eq_abs (c s)).trans_le (hc s (mem_range.1 hs))
+/-- **The regret–reward duality** for one-dimensional online linear optimization
+[Ora, Theorem 13.5], for the potential `β * exp (· ^ 2 / (2 * α))`. If the wealth of the bets `x`
+on the coins `-g t / L` from the initial wealth `ε` is at least `β * exp (S ^ 2 / (2 * α))`, where
+`S` is the sum of these coins, then the regret against `u` of the plays `x` on the linear losses
+`y ↦ g t * y` is at most `L * (|u| * √(α * log (1 + α * u ^ 2 / β ^ 2)) - β + ε)`, by the conjugate
+bound `Real.mul_sub_mul_exp_sq_div_le` [Ora, Lemma 13.6]. -/
+theorem regret_mul_le_of_mul_exp_sq_div_le_wealth {ε L α β : ℝ} (hL : 0 < L) (hα : 0 < α)
+    (hβ : 0 < β) {g x : ℕ → ℝ} {n : ℕ}
+    (hW : β * exp ((∑ t ∈ range n, -g t / L) ^ 2 / (2 * α)) ≤ wealth ε (fun s ↦ -g s / L) x n)
+    (u : ℝ) :
+    regret (fun t y ↦ g t * y) x u n ≤ L * (|u| * √(α * log (1 + α * u ^ 2 / β ^ 2)) - β + ε) := by
+  have hconj := Real.mul_sub_mul_exp_sq_div_le hα hβ (∑ t ∈ range n, -g t / L) u
+  rw [regret_mul_eq_mul_sub_wealth_add_mul ε hL.ne' g x u n]
+  nlinarith [mul_le_mul_of_nonneg_left hW hL.le, mul_le_mul_of_nonneg_left hconj hL.le]
 
 end Wealth
 

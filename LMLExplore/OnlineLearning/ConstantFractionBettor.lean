@@ -7,7 +7,7 @@ module
 
 public import LMLExplore.OnlineLearning.CoinBetting
 public import LMLExplore.OnlineLearning.Learner.Operations
-import LMLExplore.Analysis.Convex.Conjugate.ExpSq
+import LMLExplore.Analysis.Normed.Group.Basic
 import LMLExplore.Analysis.SpecialFunctions.Log.Basic
 import LMLExplore.OnlineLearning.FTRL.Stability
 import Mathlib.Analysis.Complex.ExponentialBounds
@@ -30,7 +30,8 @@ bound, which keeps the increments `-β (t + 1) ^ 2` of the regularizers, cancels
 gives the wealth bound [Ora, §13.7]
 `ε exp ((∑ t < n, c t) ^ 2 / (4 (n + a)) - n / (4 a)) ≤ wealth after n rounds`
 for coins in `[-1, 1]` (`mul_exp_sq_div_sub_div_le_wealth`). Through the regret–reward duality
-[Ora, Theorem 13.5] and the conjugate bound `Real.mul_sub_mul_exp_sq_div_le` [Ora, Lemma 13.6],
+`regret_mul_le_of_mul_exp_sq_div_le_wealth` [Ora, Theorem 13.5], which rests on the conjugate
+bound `Real.mul_sub_mul_exp_sq_div_le` [Ora, Lemma 13.6],
 the bettor on the coins `-g t / L` is an algorithm for one-dimensional online linear
 optimization with losses `|g t| ≤ L` whose regret against every `u ∈ ℝ` is at most
 `|u| L √(2 (n + a) log (1 + 2 (n + a) exp (n / (2 a)) u ^ 2 / ε ^ 2)) + ε L`
@@ -247,9 +248,8 @@ variable {ε L a : ℝ} {g x : ℕ → ℝ} {n : ℕ}
 constant-fraction bettor with parameter `a > 0` from the initial wealth `ε > 0` on the coins
 `-g t / L`. Then for every `u ∈ ℝ`, `∑ t < n, g t (x t - u)` is at most
 `|u| L √(2 (n + a) log (1 + 2 (n + a) exp (n / (2 a)) u ^ 2 / ε ^ 2)) + ε L`.
-It is the regret–reward duality [Ora, Theorem 13.5] for the wealth bound
-`mul_exp_sq_div_sub_div_le_wealth`, whose conjugate is bounded by `Real.mul_sub_mul_exp_sq_div_le`
-[Ora, Lemma 13.6]. -/
+It is the regret–reward duality `regret_mul_le_of_mul_exp_sq_div_le_wealth` [Ora, Theorem 13.5]
+for the wealth bound `mul_exp_sq_div_sub_div_le_wealth`. -/
 theorem constantFractionBettor_regret_le (hε : 0 < ε) (hL : 0 < L) (ha : 0 < a)
     (hg : ∀ t < n, |g t| ≤ L)
     (hx : ∀ t < n, x t = (∑ s ∈ range t, -g s / L) / (2 * (t + a)) *
@@ -263,16 +263,13 @@ theorem constantFractionBettor_regret_le (hε : 0 < ε) (hL : 0 < L) (ha : 0 < a
   set S := ∑ t ∈ range n, c t with hS
   set β := ε * exp (-(n / (4 * a))) with hβ_def
   have hβ : 0 < β := by positivity
-  -- the regret is `L * (ε - W) + L * (u * S)`
-  have hregret : regret (fun t y ↦ g t * y) x u n =
-      L * (ε - wealth ε c x n) + L * (S * u) :=
-    regret_mul_eq_mul_sub_wealth_add_mul ε hL.ne' g x u n
   -- the wealth is at least `β * exp (S ^ 2 / (2 * (2 (n + a))))`
   have hW : β * exp (S ^ 2 / (2 * (2 * (n + a)))) ≤ wealth ε c x n := by
     refine le_of_eq_of_le ?_ (mul_exp_sq_div_sub_div_le_wealth hε.le ha hc hx)
     rw [hβ_def, hS, mul_assoc, ← exp_add]
     ring_nf
-  have hconj := Real.mul_sub_mul_exp_sq_div_le (by positivity : 0 < 2 * ((n : ℝ) + a)) hβ S u
+  have hdual :=
+    regret_mul_le_of_mul_exp_sq_div_le_wealth hL (by positivity : 0 < 2 * ((n : ℝ) + a)) hβ hW u
   -- `2 (n + a) u ^ 2 / β ^ 2 = 2 (n + a) exp (n / (2 a)) u ^ 2 / ε ^ 2`
   have hβsq : 2 * ((n : ℝ) + a) * u ^ 2 / β ^ 2 =
       2 * (n + a) * exp (n / (2 * a)) * u ^ 2 / ε ^ 2 := by
@@ -283,9 +280,8 @@ theorem constantFractionBettor_regret_le (hε : 0 < ε) (hL : 0 < L) (ha : 0 < a
       ring
     rw [hβ2]
     field_simp
-  rw [hβsq] at hconj
-  rw [hregret]
-  nlinarith [mul_le_mul_of_nonneg_left hconj hL.le]
+  rw [hβsq] at hdual
+  nlinarith
 
 /-- **The regret of the constant-fraction bettor tuned to the horizon** [Ora, (13.10)]: with the
 parameter `a = n / 4` for the horizon `n`, under the assumptions of

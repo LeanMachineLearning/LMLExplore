@@ -7,16 +7,20 @@ module
 
 public import Mathlib.Analysis.Normed.Group.Basic
 public import Mathlib.Order.Interval.Finset.Nat
+import Mathlib.Analysis.Normed.Group.Real
 
 /-!
 # Norm bounds in seminormed groups
 
-Bounds on the norm of a finite sum in a seminormed group whose terms have norm at most `L`, and
+Bounds on the norm of a finite sum in a seminormed group whose terms have norm at most `L` (with
+its special case for real numbers in `[-1, 1]`), and
 the affine bound satisfied by a point that is a `β`-contraction of another towards a center.
 
 ## Main statements
 
 * `norm_sum_le_card_mul`: a sum over `s` of terms of norm at most `L` has norm at most `#s * L`.
+* `abs_sum_le_of_abs_le_one`: real numbers in `[-1, 1]` indexed by `s < t` sum to at most `t` in
+  absolute value.
 * `norm_sum_Icc_sub_le`: the sum `∑ t - τ ≤ s ≤ t, f s` of the last `τ + 1` terms of a sequence
   whose terms of index at most `t` have norm at most `L` has norm at most `(τ + 1) * L`.
 * `norm_le_mul_norm_add_mul_norm_of_norm_sub_le_mul`: if `‖a - c‖ ≤ β * ‖b - c‖` with `0 ≤ β`,
@@ -35,6 +39,12 @@ variable {ι E : Type*} [SeminormedAddCommGroup E]
 theorem norm_sum_le_card_mul (s : Finset ι) {f : ι → E} {L : ℝ} (h : ∀ i ∈ s, ‖f i‖ ≤ L) :
     ‖∑ i ∈ s, f i‖ ≤ #s * L :=
   (norm_sum_le_of_le s h).trans_eq (by rw [sum_const, nsmul_eq_mul])
+
+/-- Real numbers in `[-1, 1]` indexed by `s < t` sum to at most `t` in absolute value. -/
+theorem abs_sum_le_of_abs_le_one {c : ℕ → ℝ} {t : ℕ} (hc : ∀ s < t, |c s| ≤ 1) :
+    |∑ s ∈ range t, c s| ≤ t := by
+  simpa using norm_sum_le_card_mul (range t) (L := 1) fun s hs ↦
+    (Real.norm_eq_abs (c s)).trans_le (hc s (mem_range.1 hs))
 
 /-- The sum `∑ t - τ ≤ s ≤ t, f s` of the last `τ + 1` terms of a sequence up to index `t` has
 norm at most `(τ + 1) * L` when the terms of index at most `t` have norm at most `L`. -/
