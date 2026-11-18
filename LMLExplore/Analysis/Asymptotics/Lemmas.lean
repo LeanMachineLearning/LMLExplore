@@ -8,14 +8,15 @@ module
 public import Mathlib.Analysis.Asymptotics.Lemmas
 
 /-!
-# Limits of ratios and little-o of differences
+# Limits of ratios from two-sided eventual bounds
 
 ## Main statements
 
 * `Asymptotics.tendsto_div_of_eventually_mul_le`: if `g` is eventually positive, `c g ≤ f`
   eventually for every `c < L` and `f ≤ c g` eventually for every `c > L`, then `f / g → L`.
-* `Asymptotics.isLittleO_sub_mul_of_tendsto_div`: if `g` is eventually nonzero and `f / g → L`,
-  then `f - L g = o(g)`.
+
+Tau Ceti's `Asymptotics.isLittleO_sub_mul_iff_tendsto_div` turns such a limit into the estimate
+`f - L g = o(g)`.
 -/
 
 public section
@@ -40,15 +41,5 @@ theorem tendsto_div_of_eventually_mul_le {f g : ι → ℝ} {L : ℝ} (hg : ∀�
     filter_upwards [hup c' hc', hg] with x hx hgx
     rw [div_lt_iff₀ hgx]
     exact hx.trans_lt (mul_lt_mul_of_pos_right hc'c hgx)
-
-/-- If `g` is eventually nonzero and `f / g → L`, then `f - L g = o(g)`. -/
-theorem isLittleO_sub_mul_of_tendsto_div {𝕜 : Type*} [NormedField 𝕜] {f g : ι → 𝕜} {L : 𝕜}
-    (hg : ∀ᶠ x in l, g x ≠ 0) (h : Tendsto (fun x ↦ f x / g x) l (𝓝 L)) :
-    (fun x ↦ f x - L * g x) =o[l] g := by
-  refine (isLittleO_iff_tendsto' (hg.mono fun x hx h0 ↦ absurd h0 hx)).mpr ?_
-  rw [← sub_self L]
-  refine (h.sub_const L).congr' (hg.mono fun x hx ↦ ?_)
-  dsimp only
-  rw [sub_div, mul_div_cancel_right₀ _ hx]
 
 end Asymptotics
