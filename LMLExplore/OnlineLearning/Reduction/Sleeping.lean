@@ -28,20 +28,22 @@ expert `i`, it is `∑ t < n, a t i * (⟨y t, x t⟩ - y t i)` (`sleepingRegret
 The reduction of [Ora, Algorithm 12.2, Theorem 12.13] turns an online linear optimization learner
 with plays `z t ≥ 0` on `ι → ℝ` into a sleeping-experts learner:
 
-* the outer play is `sleepingPlay (a t) (z t)`, the distribution proportional to the weights
-  `a t i * z t i`, or proportional to `a t` when these weights vanish;
+* the outer play is `sleepingPlay (a t) (z t)`, proportional to the weights `a t i * z t i`, or
+  proportional to `a t` when these weights sum to `0`; on rounds with an active expert
+  (`a t ≠ 0`), nonnegative weights and inner plays make it a distribution;
 * the inner learner receives the linear loss `sleepingSurrogate (a t) (x t) (y t)`, whose
   coordinates are `a t i * (y t i - ⟨y t, x t⟩)` and which is supported by the active experts.
 
 The surrogate loss vanishes at the inner play: `∑ i, a i * (y i - ⟨y, x⟩) * z i = 0` whenever
 `a i * z i = (∑ j, a j * z j) * x i` for all `i` (`sum_sleepingSurrogate_mul_eq_zero`). Hence the
 sleeping regret against `u` is the linear regret of the inner plays against `u` for the surrogate
-losses (`sleepingRegret_eq_regret`), and every regret bound of the inner learner is a sleeping
-regret bound. For losses whose range on the active experts is at most `R`, the coordinates of the
-surrogate are at most `a t i * R` in absolute value (`abs_sleepingSurrogate_le`,
-`abs_sleepingSurrogate_sleepingPlay_le`). The normalization of nonnegative plays to the simplex
-[Ora, (12.1)] is the case of finitely many experts, all active with weight `1`
-(`regret_eq_regret_sub_of_mem_simplex`).
+losses (`sleepingRegret_eq_regret`). For nonnegative activity weights, inner plays nonnegative on
+the active experts and surrogate losses admissible for the inner learner, every regret bound of the
+inner learner is therefore a sleeping regret bound. For losses whose range on the active experts
+is at most `R`, the coordinates of the surrogate are at most `a t i * R` in absolute value
+(`abs_sleepingSurrogate_le`, `abs_sleepingSurrogate_sleepingPlay_le`). The normalization of
+nonnegative plays to the simplex [Ora, (12.1)] is the case of finitely many experts, all active
+with weight `1` (`regret_eq_regret_sub_of_sum_eq_one`).
 
 The learner `A.sleeping` runs the reduction with an inner learner `A` that receives the activity
 weights as contexts (`OnlineLearner.run_sleeping`). Its sleeping regret is the regret of the
@@ -65,7 +67,7 @@ at most `R` and an inner guarantee for coordinates bounded by `R`
   for the surrogate losses.
 * `abs_sleepingSurrogate_le` [Ora, Theorem 12.13]: the surrogate losses are bounded by the range of
   the active losses.
-* `regret_eq_regret_sub_of_mem_simplex` [Ora, (12.1)]: the normalization to the simplex.
+* `regret_eq_regret_sub_of_sum_eq_one` [Ora, (12.1)]: the normalization to the simplex.
 * `OnlineLearner.HasRegretBound.sleepingRegret_run_sleeping_le`: the sleeping regret guarantee of
   `A.sleeping`.
 
@@ -205,10 +207,11 @@ theorem abs_sleepingSurrogate_le {a x : ι →₀ ℝ} {y : ι → ℝ} {R : ℝ
     _ = R := by rw [← sum_mul, hx₁, one_mul]
 
 /-- The **play of the sleeping-experts reduction** [Ora, Algorithm 12.2] for the activity weights
-`a` and the inner play `z`: the distribution proportional to the weights `a i * z i` when they do
-not sum to `0`, and the distribution proportional to `a` otherwise. For nonnegative weights and
-nonnegative inner plays on the active experts, it is a distribution over the active experts
-(`sleepingPlay_nonneg`, `sum_sleepingPlay`, `support_sleepingPlay_subset`). -/
+`a` and the inner play `z`: the weights `a i * z i` normalized by their sum when it is not `0`, and
+`a` normalized by its sum otherwise (this is `0` when no expert is active, `a = 0`). When some
+expert is active (`a ≠ 0`), for nonnegative weights and nonnegative inner plays on the active
+experts, it is a distribution over the active experts (`sleepingPlay_nonneg`, `sum_sleepingPlay`,
+`support_sleepingPlay_subset`). -/
 noncomputable def sleepingPlay (a : ι →₀ ℝ) (z : ι → ℝ) : ι →₀ ℝ :=
   if ∑ i ∈ a.support, a i * z i = 0 then (∑ i ∈ a.support, a i)⁻¹ • a
   else (∑ i ∈ a.support, a i * z i)⁻¹ • (z • a)
@@ -291,11 +294,11 @@ theorem abs_sleepingSurrogate_sleepingPlay_le {a : ι →₀ ℝ} {z y : ι → 
 /-- **Normalization to the simplex** [Ora, (12.1)], the case of the sleeping-experts reduction
 where finitely many experts are all active with weight `1`. If the plays `x t` are the
 normalizations of the inner plays `z t`, in the sense that `z t i = (∑ j, z t j) * x t i`, then
-for every `u` in the simplex, the linear regret of the plays `x t` against `u` for the losses
-`y t` is the linear regret of the inner plays `z t` against `u` for the losses
-`y t - ⟨y t, x t⟩`. -/
-theorem regret_eq_regret_sub_of_mem_simplex [Fintype ι] (y x z : ℕ → ι → ℝ) {n : ℕ}
-    (hx : ∀ t < n, ∀ i, z t i = (∑ j, z t j) * x t i) {u : ι → ℝ} (hu : u ∈ simplex ι) :
+for every `u` whose coordinates sum to `1` (in particular every `u` in the simplex), the linear
+regret of the plays `x t` against `u` for the losses `y t` is the linear regret of the inner plays
+`z t` against `u` for the losses `y t - ⟨y t, x t⟩`. -/
+theorem regret_eq_regret_sub_of_sum_eq_one [Fintype ι] (y x z : ℕ → ι → ℝ) {n : ℕ}
+    (hx : ∀ t < n, ∀ i, z t i = (∑ j, z t j) * x t i) {u : ι → ℝ} (hu : ∑ i, u i = 1) :
     regret (fun t w ↦ ∑ i, w i * y t i) x u n =
       regret (fun t w ↦ ∑ i, (y t i - ∑ j, x t j * y t j) * w i) z u n := by
   classical
@@ -316,7 +319,7 @@ theorem regret_eq_regret_sub_of_mem_simplex [Fintype ι] (y x z : ℕ → ι →
   simp only [a, Finsupp.coe_equivFunOnFinite_symm, Pi.one_apply, mul_one, one_mul] at h
   rw [regret_def, regret_def, ← h]
   refine sum_congr rfl fun t _ ↦ ?_
-  simp_rw [mul_sub, sum_sub_distrib, ← sum_mul, (mem_simplex_iff.mp hu).2, one_mul]
+  simp_rw [mul_sub, sum_sub_distrib, ← sum_mul, hu, one_mul]
 
 end Sequences
 
@@ -348,7 +351,8 @@ lemma run_sleeping (a : ℕ → ι →₀ ℝ) (y : ℕ → ι → ℝ) (t : ℕ
   rw [sleeping_def, run_reduce, closedLoopFeedback_withContext, run_withContext]
 
 /-- The feedback of `A` inside `A.sleeping` is the surrogate loss of the play of the learner. -/
-lemma closedLoopFeedback_sleeping (a : ℕ → ι →₀ ℝ) (y : ℕ → ι → ℝ) (t : ℕ) :
+lemma closedLoopFeedback_eq_sleepingSurrogate_run_sleeping (a : ℕ → ι →₀ ℝ) (y : ℕ → ι → ℝ)
+    (t : ℕ) :
     A.closedLoopFeedback a (fun s z ↦ sleepingSurrogate (a s) (sleepingPlay (a s) z) (y s)) t =
       sleepingSurrogate (a t) (A.sleeping.run a y t) (y t) := by
   rw [closedLoopFeedback_eq, run_sleeping]
@@ -368,7 +372,7 @@ theorem sleepingRegret_run_sleeping (a : ℕ → ι →₀ ℝ) (y : ℕ → ι 
           sleepingSurrogate (a s) (sleepingPlay (a s) z) (y s)) t i * w i)
         (A.run a (A.closedLoopFeedback a fun s z ↦
           sleepingSurrogate (a s) (sleepingPlay (a s) z) (y s))) u n := by
-  simp_rw [closedLoopFeedback_sleeping]
+  simp_rw [closedLoopFeedback_eq_sleepingSurrogate_run_sleeping]
   refine sleepingRegret_eq_regret a y _ _ (fun t ht i ↦ ?_) u
   rw [run_sleeping]
   exact mul_eq_sum_mul_sleepingPlay (ha t ht) (hz t ht) i
