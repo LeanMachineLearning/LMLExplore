@@ -18,7 +18,7 @@ finite-dimensional real inner product space `E`, and the arm `a` of `θ` has obs
 `⟪φ a, θ⟫` for features `φ : α → E`. After `n` rounds with history `h`, let `x s = φ (A s)` be the
 features of the arms played at the rounds `s < n`, `V_n = λ 1 + ∑_{s < n} x s ⊗ x s` the design
 operator of ridge regression with parameter `λ > 0` and `θ̂_n` the ridge estimate of `θ` from the
-observations of `h` (`ridgeEstimate'`).
+observations of `h` (`LMLExplore.Bandits.ridgeEstimate'`).
 
 For Gaussian observations with known variance `σ²`, the arm `a` of `θ` having the law
 `𝒩(⟪φ a, θ⟫, σ²)`, the plug-in statistic of the ridge estimate against a model `λ'`, the statistic
@@ -47,8 +47,6 @@ estimate towards `0` is at most `√λ ‖θ‖` in the norm of `V_n`.
 
 ## Main definitions
 
-* `LMLExplore.Identification.ridgeEstimate' φ λ n h`: the ridge estimate of the parameter of a
-  linear model with features `φ` from the history `h` of the first `n` rounds.
 * `LMLExplore.Identification.selfNormalizedThreshold φ σ2 λ S δ n h`: the self-normalized
   threshold `β_n(h)`.
 
@@ -57,8 +55,6 @@ estimate towards `0` is at most `√λ ‖θ‖` in the norm of `V_n`.
 * `selfNormalizedThreshold_le_of_norm_le`: for features of norm at most `L`, the self-normalized
   threshold is at most
   `(√λ S + √(2 σ² log (1 / δ) + σ² d log (1 + n L² / (λ d))))² / (2 σ²)`.
-* `IdentTask.isSubgaussianLinearEnv_bandit_of_gaussianReal`: Gaussian linear observations are a
-  linear environment with σ²-sub-Gaussian noise.
 * `IdentTask.plugInCost_gaussianReal_inner`: for Gaussian observations with variance `σ²`, the
   plug-in statistic of any estimator `θ̂` is `∑_{s < n} ⟪x s, θ̂ - λ'⟫² / (2 σ²)`.
 * `IdentTask.plugInCost_le_inner_designOp`: it is at most `‖θ̂ - λ'‖²_{V_n} / (2 σ²)`.
@@ -66,7 +62,9 @@ estimate towards `0` is at most `√λ ‖θ‖` in the norm of `V_n`.
   environment with σ²-sub-Gaussian noise and parameter of norm at most `S`, the probability that
   `‖θ̂_n - θ‖²_{V_n} / (2 σ²)` exceeds the self-normalized threshold at some round is at most `δ`.
 * `IdentTask.measure_exists_selfNormalizedThreshold_lt_plugInCost_le`: the same for the plug-in
-  statistic of the ridge estimate, for Gaussian observations.
+  statistic of the ridge estimate, for Gaussian observations, and
+  `IdentTask.measure_exists_lt_plugInCost_le_of_selfNormalizedThreshold_le` for any thresholds
+  above the self-normalized threshold.
 * `IdentTask.measureReal_histOutputMeasure_glrt_selfNormalizedThreshold_le`: for every task with
   Gaussian linear observations and every sampling rule, the GLRT with the plug-in statistic of the
   ridge estimate and any thresholds above the self-normalized threshold stops with an answer that
@@ -94,36 +92,11 @@ namespace LMLExplore.Identification
 variable {α E : Type*} [NormedAddCommGroup E] [InnerProductSpace ℝ E] {φ : α → E} {σ2 : ℝ≥0}
   {lam S δ : ℝ}
 
-/-! ### The ridge estimate and the self-normalized threshold of a history -/
+/-! ### The self-normalized threshold of a history -/
 
 section Defs
 
 variable {Ω : Type*} {O : ℕ → Ω → Unit} {A : ℕ → Ω → α} {Y : ℕ → Ω → ℝ}
-
-/-- The *ridge estimate* `θ̂_n = V_n⁻¹ ∑_{s < n} Y s • φ (A s)` of the parameter of a linear model
-with features `φ`, from the history `h` of the first `n` rounds, with the design operator
-`V_n = λ 1 + ∑_{s < n} φ (A s) ⊗ φ (A s)` of ridge regression with parameter `λ`. -/
-noncomputable def ridgeEstimate' (φ : α → E) (lam : ℝ) (n : ℕ) (h : Hist Unit α ℝ n) : E :=
-  ridgeEstimate lam (histFeature (fun _ ↦ φ) h) (histReward h) n
-
-lemma ridgeEstimate'_def (n : ℕ) (h : Hist Unit α ℝ n) :
-    ridgeEstimate' φ lam n h = ridgeEstimate lam (histFeature (fun _ ↦ φ) h) (histReward h) n :=
-  (rfl)
-
-/-- The ridge estimate of the history of a sequence of rounds is the ridge estimate of the
-features of the arms played and of the observations. -/
-@[simp]
-lemma ridgeEstimate'_history (n : ℕ) (ω : Ω) :
-    ridgeEstimate' φ lam n (history O A Y n ω) =
-      ridgeEstimate lam (fun s ↦ φ (A s ω)) (fun s ↦ Y s ω) n :=
-  ridgeEstimate_congr (fun _ hs ↦ histFeature_history hs ω) fun _ hs ↦ histReward_history hs ω
-
-/-- In finite dimension, the ridge estimate depends measurably on the history. -/
-lemma measurable_ridgeEstimate' [MeasurableSpace α] [MeasurableSpace E] [BorelSpace E]
-    [FiniteDimensional ℝ E] (hφ : Measurable φ) (lam : ℝ) (n : ℕ) :
-    Measurable (ridgeEstimate' φ lam n) :=
-  (measurable_histFeature (φ := fun (_ : Unit) ↦ φ) (hφ.comp measurable_snd) n).ridgeEstimate
-    (measurable_histReward n) lam n
 
 variable (φ σ2 lam S δ) in
 /-- The *self-normalized threshold* of the GLRT of a linear model with features `φ`, after `n`
@@ -193,16 +166,6 @@ namespace IdentTask
 
 variable {mα : MeasurableSpace α} {ℐ : Type*} {task : IdentTask α E ℐ ℝ}
 
-/-- A linear model with Gaussian observations of variance `σ2`, the arm `a` of `θ` having the law
-`𝒩(⟪φ a, θ⟫, σ2)`, is a linear environment with features `φ`, parameter `θ` and σ²-sub-Gaussian
-noise. -/
-lemma isSubgaussianLinearEnv_bandit_of_gaussianReal
-    (hν : ∀ θ a, task.ν θ a = gaussianReal ⟪φ a, θ⟫_ℝ σ2) (θ : E) :
-    IsSubgaussianLinearEnv (fun _ ↦ φ) θ σ2 (Environment.bandit (task.ν θ)) :=
-  isSubgaussianLinearEnv_iff.2 fun n h o a ↦ by
-    rw [feedback_bandit, Kernel.prodMkLeft_apply, hν, real_inner_comm]
-    exact hasSubgaussianMGF_sub_of_hasLaw_gaussianReal HasLaw.id
-
 variable [Fintype α] [DecidableEq α]
 
 /-- For a linear model with Gaussian observations of variance `σ2 ≠ 0`, the arm `a` of `θ` having
@@ -256,9 +219,9 @@ theorem measure_exists_selfNormalizedThreshold_lt_le
     (henv : IsSubgaussianLinearEnv (fun _ ↦ φ) θ σ2 env) (hφ : Measurable φ) (hσ : σ2 ≠ 0)
     (hlam : 0 < lam) (hδ : 0 < δ) (hθ : ‖θ‖ ≤ S) :
     P {ω | ∃ n, selfNormalizedThreshold φ σ2 lam S δ n (history O A Y n ω) <
-      ENNReal.ofReal (⟪ridgeEstimate' φ lam n (history O A Y n ω) - θ,
+      ENNReal.ofReal (⟪ridgeEstimate' (fun _ ↦ φ) lam n (history O A Y n ω) - θ,
         designOp (lam • 1) (fun s ↦ φ (A s ω)) n
-          (ridgeEstimate' φ lam n (history O A Y n ω) - θ)⟫_ℝ / (2 * σ2))} ≤
+          (ridgeEstimate' (fun _ ↦ φ) lam n (history O A Y n ω) - θ)⟫_ℝ / (2 * σ2))} ≤
       ENNReal.ofReal δ := by
   refine (measure_mono fun ω hω ↦ ?_).trans
     (hseq.measure_exists_sqrt_inner_ridgeEstimate_sub_ge_le henv (hφ.comp measurable_snd) hσ hlam
@@ -290,20 +253,37 @@ theorem measure_exists_selfNormalizedThreshold_lt_plugInCost_le (hσ : σ2 ≠ 0
     (hseq : IsAlgEnvSeq O A Y alg (Environment.bandit (task.ν θ)) P) (hlam : 0 < lam)
     (hδ : 0 < δ) (hθ : ‖θ‖ ≤ S) :
     P {ω | ∃ n, selfNormalizedThreshold φ σ2 lam S δ n (history O A Y n ω) <
-      task.plugInCost (ridgeEstimate' φ lam) n (history O A Y n ω) θ} ≤ ENNReal.ofReal δ := by
+      task.plugInCost (ridgeEstimate' (fun _ ↦ φ) lam) n (history O A Y n ω) θ} ≤
+      ENNReal.ofReal δ := by
   refine (measure_mono fun ω ↦ Exists.imp fun n hn ↦ hn.trans_le ?_).trans
     (measure_exists_selfNormalizedThreshold_lt_le hseq
-      (isSubgaussianLinearEnv_bandit_of_gaussianReal hν θ) (measurable_of_countable φ) hσ hlam hδ
+      (isSubgaussianLinearEnv_bandit_of_gaussianReal (hν θ)) (measurable_of_countable φ) hσ hlam hδ
       hθ)
   refine (plugInCost_le_inner_designOp hσ hν _ hlam.le n _ θ).trans_eq ?_
   rw [designOp_congr fun _ hs ↦ histFeature_history hs ω]
+
+/-- **Deviations of the plug-in statistic of the ridge estimate, for larger thresholds**, along a
+run of any sampling rule. For a linear model with Gaussian observations of variance `σ2 ≠ 0`, a
+model `θ` of norm at most `S`, `λ > 0` and `δ > 0`, the probability that at some round `n`, the
+plug-in statistic of the ridge estimate against `θ` exceeds `β_n` is at most `δ`, for any
+thresholds `β` at least the self-normalized threshold. -/
+theorem measure_exists_lt_plugInCost_le_of_selfNormalizedThreshold_le (hσ : σ2 ≠ 0)
+    (hν : ∀ θ a, task.ν θ a = gaussianReal ⟪φ a, θ⟫_ℝ σ2)
+    (hseq : IsAlgEnvSeq O A Y alg (Environment.bandit (task.ν θ)) P) (hlam : 0 < lam)
+    (hδ : 0 < δ) (hθ : ‖θ‖ ≤ S) {β : (n : ℕ) → Hist Unit α ℝ n → ℝ≥0∞}
+    (hβ : ∀ n h, selfNormalizedThreshold φ σ2 lam S δ n h ≤ β n h) :
+    P {ω | ∃ n, β n (history O A Y n ω) <
+      task.plugInCost (ridgeEstimate' (fun _ ↦ φ) lam) n (history O A Y n ω) θ} ≤
+      ENNReal.ofReal δ :=
+  (measure_mono fun _ ↦ Exists.imp fun n hn ↦ (hβ n _).trans_lt hn).trans
+    (measure_exists_selfNormalizedThreshold_lt_plugInCost_le hσ hν hseq hlam hδ hθ)
 
 /-! ### The GLRT with the self-normalized threshold -/
 
 variable {mℐ : MeasurableSpace ℐ} {β : (n : ℕ) → Hist Unit α ℝ n → ℝ≥0∞}
   {rec : (n : ℕ) → Hist Unit α ℝ n → ℐ} {hrec : ∀ n, Measurable (rec n)}
   {hstop : ∀ n, MeasurableSet
-    {h | β n h < task.glr (task.plugInCost (ridgeEstimate' φ lam)) n h (rec n h)}}
+    {h | β n h < task.glr (task.plugInCost (ridgeEstimate' (fun _ ↦ φ) lam)) n h (rec n h)}}
 
 /-- **Error probability of the GLRT of a Gaussian linear model**, for every task and every
 sampling rule. For a linear model with Gaussian observations of variance `σ2 ≠ 0`, an admissible
@@ -314,16 +294,16 @@ theorem measureReal_histOutputMeasure_glrt_selfNormalizedThreshold_le (hσ : σ2
     (hν : ∀ θ a, task.ν θ a = gaussianReal ⟪φ a, θ⟫_ℝ σ2) (hlam : 0 < lam) (hδ : 0 < δ)
     (hβ : ∀ n h, selfNormalizedThreshold φ σ2 lam S δ n h ≤ β n h) (hθ : θ ∈ task.M)
     (hθS : ‖θ‖ ≤ S) (hc : MeasurableSet (task.correct θ)) :
-    (histOutputMeasure (task.glrt (task.plugInCost (ridgeEstimate' φ lam)) alg β rec hrec hstop)
+    (histOutputMeasure
+        (task.glrt (task.plugInCost (ridgeEstimate' (fun _ ↦ φ) lam)) alg β rec hrec hstop)
         (Environment.bandit (task.ν θ))).real
-        {p | p.1 ∈ (task.glrt (task.plugInCost (ridgeEstimate' φ lam)) alg β rec hrec
-          hstop).stopSet ∧ p.2 ∉ task.correct θ} ≤ δ :=
+        {p | p.1 ∈ (task.glrt (task.plugInCost (ridgeEstimate' (fun _ ↦ φ) lam)) alg β rec
+          hrec hstop).stopSet ∧ p.2 ∉ task.correct θ} ≤ δ :=
   (task.measureReal_histOutputMeasure_glrt_le _ alg β rec hrec hstop
     (IT.isAlgEnvSeq_trajMeasure alg _) hθ hc).trans
-    (ENNReal.toReal_le_of_le_ofReal hδ.le ((measure_mono fun _ ↦
-      Exists.imp fun n hn ↦ (hβ n _).trans_lt hn).trans
-      (measure_exists_selfNormalizedThreshold_lt_plugInCost_le hσ hν
-        (IT.isAlgEnvSeq_trajMeasure alg _) hlam hδ hθS)))
+    (ENNReal.toReal_le_of_le_ofReal hδ.le
+      (measure_exists_lt_plugInCost_le_of_selfNormalizedThreshold_le hσ hν
+        (IT.isAlgEnvSeq_trajMeasure alg _) hlam hδ hθS hβ))
 
 /-- **The GLRT of a Gaussian linear model is `δ`-PAC**, for every task and every sampling rule.
 For a linear model with Gaussian observations of variance `σ2 ≠ 0` whose admissible models have
@@ -335,15 +315,14 @@ theorem isDeltaPAC_glrt_selfNormalizedThreshold (hσ : σ2 ≠ 0)
     (hβ : ∀ n h, selfNormalizedThreshold φ σ2 lam S δ n h ≤ β n h)
     (hM : ∀ θ ∈ task.M, ‖θ‖ ≤ S) (hc : ∀ θ ∈ task.M, MeasurableSet (task.correct θ))
     (h_stops : ∀ θ ∈ task.M, StopsAS
-      (task.glrt (task.plugInCost (ridgeEstimate' φ lam)) alg β rec hrec hstop)
+      (task.glrt (task.plugInCost (ridgeEstimate' (fun _ ↦ φ) lam)) alg β rec hrec hstop)
       (Environment.bandit (task.ν θ))) :
     task.IsDeltaPAC
-      (task.glrt (task.plugInCost (ridgeEstimate' φ lam)) alg β rec hrec hstop) δ :=
+      (task.glrt (task.plugInCost (ridgeEstimate' (fun _ ↦ φ) lam)) alg β rec hrec hstop) δ :=
   task.isDeltaPAC_glrt _ alg β rec hrec hstop hc
-    (fun θ hθ ↦ ENNReal.toReal_le_of_le_ofReal hδ.le ((measure_mono fun _ ↦
-      Exists.imp fun n hn ↦ (hβ n _).trans_lt hn).trans
-      (measure_exists_selfNormalizedThreshold_lt_plugInCost_le hσ hν
-        (IT.isAlgEnvSeq_trajMeasure alg _) hlam hδ (hM θ hθ)))) h_stops
+    (fun θ hθ ↦ ENNReal.toReal_le_of_le_ofReal hδ.le
+      (measure_exists_lt_plugInCost_le_of_selfNormalizedThreshold_le hσ hν
+        (IT.isAlgEnvSeq_trajMeasure alg _) hlam hδ (hM θ hθ) hβ)) h_stops
 
 end IdentTask
 

@@ -42,6 +42,8 @@ features.
   with features `φ`, parameter `θ` and σ²-sub-Gaussian noise.
 * `LMLExplore.Bandits.histFeature φ h`, `LMLExplore.Bandits.histReward h`: the features and the
   rewards of the rounds of a history, as sequences.
+* `LMLExplore.Bandits.ridgeEstimate' φ λ n h`: the ridge estimate of the parameter from the
+  history `h` of the first `n` rounds.
 * `LMLExplore.Bandits.linearRegret φ θ O A n`: the random regret `R̂_n` of the actions `A` in
   the contexts `O`.
 * `LMLExplore.Bandits.gaussianLinearKernel φ θ σ2 hφ`: the kernel `(o, a) ↦ 𝒩(⟪θ, φ o a⟫, σ2)`.
@@ -70,6 +72,8 @@ features.
   and the random regret is integrable when the expected rewards of the actions are bounded.
 * `isSubgaussianLinearEnv_gaussianLinearEnv`: the Gaussian linear environment is linear with
   σ²-sub-Gaussian noise.
+* `isSubgaussianLinearEnv_bandit_of_gaussianReal`: a stochastic bandit whose arm `a` has the law
+  `𝒩(⟪φ a, θ⟫, σ2)` is a linear bandit with σ²-sub-Gaussian noise.
 * `isSubgaussianLinearEnv_bandit`, `linearRegret_single_eq_regret`: a stochastic bandit with
   finitely many σ²-sub-Gaussian arms is a linear bandit with the one-hot features
   `a ↦ EuclideanSpace.single a 1` and the vector of means as parameter, and its linear regret is
@@ -174,6 +178,33 @@ lemma histReward_history {O : ℕ → Ω → 𝓞} {A : ℕ → Ω → 𝓐} {Y 
     (hs : s < n) (ω : Ω) :
     histReward (history O A Y n ω) s = Y s ω := by
   simp [histReward_def, hs, history_apply]
+
+/-- The *ridge estimate* `θ̂_n = V_n⁻¹ ∑_{s < n} r s • x s` of the parameter of a linear bandit
+with features `φ`, from the history `h` of the first `n` rounds, with the features `x s` and the
+rewards `r s` of the rounds of `h` and the design operator `V_n = λ 1 + ∑_{s < n} x s ⊗ x s` of
+ridge regression with parameter `λ`. -/
+noncomputable def ridgeEstimate' (φ : 𝓞 → 𝓐 → E) (lam : ℝ) (n : ℕ) (h : Hist 𝓞 𝓐 ℝ n) : E :=
+  ridgeEstimate lam (histFeature φ h) (histReward h) n
+
+lemma ridgeEstimate'_def {lam : ℝ} (n : ℕ) (h : Hist 𝓞 𝓐 ℝ n) :
+    ridgeEstimate' φ lam n h = ridgeEstimate lam (histFeature φ h) (histReward h) n :=
+  (rfl)
+
+/-- The ridge estimate of the history of a sequence of rounds is the ridge estimate of the
+features of the contexts and actions played and of the rewards. -/
+@[simp]
+lemma ridgeEstimate'_history {O : ℕ → Ω → 𝓞} {A : ℕ → Ω → 𝓐} {Y : ℕ → Ω → ℝ} {lam : ℝ}
+    (n : ℕ) (ω : Ω) :
+    ridgeEstimate' φ lam n (history O A Y n ω) =
+      ridgeEstimate lam (fun s ↦ φ (O s ω) (A s ω)) (fun s ↦ Y s ω) n :=
+  ridgeEstimate_congr (fun _ hs ↦ histFeature_history hs ω) fun _ hs ↦ histReward_history hs ω
+
+/-- In finite dimension, the ridge estimate depends measurably on the history, for jointly
+measurable features. -/
+lemma measurable_ridgeEstimate' [MeasurableSpace 𝓞] [MeasurableSpace 𝓐] [MeasurableSpace E]
+    [BorelSpace E] [FiniteDimensional ℝ E] (hφ : Measurable (Function.uncurry φ)) (lam : ℝ)
+    (n : ℕ) : Measurable (ridgeEstimate' φ lam n) :=
+  (measurable_histFeature hφ n).ridgeEstimate (measurable_histReward n) lam n
 
 end History
 
@@ -446,6 +477,16 @@ theorem isSubgaussianLinearEnv_gaussianLinearEnv :
     IsSubgaussianLinearEnv φ θ σ2 (gaussianLinearEnv μ φ θ σ2 hφ) := fun n h o a ↦ by
   rw [feedback_gaussianLinearEnv_apply]
   exact hasSubgaussianMGF_sub_of_hasLaw_gaussianReal HasLaw.id
+
+/-- **Gaussian linear arms.** A stochastic bandit `ν` whose arm `a` has the law
+`𝒩(⟪φ a, θ⟫, σ2)` is a linear bandit with features `φ`, parameter `θ` and σ²-sub-Gaussian
+noise. -/
+theorem isSubgaussianLinearEnv_bandit_of_gaussianReal {α : Type*} [MeasurableSpace α]
+    {ν : Kernel α ℝ} [IsMarkovKernel ν] {φ : α → E} (hν : ∀ a, ν a = gaussianReal ⟪φ a, θ⟫_ℝ σ2) :
+    IsSubgaussianLinearEnv (fun (_ : Unit) ↦ φ) θ σ2 (Environment.bandit ν) :=
+  isSubgaussianLinearEnv_iff.2 fun n h o a ↦ by
+    rw [feedback_bandit, Kernel.prodMkLeft_apply, hν, real_inner_comm]
+    exact hasSubgaussianMGF_sub_of_hasLaw_gaussianReal HasLaw.id
 
 end Gaussian
 
