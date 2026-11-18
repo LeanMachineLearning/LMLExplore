@@ -38,6 +38,11 @@ defines these operations on `OnlineLearner`, computes their runs, and transfers 
 * `A.map f` plays the images by `f` of the plays of `A` (`run_map`). For a translation
   `f = (x₀ + ·)` and linear losses, the regret against `u` is the regret of `A` against `u - x₀`
   (`regret_run_map_add_left`, `HasRegretBound.map_add_left`) [Ora, Proposition 13.10].
+* `A.withContext` plays the context of each round together with the play of `A`
+  (`run_withContext`). Its closed-loop runs are those of `A` with feedback functions that read the
+  contexts (`closedLoopFeedback_withContext`), so `A.withContext.reduce f φ` is a reduction whose
+  output map and surrogate feedback depend on the context of the round, as in the sleeping-experts
+  reduction of [Ora, Section 12.2].
 * `A.reduce f φ`, the **black-box reduction** to `A` with the output map `f` and the surrogate
   feedback `φ`, plays `f (z t)` when `A` plays `z t`, and feeds `A` the surrogate `φ (z t) (g t)`
   of its own feedback `g t` (`play_reduce`). The plays of `A` are those of its closed-loop run
@@ -59,6 +64,8 @@ defines these operations on `OnlineLearner`, computes their runs, and transfers 
 * `LMLExplore.OnlineLearning.OnlineLearner.sum A`: the sum of the plays of a finite family of
   learners.
 * `LMLExplore.OnlineLearning.OnlineLearner.map A f`: the images by `f` of the plays of `A`.
+* `LMLExplore.OnlineLearning.OnlineLearner.withContext A`: the plays of `A` paired with the
+  contexts.
 * `LMLExplore.OnlineLearning.OnlineLearner.reduce A f φ`: the black-box reduction to `A` with the
   output map `f` and the surrogate feedback `φ`.
 * `LMLExplore.OnlineLearning.OnlineLearner.skipZero A`: `A` skipping the rounds with zero
@@ -333,6 +340,35 @@ theorem HasRegretBound.map_add_left (hA : A.HasRegretBound (fun y x ↦ y x) adm
   exact hA.regret_le hy hu
 
 end Map
+
+section WithContext
+
+variable (A : OnlineLearner C G X)
+
+/-- The learner playing the context of each round together with the play of `A`. Reductions built
+on `A.withContext` see the context of the round in their output map and surrogate feedback. -/
+def withContext : OnlineLearner C G (C × X) where
+  play t h c := (c, A.play t h c)
+
+/-- The play of `A.withContext` is the context of the round paired with the play of `A`. -/
+@[simp]
+lemma play_withContext (t : ℕ) (h : Fin t → C × G) (c : C) :
+    A.withContext.play t h c = (c, A.play t h c) := (rfl)
+
+/-- The plays of `A.withContext` are the contexts paired with the plays of `A`. -/
+@[simp]
+lemma run_withContext (c : ℕ → C) (g : ℕ → G) (t : ℕ) :
+    A.withContext.run c g t = (c t, A.run c g t) := by
+  rw [run_def, run_def, play_withContext]
+
+/-- The closed-loop feedback of `A.withContext` for the feedback functions `φ` is the closed-loop
+feedback of `A` for the feedback functions `z ↦ φ t (c t, z)`. -/
+lemma closedLoopFeedback_withContext (c : ℕ → C) (φ : ℕ → C × X → G) :
+    A.withContext.closedLoopFeedback c φ = A.closedLoopFeedback c fun t z ↦ φ t (c t, z) := by
+  refine A.closedLoopFeedback_unique fun t ↦ ?_
+  rw [closedLoopFeedback_eq, run_withContext]
+
+end WithContext
 
 section Reduce
 
