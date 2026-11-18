@@ -78,7 +78,7 @@ theorem sum_inv_pullCount_add_one_le (ω : Ω) (K : ℕ) :
     gcongr 1 + ?_
     simpa using log_natCast_le_log_natCast n.le_succ
   -- Jensen's inequality for the concave logarithm
-  have h_jensen := sum_log_add_one_le_card_mul_log (s := univ) ⟨A 0 ω, mem_univ _⟩
+  have h_jensen := sum_log_add_one_le_card_mul_log (s := univ)
     (x := fun a ↦ (pullCount A a K ω : ℝ)) fun _ _ ↦ Nat.cast_nonneg _
   rw [sum_natCast_pullCount, card_univ, add_comm _ (1 : ℝ)] at h_jensen
   calc ∑ a, ∑ j ∈ range (pullCount A a K ω), ((j : ℝ) + 1)⁻¹

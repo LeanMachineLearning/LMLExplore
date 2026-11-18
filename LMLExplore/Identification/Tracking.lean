@@ -975,7 +975,7 @@ theorem sum_sum_div_pullCount_le_of_cumulativeTracking (p : ℕ → α → ℝ)
       rw [sum_add_distrib, ← mul_sum]
       simp only [sum_const, card_univ, nsmul_eq_mul, mul_assoc]
       gcongr
-      have h := Real.sum_log_add_one_le_card_mul_log ⟨A 0 ω, mem_univ _⟩
+      have h := Real.sum_log_add_one_le_card_mul_log (s := univ)
         (x := fun a ↦ ∑ s ∈ range n, p s a) fun a _ ↦ sum_nonneg fun s _ ↦ hp0 s a
       rwa [sum_sum_eq_of_sum_eq_one p hp1 n, card_univ] at h
 

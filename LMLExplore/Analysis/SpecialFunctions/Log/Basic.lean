@@ -670,12 +670,14 @@ theorem sum_div_max_one_le_four_mul_log {u : ℕ → ℝ} {n : ℕ} (hu : ∀ k 
     fun k hk ↦ (hu k hk).2.trans (le_max_left _ _)
   linarith
 
-/-- **Jensen's inequality for `log (· + 1)`**: for nonnegative `x i` over a nonempty finset `s`,
+/-- **Jensen's inequality for `log (· + 1)`**: for nonnegative `x i` over a finset `s`,
 `∑_{i ∈ s} log (x i + 1) ≤ #s log ((∑_{i ∈ s} x i) / #s + 1)`, by the concavity of the
 logarithm. It sums per-arm logarithmic bounds over the arms. -/
-theorem sum_log_add_one_le_card_mul_log {ι : Type*} {s : Finset ι} (hs : s.Nonempty)
+theorem sum_log_add_one_le_card_mul_log {ι : Type*} {s : Finset ι}
     {x : ι → ℝ} (hx : ∀ i ∈ s, 0 ≤ x i) :
     ∑ i ∈ s, log (x i + 1) ≤ s.card * log ((∑ i ∈ s, x i) / s.card + 1) := by
+  obtain rfl | hs := s.eq_empty_or_nonempty
+  · simp
   have hK : (0 : ℝ) < s.card := Nat.cast_pos.2 hs.card_pos
   have h := strictConcaveOn_log_Ioi.concaveOn.le_map_sum (t := s) (w := fun _ ↦ (s.card : ℝ)⁻¹)
     (p := fun i ↦ x i + 1) (fun _ _ ↦ inv_nonneg.2 hK.le) (by simp [hK.ne'])
