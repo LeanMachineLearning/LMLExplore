@@ -158,6 +158,28 @@ theorem measure_exists_le_sum_and_gt_and_lt_rateFunction_le
   _ = ⨆ q, P (G q) := h_dir.measure_iUnion
   _ ≤ ENNReal.ofReal (exp (-(a * r))) := iSup_le h_G
 
+/-- If `θ ≤ N I` with `0 < θ` and `0 ≤ N < b`, then `θ / b < I`: a deviation `θ` reached with
+fewer than `b` selected variables forces a rate above `θ / b`. -/
+theorem ofReal_div_lt_of_ofReal_le_ofReal_mul {N θ b : ℝ} {I : ℝ≥0∞} (hN : 0 ≤ N) (hθ : 0 < θ)
+    (hb : N < b) (h : ENNReal.ofReal θ ≤ ENNReal.ofReal N * I) : ENNReal.ofReal (θ / b) < I := by
+  by_contra! h'
+  have hb0 : 0 < b := hN.trans_lt hb
+  have hlt : N * (θ / b) < θ :=
+    (mul_lt_mul_of_pos_right hb (div_pos hθ hb0)).trans_eq (mul_div_cancel₀ θ hb0.ne')
+  refine (h.trans (mul_le_mul_right h' _)).not_gt ?_
+  rw [← ENNReal.ofReal_mul hN]
+  exact (ENNReal.ofReal_lt_ofReal_iff hθ).2 hlt
+
+omit [IsProbabilityMeasure Q] in
+/-- A conditional bound on the moment generating function of `Z` by that of `Y` on the nonpositive
+parameters is a bound on that of `-Z` by that of `-Y` on the nonnegative parameters: the
+deviations of `Z` below the mean of `Y` are those of `-Z` above the mean of `-Y`. -/
+lemma HasCondMGFBound.neg_Ici_of_Iic {m : MeasurableSpace Ω} {hm : m ≤ mΩ} {Z : Ω → ℝ}
+    (h : HasCondMGFBound m hm Z (cgf Y Q) (Iic 0 ∩ integrableExpSet Y Q) P) :
+    HasCondMGFBound m hm (-Z) (cgf (-Y) Q) (Ici 0 ∩ integrableExpSet (-Y) Q) P := by
+  refine h.neg.mono (fun t ⟨ht0, ht⟩ ↦ ⟨neg_nonpos.2 ht0, ?_⟩) fun t _ ↦ cgf_neg.ge
+  simpa [integrableExpSet] using ht
+
 /-- **Peeling bound for the self-normalized deviations above the mean.** Let `X k` be
 `ℱ (k + 1)`-measurable with moment generating function conditionally bounded by that of `Y` on
 the nonnegative parameters given `ℱ k`, and let the selection indicators `w` be adapted with values
@@ -195,15 +217,7 @@ theorem measure_exists_gt_and_le_mul_rateFunction_le_mul
       rw [le_div_iff₀ (log_pos hc), ← log_pow]
       exact log_le_log (pow_pos hc0 k) (hk.trans hn)
     · -- `x ≤ N t I(μ̂ t)` with `N t < c ^ (k + 1)` forces `x / c ^ (k + 1) < I(μ̂ t)`
-      by_contra! h
-      have h' : ENNReal.ofReal (∑ k ∈ range t, w k ω) *
-          rateFunction Y Q ((∑ k ∈ range t, w k ω * X k ω) / ∑ k ∈ range t, w k ω) ≤
-          ENNReal.ofReal (∑ k ∈ range t, w k ω) * ENNReal.ofReal (x / c ^ (k + 1)) := by
-        gcongr
-      refine (hrate.trans h').not_gt ?_
-      rw [← ENNReal.ofReal_mul (zero_le_one.trans h1), ENNReal.ofReal_lt_ofReal_iff hx,
-        ← mul_div_assoc, div_lt_iff₀ (pow_pos hc0 _)]
-      exact mul_lt_mul_of_pos_right hk' hx |>.trans_eq (mul_comm _ _)
+      exact ofReal_div_lt_of_ofReal_le_ofReal_mul (zero_le_one.trans h1) hx hk' hrate
   calc _ ≤ P (⋃ k ∈ range (⌊log n / log c⌋₊ + 1), E k) := measure_mono h_sub
   _ ≤ ∑ k ∈ range (⌊log n / log c⌋₊ + 1), P (E k) := measure_biUnion_finset_le _ _
   _ ≤ ∑ k ∈ range (⌊log n / log c⌋₊ + 1), ENNReal.ofReal (exp (-(x / c))) := by
@@ -305,12 +319,9 @@ theorem measure_exists_lt_and_le_mul_rateFunction_le_mul
         rateFunction Y Q ((∑ k ∈ range t, w k ω * X k ω) / ∑ k ∈ range t, w k ω)} ≤
       (⌊log n / log c⌋₊ + 1 : ℕ) * ENNReal.ofReal (exp (-(x / c))) := by
   -- the deviations of `X` below the mean of `Y` are those of `-X` above the mean of `-Y`
-  have hψ' (n : ℕ) : HasCondMGFBound (ℱ n) (ℱ.le n) (-X n) (cgf (-Y) Q)
-      (Ici 0 ∩ integrableExpSet (-Y) Q) P := by
-    refine (hψ n).neg.mono (fun t ⟨ht0, ht⟩ ↦ ⟨neg_nonpos.2 ht0, ?_⟩) fun t _ ↦ cgf_neg.ge
-    simpa [integrableExpSet] using ht
   refine le_trans (measure_mono ?_) (measure_exists_gt_and_le_mul_rateFunction_le_mul
-    (X := fun n ↦ -X n) (fun n ↦ (hX n).neg) hψ' hw hw01 hY.neg hc hx n)
+    (X := fun n ↦ -X n) (fun n ↦ (hX n).neg) (fun n ↦ (hψ n).neg_Ici_of_Iic) hw hw01 hY.neg hc
+    hx n)
   rintro ω ⟨t, h1, hn, hm, hrate⟩
   refine ⟨t, h1, hn, ?_, ?_⟩
   · simpa [integral_neg, neg_div] using hm
