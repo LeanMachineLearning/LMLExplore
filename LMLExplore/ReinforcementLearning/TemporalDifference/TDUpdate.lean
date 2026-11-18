@@ -6,6 +6,7 @@ Authors: LMLExplore contributors
 module
 
 public import LMLExplore.ReinforcementLearning.TemporalDifference.ProjectedBellman
+public import Mathlib.Probability.Process.Filtration
 import TauCeti.MeasureTheory.Integral.Bind
 
 /-!
@@ -30,6 +31,8 @@ contracts the squared distance to a zero `θ*` of `g` in expectation, up to the 
 * `LMLExplore.ReinforcementLearning.tdUpdate_sub`: `d` is affine in the parameter.
 * `LMLExplore.ReinforcementLearning.measurable_add_smul_tdUpdate`: the TD(0) step
   `(θ, o) ↦ θ + a d θ o` is measurable.
+* `LMLExplore.ReinforcementLearning.measurable_tdUpdate_iterate`: the TD(0) iterates are adapted
+  to a filtration to which the initial parameter and the observations are adapted.
 * `LMLExplore.ReinforcementLearning.norm_tdUpdate_le`: `‖d θ o‖ ≤ |R o| + (1 + γ) ‖θ‖` for
   features with `‖φ s‖ ≤ 1`.
 * `LMLExplore.ReinforcementLearning.integral_tdUpdate`: `𝔼 d θ = g θ` for transitions
@@ -101,6 +104,22 @@ theorem measurable_add_smul_tdUpdate [Countable 𝓢] [MeasurableSingletonClass 
     Measurable fun p : E × (𝓢 × 𝓢) ↦ p.1 + a • tdUpdate φ R γ p.1 p.2 :=
   measurable_from_prod_countable_left fun o ↦
     (continuous_id.add ((continuous_tdUpdate o).const_smul a)).measurable
+
+/-- **The iterates of TD(0) are adapted**: along `θ (t + 1) = θ t + α t d (θ t) (O t)`, the
+iterates are adapted to a filtration `ℱ` for which `θ 0` is `ℱ 0`-measurable and each
+observation `O t` is `ℱ (t + 1)`-measurable. -/
+theorem measurable_tdUpdate_iterate [Countable 𝓢] [MeasurableSingletonClass 𝓢]
+    [MeasurableSpace E] [BorelSpace E] {Ω : Type*} {mΩ : MeasurableSpace Ω}
+    {ℱ : Filtration ℕ mΩ} {θ : ℕ → Ω → E} {O : ℕ → Ω → 𝓢 × 𝓢} {α : ℕ → ℝ}
+    (hθ : ∀ t x, θ (t + 1) x = θ t x + α t • tdUpdate φ R γ (θ t x) (O t x))
+    (hθ₀ : Measurable[ℱ 0] (θ 0)) (hO : ∀ t, Measurable[ℱ (t + 1)] (O t)) (t : ℕ) :
+    Measurable[ℱ t] (θ t) := by
+  induction t with
+  | zero => exact hθ₀
+  | succ t ih =>
+    rw [funext (hθ t)]
+    exact (measurable_add_smul_tdUpdate (α t)).comp
+      ((ih.mono (ℱ.mono t.le_succ) le_rfl).prodMk (hO t))
 
 variable [Finite 𝓢] [MeasurableSingletonClass 𝓢] {ν : Measure 𝓢} [IsProbabilityMeasure ν]
   {P : Kernel 𝓢 𝓢} [IsMarkovKernel P]

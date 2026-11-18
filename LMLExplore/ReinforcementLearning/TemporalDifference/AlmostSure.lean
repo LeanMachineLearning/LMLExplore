@@ -34,11 +34,11 @@ with `∑ α t = ∞` and `∑ α t² < ∞`, the iterates converge to `θ*` alm
 
 ## Main statements
 
-* `LMLExplore.ReinforcementLearning.ae_tendsto_of_indep`: TD(0) converges almost surely to the
-  zero `θ*` of `g`, when each observation has law `ν ⊗ₘ P` and is independent of the past
+* `LMLExplore.ReinforcementLearning.ae_tendsto_tdUpdate_of_indep`: TD(0) converges almost surely
+  to the zero `θ*` of `g`, when each observation has law `ν ⊗ₘ P` and is independent of the past
   `ℱ t` of a filtration to which the iterates are adapted.
-* `LMLExplore.ReinforcementLearning.ae_tendsto_of_iIndepFun`: the same, from a deterministic
-  `θ 0`, for mutually independent observations of law `ν ⊗ₘ P`.
+* `LMLExplore.ReinforcementLearning.ae_tendsto_tdUpdate_of_iIndepFun`: the same, from a
+  deterministic `θ 0`, for mutually independent observations of law `ν ⊗ₘ P`.
 
 ## References
 
@@ -111,23 +111,6 @@ variable [SecondCountableTopology E] [MeasurableSpace E] [BorelSpace E]
   {Ω : Type*} {mΩ : MeasurableSpace Ω} {μ : Measure Ω} [IsProbabilityMeasure μ]
   {ℱ : Filtration ℕ mΩ} {θ : ℕ → Ω → E} {O : ℕ → Ω → 𝓢 × 𝓢} {α : ℕ → ℝ≥0}
 
-omit [Finite 𝓢] [IsProbabilityMeasure ν] [IsMarkovKernel P] [SecondCountableTopology E]
-  [CompleteSpace E] [IsProbabilityMeasure μ] in
-/-- Along `θ (t + 1) = θ t + α t d (θ t) (O t)`, the iterates are adapted to a filtration `ℱ`
-for which `θ 0` is `ℱ 0`-measurable and each observation `O t` is `ℱ (t + 1)`-measurable. -/
-private lemma measurable_iterate [Countable 𝓢]
-    (hθ : ∀ t x, θ (t + 1) x = θ t x + α t • tdUpdate φ R γ (θ t x) (O t x))
-    (hθ₀ : Measurable[ℱ 0] (θ 0)) (hO : ∀ t, Measurable[ℱ (t + 1)] (O t)) (t : ℕ) :
-    Measurable[ℱ t] (θ t) := by
-  induction t with
-  | zero => exact hθ₀
-  | succ t ih =>
-    have hfun : θ (t + 1) = fun x ↦ θ t x + (α t : ℝ) • tdUpdate φ R γ (θ t x) (O t x) :=
-      funext fun x ↦ by rw [hθ, NNReal.smul_def]
-    rw [hfun]
-    exact (measurable_add_smul_tdUpdate (α t : ℝ)).comp
-      ((ih.mono (ℱ.mono t.le_succ) le_rfl).prodMk (hO t))
-
 omit [SecondCountableTopology E] in
 /-- The noise `(θ, o) ↦ g θ - d θ o` of TD(0), as a function of the parameter and the
 transition, is measurable. -/
@@ -162,8 +145,8 @@ mean-path TD update. Let the iterates follow `θ (t + 1) = θ t + α t d (θ t) 
 `ℱ 0`-measurable `θ 0` with `𝔼 ‖θ 0‖² < ∞`, where each observation `O t` is
 `ℱ (t + 1)`-measurable, has law `ν ⊗ₘ P` and is independent of `ℱ t`. If the deterministic
 steps satisfy `∑ α t = ∞` and `∑ α t² < ∞`, then `θ t → θ*` almost surely. -/
-theorem ae_tendsto_of_indep (hP : P.Invariant ν) (hφ : ∀ s, ‖φ s‖ ≤ 1) (hγ : γ < 1) {ω : ℝ}
-    (hω₀ : 0 < ω) (hω : ∀ θ, ω * ‖θ‖ ^ 2 ≤ ∫ s, ⟪φ s, θ⟫_ℝ ^ 2 ∂ν)
+theorem ae_tendsto_tdUpdate_of_indep (hP : P.Invariant ν) (hφ : ∀ s, ‖φ s‖ ≤ 1) (hγ : γ < 1)
+    {ω : ℝ} (hω₀ : 0 < ω) (hω : ∀ θ, ω * ‖θ‖ ^ 2 ≤ ∫ s, ⟪φ s, θ⟫_ℝ ^ 2 ∂ν)
     (hθ' : meanTDUpdate ν φ P (fun s ↦ ∫ s', R (s, s') ∂(P s)) γ θ' = 0)
     (hθ : ∀ t x, θ (t + 1) x = θ t x + α t • tdUpdate φ R γ (θ t x) (O t x))
     (hθ₀ : Measurable[ℱ 0] (θ 0)) (hθ₀' : MemLp (fun x ↦ ‖θ 0 x‖) 2 μ)
@@ -174,7 +157,8 @@ theorem ae_tendsto_of_indep (hP : P.Invariant ν) (hφ : ∀ s, ‖φ s‖ ≤ 1
     ∀ᵐ x ∂μ, Tendsto (fun t ↦ θ t x) atTop (𝓝 θ') := by
   set g := meanTDUpdate ν φ P (fun s ↦ ∫ s', R (s, s') ∂(P s)) γ with hg
   have hγ₁ : (γ : ℝ) < 1 := by exact_mod_cast hγ
-  have hθm := measurable_iterate hθ hθ₀ hO
+  have hθm := measurable_tdUpdate_iterate (α := fun t ↦ (α t : ℝ))
+    (fun t x ↦ by rw [hθ, NNReal.smul_def]) hθ₀ hO
   have hO' (t : ℕ) : Measurable (O t) := (hO t).mono (ℱ.le _) le_rfl
   obtain ⟨K, hK⟩ := exists_norm_meanTDUpdate_sub_tdUpdate_le hP hφ hγ.le hθ'
   -- TD(0) is the Robbins–Monro recursion for `h = -g`, with noise `ξ (t + 1) = g (θ t) - d (θ t)`
@@ -227,8 +211,8 @@ theorem ae_tendsto_of_indep (hP : P.Invariant ν) (hφ : ∀ s, ‖φ s‖ ≤ 1
 update. Along `θ (t + 1) = θ t + α t d (θ t) (O t)` from a deterministic `θ 0`, with mutually
 independent observations of law `ν ⊗ₘ P` and deterministic steps with `∑ α t = ∞` and
 `∑ α t² < ∞`, `θ t → θ*` almost surely. -/
-theorem ae_tendsto_of_iIndepFun (hP : P.Invariant ν) (hφ : ∀ s, ‖φ s‖ ≤ 1) (hγ : γ < 1)
-    {ω : ℝ} (hω₀ : 0 < ω) (hω : ∀ θ, ω * ‖θ‖ ^ 2 ≤ ∫ s, ⟪φ s, θ⟫_ℝ ^ 2 ∂ν)
+theorem ae_tendsto_tdUpdate_of_iIndepFun (hP : P.Invariant ν) (hφ : ∀ s, ‖φ s‖ ≤ 1)
+    (hγ : γ < 1) {ω : ℝ} (hω₀ : 0 < ω) (hω : ∀ θ, ω * ‖θ‖ ^ 2 ≤ ∫ s, ⟪φ s, θ⟫_ℝ ^ 2 ∂ν)
     (hθ' : meanTDUpdate ν φ P (fun s ↦ ∫ s', R (s, s') ∂(P s)) γ θ' = 0)
     (hθ : ∀ t x, θ (t + 1) x = θ t x + α t • tdUpdate φ R γ (θ t x) (O t x)) {θ₀ : E}
     (hθ₀ : ∀ x, θ 0 x = θ₀) (hO : ∀ t, Measurable (O t)) (hind : iIndepFun O μ)
@@ -236,8 +220,8 @@ theorem ae_tendsto_of_iIndepFun (hP : P.Invariant ν) (hφ : ∀ s, ‖φ s‖ �
     (hα2 : Summable fun t ↦ α t ^ 2) :
     ∀ᵐ x ∂μ, Tendsto (fun t ↦ θ t x) atTop (𝓝 θ') := by
   have h0 : θ 0 = fun _ ↦ θ₀ := funext hθ₀
-  refine ae_tendsto_of_indep (ℱ := Filtration.naturalLT O hO) hP hφ hγ hω₀ hω hθ' hθ
-    (h0 ▸ measurable_const) (h0 ▸ memLp_const ‖θ₀‖)
+  refine ae_tendsto_tdUpdate_of_indep (ℱ := Filtration.naturalLT O hO) hP hφ hγ hω₀ hω hθ'
+    hθ (h0 ▸ measurable_const) (h0 ▸ memLp_const ‖θ₀‖)
     (fun t ↦ Filtration.measurable_naturalLT hO t.lt_succ_self)
     (Filtration.indep_naturalLT hO hind) hlaw hα hα2
 

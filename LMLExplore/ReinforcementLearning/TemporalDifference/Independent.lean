@@ -133,23 +133,6 @@ private lemma aemeasurable_and_memLp_norm (hφ : ∀ s, ‖φ s‖ ≤ 1)
       _ = (1 + |α t| * (1 + γ)) * ‖θ t x‖ + |α t| * C := by ring
 
 omit [IsProbabilityMeasure μ] in
-/-- Along `θ (t + 1) = θ t + α t d (θ t) (O t)` from a deterministic `θ 0`, the iterate `θ t` is
-measurable for the σ-algebra of the strict past `O 0, …, O (t - 1)` of the observations. -/
-private lemma measurable_naturalLT
-    (hθ : ∀ t x, θ (t + 1) x = θ t x + α t • tdUpdate φ R γ (θ t x) (O t x)) {θ₀ : E}
-    (hθ₀ : ∀ x, θ 0 x = θ₀) (hO : ∀ t, Measurable (O t)) (t : ℕ) :
-    Measurable[Filtration.naturalLT O hO t] (θ t) := by
-  induction t with
-  | zero =>
-    rw [funext hθ₀]
-    exact measurable_const
-  | succ t ih =>
-    rw [funext (hθ t)]
-    exact (measurable_add_smul_tdUpdate (α t)).comp
-      ((ih.mono ((Filtration.naturalLT O hO).mono t.le_succ) le_rfl).prodMk
-        (Filtration.measurable_naturalLT hO t.lt_succ_self))
-
-omit [IsProbabilityMeasure μ] in
 /-- **Independent observations are independent of the current iterate**: along
 `θ (t + 1) = θ t + α t d (θ t) (O t)` from a deterministic `θ 0`, with mutually independent
 measurable observations `O t`, the iterate `θ t` is independent of the observation `O t`. With
@@ -158,7 +141,8 @@ theorem indepFun_iterate_of_iIndepFun
     (hθ : ∀ t x, θ (t + 1) x = θ t x + α t • tdUpdate φ R γ (θ t x) (O t x)) {θ₀ : E}
     (hθ₀ : ∀ x, θ 0 x = θ₀) (hO : ∀ t, Measurable (O t)) (hind : iIndepFun O μ) (t : ℕ) :
     IndepFun (θ t) (O t) μ := by
-  have h := measurable_naturalLT hθ hθ₀ hO t
+  have h := measurable_tdUpdate_iterate (ℱ := Filtration.naturalLT O hO) hθ
+    (funext hθ₀ ▸ measurable_const) (fun t ↦ Filtration.measurable_naturalLT hO t.lt_succ_self) t
   rw [Filtration.naturalLT_apply] at h
   -- `j ∈ Set.Iio t` is `j < t` by definition
   exact (hind.indepFun_of_measurable_iSup_comap hO (S := Set.Iio t) (lt_irrefl t) h).symm
