@@ -5,9 +5,10 @@ Authors: LMLExplore contributors
 -/
 module
 
+public import LMLExplore.EValues.TestSupermartingale.Predictor
 public import Mathlib.Probability.HasLaw
-public import Mathlib.Probability.Independence.Integration
 public import Mathlib.Probability.Martingale.Basic
+import LMLExplore.MeasureTheory.Measure.Singletons
 
 /-!
 # Likelihood ratios of sequential predictors
@@ -41,8 +42,15 @@ over the alternatives.
 
 ## Implementation notes
 
-The supermartingale property is adapted, and generalised from Laplace's rule of succession to
-every predictor, from `InformationTheory/KLTimeUniform.lean` of the formalization
+The (super)martingale property is the case of a finite alphabet and of the constant conditional
+laws `ν` of the general statement for sequential predictors on any observation space against any
+conditional law of the observations,
+`ProbabilityTheory.isTestSupermartingale_prod_of_hasCondLaw` and
+`ProbabilityTheory.isTestMartingale_prod_of_hasCondLaw` in
+`EValues/TestSupermartingale/Predictor.lean`: the density of the prediction `q t ω` with
+respect to `ν` is `a ↦ q t ω a / ν{a}`, and an observation independent of the past with law `ν`
+has the conditional law `ν` given the past (`ProbabilityTheory.hasCondLaw_of_indep`). The
+statements are adapted from `InformationTheory/KLTimeUniform.lean` of the formalization
 RemyDegenne/Essakine2026Tight (commit 38bbd16f, directory `ForLMLExplore/`).
 
 ## References
@@ -149,122 +157,69 @@ lemma integrable_predictorLikelihoodRatio {μ : Measure Ω} [IsFiniteMeasure μ]
 
 variable {μ : Measure Ω} [IsProbabilityMeasure μ]
 
-/-- The one-step identity behind the (super)martingale property: for `s ∈ ℱ n`,
-`∫_s L_{n + 1} = ∫_s L_n ∑ a, ν{a} q n a / ν{a}`, since `ξ n` is independent of `ℱ n` with law
-`ν`. -/
-private lemma setIntegral_predictorLikelihoodRatio_succ (hξ : ∀ t, Measurable[ℱ (t + 1)] (ξ t))
-    (hind : ∀ t, Indep (MeasurableSpace.comap (ξ t) inferInstance) (ℱ t) μ)
-    (hlaw : ∀ t, HasLaw (ξ t) ν μ) (hq : ∀ t a, Measurable[ℱ t] (fun ω ↦ q t ω a))
-    (hq0 : ∀ t ω a, 0 ≤ q t ω a) (hq1 : ∀ t ω, ∑ a, q t ω a ≤ 1) (n : ℕ) {s : Set Ω}
-    (hs : MeasurableSet[ℱ n] s) :
-    ∫ ω in s, predictorLikelihoodRatio ν q ξ (n + 1) ω ∂μ =
-      ∫ ω in s, predictorLikelihoodRatio ν q ξ n ω *
-        ∑ a, ν.real {a} * (q n ω a / ν.real {a}) ∂μ := by
-  classical
-  set L := predictorLikelihoodRatio ν q ξ with hL
-  set C : ℝ := ∑ a, (ν.real {a})⁻¹
-  have hC0 : 0 ≤ C := sum_nonneg fun a _ ↦ inv_nonneg.2 measureReal_nonneg
-  have hξm : Measurable (ξ n) := (hξ n).mono (ℱ.le _) le_rfl
-  have hsm : MeasurableSet s := ℱ.le n s hs
-  -- `F a = 1_s L_n q n a / ν{a}`, measurable for `ℱ n`, and `G a = 1_{ξ n = a}`
-  set F : α → Ω → ℝ := fun a ↦ s.indicator fun ω ↦ L n ω * (q n ω a / ν.real {a}) with hF
-  set G : α → Ω → ℝ := fun a ↦ (ξ n ⁻¹' {a}).indicator 1 with hG
-  have hFmeas : ∀ a, Measurable[ℱ n] (F a) := fun a ↦
-    ((measurable_predictorLikelihoodRatio hξ hq n).mul ((hq n a).div_const _)).indicator hs
-  have hGmeas : ∀ a, Measurable[MeasurableSpace.comap (ξ n) inferInstance] (G a) := fun a ↦
-    measurable_const.indicator (comap_measurable (ξ n) (measurableSet_singleton a))
-  have hFm : ∀ a, Measurable (F a) := fun a ↦ (hFmeas a).mono (ℱ.le n) le_rfl
-  have hGm : ∀ a, Measurable (G a) := fun a ↦
-    measurable_const.indicator (hξm (measurableSet_singleton a))
-  have hFint : ∀ a, Integrable (F a) μ := fun a ↦ by
-    refine Integrable.of_mem_Icc 0 (C ^ n * C) (hFm a).aemeasurable (ae_of_all _ fun ω ↦ ?_)
-    have h0 : 0 ≤ q n ω a / ν.real {a} := div_nonneg (hq0 n ω a) measureReal_nonneg
-    simp only [hF, Set.indicator_apply]
-    split_ifs
-    · exact ⟨mul_nonneg (predictorLikelihoodRatio_nonneg hq0 n ω) h0,
-        mul_le_mul (predictorLikelihoodRatio_le hq0 hq1 n ω)
-          (div_measureReal_le_sum_inv hq0 hq1 n ω a) h0 (pow_nonneg hC0 n)⟩
-    · exact ⟨le_rfl, mul_nonneg (pow_nonneg hC0 n) hC0⟩
-  -- `1_s L_{n + 1} = ∑ a, F a G a`, by the value of `ξ n`
-  have h_decomp : s.indicator (L (n + 1)) = fun ω ↦ ∑ a, F a ω * G a ω := by
-    ext ω
-    by_cases hω : ω ∈ s
-    · simp only [hF, hG, Set.indicator_apply, hω, ite_true, Set.mem_preimage,
-        Set.mem_singleton_iff, Pi.one_apply, mul_ite, mul_one, mul_zero, sum_ite_eq, mem_univ,
-        hL, predictorLikelihoodRatio_succ]
-    · simp [hF, Set.indicator_of_notMem hω]
-  -- independence of `ξ n` from `ℱ n`
-  have h_indep : ∀ a, ∫ ω, F a ω * G a ω ∂μ = ∫ ω, F a ω * ν.real {a} ∂μ := fun a ↦ by
-    have hFG : IndepFun (F a) (G a) μ := by
-      rw [IndepFun_iff_Indep]
-      exact indep_of_indep_of_le_right (indep_of_indep_of_le_left (hind n).symm
-        (hFmeas a).comap_le) (hGmeas a).comap_le
-    rw [hFG.integral_fun_mul_eq_mul_integral (hFm a).aestronglyMeasurable
-      (hGm a).aestronglyMeasurable, hG, integral_indicator_one (hξm (measurableSet_singleton a)),
-      ← map_measureReal_apply hξm (measurableSet_singleton a), (hlaw n).map_eq,
-      integral_mul_const]
-  have hFG_int : ∀ a, Integrable (fun ω ↦ F a ω * G a ω) μ := fun a ↦
-    (hFint a).mul_of_top_left (memLp_top_of_bound (hGm a).aestronglyMeasurable 1
-      (ae_of_all _ fun ω ↦ by simp only [hG, Set.indicator]; split_ifs <;> simp))
-  calc ∫ ω in s, L (n + 1) ω ∂μ = ∫ ω, ∑ a, F a ω * G a ω ∂μ := by
-        rw [← integral_indicator hsm, h_decomp]
-    _ = ∫ ω, ∑ a, F a ω * ν.real {a} ∂μ := by
-        rw [integral_finsetSum _ fun a _ ↦ hFG_int a,
-          integral_finsetSum _ fun a _ ↦ (hFint a).mul_const _]
-        exact sum_congr rfl fun a _ ↦ h_indep a
-    _ = ∫ ω in s, L n ω * ∑ a, ν.real {a} * (q n ω a / ν.real {a}) ∂μ := by
-        rw [← integral_indicator hsm]
-        refine integral_congr_ae (ae_of_all _ fun ω ↦ ?_)
-        by_cases hω : ω ∈ s
-        · simp only [hF, Set.indicator_of_mem hω, mul_sum]
-          exact sum_congr rfl fun a _ ↦ by ring
-        · simp [hF, Set.indicator_of_notMem hω]
+omit [Fintype α] in
+/-- The densities `q t ω a / ν{a}` of the predictions with respect to `ν`, in `ℝ≥0∞`, are
+measurable for `ℱ t` and `α` jointly. -/
+private lemma measurable_uncurry_ofReal_div [Countable α]
+    (hq : ∀ t a, Measurable[ℱ t] (fun ω ↦ q t ω a)) (t : ℕ) :
+    Measurable[(ℱ t).prod inferInstance]
+      (Function.uncurry fun ω a ↦ ENNReal.ofReal (q t ω a / ν.real {a})) :=
+  measurable_from_prod_countable_left (m := ℱ t) fun a ↦
+    ((hq t a).div_const (ν.real {a})).ennreal_ofReal
+
+omit [Fintype α] [MeasurableSingletonClass α] in
+/-- The likelihood ratio is the real value of the product of the densities
+`ofReal (q t ω (ξ t ω) / ν{ξ t ω})`. -/
+private lemma toReal_prod_ofReal_div (hq0 : ∀ t ω a, 0 ≤ q t ω a) :
+    (fun n ω ↦ (∏ t ∈ range n, ENNReal.ofReal (q t ω (ξ t ω) / ν.real {ξ t ω})).toReal) =
+      predictorLikelihoodRatio ν q ξ := by
+  ext n ω
+  have h0 : ∀ t ∈ range n, 0 ≤ q t ω (ξ t ω) / ν.real {ξ t ω} := fun t _ ↦
+    div_nonneg (hq0 _ _ _) measureReal_nonneg
+  rw [predictorLikelihoodRatio_def, ← ENNReal.ofReal_prod_of_nonneg h0,
+    ENNReal.toReal_ofReal (prod_nonneg h0)]
 
 /-- **The likelihood ratio of a sub-probability predictor is a supermartingale.** Let `ξ t` be
 `ℱ (t + 1)`-measurable, independent of `ℱ t` and of law `ν`, and let the predictor `q t` be
 `ℱ t`-measurable with `q t ω` nonnegative of total mass at most `1`. Then
-`L_n = ∏_{t < n} q t (ξ t) / ν{ξ t}` is a supermartingale for `ℱ`. -/
+`L_n = ∏_{t < n} q t (ξ t) / ν{ξ t}` is a supermartingale for `ℱ`.
+
+This is the case of a finite alphabet, and of the constant conditional laws `ν`, of
+`ProbabilityTheory.isTestSupermartingale_prod_of_hasCondLaw`, with the densities `q t ω a / ν{a}`
+of the predictions with respect to `ν`. -/
 theorem supermartingale_predictorLikelihoodRatio (hξ : ∀ t, Measurable[ℱ (t + 1)] (ξ t))
     (hind : ∀ t, Indep (MeasurableSpace.comap (ξ t) inferInstance) (ℱ t) μ)
     (hlaw : ∀ t, HasLaw (ξ t) ν μ) (hq : ∀ t a, Measurable[ℱ t] (fun ω ↦ q t ω a))
     (hq0 : ∀ t ω a, 0 ≤ q t ω a) (hq1 : ∀ t ω, ∑ a, q t ω a ≤ 1) :
     Supermartingale (predictorLikelihoodRatio ν q ξ) ℱ μ := by
-  refine supermartingale_of_setIntegral_succ_le
-    (fun n ↦ (measurable_predictorLikelihoodRatio hξ hq n).stronglyMeasurable)
-    (integrable_predictorLikelihoodRatio hξ hq hq0 hq1) fun n s hs ↦ ?_
-  rw [setIntegral_predictorLikelihoodRatio_succ hξ hind hlaw hq hq0 hq1 n hs]
-  -- `∑ a, ν{a} q n a / ν{a} ≤ ∑ a, q n a ≤ 1`
-  refine integral_mono_of_nonneg (ae_of_all _ fun ω ↦ mul_nonneg
-    (predictorLikelihoodRatio_nonneg hq0 n ω) (sum_nonneg fun a _ ↦ mul_nonneg measureReal_nonneg
-      (div_nonneg (hq0 n ω a) measureReal_nonneg)))
-    (integrable_predictorLikelihoodRatio hξ hq hq0 hq1 n).integrableOn (ae_of_all _ fun ω ↦ ?_)
-  refine mul_le_of_le_one_right (predictorLikelihoodRatio_nonneg hq0 n ω)
-    ((sum_le_sum fun a _ ↦ ?_).trans (hq1 n ω))
-  rcases eq_or_ne (ν.real {a}) 0 with h0 | h0
-  · rw [h0, zero_mul]
-    exact hq0 n ω a
-  · rw [mul_div_cancel₀ _ h0]
+  have := (hlaw 0).isProbabilityMeasure_iff.1 inferInstance
+  have hT := isTestSupermartingale_prod_of_hasCondLaw hξ
+    (fun t ↦ hasCondLaw_of_indep (ℱ.le t) (hind t) (hlaw t))
+    (measurable_uncurry_ofReal_div hq) fun t ↦ ae_of_all μ fun ω ↦
+      (lintegral_ofReal_div_measureReal_le (hq0 t ω)).trans (ENNReal.ofReal_le_one.2 (hq1 t ω))
+  rw [← toReal_prod_ofReal_div hq0]
+  exact hT.supermartingale_toReal (Set.mem_singleton μ)
 
 /-- **The likelihood ratio of a probability predictor is a martingale.** Let `ξ t` be
 `ℱ (t + 1)`-measurable, independent of `ℱ t` and of a law `ν` that charges every point, and let
 the predictor `q t` be `ℱ t`-measurable with `q t ω` a probability vector. Then
-`L_n = ∏_{t < n} q t (ξ t) / ν{ξ t}` is a martingale for `ℱ`. -/
+`L_n = ∏_{t < n} q t (ξ t) / ν{ξ t}` is a martingale for `ℱ`.
+
+This is the case of a finite alphabet, and of the constant conditional laws `ν`, of
+`ProbabilityTheory.isTestMartingale_prod_of_hasCondLaw`. -/
 theorem martingale_predictorLikelihoodRatio (hξ : ∀ t, Measurable[ℱ (t + 1)] (ξ t))
     (hind : ∀ t, Indep (MeasurableSpace.comap (ξ t) inferInstance) (ℱ t) μ)
     (hlaw : ∀ t, HasLaw (ξ t) ν μ) (hν : ∀ a, ν {a} ≠ 0)
     (hq : ∀ t a, Measurable[ℱ t] (fun ω ↦ q t ω a)) (hq0 : ∀ t ω a, 0 ≤ q t ω a)
     (hq1 : ∀ t ω, ∑ a, q t ω a = 1) :
     Martingale (predictorLikelihoodRatio ν q ξ) ℱ μ := by
-  have hq1' : ∀ t ω, ∑ a, q t ω a ≤ 1 := fun t ω ↦ (hq1 t ω).le
   have := (hlaw 0).isProbabilityMeasure_iff.1 inferInstance
-  have hν' : ∀ a, ν.real {a} ≠ 0 := fun a ↦ (measureReal_ne_zero_iff (measure_ne_top _ _)).2 (hν a)
-  refine martingale_of_setIntegral_eq_succ
-    (fun n ↦ (measurable_predictorLikelihoodRatio hξ hq n).stronglyMeasurable)
-    (integrable_predictorLikelihoodRatio hξ hq hq0 hq1') fun n s hs ↦ ?_
-  rw [setIntegral_predictorLikelihoodRatio_succ hξ hind hlaw hq hq0 hq1' n hs]
-  -- `∑ a, ν{a} q n a / ν{a} = ∑ a, q n a = 1`
-  refine setIntegral_congr_fun (ℱ.le n s hs) fun ω _ ↦ ?_
-  simp_rw [mul_div_cancel₀ _ (hν' _), hq1, mul_one]
+  have hT := isTestMartingale_prod_of_hasCondLaw hξ
+    (fun t ↦ hasCondLaw_of_indep (ℱ.le t) (hind t) (hlaw t))
+    (measurable_uncurry_ofReal_div hq) fun t ↦ ae_of_all μ fun ω ↦ by
+      rw [lintegral_ofReal_div_measureReal_eq hν (hq0 t ω), hq1 t ω, ENNReal.ofReal_one]
+  rw [← toReal_prod_ofReal_div hq0]
+  exact hT.martingale_toReal (Set.mem_singleton μ)
 
 /-- **The likelihood ratio of a probability predictor has mean one**, under the hypotheses of
 `LMLExplore.martingale_predictorLikelihoodRatio`. -/
