@@ -41,6 +41,14 @@ statistic, for which the evidence is `∑ a, N_a (μ̂_a - λ_a)² / (2 σ²)`, 
 `Identification/GaussianThreshold.lean`; Bernoulli arms, and rewards in `[0, 1]`, which are
 dominated by the Bernoulli law of the same mean, are other instances.
 
+The stopping rule of Track-and-Stop uses the plug-in statistic of the empirical means
+(`IdentTask.plugInCost`) instead of the evidence. If the relative entropy from the arms of any
+vector of means to those of `μ` is at most the extended divergence of the families, the plug-in
+statistic against `μ` is at most the evidence against `μ`, and the same bound `f(x)` holds for it.
+This is the case, with equality, for Gaussian arms of known variance, and for Bernoulli arms
+indexed by real means projected on `[0, 1]`, whose extended divergence is infinite outside
+`[0, 1]`.
+
 The threshold `K log (2 n (n + 1)) + x` grows with the number of arms, because the evidence of all
 the arms is controlled at once. The same bound holds for the evidence `∑ a ∈ S, N_a dbar_a` of the
 arms of any set `S`, with `#S` in place of `K`. In best arm identification, a wrong answer `i` is
@@ -99,6 +107,14 @@ The deviational thresholds are adapted from the formalization in the Garivier201
   `LMLExplore.Identification.isDeltaPAC_coverGlrt_topMTask`: the pairwise GLRT of top-`m`
   identification errs with probability at most `(K - m) m (x / 2) ^ 2 exp (2 - x)`, and is `δ`-PAC
   with the level `x_{δ / ((K - m) m)}`.
+* `LMLExplore.Identification.IdentTask.plugInCost_empMean'_le_expFamilyEvidence`: the plug-in
+  statistic of the empirical means against `λ` is at most the evidence against `λ` when the
+  relative entropies to the arms of `λ` are at most the extended divergences of the families.
+* `IdentTask.measure_exists_unionBoundThreshold_lt_plugInCost_le_of_klDiv_le`,
+  `IdentTask.measureReal_histOutputMeasure_glrt_unionBoundThreshold_le_of_klDiv_le`,
+  `IdentTask.isDeltaPAC_glrt_unionBoundThreshold_of_klDiv_le`: the deviation of the plug-in
+  statistic and the error probability of the GLRT with the plug-in statistic and the thresholds
+  `K log (2 n (n + 1)) + x`, which is `δ`-PAC with the level `x_δ`.
 * `LMLExplore.Identification.measure_exists_lt_expFamilyEvidence_le_of_le`,
   `LMLExplore.Identification.measure_exists_lt_expFamilyEvidence_le_of_mul_log_le`: along a run of
   any sampling rule, the evidence of the arms of `S` against `μ` exceeds thresholds at least
@@ -180,6 +196,21 @@ lemma plugInCost_empMean'_eq_expFamilyEvidence
   refine Finset.sum_congr rfl fun a _ ↦ ?_
   rw [hν _ _ hemp hl a, ENNReal.ofReal_natCast,
     Measure.expFamilyRate_eq_ofReal_expFamilyDiv (hemp a) (hl a)]
+
+/-- If the relative entropy from the arm `a` of any vector of means `μ'` to the arm `a` of `λ` is
+at most the extended divergence `dbar_a(μ' a, λ a)` of the families, the plug-in statistic of the
+empirical means against `λ` is at most the evidence against `λ`, whatever the empirical means,
+including empirical means that are not means of the families. -/
+lemma plugInCost_empMean'_le_expFamilyEvidence {l : α → ℝ}
+    (hkl : ∀ (μ' : α → ℝ) a,
+      klDiv (task.ν μ' a) (task.ν l a) ≤ (ρ a).expFamilyRate (T a) (μ' a) (l a))
+    (n : ℕ) (h : Hist Unit α ℝ n) :
+    task.plugInCost empMean' n h l ≤ expFamilyEvidence ρ T Finset.univ n h l := by
+  rw [plugInCost_def, cost_def, expFamilyEvidence_def]
+  refine Finset.sum_le_sum fun a _ ↦ ?_
+  rw [ENNReal.ofReal_natCast]
+  gcongr
+  exact hkl _ a
 
 end IdentTask
 
@@ -289,6 +320,94 @@ theorem isDeltaPAC_glrt_expFamilyEvidence (hδ : 0 < δ) (hδ1 : δ ≤ 1)
   rw [measureReal_def]
   have h_dev := measure_exists_unionBoundThreshold_lt_expFamilyEvidence_le_univ (hμ θ hθ)
     (hν θ hθ) (IT.isAlgEnvSeq_trajMeasure alg _) (card_le_unionBoundLevel hδ hδ1)
+  exact ENNReal.toReal_le_of_le_ofReal hδ.le
+    (h_dev.trans (ENNReal.ofReal_le_ofReal (div_pow_mul_exp_sub_unionBoundLevel_le hδ hδ1)))
+
+/-! ### The plug-in statistic of the empirical means -/
+
+/-- **Deviation of the plug-in statistic of the empirical means for arms dominated by exponential
+families**, along a run of any sampling rule. Let the rewards of each arm `a` of the model `μ` be
+dominated on `Set.univ`, in moment generating function, by the member of mean `μ a` of the
+exponential family `(ρ a, T a)`, and let the relative entropy from the arms of any vector of means
+to those of `μ` be at most the extended divergence of the families. For a level `x ≥ K`, the
+probability that at some round `n` the plug-in statistic of the empirical means against `μ`
+exceeds the threshold `K log (2 n (n + 1)) + x` is at most `(x / K) ^ K exp (K - x)`. -/
+theorem measure_exists_unionBoundThreshold_lt_plugInCost_le_of_klDiv_le
+    (hμ : ∀ a, μ a ∈ (ρ a).expFamilyMeans (T a))
+    (hν : ∀ a, MGFDominatedOn id (task.ν μ a) (T a)
+      ((ρ a).expFamily (T a) ((ρ a).natParam (T a) (μ a))) Set.univ)
+    (hkl : ∀ (μ' : α → ℝ) a,
+      klDiv (task.ν μ' a) (task.ν μ a) ≤ (ρ a).expFamilyRate (T a) (μ' a) (μ a))
+    (hseq : IsAlgEnvSeq O A R alg (Environment.bandit (task.ν μ)) P)
+    (hx : Fintype.card α ≤ x) :
+    P {ω | ∃ n, unionBoundThreshold (Fintype.card α) x n <
+        task.plugInCost empMean' n (history O A R n ω) μ} ≤
+      ENNReal.ofReal ((x / Fintype.card α) ^ Fintype.card α * exp (Fintype.card α - x)) := by
+  refine le_trans (measure_mono fun ω hω ↦ ?_)
+    (measure_exists_unionBoundThreshold_lt_expFamilyEvidence_le_univ hμ hν hseq hx)
+  obtain ⟨n, hn⟩ := hω
+  exact ⟨n, hn.trans_le (plugInCost_empMean'_le_expFamilyEvidence hkl n _)⟩
+
+/-- **Error probability of the GLRT with the plug-in statistic for arms dominated by exponential
+families** ([GK16, Proposition 12], [LS, Lemma 33.7]), for every task and every sampling rule.
+Under the assumptions of `IdentTask.measure_exists_unionBoundThreshold_lt_plugInCost_le_of_klDiv_le`
+on an admissible model `μ`, for a level `x ≥ K`, the GLRT with the plug-in statistic of the
+empirical means and the thresholds `K log (2 n (n + 1)) + x` stops with an answer that is not
+correct for `μ` with probability at most `(x / K) ^ K exp (K - x)`. -/
+theorem measureReal_histOutputMeasure_glrt_unionBoundThreshold_le_of_klDiv_le
+    (hstop : ∀ n, MeasurableSet {h | unionBoundThreshold (Fintype.card α) x n <
+      task.glr (task.plugInCost empMean') n h (rec n h)})
+    (hμM : μ ∈ task.M) (hμ : ∀ a, μ a ∈ (ρ a).expFamilyMeans (T a))
+    (hν : ∀ a, MGFDominatedOn id (task.ν μ a) (T a)
+      ((ρ a).expFamily (T a) ((ρ a).natParam (T a) (μ a))) Set.univ)
+    (hkl : ∀ (μ' : α → ℝ) a,
+      klDiv (task.ν μ' a) (task.ν μ a) ≤ (ρ a).expFamilyRate (T a) (μ' a) (μ a))
+    (hc : MeasurableSet (task.correct μ)) (hx : Fintype.card α ≤ x) :
+    (histOutputMeasure
+        (task.glrt (task.plugInCost empMean') alg
+          (fun n _ ↦ unionBoundThreshold (Fintype.card α) x n) rec hrec hstop)
+          (Environment.bandit (task.ν μ))).real
+        {p | p.1 ∈ (task.glrt (task.plugInCost empMean') alg
+          (fun n _ ↦ unionBoundThreshold (Fintype.card α) x n) rec hrec hstop).stopSet ∧
+          p.2 ∉ task.correct μ} ≤
+      (x / Fintype.card α) ^ Fintype.card α * exp (Fintype.card α - x) := by
+  have hseq := IT.isAlgEnvSeq_trajMeasure alg (Environment.bandit (task.ν μ))
+  refine (task.measureReal_histOutputMeasure_glrt_le (task.plugInCost empMean') alg _ rec hrec
+    hstop hseq hμM hc).trans ?_
+  rw [measureReal_def]
+  have hx0 : 0 ≤ x := (Nat.cast_nonneg _).trans hx
+  exact ENNReal.toReal_le_of_le_ofReal (by positivity)
+    (measure_exists_unionBoundThreshold_lt_plugInCost_le_of_klDiv_le hμ hν hkl hseq hx)
+
+/-- **The GLRT with the plug-in statistic for arms dominated by exponential families is `δ`-PAC**
+([GK16, Proposition 12], [LS, Lemma 33.7]), for every task and every sampling rule. If on every
+admissible model `θ` the rewards of each arm `a` are dominated on `Set.univ`, in moment generating
+function, by the member of mean `θ a` of the exponential family `(ρ a, T a)`, and the relative
+entropy from the arms of any vector of means to those of `θ` is at most the extended divergence of
+the families, then for `δ ∈ (0, 1]`, the GLRT with the plug-in statistic of the empirical means and
+the thresholds `K log (2 n (n + 1)) + x_δ` is `δ`-PAC on the task, provided it stops almost surely
+on every admissible model. -/
+theorem isDeltaPAC_glrt_unionBoundThreshold_of_klDiv_le (hδ : 0 < δ) (hδ1 : δ ≤ 1)
+    (hstop : ∀ n, MeasurableSet {h | unionBoundThreshold (Fintype.card α)
+      (unionBoundLevel (Fintype.card α) δ) n <
+        task.glr (task.plugInCost empMean') n h (rec n h)})
+    (hμ : ∀ θ ∈ task.M, ∀ a, θ a ∈ (ρ a).expFamilyMeans (T a))
+    (hν : ∀ θ ∈ task.M, ∀ a, MGFDominatedOn id (task.ν θ a) (T a)
+      ((ρ a).expFamily (T a) ((ρ a).natParam (T a) (θ a))) Set.univ)
+    (hkl : ∀ θ ∈ task.M, ∀ (μ' : α → ℝ) a,
+      klDiv (task.ν μ' a) (task.ν θ a) ≤ (ρ a).expFamilyRate (T a) (μ' a) (θ a))
+    (hc : ∀ θ ∈ task.M, MeasurableSet (task.correct θ))
+    (h_stops : ∀ θ ∈ task.M, StopsAS (task.glrt (task.plugInCost empMean') alg
+      (fun n _ ↦ unionBoundThreshold (Fintype.card α) (unionBoundLevel (Fintype.card α) δ) n) rec
+      hrec hstop) (Environment.bandit (task.ν θ))) :
+    task.IsDeltaPAC (task.glrt (task.plugInCost empMean') alg
+      (fun n _ ↦ unionBoundThreshold (Fintype.card α) (unionBoundLevel (Fintype.card α) δ) n) rec
+      hrec hstop) δ := by
+  refine task.isDeltaPAC_glrt (task.plugInCost empMean') alg _ rec hrec hstop hc
+    (fun θ hθ ↦ ?_) h_stops
+  rw [measureReal_def]
+  have h_dev := measure_exists_unionBoundThreshold_lt_plugInCost_le_of_klDiv_le (hμ θ hθ)
+    (hν θ hθ) (hkl θ hθ) (IT.isAlgEnvSeq_trajMeasure alg _) (card_le_unionBoundLevel hδ hδ1)
   exact ENNReal.toReal_le_of_le_ofReal hδ.le
     (h_dev.trans (ENNReal.ofReal_le_ofReal (div_pow_mul_exp_sub_unionBoundLevel_le hδ hδ1)))
 

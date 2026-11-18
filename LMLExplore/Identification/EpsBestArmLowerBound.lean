@@ -252,9 +252,7 @@ theorem IsDeltaCorrect.ofReal_card_div_mul_klBer_le_expectedStoppingTime_epsBaiT
   have hρ : Ber((1 : ℝ), 0, unitInterval.sigmoid 0).expFamilyMeans id = Ioo 0 1 :=
     expFamilyMeans_bernoulliMeasure_sigmoid 0
   have hT : ∀ (_ : α) x, ¬ id =ᵐ[Ber((1 : ℝ), 0, unitInterval.sigmoid 0)] fun _ ↦ x :=
-    fun _ ↦ not_ae_eq_const_bernoulliMeasure (by
-      rw [unitInterval.coe_sigmoid]
-      exact ⟨Real.sigmoid_pos 0, Real.sigmoid_lt_one 0⟩)
+    fun _ ↦ not_ae_eq_const_bernoulliMeasure_sigmoid 0
   have hmem {x : ℝ} (hx : x ∈ Ioo 0 1) :
       x ∈ Ber((1 : ℝ), 0, unitInterval.sigmoid 0).expFamilyMeans id := hρ ▸ hx
   obtain ⟨b₀, hb₀⟩ := exists_ne a
