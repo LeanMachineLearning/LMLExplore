@@ -8,7 +8,6 @@ module
 public import LMLExplore.OnlineLearning.CoinBetting
 public import LMLExplore.OnlineLearning.Learner.Operations
 import LMLExplore.Analysis.Convex.Conjugate.ExpSq
-import LMLExplore.Analysis.Normed.Group.Basic
 import LMLExplore.Analysis.SpecialFunctions.Log.Basic
 import LMLExplore.OnlineLearning.FTRL.Stability
 import Mathlib.Analysis.Complex.ExponentialBounds
@@ -75,18 +74,13 @@ section FTRL
 
 variable {a : ℝ} {c : ℕ → ℝ} {t n : ℕ}
 
-/-- Coins in `[-1, 1]` sum to at most the number of rounds in absolute value. -/
-private lemma abs_sum_le (hc : ∀ s < t, |c s| ≤ 1) : |∑ s ∈ range t, c s| ≤ t := by
-  simpa using norm_sum_le_card_mul (range t) (L := 1) fun s hs ↦
-    (norm_eq_abs (c s)).trans_le (hc s (mem_range.1 hs))
-
 /-- The fraction `(∑ s < t, c s) / (2 (t + a))` of coins in `[-1, 1]` lies in `[-1 / 2, 1 / 2]`
 for `a > 0`. -/
 private lemma abs_sum_div_le (ha : 0 < a) (hc : ∀ s < t, |c s| ≤ 1) :
     |(∑ s ∈ range t, c s) / (2 * (t + a))| ≤ 1 / 2 := by
   have hta : 0 < 2 * ((t : ℝ) + a) := by linarith [(Nat.cast_nonneg t : (0 : ℝ) ≤ t)]
   rw [abs_div, abs_of_pos hta, div_le_iff₀ hta]
-  linarith [abs_sum_le hc]
+  linarith [abs_sum_le_of_abs_le_one hc]
 
 /-- **The fractions of the constant-fraction bettor are FTRL plays** [Ora, §13.7]: for `a > 0` and
 coins `c s ∈ [-1, 1]`, the minimizer over `[-1 / 2, 1 / 2]` of the FTRL objective
@@ -263,27 +257,16 @@ theorem constantFractionBettor_regret_le (hε : 0 < ε) (hL : 0 < L) (ha : 0 < a
     regret (fun t y ↦ g t * y) x u n ≤
       |u| * L * √(2 * (n + a) * log (1 + 2 * (n + a) * exp (n / (2 * a)) * u ^ 2 / ε ^ 2)) +
         ε * L := by
-  set c : ℕ → ℝ := fun s ↦ -g s / L with hc_def
-  have hc : ∀ t < n, |c t| ≤ 1 := fun t ht ↦ by
-    rw [hc_def, abs_div, abs_neg, abs_of_pos hL, div_le_one hL]
-    exact hg t ht
+  set c : ℕ → ℝ := fun s ↦ -g s / L
+  have hc : ∀ t < n, |c t| ≤ 1 := fun t ht ↦ abs_neg_div_le_one hL (hg t ht)
   have hna : 0 < (n : ℝ) + a := by linarith [(Nat.cast_nonneg n : (0 : ℝ) ≤ n)]
   set S := ∑ t ∈ range n, c t with hS
   set β := ε * exp (-(n / (4 * a))) with hβ_def
   have hβ : 0 < β := by positivity
   -- the regret is `L * (ε - W) + L * (u * S)`
   have hregret : regret (fun t y ↦ g t * y) x u n =
-      L * (ε - wealth ε c x n) + L * (S * u) := by
-    have hℓ : (fun t y ↦ g t * y) = fun t y ↦ -L * c t * y := by
-      funext t y
-      rw [hc_def]
-      field_simp
-    have hu : ∑ t ∈ range n, -L * c t * u = -(L * (S * u)) := by
-      rw [hS, sum_mul, mul_sum, ← sum_neg_distrib]
-      exact sum_congr rfl fun t _ ↦ by ring
-    rw [hℓ, ← regret_neg_mul_eq_mul_sub_wealth L ε c x n, regret_eq_sum_sub_sum,
-      regret_eq_sum_sub_sum, hu]
-    simp
+      L * (ε - wealth ε c x n) + L * (S * u) :=
+    regret_mul_eq_mul_sub_wealth_add_mul ε hL.ne' g x u n
   -- the wealth is at least `β * exp (S ^ 2 / (2 * (2 (n + a))))`
   have hW : β * exp (S ^ 2 / (2 * (2 * (n + a)))) ≤ wealth ε c x n := by
     refine le_of_eq_of_le ?_ (mul_exp_sq_div_sub_div_le_wealth hε.le ha hc hx)
@@ -351,58 +334,33 @@ namespace OnlineLearner
 
 variable {C : Type*}
 
-/-- The bet of the constant-fraction bettor with parameter `a` at round `t` on the coins `c`, from
-the initial wealth `ε`: the fraction `(∑ s < t, c s) / (2 (t + a))` of the wealth
-`ε ∏ s < t, (1 + β s c s)`. -/
-private noncomputable def constantFractionBet (a ε : ℝ) (c : ℕ → ℝ) (t : ℕ) : ℝ :=
-  (∑ s ∈ range t, c s) / (2 * (t + a)) *
-    (ε * ∏ s ∈ range t, (1 + (∑ r ∈ range s, c r) / (2 * (s + a)) * c s))
-
-/-- The bet of round `t` depends only on the coins of the rounds `s < t`. -/
-private lemma constantFractionBet_congr {a ε : ℝ} {c c' : ℕ → ℝ} {t : ℕ}
-    (h : ∀ s < t, c s = c' s) : constantFractionBet a ε c t = constantFractionBet a ε c' t := by
-  have hsum {s : ℕ} (hs : s ≤ t) : ∑ r ∈ range s, c r = ∑ r ∈ range s, c' r :=
-    sum_congr rfl fun r hr ↦ h r ((mem_range.1 hr).trans_le hs)
-  rw [constantFractionBet, constantFractionBet, hsum le_rfl]
-  congr 2
-  exact prod_congr rfl fun s hs ↦ by
-    rw [hsum (mem_range.1 hs).le, h s (mem_range.1 hs)]
-
 /-- The **constant-fraction bettor** [Ora, §13.7] with parameter `a`, from the initial wealth `ε`:
 a bettor whose feedback is the coins, and which bets at round `t` the fraction
 `(∑ s < t, c s) / (2 (t + a))` of its wealth (`run_constantFractionBettor`). -/
-noncomputable def constantFractionBettor (a ε : ℝ) : OnlineLearner C ℝ ℝ where
-  play t h _ := constantFractionBet a ε (fun s ↦ if hs : s < t then (h ⟨s, hs⟩).2 else 0) t
+noncomputable def constantFractionBettor (a ε : ℝ) : OnlineLearner C ℝ ℝ :=
+  fractionBettor (fun t c ↦ (∑ s ∈ range t, c s) / (2 * (t + a))) ε
 
 /-- **The bets of the constant-fraction bettor**: at round `t`, it bets the fraction
 `(∑ s < t, c s) / (2 (t + a))` of its wealth on the coins `c`. -/
 theorem run_constantFractionBettor (a ε : ℝ) (d : ℕ → C) (c : ℕ → ℝ) (t : ℕ) :
     (constantFractionBettor a ε).run d c t =
       (∑ s ∈ range t, c s) / (2 * (t + a)) *
-        wealth ε c ((constantFractionBettor a ε).run d c) t := by
-  have hbet (t : ℕ) : (constantFractionBettor a ε).run d c t = constantFractionBet a ε c t := by
-    rw [run_def]
-    exact constantFractionBet_congr fun s hs ↦ by simp [hs]
-  induction t using Nat.strong_induction_on with
-  | _ t ih =>
-    rw [wealth_eq_mul_prod (β := fun s ↦ (∑ r ∈ range s, c r) / (2 * (s + a))) fun s hs ↦ ih s hs,
-      hbet, constantFractionBet]
+        wealth ε c ((constantFractionBettor a ε).run d c) t :=
+  run_fractionBettor (fun _ _ _ ↦ apply_sum_range_congr fun t S ↦ S / (2 * (t + a))) ε d c t
 
 /-- The **constant-fraction bettor for one-dimensional online linear optimization** [Ora, §13.7]
 with losses bounded by `L`, parameter `a` and initial wealth `ε`: on the linear losses `g t`, it
 plays the bets of the constant-fraction bettor on the coins `-g t / L`
 (`run_constantFractionBettorOCO`). -/
 noncomputable def constantFractionBettorOCO (L a ε : ℝ) : OnlineLearner C ℝ ℝ :=
-  (constantFractionBettor a ε).reduce id fun _ g ↦ -g / L
+  fractionBettorOCO (fun t c ↦ (∑ s ∈ range t, c s) / (2 * (t + a))) L ε
 
 /-- The plays of the constant-fraction bettor for online linear optimization are the bets of the
 constant-fraction bettor on the coins `-g t / L`. -/
 theorem run_constantFractionBettorOCO (L a ε : ℝ) (d : ℕ → C) (g : ℕ → ℝ) (t : ℕ) :
     (constantFractionBettorOCO L a ε).run d g t =
-      (constantFractionBettor a ε).run d (fun s ↦ -g s / L) t := by
-  rw [constantFractionBettorOCO, run_reduce,
-    ← (constantFractionBettor a ε).closedLoopFeedback_unique (g := fun s ↦ -g s / L) fun _ ↦ rfl]
-  rfl
+      (constantFractionBettor a ε).run d (fun s ↦ -g s / L) t :=
+  run_fractionBettorOCO _ L ε d g t
 
 variable {ε L a : ℝ}
 
@@ -411,12 +369,9 @@ variable {ε L a : ℝ}
 private lemma run_constantFractionBettorOCO_eq (d : ℕ → C) (g : ℕ → ℝ) (t : ℕ) :
     (constantFractionBettorOCO L a ε).run d g t =
       (∑ s ∈ range t, -g s / L) / (2 * (t + a)) *
-        wealth ε (fun s ↦ -g s / L) ((constantFractionBettorOCO L a ε).run d g) t := by
-  have hrun : (constantFractionBettorOCO L a ε).run d g =
-      (constantFractionBettor a ε).run d (fun s ↦ -g s / L) :=
-    funext (run_constantFractionBettorOCO L a ε d g)
-  rw [hrun]
-  exact run_constantFractionBettor a ε d _ t
+        wealth ε (fun s ↦ -g s / L) ((constantFractionBettorOCO L a ε).run d g) t :=
+  run_fractionBettorOCO_eq_mul_wealth
+    (fun _ _ _ ↦ apply_sum_range_congr fun t S ↦ S / (2 * (t + a))) L ε d g t
 
 /-- **The anytime regret bound of the constant-fraction bettor** [Ora, §13.7]: for `ε, L, a > 0`,
 on linear losses `g t` with `|g t| ≤ L`, the regret against every `u ∈ ℝ` after `n` rounds is at

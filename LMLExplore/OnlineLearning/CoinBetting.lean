@@ -5,10 +5,11 @@ Authors: LMLExplore contributors
 -/
 module
 
-public import LMLExplore.OnlineLearning.Learner.Basic
+public import LMLExplore.OnlineLearning.Learner.Operations
 public import Mathlib.Analysis.Normed.Module.HahnBanach
 public import Mathlib.Analysis.SpecialFunctions.Sqrt
 public import Statlib.ForMathlib.InformationTheory.KullbackLeibler.Bernoulli
+import LMLExplore.Analysis.Normed.Group.Basic
 import LMLExplore.Analysis.Normed.Module.RademacherSum
 import LMLExplore.Data.Nat.Choose.Tail
 import LMLExplore.InformationTheory.KullbackLeibler.Bernoulli
@@ -31,6 +32,13 @@ optimization.
 * **Online linear optimization is betting.** For the linear losses `g t = -L c t` on `ℝ`, the
   regret against `0` of the bets is `L * (ε - wealth ε c x n)` (`regret_neg_mul_eq_mul_sub_wealth`):
   a small regret against `0` is a large wealth.
+  For general comparators `u`, the regret on the losses `y ↦ g t * y` is expressed through the
+  wealth of the bets on the coins `-g t / L` (`regret_mul_eq_mul_sub_wealth_add_mul`).
+* **Bettors with a fraction rule.** A rule `frac t c` depending only on the past coins defines the
+  bettor `OnlineLearner.fractionBettor frac ε`, which bets the fraction `frac t c` of its wealth
+  (`OnlineLearner.run_fractionBettor`), and its reduction `OnlineLearner.fractionBettorOCO` to
+  one-dimensional online linear optimization. The Krichevsky–Trofimov bettor and the
+  constant-fraction bettor are such bettors.
 * **The best constant fraction** [Ora, Remark 5.6]. For coins in `{-1, 1}`, the wealth
   `ε * ∏ t < n, (1 + β * c t)` of the best constant fraction `β ∈ [-1, 1]` is
   `ε * exp (n * d(1 / 2 + (∑ t < n, c t) / (2 n), 1 / 2))`, where `d` is the binary relative
@@ -60,13 +68,20 @@ probability below. The coins are averaged uniformly over the sign cube `Fin n �
 ## Main definitions
 
 * `LMLExplore.OnlineLearning.wealth ε c x t`: the wealth after `t` rounds.
+* `LMLExplore.OnlineLearning.OnlineLearner.fractionBettor frac ε`,
+  `LMLExplore.OnlineLearning.OnlineLearner.fractionBettorOCO frac L ε`: the bettor with the
+  fraction rule `frac`, and its reduction to one-dimensional online linear optimization.
 
 ## Main statements
 
 * `LMLExplore.OnlineLearning.wealth_eq_mul_prod`: the wealth of a bettor that bets fractions of
   its wealth.
-* `LMLExplore.OnlineLearning.regret_neg_mul_eq_mul_sub_wealth`: online linear optimization on `ℝ`
-  is betting.
+* `LMLExplore.OnlineLearning.regret_neg_mul_eq_mul_sub_wealth`,
+  `LMLExplore.OnlineLearning.regret_mul_eq_mul_sub_wealth_add_mul`: online linear optimization on
+  `ℝ` is betting.
+* `LMLExplore.OnlineLearning.OnlineLearner.run_fractionBettor`,
+  `LMLExplore.OnlineLearning.OnlineLearner.run_fractionBettorOCO_eq_mul_wealth`: the bets of the
+  bettor with a fraction rule.
 * `LMLExplore.OnlineLearning.isGreatest_prod_one_add_mul`: the wealth of the best constant
   fraction.
 * `LMLExplore.OnlineLearning.OnlineLearner.HasRegretBound.mul_norm_run_le`,
@@ -150,6 +165,34 @@ theorem regret_neg_mul_eq_mul_sub_wealth (L ε : ℝ) (c x : ℕ → ℝ) (n : �
   simp_rw [regret_def, wealth_def, h]
   rw [sum_neg_distrib, ← mul_sum]
   ring
+
+/-- **One-dimensional online linear optimization is betting**, against every comparator: for
+`L ≠ 0`, the regret against `u` of the plays `x` on the linear losses `y ↦ g t * y` is
+`L * (ε - W) + L * (S * u)`, where `W` is the wealth of the bets `x` on the coins `-g t / L` from
+the initial wealth `ε` and `S` is the sum of these coins. -/
+theorem regret_mul_eq_mul_sub_wealth_add_mul (ε : ℝ) {L : ℝ} (hL : L ≠ 0) (g x : ℕ → ℝ) (u : ℝ)
+    (n : ℕ) :
+    regret (fun t y ↦ g t * y) x u n =
+      L * (ε - wealth ε (fun s ↦ -g s / L) x n) + L * ((∑ t ∈ range n, -g t / L) * u) := by
+  have hℓ : (fun t y ↦ g t * y) = fun t y ↦ -L * (-g t / L) * y := by
+    funext t y
+    field_simp
+  have hu : ∑ t ∈ range n, -L * (-g t / L) * u = -(L * ((∑ t ∈ range n, -g t / L) * u)) := by
+    rw [sum_mul, mul_sum, ← sum_neg_distrib]
+    exact sum_congr rfl fun t _ ↦ by ring
+  rw [hℓ, ← regret_neg_mul_eq_mul_sub_wealth L ε (fun s ↦ -g s / L) x n, regret_eq_sum_sub_sum,
+    regret_eq_sum_sub_sum, hu]
+  simp
+
+/-- A loss `g` with `|g| ≤ L` gives the coin `-g / L ∈ [-1, 1]`. -/
+lemma abs_neg_div_le_one {g L : ℝ} (hL : 0 < L) (hg : |g| ≤ L) : |-g / L| ≤ 1 := by
+  rw [abs_div, abs_neg, abs_of_pos hL, div_le_one hL]
+  exact hg
+
+/-- Coins in `[-1, 1]` sum to at most the number of rounds in absolute value. -/
+lemma abs_sum_le_of_abs_le_one (hc : ∀ s < t, |c s| ≤ 1) : |∑ s ∈ range t, c s| ≤ t := by
+  simpa using norm_sum_le_card_mul (range t) (L := 1) fun s hs ↦
+    (norm_eq_abs (c s)).trans_le (hc s (mem_range.1 hs))
 
 end Wealth
 
@@ -457,6 +500,84 @@ theorem exists_wealth_run_le_of_even (A : OnlineLearner C ℝ ℝ) (c : ℕ → 
   exact ⟨g, hg, hsum, hW⟩
 
 end Bettor
+
+section FractionBettor
+
+variable {C : Type*} {frac : ℕ → (ℕ → ℝ) → ℝ}
+
+/-- A fraction rule `t c ↦ f t (∑ s < t, c s)` of the past sums of the coins depends only on the
+past coins. -/
+lemma apply_sum_range_congr (f : ℕ → ℝ → ℝ) {t : ℕ} {c c' : ℕ → ℝ} (h : ∀ s < t, c s = c' s) :
+    f t (∑ s ∈ range t, c s) = f t (∑ s ∈ range t, c' s) := by
+  rw [sum_congr rfl fun s hs ↦ h s (mem_range.1 hs)]
+
+/-- The bet at round `t` of the bettor with the fraction rule `frac` on the coins `c`, from the
+initial wealth `ε`: the fraction `frac t c` of the wealth `ε ∏ s < t, (1 + frac s c * c s)`. -/
+private noncomputable def fractionBet (frac : ℕ → (ℕ → ℝ) → ℝ) (ε : ℝ) (c : ℕ → ℝ) (t : ℕ) : ℝ :=
+  frac t c * (ε * ∏ s ∈ range t, (1 + frac s c * c s))
+
+/-- If the fraction rule depends only on the past coins, the bet of round `t` depends only on the
+coins of the rounds `s < t`. -/
+private lemma fractionBet_congr
+    (hfrac : ∀ t (c c' : ℕ → ℝ), (∀ s < t, c s = c' s) → frac t c = frac t c') {ε : ℝ}
+    {c c' : ℕ → ℝ} {t : ℕ} (h : ∀ s < t, c s = c' s) :
+    fractionBet frac ε c t = fractionBet frac ε c' t := by
+  have hf {s : ℕ} (hs : s ≤ t) : frac s c = frac s c' :=
+    hfrac s c c' fun r hr ↦ h r (hr.trans_le hs)
+  rw [fractionBet, fractionBet, hf le_rfl]
+  congr 2
+  exact prod_congr rfl fun s hs ↦ by
+    rw [hf (mem_range.1 hs).le, h s (mem_range.1 hs)]
+
+/-- The **bettor with the fraction rule `frac`** from the initial wealth `ε`: a bettor whose
+feedback is the coins, and which bets at round `t` the fraction `frac t c` of its wealth, for a
+rule `frac` that depends only on the past coins `c s`, `s < t` (`run_fractionBettor`). The
+Krichevsky–Trofimov bettor and the constant-fraction bettor are such bettors. -/
+noncomputable def fractionBettor (frac : ℕ → (ℕ → ℝ) → ℝ) (ε : ℝ) : OnlineLearner C ℝ ℝ where
+  play t h _ := fractionBet frac ε (fun s ↦ if hs : s < t then (h ⟨s, hs⟩).2 else 0) t
+
+/-- **The bets of the bettor with the fraction rule `frac`**: if `frac t c` depends only on the
+past coins, then at round `t` it bets the fraction `frac t c` of its wealth on the coins `c`. -/
+theorem run_fractionBettor
+    (hfrac : ∀ t (c c' : ℕ → ℝ), (∀ s < t, c s = c' s) → frac t c = frac t c') (ε : ℝ)
+    (d : ℕ → C) (c : ℕ → ℝ) (t : ℕ) :
+    (fractionBettor frac ε).run d c t =
+      frac t c * wealth ε c ((fractionBettor frac ε).run d c) t := by
+  have hbet (t : ℕ) : (fractionBettor frac ε).run d c t = fractionBet frac ε c t := by
+    rw [run_def]
+    exact fractionBet_congr hfrac fun s hs ↦ by simp [hs]
+  induction t using Nat.strong_induction_on with
+  | _ t ih =>
+    rw [wealth_eq_mul_prod (β := fun s ↦ frac s c) fun s hs ↦ ih s hs, hbet, fractionBet]
+
+/-- The **bettor with the fraction rule `frac` for one-dimensional online linear optimization**
+with losses bounded by `L`, from the initial wealth `ε`: on the linear losses `g t`, it plays the
+bets of `fractionBettor frac ε` on the coins `-g t / L` (`run_fractionBettorOCO`). -/
+noncomputable def fractionBettorOCO (frac : ℕ → (ℕ → ℝ) → ℝ) (L ε : ℝ) : OnlineLearner C ℝ ℝ :=
+  (fractionBettor frac ε).reduce id fun _ g ↦ -g / L
+
+/-- The plays of the bettor for online linear optimization are the bets of the bettor on the coins
+`-g t / L`. -/
+theorem run_fractionBettorOCO (frac : ℕ → (ℕ → ℝ) → ℝ) (L ε : ℝ) (d : ℕ → C) (g : ℕ → ℝ)
+    (t : ℕ) :
+    (fractionBettorOCO frac L ε).run d g t =
+      (fractionBettor frac ε).run d (fun s ↦ -g s / L) t := by
+  rw [fractionBettorOCO, run_reduce,
+    ← (fractionBettor frac ε).closedLoopFeedback_unique (g := fun s ↦ -g s / L) fun _ ↦ rfl]
+  rfl
+
+/-- If `frac t c` depends only on the past coins, the plays of the bettor for online linear
+optimization bet the fraction `frac t c` of the wealth on the coins `c t = -g t / L`. -/
+theorem run_fractionBettorOCO_eq_mul_wealth
+    (hfrac : ∀ t (c c' : ℕ → ℝ), (∀ s < t, c s = c' s) → frac t c = frac t c') (L ε : ℝ)
+    (d : ℕ → C) (g : ℕ → ℝ) (t : ℕ) :
+    (fractionBettorOCO frac L ε).run d g t =
+      frac t (fun s ↦ -g s / L) *
+        wealth ε (fun s ↦ -g s / L) ((fractionBettorOCO frac L ε).run d g) t := by
+  rw [funext (run_fractionBettorOCO frac L ε d g)]
+  exact run_fractionBettor hfrac ε d _ t
+
+end FractionBettor
 
 end OnlineLearner
 
