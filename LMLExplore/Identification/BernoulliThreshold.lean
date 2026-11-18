@@ -5,13 +5,14 @@ Authors: LMLExplore contributors
 -/
 module
 
+public import LMLExplore.Identification.AsymptoticOptimality
 public import LMLExplore.SequentialLearning.BernoulliDeviation
 public import LMLExplore.Identification.Correctness
 public import LMLExplore.Identification.TrackAndStop
 public import LMLExplore.Identification.Task.BestArm.Basic
 
 /-!
-# The informational threshold of the GLRT for Bernoulli arms
+# The informational threshold of the GLRT and Track-and-Stop for Bernoulli arms
 
 For best arm identification with Bernoulli arms, on the vectors of means in `(0, 1)`, the GLRT
 with the plug-in statistic of the empirical means and thresholds at least
@@ -30,6 +31,17 @@ inequality of the Krichevsky–Trofimov mixture
 (`LMLExplore.measure_exists_log_two_mul_mul_lt_klBer_le`) bounds the probability of that event by
 `δ / (K - 1)`, and a union bound over the `K - 1` wrong arms concludes.
 
+**Asymptotic optimality of Track-and-Stop** [GK16, Theorem 14]. For every task whose arms are
+Bernoulli, the arm `a` of the vector of means `μ` being `Ber(μ a)` (projected onto `[0, 1]`), and
+whose admissible models have means in `(0, 1)`, the results of
+`Identification/AsymptoticOptimality.lean` apply to the exponential family of `Ber(1 / 2)`, whose
+members are the Bernoulli laws with means in `(0, 1)`: the relative entropy between Bernoulli arms
+is the binary relative entropy, which is the extended divergence of the family on `[0, 1]`, the
+boundary empirical means `0` and `1` included. Hence Track-and-Stop with the thresholds
+`K log (2 n (n + 1)) + x_δ`, when it tracks optimal allocations, is `δ`-PAC for every
+`δ ∈ (0, 1]`, and `𝔼[τ_δ] / log (1 / δ) → T*(μ)` on every admissible model `μ`, with D-tracking of
+continuous optimal allocations and with C-tracking of any selection of them [DK19, Theorem 7].
+
 ## Main definitions
 
 * `LMLExplore.Identification.bernoulliBaiTask`: best arm identification with Bernoulli arms on the
@@ -44,11 +56,19 @@ inequality of the Krichevsky–Trofimov mixture
   informational threshold [GK16, Theorem 10]: the GLRT errs with probability at most `δ`.
 * `LMLExplore.Identification.isDeltaPAC_glrt_bernoulliBaiTask`: the GLRT is `δ`-PAC as soon
   as it stops almost surely.
+* `IdentTask.isDeltaPAC_trackAndStop_unionBoundThreshold_of_mem_optAlloc_bernoulliBandit`,
+  `tendsto_expectedStoppingTime_trackAndStop_unionBoundThreshold_div_log_bernoulliBandit`:
+  Track-and-Stop for Bernoulli arms is `δ`-PAC and asymptotically optimal.
+* `IdentTask.isDeltaPAC_cTrackAndStop_unionBoundThreshold_of_mem_optAlloc_bernoulliBandit`,
+  `tendsto_expectedStoppingTime_cTrackAndStop_unionBoundThreshold_div_log_bernoulliBandit`:
+  the same for Track-and-Stop with C-tracking.
 
 ## References
 
+* [DK19] R. Degenne and W. M. Koolen, *Pure exploration with multiple correct answers*,
+  NeurIPS 2019, Theorem 7.
 * [GK16] A. Garivier and E. Kaufmann, *Optimal best arm identification with fixed confidence*,
-  COLT 2016, arXiv:1602.04589v2.
+  COLT 2016, arXiv:1602.04589v2, Theorems 10 and 14.
 * This file is adapted from `Identification/KTThreshold.lean` of the formalization in
   RemyDegenne/Garivier2016Optimal (commit 53ac67e4, directory `ForLMLExplore/`).
 -/
@@ -304,3 +324,142 @@ theorem isDeltaPAC_glrt_bernoulliBaiTask
     h_stops
 
 end LMLExplore.Identification
+
+/-! ### Asymptotic optimality of Track-and-Stop for Bernoulli arms -/
+
+namespace LMLExplore.Identification.IdentTask
+
+open Filter Topology
+
+variable {α : Type*} {mα : MeasurableSpace α} [Fintype α] [DecidableEq α] [Nonempty α]
+  [MeasurableSingletonClass α] {ℐ : Type*}
+  {mℐ : MeasurableSpace ℐ} [MeasurableSingletonClass ℐ] {task : IdentTask α (α → ℝ) ℐ ℝ}
+  {w : (α → ℝ) → α → ℝ} {hw : ∀ n, Measurable fun h : Hist Unit α ℝ n ↦ w (empMean' n h)}
+  {rec : (α → ℝ) → ℐ} {hrec : ∀ n, Measurable fun h : Hist Unit α ℝ n ↦ rec (empMean' n h)}
+  {hstop : ∀ δ n, MeasurableSet {h | unionBoundThreshold (Fintype.card α)
+    (unionBoundLevel (Fintype.card α) δ) n <
+      task.glr (task.plugInCost empMean') n h (rec (empMean' n h))}}
+  {μ : α → ℝ}
+
+/-- For Bernoulli arms indexed by real means, the arm `a` of a model `θ` with means in `(0, 1)` is
+dominated, in moment generating function and on every parameter, by the member of mean `θ a` of
+the exponential family of `Ber((1 : ℝ), 0, 1 / 2)`: both are `Ber((1 : ℝ), 0, θ a)`. -/
+private lemma mgfDominatedOn_bernoulliBandit {α ℐ : Type*} {mα : MeasurableSpace α} [Countable α]
+    [MeasurableSingletonClass α] {task : IdentTask α (α → ℝ) ℐ ℝ}
+    (hνt : task.ν = fun μ ↦ Bandits.bernoulliBandit fun a ↦ Set.projIcc 0 1 zero_le_one (μ a))
+    {θ : α → ℝ} (hθ : ∀ a, θ a ∈ Set.Ioo 0 1) (a : α) :
+    MGFDominatedOn id (task.ν θ a) id (Ber((1 : ℝ), 0, unitInterval.sigmoid 0).expFamily id
+      (Ber((1 : ℝ), 0, unitInterval.sigmoid 0).natParam id (θ a))) Set.univ := by
+  rw [hνt, expFamily_natParam_bernoulliMeasure_sigmoid 0 (hθ a), Bandits.bernoulliBandit_apply,
+    Set.projIcc_of_mem _ (Set.Ioo_subset_Icc_self (hθ a))]
+  exact (IdentDistrib.refl aemeasurable_id).mgfDominatedOn
+
+/-- **Track-and-Stop for Bernoulli arms is `δ`-PAC** for every `δ ∈ (0, 1]`, with the thresholds
+`K log (2 n (n + 1)) + x_δ`, when it tracks optimal allocations. Let the arm `a` of the model `μ`
+be the Bernoulli law of mean `μ a` (projected on `[0, 1]`), and let the admissible models have
+means in `(0, 1)`. Let every admissible model `θ` have the single correct answer `rec θ`, which is
+the recommendation near `θ`, and `T*(θ) < ∞`; let the target map `w` be continuous at `θ` with
+`w(θ)` an optimal allocation `w*(θ, ¬rec θ)`; and let `(μ', w') ↦ D(μ', w', ¬rec θ)` be lower
+semicontinuous at `(θ, w(θ))` on the allocations of the simplex. -/
+theorem isDeltaPAC_trackAndStop_unionBoundThreshold_of_mem_optAlloc_bernoulliBandit
+    (hνt : task.ν = fun μ ↦ Bandits.bernoulliBandit fun a ↦ Set.projIcc 0 1 zero_le_one (μ a))
+    (hM : ∀ θ ∈ task.M, ∀ a, θ a ∈ Set.Ioo 0 1)
+    (hcorrect : ∀ θ ∈ task.M, task.correct θ = {rec θ})
+    (hw_opt : ∀ θ ∈ task.M, w θ ∈ task.optAlloc θ (rec θ))
+    (hw_cont : ∀ θ ∈ task.M, ContinuousAt w θ)
+    (hrec_eq : ∀ θ ∈ task.M, ∀ᶠ θ' in 𝓝 θ, rec θ' = rec θ)
+    (h_lsc : ∀ θ ∈ task.M, LowerSemicontinuousWithinAt
+      (fun q : (α → ℝ) × (α → ℝ) ↦ task.altCost q.1 q.2 (rec θ)) (Set.univ ×ˢ simplex α) (θ, w θ))
+    (h_charTime : ∀ θ ∈ task.M, task.charTime θ ≠ ∞) {δ : ℝ} (hδ : 0 < δ) (hδ1 : δ ≤ 1) :
+    task.IsDeltaPAC (task.trackAndStop empMean' w hw
+      (fun n _ ↦ unionBoundThreshold (Fintype.card α) (unionBoundLevel (Fintype.card α) δ) n) rec
+      hrec (hstop δ)) δ :=
+  isDeltaPAC_trackAndStop_unionBoundThreshold_of_mem_optAlloc_of_klDiv_le
+    (fun _ ↦ not_ae_eq_const_bernoulliMeasure ⟨Real.sigmoid_pos 0, Real.sigmoid_lt_one 0⟩)
+    (fun θ hθ a ↦ (expFamilyMeans_bernoulliMeasure_sigmoid 0).symm ▸ hM θ hθ a)
+    (fun θ hθ ↦ mgfDominatedOn_bernoulliBandit hνt (hM θ hθ))
+    (fun θ hθ _ a ↦ hνt ▸ Bandits.klDiv_bernoulliBandit_projIcc_le_expFamilyRate 0 (hM θ hθ a))
+    hcorrect hw_opt hw_cont hrec_eq h_lsc h_charTime hδ hδ1
+
+/-- **Asymptotic optimality of Track-and-Stop for Bernoulli arms** [GK16, Theorem 14]. Under the
+assumptions of
+`IdentTask.isDeltaPAC_trackAndStop_unionBoundThreshold_of_mem_optAlloc_bernoulliBandit`,
+Track-and-Stop with the thresholds `K log (2 n (n + 1)) + x_δ`, which is `δ`-PAC for every
+`δ ∈ (0, 1]` by that theorem, has on every admissible model `μ` a sample complexity asymptotically
+equal to the characteristic time: `𝔼[τ_δ] / log (1 / δ) → T*(μ)` as `δ → 0`. -/
+theorem tendsto_expectedStoppingTime_trackAndStop_unionBoundThreshold_div_log_bernoulliBandit
+    (hνt : task.ν = fun μ ↦ Bandits.bernoulliBandit fun a ↦ Set.projIcc 0 1 zero_le_one (μ a))
+    (hM : ∀ θ ∈ task.M, ∀ a, θ a ∈ Set.Ioo 0 1)
+    (hcorrect : ∀ θ ∈ task.M, task.correct θ = {rec θ})
+    (hw_opt : ∀ θ ∈ task.M, w θ ∈ task.optAlloc θ (rec θ))
+    (hw_cont : ∀ θ ∈ task.M, ContinuousAt w θ)
+    (hrec_eq : ∀ θ ∈ task.M, ∀ᶠ θ' in 𝓝 θ, rec θ' = rec θ)
+    (h_lsc : ∀ θ ∈ task.M, LowerSemicontinuousWithinAt
+      (fun q : (α → ℝ) × (α → ℝ) ↦ task.altCost q.1 q.2 (rec θ)) (Set.univ ×ˢ simplex α) (θ, w θ))
+    (h_charTime : ∀ θ ∈ task.M, task.charTime θ ≠ ∞) (hμ : μ ∈ task.M) :
+    Tendsto (fun δ ↦ expectedStoppingTime (task.trackAndStop empMean' w hw
+        (fun n _ ↦ unionBoundThreshold (Fintype.card α) (unionBoundLevel (Fintype.card α) δ) n) rec
+        hrec (hstop δ)) (Environment.bandit (task.ν μ)) / ENNReal.ofReal (log (1 / δ)))
+      (𝓝[>] 0) (𝓝 (task.charTime μ)) :=
+  tendsto_expectedStoppingTime_trackAndStop_unionBoundThreshold_div_log_of_klDiv_le
+    (fun _ ↦ not_ae_eq_const_bernoulliMeasure ⟨Real.sigmoid_pos 0, Real.sigmoid_lt_one 0⟩)
+    (fun θ hθ a ↦ (expFamilyMeans_bernoulliMeasure_sigmoid 0).symm ▸ hM θ hθ a)
+    (fun θ hθ ↦ mgfDominatedOn_bernoulliBandit hνt (hM θ hθ))
+    (fun θ hθ _ a ↦ hνt ▸ Bandits.klDiv_bernoulliBandit_projIcc_le_expFamilyRate 0 (hM θ hθ a))
+    hcorrect hw_opt hw_cont hrec_eq h_lsc h_charTime hμ
+
+/-- **Track-and-Stop with C-tracking for Bernoulli arms is `δ`-PAC** for every `δ ∈ (0, 1]`, with
+the thresholds `K log (2 n (n + 1)) + x_δ`, when it tracks optimal allocations that need not be
+unique. Let the arm `a` of the model `μ` be the Bernoulli law of mean `μ a` (projected on
+`[0, 1]`), and let the admissible models have means in `(0, 1)`. Let the targets `w` be
+allocations; let every admissible model `θ` have the single correct answer `rec θ`, which is the
+recommendation near `θ`, and `T*(θ) < ∞`; let the targets near `θ` be optimal allocations
+`w(θ') ∈ w*(θ', ¬rec θ)`; and let `(μ', w') ↦ D(μ', w', ¬rec θ)` be continuous at every point
+`(θ, v)` with `v` in the simplex, on the allocations of the simplex. -/
+theorem isDeltaPAC_cTrackAndStop_unionBoundThreshold_of_mem_optAlloc_bernoulliBandit
+    (hνt : task.ν = fun μ ↦ Bandits.bernoulliBandit fun a ↦ Set.projIcc 0 1 zero_le_one (μ a))
+    (hM : ∀ θ ∈ task.M, ∀ a, θ a ∈ Set.Ioo 0 1)
+    (hcorrect : ∀ θ ∈ task.M, task.correct θ = {rec θ}) (hw_mem : ∀ μ', w μ' ∈ simplex α)
+    (hw_opt : ∀ θ ∈ task.M, ∀ᶠ θ' in 𝓝 θ, w θ' ∈ task.optAlloc θ' (rec θ))
+    (hrec_eq : ∀ θ ∈ task.M, ∀ᶠ θ' in 𝓝 θ, rec θ' = rec θ)
+    (h_cont : ∀ θ ∈ task.M, ∀ v ∈ simplex α, ContinuousWithinAt
+      (fun q : (α → ℝ) × (α → ℝ) ↦ task.altCost q.1 q.2 (rec θ)) (Set.univ ×ˢ simplex α) (θ, v))
+    (h_charTime : ∀ θ ∈ task.M, task.charTime θ ≠ ∞) {δ : ℝ} (hδ : 0 < δ) (hδ1 : δ ≤ 1) :
+    task.IsDeltaPAC (task.cTrackAndStop empMean' w hw
+      (fun n _ ↦ unionBoundThreshold (Fintype.card α) (unionBoundLevel (Fintype.card α) δ) n) rec
+      hrec (hstop δ)) δ :=
+  isDeltaPAC_cTrackAndStop_unionBoundThreshold_of_mem_optAlloc_of_klDiv_le
+    (fun _ ↦ not_ae_eq_const_bernoulliMeasure ⟨Real.sigmoid_pos 0, Real.sigmoid_lt_one 0⟩)
+    (fun θ hθ a ↦ (expFamilyMeans_bernoulliMeasure_sigmoid 0).symm ▸ hM θ hθ a)
+    (fun θ hθ ↦ mgfDominatedOn_bernoulliBandit hνt (hM θ hθ))
+    (fun θ hθ _ a ↦ hνt ▸ Bandits.klDiv_bernoulliBandit_projIcc_le_expFamilyRate 0 (hM θ hθ a))
+    hcorrect hw_mem hw_opt hrec_eq h_cont h_charTime hδ hδ1
+
+/-- **Asymptotic optimality of Track-and-Stop with C-tracking for Bernoulli arms**
+[DK19, Theorem 7]. Under the assumptions of
+`IdentTask.isDeltaPAC_cTrackAndStop_unionBoundThreshold_of_mem_optAlloc_bernoulliBandit`,
+Track-and-Stop with C-tracking and the thresholds `K log (2 n (n + 1)) + x_δ`, which is `δ`-PAC for
+every `δ ∈ (0, 1]` by that theorem, has on every admissible model `μ` a sample complexity
+asymptotically equal to the characteristic time: `𝔼[τ_δ] / log (1 / δ) → T*(μ)` as `δ → 0`, even
+where the optimal allocations are not unique. -/
+theorem tendsto_expectedStoppingTime_cTrackAndStop_unionBoundThreshold_div_log_bernoulliBandit
+    (hνt : task.ν = fun μ ↦ Bandits.bernoulliBandit fun a ↦ Set.projIcc 0 1 zero_le_one (μ a))
+    (hM : ∀ θ ∈ task.M, ∀ a, θ a ∈ Set.Ioo 0 1)
+    (hcorrect : ∀ θ ∈ task.M, task.correct θ = {rec θ}) (hw_mem : ∀ μ', w μ' ∈ simplex α)
+    (hw_opt : ∀ θ ∈ task.M, ∀ᶠ θ' in 𝓝 θ, w θ' ∈ task.optAlloc θ' (rec θ))
+    (hrec_eq : ∀ θ ∈ task.M, ∀ᶠ θ' in 𝓝 θ, rec θ' = rec θ)
+    (h_cont : ∀ θ ∈ task.M, ∀ v ∈ simplex α, ContinuousWithinAt
+      (fun q : (α → ℝ) × (α → ℝ) ↦ task.altCost q.1 q.2 (rec θ)) (Set.univ ×ˢ simplex α) (θ, v))
+    (h_charTime : ∀ θ ∈ task.M, task.charTime θ ≠ ∞) (hμ : μ ∈ task.M) :
+    Tendsto (fun δ ↦ expectedStoppingTime (task.cTrackAndStop empMean' w hw
+        (fun n _ ↦ unionBoundThreshold (Fintype.card α) (unionBoundLevel (Fintype.card α) δ) n) rec
+        hrec (hstop δ)) (Environment.bandit (task.ν μ)) / ENNReal.ofReal (log (1 / δ)))
+      (𝓝[>] 0) (𝓝 (task.charTime μ)) :=
+  tendsto_expectedStoppingTime_cTrackAndStop_unionBoundThreshold_div_log_of_klDiv_le
+    (fun _ ↦ not_ae_eq_const_bernoulliMeasure ⟨Real.sigmoid_pos 0, Real.sigmoid_lt_one 0⟩)
+    (fun θ hθ a ↦ (expFamilyMeans_bernoulliMeasure_sigmoid 0).symm ▸ hM θ hθ a)
+    (fun θ hθ ↦ mgfDominatedOn_bernoulliBandit hνt (hM θ hθ))
+    (fun θ hθ _ a ↦ hνt ▸ Bandits.klDiv_bernoulliBandit_projIcc_le_expFamilyRate 0 (hM θ hθ a))
+    hcorrect hw_mem hw_opt hrec_eq h_cont h_charTime hμ
+
+end LMLExplore.Identification.IdentTask

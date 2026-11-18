@@ -32,14 +32,17 @@ arms of `gaussianBandit μ σ2` are `σ2`-sub-Gaussian, and Bernoulli arms are i
 the Bernoulli reward tables `x ∼ streamMeasure (bernoulliBandit p)`. We also compute the relative
 entropy between the arms of two Gaussian bandits with the same variance [LS, Theorem 14.1], the
 quantity that enters the lower bounds, and identify it with the divergence of the exponential family
-of `𝒩(0, σ2)` (`LMLExplore.Bandits.klDiv_gaussianBandit_eq_ofReal_expFamilyDiv`, and
+of `𝒩(0, σ2)` (`LMLExplore.Bandits.klDiv_gaussianBandit_eq_ofReal_expFamilyDiv`, its extended
+divergence in `LMLExplore.Bandits.klDiv_gaussianBandit_eq_expFamilyRate`, and
 `LMLExplore.Bandits.klDiv_eq_ofReal_expFamilyDiv_gaussianReal` for Gaussian arms `𝒩(μ c, v c)` with
 arm-dependent variances), and the relative entropy between the arms of two Bernoulli bandits with
 means in `(0, 1)` with the divergence of the exponential family of a Bernoulli law
 (`LMLExplore.Bandits.klDiv_bernoulliBandit_eq_ofReal_expFamilyDiv`, and
 `LMLExplore.Bandits.klDiv_bernoulliBandit_projIcc_eq_ofReal_expFamilyDiv` for bandits indexed by
-real means). For the Gaussian bandit with unknown variances we compute the mean and the variance of
-each arm, and identify `gaussianBandit μ σ2` with `gaussianMeanVarBandit fun a ↦ (μ a, σ2)`
+real means); for bandits indexed by real means, it is at most the extended divergence of that
+family at every real level (`LMLExplore.Bandits.klDiv_bernoulliBandit_projIcc_le_expFamilyRate`).
+For the Gaussian bandit with unknown variances we compute the mean and the variance of each arm,
+and identify `gaussianBandit μ σ2` with `gaussianMeanVarBandit fun a ↦ (μ a, σ2)`
 (`LMLExplore.Bandits.gaussianBandit_eq_gaussianMeanVarBandit`).
 
 The arm type only needs to be countable with measurable singletons, so that every function on it
@@ -101,6 +104,15 @@ lemma klDiv_gaussianBandit_eq_ofReal_expFamilyDiv (hσ2 : σ2 ≠ 0) (μ μ' : �
     klDiv (gaussianBandit μ σ2 a) (gaussianBandit μ' σ2 a) =
       ENNReal.ofReal ((gaussianReal 0 σ2).expFamilyDiv id (μ a) (μ' a)) := by
   rw [klDiv_gaussianBandit _ _ hσ2, expFamilyDiv_gaussianReal 0 hσ2]
+
+/-- The relative entropy between arm `a` of two Gaussian bandits with the same variance `σ2 ≠ 0` is
+the extended divergence `dbar(μ a, μ' a)` of the exponential family of `𝒩(0, σ2)`, whose means are
+all the reals. -/
+lemma klDiv_gaussianBandit_eq_expFamilyRate (hσ2 : σ2 ≠ 0) (μ μ' : α → ℝ) (a : α) :
+    klDiv (gaussianBandit μ σ2 a) (gaussianBandit μ' σ2 a) =
+      (gaussianReal 0 σ2).expFamilyRate id (μ a) (μ' a) := by
+  rw [klDiv_gaussianBandit_eq_ofReal_expFamilyDiv hσ2, Measure.expFamilyRate_eq_ofReal_expFamilyDiv
+    (mem_expFamilyMeans_gaussianReal 0 hσ2 _) (mem_expFamilyMeans_gaussianReal 0 hσ2 _)]
 
 /-- For Gaussian arms with variances `v c ≠ 0`, the arm `c` has the divergence of the exponential
 family of `𝒩(0, v c)`: `KL(ν_c(μ), ν_c(μ')) = d_c(μ c, μ' c)` with
@@ -227,6 +239,24 @@ lemma klDiv_bernoulliBandit_projIcc_eq_ofReal_expFamilyDiv (η₀ : ℝ) {μ μ'
     (p' := fun c ↦ Set.projIcc 0 1 zero_le_one (μ' c)) (a := a)
     (by rw [h_coe hμ]; exact hμ) (by rw [h_coe hμ']; exact hμ')
   rwa [h_coe hμ, h_coe hμ'] at this
+
+/-- For Bernoulli bandits indexed by real means `μ`, with arm `c` of mean `projIcc 0 1 (μ c)`, the
+relative entropy between arm `a` of the bandits of `μ` and `μ'`, for `μ' a ∈ (0, 1)`, is at most
+the extended divergence `dbar(μ a, μ' a)` of the exponential family of
+`Ber((1 : ℝ), 0, sigmoid η₀)` at the level `μ a`: both are `klBer (μ a) (μ' a)` for
+`μ a ∈ [0, 1]`, and `dbar` is infinite elsewhere. -/
+lemma klDiv_bernoulliBandit_projIcc_le_expFamilyRate (η₀ : ℝ) {μ μ' : α → ℝ} {a : α}
+    (hμ' : μ' a ∈ Set.Ioo 0 1) :
+    klDiv (bernoulliBandit (fun c ↦ Set.projIcc 0 1 zero_le_one (μ c)) a)
+        (bernoulliBandit (fun c ↦ Set.projIcc 0 1 zero_le_one (μ' c)) a) ≤
+      Ber((1 : ℝ), 0, unitInterval.sigmoid η₀).expFamilyRate id (μ a) (μ' a) := by
+  by_cases hμ : μ a ∈ Set.Icc 0 1
+  · refine le_of_eq ?_
+    rw [bernoulliBandit_apply, bernoulliBandit_apply, klDiv_bernoulliMeasure one_ne_zero,
+      expFamilyRate_bernoulliMeasure_sigmoid η₀ hμ hμ', Set.projIcc_of_mem _ hμ,
+      Set.projIcc_of_mem _ (Set.Ioo_subset_Icc_self hμ')]
+  · rw [expFamilyRate_bernoulliMeasure_sigmoid_of_notMem η₀ hμ hμ']
+    exact le_top
 
 end Bernoulli
 

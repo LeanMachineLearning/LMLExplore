@@ -61,9 +61,11 @@ sampling law of Thompson sampling with the Jeffreys prior for Bernoulli arms [KK
   `LMLExplore.tendsto_expFamilyDiv_bernoulliMeasure_sigmoid_nhdsLT_one`: `d(p, m) → ∞` as `m`
   tends to either endpoint `0` or `1` of the means.
 * `LMLExplore.rateFunction_id_bernoulliMeasure`: the rate function of `Ber((1 : ℝ), 0, q)` at a
-  level `x ∈ [0, 1]` is `klBer x q`.
+  level `x ∈ [0, 1]` is `klBer x q`, and
+  `LMLExplore.rateFunction_id_bernoulliMeasure_of_notMem`: it is `∞` at a level `x ∉ [0, 1]`.
 * `LMLExplore.expFamilyRate_bernoulliMeasure_sigmoid`: the extended divergence of the family is
-  `klBer x m` for `x ∈ [0, 1]` and `m ∈ (0, 1)`.
+  `klBer x m` for `x ∈ [0, 1]` and `m ∈ (0, 1)`, and
+  `LMLExplore.expFamilyRate_bernoulliMeasure_sigmoid_of_notMem`: it is `∞` for `x ∉ [0, 1]`.
 * `LMLExplore.expFamilyUpper_bernoulliMeasure_sigmoid`: the upper confidence level of the family is
   `klUpper x c` for `x ∈ [0, 1]`.
 * `LMLExplore.iteratedDeriv_two_cgf_bernoulliMeasure_sigmoid`,
@@ -260,6 +262,18 @@ theorem rateFunction_id_bernoulliMeasure (q : I) (hx : x ∈ Icc 0 1) :
     expFamilyDiv_bernoulliMeasure_sigmoid 0 ⟨hx0, hx1⟩ ⟨hq0, hq1⟩,
     klBer_eq_ofReal_klBerReal hx q.2 (klBer_ne_top ⟨hq0, hq1⟩)]
 
+/-- The Cramér rate function of `Ber((1 : ℝ), 0, q)` is infinite at every level `x ∉ [0, 1]`,
+beyond the essential infimum `0` or supremum `1` of the law. -/
+theorem rateFunction_id_bernoulliMeasure_of_notMem (q : I) (hx : x ∉ Icc 0 1) :
+    rateFunction id Ber((1 : ℝ), 0, q) x = ⊤ := by
+  have hae : ∀ᵐ z ∂Ber((1 : ℝ), 0, q), z ∈ Icc 0 1 := by
+    simpa [uIcc_of_ge zero_le_one] using ae_mem_uIcc_bernoulliMeasure (1 : ℝ) 0 q
+  rcases not_and_or.1 hx with hx0 | hx1
+  · exact rateFunction_eq_top_of_ae_gt aemeasurable_id
+      (hae.mono fun z hz ↦ (not_le.1 hx0).trans_le hz.1)
+  · exact rateFunction_eq_top_of_ae_lt aemeasurable_id
+      (hae.mono fun z hz ↦ hz.2.trans_lt (not_le.1 hx1))
+
 /-- The extended divergence of the exponential family of `Ber((1 : ℝ), 0, sigmoid η₀)` is the
 binary relative entropy: `dbar(x, m) = klBer x m` for every level `x ∈ [0, 1]`, the boundary levels
 included, and every mean `m ∈ (0, 1)`. -/
@@ -267,6 +281,15 @@ theorem expFamilyRate_bernoulliMeasure_sigmoid (η₀ : ℝ) (hx : x ∈ Icc 0 1
     Ber((1 : ℝ), 0, unitInterval.sigmoid η₀).expFamilyRate id x m = klBer x m := by
   rw [Measure.expFamilyRate_def, expFamily_natParam_bernoulliMeasure_sigmoid η₀ hm,
     rateFunction_id_bernoulliMeasure _ hx]
+
+/-- The extended divergence of the exponential family of `Ber((1 : ℝ), 0, sigmoid η₀)` is infinite
+at every level `x ∉ [0, 1]`, for every mean `m ∈ (0, 1)`: no empirical mean of Bernoulli
+observations lies there. -/
+theorem expFamilyRate_bernoulliMeasure_sigmoid_of_notMem (η₀ : ℝ) (hx : x ∉ Icc 0 1)
+    (hm : m ∈ Ioo 0 1) :
+    Ber((1 : ℝ), 0, unitInterval.sigmoid η₀).expFamilyRate id x m = ⊤ := by
+  rw [Measure.expFamilyRate_def, expFamily_natParam_bernoulliMeasure_sigmoid η₀ hm,
+    rateFunction_id_bernoulliMeasure_of_notMem _ hx]
 
 /-- The upper confidence level of the exponential family of `Ber((1 : ℝ), 0, sigmoid η₀)` is the
 KL-UCB level of rewards in `[0, 1]`: `U(x, c) = klUpper x c` for every level `x ∈ [0, 1]`, the
