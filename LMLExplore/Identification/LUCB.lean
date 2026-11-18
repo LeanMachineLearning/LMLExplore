@@ -398,10 +398,9 @@ theorem isDeltaPAC_lucbOfRate {S : Set (α → ProbabilityMeasure ℝ)}
     fun θ hθ ↦ by simpa only [IdentTask.ν_restrict, ν_epsTopMTask] using h_stops θ (hS' θ hθ)
   have hν (a : α) : HasSubgaussianMGF (fun x ↦ x - (lawBandit θ a)[id]) σ2 (lawBandit θ a) := by
     simpa only [lawMean_eq_integral_lawBandit] using mem_pi_subgaussianLaws_iff.1 (hS (hS' θ hθ)) a
-  have hmean : (fun a ↦ (lawBandit θ a)[id]) = lawMean θ :=
-    funext fun a ↦ (lawMean_eq_integral_lawBandit θ a).symm
   simpa only [IdentTask.ν_restrict, IdentTask.correct_restrict, ν_epsTopMTask, correct_epsTopMTask,
-    hmean] using measureReal_histOutputMeasure_lucbOfRate_le_of_hasSubgaussianMGF (alg := alg) hν hβ
-      hsum hδ hε hm
+    ← lawMean_eq_integral_lawBandit] using
+      measureReal_histOutputMeasure_lucbOfRate_le_of_hasSubgaussianMGF (alg := alg) hν hβ hsum hδ
+        hε hm
 
 end LMLExplore.Identification

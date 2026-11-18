@@ -259,10 +259,8 @@ private lemma isDeltaPAC_kllucb_of_measureReal_le {S : Set (α → ProbabilityMe
   refine IdentTask.isDeltaPAC_of_measureReal_mem_stopSet_and_notMem_le
     (fun θ _ ↦ (Set.to_countable _).measurableSet) (fun θ hθ ↦ ?_)
     fun θ hθ ↦ by simpa only [IdentTask.ν_restrict, ν_epsTopMTask] using h_stops θ (hS' θ hθ)
-  have hmean : (fun a ↦ (lawBandit θ a)[id]) = lawMean θ :=
-    funext fun a ↦ (lawMean_eq_integral_lawBandit θ a).symm
   simpa only [IdentTask.ν_restrict, IdentTask.correct_restrict, ν_epsTopMTask, correct_epsTopMTask,
-    hmean] using h_err _ (mem_pi_unitIntervalLaws_iff.1 (hS (hS' θ hθ)))
+    ← lawMean_eq_integral_lawBandit] using h_err _ (mem_pi_unitIntervalLaws_iff.1 (hS (hS' θ hθ)))
 
 /-- **KL-LUCB is `δ`-PAC** for top-`m` identification with tolerance `ε`, for every sampling rule
 [KTAS12, Theorem 1] for the confidence bounds of [KK13, (4), (5)]; this is the union-bound proof
