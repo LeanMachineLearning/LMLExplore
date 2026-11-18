@@ -200,12 +200,17 @@ lemma measurable_bettingCoin (hg : Measurable g) (hx : Measurable x) :
 
 variable [IsProbabilityMeasure μ]
 
+/-- For losses in `[-L, L]`, the loss `∫ g d(bettingMixture μ x)` of the prediction lies in
+`[-L, L]`. -/
+lemma abs_integral_bettingMixture_le (hg : ∀ θ, |g θ| ≤ L) :
+    |∫ θ, g θ ∂bettingMixture μ x| ≤ L := by
+  simpa using norm_integral_le_of_norm_le_const (μ := bettingMixture μ x)
+    (Filter.Eventually.of_forall fun θ ↦ (Real.norm_eq_abs (g θ)).trans_le (hg θ))
+
 /-- For losses in `[-L, L]`, the coins lie in `[-1, 1]`. -/
 lemma abs_bettingCoin_le_one (hL : 0 < L) (hg : ∀ θ, |g θ| ≤ L) (θ : Θ) :
     |bettingCoin μ L g x θ| ≤ 1 := by
-  have hm : |∫ θ', g θ' ∂bettingMixture μ x| ≤ L := by
-    simpa using norm_integral_le_of_norm_le_const (μ := bettingMixture μ x)
-      (Filter.Eventually.of_forall fun θ' ↦ (Real.norm_eq_abs (g θ')).trans_le (hg θ'))
+  have hm : |∫ θ', g θ' ∂bettingMixture μ x| ≤ L := abs_integral_bettingMixture_le hg
   have hd : |∫ θ', g θ' ∂bettingMixture μ x - g θ| ≤ 2 * L :=
     (abs_sub _ _).trans (by linarith [hg θ])
   rw [bettingCoin_def]
@@ -216,28 +221,30 @@ lemma abs_bettingCoin_le_one (hL : 0 < L) (hg : ∀ θ, |g θ| ≤ L) (θ : Θ) 
       abs_of_nonneg (le_max_right _ _)]
     exact max_le ((le_abs_self _).trans hd) (by positivity)
 
+/-- For losses in `[-L, L]` and integrable bets, the gains `bettingCoin μ L g x θ * x θ` of the
+bettors are integrable. -/
+lemma integrable_bettingCoin_mul (hL : 0 < L) (hg : Measurable g) (hgL : ∀ θ, |g θ| ≤ L)
+    (hxm : Measurable x) (hx : Integrable x μ) :
+    Integrable (fun θ ↦ bettingCoin μ L g x θ * x θ) μ :=
+  hx.bdd_mul (measurable_bettingCoin hg hxm).aestronglyMeasurable
+    (Filter.Eventually.of_forall fun θ ↦ abs_bettingCoin_le_one hL hgL θ)
 
 /-- **The bettors win nothing on average** [Ora, proof of Theorem 13.14]: for losses in `[-L, L]`
-and integrable bets, the mean gain `∫ bettingCoin μ L g x θ * x θ dμ` of a round is nonpositive.
-The bettors with positive bets gain `0` on average by the choice of the prediction, and the others
-gain a nonpositive amount at each expert. -/
+and integrable bets, the mean gain `∫ bettingCoin μ L g x θ * x θ dμ` of a round is nonpositive. -/
 theorem integral_bettingCoin_mul_nonpos (hL : 0 < L) (hg : Measurable g) (hgL : ∀ θ, |g θ| ≤ L)
     (hxm : Measurable x) (hx : Integrable x μ) :
     ∫ θ, bettingCoin μ L g x θ * x θ ∂μ ≤ 0 := by
+  -- the bettors with positive bets gain `0` on average by the choice of the prediction, and the
+  -- others gain a nonpositive amount at each expert
   set m := ∫ θ', g θ' ∂bettingMixture μ x
   have hgb : ∀ᵐ θ ∂μ, ‖g θ‖ ≤ L := Filter.Eventually.of_forall fun θ ↦ hgL θ
-  have hcx : Integrable (fun θ ↦ bettingCoin μ L g x θ * x θ) μ :=
-    hx.bdd_mul (measurable_bettingCoin hg hxm).aestronglyMeasurable
-      (Filter.Eventually.of_forall fun θ ↦ abs_bettingCoin_le_one hL hgL θ)
+  have hm : |m| ≤ L := abs_integral_bettingMixture_le hgL
   have hpos : Integrable (fun θ ↦ max (x θ) 0 * ((m - g θ) / (2 * L))) μ :=
     hx.pos_part.mul_bdd (((measurable_const.sub hg).div_const _).aestronglyMeasurable)
-      (c := 2 * L / (2 * L)) (Filter.Eventually.of_forall fun θ ↦ by
-        rw [Real.norm_eq_abs, abs_div, abs_of_pos (by positivity : (0 : ℝ) < 2 * L)]
-        refine div_le_div_of_nonneg_right ((abs_sub _ _).trans ?_) (by positivity)
-        have hm : |m| ≤ L := by
-          simpa using norm_integral_le_of_norm_le_const (μ := bettingMixture μ x)
-            (Filter.Eventually.of_forall fun θ' ↦ (Real.norm_eq_abs (g θ')).trans_le (hgL θ'))
-        linarith [hgL θ])
+      (c := 1) (Filter.Eventually.of_forall fun θ ↦ by
+        rw [Real.norm_eq_abs, abs_div, abs_of_pos (by positivity : (0 : ℝ) < 2 * L),
+          div_le_one (by positivity)]
+        exact (abs_sub _ _).trans (by linarith [hgL θ]))
   have hzero : ∫ θ, max (x θ) 0 * ((m - g θ) / (2 * L)) ∂μ = 0 := by
     have e : (fun θ ↦ max (x θ) 0 * ((m - g θ) / (2 * L))) =
         fun θ ↦ (max (x θ) 0 * m - max (x θ) 0 * g θ) / (2 * L) := by
@@ -248,7 +255,8 @@ theorem integral_bettingCoin_mul_nonpos (hL : 0 < L) (hg : Measurable g) (hgL : 
     rw [e, integral_div, integral_sub (hx.pos_part.mul_const m)
       (hx.pos_part.mul_bdd hg.aestronglyMeasurable hgb), integral_mul_const, hm, sub_self,
       zero_div]
-  exact (integral_mono hcx hpos fun θ ↦ bettingCoin_mul_le hL θ).trans_eq hzero
+  exact (integral_mono (integrable_bettingCoin_mul hL hg hgL hxm hx) hpos
+    fun θ ↦ bettingCoin_mul_le hL θ).trans_eq hzero
 
 end Coin
 
@@ -265,8 +273,7 @@ lemma integrable_wealth_bettingCoin (hL : 0 < L) (hg : ∀ t < n, Measurable (g 
   simp_rw [wealth_def]
   refine (integrable_const 1).add (integrable_finsetSum _ fun t ht ↦ ?_)
   have ht := mem_range.1 ht
-  exact (hx t ht).bdd_mul (measurable_bettingCoin (hg t ht) (hxm t ht)).aestronglyMeasurable
-    (Filter.Eventually.of_forall fun θ ↦ abs_bettingCoin_le_one hL (hgL t ht) θ)
+  exact integrable_bettingCoin_mul hL (hg t ht) (hgL t ht) (hxm t ht) (hx t ht)
 
 /-- **The mean wealth of the bettors is at most `1`** [Ora, (13.7)]: in the experts-through-betting
 reduction with losses in `[-L, L]` and integrable bets, the mean under the prior of the wealth
@@ -276,8 +283,7 @@ theorem integral_wealth_bettingCoin_le_one (hL : 0 < L) (hg : ∀ t < n, Measura
     (hx : ∀ t < n, Integrable (x t) μ) :
     ∫ θ, wealth 1 (fun t ↦ bettingCoin μ L (g t) (x t) θ) (fun t ↦ x t θ) n ∂μ ≤ 1 := by
   have hi (t : ℕ) (ht : t < n) : Integrable (fun θ ↦ bettingCoin μ L (g t) (x t) θ * x t θ) μ :=
-    (hx t ht).bdd_mul (measurable_bettingCoin (hg t ht) (hxm t ht)).aestronglyMeasurable
-      (Filter.Eventually.of_forall fun θ ↦ abs_bettingCoin_le_one hL (hgL t ht) θ)
+    integrable_bettingCoin_mul hL (hg t ht) (hgL t ht) (hxm t ht) (hx t ht)
   simp_rw [wealth_def]
   rw [integral_add (integrable_const 1) (integrable_finsetSum _ fun t ht ↦ hi t (mem_range.1 ht)),
     integral_finsetSum _ fun t ht ↦ hi t (mem_range.1 ht)]
@@ -311,20 +317,16 @@ lemma regret_bettingMixture_le_two_mul_integral (hL : 0 < L) (hg : ∀ t < n, Me
 omit [IsProbabilityMeasure μ] in
 /-- The step of Jensen's inequality in the regret bound for experts: for a measurable `S` with
 `|S| ≤ n`, and `f` and `h` as in `regret_bettingMixture_le`, the mean of `S` under a probability
-measure `Q` is at most `h` of the mean of the truncation `min (f ∘ S) (f n)`, a bounded
-function with values in `[a, f n]` on which Jensen's inequality applies. -/
+measure `Q` is at most `h` of the mean of the truncation `min (f ∘ S) (f n)`, a measurable and
+integrable function with values in `[a, f n]` on which Jensen's inequality applies. -/
 private lemma integral_le_map_integral_min {a : ℝ} {f h : ℝ → ℝ} {S : Θ → ℝ}
-    (hSm : Measurable S) (hS : ∀ θ, |S θ| ≤ n) (hf : Measurable f)
-    (hfa : ∀ y : ℝ, |y| ≤ n → a ≤ f y) (hfh : ∀ y : ℝ, |y| ≤ n → y ≤ h (f y))
+    (hSm : Measurable S) (hS : ∀ θ, |S θ| ≤ n) (hfh : ∀ y : ℝ, |y| ≤ n → y ≤ h (f y))
     (hh : ConcaveOn ℝ (Ici a) h) (hhc : ContinuousOn h (Ici a)) (hhm : MonotoneOn h (Ici a))
-    (Q : Measure Θ) [IsProbabilityMeasure Q] :
+    (Q : Measure Θ) [IsProbabilityMeasure Q] (hZm : Measurable fun θ ↦ min (f (S θ)) (f n))
+    (hZa : ∀ θ, a ≤ min (f (S θ)) (f n)) (hZi : Integrable (fun θ ↦ min (f (S θ)) (f n)) Q) :
     ∫ θ, S θ ∂Q ≤ h (∫ θ, min (f (S θ)) (f n) ∂Q) := by
   have hn : |(n : ℝ)| ≤ n := by rw [Nat.abs_cast]
   set Z : Θ → ℝ := fun θ ↦ min (f (S θ)) (f n)
-  have hZm : Measurable Z := (hf.comp hSm).min measurable_const
-  have hZa (θ : Θ) : a ≤ Z θ := le_min (hfa _ (hS θ)) (hfa _ hn)
-  have hZi : Integrable Z Q := Integrable.of_bound hZm.aestronglyMeasurable _
-    (Filter.Eventually.of_forall fun θ ↦ abs_le_max_abs_abs (hZa θ) (min_le_right _ _))
   have hSZ (θ : Θ) : S θ ≤ h (Z θ) := by
     rcases le_total (f (S θ)) (f n) with hle | hle
     · rw [show Z θ = f (S θ) from min_eq_left hle]
@@ -336,12 +338,13 @@ private lemma integral_le_map_integral_min {a : ℝ} {f h : ℝ → ℝ} {S : Θ
       hhc.comp_continuous (continuous_const.max continuous_id) fun z ↦ le_max_left a z
     convert hcont.measurable.comp hZm using 1
     funext θ
-    simp [max_eq_right (hZa θ)]
+    simp [Z, max_eq_right (hZa θ)]
   have hhZi : Integrable (h ∘ Z) Q :=
     Integrable.of_bound hhZm.aestronglyMeasurable (max |h a| |h (f n)|)
       (Filter.Eventually.of_forall fun θ ↦ abs_le_max_abs_abs
         (hhm (mem_Ici.2 le_rfl) (mem_Ici.2 (hZa θ)) (hZa θ))
-        (hhm (mem_Ici.2 (hZa θ)) (mem_Ici.2 (hfa _ hn)) (min_le_right _ _)))
+        (hhm (mem_Ici.2 (hZa θ)) (mem_Ici.2 ((hZa θ).trans (min_le_right _ _)))
+          (min_le_right _ _)))
   exact (integral_mono (Integrable.of_bound hSm.aestronglyMeasurable n
     (Filter.Eventually.of_forall hS)) hhZi hSZ).trans
     (hh.le_map_integral hhc isClosed_Ici (Filter.Eventually.of_forall hZa) hZi hhZi)
@@ -396,7 +399,7 @@ theorem regret_bettingMixture_le_of_toReal_klDiv_le {a K : ℝ} {f h : ℝ → �
   calc regret (fun t p ↦ ∫ θ, g t θ ∂p) (fun t ↦ bettingMixture μ (x t)) Q n
       ≤ 2 * L * ∫ θ, S θ ∂Q := regret_bettingMixture_le_two_mul_integral hL hg hgL hxm Q
     _ ≤ 2 * L * h (∫ θ, Z θ ∂Q) := mul_le_mul_of_nonneg_left
-        (integral_le_map_integral_min hSm hS hf hfa hfh hh hhc hhm Q) (by positivity)
+        (integral_le_map_integral_min hSm hS hfh hh hhc hhm Q hZm hZa hZi) (by positivity)
     _ ≤ 2 * L * h K := mul_le_mul_of_nonneg_left
         (hhm (mem_Ici.2 haZ) (mem_Ici.2 (haZ.trans hZK)) hZK) (by positivity)
 
@@ -426,9 +429,7 @@ theorem regret_bettingMixture_le {a : ℝ} {f h : ℝ → ℝ} (hL : 0 < L)
 if every expert of a measurable set `A` of positive prior mass has cumulative loss at most `G`
 after `n` rounds, then the cumulative loss of the predictions is at most
 `G + 2 L h (log (1 / μ A))`. For `μ` uniform on `k` experts and `A` the `⌈ε k⌉` best ones, this
-bounds the regret against the `⌈ε k⌉`-th best expert by `2 L h (log (1 / ε))`. The proof applies
-the regret bound to the prior conditioned on `A`, whose relative entropy to the prior is at most
-`log (1 / μ A)` (`InformationTheory.klDiv_cond_le`). -/
+bounds the regret against the `⌈ε k⌉`-th best expert by `2 L h (log (1 / ε))`. -/
 theorem sum_integral_bettingMixture_le_of_forall_mem {a G : ℝ} {f h : ℝ → ℝ} (hL : 0 < L)
     (hg : ∀ t < n, Measurable (g t)) (hgL : ∀ t < n, ∀ θ, |g t θ| ≤ L)
     (hxm : ∀ t < n, Measurable (x t)) (hx : ∀ t < n, Integrable (x t) μ)
@@ -441,7 +442,8 @@ theorem sum_integral_bettingMixture_le_of_forall_mem {a G : ℝ} {f h : ℝ → 
     ∑ t ∈ range n, ∫ θ, g t θ ∂bettingMixture μ (x t) ≤ G + 2 * L * h (log (μ.real A)⁻¹) := by
   have := cond_isProbabilityMeasure hμA
   have hμA' : 0 < μ.real A := ENNReal.toReal_pos hμA (measure_ne_top μ A)
-  -- the relative entropy of the conditioned prior
+  -- apply the regret bound to the prior conditioned on `A`, whose relative entropy to the prior is
+  -- at most `log (1 / μ A)` (`InformationTheory.klDiv_cond_le`)
   have hKL := klDiv_cond_le hμA
   rw [ENNReal.log_pos_real (ENNReal.inv_ne_zero.2 (measure_ne_top μ A)) (ENNReal.inv_ne_top.2 hμA),
     ENNReal.toReal_inv] at hKL
@@ -537,6 +539,29 @@ theorem exists_run_bettingExperts (μ : Measure Θ) (L : ℝ) (B : OnlineLearner
     funext s
     exact congrFun (A.closedLoopFeedback_eq d _ s) θ
 
+/-- **The bets of the experts-through-betting reduction are measurable**: if the bets `x t θ` are
+the bets of a bettor `B`, measurable in the coins, on the coins `bettingCoin μ L (g s) (x s) θ` of
+the expert `θ`, and the losses `g s` are measurable for `s < n`, then the bets `x t` are
+measurable for `t < n`. -/
+theorem measurable_of_eq_run_bettingCoin {L : ℝ} {B : OnlineLearner C ℝ ℝ} {d : ℕ → C}
+    {g x : ℕ → Θ → ℝ} {n : ℕ} (hBm : ∀ t, Measurable fun c : ℕ → ℝ ↦ B.run d c t)
+    (hg : ∀ t < n, Measurable (g t))
+    (hx : ∀ t θ, x t θ = B.run d (fun s ↦ bettingCoin μ L (g s) (x s) θ) t) {t : ℕ} (ht : t < n) :
+    Measurable (x t) := by
+  induction t using Nat.strong_induction_on with
+  | _ t ih =>
+    have e : x t = fun θ ↦ B.run d (fun s ↦ if s < t then bettingCoin μ L (g s) (x s) θ
+        else 0) t := funext fun θ ↦ by
+      rw [hx t θ]
+      exact B.run_congr (fun _ _ ↦ rfl) fun s hs ↦ by simp [hs]
+    rw [e]
+    refine (hBm t).comp (Measurable.of_eval fun s ↦ ?_)
+    by_cases hs : s < t
+    · simp only [hs, ↓reduceIte]
+      exact measurable_bettingCoin (hg s (hs.trans ht)) (ih s hs (hs.trans ht))
+    · simp only [hs, ↓reduceIte]
+      exact measurable_const
+
 variable [IsProbabilityMeasure μ] {L : ℝ} {B : OnlineLearner C ℝ ℝ}
 
 /-- **The regret guarantee of the experts-through-betting learner** [Ora, Theorem 13.14]. Let the
@@ -561,21 +586,8 @@ theorem hasRegretBound_bettingExperts (hL : 0 < L) {a : ℕ → ℝ} {f h : ℕ 
   obtain ⟨x, hrun, hx⟩ := exists_run_bettingExperts μ L B d g
   have hc (t : ℕ) (ht : t < n) (θ : Θ) : |bettingCoin μ L (g t) (x t) θ| ≤ 1 :=
     abs_bettingCoin_le_one hL (hg t ht).2 θ
-  -- the bets are measurable, by strong induction on the rounds
-  have hxm (t : ℕ) (ht : t < n) : Measurable (x t) := by
-    induction t using Nat.strong_induction_on with
-    | _ t ih =>
-      have e : x t = fun θ ↦ B.run d (fun s ↦ if s < t then bettingCoin μ L (g s) (x s) θ
-          else 0) t := funext fun θ ↦ by
-        rw [hx t θ]
-        exact B.run_congr (fun _ _ ↦ rfl) fun s hs ↦ by simp [hs]
-      rw [e]
-      refine (hBm d t).comp (Measurable.of_eval fun s ↦ ?_)
-      by_cases hs : s < t
-      · simp only [hs, ↓reduceIte]
-        exact measurable_bettingCoin (hg s (hs.trans ht)).1 (ih s hs (hs.trans ht))
-      · simp only [hs, ↓reduceIte]
-        exact measurable_const
+  have hxm (t : ℕ) (ht : t < n) : Measurable (x t) :=
+    measurable_of_eq_run_bettingCoin (hBm d) (fun s hs ↦ (hg s hs).1) hx ht
   have hxi (t : ℕ) (ht : t < n) : Integrable (x t) μ := by
     obtain ⟨K, hK⟩ := hBb d t
     exact Integrable.of_bound (hxm t ht).aestronglyMeasurable K
@@ -606,14 +618,14 @@ variable {C : Type*} [IsProbabilityMeasure μ] {L : ℝ}
 /-- **Experts through Krichevsky–Trofimov bettors** [Ora, §13.6, Algorithm 13.4]: for measurable
 losses in `[-L, L]`, the regret after `n` rounds of `bettingExperts μ L (krichevskyTrofimov 1)`
 against every probability measure `Q` with `KL(Q, μ) < ∞` is at most
-`2 L √(2 n (KL(Q, μ) + log n / 2 + 1))`, that is `L √(8 n (KL(Q, μ) + log n / 2 + 1))`. The
-logarithm of the horizon comes from the factor `1 / √n` of the wealth of the Krichevsky–Trofimov
-bettor (`mul_exp_sq_div_sub_le_wealth`), with `f y = y ^ 2 / (2 n) - log n / 2 - 1` and
-`h z = √(2 n (z + log n / 2 + 1))`. -/
+`2 L √(2 n (KL(Q, μ) + log n / 2 + 1))`, that is `L √(8 n (KL(Q, μ) + log n / 2 + 1))`. -/
 theorem hasRegretBound_bettingExperts_krichevskyTrofimov (hL : 0 < L) :
     (bettingExperts (C := C) μ L (krichevskyTrofimov 1)).HasRegretBound (fun g p ↦ ∫ θ, g θ ∂p)
       (fun _ g ↦ Measurable g ∧ ∀ θ, |g θ| ≤ L) {Q | IsProbabilityMeasure Q ∧ klDiv Q μ ≠ ∞}
       fun n _ _ Q ↦ 2 * L * √(2 * n * ((klDiv Q μ).toReal + log n / 2 + 1)) := by
+  -- the logarithm of the horizon comes from the factor `1 / √n` of the wealth of the
+  -- Krichevsky–Trofimov bettor (`mul_exp_sq_div_sub_le_wealth`), with
+  -- `f y = y ^ 2 / (2 n) - log n / 2 - 1` and `h z = √(2 n (z + log n / 2 + 1))`
   refine hasRegretBound_bettingExperts (a := fun n ↦ -(log n / 2 + 1))
     (f := fun n y ↦ y ^ 2 / (2 * n) - log n / 2 - 1)
     (h := fun n z ↦ √(2 * n * (z + log n / 2 + 1))) hL
