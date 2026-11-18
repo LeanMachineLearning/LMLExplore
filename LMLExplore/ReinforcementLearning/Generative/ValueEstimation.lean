@@ -27,11 +27,13 @@ minimax rate of [AMK13].
 The bound has a deterministic part and a probabilistic part.
 * The **deterministic part**,
   `Learning.MDP.abs_optQValue_sub_optQValue_le_of_le_sqrt_variance` in
-  `MarkovDecisionProcess/Simulation.lean`, holds for any two MDPs `M` and `M'` with the same mean
-  rewards: if the one-step predictions of the optimal value `v*` of `M` satisfy the Bernstein-type
-  bound `|∫ v* dP q - ∫ v* dP' q| ≤ a √(Var_{P' q}(v*)) + b` at every pair `q`, then
-  `|Q* - Q'*|` is at most `γ (a C √(2 / (1 - γ) ^ 3) + (a D + b) / (1 - γ))`, with
-  `D = γ (a C / (1 - γ) + b) / (1 - γ)`.
+  `MarkovDecisionProcess/Simulation.lean`, holds for any two MDPs `M` and `M'` whose mean rewards
+  are within `δ` of each other: if the one-step predictions of the optimal value `v*` of `M`
+  satisfy the Bernstein-type bound `|∫ v* dP q - ∫ v* dP' q| ≤ a √(Var_{P' q}(v*)) + b` at every
+  pair `q`, then `|Q* - Q'*|` is at most
+  `δ / (1 - γ) + γ (a C √(2 / (1 - γ) ^ 3) + (a D + b) / (1 - γ))`, with
+  `D = δ / (1 - γ) + γ (a C / (1 - γ) + b) / (1 - γ)`. This file applies it with `δ = 0`, since
+  the empirical MDP has the true mean rewards (`Learning.MDP.empirical_R`).
 * The **probabilistic part** is the empirical Bernstein inequality for the fixed function `v*`
   under the empirical kernel, with a union bound over the pairs
   (`LMLExplore.le_streamMeasure_forall_abs_integral_sub_integral_empiricalKernel_lt_sqrt_add`).
@@ -201,8 +203,10 @@ theorem le_streamMeasure_forall_abs_optQValue_sub_optQValue_empirical_le_sqrt_ad
       2 * L / N * Var[M.optValue γ; empiricalKernel N ω q] by ring,
       Real.sqrt_mul (by positivity), div_mul_eq_div_div]
     ring
-  exact (abs_optQValue_sub_optQValue_le_of_le_sqrt_variance hγ hR (hR' ω) (by simp)
-    (Real.sqrt_nonneg _) hε p).trans (value_estimation_bound_le γ.coe_nonneg hγ hC hL hN hLN)
+  have h := abs_optQValue_sub_optQValue_le_of_le_sqrt_variance (δ := 0) hγ hR (hR' ω)
+    (fun q ↦ by simp) (Real.sqrt_nonneg _) hε p
+  simp only [zero_div, zero_add] at h
+  exact h.trans (value_estimation_bound_le γ.coe_nonneg hγ hC hL hN hLN)
 
 end Generative
 
