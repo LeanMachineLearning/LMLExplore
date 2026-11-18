@@ -23,12 +23,15 @@ martingale when `Q` is locally absolutely continuous with respect to `P`, that i
 `Filtration.piLE`, the process is `∏ i ≤ n, Q₁.rnDeriv P₁ (ω i)` (Statlib's
 `ProbabilityTheory.rnDeriv_trim_piLE_infinitePi`).
 
-Conversely, on a sequence space `Π n, X n` of standard Borel spaces with the filtration
-`Filtration.piLE` of the observations so far, every test martingale `M` for `P` with
-`∫⁻ M 0 ∂P = 1` is the likelihood ratio process of some probability measure `Q` against `P`
-[RRLK, Proposition 4]: the measures `A ↦ ∫⁻ ω in A, M n ω ∂P` on the σ-algebras of the filtration
-are consistent because `M` is a martingale, and Kolmogorov's extension theorem glues them into
-`Q`. Test martingales and likelihood ratios are therefore the same objects.
+Conversely, on a sequence space `Π n, X n` whose coordinates after the first are standard Borel,
+with the filtration `Filtration.piLE` of the observations so far, every test martingale `M` for
+`P` with `∫⁻ M 0 ∂P = 1` is, up to `P`-a.s. equality, the likelihood ratio process of some
+probability measure `Q` against `P` [RRLK, Proposition 4]: the measures
+`A ↦ ∫⁻ ω in A, M n ω ∂P` on the σ-algebras of the filtration are consistent because `M` is a
+martingale, and Kolmogorov's extension theorem glues them into `Q`. On such sequence spaces (and
+when `P` is σ-finite on the filtration), test martingales with initial expectation `1` are
+therefore, up to `P`-a.s. equality, exactly the likelihood ratio processes of locally absolutely
+continuous probability measures.
 
 ## Main statements
 
@@ -38,8 +41,8 @@ are consistent because `M` is a martingale, and Kolmogorov's extension theorem g
   absolutely continuous with respect to `P`.
 * `ProbabilityTheory.IsTestMartingale.exists_trim_piLE_eq_withDensity`,
   `ProbabilityTheory.IsTestMartingale.exists_rnDeriv_trim_piLE_ae_eq`: every test martingale on a
-  sequence space of standard Borel spaces with initial expectation `1` is the likelihood ratio
-  process of a probability measure [RRLK, Proposition 4].
+  sequence space whose coordinates after the first are standard Borel, with initial expectation
+  `1`, is a.s. the likelihood ratio process of a probability measure [RRLK, Proposition 4].
 
 ## Implementation notes
 

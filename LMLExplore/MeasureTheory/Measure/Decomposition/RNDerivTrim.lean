@@ -16,8 +16,8 @@ Radon–Nikodym derivatives `(μ.trim hm).rnDeriv (ν.trim hm)` and
 set of the coarser σ-algebra `m`, the set integral against `ν` of the derivative on `m'` is at
 most that of the derivative on `m`: refining the σ-algebra can only move mass of `μ` from the
 absolutely continuous part to the singular part. No absolute continuity is assumed. Applied to a
-filtration, this says that the density process of `μ` with respect to `ν` is an `ℝ≥0∞`-valued
-supermartingale for `ν`.
+filtration, this says that the process of Radon–Nikodym derivatives of the restrictions of `μ` and
+`ν` is an `ℝ≥0∞`-valued supermartingale for `ν`.
 
 ## Main statements
 
@@ -56,10 +56,10 @@ theorem setLIntegral_rnDeriv_trim (hm : m ≤ m0)
   rw [← setLIntegral_trim hm (measurable_rnDeriv _ _) hs, setLIntegral_rnDeriv' hμν hs,
     trim_measurableSet_eq hm hs]
 
-/-- **The density process is a supermartingale.** For sub-σ-algebras `m ≤ m'` of the ambient
-σ-algebra and an `m`-measurable set `s`, the set integral over `s` of the Radon–Nikodym derivative
-of the restrictions of `μ` and `ν` to `m'` is at most that of the derivative of their
-restrictions to `m`. -/
+/-- **Refining the σ-algebra decreases set integrals of the Radon–Nikodym derivative.**
+For sub-σ-algebras `m ≤ m'` of the ambient σ-algebra and an `m`-measurable set `s`, the set
+integral over `s` of the Radon–Nikodym derivative of the restrictions of `μ` and `ν` to `m'` is at
+most that of the derivative of their restrictions to `m`. -/
 theorem setLIntegral_rnDeriv_trim_le_of_le (hm : m ≤ m0) (hm' : m' ≤ m0) (hmm' : m ≤ m')
     [(μ.trim hm).HaveLebesgueDecomposition (ν.trim hm)] {s : Set α} (hs : MeasurableSet[m] s) :
     ∫⁻ x in s, (μ.trim hm').rnDeriv (ν.trim hm') x ∂ν ≤
