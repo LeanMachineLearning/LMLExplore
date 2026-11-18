@@ -176,8 +176,9 @@ theorem sum_Ico_add_one_rpow_le {r : ℝ} (hr₁ : -1 < r) (hr : r ≤ 0) {m n :
   refine le_of_eq_of_le ?_ h
   rw [Finset.sum_Ico_eq_sum_range]
   refine Finset.sum_congr rfl fun i _ ↦ ?_
+  congr 1
   push_cast
-  ring_nf
+  ring
 
 /-- **Sums of a nonnegative power** compared with its integral: for `0 ≤ r` and `m ≤ n`,
 `(n ^ (r + 1) - m ^ (r + 1)) / (r + 1) ≤ ∑_{m ≤ i < n} (i + 1) ^ r`.
@@ -190,6 +191,6 @@ theorem sub_div_le_sum_Ico_add_one_rpow {r : ℝ} (hr : 0 ≤ r) {m n : ℕ} (hm
     (monotoneOn_rpow_Ici_of_exponent_nonneg hr).mono fun x hx ↦ (Nat.cast_nonneg m).trans hx.1
   have h := hmono.integral_le_sum_Ico hmn
   rw [integral_rpow (Or.inl (by linarith))] at h
-  exact h.trans_eq (Finset.sum_congr rfl fun i _ ↦ by push_cast; rfl)
+  exact h.trans_eq (Finset.sum_congr rfl fun i _ ↦ by rw [Nat.cast_add_one])
 
 end Real

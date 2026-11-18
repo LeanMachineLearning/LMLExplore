@@ -38,7 +38,7 @@ half about as much as it moved in the first.
 * `LMLExplore.OnlineLearning.one_div_two_sub_add_two_rpow_sub_one_div_pos`: `φ(α) > 0` for
   `0 < α < 1`, so the bound grows like `n ^ (2 - α)`.
 * `LMLExplore.OnlineLearning.tendsto_one_div_two_sub_add_two_rpow_sub_one_div`: `φ(α) → 1 - log 2`
-  as `α → 1`.
+  as `α → 1` from below.
 
 ## References
 
@@ -54,6 +54,15 @@ namespace LMLExplore.OnlineLearning
 
 variable {α : ℝ} {n : ℕ}
 
+/-- `2 ^ (α - 1)` is the inverse of `2 ^ (1 - α)`. -/
+private lemma two_rpow_sub_one_eq_inv : (2 : ℝ) ^ (α - 1) = ((2 : ℝ) ^ (1 - α))⁻¹ := by
+  rw [← rpow_neg zero_le_two, neg_sub]
+
+/-- For `α < 1` and `0 ≤ x`, `x ^ (2 - α) = x * x ^ (1 - α)`. -/
+private lemma rpow_two_sub_eq_mul (hα1 : α < 1) {x : ℝ} (hx : 0 ≤ x) :
+    x ^ (2 - α) = x * x ^ (1 - α) := by
+  rw [show 2 - α = 1 - α + 1 by ring, rpow_add_one' hx (by linarith), mul_comm]
+
 /-- The constant `φ(α) = 1 / (2 - α) + (2 ^ (α - 1) - 1) / (1 - α)` of the lower bound for online
 subgradient descent with the rates `(t + 1) ^ (-α)` is positive for `0 < α < 1`. -/
 theorem one_div_two_sub_add_two_rpow_sub_one_div_pos (hα0 : 0 < α) (hα1 : α < 1) :
@@ -63,8 +72,7 @@ theorem one_div_two_sub_add_two_rpow_sub_one_div_pos (hα0 : 0 < α) (hα1 : α 
     (p := 1 - α) (by linarith) (by linarith)
   norm_num at hB
   have hu : 0 < (2 : ℝ) ^ (1 - α) := by positivity
-  have h2 : (2 : ℝ) ^ (α - 1) = ((2 : ℝ) ^ (1 - α))⁻¹ := by
-    rw [← rpow_neg zero_le_two, neg_sub]
+  have h2 : (2 : ℝ) ^ (α - 1) = ((2 : ℝ) ^ (1 - α))⁻¹ := two_rpow_sub_one_eq_inv
   have h1 : 0 < 1 - α := by linarith
   have h2' : 0 < 2 - α := by linarith
   rw [h2, show 1 / (2 - α) + (((2 : ℝ) ^ (1 - α))⁻¹ - 1) / (1 - α) =
@@ -73,7 +81,7 @@ theorem one_div_two_sub_add_two_rpow_sub_one_div_pos (hα0 : 0 < α) (hα1 : α 
   exact div_pos (by linarith) (by positivity)
 
 /-- The constant `φ(α) = 1 / (2 - α) + (2 ^ (α - 1) - 1) / (1 - α)` of the lower bound for online
-subgradient descent with the rates `(t + 1) ^ (-α)` tends to `1 - log 2` as `α → 1`. -/
+subgradient descent with the rates `(t + 1) ^ (-α)` tends to `1 - log 2` as `α → 1` from below. -/
 theorem tendsto_one_div_two_sub_add_two_rpow_sub_one_div :
     Tendsto (fun α : ℝ ↦ 1 / (2 - α) + ((2 : ℝ) ^ (α - 1) - 1) / (1 - α)) (𝓝[<] 1)
       (𝓝 (1 - log 2)) := by
@@ -128,6 +136,33 @@ private lemma sum_mul_neg_sum_eq (η g : ℕ → ℝ) {m : ℕ} (hg : ∀ t, g t
     push_cast
     ring
 
+/-- The real-algebra core of the regret lower bound: with `a = n ^ (1 - α)`, `b = m ^ (1 - α)`,
+`c = 2 ^ (α - 1)` and `2 m ≤ n + 1`, the bounds `n a / (2 - α) ≤ S₁`,
+`S₂ ≤ (a - b) / (1 - α)` and `0 ≤ S₃ ≤ b / (1 - α)` on the three sums of the closed form of the
+regret, together with `a c ≤ b ≤ a`, give
+`(1 / (2 - α) + (c - 1) / (1 - α)) n a - a / (1 - α) ≤ S₁ - n S₂ + (n - 2 m) S₃`. -/
+private lemma mul_sub_div_le_sub_mul_add_mul {a b c n m S₁ S₂ S₃ : ℝ} (hs : 0 < 1 - α)
+    (hab : b ≤ a) (hba : a * c ≤ b) (hn : 0 ≤ n) (hnm' : 2 * m ≤ n + 1)
+    (hA : n * a / (2 - α) ≤ S₁) (hB : S₂ ≤ (a - b) / (1 - α)) (hC : S₃ ≤ b / (1 - α))
+    (hC0 : 0 ≤ S₃) :
+    (1 / (2 - α) + (c - 1) / (1 - α)) * (n * a) - a / (1 - α) ≤ S₁ - n * S₂ + (n - 2 * m) * S₃ := by
+  have hs' : 0 < 2 - α := by linarith
+  calc (1 / (2 - α) + (c - 1) / (1 - α)) * (n * a) - a / (1 - α)
+      ≤ n * a / (2 - α) - n * ((a - b) / (1 - α)) - b / (1 - α) := by
+        -- `b ≥ c a` and `b ≤ a`
+        have h : n * a / (2 - α) - n * ((a - b) / (1 - α)) - b / (1 - α) -
+            ((1 / (2 - α) + (c - 1) / (1 - α)) * (n * a) - a / (1 - α)) =
+              (n * b - n * (a * c) + (a - b)) / (1 - α) := by
+          field_simp
+          ring
+        have h' := mul_le_mul_of_nonneg_left hba hn
+        exact sub_nonneg.mp (h ▸ div_nonneg (by linarith) hs.le)
+    _ ≤ S₁ - n * S₂ + (n - 2 * m) * S₃ := by
+        -- `-1 ≤ n - 2 m`, so the last term is at least `-S₃`
+        have h1 := mul_le_mul_of_nonneg_left hB hn
+        have h2 : 0 ≤ (n - 2 * m + 1) * S₃ := mul_nonneg (by linarith) hC0
+        nlinarith
+
 /-- **The regret of unprojected online subgradient descent with the rates `(t + 1) ^ (-α)`.**
 Let `0 ≤ α < 1`, and let the slopes `g t` be `-1` on the first `(n + 1) / 2` rounds and `1`
 afterwards. The plays `x` of online subgradient descent on `ℝ` from `x 0 = 0` with the rates
@@ -179,30 +214,11 @@ theorem mul_rpow_sub_rpow_div_le_regret (hα0 : 0 ≤ α) (hα1 : α < 1) {x g :
   have hab : b ≤ a := rpow_le_rpow (Nat.cast_nonneg m) hmn hs.le
   have hba : a * (2 : ℝ) ^ (α - 1) ≤ b := by
     have h := rpow_le_rpow (by positivity) (show (n : ℝ) / 2 ≤ m by linarith) hs.le
-    rwa [div_rpow (Nat.cast_nonneg n) zero_le_two, div_eq_mul_inv, ← rpow_neg zero_le_two,
-      neg_sub] at h
-  have ha : 0 ≤ a := by positivity
-  have hn2 : (n : ℝ) ^ (2 - α) = n * a := by
-    rw [show 2 - α = 1 - α + 1 by ring, rpow_add_one' (Nat.cast_nonneg n) (by linarith), mul_comm]
+    rwa [div_rpow (Nat.cast_nonneg n) zero_le_two, div_eq_mul_inv, ← two_rpow_sub_one_eq_inv] at h
+  have hn2 : (n : ℝ) ^ (2 - α) = n * a := rpow_two_sub_eq_mul hα1 (Nat.cast_nonneg n)
   rw [hR, hn2]
   rw [hn2] at hA
-  calc (1 / (2 - α) + ((2 : ℝ) ^ (α - 1) - 1) / (1 - α)) * (n * a) - a / (1 - α)
-      ≤ n * a / (2 - α) - n * ((a - b) / (1 - α)) - b / (1 - α) := by
-        -- `m ≥ n / 2` gives `b ≥ 2 ^ (α - 1) a`, and `m ≤ n` gives `b ≤ a`
-        have h : n * a / (2 - α) - n * ((a - b) / (1 - α)) - b / (1 - α) -
-            ((1 / (2 - α) + ((2 : ℝ) ^ (α - 1) - 1) / (1 - α)) * (n * a) - a / (1 - α)) =
-              (n * b - n * (a * (2 : ℝ) ^ (α - 1)) + (a - b)) / (1 - α) := by
-          field_simp
-          ring
-        have h' := mul_le_mul_of_nonneg_left hba (Nat.cast_nonneg n)
-        exact sub_nonneg.mp (h ▸ div_nonneg (by linarith) hs.le)
-    _ ≤ ∑ i ∈ range n, ((i : ℝ) + 1) ^ (1 - α) - n * ∑ i ∈ Ico m n, η i +
-        (n - 2 * m) * ∑ i ∈ range m, η i := by
-        -- `-1 ≤ n - 2 m ≤ 0`, so the last term is at least `-∑_{i < m} η i`
-        have h1 := mul_le_mul_of_nonneg_left hB (Nat.cast_nonneg n)
-        have h2 : 0 ≤ ((n : ℝ) - 2 * m + 1) * ∑ i ∈ range m, η i :=
-          mul_nonneg (by linarith) hC0
-        nlinarith
+  exact mul_sub_div_le_sub_mul_add_mul hs hab hba (Nat.cast_nonneg n) hnm' hA hB hC hC0
 
 /-- **The lower bound for online subgradient descent with the rates `(t + 1) ^ (-α)` on unbounded
 sets** [Ora, Theorem 5.4]. Let `0 < α < 1`, `φ(α) = 1 / (2 - α) + (2 ^ (α - 1) - 1) / (1 - α)` and
@@ -224,8 +240,8 @@ theorem div_two_mul_rpow_le_regret (hα0 : 0 < α) (hα1 : α < 1)
   -- `2 ≤ (1 - α) φ(α) n`
   have h2 : 2 ≤ n * ((1 - α) * φ) := (div_le_iff₀ (by positivity)).mp hn
   have ha : 0 ≤ (n : ℝ) ^ (1 - α) := by positivity
-  rw [show 2 - α = 1 - α + 1 by ring, rpow_add_one' (Nat.cast_nonneg n) (by linarith)]
-  have h3 : (n : ℝ) ^ (1 - α) / (1 - α) ≤ φ / 2 * ((n : ℝ) ^ (1 - α) * n) := by
+  rw [rpow_two_sub_eq_mul hα1 (Nat.cast_nonneg n)]
+  have h3 : (n : ℝ) ^ (1 - α) / (1 - α) ≤ φ / 2 * (n * (n : ℝ) ^ (1 - α)) := by
     rw [div_le_iff₀ hs]
     nlinarith [mul_le_mul_of_nonneg_left h2 ha]
   linarith

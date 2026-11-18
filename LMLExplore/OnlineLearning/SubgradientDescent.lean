@@ -600,6 +600,7 @@ theorem isMinOn_run_onlineSubgradientDescent_of_complete_convex (hK_ne : K.Nonem
 /-- **Unprojected online subgradient descent.** On the whole space, each play of the online
 subgradient descent learner after the first is the gradient step `x t - η t • g t` from the
 previous play. -/
+@[simp high]
 theorem run_onlineSubgradientDescent_univ_succ (c : ℕ → C) (g : ℕ → E) (t : ℕ) :
     (onlineSubgradientDescent Set.univ η x₀).run c g (t + 1) =
       (onlineSubgradientDescent Set.univ η x₀).run c g t - η t • g t := by
