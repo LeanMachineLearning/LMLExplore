@@ -345,7 +345,8 @@ theorem integrable_sum_mul_sqrt_mul_iwEstimator_sq (hη : 0 < η)
     WeightAlgorithm.measurable_weights_run h' t
   have hiw : Measurable fun ω ↦
       iwEstimator (tsallisMDWeights η t (history O A Y t ω)) (A t ω) (1 - Y t ω) :=
-    WeightAlgorithm.measurable_iwEstimator_run h' (measurable_const.sub (h.measurable_feedback t))
+    WeightAlgorithm.measurable_iwEstimator_run h' hW
+      (measurable_const.sub (h.measurable_feedback t))
   refine (integrable_sqrt_div_weights (t := t) hη h).mono' (by fun_prop) ?_
   filter_upwards [ae_sum_mul_sqrt_mul_iwEstimator_sq_mem_Icc (O := O) (A := A) hη hY] with ω hω
   rw [Real.norm_of_nonneg hω.1]

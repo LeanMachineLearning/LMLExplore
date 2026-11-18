@@ -325,7 +325,7 @@ theorem integrable_sum_mul_sqrt_mul_sq (h : IsAlgEnvSeq O A Y tsallisINF env P)
       WeightAlgorithm.measurable_weights_run (isAlgEnvSeq_tsallisINF_iff.1 h) t
     have hiw : Measurable fun ω ↦
         iwEstimator (tsallisINFWeights t (history O A Y t ω)) (A t ω) (1 - Y t ω) :=
-      WeightAlgorithm.measurable_iwEstimator_run (isAlgEnvSeq_tsallisINF_iff.1 h)
+      WeightAlgorithm.measurable_iwEstimator_run (isAlgEnvSeq_tsallisINF_iff.1 h) hW
         (measurable_const.sub (h.measurable_feedback t))
     have hYt := h.measurable_feedback t
     fun_prop

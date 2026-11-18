@@ -85,8 +85,8 @@ feedback `Y n` is almost surely the reward `x (A n)` of the action, the conditio
   rounds simultaneously, and almost surely at most `1`, respectively in `[0, 1]`, when the rewards
   are.
 * `WeightAlgorithm.measurable_iwEstimator_run`: along a run of a weight-based algorithm, the
-  importance-weighted estimates of a measurable random variable are a measurable function of the
-  run.
+  importance-weighted estimates, with measurable random weights, of a measurable random variable
+  are a measurable function of the run.
 * `WeightAlgorithm.condExp_iwEstimator_eq_div_mul_of_condExp_eq`: along a run of a weight-based
   algorithm with weights `P`, the estimate `𝟙{A n = a} Z / q a` with weights `q` computed from the
   past, of a random variable `Z` whose conditional mean given the past and the action is known, has
@@ -503,13 +503,13 @@ variable [Fintype α] [MeasurableSpace α] [MeasurableSingletonClass α]
 variable {x : α → ℝ} {a : α}
 
 omit [IsFiniteMeasure P] in
-/-- Along a run of a weight-based algorithm, the importance-weighted estimate of a measurable
-random variable `Z` at the action of round `n` is a measurable function of the run. -/
+/-- Along a run of a weight-based algorithm, the importance-weighted estimate, with measurable
+random weights `q` such as the weights `w n (past)` of round `n`, of a measurable random variable
+`Z` at the action of round `n` is a measurable function of the run. -/
 lemma measurable_iwEstimator_run (h : IsAlgEnvSeq O A Y (weightAlgorithm w hw hp) env P)
-    {Z : Ω → ℝ} (hZ : Measurable Z) :
-    Measurable fun ω ↦ iwEstimator (w n (history O A Y n ω, O n ω)) (A n ω) (Z ω) :=
-  measurable_iwEstimator.comp ((measurable_weights_run h n).prodMk
-    ((h.measurable_action n).prodMk hZ))
+    {q : Ω → α → ℝ} (hq : Measurable q) {Z : Ω → ℝ} (hZ : Measurable Z) :
+    Measurable fun ω ↦ iwEstimator (q ω) (A n ω) (Z ω) :=
+  measurable_iwEstimator.comp (hq.prodMk ((h.measurable_action n).prodMk hZ))
 
 /-- Along a run of a weight-based algorithm whose feedback at round `n` is the reward `x (A n)` of
 the action, the importance-weighted estimate of the reward of an arm `a` is integrable. -/
@@ -539,22 +539,6 @@ lemma integrable_lossIwEstimator (h : IsAlgEnvSeq O A Y (weightAlgorithm w hw hp
         simp only [mul_add, mul_one, Finset.sum_add_distrib, hp.2, add_le_add_iff_left]
         exact sum_mul_abs_iwEstimator_apply_le (x := fun b ↦ 1 - x b) (hp.1 a)
 
-/-- Along a run of a weight-based algorithm whose feedback at round `n` is almost surely in
-`[0, 1]`, in any environment, the importance-weighted estimate of the loss `1 - Y n` at an arm `a`
-is integrable. -/
-lemma integrable_iwEstimator_one_sub (h : IsAlgEnvSeq O A Y (weightAlgorithm w hw hp) env P)
-    (hY : ∀ᵐ ω ∂P, Y n ω ∈ Set.Icc 0 1) (a : α) :
-    Integrable
-      (fun ω ↦ iwEstimator (w n (history O A Y n ω, O n ω)) (A n ω) (1 - Y n ω) a) P := by
-  have hm : Measurable
-      fun ω ↦ iwEstimator (w n (history O A Y n ω, O n ω)) (A n ω) (1 - Y n ω) a :=
-    (measurable_pi_apply a).comp
-      (measurable_iwEstimator_run h (measurable_const.sub (h.measurable_feedback n)))
-  refine (integrable_div_weights h n (Pi.single a 1)).mono' hm.aestronglyMeasurable ?_
-  filter_upwards [hY] with ω hω
-  exact norm_iwEstimator_le_single_div ((mem_simplex_iff.1 (hp n _)).1 _) (sub_nonneg.2 hω.2)
-    (by linarith [hω.1])
-
 /-- Along a run of a weight-based algorithm with weights `P = w n (past)` whose feedback at round
 `n` is almost surely in `[0, 1]`, in any environment, for `γ ≥ 0` the implicit-exploration
 estimate `𝟙{A n = a} (1 - Y n) / (P a + γ)` of the loss `1 - Y n` at an arm `a` is integrable. -/
@@ -565,16 +549,24 @@ lemma integrable_iwEstimator_add_one_sub
       (1 - Y n ω) a) P := by
   have hm : Measurable fun ω ↦
       iwEstimator (fun b ↦ w n (history O A Y n ω, O n ω) b + γ) (A n ω) (1 - Y n ω) a :=
-    (measurable_pi_apply a).comp (measurable_iwEstimator.comp
-      ((measurable_pi_iff.2 fun b ↦ ((measurable_pi_apply b).comp
-        (measurable_weights_run h n)).add_const γ).prodMk
-      ((h.measurable_action n).prodMk (measurable_const.sub (h.measurable_feedback n)))))
+    (measurable_pi_apply a).comp (measurable_iwEstimator_run h
+      (measurable_pi_iff.2 fun b ↦ ((measurable_pi_apply b).comp
+        (measurable_weights_run h n)).add_const γ) (measurable_const.sub (h.measurable_feedback n)))
   -- the action almost surely has positive weight, and adding `γ` to it decreases the estimate
   refine (integrable_div_weights h n (Pi.single a 1)).mono' hm.aestronglyMeasurable ?_
   filter_upwards [hY, ae_weights_action_pos h n] with ω hω hpos
   exact (norm_iwEstimator_le_single_div (by linarith) (sub_nonneg.2 hω.2)
     (by linarith [hω.1])).trans (div_le_div_of_nonneg_left
       (by rw [Pi.single_apply]; split_ifs <;> norm_num) hpos (le_add_of_nonneg_right hγ))
+
+/-- Along a run of a weight-based algorithm whose feedback at round `n` is almost surely in
+`[0, 1]`, in any environment, the importance-weighted estimate of the loss `1 - Y n` at an arm `a`
+is integrable. -/
+lemma integrable_iwEstimator_one_sub (h : IsAlgEnvSeq O A Y (weightAlgorithm w hw hp) env P)
+    (hY : ∀ᵐ ω ∂P, Y n ω ∈ Set.Icc 0 1) (a : α) :
+    Integrable
+      (fun ω ↦ iwEstimator (w n (history O A Y n ω, O n ω)) (A n ω) (1 - Y n ω) a) P := by
+  simpa only [add_zero] using integrable_iwEstimator_add_one_sub h hY le_rfl a
 
 variable [Nonempty α]
 
