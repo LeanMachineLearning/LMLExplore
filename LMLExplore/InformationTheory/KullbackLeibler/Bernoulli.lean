@@ -85,7 +85,8 @@ smallest `q ∈ [0, p]` with `d(p, q) ≤ c`; together they are the confidence b
   `LMLExplore.one_add_pow_mul_one_sub_pow_le_exp_mul_klBerReal`: for `n = k + m`,
   `exp (n d(k / n, 1 / 2)) = 2 ^ n (k / n) ^ k (m / n) ^ m`, and it bounds the gain
   `(1 + β) ^ k (1 - β) ^ m` of every fraction `β ∈ [-1, 1]` in the coin-betting game.
-* `LMLExplore.continuousOn_klBer`: `d` is continuous on `[0, 1] × (0, 1)`.
+* `LMLExplore.continuousOn_klBer`: `d` is continuous on `[0, 1] × (0, 1)`, and
+  `LMLExplore.continuous_klBer_left`: for `q ∈ (0, 1)`, `p ↦ d(p, q)` is continuous on `ℝ`.
 * `LMLExplore.tendsto_klBer_nhdsGT`: for `p ∈ [0, 1]`, `q ↦ d(p, q)` is right-continuous on
   `[p, 1)`.
 * `LMLExplore.strictMonoOn_klBer`, `LMLExplore.strictAntiOn_klBer`: for `p ∈ [0, 1]`,
@@ -604,6 +605,19 @@ theorem continuousOn_klBer :
   refine (ENNReal.continuous_ofReal.comp_continuousOn (continuousOn_klBerReal.mono
     (Set.prod_mono (Set.subset_univ _) subset_rfl))).congr fun x hx ↦ ?_
   exact klBer_eq_ofReal_klBerReal hx.1 (Set.Ioo_subset_Icc_self hx.2) (klBer_ne_top hx.2)
+
+/-- For `q ∈ (0, 1)`, the binary relative entropy `p ↦ d(p, q)` is continuous on `ℝ`: it is
+invariant under clamping `p` to `[0, 1]`, where it is continuous. -/
+theorem continuous_klBer_left (hq : q ∈ Set.Ioo 0 1) : Continuous fun p ↦ klBer p q := by
+  have h : (fun p ↦ klBer p q) =
+      fun p ↦ Function.uncurry klBer ((Set.projIcc 0 1 zero_le_one p : ℝ), q) := by
+    ext p
+    rw [Function.uncurry_apply_pair, ← klBer_projIcc p q,
+      Set.projIcc_of_mem _ (Set.Ioo_subset_Icc_self hq)]
+  rw [h]
+  exact continuousOn_klBer.comp_continuous
+    ((continuous_subtype_val.comp continuous_projIcc).prodMk continuous_const)
+    fun p ↦ ⟨(Set.projIcc 0 1 zero_le_one p).2, hq⟩
 
 /-- For `p ∈ [0, 1]`, the binary relative entropy `d(p, ·)` is right-continuous at every
 `q ∈ [p, 1)`, including at `q = 0` when `p = 0`, outside the domain of `continuousOn_klBer`. -/
