@@ -62,8 +62,8 @@ sample complexity of Track-and-Stop is at most the characteristic time:
 including ones that are not `δ`-correct, such as `β = 0`.
 Asymptotic optimality, that is, matching the lower bound `𝔼[τ_δ] ≥ T*(μ) kl(δ, 1 - δ)` of
 `Identification/LowerBound.lean`, also needs the `δ`-correctness of the thresholds, which is not
-proved here; for arms dominated by exponential families it is in
-`Identification/AsymptoticOptimality.lean`.
+proved here; for arms dominated by exponential families whose relative entropies are at most the
+extended divergences of the families it is in `Identification/AsymptoticOptimality.lean`.
 
 **Sample complexity with C-tracking** [DK19, Lemma 6 and Theorem 7]. When the optimal
 allocations `w*(μ, ¬i)` are not unique, a selection `w` of them is in general not continuous at
@@ -584,7 +584,8 @@ allocations of the simplex. Then for thresholds `β δ n h ≤ log (r n / δ)` (
 `𝔼[τ_δ] ≤ c log (1 / δ)` for all small enough `δ`, for every `c > T*(μ)`:
 `limsup_{δ → 0} 𝔼[τ_δ] / log (1 / δ) ≤ T*(μ)`. This is asymptotic optimality
 only for `δ`-correct thresholds, whose correctness is not proved here. The union-bound thresholds
-`K log (2 n (n + 1)) + x_δ` are `δ`-correct, and asymptotic optimality is
+`K log (2 n (n + 1)) + x_δ` are `δ`-correct when, in addition, the relative entropy between arms
+is at most the extended divergence of the families, and asymptotic optimality is then
 `IdentTask.tendsto_expectedStoppingTime_trackAndStop_unionBoundThreshold_div_log_of_klDiv_le` in
 `Identification/AsymptoticOptimality.lean`. -/
 theorem eventually_expectedStoppingTime_trackAndStop_le_of_charTime_lt
@@ -627,7 +628,8 @@ variable {α ℐ : Type*} [Fintype α] [DecidableEq α] [Nonempty α] {mα : Mea
 Under the assumptions of `IdentTask.eventually_expectedStoppingTime_trackAndStop_le_of_charTime_lt`
 on the model `μ`, Track-and-Stop with the thresholds `K log (2 n (n + 1)) + x_δ` satisfies
 `𝔼[τ_δ] ≤ c log (1 / δ)` for all small enough `δ`, for every `c > T*(μ)`:
-`limsup_{δ → 0} 𝔼[τ_δ] / log (1 / δ) ≤ T*(μ)`. These thresholds are `δ`-correct
+`limsup_{δ → 0} 𝔼[τ_δ] / log (1 / δ) ≤ T*(μ)`. These thresholds are `δ`-correct when, in
+addition, `klDiv (ν μ' a) (ν θ a) ≤ dbar_a(μ' a, θ a)` on every admissible model `θ`
 (`IdentTask.isDeltaPAC_trackAndStop_unionBoundThreshold_of_klDiv_le`). -/
 theorem eventually_expectedStoppingTime_trackAndStop_unionBoundThreshold_le
     (hT : ∀ a c, ¬ T a =ᵐ[ρ a] fun _ ↦ c) (hμ : ∀ a, μ a ∈ (ρ a).expFamilyMeans (T a))

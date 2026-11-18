@@ -354,6 +354,30 @@ private lemma mgfDominatedOn_bernoulliBandit {α ℐ : Type*} {mα : MeasurableS
     Set.projIcc_of_mem _ (Set.Ioo_subset_Icc_self (hθ a))]
   exact (IdentDistrib.refl aemeasurable_id).mgfDominatedOn
 
+/-- For Bernoulli arms indexed by real means, the relative entropy between the arms `a` of a model
+`μ'` and of a model `θ` with means in `(0, 1)` is at most the extended divergence of the
+exponential family of `Ber((1 : ℝ), 0, 1 / 2)`: they are equal when `μ' a ∈ [0, 1]`, and the
+divergence is `∞` otherwise. -/
+private lemma klDiv_le_expFamilyRate_bernoulliBandit {α ℐ : Type*} {mα : MeasurableSpace α}
+    [Countable α] [MeasurableSingletonClass α] {task : IdentTask α (α → ℝ) ℐ ℝ}
+    (hνt : task.ν = fun μ ↦ Bandits.bernoulliBandit fun a ↦ Set.projIcc 0 1 zero_le_one (μ a))
+    {θ : α → ℝ} (hθ : ∀ a, θ a ∈ Set.Ioo 0 1) (μ' : α → ℝ) (a : α) :
+    InformationTheory.klDiv (task.ν μ' a) (task.ν θ a) ≤
+      Ber((1 : ℝ), 0, unitInterval.sigmoid 0).expFamilyRate id (μ' a) (θ a) :=
+  hνt ▸ Bandits.klDiv_bernoulliBandit_projIcc_le_expFamilyRate 0 (hθ a)
+
+/-- The base measure `Ber((1 : ℝ), 0, 1 / 2)` of the exponential family of Bernoulli arms indexed
+by real means is not almost surely constant: the family is nondegenerate. -/
+private lemma not_ae_eq_const_bernoulliMeasure_sigmoid_zero (c : ℝ) :
+    ¬ id =ᵐ[Ber((1 : ℝ), 0, unitInterval.sigmoid 0)] fun _ ↦ c :=
+  not_ae_eq_const_bernoulliMeasure ⟨Real.sigmoid_pos 0, Real.sigmoid_lt_one 0⟩ c
+
+/-- Every real of `(0, 1)` is a mean of the exponential family of `Ber((1 : ℝ), 0, 1 / 2)` with the
+identity statistic. -/
+private lemma mem_expFamilyMeans_bernoulliMeasure_sigmoid_zero {x : ℝ} (hx : x ∈ Set.Ioo 0 1) :
+    x ∈ Ber((1 : ℝ), 0, unitInterval.sigmoid 0).expFamilyMeans id :=
+  (expFamilyMeans_bernoulliMeasure_sigmoid 0).symm ▸ hx
+
 /-- **Track-and-Stop for Bernoulli arms is `δ`-PAC** for every `δ ∈ (0, 1]`, with the thresholds
 `K log (2 n (n + 1)) + x_δ`, when it tracks optimal allocations. Let the arm `a` of the model `μ`
 be the Bernoulli law of mean `μ a` (projected on `[0, 1]`), and let the admissible models have
@@ -375,10 +399,10 @@ theorem isDeltaPAC_trackAndStop_unionBoundThreshold_of_mem_optAlloc_bernoulliBan
       (fun n _ ↦ unionBoundThreshold (Fintype.card α) (unionBoundLevel (Fintype.card α) δ) n) rec
       hrec (hstop δ)) δ :=
   isDeltaPAC_trackAndStop_unionBoundThreshold_of_mem_optAlloc_of_klDiv_le
-    (fun _ ↦ not_ae_eq_const_bernoulliMeasure ⟨Real.sigmoid_pos 0, Real.sigmoid_lt_one 0⟩)
-    (fun θ hθ a ↦ (expFamilyMeans_bernoulliMeasure_sigmoid 0).symm ▸ hM θ hθ a)
+    (fun _ ↦ not_ae_eq_const_bernoulliMeasure_sigmoid_zero)
+    (fun θ hθ a ↦ mem_expFamilyMeans_bernoulliMeasure_sigmoid_zero (hM θ hθ a))
     (fun θ hθ ↦ mgfDominatedOn_bernoulliBandit hνt (hM θ hθ))
-    (fun θ hθ _ a ↦ hνt ▸ Bandits.klDiv_bernoulliBandit_projIcc_le_expFamilyRate 0 (hM θ hθ a))
+    (fun θ hθ ↦ klDiv_le_expFamilyRate_bernoulliBandit hνt (hM θ hθ))
     hcorrect hw_opt hw_cont hrec_eq h_lsc h_charTime hδ hδ1
 
 /-- **Asymptotic optimality of Track-and-Stop for Bernoulli arms** [GK16, Theorem 14]. Under the
@@ -402,10 +426,10 @@ theorem tendsto_expectedStoppingTime_trackAndStop_unionBoundThreshold_div_log_be
         hrec (hstop δ)) (Environment.bandit (task.ν μ)) / ENNReal.ofReal (log (1 / δ)))
       (𝓝[>] 0) (𝓝 (task.charTime μ)) :=
   tendsto_expectedStoppingTime_trackAndStop_unionBoundThreshold_div_log_of_klDiv_le
-    (fun _ ↦ not_ae_eq_const_bernoulliMeasure ⟨Real.sigmoid_pos 0, Real.sigmoid_lt_one 0⟩)
-    (fun θ hθ a ↦ (expFamilyMeans_bernoulliMeasure_sigmoid 0).symm ▸ hM θ hθ a)
+    (fun _ ↦ not_ae_eq_const_bernoulliMeasure_sigmoid_zero)
+    (fun θ hθ a ↦ mem_expFamilyMeans_bernoulliMeasure_sigmoid_zero (hM θ hθ a))
     (fun θ hθ ↦ mgfDominatedOn_bernoulliBandit hνt (hM θ hθ))
-    (fun θ hθ _ a ↦ hνt ▸ Bandits.klDiv_bernoulliBandit_projIcc_le_expFamilyRate 0 (hM θ hθ a))
+    (fun θ hθ ↦ klDiv_le_expFamilyRate_bernoulliBandit hνt (hM θ hθ))
     hcorrect hw_opt hw_cont hrec_eq h_lsc h_charTime hμ
 
 /-- **Track-and-Stop with C-tracking for Bernoulli arms is `δ`-PAC** for every `δ ∈ (0, 1]`, with
@@ -429,10 +453,10 @@ theorem isDeltaPAC_cTrackAndStop_unionBoundThreshold_of_mem_optAlloc_bernoulliBa
       (fun n _ ↦ unionBoundThreshold (Fintype.card α) (unionBoundLevel (Fintype.card α) δ) n) rec
       hrec (hstop δ)) δ :=
   isDeltaPAC_cTrackAndStop_unionBoundThreshold_of_mem_optAlloc_of_klDiv_le
-    (fun _ ↦ not_ae_eq_const_bernoulliMeasure ⟨Real.sigmoid_pos 0, Real.sigmoid_lt_one 0⟩)
-    (fun θ hθ a ↦ (expFamilyMeans_bernoulliMeasure_sigmoid 0).symm ▸ hM θ hθ a)
+    (fun _ ↦ not_ae_eq_const_bernoulliMeasure_sigmoid_zero)
+    (fun θ hθ a ↦ mem_expFamilyMeans_bernoulliMeasure_sigmoid_zero (hM θ hθ a))
     (fun θ hθ ↦ mgfDominatedOn_bernoulliBandit hνt (hM θ hθ))
-    (fun θ hθ _ a ↦ hνt ▸ Bandits.klDiv_bernoulliBandit_projIcc_le_expFamilyRate 0 (hM θ hθ a))
+    (fun θ hθ ↦ klDiv_le_expFamilyRate_bernoulliBandit hνt (hM θ hθ))
     hcorrect hw_mem hw_opt hrec_eq h_cont h_charTime hδ hδ1
 
 /-- **Asymptotic optimality of Track-and-Stop with C-tracking for Bernoulli arms**
@@ -456,10 +480,10 @@ theorem tendsto_expectedStoppingTime_cTrackAndStop_unionBoundThreshold_div_log_b
         hrec (hstop δ)) (Environment.bandit (task.ν μ)) / ENNReal.ofReal (log (1 / δ)))
       (𝓝[>] 0) (𝓝 (task.charTime μ)) :=
   tendsto_expectedStoppingTime_cTrackAndStop_unionBoundThreshold_div_log_of_klDiv_le
-    (fun _ ↦ not_ae_eq_const_bernoulliMeasure ⟨Real.sigmoid_pos 0, Real.sigmoid_lt_one 0⟩)
-    (fun θ hθ a ↦ (expFamilyMeans_bernoulliMeasure_sigmoid 0).symm ▸ hM θ hθ a)
+    (fun _ ↦ not_ae_eq_const_bernoulliMeasure_sigmoid_zero)
+    (fun θ hθ a ↦ mem_expFamilyMeans_bernoulliMeasure_sigmoid_zero (hM θ hθ a))
     (fun θ hθ ↦ mgfDominatedOn_bernoulliBandit hνt (hM θ hθ))
-    (fun θ hθ _ a ↦ hνt ▸ Bandits.klDiv_bernoulliBandit_projIcc_le_expFamilyRate 0 (hM θ hθ a))
+    (fun θ hθ ↦ klDiv_le_expFamilyRate_bernoulliBandit hνt (hM θ hθ))
     hcorrect hw_mem hw_opt hrec_eq h_cont h_charTime hμ
 
 end LMLExplore.Identification.IdentTask
