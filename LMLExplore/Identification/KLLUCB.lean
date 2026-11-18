@@ -182,8 +182,8 @@ end Algorithm
 
 /-! ### Correctness of the stopping rule -/
 
-variable {ν : (α → ℝ) → Kernel α ℝ} [∀ μ, IsMarkovKernel (ν μ)] {ν₀ : Kernel α ℝ}
-  [IsMarkovKernel ν₀] {alg : Algorithm Unit α ℝ} {β : ℕ → ℕ → ℝ} {ε δ : ℝ} {m : ℕ}
+variable {ν₀ : Kernel α ℝ} [IsMarkovKernel ν₀] {alg : Algorithm Unit α ℝ} {β : ℕ → ℕ → ℝ}
+  {ε δ : ℝ} {m : ℕ}
 
 /-- **Error probability of KL-LUCB for rewards in `[0, 1]`**, for every sampling rule
 [KTAS12, Theorem 1] for the confidence bounds of [KK13, (4), (5)]; this is the union-bound proof
@@ -199,7 +199,7 @@ theorem measureReal_histOutputMeasure_kllucb_le
     (hε : 0 ≤ ε) (hm : m ≤ Fintype.card α) :
     (histOutputMeasure (kllucb alg β ε m) (Environment.bandit ν₀)).real
         {p | p.1 ∈ (kllucb alg β ε m).stopSet ∧
-          p.2 ∉ (epsTopMTask ν id m ε).correct fun a ↦ (ν₀ a)[id]} ≤ δ := by
+          p.2 ∉ epsTopMSets (fun a ↦ (ν₀ a)[id]) m ε} ≤ δ := by
   rw [kllucb_def]
   have hseq := IT.isAlgEnvSeq_trajMeasure alg (Environment.bandit ν₀)
   have hP : IsProbabilityMeasure (trajMeasure alg (Environment.bandit ν₀)) :=
@@ -233,7 +233,7 @@ theorem measureReal_stoppingTime_ne_top_and_notMem_le_of_isRun_kllucb {out : Ω 
     (hδ : ∑' n, ∑ u ∈ Icc 1 n, exp (-β u n) ≤ δ / Fintype.card α)
     (hε : 0 ≤ ε) (hm : m ≤ Fintype.card α) :
     P.real {ω | (kllucb alg β ε m).stoppingTime O X Y ω ≠ ⊤ ∧
-        out ω ∉ (epsTopMTask ν id m ε).correct fun a ↦ (ν₀ a)[id]} ≤ δ := by
+        out ω ∉ epsTopMSets (fun a ↦ (ν₀ a)[id]) m ε} ≤ δ := by
   rw [hrun.measureReal_stoppingTime_ne_top_and_notMem_eq (Set.to_countable _).measurableSet]
   exact measureReal_histOutputMeasure_kllucb_le hν hsum hδ hε hm
 
@@ -248,7 +248,7 @@ private lemma isDeltaPAC_kllucb_of_measureReal_le {S : Set (α → ProbabilityMe
       (∀ a, ∀ᵐ x ∂(ν₀ a), x ∈ Set.Icc (0 : ℝ) 1) →
       (histOutputMeasure (kllucb alg β ε m) (Environment.bandit ν₀)).real
         {p | p.1 ∈ (kllucb alg β ε m).stopSet ∧
-          p.2 ∉ (epsTopMTask (fun _ ↦ ν₀) id m ε).correct fun a ↦ (ν₀ a)[id]} ≤ δ)
+          p.2 ∉ epsTopMSets (fun a ↦ (ν₀ a)[id]) m ε} ≤ δ)
     (h_stops : ∀ θ ∈ S, StopsAS (kllucb alg β ε m) (Environment.bandit (lawBandit θ))) :
     ((epsTopMTask (lawBandit (α := α)) lawMean m ε).restrict S).IsDeltaPAC
       (kllucb alg β ε m) δ := by
@@ -259,8 +259,10 @@ private lemma isDeltaPAC_kllucb_of_measureReal_le {S : Set (α → ProbabilityMe
   refine IdentTask.isDeltaPAC_of_measureReal_mem_stopSet_and_notMem_le
     (fun θ _ ↦ (Set.to_countable _).measurableSet) (fun θ hθ ↦ ?_)
     fun θ hθ ↦ by simpa only [IdentTask.ν_restrict, ν_epsTopMTask] using h_stops θ (hS' θ hθ)
+  have hmean : (fun a ↦ (lawBandit θ a)[id]) = lawMean θ :=
+    funext fun a ↦ (lawMean_eq_integral_lawBandit θ a).symm
   simpa only [IdentTask.ν_restrict, IdentTask.correct_restrict, ν_epsTopMTask, correct_epsTopMTask,
-    id, lawMean_eq_integral_lawBandit] using h_err _ (mem_pi_unitIntervalLaws_iff.1 (hS (hS' θ hθ)))
+    hmean] using h_err _ (mem_pi_unitIntervalLaws_iff.1 (hS (hS' θ hθ)))
 
 /-- **KL-LUCB is `δ`-PAC** for top-`m` identification with tolerance `ε`, for every sampling rule
 [KTAS12, Theorem 1] for the confidence bounds of [KK13, (4), (5)]; this is the union-bound proof
@@ -295,7 +297,7 @@ theorem measureReal_histOutputMeasure_kllucb_le_of_tsum_mul_log_le {b : ℕ → 
     (hε : 0 ≤ ε) (hm : m ≤ Fintype.card α) :
     (histOutputMeasure (kllucb alg (fun _ n ↦ b n) ε m) (Environment.bandit ν₀)).real
         {p | p.1 ∈ (kllucb alg (fun _ n ↦ b n) ε m).stopSet ∧
-          p.2 ∉ (epsTopMTask ν id m ε).correct fun a ↦ (ν₀ a)[id]} ≤ δ := by
+          p.2 ∉ epsTopMSets (fun a ↦ (ν₀ a)[id]) m ε} ≤ δ := by
   rw [kllucb_def]
   have hseq := IT.isAlgEnvSeq_trajMeasure alg (Environment.bandit ν₀)
   have hP : IsProbabilityMeasure (trajMeasure alg (Environment.bandit ν₀)) :=
@@ -356,7 +358,7 @@ theorem measureReal_stoppingTime_ne_top_and_notMem_le_of_isRun_kllucb_of_tsum_mu
       δ / Fintype.card α)
     (hε : 0 ≤ ε) (hm : m ≤ Fintype.card α) :
     P.real {ω | (kllucb alg (fun _ n ↦ b n) ε m).stoppingTime O X Y ω ≠ ⊤ ∧
-        out ω ∉ (epsTopMTask ν id m ε).correct fun a ↦ (ν₀ a)[id]} ≤ δ := by
+        out ω ∉ epsTopMSets (fun a ↦ (ν₀ a)[id]) m ε} ≤ δ := by
   rw [hrun.measureReal_stoppingTime_ne_top_and_notMem_eq (Set.to_countable _).measurableSet]
   exact measureReal_histOutputMeasure_kllucb_le_of_tsum_mul_log_le hν hb hsum hδ hε hm
 
@@ -511,7 +513,7 @@ theorem measureReal_histOutputMeasure_kllucb_log_add_log_log_le {k₁ p : ℝ}
           log (log (k₁ * Fintype.card α * n ^ p / δ))) ε m) (Environment.bandit ν₀)).real
         {q | q.1 ∈ (kllucb alg (fun _ n ↦ log (k₁ * Fintype.card α * n ^ p / δ) +
             log (log (k₁ * Fintype.card α * n ^ p / δ))) ε m).stopSet ∧
-          q.2 ∉ (epsTopMTask ν id m ε).correct fun a ↦ (ν₀ a)[id]} ≤ δ := by
+          q.2 ∉ epsTopMSets (fun a ↦ (ν₀ a)[id]) m ε} ≤ δ := by
   obtain ⟨hb, hsum, htsum⟩ := summable_and_tsum_exp_one_mul_log_add_log_log_le hp hk
     Fintype.card_pos hδ hδ1 (K := Fintype.card α) (b := fun n ↦
       log (k₁ * Fintype.card α * n ^ p / δ) + log (log (k₁ * Fintype.card α * n ^ p / δ)))
@@ -533,7 +535,7 @@ theorem measureReal_stoppingTime_ne_top_and_notMem_le_of_isRun_kllucb_log_add_lo
     (hδ1 : δ ≤ 1) (hε : 0 ≤ ε) (hm : m ≤ Fintype.card α) :
     P.real {ω | (kllucb alg (fun _ n ↦ log (k₁ * Fintype.card α * n ^ p / δ) +
           log (log (k₁ * Fintype.card α * n ^ p / δ))) ε m).stoppingTime O X Y ω ≠ ⊤ ∧
-        out ω ∉ (epsTopMTask ν id m ε).correct fun a ↦ (ν₀ a)[id]} ≤ δ := by
+        out ω ∉ epsTopMSets (fun a ↦ (ν₀ a)[id]) m ε} ≤ δ := by
   obtain ⟨hb, hsum, htsum⟩ := summable_and_tsum_exp_one_mul_log_add_log_log_le hp hk
     Fintype.card_pos hδ hδ1 (K := Fintype.card α) (b := fun n ↦
       log (k₁ * Fintype.card α * n ^ p / δ) + log (log (k₁ * Fintype.card α * n ^ p / δ)))
