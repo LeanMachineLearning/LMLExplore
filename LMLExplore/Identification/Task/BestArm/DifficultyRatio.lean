@@ -16,13 +16,16 @@ import Mathlib.Analysis.Complex.ExponentialBounds
 /-!
 # Difficulty ratios in best arm identification
 
-Two results of [D23] on the absence of a complexity in fixed-budget best arm identification: for
-a class `𝒞` of algorithm families containing the static proportions algorithms, no family attains
-the oracle difficulty `H_𝒞` of the class at every model, with Gaussian arms when the number `K`
-of arms is large [D23, Theorem 8], and with two Bernoulli arms [D23, Theorem 10]. Both apply the
-lower bound from alternatives along the coordinates
-(`LMLExplore.Identification.IdentTask.sum_inv_le_iSup_asymptoticRatio`, [D23, Corollary 4]) at a
-well-chosen model `μ`, with alternatives `λ⁽ʲ⁾` that differ from `μ` at the arm `j` only.
+Two results of [D23] on the absence of a complexity in fixed-budget best arm identification, for
+a class `𝒞` of algorithm families containing the static proportions algorithms. With Gaussian
+arms, the file proves that every consistent fixed-budget family has maximal difficulty ratio at
+least `log K / 24` to the characteristic time `T*`, from which [D23, Theorem 8] follows: when the
+number `K` of arms is large, no consistent fixed-budget family attains the oracle difficulty `H_𝒞`
+of the class at every model. With two Bernoulli arms, the file proves that no fixed-budget family
+attains `H_𝒞` at every model [D23, Theorem 10]. Both apply the lower bound from alternatives
+along the coordinates (`LMLExplore.Identification.IdentTask.sum_inv_le_iSup_asymptoticRatio`,
+[D23, Corollary 4]) at a well-chosen model `μ`, with alternatives `λ⁽ʲ⁾` that differ from `μ` at
+the arm `j` only.
 
 **Gaussian arms.** For best arm identification with `K` Gaussian arms of common variance `σ2`,
 every consistent fixed-budget algorithm family `𝒜` has maximal difficulty ratio at least
@@ -329,17 +332,7 @@ private lemma tendsto_klBer_mul_inv_klBer_half :
         Real.log (x * (1 + x) * (1 - 1 / 2) / ((1 - x * (1 + x)) * (1 / 2)))) (1 / 2) *
       (klBer x (1 / 2))⁻¹) (𝓝[>] 0) (𝓝 1) := by
   have h12 : (1 / 2 : ℝ) ∈ Set.Ioo 0 1 := by norm_num
-  -- `klBer · (1 / 2)` is continuous: it is invariant under clamping its argument to `[0, 1]`
-  have hg : Continuous fun p : ℝ ↦ klBer p (1 / 2) := by
-    have : (fun p : ℝ ↦ klBer p (1 / 2)) =
-        fun p ↦ Function.uncurry klBer ((Set.projIcc 0 1 zero_le_one p : ℝ), 1 / 2) := by
-      ext p
-      rw [Function.uncurry_apply_pair, ← klBer_projIcc p (1 / 2),
-        Set.projIcc_of_mem _ (Set.Ioo_subset_Icc_self h12)]
-    rw [this]
-    exact continuousOn_klBer.comp_continuous
-      ((continuous_subtype_val.comp continuous_projIcc).prodMk continuous_const)
-      fun p ↦ ⟨(Set.projIcc 0 1 zero_le_one p).2, h12⟩
+  have hg : Continuous fun p : ℝ ↦ klBer p (1 / 2) := continuous_klBer_left h12
   have h0 : klBer 0 (1 / 2) ≠ 0 := by
     rw [Ne, klBer_eq_zero_iff (by norm_num) (by norm_num)]
     norm_num
@@ -512,8 +505,8 @@ private lemma klBer_add_klBer_le_maxRatio_baiTask_bernoulliBandit_two {x : ℝ} 
 best arm identification on the Bernoulli bandits with two arms and means in `(0, 1)`, and a class
 `𝒞` of algorithm families containing the static proportions algorithms, the infimum over the
 fixed-budget algorithm families of the maximal difficulty ratio to the oracle difficulty of `𝒞` is
-larger than `1`: `1 < inf_𝒜 sup_{μ ∈ M} R_{H_𝒞,∞}(𝒜, μ)`. No single algorithm family attains the
-best rate of the class at every admissible model. -/
+larger than `1`: `1 < inf_𝒜 sup_{μ ∈ M} R_{H_𝒞,∞}(𝒜, μ)`. No fixed-budget algorithm family
+attains the oracle difficulty of the class at every admissible model. -/
 theorem one_lt_iInf_maxRatio_baiTask_bernoulliBandit_two
     (𝒞 : Set (ℕ → IdentAlg Unit (Fin 2) ℝ (Fin 2)))
     (h𝒞 : ((baiTask (fun μ : Fin 2 → ℝ ↦ Bandits.bernoulliBandit fun c ↦
