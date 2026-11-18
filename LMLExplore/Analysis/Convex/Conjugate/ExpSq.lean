@@ -71,8 +71,9 @@ theorem Real.mul_sub_mul_exp_sq_div_le {α β : ℝ} (hα : 0 < α) (hβ : 0 < �
       nlinarith
     have hu2 : u ^ 2 = s * β ^ 2 / α := by rw [hs_def]; field_simp
     refine (pow_le_pow_iff_left₀ (abs_nonneg u) (by positivity) two_ne_zero).1 ?_
-    rw [sq_abs, hu2, div_pow, mul_pow, mul_pow, hq2, ha2, div_le_div_iff₀ hα (by positivity)]
-    have hβα : 0 ≤ β ^ 2 * α ^ 2 := by positivity
+    have hβα : 0 ≤ β ^ 2 * α := by positivity
+    simp only [sq_abs, hu2, div_pow, mul_pow, hq2, ha2]
+    field_simp
     nlinarith [mul_le_mul_of_nonneg_left hkey hβα]
   have hθu : θ * u ≤ |θ| * |u| := by rw [← abs_mul]; exact le_abs_self _
   have hθ2 : θ ^ 2 = |θ| ^ 2 := (sq_abs θ).symm

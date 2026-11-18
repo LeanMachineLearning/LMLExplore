@@ -18,9 +18,10 @@ states, in terms of `ContinuousLinearMap.apply`, that it is an isometry, so inje
 the forms used by statements that identify a point `x` with the evaluation at `x`, such as the
 derivative of a Fenchel conjugate.
 
-In finite dimension the inclusion is also surjective: every continuous linear functional on the
-dual is the evaluation at a point. This is the hypothesis under which the Fenchel–Moreau theorem
-applies to functions on the dual, paired with `E` by evaluation.
+Over any complete nontrivially normed field, in finite dimension the inclusion is also surjective:
+every continuous linear functional on the dual is the evaluation at a point. This is the
+hypothesis under which the Fenchel–Moreau theorem applies to functions on the dual, paired with
+`E` by evaluation.
 
 ## Main statements
 
@@ -55,19 +56,15 @@ namespace NormedSpace
 /-- **A finite-dimensional normed space is reflexive**: every continuous linear functional on its
 dual is the evaluation at a point. In finite dimension, linear functionals are continuous
 (`LinearMap.toContinuousLinearMap`), so this is the algebraic reflexivity `Module.evalEquiv`. -/
-theorem surjective_inclusionInDoubleDual {𝕜 E : Type*} [RCLike 𝕜] [NormedAddCommGroup E]
-    [NormedSpace 𝕜 E] [FiniteDimensional 𝕜 E] :
+theorem surjective_inclusionInDoubleDual {𝕜 E : Type*} [NontriviallyNormedField 𝕜]
+    [CompleteSpace 𝕜] [NormedAddCommGroup E] [NormedSpace 𝕜 E] [FiniteDimensional 𝕜 E] :
     Function.Surjective (inclusionInDoubleDual 𝕜 E) := fun φ ↦ by
   -- `φ`, read on the algebraic dual through the continuity of linear functionals.
   let ψ : Module.Dual 𝕜 (Module.Dual 𝕜 E) :=
     φ.toLinearMap ∘ₗ LinearMap.toContinuousLinearMap.toLinearMap
   refine ⟨(Module.evalEquiv 𝕜 E).symm ψ, ContinuousLinearMap.ext fun θ ↦ ?_⟩
-  have h := LinearMap.congr_fun ((Module.evalEquiv 𝕜 E).apply_symm_apply ψ) θ.toLinearMap
-  rw [Module.evalEquiv_apply, Module.Dual.eval_apply] at h
-  rw [dual_def, ← ContinuousLinearMap.coe_coe, h]
-  simp only [ψ, LinearMap.coe_comp, Function.comp_apply, LinearEquiv.coe_coe,
-    ContinuousLinearMap.coe_coe]
-  rw [show LinearMap.toContinuousLinearMap (θ : E →ₗ[𝕜] 𝕜) = θ from
-    ContinuousLinearMap.coe_injective (LinearMap.coe_toContinuousLinearMap _)]
+  -- `ψ θ` is `φ θ` by definition: `LinearMap.toContinuousLinearMap` sends `θ`, seen as a linear
+  -- map, back to `θ`.
+  exact Module.apply_evalEquiv_symm_apply 𝕜 E θ.toLinearMap ψ
 
 end NormedSpace
