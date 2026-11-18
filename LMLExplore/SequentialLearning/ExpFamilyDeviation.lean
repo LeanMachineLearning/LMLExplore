@@ -9,6 +9,7 @@ public import LMLExplore.Analysis.SpecialFunctions.Exp
 public import LMLExplore.Probability.Distributions.ExponentialFamily.Chernoff
 public import LMLExplore.Probability.Distributions.ExponentialFamily.RateFunction
 public import LMLExplore.SequentialLearning.RateFunctionDeviation
+public import LMLExplore.SequentialLearning.SelfNormalizedDeviation
 public import LMLExplore.SequentialLearning.SumRewards
 
 /-!
@@ -33,7 +34,8 @@ as the empirical means `0` and `1` of Bernoulli rewards. This is the deviation i
 the `δ`-correctness of generalized likelihood ratio stopping rules for exponential families
 [GK16, Proposition 12; LS, Lemma 33.7]. The same holds for the peeled bound of
 `SequentialLearning/RateFunctionDeviation.lean`, whose thresholds grow like `η log₂ t` per arm
-for any `η > 0`.
+for any `η > 0`, and for the self-normalized deviations of the arms of `S` up to a horizon of
+`SequentialLearning/SelfNormalizedDeviation.lean` [DKM19, Lemmas 5 and 6].
 The peeled bound is adapted from the formalization in the Garivier2016Optimal project
 (Rémy Degenne, <https://github.com/RemyDegenne/Garivier2016Optimal>, file
 `Garivier2016Optimal/ForLMLExplore/SequentialLearning/ExpFamilyDeviation.lean`).
@@ -54,11 +56,22 @@ The peeled bound is adapted from the formalization in the Garivier2016Optimal pr
   peeled form
   `P(∃ t, 2 (#S (η log₂ t + κ_η) + x) ≤ ∑ a ∈ S, N_a(t) dbar_a(μ̂_a(t), μ_a)) ≤
   (x / #S) ^ #S exp (#S - x)` for `η > 0` and `x ≥ #S`, with `κ_η = log (2 / (1 - exp (-η)))`.
+* `LMLExplore.measure_exists_mem_exists_le_pullCount_mul_expFamilyRate_le` [DKM19, Lemma 5]: in a
+  run of any algorithm, the probability that some arm `a ∈ S` has
+  `x ≤ N_a(t) dbar_a(μ̂_a(t), μ_a)` at some round `t ≤ n` is at most
+  `2 e #S (x log n + 1) exp (-x)`, for rewards dominated by members of exponential families.
+* `LMLExplore.measure_exists_mem_exists_subLogInv_le_pullCount_mul_expFamilyRate_le`,
+  `LMLExplore.tsum_measure_exists_mem_exists_subLogInv_le_pullCount_mul_expFamilyRate_le`
+  [DKM19, Lemma 6]: at the level `h⁻¹((1 + c) log n)`, with `h(u) = u - log u`, the bound
+  `2 e #S (log n / n ^ (1 + c) + 1 / n ^ (1 + c))`, and for `c > 0` the sum of these probabilities
+  over the horizons `n` is at most `2 e #S (2 + 1 / c + 1 / c²)`.
 
 ## References
 
 * [GK16] A. Garivier and E. Kaufmann, *Optimal best arm identification with fixed confidence*,
   COLT 2016, Proposition 12.
+* [DKM19] R. Degenne, W. M. Koolen and P. Ménard, *Non-asymptotic pure exploration by solving
+  games*, NeurIPS 2019, Appendix B (Lemmas 5 and 6), arXiv:1906.10431.
 * [LS] T. Lattimore and Cs. Szepesvári, *Bandit Algorithms*, Cambridge University Press (2020),
   Lemma 33.7.
 -/
@@ -192,14 +205,12 @@ private lemma measure_exists_le_sum_pullCount_mul_expFamilyRate_le_of {𝓧 : Ty
     P {ω | ∃ t : ℕ, ENNReal.ofReal (θ t) ≤
       ∑ a ∈ S, pullCount A a t ω * (ρ a).expFamilyRate (T a) (empMean A R a t ω) (μ a)} ≤ B := by
   -- the rewards are integrable, and the rate function of each arm is at least `dbar_a(·, μ a)`
-  refine le_trans (measure_mono fun ω hω ↦ ?_) (hB fun a ha ↦ (hν a ha).integrable (by
-    simpa only [Set.univ_inter] using Measure.zero_mem_interior_integrableExpSet_expFamily
-      (Measure.natParam_mem_interior_integrableExpSet (hμ a ha))))
+  refine le_trans (measure_mono fun ω hω ↦ ?_)
+    (hB fun a ha ↦ (hν a ha).integrable_of_mem_expFamilyMeans (hμ a ha))
   obtain ⟨t, ht⟩ := hω
   refine ⟨t, ht.trans (sum_le_sum fun a ha ↦ ?_)⟩
-  rw [Measure.expFamilyRate_def]
   gcongr
-  exact ((hν a ha).mono (Set.subset_univ _)).rateFunction_le _
+  exact (hν a ha).expFamilyRate_le_rateFunction _
 
 /-- **Time-uniform deviations of the empirical means along a run, for rewards dominated by
 exponential families** ([GK16, Proposition 12], [LS, Lemma 33.7]), for the arms of a set `S`. In a
@@ -248,6 +259,86 @@ theorem measure_exists_two_mul_card_mul_add_le_sum_pullCount_mul_expFamilyRate_l
   measure_exists_le_sum_pullCount_mul_expFamilyRate_le_of S hμ hν
     (fun t : ℕ ↦ 2 * (#S * (η * Nat.log 2 t + log (2 / (1 - exp (-η)))) + x)) fun h_int ↦
       measure_exists_two_mul_card_mul_add_le_sum_pullCount_mul_rateFunction_le h S h_int hη hx
+
+/-! ### Self-normalized deviations up to a horizon -/
+
+omit [Countable α] [MeasurableSingletonClass α] in
+/-- If the rewards of each arm `a ∈ S` are dominated on `Set.univ` by the member of mean `μ a` of
+the exponential family `(ρ a, T a)`, then the event that some arm of `S` has
+`θ ≤ N_a(t) dbar_a(μ̂_a(t), μ a)` at some round `t ≤ n` is contained in the event that some arm of
+`S` has `θ ≤ N_a(t) I_a(μ̂_a(t))` at some round `t ≤ n`. -/
+private lemma setOf_exists_mem_exists_le_pullCount_mul_expFamilyRate_subset {𝓧 : Type*}
+    {m𝓧 : MeasurableSpace 𝓧} {ρ : α → Measure 𝓧} {T : α → 𝓧 → ℝ} {μ : α → ℝ} (S : Finset α)
+    (hν : ∀ a ∈ S, MGFDominatedOn id (ν a) (T a)
+      ((ρ a).expFamily (T a) ((ρ a).natParam (T a) (μ a))) Set.univ) (θ : ENNReal) (n : ℕ) :
+    {ω | ∃ a ∈ S, ∃ t ≤ n, θ ≤
+        pullCount A a t ω * (ρ a).expFamilyRate (T a) (empMean A R a t ω) (μ a)} ⊆
+      {ω | ∃ a ∈ S, ∃ t ≤ n, θ ≤
+        pullCount A a t ω * rateFunction id (ν a) (empMean A R a t ω)} :=
+  fun _ ⟨a, ha, t, ht, hle⟩ ↦ ⟨a, ha, t, ht,
+    hle.trans (by gcongr; exact (hν a ha).expFamilyRate_le_rateFunction _)⟩
+
+/-- **Self-normalized deviations of the arms of a set along a run, up to a horizon, for exponential
+families** [DKM19, Lemma 5]. In a run of any algorithm against `Environment.bandit ν`, let the
+rewards of each arm `a ∈ S` be dominated on `Set.univ`, in moment generating function, by the
+member of mean `μ a` of the exponential family `(ρ a, T a)`, with extended divergence `dbar_a`
+(`MeasureTheory.Measure.expFamilyRate`). Then for `x > 0` and every horizon `n`, the probability
+that some arm `a ∈ S` has `x ≤ N_a(t) dbar_a(μ̂_a(t), μ a)` at some round `t ≤ n` is at most
+`2 e #S (x log n + 1) exp (-x)`. -/
+theorem measure_exists_mem_exists_le_pullCount_mul_expFamilyRate_le
+    (h : IsAlgEnvSeq O A R alg (Environment.bandit ν) P) {𝓧 : Type*} {m𝓧 : MeasurableSpace 𝓧}
+    {ρ : α → Measure 𝓧} {T : α → 𝓧 → ℝ} {μ : α → ℝ} (S : Finset α)
+    (hμ : ∀ a ∈ S, μ a ∈ (ρ a).expFamilyMeans (T a))
+    (hν : ∀ a ∈ S, MGFDominatedOn id (ν a) (T a)
+      ((ρ a).expFamily (T a) ((ρ a).natParam (T a) (μ a))) Set.univ) (hx : 0 < x) (n : ℕ) :
+    P {ω | ∃ a ∈ S, ∃ t ≤ n, ENNReal.ofReal x ≤
+        pullCount A a t ω * (ρ a).expFamilyRate (T a) (empMean A R a t ω) (μ a)} ≤
+      ENNReal.ofReal (2 * exp 1 * #S * (x * log n + 1) * exp (-x)) :=
+  (measure_mono (setOf_exists_mem_exists_le_pullCount_mul_expFamilyRate_subset S hν _ n)).trans
+    (measure_exists_mem_exists_le_pullCount_mul_rateFunction_le h S
+      (fun a ha ↦ (hν a ha).integrable_of_mem_expFamilyMeans (hμ a ha)) hx n)
+
+/-- **The concentration events of [DKM19, Lemma 6] for exponential families, at one horizon.** In
+a run of any algorithm against `Environment.bandit ν`, let the rewards of each arm `a ∈ S` be
+dominated on `Set.univ`, in moment generating function, by the member of mean `μ a` of the
+exponential family `(ρ a, T a)`, with extended divergence `dbar_a`
+(`MeasureTheory.Measure.expFamilyRate`). Then for every real `c` and every horizon `n`, the
+probability that some arm `a ∈ S` has `h⁻¹((1 + c) log n) ≤ N_a(t) dbar_a(μ̂_a(t), μ a)` at some
+round `t ≤ n`, with `h(u) = u - log u`, is at most
+`2 e #S (log n / n ^ (1 + c) + 1 / n ^ (1 + c))`. -/
+theorem measure_exists_mem_exists_subLogInv_le_pullCount_mul_expFamilyRate_le
+    (h : IsAlgEnvSeq O A R alg (Environment.bandit ν) P) {𝓧 : Type*} {m𝓧 : MeasurableSpace 𝓧}
+    {ρ : α → Measure 𝓧} {T : α → 𝓧 → ℝ} {μ : α → ℝ} (S : Finset α)
+    (hμ : ∀ a ∈ S, μ a ∈ (ρ a).expFamilyMeans (T a))
+    (hν : ∀ a ∈ S, MGFDominatedOn id (ν a) (T a)
+      ((ρ a).expFamily (T a) ((ρ a).natParam (T a) (μ a))) Set.univ) (c : ℝ) (n : ℕ) :
+    P {ω | ∃ a ∈ S, ∃ t ≤ n, ENNReal.ofReal (subLogInv ((1 + c) * log n)) ≤
+        pullCount A a t ω * (ρ a).expFamilyRate (T a) (empMean A R a t ω) (μ a)} ≤
+      ENNReal.ofReal (2 * exp 1 * #S * (log n / (n : ℝ) ^ (1 + c) + 1 / (n : ℝ) ^ (1 + c))) :=
+  (measure_mono (setOf_exists_mem_exists_le_pullCount_mul_expFamilyRate_subset S hν _ n)).trans
+    (measure_exists_mem_exists_subLogInv_le_pullCount_mul_rateFunction_le h S
+      (fun a ha ↦ (hν a ha).integrable_of_mem_expFamilyMeans (hμ a ha)) c n)
+
+/-- **The concentration events of [DKM19, Lemma 6] for exponential families are summable.** In a
+run of any algorithm against `Environment.bandit ν`, let the rewards of each arm `a ∈ S` be
+dominated on `Set.univ`, in moment generating function, by the member of mean `μ a` of the
+exponential family `(ρ a, T a)`, with extended divergence `dbar_a`
+(`MeasureTheory.Measure.expFamilyRate`). Then for `c > 0`, the probabilities, over the horizons
+`n`, that some arm `a ∈ S` has `h⁻¹((1 + c) log n) ≤ N_a(t) dbar_a(μ̂_a(t), μ a)` at some round
+`t ≤ n`, with `h(u) = u - log u`, sum to at most `2 e #S (2 + 1 / c + 1 / c²)`. -/
+theorem tsum_measure_exists_mem_exists_subLogInv_le_pullCount_mul_expFamilyRate_le
+    (h : IsAlgEnvSeq O A R alg (Environment.bandit ν) P) {𝓧 : Type*} {m𝓧 : MeasurableSpace 𝓧}
+    {ρ : α → Measure 𝓧} {T : α → 𝓧 → ℝ} {μ : α → ℝ} (S : Finset α)
+    (hμ : ∀ a ∈ S, μ a ∈ (ρ a).expFamilyMeans (T a))
+    (hν : ∀ a ∈ S, MGFDominatedOn id (ν a) (T a)
+      ((ρ a).expFamily (T a) ((ρ a).natParam (T a) (μ a))) Set.univ) {c : ℝ} (hc : 0 < c) :
+    ∑' n : ℕ, P {ω | ∃ a ∈ S, ∃ t ≤ n, ENNReal.ofReal (subLogInv ((1 + c) * log n)) ≤
+        pullCount A a t ω * (ρ a).expFamilyRate (T a) (empMean A R a t ω) (μ a)} ≤
+      ENNReal.ofReal (2 * exp 1 * #S * (2 + 1 / c + 1 / c ^ 2)) :=
+  (tsum_le_tsum fun n ↦
+    measure_mono (setOf_exists_mem_exists_le_pullCount_mul_expFamilyRate_subset S hν _ n)).trans
+    (tsum_measure_exists_mem_exists_subLogInv_le_pullCount_mul_rateFunction_le h S
+      (fun a ha ↦ (hν a ha).integrable_of_mem_expFamilyMeans (hμ a ha)) hc)
 
 end ExpFamilyRate
 

@@ -65,6 +65,10 @@ monotone on each side of `μ`, it makes `dbar` continuous on (closure of the mea
   of the means.
 * `MeasureTheory.Measure.continuousOn_expFamilyRate`: `dbar` is continuous on
   (closure of the means) × (means), as an `ℝ≥0∞`-valued function.
+* `LMLExplore.MGFDominatedOn.integrable_of_mem_expFamilyMeans`,
+  `LMLExplore.MGFDominatedOn.expFamilyRate_le_rateFunction`: a variable dominated on `Set.univ`
+  by the member of mean `μ` of the family is integrable, and its rate function is at least
+  `dbar(·, μ)`.
 * `MeasureTheory.Measure.sq_div_le_expFamilyDiv_of_hasSubgaussianMGF`: if `T - μ` is
   `c`-sub-Gaussian under the member of mean `μ`, then `(x - μ)² / (2 c) ≤ d(x, μ)` at every mean
   `x`, since `d(·, μ)` is the rate function of `T` under that member. This complements
@@ -473,3 +477,32 @@ theorem sq_div_le_expFamilyDiv_of_hasSubgaussianMGF (hx : x ∈ ρ.expFamilyMean
   exact (ENNReal.ofReal_le_ofReal_iff (expFamilyDiv_nonneg hx hμ)).1 h_le
 
 end MeasureTheory.Measure
+
+namespace LMLExplore
+
+/-! ### Domination by a member of the family -/
+
+variable {𝓧 Ω : Type*} {m𝓧 : MeasurableSpace 𝓧} {mΩ : MeasurableSpace Ω} {ρ : Measure 𝓧}
+  {T : 𝓧 → ℝ} {μ : ℝ} {X : Ω → ℝ} {P : Measure Ω}
+
+/-- If `X` under `P` is dominated on `Set.univ`, in moment generating function, by the member of
+mean `μ` of the exponential family of `ρ` and `T`, then `X` is `P`-integrable: the family has
+exponential moments near its natural parameter `η(μ)`, so `T` has exponential moments near `0`
+under the member `ρ_{η(μ)}`. -/
+theorem MGFDominatedOn.integrable_of_mem_expFamilyMeans
+    (h : MGFDominatedOn X P T (ρ.expFamily T (ρ.natParam T μ)) Set.univ)
+    (hμ : μ ∈ ρ.expFamilyMeans T) : Integrable X P :=
+  h.integrable (by
+    simpa only [Set.univ_inter] using Measure.zero_mem_interior_integrableExpSet_expFamily
+      (Measure.natParam_mem_interior_integrableExpSet hμ))
+
+/-- If `X` under `P ≠ 0` is dominated on `Set.univ`, in moment generating function, by the member
+of mean `μ` of the exponential family of `ρ` and `T`, then the rate function of `X` is at least the
+extended divergence `dbar(·, μ)` of the family. -/
+theorem MGFDominatedOn.expFamilyRate_le_rateFunction [NeZero P]
+    (h : MGFDominatedOn X P T (ρ.expFamily T (ρ.natParam T μ)) Set.univ) (x : ℝ) :
+    ρ.expFamilyRate T x μ ≤ rateFunction X P x := by
+  rw [Measure.expFamilyRate_def]
+  exact (h.mono (Set.subset_univ _)).rateFunction_le x
+
+end LMLExplore
