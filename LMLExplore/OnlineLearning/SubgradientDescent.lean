@@ -82,6 +82,8 @@ constant and with nonincreasing learning rates.
 * `onlineSubgradientDescent_regret_sq_sub_le_one_add_log`: [Ora, Example 4.11] the guessing game.
 * `OnlineLearner.isMinOn_run_onlineSubgradientDescent_of_complete_convex`: the plays of the
   learner are the projections of the gradient steps.
+* `OnlineLearner.run_onlineSubgradientDescent_univ_succ`: on the whole space, they are the
+  gradient steps themselves.
 * `OnlineLearner.hasRegretBound_onlineSubgradientDescent`,
   `OnlineLearner.hasRegretBound_onlineSubgradientDescent_of_antitone`: the regret guarantees of
   the learner [Ora, Theorem 2.13].
@@ -594,6 +596,19 @@ theorem isMinOn_run_onlineSubgradientDescent_of_complete_convex (hK_ne : K.Nonem
       ((onlineSubgradientDescent K η x₀).run c g (t + 1)) :=
   isMinOn_run_onlineSubgradientDescent c g <|
     exists_isMinOn_norm_sub_of_complete_convex hK_ne hKc hK _
+
+/-- **Unprojected online subgradient descent.** On the whole space, each play of the online
+subgradient descent learner after the first is the gradient step `x t - η t • g t` from the
+previous play. -/
+theorem run_onlineSubgradientDescent_univ_succ (c : ℕ → C) (g : ℕ → E) (t : ℕ) :
+    (onlineSubgradientDescent Set.univ η x₀).run c g (t + 1) =
+      (onlineSubgradientDescent Set.univ η x₀).run c g t - η t • g t := by
+  set z := (onlineSubgradientDescent Set.univ η x₀).run c g t - η t • g t with hz
+  -- the gradient step `z` itself is the point of the whole space nearest to `z`
+  have h := isMinOn_iff.mp (isMinOn_run_onlineSubgradientDescent (K := Set.univ) (η := η)
+    (x₀ := x₀) (t := t) c g
+    ⟨z, Set.mem_univ z, isMinOn_iff.mpr fun b _ ↦ by simp [z]⟩) z (Set.mem_univ z)
+  rwa [← hz, sub_self, norm_zero, norm_le_zero_iff, sub_eq_zero] at h
 
 /-- **Regret guarantee of the projected online subgradient descent learner with a constant learning
 rate** [Ora, Theorem 2.13]. Let `K` be a complete convex set, for instance a closed convex set of
