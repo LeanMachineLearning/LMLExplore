@@ -13,12 +13,12 @@ public import Mathlib.Probability.Kernel.Composition.MeasureComp
 # Mixtures of likelihood ratio processes and Bayes factors
 
 A family of alternatives `θ ↦ Q θ`, given by a kernel, and a prior `π` on the parameters give the
-mixture `Q ∘ₘ π`. Against a simple null `{P}` and for a filtration `ℱ`, the mixture over `π` of
-the likelihood ratio processes `((Q θ).trim (ℱ.le n)).rnDeriv (P.trim (ℱ.le n))` is the
-likelihood ratio process of the mixture: this is the Bayes factor of the alternative with prior
-`π` against `P`. Under local absolute continuity it is a test martingale for `P`; without it, the
-mixture of the likelihood ratio processes is still a test supermartingale
-[HRMS21, Lemma 2; Rob70; RW, §3.7, §7.5].
+mixture `Q ∘ₘ π`. Against a simple null `{P}` and for a filtration `ℱ`, the likelihood ratio
+process of the mixture is the Bayes factor of the alternative with prior `π` against `P`. Under
+local absolute continuity, the mixture over `π` of the likelihood ratio processes
+`((Q θ).trim (ℱ.le n)).rnDeriv (P.trim (ℱ.le n))` is the likelihood ratio process of the
+mixture, and a test martingale for `P`; without it, the mixture of the likelihood ratio processes
+is still a test supermartingale [HRMS21, Lemma 2; Rob70; RW, §3.7, §7.5].
 
 In the sequential form of `ProbabilityTheory.isTestSupermartingale_prod_of_hasCondLaw`, the
 alternatives are sequential predictors with densities `q θ k ω` with respect to the conditional
@@ -50,11 +50,13 @@ and no dominating measure are assumed.
 * `ProbabilityTheory.prod_posteriorPredictive`,
   `ProbabilityTheory.ae_prod_posteriorPredictive_eq`: the mixture is the likelihood ratio of the
   predictor of the posterior predictive densities.
-* `ProbabilityTheory.lintegral_posteriorPredictive_le`,
+* `ProbabilityTheory.lintegral_posteriorPredictive`,
+  `ProbabilityTheory.lintegral_posteriorPredictive_le`,
   `ProbabilityTheory.lintegral_posteriorPredictive_eq_one`,
   `ProbabilityTheory.isTestSupermartingale_prod_posteriorPredictive`: the posterior predictive
-  densities are sub-probability densities, probability densities where the mixture is positive and
-  finite, and their likelihood ratio is a test supermartingale.
+  densities integrate to the weighted mixture divided by the mixture, so they are sub-probability
+  densities, probability densities where the mixture is positive and finite, and their likelihood
+  ratio is a test supermartingale.
 * `ProbabilityTheory.not_isEVar_rnDeriv_boolKernel_comp`: with a prior on a composite null, a
   Bayes factor need not be an e-variable for the null [RW, §6.6].
 
@@ -158,6 +160,95 @@ theorem posteriorPredictive_def (k : ℕ) (ω : Ω) (x : 𝓧) :
       (∫⁻ θ, (∏ j ∈ range k, q θ j ω (X j ω)) * q θ k ω x ∂π) /
         ∫⁻ θ, ∏ j ∈ range k, q θ j ω (X j ω) ∂π := (rfl)
 
+/-- At round `0` the posterior is the normalised prior, so the posterior predictive density is
+the average `(∫⁻ θ, q θ 0 ω x ∂π) / π univ` of the densities of round `0`. -/
+@[simp]
+theorem posteriorPredictive_zero (ω : Ω) (x : 𝓧) :
+    posteriorPredictive π q X 0 ω x = (∫⁻ θ, q θ 0 ω x ∂π) / π univ := by
+  simp [posteriorPredictive_def]
+
+/-! The following identities hold at a fixed `ω` and only need measurability in `θ` and `x`. -/
+
+/-- Integrating the mixture over `x` against a measure `μ` integrates out each density. -/
+private lemma lintegral_lintegral_prod_range_mul [SFinite π] (μ : Measure 𝓧) [SFinite μ]
+    {k : ℕ} {ω : Ω} (hL : AEMeasurable (fun θ ↦ ∏ j ∈ range k, q θ j ω (X j ω)) π)
+    (hqk : Measurable fun p : Θ × 𝓧 ↦ q p.1 k ω p.2) :
+    ∫⁻ x, ∫⁻ θ, (∏ j ∈ range k, q θ j ω (X j ω)) * q θ k ω x ∂π ∂μ =
+      ∫⁻ θ, (∏ j ∈ range k, q θ j ω (X j ω)) * ∫⁻ x, q θ k ω x ∂μ ∂π := by
+  rw [lintegral_lintegral_swap (hL.comp_snd.mul (hqk.comp measurable_swap).aemeasurable)]
+  exact lintegral_congr fun θ ↦ lintegral_const_mul _ (hqk.comp measurable_prodMk_left)
+
+/-- The integral of the posterior predictive density of round `k` at `ω` against a measure `μ`
+is the mixture of the likelihood ratios weighted by the masses of the densities of round `k`,
+divided by the mixture of the likelihood ratios. -/
+theorem lintegral_posteriorPredictive [SFinite π] (μ : Measure 𝓧) [SFinite μ] {k : ℕ} {ω : Ω}
+    (hL : AEMeasurable (fun θ ↦ ∏ j ∈ range k, q θ j ω (X j ω)) π)
+    (hqk : Measurable fun p : Θ × 𝓧 ↦ q p.1 k ω p.2) :
+    ∫⁻ x, posteriorPredictive π q X k ω x ∂μ =
+      (∫⁻ θ, (∏ j ∈ range k, q θ j ω (X j ω)) * ∫⁻ x, q θ k ω x ∂μ ∂π) /
+        ∫⁻ θ, ∏ j ∈ range k, q θ j ω (X j ω) ∂π := by
+  have hx : AEMeasurable (fun x ↦ ∫⁻ θ, (∏ j ∈ range k, q θ j ω (X j ω)) * q θ k ω x ∂π) μ :=
+    (hL.comp_snd.mul (hqk.comp measurable_swap).aemeasurable).lintegral_prod_right'
+  simp_rw [posteriorPredictive_def, div_eq_mul_inv]
+  rw [lintegral_mul_const'' _ hx, lintegral_lintegral_prod_range_mul μ hL hqk]
+
+/-- **The posterior predictive density is a sub-probability density.** If, for `π`-almost every
+`θ`, the density `q θ k ω` has total mass at most `1` with respect to a measure `μ`, then so has
+the posterior predictive density of round `k` at `ω`. -/
+theorem lintegral_posteriorPredictive_le [SFinite π] (μ : Measure 𝓧) [SFinite μ] {k : ℕ} {ω : Ω}
+    (hL : AEMeasurable (fun θ ↦ ∏ j ∈ range k, q θ j ω (X j ω)) π)
+    (hqk : Measurable fun p : Θ × 𝓧 ↦ q p.1 k ω p.2)
+    (h : ∀ᵐ θ ∂π, ∫⁻ x, q θ k ω x ∂μ ≤ 1) :
+    ∫⁻ x, posteriorPredictive π q X k ω x ∂μ ≤ 1 := by
+  rw [lintegral_posteriorPredictive μ hL hqk]
+  refine ENNReal.div_le_of_le_mul ?_
+  rw [one_mul]
+  exact lintegral_mono_ae (h.mono fun θ hθ ↦ mul_le_of_le_one_right' hθ)
+
+/-- **The posterior predictive density is a probability density** where the mixture of the
+likelihood ratios is positive and finite, if `π`-almost every density `q θ k ω` is a probability
+density with respect to `μ`. -/
+theorem lintegral_posteriorPredictive_eq_one [SFinite π] (μ : Measure 𝓧) [SFinite μ] {k : ℕ}
+    {ω : Ω} (hL : AEMeasurable (fun θ ↦ ∏ j ∈ range k, q θ j ω (X j ω)) π)
+    (hqk : Measurable fun p : Θ × 𝓧 ↦ q p.1 k ω p.2) (h : ∀ᵐ θ ∂π, ∫⁻ x, q θ k ω x ∂μ = 1)
+    (h0 : ∫⁻ θ, ∏ j ∈ range k, q θ j ω (X j ω) ∂π ≠ 0)
+    (htop : ∫⁻ θ, ∏ j ∈ range k, q θ j ω (X j ω) ∂π ≠ ∞) :
+    ∫⁻ x, posteriorPredictive π q X k ω x ∂μ = 1 := by
+  rw [lintegral_posteriorPredictive μ hL hqk,
+    lintegral_congr_ae (g := fun θ ↦ ∏ j ∈ range k, q θ j ω (X j ω))
+      (h.mono fun θ hθ ↦ by simp only [hθ, mul_one]), ENNReal.div_self h0 htop]
+
+/-- **One step of the chain rule of Bayesian mixtures.** Where the mixture of the likelihood
+ratios up to round `k` is finite, multiplying it by the posterior predictive density of round
+`k` gives the mixture of the likelihood ratios extended by the density of round `k`. -/
+theorem mul_posteriorPredictive {k : ℕ} {ω : Ω} (x : 𝓧)
+    (hL : AEMeasurable (fun θ ↦ ∏ j ∈ range k, q θ j ω (X j ω)) π)
+    (htop : ∫⁻ θ, ∏ j ∈ range k, q θ j ω (X j ω) ∂π ≠ ∞) :
+    (∫⁻ θ, ∏ j ∈ range k, q θ j ω (X j ω) ∂π) * posteriorPredictive π q X k ω x =
+      ∫⁻ θ, (∏ j ∈ range k, q θ j ω (X j ω)) * q θ k ω x ∂π := by
+  rw [posteriorPredictive_def]
+  refine ENNReal.mul_div_cancel' (fun h0 ↦ ?_) fun h ↦ absurd h htop
+  rw [lintegral_eq_zero_iff' hL] at h0
+  rw [lintegral_congr_ae (g := fun _ ↦ 0)
+    (h0.mono fun θ hθ ↦ by simp only [Pi.zero_apply] at hθ; simp [hθ]), lintegral_zero]
+
+/-- **The chain rule of Bayesian mixtures.** For a probability measure `π`, where the mixtures of
+the likelihood ratios before time `n` are finite, the product of the posterior predictive
+densities at the observations before time `n` is the mixture over `π` of the likelihood ratios
+`∏ k < n, q θ k ω (X k ω)`. -/
+theorem prod_posteriorPredictive [IsProbabilityMeasure π] {n : ℕ} {ω : Ω}
+    (hL : ∀ k < n, AEMeasurable (fun θ ↦ ∏ j ∈ range k, q θ j ω (X j ω)) π)
+    (htop : ∀ k < n, ∫⁻ θ, ∏ j ∈ range k, q θ j ω (X j ω) ∂π ≠ ∞) :
+    ∏ k ∈ range n, posteriorPredictive π q X k ω (X k ω) =
+      ∫⁻ θ, ∏ k ∈ range n, q θ k ω (X k ω) ∂π := by
+  induction n with
+  | zero => simp
+  | succ n ih =>
+    rw [prod_range_succ, ih (fun k hk ↦ hL k (by omega)) fun k hk ↦ htop k (by omega),
+      mul_posteriorPredictive _ (hL n n.lt_succ_self) (htop n n.lt_succ_self)]
+    simp_rw [prod_range_succ]
+
+
 variable (hX : ∀ k, Measurable[ℱ (k + 1)] (X k))
   (hq : ∀ k, Measurable[mΘ.prod ((ℱ k).prod m𝓧)] fun p : Θ × Ω × 𝓧 ↦ q p.1 k p.2.1 p.2.2)
 include hX hq
@@ -175,6 +266,17 @@ private lemma measurable_prod_range (n : ℕ) :
         (((hX j).mono (ℱ.mono hjn) le_rfl).comp (@measurable_snd Θ Ω mΘ (ℱ n))))
   exact (hq j).comp hf
 
+/-- At a fixed `ω`, the likelihood ratios `∏ j < n, q θ j ω (X j ω)` are measurable in `θ`. -/
+private lemma measurable_prod_range_apply (n : ℕ) (ω : Ω) :
+    Measurable fun θ ↦ ∏ j ∈ range n, q θ j ω (X j ω) :=
+  (measurable_prod_range hX hq n).comp (measurable_id.prodMk (measurable_const (mα := ℱ n)))
+
+omit hX in
+/-- At a fixed `ω`, the densities `q θ k ω x` are jointly measurable in `(θ, x)`. -/
+private lemma measurable_uncurry_apply (k : ℕ) (ω : Ω) :
+    Measurable fun p : Θ × 𝓧 ↦ q p.1 k ω p.2 :=
+  (hq k).comp (measurable_fst.prodMk ((measurable_const (mα := ℱ k)).prodMk measurable_snd))
+
 /-- The integrand `(θ, (ω, x)) ↦ (∏ j < k, q θ j ω (X j ω)) * q θ k ω x` is jointly measurable
 for `ℱ k` and `𝓧`. -/
 private lemma measurable_prod_range_mul (k : ℕ) :
@@ -190,23 +292,10 @@ private lemma measurable_prod_range_mul (k : ℕ) :
 for `ℱ k` and `𝓧`. -/
 private lemma measurable_lintegral_prod_range_mul [SFinite π] (k : ℕ) :
     Measurable[(ℱ k).prod m𝓧] fun p : Ω × 𝓧 ↦
-      ∫⁻ θ, (∏ j ∈ range k, q θ j p.1 (X j p.1)) * q θ k p.1 p.2 ∂π :=
-  @Measurable.lintegral_prod_left' Θ (Ω × 𝓧) mΘ ((ℱ k).prod m𝓧) π _ _
-    (measurable_prod_range_mul hX hq k)
-
-/-- Integrating the mixture over `x` against a measure `μ` integrates out each density. -/
-private lemma lintegral_lintegral_prod_range_mul [SFinite π] (μ : Measure 𝓧) [SFinite μ]
-    (k : ℕ) (ω : Ω) :
-    ∫⁻ x, ∫⁻ θ, (∏ j ∈ range k, q θ j ω (X j ω)) * q θ k ω x ∂π ∂μ =
-      ∫⁻ θ, (∏ j ∈ range k, q θ j ω (X j ω)) * ∫⁻ x, q θ k ω x ∂μ ∂π := by
-  have hg : @Measurable (𝓧 × Θ) (Θ × Ω × 𝓧) _ (mΘ.prod ((ℱ k).prod m𝓧)) fun p ↦ (p.2, ω, p.1) :=
-    measurable_snd.prodMk ((measurable_const (mα := ℱ k)).prodMk measurable_fst)
-  have hmeas : Measurable fun p : 𝓧 × Θ ↦ (∏ j ∈ range k, q p.2 j ω (X j ω)) * q p.2 k ω p.1 :=
-    (measurable_prod_range_mul hX hq k).comp hg
-  have hx (θ : Θ) : @Measurable 𝓧 (Θ × Ω × 𝓧) _ (mΘ.prod ((ℱ k).prod m𝓧)) fun x ↦ (θ, ω, x) :=
-    measurable_const.prodMk ((measurable_const (mα := ℱ k)).prodMk measurable_id)
-  rw [lintegral_lintegral_swap hmeas.aemeasurable]
-  exact lintegral_congr fun θ ↦ lintegral_const_mul _ ((hq k).comp (hx θ))
+      ∫⁻ θ, (∏ j ∈ range k, q θ j p.1 (X j p.1)) * q θ k p.1 p.2 ∂π := by
+  -- `Measurable.lintegral_prod_left'` takes the σ-algebra of `Ω × 𝓧` as an instance
+  let _ : MeasurableSpace (Ω × 𝓧) := (ℱ k).prod m𝓧
+  exact (measurable_prod_range_mul hX hq k).lintegral_prod_left'
 
 /-- The posterior predictive density of round `k` is jointly measurable for `ℱ k` and `𝓧`. -/
 theorem measurable_posteriorPredictive [SFinite π] (k : ℕ) :
@@ -218,73 +307,6 @@ theorem measurable_posteriorPredictive [SFinite π] (k : ℕ) :
       (@measurable_fst Ω 𝓧 (ℱ k) m𝓧)
   simp_rw [Function.uncurry_def, posteriorPredictive_def]
   exact (measurable_lintegral_prod_range_mul hX hq k).div hden
-
-/-- The integral of the posterior predictive density of round `k` at `ω` against a measure `μ`
-is the mixture of the likelihood ratios weighted by the masses of the densities of round `k`,
-divided by the mixture of the likelihood ratios. -/
-private lemma lintegral_posteriorPredictive [SFinite π] (μ : Measure 𝓧) [SFinite μ] (k : ℕ)
-    (ω : Ω) :
-    ∫⁻ x, posteriorPredictive π q X k ω x ∂μ =
-      (∫⁻ θ, (∏ j ∈ range k, q θ j ω (X j ω)) * ∫⁻ x, q θ k ω x ∂μ ∂π) /
-        ∫⁻ θ, ∏ j ∈ range k, q θ j ω (X j ω) ∂π := by
-  have hx : Measurable fun x ↦ ∫⁻ θ, (∏ j ∈ range k, q θ j ω (X j ω)) * q θ k ω x ∂π :=
-    (measurable_lintegral_prod_range_mul hX hq k).comp
-      ((measurable_const (mα := ℱ k)).prodMk measurable_id)
-  simp_rw [posteriorPredictive_def, div_eq_mul_inv]
-  rw [lintegral_mul_const _ hx, lintegral_lintegral_prod_range_mul hX hq]
-
-/-- **The posterior predictive density is a sub-probability density.** If, for `π`-almost every
-`θ`, the density `q θ k ω` has total mass at most `1` with respect to a measure `μ`, then so has
-the posterior predictive density of round `k` at `ω`. -/
-theorem lintegral_posteriorPredictive_le [SFinite π] (μ : Measure 𝓧) [SFinite μ] {k : ℕ} {ω : Ω}
-    (h : ∀ᵐ θ ∂π, ∫⁻ x, q θ k ω x ∂μ ≤ 1) :
-    ∫⁻ x, posteriorPredictive π q X k ω x ∂μ ≤ 1 := by
-  rw [lintegral_posteriorPredictive hX hq]
-  refine ENNReal.div_le_of_le_mul ?_
-  rw [one_mul]
-  exact lintegral_mono_ae (h.mono fun θ hθ ↦ mul_le_of_le_one_right' hθ)
-
-/-- **The posterior predictive density is a probability density** where the mixture of the
-likelihood ratios is positive and finite, if `π`-almost every density `q θ k ω` is a probability
-density with respect to `μ`. -/
-theorem lintegral_posteriorPredictive_eq_one [SFinite π] (μ : Measure 𝓧) [SFinite μ] {k : ℕ}
-    {ω : Ω} (h : ∀ᵐ θ ∂π, ∫⁻ x, q θ k ω x ∂μ = 1)
-    (h0 : ∫⁻ θ, ∏ j ∈ range k, q θ j ω (X j ω) ∂π ≠ 0)
-    (htop : ∫⁻ θ, ∏ j ∈ range k, q θ j ω (X j ω) ∂π ≠ ∞) :
-    ∫⁻ x, posteriorPredictive π q X k ω x ∂μ = 1 := by
-  rw [lintegral_posteriorPredictive hX hq,
-    lintegral_congr_ae (g := fun θ ↦ ∏ j ∈ range k, q θ j ω (X j ω))
-      (h.mono fun θ hθ ↦ by simp only [hθ, mul_one]), ENNReal.div_self h0 htop]
-
-/-- **One step of the chain rule of Bayesian mixtures.** Where the mixture of the likelihood
-ratios up to round `k` is finite, multiplying it by the posterior predictive density of round
-`k` gives the mixture of the likelihood ratios extended by the density of round `k`. -/
-theorem mul_posteriorPredictive {k : ℕ} {ω : Ω} (x : 𝓧)
-    (htop : ∫⁻ θ, ∏ j ∈ range k, q θ j ω (X j ω) ∂π ≠ ∞) :
-    (∫⁻ θ, ∏ j ∈ range k, q θ j ω (X j ω) ∂π) * posteriorPredictive π q X k ω x =
-      ∫⁻ θ, (∏ j ∈ range k, q θ j ω (X j ω)) * q θ k ω x ∂π := by
-  rw [posteriorPredictive_def]
-  refine ENNReal.mul_div_cancel' (fun h0 ↦ ?_) fun h ↦ absurd h htop
-  have hL : Measurable fun θ ↦ ∏ j ∈ range k, q θ j ω (X j ω) :=
-    (measurable_prod_range hX hq k).comp (measurable_id.prodMk (measurable_const (mα := ℱ k)))
-  rw [lintegral_eq_zero_iff hL] at h0
-  rw [lintegral_congr_ae (g := fun _ ↦ 0)
-    (h0.mono fun θ hθ ↦ by simp only [Pi.zero_apply] at hθ; simp [hθ]), lintegral_zero]
-
-/-- **The chain rule of Bayesian mixtures.** For a probability measure `π`, where the mixtures of
-the likelihood ratios before time `n` are finite, the product of the posterior predictive
-densities at the observations before time `n` is the mixture over `π` of the likelihood ratios
-`∏ k < n, q θ k ω (X k ω)`. -/
-theorem prod_posteriorPredictive [IsProbabilityMeasure π] {n : ℕ} {ω : Ω}
-    (htop : ∀ k < n, ∫⁻ θ, ∏ j ∈ range k, q θ j ω (X j ω) ∂π ≠ ∞) :
-    ∏ k ∈ range n, posteriorPredictive π q X k ω (X k ω) =
-      ∫⁻ θ, ∏ k ∈ range n, q θ k ω (X k ω) ∂π := by
-  induction n with
-  | zero => simp
-  | succ n ih =>
-    rw [prod_range_succ, ih fun k hk ↦ htop k (by omega),
-      mul_posteriorPredictive hX hq _ (htop n n.lt_succ_self)]
-    simp_rw [prod_range_succ]
 
 omit m𝓧 hX hq in
 /-- The mixture over a probability measure of the likelihood ratios is `1` at time `0`. -/
@@ -303,7 +325,8 @@ private lemma setLIntegral_lintegral_prod_range_succ [SFinite π] [∀ k ω, SFi
   rw [(hκ n).setLIntegral_comp (g := fun ω x ↦
       ∫⁻ θ, (∏ k ∈ range n, q θ k ω (X k ω)) * q θ n ω x ∂π) (ℱ.le n)
     (measurable_lintegral_prod_range_mul hX hq n) hs]
-  exact lintegral_congr fun ω ↦ lintegral_lintegral_prod_range_mul hX hq _ n ω
+  exact lintegral_congr fun ω ↦ lintegral_lintegral_prod_range_mul _
+    (measurable_prod_range_apply hX hq n ω).aemeasurable (measurable_uncurry_apply hq n ω)
 
 /-- **Bayesian mixtures of sequential predictors are test supermartingales** [RW, §3.7, §7.5].
 Let `X k` be `ℱ (k + 1)`-measurable with conditional law `κ k` given `ℱ k` under the probability
@@ -354,7 +377,8 @@ theorem ae_prod_posteriorPredictive_eq [IsProbabilityMeasure P] [IsProbabilityMe
       ∫⁻ θ, ∏ k ∈ range n, q θ k ω (X k ω) ∂π := by
   filter_upwards [(isTestSupermartingale_lintegral_prod_of_hasCondLaw hX hq hκ hq1).ae_lt_top
     (mem_singleton P)] with ω hω n
-  exact prod_posteriorPredictive hX hq fun k _ ↦ (hω k).ne
+  exact prod_posteriorPredictive (fun k _ ↦ (measurable_prod_range_apply hX hq k ω).aemeasurable)
+    fun k _ ↦ (hω k).ne
 
 /-- **The likelihood ratio of the posterior predictive predictor is a test supermartingale.**
 Under the hypotheses of `isTestSupermartingale_lintegral_prod_of_hasCondLaw`, the product of the
@@ -367,7 +391,8 @@ theorem isTestSupermartingale_prod_posteriorPredictive [IsProbabilityMeasure P]
     IsTestSupermartingale
       (fun n ω ↦ ∏ k ∈ range n, posteriorPredictive π q X k ω (X k ω)) ℱ {P} :=
   isTestSupermartingale_prod_of_hasCondLaw hX hκ (measurable_posteriorPredictive hX hq)
-    fun k ↦ (hq1 k).mono fun _ hω ↦ lintegral_posteriorPredictive_le hX hq _ hω
+    fun k ↦ (hq1 k).mono fun ω hω ↦ lintegral_posteriorPredictive_le _
+      (measurable_prod_range_apply hX hq k ω).aemeasurable (measurable_uncurry_apply hq k ω) hω
 
 end Predictor
 

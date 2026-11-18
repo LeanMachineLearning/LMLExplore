@@ -35,6 +35,8 @@ of likelihood ratio processes with the likelihood ratio process of the mixture.
 * `MeasureTheory.Measure.setLIntegral_rnDeriv_trim_le_of_le`: for `m ≤ m'` and an
   `m`-measurable set `s`, `∫⁻ x in s, (μ.trim hm').rnDeriv (ν.trim hm') x ∂ν` is at most
   `∫⁻ x in s, (μ.trim hm).rnDeriv (ν.trim hm) x ∂ν`.
+* `MeasureTheory.Measure.measurable_trim`: the restrictions of a measurable family of measures
+  form a measurable family.
 * `MeasureTheory.Measure.trim_bind`, `MeasureTheory.Measure.absolutelyContinuous_trim_bind`: the
   restriction of a mixture is the mixture of the restrictions, and it is absolutely continuous
   when almost every component is.
@@ -102,9 +104,9 @@ section Mixture
 
 variable {Θ : Type*} {mΘ : MeasurableSpace Θ} {π : Measure Θ} {Q : Θ → Measure α}
 
-/-- The restriction of a family of measures to a sub-σ-algebra `m` is measurable for the
-σ-algebra of measures on `m`. -/
-private lemma measurable_trim (hm : m ≤ m0) (hQ : Measurable Q) :
+/-- The restriction of a measurable family of measures to a sub-σ-algebra `m` is measurable for
+the σ-algebra of measures on `m`. -/
+theorem measurable_trim (hm : m ≤ m0) (hQ : Measurable Q) :
     Measurable[mΘ, @instMeasurableSpace α m] fun θ ↦ (Q θ).trim hm :=
   measurable_of_measurable_coe (mα := m) _ fun s hs ↦ by
     simp_rw [trim_measurableSet_eq hm hs]
@@ -148,7 +150,9 @@ theorem rnDeriv_trim_bind_ae_eq (hm : m ≤ m0) [SFinite π] [SigmaFinite (ν.tr
     rw [withDensity_congr_ae ((StronglyMeasurable.ae_eq_trim_iff hm hfθ.stronglyMeasurable
       (measurable_rnDeriv _ _).stronglyMeasurable).2 hθ), withDensity_rnDeriv_eq _ _ hθν]
   rw [trim_bind hm hQ]
-  exact ae_eq_of_ae_eq_trim (@rnDeriv_bind_withDensity Θ α mΘ m π (ν.trim hm) _ f _ _ hf hdens)
+  -- `rnDeriv_bind_withDensity` takes the σ-algebra of `α` as an instance: supply `m` locally
+  let _ : MeasurableSpace α := m
+  exact ae_eq_of_ae_eq_trim (rnDeriv_bind_withDensity hf hdens)
 
 end Mixture
 
