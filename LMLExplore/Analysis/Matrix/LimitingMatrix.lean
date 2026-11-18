@@ -82,7 +82,8 @@ variable {P : Matrix S S ℝ}
 
 /-- The *limiting matrix* `P*` of a square matrix `P`: the limit of the Cesàro means
 `N⁻¹ ∑ k < N, P ^ k` of its powers. For a row-stochastic matrix the limit exists
-(`Matrix.tendsto_cesaro_limitingMatrix`); otherwise the value is junk. -/
+(`Matrix.tendsto_cesaro_limitingMatrix`); when the Cesàro means do not converge, the value is
+junk. -/
 noncomputable def limitingMatrix (P : Matrix S S ℝ) : Matrix S S ℝ :=
   limUnder atTop fun n : ℕ ↦ (n : ℝ)⁻¹ • ∑ k ∈ range n, P ^ k
 

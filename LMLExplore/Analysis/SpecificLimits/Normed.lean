@@ -63,10 +63,10 @@ theorem hasSum_pow_div_of_lt_one {r : ℝ} (hr0 : 0 ≤ r) (hr1 : r < 1) {m : �
   exact (Nat.divModEquiv m).symm.hasSum_iff.1 (hprod.congr_fun fun p ↦ (he p).symm)
 
 /-- In a complete normed ring, the geometric series `∑ n, a ^ n` converges as soon as the powers
-of `a` tend to `0`, even if `‖a‖ ≥ 1`: some power `a ^ m` has norm `ρ < 1`, and then
-`‖a ^ n‖ ≤ ρ ^ (n / m) * ∑ r < m, ‖a ^ r‖`. -/
+of `a` tend to `0`, even if `‖a‖ ≥ 1`. -/
 theorem summable_pow_of_tendsto_pow_atTop_nhds_zero {R : Type*} [NormedRing R] [CompleteSpace R]
     {a : R} (h : Tendsto (fun n ↦ a ^ n) atTop (𝓝 0)) : Summable fun n ↦ a ^ n := by
+  -- some power `a ^ m` has norm `ρ < 1`, and then `‖a ^ n‖ ≤ ρ ^ (n / m) * ∑ r < m, ‖a ^ r‖`
   obtain ⟨m, hm, hm₁⟩ := ((tendsto_norm_zero.comp h).eventually
     (gt_mem_nhds zero_lt_one)).and (eventually_ge_atTop 1) |>.exists
   have : NeZero m := ⟨by omega⟩
