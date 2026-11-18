@@ -6,6 +6,7 @@ Authors: LMLExplore contributors
 module
 
 public import LMLExplore.Analysis.SpecialFunctions.Log.Basic
+public import LMLExplore.Analysis.SpecialFunctions.Log.SqrtMulLog
 public import LMLExplore.Analysis.SpecialFunctions.Pow.Asymptotics
 public import LMLExplore.Identification.SampleComplexity
 public import LMLExplore.Identification.Task.TransportationCost
@@ -99,6 +100,13 @@ time.
   answer `i`.
 * `IdentTask.expectedStoppingTime_glrt_le_add_tsum`: if the stopping condition holds after `T`
   rounds on an event `E T` for every `T ≥ T₀`, then `𝔼[τ] ≤ T₀ + ∑_{T ≥ T₀} P((E T)ᶜ)`.
+* `IdentTask.expectedStoppingTime_glrt_le_add_tsum_of_le`: the same bound with
+  `T₀ = max T₁ (⌊B⌋₊ + 1)` when every round `T ≥ T₁` on `E T` at which the GLRT does not stop
+  has `T ≤ B`.
+* `IdentTask.expectedStoppingTime_glrt_le_add_tsum_of_sub_mul_sqrt_mul_log_le`
+  [DKM19, Lemmas 1–2]: the non-asymptotic sample complexity when these rounds satisfy the stopping
+  inequality `T - C √(T log T) ≤ x`, with `B = x + C √(x log x) / (1 - κ)` for
+  `κ = C (1 + log x) / (2 √(x log x)) < 1`.
 * `IdentTask.eventually_expectedStoppingTime_glrt_le`: if the GLR statistic of the recommended
   answer is at least `κ T` after `T` rounds on events `E T` with `∑ T, P((E T)ᶜ) < ∞`, and the
   thresholds are at most `log (1 / δ) + f T` on every history, with `f T = o(T)` from above,
@@ -130,7 +138,7 @@ time.
 * [DK19] R. Degenne and W. M. Koolen, *Pure exploration with multiple correct answers*,
   NeurIPS 2019, Theorem 10.
 * [DKM19] R. Degenne, W. M. Koolen and P. Ménard, *Non-asymptotic pure exploration by solving
-  games*, NeurIPS 2019, Theorem 1 and Lemma 1.
+  games*, NeurIPS 2019, Theorem 1 and Lemmas 1–2.
 * [KK21] E. Kaufmann and W. M. Koolen, *Mixture martingales revisited with applications to
   sequential tests and confidence intervals*, JMLR 22 (2021), whose thresholds depend on the pull
   counts.
@@ -450,6 +458,47 @@ theorem expectedStoppingTime_glrt_le_add_tsum {env : Environment Unit α 𝓨}
     expectedStoppingTime (task.glrt Z alg β rec hrec hstop) env ≤ T₀ + ∑' T, P (E (T + T₀))ᶜ :=
   expectedStoppingTime_le_add_tsum_measure_compl (by rwa [alg_glrt])
     fun T hT ω hω ↦ task.stoppingTime_glrt_le Z alg β rec hrec hstop (hE T hT ω hω)
+
+/-- **Sample complexity of the GLRT from a stopping inequality** [DKM19, Lemma 1], for every
+sampling rule. Suppose that, along an algorithm-environment sequence of the sampling rule in
+`env`, for every `T ≥ T₁`, a round `T` on the event `E T` at which the stopping condition of the
+GLRT fails satisfies `T ≤ B`. Then, with `T₀ = max T₁ (⌊B⌋₊ + 1)`,
+`𝔼[τ] ≤ T₀ + ∑_{T ≥ T₀} P((E T)ᶜ)`. -/
+theorem expectedStoppingTime_glrt_le_add_tsum_of_le {env : Environment Unit α 𝓨}
+    (hseq : IsAlgEnvSeq O X Y alg env P) {E : ℕ → Set Ω} {T₁ : ℕ} {B : ℝ}
+    (hE : ∀ T ≥ T₁, ∀ ω ∈ E T,
+      task.glr Z T (history O X Y T ω) (rec T (history O X Y T ω)) ≤ β T (history O X Y T ω) →
+        (T : ℝ) ≤ B) :
+    expectedStoppingTime (task.glrt Z alg β rec hrec hstop) env ≤
+      (max T₁ (⌊B⌋₊ + 1) : ℕ) + ∑' T, P (E (T + max T₁ (⌊B⌋₊ + 1)))ᶜ := by
+  refine task.expectedStoppingTime_glrt_le_add_tsum Z alg β rec hrec hstop hseq
+    fun T hT ω hω ↦ not_le.1 fun hle ↦ ?_
+  -- a round `T ≥ ⌊B⌋₊ + 1` at which the GLRT does not stop would have `B < T ≤ B`
+  have hB : B < T := (Nat.lt_floor_add_one B).trans_le (by exact_mod_cast le_of_max_le_right hT)
+  exact (hE T (le_of_max_le_left hT) ω hω hle).not_gt hB
+
+/-- **Non-asymptotic sample complexity of the GLRT** [DKM19, Lemmas 1–2], for every sampling
+rule. Let `C ≥ 0` and `x > 1` with `κ = C (1 + log x) / (2 √(x log x)) < 1`. Suppose that, along
+an algorithm-environment sequence of the sampling rule in `env`, for every `T ≥ T₁`, a round `T`
+on the event `E T` at which the stopping condition of the GLRT fails satisfies the stopping
+inequality `T - C √(T log T) ≤ x`. Then, with `T₀ = max T₁ (⌊x + C √(x log x) / (1 - κ)⌋₊ + 1)`,
+`𝔼[τ] ≤ T₀ + ∑_{T ≥ T₀} P((E T)ᶜ)`.
+
+In [DKM19], `x = log (1 / δ) / D` for the value `D` of the pure exploration game, so that
+`T₀ = log (1 / δ) / D (1 + o(1))` as `δ → 0` (`Real.isLittleO_mul_sqrt_mul_log_div_id_atTop`). -/
+theorem expectedStoppingTime_glrt_le_add_tsum_of_sub_mul_sqrt_mul_log_le
+    {env : Environment Unit α 𝓨} (hseq : IsAlgEnvSeq O X Y alg env P) {E : ℕ → Set Ω} {T₁ : ℕ}
+    {C x : ℝ} (hC : 0 ≤ C) (hx : 1 < x) (hκ : C * (1 + Real.log x) / (2 * √(x * Real.log x)) < 1)
+    (hE : ∀ T ≥ T₁, ∀ ω ∈ E T,
+      task.glr Z T (history O X Y T ω) (rec T (history O X Y T ω)) ≤ β T (history O X Y T ω) →
+        (T : ℝ) - C * √(T * Real.log T) ≤ x) :
+    expectedStoppingTime (task.glrt Z alg β rec hrec hstop) env ≤
+      (max T₁ (⌊x + C * √(x * Real.log x) /
+        (1 - C * (1 + Real.log x) / (2 * √(x * Real.log x)))⌋₊ + 1) : ℕ) +
+      ∑' T, P (E (T + max T₁ (⌊x + C * √(x * Real.log x) /
+        (1 - C * (1 + Real.log x) / (2 * √(x * Real.log x)))⌋₊ + 1)))ᶜ :=
+  task.expectedStoppingTime_glrt_le_add_tsum_of_le Z alg β rec hrec hstop hseq fun T hT ω hω hle ↦
+    Real.le_add_mul_sqrt_mul_log_div_of_sub_le hC hx hκ (hE T hT ω hω hle)
 
 end LMLExplore.Identification.IdentTask
 
