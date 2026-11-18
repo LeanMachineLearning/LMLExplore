@@ -119,9 +119,11 @@ theorem answerValue_transductiveTask_gaussianReal [Finite ι] (hz : Function.Inj
     (transductiveTask ν z).answerValue θ i = ⨆ w ∈ simplex α, ⨅ j : {j // j ≠ i},
       ENNReal.ofReal (⟪z i - z j, θ⟫_ℝ ^ 2 / 2) /
         invNormSq (∑ a, (w a / v a) • rankOne ℝ (φ a) (φ a) : E →L[ℝ] E) (z i - z j) := by
-  rw [IdentTask.answerValue_def]
-  exact iSup_congr fun w ↦ iSup_congr fun hw ↦
-    altCost_transductiveTask_gaussianReal hz hv hν (simplex_subset_nonneg hw) hi
+  have h_eq := closure_alt_transductiveTask ν z hz i
+  simpa only [sub_zero] using IdentTask.answerValue_gaussianReal_inner
+    (task := transductiveTask ν z) (φ := φ) (θ := θ) hv (fun θ a ↦ by rw [ν_baiTask]; exact hν θ a)
+    (y := fun j : {j // j ≠ i} ↦ z i - z j) (c := fun _ ↦ 0) (h_eq ▸ subset_closure) h_eq.ge
+    fun j ↦ by rw [inner_sub_left, sub_nonneg]; exact hi j
 
 /-- **The characteristic time of transductive identification with Gaussian observations**
 [FJJR19, Theorem 1]. For finitely many distinct answers, Gaussian observations
@@ -145,19 +147,6 @@ theorem charTime_transductiveTask_gaussianReal [Finite ι] (hz : Function.Inject
   have hj : 0 < ⟪z i - z j, θ⟫_ℝ := by rw [inner_sub_left, sub_pos]; exact hi j j.2
   positivity
 
-/-- The design operator of a common variance `σ²`: `∑ a, (w a / σ²) • φ a ⊗ φ a` is
-`σ²⁻¹ • ∑ a, w a • φ a ⊗ φ a`, so its squared norms `‖y‖²_{V⁻¹}` are `σ²` times those of
-`∑ a, w a • φ a ⊗ φ a`. -/
-private lemma invNormSq_sum_div_smul_rankOne {σ2 : ℝ≥0} (hσ2 : σ2 ≠ 0) (y : E) :
-    invNormSq (∑ a, (w a / σ2) • rankOne ℝ (φ a) (φ a) : E →L[ℝ] E) y =
-      ENNReal.ofReal σ2 * invNormSq (∑ a, w a • rankOne ℝ (φ a) (φ a) : E →L[ℝ] E) y := by
-  have hσ : (0 : ℝ) < σ2 := NNReal.coe_pos.2 (pos_iff_ne_zero.2 hσ2)
-  have h : ((∑ a, (w a / σ2) • rankOne ℝ (φ a) (φ a) : E →L[ℝ] E) : E →ₗ[ℝ] E) =
-      (σ2 : ℝ)⁻¹ • ((∑ a, w a • rankOne ℝ (φ a) (φ a) : E →L[ℝ] E) : E →ₗ[ℝ] E) := by
-    ext x
-    simp [Finset.smul_sum, smul_smul, div_eq_inv_mul]
-  rw [h, invNormSq_smul (inv_pos.2 hσ), inv_inv]
-
 /-- **The characteristic time of transductive identification with a common variance**
 [FJJR19, Theorem 1; SLM14, (6)]. For finitely many distinct answers, Gaussian observations
 `𝒩(⟪φ a, θ⟫, σ²)` with `σ² ≠ 0` and a model `θ` with unique best answer `i`,
@@ -170,7 +159,6 @@ theorem charTime_transductiveTask_gaussianReal_const [Finite ι] (hz : Function.
     (transductiveTask ν z).charTime θ = ENNReal.ofReal (2 * σ2) * ⨅ w ∈ simplex α,
       ⨆ j : {j // j ≠ i}, invNormSq (∑ a, w a • rankOne ℝ (φ a) (φ a) : E →L[ℝ] E) (z i - z j) /
         ENNReal.ofReal (⟪z i - z j, θ⟫_ℝ ^ 2) := by
-  have hσ : (0 : ℝ) < σ2 := NNReal.coe_pos.2 (pos_iff_ne_zero.2 hσ2)
   rw [charTime_transductiveTask_gaussianReal (v := fun _ ↦ σ2) hz (fun _ ↦ hσ2) hν hi,
     ENNReal.mul_iInf_of_ne (by simp [hσ2]) ENNReal.ofReal_ne_top]
   refine iInf_congr fun w ↦ ?_
@@ -178,10 +166,15 @@ theorem charTime_transductiveTask_gaussianReal_const [Finite ι] (hz : Function.
   refine iInf_congr fun _ ↦ ?_
   rw [ENNReal.mul_iSup]
   refine iSup_congr fun j ↦ ?_
-  rw [invNormSq_sum_div_smul_rankOne hσ2, ENNReal.ofReal_div_of_pos two_pos,
-    ENNReal.ofReal_mul zero_le_two, ENNReal.ofReal_ofNat, div_eq_mul_inv, div_eq_mul_inv,
-    ENNReal.mul_inv (.inr (ENNReal.inv_ne_top.2 two_ne_zero)) (.inl ENNReal.ofReal_ne_top),
-    inv_inv, div_eq_mul_inv]
+  have hj : 0 < ⟪z i - z j, θ⟫_ℝ := by rw [inner_sub_left, sub_pos]; exact hi j j.2
+  -- `σ² / (Δ² / 2) = 2 σ² / Δ²`
+  have hc : ENNReal.ofReal σ2 / ENNReal.ofReal (⟪z i - z j, θ⟫_ℝ ^ 2 / 2) =
+      ENNReal.ofReal (2 * σ2) / ENNReal.ofReal (⟪z i - z j, θ⟫_ℝ ^ 2) := by
+    rw [← ENNReal.ofReal_div_of_pos (by positivity), ← ENNReal.ofReal_div_of_pos (by positivity)]
+    congr 1
+    field_simp
+  rw [invNormSq_sum_div_smul_rankOne φ w hσ2, mul_comm, mul_div_assoc, hc, div_eq_mul_inv,
+    div_eq_mul_inv]
   ring
 
 /-! ### Comparison with the static allocations -/
@@ -228,43 +221,6 @@ theorem charTime_transductiveTask_gaussianReal_le_iInf_iSup_div [Finite ι]
   exact iSup_le fun j ↦ le_iSup₂_of_le (f := fun j k ↦ invNormSq
     (∑ a, (w a / v a) • rankOne ℝ (φ a) (φ a) : E →L[ℝ] E) (z j - z k)) i j le_rfl
 
-/-- **The G-allocation** [SLM14, (12)]. For features `φ` of finitely many arms and variances
-`0 < v a ≤ σ²`, some allocation `w` of the simplex has
-`‖φ a - φ b‖²_{V_w⁻¹} ≤ 4 σ² d` for all arms `a` and `b`, for the design operator
-`V_w = ∑ c, (w c / v c) • φ c ⊗ φ c`, where `d` is the dimension of the span of the features: a
-Kiefer–Wolfowitz design of the features. -/
-theorem exists_mem_simplex_invNormSq_sub_le_finrank [FiniteDimensional ℝ E] [Nonempty α]
-    (φ : α → E) {σ2 : ℝ≥0} (hv : ∀ a, v a ≠ 0) (hvσ : ∀ a, v a ≤ σ2) :
-    ∃ w ∈ simplex α, ∀ a b,
-      invNormSq (∑ c, (w c / v c) • rankOne ℝ (φ c) (φ c) : E →L[ℝ] E) (φ a - φ b) ≤
-        ENNReal.ofReal (4 * σ2 * finrank ℝ (Submodule.span ℝ (Set.range φ))) := by
-  obtain ⟨w, hw, hle⟩ := exists_mem_simplex_invNormSq_le_finrank φ
-  refine ⟨w, hw, fun a b ↦ ?_⟩
-  set d := finrank ℝ (Submodule.span ℝ (Set.range φ))
-  have hσ : (0 : ℝ) < σ2 := (NNReal.coe_pos.2 (pos_iff_ne_zero.2 (hv a))).trans_le (hvσ a)
-  -- `V_w ≥ σ²⁻¹ ∑ c, w c • φ c ⊗ φ c` for the order of the quadratic forms, as `v c ≤ σ²`
-  have h_le : ∀ y : E, invNormSq (∑ c, (w c / v c) • rankOne ℝ (φ c) (φ c) : E →L[ℝ] E) y ≤
-      ENNReal.ofReal σ2 * invNormSq (∑ c, w c • rankOne ℝ (φ c) (φ c) : E →L[ℝ] E) y := by
-    intro y
-    rw [← inv_inv (σ2 : ℝ), ← invNormSq_smul (inv_pos.2 hσ)]
-    refine invNormSq_le_invNormSq (fun x ↦ ?_) y
-    simp only [LinearMap.smul_apply, ContinuousLinearMap.coe_coe, real_inner_smul_right,
-      inner_sum_smul_rankOne_apply_self, Finset.mul_sum]
-    refine Finset.sum_le_sum fun c _ ↦ ?_
-    have hvc : (0 : ℝ) < v c := NNReal.coe_pos.2 (pos_iff_ne_zero.2 (hv c))
-    rw [← mul_assoc, inv_mul_eq_div]
-    gcongr
-    · exact (mem_simplex_iff.1 hw).1 c
-    · exact_mod_cast hvσ c
-  calc invNormSq (∑ c, (w c / v c) • rankOne ℝ (φ c) (φ c) : E →L[ℝ] E) (φ a - φ b)
-      ≤ ENNReal.ofReal σ2 * (2 * (d + d)) := by
-        refine (h_le _).trans (mul_le_mul_right ?_ _)
-        exact (invNormSq_sub_le _ _ _).trans (by gcongr <;> exact hle _)
-    _ = ENNReal.ofReal (4 * σ2 * d) := by
-        rw [ENNReal.ofReal_mul (by positivity), ENNReal.ofReal_mul (by norm_num),
-          ENNReal.ofReal_natCast, ENNReal.ofReal_ofNat]
-        ring
-
 /-- **The characteristic time of linear best arm identification through the G-allocation**
 [SLM14, Lemma 2]. For distinct features `φ`, Gaussian observations `𝒩(⟪φ a, θ⟫, v a)` with
 variances `0 < v a ≤ σ²` and a lower bound `Δ > 0` on the gaps `⟪φ a - φ b, θ⟫`, `b ≠ a`, of the
@@ -292,30 +248,6 @@ theorem charTime_transductiveTask_gaussianReal_le_finrank [FiniteDimensional ℝ
         field_simp
         ring
 
-/-- The design operator `V_w = ∑ a, (w a / v a) • φ a ⊗ φ a` of an allocation `w` of the simplex is
-at most `L • 1` for the order of the quadratic forms when `‖φ a‖² ≤ L v a` for every arm, so that
-`‖y‖² / L ≤ ‖y‖²_{V_w⁻¹}`. -/
-private lemma ofReal_inv_mul_le_invNormSq (hv : ∀ a, v a ≠ 0) (hw : w ∈ simplex α) {L : ℝ}
-    (hL : 0 < L) (hφL : ∀ a, ‖φ a‖ ^ 2 ≤ L * v a) (y : E) :
-    ENNReal.ofReal L⁻¹ * ENNReal.ofReal (‖y‖ ^ 2) ≤
-      invNormSq (∑ a, (w a / v a) • rankOne ℝ (φ a) (φ a) : E →L[ℝ] E) y := by
-  obtain ⟨hw0, hw1⟩ := mem_simplex_iff.1 hw
-  rw [← invNormSq_one, ← invNormSq_smul hL]
-  refine invNormSq_le_invNormSq (fun x ↦ ?_) y
-  simp only [LinearMap.smul_apply, one_apply_eq_self, ContinuousLinearMap.coe_coe,
-    real_inner_smul_right, inner_sum_smul_rankOne_apply_self, real_inner_self_eq_norm_sq]
-  calc ∑ a, w a / v a * ⟪φ a, x⟫_ℝ ^ 2 ≤ ∑ a, w a * (L * ‖x‖ ^ 2) := by
-        refine Finset.sum_le_sum fun a _ ↦ ?_
-        have hva : (0 : ℝ) < v a := NNReal.coe_pos.2 (pos_iff_ne_zero.2 (hv a))
-        have h_cs : ⟪φ a, x⟫_ℝ ^ 2 ≤ ‖φ a‖ ^ 2 * ‖x‖ ^ 2 := by
-          rw [← mul_pow, ← sq_abs]
-          exact pow_le_pow_left₀ (abs_nonneg _) (abs_real_inner_le_norm _ _) 2
-        rw [div_mul_eq_mul_div, div_le_iff₀ hva]
-        calc w a * ⟪φ a, x⟫_ℝ ^ 2 ≤ w a * (‖φ a‖ ^ 2 * ‖x‖ ^ 2) := by gcongr; exact hw0 a
-          _ ≤ w a * (L * v a * ‖x‖ ^ 2) := by gcongr; exacts [hw0 a, hφL a]
-          _ = w a * (L * ‖x‖ ^ 2) * v a := by ring
-    _ = L * ‖x‖ ^ 2 := by rw [← Finset.sum_mul, hw1, one_mul]
-
 /-- **A lower bound on the characteristic time** [SLM14, Lemma 2]. For finitely many distinct
 answers, Gaussian observations `𝒩(⟪φ a, θ⟫, v a)` with `v a ≠ 0` and features with
 `‖φ a‖² ≤ L v a` for some `L > 0`, at a model `θ` with unique best answer `i`,
@@ -336,6 +268,6 @@ theorem ofReal_le_charTime_transductiveTask_gaussianReal [Finite ι] (hz : Funct
         rw [← ENNReal.ofReal_mul (inv_nonneg.2 hL.le), ← ENNReal.ofReal_div_of_pos (by positivity)]
         congr 1
         field_simp
-    _ ≤ _ := by gcongr; exact ofReal_inv_mul_le_invNormSq hv hw hL hφL _
+    _ ≤ _ := by gcongr; exact ofReal_inv_mul_le_invNormSq_sum_div_smul_rankOne hv hw hL hφL _
 
 end LMLExplore.Identification

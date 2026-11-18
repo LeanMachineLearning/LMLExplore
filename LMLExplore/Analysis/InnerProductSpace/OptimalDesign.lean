@@ -81,6 +81,11 @@ point `a` for each of them gives a design with the same design operator, hence t
   `∑ i ∈ s, w i • φ i ⊗ φ i` is positive for nonnegative weights (on a finite type, monotone in
   the weights in the Loewner order, and invertible above an invertible one), and
   `LMLExplore.isSymmetric_sum_smul_rankOne`: it is symmetric for arbitrary real weights.
+* `LMLExplore.invNormSq_sum_smul_rankOne_le_of_le`: `‖y‖²_{V⁻¹}` for `V = ∑ i, w i • φ i ⊗ φ i`
+  is antitone in the weights; `LMLExplore.invNormSq_sum_div_smul_rankOne`: dividing the weights
+  by `σ² > 0` multiplies it by `σ²`; `LMLExplore.ofReal_inv_mul_le_invNormSq_sum_div_smul_rankOne`:
+  for weights `w` in the simplex and `‖φ i‖² ≤ L v i`, `‖y‖² / L ≤ ‖y‖²_{V⁻¹}` for
+  `V = ∑ i, (w i / v i) • φ i ⊗ φ i`.
 * `LMLExplore.inner_sum_smul_rankOne_apply_self`: its quadratic form is
   `⟪v, (∑ i ∈ s, w i • φ i ⊗ φ i) v⟫ = ∑ i ∈ s, w i ⟪φ i, v⟫²`, and
   `LMLExplore.sum_smul_rankOne_apply_of_orthonormal`: for an orthonormal family `φ`, it maps `φ i`
@@ -150,7 +155,10 @@ point `a` for each of them gives a design with the same design operator, hence t
   support points.
 * `LMLExplore.exists_mem_simplex_invNormSq_le_finrank`: for features `φ` of finitely many arms,
   some weights `w` in the simplex have `‖φ i‖²_{V⁻¹} ≤ dim (span (range φ))` for every arm, with
-  `V = ∑ i, w i • φ i ⊗ φ i` and the squared norm `LMLExplore.invNormSq`.
+  `V = ∑ i, w i • φ i ⊗ φ i` and the squared norm `LMLExplore.invNormSq`;
+  `LMLExplore.exists_mem_simplex_invNormSq_sub_le_finrank`: **the G-allocation** [SLM14, (12)]:
+  for variances `0 < v i ≤ σ²`, some weights `w` in the simplex have
+  `‖φ i - φ j‖²_{V⁻¹} ≤ 4 σ² dim (span (range φ))` for `V = ∑ k, (w k / v k) • φ k ⊗ φ k`.
 * `LMLExplore.finrank_le_gValue`: if `𝒜` spans `E`, every design on `𝒜` has `d ≤ g(w)`;
   `LMLExplore.exists_gValue_eq_finrank`: on a nonempty compact spanning set, `g(w) = d` is
   attained.
@@ -177,12 +185,14 @@ probability measures.
   Chapter 21.
 * J. Kiefer and J. Wolfowitz, *The equivalence of two extremum problems*, Canad. J. Math. 12
   (1960).
+* [SLM14] M. Soare, A. Lazaric and R. Munos, *Best-arm identification in linear bandits*,
+  NeurIPS 2014, (12).
 -/
 
 public section
 
 open ContinuousLinearMap InnerProductSpace Module Filter Convexity
-open scoped ENNReal InnerProductSpace Topology Finset
+open scoped ENNReal NNReal InnerProductSpace Topology Finset
 
 namespace LMLExplore
 
@@ -341,6 +351,56 @@ theorem isUnit_sum_smul_rankOne_of_mul_le [FiniteDimensional ℝ E] {ι : Type*}
     simpa [Units.smul_def] using hvu.smul (Units.mk0 c hc.ne')
   have hvp := isPositive_sum_smul_rankOne Finset.univ φ fun i _ ↦ hv i
   exact (hvp.smul_of_nonneg hc.le).isUnit_of_le hcu (smul_sum_smul_rankOne_le h)
+
+/-- `‖y‖²_{V⁻¹}` for `V = ∑ i, w i • φ i ⊗ φ i` is antitone in the weights: if `v i ≤ w i` for
+every `i`, then `‖y‖²_{V_w⁻¹} ≤ ‖y‖²_{V_v⁻¹}`. -/
+theorem invNormSq_sum_smul_rankOne_le_of_le {ι : Type*} [Fintype ι] {φ : ι → E} {v w : ι → ℝ}
+    (h : ∀ i, v i ≤ w i) (y : E) :
+    invNormSq (∑ i, w i • rankOne ℝ (φ i) (φ i) : E →L[ℝ] E) y ≤
+      invNormSq (∑ i, v i • rankOne ℝ (φ i) (φ i) : E →L[ℝ] E) y := by
+  have hle := smul_sum_smul_rankOne_le (φ := φ) (c := 1) fun i ↦ (one_mul (v i)).trans_le (h i)
+  rw [one_smul, ContinuousLinearMap.le_def] at hle
+  refine invNormSq_le_invNormSq (fun x ↦ ?_) y
+  simpa [inner_sub_right] using hle.inner_nonneg_right x
+
+/-- The design operator of a common variance `σ²`: `∑ i, (w i / σ²) • φ i ⊗ φ i` is
+`σ²⁻¹ • ∑ i, w i • φ i ⊗ φ i`, so its squared norms `‖y‖²_{V⁻¹}` are `σ²` times those of
+`∑ i, w i • φ i ⊗ φ i`. -/
+theorem invNormSq_sum_div_smul_rankOne {ι : Type*} [Fintype ι] (φ : ι → E) (w : ι → ℝ)
+    {σ2 : ℝ≥0} (hσ2 : σ2 ≠ 0) (y : E) :
+    invNormSq (∑ i, (w i / σ2) • rankOne ℝ (φ i) (φ i) : E →L[ℝ] E) y =
+      ENNReal.ofReal σ2 * invNormSq (∑ i, w i • rankOne ℝ (φ i) (φ i) : E →L[ℝ] E) y := by
+  have hσ : (0 : ℝ) < σ2 := NNReal.coe_pos.2 (pos_iff_ne_zero.2 hσ2)
+  have h : ((∑ i, (w i / σ2) • rankOne ℝ (φ i) (φ i) : E →L[ℝ] E) : E →ₗ[ℝ] E) =
+      (σ2 : ℝ)⁻¹ • ((∑ i, w i • rankOne ℝ (φ i) (φ i) : E →L[ℝ] E) : E →ₗ[ℝ] E) := by
+    ext x
+    simp [Finset.smul_sum, smul_smul, div_eq_inv_mul]
+  rw [h, invNormSq_smul (inv_pos.2 hσ), inv_inv]
+
+/-- For weights `w` in the simplex and variances `v i ≠ 0` with `‖φ i‖² ≤ L v i` for every `i`,
+the design operator `V_w = ∑ i, (w i / v i) • φ i ⊗ φ i` is at most `L • 1` for the order of the
+quadratic forms, so that `‖y‖² / L ≤ ‖y‖²_{V_w⁻¹}`. -/
+theorem ofReal_inv_mul_le_invNormSq_sum_div_smul_rankOne {ι : Type*} [Fintype ι] {φ : ι → E}
+    {v : ι → ℝ≥0} {w : ι → ℝ} (hv : ∀ i, v i ≠ 0) (hw : w ∈ simplex ι) {L : ℝ} (hL : 0 < L)
+    (hφL : ∀ i, ‖φ i‖ ^ 2 ≤ L * v i) (y : E) :
+    ENNReal.ofReal L⁻¹ * ENNReal.ofReal (‖y‖ ^ 2) ≤
+      invNormSq (∑ i, (w i / v i) • rankOne ℝ (φ i) (φ i) : E →L[ℝ] E) y := by
+  obtain ⟨hw0, hw1⟩ := mem_simplex_iff.1 hw
+  rw [← invNormSq_one, ← invNormSq_smul hL]
+  refine invNormSq_le_invNormSq (fun x ↦ ?_) y
+  simp only [LinearMap.smul_apply, one_apply_eq_self, ContinuousLinearMap.coe_coe,
+    real_inner_smul_right, inner_sum_smul_rankOne_apply_self, real_inner_self_eq_norm_sq]
+  calc ∑ i, w i / v i * ⟪φ i, x⟫_ℝ ^ 2 ≤ ∑ i, w i * (L * ‖x‖ ^ 2) := by
+        refine Finset.sum_le_sum fun i _ ↦ ?_
+        have hvi : (0 : ℝ) < v i := NNReal.coe_pos.2 (pos_iff_ne_zero.2 (hv i))
+        have h_cs : ⟪φ i, x⟫_ℝ ^ 2 ≤ ‖φ i‖ ^ 2 * ‖x‖ ^ 2 := by
+          rw [← mul_pow, ← sq_abs]
+          exact pow_le_pow_left₀ (abs_nonneg _) (abs_real_inner_le_norm _ _) 2
+        rw [div_mul_eq_mul_div, div_le_iff₀ hvi]
+        calc w i * ⟪φ i, x⟫_ℝ ^ 2 ≤ w i * (‖φ i‖ ^ 2 * ‖x‖ ^ 2) := by gcongr; exact hw0 i
+          _ ≤ w i * (L * v i * ‖x‖ ^ 2) := by gcongr; exacts [hw0 i, hφL i]
+          _ = w i * (L * ‖x‖ ^ 2) * v i := by ring
+    _ = L * ‖x‖ ^ 2 := by rw [← Finset.sum_mul, hw1, one_mul]
 
 /-! ### Features in their span -/
 
@@ -915,6 +975,35 @@ theorem exists_mem_simplex_invNormSq_le_finrank {ι : Type*} [Fintype ι] [Nonem
     ← ENNReal.ofReal_natCast]
   refine ENNReal.ofReal_le_ofReal ((hle i (Finset.mem_univ i)).trans_eq ?_)
   rw [Finset.coe_univ, Set.image_univ]
+
+/-- **The G-allocation** [SLM14, (12)]. For features `φ` of finitely many arms and variances
+`0 < v i ≤ σ²`, some weights `w` in the simplex have `‖φ i - φ j‖²_{V_w⁻¹} ≤ 4 σ² m` for all arms
+`i` and `j`, for the design operator `V_w = ∑ k, (w k / v k) • φ k ⊗ φ k`, where `m` is the
+dimension of the span of the features: a Kiefer–Wolfowitz design of the features. -/
+theorem exists_mem_simplex_invNormSq_sub_le_finrank {ι : Type*} [Fintype ι] [Nonempty ι]
+    (φ : ι → E) {v : ι → ℝ≥0} {σ2 : ℝ≥0} (hv : ∀ i, v i ≠ 0) (hvσ : ∀ i, v i ≤ σ2) :
+    ∃ w ∈ LMLExplore.simplex ι, ∀ i j,
+      invNormSq (∑ k, (w k / v k) • rankOne ℝ (φ k) (φ k) : E →L[ℝ] E) (φ i - φ j) ≤
+        ENNReal.ofReal (4 * σ2 * finrank ℝ (Submodule.span ℝ (Set.range φ))) := by
+  obtain ⟨w, hw, hle⟩ := exists_mem_simplex_invNormSq_le_finrank φ
+  refine ⟨w, hw, fun i j ↦ ?_⟩
+  set m := finrank ℝ (Submodule.span ℝ (Set.range φ))
+  have hσ2 : σ2 ≠ 0 := (pos_iff_ne_zero.2 (hv i)).trans_le (hvσ i) |>.ne'
+  calc invNormSq (∑ k, (w k / v k) • rankOne ℝ (φ k) (φ k) : E →L[ℝ] E) (φ i - φ j)
+      ≤ invNormSq (∑ k, (w k / σ2) • rankOne ℝ (φ k) (φ k) : E →L[ℝ] E) (φ i - φ j) := by
+        refine invNormSq_sum_smul_rankOne_le_of_le (fun k ↦ ?_) _
+        have hvk : (0 : ℝ) < v k := NNReal.coe_pos.2 (pos_iff_ne_zero.2 (hv k))
+        gcongr
+        · exact (mem_simplex_iff.1 hw).1 k
+        · exact_mod_cast hvσ k
+    _ ≤ ENNReal.ofReal σ2 * (2 * (m + m)) := by
+        rw [invNormSq_sum_div_smul_rankOne φ w hσ2]
+        gcongr
+        exact (invNormSq_sub_le _ _ _).trans (by gcongr <;> exact hle _)
+    _ = ENNReal.ofReal (4 * σ2 * m) := by
+        rw [ENNReal.ofReal_mul (by positivity), ENNReal.ofReal_mul (by norm_num),
+          ENNReal.ofReal_natCast, ENNReal.ofReal_ofNat]
+        ring
 
 /-! ### The G-value and the equivalence theorem -/
 
