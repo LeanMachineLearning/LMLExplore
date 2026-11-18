@@ -59,6 +59,11 @@ The main consequences are:
   number of rounds of nonzero losses when the rounds of zero losses are skipped
   (`OnlineLearner.hasRegretBound_skipZero_krichevskyTrofimovOCO`) [Ora, §13.2.1].
 
+For coins in `[-1, 1]`, the bets of the KT bettor at round `t` are measurable functions of the
+coins (`OnlineLearner.measurable_run_krichevskyTrofimov`) of absolute value at most `ε 2 ^ t`
+(`OnlineLearner.abs_run_krichevskyTrofimov_le`), as the reduction of prediction with expert advice
+to coin betting needs (`LMLExplore.OnlineLearning.ExpertsBetting`).
+
 ## Main definitions
 
 * `LMLExplore.OnlineLearning.ktPotential t x`: the potential of the KT bettor.
@@ -493,6 +498,49 @@ theorem hasRegretBound_skipZero_krichevskyTrofimovOCO (hε : 0 < ε) (hL : 0 < L
         |u| * L * √(2 * Nat.count (g · ≠ 0) n *
           log (exp 1 * |u| * Nat.count (g · ≠ 0) n / ε + 1)) + ε * L :=
   (hasRegretBound_krichevskyTrofimovOCO hε hL).skipZero fun _ ↦ zero_mul _
+
+/-- The bets of the Krichevsky–Trofimov bettor are measurable functions of the coins. -/
+lemma measurable_run_krichevskyTrofimov (ε : ℝ) (d : ℕ → C) (t : ℕ) :
+    Measurable fun c : ℕ → ℝ ↦ (krichevskyTrofimov ε).run d c t := by
+  induction t using Nat.strong_induction_on with
+  | _ t ih =>
+    simp_rw [run_krichevskyTrofimov ε d _ t, wealth_def]
+    refine ((Finset.measurable_sum _ fun s _ ↦ measurable_pi_apply s).div_const _).mul
+      (measurable_const.add (Finset.measurable_sum _ fun s hs ↦
+        (measurable_pi_apply s).mul (ih s (mem_range.1 hs))))
+
+/-- For coins in `[-1, 1]`, the Krichevsky–Trofimov bettor from the initial wealth `ε ≥ 0` bets
+at most `ε 2 ^ t` in absolute value at round `t`. -/
+lemma abs_run_krichevskyTrofimov_le (hε : 0 ≤ ε) (d : ℕ → C) {c : ℕ → ℝ} {t : ℕ}
+    (hc : ∀ s < t, |c s| ≤ 1) : |(krichevskyTrofimov ε).run d c t| ≤ ε * 2 ^ t := by
+  set β : ℕ → ℝ := fun s ↦ (∑ r ∈ range s, c r) / (s + 1)
+  have hβ (s : ℕ) (hs : s ≤ t) : |β s| ≤ 1 := by
+    have hsum : |∑ r ∈ range s, c r| ≤ s := by
+      simpa using norm_sum_le_card_mul (range s) (L := 1) fun r hr ↦
+        (Real.norm_eq_abs _).trans_le (hc r ((mem_range.1 hr).trans_le hs))
+    rw [abs_div, abs_of_pos (by positivity : (0 : ℝ) < s + 1), div_le_one (by positivity)]
+    linarith
+  have hrun (s : ℕ) : (krichevskyTrofimov ε).run d c s =
+      β s * wealth ε c ((krichevskyTrofimov ε).run d c) s := run_krichevskyTrofimov ε d c s
+  have hfac (s : ℕ) (hs : s < t) : 0 ≤ 1 + β s * c s ∧ 1 + β s * c s ≤ 2 := by
+    have : |β s * c s| ≤ 1 := by
+      rw [abs_mul]
+      nlinarith [abs_nonneg (β s), abs_nonneg (c s), hβ s hs.le, hc s hs]
+    constructor <;> linarith [abs_le.1 this]
+  have hW : wealth ε c ((krichevskyTrofimov ε).run d c) t ≤ ε * 2 ^ t := by
+    rw [wealth_eq_mul_prod fun s _ ↦ hrun s]
+    refine mul_le_mul_of_nonneg_left ?_ hε
+    calc ∏ s ∈ range t, (1 + β s * c s) ≤ ∏ _s ∈ range t, (2 : ℝ) :=
+          prod_le_prod₀ (fun s hs ↦ (hfac s (mem_range.1 hs)).1)
+            fun s hs ↦ (hfac s (mem_range.1 hs)).2
+      _ = 2 ^ t := by rw [prod_const, card_range]
+  have hW0 : 0 ≤ wealth ε c ((krichevskyTrofimov ε).run d c) t :=
+    wealth_nonneg hε (fun s _ ↦ hrun s) (fun s hs ↦ hβ s hs.le) hc
+  rw [hrun, abs_mul, abs_of_nonneg hW0]
+  calc |β t| * wealth ε c ((krichevskyTrofimov ε).run d c) t
+      ≤ 1 * wealth ε c ((krichevskyTrofimov ε).run d c) t :=
+        mul_le_mul_of_nonneg_right (hβ t le_rfl) hW0
+    _ ≤ ε * 2 ^ t := by rw [one_mul]; exact hW
 
 end OnlineLearner
 
