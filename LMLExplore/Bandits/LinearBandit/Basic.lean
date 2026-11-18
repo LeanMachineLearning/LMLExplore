@@ -54,7 +54,9 @@ features.
   environment, the noise of round `t` is conditionally σ²-sub-Gaussian given
   `h.filtrationAction t`.
 * `Learning.IsAlgEnvSeq.le_measureReal_forall_sqrt_inner_ridgeEstimate_sub_lt`: the confidence
-  ellipsoids of ridge regression along a run [LS, Theorem 20.5], and
+  ellipsoids of ridge regression along a run [LS, Theorem 20.5];
+  `Learning.IsAlgEnvSeq.measure_exists_sqrt_inner_ridgeEstimate_sub_ge_le` the bound on the
+  probability that they fail; and
   `Learning.IsAlgEnvSeq.le_measureReal_forall_sqrt_inner_ridgeEstimate_sub_lt_of_norm_le` their
   form for bounded features [LS, Theorem 20.5 and (20.9)];
   `Learning.IsAlgEnvSeq.measure_exists_sqrt_inner_ridgeEstimate_sub_ge_le_of_norm_le` the bound
@@ -229,6 +231,26 @@ theorem _root_.Learning.IsAlgEnvSeq.le_measureReal_forall_sqrt_inner_ridgeEstima
         σ2 * log (LinearMap.det (designOp (lam • 1) (fun s ↦ φ (O s ω) (A s ω)) t : E →ₗ[ℝ] E) /
           lam ^ finrank ℝ E))} :=
   LMLExplore.le_measureReal_forall_sqrt_inner_ridgeEstimate_sub_lt
+    (fun t ↦ (measurable_features_noise θ h hφ t).1)
+    (fun t ↦ (measurable_features_noise θ h hφ t).2)
+    (h.hasCondSubgaussianMGF_feedback_sub_inner henv (by fun_prop)) hσ θ
+    (fun _ _ ↦ (add_sub_cancel _ _).symm) hlam hδ
+
+/-- **Confidence ellipsoids along a run** [LS, Theorem 20.5], failure-probability form: under the
+assumptions of `Learning.IsAlgEnvSeq.le_measureReal_forall_sqrt_inner_ridgeEstimate_sub_lt`, the
+probability that for some `t`,
+`√λ ‖θ‖ + √(2σ² log (1 / δ) + σ² log (det V_t / λ ^ d)) ≤ ‖θ̂_t - θ‖_{V_t}` is at most `δ`. -/
+theorem _root_.Learning.IsAlgEnvSeq.measure_exists_sqrt_inner_ridgeEstimate_sub_ge_le
+    (h : IsAlgEnvSeq O A Y alg env P) (henv : IsSubgaussianLinearEnv φ θ σ2 env)
+    (hφ : Measurable (Function.uncurry φ)) (hσ : σ2 ≠ 0) (hlam : 0 < lam) (hδ : 0 < δ) :
+    P {ω | ∃ t, √lam * ‖θ‖ + √(2 * σ2 * log (1 / δ) +
+        σ2 * log (LinearMap.det (designOp (lam • 1) (fun s ↦ φ (O s ω) (A s ω)) t : E →ₗ[ℝ] E) /
+          lam ^ finrank ℝ E)) ≤
+      √⟪ridgeEstimate lam (fun s ↦ φ (O s ω) (A s ω)) (fun s ↦ Y s ω) t - θ,
+        designOp (lam • 1) (fun s ↦ φ (O s ω) (A s ω)) t
+          (ridgeEstimate lam (fun s ↦ φ (O s ω) (A s ω)) (fun s ↦ Y s ω) t - θ)⟫_ℝ} ≤
+      ENNReal.ofReal δ :=
+  LMLExplore.measure_exists_sqrt_inner_ridgeEstimate_sub_ge_le
     (fun t ↦ (measurable_features_noise θ h hφ t).1)
     (fun t ↦ (measurable_features_noise θ h hφ t).2)
     (h.hasCondSubgaussianMGF_feedback_sub_inner henv (by fun_prop)) hσ θ
