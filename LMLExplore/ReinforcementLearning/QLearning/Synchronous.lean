@@ -134,12 +134,15 @@ function of the first `t` samples, which take finitely many values. -/
 theorem finite_range_syncQLearning [Finite 𝓢] [Finite 𝓐] (t : ℕ) :
     (Set.range (syncQLearning r γ η Q₀ t)).Finite := by
   induction t with
-  | zero => exact (Set.finite_singleton Q₀).subset (Set.range_subset_iff.2 fun _ ↦ rfl)
+  | zero =>
+    exact (Set.finite_singleton Q₀).subset
+      (Set.range_subset_iff.2 fun ω ↦ Set.mem_singleton_iff.2 (syncQLearning_zero ω))
   | succ t ih =>
     refine ((ih.prod (Set.finite_univ (α := 𝓢 × 𝓐 → 𝓢))).image fun z p ↦
       (1 - η (t + 1)) * z.1 p + η (t + 1) * (r p + γ * ⨆ a, z.1 (z.2 p, a))).subset ?_
     rintro _ ⟨ω, rfl⟩
-    exact ⟨(syncQLearning r γ η Q₀ t ω, ω t), ⟨⟨ω, rfl⟩, Set.mem_univ _⟩, rfl⟩
+    exact ⟨(syncQLearning r γ η Q₀ t ω, ω t), ⟨⟨ω, rfl⟩, Set.mem_univ _⟩,
+      funext fun p ↦ (syncQLearning_succ t ω p).symm⟩
 
 section Measurable
 
@@ -158,7 +161,9 @@ theorem measurable_syncQLearning (t : ℕ) :
       ih.mono (ℱ.mono t.le_succ) le_rfl
     have hω : Measurable[ℱ (t + 1)] fun ω : ℕ → 𝓢 × 𝓐 → 𝓢 ↦ ω t :=
       Filtration.measurable_naturalLT measurable_pi_apply t.lt_succ_self
-    refine @Measurable.of_eval _ _ _ (ℱ (t + 1)) _ _ (fun p ↦ ?_)
+    -- with `ℱ (t + 1)` as ambient σ-algebra, `measurable_pi_iff` checks each coordinate `p`
+    let : MeasurableSpace (ℕ → 𝓢 × 𝓐 → 𝓢) := ℱ (t + 1)
+    refine measurable_pi_iff.2 fun p ↦ ?_
     simp_rw [syncQLearning_succ]
     exact (measurable_const.mul ((measurable_pi_apply p).comp hQ)).add
       (measurable_const.mul (measurable_const.add (measurable_const.mul
@@ -167,6 +172,12 @@ theorem measurable_syncQLearning (t : ℕ) :
 end Measurable
 
 /-! ### Ranges of the iterates -/
+
+/-- A supremum of values in `[a, b]` over a nonempty index type lies in `[a, b]`. -/
+private lemma ciSup_mem_Icc {α ι : Type*} [ConditionallyCompleteLattice α] [Nonempty ι]
+    {f : ι → α} {a b : α} (h : ∀ i, f i ∈ Set.Icc a b) : (⨆ i, f i) ∈ Set.Icc a b :=
+  ⟨(h (Classical.arbitrary ι)).1.trans (le_ciSup ⟨b, Set.forall_mem_range.2 fun i ↦ (h i).2⟩ _),
+    ciSup_le fun i ↦ (h i).2⟩
 
 /-- **Ranges of the iterates** [LCCWC24, Lemma 4]. With learning rates in `[0, 1]`, rewards in
 `[0, C]` and an initial value in `[0, B]`, where `C + γ * B ≤ B`, the iterates of synchronous
@@ -179,11 +190,9 @@ theorem syncQLearning_mem_Icc [Nonempty 𝓐] {B C : ℝ} (hη : ∀ t, η (t + 
   | zero => exact hQ₀ p
   | succ t ih =>
     obtain ⟨h0, h1⟩ := hη t
-    have hbdd (s : 𝓢) : BddAbove (Set.range fun a ↦ syncQLearning r γ η Q₀ t ω (s, a)) :=
-      ⟨B, Set.forall_mem_range.2 fun a ↦ (ih _).2⟩
     -- the value estimate at the sampled state lies in `[0, B]`
     have hV : (⨆ a, syncQLearning r γ η Q₀ t ω (ω t p, a)) ∈ Set.Icc 0 B :=
-      ⟨(ih _).1.trans (le_ciSup (hbdd _) (Classical.arbitrary 𝓐)), ciSup_le fun a ↦ (ih _).2⟩
+      ciSup_mem_Icc fun a ↦ ih _
     have hγV : 0 ≤ (γ : ℝ) * ⨆ a, syncQLearning r γ η Q₀ t ω (ω t p, a) := mul_nonneg γ.2 hV.1
     have hγB : (γ : ℝ) * ⨆ a, syncQLearning r γ η Q₀ t ω (ω t p, a) ≤ γ * B :=
       mul_le_mul_of_nonneg_left hV.2 γ.2
@@ -198,10 +207,8 @@ theorem syncQLearning_mem_Icc [Nonempty 𝓐] {B C : ℝ} (hη : ∀ t, η (t + 
 theorem iSup_syncQLearning_mem_Icc [Nonempty 𝓐] {B C : ℝ}
     (hη : ∀ t, η (t + 1) ∈ Set.Icc (0 : ℝ) 1) (hr : ∀ p, r p ∈ Set.Icc 0 C)
     (hQ₀ : ∀ p, Q₀ p ∈ Set.Icc 0 B) (hB : C + γ * B ≤ B) (t : ℕ) (ω : ℕ → 𝓢 × 𝓐 → 𝓢) (s : 𝓢) :
-    (⨆ a, syncQLearning r γ η Q₀ t ω (s, a)) ∈ Set.Icc 0 B := by
-  have h := syncQLearning_mem_Icc hη hr hQ₀ hB t ω
-  exact ⟨(h _).1.trans (le_ciSup ⟨B, Set.forall_mem_range.2 fun a ↦ (h (s, a)).2⟩
-    (Classical.arbitrary 𝓐)), ciSup_le fun a ↦ (h _).2⟩
+    (⨆ a, syncQLearning r γ η Q₀ t ω (s, a)) ∈ Set.Icc 0 B :=
+  ciSup_mem_Icc fun a ↦ syncQLearning_mem_Icc hη hr hQ₀ hB t ω (s, a)
 
 /-! ### The error recursion -/
 
@@ -390,10 +397,7 @@ theorem condExp_comp_syncQLearning {f : (𝓢 × 𝓐 → ℝ) × 𝓢 → ℝ} 
       (ℱ t) (streamMeasure P) :=
     indep_of_indep_of_le_left (Filtration.indep_naturalLT measurable_pi_apply
       (iIndepFun_eval_streamMeasure' P) t)
-      (by
-        rw [show (fun ω : ℕ → 𝓢 × 𝓐 → 𝓢 ↦ ω t p) = (fun x ↦ x p) ∘ fun ω ↦ ω t from rfl,
-          ← MeasurableSpace.comap_comp]
-        exact MeasurableSpace.comap_mono (measurable_pi_apply p).comap_le)
+      ((measurable_pi_apply p).comp (comap_measurable fun ω : ℕ → 𝓢 × 𝓐 → 𝓢 ↦ ω t)).comap_le
   -- the composite takes finitely many values, hence is integrable
   have hfin : (Set.range fun ω ↦ f (syncQLearning r γ η Q₀ t ω, ω t p)).Finite :=
     (((finite_range_syncQLearning t).prod (Set.finite_univ (α := 𝓢))).image f).subset
