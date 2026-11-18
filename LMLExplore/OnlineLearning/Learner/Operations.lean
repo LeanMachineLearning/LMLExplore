@@ -363,6 +363,7 @@ lemma run_withContext (c : ℕ → C) (g : ℕ → G) (t : ℕ) :
 
 /-- The closed-loop feedback of `A.withContext` for the feedback functions `φ` is the closed-loop
 feedback of `A` for the feedback functions `z ↦ φ t (c t, z)`. -/
+@[simp]
 lemma closedLoopFeedback_withContext (c : ℕ → C) (φ : ℕ → C × X → G) :
     A.withContext.closedLoopFeedback c φ = A.closedLoopFeedback c fun t z ↦ φ t (c t, z) := by
   refine A.closedLoopFeedback_unique fun t ↦ ?_

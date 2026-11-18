@@ -87,6 +87,11 @@ variable {ι : Type*}
 
 section Sequences
 
+/-- A sum over the support of `f` of `f i * g i` is the sum over any superset of the support. -/
+private lemma sum_support_mul_of_subset {f : ι →₀ ℝ} {s : Finset ι} (h : f.support ⊆ s)
+    (g : ι → ℝ) : ∑ i ∈ f.support, f i * g i = ∑ i ∈ s, f i * g i :=
+  f.sum_of_support_subset h (fun i r ↦ r * g i) fun _ _ ↦ zero_mul _
+
 /-- The **sleeping regret** [Ora, Section 12.2] after `n` rounds of the distributions `x t` over
 the experts, for the activity weights `a t` and the losses `y t` of the experts, against the
 weighting `u` of the experts: `∑ t < n, ∑ i ∈ (a t).support, u i * a t i * (⟨y t, x t⟩ - y t i)`,
@@ -135,8 +140,7 @@ lemma support_sleepingSurrogate_subset (a x : ι →₀ ℝ) (y : ι → ℝ) :
 lemma sum_sleepingSurrogate_mul (a x : ι →₀ ℝ) (y w : ι → ℝ) :
     ∑ i ∈ (sleepingSurrogate a x y).support, sleepingSurrogate a x y i * w i =
       ∑ i ∈ a.support, a i * (y i - ∑ j ∈ x.support, x j * y j) * w i := by
-  rw [sum_subset (support_sleepingSurrogate_subset a x y)
-    fun i _ hi ↦ by rw [Finsupp.notMem_support_iff.mp hi, zero_mul]]
+  rw [sum_support_mul_of_subset (support_sleepingSurrogate_subset a x y)]
   simp only [sleepingSurrogate_apply]
 
 /-- **The surrogate loss vanishes at the inner play** [Ora, Theorem 12.13]. If the play `x` is
@@ -161,7 +165,7 @@ theorem sum_sleepingSurrogate_mul_eq_zero {a x : ι →₀ ℝ} {z : ι → ℝ}
     have := hx i
     rw [hai, zero_mul] at this
     exact (mul_eq_zero.mp this.symm).resolve_left hS
-  rw [← sum_subset hsub fun i _ hi ↦ by rw [Finsupp.notMem_support_iff.mp hi, zero_mul]]
+  rw [← sum_support_mul_of_subset hsub]
   ring
 
 /-- **Sleeping regret through surrogate losses** [Ora, Theorem 12.13]. If at each round `t < n`
@@ -196,7 +200,7 @@ theorem abs_sleepingSurrogate_le {a x : ι →₀ ℝ} {y : ι → ℝ} {R : ℝ
   refine mul_le_mul_of_nonneg_left ?_ (ha i)
   -- `y i - ⟨y, x⟩` is the average of the differences `y i - y j` over the active experts `j`.
   have hp : y i - ∑ j ∈ x.support, x j * y j = ∑ j ∈ a.support, x j * (y i - y j) := by
-    rw [sum_subset hxa fun j _ hj ↦ by rw [Finsupp.notMem_support_iff.mp hj, zero_mul]]
+    rw [sum_support_mul_of_subset hxa]
     simp only [mul_sub, sum_sub_distrib, ← sum_mul, hx₁, one_mul]
   rw [hp]
   calc |∑ j ∈ a.support, x j * (y i - y j)| ≤ ∑ j ∈ a.support, |x j * (y i - y j)| :=
@@ -301,25 +305,14 @@ theorem regret_eq_regret_sub_of_sum_eq_one [Fintype ι] (y x z : ℕ → ι → 
     (hx : ∀ t < n, ∀ i, z t i = (∑ j, z t j) * x t i) {u : ι → ℝ} (hu : ∑ i, u i = 1) :
     regret (fun t w ↦ ∑ i, w i * y t i) x u n =
       regret (fun t w ↦ ∑ i, (y t i - ∑ j, x t j * y t j) * w i) z u n := by
-  classical
-  -- All the experts are active with weight `1`, and the plays are the distributions `x t`.
-  set a : ℕ → ι →₀ ℝ := fun _ ↦ Finsupp.equivFunOnFinite.symm 1
-  set X : ℕ → ι →₀ ℝ := fun t ↦ Finsupp.equivFunOnFinite.symm (x t)
-  have hsum (f : ι →₀ ℝ) (g : ι → ℝ) : ∑ i ∈ f.support, f i * g i = ∑ i, f i * g i :=
-    f.sum_fintype (fun i r ↦ r * g i) fun _ ↦ zero_mul _
-  have hsupp (t : ℕ) : (a t).support = univ := by
-    ext i
-    simp [a]
-  have hX (t : ℕ) (g : ι → ℝ) : ∑ j ∈ (X t).support, X t j * g j = ∑ j, x t j * g j := by
-    rw [hsum]
-    simp only [X, Finsupp.coe_equivFunOnFinite_symm]
-  have h := sleepingRegret_eq_regret a y X z (n := n) (fun t ht i ↦ by
-    simpa [hsupp, a, X] using hx t ht i) u
-  simp only [sleepingRegret_def, regret_def, sum_sleepingSurrogate_mul, hsupp, hX] at h
-  simp only [a, Finsupp.coe_equivFunOnFinite_symm, Pi.one_apply, mul_one, one_mul] at h
-  rw [regret_def, regret_def, ← h]
-  refine sum_congr rfl fun t _ ↦ ?_
-  simp_rw [mul_sub, sum_sub_distrib, ← sum_mul, hu, one_mul]
+  rw [regret_def, regret_def]
+  refine sum_congr rfl fun t ht ↦ ?_
+  set p := ∑ j, x t j * y t j
+  -- The surrogate loss of `z t` is `(∑ j, z t j) * p - p * ∑ j, z t j = 0`.
+  have h (i : ι) : (y t i - p) * z t i = (∑ j, z t j) * (x t i * y t i) - p * z t i := by
+    linear_combination y t i * hx t (mem_range.mp ht) i
+  simp_rw [h, sub_mul, sum_sub_distrib, ← mul_sum, hu, mul_comm (y t _)]
+  ring
 
 end Sequences
 
@@ -381,42 +374,46 @@ variable {A} {adm : (ι →₀ ℝ) → (ι →₀ ℝ) → Prop} {U : Set (ι �
   {B : ℕ → (ℕ → ι →₀ ℝ) → (ℕ → ι →₀ ℝ) → (ι → ℝ) → ℝ}
 
 /-- **Sleeping regret guarantee of `A.sleeping`** [Ora, Theorem 12.13]. Let `A` have the regret
-bound `B` for linear losses against the comparators of `U`, with plays nonnegative on the active
-experts. If the activity weights are nonnegative and the surrogate losses of the rounds `t < n`
-are admissible for `A`, then the sleeping regret of `A.sleeping` against every `u ∈ U` is at most
+bound `B` for linear losses against the comparators of `U`. If the activity weights are
+nonnegative, the plays of the rounds `t < n` of the closed-loop run of `A` on the surrogate losses
+are nonnegative on the active experts, and the surrogate losses of these rounds are admissible for
+`A`, then the sleeping regret of `A.sleeping` against every `u ∈ U` is at most
 `B` at the surrogate losses fed to `A`. -/
 theorem HasRegretBound.sleepingRegret_run_sleeping_le
     (hA : A.HasRegretBound (fun g w ↦ ∑ i ∈ g.support, g i * w i) adm U B)
-    (hpos : ∀ (c : ℕ → ι →₀ ℝ) (g : ℕ → ι →₀ ℝ) (t : ℕ), ∀ i ∈ (c t).support, 0 ≤ A.run c g t i)
     {a : ℕ → ι →₀ ℝ} {y : ℕ → ι → ℝ} {n : ℕ} (ha : ∀ t < n, ∀ i, 0 ≤ a t i)
+    (hz : ∀ t < n, ∀ i ∈ (a t).support, 0 ≤ A.run a (A.closedLoopFeedback a
+      fun s z ↦ sleepingSurrogate (a s) (sleepingPlay (a s) z) (y s)) t i)
     (hadm : ∀ t < n, ∀ z : ι → ℝ, (∀ i ∈ (a t).support, 0 ≤ z i) →
       adm (a t) (sleepingSurrogate (a t) (sleepingPlay (a t) z) (y t)))
     {u : ι → ℝ} (hu : u ∈ U) :
     sleepingRegret a y (A.sleeping.run a y) u n ≤
       B n a (A.closedLoopFeedback a fun s z ↦
         sleepingSurrogate (a s) (sleepingPlay (a s) z) (y s)) u := by
-  rw [A.sleepingRegret_run_sleeping a y ha (fun t _ ↦ hpos _ _ t) u]
+  rw [A.sleepingRegret_run_sleeping a y ha hz u]
   refine hA.regret_le (fun t ht ↦ ?_) hu
   rw [closedLoopFeedback_eq]
-  exact hadm t ht _ (hpos _ _ t)
+  exact hadm t ht _ (hz t ht)
 
 /-- **Sleeping regret guarantee of `A.sleeping` for bounded ranges** [Ora, Theorem 12.13]. Let `A`
 have the regret bound `B` for linear losses with coordinates in `[-R, R]` against the comparators
-of `U`, with plays nonnegative on the active experts. For activity weights in `[0, 1]` and losses
-of range at most `R` on the active experts, the sleeping regret of `A.sleeping` against every
+of `U`. For activity weights in `[0, 1]`, plays of the rounds `t < n` of the closed-loop run of `A`
+nonnegative on the active experts, and losses of range at most `R` on the active experts, the
+sleeping regret of `A.sleeping` against every
 `u ∈ U` is at most `B` at the surrogate losses fed to `A`. -/
 theorem HasRegretBound.sleepingRegret_run_sleeping_le_of_range {R : ℝ} (hR₀ : 0 ≤ R)
     (hA : A.HasRegretBound (fun g w ↦ ∑ i ∈ g.support, g i * w i) (fun _ g ↦ ∀ i, |g i| ≤ R) U B)
-    (hpos : ∀ (c : ℕ → ι →₀ ℝ) (g : ℕ → ι →₀ ℝ) (t : ℕ), ∀ i ∈ (c t).support, 0 ≤ A.run c g t i)
     {a : ℕ → ι →₀ ℝ} {y : ℕ → ι → ℝ} {n : ℕ} (ha : ∀ t < n, ∀ i, 0 ≤ a t i ∧ a t i ≤ 1)
+    (hz : ∀ t < n, ∀ i ∈ (a t).support, 0 ≤ A.run a (A.closedLoopFeedback a
+      fun s z ↦ sleepingSurrogate (a s) (sleepingPlay (a s) z) (y s)) t i)
     (hR : ∀ t < n, ∀ i ∈ (a t).support, ∀ j ∈ (a t).support, y t i - y t j ≤ R)
     {u : ι → ℝ} (hu : u ∈ U) :
     sleepingRegret a y (A.sleeping.run a y) u n ≤
       B n a (A.closedLoopFeedback a fun s z ↦
         sleepingSurrogate (a s) (sleepingPlay (a s) z) (y s)) u := by
-  refine hA.sleepingRegret_run_sleeping_le hpos (fun t ht i ↦ (ha t ht i).1)
-    (fun t ht z hz i ↦ ?_) hu
-  exact (abs_sleepingSurrogate_sleepingPlay_le (fun i ↦ (ha t ht i).1) hz (hR t ht) i).trans
+  refine hA.sleepingRegret_run_sleeping_le (fun t ht i ↦ (ha t ht i).1) hz
+    (fun t ht z hz' i ↦ ?_) hu
+  exact (abs_sleepingSurrogate_sleepingPlay_le (fun i ↦ (ha t ht i).1) hz' (hR t ht) i).trans
     (mul_le_of_le_one_left hR₀ (ha t ht i).2)
 
 end Learner
