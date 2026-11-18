@@ -29,7 +29,8 @@ finitely many distinct answers, the closure of this set is the union of the half
 `D(θ, w, ¬i) = inf_{λ ∈ ¬i} cost_θ(w, λ)` is, for a transportation cost continuous in the
 alternative, the smallest cost of these half-spaces. These are the half-spaces whose costs give
 the characteristic time of linear identification with Gaussian noise
-`T*(θ)⁻¹ = max_w min_{z ≠ z*} ⟪z* - z, θ⟫² / (2 ‖z* - z‖²_{V_w⁻¹})` [FJJR19, Theorem 1].
+`T*(θ)⁻¹ = max_w min_{z ≠ z*} ⟪z* - z, θ⟫² / (2 ‖z* - z‖²_{V_w⁻¹})` [FJJR19, Theorem 1], proved in
+`LMLExplore/Identification/Task/Transductive/Gaussian.lean`.
 
 ## Main definitions
 

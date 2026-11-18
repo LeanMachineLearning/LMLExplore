@@ -49,6 +49,11 @@ it.
   positive `V`.
 * `LMLExplore.invNormSq_eq_ofReal_inner_moorePenroseInverse`: in finite dimension,
   `‖y‖²_{V⁻¹} = ⟪y, V⁺ y⟫` for a positive `V` and `y` in its range.
+* `LMLExplore.invNormSq_le_invNormSq`, `LMLExplore.invNormSq_smul`: `‖y‖²_{V⁻¹}` is antitone in `V`
+  for the order of the quadratic forms, and `‖y‖²_{(c V)⁻¹} = c⁻¹ ‖y‖²_{V⁻¹}` for `c > 0`;
+  `LMLExplore.invNormSq_one`: `‖y‖²_{1⁻¹} = ‖y‖²`.
+* `LMLExplore.invNormSq_add_le`, `LMLExplore.invNormSq_sub_le`:
+  `‖x ± y‖²_{V⁻¹} ≤ 2 (‖x‖²_{V⁻¹} + ‖y‖²_{V⁻¹})`.
 * `LMLExplore.invNormSq_eq_top_of_inner_apply_self_eq_zero`,
   `LMLExplore.invNormSq_eq_top_of_apply_eq_zero`, `LMLExplore.invNormSq_eq_top_iff`:
   `‖y‖²_{V⁻¹} = ∞` if `y` is not orthogonal to a vector `x` with `⟪x, V x⟫ = 0`, for instance to
@@ -145,6 +150,71 @@ theorem invNormSq_lt_top_of_mem_range (hV : V.IsPositive) (hy : y ∈ range V) :
     invNormSq V y < ∞ := by
   obtain ⟨z, rfl⟩ := hy
   simp [invNormSq_apply_eq_ofReal_inner hV]
+
+/-- `‖y‖²_{1⁻¹} = ‖y‖²`. -/
+@[simp]
+theorem invNormSq_one (y : E) : invNormSq 1 y = ENNReal.ofReal (‖y‖ ^ 2) := by
+  simpa [real_inner_self_eq_norm_sq] using invNormSq_apply_eq_ofReal_inner isPositive_one y
+
+/-- `‖-y‖²_{V⁻¹} = ‖y‖²_{V⁻¹}`. -/
+@[simp]
+theorem invNormSq_neg (V : E →ₗ[ℝ] E) (y : E) : invNormSq V (-y) = invNormSq V y := by
+  simp_rw [invNormSq_def]
+  exact (Equiv.neg E).iSup_congr fun x ↦ by simp
+
+/-- `‖y‖²_{V⁻¹}` is antitone in `V` for the order of the quadratic forms: if
+`⟪x, V x⟫ ≤ ⟪x, V' x⟫` for every `x`, then `‖y‖²_{V'⁻¹} ≤ ‖y‖²_{V⁻¹}`. -/
+theorem invNormSq_le_invNormSq {V' : E →ₗ[ℝ] E} (h : ∀ x, ⟪x, V x⟫_ℝ ≤ ⟪x, V' x⟫_ℝ) (y : E) :
+    invNormSq V' y ≤ invNormSq V y :=
+  invNormSq_le_iff.2 fun x ↦
+    (ENNReal.ofReal_le_ofReal (by linarith [h x])).trans (ofReal_le_invNormSq V x y)
+
+/-- `‖y‖²_{(c V)⁻¹} = c⁻¹ ‖y‖²_{V⁻¹}` for `c > 0`. -/
+theorem invNormSq_smul {c : ℝ} (hc : 0 < c) (V : E →ₗ[ℝ] E) (y : E) :
+    invNormSq (c • V) y = ENNReal.ofReal c⁻¹ * invNormSq V y := by
+  refine le_antisymm (invNormSq_le_iff.2 fun x ↦ ?_) ?_
+  · -- `2 ⟪y, x⟫ - c ⟪x, V x⟫ = c⁻¹ (2 ⟪y, c x⟫ - ⟪c x, V (c x)⟫)`
+    calc ENNReal.ofReal (2 * ⟪y, x⟫_ℝ - ⟪x, (c • V) x⟫_ℝ)
+        = ENNReal.ofReal c⁻¹ * ENNReal.ofReal (2 * ⟪y, c • x⟫_ℝ - ⟪c • x, V (c • x)⟫_ℝ) := by
+          rw [← ENNReal.ofReal_mul (inv_nonneg.2 hc.le)]
+          congr 1
+          simp only [LinearMap.smul_apply, map_smul, real_inner_smul_left,
+            real_inner_smul_right]
+          field_simp
+      _ ≤ ENNReal.ofReal c⁻¹ * invNormSq V y := by gcongr; exact ofReal_le_invNormSq V _ y
+  · -- `c⁻¹ (2 ⟪y, u⟫ - ⟪u, V u⟫) = 2 ⟪y, c⁻¹ u⟫ - ⟪c⁻¹ u, c V (c⁻¹ u)⟫`
+    rw [invNormSq_def, ENNReal.mul_iSup]
+    refine iSup_le fun u ↦ le_of_eq_of_le ?_ (ofReal_le_invNormSq (c • V) (c⁻¹ • u) y)
+    rw [← ENNReal.ofReal_mul (inv_nonneg.2 hc.le)]
+    congr 1
+    simp only [LinearMap.smul_apply, map_smul, real_inner_smul_left, real_inner_smul_right]
+    field_simp
+
+/-- `‖x + y‖²_{V⁻¹} ≤ 2 (‖x‖²_{V⁻¹} + ‖y‖²_{V⁻¹})`: the concave quadratic function of `x + y` at
+`u` is the sum of those of `x` and `y` at `u / 2`, each counted twice. -/
+theorem invNormSq_add_le (V : E →ₗ[ℝ] E) (x y : E) :
+    invNormSq V (x + y) ≤ 2 * (invNormSq V x + invNormSq V y) := by
+  refine invNormSq_le_iff.2 fun u ↦ ?_
+  have h : ∀ v, ENNReal.ofReal (2 * (2 * ⟪v, (2⁻¹ : ℝ) • u⟫_ℝ -
+      ⟪(2⁻¹ : ℝ) • u, V ((2⁻¹ : ℝ) • u)⟫_ℝ)) ≤ 2 * invNormSq V v := fun v ↦ by
+    rw [ENNReal.ofReal_mul zero_le_two, ENNReal.ofReal_ofNat]
+    gcongr
+    exact ofReal_le_invNormSq V _ v
+  calc ENNReal.ofReal (2 * ⟪x + y, u⟫_ℝ - ⟪u, V u⟫_ℝ)
+      = ENNReal.ofReal (2 * (2 * ⟪x, (2⁻¹ : ℝ) • u⟫_ℝ -
+          ⟪(2⁻¹ : ℝ) • u, V ((2⁻¹ : ℝ) • u)⟫_ℝ) + 2 * (2 * ⟪y, (2⁻¹ : ℝ) • u⟫_ℝ -
+          ⟪(2⁻¹ : ℝ) • u, V ((2⁻¹ : ℝ) • u)⟫_ℝ)) := by
+        congr 1
+        simp only [map_smul, real_inner_smul_left, real_inner_smul_right, inner_add_left]
+        ring
+    _ ≤ 2 * invNormSq V x + 2 * invNormSq V y :=
+        ENNReal.ofReal_add_le.trans (add_le_add (h x) (h y))
+    _ = 2 * (invNormSq V x + invNormSq V y) := (mul_add _ _ _).symm
+
+/-- `‖x - y‖²_{V⁻¹} ≤ 2 (‖x‖²_{V⁻¹} + ‖y‖²_{V⁻¹})`. -/
+theorem invNormSq_sub_le (V : E →ₗ[ℝ] E) (x y : E) :
+    invNormSq V (x - y) ≤ 2 * (invNormSq V x + invNormSq V y) := by
+  simpa [sub_eq_add_neg] using invNormSq_add_le V x (-y)
 
 section FiniteDimensional
 
