@@ -898,6 +898,21 @@ private lemma sum_sum_eq_of_sum_eq_one (p : ℕ → α → ℝ) (hp1 : ∀ k, �
   rw [sum_comm]
   simp [hp1]
 
+omit [DecidableEq α] in
+/-- With at least one arm, the number of arms minus one is nonnegative. -/
+private lemma card_sub_one_nonneg (a : α) : (0 : ℝ) ≤ Fintype.card α - 1 :=
+  sub_nonneg.2 <| Nat.one_le_cast.2 <| Fintype.card_pos_iff.2 ⟨a⟩
+
+omit [DecidableEq α] in
+/-- By the Cauchy–Schwarz inequality, the square roots of the cumulated proportions of the arms
+sum to at most `√(K n)`. -/
+private lemma sum_sqrt_sum_le_sqrt_card_mul (p : ℕ → α → ℝ) (hp0 : ∀ k a, 0 ≤ p k a)
+    (hp1 : ∀ k, ∑ a, p k a = 1) (n : ℕ) :
+    ∑ a, √(∑ s ∈ range n, p s a) ≤ √(Fintype.card α * n) := by
+  have h := Real.sum_sqrt_le_sqrt_card_mul_sum univ (x := fun a ↦ ∑ s ∈ range n, p s a)
+    fun a _ ↦ sum_nonneg fun s _ ↦ hp0 s a
+  rwa [sum_sum_eq_of_sum_eq_one p hp1 n, card_univ] at h
+
 /-- **Sums over the pull counts of cumulative tracking** [DKM19, Lemma 9]. Under the assumptions
 of `pullCount_le_sum_add_one_of_cumulativeTracking`, after every number `n` of rounds,
 `∑_a ∑_{s < n} p s a / √(N_a(s + 1)) ≤ K (K - 1) + 2 √(K n)`, a term with `N_a(s + 1) = 0` being
@@ -908,8 +923,7 @@ theorem sum_sum_div_sqrt_pullCount_add_one_le_of_cumulativeTracking (p : ℕ →
       pullCount A a k ω * ∑ s ∈ range (k + 1), p s (A k ω)) (n : ℕ) :
     ∑ a, ∑ s ∈ range n, p s a / √(pullCount A a (s + 1) ω) ≤
       Fintype.card α * (Fintype.card α - 1) + 2 * √(Fintype.card α * n) := by
-  have : Nonempty α := ⟨A 0 ω⟩
-  have hc : (0 : ℝ) ≤ Fintype.card α - 1 := by linarith [one_le_card_real (α := α)]
+  have hc := card_sub_one_nonneg (A 0 ω)
   calc ∑ a, ∑ s ∈ range n, p s a / √(pullCount A a (s + 1) ω)
       ≤ ∑ a, ((Fintype.card α - 1) + 2 * √(∑ s ∈ range n, p s a)) :=
         sum_le_sum fun a _ ↦ Real.sum_div_sqrt_le_add_two_mul_sqrt hc (fun s _ ↦ hp0 s a)
@@ -918,9 +932,7 @@ theorem sum_sum_div_sqrt_pullCount_add_one_le_of_cumulativeTracking (p : ℕ →
       rw [sum_add_distrib, ← mul_sum]
       simp only [sum_const, card_univ, nsmul_eq_mul]
       gcongr
-      have h := Real.sum_sqrt_le_sqrt_card_mul_sum univ (x := fun a ↦ ∑ s ∈ range n, p s a)
-        fun a _ ↦ sum_nonneg fun s _ ↦ hp0 s a
-      rwa [sum_sum_eq_of_sum_eq_one p hp1 n, card_univ] at h
+      exact sum_sqrt_sum_le_sqrt_card_mul p hp0 hp1 n
 
 /-- **Sums over the pull counts of cumulative tracking, before each round** [DKM19, Lemma 9].
 Under the assumptions of `pullCount_le_sum_add_one_of_cumulativeTracking`, after every number `n`
@@ -934,8 +946,7 @@ theorem sum_sum_div_sqrt_pullCount_le_of_cumulativeTracking (p : ℕ → α → 
       pullCount A a k ω * ∑ s ∈ range (k + 1), p s (A k ω)) (n : ℕ) :
     ∑ a, ∑ s ∈ range n, p s a / √(pullCount A a s ω) ≤
       Fintype.card α * (Fintype.card α - 1) + (√2 + 1) * √(Fintype.card α * n) := by
-  have : Nonempty α := ⟨A 0 ω⟩
-  have hc : (0 : ℝ) ≤ Fintype.card α - 1 := by linarith [one_le_card_real (α := α)]
+  have hc := card_sub_one_nonneg (A 0 ω)
   calc ∑ a, ∑ s ∈ range n, p s a / √(pullCount A a s ω)
       ≤ ∑ a, ((Fintype.card α - 1) + (√2 + 1) * √(∑ s ∈ range n, p s a)) :=
         sum_le_sum fun a _ ↦ Real.sum_div_sqrt_le_add_mul_sqrt hc (fun s _ ↦ hp0 s a)
@@ -945,9 +956,7 @@ theorem sum_sum_div_sqrt_pullCount_le_of_cumulativeTracking (p : ℕ → α → 
       rw [sum_add_distrib, ← mul_sum]
       simp only [sum_const, card_univ, nsmul_eq_mul]
       gcongr
-      have h := Real.sum_sqrt_le_sqrt_card_mul_sum univ (x := fun a ↦ ∑ s ∈ range n, p s a)
-        fun a _ ↦ sum_nonneg fun s _ ↦ hp0 s a
-      rwa [sum_sum_eq_of_sum_eq_one p hp1 n, card_univ] at h
+      exact sum_sqrt_sum_le_sqrt_card_mul p hp0 hp1 n
 
 /-- **Sums of the inverse pull counts of cumulative tracking** [DKM19, Lemma 16]. Under the
 assumptions of `pullCount_le_sum_add_one_of_cumulativeTracking`, after every number `n` of rounds,
@@ -962,8 +971,7 @@ theorem sum_sum_div_pullCount_le_of_cumulativeTracking (p : ℕ → α → ℝ)
     ∑ a, ∑ s ∈ range n, p s a / pullCount A a s ω ≤
       Fintype.card α * (Fintype.card α - 1) +
         3 * Fintype.card α * Real.log (n / Fintype.card α + 1) := by
-  have : Nonempty α := ⟨A 0 ω⟩
-  have hc : (0 : ℝ) ≤ Fintype.card α - 1 := by linarith [one_le_card_real (α := α)]
+  have hc := card_sub_one_nonneg (A 0 ω)
   calc ∑ a, ∑ s ∈ range n, p s a / pullCount A a s ω
       ≤ ∑ a, ((Fintype.card α - 1) + 3 * Real.log (∑ s ∈ range n, p s a + 1)) :=
         sum_le_sum fun a _ ↦ Real.sum_div_le_add_three_mul_log hc (fun s _ ↦ hp0 s a)
@@ -973,7 +981,7 @@ theorem sum_sum_div_pullCount_le_of_cumulativeTracking (p : ℕ → α → ℝ)
       rw [sum_add_distrib, ← mul_sum]
       simp only [sum_const, card_univ, nsmul_eq_mul, mul_assoc]
       gcongr
-      have h := Real.sum_log_add_one_le_card_mul_log univ_nonempty
+      have h := Real.sum_log_add_one_le_card_mul_log ⟨A 0 ω, mem_univ _⟩
         (x := fun a ↦ ∑ s ∈ range n, p s a) fun a _ ↦ sum_nonneg fun s _ ↦ hp0 s a
       rwa [sum_sum_eq_of_sum_eq_one p hp1 n, card_univ] at h
 
