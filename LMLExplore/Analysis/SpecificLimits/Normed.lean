@@ -22,13 +22,15 @@ length `m`, such as the Dobrushin coefficients `δ(κ ^ n) ≤ δ(κ ^ m) ^ (n /
   `∑ j ∈ range n, j * r ^ j ≤ r / (1 - r) ^ 2`.
 * `LMLExplore.hasSum_pow_div_of_lt_one`: for `0 ≤ r < 1` and `m ≠ 0`,
   `∑ n, r ^ (n / m) = m / (1 - r)`.
+* `LMLExplore.summable_pow_of_tendsto_pow_atTop_nhds_zero`: in a complete normed ring, the
+  geometric series `∑ n, a ^ n` converges when the powers of `a` tend to `0`.
 * `LMLExplore.tsum_neg_pow_smul_pow_succ`: in a normed algebra with summable geometric series,
   `∑ n, (-u) ^ n • a ^ (n + 1) = a * (1 + u • a)⁻¹` for `‖u‖ * ‖a‖ < 1`.
 -/
 
 public section
 
-open Finset
+open Filter Finset Topology
 open scoped Ring
 
 namespace LMLExplore
@@ -59,6 +61,25 @@ theorem hasSum_pow_div_of_lt_one {r : ℝ} (hr0 : 0 ≤ r) (hr1 : r < 1) {m : �
       zero_add]
   rw [div_eq_inv_mul]
   exact (Nat.divModEquiv m).symm.hasSum_iff.1 (hprod.congr_fun fun p ↦ (he p).symm)
+
+/-- In a complete normed ring, the geometric series `∑ n, a ^ n` converges as soon as the powers
+of `a` tend to `0`, even if `‖a‖ ≥ 1`: some power `a ^ m` has norm `ρ < 1`, and then
+`‖a ^ n‖ ≤ ρ ^ (n / m) * ∑ r < m, ‖a ^ r‖`. -/
+theorem summable_pow_of_tendsto_pow_atTop_nhds_zero {R : Type*} [NormedRing R] [CompleteSpace R]
+    {a : R} (h : Tendsto (fun n ↦ a ^ n) atTop (𝓝 0)) : Summable fun n ↦ a ^ n := by
+  obtain ⟨m, hm, hm₁⟩ := ((tendsto_norm_zero.comp h).eventually
+    (gt_mem_nhds zero_lt_one)).and (eventually_ge_atTop 1) |>.exists
+  have : NeZero m := ⟨by omega⟩
+  refine .of_norm_bounded (((hasSum_pow_div_of_lt_one (m := m) (norm_nonneg _) hm).summable
+    ).mul_right (∑ r ∈ range m, ‖a ^ r‖)) fun n ↦ ?_
+  have hr : ‖a ^ (n % m)‖ ≤ ∑ r ∈ range m, ‖a ^ r‖ :=
+    single_le_sum (fun r _ ↦ norm_nonneg (a ^ r)) (mem_range.2 (Nat.mod_lt n (by omega)))
+  conv_lhs => rw [← Nat.div_add_mod n m, pow_add, pow_mul]
+  rcases (n / m).eq_zero_or_pos with h0 | h0
+  · rw [h0, pow_zero, pow_zero, one_mul, one_mul]
+    exact hr
+  · exact (norm_mul_le _ _).trans
+      (mul_le_mul (norm_pow_le' _ h0) hr (norm_nonneg _) (by positivity))
 
 /-- In a normed algebra with summable geometric series, `a` times the Neumann series of
 `(1 + u • a)⁻¹` is `∑ n, (-u) ^ n • a ^ (n + 1) = a * (1 + u • a)⁻¹` for `‖u‖ * ‖a‖ < 1`. -/
