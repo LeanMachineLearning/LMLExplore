@@ -445,14 +445,14 @@ variable {𝓧 : Type*} {m𝓧 : MeasurableSpace 𝓧} {ρ : α → Measure 𝓧
 
 omit [Fintype α] [Nonempty α] [MeasurableSingletonClass α] in
 /-- The argument over the rounds shared by the analyses of Track-and-Stop with D-tracking and with
-C-tracking [GK16, proof of Theorem 14], and of Sticky Track-and-Stop [DK19, Lemma 14]. Let `μ` be
-a vector of means of the nondegenerate exponential families `(ρ a, T a)`, and let the sampling rule
-explore enough: for all vectors of means `l < μ < u` of the families, the probabilities that the
-empirical mean of some arm `a` is outside `(l a, u a)` at some round `t ≥ t₀ T` have a finite sum
-over `T` (forced exploration, [GK16, Lemma 19]). Then for every neighbourhood `W` of `μ` and every
-property `G` of the runs that holds almost surely, there are events `E T` with
-`∑ T, P((E T)ᶜ) < ∞` on which `G` holds and the empirical means are in `W` at every round
-`k ≥ t₀ T`. -/
+C-tracking [GK16, proof of Theorem 14], and of Sticky Track-and-Stop [DK19, proof of
+Theorem 11]. Let `μ` be a vector of means of the nondegenerate exponential families `(ρ a, T a)`,
+and let the sampling rule explore enough: for all vectors of means `l < μ < u` of the families, the
+probabilities that the empirical mean of some arm `a` is outside `(l a, u a)` at some round
+`t ≥ t₀ T` have a finite sum over `T` (forced exploration, [GK16, Lemma 19]). Then for every
+neighbourhood `W` of `μ` and every property `G` of the runs that holds almost surely, there are
+events `E T` with `∑ T, P((E T)ᶜ) < ∞` on which `G` holds and the empirical means are in `W` at
+every round `k ≥ t₀ T`. -/
 lemma exists_tsum_measure_compl_ne_top_forall_ge_empMean'_mem [Finite α] {Ω : Type*}
     {mΩ : MeasurableSpace Ω} {P : Measure Ω} {O : ℕ → Ω → Unit} {A : ℕ → Ω → α}
     {Y : ℕ → Ω → ℝ} {t₀ : ℕ → ℕ} (hT : ∀ a c, ¬ T a =ᵐ[ρ a] fun _ ↦ c)

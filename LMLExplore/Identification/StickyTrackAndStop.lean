@@ -49,13 +49,14 @@ time-uniform deviation bound of the plug-in statistic (`Identification/ExpFamily
 shows that `μ` leaves the confidence region at some round `k ≥ k₀` with probability at most
 `(k₀ + 1) ^ (-p)` (`IdentTask.measure_exists_ge_notMem_confidenceRegion_le_of_klDiv_le`), which for
 `k₀ = ⌈√T⌉` and `p > 2` has a finite sum over `T`. The forced exploration of C-tracking gives every
-arm at least `√k / 2` pulls after `k` rounds, so that, if the radius is `o(√k)`, the models of the
-confidence region are within a relative entropy tending to `0` of the estimate on every arm
-(`IdentTask.klDiv_le_of_mem_confidenceRegion`). When small relative entropies from models close to
-`μ` lead to models close to `μ`, as for Gaussian arms, the confidence regions then shrink to `μ` on
-the good events of the concentration of the empirical means. On these events, from round `⌈√T⌉` on,
-the sticky answer is `i_μ` and the targets are close to `w*(μ, ¬i_μ)`, and the sample-complexity
-reduction of `Identification/GLR.lean` gives `𝔼[τ_δ] ≤ c log (1 / δ)` for all small `δ`, for every
+arm at least `√k / 2` pulls after `k ≥ 16 K²` rounds (`CTracking.sqrt_div_two_le_pullCount`),
+so that, if the radius is `o(√k)`, the models of the confidence region are within a relative
+entropy tending to `0` of the estimate on every arm (`IdentTask.klDiv_le_of_mem_confidenceRegion`).
+When small relative entropies from models close to `μ` lead to models close to `μ`, as for
+Gaussian arms, the confidence regions then shrink to `μ` on the good events of the concentration
+of the empirical means. On these events, from round `⌈√T⌉` on, the sticky answer is `i_μ` and the
+targets are close to `w*(μ, ¬i_μ)`, and the sample-complexity reduction of
+`Identification/GLR.lean` gives `𝔼[τ_δ] ≤ c log (1 / δ)` for all small `δ`, for every
 `c > T*(μ)`. The radius can be the threshold above itself, which is `O(log n)`
 (`eventually_unionBoundThreshold_unionBoundLevel_le_mul_sqrt`).
 
@@ -90,8 +91,9 @@ reduction of `Identification/GLR.lean` gives `𝔼[τ_δ] ≤ c log (1 / δ)` fo
 * `IdentTask.isDeltaPAC_stickyTrackAndStop`: **Sticky Track-and-Stop is `δ`-PAC** [DK19,
   Theorem 10] when its thresholds control the deviations of the plug-in statistic and it stops
   almost surely.
-* `IdentTask.klDiv_le_of_mem_confidenceRegion`: the models of a confidence region are close to the
-  estimate on every arm once every arm has many pulls.
+* `IdentTask.klDiv_le_of_mem_confidenceRegion`, `IdentTask.confidenceRegion_subset_of_klDiv_le`:
+  the models of a confidence region are close to the estimate on every arm once every arm has many
+  pulls, so that the region is in every set containing the models close to the estimate.
 * `IdentTask.measure_exists_ge_notMem_confidenceRegion_le_of_klDiv_le` [DK19, Lemma 14]: for arms
   dominated by exponential families, the true model stays in the confidence regions from round `k₀`
   on, except with probability `(k₀ + 1) ^ (-p)`.
@@ -402,6 +404,16 @@ lemma klDiv_le_of_mem_confidenceRegion (hθ : θ ∈ task.confidenceRegion est r
     _ ≤ ENNReal.ofReal (c * ε) := hθ.2.trans hr
     _ = ENNReal.ofReal c * ENNReal.ofReal ε := ENNReal.ofReal_mul hc.le
   exact (ENNReal.mul_le_mul_iff_right (ENNReal.ofReal_pos.2 hc).ne' ENNReal.ofReal_ne_top).1 h_le
+
+/-- A confidence region is in every set `S` that contains the admissible models within relative
+entropy `ε` of the estimate `θ̂ = est n h` on every arm, once every arm has been pulled at least
+`c > 0` times and the radius is at most `c ε`. -/
+lemma confidenceRegion_subset_of_klDiv_le {S : Set Θ} {c ε : ℝ}
+    (hS : ∀ θ' ∈ task.M, (∀ a, klDiv (task.ν (est n h) a) (task.ν θ' a) ≤ ENNReal.ofReal ε) →
+      θ' ∈ S)
+    (hc : 0 < c) (hN : ∀ a, c ≤ pullCount' n h a) (hr : r n h ≤ ENNReal.ofReal (c * ε)) :
+    task.confidenceRegion est r n h ⊆ S :=
+  fun θ' hθ' ↦ hS θ' hθ'.1 (task.klDiv_le_of_mem_confidenceRegion est r hθ' hc hN hr)
 
 /-- An admissible model `θ` leaves the confidence region of radius `β` at some round exactly on
 the deviation event `∃ n, β n hₙ < ∑ a, N_a KL(ν_a(θ̂), ν_a(θ))` of `θ`, whose probability bounds
@@ -714,7 +726,7 @@ theorem eventually_expectedStoppingTime_stickyTrackAndStop_le_of_klDiv_le [Finit
   -- `√k / 2` and the radius at most `ε √k / 2`.
   obtain ⟨V', hV', ε, hε, h_sep'⟩ := h_sep S hS
   obtain ⟨k₁, hk₁⟩ := eventually_atTop.1 ((hr_le (ε / 2) (by positivity)).and
-    (tendsto_natCast_atTop_atTop.eventually_ge_atTop (16 * K ^ 2)))
+    (eventually_ge_atTop (16 * Fintype.card α ^ 2)))
   -- The good events: from round `⌈√T⌉` on, the run tracks the targets, the empirical means are in
   -- `U ∩ {pe} ∩ V'`, and the confidence regions contain `μ`.
   obtain ⟨E, hE_sum, hE⟩ := exists_tsum_measure_compl_ne_top_forall_ge_empMean'_mem (O := IT.obs)
@@ -722,7 +734,7 @@ theorem eventually_expectedStoppingTime_stickyTrackAndStop_le_of_klDiv_le [Finit
       CTracking.tsum_measure_exists_ge_empMean_notMem_Ioo_ne_top hv0 hv1 hseq hν hμ hl hu hlμ hμu
         tendsto_sqrt_natCeil_sqrt_div_log)
     ((CTracking.abs_pullCount_sub_sum_le_mul_one_add_sqrt hv0 hv1 hseq).and
-      (CTracking.sqrt_add_sub_le_pullCount hv0 hv1 hseq))
+      (CTracking.sqrt_div_two_le_pullCount hv0 hv1 hseq))
     (inter_mem (inter_mem hU hpe) hV')
   set G : ℕ → Set _ := fun T ↦ {ω | ∃ k ≥ ⌈√(T : ℝ)⌉₊,
     μ ∉ C k (history IT.obs IT.action IT.feedback k ω)}
@@ -731,13 +743,11 @@ theorem eventually_expectedStoppingTime_stickyTrackAndStop_le_of_klDiv_le [Finit
       measure_exists_ge_notMem_confidenceRegion_le_of_klDiv_le hμM hμ hν hkl hseq (by linarith)
         hr_ge _)
   -- The tracking error `(K - 1) (1 + √T)` and the rounds `max ⌈√T⌉ k₁` are `o(T)`.
-  have h_sqrt : Tendsto (fun T : ℕ ↦ (1 + √(T : ℝ)) / T) atTop (𝓝 0) :=
-    tendsto_one_add_sqrt_div_atTop.comp tendsto_natCast_atTop_atTop
   obtain ⟨T₁, hT₁⟩ := eventually_atTop.1
     ((eventually_max_natCeil_sqrt_le_mul k₁ (by positivity : 0 < η / (4 * (1 + B)))).and
       ((eventually_max_natCeil_sqrt_le_mul k₁ one_pos).and
-        ((h_sqrt.eventually_le_const (by positivity : 0 < η / (4 * K))).and
-          (eventually_gt_atTop 0))))
+        (((tendsto_one_add_sqrt_div_atTop.comp tendsto_natCast_atTop_atTop).eventually_le_const
+          (by positivity : 0 < η / (4 * K))).and (eventually_gt_atTop 0))))
   simp only [stickyTrackAndStop_def]
   refine task.eventually_expectedStoppingTime_glrt_le_of_isBigO (task.plugInCost empMean') alg
     rec hrec hstop hseq (E := fun T ↦ E T ∩ (G T)ᶜ) ?_ hκc (T₀ := max n₀ T₁) ?_ hg
@@ -762,23 +772,14 @@ theorem eventually_expectedStoppingTime_stickyTrackAndStop_le_of_klDiv_le [Finit
     have h_mean := hω_mean k hk₀
     have hμC : μ ∈ C k (history IT.obs IT.action IT.feedback k ω) :=
       not_not.1 fun h ↦ hωG ⟨k, hk₀, h⟩
-    -- Every arm has at least `√k / 2` pulls.
-    have h_sqrt_k : 4 * K ≤ √(k : ℝ) := by
-      rw [le_sqrt (by positivity) (Nat.cast_nonneg _)]
-      nlinarith
-    have hN (a : α) : √(k : ℝ) / 2 ≤
-        pullCount' k (history IT.obs IT.action IT.feedback k ω) a := by
+    -- Every arm has at least `√k / 2` pulls, so the confidence region is in `S`.
+    have hk0 : 0 < k := lt_of_lt_of_le (by positivity) hk_large
+    have hN (a : α) : √(k : ℝ) / 2 ≤ pullCount' k (history IT.obs IT.action IT.feedback k ω) a := by
       rw [← pullCount_eq_pullCount' (R' := IT.feedback)]
-      have h_le : √(k : ℝ) ≤ √((k : ℝ) + K ^ 2) :=
-        sqrt_le_sqrt (le_add_of_nonneg_right (sq_nonneg _))
-      linarith [hω_pull k a]
-    have h_sqrt_pos : 0 < √(k : ℝ) / 2 := by
-      have := mul_pos (by norm_num : (0 : ℝ) < 4) hK
-      linarith
-    -- The confidence region is in `S`.
-    have hCS : C k (history IT.obs IT.action IT.feedback k ω) ⊆ S := fun θ' hθ' ↦
-      h_sep' _ h_mean.2 θ' hθ'.1 fun a ↦ task.klDiv_le_of_mem_confidenceRegion empMean' r hθ'
-        h_sqrt_pos hN ((hr_k _).trans_eq (by ring_nf)) a
+      exact hω_pull k hk_large a
+    have hCS : C k (history IT.obs IT.action IT.feedback k ω) ⊆ S :=
+      task.confidenceRegion_subset_of_klDiv_le empMean' r (h_sep' _ h_mean.2) (by positivity) hN
+        ((hr_k _).trans_eq (by ring_nf))
     obtain ⟨hpaC, hansC⟩ := hS_sub _ hCS
     exact ⟨hansC hμC, hp_tgt hpaC h_mean.1.2 hμC⟩
   -- After `T` rounds, the proportions of pulls are `η`-close to `W`.
@@ -885,13 +886,16 @@ theorem stopsAS_stickyTrackAndStop_unionBoundThreshold_of_klDiv_le [Finite ℐ]
 
 /-- **Sticky Track-and-Stop for arms dominated by exponential families is `δ`-PAC**
 [DK19, Theorems 10–11] for every `δ ∈ (0, 1]`, with the thresholds `K log (2 n (n + 1)) + x_δ`, on
-every task with finitely many answers. On every admissible model `θ`, let the assumptions of
-`IdentTask.stopsAS_stickyTrackAndStop_unionBoundThreshold_of_klDiv_le` hold: the rewards of each
-arm `a` are dominated on `Set.univ` by the member of mean `θ a` of `(ρ a, T a)`, the relative
-entropy from the arms of any vector of means to those of `θ` is at most the extended divergence of
-the families, small relative entropies from models close to `θ` lead to models close to `θ`, the
-targets of the least oracle answer of `θ` are optimal allocations near `θ`, the costs are
-continuous at `θ`, and `T*(θ) < ∞`. -/
+every task with finitely many answers, under the assumptions of
+`IdentTask.stopsAS_stickyTrackAndStop_unionBoundThreshold_of_klDiv_le` on every admissible model
+`θ`: the exponential families `(ρ a, T a)` are nondegenerate; the rewards of each arm `a` are
+dominated on `Set.univ` by the member of mean `θ a` of `(ρ a, T a)`; the relative entropy from the
+arms of any vector of means to those of `θ` is at most the extended divergence of the families;
+small relative entropies from models close to `θ` lead to models close to `θ`; the radii `r n h` of
+the confidence regions are at least the thresholds `K log (2 n (n + 1)) + x_{(n + 1) ^ (-p)}` for
+some `p > 2` and `o(√n)` uniformly in the history; the targets are allocations, and those of the
+least oracle answer of `θ` are optimal allocations near `θ`; the recommendation has a GLR statistic
+at least that of the sticky answer; the costs are continuous at `θ`; and `T*(θ) < ∞`. -/
 theorem isDeltaPAC_stickyTrackAndStop_unionBoundThreshold_of_klDiv_le [Finite ℐ]
     [MeasurableSingletonClass ℐ] (hT : ∀ a c, ¬ T a =ᵐ[ρ a] fun _ ↦ c)
     (hμ : ∀ θ ∈ task.M, ∀ a, θ a ∈ (ρ a).expFamilyMeans (T a))
