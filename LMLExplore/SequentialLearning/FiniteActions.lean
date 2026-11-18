@@ -27,6 +27,8 @@ Facts about LML's `pullCount` that hold for any sequence of actions `A : ℕ →
   round `n`.
 * `sum_natCast_pullCount`: the pull counts of all arms before `K` add up to `K`, cast to an
   additive commutative monoid with one.
+* `sum_pullCount'_mul`: `∑_a N_a f(a) = ∑_{s < n} f(A_s)` for the pull counts and the actions of a
+  history.
 * `prod_comp_pullCount`: a product over the rounds of a function of the number of previous pulls
   of the arm played, regrouped arm by arm, the multiplicative form of LML's `sum_comp_pullCount`;
   in particular `prod_range_pullCount_action_add_one`: `∏_{s < t} (N_s(A_s) + 1) = ∏_a N_t(a)!`.
@@ -111,6 +113,16 @@ arm. -/
 lemma sum_natCast_pullCount {R : Type*} [AddCommMonoidWithOne R] (ω : Ω) (K : ℕ) :
     ∑ a, (pullCount A a K ω : R) = K := by
   rw [← Nat.cast_sum, sum_pullCount]
+
+/-- `∑_a N_a f(a) = ∑_{s < n} f(A_s)` for the pull counts `N_a = pullCount' n h a` and the actions
+`A_s` of a history `h` of length `n`: a sum over the rounds of a function of the arm played,
+regrouped arm by arm. This is the history form of LML's `sum_pullCount_mul`. -/
+lemma sum_pullCount'_mul {𝓞 R' R : Type*} [NonAssocSemiring R] (n : ℕ) (h : Hist 𝓞 α R' n)
+    (f : α → R) : ∑ a, pullCount' n h a * f a = ∑ s : Fin n, f (h s).action := by
+  simp_rw [pullCount', card_eq_sum_ones]
+  push_cast
+  simp_rw [sum_mul, one_mul]
+  exact sum_fiberwise' univ (fun s ↦ (h s).action) f
 
 /-- `∏_{s < t} f(N_s(A_s)) = ∏_a ∏_{j < N_t(a)} f(j)`: the product over the rounds of a function of
 the number of previous pulls of the arm played is, arm by arm, its product over `0, …, N_t(a) - 1`.
