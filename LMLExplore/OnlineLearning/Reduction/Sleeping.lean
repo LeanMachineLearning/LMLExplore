@@ -6,8 +6,8 @@ Authors: LMLExplore contributors
 module
 
 public import Mathlib.Data.Finsupp.Pointwise
-public import LMLExplore.Analysis.Convex.Simplex
 public import LMLExplore.OnlineLearning.Learner.Operations
+import Mathlib.Tactic.LinearCombination
 
 /-!
 # Sleeping experts
