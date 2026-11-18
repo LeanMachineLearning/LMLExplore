@@ -86,6 +86,10 @@ variable {P : Matrix S S ℝ}
 noncomputable def limitingMatrix (P : Matrix S S ℝ) : Matrix S S ℝ :=
   limUnder atTop fun n : ℕ ↦ (n : ℝ)⁻¹ • ∑ k ∈ range n, P ^ k
 
+theorem limitingMatrix_def (P : Matrix S S ℝ) :
+    P.limitingMatrix = limUnder atTop fun n : ℕ ↦ (n : ℝ)⁻¹ • ∑ k ∈ range n, P ^ k :=
+  (rfl)
+
 section Limiting
 
 variable (hP : P ∈ rowStochastic ℝ S)
