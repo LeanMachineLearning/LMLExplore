@@ -15,14 +15,14 @@ import Mathlib.Tactic.Linarith
 For nonnegative `x` and `y` in a linearly ordered semifield, `x y / (x + y)` (half the harmonic
 mean of `x` and `y`) is at most `x` and at most `y`. In a linearly ordered field, an affine
 function `t ↦ A + t * B` that is bounded below on `t ≥ 0` has a nonnegative slope `B`, and
-`-g / L ∈ [-1, 1]` when `|g| ≤ L` with `L > 0`.
+`g / L ∈ [-1, 1]` when `|g| ≤ L`.
 
 ## Main statements
 
 * `mul_div_add_le_left`: `x y / (x + y) ≤ x` for `0 ≤ x` and `0 ≤ y`.
 * `mul_div_add_le_right`: `x y / (x + y) ≤ y` for `0 ≤ x` and `0 ≤ y`.
 * `nonneg_of_forall_lt_add_mul`: if `v < A + t * B` for every `t ≥ 0`, then `0 ≤ B`.
-* `abs_neg_div_le_one`: `|-g / L| ≤ 1` for `0 < L` and `|g| ≤ L`.
+* `LMLExplore.abs_div_le_one_of_abs_le`: `|g / L| ≤ 1` for `|g| ≤ L`.
 -/
 
 public section
@@ -49,8 +49,13 @@ theorem nonneg_of_forall_lt_add_mul {K : Type*} [Field K] [LinearOrder K] [IsStr
   field_simp [hB.ne] at h1
   linarith
 
-/-- For `0 < L` and `|g| ≤ L`, the rescaled opposite `-g / L` lies in `[-1, 1]`. -/
-theorem abs_neg_div_le_one {K : Type*} [Field K] [LinearOrder K] [IsStrictOrderedRing K]
-    {g L : K} (hL : 0 < L) (hg : |g| ≤ L) : |-g / L| ≤ 1 := by
-  rw [abs_div, abs_neg, abs_of_pos hL, div_le_one hL]
-  exact hg
+namespace LMLExplore
+
+/-- If `|g| ≤ L`, then `g / L` lies in `[-1, 1]`. No sign condition on `L` is needed: the
+hypothesis forces `0 ≤ L`, and `g / 0 = 0`. -/
+theorem abs_div_le_one_of_abs_le {K : Type*} [Field K] [LinearOrder K] [IsStrictOrderedRing K]
+    {g L : K} (hg : |g| ≤ L) : |g / L| ≤ 1 := by
+  rw [abs_div]
+  exact div_le_one_of_le₀ (hg.trans (le_abs_self L)) (abs_nonneg L)
+
+end LMLExplore

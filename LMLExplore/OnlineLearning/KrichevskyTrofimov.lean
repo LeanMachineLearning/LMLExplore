@@ -362,7 +362,8 @@ theorem krichevskyTrofimov_regret_le (hε : 0 < ε) (hL : 0 < L) (hg : ∀ t < n
   · rw [regret_zero]
     positivity
   set c : ℕ → ℝ := fun s ↦ -g s / L
-  have hc : ∀ t < n, |c t| ≤ 1 := fun t ht ↦ abs_neg_div_le_one hL (hg t ht)
+  have hc : ∀ t < n, |c t| ≤ 1 := fun t ht ↦ by
+    simpa only [c, neg_div, abs_neg] using abs_div_le_one_of_abs_le (hg t ht)
   have hnR : (0 : ℝ) < n := by exact_mod_cast hn
   set S := ∑ t ∈ range n, c t with hS
   set β := ε * exp (-(log n / 2) - 1) with hβ_def

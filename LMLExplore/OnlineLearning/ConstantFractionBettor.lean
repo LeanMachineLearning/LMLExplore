@@ -260,7 +260,8 @@ theorem constantFractionBettor_regret_le (hε : 0 < ε) (hL : 0 < L) (ha : 0 < a
       |u| * L * √(2 * (n + a) * log (1 + 2 * (n + a) * exp (n / (2 * a)) * u ^ 2 / ε ^ 2)) +
         ε * L := by
   set c : ℕ → ℝ := fun s ↦ -g s / L
-  have hc : ∀ t < n, |c t| ≤ 1 := fun t ht ↦ abs_neg_div_le_one hL (hg t ht)
+  have hc : ∀ t < n, |c t| ≤ 1 := fun t ht ↦ by
+    simpa only [c, neg_div, abs_neg] using abs_div_le_one_of_abs_le (hg t ht)
   have hna : 0 < (n : ℝ) + a := by linarith [(Nat.cast_nonneg n : (0 : ℝ) ≤ n)]
   set S := ∑ t ∈ range n, c t with hS
   set β := ε * exp (-(n / (4 * a))) with hβ_def
