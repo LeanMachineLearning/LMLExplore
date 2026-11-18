@@ -8,6 +8,8 @@ module
 public import LMLExplore.OnlineLearning.CoinBetting
 public import LMLExplore.OnlineLearning.Learner.Operations
 public import Mathlib.Analysis.SpecialFunctions.Gamma.Basic
+import LMLExplore.Algebra.BigOperators.Intervals
+import LMLExplore.Algebra.Order.Field.Basic
 import LMLExplore.Analysis.Normed.Group.Basic
 import LMLExplore.Analysis.SpecialFunctions.Gamma.Inequalities
 import LMLExplore.Analysis.SpecialFunctions.Log.Basic
@@ -405,7 +407,7 @@ noncomputable def krichevskyTrofimov (ε : ℝ) : OnlineLearner C ℝ ℝ :=
 theorem run_krichevskyTrofimov (ε : ℝ) (d : ℕ → C) (c : ℕ → ℝ) (t : ℕ) :
     (krichevskyTrofimov ε).run d c t =
       (∑ s ∈ range t, c s) / (t + 1) * wealth ε c ((krichevskyTrofimov ε).run d c) t :=
-  run_fractionBettor (fun _ _ _ ↦ apply_sum_range_congr fun t S ↦ S / (t + 1)) ε d c t
+  run_fractionBettor (fun _ _ _ ↦ apply_sum_range_congr fun t (S : ℝ) ↦ S / (t + 1)) ε d c t
 
 /-- The **Krichevsky–Trofimov algorithm for one-dimensional online linear optimization**
 [Ora, Algorithm 13.2] with losses bounded by `L`, from the initial wealth `ε`: on the linear
@@ -431,7 +433,7 @@ theorem hasRegretBound_krichevskyTrofimovOCO (hε : 0 < ε) (hL : 0 < L) :
       Set.univ fun n _ _ u ↦ |u| * L * √(2 * n * log (exp 1 * |u| * n / ε + 1)) + ε * L :=
   hasRegretBound_iff.2 fun d g _ hg u _ ↦ krichevskyTrofimov_regret_le hε hL hg
     (fun t _ ↦ run_fractionBettorOCO_eq_mul_wealth
-      (fun _ _ _ ↦ apply_sum_range_congr fun t S ↦ S / (t + 1)) L ε d g t) u
+      (fun _ _ _ ↦ apply_sum_range_congr fun t (S : ℝ) ↦ S / (t + 1)) L ε d g t) u
 
 /-- **The Krichevsky–Trofimov algorithm skipping the rounds of zero loss** [Ora, §13.2.1]: run
 on the rounds with `g t ≠ 0` only, its regret bound holds with the horizon `n` replaced by the

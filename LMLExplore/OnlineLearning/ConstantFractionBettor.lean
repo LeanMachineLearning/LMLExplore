@@ -7,6 +7,8 @@ module
 
 public import LMLExplore.OnlineLearning.CoinBetting
 public import LMLExplore.OnlineLearning.Learner.Operations
+import LMLExplore.Algebra.BigOperators.Intervals
+import LMLExplore.Algebra.Order.Field.Basic
 import LMLExplore.Analysis.Normed.Group.Basic
 import LMLExplore.Analysis.SpecialFunctions.Log.Basic
 import LMLExplore.OnlineLearning.FTRL.Stability

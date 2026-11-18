@@ -39,6 +39,8 @@ the time-uniform deviation bounds of [LS, Lemma 33.8], thus spends at most `δ` 
   formula for the reflected indices `n - i`.
 * `LMLExplore.two_mul_sum_range_cast_add_one`: `2 * ∑ i < n, (i + 1) = n * (n + 1)` in a
   commutative semiring, Gauss' summation formula for the weights `i + 1`.
+* `LMLExplore.apply_sum_range_congr`: a function `f t (∑ s < t, c s)` of the partial sum of `c`
+  depends only on the values `c s` for `s < t`.
 
 ## Implementation notes
 
@@ -124,5 +126,12 @@ theorem two_mul_sum_range_cast_add_one [CommSemiring α] (n : ℕ) :
     rw [sum_range_succ, mul_add, ih]
     push_cast
     ring
+
+/-- A function `f t (∑ s < t, c s)` of the partial sum of `c` up to `t` depends only on the values
+`c s` for `s < t`. -/
+theorem apply_sum_range_congr {M β : Type*} [AddCommMonoid M] (f : ℕ → M → β) {t : ℕ}
+    {c c' : ℕ → M} (h : ∀ s < t, c s = c' s) :
+    f t (∑ s ∈ range t, c s) = f t (∑ s ∈ range t, c' s) := by
+  rw [sum_congr rfl fun s hs ↦ h s (mem_range.1 hs)]
 
 end LMLExplore

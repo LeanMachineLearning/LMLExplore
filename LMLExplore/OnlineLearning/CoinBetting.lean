@@ -189,11 +189,6 @@ theorem regret_mul_eq_mul_sub_wealth_add_mul (ε : ℝ) {L : ℝ} (hL : L ≠ 0)
     regret_eq_sum_sub_sum, hu]
   simp
 
-/-- A loss `g` with `|g| ≤ L` gives the coin `-g / L ∈ [-1, 1]`. -/
-lemma abs_neg_div_le_one {g L : ℝ} (hL : 0 < L) (hg : |g| ≤ L) : |-g / L| ≤ 1 := by
-  rw [abs_div, abs_neg, abs_of_pos hL, div_le_one hL]
-  exact hg
-
 /-- **The regret–reward duality** for one-dimensional online linear optimization
 [Ora, Theorem 13.5], for the potential `β * exp (· ^ 2 / (2 * α))`. If the wealth of the bets `x`
 on the coins `-g t / L` from the initial wealth `ε` is at least `β * exp (S ^ 2 / (2 * α))`, where
@@ -519,12 +514,6 @@ end Bettor
 section FractionBettor
 
 variable {C : Type*} {frac : ℕ → (ℕ → ℝ) → ℝ}
-
-/-- A fraction rule `t c ↦ f t (∑ s < t, c s)` of the past sums of the coins depends only on the
-past coins. -/
-lemma apply_sum_range_congr (f : ℕ → ℝ → ℝ) {t : ℕ} {c c' : ℕ → ℝ} (h : ∀ s < t, c s = c' s) :
-    f t (∑ s ∈ range t, c s) = f t (∑ s ∈ range t, c' s) := by
-  rw [sum_congr rfl fun s hs ↦ h s (mem_range.1 hs)]
 
 /-- The bet at round `t` of the bettor with the fraction rule `frac` on the coins `c`, from the
 initial wealth `ε`: the fraction `frac t c` of the wealth `ε ∏ s < t, (1 + frac s c * c s)`. -/
