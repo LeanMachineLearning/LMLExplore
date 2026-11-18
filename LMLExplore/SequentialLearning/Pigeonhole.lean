@@ -50,11 +50,8 @@ variable {α Ω : Type*} [DecidableEq α] [Fintype α] {A : ℕ → Ω → α}
 `K` add up to at most `√(Fintype.card α * K)`. -/
 theorem sum_sqrt_pullCount_le (ω : Ω) (K : ℕ) :
     ∑ a, √(pullCount A a K ω : ℝ) ≤ √(Fintype.card α * K) := by
-  have h := Real.sum_sqrt_mul_sqrt_le univ (f := fun _ : α ↦ (1 : ℝ))
-    (g := fun a ↦ (pullCount A a K ω : ℝ)) (fun _ ↦ zero_le_one) (fun _ ↦ Nat.cast_nonneg _)
-  simp only [sqrt_one, one_mul, sum_const, card_univ, nsmul_eq_mul, mul_one,
-    sum_natCast_pullCount] at h
-  rwa [sqrt_mul (Nat.cast_nonneg _)]
+  simpa [sum_natCast_pullCount] using
+    Real.sum_sqrt_le_sqrt_card_mul_sum (s := univ) fun a _ ↦ (pullCount A a K ω).cast_nonneg
 
 /-- **Pigeonhole sum of inverse square roots**: `∑_{k < K} (N_k(x_k) + 1)^{-1/2} ≤ 2 √(m K)`,
 where `N_k(x)` counts the visits of `x` before step `k` and `m = Fintype.card α`. -/

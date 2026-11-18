@@ -903,19 +903,6 @@ omit [DecidableEq α] in
 private lemma card_sub_one_nonneg (a : α) : (0 : ℝ) ≤ Fintype.card α - 1 :=
   sub_nonneg.2 <| Nat.one_le_cast.2 <| Fintype.card_pos_iff.2 ⟨a⟩
 
-omit [DecidableEq α] in
-/-- By the Cauchy–Schwarz inequality, the square roots of the cumulated proportions of the arms
-sum to at most `√(K n)`. -/
-private lemma sum_sqrt_sum_le_sqrt_card_mul (p : ℕ → α → ℝ) (hp0 : ∀ k a, 0 ≤ p k a)
-    (hp1 : ∀ k, ∑ a, p k a = 1) (n : ℕ) :
-    ∑ a, √(∑ s ∈ range n, p s a) ≤ √(Fintype.card α * n) := by
-  have h := Real.sum_sqrt_mul_sqrt_le univ (f := fun _ : α ↦ (1 : ℝ))
-    (g := fun a ↦ ∑ s ∈ range n, p s a) (fun _ ↦ zero_le_one)
-    fun a ↦ sum_nonneg fun s _ ↦ hp0 s a
-  simp only [Real.sqrt_one, one_mul, sum_const, card_univ, nsmul_eq_mul, mul_one,
-    sum_sum_eq_of_sum_eq_one p hp1 n] at h
-  rwa [Real.sqrt_mul (Nat.cast_nonneg _)]
-
 /-- **Sums over the pull counts of cumulative tracking** [DKM19, Lemma 9]. Under the assumptions
 of `pullCount_le_sum_add_one_of_cumulativeTracking`, after every number `n` of rounds,
 `∑_a ∑_{s < n} p s a / √(N_a(s + 1)) ≤ K (K - 1) + 2 √(K n)`, a term with `N_a(s + 1) = 0` being
@@ -935,7 +922,9 @@ theorem sum_sum_div_sqrt_pullCount_add_one_le_of_cumulativeTracking (p : ℕ →
       rw [sum_add_distrib, ← mul_sum]
       simp only [sum_const, card_univ, nsmul_eq_mul]
       gcongr
-      exact sum_sqrt_sum_le_sqrt_card_mul p hp0 hp1 n
+      simpa [sum_sum_eq_of_sum_eq_one p hp1 n] using
+        Real.sum_sqrt_le_sqrt_card_mul_sum (s := univ)
+          fun a _ ↦ sum_nonneg fun s (_ : s ∈ range n) ↦ hp0 s a
 
 /-- **Sums over the pull counts of cumulative tracking, before each round** [DKM19, Lemma 9].
 Under the assumptions of `pullCount_le_sum_add_one_of_cumulativeTracking`, after every number `n`
@@ -959,7 +948,9 @@ theorem sum_sum_div_sqrt_pullCount_le_of_cumulativeTracking (p : ℕ → α → 
       rw [sum_add_distrib, ← mul_sum]
       simp only [sum_const, card_univ, nsmul_eq_mul]
       gcongr
-      exact sum_sqrt_sum_le_sqrt_card_mul p hp0 hp1 n
+      simpa [sum_sum_eq_of_sum_eq_one p hp1 n] using
+        Real.sum_sqrt_le_sqrt_card_mul_sum (s := univ)
+          fun a _ ↦ sum_nonneg fun s (_ : s ∈ range n) ↦ hp0 s a
 
 /-- **Sums of the inverse pull counts of cumulative tracking** [DKM19, Lemma 16]. Under the
 assumptions of `pullCount_le_sum_add_one_of_cumulativeTracking`, after every number `n` of rounds,

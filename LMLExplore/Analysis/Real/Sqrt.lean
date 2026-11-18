@@ -45,6 +45,9 @@ import TauCeti.Analysis.SpecialFunctions.Sqrt
   losses of the algorithm appear on both sides, as the `L⋆` bounds, into explicit ones.
 * `Real.sqrt_two_mul_sub_one_le`: `√(2 A) - 1 ≤ √(2 A - 1) (1 - 1 / (2 A))` for `A ≥ 1`, the last
   step of the lower bound of unconstrained online linear optimization [Ora, Theorem 5.8].
+* `Real.sum_sqrt_le_sqrt_card_mul_sum`: `∑_{i ∈ s} √(g i) ≤ √(#s ∑_{i ∈ s} g i)` for `g ≥ 0` on
+  `s`, by the Cauchy–Schwarz inequality. It bounds the sum over the arms of the square roots of
+  their counts, or of their cumulated proportions, by `√(K n)`.
 * `Real.sum_range_inv_sqrt_add_one_le`: `∑_{j < n} 1 / √(j + 1) ≤ 2 √n`.
 * `Real.sum_range_inv_sqrt_max_one_le`: `∑_{j < n} 1 / √(max 1 j) ≤ 2 √n + 1`, the same sum with
   the index clipped at `1`.
@@ -211,6 +214,15 @@ theorem sqrt_two_mul_sub_one_le {A : ℝ} (hA : 1 ≤ A) :
   rw [div_add_one (by positivity), div_pow, le_div_iff₀ (by positivity)]
   have hr1 : 0 ≤ r - 1 := by linarith
   nlinarith [mul_nonneg (mul_nonneg hr0.le hr0.le) (mul_nonneg hr1 (sq_nonneg r))]
+
+open Finset in
+/-- By the Cauchy–Schwarz inequality, `∑_{i ∈ s} √(g i) ≤ √(#s ∑_{i ∈ s} g i)` for `g ≥ 0` on
+`s`. -/
+theorem sum_sqrt_le_sqrt_card_mul_sum {ι : Type*} {s : Finset ι} {g : ι → ℝ}
+    (hg : ∀ i ∈ s, 0 ≤ g i) : ∑ i ∈ s, √(g i) ≤ √(#s * ∑ i ∈ s, g i) := by
+  have h := sum_mul_le_sqrt_mul_sqrt s (fun _ ↦ (1 : ℝ)) fun i ↦ √(g i)
+  rw [sum_congr rfl fun i hi ↦ sq_sqrt (hg i hi)] at h
+  simpa [sqrt_mul (Nat.cast_nonneg _)] using h
 
 /-- `∑_{j < n} 1 / √(j + 1) ≤ 2 √n`. -/
 theorem sum_range_inv_sqrt_add_one_le (n : ℕ) :
