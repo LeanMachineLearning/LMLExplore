@@ -8,7 +8,8 @@ module
 public import LMLExplore.OnlineLearning.CoinBetting
 public import LMLExplore.OnlineLearning.Learner.Operations
 public import Mathlib.Analysis.SpecialFunctions.Gamma.Basic
-import LMLExplore.Analysis.Convex.Conjugate.ExpSq
+import LMLExplore.Algebra.BigOperators.Intervals
+import LMLExplore.Algebra.Order.Field.Basic
 import LMLExplore.Analysis.Normed.Group.Basic
 import LMLExplore.Analysis.SpecialFunctions.Gamma.Inequalities
 import LMLExplore.Analysis.SpecialFunctions.Log.Basic
@@ -22,7 +23,8 @@ The **Krichevsky–Trofimov (KT) bettor** [Ora, Algorithm 13.1] plays the coin-b
 `LMLExplore.OnlineLearning.CoinBetting` by betting at round `t` the fraction
 `β t = (∑ s < t, c s) / (t + 1)` of its current wealth: the running mean of the past coins, shrunk
 towards `0`. It has no parameter besides its initial wealth `ε`. Through the regret–reward duality
-[Ora, Theorem 13.5] and the conjugate bound `Real.mul_sub_mul_exp_sq_div_le` [Ora, Lemma 13.6],
+`regret_mul_le_of_mul_exp_sq_div_le_wealth` [Ora, Theorem 13.5], which rests on the conjugate
+bound `Real.mul_sub_mul_exp_sq_div_le` [Ora, Lemma 13.6],
 it is a **parameter-free** algorithm for one-dimensional online linear
 optimization [Ora, Algorithm 13.2]: for losses `g t` with `|g t| ≤ L`, its regret against every
 `u ∈ ℝ` is at most `|u| L √(2 n log (e |u| n / ε + 1)) + ε L`, with no learning rate to tune and no
@@ -285,9 +287,7 @@ theorem mul_ktPotential_le_wealth (hε : 0 ≤ ε) (hc : ∀ t < n, |c t| ≤ 1)
   | zero => simp
   | succ n ih =>
     have ih := ih (fun t ht ↦ hc t (by omega)) fun t ht ↦ hx t (by omega)
-    have hS : |∑ t ∈ range n, c t| ≤ n := by
-      simpa using norm_sum_le_card_mul (range n) (L := 1) fun t ht ↦
-        (norm_eq_abs (c t)).trans_le (hc t (by simp at ht; omega))
+    have hS : |∑ t ∈ range n, c t| ≤ n := abs_sum_le_of_abs_le_one fun t ht ↦ hc t (by omega)
     have hcn := hc n n.lt_succ_self
     set S := ∑ t ∈ range n, c t
     -- the factor `1 + c n * S / (n + 1)` of the round is nonnegative
@@ -312,9 +312,8 @@ least `ε exp ((∑ t < n, c t) ^ 2 / (2 n) - log n / 2 - 1)`. -/
 theorem mul_exp_sq_div_sub_le_wealth (hε : 0 ≤ ε) (hn : 1 ≤ n) (hc : ∀ t < n, |c t| ≤ 1)
     (hx : ∀ t < n, x t = (∑ s ∈ range t, c s) / (t + 1) * wealth ε c x t) :
     ε * exp ((∑ t ∈ range n, c t) ^ 2 / (2 * n) - log n / 2 - 1) ≤ wealth ε c x n :=
-  (mul_le_mul_of_nonneg_left (exp_sq_div_sub_le_ktPotential hn (by
-    simpa using norm_sum_le_card_mul (range n) (L := 1) fun t ht ↦
-      (norm_eq_abs (c t)).trans_le (hc t (mem_range.1 ht)))) hε).trans
+  (mul_le_mul_of_nonneg_left (exp_sq_div_sub_le_ktPotential hn (abs_sum_le_of_abs_le_one hc))
+    hε).trans
     (mul_ktPotential_le_wealth hε hc hx)
 
 /-- **The Krichevsky–Trofimov bettor against constant fractions** [Ora, Theorem 13.2]: for coins
@@ -342,9 +341,7 @@ theorem mul_prod_one_add_mul_le_mul_wealth (hε : 0 ≤ ε) (hn : 1 ≤ n)
     _ = exp 1 * √n * (ε * exp (K - log n / 2 - 1)) := by rw [hK]; ring
     _ ≤ exp 1 * √n * (ε * ktPotential n S) := by
         gcongr
-        exact exp_mul_klBerReal_sub_le_ktPotential hn
-          (by simpa using norm_sum_le_card_mul (range n) (L := 1) fun t ht ↦
-            (norm_eq_abs (c t)).trans_le (hc' t (mem_range.1 ht)))
+        exact exp_mul_klBerReal_sub_le_ktPotential hn (abs_sum_le_of_abs_le_one hc')
     _ ≤ exp 1 * √n * wealth ε c x n := by
         gcongr
         exact mul_ktPotential_le_wealth hε hc' hx
@@ -359,9 +356,8 @@ variable {ε L : ℝ} {g x : ℕ → ℝ} {n : ℕ}
 optimization [Ora, §13.2]. Let `|g t| ≤ L` for the rounds `t < n`, and let `x` be the KT bets
 from the initial wealth `ε > 0` on the coins `-g t / L`. Then for every `u ∈ ℝ`,
 `∑ t < n, g t (x t - u) ≤ |u| L √(2 n log (e |u| n / ε + 1)) + ε L`.
-It is the regret–reward duality [Ora, Theorem 13.5] for the wealth bound
-`mul_exp_sq_div_sub_le_wealth`, whose conjugate is bounded by `Real.mul_sub_mul_exp_sq_div_le`
-[Ora, Lemma 13.6]. -/
+It is the regret–reward duality `regret_mul_le_of_mul_exp_sq_div_le_wealth` [Ora, Theorem 13.5]
+for the wealth bound `mul_exp_sq_div_sub_le_wealth`. -/
 theorem krichevskyTrofimov_regret_le (hε : 0 < ε) (hL : 0 < L) (hg : ∀ t < n, |g t| ≤ L)
     (hx : ∀ t < n, x t = (∑ s ∈ range t, -g s / L) / (t + 1) * wealth ε (fun s ↦ -g s / L) x t)
     (u : ℝ) :
@@ -370,33 +366,19 @@ theorem krichevskyTrofimov_regret_le (hε : 0 < ε) (hL : 0 < L) (hg : ∀ t < n
   rcases Nat.eq_zero_or_pos n with rfl | hn
   · rw [regret_zero]
     positivity
-  set c : ℕ → ℝ := fun s ↦ -g s / L with hc_def
+  set c : ℕ → ℝ := fun s ↦ -g s / L
   have hc : ∀ t < n, |c t| ≤ 1 := fun t ht ↦ by
-    rw [hc_def, abs_div, abs_neg, abs_of_pos hL, div_le_one hL]
-    exact hg t ht
+    simpa only [c, neg_div, abs_neg] using abs_div_le_one_of_abs_le (hg t ht)
   have hnR : (0 : ℝ) < n := by exact_mod_cast hn
   set S := ∑ t ∈ range n, c t with hS
   set β := ε * exp (-(log n / 2) - 1) with hβ_def
   have hβ : 0 < β := by positivity
-  -- the regret is `L * (ε - W) + L * (u * S)`
-  have hregret : regret (fun t y ↦ g t * y) x u n =
-      L * (ε - wealth ε c x n) + L * (S * u) := by
-    have hℓ : (fun t y ↦ g t * y) = fun t y ↦ -L * c t * y := by
-      funext t y
-      rw [hc_def]
-      field_simp
-    have hu : ∑ t ∈ range n, -L * c t * u = -(L * (S * u)) := by
-      rw [hS, sum_mul, mul_sum, ← sum_neg_distrib]
-      exact sum_congr rfl fun t _ ↦ by ring
-    rw [hℓ, ← regret_neg_mul_eq_mul_sub_wealth L ε c x n, regret_eq_sum_sub_sum,
-      regret_eq_sum_sub_sum, hu]
-    simp
   -- the wealth is at least `β * exp (S ^ 2 / (2 n))`
   have hW : β * exp (S ^ 2 / (2 * n)) ≤ wealth ε c x n := by
     refine le_of_eq_of_le ?_ (mul_exp_sq_div_sub_le_wealth hε.le hn hc hx)
     rw [hβ_def, mul_assoc, ← exp_add, hS]
     ring_nf
-  have hconj := Real.mul_sub_mul_exp_sq_div_le hnR hβ S u
+  have hdual := regret_mul_le_of_mul_exp_sq_div_le_wealth hL hnR hβ hW u
   -- `n * u ^ 2 / β ^ 2 = (e |u| n / ε) ^ 2`
   have hβsq : (n : ℝ) * u ^ 2 / β ^ 2 = (exp 1 * |u| * n / ε) ^ 2 := by
     rw [hβ_def, mul_pow, ← exp_nat_mul]
@@ -404,7 +386,7 @@ theorem krichevskyTrofimov_regret_le (hε : 0 < ε) (hL : 0 < L) (hg : ∀ t < n
     rw [this, exp_sub, exp_neg, exp_log hnR, div_pow, mul_pow, mul_pow, sq_abs,
       show exp 2 = exp 1 ^ 2 by rw [← exp_nat_mul]; norm_num]
     field_simp
-  rw [hβsq] at hconj
+  rw [hβsq] at hdual
   -- `log (1 + z ^ 2) ≤ 2 log (z + 1)` for `z = e |u| n / ε ≥ 0`
   have hlog := Real.log_one_add_sq_le_two_mul_log_add_one
     (show 0 ≤ exp 1 * |u| * n / ε by positivity)
@@ -412,10 +394,7 @@ theorem krichevskyTrofimov_regret_le (hε : 0 < ε) (hL : 0 < L) (hg : ∀ t < n
       √(2 * n * log (exp 1 * |u| * n / ε + 1)) := by
     refine sqrt_le_sqrt ?_
     nlinarith
-  have h1 : S * u - wealth ε c x n ≤ |u| * √(2 * n * log (exp 1 * |u| * n / ε + 1)) := by
-    nlinarith [mul_le_mul_of_nonneg_left hsqrt (abs_nonneg u)]
-  rw [hregret]
-  nlinarith [mul_le_mul_of_nonneg_left h1 hL.le]
+  nlinarith [mul_le_mul_of_nonneg_left hsqrt (mul_nonneg (abs_nonneg u) hL.le)]
 
 end Regret
 
@@ -423,55 +402,32 @@ namespace OnlineLearner
 
 variable {C : Type*}
 
-/-- The bet of the Krichevsky–Trofimov bettor at round `t` on the coins `c`, from the initial
-wealth `ε`: the fraction `(∑ s < t, c s) / (t + 1)` of the wealth `ε ∏ s < t, (1 + β s c s)`. -/
-private noncomputable def ktBet (ε : ℝ) (c : ℕ → ℝ) (t : ℕ) : ℝ :=
-  (∑ s ∈ range t, c s) / (t + 1) *
-    (ε * ∏ s ∈ range t, (1 + (∑ r ∈ range s, c r) / (s + 1) * c s))
-
-/-- The bet of round `t` depends only on the coins of the rounds `s < t`. -/
-private lemma ktBet_congr {ε : ℝ} {c c' : ℕ → ℝ} {t : ℕ} (h : ∀ s < t, c s = c' s) :
-    ktBet ε c t = ktBet ε c' t := by
-  have hsum {s : ℕ} (hs : s ≤ t) : ∑ r ∈ range s, c r = ∑ r ∈ range s, c' r :=
-    sum_congr rfl fun r hr ↦ h r ((mem_range.1 hr).trans_le hs)
-  rw [ktBet, ktBet, hsum le_rfl]
-  congr 2
-  exact prod_congr rfl fun s hs ↦ by
-    rw [hsum (mem_range.1 hs).le, h s (mem_range.1 hs)]
-
 /-- The **Krichevsky–Trofimov bettor** [Ora, Algorithm 13.1] from the initial wealth `ε`: a bettor
 whose feedback is the coins, and which bets at round `t` the fraction `(∑ s < t, c s) / (t + 1)`
 of its wealth (`run_krichevskyTrofimov`). -/
-noncomputable def krichevskyTrofimov (ε : ℝ) : OnlineLearner C ℝ ℝ where
-  play t h _ := ktBet ε (fun s ↦ if hs : s < t then (h ⟨s, hs⟩).2 else 0) t
+noncomputable def krichevskyTrofimov (ε : ℝ) : OnlineLearner C ℝ ℝ :=
+  fractionBettor (fun t c ↦ (∑ s ∈ range t, c s) / (t + 1)) ε
 
 /-- **The bets of the Krichevsky–Trofimov bettor**: at round `t`, it bets the fraction
 `(∑ s < t, c s) / (t + 1)` of its wealth on the coins `c`. -/
 theorem run_krichevskyTrofimov (ε : ℝ) (d : ℕ → C) (c : ℕ → ℝ) (t : ℕ) :
     (krichevskyTrofimov ε).run d c t =
-      (∑ s ∈ range t, c s) / (t + 1) * wealth ε c ((krichevskyTrofimov ε).run d c) t := by
-  have hbet (t : ℕ) : (krichevskyTrofimov ε).run d c t = ktBet ε c t :=
-    by rw [run_def]; exact ktBet_congr fun s hs ↦ by simp [hs]
-  induction t using Nat.strong_induction_on with
-  | _ t ih =>
-    rw [wealth_eq_mul_prod (β := fun s ↦ (∑ r ∈ range s, c r) / (s + 1)) fun s hs ↦ ih s hs,
-      hbet, ktBet]
+      (∑ s ∈ range t, c s) / (t + 1) * wealth ε c ((krichevskyTrofimov ε).run d c) t :=
+  run_fractionBettor (fun _ _ _ ↦ apply_sum_range_congr fun t (S : ℝ) ↦ S / (t + 1)) ε d c t
 
 /-- The **Krichevsky–Trofimov algorithm for one-dimensional online linear optimization**
 [Ora, Algorithm 13.2] with losses bounded by `L`, from the initial wealth `ε`: on the linear
 losses `g t`, it plays the bets of the KT bettor on the coins `-g t / L`
 (`run_krichevskyTrofimovOCO`). -/
 noncomputable def krichevskyTrofimovOCO (L ε : ℝ) : OnlineLearner C ℝ ℝ :=
-  (krichevskyTrofimov ε).reduce id fun _ g ↦ -g / L
+  fractionBettorOCO (fun t c ↦ (∑ s ∈ range t, c s) / (t + 1)) L ε
 
 /-- The plays of the Krichevsky–Trofimov algorithm are the bets of the KT bettor on the coins
 `-g t / L`. -/
 theorem run_krichevskyTrofimovOCO (L ε : ℝ) (d : ℕ → C) (g : ℕ → ℝ) (t : ℕ) :
     (krichevskyTrofimovOCO L ε).run d g t =
-      (krichevskyTrofimov ε).run d (fun s ↦ -g s / L) t := by
-  rw [krichevskyTrofimovOCO, run_reduce,
-    ← (krichevskyTrofimov ε).closedLoopFeedback_unique (g := fun s ↦ -g s / L) fun _ ↦ rfl]
-  rfl
+      (krichevskyTrofimov ε).run d (fun s ↦ -g s / L) t :=
+  run_fractionBettorOCO _ L ε d g t
 
 variable {ε L : ℝ}
 
@@ -480,14 +436,10 @@ variable {ε L : ℝ}
 rounds is at most `|u| L √(2 n log (e |u| n / ε + 1)) + ε L`. -/
 theorem hasRegretBound_krichevskyTrofimovOCO (hε : 0 < ε) (hL : 0 < L) :
     (krichevskyTrofimovOCO (C := C) L ε).HasRegretBound (fun g x ↦ g * x) (fun _ g ↦ |g| ≤ L)
-      Set.univ fun n _ _ u ↦ |u| * L * √(2 * n * log (exp 1 * |u| * n / ε + 1)) + ε * L := by
-  refine hasRegretBound_iff.2 fun d g n hg u _ ↦ krichevskyTrofimov_regret_le hε hL hg
-    (fun t _ ↦ ?_) u
-  have hrun : (krichevskyTrofimovOCO L ε).run d g =
-      (krichevskyTrofimov ε).run d (fun s ↦ -g s / L) :=
-    funext (run_krichevskyTrofimovOCO L ε d g)
-  rw [hrun]
-  exact run_krichevskyTrofimov ε d _ t
+      Set.univ fun n _ _ u ↦ |u| * L * √(2 * n * log (exp 1 * |u| * n / ε + 1)) + ε * L :=
+  hasRegretBound_iff.2 fun d g _ hg u _ ↦ krichevskyTrofimov_regret_le hε hL hg
+    (fun t _ ↦ run_fractionBettorOCO_eq_mul_wealth
+      (fun _ _ _ ↦ apply_sum_range_congr fun t (S : ℝ) ↦ S / (t + 1)) L ε d g t) u
 
 /-- **The Krichevsky–Trofimov algorithm skipping the rounds of zero loss** [Ora, §13.2.1]: run
 on the rounds with `g t ≠ 0` only, its regret bound holds with the horizon `n` replaced by the
