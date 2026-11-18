@@ -9,8 +9,8 @@ public import LMLExplore.Analysis.Convex.Simplex
 public import LMLExplore.Analysis.Real.Sqrt
 public import LMLExplore.SequentialLearning.FiniteActions
 public import Mathlib.Analysis.Asymptotics.SpecificAsymptotics
+import LMLExplore.Analysis.SpecialFunctions.Log.Basic
 import LMLExplore.Analysis.SumIntegralComparisons
-import Mathlib.Analysis.Convex.SpecificFunctions.Basic
 
 /-!
 # Tracking lemmas
@@ -95,10 +95,10 @@ cumulative tracking compare with the pull counts, are defined here as well.
 * `LMLExplore.Identification.sum_sum_div_sqrt_pullCount_add_one_le_of_cumulativeTracking`,
   `LMLExplore.Identification.sum_sum_div_sqrt_pullCount_le_of_cumulativeTracking`,
   `LMLExplore.Identification.sum_sum_div_pullCount_le_of_cumulativeTracking`: under cumulative
-  tracking, the sums of the proportions over the pull counts [DKM19, Lemma 9]:
-  `∑_a ∑_{s < n} p s a / √(N_a(s + 1)) ≤ K (K - 1) + 2 √(K n)`,
-  `∑_a ∑_{s < n} p s a / √(N_a(s)) ≤ K (K - 1) + (√2 + 1) √(K n)` and
-  `∑_a ∑_{s < n} p s a / N_a(s) ≤ K (K - 1) + 3 K log (n / K + 1)`.
+  tracking, the sums of the proportions over the pull counts,
+  `∑_a ∑_{s < n} p s a / √(N_a(s + 1)) ≤ K (K - 1) + 2 √(K n)` and
+  `∑_a ∑_{s < n} p s a / √(N_a(s)) ≤ K (K - 1) + (√2 + 1) √(K n)` [DKM19, Lemma 9], and
+  `∑_a ∑_{s < n} p s a / N_a(s) ≤ K (K - 1) + 3 K log (n / K + 1)` [DKM19, Lemma 16].
 
 * `LMLExplore.Identification.pullCount'_div_mem_simplex`: the proportions of pulls of a history
   are an allocation.
@@ -892,34 +892,11 @@ theorem tendsto_pullCount_div_of_cumulativeTracking (p : ℕ → α → ℝ) {l 
 /-! ### Sums of the proportions over the pull counts under cumulative tracking -/
 
 omit [DecidableEq α] in
-/-- The square roots of the cumulated proportions of the arms sum to at most `√(K n)`. -/
-private lemma sum_sqrt_sum_le (p : ℕ → α → ℝ) (hp0 : ∀ k a, 0 ≤ p k a)
-    (hp1 : ∀ k, ∑ a, p k a = 1) (n : ℕ) :
-    ∑ a, √(∑ s ∈ range n, p s a) ≤ √(Fintype.card α * n) := by
-  have h := Real.sum_sqrt_mul_sqrt_le univ (f := fun _ : α ↦ (1 : ℝ))
-    (g := fun a ↦ ∑ s ∈ range n, p s a) (fun _ ↦ zero_le_one)
-    (fun a ↦ sum_nonneg fun s _ ↦ hp0 s a)
-  rw [sum_comm] at h
-  simpa [hp1] using h
-
-omit [DecidableEq α] in
-/-- The logarithms of `1` plus the cumulated proportions of the arms sum to at most
-`K log (n / K + 1)`, by the concavity of the logarithm. -/
-private lemma sum_log_sum_add_one_le [Nonempty α] (p : ℕ → α → ℝ) (hp0 : ∀ k a, 0 ≤ p k a)
-    (hp1 : ∀ k, ∑ a, p k a = 1) (n : ℕ) :
-    ∑ a, Real.log (∑ s ∈ range n, p s a + 1) ≤
-      Fintype.card α * Real.log (n / Fintype.card α + 1) := by
-  have hK : (0 : ℝ) < Fintype.card α := Nat.cast_pos.2 Fintype.card_pos
-  have h := strictConcaveOn_log_Ioi.concaveOn.le_map_sum (t := univ)
-    (w := fun _ ↦ (Fintype.card α : ℝ)⁻¹) (p := fun a ↦ ∑ s ∈ range n, p s a + 1)
-    (fun _ _ ↦ inv_nonneg.2 hK.le) (by simp [hK.ne'])
-    (fun a _ ↦ Set.mem_Ioi.2 (by linarith [sum_nonneg fun s (_ : s ∈ range n) ↦ hp0 s a]))
-  simp only [smul_eq_mul, ← mul_sum, sum_add_distrib, sum_const, card_univ, nsmul_eq_mul,
-    mul_one] at h
-  rw [sum_comm] at h
-  simp only [hp1, sum_const, card_range, nsmul_eq_mul, mul_one] at h
-  rw [inv_mul_eq_div, div_le_iff₀ hK, mul_comm] at h
-  rwa [div_add_one hK.ne', div_eq_inv_mul]
+/-- The cumulated proportions of all the arms sum to the number of rounds. -/
+private lemma sum_sum_eq_of_sum_eq_one (p : ℕ → α → ℝ) (hp1 : ∀ k, ∑ a, p k a = 1) (n : ℕ) :
+    ∑ a, ∑ s ∈ range n, p s a = n := by
+  rw [sum_comm]
+  simp [hp1]
 
 /-- **Sums over the pull counts of cumulative tracking** [DKM19, Lemma 9]. Under the assumptions
 of `pullCount_le_sum_add_one_of_cumulativeTracking`, after every number `n` of rounds,
@@ -941,7 +918,9 @@ theorem sum_sum_div_sqrt_pullCount_add_one_le_of_cumulativeTracking (p : ℕ →
       rw [sum_add_distrib, ← mul_sum]
       simp only [sum_const, card_univ, nsmul_eq_mul]
       gcongr
-      exact sum_sqrt_sum_le p hp0 hp1 n
+      have h := Real.sum_sqrt_le_sqrt_card_mul_sum univ (x := fun a ↦ ∑ s ∈ range n, p s a)
+        fun a _ ↦ sum_nonneg fun s _ ↦ hp0 s a
+      rwa [sum_sum_eq_of_sum_eq_one p hp1 n, card_univ] at h
 
 /-- **Sums over the pull counts of cumulative tracking, before each round** [DKM19, Lemma 9].
 Under the assumptions of `pullCount_le_sum_add_one_of_cumulativeTracking`, after every number `n`
@@ -966,9 +945,11 @@ theorem sum_sum_div_sqrt_pullCount_le_of_cumulativeTracking (p : ℕ → α → 
       rw [sum_add_distrib, ← mul_sum]
       simp only [sum_const, card_univ, nsmul_eq_mul]
       gcongr
-      exact sum_sqrt_sum_le p hp0 hp1 n
+      have h := Real.sum_sqrt_le_sqrt_card_mul_sum univ (x := fun a ↦ ∑ s ∈ range n, p s a)
+        fun a _ ↦ sum_nonneg fun s _ ↦ hp0 s a
+      rwa [sum_sum_eq_of_sum_eq_one p hp1 n, card_univ] at h
 
-/-- **Sums of the inverse pull counts of cumulative tracking** [DKM19, Lemma 9]. Under the
+/-- **Sums of the inverse pull counts of cumulative tracking** [DKM19, Lemma 16]. Under the
 assumptions of `pullCount_le_sum_add_one_of_cumulativeTracking`, after every number `n` of rounds,
 `∑_a ∑_{s < n} p s a / N_a(s) ≤ K (K - 1) + 3 K log (n / K + 1)`, a term with `N_a(s) = 0` being
 `0`; the proof of [DKM19, Lemma 16] uses `K² + 2 K log (n / K)` in its place. These are the sums
@@ -992,7 +973,9 @@ theorem sum_sum_div_pullCount_le_of_cumulativeTracking (p : ℕ → α → ℝ)
       rw [sum_add_distrib, ← mul_sum]
       simp only [sum_const, card_univ, nsmul_eq_mul, mul_assoc]
       gcongr
-      exact sum_log_sum_add_one_le p hp0 hp1 n
+      have h := Real.sum_log_add_one_le_card_mul_log univ_nonempty
+        (x := fun a ↦ ∑ s ∈ range n, p s a) fun a _ ↦ sum_nonneg fun s _ ↦ hp0 s a
+      rwa [sum_sum_eq_of_sum_eq_one p hp1 n, card_univ] at h
 
 /-! ### Cumulated targets along a history -/
 

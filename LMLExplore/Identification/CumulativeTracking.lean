@@ -27,8 +27,8 @@ whose targets are allocations [DKM19, Lemma 7]: after `n` rounds, every arm sati
 `∑_{s < n} w_a(s) - (K - 1) ≤ N_a(n) ≤ ∑_{s < n} w_a(s) + 1`; the proportions of pulls get close
 to the averages of the targets, and converge to the limit of the targets whenever the targets
 converge. The sums over the rounds of the targets divided by the pull counts or their square roots,
-which weigh the confidence widths of the arms by the targets played, grow like `log n` and `√n`
-[DKM19, Lemma 9].
+which weigh the confidence widths of the arms by the targets played, grow like `√n`
+[DKM19, Lemma 9] and `log n` [DKM19, Lemma 16].
 
 Unlike C-tracking (`Identification/CTracking.lean`), cumulative tracking does not mix the targets
 with the uniform allocation: it forces no exploration beyond the first `K` rounds, and the
@@ -56,10 +56,10 @@ In the namespace `LMLExplore.Identification.CumulativeTracking`, along every run
   of pulls get close to the averages of the targets, and converge to the limit of the targets
   whenever the targets converge.
 * `sum_sum_div_sqrt_pullCount_add_one_le`, `sum_sum_div_sqrt_pullCount_le`,
-  `sum_sum_div_pullCount_le`: almost surely, the sums of the targets over the pull counts
-  [DKM19, Lemma 9], `∑_a ∑_{s < n} w_a(s) / √(N_a(s + 1)) ≤ K (K - 1) + 2 √(K n)`,
-  `∑_a ∑_{s < n} w_a(s) / √(N_a(s)) ≤ K (K - 1) + (√2 + 1) √(K n)` and
-  `∑_a ∑_{s < n} w_a(s) / N_a(s) ≤ K (K - 1) + 3 K log (n / K + 1)`.
+  `sum_sum_div_pullCount_le`: almost surely, the sums of the targets over the pull counts,
+  `∑_a ∑_{s < n} w_a(s) / √(N_a(s + 1)) ≤ K (K - 1) + 2 √(K n)` and
+  `∑_a ∑_{s < n} w_a(s) / √(N_a(s)) ≤ K (K - 1) + (√2 + 1) √(K n)` [DKM19, Lemma 9], and
+  `∑_a ∑_{s < n} w_a(s) / N_a(s) ≤ K (K - 1) + 3 K log (n / K + 1)` [DKM19, Lemma 16].
 
 ## References
 
@@ -280,7 +280,7 @@ theorem sum_sum_div_sqrt_pullCount_le
   exact sum_sum_div_sqrt_pullCount_le_of_cumulativeTracking _ (fun k ↦ hw0 k _)
     (fun k ↦ hw1 k _) hω n
 
-/-- **Sums of the inverse pull counts of cumulative tracking** [DKM19, Lemmas 9 and 16]. If the
+/-- **Sums of the inverse pull counts of cumulative tracking** [DKM19, Lemma 16]. If the
 targets are allocations, then almost surely, after every number `n` of rounds,
 `∑_a ∑_{s < n} w_a(s) / N_a(s) ≤ K (K - 1) + 3 K log (n / K + 1)`, with `w(s)` the target of the
 history of the first `s` rounds: the confidence widths `1 / N_a(s)` of the arms at the round `s`,
