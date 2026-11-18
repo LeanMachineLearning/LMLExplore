@@ -47,7 +47,10 @@ The first bound only needs `H ≥ 0`, and the partial sums `∑_{t=i}^T α^i_t` 
 
 ## Main statements
 
-* `LMLExplore.eq_prod_smul_add_sum_learningRateWeight_smul`: the unrolled recursion.
+* `LMLExplore.eq_prod_smul_add_sum_learningRateWeight_smul`: the unrolled recursion;
+  `LMLExplore.le_prod_mul_add_sum_learningRateWeight_mul`,
+  `LMLExplore.prod_mul_add_sum_learningRateWeight_mul_le`: its upper and lower bound forms in an
+  ordered ring, for learning rates at most `1`.
 * `LMLExplore.sum_learningRateWeight`: `∑_{i=1}^t η^i_t = 1 - ∏_{j=1}^t (1 - η j)`.
 * `LMLExplore.sum_learningRateWeight_qLearningRate`: `∑_{i=1}^t α^i_t = 1` for `t ≥ 1`.
 * `LMLExplore.one_div_sqrt_le_sum_learningRateWeight_qLearningRate_div_sqrt`,
@@ -138,6 +141,41 @@ theorem learningRateWeight_nonneg {R : Type*} [CommRing R] [PartialOrder R] [IsO
   mul_nonneg hi (prod_nonneg fun j hj ↦ sub_nonneg.2 (hη j hj))
 
 end Weight
+
+section Ordered
+
+variable {R : Type*} [CommRing R] [PartialOrder R] [IsOrderedRing R] {η x y : ℕ → R}
+
+/-- **The unrolled recursive upper bound.** If the learning rates are at most `1` and
+`x (t + 1) ≤ (1 - η (t + 1)) * x t + η (t + 1) * y (t + 1)` for every `t`, then
+`x t ≤ (∏_{j=1}^t (1 - η j)) * x 0 + ∑_{i=1}^t η^i_t * y i`. -/
+theorem le_prod_mul_add_sum_learningRateWeight_mul (hη : ∀ t, η (t + 1) ≤ 1)
+    (hx : ∀ t, x (t + 1) ≤ (1 - η (t + 1)) * x t + η (t + 1) * y (t + 1)) (t : ℕ) :
+    x t ≤ (∏ j ∈ Icc 1 t, (1 - η j)) * x 0 + ∑ i ∈ Icc 1 t, learningRateWeight η t i * y i := by
+  induction t with
+  | zero => simp
+  | succ t ih =>
+    have h := sum_learningRateWeight_smul_succ η y t
+    simp only [smul_eq_mul] at h
+    rw [h, prod_Icc_succ_top (by omega)]
+    calc x (t + 1) ≤ (1 - η (t + 1)) * x t + η (t + 1) * y (t + 1) := hx t
+      _ ≤ (1 - η (t + 1)) * ((∏ j ∈ Icc 1 t, (1 - η j)) * x 0 +
+          ∑ i ∈ Icc 1 t, learningRateWeight η t i * y i) + η (t + 1) * y (t + 1) := by
+        gcongr
+        exact sub_nonneg.2 (hη t)
+      _ = _ := by ring
+
+/-- **The unrolled recursive lower bound.** If the learning rates are at most `1` and
+`(1 - η (t + 1)) * x t + η (t + 1) * y (t + 1) ≤ x (t + 1)` for every `t`, then
+`(∏_{j=1}^t (1 - η j)) * x 0 + ∑_{i=1}^t η^i_t * y i ≤ x t`. -/
+theorem prod_mul_add_sum_learningRateWeight_mul_le (hη : ∀ t, η (t + 1) ≤ 1)
+    (hx : ∀ t, (1 - η (t + 1)) * x t + η (t + 1) * y (t + 1) ≤ x (t + 1)) (t : ℕ) :
+    (∏ j ∈ Icc 1 t, (1 - η j)) * x 0 + ∑ i ∈ Icc 1 t, learningRateWeight η t i * y i ≤ x t := by
+  have h := le_prod_mul_add_sum_learningRateWeight_mul (x := -x) (y := -y) hη
+    (fun t ↦ by simpa only [Pi.neg_apply, mul_neg, ← neg_add, neg_le_neg_iff] using hx t) t
+  simpa only [Pi.neg_apply, mul_neg, sum_neg_distrib, ← neg_add, neg_le_neg_iff] using h
+
+end Ordered
 
 section QLearning
 
