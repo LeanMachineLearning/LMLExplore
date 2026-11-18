@@ -11,6 +11,7 @@ public import LMLExplore.Probability.Process.Filtration
 public import LMLExplore.ReinforcementLearning.LearningRate
 public import Mathlib.Probability.Moments.Variance
 import LMLExplore.MeasureTheory.MeasurableSpace.Constructions
+import LMLExplore.Order.ConditionallyCompleteLattice.Basic
 import TauCeti.Probability.Independence.CondExp
 
 /-!
@@ -172,12 +173,6 @@ theorem measurable_syncQLearning (t : ℕ) :
 end Measurable
 
 /-! ### Ranges of the iterates -/
-
-/-- A supremum of values in `[a, b]` over a nonempty index type lies in `[a, b]`. -/
-private lemma ciSup_mem_Icc {α ι : Type*} [ConditionallyCompleteLattice α] [Nonempty ι]
-    {f : ι → α} {a b : α} (h : ∀ i, f i ∈ Set.Icc a b) : (⨆ i, f i) ∈ Set.Icc a b :=
-  ⟨(h (Classical.arbitrary ι)).1.trans (le_ciSup ⟨b, Set.forall_mem_range.2 fun i ↦ (h i).2⟩ _),
-    ciSup_le fun i ↦ (h i).2⟩
 
 /-- **Ranges of the iterates** [LCCWC24, Lemma 4]. With learning rates in `[0, 1]`, rewards in
 `[0, C]` and an initial value in `[0, B]`, where `C + γ * B ≤ B`, the iterates of synchronous

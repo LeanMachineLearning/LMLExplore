@@ -6,6 +6,7 @@ Authors: LMLExplore contributors
 module
 
 public import LMLExplore.MarkovDecisionProcess.Episodic.Value.Basic
+import LMLExplore.Order.ConditionallyCompleteLattice.Basic
 
 /-!
 # Optimal values and the optimal policy of an episodic MDP
@@ -218,10 +219,8 @@ theorem optValue_mem_Icc (hM : M.RewardsIn (Set.Icc a b)) (h : ℕ) (s : 𝓢) :
     have hQ : ∀ a', M.optQValue H h s a' ∈ Set.Icc ((H - h : ℕ) * a) ((H - h : ℕ) * b) :=
       meanReward_add_integral_mem_Icc hM hh (measurable_optValue (h + 1))
         (fun s' ↦ optValue_mem_Icc hM (h + 1) s') s
-    have hbdd : BddAbove (Set.range (M.optQValue H h s)) :=
-      ⟨_, Set.forall_mem_range.2 fun a' ↦ (hQ a').2⟩
     rw [optValue_of_lt hh]
-    exact ⟨le_ciSup_of_le hbdd (Classical.arbitrary 𝓐) (hQ _).1, ciSup_le fun a' ↦ (hQ a').2⟩
+    exact ciSup_mem_Icc hQ
   · rw [optValue_of_le (not_lt.1 hh), Nat.sub_eq_zero_of_le (not_lt.1 hh)]
     simp
 termination_by H - h
