@@ -58,6 +58,8 @@ constant and with nonincreasing learning rates.
   at the plays is at most the regret of the linearized losses.
 * `isMirrorDescentStep_norm_sq_div_two_iff`: the mirror descent steps for the potential
   `‖b‖ ^ 2 / 2` and the loss `⟪g, ·⟫` from `a` are the points of `K` nearest to `a - η • g`.
+* `exists_isMirrorDescentStep_norm_sq_div_two`: in a Hilbert space, these steps exist on nonempty
+  complete convex sets.
 * `inner_sub_sub_norm_sq_div_le`: the stability term of one step of projected online
   subgradient descent.
 * `inner_sub_le_of_isMinOn_norm_sub`: [Ora, Lemmas 2.12 and 2.31] one step of projected online
@@ -140,6 +142,21 @@ theorem isMirrorDescentStep_norm_sq_div_two_iff {η : ℝ} {g a x : E} :
   simp only [bregDiv_norm_sq_div_two, isMinOn_iff]
   refine and_congr_right fun _ ↦ forall₂_congr fun c _ ↦ ?_
   rw [div_le_div_iff_of_pos_right two_pos, sq_le_sq₀ (norm_nonneg _) (norm_nonneg _)]
+
+/-- **Existence of mirror descent steps with the Euclidean potential.** In a real Hilbert space,
+on a nonempty complete convex set `K`, there is a mirror descent step on `K` from every point `a`
+for the potential `‖b‖ ^ 2 / 2`, with derivative `⟪a, ·⟫` at `a`, for every learning rate `η` and
+every loss `y` in the dual: the point of `K` nearest to the gradient step from `a` along the
+vector representing `y`. -/
+theorem exists_isMirrorDescentStep_norm_sq_div_two [CompleteSpace E] (hK_ne : K.Nonempty)
+    (hKc : IsComplete K) (hK : Convex ℝ K) (η : ℝ) (y : E →L[ℝ] ℝ) (a : E) :
+    ∃ x, IsMirrorDescentStep K (fun b : E ↦ ‖b‖ ^ 2 / 2) η y a (innerSL ℝ a) x := by
+  have hy : innerSL ℝ ((InnerProductSpace.toDual ℝ E).symm y) = y := by
+    ext v
+    simp [InnerProductSpace.toDual_symm_apply]
+  obtain ⟨x, hx, hmin⟩ := exists_isMinOn_norm_sub_of_complete_convex hK_ne hKc hK
+    (a - η • (InnerProductSpace.toDual ℝ E).symm y)
+  exact ⟨x, hy ▸ isMirrorDescentStep_norm_sq_div_two_iff.mpr ⟨hx, hmin⟩⟩
 
 /-- **Stability of one step of projected online subgradient descent.** For `η > 0`,
 `⟪g, a - b⟫ - ‖b - a‖ ^ 2 / 2 / η ≤ η / 2 * ‖g‖ ^ 2`: the linear gain of a step from `a` to `b`

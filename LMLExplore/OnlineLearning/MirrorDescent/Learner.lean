@@ -7,6 +7,7 @@ module
 
 public import LMLExplore.OnlineLearning.Learner.Basic
 public import LMLExplore.OnlineLearning.MirrorDescent.Basic
+import LMLExplore.Analysis.Real.Sqrt
 
 /-!
 # The mirror descent learner
@@ -32,7 +33,10 @@ a set `K` of a real normed space `E`, with losses in the dual `E →L[ℝ] ℝ`.
   against every `u ∈ K` for a constant learning rate `η`, with no bound on `K`
   (`hasRegretBound_mirrorDescent_of_strongConvexOn`), and `D / η (n - 1) + ∑ η t / (2 m) ‖y t‖ ^ 2`
   for nonincreasing learning rates on a set of Bregman diameter `D`
-  (`hasRegretBound_mirrorDescent_of_strongConvexOn_of_antitone`). The bounds hold for every
+  (`hasRegretBound_mirrorDescent_of_strongConvexOn_of_antitone`). With the learning rates
+  `η t = √(m D) / (L √(t + 1))`, which do not depend on the horizon, this is
+  `2 L √(D n / m)` for losses of dual norm at most `L`
+  (`hasRegretBound_mirrorDescent_of_strongConvexOn_inv_sqrt`). The bounds hold for every
   sequence of losses, hence against adaptive adversaries.
 
 ## Main definitions
@@ -48,6 +52,8 @@ a set `K` of a real normed space `E`, with losses in the dual `E →L[ℝ] ℝ`.
   constant learning rate.
 * `OnlineLearner.hasRegretBound_mirrorDescent_of_strongConvexOn_of_antitone`: the anytime regret
   guarantee with nonincreasing learning rates.
+* `OnlineLearner.hasRegretBound_mirrorDescent_of_strongConvexOn_inv_sqrt`: the anytime regret
+  guarantee `2 L √(D n / m)` for losses of dual norm at most `L`.
 
 ## References
 
@@ -210,6 +216,68 @@ theorem hasRegretBound_mirrorDescent_of_strongConvexOn_of_antitone (hF : StrongC
     (fun t ↦ F' (x t)) (h_mem 0)
     (fun t _ ↦ isMirrorDescentStep_run_mirrorDescent_of_forall hx₀ hex c y t)
     (fun t _ ↦ hF' _ (h_mem t)) hD0 (fun t _ ↦ hD u hu _ (h_mem t)) hu
+
+/-- **Anytime regret guarantee of the mirror descent learner for bounded losses**
+[Ora, Theorem 6.11]. Let the potential `F` be `m`-strongly convex on `K` for the norm of `E`, with
+`m > 0`, and let `F' x` be a derivative of `F` within `K` at every `x ∈ K`. Let mirror descent
+steps exist from every point of `K`, for every learning rate and loss, and let `x₀ ∈ K`. Let the
+Bregman divergences `D_F(u, x)` (for `F' x`) of the points of `K` be at most `D > 0`, and let
+`L > 0`. Then with the learning rates `η t = √(m D) / (L √(t + 1))`, which do not depend on the
+horizon, for every sequence of linear losses `y` of dual norm at most `L`, every horizon `n` and
+every `u ∈ K`, the plays `x` of the mirror descent learner satisfy
+`∑ t < n, y t (x t - u) ≤ 2 L √(D n / m)`. -/
+theorem hasRegretBound_mirrorDescent_of_strongConvexOn_inv_sqrt (hF : StrongConvexOn K m F)
+    (hm : 0 < m) (hF' : ∀ x ∈ K, HasFDerivWithinAt F (F' x) K x)
+    (hex : ∀ (η : ℝ) (y : E →L[ℝ] ℝ), ∀ a ∈ K, ∃ x, IsMirrorDescentStep K F η y a (F' a) x)
+    (hx₀ : x₀ ∈ K) {D L : ℝ} (hD : 0 < D) (hL : 0 < L)
+    (hDK : ∀ u ∈ K, ∀ x ∈ K, bregDiv F u x (F' x) ≤ D) :
+    (mirrorDescent (C := C) K F F' (fun t ↦ √(m * D) / (L * √((t : ℝ) + 1))) x₀).HasRegretBound
+      (fun y x ↦ y x) (fun _ y ↦ ‖y‖ ≤ L) K (fun n _ _ _ ↦ 2 * L * √(D * n / m)) := by
+  set η : ℕ → ℝ := fun t ↦ √(m * D) / (L * √((t : ℝ) + 1)) with hη_def
+  have hη (t : ℕ) : 0 < η t := by positivity
+  have hη_anti : Antitone η := fun s t hst ↦
+    div_le_div_of_nonneg_left (by positivity) (by positivity) (mul_le_mul_of_nonneg_left
+      (Real.sqrt_le_sqrt (by exact_mod_cast Nat.add_le_add_right hst 1)) hL.le)
+  refine hasRegretBound_iff.mpr fun c y n hy u hu ↦ ?_
+  rcases n.eq_zero_or_pos with rfl | hn
+  · simp [regret_zero]
+  refine ((hasRegretBound_mirrorDescent_of_strongConvexOn_of_antitone hF hm hF' hex hx₀ hη hη_anti
+    hDK).regret_le (fun _ _ ↦ trivial) hu).trans ?_
+  -- `√(D n / m) = √(m D) √n / m`
+  have h_sqrt : √(D * n / m) = √(m * D) * √n / m := by
+    rw [Real.sqrt_div' _ hm.le, Real.sqrt_mul hm.le, Real.sqrt_mul hD.le]
+    field_simp
+    rw [Real.sq_sqrt hm.le]
+  -- the penalty is `L √(D n / m)`
+  have h_pen : D / η (n - 1) = L * √(D * n / m) := by
+    have hn' : ((n - 1 : ℕ) : ℝ) + 1 = n := by
+      rw [Nat.cast_sub hn, Nat.cast_one, sub_add_cancel]
+    simp only [hη_def]
+    rw [hn', h_sqrt, Real.sqrt_mul hm.le]
+    field_simp
+    rw [Real.sq_sqrt hm.le, Real.sq_sqrt hD.le]
+    ring
+  -- the stability terms add up to at most `L √(D n / m)`
+  have h_stab : ∑ t ∈ range n, η t / (2 * m) * ‖y t‖ ^ 2 ≤ L * √(D * n / m) := by
+    calc ∑ t ∈ range n, η t / (2 * m) * ‖y t‖ ^ 2
+    _ ≤ ∑ t ∈ range n, √(m * D) * L / (2 * m) * (√((t : ℝ) + 1))⁻¹ := by
+      refine sum_le_sum fun t ht ↦ ?_
+      have h_sq : ‖y t‖ ^ 2 ≤ L ^ 2 := by
+        gcongr
+        exact hy t (mem_range.mp ht)
+      calc η t / (2 * m) * ‖y t‖ ^ 2 ≤ η t / (2 * m) * L ^ 2 := by
+            gcongr
+        _ = √(m * D) * L / (2 * m) * (√((t : ℝ) + 1))⁻¹ := by
+          simp only [hη_def]
+          field_simp
+    _ = √(m * D) * L / (2 * m) * ∑ t ∈ range n, (√((t : ℝ) + 1))⁻¹ := by rw [mul_sum]
+    _ ≤ √(m * D) * L / (2 * m) * (2 * √n) := by
+      gcongr
+      exact Real.sum_range_inv_sqrt_add_one_le n
+    _ = L * √(D * n / m) := by
+      rw [h_sqrt]
+      ring
+  linarith
 
 end OnlineLearner
 
