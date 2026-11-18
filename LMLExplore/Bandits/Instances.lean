@@ -40,7 +40,9 @@ means in `(0, 1)` with the divergence of the exponential family of a Bernoulli l
 (`LMLExplore.Bandits.klDiv_bernoulliBandit_eq_ofReal_expFamilyDiv`, and
 `LMLExplore.Bandits.klDiv_bernoulliBandit_projIcc_eq_ofReal_expFamilyDiv` for bandits indexed by
 real means); for bandits indexed by real means, it is at most the extended divergence of that
-family at every real level (`LMLExplore.Bandits.klDiv_bernoulliBandit_projIcc_le_expFamilyRate`).
+family at every real level (`LMLExplore.Bandits.klDiv_bernoulliBandit_projIcc_le_expFamilyRate`),
+and its arms of means in `(0, 1)` are members of that family
+(`LMLExplore.Bandits.bernoulliBandit_projIcc_eq_expFamily_natParam`).
 For the Gaussian bandit with unknown variances we compute the mean and the variance of each arm,
 and identify `gaussianBandit μ σ2` with `gaussianMeanVarBandit fun a ↦ (μ a, σ2)`
 (`LMLExplore.Bandits.gaussianBandit_eq_gaussianMeanVarBandit`).
@@ -257,6 +259,18 @@ lemma klDiv_bernoulliBandit_projIcc_le_expFamilyRate (η₀ : ℝ) {μ μ' : α 
       Set.projIcc_of_mem _ (Set.Ioo_subset_Icc_self hμ')]
   · rw [expFamilyRate_bernoulliMeasure_sigmoid_of_notMem η₀ hμ hμ']
     exact le_top
+
+/-- For Bernoulli bandits indexed by real means `μ`, with arm `c` of mean `projIcc 0 1 (μ c)`, the
+arm `a` with `μ a` a mean of the exponential family of `Ber((1 : ℝ), 0, sigmoid η₀)` (that is,
+`μ a ∈ (0, 1)`) is the member of mean `μ a` of that family. -/
+lemma bernoulliBandit_projIcc_eq_expFamily_natParam (η₀ : ℝ) (μ : α → ℝ) (a : α)
+    (ha : μ a ∈ Ber((1 : ℝ), 0, unitInterval.sigmoid η₀).expFamilyMeans id) :
+    bernoulliBandit (fun c ↦ Set.projIcc 0 1 zero_le_one (μ c)) a =
+      Ber((1 : ℝ), 0, unitInterval.sigmoid η₀).expFamily id
+        (Ber((1 : ℝ), 0, unitInterval.sigmoid η₀).natParam id (μ a)) := by
+  rw [expFamilyMeans_bernoulliMeasure_sigmoid] at ha
+  rw [bernoulliBandit_apply, expFamily_natParam_bernoulliMeasure_sigmoid η₀ ha,
+    Set.projIcc_of_mem _ (Set.Ioo_subset_Icc_self ha)]
 
 end Bernoulli
 

@@ -434,8 +434,8 @@ lemma dInf_range_bernoulliMeasure (hpm : (p : ℝ) ≤ m) (hm : m < 1) :
   -- mean `p`, and its divergence is `d`.
   rw [h_eq, ← image_expFamily_bernoulliMeasure_sigmoid 0,
     ← expFamily_natParam_bernoulliMeasure_sigmoid 0 hpI,
-    dInf_image_expFamily (not_ae_eq_const_bernoulliMeasure
-      ⟨Real.sigmoid_pos 0, Real.sigmoid_lt_one 0⟩) (by simpa using hpI) (by simpa using hmI) hpm,
+    dInf_image_expFamily (not_ae_eq_const_bernoulliMeasure_sigmoid 0) (by simpa using hpI)
+      (by simpa using hmI) hpm,
     expFamilyDiv_bernoulliMeasure_sigmoid 0 hpI hmI,
     ← klBer_eq_ofReal_klBerReal p.2 (Set.Ioo_subset_Icc_self hmI) (klBer_ne_top hmI)]
 

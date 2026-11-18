@@ -341,6 +341,12 @@ variable {α : Type*} {mα : MeasurableSpace α} [Fintype α] [DecidableEq α] [
       task.glr (task.plugInCost empMean') n h (rec (empMean' n h))}}
   {μ : α → ℝ}
 
+/-- Every real of `(0, 1)` is a mean of the exponential family of `Ber((1 : ℝ), 0, 1 / 2)` with the
+identity statistic. -/
+private lemma mem_expFamilyMeans_bernoulliMeasure_sigmoid_zero {x : ℝ} (hx : x ∈ Set.Ioo 0 1) :
+    x ∈ Ber((1 : ℝ), 0, unitInterval.sigmoid 0).expFamilyMeans id :=
+  (expFamilyMeans_bernoulliMeasure_sigmoid 0).symm ▸ hx
+
 /-- For Bernoulli arms indexed by real means, the arm `a` of a model `θ` with means in `(0, 1)` is
 dominated, in moment generating function and on every parameter, by the member of mean `θ a` of
 the exponential family of `Ber((1 : ℝ), 0, 1 / 2)`: both are `Ber((1 : ℝ), 0, θ a)`. -/
@@ -350,8 +356,8 @@ private lemma mgfDominatedOn_bernoulliBandit {α ℐ : Type*} {mα : MeasurableS
     {θ : α → ℝ} (hθ : ∀ a, θ a ∈ Set.Ioo 0 1) (a : α) :
     MGFDominatedOn id (task.ν θ a) id (Ber((1 : ℝ), 0, unitInterval.sigmoid 0).expFamily id
       (Ber((1 : ℝ), 0, unitInterval.sigmoid 0).natParam id (θ a))) Set.univ := by
-  rw [hνt, expFamily_natParam_bernoulliMeasure_sigmoid 0 (hθ a), Bandits.bernoulliBandit_apply,
-    Set.projIcc_of_mem _ (Set.Ioo_subset_Icc_self (hθ a))]
+  rw [hνt, Bandits.bernoulliBandit_projIcc_eq_expFamily_natParam 0 θ a
+    (mem_expFamilyMeans_bernoulliMeasure_sigmoid_zero (hθ a))]
   exact (IdentDistrib.refl aemeasurable_id).mgfDominatedOn
 
 /-- For Bernoulli arms indexed by real means, the relative entropy between the arms `a` of a model
@@ -365,18 +371,6 @@ private lemma klDiv_le_expFamilyRate_bernoulliBandit {α ℐ : Type*} {mα : Mea
     InformationTheory.klDiv (task.ν μ' a) (task.ν θ a) ≤
       Ber((1 : ℝ), 0, unitInterval.sigmoid 0).expFamilyRate id (μ' a) (θ a) :=
   hνt ▸ Bandits.klDiv_bernoulliBandit_projIcc_le_expFamilyRate 0 (hθ a)
-
-/-- The base measure `Ber((1 : ℝ), 0, 1 / 2)` of the exponential family of Bernoulli arms indexed
-by real means is not almost surely constant: the family is nondegenerate. -/
-private lemma not_ae_eq_const_bernoulliMeasure_sigmoid_zero (c : ℝ) :
-    ¬ id =ᵐ[Ber((1 : ℝ), 0, unitInterval.sigmoid 0)] fun _ ↦ c :=
-  not_ae_eq_const_bernoulliMeasure ⟨Real.sigmoid_pos 0, Real.sigmoid_lt_one 0⟩ c
-
-/-- Every real of `(0, 1)` is a mean of the exponential family of `Ber((1 : ℝ), 0, 1 / 2)` with the
-identity statistic. -/
-private lemma mem_expFamilyMeans_bernoulliMeasure_sigmoid_zero {x : ℝ} (hx : x ∈ Set.Ioo 0 1) :
-    x ∈ Ber((1 : ℝ), 0, unitInterval.sigmoid 0).expFamilyMeans id :=
-  (expFamilyMeans_bernoulliMeasure_sigmoid 0).symm ▸ hx
 
 /-- **Track-and-Stop for Bernoulli arms is `δ`-PAC** for every `δ ∈ (0, 1]`, with the thresholds
 `K log (2 n (n + 1)) + x_δ`, when it tracks optimal allocations. Let the arm `a` of the model `μ`
@@ -399,7 +393,7 @@ theorem isDeltaPAC_trackAndStop_unionBoundThreshold_of_mem_optAlloc_bernoulliBan
       (fun n _ ↦ unionBoundThreshold (Fintype.card α) (unionBoundLevel (Fintype.card α) δ) n) rec
       hrec (hstop δ)) δ :=
   isDeltaPAC_trackAndStop_unionBoundThreshold_of_mem_optAlloc_of_klDiv_le
-    (fun _ ↦ not_ae_eq_const_bernoulliMeasure_sigmoid_zero)
+    (fun _ ↦ not_ae_eq_const_bernoulliMeasure_sigmoid 0)
     (fun θ hθ a ↦ mem_expFamilyMeans_bernoulliMeasure_sigmoid_zero (hM θ hθ a))
     (fun θ hθ ↦ mgfDominatedOn_bernoulliBandit hνt (hM θ hθ))
     (fun θ hθ ↦ klDiv_le_expFamilyRate_bernoulliBandit hνt (hM θ hθ))
@@ -426,7 +420,7 @@ theorem tendsto_expectedStoppingTime_trackAndStop_unionBoundThreshold_div_log_be
         hrec (hstop δ)) (Environment.bandit (task.ν μ)) / ENNReal.ofReal (log (1 / δ)))
       (𝓝[>] 0) (𝓝 (task.charTime μ)) :=
   tendsto_expectedStoppingTime_trackAndStop_unionBoundThreshold_div_log_of_klDiv_le
-    (fun _ ↦ not_ae_eq_const_bernoulliMeasure_sigmoid_zero)
+    (fun _ ↦ not_ae_eq_const_bernoulliMeasure_sigmoid 0)
     (fun θ hθ a ↦ mem_expFamilyMeans_bernoulliMeasure_sigmoid_zero (hM θ hθ a))
     (fun θ hθ ↦ mgfDominatedOn_bernoulliBandit hνt (hM θ hθ))
     (fun θ hθ ↦ klDiv_le_expFamilyRate_bernoulliBandit hνt (hM θ hθ))
@@ -453,7 +447,7 @@ theorem isDeltaPAC_cTrackAndStop_unionBoundThreshold_of_mem_optAlloc_bernoulliBa
       (fun n _ ↦ unionBoundThreshold (Fintype.card α) (unionBoundLevel (Fintype.card α) δ) n) rec
       hrec (hstop δ)) δ :=
   isDeltaPAC_cTrackAndStop_unionBoundThreshold_of_mem_optAlloc_of_klDiv_le
-    (fun _ ↦ not_ae_eq_const_bernoulliMeasure_sigmoid_zero)
+    (fun _ ↦ not_ae_eq_const_bernoulliMeasure_sigmoid 0)
     (fun θ hθ a ↦ mem_expFamilyMeans_bernoulliMeasure_sigmoid_zero (hM θ hθ a))
     (fun θ hθ ↦ mgfDominatedOn_bernoulliBandit hνt (hM θ hθ))
     (fun θ hθ ↦ klDiv_le_expFamilyRate_bernoulliBandit hνt (hM θ hθ))
@@ -480,7 +474,7 @@ theorem tendsto_expectedStoppingTime_cTrackAndStop_unionBoundThreshold_div_log_b
         hrec (hstop δ)) (Environment.bandit (task.ν μ)) / ENNReal.ofReal (log (1 / δ)))
       (𝓝[>] 0) (𝓝 (task.charTime μ)) :=
   tendsto_expectedStoppingTime_cTrackAndStop_unionBoundThreshold_div_log_of_klDiv_le
-    (fun _ ↦ not_ae_eq_const_bernoulliMeasure_sigmoid_zero)
+    (fun _ ↦ not_ae_eq_const_bernoulliMeasure_sigmoid 0)
     (fun θ hθ a ↦ mem_expFamilyMeans_bernoulliMeasure_sigmoid_zero (hM θ hθ a))
     (fun θ hθ ↦ mgfDominatedOn_bernoulliBandit hνt (hM θ hθ))
     (fun θ hθ ↦ klDiv_le_expFamilyRate_bernoulliBandit hνt (hM θ hθ))
