@@ -16,12 +16,12 @@ import TauCeti.MeasureTheory.Measure.ProjectiveLimit.Nat
 For measures `P` and `Q` on `Ω` and a filtration `ℱ`, the likelihood ratio process of `Q` against
 `P` is `n ↦ (Q.trim (ℱ.le n)).rnDeriv (P.trim (ℱ.le n))`, the Radon–Nikodym derivative of the
 restrictions of `Q` and `P` to the information available at time `n`. It is the basic
-construction of test supermartingales for a simple null `{P}` [RW, §7.5]: it is always a test
-supermartingale for `P`, with no absolute continuity between `Q` and `P`, and it is a test
-martingale when `Q` is locally absolutely continuous with respect to `P`, that is,
-`Q.trim (ℱ.le n) ≪ P.trim (ℱ.le n)` for every `n`. For i.i.d. observations and
-`Filtration.piLE`, the process is `∏ i ≤ n, Q₁.rnDeriv P₁ (ω i)` (Statlib's
-`ProbabilityTheory.rnDeriv_trim_piLE_infinitePi`).
+construction of test supermartingales for a simple null `{P}` [RW, §7.5]: whenever `Q univ ≤ 1`
+(and `P` is σ-finite on the filtration), it is a test supermartingale for `P`, with no absolute
+continuity between `Q` and `P`, and it is moreover a test martingale when `Q` is locally
+absolutely continuous with respect to `P`, that is, `Q.trim (ℱ.le n) ≪ P.trim (ℱ.le n)` for
+every `n`. For i.i.d. observations and `Filtration.piLE`, the process is
+`∏ i ≤ n, Q₁.rnDeriv P₁ (ω i)` (Statlib's `ProbabilityTheory.rnDeriv_trim_piLE_infinitePi`).
 
 Conversely, on a sequence space `Π n, X n` whose coordinates after the first are standard Borel,
 with the filtration `Filtration.piLE` of the observations so far, every test martingale `M` for
