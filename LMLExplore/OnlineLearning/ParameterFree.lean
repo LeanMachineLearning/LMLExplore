@@ -38,7 +38,7 @@ This file builds from it parameter-free learners for linear losses in several di
   (`OnlineLearner.hasRegretBound_krichevskyTrofimovOCO_magnitudeDirection_mirrorDescent`). In a
   Hilbert space, the potential `‖x‖ ^ 2 / 2`, for which mirror descent is projected online
   subgradient descent, gives `‖u‖ L (√(2 n log (e ‖u‖ n / ε + 1)) + 2 √(2 n)) + ε L`
-  (`OnlineLearner.hasRegretBound_krichevskyTrofimovOCO_magnitudeDirection_mirrorDescent_norm_sq`),
+  (`hasRegretBound_krichevskyTrofimovOCO_magnitudeDirection_mirrorDescent_norm_sq_div_two`),
   a bound in the norm of `E` and not in the `ℓ¹` norm of coordinates. [Ora, (13.2)] states this
   bound with `√(2 n)` in place of `2 √(2 n)`; the analysis of the direction learner, whose plays
   and comparators lie in a set of diameter `2`, gives the constant stated here.
@@ -57,7 +57,7 @@ constant regret, and the sum of the plays of several learners (`OnlineLearner.re
 * `OnlineLearner.hasRegretBound_krichevskyTrofimovOCO_magnitudeDirection`: the KT algorithm as the
   magnitude learner of the magnitude–direction reduction.
 * `OnlineLearner.hasRegretBound_krichevskyTrofimovOCO_magnitudeDirection_mirrorDescent`,
-  `OnlineLearner.hasRegretBound_krichevskyTrofimovOCO_magnitudeDirection_mirrorDescent_norm_sq`:
+  `hasRegretBound_krichevskyTrofimovOCO_magnitudeDirection_mirrorDescent_norm_sq_div_two`:
   [Ora, Section 13.4], with mirror descent on the unit ball as the direction learner.
 
 ## References
@@ -173,7 +173,7 @@ theorem hasRegretBound_krichevskyTrofimovOCO_magnitudeDirection_mirrorDescent (h
       (fun _ y ↦ ‖y‖ ≤ L) Set.univ (fun n _ _ u ↦
         ‖u‖ * L * (√(2 * n * log (exp 1 * ‖u‖ * n / ε + 1)) + 2 * √(D * n / m)) + ε * L) :=
   (hasRegretBound_krichevskyTrofimovOCO_magnitudeDirection hε hL
-    (hasRegretBound_mirrorDescent_of_strongConvexOn_of_norm_le hF hm hF' hex hx₀ hD hL hDK)
+    (hasRegretBound_mirrorDescent_of_strongConvexOn_inv_sqrt hF hm hF' hex hx₀ hD hL hDK)
     sphere_subset_closedBall fun c y t ↦
       mem_closedBall_zero_iff.mp (run_mirrorDescent_mem hx₀ c y t)).mono
     (fun _ _ ↦ id) subset_rfl fun _ _ _ _ _ _ ↦ le_of_eq (by ring)
@@ -187,7 +187,7 @@ learner is projected online subgradient descent on the unit ball, fed the vector
 losses (`isMirrorDescentStep_norm_sq_div_two_iff`), whose steps exist on the ball
 (`exists_isMirrorDescentStep_norm_sq_div_two`). [Ora, (13.2)] states the bound with `√(2 n)`
 in place of `2 √(2 n)`. -/
-theorem hasRegretBound_krichevskyTrofimovOCO_magnitudeDirection_mirrorDescent_norm_sq
+theorem hasRegretBound_krichevskyTrofimovOCO_magnitudeDirection_mirrorDescent_norm_sq_div_two
     {E : Type*} [NormedAddCommGroup E] [InnerProductSpace ℝ E] [CompleteSpace E]
     (hε : 0 < ε) (hL : 0 < L) :
     ((krichevskyTrofimovOCO L ε).magnitudeDirection (mirrorDescent (C := C) (closedBall 0 1)

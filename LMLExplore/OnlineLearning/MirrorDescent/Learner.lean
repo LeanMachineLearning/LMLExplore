@@ -36,7 +36,7 @@ a set `K` of a real normed space `E`, with losses in the dual `E →L[ℝ] ℝ`.
   (`hasRegretBound_mirrorDescent_of_strongConvexOn_of_antitone`). With the learning rates
   `η t = √(m D) / (L √(t + 1))`, which do not depend on the horizon, this is
   `2 L √(D n / m)` for losses of dual norm at most `L`
-  (`hasRegretBound_mirrorDescent_of_strongConvexOn_of_norm_le`). The bounds hold for every
+  (`hasRegretBound_mirrorDescent_of_strongConvexOn_inv_sqrt`). The bounds hold for every
   sequence of losses, hence against adaptive adversaries.
 
 ## Main definitions
@@ -52,7 +52,7 @@ a set `K` of a real normed space `E`, with losses in the dual `E →L[ℝ] ℝ`.
   constant learning rate.
 * `OnlineLearner.hasRegretBound_mirrorDescent_of_strongConvexOn_of_antitone`: the anytime regret
   guarantee with nonincreasing learning rates.
-* `OnlineLearner.hasRegretBound_mirrorDescent_of_strongConvexOn_of_norm_le`: the anytime regret
+* `OnlineLearner.hasRegretBound_mirrorDescent_of_strongConvexOn_inv_sqrt`: the anytime regret
   guarantee `2 L √(D n / m)` for losses of dual norm at most `L`.
 
 ## References
@@ -226,7 +226,7 @@ Bregman divergences `D_F(u, x)` (for `F' x`) of the points of `K` be at most `D 
 horizon, for every sequence of linear losses `y` of dual norm at most `L`, every horizon `n` and
 every `u ∈ K`, the plays `x` of the mirror descent learner satisfy
 `∑ t < n, y t (x t - u) ≤ 2 L √(D n / m)`. -/
-theorem hasRegretBound_mirrorDescent_of_strongConvexOn_of_norm_le (hF : StrongConvexOn K m F)
+theorem hasRegretBound_mirrorDescent_of_strongConvexOn_inv_sqrt (hF : StrongConvexOn K m F)
     (hm : 0 < m) (hF' : ∀ x ∈ K, HasFDerivWithinAt F (F' x) K x)
     (hex : ∀ (η : ℝ) (y : E →L[ℝ] ℝ), ∀ a ∈ K, ∃ x, IsMirrorDescentStep K F η y a (F' a) x)
     (hx₀ : x₀ ∈ K) {D L : ℝ} (hD : 0 < D) (hL : 0 < L)
