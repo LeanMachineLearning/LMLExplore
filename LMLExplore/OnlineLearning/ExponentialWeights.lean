@@ -62,7 +62,8 @@ negative entropy at `p`, by the Gibbs variational principle
 * `softmax_add_const`: adding a constant to every coordinate does not change the softmax.
 * `softmax_log_add_apply`, `softmax_log_softmax_add`: the softmax of `log w + v` is the
   multiplicative update `a ↦ w a * exp (v a)` normalized, and a multiplicative update of a softmax
-  is a softmax.
+  is a softmax; `softmax_add_apply`: the softmax of `v + u` is the update of `softmax v` by
+  `exp u`.
 * `measurable_softmax`: `v ↦ softmax v` is measurable.
 * `sum_mul_exp_neg_sub_one_add_le`: for nonnegative weights `p`, a nonnegative loss `y` and
   `η ≥ 0`, `∑ b, p b * (exp (-(η * y b)) - 1 + η * y b) ≤ η ^ 2 / 2 * ∑ b, p b * y b ^ 2`.
@@ -165,6 +166,12 @@ lemma softmax_log_softmax_add [Nonempty α] (v u : α → ℝ) :
     rw [softmax_apply, log_div (exp_pos _).ne' hS.ne', log_exp]
     ring
   rw [h, softmax_add_const]
+
+/-- The softmax of `v + u` is the multiplicative update of the softmax of `v` by `exp u`: the
+vector `a ↦ softmax v a * exp (u a)` normalized. -/
+lemma softmax_add_apply [Nonempty α] (v u : α → ℝ) (a : α) :
+    softmax (fun b ↦ v b + u b) a = softmax v a * exp (u a) / ∑ b, softmax v b * exp (u b) := by
+  rw [← softmax_log_softmax_add, softmax_log_add_apply (softmax_pos v)]
 
 @[fun_prop]
 lemma measurable_softmax : Measurable (softmax (α := α)) := by

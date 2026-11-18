@@ -43,7 +43,8 @@ characterizes the largest such value.
 * `Learning.MDP.value_eq_integral_resolvent`: `v^π = R_γ(P_π) r_π`, the resolvent
   `∑ n, γ ^ n P_π ^ n` of the state kernel applied to the reward.
 * `Learning.MDP.abs_value_le`, `Learning.MDP.measurable_value`: `v^π` is measurable and
-  `|v^π| ≤ C / (1 - γ)`; the same holds for `Q^π` (`Learning.MDP.abs_qValue_le`,
+  `|v^π| ≤ C / (1 - γ)`, and `Learning.MDP.value_nonneg`: it is nonnegative for nonnegative mean
+  rewards; the same holds for `Q^π` (`Learning.MDP.abs_qValue_le`,
   `Learning.MDP.measurable_qValue`).
 * `Learning.MDP.value_eq_policyReward_add`: the evaluation equation `v^π = r_π + γ P_π v^π`.
 * `Learning.MDP.integral_qValue`: `v^π s = ∫ a, Q^π (s, a) ∂(π s)`, and
@@ -186,6 +187,13 @@ theorem abs_value_le (hγ : γ < 1) (hR : ∀ p, ∀ᵐ x ∂(M.R p), |x| ≤ C)
     |M.value γ π s| ≤ C / (1 - γ) := by
   rw [value_eq_integral_resolvent hγ hR]
   exact Kernel.abs_integral_resolvent_le hγ (abs_policyReward_le hR) s
+
+/-- With bounded nonnegative mean rewards and `γ < 1`, the value of a stationary policy is
+nonnegative. -/
+theorem value_nonneg (hγ : γ < 1) (hR : ∀ p, ∀ᵐ x ∂(M.R p), |x| ≤ C)
+    (hr : ∀ p, 0 ≤ meanReward M.R p) (s : 𝓢) : 0 ≤ M.value γ π s := by
+  rw [value_eq_integral_resolvent hγ hR]
+  exact integral_nonneg fun s' ↦ integral_nonneg fun a ↦ hr (s', a)
 
 /-- With bounded rewards and `γ < 1`, the value of a stationary policy is measurable. -/
 theorem measurable_value (hγ : γ < 1) (hR : ∀ p, ∀ᵐ x ∂(M.R p), |x| ≤ C) :
