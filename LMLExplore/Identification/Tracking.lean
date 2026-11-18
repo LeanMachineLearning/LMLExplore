@@ -92,7 +92,7 @@ cumulative tracking compare with the pull counts, are defined here as well.
   `LMLExplore.Identification.tendsto_pullCount_div_of_cumulativeTracking`: under cumulative
   tracking, the proportions of pulls get close to the averages of the proportions `p k`, and
   converge to their limit whenever they converge.
-* `LMLExplore.Identification.sum_sum_div_sqrt_pullCount_add_one_le_of_cumulativeTracking`,
+* `LMLExplore.Identification.sum_sum_div_sqrt_pullCount_succ_le_of_cumulativeTracking`,
   `LMLExplore.Identification.sum_sum_div_sqrt_pullCount_le_of_cumulativeTracking`,
   `LMLExplore.Identification.sum_sum_div_pullCount_le_of_cumulativeTracking`: under cumulative
   tracking, the sums of the proportions over the pull counts,
@@ -907,7 +907,7 @@ private lemma card_sub_one_nonneg (a : α) : (0 : ℝ) ≤ Fintype.card α - 1 :
 of `pullCount_le_sum_add_one_of_cumulativeTracking`, after every number `n` of rounds,
 `∑_a ∑_{s < n} p s a / √(N_a(s + 1)) ≤ K (K - 1) + 2 √(K n)`, a term with `N_a(s + 1) = 0` being
 `0`; the paper states the weaker `K² + 2 √(K n)`. -/
-theorem sum_sum_div_sqrt_pullCount_add_one_le_of_cumulativeTracking (p : ℕ → α → ℝ)
+theorem sum_sum_div_sqrt_pullCount_succ_le_of_cumulativeTracking (p : ℕ → α → ℝ)
     (hp0 : ∀ k a, 0 ≤ p k a) (hp1 : ∀ k, ∑ a, p k a = 1)
     (hA : ∀ k a, (pullCount A (A k ω) k ω : ℝ) * ∑ s ∈ range (k + 1), p s a ≤
       pullCount A a k ω * ∑ s ∈ range (k + 1), p s (A k ω)) (n : ℕ) :

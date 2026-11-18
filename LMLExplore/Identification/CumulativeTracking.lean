@@ -55,7 +55,7 @@ In the namespace `LMLExplore.Identification.CumulativeTracking`, along every run
 * `tendsto_pullCount_div_sub_inv_mul_sum`, `tendsto_pullCount_div`: almost surely, the proportions
   of pulls get close to the averages of the targets, and converge to the limit of the targets
   whenever the targets converge.
-* `sum_sum_div_sqrt_pullCount_add_one_le`, `sum_sum_div_sqrt_pullCount_le`,
+* `sum_sum_div_sqrt_pullCount_succ_le`, `sum_sum_div_sqrt_pullCount_le`,
   `sum_sum_div_pullCount_le`: almost surely, the sums of the targets over the pull counts,
   `∑_a ∑_{s < n} w_a(s) / √(N_a(s + 1)) ≤ K (K - 1) + 2 √(K n)` and
   `∑_a ∑_{s < n} w_a(s) / √(N_a(s)) ≤ K (K - 1) + (√2 + 1) √(K n)` [DKM19, Lemma 9], and
@@ -258,13 +258,13 @@ theorem tendsto_pullCount_div (h : IsAlgEnvSeq O A Y (cumulativeTracking w hw) e
 allocations, then almost surely, after every number `n` of rounds,
 `∑_a ∑_{s < n} w_a(s) / √(N_a(s + 1)) ≤ K (K - 1) + 2 √(K n)`, with `w(s)` the target of the
 history of the first `s` rounds. -/
-theorem sum_sum_div_sqrt_pullCount_add_one_le
+theorem sum_sum_div_sqrt_pullCount_succ_le
     (h : IsAlgEnvSeq O A Y (cumulativeTracking w hw) env P) :
     ∀ᵐ ω ∂P, ∀ n : ℕ, ∑ a, ∑ s ∈ range n, w s (history O A Y s ω) a /
         √(pullCount A a (s + 1) ω) ≤
       Fintype.card α * (Fintype.card α - 1) + 2 * √(Fintype.card α * n) := by
   filter_upwards [pullCount_mul_sum_le hw0 h] with ω hω n
-  exact sum_sum_div_sqrt_pullCount_add_one_le_of_cumulativeTracking _ (fun k ↦ hw0 k _)
+  exact sum_sum_div_sqrt_pullCount_succ_le_of_cumulativeTracking _ (fun k ↦ hw0 k _)
     (fun k ↦ hw1 k _) hω n
 
 /-- **Sums over the pull counts of cumulative tracking, before each round** [DKM19, Lemma 9]. If
