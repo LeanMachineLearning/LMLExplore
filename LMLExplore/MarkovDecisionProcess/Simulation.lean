@@ -412,6 +412,26 @@ private lemma abs_integral_resolvent_le_of_abs_le_sqrt_variance (hγ : γ < 1)
     _ ≤ a * (C * √(2 / (1 - γ) ^ 3)) + c / (1 - γ) := by gcongr
     _ = a * C * √(2 / (1 - γ) ^ 3) + c / (1 - γ) := by ring
 
+/-- The resolvent step of the variance-aware bounds with a reward error: under the hypotheses of
+`abs_integral_resolvent_le_of_abs_le_sqrt_variance`, if `|r q| ≤ δ` and
+`|e q| ≤ a √(Var_{P q}(v^π)) + c` at every pair `q`, with `a ≥ 0`, then the resolvent of the
+state-action kernel of `π` maps `r + γ e` to at most
+`δ / (1 - γ) + γ (a C √(2 / (1 - γ) ^ 3) + c / (1 - γ))`. -/
+private lemma abs_integral_resolvent_add_le_of_abs_le_sqrt_variance (hγ : γ < 1)
+    (hR : ∀ p, ∀ᵐ x ∂(M.R p), |x| ≤ C) (ha : 0 ≤ a) {r e : 𝓢 × 𝓐 → ℝ} {c : ℝ}
+    (hr : ∀ q, |r q| ≤ δ) (he : ∀ q, |e q| ≤ a * √(Var[M.value γ π; M.P q]) + c)
+    (p : 𝓢 × 𝓐) :
+    |∫ q, (r q + γ * e q) ∂(Kernel.resolvent γ (M.saKernel π) p)| ≤
+      δ / (1 - γ) + γ * (a * C * √(2 / (1 - γ) ^ 3) + c / (1 - γ)) := by
+  refine (abs_integral_resolvent_le_of_abs_le_sqrt_variance hγ hR (mul_nonneg γ.coe_nonneg ha)
+    (c := δ + γ * c) (fun q ↦ ?_) p).trans_eq (by ring)
+  refine (abs_add_le _ _).trans ?_
+  rw [abs_mul, NNReal.abs_eq]
+  calc _ ≤ δ + γ * (a * √(Var[M.value γ π; M.P q]) + c) := by
+        gcongr
+        exacts [hr q, he q]
+    _ = _ := by ring
+
 /-- **Variance-aware accuracy of the action values of a policy** [AKY20, Lemma 10], with a reward
 error: for two MDPs `M` and `M'` with mean rewards within `δ`, bounded rewards, rewards of `M`
 bounded by `C`, `γ < 1` and a stationary policy `π`, let `u` be a measurable function within `ε`
@@ -474,14 +494,8 @@ theorem abs_qValue_sub_qValue_le_of_le_sqrt_variance (hγ : γ < 1)
       ((2 + a) * ε + b) / (1 - γ))) + γ * a / (1 - γ) * Δ := by
     simp only [x]
     rw [abs_sub_comm, qValue_sub_qValue hγ hR' hR q]
-    refine (abs_integral_resolvent_le_of_abs_le_sqrt_variance hγ hR (mul_nonneg γ.coe_nonneg ha)
-      (c := δ + γ * (a * Δ + ((2 + a) * ε + b))) (fun q ↦ ?_) q).trans_eq (by ring)
-    refine (abs_add_le _ _).trans ?_
-    rw [abs_mul, NNReal.abs_eq, abs_sub_comm]
-    calc _ ≤ δ + γ * (a * √(Var[M.value γ π; M.P q]) + (a * Δ + ((2 + a) * ε + b))) := by
-          gcongr
-          exacts [hδ q, h_pt q]
-      _ = _ := by ring
+    exact (abs_integral_resolvent_add_le_of_abs_le_sqrt_variance hγ hR ha
+      (fun q ↦ (abs_sub_comm _ _).trans_le (hδ q)) h_pt q).trans_eq (by ring)
   -- hence `Δ ≤ K + α Δ`, that is `Δ ≤ K / (1 - α)`
   have hΔ := ciSup_le h_step
   refine (hxΔ p).trans ?_
@@ -545,14 +559,7 @@ private lemma abs_integral_resolvent_le_of_le_sqrt_variance (hγ : γ < 1)
     calc _ ≤ a * √(Var[M.optValue γ; M'.P q]) + b := hε q
       _ ≤ a * (√(Var[M'.value γ π; M'.P q]) + D) + b := by gcongr
       _ = a * √(Var[M'.value γ π; M'.P q]) + (a * D + b) := by ring
-  refine (abs_integral_resolvent_le_of_abs_le_sqrt_variance hγ hR' (mul_nonneg γ.coe_nonneg ha)
-    (c := δ + γ * (a * D + b)) (fun q ↦ ?_) p).trans_eq (by ring)
-  refine (abs_add_le _ _).trans ?_
-  rw [abs_mul, NNReal.abs_eq]
-  calc _ ≤ δ + γ * (a * √(Var[M'.value γ π; M'.P q]) + (a * D + b)) := by
-        gcongr
-        exacts [hδ q, h_pt q]
-    _ = _ := by ring
+  exact abs_integral_resolvent_add_le_of_abs_le_sqrt_variance hγ hR' ha hδ h_pt p
 
 /-- **Variance-aware accuracy of the optimal action values** [AJKS, §2.4], with a reward error: for
 two MDPs `M` and `M'` with finitely many actions, mean rewards within `δ`, rewards bounded by `C`
