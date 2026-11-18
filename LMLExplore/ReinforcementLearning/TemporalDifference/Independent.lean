@@ -88,12 +88,6 @@ variable [Finite 𝓢] [MeasurableSingletonClass 𝓢] {ν : Measure 𝓢} [IsPr
   {Ω : Type*} {mΩ : MeasurableSpace Ω} {μ : Measure Ω} [IsProbabilityMeasure μ]
   {θ : ℕ → Ω → E} {O : ℕ → Ω → 𝓢 × 𝓢} {α : ℕ → ℝ} {θ' : E}
 
-/-- The TD(0) step `θ ↦ θ + a d θ o`, as a function of the pair `(θ, o)`, is measurable. -/
-private lemma measurable_add_smul_tdUpdate (a : ℝ) :
-    Measurable fun p : E × (𝓢 × 𝓢) ↦ p.1 + a • tdUpdate φ R γ p.1 p.2 :=
-  measurable_from_prod_countable_left fun o ↦
-    (continuous_id.add ((continuous_tdUpdate o).const_smul a)).measurable
-
 omit [IsProbabilityMeasure ν] in
 /-- The squared distance `θ ↦ ‖⟪φ, θ' - θ⟫‖²_ν` of the values is measurable. -/
 private lemma measurable_integral_sq_inner_sub :

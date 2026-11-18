@@ -28,6 +28,8 @@ contracts the squared distance to a zero `θ*` of `g` in expectation, up to the 
 ## Main statements
 
 * `LMLExplore.ReinforcementLearning.tdUpdate_sub`: `d` is affine in the parameter.
+* `LMLExplore.ReinforcementLearning.measurable_add_smul_tdUpdate`: the TD(0) step
+  `(θ, o) ↦ θ + a d θ o` is measurable.
 * `LMLExplore.ReinforcementLearning.norm_tdUpdate_le`: `‖d θ o‖ ≤ |R o| + (1 + γ) ‖θ‖` for
   features with `‖φ s‖ ≤ 1`.
 * `LMLExplore.ReinforcementLearning.integral_tdUpdate`: `𝔼 d θ = g θ` for transitions
@@ -92,6 +94,13 @@ theorem norm_tdUpdate_le (hφ : ∀ s, ‖φ s‖ ≤ 1) (θ : E) (o : 𝓢 × �
     _ = |R o| + γ * |⟪φ o.2, θ⟫_ℝ| + |⟪φ o.1, θ⟫_ℝ| := by
         rw [abs_mul, abs_of_nonneg γ.coe_nonneg]
     _ ≤ |R o| + (1 + γ) * ‖θ‖ := by nlinarith [γ.coe_nonneg]
+
+/-- The TD(0) step `θ ↦ θ + a d θ o`, as a function of the pair `(θ, o)`, is measurable. -/
+theorem measurable_add_smul_tdUpdate [Countable 𝓢] [MeasurableSingletonClass 𝓢]
+    [MeasurableSpace E] [BorelSpace E] (a : ℝ) :
+    Measurable fun p : E × (𝓢 × 𝓢) ↦ p.1 + a • tdUpdate φ R γ p.1 p.2 :=
+  measurable_from_prod_countable_left fun o ↦
+    (continuous_id.add ((continuous_tdUpdate o).const_smul a)).measurable
 
 variable [Finite 𝓢] [MeasurableSingletonClass 𝓢] {ν : Measure 𝓢} [IsProbabilityMeasure ν]
   {P : Kernel 𝓢 𝓢} [IsMarkovKernel P]

@@ -70,6 +70,7 @@ independence of the features is the invertibility of `Σ_ν`, which holds when
   `LMLExplore.ReinforcementLearning.existsUnique_projBellman_eq_self`: `Π T` has a unique fixed
   point.
 * `LMLExplore.ReinforcementLearning.meanTDUpdate_sub`: `g` is affine, `g θ - g θ' = A (θ' - θ)`,
+  hence continuous (`LMLExplore.ReinforcementLearning.continuous_meanTDUpdate`),
   and `LMLExplore.ReinforcementLearning.isInvertible_tdOperator`: `A` is invertible under the
   same hypotheses.
 * `LMLExplore.ReinforcementLearning.one_sub_sq_mul_integral_sq_sub_inner_le`: the approximation
@@ -411,6 +412,12 @@ theorem meanTDUpdate_sub [CompleteSpace E] [IsMarkovKernel P] (θ θ' : E) :
     meanTDUpdate ν φ P r γ θ - meanTDUpdate ν φ P r γ θ' = tdOperator ν φ P γ (θ' - θ) := by
   rw [meanTDUpdate_eq_sub_tdOperator, meanTDUpdate_eq_sub_tdOperator, map_sub]
   abel
+
+/-- The mean-path TD update is continuous in the parameter. -/
+theorem continuous_meanTDUpdate [CompleteSpace E] [IsMarkovKernel P] :
+    Continuous (meanTDUpdate ν φ P r γ) := by
+  simp_rw [funext meanTDUpdate_eq_sub_tdOperator]
+  exact continuous_const.sub (tdOperator ν φ P γ).continuous
 
 /-- At a zero `θ*` of the mean-path TD update, `g θ = A (θ* - θ)`. -/
 private lemma meanTDUpdate_eq_tdOperator_of_eq_zero [CompleteSpace E] [IsMarkovKernel P]
