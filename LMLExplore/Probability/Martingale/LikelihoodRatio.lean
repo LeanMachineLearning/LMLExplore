@@ -8,6 +8,7 @@ module
 public import LMLExplore.EValues.TestSupermartingale.Predictor
 public import Mathlib.Probability.HasLaw
 public import Mathlib.Probability.Martingale.Basic
+import LMLExplore.MeasureTheory.Measure.Singletons
 
 /-!
 # Likelihood ratios of sequential predictors
@@ -165,33 +166,6 @@ private lemma measurable_uncurry_ofReal_div [Countable α]
       (Function.uncurry fun ω a ↦ ENNReal.ofReal (q t ω a / ν.real {a})) :=
   measurable_from_prod_countable_left (m := ℱ t) fun a ↦
     ((hq t a).div_const (ν.real {a})).ennreal_ofReal
-
-omit [Fintype α] [MeasurableSingletonClass α] in
-/-- A point charged by the finite measure `ν` carries the mass `ofReal (x / ν{a}) * ν{a} = ofReal x`
-of the density `x / ν{a}`. -/
-private lemma ofReal_div_measureReal_mul [IsFiniteMeasure ν] {a : α} (ha : ν {a} ≠ 0) (x : ℝ) :
-    ENNReal.ofReal (x / ν.real {a}) * ν {a} = ENNReal.ofReal x := by
-  have h0 : ν.real {a} ≠ 0 := (measureReal_ne_zero_iff (measure_ne_top _ _)).2 ha
-  rw [← ofReal_measureReal (measure_ne_top _ _), ← ENNReal.ofReal_mul' measureReal_nonneg,
-    div_mul_cancel₀ x h0]
-
-/-- The density `p a / ν{a}` of a nonnegative vector `p` has `ν`-integral at most `∑ a, p a`. -/
-private lemma lintegral_ofReal_div_measureReal_le [IsFiniteMeasure ν] {p : α → ℝ}
-    (hp : ∀ a, 0 ≤ p a) :
-    ∫⁻ a, ENNReal.ofReal (p a / ν.real {a}) ∂ν ≤ ENNReal.ofReal (∑ a, p a) := by
-  rw [lintegral_fintype, ENNReal.ofReal_sum_of_nonneg fun a _ ↦ hp a]
-  refine sum_le_sum fun a _ ↦ ?_
-  rcases eq_or_ne (ν {a}) 0 with ha | ha
-  · simp [ha]
-  · rw [ofReal_div_measureReal_mul ha]
-
-/-- If `ν` is finite and charges every point, the density `p a / ν{a}` has `ν`-integral
-`∑ a, p a`. -/
-private lemma lintegral_ofReal_div_measureReal_eq [IsFiniteMeasure ν] (hν : ∀ a, ν {a} ≠ 0)
-    {p : α → ℝ} (hp : ∀ a, 0 ≤ p a) :
-    ∫⁻ a, ENNReal.ofReal (p a / ν.real {a}) ∂ν = ENNReal.ofReal (∑ a, p a) := by
-  rw [lintegral_fintype, ENNReal.ofReal_sum_of_nonneg fun a _ ↦ hp a]
-  exact sum_congr rfl fun a _ ↦ ofReal_div_measureReal_mul (hν a) _
 
 omit [Fintype α] [MeasurableSingletonClass α] in
 /-- The likelihood ratio is the real value of the product of the densities
