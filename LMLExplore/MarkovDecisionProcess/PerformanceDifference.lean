@@ -9,6 +9,8 @@ public import LMLExplore.MarkovDecisionProcess.Comparison
 public import LMLExplore.MarkovDecisionProcess.Occupancy
 public import LMLExplore.Probability.Kernel.Composition.IntegralCompProd
 
+import LMLExplore.MeasureTheory.Integral.Bochner.Basic
+
 /-!
 # The performance difference lemma and the discounted value-difference identity
 
@@ -144,9 +146,8 @@ theorem integral_value_sub_integral_value_le_mul_integral_iSup_advantage [Counta
     integral_mono (integrable_of_abs_le (measurable_integral_advantage hγ hR σ)
       (fun s ↦ abs_integral_le_of_abs_le fun a ↦ abs_advantage_le hγ hR (s, a)) _) (hgint _)
       fun s ↦ integral_advantage_le_iSup hγ hR s (σ s)
-  have h_D : ∫ s, g s ∂dσ ≤ D * ∫ s, g s ∂μ := by
-    have h := integral_mono_measure hD (ae_of_all _ hg0) (hgint _)
-    simpa [integral_smul_nnreal_measure, NNReal.smul_def] using h
+  have h_D : ∫ s, g s ∂dσ ≤ D * ∫ s, g s ∂μ :=
+    integral_le_mul_integral_of_le_smul hD (ae_of_all _ hg0) (hgint _)
   have h_μ : (1 - γ) * ∫ s, g s ∂μ ≤ ∫ s, g s ∂d :=
     mul_integral_le_integral_occupancy_fst hγ.le (ae_of_all _ hg0) (hgint d)
   calc (1 - γ : ℝ)⁻¹ * ∫ s, ∫ a, M.advantage γ π (s, a) ∂(σ s) ∂dσ

@@ -110,7 +110,7 @@ theorem abs_policyAdvantage_le (hγ : γ < 1) (hR : ∀ p, ∀ᵐ x ∂(M.R p), 
     (hr : ∀ p, 0 ≤ meanReward M.R p) [IsMarkovKernel π'] :
     |M.policyAdvantage γ π π' μ| ≤ C / (1 - γ) := by
   have := isProbabilityMeasure_occupancy (M := M) (alg := Algorithm.markov fun _ ↦ π) (μ := μ) hγ
-  exact abs_integral_le_of_abs_le (abs_integral_advantage_le hγ hR hr)
+  exact abs_integral_le_of_abs_le (abs_integral_advantage_le_of_nonneg hγ hR hr)
 
 /-! ### The improvement of a mixture step -/
 
@@ -151,7 +151,7 @@ theorem mul_sub_le_integral_value_sub_integral_value_of_mixture (hγ : γ < 1)
   have := isProbabilityMeasure_occupancy (M := M) (alg := Algorithm.markov fun _ ↦ π') (μ := μ) hγ
   have := isProbabilityMeasure_occupancy (M := M) (alg := Algorithm.markov fun _ ↦ π) (μ := μ) hγ
   have hf : Measurable f := measurable_integral_advantage hγ hR π''
-  have hfB (s : 𝓢) : ‖f s‖ ≤ C / (1 - γ) := abs_integral_advantage_le hγ hR hr s
+  have hfB (s : 𝓢) : ‖f s‖ ≤ C / (1 - γ) := abs_integral_advantage_le_of_nonneg hγ hR hr s
   have hB : 0 ≤ C / (1 - γ) := (norm_nonneg _).trans (hfB (Classical.arbitrary 𝓢))
   -- the performance difference lemma, with the advantages of the mixture rewritten through `π''`
   rw [integral_value_sub_integral_value hγ hR π π']

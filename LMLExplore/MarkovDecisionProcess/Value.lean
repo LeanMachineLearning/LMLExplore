@@ -345,6 +345,12 @@ theorem abs_advantage_le (hγ : γ < 1) (hR : ∀ p, ∀ᵐ x ∂(M.R p), |x| �
   rw [advantage_def, two_mul, add_div]
   exact (abs_sub _ _).trans (add_le_add (abs_qValue_le hγ hR p) (abs_value_le hγ hR p.1))
 
+/-- With bounded rewards and `γ < 1`, the advantages `a ↦ A^π (s, a)` of the actions in a state
+are bounded above, by `2 * C / (1 - γ)`. -/
+theorem bddAbove_range_advantage (hγ : γ < 1) (hR : ∀ p, ∀ᵐ x ∂(M.R p), |x| ≤ C) (s : 𝓢) :
+    BddAbove (Set.range fun a ↦ M.advantage γ π (s, a)) :=
+  ⟨2 * C / (1 - γ), by rintro _ ⟨a, rfl⟩; exact le_of_abs_le (abs_advantage_le hγ hR _)⟩
+
 /-- With bounded rewards and `γ < 1`, the section `a ↦ A^π (s, a)` of the advantage of a
 stationary policy is integrable for every finite measure on actions. -/
 theorem integrable_advantage_prodMk_left (hγ : γ < 1) (hR : ∀ p, ∀ᵐ x ∂(M.R p), |x| ≤ C)
@@ -367,10 +373,8 @@ probability measure on actions is at most the greedy advantage:
 theorem integral_advantage_le_iSup (hγ : γ < 1) (hR : ∀ p, ∀ᵐ x ∂(M.R p), |x| ≤ C) (s : 𝓢)
     (ν : Measure 𝓐) [IsProbabilityMeasure ν] :
     ∫ a, M.advantage γ π (s, a) ∂ν ≤ ⨆ a, M.advantage γ π (s, a) := by
-  have hbdd : BddAbove (Set.range fun a ↦ M.advantage γ π (s, a)) :=
-    ⟨2 * C / (1 - γ), by rintro _ ⟨b, rfl⟩; exact le_of_abs_le (abs_advantage_le hγ hR _)⟩
   refine (integral_mono (integrable_advantage_prodMk_left hγ hR s ν) (integrable_const _)
-    (le_ciSup hbdd)).trans_eq ?_
+    (le_ciSup (bddAbove_range_advantage hγ hR s))).trans_eq ?_
   simp
 
 /-- On a countable action set, with bounded rewards and `γ < 1`, the greedy advantage
@@ -387,7 +391,7 @@ theorem abs_iSup_advantage_le [Nonempty 𝓐] (hγ : γ < 1) (hR : ∀ p, ∀ᵐ
   obtain ⟨a⟩ := ‹Nonempty 𝓐›
   have hA (b : 𝓐) := abs_advantage_le hγ hR (M := M) (π := π) (s, b)
   refine abs_le.2 ⟨(neg_le_of_abs_le (hA a)).trans
-    (le_ciSup ⟨2 * C / (1 - γ), by rintro _ ⟨b, rfl⟩; exact le_of_abs_le (hA b)⟩ a), ?_⟩
+    (le_ciSup (bddAbove_range_advantage hγ hR s) a), ?_⟩
   exact ciSup_le fun b ↦ le_of_abs_le (hA b)
 
 /-- With bounded nonnegative mean rewards and `γ < 1`, the action value of a stationary policy is
@@ -410,7 +414,7 @@ theorem abs_advantage_le_of_nonneg (hγ : γ < 1) (hR : ∀ p, ∀ᵐ x ∂(M.R 
 
 /-- With mean rewards in `[0, C]` and `γ < 1`, the mean advantage of a stationary policy under the
 actions of a policy `π'` is bounded by `C / (1 - γ)`. -/
-theorem abs_integral_advantage_le (hγ : γ < 1) (hR : ∀ p, ∀ᵐ x ∂(M.R p), |x| ≤ C)
+theorem abs_integral_advantage_le_of_nonneg (hγ : γ < 1) (hR : ∀ p, ∀ᵐ x ∂(M.R p), |x| ≤ C)
     (hr : ∀ p, 0 ≤ meanReward M.R p) {π' : Kernel 𝓢 𝓐} [IsMarkovKernel π'] (s : 𝓢) :
     |∫ a, M.advantage γ π (s, a) ∂(π' s)| ≤ C / (1 - γ) :=
   abs_integral_le_of_abs_le fun a ↦ abs_advantage_le_of_nonneg hγ hR hr (s, a)

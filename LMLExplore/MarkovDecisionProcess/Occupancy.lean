@@ -9,6 +9,7 @@ public import LMLExplore.MarkovDecisionProcess.RunValue
 public import LMLExplore.Probability.Kernel.Resolvent
 public import LMLExplore.Probability.Kernel.TotalVariation
 
+import LMLExplore.MeasureTheory.Integral.Bochner.Basic
 import Statlib.Divergence.TotalVariation
 
 /-!
@@ -252,8 +253,8 @@ occupancy measure of every algorithm from the probability measure `μ` dominates
 theorem mul_integral_le_integral_occupancy_fst (hγ : γ ≤ 1) {f : 𝓢 → ℝ}
     (hf0 : 0 ≤ᵐ[(M.occupancy γ alg μ).fst] f) (hf : Integrable f (M.occupancy γ alg μ).fst) :
     (1 - γ) * ∫ s, f s ∂μ ≤ ∫ s, f s ∂(M.occupancy γ alg μ).fst := by
-  have h := integral_mono_measure smul_le_occupancy_fst hf0 hf
-  simpa [integral_smul_nnreal_measure, NNReal.smul_def, NNReal.coe_sub hγ] using h
+  rw [← NNReal.coe_one, ← NNReal.coe_sub hγ]
+  exact mul_integral_le_integral_of_smul_le smul_le_occupancy_fst hf0 hf
 
 end Flow
 
