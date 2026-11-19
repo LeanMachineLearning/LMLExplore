@@ -5,10 +5,15 @@ Authors: LMLExplore contributors
 -/
 module
 
-public import LMLExplore.Probability.Distributions.ExponentialFamily.Mean
+public import LMLExplore.Probability.Distributions.ExponentialFamily.Invariance
+public import LMLExplore.Probability.Distributions.ExponentialFamily.Posterior.Basic
 public import LMLExplore.Probability.Distributions.Poisson
+public import Mathlib.Probability.Distributions.Gamma
 public import TauCeti.Probability.Distributions.Tilted
 import LMLExplore.Analysis.SpecialFunctions.Log.Basic
+import Mathlib.Analysis.SpecialFunctions.Integrability.Basic
+import TauCeti.MeasureTheory.Measure.WithDensity
+import TauCeti.Probability.Distributions.Gamma.Basic
 
 /-!
 # The Poisson laws as an exponential family
@@ -22,6 +27,14 @@ by `exp η`: the member of natural parameter `η` of the exponential family of `
 natural parameter of the mean `μ` is `log (μ / r)`, the member of mean `μ` is `Po(μ)`, and the
 divergence of the family in the mean parametrization is `d(μ, μ') = μ log (μ / μ') - μ + μ'`. This
 is also the Kullback–Leibler divergence between Poisson laws of positive rates.
+
+The real-valued laws `Po(ℝ, r)` with the identity statistic form the same family (the law of the
+count, `MeasureTheory.Measure.map_expFamily`), with the same means, natural parameters and
+divergence. Its Fisher information at `η` is `ψ''(η) = r exp η`, so its Jeffreys prior is
+`√(r exp η) dη`, the measure `x ^ (-1 / 2) dx` on the means `x ∈ (0, ∞)`. It is
+improper, but finite on the natural parameters of the means at most any level, and its posterior
+after `s ≠ 0` counts of sum `S` is the gamma law of shape `S + 1 / 2` and rate `s` on the means.
+These are the facts that Thompson sampling with the Jeffreys prior for Poisson arms uses [KKM13].
 
 Poisson arms are one of the parametric arm models of bandit identification, for example in
 A. Garivier and E. Kaufmann, *Optimal best arm identification with fixed confidence*, COLT 2016,
@@ -48,6 +61,24 @@ where the closed form of the divergence makes the transportation costs explicit.
 * `LMLExplore.tendsto_expFamilyDiv_poissonMeasure_nhdsGT_zero`,
   `LMLExplore.tendsto_expFamilyDiv_poissonMeasure_atTop`: for `r ≠ 0`, `d(μ, μ') → ∞` as `μ'`
   tends to either endpoint `0` or `∞` of the means.
+* `LMLExplore.expFamily_id_map_cast_poissonMeasure`,
+  `LMLExplore.deriv_cgf_id_map_cast_poissonMeasure`,
+  `LMLExplore.iteratedDeriv_two_cgf_id_map_cast_poissonMeasure`: the members `Po(ℝ, r exp η)`, the
+  mean map `η ↦ r exp η` and the variance function `η ↦ r exp η` of the family of `Po(ℝ, r)`.
+* `LMLExplore.jeffreysPrior_map_cast_poissonMeasure`: the Jeffreys prior is `√(r exp η) dη`.
+* `LMLExplore.map_deriv_cgf_jeffreysPrior_map_cast_poissonMeasure`: for `r ≠ 0`, its image by the
+  mean map is `x ^ (-1 / 2) dx` on `(0, ∞)`.
+* `LMLExplore.jeffreysPrior_map_cast_poissonMeasure_setOf_deriv_cgf_le_ne_top`: it gives finite
+  mass to the natural parameters of the means at most `m`, for every `m`.
+* `LMLExplore.map_deriv_cgf_expFamilyPosterior_map_cast_poissonMeasure_jeffreysPrior`: for
+  `r ≠ 0`, the posterior after `s ≠ 0` observations of sum `S > -1 / 2` is, on the means, the
+  gamma law of shape `S + 1 / 2` and rate `s`; in particular it is a probability measure
+  (`LMLExplore.isProbabilityMeasure_expFamilyPosterior_map_cast_poissonMeasure_jeffreysPrior`).
+
+## References
+
+* [KKM13] N. Korda, E. Kaufmann and R. Munos, *Thompson sampling for 1-dimensional exponential
+  family bandits*, NeurIPS 2013.
 -/
 
 public section
@@ -181,5 +212,173 @@ theorem tendsto_expFamilyDiv_poissonMeasure_atTop (hr : r ≠ 0) (hμ : 0 < μ) 
     hμ).congr' ?_
   filter_upwards [eventually_gt_atTop 0] with μ' hμ'
   exact (expFamilyDiv_poissonMeasure_eq_mul hr hμ hμ').symm
+
+/-! ### The real-valued Poisson laws and the Jeffreys prior -/
+
+section Jeffreys
+
+variable {s : ℕ} {S : ℝ}
+
+/-- The member of natural parameter `η` of the natural exponential family of the real-valued
+Poisson law `Po(ℝ, r)` is `Po(ℝ, r exp η)`. -/
+@[simp]
+theorem expFamily_id_map_cast_poissonMeasure (r : ℝ≥0) (η : ℝ) :
+    Po(ℝ, r).expFamily id η = Po(ℝ, (r * exp η).toNNReal) := by
+  rw [← Measure.map_expFamily .of_discrete, expFamily_poissonMeasure]
+
+/-- The mean map of the natural exponential family of `Po(ℝ, r)` is `η ↦ r exp η`. -/
+@[simp]
+theorem deriv_cgf_id_map_cast_poissonMeasure (r : ℝ≥0) (η : ℝ) :
+    deriv (cgf id Po(ℝ, r)) η = r * exp η := by
+  rw [cgf_id_map .of_discrete, deriv_cgf_natCast_poissonMeasure]
+
+/-- The variance function of the natural exponential family of `Po(ℝ, r)`: the second derivative
+of its log-partition function at `η` is the variance `r exp η` of the member `Po(ℝ, r exp η)`. -/
+@[simp]
+theorem iteratedDeriv_two_cgf_id_map_cast_poissonMeasure (r : ℝ≥0) (η : ℝ) :
+    iteratedDeriv 2 (cgf id Po(ℝ, r)) η = r * exp η := by
+  rw [iteratedDeriv_succ, iteratedDeriv_one, funext (deriv_cgf_id_map_cast_poissonMeasure r)]
+  exact ((hasDerivAt_exp η).const_mul _).deriv
+
+/-- The Jeffreys prior of the natural exponential family of `Po(ℝ, r)` is the measure
+`√(r exp η) dη` on the line of natural parameters. -/
+theorem jeffreysPrior_map_cast_poissonMeasure (r : ℝ≥0) :
+    Po(ℝ, r).jeffreysPrior id = volume.withDensity fun η ↦ ENNReal.ofReal √(r * exp η) := by
+  simp [Measure.jeffreysPrior_def, integrableExpSet_id_map .of_discrete]
+
+/-- The unnormalized posterior density of the natural exponential family of `Po(ℝ, r)` for its
+Jeffreys prior, after `s` observations of sum `S`, is `x` times
+`C x ^ (S - 1 / 2) exp (-s x)` at the mean `x = r exp η`, with `C = exp (s r - S log r)`. -/
+private lemma sqrt_mul_exp_cgf_map_cast_poissonMeasure {r : ℝ} (hr : 0 < r) (η S : ℝ) (s : ℕ) :
+    √(r * exp η) * exp (η * S - s * (r * (exp η - 1))) =
+      r * exp η * (exp (s * r - S * log r) *
+        ((r * exp η) ^ (S - 1 / 2) * exp (-(s * (r * exp η))))) := by
+  have hx : 0 < r * exp η := by positivity
+  have hlog : log (r * exp η) = log r + η := by rw [log_mul hr.ne' (exp_pos η).ne', log_exp]
+  have hexp : r * exp η = exp (log r + η) := by rw [exp_add, exp_log hr]
+  rw [sqrt_eq_rpow, rpow_def_of_pos hx, rpow_def_of_pos hx, hlog, mul_sub r (exp η) 1, mul_one,
+    hexp]
+  simp only [← exp_add]
+  congr 1
+  ring
+
+/-- The image by the mean map of the Jeffreys prior of the natural exponential family of
+`Po(ℝ, r)`, `r ≠ 0`, weighted by the likelihood of `s` observations of sum `S`: the measure
+`C x ^ (S - 1 / 2) exp (-s x) dx` on `(0, ∞)`, with `C = exp (s r - S log r)`. -/
+private lemma map_deriv_cgf_withDensity_jeffreysPrior_map_cast_poissonMeasure {r : ℝ≥0}
+    (hr : r ≠ 0) (s : ℕ) (S : ℝ) :
+    ((Po(ℝ, r).jeffreysPrior id).withDensity fun η ↦
+          ENNReal.ofReal (exp (η * S - s * cgf id Po(ℝ, r) η))).map (deriv (cgf id Po(ℝ, r))) =
+      (volume.restrict (Ioi 0)).withDensity fun x ↦
+        ENNReal.ofReal (exp (s * r - S * log r) * (x ^ (S - 1 / 2) * exp (-(s * x)))) := by
+  have hr' : (0 : ℝ) < r := NNReal.coe_pos.2 (pos_iff_ne_zero.2 hr)
+  have hcgf : cgf id Po(ℝ, r) = fun η ↦ r * (exp η - 1) := by
+    rw [cgf_id_map .of_discrete]
+    exact funext (cgf_natCast_poissonMeasure r)
+  -- the mean map `η ↦ r exp η` carries the density `|r exp η| g(r exp η)` on the line to the
+  -- density `g` on `(0, ∞)`
+  have hmap := TauCeti.MeasureTheory.map_withDensity_abs_deriv_mul
+    («φ» := fun η ↦ (r : ℝ) * exp η) («φ'» := fun η ↦ (r : ℝ) * exp η)
+    (f := fun x ↦
+      ENNReal.ofReal (exp (s * r - S * log r) * (x ^ (S - 1 / 2) * exp (-(s * x)))))
+    MeasurableSet.univ (fun η _ ↦ ((hasDerivAt_exp η).const_mul (r : ℝ)).hasDerivWithinAt)
+    (exp_strictMono.const_mul hr').injective.injOn
+  have hrange : (fun η ↦ (r : ℝ) * exp η) '' univ = Ioi 0 := by
+    ext x
+    refine ⟨fun ⟨η, _, hη⟩ ↦ hη ▸ mul_pos hr' (exp_pos η), fun hx ↦ ⟨log (x / r), trivial, ?_⟩⟩
+    simp only
+    rw [exp_log (div_pos hx hr'), mul_div_cancel₀ _ hr'.ne']
+  rw [Measure.restrict_univ, hrange] at hmap
+  rw [jeffreysPrior_map_cast_poissonMeasure, ← withDensity_mul _ (by fun_prop) (by
+      rw [hcgf]
+      fun_prop),
+    funext (deriv_cgf_id_map_cast_poissonMeasure r), ← hmap]
+  congr 2
+  ext η
+  simp only [Pi.mul_apply, hcgf]
+  rw [abs_of_pos (by positivity), ← ENNReal.ofReal_mul (sqrt_nonneg _),
+    ← ENNReal.ofReal_mul (by positivity), sqrt_mul_exp_cgf_map_cast_poissonMeasure hr' η S s]
+
+/-- The Jeffreys prior of the Poisson family is the measure `x ^ (-1 / 2) dx` on the means
+`(0, ∞)`: the image of the Jeffreys prior of the natural exponential family of `Po(ℝ, r)`,
+`r ≠ 0`, by the mean map `ψ'(η) = r exp η`. -/
+theorem map_deriv_cgf_jeffreysPrior_map_cast_poissonMeasure {r : ℝ≥0} (hr : r ≠ 0) :
+    (Po(ℝ, r).jeffreysPrior id).map (deriv (cgf id Po(ℝ, r))) =
+      (volume.restrict (Ioi 0)).withDensity fun x ↦ ENNReal.ofReal (x ^ (-(1 / 2) : ℝ)) := by
+  have h := map_deriv_cgf_withDensity_jeffreysPrior_map_cast_poissonMeasure hr 0 0
+  simp only [CharP.cast_eq_zero, mul_zero, zero_mul, sub_zero, neg_zero, exp_zero,
+    ENNReal.ofReal_one, one_mul, mul_one, zero_sub] at h
+  rwa [← Pi.one_def, withDensity_one] at h
+
+/-- The Jeffreys prior of the natural exponential family of `Po(ℝ, r)` is finite on the natural
+parameters of the means at most `m`, for every `m`: on the means, it is the measure
+`x ^ (-1 / 2) dx`, which is integrable near `0`. -/
+theorem jeffreysPrior_map_cast_poissonMeasure_setOf_deriv_cgf_le_ne_top (r : ℝ≥0) (m : ℝ) :
+    Po(ℝ, r).jeffreysPrior id {θ | deriv (cgf id Po(ℝ, r)) θ ≤ m} ≠ ∞ := by
+  rcases eq_or_ne r 0 with rfl | hr
+  · rw [jeffreysPrior_map_cast_poissonMeasure]
+    simp
+  set t := max m 0 + 1
+  have ht : 0 < t := by positivity
+  have hsub : {θ | deriv (cgf id Po(ℝ, r)) θ ≤ m} ⊆ deriv (cgf id Po(ℝ, r)) ⁻¹' Iio t :=
+    fun _ hθ ↦ lt_of_le_of_lt hθ ((le_max_left m 0).trans_lt (lt_add_one _))
+  refine ne_top_of_le_ne_top ?_ (measure_mono hsub)
+  rw [← Measure.map_apply (measurable_deriv _) measurableSet_Iio,
+    map_deriv_cgf_jeffreysPrior_map_cast_poissonMeasure hr, withDensity_apply _ measurableSet_Iio,
+    Measure.restrict_restrict measurableSet_Iio, Iio_inter_Ioi]
+  exact ((intervalIntegral.integrableOn_Ioo_rpow_iff ht).2 (by norm_num)).lintegral_lt_top.ne
+
+/-- **The posterior of the Poisson family for the Jeffreys prior is a gamma law**: after `s ≠ 0`
+observations of sum `S > -1 / 2` (for example `s` Poisson counts of sum `S`), the image of the
+posterior of the natural parameter of the exponential family of `Po(ℝ, r)`, `r ≠ 0`, for its
+Jeffreys prior by the mean map `ψ'(η) = r exp η` is the gamma law of shape `S + 1 / 2` and rate
+`s`. -/
+theorem map_deriv_cgf_expFamilyPosterior_map_cast_poissonMeasure_jeffreysPrior {r : ℝ≥0}
+    (hr : r ≠ 0) (hs : s ≠ 0) (hS : -(1 / 2) < S) :
+    (Po(ℝ, r).expFamilyPosterior id (Po(ℝ, r).jeffreysPrior id) s S).map
+        (deriv (cgf id Po(ℝ, r))) =
+      gammaMeasure (S + 1 / 2) s := by
+  have ha : 0 < S + 1 / 2 := by linarith
+  have hs' : (0 : ℝ) < s := Nat.cast_pos.2 (Nat.pos_of_ne_zero hs)
+  have := isProbabilityMeasure_gammaMeasure ha hs'
+  set C := exp (s * r - S * log r)
+  set K := C * Gamma (S + 1 / 2) / s ^ (S + 1 / 2)
+  have hK : 0 < K := by positivity
+  -- on `(0, ∞)`, the weighted Jeffreys prior has `K` times the gamma density
+  have hdens : (fun x ↦ ENNReal.ofReal (C * (x ^ (S - 1 / 2) * exp (-(s * x))))) =ᵐ[
+      volume.restrict (Ioi 0)] ENNReal.ofReal K • gammaPDF (S + 1 / 2) s := by
+    filter_upwards [ae_restrict_mem measurableSet_Ioi] with x (hx : 0 < x)
+    rw [Pi.smul_apply, gammaPDF_of_nonneg hx.le, smul_eq_mul, ← ENNReal.ofReal_mul hK.le]
+    congr 1
+    rw [show S + 1 / 2 - 1 = S - 1 / 2 by ring]
+    have hG := (Gamma_pos_of_pos ha).ne'
+    have hsa := (rpow_pos_of_pos hs' (S + 1 / 2)).ne'
+    simp only [K]
+    generalize Gamma (S + 1 / 2) = G at hG ⊢
+    generalize (s : ℝ) ^ (S + 1 / 2) = B at hsa ⊢
+    field_simp
+  have hf : Measurable (deriv (cgf id Po(ℝ, r))) := measurable_deriv _
+  rw [Measure.expFamilyPosterior_def, integrableExpSet_id_map .of_discrete,
+    integrableExpSet_natCast_poissonMeasure, interior_univ,
+    ← preimage_univ (f := deriv (cgf id Po(ℝ, r))), ← cond_map hf.aemeasurable MeasurableSet.univ,
+    map_deriv_cgf_withDensity_jeffreysPrior_map_cast_poissonMeasure hr, withDensity_congr_ae hdens,
+    withDensity_smul' _ _ ENNReal.ofReal_ne_top,
+    ← TauCeti.Probability.gammaMeasure_eq_withDensity_restrict_Ioi,
+    cond_smul _ _ (ENNReal.ofReal_pos.2 hK).ne' ENNReal.ofReal_ne_top, cond_univ]
+
+/-- The posterior of the natural exponential family of `Po(ℝ, r)`, `r ≠ 0`, for its Jeffreys
+prior, after `s ≠ 0` observations of sum `S > -1 / 2`, is a probability measure: the image of the
+gamma law of shape `S + 1 / 2` and rate `s` by the inverse of the mean map. -/
+theorem isProbabilityMeasure_expFamilyPosterior_map_cast_poissonMeasure_jeffreysPrior {r : ℝ≥0}
+    (hr : r ≠ 0) (hs : s ≠ 0) (hS : -(1 / 2) < S) :
+    IsProbabilityMeasure (Po(ℝ, r).expFamilyPosterior id (Po(ℝ, r).jeffreysPrior id) s S) := by
+  refine Measure.isProbabilityMeasure_expFamilyPosterior_of_ne_zero fun h ↦ ?_
+  have := isProbabilityMeasure_gammaMeasure (a := S + 1 / 2) (by linarith)
+    (Nat.cast_pos.2 (Nat.pos_of_ne_zero hs))
+  have hmap := map_deriv_cgf_expFamilyPosterior_map_cast_poissonMeasure_jeffreysPrior hr hs hS
+  rw [h, Measure.map_zero] at hmap
+  exact IsProbabilityMeasure.ne_zero _ hmap.symm
+
+end Jeffreys
 
 end LMLExplore
