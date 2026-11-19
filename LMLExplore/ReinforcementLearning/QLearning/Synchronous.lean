@@ -70,7 +70,9 @@ rests. Write `V t s = ⨆ a, Q t (s, a)` for the value estimates, `Δ t = Q t - 
 * `LMLExplore.ReinforcementLearning.syncQLearning_succ_sub_optQValue`: the error recursion
   [LCCWC24, (32)]; `LMLExplore.ReinforcementLearning.syncQLearning_succ_sub_optQValue_le`,
   `LMLExplore.ReinforcementLearning.le_syncQLearning_succ_sub_optQValue`: its upper and lower
-  bounds through greedy policies [LCCWC24, (33)–(34)].
+  bounds through greedy policies [LCCWC24, (33)–(34)];
+  `LMLExplore.ReinforcementLearning.syncQLearning_succ_sub_optQValue_of_unique`: the error
+  recursion with one action [LCCWC24, (110)].
 * `LMLExplore.ReinforcementLearning.syncQLearning_sub_optQValue_le`,
   `LMLExplore.ReinforcementLearning.le_syncQLearning_sub_optQValue`: the unrolled bounds
   [LCCWC24, (35)]; `LMLExplore.ReinforcementLearning.syncQLearning_sub_optQValue_eq_of_unique`:
@@ -353,6 +355,26 @@ theorem le_syncQLearning_sub_optQValue (hη : ∀ t, η (t + 1) ∈ Set.Icc (0 :
   simpa only [Nat.add_sub_cancel, mul_assoc] using
     le_syncQLearning_succ_sub_optQValue (hη t).1 ω hπ p
 
+/-- **The error recursion with one action** [LCCWC24, (110)]. With one action, the error
+`Δ t = Q t - Q*` satisfies
+`Δ (t + 1) p = (1 - η (t + 1)) Δ t p + η (t + 1) γ (P Δ t p + (V t (ω t p) - P V t p))`, where
+`V t s = Q t (s, default)`, for any learning rates. -/
+theorem syncQLearning_succ_sub_optQValue_of_unique [Unique 𝓐] (hγ : γ < 1)
+    (hR : ∀ p, ∀ᵐ x ∂(M.R p), |x| ≤ C) (t : ℕ) (ω : ℕ → 𝓢 × 𝓐 → 𝓢) (p : 𝓢 × 𝓐) :
+    syncQLearning (meanReward M.R) γ η Q₀ (t + 1) ω p - M.optQValue γ p =
+      (1 - η (t + 1)) * (syncQLearning (meanReward M.R) γ η Q₀ t ω p - M.optQValue γ p) +
+        η (t + 1) * γ *
+          ((∫ s', (syncQLearning (meanReward M.R) γ η Q₀ t ω (s', default) -
+              M.optQValue γ (s', default)) ∂(M.P p)) +
+            (syncQLearning (meanReward M.R) γ η Q₀ t ω (ω t p, default) -
+              ∫ s', syncQLearning (meanReward M.R) γ η Q₀ t ω (s', default) ∂(M.P p))) := by
+  have hv (s : 𝓢) : M.optQValue γ (s, default) = M.optValue γ s := by
+    rw [← iSup_optQValue hγ hR s, ciSup_unique]
+  rw [syncQLearning_succ_sub_optQValue, ciSup_unique]
+  simp only [hv]
+  rw [integral_sub (.of_finite) (.of_finite)]
+  ring
+
 /-- **The error of synchronous TD learning** [LCCWC24, (110)], unrolled. With one action, the error
 `Δ t = Q t - Q*` is exactly
 `(∏_{j=1}^t (1 - η j)) Δ 0 p + ∑_{i=1}^t η^i_t γ (P Δ (i - 1) p + (P_i - P) V (i - 1) p)`,
@@ -366,15 +388,10 @@ theorem syncQLearning_sub_optQValue_eq_of_unique [Unique 𝓐] (hγ : γ < 1)
               M.optQValue γ (s', default)) ∂(M.P p)) +
             (syncQLearning (meanReward M.R) γ η Q₀ (i - 1) ω (ω (i - 1) p, default) -
               ∫ s', syncQLearning (meanReward M.R) γ η Q₀ (i - 1) ω (s', default) ∂(M.P p)))) := by
-  have hv (s : 𝓢) : M.optQValue γ (s, default) = M.optValue γ s := by
-    rw [← iSup_optQValue hγ hR s, ciSup_unique]
   refine eq_prod_smul_add_sum_learningRateWeight_smul (R := ℝ) (M := ℝ) (x := fun t ↦
     syncQLearning (meanReward M.R) γ η Q₀ t ω p - M.optQValue γ p) (fun t ↦ ?_) t
-  rw [smul_eq_mul, smul_eq_mul, Nat.add_sub_cancel, syncQLearning_succ_sub_optQValue,
-    ciSup_unique]
-  simp only [hv]
-  rw [integral_sub (.of_finite) (.of_finite)]
-  ring
+  rw [smul_eq_mul, smul_eq_mul, Nat.add_sub_cancel,
+    syncQLearning_succ_sub_optQValue_of_unique hγ hR, mul_assoc]
 
 end MDP
 

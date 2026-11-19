@@ -311,12 +311,8 @@ theorem syncQLearning_succ_sub_optQValue_eq_tdStep (hγ : γ < 1)
           (fun q ↦ syncQLearning (meanReward M.R) γ η Q₀ t ω q - M.optQValue γ q) p +
         η (t + 1) * γ * (syncQLearning (meanReward M.R) γ η Q₀ t ω (ω t p, default) -
           ∫ s', syncQLearning (meanReward M.R) γ η Q₀ t ω (s', default) ∂(M.P p)) := by
-  have hv (s : 𝓢) : M.optQValue γ (s, default) = M.optValue γ s := by
-    rw [← iSup_optQValue hγ hR s, ciSup_unique]
-  rw [syncQLearning_succ_sub_optQValue, ciSup_unique, Kernel.tdStep_apply,
+  rw [syncQLearning_succ_sub_optQValue_of_unique hγ hR, Kernel.tdStep_apply,
     integral_saKernel_deterministic _ .of_finite]
-  simp only [hv]
-  rw [integral_sub (.of_finite) (.of_finite)]
   ring
 
 variable (M γ η Q₀) in
