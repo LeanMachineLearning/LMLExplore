@@ -19,7 +19,10 @@ sequence of events `u i ω ∈ s`, `i ≥ n`.
 Stopping at the first of the events `A 0, …, A N` that occurs shows that the probability that
 some event of an adapted sequence occurs is the supremum, over the stopping times `τ`, of the
 probability of the event `A τ` read at `τ` [RRLK, Lemma 2]. A bound on the probability of the
-event read at every stopping time is therefore a bound uniform in time.
+event read at every stopping time is therefore a bound uniform in time. Since that probability
+does not depend on the filtration, a bound on the events of a sequence adapted to a filtration `𝒢`,
+read at the stopping times of `𝒢`, holds at the stopping times of every finer filtration: the
+lifting lemma of [CR26, Lemma 1].
 
 ## Main statements
 
@@ -30,14 +33,20 @@ event read at every stopping time is therefore a bound uniform in time.
 * `MeasureTheory.measure_iUnion_eq_iSup_isStoppingTime`: the measure of the union of an adapted
   sequence of events is the supremum of the measures of the events read at the stopping times with
   values in `ℕ` [RRLK, Lemma 2].
+* `MeasureTheory.forall_isStoppingTime_measure_le_iff_of_le`: the lifting lemma [CR26, Lemma 1].
 
 ## References
+
+* [CR26] Y. J. Choe and A. Ramdas, *Combining evidence across filtrations*, arXiv:2402.09698v5,
+  Lemma 1.
 
 * [RRLK] A. Ramdas, J. Ruf, M. Larsson and W. M. Koolen, *Admissible anytime-valid sequential
   inference must rely on nonnegative martingales*, arXiv:2009.03167v3, Lemma 2.
 -/
 
 public section
+
+open scoped ENNReal
 
 namespace MeasureTheory
 
@@ -89,5 +98,17 @@ theorem measure_iUnion_eq_iSup_isStoppingTime {mΩ : MeasurableSpace Ω} {μ : M
   have h := hittingBtwn_mem_set (u := u) (s := {1}) (n := 0) (m := N) (ω := ω)
     ⟨k, ⟨zero_le, hk⟩, by simp [u, hωk]⟩
   simpa [u] using h
+
+/-- **The lifting lemma** [CR26, Lemma 1]. For filtrations `𝒢 ≤ ℱ` and a sequence of events `A n`
+adapted to the coarser filtration `𝒢`, a bound on the measure of the event `A (τ ω)` read at every
+stopping time `τ` of `𝒢` with values in `ℕ` holds at every stopping time of `ℱ`: both say that the
+measure of the union of the events is at most the bound. -/
+theorem forall_isStoppingTime_measure_le_iff_of_le {mΩ : MeasurableSpace Ω} {μ : Measure Ω}
+    {𝒢 ℱ : Filtration ℕ mΩ} (h𝒢ℱ : 𝒢 ≤ ℱ) {A : ℕ → Set Ω} (hA : ∀ n, MeasurableSet[𝒢 n] (A n))
+    (c : ℝ≥0∞) :
+    (∀ τ : Ω → ℕ, IsStoppingTime 𝒢 (fun ω ↦ (τ ω : WithTop ℕ)) → μ {ω | ω ∈ A (τ ω)} ≤ c) ↔
+      ∀ τ : Ω → ℕ, IsStoppingTime ℱ (fun ω ↦ (τ ω : WithTop ℕ)) → μ {ω | ω ∈ A (τ ω)} ≤ c := by
+  simp_rw [← iSup₂_le_iff, ← measure_iUnion_eq_iSup_isStoppingTime hA,
+    ← measure_iUnion_eq_iSup_isStoppingTime fun n ↦ h𝒢ℱ n _ (hA n)]
 
 end MeasureTheory
