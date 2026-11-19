@@ -85,6 +85,9 @@ lemmas instead of the source's iterated Markov property along an episode.
   is the value `∫ V^π_0 dμ`.
 * `Learning.MDP.Episodic.EpisodicMDP.map_fst_episodeKernel`: forgetting the rewards maps the
   episode laws of `M.episodeEnv H μ` to those of `M.statesEnv H μ`.
+* `Learning.MDP.Episodic.EpisodicMDP.hasLaw_statesKernel_zero`,
+  `Learning.MDP.Episodic.EpisodicMDP.hasLaw_episodeKernel_zero`: the first state of an episode of
+  every `H`-step policy has the initial law `μ`.
 * `Learning.MDP.Episodic.EpisodicMDP.hasCondDistrib_feedback_statesEnv`,
   `Learning.MDP.Episodic.EpisodicMDP.hasCondDistrib_feedback_episodeEnv`: in a run of these
   environments, the episode of round `t` has the law of an episode of the policy of round `t`.
@@ -372,6 +375,20 @@ lemma map_fst_episodeKernel : (M.episodeKernel H μ).map Prod.fst = M.statesKern
   ext π : 1
   rw [Kernel.map_apply _ measurable_fst, episodeKernel_apply, map_fst_episodeLaw,
     statesKernel_apply]
+
+/-- The first state of an episode of an `H`-step policy has the initial law `μ`. -/
+lemma hasLaw_statesKernel_zero [IsProbabilityMeasure μ] (π : Policy 𝓢 𝓐 H) :
+    HasLaw (fun τ ↦ τ 0) μ (M.statesKernel H μ π) := by
+  rw [statesKernel_apply]
+  exact hasLaw_statesLaw_zero
+
+/-- The first state of an episode of an `H`-step policy, read from the joint law of the states
+and the rewards, has the initial law `μ`. -/
+lemma hasLaw_episodeKernel_zero [IsProbabilityMeasure μ] (π : Policy 𝓢 𝓐 H) :
+    HasLaw (fun y ↦ y.1 0) μ (M.episodeKernel H μ π) := by
+  have h := M.hasLaw_statesKernel_zero H μ π
+  rw [← map_fst_episodeKernel, Kernel.map_apply _ measurable_fst] at h
+  exact h.comp ⟨measurable_fst.aemeasurable, rfl⟩
 
 /-- The episode-level environment of the episodic MDP `M` with horizon `H` and initial law `μ`,
 in which the learner observes the state sequences only, the rewards being known: at each round,

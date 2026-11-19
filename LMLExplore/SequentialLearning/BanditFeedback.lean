@@ -7,16 +7,21 @@ module
 
 public import LMLExplore.Probability.ConditionalProbability
 public import LMLExplore.SequentialLearning.Algorithm
+import LMLExplore.Probability.HasCondDistrib
+import LMLExplore.Probability.Martingale.Hoeffding
 
 /-!
-# Feedbacks of a block of rounds with predetermined actions
+# Feedbacks of a stochastic bandit along a run
 
-Consider a run of an algorithm against a stochastic bandit `Environment.bandit ν`, and an event `F`
-known when the action of round `n` is chosen (an event of `h.filtrationAction n`). Suppose that on
-`F` the actions of the rounds `n, n + 1, …, n + L - 1` are almost surely the predetermined arms
-`a 0, …, a (L - 1)`. Then, conditionally on `F`, the feedbacks of these `L` rounds are independent,
-the feedback of round `n + j` having law `ν (a j)`. The actions may depend on the feedbacks of the
-block: only their values on `F` are fixed. For `L = 1` this is LML's
+This file studies the feedbacks of a run of an algorithm against a stochastic bandit
+`Environment.bandit ν`, given the past and the action of their round.
+
+**Blocks of rounds with predetermined actions.** Consider an event `F` known when the action of
+round `n` is chosen (an event of `h.filtrationAction n`). Suppose that on `F` the actions of the
+rounds `n, n + 1, …, n + L - 1` are almost surely the predetermined arms `a 0, …, a (L - 1)`.
+Then, conditionally on `F`, the feedbacks of these `L` rounds are independent, the feedback of
+round `n + j` having law `ν (a j)`. The actions may depend on the feedbacks of the block: only
+their values on `F` are fixed. For `L = 1` this is LML's
 `Learning.IsAlgEnvSeq.hasLaw_feedback_cond_bandit`, the law of the feedback of one round given the
 past and the action of that round.
 
@@ -24,17 +29,30 @@ This is how the observations of an algorithm that commits to a sequence of arms 
 a phase of a phased-elimination algorithm, are analyzed: given the information at the start of the
 block, the block is a sample from the product of the laws of its arms.
 
+**Concentration around the conditional means.** Given the past and the action `A k` of round
+`k`, a function `g k (A k, Y k)` of the action and the feedback has conditional mean
+`∫ y, g k (A k, y) ∂(ν (A k))`. For bounded functions, the deviations from these conditional means
+are martingale differences, and the Azuma–Hoeffding inequality bounds their sum. This compares a
+quantity realized along the run with its version averaged over the feedbacks given the actions,
+such as a regret at the realized feedbacks with a pseudo-regret.
+
 ## Main statements
 
 * `Learning.IsAlgEnvSeq.measure_inter_forall_feedback_mem_bandit`:
   `P(F ∩ {∀ j < L, Y_{n+j} ∈ B j}) = P(F) ∏_{j < L} ν (a j) (B j)`.
 * `Learning.IsAlgEnvSeq.hasLaw_pi_feedback_cond_bandit`: the vector `(Y_{n+j})_{j < L}` has law the
   product measure `Measure.pi fun j ↦ ν (a j)` under `P[|F]`.
+* `Learning.IsAlgEnvSeq.condExp_comp_action_feedback_bandit`: the conditional expectation of
+  `g (A n, Y n)` given the past and the action of round `n` is `∫ y, g (A n, y) ∂(ν (A n))`.
+* `Learning.IsAlgEnvSeq.measureReal_le_abs_sum_integral_sub_bandit`: for `g k` with values in
+  `[a k, b k]`, the Azuma–Hoeffding bound
+  `P(ε ≤ |∑ k < n, (∫ y, g k (A k, y) ∂(ν (A k)) - g k (A k, Y k))|)
+    ≤ 2 exp (-2 ε ^ 2 / ∑ k < n, (b k - a k) ^ 2)`.
 -/
 
 public section
 
-open MeasureTheory ProbabilityTheory
+open MeasureTheory ProbabilityTheory Finset Real
 
 open scoped ENNReal
 
@@ -106,5 +124,59 @@ theorem IsAlgEnvSeq.hasLaw_pi_feedback_cond_bandit [IsFiniteMeasure P]
   hasLaw_pi_cond_of_measure_inter_forall_mem (Z := fun ω (j : Fin L) ↦ Y (n + j) ω)
     (Measurable.of_eval fun j ↦ h.measurable_feedback (n + j)) hPF (measure_ne_top P F)
     fun _ hB ↦ h.measure_inter_forall_feedback_mem_bandit hF ha hB
+
+/-! ### Concentration around the conditional means -/
+
+/-- **Conditional mean of a function of the action and the feedback.** Along a run against the
+stochastic bandit `Environment.bandit ν`, given the past and the action of round `n`, the
+function `g (A n, Y n)` of the action and the feedback of round `n` has conditional expectation
+`∫ y, g (A n, y) ∂(ν (A n))`. -/
+theorem IsAlgEnvSeq.condExp_comp_action_feedback_bandit [IsFiniteMeasure P]
+    (h : IsAlgEnvSeq O A Y alg (Environment.bandit ν) P) (n : ℕ) {g : 𝓐 × 𝓨 → ℝ}
+    (hg : Measurable g) (hint : Integrable (fun ω ↦ g (A n ω, Y n ω)) P) :
+    P[fun ω ↦ g (A n ω, Y n ω) | h.filtrationAction n] =ᵐ[P]
+      fun ω ↦ ∫ y, g (A n ω, y) ∂(ν (A n ω)) := by
+  have hX : Measurable fun ω ↦ ((history O A Y n ω, O n ω), A n ω) :=
+    ((h.measurable_history n).prodMk (h.measurable_obs n)).prodMk (h.measurable_action n)
+  -- the feedback has conditional law `ν (A n)` given the past and the action
+  have hcd := h.hasCondDistrib_feedback n
+  rw [feedback_bandit] at hcd
+  have hg' : Measurable fun z : ((Hist Unit 𝓐 𝓨 n × Unit) × 𝓐) × 𝓨 ↦ g (z.1.2, z.2) :=
+    hg.comp (measurable_fst.snd.prodMk measurable_snd)
+  rw [h.filtrationAction_eq_comap]
+  filter_upwards [hcd.condExp_prod_ae_eq_integral hX
+    ((hcd.integrable_comp_prodMk_iff hg'.aestronglyMeasurable).1 hint)] with ω hω
+  rw [hω, Kernel.prodMkLeft_apply]
+
+/-- **Azuma–Hoeffding inequality for the feedbacks of a stochastic bandit.** Along a run against
+`Environment.bandit ν`, let `g k` be measurable with values in `[a k, b k]`. Then for `ε ≥ 0`, the
+sum of the deviations of `g k (A k, Y k)` from their conditional means
+`∫ y, g k (A k, y) ∂(ν (A k))` satisfies
+`P(ε ≤ |∑ k < n, (∫ y, g k (A k, y) ∂(ν (A k)) - g k (A k, Y k))|)
+  ≤ 2 exp (-2 ε ^ 2 / ∑ k < n, (b k - a k) ^ 2)`. -/
+theorem IsAlgEnvSeq.measureReal_le_abs_sum_integral_sub_bandit [IsProbabilityMeasure P]
+    (h : IsAlgEnvSeq O A Y alg (Environment.bandit ν) P) {g : ℕ → 𝓐 × 𝓨 → ℝ}
+    (hg : ∀ k, Measurable (g k)) {a b : ℕ → ℝ} (hgab : ∀ k p, g k p ∈ Set.Icc (a k) (b k))
+    (n : ℕ) {ε : ℝ} (hε : 0 ≤ ε) :
+    P.real {ω | ε ≤
+        |∑ k ∈ range n, (∫ y, g k (A k ω, y) ∂(ν (A k ω)) - g k (A k ω, Y k ω))|} ≤
+      2 * exp (-2 * ε ^ 2 / ∑ k ∈ range n, (b k - a k) ^ 2) := by
+  -- `g k (A k, Y k)` is known after round `k`, that is when the action of round `k + 1` is chosen
+  have hX : ∀ k, Measurable[h.filtrationAction (k + 1)] fun ω ↦ g k (A k ω, Y k ω) := fun k ↦
+    ((hg k).comp ((h.adapted_action k).prodMk (h.adapted_feedback k))).mono
+      (h.filtration_le_filtrationAction_succ k) le_rfl
+  have hce : ∀ k, P[fun ω ↦ g k (A k ω, Y k ω) | h.filtrationAction k] =ᵐ[P]
+      fun ω ↦ ∫ y, g k (A k ω, y) ∂(ν (A k ω)) := fun k ↦
+    h.condExp_comp_action_feedback_bandit k (hg k)
+      (.of_mem_Icc (a k) (b k) ((hX k).mono (h.filtrationAction.le _) le_rfl).aemeasurable
+        (.of_forall fun ω ↦ hgab k _))
+  have hset : {ω | ε ≤ |∑ k ∈ range n,
+        (P[fun ω ↦ g k (A k ω, Y k ω) | h.filtrationAction k] ω - g k (A k ω, Y k ω))|} =ᵐ[P]
+      {ω | ε ≤ |∑ k ∈ range n, (∫ y, g k (A k ω, y) ∂(ν (A k ω)) - g k (A k ω, Y k ω))|} := by
+    filter_upwards [ae_all_iff.2 hce] with ω hω
+    rw [sum_congr rfl fun k _ ↦ congrArg (· - g k (A k ω, Y k ω)) (hω k)]
+  rw [← measureReal_congr hset]
+  exact LMLExplore.measureReal_le_abs_sum_condExp_sub_le hX n
+    (fun k _ ↦ .of_forall fun ω ↦ hgab k _) hε
 
 end Learning
