@@ -49,7 +49,8 @@ eigenvalues. The ridge regularizer `λ • 1` is one for `λ > 0`
   operator `V_t(0)` is the span of `x 0, …, x (t - 1)`.
 * `LMLExplore.mul_inner_ringInverse_designOp_apply_le`: `λ ‖v‖²_{V_t(λ)⁻¹} ≤ ‖v‖²` for `λ > 0`.
 * `LMLExplore.ringInverse_designOp_succ`: the rank-one update of the inverse
-  (Sherman–Morrison formula).
+  (Sherman–Morrison formula), and `LMLExplore.inner_ringInverse_designOp_succ`: its consequence
+  `‖x t‖²_{V_{t+1}⁻¹} = u / (1 + u)` with `u = ‖x t‖²_{V_t⁻¹}`.
 * `LMLExplore.det_designOp_succ`: `det V_{t+1} = det V_t * (1 + ‖x t‖²_{V_t⁻¹})`, and
   `LMLExplore.det_designOp_eq_mul_prod`: `det V_t = det V₀ * ∏_{s < t} (1 + ‖x s‖²_{V_s⁻¹})`.
 * `LMLExplore.trace_designOp`: `trace V_t(V₀) = trace V₀ + ∑_{s < t} ‖x s‖²`, and
@@ -205,6 +206,20 @@ theorem ringInverse_designOp_succ (hV₀ : V₀.IsPositive) (hV₀u : IsUnit V�
   exact ringInverse_add_rankOne_of_isSymmetric (isUnit_designOp hV₀ hV₀u x t)
     (isPositive_designOp hV₀ x t).isSymmetric (x t) (x t)
     ((isPositive_designOp hV₀ x t).one_add_inner_ringInverse_pos _).ne'
+
+/-- The weighted norm of the current vector after the update: for a positive definite regularizer
+`V₀`, `‖x t‖²_{V_{t+1}⁻¹} = u / (1 + u)` with `u = ‖x t‖²_{V_t⁻¹}`. -/
+theorem inner_ringInverse_designOp_succ (hV₀ : V₀.IsPositive) (hV₀u : IsUnit V₀)
+    (x : ℕ → E) (t : ℕ) :
+    ⟪x t, Ring.inverse (designOp V₀ x (t + 1)) (x t)⟫_ℝ =
+      ⟪x t, Ring.inverse (designOp V₀ x t) (x t)⟫_ℝ /
+        (1 + ⟪x t, Ring.inverse (designOp V₀ x t) (x t)⟫_ℝ) := by
+  have hpos := (isPositive_designOp hV₀ x t).one_add_inner_ringInverse_pos (x t)
+  rw [ringInverse_designOp_succ hV₀ hV₀u, sub_apply, smul_apply, rankOne_apply, inner_sub_right,
+    inner_smul_right, inner_smul_right]
+  rw [real_inner_comm (Ring.inverse (designOp V₀ x t) (x t))] at ⊢ hpos
+  field_simp
+  ring
 
 /-- If `∑_{s < t} ⟪x s, w⟫² = 0`, then `w` is orthogonal to the span of `x 0, …, x (t - 1)`. -/
 theorem span_le_orthogonal_singleton_of_sum_inner_sq_eq_zero {x : ℕ → E} {t : ℕ} {w : E}
