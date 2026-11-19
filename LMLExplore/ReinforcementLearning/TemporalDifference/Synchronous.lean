@@ -60,8 +60,9 @@ resulting sample complexity are not in this file.
   `ProbabilityTheory.Kernel.abs_tdPropagator_le`: positivity, action on constants and the
   resulting sup-norm bound [LCCWC24, (109)].
 * `ProbabilityTheory.Kernel.tdPropagator_apply_eq_sum`: the propagator as a matrix.
-* `ProbabilityTheory.Kernel.sum_mul_tdPropagator_le_integral_resolvent`: domination of the
-  weighted sums of propagators by the resolvent.
+* `ProbabilityTheory.Kernel.sum_mul_tdPropagator_succ`,
+  `ProbabilityTheory.Kernel.sum_mul_tdPropagator_le_integral_resolvent`: the recursion of the
+  weighted sums of propagators and their domination by the resolvent.
 * `LMLExplore.ReinforcementLearning.syncQLearning_succ_sub_optQValue_eq_tdStep`,
   `LMLExplore.ReinforcementLearning.syncQLearning_sub_optQValue_eq_tdPropagator`: the error
   recursion and its unrolled form [LCCWC24, (110)–(111)].
@@ -238,6 +239,23 @@ private lemma sum_mul_tdPropagator_single_mul [Fintype α] [DecidableEq α] (k t
   simp_rw [mul_assoc, ← mul_sum]
   rw [tdPropagator_apply_eq_sum k t f x]
 
+/-- The recursion of the weighted sums of propagators: for `m ≤ t`, the sum
+`∑_{k = m + 1}^{t + 1} η k Φ k (t + 1) f` is the image of `∑_{k = m + 1}^t η k Φ k t f` under the
+step `I - η (t + 1) (I - γ κ)`, plus `η (t + 1) f`. -/
+lemma sum_mul_tdPropagator_succ {m t : ℕ} (hm : m ≤ t) (f : α → ℝ) (x : α) :
+    ∑ k ∈ Ioc m (t + 1), η k * tdPropagator κ γ η k (t + 1) f x =
+      tdStep κ γ (η (t + 1)) (fun x ↦ ∑ k ∈ Ioc m t, η k * tdPropagator κ γ η k t f x) x +
+        η (t + 1) * f x := by
+  have : (fun x ↦ ∑ k ∈ Ioc m t, η k * tdPropagator κ γ η k t f x) =
+      ∑ k ∈ Ioc m t, η k • tdPropagator κ γ η k t f := by
+    funext x
+    simp
+  rw [sum_Ioc_succ_top hm, this, map_sum, tdPropagator_self, one_apply_eq_self]
+  simp only [Finset.sum_apply, map_smul, Pi.smul_apply, smul_eq_mul]
+  congr 1
+  refine sum_congr rfl fun k hk ↦ ?_
+  rw [tdPropagator_succ (mem_Ioc.1 hk).2, mul_apply_eq_comp]
+
 /-- **The propagators are dominated by the resolvent** [LCCWC24, Section C.2]. For `γ < 1`,
 learning rates in `[0, 1]` and `f ≥ 0`,
 `∑_{k = m + 1}^t η k Φ k t f ≤ (I - γ κ)⁻¹ f = R_γ(κ) f`. -/
@@ -257,25 +275,12 @@ theorem sum_mul_tdPropagator_le_integral_resolvent [IsMarkovKernel κ] (hγ : γ
   | zero => simpa using integral_nonneg hf
   | succ t ih =>
     rcases le_or_gt m t with hm | hm
-    · -- the sum at `t + 1` is the image of the sum at `t` under the step `t + 1`, plus `η f`
-      have hsum : ∑ k ∈ Ioc m (t + 1), η k * tdPropagator κ γ η k (t + 1) f x =
-          tdStep κ γ (η (t + 1)) (fun x ↦ ∑ k ∈ Ioc m t, η k * tdPropagator κ γ η k t f x) x +
-            η (t + 1) * f x := by
-        have : (fun x ↦ ∑ k ∈ Ioc m t, η k * tdPropagator κ γ η k t f x) =
-            ∑ k ∈ Ioc m t, η k • tdPropagator κ γ η k t f := by
-          funext x
-          simp
-        rw [sum_Ioc_succ_top hm, this, map_sum, tdPropagator_self, one_apply_eq_self]
-        simp only [Finset.sum_apply, map_smul, Pi.smul_apply, smul_eq_mul]
-        congr 1
-        refine sum_congr rfl fun k hk ↦ ?_
-        rw [tdPropagator_succ (mem_Ioc.1 hk).2, mul_apply_eq_comp]
-      have hη' : η (t + 1) ∈ Set.Icc (0 : ℝ) 1 := hη _ (mem_Ioc.2 ⟨by omega, le_rfl⟩)
+    · have hη' : η (t + 1) ∈ Set.Icc (0 : ℝ) 1 := hη _ (mem_Ioc.2 ⟨by omega, le_rfl⟩)
       have hle := tdStep_nonneg (κ := κ) (γ := γ) hη'
         (sub_nonneg.2 (fun x ↦ ih (fun i hi ↦ hη i (Ioc_subset_Ioc_right t.le_succ hi)) x :
           (fun x ↦ ∑ k ∈ Ioc m t, η k * tdPropagator κ γ η k t f x) ≤ u)) x
       rw [map_sub, Pi.sub_apply, Pi.zero_apply, sub_nonneg] at hle
-      calc _ = _ := hsum
+      calc _ = _ := sum_mul_tdPropagator_succ hm f x
         _ ≤ tdStep κ γ (η (t + 1)) u x + η (t + 1) * f x := by linarith
         _ = u x := hfix _ x
     · rw [Ioc_eq_empty (by omega), sum_empty]
@@ -314,52 +319,6 @@ theorem syncQLearning_succ_sub_optQValue_eq_tdStep (hγ : γ < 1)
   rw [integral_sub (.of_finite) (.of_finite)]
   ring
 
-/-- **The error decomposition of synchronous TD learning** [LCCWC24, (111)]. With one action, the
-error `Δ t = Q t - Q*` is
-`Δ t = Φ 0 t Δ 0 + ∑_{k < t} η (k + 1) γ Φ (k + 1) t (P_{k+1} - P) V k`, where `Φ k t` is the
-propagator of the mean dynamics with the state-action kernel `P` of the unique policy and
-`(P_{k+1} - P) V k p = V k (ω k p) - P V k p` is the sampling noise of the value estimate
-`V k s = Q k (s, default)` at iteration `k + 1`. -/
-theorem syncQLearning_sub_optQValue_eq_tdPropagator (hγ : γ < 1)
-    (hR : ∀ p, ∀ᵐ x ∂(M.R p), |x| ≤ C) (t : ℕ) (ω : ℕ → 𝓢 × 𝓐 → 𝓢) (p : 𝓢 × 𝓐) :
-    syncQLearning (meanReward M.R) γ η Q₀ t ω p - M.optQValue γ p =
-      Kernel.tdPropagator
-        (M.saKernel (Kernel.deterministic (fun _ ↦ default) measurable_const)) γ η 0 t
-          (fun q ↦ Q₀ q - M.optQValue γ q) p +
-        ∑ k ∈ range t, η (k + 1) * γ *
-          Kernel.tdPropagator
-            (M.saKernel (Kernel.deterministic (fun _ ↦ default) measurable_const)) γ η
-            (k + 1) t (fun q ↦ syncQLearning (meanReward M.R) γ η Q₀ k ω (ω k q, default) -
-              ∫ s', syncQLearning (meanReward M.R) γ η Q₀ k ω (s', default) ∂(M.P q)) p := by
-  set κ := M.saKernel (Kernel.deterministic (fun _ : 𝓢 ↦ (default : 𝓐)) measurable_const)
-  set N : ℕ → 𝓢 × 𝓐 → ℝ := fun k q ↦ syncQLearning (meanReward M.R) γ η Q₀ k ω (ω k q, default) -
-    ∫ s', syncQLearning (meanReward M.R) γ η Q₀ k ω (s', default) ∂(M.P q)
-  suffices h : (fun q ↦ syncQLearning (meanReward M.R) γ η Q₀ t ω q - M.optQValue γ q) =
-      κ.tdPropagator γ η 0 t (fun q ↦ Q₀ q - M.optQValue γ q) +
-        ∑ k ∈ range t, (η (k + 1) * γ) • κ.tdPropagator γ η (k + 1) t (N k) by
-    rw [congrFun h p]
-    simp [Finset.sum_apply, κ, N]
-  induction t with
-  | zero => simp
-  | succ t ih =>
-    have hstep : (fun q ↦ syncQLearning (meanReward M.R) γ η Q₀ (t + 1) ω q - M.optQValue γ q) =
-        κ.tdStep γ (η (t + 1)) (fun q ↦ syncQLearning (meanReward M.R) γ η Q₀ t ω q -
-          M.optQValue γ q) + (η (t + 1) * γ) • N t := by
-      funext q
-      rw [syncQLearning_succ_sub_optQValue_eq_tdStep hγ hR, Pi.add_apply, Pi.smul_apply,
-        smul_eq_mul]
-    rw [hstep, ih, map_add, map_sum, sum_range_succ, Kernel.tdPropagator_self,
-      Kernel.tdPropagator_succ (Nat.zero_le t), mul_apply_eq_comp, one_apply_eq_self, add_assoc]
-    congr 2
-    refine sum_congr rfl fun k hk ↦ ?_
-    rw [map_smul, Kernel.tdPropagator_succ (mem_range.1 hk), mul_apply_eq_comp]
-
-/-- Learning rates in `[0, 1]` from iteration `1` on are in `[0, 1]` on every `Ioc k t`. -/
-private lemma mem_Icc_of_mem_Ioc (hη : ∀ t, η (t + 1) ∈ Set.Icc (0 : ℝ) 1) {k t i : ℕ}
-    (hi : i ∈ Ioc k t) : η i ∈ Set.Icc (0 : ℝ) 1 := by
-  obtain ⟨j, rfl⟩ : ∃ j, i = j + 1 := ⟨i - 1, by have := (mem_Ioc.1 hi).1; omega⟩
-  exact hη j
-
 variable (M γ η Q₀) in
 omit [Nonempty 𝓢] in
 /-- The noise `ξ t p = ∑_{k < t} η (k + 1) γ Φ (k + 1) t ((P_{k+1} - P) V k) p` of the error
@@ -381,6 +340,48 @@ lemma tdNoise_def (t : ℕ) (ω : ℕ → 𝓢 × 𝓐 → 𝓢) (p : 𝓢 × �
         γ η (k + 1) t (fun q ↦ syncQLearning (meanReward M.R) γ η Q₀ k ω (ω k q, default) -
           ∫ s', syncQLearning (meanReward M.R) γ η Q₀ k ω (s', default) ∂(M.P q)) p :=
   (rfl)
+
+/-- **The error decomposition of synchronous TD learning** [LCCWC24, (111)]. With one action, the
+error `Δ t = Q t - Q*` is `Δ t = Φ 0 t Δ 0 + ξ t`, where `Φ k t` is the propagator of the mean
+dynamics with the state-action kernel `P` of the unique policy and
+`ξ t = ∑_{k < t} η (k + 1) γ Φ (k + 1) t (P_{k+1} - P) V k` is the noise term
+`LMLExplore.ReinforcementLearning.tdNoise`, with the sampling noise
+`(P_{k+1} - P) V k p = V k (ω k p) - P V k p` of the value estimate `V k s = Q k (s, default)` at
+iteration `k + 1`. -/
+theorem syncQLearning_sub_optQValue_eq_tdPropagator (hγ : γ < 1)
+    (hR : ∀ p, ∀ᵐ x ∂(M.R p), |x| ≤ C) (t : ℕ) (ω : ℕ → 𝓢 × 𝓐 → 𝓢) (p : 𝓢 × 𝓐) :
+    syncQLearning (meanReward M.R) γ η Q₀ t ω p - M.optQValue γ p =
+      Kernel.tdPropagator
+        (M.saKernel (Kernel.deterministic (fun _ ↦ default) measurable_const)) γ η 0 t
+          (fun q ↦ Q₀ q - M.optQValue γ q) p + tdNoise M γ η Q₀ t ω p := by
+  set κ := M.saKernel (Kernel.deterministic (fun _ : 𝓢 ↦ (default : 𝓐)) measurable_const)
+  set N : ℕ → 𝓢 × 𝓐 → ℝ := fun k q ↦ syncQLearning (meanReward M.R) γ η Q₀ k ω (ω k q, default) -
+    ∫ s', syncQLearning (meanReward M.R) γ η Q₀ k ω (s', default) ∂(M.P q)
+  suffices h : (fun q ↦ syncQLearning (meanReward M.R) γ η Q₀ t ω q - M.optQValue γ q) =
+      κ.tdPropagator γ η 0 t (fun q ↦ Q₀ q - M.optQValue γ q) +
+        ∑ k ∈ range t, (η (k + 1) * γ) • κ.tdPropagator γ η (k + 1) t (N k) by
+    rw [congrFun h p, tdNoise_def]
+    simp [Finset.sum_apply, κ, N]
+  induction t with
+  | zero => simp
+  | succ t ih =>
+    have hstep : (fun q ↦ syncQLearning (meanReward M.R) γ η Q₀ (t + 1) ω q - M.optQValue γ q) =
+        κ.tdStep γ (η (t + 1)) (fun q ↦ syncQLearning (meanReward M.R) γ η Q₀ t ω q -
+          M.optQValue γ q) + (η (t + 1) * γ) • N t := by
+      funext q
+      rw [syncQLearning_succ_sub_optQValue_eq_tdStep hγ hR, Pi.add_apply, Pi.smul_apply,
+        smul_eq_mul]
+    rw [hstep, ih, map_add, map_sum, sum_range_succ, Kernel.tdPropagator_self,
+      Kernel.tdPropagator_succ (Nat.zero_le t), mul_apply_eq_comp, one_apply_eq_self, add_assoc]
+    congr 2
+    refine sum_congr rfl fun k hk ↦ ?_
+    rw [map_smul, Kernel.tdPropagator_succ (mem_range.1 hk), mul_apply_eq_comp]
+
+/-- Learning rates in `[0, 1]` from iteration `1` on are in `[0, 1]` on every `Ioc k t`. -/
+private lemma mem_Icc_of_mem_Ioc (hη : ∀ t, η (t + 1) ∈ Set.Icc (0 : ℝ) 1) {k t i : ℕ}
+    (hi : i ∈ Ioc k t) : η i ∈ Set.Icc (0 : ℝ) 1 := by
+  obtain ⟨j, rfl⟩ : ∃ j, i = j + 1 := ⟨i - 1, by have := (mem_Ioc.1 hi).1; omega⟩
+  exact hη j
 
 variable (M γ η Q₀) in
 omit [Nonempty 𝓢] in
@@ -483,7 +484,7 @@ private lemma lt_abs_tdNoise_of_lt_abs_syncQLearning_sub_optQValue (hγ : γ < 1
     (κ := M.saKernel (Kernel.deterministic (fun _ ↦ default) measurable_const)) (γ := γ)
     (k := 0) (t := t) (fun i hi ↦ mem_Icc_of_mem_Ioc hη hi) (f := fun q ↦ Q₀ q - M.optQValue γ q)
     (fun q ↦ by simpa using abs_syncQLearning_sub_optQValue_le (η := η) hγ hR hη hQ₀ 0 ω q) p
-  rw [syncQLearning_sub_optQValue_eq_tdPropagator hγ hRabs, ← tdNoise_def] at h
+  rw [syncQLearning_sub_optQValue_eq_tdPropagator hγ hRabs] at h
   linarith [(abs_add_le _ _).trans_lt' h]
 
 /-- **The high-probability error bound of synchronous TD learning** [LCCWC24, (112)–(116)]. With

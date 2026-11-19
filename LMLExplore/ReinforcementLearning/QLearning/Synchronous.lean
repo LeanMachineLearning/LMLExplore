@@ -385,6 +385,16 @@ section Noise
 variable {m𝓢 : MeasurableSpace 𝓢} {m𝓐 : MeasurableSpace 𝓐} [Finite 𝓢]
   [MeasurableSingletonClass 𝓢] [Finite 𝓐] {P : Kernel (𝓢 × 𝓐) 𝓢} [IsMarkovKernel P]
 
+omit [IsMarkovKernel P] in
+/-- The value map `(q, s) ↦ ⨆ a, q (s, a)` and its `P p`-integral `q ↦ ∫ s', ⨆ a, q (s', a) dP p`
+are measurable. -/
+private lemma measurable_iSup_apply_and_integral (p : 𝓢 × 𝓐) :
+    (Measurable fun z : (𝓢 × 𝓐 → ℝ) × 𝓢 ↦ ⨆ a, z.1 (z.2, a)) ∧
+      Measurable fun q : 𝓢 × 𝓐 → ℝ ↦ ∫ s', ⨆ a, q (s', a) ∂(P p) := by
+  have hV : Measurable fun z : (𝓢 × 𝓐 → ℝ) × 𝓢 ↦ ⨆ a, z.1 (z.2, a) :=
+    Measurable.iSup_apply_prodMk measurable_fst measurable_snd
+  exact ⟨hV, (hV.stronglyMeasurable.integral_prod_right' (ν := P p)).measurable⟩
+
 /-- **Freezing the iterate.** Under the generative model `Bandits.streamMeasure P`, given the first
 `t` samples, the sample `ω t p` keeps its law `P p` while the iterate `Q t` is known: for every
 measurable `f`, the conditional mean of `f (Q t, ω t p)` is `∫ s', f (Q t, s') dP p`. -/
@@ -435,15 +445,13 @@ theorem condExp_sq_sub_integral_iSup_syncQLearning (t : ℕ) (p : 𝓢 × 𝓐) 
           ∫ s', ⨆ a, syncQLearning r γ η Q₀ t ω (s', a) ∂(P p)) ^ 2 |
         Filtration.naturalLT (fun i (ω : ℕ → 𝓢 × 𝓐 → 𝓢) ↦ ω i) measurable_pi_apply t] =ᵐ[
       streamMeasure P] fun ω ↦ Var[fun s' ↦ ⨆ a, syncQLearning r γ η Q₀ t ω (s', a); P p] := by
-  have hV : Measurable fun z : (𝓢 × 𝓐 → ℝ) × 𝓢 ↦ ⨆ a, z.1 (z.2, a) :=
-    Measurable.iSup_apply_prodMk measurable_fst measurable_snd
-  have hmean : Measurable fun q : 𝓢 × 𝓐 → ℝ ↦ ∫ s', ⨆ a, q (s', a) ∂(P p) :=
-    (hV.stronglyMeasurable.integral_prod_right' (ν := P p)).measurable
+  obtain ⟨hV, hmean⟩ := measurable_iSup_apply_and_integral (P := P) p
   refine (condExp_comp_syncQLearning
     (f := fun z ↦ ((⨆ a, z.1 (z.2, a)) - ∫ s', ⨆ a, z.1 (s', a) ∂(P p)) ^ 2)
     ((hV.sub (hmean.comp measurable_fst)).pow_const 2) t p).trans (ae_of_all _ fun ω ↦ ?_)
   exact (variance_eq_integral (Measurable.of_discrete.aemeasurable)).symm
 
+omit [IsMarkovKernel P] in
 /-- The sampling noise `V t (ω t p) - P V t p` of the value estimate `V t s = ⨆ a, Q t (s, a)` is
 measurable for the σ-algebra of the first `t + 1` samples. -/
 theorem measurable_iSup_syncQLearning_sub_integral (t : ℕ) (p : 𝓢 × 𝓐) :
@@ -455,10 +463,8 @@ theorem measurable_iSup_syncQLearning_sub_integral (t : ℕ) (p : 𝓢 × 𝓐) 
     (measurable_syncQLearning t).mono (ℱ.mono t.le_succ) le_rfl
   have hω : Measurable[ℱ (t + 1)] fun ω : ℕ → 𝓢 × 𝓐 → 𝓢 ↦ ω t :=
     Filtration.measurable_naturalLT measurable_pi_apply t.lt_succ_self
-  have hV : Measurable fun z : (𝓢 × 𝓐 → ℝ) × 𝓢 ↦ ⨆ a, z.1 (z.2, a) :=
-    Measurable.iSup_apply_prodMk measurable_fst measurable_snd
   exact (Measurable.iSup_apply_prodMk hQ ((measurable_pi_apply p).comp hω)).sub
-    ((hV.stronglyMeasurable.integral_prod_right' (ν := P p)).measurable.comp hQ)
+    ((measurable_iSup_apply_and_integral (P := P) p).2.comp hQ)
 
 /-- **The sampling noise is centered.** Under the generative model, given the first `t` samples,
 the sampling noise `V t (ω t p) - P V t p` of the value estimate `V t s = ⨆ a, Q t (s, a)` has
@@ -468,12 +474,10 @@ theorem condExp_iSup_syncQLearning_sub_integral (t : ℕ) (p : 𝓢 × 𝓐) :
           ∫ s', ⨆ a, syncQLearning r γ η Q₀ t ω (s', a) ∂(P p) |
         Filtration.naturalLT (fun i (ω : ℕ → 𝓢 × 𝓐 → 𝓢) ↦ ω i) measurable_pi_apply t] =ᵐ[
       streamMeasure P] 0 := by
-  have hV : Measurable fun z : (𝓢 × 𝓐 → ℝ) × 𝓢 ↦ ⨆ a, z.1 (z.2, a) :=
-    Measurable.iSup_apply_prodMk measurable_fst measurable_snd
+  obtain ⟨hV, hmean⟩ := measurable_iSup_apply_and_integral (P := P) p
   refine (condExp_comp_syncQLearning
     (f := fun z ↦ (⨆ a, z.1 (z.2, a)) - ∫ s', ⨆ a, z.1 (s', a) ∂(P p))
-    (hV.sub ((hV.stronglyMeasurable.integral_prod_right' (ν := P p)).measurable.comp
-      measurable_fst)) t p).trans (.of_forall fun ω ↦ ?_)
+    (hV.sub (hmean.comp measurable_fst)) t p).trans (.of_forall fun ω ↦ ?_)
   dsimp only
   rw [integral_sub (.of_finite) (integrable_const _), integral_const, probReal_univ, one_smul,
     sub_self, Pi.zero_apply]
