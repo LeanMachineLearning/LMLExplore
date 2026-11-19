@@ -34,7 +34,8 @@ policy `π`, these marginals are given by powers of two kernels:
 Integrating a function against `M.stateKernel π s` averages over the actions `a` of `π s` its
 integral against `M.P (s, a)` (`integral_stateKernel`, and `integral_stateKernel_eq_sum` for
 finitely many actions); integrating a function against `M.saKernel π p` integrates over `M.P p`
-its average over the actions of `π` (`integral_saKernel`). The state kernel of a deterministic
+its average over the actions of `π` (`integral_saKernel`), and for a deterministic policy its value
+at the action of the policy (`integral_saKernel_deterministic`). The state kernel of a deterministic
 stationary policy `d` is `s ↦ M.P (s, d s)` (`stateKernel_deterministic_apply`).
 
 The deterministic stationary policies `policyAlg π hπ` are Markov policies
@@ -165,6 +166,16 @@ lemma integral_saKernel {p : 𝓢 × 𝓐} {f : 𝓢 × 𝓐 → ℝ} (hf : Inte
     ∫ q, f q ∂(M.saKernel π p) = ∫ s, ∫ a, f (s, a) ∂(π s) ∂(M.P p) := by
   rw [saKernel_apply] at hf ⊢
   exact Measure.integral_compProd hf
+
+variable {M} in
+/-- Integrating against the state-action kernel of a deterministic stationary policy `d` from `p`
+evaluates the integrand at the next state `s` drawn from `M.P p` and the action `d s`. -/
+lemma integral_saKernel_deterministic [MeasurableSingletonClass 𝓐] {d : 𝓢 → 𝓐}
+    (hd : Measurable d) {p : 𝓢 × 𝓐} {f : 𝓢 × 𝓐 → ℝ}
+    (hf : Integrable f (M.saKernel (Kernel.deterministic d hd) p)) :
+    ∫ q, f q ∂(M.saKernel (Kernel.deterministic d hd) p) = ∫ s, f (s, d s) ∂(M.P p) := by
+  rw [integral_saKernel hf]
+  simp [Kernel.deterministic_apply, integral_dirac]
 
 end Kernels
 

@@ -9,8 +9,11 @@ public import LeanMachineLearning.Online.Bandit.ArrayProbSpace
 public import LMLExplore.MarkovDecisionProcess.Optimality
 public import LMLExplore.Probability.Process.Filtration
 public import LMLExplore.ReinforcementLearning.LearningRate
+public import Mathlib.Analysis.SpecialFunctions.Log.Base
 public import Mathlib.Probability.Moments.Variance
+import LMLExplore.Analysis.Convex.Integral
 import LMLExplore.MeasureTheory.MeasurableSpace.Constructions
+import LMLExplore.Probability.Martingale.Freedman
 import LMLExplore.Order.ConditionallyCompleteLattice.Basic
 import TauCeti.Probability.Independence.CondExp
 
@@ -45,7 +48,9 @@ rests. Write `V t s = ⨆ a, Q t (s, a)` for the value estimates, `Δ t = Q t - 
   error recursion of TD learning [LCCWC24, (110)].
 * **The sampling noise** is a martingale difference sequence: under the generative model, given the
   first `t` samples, the conditional mean of `V t (ω t p)` is `P V t p` and its conditional variance
-  is the variance of `V t` under `P p`.
+  is the variance of `V t` under `P p`. Freedman's inequality then bounds every deterministic
+  combination `∑_{k < t} ∑ p, v k p (P_{k+1} - P) V k p` of the noises with high probability, in
+  terms of the weighted one-step variances.
 
 ## Main definitions
 
@@ -74,7 +79,12 @@ rests. Write `V t s = ⨆ a, Q t (s, a)` for the value estimates, `Δ t = Q t - 
   sample `ω t p` keeps its law `P p` and the iterate `Q t` is frozen;
   `LMLExplore.ReinforcementLearning.condExp_iSup_syncQLearning`,
   `LMLExplore.ReinforcementLearning.condExp_sq_sub_integral_iSup_syncQLearning`: the conditional
-  mean and variance of the empirical prediction `V t (ω t p)`.
+  mean and variance of the empirical prediction `V t (ω t p)`;
+  `LMLExplore.ReinforcementLearning.condExp_iSup_syncQLearning_sub_integral`,
+  `LMLExplore.ReinforcementLearning.abs_iSup_syncQLearning_sub_integral_le`: the sampling noise is
+  centered and bounded.
+* Freedman's inequality for the weighted sampling noises:
+  `LMLExplore.ReinforcementLearning.measure_three_mul_sqrt_add_lt_sum_sum_mul_iSup_syncQLearning_le`
 
 ## References
 
@@ -434,6 +444,93 @@ theorem condExp_sq_sub_integral_iSup_syncQLearning (t : ℕ) (p : 𝓢 × 𝓐) 
     ((hV.sub (hmean.comp measurable_fst)).pow_const 2) t p).trans (ae_of_all _ fun ω ↦ ?_)
   exact (variance_eq_integral (Measurable.of_discrete.aemeasurable)).symm
 
+/-- The sampling noise `V t (ω t p) - P V t p` of the value estimate `V t s = ⨆ a, Q t (s, a)` is
+measurable for the σ-algebra of the first `t + 1` samples. -/
+theorem measurable_iSup_syncQLearning_sub_integral (t : ℕ) (p : 𝓢 × 𝓐) :
+    Measurable[Filtration.naturalLT (fun i (ω : ℕ → 𝓢 × 𝓐 → 𝓢) ↦ ω i) measurable_pi_apply (t + 1)]
+      fun ω ↦ (⨆ a, syncQLearning r γ η Q₀ t ω (ω t p, a)) -
+        ∫ s', ⨆ a, syncQLearning r γ η Q₀ t ω (s', a) ∂(P p) := by
+  set ℱ := Filtration.naturalLT (fun i (ω : ℕ → 𝓢 × 𝓐 → 𝓢) ↦ ω i) measurable_pi_apply
+  have hQ : Measurable[ℱ (t + 1)] (syncQLearning r γ η Q₀ t) :=
+    (measurable_syncQLearning t).mono (ℱ.mono t.le_succ) le_rfl
+  have hω : Measurable[ℱ (t + 1)] fun ω : ℕ → 𝓢 × 𝓐 → 𝓢 ↦ ω t :=
+    Filtration.measurable_naturalLT measurable_pi_apply t.lt_succ_self
+  have hV : Measurable fun z : (𝓢 × 𝓐 → ℝ) × 𝓢 ↦ ⨆ a, z.1 (z.2, a) :=
+    Measurable.iSup_apply_prodMk measurable_fst measurable_snd
+  exact (Measurable.iSup_apply_prodMk hQ ((measurable_pi_apply p).comp hω)).sub
+    ((hV.stronglyMeasurable.integral_prod_right' (ν := P p)).measurable.comp hQ)
+
+/-- **The sampling noise is centered.** Under the generative model, given the first `t` samples,
+the sampling noise `V t (ω t p) - P V t p` of the value estimate `V t s = ⨆ a, Q t (s, a)` has
+conditional mean `0`. -/
+theorem condExp_iSup_syncQLearning_sub_integral (t : ℕ) (p : 𝓢 × 𝓐) :
+    (streamMeasure P)[fun ω ↦ (⨆ a, syncQLearning r γ η Q₀ t ω (ω t p, a)) -
+          ∫ s', ⨆ a, syncQLearning r γ η Q₀ t ω (s', a) ∂(P p) |
+        Filtration.naturalLT (fun i (ω : ℕ → 𝓢 × 𝓐 → 𝓢) ↦ ω i) measurable_pi_apply t] =ᵐ[
+      streamMeasure P] 0 := by
+  have hV : Measurable fun z : (𝓢 × 𝓐 → ℝ) × 𝓢 ↦ ⨆ a, z.1 (z.2, a) :=
+    Measurable.iSup_apply_prodMk measurable_fst measurable_snd
+  refine (condExp_comp_syncQLearning
+    (f := fun z ↦ (⨆ a, z.1 (z.2, a)) - ∫ s', ⨆ a, z.1 (s', a) ∂(P p))
+    (hV.sub ((hV.stronglyMeasurable.integral_prod_right' (ν := P p)).measurable.comp
+      measurable_fst)) t p).trans (.of_forall fun ω ↦ ?_)
+  dsimp only
+  rw [integral_sub (.of_finite) (integrable_const _), integral_const, probReal_univ, one_smul,
+    sub_self, Pi.zero_apply]
+
+omit [Finite 𝓐] in
+/-- **The sampling noise is bounded.** Under the assumptions of `syncQLearning_mem_Icc`, the
+sampling noise `V t (ω t p) - P V t p` of the value estimate `V t s = ⨆ a, Q t (s, a)` is at
+most `B` in absolute value. -/
+theorem abs_iSup_syncQLearning_sub_integral_le [Nonempty 𝓐] {B C : ℝ}
+    (hη : ∀ t, η (t + 1) ∈ Set.Icc (0 : ℝ) 1) (hr : ∀ p, r p ∈ Set.Icc 0 C)
+    (hQ₀ : ∀ p, Q₀ p ∈ Set.Icc 0 B) (hB : C + γ * B ≤ B) (t : ℕ) (ω : ℕ → 𝓢 × 𝓐 → 𝓢)
+    (p : 𝓢 × 𝓐) :
+    |(⨆ a, syncQLearning r γ η Q₀ t ω (ω t p, a)) -
+      ∫ s', ⨆ a, syncQLearning r γ η Q₀ t ω (s', a) ∂(P p)| ≤ B := by
+  have h₁ := iSup_syncQLearning_mem_Icc hη hr hQ₀ hB t ω (ω t p)
+  have h₂ : (∫ s', ⨆ a, syncQLearning r γ η Q₀ t ω (s', a) ∂(P p)) ∈ Set.Icc 0 B :=
+    integral_mem_Icc_of_ae_mem_Icc Measurable.of_discrete.aemeasurable (.of_forall fun s' ↦
+      iSup_syncQLearning_mem_Icc hη hr hQ₀ hB t ω s')
+  exact abs_sub_le_iff.2 ⟨by linarith [h₁.2, h₂.1], by linarith [h₁.1, h₂.2]⟩
+
 end Noise
+
+section Freedman
+
+variable {m𝓢 : MeasurableSpace 𝓢} {m𝓐 : MeasurableSpace 𝓐} [Fintype 𝓢]
+  [MeasurableSingletonClass 𝓢] [Fintype 𝓐] {P : Kernel (𝓢 × 𝓐) 𝓢} [IsMarkovKernel P]
+
+/-- **Freedman's inequality for the weighted sampling noises.** Under the generative model, let
+`v k p` be deterministic weights and write `N k p = V k (ω k p) - P V k p` for the sampling noise
+of the value estimate `V k s = ⨆ a, Q k (s, a)` at iteration `k + 1`. If the iterates stay in
+`[0, B]` (learning rates in `[0, 1]`, rewards in `[0, C]`, `0 ≤ Q₀ ≤ B` and `C + γ B ≤ B`) and
+`(∑ p, |v k p|) B ≤ b` for every `k < t`, then with probability at least `1 - δ`,
+`∑_{k < t} ∑ p, v k p N k p ≤ 3 √(W ℓ) + 2 b ℓ`, where
+`W = ∑_{k < t} (∑ p, |v k p|) ∑ p, |v k p| Var_{P p}(V k)` bounds the predictable quadratic
+variation, `ℓ = max 1 (log (K / δ))` and `K = ⌈log₄ t⌉ + 1`. -/
+theorem measure_three_mul_sqrt_add_lt_sum_sum_mul_iSup_syncQLearning_le [Nonempty 𝓐]
+    {B C δ b : ℝ} (hη : ∀ t, η (t + 1) ∈ Set.Icc (0 : ℝ) 1) (hr : ∀ p, r p ∈ Set.Icc 0 C)
+    (hQ₀ : ∀ p, Q₀ p ∈ Set.Icc 0 B) (hB : C + γ * B ≤ B) (hδ : 0 < δ) (hb : 0 < b) (t : ℕ)
+    (v : ℕ → 𝓢 × 𝓐 → ℝ) (hvb : ∀ k < t, (∑ p, |v k p|) * B ≤ b) :
+    streamMeasure P {ω | 3 * √((∑ k ∈ range t, (∑ p, |v k p|) * ∑ p, |v k p| *
+          Var[fun s' ↦ ⨆ a, syncQLearning r γ η Q₀ k ω (s', a); P p]) *
+        max 1 (Real.log ((⌈Real.logb 4 t⌉₊ + 1 : ℝ) / δ))) +
+        2 * b * max 1 (Real.log ((⌈Real.logb 4 t⌉₊ + 1 : ℝ) / δ)) <
+      ∑ k ∈ range t, ∑ p, v k p * ((⨆ a, syncQLearning r γ η Q₀ k ω (ω k p, a)) -
+        ∫ s', ⨆ a, syncQLearning r γ η Q₀ k ω (s', a) ∂(P p))} ≤ ENNReal.ofReal δ := by
+  refine (measure_mono_ae ?_).trans (measure_three_mul_sqrt_add_lt_sum_sum_mul_le
+    (N := fun k p ω ↦ (⨆ a, syncQLearning r γ η Q₀ k ω (ω k p, a)) -
+      ∫ s', ⨆ a, syncQLearning r γ η Q₀ k ω (s', a) ∂(P p)) hb hδ t v
+    measurable_iSup_syncQLearning_sub_integral condExp_iSup_syncQLearning_sub_integral
+    (fun k p ↦ .of_forall (abs_iSup_syncQLearning_sub_integral_le hη hr hQ₀ hB k · p)) hvb)
+  -- the conditional second moments of the noises are the one-step variances
+  filter_upwards [ae_all_iff.2 fun k ↦ ae_all_iff.2
+    (condExp_sq_sub_integral_iSup_syncQLearning (P := P) (r := r) (γ := γ) (η := η) (Q₀ := Q₀)
+      k)] with ω hω hbad
+  refine lt_of_eq_of_lt ?_ hbad
+  simp_rw [hω]
+
+end Freedman
 
 end LMLExplore.ReinforcementLearning

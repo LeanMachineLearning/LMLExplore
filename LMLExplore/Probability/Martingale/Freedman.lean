@@ -56,6 +56,10 @@ unknown size of `W n` at the price of the logarithmic factor `K`.
   `P(∃ n, η W n + log (1 / δ) / η ≤ S n) ≤ δ` for `η X n ≤ 1`.
 * `LMLExplore.measure_exists_three_mul_sqrt_add_lt_sum_le`: the peeled form
   `P(∃ n ≤ N, 3 √(W n ℓ) + 2 b ℓ < S n) ≤ δ` for `|X n| ≤ b`.
+* `LMLExplore.measure_three_mul_sqrt_add_lt_sum_sum_mul_le`: the peeled form at a fixed time for
+  deterministic combinations `X k = ∑ i, v k i N k i` of bounded martingale differences, with the
+  quadratic variation bounded through `LMLExplore.condExp_sq_sum_mul_le` by
+  `∑ k, (∑ i, |v k i|) ∑ i, |v k i| E[N k i ^ 2 | ℱ k]`.
 
 ## Implementation notes
 
@@ -409,6 +413,121 @@ theorem measure_exists_three_mul_sqrt_add_lt_sum_le [IsProbabilityMeasure μ] {�
         congr 1
         push_cast
         field_simp
+
+/-- The conditional second moment of a deterministic combination `∑ i, v i N i` of square
+integrable functions is at most `(∑ i, |v i|) ∑ i, |v i| E[N i ^ 2 | m]`, by the Cauchy–Schwarz
+inequality. -/
+theorem condExp_sq_sum_mul_le {ι : Type*} [Fintype ι] {N : ι → Ω → ℝ}
+    (v : ι → ℝ) (hN : ∀ i, Integrable (fun ω ↦ N i ω ^ 2) μ)
+    (h : Integrable (fun ω ↦ (∑ i, v i * N i ω) ^ 2) μ) :
+    μ[fun ω ↦ (∑ i, v i * N i ω) ^ 2 | m] ≤ᵐ[μ]
+      fun ω ↦ (∑ i, |v i|) * ∑ i, |v i| * μ[fun ω ↦ N i ω ^ 2 | m] ω := by
+  have hle : (fun ω ↦ (∑ i, v i * N i ω) ^ 2) ≤ᵐ[μ]
+      fun ω ↦ ∑ i, ((∑ i, |v i|) * |v i|) * N i ω ^ 2 := .of_forall fun ω ↦ by
+    refine (sum_sq_le_sum_mul_sum_of_sq_le_mul _ (fun i _ ↦ abs_nonneg (v i))
+      (fun i _ ↦ mul_nonneg (abs_nonneg (v i)) (sq_nonneg (N i ω)))
+      (fun i _ ↦ le_of_eq (by rw [mul_pow, ← sq_abs (v i)]; ring))).trans_eq ?_
+    rw [mul_sum]
+    exact sum_congr rfl fun i _ ↦ by ring
+  have hsum := condExp_finsetSum (s := univ) (fun i _ ↦ (hN i).const_mul ((∑ i, |v i|) * |v i|))
+    (μ := μ) m
+  have hsmul (i : ι) : μ[fun ω ↦ (∑ i, |v i|) * |v i| * N i ω ^ 2 | m] =ᵐ[μ]
+      fun ω ↦ (∑ i, |v i|) * |v i| * μ[fun ω ↦ N i ω ^ 2 | m] ω :=
+    condExp_smul ((∑ i, |v i|) * |v i|) (fun ω ↦ N i ω ^ 2) m
+  have hfun : (fun ω ↦ ∑ i, ((∑ i, |v i|) * |v i|) * N i ω ^ 2) =
+      ∑ i, fun ω ↦ ((∑ i, |v i|) * |v i|) * N i ω ^ 2 := by
+    funext ω
+    rw [Finset.sum_apply]
+  filter_upwards [condExp_mono h (hfun ▸ integrable_finsetSum _ fun i _ ↦ (hN i).const_mul _) hle,
+    hsum, ae_all_iff.2 hsmul] with ω h₁ h₂ h₃
+  rw [hfun, h₂, Finset.sum_apply] at h₁
+  refine h₁.trans_eq ?_
+  rw [mul_sum]
+  exact sum_congr rfl fun i _ ↦ by rw [h₃ i, mul_assoc]
+
+/-- **Freedman's inequality for deterministic combinations of martingale differences.** Let
+`N k i` be `ℱ (k + 1)`-measurable, with `E[N k i | ℱ k] = 0` and `|N k i| ≤ B` almost surely,
+for `i` in a finite type, and let `v k i` be deterministic weights with
+`(∑ i, |v k i|) B ≤ b` for every `k < t`, where `b > 0`. Let `δ > 0`, `K = ⌈log₄ t⌉ + 1` and
+`ℓ = max 1 (log (K / δ))`. With probability at least `1 - δ`,
+`∑_{k < t} ∑ i, v k i N k i ≤ 3 √(W ℓ) + 2 b ℓ`, where
+`W = ∑_{k < t} (∑ i, |v k i|) ∑ i, |v k i| E[N k i ^ 2 | ℱ k]`. -/
+theorem measure_three_mul_sqrt_add_lt_sum_sum_mul_le [IsProbabilityMeasure μ] {ι : Type*}
+    [Fintype ι] {N : ℕ → ι → Ω → ℝ} {B δ : ℝ} (hb : 0 < b) (hδ : 0 < δ) (t : ℕ)
+    (v : ℕ → ι → ℝ) (hN : ∀ k i, Measurable[ℱ (k + 1)] (N k i))
+    (h_mean : ∀ k i, μ[N k i | ℱ k] =ᵐ[μ] 0) (h_bdd : ∀ k i, ∀ᵐ ω ∂μ, |N k i ω| ≤ B)
+    (hvb : ∀ k < t, (∑ i, |v k i|) * B ≤ b) :
+    μ {ω | 3 * √((∑ k ∈ range t, (∑ i, |v k i|) * ∑ i, |v k i| *
+          μ[fun ω ↦ N k i ω ^ 2 | ℱ k] ω) * max 1 (log ((⌈logb 4 t⌉₊ + 1 : ℝ) / δ))) +
+        2 * b * max 1 (log ((⌈logb 4 t⌉₊ + 1 : ℝ) / δ)) <
+      ∑ k ∈ range t, ∑ i, v k i * N k i ω} ≤ ENNReal.ofReal δ := by
+  have hNint (k : ℕ) (i : ι) : Integrable (N k i) μ :=
+    .of_bound ((hN k i).mono (ℱ.le _) le_rfl).aestronglyMeasurable B
+      ((h_bdd k i).mono fun ω hω ↦ (Real.norm_eq_abs _).trans_le hω)
+  have hNint₂ (k : ℕ) (i : ι) : Integrable (fun ω ↦ N k i ω ^ 2) μ :=
+    .of_bound (((hN k i).mono (ℱ.le _) le_rfl).pow_const 2).aestronglyMeasurable (B ^ 2)
+      ((h_bdd k i).mono fun ω hω ↦ by
+        rw [Real.norm_eq_abs, abs_pow]
+        exact pow_le_pow_left₀ (abs_nonneg _) hω 2)
+  -- the increments `X k = ∑ i, v k i N k i` for `k < t`, and `0` afterwards
+  set X : ℕ → Ω → ℝ := fun k ω ↦ if k < t then ∑ i, v k i * N k i ω else 0 with hX_def
+  have hXm (k : ℕ) : Measurable[ℱ (k + 1)] (X k) := by
+    by_cases hk : k < t
+    · simp only [hX_def, hk, ite_true]
+      exact Finset.measurable_sum _ fun i _ ↦ measurable_const.mul (hN k i)
+    · simp only [hX_def, hk, ite_false]
+      exact measurable_const
+  have hXmean (k : ℕ) : μ[X k | ℱ k] ≤ᵐ[μ] 0 := by
+    by_cases hk : k < t
+    · simp only [hX_def, hk, ite_true]
+      have hfun : (fun ω ↦ ∑ i, v k i * N k i ω) = ∑ i, fun ω ↦ v k i * N k i ω := by
+        funext ω
+        rw [Finset.sum_apply]
+      rw [hfun]
+      filter_upwards [condExp_finsetSum (s := univ) (fun i _ ↦ (hNint k i).const_mul (v k i))
+        (μ := μ) (ℱ k), ae_all_iff.2 fun i ↦ condExp_smul (μ := μ) (v k i) (N k i) (ℱ k),
+        ae_all_iff.2 (h_mean k)] with ω h₁ h₂ h₃
+      rw [h₁, Finset.sum_apply]
+      refine (sum_congr rfl fun i _ ↦ h₂ i).trans_le ?_
+      simp [h₃]
+    · simp only [hX_def, hk, ite_false]
+      rw [← Pi.zero_def, condExp_zero]
+  have hXB (k : ℕ) : ∀ᵐ ω ∂μ, |X k ω| ≤ b := by
+    filter_upwards [ae_all_iff.2 (h_bdd k)] with ω hω
+    by_cases hk : k < t
+    · simp only [hX_def, hk, ite_true]
+      calc |∑ i, v k i * N k i ω| ≤ ∑ i, |v k i| * B := by
+            refine (abs_sum_le_sum_abs _ _).trans (sum_le_sum fun i _ ↦ ?_)
+            rw [abs_mul]
+            exact mul_le_mul_of_nonneg_left (hω i) (abs_nonneg _)
+        _ = (∑ i, |v k i|) * B := by rw [sum_mul]
+        _ ≤ b := hvb k hk
+    · simp [hX_def, hk, hb.le]
+  -- the conditional second moments of the increments
+  have hW : ∀ᵐ ω ∂μ, ∀ k < t, μ[fun ω ↦ X k ω ^ 2 | ℱ k] ω ≤
+      (∑ i, |v k i|) * ∑ i, |v k i| * μ[fun ω ↦ N k i ω ^ 2 | ℱ k] ω := by
+    refine ae_all_iff.2 fun k ↦ ?_
+    by_cases hk : k < t
+    · simp only [hX_def, hk, ite_true]
+      refine (condExp_sq_sum_mul_le (v k) (hNint₂ k) ?_).mono fun ω h _ ↦ h
+      have hS : Measurable fun ω ↦ ∑ i, v k i * N k i ω :=
+        Finset.measurable_sum _ fun i _ ↦ measurable_const.mul ((hN k i).mono (ℱ.le _) le_rfl)
+      refine .of_bound (hS.pow_const 2).aestronglyMeasurable (b ^ 2) ((hXB k).mono fun ω hω ↦ ?_)
+      simp only [hX_def, hk, ite_true] at hω
+      rw [Real.norm_eq_abs, abs_pow]
+      exact pow_le_pow_left₀ (abs_nonneg _) hω 2
+    · exact .of_forall fun ω h ↦ absurd h hk
+  -- the peeled form of Freedman's inequality at time `t`
+  refine (measure_mono_ae ?_).trans (measure_exists_three_mul_sqrt_add_lt_sum_le (ℱ := ℱ)
+    (μ := μ) hb hδ t hXm hXmean hXB)
+  filter_upwards [hW] with ω hω hbad
+  refine ⟨t, le_rfl, ?_⟩
+  have hsum : ∑ k ∈ range t, X k ω = ∑ k ∈ range t, ∑ i, v k i * N k i ω :=
+    sum_congr rfl fun k hk ↦ by simp [hX_def, mem_range.1 hk]
+  rw [hsum]
+  refine lt_of_le_of_lt ?_ hbad
+  gcongr with k hk
+  exact hω k (mem_range.1 hk)
 
 end Process
 
