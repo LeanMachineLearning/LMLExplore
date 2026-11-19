@@ -19,8 +19,13 @@ nonnegative sequence: for `f` antitone on `(c, c + ∑_{t < n} a t]` and integra
 
 Adaptive learning rates of online learning are of the form `η_t ∝ f (∑_{s ≤ t} a s)`, where
 `a s` is the squared norm of the subgradient of round `s` (as in AdaGrad), and the regret bounds
-sum the terms `a t f (∑_{s ≤ t} a s)`. The two instances below, and an offset form of the
-first for rates that only use the past rounds, are the ones these bounds use.
+sum the terms `a t f (∑_{s ≤ t} a s)`. The instances `f x = 1 / √x` and `f x = 1 / x` below,
+and an offset form of the first for rates that only use the past rounds, are the ones these
+bounds use.
+
+The file also compares the sums `∑_{m ≤ i < n} (i + 1) ^ r` with the integral of `x ^ r` over
+`[m, n]`, using Mathlib's unweighted comparisons. They bound the sums of the learning rates
+`(t + 1) ^ (-α)` of online subgradient descent, as in its lower bound [Ora, Theorem 5.4].
 
 ## Main statements
 
@@ -31,18 +36,18 @@ first for rates that only use the past rounds, are the ones these bounds use.
   `√(M + ∑_{s < t} a s)`, for `0 ≤ a t ≤ M`.
 * `Real.sum_div_add_le_log_div`: `∑_{t < n} a t / (c + ∑_{s ≤ t} a s) ≤ log ((c + ∑_t a t) / c)`
   for `a t ≥ 0` and `c > 0`, the case `f x = 1 / x`.
-
 * `Real.sum_Ico_add_one_rpow_le`, `Real.sub_div_le_sum_Ico_add_one_rpow`: the sums
   `∑_{m ≤ i < n} (i + 1) ^ r` compared with `(n ^ (r + 1) - m ^ (r + 1)) / (r + 1)`, the integral
   of `x ^ r` over `[m, n]`, from above for `-1 < r ≤ 0` and from below for `r ≥ 0`. The learning
   rates `(t + 1) ^ (-α)` of online subgradient descent are of this form.
 
-In the first, a term whose denominator vanishes has `a t = 0`, and Lean's convention `x / 0 = 0`
-omits it, as [Ora] does.
+In `Real.sum_div_sqrt_le_two_mul_sqrt`, a term whose denominator vanishes has `a t = 0`, and
+Lean's convention `x / 0 = 0` omits it, as [Ora] does.
 
 ## References
 
-* [Ora] F. Orabona, *A Modern Introduction to Online Learning*, arXiv:1912.13213v10, Lemma 4.13.
+* [Ora] F. Orabona, *A Modern Introduction to Online Learning*, arXiv:1912.13213v10, Lemma 4.13
+  and Theorem 5.4.
 -/
 
 public section
