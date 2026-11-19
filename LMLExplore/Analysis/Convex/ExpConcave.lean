@@ -70,11 +70,11 @@ curvature that the Online Newton Step exploits, with `γ = min α B⁻¹` when `
 * `LMLExplore.ExpConcaveOn.add`, `LMLExplore.ExpConcaveOn.fun_sum`,
   `LMLExplore.ExpConcaveOn.fun_sum_mul`: sums and nonnegative combinations.
 * `LMLExplore.ExpConcaveOn.convexOn`: [Ora, Proposition 7.34] exp-concave functions are convex.
-* `LMLExplore.expConcaveOn_of_hasFDerivWithinAt2_mul_apply_sq_le`,
+* `Convex.expConcaveOn_of_hasFDerivWithinAt2_mul_apply_sq_le`,
   `LMLExplore.ExpConcaveOn.mul_apply_sq_le_of_hasFDerivWithinAt2`,
-  `LMLExplore.expConcaveOn_iff_forall_mul_apply_sq_le`: [Ora, Theorem 7.35] the Hessian criterion.
-* `ConcaveOn.expConcaveOn_neg_log`, `LMLExplore.expConcaveOn_neg_log_apply`: logarithmic losses.
-* `LMLExplore.expConcaveOn_norm_sub_sq`, `LMLExplore.expConcaveOn_closedBall_norm_sub_sq`:
+  `Convex.expConcaveOn_iff_forall_mul_apply_sq_le`: [Ora, Theorem 7.35] the Hessian criterion.
+* `ConcaveOn.expConcaveOn_neg_log`, `LinearMap.expConcaveOn_neg_log`: logarithmic losses.
+* `Convex.expConcaveOn_norm_sub_sq`, `LMLExplore.expConcaveOn_closedBall_norm_sub_sq`:
   [Ora, Example 7.36] the bounded squared loss.
 * `LMLExplore.ExpConcaveOn.add_apply_add_mul_sq_le_of_hasSubgradientWithinAt`,
   `LMLExplore.ExpConcaveOn.add_apply_add_min_mul_sq_le_of_hasSubgradientWithinAt`:
@@ -248,7 +248,7 @@ theorem _root_.ConcaveOn.expConcaveOn_neg_log {h : E → ℝ} (hh : ConcaveOn �
 
 /-- **The logarithmic loss of a linear form**: `x ↦ -log (w x)` is `1`-exp-concave on
 `{x | 0 < w x}`. These are the losses of portfolio selection, with `w` the market vector. -/
-theorem expConcaveOn_neg_log_apply (w : E →ₗ[ℝ] ℝ) :
+theorem _root_.LinearMap.expConcaveOn_neg_log (w : E →ₗ[ℝ] ℝ) :
     ExpConcaveOn {x | 0 < w x} 1 fun x ↦ -log (w x) :=
   (w.concaveOn (convex_halfSpace_gt w.isLinear 0)).expConcaveOn_neg_log fun _ hx ↦ hx
 
@@ -368,7 +368,7 @@ private lemma exists_hasFDerivWithinAt_neg_exp_neg_mul
 derivative `f' z` and `f'` have derivative `f'' z` within a convex set `V`, at every `z ∈ V`, and
 let `α ≥ 0`. If `α * f' z (y - x) ^ 2 ≤ f'' z (y - x) (y - x)` for `x, y ∈ V` and every `z` of the
 segment `[x, y]`, then `f` is `α`-exp-concave on `V`. -/
-theorem expConcaveOn_of_hasFDerivWithinAt2_mul_apply_sq_le (hV : Convex ℝ V)
+theorem _root_.Convex.expConcaveOn_of_hasFDerivWithinAt2_mul_apply_sq_le (hV : Convex ℝ V)
     (hf : ∀ z ∈ V, HasFDerivWithinAt f (f' z) V z)
     (hf' : ∀ z ∈ V, HasFDerivWithinAt f' (f'' z) V z) (hα : 0 ≤ α)
     (h : ∀ x ∈ V, ∀ y ∈ V, ∀ z ∈ segment ℝ x y, α * f' z (y - x) ^ 2 ≤ f'' z (y - x) (y - x)) :
@@ -416,13 +416,13 @@ theorem ExpConcaveOn.mul_apply_sq_le_of_hasFDerivWithinAt2 (hfα : ExpConcaveOn 
 `α > 0`. Then `f` is `α`-exp-concave on `V` if and only if `α * f' x v ^ 2 ≤ f'' x v v` for every
 `x ∈ V` and every `v` in the direction of the affine span of `V`. [Ora] requires the inequality for
 all `v`, which is stronger than exp-concavity when `V` has empty interior. -/
-theorem expConcaveOn_iff_forall_mul_apply_sq_le (hV : Convex ℝ V)
+theorem _root_.Convex.expConcaveOn_iff_forall_mul_apply_sq_le (hV : Convex ℝ V)
     (hf : ∀ z ∈ V, HasFDerivWithinAt f (f' z) V z)
     (hf' : ∀ z ∈ V, HasFDerivWithinAt f' (f'' z) V z) (hα : 0 < α) :
     ExpConcaveOn V α f ↔
       ∀ x ∈ V, ∀ v ∈ (affineSpan ℝ V).direction, α * f' x v ^ 2 ≤ f'' x v v := by
   refine ⟨fun h x hx v hv ↦ h.mul_apply_sq_le_of_hasFDerivWithinAt2 hα hf (hf' x hx) hx hv,
-    fun h ↦ expConcaveOn_of_hasFDerivWithinAt2_mul_apply_sq_le hV hf hf' hα.le
+    fun h ↦ hV.expConcaveOn_of_hasFDerivWithinAt2_mul_apply_sq_le hf hf' hα.le
       fun x hx y hy z hz ↦ ?_⟩
   have hv : y - x ∈ (affineSpan ℝ V).direction := by
     rw [direction_affineSpan, ← vsub_eq_sub]
@@ -441,7 +441,7 @@ variable {E : Type*} [NormedAddCommGroup E] [InnerProductSpace ℝ E] {V : Set E
 /-- **The squared distance is exp-concave on bounded sets** [Ora, Example 7.36]: in a real inner
 product space, `x ↦ ‖x - y‖ ^ 2` is `α`-exp-concave on every convex set `V` on which
 `2 * α * ‖x - y‖ ^ 2 ≤ 1`, for `α ≥ 0`. -/
-theorem expConcaveOn_norm_sub_sq (hV : Convex ℝ V) (hα : 0 ≤ α)
+theorem _root_.Convex.expConcaveOn_norm_sub_sq (hV : Convex ℝ V) (hα : 0 ≤ α)
     (h : ∀ x ∈ V, 2 * α * ‖x - y‖ ^ 2 ≤ 1) : ExpConcaveOn V α fun x ↦ ‖x - y‖ ^ 2 := by
   have hd (z : E) : HasFDerivAt (fun x ↦ ‖x - y‖ ^ 2) (((2 : ℝ) • innerSL ℝ) (z - y)) z := by
     convert ((hasFDerivAt_id z).sub_const y).norm_sq using 1 <;> ext <;> simp
@@ -451,7 +451,7 @@ theorem expConcaveOn_norm_sub_sq (hV : Convex ℝ V) (hα : 0 ≤ α)
     rwa [ContinuousLinearMap.comp_id] at this
   -- by the Hessian criterion, the condition is `4 * α * ⟪z - y, v⟫ ^ 2 ≤ 2 * ‖v‖ ^ 2`, which
   -- follows from the Cauchy–Schwarz inequality
-  refine expConcaveOn_of_hasFDerivWithinAt2_mul_apply_sq_le hV (fun z _ ↦ (hd z).hasFDerivWithinAt)
+  refine hV.expConcaveOn_of_hasFDerivWithinAt2_mul_apply_sq_le (fun z _ ↦ (hd z).hasFDerivWithinAt)
     (fun z _ ↦ (hd' z).hasFDerivWithinAt) hα fun x hx x' hx' z hz ↦ ?_
   have hzy := h z (hV.segment_subset hx hx' hz)
   have hcs := real_inner_mul_inner_self_le (z - y) (x' - x)
@@ -465,7 +465,7 @@ theorem expConcaveOn_norm_sub_sq (hV : Convex ℝ V) (hα : 0 ≤ α)
 real inner product space, `x ↦ ‖x - y‖ ^ 2` is `(8 * R ^ 2)⁻¹`-exp-concave on that ball. -/
 theorem expConcaveOn_closedBall_norm_sub_sq (hy : y ∈ Metric.closedBall c R) :
     ExpConcaveOn (Metric.closedBall c R) (8 * R ^ 2)⁻¹ fun x ↦ ‖x - y‖ ^ 2 := by
-  refine expConcaveOn_norm_sub_sq (convex_closedBall c R) (by positivity) fun x hx ↦ ?_
+  refine (convex_closedBall c R).expConcaveOn_norm_sub_sq (by positivity) fun x hx ↦ ?_
   rw [Metric.mem_closedBall] at hx hy
   have hxy : ‖x - y‖ ≤ 2 * R := by
     rw [← dist_eq_norm]
