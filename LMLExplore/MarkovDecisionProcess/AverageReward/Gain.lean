@@ -239,6 +239,7 @@ theorem tendsto_cesaro_sum_sub_gain (s : 𝓢) :
     Tendsto (fun N : ℕ ↦ (N : ℝ)⁻¹ * ∑ n ∈ range N, ∑ k ∈ range n,
       (∫ s', M.policyReward π s' ∂((M.stateKernel π ^ k) s) - M.gain π s)) atTop
       (𝓝 (M.bias π s)) := by
+  rw [bias_def]
   refine (((M.continuous_mulVec_policyReward_apply π s).tendsto _).comp
     (tendsto_cesaro_sum_pow_sub_limitingMatrix
     (M.stateMatrix_mem_rowStochastic π))).congr fun N ↦ ?_
@@ -295,6 +296,7 @@ theorem value_eq_laurent {γ : ℝ≥0} {u : ℝ} (hγ₀ : 0 < γ) (hγ₁ : γ
 `(1 - γ) v^π_γ s → g^π s` as `γ ↑ 1`. -/
 theorem tendsto_one_sub_mul_value (s : 𝓢) :
     Tendsto (fun γ : ℝ≥0 ↦ (1 - (γ : ℝ)) * M.value γ π s) (𝓝[<] 1) (𝓝 (M.gain π s)) := by
+  rw [gain_def]
   refine ((((M.continuous_mulVec_policyReward_apply π s).tendsto _).comp
     (tendsto_one_sub_smul_inv_one_sub_smul_limitingMatrix (M.stateMatrix_mem_rowStochastic π))).comp
     (NNReal.tendsto_coe_nhdsLT 1)).congr' ?_
@@ -306,6 +308,7 @@ theorem tendsto_one_sub_mul_value (s : 𝓢) :
 theorem tendsto_value_sub_inv_one_sub_mul_gain (s : 𝓢) :
     Tendsto (fun γ : ℝ≥0 ↦ M.value γ π s - (1 - (γ : ℝ))⁻¹ * M.gain π s) (𝓝[<] 1)
       (𝓝 (M.bias π s)) := by
+  rw [bias_def]
   refine ((((M.continuous_mulVec_policyReward_apply π s).tendsto _).comp
     (tendsto_inv_smul_one_sub_smul_inv_one_sub_smul_sub_deviationMatrix
       (M.stateMatrix_mem_rowStochastic π))).comp (NNReal.tendsto_coe_nhdsLT 1)).congr' ?_
