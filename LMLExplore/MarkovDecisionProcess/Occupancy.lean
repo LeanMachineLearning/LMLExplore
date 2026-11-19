@@ -54,6 +54,7 @@ the occupancy measure by `O(α)`, the estimate behind the analysis of conservati
   discounted value of `alg` is `(1 - γ)⁻¹ * ∫ r d(M.occupancy γ alg μ)`;
 * `Learning.MDP.occupancy_map_fst`, `Learning.MDP.occupancy_fst`,
   `Learning.MDP.occupancy_prod_univ`: the flow equation, for a probability measure `μ`;
+  `Learning.MDP.smul_le_occupancy_fst`: hence the state marginal dominates `(1 - γ) • μ`;
 * `Learning.MDP.occupancy_markov`, `Learning.MDP.occupancy_markov_const`: the occupancy measures
   of Markov and stationary policies, in terms of their state-action marginals; for a stationary
   policy, it is the image of the initial state-action law by the resolvent of the state-action
@@ -236,6 +237,12 @@ theorem occupancy_prod_univ {B : Set 𝓢} (hB : MeasurableSet B) :
   rw [← Measure.bind_apply hB M.P.aemeasurable, prod_univ, ← Measure.map_apply measurable_fst hB,
     occupancy_map_fst, add_apply, smul_apply, smul_apply, smul_eq_mul,
     smul_eq_mul]
+
+/-- The state marginal of the occupancy measure of every algorithm from the probability measure
+`μ` dominates `(1 - γ) • μ`: the first state of the runs carries the weight `1 - γ`. -/
+theorem smul_le_occupancy_fst : (1 - γ) • μ ≤ (M.occupancy γ alg μ).fst := by
+  rw [occupancy_fst]
+  exact Measure.le_add_right le_rfl
 
 end Flow
 

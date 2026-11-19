@@ -41,7 +41,9 @@ reinforcement learning.
 * `Learning.MDP.runValue_sub_integral_eq_integral_occupancy`: the value of every algorithm minus
   `∫ v dμ` is `(1 - γ)⁻¹` times the integral of the Bellman residual of `v` against the occupancy
   measure of the algorithm.
-* `Learning.MDP.runValue_sub_integral_value`: the performance difference lemma [AJKS, Lemma 1.16].
+* `Learning.MDP.runValue_sub_integral_value`: the performance difference lemma [AJKS, Lemma 1.16];
+  `Learning.MDP.integral_value_sub_integral_value`: its form for two stationary policies, with the
+  advantage averaged over the actions of the first one.
 * `Learning.MDP.integral_integral_sub_integral_value`: the discounted extended value-difference
   identity [JYW21, Lemma A.1].
 
@@ -93,6 +95,22 @@ theorem runValue_sub_integral_value (hγ : γ < 1) (hR : ∀ p, ∀ᵐ x ∂(M.R
   simp_rw [advantage_def, qValue_eq_lookahead]
   exact runValue_sub_integral_eq_integral_occupancy hγ hR (measurable_value hγ hR)
     (abs_value_le hγ hR) alg
+
+/-- **Performance difference lemma for stationary policies** [AJKS, Lemma 1.16]: with bounded
+rewards and `γ < 1`, for stationary policies `π'` and `π` and the state marginal `d` of the
+occupancy measure of `π'` from the probability measure `μ`,
+`∫ v^π' dμ - ∫ v^π dμ = (1 - γ)⁻¹ * ∫ (∫ A^π (s, ·) dπ' s) dd (s)`. -/
+theorem integral_value_sub_integral_value (hγ : γ < 1) (hR : ∀ p, ∀ᵐ x ∂(M.R p), |x| ≤ C)
+    (π π' : Kernel 𝓢 𝓐) [IsMarkovKernel π] [IsMarkovKernel π'] :
+    ∫ s, M.value γ π' s ∂μ - ∫ s, M.value γ π s ∂μ =
+      (1 - γ : ℝ)⁻¹ * ∫ s, ∫ a, M.advantage γ π (s, a) ∂(π' s)
+        ∂(M.occupancy γ (Algorithm.markov fun _ ↦ π') μ).fst := by
+  rw [← runValue_markov_const hγ hR, runValue_sub_integral_value hγ hR]
+  -- the occupancy measure of `π'` disintegrates along `π'`
+  conv_lhs => rw [← Measure.IsCondKernel.disintegrate
+    (ρ := M.occupancy γ (Algorithm.markov fun _ ↦ π') μ) (ρCond := π')]
+  rw [Measure.integral_compProd
+    (integrable_of_abs_le (measurable_advantage hγ hR) (abs_advantage_le hγ hR) _)]
 
 /-- **Extended value-difference identity**, discounted form [JYW21, Lemma A.1]: let `Q̂` be bounded
 and measurable, `π'` a stationary policy and `V̂ s = ∫ Q̂ (s, a) ∂π' s`. With bounded rewards and
