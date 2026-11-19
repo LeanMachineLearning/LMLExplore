@@ -6,6 +6,7 @@ Authors: LMLExplore contributors
 module
 
 public import LMLExplore.Analysis.InnerProductSpace.DesignOperator
+public import LMLExplore.Analysis.Matrix.DesignMatrix
 public import LMLExplore.Analysis.SpecialFunctions.Gaussian.QuadraticForm
 public import LMLExplore.Probability.Martingale.Mixture
 public import LMLExplore.Probability.Martingale.SubGaussian
@@ -44,6 +45,11 @@ finite-dimensional real inner product space `E` with `x t` `𝓕 t`-measurable (
 * `LMLExplore.measure_exists_inner_ringInverse_designOp_smul_one_ge_le`,
   `LMLExplore.le_measureReal_forall_inner_ringInverse_designOp_smul_one_lt`: the case of the ridge
   regularizer `λ • 1` [LS, Theorem 20.4].
+* `LMLExplore.measure_exists_dotProduct_inv_designMatrix_mulVec_ge_le`,
+  `LMLExplore.le_measureReal_forall_dotProduct_inv_designMatrix_mulVec_lt` and their ridge cases
+  `…_smul_one_…`: the same bounds for features `y t : ι → ℝ` and the design matrices
+  `LMLExplore.designMatrix W₀ y t`, with `S_t ⬝ᵥ V_t⁻¹ S_t` and the matrix determinant, through
+  the action of matrices on `EuclideanSpace ℝ ι`.
 
 ## Implementation notes
 
@@ -275,5 +281,90 @@ theorem le_measureReal_forall_inner_ringInverse_designOp_smul_one_lt [IsProbabil
     le_measureReal_forall_inner_ringInverse_designOp_lt hx hη hsub hσ
       (ContinuousLinearMap.isPositive_smul_one hlam.le)
       (ContinuousLinearMap.isUnit_smul_one hlam.ne') hδ
+
+section Matrix
+
+open Matrix WithLp
+
+variable {ι : Type*} [Fintype ι] [DecidableEq ι] {y : ℕ → Ω → ι → ℝ} {W₀ : Matrix ι ι ℝ}
+
+/-- **The self-normalized bound** for matrices [AYPS, Theorem 1]: for predictable features
+`y t : ι → ℝ`, a conditionally `σ²`-sub-Gaussian noise `η` with `σ² ≠ 0`, a positive definite
+regularizer `W₀` and `δ > 0`, the probability that for some `t`,
+`2σ² log (1 / δ) + σ² log (det V_t / det W₀) ≤ S_t ⬝ᵥ V_t⁻¹ S_t` is at most `δ`, where
+`S_t = ∑_{s < t} η s • y s` and `V_t = designMatrix W₀ y t`. -/
+theorem measure_exists_dotProduct_inv_designMatrix_mulVec_ge_le [IsProbabilityMeasure P]
+    (hy : ∀ t, Measurable[𝓕 t] (y t)) (hη : ∀ t, Measurable[𝓕 (t + 1)] (η t))
+    (hsub : ∀ t, HasCondSubgaussianMGF (𝓕 t) (𝓕.le t) (η t) σ2 P) (hσ : σ2 ≠ 0)
+    (hW₀ : W₀.PosDef) {δ : ℝ} (hδ : 0 < δ) :
+    P {ω | ∃ t, 2 * σ2 * log (1 / δ) +
+        σ2 * log ((designMatrix W₀ (fun s ↦ y s ω) t).det / W₀.det) ≤
+      (∑ s ∈ range t, η s ω • y s ω) ⬝ᵥ
+        (designMatrix W₀ (fun s ↦ y s ω) t)⁻¹ *ᵥ ∑ s ∈ range t, η s ω • y s ω} ≤
+      ENNReal.ofReal δ := by
+  refine (measure_mono fun ω hω ↦ ?_).trans
+    (measure_exists_inner_ringInverse_designOp_ge_le (x := fun s ω ↦ toLp 2 (y s ω))
+      (fun t ↦ (measurable_toLp 2 _).comp (hy t)) hη hsub hσ
+      hW₀.isPositive_toEuclideanCLM hW₀.isUnit_toEuclideanCLM hδ)
+  obtain ⟨t, ht⟩ := hω
+  refine ⟨t, ?_⟩
+  simp_rw [← toEuclideanCLM_designMatrix, det_toEuclideanCLM, ← toLp_smul, ← toLp_sum,
+    inner_ringInverse_toEuclideanCLM]
+  exact ht
+
+/-- **The self-normalized bound** for matrices [AYPS, Theorem 1], good-event form: under the
+assumptions of `measure_exists_dotProduct_inv_designMatrix_mulVec_ge_le`, with probability at
+least `1 - δ`, for all `t`, `S_t ⬝ᵥ V_t⁻¹ S_t < 2σ² log (1 / δ) + σ² log (det V_t / det W₀)`. -/
+theorem le_measureReal_forall_dotProduct_inv_designMatrix_mulVec_lt [IsProbabilityMeasure P]
+    (hy : ∀ t, Measurable[𝓕 t] (y t)) (hη : ∀ t, Measurable[𝓕 (t + 1)] (η t))
+    (hsub : ∀ t, HasCondSubgaussianMGF (𝓕 t) (𝓕.le t) (η t) σ2 P) (hσ : σ2 ≠ 0)
+    (hW₀ : W₀.PosDef) {δ : ℝ} (hδ : 0 < δ) :
+    1 - δ ≤ P.real {ω | ∀ t, (∑ s ∈ range t, η s ω • y s ω) ⬝ᵥ
+        (designMatrix W₀ (fun s ↦ y s ω) t)⁻¹ *ᵥ ∑ s ∈ range t, η s ω • y s ω <
+      2 * σ2 * log (1 / δ) + σ2 * log ((designMatrix W₀ (fun s ↦ y s ω) t).det / W₀.det)} := by
+  refine (le_measureReal_forall_inner_ringInverse_designOp_lt (x := fun s ω ↦ toLp 2 (y s ω))
+      (fun t ↦ (measurable_toLp 2 _).comp (hy t)) hη hsub hσ
+      hW₀.isPositive_toEuclideanCLM hW₀.isUnit_toEuclideanCLM hδ).trans_eq ?_
+  congr 1
+  ext ω
+  simp_rw [Set.mem_ofPred_eq, ← toEuclideanCLM_designMatrix, det_toEuclideanCLM, ← toLp_smul,
+    ← toLp_sum, inner_ringInverse_toEuclideanCLM]
+
+/-- **The self-normalized bound** for matrices with the ridge regularizer [LS, Theorem 20.4]: for
+predictable features `y t : ι → ℝ`, a conditionally `σ²`-sub-Gaussian noise `η` with `σ² ≠ 0`,
+`λ > 0` and `δ > 0`, the probability that for some `t`,
+`2σ² log (1 / δ) + σ² log (det V_t / λ ^ d) ≤ S_t ⬝ᵥ V_t⁻¹ S_t` is at most `δ`, where
+`S_t = ∑_{s < t} η s • y s`, `V_t = designMatrix (λ • 1) y t` and `d = Fintype.card ι`. -/
+theorem measure_exists_dotProduct_inv_designMatrix_smul_one_mulVec_ge_le [IsProbabilityMeasure P]
+    (hy : ∀ t, Measurable[𝓕 t] (y t)) (hη : ∀ t, Measurable[𝓕 (t + 1)] (η t))
+    (hsub : ∀ t, HasCondSubgaussianMGF (𝓕 t) (𝓕.le t) (η t) σ2 P) (hσ : σ2 ≠ 0)
+    {lam δ : ℝ} (hlam : 0 < lam) (hδ : 0 < δ) :
+    P {ω | ∃ t, 2 * σ2 * log (1 / δ) +
+        σ2 * log ((designMatrix (lam • 1) (fun s ↦ y s ω) t).det / lam ^ Fintype.card ι) ≤
+      (∑ s ∈ range t, η s ω • y s ω) ⬝ᵥ
+        (designMatrix (lam • 1) (fun s ↦ y s ω) t)⁻¹ *ᵥ ∑ s ∈ range t, η s ω • y s ω} ≤
+      ENNReal.ofReal δ := by
+  simpa only [det_smul, det_one, mul_one] using
+    measure_exists_dotProduct_inv_designMatrix_mulVec_ge_le hy hη hsub hσ
+      (PosDef.one.smul hlam) hδ
+
+/-- **The self-normalized bound** for matrices with the ridge regularizer [LS, Theorem 20.4],
+good-event form: under the assumptions of
+`measure_exists_dotProduct_inv_designMatrix_smul_one_mulVec_ge_le`, with probability at least
+`1 - δ`, for all `t`, `S_t ⬝ᵥ V_t⁻¹ S_t < 2σ² log (1 / δ) + σ² log (det V_t / λ ^ d)`. -/
+theorem le_measureReal_forall_dotProduct_inv_designMatrix_smul_one_mulVec_lt
+    [IsProbabilityMeasure P] (hy : ∀ t, Measurable[𝓕 t] (y t))
+    (hη : ∀ t, Measurable[𝓕 (t + 1)] (η t))
+    (hsub : ∀ t, HasCondSubgaussianMGF (𝓕 t) (𝓕.le t) (η t) σ2 P) (hσ : σ2 ≠ 0)
+    {lam δ : ℝ} (hlam : 0 < lam) (hδ : 0 < δ) :
+    1 - δ ≤ P.real {ω | ∀ t, (∑ s ∈ range t, η s ω • y s ω) ⬝ᵥ
+        (designMatrix (lam • 1) (fun s ↦ y s ω) t)⁻¹ *ᵥ ∑ s ∈ range t, η s ω • y s ω <
+      2 * σ2 * log (1 / δ) +
+        σ2 * log ((designMatrix (lam • 1) (fun s ↦ y s ω) t).det / lam ^ Fintype.card ι)} := by
+  simpa only [det_smul, det_one, mul_one] using
+    le_measureReal_forall_dotProduct_inv_designMatrix_mulVec_lt hy hη hsub hσ
+      (PosDef.one.smul hlam) hδ
+
+end Matrix
 
 end LMLExplore
