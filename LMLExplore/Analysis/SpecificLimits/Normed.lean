@@ -24,8 +24,9 @@ length `m`, such as the Dobrushin coefficients `δ(κ ^ n) ≤ δ(κ ^ m) ^ (n /
   `∑ n, r ^ (n / m) = m / (1 - r)`.
 * `LMLExplore.summable_pow_of_tendsto_pow_atTop_nhds_zero`: in a complete normed ring, the
   geometric series `∑ n, a ^ n` converges when the powers of `a` tend to `0`.
-* `LMLExplore.tsum_neg_pow_smul_pow_succ`: in a normed algebra with summable geometric series,
-  `∑ n, (-u) ^ n • a ^ (n + 1) = a * (1 + u • a)⁻¹` for `‖u‖ * ‖a‖ < 1`.
+* `LMLExplore.hasSum_neg_pow_smul_pow_succ`, `LMLExplore.tsum_neg_pow_smul_pow_succ`: in a normed
+  algebra with summable geometric series, `∑ n, (-u) ^ n • a ^ (n + 1) = a * (1 + u • a)⁻¹` for
+  `‖u‖ * ‖a‖ < 1`.
 -/
 
 public section
@@ -81,18 +82,24 @@ theorem summable_pow_of_tendsto_pow_atTop_nhds_zero {R : Type*} [NormedRing R] [
   · exact (norm_mul_le _ _).trans
       (mul_le_mul (norm_pow_le' _ h0) hr (norm_nonneg _) (by positivity))
 
+/-- In a normed algebra with summable geometric series, the series `∑ n, (-u) ^ n • a ^ (n + 1)`,
+which is `a` times the Neumann series of `(1 + u • a)⁻¹`, converges to `a * (1 + u • a)⁻¹` for
+`‖u‖ * ‖a‖ < 1`. -/
+theorem hasSum_neg_pow_smul_pow_succ {𝕜 R : Type*} [NormedField 𝕜] [NormedRing R]
+    [NormedAlgebra 𝕜 R] [HasSummableGeomSeries R] {a : R} {u : 𝕜} (h : ‖u‖ * ‖a‖ < 1) :
+    HasSum (fun n : ℕ ↦ (-u) ^ n • a ^ (n + 1)) (a * (1 + u • a)⁻¹ʳ) := by
+  have hx : ‖-(u • a)‖ < 1 := by
+    rw [norm_neg]
+    exact (norm_smul_le u a).trans_lt h
+  rw [← sub_neg_eq_add, ← geom_series_eq_inverse _ hx]
+  refine ((summable_geometric_of_norm_lt_one hx).hasSum.mul_left a).congr_fun fun n ↦ ?_
+  rw [← neg_smul, smul_pow, mul_smul_comm, pow_succ']
+
 /-- In a normed algebra with summable geometric series, `a` times the Neumann series of
 `(1 + u • a)⁻¹` is `∑ n, (-u) ^ n • a ^ (n + 1) = a * (1 + u • a)⁻¹` for `‖u‖ * ‖a‖ < 1`. -/
 theorem tsum_neg_pow_smul_pow_succ {𝕜 R : Type*} [NormedField 𝕜] [NormedRing R]
     [NormedAlgebra 𝕜 R] [HasSummableGeomSeries R] {a : R} {u : 𝕜} (h : ‖u‖ * ‖a‖ < 1) :
-    ∑' n : ℕ, (-u) ^ n • a ^ (n + 1) = a * (1 + u • a)⁻¹ʳ := by
-  have hx : ‖-(u • a)‖ < 1 := by
-    rw [norm_neg]
-    exact (norm_smul_le u a).trans_lt h
-  rw [← sub_neg_eq_add, ← geom_series_eq_inverse _ hx,
-    ← (summable_geometric_of_norm_lt_one hx).tsum_mul_left]
-  congr 1
-  ext1 n
-  rw [← neg_smul, smul_pow, mul_smul_comm, pow_succ']
+    ∑' n : ℕ, (-u) ^ n • a ^ (n + 1) = a * (1 + u • a)⁻¹ʳ :=
+  (hasSum_neg_pow_smul_pow_succ h).tsum_eq
 
 end LMLExplore

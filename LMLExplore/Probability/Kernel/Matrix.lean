@@ -134,7 +134,7 @@ theorem eq_of_toMatrix_map_coe_mulVec_eq_of_forall_reaches [IsMarkovKernel κ]
   have huniv : κ.communicatingClass x = Set.univ :=
     Set.eq_univ_of_forall fun w ↦ (mem_communicatingClass_iff x w).2 <|
       (communicates_def x w).2 ⟨hκ x w, hκ w x⟩
-  refine eq_of_toMatrix_map_coe_mulVec_eq_of_mem_communicatingClass hg ?_ (huniv ▸ trivial)
+  refine eq_of_toMatrix_map_coe_mulVec_eq_of_mem_communicatingClass hg ?_ (huniv ▸ Set.mem_univ y)
   rw [isClosedSet_def, huniv]
   simp
 

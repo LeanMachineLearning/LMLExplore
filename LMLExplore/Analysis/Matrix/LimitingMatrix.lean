@@ -158,20 +158,9 @@ theorem limitingMatrix_mul_self : P.limitingMatrix * P.limitingMatrix = P.limiti
 /-- A vector is fixed by `P*` exactly when it is harmonic for `P`: `P* v = v ↔ P v = v`. -/
 theorem limitingMatrix_mulVec_eq_self_iff {v : S → ℝ} :
     P.limitingMatrix *ᵥ v = v ↔ P *ᵥ v = v := by
-  refine ⟨fun h ↦ ?_, fun h ↦ ?_⟩
-  · rw [← h, mulVec_mulVec, mul_limitingMatrix hP]
-  · -- the vectors fixed by `P` are fixed by every Cesàro mean of the powers of `P`
-    have hpow (k : ℕ) : P ^ k *ᵥ v = v := by
-      induction k with
-      | zero => simp
-      | succ k ih => rw [pow_succ, ← mulVec_mulVec, h, ih]
-    have hc : Continuous fun A : Matrix S S ℝ ↦ A *ᵥ v :=
-      continuous_id.matrix_mulVec continuous_const
-    have hlim := (hc.tendsto _).comp (tendsto_cesaro_limitingMatrix hP)
-    refine tendsto_nhds_unique hlim (tendsto_const_nhds.congr' ?_)
-    filter_upwards [eventually_ne_atTop 0] with n hn
-    ext s
-    simp [smul_mulVec, sum_mulVec, hpow, inv_mul_cancel_left₀ (Nat.cast_ne_zero.2 hn : (n : ℝ) ≠ 0)]
+  rw [← toContinuousLinAlgEquiv'_apply, toContinuousLinAlgEquiv'_limitingMatrix hP,
+    IsPowerBounded.meanErgodicProj_apply_eq_self_iff, ContinuousLinearMap.mem_ker_one_sub_iff,
+    toContinuousLinAlgEquiv'_apply]
 
 /-- The limiting matrix of a stochastic matrix is stochastic. -/
 theorem limitingMatrix_mem_rowStochastic : P.limitingMatrix ∈ rowStochastic ℝ S := by

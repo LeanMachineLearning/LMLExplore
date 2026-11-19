@@ -10,6 +10,7 @@ public import Mathlib.Topology.Algebra.Module.FiniteDimension
 public import Mathlib.Topology.Algebra.InfiniteSum.Module
 public import Mathlib.Topology.Instances.Matrix
 public import LMLExplore.Analysis.Normed.Ring.PowerBounded
+public import LMLExplore.Analysis.SpecificLimits.Normed
 
 /-!
 # Square matrices as continuous linear operators
@@ -136,15 +137,10 @@ theorem isPowerBounded_toContinuousLinAlgEquiv' (hP : P ∈ rowStochastic ℝ S)
 `∑ n, (-u) ^ n • A ^ (n + 1)` converges. -/
 theorem summable_neg_pow_smul_pow_succ {A : Matrix S S ℝ} {u : ℝ}
     (h : |u| * ‖toContinuousLinAlgEquiv' ℝ A‖ < 1) :
-    Summable fun n : ℕ ↦ (-u) ^ n • A ^ (n + 1) := by
-  set T : (S → ℝ) →L[ℝ] (S → ℝ) := toContinuousLinAlgEquiv' ℝ A
-  have hx : ‖-(u • T)‖ < 1 := by
-    rw [norm_neg]
-    exact (norm_smul_le u T).trans_lt (by rwa [Real.norm_eq_abs])
-  rw [← summable_toContinuousLinAlgEquiv'_iff]
-  refine ((summable_geometric_of_norm_lt_one hx).mul_left T).congr fun n ↦ ?_
-  simp only [map_smul, map_pow, T]
-  rw [show -(u • T) = (-u) • T from (neg_smul u T).symm, smul_pow, mul_smul_comm, pow_succ']
+    Summable fun n : ℕ ↦ (-u) ^ n • A ^ (n + 1) :=
+  summable_toContinuousLinAlgEquiv'_iff.1 <| by
+    simpa only [map_smul, map_pow] using
+      (LMLExplore.hasSum_neg_pow_smul_pow_succ (by rwa [Real.norm_eq_abs])).summable
 
 /-- **Neumann series** of a row-stochastic matrix: for `|γ| < 1`,
 `∑ n, γ ^ n • P ^ n = (1 - γ • P)⁻¹`. -/
