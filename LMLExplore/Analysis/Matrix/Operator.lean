@@ -29,11 +29,16 @@ power-bounded operator.
 ## Main statements
 
 * `Matrix.toContinuousLinAlgEquiv'_inv`: the action of `M⁻¹` is the inverse of the action of `M`.
-* `Matrix.tendsto_toContinuousLinAlgEquiv'_iff`, `Matrix.summable_toContinuousLinAlgEquiv'_iff`:
-  limits and sums of matrices are those of their actions.
+* `Matrix.tendsto_toContinuousLinAlgEquiv'_iff`, `Matrix.summable_toContinuousLinAlgEquiv'_iff`,
+  `Matrix.hasSum_toContinuousLinAlgEquiv'_iff`, `Matrix.toContinuousLinAlgEquiv'_tsum`: limits and
+  sums of matrices are those of their actions.
+* `Matrix.summable_neg_pow_smul_pow_succ`: the series `∑ n, (-u) ^ n • A ^ (n + 1)` converges
+  for `|u| ‖A‖ < 1`.
 * `Matrix.norm_toContinuousLinAlgEquiv'_le_one`,
   `Matrix.isPowerBounded_toContinuousLinAlgEquiv'`: a row-stochastic matrix acts as a power-bounded
   operator of norm at most `1`.
+* `Matrix.hasSum_pow_smul_pow`: the Neumann series `∑ n, γ ^ n • P ^ n = (1 - γ • P)⁻¹` of a
+  row-stochastic matrix, for `|γ| < 1`.
 -/
 
 public section
@@ -91,6 +96,20 @@ theorem summable_toContinuousLinAlgEquiv'_iff {ι : Type*} {f : ι → Matrix S 
   ((toContinuousLinAlgEquiv' 𝕜).toLinearEquiv.toContinuousLinearEquiv
     |>.summable)
 
+/-- A series of matrices has sum `M` exactly when the series of their actions has sum the action
+of `M`. -/
+theorem hasSum_toContinuousLinAlgEquiv'_iff {ι : Type*} {f : ι → Matrix S S 𝕜}
+    {M : Matrix S S 𝕜} :
+    HasSum (fun i ↦ toContinuousLinAlgEquiv' 𝕜 (f i)) (toContinuousLinAlgEquiv' 𝕜 M) ↔
+      HasSum f M :=
+  ((toContinuousLinAlgEquiv' 𝕜).toLinearEquiv.toContinuousLinearEquiv
+    |>.hasSum')
+
+/-- The action of the sum of a series of matrices is the sum of their actions. -/
+theorem toContinuousLinAlgEquiv'_tsum {ι : Type*} (f : ι → Matrix S S 𝕜) :
+    toContinuousLinAlgEquiv' 𝕜 (∑' i, f i) = ∑' i, toContinuousLinAlgEquiv' 𝕜 (f i) :=
+  (toContinuousLinAlgEquiv' 𝕜).toLinearEquiv.toContinuousLinearEquiv.map_tsum
+
 end Field
 
 variable {P : Matrix S S ℝ}
@@ -112,5 +131,34 @@ theorem norm_toContinuousLinAlgEquiv'_le_one (hP : P ∈ rowStochastic ℝ S) :
 theorem isPowerBounded_toContinuousLinAlgEquiv' (hP : P ∈ rowStochastic ℝ S) :
     IsPowerBounded (toContinuousLinAlgEquiv' ℝ P) :=
   .of_norm_le_one (norm_toContinuousLinAlgEquiv'_le_one hP)
+
+/-- For `|u| ‖A‖ < 1`, with `‖A‖` the operator norm of the action of `A` on `S → ℝ`, the series
+`∑ n, (-u) ^ n • A ^ (n + 1)` converges. -/
+theorem summable_neg_pow_smul_pow_succ {A : Matrix S S ℝ} {u : ℝ}
+    (h : |u| * ‖toContinuousLinAlgEquiv' ℝ A‖ < 1) :
+    Summable fun n : ℕ ↦ (-u) ^ n • A ^ (n + 1) := by
+  set T : (S → ℝ) →L[ℝ] (S → ℝ) := toContinuousLinAlgEquiv' ℝ A
+  have hx : ‖-(u • T)‖ < 1 := by
+    rw [norm_neg]
+    exact (norm_smul_le u T).trans_lt (by rwa [Real.norm_eq_abs])
+  rw [← summable_toContinuousLinAlgEquiv'_iff]
+  refine ((summable_geometric_of_norm_lt_one hx).mul_left T).congr fun n ↦ ?_
+  simp only [map_smul, map_pow, T]
+  rw [show -(u • T) = (-u) • T from (neg_smul u T).symm, smul_pow, mul_smul_comm, pow_succ']
+
+/-- **Neumann series** of a row-stochastic matrix: for `|γ| < 1`,
+`∑ n, γ ^ n • P ^ n = (1 - γ • P)⁻¹`. -/
+theorem hasSum_pow_smul_pow (hP : P ∈ rowStochastic ℝ S) {γ : ℝ} (hγ : |γ| < 1) :
+    HasSum (fun n ↦ γ ^ n • P ^ n) (1 - γ • P)⁻¹ := by
+  set T : (S → ℝ) →L[ℝ] (S → ℝ) := toContinuousLinAlgEquiv' ℝ P
+  have hT : ‖γ • T‖ < 1 := by
+    refine (norm_smul_le γ T).trans_lt ?_
+    rw [Real.norm_eq_abs]
+    exact (mul_le_of_le_one_right (abs_nonneg γ) (norm_toContinuousLinAlgEquiv'_le_one hP)).trans_lt
+      hγ
+  rw [← hasSum_toContinuousLinAlgEquiv'_iff]
+  simp only [map_smul, map_pow, toContinuousLinAlgEquiv'_inv, map_sub, map_one, ← smul_pow]
+  rw [← geom_series_eq_inverse _ hT]
+  exact (summable_geometric_of_norm_lt_one hT).hasSum
 
 end Matrix
