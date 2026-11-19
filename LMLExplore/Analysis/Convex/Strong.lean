@@ -9,6 +9,7 @@ public import LeanMachineLearning.ForMathlib.Analysis.Convex.Subgradient.Basic
 public import LMLExplore.Analysis.Convex.Bregman.Taylor
 public import LMLExplore.Analysis.Normed.Operator.Basic
 public import LMLExplore.Topology.Semicontinuity.Basic
+public import TauCeti.Analysis.Convex.Strong
 public import Mathlib.Analysis.Convex.Strong
 public import Mathlib.Analysis.Normed.Module.FiniteDimension
 public import Mathlib.Topology.Semicontinuity.Basic
@@ -29,7 +30,9 @@ sense at every point of `s`, including its boundary [Ora, Lemma 4.2, Theorems 4.
 * when every point of `s` has a subgradient within `s`, strong convexity is equivalent to the
   strong monotonicity `m * ‖x - y‖ ^ 2 ≤ (g_x - g_y) (x - y)` of the subgradients;
 * a function whose second derivative satisfies `m * ‖y - x‖ ^ 2 ≤ f'' z (y - x) (y - x)` at the
-  points `z` of each segment `[x, y]` of a convex set is `m`-strongly convex there;
+  points `z` of each segment `[x, y]` of a convex set is `m`-strongly convex there, and
+  conversely the second derivative of an `m`-strongly convex function at a point `x` of the set
+  satisfies `m * ‖a - b‖ ^ 2 ≤ f'' x (a - b) (a - b)` for all points `a, b` of the set;
 * an `m`-strongly convex function grows quadratically away from a minimizer, so that, for
   `m > 0`, minimizers of its perturbations by continuous linear maps `θ₁` and `θ₂` are at distance
   at most `‖θ₁ - θ₂‖ / m`, and, for `m > 0` in finite dimension, a lower semicontinuous
@@ -58,6 +61,8 @@ with a strongly convex potential exist on closed sets that need not be bounded.
   convexity is strong monotonicity of the subgradients.
 * `Convex.strongConvexOn_of_hasFDerivWithinAt2_mul_norm_sub_sq_le`: [Ora, Theorem 4.3] the
   second-order criterion along segments.
+* `StrongConvexOn.mul_norm_sub_sq_le_of_hasFDerivWithinAt2`: [Ora, Theorem 4.3] its converse, the
+  second-order condition `m * ‖a - b‖ ^ 2 ≤ f'' x (a - b) (a - b)` for `x, a, b ∈ s`.
 * `StrongConvexOn.add_mul_norm_sub_sq_le_of_isMinOn`: quadratic growth away from a minimizer.
 * `StrongConvexOn.mul_norm_sub_le_norm_sub_of_isMinOn_add`: [Ora, Lemma 7.49] the minimizers
   `x, y` of the linear perturbations `f + θ₁` and `f + θ₂` of an `m`-strongly convex `f` satisfy
@@ -351,6 +356,54 @@ theorem strongConvexOn_of_hasFDerivWithinAt2_mul_norm_sub_sq_le (hs : Convex ℝ
 end Convex
 
 namespace StrongConvexOn
+
+/-- **The second-order condition of strong convexity** [Ora, Theorem 4.3]. Let `f` be `m`-strongly
+convex on a convex set `s`, with derivative `f' z` within `s` at every `z ∈ s`, and let `f'` have
+derivative `f'' x` within `s` at `x ∈ s`. Then `m * ‖a - b‖ ^ 2 ≤ f'' x (a - b) (a - b)` for all
+`a, b ∈ s`. Only differences of points of `s` are tested, so the condition makes sense at the
+boundary of `s` and on sets with empty interior. This is the converse of
+`Convex.strongConvexOn_of_hasFDerivWithinAt2_mul_norm_sub_sq_le`. -/
+theorem mul_norm_sub_sq_le_of_hasFDerivWithinAt2 (hf : StrongConvexOn s m f)
+    {f' : E → E →L[ℝ] ℝ} {f'' : E →L[ℝ] E →L[ℝ] ℝ}
+    (hf' : ∀ z ∈ s, HasFDerivWithinAt f (f' z) s z) (hf'' : HasFDerivWithinAt f' f'' s x)
+    (hx : x ∈ s) {a b : E} (ha : a ∈ s) (hb : b ∈ s) :
+    m * ‖a - b‖ ^ 2 ≤ f'' (a - b) (a - b) := by
+  -- The derivatives are strongly monotone along `s`.
+  have hmono {y z : E} (hy : y ∈ s) (hz : z ∈ s) : m * ‖y - z‖ ^ 2 ≤ (f' y - f' z) (y - z) := by
+    have h₁ := hf.add_add_le_of_hasFDerivWithinAt hy hz (hf' y hy)
+    have h₂ := hf.add_add_le_of_hasFDerivWithinAt hz hy (hf' z hz)
+    rw [norm_sub_rev z y, show z - y = -(y - z) by abel, map_neg] at h₁
+    rw [sub_apply]
+    linarith
+  -- Along the segments `t ↦ x + t • (a - x)` and `t ↦ x + t • (b - x)`, the function
+  -- `φ t = (f' (x + t • (a - x)) - f' (x + t • (b - x))) (a - b)` vanishes at `0`, has
+  -- derivative `f'' (a - b) (a - b)` there, and is at least `m * t * ‖a - b‖ ^ 2` for `t ∈ (0, 1]`.
+  have hline {c : E} (hc : c ∈ s) : HasDerivWithinAt (fun t : ℝ ↦ f' (x + t • (c - x)) (a - b))
+      (f'' (c - x) (a - b)) (Icc 0 1) 0 := by
+    have hℓ : HasDerivWithinAt (fun t : ℝ ↦ x + t • (c - x)) (c - x) (Icc 0 1) 0 := by
+      simpa using (((hasDerivAt_id (0 : ℝ)).smul_const (c - x)).const_add x).hasDerivWithinAt
+    have hmaps : MapsTo (fun t : ℝ ↦ x + t • (c - x)) (Icc 0 1) s :=
+      fun t ht ↦ hf.1.add_smul_sub_mem hx hc ht
+    simpa using (hf''.comp_hasDerivWithinAt_of_eq (0 : ℝ) hℓ hmaps (by simp)).clm_apply
+      (hasDerivWithinAt_const (0 : ℝ) (Icc 0 1) (a - b))
+  have hφ : HasDerivWithinAt
+      (fun t : ℝ ↦ f' (x + t • (a - x)) (a - b) - f' (x + t • (b - x)) (a - b))
+      (f'' (a - b) (a - b)) (Ioi 0) 0 := by
+    convert ((hline ha).sub (hline hb)).mono_of_mem_nhdsWithin (Icc_mem_nhdsGT zero_lt_one)
+      using 1
+    simp only [map_sub, sub_apply]
+    ring
+  rw [hasDerivWithinAt_iff_tendsto_slope' (lt_irrefl 0)] at hφ
+  refine ge_of_tendsto hφ ?_
+  filter_upwards [Ioo_mem_nhdsGT zero_lt_one] with t ht
+  have hy := hf.1.add_smul_sub_mem hx ha (Ioo_subset_Icc_self ht)
+  have hz := hf.1.add_smul_sub_mem hx hb (Ioo_subset_Icc_self ht)
+  have hyz : x + t • (a - x) - (x + t • (b - x)) = t • (a - b) := by module
+  have h := hmono hy hz
+  rw [hyz, map_smul, smul_eq_mul, norm_smul, Real.norm_of_nonneg ht.1.le] at h
+  rw [slope_def_field, le_div_iff₀ (by simpa using ht.1)]
+  simp only [zero_smul, add_zero, sub_self, sub_zero, sub_apply] at h ⊢
+  nlinarith [ht.1]
 
 /-- **Growth of a strongly convex function far from a point.** If `f` is `m`-strongly convex on
 `s` for some `m > 0` and lower semicontinuous within `s` at `x₀ ∈ s`, then `f x₀ < f y` for every

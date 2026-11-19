@@ -6,6 +6,7 @@ Authors: LMLExplore contributors
 module
 
 public import LMLExplore.EValues.TestSupermartingale
+public import LMLExplore.MeasureTheory.MeasurableSpace.Constructions
 public import LMLExplore.Probability.Kernel.CondLaw
 public import Mathlib.Probability.Kernel.RadonNikodym
 
@@ -60,11 +61,6 @@ section OneStep
 
 variable {X : Ω → 𝓧} {κ : Ω → Measure 𝓧} {r : Ω → 𝓧 → ℝ≥0∞}
 
-/-- The value `r ω (X ω)` at an `m`-measurable composite of `X` is measurable. -/
-private lemma measurable_comp_prodMk (hm : m ≤ mΩ) (hX : Measurable X)
-    (hr : Measurable[m.prod m𝓧] (Function.uncurry r)) : Measurable fun ω ↦ r ω (X ω) :=
-  hr.comp ((measurable_id'' hm).prodMk hX)
-
 /-- **A sub-probability density at the observation is a conditional e-variable.** If `κ` is a
 conditional law of `X` given `m` under `P`, and `r ω` is a density of total mass at most `1` with
 respect to `κ ω` for almost every `ω`, jointly measurable for `m` and `𝓧`, then `r ω (X ω)` is a
@@ -73,7 +69,7 @@ theorem HasCondLaw.isCondEVar_comp (h : HasCondLaw X κ m P) (hm : m ≤ mΩ) (h
     (hr : Measurable[m.prod m𝓧] (Function.uncurry r))
     (hr1 : ∀ᵐ ω ∂P, ∫⁻ x, r ω x ∂(κ ω) ≤ 1) :
     IsCondEVar (fun ω ↦ r ω (X ω)) m {P} := by
-  refine ⟨measurable_comp_prodMk hm hX hr, ?_⟩
+  refine ⟨hr.comp_prodMk_of_le hm hX, ?_⟩
   rintro _ rfl s hs
   rw [h.setLIntegral_comp hm hr hs, ← setLIntegral_one]
   exact lintegral_mono_ae (ae_restrict_of_ae hr1)
@@ -86,7 +82,7 @@ theorem HasCondLaw.isExactCondEVar_comp (h : HasCondLaw X κ m P) (hm : m ≤ m�
     (hX : Measurable X) (hr : Measurable[m.prod m𝓧] (Function.uncurry r))
     (hr1 : ∀ᵐ ω ∂P, ∫⁻ x, r ω x ∂(κ ω) = 1) :
     IsExactCondEVar (fun ω ↦ r ω (X ω)) m {P} := by
-  refine ⟨measurable_comp_prodMk hm hX hr, ?_⟩
+  refine ⟨hr.comp_prodMk_of_le hm hX, ?_⟩
   rintro _ rfl s hs
   rw [h.setLIntegral_comp hm hr hs, ← setLIntegral_one]
   exact lintegral_congr_ae (ae_restrict_of_ae hr1)
@@ -98,12 +94,6 @@ section Predictor
 variable {ℱ : Filtration ℕ mΩ} {X : ℕ → Ω → 𝓧} {κ : ℕ → Ω → Measure 𝓧}
   {r : ℕ → Ω → 𝓧 → ℝ≥0∞}
 
-/-- The density of round `k` at the observation is measurable for `ℱ (k + 1)`. -/
-private lemma measurable_succ_comp (hX : ∀ k, Measurable[ℱ (k + 1)] (X k))
-    (hr : ∀ k, Measurable[(ℱ k).prod m𝓧] (Function.uncurry (r k))) (k : ℕ) :
-    Measurable[ℱ (k + 1)] fun ω ↦ r k ω (X k ω) :=
-  measurable_comp_prodMk (m := ℱ k) (mΩ := ℱ (k + 1)) (ℱ.mono k.le_succ) (hX k) (hr k)
-
 /-- **The likelihood ratio of a sequential predictor is a test supermartingale** [RW, §7.5]. Let
 `X k` be `ℱ (k + 1)`-measurable with conditional law `κ k` given `ℱ k` under the probability
 measure `P`, and let the prediction of round `k` have the density `r k ω` with respect to `κ k ω`,
@@ -114,8 +104,8 @@ theorem isTestSupermartingale_prod_of_hasCondLaw [IsProbabilityMeasure P]
     (hr : ∀ k, Measurable[(ℱ k).prod m𝓧] (Function.uncurry (r k)))
     (hr1 : ∀ k, ∀ᵐ ω ∂P, ∫⁻ x, r k ω x ∂(κ k ω) ≤ 1) :
     IsTestSupermartingale (fun n ω ↦ ∏ k ∈ range n, r k ω (X k ω)) ℱ {P} :=
-  isTestSupermartingale_prod (by simpa) (measurable_succ_comp hX hr) fun k ↦
-    (hκ k).isCondEVar_comp (ℱ.le k) ((hX k).mono (ℱ.le _) le_rfl) (hr k) (hr1 k)
+  isTestSupermartingale_prod (by simpa) (fun k ↦ (hr k).comp_prodMk_of_le (ℱ.mono k.le_succ) (hX k))
+    fun k ↦ (hκ k).isCondEVar_comp (ℱ.le k) ((hX k).mono (ℱ.le _) le_rfl) (hr k) (hr1 k)
 
 /-- **The likelihood ratio of a probability predictor is a test martingale** [RW, §7.5]. Let `X k`
 be `ℱ (k + 1)`-measurable with conditional law `κ k` given `ℱ k` under the probability measure
@@ -127,8 +117,8 @@ theorem isTestMartingale_prod_of_hasCondLaw [IsProbabilityMeasure P]
     (hr : ∀ k, Measurable[(ℱ k).prod m𝓧] (Function.uncurry (r k)))
     (hr1 : ∀ k, ∀ᵐ ω ∂P, ∫⁻ x, r k ω x ∂(κ k ω) = 1) :
     IsTestMartingale (fun n ω ↦ ∏ k ∈ range n, r k ω (X k ω)) ℱ {P} :=
-  isTestMartingale_prod (by simpa) (measurable_succ_comp hX hr) fun k ↦
-    (hκ k).isExactCondEVar_comp (ℱ.le k) ((hX k).mono (ℱ.le _) le_rfl) (hr k) (hr1 k)
+  isTestMartingale_prod (by simpa) (fun k ↦ (hr k).comp_prodMk_of_le (ℱ.mono k.le_succ) (hX k))
+    fun k ↦ (hκ k).isExactCondEVar_comp (ℱ.le k) ((hX k).mono (ℱ.le _) le_rfl) (hr k) (hr1 k)
 
 end Predictor
 
