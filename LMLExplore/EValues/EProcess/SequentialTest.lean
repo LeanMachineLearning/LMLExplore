@@ -31,6 +31,8 @@ p-process, by Markov's inequality at each stopping time, so its running infimum
 level-`α` sequential test, which is Ville's inequality for e-processes; every level-`α` sequential
 test `φ` is the e-process `α⁻¹ * φ` thresholded at `α⁻¹`; and a p-to-e calibrator applied to a
 p-process gives an e-process.
+Since validity uniformly in time does not mention the filtration, a p-process or a sequential
+test for a filtration `𝒢` is one for every finer filtration [CR26, Theorem 1].
 
 The null is an arbitrary set of measures, with no dominating measure, the filtration is
 arbitrary, and p-processes and sequential tests are validated at the stopping times with values in
@@ -48,6 +50,9 @@ arbitrary, and p-processes and sequential tests are validated at the stopping ti
 * `ProbabilityTheory.isPProcess_iff_measure_exists_le_le`: an adapted process is a p-process
   exactly when it is ever at most `α` with probability at most `α`, for every level `α` and every
   member of the null [RRLK, §4.1].
+* `ProbabilityTheory.IsPProcess.mono_filtration`,
+  `ProbabilityTheory.IsSequentialTest.mono_filtration`: p-processes and sequential tests for a
+  filtration `𝒢` are ones for every finer filtration [CR26, Theorem 1 and §3.1].
 * `ProbabilityTheory.isPProcess_iInf_iff`: an adapted process is a p-process exactly when its
   running infimum is one [RRLK, §4.1].
 * `ProbabilityTheory.IsEProcess.isPProcess_inv`,
@@ -69,6 +74,8 @@ arbitrary, and p-processes and sequential tests are validated at the stopping ti
 
 ## References
 
+* [CR26] Y. J. Choe and A. Ramdas, *Combining evidence across filtrations*, arXiv:2402.09698v5,
+  to appear in J. R. Stat. Soc. Ser. B: Theorem 1 and §3.1.
 * [RW] A. Ramdas and R. Wang, *Hypothesis Testing with E-values*, Foundations and Trends in
   Statistics 1 (2025), arXiv:2410.23614v6, §7.3–7.4, Proposition 7.8 and Definition 7.10.
 * [RRLK] A. Ramdas, J. Ruf, M. Larsson and W. M. Koolen, *Admissible anytime-valid sequential
@@ -82,7 +89,7 @@ open scoped ENNReal
 
 namespace ProbabilityTheory
 
-variable {Ω : Type*} {mΩ : MeasurableSpace Ω} {ℱ : Filtration ℕ mΩ} {S T : Set (Measure Ω)}
+variable {Ω : Type*} {mΩ : MeasurableSpace Ω} {𝒢 ℱ : Filtration ℕ mΩ} {S T : Set (Measure Ω)}
   {P : Measure Ω} {p q E : ℕ → Ω → ℝ≥0∞} {φ : ℕ → Ω → ℝ≥0∞} {α β : ℝ≥0∞}
 
 /-! ### P-processes -/
@@ -157,6 +164,14 @@ p-process read at a random time `τ` with values in `ℕ`, not necessarily a sto
 theorem IsPProcess.measure_le_le (hp : IsPProcess p ℱ S) (τ : Ω → ℕ) (hP : P ∈ S) (α : ℝ≥0∞) :
     P {ω | p (τ ω) ω ≤ α} ≤ α :=
   (hp.measure_exists_le_le hP α).trans' (measure_mono fun ω (hω : p (τ ω) ω ≤ α) ↦ ⟨τ ω, hω⟩)
+
+/-- **p-lifting** [CR26, Theorem 1]. A p-process for a filtration `𝒢` is a p-process for every
+finer filtration `ℱ`, with no calibration: validity uniformly in time does not mention the
+filtration. -/
+theorem IsPProcess.mono_filtration (hp : IsPProcess p 𝒢 S) (h𝒢ℱ : 𝒢 ≤ ℱ) :
+    IsPProcess p ℱ S :=
+  isPProcess_iff_measure_exists_le_le.2
+    ⟨fun n ↦ (hp.adapted n).mono (h𝒢ℱ n) le_rfl, fun _ hP α ↦ hp.measure_exists_le_le hP α⟩
 
 /-- **The running infimum of a p-process** [RRLK, §4.1]. The running infimum
 `fun n ω ↦ ⨅ k ≤ n, p k ω` of an adapted process is a p-process exactly when the process is one:
@@ -240,6 +255,13 @@ theorem anti_set (hST : S ⊆ T) (hφ : IsSequentialTest φ ℱ T α) : IsSequen
 /-- A level-`α` sequential test is a level-`β` sequential test for every `β ≥ α`. -/
 theorem mono (hφ : IsSequentialTest φ ℱ S α) (hαβ : α ≤ β) : IsSequentialTest φ ℱ S β :=
   ⟨hφ.adapted, hφ.eq_zero_or_eq_one, fun P hP ↦ (hφ.measure_exists_eq_one_le P hP).trans hαβ⟩
+
+/-- A level-`α` sequential test for a filtration `𝒢` is a level-`α` sequential test for every
+finer filtration `ℱ` [CR26, §3.1]. -/
+theorem mono_filtration (hφ : IsSequentialTest φ 𝒢 S α) (h𝒢ℱ : 𝒢 ≤ ℱ) :
+    IsSequentialTest φ ℱ S α :=
+  ⟨fun n ↦ (hφ.adapted n).mono (h𝒢ℱ n) le_rfl, hφ.eq_zero_or_eq_one,
+    hφ.measure_exists_eq_one_le⟩
 
 end IsSequentialTest
 

@@ -18,6 +18,8 @@ integers with its integral. Its weighted form compares the values at the partial
 nonnegative sequence: for `f` antitone on `(c, c + ∑_{t < n} a t]` and integrable on
 `[c, c + ∑_{t < n} a t]`, and `a t ≥ 0`,
 `∑_{t < n} a t f (c + ∑_{s ≤ t} a s) ≤ ∫_c^{c + ∑_{t < n} a t} f`.
+For an antitone `C : ℝ≥0∞ → ℝ≥0∞`, with possibly infinite values, the Lebesgue integral of `C`
+over `(1 / K, 1]` is likewise at most its upper Riemann sum on the grid of mesh `1 / K`.
 
 Adaptive learning rates of online learning are of the form `η_t ∝ f (∑_{s ≤ t} a s)`, where
 `a s` is the squared norm of the subgradient of round `s` (as in AdaGrad), and the regret bounds
@@ -39,6 +41,8 @@ The file also compares the sums `∑_{m ≤ i < n} (i + 1) ^ r` with the integra
 ## Main statements
 
 * `AntitoneOn.sum_mul_le_integral_of_integrableOn`: the weighted comparison [Ora, Lemma 4.13].
+* `Antitone.setLIntegral_Ioc_le_sum`: for `C : ℝ≥0∞ → ℝ≥0∞` antitone, the integral of `C` over
+  `(1 / K, 1]` is at most its upper Riemann sum on the grid of mesh `1 / K`.
 * `Real.sum_div_sqrt_le_two_mul_sqrt`: `∑_{t < n} a t / √(∑_{s ≤ t} a s) ≤ 2 √(∑_{t < n} a t)`
   for `a t ≥ 0`, the case `f x = 1 / √x`.
 * `Real.sum_div_sqrt_add_le_two_mul_sqrt`: the same bound with the denominators
@@ -73,6 +77,7 @@ the terms with `N s = 0` are `0` for the same reason.
 public section
 
 open Finset MeasureTheory Set intervalIntegral
+open scoped ENNReal
 
 variable {f : ℝ → ℝ} {c : ℝ} {a : ℕ → ℝ} {n : ℕ}
 
@@ -114,6 +119,53 @@ theorem AntitoneOn.sum_mul_le_integral_of_integrableOn
     _ = ∫ x in c..c + ∑ t ∈ range n, a t, f x := by
         rw [sum_integral_adjacent_intervals hint]
         simp [hS]
+
+/-- **An upper Riemann sum of an antitone function of `ℝ≥0∞`.** For `C : ℝ≥0∞ → ℝ≥0∞`
+antitone and `K > 0`, the integral of `C` over `(1 / K, 1]` is at most the upper Riemann sum
+`∑_{j < K} C ((K - j) / K) / K` on the grid of mesh `1 / K`. The values of `C` may be infinite. -/
+theorem Antitone.setLIntegral_Ioc_le_sum {C : ℝ≥0∞ → ℝ≥0∞} (hC : Antitone C) {K : ℕ}
+    (hK : 0 < K) :
+    ∫⁻ u in Ioc (K : ℝ)⁻¹ 1, C (ENNReal.ofReal u) ≤
+      ∑ j : Fin K, (K : ℝ≥0∞)⁻¹ * C (((K - j : ℕ) : ℝ≥0∞) / K) := by
+  have hK' : (0 : ℝ) < K := Nat.cast_pos.2 hK
+  set I : Fin K → Set ℝ := fun j ↦ Ico (((K - j : ℕ) : ℝ) / K) ((((K - j : ℕ) : ℝ) + 1) / K)
+  -- on `(1 / K, 1]`, `C` is below the step function of its values at the left endpoints
+  have h_le : ∀ u ∈ Ioc (K : ℝ)⁻¹ 1, C (ENNReal.ofReal u) ≤
+      ∑ j : Fin K, (I j).indicator (fun _ ↦ C (((K - j : ℕ) : ℝ≥0∞) / K)) u := by
+    rintro u ⟨hu0, hu1⟩
+    have huK : 1 < u * K := by
+      have := mul_lt_mul_of_pos_right hu0 hK'
+      rwa [inv_mul_cancel₀ hK'.ne'] at this
+    have h1 : 1 ≤ ⌊u * K⌋₊ := Nat.one_le_floor_iff _ |>.2 huK.le
+    have h2 : ⌊u * K⌋₊ ≤ K := Nat.floor_le_of_le (by nlinarith)
+    have hfl := Nat.floor_le (zero_le_one.trans huK.le)
+    have hfl' := Nat.lt_floor_add_one (u * K)
+    let j : Fin K := ⟨K - ⌊u * K⌋₊, by omega⟩
+    have hj : K - (j : ℕ) = ⌊u * K⌋₊ := by simp only [j]; omega
+    refine le_trans ?_ (Finset.single_le_sum (f := fun j : Fin K ↦
+      (I j).indicator (fun _ ↦ C (((K - j : ℕ) : ℝ≥0∞) / K)) u) (fun _ _ ↦ zero_le)
+      (Finset.mem_univ j))
+    have hu_mem : u ∈ I j := by
+      simp only [I, hj, Set.mem_Ico]
+      exact ⟨(div_le_iff₀ hK').2 hfl, (lt_div_iff₀ hK').2 hfl'⟩
+    simp only [indicator_of_mem hu_mem, hj]
+    refine hC ?_
+    rw [← ENNReal.ofReal_natCast, ← ENNReal.ofReal_natCast K,
+      ← ENNReal.ofReal_div_of_pos hK']
+    exact ENNReal.ofReal_le_ofReal ((div_le_iff₀ hK').2 hfl)
+  calc ∫⁻ u in Ioc (K : ℝ)⁻¹ 1, C (ENNReal.ofReal u)
+      ≤ ∫⁻ u in Ioc (K : ℝ)⁻¹ 1, ∑ j : Fin K,
+          (I j).indicator (fun _ ↦ C (((K - j : ℕ) : ℝ≥0∞) / K)) u :=
+        setLIntegral_mono' measurableSet_Ioc h_le
+    _ ≤ ∫⁻ u, ∑ j : Fin K, (I j).indicator (fun _ ↦ C (((K - j : ℕ) : ℝ≥0∞) / K)) u :=
+        setLIntegral_le_lintegral _ _
+    _ = ∑ j : Fin K, (K : ℝ≥0∞)⁻¹ * C (((K - j : ℕ) : ℝ≥0∞) / K) := by
+        rw [lintegral_finsetSum _ fun j _ ↦ measurable_const.indicator measurableSet_Ico]
+        refine Finset.sum_congr rfl fun j _ ↦ ?_
+        rw [lintegral_indicator_const measurableSet_Ico, Real.volume_Ico, mul_comm,
+          show (((K - j : ℕ) : ℝ) + 1) / K - ((K - j : ℕ) : ℝ) / K = (K : ℝ)⁻¹ by
+            field_simp; ring,
+          ENNReal.ofReal_inv_of_pos hK', ENNReal.ofReal_natCast]
 
 namespace Real
 
