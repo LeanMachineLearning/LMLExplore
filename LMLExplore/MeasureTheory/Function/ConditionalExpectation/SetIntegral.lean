@@ -25,7 +25,7 @@ the conditional expectation, and `∫ x, h x * f x ∂μ = 0` for every `m`-meas
   nonpositive, or zero, when the set integrals over `m`-measurable sets are.
 * `LMLExplore.integral_mul_nonpos_of_forall_setIntegral_nonpos`,
   `LMLExplore.integral_mul_eq_zero_of_forall_setIntegral_eq_zero`: the integrals against
-  `m`-measurable weights.
+  almost everywhere `m`-measurable weights.
 -/
 
 public section
@@ -58,29 +58,29 @@ theorem condExp_ae_eq_zero_of_forall_setIntegral_eq_zero (hm : m ≤ mΩ) [Sigma
     (fun s hs _ ↦ by simp [hfs s hs]) aestronglyMeasurable_zero).symm
 
 /-- If the integral of `f` over every `m`-measurable set is nonpositive, then
-`∫ x, h x * f x ∂μ ≤ 0` for every nonnegative `m`-measurable `h` such that `h * f` is
-integrable. -/
+`∫ x, h x * f x ∂μ ≤ 0` for every almost everywhere nonnegative and almost everywhere
+`m`-measurable `h` such that `h * f` is integrable. -/
 theorem integral_mul_nonpos_of_forall_setIntegral_nonpos (hm : m ≤ mΩ) [SigmaFinite (μ.trim hm)]
     (hf : Integrable f μ) (hfs : ∀ s, MeasurableSet[m] s → ∫ x in s, f x ∂μ ≤ 0)
-    (hh : StronglyMeasurable[m] h) (hh_nonneg : 0 ≤ᵐ[μ] h)
+    (hh : AEStronglyMeasurable[m] h μ) (hh_nonneg : 0 ≤ᵐ[μ] h)
     (hhf : Integrable (fun x ↦ h x * f x) μ) : ∫ x, h x * f x ∂μ ≤ 0 := by
   rw [← integral_condExp hm]
   refine integral_nonpos_of_ae ?_
-  filter_upwards [condExp_mul_of_stronglyMeasurable_left (μ := μ) hh hhf hf,
+  filter_upwards [condExp_mul_of_aestronglyMeasurable_left hh hhf hf,
     condExp_nonpos_of_forall_setIntegral_nonpos hm hf hfs, hh_nonneg] with x hx hfx hhx
   simp only [Pi.mul_def] at hx
   rw [hx]
   exact mul_nonpos_of_nonneg_of_nonpos hhx hfx
 
 /-- If the integral of `f` over every `m`-measurable set vanishes, then `∫ x, h x * f x ∂μ = 0`
-for every `m`-measurable `h` such that `h * f` is integrable. -/
+for every almost everywhere `m`-measurable `h` such that `h * f` is integrable. -/
 theorem integral_mul_eq_zero_of_forall_setIntegral_eq_zero (hm : m ≤ mΩ)
     [SigmaFinite (μ.trim hm)] (hf : Integrable f μ)
-    (hfs : ∀ s, MeasurableSet[m] s → ∫ x in s, f x ∂μ = 0) (hh : StronglyMeasurable[m] h)
+    (hfs : ∀ s, MeasurableSet[m] s → ∫ x in s, f x ∂μ = 0) (hh : AEStronglyMeasurable[m] h μ)
     (hhf : Integrable (fun x ↦ h x * f x) μ) : ∫ x, h x * f x ∂μ = 0 := by
   rw [← integral_condExp hm]
   refine integral_eq_zero_of_ae ?_
-  filter_upwards [condExp_mul_of_stronglyMeasurable_left (μ := μ) hh hhf hf,
+  filter_upwards [condExp_mul_of_aestronglyMeasurable_left hh hhf hf,
     condExp_ae_eq_zero_of_forall_setIntegral_eq_zero hm hf hfs] with x hx hfx
   simp only [Pi.mul_def] at hx
   rw [hx]

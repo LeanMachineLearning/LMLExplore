@@ -293,7 +293,7 @@ theorem isCondEVar_ofReal_one_add_sum_mul [Fintype ι] (hm : m ≤ mΩ)
       ≤ ENNReal.ofReal (P.real (s ∩ {ω | ∑ i, |w ω i| ≤ N})) := by
         refine ENNReal.ofReal_le_ofReal (add_le_of_nonpos_right (Finset.sum_nonpos fun i _ ↦ ?_))
         exact integral_mul_nonpos_of_forall_setIntegral_nonpos hm (hY P hP i) (hY_le P hP i)
-          ((hw i).indicator hA).stronglyMeasurable
+          ((hw i).indicator hA).aestronglyMeasurable
           (ae_of_all _ fun ω ↦ indicator_nonneg (fun ω _ ↦ hw_nonneg ω i) ω)
           (integrable_indicator_mul hm (hY P hP i) hw i hs N)
     _ = P (s ∩ {ω | ∑ i, |w ω i| ≤ N}) := ofReal_measureReal
@@ -317,7 +317,7 @@ theorem isExactCondEVar_ofReal_one_add_sum_mul [Fintype ι] (hm : m ≤ mΩ)
   have h0 : ∀ N : ℕ, ∑ i, ∫ ω, (s ∩ {ω | ∑ i, |w ω i| ≤ N}).indicator (fun ω ↦ w ω i) ω *
       Y i ω ∂P = 0 := fun N ↦ Finset.sum_eq_zero fun i _ ↦
     integral_mul_eq_zero_of_forall_setIntegral_eq_zero hm (hY P hP i) (hY_eq P hP i)
-      ((hw i).indicator (hs.inter (measurableSet_sum_abs_le hw N))).stronglyMeasurable
+      ((hw i).indicator (hs.inter (measurableSet_sum_abs_le hw N))).aestronglyMeasurable
       (integrable_indicator_mul hm (hY P hP i) hw i hs N)
   simp only [h0, add_zero, measureReal_def, ENNReal.ofReal_toReal (measure_ne_top P _)]
   rw [← (monotone_inter_sum_abs_le s w).measure_iUnion, iUnion_inter_sum_abs_le]
