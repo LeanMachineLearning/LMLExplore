@@ -53,9 +53,15 @@ targets may be any selection of the optimal allocations, even where these are no
 **Sticky Track-and-Stop** [DK19, Theorems 10–11]. Since
 `KL(𝒩(x, σ2), 𝒩(y, σ2)) = (x - y)² / (2 σ2)`, the models whose arms are within a small relative
 entropy of those of a model close to `μ` are close to `μ`, so that the confidence regions of
-Sticky Track-and-Stop shrink to the true model. With the thresholds `K log (2 n (n + 1)) + x_δ`, on
-every task with finitely many answers, it is `δ`-PAC for every `δ ∈ (0, 1]` and
-`limsup_{δ → 0} 𝔼[τ_δ] / log (1 / δ) ≤ T*(μ)`, even where `μ` has several oracle answers.
+Sticky Track-and-Stop shrink to the true model. Let the task have finitely many answers, let the
+radii of the confidence regions be at least `K log (2 n (n + 1)) + x_{(n + 1) ^ (-p)}` for some
+`p > 2` and `o(√n)`, let the targets be allocations, those of the least oracle answer of the
+admissible model `μ` being optimal allocations near `μ`, let the recommendation have a GLR
+statistic at least that of the sticky answer, and let the costs be continuous at `μ`. Then, with
+the thresholds `K log (2 n (n + 1)) + x_δ`, Sticky Track-and-Stop satisfies
+`limsup_{δ → 0} 𝔼[τ_δ] / log (1 / δ) ≤ T*(μ)`, even where `μ` has several oracle answers. When
+these assumptions hold on every admissible model `θ`, and `T*(θ) < ∞` on every admissible model
+`θ`, it is moreover `δ`-PAC for every `δ ∈ (0, 1]`.
 
 ## Main statements
 
@@ -80,9 +86,9 @@ every task with finitely many answers, it is `δ`-PAC for every `δ ∈ (0, 1]` 
   Track-and-Stop with C-tracking, whose targets may be any selection of the optimal allocations,
   even where these are not unique [DK19, Theorem 7].
 * `IdentTask.eventually_expectedStoppingTime_stickyTrackAndStop_unionBoundThreshold_le`,
-  `IdentTask.isDeltaPAC_stickyTrackAndStop_unionBoundThreshold`: the sample complexity of Sticky
-  Track-and-Stop is at most `T*(μ) log (1 / δ)` asymptotically, and it is `δ`-PAC for every
-  `δ ∈ (0, 1]` [DK19, Theorems 10–11].
+  `IdentTask.isDeltaPAC_stickyTrackAndStop_unionBoundThreshold`: under the assumptions above, the
+  sample complexity of Sticky Track-and-Stop is at most `T*(μ) log (1 / δ)` asymptotically, and it
+  is `δ`-PAC for every `δ ∈ (0, 1]` [DK19, Theorems 10–11].
 
 ## References
 
