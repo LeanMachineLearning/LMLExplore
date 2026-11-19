@@ -120,6 +120,10 @@ end Defs
 
 variable {M : MDP 𝓢 𝓐 ℝ} {γ : ℝ≥0} {η C : ℝ}
 
+/-- A discount factor `γ < 1` gives the positive normalization `0 < 1 - γ`. -/
+private lemma one_sub_coe_pos (hγ : γ < 1) : (0 : ℝ) < 1 - γ :=
+  sub_pos.2 (NNReal.coe_lt_one.2 hγ)
+
 /-- Natural policy gradient starts from the uniform policy. -/
 lemma softmax_npgParam_zero (s : 𝓢) :
     softmax (npgParam M γ η 0 s) = fun _ ↦ (Fintype.card 𝓐 : ℝ)⁻¹ := by
@@ -171,10 +175,13 @@ theorem npgLogPartition_nonneg (t : ℕ) (s : 𝓢) : 0 ≤ npgLogPartition M γ
   have h := sum_mul_sub_sum_mul_log_div_le_log_sum_mul_exp
     (softmax_mem_simplex (npgParam M γ η t s)) (softmax_mem_simplex _) (fun _ h ↦ h)
     (fun a ↦ η / (1 - γ) * M.advantage γ (softmaxPolicy (npgParam M γ η t)) (s, a))
-  simp_rw [div_self (softmax_pos _ _).ne', Real.log_one, mul_zero, sum_const_zero, sub_zero,
-    mul_left_comm _ (η / (1 - γ) : ℝ), ← mul_sum, sum_softmax_npgParam_mul_advantage hγ hR,
-    mul_zero] at h
-  rwa [npgLogPartition_def]
+  -- the mean of the exponent under `π_t` is zero, since the advantage has mean zero
+  have h_mean : ∑ a, softmax (npgParam M γ η t s) a *
+      (η / (1 - γ) * M.advantage γ (softmaxPolicy (npgParam M γ η t)) (s, a)) = 0 := by
+    simp_rw [mul_left_comm _ (η / (1 - γ) : ℝ), ← mul_sum,
+      sum_softmax_npgParam_mul_advantage hγ hR, mul_zero]
+  rw [npgLogPartition_def]
+  simpa [div_self (softmax_pos _ _).ne', h_mean] using h
 
 omit hγ hR in
 /-- The logarithm of the normalization of natural policy gradient is at most the average advantage
@@ -230,7 +237,7 @@ private lemma mul_sum_integral_advantage_le (hη : 0 < η) (s : 𝓢) (ν : Meas
     [IsProbabilityMeasure ν] (T : ℕ) :
     η / (1 - γ) * ∑ t ∈ range T, ∫ a, M.advantage γ (softmaxPolicy (npgParam M γ η t)) (s, a) ∂ν ≤
       log (Fintype.card 𝓐) + ∑ t ∈ range T, npgLogPartition M γ η t s := by
-  have hη' : 0 < η / (1 - γ) := div_pos hη (sub_pos.2 (by exact_mod_cast hγ))
+  have hη' : 0 < η / (1 - γ) := div_pos hη (one_sub_coe_pos hγ)
   have hν : (fun a ↦ ν.real {a}) ∈ simplex 𝓐 :=
     mem_simplex_iff.2 ⟨fun _ ↦ measureReal_nonneg, by simp⟩
   -- the mix losses of exponential weights telescope into the potential
@@ -264,7 +271,7 @@ omit [Nonempty 𝓢] in
 `0 ≤ log Z_t s ≤ η / (1 - γ) * (2 * C / (1 - γ))`. -/
 private lemma integrable_npgLogPartition (t : ℕ) (μ : Measure 𝓢) [IsFiniteMeasure μ] :
     Integrable (npgLogPartition M γ η t) μ := by
-  have h1γ : 0 < (1 - γ : ℝ) := sub_pos.2 (by exact_mod_cast hγ)
+  have h1γ := one_sub_coe_pos hγ
   refine integrable_of_abs_le (B := η / (1 - γ) * (2 * C / (1 - γ))) (measurable_of_countable _)
     (fun s ↦ ?_) μ
   rw [abs_of_nonneg (npgLogPartition_nonneg hγ hR t s)]
@@ -287,7 +294,7 @@ theorem mul_integral_npgLogPartition_le (t : ℕ) (μ : Measure 𝓢) [IsProbabi
     (1 - γ) / η * ∫ s, npgLogPartition M γ η t s ∂μ ≤
       ∫ s, M.value γ (softmaxPolicy (npgParam M γ η (t + 1))) s ∂μ -
         ∫ s, M.value γ (softmaxPolicy (npgParam M γ η t)) s ∂μ := by
-  have h1γ : 0 < (1 - γ : ℝ) := sub_pos.2 (by exact_mod_cast hγ)
+  have h1γ := one_sub_coe_pos hγ
   set d := (M.occupancy γ (Algorithm.markov fun _ ↦ softmaxPolicy (npgParam M γ η (t + 1))) μ).fst
   rw [integral_value_sub_integral_value hγ hR]
   -- the state marginal `d` of the occupancy measure of `π_{t+1}` dominates `(1 - γ) • μ`
@@ -295,8 +302,7 @@ theorem mul_integral_npgLogPartition_le (t : ℕ) (μ : Measure 𝓢) [IsProbabi
       ∫ s, npgLogPartition M γ η t s ∂d := by
     have h := integral_mono_measure smul_le_occupancy_fst
       (ae_of_all _ (npgLogPartition_nonneg hγ hR t)) (integrable_npgLogPartition hγ hR hη t d)
-    rwa [integral_smul_nnreal_measure, NNReal.smul_def, smul_eq_mul, NNReal.coe_sub hγ.le,
-      NNReal.coe_one] at h
+    simpa [integral_smul_nnreal_measure, NNReal.smul_def, NNReal.coe_sub hγ.le] using h
   -- in every state, `log Z_t ≤ η / (1 - γ) * ∫ A^{π_t} dπ_{t+1}`
   have h_state : ∫ s, npgLogPartition M γ η t s ∂d ≤ η / (1 - γ) *
       ∫ s, ∫ a, M.advantage γ (softmaxPolicy (npgParam M γ η t)) (s, a)
@@ -321,7 +327,7 @@ theorem monotone_value_npg (s : 𝓢) :
   have h := mul_integral_npgLogPartition_le hγ hR hη t (Measure.dirac s)
   simp only [integral_dirac] at h
   have : 0 ≤ (1 - γ : ℝ) / η * npgLogPartition M γ η t s :=
-    mul_nonneg (div_nonneg (sub_nonneg.2 (by exact_mod_cast hγ.le)) hη.le)
+    mul_nonneg (div_nonneg (one_sub_coe_pos hγ).le hη.le)
       (npgLogPartition_nonneg hγ hR t s)
   linarith
 
@@ -330,15 +336,16 @@ gradient have bounded sums: `∑ t < T, ∫ log Z_t dμ ≤ η / (1 - γ) * C / 
 private lemma sum_integral_npgLogPartition_le (hr : ∀ p, 0 ≤ meanReward M.R p) (T : ℕ)
     (μ : Measure 𝓢) [IsProbabilityMeasure μ] :
     ∑ t ∈ range T, ∫ s, npgLogPartition M γ η t s ∂μ ≤ η / (1 - γ) * (C / (1 - γ)) := by
-  have h1γ : 0 < (1 - γ : ℝ) := sub_pos.2 (by exact_mod_cast hγ)
+  have h1γ := one_sub_coe_pos hγ
   -- each term is at most `η / (1 - γ)` times the increase of the value, which telescopes
   have h_le (t : ℕ) : ∫ s, npgLogPartition M γ η t s ∂μ ≤ η / (1 - γ) *
       (∫ s, M.value γ (softmaxPolicy (npgParam M γ η (t + 1))) s ∂μ -
         ∫ s, M.value γ (softmaxPolicy (npgParam M γ η t)) s ∂μ) := by
-    have h := mul_integral_npgLogPartition_le hγ hR hη t μ
-    rw [div_mul_eq_mul_div, div_le_iff₀ hη] at h
-    rw [div_mul_eq_mul_div, le_div_iff₀ h1γ]
-    linarith
+    calc ∫ s, npgLogPartition M γ η t s ∂μ
+        = η / (1 - γ) * ((1 - γ) / η * ∫ s, npgLogPartition M γ η t s ∂μ) := by
+          field_simp
+      _ ≤ _ := mul_le_mul_of_nonneg_left (mul_integral_npgLogPartition_le hγ hR hη t μ)
+          (div_pos hη h1γ).le
   refine (sum_le_sum fun t _ ↦ h_le t).trans ?_
   rw [← mul_sum, sum_range_sub (fun t ↦ ∫ s, M.value γ (softmaxPolicy (npgParam M γ η t)) s ∂μ)]
   gcongr
@@ -358,7 +365,7 @@ theorem sum_integral_value_sub_integral_value_npg_le (hr : ∀ p, 0 ≤ meanRewa
     ∑ t ∈ range T, (∫ s, M.value γ π s ∂ρ -
         ∫ s, M.value γ (softmaxPolicy (npgParam M γ η t)) s ∂ρ) ≤
       log (Fintype.card 𝓐) / η + C / (1 - γ) ^ 2 := by
-  have h1γ : 0 < (1 - γ : ℝ) := sub_pos.2 (by exact_mod_cast hγ)
+  have h1γ := one_sub_coe_pos hγ
   have := isProbabilityMeasure_occupancy (M := M) (alg := Algorithm.markov fun _ ↦ π) (μ := ρ) hγ
   set d := (M.occupancy γ (Algorithm.markov fun _ ↦ π) ρ).fst
   -- the performance difference lemma against `π`, with the advantages of the iterates
@@ -412,8 +419,12 @@ theorem integral_value_sub_le_integral_value_npg (hr : ∀ p, 0 ≤ meanReward M
     exact sum_le_sum fun t ht ↦ sub_le_sub_left (integral_mono (h_int t) (h_int T) fun s ↦
       monotone_value_npg hγ hR hη s (mem_range.1 ht).le) _
   have h := h_mono.trans (sum_integral_value_sub_integral_value_npg_le hγ hR hη hr π ρ T)
-  rw [div_mul_eq_div_div, div_mul_eq_div_div, sub_sub, ← add_div, sub_le_comm, le_div_iff₀ hT']
-  linarith
+  calc ∫ s, M.value γ π s ∂ρ - log (Fintype.card 𝓐) / (η * T) - C / ((1 - γ) ^ 2 * T)
+      = ∫ s, M.value γ π s ∂ρ - (log (Fintype.card 𝓐) / η + C / (1 - γ) ^ 2) / T := by
+        rw [add_div, div_div, div_div, sub_sub]
+    _ ≤ _ := by
+      rw [sub_le_comm, le_div_iff₀ hT']
+      linarith
 
 omit hR in
 /-- **Global convergence of natural policy gradient** [AKLM21, Theorem 5.3]: with rewards in
