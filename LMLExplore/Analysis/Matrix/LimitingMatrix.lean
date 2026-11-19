@@ -342,10 +342,10 @@ theorem eq_limitingMatrix_mulVec_and_eq_deviationMatrix_mulVec_iff {g h r : S �
   exact (isPowerBounded_toContinuousLinAlgEquiv' hP).eq_meanErgodicProj_and_eq_deviation_iff
     (isPowerBounded_toContinuousLinAlgEquiv' hP).ker_sup_range_eq_top
 
-/-- **All solutions of the evaluation equations** [P, Theorem 8.2.6]. For a stochastic matrix
-`P` and a reward vector `r`, the pairs `(g, h)` with `(1 - P) g = 0` and `g + (1 - P) h = r` are
-those with `g = P* r` and `h = D r + P* h`: the gain is determined, and the bias up to the vector
-`P* h`, which is fixed by `P`. -/
+/-- **All solutions of the first two evaluation equations** [P, Theorem 8.2.6]. For a stochastic
+matrix `P` and a reward vector `r`, the pairs `(g, h)` with `(1 - P) g = 0` and
+`g + (1 - P) h = r` are those with `g = P* r` and `h = D r + P* h`: the gain is determined, and
+the bias up to the vector `P* h`, which is fixed by `P`. -/
 theorem eq_limitingMatrix_mulVec_and_eq_deviationMatrix_mulVec_add_iff {g h r : S → ℝ} :
     g = P.limitingMatrix *ᵥ r ∧ h = P.deviationMatrix *ᵥ r + P.limitingMatrix *ᵥ h ↔
       (1 - P) *ᵥ g = 0 ∧ g + (1 - P) *ᵥ h = r := by
