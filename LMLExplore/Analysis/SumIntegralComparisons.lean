@@ -40,6 +40,8 @@ The file also compares the sums `∑_{m ≤ i < n} (i + 1) ^ r` with the integra
   `∑_{m ≤ i < n} (i + 1) ^ r` compared with `(n ^ (r + 1) - m ^ (r + 1)) / (r + 1)`, the integral
   of `x ^ r` over `[m, n]`, from above for `-1 < r ≤ 0` and from below for `r ≥ 0`. The learning
   rates `(t + 1) ^ (-α)` of online subgradient descent are of this form.
+* `Real.sum_range_add_one_rpow_le`, `Real.div_le_sum_range_add_one_rpow`: their cases `m = 0`,
+  comparing `∑_{i < n} (i + 1) ^ r` with `n ^ (r + 1) / (r + 1)`.
 
 In `Real.sum_div_sqrt_le_two_mul_sqrt`, a term whose denominator vanishes has `a t = 0`, and
 Lean's convention `x / 0 = 0` omits it, as [Ora] does.
@@ -163,9 +165,7 @@ theorem sum_div_add_le_log_div (hc : 0 < c) (ha : ∀ t < n, 0 ≤ a t) :
 /-- **Sums of a nonpositive power** compared with its integral: for `-1 < r ≤ 0` and `m ≤ n`,
 `∑_{m ≤ i < n} (i + 1) ^ r ≤ (n ^ (r + 1) - m ^ (r + 1)) / (r + 1)`.
 
-For `m = 0`, it bounds `∑_{i < n} (i + 1) ^ r` by `n ^ (r + 1) / (r + 1)`: the learning rates
-`(t + 1) ^ (-α)`, `0 ≤ α < 1`, of online subgradient descent sum to at most `n ^ (1 - α) / (1 - α)`
-over the first `n` rounds. -/
+For `m = 0`, it is `Real.sum_range_add_one_rpow_le`. -/
 theorem sum_Ico_add_one_rpow_le {r : ℝ} (hr₁ : -1 < r) (hr : r ≤ 0) {m n : ℕ} (hmn : m ≤ n) :
     ∑ i ∈ Finset.Ico m n, ((i : ℝ) + 1) ^ r ≤
       ((n : ℝ) ^ (r + 1) - (m : ℝ) ^ (r + 1)) / (r + 1) := by
@@ -188,7 +188,7 @@ theorem sum_Ico_add_one_rpow_le {r : ℝ} (hr₁ : -1 < r) (hr : r ≤ 0) {m n :
 /-- **Sums of a nonnegative power** compared with its integral: for `0 ≤ r` and `m ≤ n`,
 `(n ^ (r + 1) - m ^ (r + 1)) / (r + 1) ≤ ∑_{m ≤ i < n} (i + 1) ^ r`.
 
-For `m = 0`, it bounds `∑_{i < n} (i + 1) ^ r` below by `n ^ (r + 1) / (r + 1)`. -/
+For `m = 0`, it is `Real.div_le_sum_range_add_one_rpow`. -/
 theorem sub_div_le_sum_Ico_add_one_rpow {r : ℝ} (hr : 0 ≤ r) {m n : ℕ} (hmn : m ≤ n) :
     ((n : ℝ) ^ (r + 1) - (m : ℝ) ^ (r + 1)) / (r + 1) ≤
       ∑ i ∈ Finset.Ico m n, ((i : ℝ) + 1) ^ r := by
@@ -197,5 +197,22 @@ theorem sub_div_le_sum_Ico_add_one_rpow {r : ℝ} (hr : 0 ≤ r) {m n : ℕ} (hm
   have h := hmono.integral_le_sum_Ico hmn
   rw [integral_rpow (Or.inl (by linarith))] at h
   exact h.trans_eq (Finset.sum_congr rfl fun i _ ↦ by rw [Nat.cast_add_one])
+
+/-- **Sums of a nonpositive power** from `0` compared with its integral: for `-1 < r ≤ 0`,
+`∑_{i < n} (i + 1) ^ r ≤ n ^ (r + 1) / (r + 1)`, the case `m = 0` of
+`Real.sum_Ico_add_one_rpow_le`. The learning rates `(t + 1) ^ (-α)`, `0 ≤ α < 1`, of online
+subgradient descent sum to at most `n ^ (1 - α) / (1 - α)` over the first `n` rounds. -/
+theorem sum_range_add_one_rpow_le {r : ℝ} (hr₁ : -1 < r) (hr : r ≤ 0) :
+    ∑ i ∈ range n, ((i : ℝ) + 1) ^ r ≤ (n : ℝ) ^ (r + 1) / (r + 1) := by
+  have h := sum_Ico_add_one_rpow_le hr₁ hr (Nat.zero_le n)
+  rwa [Nat.cast_zero, zero_rpow (by linarith), sub_zero, ← range_eq_Ico] at h
+
+/-- **Sums of a nonnegative power** from `0` compared with its integral: for `0 ≤ r`,
+`n ^ (r + 1) / (r + 1) ≤ ∑_{i < n} (i + 1) ^ r`, the case `m = 0` of
+`Real.sub_div_le_sum_Ico_add_one_rpow`. -/
+theorem div_le_sum_range_add_one_rpow {r : ℝ} (hr : 0 ≤ r) :
+    (n : ℝ) ^ (r + 1) / (r + 1) ≤ ∑ i ∈ range n, ((i : ℝ) + 1) ^ r := by
+  have h := sub_div_le_sum_Ico_add_one_rpow hr (Nat.zero_le n)
+  rwa [Nat.cast_zero, zero_rpow (by linarith), sub_zero, ← range_eq_Ico] at h
 
 end Real

@@ -193,17 +193,15 @@ theorem mul_rpow_sub_rpow_div_le_regret (hα0 : 0 ≤ α) (hα1 : α < 1) {x g :
     rw [hη, show (1 - α) = 1 + -α by ring, rpow_add (by positivity), rpow_one]
   -- the three sums, compared with integrals of powers
   have hA : (n : ℝ) ^ (2 - α) / (2 - α) ≤ ∑ i ∈ range n, ((i : ℝ) + 1) ^ (1 - α) := by
-    have h := sub_div_le_sum_Ico_add_one_rpow (r := 1 - α) hs.le (Nat.zero_le n)
-    rwa [show 1 - α + 1 = 2 - α by ring, Nat.cast_zero, zero_rpow (by linarith), sub_zero,
-      ← range_eq_Ico] at h
+    have h := div_le_sum_range_add_one_rpow (n := n) (r := 1 - α) hs.le
+    rwa [show 1 - α + 1 = 2 - α by ring] at h
   have hB : ∑ i ∈ Ico m n, η i ≤ ((n : ℝ) ^ (1 - α) - (m : ℝ) ^ (1 - α)) / (1 - α) := by
     have h := sum_Ico_add_one_rpow_le (r := -α) (by linarith) (by linarith) (m := m) (n := n)
       (by omega)
     rwa [show -α + 1 = 1 - α by ring] at h
   have hC : ∑ i ∈ range m, η i ≤ (m : ℝ) ^ (1 - α) / (1 - α) := by
-    have h := sum_Ico_add_one_rpow_le (r := -α) (by linarith) (by linarith) (Nat.zero_le m)
-    rwa [show -α + 1 = 1 - α by ring, Nat.cast_zero, zero_rpow hs.ne', sub_zero,
-      ← range_eq_Ico] at h
+    have h := sum_range_add_one_rpow_le (n := m) (r := -α) (by linarith) (by linarith)
+    rwa [show -α + 1 = 1 - α by ring] at h
   have hC0 : 0 ≤ ∑ i ∈ range m, η i := sum_nonneg fun i _ ↦ by positivity
   -- `n / 2 ≤ m ≤ n` and `2 m ≤ n + 1`
   have hmn : (m : ℝ) ≤ n := by exact_mod_cast (show m ≤ n by omega)
