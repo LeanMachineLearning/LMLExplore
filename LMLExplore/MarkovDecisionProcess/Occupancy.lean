@@ -35,6 +35,8 @@ from its marginals `stateMarginal (fun _ ↦ M.P) π μ n ⊗ₘ π n`.
 Occupancy measures depend continuously on stationary policies: if `tvDist (π' s) (π s) ≤ ε` at
 every state, then the state marginals of the occupancy measures of `π'` and `π` are within
 `γ * ε / (1 - γ)` in total variation, and the occupancy measures themselves within `ε / (1 - γ)`.
+On a finite state space, occupancy measures are therefore continuous in the policy for the total
+variation distance.
 For the mixture `π' = (1 - α) π + α π''` this is the policy-mixture lemma, with the bounds
 `2 * α * γ / (1 - γ)` and `2 * α / (1 - γ)`: a step of size `α` towards another policy moves
 the occupancy measure by `O(α)`, the estimate behind the analysis of conservative policy updates.
@@ -63,6 +65,10 @@ the occupancy measure by `O(α)`, the estimate behind the analysis of conservati
 * `Learning.MDP.tvDist_fst_occupancy_le`, `Learning.MDP.tvDist_occupancy_le`: stationary
   policies within `ε` of each other in total variation at every state have occupancy measures
   within `ε / (1 - γ)`, and state marginals within `γ * ε / (1 - γ)`;
+  `Learning.MDP.tendsto_tvDist_occupancy`, `Learning.MDP.tendsto_tvDist_fst_occupancy`: hence, on a
+  finite state space, they depend continuously on the policy in total variation;
+  `Learning.MDP.tendsto_measureReal_fst_occupancy`: on finite state and action spaces, the state
+  occupancies are continuous in the action probabilities;
 * `Learning.MDP.tvDist_fst_occupancy_le_of_mixture`, `Learning.MDP.tvDist_occupancy_le_of_mixture`:
   the policy-mixture lemma [AJKS, Lemma 14.1].
 
@@ -76,7 +82,7 @@ the occupancy measure by `O(α)`, the estimate behind the analysis of conservati
 
 public section
 
-open MeasureTheory ProbabilityTheory Learning Set LMLExplore
+open MeasureTheory ProbabilityTheory Learning Set LMLExplore Filter Topology
 open scoped NNReal ENNReal
 
 namespace Learning.MDP
@@ -354,6 +360,57 @@ theorem tvDist_occupancy_le (hγ : γ < 1) (hε : ∀ s, tvDist (π' s) (π s) �
   have hγ' : (γ : ℝ) < 1 := by exact_mod_cast hγ
   rw [le_div_iff₀ (sub_pos.2 hγ')]
   nlinarith [γ.coe_nonneg]
+
+section Continuity
+
+variable [Finite 𝓢] {ι : Type*} {l : Filter ι} {ρ : ι → Kernel 𝓢 𝓐} [∀ i, IsMarkovKernel (ρ i)]
+
+/-- **Continuity of occupancy measures in the policy**: on a finite state space, if the
+stationary policies `ρ i` converge to `π` in total variation at every state along a filter, then
+for `γ < 1` their state-action occupancy measures from `μ` converge to that of `π` in total
+variation. -/
+theorem tendsto_tvDist_occupancy (hγ : γ < 1)
+    (h : ∀ s, Tendsto (fun i ↦ tvDist (ρ i s) (π s)) l (𝓝 0)) :
+    Tendsto (fun i ↦ tvDist (M.occupancy γ (Algorithm.markov fun _ ↦ ρ i) μ)
+      (M.occupancy γ (Algorithm.markov fun _ ↦ π) μ)) l (𝓝 0) := by
+  have := Fintype.ofFinite 𝓢
+  have hsum : Tendsto (fun i ↦ ∑ s, tvDist (ρ i s) (π s)) l (𝓝 0) := by
+    simpa using tendsto_finsetSum Finset.univ fun s _ ↦ h s
+  refine squeeze_zero (fun _ ↦ tvDist_nonneg) (fun i ↦ tvDist_occupancy_le hγ fun s ↦
+    Finset.single_le_sum (fun s _ ↦ tvDist_nonneg) (Finset.mem_univ s)) ?_
+  simpa using hsum.div_const (1 - γ : ℝ)
+
+/-- **Continuity of state occupancy measures in the policy**: on a finite state space, if the
+stationary policies `ρ i` converge to `π` in total variation at every state along a filter, then
+for `γ < 1` the state marginals of their occupancy measures from `μ` converge to that of `π` in
+total variation. -/
+theorem tendsto_tvDist_fst_occupancy (hγ : γ < 1)
+    (h : ∀ s, Tendsto (fun i ↦ tvDist (ρ i s) (π s)) l (𝓝 0)) :
+    Tendsto (fun i ↦ tvDist (M.occupancy γ (Algorithm.markov fun _ ↦ ρ i) μ).fst
+      (M.occupancy γ (Algorithm.markov fun _ ↦ π) μ).fst) l (𝓝 0) := by
+  refine squeeze_zero (fun _ ↦ tvDist_nonneg) (fun i ↦ tvDist_fst_occupancy_le_mul hγ) ?_
+  simpa using (tendsto_tvDist_occupancy hγ h).const_mul (γ : ℝ)
+
+/-- **Continuity of state occupancies in the action probabilities**: on finite state and action
+spaces with measurable singletons, if the action probabilities `ρ i s {a}` of the stationary
+policies `ρ i` converge to those of `π` along a filter, then for `γ < 1` the probability of every
+state under the state marginal of the occupancy measure of `ρ i` from `μ` converges to its
+probability under that of `π`. -/
+theorem tendsto_measureReal_fst_occupancy [Finite 𝓐] [MeasurableSingletonClass 𝓐]
+    [MeasurableSingletonClass 𝓢] (hγ : γ < 1)
+    (h : ∀ s a, Tendsto (fun i ↦ (ρ i s).real {a}) l (𝓝 ((π s).real {a}))) (s : 𝓢) :
+    Tendsto (fun i ↦ (M.occupancy γ (Algorithm.markov fun _ ↦ ρ i) μ).fst.real {s}) l
+      (𝓝 ((M.occupancy γ (Algorithm.markov fun _ ↦ π) μ).fst.real {s})) := by
+  have := fun i ↦ isProbabilityMeasure_occupancy (M := M)
+    (alg := Algorithm.markov fun _ ↦ ρ i) (μ := μ) hγ
+  have := isProbabilityMeasure_occupancy (M := M) (alg := Algorithm.markov fun _ ↦ π) (μ := μ) hγ
+  refine tendsto_iff_norm_sub_tendsto_zero.2 (squeeze_zero (fun _ ↦ norm_nonneg _)
+    (fun i ↦ abs_measureReal_sub_measureReal_le_tvDist_div_two (by simp)
+      (measurableSet_singleton s)) ?_)
+  simpa using ((tendsto_tvDist_fst_occupancy hγ fun s ↦
+    tendsto_tvDist_of_tendsto_measureReal_singleton (h s)).div_const 2)
+
+end Continuity
 
 variable {π'' : Kernel 𝓢 𝓐} [IsMarkovKernel π''] {α : ℝ≥0}
 

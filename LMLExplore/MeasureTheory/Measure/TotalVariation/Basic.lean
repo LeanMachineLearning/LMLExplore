@@ -27,7 +27,8 @@ variation distance is also controlled by events: `|μ s - ν s| ≤ tvDist μ ν
 measurable `s`, and conversely `tvDist μ ν ≤ 2 * c` as soon as `μ s ≤ ν s + c` for every
 measurable `s`. On a finite type, the total variation distance of two
 finite measures is `μ univ + ν univ - 2 * ∑ x, min (μ {x}) (ν {x})`, and for probability measures
-half of it is the mass `1 - ∑ x, min (μ {x}) (ν {x})` that they do not share.
+half of it is the mass `1 - ∑ x, min (μ {x}) (ν {x})` that they do not share; in particular,
+convergence of the masses of all points implies convergence in total variation.
 Adding a common finite measure and scaling both measures by `t` multiplies the
 distance by `t`, so the distance from a mixture `(1 - α) • μ + α • ν` to `μ` is
 `α * tvDist ν μ`, at most `2 * α` for probability measures.
@@ -64,7 +65,9 @@ contraction of the oscillation of functions by a Markov kernel (Dobrushin's coef
   bounds bound the total variation distance.
 * `MeasureTheory.tvDist_eq_measureReal_univ_add_sub_two_mul_sum_min`,
   `MeasureTheory.tvDist_div_two_eq_one_sub_sum_min`: on a finite type, the overlap form
-  `tvDist μ ν = μ univ + ν univ - 2 * ∑ x, min (μ {x}) (ν {x})`.
+  `tvDist μ ν = μ univ + ν univ - 2 * ∑ x, min (μ {x}) (ν {x})`;
+  `MeasureTheory.tendsto_tvDist_of_tendsto_measureReal_singleton`: on a finite type, convergence
+  of the masses of all points implies convergence in total variation.
 * `MeasureTheory.tvDist_add_smul_add_smul`: `tvDist (ξ + t • μ) (ξ + t • ν) = t * tvDist μ ν`.
 * `MeasureTheory.tvDist_one_sub_smul_add_smul`, `MeasureTheory.tvDist_one_sub_smul_add_smul_le`:
   the mixture `(1 - α) • μ + α • ν` is at distance `α * tvDist ν μ` from `μ`, at most `2 * α`
@@ -341,6 +344,18 @@ theorem tvDist_div_two_eq_one_sub_sum_min [Fintype 𝓧] [MeasurableSingletonCla
     tvDist μ ν / 2 = 1 - ∑ x, min (μ.real {x}) (ν.real {x}) := by
   rw [tvDist_eq_measureReal_univ_add_sub_two_mul_sum_min, probReal_univ, probReal_univ]
   ring
+
+/-- **Convergence in total variation on a finite type**: on a finite type with measurable
+singletons, finite measures `ρ i` converge to the finite measure `ν` in total variation along a
+filter as soon as the mass `ρ i {x}` of every point converges to `ν {x}`. -/
+theorem tendsto_tvDist_of_tendsto_measureReal_singleton [Finite 𝓧] [MeasurableSingletonClass 𝓧]
+    [IsFiniteMeasure ν] {ι : Type*} {l : Filter ι} {ρ : ι → Measure 𝓧}
+    [∀ i, IsFiniteMeasure (ρ i)]
+    (h : ∀ x, Filter.Tendsto (fun i ↦ (ρ i).real {x}) l (nhds (ν.real {x}))) :
+    Filter.Tendsto (fun i ↦ tvDist (ρ i) ν) l (nhds 0) := by
+  have := Fintype.ofFinite 𝓧
+  simp_rw [tvDist_eq_tsum_abs_singleton, tsum_fintype]
+  simpa using tendsto_finsetSum Finset.univ fun x _ ↦ ((h x).sub_const (ν.real {x})).abs
 
 /-! ### Sums and mixtures -/
 
