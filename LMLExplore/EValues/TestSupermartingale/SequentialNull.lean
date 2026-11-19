@@ -165,9 +165,7 @@ theorem isCondEVar_comp_sequentialNull {r : Ω → 𝓧 → ℝ≥0∞} {k : ℕ
     IsCondEVar (fun ω ↦ r ω (X k ω)) (ℱ k) (sequentialNull S₁ X ℱ) := by
   refine ⟨measurable_comp_prodMk (ℱ.le k) hX hr, fun P hP s hs ↦ ?_⟩
   obtain ⟨κ, hκ, hκS⟩ := exists_hasCondLaw_of_mem_sequentialNull hP k
-  have hPs := hκ.measure_inter_preimage (ℱ.le k) hX.aemeasurable hs .univ
-  rw [preimage_univ, inter_univ] at hPs
-  rw [hκ.setLIntegral_comp (ℱ.le k) hr hs, hPs]
+  rw [hκ.setLIntegral_comp (ℱ.le k) hr hs, ← hκ.setLIntegral_measure_univ (ℱ.le k) hs]
   exact lintegral_mono_ae (ae_restrict_of_ae (hκS.mono fun ω hω ↦
     (hr1 ω).lintegral_le_measure_univ _ hω))
 
@@ -180,9 +178,7 @@ theorem isExactCondEVar_comp_sequentialNull {r : Ω → 𝓧 → ℝ≥0∞} {k 
     IsExactCondEVar (fun ω ↦ r ω (X k ω)) (ℱ k) (sequentialNull S₁ X ℱ) := by
   refine ⟨measurable_comp_prodMk (ℱ.le k) hX hr, fun P hP s hs ↦ ?_⟩
   obtain ⟨κ, hκ, hκS⟩ := exists_hasCondLaw_of_mem_sequentialNull hP k
-  have hPs := hκ.measure_inter_preimage (ℱ.le k) hX.aemeasurable hs .univ
-  rw [preimage_univ, inter_univ] at hPs
-  rw [hκ.setLIntegral_comp (ℱ.le k) hr hs, hPs]
+  rw [hκ.setLIntegral_comp (ℱ.le k) hr hs, ← hκ.setLIntegral_measure_univ (ℱ.le k) hs]
   exact lintegral_congr_ae (ae_restrict_of_ae (hκS.mono fun ω hω ↦
     (hr1 ω).lintegral_eq_measure_univ _ hω))
 

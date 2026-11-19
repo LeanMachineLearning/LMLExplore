@@ -28,6 +28,8 @@ than on a σ-algebra.
 * `ProbabilityTheory.HasCondLaw.setLIntegral_comp`: the identity on every `m`-measurable set.
 * `ProbabilityTheory.HasCondLaw.congr`: conditional laws are invariant under almost everywhere
   equality of the random variable.
+* `ProbabilityTheory.HasCondLaw.setLIntegral_measure_univ`: the total masses integrate to `P` on
+  `m`-measurable sets, `∫⁻ ω in s, κ ω univ ∂P = P s`.
 * `ProbabilityTheory.HasCondLaw.measure_inter_preimage`: the identity on `m`-measurable
   rectangles, `P (s ∩ X ⁻¹' t) = ∫⁻ ω in s, κ ω t ∂P`.
 * `ProbabilityTheory.hasCondLaw_of_measure_inter_preimage`: conversely, an `m`-measurable s-finite
@@ -87,6 +89,15 @@ theorem HasCondLaw.congr (h : HasCondLaw X κ m P) {Y : Ω → 𝓧} (hXY : X =�
   lintegral_comp g hg := by
     rw [← h.lintegral_comp g hg]
     exact lintegral_congr_ae (hXY.mono fun ω hω ↦ by simp only [hω])
+
+/-- **Total mass of a conditional law.** If `κ` is a conditional law of `X` given `m` under `P`,
+then on every `m`-measurable set `s`, `∫⁻ ω in s, κ ω univ ∂P = P s`. No measurability of `X` is
+needed. -/
+theorem HasCondLaw.setLIntegral_measure_univ (h : HasCondLaw X κ m P) (hm : m ≤ mΩ) {s : Set Ω}
+    (hs : MeasurableSet[m] s) :
+    ∫⁻ ω in s, κ ω univ ∂P = P s := by
+  simpa only [lintegral_one, Measure.restrict_apply_univ] using
+    (h.setLIntegral_comp hm (g := fun _ _ ↦ 1) measurable_const hs).symm
 
 /-- The identity defining a conditional law given `m`, on `m`-measurable rectangles:
 `P (s ∩ X ⁻¹' t) = ∫⁻ ω in s, κ ω t ∂P`. -/
