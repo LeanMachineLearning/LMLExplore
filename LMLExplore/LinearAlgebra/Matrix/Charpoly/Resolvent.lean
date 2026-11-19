@@ -9,10 +9,10 @@ public import Mathlib.Analysis.Normed.Field.Lemmas
 public import Mathlib.LinearAlgebra.Matrix.Charpoly.Coeff
 public import Mathlib.LinearAlgebra.Matrix.Gershgorin
 public import Mathlib.LinearAlgebra.Matrix.NonsingularInverse
-public import Mathlib.LinearAlgebra.Matrix.Stochastic
 public import Mathlib.Topology.Algebra.Polynomial
 public import Mathlib.Topology.Order.IntermediateValue
 public import LMLExplore.LinearAlgebra.Matrix.Polynomial
+public import LMLExplore.LinearAlgebra.Matrix.Stochastic
 
 /-!
 # The resolvent `(1 - a • M)⁻¹` as a rational function of `a`
@@ -203,13 +203,6 @@ omit [DecidableEq n] in
 private theorem mul_sum_norm_lt_one (hM : ∀ i, ∑ j, ‖M i j‖ ≤ 1) {a : 𝕜} (ha : ‖a‖ < 1) (i : n) :
     ‖a‖ * ∑ j, ‖M i j‖ < 1 :=
   (mul_le_of_le_one_right (norm_nonneg a) (hM i)).trans_lt ha
-
-/-- The rows of a real row-stochastic matrix have `ℓ¹`-norm `1`, so the results below with the
-hypothesis `∀ i, ∑ j, ‖P i j‖ ≤ 1` apply to it. -/
-theorem sum_norm_row_of_mem_rowStochastic {P : Matrix n n ℝ} (hP : P ∈ rowStochastic ℝ n)
-    (i : n) : ∑ j, ‖P i j‖ = 1 := by
-  simp_rw [Real.norm_of_nonneg (nonneg_of_mem_rowStochastic hP)]
-  exact sum_row_of_mem_rowStochastic hP i
 
 /-- The coordinates of `(1 - a • M)⁻¹ *ᵥ v` are continuous in `a` on the open unit ball when
 every row of `M` has `ℓ¹`-norm at most `1`. -/
