@@ -345,6 +345,24 @@ theorem abs_advantage_le (hγ : γ < 1) (hR : ∀ p, ∀ᵐ x ∂(M.R p), |x| �
   rw [advantage_def, two_mul, add_div]
   exact (abs_sub _ _).trans (add_le_add (abs_qValue_le hγ hR p) (abs_value_le hγ hR p.1))
 
+/-- With bounded nonnegative mean rewards and `γ < 1`, the action value of a stationary policy is
+nonnegative. -/
+theorem qValue_nonneg (hγ : γ < 1) (hR : ∀ p, ∀ᵐ x ∂(M.R p), |x| ≤ C)
+    (hr : ∀ p, 0 ≤ meanReward M.R p) (p : 𝓢 × 𝓐) : 0 ≤ M.qValue γ π p := by
+  rw [qValue_def]
+  exact add_nonneg (hr p) (mul_nonneg γ.coe_nonneg
+    (integral_nonneg fun s ↦ value_nonneg hγ hR hr s))
+
+/-- With mean rewards in `[0, C]` and `γ < 1`, the advantage of a stationary policy is bounded by
+`C / (1 - γ)`: the action value and the value both lie in `[0, C / (1 - γ)]`. -/
+theorem abs_advantage_le_of_nonneg (hγ : γ < 1) (hR : ∀ p, ∀ᵐ x ∂(M.R p), |x| ≤ C)
+    (hr : ∀ p, 0 ≤ meanReward M.R p) (p : 𝓢 × 𝓐) :
+    |M.advantage γ π p| ≤ C / (1 - γ) := by
+  rw [advantage_def]
+  exact abs_sub_le_of_nonneg_of_le (qValue_nonneg hγ hR hr p)
+    (le_of_abs_le (abs_qValue_le hγ hR p)) (value_nonneg hγ hR hr p.1)
+    (le_of_abs_le (abs_value_le hγ hR p.1))
+
 /-- With bounded rewards and `γ < 1`, the advantage of a stationary policy has mean zero under
 the policy. -/
 theorem integral_advantage (hγ : γ < 1) (hR : ∀ p, ∀ᵐ x ∂(M.R p), |x| ≤ C) (s : 𝓢) :
