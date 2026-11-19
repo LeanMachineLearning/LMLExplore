@@ -11,7 +11,6 @@ public import LMLExplore.MarkovDecisionProcess.PerformanceDifference
 import Mathlib.Analysis.Calculus.FDeriv.Mul
 import Mathlib.MeasureTheory.Integral.Bochner.SumMeasure
 import LMLExplore.Analysis.Calculus.FDeriv.Mul
-import LMLExplore.MeasureTheory.Measure.TotalVariation.Basic
 
 /-!
 # The policy gradient theorem
