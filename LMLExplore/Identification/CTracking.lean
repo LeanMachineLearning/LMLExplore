@@ -51,6 +51,8 @@ In the namespace `LMLExplore.Identification.CTracking`, along every run of `cTra
   targets minus the pull counts.
 * `abs_pullCount_sub_sum_le_mul_one_add_sqrt`, `sqrt_add_sub_le_pullCount`: the guarantees of
   C-tracking [GK16, Lemma 7].
+* `sqrt_div_two_le_pullCount`: almost surely, after `n ≥ 16 K²` rounds, every arm has at least
+  `√n / 2` pulls.
 * `tendsto_pullCount_atTop`: almost surely, every arm is pulled infinitely often.
 * `tendsto_pullCount_div_sub_inv_mul_sum`, `tendsto_pullCount_div`: almost surely, the
   proportions of pulls get close to the averages of the targets, and converge to the limit of the
@@ -194,6 +196,21 @@ theorem sqrt_add_sub_le_pullCount (h : IsAlgEnvSeq O A Y (cTracking w hw) env P)
       √((n : ℝ) + Fintype.card α ^ 2) - 2 * Fintype.card α + 1 ≤ pullCount A a n ω := by
   filter_upwards [sum_sub_pullCount_le h] with ω hω n a
   exact sqrt_add_sub_le_pullCount_of_cTracking (fun k ↦ hw0 k _) (fun k ↦ hw1 k _) hω n a
+
+/-- **Forced exploration of C-tracking**, in the form `√n / 2 ≤ N_a(n)`. If the targets are
+allocations, then almost surely, after every number `n ≥ 16 K²` of rounds, every arm `a` has been
+pulled at least `√n / 2` times. -/
+theorem sqrt_div_two_le_pullCount (h : IsAlgEnvSeq O A Y (cTracking w hw) env P) :
+    ∀ᵐ ω ∂P, ∀ n, 16 * Fintype.card α ^ 2 ≤ n → ∀ a, √(n : ℝ) / 2 ≤ pullCount A a n ω := by
+  filter_upwards [sqrt_add_sub_le_pullCount hw0 hw1 h] with ω hω n hn a
+  -- `√n ≥ 4 K`, so `√(n + K²) - 2 K + 1 ≥ √n / 2`.
+  have hn' : (16 * Fintype.card α ^ 2 : ℝ) ≤ n := by exact_mod_cast hn
+  have h_sqrt_n : 4 * (Fintype.card α : ℝ) ≤ √(n : ℝ) := by
+    rw [Real.le_sqrt (by positivity) (Nat.cast_nonneg _)]
+    linarith
+  have h_le : √(n : ℝ) ≤ √((n : ℝ) + Fintype.card α ^ 2) :=
+    Real.sqrt_le_sqrt (le_add_of_nonneg_right (sq_nonneg _))
+  linarith [hω n a]
 
 /-- If the targets are allocations, then almost surely, C-tracking pulls every arm infinitely
 often. -/

@@ -6,6 +6,7 @@ Authors: LMLExplore contributors
 module
 
 public import LMLExplore.Identification.AsymptoticOptimality
+public import LMLExplore.Identification.StickyTrackAndStop
 public import LMLExplore.Identification.Task.ExpFamily
 public import LMLExplore.Identification.TrackAndStop
 
@@ -49,6 +50,19 @@ model `μ`. The same holds for Track-and-Stop with C-tracking, whose
 targets may be any selection of the optimal allocations, even where these are not unique
 [DK19, Theorem 7].
 
+**Sticky Track-and-Stop** [DK19, Theorems 10–11]. Since
+`KL(𝒩(x, σ2), 𝒩(y, σ2)) = (x - y)² / (2 σ2)`, the models whose arms are within a small relative
+entropy of those of a model close to `μ` are close to `μ`, so that the confidence regions of
+Sticky Track-and-Stop shrink to the true model. Let the task have finitely many answers, let the
+radii of the confidence regions be at least `K log (2 n (n + 1)) + x_{(n + 1) ^ (-p)}` for some
+`p > 2` and `o(√n)`, let the targets be allocations, those of the least oracle answer of the
+admissible model `μ` being optimal allocations near `μ`, let the recommendation have a GLR
+statistic at least that of the sticky answer, and let the costs be continuous at `μ`. Then, with
+the thresholds `K log (2 n (n + 1)) + x_δ`, Sticky Track-and-Stop satisfies
+`limsup_{δ → 0} 𝔼[τ_δ] / log (1 / δ) ≤ T*(μ)`, even where `μ` has several oracle answers. When
+these assumptions hold on every admissible model `θ`, and `T*(θ) < ∞` on every admissible model
+`θ`, it is moreover `δ`-PAC for every `δ ∈ (0, 1]`.
+
 ## Main statements
 
 * `IdentTask.plugInCost_gaussianBandit`: the plug-in statistic of the empirical means of
@@ -71,11 +85,15 @@ targets may be any selection of the optimal allocations, even where these are no
   `IdentTask.tendsto_expectedStoppingTime_cTrackAndStop_unionBoundThreshold_div_log`: the same for
   Track-and-Stop with C-tracking, whose targets may be any selection of the optimal allocations,
   even where these are not unique [DK19, Theorem 7].
+* `IdentTask.eventually_expectedStoppingTime_stickyTrackAndStop_unionBoundThreshold_le`,
+  `IdentTask.isDeltaPAC_stickyTrackAndStop_unionBoundThreshold`: under the assumptions above, the
+  sample complexity of Sticky Track-and-Stop is at most `T*(μ) log (1 / δ)` asymptotically, and it
+  is `δ`-PAC for every `δ ∈ (0, 1]` [DK19, Theorems 10–11].
 
 ## References
 
 * [DK19] R. Degenne and W. M. Koolen, *Pure exploration with multiple correct answers*,
-  NeurIPS 2019, Theorem 7.
+  NeurIPS 2019, Theorems 7, 10 and 11.
 * [GK16] A. Garivier and E. Kaufmann, *Optimal best arm identification with fixed confidence*,
   COLT 2016, Theorem 14.
 * [LS] T. Lattimore and Cs. Szepesvári, *Bandit Algorithms*, Cambridge University Press (2020),
@@ -353,5 +371,119 @@ theorem tendsto_expectedStoppingTime_cTrackAndStop_unionBoundThreshold_div_log
     (fun θ _ ↦ mgfDominatedOn_gaussianBandit hνt hσ2 θ)
     (fun θ _ ↦ klDiv_le_expFamilyRate_gaussianBandit hνt hσ2 θ) hcorrect hw_mem hw_opt hrec_eq
     h_cont h_charTime hμ
+
+end LMLExplore.Identification.IdentTask
+
+/-! ### Sticky Track-and-Stop -/
+
+namespace LMLExplore.Identification.IdentTask
+
+open Filter Topology
+
+/-- For Gaussian arms with a common variance `σ2 ≠ 0`, the models whose arms are within a small
+relative entropy of those of a model close to `θ` are close to `θ`: for every neighbourhood `U` of
+`θ` there are a neighbourhood `V` of `θ` and `ε > 0` such that every model whose arms are within
+relative entropy `ε` of those of a model of `V` is in `U`, since
+`KL(𝒩(x, σ2), 𝒩(y, σ2)) = (x - y)² / (2 σ2)`. -/
+private lemma exists_mem_nhds_forall_klDiv_le_mem_gaussianBandit {α ℐ : Type*} [Finite α]
+    {mα : MeasurableSpace α} [MeasurableSingletonClass α] {task : IdentTask α (α → ℝ) ℐ ℝ}
+    {σ2 : ℝ≥0}
+    (hνt : task.ν = (Bandits.gaussianBandit · σ2)) (hσ2 : σ2 ≠ 0) (θ : α → ℝ) :
+    ∀ U ∈ 𝓝 θ, ∃ V ∈ 𝓝 θ, ∃ ε : ℝ, 0 < ε ∧ ∀ μ' ∈ V, ∀ θ' ∈ task.M,
+      (∀ a, klDiv (task.ν μ' a) (task.ν θ' a) ≤ ENNReal.ofReal ε) → θ' ∈ U := by
+  intro U hU
+  have := Fintype.ofFinite α
+  obtain ⟨d, hd, hdU⟩ := Metric.mem_nhds_iff.1 hU
+  have hσ : (0 : ℝ) < σ2 := NNReal.coe_pos.2 (pos_iff_ne_zero.2 hσ2)
+  refine ⟨Metric.ball θ (d / 2), Metric.ball_mem_nhds _ (by positivity), d ^ 2 / (8 * σ2),
+    by positivity, fun μ' hμ' θ' _ hkl ↦ hdU ((dist_pi_lt_iff hd).2 fun a ↦ ?_)⟩
+  -- `(μ' a - θ' a)² / (2 σ2) ≤ d² / (8 σ2)`, so `|μ' a - θ' a| ≤ d / 2`.
+  have h := hkl a
+  rw [hνt, Bandits.klDiv_gaussianBandit μ' θ' hσ2, ENNReal.ofReal_le_ofReal_iff (by positivity),
+    div_le_div_iff₀ (by positivity) (by positivity)] at h
+  have h_sq : (μ' a - θ' a) ^ 2 ≤ (d / 2) ^ 2 := by nlinarith
+  have h_abs : |μ' a - θ' a| ≤ d / 2 := abs_le_of_sq_le_sq' h_sq (by positivity) |> abs_le.2
+  have h_μ' : dist (μ' a) (θ a) < d / 2 := (dist_pi_lt_iff (by positivity)).1 hμ' a
+  rw [Real.dist_eq] at h_μ' ⊢
+  calc |θ' a - θ a| ≤ |μ' a - θ' a| + |μ' a - θ a| := by
+        rw [abs_sub_comm (μ' a)]; exact abs_sub_le _ _ _
+  _ < d / 2 + d / 2 := add_lt_add_of_le_of_lt h_abs h_μ'
+  _ = d := add_halves d
+
+variable {α ℐ : Type*} [Fintype α] [DecidableEq α] [Nonempty α] {mα : MeasurableSpace α}
+  [MeasurableSingletonClass α] {mℐ : MeasurableSpace ℐ} [LinearOrder ℐ] [WellFoundedLT ℐ]
+  [Nonempty ℐ] [Finite ℐ] {task : IdentTask α (α → ℝ) ℐ ℝ} {σ2 : ℝ≥0}
+  {r : (n : ℕ) → Hist Unit α ℝ n → ℝ≥0∞} {p : ℝ} {w : ℐ → (α → ℝ) → α → ℝ}
+  {hw : ∀ n, Measurable fun h : Hist Unit α ℝ n ↦
+    w (task.stickyAnswer (task.confidenceRegion empMean' r n h)) (empMean' n h)}
+  {rec : (n : ℕ) → Hist Unit α ℝ n → ℐ} {hrec : ∀ n, Measurable (rec n)}
+  {hstop : ∀ δ n, MeasurableSet {h | unionBoundThreshold (Fintype.card α)
+    (unionBoundLevel (Fintype.card α) δ) n < task.glr (task.plugInCost empMean') n h (rec n h)}}
+  {μ : α → ℝ}
+
+/-- **Sample complexity of Sticky Track-and-Stop for Gaussian arms** [DK19, Theorem 11]. For
+Gaussian arms with a common variance `σ2 ≠ 0`, finitely many answers and confidence regions whose
+radii are at least `K log (2 n (n + 1)) + x_{(n + 1) ^ (-p)}` for some `p > 2` and `o(√n)`
+(`eventually_unionBoundThreshold_unionBoundLevel_le_mul_sqrt`), let the targets be
+allocations, those of the least oracle answer of the admissible model `μ` being optimal allocations
+near `μ`, let the recommendation have a GLR statistic at least that of the sticky answer, and let
+the costs be continuous at `μ`. Then Sticky Track-and-Stop with the thresholds
+`K log (2 n (n + 1)) + x_δ` satisfies `𝔼[τ_δ] ≤ c log (1 / δ)` for all small enough `δ`, for every
+`c > T*(μ)`, even when `μ` has several oracle answers. -/
+theorem eventually_expectedStoppingTime_stickyTrackAndStop_unionBoundThreshold_le
+    (hνt : task.ν = (Bandits.gaussianBandit · σ2)) (hσ2 : σ2 ≠ 0) (hμM : μ ∈ task.M)
+    (hp : 2 < p)
+    (hr_ge : ∀ (n : ℕ) h, unionBoundThreshold (Fintype.card α)
+      (unionBoundLevel (Fintype.card α) (((n : ℝ) + 1) ^ p)⁻¹) n ≤ r n h)
+    (hr_le : ∀ ε > 0, ∀ᶠ n in atTop, ∀ h, r n h ≤ ENNReal.ofReal (ε * √(n : ℝ)))
+    (hw_mem : ∀ i μ', w i μ' ∈ simplex α)
+    (hw_opt : ∀ᶠ μ' in 𝓝 μ,
+      w (task.stickyAnswer {μ}) μ' ∈ task.optAlloc μ' (task.stickyAnswer {μ}))
+    (hrec_ge : ∀ n h, task.glr (task.plugInCost empMean') n h
+      (task.stickyAnswer (task.confidenceRegion empMean' r n h)) ≤
+        task.glr (task.plugInCost empMean') n h (rec n h))
+    (h_cont : ∀ i, ∀ v ∈ simplex α, ContinuousWithinAt
+      (fun q : (α → ℝ) × (α → ℝ) ↦ task.altCost q.1 q.2 i) (Set.univ ×ˢ simplex α) (μ, v))
+    {c : ℝ≥0} (hc : task.charTime μ < c) :
+    ∀ᶠ δ in 𝓝[>] 0, expectedStoppingTime (task.stickyTrackAndStop empMean'
+      (task.confidenceRegion empMean' r) w hw
+      (fun n _ ↦ unionBoundThreshold (Fintype.card α) (unionBoundLevel (Fintype.card α) δ) n) rec
+      hrec (hstop δ)) (Environment.bandit (task.ν μ)) ≤ c * ENNReal.ofReal (log (1 / δ)) :=
+  eventually_expectedStoppingTime_stickyTrackAndStop_unionBoundThreshold_le_of_klDiv_le
+    (fun _ ↦ not_ae_eq_const_gaussianReal 0 hσ2)
+    (fun _ ↦ mem_expFamilyMeans_gaussianReal 0 hσ2 _) (mgfDominatedOn_gaussianBandit hνt hσ2 μ)
+    (klDiv_le_expFamilyRate_gaussianBandit hνt hσ2 μ) hμM
+    (exists_mem_nhds_forall_klDiv_le_mem_gaussianBandit hνt hσ2 μ) hp hr_ge hr_le hw_mem hw_opt
+    hrec_ge h_cont hc
+
+/-- **Sticky Track-and-Stop for Gaussian arms is `δ`-PAC** [DK19, Theorems 10–11] for every
+`δ ∈ (0, 1]`, with the thresholds `K log (2 n (n + 1)) + x_δ`, on every task with finitely many
+answers, under the assumptions of
+`IdentTask.eventually_expectedStoppingTime_stickyTrackAndStop_unionBoundThreshold_le` on every
+admissible model `θ`, with `T*(θ) < ∞`. -/
+theorem isDeltaPAC_stickyTrackAndStop_unionBoundThreshold [MeasurableSingletonClass ℐ]
+    (hνt : task.ν = (Bandits.gaussianBandit · σ2)) (hσ2 : σ2 ≠ 0) (hp : 2 < p)
+    (hr_ge : ∀ (n : ℕ) h, unionBoundThreshold (Fintype.card α)
+      (unionBoundLevel (Fintype.card α) (((n : ℝ) + 1) ^ p)⁻¹) n ≤ r n h)
+    (hr_le : ∀ ε > 0, ∀ᶠ n in atTop, ∀ h, r n h ≤ ENNReal.ofReal (ε * √(n : ℝ)))
+    (hw_mem : ∀ i μ', w i μ' ∈ simplex α)
+    (hw_opt : ∀ θ ∈ task.M, ∀ᶠ μ' in 𝓝 θ,
+      w (task.stickyAnswer {θ}) μ' ∈ task.optAlloc μ' (task.stickyAnswer {θ}))
+    (hrec_ge : ∀ n h, task.glr (task.plugInCost empMean') n h
+      (task.stickyAnswer (task.confidenceRegion empMean' r n h)) ≤
+        task.glr (task.plugInCost empMean') n h (rec n h))
+    (h_cont : ∀ θ ∈ task.M, ∀ i, ∀ v ∈ simplex α, ContinuousWithinAt
+      (fun q : (α → ℝ) × (α → ℝ) ↦ task.altCost q.1 q.2 i) (Set.univ ×ˢ simplex α) (θ, v))
+    (h_charTime : ∀ θ ∈ task.M, task.charTime θ ≠ ∞) {δ : ℝ} (hδ : 0 < δ) (hδ1 : δ ≤ 1) :
+    task.IsDeltaPAC (task.stickyTrackAndStop empMean' (task.confidenceRegion empMean' r) w hw
+      (fun n _ ↦ unionBoundThreshold (Fintype.card α) (unionBoundLevel (Fintype.card α) δ) n) rec
+      hrec (hstop δ)) δ :=
+  isDeltaPAC_stickyTrackAndStop_unionBoundThreshold_of_klDiv_le
+    (fun _ ↦ not_ae_eq_const_gaussianReal 0 hσ2)
+    (fun _ _ _ ↦ mem_expFamilyMeans_gaussianReal 0 hσ2 _)
+    (fun θ _ ↦ mgfDominatedOn_gaussianBandit hνt hσ2 θ)
+    (fun θ _ ↦ klDiv_le_expFamilyRate_gaussianBandit hνt hσ2 θ)
+    (fun θ _ ↦ exists_mem_nhds_forall_klDiv_le_mem_gaussianBandit hνt hσ2 θ) hp hr_ge hr_le hw_mem
+    hw_opt hrec_ge h_cont h_charTime hδ hδ1
 
 end LMLExplore.Identification.IdentTask

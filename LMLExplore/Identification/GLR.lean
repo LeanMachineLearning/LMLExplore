@@ -127,6 +127,8 @@ time.
   `β_{x_{δ ^ (1 / s)}}` are at most `log ((2 n (n + 1)) ^ K / δ)`, a polynomial-rate threshold of
   the form required by `IdentTask.eventually_expectedStoppingTime_glrt_le_of_isBigO`, whose rate
   `(2 n (n + 1)) ^ K` is `O(n ^ (2 K))` (`isBigO_two_mul_mul_add_one_pow`).
+* `eventually_unionBoundThreshold_unionBoundLevel_le_mul_sqrt`: the thresholds
+  `β_{x_{(n + 1) ^ (-p)}}(n)` of the confidence levels `(n + 1) ^ (-p)` are `o(√n)`.
 * `IdentTask.stopsAS_glrt_unionBoundThreshold`: a GLRT with the thresholds `β_{x_δ}` and a finite
   expected stopping time at arbitrarily small `δ` stops almost surely at every `δ ∈ (0, 1]`.
 
@@ -743,6 +745,56 @@ lemma eventually_unionBoundThreshold_rpow_inv_le (K : ℕ) {s : ℝ} (hs : 1 < s
     ring
   rw [unionBoundThreshold_def, log_div (pow_ne_zero _ hn'.ne') hδ0.ne', log_pow]
   exact ENNReal.ofReal_le_ofReal (by linarith)
+
+/-- The thresholds `K log (2 n (n + 1)) + x_{(n + 1) ^ (-p)}` of the confidence levels
+`(n + 1) ^ (-p)`, `p ≥ 0`, are `O(log n)`, hence `o(√n)`: for every `ε > 0`, they are at most
+`ε √n` for all large `n`. They are the smallest radii of the confidence regions of Sticky
+Track-and-Stop in `IdentTask.measure_exists_ge_notMem_confidenceRegion_le_of_klDiv_le`, which its
+sample complexity bound requires to be `o(√n)`. -/
+theorem eventually_unionBoundThreshold_unionBoundLevel_le_mul_sqrt (K : ℕ) {p ε : ℝ}
+    (hp : 0 ≤ p) (hε : 0 < ε) : ∀ᶠ n : ℕ in atTop,
+      unionBoundThreshold K (unionBoundLevel K (((n : ℝ) + 1) ^ p)⁻¹) n ≤
+        ENNReal.ofReal (ε * √(n : ℝ)) := by
+  set A : ℝ := 2 * K + p + 2 * K * p
+  set B : ℝ := (K + A) * log 2 + 2 * K
+  have hA : 0 ≤ A := by positivity
+  -- `A log n + B = o(√n)`.
+  have h_o : (fun n : ℕ ↦ A * log n + B) =o[atTop] fun n : ℕ ↦ √(n : ℝ) := by
+    have h_log : (fun n : ℕ ↦ log (n : ℝ)) =o[atTop] fun n : ℕ ↦ √(n : ℝ) := by
+      simpa only [Function.comp_def, sqrt_eq_rpow] using
+        (isLittleO_log_rpow_atTop (by norm_num : (0 : ℝ) < 1 / 2)).comp_tendsto
+          tendsto_natCast_atTop_atTop
+    have h_const : (fun _ : ℕ ↦ B) =o[atTop] fun n : ℕ ↦ √(n : ℝ) :=
+      Asymptotics.isLittleO_const_left.2 (Or.inr (tendsto_norm_atTop_atTop.comp
+        (tendsto_sqrt_atTop.comp tendsto_natCast_atTop_atTop)))
+    exact (h_log.const_mul_left A).add h_const
+  filter_upwards [h_o.bound hε, eventually_ge_atTop 1] with n hn hn1
+  have hn1' : (1 : ℝ) ≤ n := by exact_mod_cast hn1
+  rw [Real.norm_of_nonneg (sqrt_nonneg _)] at hn
+  rw [unionBoundThreshold_def, unionBoundLevel_def, one_div, inv_inv,
+    log_rpow (by positivity)]
+  refine ENNReal.ofReal_le_ofReal (le_trans ?_ ((le_abs_self _).trans (by simpa using hn)))
+  -- `log (n + 1) ≤ log 2 + log n`, `log (2 n (n + 1)) ≤ log 2 + 2 log (n + 1)` and
+  -- `log (1 + p log (n + 1)) ≤ p log (n + 1)`.
+  set L := log ((n : ℝ) + 1)
+  have hL0 : 0 ≤ L := log_nonneg (by linarith)
+  have hL : L ≤ log 2 + log n := by
+    rw [← log_mul two_ne_zero (by positivity)]
+    exact log_le_log (by positivity) (by linarith)
+  have h_two : log (2 * n * (n + 1)) ≤ log 2 + 2 * L := by
+    rw [← log_rpow (by positivity), ← log_mul two_ne_zero (by positivity)]
+    refine log_le_log (by positivity) ?_
+    rw [show (2 : ℝ) = ((2 : ℕ) : ℝ) by norm_num, rpow_natCast]
+    nlinarith
+  have h_one_add : log (1 + p * L) ≤ p * L := by
+    have := log_le_sub_one_of_pos (by positivity : 0 < 1 + p * L)
+    linarith
+  have hK : (0 : ℝ) ≤ K := Nat.cast_nonneg K
+  have h1 := mul_le_mul_of_nonneg_left h_two hK
+  have h2 := mul_le_mul_of_nonneg_left h_one_add hK
+  have h3 := mul_le_mul_of_nonneg_left hL hA
+  simp only [A, B] at h3 ⊢
+  nlinarith
 
 end LMLExplore.Identification
 
