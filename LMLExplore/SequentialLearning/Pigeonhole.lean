@@ -7,8 +7,6 @@ module
 
 public import LMLExplore.SequentialLearning.FiniteActions
 public import LMLExplore.Analysis.Real.Sqrt
-public import Mathlib.Analysis.Convex.Jensen
-public import Mathlib.Analysis.Convex.SpecificFunctions.Basic
 public import LMLExplore.NumberTheory.Harmonic.Bounds
 
 /-!
@@ -52,11 +50,8 @@ variable {α Ω : Type*} [DecidableEq α] [Fintype α] {A : ℕ → Ω → α}
 `K` add up to at most `√(Fintype.card α * K)`. -/
 theorem sum_sqrt_pullCount_le (ω : Ω) (K : ℕ) :
     ∑ a, √(pullCount A a K ω : ℝ) ≤ √(Fintype.card α * K) := by
-  have h := Real.sum_sqrt_mul_sqrt_le univ (f := fun _ : α ↦ (1 : ℝ))
-    (g := fun a ↦ (pullCount A a K ω : ℝ)) (fun _ ↦ zero_le_one) (fun _ ↦ Nat.cast_nonneg _)
-  simp only [sqrt_one, one_mul, sum_const, card_univ, nsmul_eq_mul, mul_one,
-    sum_natCast_pullCount] at h
-  rwa [sqrt_mul (Nat.cast_nonneg _)]
+  simpa [sum_natCast_pullCount] using
+    Real.sum_sqrt_le_sqrt_card_mul_sum (s := univ) fun a _ ↦ (pullCount A a K ω).cast_nonneg
 
 /-- **Pigeonhole sum of inverse square roots**: `∑_{k < K} (N_k(x_k) + 1)^{-1/2} ≤ 2 √(m K)`,
 where `N_k(x)` counts the visits of `x` before step `k` and `m = Fintype.card α`. -/
@@ -76,26 +71,19 @@ where `N_k(x)` counts the visits of `x` before step `k` and `m = Fintype.card α
 theorem sum_inv_pullCount_add_one_le (ω : Ω) (K : ℕ) :
     ∑ k ∈ range K, ((pullCount A (A k ω) k ω : ℝ) + 1)⁻¹ ≤
       Fintype.card α * (1 + log (1 + K / Fintype.card α)) := by
-  have : Nonempty α := ⟨A 0 ω⟩
-  have hm : (0 : ℝ) < Fintype.card α := by exact_mod_cast Fintype.card_pos
   refine (sum_comp_pullCount (fun j : ℕ ↦ ((j : ℝ) + 1)⁻¹) K ω).trans_le ?_
-  -- each element contributes at most `1 + log (1 + N_K(x))`
-  have h_arm (n : ℕ) : ∑ j ∈ range n, ((j : ℝ) + 1)⁻¹ ≤ 1 + log (1 + n) := by
+  -- each element contributes at most `1 + log (N_K(x) + 1)`
+  have h_arm (n : ℕ) : ∑ j ∈ range n, ((j : ℝ) + 1)⁻¹ ≤ 1 + log (n + 1) := by
     refine (sum_range_inv_add_one_le n).trans ?_
     gcongr 1 + ?_
-    simpa [add_comm] using log_natCast_le_log_natCast n.le_succ
-  -- Jensen's inequality for the concave logarithm, with uniform weights `1 / m`
-  have h_jensen := strictConcaveOn_log_Ioi.concaveOn.le_map_sum (t := univ)
-    (w := fun _ : α ↦ (Fintype.card α : ℝ)⁻¹) (p := fun a ↦ 1 + (pullCount A a K ω : ℝ))
-    (fun _ _ ↦ by positivity) (by simp [hm.ne']) (fun _ _ ↦ Set.mem_Ioi.2 (by positivity))
-  simp only [smul_eq_mul, ← mul_sum, sum_add_distrib, sum_const, card_univ, nsmul_eq_mul,
-    mul_one, sum_natCast_pullCount] at h_jensen
-  have h_mean : (Fintype.card α : ℝ)⁻¹ * (Fintype.card α + K) = 1 + K / Fintype.card α := by
-    field_simp
-  rw [h_mean, inv_mul_le_iff₀ hm] at h_jensen
+    simpa using log_natCast_le_log_natCast n.le_succ
+  -- Jensen's inequality for the concave logarithm
+  have h_jensen := sum_log_add_one_le_card_mul_log (s := univ)
+    (x := fun a ↦ (pullCount A a K ω : ℝ)) fun _ _ ↦ Nat.cast_nonneg _
+  rw [sum_natCast_pullCount, card_univ, add_comm _ (1 : ℝ)] at h_jensen
   calc ∑ a, ∑ j ∈ range (pullCount A a K ω), ((j : ℝ) + 1)⁻¹
-      ≤ ∑ a, (1 + log (1 + (pullCount A a K ω : ℝ))) := sum_le_sum fun a _ ↦ h_arm _
-    _ = Fintype.card α + ∑ a, log (1 + (pullCount A a K ω : ℝ)) := by simp [sum_add_distrib]
+      ≤ ∑ a, (1 + log ((pullCount A a K ω : ℝ) + 1)) := sum_le_sum fun a _ ↦ h_arm _
+    _ = Fintype.card α + ∑ a, log ((pullCount A a K ω : ℝ) + 1) := by simp [sum_add_distrib]
     _ ≤ Fintype.card α * (1 + log (1 + K / Fintype.card α)) := by linarith
 
 /-- **Pigeonhole sum of clipped inverse square roots**:

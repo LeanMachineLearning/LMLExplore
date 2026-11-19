@@ -85,8 +85,12 @@ feedback `Y n` is almost surely the reward `x (A n)` of the action, the conditio
   rounds simultaneously, and almost surely at most `1`, respectively in `[0, 1]`, when the rewards
   are.
 * `WeightAlgorithm.measurable_iwEstimator_run`: along a run of a weight-based algorithm, the
-  importance-weighted estimates of a measurable random variable are a measurable function of the
-  run.
+  importance-weighted estimates, with measurable random weights, of a measurable random variable
+  are a measurable function of the run.
+* `WeightAlgorithm.condExp_iwEstimator_eq_div_mul_of_condExp_eq`: along a run of a weight-based
+  algorithm with weights `P`, the estimate `𝟙{A n = a} Z / q a` with weights `q` computed from the
+  past, of a random variable `Z` whose conditional mean given the past and the action is known, has
+  conditional mean `P a / q a` times this mean at the arm given the past.
 * `WeightAlgorithm.condExp_iwEstimator_eq_ite_of_condExp_eq`: along a run of a weight-based
   algorithm, the importance-weighted estimate at an arm of a random variable whose conditional mean
   given the past and the action is known has this conditional mean at the arm given the past if
@@ -113,6 +117,14 @@ feedback `Y n` is almost surely the reward `x (A n)` of the action, the conditio
 * `WeightAlgorithm.condExp_iwEstimator_one_sub`: in any environment, the estimate of the loss
   `1 - Y n` of an arm has conditional mean `1 - env.means O A Y a n` given the past if the arm has
   positive weight, and `0` otherwise.
+* `WeightAlgorithm.condExp_iwEstimator_add_one_sub`: in any environment, the implicit-exploration
+  estimate `𝟙{A n = a} (1 - Y n) / (P a + γ)` of the loss of an arm has conditional mean
+  `P a / (P a + γ) * (1 - env.means O A Y a n)` given the past [LS, (12.4); Neu15, (3)].
+* `WeightAlgorithm.integrable_iwEstimator_add_one_sub`,
+  `WeightAlgorithm.condExp_iwEstimator_add_one_sub_le`: in any environment with feedback in
+  `[0, 1]` and for `γ ≥ 0`, the implicit-exploration estimate of the loss of an arm is integrable,
+  and it underestimates the loss: given the past, its conditional mean is at most
+  `1 - env.means O A Y a n` if the arm has positive weight.
 * `WeightAlgorithm.integrable_iwEstimator_one_sub`, `WeightAlgorithm.integral_iwEstimator_one_sub`:
   in any environment with feedback in `[0, 1]`, the estimate of the loss `1 - Y n` of an arm is
   integrable, and its expectation is `E[1 - env.means O A Y a n]` if the arm has almost surely
@@ -491,13 +503,13 @@ variable [Fintype α] [MeasurableSpace α] [MeasurableSingletonClass α]
 variable {x : α → ℝ} {a : α}
 
 omit [IsFiniteMeasure P] in
-/-- Along a run of a weight-based algorithm, the importance-weighted estimate of a measurable
-random variable `Z` at the action of round `n` is a measurable function of the run. -/
+/-- Along a run of a weight-based algorithm, the importance-weighted estimate, with measurable
+random weights `q` such as the weights `w n (past)` of round `n`, of a measurable random variable
+`Z` at the action of round `n` is a measurable function of the run. -/
 lemma measurable_iwEstimator_run (h : IsAlgEnvSeq O A Y (weightAlgorithm w hw hp) env P)
-    {Z : Ω → ℝ} (hZ : Measurable Z) :
-    Measurable fun ω ↦ iwEstimator (w n (history O A Y n ω, O n ω)) (A n ω) (Z ω) :=
-  measurable_iwEstimator.comp ((measurable_weights_run h n).prodMk
-    ((h.measurable_action n).prodMk hZ))
+    {q : Ω → α → ℝ} (hq : Measurable q) {Z : Ω → ℝ} (hZ : Measurable Z) :
+    Measurable fun ω ↦ iwEstimator (q ω) (A n ω) (Z ω) :=
+  measurable_iwEstimator.comp (hq.prodMk ((h.measurable_action n).prodMk hZ))
 
 /-- Along a run of a weight-based algorithm whose feedback at round `n` is the reward `x (A n)` of
 the action, the importance-weighted estimate of the reward of an arm `a` is integrable. -/
@@ -527,6 +539,26 @@ lemma integrable_lossIwEstimator (h : IsAlgEnvSeq O A Y (weightAlgorithm w hw hp
         simp only [mul_add, mul_one, Finset.sum_add_distrib, hp.2, add_le_add_iff_left]
         exact sum_mul_abs_iwEstimator_apply_le (x := fun b ↦ 1 - x b) (hp.1 a)
 
+/-- Along a run of a weight-based algorithm with weights `P = w n (past)` whose feedback at round
+`n` is almost surely in `[0, 1]`, in any environment, for `γ ≥ 0` the implicit-exploration
+estimate `𝟙{A n = a} (1 - Y n) / (P a + γ)` of the loss `1 - Y n` at an arm `a` is integrable. -/
+lemma integrable_iwEstimator_add_one_sub
+    (h : IsAlgEnvSeq O A Y (weightAlgorithm w hw hp) env P)
+    (hY : ∀ᵐ ω ∂P, Y n ω ∈ Set.Icc 0 1) {γ : ℝ} (hγ : 0 ≤ γ) (a : α) :
+    Integrable (fun ω ↦ iwEstimator (fun b ↦ w n (history O A Y n ω, O n ω) b + γ) (A n ω)
+      (1 - Y n ω) a) P := by
+  have hm : Measurable fun ω ↦
+      iwEstimator (fun b ↦ w n (history O A Y n ω, O n ω) b + γ) (A n ω) (1 - Y n ω) a :=
+    (measurable_pi_apply a).comp (measurable_iwEstimator_run h
+      (measurable_pi_iff.2 fun b ↦ ((measurable_pi_apply b).comp
+        (measurable_weights_run h n)).add_const γ) (measurable_const.sub (h.measurable_feedback n)))
+  -- the action almost surely has positive weight, and adding `γ` to it decreases the estimate
+  refine (integrable_div_weights h n (Pi.single a 1)).mono' hm.aestronglyMeasurable ?_
+  filter_upwards [hY, ae_weights_action_pos h n] with ω hω hpos
+  exact (norm_iwEstimator_le_single_div (by linarith) (sub_nonneg.2 hω.2)
+    (by linarith [hω.1])).trans (div_le_div_of_nonneg_left
+      (by rw [Pi.single_apply]; split_ifs <;> norm_num) hpos (le_add_of_nonneg_right hγ))
+
 /-- Along a run of a weight-based algorithm whose feedback at round `n` is almost surely in
 `[0, 1]`, in any environment, the importance-weighted estimate of the loss `1 - Y n` at an arm `a`
 is integrable. -/
@@ -534,14 +566,7 @@ lemma integrable_iwEstimator_one_sub (h : IsAlgEnvSeq O A Y (weightAlgorithm w h
     (hY : ∀ᵐ ω ∂P, Y n ω ∈ Set.Icc 0 1) (a : α) :
     Integrable
       (fun ω ↦ iwEstimator (w n (history O A Y n ω, O n ω)) (A n ω) (1 - Y n ω) a) P := by
-  have hm : Measurable
-      fun ω ↦ iwEstimator (w n (history O A Y n ω, O n ω)) (A n ω) (1 - Y n ω) a :=
-    (measurable_pi_apply a).comp
-      (measurable_iwEstimator_run h (measurable_const.sub (h.measurable_feedback n)))
-  refine (integrable_div_weights h n (Pi.single a 1)).mono' hm.aestronglyMeasurable ?_
-  filter_upwards [hY] with ω hω
-  exact norm_iwEstimator_le_single_div ((mem_simplex_iff.1 (hp n _)).1 _) (sub_nonneg.2 hω.2)
-    (by linarith [hω.1])
+  simpa only [add_zero] using integrable_iwEstimator_add_one_sub h hY le_rfl a
 
 variable [Nonempty α]
 
@@ -551,6 +576,30 @@ past and an action `b` is measurable in the past. -/
 private lemma measurable_integral_feedback {g : ℝ → ℝ} (hg : StronglyMeasurable g) (b : α) :
     Measurable fun x : Hist 𝓞 α ℝ n × 𝓞 ↦ ∫ y, g y ∂env.feedback n (x, b) :=
   (hg.integral_kernel (κ := env.feedback n)).measurable.comp measurable_prodMk_right
+
+/-- **Conditional mean of an importance-weighted estimator with other weights**: along a run of a
+weight-based algorithm with weights `P = w n (past)`, let `Z` be an integrable random variable
+whose conditional expectation given the past and the action of round `n` is `m (past) (A n)`,
+such as the feedback of round `n` with `m` its conditional means, and let `q (past)` be weights
+computed from the past, such as `P + γ` for the implicit-exploration estimator [LS, (12.4)]. Then
+the estimate `𝟙{A n = a} Z / q a` of `Z` at an arm `a` has conditional expectation
+`P a / q a * m (past) a` given the past, provided it is integrable. -/
+theorem condExp_iwEstimator_eq_div_mul_of_condExp_eq
+    (h : IsAlgEnvSeq O A Y (weightAlgorithm w hw hp) env P) {Z : Ω → ℝ} (hZ : Integrable Z P)
+    {m : Hist 𝓞 α ℝ n × 𝓞 → α → ℝ} (hm : ∀ b, Measurable fun x ↦ m x b)
+    (hZm : P[Z | h.filtrationAction n] =ᵐ[P] fun ω ↦ m (history O A Y n ω, O n ω) (A n ω))
+    {q : Hist 𝓞 α ℝ n × 𝓞 → α → ℝ} (hq : Measurable fun x ↦ q x a)
+    (hint : Integrable
+      (fun ω ↦ iwEstimator (q (history O A Y n ω, O n ω)) (A n ω) (Z ω) a) P) :
+    P[fun ω ↦ iwEstimator (q (history O A Y n ω, O n ω)) (A n ω) (Z ω) a
+      | h.filtrationObs n] =ᵐ[P] fun ω ↦ w n (history O A Y n ω, O n ω) a /
+        q (history O A Y n ω, O n ω) a * m (history O A Y n ω, O n ω) a := by
+  simp_rw [iwEstimator_apply_eq_ite_mul] at hint ⊢
+  filter_upwards [condExp_comp_action_mul h n (f := fun x b ↦ if b = a then (q x a)⁻¹ else 0)
+    (fun b ↦ by split_ifs; exacts [hq.inv, measurable_const]) hm hZ hZm hint] with ω hω
+  rw [hω, Finset.sum_eq_single a (fun b _ hb ↦ by simp [hb]) (by simp)]
+  simp only [↓reduceIte]
+  rw [div_eq_mul_inv, mul_assoc]
 
 /-- **Conditional mean of the importance-weighted estimator** [LS, (11.4)]: along a run of a
 weight-based algorithm, let `Z` be an integrable random variable whose conditional expectation
@@ -567,14 +616,12 @@ theorem condExp_iwEstimator_eq_ite_of_condExp_eq
     P[fun ω ↦ iwEstimator (w n (history O A Y n ω, O n ω)) (A n ω) (Z ω) a
       | h.filtrationObs n] =ᵐ[P] fun ω ↦
         if w n (history O A Y n ω, O n ω) a = 0 then 0 else m (history O A Y n ω, O n ω) a := by
-  simp_rw [iwEstimator_apply_eq_ite_mul] at hint ⊢
-  filter_upwards [condExp_comp_action_mul h n (f := fun x b ↦ if b = a then (w n x a)⁻¹ else 0)
-    (fun b ↦ by split_ifs; exacts [(hw n a).inv, measurable_const]) hm hZ hZm hint] with ω hω
-  rw [hω, Finset.sum_eq_single a (fun b _ hb ↦ by simp [hb]) (by simp)]
-  simp only [↓reduceIte]
+  filter_upwards [condExp_iwEstimator_eq_div_mul_of_condExp_eq h hZ hm hZm (hw n a) hint]
+    with ω hω
+  rw [hω]
   split_ifs with ha
-  · rw [ha, zero_mul]
-  · rw [← mul_assoc, mul_inv_cancel₀ ha, one_mul]
+  · rw [ha, zero_div, zero_mul]
+  · rw [div_self ha, one_mul]
 
 /-- **Conditional unbiasedness of the importance-weighted estimator** [LS, (11.4)]: along a run of
 a weight-based algorithm, let `Z` be an integrable random variable whose conditional expectation
@@ -870,6 +917,31 @@ lemma ae_forall_means_nonneg_of_weights_pos
       (hY.mono fun ω hω ↦ (hω t ht).1)] with ω hω _ using hω
   · exact ae_of_all _ fun _ ht' ↦ absurd ht' ht
 
+/-- **Conditional mean of the implicit-exploration estimator** [LS, (12.4); Neu15, (3)], in any
+environment: along a run of a weight-based algorithm with weights `P = w n (past)` whose feedback
+at round `n` is integrable, for every `γ`, the implicit-exploration estimate
+`Ŷ a = 𝟙{A n = a} (1 - Y n) / (P a + γ)` of the loss `1 - Y n` at an arm `a` has conditional
+expectation `P a / (P a + γ) * (1 - env.means O A Y a n)` given the past, provided it is
+integrable. -/
+theorem condExp_iwEstimator_add_one_sub (h : IsAlgEnvSeq O A Y (weightAlgorithm w hw hp) env P)
+    (hYint : Integrable (Y n) P) (γ : ℝ)
+    (hint : Integrable (fun ω ↦ iwEstimator (fun b ↦ w n (history O A Y n ω, O n ω) b + γ)
+      (A n ω) (1 - Y n ω) a) P) :
+    P[fun ω ↦ iwEstimator (fun b ↦ w n (history O A Y n ω, O n ω) b + γ) (A n ω) (1 - Y n ω) a
+      | h.filtrationObs n] =ᵐ[P] fun ω ↦ w n (history O A Y n ω, O n ω) a /
+        (w n (history O A Y n ω, O n ω) a + γ) * (1 - env.means O A Y a n ω) := by
+  have hZm : P[fun ω ↦ 1 - Y n ω | h.filtrationAction n] =ᵐ[P]
+      fun ω ↦ 1 - ∫ y, y ∂env.feedback n ((history O A Y n ω, O n ω), A n ω) := by
+    filter_upwards [condExp_const_sub (h.filtrationAction.le n) hYint 1,
+      h.condExp_feedback_comp n stronglyMeasurable_id hYint] with ω h1 h2
+    rw [h1]
+    exact congrArg (fun z ↦ 1 - z) h2
+  filter_upwards [condExp_iwEstimator_eq_div_mul_of_condExp_eq h (Z := fun ω ↦ 1 - Y n ω)
+    ((integrable_const 1).sub hYint) (m := fun x b ↦ 1 - ∫ y, y ∂env.feedback n (x, b))
+    (fun b ↦ measurable_const.sub (measurable_integral_feedback stronglyMeasurable_id b)) hZm
+    (q := fun x b ↦ w n x b + γ) ((hw n a).add_const γ) hint] with ω hω
+  rw [hω, Environment.means_eq_integral]
+
 /-- Along a run of a weight-based algorithm whose feedback at round `n` is integrable, in any
 environment, the conditional expectation given the past of the importance-weighted estimate of the
 loss `1 - Y n` at an arm `a` is `1 - env.means O A Y a n` if `a` has positive weight, and `0`
@@ -881,17 +953,47 @@ theorem condExp_iwEstimator_one_sub (h : IsAlgEnvSeq O A Y (weightAlgorithm w hw
     P[fun ω ↦ iwEstimator (w n (history O A Y n ω, O n ω)) (A n ω) (1 - Y n ω) a
       | h.filtrationObs n] =ᵐ[P] fun ω ↦
         if w n (history O A Y n ω, O n ω) a = 0 then 0 else 1 - env.means O A Y a n ω := by
-  have hZm : P[fun ω ↦ 1 - Y n ω | h.filtrationAction n] =ᵐ[P]
-      fun ω ↦ 1 - ∫ y, y ∂env.feedback n ((history O A Y n ω, O n ω), A n ω) := by
-    filter_upwards [condExp_const_sub (h.filtrationAction.le n) hYint 1,
-      h.condExp_feedback_comp n stronglyMeasurable_id hYint] with ω h1 h2
-    rw [h1]
-    exact congrArg (fun z ↦ 1 - z) h2
-  filter_upwards [condExp_iwEstimator_eq_ite_of_condExp_eq h (Z := fun ω ↦ 1 - Y n ω)
-    ((integrable_const 1).sub hYint) (m := fun x b ↦ 1 - ∫ y, y ∂env.feedback n (x, b))
-    (fun b ↦ measurable_const.sub (measurable_integral_feedback stronglyMeasurable_id b)) hZm
-    hint] with ω hω
-  rw [hω, Environment.means_eq_integral]
+  -- this is the case `γ = 0` of the implicit-exploration estimator
+  have h0 := condExp_iwEstimator_add_one_sub h hYint 0 (by simpa only [add_zero] using hint)
+  simp only [add_zero] at h0
+  refine h0.trans (ae_of_all _ fun ω ↦ ?_)
+  dsimp only
+  split_ifs with ha
+  · rw [ha, zero_div, zero_mul]
+  · rw [div_self ha, one_mul]
+
+/-- **The implicit-exploration estimator underestimates the losses** [LS, Section 12.1;
+Neu15, Section 3], in any environment: along a run of a weight-based algorithm with weights
+`P = w n (past)` whose feedback at round `n` is almost surely in `[0, 1]`, for `γ ≥ 0`, almost
+surely, if an arm `a` has positive weight then the implicit-exploration estimate
+`Ŷ a = 𝟙{A n = a} (1 - Y n) / (P a + γ)` of the loss `1 - Y n` at `a` satisfies
+`E[Ŷ a | past] ≤ 1 - env.means O A Y a n`.
+
+The weight of `a` must be positive: an arm of weight zero is almost surely not played, so its
+estimate has conditional expectation `0`, while the hypothesis on the feedback says nothing about
+its mean `env.means O A Y a n`, which may exceed `1`. -/
+theorem condExp_iwEstimator_add_one_sub_le
+    (h : IsAlgEnvSeq O A Y (weightAlgorithm w hw hp) env P)
+    (hY : ∀ᵐ ω ∂P, Y n ω ∈ Set.Icc 0 1) {γ : ℝ} (hγ : 0 ≤ γ) (a : α) :
+    ∀ᵐ ω ∂P, 0 < w n (history O A Y n ω, O n ω) a →
+      P[fun ω ↦ iwEstimator (fun b ↦ w n (history O A Y n ω, O n ω) b + γ) (A n ω) (1 - Y n ω) a
+        | h.filtrationObs n] ω ≤ 1 - env.means O A Y a n ω := by
+  have hY0 : 0 ≤ᵐ[P] fun ω ↦
+      iwEstimator (fun b ↦ w n (history O A Y n ω, O n ω) b + γ) (A n ω) (1 - Y n ω) a := by
+    filter_upwards [hY] with ω hω
+    exact iwEstimator_nonneg
+      (by linarith [(mem_simplex_iff.1 (hp n (history O A Y n ω, O n ω))).1 (A n ω)])
+      (sub_nonneg.2 hω.2)
+  -- the conditional mean is `P a / (P a + γ) * (1 - m)`, nonnegative, with `P a / (P a + γ) ≤ 1`
+  filter_upwards [condExp_iwEstimator_add_one_sub h
+      (Integrable.of_mem_Icc 0 1 (h.measurable_feedback n).aemeasurable hY) γ
+      (integrable_iwEstimator_add_one_sub h hY hγ a),
+    condExp_nonneg (m := h.filtrationObs n) hY0] with ω hω h0 hpos
+  rw [hω] at h0 ⊢
+  have hq : 0 < w n (history O A Y n ω, O n ω) a / (w n (history O A Y n ω, O n ω) a + γ) :=
+    div_pos hpos (by linarith)
+  exact mul_le_of_le_one_left (nonneg_of_mul_nonneg_right h0 hq)
+    (div_le_one_of_le₀ (le_add_of_nonneg_right hγ) (by linarith))
 
 /-- **Unbiasedness of the estimated losses in expectation**, in any environment. Along a run of a
 weight-based algorithm whose feedback at round `n` is almost surely in `[0, 1]`, the

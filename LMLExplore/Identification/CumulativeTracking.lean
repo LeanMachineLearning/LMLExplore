@@ -26,7 +26,9 @@ along every run. Consequently, along every run
 whose targets are allocations [DKM19, Lemma 7]: after `n` rounds, every arm satisfies
 `∑_{s < n} w_a(s) - (K - 1) ≤ N_a(n) ≤ ∑_{s < n} w_a(s) + 1`; the proportions of pulls get close
 to the averages of the targets, and converge to the limit of the targets whenever the targets
-converge.
+converge. The sums over the rounds of the targets divided by the pull counts or their square roots,
+which weigh the confidence widths of the arms by the targets played, grow like `√n`
+[DKM19, Lemma 9] and `log n` [DKM19, Lemma 16].
 
 Unlike C-tracking (`Identification/CTracking.lean`), cumulative tracking does not mix the targets
 with the uniform allocation: it forces no exploration beyond the first `K` rounds, and the
@@ -53,11 +55,17 @@ In the namespace `LMLExplore.Identification.CumulativeTracking`, along every run
 * `tendsto_pullCount_div_sub_inv_mul_sum`, `tendsto_pullCount_div`: almost surely, the proportions
   of pulls get close to the averages of the targets, and converge to the limit of the targets
   whenever the targets converge.
+* `sum_sum_div_sqrt_pullCount_succ_le`, `sum_sum_div_sqrt_pullCount_le`,
+  `sum_sum_div_pullCount_le`: almost surely, the sums of the targets over the pull counts,
+  `∑_a ∑_{s < n} w_a(s) / √(N_a(s + 1)) ≤ K (K - 1) + 2 √(K n)` and
+  `∑_a ∑_{s < n} w_a(s) / √(N_a(s)) ≤ K (K - 1) + (√2 + 1) √(K n)` [DKM19, Lemma 9], and
+  `∑_a ∑_{s < n} w_a(s) / N_a(s) ≤ K (K - 1) + 3 K log (n / K + 1)` [DKM19, Lemma 16].
 
 ## References
 
 * [DKM19] R. Degenne, W. M. Koolen and P. Ménard, *Non-asymptotic pure exploration by solving
-  games*, NeurIPS 2019, Algorithm 1 and Lemma 7 (in the numbering of arXiv:1906.10431).
+  games*, NeurIPS 2019, Algorithm 1 and Lemmas 7, 9 and 16 (in the numbering of
+  arXiv:1906.10431).
 -/
 
 public section
@@ -245,6 +253,45 @@ theorem tendsto_pullCount_div (h : IsAlgEnvSeq O A Y (cumulativeTracking w hw) e
   filter_upwards [pullCount_mul_sum_le hw0 h] with ω hω l hl a
   exact tendsto_pullCount_div_of_cumulativeTracking _ (fun k ↦ hw0 k _) (fun k ↦ hw1 k _) hω
     (hl a)
+
+/-- **Sums over the pull counts of cumulative tracking** [DKM19, Lemma 9]. If the targets are
+allocations, then almost surely, after every number `n` of rounds,
+`∑_a ∑_{s < n} w_a(s) / √(N_a(s + 1)) ≤ K (K - 1) + 2 √(K n)`, with `w(s)` the target of the
+history of the first `s` rounds. -/
+theorem sum_sum_div_sqrt_pullCount_succ_le
+    (h : IsAlgEnvSeq O A Y (cumulativeTracking w hw) env P) :
+    ∀ᵐ ω ∂P, ∀ n : ℕ, ∑ a, ∑ s ∈ range n, w s (history O A Y s ω) a /
+        √(pullCount A a (s + 1) ω) ≤
+      Fintype.card α * (Fintype.card α - 1) + 2 * √(Fintype.card α * n) := by
+  filter_upwards [pullCount_mul_sum_le hw0 h] with ω hω n
+  exact sum_sum_div_sqrt_pullCount_succ_le_of_cumulativeTracking _ (fun k ↦ hw0 k _)
+    (fun k ↦ hw1 k _) hω n
+
+/-- **Sums over the pull counts of cumulative tracking, before each round** [DKM19, Lemma 9]. If
+the targets are allocations, then almost surely, after every number `n` of rounds,
+`∑_a ∑_{s < n} w_a(s) / √(N_a(s)) ≤ K (K - 1) + (√2 + 1) √(K n)`, with `w(s)` the target of the
+history of the first `s` rounds: the confidence widths `√(1 / N_a(s))` of the arms at the round
+`s`, weighted by the target played, sum to `O(√n)`. -/
+theorem sum_sum_div_sqrt_pullCount_le
+    (h : IsAlgEnvSeq O A Y (cumulativeTracking w hw) env P) :
+    ∀ᵐ ω ∂P, ∀ n : ℕ, ∑ a, ∑ s ∈ range n, w s (history O A Y s ω) a / √(pullCount A a s ω) ≤
+      Fintype.card α * (Fintype.card α - 1) + (√2 + 1) * √(Fintype.card α * n) := by
+  filter_upwards [pullCount_mul_sum_le hw0 h] with ω hω n
+  exact sum_sum_div_sqrt_pullCount_le_of_cumulativeTracking _ (fun k ↦ hw0 k _)
+    (fun k ↦ hw1 k _) hω n
+
+/-- **Sums of the inverse pull counts of cumulative tracking** [DKM19, Lemma 16]. If the
+targets are allocations, then almost surely, after every number `n` of rounds,
+`∑_a ∑_{s < n} w_a(s) / N_a(s) ≤ K (K - 1) + 3 K log (n / K + 1)`, with `w(s)` the target of the
+history of the first `s` rounds: the confidence widths `1 / N_a(s)` of the arms at the round `s`,
+weighted by the target played, sum to `O(log n)`. -/
+theorem sum_sum_div_pullCount_le (h : IsAlgEnvSeq O A Y (cumulativeTracking w hw) env P) :
+    ∀ᵐ ω ∂P, ∀ n : ℕ, ∑ a, ∑ s ∈ range n, w s (history O A Y s ω) a / pullCount A a s ω ≤
+      Fintype.card α * (Fintype.card α - 1) +
+        3 * Fintype.card α * Real.log (n / Fintype.card α + 1) := by
+  filter_upwards [pullCount_mul_sum_le hw0 h] with ω hω n
+  exact sum_sum_div_pullCount_le_of_cumulativeTracking _ (fun k ↦ hw0 k _)
+    (fun k ↦ hw1 k _) hω n
 
 end CumulativeTracking
 
