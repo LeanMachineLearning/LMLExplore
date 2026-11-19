@@ -53,9 +53,6 @@ contains every law whose conditional laws given the past lie in `S₁`.
 * `ProbabilityTheory.infinitePi_mem_sequentialNull`: the law of a sequence of independent
   observations with laws in `S₁` belongs to the sequential null of the coordinates and the
   filtration of the strict past.
-* `ProbabilityTheory.exists_setLIntegral_comp_of_mem_sequentialNull`: under a member of the
-  sequential null, integrals of `r ω (X k ω)` and measures over sets of the past, computed from a
-  conditional law of `X k` with values in `S₁`.
 * `ProbabilityTheory.isCondEVar_comp_sequentialNull`,
   `ProbabilityTheory.isExactCondEVar_comp_sequentialNull`: an e-variable for `S₁` chosen from the
   past, at the next observation, is a conditional e-variable for the sequential null.
@@ -159,22 +156,6 @@ theorem infinitePi_mem_sequentialNull {μ : ℕ → Measure 𝓧} [∀ k, IsProb
 
 variable {r : ℕ → Ω → 𝓧 → ℝ≥0∞}
 
-/-- **The observation against the sequential null.** Under a member `P` of the sequential null,
-the observation `X k` has a conditional law `κ` given `ℱ k` with `κ ω ∈ S₁` almost surely, such
-that on every `ℱ k`-measurable set `s`, `∫⁻ ω in s, r ω (X k ω) ∂P = ∫⁻ ω in s, ∫⁻ x, r ω x ∂κ ω ∂P`
-for `r` jointly measurable for `ℱ k` and `𝓧`, and `P s = ∫⁻ ω in s, κ ω univ ∂P`. -/
-theorem exists_setLIntegral_comp_of_mem_sequentialNull {r : Ω → 𝓧 → ℝ≥0∞} {k : ℕ}
-    (hP : P ∈ sequentialNull S₁ X ℱ) (hX : AEMeasurable (X k) P)
-    (hr : Measurable[(ℱ k).prod m𝓧] (Function.uncurry r)) {s : Set Ω}
-    (hs : MeasurableSet[ℱ k] s) :
-    ∃ κ : Ω → Measure 𝓧, (∀ᵐ ω ∂P, κ ω ∈ S₁) ∧
-      ∫⁻ ω in s, r ω (X k ω) ∂P = ∫⁻ ω in s, ∫⁻ x, r ω x ∂(κ ω) ∂P ∧
-      P s = ∫⁻ ω in s, κ ω univ ∂P := by
-  obtain ⟨κ, hκ, hκS⟩ := exists_hasCondLaw_of_mem_sequentialNull hP k
-  have hPs := hκ.measure_inter_preimage (ℱ.le k) hX hs MeasurableSet.univ
-  rw [preimage_univ, inter_univ] at hPs
-  exact ⟨κ, hκS, hκ.setLIntegral_comp (ℱ.le k) hr hs, hPs⟩
-
 /-- **One round against the sequential null.** Let `S₁` be a set of measures, let `X k` be
 measurable, and let `r ω` be an e-variable for `S₁` for every `ω`, jointly measurable
 for `ℱ k` and `𝓧`. Then `r ω (X k ω)` is a conditional e-variable given `ℱ k` for the
@@ -183,9 +164,10 @@ theorem isCondEVar_comp_sequentialNull {r : Ω → 𝓧 → ℝ≥0∞} {k : ℕ
     (hr : Measurable[(ℱ k).prod m𝓧] (Function.uncurry r)) (hr1 : ∀ ω, IsEVar (r ω) S₁) :
     IsCondEVar (fun ω ↦ r ω (X k ω)) (ℱ k) (sequentialNull S₁ X ℱ) := by
   refine ⟨measurable_comp_prodMk (ℱ.le k) hX hr, fun P hP s hs ↦ ?_⟩
-  obtain ⟨κ, hκS, h, hPs⟩ :=
-    exists_setLIntegral_comp_of_mem_sequentialNull hP hX.aemeasurable hr hs
-  rw [h, hPs]
+  obtain ⟨κ, hκ, hκS⟩ := exists_hasCondLaw_of_mem_sequentialNull hP k
+  have hPs := hκ.measure_inter_preimage (ℱ.le k) hX.aemeasurable hs .univ
+  rw [preimage_univ, inter_univ] at hPs
+  rw [hκ.setLIntegral_comp (ℱ.le k) hr hs, hPs]
   exact lintegral_mono_ae (ae_restrict_of_ae (hκS.mono fun ω hω ↦
     (hr1 ω).lintegral_le_measure_univ _ hω))
 
@@ -197,9 +179,10 @@ theorem isExactCondEVar_comp_sequentialNull {r : Ω → 𝓧 → ℝ≥0∞} {k 
     (hr : Measurable[(ℱ k).prod m𝓧] (Function.uncurry r)) (hr1 : ∀ ω, IsExactEVar (r ω) S₁) :
     IsExactCondEVar (fun ω ↦ r ω (X k ω)) (ℱ k) (sequentialNull S₁ X ℱ) := by
   refine ⟨measurable_comp_prodMk (ℱ.le k) hX hr, fun P hP s hs ↦ ?_⟩
-  obtain ⟨κ, hκS, h, hPs⟩ :=
-    exists_setLIntegral_comp_of_mem_sequentialNull hP hX.aemeasurable hr hs
-  rw [h, hPs]
+  obtain ⟨κ, hκ, hκS⟩ := exists_hasCondLaw_of_mem_sequentialNull hP k
+  have hPs := hκ.measure_inter_preimage (ℱ.le k) hX.aemeasurable hs .univ
+  rw [preimage_univ, inter_univ] at hPs
+  rw [hκ.setLIntegral_comp (ℱ.le k) hr hs, hPs]
   exact lintegral_congr_ae (ae_restrict_of_ae (hκS.mono fun ω hω ↦
     (hr1 ω).lintegral_eq_measure_univ _ hω))
 
