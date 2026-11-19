@@ -26,6 +26,8 @@ than on a σ-algebra.
 ## Main statements
 
 * `ProbabilityTheory.HasCondLaw.setLIntegral_comp`: the identity on every `m`-measurable set.
+* `ProbabilityTheory.HasCondLaw.congr`: conditional laws are invariant under almost everywhere
+  equality of the random variable.
 * `ProbabilityTheory.HasCondLaw.measure_inter_preimage`: the identity on `m`-measurable
   rectangles, `P (s ∩ X ⁻¹' t) = ∫⁻ ω in s, κ ω t ∂P`.
 * `ProbabilityTheory.hasCondLaw_of_measure_inter_preimage`: conversely, an `m`-measurable s-finite
@@ -77,6 +79,14 @@ theorem HasCondLaw.setLIntegral_comp (h : HasCondLaw X κ m P) (hm : m ≤ mΩ)
         rw [← lintegral_indicator (hm s hs)]
         refine lintegral_congr fun ω ↦ ?_
         by_cases hω : ω ∈ s <;> simp [hω]
+
+/-- A conditional law of `X` given `m` is a conditional law of every random variable that agrees
+with `X` almost everywhere. -/
+theorem HasCondLaw.congr (h : HasCondLaw X κ m P) {Y : Ω → 𝓧} (hXY : X =ᵐ[P] Y) :
+    HasCondLaw Y κ m P where
+  lintegral_comp g hg := by
+    rw [← h.lintegral_comp g hg]
+    exact lintegral_congr_ae (hXY.mono fun ω hω ↦ by simp only [hω])
 
 /-- The identity defining a conditional law given `m`, on `m`-measurable rectangles:
 `P (s ∩ X ⁻¹' t) = ∫⁻ ω in s, κ ω t ∂P`. -/
