@@ -6,11 +6,12 @@ Authors: LMLExplore contributors
 module
 
 public import Mathlib.Analysis.SpecialFunctions.Integrals.Basic
+import Mathlib.Analysis.SumIntegralComparisons
 import LMLExplore.Analysis.Real.Sqrt
 import LMLExplore.Analysis.SpecialFunctions.Log.Basic
 
 /-!
-# Weighted sums of an antitone function and its integral, and sums over a lagging counter
+# Weighted sums of an antitone function, sums over a lagging counter, and sums of powers
 
 Mathlib's `AntitoneOn.sum_le_integral` compares the values of an antitone function at the
 integers with its integral. Its weighted form compares the values at the partial sums of a
@@ -20,15 +21,20 @@ nonnegative sequence: for `f` antitone on `(c, c + ∑_{t < n} a t]` and integra
 
 Adaptive learning rates of online learning are of the form `η_t ∝ f (∑_{s ≤ t} a s)`, where
 `a s` is the squared norm of the subgradient of round `s` (as in AdaGrad), and the regret bounds
-sum the terms `a t f (∑_{s ≤ t} a s)`. The two instances below, and an offset form of the
-first for rates that only use the past rounds, are the ones these bounds use.
+sum the terms `a t f (∑_{s ≤ t} a s)`. The instances `f x = 1 / √x` and `f x = 1 / x` below,
+and an offset form of the first for rates that only use the past rounds, are the ones these
+bounds use.
 
 The same sums appear when a natural number `N s` lags behind the partial sums `∑_{r < s} a r` by
 at most a constant `c`, as the pull counts of a tracking rule lag behind the cumulated targets.
-The last three bounds control `∑_{s < n} a s / √(N s)` and `∑_{s < n} a s / N s` in that case:
+Three further bounds control `∑_{s < n} a s / √(N s)` and `∑_{s < n} a s / N s` in that case:
 they bound the sums of the confidence widths of a bandit algorithm that tracks a sequence of
 allocations, the square-root sums [DKM19, Lemma 9] and the logarithmic sum used in the proof of
 [DKM19, Lemma 16].
+
+The file also compares the sums `∑_{m ≤ i < n} (i + 1) ^ r` with the integral of `x ^ r` over
+`[m, n]`, using Mathlib's unweighted comparisons. They bound the sums of the learning rates
+`(t + 1) ^ (-α)` of online subgradient descent, as in its lower bound [Ora, Theorem 5.4].
 
 ## Main statements
 
@@ -45,13 +51,21 @@ allocations, the square-root sums [DKM19, Lemma 9] and the logarithmic sum used 
   `∑_{r < s} a r - c ≤ N s`, then `∑_{s < n} a s / √(N s) ≤ c + (√2 + 1) √(∑_{s < n} a s)`.
 * `Real.sum_div_le_add_three_mul_log`: under the same assumptions,
   `∑_{s < n} a s / N s ≤ c + 3 log (∑_{s < n} a s + 1)`.
+* `Real.sum_Ico_add_one_rpow_le`, `Real.sub_div_le_sum_Ico_add_one_rpow`: the sums
+  `∑_{m ≤ i < n} (i + 1) ^ r` compared with `(n ^ (r + 1) - m ^ (r + 1)) / (r + 1)`, the integral
+  of `x ^ r` over `[m, n]`, from above for `-1 < r ≤ 0` and from below for `r ≥ 0`. The learning
+  rates `(t + 1) ^ (-α)` of online subgradient descent are of this form.
+* `Real.sum_range_add_one_rpow_le`, `Real.div_le_sum_range_add_one_rpow`: their cases `m = 0`,
+  comparing `∑_{i < n} (i + 1) ^ r` with `n ^ (r + 1) / (r + 1)`.
 
-In the first, a term whose denominator vanishes has `a t = 0`, and Lean's convention `x / 0 = 0`
-omits it, as [Ora] does. In the last three, the terms with `N s = 0` are `0` for the same reason.
+In `Real.sum_div_sqrt_le_two_mul_sqrt`, a term whose denominator vanishes has `a t = 0`, and
+Lean's convention `x / 0 = 0` omits it, as [Ora] does. In the bounds over a lagging counter,
+the terms with `N s = 0` are `0` for the same reason.
 
 ## References
 
-* [Ora] F. Orabona, *A Modern Introduction to Online Learning*, arXiv:1912.13213v10, Lemma 4.13.
+* [Ora] F. Orabona, *A Modern Introduction to Online Learning*, arXiv:1912.13213v10, Lemma 4.13
+  and Theorem 5.4.
 * [DKM19] R. Degenne, W. M. Koolen and P. Ménard, *Non-asymptotic pure exploration by solving
   games*, NeurIPS 2019, Lemmas 9 and 16 (in the numbering of arXiv:1906.10431).
 -/
@@ -321,5 +335,60 @@ theorem sum_div_le_add_three_mul_log (hc : 0 ≤ c) (ha : ∀ s < n, 0 ≤ a s)
         gcongr with s hs
         · linarith [sum_nonneg fun s (hs : s ∈ range n) ↦ hy0 s (mem_range.1 hs)]
         · exact lagIncrement_le (ha s (mem_range.1 hs))
+
+/-! ### Sums of powers -/
+
+/-- **Sums of a nonpositive power** compared with its integral: for `-1 < r ≤ 0` and `m ≤ n`,
+`∑_{m ≤ i < n} (i + 1) ^ r ≤ (n ^ (r + 1) - m ^ (r + 1)) / (r + 1)`.
+
+For `m = 0`, it is `Real.sum_range_add_one_rpow_le`. -/
+theorem sum_Ico_add_one_rpow_le {r : ℝ} (hr₁ : -1 < r) (hr : r ≤ 0) {m n : ℕ} (hmn : m ≤ n) :
+    ∑ i ∈ Finset.Ico m n, ((i : ℝ) + 1) ^ r ≤
+      ((n : ℝ) ^ (r + 1) - (m : ℝ) ^ (r + 1)) / (r + 1) := by
+  have hcast : (m : ℝ) + ((n - m : ℕ) : ℝ) = n := by rw [Nat.cast_sub hmn]; ring
+  have hanti : AntitoneOn (fun x : ℝ ↦ x ^ r) (Ioc (m : ℝ) (m + ((n - m : ℕ) : ℝ))) :=
+    (antitoneOn_rpow_Ioi_of_exponent_nonpos hr).mono fun x hx ↦
+      (Nat.cast_nonneg m).trans_lt hx.1
+  have hint : IntegrableOn (fun x : ℝ ↦ x ^ r) (Icc (m : ℝ) (m + ((n - m : ℕ) : ℝ))) :=
+    (intervalIntegrable_iff_integrableOn_Icc_of_le (by simp)).1
+      (intervalIntegral.intervalIntegrable_rpow' hr₁)
+  have h := hanti.sum_le_integral_of_integrableOn hint
+  rw [hcast, integral_rpow (Or.inl hr₁)] at h
+  refine le_of_eq_of_le ?_ h
+  rw [Finset.sum_Ico_eq_sum_range]
+  refine Finset.sum_congr rfl fun i _ ↦ ?_
+  congr 1
+  push_cast
+  ring
+
+/-- **Sums of a nonnegative power** compared with its integral: for `0 ≤ r` and `m ≤ n`,
+`(n ^ (r + 1) - m ^ (r + 1)) / (r + 1) ≤ ∑_{m ≤ i < n} (i + 1) ^ r`.
+
+For `m = 0`, it is `Real.div_le_sum_range_add_one_rpow`. -/
+theorem sub_div_le_sum_Ico_add_one_rpow {r : ℝ} (hr : 0 ≤ r) {m n : ℕ} (hmn : m ≤ n) :
+    ((n : ℝ) ^ (r + 1) - (m : ℝ) ^ (r + 1)) / (r + 1) ≤
+      ∑ i ∈ Finset.Ico m n, ((i : ℝ) + 1) ^ r := by
+  have hmono : MonotoneOn (fun x : ℝ ↦ x ^ r) (Icc (m : ℝ) n) :=
+    (monotoneOn_rpow_Ici_of_exponent_nonneg hr).mono fun x hx ↦ (Nat.cast_nonneg m).trans hx.1
+  have h := hmono.integral_le_sum_Ico hmn
+  rw [integral_rpow (Or.inl (by linarith))] at h
+  exact h.trans_eq (Finset.sum_congr rfl fun i _ ↦ by rw [Nat.cast_add_one])
+
+/-- **Sums of a nonpositive power** from `0` compared with its integral: for `-1 < r ≤ 0`,
+`∑_{i < n} (i + 1) ^ r ≤ n ^ (r + 1) / (r + 1)`, the case `m = 0` of
+`Real.sum_Ico_add_one_rpow_le`. The learning rates `(t + 1) ^ (-α)`, `0 ≤ α < 1`, of online
+subgradient descent sum to at most `n ^ (1 - α) / (1 - α)` over the first `n` rounds. -/
+theorem sum_range_add_one_rpow_le {r : ℝ} (hr₁ : -1 < r) (hr : r ≤ 0) :
+    ∑ i ∈ range n, ((i : ℝ) + 1) ^ r ≤ (n : ℝ) ^ (r + 1) / (r + 1) := by
+  have h := sum_Ico_add_one_rpow_le hr₁ hr (Nat.zero_le n)
+  rwa [Nat.cast_zero, zero_rpow (by linarith), sub_zero, ← range_eq_Ico] at h
+
+/-- **Sums of a nonnegative power** from `0` compared with its integral: for `0 ≤ r`,
+`n ^ (r + 1) / (r + 1) ≤ ∑_{i < n} (i + 1) ^ r`, the case `m = 0` of
+`Real.sub_div_le_sum_Ico_add_one_rpow`. -/
+theorem div_le_sum_range_add_one_rpow {r : ℝ} (hr : 0 ≤ r) :
+    (n : ℝ) ^ (r + 1) / (r + 1) ≤ ∑ i ∈ range n, ((i : ℝ) + 1) ^ r := by
+  have h := sub_div_le_sum_Ico_add_one_rpow hr (Nat.zero_le n)
+  rwa [Nat.cast_zero, zero_rpow (by linarith), sub_zero, ← range_eq_Ico] at h
 
 end Real
