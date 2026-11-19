@@ -6,17 +6,16 @@ Authors: LMLExplore contributors
 module
 
 public import LMLExplore.Analysis.Matrix.LimitingMatrix
-public import LMLExplore.MarkovDecisionProcess.Value
-public import LMLExplore.Probability.Kernel.Matrix
+public import LMLExplore.MarkovDecisionProcess.StateMatrix
 public import LMLExplore.Topology.Instances.NNReal.Lemmas
 
 /-!
 # The gain and the bias of a stationary policy
 
 Let `M : MDP 𝓢 𝓐 ℝ` be an MDP with a finite state space and `π` a stationary policy. The states
-of a run of `π` form a Markov chain with transition matrix `P_π` (`Learning.MDP.stateMatrix`, the
-real matrix of `M.stateKernel π`), and the policy earns the mean reward `r_π = M.policyReward π`
-in each state. This Markov reward process `(P_π, r_π)` has
+of a run of `π` form a Markov chain with transition matrix `P_π`
+(`Learning.MDP.stateMatrix`), and the policy earns the mean reward `r_π = M.policyReward π` in
+each state. This Markov reward process `(P_π, r_π)` has
 * the *gain* `g^π = P*_π r_π`, with `P*_π` the limiting matrix of `P_π`: the long-run average
   expected reward `lim_N N⁻¹ ∑ n < N, P_π ^ n r_π`;
 * the *bias* `h^π = D_π r_π`, with `D_π` the deviation matrix of `P_π`: the Cesàro limit of the
@@ -33,7 +32,6 @@ finite, every function of the states is integrable against every finite measure.
 
 ## Main definitions
 
-* `Learning.MDP.stateMatrix M π`: the transition matrix `P_π` of the states under `π`.
 * `Learning.MDP.gain M π`: the gain `g^π = P*_π r_π`.
 * `Learning.MDP.bias M π`: the bias `h^π = D_π r_π`.
 
@@ -47,7 +45,6 @@ finite, every function of the states is integrable against every finite measure.
 * `Learning.MDP.tendsto_cesaro_sum_sub_gain`, `Learning.MDP.tendsto_cesaro_sum_of_gain_eq_zero`:
   the bias is the Cesàro limit of the total expected reward in excess of the gain, hence of the
   total expected reward when the gain is zero [P, Proposition 8.2.2].
-* `Learning.MDP.value_eq_inv_mulVec`: the discounted value is `v^π_γ = (1 - γ P_π)⁻¹ r_π`.
 * `Learning.MDP.value_eq_laurent`: the Laurent expansion of the discounted value
   [P, Theorem 8.2.3].
 * `Learning.MDP.tendsto_value_sub_inv_one_sub_mul_gain`,
@@ -74,16 +71,7 @@ namespace Learning.MDP
 variable {𝓢 𝓐 : Type*} {m𝓢 : MeasurableSpace 𝓢} {m𝓐 : MeasurableSpace 𝓐} (M : MDP 𝓢 𝓐 ℝ)
   (π : Kernel 𝓢 𝓐)
 
-/-! ### The transition matrix, the gain and the bias of a stationary policy -/
-
-/-- The transition matrix `P_π` of the states of a run of the stationary policy `π`: the real
-transition matrix of the state kernel `M.stateKernel π`, with entries
-`P_π s s' = (M.stateKernel π s).real {s'}` (`Learning.MDP.stateMatrix_apply`). -/
-noncomputable def stateMatrix : Matrix 𝓢 𝓢 ℝ :=
-  (M.stateKernel π).toMatrix.map ((↑) : ℝ≥0 → ℝ)
-
-lemma stateMatrix_def : M.stateMatrix π = (M.stateKernel π).toMatrix.map ((↑) : ℝ≥0 → ℝ) :=
-  (rfl)
+/-! ### The gain and the bias of a stationary policy -/
 
 section Defs
 
@@ -109,10 +97,6 @@ lemma bias_def : M.bias π = (M.stateMatrix π).deviationMatrix *ᵥ M.policyRew
 
 end Defs
 
-@[simp]
-lemma stateMatrix_apply (s s' : 𝓢) : M.stateMatrix π s s' = (M.stateKernel π s).real {s'} := by
-  rw [stateMatrix_def, Kernel.toMatrix_map_coe_apply]
-
 /-- The value at `s` of `A *ᵥ r_π` is continuous in the matrix `A`. -/
 private lemma continuous_mulVec_policyReward_apply [Fintype 𝓢] (s : 𝓢) :
     Continuous fun A : Matrix 𝓢 𝓢 ℝ ↦ (A *ᵥ M.policyReward π) s :=
@@ -120,24 +104,7 @@ private lemma continuous_mulVec_policyReward_apply [Fintype 𝓢] (s : 𝓢) :
 
 variable [IsMarkovKernel π]
 
-variable [Fintype 𝓢] [MeasurableSingletonClass 𝓢]
-
-/-- `P_π` acts on functions by integration against the state kernel. -/
-lemma stateMatrix_mulVec_apply (f : 𝓢 → ℝ) (s : 𝓢) :
-    (M.stateMatrix π *ᵥ f) s = ∫ s', f s' ∂(M.stateKernel π s) := by
-  rw [stateMatrix_def, Kernel.toMatrix_map_coe_mulVec]
-
-variable [DecidableEq 𝓢]
-
-/-- `P_π ^ n` acts on functions by integration against the `n`-th power of the state kernel. -/
-lemma stateMatrix_pow_mulVec_apply (n : ℕ) (f : 𝓢 → ℝ) (s : 𝓢) :
-    (M.stateMatrix π ^ n *ᵥ f) s = ∫ s', f s' ∂((M.stateKernel π ^ n) s) := by
-  rw [stateMatrix_def, ← Kernel.toMatrix_map_coe_pow, Kernel.toMatrix_map_coe_mulVec]
-
-/-- The transition matrix of a stationary policy is row-stochastic. -/
-lemma stateMatrix_mem_rowStochastic : M.stateMatrix π ∈ rowStochastic ℝ 𝓢 := by
-  rw [stateMatrix_def]
-  exact Kernel.toMatrix_map_coe_mem_rowStochastic _
+variable [Fintype 𝓢] [MeasurableSingletonClass 𝓢] [DecidableEq 𝓢]
 
 /-- `(1 - P_π) g = 0` is the harmonicity `∫ g ∂(P_π s) = g s` of `g`. -/
 private lemma one_sub_stateMatrix_mulVec_eq_zero_iff {g : 𝓢 → ℝ} :
@@ -254,19 +221,6 @@ theorem tendsto_cesaro_sum_of_gain_eq_zero (hg : M.gain π = 0) (s : 𝓢) :
   simpa [hg] using M.tendsto_cesaro_sum_sub_gain π s
 
 /-! ### The Laurent expansion of the discounted value -/
-
-/-- The discounted value is the resolvent of the transition matrix applied to the reward:
-`v^π_γ = (1 - γ P_π)⁻¹ r_π` for `γ < 1`. -/
-theorem value_eq_inv_mulVec {γ : ℝ≥0} (hγ : γ < 1) :
-    M.value γ π = (1 - (γ : ℝ) • M.stateMatrix π)⁻¹ *ᵥ M.policyReward π := by
-  ext s
-  have hsum := hasSum_pow_smul_pow (M.stateMatrix_mem_rowStochastic π) (γ := γ)
-    (by rwa [NNReal.abs_eq, NNReal.coe_lt_one])
-  have hv := Pi.hasSum.1 (hsum.map (mulVec.addMonoidHomLeft (M.policyReward π))
-    (continuous_id.matrix_mulVec continuous_const)) s
-  simp only [Function.comp_def, mulVec.addMonoidHomLeft_apply, smul_mulVec, Pi.smul_apply,
-    smul_eq_mul, stateMatrix_pow_mulVec_apply] at hv
-  rw [value_def, hv.tsum_eq]
 
 /-- **Laurent expansion of the discounted value** [P, Theorem 8.2.3]. For `0 < γ < 1` and
 `u = (1 - γ) / γ` with `u ‖D_π‖ < 1`, where `‖D_π‖` is the operator norm of the action of the
