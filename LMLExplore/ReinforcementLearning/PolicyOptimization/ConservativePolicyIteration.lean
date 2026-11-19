@@ -39,8 +39,9 @@ when some `π'' ∈ Λ` has `∫ (⨆ a, A^π (s, a)) dd^π_μ (s) ≤ 𝔸_π(�
 occupancy measure is dominated by `D • μ` (that is, with mismatch coefficient
 `‖d^σ_μ / μ‖_∞ ≤ D`),
 `∫ v^σ dμ - ∫ v^π dμ ≤ D * (2 ε + ε_Λ) / (1 - γ) ^ 2` [AJKS, Theorem 14.4]. This follows from
-the general bound `∫ v^σ dμ - ∫ v^π dμ ≤ D / (1 - γ) ^ 2 * ∫ (⨆ a, A^π (s, a)) dd^π_μ (s)`,
-which holds on countable action sets.
+the general bound `∫ v^σ dμ - ∫ v^π dμ ≤ D / (1 - γ) ^ 2 * ∫ (⨆ a, A^π (s, a)) dd^π_μ (s)`
+on countable action sets,
+`Learning.MDP.integral_value_sub_integral_value_le_mul_integral_iSup_advantage`.
 
 ## Main definitions
 
@@ -49,13 +50,12 @@ which holds on countable action sets.
 
 ## Main statements
 
+* `Learning.MDP.policyAdvantage_of_mixture`: the policy advantage of the mixture
+  `(1 - α) π + α π''` over `π` is `α 𝔸_π(π'')`.
 * `Learning.MDP.mul_sub_le_integral_value_sub_integral_value_of_mixture`: the improvement lower
   bound of a mixture step [AJKS, Theorem 14.2];
   `Learning.MDP.policyAdvantage_sq_mul_div_le_integral_value_sub_integral_value`: its value for
   the step `α = 𝔸 (1 - γ) ^ 2 / (4 γ C)` [AJKS, Theorem 14.3].
-* `Learning.MDP.integral_value_sub_integral_value_le_integral_iSup_advantage`: the
-  suboptimality of `π` against any stationary policy is controlled by the mean of the greedy
-  advantage `⨆ a, A^π (s, a)` along `d^π_μ` and the mismatch coefficient.
 * `LMLExplore.ReinforcementLearning.cpi_iterations_le`: CPI stops within
   `8 γ C ^ 2 / (ε ^ 2 (1 - γ) ^ 2)` iterations [AJKS, Theorem 14.3], corrected.
 * `LMLExplore.ReinforcementLearning.integral_value_sub_integral_value_cpi_le`: the output of CPI
@@ -104,23 +104,6 @@ theorem policyAdvantage_self (hγ : γ < 1) (hR : ∀ p, ∀ᵐ x ∂(M.R p), |x
     M.policyAdvantage γ π π μ = 0 := by
   simp [policyAdvantage_def, integral_advantage hγ hR]
 
-omit [Nonempty 𝓢] in
-/-- With bounded rewards and `γ < 1`, the mean advantage `s ↦ ∫ A^π (s, ·) dπ' s` of the actions
-of `π'` is measurable. -/
-private lemma measurable_integral_advantage (hγ : γ < 1) (hR : ∀ p, ∀ᵐ x ∂(M.R p), |x| ≤ C)
-    (π' : Kernel 𝓢 𝓐) [IsSFiniteKernel π'] :
-    Measurable fun s ↦ ∫ a, M.advantage γ π (s, a) ∂(π' s) :=
-  ((measurable_advantage hγ hR).stronglyMeasurable.integral_kernel_prod_right'
-    (κ := π')).measurable
-
-omit [Nonempty 𝓢] in
-/-- With mean rewards in `[0, C]` and `γ < 1`, the mean advantage of the actions of a policy is
-bounded by `C / (1 - γ)`. -/
-private lemma abs_integral_advantage_le (hγ : γ < 1) (hR : ∀ p, ∀ᵐ x ∂(M.R p), |x| ≤ C)
-    (hr : ∀ p, 0 ≤ meanReward M.R p) [IsMarkovKernel π'] (s : 𝓢) :
-    |∫ a, M.advantage γ π (s, a) ∂(π' s)| ≤ C / (1 - γ) :=
-  abs_integral_le_of_abs_le fun a ↦ abs_advantage_le_of_nonneg hγ hR hr (s, a)
-
 /-- With mean rewards in `[0, C]` and `γ < 1`, the policy advantage is bounded by `C / (1 - γ)`.
 -/
 theorem abs_policyAdvantage_le (hγ : γ < 1) (hR : ∀ p, ∀ᵐ x ∂(M.R p), |x| ≤ C)
@@ -137,12 +120,19 @@ advantage of the actions of `π''`, since the advantage of `π` has mean zero un
 private lemma integral_advantage_of_mixture (hγ : γ < 1) (hR : ∀ p, ∀ᵐ x ∂(M.R p), |x| ≤ C)
     [IsMarkovKernel π''] {α : ℝ≥0} (hπ' : ∀ s, π' s = (1 - α) • π s + α • π'' s) (s : 𝓢) :
     ∫ a, M.advantage γ π (s, a) ∂(π' s) = α * ∫ a, M.advantage γ π (s, a) ∂(π'' s) := by
-  have hint (ν : Measure 𝓐) [IsFiniteMeasure ν] : Integrable (fun a ↦ M.advantage γ π (s, a)) ν :=
-    integrable_of_abs_le ((measurable_advantage hγ hR).comp measurable_prodMk_left)
-      (fun a ↦ abs_advantage_le hγ hR (s, a)) ν
-  rw [hπ' s, integral_add_measure (hint _).smul_measure_nnreal (hint _).smul_measure_nnreal,
+  rw [hπ' s, integral_add_measure
+    (integrable_advantage_prodMk_left hγ hR s _).smul_measure_nnreal
+    (integrable_advantage_prodMk_left hγ hR s _).smul_measure_nnreal,
     integral_smul_nnreal_measure, integral_smul_nnreal_measure, integral_advantage hγ hR s]
   simp [NNReal.smul_def]
+
+/-- **The policy advantage of a mixture**: with bounded rewards and `γ < 1`, the mixture
+`π' = (1 - α) π + α π''` has policy advantage `𝔸_π(π') = α 𝔸_π(π'')` over `π`. -/
+theorem policyAdvantage_of_mixture (hγ : γ < 1) (hR : ∀ p, ∀ᵐ x ∂(M.R p), |x| ≤ C)
+    [IsMarkovKernel π''] {α : ℝ≥0} (hπ' : ∀ s, π' s = (1 - α) • π s + α • π'' s) :
+    M.policyAdvantage γ π π' μ = α * M.policyAdvantage γ π π'' μ := by
+  simp_rw [policyAdvantage_def, integral_advantage_of_mixture hγ hR hπ']
+  exact integral_const_mul _ _
 
 /-- **The improvement lower bound of a mixture step** [AJKS, Theorem 14.2]: with mean rewards in
 `[0, C]`, `γ < 1` and `α ≤ 1`, the mixture `π' = (1 - α) π + α π''` of the stationary policies
@@ -184,8 +174,9 @@ theorem mul_sub_le_integral_value_sub_integral_value_of_mixture (hγ : γ < 1)
 
 /-- **The improvement of the conservative step** [AJKS, Theorem 14.3]: with mean rewards in
 `[0, C]` and `1 / 5 ≤ γ < 1`, let `𝔸 = 𝔸_π(π'')`. If the step `α = 𝔸 (1 - γ) ^ 2 / (4 γ C)` is
-nonnegative, it is at most `1`, and the mixture `π' = (1 - α) π + α π''` improves the value from
-the probability measure `μ` by at least `𝔸 ^ 2 (1 - γ) / (8 γ C)`. -/
+nonnegative, then the mixture `π' = (1 - α) π + α π''` improves the value from the probability
+measure `μ` by at least `𝔸 ^ 2 (1 - γ) / (8 γ C)`. The proof applies Theorem 14.2, as the step is
+then automatically at most `1`. -/
 theorem policyAdvantage_sq_mul_div_le_integral_value_sub_integral_value (hγ₀ : 1 / 5 ≤ γ)
     (hγ : γ < 1) (hR : ∀ p, ∀ᵐ x ∂(M.R p), |x| ≤ C) (hr : ∀ p, 0 ≤ meanReward M.R p)
     [IsProbabilityMeasure μ] [IsMarkovKernel π'] [IsMarkovKernel π''] {α : ℝ≥0}
@@ -219,64 +210,6 @@ theorem policyAdvantage_sq_mul_div_le_integral_value_sub_integral_value (hγ₀ 
   rw [hα]
   field_simp
   ring
-
-/-! ### Near-optimality from the greedy advantage -/
-
-/-- **Suboptimality from the greedy advantage** [KL02, §6]: on a countable action set,
-with bounded rewards and `γ < 1`, let `π` and `σ` be stationary policies and `D` bound the
-mismatch coefficient of `σ`, in the form `d^σ_μ ≤ D • μ` for the state occupancy measure of
-`σ` from the probability measure `μ`. Then
-`∫ v^σ dμ - ∫ v^π dμ ≤ D / (1 - γ) ^ 2 * ∫ (⨆ a, A^π (s, a)) dd^π_μ (s)`. -/
-theorem integral_value_sub_integral_value_le_integral_iSup_advantage [Countable 𝓐]
-    [Nonempty 𝓐] (hγ : γ < 1) (hR : ∀ p, ∀ᵐ x ∂(M.R p), |x| ≤ C) [IsProbabilityMeasure μ]
-    (σ : Kernel 𝓢 𝓐) [IsMarkovKernel σ] {D : ℝ≥0}
-    (hD : (M.occupancy γ (Algorithm.markov fun _ ↦ σ) μ).fst ≤ D • μ) :
-    ∫ s, M.value γ σ s ∂μ - ∫ s, M.value γ π s ∂μ ≤
-      D / (1 - γ) ^ 2 * ∫ s, ⨆ a, M.advantage γ π (s, a)
-        ∂(M.occupancy γ (Algorithm.markov fun _ ↦ π) μ).fst := by
-  have h1γ : (0 : ℝ) < 1 - γ := sub_pos.2 (by exact_mod_cast hγ)
-  set dσ := (M.occupancy γ (Algorithm.markov fun _ ↦ σ) μ).fst
-  set d := (M.occupancy γ (Algorithm.markov fun _ ↦ π) μ).fst
-  set g : 𝓢 → ℝ := fun s ↦ ⨆ a, M.advantage γ π (s, a)
-  have := isProbabilityMeasure_occupancy (M := M) (alg := Algorithm.markov fun _ ↦ σ) (μ := μ)
-    hγ
-  have := isProbabilityMeasure_occupancy (M := M) (alg := Algorithm.markov fun _ ↦ π) (μ := μ) hγ
-  -- `g` is the pointwise supremum of the bounded measurable sections of the advantage
-  have hA (s : 𝓢) (a : 𝓐) : |M.advantage γ π (s, a)| ≤ 2 * C / (1 - γ) :=
-    abs_advantage_le hγ hR (s, a)
-  have hle (s : 𝓢) (a : 𝓐) : M.advantage γ π (s, a) ≤ g s :=
-    le_ciSup ⟨2 * C / (1 - γ), by rintro _ ⟨b, rfl⟩; exact le_of_abs_le (hA s b)⟩ a
-  have hg : Measurable g :=
-    Measurable.iSup fun a ↦ (measurable_advantage hγ hR).comp measurable_prodMk_right
-  have hgB (s : 𝓢) : |g s| ≤ 2 * C / (1 - γ) := by
-    obtain ⟨a⟩ := ‹Nonempty 𝓐›
-    refine abs_le.2 ⟨(neg_le_of_abs_le (hA s a)).trans (hle s a), ciSup_le fun b ↦ ?_⟩
-    exact le_of_abs_le (hA s b)
-  have hgint (ν : Measure 𝓢) [IsFiniteMeasure ν] : Integrable g ν := integrable_of_abs_le hg hgB ν
-  -- `g ≥ 0`, since the advantage of `π` has mean zero under `π`
-  have hg0 (s : 𝓢) : 0 ≤ g s := by
-    rw [← integral_advantage hγ hR (π := π) s]
-    refine (integral_mono (integrable_of_abs_le ((measurable_advantage hγ hR).comp
-      measurable_prodMk_left) (hA s) _) (integrable_const (g s)) (hle s)).trans_eq ?_
-    simp
-  -- the performance difference lemma, then three comparisons of integrals of `g`
-  rw [integral_value_sub_integral_value hγ hR π σ]
-  have h_star : ∫ s, ∫ a, M.advantage γ π (s, a) ∂(σ s) ∂dσ ≤ ∫ s, g s ∂dσ := by
-    refine integral_mono (integrable_of_abs_le (measurable_integral_advantage hγ hR σ)
-      (fun s ↦ abs_integral_le_of_abs_le (hA s)) _) (hgint _) fun s ↦ ?_
-    refine (integral_mono (integrable_of_abs_le ((measurable_advantage hγ hR).comp
-      measurable_prodMk_left) (hA s) _) (integrable_const (g s)) (hle s)).trans_eq ?_
-    simp
-  have h_D : ∫ s, g s ∂dσ ≤ D * ∫ s, g s ∂μ := by
-    have h := integral_mono_measure hD (ae_of_all _ hg0) (hgint _)
-    simpa [integral_smul_nnreal_measure, NNReal.smul_def] using h
-  have h_μ : (1 - γ) * ∫ s, g s ∂μ ≤ ∫ s, g s ∂d := by
-    have h := integral_mono_measure smul_le_occupancy_fst (ae_of_all _ hg0) (hgint d)
-    simpa [integral_smul_nnreal_measure, NNReal.smul_def, NNReal.coe_sub hγ.le] using h
-  calc (1 - γ : ℝ)⁻¹ * ∫ s, ∫ a, M.advantage γ π (s, a) ∂(σ s) ∂dσ
-      ≤ (1 - γ : ℝ)⁻¹ * (D * ∫ s, g s ∂μ) := by gcongr; exact h_star.trans h_D
-    _ = D / (1 - γ) ^ 2 * ((1 - γ) * ∫ s, g s ∂μ) := by field_simp
-    _ ≤ D / (1 - γ) ^ 2 * ∫ s, g s ∂d := by gcongr
 
 end Learning.MDP
 
@@ -368,7 +301,7 @@ theorem integral_value_sub_integral_value_cpi_le [Countable 𝓐] [Nonempty 𝓐
   have h_greedy : ∫ s, ⨆ a, M.advantage γ π (s, a)
       ∂(M.occupancy γ (Algorithm.markov fun _ ↦ π) μ).fst ≤ 2 * ε + εΛ := by
     linarith [hgreedy π'' hπ'']
-  refine (integral_value_sub_integral_value_le_integral_iSup_advantage hγ hR σ hD).trans ?_
+  refine (integral_value_sub_integral_value_le_mul_integral_iSup_advantage hγ hR σ hD).trans ?_
   rw [mul_div_right_comm]
   gcongr
 

@@ -54,7 +54,9 @@ the occupancy measure by `O(α)`, the estimate behind the analysis of conservati
   discounted value of `alg` is `(1 - γ)⁻¹ * ∫ r d(M.occupancy γ alg μ)`;
 * `Learning.MDP.occupancy_map_fst`, `Learning.MDP.occupancy_fst`,
   `Learning.MDP.occupancy_prod_univ`: the flow equation, for a probability measure `μ`;
-  `Learning.MDP.smul_le_occupancy_fst`: hence the state marginal dominates `(1 - γ) • μ`;
+  `Learning.MDP.smul_le_occupancy_fst`: hence the state marginal dominates `(1 - γ) • μ`, and
+  `Learning.MDP.mul_integral_le_integral_occupancy_fst` its integral form for nonnegative
+  functions;
 * `Learning.MDP.occupancy_markov`, `Learning.MDP.occupancy_markov_const`: the occupancy measures
   of Markov and stationary policies, in terms of their state-action marginals; for a stationary
   policy, it is the image of the initial state-action law by the resolvent of the state-action
@@ -243,6 +245,15 @@ theorem occupancy_prod_univ {B : Set 𝓢} (hB : MeasurableSet B) :
 theorem smul_le_occupancy_fst : (1 - γ) • μ ≤ (M.occupancy γ alg μ).fst := by
   rw [occupancy_fst]
   exact Measure.le_add_right le_rfl
+
+/-- For `γ ≤ 1`, the integral of a nonnegative function `f` against the state marginal of the
+occupancy measure of every algorithm from the probability measure `μ` dominates
+`(1 - γ) * ∫ f dμ`. -/
+theorem mul_integral_le_integral_occupancy_fst (hγ : γ ≤ 1) {f : 𝓢 → ℝ}
+    (hf0 : 0 ≤ᵐ[(M.occupancy γ alg μ).fst] f) (hf : Integrable f (M.occupancy γ alg μ).fst) :
+    (1 - γ) * ∫ s, f s ∂μ ≤ ∫ s, f s ∂(M.occupancy γ alg μ).fst := by
+  have h := integral_mono_measure smul_le_occupancy_fst hf0 hf
+  simpa [integral_smul_nnreal_measure, NNReal.smul_def, NNReal.coe_sub hγ] using h
 
 end Flow
 
