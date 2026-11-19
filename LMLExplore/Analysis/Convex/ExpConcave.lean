@@ -119,7 +119,7 @@ theorem expConcaveOn_const_mul_iff :
 
 namespace ExpConcaveOn
 
-/-- An exp-concave function is exp-concave on a convex set. -/
+/-- The set on which a function is exp-concave is convex. -/
 theorem convex (hf : ExpConcaveOn V α f) : Convex ℝ V :=
   (expConcaveOn_iff.1 hf).1
 
