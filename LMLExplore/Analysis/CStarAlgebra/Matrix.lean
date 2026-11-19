@@ -21,7 +21,8 @@ space specialize to matrices.
 ## Main statements
 
 * `Matrix.toEuclideanCLM_vecMulVec`: the matrix `vecMulVec u (star v)` acts as the rank-one
-  operator `rankOne 𝕜 u v`.
+  operator `rankOne 𝕜 u v`; `Matrix.toEuclideanCLM_vecMulVec_of_trivialStar` is the form for a
+  field with trivial star, such as `ℝ`.
 * `Matrix.toEuclideanCLM_inv`: the matrix inverse acts as the inverse operator (`Ring.inverse`,
   both being `0` for singular matrices).
 * `Matrix.det_toEuclideanCLM`, `Matrix.trace_toEuclideanCLM`: determinant and trace are preserved.
@@ -52,6 +53,14 @@ theorem toEuclideanCLM_vecMulVec (u v : n → 𝕜) :
   apply ContinuousLinearMap.coe_injective
   rw [coe_toEuclideanCLM_eq_toEuclideanLin, ← InnerProductSpace.symm_toEuclideanLin_rankOne,
     LinearEquiv.apply_symm_apply]
+
+/-- Over a field with trivial star, such as `ℝ`, the matrix `vecMulVec u v` acts on Euclidean space
+as the rank-one operator `w ↦ ⟪v, w⟫ • u`. -/
+@[simp]
+theorem toEuclideanCLM_vecMulVec_of_trivialStar [TrivialStar 𝕜] (u v : n → 𝕜) :
+    toEuclideanCLM (n := n) (𝕜 := 𝕜) (vecMulVec u v) =
+      InnerProductSpace.rankOne 𝕜 (toLp 2 u) (toLp 2 v) := by
+  rw [← toEuclideanCLM_vecMulVec, star_trivial]
 
 /-- The scalar matrix `c • 1` acts on Euclidean space as `c • 1`. -/
 theorem toEuclideanCLM_smul_one (c : 𝕜) :

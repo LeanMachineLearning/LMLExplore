@@ -144,10 +144,7 @@ variable [DecidableEq ι]
 theorem toEuclideanCLM_designMatrix (V₀ : Matrix ι ι ℝ) (x : ℕ → ι → ℝ) (t : ℕ) :
     toEuclideanCLM (𝕜 := ℝ) (designMatrix V₀ x t) =
       designOp (toEuclideanCLM (𝕜 := ℝ) V₀) (fun s ↦ toLp 2 (x s)) t := by
-  rw [designMatrix, designOp_def, map_add, map_sum]
-  congr 1
-  refine sum_congr rfl fun s _ ↦ ?_
-  simpa [star_trivial] using toEuclideanCLM_vecMulVec (x s) (x s)
+  simp only [designMatrix, designOp_def, map_add, map_sum, toEuclideanCLM_vecMulVec_of_trivialStar]
 
 /-- **Sherman–Morrison formula** for the design matrix: for a positive definite regularizer `V₀`,
 `V_{t+1}⁻¹ = V_t⁻¹ - (1 + ‖x t‖²_{V_t⁻¹})⁻¹ • (V_t⁻¹ x t) (V_t⁻¹ x t)ᵀ`. -/
@@ -156,12 +153,11 @@ theorem inv_designMatrix_succ (hV₀ : V₀.PosDef) (x : ℕ → ι → ℝ) (t 
       (1 + x t ⬝ᵥ (designMatrix V₀ x t)⁻¹ *ᵥ x t)⁻¹ •
         vecMulVec ((designMatrix V₀ x t)⁻¹ *ᵥ x t) ((designMatrix V₀ x t)⁻¹ *ᵥ x t) := by
   apply EquivLike.injective (toEuclideanCLM (𝕜 := ℝ) (n := ι))
-  have h := ringInverse_designOp_succ hV₀.isPositive_toEuclideanCLM
-    hV₀.isUnit_toEuclideanCLM (fun s ↦ toLp 2 (x s)) t
-  rw [← toEuclideanCLM_designMatrix, ← toEuclideanCLM_designMatrix,
-    inner_ringInverse_toEuclideanCLM, ofLp_toLp, ← toEuclideanCLM_inv, ← toEuclideanCLM_inv,
-    toEuclideanCLM_toLp, ← toEuclideanCLM_vecMulVec, star_trivial] at h
-  rw [h, map_sub, map_smul]
+  simp only [map_sub, map_smul, toEuclideanCLM_inv, toEuclideanCLM_vecMulVec_of_trivialStar,
+    ← toEuclideanCLM_toLp]
+  simpa only [← toEuclideanCLM_designMatrix, inner_ringInverse_toEuclideanCLM, ofLp_toLp] using
+    ringInverse_designOp_succ hV₀.isPositive_toEuclideanCLM hV₀.isUnit_toEuclideanCLM
+      (fun s ↦ toLp 2 (x s)) t
 
 /-- The determinant of the design matrix after a rank-one update (the matrix determinant lemma,
 [LS, (19.9)]): for a positive definite regularizer `V₀`,
