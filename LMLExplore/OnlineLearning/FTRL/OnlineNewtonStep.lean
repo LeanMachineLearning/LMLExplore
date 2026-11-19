@@ -75,7 +75,7 @@ variable {E : Type*} [NormedAddCommGroup E] [InnerProductSpace ℝ E] {V : Set E
 private lemma inner_designOp_sqrt_smul_apply (hμ : 0 ≤ μ) (g : ℕ → E) (t : ℕ) (v w : E) :
     ⟪designOp V₀ (fun s ↦ √μ • g s) t v, w⟫ =
       ⟪V₀ v, w⟫ + ∑ s ∈ range t, μ * ⟪g s, v⟫ * ⟪g s, w⟫ := by
-  rw [designOp_apply, inner_add_left, sum_inner]
+  rw [inner_designOp_apply]
   congr 1
   refine sum_congr rfl fun s _ ↦ ?_
   simp only [real_inner_smul_left]
@@ -174,9 +174,9 @@ theorem regret_le_onlineNewtonStep (hV : Convex ℝ V) (hV₀ : V₀.IsPositive)
     refine hh.apply_sub_le_of_le_add_mul_add_sq hV (hx t ht.le) hz
       (C := ⟪designOp V₀ (fun s ↦ √μ • g s) (t + 1) (z - x t), z - x t⟫ / 2) fun τ _ ↦ ?_
     simp only [hψ, hℓ']
-    rw [h_eq (x t + τ • (z - x t)), add_sub_cancel_left, map_smul, inner_smul_right,
-      inner_smul_left, inner_smul_right, RCLike.conj_to_real]
-    exact le_of_eq (by ring)
+    rw [h_eq (x t + τ • (z - x t))]
+    simp only [add_sub_cancel_left, map_smul, real_inner_smul_left, real_inner_smul_right]
+    linarith
   simp only [hψ, hℓ'] at hhw ⊢
   rw [h_eq z]
   linarith

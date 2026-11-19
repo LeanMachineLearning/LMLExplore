@@ -56,8 +56,9 @@ feasible set.
   has a subgradient at every point.
 * `ConvexOn.hasSubgradientWithinAt_of_mem_nhdsWithin`: local subgradients of a convex function
   are global.
-* `HasSubgradientWithinAt.apply_sub_le_of_le_add_mul_add_sq`: on a convex set, a subgradient is
-  bounded by the one-sided slope of the function along each segment into the set.
+* `HasSubgradientWithinAt.apply_sub_le_of_le_add_mul_add_sq`: on a convex set, a subgradient `g`
+  at `x` satisfies `g (z - x) ≤ c` whenever `f (x + τ • (z - x)) ≤ f x + τ * c + τ ^ 2 * C` for
+  `τ ∈ (0, 1]`.
 * `ConvexOn.exists_hasSubgradientWithinAt_of_mem_interior`: in finite dimension, a convex function
   has a subgradient at every interior point.
 * `Convex.convexOn_iff_forall_exists_hasSubgradientWithinAt`: on an open convex set in finite
@@ -152,7 +153,7 @@ theorem ConvexOn.hasSubgradientWithinAt_of_mem_nhdsWithin {t : Set E} {g : E →
   linarith
 
 omit [IsTopologicalAddGroup E] [ContinuousSMul ℝ E] in
-/-- **Subgradients are bounded by one-sided directional slopes.** Let `g` be a subgradient of `f`
+/-- **Subgradients under a quadratic upper bound along a segment.** Let `g` be a subgradient of `f`
 within a convex set `s` at `x ∈ s`, and let `z ∈ s`. If `f` grows along the segment from `x` to
 `z` at most like `f (x + τ • (z - x)) ≤ f x + τ * c + τ ^ 2 * C` for `τ ∈ (0, 1]`, then
 `g (z - x) ≤ c`. For a function that is quadratic along segments, such as a sum of a linear
