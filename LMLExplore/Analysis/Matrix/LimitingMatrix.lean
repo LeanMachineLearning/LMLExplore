@@ -349,32 +349,16 @@ those with `g = P* r` and `h = D r + P* h`: the gain is determined, and the bias
 theorem eq_limitingMatrix_mulVec_and_eq_deviationMatrix_mulVec_add_iff {g h r : S → ℝ} :
     g = P.limitingMatrix *ᵥ r ∧ h = P.deviationMatrix *ᵥ r + P.limitingMatrix *ᵥ h ↔
       (1 - P) *ᵥ g = 0 ∧ g + (1 - P) *ᵥ h = r := by
-  have h₁ : (1 - P) * P.limitingMatrix = 0 := by
-    rw [sub_mul, one_mul, mul_limitingMatrix hP, sub_self]
-  have h₂ : P.limitingMatrix * (1 - P) = 0 := by
-    rw [mul_sub, mul_one, limitingMatrix_mul hP, sub_self]
-  refine ⟨fun ⟨hg, hh⟩ ↦ ⟨?_, ?_⟩, fun ⟨hg, hgh⟩ ↦ ?_⟩
-  · rw [hg, mulVec_mulVec, h₁, zero_mulVec]
-  · rw [hh, mulVec_add, mulVec_mulVec, mulVec_mulVec, one_sub_mul_deviationMatrix hP, h₁,
-      zero_mulVec, add_zero, sub_mulVec, one_mulVec, hg]
-    abel
-  have hg' : P *ᵥ g = g := by rwa [sub_mulVec, one_mulVec, sub_eq_zero, eq_comm] at hg
-  have hgr : g = P.limitingMatrix *ᵥ r := by
-    rw [← hgh, mulVec_add, mulVec_mulVec, h₂, zero_mulVec, add_zero,
-      (limitingMatrix_mulVec_eq_self_iff hP).2 hg']
-  refine ⟨hgr, ?_⟩
-  -- `w = h - D r` solves `(1 - P) w = 0`, so it is fixed by `P*`, and `P* w = P* h`
-  have h₃ : (1 - P) *ᵥ h = r - g := by
-    rw [← hgh]
-    abel
-  have hw : (1 - P) *ᵥ (h - P.deviationMatrix *ᵥ r) = 0 := by
-    rw [mulVec_sub, h₃, mulVec_mulVec, one_sub_mul_deviationMatrix hP, sub_mulVec, one_mulVec,
-      ← hgr, sub_self]
-  rw [sub_mulVec, one_mulVec, sub_eq_zero, eq_comm, ← limitingMatrix_mulVec_eq_self_iff hP,
-    mulVec_sub, mulVec_mulVec, limitingMatrix_mul_deviationMatrix hP, zero_mulVec,
-    sub_zero] at hw
-  rw [hw]
-  abel
+  -- apply the normalized evaluation equations to `h - P* h`, which `1 - P` maps like `h` and
+  -- `P*` maps to `0`
+  have h₁ : (1 - P) *ᵥ (h - P.limitingMatrix *ᵥ h) = (1 - P) *ᵥ h := by
+    rw [mulVec_sub, mulVec_mulVec, sub_mul, one_mul, mul_limitingMatrix hP, sub_self,
+      zero_mulVec, sub_zero]
+  have h₂ : P.limitingMatrix *ᵥ (h - P.limitingMatrix *ᵥ h) = 0 := by
+    rw [mulVec_sub, mulVec_mulVec, limitingMatrix_mul_self hP, sub_self]
+  have := eq_limitingMatrix_mulVec_and_eq_deviationMatrix_mulVec_iff hP (g := g)
+    (h := h - P.limitingMatrix *ᵥ h) (r := r)
+  rwa [h₁, h₂, sub_eq_iff_eq_add, eq_self_iff_true, and_true] at this
 
 /-- **Laurent expansion of the resolvent** [P, Theorem 8.2.3]. For `0 < γ < 1` and
 `u = (1 - γ) / γ` with `u ‖D‖ < 1`, where `‖D‖` is the operator norm of the action of `D` on
