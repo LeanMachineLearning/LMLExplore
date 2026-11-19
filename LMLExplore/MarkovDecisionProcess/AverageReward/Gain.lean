@@ -8,6 +8,7 @@ module
 public import LMLExplore.Analysis.Matrix.LimitingMatrix
 public import LMLExplore.MarkovDecisionProcess.Value
 public import LMLExplore.Probability.Kernel.Matrix
+public import LMLExplore.Topology.Instances.NNReal.Lemmas
 
 /-!
 # The gain and the bias of a stationary policy
@@ -112,6 +113,11 @@ end Defs
 lemma stateMatrix_apply (s s' : 𝓢) : M.stateMatrix π s s' = (M.stateKernel π s).real {s'} := by
   rw [stateMatrix_def, Kernel.toMatrix_map_coe_apply]
 
+/-- The value at `s` of `A *ᵥ r_π` is continuous in the matrix `A`. -/
+private lemma continuous_mulVec_policyReward_apply [Fintype 𝓢] (s : 𝓢) :
+    Continuous fun A : Matrix 𝓢 𝓢 ℝ ↦ (A *ᵥ M.policyReward π) s :=
+  (continuous_apply s).comp (continuous_id.matrix_mulVec continuous_const)
+
 variable [IsMarkovKernel π]
 
 variable [Fintype 𝓢] [MeasurableSingletonClass 𝓢]
@@ -155,10 +161,9 @@ theorem tendsto_cesaro_gain (s : 𝓢) :
     Tendsto (fun N : ℕ ↦ (N : ℝ)⁻¹ *
       ∑ n ∈ range N, ∫ s', M.policyReward π s' ∂((M.stateKernel π ^ n) s)) atTop
       (𝓝 (M.gain π s)) := by
-  have hc : Continuous fun A : Matrix 𝓢 𝓢 ℝ ↦ (A *ᵥ M.policyReward π) s :=
-    (continuous_apply s).comp (continuous_id.matrix_mulVec continuous_const)
-  refine ((hc.tendsto _).comp (tendsto_cesaro_limitingMatrix
-    (M.stateMatrix_mem_rowStochastic π))).congr fun N ↦ ?_
+  rw [gain_def]
+  refine (((M.continuous_mulVec_policyReward_apply π s).tendsto _).comp
+    (tendsto_cesaro_limitingMatrix (M.stateMatrix_mem_rowStochastic π))).congr fun N ↦ ?_
   simp only [Function.comp_apply, smul_mulVec, sum_mulVec, Pi.smul_apply, Finset.sum_apply,
     smul_eq_mul, stateMatrix_pow_mulVec_apply]
 
@@ -183,12 +188,12 @@ theorem gain_add_bias (s : 𝓢) :
     M.gain π s + M.bias π s = M.policyReward π s + ∫ s', M.bias π s' ∂(M.stateKernel π s) :=
   (M.add_one_sub_stateMatrix_mulVec_eq_iff π).1
     ((eq_limitingMatrix_mulVec_and_eq_deviationMatrix_mulVec_iff
-      (M.stateMatrix_mem_rowStochastic π)).1 ⟨rfl, rfl⟩).2.1 s
+      (M.stateMatrix_mem_rowStochastic π)).1 ⟨gain_def .., bias_def ..⟩).2.1 s
 
 /-- **The normalization of the bias** [P, Theorem 8.2.6]: `P*_π h^π = 0`. -/
 theorem limitingMatrix_mulVec_bias : (M.stateMatrix π).limitingMatrix *ᵥ M.bias π = 0 :=
   ((eq_limitingMatrix_mulVec_and_eq_deviationMatrix_mulVec_iff
-    (M.stateMatrix_mem_rowStochastic π)).1 ⟨rfl, rfl⟩).2.2
+    (M.stateMatrix_mem_rowStochastic π)).1 ⟨gain_def .., bias_def ..⟩).2.2
 
 /-- **The evaluation equations** [P, Theorem 8.2.6]: `(g^π, h^π)` is the unique pair `(g, h)`
 with `P_π g = g`, `g + h = r_π + P_π h` and `P*_π h = 0`. -/
@@ -197,7 +202,8 @@ theorem eq_gain_and_eq_bias_iff {g h : 𝓢 → ℝ} :
       (∀ s, ∫ s', g s' ∂(M.stateKernel π s) = g s) ∧
       (∀ s, g s + h s = M.policyReward π s + ∫ s', h s' ∂(M.stateKernel π s)) ∧
       (M.stateMatrix π).limitingMatrix *ᵥ h = 0 := by
-  rw [← M.one_sub_stateMatrix_mulVec_eq_zero_iff π, ← M.add_one_sub_stateMatrix_mulVec_eq_iff π]
+  rw [← M.one_sub_stateMatrix_mulVec_eq_zero_iff π, ← M.add_one_sub_stateMatrix_mulVec_eq_iff π,
+    gain_def, bias_def]
   exact eq_limitingMatrix_mulVec_and_eq_deviationMatrix_mulVec_iff
     (M.stateMatrix_mem_rowStochastic π)
 
@@ -208,7 +214,8 @@ theorem eq_gain_and_eq_bias_add_iff {g h : 𝓢 → ℝ} :
     g = M.gain π ∧ h = M.bias π + (M.stateMatrix π).limitingMatrix *ᵥ h ↔
       (∀ s, ∫ s', g s' ∂(M.stateKernel π s) = g s) ∧
       (∀ s, g s + h s = M.policyReward π s + ∫ s', h s' ∂(M.stateKernel π s)) := by
-  rw [← M.one_sub_stateMatrix_mulVec_eq_zero_iff π, ← M.add_one_sub_stateMatrix_mulVec_eq_iff π]
+  rw [← M.one_sub_stateMatrix_mulVec_eq_zero_iff π, ← M.add_one_sub_stateMatrix_mulVec_eq_iff π,
+    gain_def, bias_def]
   exact eq_limitingMatrix_mulVec_and_eq_deviationMatrix_mulVec_add_iff
     (M.stateMatrix_mem_rowStochastic π)
 
@@ -232,9 +239,8 @@ theorem tendsto_cesaro_sum_sub_gain (s : 𝓢) :
     Tendsto (fun N : ℕ ↦ (N : ℝ)⁻¹ * ∑ n ∈ range N, ∑ k ∈ range n,
       (∫ s', M.policyReward π s' ∂((M.stateKernel π ^ k) s) - M.gain π s)) atTop
       (𝓝 (M.bias π s)) := by
-  have hc : Continuous fun A : Matrix 𝓢 𝓢 ℝ ↦ (A *ᵥ M.policyReward π) s :=
-    (continuous_apply s).comp (continuous_id.matrix_mulVec continuous_const)
-  refine ((hc.tendsto _).comp (tendsto_cesaro_sum_pow_sub_limitingMatrix
+  refine (((M.continuous_mulVec_policyReward_apply π s).tendsto _).comp
+    (tendsto_cesaro_sum_pow_sub_limitingMatrix
     (M.stateMatrix_mem_rowStochastic π))).congr fun N ↦ ?_
   simp only [Function.comp_apply, smul_mulVec, sum_mulVec, sub_mulVec, Pi.smul_apply,
     Finset.sum_apply, Pi.sub_apply, smul_eq_mul, stateMatrix_pow_mulVec_apply, gain_def]
@@ -285,21 +291,13 @@ theorem value_eq_laurent {γ : ℝ≥0} {u : ℝ} (hγ₀ : 0 < γ) (hγ₁ : γ
     (NNReal.coe_lt_one.2 hγ₁) hu hD, smul_mulVec, add_mulVec, smul_mulVec, ← gain_def,
     hv.tsum_eq]
 
-/-- The coercion `ℝ≥0 → ℝ` maps left neighbourhoods of `1` to left neighbourhoods of `1`. -/
-private lemma tendsto_coe_nhdsLT_one :
-    Tendsto ((↑) : ℝ≥0 → ℝ) (𝓝[<] 1) (𝓝[<] 1) :=
-  tendsto_nhdsWithin_of_tendsto_nhds_of_eventually_within _
-    (NNReal.continuous_coe.tendsto' 1 1 rfl |>.mono_left nhdsWithin_le_nhds)
-    (eventually_nhdsWithin_of_forall fun _ hγ ↦ NNReal.coe_lt_one.2 hγ)
-
 /-- **The gain is the limit of the normalized discounted values** [P, Corollary 8.2.5]:
 `(1 - γ) v^π_γ s → g^π s` as `γ ↑ 1`. -/
 theorem tendsto_one_sub_mul_value (s : 𝓢) :
     Tendsto (fun γ : ℝ≥0 ↦ (1 - (γ : ℝ)) * M.value γ π s) (𝓝[<] 1) (𝓝 (M.gain π s)) := by
-  have hc : Continuous fun A : Matrix 𝓢 𝓢 ℝ ↦ (A *ᵥ M.policyReward π) s :=
-    (continuous_apply s).comp (continuous_id.matrix_mulVec continuous_const)
-  refine (((hc.tendsto _).comp (tendsto_one_sub_smul_inv_one_sub_smul_limitingMatrix
-    (M.stateMatrix_mem_rowStochastic π))).comp tendsto_coe_nhdsLT_one).congr' ?_
+  refine ((((M.continuous_mulVec_policyReward_apply π s).tendsto _).comp
+    (tendsto_one_sub_smul_inv_one_sub_smul_limitingMatrix (M.stateMatrix_mem_rowStochastic π))).comp
+    (NNReal.tendsto_coe_nhdsLT 1)).congr' ?_
   filter_upwards [self_mem_nhdsWithin] with γ hγ
   simp [M.value_eq_inv_mulVec π (Set.mem_Iio.1 hγ), smul_mulVec]
 
@@ -308,10 +306,9 @@ theorem tendsto_one_sub_mul_value (s : 𝓢) :
 theorem tendsto_value_sub_inv_one_sub_mul_gain (s : 𝓢) :
     Tendsto (fun γ : ℝ≥0 ↦ M.value γ π s - (1 - (γ : ℝ))⁻¹ * M.gain π s) (𝓝[<] 1)
       (𝓝 (M.bias π s)) := by
-  have hc : Continuous fun A : Matrix 𝓢 𝓢 ℝ ↦ (A *ᵥ M.policyReward π) s :=
-    (continuous_apply s).comp (continuous_id.matrix_mulVec continuous_const)
-  refine (((hc.tendsto _).comp (tendsto_inv_smul_one_sub_smul_inv_one_sub_smul_sub_deviationMatrix
-    (M.stateMatrix_mem_rowStochastic π))).comp tendsto_coe_nhdsLT_one).congr' ?_
+  refine ((((M.continuous_mulVec_policyReward_apply π s).tendsto _).comp
+    (tendsto_inv_smul_one_sub_smul_inv_one_sub_smul_sub_deviationMatrix
+      (M.stateMatrix_mem_rowStochastic π))).comp (NNReal.tendsto_coe_nhdsLT 1)).congr' ?_
   filter_upwards [self_mem_nhdsWithin] with γ hγ
   have hγ' : 1 - (γ : ℝ) ≠ 0 := sub_ne_zero.2 (NNReal.coe_lt_one.2 (Set.mem_Iio.1 hγ)).ne'
   simp only [Function.comp_apply, smul_mulVec, sub_mulVec, Pi.smul_apply, Pi.sub_apply,
