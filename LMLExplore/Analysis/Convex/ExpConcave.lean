@@ -126,11 +126,11 @@ theorem convex (hf : ExpConcaveOn V α f) : Convex ℝ V :=
 /-- Exp-concavity on a set gives exp-concavity on its convex subsets. -/
 theorem subset (hf : ExpConcaveOn V α f) (hWV : W ⊆ V) (hW : Convex ℝ W) :
     ExpConcaveOn W α f :=
-  (expConcaveOn_iff.1 hf).subset hWV hW
+  expConcaveOn_iff.2 ((expConcaveOn_iff.1 hf).subset hWV hW)
 
 /-- Exp-concavity only depends on the values of the function on the set. -/
 theorem congr (hf : ExpConcaveOn V α f) (hfg : EqOn f g V) : ExpConcaveOn V α g :=
-  (expConcaveOn_iff.1 hf).congr fun x hx ↦ by simp only [hfg hx]
+  expConcaveOn_iff.2 ((expConcaveOn_iff.1 hf).congr fun x hx ↦ by simp only [hfg hx])
 
 /-- **Exp-concavity for smaller rates** [Ora, Proposition 7.32]: an `α`-exp-concave function is
 `β`-exp-concave for every `0 ≤ β ≤ α`. -/
@@ -139,6 +139,7 @@ theorem mono (hf : ExpConcaveOn V α f) (hβ : 0 ≤ β) (hβα : β ≤ α) : E
   · exact expConcaveOn_zero hf.convex
   have hα : 0 < α := hβ.trans_le hβα
   -- `exp (-(β * f)) = exp (-(α * f)) ^ (β / α)`
+  rw [expConcaveOn_iff]
   refine ((expConcaveOn_iff.1 hf).rpow (fun x _ ↦ (exp_pos _).le) (div_nonneg hβ.le hα.le)
     ((div_le_one hα).2 hβα)).congr fun x _ ↦ ?_
   simp only [← exp_mul]
@@ -148,11 +149,13 @@ theorem mono (hf : ExpConcaveOn V α f) (hβ : 0 ≤ β) (hβα : β ≤ α) : E
 /-- **Affine changes of variables** [Ora, Proposition 7.33]: if `f` is `α`-exp-concave on `V`,
 then `f ∘ A` is `α`-exp-concave on `A ⁻¹' V` for every affine map `A`. -/
 theorem comp_affineMap (hf : ExpConcaveOn V α f) (A : F →ᵃ[ℝ] E) :
-    ExpConcaveOn (A ⁻¹' V) α (f ∘ A) :=
-  (expConcaveOn_iff.1 hf).comp_affineMap A
+    ExpConcaveOn (A ⁻¹' V) α (f ∘ A) := by
+  rw [expConcaveOn_iff]
+  simpa only [Function.comp_def] using (expConcaveOn_iff.1 hf).comp_affineMap A
 
 /-- Adding a constant preserves exp-concavity. -/
 theorem add_const (hf : ExpConcaveOn V α f) (c : ℝ) : ExpConcaveOn V α fun x ↦ f x + c := by
+  rw [expConcaveOn_iff]
   refine ((expConcaveOn_iff.1 hf).smul (exp_pos (-(α * c))).le).congr fun x _ ↦ ?_
   simp only [smul_eq_mul, ← exp_add]
   ring_nf
@@ -170,6 +173,7 @@ theorem add (hf : ExpConcaveOn V α f) (hg : ExpConcaveOn V β g) (hα : 0 < α)
     field_simp
   -- `exp (-(γ * (f + g)))` is the weighted geometric mean of `exp (-(α * f))` and
   -- `exp (-(β * g))` with the weights `γ / α` and `γ / β`
+  rw [expConcaveOn_iff]
   refine ((expConcaveOn_iff.1 hf).rpow_mul_rpow (expConcaveOn_iff.1 hg)
     (fun x _ ↦ (exp_pos _).le) (fun x _ ↦ (exp_pos _).le) (by positivity) (by positivity)
     hpq).congr fun x _ ↦ ?_
@@ -244,7 +248,7 @@ theorem expConcaveOn_zero_iff : ExpConcaveOn V 0 f ↔ Convex ℝ V :=
 `x ↦ -log (h x)` is `1`-exp-concave on `V`. -/
 theorem _root_.ConcaveOn.expConcaveOn_neg_log {h : E → ℝ} (hh : ConcaveOn ℝ V h)
     (hpos : ∀ x ∈ V, 0 < h x) : ExpConcaveOn V 1 fun x ↦ -log (h x) :=
-  hh.congr fun x hx ↦ by simp [exp_log (hpos x hx)]
+  expConcaveOn_iff.2 (hh.congr fun x hx ↦ by simp [exp_log (hpos x hx)])
 
 /-- **The logarithmic loss of a linear form**: `x ↦ -log (w x)` is `1`-exp-concave on
 `{x | 0 < w x}`. These are the losses of portfolio selection, with `w` the market vector. -/
