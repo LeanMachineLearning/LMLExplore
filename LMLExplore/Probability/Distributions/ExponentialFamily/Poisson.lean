@@ -230,7 +230,8 @@ theorem expFamily_id_map_cast_poissonMeasure (r : ℝ≥0) (η : ℝ) :
 @[simp]
 theorem deriv_cgf_id_map_cast_poissonMeasure (r : ℝ≥0) (η : ℝ) :
     deriv (cgf id Po(ℝ, r)) η = r * exp η := by
-  rw [cgf_id_map .of_discrete, deriv_cgf_natCast_poissonMeasure]
+  rw [show cgf id Po(ℝ, r) = _ from TauCeti.Probability.cgf_id_map_cast_poissonMeasure r]
+  exact (((hasDerivAt_exp η).sub_const 1).const_mul (r : ℝ)).deriv
 
 /-- The variance function of the natural exponential family of `Po(ℝ, r)`: the second derivative
 of its log-partition function at `η` is the variance `r exp η` of the member `Po(ℝ, r exp η)`. -/
@@ -244,7 +245,9 @@ theorem iteratedDeriv_two_cgf_id_map_cast_poissonMeasure (r : ℝ≥0) (η : ℝ
 `√(r exp η) dη` on the line of natural parameters. -/
 theorem jeffreysPrior_map_cast_poissonMeasure (r : ℝ≥0) :
     Po(ℝ, r).jeffreysPrior id = volume.withDensity fun η ↦ ENNReal.ofReal √(r * exp η) := by
-  simp [Measure.jeffreysPrior_def, integrableExpSet_id_map .of_discrete]
+  have h : integrableExpSet id Po(ℝ, r) = univ :=
+    TauCeti.Probability.integrableExpSet_id_map_cast_poissonMeasure r
+  simp [Measure.jeffreysPrior_def, h]
 
 /-- The unnormalized posterior density of the natural exponential family of `Po(ℝ, r)` for its
 Jeffreys prior, after `s` observations of sum `S`, is `x` times
@@ -272,9 +275,8 @@ private lemma map_deriv_cgf_withDensity_jeffreysPrior_map_cast_poissonMeasure {r
       (volume.restrict (Ioi 0)).withDensity fun x ↦
         ENNReal.ofReal (exp (s * r - S * log r) * (x ^ (S - 1 / 2) * exp (-(s * x)))) := by
   have hr' : (0 : ℝ) < r := NNReal.coe_pos.2 (pos_iff_ne_zero.2 hr)
-  have hcgf : cgf id Po(ℝ, r) = fun η ↦ r * (exp η - 1) := by
-    rw [cgf_id_map .of_discrete]
-    exact funext (cgf_natCast_poissonMeasure r)
+  have hcgf : cgf id Po(ℝ, r) = fun η ↦ r * (exp η - 1) :=
+    TauCeti.Probability.cgf_id_map_cast_poissonMeasure r
   -- the mean map `η ↦ r exp η` carries the density `|r exp η| g(r exp η)` on the line to the
   -- density `g` on `(0, ∞)`
   have hmap := TauCeti.MeasureTheory.map_withDensity_abs_deriv_mul
@@ -284,10 +286,7 @@ private lemma map_deriv_cgf_withDensity_jeffreysPrior_map_cast_poissonMeasure {r
     MeasurableSet.univ (fun η _ ↦ ((hasDerivAt_exp η).const_mul (r : ℝ)).hasDerivWithinAt)
     (exp_strictMono.const_mul hr').injective.injOn
   have hrange : (fun η ↦ (r : ℝ) * exp η) '' univ = Ioi 0 := by
-    ext x
-    refine ⟨fun ⟨η, _, hη⟩ ↦ hη ▸ mul_pos hr' (exp_pos η), fun hx ↦ ⟨log (x / r), trivial, ?_⟩⟩
-    simp only
-    rw [exp_log (div_pos hx hr'), mul_div_cancel₀ _ hr'.ne']
+    rw [image_univ, range_comp' ((r : ℝ) * ·) exp, range_exp, image_mul_left_Ioi hr', mul_zero]
   rw [Measure.restrict_univ, hrange] at hmap
   rw [jeffreysPrior_map_cast_poissonMeasure, ← withDensity_mul _ (by fun_prop) (by
       rw [hcgf]
@@ -358,8 +357,9 @@ theorem map_deriv_cgf_expFamilyPosterior_map_cast_poissonMeasure_jeffreysPrior {
     generalize (s : ℝ) ^ (S + 1 / 2) = B at hsa ⊢
     field_simp
   have hf : Measurable (deriv (cgf id Po(ℝ, r))) := measurable_deriv _
-  rw [Measure.expFamilyPosterior_def, integrableExpSet_id_map .of_discrete,
-    integrableExpSet_natCast_poissonMeasure, interior_univ,
+  have hT : integrableExpSet id Po(ℝ, r) = univ :=
+    TauCeti.Probability.integrableExpSet_id_map_cast_poissonMeasure r
+  rw [Measure.expFamilyPosterior_def, hT, interior_univ,
     ← preimage_univ (f := deriv (cgf id Po(ℝ, r))), ← cond_map hf.aemeasurable MeasurableSet.univ,
     map_deriv_cgf_withDensity_jeffreysPrior_map_cast_poissonMeasure hr, withDensity_congr_ae hdens,
     withDensity_smul' _ _ ENNReal.ofReal_ne_top,

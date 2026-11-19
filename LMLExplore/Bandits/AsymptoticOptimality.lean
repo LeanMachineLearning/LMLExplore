@@ -774,8 +774,10 @@ theorem tendsto_expFamilyTS_jeffreysPrior_regret_div_log_poissonMeasure (hr : r 
           (ν (bestArm ν))[id]))) := by
   have hr' : (0 : ℝ) < r := NNReal.coe_pos.2 (pos_iff_ne_zero.2 hr)
   -- The arm laws are members of the family, with positive means.
+  have hT : integrableExpSet id Po(ℝ, r) = Set.univ :=
+    TauCeti.Probability.integrableExpSet_id_map_cast_poissonMeasure r
   have hmem (a : α) : ν a ∈ Po(ℝ, r).expFamily id '' interior (integrableExpSet id Po(ℝ, r)) := by
-    refine ⟨log (μ a / r), by simp [integrableExpSet_id_map .of_discrete], ?_⟩
+    refine ⟨log (μ a / r), by simp [hT], ?_⟩
     rw [expFamily_id_map_cast_poissonMeasure, exp_log (div_pos (NNReal.coe_pos.2
       (pos_iff_ne_zero.2 (hμ a))) hr'), mul_div_cancel₀ _ hr'.ne', Real.toNNReal_coe, hν a]
   have hpos (a : α) : 0 < (ν a)[id] := by
