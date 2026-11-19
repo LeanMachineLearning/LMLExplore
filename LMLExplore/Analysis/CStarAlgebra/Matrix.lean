@@ -26,9 +26,12 @@ space specialize to matrices.
   both being `0` for singular matrices).
 * `Matrix.det_toEuclideanCLM`, `Matrix.trace_toEuclideanCLM`: determinant and trace are preserved.
 * `Matrix.isPositive_toEuclideanCLM_iff`: `A` acts as a positive operator if and only if it is
-  positive semidefinite.
+  positive semidefinite; `Matrix.PosDef.isPositive_toEuclideanCLM` and
+  `Matrix.PosDef.isUnit_toEuclideanCLM`: a positive definite matrix acts as a positive invertible
+  operator.
+* `Matrix.toEuclideanCLM_smul_one`: the scalar matrix `c • 1` acts as `c • 1`.
 * `Matrix.inner_ringInverse_toEuclideanCLM`: `⟪x, (A acting)⁻¹ y⟫ = x ⬝ᵥ A⁻¹ *ᵥ y`, the weighted
-  inner products of least squares; `EuclideanSpace.norm_toLp_sq`: `‖u‖² = u ⬝ᵥ u`.
+  inner products of least squares.
 -/
 
 public section
@@ -46,9 +49,14 @@ variable {𝕜 n : Type*} [RCLike 𝕜] [Fintype n] [DecidableEq n]
 theorem toEuclideanCLM_vecMulVec (u v : n → 𝕜) :
     toEuclideanCLM (n := n) (𝕜 := 𝕜) (vecMulVec u (star v)) =
       InnerProductSpace.rankOne 𝕜 (toLp 2 u) (toLp 2 v) := by
-  ext1 w
-  apply (WithLp.linearEquiv 2 𝕜 (n → 𝕜)).injective
-  simp [vecMulVec_mulVec, EuclideanSpace.inner_eq_star_dotProduct, dotProduct_comm]
+  apply ContinuousLinearMap.coe_injective
+  rw [coe_toEuclideanCLM_eq_toEuclideanLin, ← InnerProductSpace.symm_toEuclideanLin_rankOne,
+    LinearEquiv.apply_symm_apply]
+
+/-- The scalar matrix `c • 1` acts on Euclidean space as `c • 1`. -/
+theorem toEuclideanCLM_smul_one (c : 𝕜) :
+    toEuclideanCLM (n := n) (𝕜 := 𝕜) (c • 1 : Matrix n n 𝕜) = c • 1 := by
+  rw [map_smul, map_one]
 
 /-- The inverse of a matrix acts as the inverse of its action; both are `0` for a singular
 matrix. -/
@@ -71,8 +79,7 @@ theorem trace_toEuclideanCLM (A : Matrix n n 𝕜) :
     LinearMap.trace 𝕜 _ (toEuclideanCLM (n := n) (𝕜 := 𝕜) A :
       EuclideanSpace 𝕜 n →ₗ[𝕜] EuclideanSpace 𝕜 n) = A.trace := by
   rw [coe_toEuclideanCLM_eq_toEuclideanLin, toEuclideanLin_eq_toLin_orthonormal,
-    LinearMap.trace_eq_matrix_trace _ (EuclideanSpace.basisFun n 𝕜).toBasis,
-    LinearMap.toMatrix_toLin]
+    Matrix.trace_toLin_eq]
 
 /-- A matrix acts on Euclidean space as a positive operator if and only if it is positive
 semidefinite. -/
@@ -82,6 +89,16 @@ theorem isPositive_toEuclideanCLM_iff {A : Matrix n n 𝕜} :
   rw [← ContinuousLinearMap.isPositive_toLinearMap_iff, coe_toEuclideanCLM_eq_toEuclideanLin,
     isPositive_toEuclideanLin_iff]
 
+/-- A positive definite matrix acts on Euclidean space as a positive operator. -/
+theorem PosDef.isPositive_toEuclideanCLM {A : Matrix n n 𝕜} (hA : A.PosDef) :
+    (toEuclideanCLM (n := n) (𝕜 := 𝕜) A).IsPositive :=
+  isPositive_toEuclideanCLM_iff.2 hA.posSemidef
+
+/-- A positive definite matrix acts on Euclidean space as an invertible operator. -/
+theorem PosDef.isUnit_toEuclideanCLM {A : Matrix n n 𝕜} (hA : A.PosDef) :
+    IsUnit (toEuclideanCLM (n := n) (𝕜 := 𝕜) A) :=
+  hA.isUnit.map _
+
 open scoped RealInnerProductSpace in
 /-- The weighted inner product `x ⬝ᵥ A⁻¹ *ᵥ y` is the inner product of `x` with the inverse of the
 action of `A` applied to `y`. -/
@@ -90,9 +107,3 @@ theorem inner_ringInverse_toEuclideanCLM (A : Matrix n n ℝ) (x y : EuclideanSp
   rw [← toEuclideanCLM_inv, inner_toEuclideanCLM]
 
 end Matrix
-
-/-- The squared Euclidean norm of `toLp 2 u` is `u ⬝ᵥ u`. -/
-theorem EuclideanSpace.norm_toLp_sq {n : Type*} [Fintype n] (u : n → ℝ) :
-    ‖(toLp 2 u : EuclideanSpace ℝ n)‖ ^ 2 = u ⬝ᵥ u := by
-  rw [← real_inner_self_eq_norm_sq, EuclideanSpace.inner_eq_star_dotProduct]
-  simp

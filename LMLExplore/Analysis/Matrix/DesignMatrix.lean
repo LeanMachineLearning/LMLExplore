@@ -7,6 +7,7 @@ module
 
 public import LMLExplore.Analysis.CStarAlgebra.Matrix
 public import LMLExplore.Analysis.InnerProductSpace.EllipticalPotential
+public import LMLExplore.Analysis.InnerProductSpace.PiL2
 public import LMLExplore.Analysis.InnerProductSpace.Ridge
 public import Mathlib.Algebra.Order.Star.Real
 
@@ -49,6 +50,15 @@ dimension `d` is `Fintype.card ι`.
   `LMLExplore.sum_min_one_dotProduct_inv_designMatrix_smul_one_mulVec_le`: the elliptical
   potential lemma [LS, Lemma 19.4].
 * `LMLExplore.ofLp_ridgeEstimate`: the ridge estimate is `V_t(λ)⁻¹ ∑_{s < t} y s • x s`.
+
+## Implementation notes
+
+The design matrix, its determinant recursion `det_designMatrix_succ`, the determinant bounds
+`log_det_designMatrix_div_le` and `det_designMatrix_div_pow_le` and the elliptical potential lemma
+`sum_min_one_dotProduct_inv_designMatrix_mulVec_le_log_det` correspond to the matrix versions
+`regGram`, `det_regGram_succ`, `log_det_regGram_le` and `sum_min_one_mahalanobisSq_inv_regGram_le`
+of the LMLPapers project (Rémy Degenne, <https://github.com/LeanMachineLearning/LMLPapers>). The
+proofs here are new: they transfer the operator results through `Matrix.toEuclideanCLM`.
 
 ## References
 
@@ -127,12 +137,6 @@ theorem trace_designMatrix (V₀ : Matrix ι ι ℝ) (x : ℕ → ι → ℝ) (t
     (designMatrix V₀ x t).trace = V₀.trace + ∑ s ∈ range t, x s ⬝ᵥ x s := by
   simp [designMatrix, trace_sum]
 
-/-- A bound `x s ⬝ᵥ x s ≤ L ^ 2` is the bound `‖toLp 2 (x s)‖ ≤ |L|` on the Euclidean norm. -/
-private theorem norm_toLp_le_abs {u : ι → ℝ} {L : ℝ} (hu : u ⬝ᵥ u ≤ L ^ 2) :
-    ‖(toLp 2 u : EuclideanSpace ℝ ι)‖ ≤ |L| := by
-  rw [← abs_norm]
-  exact sq_le_sq.1 (by rwa [EuclideanSpace.norm_toLp_sq])
-
 variable [DecidableEq ι]
 
 /-- The design matrix acts on Euclidean space as the design operator of the vectors
@@ -143,13 +147,7 @@ theorem toEuclideanCLM_designMatrix (V₀ : Matrix ι ι ℝ) (x : ℕ → ι �
   rw [designMatrix, designOp_def, map_add, map_sum]
   congr 1
   refine sum_congr rfl fun s _ ↦ ?_
-  conv_lhs => rw [← star_trivial (x s)]
-  exact toEuclideanCLM_vecMulVec _ _
-
-/-- The ridge regularizer `λ • 1` acts as `λ • 1`. -/
-private theorem toEuclideanCLM_smul_one (lam : ℝ) :
-    toEuclideanCLM (𝕜 := ℝ) (lam • 1 : Matrix ι ι ℝ) = lam • 1 := by
-  rw [map_smul, map_one]
+  simpa [star_trivial] using toEuclideanCLM_vecMulVec (x s) (x s)
 
 /-- **Sherman–Morrison formula** for the design matrix: for a positive definite regularizer `V₀`,
 `V_{t+1}⁻¹ = V_t⁻¹ - (1 + ‖x t‖²_{V_t⁻¹})⁻¹ • (V_t⁻¹ x t) (V_t⁻¹ x t)ᵀ`. -/
@@ -158,8 +156,8 @@ theorem inv_designMatrix_succ (hV₀ : V₀.PosDef) (x : ℕ → ι → ℝ) (t 
       (1 + x t ⬝ᵥ (designMatrix V₀ x t)⁻¹ *ᵥ x t)⁻¹ •
         vecMulVec ((designMatrix V₀ x t)⁻¹ *ᵥ x t) ((designMatrix V₀ x t)⁻¹ *ᵥ x t) := by
   apply EquivLike.injective (toEuclideanCLM (𝕜 := ℝ) (n := ι))
-  have h := ringInverse_designOp_succ (isPositive_toEuclideanCLM_iff.2 hV₀.posSemidef)
-    (hV₀.isUnit.map _) (fun s ↦ toLp 2 (x s)) t
+  have h := ringInverse_designOp_succ hV₀.isPositive_toEuclideanCLM
+    hV₀.isUnit_toEuclideanCLM (fun s ↦ toLp 2 (x s)) t
   rw [← toEuclideanCLM_designMatrix, ← toEuclideanCLM_designMatrix,
     inner_ringInverse_toEuclideanCLM, ofLp_toLp, ← toEuclideanCLM_inv, ← toEuclideanCLM_inv,
     toEuclideanCLM_toLp, ← toEuclideanCLM_vecMulVec, star_trivial] at h
@@ -171,8 +169,8 @@ theorem inv_designMatrix_succ (hV₀ : V₀.PosDef) (x : ℕ → ι → ℝ) (t 
 theorem det_designMatrix_succ (hV₀ : V₀.PosDef) (x : ℕ → ι → ℝ) (t : ℕ) :
     (designMatrix V₀ x (t + 1)).det =
       (designMatrix V₀ x t).det * (1 + x t ⬝ᵥ (designMatrix V₀ x t)⁻¹ *ᵥ x t) := by
-  have h := det_designOp_succ (isPositive_toEuclideanCLM_iff.2 hV₀.posSemidef)
-    (hV₀.isUnit.map _) (fun s ↦ toLp 2 (x s)) t
+  have h := det_designOp_succ hV₀.isPositive_toEuclideanCLM
+    hV₀.isUnit_toEuclideanCLM (fun s ↦ toLp 2 (x s)) t
   rwa [← toEuclideanCLM_designMatrix, ← toEuclideanCLM_designMatrix, det_toEuclideanCLM,
     det_toEuclideanCLM, inner_ringInverse_toEuclideanCLM, ofLp_toLp] at h
 
@@ -181,8 +179,8 @@ theorem det_designMatrix_succ (hV₀ : V₀.PosDef) (x : ℕ → ι → ℝ) (t 
 theorem det_designMatrix_eq_mul_prod (hV₀ : V₀.PosDef) (x : ℕ → ι → ℝ) (t : ℕ) :
     (designMatrix V₀ x t).det =
       V₀.det * ∏ s ∈ range t, (1 + x s ⬝ᵥ (designMatrix V₀ x s)⁻¹ *ᵥ x s) := by
-  have h := det_designOp_eq_mul_prod (isPositive_toEuclideanCLM_iff.2 hV₀.posSemidef)
-    (hV₀.isUnit.map _) (fun s ↦ toLp 2 (x s)) t
+  have h := det_designOp_eq_mul_prod hV₀.isPositive_toEuclideanCLM
+    hV₀.isUnit_toEuclideanCLM (fun s ↦ toLp 2 (x s)) t
   simp_rw [← toEuclideanCLM_designMatrix, det_toEuclideanCLM,
     inner_ringInverse_toEuclideanCLM] at h
   exact h
@@ -206,9 +204,8 @@ theorem log_det_designMatrix_div_le (hV₀ : V₀.PosDef) (x : ℕ → ι → �
     log ((designMatrix V₀ x t).det / V₀.det) ≤
       Fintype.card ι * log ((V₀.trace + t * L ^ 2) /
         (Fintype.card ι * V₀.det ^ (Fintype.card ι : ℝ)⁻¹)) := by
-  have h := log_det_designOp_div_le (isPositive_toEuclideanCLM_iff.2 hV₀.posSemidef)
-    (hV₀.isUnit.map _)
-    (fun s ↦ toLp 2 (x s)) fun s hs ↦ norm_toLp_le_abs (hx s hs)
+  have h := log_det_designOp_div_le hV₀.isPositive_toEuclideanCLM hV₀.isUnit_toEuclideanCLM
+    (fun s ↦ toLp 2 (x s)) fun s hs ↦ EuclideanSpace.norm_toLp_le_abs_of_dotProduct_le_sq (hx s hs)
   rwa [← toEuclideanCLM_designMatrix, det_toEuclideanCLM, det_toEuclideanCLM,
     trace_toEuclideanCLM, finrank_euclideanSpace, sq_abs] at h
 
@@ -219,7 +216,7 @@ theorem det_designMatrix_div_pow_le (hlam : 0 < lam) (x : ℕ → ι → ℝ) {t
     (designMatrix (lam • 1) x t).det / lam ^ Fintype.card ι ≤
       (1 + t * L ^ 2 / (lam * Fintype.card ι)) ^ Fintype.card ι := by
   have h := det_designOp_div_pow_le hlam (fun s ↦ toLp 2 (x s))
-    fun s hs ↦ norm_toLp_le_abs (hx s hs)
+    fun s hs ↦ EuclideanSpace.norm_toLp_le_abs_of_dotProduct_le_sq (hx s hs)
   rwa [← toEuclideanCLM_smul_one, ← toEuclideanCLM_designMatrix, det_toEuclideanCLM,
     finrank_euclideanSpace, sq_abs] at h
 
@@ -230,7 +227,7 @@ theorem log_det_designMatrix_div_pow_le (hlam : 0 < lam) (x : ℕ → ι → ℝ
     log ((designMatrix (lam • 1) x t).det / lam ^ Fintype.card ι) ≤
       Fintype.card ι * log (1 + t * L ^ 2 / (lam * Fintype.card ι)) := by
   have h := log_det_designOp_div_pow_le hlam (fun s ↦ toLp 2 (x s))
-    fun s hs ↦ norm_toLp_le_abs (hx s hs)
+    fun s hs ↦ EuclideanSpace.norm_toLp_le_abs_of_dotProduct_le_sq (hx s hs)
   rwa [← toEuclideanCLM_smul_one, ← toEuclideanCLM_designMatrix, det_toEuclideanCLM,
     finrank_euclideanSpace, sq_abs] at h
 
@@ -242,7 +239,7 @@ theorem sum_min_one_dotProduct_inv_designMatrix_mulVec_le_log_det (hV₀ : V₀.
     ∑ t ∈ range n, min 1 (x t ⬝ᵥ (designMatrix V₀ x t)⁻¹ *ᵥ x t) ≤
       2 * log ((designMatrix V₀ x n).det / V₀.det) := by
   have h := sum_min_one_inner_inverse_designOp_le_log_det
-    (isPositive_toEuclideanCLM_iff.2 hV₀.posSemidef) (hV₀.isUnit.map _) (fun s ↦ toLp 2 (x s)) n
+    hV₀.isPositive_toEuclideanCLM hV₀.isUnit_toEuclideanCLM (fun s ↦ toLp 2 (x s)) n
   simp_rw [← toEuclideanCLM_designMatrix, inner_ringInverse_toEuclideanCLM,
     det_toEuclideanCLM] at h
   exact h

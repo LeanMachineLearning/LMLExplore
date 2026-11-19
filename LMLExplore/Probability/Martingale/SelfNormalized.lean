@@ -305,7 +305,7 @@ theorem measure_exists_dotProduct_inv_designMatrix_mulVec_ge_le [IsProbabilityMe
   refine (measure_mono fun ω hω ↦ ?_).trans
     (measure_exists_inner_ringInverse_designOp_ge_le (x := fun s ω ↦ toLp 2 (y s ω))
       (fun t ↦ (measurable_toLp 2 _).comp (hy t)) hη hsub hσ
-      (isPositive_toEuclideanCLM_iff.2 hW₀.posSemidef) (hW₀.isUnit.map _) hδ)
+      hW₀.isPositive_toEuclideanCLM hW₀.isUnit_toEuclideanCLM hδ)
   obtain ⟨t, ht⟩ := hω
   refine ⟨t, ?_⟩
   simp_rw [← toEuclideanCLM_designMatrix, det_toEuclideanCLM, ← toLp_smul, ← toLp_sum,
@@ -324,7 +324,7 @@ theorem le_measureReal_forall_dotProduct_inv_designMatrix_mulVec_lt [IsProbabili
       2 * σ2 * log (1 / δ) + σ2 * log ((designMatrix W₀ (fun s ↦ y s ω) t).det / W₀.det)} := by
   refine (le_measureReal_forall_inner_ringInverse_designOp_lt (x := fun s ω ↦ toLp 2 (y s ω))
       (fun t ↦ (measurable_toLp 2 _).comp (hy t)) hη hsub hσ
-      (isPositive_toEuclideanCLM_iff.2 hW₀.posSemidef) (hW₀.isUnit.map _) hδ).trans_eq ?_
+      hW₀.isPositive_toEuclideanCLM hW₀.isUnit_toEuclideanCLM hδ).trans_eq ?_
   congr 1
   ext ω
   simp_rw [Set.mem_ofPred_eq, ← toEuclideanCLM_designMatrix, det_toEuclideanCLM, ← toLp_smul,
