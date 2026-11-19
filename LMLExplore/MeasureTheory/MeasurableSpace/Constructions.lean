@@ -33,6 +33,8 @@ public import TauCeti.MeasureTheory.MeasurableSpace.Eval
   `MeasurableSpace.comap f ⊤` are the unions of fibers of `f`.
 * `DependsOn.measurable_of_countable`: a function of a family of countable variables with
   measurable singletons that only depends on finitely many of them is measurable.
+* `Measurable.comp_prodMk_of_le`: a function `r ω x` jointly measurable for a sub-σ-algebra of the
+  ambient one and the space of `x`, evaluated at a measurable `X ω`, is measurable.
 * `measurable_from_prod_of_dependsOn`: a function on a product whose first factor is a family of
   countable variables with measurable singletons is measurable if it only depends on finitely
   many of these variables and is measurable in the second factor.
@@ -131,6 +133,15 @@ lemma _root_.MeasurableSpace.measurableSet_comap_top_iff {α β : Type*} {f : α
   refine ⟨fun ⟨u, _, hu⟩ a a' h ↦ by simp [← hu, h], fun h ↦ ⟨f '' s, trivial, ?_⟩⟩
   ext a
   exact ⟨fun ⟨a', ha', he⟩ ↦ (h a' a he).1 ha', fun ha ↦ ⟨a, ha, rfl⟩⟩
+
+/-- A function `r ω x` that is jointly measurable for a sub-σ-algebra `m ≤ mΩ` and `m𝓧`, evaluated
+at a measurable `X ω`, is measurable: `ω ↦ r ω (X ω)` is the composite of `uncurry r` with the
+measurable map `ω ↦ (ω, X ω)`. -/
+lemma _root_.Measurable.comp_prodMk_of_le {Ω 𝓧 β : Type*} {m mΩ : MeasurableSpace Ω}
+    {m𝓧 : MeasurableSpace 𝓧} [MeasurableSpace β] {r : Ω → 𝓧 → β} {X : Ω → 𝓧}
+    (hr : Measurable[m.prod m𝓧] (Function.uncurry r)) (hm : m ≤ mΩ) (hX : Measurable X) :
+    Measurable fun ω ↦ r ω (X ω) :=
+  hr.comp ((measurable_id'' hm).prodMk hX)
 
 /-! ### The first terms of a sequence -/
 

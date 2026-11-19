@@ -163,7 +163,7 @@ sequential null `sequentialNull S₁ X ℱ`. -/
 theorem isCondEVar_comp_sequentialNull {r : Ω → 𝓧 → ℝ≥0∞} {k : ℕ} (hX : Measurable (X k))
     (hr : Measurable[(ℱ k).prod m𝓧] (Function.uncurry r)) (hr1 : ∀ ω, IsEVar (r ω) S₁) :
     IsCondEVar (fun ω ↦ r ω (X k ω)) (ℱ k) (sequentialNull S₁ X ℱ) := by
-  refine ⟨measurable_comp_prodMk (ℱ.le k) hX hr, fun P hP s hs ↦ ?_⟩
+  refine ⟨hr.comp_prodMk_of_le (ℱ.le k) hX, fun P hP s hs ↦ ?_⟩
   obtain ⟨κ, hκ, hκS⟩ := exists_hasCondLaw_of_mem_sequentialNull hP k
   rw [hκ.setLIntegral_comp (ℱ.le k) hr hs, ← hκ.setLIntegral_measure_univ (ℱ.le k) hs]
   exact lintegral_mono_ae (ae_restrict_of_ae (hκS.mono fun ω hω ↦
@@ -176,7 +176,7 @@ e-variable given `ℱ k` for the sequential null `sequentialNull S₁ X ℱ`. -/
 theorem isExactCondEVar_comp_sequentialNull {r : Ω → 𝓧 → ℝ≥0∞} {k : ℕ} (hX : Measurable (X k))
     (hr : Measurable[(ℱ k).prod m𝓧] (Function.uncurry r)) (hr1 : ∀ ω, IsExactEVar (r ω) S₁) :
     IsExactCondEVar (fun ω ↦ r ω (X k ω)) (ℱ k) (sequentialNull S₁ X ℱ) := by
-  refine ⟨measurable_comp_prodMk (ℱ.le k) hX hr, fun P hP s hs ↦ ?_⟩
+  refine ⟨hr.comp_prodMk_of_le (ℱ.le k) hX, fun P hP s hs ↦ ?_⟩
   obtain ⟨κ, hκ, hκS⟩ := exists_hasCondLaw_of_mem_sequentialNull hP k
   rw [hκ.setLIntegral_comp (ℱ.le k) hr hs, ← hκ.setLIntegral_measure_univ (ℱ.le k) hs]
   exact lintegral_congr_ae (ae_restrict_of_ae (hκS.mono fun ω hω ↦
@@ -192,7 +192,7 @@ theorem isTestSupermartingale_prod_sequentialNull (hX : ∀ k, Measurable[ℱ (k
     (hr1 : ∀ k ω, IsEVar (r k ω) S₁) :
     IsTestSupermartingale (fun n ω ↦ ∏ k ∈ range n, r k ω (X k ω)) ℱ (sequentialNull S₁ X ℱ) :=
   isTestSupermartingale_prod (fun _ ↦ isProbabilityMeasure_of_mem_sequentialNull)
-    (measurable_succ_comp hX hr) fun k ↦
+    (fun k ↦ (hr k).comp_prodMk_of_le (ℱ.mono k.le_succ) (hX k)) fun k ↦
       isCondEVar_comp_sequentialNull ((hX k).mono (ℱ.le _) le_rfl) (hr k) (hr1 k)
 
 /-- **Products of exact e-variables chosen from the past are test martingales for the sequential
@@ -204,7 +204,7 @@ theorem isTestMartingale_prod_sequentialNull (hX : ∀ k, Measurable[ℱ (k + 1)
     (hr1 : ∀ k ω, IsExactEVar (r k ω) S₁) :
     IsTestMartingale (fun n ω ↦ ∏ k ∈ range n, r k ω (X k ω)) ℱ (sequentialNull S₁ X ℱ) :=
   isTestMartingale_prod (fun _ ↦ isProbabilityMeasure_of_mem_sequentialNull)
-    (measurable_succ_comp hX hr) fun k ↦
+    (fun k ↦ (hr k).comp_prodMk_of_le (ℱ.mono k.le_succ) (hX k)) fun k ↦
       isExactCondEVar_comp_sequentialNull ((hX k).mono (ℱ.le _) le_rfl) (hr k)
         (hr1 k)
 
