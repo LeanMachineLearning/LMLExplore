@@ -61,7 +61,7 @@ section OneStep
 variable {X : Ω → 𝓧} {κ : Ω → Measure 𝓧} {r : Ω → 𝓧 → ℝ≥0∞}
 
 /-- The value `r ω (X ω)` at an `m`-measurable composite of `X` is measurable. -/
-private lemma measurable_comp_prodMk (hm : m ≤ mΩ) (hX : Measurable X)
+lemma measurable_comp_prodMk (hm : m ≤ mΩ) (hX : Measurable X)
     (hr : Measurable[m.prod m𝓧] (Function.uncurry r)) : Measurable fun ω ↦ r ω (X ω) :=
   hr.comp ((measurable_id'' hm).prodMk hX)
 
@@ -99,7 +99,7 @@ variable {ℱ : Filtration ℕ mΩ} {X : ℕ → Ω → 𝓧} {κ : ℕ → Ω �
   {r : ℕ → Ω → 𝓧 → ℝ≥0∞}
 
 /-- The density of round `k` at the observation is measurable for `ℱ (k + 1)`. -/
-private lemma measurable_succ_comp (hX : ∀ k, Measurable[ℱ (k + 1)] (X k))
+lemma measurable_succ_comp (hX : ∀ k, Measurable[ℱ (k + 1)] (X k))
     (hr : ∀ k, Measurable[(ℱ k).prod m𝓧] (Function.uncurry (r k))) (k : ℕ) :
     Measurable[ℱ (k + 1)] fun ω ↦ r k ω (X k ω) :=
   measurable_comp_prodMk (m := ℱ k) (mΩ := ℱ (k + 1)) (ℱ.mono k.le_succ) (hX k) (hr k)

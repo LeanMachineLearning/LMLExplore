@@ -14,8 +14,8 @@ public import Statlib.EValues.NumeraireExistence
 /-!
 # The sequential null of a set of laws, and products of its e-variables
 
-Let `S₁` be a set of probability measures on an observation space `𝓧`, and let `X k` be
-observations in `𝓧`, each measurable for `ℱ (k + 1)` for a filtration `ℱ`. The *sequential null*
+Let `S₁` be a set of measures on an observation space `𝓧`, and let `X k` be observations
+in `𝓧`, each measurable for `ℱ (k + 1)` for a filtration `ℱ`. The *sequential null*
 `ProbabilityTheory.sequentialNull S₁ X ℱ` is the set of the probability measures under which the
 conditional law of every observation `X k` given the past `ℱ k` lies in `S₁` almost surely
 (`ProbabilityTheory.HasCondLaw`). It contains the laws of the independent sequences with laws in
@@ -38,7 +38,7 @@ error of the test that rejects as soon as the product reaches `α⁻¹`, uniform
 The product of the numeraires generalizes the test supermartingale of [KG22, Theorem 12], stated
 there for i.i.d. data and a null `S₁` of densities containing the reverse information projection
 of the alternative on its convex hull, in which case the numeraire is a likelihood ratio. Here
-`S₁` is any set of probability measures, the observation space is arbitrary, and the null
+`S₁` is any set of measures, the observation space is arbitrary, and the null
 contains every law whose conditional laws given the past lie in `S₁`.
 
 ## Main definitions
@@ -155,91 +155,85 @@ theorem infinitePi_mem_sequentialNull {μ : ℕ → Measure 𝓧} [∀ k, IsProb
 
 variable {r : ℕ → Ω → 𝓧 → ℝ≥0∞}
 
-/-- The value `r k ω (X k ω)` at the observation of round `k` is measurable for `ℱ (k + 1)`. -/
-private lemma measurable_comp_succ (hX : ∀ k, Measurable[ℱ (k + 1)] (X k))
-    (hr : ∀ k, Measurable[(ℱ k).prod m𝓧] (Function.uncurry (r k))) (k : ℕ) :
-    Measurable[ℱ (k + 1)] fun ω ↦ r k ω (X k ω) :=
-  (hr k).comp ((measurable_id'' (ℱ.mono k.le_succ)).prodMk (hX k))
-
-/-- **One round against the sequential null.** Let `S₁` be a set of probability measures, let
-`X k` be `ℱ (k + 1)`-measurable, and let `r ω` be an e-variable for `S₁` for every `ω`, jointly
-measurable for `ℱ k` and `𝓧`. Then `r ω (X k ω)` is a conditional e-variable given `ℱ k` for the
+/-- **One round against the sequential null.** Let `S₁` be a set of measures, let `X k` be
+`ℱ (k + 1)`-measurable, and let `r ω` be an e-variable for `S₁` for every `ω`, jointly measurable
+for `ℱ k` and `𝓧`. Then `r ω (X k ω)` is a conditional e-variable given `ℱ k` for the
 sequential null `sequentialNull S₁ X ℱ`. -/
-theorem isCondEVar_comp_sequentialNull {r : Ω → 𝓧 → ℝ≥0∞} (hS₁ : ∀ Q ∈ S₁, IsProbabilityMeasure Q)
-    {k : ℕ} (hX : Measurable[ℱ (k + 1)] (X k))
+theorem isCondEVar_comp_sequentialNull {r : Ω → 𝓧 → ℝ≥0∞} {k : ℕ}
+    (hX : Measurable[ℱ (k + 1)] (X k))
     (hr : Measurable[(ℱ k).prod m𝓧] (Function.uncurry r)) (hr1 : ∀ ω, IsEVar (r ω) S₁) :
     IsCondEVar (fun ω ↦ r ω (X k ω)) (ℱ k) (sequentialNull S₁ X ℱ) := by
   have hXm : Measurable (X k) := hX.mono (ℱ.le _) le_rfl
-  refine ⟨hr.comp ((measurable_id'' (ℱ.le k)).prodMk hXm), fun P hP s hs ↦ ?_⟩
+  refine ⟨measurable_comp_prodMk (ℱ.le k) hXm hr, fun P hP s hs ↦ ?_⟩
   obtain ⟨κ, hκ, hκS⟩ := exists_hasCondLaw_of_mem_sequentialNull hP k
-  refine (hκ.isCondEVar_comp (ℱ.le k) hXm hr ?_).setLIntegral_le P rfl s hs
-  filter_upwards [hκS] with ω hω
-  have := hS₁ _ hω
-  exact (hr1 ω).lintegral_le_one hω
+  have hPs := hκ.measure_inter_preimage (ℱ.le k) hXm.aemeasurable hs MeasurableSet.univ
+  rw [preimage_univ, inter_univ] at hPs
+  rw [hκ.setLIntegral_comp (ℱ.le k) hr hs, hPs]
+  exact lintegral_mono_ae (ae_restrict_of_ae (hκS.mono fun ω hω ↦
+    (hr1 ω).lintegral_le_measure_univ _ hω))
 
-/-- **One round against the sequential null, exact case.** Let `S₁` be a set of probability
-measures, let `X k` be `ℱ (k + 1)`-measurable, and let `r ω` be an exact e-variable for `S₁` for
+/-- **One round against the sequential null, exact case.** Let `S₁` be a set of measures,
+let `X k` be `ℱ (k + 1)`-measurable, and let `r ω` be an exact e-variable for `S₁` for
 every `ω`, jointly measurable for `ℱ k` and `𝓧`. Then `r ω (X k ω)` is an exact conditional
 e-variable given `ℱ k` for the sequential null `sequentialNull S₁ X ℱ`. -/
-theorem isExactCondEVar_comp_sequentialNull {r : Ω → 𝓧 → ℝ≥0∞}
-    (hS₁ : ∀ Q ∈ S₁, IsProbabilityMeasure Q) {k : ℕ} (hX : Measurable[ℱ (k + 1)] (X k))
+theorem isExactCondEVar_comp_sequentialNull {r : Ω → 𝓧 → ℝ≥0∞} {k : ℕ}
+    (hX : Measurable[ℱ (k + 1)] (X k))
     (hr : Measurable[(ℱ k).prod m𝓧] (Function.uncurry r)) (hr1 : ∀ ω, IsExactEVar (r ω) S₁) :
     IsExactCondEVar (fun ω ↦ r ω (X k ω)) (ℱ k) (sequentialNull S₁ X ℱ) := by
   have hXm : Measurable (X k) := hX.mono (ℱ.le _) le_rfl
-  refine ⟨hr.comp ((measurable_id'' (ℱ.le k)).prodMk hXm), fun P hP s hs ↦ ?_⟩
+  refine ⟨measurable_comp_prodMk (ℱ.le k) hXm hr, fun P hP s hs ↦ ?_⟩
   obtain ⟨κ, hκ, hκS⟩ := exists_hasCondLaw_of_mem_sequentialNull hP k
-  refine (hκ.isExactCondEVar_comp (ℱ.le k) hXm hr ?_).setLIntegral_eq P rfl s hs
-  filter_upwards [hκS] with ω hω
-  have := hS₁ _ hω
-  exact (hr1 ω).lintegral_eq_one hω
+  have hPs := hκ.measure_inter_preimage (ℱ.le k) hXm.aemeasurable hs MeasurableSet.univ
+  rw [preimage_univ, inter_univ] at hPs
+  rw [hκ.setLIntegral_comp (ℱ.le k) hr hs, hPs]
+  exact lintegral_congr_ae (ae_restrict_of_ae (hκS.mono fun ω hω ↦
+    (hr1 ω).lintegral_eq_measure_univ _ hω))
 
 /-- **Products of e-variables chosen from the past are test supermartingales for the sequential
-null** [GdHK24, Proposition 2]. Let `S₁` be a set of probability measures, let `X k` be
+null** [GdHK24, Proposition 2]. Let `S₁` be a set of measures, let `X k` be
 `ℱ (k + 1)`-measurable, and let `r k ω` be an e-variable for `S₁` for every `ω`, jointly measurable
 for `ℱ k` and `𝓧`. Then `∏ k < n, r k ω (X k ω)` is a test supermartingale for the sequential
 null `sequentialNull S₁ X ℱ`. -/
-theorem isTestSupermartingale_prod_sequentialNull (hS₁ : ∀ Q ∈ S₁, IsProbabilityMeasure Q)
-    (hX : ∀ k, Measurable[ℱ (k + 1)] (X k))
+theorem isTestSupermartingale_prod_sequentialNull (hX : ∀ k, Measurable[ℱ (k + 1)] (X k))
     (hr : ∀ k, Measurable[(ℱ k).prod m𝓧] (Function.uncurry (r k)))
     (hr1 : ∀ k ω, IsEVar (r k ω) S₁) :
     IsTestSupermartingale (fun n ω ↦ ∏ k ∈ range n, r k ω (X k ω)) ℱ (sequentialNull S₁ X ℱ) :=
   isTestSupermartingale_prod (fun _ ↦ isProbabilityMeasure_of_mem_sequentialNull)
-    (measurable_comp_succ hX hr) fun k ↦
-      isCondEVar_comp_sequentialNull hS₁ (hX k) (hr k) (hr1 k)
+    (measurable_succ_comp hX hr) fun k ↦
+      isCondEVar_comp_sequentialNull (hX k) (hr k) (hr1 k)
 
 /-- **Products of exact e-variables chosen from the past are test martingales for the sequential
-null.** Let `S₁` be a set of probability measures, let `X k` be `ℱ (k + 1)`-measurable, and let
+null.** Let `S₁` be a set of measures, let `X k` be `ℱ (k + 1)`-measurable, and let
 `r k ω` be an exact e-variable for `S₁` for every `ω`, jointly measurable for `ℱ k` and `𝓧`. Then
 `∏ k < n, r k ω (X k ω)` is a test martingale for the sequential null `sequentialNull S₁ X ℱ`. -/
-theorem isTestMartingale_prod_sequentialNull (hS₁ : ∀ Q ∈ S₁, IsProbabilityMeasure Q)
-    (hX : ∀ k, Measurable[ℱ (k + 1)] (X k))
+theorem isTestMartingale_prod_sequentialNull (hX : ∀ k, Measurable[ℱ (k + 1)] (X k))
     (hr : ∀ k, Measurable[(ℱ k).prod m𝓧] (Function.uncurry (r k)))
     (hr1 : ∀ k ω, IsExactEVar (r k ω) S₁) :
     IsTestMartingale (fun n ω ↦ ∏ k ∈ range n, r k ω (X k ω)) ℱ (sequentialNull S₁ X ℱ) :=
   isTestMartingale_prod (fun _ ↦ isProbabilityMeasure_of_mem_sequentialNull)
-    (measurable_comp_succ hX hr) fun k ↦
-      isExactCondEVar_comp_sequentialNull hS₁ (hX k) (hr k) (hr1 k)
+    (measurable_succ_comp hX hr) fun k ↦
+      isExactCondEVar_comp_sequentialNull (hX k) (hr k) (hr1 k)
 
 /-- **Products of copies of an e-variable are test supermartingales for the sequential null.** If
-`e` is an e-variable for a set `S₁` of probability measures and `X k` is `ℱ (k + 1)`-measurable,
+`e` is an e-variable for a set `S₁` of measures and `X k` is `ℱ (k + 1)`-measurable,
 then `∏ k < n, e (X k ω)` is a test supermartingale for the sequential null
 `sequentialNull S₁ X ℱ`. -/
 theorem IsEVar.isTestSupermartingale_prod_sequentialNull {e : 𝓧 → ℝ≥0∞} (he : IsEVar e S₁)
-    (hS₁ : ∀ Q ∈ S₁, IsProbabilityMeasure Q) (hX : ∀ k, Measurable[ℱ (k + 1)] (X k)) :
+    (hX : ∀ k, Measurable[ℱ (k + 1)] (X k)) :
     IsTestSupermartingale (fun n ω ↦ ∏ k ∈ range n, e (X k ω)) ℱ (sequentialNull S₁ X ℱ) :=
-  ProbabilityTheory.isTestSupermartingale_prod_sequentialNull (r := fun _ _ ↦ e) hS₁ hX
+  ProbabilityTheory.isTestSupermartingale_prod_sequentialNull (r := fun _ _ ↦ e) hX
     (fun _ ↦ he.measurable.comp measurable_snd) fun _ _ ↦ he
 
 /-- **The product of the numeraires is a test supermartingale for the sequential null.** For a
-set `S₁` of probability measures, an alternative `Q₁` and `ℱ (k + 1)`-measurable observations
+set `S₁` of measures, an alternative `Q₁` and `ℱ (k + 1)`-measurable observations
 `X k`, the product `∏ k < n, X* (X k ω)` of the numeraire `X* = numeraire Q₁ S₁` (Statlib's
 `ProbabilityTheory.numeraire`, for a finite measure `Q₁` the log-optimal e-variable for `S₁` under
 `Q₁`) is a test supermartingale for the sequential null `sequentialNull S₁ X ℱ` [KG22,
 Theorem 12]. -/
 theorem isTestSupermartingale_prod_numeraire_sequentialNull (Q₁ : Measure 𝓧)
-    (hS₁ : ∀ Q ∈ S₁, IsProbabilityMeasure Q) (hX : ∀ k, Measurable[ℱ (k + 1)] (X k)) :
+    (hX : ∀ k, Measurable[ℱ (k + 1)] (X k)) :
     IsTestSupermartingale (fun n ω ↦ ∏ k ∈ range n, numeraire Q₁ S₁ (X k ω)) ℱ
       (sequentialNull S₁ X ℱ) :=
-  (isEVar_numeraire Q₁ S₁).isTestSupermartingale_prod_sequentialNull hS₁ hX
+  (isEVar_numeraire Q₁ S₁).isTestSupermartingale_prod_sequentialNull hX
 
 end ProbabilityTheory
