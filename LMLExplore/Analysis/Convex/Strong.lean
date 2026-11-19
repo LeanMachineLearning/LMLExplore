@@ -386,19 +386,23 @@ theorem mul_norm_sub_sq_le_of_hasFDerivWithinAt2 (hf : StrongConvexOn s m f)
       fun t ht ↦ hf.1.add_smul_sub_mem hx hc ht
     simpa using (hf''.comp_hasDerivWithinAt_of_eq (0 : ℝ) hℓ hmaps (by simp)).clm_apply
       (hasDerivWithinAt_const (0 : ℝ) (Icc 0 1) (a - b))
-  have hφ := ((hline ha).sub (hline hb)).mono_of_mem_nhdsWithin (Icc_mem_nhdsGT zero_lt_one)
-  rw [← sub_apply, ← map_sub, sub_sub_sub_cancel_right,
-    hasDerivWithinAt_iff_tendsto_slope' (lt_irrefl 0)] at hφ
+  have hφ : HasDerivWithinAt
+      (fun t : ℝ ↦ f' (x + t • (a - x)) (a - b) - f' (x + t • (b - x)) (a - b))
+      (f'' (a - b) (a - b)) (Ioi 0) 0 := by
+    convert ((hline ha).sub (hline hb)).mono_of_mem_nhdsWithin (Icc_mem_nhdsGT zero_lt_one)
+      using 1
+    simp only [map_sub, sub_apply]
+    ring
+  rw [hasDerivWithinAt_iff_tendsto_slope' (lt_irrefl 0)] at hφ
   refine ge_of_tendsto hφ ?_
   filter_upwards [Ioo_mem_nhdsGT zero_lt_one] with t ht
   have hy := hf.1.add_smul_sub_mem hx ha (Ioo_subset_Icc_self ht)
   have hz := hf.1.add_smul_sub_mem hx hb (Ioo_subset_Icc_self ht)
-  have hyz : x + t • (a - x) - (x + t • (b - x)) = t • (a - b) := by
-    rw [add_sub_add_left_eq_sub, ← smul_sub, sub_sub_sub_cancel_right]
+  have hyz : x + t • (a - x) - (x + t • (b - x)) = t • (a - b) := by module
   have h := hmono hy hz
   rw [hyz, map_smul, smul_eq_mul, norm_smul, Real.norm_of_nonneg ht.1.le] at h
   rw [slope_def_field, le_div_iff₀ (by simpa using ht.1)]
-  simp only [Pi.sub_apply, zero_smul, add_zero, sub_self, sub_zero, sub_apply] at h ⊢
+  simp only [zero_smul, add_zero, sub_self, sub_zero, sub_apply] at h ⊢
   nlinarith [ht.1]
 
 /-- **Growth of a strongly convex function far from a point.** If `f` is `m`-strongly convex on

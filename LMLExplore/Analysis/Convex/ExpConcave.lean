@@ -48,7 +48,7 @@ than exp-concavity when `V` has empty interior: on a segment of `ℝ²`, the cur
 directions transverse to the segment is irrelevant. The derivatives are taken within `V`, so no
 open set around `V` is needed.
 
-The examples [Ora, Examples 7.36 and 7.39, Remark 7.40]: `x ↦ -log (h x)` is `1`-exp-concave for
+The examples [Ora, Example 7.36, Remark 7.40]: `x ↦ -log (h x)` is `1`-exp-concave for
 every positive concave `h`, in particular for `h = w` a linear form on `{x | 0 < w x}`; and the
 squared distance `x ↦ ‖x - y‖ ^ 2` in a real inner product space is `α`-exp-concave on every
 convex set on which `2 * α * ‖x - y‖ ^ 2 ≤ 1`, so `(8 * R ^ 2)⁻¹`-exp-concave on a closed ball of
@@ -112,6 +112,7 @@ theorem expConcaveOn_zero (hV : Convex ℝ V) : ExpConcaveOn V 0 f := by
   simpa [expConcaveOn_iff] using concaveOn_const (1 : ℝ) hV
 
 /-- **Scaling**: `c * f` is `α`-exp-concave if and only if `f` is `α * c`-exp-concave. -/
+@[simp]
 theorem expConcaveOn_const_mul_iff :
     ExpConcaveOn V α (fun x ↦ c * f x) ↔ ExpConcaveOn V (α * c) f := by
   simp only [expConcaveOn_iff, mul_assoc]
@@ -234,6 +235,11 @@ theorem convexOn (hf : ExpConcaveOn V α f) (hα : 0 < α) : ConvexOn ℝ V f :=
 
 end ExpConcaveOn
 
+/-- A function is `0`-exp-concave on `V` if and only if `V` is convex. -/
+@[simp]
+theorem expConcaveOn_zero_iff : ExpConcaveOn V 0 f ↔ Convex ℝ V :=
+  ⟨ExpConcaveOn.convex, expConcaveOn_zero⟩
+
 /-- **Logarithmic losses** [Ora, Remark 7.40]: for a positive concave function `h` on `V`,
 `x ↦ -log (h x)` is `1`-exp-concave on `V`. -/
 theorem _root_.ConcaveOn.expConcaveOn_neg_log {h : E → ℝ} (hh : ConcaveOn ℝ V h)
@@ -256,16 +262,16 @@ variable {E : Type*} [NormedAddCommGroup E] [NormedSpace ℝ E] {V : Set E} {α 
 namespace ExpConcaveOn
 
 /-- **The quadratic lower bound of exp-concave functions** [Ora, Example 7.39]. Let `f` be
-`γ`-exp-concave on `V`, with `γ ≥ 0`, and let `g` be a subgradient of `f` within `V` at `x ∈ V`.
-For `y ∈ V` with `γ * |g (y - x)| ≤ 1`,
-`f x + g (y - x) + γ / 4 * g (y - x) ^ 2 ≤ f y`. -/
-theorem add_apply_add_mul_sq_le_of_hasSubgradientWithinAt (hf : ExpConcaveOn V γ f) (hγ : 0 ≤ γ)
+`γ`-exp-concave on `V` and let `g` be a subgradient of `f` within `V` at `x ∈ V`. For `y ∈ V` with
+`γ * |g (y - x)| ≤ 1`, `f x + g (y - x) + γ / 4 * g (y - x) ^ 2 ≤ f y`. -/
+theorem add_apply_add_mul_sq_le_of_hasSubgradientWithinAt (hf : ExpConcaveOn V γ f)
     (hx : x ∈ V) (hg : HasSubgradientWithinAt f g V x) (hy : y ∈ V) (hgy : γ * |g (y - x)| ≤ 1) :
     f x + g (y - x) + γ / 4 * g (y - x) ^ 2 ≤ f y := by
   have hsub := hg y hy
   simp only [bregDiv] at hsub
-  rcases hγ.eq_or_lt with rfl | hγ
-  · linarith
+  -- for `γ ≤ 0` the quadratic term is nonpositive, so the subgradient inequality suffices
+  rcases le_or_gt γ 0 with hγ | hγ
+  · nlinarith [sq_nonneg (g (y - x))]
   set c := g (y - x)
   set h : E → ℝ := fun z ↦ exp (-(γ * f z)) with hh
   -- Step 1: `h y ≤ h x * (1 - γ * c)`. Along the segment `z t = x + t • (y - x)`, concavity gives
@@ -284,8 +290,12 @@ theorem add_apply_add_mul_sq_le_of_hasSubgradientWithinAt (hf : ExpConcaveOn V �
       simp only [hh, ← exp_add]
       exact exp_le_exp.2 (by nlinarith)
     have hhx : 0 < h x := exp_pos _
-    rw [mul_add, mul_one, ← mul_assoc, mul_comm (h x), mul_assoc, ← sub_le_iff_le_add',
-      le_inv_mul_iff₀ ht.1]
+    -- multiply by `t` to clear `t⁻¹`
+    refine le_of_mul_le_mul_left ?_ ht.1
+    have hexp : t * (h x * (1 + t⁻¹ * (exp (-(γ * c) * t) - 1))) =
+        t * h x + h x * (exp (-(γ * c) * t) - 1) := by
+      field_simp [ht.1.ne']
+    rw [hexp]
     nlinarith
   have hlim : Tendsto (fun t : ℝ ↦ h x * (1 + t⁻¹ * (exp (-(γ * c) * t) - 1))) (𝓝[>] 0)
       (𝓝 (h x * (1 + -(γ * c)))) := by
@@ -308,15 +318,19 @@ theorem add_apply_add_mul_sq_le_of_hasSubgradientWithinAt (hf : ExpConcaveOn V �
   exact le_of_mul_le_mul_left key hγ
 
 /-- **The quadratic lower bound of exp-concave functions** in the form of [Ora, Example 7.39].
-Let `f` be `α`-exp-concave on `V`, with `α ≥ 0`, and let `g` be a subgradient of `f` within `V`
-at `x ∈ V`. For `y ∈ V` with `|g (y - x)| ≤ B`, `f y ≥ f x + g (y - x) + β / 2 * g (y - x) ^ 2`
-with `β = min α B⁻¹ / 2`. -/
+Let `f` be `α`-exp-concave on `V` and let `g` be a subgradient of `f` within `V` at `x ∈ V`. For
+`y ∈ V` with `|g (y - x)| ≤ B`, `f y ≥ f x + g (y - x) + β / 2 * g (y - x) ^ 2` with
+`β = min α B⁻¹ / 2`. -/
 theorem add_apply_add_min_mul_sq_le_of_hasSubgradientWithinAt (hf : ExpConcaveOn V α f)
-    (hα : 0 ≤ α) (hB : 0 ≤ B) (hx : x ∈ V) (hg : HasSubgradientWithinAt f g V x) (hy : y ∈ V)
-    (hgB : |g (y - x)| ≤ B) :
+    (hx : x ∈ V) (hg : HasSubgradientWithinAt f g V x) (hy : y ∈ V) (hgB : |g (y - x)| ≤ B) :
     f x + g (y - x) + min α B⁻¹ / 4 * g (y - x) ^ 2 ≤ f y := by
-  have hmin : 0 ≤ min α B⁻¹ := le_min hα (inv_nonneg.2 hB)
-  refine (hf.mono hmin (min_le_left _ _)).add_apply_add_mul_sq_le_of_hasSubgradientWithinAt hmin
+  have hB : 0 ≤ B := (abs_nonneg _).trans hgB
+  rcases le_or_gt (min α B⁻¹) 0 with hmin | hmin
+  · -- the quadratic term is nonpositive, so the subgradient inequality suffices
+    have hsub := hg y hy
+    simp only [bregDiv] at hsub
+    nlinarith [sq_nonneg (g (y - x))]
+  refine (hf.mono hmin.le (min_le_left _ _)).add_apply_add_mul_sq_le_of_hasSubgradientWithinAt
     hx hg hy ?_
   calc min α B⁻¹ * |g (y - x)| ≤ B⁻¹ * |g (y - x)| := by gcongr; exact min_le_right _ _
     _ ≤ 1 := by
@@ -330,22 +344,22 @@ section Hessian
 
 variable {f' : E → E →L[ℝ] ℝ} {f'' : E → E →L[ℝ] E →L[ℝ] ℝ}
 
-/-- The derivative of `z ↦ exp (-(α * f z))`. -/
-private lemma hasFDerivWithinAt_exp_neg_mul {z : E} (hf : HasFDerivWithinAt f (f' z) V z) :
-    HasFDerivWithinAt (fun z ↦ exp (-(α * f z))) (-(α * exp (-(α * f z))) • f' z) V z := by
-  convert (hf.const_mul α).neg.exp using 1
+/-- The derivative of `z ↦ -exp (-(α * f z))`. -/
+private lemma hasFDerivWithinAt_neg_exp_neg_mul {z : E} (hf : HasFDerivWithinAt f (f' z) V z) :
+    HasFDerivWithinAt (fun z ↦ -exp (-(α * f z))) ((α * exp (-(α * f z))) • f' z) V z := by
+  convert (hf.const_mul α).neg.exp.neg using 1
   ext v
   simp only [smul_apply, neg_apply, smul_eq_mul, Pi.neg_apply]
   ring
 
-/-- The second derivative of `z ↦ exp (-(α * f z))`, as a quadratic form. -/
-private lemma exists_hasFDerivWithinAt_exp_neg_mul (hf : ∀ z ∈ V, HasFDerivWithinAt f (f' z) V z)
-    (hf' : HasFDerivWithinAt f' (f'' x) V x) (hx : x ∈ V) :
+/-- The second derivative of `z ↦ -exp (-(α * f z))`, as a quadratic form. -/
+private lemma exists_hasFDerivWithinAt_neg_exp_neg_mul
+    (hf : ∀ z ∈ V, HasFDerivWithinAt f (f' z) V z) (hf' : HasFDerivWithinAt f' (f'' x) V x)
+    (hx : x ∈ V) :
     ∃ D : E →L[ℝ] E →L[ℝ] ℝ,
-      HasFDerivWithinAt (fun z ↦ -(α * exp (-(α * f z))) • f' z) D V x ∧
-        ∀ v, D v v = exp (-(α * f x)) * (α ^ 2 * f' x v ^ 2 - α * f'' x v v) := by
-  refine ⟨_, (((hasFDerivWithinAt_exp_neg_mul (α := α) (hf x hx)).const_mul α).neg).smul hf',
-    fun v ↦ ?_⟩
+      HasFDerivWithinAt (fun z ↦ (α * exp (-(α * f z))) • f' z) D V x ∧
+        ∀ v, D v v = exp (-(α * f x)) * (α * f'' x v v - α ^ 2 * f' x v ^ 2) := by
+  refine ⟨_, ((((hf x hx).const_mul α).neg.exp).const_mul α).smul hf', fun v ↦ ?_⟩
   simp only [add_apply, smul_apply, ContinuousLinearMap.smulRight_apply, neg_apply, smul_eq_mul,
     Pi.neg_apply]
   ring
@@ -359,19 +373,16 @@ theorem expConcaveOn_of_hasFDerivWithinAt2_mul_apply_sq_le (hV : Convex ℝ V)
     (hf' : ∀ z ∈ V, HasFDerivWithinAt f' (f'' z) V z) (hα : 0 ≤ α)
     (h : ∀ x ∈ V, ∀ y ∈ V, ∀ z ∈ segment ℝ x y, α * f' z (y - x) ^ 2 ≤ f'' z (y - x) (y - x)) :
     ExpConcaveOn V α f := by
-  choose! D hD hDv using fun z (hz : z ∈ V) ↦ exists_hasFDerivWithinAt_exp_neg_mul (α := α) hf
-    (hf' z hz) hz
+  choose! D hD hDv using fun z (hz : z ∈ V) ↦
+    exists_hasFDerivWithinAt_neg_exp_neg_mul (α := α) hf (hf' z hz) hz
   -- `-exp (-(α * f))` is convex, by the second-order criterion
   have hconv : ConvexOn ℝ V fun z ↦ -exp (-(α * f z)) := by
     refine strongConvexOn_zero.1 (hV.strongConvexOn_of_hasFDerivWithinAt2_mul_norm_sub_sq_le
-      (f' := fun z ↦ -(-(α * exp (-(α * f z))) • f' z)) (f'' := fun z ↦ -D z)
-      (fun z hz ↦ (hasFDerivWithinAt_exp_neg_mul (hf z hz)).neg) (fun z hz ↦ (hD z hz).neg)
-      fun x hx y hy z hz ↦ ?_)
-    have hzV := hV.segment_subset hx hy hz
-    rw [neg_apply, neg_apply, hDv z hzV, zero_mul]
+      (fun z hz ↦ hasFDerivWithinAt_neg_exp_neg_mul (hf z hz)) hD fun x hx y hy z hz ↦ ?_)
+    rw [hDv z (hV.segment_subset hx hy hz), zero_mul]
     have := h x hx y hy z hz
     have he := exp_pos (-(α * f z))
-    nlinarith [mul_nonneg hα (sub_nonneg.2 this)]
+    nlinarith [mul_nonneg he.le (mul_nonneg hα (sub_nonneg.2 this))]
   exact expConcaveOn_iff.2 (neg_convexOn_iff.1 hconv)
 
 /-- **The Hessian condition of exp-concave functions**, necessity [Ora, Theorem 7.35]. Let `f` be
@@ -385,13 +396,12 @@ theorem ExpConcaveOn.mul_apply_sq_le_of_hasFDerivWithinAt2 (hfα : ExpConcaveOn 
   rw [direction_affineSpan] at hv
   obtain ⟨t, -, a, ha, b, hb, rfl⟩ := hfα.convex.exists_eq_smul_sub_of_mem_vectorSpan ⟨x, hx⟩ hv
   -- the second-order condition of the convex function `-exp (-(α * f))` at `x`
-  obtain ⟨D, hD, hDv⟩ := exists_hasFDerivWithinAt_exp_neg_mul (α := α) hf hf' hx
+  obtain ⟨D, hD, hDv⟩ := exists_hasFDerivWithinAt_neg_exp_neg_mul (α := α) hf hf' hx
   have hconv : StrongConvexOn V 0 fun z ↦ -exp (-(α * f z)) :=
     strongConvexOn_zero.2 (neg_convexOn_iff.2 (expConcaveOn_iff.1 hfα))
   have h := hconv.mul_norm_sub_sq_le_of_hasFDerivWithinAt2
-    (f' := fun z ↦ -(-(α * exp (-(α * f z))) • f' z))
-    (fun z hz ↦ (hasFDerivWithinAt_exp_neg_mul (hf z hz)).neg) hD.neg hx ha hb
-  rw [zero_mul, neg_apply, neg_apply, hDv] at h
+    (fun z hz ↦ hasFDerivWithinAt_neg_exp_neg_mul (hf z hz)) hD hx ha hb
+  rw [zero_mul, hDv] at h
   have he := exp_pos (-(α * f x))
   have hab : α * f' x (a - b) ^ 2 ≤ f'' x (a - b) (a - b) := by
     have : 0 ≤ exp (-(α * f x)) * α * (f'' x (a - b) (a - b) - α * f' x (a - b) ^ 2) := by
@@ -430,17 +440,17 @@ variable {E : Type*} [NormedAddCommGroup E] [InnerProductSpace ℝ E] {V : Set E
 
 /-- **The squared distance is exp-concave on bounded sets** [Ora, Example 7.36]: in a real inner
 product space, `x ↦ ‖x - y‖ ^ 2` is `α`-exp-concave on every convex set `V` on which
-`2 * α * ‖x - y‖ ^ 2 ≤ 1`, for `α ≥ 0`. By the Hessian criterion, the condition is
-`4 * α * ⟪x - y, v⟫ ^ 2 ≤ 2 * ‖v‖ ^ 2`, which follows from the Cauchy–Schwarz inequality. -/
+`2 * α * ‖x - y‖ ^ 2 ≤ 1`, for `α ≥ 0`. -/
 theorem expConcaveOn_norm_sub_sq (hV : Convex ℝ V) (hα : 0 ≤ α)
     (h : ∀ x ∈ V, 2 * α * ‖x - y‖ ^ 2 ≤ 1) : ExpConcaveOn V α fun x ↦ ‖x - y‖ ^ 2 := by
   have hd (z : E) : HasFDerivAt (fun x ↦ ‖x - y‖ ^ 2) (((2 : ℝ) • innerSL ℝ) (z - y)) z := by
-    have := ((hasFDerivAt_id z).sub_const y).norm_sq
-    rwa [id_eq, ContinuousLinearMap.comp_id, ← ofNat_smul_eq_nsmul ℝ 2, ← smul_apply] at this
+    convert ((hasFDerivAt_id z).sub_const y).norm_sq using 1 <;> ext <;> simp
   have hd' (z : E) :
       HasFDerivAt (fun x ↦ ((2 : ℝ) • innerSL ℝ) (x - y)) ((2 : ℝ) • innerSL ℝ) z := by
     have := ((2 : ℝ) • innerSL ℝ).hasFDerivAt.comp z ((hasFDerivAt_id z).sub_const y)
     rwa [ContinuousLinearMap.comp_id] at this
+  -- by the Hessian criterion, the condition is `4 * α * ⟪z - y, v⟫ ^ 2 ≤ 2 * ‖v‖ ^ 2`, which
+  -- follows from the Cauchy–Schwarz inequality
   refine expConcaveOn_of_hasFDerivWithinAt2_mul_apply_sq_le hV (fun z _ ↦ (hd z).hasFDerivWithinAt)
     (fun z _ ↦ (hd' z).hasFDerivWithinAt) hα fun x hx x' hx' z hz ↦ ?_
   have hzy := h z (hV.segment_subset hx hx' hz)

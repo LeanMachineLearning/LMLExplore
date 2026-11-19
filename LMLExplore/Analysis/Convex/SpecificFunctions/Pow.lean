@@ -37,17 +37,6 @@ variable {E : Type*} [AddCommGroup E] [Module ℝ E] {s : Set E} {f g : E → �
 
 namespace ConcaveOn
 
-/-- A nonnegative concave function raised to a power `p ∈ [0, 1]` is concave. -/
-theorem rpow (hf : ConcaveOn ℝ s f) (hf₀ : ∀ x ∈ s, 0 ≤ f x) (hp₀ : 0 ≤ p) (hp₁ : p ≤ 1) :
-    ConcaveOn ℝ s fun x ↦ f x ^ p := by
-  refine ⟨hf.1, fun x hx y hy a b ha hb hab ↦ ?_⟩
-  have hfx := hf₀ x hx
-  have hfy := hf₀ y hy
-  calc a • f x ^ p + b • f y ^ p ≤ (a • f x + b • f y) ^ p :=
-        (Real.concaveOn_rpow hp₀ hp₁).2 (mem_Ici.2 hfx) (mem_Ici.2 hfy) ha hb hab
-    _ ≤ f (a • x + b • y) ^ p :=
-        Real.rpow_le_rpow (by simp only [smul_eq_mul]; positivity) (hf.2 hx hy ha hb hab) hp₀
-
 /-- For nonnegative concave functions `f` and `g` and exponents `p, q ≥ 0` with `p + q = 1`, the
 weighted geometric mean `x ↦ f x ^ p * g x ^ q` is concave. -/
 theorem rpow_mul_rpow (hf : ConcaveOn ℝ s f) (hg : ConcaveOn ℝ s g) (hf₀ : ∀ x ∈ s, 0 ≤ f x)
@@ -77,5 +66,11 @@ theorem rpow_mul_rpow (hf : ConcaveOn ℝ s f) (hg : ConcaveOn ℝ s g) (hf₀ :
         · exact Real.rpow_nonneg (hf₀ _ hz) p
         · simpa only [smul_eq_mul] using hf.2 hx hy ha hb hab
         · simpa only [smul_eq_mul] using hg.2 hx hy ha hb hab
+
+/-- A nonnegative concave function raised to a power `p ∈ [0, 1]` is concave. -/
+theorem rpow (hf : ConcaveOn ℝ s f) (hf₀ : ∀ x ∈ s, 0 ≤ f x) (hp₀ : 0 ≤ p) (hp₁ : p ≤ 1) :
+    ConcaveOn ℝ s fun x ↦ f x ^ p :=
+  (hf.rpow_mul_rpow (concaveOn_const 1 hf.1) hf₀ (fun _ _ ↦ zero_le_one) hp₀ (sub_nonneg.2 hp₁)
+    (add_sub_cancel _ _)).congr fun x _ ↦ by simp only [Real.one_rpow, mul_one]
 
 end ConcaveOn
