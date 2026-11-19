@@ -25,8 +25,6 @@ namespace NNReal
 
 /-- The coercion `ℝ≥0 → ℝ` maps left neighbourhoods of `x` to left neighbourhoods of `x`. -/
 theorem tendsto_coe_nhdsLT (x : ℝ≥0) : Tendsto ((↑) : ℝ≥0 → ℝ) (𝓝[<] x) (𝓝[<] (x : ℝ)) :=
-  tendsto_nhdsWithin_of_tendsto_nhds_of_eventually_within _
-    (continuous_coe.tendsto x |>.mono_left nhdsWithin_le_nhds)
-    (eventually_nhdsWithin_of_forall fun _ hy ↦ coe_lt_coe.2 hy)
+  continuous_coe.continuousWithinAt.tendsto_nhdsWithin fun _ h ↦ coe_lt_coe.2 h
 
 end NNReal
