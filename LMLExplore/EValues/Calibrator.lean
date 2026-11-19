@@ -9,7 +9,9 @@ public import LMLExplore.EValues.PVariable
 public import Mathlib.Analysis.SpecialFunctions.Pow.NNReal
 public import Mathlib.Analysis.SpecialFunctions.Log.Basic
 public import Mathlib.Topology.Semicontinuity.Defs
+import Mathlib.Analysis.Calculus.Deriv.Inv
 import Mathlib.Analysis.SpecialFunctions.Pow.Continuity
+import Mathlib.MeasureTheory.Function.JacobianOneDim
 import LMLExplore.Analysis.SpecialFunctions.Pow.Deriv
 import Mathlib.MeasureTheory.Integral.IntervalIntegral.FundThmCalculus
 import LMLExplore.Topology.Order.LeftRightLim
@@ -50,6 +52,10 @@ the upper semicontinuous calibrators with `f 0 = ∞` and `∫₀¹ f = 1` [RW, 
   a calibrator as soon as it turns the identity of `[0, 1]`, under Lebesgue measure, into an
   e-variable.
 * `ProbabilityTheory.IsPToECalibrator.le_inv`: a calibrator is at most `x ↦ x⁻¹`.
+* `MonotoneOn.antitone_indicator_Iic_comp_inv` and
+  `ProbabilityTheory.setLIntegral_indicator_Iic_comp_inv`: through `p = x⁻¹`, a function `A`
+  monotone on `[1, ∞]` gives the antitone `p ↦ A p⁻¹` on `[0, 1]`, whose integral is
+  `∫₁^∞ A x / x ^ 2 dx`; these relate calibrators and the adjusters of [CR26, §2.4].
 * `ProbabilityTheory.isAdmissiblePToECalibrator_iff`: the characterization of admissible
   calibrators [RW, Proposition 2.5].
 * `ProbabilityTheory.IsPToECalibrator.const_mul_comp_mul` and its admissible version: the
@@ -65,6 +71,8 @@ the upper semicontinuous calibrators with `f 0 = ∞` and `∫₀¹ f = 1` [RW, 
 * A. Ramdas and R. Wang, *Hypothesis Testing with E-values*, Foundations and Trends in
   Statistics 1 (2025), arXiv:2410.23614v6 [RW]: Definition 2.3, Propositions 2.5 and 2.6, (2.1)
   and (2.2).
+* Y. J. Choe and A. Ramdas, *Combining evidence across filtrations*, arXiv:2402.09698v5, to
+  appear in J. R. Stat. Soc. Ser. B [CR26]: §2.4.
 * V. Vovk and R. Wang, *E-values: calibration, combination and applications*, Ann. Statist. 49
   (2021), arXiv:1912.06116v4 [VW21]: Proposition 2.1.
 -/
@@ -130,6 +138,41 @@ theorem IsPToECalibrator.le_inv (hf : IsPToECalibrator f) (x : ℝ≥0∞) : f x
         lintegral_mono_set (Icc_subset_Icc_right
           (ENNReal.toReal_le_of_le_ofReal zero_le_one (by simpa using hx)))
     _ ≤ 1 := hf.lintegral_le_one
+
+/-! ### Calibrators through the inversion `p = x⁻¹` -/
+
+/-- For `A` monotone on `[1, ∞]`, the function `p ↦ A p⁻¹` on `[0, 1]`, zero on `(1, ∞]`, is
+antitone: the antitonicity condition of a p-to-e calibrator [CR26, §2.4]. -/
+theorem _root_.MonotoneOn.antitone_indicator_Iic_comp_inv {A : ℝ≥0∞ → ℝ≥0∞}
+    (hA : MonotoneOn A (Ici 1)) :
+    Antitone ((Iic 1).indicator fun p ↦ A p⁻¹) := fun p q hpq ↦ by
+  by_cases hq : q ≤ 1
+  · rw [indicator_of_mem (mem_Iic.2 hq), indicator_of_mem (mem_Iic.2 (hpq.trans hq))]
+    exact hA (mem_Ici.2 (ENNReal.one_le_inv.2 hq))
+      (mem_Ici.2 (ENNReal.one_le_inv.2 (hpq.trans hq))) (ENNReal.inv_le_inv.2 hpq)
+  · simp [indicator_of_notMem (show q ∉ Iic 1 from hq)]
+
+/-- **The change of variables `p = x⁻¹`.** For every `A : ℝ≥0∞ → ℝ≥0∞`, the integral over
+`[0, 1]` of `p ↦ A p⁻¹`, zero on `(1, ∞]`, is the integral of `x ↦ A x / x ^ 2` over `(1, ∞)`.
+It exchanges the integral condition of a p-to-e calibrator `p ↦ A p⁻¹` with that of the
+adjuster `A` [CR26, §2.4]. -/
+theorem setLIntegral_indicator_Iic_comp_inv (A : ℝ≥0∞ → ℝ≥0∞) :
+    ∫⁻ x in Icc (0 : ℝ) 1, (Iic 1).indicator (fun p ↦ A p⁻¹) (ENNReal.ofReal x) =
+      ∫⁻ x in Ioi (1 : ℝ), A (ENNReal.ofReal x) / ENNReal.ofReal (x ^ 2) := by
+  have h_img : (fun x : ℝ ↦ x⁻¹) '' Ioi 1 = Ioo 0 1 := by
+    rw [image_inv_eq_inv, inv_Ioi₀ zero_lt_one, inv_one]
+  rw [← setLIntegral_congr Ioo_ae_eq_Icc, ← h_img,
+    lintegral_image_eq_lintegral_abs_deriv_mul measurableSet_Ioi
+      (fun x hx ↦ (hasDerivAt_inv (zero_lt_one.trans hx).ne').hasDerivWithinAt)
+      inv_injective.injOn]
+  refine setLIntegral_congr_fun measurableSet_Ioi fun x (hx : 1 < x) ↦ ?_
+  have hx0 : 0 < x := zero_lt_one.trans hx
+  have h_inv : (ENNReal.ofReal x⁻¹)⁻¹ = ENNReal.ofReal x := by
+    rw [ENNReal.ofReal_inv_of_pos hx0, inv_inv]
+  have h_abs : ENNReal.ofReal |-(x ^ 2)⁻¹| = (ENNReal.ofReal (x ^ 2))⁻¹ := by
+    rw [abs_neg, abs_of_pos (by positivity), ENNReal.ofReal_inv_of_pos (by positivity)]
+  rw [indicator_of_mem (mem_Iic.2 (ENNReal.ofReal_le_one.2 (inv_le_one_of_one_le₀ hx.le))),
+    h_inv, h_abs, div_eq_mul_inv, mul_comm]
 
 /-! ### Rescaling and mixtures -/
 
