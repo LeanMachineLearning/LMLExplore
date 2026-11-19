@@ -114,6 +114,7 @@ lemma expectedRegret_def {Ω : Type*} {mΩ : MeasurableSpace Ω} (μ : Measure �
   (rfl)
 
 variable {M H} {μ : Measure 𝓢} {π : ℕ → Policy 𝓢 𝓐 H} {s : ℕ → 𝓢} {K : ℕ}
+  {Ω : Type*} {mΩ : MeasurableSpace Ω} {P : Measure Ω} {X : ℕ → Ω → Policy 𝓢 𝓐 H}
 
 @[simp]
 lemma pseudoRegret_zero : M.pseudoRegret H μ π 0 = 0 := by
@@ -132,6 +133,10 @@ lemma regret_add_one : M.regret H π s (K + 1) = M.regret H π s K +
     (M.optValue H 0 (s K) -
       M.value H ((π K).toKernel fun _ ↦ measurable_of_countable _) 0 (s K)) := by
   rw [regret_def, regret_def, sum_range_succ]
+
+@[simp]
+lemma expectedRegret_zero : M.expectedRegret H μ P X 0 = 0 := by
+  simp [expectedRegret_def]
 
 /-! ### Bounds -/
 
@@ -157,6 +162,11 @@ lemma pseudoRegret_nonneg {a b : ℝ} (hM : M.RewardsIn (Set.Icc a b)) [IsFinite
   rw [pseudoRegret_eq_sum_integral_sub hM]
   exact sum_nonneg fun k _ ↦ integral_nonneg fun s ↦ sub_nonneg.2 (value_le_optValue hM 0 s)
 
+/-- For bounded rewards and a finite initial law, the expected regret is nonnegative. -/
+lemma expectedRegret_nonneg {a b : ℝ} (hM : M.RewardsIn (Set.Icc a b)) [IsFiniteMeasure μ] :
+    0 ≤ M.expectedRegret H μ P X K :=
+  integral_nonneg fun _ ↦ pseudoRegret_nonneg hM
+
 variable (hM : M.RewardsIn (Set.Icc 0 1))
 include hM
 
@@ -174,6 +184,15 @@ lemma pseudoRegret_le [IsProbabilityMeasure μ] : M.pseudoRegret H μ π K ≤ K
   refine (integral_mono_of_nonneg (.of_forall fun s ↦ (optValue_sub_value_mem_Icc hM 0 s).1)
     (integrable_const (H : ℝ)) (.of_forall fun s ↦ ?_)).trans_eq (by simp)
   simpa using (optValue_sub_value_mem_Icc hM 0 s).2
+
+/-- For rewards in `[0, 1]` and probability measures `μ` and `P`, the expected regret after `K`
+episodes is at most `K H`. -/
+lemma expectedRegret_le [IsProbabilityMeasure μ] [IsProbabilityMeasure P] :
+    M.expectedRegret H μ P X K ≤ K * H := by
+  rw [expectedRegret_def]
+  refine (integral_mono_of_nonneg (.of_forall fun _ ↦ pseudoRegret_nonneg hM)
+    (integrable_const ((K : ℝ) * H)) (.of_forall fun _ ↦ pseudoRegret_le hM)).trans_eq ?_
+  simp
 
 end Defs
 
@@ -199,6 +218,14 @@ private noncomputable def feedbackGap (M : EpisodicMDP 𝓢 𝓐) (H : ℕ) (ini
     (p : Policy 𝓢 𝓐 H × 𝓨) : ℝ :=
   M.optValue H 0 (init p.2) -
     M.value H (p.1.toKernel fun _ ↦ measurable_of_countable _) 0 (init p.2)
+
+omit [MeasurableSingletonClass 𝓐] [IsMarkovKernel κ] in
+/-- For rewards in `[0, 1]`, the gap read from a feedback lies in `[0, H]`. -/
+private lemma feedbackGap_mem_Icc (hM : M.RewardsIn (Set.Icc 0 1)) (p : Policy 𝓢 𝓐 H × 𝓨) :
+    feedbackGap M H init p ∈ Set.Icc 0 (H : ℝ) := by
+  rw [feedbackGap]
+  simpa using optValue_sub_value_mem_Icc (H := H)
+    (π := p.1.toKernel fun _ ↦ measurable_of_countable _) hM 0 (init p.2)
 
 omit [IsMarkovKernel κ] in
 private lemma measurable_feedbackGap (hinit : Measurable init) :
@@ -234,55 +261,27 @@ private lemma measureReal_le_abs_regret_sub_pseudoRegret_le_bandit
     P.real {ω | ε ≤
         |M.regret H (X · ω) (fun k ↦ init (Y k ω)) K - M.pseudoRegret H μ (X · ω) K|} ≤
       2 * Real.exp (-2 * ε ^ 2 / (K * H ^ 2)) := by
-  have h' := h.measureReal_le_abs_sum_integral_sub_bandit (g := fun _ ↦ feedbackGap M H init)
+  have h' := h.measureReal_le_abs_sum_integral_sub_le_bandit (g := fun _ ↦ feedbackGap M H init)
     (fun _ ↦ measurable_feedbackGap hinit) (a := fun _ ↦ 0) (b := fun _ ↦ (H : ℝ))
-    (fun _ p ↦ by
-      simpa [feedbackGap] using optValue_sub_value_mem_Icc (H := H)
-        (π := p.1.toKernel fun _ ↦ measurable_of_countable _) hM 0 (init p.2)) K hε
+    (fun _ ↦ feedbackGap_mem_Icc hM) K hε
   simp only [sub_zero, sum_const, card_range, nsmul_eq_mul] at h'
   simpa only [regret_sub_pseudoRegret_eq hM hinit hκ, abs_neg] using h'
 
-/-- From a tail bound `2 exp (-2 ε ^ 2 / (K H ^ 2))` to a bound with probability `1 - δ`. -/
+/-- With probability at least `1 - δ`, the regret at the realized initial states and the
+pseudo-regret differ by at most `H √(K log (2 / δ) / 2)`. -/
 private lemma le_measureReal_abs_regret_sub_pseudoRegret_le_bandit
     (hM : M.RewardsIn (Set.Icc 0 1)) (h : IsAlgEnvSeq O X Y alg (Environment.bandit κ) P)
     (hinit : Measurable init) (hκ : ∀ π, HasLaw init μ (κ π)) (K : ℕ) {δ : ℝ} (hδ : 0 < δ) :
     1 - δ ≤ P.real {ω | |M.regret H (X · ω) (fun k ↦ init (Y k ω)) K -
       M.pseudoRegret H μ (X · ω) K| ≤ H * √(K * Real.log (2 / δ) / 2)} := by
-  set D : Ω → ℝ := fun ω ↦
-    M.regret H (X · ω) (fun k ↦ init (Y k ω)) K - M.pseudoRegret H μ (X · ω) K
-  set ε := (H : ℝ) * √(K * Real.log (2 / δ) / 2)
-  rcases le_or_gt 1 δ with hδ1 | hδ1
-  · exact (sub_nonpos.2 hδ1).trans measureReal_nonneg
-  have hlog : 0 < Real.log (2 / δ) := Real.log_pos (by rw [lt_div_iff₀ hδ]; linarith)
-  have hε : 0 ≤ ε := by positivity
-  -- either `|D| ≤ ε`, or `ε ≤ |D|`, which has probability at most `δ`
-  have hu := measureReal_union_le (μ := P) {ω | |D ω| ≤ ε} {ω | ε ≤ |D ω|}
-  rw [show {ω | |D ω| ≤ ε} ∪ {ω | ε ≤ |D ω|} = Set.univ from
-    Set.eq_univ_of_forall fun ω ↦ le_total (|D ω|) ε, probReal_univ] at hu
-  have htail := measureReal_le_abs_regret_sub_pseudoRegret_le_bandit hM h hinit hκ K hε
-  rcases eq_or_ne ((K : ℝ) * H) 0 with hKH | hKH
-  · -- for `K = 0` or `H = 0`, both forms of the regret lie in `[0, K H] = {0}`
-    refine (sub_le_self _ hδ.le).trans_eq ?_
-    rw [← probReal_univ (μ := P)]
-    congr 1
-    refine (Set.eq_univ_of_forall fun ω ↦ ?_).symm
-    have h₁ := regret_le (π := (X · ω)) (s := fun k ↦ init (Y k ω)) (K := K) hM
-    have h₂ := pseudoRegret_nonneg (μ := μ) (π := (X · ω)) (K := K) hM
-    have h₃ := regret_nonneg (π := (X · ω)) (s := fun k ↦ init (Y k ω)) (K := K) hM
-    have h₄ := pseudoRegret_le (μ := μ) (π := (X · ω)) (K := K) hM
-    rw [hKH] at h₁ h₄
-    simp only [Set.mem_ofPred_eq]
-    exact (abs_sub_le_iff.2 ⟨by linarith, by linarith⟩).trans hε
-  -- at this level, the tail bound is exactly `δ`
-  have hexp : 2 * Real.exp (-2 * ε ^ 2 / (K * H ^ 2)) = δ := by
-    have hK : (K : ℝ) ≠ 0 := left_ne_zero_of_mul hKH
-    have hH : (H : ℝ) ≠ 0 := right_ne_zero_of_mul hKH
-    rw [mul_pow, Real.sq_sqrt (by positivity),
-      show -2 * (H ^ 2 * (K * Real.log (2 / δ) / 2)) / (K * H ^ 2) = -Real.log (2 / δ) by
-        field_simp,
-      Real.exp_neg, Real.exp_log (by positivity)]
-    field_simp
-  linarith
+  have h' := h.le_measureReal_abs_sum_integral_sub_le_bandit
+    (g := fun _ ↦ feedbackGap M H init) (fun _ ↦ measurable_feedbackGap hinit)
+    (a := fun _ ↦ 0) (b := fun _ ↦ (H : ℝ)) (fun _ ↦ feedbackGap_mem_Icc hM) K hδ
+  have hsqrt : √(K * H ^ 2 * Real.log (2 / δ) / 2) = H * √(K * Real.log (2 / δ) / 2) := by
+    rw [show (K : ℝ) * H ^ 2 * Real.log (2 / δ) / 2 = H ^ 2 * (K * Real.log (2 / δ) / 2) by ring,
+      Real.sqrt_mul (sq_nonneg _), Real.sqrt_sq (Nat.cast_nonneg _)]
+  simp only [sub_zero, sum_const, card_range, nsmul_eq_mul, hsqrt] at h'
+  simpa only [regret_sub_pseudoRegret_eq hM hinit hκ, abs_neg] using h'
 
 /-- Given the previous episodes, the regret at the realized initial states has the mean of the
 pseudo-regret: their expectations are equal. -/
@@ -291,13 +290,10 @@ private lemma integral_regret_bandit (hM : M.RewardsIn (Set.Icc 0 1))
     (hκ : ∀ π, HasLaw init μ (κ π)) (K : ℕ) :
     ∫ ω, M.regret H (X · ω) (fun k ↦ init (Y k ω)) K ∂P = M.expectedRegret H μ P X K := by
   have hg := measurable_feedbackGap (M := M) (H := H) hinit
-  have hbound : ∀ p, feedbackGap M H init p ∈ Set.Icc 0 (H : ℝ) := fun p ↦ by
-    simpa [feedbackGap] using optValue_sub_value_mem_Icc (H := H)
-      (π := p.1.toKernel fun _ ↦ measurable_of_countable _) hM 0 (init p.2)
   have hcd := h.hasCondDistrib_feedback_bandit
   have hint : ∀ k, Integrable (fun ω ↦ feedbackGap M H init (X k ω, Y k ω)) P := fun k ↦
     .of_mem_Icc 0 H (hg.comp ((h.measurable_action k).prodMk
-      (h.measurable_feedback k))).aemeasurable (.of_forall fun ω ↦ hbound _)
+      (h.measurable_feedback k))).aemeasurable (.of_forall fun ω ↦ feedbackGap_mem_Icc hM _)
   have hint' : ∀ k, Integrable
       (fun ω ↦ ∫ y, feedbackGap M H init (X k ω, y) ∂(κ (X k ω))) P := fun k ↦
     (hcd k).integrable_integral_comp_prodMk hg.aestronglyMeasurable (hint k)

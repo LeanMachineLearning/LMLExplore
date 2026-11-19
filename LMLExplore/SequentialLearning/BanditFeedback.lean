@@ -44,10 +44,13 @@ such as a regret at the realized feedbacks with a pseudo-regret.
   product measure `Measure.pi fun j ↦ ν (a j)` under `P[|F]`.
 * `Learning.IsAlgEnvSeq.condExp_comp_action_feedback_bandit`: the conditional expectation of
   `g (A n, Y n)` given the past and the action of round `n` is `∫ y, g (A n, y) ∂(ν (A n))`.
-* `Learning.IsAlgEnvSeq.measureReal_le_abs_sum_integral_sub_bandit`: for `g k` with values in
+* `Learning.IsAlgEnvSeq.measureReal_le_abs_sum_integral_sub_le_bandit`: for `g k` with values in
   `[a k, b k]`, the Azuma–Hoeffding bound
   `P(ε ≤ |∑ k < n, (∫ y, g k (A k, y) ∂(ν (A k)) - g k (A k, Y k))|)
     ≤ 2 exp (-2 ε ^ 2 / ∑ k < n, (b k - a k) ^ 2)`.
+* `Learning.IsAlgEnvSeq.le_measureReal_abs_sum_integral_sub_le_bandit`: its `1 - δ` form, with
+  probability at least `1 - δ` the sum of the deviations is at most
+  `√(∑ k < n, (b k - a k) ^ 2 * log (2 / δ) / 2)` in absolute value.
 -/
 
 public section
@@ -154,7 +157,7 @@ sum of the deviations of `g k (A k, Y k)` from their conditional means
 `∫ y, g k (A k, y) ∂(ν (A k))` satisfies
 `P(ε ≤ |∑ k < n, (∫ y, g k (A k, y) ∂(ν (A k)) - g k (A k, Y k))|)
   ≤ 2 exp (-2 ε ^ 2 / ∑ k < n, (b k - a k) ^ 2)`. -/
-theorem IsAlgEnvSeq.measureReal_le_abs_sum_integral_sub_bandit [IsProbabilityMeasure P]
+theorem IsAlgEnvSeq.measureReal_le_abs_sum_integral_sub_le_bandit [IsProbabilityMeasure P]
     (h : IsAlgEnvSeq O A Y alg (Environment.bandit ν) P) {g : ℕ → 𝓐 × 𝓨 → ℝ}
     (hg : ∀ k, Measurable (g k)) {a b : ℕ → ℝ} (hgab : ∀ k p, g k p ∈ Set.Icc (a k) (b k))
     (n : ℕ) {ε : ℝ} (hε : 0 ≤ ε) :
@@ -178,5 +181,52 @@ theorem IsAlgEnvSeq.measureReal_le_abs_sum_integral_sub_bandit [IsProbabilityMea
   rw [← measureReal_congr hset]
   exact LMLExplore.measureReal_le_abs_sum_condExp_sub_le hX n
     (fun k _ ↦ .of_forall fun ω ↦ hgab k _) hε
+
+/-- **Azuma–Hoeffding inequality for the feedbacks of a stochastic bandit, with probability
+`1 - δ`.** Along a run against `Environment.bandit ν`, let `g k` be measurable with values in
+`[a k, b k]`. Then for `δ > 0`, with probability at least `1 - δ`, the sum of the deviations of
+`g k (A k, Y k)` from their conditional means `∫ y, g k (A k, y) ∂(ν (A k))` is at most
+`√(∑ k < n, (b k - a k) ^ 2 * log (2 / δ) / 2)` in absolute value. -/
+theorem IsAlgEnvSeq.le_measureReal_abs_sum_integral_sub_le_bandit [IsProbabilityMeasure P]
+    (h : IsAlgEnvSeq O A Y alg (Environment.bandit ν) P) {g : ℕ → 𝓐 × 𝓨 → ℝ}
+    (hg : ∀ k, Measurable (g k)) {a b : ℕ → ℝ} (hgab : ∀ k p, g k p ∈ Set.Icc (a k) (b k))
+    (n : ℕ) {δ : ℝ} (hδ : 0 < δ) :
+    1 - δ ≤ P.real {ω |
+      |∑ k ∈ range n, (∫ y, g k (A k ω, y) ∂(ν (A k ω)) - g k (A k ω, Y k ω))| ≤
+        √((∑ k ∈ range n, (b k - a k) ^ 2) * log (2 / δ) / 2)} := by
+  set D : Ω → ℝ := fun ω ↦ ∑ k ∈ range n, (∫ y, g k (A k ω, y) ∂(ν (A k ω)) - g k (A k ω, Y k ω))
+  set S := ∑ k ∈ range n, (b k - a k) ^ 2
+  set ε := √(S * log (2 / δ) / 2)
+  rcases le_or_gt 1 δ with hδ1 | hδ1
+  · exact (sub_nonpos.2 hδ1).trans measureReal_nonneg
+  have hlog : 0 < log (2 / δ) := log_pos (by rw [lt_div_iff₀ hδ]; linarith)
+  have hS : 0 ≤ S := sum_nonneg fun k _ ↦ sq_nonneg _
+  -- either `|D| ≤ ε`, or `ε ≤ |D|`, which has probability at most `δ`
+  have hu := measureReal_union_le (μ := P) {ω | |D ω| ≤ ε} {ω | ε ≤ |D ω|}
+  rw [show {ω | |D ω| ≤ ε} ∪ {ω | ε ≤ |D ω|} = Set.univ from
+    Set.eq_univ_of_forall fun ω ↦ le_total (|D ω|) ε, probReal_univ] at hu
+  rcases hS.eq_or_lt with hS0 | hSpos
+  · -- if every range is a point, then every `g k` is constant and every deviation is `0`
+    have hba : ∀ k ∈ range n, b k = a k := fun k hk ↦ by
+      have := (sum_eq_zero_iff_of_nonneg fun k _ ↦ sq_nonneg (b k - a k)).1 hS0.symm k hk
+      linarith [pow_eq_zero_iff (n := 2) two_ne_zero |>.1 this]
+    have hga : ∀ k ∈ range n, ∀ p, g k p = a k := fun k hk p ↦
+      le_antisymm ((hgab k p).2.trans_eq (hba k hk)) (hgab k p).1
+    refine (sub_le_self _ hδ.le).trans_eq ?_
+    rw [← probReal_univ (μ := P)]
+    congr 1
+    refine (Set.eq_univ_of_forall fun ω ↦ ?_).symm
+    have hD : D ω = 0 := sum_eq_zero fun k hk ↦ by simp [hga k hk]
+    change |D ω| ≤ ε
+    rw [hD, abs_zero]
+    positivity
+  -- at this level, the tail bound is exactly `δ`
+  have hexp : 2 * exp (-2 * ε ^ 2 / S) = δ := by
+    rw [sq_sqrt (by positivity),
+      show -2 * (S * log (2 / δ) / 2) / S = -log (2 / δ) by field_simp,
+      exp_neg, exp_log (by positivity)]
+    field_simp
+  have htail := h.measureReal_le_abs_sum_integral_sub_le_bandit hg hgab n (ε := ε) (by positivity)
+  linarith
 
 end Learning

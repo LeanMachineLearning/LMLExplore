@@ -295,12 +295,13 @@ theorem qValue_le_optQValue (hM : M.RewardsIn (Set.Icc a b)) (h : ℕ) (s : 𝓢
     M.qValue H π h s a' ≤ M.optQValue H h s a' :=
   qValue_le_optQValue_of hM (value_le_optValue hM (h + 1)) s a'
 
-/-- For rewards in `[0, 1]`, the gap `V*_h s - V^π_h s` of every Markov policy `π` lies in
-`[0, H - h]`. -/
-theorem optValue_sub_value_mem_Icc (hM : M.RewardsIn (Set.Icc 0 1)) (h : ℕ) (s : 𝓢) :
-    M.optValue H h s - M.value H π h s ∈ Set.Icc 0 ((H - h : ℕ) : ℝ) :=
-  ⟨sub_nonneg.2 (value_le_optValue hM h s),
-    by linarith [optValue_le (H := H) hM h s, value_nonneg (H := H) (π := π) hM h s]⟩
+/-- For rewards in `[a, b]`, the gap `V*_h s - V^π_h s` of every Markov policy `π` lies in
+`[0, (H - h) (b - a)]`. -/
+theorem optValue_sub_value_mem_Icc (hM : M.RewardsIn (Set.Icc a b)) (h : ℕ) (s : 𝓢) :
+    M.optValue H h s - M.value H π h s ∈ Set.Icc 0 ((H - h : ℕ) * (b - a)) :=
+  ⟨sub_nonneg.2 (value_le_optValue hM h s), by
+    rw [mul_sub]
+    linarith [(optValue_mem_Icc (H := H) hM h s).2, (value_mem_Icc (H := H) (π := π) hM h s).1]⟩
 
 /-- If the values of a Markov policy `π` at the step `h + 1` are within `c` of the optimal values,
 then so are its action values at the step `h`: `V*_{h+1} - c ≤ V^π_{h+1}` gives
