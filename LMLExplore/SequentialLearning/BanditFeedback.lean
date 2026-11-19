@@ -216,9 +216,7 @@ theorem IsAlgEnvSeq.le_measureReal_abs_sum_integral_sub_le_bandit [IsProbability
     rw [← probReal_univ (μ := P)]
     congr 1
     refine (Set.eq_univ_of_forall fun ω ↦ ?_).symm
-    have hD : D ω = 0 := sum_eq_zero fun k hk ↦ by simp [hga k hk]
-    change |D ω| ≤ ε
-    rw [hD, abs_zero]
+    rw [Set.mem_ofPred_eq, sum_eq_zero fun k hk ↦ by simp [hga k hk], abs_zero]
     positivity
   -- at this level, the tail bound is exactly `δ`
   have hexp : 2 * exp (-2 * ε ^ 2 / S) = δ := by
