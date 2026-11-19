@@ -107,7 +107,8 @@ theorem mul_sum_inner_ringInverse_designOp_sqrt_smul_succ_le_log_det {V₀ : E �
   refine le_of_eq_of_le ?_ (sum_inner_ringInverse_designOp_succ_le_log_det hV₀ hV₀u _ n)
   rw [mul_sum]
   refine sum_congr rfl fun t _ ↦ ?_
-  rw [map_smul, inner_smul_left, inner_smul_right, RCLike.conj_to_real, ← mul_assoc,
-    mul_self_sqrt hμ]
+  simp only [map_smul, real_inner_smul_left, real_inner_smul_right]
+  linear_combination -⟪g t, Ring.inverse (designOp V₀ (fun s ↦ √μ • g s) (t + 1)) (g t)⟫_ℝ *
+    mul_self_sqrt hμ
 
 end LMLExplore
