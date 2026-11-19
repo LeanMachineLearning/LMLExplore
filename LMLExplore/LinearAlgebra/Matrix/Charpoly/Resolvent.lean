@@ -9,6 +9,7 @@ public import Mathlib.Analysis.Normed.Field.Lemmas
 public import Mathlib.LinearAlgebra.Matrix.Charpoly.Coeff
 public import Mathlib.LinearAlgebra.Matrix.Gershgorin
 public import Mathlib.LinearAlgebra.Matrix.NonsingularInverse
+public import Mathlib.LinearAlgebra.Matrix.Stochastic
 public import Mathlib.Topology.Algebra.Polynomial
 public import Mathlib.Topology.Order.IntermediateValue
 public import LMLExplore.LinearAlgebra.Matrix.Polynomial
@@ -54,7 +55,7 @@ stationary policies of a finite Markov decision process for all discount factors
 
 ## References
 
-* [M. L. Puterman, *Markov Decision Processes*, 1994][P], Lemma 10.1.3
+* [M. L. Puterman, *Markov Decision Processes*, 1994][P], Lemma 10.1.3, Theorem 10.1.4
 -/
 
 public section
@@ -80,6 +81,17 @@ theorem charmatrixRev_apply (i j : n) :
     M.charmatrixRev i j = (1 : Matrix n n R[X]) i j - X * C (M i j) := by
   simp [charmatrixRev]
 
+omit [Fintype n] in
+@[simp]
+theorem charmatrixRev_apply_eq (i : n) : M.charmatrixRev i i = 1 - X * C (M i i) := by
+  simp [charmatrixRev_apply]
+
+omit [Fintype n] in
+@[simp]
+theorem charmatrixRev_apply_ne {i j : n} (h : i ≠ j) :
+    M.charmatrixRev i j = -(X * C (M i j)) := by
+  simp [charmatrixRev_apply, h]
+
 @[simp]
 theorem det_charmatrixRev : M.charmatrixRev.det = M.charpolyRev := (rfl)
 
@@ -87,19 +99,17 @@ omit [Fintype n] in
 @[simp]
 theorem map_eval_charmatrixRev (a : R) : M.charmatrixRev.map (eval a) = 1 - a • M := by
   ext i j
-  rcases eq_or_ne i j with rfl | hij <;> simp [charmatrixRev_apply, *] <;> ring
+  rcases eq_or_ne i j with rfl | hij <;> simp [*] <;> ring
 
 /-- The reversed characteristic polynomial evaluated at `a` is the determinant of `1 - a • M`. -/
 theorem eval_charpolyRev_eq_det (a : R) : M.charpolyRev.eval a = (1 - a • M).det := by
-  rw [← det_charmatrixRev, ← coe_evalRingHom, RingHom.map_det, RingHom.mapMatrix_apply,
-    coe_evalRingHom, map_eval_charmatrixRev]
+  simpa using RingHom.map_det (evalRingHom a) M.charmatrixRev
 
 /-- The adjugate of `1 - a • M` is the adjugate of the polynomial matrix `1 - X • M` evaluated
 at `a`. -/
 theorem adjugate_one_sub_smul (a : R) :
     (1 - a • M).adjugate = M.charmatrixRev.adjugate.map (eval a) := by
-  rw [← map_eval_charmatrixRev, ← coe_evalRingHom, ← RingHom.mapMatrix_apply,
-    ← RingHom.mapMatrix_apply, RingHom.map_adjugate]
+  simpa using (RingHom.map_adjugate (evalRingHom a) M.charmatrixRev).symm
 
 omit [Fintype n] in
 /-- The entries of `1 - X • M` have degree at most `1`. -/
@@ -139,21 +149,22 @@ section Field
 
 variable {K : Type*} [Field K] (M : Matrix n n K)
 
-/-- **Cramer's rule for the resolvent**: every entry of `(1 - a • M)⁻¹` is a polynomial of degree
-at most `card n - 1` divided by `M.charpolyRev`, both evaluated at `a`. Both sides vanish when
+/-- **Cramer's rule for the resolvent**: every entry of `(1 - a • M)⁻¹` is an entry of the
+adjugate of `1 - X • M` divided by `M.charpolyRev`, both evaluated at `a`; the degree bound on
+the numerator is `natDegree_adjugate_charmatrixRev_apply_le`. Both sides vanish when
 `1 - a • M` is singular. -/
 theorem inv_one_sub_smul_apply (a : K) (i j : n) :
     (1 - a • M)⁻¹ i j = (M.charmatrixRev.adjugate i j).eval a / M.charpolyRev.eval a := by
-  rw [inv_def, Matrix.smul_apply, adjugate_one_sub_smul, map_apply, eval_charpolyRev_eq_det,
-    Ring.inverse_eq_inv', smul_eq_mul, div_eq_inv_mul]
+  simp [inv_def, adjugate_one_sub_smul, eval_charpolyRev_eq_det, div_eq_inv_mul]
 
-/-- Every coordinate of `(1 - a • M)⁻¹ *ᵥ v` is a polynomial of degree at most `card n - 1`
-divided by `M.charpolyRev`, both evaluated at `a`. -/
+/-- Every coordinate of `(1 - a • M)⁻¹ *ᵥ v` is a coordinate of `adjugate (1 - X • M) *ᵥ v`
+divided by `M.charpolyRev`, both evaluated at `a`; the degree bound on the numerator is
+`natDegree_adjugate_charmatrixRev_mulVec_apply_le`. -/
 theorem inv_one_sub_smul_mulVec_apply (a : K) (v : n → K) (i : n) :
     ((1 - a • M)⁻¹ *ᵥ v) i =
       ((M.charmatrixRev.adjugate *ᵥ fun j ↦ C (v j)) i).eval a / M.charpolyRev.eval a := by
-  rw [eval_adjugate_charmatrixRev_mulVec_apply, inv_def, smul_mulVec, Pi.smul_apply,
-    eval_charpolyRev_eq_det, Ring.inverse_eq_inv', smul_eq_mul, div_eq_inv_mul]
+  simp [eval_adjugate_charmatrixRev_mulVec_apply, inv_def, smul_mulVec, eval_charpolyRev_eq_det,
+    div_eq_inv_mul]
 
 end Field
 
@@ -171,13 +182,10 @@ theorem det_one_sub_smul_ne_zero {a : 𝕜} (h : ∀ i, ‖a‖ * ∑ j, ‖M i 
       ‖a‖ * (∑ j, ‖M i j‖ - ‖M i i‖) := by
     rw [← Finset.sum_erase_eq_sub (Finset.mem_univ i), Finset.mul_sum]
     refine Finset.sum_congr rfl fun j hj ↦ ?_
-    rw [Matrix.sub_apply, Matrix.one_apply_ne (Finset.ne_of_mem_erase hj).symm, zero_sub,
-      norm_neg, Matrix.smul_apply, smul_eq_mul, norm_mul]
+    simp [Matrix.one_apply_ne (Finset.ne_of_mem_erase hj).symm, norm_mul]
   have hdiag : 1 - ‖a‖ * ‖M i i‖ ≤ ‖(1 - a • M) i i‖ := by
-    rw [Matrix.sub_apply, Matrix.one_apply_eq, Matrix.smul_apply, smul_eq_mul, ← norm_mul]
-    simpa using norm_sub_norm_le (1 : 𝕜) (a * M i i)
-  rw [hoff]
-  rw [mul_sub]
+    simpa [norm_mul] using norm_sub_norm_le (1 : 𝕜) (a * M i i)
+  rw [hoff, mul_sub]
   linarith [h i]
 
 /-- If every row of `a • M` has `ℓ¹`-norm less than `1`, then `1 - a • M` is invertible. -/
@@ -195,6 +203,13 @@ omit [DecidableEq n] in
 private theorem mul_sum_norm_lt_one (hM : ∀ i, ∑ j, ‖M i j‖ ≤ 1) {a : 𝕜} (ha : ‖a‖ < 1) (i : n) :
     ‖a‖ * ∑ j, ‖M i j‖ < 1 :=
   (mul_le_of_le_one_right (norm_nonneg a) (hM i)).trans_lt ha
+
+/-- The rows of a real row-stochastic matrix have `ℓ¹`-norm `1`, so the results below with the
+hypothesis `∀ i, ∑ j, ‖P i j‖ ≤ 1` apply to it. -/
+theorem sum_norm_row_of_mem_rowStochastic {P : Matrix n n ℝ} (hP : P ∈ rowStochastic ℝ n)
+    (i : n) : ∑ j, ‖P i j‖ = 1 := by
+  simp_rw [Real.norm_of_nonneg (nonneg_of_mem_rowStochastic hP)]
+  exact sum_row_of_mem_rowStochastic hP i
 
 /-- The coordinates of `(1 - a • M)⁻¹ *ᵥ v` are continuous in `a` on the open unit ball when
 every row of `M` has `ℓ¹`-norm at most `1`. -/
@@ -222,8 +237,8 @@ theorem eqOn_or_finite_setOf_inv_one_sub_smul_mulVec_apply_eq {N : Matrix n n �
     rw [mem_ball_zero_iff] at ha
     rw [inv_one_sub_smul_mulVec_apply, inv_one_sub_smul_mulVec_apply,
       div_eq_div_iff (eval_charpolyRev_ne_zero (mul_sum_norm_lt_one hM ha))
-        (eval_charpolyRev_ne_zero (mul_sum_norm_lt_one hN ha)), IsRoot,
-      eval_sub, eval_mul, eval_mul, sub_eq_zero]
+        (eval_charpolyRev_ne_zero (mul_sum_norm_lt_one hN ha))]
+    simp [p, q, sub_eq_zero]
   by_cases hD : p * N.charpolyRev - q * M.charpolyRev = 0
   · exact Or.inl fun a ha ↦ (key a ha).2 (by simp [hD])
   · exact Or.inr <| (finite_setOfPred_isRoot hD).subset fun a ha ↦ (key a ha.1).1 ha.2
@@ -251,8 +266,8 @@ theorem eventually_trichotomy_inv_one_sub_smul_mulVec_apply {M N : Matrix n n �
   obtain ⟨l, hl, hsub⟩ : ∃ l ∈ Iio (1 : ℝ), Ioo l 1 ⊆ Ioo (-1) 1 ∩
       {a | a ∉ {a ∈ Metric.ball (0 : ℝ) 1 | f a = g a}} := by
     refine mem_nhdsLT_iff_exists_Ioo_subset.1 (inter_mem (Ioo_mem_nhdsLT h1) ?_)
-    refine mem_nhdsWithin_of_mem_nhds (h.isClosed.isOpen_compl.mem_nhds fun h1 ↦ ?_)
-    simp [Real.norm_eq_abs] at h1
+    exact mem_nhdsWithin_of_mem_nhds
+      (h.isClosed.isOpen_compl.mem_nhds fun h1mem ↦ by simpa using h1mem.1)
   have hne : ∀ γ ∈ Ioo l 1, f γ ≠ g γ := fun γ hγ hfg ↦
     (hsub hγ).2 ⟨hball ▸ (hsub hγ).1, hfg⟩
   have hcont : ∀ {P : Matrix n n ℝ} (_ : ∀ i, ∑ j, ‖P i j‖ ≤ 1) (u : n → ℝ),
