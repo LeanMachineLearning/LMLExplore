@@ -91,8 +91,8 @@ theorem hasSum_neg_pow_smul_pow_succ {𝕜 R : Type*} [NormedField 𝕜] [Normed
   have hx : ‖-(u • a)‖ < 1 := by
     rw [norm_neg]
     exact (norm_smul_le u a).trans_lt h
-  rw [← sub_neg_eq_add, ← geom_series_eq_inverse _ hx]
-  refine ((summable_geometric_of_norm_lt_one hx).hasSum.mul_left a).congr_fun fun n ↦ ?_
+  rw [← sub_neg_eq_add]
+  refine ((hasSum_geom_series_inverse _ hx).mul_left a).congr_fun fun n ↦ ?_
   rw [← neg_smul, smul_pow, mul_smul_comm, pow_succ']
 
 /-- In a normed algebra with summable geometric series, `a` times the Neumann series of

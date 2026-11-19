@@ -154,7 +154,6 @@ theorem hasSum_pow_smul_pow (hP : P ∈ rowStochastic ℝ S) {γ : ℝ} (hγ : |
       hγ
   rw [← hasSum_toContinuousLinAlgEquiv'_iff]
   simp only [map_smul, map_pow, toContinuousLinAlgEquiv'_inv, map_sub, map_one, ← smul_pow]
-  rw [← geom_series_eq_inverse _ hT]
-  exact (summable_geometric_of_norm_lt_one hT).hasSum
+  exact hasSum_geom_series_inverse _ hT
 
 end Matrix
