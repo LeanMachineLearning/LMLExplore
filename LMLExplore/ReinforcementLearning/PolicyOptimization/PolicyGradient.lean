@@ -77,41 +77,11 @@ namespace Learning.MDP
 variable {𝓢 𝓐 : Type*} {m𝓢 : MeasurableSpace 𝓢} {m𝓐 : MeasurableSpace 𝓐} [Fintype 𝓐]
   [MeasurableSingletonClass 𝓐] {M : MDP 𝓢 𝓐 ℝ} {γ : ℝ≥0} {C : ℝ}
 
-/-- The integral of the advantage of a stationary policy `π` against another policy `ρ` at the
-state `s` is `∑ a, (ρ {a} - π {a}) * (Q^π (s, a) - b)` for every constant `b`. -/
-private lemma integral_advantage_eq_sum (hγ : γ < 1) (hR : ∀ p, ∀ᵐ x ∂(M.R p), |x| ≤ C)
-    (π ρ : Kernel 𝓢 𝓐) [IsMarkovKernel π] [IsMarkovKernel ρ] (s : 𝓢) (b : ℝ) :
-    ∫ a, M.advantage γ π (s, a) ∂(ρ s) =
-      ∑ a, ((ρ s).real {a} - (π s).real {a}) * (M.qValue γ π (s, a) - b) := by
-  have hA := integral_advantage (M := M) (π := π) hγ hR s
-  have hρ : ∑ a, (ρ s).real {a} = 1 := by simp
-  have hπ : ∑ a, (π s).real {a} = 1 := by simp
-  rw [integral_fintype .of_finite] at hA ⊢
-  simp only [advantage_def, smul_eq_mul, mul_sub, sub_mul, Finset.sum_sub_distrib,
-    ← Finset.sum_mul] at hA ⊢
-  rw [hρ, hπ] at *
-  linarith
-
 variable {E : Type*} [NormedAddCommGroup E] {π : E → Kernel 𝓢 𝓐} [∀ θ, IsMarkovKernel (π θ)]
   {t : Set E} {θ : E}
 
 variable [Finite 𝓢] [Nonempty 𝓢] [MeasurableSingletonClass 𝓢] {μ : Measure 𝓢}
   [IsProbabilityMeasure μ]
-
-omit [Fintype 𝓐] in
-/-- The probability of a state under the state occupancy measure of `π θ'` is continuous at `θ`
-within `t`, as soon as each action probability of `π θ'` is. -/
-private lemma continuousWithinAt_measureReal_fst_occupancy [Finite 𝓐] (hγ : γ < 1)
-    (hπ : ∀ s a, ContinuousWithinAt (fun θ' ↦ (π θ' s).real {a}) t θ) (s : 𝓢) :
-    ContinuousWithinAt
-      (fun θ' ↦ (M.occupancy γ (Algorithm.markov fun _ ↦ π θ') μ).fst.real {s}) t θ := by
-  have := fun θ' ↦ isProbabilityMeasure_occupancy (M := M)
-    (alg := Algorithm.markov fun _ ↦ π θ') (μ := μ) hγ
-  refine tendsto_iff_norm_sub_tendsto_zero.2 (squeeze_zero (fun _ ↦ norm_nonneg _)
-    (fun θ' ↦ abs_measureReal_sub_measureReal_le_tvDist_div_two (by simp)
-      (measurableSet_singleton s)) ?_)
-  simpa using ((tendsto_tvDist_fst_occupancy hγ fun s ↦
-    tendsto_tvDist_of_tendsto_measureReal_singleton fun a ↦ (hπ s a).tendsto).div_const 2)
 
 variable [NormedSpace ℝ E] {π' : 𝓢 → 𝓐 → E →L[ℝ] ℝ}
 
@@ -138,13 +108,13 @@ theorem hasFDerivWithinAt_integral_value_baseline (hγ : γ < 1)
     rw [← sub_eq_iff_eq_add', integral_value_sub_integral_value hγ hR (π θ) (π θ'),
       integral_fintype .of_finite]
     refine congrArg _ (Finset.sum_congr rfl fun s _ ↦ ?_)
-    rw [integral_advantage_eq_sum hγ hR (π θ) (π θ') s (b s)]
+    rw [integral_advantage_eq_sum hγ hR (π θ') s (b s)]
   have hg (s : 𝓢) : HasFDerivWithinAt (g s) (∑ a, (M.qValue γ (π θ) (s, a) - b s) • π' s a)
       t θ :=
     HasFDerivWithinAt.fun_sum fun a _ ↦ ((hπ s a).sub_const _).mul_const _
   have hg0 (s : 𝓢) : g s θ = 0 := by simp [g]
   have hd (s : 𝓢) : ContinuousWithinAt (fun θ' ↦ (d θ').real {s}) t θ :=
-    continuousWithinAt_measureReal_fst_occupancy hγ (fun s a ↦ (hπ s a).continuousWithinAt) s
+    tendsto_measureReal_fst_occupancy hγ (fun s a ↦ (hπ s a).continuousWithinAt.tendsto) s
   have hsum := (HasFDerivWithinAt.fun_sum (u := Finset.univ) fun s _ ↦
     (hg s).smul_of_eq_zero (hg0 s) (hd s)).const_mul (1 - γ : ℝ)⁻¹
   rw [integral_fintype .of_finite]

@@ -67,6 +67,8 @@ the occupancy measure by `O(α)`, the estimate behind the analysis of conservati
   within `ε / (1 - γ)`, and state marginals within `γ * ε / (1 - γ)`;
   `Learning.MDP.tendsto_tvDist_occupancy`, `Learning.MDP.tendsto_tvDist_fst_occupancy`: hence, on a
   finite state space, they depend continuously on the policy in total variation;
+  `Learning.MDP.tendsto_measureReal_fst_occupancy`: on finite state and action spaces, the state
+  occupancies are continuous in the action probabilities;
 * `Learning.MDP.tvDist_fst_occupancy_le_of_mixture`, `Learning.MDP.tvDist_occupancy_le_of_mixture`:
   the policy-mixture lemma [AJKS, Lemma 14.1].
 
@@ -388,6 +390,25 @@ theorem tendsto_tvDist_fst_occupancy (hγ : γ < 1)
       (M.occupancy γ (Algorithm.markov fun _ ↦ π) μ).fst) l (𝓝 0) := by
   refine squeeze_zero (fun _ ↦ tvDist_nonneg) (fun i ↦ tvDist_fst_occupancy_le_mul hγ) ?_
   simpa using (tendsto_tvDist_occupancy hγ h).const_mul (γ : ℝ)
+
+/-- **Continuity of state occupancies in the action probabilities**: on finite state and action
+spaces with measurable singletons, if the action probabilities `ρ i s {a}` of the stationary
+policies `ρ i` converge to those of `π` along a filter, then for `γ < 1` the probability of every
+state under the state marginal of the occupancy measure of `ρ i` from `μ` converges to its
+probability under that of `π`. -/
+theorem tendsto_measureReal_fst_occupancy [Finite 𝓐] [MeasurableSingletonClass 𝓐]
+    [MeasurableSingletonClass 𝓢] (hγ : γ < 1)
+    (h : ∀ s a, Tendsto (fun i ↦ (ρ i s).real {a}) l (𝓝 ((π s).real {a}))) (s : 𝓢) :
+    Tendsto (fun i ↦ (M.occupancy γ (Algorithm.markov fun _ ↦ ρ i) μ).fst.real {s}) l
+      (𝓝 ((M.occupancy γ (Algorithm.markov fun _ ↦ π) μ).fst.real {s})) := by
+  have := fun i ↦ isProbabilityMeasure_occupancy (M := M)
+    (alg := Algorithm.markov fun _ ↦ ρ i) (μ := μ) hγ
+  have := isProbabilityMeasure_occupancy (M := M) (alg := Algorithm.markov fun _ ↦ π) (μ := μ) hγ
+  refine tendsto_iff_norm_sub_tendsto_zero.2 (squeeze_zero (fun _ ↦ norm_nonneg _)
+    (fun i ↦ abs_measureReal_sub_measureReal_le_tvDist_div_two (by simp)
+      (measurableSet_singleton s)) ?_)
+  simpa using ((tendsto_tvDist_fst_occupancy hγ fun s ↦
+    tendsto_tvDist_of_tendsto_measureReal_singleton (h s)).div_const 2)
 
 end Continuity
 

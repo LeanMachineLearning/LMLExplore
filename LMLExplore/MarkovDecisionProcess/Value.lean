@@ -48,7 +48,9 @@ characterizes the largest such value.
   nonnegative mean rewards.
 * `Learning.MDP.value_eq_policyReward_add`: the evaluation equation `v^π = r_π + γ P_π v^π`.
 * `Learning.MDP.integral_qValue`: `v^π s = ∫ a, Q^π (s, a) ∂(π s)`, and
-  `Learning.MDP.integral_advantage`: the advantage has mean zero under `π`.
+  `Learning.MDP.integral_advantage`: the advantage has mean zero under `π`;
+  `Learning.MDP.integral_advantage_eq_sum`: on a finite action space, its mean under another
+  policy `ρ` is `∑ a, (ρ s {a} - π s {a}) * (Q^π (s, a) - b)` for every constant `b`.
 * `Learning.MDP.qValue_eq_meanReward_add`, `Learning.MDP.qValue_eq_integral_resolvent`: the
   evaluation equation `Q^π = r + γ P^π_SA Q^π` for the state-action kernel `P^π_SA` of `π`, and
   `Q^π = R_γ(P^π_SA) r`.
@@ -352,6 +354,22 @@ theorem integral_advantage (hγ : γ < 1) (hR : ∀ p, ∀ᵐ x ∂(M.R p), |x| 
   simp_rw [advantage_def]
   rw [integral_sub (integrable_qValue_prodMk_left hγ hR s _) (integrable_const _),
     integral_qValue hγ hR, integral_const, probReal_univ, one_smul, sub_self]
+
+/-- On a finite action space, with bounded rewards and `γ < 1`, the integral of the advantage of
+a stationary policy `π` against another policy `ρ` at the state `s` is
+`∑ a, (ρ s {a} - π s {a}) * (Q^π (s, a) - b)` for every constant `b`. -/
+theorem integral_advantage_eq_sum [Fintype 𝓐] [MeasurableSingletonClass 𝓐] (hγ : γ < 1)
+    (hR : ∀ p, ∀ᵐ x ∂(M.R p), |x| ≤ C) (ρ : Kernel 𝓢 𝓐) [IsMarkovKernel ρ] (s : 𝓢) (b : ℝ) :
+    ∫ a, M.advantage γ π (s, a) ∂(ρ s) =
+      ∑ a, ((ρ s).real {a} - (π s).real {a}) * (M.qValue γ π (s, a) - b) := by
+  have hA := integral_advantage (M := M) (π := π) hγ hR s
+  have hρ : ∑ a, (ρ s).real {a} = 1 := by simp
+  have hπ : ∑ a, (π s).real {a} = 1 := by simp
+  rw [integral_fintype .of_finite] at hA ⊢
+  simp only [advantage_def, smul_eq_mul, mul_sub, sub_mul, Finset.sum_sub_distrib,
+    ← Finset.sum_mul] at hA ⊢
+  rw [hρ, hπ] at *
+  linarith
 
 end QValue
 

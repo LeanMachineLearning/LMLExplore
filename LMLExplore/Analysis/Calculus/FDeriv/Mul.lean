@@ -17,6 +17,8 @@ vanishes at the point `x`, the term `c' • f x` disappears, and differentiabili
 longer needed: if `c` is only continuous at `x` and `f x = 0`, then `c • f` has derivative
 `c x • f'` at `x`. Indeed `c y • f y - c x • f' (y - x)` is
 `c x • (f y - f' (y - x)) + (c y - c x) • f y`, where `f y = O(y - x)` and `c y - c x = o(1)`.
+As in Mathlib's product rule `HasFDerivWithinAt.smul`, the factor `c` may take values in the base
+field `𝕜` or in a normed algebra `𝕜'` over it acting on `F`.
 
 This is how a derivative is read off an identity `g y - g x = ∑ i, c i y • f i y` in which the
 weights `c i` are only known to be continuous and the factors `f i` vanish at `x`. In the policy
@@ -35,8 +37,9 @@ public section
 open Asymptotics Filter Topology
 
 variable {𝕜 : Type*} [NontriviallyNormedField 𝕜] {E F : Type*} [NormedAddCommGroup E]
-  [NormedSpace 𝕜 E] [NormedAddCommGroup F] [NormedSpace 𝕜 F] {c : E → 𝕜} {f : E → F}
-  {f' : E →L[𝕜] F} {s : Set E} {x : E}
+  [NormedSpace 𝕜 E] [NormedAddCommGroup F] [NormedSpace 𝕜 F] {𝕜' : Type*} [NormedRing 𝕜']
+  [NormedAlgebra 𝕜 𝕜'] [Module 𝕜' F] [IsBoundedSMul 𝕜' F] [IsScalarTower 𝕜 𝕜' F] {c : E → 𝕜'}
+  {f : E → F} {f' : E →L[𝕜] F} {s : Set E} {x : E}
 
 /-- **Product rule with a continuous factor**: if `f` has derivative `f'` at `x` within `s` and
 vanishes at `x`, and `c` is continuous at `x` within `s`, then `fun y ↦ c y • f y` has derivative
