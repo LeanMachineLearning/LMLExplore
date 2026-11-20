@@ -164,8 +164,9 @@ theorem maxLogGrowth_add_le (Q₁ : Measure 𝓧) [IsProbabilityMeasure Q₁]
   calc maxLogGrowth Q₁ S₁ m + maxLogGrowth Q₁ S₁ n
   _ = maxUtility ((Measure.pi fun _ : Fin m ↦ Q₁).prod (Measure.pi fun _ : Fin n ↦ Q₁))
       (Set.image2 Measure.prod ((fun P ↦ Measure.pi fun _ : Fin m ↦ P) '' S₁)
-        ((fun P ↦ Measure.pi fun _ : Fin n ↦ P) '' S₁)) logUtility :=
-    (maxUtility_prod_eq_add _ _ (measure_univ_le_one_of_mem_sampleNull hS₁ m)
+        ((fun P ↦ Measure.pi fun _ : Fin n ↦ P) '' S₁)) logUtility := by
+    rw [maxLogGrowth_def, maxLogGrowth_def]
+    exact (maxUtility_prod_eq_add _ _ (measure_univ_le_one_of_mem_sampleNull hS₁ m)
       (measure_univ_le_one_of_mem_sampleNull hS₁ n)).symm
   _ ≤ maxUtility ((Measure.pi fun _ : Fin (m + n) ↦ Q₁).map e)
       {μ.map e | μ ∈ (fun P ↦ Measure.pi fun _ : Fin (m + n) ↦ P) '' S₁} logUtility := by
