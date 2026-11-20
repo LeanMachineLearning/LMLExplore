@@ -6,6 +6,7 @@ Authors: LMLExplore contributors
 module
 
 public import Statlib.EValues.RIPr
+public import LMLExplore.EValues.EVariable
 public import LMLExplore.MeasureTheory.Integral.Lebesgue.Add
 
 /-!
@@ -106,7 +107,7 @@ theorem upperExp_union : upperExp (S ∪ T) X = max (upperExp S X) (upperExp T X
 /-- E-variables are the measurable functions of upper expectation at most one, for every null. -/
 theorem isEVar_iff_upperExp_le_one : IsEVar X S ↔ Measurable X ∧ upperExp S X ≤ 1 := by
   rw [upperExp_le_iff]
-  exact ⟨fun h ↦ ⟨h.measurable, fun _ hP ↦ h.lintegral_le_one hP⟩, fun h ↦ ⟨h.1, h.2⟩⟩
+  exact isEVar_iff_lintegral_le_one
 
 theorem IsEVar.upperExp_le_one (hX : IsEVar X S) : upperExp S X ≤ 1 :=
   (isEVar_iff_upperExp_le_one.1 hX).2
