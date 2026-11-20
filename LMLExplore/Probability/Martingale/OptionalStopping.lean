@@ -5,6 +5,7 @@ Authors: LMLExplore contributors
 -/
 module
 
+public import LMLExplore.MeasureTheory.Integral.Lebesgue.Add
 public import LMLExplore.Probability.Martingale.TestSupermartingale
 public import LMLExplore.Probability.Process.Stopping
 public import LMLExplore.Probability.Process.StoppedValue
@@ -200,15 +201,11 @@ theorem setLIntegral_stoppedValue_le (hM : IsENNSupermartingale M ℱ S) (hP : P
       (fun ω ↦ by exact_mod_cast le_min (hjτ ω) hjN) (fun ω ↦ by exact_mod_cast min_le_right _ _)
       (hσ.le_measurableSpace_of_const_le (fun _ ↦ (Nat.cast_withTop j).ge) s hs)
     rwa [stoppedValueLimsup_natCast, stoppedValueLimsup_const] at h
-  have hlim (ω : Ω) : liminf (fun N ↦ M (min (τ ω) N) ω) atTop = M (τ ω) ω := by
-    refine (tendsto_const_nhds.congr' ?_).liminf_eq
-    filter_upwards [eventually_ge_atTop (τ ω)] with N hN
-    rw [min_eq_left hN]
-  calc ∫⁻ ω in s, M (τ ω) ω ∂P = ∫⁻ ω in s, liminf (fun N ↦ M (min (τ ω) N) ω) atTop ∂P := by
-        simp_rw [hlim]
-    _ ≤ liminf (fun N ↦ ∫⁻ ω in s, M (min (τ ω) N) ω ∂P) atTop :=
-        lintegral_liminf_le fun N ↦ hM.adapted.measurable_apply_stoppingTime (hτ.natCast_min N)
-    _ ≤ _ := liminf_le_of_frequently_le' hN.frequently
+  refine lintegral_le_of_tendsto_of_eventually_le (l := atTop) (f := fun N ω ↦ M (min (τ ω) N) ω)
+    (fun N ↦ (hM.adapted.measurable_apply_stoppingTime (hτ.natCast_min N)).aemeasurable)
+    (ae_of_all _ fun ω ↦ tendsto_const_nhds.congr' ?_) hN
+  filter_upwards [eventually_ge_atTop (τ ω)] with N hN
+  rw [min_eq_left hN]
 
 /-- **Optional stopping.** For an `ℝ≥0∞`-valued supermartingale with finite initial expectation
 under a finite measure, stopping times `σ ≤ τ` with values in `WithTop ℕ` and a set `s`
