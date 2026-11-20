@@ -42,6 +42,9 @@ version for bounded stopping times, under integrability. Convergence is derived 
   over `ℱ n`-measurable sets are at most those of `M n`.
 * `ProbabilityTheory.IsENNSupermartingale.setLIntegral_stoppedValueLimsup_le_of_le_const`: optional
   stopping for bounded stopping times, for every `ℝ≥0∞`-valued supermartingale.
+* `ProbabilityTheory.IsENNSupermartingale.setLIntegral_stoppedValue_le`: optional stopping from a
+  fixed time to a stopping time with values in `ℕ`, for every `ℝ≥0∞`-valued supermartingale and
+  every measure.
 * `ProbabilityTheory.IsENNSupermartingale.setLIntegral_stoppedValueLimsup_le`: optional stopping for
   arbitrary stopping times with values in `WithTop ℕ`.
 * `ProbabilityTheory.IsTestSupermartingale.lintegral_limsup_le_one`: the almost sure limit of a
@@ -179,6 +182,33 @@ theorem setLIntegral_stoppedValueLimsup_le_of_le_const (hM : IsENNSupermartingal
     simp only [g, min_eq_left (hτN _), max_eq_right (hστ _)]
   rw [← hg0, ← hgN]
   exact antitone_nat_of_succ_le (f := fun k ↦ ∫⁻ ω in s, g k ω ∂P) hstep N.zero_le
+
+/-- **Optional stopping at finite stopping times.** For a stopping time `τ` with values in `ℕ` and
+`j ≤ τ`, and an `ℱ j`-measurable set `s`, the set integral over `s` of an `ℝ≥0∞`-valued
+supermartingale at `τ` is at most its set integral at time `j`. The stopping time need not be
+bounded, and neither the measure nor the process needs to be integrable. -/
+theorem setLIntegral_stoppedValue_le (hM : IsENNSupermartingale M ℱ S) (hP : P ∈ S) {j : ℕ}
+    {τ : Ω → ℕ} (hτ : IsStoppingTime ℱ fun ω ↦ (τ ω : WithTop ℕ)) (hjτ : ∀ ω, j ≤ τ ω)
+    (hs : MeasurableSet[ℱ j] s) :
+    ∫⁻ ω in s, M (τ ω) ω ∂P ≤ ∫⁻ ω in s, M j ω ∂P := by
+  have hσ : IsStoppingTime ℱ fun _ ↦ (j : WithTop ℕ) := isStoppingTime_natCast j
+  -- bounded case at `min τ N` for `N ≥ j`, then Fatou's lemma: `M (min τ N)` is eventually
+  -- `M τ` at every point
+  have hN : ∀ᶠ N in atTop, ∫⁻ ω in s, M (min (τ ω) N) ω ∂P ≤ ∫⁻ ω in s, M j ω ∂P := by
+    filter_upwards [eventually_ge_atTop j] with N hjN
+    have h := hM.setLIntegral_stoppedValueLimsup_le_of_le_const hP hσ (hτ.natCast_min N)
+      (fun ω ↦ by exact_mod_cast le_min (hjτ ω) hjN) (fun ω ↦ by exact_mod_cast min_le_right _ _)
+      (hσ.le_measurableSpace_of_const_le (fun _ ↦ (Nat.cast_withTop j).ge) s hs)
+    rwa [stoppedValueLimsup_natCast, stoppedValueLimsup_const] at h
+  have hlim (ω : Ω) : liminf (fun N ↦ M (min (τ ω) N) ω) atTop = M (τ ω) ω := by
+    refine (tendsto_const_nhds.congr' ?_).liminf_eq
+    filter_upwards [eventually_ge_atTop (τ ω)] with N hN
+    rw [min_eq_left hN]
+  calc ∫⁻ ω in s, M (τ ω) ω ∂P = ∫⁻ ω in s, liminf (fun N ↦ M (min (τ ω) N) ω) atTop ∂P := by
+        simp_rw [hlim]
+    _ ≤ liminf (fun N ↦ ∫⁻ ω in s, M (min (τ ω) N) ω ∂P) atTop :=
+        lintegral_liminf_le fun N ↦ hM.adapted.measurable_apply_stoppingTime (hτ.natCast_min N)
+    _ ≤ _ := liminf_le_of_frequently_le' hN.frequently
 
 /-- **Optional stopping.** For an `ℝ≥0∞`-valued supermartingale with finite initial expectation
 under a finite measure, stopping times `σ ≤ τ` with values in `WithTop ℕ` and a set `s`
