@@ -19,9 +19,9 @@ of measures, with no domination: the quasi-sure filter of a dominated null is th
 everywhere filter of a dominating mixture, but no such measure exists in general.
 
 E-variables, p-variables, conditional e-variables, test supermartingales and e-processes depend on
-their argument only up to quasi-sure equality, and the first three and e-processes are solid in
-the quasi-sure order. This file states those congruence and monotonicity lemmas with the
-quasi-sure filter.
+their argument only up to quasi-sure equality. E-variables, conditional e-variables and e-processes
+are solid (closed downward) in the quasi-sure order, and p-variables are closed upward in it. This
+file states those congruence and monotonicity lemmas with the quasi-sure filter.
 
 ## Main definitions
 
@@ -66,10 +66,12 @@ of `S` (`eventually_quasiSure_iff`). -/
 def quasiSure (S : Set (Measure Ω)) : Filter Ω :=
   ⨆ P ∈ S, ae P
 
+@[simp]
 theorem eventually_quasiSure_iff {p : Ω → Prop} :
     (∀ᶠ ω in quasiSure S, p ω) ↔ ∀ P ∈ S, ∀ᵐ ω ∂P, p ω := by
   simp only [quasiSure, eventually_iSup]
 
+@[simp]
 theorem mem_quasiSure_iff {s : Set Ω} : s ∈ quasiSure S ↔ ∀ P ∈ S, s ∈ ae P :=
   eventually_quasiSure_iff
 
@@ -81,16 +83,22 @@ theorem eventuallyLE_quasiSure_iff {β : Type*} [LE β] {f g : Ω → β} :
     f ≤ᶠ[quasiSure S] g ↔ ∀ P ∈ S, f ≤ᵐ[P] g :=
   eventually_quasiSure_iff
 
-/-- The almost everywhere filter of a member is coarser than the quasi-sure filter. -/
+/-- The almost everywhere filter of a member is finer than the quasi-sure filter: a quasi-sure
+property holds almost surely under each member. -/
 theorem ae_le_quasiSure (hP : P ∈ S) : ae P ≤ quasiSure S :=
   le_biSup ae hP
+
+/-- The universal property of the quasi-sure filter as a supremum: it is finer than a filter `f`
+exactly when the almost everywhere filter of every member is. -/
+theorem quasiSure_le_iff {f : Filter Ω} : quasiSure S ≤ f ↔ ∀ P ∈ S, ae P ≤ f :=
+  iSup₂_le_iff
 
 /-- A property that holds quasi-surely holds almost surely under every member. -/
 theorem ae_of_eventually_quasiSure {p : Ω → Prop} (h : ∀ᶠ ω in quasiSure S, p ω) (hP : P ∈ S) :
     ∀ᵐ ω ∂P, p ω :=
   eventually_quasiSure_iff.1 h P hP
 
-/-- A larger null has a finer quasi-sure filter: fewer properties hold quasi-surely. -/
+/-- A larger null has a coarser (larger) quasi-sure filter: fewer properties hold quasi-surely. -/
 @[gcongr]
 theorem quasiSure_mono (hST : S ⊆ T) : quasiSure S ≤ quasiSure T :=
   biSup_mono fun _ hP ↦ hST hP

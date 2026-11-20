@@ -125,6 +125,7 @@ variable [MeasurableSpace Ω] {𝓔 𝓕 : Set (Ω → ℝ≥0∞)} {S : Set (Me
 def polarNull (𝓔 : Set (Ω → ℝ≥0∞)) : Set (Measure Ω) :=
   {μ | ∀ X ∈ 𝓔, ∫⁻ ω, X ω ∂μ ≤ 1}
 
+@[simp]
 theorem mem_polarNull_iff : μ ∈ polarNull 𝓔 ↔ ∀ X ∈ 𝓔, ∫⁻ ω, X ω ∂μ ≤ 1 :=
   Iff.rfl
 

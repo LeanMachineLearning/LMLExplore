@@ -233,7 +233,7 @@ theorem ae_eventually_log_le_log_numeraire_add (Q₁ : Measure 𝓧)
   -- Markov's inequality and the Borel–Cantelli lemma for the ratio to the numeraire
   filter_upwards [ae_eventually_lt_exp_of_lintegral_le Q₁ (F := fun n x ↦ M n x / E n x)
     (fun n ↦ ((hM n).measurable.div (measurable_numeraire _ _)).aemeasurable) ENNReal.one_ne_top
-    (fun n ↦ lintegral_div_numeraire_le_one _ (measure_univ_le_one_of_mem_image_pi hS₁ n) (hM n))
+    (fun n ↦ lintegral_div_numeraire_le_one _ (measure_univ_le_one_of_mem_sampleNull hS₁ n) (hM n))
     hε] with ω hω
   filter_upwards [hω] with n hn
   exact ENNReal.log_le_log_add_of_div_le hn.le
@@ -288,7 +288,8 @@ theorem exists_ae_eventually_mul_le_log_seqBlockProd_numeraire (Q₁ : Measure �
   set m := k + 1
   have hm : m ≠ 0 := k.succ_ne_zero
   have hm0 : (0 : ℝ) < m := by exact_mod_cast Nat.pos_of_ne_zero hm
-  have hfin := measure_univ_le_one_of_mem_image_pi hS₁ m
+  have hfin : ∀ μ ∈ (fun P ↦ Measure.pi fun _ : Fin m ↦ P) '' S₁, μ Set.univ ≤ 1 :=
+    measure_univ_le_one_of_mem_sampleNull hS₁ m
   set Em := numeraire (Measure.pi fun _ : Fin m ↦ Q₁)
     ((fun P ↦ Measure.pi fun _ : Fin m ↦ P) '' S₁)
   have hnum : IsNumeraire Em ((fun P ↦ Measure.pi fun _ : Fin m ↦ P) '' S₁)
@@ -346,7 +347,7 @@ private lemma ae_eventually_mul_le_log_of_forall_ae_eventually_log_le (Q₁ : Me
     (fun P hP n ↦ by
       have := hS₁ P hP
       rw [lintegral_seqBlockProd_const P hEm]
-      exact pow_le_one₀ (by positivity) ((isEVar_numeraire _ (measure_univ_le_one_of_mem_image_pi
+      exact pow_le_one₀ (by positivity) ((isEVar_numeraire _ (measure_univ_le_one_of_mem_sampleNull
         (fun P hP ↦ (hS₁ P hP).measure_univ.le) m)).lintegral_le_one ⟨P, hP, rfl⟩))
     (L' - L) (sub_pos.2 (EReal.coe_lt_coe_iff.1 hLL'))
   filter_upwards [h1, h2] with ω hω1 hω2
@@ -407,7 +408,7 @@ theorem ae_tendsto_log_numeraire_div_bipolarRate (Q₁ : Measure 𝓧)
         ((fun P ↦ Measure.pi fun _ : Fin n ↦ P) '' S₁) (initSeg n ω)) / (n : EReal)) atTop
         (𝓝 (bipolarRate Q₁ S₁)) := by
   filter_upwards [ae_limsup_log_div_le_bipolarRate Q₁ hS₁ fun n ↦ isEVar_numeraire _
-      (measure_univ_le_one_of_mem_image_pi (fun P hP ↦ (hS₁ P hP).measure_univ.le) n),
+      (measure_univ_le_one_of_mem_sampleNull (fun P hP ↦ (hS₁ P hP).measure_univ.le) n),
     ae_bipolarRate_le_liminf_log_div_of_forall_ae_eventually_log_le Q₁ hS₁
       (T := fun n ω ↦ numeraire (Measure.pi fun _ : Fin n ↦ Q₁)
         ((fun P ↦ Measure.pi fun _ : Fin n ↦ P) '' S₁) (initSeg n ω))
