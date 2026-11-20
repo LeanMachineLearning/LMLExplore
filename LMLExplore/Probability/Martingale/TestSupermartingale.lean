@@ -54,6 +54,11 @@ stopping time `τ` is multiplied by a new supermartingale `B` that equals `1` up
   supermartingales and martingales.
 * `ProbabilityTheory.IsTestSupermartingale.ae_lt_top`: a test supermartingale is almost surely
   finite.
+* `ProbabilityTheory.IsTestSupermartingale.shift`,
+  `ProbabilityTheory.isTestSupermartingale_shift_iff`: for filtrations with `𝒢 0 = ⊥` and
+  `𝒢 (n + 1) = ℱ n`, such as `Filtration.piLT` and `Filtration.piLE`, and a null of probability
+  measures, a process `M` with `M 0 = 1` is a test supermartingale for `𝒢` exactly when its shift
+  `fun n ↦ M (n + 1)` is one for `ℱ`.
 * `ProbabilityTheory.isTestSupermartingale_mul_prod`, `ProbabilityTheory.isTestMartingale_mul_prod`:
   wealth processes `M₀ * ∏ k < n, F k` of conditional e-variables.
 * `ProbabilityTheory.isTestSupermartingale_portfolio`,
@@ -368,6 +373,55 @@ theorem _root_.MeasureTheory.Supermartingale.isTestSupermartingale_ofReal
   rintro P' rfl
   rw [← ofReal_integral_eq_lintegral_ofReal (hM.integrable 0) (hM_nonneg 0)]
   exact ENNReal.ofReal_le_one.2 h0
+
+/-! ### Shifting time by one
+
+Two filtrations with `𝒢 (n + 1) = ℱ n`, such as `Filtration.piLT` and `Filtration.piLE`
+(`Filtration.piLT_add_one`), carry the same information one step apart. A process `M` for `𝒢`
+corresponds to its shift `fun n ↦ M (n + 1)` for `ℱ`; conversely, when `𝒢 0` is trivial, a
+process for `ℱ` becomes one for `𝒢` by starting it at `1`. -/
+
+section Shift
+
+variable {𝒢 : Filtration ℕ mΩ}
+
+/-- The shift `fun n ↦ M (n + 1)` of an `ℝ≥0∞`-valued supermartingale for `𝒢` is one for any
+filtration `ℱ` with `𝒢 (n + 1) = ℱ n`. -/
+theorem IsENNSupermartingale.shift (hM : IsENNSupermartingale M 𝒢 S)
+    (h : ∀ n, 𝒢 (n + 1) = ℱ n) : IsENNSupermartingale (fun n ↦ M (n + 1)) ℱ S where
+  adapted n := h n ▸ hM.adapted (n + 1)
+  setLIntegral_succ_le P hP n s hs := hM.setLIntegral_succ_le P hP (n + 1) s ((h n).symm ▸ hs)
+
+/-- The shift `fun n ↦ M (n + 1)` of a test supermartingale for `𝒢` is one for any filtration
+`ℱ` with `𝒢 (n + 1) = ℱ n`. -/
+theorem IsTestSupermartingale.shift (hM : IsTestSupermartingale M 𝒢 S)
+    (h : ∀ n, 𝒢 (n + 1) = ℱ n) : IsTestSupermartingale (fun n ↦ M (n + 1)) ℱ S where
+  toIsENNSupermartingale := hM.toIsENNSupermartingale.shift h
+  lintegral_zero_le _ hP := hM.lintegral_le_one hP 1
+
+/-- For filtrations with `𝒢 0 = ⊥` and `𝒢 (n + 1) = ℱ n`, such as `Filtration.piLT` and
+`Filtration.piLE`, and a null of probability measures, a process `M` that starts at `1` is a test
+supermartingale for `𝒢` exactly when its shift `fun n ↦ M (n + 1)` is one for `ℱ`. -/
+theorem isTestSupermartingale_shift_iff (h₀ : 𝒢 0 = ⊥) (h : ∀ n, 𝒢 (n + 1) = ℱ n)
+    (hS : ∀ P ∈ S, IsProbabilityMeasure P) (hM₀ : M 0 = 1) :
+    IsTestSupermartingale (fun n ↦ M (n + 1)) ℱ S ↔ IsTestSupermartingale M 𝒢 S := by
+  refine ⟨fun hM ↦ ⟨⟨?_, fun P hP n s hs ↦ ?_⟩, fun P hP ↦ ?_⟩, fun hM ↦ hM.shift h⟩
+  · rintro (_ | n)
+    · rw [hM₀]
+      exact measurable_const
+    · exact (h n).symm ▸ hM.adapted n
+  · have := hS P hP
+    rcases n with _ | n
+    · -- an event known at time `0` is empty or everything
+      rw [h₀, MeasurableSpace.measurableSet_bot_iff] at hs
+      rcases hs with rfl | rfl
+      · simp
+      · simpa [hM₀] using hM.lintegral_zero_le P hP
+    · exact hM.setLIntegral_succ_le P hP n s (h n ▸ hs)
+  · have := hS P hP
+    simp [hM₀]
+
+end Shift
 
 /-! ### Wealth processes -/
 

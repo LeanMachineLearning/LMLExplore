@@ -65,6 +65,10 @@ e-processes, so that thresholding an e-process at `α⁻¹` is a level-`α` sequ
   form a convex set.
 * `ProbabilityTheory.IsTestSupermartingale.isEProcess`: a test supermartingale for a null of
   probability measures is an e-process [RW, Fact 7.5].
+* `ProbabilityTheory.IsEProcess.shift`, `ProbabilityTheory.isEProcess_shift_iff`: for filtrations
+  with `𝒢 0 = ⊥` and `𝒢 (n + 1) = ℱ n`, such as `Filtration.piLT` and `Filtration.piLE`, and a
+  null of measures of mass at most `1`, a process `E` with `E 0 = 1` is an e-process for `𝒢`
+  exactly when its shift `fun n ↦ E (n + 1)` is one for `ℱ`.
 * `ProbabilityTheory.isEProcess_tfae`: the characterization of e-processes [RRLK, Lemma 6].
 * `ProbabilityTheory.isEProcess_iff_forall_exists_isTestSupermartingale`,
   `ProbabilityTheory.isEProcess_iff_forall_exists_isTestMartingale`: for a null of probability
@@ -204,6 +208,55 @@ time, so it is an e-process. -/
 theorem IsTestSupermartingale.isEProcess (hS : ∀ P ∈ S, IsProbabilityMeasure P)
     {M : ℕ → Ω → ℝ≥0∞} (hM : IsTestSupermartingale M ℱ S) : IsEProcess M ℱ S :=
   ⟨hM.adapted, fun τ hτ ↦ by simpa using hM.isEVar_stoppedValueLimsup hS hτ⟩
+
+/-! ### Shifting time by one
+
+As for test supermartingales (`ProbabilityTheory.isTestSupermartingale_shift_iff`), e-processes
+for two filtrations with `𝒢 (n + 1) = ℱ n`, such as `Filtration.piLT` and `Filtration.piLE`,
+correspond through the shift `fun n ↦ E (n + 1)`. -/
+
+section Shift
+
+variable {𝒢 : Filtration ℕ mΩ}
+
+/-- The shift `fun n ↦ E (n + 1)` of an e-process for `𝒢` is an e-process for any filtration `ℱ`
+with `𝒢 (n + 1) = ℱ n`: a stopping time `τ` of `ℱ` gives the stopping time `τ + 1` of `𝒢`. -/
+theorem IsEProcess.shift (hE : IsEProcess E 𝒢 S) (h : ∀ n, 𝒢 (n + 1) = ℱ n) :
+    IsEProcess (fun n ↦ E (n + 1)) ℱ S where
+  adapted n := h n ▸ hE.adapted (n + 1)
+  isEVar_stoppedValue τ hτ :=
+    hE.isEVar_stoppedValue (fun ω ↦ τ ω + 1) ((isStoppingTime_natCast_add_one_iff h).2 hτ)
+
+/-- For filtrations with `𝒢 0 = ⊥` and `𝒢 (n + 1) = ℱ n`, such as `Filtration.piLT` and
+`Filtration.piLE`, and a null of measures of mass at most `1`, a process `E` that starts at `1` is
+an e-process for `𝒢` exactly when its shift `fun n ↦ E (n + 1)` is one for `ℱ`. -/
+theorem isEProcess_shift_iff (h₀ : 𝒢 0 = ⊥) (h : ∀ n, 𝒢 (n + 1) = ℱ n)
+    (hS : ∀ P ∈ S, P univ ≤ 1) (hE₀ : E 0 = 1) :
+    IsEProcess (fun n ↦ E (n + 1)) ℱ S ↔ IsEProcess E 𝒢 S := by
+  refine ⟨fun hE ↦ ⟨?_, fun τ hτ ↦ ?_⟩, fun hE ↦ hE.shift h⟩
+  · rintro (_ | n)
+    · rw [hE₀]
+      exact measurable_const
+    · exact (h n).symm ▸ hE.adapted n
+  -- the event `{τ = 0}` is known at time `0`, so `τ` is `0` everywhere or nowhere
+  have h0 := hτ.measurableSet_le_natCast 0
+  rw [h₀, MeasurableSpace.measurableSet_bot_iff] at h0
+  rcases h0 with h0 | h0
+  · -- `τ` is positive, and `τ - 1` is a stopping time of `ℱ`
+    have hτ1 (ω : Ω) : τ ω - 1 + 1 = τ ω := by
+      have hω : ω ∉ {ω | (τ ω : WithTop ℕ) ≤ (0 : ℕ)} := h0 ▸ notMem_empty ω
+      simp only [mem_ofPred_eq, Nat.cast_le, nonpos_iff_eq_zero] at hω
+      omega
+    have hσ : IsStoppingTime ℱ fun ω ↦ ((τ ω - 1 : ℕ) : WithTop ℕ) :=
+      (isStoppingTime_natCast_add_one_iff h).1 (by simpa only [hτ1] using hτ)
+    simpa only [hτ1] using hE.isEVar_stoppedValue _ hσ
+  · have hτ0 (ω : Ω) : τ ω = 0 := by
+      have hω : ω ∈ {ω | (τ ω : WithTop ℕ) ≤ (0 : ℕ)} := h0 ▸ mem_univ ω
+      simpa only [mem_ofPred_eq, Nat.cast_le, nonpos_iff_eq_zero] using hω
+    simp only [hτ0, hE₀]
+    exact isEVar_one hS
+
+end Shift
 
 /-! ### The characterization of e-processes -/
 
