@@ -24,7 +24,7 @@ between nulls, such as `iidNull S₁ ⊆ indepNull S₁`, can be stated and used
   a law in `S₁` that may depend on the index.
 
 The product of two nulls is Statlib's `Set.image2 Measure.prod S T`, the form of
-`ProbabilityTheory.IsEVar.prod` and `ProbabilityTheory.maxUtility_prod_eq_add`. Its membership,
+`ProbabilityTheory.IsEVar.prod` and `ProbabilityTheory.maxEPower_prod_eq_add`. Its membership,
 monotonicity and singleton lemmas are Mathlib's `Set.mem_image2`, `Set.image2_subset` and
 `Set.image2_singleton`, and this file adds the masses of its members.
 

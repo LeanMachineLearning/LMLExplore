@@ -50,6 +50,8 @@ show how evidence moves to a finer filtration.
   `ProbabilityTheory.IsTestSupermartingale.exists_isTestSupermartingale_ae_le_comp_max_iSup`: the
   adjusted running maximum of a test supermartingale is an e-process, dominated by a test
   supermartingale under each member of the null [ShSVV11, Theorem 4; DdRSSVV11, Theorem 1].
+* `ProbabilityTheory.IsEProcess.lintegral_iSup_comp_max_le_one`: the supremum over time of an
+  adjusted e-process has expectation at most `1` [RRLK, Lemma 3].
 * `ProbabilityTheory.isAdjuster_of_forall_lintegral_le_one`,
   `ProbabilityTheory.isAdjuster_iff_forall_isEProcess`: only adjusters lift e-processes, and
   adjusters are exactly the e-lifters [CR26, Theorem 3].
@@ -69,6 +71,8 @@ the finite spaces of the construction.
 * [DdRSSVV11] A. P. Dawid, S. de Rooij, G. Shafer, A. Shen, N. Vereshchagin and V. Vovk, *Insuring
   against loss of evidence in game-theoretic probability*, Statist. Probab. Lett. 81 (2011):
   Theorem 1.
+* [RRLK] A. Ramdas, J. Ruf, M. Larsson and W. M. Koolen, *Admissible anytime-valid sequential
+  inference must rely on nonnegative martingales*, arXiv:2009.03167v3, Lemma 3.
 * [ShSVV11] G. Shafer, A. Shen, N. Vereshchagin and V. Vovk, *Test martingales, Bayes factors and
   p-values*, Statist. Sci. 26 (2011), arXiv:0912.4269: Theorem 4.
 -/
@@ -148,6 +152,25 @@ theorem IsEProcess.isEProcess_comp_max_iSup (hA : IsAdjuster A)
     ext n ω
     rw [indicator_of_mem (mem_Iic.2 (ENNReal.inv_le_one.2 (le_max_left _ _))), inv_inv]
   rwa [h_eq]
+
+/-- **Adjusted suprema of e-processes** [RRLK, Lemma 3]. For an adjuster `A` and a null of
+probability measures, the supremum over time `⨆ n, A (max 1 (E n))` of an e-process `E` adjusted by
+`A` has expectation at most `1` under every member of the null, although the supremum of `E` itself
+need not (`ProbabilityTheory.exists_isEProcess_one_lt_lintegral_iSup`). -/
+theorem IsEProcess.lintegral_iSup_comp_max_le_one (hA : IsAdjuster A)
+    (hS : ∀ P ∈ S, IsProbabilityMeasure P) (hE : IsEProcess E ℱ S) (hP : P ∈ S) :
+    ∫⁻ ω, ⨆ n, A (max 1 (E n ω)) ∂P ≤ 1 := by
+  -- the adjusted running maxima are e-processes, and they increase to the adjusted supremum
+  have h := hE.isEProcess_comp_max_iSup hA hS le_rfl
+  have hA_mono : Monotone fun x ↦ A (max 1 x) := fun x y hxy ↦ hA.monotoneOn
+    (mem_Ici.2 (le_max_left _ _)) (mem_Ici.2 (le_max_left _ _)) (max_le_max_left _ hxy)
+  calc ∫⁻ ω, ⨆ n, A (max 1 (E n ω)) ∂P
+      ≤ ∫⁻ ω, ⨆ n, A (max 1 (⨆ k ≤ n, E k ω)) ∂P :=
+        lintegral_mono fun ω ↦ iSup_mono fun n ↦ hA_mono (le_iSup₂_of_le n le_rfl le_rfl)
+    _ = ⨆ n, ∫⁻ ω, A (max 1 (⨆ k ≤ n, E k ω)) ∂P :=
+        lintegral_iSup h.measurable fun m n hmn ω ↦
+          hA_mono (biSup_mono fun k hk ↦ hk.trans hmn)
+    _ ≤ 1 := iSup_le fun n ↦ (h.isEVar n).lintegral_le_one hP
 
 /-- **Adjusting the running maximum of a test supermartingale** [ShSVV11, Theorem 4;
 DdRSSVV11, Theorem 1]: for an adjuster `A` and a null of probability measures, the adjusted

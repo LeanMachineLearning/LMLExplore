@@ -78,13 +78,13 @@ theorem eintegral_log_le_maxLogGrowth_of_dependsOn (Q₁ : Measure 𝓧) [IsProb
   have := nonempty_of_isProbabilityMeasure Q₁
   obtain ⟨G, hGe, rfl⟩ := exists_isEVar_eq_comp_initSeg hS₁ hF hFn h_null
   calc ∫ᵉ ω, ENNReal.log ((G ∘ initSeg n) ω) ∂Measure.infinitePi (fun _ : ℕ ↦ Q₁)
-  _ = ∫ᵉ x, (logUtility ∘ G) x ∂Measure.pi (fun _ : Fin n ↦ Q₁) := by
+  _ = ∫ᵉ x, ENNReal.log (G x) ∂Measure.pi (fun _ : Fin n ↦ Q₁) := by
     rw [← (measurePreserving_initSeg Q₁ n).map_eq,
-      eintegral_map (logUtility.measurable.comp hGe.measurable) (measurable_initSeg n)]
-    simp only [Function.comp_apply, logUtility_apply]
+      eintegral_map hGe.measurable.ennreal_log (measurable_initSeg n)]
+    simp only [Function.comp_apply]
   _ ≤ maxLogGrowth Q₁ S₁ n := by
     rw [maxLogGrowth_def]
-    exact hGe.eintegral_le_maxUtility _ _
+    exact hGe.eintegral_log_le_maxEPower _
 
 /-! ### E-processes -/
 

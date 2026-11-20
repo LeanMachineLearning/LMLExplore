@@ -228,9 +228,8 @@ private lemma exists_isEVar_lt_eintegral_of_lt_bipolarRate {Q : Measure 𝓧} {t
   obtain ⟨m, hm⟩ := lt_iSup_iff.1 ht
   have hm0 : (0 : EReal) < ((m + 1 : ℕ) : EReal) := by exact_mod_cast Nat.succ_pos m
   rw [EReal.lt_div_iff hm0 (EReal.natCast_ne_top _)] at hm
-  simp only [maxLogGrowth_def, maxUtility] at hm
-  obtain ⟨E, hE⟩ := lt_iSup_iff.1 hm
-  obtain ⟨hEv, hE'⟩ := lt_iSup_iff.1 hE
+  rw [maxLogGrowth_def] at hm
+  obtain ⟨E, hEv, hE'⟩ := lt_maxEPower_iff.1 hm
   refine ⟨m, E, hEv, ?_⟩
   have h1 : ((t * (m + 1) : ℝ) : EReal) = (t : EReal) * ((m + 1 : ℕ) : EReal) := by
     rw [EReal.coe_mul]

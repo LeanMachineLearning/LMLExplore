@@ -21,7 +21,7 @@ measure carried by a finite set, no `n`-sample e-variable has a positive expecte
 `Q ^ n`, for any `n`: `maxLogGrowth Q S n = 0`, so the bipolar rate is `0`. If moreover `Q` has no
 atoms, every such `F` is singular to `Q`, and the relative entropy from `Q` to each member of the
 null is `log (1 / ε)`. The bipolar rate is at most the smallest relative entropy to the null
-(`ProbabilityTheory.bipolarRate_le_iInf_klDiv`), and the inequality can be strict
+(`ProbabilityTheory.bipolarRate_le_klInf`), and the inequality can be strict
 [RR26, Proposition 5.4]; here the bipolar rate is `0` while the smallest relative entropy is
 positive for `ε < 1`.
 
@@ -34,7 +34,7 @@ of `LMLExplore.EValues.BipolarRate.Circle`, which it contains, but bipolar rate 
 * `ProbabilityTheory.maxLogGrowth_finitelySupported_mixtures_eq_zero`: for every `n`, the maximal
   expected logarithm of an `n`-sample e-variable is `0`.
 * `ProbabilityTheory.bipolarRate_finitelySupported_mixtures_eq_zero`: the bipolar rate is `0`.
-* `ProbabilityTheory.iInf_klDiv_finitelySupported_mixtures`: for `Q` without atoms, the smallest
+* `ProbabilityTheory.klInf_finitelySupported_mixtures`: for `Q` without atoms, the smallest
   relative entropy from `Q` to the null is `log (1 / ε)`.
 
 ## Implementation notes
@@ -48,7 +48,7 @@ over `m` independent points `y` of law `Q`, of the product of the `G (y (σ i))`
 `MeasureTheory.Measure.pi_bind_pi`). So `Q ^ n`, scaled by the fraction
 `m (m - 1) ⋯ (m - n + 1) / m ^ n` of the injective maps, is below an average of members of the
 `n`-sample null, and that fraction tends to `1` as `m → ∞`: `Q ^ n` is in the effective null of
-the `n`-sample null (`ProbabilityTheory.maxUtility_eq_zero_of_mem_effectiveSet`).
+the `n`-sample null (`ProbabilityTheory.maxEPower_eq_zero_of_mem_effectiveSet`).
 
 The instance is [EVR26, Note 19]. Its statements and proofs are adapted from
 `EValuesResearch/Results/RateVersusKL.lean` (commit `dd4072f`) in the paper project
@@ -210,7 +210,7 @@ theorem maxLogGrowth_finitelySupported_mixtures_eq_zero (Q : Measure 𝓧) [IsPr
     simp [div_eq_mul_inv, ENNReal.ofReal_mul, ENNReal.ofReal_inv_of_pos, ENNReal.ofReal_pow,
       Nat.pos_of_ne_zero hm, ENNReal.inv_pow]
   rw [maxLogGrowth_def]
-  refine maxUtility_eq_zero_of_mem_effectiveSet
+  refine maxEPower_eq_zero_of_mem_effectiveSet
     (sampleNull_def _ n ▸ measure_univ_le_one_of_mem_sampleNull (measure_univ_mixture_le_one hε) n)
       fun E hE ↦
       ENNReal.le_of_forall_lt_one_mul_le fun a ha ↦ ?_
@@ -231,13 +231,12 @@ theorem bipolarRate_finitelySupported_mixtures_eq_zero (Q : Measure 𝓧) [IsPro
 /-- For a probability measure `Q` without atoms, the smallest relative entropy from `Q` to the
 mixtures `(1 - ε) F + ε Q` of the probability measures `F` carried by a finite set with `Q` is
 `log (1 / ε)`: each `F` is singular to `Q`. -/
-theorem iInf_klDiv_finitelySupported_mixtures (Q : Measure 𝓧) [IsProbabilityMeasure Q]
+theorem klInf_finitelySupported_mixtures (Q : Measure 𝓧) [IsProbabilityMeasure Q]
     [NullSingletonClass Q] (hε : ε ≤ 1) :
-    ((⨅ P ∈ {(1 - ε) • F + ε • Q | (F : Measure 𝓧) (_ : IsProbabilityMeasure F)
-      (_ : ∃ s : Set 𝓧, s.Finite ∧ F sᶜ = 0)}, klDiv Q P : ℝ≥0∞) : EReal) =
-        ENNReal.log ε⁻¹ := by
+    klInf Q {(1 - ε) • F + ε • Q | (F : Measure 𝓧) (_ : IsProbabilityMeasure F)
+      (_ : ∃ s : Set 𝓧, s.Finite ∧ F sᶜ = 0)} = ENNReal.log ε⁻¹ := by
   obtain ⟨x⟩ := nonempty_of_isProbabilityMeasure Q
-  refine iInf_klDiv_mixture_of_mutuallySingular
+  refine klInf_mixture_of_mutuallySingular
     ⟨_, Measure.dirac x, inferInstance, ⟨{x}, Set.finite_singleton x, by simp⟩, rfl⟩ ?_ hε
   rintro _ ⟨F, hF, ⟨s, hs, hFs⟩, rfl⟩
   exact ⟨F, hF, ⟨sᶜ, hs.measurableSet.compl, hFs, by rw [compl_compl]; exact hs.measure_zero Q⟩,

@@ -14,7 +14,7 @@ For a probability measure `Q₁` and a null `S₁` of probability measures on a 
 the maximal expected logarithm `maxLogGrowth Q₁ S₁ n` of an `n`-sample e-variable is at least `n`
 times that of one observation, by superadditivity, and at most `n` times the smallest relative
 entropy from `Q₁` to the null. If one observation already attains the smallest relative entropy,
-that is, if `⨅ P ∈ S₁, klDiv Q₁ P ≤ maxLogGrowth Q₁ S₁ 1`, the three quantities agree: for every
+that is, if `klInf Q₁ S₁ ≤ maxLogGrowth Q₁ S₁ 1`, the three quantities agree: for every
 `n ≠ 0`, `n` observations are worth exactly `n` times one, and the bipolar rate is the smallest
 relative entropy [EVR26, Note 11, Theorem 9]. No semicontinuity, convexity or compactness of the
 null is assumed. The weaker hypothesis `bipolarRate Q₁ S₁ ≤ maxLogGrowth Q₁ S₁ 1` already gives
@@ -29,10 +29,10 @@ For a weakly compact convex null the hypothesis holds [RR26, Proposition 4.5].
   growth of one observation, the two are equal.
 * `ProbabilityTheory.maxLogGrowth_eq_mul_of_bipolarRate_le`: if the bipolar rate is at most the
   growth of one observation, then `maxLogGrowth Q₁ S₁ n = n * maxLogGrowth Q₁ S₁ 1` for `n ≠ 0`.
-* `ProbabilityTheory.bipolarRate_eq_iInf_klDiv_of_iInf_klDiv_le_maxLogGrowth_one`: if one
+* `ProbabilityTheory.bipolarRate_eq_klInf_of_klInf_le_maxLogGrowth_one`: if one
   observation attains the smallest relative entropy, the bipolar rate is the smallest relative
   entropy [EVR26, Note 11, Theorem 9].
-* `ProbabilityTheory.maxLogGrowth_eq_mul_of_iInf_klDiv_le_maxLogGrowth_one`: and then
+* `ProbabilityTheory.maxLogGrowth_eq_mul_of_klInf_le_maxLogGrowth_one`: and then
   `maxLogGrowth Q₁ S₁ n = n * maxLogGrowth Q₁ S₁ 1` for `n ≠ 0` [EVR26, Note 11, Theorem 9].
 
 ## References
@@ -68,29 +68,29 @@ theorem maxLogGrowth_eq_mul_of_bipolarRate_le (Q₁ : Measure 𝓧) [IsProbabili
 /-- If one observation attains the smallest relative entropy from `Q₁` to the null, the bipolar
 rate is the maximal expected logarithm of a one-observation e-variable
 [EVR26, Note 11, Theorem 9]. -/
-theorem bipolarRate_eq_maxLogGrowth_one_of_iInf_klDiv_le (Q₁ : Measure 𝓧)
+theorem bipolarRate_eq_maxLogGrowth_one_of_klInf_le (Q₁ : Measure 𝓧)
     [IsProbabilityMeasure Q₁] (hS₁ : ∀ P ∈ S₁, IsProbabilityMeasure P)
-    (h : ((⨅ P ∈ S₁, klDiv Q₁ P : ℝ≥0∞) : EReal) ≤ maxLogGrowth Q₁ S₁ 1) :
+    (h : klInf Q₁ S₁ ≤ maxLogGrowth Q₁ S₁ 1) :
     bipolarRate Q₁ S₁ = maxLogGrowth Q₁ S₁ 1 :=
-  bipolarRate_eq_maxLogGrowth_one_of_le ((bipolarRate_le_iInf_klDiv Q₁ hS₁).trans h)
+  bipolarRate_eq_maxLogGrowth_one_of_le ((bipolarRate_le_klInf Q₁ hS₁).trans h)
 
 /-- If one observation attains the smallest relative entropy from `Q₁` to the null, the bipolar
 rate is the smallest relative entropy [EVR26, Note 11, Theorem 9]. -/
-theorem bipolarRate_eq_iInf_klDiv_of_iInf_klDiv_le_maxLogGrowth_one (Q₁ : Measure 𝓧)
+theorem bipolarRate_eq_klInf_of_klInf_le_maxLogGrowth_one (Q₁ : Measure 𝓧)
     [IsProbabilityMeasure Q₁] (hS₁ : ∀ P ∈ S₁, IsProbabilityMeasure P)
-    (h : ((⨅ P ∈ S₁, klDiv Q₁ P : ℝ≥0∞) : EReal) ≤ maxLogGrowth Q₁ S₁ 1) :
-    bipolarRate Q₁ S₁ = ((⨅ P ∈ S₁, klDiv Q₁ P : ℝ≥0∞) : EReal) :=
-  le_antisymm (bipolarRate_le_iInf_klDiv Q₁ hS₁) (h.trans (maxLogGrowth_one_le_bipolarRate Q₁ S₁))
+    (h : klInf Q₁ S₁ ≤ maxLogGrowth Q₁ S₁ 1) :
+    bipolarRate Q₁ S₁ = klInf Q₁ S₁ :=
+  le_antisymm (bipolarRate_le_klInf Q₁ hS₁) (h.trans (maxLogGrowth_one_le_bipolarRate Q₁ S₁))
 
 /-- If one observation attains the smallest relative entropy from `Q₁` to the null, then for
 `n ≠ 0`, `n` observations are worth `n` times one: the maximal expected logarithm of an `n`-sample
 e-variable is `n` times that of a one-observation e-variable. The common value may be infinite
 [EVR26, Note 11, Theorem 9]. -/
-theorem maxLogGrowth_eq_mul_of_iInf_klDiv_le_maxLogGrowth_one (Q₁ : Measure 𝓧)
+theorem maxLogGrowth_eq_mul_of_klInf_le_maxLogGrowth_one (Q₁ : Measure 𝓧)
     [IsProbabilityMeasure Q₁] (hS₁ : ∀ P ∈ S₁, IsProbabilityMeasure P)
-    (h : ((⨅ P ∈ S₁, klDiv Q₁ P : ℝ≥0∞) : EReal) ≤ maxLogGrowth Q₁ S₁ 1) (hn : n ≠ 0) :
+    (h : klInf Q₁ S₁ ≤ maxLogGrowth Q₁ S₁ 1) (hn : n ≠ 0) :
     maxLogGrowth Q₁ S₁ n = n * maxLogGrowth Q₁ S₁ 1 :=
   maxLogGrowth_eq_mul_of_bipolarRate_le Q₁ (fun P hP ↦ (hS₁ P hP).measure_univ.le)
-    ((bipolarRate_le_iInf_klDiv Q₁ hS₁).trans h) hn
+    ((bipolarRate_le_klInf Q₁ hS₁).trans h) hn
 
 end ProbabilityTheory

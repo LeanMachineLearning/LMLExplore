@@ -5,6 +5,7 @@ Authors: LMLExplore contributors
 -/
 module
 
+public import LMLExplore.Probability.Martingale.ExactVille
 public import Mathlib.Probability.Martingale.OptionalStopping
 
 /-!
@@ -19,7 +20,9 @@ bounds and the confidence sets of optimistic bandit algorithms.
 The finite-horizon form is the supermartingale counterpart of Doob's maximal inequality
 `MeasureTheory.maximal_ineq`, which Mathlib states for submartingales: for a nonnegative
 supermartingale the bound is in terms of `μ[f 0]` instead of an integral of `f n`. Ville's
-inequality is its limit as the horizon tends to infinity.
+inequality for real supermartingales is the case of `ENNReal.ofReal ∘ f` in Ville's inequality for
+`ℝ≥0∞`-valued supermartingales (`ProbabilityTheory.IsENNSupermartingale.measure_exists_le_le`),
+which needs no integrability.
 
 ## Main results
 
@@ -82,25 +85,16 @@ theorem maximal_ineq (hf : Supermartingale f 𝒢 μ) (hnonneg : ∀ n, 0 ≤ᵐ
     _ ≤ ENNReal.ofReal (μ[f 0]) := ENNReal.ofReal_le_ofReal hstop
 
 /-- **Ville's inequality**: if `f` is an almost everywhere nonnegative supermartingale, then for
-`0 < c` the probability that `f` ever reaches `c` is at most `μ[f 0] / c`. -/
+`0 < c` the probability that `f` ever reaches `c` is at most `μ[f 0] / c`. This is the case of
+`ENNReal.ofReal ∘ f` in Ville's inequality for `ℝ≥0∞`-valued supermartingales,
+`ProbabilityTheory.IsENNSupermartingale.measure_exists_le_le`. -/
 theorem measure_exists_le_le (hf : Supermartingale f 𝒢 μ) (hnonneg : ∀ n, 0 ≤ᵐ[μ] f n) {c : ℝ}
     (hc : 0 < c) :
     μ {ω | ∃ n, c ≤ f n ω} ≤ ENNReal.ofReal (μ[f 0] / c) := by
-  lift c to ℝ≥0 using hc.le
-  -- The event is the increasing union of the events `c ≤ max_{k ≤ n} f k`.
-  have hset : {ω | ∃ n, (c : ℝ) ≤ f n ω} =
-      ⋃ n, {ω | (c : ℝ) ≤ (range (n + 1)).sup' nonempty_range_add_one fun k ↦ f k ω} := by
-    ext ω
-    simp only [Set.mem_ofPred_eq, Set.mem_iUnion, le_sup'_iff, mem_range]
-    exact ⟨fun ⟨n, h⟩ ↦ ⟨n, n, Nat.lt_succ_self n, h⟩, fun ⟨_, k, _, h⟩ ↦ ⟨k, h⟩⟩
-  have hmono : Monotone fun n ↦
-      {ω | (c : ℝ) ≤ (range (n + 1)).sup' nonempty_range_add_one fun k ↦ f k ω} :=
-    fun m n hmn ω (hω : (c : ℝ) ≤ _) ↦ hω.trans
-      (sup'_mono _ (range_subset_range.2 (Nat.succ_le_succ hmn)) nonempty_range_add_one)
-  rw [hset, hmono.measure_iUnion]
-  refine iSup_le fun n ↦ ?_
-  rw [ENNReal.ofReal_div_of_pos hc]
-  refine (ENNReal.le_div_iff_mul_le (.inl (by simpa using hc.ne')) (by simp)).2 ?_
-  simpa [mul_comm] using hf.maximal_ineq hnonneg c n
+  have h := (hf.isENNSupermartingale_ofReal hnonneg).measure_exists_le_le (Set.mem_singleton μ)
+    (ENNReal.ofReal_pos.2 hc).ne' ENNReal.ofReal_ne_top
+  rw [← ofReal_integral_eq_lintegral_ofReal (hf.integrable 0) (hnonneg 0),
+    ← ENNReal.ofReal_div_of_pos hc] at h
+  simpa only [ENNReal.ofReal_le_ofReal_iff', hc.not_ge, or_false] using h
 
 end MeasureTheory.Supermartingale

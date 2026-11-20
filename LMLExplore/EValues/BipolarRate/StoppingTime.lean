@@ -36,7 +36,7 @@ is, a stopping time `τ` with values in `WithTop ℕ` such that `P^ℕ (τ < ∞
 `P ∈ S₁`, makes at least `log (1/α) / d` observations in expectation under `Q`. If `d = 0`,
 every test of a level `α < 1` has an infinite expected number of observations. Since `d` is at
 most the smallest relative entropy `KL_inf(Q₁, S₁)` from `Q₁` to the null
-(`ProbabilityTheory.bipolarRate_le_iInf_klDiv`), this contains the lower bound with
+(`ProbabilityTheory.bipolarRate_le_klInf`), this contains the lower bound with
 `KL_inf(Q₁, S₁)` in place of `d`, the form of the bounds of [ARR26]; the bipolar rate can be
 smaller [RR26, Proposition 5.4].
 
@@ -401,7 +401,7 @@ laws of the members of `S₁`, that is, a stopping time `τ` with `P^ℕ (τ < �
 side is in `ℝ≥0∞`, with `log (1/α)` replaced by `0` for `α ≥ 1`: if `d = 0` and `α < 1`, the
 expected number of observations is infinite, if `d = ∞` the bound is `0`, and if `α = 0` and
 `d < ∞` the expected number of observations is infinite. Since the bipolar rate is at most the
-smallest relative entropy from `Q₁` to `S₁` (`bipolarRate_le_iInf_klDiv`), this contains the
+smallest relative entropy from `Q₁` to `S₁` (`bipolarRate_le_klInf`), this contains the
 lower bound `log (1/α) / KL_inf(Q₁, S₁)` [ARR26]. -/
 theorem toENNReal_log_inv_div_bipolarRate_le_lintegral (Q₁ : Measure 𝓧)
     [IsProbabilityMeasure Q₁] (hS₁ : ∀ P ∈ S₁, IsProbabilityMeasure P)

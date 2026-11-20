@@ -6,6 +6,7 @@ Authors: LMLExplore contributors
 module
 
 public import LMLExplore.Identification.Task.BestArm.Basic
+public import LMLExplore.EValues.KLInf
 import LMLExplore.Analysis.SpecialFunctions.Log.Basic
 
 /-!
@@ -43,7 +44,9 @@ inequality on the mean.
   `a` of law `κ a (θ a)`.
 * `LMLExplore.Identification.kInfLower κ S m x u`, `LMLExplore.Identification.kInfUpper κ S m x u`:
   the smallest divergence from `κ x` to a law `κ y`, `y ∈ S`, with mean `m y ≤ u`
-  (respectively `u ≤ m y`).
+  (respectively `u ≤ m y`). For laws of equal mass they are the smallest relative entropies
+  `klInf` from `κ x` to the images of these parameters (`coe_kInfLower_eq_klInf`,
+  `coe_kInfUpper_eq_klInf`).
 
 ## Main statements
 
@@ -214,6 +217,20 @@ lemma kInfLower_lt_iff :
 lemma kInfUpper_lt_iff :
     kInfUpper κ S m x u < r ↔ ∃ y ∈ S, u ≤ m y ∧ klDiv (κ x) (κ y) < r := by
   simp [kInfUpper_def, iInf_lt_iff, and_assoc]
+
+/-- `K⁻(x, u)` is the smallest relative entropy `klInf` from `κ x` to the laws `κ y`, `y ∈ S`, of
+mean `m y ≤ u`, when these laws have the mass of `κ x`, for instance for probability measures. -/
+theorem coe_kInfLower_eq_klInf [IsFiniteMeasure (κ x)] (hκ : ∀ y ∈ S, κ y univ = κ x univ) :
+    (kInfLower κ S m x u : EReal) = klInf (κ x) (κ '' {y ∈ S | m y ≤ u}) := by
+  rw [klInf_eq_coe_iInf_klDiv (by rintro _ ⟨y, hy, rfl⟩; exact hκ y hy.1), iInf_image,
+    kInfLower_def]
+
+/-- `K⁺(x, u)` is the smallest relative entropy `klInf` from `κ x` to the laws `κ y`, `y ∈ S`, of
+mean `u ≤ m y`, when these laws have the mass of `κ x`, for instance for probability measures. -/
+theorem coe_kInfUpper_eq_klInf [IsFiniteMeasure (κ x)] (hκ : ∀ y ∈ S, κ y univ = κ x univ) :
+    (kInfUpper κ S m x u : EReal) = klInf (κ x) (κ '' {y ∈ S | u ≤ m y}) := by
+  rw [klInf_eq_coe_iInf_klDiv (by rintro _ ⟨y, hy, rfl⟩; exact hκ y hy.1), iInf_image,
+    kInfUpper_def]
 
 /-- `K⁺` is `K⁻` for the opposite means at the opposite level:
 `K⁺(x, u) = inf {KL(κ x, κ y) | y ∈ S, -m y ≤ -u}`. -/

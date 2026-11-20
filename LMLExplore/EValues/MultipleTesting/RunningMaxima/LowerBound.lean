@@ -5,7 +5,7 @@ Authors: LMLExplore contributors
 -/
 module
 
-public import LMLExplore.EValues.TestSupermartingale
+public import LMLExplore.Probability.Martingale.TestSupermartingale
 import LMLExplore.Algebra.BigOperators.Intervals
 import LMLExplore.Data.Fintype.BigOperators
 import LMLExplore.Data.Int.Interval

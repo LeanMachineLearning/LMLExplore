@@ -269,11 +269,10 @@ theorem maxLogGrowth_eq_zero_of_forall_exists_etvDist_lt (hS : ∀ P ∈ S, IsPr
   have := isProbabilityMeasure_of_forall_exists_etvDist_lt hS hQ
   refine le_antisymm ?_ (maxLogGrowth_nonneg _ (fun P hP ↦ (hS P hP).measure_univ.le) _)
   rw [maxLogGrowth_def]
-  refine (maxUtility_le_klIntegral_of_mem_effectiveSet
+  exact (maxEPower_eq_zero_of_mem_effectiveSet
     (sampleNull_def S n ▸ measure_univ_le_one_of_mem_sampleNull
       (fun P hP ↦ (hS P hP).measure_univ.le) n)
-    (pi_mem_effectiveSet_of_forall_exists_etvDist_lt hS hQ)).trans_eq ?_
-  rw [klIntegral_eq_klDiv rfl, klDiv_self, EReal.coe_ennreal_zero]
+    (pi_mem_effectiveSet_of_forall_exists_etvDist_lt hS hQ)).le
 
 /-- **The bipolar rate against a limit in total variation is zero.** If a probability measure `Q`
 is a limit in total variation of members of a null `S` of probability measures, the optimal growth

@@ -6,6 +6,7 @@ Authors: LMLExplore contributors
 module
 
 public import Statlib.EValues.RIPr
+public import LMLExplore.EValues.KLInf
 public import LMLExplore.EValues.EVariable
 public import LMLExplore.MeasureTheory.Integral.Lebesgue.Add
 public import LMLExplore.MeasureTheory.Measure.AbsolutelyContinuousSet
@@ -15,7 +16,7 @@ public import LMLExplore.MeasureTheory.Measure.AbsolutelyContinuousSet
 
 The effective null of a null hypothesis `S : Set (Measure Ω)` is Statlib's `effectiveSet S`: the
 measures `μ` under which every e-variable `X` for `S` has `∫⁻ X ∂μ ≤ 1`. It is the set over which
-Statlib's duality `maxUtility_eq_iInf_klIntegral_effectiveSet` minimizes, and it describes the
+the duality `maxEPower_eq_klInf_effectiveSet` minimizes, and it describes the
 alternatives that a null can be tested against: e-variables cannot distinguish `S` from its
 effective null, and every measure outside its effective null is detected by a level-`α` test.
 
@@ -48,9 +49,9 @@ measures `S`.
 * `ProbabilityTheory.exists_powered_test_iff`: a measure `Q` admits, for some `α ∈ (0, 1)`, a
   level-`α` test for `S` with power larger than `α` under `Q` exactly when `Q` is not in the
   effective null of `S` [RW, Theorem 6.10].
-* `ProbabilityTheory.maxUtility_eq_zero_of_mem_effectiveSet`: for a null of measures of mass at
+* `ProbabilityTheory.maxEPower_eq_zero_of_mem_effectiveSet`: for a null of measures of mass at
   most `1`, no e-variable for `S` has a positive expected logarithm under a probability measure of
-  the effective null of `S`.
+  the effective null of `S`: the largest e-power is `0`.
 
 ## References
 
@@ -243,17 +244,19 @@ theorem exists_powered_test_iff (Q : Measure Ω) :
               hYQ
 
 /-- For a null of measures of mass at most `1`, under a probability measure `P` of its effective
-null, no e-variable for `S` has a positive expected logarithm, by Jensen's inequality: the maximal
-expected logarithm is `0`.
+null, no e-variable for `S` has a positive expected logarithm, by Jensen's inequality: the largest
+e-power is `0`.
 Statlib's `maxUtility_eq_zero_of_mem` is the analogue for the members of `S`. Adapted from the
 helper `maxUtility_log_nonpos_of_forall_lintegral_le_one` of
 `EValuesResearch/Results/RateVersusKL.lean` (commit `dd4072f`) in the paper project
 `RemyDegenne/evalues_research` (same author). -/
-theorem maxUtility_eq_zero_of_mem_effectiveSet {P : Measure Ω} [IsProbabilityMeasure P]
-    (hS : ∀ μ ∈ S, μ univ ≤ 1) (hP : P ∈ effectiveSet S) : maxUtility P S logUtility = 0 := by
-  refine le_antisymm (iSup₂_le fun X hX ↦ ?_) (maxUtility_nonneg P hS)
-  calc ∫ᵉ ω, (logUtility ∘ X) ω ∂P
-  _ ≤ logUtility (∫⁻ ω, X ω ∂P) := Utility.eintegral_le_map logUtility hX.measurable.aemeasurable
-  _ ≤ 0 := by rw [logUtility_apply, ENNReal.log_le_zero_iff]; exact hP X hX
+theorem maxEPower_eq_zero_of_mem_effectiveSet {P : Measure Ω} [IsProbabilityMeasure P]
+    (hS : ∀ μ ∈ S, μ univ ≤ 1) (hP : P ∈ effectiveSet S) : maxEPower P S = 0 := by
+  refine le_antisymm (maxEPower_le_iff.2 fun X hX ↦ ?_) (maxEPower_nonneg P hS)
+  calc ∫ᵉ ω, ENNReal.log (X ω) ∂P
+  _ ≤ ENNReal.log (∫⁻ ω, X ω ∂P) := by
+    simpa [logUtility_apply] using
+      Utility.eintegral_le_map logUtility hX.measurable.aemeasurable (μ := P)
+  _ ≤ 0 := by rw [ENNReal.log_le_zero_iff]; exact hP X hX
 
 end ProbabilityTheory

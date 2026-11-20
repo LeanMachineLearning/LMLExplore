@@ -106,9 +106,7 @@ private lemma exists_bounded_bet (Q₁ : Measure 𝓧) [IsProbabilityMeasure Q�
   -- an `m`-sample e-variable `Y` with expected logarithm above a real `L' > m L`
   obtain ⟨L', hL'1, hL'2⟩ := EReal.lt_iff_exists_real_btwn.1 hk'
   rw [maxLogGrowth_def] at hL'2
-  obtain ⟨Y, hY⟩ := lt_iSup_iff.1 hL'2
-  obtain ⟨hYe, hYL⟩ := lt_iSup_iff.1 hY
-  simp only [Function.comp_def, logUtility_apply] at hYL
+  obtain ⟨Y, hYe, hYL⟩ := lt_maxEPower_iff.1 hL'2
   rw [EReal.coe_lt_coe_iff] at hL'1
   -- mixed with a constant, at the cost `θ` in expected logarithm
   set θ := (L' - m * L) / 2 with hθ

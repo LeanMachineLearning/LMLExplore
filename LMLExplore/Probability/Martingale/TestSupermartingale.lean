@@ -5,7 +5,7 @@ Authors: LMLExplore contributors
 -/
 module
 
-public import LMLExplore.EValues.CondEVariable
+public import LMLExplore.Probability.Martingale.CondEVariable
 public import LMLExplore.Probability.Martingale.Basic
 public import LMLExplore.Probability.Process.Adapted
 public import LMLExplore.Probability.Process.Stopping
@@ -47,7 +47,8 @@ stopping time `τ` is multiplied by a new supermartingale `B` that equals `1` up
 
 ## Main statements
 
-* `MeasureTheory.Supermartingale.isTestSupermartingale_ofReal`,
+* `MeasureTheory.Supermartingale.isENNSupermartingale_ofReal`,
+  `MeasureTheory.Supermartingale.isTestSupermartingale_ofReal`,
   `ProbabilityTheory.IsTestSupermartingale.supermartingale_toReal`,
   `ProbabilityTheory.IsTestMartingale.martingale_toReal`: the bridges with Mathlib's real
   supermartingales and martingales.
@@ -151,13 +152,28 @@ theorem congr (hM : IsENNSupermartingale M ℱ S) (hM' : Adapted ℱ M')
       ← lintegral_congr_ae (ae_restrict_of_ae (h P hP n))]
     exact hM.setLIntegral_succ_le P hP n s hs⟩
 
+/-- A supermartingale under `P`, with the value `∞` before time `m`, is a supermartingale under
+the restriction of `P` to an `ℱ m`-measurable set. -/
+theorem ite_top_restrict (hM : IsENNSupermartingale M ℱ S) (hP : P ∈ S) {m : ℕ} {s : Set Ω}
+    (hs : MeasurableSet[ℱ m] s) :
+    IsENNSupermartingale (fun n ω ↦ if n < m then ∞ else M n ω) ℱ {P.restrict s} := by
+  refine ⟨fun n ↦ ?_, fun Q hQ n t ht ↦ ?_⟩
+  · by_cases hn : n < m
+    · simp [hn]
+    · simpa [hn] using hM.adapted n
+  rw [Set.mem_singleton_iff.1 hQ]
+  by_cases hn : n < m
+  · exact lintegral_mono fun ω ↦ by simp [hn]
+  · have hn1 : ¬n + 1 < m := by omega
+    simp only [hn, hn1, ↓reduceIte]
+    rw [Measure.restrict_restrict (ℱ.le n t ht)]
+    exact hM.setLIntegral_succ_le P hP n _ (ht.inter (ℱ.mono (not_lt.1 hn) _ hs))
+
 /-- A supermartingale under `P` is a supermartingale under the restriction of `P` to an
 `ℱ 0`-measurable set. -/
 theorem restrict (hM : IsENNSupermartingale M ℱ S) (hP : P ∈ S) {s : Set Ω}
     (hs : MeasurableSet[ℱ 0] s) : IsENNSupermartingale M ℱ {P.restrict s} := by
-  refine ⟨hM.adapted, fun Q hQ n t ht ↦ ?_⟩
-  rw [Set.mem_singleton_iff.1 hQ, Measure.restrict_restrict (ℱ.le n t ht)]
-  exact hM.setLIntegral_succ_le P hP n _ (ht.inter (ℱ.mono n.zero_le s hs))
+  simpa using hM.ite_top_restrict hP hs
 
 /-- The set integrals of an `ℝ≥0∞`-valued supermartingale over an `ℱ i`-measurable set do not
 increase after time `i`. -/
@@ -179,6 +195,22 @@ theorem ae_lt_top (hM : IsENNSupermartingale M ℱ S) (hP : P ∈ S)
     (h0 : ∫⁻ ω, M 0 ω ∂P ≠ ∞) : ∀ᵐ ω ∂P, ∀ n, M n ω < ∞ :=
   ae_all_iff.2 fun n ↦
     MeasureTheory.ae_lt_top (hM.measurable n) ((hM.lintegral_le hP n.zero_le).trans_lt h0.lt_top).ne
+
+/-- An `ℝ≥0∞`-valued supermartingale almost surely stays at `0` once it reaches it. -/
+theorem ae_eq_zero_of_eq_zero (hM : IsENNSupermartingale M ℱ S) (hP : P ∈ S) :
+    ∀ᵐ ω ∂P, ∀ m, M m ω = 0 → ∀ n ≥ m, M n ω = 0 := by
+  have h (m n : ℕ) : ∀ᵐ ω ∂P, M m ω = 0 → m ≤ n → M n ω = 0 := by
+    by_cases hmn : m ≤ n
+    · have hs : MeasurableSet[ℱ m] {ω | M m ω = 0} := hM.adapted m (measurableSet_singleton 0)
+      have h : ∫⁻ ω in {ω | M m ω = 0}, M n ω ∂P = 0 := by
+        refine le_antisymm ((hM.setLIntegral_le hP hmn hs).trans_eq ?_) bot_le
+        exact (setLIntegral_eq_zero_iff (ℱ.le m _ hs) (hM.measurable m)).2
+          (ae_of_all _ fun _ hω ↦ hω)
+      filter_upwards [(setLIntegral_eq_zero_iff (ℱ.le m _ hs) (hM.measurable n)).1 h]
+        with ω hω h0 _ using hω h0
+    · exact ae_of_all _ fun ω _ hn ↦ absurd hn hmn
+  filter_upwards [ae_all_iff.2 fun m ↦ ae_all_iff.2 (h m)] with ω hω m h0 n hn
+    using hω m n h0 hn
 
 /-- An `ℝ≥0∞`-valued supermartingale with finite initial expectation under a finite measure has
 real values forming a real supermartingale. -/
@@ -312,22 +344,30 @@ theorem isTestMartingale_one (hS : ∀ P ∈ S, IsProbabilityMeasure P) :
     IsTestMartingale 1 ℱ S :=
   ⟨fun _ ↦ measurable_const, fun P hP ↦ by have := hS P hP; simp, fun _ _ _ _ _ ↦ rfl⟩
 
+/-- An almost surely nonnegative real supermartingale is, through `ENNReal.ofReal`, an
+`ℝ≥0∞`-valued supermartingale under `P`. -/
+theorem _root_.MeasureTheory.Supermartingale.isENNSupermartingale_ofReal
+    [SigmaFiniteFiltration P ℱ] {M : ℕ → Ω → ℝ} (hM : Supermartingale M ℱ P)
+    (hM_nonneg : ∀ n, 0 ≤ᵐ[P] M n) :
+    IsENNSupermartingale (fun n ω ↦ ENNReal.ofReal (M n ω)) ℱ {P} := by
+  refine ⟨fun n ↦ (hM.stronglyAdapted n).measurable.ennreal_ofReal, ?_⟩
+  rintro P' rfl n s hs
+  rw [← ofReal_integral_eq_lintegral_ofReal (hM.integrable (n + 1)).restrict
+      (ae_restrict_of_ae (hM_nonneg (n + 1))),
+    ← ofReal_integral_eq_lintegral_ofReal (hM.integrable n).restrict
+      (ae_restrict_of_ae (hM_nonneg n))]
+  exact ENNReal.ofReal_le_ofReal (hM.setIntegral_le n.le_succ hs)
+
 /-- A real nonnegative supermartingale with initial expectation at most `1` is, through
 `ENNReal.ofReal`, a test supermartingale for the null `{P}`. -/
 theorem _root_.MeasureTheory.Supermartingale.isTestSupermartingale_ofReal
     [SigmaFiniteFiltration P ℱ] {M : ℕ → Ω → ℝ} (hM : Supermartingale M ℱ P)
     (hM_nonneg : ∀ n, 0 ≤ᵐ[P] M n) (h0 : ∫ ω, M 0 ω ∂P ≤ 1) :
     IsTestSupermartingale (fun n ω ↦ ENNReal.ofReal (M n ω)) ℱ {P} := by
-  refine ⟨⟨fun n ↦ (hM.stronglyAdapted n).measurable.ennreal_ofReal, ?_⟩, ?_⟩
-  · rintro P' rfl n s hs
-    rw [← ofReal_integral_eq_lintegral_ofReal (hM.integrable (n + 1)).restrict
-        (ae_restrict_of_ae (hM_nonneg (n + 1))),
-      ← ofReal_integral_eq_lintegral_ofReal (hM.integrable n).restrict
-        (ae_restrict_of_ae (hM_nonneg n))]
-    exact ENNReal.ofReal_le_ofReal (hM.setIntegral_le n.le_succ hs)
-  · rintro P' rfl
-    rw [← ofReal_integral_eq_lintegral_ofReal (hM.integrable 0) (hM_nonneg 0)]
-    exact ENNReal.ofReal_le_one.2 h0
+  refine ⟨hM.isENNSupermartingale_ofReal hM_nonneg, ?_⟩
+  rintro P' rfl
+  rw [← ofReal_integral_eq_lintegral_ofReal (hM.integrable 0) (hM_nonneg 0)]
+  exact ENNReal.ofReal_le_one.2 h0
 
 /-! ### Wealth processes -/
 
@@ -469,22 +509,13 @@ these ratios are conditional e-variables (`IsENNSupermartingale.isCondEVar_div`)
 theorem IsENNSupermartingale.ae_eq_mul_prod_div (hM : IsENNSupermartingale M ℱ S) (hP : P ∈ S)
     (h0 : ∫⁻ ω, M 0 ω ∂P ≠ ∞) :
     ∀ᵐ ω ∂P, ∀ n, M n ω = M 0 ω * ∏ k ∈ range n, M (k + 1) ω / M k ω := by
-  -- almost surely, the process stays at `0` once it reaches it
-  have hzero : ∀ᵐ ω ∂P, ∀ k, M k ω = 0 → M (k + 1) ω = 0 := by
-    refine ae_all_iff.2 fun k ↦ ?_
-    have hs : MeasurableSet[ℱ k] {ω | M k ω = 0} := hM.adapted k (measurableSet_singleton 0)
-    have h : ∫⁻ ω in {ω | M k ω = 0}, M (k + 1) ω ∂P = 0 := by
-      refine le_antisymm ((hM.setLIntegral_succ_le P hP k _ hs).trans_eq ?_) bot_le
-      exact (setLIntegral_eq_zero_iff (ℱ.le k _ hs) (hM.measurable k)).2
-        (ae_of_all _ fun _ hω ↦ hω)
-    exact (setLIntegral_eq_zero_iff (ℱ.le k _ hs) (hM.measurable (k + 1))).1 h
-  filter_upwards [hzero, hM.ae_lt_top hP h0] with ω hz hfin n
+  filter_upwards [hM.ae_eq_zero_of_eq_zero hP, hM.ae_lt_top hP h0] with ω hz hfin n
   induction n with
   | zero => simp
   | succ n ih =>
     rw [prod_range_succ, ← mul_assoc, ← ih]
     rcases eq_or_ne (M n ω) 0 with h | h
-    · simp [h, hz n h]
+    · simp [h, hz n h (n + 1) n.le_succ]
     · exact (ENNReal.mul_div_cancel h (hfin n).ne).symm
 
 /-- **Test supermartingales are wealth processes** [WSR24, Proposition 3]. A test supermartingale
