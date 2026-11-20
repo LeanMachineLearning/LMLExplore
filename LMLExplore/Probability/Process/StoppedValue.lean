@@ -250,4 +250,123 @@ theorem Adapted.measurable_measurableSpace_apply_stoppingTime [MeasurableSpace �
   exact .iUnion fun k ↦
     (hσ.measurableSet_inter_eq_iff _ k).2 ((hu k hA).inter (hσ.measurableSet_eq k))
 
+
+/-- **The largest expectation at a random time** [RRLK, Lemma 3]. The supremum, over the random
+times `τ` with values in `ℕ`, not necessarily stopping times, of the integral of an `ℝ≥0∞`-valued
+process read at `τ` is the integral of its supremum over time: up to each horizon `N`, the time
+at which the process is largest up to `N` attains the running maximum. -/
+theorem iSup_lintegral_apply_eq_lintegral_iSup {mΩ : MeasurableSpace Ω} {μ : Measure Ω}
+    {u : ℕ → Ω → ℝ≥0∞} (hu : ∀ n, AEMeasurable (u n) μ) :
+    ⨆ τ : Ω → ℕ, ∫⁻ ω, u (τ ω) ω ∂μ = ∫⁻ ω, ⨆ n, u n ω ∂μ := by
+  refine le_antisymm (iSup_le fun τ ↦ lintegral_mono fun ω ↦ le_iSup (u · ω) (τ ω)) ?_
+  -- the supremum is the increasing limit of the running maxima up to `N`
+  have h_sup (ω : Ω) : ⨆ n, u n ω = ⨆ N, ⨆ k ≤ N, u k ω :=
+    le_antisymm (iSup_le fun k ↦ le_iSup_of_le k (le_iSup₂_of_le k le_rfl le_rfl))
+      (iSup_le fun _ ↦ iSup₂_le fun k _ ↦ le_iSup (u · ω) k)
+  simp_rw [h_sup]
+  rw [lintegral_iSup' (fun N ↦ AEMeasurable.iSup fun k ↦ AEMeasurable.iSup fun _ ↦ hu k)
+    (ae_of_all _ fun ω N N' h ↦ biSup_mono fun k hk ↦ hk.trans h)]
+  refine iSup_le fun N ↦ ?_
+  -- the running maximum up to `N` is attained at some time `k ≤ N`, which depends on `ω`
+  have h_max (ω : Ω) : ∃ k, ∀ j ≤ N, u j ω ≤ u k ω := by
+    obtain ⟨k, -, hk⟩ := (Finset.range (N + 1)).exists_max_image (u · ω) ⟨0, by simp⟩
+    exact ⟨k, fun j hj ↦ hk j (Finset.mem_range.2 (Nat.lt_succ_of_le hj))⟩
+  choose τ hτ using h_max
+  exact le_iSup_of_le τ (lintegral_mono fun ω ↦ iSup₂_le fun j hj ↦ hτ ω j hj)
+
+/-- **The largest expectation at a possibly infinite random time** [RRLK, Lemma 3]. The supremum,
+over the random times `τ` with values in `WithTop ℕ`, of the integral of an `ℝ≥0∞`-valued process
+read at `τ`, with its `limsup` where `τ` is infinite, is the integral of its supremum over time. -/
+theorem iSup_lintegral_stoppedValueLimsup_eq_lintegral_iSup {mΩ : MeasurableSpace Ω}
+    {μ : Measure Ω} {u : ℕ → Ω → ℝ≥0∞} (hu : ∀ n, AEMeasurable (u n) μ) :
+    ⨆ τ : Ω → WithTop ℕ, ∫⁻ ω, stoppedValueLimsup u τ ω ∂μ = ∫⁻ ω, ⨆ n, u n ω ∂μ := by
+  refine le_antisymm (iSup_le fun τ ↦ lintegral_mono fun ω ↦ ?_) ?_
+  · -- the value at a random time is at most the supremum over time
+    unfold stoppedValueLimsup
+    split_ifs
+    · exact limsup_le_iSup
+    · exact le_iSup (u · ω) _
+  · rw [← iSup_lintegral_apply_eq_lintegral_iSup hu]
+    exact iSup_le fun τ ↦ le_iSup_of_le (fun ω ↦ (τ ω : WithTop ℕ)) (by simp)
+
+/-! ### Events at a random time -/
+
+section StoppedEvent
+
+variable {A B : ℕ → Set Ω}
+
+/-- The event of a sequence of events `A : ℕ → Set Ω` read at the random time `τ : Ω → WithTop ℕ`:
+the points `ω ∈ A n` where `τ ω = n`, and the points of `limsup A atTop`, at which infinitely many
+of the events occur, where `τ ω = ⊤` [RRLK, Lemma 2]. -/
+def stoppedEvent (A : ℕ → Set Ω) (τ : Ω → WithTop ℕ) : Set Ω :=
+  {ω | if τ ω = ⊤ then ω ∈ limsup A atTop else ω ∈ A (τ ω).untopA}
+
+/-- Where the random time is finite, the event read at it is the event at that time. -/
+theorem mem_stoppedEvent_of_eq_natCast {n : ℕ} (h : τ ω = n) :
+    ω ∈ stoppedEvent A τ ↔ ω ∈ A n := by
+  simp [stoppedEvent, h]
+
+/-- Where the random time is finite, the event read at it is the event at its value, as Mathlib's
+`stoppedValue` reads a process. -/
+theorem mem_stoppedEvent_of_ne_top (h : τ ω ≠ ⊤) :
+    ω ∈ stoppedEvent A τ ↔ ω ∈ A (τ ω).untopA := by
+  simp [stoppedEvent, h]
+
+/-- Where the random time is infinite, the event read at it is the event that infinitely many of
+the events occur. -/
+theorem mem_stoppedEvent_of_eq_top (h : τ ω = ⊤) :
+    ω ∈ stoppedEvent A τ ↔ ∃ᶠ n in atTop, ω ∈ A n := by
+  simp [stoppedEvent, h, mem_limsup_iff_frequently_mem]
+
+/-- The event read at a finite random time, the coercion of an `ℕ`-valued one. -/
+@[simp]
+theorem stoppedEvent_natCast (A : ℕ → Set Ω) (τ : Ω → ℕ) :
+    stoppedEvent A (fun ω ↦ (τ ω : WithTop ℕ)) = {ω | ω ∈ A (τ ω)} :=
+  Set.ext fun _ ↦ mem_stoppedEvent_of_eq_natCast rfl
+
+/-- The event read at a constant finite time is the event at that time. -/
+theorem stoppedEvent_const (A : ℕ → Set Ω) (n : ℕ) :
+    stoppedEvent A (fun _ ↦ (n : WithTop ℕ)) = A n :=
+  stoppedEvent_natCast A fun _ ↦ n
+
+/-- The event read at the constant time `⊤` is the `limsup` of the events. -/
+@[simp]
+theorem stoppedEvent_top (A : ℕ → Set Ω) : stoppedEvent A (fun _ ↦ ⊤) = limsup A atTop := by
+  ext
+  simp [stoppedEvent]
+
+/-- The event read at a random time is monotone in the events. -/
+theorem stoppedEvent_mono (h : ∀ n, A n ⊆ B n) : stoppedEvent A τ ⊆ stoppedEvent B τ := by
+  intro ω hω
+  by_cases hτ : τ ω = ⊤
+  · rw [mem_stoppedEvent_of_eq_top hτ] at hω ⊢
+    exact hω.mono fun n hn ↦ h n hn
+  · obtain ⟨n, hn⟩ := WithTop.ne_top_iff_exists.1 hτ
+    rw [mem_stoppedEvent_of_eq_natCast hn.symm] at hω ⊢
+    exact h n hω
+
+/-- The event read at a random time is contained in the union of the events. -/
+theorem stoppedEvent_subset_iUnion : stoppedEvent A τ ⊆ ⋃ n, A n := by
+  intro ω hω
+  by_cases hτ : τ ω = ⊤
+  · exact Set.mem_iUnion.2 ((mem_stoppedEvent_of_eq_top hτ).1 hω).exists
+  · obtain ⟨n, hn⟩ := WithTop.ne_top_iff_exists.1 hτ
+    exact Set.mem_iUnion.2 ⟨n, (mem_stoppedEvent_of_eq_natCast hn.symm).1 hω⟩
+
+/-- The event of a sequence of measurable events read at a measurable random time is
+measurable. -/
+theorem measurableSet_stoppedEvent {mΩ : MeasurableSpace Ω} (hA : ∀ n, MeasurableSet (A n))
+    (hτ : Measurable τ) : MeasurableSet (stoppedEvent A τ) := by
+  -- split along the values of `τ`
+  have h_eq : stoppedEvent A τ = ⋃ k : WithTop ℕ, τ ⁻¹' {k} ∩ stoppedEvent A (fun _ ↦ k) := by
+    ext ω
+    simp [stoppedEvent]
+  rw [h_eq]
+  refine .iUnion fun k ↦ (hτ (measurableSet_singleton k)).inter ?_
+  cases k with
+  | top => simpa using MeasurableSet.measurableSet_limsup hA
+  | coe n => simpa [stoppedEvent_const] using hA n
+
+end StoppedEvent
+
 end MeasureTheory
