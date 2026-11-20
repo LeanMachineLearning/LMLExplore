@@ -5,8 +5,8 @@ Authors: LMLExplore contributors
 -/
 module
 
+public import LMLExplore.Probability.Martingale.TestSupermartingale
 public import Mathlib.MeasureTheory.Integral.Prod
-public import Mathlib.Probability.Martingale.Basic
 
 /-!
 # Mixtures of nonnegative supermartingales
@@ -28,11 +28,14 @@ with Ville's inequality.
 
 ## Implementation notes
 
-This file is adapted from `MeasureTheory.supermartingale_integral_of_integrable` and
+The statements are adapted from `MeasureTheory.supermartingale_integral_of_integrable` and
 `MeasureTheory.supermartingale_integral` in
 `LeanMachineLearning/ForMathlib/Probability/Martingale/Mixture.lean` of the LMLPapers project
 (https://github.com/LeanMachineLearning/LMLPapers). The almost sure convergence corollary proved
-there is not included.
+there is not included. The general statement is derived from the mixture of `ℝ≥0∞`-valued
+supermartingales, `ProbabilityTheory.isENNSupermartingale_lintegral`, applied to the processes
+`ENNReal.ofReal ∘ f l`: integrability of the initial expectations makes the mixture finite, and
+its real values are the mixture of the `f l`.
 
 ## References
 
@@ -42,7 +45,7 @@ there is not included.
 
 public section
 
-open MeasureTheory
+open MeasureTheory ProbabilityTheory
 open scoped ENNReal
 
 namespace LMLExplore
@@ -60,50 +63,28 @@ lemma supermartingale_integral_of_integrable [IsFiniteMeasure μ] [SFinite π]
     (hmeas : ∀ n, Measurable[mL.prod (ℱ n)] (fun p : L × Ω ↦ f p.1 n p.2))
     (hint : Integrable (fun l ↦ ∫ ω, f l 0 ω ∂μ) π) :
     Supermartingale (fun n ω ↦ ∫ l, f l n ω ∂π) ℱ μ := by
-  set G : ℕ → Ω → ℝ≥0∞ := fun n ω ↦ ∫⁻ l, ENNReal.ofReal (f l n ω) ∂π with hG_def
-  have hmeas' : ∀ n, Measurable (fun p : L × Ω ↦ f p.1 n p.2) := fun n ↦
-    (hmeas n).mono (MeasurableSpace.prod_mono le_rfl (ℱ.le n)) le_rfl
-  have hsec : ∀ n ω, Measurable (fun l ↦ f l n ω) := fun n ω ↦
-    (hmeas' n).comp measurable_prodMk_right
-  have hg_eq : ∀ n ω, ∫ l, f l n ω ∂π = (G n ω).toReal := fun n ω ↦
-    integral_eq_lintegral_of_nonneg_ae (ae_of_all _ fun l ↦ hf_nonneg l n ω)
-      (hsec n ω).aestronglyMeasurable
-  have hGm : ∀ n, Measurable (G n) := fun n ↦ (hmeas' n).ennreal_ofReal.lintegral_prod_left'
-  -- Tonelli
-  have hswap : ∀ n s, MeasurableSet s →
-      ∫⁻ ω in s, G n ω ∂μ = ∫⁻ l, ENNReal.ofReal (∫ ω in s, f l n ω ∂μ) ∂π := by
-    intro n s hs
-    rw [hG_def, lintegral_lintegral_swap]
-    · refine lintegral_congr fun l ↦ ?_
-      rw [ofReal_integral_eq_lintegral_ofReal ((hf l).integrable n).integrableOn
-        (ae_of_all _ fun ω ↦ hf_nonneg l n ω)]
-    · exact ((hmeas' n).comp measurable_swap).ennreal_ofReal.aemeasurable
-  have key : ∀ i j, i ≤ j → ∀ s, MeasurableSet[ℱ i] s →
-      ∫⁻ ω in s, G j ω ∂μ ≤ ∫⁻ ω in s, G i ω ∂μ := by
-    intro i j hij s hs
-    rw [hswap j s (ℱ.le i _ hs), hswap i s (ℱ.le i _ hs)]
-    exact lintegral_mono fun l ↦ ENNReal.ofReal_le_ofReal ((hf l).setIntegral_le hij hs)
-  have hfin : ∀ n, ∫⁻ ω, G n ω ∂μ < ∞ := by
-    intro n
-    refine lt_of_le_of_lt (by simpa using key 0 n (Nat.zero_le n) Set.univ MeasurableSet.univ) ?_
-    rw [← setLIntegral_univ, hswap 0 Set.univ MeasurableSet.univ]
-    simpa using (hasFiniteIntegral_iff_ofReal (ae_of_all _ fun l ↦
-      integral_nonneg (hf_nonneg l 0))).1 hint.hasFiniteIntegral
-  have hG_lt : ∀ n, ∀ᵐ ω ∂μ, G n ω < ∞ := fun n ↦ ae_lt_top (hGm n) (hfin n).ne
-  have hint' : ∀ n, Integrable (fun ω ↦ ∫ l, f l n ω ∂π) μ := fun n ↦ by
-    simp_rw [hg_eq]
-    exact integrable_toReal_of_lintegral_ne_top (hGm n).aemeasurable (hfin n).ne
-  have hadapt : StronglyAdapted ℱ (fun n ω ↦ ∫ l, f l n ω ∂π) := fun n ↦ by
-    -- The local instance `ℱ n` on `Ω` makes `integral_prod_left'` conclude
-    -- `ℱ n`-strong measurability.
-    let : MeasurableSpace Ω := ℱ n
-    exact (hmeas n).stronglyMeasurable.integral_prod_left'
-  refine supermartingale_of_setIntegral_succ_le hadapt hint' fun n s hs ↦ ?_
-  simp_rw [hg_eq]
-  rw [integral_toReal (hGm _).aemeasurable (ae_restrict_of_ae (hG_lt _)),
-    integral_toReal (hGm _).aemeasurable (ae_restrict_of_ae (hG_lt _))]
-  exact ENNReal.toReal_mono ((setLIntegral_le_lintegral _ _).trans_lt (hfin n)).ne
-    (key n (n + 1) (Nat.le_succ n) s hs)
+  -- The mixture `G` of the `ℝ≥0∞`-valued supermartingales `ENNReal.ofReal ∘ f l` is an
+  -- `ℝ≥0∞`-valued supermartingale with finite initial expectation, whose real values are the
+  -- mixture of the `f l`.
+  set G : ℕ → Ω → ℝ≥0∞ := fun n ω ↦ ∫⁻ l, ENNReal.ofReal (f l n ω) ∂π
+  have hG : IsENNSupermartingale G ℱ {μ} :=
+    isENNSupermartingale_lintegral (fun _ hP ↦ hP ▸ inferInstance)
+      (fun n ↦ (hmeas n).ennreal_ofReal)
+      fun l ↦ (hf l).isENNSupermartingale_ofReal fun n ↦ ae_of_all _ (hf_nonneg l n)
+  have hG0 : ∫⁻ ω, G 0 ω ∂μ ≠ ∞ := by
+    have hm : Measurable (fun p : L × Ω ↦ f p.1 0 p.2) :=
+      (hmeas 0).mono (MeasurableSpace.prod_mono le_rfl (ℱ.le 0)) le_rfl
+    rw [lintegral_lintegral_swap (hm.comp measurable_swap).ennreal_ofReal.aemeasurable]
+    simp_rw [← ofReal_integral_eq_lintegral_ofReal ((hf _).integrable 0)
+      (ae_of_all _ (hf_nonneg _ 0))]
+    exact hint.lintegral_lt_top.ne
+  have hGf : (fun n ω ↦ ∫ l, f l n ω ∂π) = fun n ω ↦ (G n ω).toReal := by
+    ext n ω
+    exact integral_eq_lintegral_of_nonneg_ae (ae_of_all _ fun l ↦ hf_nonneg l n ω)
+      ((hmeas n).mono (MeasurableSpace.prod_mono le_rfl (ℱ.le n)) le_rfl
+        |>.comp measurable_prodMk_right).aestronglyMeasurable
+  rw [hGf]
+  exact hG.supermartingale_toReal (Set.mem_singleton μ) hG0
 
 /-- **Mixtures of supermartingales**, for a finite mixing measure: if `(f l)_l` is a family of
 nonnegative supermartingales such that `(l, ω) ↦ f l n ω` is `mL ⊗ ℱ n`-measurable for each `n`

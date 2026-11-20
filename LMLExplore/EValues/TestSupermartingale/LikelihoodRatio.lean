@@ -5,7 +5,7 @@ Authors: LMLExplore contributors
 -/
 module
 
-public import LMLExplore.EValues.TestSupermartingale
+public import LMLExplore.Probability.Martingale.TestSupermartingale
 public import LMLExplore.MeasureTheory.Measure.Decomposition.RNDerivTrim
 public import Mathlib.MeasureTheory.Constructions.Polish.Basic
 import TauCeti.MeasureTheory.Measure.ProjectiveLimit.Nat

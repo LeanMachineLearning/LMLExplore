@@ -6,7 +6,7 @@ Authors: LMLExplore contributors
 module
 
 public import LMLExplore.Basic.ENNReal.BigOperators
-public import LMLExplore.EValues.TestSupermartingale
+public import LMLExplore.Probability.Martingale.TestSupermartingale
 
 /-!
 # E-BH on the running maxima of test supermartingales

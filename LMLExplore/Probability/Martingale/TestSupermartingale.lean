@@ -5,7 +5,7 @@ Authors: LMLExplore contributors
 -/
 module
 
-public import LMLExplore.EValues.CondEVariable
+public import LMLExplore.Probability.Martingale.CondEVariable
 public import LMLExplore.Probability.Martingale.Basic
 public import LMLExplore.Probability.Process.Adapted
 public import LMLExplore.Probability.Process.Stopping
@@ -47,7 +47,8 @@ stopping time `τ` is multiplied by a new supermartingale `B` that equals `1` up
 
 ## Main statements
 
-* `MeasureTheory.Supermartingale.isTestSupermartingale_ofReal`,
+* `MeasureTheory.Supermartingale.isENNSupermartingale_ofReal`,
+  `MeasureTheory.Supermartingale.isTestSupermartingale_ofReal`,
   `ProbabilityTheory.IsTestSupermartingale.supermartingale_toReal`,
   `ProbabilityTheory.IsTestMartingale.martingale_toReal`: the bridges with Mathlib's real
   supermartingales and martingales.
@@ -312,22 +313,30 @@ theorem isTestMartingale_one (hS : ∀ P ∈ S, IsProbabilityMeasure P) :
     IsTestMartingale 1 ℱ S :=
   ⟨fun _ ↦ measurable_const, fun P hP ↦ by have := hS P hP; simp, fun _ _ _ _ _ ↦ rfl⟩
 
+/-- An almost surely nonnegative real supermartingale is, through `ENNReal.ofReal`, an
+`ℝ≥0∞`-valued supermartingale under `P`. -/
+theorem _root_.MeasureTheory.Supermartingale.isENNSupermartingale_ofReal
+    [SigmaFiniteFiltration P ℱ] {M : ℕ → Ω → ℝ} (hM : Supermartingale M ℱ P)
+    (hM_nonneg : ∀ n, 0 ≤ᵐ[P] M n) :
+    IsENNSupermartingale (fun n ω ↦ ENNReal.ofReal (M n ω)) ℱ {P} := by
+  refine ⟨fun n ↦ (hM.stronglyAdapted n).measurable.ennreal_ofReal, ?_⟩
+  rintro P' rfl n s hs
+  rw [← ofReal_integral_eq_lintegral_ofReal (hM.integrable (n + 1)).restrict
+      (ae_restrict_of_ae (hM_nonneg (n + 1))),
+    ← ofReal_integral_eq_lintegral_ofReal (hM.integrable n).restrict
+      (ae_restrict_of_ae (hM_nonneg n))]
+  exact ENNReal.ofReal_le_ofReal (hM.setIntegral_le n.le_succ hs)
+
 /-- A real nonnegative supermartingale with initial expectation at most `1` is, through
 `ENNReal.ofReal`, a test supermartingale for the null `{P}`. -/
 theorem _root_.MeasureTheory.Supermartingale.isTestSupermartingale_ofReal
     [SigmaFiniteFiltration P ℱ] {M : ℕ → Ω → ℝ} (hM : Supermartingale M ℱ P)
     (hM_nonneg : ∀ n, 0 ≤ᵐ[P] M n) (h0 : ∫ ω, M 0 ω ∂P ≤ 1) :
     IsTestSupermartingale (fun n ω ↦ ENNReal.ofReal (M n ω)) ℱ {P} := by
-  refine ⟨⟨fun n ↦ (hM.stronglyAdapted n).measurable.ennreal_ofReal, ?_⟩, ?_⟩
-  · rintro P' rfl n s hs
-    rw [← ofReal_integral_eq_lintegral_ofReal (hM.integrable (n + 1)).restrict
-        (ae_restrict_of_ae (hM_nonneg (n + 1))),
-      ← ofReal_integral_eq_lintegral_ofReal (hM.integrable n).restrict
-        (ae_restrict_of_ae (hM_nonneg n))]
-    exact ENNReal.ofReal_le_ofReal (hM.setIntegral_le n.le_succ hs)
-  · rintro P' rfl
-    rw [← ofReal_integral_eq_lintegral_ofReal (hM.integrable 0) (hM_nonneg 0)]
-    exact ENNReal.ofReal_le_one.2 h0
+  refine ⟨hM.isENNSupermartingale_ofReal hM_nonneg, ?_⟩
+  rintro P' rfl
+  rw [← ofReal_integral_eq_lintegral_ofReal (hM.integrable 0) (hM_nonneg 0)]
+  exact ENNReal.ofReal_le_one.2 h0
 
 /-! ### Wealth processes -/
 

@@ -5,7 +5,7 @@ Authors: LMLExplore contributors
 -/
 module
 
-public import LMLExplore.EValues.TestSupermartingale
+public import LMLExplore.Probability.Martingale.TestSupermartingale
 public import LMLExplore.Probability.Process.Stopping
 public import LMLExplore.Probability.Process.StoppedValue
 public import Mathlib.Probability.Martingale.Convergence

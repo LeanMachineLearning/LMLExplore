@@ -5,7 +5,7 @@ Authors: LMLExplore contributors
 -/
 module
 
-public import LMLExplore.EValues.CondEVariable
+public import LMLExplore.Probability.Martingale.CondEVariable
 public import LMLExplore.EValues.EffectiveSet.Basic
 public import LMLExplore.EValues.EProcess.Basic
 public import LMLExplore.Probability.Process.Adapted

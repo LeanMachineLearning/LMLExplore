@@ -5,7 +5,7 @@ Authors: LMLExplore contributors
 -/
 module
 
-public import LMLExplore.EValues.TestSupermartingale
+public import LMLExplore.Probability.Martingale.TestSupermartingale
 public import Mathlib.Analysis.Convex.Basic
 public import Mathlib.Probability.ProductMeasure
 import LMLExplore.Analysis.Convex.ENNReal

@@ -5,7 +5,7 @@ Authors: LMLExplore contributors
 -/
 module
 
-public import LMLExplore.EValues.TestSupermartingale
+public import LMLExplore.Probability.Martingale.TestSupermartingale
 import LMLExplore.MeasureTheory.MeasurableSpace.Constructions
 import LMLExplore.MeasureTheory.Measure.Weighted
 

@@ -6,7 +6,7 @@ Authors: LMLExplore contributors
 module
 
 public import LMLExplore.EValues.ConstraintNull.Basic
-public import LMLExplore.EValues.TestSupermartingale
+public import LMLExplore.Probability.Martingale.TestSupermartingale
 public import LMLExplore.Probability.Process.Filtration
 public import Mathlib.Probability.Independence.Basic
 public import Mathlib.Probability.ProductMeasure
