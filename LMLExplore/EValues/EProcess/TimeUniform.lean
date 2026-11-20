@@ -62,6 +62,14 @@ bound: for an adjuster `A`, `⨆ n, A (max 1 (E n))` has expectation at most `1`
 * `ProbabilityTheory.exists_isEProcess_not_isEProcess_iSup`: the running maximum of an e-process
   need not be an e-process [RRLK, Remark 16].
 
+## Implementation notes
+
+The name and the union bound of `ProbabilityTheory.IsTimeUniform` follow the prototype
+`IsTimeUniform` in `notes/book/Suggested.lean` (commit `1411a5b`) of the paper project
+`RemyDegenne/evalues_research`. That prototype has no filtration argument; this version adds the
+filtration and the adaptedness of the events, which the equivalence lemma and the monotonicity in
+the filtration need.
+
 ## References
 
 * [CR26] Y. J. Choe and A. Ramdas, *Combining evidence across filtrations*, arXiv:2402.09698v5,

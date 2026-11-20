@@ -121,8 +121,7 @@ theorem forall_isStoppingTime_measure_le_iff_of_le {mΩ : MeasurableSpace Ω} {�
 
 
 /-- **The first occurrence gives the union** [RRLK, Lemma 2]. Read at the first time that one of
-the events `A n` occurs, and at `⊤` where none does, a sequence of events gives their union: where
-no event occurs, infinitely many of them do not occur either. -/
+the events `A n` occurs, and at `⊤` where none does, a sequence of events gives their union. -/
 theorem stoppedEvent_hittingAfter_indicator (A : ℕ → Set Ω) :
     stoppedEvent A (hittingAfter (fun n ↦ (A n).indicator fun _ ↦ (1 : ℝ)) {1} 0) =
       ⋃ n, A n := by
