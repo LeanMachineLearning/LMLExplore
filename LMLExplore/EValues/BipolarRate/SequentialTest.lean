@@ -6,7 +6,7 @@ Authors: LMLExplore contributors
 module
 
 public import LMLExplore.EValues.BipolarRate.Basic
-public import Mathlib.Probability.Process.Stopping
+public import LMLExplore.EValues.EProcess.LevelStoppingTime
 public import Mathlib.Probability.ProductMeasure
 import LMLExplore.Analysis.SpecialFunctions.Log.ENNRealLog
 import LMLExplore.Data.EReal.Inv
@@ -25,7 +25,8 @@ Let `S₁` be a set of measures on `𝓧` (the null) and `Q₁` a measure on `�
 observations are the coordinates of `ℕ → 𝓧`, with the i.i.d. laws `Measure.infinitePi fun _ ↦ P`
 and the filtration `Filtration.piLE`, so that `τ + 1` observations have been made at a time `τ`. A
 sequential test of level `α` is a stopping time `τ` with values in `WithTop ℕ` that is finite with
-probability at most `α` under the i.i.d. law of every member of the null.
+probability at most `α` under the i.i.d. law of every member of the null
+(`ProbabilityTheory.IsLevelStoppingTime`, for the null of these i.i.d. laws).
 
 Every such test makes at least `log (1/α) / d` observations in expectation under the i.i.d. law
 of `Q₁`, where `d = bipolarRate Q₁ S₁` [EVR26, Note 01]. This file proves that the bound is
@@ -52,7 +53,7 @@ complete blocks reaches `α⁻¹`.
 
 ## Main statements
 
-* `ProbabilityTheory.exists_isStoppingTime_limsup_lintegral_div_log_le`: for every real
+* `ProbabilityTheory.exists_isLevelStoppingTime_limsup_lintegral_div_log_le`: for every real
   `0 < d' < bipolarRate Q₁ S₁`, sequential tests `τ α` of every level `α` with
   `limsup_{α → 0} 𝔼[τ α + 1] / log (1/α) ≤ 1 / d'`.
 
@@ -270,8 +271,9 @@ private lemma lintegral_hittingAfter_add_one_le (Q₁ : Measure 𝓧) [IsProbabi
   _ ≤ m * ENNReal.ofReal ((b + C) / ∫ x, v x ∂Measure.pi fun _ : Fin m ↦ Q₁) := by gcongr
 
 /-- **Sequential tests attain the bipolar rate to first order.** For every real `d' > 0` below the
-bipolar rate of `Q₁` against `S₁`, there are sequential tests `τ α`, stopping times of
-`Filtration.piLE` with `P^ℕ (τ α < ∞) ≤ α` for every member `P` of the null and every level `α`,
+bipolar rate of `Q₁` against `S₁`, there are sequential tests `τ α` of every level `α` for the
+i.i.d. laws of the members of the null, stopping times of `Filtration.piLE` with
+`P^ℕ (τ α < ∞) ≤ α` for every member `P` of the null,
 whose expected numbers of observations `𝔼[τ α + 1]` under the i.i.d. law of `Q₁` satisfy
 `limsup_{α → 0} 𝔼[τ α + 1] / log (1/α) ≤ 1 / d'` [EVR26, Note 01]. With the lower bound
 `log (1/α) / d ≤ 𝔼[τ + 1]` for every test of level `α`, where `d` is the bipolar rate, the
@@ -279,11 +281,11 @@ optimal expected number of observations is `log (1/α) / d` to first order. The 
 successive blocks of `m` observations and stop when the product of the bets reaches `α⁻¹`. The
 bipolar rate may be infinite. Neither `Q₁` nor the members of `S₁` need be probability measures:
 the i.i.d. law of a measure that is not one is `0`. -/
-theorem exists_isStoppingTime_limsup_lintegral_div_log_le (Q₁ : Measure 𝓧) {d' : ℝ}
+theorem exists_isLevelStoppingTime_limsup_lintegral_div_log_le (Q₁ : Measure 𝓧) {d' : ℝ}
     (hd' : 0 < d') (hd'd : (d' : EReal) < bipolarRate Q₁ S₁) :
     ∃ τ : ℝ≥0∞ → (ℕ → 𝓧) → WithTop ℕ,
-      (∀ α, IsStoppingTime (Filtration.piLE (X := fun _ : ℕ ↦ 𝓧)) (τ α) ∧
-        ∀ P ∈ S₁, Measure.infinitePi (fun _ : ℕ ↦ P) {ω | τ α ω ≠ ⊤} ≤ α) ∧
+      (∀ α, IsLevelStoppingTime (τ α) (Filtration.piLE (X := fun _ : ℕ ↦ 𝓧))
+        ((fun P ↦ Measure.infinitePi fun _ : ℕ ↦ P) '' S₁) α) ∧
       limsup (fun α ↦ (∫⁻ ω, ENat.toENNReal (τ α ω) + 1 ∂Measure.infinitePi (fun _ : ℕ ↦ Q₁)) /
         (ENNReal.log α⁻¹).toENNReal) (𝓝[>] 0) ≤ ENNReal.ofReal d'⁻¹ := by
   by_cases hQ : IsProbabilityMeasure Q₁
@@ -305,16 +307,16 @@ theorem exists_isStoppingTime_limsup_lintegral_div_log_le (Q₁ : Measure 𝓧) 
     Filtration.measurable_piLE_of_dependsOn (measurable_seqBlockProd hVm _)
       ((dependsOn_seqBlockProd V _).mono (Set.Iio_subset_Iio (Nat.div_mul_le_self _ _)))
   refine ⟨fun α ↦ hittingAfter E (Set.Ici α⁻¹) 0, fun α ↦
-    ⟨hE.isStoppingTime_hittingAfter measurableSet_Ici, fun P hP ↦ ?_⟩, ?_⟩
+    ⟨hE.isStoppingTime_hittingAfter measurableSet_Ici, ?_⟩, ?_⟩
   · -- the level, by Ville's inequality
+    rintro _ ⟨P, hP, rfl⟩
     by_cases hP' : IsProbabilityMeasure P
     swap
     · simp [Measure.infinitePi_eq_zero_of_not_isProbabilityMeasure (μ := fun _ : ℕ ↦ P) (i := 0)
         hP']
     refine (measure_mono fun ω hω ↦ ?_).trans
       ((measure_exists_le_seqBlockProd_le P hVm (hvP P hP hP') α⁻¹).trans_eq (inv_inv α))
-    simp only [Set.mem_ofPred_eq, ne_eq, hittingAfter_eq_top_iff, not_forall, not_not] at hω
-    obtain ⟨n, -, hn⟩ := hω
+    obtain ⟨n, -, hn⟩ := hittingAfter_lt_top_iff.1 hω
     exact ⟨_, hn⟩
   -- the expected number of observations, for `α ∈ (0, 1)`
   set B : ℝ≥0∞ → ℝ≥0∞ := fun α ↦ (ENNReal.log α⁻¹).toENNReal

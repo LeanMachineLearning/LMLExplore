@@ -5,8 +5,8 @@ Authors: LMLExplore contributors
 -/
 module
 
+public import LMLExplore.EValues.EProcess.LevelStoppingTime
 public import Mathlib.Probability.ProductMeasure
-public import Mathlib.Probability.Process.Stopping
 import LMLExplore.MeasureTheory.Integral.Lebesgue.Markov
 import LMLExplore.Probability.Martingale.SampleMean
 import LMLExplore.Probability.Martingale.Upcrossing
@@ -37,7 +37,9 @@ which [RLKR23, §4.2] proves a composite strong law implies this hypothesis.
 
 ## Main statements
 
-* `ProbabilityTheory.exists_isStoppingTime_lt_top_of_not_tendsto_mean`: the composite strong law.
+* `ProbabilityTheory.exists_isLevelStoppingTime_lt_top_of_not_tendsto_mean`: the composite strong
+  law: for every `α > 0`, a level-`α` sequential test for the i.i.d. null that rejects on every
+  sequence whose sample means do not converge.
 
 ## Implementation notes
 
@@ -203,16 +205,17 @@ private lemma measure_stopTime_lt_top_le {μ : Measure (ℕ → ℝ)} [IsProbabi
 
 /-- **A composite strong law of large numbers.** Let `S` be a set of integrable laws on `ℝ` whose
 centred first absolute moments `∫ |x - m_P| dP` are at most `c`, where `m_P` is the mean of `P`.
-For every `α > 0`, some stopping time of the canonical filtration of `ℕ → ℝ` is finite on every
-sequence whose sample means do not converge in `ℝ`, and finite with probability at most `α` under
-i.i.d. sampling from each member of `S` [EVR26, Note 16, Theorem 1]. The set of these sequences
+For every `α > 0`, some level-`α` sequential test for the i.i.d. laws of the members of `S`, a
+stopping time of the canonical filtration of `ℕ → ℝ` finite with probability at most `α` under
+i.i.d. sampling from each member of `S`, is finite on every sequence whose sample means do not
+converge in `ℝ` [EVR26, Note 16, Theorem 1]. The set of these sequences
 has thus inverse capital outer measure zero [RLKR23]. (For a member that is not a probability
 measure, `Measure.infinitePi` is zero.) -/
-theorem exists_isStoppingTime_lt_top_of_not_tendsto_mean {S : Set (Measure ℝ)}
+theorem exists_isLevelStoppingTime_lt_top_of_not_tendsto_mean {S : Set (Measure ℝ)}
     (hS : ∀ P ∈ S, Integrable id P) {c : ℝ} (hc : ∀ P ∈ S, ∫ x, |x - ∫ y, y ∂P| ∂P ≤ c)
     {α : ℝ≥0∞} (hα : 0 < α) :
-    ∃ τ : (ℕ → ℝ) → WithTop ℕ, IsStoppingTime (Filtration.piLE (X := fun _ : ℕ ↦ ℝ)) τ ∧
-      (∀ P ∈ S, Measure.infinitePi (fun _ : ℕ ↦ P) {ω | τ ω < ⊤} ≤ α) ∧
+    ∃ τ : (ℕ → ℝ) → WithTop ℕ, IsLevelStoppingTime τ (Filtration.piLE (X := fun _ : ℕ ↦ ℝ))
+        ((fun P ↦ Measure.infinitePi fun _ : ℕ ↦ P) '' S) α ∧
       ∀ ω : ℕ → ℝ, (¬ ∃ l : ℝ,
         Tendsto (fun n : ℕ ↦ (∑ i ∈ Finset.range n, ω i) / n) atTop (𝓝 l)) → τ ω < ⊤ := by
   -- the constants: a level `δ ≤ α`, weights `ε` on the rational pairs, a bound `C` for the
@@ -234,8 +237,9 @@ theorem exists_isStoppingTime_lt_top_of_not_tendsto_mean {S : Set (Measure ℝ)}
           (div_le_iff₀' hd).1 (Nat.le_ceil _)
       _ ≤ ((q.2 : ℝ) - q.1) * ε q * K q := by gcongr; simp [hK]
       _ = ((q.2 : ℝ) - q.1) * K q * ε q := by ring
-  refine ⟨stopTime L K, isStoppingTime_stopTime L K, fun P hPS ↦ ?_,
+  refine ⟨stopTime L K, ⟨isStoppingTime_stopTime L K, ?_⟩,
     fun ω hω ↦ stopTime_lt_top_of_not_tendsto hω⟩
+  rintro _ ⟨P, hPS, rfl⟩
   by_cases hP₁ : IsProbabilityMeasure P
   swap
   · -- the product of copies of `P` is zero

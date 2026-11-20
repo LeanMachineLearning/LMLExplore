@@ -179,7 +179,8 @@ theorem isConfSeq_univ (ℱ : Filtration ℕ mΩ) (S : Θ → Set (Measure Ω)) 
 4. the same at every random time with values in `ℕ`;
 5. the same at every stopping time with values in `ℕ`.
 
-The random time may depend on the parameter. -/
+The random time may depend on the parameter. For each parameter `θ`, this is the equivalence lemma
+for time-uniform validity (`ProbabilityTheory.isTimeUniform_tfae`) for the events `{θ ∉ C n}`. -/
 theorem isConfSeq_tfae (hC : ∀ θ n, MeasurableSet[ℱ n] {ω | θ ∈ C n ω}) :
     List.TFAE [IsConfSeq C ℱ S α,
       ∀ θ, ∀ P ∈ S θ, ∀ τ : Ω → WithTop ℕ,
@@ -189,25 +190,17 @@ theorem isConfSeq_tfae (hC : ∀ θ n, MeasurableSet[ℱ n] {ω | θ ∈ C n ω}
       ∀ θ, ∀ P ∈ S θ, ∀ τ : Ω → ℕ, P {ω | θ ∉ C (τ ω) ω} ≤ α,
       ∀ θ, ∀ P ∈ S θ, ∀ τ : Ω → ℕ, IsStoppingTime ℱ (fun ω ↦ (τ ω : WithTop ℕ)) →
         P {ω | θ ∉ C (τ ω) ω} ≤ α] := by
-  -- at a finite time `↑(τ ω)`, the set read at `τ` is `C (τ ω) ω`
-  have h_coe (τ : Ω → ℕ) (ω : Ω) :
-      (if (τ ω : WithTop ℕ) = ⊤ then liminf (fun n ↦ C n ω) atTop
-        else stoppedValue C (fun ω ↦ (τ ω : WithTop ℕ)) ω) = C (τ ω) ω := by
-    rw [ite_eq_right (WithTop.natCast_ne_top _)]
-    exact (stoppedValueLimsup_eq_stoppedValue (τ := fun ω ↦ (τ ω : WithTop ℕ))
-      (WithTop.natCast_ne_top _)).symm.trans (stoppedValueLimsup_of_eq_natCast rfl)
-  tfae_have 1 → 2 := fun h θ P hP τ ↦ h.measure_notMem_liminf_le τ hP
-  tfae_have 2 → 3 := fun h θ P hP τ _ ↦ h θ P hP τ
-  tfae_have 2 → 4 := fun h θ P hP τ ↦ by simpa only [h_coe] using h θ P hP (fun ω ↦ τ ω)
-  tfae_have 3 → 5 := fun h θ P hP τ hτ ↦ by simpa only [h_coe] using h θ P hP _ hτ
-  tfae_have 4 → 5 := fun h θ P hP τ _ ↦ h θ P hP τ
-  tfae_have 5 → 1 := fun h ↦ ⟨hC, fun θ P hP ↦ by
-    -- read the adapted events `{θ ∉ C n}` at stopping times
-    have h_union : {ω | ∃ n, θ ∉ C n ω} = ⋃ n, {ω | θ ∉ C n ω} := by ext; simp
-    rw [h_union, measure_iUnion_eq_iSup_isStoppingTime (A := fun n ↦ {ω | θ ∉ C n ω})
-      fun n ↦ (hC θ n).compl]
-    exact iSup₂_le fun τ hτ ↦ h θ P hP τ hτ⟩
-  tfae_finish
+  -- read at a random time, the set misses `θ` on the event `{θ ∉ C n}` read at that time
+  have h_event (θ : Θ) (τ : Ω → WithTop ℕ) :
+      {ω | θ ∉ if τ ω = ⊤ then liminf (fun n ↦ C n ω) atTop else stoppedValue C τ ω} =
+        stoppedEvent (fun n ↦ {ω | θ ∉ C n ω}) τ := by
+    ext ω
+    by_cases hτ : τ ω = ⊤
+    · simp [hτ, mem_stoppedEvent_of_eq_top, mem_liminf_iff_eventually_mem, frequently_atTop]
+    · simp [hτ, mem_stoppedEvent_of_ne_top, stoppedValue]
+  -- the equivalence lemma for the events `{θ ∉ C n}`, for each parameter `θ`
+  simp only [isConfSeq_iff_forall_isTimeUniform, h_event]
+  exact List.forall_tfae [_, _, _, _, _] fun θ ↦ isTimeUniform_tfae fun n ↦ (hC θ n).compl
 
 /-- **Confidence sequences are valid at stopping times** [RRLK, §4.3]. Adapted random sets form a
 confidence sequence at level `α` exactly when, read at every stopping time with values in `ℕ`,

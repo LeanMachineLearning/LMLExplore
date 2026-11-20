@@ -6,7 +6,7 @@ Authors: LMLExplore contributors
 module
 
 public import LMLExplore.EValues.BipolarRate.Basic
-public import LMLExplore.EValues.EProcess.Basic
+public import LMLExplore.EValues.EProcess.LevelStoppingTime
 public import Mathlib.Probability.ProductMeasure
 import LMLExplore.EValues.BipolarRate.Round
 import LMLExplore.MeasureTheory.Integral.EReal
@@ -33,8 +33,9 @@ time.
 Its case `E n = α⁻¹ * 𝟙{τ ≤ n}` (mixed with a constant, so that its logarithm is finite) is the
 **lower bound on expected stopping times** [EVR26, Note 01]: a sequential test of level `α`, that
 is, a stopping time `τ` with values in `WithTop ℕ` such that `P^ℕ (τ < ∞) ≤ α` for every
-`P ∈ S₁`, makes at least `log (1/α) / d` observations in expectation under `Q`. If `d = 0`,
-every test of a level `α < 1` has an infinite expected number of observations. Since `d` is at
+`P ∈ S₁` (`ProbabilityTheory.IsLevelStoppingTime`, for the null of these i.i.d. laws), makes at
+least `log (1/α) / d` observations in expectation under `Q`. If `d = 0`, every test of a level
+`α < 1` has an infinite expected number of observations. Since `d` is at
 most the smallest relative entropy `KL_inf(Q₁, S₁)` from `Q₁` to the null
 (`ProbabilityTheory.bipolarRate_le_iInf_klDiv`), this contains the lower bound with
 `KL_inf(Q₁, S₁)` in place of `d`, the form of the bounds of [ARR26]; the bipolar rate can be
@@ -404,11 +405,14 @@ expected number of observations is infinite, if `d = ∞` the bound is `0`, and 
 smallest relative entropy from `Q₁` to `S₁` (`bipolarRate_le_iInf_klDiv`), this contains the
 lower bound `log (1/α) / KL_inf(Q₁, S₁)` [ARR26]. -/
 theorem toENNReal_log_inv_div_bipolarRate_le_lintegral (Q₁ : Measure 𝓧)
-    [IsProbabilityMeasure Q₁] (hS₁ : ∀ P ∈ S₁, IsProbabilityMeasure P)
-    (hτ : IsStoppingTime (Filtration.piLE (X := fun _ : ℕ ↦ 𝓧)) τ) {α : ℝ≥0∞}
-    (h_level : ∀ P ∈ S₁, Measure.infinitePi (fun _ : ℕ ↦ P) {ω | τ ω ≠ ⊤} ≤ α) :
+    [IsProbabilityMeasure Q₁] (hS₁ : ∀ P ∈ S₁, IsProbabilityMeasure P) {α : ℝ≥0∞}
+    (hτ : IsLevelStoppingTime τ (Filtration.piLE (X := fun _ : ℕ ↦ 𝓧))
+      ((fun P ↦ Measure.infinitePi fun _ : ℕ ↦ P) '' S₁) α) :
     (ENNReal.log α⁻¹).toENNReal / (bipolarRate Q₁ S₁).toENNReal ≤
       ∫⁻ ω, ENat.toENNReal (τ ω) + 1 ∂Measure.infinitePi (fun _ : ℕ ↦ Q₁) := by
+  have h_level (P : Measure 𝓧) (hP : P ∈ S₁) :
+      Measure.infinitePi (fun _ : ℕ ↦ P) {ω | τ ω ≠ ⊤} ≤ α := by
+    simpa only [lt_top_iff_ne_top] using hτ.measure_lt_top_le _ ⟨P, hP, rfl⟩
   set m := ∫⁻ ω, ENat.toENNReal (τ ω) + 1 ∂Measure.infinitePi (fun _ : ℕ ↦ Q₁)
   by_cases hm : m = ∞
   · rw [hm]
@@ -425,7 +429,8 @@ theorem toENNReal_log_inv_div_bipolarRate_le_lintegral (Q₁ : Measure 𝓧)
         ENNReal.ofReal a) :
       -Real.log a ≤ (bipolarRate Q₁ S₁).toReal * m.toReal :=
     EReal.coe_le_coe_iff.1 <| le_of_forall_le_sub_log_one_sub fun ε hε0 hε1 ↦
-      EReal.coe_le_coe_iff.2 (neg_log_le_toReal_mul_sub Q₁ hS₁ hτ ha0 h_level' hd hm hε0 hε1)
+      EReal.coe_le_coe_iff.2 (neg_log_le_toReal_mul_sub Q₁ hS₁ hτ.isStoppingTime ha0 h_level' hd hm
+        hε0 hε1)
   rcases eq_or_ne α 0 with rfl | hα0
   · -- a test of level `0` with a finite expected number of observations would have level
     -- `exp (- (d 𝔼[τ + 1] + 1))`
