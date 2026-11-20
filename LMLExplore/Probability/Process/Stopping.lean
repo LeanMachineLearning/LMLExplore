@@ -40,6 +40,9 @@ time, which is how a statistician switches between two stopping rules after seei
   time.
 * `MeasureTheory.isStoppingTime_natCast_add_one_iff`: for filtrations with `𝒢 (n + 1) = ℱ n`, a
   time `τ` with values in `ℕ` is a stopping time of `ℱ` exactly when `τ + 1` is one of `𝒢`.
+* `MeasureTheory.Adapted.shift`, `MeasureTheory.adapted_shift_iff`: for filtrations with
+  `𝒢 (n + 1) = ℱ n`, a process `M` with `M 0` measurable at time `0` is adapted to `𝒢` exactly
+  when its shift `fun n ↦ M (n + 1)` is adapted to `ℱ`.
 * `MeasureTheory.IsStoppingTime.eq_of_forall_le`: a stopping time of the coordinate filtration
   `Filtration.piLE` with values in `ℕ` is determined by the coordinates up to it.
 * `MeasureTheory.Adapted.stoppedProcess_of_discrete`: a stopped adapted process is adapted.
@@ -180,6 +183,23 @@ theorem isStoppingTime_natCast_add_one_iff {𝒢 : Filtration ℕ mΩ} (h : ∀ 
       simp
     · rw [← Nat.cast_withTop, h, hset]
       exact hτ.measurableSet_le_natCast n
+
+/-- The shift `fun n ↦ M (n + 1)` of a process adapted to `𝒢` is adapted to any filtration `ℱ`
+with `𝒢 (n + 1) = ℱ n`. -/
+theorem Adapted.shift {β : Type*} [MeasurableSpace β] {𝒢 : Filtration ℕ mΩ} {M : ℕ → Ω → β}
+    (hM : Adapted 𝒢 M) (h : ∀ n, 𝒢 (n + 1) = ℱ n) : Adapted ℱ fun n ↦ M (n + 1) :=
+  fun n ↦ h n ▸ hM (n + 1)
+
+/-- For filtrations with `𝒢 (n + 1) = ℱ n`, such as `Filtration.piLT` and `Filtration.piLE`, a
+process `M` whose value `M 0` is `𝒢 0`-measurable is adapted to `𝒢` exactly when its shift
+`fun n ↦ M (n + 1)` is adapted to `ℱ`. -/
+theorem adapted_shift_iff {β : Type*} [MeasurableSpace β] {𝒢 : Filtration ℕ mΩ}
+    {M : ℕ → Ω → β} (h : ∀ n, 𝒢 (n + 1) = ℱ n) (hM₀ : Measurable[𝒢 0] (M 0)) :
+    Adapted ℱ (fun n ↦ M (n + 1)) ↔ Adapted 𝒢 M := by
+  refine ⟨fun hM ↦ ?_, fun hM ↦ hM.shift h⟩
+  rintro (_ | n)
+  · exact hM₀
+  · exact (h n).symm ▸ hM n
 
 end Nat
 

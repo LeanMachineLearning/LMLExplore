@@ -47,8 +47,8 @@ are stopping times.
   past at time `k` is at most the σ-algebra of the restriction to the first `k` coordinates.
 * `MeasureTheory.Filtration.piLT_zero`, `MeasureTheory.Filtration.piLT_add_one`: for sequences,
   `piLT 0` is trivial and `piLT (n + 1) = piLE n`.
-* `MeasureTheory.Filtration.measurable_piLT_initSeg`: the first `n` terms of a sequence are
-  measurable at time `n` of `piLT`.
+* `MeasureTheory.Filtration.measurable_piLT_initSeg`: for `k ≤ n`, the first `k` terms of a
+  sequence are measurable at time `n` of `piLT`.
 * `MeasureTheory.Filtration.measurable_piLE_initSeg`,
   `MeasureTheory.Filtration.adapted_piLE_comp_initSeg`,
   `MeasureTheory.Filtration.isStoppingTime_piLE_comp_initSeg`: the first `k` terms are measurable
@@ -161,11 +161,11 @@ lemma piLT_add_one (n : ℕ) : piLT (X := X) (n + 1) = piLE n := by
   exact Measurable.comap_le <| @Measurable.of_eval _ _ _ (piLT (n + 1)) _ _
     fun j ↦ measurable_piLT_apply (Nat.lt_succ_of_le j.2)
 
-/-- The first `n` terms of a sequence are measurable at time `n` of `piLT`. -/
-lemma measurable_piLT_initSeg {𝓧 : Type*} [MeasurableSpace 𝓧] (n : ℕ) :
-    Measurable[piLT (X := fun _ : ℕ ↦ 𝓧) n] (initSeg n) := by
+/-- For `k ≤ n`, the first `k` terms of a sequence are measurable at time `n` of `piLT`. -/
+lemma measurable_piLT_initSeg {𝓧 : Type*} [MeasurableSpace 𝓧] {k n : ℕ} (hk : k ≤ n) :
+    Measurable[piLT (X := fun _ : ℕ ↦ 𝓧) n] (initSeg k) := by
   rw [initSeg_def]
-  exact @Measurable.of_eval _ _ _ (piLT n) _ _ fun i ↦ measurable_piLT_apply i.2
+  exact @Measurable.of_eval _ _ _ (piLT n) _ _ fun i ↦ measurable_piLT_apply (by have := i.2; omega)
 
 end piLTNat
 

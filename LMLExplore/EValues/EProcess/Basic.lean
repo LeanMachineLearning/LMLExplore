@@ -223,7 +223,7 @@ variable {𝒢 : Filtration ℕ mΩ}
 with `𝒢 (n + 1) = ℱ n`: a stopping time `τ` of `ℱ` gives the stopping time `τ + 1` of `𝒢`. -/
 theorem IsEProcess.shift (hE : IsEProcess E 𝒢 S) (h : ∀ n, 𝒢 (n + 1) = ℱ n) :
     IsEProcess (fun n ↦ E (n + 1)) ℱ S where
-  adapted n := h n ▸ hE.adapted (n + 1)
+  adapted := hE.adapted.shift h
   isEVar_stoppedValue τ hτ :=
     hE.isEVar_stoppedValue (fun ω ↦ τ ω + 1) ((isStoppingTime_natCast_add_one_iff h).2 hτ)
 
@@ -234,10 +234,7 @@ theorem isEProcess_shift_iff (h₀ : 𝒢 0 = ⊥) (h : ∀ n, 𝒢 (n + 1) = �
     (hS : ∀ P ∈ S, P univ ≤ 1) (hE₀ : E 0 = 1) :
     IsEProcess (fun n ↦ E (n + 1)) ℱ S ↔ IsEProcess E 𝒢 S := by
   refine ⟨fun hE ↦ ⟨?_, fun τ hτ ↦ ?_⟩, fun hE ↦ hE.shift h⟩
-  · rintro (_ | n)
-    · rw [hE₀]
-      exact measurable_const
-    · exact (h n).symm ▸ hE.adapted n
+  · exact (adapted_shift_iff h (hE₀ ▸ measurable_const)).1 hE.adapted
   -- the event `{τ = 0}` is known at time `0`, so `τ` is `0` everywhere or nowhere
   have h0 := hτ.measurableSet_le_natCast 0
   rw [h₀, MeasurableSpace.measurableSet_bot_iff] at h0

@@ -378,8 +378,9 @@ theorem _root_.MeasureTheory.Supermartingale.isTestSupermartingale_ofReal
 
 Two filtrations with `𝒢 (n + 1) = ℱ n`, such as `Filtration.piLT` and `Filtration.piLE`
 (`Filtration.piLT_add_one`), carry the same information one step apart. A process `M` for `𝒢`
-corresponds to its shift `fun n ↦ M (n + 1)` for `ℱ`; conversely, when `𝒢 0` is trivial, a
-process for `ℱ` becomes one for `𝒢` by starting it at `1`. -/
+corresponds to its shift `fun n ↦ M (n + 1)` for `ℱ`; conversely, when `𝒢 0` is trivial and the
+null consists of probability measures, a test supermartingale for `ℱ` becomes one for `𝒢` by
+starting it at `1`. -/
 
 section Shift
 
@@ -389,7 +390,7 @@ variable {𝒢 : Filtration ℕ mΩ}
 filtration `ℱ` with `𝒢 (n + 1) = ℱ n`. -/
 theorem IsENNSupermartingale.shift (hM : IsENNSupermartingale M 𝒢 S)
     (h : ∀ n, 𝒢 (n + 1) = ℱ n) : IsENNSupermartingale (fun n ↦ M (n + 1)) ℱ S where
-  adapted n := h n ▸ hM.adapted (n + 1)
+  adapted := hM.adapted.shift h
   setLIntegral_succ_le P hP n s hs := hM.setLIntegral_succ_le P hP (n + 1) s ((h n).symm ▸ hs)
 
 /-- The shift `fun n ↦ M (n + 1)` of a test supermartingale for `𝒢` is one for any filtration
@@ -406,10 +407,7 @@ theorem isTestSupermartingale_shift_iff (h₀ : 𝒢 0 = ⊥) (h : ∀ n, 𝒢 (
     (hS : ∀ P ∈ S, IsProbabilityMeasure P) (hM₀ : M 0 = 1) :
     IsTestSupermartingale (fun n ↦ M (n + 1)) ℱ S ↔ IsTestSupermartingale M 𝒢 S := by
   refine ⟨fun hM ↦ ⟨⟨?_, fun P hP n s hs ↦ ?_⟩, fun P hP ↦ ?_⟩, fun hM ↦ hM.shift h⟩
-  · rintro (_ | n)
-    · rw [hM₀]
-      exact measurable_const
-    · exact (h n).symm ▸ hM.adapted n
+  · exact (adapted_shift_iff h (hM₀ ▸ measurable_const)).1 hM.adapted
   · have := hS P hP
     rcases n with _ | n
     · -- an event known at time `0` is empty or everything
