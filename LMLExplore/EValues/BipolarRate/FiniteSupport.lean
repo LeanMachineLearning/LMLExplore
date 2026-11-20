@@ -7,6 +7,7 @@ module
 
 public import LMLExplore.EValues.BipolarRate.Basic
 import LMLExplore.Analysis.SpecialFunctions.Choose
+import LMLExplore.Data.Fintype.CardEmbedding
 import LMLExplore.EValues.EffectiveSet.Basic
 import LMLExplore.InformationTheory.KullbackLeibler.Mixture
 import LMLExplore.MeasureTheory.Constructions.Pi
@@ -147,16 +148,11 @@ private lemma descFactorial_mul_lintegral_le [IsProbabilityMeasure Q] (hε : ε 
     simp [I, c, lintegral_smul_measure]
   -- the injective maps contribute `Q ^ n` each
   calc (m.descFactorial n : ℝ≥0∞) * c * ∫⁻ x, E x ∂(Measure.pi fun _ ↦ Q)
-  _ = ∑ e : Fin n ↪ Fin m, c * ∫⁻ y, I e y ∂(Measure.pi fun _ ↦ Q) := by
-    have h (e : Fin n ↪ Fin m) :
-        ∫⁻ y, I e y ∂(Measure.pi fun _ ↦ Q) = ∫⁻ x, E x ∂(Measure.pi fun _ ↦ Q) :=
-      lintegral_lintegral_pi_resample hε e.injective hE.measurable
-    simp_rw [h, Finset.sum_const, Finset.card_univ, Fintype.card_embedding_eq, Fintype.card_fin,
-      nsmul_eq_mul, mul_assoc]
-  _ ≤ ∑ σ, c * ∫⁻ y, I σ y ∂(Measure.pi fun _ ↦ Q) :=
-    (Finset.sum_map Finset.univ ⟨_, DFunLike.coe_injective⟩
-      fun σ ↦ c * ∫⁻ y, I σ y ∂(Measure.pi fun _ ↦ Q)).symm.trans_le
-      (Finset.sum_le_sum_of_subset (Finset.subset_univ _))
+  _ ≤ ∑ σ, c * ∫⁻ y, I σ y ∂(Measure.pi fun _ ↦ Q) := by
+    simpa only [Fintype.card_fin, nsmul_eq_mul, mul_assoc] using
+      Fintype.descFactorial_card_nsmul_le_sum (f := fun σ ↦ c * ∫⁻ y, I σ y ∂(Measure.pi fun _ ↦ Q))
+        (fun _ ↦ zero_le) fun e ↦
+          congrArg (c * ·) (lintegral_lintegral_pi_resample hε e.injective hE.measurable)
   _ = ∫⁻ y, ∫⁻ x, E x ∂(Measure.pi fun _ : Fin n ↦ ∑ k, (m : ℝ≥0∞)⁻¹ • resample Q ε (y k))
       ∂(Measure.pi fun _ ↦ Q) := by
     rw [lintegral_congr hexp, lintegral_finsetSum _ fun σ _ ↦ (hI σ).const_mul c]

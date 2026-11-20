@@ -9,8 +9,8 @@ public import LMLExplore.Combinatorics.SimpleGraph.MotzkinStraus
 public import Mathlib.MeasureTheory.Constructions.Pi
 public import Statlib.EValues.EVariable
 import LMLExplore.Analysis.SpecialFunctions.Choose
+import LMLExplore.Data.Fintype.CardEmbedding
 import LMLExplore.Probability.Process.EmpiricalMeasure
-import Mathlib.Data.Fintype.CardEmbedding
 import Statlib.ForMathlib.MeasureTheory.Constructions.Pi
 
 /-!
@@ -36,7 +36,7 @@ This file describes these e-variables exactly [EVR26, Note 11].
   form only sees the symmetrization of `A_H`.
 * **Graphs.** For a finite graph with clique number `ω ≥ 1`, `c` times the indicator that the two
   observations are adjacent is an e-variable exactly when `c ≤ ω / (ω - 1)`, by the
-  Motzkin–Straus theorem (`SimpleGraph.dotProduct_adjMatrix_mulVec_le`). Deciding whether a
+  Motzkin–Straus theorem (`SimpleGraph.dotProduct_mulVec_adjMatrix_le`). Deciding whether a
   function of two i.i.d. observations is an e-variable therefore decides whether a graph has a
   clique of a given size.
 
@@ -77,24 +77,16 @@ private lemma descFactorial_mul_lintegral_pi_le (P : Measure 𝓧) [IsProbabilit
     {H : (ι → 𝓧) → ℝ≥0∞} (hH : Measurable H) (M : ℕ) :
     (M.descFactorial (Fintype.card ι) : ℝ≥0∞) * ∫⁻ x, H x ∂(Measure.pi fun _ : ι ↦ P) ≤
       ∫⁻ y, ∑ i : ι → Fin M, H (y ∘ i) ∂(Measure.pi fun _ : Fin M ↦ P) := by
-  have hcomp (i : ι → Fin M) : Measurable fun y : Fin M → 𝓧 ↦ H (y ∘ i) :=
-    hH.comp (Measurable.of_eval fun k ↦ measurable_pi_apply (i k))
   -- each term with distinct indices has the expectation of `H` under `P ^ n`
   have h_emb (e : ι ↪ Fin M) :
       ∫⁻ y, H (y ∘ e) ∂(Measure.pi fun _ : Fin M ↦ P) = ∫⁻ x, H x ∂(Measure.pi fun _ : ι ↦ P) := by
     rw [← Measure.pi_map_comp_of_injective (fun _ : Fin M ↦ P) e.injective,
-      lintegral_map hH (Measurable.of_eval fun k ↦ measurable_pi_apply (e k))]
+      lintegral_map hH (by fun_prop)]
     simp only [Function.comp_def]
-  rw [lintegral_finsetSum _ fun i _ ↦ hcomp i]
-  calc (M.descFactorial (Fintype.card ι) : ℝ≥0∞) * ∫⁻ x, H x ∂(Measure.pi fun _ : ι ↦ P)
-  _ = ∑ e : ι ↪ Fin M, ∫⁻ y, H (y ∘ e) ∂(Measure.pi fun _ : Fin M ↦ P) := by
-    simp only [h_emb, sum_const, card_univ, Fintype.card_embedding_eq, Fintype.card_fin,
-      nsmul_eq_mul]
-  _ = ∑ i ∈ univ.map ⟨fun e : ι ↪ Fin M ↦ (e : ι → Fin M), DFunLike.coe_injective⟩,
-      ∫⁻ y, H (y ∘ i) ∂(Measure.pi fun _ : Fin M ↦ P) := by
-    rw [sum_map, Function.Embedding.coeFn_mk]
-  _ ≤ ∑ i : ι → Fin M, ∫⁻ y, H (y ∘ i) ∂(Measure.pi fun _ : Fin M ↦ P) :=
-    sum_le_sum_of_subset (subset_univ _)
+  rw [lintegral_finsetSum _ fun i _ ↦ by fun_prop]
+  simpa only [Fintype.card_fin, nsmul_eq_mul] using
+    Fintype.descFactorial_card_nsmul_le_sum (f := fun i ↦ ∫⁻ y, H (y ∘ i) ∂(Measure.pi fun _ ↦ P))
+      (fun _ ↦ zero_le) h_emb
 
 /-- **The e-variables of an i.i.d. sample are those with V-statistics at most `1`.** On any
 measurable space, a function `H` of a finite number `n` of observations has expectation at most
@@ -127,8 +119,7 @@ theorem isEVar_pi_iff_sum_comp_le_one (H : (ι → 𝓧) → ℝ≥0∞) :
         exact descFactorial_mul_lintegral_pi_le P hH M
       _ = ∫⁻ y, (M : ℝ≥0∞)⁻¹ ^ Fintype.card ι * ∑ i : ι → Fin M, H (y ∘ i)
           ∂(Measure.pi fun _ : Fin M ↦ P) := by
-        exact (lintegral_const_mul _ (Finset.measurable_fun_sum _ fun i _ ↦
-          hH.comp (Measurable.of_eval fun k ↦ measurable_pi_apply (i k)))).symm
+        exact (lintegral_const_mul _ (by fun_prop)).symm
       _ ≤ ∫⁻ _, 1 ∂(Measure.pi fun _ : Fin M ↦ P) := lintegral_mono fun y ↦ hV M hM y
       _ = 1 := by simp
     have h := ENNReal.Tendsto.const_mul (ENNReal.tendsto_descFactorial_mul_inv_pow (Fintype.card ι))
@@ -295,7 +286,7 @@ theorem isEVar_mul_indicator_adj_iff {V : Type*} [Finite V] [Nonempty V] [Measur
   rw [isEVar_pi_iff_sum_prod_mul_le_one, h_rhs, ENNReal.le_inv_iff_mul_le]
   constructor
   · intro h
-    obtain ⟨w, hw, hw₁, hw_eq⟩ := G.exists_dotProduct_adjMatrix_mulVec_eq
+    obtain ⟨w, hw, hw₁, hw_eq⟩ := G.exists_dotProduct_mulVec_adjMatrix_eq
     obtain ⟨u, hu, hu_eq⟩ := exists_sum_eq_one_toReal_eq hw hw₁
     have h_le := h u hu
     rwa [h_sum u (toReal_of_sum_eq_one hu).1, hu_eq, hw_eq] at h_le
@@ -304,6 +295,6 @@ theorem isEVar_mul_indicator_adj_iff {V : Type*} [Finite V] [Nonempty V] [Measur
     rw [h_sum u hfin]
     refine le_trans ?_ hc
     gcongr
-    exact G.dotProduct_adjMatrix_mulVec_le _ hw hw₁
+    exact G.dotProduct_mulVec_adjMatrix_le _ hw hw₁
 
 end ProbabilityTheory

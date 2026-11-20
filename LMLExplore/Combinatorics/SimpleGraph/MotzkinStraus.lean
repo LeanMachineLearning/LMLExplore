@@ -29,13 +29,13 @@ the e-variables `c * 𝟙{x₀ ~ x₁}` of two i.i.d. observations on the vertic
 
 ## Main statements
 
-* `SimpleGraph.cliqueNum_mul_dotProduct_adjMatrix_mulVec_le`: the homogeneous form.
-* `SimpleGraph.dotProduct_adjMatrix_mulVec_le`: for a probability vector `w`,
+* `SimpleGraph.cliqueNum_mul_dotProduct_mulVec_adjMatrix_le`: the homogeneous form.
+* `SimpleGraph.dotProduct_mulVec_adjMatrix_le`: for a probability vector `w`,
   `w ⬝ᵥ A *ᵥ w ≤ (ω - 1) / ω`.
-* `SimpleGraph.exists_dotProduct_adjMatrix_mulVec_eq`: the bound is attained.
-* `SimpleGraph.dotProduct_adjMatrix_mulVec_eq_of_isClique`: for a weight supported on a clique,
+* `SimpleGraph.exists_dotProduct_mulVec_adjMatrix_eq`: the bound is attained.
+* `SimpleGraph.dotProduct_mulVec_adjMatrix_eq_of_isClique`: for a weight supported on a clique,
   `w ⬝ᵥ A *ᵥ w = (∑ v, w v) ^ 2 - ∑ v, w v ^ 2`.
-* `SimpleGraph.cliqueNum_mul_dotProduct_adjMatrix_mulVec_le_of_isClique`: the homogeneous form
+* `SimpleGraph.cliqueNum_mul_dotProduct_mulVec_adjMatrix_le_of_isClique`: the homogeneous form
   for a weight supported on a clique.
 
 ## Implementation notes
@@ -78,7 +78,7 @@ variable [Fintype V] (G : SimpleGraph V) [DecidableRel G.Adj]
 
 /-- Moving weight `t` from a vertex `b` to a non-adjacent vertex `a` changes the quadratic form of
 the adjacency matrix by an amount linear in `t`. -/
-private lemma dotProduct_adjMatrix_mulVec_add_smul [DecidableEq V] (w : V → ℝ) {a b : V}
+private lemma dotProduct_mulVec_adjMatrix_add_smul [DecidableEq V] (w : V → ℝ) {a b : V}
     (hab : ¬ G.Adj a b) (t : ℝ) :
     (w + t • (Pi.single a 1 - Pi.single b 1)) ⬝ᵥ
         G.adjMatrix ℝ *ᵥ (w + t • (Pi.single a 1 - Pi.single b 1)) =
@@ -115,7 +115,7 @@ private lemma shift_weight_step [DecidableEq V] (w : V → ℝ) (hw : 0 ≤ w) {
     · linarith
     · exact hw v
   · simp [sum_add_distrib, ← mul_sum, sum_sub_distrib]
-  · rw [dotProduct_adjMatrix_mulVec_add_smul G w hadj t]
+  · rw [dotProduct_mulVec_adjMatrix_add_smul G w hadj t]
     linarith
   · refine card_lt_card ((ssubset_iff_of_subset fun v hv ↦ ?_).2 ?_)
     · simp only [mem_filter, mem_univ, true_and] at hv ⊢
@@ -161,7 +161,7 @@ private lemma exists_isClique_support_le (n : ℕ) (w : V → ℝ) (hw : 0 ≤ w
 
 /-- For a weight supported on a clique, the quadratic form of the adjacency matrix is the square
 of the total weight minus the sum of the squares of the weights. -/
-theorem dotProduct_adjMatrix_mulVec_eq_of_isClique (w : V → ℝ)
+theorem dotProduct_mulVec_adjMatrix_eq_of_isClique (w : V → ℝ)
     (hw : G.IsClique {v | w v ≠ 0}) :
     w ⬝ᵥ G.adjMatrix ℝ *ᵥ w = (∑ v, w v) ^ 2 - ∑ v, w v ^ 2 := by
   classical
@@ -186,11 +186,11 @@ theorem dotProduct_adjMatrix_mulVec_eq_of_isClique (w : V → ℝ)
 /-- The Motzkin–Straus inequality for a weight supported on a clique: if the support of `w` is a
 clique of a finite graph with clique number `ω`, then
 `ω * (w ⬝ᵥ A *ᵥ w) ≤ (ω - 1) * (∑ v, w v) ^ 2`, where `A` is the adjacency matrix. -/
-theorem cliqueNum_mul_dotProduct_adjMatrix_mulVec_le_of_isClique (w : V → ℝ)
+theorem cliqueNum_mul_dotProduct_mulVec_adjMatrix_le_of_isClique (w : V → ℝ)
     (hw : G.IsClique {v | w v ≠ 0}) :
     G.cliqueNum * (w ⬝ᵥ G.adjMatrix ℝ *ᵥ w) ≤ (G.cliqueNum - 1) * (∑ v, w v) ^ 2 := by
   classical
-  rw [dotProduct_adjMatrix_mulVec_eq_of_isClique G w hw]
+  rw [dotProduct_mulVec_adjMatrix_eq_of_isClique G w hw]
   set K : Finset V := {v | w v ≠ 0}
   have hK : G.IsClique (K : Set V) := by simpa [K] using hw
   have h_sum : ∑ v, w v = ∑ v ∈ K, w v := (sum_filter_ne_zero _).symm
@@ -210,22 +210,22 @@ theorem cliqueNum_mul_dotProduct_adjMatrix_mulVec_le_of_isClique (w : V → ℝ)
 /-- **Motzkin–Straus theorem**, homogeneous form: for a nonnegative weight `w` on the vertices of
 a finite graph with clique number `ω`, `ω * (w ⬝ᵥ A *ᵥ w) ≤ (ω - 1) * (∑ v, w v) ^ 2`, where `A` is
 the adjacency matrix. -/
-theorem cliqueNum_mul_dotProduct_adjMatrix_mulVec_le (w : V → ℝ) (hw : 0 ≤ w) :
+theorem cliqueNum_mul_dotProduct_mulVec_adjMatrix_le (w : V → ℝ) (hw : 0 ≤ w) :
     G.cliqueNum * (w ⬝ᵥ G.adjMatrix ℝ *ᵥ w) ≤ (G.cliqueNum - 1) * (∑ v, w v) ^ 2 := by
   classical
   obtain ⟨w', hw', hsum, hF, hcl⟩ := exists_isClique_support_le G _ w hw le_rfl
   calc (G.cliqueNum : ℝ) * (w ⬝ᵥ G.adjMatrix ℝ *ᵥ w)
   _ ≤ G.cliqueNum * (w' ⬝ᵥ G.adjMatrix ℝ *ᵥ w') := by gcongr
   _ ≤ (G.cliqueNum - 1) * (∑ v, w' v) ^ 2 :=
-    cliqueNum_mul_dotProduct_adjMatrix_mulVec_le_of_isClique G w' fun u hu v hv huv ↦
+    cliqueNum_mul_dotProduct_mulVec_adjMatrix_le_of_isClique G w' fun u hu v hv huv ↦
       hcl u v hu hv huv
   _ = (G.cliqueNum - 1) * (∑ v, w v) ^ 2 := by rw [hsum]
 
 /-- **Motzkin–Straus theorem**: for a probability vector `w` on the vertices of a finite graph
 with clique number `ω`, the quadratic form of the adjacency matrix is at most `(ω - 1) / ω`. -/
-theorem dotProduct_adjMatrix_mulVec_le (w : V → ℝ) (hw : 0 ≤ w) (hw₁ : ∑ v, w v = 1) :
+theorem dotProduct_mulVec_adjMatrix_le (w : V → ℝ) (hw : 0 ≤ w) (hw₁ : ∑ v, w v = 1) :
     w ⬝ᵥ G.adjMatrix ℝ *ᵥ w ≤ (G.cliqueNum - 1) / G.cliqueNum := by
-  have h := cliqueNum_mul_dotProduct_adjMatrix_mulVec_le G w hw
+  have h := cliqueNum_mul_dotProduct_mulVec_adjMatrix_le G w hw
   rw [hw₁, one_pow, mul_one] at h
   have : Nonempty V := by
     by_contra hV
@@ -239,7 +239,7 @@ theorem dotProduct_adjMatrix_mulVec_le (w : V → ℝ) (hw : 0 ≤ w) (hw₁ : �
 /-- The bound of the Motzkin–Straus theorem is attained: on a nonempty finite graph with clique
 number `ω`, the uniform probability vector on a maximum clique has quadratic form `(ω - 1) / ω`
 for the adjacency matrix. -/
-theorem exists_dotProduct_adjMatrix_mulVec_eq [Nonempty V] :
+theorem exists_dotProduct_mulVec_adjMatrix_eq [Nonempty V] :
     ∃ w : V → ℝ, 0 ≤ w ∧ ∑ v, w v = 1 ∧
       w ⬝ᵥ G.adjMatrix ℝ *ᵥ w = (G.cliqueNum - 1) / G.cliqueNum := by
   classical
@@ -253,7 +253,7 @@ theorem exists_dotProduct_adjMatrix_mulVec_eq [Nonempty V] :
   refine ⟨w, fun v ↦ ?_, hsum, ?_⟩
   · simp only [Pi.zero_apply, w]
     split_ifs <;> positivity
-  rw [dotProduct_adjMatrix_mulVec_eq_of_isClique, hsum]
+  rw [dotProduct_mulVec_adjMatrix_eq_of_isClique, hsum]
   · simp only [w, ite_pow, ne_eq, OfNat.ofNat_ne_zero, not_false_eq_true, zero_pow, sum_ite_mem,
       univ_inter, sum_const, hcard, nsmul_eq_mul]
     field_simp
