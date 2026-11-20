@@ -124,7 +124,8 @@ theorem IsEVar.measure_le_mul_le (hE : IsEVar E S) (hp : IsPVar p S) (hP : P ∈
     [IsProbabilityMeasure P] (hpE : IndepFun p E P) (α : ℝ≥0∞) :
     P {ω | p ω ≤ α * E ω} ≤ α :=
   (hp.measure_le_le_lintegral_min hP (hE.measurable.const_mul α)
-    (hpE.comp measurable_id (measurable_const_mul α))).trans (hE.lintegral_min_mul_le hP α)
+    (hpE.comp measurable_id (measurable_const_mul α))).trans
+    ((hE.isTest_min_mul α).lintegral_le P hP)
 
 /-- **Randomized e-to-p calibration** [RW, Corollary 2.10]: for a null of probability measures,
 an e-variable `E` and a p-variable `p` that are independent under every member of the null,

@@ -10,25 +10,43 @@ public import Mathlib.MeasureTheory.Measure.Lebesgue.Basic
 import TauCeti.Analysis.SpecialFunctions.Pow.Integral
 
 /-!
-# P-variables
+# P-variables and tests
 
 A p-variable for a null hypothesis `S : Set (Measure Ω)` is a measurable `p : Ω → ℝ≥0∞` with
 `P {ω | p ω ≤ α} ≤ α` for every member `P` of the null and every level `α`: rejecting when
 `p ≤ α` is a level-`α` test for every `α` at once. As for Statlib's e-variables, the null is an
 arbitrary set of measures and p-variables are `ℝ≥0∞`-valued; values above `1` carry no evidence.
-This file defines p-variables and exact p-variables, and proves that, for a null of probability
-measures, the inverse `E⁻¹` of an e-variable is a p-variable (the e-to-p calibration, with
-`0⁻¹ = ∞` and no truncation at `1`), and that a p-variable is stochastically larger than the
-uniform law on `[0, 1]`.
+
+A test of level `α` is a measurable `φ : Ω → ℝ≥0∞` with values in `[0, 1]` and expectation at most
+`α` under every member of the null: `φ ω` is the probability of rejecting after observing `ω`.
+
+This file defines p-variables, exact p-variables and tests. It proves that, for `0 < α < ∞`, the
+tests of level `α` are the functions `α * X` for e-variables `X` with values in `[0, α⁻¹]`, that
+Markov's inequality and its smoothed form give tests of level `α` from an e-variable, and that a
+p-variable is a family of rejection regions, one of level `α` for every `α`. It also proves that,
+for a null of probability measures, the inverse `E⁻¹` of an e-variable is a p-variable (the e-to-p
+calibration, with `0⁻¹ = ∞` and no truncation at `1`), and that a p-variable is stochastically
+larger than the uniform law on `[0, 1]`.
 
 ## Main definitions
 
 * `ProbabilityTheory.IsPVar p S`: `p` is a p-variable for `S`.
 * `ProbabilityTheory.IsExactPVar p S`: `p` is a p-variable for `S` with `P {ω | p ω ≤ α} = α` for
   every `P ∈ S` and every `α ≤ 1`.
+* `ProbabilityTheory.IsTest φ S α`: `φ` is a test of level `α` for `S`.
 
 ## Main statements
 
+* `ProbabilityTheory.isTest_iff_isEVar_div`: for `0 < α < ∞`, `φ` is a test of level `α` exactly
+  when `φ ≤ 1` and `φ / α` is an e-variable;
+  `ProbabilityTheory.isTest_iff_measurable_isEVar_div`: with the measurability of `φ` on the
+  right, the same holds at every level.
+* `ProbabilityTheory.isTest_indicator_iff`: the indicator of a set is a test of level `α` exactly
+  when the set is measurable and has measure at most `α` under every member of the null.
+* `ProbabilityTheory.IsEVar.isTest_indicator` and `ProbabilityTheory.IsEVar.isTest_min_mul`: for an
+  e-variable `E`, the indicator of `{α⁻¹ ≤ E}` and `min (α * E) 1` are tests of level `α`.
+* `ProbabilityTheory.isPVar_iff_forall_isTest_indicator`: `p` is a p-variable exactly when, for
+  every `α`, the indicator of `{p ≤ α}` is a test of level `α`.
 * `ProbabilityTheory.IsEVar.isPVar_inv`: for a null of probability measures, the inverse of an
   e-variable is a p-variable.
 * `ProbabilityTheory.isExactPVar_ofReal_volume`: the identity of `[0, 1]` under Lebesgue measure is
@@ -47,7 +65,10 @@ uniform law on `[0, 1]`.
 ## References
 
 * A. Ramdas and R. Wang, *Hypothesis Testing with E-values*, Foundations and Trends in
-  Statistics 1 (2025), arXiv:2410.23614v6: Definition 1.2 and Proposition 2.1.
+  Statistics 1 (2025), arXiv:2410.23614v6: Definition 1.2, Proposition 2.1 and Fact 3.6.
+
+The definition of `IsTest` and the statement of `isTest_iff_isEVar_div` follow the prototype in
+`notes/book/Suggested.lean` (commit `1411a5b`) of the project `RemyDegenne/evalues_research`.
 -/
 
 public section
@@ -59,7 +80,7 @@ namespace ProbabilityTheory
 
 variable {Ω 𝓨 : Type*} {mΩ : MeasurableSpace Ω} {m𝓨 : MeasurableSpace 𝓨}
   {S T : Set (Measure Ω)} {p q : Ω → ℝ≥0∞} {E : Ω → ℝ≥0∞} {P : Measure Ω}
-  {f : ℝ≥0∞ → ℝ≥0∞}
+  {f : ℝ≥0∞ → ℝ≥0∞} {φ ψ : Ω → ℝ≥0∞} {α β : ℝ≥0∞}
 
 /-- A measurable `p : Ω → ℝ≥0∞` is a **p-variable** for the null `S` when
 `P {ω | p ω ≤ α} ≤ α` for every `P ∈ S` and every level `α`. -/
@@ -118,6 +139,132 @@ theorem IsEVar.isPVar_inv (hS : ∀ P ∈ S, IsProbabilityMeasure P) (hE : IsEVa
       Set.ext fun _ ↦ ENNReal.inv_le_iff_inv_le
     rw [h_set]
     exact hE.measure_inv_le_le hP α
+
+/-! ### Tests -/
+
+/-- A **test of level `α`** for the null `S` is a measurable `φ : Ω → ℝ≥0∞` with values in
+`[0, 1]` and `∫⁻ φ ∂P ≤ α` for every `P ∈ S`. The value `φ ω` is the probability of rejecting the
+null after observing `ω`: the indicator of a rejection region is a test, and a test that takes
+values strictly between `0` and `1` is a randomized rejection rule. As for e-variables, the null is
+any set of measures. -/
+structure IsTest (φ : Ω → ℝ≥0∞) (S : Set (Measure Ω)) (α : ℝ≥0∞) : Prop where
+  measurable : Measurable φ := by fun_prop
+  le_one : ∀ ω, φ ω ≤ 1
+  lintegral_le : ∀ P ∈ S, ∫⁻ ω, φ ω ∂P ≤ α
+
+/-- For a simple null `{P}`, a test of level `α` is a measurable `φ ≤ 1` with `∫⁻ φ ∂P ≤ α`. -/
+theorem isTest_singleton_iff :
+    IsTest φ {P} α ↔ Measurable φ ∧ (∀ ω, φ ω ≤ 1) ∧ ∫⁻ ω, φ ω ∂P ≤ α :=
+  ⟨fun h ↦ ⟨h.measurable, h.le_one, h.lintegral_le P rfl⟩,
+    fun h ↦ ⟨h.1, h.2.1, fun _ hQ ↦ hQ ▸ h.2.2⟩⟩
+
+theorem IsTest.anti_set (hST : S ⊆ T) (h : IsTest φ T α) : IsTest φ S α where
+  measurable := h.measurable
+  le_one := h.le_one
+  lintegral_le P hP := h.lintegral_le P (hST hP)
+
+theorem IsTest.union (hS : IsTest φ S α) (hT : IsTest φ T α) : IsTest φ (S ∪ T) α where
+  measurable := hS.measurable
+  le_one := hS.le_one
+  lintegral_le P hP := hP.elim (hS.lintegral_le P) (hT.lintegral_le P)
+
+theorem isTest_union_iff : IsTest φ (S ∪ T) α ↔ IsTest φ S α ∧ IsTest φ T α :=
+  ⟨fun h ↦ ⟨h.anti_set subset_union_left, h.anti_set subset_union_right⟩,
+    fun h ↦ h.1.union h.2⟩
+
+/-- A test of level `α` is a test of every larger level. -/
+theorem IsTest.mono_level (h : IsTest φ S α) (hαβ : α ≤ β) : IsTest φ S β where
+  measurable := h.measurable
+  le_one := h.le_one
+  lintegral_le P hP := (h.lintegral_le P hP).trans hαβ
+
+/-- A measurable function below a test of level `α` is a test of level `α`. -/
+theorem IsTest.mono (h : IsTest φ S α) (hψ : Measurable ψ) (hψφ : ψ ≤ φ) : IsTest ψ S α where
+  measurable := hψ
+  le_one ω := (hψφ ω).trans (h.le_one ω)
+  lintegral_le P hP := (lintegral_mono hψφ).trans (h.lintegral_le P hP)
+
+/-- The test that never rejects has every level. -/
+@[simp]
+theorem isTest_zero : IsTest 0 S α where
+  le_one _ := zero_le_one
+  lintegral_le _ _ := by simp
+
+/-- The indicator of a rejection region `A` is a test of level `α` exactly when `A` is measurable
+and has measure at most `α` under every member of the null. -/
+theorem isTest_indicator_iff {A : Set Ω} :
+    IsTest (A.indicator 1) S α ↔ MeasurableSet A ∧ ∀ P ∈ S, P A ≤ α := by
+  refine ⟨fun h ↦ ⟨(measurable_indicator_const_iff (1 : ℝ≥0∞)).1 h.measurable, fun P hP ↦ ?_⟩,
+    fun h ↦ ⟨measurable_one.indicator h.1, fun ω ↦ ?_, fun P hP ↦ ?_⟩⟩
+  · rw [← lintegral_indicator_one ((measurable_indicator_const_iff (1 : ℝ≥0∞)).1 h.measurable)]
+    exact h.lintegral_le P hP
+  · by_cases hω : ω ∈ A <;> simp [hω]
+  · rw [lintegral_indicator_one h.1]
+    exact h.2 P hP
+
+/-- **Tests at every level** [RW, Fact 3.6]: a test of level `α` is, up to the factor `α`, an
+e-variable with values in `[0, α⁻¹]`. With the measurability of `φ` on the right, the equivalence
+holds at every level, including `0` (where `φ / 0` is an e-variable exactly when `φ` vanishes
+almost surely) and `∞` (where `φ / ∞ = 0`). -/
+theorem isTest_iff_measurable_isEVar_div :
+    IsTest φ S α ↔ Measurable φ ∧ (∀ ω, φ ω ≤ 1) ∧ IsEVar (fun ω ↦ φ ω / α) S := by
+  have h_iff (hφ : Measurable φ) (P : Measure Ω) :
+      ∫⁻ ω, φ ω / α ∂P ≤ 1 ↔ ∫⁻ ω, φ ω ∂P ≤ α := by
+    simp_rw [div_eq_mul_inv, lintegral_mul_const _ hφ, ← div_eq_mul_inv]
+    rw [ENNReal.div_le_iff_le_mul (Or.inr ENNReal.one_ne_top) (Or.inr one_ne_zero), one_mul]
+  refine ⟨fun h ↦ ⟨h.measurable, h.le_one, h.measurable.div_const α, fun P hP ↦ ?_⟩,
+    fun ⟨hφ, h1, hE⟩ ↦ ⟨hφ, h1, fun P hP ↦ (h_iff hφ P).1 (hE.lintegral_le_one hP)⟩⟩
+  exact (h_iff h.measurable P).2 (h.lintegral_le P hP)
+
+/-- **A test of level `α` divided by `α` is an e-variable** [RW, Fact 3.6]. -/
+theorem IsTest.isEVar_div (h : IsTest φ S α) : IsEVar (fun ω ↦ φ ω / α) S :=
+  (isTest_iff_measurable_isEVar_div.1 h).2.2
+
+/-- **Tests and e-variables** [RW, Fact 3.6]: for a level `0 < α < ∞`, `φ` is a test of level
+`α` exactly when `φ ≤ 1` and `φ / α` is an e-variable. -/
+theorem isTest_iff_isEVar_div (hα₀ : α ≠ 0) (hα : α ≠ ∞) :
+    IsTest φ S α ↔ (∀ ω, φ ω ≤ 1) ∧ IsEVar (fun ω ↦ φ ω / α) S := by
+  rw [isTest_iff_measurable_isEVar_div]
+  refine ⟨fun h ↦ h.2, fun h ↦ ⟨?_, h⟩⟩
+  -- `φ = (φ / α) * α`, which is measurable
+  have hφ : φ = fun ω ↦ φ ω / α * α := funext fun ω ↦ (ENNReal.div_mul_cancel hα₀ hα).symm
+  rw [hφ]
+  exact h.2.measurable.mul_const α
+
+/-- **Markov's inequality as a test**: the test that rejects when an e-variable reaches `α⁻¹` has
+level `α`. -/
+theorem IsEVar.isTest_indicator (hE : IsEVar E S) (α : ℝ≥0∞) :
+    IsTest ({ω | α⁻¹ ≤ E ω}.indicator 1) S α :=
+  isTest_indicator_iff.2 ⟨measurableSet_le measurable_const hE.measurable,
+    fun _ hP ↦ hE.measure_inv_le_le hP α⟩
+
+/-- The randomized test `min (α * E) 1` of an e-variable `E` has level `α`. -/
+theorem IsEVar.isTest_min_mul (hE : IsEVar E S) (α : ℝ≥0∞) :
+    IsTest (fun ω ↦ min (α * E ω) 1) S α where
+  measurable := (hE.measurable.const_mul α).min measurable_const
+  le_one _ := min_le_right _ _
+  lintegral_le P hP :=
+    calc ∫⁻ ω, min (α * E ω) 1 ∂P
+    _ ≤ ∫⁻ ω, α * E ω ∂P := lintegral_mono fun _ ↦ min_le_left _ _
+    _ = α * ∫⁻ ω, E ω ∂P := lintegral_const_mul α hE.measurable
+    _ ≤ α * 1 := by
+      gcongr
+      exact hE.lintegral_le_one hP
+    _ = α := mul_one α
+
+/-- **P-variables are families of tests**: `p` is a p-variable exactly when, for every level `α`,
+rejecting when `p ≤ α` is a test of level `α`. -/
+theorem isPVar_iff_forall_isTest_indicator :
+    IsPVar p S ↔ ∀ α, IsTest ({ω | p ω ≤ α}.indicator 1) S α := by
+  simp_rw [isTest_indicator_iff]
+  exact ⟨fun hp α ↦ ⟨measurableSet_le hp.measurable measurable_const,
+      fun P hP ↦ hp.measure_le_le P hP α⟩,
+    fun h ↦ ⟨measurable_of_Iic fun α ↦ (h α).1, fun P hP α ↦ (h α).2 P hP⟩⟩
+
+/-- Rejecting when a p-variable is at most `α` is a test of level `α`. -/
+theorem IsPVar.isTest_indicator (hp : IsPVar p S) (α : ℝ≥0∞) :
+    IsTest ({ω | p ω ≤ α}.indicator 1) S α :=
+  isPVar_iff_forall_isTest_indicator.1 hp α
 
 /-! ### Exact p-variables -/
 

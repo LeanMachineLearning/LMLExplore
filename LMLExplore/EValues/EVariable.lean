@@ -22,8 +22,7 @@ e-variables that hypothesis testing uses:
 * the e-variable equal to `∞` on a set null for every member of `S`, and the measures under which
   every e-variable for `S` is almost surely finite, which are those absolutely continuous with
   respect to `S`;
-* Markov's inequality, which makes `{α⁻¹ ≤ E}` the rejection region of a level-`α` test, and its
-  smoothed form `min (α * E) 1`;
+* Markov's inequality, which makes `{α⁻¹ ≤ E}` the rejection region of a level-`α` test;
 * products of e-variables from a family that is independent under every member of the null.
 
 Following Statlib, the null is an arbitrary set of measures, with no dominating measure, and
@@ -54,7 +53,6 @@ e-variables are `ℝ≥0∞`-valued.
   exactly when every e-variable for `S` is `Q`-almost surely finite [LRR25, Theorem 2.6].
 * `ProbabilityTheory.IsEVar.measure_inv_le_le`: **Markov's inequality** for e-variables,
   `P {ω | α⁻¹ ≤ E ω} ≤ α`.
-* `ProbabilityTheory.IsEVar.lintegral_min_mul_le`: `∫⁻ ω, min (α * E ω) 1 ∂P ≤ α`.
 * `ProbabilityTheory.isEVar_finsetProd`, `ProbabilityTheory.isExactEVar_finsetProd`: a finite
   product of (exact) e-variables, from a family that is independent under every member of the
   null, is an (exact) e-variable. Statlib's `ProbabilityTheory.IsEVar.prod` treats the two
@@ -208,25 +206,6 @@ theorem IsEVar.measure_inv_le_le (hE : IsEVar E S) (hP : P ∈ S) (α : ℝ≥0�
     gcongr
     exact hE.lintegral_le_one hP
   _ = α := by simp
-
-/-- The test that rejects when an e-variable reaches `α⁻¹` has level `α` under every probability
-measure of the null. -/
-theorem IsEVar.lintegral_indicator_le (hE : IsEVar E S) (hP : P ∈ S) (α : ℝ≥0∞) :
-    ∫⁻ ω, {ω | α⁻¹ ≤ E ω}.indicator 1 ω ∂P ≤ α := by
-  rw [lintegral_indicator_one (measurableSet_le measurable_const hE.measurable)]
-  exact hE.measure_inv_le_le hP α
-
-/-- The randomized test `min (α * E) 1` of an e-variable `E` has expectation at most `α` under
-every probability measure of the null. -/
-theorem IsEVar.lintegral_min_mul_le (hE : IsEVar E S) (hP : P ∈ S) (α : ℝ≥0∞) :
-    ∫⁻ ω, min (α * E ω) 1 ∂P ≤ α :=
-  calc ∫⁻ ω, min (α * E ω) 1 ∂P
-  _ ≤ ∫⁻ ω, α * E ω ∂P := lintegral_mono fun _ ↦ min_le_left _ _
-  _ = α * ∫⁻ ω, E ω ∂P := lintegral_const_mul α hE.measurable
-  _ ≤ α * 1 := by
-    gcongr
-    exact hE.lintegral_le_one hP
-  _ = α := mul_one α
 
 /-- **Countable mixtures of e-variables.** For a countable family of e-variables `E i` and weights
 `w i` with `∑' i, w i ≤ 1`, the mixture `∑' i, w i * E i` is an e-variable. -/
